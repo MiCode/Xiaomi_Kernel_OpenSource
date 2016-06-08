@@ -85,6 +85,9 @@
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #endif
+#ifdef CONFIG_MSM_APP_SETTINGS
+#include <asm/app_api.h>
+#endif
 
 #include "sched.h"
 #include "../workqueue_internal.h"
@@ -1750,8 +1753,7 @@ struct cpu_cycle {
 #if defined(CONFIG_SCHED_HMP)
 
 /*
- * sched_window_stats_policy, sched_ravg_hist_size,
- * sched_migration_fixup have a 'sysctl' copy
+ * sched_window_stats_policy and sched_ravg_hist_size have a 'sysctl' copy
  * associated with them. This is required for atomic update of those variables
  * when being modifed via sysctl interface.
  *
@@ -1760,10 +1762,10 @@ struct cpu_cycle {
 
 /*
  * Tasks that are runnable continuously for a period greather than
- * sysctl_early_detection_duration can be flagged early as potential
+ * EARLY_DETECTION_DURATION can be flagged early as potential
  * high load tasks.
  */
-__read_mostly unsigned int sysctl_early_detection_duration = 9500000;
+#define EARLY_DETECTION_DURATION 9500000
 
 static __read_mostly unsigned int sched_ravg_hist_size = 5;
 __read_mostly unsigned int sysctl_sched_ravg_hist_size = 5;
@@ -1782,9 +1784,6 @@ unsigned int __read_mostly sysctl_sched_enable_colocation = 1;
 #ifdef CONFIG_SCHED_FREQ_INPUT
 
 __read_mostly unsigned int sysctl_sched_new_task_windows = 5;
-
-static __read_mostly unsigned int sched_migration_fixup = 1;
-__read_mostly unsigned int sysctl_sched_migration_fixup = 1;
 
 #define SCHED_FREQ_ACCOUNT_WAIT_TIME 0
 
@@ -2159,22 +2158,6 @@ static int account_busy_for_cpu_time(struct rq *rq, struct task_struct *p,
 	return SCHED_FREQ_ACCOUNT_WAIT_TIME;
 }
 
-static inline int
-heavy_task_wakeup(struct task_struct *p, struct rq *rq, int event)
-{
-	u32 task_demand = p->ravg.demand;
-
-	if (!sched_heavy_task || event != TASK_WAKE ||
-	    task_demand < sched_heavy_task || exiting_task(p))
-		return 0;
-
-	if (p->ravg.mark_start > rq->window_start)
-		return 0;
-
-	/* has a full window elapsed since task slept? */
-	return (rq->window_start - p->ravg.mark_start > sched_ravg_window);
-}
-
 static inline bool is_new_task(struct task_struct *p)
 {
 	return p->ravg.active_windows < sysctl_sched_new_task_windows;
@@ -2528,18 +2511,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		if (p_is_curr_task) {
 			/* p is idle task */
 			BUG_ON(p != rq->idle);
-		} else if (heavy_task_wakeup(p, rq, event)) {
-			/* A new window has started. If p is a waking
-			 * heavy task its prev_window contribution is faked
-			 * to be its window-based demand. Note that this can
-			 * introduce phantom load into the system depending
-			 * on the window policy and task behavior. This feature
-			 * can be controlled via the sched_heavy_task
-			 * tunable. */
-			p->ravg.prev_window = p->ravg.demand;
-			*prev_runnable_sum += p->ravg.demand;
-			if (new_task)
-				*nt_prev_runnable_sum += p->ravg.demand;
 		}
 
 		return;
@@ -3171,7 +3142,6 @@ enum reset_reason_code {
 	WINDOW_CHANGE,
 	POLICY_CHANGE,
 	HIST_SIZE_CHANGE,
-	MIGRATION_FIXUP_CHANGE,
 	FREQ_AGGREGATE_CHANGE,
 };
 
@@ -3179,7 +3149,6 @@ const char *sched_window_reset_reasons[] = {
 	"WINDOW_CHANGE",
 	"POLICY_CHANGE",
 	"HIST_SIZE_CHANGE",
-	"MIGRATION_FIXUP_CHANGE",
 };
 
 /* Called with IRQs enabled */
@@ -3249,12 +3218,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		sched_ravg_hist_size = sysctl_sched_ravg_hist_size;
 	}
 #ifdef CONFIG_SCHED_FREQ_INPUT
-	else if (sched_migration_fixup != sysctl_sched_migration_fixup) {
-		reason = MIGRATION_FIXUP_CHANGE;
-		old = sched_migration_fixup;
-		new = sysctl_sched_migration_fixup;
-		sched_migration_fixup = sysctl_sched_migration_fixup;
-	} else if (sched_freq_aggregate !=
+	else if (sched_freq_aggregate !=
 					sysctl_sched_freq_aggregate) {
 		reason = FREQ_AGGREGATE_CHANGE;
 		old = sched_freq_aggregate;
@@ -3496,9 +3460,8 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 	bool new_task;
 	struct related_thread_group *grp;
 
-	if (!sched_enable_hmp || !sched_migration_fixup ||
-		 (!p->on_rq && p->state != TASK_WAKING))
-			return;
+	if (!sched_enable_hmp || (!p->on_rq && p->state != TASK_WAKING))
+		return;
 
 	if (exiting_task(p)) {
 		clear_ed_task(p, src_rq);
@@ -3604,12 +3567,6 @@ done:
 #else
 
 static inline void fixup_busy_time(struct task_struct *p, int new_cpu) { }
-
-static inline int
-heavy_task_wakeup(struct task_struct *p, struct rq *rq, int event)
-{
-	return 0;
-}
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT */
 
@@ -4264,12 +4221,6 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 #else	/* CONFIG_SCHED_HMP */
 
 static inline void fixup_busy_time(struct task_struct *p, int new_cpu) { }
-
-static inline int
-heavy_task_wakeup(struct task_struct *p, struct rq *rq, int event)
-{
-	return 0;
-}
 
 static struct cpu_cycle
 update_task_ravg(struct task_struct *p, struct rq *rq,
@@ -5239,7 +5190,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	int cpu, src_cpu, success = 0;
 	int notify = 0;
 	struct migration_notify_data mnd;
-	int heavy_task = 0;
 #ifdef CONFIG_SMP
 	unsigned int old_load;
 	struct rq *rq;
@@ -5314,7 +5264,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	old_load = task_load(p);
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
-	heavy_task = heavy_task_wakeup(p, rq, TASK_WAKE);
 	update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 	raw_spin_unlock(&rq->lock);
 
@@ -5376,8 +5325,6 @@ out:
 						false, check_group);
 			check_for_freq_change(cpu_rq(src_cpu),
 						false, check_group);
-		} else if (heavy_task) {
-			check_for_freq_change(cpu_rq(cpu), false, false);
 		} else if (success) {
 			check_for_freq_change(cpu_rq(cpu), true, false);
 		}
@@ -5930,6 +5877,11 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
 	fire_sched_out_preempt_notifiers(prev, next);
 	prepare_lock_switch(rq, next);
 	prepare_arch_switch(next);
+
+#ifdef CONFIG_MSM_APP_SETTINGS
+	if (use_app_setting)
+		switch_app_setting_bit(prev, next);
+#endif
 }
 
 /**
@@ -6288,8 +6240,7 @@ static bool early_detection_notify(struct rq *rq, u64 wallclock)
 		if (!loop_max)
 			break;
 
-		if (wallclock - p->last_wake_ts >=
-				sysctl_early_detection_duration) {
+		if (wallclock - p->last_wake_ts >= EARLY_DETECTION_DURATION) {
 			rq->ed_task = p;
 			return 1;
 		}

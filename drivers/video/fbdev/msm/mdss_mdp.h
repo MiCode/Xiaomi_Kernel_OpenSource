@@ -687,6 +687,7 @@ struct pp_sts_type {
 	u32 sharp_sts;
 	u32 hist_sts;
 	u32 side_sts;
+	u32 pa_dither_sts;
 };
 
 struct mdss_pipe_pp_res {
@@ -1709,6 +1710,9 @@ int mdss_mdp_dither_config(struct msm_fb_data_type *mfd,
 			   int copy_from_kernel);
 int mdss_mdp_gamut_config(struct msm_fb_data_type *mfd,
 			struct mdp_gamut_cfg_data *config, u32 *copyback);
+int mdss_mdp_pa_dither_config(struct msm_fb_data_type *mfd,
+			struct mdp_dither_cfg_data *config);
+
 
 int mdss_mdp_hist_intr_req(struct mdss_intr *intr, u32 bits, bool en);
 int mdss_mdp_hist_intr_setup(struct mdss_intr *intr, int state);

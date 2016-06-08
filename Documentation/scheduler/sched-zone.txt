@@ -550,7 +550,7 @@ both tasks and CPUs to aid in the placement of tasks.
   particular CPU, that CPU will be considered too small for the task. The task
   will thus be seen as a "big" task on the cpu and will reflect in nr_big_tasks
   statistics maintained for that cpu. Note that certain tasks (whose nice
-  value exceeds sched_upmigrate_min_nice value or those that belong to a cgroup
+  value exceeds SCHED_UPMIGRATE_MIN_NICE value or those that belong to a cgroup
   whose upmigrate_discourage flag is set) will never be classified as big tasks
   despite their high demand.
 
@@ -641,7 +641,7 @@ While boost is in effect the scheduler checks for the precence of tasks that
 have been runnable for over some period of time within the tick. For such
 tasks the scheduler informs the governor of imminent need for high frequency.
 If there exists a task on the runqueue at the tick that has been runnable
-for greater than sched_early_detection_duration amount of time, it notifies
+for greater than SCHED_EARLY_DETECTION_DURATION amount of time, it notifies
 the governor with a fabricated load of the full window at the highest
 frequency. The fabricated load is maintained until the task is no longer
 runnable or until the next tick.
@@ -666,7 +666,7 @@ offered by cluster. Criteria for a task to be considered as fitting in a cluster
 is:
 
  i) A low-priority task, whose nice value is greater than
-     sysctl_sched_upmigrate_min_nice or whose cgroup has its
+     SCHED_UPMIGRATE_MIN_NICE or whose cgroup has its
      upmigrate_discourage flag set, is considered to be fitting in all clusters,
      irrespective of their capacity and task's cpu demand.
 
@@ -775,7 +775,7 @@ available (idle) to service it
 b) A task is starving on a CPU with high irq load.
 
 c) A task with upmigration discouraged is running on a performance cluster.
-See notes on 'cpu.upmigrate_discourage' and sched_upmigrate_min_nice tunables.
+See notes on 'cpu.upmigrate_discourage'.
 
 In case the test for migration turns out positive (which is expected to be rare
 event), a candidate cpu is identified for task migration. To avoid multiple task
@@ -972,10 +972,9 @@ TASK_MIGRATE
 	SCHED_FREQ_ACCOUNT_WAIT_TIME is non-zero). After that update,
 	src_cpu's curr_runnable_sum is reduced by task's curr_window value
 	and dst_cpu's curr_runnable_sum is increased by task's curr_window
-	value, provided sched_migration_fixup = 1. Similarly, src_cpu's
-	prev_runnable_sum is reduced by task's prev_window value and dst_cpu's
-	prev_runnable_sum is increased by task's prev_window value,
-	provided sched_migration_fixup = 1
+	value. Similarly, src_cpu's prev_runnable_sum is reduced by task's
+	prev_window value and dst_cpu's prev_runnable_sum is increased by
+	task's prev_window value.
 
 IRQ_UPDATE
 	This event signifies end of execution of an interrupt handler. This
@@ -1037,19 +1036,7 @@ historical load value to assign to it. This tunable specifies the
 initial load value for newly created tasks. Also see Sec 2.8 on per-task
 'initial task load' attribute.
 
-*** 7.5 sched_upmigrate_min_nice
-
-Appears at: /proc/sys/kernel/sched_upmigrate_min_nice
-
-Default value: 15
-
-A task whose nice value is greater than this tunable value will never
-be considered as a "big" task (it will not be allowed to run on a
-high-performance CPU).
-
-See also notes on 'cpu.upmigrate_discourage' tunable.
-
-*** 7.6 sched_ravg_hist_size
+*** 7.5 sched_ravg_hist_size
 
 Appears at: /proc/sys/kernel/sched_ravg_hist_size
 
@@ -1058,7 +1045,7 @@ Default value: 5
 This tunable controls the number of samples used from task's sum_history[]
 array for determination of its demand.
 
-*** 7.7 sched_window_stats_policy
+*** 7.6 sched_window_stats_policy
 
 Appears at: /proc/sys/kernel/sched_window_stats_policy
 
@@ -1077,7 +1064,7 @@ Possible values for this tunable are:
    samples), where M = sysctl_sched_ravg_hist_size
 3. Use average of first M samples, where M = sysctl_sched_ravg_hist_size
 
-*** 7.8 sched_ravg_window
+*** 7.7 sched_ravg_window
 
 Appears at: kernel command line argument
 
@@ -1088,7 +1075,7 @@ tracking. By default each window is 10ms long. This quantity must
 currently be set at boot time on the kernel command line (or the
 default value of 10ms can be used).
 
-*** 7.9 RAVG_HIST_SIZE
+*** 7.8 RAVG_HIST_SIZE
 
 Appears at: compile time only (see RAVG_HIST_SIZE in include/linux/sched.h)
 
@@ -1099,16 +1086,7 @@ tracking mechanism maintains per task. If default values are used for
 both this and sched_ravg_window then a total of 50ms of task history
 would be maintained in 5 10ms windows.
 
-*** 7.10 sched_migration_fixup
-
-Appears at: /proc/sys/kernel/sched_migration_fixup
-
-Default value: 1
-
-This controls whether a cpu's busy time counters are adjusted during task
-migration.
-
-*** 7.11 sched_freq_inc_notify
+*** 7.9 sched_freq_inc_notify
 
 Appears at: /proc/sys/kernel/sched_freq_inc_notify
 
@@ -1120,7 +1098,7 @@ exceeds sched_freq_inc_notify, where freq_required is the frequency calculated
 by scheduler to meet current task demand. Note that sched_freq_inc_notify is
 specified in kHz units.
 
-*** 7.12 sched_freq_dec_notify
+*** 7.10 sched_freq_dec_notify
 
 Appears at: /proc/sys/kernel/sched_freq_dec_notify
 
@@ -1133,19 +1111,7 @@ exceeds sched_freq_dec_notify, where freq_required is the frequency calculated
 by scheduler to meet current task demand. Note that sched_freq_dec_notify is
 specified in kHz units.
 
-*** 7.13 sched_heavy_task
-
-Appears at: /proc/sys/kernel/sched_heavy_task
-
-Default value: 0
-
-This tunable can be used to specify a demand value for tasks above which task
-are classified as "heavy" tasks. Task's ravg.demand attribute is used for this
-comparison. Scheduler will request a raise in cpu frequency when heavy tasks
-wakeup after at least one window of sleep, where window size is defined by
-sched_ravg_window. Value 0 will disable this feature.
-
-*** 7.14 sched_cpu_high_irqload
+*** 7.11 sched_cpu_high_irqload
 
 Appears at: /proc/sys/kernel/sched_cpu_high_irqload
 
@@ -1163,7 +1129,7 @@ longer eligible for placement. This will affect the task placement logic
 described above, causing the scheduler to try and steer tasks away from
 the CPU.
 
-*** 7.15 cpu.upmigrate_discourage
+*** 7.12 cpu.upmigrate_discourage
 
 Default value : 0
 
@@ -1176,10 +1142,9 @@ Setting this flag to 1 discourages upmigration for all tasks of a cgroup. High
 demand tasks of such a cgroup will never be classified as big tasks and hence
 not upmigrated. Any task of the cgroup is allowed to upmigrate only under
 overcommitted scenario. See notes on sched_spill_nr_run and sched_spill_load for
-how overcommitment threshold is defined and also notes on
-'sched_upmigrate_min_nice' tunable.
+how overcommitment threshold is defined.
 
-*** 7.16 sched_static_cpu_pwr_cost
+*** 7.13 sched_static_cpu_pwr_cost
 
 Default value: 0
 
@@ -1194,7 +1159,7 @@ within a cluster and possibly have differing value between clusters as
 needed.
 
 
-*** 7.17 sched_static_cluster_pwr_cost
+*** 7.14 sched_static_cluster_pwr_cost
 
 Default value: 0
 
@@ -1205,18 +1170,7 @@ power mode. It ignores the actual D-state that a cluster may be in and assumes
 the worst case power cost of the highest D-state. It is means of biasing task
 placement away from idle clusters when necessary.
 
-*** 7.18 sched_early_detection_duration
-
-Default value: 9500000
-
-Appears at /proc/sys/kernel/sched_early_detection_duration
-
-This governs the time in microseconds that a task has to runnable within one
-tick for it to be eligible for the scheduler's early detection feature
-under scheduler boost. For more information on the feature itself please
-refer to section 5.2.1.
-
-*** 7.19 sched_restrict_cluster_spill
+*** 7.15 sched_restrict_cluster_spill
 
 Default value: 0
 
@@ -1235,7 +1189,7 @@ CPU across all clusters. When this tunable is enabled, the RT tasks are
 restricted to the lowest possible power cluster.
 
 
-*** 7.20 sched_downmigrate
+*** 7.16 sched_downmigrate
 
 Appears at: /proc/sys/kernel/sched_downmigrate
 
@@ -1248,7 +1202,7 @@ its demand *in reference to the power-efficient cpu* drops less than 60%
 (sched_downmigrate).
 
 
-*** 7.21 sched_small_wakee_task_load
+*** 7.17 sched_small_wakee_task_load
 
 Appears at: /proc/sys/kernel/sched_small_wakee_task_load
 
@@ -1260,7 +1214,7 @@ categorized as small wakee tasks.  Scheduler places small wakee tasks on the
 waker's cluster.
 
 
-*** 7.22 sched_big_waker_task_load
+*** 7.18 sched_big_waker_task_load
 
 Appears at: /proc/sys/kernel/sched_big_waker_task_load
 
@@ -1418,7 +1372,6 @@ cpus are being reset. Changes to below attributes result in such a reset:
 * sched_ravg_window (See Sec 2)
 * sched_window_stats_policy (See Sec 2.4)
 * sched_ravg_hist_size (See Sec 7.11)
-* sched_migration_fixup (See Sec 7.12)
 
 <task>-0     [004] d.h4 12700.711489: sched_reset_all_windows_stats: time_taken 1123 window_start 0 window_size 0 reason POLICY_CHANGE old_val 0 new_val 1
 

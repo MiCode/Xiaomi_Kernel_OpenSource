@@ -316,20 +316,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &zero,
 	},
-	{
-		.procname       = "sched_migration_fixup",
-		.data           = &sysctl_sched_migration_fixup,
-		.maxlen         = sizeof(unsigned int),
-		.mode           = 0644,
-		.proc_handler   = sched_window_update_handler,
-	},
-	{
-		.procname       = "sched_heavy_task",
-		.data           = &sysctl_sched_heavy_task_pct,
-		.maxlen         = sizeof(unsigned int),
-		.mode           = 0644,
-		.proc_handler   = sched_hmp_proc_update_handler,
-	},
 #endif
 #ifdef CONFIG_SCHED_HMP
 	{
@@ -383,25 +369,11 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= sched_hmp_proc_update_handler,
 	},
 	{
-		.procname	= "sched_upmigrate_min_nice",
-		.data		= &sysctl_sched_upmigrate_min_nice,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= sched_hmp_proc_update_handler,
-	},
-	{
 		.procname	= "sched_init_task_load",
 		.data		= &sysctl_sched_init_task_load_pct,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= sched_hmp_proc_update_handler,
-	},
-	{
-		.procname       = "sched_early_detection_duration",
-		.data           = &sysctl_early_detection_duration,
-		.maxlen         = sizeof(unsigned int),
-		.mode           = 0644,
-		.proc_handler   = proc_dointvec,
 	},
 	{
 		.procname	= "sched_select_prev_cpu_us",
@@ -622,27 +594,6 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &one,
-	},
-#endif
-#ifdef CONFIG_SCHEDSTATS
-	{
-		.procname	= "sched_latency_panic_threshold_us",
-		.data		= &sysctl_sched_latency_panic_threshold,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-	},
-	{
-		.procname	= "sched_latency_warn_threshold_us",
-		.data		= &sysctl_sched_latency_warn_threshold,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-	},
-	{
-		.procname	= "sched_max_latency_us",
-		.mode		= 0644,
-		.proc_handler	= sched_max_latency_sysctl,
 	},
 #endif
 #ifdef CONFIG_PROVE_LOCKING

@@ -3870,6 +3870,8 @@ init_freq_thread:
 		pr_err("Failed to create frequency mitigation thread. err:%ld\n",
 				PTR_ERR(freq_mitigation_task));
 		return;
+	} else {
+		complete(&freq_mitigation_complete);
 	}
 }
 

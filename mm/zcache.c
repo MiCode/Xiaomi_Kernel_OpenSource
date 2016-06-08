@@ -660,6 +660,10 @@ static void zcache_store_page(int pool_id, struct cleancache_filekey key,
 		return;
 	}
 
+	zero = zero_page(page);
+	if (zero)
+		goto zero;
+
 	if (zcache_is_full()) {
 		zcache_pool_limit_hit++;
 		if (zbud_reclaim_page(zpool->pool, 8)) {
@@ -774,6 +778,7 @@ map:
 	/* update stats */
 	atomic_dec(&zcache_stored_pages);
 	zpool->size = zbud_get_pool_size(zpool->pool);
+out:
 	SetPageWasActive(page);
 	return ret;
 }

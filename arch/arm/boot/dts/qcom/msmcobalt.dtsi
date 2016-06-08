@@ -2698,10 +2698,12 @@
 &clock_cpu {
 	lmh_dcvs0: qcom,limits-dcvs@0 {
 		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	lmh_dcvs1: qcom,limits-dcvs@1 {
 		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 	};
 };
 
@@ -2753,12 +2755,14 @@
 	clock-names = "core0_clk";
 	clocks = <&clock_mmss clk_mmss_video_subcore0_clk>;
 	status = "ok";
+	qcom,support-hw-trigger;
 };
 
 &gdsc_venus_core1 {
 	clock-names = "core1_clk";
 	clocks = <&clock_mmss clk_mmss_video_subcore1_clk>;
 	status = "ok";
+	qcom,support-hw-trigger;
 };
 
 &gdsc_camss_top {

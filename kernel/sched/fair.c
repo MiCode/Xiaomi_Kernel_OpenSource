@@ -30,7 +30,6 @@
 #include <linux/mempolicy.h>
 #include <linux/migrate.h>
 #include <linux/task_work.h>
-#include <linux/ratelimit.h>
 
 #include "sched.h"
 #include <trace/events/sched.h>
@@ -121,19 +120,6 @@ unsigned int __read_mostly sysctl_sched_shares_window = 10000000UL;
   */
 unsigned int sysctl_sched_cfs_bandwidth_slice = 5000UL;
 #endif
-
-#ifdef CONFIG_SCHEDSTATS
-unsigned int sysctl_sched_latency_panic_threshold;
-unsigned int sysctl_sched_latency_warn_threshold;
-
-struct sched_max_latency {
-	unsigned int latency_us;
-	char comm[TASK_COMM_LEN];
-	pid_t pid;
-};
-
-static DEFINE_PER_CPU(struct sched_max_latency, sched_max_latency);
-#endif /* CONFIG_SCHEDSTATS */
 
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
 {
@@ -763,73 +749,6 @@ static void update_curr_fair(struct rq *rq)
 }
 
 #ifdef CONFIG_SCHEDSTATS
-int sched_max_latency_sysctl(struct ctl_table *table, int write,
-			     void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	int ret = 0;
-	int i, cpu = nr_cpu_ids;
-	char msg[256];
-	unsigned long flags;
-	struct rq *rq;
-	struct sched_max_latency max, *lat;
-
-	if (!write) {
-		max.latency_us = 0;
-		for_each_possible_cpu(i) {
-			rq = cpu_rq(i);
-			raw_spin_lock_irqsave(&rq->lock, flags);
-
-			lat = &per_cpu(sched_max_latency, i);
-			if (max.latency_us < lat->latency_us) {
-				max = *lat;
-				cpu = i;
-			}
-
-			raw_spin_unlock_irqrestore(&rq->lock, flags);
-		}
-
-		if (cpu != nr_cpu_ids) {
-			table->maxlen =
-			    snprintf(msg, sizeof(msg),
-				     "cpu%d comm=%s pid=%u latency=%u(us)",
-				     cpu, max.comm, max.pid, max.latency_us);
-			table->data = msg;
-			ret = proc_dostring(table, write, buffer, lenp, ppos);
-		}
-	} else {
-		for_each_possible_cpu(i) {
-			rq = cpu_rq(i);
-			raw_spin_lock_irqsave(&rq->lock, flags);
-
-			memset(&per_cpu(sched_max_latency, i), 0,
-			       sizeof(struct sched_max_latency));
-
-			raw_spin_unlock_irqrestore(&rq->lock, flags);
-		}
-	}
-
-	return ret;
-}
-
-static inline void check_for_high_latency(struct task_struct *p, u64 latency_us)
-{
-	int do_warn, do_panic;
-	const char *fmt = "excessive latency comm=%s pid=%d latency=%llu(us)\n";
-	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
-				      DEFAULT_RATELIMIT_BURST);
-
-	do_warn = (sysctl_sched_latency_warn_threshold &&
-		   latency_us > sysctl_sched_latency_warn_threshold);
-	do_panic = (sysctl_sched_latency_panic_threshold &&
-		    latency_us > sysctl_sched_latency_panic_threshold);
-	if (unlikely(do_panic || (do_warn && __ratelimit(&rs)))) {
-		if (do_panic)
-			panic(fmt, p->comm, p->pid, latency_us);
-		else
-			printk_deferred(fmt, p->comm, p->pid, latency_us);
-	}
-}
-
 static inline void
 update_stats_wait_start(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
@@ -847,7 +766,6 @@ update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
 	struct task_struct *p;
 	u64 delta = rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start;
-	struct sched_max_latency *max;
 
 	if (entity_is_task(se)) {
 		p = task_of(se);
@@ -861,13 +779,6 @@ update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se)
 			return;
 		}
 		trace_sched_stat_wait(p, delta);
-		max = this_cpu_ptr(&sched_max_latency);
-		if (max->latency_us < delta >> 10) {
-			max->latency_us = delta;
-			max->pid = task_of(se)->pid;
-			memcpy(max->comm, task_of(se)->comm, TASK_COMM_LEN);
-		}
-		check_for_high_latency(p, delta >> 10);
 	}
 
 	se->statistics.wait_max = max(se->statistics.wait_max, delta);
@@ -2725,18 +2636,6 @@ unsigned int __read_mostly sched_spill_load;
 unsigned int __read_mostly sysctl_sched_spill_load_pct = 100;
 
 /*
- * Tasks with demand >= sched_heavy_task will have their
- * window-based demand added to the previous window's CPU
- * time when they wake up, if they have slept for at least
- * one full window. This feature is disabled when the tunable
- * is set to 0 (the default).
- */
-#ifdef CONFIG_SCHED_FREQ_INPUT
-unsigned int __read_mostly sysctl_sched_heavy_task_pct;
-unsigned int __read_mostly sched_heavy_task;
-#endif
-
-/*
  * Tasks whose bandwidth consumption on a cpu is more than
  * sched_upmigrate are considered "big" tasks. Big tasks will be
  * considered for "up" migration, i.e migrating to a cpu with better
@@ -2753,12 +2652,7 @@ unsigned int __read_mostly sysctl_sched_upmigrate_pct = 80;
 unsigned int __read_mostly sched_downmigrate;
 unsigned int __read_mostly sysctl_sched_downmigrate_pct = 60;
 
-/*
- * Tasks whose nice value is > sysctl_sched_upmigrate_min_nice are never
- * considered as "big" tasks.
- */
-static int __read_mostly sched_upmigrate_min_nice = 15;
-int __read_mostly sysctl_sched_upmigrate_min_nice = 15;
+#define SCHED_UPMIGRATE_MIN_NICE 15
 
 /*
  * The load scale factor of a CPU gets boosted when its max frequency
@@ -2823,8 +2717,6 @@ void set_hmp_defaults(void)
 	update_up_down_migrate();
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
-	sched_heavy_task =
-		pct_to_real(sysctl_sched_heavy_task_pct);
 	sched_major_task_runtime =
 		mult_frac(sched_ravg_window, MAJOR_TASK_PCT, 100);
 #endif
@@ -2836,8 +2728,6 @@ void set_hmp_defaults(void)
 	sched_init_task_load_windows =
 		div64_u64((u64)sysctl_sched_init_task_load_pct *
 			  (u64)sched_ravg_window, 100);
-
-	sched_upmigrate_min_nice = sysctl_sched_upmigrate_min_nice;
 
 	sched_short_sleep_task_threshold = sysctl_sched_select_prev_cpu_us *
 					   NSEC_PER_USEC;
@@ -2887,7 +2777,7 @@ static inline int __is_big_task(struct task_struct *p, u64 scaled_load)
 {
 	int nice = task_nice(p);
 
-	if (nice > sched_upmigrate_min_nice || upmigrate_discouraged(p))
+	if (nice > SCHED_UPMIGRATE_MIN_NICE || upmigrate_discouraged(p))
 		return 0;
 
 	return scaled_load > sched_upmigrate;
@@ -3002,7 +2892,7 @@ static int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu,
 		return 1;
 
 	if (boost_type != SCHED_BOOST_ON_BIG) {
-		if (task_nice(p) > sched_upmigrate_min_nice ||
+		if (task_nice(p) > SCHED_UPMIGRATE_MIN_NICE ||
 		    upmigrate_discouraged(p))
 			return 1;
 
@@ -4044,9 +3934,6 @@ DEFINE_MUTEX(policy_mutex);
 #ifdef CONFIG_SCHED_FREQ_INPUT
 static inline int invalid_value_freq_input(unsigned int *data)
 {
-	if (data == &sysctl_sched_migration_fixup)
-		return !(*data == 0 || *data == 1);
-
 	if (data == &sysctl_sched_freq_aggregate)
 		return !(*data == 0 || *data == 1);
 
@@ -4134,16 +4021,9 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	if (write && (old_val == *data))
 		goto done;
 
-	if (data == (unsigned int *)&sysctl_sched_upmigrate_min_nice) {
-		if ((*(int *)data) < -20 || (*(int *)data) > 19) {
-			*data = old_val;
-			ret = -EINVAL;
-			goto done;
-		}
-		update_min_nice = 1;
-	} else if (data != &sysctl_sched_select_prev_cpu_us) {
+	if (data != &sysctl_sched_select_prev_cpu_us) {
 		/*
-		 * all tunables other than min_nice and prev_cpu_us are
+		 * all tunables other than sched_select_prev_cpu_us are
 		 * in percentage.
 		 */
 		if (sysctl_sched_downmigrate_pct >
@@ -4226,7 +4106,7 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 	nice = task_nice(p);
 	rcu_read_lock();
 	grp = task_related_thread_group(p);
-	if (!grp && (nice > sched_upmigrate_min_nice ||
+	if (!grp && (nice > SCHED_UPMIGRATE_MIN_NICE ||
 	       upmigrate_discouraged(p)) && cpu_capacity(cpu) > min_capacity) {
 		rcu_read_unlock();
 		return DOWN_MIGRATION;

@@ -1722,10 +1722,11 @@ static void fastrpc_channel_close(struct kref *kref)
 	if (!me->glink) {
 		smd_close(ctx->chan);
 	} else {
-		glink_unregister_link_state_cb(ctx->link_notify_handle);
 		glink_close(ctx->chan);
+		glink_unregister_link_state_cb(ctx->link_notify_handle);
 	}
 	ctx->chan = 0;
+	ctx->link_notify_handle = NULL;
 	mutex_unlock(&me->smd_mutex);
 	cid = ctx - &gcinfo[0];
 	pr_info("'closed /dev/%s c %d %d'\n", gcinfo[cid].name,
@@ -1801,6 +1802,7 @@ void fastrpc_glink_notify_state(void *handle, const void *priv, unsigned event)
 		complete(&me->channel[cid].work);
 		break;
 	case GLINK_LOCAL_DISCONNECTED:
+		fastrpc_notify_drivers(me, cid);
 		break;
 	case GLINK_REMOTE_DISCONNECTED:
 		fastrpc_notify_drivers(me, cid);
@@ -1892,6 +1894,7 @@ static void fastrpc_glink_register_cb(struct glink_link_state_cb_info *cb_info,
 static int fastrpc_glink_open(int cid, struct fastrpc_apps *me)
 {
 	int err = 0;
+	void *handle = NULL;
 	struct glink_open_config *cfg = &me->channel[cid].cfg;
 	struct glink_link_info *link_info = &me->channel[cid].link_info;
 
@@ -1917,7 +1920,11 @@ static int fastrpc_glink_open(int cid, struct fastrpc_apps *me)
 	cfg->notify_tx_done = fastrpc_glink_notify_tx_done;
 	cfg->notify_state = fastrpc_glink_notify_state;
 	cfg->notify_rx_intent_req = fastrpc_glink_notify_rx_intent_req;
-	VERIFY(err, 0 != (me->channel[cid].chan = glink_open(cfg)));
+	handle = glink_open(cfg);
+	VERIFY(err, !IS_ERR_OR_NULL(handle));
+	if (err)
+		goto bail;
+	me->channel[cid].chan = handle;
 bail:
 	return err;
 }
@@ -2117,13 +2124,14 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		ctx->ssrcount++;
 		if (ctx->chan) {
 			if (me->glink) {
+				glink_close(ctx->chan);
 				glink_unregister_link_state_cb(
 					ctx->link_notify_handle);
-				glink_close(ctx->chan);
 			} else {
 				smd_close(ctx->chan);
 			}
 			ctx->chan = 0;
+			ctx->link_notify_handle = NULL;
 			pr_info("'restart notifier: closed /dev/%s c %d %d'\n",
 				 gcinfo[cid].name, MAJOR(me->dev_no), cid);
 		}

@@ -1226,7 +1226,7 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 		 * fetch halt will be skipped for the 1st rect.
 		 */
 		list_for_each_entry_from(tmp, destroy_pipes, list) {
-			if (tmp->num == pipe->num) {
+			if ((tmp != pipe) && (tmp->num == pipe->num)) {
 				pair_found = true;
 				break;
 			}
@@ -4088,6 +4088,10 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 		break;
 	case mdp_op_calib_dcm_state:
 		ret = mdss_fb_dcm(mfd, mdp_pp.data.calib_dcm.dcm_state);
+		break;
+	case mdp_op_pa_dither_cfg:
+		ret = mdss_mdp_pa_dither_config(mfd,
+			&mdp_pp.data.dither_cfg_data);
 		break;
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL. %d = op\n",
