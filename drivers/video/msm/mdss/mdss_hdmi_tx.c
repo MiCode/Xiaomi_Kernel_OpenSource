@@ -1625,7 +1625,7 @@ static int hdmi_tx_read_edid(struct hdmi_tx_ctrl *hdmi_ctrl)
 			check_sum += ebuf[ndx];
 
 		if (check_sum & 0xFF) {
-			DEV_ERR("%s: checksome mismatch\n", __func__);
+			DEV_ERR("%s: checksum mismatch\n", __func__);
 			ret = -EINVAL;
 			goto end;
 		}
@@ -2071,6 +2071,8 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
 	struct dss_io_data *io;
+	int rc = -EINVAL;
+	int retry = MAX_EDID_READ_RETRY;
 
 	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, hpd_int_work);
 	if (!hdmi_ctrl) {
@@ -2099,7 +2101,10 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION ,
 			DSS_REG_R(io, HDMI_DDC_ARBITRATION) & ~(BIT(4)));
 
-		hdmi_tx_read_sink_info(hdmi_ctrl);
+		while (rc && retry--)
+			rc = hdmi_tx_read_sink_info(hdmi_ctrl);
+		if (!retry && rc)
+			pr_warn_ratelimited("%s: EDID read failed\n", __func__);
 
 		if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
 			DEV_ERR("%s: Failed to disable ddc power\n", __func__);
