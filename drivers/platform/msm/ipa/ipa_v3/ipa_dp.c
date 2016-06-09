@@ -705,7 +705,7 @@ failure:
 	for (j = 0; j < i; j++) {
 		next_pkt = list_next_entry(tx_pkt, link);
 		list_del(&tx_pkt->link);
-		if (desc[i].type != IPA_DATA_DESC_SKB_PAGED) {
+		if (desc[j].type != IPA_DATA_DESC_SKB_PAGED) {
 			dma_unmap_single(ipa3_ctx->pdev, tx_pkt->mem.phys_base,
 				tx_pkt->mem.size,
 				DMA_TO_DEVICE);
