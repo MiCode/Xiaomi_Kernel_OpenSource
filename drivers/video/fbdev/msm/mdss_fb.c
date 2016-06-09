@@ -4470,7 +4470,8 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	}
 
 	ds_data_user = commit.commit_v1.dest_scaler;
-	if (ds_data_user) {
+	if ((ds_data_user) &&
+		(commit.commit_v1.dest_scaler_cnt)) {
 		ret = __mdss_fb_copy_destscaler_data(info, &commit);
 		if (ret) {
 			pr_err("copy dest scaler failed\n");

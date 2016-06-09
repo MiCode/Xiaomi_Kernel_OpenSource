@@ -126,7 +126,7 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 	 * width and height accordingly. Otherwise, layer validate will fail
 	 * when we switch between scaling factor or disabling scaling.
 	 */
-	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) && ds_data) {
+	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map)) {
 		if (ctl->mixer_left) {
 			/*
 			 * Any scale update from usermode, we will update the
@@ -2073,7 +2073,8 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	}
 
 	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) &&
-			commit->dest_scaler) {
+			commit->dest_scaler &&
+			commit->dest_scaler_cnt) {
 		/*
 		 * Find out which DS block to use based on LM assignment
 		 */
@@ -2370,10 +2371,13 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	if (mdss_mdp_destination_scaler_pre_validate(mdp5_data->ctl,
-				commit->dest_scaler)) {
-		pr_err("Destination scaler pre-validate failed\n");
-		return -EINVAL;
+	if (commit->dest_scaler && commit->dest_scaler_cnt) {
+		rc = mdss_mdp_destination_scaler_pre_validate(mdp5_data->ctl,
+				commit->dest_scaler);
+		if (IS_ERR_VALUE(rc)) {
+			pr_err("Destination scaler pre-validate failed\n");
+			return -EINVAL;
+		}
 	}
 
 	return __validate_layers(mfd, file, commit);
