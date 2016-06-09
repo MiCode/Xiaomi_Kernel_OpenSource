@@ -1203,7 +1203,7 @@ static int jpegdma_probe(struct platform_device *pdev)
 		goto error_mem_resources;
 
 	/* get all the regulators */
-	ret = msm_camera_get_regulator_info(pdev, &jpegdma->vdd,
+	ret = msm_camera_get_regulator_info(pdev, &jpegdma->dma_vdd,
 		&jpegdma->num_reg);
 	if (ret < 0)
 		goto error_get_regulators;
@@ -1310,7 +1310,7 @@ error_qos_get:
 	msm_camera_put_clk_info(pdev, &jpegdma->jpeg_clk_info,
 		&jpegdma->clk, jpegdma->num_clk);
 error_get_clocks:
-	msm_camera_put_regulators(pdev, &jpegdma->vdd,
+	msm_camera_put_regulators(pdev, &jpegdma->dma_vdd,
 		jpegdma->num_reg);
 error_get_regulators:
 	msm_jpegdma_hw_release_mem_resources(jpegdma);
@@ -1338,7 +1338,7 @@ static int jpegdma_device_remove(struct platform_device *pdev)
 	/* unregister bus client */
 	msm_camera_unregister_bus_client(dma->bus_client);
 	/* release all the regulators */
-	msm_camera_put_regulators(dma->pdev, &dma->vdd,
+	msm_camera_put_regulators(dma->pdev, &dma->dma_vdd,
 		dma->num_reg);
 	/* release all the clocks */
 	msm_camera_put_clk_info(dma->pdev, &dma->jpeg_clk_info,
