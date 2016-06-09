@@ -335,7 +335,7 @@ static int pfk_key_size_to_key_type(size_t key_size,
 
 static int pfk_bio_to_key(const struct bio *bio, unsigned char const **key,
 		size_t *key_size, unsigned char const **salt, size_t *salt_size,
-		bool *is_pfe)
+		bool *is_pfe, bool start)
 {
 	struct inode *inode = NULL;
 	int ret = 0;
@@ -369,7 +369,8 @@ static int pfk_bio_to_key(const struct bio *bio, unsigned char const **key,
 		return -EPERM;
 	}
 
-	pr_debug("loading key for file %s\n", inode_to_filename(inode));
+	pr_debug("loading key for file %s, start %d\n",
+			inode_to_filename(inode), start);
 
 	ret = pfk_get_page_index(bio, &offset);
 	if (ret != 0) {
@@ -467,7 +468,8 @@ int pfk_load_key_start(const struct bio *bio,
 		return -EINVAL;
 	}
 
-	ret = pfk_bio_to_key(bio, &key, &key_size, &salt, &salt_size, is_pfe);
+	ret = pfk_bio_to_key(bio, &key, &key_size, &salt, &salt_size, is_pfe,
+			true);
 	if (ret != 0)
 		return ret;
 
@@ -548,7 +550,8 @@ int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
 	if (!pfk_is_ready())
 		return -ENODEV;
 
-	ret = pfk_bio_to_key(bio, &key, &key_size, &salt, &salt_size, is_pfe);
+	ret = pfk_bio_to_key(bio, &key, &key_size, &salt, &salt_size, is_pfe,
+		false);
 	if (ret != 0)
 		return ret;
 

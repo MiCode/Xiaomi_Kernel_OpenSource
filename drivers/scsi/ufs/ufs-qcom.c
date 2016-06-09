@@ -780,9 +780,6 @@ static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
 		*dun = req->bio->bi_iter.bi_sector;
 
 	ret = ufs_qcom_ice_req_setup(host, lrbp->cmd, cc_index, enable);
-	if (ret)
-		dev_err(hba->dev, "%s: ufs_qcom_ice_req_setup failed (%d)\n",
-			__func__, ret);
 
 	return ret;
 }

@@ -493,6 +493,7 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 	entry = kc_find_key(key, key_size, salt, salt_size);
 	if (!entry) {
 		if (async) {
+			pr_debug("found empty entry, a separate task will populate it\n");
 			kc_spin_unlock();
 			return -EAGAIN;
 		}
