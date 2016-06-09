@@ -77,6 +77,8 @@
 
 		qcom,highest-bank-bit = <15>;
 
+		qcom,snapshot-size = <1048576>; //bytes
+
 		clocks = <&clock_gfx clk_gpucc_gfx3d_clk>,
 			<&clock_gcc clk_gcc_gpu_cfg_ahb_clk>,
 			<&clock_gpu clk_gpucc_rbbmtimer_clk>,
@@ -125,9 +127,9 @@
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
-				qcom,gpu-freq = <650000000>;
-				qcom,bus-freq = <12>;
-				qcom,bus-min = <11>;
+				qcom,gpu-freq = <504000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <10>;
 				qcom,bus-max = <12>;
 			};
 

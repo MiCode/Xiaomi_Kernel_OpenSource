@@ -1421,6 +1421,17 @@ static bool __multirect_validate_format(struct mdp_input_layer **layers,
 	if (count != 2)
 		return false;
 
+	if ((layers[0]->flags & MDP_LAYER_SOLID_FILL) !=
+			(layers[1]->flags & MDP_LAYER_SOLID_FILL)) {
+		pr_err("solid fill mismatch between multirect layers\n");
+		return false;
+	}
+	/* if both are solidfill, no need for format checks */
+	else if ((layers[0]->flags & MDP_LAYER_SOLID_FILL) &&
+			(layers[1]->flags & MDP_LAYER_SOLID_FILL)) {
+		return true;
+	}
+
 	/* format related validation */
 	rec0_fmt = mdss_mdp_get_format_params(layers[0]->buffer.format);
 	if (!rec0_fmt) {
@@ -1455,12 +1466,6 @@ static bool __multirect_validate_format(struct mdp_input_layer **layers,
 	} else if (rec0_fmt->unpack_dx_format != rec1_fmt->unpack_dx_format) {
 		pr_err("multirect linear format 10bit vs 8bit mismatch is not allowed. input=%d paired=%d\n",
 			rec0_fmt->unpack_dx_format, rec1_fmt->unpack_dx_format);
-		return false;
-	}
-
-	if ((layers[0]->flags & MDP_LAYER_SOLID_FILL) !=
-			(layers[1]->flags & MDP_LAYER_SOLID_FILL)) {
-		pr_err("solid fill mismatch between multirect layers\n");
 		return false;
 	}
 

@@ -920,6 +920,14 @@
 						<&tpda_out_funnel_qatb>;
 				};
 			};
+			port@2 {
+				reg = <3>;
+				funnel_qatb_in_funnel_dlet_qatb: endpoint {
+					slave-mode;
+					remote-endpoint =
+					    <&funnel_dlet_qatb_out_funnel_qatb>;
+				};
+			};
 		};
 	};
 
@@ -1470,6 +1478,54 @@
 		port{
 			rpm_etm0_out_funnel_in0: endpoint {
 				remote-endpoint = <&funnel_in0_in_rpm_etm0>;
+			};
+		};
+	};
+
+	funnel_dlet_qatb: funnel@7225000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b908>;
+
+		reg = <0x7225000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-dlet-qatb";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk", "core_a_clk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_dlet_qatb_out_funnel_qatb: endpoint {
+					remote-endpoint =
+					    <&funnel_qatb_in_funnel_dlet_qatb>;
+				};
+			};
+			port@1 {
+				reg = <1>;
+				funnel_dlet_qatb_in_tpdm_wcss: endpoint {
+					slave-mode;
+					remote-endpoint =
+					      <&tpdm_wcss_out_funnel_dlet_qatb>;
+				};
+			};
+		};
+	};
+
+	dummy-tpdm-wcss {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-tpdm-wcss";
+
+		port{
+			tpdm_wcss_out_funnel_dlet_qatb: endpoint {
+				remote-endpoint =
+					<&funnel_dlet_qatb_in_tpdm_wcss>;
 			};
 		};
 	};

@@ -269,18 +269,6 @@ struct ipa_hdr_entry {
 };
 
 /**
- * struct ipa_hdr_offset_entry - IPA header offset entry
- * @link: entry's link in global header offset entries list
- * @offset: the offset
- * @bin: bin
- */
-struct ipa_hdr_offset_entry {
-	struct list_head link;
-	u32 offset;
-	u32 bin;
-};
-
-/**
  * struct ipa_hdr_tbl - IPA header table
  * @head_hdr_entry_list: header entries list
  * @head_offset_list: header offset list

@@ -25,21 +25,21 @@ country AE: DFS-FCC
 
 country AF: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country AI: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country AL: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5150 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5350 @ 80), (20), DFS, AUTO-BW
-	(5470 - 5710 @ 160), (27), DFS
+	(5150 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5350 @ 80), (23), DFS, AUTO-BW
+	(5470 - 5710 @ 160), (30), DFS
 
 country AM: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
@@ -48,9 +48,9 @@ country AM: DFS-ETSI
 
 country AN: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country AR: DFS-FCC
 	(2402 - 2482 @ 40), (20)
@@ -69,9 +69,9 @@ country AS: DFS-FCC
 
 country AT: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -94,9 +94,9 @@ country AU: DFS-FCC
 
 country AW: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country AZ: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
@@ -105,9 +105,9 @@ country AZ: DFS-ETSI
 
 country BA: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 60 gHz band channels 1-4, ref: Etsi En 302 567
 	(57240 - 65880 @ 2160), (40), NO-OUTDOOR
 
@@ -123,9 +123,9 @@ country BD:
 
 country BE: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -147,9 +147,9 @@ country BF: DFS-FCC
 
 country BG: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -170,9 +170,9 @@ country BH: DFS-ETSI
 
 country BL: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country BM: DFS-FCC
 	(2402 - 2472 @ 40), (30)
@@ -208,15 +208,15 @@ country BS: DFS-FCC
 
 country BT: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country BY: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country BZ:
 	(2402 - 2482 @ 40), (30)
@@ -239,9 +239,9 @@ country CF: DFS-FCC
 
 country CH: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -299,9 +299,9 @@ country CX: DFS-FCC
 
 country CY: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -316,13 +316,11 @@ country CY: DFS-ETSI
 
 # Data from http://www.ctu.eu/164/download/VOR/VOR-12-08-2005-34.pdf
 # and http://www.ctu.eu/164/download/VOR/VOR-12-05-2007-6-AN.pdf
-# Power at 5250 - 5350 MHz and 5470 - 5725 MHz can be doubled if TPC is
-# implemented.
 country CZ: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -339,20 +337,13 @@ country CZ: DFS-ETSI
 # http://www.bundesnetzagentur.de/cae/servlet/contentblob/38448/publicationFile/2659/Frequenznutzungsplan2008_Id17448pdf.pdf
 # For the 5GHz range also see
 # http://www.bundesnetzagentur.de/cae/servlet/contentblob/38216/publicationFile/6579/WLAN5GHzVfg7_2010_28042010pdf.pdf
-# The values have been reduced by a factor of 2 (3db) for non TPC devices
-# (in other words: devices with TPC can use twice the tx power of this table).
-# Note that the docs do not require TPC for 5150--5250; the reduction to
-# 100mW thus is not strictly required -- however the conservative 100mW
-# limit is used here as the non-interference with radar and satellite
-# apps relies on the attenuation by the building walls only in the
-# absence of DFS; the neighbour countries have 100mW limit here as well.
 
 country DE: DFS-ETSI
 	# entries 279004 and 280006
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
         # 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -367,9 +358,9 @@ country DE: DFS-ETSI
 
 country DK: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -409,9 +400,9 @@ country EC: DFS-FCC
 
 country EE: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -426,14 +417,14 @@ country EE: DFS-ETSI
 
 country EG: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 40), (20)
-	(5250 - 5330 @ 40), (20), DFS
+	(5170 - 5250 @ 20), (20)
+	(5250 - 5330 @ 20), (20), DFS
 
 country ES: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -448,15 +439,15 @@ country ES: DFS-ETSI
 
 country ET: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country FI: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -478,9 +469,9 @@ country FM: DFS-FCC
 
 country FR: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -495,9 +486,9 @@ country FR: DFS-ETSI
 
 country GB: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -526,9 +517,9 @@ country GE: DFS-ETSI
 
 country GF: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country GH: DFS-FCC
 	(2402 - 2482 @ 40), (20)
@@ -539,21 +530,21 @@ country GH: DFS-FCC
 
 country GL: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country GP: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country GR: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -568,16 +559,16 @@ country GR: DFS-ETSI
 
 country GT: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country GU: DFS-FCC
 	(2402 - 2472 @ 40), (30)
-	(5170 - 5250 @ 20), (24)
-	(5250 - 5330 @ 20), (24), DFS
-	(5490 - 5730 @ 20), (24), DFS
-	(5735 - 5835 @ 20), (30)
+	(5170 - 5250 @ 80), (24), AUTO-BW
+	(5250 - 5330 @ 80), (24), DFS, AUTO-BW
+	(5490 - 5730 @ 160), (24), DFS
+	(5735 - 5835 @ 80), (30)
 
 country GY:
 	(2402 - 2482 @ 40), (30)
@@ -599,9 +590,9 @@ country HN: DFS-FCC
 
 country HR: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -623,9 +614,9 @@ country HT: DFS-FCC
 
 country HU: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
         # 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -640,14 +631,14 @@ country HU: DFS-ETSI
 
 country ID:
 	# ref: http://www.postel.go.id/content/ID/regulasi/standardisasi/kepdir/bwa%205,8%20ghz.pdf
-	(2402 - 2482 @ 20), (30)
+	(2402 - 2482 @ 40), (30)
 	(5735 - 5815 @ 20), (30)
 
 country IE: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 60 gHz band channels 1-4, ref: Etsi En 302 567
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
@@ -678,9 +669,9 @@ country IR:
 
 country IS: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -695,9 +686,9 @@ country IS: DFS-ETSI
 
 country IT: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -740,9 +731,9 @@ country KE: DFS-ETSI
 
 country KH: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country KN: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
@@ -796,9 +787,9 @@ country LC: DFS-ETSI
 
 country LI: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -818,15 +809,15 @@ country LK: DFS-FCC
 
 country LS: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country LT: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -841,9 +832,9 @@ country LT: DFS-ETSI
 
 country LU: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -858,9 +849,9 @@ country LU: DFS-ETSI
 
 country LV: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -880,27 +871,27 @@ country MA: DFS-ETSI
 
 country MC: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country MD: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country ME: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country MF: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country MH: DFS-FCC
 	(2402 - 2472 @ 40), (30)
@@ -911,9 +902,9 @@ country MH: DFS-FCC
 
 country MK: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 60 gHz band channels 1-4, ref: Etsi En 302 567
 	(57240 - 65880 @ 2160), (40), NO-OUTDOOR
 
@@ -940,21 +931,21 @@ country MP: DFS-FCC
 
 country MQ: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country MR: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country MT: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -982,9 +973,9 @@ country MV: DFS-ETSI
 
 country MW: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country MX: DFS-FCC
 	(2402 - 2482 @ 40), (30)
@@ -992,6 +983,13 @@ country MX: DFS-FCC
 	(5250 - 5330 @ 80), (24), DFS, AUTO-BW
 	(5490 - 5730 @ 160), (24), DFS
 	(5735 - 5835 @ 80), (30)
+
+country NA: DFS-ETSI
+	(2402 - 2482 @ 40), (20)
+	(5170 - 5250 @ 80), (20), AUTO-BW
+	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
+	(5735 - 5815 @ 80), (30)
 
 country MY: DFS-FCC
 	(2402 - 2482 @ 40), (20)
@@ -1014,9 +1012,9 @@ country NI: DFS-FCC
 
 country NL: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -1031,9 +1029,9 @@ country NL: DFS-ETSI
 
 country NO: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -1061,9 +1059,9 @@ country NZ: DFS-FCC
 
 country OM: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country PA: DFS-FCC
 	(2402 - 2472 @ 40), (30)
@@ -1080,9 +1078,9 @@ country PE: DFS-FCC
 
 country PF: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country PG: DFS-FCC
 	(2402 - 2482 @ 40), (20)
@@ -1099,14 +1097,14 @@ country PH: DFS-FCC
 	(5735 - 5835 @ 80), (30)
 
 country PK:
-	(2402 - 2482 @ 40), (20)
+	(2402 - 2482 @ 40), (30)
 	(5735 - 5835 @ 80), (30)
 
 country PL: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -1121,9 +1119,9 @@ country PL: DFS-ETSI
 
 country PM: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country PR: DFS-FCC
 	(2402 - 2472 @ 40), (30)
@@ -1141,9 +1139,9 @@ country PS: DFS-FCC
 
 country PT: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -1176,15 +1174,15 @@ country QA:
 
 country RE: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country RO: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -1201,9 +1199,9 @@ country RO: DFS-ETSI
 # http://www.ratel.rs/upload/documents/Plan_namene/Plan_namene-sl_glasnik.pdf
 country RS: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-        (5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+        (5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 60 gHz band channels 1-4, ref: Etsi En 302 567
 	(57240 - 65880 @ 2160), (40), NO-OUTDOOR
 
@@ -1211,7 +1209,7 @@ country RU: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
 	(5170 - 5250 @ 80), (20), AUTO-BW
 	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5650 - 5710 @ 40), (30), DFS
+	(5490 - 5730 @ 160), (30), DFS
 	(5735 - 5835 @ 80), (30)
 
 country RW: DFS-FCC
@@ -1223,15 +1221,15 @@ country RW: DFS-FCC
 
 country SA: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country SE: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -1253,9 +1251,9 @@ country SG: DFS-FCC
 
 country SI: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -1270,9 +1268,9 @@ country SI: DFS-ETSI
 
 country SK: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 5.9ghz band
 	# reference: http://www.etsi.org/deliver/etsi_en/302500_302599/302571/01.02.00_20/en_302571v010200a.pdf
 	(5850 - 5870 @ 10), (30)
@@ -1294,9 +1292,9 @@ country SN: DFS-FCC
 
 country SR: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country SV: DFS-FCC
 	(2402 - 2482 @ 40), (20)
@@ -1316,15 +1314,15 @@ country TC: DFS-FCC
 
 country TD: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country TG: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 40), (20)
-	(5250 - 5330 @ 40), (20), DFS
-	(5490 - 5710 @ 40), (27), DFS
+	(5170 - 5250 @ 40), (23)
+	(5250 - 5330 @ 40), (23), DFS
+	(5490 - 5710 @ 40), (30), DFS
 
 country TH: DFS-FCC
 	(2402 - 2482 @ 40), (20)
@@ -1340,9 +1338,9 @@ country TN: DFS-ETSI
 
 country TR: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 	# 60 gHz band channels 1-4, ref: Etsi En 302 567
 	(57240 - 65880 @ 2160), (40), NO-OUTDOOR
 
@@ -1423,9 +1421,9 @@ country UZ: DFS-ETSI
 
 country VC: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country VE: DFS-FCC
 	(2402 - 2482 @ 40), (30)
@@ -1456,15 +1454,15 @@ country VU: DFS-FCC
 
 country WF: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country WS: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 40), (20)
-	(5250 - 5330 @ 40), (20), DFS
-	(5490 - 5710 @ 40), (27), DFS
+	(5170 - 5250 @ 40), (23)
+	(5250 - 5330 @ 40), (23), DFS
+	(5490 - 5710 @ 40), (30), DFS
 
 country XA: DFS-JP
 	(2402 - 2482 @ 40), (20)
@@ -1479,9 +1477,9 @@ country YE:
 
 country YT: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
 
 country ZA: DFS-FCC
 	(2402 - 2482 @ 40), (20)
@@ -1492,6 +1490,6 @@ country ZA: DFS-FCC
 
 country ZW: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
-	(5490 - 5710 @ 160), (27), DFS
+	(5170 - 5250 @ 80), (23), AUTO-BW
+	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	(5490 - 5710 @ 160), (30), DFS
