@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,8 @@ int msm_isp_axi_create_stream(
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
 {
-	int i = stream_cfg_cmd->stream_src;
+	uint32_t i = stream_cfg_cmd->stream_src;
+
 	if (i >= VFE_AXI_SRC_MAX) {
 		pr_err("%s:%d invalid stream_src %d\n", __func__, __LINE__,
 			stream_cfg_cmd->stream_src);
@@ -327,11 +328,10 @@ void msm_isp_axi_free_wm(struct msm_vfe_axi_shared_data *axi_data,
 		axi_data->free_wm[stream_info->wm[i]] = 0;
 		axi_data->num_used_wm--;
 	}
-	if (stream_info->stream_src <= IDEAL_RAW) {
+	if (stream_info->stream_src <= IDEAL_RAW)
 		axi_data->num_pix_stream++;
-	} else if (stream_info->stream_src < VFE_AXI_SRC_MAX) {
+	else if (stream_info->stream_src < VFE_AXI_SRC_MAX)
 		axi_data->num_rdi_stream++;
-	}
 }
 
 void msm_isp_axi_reserve_comp_mask(
@@ -920,7 +920,8 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		stream_cfg.stream_handle[0] = stream_release_cmd->stream_handle;
 		rc = msm_isp_cfg_axi_stream(vfe_dev, (void *) &stream_cfg);
 		if (rc < 0) {
-			pr_err("%s: msm_isp_cfg_axi_stream failed: %d\n", __func__, rc);
+			pr_err("%s: msm_isp_cfg_axi_stream failed: %d\n",
+				 __func__, rc);
 			return rc;
 		}
 	}
@@ -1071,9 +1072,9 @@ void msm_isp_axi_stream_update(struct vfe_device *vfe_dev,
 	}
 
 	spin_lock_irqsave(&vfe_dev->shared_data_lock, flags);
-	if (vfe_dev->axi_data.stream_update[frame_src]) {
+	if (vfe_dev->axi_data.stream_update[frame_src])
 		vfe_dev->axi_data.stream_update[frame_src]--;
-	}
+
 	spin_unlock_irqrestore(&vfe_dev->shared_data_lock, flags);
 
 	if (vfe_dev->axi_data.pipeline_update == DISABLE_CAMIF ||
@@ -2248,6 +2249,7 @@ static int msm_isp_return_empty_buffer(struct vfe_device *vfe_dev,
 		&vfe_dev->axi_data.src_info[frame_src].time_stamp, frame_id,
 		stream_info->runtime_output_format);
 
+	memset(&error_event, 0, sizeof(error_event));
 	error_event.frame_id = frame_id;
 	error_event.timestamp =
 		vfe_dev->axi_data.src_info[frame_src].time_stamp;
