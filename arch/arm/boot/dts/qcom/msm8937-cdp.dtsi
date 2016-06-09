@@ -31,7 +31,6 @@
 	gpio@c100 {
 		qcom,mode = <0>;
 		qcom,vin-sel = <3>;
-		qcom,dtest-sel = <1>;
 		status = "okay";
 	};
 
@@ -300,8 +299,4 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
-};
-
-&qpdi {
-	qcom,pmic-carddetect-gpio = <&pm8937_gpios 0x2 0>;
 };
