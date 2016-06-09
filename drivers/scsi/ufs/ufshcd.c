@@ -2830,9 +2830,12 @@ static int ufshcd_prepare_crypto_utrd(struct ufs_hba *hba,
 	 */
 	ret = ufshcd_vops_crypto_req_setup(hba, lrbp, &cc_index, &enable, &dun);
 	if (ret) {
-		dev_err(hba->dev,
-			"%s: failed to setup crypto request (%d)\n",
-			__func__, ret);
+		if (ret != -EAGAIN) {
+			dev_err(hba->dev,
+				"%s: failed to setup crypto request (%d)\n",
+				__func__, ret);
+		}
+
 		return ret;
 	}
 
@@ -2857,7 +2860,7 @@ out:
  * @upiu_flags: flags required in the header
  * @cmd_dir: requests data direction
  */
-static void ufshcd_prepare_req_desc_hdr(struct ufs_hba *hba,
+static int ufshcd_prepare_req_desc_hdr(struct ufs_hba *hba,
 	struct ufshcd_lrb *lrbp, u32 *upiu_flags,
 	enum dma_data_direction cmd_dir)
 {
@@ -2898,7 +2901,9 @@ static void ufshcd_prepare_req_desc_hdr(struct ufs_hba *hba,
 	req_desc->prd_table_length = 0;
 
 	if (ufshcd_is_crypto_supported(hba))
-		ufshcd_prepare_crypto_utrd(hba, lrbp);
+		return ufshcd_prepare_crypto_utrd(hba, lrbp);
+
+	return 0;
 }
 
 /**
@@ -3006,7 +3011,8 @@ static int ufshcd_comp_devman_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	else
 		lrbp->command_type = UTP_CMD_TYPE_DEV_MANAGE;
 
-	ufshcd_prepare_req_desc_hdr(hba, lrbp, &upiu_flags, DMA_NONE);
+	ret = ufshcd_prepare_req_desc_hdr(hba, lrbp, &upiu_flags,
+			DMA_NONE);
 	if (hba->dev_cmd.type == DEV_CMD_TYPE_QUERY)
 		ufshcd_prepare_utp_query_req_upiu(hba, lrbp, upiu_flags);
 	else if (hba->dev_cmd.type == DEV_CMD_TYPE_NOP)
@@ -3034,8 +3040,8 @@ static int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		lrbp->command_type = UTP_CMD_TYPE_SCSI;
 
 	if (likely(lrbp->cmd)) {
-		ufshcd_prepare_req_desc_hdr(hba, lrbp, &upiu_flags,
-						lrbp->cmd->sc_data_direction);
+		ret = ufshcd_prepare_req_desc_hdr(hba, lrbp,
+				&upiu_flags, lrbp->cmd->sc_data_direction);
 		ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
 	} else {
 		ret = -EINVAL;
@@ -3171,7 +3177,18 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	lrbp->intr_cmd = !ufshcd_is_intr_aggr_allowed(hba) ? true : false;
 	lrbp->req_abort_skip = false;
 
-	ufshcd_comp_scsi_upiu(hba, lrbp);
+	err = ufshcd_comp_scsi_upiu(hba, lrbp);
+	if (err) {
+		if (err != -EAGAIN)
+			dev_err(hba->dev,
+				"%s: failed to compose upiu %d\n",
+				__func__, err);
+
+			lrbp->cmd = NULL;
+			clear_bit_unlock(tag, &hba->lrb_in_use);
+			ufshcd_release_all(hba);
+			goto out;
+	}
 
 	err = ufshcd_map_sg(hba, lrbp);
 	if (err) {
