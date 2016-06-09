@@ -273,3 +273,7 @@
 		};
 	};
 };
+
+&pmicobalt_charger {
+	qcom,suspend-input;
+};

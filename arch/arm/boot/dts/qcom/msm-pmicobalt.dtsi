@@ -137,8 +137,6 @@
 
 			qcom,pmic-revid = <&pmicobalt_revid>;
 
-			/* do not draw current from USB or DC */
-			qcom,suspend-input;
 			dpdm-supply = <&qusb_phy0>;
 
 			qcom,chgr@1000 {
