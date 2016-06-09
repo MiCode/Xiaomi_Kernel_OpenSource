@@ -611,6 +611,11 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 	struct ipa_flt_rule_add flt_rule_entry;
 	struct ipa_fltr_installed_notif_req_msg_v01 *req;
 
+	if (ipa_qmi_ctx == NULL) {
+		IPAWANERR("ipa_qmi_ctx is NULL!\n");
+		return -EFAULT;
+	}
+
 	pyld_sz = sizeof(struct ipa_ioc_add_flt_rule) +
 	   sizeof(struct ipa_flt_rule_add);
 	param = kzalloc(pyld_sz, GFP_KERNEL);
@@ -631,7 +636,7 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 	param->num_rules = (uint8_t)1;
 
 	mutex_lock(&ipa_qmi_lock);
-	for (i = 0; i < num_q6_rule && (ipa_qmi_ctx != NULL); i++) {
+	for (i = 0; i < num_q6_rule; i++) {
 		param->ip = ipa_qmi_ctx->q6_ul_filter_rule[i].ip;
 		memset(&flt_rule_entry, 0, sizeof(struct ipa_flt_rule_add));
 		flt_rule_entry.at_rear = true;
