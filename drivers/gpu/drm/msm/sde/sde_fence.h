@@ -13,12 +13,10 @@
 #ifndef _SDE_FENCE_H_
 #define _SDE_FENCE_H_
 
-#ifndef CONFIG_SYNC
-#define sde_sync_get(D)               (0)
-#define sde_sync_put(F)
-#define sde_sync_wait(F, T)           (0)
-#else
+#include <linux/kernel.h>
+#include <linux/errno.h>
 
+#ifdef CONFIG_SYNC
 /**
  * sde_sync_get - Query sync fence object from a file handle
  *
@@ -49,6 +47,71 @@ void sde_sync_put(void *fence);
  * Return: Zero on success, or -ETIME on timeout
  */
 int sde_sync_wait(void *fence, long timeout_ms);
+#else
+static inline void *sde_sync_get(uint64_t fd)
+{
+	return NULL;
+}
+
+static inline void sde_sync_put(void *fence)
+{
+}
+
+static inline int sde_sync_wait(void *fence, long timeout_ms)
+{
+	return 0;
+}
 #endif
+
+#if defined(CONFIG_SYNC) && IS_ENABLED(CONFIG_SW_SYNC)
+/**
+ * sde_sync_timeline_create - Create timeline object
+ *
+ * @name: Name for timeline
+ *
+ * Return: Pointer to newly created timeline, or NULL on error
+ */
+void *sde_sync_timeline_create(const char *name);
+
+/**
+ * sde_sync_fence_create - Create fence object
+ *
+ * This function is NOT thread-safe.
+ *
+ * @timeline: Timeline to associate with fence
+ * @name: Name for fence
+ * @val: Timeline value at which to signal the fence, must be >= 0
+ *
+ * Return: File descriptor on success, or error code on error
+ */
+int sde_sync_fence_create(void *timeline, const char *name, int val);
+
+/**
+ * sde_sync_timeline_inc - Increment timeline object
+ *
+ * This function is NOT thread-safe.
+ *
+ * @timeline: Timeline to increment
+ * @val: Amount by which to increase the timeline
+ *
+ * Return: File descriptor on success, or error code on error
+ */
+void sde_sync_timeline_inc(void *timeline, int val);
+#else
+static inline void *sde_sync_timeline_create(const char *name)
+{
+	return NULL;
+}
+
+static inline int sde_sync_fence_create(void *timeline,
+		const char *name, int val)
+{
+	return -EINVAL;
+}
+
+static inline void sde_sync_timeline_inc(void *timeline, int val)
+{
+}
+#endif /* defined(CONFIG_SYNC) && IS_ENABLED(CONFIG_SW_SYNC) */
 
 #endif /* _SDE_FENCE_H_ */
