@@ -1054,6 +1054,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd = NULL;
 	struct mdss_panel_data *pdata;
 	struct fb_info *fbi;
+	struct mdss_overlay_private *mdp5_data = NULL;
 	int rc;
 
 	if (fbi_list_index >= MAX_FBI_LIST)
@@ -1189,6 +1190,13 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		}
 		mfd->mdp_sync_pt_data.notifier.notifier_call =
 			__mdss_fb_sync_buf_done_callback;
+
+		/* Initialize CWB notifier callback */
+		mdp5_data = mfd_to_mdp5_data(mfd);
+		if (test_bit(MDSS_CAPS_CWB_SUPPORTED,
+					mdp5_data->mdata->mdss_caps_map))
+			mdp5_data->cwb.cwb_sync_pt_data.notifier.notifier_call =
+				__mdss_fb_sync_buf_done_callback;
 	}
 
 	mdss_fb_set_mdp_sync_pt_threshold(mfd, mfd->panel.type);

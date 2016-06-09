@@ -3358,8 +3358,11 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 	if (cwb->priv_data == NULL) {
 		pr_err("fail to get writeback context\n");
 		rc = -ENOMEM;
-		goto cwb_setup_done;
+		goto cwb_setup_fail;
 	}
+
+	/* reset wb to null to avoid deferencing in ctl free */
+	ctl->wb = NULL;
 
 	mutex_lock(&cwb->queue_lock);
 	cwb_data = list_first_entry_or_null(&cwb->data_queue,
@@ -3368,13 +3371,13 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 	if (cwb_data == NULL) {
 		pr_err("no output buffer for cwb\n");
 		rc = -ENOMEM;
-		goto cwb_setup_done;
+		goto cwb_setup_fail;
 	}
 
 	rc = mdss_mdp_data_map(&cwb_data->data, true, DMA_FROM_DEVICE);
 	if (rc) {
 		pr_err("fail to acquire CWB output buffer\n");
-		goto cwb_setup_done;
+		goto cwb_setup_fail;
 	}
 
 	memset(&wb_args, 0, sizeof(wb_args));
@@ -3383,7 +3386,7 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 	rc =  mdss_mdp_writeback_prepare_cwb(ctl, &wb_args);
 	if (rc) {
 		pr_err("failed to writeback prepare cwb\n");
-		goto cwb_setup_done;
+		goto cwb_setup_fail;
 	}
 
 	/* Select MEM_SEL to WB */
@@ -3409,11 +3412,13 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 			sctl->opmode;
 		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_TOP, opmode);
 	}
+	goto cwb_setup_done;
+
+cwb_setup_fail:
+	atomic_add_unless(&mdp5_data->wb_busy, -1, 0);
 
 cwb_setup_done:
 	cwb->valid = 0;
-	atomic_add_unless(&mdp5_data->wb_busy, -1, 0);
-
 	return 0;
 }
 

@@ -54,6 +54,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
 static void __overlay_kickoff_requeue(struct msm_fb_data_type *mfd);
 static void __vsync_retire_signal(struct msm_fb_data_type *mfd, int val);
 static int __vsync_set_vsync_handler(struct msm_fb_data_type *mfd);
+static void __cwb_wq_handler(struct work_struct *cwb_work);
 static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 		int mode, int dest_ctrl);
 static int mdss_mdp_set_cfg(struct msm_fb_data_type *mfd,
@@ -5300,6 +5301,15 @@ __vsync_retire_get_fence(struct msm_sync_pt_data *sync_pt_data)
 			"mdp-retire", value);
 }
 
+static void __cwb_wq_handler(struct work_struct *cwb_work)
+{
+	struct mdss_mdp_cwb *cwb = NULL;
+
+	cwb = container_of(cwb_work, struct mdss_mdp_cwb, cwb_work);
+	blocking_notifier_call_chain(&cwb->notifier_head,
+			MDP_NOTIFY_FRAME_DONE, NULL);
+}
+
 static int __vsync_set_vsync_handler(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -5492,15 +5502,22 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mutex_init(&mdp5_data->list_lock);
 	mutex_init(&mdp5_data->ov_lock);
 	mutex_init(&mdp5_data->dfps_lock);
+
+	mfd->mdp.private1 = mdp5_data;
+	mfd->wait_for_kickoff = true;
+
 	mdp5_data->hw_refresh = true;
 	mdp5_data->cursor_ndx[CURSOR_PIPE_LEFT] = MSMFB_NEW_REQUEST;
 	mdp5_data->cursor_ndx[CURSOR_PIPE_RIGHT] = MSMFB_NEW_REQUEST;
 
 	init_waitqueue_head(&mdp5_data->wb_waitq);
+	atomic_set(&mdp5_data->wb_busy, 0);
 	mutex_init(&mdp5_data->cwb.queue_lock);
+	mutex_init(&mdp5_data->cwb.cwb_sync_pt_data.sync_mutex);
 	INIT_LIST_HEAD(&mdp5_data->cwb.data_queue);
 
 	snprintf(timeline_name, sizeof(timeline_name), "cwb%d", mfd->index);
+	mdp5_data->cwb.cwb_sync_pt_data.fence_name = "cwb-fence";
 	mdp5_data->cwb.cwb_sync_pt_data.timeline =
 		sw_sync_timeline_create(timeline_name);
 	if (mdp5_data->cwb.cwb_sync_pt_data.timeline == NULL) {
@@ -5509,10 +5526,15 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	}
 
 	blocking_notifier_chain_register(&mdp5_data->cwb.notifier_head,
-			&mfd->mdp_sync_pt_data.notifier);
+			&mdp5_data->cwb.cwb_sync_pt_data.notifier);
+	mdp5_data->cwb.cwb_work_queue = alloc_ordered_workqueue("%s",
+			WQ_UNBOUND | WQ_MEM_RECLAIM, "cwb_wq");
+	if (!mdp5_data->cwb.cwb_work_queue) {
+		pr_err("failed to create cwb work queue\n");
+		return -EPERM;
+	}
 
-	mfd->mdp.private1 = mdp5_data;
-	mfd->wait_for_kickoff = true;
+	INIT_WORK(&mdp5_data->cwb.cwb_work, __cwb_wq_handler);
 
 	rc = mdss_mdp_overlay_fb_parse_dt(mfd);
 	if (rc)

@@ -124,6 +124,28 @@ static inline void mdp_wb_write(struct mdss_mdp_writeback_ctx *ctx,
 	writel_relaxed(val, ctx->base + reg);
 }
 
+static void mdss_mdp_set_ot_limit_wb(struct mdss_mdp_writeback_ctx *ctx,
+					int is_wfd)
+{
+	struct mdss_mdp_set_ot_params ot_params;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	ot_params.xin_id = ctx->xin_id;
+	ot_params.num = ctx->wb_num;
+	ot_params.width = ctx->width;
+	ot_params.height = ctx->height;
+	ot_params.frame_rate = ctx->frame_rate;
+	ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_WR_LIM_CONF;
+	ot_params.reg_off_mdp_clk_ctrl = ctx->clk_ctrl.reg_off;
+	ot_params.bit_off_mdp_clk_ctrl = ctx->clk_ctrl.bit_off;
+	ot_params.is_rot = (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR);
+	ot_params.is_wfd = is_wfd;
+	ot_params.is_yuv = ctx->dst_fmt->is_yuv;
+	ot_params.is_vbif_nrt = mdss_mdp_is_nrt_vbif_base_defined(mdata);
+
+	mdss_mdp_set_ot_limit(&ot_params);
+}
+
 static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 					 const struct mdss_mdp_data *in_data)
 {
@@ -202,18 +224,18 @@ static void mdss_mdp_writeback_cwb_overflow(void *arg)
 {
 	struct mdss_mdp_ctl *ctl = arg;
 	struct mdss_overlay_private *mdp5_data = NULL;
+	struct mdss_mdp_writeback_ctx *ctx = NULL;
 
 	pr_err("Buffer overflow triggered ctl=%d\n", ctl->num);
 	MDSS_XLOG(ctl->num);
-	if (ctl->mfd)
+	if (!ctl->mfd)
 		return;
 
 	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	ctx = mdp5_data->cwb.priv_data;
 	mdp5_data->cwb.valid = 0;
 
-	blocking_notifier_call_chain(&mdp5_data->cwb.notifier_head,
-			MDP_NOTIFY_FRAME_TIMEOUT, NULL);
-
+	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
 	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_0);
 	if (mdss_mdp_get_split_ctl(ctl))
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
@@ -231,7 +253,7 @@ static void mdss_mdp_writeback_cwb_intr_done(void *arg)
 	struct mdss_overlay_private *mdp5_data = NULL;
 	struct mdss_mdp_writeback_ctx *ctx = NULL;
 
-	if (ctl->mfd)
+	if (!ctl->mfd)
 		return;
 
 	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
@@ -239,9 +261,12 @@ static void mdss_mdp_writeback_cwb_intr_done(void *arg)
 	mdp5_data->cwb.valid = 0;
 
 	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
+	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_0);
+	if (mdss_mdp_get_split_ctl(ctl))
+		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
+				CWB_PPB_1);
 
-	blocking_notifier_call_chain(&mdp5_data->cwb.notifier_head,
-			MDP_NOTIFY_FRAME_DONE, NULL);
+	queue_work(mdp5_data->cwb.cwb_work_queue, &mdp5_data->cwb.cwb_work);
 
 	if (!atomic_add_unless(&mdp5_data->wb_busy, -1, 0))
 		pr_err("Invalid state for WB\n");
@@ -462,6 +487,10 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 				sctl->intf_num,
 				mdss_mdp_writeback_cwb_overflow, sctl);
 	}
+
+	if (ctl->mdata->default_ot_wr_limit || ctl->mdata->default_ot_rd_limit)
+		mdss_mdp_set_ot_limit_wb(ctx, false);
+
 	return ret;
 }
 
@@ -840,28 +869,6 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 	return rc;
 }
 
-static void mdss_mdp_set_ot_limit_wb(struct mdss_mdp_writeback_ctx *ctx)
-{
-	struct mdss_mdp_set_ot_params ot_params;
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	ot_params.xin_id = ctx->xin_id;
-	ot_params.num = ctx->wb_num;
-	ot_params.width = ctx->width;
-	ot_params.height = ctx->height;
-	ot_params.frame_rate = ctx->frame_rate;
-	ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_WR_LIM_CONF;
-	ot_params.reg_off_mdp_clk_ctrl = ctx->clk_ctrl.reg_off;
-	ot_params.bit_off_mdp_clk_ctrl = ctx->clk_ctrl.bit_off;
-	ot_params.is_rot = (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR);
-	ot_params.is_wb = true;
-	ot_params.is_yuv = ctx->dst_fmt->is_yuv;
-	ot_params.is_vbif_nrt = mdss_mdp_is_nrt_vbif_base_defined(mdata);
-
-	mdss_mdp_set_ot_limit(&ot_params);
-
-}
-
 static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
@@ -884,7 +891,7 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 
 	if (ctl->mdata->default_ot_wr_limit ||
 			ctl->mdata->default_ot_rd_limit)
-		mdss_mdp_set_ot_limit_wb(ctx);
+		mdss_mdp_set_ot_limit_wb(ctx, true);
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
 	if (!wb_args)

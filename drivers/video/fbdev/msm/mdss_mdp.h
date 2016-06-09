@@ -397,6 +397,8 @@ struct mdss_mdp_cwb {
 	void *priv_data;
 	struct msm_sync_pt_data cwb_sync_pt_data;
 	struct blocking_notifier_head notifier_head;
+	struct workqueue_struct *cwb_work_queue;
+	struct work_struct cwb_work;
 };
 
 struct mdss_mdp_ctl {
@@ -897,7 +899,7 @@ struct mdss_mdp_set_ot_params {
 	u32 height;
 	u16 frame_rate;
 	bool is_rot;
-	bool is_wb;
+	bool is_wfd;
 	bool is_yuv;
 	bool is_vbif_nrt;
 	u32 reg_off_vbif_lim_conf;
