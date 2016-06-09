@@ -672,7 +672,7 @@ static const struct i2c_device_id aw2013_led_id[] = {
 };
 
 static struct of_device_id aw2013_led_match_table[] = {
-	{.compatible = "awinc, aw2013",},
+	{.compatible = "awinc,aw2013",},
 	{},
 };
 

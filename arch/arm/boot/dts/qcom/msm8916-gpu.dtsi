@@ -21,7 +21,7 @@
 		 * using "qfprom_memory"
 		 * the concerned C file is drivers/gpu/adreno.c
 		 */
-		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory" , "efuse_memory" , "qfprom_memory";
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory" , "qfprom_memory";
 		interrupts = <0 33 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;

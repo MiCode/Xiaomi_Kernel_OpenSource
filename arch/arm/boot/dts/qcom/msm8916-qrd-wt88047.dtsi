@@ -37,7 +37,7 @@
 	};
 i2c@78ba000 {/* i2c 6 */
 	aw2013@45 {/*blink */
-		compatible = "awinc, aw2013";
+		compatible = "awinc,aw2013";
 		reg = <0x45>;
 		rgb_led-supply = <&pm8916_l16>;
 
