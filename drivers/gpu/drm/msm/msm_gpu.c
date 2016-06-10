@@ -507,6 +507,59 @@ static inline bool get_force_submit(struct msm_drm_private *priv)
 }
 #endif
 
+int msm_gpu_cmd_dump(struct msm_gpu *gpu, struct msm_gem_submit *submit)
+{
+	int i, j;
+	struct msm_gem_object *msm_obj;
+
+	DRM_INFO("%s: dump cmd buffer\n", __func__);
+	DRM_INFO("**********************************************\n");
+	for (i = 0; i < submit->nr_cmds; i++) {
+		int submit_idx = submit->cmd[i].idx;
+		void *vaddr;
+		unsigned int offset;
+		int *command;
+
+		DRM_INFO("CMD_TYPE: 0x%x\n", submit->cmd[i].type);
+
+		msm_obj = submit->bos[submit_idx].obj;
+		if (!msm_obj) {
+			DRM_INFO("%s:cmd[%d] has no bo\n", __func__, i);
+			return -EINVAL;
+		}
+
+		offset = submit->cmd[i].iova - submit->bos[submit_idx].iova;
+		vaddr = msm_gem_vaddr_locked(&msm_obj->base);
+
+		DRM_INFO("cmd[%d]: vaddr = %p\n", i, vaddr);
+
+		command = (int *)((char *)vaddr + offset);
+
+		for (j = submit->cmd[i].size; j > 0;) {
+			if (j >= 4) {
+				DRM_INFO("	0x%08x 0x%08x 0x%08x 0x%08x\n",
+					command[0], command[1], command[2],
+					command[3]);
+				command += 4;
+				j -= 4;
+			} else if (j == 3) {
+				DRM_INFO("	0x%08x 0x%08x 0x%08x\n",
+					command[0], command[1], command[2]);
+				break;
+			} else if (j == 2) {
+				DRM_INFO("	0x%08x 0x%08x\n",
+					command[0], command[1]);
+				break;
+			} else if (j == 1) {
+				DRM_INFO("	0x%08x\n", command[0]);
+				break;
+			}
+		}
+	}
+	DRM_INFO("**********************************************\n");
+	return 0;
+}
+
 /* add bo's to gpu's ring, and kick gpu: */
 int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 		struct msm_file_private *ctx)
@@ -557,8 +610,10 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 	}
 
 	ret = gpu->funcs->submit(gpu, submit, ctx);
-	if (get_force_submit(priv) && gpu->funcs->idle(gpu))
+	if (get_force_submit(priv) && gpu->funcs->idle(gpu)) {
 		DRM_ERROR("%s: hardware hang\n", __func__);
+		msm_gpu_cmd_dump(gpu, submit);
+	}
 	priv->lastctx = ctx;
 
 	hangcheck_timer_reset(gpu);
