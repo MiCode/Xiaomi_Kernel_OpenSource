@@ -11,6 +11,8 @@ Required properties:
 			And for dsi phy driver:
 			qcom,dsi-phy-v1.0, qcom,dsi-phy-v2.0, qcom,dsi-phy-v3.0,
 			qcom,dsi-phy-v4.0
+			For display manager driver:
+			qcom,dsi-display, qcom,hdmi-display, qcom,dp-display
 - reg:                  Base address and length of DSI controller's memory
 			mapped regions.
 - reg-names:            A list of strings that name the list of regs.
@@ -60,6 +62,8 @@ Optional properties:
 - qcom,dsi-display-active: Current active display
 - qcom,dsi-ctrl: handle to dsi controller device
 - qcom,dsi-phy: handle to dsi phy device
+- qcom,dsi-manager:       Specifies dsi manager is present
+- qcom,display-manager:   Specifies display manager is present
 - qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
 					a particular "type" of DSI module. The module "types"
 					can be "core", "ctrl", and "phy". Within the same type,

@@ -29,6 +29,11 @@
 static DEFINE_MUTEX(dsi_display_list_lock);
 static LIST_HEAD(dsi_display_list);
 
+static const struct of_device_id dsi_display_dt_match[] = {
+	{.compatible = "qcom,dsi-display"},
+	{}
+};
+
 static struct dsi_display *main_display;
 
 static ssize_t debugfs_dump_info_read(struct file *file,
@@ -1259,6 +1264,15 @@ error:
 	return rc;
 }
 
+static struct platform_driver dsi_display_driver = {
+	.probe = dsi_display_dev_probe,
+	.remove = dsi_display_dev_remove,
+	.driver = {
+		.name = "msm-dsi-display",
+		.of_match_table = dsi_display_dt_match,
+	},
+};
+
 int dsi_display_dev_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -2128,4 +2142,14 @@ int dsi_display_unprepare(struct dsi_display *display)
 
 	mutex_unlock(&display->display_lock);
 	return rc;
+}
+
+void dsi_display_register(void)
+{
+	platform_driver_register(&dsi_display_driver);
+}
+
+void dsi_display_unregister(void)
+{
+	platform_driver_unregister(&dsi_display_driver);
 }
