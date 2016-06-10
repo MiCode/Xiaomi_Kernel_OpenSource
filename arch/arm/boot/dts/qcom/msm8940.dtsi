@@ -277,3 +277,16 @@
 	/delete-property/ qcom,qdsp6v56-1-8-inrush-current;
 	qcom,qdsp6v56-1-8;
 };
+
+/* CAMSS_CPHY */
+&soc {
+	qcom,csiphy@1b34000 {
+		status = "ok";
+		compatible = "qcom,csiphy-v3.4.2.1", "qcom,csiphy";
+	};
+
+	qcom,csiphy@1b35000 {
+		status = "ok";
+		compatible = "qcom,csiphy-v3.4.2.1", "qcom,csiphy";
+	};
+};
