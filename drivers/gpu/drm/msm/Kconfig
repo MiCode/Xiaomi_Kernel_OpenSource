@@ -33,6 +33,18 @@ config DRM_MSM_DSI
 	  Choose this option if you have a need for MIPI DSI connector
 	  support.
 
+config DRM_MSM_DSI_STAGING
+	bool "Enable new DSI driver support in MSM DRM driver"
+	depends on DRM_MSM
+	select DRM_PANEL
+	select DRM_MIPI_DSI
+	default y
+	help
+	  Choose this option if you need MIPI DSI connector support on MSM
+	  which conforms to DRM. MIPI stands for Mobile Industry Processor
+	  Interface and DSI stands for Display Serial Interface which powers
+	  the primary display of your mobile device.
+
 config DRM_MSM_DSI_PLL
 	bool "Enable DSI PLL driver in MSM DRM"
 	depends on DRM_MSM_DSI && COMMON_CLK
