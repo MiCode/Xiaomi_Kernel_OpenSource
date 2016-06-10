@@ -215,6 +215,7 @@ unsigned long arch_get_cpu_efficiency(int cpu)
 {
 	return per_cpu(cpu_efficiency, cpu);
 }
+EXPORT_SYMBOL(arch_get_cpu_efficiency);
 
 /*
  * Iterate all CPUs' descriptor in DT and compute the efficiency
