@@ -13,6 +13,8 @@
 
 #include "mdm9607.dtsi"
 #include "mdm9607-pinctrl.dtsi"
+#include "mdm9607-display.dtsi"
+#include "qpic-panel-ili-hvga.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
@@ -181,5 +183,15 @@
 	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
 
+	status = "disabled";
+};
+
+/* Display */
+&mdss_qpic {
+	pinctrl-names= "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_ldo_active &mdss_cs_active &mdss_te_active
+		&mdss_rs_active &mdss_ad_active &mdss_bl_active>;
+	pinctrl-1 = <&mdss_ldo_sleep &mdss_cs_sleep &mdss_te_sleep
+		&mdss_rs_sleep &mdss_ad_sleep &mdss_bl_sleep>;
 	status = "disabled";
 };
