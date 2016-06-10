@@ -27,6 +27,7 @@
 #define MSM8996_DSI_PLL_REVISION_2		2
 
 #define DSI_PHY_SPARE_VAL	0x6a
+#define DSI_PLL_DEFAULT_POSTDIV	1
 
 #define CEIL(x, y)		(((x) + ((y)-1)) / (y))
 static void pll_db_commit_8996(struct mdss_pll_resources *pll,
@@ -125,7 +126,7 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 	 */
 
 	/* this is for vco/bit clock */
-	pout->pll_postdiv = 1;	/* fixed, divided by 1 */
+	pout->pll_postdiv = DSI_PLL_DEFAULT_POSTDIV;
 	pout->pll_n1div  = div;
 
 	n1div = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_CMN_CLK_CFG0);
@@ -849,13 +850,6 @@ static void pll_db_commit_8996(struct mdss_pll_resources *pll,
 	data &= 0x03;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_KVCO_COUNT2, data);
 
-	/*
-	 * tx_band = pll_postdiv
-	 * 0: divided by 1 <== for now
-	 * 1: divided by 2
-	 * 2: divided by 4
-	 * 3: divided by 8
-	 */
 	data = (((pout->pll_postdiv - 1) << 4) | pdb->in.pll_lpf_res1);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_PLL_LPF2_POSTDIV, data);
 
@@ -968,6 +962,14 @@ int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 	pll->vco_ref_clk_rate = vco->ref_clk_rate;
 
 	mdss_dsi_pll_8996_input_init(pll, pdb);
+	/*
+	 * tx_band = pll_postdiv
+	 * 0: divided by 1 <== for now
+	 * 1: divided by 2
+	 * 2: divided by 4
+	 * 3: divided by 8
+	 */
+	pdb->out.pll_postdiv = DSI_PLL_DEFAULT_POSTDIV;
 
 	pll_8996_dec_frac_calc(pll, pdb);
 
