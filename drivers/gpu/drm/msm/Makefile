@@ -1,6 +1,7 @@
-ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm
+ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
+ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 
 msm-y := \
 	adreno/adreno_device.o \
@@ -71,15 +72,27 @@ msm-$(CONFIG_DRM_MSM_DSI) += dsi/dsi.o \
 			dsi/dsi_host.o \
 			dsi/dsi_manager.o \
 			dsi/phy/dsi_phy.o \
+			dsi/dsi_manager.o \
 			mdp/mdp5/mdp5_cmd_encoder.o
 
 msm-$(CONFIG_DRM_MSM_DSI_28NM_PHY) += dsi/phy/dsi_phy_28nm.o
 msm-$(CONFIG_DRM_MSM_DSI_20NM_PHY) += dsi/phy/dsi_phy_20nm.o
 
-ifeq ($(CONFIG_DRM_MSM_DSI_PLL),y)
-msm-y += dsi/pll/dsi_pll.o
-msm-$(CONFIG_DRM_MSM_DSI_28NM_PHY) += dsi/pll/dsi_pll_28nm.o
-endif
+msm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
+				dsi-staging/dsi_clk_pwr.o \
+				dsi-staging/dsi_phy.o \
+				dsi-staging/dsi_phy_hw_v4_0.o \
+				dsi-staging/dsi_ctrl_hw_1_4.o \
+				dsi-staging/dsi_ctrl.o \
+				dsi-staging/dsi_catalog.o \
+				dsi-staging/dsi_drm.o \
+				dsi-staging/display_manager.o \
+				dsi-staging/dsi_display.o \
+				dsi-staging/dsi_panel.o \
+				dsi-staging/dsi_display_test.o
+
+msm-$(CONFIG_DRM_MSM_DSI_PLL) += dsi/pll/dsi_pll.o \
+				dsi/pll/dsi_pll_28nm.o
 
 obj-$(CONFIG_DRM_MSM)	+= msm.o
 
