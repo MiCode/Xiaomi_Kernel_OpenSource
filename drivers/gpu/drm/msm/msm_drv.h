@@ -102,6 +102,8 @@ struct msm_vblank_ctrl {
 	spinlock_t lock;
 };
 
+struct display_manager;
+
 struct msm_drm_private {
 
 	struct msm_kms *kms;
@@ -122,6 +124,9 @@ struct msm_drm_private {
 
 	/* DSI is shared by mdp4 and mdp5 */
 	struct msm_dsi *dsi[2];
+
+	/* Display manager for SDE driver */
+	struct display_manager *dm;
 
 	/* when we have more than one 'msm_gpu' these need to be an array: */
 	struct msm_gpu *gpu;

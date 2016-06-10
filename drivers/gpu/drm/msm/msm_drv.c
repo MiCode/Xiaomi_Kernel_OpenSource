@@ -18,6 +18,7 @@
 #include "msm_drv.h"
 #include "msm_gpu.h"
 #include "msm_kms.h"
+#include "display_manager.h"
 
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
@@ -1169,6 +1170,7 @@ static struct platform_driver msm_platform_driver = {
 static int __init msm_drm_register(void)
 {
 	DBG("init");
+	display_manager_register();
 	msm_dsi_register();
 	msm_edp_register();
 	hdmi_register();
@@ -1184,6 +1186,7 @@ static void __exit msm_drm_unregister(void)
 	adreno_unregister();
 	msm_edp_unregister();
 	msm_dsi_unregister();
+	display_manager_unregister();
 }
 
 module_init(msm_drm_register);

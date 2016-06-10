@@ -189,6 +189,16 @@ int dsi_display_dev_probe(struct platform_device *pdev);
 int dsi_display_dev_remove(struct platform_device *pdev);
 
 /**
+ * dsi_display_register() - register dsi display platform driver
+ */
+void dsi_display_register(void);
+
+/**
+ * dsi_display_unregister() - unregister dsi display platform driver
+ */
+void dsi_display_unregister(void);
+
+/**
  * dsi_display_get_num_of_displays() - returns number of display devices
  *				       supported.
  *

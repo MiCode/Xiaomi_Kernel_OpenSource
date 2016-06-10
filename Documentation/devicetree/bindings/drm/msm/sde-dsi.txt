@@ -60,6 +60,11 @@ Optional properties:
 - qcom,dsi-display-active: Current active display
 - qcom,dsi-ctrl: handle to dsi controller device
 - qcom,dsi-phy: handle to dsi phy device
+- qcom,dsi-manager:       Specifies dsi manager is present
+- qcom,dsi-display:       Specifies dsi display is present
+- qcom,display-manager:   Specifies display manager is present
+- qcom,hdmi-display:      Specifies hdmi is present
+- qcom,dp-display:        Specified dp is present
 - qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
 					a particular "type" of DSI module. The module "types"
 					can be "core", "ctrl", and "phy". Within the same type,
