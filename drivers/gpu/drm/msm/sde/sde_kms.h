@@ -21,6 +21,32 @@
 #include "sde_hw_lm.h"
 #include "sde_hw_interrupts.h"
 
+/**
+ * SDE_DEBUG - macro for kms/plane/crtc/encoder/connector logs
+ * @fmt: Pointer to format string
+ */
+#define SDE_DEBUG(fmt, ...)                                                \
+	do {                                                               \
+		if (unlikely(drm_debug & DRM_UT_KMS))                      \
+			drm_ut_debug_printk(__func__, fmt, ##__VA_ARGS__); \
+		else                                                       \
+			pr_debug(fmt, ##__VA_ARGS__);                      \
+	} while (0)
+
+/**
+ * SDE_DEBUG_DRIVER - macro for hardware driver logging
+ * @fmt: Pointer to format string
+ */
+#define SDE_DEBUG_DRIVER(fmt, ...)                                         \
+	do {                                                               \
+		if (unlikely(drm_debug & DRM_UT_DRIVER))                   \
+			drm_ut_debug_printk(__func__, fmt, ##__VA_ARGS__); \
+		else                                                       \
+			pr_debug(fmt, ##__VA_ARGS__);                      \
+	} while (0)
+
+#define SDE_ERROR(fmt, ...) pr_err(fmt, ##__VA_ARGS__)
+
 /*
  * struct sde_irq_callback - IRQ callback handlers
  * @func: intr handler
