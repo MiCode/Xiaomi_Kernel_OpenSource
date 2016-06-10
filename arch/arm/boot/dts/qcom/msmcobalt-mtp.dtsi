@@ -165,7 +165,7 @@
 		pinctrl-0 = <&ts_active>;
 		pinctrl-1 = <&ts_suspend>;
 		synaptics,display-coords = <0 0 1439 2559>;
-		synaptics,panel-coords = <0 0 1439 2703>;
+		synaptics,panel-coords = <0 0 1439 2559>;
 		synaptics,reset-gpio = <&tlmm 89 0x00>;
 		synaptics,irq-gpio = <&tlmm 125 0x2008>;
 		synaptics,disable-gpios;
