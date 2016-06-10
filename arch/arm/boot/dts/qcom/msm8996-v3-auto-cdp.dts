@@ -24,6 +24,14 @@
 	qcom,board-id = <0x03010001 0>;
 };
 
+&soc {
+	qcom,msm-thermal {
+		qcom,hotplug-temp = <115>;
+		qcom,hotplug-temp-hysteresis = <25>;
+		qcom,therm-reset-temp = <119>;
+	};
+};
+
 &pil_modem {
 	pinctrl-names = "default";
 	pinctrl-0 = <&modem_mux>;
