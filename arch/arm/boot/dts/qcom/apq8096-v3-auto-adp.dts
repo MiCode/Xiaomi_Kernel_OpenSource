@@ -39,6 +39,12 @@
 	qcom,msm-ssc-sensors {
 		status = "disabled";
 	};
+
+	qcom,msm-thermal {
+		qcom,hotplug-temp = <115>;
+		qcom,hotplug-temp-hysteresis = <25>;
+		qcom,therm-reset-temp = <119>;
+	};
 };
 
 &slim_msm {
