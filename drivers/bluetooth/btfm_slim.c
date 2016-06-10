@@ -25,6 +25,7 @@
 #include <sound/tlv.h>
 #include <btfm_slim.h>
 #include <btfm_slim_wcn3990.h>
+#include <linux/bluetooth-power.h>
 
 int btfm_slim_write(struct btfmslim *btfmslim,
 		uint16_t reg, int bytes, void *src, uint8_t pgd)
@@ -494,6 +495,7 @@ static int btfm_slim_probe(struct slim_device *slim)
 	/* Driver specific data allocation */
 	btfm_slim->dev = &slim->dev;
 	ret = btfm_slim_register_codec(&slim->dev);
+	ret = bt_register_slimdev(&slim->dev);
 	return ret;
 
 dealloc:

@@ -23,12 +23,9 @@ enum print_reason {
 	PR_MISC		= BIT(2),
 };
 
-enum smb_voters {
-	DEFAULT_VOTER = 0,
-	USER_VOTER,
-	PD_VOTER,
-	NUM_VOTERS,
-};
+#define DEFAULT_VOTER	"DEFAULT_VOTER"
+#define USER_VOTER	"USER_VOTER"
+#define PD_VOTER	"PD_VOTER"
 
 struct smb_regulator {
 	struct regulator_dev	*rdev;
@@ -101,17 +98,6 @@ int smblib_write(struct smb_charger *chg, u16 addr, u8 val);
 
 int smblib_enable_charging(struct smb_charger *chg, bool enable);
 
-int smblib_usb_suspend_vote_callback(struct device *dev,
-		int disable, int client, int last_disable, int last_client);
-int smblib_dc_suspend_vote_callback(struct device *dev,
-		int disable, int client, int last_disable, int last_client);
-int smblib_fcc_vote_callback(struct device *dev,
-		int fcc_ua, int client, int last_fcc_ua, int last_client);
-int smblib_usb_icl_vote_callback(struct device *dev,
-		int icl_ua, int client, int last_icl_ua, int last_client);
-int smblib_dc_icl_vote_callback(struct device *dev,
-		int icl_ua, int client, int last_icl_ua, int last_client);
-
 int smblib_vbus_regulator_enable(struct regulator_dev *rdev);
 int smblib_vbus_regulator_disable(struct regulator_dev *rdev);
 int smblib_vbus_regulator_is_enabled(struct regulator_dev *rdev);
@@ -172,5 +158,6 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 				const union power_supply_propval *val);
 
 int smblib_init(struct smb_charger *chg);
+int smblib_deinit(struct smb_charger *chg);
 #endif /* __SMB2_CHARGER_H */
 

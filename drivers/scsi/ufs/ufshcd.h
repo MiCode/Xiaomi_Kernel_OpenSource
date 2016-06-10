@@ -74,6 +74,7 @@
 #define UFSHCD_DRIVER_VERSION "0.3"
 
 #define UFS_BIT(x)	BIT(x)
+#define UFS_MASK(x, y)	(x << ((y) % BITS_PER_LONG))
 
 struct ufs_hba;
 
@@ -306,6 +307,8 @@ struct ufs_pwr_mode_info {
  *		 implementations of resetting the hci
  * @dbg_register_dump: used to dump controller debug information
  * @update_sec_cfg: called to restore host controller secure configuration
+ * @get_scale_down_gear: called to get the minimum supported gear to
+ *			 scale down
  * @add_debugfs: used to add debugfs entries
  * @remove_debugfs: used to remove debugfs entries
  */
@@ -331,6 +334,7 @@ struct ufs_hba_variant_ops {
 	int	(*full_reset)(struct ufs_hba *);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
+	u32	(*get_scale_down_gear)(struct ufs_hba *);
 #ifdef CONFIG_DEBUG_FS
 	void	(*add_debugfs)(struct ufs_hba *hba, struct dentry *root);
 	void	(*remove_debugfs)(struct ufs_hba *hba);
@@ -429,6 +433,7 @@ enum ufshcd_hibern8_on_idle_state {
 	HIBERN8_EXITED,
 	REQ_HIBERN8_ENTER,
 	REQ_HIBERN8_EXIT,
+	AUTO_HIBERN8,
 };
 
 /**
@@ -771,6 +776,9 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_QUIRK_BROKEN_UFS_HCI_VERSION		UFS_BIT(5)
 
+	/* Auto hibern8 support is broken */
+	#define UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8		UFS_BIT(6)
+
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
 	/* Device deviations from standard UFS device spec. */
@@ -929,6 +937,12 @@ static inline bool ufshcd_is_intr_aggr_allowed(struct ufs_hba *hba)
 		return false;
 }
 
+static inline bool ufshcd_is_auto_hibern8_supported(struct ufs_hba *hba)
+{
+	return !!((hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT) &&
+		!(hba->quirks & UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8));
+}
+
 static inline bool ufshcd_is_crypto_supported(struct ufs_hba *hba)
 {
 	return !!(hba->capabilities & MASK_CRYPTO_SUPPORT);
@@ -963,6 +977,8 @@ void ufshcd_remove(struct ufs_hba *);
 int ufshcd_wait_for_register(struct ufs_hba *hba, u32 reg, u32 mask,
 				u32 val, unsigned long interval_us,
 				unsigned long timeout_ms, bool can_sleep);
+int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
+int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 
 /**
  * ufshcd_set_variant - set variant specific data to the hba
@@ -1040,6 +1056,32 @@ static inline int ufshcd_dme_peer_get(struct ufs_hba *hba,
 				      u32 attr_sel, u32 *mib_val)
 {
 	return ufshcd_dme_get_attr(hba, attr_sel, mib_val, DME_PEER);
+}
+
+/**
+ * ufshcd_dme_rmw - get modify set a dme attribute
+ * @hba - per adapter instance
+ * @mask - mask to apply on read value
+ * @val - actual value to write
+ * @attr - dme attribute
+ */
+static inline int ufshcd_dme_rmw(struct ufs_hba *hba, u32 mask,
+				 u32 val, u32 attr)
+{
+	u32 cfg = 0;
+	int err = 0;
+
+	err = ufshcd_dme_get(hba, UIC_ARG_MIB(attr), &cfg);
+	if (err)
+		goto out;
+
+	cfg &= ~mask;
+	cfg |= (val & mask);
+
+	err = ufshcd_dme_set(hba, UIC_ARG_MIB(attr), cfg);
+
+out:
+	return err;
 }
 
 int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size);
@@ -1204,6 +1246,14 @@ static inline int ufshcd_vops_update_sec_cfg(struct ufs_hba *hba,
 	if (hba->var && hba->var->vops && hba->var->vops->update_sec_cfg)
 		return hba->var->vops->update_sec_cfg(hba, restore_sec_cfg);
 	return 0;
+}
+
+static inline u32 ufshcd_vops_get_scale_down_gear(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->get_scale_down_gear)
+		return hba->var->vops->get_scale_down_gear(hba);
+	/* Default to lowest high speed gear */
+	return UFS_HS_G1;
 }
 
 #ifdef CONFIG_DEBUG_FS

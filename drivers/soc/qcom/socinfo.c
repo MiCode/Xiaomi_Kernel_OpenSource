@@ -534,6 +534,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Cobalt ID */
 	[306] = {MSM_CPU_HAMSTER, "MSMHAMSTER"},
 
+	/* falcon ID */
+	[317] = {MSM_CPU_FALCON, "MSMFALCON"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -1197,6 +1200,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msmhamster()) {
 		dummy_socinfo.id = 306;
 		strlcpy(dummy_socinfo.build_id, "msmhamster - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msmfalcon()) {
+		dummy_socinfo.id = 317;
+		strlcpy(dummy_socinfo.build_id, "msmfalcon - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 

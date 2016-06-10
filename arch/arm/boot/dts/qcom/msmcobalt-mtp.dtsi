@@ -97,6 +97,36 @@
 };
 
 &pmcobalt_gpios {
+	/* GPIO 6 for Vol+ Key */
+	gpio@c500 {
+		status = "okay";
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,out-strength = <1>;
+	};
+
+	/* GPIO 7 for Snapshot Key */
+	gpio@c600 {
+		status = "okay";
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,out-strength = <1>;
+	};
+
+	/* GPIO 8 for Focus Key */
+	gpio@c700 {
+		status = "okay";
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,out-strength = <1>;
+	};
+
 	gpio@cc00 { /* GPIO 13 */
 		qcom,mode = <1>;
 		qcom,output-type = <0>;
@@ -163,6 +193,21 @@
 		clocks = <&clock_gcc clk_ln_bb_clk3_pin>;
 		clock-names = "ref_clk";
 	};
+};
+
+&mdss_hdmi_tx {
+	pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active", "hdmi_cec_active",
+				"hdmi_active", "hdmi_sleep";
+	pinctrl-0 = <&mdss_hdmi_5v_active  &mdss_hdmi_hpd_active
+			&mdss_hdmi_ddc_suspend &mdss_hdmi_cec_suspend>;
+	pinctrl-1 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+			&mdss_hdmi_ddc_active &mdss_hdmi_cec_suspend>;
+	pinctrl-2 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+			&mdss_hdmi_cec_active &mdss_hdmi_ddc_suspend>;
+	pinctrl-3 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+			&mdss_hdmi_ddc_active &mdss_hdmi_cec_active>;
+	pinctrl-4 = <&mdss_hdmi_5v_suspend &mdss_hdmi_hpd_suspend
+			&mdss_hdmi_ddc_suspend &mdss_hdmi_cec_suspend>;
 };
 
 &pmicobalt_haptics {
@@ -278,5 +323,38 @@
 &soc {
 	sound-9335 {
 		qcom,wcn-btfm;
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		status = "okay";
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pmcobalt_gpios 6 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		cam_snapshot {
+			label = "cam_snapshot";
+			gpios = <&pmcobalt_gpios 7 0x1>;
+			linux,input-type = <1>;
+			linux,code = <766>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		cam_focus {
+			label = "cam_focus";
+			gpios = <&pmcobalt_gpios 8 0x1>;
+			linux,input-type = <1>;
+			linux,code = <528>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
 	};
 };

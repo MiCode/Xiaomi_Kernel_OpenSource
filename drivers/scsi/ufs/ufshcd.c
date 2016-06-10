@@ -362,8 +362,6 @@ static int ufshcd_disable_clocks(struct ufs_hba *hba,
 static int ufshcd_disable_clocks_skip_ref_clk(struct ufs_hba *hba,
 					      bool is_gating_context);
 static int ufshcd_set_vccq_rail_unused(struct ufs_hba *hba, bool unused);
-static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
-static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
 static inline void ufshcd_add_delay_before_dme_cmd(struct ufs_hba *hba);
 static inline void ufshcd_save_tstamp_of_last_dme_cmd(struct ufs_hba *hba);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
@@ -1570,6 +1568,16 @@ static void ufshcd_exit_clk_gating(struct ufs_hba *hba)
 	cancel_delayed_work_sync(&hba->clk_gating.gate_work);
 }
 
+static void ufshcd_set_auto_hibern8_timer(struct ufs_hba *hba, u32 delay)
+{
+	ufshcd_rmwl(hba, AUTO_HIBERN8_TIMER_SCALE_MASK |
+			 AUTO_HIBERN8_IDLE_TIMER_MASK,
+			AUTO_HIBERN8_TIMER_SCALE_1_MS | delay,
+			REG_AUTO_HIBERN8_IDLE_TIMER);
+	/* Make sure the timer gets applied before further operations */
+	mb();
+}
+
 /**
  * ufshcd_hibern8_hold - Make sure that link is not in hibern8.
  *
@@ -1799,6 +1807,13 @@ static ssize_t ufshcd_hibern8_on_idle_delay_store(struct device *dev,
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->hibern8_on_idle.delay_ms = value;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	/* Update auto hibern8 timer value if supported */
+	if (ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled)
+		ufshcd_set_auto_hibern8_timer(hba,
+					      hba->hibern8_on_idle.delay_ms);
+
 	return count;
 }
 
@@ -1825,6 +1840,13 @@ static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
 	if (value == hba->hibern8_on_idle.is_enabled)
 		goto out;
 
+	/* Update auto hibern8 timer value if supported */
+	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		ufshcd_set_auto_hibern8_timer(hba,
+			value ? hba->hibern8_on_idle.delay_ms : value);
+		goto update;
+	}
+
 	if (value) {
 		/*
 		 * As clock gating work would wait for the hibern8 enter work
@@ -1838,6 +1860,7 @@ static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 
+update:
 	hba->hibern8_on_idle.is_enabled = value;
 out:
 	return count;
@@ -1848,12 +1871,23 @@ static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 	/* initialize the state variable here */
 	hba->hibern8_on_idle.state = HIBERN8_EXITED;
 
-	if (!ufshcd_is_hibern8_on_idle_allowed(hba))
+	if (!ufshcd_is_hibern8_on_idle_allowed(hba) &&
+	    !ufshcd_is_auto_hibern8_supported(hba))
 		return;
 
-	INIT_DELAYED_WORK(&hba->hibern8_on_idle.enter_work,
-			  ufshcd_hibern8_enter_work);
-	INIT_WORK(&hba->hibern8_on_idle.exit_work, ufshcd_hibern8_exit_work);
+	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		hba->hibern8_on_idle.state = AUTO_HIBERN8;
+		/*
+		 * Disable SW hibern8 enter on idle in case
+		 * auto hibern8 is supported
+		 */
+		hba->caps &= ~UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
+	} else {
+		INIT_DELAYED_WORK(&hba->hibern8_on_idle.enter_work,
+				  ufshcd_hibern8_enter_work);
+		INIT_WORK(&hba->hibern8_on_idle.exit_work,
+			  ufshcd_hibern8_exit_work);
+	}
 
 	hba->hibern8_on_idle.delay_ms = 10;
 	hba->hibern8_on_idle.is_enabled = true;
@@ -1881,7 +1915,8 @@ static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 
 static void ufshcd_exit_hibern8_on_idle(struct ufs_hba *hba)
 {
-	if (!ufshcd_is_hibern8_on_idle_allowed(hba))
+	if (!ufshcd_is_hibern8_on_idle_allowed(hba) &&
+	    !ufshcd_is_auto_hibern8_supported(hba))
 		return;
 	device_remove_file(hba->dev, &hba->hibern8_on_idle.delay_attr);
 	device_remove_file(hba->dev, &hba->hibern8_on_idle.enable_attr);
@@ -2275,9 +2310,12 @@ static int ufshcd_prepare_crypto_utrd(struct ufs_hba *hba,
 	 */
 	ret = ufshcd_vops_crypto_req_setup(hba, lrbp, &cc_index, &enable, &dun);
 	if (ret) {
-		dev_err(hba->dev,
-			"%s: failed to setup crypto request (%d)\n",
-			__func__, ret);
+		if (ret != -EAGAIN) {
+			dev_err(hba->dev,
+				"%s: failed to setup crypto request (%d)\n",
+				__func__, ret);
+		}
+
 		return ret;
 	}
 
@@ -2302,7 +2340,7 @@ out:
  * @upiu_flags: flags required in the header
  * @cmd_dir: requests data direction
  */
-static void ufshcd_prepare_req_desc_hdr(struct ufs_hba *hba,
+static int ufshcd_prepare_req_desc_hdr(struct ufs_hba *hba,
 	struct ufshcd_lrb *lrbp, u32 *upiu_flags,
 	enum dma_data_direction cmd_dir)
 {
@@ -2343,7 +2381,9 @@ static void ufshcd_prepare_req_desc_hdr(struct ufs_hba *hba,
 	req_desc->prd_table_length = 0;
 
 	if (ufshcd_is_crypto_supported(hba))
-		ufshcd_prepare_crypto_utrd(hba, lrbp);
+		return ufshcd_prepare_crypto_utrd(hba, lrbp);
+
+	return 0;
 }
 
 /**
@@ -2446,15 +2486,16 @@ static int ufshcd_compose_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	switch (lrbp->command_type) {
 	case UTP_CMD_TYPE_SCSI:
 		if (likely(lrbp->cmd)) {
-			ufshcd_prepare_req_desc_hdr(hba, lrbp, &upiu_flags,
-					lrbp->cmd->sc_data_direction);
+			ret = ufshcd_prepare_req_desc_hdr(hba, lrbp,
+				&upiu_flags, lrbp->cmd->sc_data_direction);
 			ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
 		} else {
 			ret = -EINVAL;
 		}
 		break;
 	case UTP_CMD_TYPE_DEV_MANAGE:
-		ufshcd_prepare_req_desc_hdr(hba, lrbp, &upiu_flags, DMA_NONE);
+		ret = ufshcd_prepare_req_desc_hdr(hba, lrbp, &upiu_flags,
+			DMA_NONE);
 		if (hba->dev_cmd.type == DEV_CMD_TYPE_QUERY)
 			ufshcd_prepare_utp_query_req_upiu(
 					hba, lrbp, upiu_flags);
@@ -2609,7 +2650,20 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	lrbp->req_abort_skip = false;
 
 	/* form UPIU before issuing the command */
-	ufshcd_compose_upiu(hba, lrbp);
+	err = ufshcd_compose_upiu(hba, lrbp);
+	if (err) {
+		if (err != -EAGAIN)
+			dev_err(hba->dev,
+				"%s: failed to compose upiu %d\n",
+				__func__, err);
+
+			lrbp->cmd = NULL;
+			clear_bit_unlock(tag, &hba->lrb_in_use);
+			ufshcd_release_all(hba);
+			ufshcd_vops_pm_qos_req_end(hba, cmd->request, true);
+			goto out;
+	}
+
 	err = ufshcd_map_sg(lrbp);
 	if (err) {
 		lrbp->cmd = NULL;
@@ -3982,7 +4036,7 @@ static int __ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 	return ret;
 }
 
-static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
+int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 {
 	int ret = 0, retries;
 
@@ -3995,7 +4049,7 @@ out:
 	return ret;
 }
 
-static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
+int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 {
 	struct uic_command uic_cmd = {0};
 	int ret;
@@ -6702,6 +6756,11 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	if (ret)
 		goto out;
 
+	/* Enable auto hibern8 if supported */
+	if (ufshcd_is_auto_hibern8_supported(hba))
+		ufshcd_set_auto_hibern8_timer(hba,
+					      hba->hibern8_on_idle.delay_ms);
+
 	/* Debug counters initialization */
 	ufshcd_clear_dbg_ufs_stats(hba);
 	/* set the default level for urgent bkops */
@@ -8531,9 +8590,9 @@ static bool ufshcd_is_devfreq_scaling_required(struct ufs_hba *hba,
  */
 static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 {
-	#define UFS_MIN_GEAR_TO_SCALE_DOWN	UFS_HS_G2
 	int ret = 0;
 	struct ufs_pa_layer_attr new_pwr_info;
+	u32 scale_down_gear = ufshcd_vops_get_scale_down_gear(hba);
 
 	BUG_ON(!hba->clk_scaling.saved_pwr_info.is_valid);
 
@@ -8544,16 +8603,16 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 		memcpy(&new_pwr_info, &hba->pwr_info,
 		       sizeof(struct ufs_pa_layer_attr));
 
-		if (hba->pwr_info.gear_tx > UFS_MIN_GEAR_TO_SCALE_DOWN
-		    || hba->pwr_info.gear_rx > UFS_MIN_GEAR_TO_SCALE_DOWN) {
+		if (hba->pwr_info.gear_tx > scale_down_gear
+		    || hba->pwr_info.gear_rx > scale_down_gear) {
 			/* save the current power mode */
 			memcpy(&hba->clk_scaling.saved_pwr_info.info,
 				&hba->pwr_info,
 				sizeof(struct ufs_pa_layer_attr));
 
 			/* scale down gear */
-			new_pwr_info.gear_tx = UFS_MIN_GEAR_TO_SCALE_DOWN;
-			new_pwr_info.gear_rx = UFS_MIN_GEAR_TO_SCALE_DOWN;
+			new_pwr_info.gear_tx = scale_down_gear;
+			new_pwr_info.gear_rx = scale_down_gear;
 			if (!(hba->dev_quirks & UFS_DEVICE_NO_FASTAUTO)) {
 				new_pwr_info.pwr_tx = FASTAUTO_MODE;
 				new_pwr_info.pwr_rx = FASTAUTO_MODE;

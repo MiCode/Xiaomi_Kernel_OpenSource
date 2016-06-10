@@ -209,34 +209,6 @@ out:
 	return err;
 }
 
-static int ufs_qcom_link_startup_post_change(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct phy *phy = host->generic_phy;
-	u32 tx_lanes;
-	int err = 0;
-
-	err = ufs_qcom_get_connected_tx_lanes(hba, &tx_lanes);
-	if (err)
-		goto out;
-
-	err = ufs_qcom_phy_set_tx_lane_enable(phy, tx_lanes);
-	if (err)
-		dev_err(hba->dev, "%s: ufs_qcom_phy_set_tx_lane_enable failed\n",
-			__func__);
-
-	/*
-	 * Some UFS devices send incorrect LineCfg data as part of power mode
-	 * change sequence which may cause host PHY to go into bad state.
-	 * Disabling Rx LineCfg of host PHY should help avoid this.
-	 */
-	if (ufshcd_get_local_unipro_ver(hba) == UFS_UNIPRO_VER_1_41)
-		err = ufs_qcom_phy_ctrl_rx_linecfg(phy, false);
-
-out:
-	return err;
-}
-
 static int ufs_qcom_check_hibern8(struct ufs_hba *hba)
 {
 	int err;
@@ -340,15 +312,43 @@ out:
  * in a specific operation, UTP controller CGCs are by default disabled and
  * this function enables them (after every UFS link startup) to save some power
  * leakage.
+ *
+ * UFS host controller v3.0.0 onwards has internal clock gating mechanism
+ * in Qunipro, enable them to save additional power.
  */
-static void ufs_qcom_enable_hw_clk_gating(struct ufs_hba *hba)
+static int ufs_qcom_enable_hw_clk_gating(struct ufs_hba *hba)
 {
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int err = 0;
+
+	/* Enable UTP internal clock gating */
 	ufshcd_writel(hba,
 		ufshcd_readl(hba, REG_UFS_CFG2) | REG_UFS_CFG2_CGC_EN_ALL,
 		REG_UFS_CFG2);
 
 	/* Ensure that HW clock gating is enabled before next operations */
 	mb();
+
+	/* Enable Qunipro internal clock gating if supported */
+	if (!ufs_qcom_cap_qunipro_clk_gating(host))
+		goto out;
+
+	/* Enable all the mask bits */
+	err = ufshcd_dme_rmw(hba, DL_VS_CLK_CFG_MASK,
+				DL_VS_CLK_CFG_MASK, DL_VS_CLK_CFG);
+	if (err)
+		goto out;
+
+	err = ufshcd_dme_rmw(hba, PA_VS_CLK_CFG_REG_MASK,
+				PA_VS_CLK_CFG_REG_MASK, PA_VS_CLK_CFG_REG);
+	if (err)
+		goto out;
+
+	err = ufshcd_dme_rmw(hba, DME_VS_CORE_CLK_CTRL_DME_HW_CGC_EN,
+				DME_VS_CORE_CLK_CTRL_DME_HW_CGC_EN,
+				DME_VS_CORE_CLK_CTRL);
+out:
+	return err;
 }
 
 static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
@@ -379,7 +379,6 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 	case POST_CHANGE:
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
 		err = ufs_qcom_check_hibern8(hba);
-		ufs_qcom_enable_hw_clk_gating(hba);
 		break;
 	default:
 		dev_err(hba->dev, "%s: invalid status %d\n", __func__, status);
@@ -427,9 +426,11 @@ static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
 	 * SYS1CLK_1US_REG, TX_SYMBOL_CLK_1US_REG, CLK_NS_REG &
 	 * UFS_REG_PA_LINK_STARTUP_TIMER
 	 * But UTP controller uses SYS1CLK_1US_REG register for Interrupt
-	 * Aggregation logic.
+	 * Aggregation / Auto hibern8 logic.
 	*/
-	if (ufs_qcom_cap_qunipro(host) && !ufshcd_is_intr_aggr_allowed(hba))
+	if (ufs_qcom_cap_qunipro(host) &&
+	    (!(ufshcd_is_intr_aggr_allowed(hba) ||
+	       ufshcd_is_auto_hibern8_supported(hba))))
 		goto out;
 
 	if (gear == 0) {
@@ -536,57 +537,136 @@ out:
 	return ret;
 }
 
+static int ufs_qcom_link_startup_pre_change(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+	u32 unipro_ver;
+	int err = 0;
+
+	if (ufs_qcom_cfg_timers(hba, UFS_PWM_G1, SLOWAUTO_MODE, 0, true)) {
+		dev_err(hba->dev, "%s: ufs_qcom_cfg_timers() failed\n",
+			__func__);
+		err = -EINVAL;
+		goto out;
+	}
+
+	/* make sure RX LineCfg is enabled before link startup */
+	err = ufs_qcom_phy_ctrl_rx_linecfg(phy, true);
+	if (err)
+		goto out;
+
+	if (ufs_qcom_cap_qunipro(host)) {
+		/*
+		 * set unipro core clock cycles to 150 & clear clock divider
+		 */
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150);
+		if (err)
+			goto out;
+	}
+
+	err = ufs_qcom_enable_hw_clk_gating(hba);
+	if (err)
+		goto out;
+
+	/*
+	 * Some UFS devices (and may be host) have issues if LCC is
+	 * enabled. So we are setting PA_Local_TX_LCC_Enable to 0
+	 * before link startup which will make sure that both host
+	 * and device TX LCC are disabled once link startup is
+	 * completed.
+	 */
+	unipro_ver = ufshcd_get_local_unipro_ver(hba);
+	if (unipro_ver != UFS_UNIPRO_VER_1_41)
+		err = ufshcd_dme_set(hba,
+				     UIC_ARG_MIB(PA_LOCAL_TX_LCC_ENABLE),
+				     0);
+	if (err)
+		goto out;
+
+	if (!ufs_qcom_cap_qunipro_clk_gating(host))
+		goto out;
+
+	/* Enable all the mask bits */
+	err = ufshcd_dme_rmw(hba, SAVECONFIGTIME_MODE_MASK,
+				SAVECONFIGTIME_MODE_MASK,
+				PA_VS_CONFIG_REG1);
+out:
+	return err;
+}
+
+static int ufs_qcom_link_startup_post_change(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+	u32 tx_lanes;
+	int err = 0;
+
+	err = ufs_qcom_get_connected_tx_lanes(hba, &tx_lanes);
+	if (err)
+		goto out;
+
+	err = ufs_qcom_phy_set_tx_lane_enable(phy, tx_lanes);
+	if (err) {
+		dev_err(hba->dev, "%s: ufs_qcom_phy_set_tx_lane_enable failed\n",
+			__func__);
+		goto out;
+	}
+
+	/*
+	 * Some UFS devices send incorrect LineCfg data as part of power mode
+	 * change sequence which may cause host PHY to go into bad state.
+	 * Disabling Rx LineCfg of host PHY should help avoid this.
+	 */
+	if (ufshcd_get_local_unipro_ver(hba) == UFS_UNIPRO_VER_1_41)
+		err = ufs_qcom_phy_ctrl_rx_linecfg(phy, false);
+	if (err) {
+		dev_err(hba->dev, "%s: ufs_qcom_phy_ctrl_rx_linecfg failed\n",
+			__func__);
+		goto out;
+	}
+
+	/*
+	 * UFS controller has *clk_req output to GCC, for each one if the clocks
+	 * entering it. When *clk_req for a specific clock is de-asserted,
+	 * a corresponding clock from GCC is stopped. UFS controller de-asserts
+	 * *clk_req outputs when it is in Auto Hibernate state only if the
+	 * Clock request feature is enabled.
+	 * Enable the Clock request feature:
+	 * - Enable HW clock control for UFS clocks in GCC (handled by the
+	 *   clock driver as part of clk_prepare_enable).
+	 * - Set the AH8_CFG.*CLK_REQ register bits to 1.
+	 */
+	if (ufshcd_is_auto_hibern8_supported(hba))
+		ufshcd_writel(hba, ufshcd_readl(hba, UFS_AH8_CFG) |
+				   UFS_HW_CLK_CTRL_EN,
+				   UFS_AH8_CFG);
+	/*
+	 * Make sure clock request feature gets enabled for HW clk gating
+	 * before further operations.
+	 */
+	mb();
+
+out:
+	return err;
+}
+
 static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 					enum ufs_notify_change_status status)
 {
 	int err = 0;
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct phy *phy = host->generic_phy;
 
 	switch (status) {
 	case PRE_CHANGE:
-		if (ufs_qcom_cfg_timers(hba, UFS_PWM_G1, SLOWAUTO_MODE,
-					0, true)) {
-			dev_err(hba->dev, "%s: ufs_qcom_cfg_timers() failed\n",
-				__func__);
-			err = -EINVAL;
-			goto out;
-		}
-
-		/* make sure RX LineCfg is enabled before link startup */
-		err = ufs_qcom_phy_ctrl_rx_linecfg(phy, true);
-		if (err)
-			goto out;
-
-		if (ufs_qcom_cap_qunipro(host))
-			/*
-			 * set unipro core clock cycles to 150 & clear clock
-			 * divider
-			 */
-			err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba,
-									  150);
-
-		/*
-		 * Some UFS devices (and may be host) have issues if LCC is
-		 * enabled. So we are setting PA_Local_TX_LCC_Enable to 0
-		 * before link startup which will make sure that both host
-		 * and device TX LCC are disabled once link startup is
-		 * completed.
-		 */
-		if (ufshcd_get_local_unipro_ver(hba) != UFS_UNIPRO_VER_1_41)
-			err = ufshcd_dme_set(hba,
-					UIC_ARG_MIB(PA_LOCAL_TX_LCC_ENABLE),
-					0);
-
+		err = ufs_qcom_link_startup_pre_change(hba);
 		break;
 	case POST_CHANGE:
-		ufs_qcom_link_startup_post_change(hba);
+		err = ufs_qcom_link_startup_post_change(hba);
 		break;
 	default:
 		break;
 	}
 
-out:
 	return err;
 }
 
@@ -700,9 +780,6 @@ static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
 		*dun = req->bio->bi_iter.bi_sector;
 
 	ret = ufs_qcom_ice_req_setup(host, lrbp->cmd, cc_index, enable);
-	if (ret)
-		dev_err(hba->dev, "%s: ufs_qcom_ice_req_setup failed (%d)\n",
-			__func__, ret);
 
 	return ret;
 }
@@ -1275,6 +1352,9 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 				| UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE
 				| UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP);
 	}
+
+	if (host->disable_lpm)
+		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
 }
 
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
@@ -1293,6 +1373,20 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 			hba->caps |= UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8;
 		host->caps = UFS_QCOM_CAP_QUNIPRO |
 			     UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE;
+	}
+	if (host->hw_ver.major >= 0x3) {
+		host->caps |= UFS_QCOM_CAP_QUNIPRO_CLK_GATING;
+		/*
+		 * The UFS PHY attached to v3.0.0 controller supports entering
+		 * deeper low power state of SVS2. This lets the controller
+		 * run at much lower clock frequencies for saving power.
+		 * Assuming this and any future revisions of the controller
+		 * support this capability. Need to revist this assumption if
+		 * any future platform with this core doesn't support the
+		 * capability, as there will be no benefit running at lower
+		 * frequencies then.
+		 */
+		host->caps |= UFS_QCOM_CAP_SVS2;
 	}
 }
 
@@ -1982,10 +2076,41 @@ out:
 	return err;
 }
 
+static inline int ufs_qcom_configure_lpm(struct ufs_hba *hba, bool enable)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+	int err = 0;
+
+	/* The default low power mode configuration is SVS2 */
+	if (!ufs_qcom_cap_svs2(host))
+		goto out;
+
+	/*
+	 * The link should be put in hibern8 state before
+	 * configuring the PHY to enter/exit SVS2 mode.
+	 */
+	err = ufshcd_uic_hibern8_enter(hba);
+	if (err)
+		goto out;
+
+	err = ufs_qcom_phy_configure_lpm(phy, enable);
+	if (err)
+		goto out;
+
+	err = ufshcd_uic_hibern8_exit(hba);
+out:
+	return err;
+}
+
 static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 {
-	/* nothing to do as of now */
-	return 0;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (!ufs_qcom_cap_qunipro(host))
+		return 0;
+
+	return ufs_qcom_configure_lpm(hba, false);
 }
 
 static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
@@ -2002,11 +2127,15 @@ static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
 static int ufs_qcom_clk_scale_down_pre_change(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	int err;
 	u32 core_clk_ctrl_reg;
+	int err = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
-		return 0;
+		goto out;
+
+	err = ufs_qcom_configure_lpm(hba, true);
+	if (err)
+		goto out;
 
 	err = ufshcd_dme_get(hba,
 			    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
@@ -2020,19 +2149,32 @@ static int ufs_qcom_clk_scale_down_pre_change(struct ufs_hba *hba)
 				    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
 				    core_clk_ctrl_reg);
 	}
-
+out:
 	return err;
 }
 
 static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int err = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
 		return 0;
 
-	/* set unipro core clock cycles to 75 and clear clock divider */
-	return ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75);
+	if (ufs_qcom_cap_svs2(host))
+		/*
+		 * For SVS2 set unipro core clock cycles to 37 and
+		 * clear clock divider
+		 */
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 37);
+	else
+		/*
+		 * For SVS set unipro core clock cycles to 75 and
+		 * clear clock divider
+		 */
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75);
+
+	return err;
 }
 
 static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
@@ -2042,12 +2184,14 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
 	int err = 0;
 
-	if (status == PRE_CHANGE) {
+	switch (status) {
+	case PRE_CHANGE:
 		if (scale_up)
 			err = ufs_qcom_clk_scale_up_pre_change(hba);
 		else
 			err = ufs_qcom_clk_scale_down_pre_change(hba);
-	} else {
+		break;
+	case POST_CHANGE:
 		if (scale_up)
 			err = ufs_qcom_clk_scale_up_post_change(hba);
 		else
@@ -2062,6 +2206,11 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 				    dev_req_params->hs_rate,
 				    false);
 		ufs_qcom_update_bus_bw_vote(host);
+		break;
+	default:
+		dev_err(hba->dev, "%s: invalid status %d\n", __func__, status);
+		err = -EINVAL;
+		break;
 	}
 
 out:
@@ -2131,6 +2280,17 @@ out:
 	dev_dbg(hba->dev, "%s: ip: restore_sec_cfg %d, op: restore_sec_cfg %d, ret %d scm_ret %d\n",
 		__func__, restore_sec_cfg, host->sec_cfg_updated, ret, scm_ret);
 	return ret;
+}
+
+
+static inline u32 ufs_qcom_get_scale_down_gear(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (ufs_qcom_cap_svs2(host))
+		return UFS_HS_G1;
+	/* Default SVS support @ HS G2 frequencies*/
+	return UFS_HS_G2;
 }
 
 void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
@@ -2353,6 +2513,7 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.resume			= ufs_qcom_resume,
 	.full_reset		= ufs_qcom_full_reset,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
+	.get_scale_down_gear	= ufs_qcom_get_scale_down_gear,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 #ifdef CONFIG_DEBUG_FS
 	.add_debugfs		= ufs_qcom_dbg_add_debugfs,

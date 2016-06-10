@@ -296,6 +296,11 @@ enum mdss_mdp_max_bw_mode {
 /* Count of the number of MDP_FB_PAGE_PROTECTION_... values. */
 #define MDP_NUM_FB_PAGE_PROTECTION_VALUES        (5)
 
+#define MDP_DEEP_COLOR_YUV444    0x1
+#define MDP_DEEP_COLOR_RGB30B    0x2
+#define MDP_DEEP_COLOR_RGB36B    0x4
+#define MDP_DEEP_COLOR_RGB48B    0x8
+
 struct mdp_rect {
 	uint32_t x;
 	uint32_t y;

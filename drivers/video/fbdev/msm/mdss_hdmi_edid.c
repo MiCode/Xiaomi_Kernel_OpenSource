@@ -126,6 +126,7 @@ struct hdmi_edid_ctrl {
 	u8 it_scan_info;
 	u8 ce_scan_info;
 	u8 cea_blks;
+	u8 deep_color;
 	u16 physical_address;
 	u32 video_resolution; /* selected by user */
 	u32 sink_mode; /* HDMI or DVI */
@@ -1301,6 +1302,33 @@ static void hdmi_edid_extract_vendor_id(struct hdmi_edid_ctrl *edid_ctrl)
 	vendor_id[3] = 0;
 } /* hdmi_edid_extract_vendor_id */
 
+static void hdmi_edid_extract_dc(struct hdmi_edid_ctrl *edid_ctrl,
+	const u8 *in_buf)
+{
+	u8 len;
+	const u8 *vsd = NULL;
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET,
+		VENDOR_SPECIFIC_DATA_BLOCK, &len);
+
+	if (vsd == NULL || len == 0 || len > MAX_DATA_BLOCK_SIZE)
+		return;
+
+	edid_ctrl->deep_color = (vsd[6] >> 0x3) & 0xF;
+
+	DEV_DBG("%s: deep color: Y444|RGB30|RGB36|RGB48: (%d|%d|%d|%d)\n",
+		__func__,
+		(int) (edid_ctrl->deep_color & BIT(0)) >> 0,
+		(int) (edid_ctrl->deep_color & BIT(1)) >> 1,
+		(int) (edid_ctrl->deep_color & BIT(2)) >> 2,
+		(int) (edid_ctrl->deep_color & BIT(3)) >> 3);
+}
+
 static u32 hdmi_edid_check_header(const u8 *edid_buf)
 {
 	return (edid_buf[0] == 0x00) && (edid_buf[1] == 0xff)
@@ -2198,6 +2226,7 @@ int hdmi_edid_parser(void *input)
 
 	hdmi_edid_extract_sink_caps(edid_ctrl, edid_buf);
 	hdmi_edid_extract_latency_fields(edid_ctrl, edid_buf);
+	hdmi_edid_extract_dc(edid_ctrl, edid_buf);
 	hdmi_edid_extract_speaker_allocation_data(edid_ctrl, edid_buf);
 	hdmi_edid_extract_audio_data_blocks(edid_ctrl, edid_buf);
 	hdmi_edid_extract_3d_present(edid_ctrl, edid_buf);
@@ -2302,6 +2331,29 @@ u32 hdmi_edid_get_sink_mode(void *input)
 
 	return sink_mode;
 } /* hdmi_edid_get_sink_mode */
+
+/**
+ * hdmi_edid_get_deep_color() - get deep color info supported by sink
+ * @input: edid parser data
+ *
+ * This API returns deep color for different formats supported by sink.
+ * Deep color support for Y444 (BIT(0)), RGB30 (BIT(1)), RGB36 (BIT(2),
+ * RGB 48 (BIT(3)) is provided in a 8 bit integer. The MSB 8 bits are
+ * not used.
+ *
+ * Return: deep color data.
+ */
+u8 hdmi_edid_get_deep_color(void *input)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return 0;
+	}
+
+	return edid_ctrl->deep_color;
+}
 
 bool hdmi_edid_is_s3d_mode_supported(void *input, u32 video_mode, u32 s3d_mode)
 {

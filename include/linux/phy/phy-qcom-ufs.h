@@ -57,5 +57,6 @@ int ufs_qcom_phy_is_pcs_ready(struct phy *phy);
 void ufs_qcom_phy_save_controller_version(struct phy *phy,
 			u8 major, u16 minor, u16 step);
 const char *ufs_qcom_phy_name(struct phy *phy);
+int ufs_qcom_phy_configure_lpm(struct phy *generic_phy, bool enable);
 
 #endif /* PHY_QCOM_UFS_H_ */

@@ -50,6 +50,7 @@ struct bt_power_vreg_data {
 struct bluetooth_power_platform_data {
 	/* Bluetooth reset gpio */
 	int bt_gpio_sys_rst;
+	struct device *slim_dev;
 	/* VDDIO voltage regulator */
 	struct bt_power_vreg_data *bt_vdd_io;
 	/* VDD_PA voltage regulator */
@@ -70,4 +71,7 @@ struct bluetooth_power_platform_data {
 	int (*bt_power_setup)(int);
 };
 
+int bt_register_slimdev(struct device *dev);
+
+#define BT_CMD_SLIM_TEST		0xbfac
 #endif /* __LINUX_BLUETOOTH_POWER_H */

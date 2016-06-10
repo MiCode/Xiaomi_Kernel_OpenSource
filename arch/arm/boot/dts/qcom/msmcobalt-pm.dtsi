@@ -371,7 +371,18 @@
 			<0xff  332>, /* kgsl-3d0 */
 			<0xff  115>, /* MDSS */
 			<0xff  131>, /* i2c-msm-v2-irq */
-			<0xff  163>; /* dwc3 */
+			<0xff  163>, /* dwc3 */
+			<0xff  240>, /* tlmm */
+			<0xff  310>, /* pcie20_global_int */
+			<0xff  323>, /* lpass_slimbus1_core_ee1_irq */
+			<0xff  437>, /* pcie20_0_int_msi_dev0 */
+			<0xff  196>, /* lpass_aud_slimbus_bam_ee1_irq */
+			<0xff  215>, /* o_bimc_intr */
+			<0xff  280>, /* pcie20_intd */
+			<0xff  324>, /* lpass_qca_slimbus_bam_ee1_irq */
+			<0xff  432>, /* smmu_Cirpt[8] */
+			<0xff  433>, /* smmu_Cirpt[9] */
+			<0xff  461>; /* o_ocimem_nonsec_irq */
 
 		qcom,gpio-parent = <&tlmm>;
 		qcom,gpio-map = <3  1>,
