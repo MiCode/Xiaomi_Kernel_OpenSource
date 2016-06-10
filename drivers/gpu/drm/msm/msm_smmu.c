@@ -375,6 +375,7 @@ struct msm_mmu *msm_smmu_new(struct device *dev,
 
 	smmu->client_dev = client_dev;
 	msm_mmu_init(&smmu->base, dev, &funcs);
+	smmu->base.domain = domain;
 
 	client = msm_smmu_to_client(smmu);
 	if (client)

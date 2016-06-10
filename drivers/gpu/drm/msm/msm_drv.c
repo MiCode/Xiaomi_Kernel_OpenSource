@@ -20,6 +20,7 @@
 #include "msm_kms.h"
 #include "display_manager.h"
 #include "sde_wb.h"
+#include "msm_mmu.h"
 
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
@@ -931,14 +932,19 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 	struct drm_gem_object *obj;
 	int ret = 0;
 
-	if (args->pad)
-		return -EINVAL;
-
 	obj = drm_gem_object_lookup(dev, file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
-	args->offset = msm_gem_mmap_offset(obj);
+	if (args->hint == 1) {
+		uint32_t iova;
+
+		/* iova is 32 bits for now, later could be 64 bits. */
+		msm_gem_get_iova_in_domain(obj, MSM_SMMU_DOMAIN_GPU, &iova);
+		args->offset = iova;
+	} else {
+		args->offset = msm_gem_mmap_offset(obj);
+	}
 
 	drm_gem_object_unreference_unlocked(obj);
 

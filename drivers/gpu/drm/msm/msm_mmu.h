@@ -53,6 +53,7 @@ struct msm_mmu_funcs {
 struct msm_mmu {
 	const struct msm_mmu_funcs *funcs;
 	struct device *dev;
+	enum msm_mmu_domain_type domain;
 };
 
 static inline void msm_mmu_init(struct msm_mmu *mmu, struct device *dev,
