@@ -495,6 +495,18 @@ void msm_gpu_retire(struct msm_gpu *gpu)
 	update_sw_cntrs(gpu);
 }
 
+#ifdef MSM_FORCE_SUBMIT
+static inline bool get_force_submit(struct msm_drm_private *priv)
+{
+	return priv->force_submit;
+}
+#else
+static inline bool get_force_submit(struct msm_drm_private *priv)
+{
+	return false;
+}
+#endif
+
 /* add bo's to gpu's ring, and kick gpu: */
 int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 		struct msm_file_private *ctx)
@@ -511,7 +523,8 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 
 	inactive_cancel(gpu);
 
-	list_add_tail(&submit->node, &gpu->submit_list);
+	if (!get_force_submit(priv))
+		list_add_tail(&submit->node, &gpu->submit_list);
 
 	msm_rd_dump_submit(submit);
 
@@ -544,6 +557,8 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 	}
 
 	ret = gpu->funcs->submit(gpu, submit, ctx);
+	if (get_force_submit(priv) && gpu->funcs->idle(gpu))
+		DRM_ERROR("%s: hardware hang\n", __func__);
 	priv->lastctx = ctx;
 
 	hangcheck_timer_reset(gpu);

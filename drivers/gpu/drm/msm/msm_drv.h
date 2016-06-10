@@ -286,6 +286,9 @@ struct msm_drm_private {
 	struct msm_vblank_ctrl vblank_ctrl;
 
 	struct msm_evtlog evtlog;
+#ifdef MSM_FORCE_SUBMIT
+	bool force_submit;
+#endif
 };
 
 /* Helper macro for accessing msm_drm_private's event log */

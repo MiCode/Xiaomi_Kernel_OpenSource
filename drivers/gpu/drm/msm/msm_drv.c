@@ -333,6 +333,17 @@ static int msm_init_vram(struct drm_device *dev)
 	return ret;
 }
 
+#ifdef MSM_FORCE_SUBMIT
+static inline void msm_force_submit(struct msm_drm_private *priv)
+{
+	priv->force_submit = true;
+}
+#else
+static inline void msm_force_submit(struct msm_drm_private *priv)
+{
+}
+#endif
+
 static int msm_load(struct drm_device *dev, unsigned long flags)
 {
 	struct platform_device *pdev = dev->platformdev;
@@ -358,6 +369,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	INIT_WORK(&priv->vblank_ctrl.work, vblank_ctrl_worker);
 	spin_lock_init(&priv->vblank_ctrl.lock);
 
+	msm_force_submit(priv);
 	drm_mode_config_init(dev);
 
 	platform_set_drvdata(pdev, dev);
