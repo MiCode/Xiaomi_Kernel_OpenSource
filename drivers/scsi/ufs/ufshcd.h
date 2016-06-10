@@ -538,6 +538,8 @@ struct debugfs_files {
 	u32 dme_local_attr_id;
 	u32 dme_peer_attr_id;
 	struct dentry *reset_controller;
+	struct dentry *err_state;
+	bool err_occurred;
 #ifdef CONFIG_UFS_FAULT_INJECTION
 	struct dentry *err_inj_scenario;
 	struct dentry *err_inj_stats;
