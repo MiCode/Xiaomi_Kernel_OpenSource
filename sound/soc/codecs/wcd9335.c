@@ -3734,12 +3734,16 @@ static int tasha_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 		set_bit(HPH_PA_DELAY, &tasha->status_mask);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		if ((snd_soc_read(codec, WCD9335_ANA_HPH) & 0xC0) != 0xC0)
-			/* If PA_EN is not set (potentially in ANC case) then
-			 * do nothing for POST_PMU and let left channel handle
-			 * everything.
-			 */
-			break;
+		if (!(strcmp(w->name, "ANC HPHR PA"))) {
+			if ((snd_soc_read(codec, WCD9335_ANA_HPH) & 0xC0)
+							!= 0xC0)
+				/*
+				 * If PA_EN is not set (potentially in ANC case)
+				 * then do nothing for POST_PMU and let left
+				 * channel handle everything.
+				 */
+				break;
+		}
 		/*
 		 * 7ms sleep is required after PA is enabled as per
 		 * HW requirement
@@ -3822,12 +3826,16 @@ static int tasha_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 		set_bit(HPH_PA_DELAY, &tasha->status_mask);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		if ((snd_soc_read(codec, WCD9335_ANA_HPH) & 0xC0) != 0xC0)
-			/* If PA_EN is not set (potentially in ANC case) then
-			 * do nothing for POST_PMU and let right channel handle
-			 * everything.
-			 */
-			break;
+		if (!(strcmp(w->name, "ANC HPHL PA"))) {
+			if ((snd_soc_read(codec, WCD9335_ANA_HPH) & 0xC0)
+								!= 0xC0)
+				/*
+				 * If PA_EN is not set (potentially in ANC case)
+				 * then do nothing for POST_PMU and let right
+				 * channel handle everything.
+				 */
+				break;
+		}
 		/*
 		 * 7ms sleep is required after PA is enabled as per
 		 * HW requirement
