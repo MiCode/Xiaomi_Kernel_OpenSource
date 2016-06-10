@@ -499,3 +499,13 @@
 		status = "disabled";
 	};
 };
+
+&qupv3_se22_spi {
+	status = "ok";
+	spi_codec@0 {
+		compatible = "qcom,spi-msm-codec-slave";
+		reg = <0>;
+		spi-max-frequency = <12800000>;
+		spi-cpha;
+	};
+};
