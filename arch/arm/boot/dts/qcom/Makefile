@@ -106,6 +106,7 @@ dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-rumi.dtb \
 	msmcobalt-cdp.dtb \
 	msmcobalt-mtp.dtb \
+	msmcobalt-qrd.dtb \
 	msmcobalt-v2-sim.dtb \
 	msmcobalt-v2-rumi.dtb \
 	msmcobalt-v2-mtp.dtb \
