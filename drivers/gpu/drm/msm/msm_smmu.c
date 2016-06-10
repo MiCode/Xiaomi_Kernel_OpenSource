@@ -261,6 +261,11 @@ static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 		.va_size = SZ_4G,
 		.secure = true,
 	},
+	[MSM_SMMU_DOMAIN_GPU] = {
+		.label = "gpu",
+		.va_start = SZ_16M,
+		.va_size = 0xFFFFFFFF - SZ_16M,
+	},
 };
 
 static const struct of_device_id msm_smmu_dt_match[] = {
@@ -272,6 +277,8 @@ static const struct of_device_id msm_smmu_dt_match[] = {
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_UNSECURE] },
 	{ .compatible = "qcom,smmu_rot_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_SECURE] },
+	{ .compatible = "qcom,kgsl-smmu-v2",
+		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_GPU] },
 	{}
 };
 MODULE_DEVICE_TABLE(of, msm_smmu_dt_match);
@@ -298,7 +305,8 @@ static struct device *msm_smmu_device_create(struct device *dev,
 	}
 	DRM_INFO("found domain %d compat: %s\n", domain, compat);
 
-	if (domain == MSM_SMMU_DOMAIN_UNSECURE) {
+	if ((domain == MSM_SMMU_DOMAIN_UNSECURE) ||
+		(domain == MSM_SMMU_DOMAIN_GPU)) {
 		int rc;
 
 		smmu->client = devm_kzalloc(dev,

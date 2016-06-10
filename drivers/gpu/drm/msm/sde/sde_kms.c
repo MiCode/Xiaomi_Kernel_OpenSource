@@ -529,6 +529,21 @@ static int sde_translation_ctrl_pwr(struct sde_kms *sde_kms,
 	int ret;
 
 	if (on) {
+		if (sde_kms->mmagic) {
+			ret = regulator_enable(sde_kms->mmagic);
+			if (ret) {
+				DRM_ERROR("failed to enable mmagic GDSC: %d\n",
+						ret);
+				goto fail;
+			}
+		}
+		if (sde_kms->mmagic_clk) {
+			clk_prepare_enable(sde_kms->mmagic_clk);
+			if (ret) {
+				DRM_ERROR("failed to enable mmagic_clk\n");
+				goto undo_gdsc;
+			}
+		}
 		if (sde_kms->iommu_ahb_clk[domain]) {
 			ret = clk_prepare_enable(
 					sde_kms->iommu_ahb_clk[domain]);
@@ -564,7 +579,10 @@ static int sde_translation_ctrl_pwr(struct sde_kms *sde_kms,
 undo_mmagic_clk:
 	if (sde_kms->mmagic_clk)
 		clk_disable_unprepare(sde_kms->mmagic_clk);
-
+undo_gdsc:
+	if (sde_kms->mmagic)
+		regulator_disable(sde_kms->mmagic);
+fail:
 	return ret;
 }
 int sde_mmu_init(struct sde_kms *sde_kms)
@@ -594,7 +612,7 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 	sde_disable(sde_kms);
 	msleep(20);
 
-	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
+	for (i = 0; i <= MSM_SMMU_DOMAIN_NRT_SECURE; i++) {
 		mmu = msm_smmu_new(sde_kms->dev->dev, i);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
