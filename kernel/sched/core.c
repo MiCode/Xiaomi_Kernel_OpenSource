@@ -1866,9 +1866,10 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 {
 	int cpu = cpu_of(rq);
 	int sf;
+	u32 freq;
 
-	delta = DIV64_U64_ROUNDUP(delta * rq->cc.cycles,
-				  max_possible_freq * rq->cc.time);
+	freq = cpu_cycles_to_freq(rq->cc.cycles, rq->cc.time);
+	delta = DIV64_U64_ROUNDUP(delta * freq, max_possible_freq);
 	sf = DIV_ROUND_UP(cpu_efficiency(cpu) * 1024, max_possible_efficiency);
 
 	delta *= sf;
