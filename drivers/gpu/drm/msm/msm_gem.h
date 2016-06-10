@@ -24,9 +24,14 @@
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
 
+struct msm_gem_buf {
+	dma_addr_t dma_addr;
+	struct dma_attrs dma_attrs;
+};
+
 struct msm_gem_object {
 	struct drm_gem_object base;
-
+	struct msm_gem_buf *buf;
 	uint32_t flags;
 
 	/* And object is either:
