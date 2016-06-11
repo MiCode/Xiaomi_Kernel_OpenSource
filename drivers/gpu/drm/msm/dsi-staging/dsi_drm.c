@@ -96,7 +96,7 @@ static int dsi_bridge_attach(struct drm_bridge *bridge)
 		return -EINVAL;
 	}
 
-	pr_debug("Bridge %d attached\n", c_bridge->id);
+	pr_debug("[%d] attached\n", c_bridge->id);
 
 	return 0;
 
@@ -109,28 +109,38 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 
 	if (!c_bridge) {
 		pr_err("Invalid params\n");
-		rc = -EINVAL;
+		return;
+	}
+
+	pr_debug("");
+
+	/* By this point mode should have been validated through mode_fixup */
+	rc = dsi_display_set_mode(c_bridge->display,
+			&(c_bridge->dsi_mode), 0x0);
+	if (rc) {
+		pr_err("[%d] failed to perform a mode set, rc=%d\n",
+		       c_bridge->id, rc);
+		return;
+	}
+
+	if (c_bridge->dsi_mode.flags & DSI_MODE_FLAG_SEAMLESS) {
+		pr_debug("[%d] seamless pre-enable\n", c_bridge->id);
+		return;
 	}
 
 	rc = dsi_display_prepare(c_bridge->display);
 	if (rc) {
-		pr_err("[%d]DSI display prepare failed, rc=%d\n",
+		pr_err("[%d] DSI display prepare failed, rc=%d\n",
 		       c_bridge->id, rc);
-		goto end;
+		return;
 	}
 
 	rc = dsi_display_enable(c_bridge->display);
 	if (rc) {
-		pr_err("[%d]DSI display enable failed, rc=%d\n",
+		pr_err("[%d] DSI display enable failed, rc=%d\n",
 		       c_bridge->id, rc);
-		goto error_unprep_display;
+		(void)dsi_display_unprepare(c_bridge->display);
 	}
-
-	return;
-error_unprep_display:
-	(void)dsi_display_unprepare(c_bridge->display);
-end:
-	pr_debug("");
 }
 
 static void dsi_bridge_enable(struct drm_bridge *bridge)
@@ -143,9 +153,14 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 		return;
 	}
 
+	if (c_bridge->dsi_mode.flags & DSI_MODE_FLAG_SEAMLESS) {
+		pr_debug("[%d] seamless enable\n", c_bridge->id);
+		return;
+	}
+
 	rc = dsi_display_post_enable(c_bridge->display);
 	if (rc)
-		pr_err("[%d]DSI display post enabled failed, rc=%d\n",
+		pr_err("[%d] DSI display post enabled failed, rc=%d\n",
 		       c_bridge->id, rc);
 }
 
@@ -162,7 +177,7 @@ static void dsi_bridge_disable(struct drm_bridge *bridge)
 
 	rc = dsi_display_pre_disable(c_bridge->display);
 	if (rc) {
-		pr_err("[%d] dsi display pre disable failed, rc=%d\n",
+		pr_err("[%d] DSI display pre disable failed, rc=%d\n",
 		       c_bridge->id, rc);
 		goto error;
 	}
@@ -202,24 +217,17 @@ static void dsi_bridge_mode_set(struct drm_bridge *bridge,
 				struct drm_display_mode *mode,
 				struct drm_display_mode *adjusted_mode)
 {
-	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
-	struct dsi_display_mode dsi_mode;
 
 	if (!c_bridge || !mode || !adjusted_mode) {
 		pr_err("Invalid params\n");
-		rc = -EINVAL;
+		return;
 	}
 
-	memset(&dsi_mode, 0x0, sizeof(dsi_mode));
+	pr_debug("");
 
-	convert_to_dsi_mode(adjusted_mode, &dsi_mode);
-
-	/* By this point mode should have been validated through mode_fixup */
-	rc = dsi_display_set_mode(c_bridge->display, &dsi_mode, 0x0);
-	if (rc)
-		pr_err("[%d] failed to perform a mode set, rc=%d\n",
-		       c_bridge->id, rc);
+	memset(&(c_bridge->dsi_mode), 0x0, sizeof(struct dsi_display_mode));
+	convert_to_dsi_mode(adjusted_mode, &(c_bridge->dsi_mode));
 }
 
 static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
@@ -241,7 +249,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	rc = dsi_display_validate_mode(c_bridge->display, &dsi_mode,
 			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
 	if (rc) {
-		pr_err("[%d] Mode is not valid, rc=%d\n", c_bridge->id, rc);
+		pr_err("[%d] mode is not valid, rc=%d\n", c_bridge->id, rc);
 		ret = false;
 	} else {
 		convert_to_drm_mode(&dsi_mode, adjusted_mode);
@@ -513,7 +521,7 @@ struct dsi_connector *dsi_drm_connector_init(struct dsi_display *display,
 				   DRM_MODE_PROP_BLOB | DRM_MODE_PROP_IMMUTABLE,
 				   "DISPLAY_TYPE", 0);
 	if (!blob) {
-		pr_err("Failed to create DISPLAY_TYPE property\n");
+		pr_err("failed to create DISPLAY_TYPE property\n");
 		goto error_unregister_conn;
 	}
 
