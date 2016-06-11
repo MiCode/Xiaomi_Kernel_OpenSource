@@ -735,19 +735,30 @@ static void ipa_work_handler(struct work_struct *w)
 						  usb_ipa_w);
 	u8 event;
 	int ret = 0;
-	struct device *gad_dev = &d_port->gadget->dev;
+	struct usb_gadget *gadget = d_port->gadget;
+	struct device *dev;
+	struct device *gad_dev;
 
 	event = read_event(d_port);
 
 	log_event_dbg("%s: event = %x sm_state %x", __func__,
 			event, d_port->sm_state);
 
+	if (gadget) {
+		dev = &gadget->dev;
+		if (!dev || !dev->parent) {
+			log_event_err("%s(): dev or dev->parent is NULL.\n",
+					__func__);
+			return;
+		}
+		gad_dev = dev->parent;
+	} else {
+		log_event_err("%s(): gadget is NULL.\n", __func__);
+		return;
+	}
+
 	switch (d_port->sm_state) {
 	case STATE_UNINITIALIZED:
-		if (event == EVT_INITIALIZED) {
-			d_port->sm_state = STATE_INITIALIZED;
-			log_event_dbg("%s: ST_INIT_EVT_INIT", __func__);
-		}
 		break;
 	case STATE_INITIALIZED:
 		if (event == EVT_CONNECT_IN_PROGRESS) {
@@ -2772,8 +2783,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 
 	status = gsi_update_function_bind_params(gsi, cdev, &info);
 
-	post_event(&gsi->d_port, EVT_INITIALIZED);
-	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
+	gsi->d_port.sm_state = STATE_INITIALIZED;
 
 	DBG(cdev, "%s: %s speed IN/%s OUT/%s NOTIFY/%s\n",
 			f->name,
