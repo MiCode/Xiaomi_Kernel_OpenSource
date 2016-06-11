@@ -143,6 +143,7 @@ snd-soc-wcd-mbhc-objs := wcd-mbhc-v2.o
 snd-soc-msm8952-wcd-objs := msm8x16-wcd.o msm8x16-wcd-tables.o
 snd-soc-wsa881x-analog-objs := wsa881x-analog.o wsa881x-tables-analog.o
 snd-soc-wsa881x-analog-objs += wsa881x-regmap-analog.o wsa881x-irq.o
+snd-soc-wcd-dsp-utils-objs := wcd-dsp-utils.o
 snd-soc-wl1273-objs := wl1273.o
 snd-soc-wm-adsp-objs := wm_adsp.o
 snd-soc-wm0010-objs := wm0010.o
