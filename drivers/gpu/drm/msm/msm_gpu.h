@@ -23,6 +23,7 @@
 
 #include "msm_drv.h"
 #include "msm_ringbuffer.h"
+#include "drma_iommu.h"
 
 struct msm_gem_submit;
 struct msm_gpu_perfcntr;
@@ -100,7 +101,7 @@ struct msm_gpu {
 
 	/* Power Control: */
 	struct regulator *gpu_reg, *gpu_cx;
-	struct clk *ebi1_clk, *grp_clks[6];
+	struct clk *ebi1_clk, *grp_clks[8];
 	uint32_t fast_rate, slow_rate, bus_freq;
 
 #ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
@@ -141,6 +142,17 @@ struct msm_gpu_perfcntr {
 	const char *name;
 };
 
+static inline void gpu_write_mask(struct msm_gpu *gpu,
+					unsigned int reg,
+					unsigned int mask, unsigned int bits)
+{
+	unsigned int val = 0;
+
+	val = msm_readl(gpu->mmio + (reg << 2));
+	val &= ~mask;
+	msm_writel(val | bits, gpu->mmio + (reg << 2));
+}
+
 static inline void gpu_write(struct msm_gpu *gpu, u32 reg, u32 data)
 {
 	msm_writel(data, gpu->mmio + (reg << 2));
@@ -165,9 +177,10 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct msm_gpu *gpu, const struct msm_gpu_funcs *funcs,
-		const char *name, const char *ioname, const char *irqname, int ringsz);
+		const char *name, const char *ioname, const char *irqname);
 void msm_gpu_cleanup(struct msm_gpu *gpu);
 
+struct drma_iommu *get_gpu_iommu(struct platform_device *pdev);
 struct msm_gpu *adreno_load_gpu(struct drm_device *dev);
 void __init adreno_register(void);
 void __exit adreno_unregister(void);

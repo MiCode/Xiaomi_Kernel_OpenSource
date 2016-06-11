@@ -628,20 +628,25 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 static irqreturn_t irq_handler(int irq, void *data)
 {
 	struct msm_gpu *gpu = data;
+
 	return gpu->funcs->irq(gpu);
 }
 
 static const char *clk_names[] = {
-		"src_clk", "core_clk", "iface_clk", "mem_clk", "mem_iface_clk",
-		"alt_mem_iface_clk",
+		"src_clk", "core_clk", "iface_clk", "rbbmtimer_clk",
+		"mem_clk", "mem_iface_clk", "alt_mem_iface_clk", "mx_clk"
 };
+
+#define RB_SIZE    SZ_32K
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct msm_gpu *gpu, const struct msm_gpu_funcs *funcs,
-		const char *name, const char *ioname, const char *irqname, int ringsz)
+		const char *name, const char *ioname, const char *irqname)
 {
-	struct iommu_domain *iommu;
+	struct iommu_domain *iommu_domain;
 	int i, ret;
+	struct drma_iommu *iommu = get_gpu_iommu(pdev);
+	struct device *iommu_dev = iommu->ctx[KGSL_IOMMU_CONTEXT_USER].dev;
 
 	if (WARN_ON(gpu->num_perfcntrs > ARRAY_SIZE(gpu->last_cntrs)))
 		gpu->num_perfcntrs = ARRAY_SIZE(gpu->last_cntrs);
@@ -717,27 +722,30 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	 * and have separate page tables per context.  For now, to keep things
 	 * simple and to get something working, just use a single address space:
 	 */
-	iommu = iommu_domain_alloc(&platform_bus_type);
-	if (iommu) {
+	iommu_domain = iommu_domain_alloc(&platform_bus_type);
+	if (!IS_ERR_OR_NULL(iommu_domain)) {
 		dev_info(drm->dev, "%s: using IOMMU\n", name);
-		gpu->mmu = msm_iommu_new(&pdev->dev, iommu);
+		gpu->mmu = msm_smmu_new(iommu_dev, MSM_SMMU_DOMAIN_GPU);
 		if (IS_ERR(gpu->mmu)) {
 			ret = PTR_ERR(gpu->mmu);
-			dev_err(drm->dev, "failed to init iommu: %d\n", ret);
+			dev_err(drm->dev,
+				"failed to init iommu domain: %d\n", ret);
 			gpu->mmu = NULL;
-			iommu_domain_free(iommu);
+			iommu_domain_free(iommu_domain);
 			goto fail;
 		}
 
 	} else {
-		dev_info(drm->dev, "%s: no IOMMU, fallback to VRAM carveout!\n", name);
+		gpu->mmu = NULL;
+		dev_info(drm->dev, "%s: no IOMMU, fallback to VRAM!\n",
+			 name);
 	}
 	gpu->id = msm_register_mmu(drm, gpu->mmu);
 
 
 	/* Create ringbuffer: */
 	mutex_lock(&drm->struct_mutex);
-	gpu->rb = msm_ringbuffer_new(gpu, ringsz);
+	gpu->rb = msm_ringbuffer_new(gpu, RB_SIZE);
 	mutex_unlock(&drm->struct_mutex);
 	if (IS_ERR(gpu->rb)) {
 		ret = PTR_ERR(gpu->rb);

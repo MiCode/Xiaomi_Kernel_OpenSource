@@ -17,6 +17,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/of_platform.h>
 #include "adreno_gpu.h"
 
 #if defined(DOWNSTREAM_CONFIG_MSM_BUS_SCALING) && !defined(CONFIG_OF)
@@ -31,57 +32,32 @@ module_param_named(hang_debug, hang_debug, bool, 0600);
 
 struct msm_gpu *a3xx_gpu_init(struct drm_device *dev);
 struct msm_gpu *a4xx_gpu_init(struct drm_device *dev);
+struct msm_gpu *a5xx_gpu_init(struct drm_device *dev);
 
 static const struct adreno_info gpulist[] = {
 	{
-		.rev   = ADRENO_REV(3, 0, 5, ANY_ID),
-		.revn  = 305,
-		.name  = "A305",
-		.pm4fw = "a300_pm4.fw",
-		.pfpfw = "a300_pfp.fw",
-		.gmem  = SZ_256K,
-		.init  = a3xx_gpu_init,
-	}, {
-		.rev   = ADRENO_REV(3, 0, 6, 0),
-		.revn  = 307,        /* because a305c is revn==306 */
-		.name  = "A306",
-		.pm4fw = "a300_pm4.fw",
-		.pfpfw = "a300_pfp.fw",
-		.gmem  = SZ_128K,
-		.init  = a3xx_gpu_init,
-	}, {
-		.rev   = ADRENO_REV(3, 2, ANY_ID, ANY_ID),
-		.revn  = 320,
-		.name  = "A320",
-		.pm4fw = "a300_pm4.fw",
-		.pfpfw = "a300_pfp.fw",
-		.gmem  = SZ_512K,
-		.init  = a3xx_gpu_init,
-	}, {
-		.rev   = ADRENO_REV(3, 3, 0, ANY_ID),
-		.revn  = 330,
-		.name  = "A330",
-		.pm4fw = "a330_pm4.fw",
-		.pfpfw = "a330_pfp.fw",
+		.rev   = ADRENO_REV(5, 3, 0, 0),
+		.revn  = 530,
+		.name  = "A530",
+		.pm4fw = "a530v1_pm4.fw",
+		.pfpfw = "a530v1_pfp.fw",
 		.gmem  = SZ_1M,
-		.init  = a3xx_gpu_init,
+		.init  = a5xx_gpu_init,
 	}, {
-		.rev   = ADRENO_REV(4, 2, 0, ANY_ID),
-		.revn  = 420,
-		.name  = "A420",
-		.pm4fw = "a420_pm4.fw",
-		.pfpfw = "a420_pfp.fw",
-		.gmem  = (SZ_1M + SZ_512K),
-		.init  = a4xx_gpu_init,
+		.rev   = ADRENO_REV(5, 3, 0, ANY_ID),
+		.revn  = 530,
+		.name  = "A530",
+		.pm4fw = "a530_pm4.fw",
+		.pfpfw = "a530_pfp.fw",
+		.zap_name = "a530_zap",
+		.regfw_name = "a530v3_seq.fw2",
+		.gmem  = SZ_1M,
+		.init  = a5xx_gpu_init,
 	},
 };
 
-MODULE_FIRMWARE("a300_pm4.fw");
-MODULE_FIRMWARE("a300_pfp.fw");
-MODULE_FIRMWARE("a330_pm4.fw");
-MODULE_FIRMWARE("a330_pfp.fw");
-MODULE_FIRMWARE("a420_pm4.fw");
-MODULE_FIRMWARE("a420_pfp.fw");
+MODULE_FIRMWARE("a530_pm4.fw");
+MODULE_FIRMWARE("a530_pfp.fw");
 
 static inline bool _rev_match(uint8_t entry, uint8_t id)
 {
@@ -156,6 +132,180 @@ struct msm_gpu *adreno_load_gpu(struct drm_device *dev)
 	}
 
 	return gpu;
+}
+
+
+struct drma_iommu *get_gpu_iommu(struct platform_device *pdev)
+{
+	struct adreno_platform_config *platform_config;
+
+	platform_config = pdev->dev.platform_data;
+	return &platform_config->iommu;
+}
+
+void enable_iommu_clks(struct platform_device *pdev)
+{
+	int j;
+	struct drma_iommu *iommu = get_gpu_iommu(pdev);
+
+	for (j = 0; j < KGSL_IOMMU_MAX_CLKS; j++) {
+		if (iommu->clks[j])
+			clk_prepare_enable(iommu->clks[j]);
+	}
+}
+
+void disable_iommu_clks(struct platform_device *pdev)
+{
+	int j;
+	struct drma_iommu *iommu = get_gpu_iommu(pdev);
+
+	for (j = 0; j < KGSL_IOMMU_MAX_CLKS; j++) {
+		if (iommu->clks[j])
+			clk_disable_unprepare(iommu->clks[j]);
+	}
+}
+
+static const struct {
+	int id;
+	char *name;
+} kgsl_iommu_cbs[] = {
+	{ KGSL_IOMMU_CONTEXT_USER, "gfx3d_user", },
+	{ KGSL_IOMMU_CONTEXT_SECURE, "gfx3d_secure" },
+};
+
+static int _adreno_iommu_cb_probe(
+		struct drma_iommu *iommu, struct device_node *node)
+{
+	struct platform_device *pdev = of_find_device_by_node(node);
+	struct drma_iommu_context *ctx;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_cbs); i++) {
+		if (!strcmp(node->name, kgsl_iommu_cbs[i].name)) {
+			int id = kgsl_iommu_cbs[i].id;
+
+			ctx = &iommu->ctx[id];
+			ctx->id = id;
+			ctx->cb_num = -1;
+			ctx->name = kgsl_iommu_cbs[i].name;
+
+			break;
+		}
+	}
+
+	if (ctx == NULL) {
+		pr_err("dt: Unknown context label %s\n", node->name);
+		return -EINVAL;
+	}
+
+	/* this property won't be found for all context banks */
+	if (of_property_read_u32(node, "qcom,gpu-offset", &ctx->gpu_offset))
+		ctx->gpu_offset = UINT_MAX;
+
+	/* arm-smmu driver we'll have the right device pointer here. */
+	if (of_find_property(node, "iommus", NULL))
+		ctx->dev = &pdev->dev;
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
+static const struct {
+	char *feature;
+	int bit;
+} kgsl_iommu_features[] = {
+	{ "qcom,retention", KGSL_MMU_RETENTION },
+	{ "qcom,global_pt", KGSL_MMU_GLOBAL_PAGETABLE },
+	{ "qcom,hyp_secure_alloc", KGSL_MMU_HYP_SECURE_ALLOC },
+	{ "qcom,force-32bit", KGSL_MMU_FORCE_32BIT },
+	{ "qcom,coherent-htw", KGSL_MMU_COHERENT_HTW },
+};
+
+static int adreno_iommu_probe(struct platform_device *pdev)
+{
+	int i = 0;
+	struct device_node *node;
+	const char *cname;
+	struct property *prop;
+	u32 reg_val[2];
+	struct device_node *child;
+	struct adreno_platform_config *platform_config;
+	struct drma_iommu *iommu;
+	struct platform_device *smmupdev;
+
+	platform_config = pdev->dev.platform_data;
+	iommu = &platform_config->iommu;
+
+	node = of_find_compatible_node(pdev->dev.of_node,
+		NULL, "qcom,kgsl-smmu-v1");
+
+	if (node == NULL)
+		node = of_find_compatible_node(pdev->dev.of_node,
+			NULL, "qcom,kgsl-smmu-v2");
+
+	if (node == NULL)
+		return -ENODEV;
+
+	smmupdev = of_find_device_by_node(node);
+	BUG_ON(smmupdev == NULL);
+
+	if (of_device_is_compatible(node, "qcom,kgsl-smmu-v1"))
+		iommu->version = 1;
+	else
+		iommu->version = 2;
+
+	if (of_property_read_u32_array(node, "reg", reg_val, 2)) {
+		pr_err("dt: Unable to read KGSL IOMMU register range\n");
+		return -EINVAL;
+	}
+	iommu->regstart = reg_val[0];
+	iommu->regsize = reg_val[1];
+
+	/* Protecting the SMMU registers is mandatory */
+	if (of_property_read_u32_array(node, "qcom,protect", reg_val, 2)) {
+		pr_err("dt: no iommu protection range specified\n");
+		return -EINVAL;
+	}
+	iommu->protect_reg_base = reg_val[0] / sizeof(u32);
+	iommu->protect_reg_range = ilog2(reg_val[1] / sizeof(u32));
+
+	of_property_for_each_string(node, "clock-names", prop, cname) {
+		struct clk *c = devm_clk_get(&smmupdev->dev, cname);
+
+		if (IS_ERR(c)) {
+			pr_err("dt: Couldn't get clock: %s\n", cname);
+			return -ENODEV;
+		}
+		if (i >= KGSL_IOMMU_MAX_CLKS) {
+			pr_err("dt: too many clocks defined.\n");
+			return -EINVAL;
+		}
+
+		iommu->clks[i] = c;
+		++i;
+	}
+	enable_iommu_clks(pdev);
+
+	if (of_property_read_u32(node, "qcom,micro-mmu-control",
+		&iommu->micro_mmu_ctrl))
+		iommu->micro_mmu_ctrl = UINT_MAX;
+
+	/* Fill out the rest of the devices in the node */
+	of_platform_populate(node, NULL, NULL, &pdev->dev);
+
+	for_each_child_of_node(node, child) {
+		int ret = 0;
+
+		if (!of_device_is_compatible(child, "qcom,smmu-kgsl-cb"))
+			continue;
+
+		ret = _adreno_iommu_cb_probe(iommu, child);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static void set_gpu_pdev(struct drm_device *dev,
@@ -254,7 +404,7 @@ static int adreno_bind(struct device *dev, struct device *master, void *data)
 #endif
 	dev->platform_data = &config;
 	set_gpu_pdev(dev_get_drvdata(master), to_platform_device(dev));
-	return 0;
+	return adreno_iommu_probe(to_platform_device(dev));
 }
 
 static void adreno_unbind(struct device *dev, struct device *master,
