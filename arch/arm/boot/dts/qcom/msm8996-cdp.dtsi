@@ -504,6 +504,17 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&dsi_jdi_1080p_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,platform-reset-gpio = <&tlmm 8 0>;
+	qcom,platform-bklight-en-gpio = <&pm8994_gpios 14 0>;
+	qcom,5v-boost-gpio = <&pmi8994_gpios 8 0>;
+};
+
 &pm8994_gpios {
 	gpio@c700 { /* GPIO 8 - WLAN_EN */
 		qcom,mode = <1>;		/* Digital output*/
