@@ -52,6 +52,7 @@ struct dsi_bridge {
 	u32 id;
 
 	struct dsi_display *display;
+	struct dsi_display_mode dsi_mode;
 };
 
 struct dsi_connector *dsi_drm_connector_init(struct dsi_display *display,
