@@ -121,6 +121,7 @@
 			pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 			pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 			qcom,platform-te-gpio = <&tlmm 10 0>;
+			qcom,platform-reset-gpio = <&tlmm 8 0>;
 
 			qcom,dsi-panel = <&dsi_dual_sharp_video>;
 			vddio-supply = <&pm8994_l14>;
@@ -213,6 +214,10 @@
 			ibb-supply = <&ibb_regulator>;
 		};
 	};
+};
+
+&mdss_mdp {
+	connectors = <&mdss_hdmi &display_manager>;
 };
 
 &dsi_dual_sharp_video {
