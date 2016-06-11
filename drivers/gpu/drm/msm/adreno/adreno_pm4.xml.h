@@ -106,9 +106,10 @@ enum pc_di_vis_cull_mode {
 
 enum adreno_pm4_packet_type {
 	CP_TYPE0_PKT = 0,
-	CP_TYPE1_PKT = 0x40000000,
 	CP_TYPE2_PKT = 0x80000000,
 	CP_TYPE3_PKT = 0xc0000000,
+	CP_TYPE4_PKT = 0x40000000,
+	CP_TYPE7_PKT = 0x70000000,
 };
 
 enum adreno_pm4_type3_packets {
