@@ -769,6 +769,12 @@ static int dsi_panel_parse_dfps_caps(struct dsi_dfps_capabilities *dfps_caps,
 			pr_err("[%s] min rate > max rate\n", name);
 			rc = -EINVAL;
 		}
+
+		pr_debug("[%s] DFPS is supported %d-%d, mode %d\n", name,
+				dfps_caps->min_refresh_rate,
+				dfps_caps->max_refresh_rate,
+				dfps_caps->type);
+		dfps_caps->dfps_support = true;
 	}
 
 error:
@@ -1643,7 +1649,24 @@ int dsi_panel_get_phy_props(struct dsi_panel *panel,
 
 	mutex_unlock(&panel->panel_lock);
 	return rc;
+}
 
+int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
+			    struct dsi_dfps_capabilities *dfps_caps)
+{
+	int rc = 0;
+
+	if (!panel || !dfps_caps) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+
+	memcpy(dfps_caps, &panel->dfps_caps, sizeof(*dfps_caps));
+
+	mutex_unlock(&panel->panel_lock);
+	return rc;
 }
 
 int dsi_panel_get_mode(struct dsi_panel *panel,
@@ -1659,7 +1682,7 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 
 	mutex_lock(&panel->panel_lock);
 	if (index != 0)
-		rc = -ENOTSUPP;
+		rc = -ENOTSUPP; /* TODO: Support more than one mode */
 	else
 		memcpy(mode, &panel->mode, sizeof(*mode));
 

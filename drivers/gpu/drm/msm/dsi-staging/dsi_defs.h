@@ -58,6 +58,18 @@ enum dsi_op_mode {
 };
 
 /**
+ * enum dsi_mode_flags - flags to signal other drm components via private flags
+ * @DSI_MODE_FLAG_SEAMLESS:	Seamless transition requested by user
+ * @DSI_MODE_FLAG_DFPS:		Seamless transition is DynamicFPS
+ * @DSI_MODE_FLAG_VBLANK_PRE_MODESET:	Transition needs VBLANK before Modeset
+ */
+enum dsi_mode_flags {
+	DSI_MODE_FLAG_SEAMLESS			= BIT(0),
+	DSI_MODE_FLAG_DFPS			= BIT(1),
+	DSI_MODE_FLAG_VBLANK_PRE_MODESET	= BIT(2)
+};
+
+/**
  * enum dsi_data_lanes - dsi physical lanes
  * @DSI_DATA_LANE_0: Physical lane 0
  * @DSI_DATA_LANE_1: Physical lane 1

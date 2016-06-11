@@ -176,6 +176,8 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 
 int dsi_panel_get_phy_props(struct dsi_panel *panel,
 			    struct dsi_panel_phy_props *phy_props);
+int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
+			    struct dsi_dfps_capabilities *dfps_caps);
 
 int dsi_panel_pre_prepare(struct dsi_panel *panel);
 
