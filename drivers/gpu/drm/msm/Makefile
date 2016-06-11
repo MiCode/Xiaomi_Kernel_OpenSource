@@ -1,4 +1,5 @@
 ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm
+ccflags-y += -Idrivers/gpu/msm  -Idrivers/gpu/drm/msm/adreno
 ccflags-y += -Idrivers/gpu/drm/msm/dsi-staging
 ccflags-y += -Idrivers/gpu/drm/msm/hdmi
 ccflags-y += -Idrivers/gpu/drm/msm/hdmi-staging
@@ -62,8 +63,7 @@ msm-y := \
 ifneq ($(CONFIG_QCOM_KGSL),y)
 msm-y += adreno/adreno_device.o \
 	adreno/adreno_gpu.o \
-	adreno/a3xx_gpu.o \
-	adreno/a4xx_gpu.o
+	adreno/a5xx_gpu.o
 endif
 
 msm-$(CONFIG_DRM_MSM_HDCP) += hdmi/hdmi_hdcp.o

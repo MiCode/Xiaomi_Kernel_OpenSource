@@ -21,9 +21,9 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 
+#include "msm_iommu.h"
 #include "msm_drv.h"
 #include "msm_ringbuffer.h"
-#include "drma_iommu.h"
 
 struct msm_gem_submit;
 struct msm_gpu_perfcntr;
@@ -180,7 +180,7 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		const char *name, const char *ioname, const char *irqname);
 void msm_gpu_cleanup(struct msm_gpu *gpu);
 
-struct drma_iommu *get_gpu_iommu(struct platform_device *pdev);
+struct msm_iommu *get_gpu_iommu(struct platform_device *pdev);
 struct msm_gpu *adreno_load_gpu(struct drm_device *dev);
 void __init adreno_register(void);
 void __exit adreno_unregister(void);

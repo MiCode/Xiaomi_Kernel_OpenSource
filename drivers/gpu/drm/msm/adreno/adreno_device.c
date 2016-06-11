@@ -135,7 +135,7 @@ struct msm_gpu *adreno_load_gpu(struct drm_device *dev)
 }
 
 
-struct drma_iommu *get_gpu_iommu(struct platform_device *pdev)
+struct msm_iommu *get_gpu_iommu(struct platform_device *pdev)
 {
 	struct adreno_platform_config *platform_config;
 
@@ -146,7 +146,7 @@ struct drma_iommu *get_gpu_iommu(struct platform_device *pdev)
 void enable_iommu_clks(struct platform_device *pdev)
 {
 	int j;
-	struct drma_iommu *iommu = get_gpu_iommu(pdev);
+	struct msm_iommu *iommu = get_gpu_iommu(pdev);
 
 	for (j = 0; j < KGSL_IOMMU_MAX_CLKS; j++) {
 		if (iommu->clks[j])
@@ -157,7 +157,7 @@ void enable_iommu_clks(struct platform_device *pdev)
 void disable_iommu_clks(struct platform_device *pdev)
 {
 	int j;
-	struct drma_iommu *iommu = get_gpu_iommu(pdev);
+	struct msm_iommu *iommu = get_gpu_iommu(pdev);
 
 	for (j = 0; j < KGSL_IOMMU_MAX_CLKS; j++) {
 		if (iommu->clks[j])
@@ -174,10 +174,10 @@ static const struct {
 };
 
 static int _adreno_iommu_cb_probe(
-		struct drma_iommu *iommu, struct device_node *node)
+		struct msm_iommu *iommu, struct device_node *node)
 {
 	struct platform_device *pdev = of_find_device_by_node(node);
-	struct drma_iommu_context *ctx;
+	struct msm_iommu_context *ctx;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_cbs); i++) {
@@ -231,7 +231,7 @@ static int adreno_iommu_probe(struct platform_device *pdev)
 	u32 reg_val[2];
 	struct device_node *child;
 	struct adreno_platform_config *platform_config;
-	struct drma_iommu *iommu;
+	struct msm_iommu *iommu;
 	struct platform_device *smmupdev;
 
 	platform_config = pdev->dev.platform_data;

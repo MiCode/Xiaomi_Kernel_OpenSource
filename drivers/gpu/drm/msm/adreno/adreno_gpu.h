@@ -235,7 +235,7 @@ struct adreno_gpu {
 struct adreno_platform_config {
 	struct adreno_rev rev;
 	uint32_t fast_rate, slow_rate, bus_freq;
-	struct drma_iommu iommu;
+	struct msm_iommu iommu;
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *bus_scale_table;
 #endif
@@ -319,7 +319,7 @@ void adreno_recover(struct msm_gpu *gpu);
 int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 		struct msm_file_private *ctx);
 void adreno_flush(struct msm_gpu *gpu);
-void drma_idle(struct msm_gpu *gpu);
+void adreno_idle(struct msm_gpu *gpu);
 #ifdef CONFIG_DEBUG_FS
 void adreno_show(struct msm_gpu *gpu, struct seq_file *m);
 #endif

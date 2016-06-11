@@ -458,7 +458,7 @@ fail:
 	return ret;
 }
 
-#ifdef CONFIG_QCOM_KGSL
+#ifdef CONFIG_MSM_KGSL
 static void load_gpu(struct drm_device *dev)
 {
 }
@@ -1219,7 +1219,7 @@ static struct platform_driver msm_platform_driver = {
 	.id_table   = msm_id,
 };
 
-#ifdef CONFIG_QCOM_KGSL
+#ifdef CONFIG_MSM_KGSL
 void __init adreno_register(void)
 {
 }

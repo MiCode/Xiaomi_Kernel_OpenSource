@@ -19,7 +19,6 @@
 #include "msm_gem.h"
 #include "msm_mmu.h"
 
-
 /*
  * Power Management:
  */
@@ -645,7 +644,7 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 {
 	struct iommu_domain *iommu_domain;
 	int i, ret;
-	struct drma_iommu *iommu = get_gpu_iommu(pdev);
+	struct msm_iommu *iommu = get_gpu_iommu(pdev);
 	struct device *iommu_dev = iommu->ctx[KGSL_IOMMU_CONTEXT_USER].dev;
 
 	if (WARN_ON(gpu->num_perfcntrs > ARRAY_SIZE(gpu->last_cntrs)))
