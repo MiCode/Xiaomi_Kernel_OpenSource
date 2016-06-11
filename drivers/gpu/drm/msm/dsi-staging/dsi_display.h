@@ -29,6 +29,12 @@
 
 #define MAX_DSI_CTRLS_PER_DISPLAY             2
 
+/*
+ * DSI Validate Mode modifiers
+ * @DSI_VALIDATE_FLAG_ALLOW_ADJUST:	Allow mode validation to also do fixup
+ */
+#define DSI_VALIDATE_FLAG_ALLOW_ADJUST	0x1
+
 /**
  * enum dsi_display_type - enumerates DSI display types
  * @DSI_DISPLAY_SINGLE:       A panel connected on a single DSI interface.
@@ -324,11 +330,13 @@ int dsi_display_get_modes(struct dsi_display *display,
  * dsi_display_validate_mode() - validates if mode is supported by display
  * @display:             Handle to display.
  * @mode:                Mode to be validated.
+ * @flags:               Modifier flags.
  *
  * Return: 0 if supported or error code.
  */
 int dsi_display_validate_mode(struct dsi_display *display,
-			      struct dsi_display_mode *mode);
+			      struct dsi_display_mode *mode,
+			      u32 flags);
 
 /**
  * dsi_display_set_mode() - Set mode on the display.

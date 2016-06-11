@@ -50,6 +50,7 @@ enum dsi_ctrl_driver_ops {
 	DSI_CTRL_OP_HOST_INIT,
 	DSI_CTRL_OP_TPG,
 	DSI_CTRL_OP_PHY_SW_RESET,
+	DSI_CTRL_OP_ASYNC_TIMING,
 	DSI_CTRL_OP_MAX
 };
 
@@ -394,6 +395,13 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 		if (state->power_state != DSI_CTRL_POWER_CORE_CLK_ON) {
 			pr_debug("[%d]State error: op=%d: %d\n",
 			       dsi_ctrl->index, op, state->power_state);
+			rc = -EINVAL;
+		}
+		break;
+	case DSI_CTRL_OP_ASYNC_TIMING:
+		if (state->vid_engine_state != op_state) {
+			pr_err("[%d] Unexpected engine state vid_state=%d\n",
+			       dsi_ctrl->index, op_state);
 			rc = -EINVAL;
 		}
 		break;
@@ -1630,6 +1638,47 @@ error:
 }
 
 /**
+ * dsi_ctrl_seamless_timing_update() - update only controller timing
+ * @dsi_ctrl:          DSI controller handle.
+ * @timing:            New DSI timing info
+ *
+ * Updates host timing values to conduct a seamless transition to new timing
+ * For example, to update the porch values in a dynamic fps switch.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_async_timing_update(struct dsi_ctrl *dsi_ctrl,
+		struct dsi_mode_info *timing)
+{
+	struct dsi_mode_info *host_mode;
+	int rc = 0;
+
+	if (!dsi_ctrl || !timing) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_ASYNC_TIMING,
+			DSI_CTRL_ENGINE_ON);
+	if (rc) {
+		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
+		       dsi_ctrl->index, rc);
+		goto exit;
+	}
+
+	host_mode = &dsi_ctrl->host_config.video_timing;
+	memcpy(host_mode, timing, sizeof(*host_mode));
+
+	dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw, host_mode);
+
+exit:
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return rc;
+}
+
+/**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
  *
@@ -1734,6 +1783,7 @@ error:
  * dsi_ctrl_update_host_config() - update dsi host configuration
  * @dsi_ctrl:          DSI controller handle.
  * @config:            DSI host configuration.
+ * @flags:             dsi_mode_flags modifying the behavior
  *
  * Updates driver with new Host configuration to use for host initialization.
  * This function call will only update the software context. The stored
@@ -1742,7 +1792,8 @@ error:
  * Return: error code.
  */
 int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
-				struct dsi_host_config *config)
+				struct dsi_host_config *config,
+				int flags)
 {
 	int rc = 0;
 
@@ -1759,11 +1810,13 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 		goto error;
 	}
 
-	rc = dsi_ctrl_update_link_freqs(ctrl, config);
-	if (rc) {
-		pr_err("[%s] failed to update link frequencies, rc=%d\n",
-		       ctrl->name, rc);
-		goto error;
+	if (!(flags & DSI_MODE_FLAG_SEAMLESS)) {
+		rc = dsi_ctrl_update_link_freqs(ctrl, config);
+		if (rc) {
+			pr_err("[%s] failed to update link frequencies, rc=%d\n",
+			       ctrl->name, rc);
+			goto error;
+		}
 	}
 
 	pr_debug("[DSI_%d]Host config updated\n", ctrl->index);

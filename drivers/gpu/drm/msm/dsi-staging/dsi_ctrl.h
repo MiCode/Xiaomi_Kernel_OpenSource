@@ -289,6 +289,7 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
  * dsi_ctrl_update_host_config() - update dsi host configuration
  * @dsi_ctrl:          DSI controller handle.
  * @config:            DSI host configuration.
+ * @flags:             dsi_mode_flags modifying the behavior
  *
  * Updates driver with new Host configuration to use for host initialization.
  * This function call will only update the software context. The stored
@@ -297,7 +298,21 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
  * Return: error code.
  */
 int dsi_ctrl_update_host_config(struct dsi_ctrl *dsi_ctrl,
-				struct dsi_host_config *config);
+				struct dsi_host_config *config,
+				int flags);
+
+/**
+ * dsi_ctrl_async_timing_update() - update only controller timing
+ * @dsi_ctrl:          DSI controller handle.
+ * @timing:            New DSI timing info
+ *
+ * Updates host timing values to asynchronously transition to new timing
+ * For example, to update the porch values in a seamless/dynamic fps switch.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_async_timing_update(struct dsi_ctrl *dsi_ctrl,
+		struct dsi_mode_info *timing);
 
 /**
  * dsi_ctrl_phy_sw_reset() - perform a PHY software reset

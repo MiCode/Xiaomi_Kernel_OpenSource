@@ -18,6 +18,7 @@
 #include <drm/drm_atomic.h>
 
 #include "dsi_drm.h"
+#include "msm_kms.h"
 
 #define to_dsi_bridge(x)     container_of((x), struct dsi_bridge, base)
 #define to_dsi_connector(x)  container_of((x), struct dsi_connector, base)
@@ -45,6 +46,14 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 	dsi_mode->timing.refresh_rate = drm_mode->vrefresh;
 
 	dsi_mode->pixel_clk_khz = drm_mode->clock;
+	dsi_mode->panel_mode = 0; /* TODO: Panel Mode */
+
+	if (msm_is_mode_seamless(drm_mode))
+		dsi_mode->flags |= DSI_MODE_FLAG_SEAMLESS;
+	if (msm_is_mode_dynamic_fps(drm_mode))
+		dsi_mode->flags |= DSI_MODE_FLAG_DFPS;
+	if (msm_needs_vblank_pre_modeset(drm_mode))
+		dsi_mode->flags |= DSI_MODE_FLAG_VBLANK_PRE_MODESET;
 }
 
 static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
@@ -67,6 +76,13 @@ static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 
 	drm_mode->vrefresh = dsi_mode->timing.refresh_rate;
 	drm_mode->clock = dsi_mode->pixel_clk_khz;
+
+	if (dsi_mode->flags & DSI_MODE_FLAG_SEAMLESS)
+		drm_mode->flags |= DRM_MODE_FLAG_SEAMLESS;
+	if (dsi_mode->flags & DSI_MODE_FLAG_DFPS)
+		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_DYNAMIC_FPS;
+	if (dsi_mode->flags & DSI_MODE_FLAG_VBLANK_PRE_MODESET)
+		drm_mode->private_flags |= MSM_MODE_FLAG_VBLANK_PRE_MODESET;
 
 	drm_mode_set_name(drm_mode);
 }
@@ -222,10 +238,13 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 	convert_to_dsi_mode(mode, &dsi_mode);
 
-	rc = dsi_display_validate_mode(c_bridge->display, &dsi_mode);
+	rc = dsi_display_validate_mode(c_bridge->display, &dsi_mode,
+			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
 	if (rc) {
 		pr_err("[%d] Mode is not valid, rc=%d\n", c_bridge->id, rc);
 		ret = false;
+	} else {
+		convert_to_drm_mode(&dsi_mode, adjusted_mode);
 	}
 
 	return ret;
@@ -404,7 +423,8 @@ static enum drm_mode_status dsi_conn_mode_valid(struct drm_connector *connector,
 
 	convert_to_dsi_mode(mode, &dsi_mode);
 
-	rc = dsi_display_validate_mode(c_conn->display, &dsi_mode);
+	rc = dsi_display_validate_mode(c_conn->display, &dsi_mode,
+			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
 	if (rc) {
 		pr_err("[%d] mode not supported, rc=%d\n", c_conn->id, rc);
 		return MODE_BAD;
