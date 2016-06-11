@@ -32,6 +32,11 @@
 extern bool hang_debug;
 static void a4xx_dump(struct msm_gpu *gpu);
 
+static inline int adreno_is_a420(struct adreno_gpu *gpu)
+{
+	return gpu->revn == 420;
+}
+
 /*
  * a4xx_enable_hwcg() - Program the clock control registers
  * @device: The adreno device pointer
