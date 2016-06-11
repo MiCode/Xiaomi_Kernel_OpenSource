@@ -111,7 +111,7 @@
 				qcom,supply-name = "vdda";
 				qcom,supply-min-voltage = <1250000>;
 				qcom,supply-max-voltage = <1250000>;
-				qcom,supply-enable-load = <2500>;
+				qcom,supply-enable-load = <18160>;
 				qcom,supply-disable-load = <1>;
 			};
 
@@ -177,7 +177,7 @@
 				qcom,supply-name = "vdda";
 				qcom,supply-min-voltage = <1250000>;
 				qcom,supply-max-voltage = <1250000>;
-				qcom,supply-enable-load = <2500>;
+				qcom,supply-enable-load = <18160>;
 				qcom,supply-disable-load = <1>;
 			};
 
