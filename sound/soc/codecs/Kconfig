@@ -620,6 +620,9 @@ config SND_SOC_UDA134X
 config SND_SOC_UDA1380
         tristate
 
+config SND_SOC_WCD9306
+        tristate
+
 config SND_SOC_WCD9320
         tristate
 
@@ -649,6 +652,7 @@ config SND_SOC_MSM8X16_WCD
 config SND_SOC_WCD9XXX
 	tristate
 	default y if SND_SOC_WCD9320=y || SND_SOC_WCD9330=y || SND_SOC_WCD9335=y
+	default y if SND_SOC_WCD9306=y
 
 config SND_SOC_WCD9XXX_V2
 	tristate
