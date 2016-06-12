@@ -1242,6 +1242,42 @@ TRACE_EVENT(sched_get_nr_running_avg,
 	TP_printk("avg=%d big_avg=%d iowait_avg=%d",
 		__entry->avg, __entry->big_avg, __entry->iowait_avg)
 );
+
+/*
+ * sched_isolate - called when cores are isolated/unisolated
+ *
+ * @acutal_mask: mask of cores actually isolated/unisolated
+ * @req_mask: mask of cores requested isolated/unisolated
+ * @online_mask: cpu online mask
+ * @time: amount of time in us it took to isolate/unisolate
+ * @isolate: 1 if isolating, 0 if unisolating
+ *
+ */
+TRACE_EVENT(sched_isolate,
+
+	TP_PROTO(unsigned int requested_cpu, unsigned int isolated_cpus,
+		 u64 start_time, unsigned char isolate),
+
+	TP_ARGS(requested_cpu, isolated_cpus, start_time, isolate),
+
+	TP_STRUCT__entry(
+		__field(u32, requested_cpu)
+		__field(u32, isolated_cpus)
+		__field(u32, time)
+		__field(unsigned char, isolate)
+	),
+
+	TP_fast_assign(
+		__entry->requested_cpu = requested_cpu;
+		__entry->isolated_cpus = isolated_cpus;
+		__entry->time = div64_u64(sched_clock() - start_time, 1000);
+		__entry->isolate = isolate;
+	),
+
+	TP_printk("iso cpu=%u cpus=0x%x time=%u us isolated=%d",
+		  __entry->requested_cpu, __entry->isolated_cpus,
+		  __entry->time, __entry->isolate)
+);
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */
