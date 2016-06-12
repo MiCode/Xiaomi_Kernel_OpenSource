@@ -23,73 +23,6 @@
 #include "dsi-panel-r61308-s88047a1-720p-video.dtsi"
 
 &soc {
-	gpio-leds {
-		compatible = "gpio-leds";
-		status = "okay";
-		pinctrl-names = "default";
-		pinctrl-0 = <&button_backlight_off>;
-
-		keypad-backlight {
-			gpios = <&msm_gpio 119 0>;
-			label = "button-backlight";
-			linux,default-trigger = "none";
-		};
-	};
-i2c@78ba000 {/* i2c 6 */
-	aw2013@45 {/*blink */
-		compatible = "awinc,aw2013";
-		reg = <0x45>;
-		rgb_led-supply = <&pm8916_l16>;
-
-		red {
-			label = "red";
-			linux,default-trigger = "battery-red";
-			default-state = "off";
-			retain-state-suspended;
-		};
-
-		green {
-			label = "green";
-			linux,default-trigger = "battery-green";
-			default-state = "off";
-			retain-state-suspended;
-		};
-
-		blue {
-			label = "blue";
-			linux,default-trigger = "battery-blue";
-			default-state = "off";
-			retain-state-suspended;
-		};
-		white {
-			label = "white";
-			linux,default-trigger = "none";
-			default-state = "off";
-			retain-state-suspended;
-		};
-
-		yellow {
-			label = "yellow";
-			linux,default-trigger = "none";
-			default-state = "off";
-			retain-state-suspended;
-		};
-
-		cyan {
-			label = "cyan";
-			linux,default-trigger = "none";
-			default-state = "off";
-			retain-state-suspended;
-		};
-		purple {
-			label = "purple";
-			linux,default-trigger = "none";
-			default-state = "off";
-			retain-state-suspended;
-		};
-
-	};
-};
 	sound {
 		compatible = "qcom,msm8x16-audio-codec";
 		qcom,model = "msm8x16-skui-snd-card";
@@ -412,6 +345,52 @@ i2c@78ba000 {/* i2c 6 */
 		liteon,als-equation-1 = <4 1 2785 696 240 (-1)>;
 		liteon,als-equation-2 = <0 0 5926 1300 44 1>;
 		liteon,als-equation-3 = <0 0 0 0 1 1>;
+	};
+};
+
+&i2c_6 { /* BLSP1 QUP6 */
+	nfc-nci@e {
+		status = "disabled";
+	};
+
+	aw2013@45 {
+		compatible = "awinic,aw2013";
+		reg = <0x45>;
+		vdd-supply = <&pm8916_l17>;
+		vcc-supply = <&pm8916_l6>;
+
+		aw2013,red {
+			aw2013,name = "red";
+			aw2013,id = <0>;
+			aw2013,max-brightness = <255>;
+			aw2013,max-current = <3>;
+			aw2013,rise-time-ms = <2>;
+			aw2013,hold-time-ms = <1>;
+			aw2013,fall-time-ms = <2>;
+			aw2013,off-time-ms = <1>;
+		};
+
+		aw2013,green {
+			aw2013,name = "green";
+			aw2013,id = <1>;
+			aw2013,max-brightness = <255>;
+			aw2013,max-current = <3>;
+			aw2013,rise-time-ms = <2>;
+			aw2013,hold-time-ms = <1>;
+			aw2013,fall-time-ms = <2>;
+			aw2013,off-time-ms = <1>;
+		};
+
+		aw2013,blue {
+			aw2013,name = "blue";
+			aw2013,id = <2>;
+			aw2013,max-brightness = <255>;
+			aw2013,max-current = <3>;
+			aw2013,rise-time-ms = <2>;
+			aw2013,hold-time-ms = <1>;
+			aw2013,fall-time-ms = <2>;
+			aw2013,off-time-ms = <1>;
+		};
 	};
 };
 
