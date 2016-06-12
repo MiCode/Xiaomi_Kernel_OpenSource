@@ -753,12 +753,20 @@ static int twl4030_usb_remove(struct platform_device *pdev)
 	struct twl4030_usb *twl = platform_get_drvdata(pdev);
 	int val;
 
+	usb_remove_phy(&twl->phy);
 	pm_runtime_get_sync(twl->dev);
 	cancel_delayed_work(&twl->id_workaround_work);
 	device_remove_file(twl->dev, &dev_attr_vbus);
 
 	/* set transceiver mode to power on defaults */
 	twl4030_usb_set_mode(twl, -1);
+
+	/* idle ulpi before powering off */
+	if (cable_present(twl->linkstat))
+		pm_runtime_put_noidle(twl->dev);
+	pm_runtime_mark_last_busy(twl->dev);
+	pm_runtime_put_sync_suspend(twl->dev);
+	pm_runtime_disable(twl->dev);
 
 	/* autogate 60MHz ULPI clock,
 	 * clear dpll clock request for i2c access,
@@ -773,11 +781,6 @@ static int twl4030_usb_remove(struct platform_device *pdev)
 
 	/* disable complete OTG block */
 	twl4030_usb_clear_bits(twl, POWER_CTRL, POWER_CTRL_OTG_ENAB);
-
-	if (cable_present(twl->linkstat))
-		pm_runtime_put_noidle(twl->dev);
-	pm_runtime_mark_last_busy(twl->dev);
-	pm_runtime_put(twl->dev);
 
 	return 0;
 }

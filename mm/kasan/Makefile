@@ -1,5 +1,4 @@
 KASAN_SANITIZE := n
-UBSAN_SANITIZE_kasan.o := n
 
 CFLAGS_REMOVE_kasan.o = -pg
 # Function splitter causes unnecessary splits in __asan_load1/__asan_store1

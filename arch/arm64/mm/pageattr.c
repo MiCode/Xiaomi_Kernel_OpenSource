@@ -56,6 +56,9 @@ static int change_memory_common(unsigned long addr, int numpages,
 			return -EINVAL;
 	}
 
+	if (!numpages)
+		return 0;
+
 	data.set_mask = set_mask;
 	data.clear_mask = clear_mask;
 
