@@ -382,5 +382,6 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_PINGPONG (1 << 6)
 #define SDE_DBG_MASK_SSPP     (1 << 7)
 #define SDE_DBG_MASK_WB       (1 << 8)
+#define SDE_DBG_MASK_TOP      (1 << 9)
 
 #endif  /* _SDE_HW_MDSS_H */
