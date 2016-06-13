@@ -83,6 +83,7 @@ static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,
 			b->base_off = addr;
 			b->blk_off = m->mdp[i].base;
 			b->hwversion = m->hwversion;
+			b->log_mask = SDE_DBG_MASK_TOP;
 			return &m->mdp[i];
 		}
 	}
