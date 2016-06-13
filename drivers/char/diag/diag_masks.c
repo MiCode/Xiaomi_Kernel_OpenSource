@@ -534,6 +534,7 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 	struct diag_msg_mask_t *mask = NULL;
 	struct diag_msg_build_mask_t *req = NULL;
 	struct diag_msg_build_mask_t rsp;
+	struct diag_msg_mask_t *mask_next = NULL;
 	uint32_t *temp = NULL;
 
 	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
@@ -547,11 +548,18 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 	mutex_lock(&msg_mask.lock);
 	mask = (struct diag_msg_mask_t *)msg_mask.ptr;
 	for (i = 0; i < driver->msg_mask_tbl_count; i++, mask++) {
+		if (i < (driver->msg_mask_tbl_count - 1)) {
+			mask_next = mask;
+			mask_next++;
+		} else
+			mask_next = NULL;
+
 		if ((req->ssid_first < mask->ssid_first) ||
-		    (req->ssid_first > (mask->ssid_first +
-					MAX_SSID_PER_RANGE))) {
+		    (req->ssid_first > mask->ssid_first + MAX_SSID_PER_RANGE) ||
+		    (mask_next && (req->ssid_first >= mask_next->ssid_first))) {
 			continue;
 		}
+		mask_next = NULL;
 		found = 1;
 		mask_size = req->ssid_last - req->ssid_first + 1;
 		if (mask_size > MAX_SSID_PER_RANGE) {
