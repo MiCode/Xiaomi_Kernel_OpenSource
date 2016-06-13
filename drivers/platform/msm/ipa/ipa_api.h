@@ -356,6 +356,10 @@ struct ipa_api_controller {
 
 	void *(*ipa_get_ipc_logbuf_low)(void);
 
+	int (*ipa_rx_poll)(u32 clnt_hdl, int budget);
+
+	void (*ipa_recycle_wan_skb)(struct sk_buff *skb);
+
 };
 
 #ifdef CONFIG_IPA

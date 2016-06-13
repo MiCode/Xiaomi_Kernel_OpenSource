@@ -6616,7 +6616,7 @@ out:
 
 /**
  * ufshcd_quirk_tune_host_pa_tactivate - Ensures that host PA_TACTIVATE is
- * more than device PA_TACTIVATE time.
+ * less than device PA_TACTIVATE time.
  * @hba: per-adapter instance
  *
  * Some UFS devices require host PA_TACTIVATE to be lower than device

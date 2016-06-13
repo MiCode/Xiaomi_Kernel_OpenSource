@@ -39,6 +39,8 @@
 #define MTU_BYTE 1500
 
 #define IPA_MAX_NUM_PIPES 0x14
+#define IPA_WAN_CONS_DESC_FIFO_SZ 0x5E80
+#define IPA_WAN_NAPI_CONS_RX_POOL_SZ 3000
 #define IPA_SYS_DESC_FIFO_SZ 0x2000
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
 #define IPA_LAN_RX_HEADER_LENGTH (2)
@@ -515,6 +517,7 @@ enum ipa_wakelock_ref_client {
  * @disconnect_in_progress: Indicates client disconnect in progress.
  * @qmi_request_sent: Indicates whether QMI request to enable clear data path
  *					request is sent or not.
+ * @napi_enabled: when true, IPA call client callback to start polling
  */
 struct ipa_ep_context {
 	int valid;
@@ -546,6 +549,10 @@ struct ipa_ep_context {
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
 	enum ipa_wakelock_ref_client wakelock_client;
+	bool napi_enabled;
+	bool switch_to_intr;
+	int inactive_cycles;
+	u32 eot_in_poll_err;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
@@ -603,6 +610,7 @@ struct ipa_sys_context {
 	/* ordering is important - mutable fields go above */
 	struct ipa_ep_context *ep;
 	struct list_head head_desc_list;
+	struct list_head rcycl_list;
 	spinlock_t spinlock;
 	struct workqueue_struct *wq;
 	struct workqueue_struct *repl_wq;
@@ -1929,4 +1937,6 @@ void ipa_inc_acquire_wakelock(enum ipa_wakelock_ref_client ref_client);
 void ipa_dec_release_wakelock(enum ipa_wakelock_ref_client ref_client);
 int ipa_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	phys_addr_t paddr, size_t size, int prot);
+int ipa2_rx_poll(u32 clnt_hdl, int budget);
+void ipa2_recycle_wan_skb(struct sk_buff *skb);
 #endif /* _IPA_I_H_ */

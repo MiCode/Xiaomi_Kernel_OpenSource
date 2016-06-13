@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1531,6 +1531,7 @@ struct msm_vfe_hardware_info vfe32_hw_info = {
 			.get_wm_mask = msm_vfe32_stats_get_wm_mask,
 			.get_frame_id = msm_vfe32_stats_get_frame_id,
 			.get_pingpong_status = msm_vfe32_get_pingpong_status,
+			.enable_stats_wm = NULL,
 		},
 	},
 	.dmi_reg_offset = 0x5A0,

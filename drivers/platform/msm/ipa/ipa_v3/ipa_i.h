@@ -41,6 +41,8 @@
 #define MTU_BYTE 1500
 
 #define IPA3_MAX_NUM_PIPES 31
+#define IPA_WAN_CONS_DESC_FIFO_SZ 0x5E80
+#define IPA_WAN_NAPI_CONS_RX_POOL_SZ 3000
 #define IPA_SYS_DESC_FIFO_SZ 0x800
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
 #define IPA_LAN_RX_HEADER_LENGTH (2)
@@ -550,6 +552,7 @@ struct ipa3_status_stats {
  * @disconnect_in_progress: Indicates client disconnect in progress.
  * @qmi_request_sent: Indicates whether QMI request to enable clear data path
  *					request is sent or not.
+ * @napi_enabled: when true, IPA call client callback to start polling
  */
 struct ipa3_ep_context {
 	int valid;
@@ -586,6 +589,10 @@ struct ipa3_ep_context {
 	u32 wdi_state;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
+	bool napi_enabled;
+	bool switch_to_intr;
+	int inactive_cycles;
+	u32 eot_in_poll_err;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
@@ -2262,4 +2269,6 @@ int ipa3_load_fws(const struct firmware *firmware);
 int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 int ipa_gsi_ch20_wa(void);
+int ipa3_rx_poll(u32 clnt_hdl, int budget);
+void ipa3_recycle_wan_skb(struct sk_buff *skb);
 #endif /* _IPA3_I_H_ */
