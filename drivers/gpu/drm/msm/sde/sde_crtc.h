@@ -15,6 +15,7 @@
 
 #include "drm_crtc.h"
 #include "msm_prop.h"
+#include "sde_fence.h"
 #include "sde_kms.h"
 
 #define CRTC_DUAL_MIXERS	2
@@ -82,6 +83,9 @@ struct sde_crtc {
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CRTC_PROP_COUNT];
+
+	/* output fence support */
+	struct sde_fence output_fence;
 
 	struct sde_hw_stage_cfg stage_cfg;
 	struct dentry *debugfs_root;
