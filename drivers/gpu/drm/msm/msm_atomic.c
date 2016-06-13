@@ -500,6 +500,7 @@ int msm_atomic_check(struct drm_device *dev,
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool async)
 {
+	struct msm_drm_private *priv = dev->dev_private;
 	int nplanes = dev->mode_config.num_total_plane;
 	int ncrtcs = dev->mode_config.num_crtc;
 	ktime_t timeout;
@@ -557,6 +558,16 @@ int msm_atomic_commit(struct drm_device *dev,
 	 */
 
 	drm_atomic_helper_swap_state(dev, state);
+
+	/*
+	 * Provide the driver a chance to prepare for output fences. This is
+	 * done after the point of no return, but before asynchronous commits
+	 * are dispatched to work queues, so that the fence preparation is
+	 * finished before the .atomic_commit returns.
+	 */
+	if (priv && priv->kms && priv->kms->funcs &&
+			priv->kms->funcs->prepare_fence)
+		priv->kms->funcs->prepare_fence(priv->kms, state);
 
 	/*
 	 * Everything below can be run asynchronously without the need to grab

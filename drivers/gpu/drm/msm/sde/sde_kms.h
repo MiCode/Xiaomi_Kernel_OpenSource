@@ -429,9 +429,22 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
 void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc);
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
+
+/**
+ * sde_crtc_prepare_fence - callback to prepare for output fences
+ * @crtc: Pointer to drm crtc object
+ */
+void sde_crtc_prepare_fence(struct drm_crtc *crtc);
+
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 		struct drm_encoder *encoder,
 		struct drm_plane *plane, int id);
+
+/**
+ * sde_crtc_complete_commit - callback signalling completion of current commit
+ * @crtc: Pointer to drm crtc object
+ */
+void sde_crtc_complete_commit(struct drm_crtc *crtc);
 
 /**
  * Encoder functions and data types
