@@ -140,6 +140,7 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 
 	msm_property_destroy(&sde_crtc->property_info);
 	debugfs_remove_recursive(sde_crtc->debugfs_root);
+	sde_fence_deinit(&sde_crtc->output_fence);
 
 	drm_crtc_cleanup(crtc);
 	kfree(sde_crtc);
@@ -328,6 +329,22 @@ out:
 	spin_unlock_irqrestore(&sde_crtc->lm_lock, flags);
 }
 
+void sde_crtc_prepare_fence(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	MSM_EVT(crtc->dev, sde_crtc->id, crtc->enabled);
+
+	sde_fence_prepare(&sde_crtc->output_fence);
+}
+
 /* if file!=NULL, this is preclose potential cancel-flip path */
 static void complete_flip(struct drm_crtc *crtc, struct drm_file *file)
 {
@@ -403,6 +420,18 @@ static u32 _sde_crtc_update_ctl_flush_mask(struct drm_crtc *crtc)
 
 	return 0;
 }
+
+void sde_crtc_complete_commit(struct drm_crtc *crtc)
+{
+	if (!crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	/* signal out fence at end of commit */
+	sde_fence_signal(&to_sde_crtc(crtc)->output_fence, 0);
+}
+
 /**
  * _sde_crtc_trigger_kickoff - Iterate through the control paths and trigger
  *	the hw_ctl object to flush any pending flush mask, and trigger
@@ -976,6 +1005,10 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc)
 			"input_fence_timeout",
 			0, ~0, SDE_CRTC_INPUT_FENCE_TIMEOUT,
 			CRTC_PROP_INPUT_FENCE_TIMEOUT);
+	msm_property_install_range(&sde_crtc->property_info,
+			"output_fence",
+			0, ~0, ~0,
+			CRTC_PROP_OUTPUT_FENCE);
 }
 
 /**
@@ -1044,16 +1077,21 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
-	int ret = -EINVAL;
+	int i, ret = -EINVAL;
 
 	if (!crtc || !state) {
 		DRM_ERROR("invalid argument(s)\n");
 	} else {
 		sde_crtc = to_sde_crtc(crtc);
 		cstate = to_sde_crtc_state(state);
-		ret = msm_property_atomic_get(&sde_crtc->property_info,
-				cstate->property_values, cstate->property_blobs,
-				property, val);
+		i = msm_property_index(&sde_crtc->property_info, property);
+		if (i == CRTC_PROP_OUTPUT_FENCE) {
+			ret = sde_fence_create(&sde_crtc->output_fence, val);
+		} else {
+			ret = msm_property_atomic_get(&sde_crtc->property_info,
+					cstate->property_values,
+					cstate->property_blobs, property, val);
+		}
 	}
 
 	return ret;
@@ -1183,6 +1221,14 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 	/* save user friendly CRTC name for later */
 	snprintf(sde_crtc->name, SDE_CRTC_NAME_SIZE, "crtc%u", crtc->base.id);
 
+	/*
+	 * Initialize output fence support. Set output fence offset to zero
+	 * so that fences returned during a commit will signal at the end of
+	 * the same commit.
+	 */
+	sde_fence_init(dev, &sde_crtc->output_fence, sde_crtc->name, 0);
+
+	/* initialize debugfs support */
 	_sde_crtc_init_debugfs(sde_crtc, kms);
 
 	/* create CRTC properties */

@@ -50,6 +50,8 @@ struct msm_kms_funcs {
 	int (*enable_vblank)(struct msm_kms *kms, struct drm_crtc *crtc);
 	void (*disable_vblank)(struct msm_kms *kms, struct drm_crtc *crtc);
 	/* modeset, bracketing atomic_commit(): */
+	void (*prepare_fence)(struct msm_kms *kms,
+			struct drm_atomic_state *state);
 	void (*prepare_commit)(struct msm_kms *kms,
 			struct drm_atomic_state *state);
 	void (*commit)(struct msm_kms *kms, struct drm_atomic_state *state);
