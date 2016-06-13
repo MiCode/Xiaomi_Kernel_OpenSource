@@ -4323,6 +4323,13 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		writel_relaxed(regval, GCC_REG_BASE(GX_DOMAIN_MISC));
 		get_speed_bin(pdev, &speed_bin);
 		override_for_8937(speed_bin);
+
+		if (compat_bin3) {
+			gfx3d_clk_src.freq_tbl =
+					ftbl_gcc_oxili_gfx3d_clk_8937_475MHz;
+			gcc_oxili_gfx3d_clk.c.fmax[VDD_DIG_SUPER_TUR] =
+								475000000;
+		}
 	} else if (compat_bin2) {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8937.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8937.c;
