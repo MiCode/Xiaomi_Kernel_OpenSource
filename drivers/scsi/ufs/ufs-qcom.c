@@ -1829,6 +1829,9 @@ static void ufs_qcom_pm_qos_suspend(struct ufs_qcom_host *host)
 {
 	int i;
 
+	if (!host->pm_qos.groups)
+		return;
+
 	for (i = 0; i < host->pm_qos.num_groups; i++)
 		flush_work(&host->pm_qos.groups[i].unvote_work);
 }
