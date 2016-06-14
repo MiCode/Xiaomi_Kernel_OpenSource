@@ -3101,12 +3101,8 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 			sys->free_skb = ipa3_free_skb_rx;
 			in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
 			in->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
-			in->ipa_ep_cfg.aggr.aggr_byte_limit =
-				IPA_GENERIC_AGGR_BYTE_LIMIT;
 			in->ipa_ep_cfg.aggr.aggr_time_limit =
 				IPA_GENERIC_AGGR_TIME_LIMIT;
-			in->ipa_ep_cfg.aggr.aggr_pkt_limit =
-				IPA_GENERIC_AGGR_PKT_LIMIT;
 			if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 				sys->pyld_hdlr = ipa3_lan_rx_pyld_hdlr;
 				sys->repl_hdlr =
