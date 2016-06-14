@@ -544,6 +544,9 @@ void destroy_votable(struct votable *votable)
 	unsigned long flags;
 	int i;
 
+	if (!votable)
+		return;
+
 	spin_lock_irqsave(&votable_list_slock, flags);
 	list_del(&votable->list);
 	spin_unlock_irqrestore(&votable_list_slock, flags);
