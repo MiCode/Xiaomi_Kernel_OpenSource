@@ -54,7 +54,8 @@ struct flash_switch_data {
 	struct platform_device		*pdev;
 	struct led_classdev		cdev;
 	struct flash_regulator_data	*reg_data;
-	u8				num_regulators;
+	int				led_mask;
+	int				num_regulators;
 	bool				regulator_on;
 };
 

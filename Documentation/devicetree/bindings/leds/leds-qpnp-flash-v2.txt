@@ -43,6 +43,10 @@ Required Properties:
 - qcom,duration-ms	: Required property for flash nodes but not needed for torch. Integer
 			  type specifying flash duration. Values are from 10ms to 1280ms with
 			  10ms resolution. This is not required for switch node.
+- qcom,led-mask		: Required property for switch nodes. Bitmask to indicate which leds are
+			  controlled by this switch node. Accepted values are in the range 1 to 7,
+			  inclusive. Example:
+			  qcom,led-mask = <4>; /* This switch node controls the flash2/torch2 led. */
 
 Optional properties:
 - qcom,current-ma	: operational current intensity for LED in mA. Accepted values are a
@@ -180,11 +184,24 @@ Example:
 			pinctrl-1 = <&led_disable>;
 		};
 
-		pmi8998_switch: qcom,led_switch {
+		pmi8998_switch0: qcom,led_switch_0 {
 			label = "switch";
-			qcom,led-name = "led:switch";
+			qcom,led-name = "led:switch_0";
+			qcom,led-mask = <3>;
 			qcom,default-led-trigger =
-						"switch_trigger";
+						"switch0_trigger";
+			reg0 {
+				regulator-name = "pmicobalt_bob";
+				max-voltage-uv = <3600000>;
+			};
+		};
+
+		pmi8998_switch1: qcom,led_switch_1 {
+			label = "switch";
+			qcom,led-name = "led:switch_1";
+			qcom,led-mask = <4>;
+			qcom,default-led-trigger =
+						"switch1_trigger";
 			reg0 {
 				regulator-name = "pmicobalt_bob";
 				max-voltage-uv = <3600000>;
