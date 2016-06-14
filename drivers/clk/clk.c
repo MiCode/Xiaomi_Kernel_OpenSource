@@ -1466,7 +1466,7 @@ static struct clk_core *clk_propagate_rate_change(struct clk_core *core,
  * walk down a subtree and set the new rates notifying the rate
  * change on the way
  */
-static void clk_change_rate(struct clk_core *core)
+static int clk_change_rate(struct clk_core *core)
 {
 	struct clk_core *child;
 	struct hlist_node *tmp;
@@ -1475,6 +1475,7 @@ static void clk_change_rate(struct clk_core *core)
 	bool skip_set_rate = false;
 	struct clk_core *old_parent;
 	struct clk_core *parent = NULL;
+	int rc = 0;
 
 	old_rate = core->rate;
 
@@ -1517,8 +1518,13 @@ static void clk_change_rate(struct clk_core *core)
 
 	trace_clk_set_rate(core, core->new_rate);
 
-	if (!skip_set_rate && core->ops->set_rate)
-		core->ops->set_rate(core->hw, core->new_rate, best_parent_rate);
+	if (!skip_set_rate && core->ops->set_rate) {
+		rc = core->ops->set_rate(core->hw, core->new_rate,
+						best_parent_rate);
+		if (rc)
+			goto out;
+
+	}
 
 	trace_clk_set_rate_complete(core, core->new_rate);
 
@@ -1550,12 +1556,20 @@ static void clk_change_rate(struct clk_core *core)
 		/* Skip children who will be reparented to another clock */
 		if (child->new_parent && child->new_parent != core)
 			continue;
-		clk_change_rate(child);
+		rc = clk_change_rate(child);
+		if (rc)
+			return rc;
 	}
 
 	/* handle the new child who might not be in core->children yet */
 	if (core->new_child)
-		clk_change_rate(core->new_child);
+		rc = clk_change_rate(core->new_child);
+
+	return rc;
+out:
+	trace_clk_set_rate_complete(core, core->new_rate);
+
+	return rc;
 }
 
 static int clk_core_set_rate_nolock(struct clk_core *core,
@@ -1563,6 +1577,7 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 {
 	struct clk_core *top, *fail_clk;
 	unsigned long rate = req_rate;
+	int ret = 0;
 
 	if (!core)
 		return 0;
@@ -1582,18 +1597,24 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 	/* notify that we are about to change rates */
 	fail_clk = clk_propagate_rate_change(top, PRE_RATE_CHANGE);
 	if (fail_clk) {
-		pr_debug("%s: failed to set %s rate\n", __func__,
-				fail_clk->name);
+		pr_debug("%s: failed to set %s clock to run at %lu\n", __func__,
+				fail_clk->name, req_rate);
 		clk_propagate_rate_change(top, ABORT_RATE_CHANGE);
 		return -EBUSY;
 	}
 
 	/* change the rates */
-	clk_change_rate(top);
+	ret = clk_change_rate(top);
+	if (ret) {
+		pr_err("%s: failed to set %s clock to run at %lu\n", __func__,
+				top->name, req_rate);
+		clk_propagate_rate_change(top, ABORT_RATE_CHANGE);
+		return ret;
+	}
 
 	core->req_rate = req_rate;
 
-	return 0;
+	return ret;
 }
 
 /**
