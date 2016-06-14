@@ -336,6 +336,12 @@ Required properties:
 
  - compatible : "qcom,msm-cpe-lsm"
 
+* wcd_us_euro_gpio
+
+Required properties:
+
+ - compatible : "qcom,msm-cdc-pinctrl"
+
 * msm-dai-slim
 
 Required properties:

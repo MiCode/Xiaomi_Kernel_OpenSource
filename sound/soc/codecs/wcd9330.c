@@ -2938,7 +2938,7 @@ int tomtom_codec_mclk_enable(struct snd_soc_codec *codec,
 			__func__, enable, dapm);
 		return __tomtom_mclk_enable(tomtom, enable);
 	} else if (tomtom->codec_ext_clk_en_cb)
-		return tomtom_codec_ext_clk_en(codec, true, false);
+		return tomtom_codec_ext_clk_en(codec, enable, dapm);
 	else {
 		dev_err(codec->dev,
 			"%s: Cannot turn on MCLK\n",

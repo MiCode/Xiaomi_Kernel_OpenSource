@@ -501,6 +501,18 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_USE_RESET_WORKAROUND		(1<<26)
 /* Some controllers doesn't have have any LED control */
 #define SDHCI_QUIRK2_BROKEN_LED_CONTROL			(1<<27)
+/*
+ * Some controllers doesn't follow the tuning procedure as defined in spec.
+ * The tuning data has to be compared from SW driver to validate the correct
+ * phase.
+ */
+#define SDHCI_QUIRK2_NON_STANDARD_TUNING (1 << 28)
+/*
+ * Some controllers may use PIO mode to workaround HW issues in ADMA for
+ * eMMC tuning commands.
+ */
+#define SDHCI_QUIRK2_USE_PIO_FOR_EMMC_TUNING (1 << 23)
+
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
@@ -610,8 +622,6 @@ struct sdhci_host {
 	int reset_wa_applied; /* reset workaround status */
 	ktime_t reset_wa_t; /* time when the reset workaround is applied */
 	int reset_wa_cnt; /* total number of times workaround is used */
-
-	int slot_no;
 
 	unsigned long private[0] ____cacheline_aligned;
 };
