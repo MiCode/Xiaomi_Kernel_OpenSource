@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010, 2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,11 +24,20 @@ int scm_set_boot_addr(phys_addr_t addr, unsigned int flags)
 		u32 flags;
 		u32 addr;
 	} cmd;
+	struct scm_desc desc = {0};
 
-	cmd.addr = addr;
-	cmd.flags = flags;
-	return scm_call(SCM_SVC_BOOT, SCM_BOOT_ADDR,
-			&cmd, sizeof(cmd), NULL, 0);
+	if (!is_scm_armv8()) {
+		cmd.addr = addr;
+		cmd.flags = flags;
+		return scm_call(SCM_SVC_BOOT, SCM_BOOT_ADDR,
+				&cmd, sizeof(cmd), NULL, 0);
+	}
+
+	desc.args[0] = addr;
+	desc.args[1] = flags;
+	desc.arginfo = SCM_ARGS(2);
+
+	return scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT, SCM_BOOT_ADDR), &desc);
 }
 EXPORT_SYMBOL(scm_set_boot_addr);
 
