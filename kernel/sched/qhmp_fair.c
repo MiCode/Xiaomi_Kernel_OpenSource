@@ -2971,6 +2971,9 @@ int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost)
 	if (!base_cost || cpu_cost == base_cost)
 		return 0;
 
+	if (!sysctl_sched_enable_power_aware)
+		return 1;
+
 	delta = cpu_cost - base_cost;
 	cost_limit = div64_u64((u64)sysctl_sched_powerband_limit_pct *
 						(u64)base_cost, 100);
