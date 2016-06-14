@@ -105,6 +105,14 @@
 	};
 };
 
+&soc {
+	devfreq_spdm_cpu {
+		compatible = "qcom,devfreq_spdm";
+		qcom,bw-dwnstep = <4000>;
+		qcom,max-vote = <4000>;
+	};
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-8940";
 };
