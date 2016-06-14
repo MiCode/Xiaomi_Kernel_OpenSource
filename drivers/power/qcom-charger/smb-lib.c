@@ -458,6 +458,19 @@ suspend:
 	return rc;
 }
 
+static int smblib_awake_vote_callback(struct votable *votable, void *data,
+			int awake, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	if (awake)
+		pm_stay_awake(chg->dev);
+	else
+		pm_relax(chg->dev);
+
+	return 0;
+}
+
 /*****************
  * OTG REGULATOR *
  *****************/
@@ -1414,6 +1427,14 @@ int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->awake_votable = create_votable("AWAKE", VOTE_SET_ANY,
+					smblib_awake_vote_callback,
+					chg);
+	if (IS_ERR(chg->awake_votable)) {
+		rc = PTR_ERR(chg->awake_votable);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -1451,6 +1472,7 @@ int smblib_deinit(struct smb_charger *chg)
 	destroy_votable(chg->usb_icl_votable);
 	destroy_votable(chg->dc_icl_votable);
 	destroy_votable(chg->pd_allowed_votable);
+	destroy_votable(chg->awake_votable);
 
 	return 0;
 }
