@@ -4014,6 +4014,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ipa_bam_remote_mode = resource_p->ipa_bam_remote_mode;
 	ipa3_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa3_ctx->ipa_wdi2 = resource_p->ipa_wdi2;
+	ipa3_ctx->use_64_bit_dma_mask = resource_p->use_64_bit_dma_mask;
 	ipa3_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa3_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa3_ctx->tethered_flow_control = resource_p->tethered_flow_control;
@@ -4519,6 +4520,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_bam_remote_mode = false;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
+	ipa_drv_res->use_64_bit_dma_mask = false;
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 	ipa_drv_res->apply_rg10_wa = false;
 	ipa_drv_res->gsi_ch20_wa = false;
@@ -4585,6 +4587,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-wdi2");
 	IPADBG(": WDI-2.0 = %s\n",
 			ipa_drv_res->ipa_wdi2
+			? "True" : "False");
+
+	ipa_drv_res->use_64_bit_dma_mask =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,use-64-bit-dma-mask");
+	IPADBG(": use_64_bit_dma_mask = %s\n",
+			ipa_drv_res->use_64_bit_dma_mask
 			? "True" : "False");
 
 	ipa_drv_res->skip_uc_pipe_reset =
@@ -4815,12 +4824,19 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	cb->va_end = cb->va_start + cb->va_size;
 	IPADBG("UC va_start=0x%x va_sise=0x%x\n", cb->va_start, cb->va_size);
 
-	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
-		    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
-		IPAERR("DMA set mask failed\n");
-		return -EOPNOTSUPP;
+	if (ipa3_ctx->use_64_bit_dma_mask) {
+		if (dma_set_mask(dev, DMA_BIT_MASK(64)) ||
+				dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
+			IPAERR("DMA set 64bit mask failed\n");
+			return -EOPNOTSUPP;
+		}
+	} else {
+		if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
+				dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
+			IPAERR("DMA set 32bit mask failed\n");
+			return -EOPNOTSUPP;
+		}
 	}
-
 	IPADBG("UC CB PROBE=%p create IOMMU mapping\n", dev);
 
 	cb->dev = dev;
@@ -4919,10 +4935,18 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	cb->va_end = cb->va_start + cb->va_size;
 	IPADBG("AP va_start=0x%x va_sise=0x%x\n", cb->va_start, cb->va_size);
 
-	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
-		    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
-		IPAERR("DMA set mask failed\n");
-		return -EOPNOTSUPP;
+	if (ipa3_ctx->use_64_bit_dma_mask) {
+		if (dma_set_mask(dev, DMA_BIT_MASK(64)) ||
+				dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
+			IPAERR("DMA set 64bit mask failed\n");
+			return -EOPNOTSUPP;
+		}
+	} else {
+		if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
+				dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
+			IPAERR("DMA set 32bit mask failed\n");
+			return -EOPNOTSUPP;
+		}
 	}
 
 	cb->dev = dev;
@@ -5128,11 +5152,21 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		IPAERR("Legacy IOMMU not supported\n");
 		result = -EOPNOTSUPP;
 	} else {
-		if (dma_set_mask(&pdev_p->dev, DMA_BIT_MASK(32)) ||
+		if (of_property_read_bool(pdev_p->dev.of_node,
+			"qcom,use-64-bit-dma-mask")) {
+			if (dma_set_mask(&pdev_p->dev, DMA_BIT_MASK(64)) ||
+			    dma_set_coherent_mask(&pdev_p->dev,
+			    DMA_BIT_MASK(64))) {
+				IPAERR("DMA set 64bit mask failed\n");
+				return -EOPNOTSUPP;
+			}
+		} else {
+			if (dma_set_mask(&pdev_p->dev, DMA_BIT_MASK(32)) ||
 			    dma_set_coherent_mask(&pdev_p->dev,
 			    DMA_BIT_MASK(32))) {
-			IPAERR("DMA set mask failed\n");
-			return -EOPNOTSUPP;
+				IPAERR("DMA set 32bit mask failed\n");
+				return -EOPNOTSUPP;
+			}
 		}
 	}
 
