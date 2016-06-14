@@ -149,7 +149,6 @@
 
 /**
  * struct samsung_aes_variant - platform specific SSS driver data
- * @has_hash_irq: true if SSS module uses hash interrupt, false otherwise
  * @aes_offset: AES register offset from SSS module's base.
  *
  * Specifies platform specific configuration of SSS module.
@@ -157,7 +156,6 @@
  * expansion of its usage.
  */
 struct samsung_aes_variant {
-	bool			    has_hash_irq;
 	unsigned int		    aes_offset;
 };
 
@@ -178,7 +176,6 @@ struct s5p_aes_dev {
 	struct clk                 *clk;
 	void __iomem               *ioaddr;
 	void __iomem               *aes_ioaddr;
-	int                         irq_hash;
 	int                         irq_fc;
 
 	struct ablkcipher_request  *req;
@@ -197,12 +194,10 @@ struct s5p_aes_dev {
 static struct s5p_aes_dev *s5p_dev;
 
 static const struct samsung_aes_variant s5p_aes_data = {
-	.has_hash_irq	= true,
 	.aes_offset	= 0x4000,
 };
 
 static const struct samsung_aes_variant exynos_aes_data = {
-	.has_hash_irq	= false,
 	.aes_offset	= 0x200,
 };
 
@@ -313,43 +308,55 @@ static int s5p_set_indata(struct s5p_aes_dev *dev, struct scatterlist *sg)
 	return err;
 }
 
-static void s5p_aes_tx(struct s5p_aes_dev *dev)
+/*
+ * Returns true if new transmitting (output) data is ready and its
+ * address+length have to be written to device (by calling
+ * s5p_set_dma_outdata()). False otherwise.
+ */
+static bool s5p_aes_tx(struct s5p_aes_dev *dev)
 {
 	int err = 0;
+	bool ret = false;
 
 	s5p_unset_outdata(dev);
 
 	if (!sg_is_last(dev->sg_dst)) {
 		err = s5p_set_outdata(dev, sg_next(dev->sg_dst));
-		if (err) {
+		if (err)
 			s5p_aes_complete(dev, err);
-			return;
-		}
-
-		s5p_set_dma_outdata(dev, dev->sg_dst);
+		else
+			ret = true;
 	} else {
 		s5p_aes_complete(dev, err);
 
 		dev->busy = true;
 		tasklet_schedule(&dev->tasklet);
 	}
+
+	return ret;
 }
 
-static void s5p_aes_rx(struct s5p_aes_dev *dev)
+/*
+ * Returns true if new receiving (input) data is ready and its
+ * address+length have to be written to device (by calling
+ * s5p_set_dma_indata()). False otherwise.
+ */
+static bool s5p_aes_rx(struct s5p_aes_dev *dev)
 {
 	int err;
+	bool ret = false;
 
 	s5p_unset_indata(dev);
 
 	if (!sg_is_last(dev->sg_src)) {
 		err = s5p_set_indata(dev, sg_next(dev->sg_src));
-		if (err) {
+		if (err)
 			s5p_aes_complete(dev, err);
-			return;
-		}
-
-		s5p_set_dma_indata(dev, dev->sg_src);
+		else
+			ret = true;
 	}
+
+	return ret;
 }
 
 static irqreturn_t s5p_aes_interrupt(int irq, void *dev_id)
@@ -358,18 +365,29 @@ static irqreturn_t s5p_aes_interrupt(int irq, void *dev_id)
 	struct s5p_aes_dev     *dev  = platform_get_drvdata(pdev);
 	uint32_t                status;
 	unsigned long           flags;
+	bool			set_dma_tx = false;
+	bool			set_dma_rx = false;
 
 	spin_lock_irqsave(&dev->lock, flags);
 
-	if (irq == dev->irq_fc) {
-		status = SSS_READ(dev, FCINTSTAT);
-		if (status & SSS_FCINTSTAT_BRDMAINT)
-			s5p_aes_rx(dev);
-		if (status & SSS_FCINTSTAT_BTDMAINT)
-			s5p_aes_tx(dev);
+	status = SSS_READ(dev, FCINTSTAT);
+	if (status & SSS_FCINTSTAT_BRDMAINT)
+		set_dma_rx = s5p_aes_rx(dev);
+	if (status & SSS_FCINTSTAT_BTDMAINT)
+		set_dma_tx = s5p_aes_tx(dev);
 
-		SSS_WRITE(dev, FCINTPEND, status);
-	}
+	SSS_WRITE(dev, FCINTPEND, status);
+
+	/*
+	 * Writing length of DMA block (either receiving or transmitting)
+	 * will start the operation immediately, so this should be done
+	 * at the end (even after clearing pending interrupts to not miss the
+	 * interrupt).
+	 */
+	if (set_dma_tx)
+		s5p_set_dma_outdata(dev, dev->sg_dst);
+	if (set_dma_rx)
+		s5p_set_dma_indata(dev, dev->sg_src);
 
 	spin_unlock_irqrestore(&dev->lock, flags);
 
@@ -669,21 +687,6 @@ static int s5p_aes_probe(struct platform_device *pdev)
 	if (err < 0) {
 		dev_warn(dev, "feed control interrupt is not available.\n");
 		goto err_irq;
-	}
-
-	if (variant->has_hash_irq) {
-		pdata->irq_hash = platform_get_irq(pdev, 1);
-		if (pdata->irq_hash < 0) {
-			err = pdata->irq_hash;
-			dev_warn(dev, "hash interrupt is not available.\n");
-			goto err_irq;
-		}
-		err = devm_request_irq(dev, pdata->irq_hash, s5p_aes_interrupt,
-				       IRQF_SHARED, pdev->name, pdev);
-		if (err < 0) {
-			dev_warn(dev, "hash interrupt is not available.\n");
-			goto err_irq;
-		}
 	}
 
 	pdata->busy = false;
