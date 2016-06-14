@@ -592,7 +592,7 @@ struct smb2_irq_info {
 static const struct smb2_irq_info smb2_irqs[] = {
 /* CHARGER IRQs */
 	{ "chg-error",                  smblib_handle_debug },
-	{ "chg-state-change",           smblib_handle_debug },
+	{ "chg-state-change",           smblib_handle_chg_state_change },
 	{ "step-chg-state-change",      smblib_handle_debug },
 	{ "step-chg-soc-update-fail",   smblib_handle_debug },
 	{ "step-chg-soc-update-request", smblib_handle_debug },
@@ -615,7 +615,7 @@ static const struct smb2_irq_info smb2_irqs[] = {
 	{ "usbin-ov",                   smblib_handle_debug },
 	{ "usbin-plugin",               smblib_handle_usb_plugin },
 	{ "usbin-src-change",           smblib_handle_usb_source_change },
-	{ "usbin-icl-change",           smblib_handle_debug },
+	{ "usbin-icl-change",           smblib_handle_icl_change },
 	{ "type-c-change",		smblib_handle_usb_typec_change },
 /* DC INPUT IRQs */
 	{ "dcin-collapse",              smblib_handle_debug },
