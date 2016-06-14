@@ -274,7 +274,7 @@ static struct rcg_clk csi0_clk_src = {
 	.c = {
 		.dbg_name = "csi0_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP4(LOWER, 164570000, LOW, 256000000,
+		VDD_DIG_FMAX_MAP4(LOWER, 164571429, LOW, 256000000,
 					NOMINAL, 384000000, HIGH, 576000000),
 		CLK_INIT(csi0_clk_src.c),
 	},
@@ -292,6 +292,9 @@ static struct clk_freq_tbl ftbl_vfe_clk_src[] = {
 
 static struct clk_freq_tbl ftbl_vfe_clk_src_vq[] = {
 	F_MM( 200000000,    mmsscc_gpll0,    3,    0,     0),
+	F_MM( 300000000,    mmsscc_gpll0,    2,    0,     0),
+	F_MM( 320000000,  mmpll7_pll_out,    3,    0,     0),
+	F_MM( 384000000,  mmpll4_pll_out,    2,    0,     0),
 	F_MM( 404000000,  mmpll0_pll_out,    2,    0,     0),
 	F_MM( 480000000,  mmpll7_pll_out,    2,    0,     0),
 	F_MM( 576000000, mmpll10_pll_out,    1,    0,     0),
@@ -362,16 +365,6 @@ static struct clk_freq_tbl ftbl_maxi_clk_src[] = {
 	F_MM(  19200000,        mmsscc_xo,    1,    0,     0),
 	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
 	F_MM( 171428571,     mmsscc_gpll0,  3.5,    0,     0),
-	F_MM( 323200000,   mmpll0_pll_out,  2.5,    0,     0),
-	F_MM( 406000000,   mmpll1_pll_out,    2,    0,     0),
-	F_END
-};
-
-static struct clk_freq_tbl ftbl_maxi_clk_src_vq[] = {
-	F_MM(  19200000,        mmsscc_xo,    1,    0,     0),
-	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
-	F_MM( 171428571,     mmsscc_gpll0,  3.5,    0,     0),
-	F_MM( 240000000,     mmsscc_gpll0,  2.5,    0,     0),
 	F_MM( 323200000,   mmpll0_pll_out,  2.5,    0,     0),
 	F_MM( 406000000,   mmpll1_pll_out,    2,    0,     0),
 	F_END
@@ -592,18 +585,11 @@ static struct clk_freq_tbl ftbl_fd_core_clk_src[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_fd_core_clk_src_v2[] = {
-	F_MM( 100000000,    mmsscc_gpll0,    6,    0,     0),
-	F_MM( 404000000,  mmpll0_pll_out,    2,    0,     0),
-	F_MM( 480000000,  mmpll7_pll_out,    2,    0,     0),
-	F_MM( 576000000, mmpll10_pll_out,    1,    0,     0),
-	F_END
-};
-
 static struct clk_freq_tbl ftbl_fd_core_clk_src_vq[] = {
 	F_MM( 100000000,    mmsscc_gpll0,    6,    0,     0),
 	F_MM( 200000000,    mmsscc_gpll0,    3,    0,     0),
-	F_MM( 400000000,    mmsscc_gpll0,  1.5,    0,     0),
+	F_MM( 404000000,  mmpll0_pll_out,    2,    0,     0),
+	F_MM( 480000000,  mmpll7_pll_out,    2,    0,     0),
 	F_MM( 576000000, mmpll10_pll_out,    1,    0,     0),
 	F_END
 };
@@ -2677,60 +2663,81 @@ static void msm_mmsscc_hamster_fixup(void)
 	vfe1_clk_src.c.fmax[VDD_DIG_LOW_L1] = 480000000;
 
 	csi0_clk_src.freq_tbl = ftbl_csi_clk_src_vq;
-	csi0_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
+	csi0_clk_src.c.fmax[VDD_DIG_LOW] = 274290000;
+	csi0_clk_src.c.fmax[VDD_DIG_LOW_L1] = 320000000;
 	csi1_clk_src.freq_tbl = ftbl_csi_clk_src_vq;
-	csi1_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
+	csi1_clk_src.c.fmax[VDD_DIG_LOW] = 274290000;
+	csi1_clk_src.c.fmax[VDD_DIG_LOW_L1] = 320000000;
 	csi2_clk_src.freq_tbl = ftbl_csi_clk_src_vq;
-	csi2_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
+	csi2_clk_src.c.fmax[VDD_DIG_LOW] = 274290000;
+	csi2_clk_src.c.fmax[VDD_DIG_LOW_L1] = 320000000;
 	csi3_clk_src.freq_tbl = ftbl_csi_clk_src_vq;
-	csi3_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
+	csi3_clk_src.c.fmax[VDD_DIG_LOW] = 274290000;
+	csi3_clk_src.c.fmax[VDD_DIG_LOW_L1] = 320000000;
 
 	cpp_clk_src.freq_tbl = ftbl_cpp_clk_src_vq;
-	cpp_clk_src.c.fmax[VDD_DIG_LOW_L1] = 480000000;
+	cpp_clk_src.c.fmax[VDD_DIG_LOW] = 384000000;
+	cpp_clk_src.c.fmax[VDD_DIG_LOW_L1] = 404000000;
 	jpeg0_clk_src.freq_tbl = ftbl_jpeg0_clk_src_vq;
 	jpeg0_clk_src.c.fmax[VDD_DIG_LOW_L1] = 320000000;
 	csiphy_clk_src.freq_tbl = ftbl_csiphy_clk_src_vq;
+	csiphy_clk_src.c.fmax[VDD_DIG_LOW] = 274290000;
 	csiphy_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
 	fd_core_clk_src.freq_tbl = ftbl_fd_core_clk_src_vq;
-	fd_core_clk_src.c.fmax[VDD_DIG_LOW_L1] = 400000000;
+	fd_core_clk_src.c.fmax[VDD_DIG_LOW] = 404000000;
+	fd_core_clk_src.c.fmax[VDD_DIG_LOW_L1] = 480000000;
 
 	csi0phytimer_clk_src.c.fmax[VDD_DIG_LOW_L1] = 269333333;
 	csi1phytimer_clk_src.c.fmax[VDD_DIG_LOW_L1] = 269333333;
 	csi2phytimer_clk_src.c.fmax[VDD_DIG_LOW_L1] = 269333333;
 
 	mdp_clk_src.c.fmax[VDD_DIG_LOW_L1] = 330000000;
+	dp_pixel_clk_src.c.fmax[VDD_DIG_LOWER] = 154000000;
 	extpclk_clk_src.c.fmax[VDD_DIG_LOW] = 312500000;
 	extpclk_clk_src.c.fmax[VDD_DIG_LOW_L1] = 375000000;
 	rot_clk_src.c.fmax[VDD_DIG_LOW_L1] = 330000000;
 
-	maxi_clk_src.freq_tbl = ftbl_maxi_clk_src_vq;
 	video_core_clk_src.freq_tbl = ftbl_video_core_clk_src_vq;
 	video_core_clk_src.c.fmax[VDD_DIG_LOWER] = 200000000;
 	video_core_clk_src.c.fmax[VDD_DIG_LOW] = 269330000;
-	video_core_clk_src.c.fmax[VDD_DIG_LOW_L1] = 404000000;
+	video_core_clk_src.c.fmax[VDD_DIG_LOW_L1] = 355200000;
 	video_core_clk_src.c.fmax[VDD_DIG_NOMINAL] = 444000000;
 	video_core_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
 
 	video_subcore0_clk_src.freq_tbl = ftbl_video_subcore_clk_src_vq;
 	video_subcore0_clk_src.c.fmax[VDD_DIG_LOWER] = 200000000;
 	video_subcore0_clk_src.c.fmax[VDD_DIG_LOW] = 269330000;
-	video_subcore0_clk_src.c.fmax[VDD_DIG_LOW_L1] = 404000000;
+	video_subcore0_clk_src.c.fmax[VDD_DIG_LOW_L1] = 355200000;
 	video_subcore0_clk_src.c.fmax[VDD_DIG_NOMINAL] = 444000000;
 	video_subcore0_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
 
 	video_subcore1_clk_src.freq_tbl = ftbl_video_subcore_clk_src_vq;
 	video_subcore1_clk_src.c.fmax[VDD_DIG_LOWER] = 200000000;
 	video_subcore1_clk_src.c.fmax[VDD_DIG_LOW] = 269330000;
-	video_subcore1_clk_src.c.fmax[VDD_DIG_LOW_L1] = 404000000;
+	video_subcore1_clk_src.c.fmax[VDD_DIG_LOW_L1] = 355200000;
 	video_subcore1_clk_src.c.fmax[VDD_DIG_NOMINAL] = 444000000;
 	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
 };
 
 static void msm_mmsscc_v2_fixup(void)
 {
-	fd_core_clk_src.freq_tbl = ftbl_fd_core_clk_src_v2;
-	fd_core_clk_src.c.fmax[VDD_DIG_LOW] = 404000000;
-	fd_core_clk_src.c.fmax[VDD_DIG_LOW_L1] = 480000000;
+	cpp_clk_src.c.fmax[VDD_DIG_LOW] = 200000000;
+	cpp_clk_src.c.fmax[VDD_DIG_LOW_L1] = 480000000;
+	csi0_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
+	csi0_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
+	csi1_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
+	csi1_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
+	csi2_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
+	csi2_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
+	csi3_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
+	csi3_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
+	csiphy_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
+
+	dp_pixel_clk_src.c.fmax[VDD_DIG_LOWER] = 148380000;
+
+	video_subcore0_clk_src.c.fmax[VDD_DIG_LOW_L1] = 355200000;
+	video_subcore1_clk_src.c.fmax[VDD_DIG_LOW_L1] = 355200000;
+	video_core_clk_src.c.fmax[VDD_DIG_LOW_L1] = 355200000;
 }
 
 int msm_mmsscc_cobalt_probe(struct platform_device *pdev)
