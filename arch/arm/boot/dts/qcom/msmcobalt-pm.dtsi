@@ -382,7 +382,13 @@
 			<0xff  324>, /* lpass_qca_slimbus_bam_ee1_irq */
 			<0xff  432>, /* smmu_Cirpt[8] */
 			<0xff  433>, /* smmu_Cirpt[9] */
-			<0xff  461>; /* o_ocimem_nonsec_irq */
+			<0xff  461>, /* o_ocimem_nonsec_irq */
+			<0xff  69>, /* o_pwr_dcvsh_interrupt */
+			<0xff  70>, /* o_perf_dcvsh_interrupt */
+			<0xff  166>, /* o_lm_int_2qgic */
+			<0xff  238>, /* crypto_bam_irq[0] */
+			<0xff  132>; /* qup_irq */
+
 
 		qcom,gpio-parent = <&tlmm>;
 		qcom,gpio-map = <3  1>,
