@@ -25,6 +25,8 @@ Required properties:
                            uS.
 
 Optional properties:
+  - qcom,icnss-vadc: VADC handle for vph_pwr read APIs.
+  - qcom,icnss-adc_tm: VADC handle for vph_pwr notification APIs.
 
 Example:
 

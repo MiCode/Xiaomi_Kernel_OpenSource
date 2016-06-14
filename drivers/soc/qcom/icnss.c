@@ -35,6 +35,7 @@
 #include <linux/ipc_logging.h>
 #include <linux/msm-bus.h>
 #include <linux/uaccess.h>
+#include <linux/qpnp/qpnp-adc.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/msm_qmi_interface.h>
@@ -159,6 +160,10 @@
 
 #define ICNSS_SERVICE_LOCATION_CLIENT_NAME			"ICNSS-WLAN"
 #define ICNSS_WLAN_SERVICE_NAME					"wlan/fw"
+
+#define ICNSS_THRESHOLD_HIGH		3600000
+#define ICNSS_THRESHOLD_LOW		3450000
+#define ICNSS_THRESHOLD_GUARD		20000
 
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
@@ -360,6 +365,9 @@ struct icnss_stats {
 	uint32_t ini_req;
 	uint32_t ini_resp;
 	uint32_t ini_req_err;
+	uint32_t vbatt_req;
+	uint32_t vbatt_resp;
+	uint32_t vbatt_req_err;
 };
 
 static struct icnss_priv {
@@ -415,6 +423,10 @@ static struct icnss_priv {
 	uint32_t diag_reg_read_mem_type;
 	uint32_t diag_reg_read_len;
 	uint8_t *diag_reg_read_buf;
+	struct qpnp_adc_tm_btm_param vph_monitor_params;
+	struct qpnp_adc_tm_chip *adc_tm_dev;
+	struct qpnp_vadc_chip *vadc_dev;
+	uint64_t vph_pwr;
 } *penv;
 
 static void icnss_hw_write_reg(void *base, u32 offset, u32 val)
@@ -563,6 +575,189 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 
 	return ret;
 }
+
+static int wlfw_vbatt_send_sync_msg(struct icnss_priv *priv,
+				    uint64_t voltage_uv)
+{
+	int ret;
+	struct wlfw_vbatt_req_msg_v01 req;
+	struct wlfw_vbatt_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+
+	if (!priv->wlfw_clnt) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	icnss_pr_dbg("Sending Vbatt message, state: 0x%lx\n",
+		     penv->state);
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	req.voltage_uv = voltage_uv;
+
+	req_desc.max_msg_len = WLFW_VBATT_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_VBATT_REQ_V01;
+	req_desc.ei_array = wlfw_vbatt_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_VBATT_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_VBATT_RESP_V01;
+	resp_desc.ei_array = wlfw_vbatt_resp_msg_v01_ei;
+
+	priv->stats.vbatt_req++;
+
+	ret = qmi_send_req_wait(priv->wlfw_clnt, &req_desc, &req, sizeof(req),
+			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		icnss_pr_err("Send vbatt req failed %d\n", ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("QMI vbatt request failed %d %d\n",
+			resp.resp.result, resp.resp.error);
+		ret = resp.resp.result;
+		goto out;
+	}
+	priv->stats.vbatt_resp++;
+
+out:
+	priv->stats.vbatt_req_err++;
+	return ret;
+}
+
+static int icnss_get_phone_power(struct icnss_priv *priv, uint64_t *result_uv)
+{
+	int ret = 0;
+	struct qpnp_vadc_result adc_result;
+
+	if (!priv->vadc_dev) {
+		icnss_pr_err("VADC dev doesn't exists\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = qpnp_vadc_read(penv->vadc_dev, VADC_VPH_PWR, &adc_result);
+	if (ret) {
+		icnss_pr_err("Error reading ADC channel %d, ret = %d\n",
+			     VADC_VPH_PWR, ret);
+		goto out;
+	}
+
+	icnss_pr_dbg("Phone power read phy=%lld meas=0x%llx\n",
+		       adc_result.physical, adc_result.measurement);
+
+	*result_uv = adc_result.physical;
+out:
+	return ret;
+}
+
+static void icnss_vph_notify(enum qpnp_tm_state state, void *ctx)
+{
+	struct icnss_priv *priv = ctx;
+	uint64_t vph_pwr = 0;
+	uint64_t vph_pwr_prev;
+	int ret = 0;
+	bool update = true;
+
+	if (!priv) {
+		icnss_pr_err("Priv pointer is NULL\n");
+		return;
+	}
+
+	vph_pwr_prev = priv->vph_pwr;
+
+	ret = icnss_get_phone_power(priv, &vph_pwr);
+	if (ret)
+		return;
+
+	if (vph_pwr < ICNSS_THRESHOLD_LOW) {
+		if (vph_pwr_prev < ICNSS_THRESHOLD_LOW)
+			update = false;
+		priv->vph_monitor_params.state_request =
+			ADC_TM_HIGH_THR_ENABLE;
+		priv->vph_monitor_params.high_thr = ICNSS_THRESHOLD_LOW +
+			ICNSS_THRESHOLD_GUARD;
+		priv->vph_monitor_params.low_thr = 0;
+	} else if (vph_pwr > ICNSS_THRESHOLD_HIGH) {
+		if (vph_pwr_prev > ICNSS_THRESHOLD_HIGH)
+			update = false;
+		priv->vph_monitor_params.state_request =
+			ADC_TM_LOW_THR_ENABLE;
+		priv->vph_monitor_params.low_thr = ICNSS_THRESHOLD_HIGH -
+			ICNSS_THRESHOLD_GUARD;
+		priv->vph_monitor_params.high_thr = 0;
+	} else {
+		if (vph_pwr_prev > ICNSS_THRESHOLD_LOW &&
+		    vph_pwr_prev < ICNSS_THRESHOLD_HIGH)
+			update = false;
+		priv->vph_monitor_params.state_request =
+			ADC_TM_HIGH_LOW_THR_ENABLE;
+		priv->vph_monitor_params.low_thr = ICNSS_THRESHOLD_LOW;
+		priv->vph_monitor_params.high_thr = ICNSS_THRESHOLD_HIGH;
+	}
+
+	priv->vph_pwr = vph_pwr;
+
+	if (update)
+		wlfw_vbatt_send_sync_msg(priv, vph_pwr);
+
+	icnss_pr_dbg("set low threshold to %d, high threshold to %d\n",
+		       priv->vph_monitor_params.low_thr,
+		       priv->vph_monitor_params.high_thr);
+	ret = qpnp_adc_tm_channel_measure(priv->adc_tm_dev,
+					  &priv->vph_monitor_params);
+	if (ret)
+		icnss_pr_err("TM channel setup failed %d\n", ret);
+}
+
+static int icnss_setup_vph_monitor(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	if (!priv->adc_tm_dev) {
+		icnss_pr_err("ADC TM handler is NULL\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	priv->vph_monitor_params.low_thr = ICNSS_THRESHOLD_LOW;
+	priv->vph_monitor_params.high_thr = ICNSS_THRESHOLD_HIGH;
+	priv->vph_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
+	priv->vph_monitor_params.channel = VADC_VPH_PWR;
+	priv->vph_monitor_params.btm_ctx = priv;
+	priv->vph_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
+	priv->vph_monitor_params.threshold_notification = &icnss_vph_notify;
+	icnss_pr_dbg("Set low threshold to %d, high threshold to %d\n",
+		       priv->vph_monitor_params.low_thr,
+		       priv->vph_monitor_params.high_thr);
+
+	ret = qpnp_adc_tm_channel_measure(priv->adc_tm_dev,
+					  &priv->vph_monitor_params);
+	if (ret)
+		icnss_pr_err("TM channel setup failed %d\n", ret);
+out:
+	return ret;
+}
+
+static int icnss_init_vph_monitor(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	ret = icnss_get_phone_power(priv, &priv->vph_pwr);
+	if (ret)
+		goto out;
+
+	wlfw_vbatt_send_sync_msg(priv, priv->vph_pwr);
+
+	ret = icnss_setup_vph_monitor(priv);
+	if (ret)
+		goto out;
+out:
+	return ret;
+}
+
 
 static int icnss_qmi_pin_connect_result_ind(void *msg, unsigned int msg_len)
 {
@@ -2046,6 +2241,8 @@ static int icnss_driver_event_server_arrive(void *data)
 	if (ret < 0)
 		goto err_setup_msa;
 
+	icnss_init_vph_monitor(penv);
+
 	return ret;
 
 err_setup_msa:
@@ -2066,6 +2263,10 @@ static int icnss_driver_event_server_exit(void *data)
 		return -ENODEV;
 
 	icnss_pr_info("QMI Service Disconnected: 0x%lx\n", penv->state);
+
+	if (penv->adc_tm_dev)
+		qpnp_adc_tm_disable_chan_meas(penv->adc_tm_dev,
+					      &penv->vph_monitor_params);
 
 	qmi_handle_destroy(penv->wlfw_clnt);
 
@@ -3618,6 +3819,9 @@ static int icnss_stats_show(struct seq_file *s, void *data)
 	ICNSS_STATS_DUMP(s, priv, ini_req);
 	ICNSS_STATS_DUMP(s, priv, ini_resp);
 	ICNSS_STATS_DUMP(s, priv, ini_req_err);
+	ICNSS_STATS_DUMP(s, priv, vbatt_req);
+	ICNSS_STATS_DUMP(s, priv, vbatt_resp);
+	ICNSS_STATS_DUMP(s, priv, vbatt_req_err);
 
 	seq_puts(s, "\n<------------------ PM stats ------------------->\n");
 	ICNSS_STATS_DUMP(s, priv, pm_suspend);
@@ -3890,6 +4094,44 @@ static void icnss_debugfs_destroy(struct icnss_priv *priv)
 	debugfs_remove_recursive(priv->root_dentry);
 }
 
+static int icnss_get_vbatt_info(struct icnss_priv *priv)
+{
+	struct qpnp_adc_tm_chip *adc_tm_dev = NULL;
+	struct qpnp_vadc_chip *vadc_dev = NULL;
+	int ret = 0;
+
+	adc_tm_dev = qpnp_get_adc_tm(&priv->pdev->dev, "icnss");
+	if (PTR_ERR(adc_tm_dev) == -EPROBE_DEFER) {
+		icnss_pr_err("adc_tm_dev probe defer\n");
+		return -EPROBE_DEFER;
+	}
+
+	if (IS_ERR(adc_tm_dev)) {
+		ret = PTR_ERR(adc_tm_dev);
+		icnss_pr_err("Not able to get ADC dev, VBATT monitoring is disabled: %d\n",
+			     ret);
+		return ret;
+	}
+
+	vadc_dev = qpnp_get_vadc(&priv->pdev->dev, "icnss");
+	if (PTR_ERR(vadc_dev) == -EPROBE_DEFER) {
+		icnss_pr_err("vadc_dev probe defer\n");
+		return -EPROBE_DEFER;
+	}
+
+	if (IS_ERR(vadc_dev)) {
+		ret = PTR_ERR(vadc_dev);
+		icnss_pr_err("Not able to get VADC dev, VBATT monitoring is disabled: %d\n",
+			     ret);
+		return ret;
+	}
+
+	priv->adc_tm_dev = adc_tm_dev;
+	priv->vadc_dev = vadc_dev;
+
+	return 0;
+}
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3913,6 +4155,10 @@ static int icnss_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, priv);
 
 	priv->pdev = pdev;
+
+	ret = icnss_get_vbatt_info(priv);
+	if (ret == -EPROBE_DEFER)
+		goto out;
 
 	memcpy(priv->vreg_info, icnss_vreg_info, sizeof(icnss_vreg_info));
 	for (i = 0; i < ICNSS_VREG_INFO_SIZE; i++) {
