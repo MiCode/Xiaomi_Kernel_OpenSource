@@ -896,6 +896,7 @@
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,do-not-use-ch-gsi-20;
 		qcom,ipa-wdi2;
+		qcom,use-64-bit-dma-mask;
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
 		qcom,msm-bus,name = "ipa";
