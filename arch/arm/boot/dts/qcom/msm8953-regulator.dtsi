@@ -758,7 +758,7 @@
 
 		qcom,num-corners = <7>;
 		qcom,num-ldo-corners = <3>;
-		qcom,ldo-enable-corner-map = <0 0 0 0 0 0 0>;
+		qcom,ldo-enable-corner-map = <1 1 1 0 0 0 0>;
 		qcom,init-corner = <4>;
 
 		vdd-cx-supply = <&pm8953_s2_level>;
@@ -772,6 +772,7 @@
 
 		mem-acc-supply = <&gfx_mem_acc>;
 		qcom,mem-acc-corner-map = <1 1 1 2 2 2 2>;
+		qcom,ldo-init-voltage-adjustment = <35000 25000 0>;
 	};
 
 	eldo2_8953: eldo2 {
