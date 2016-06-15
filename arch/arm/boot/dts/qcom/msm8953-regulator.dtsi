@@ -371,6 +371,9 @@
 		qcom,cpr-enable;
 		qcom,cpr-hw-closed-loop;
 
+		qcom,cpr-temp-point-map = <250 650 850>;
+		qcom,cpr-initial-temp-band = <0>;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
@@ -727,6 +730,49 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,corner-allow-temp-adjustment =
+					/* Speed bin 0; CPR rev 0..7 */
+					<0 0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+
+					/* Speed bin 2; CPR rev 0..7 */
+					<0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+					<1 1 1 1 0 0 0>,
+
+					/* Speed bin 7; CPR rev 0..7 */
+					<0 0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>,
+					<1 1 1 1 0 0 0 0 0>;
+
+				qcom,cpr-corner1-temp-core-voltage-adjustment =
+					<(0) (-5000) (-15000) (-20000)>;
+
+				qcom,cpr-corner2-temp-core-voltage-adjustment =
+					<(0) (-5000) (-15000) (-15000)>;
+
+				qcom,cpr-corner3-temp-core-voltage-adjustment =
+					<(0) (-5000) (-15000)      (0)>;
+
+				qcom,cpr-corner4-temp-core-voltage-adjustment =
+					<(0) (-5000) (-15000)      (0)>;
 			};
 		};
 	};
@@ -758,7 +804,7 @@
 
 		qcom,num-corners = <7>;
 		qcom,num-ldo-corners = <3>;
-		qcom,ldo-enable-corner-map = <0 0 0 0 0 0 0>;
+		qcom,ldo-enable-corner-map = <1 1 1 0 0 0 0>;
 		qcom,init-corner = <4>;
 
 		vdd-cx-supply = <&pm8953_s2_level>;
@@ -772,6 +818,7 @@
 
 		mem-acc-supply = <&gfx_mem_acc>;
 		qcom,mem-acc-corner-map = <1 1 1 2 2 2 2>;
+		qcom,ldo-init-voltage-adjustment = <35000 25000 0>;
 	};
 
 	eldo2_8953: eldo2 {
