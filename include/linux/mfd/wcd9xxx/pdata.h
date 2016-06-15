@@ -10,11 +10,12 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MFD_TABLA_PDATA_H__
+#ifndef __MFD_WCD9XXX_PDATA_H__
 
-#define __MFD_TABLA_PDATA_H__
+#define __MFD_WCD9XXX_PDATA_H__
 
 #include <linux/slimbus/slimbus.h>
+#include <linux/mfd/msm-cdc-supply.h>
 
 #define MICBIAS_EXT_BYP_CAP 0x00
 #define MICBIAS_NO_EXT_BYP_CAP 0x01
@@ -183,12 +184,12 @@ struct wcd9xxx_pdata {
 	struct slim_device slimbus_slave_device;
 	struct wcd9xxx_micbias_setting micbias;
 	struct wcd9xxx_ocp_setting ocp;
-	struct wcd9xxx_regulator regulator[WCD9XXX_MAX_REGULATOR];
+	struct cdc_regulator *regulator;
+	int num_supplies;
 	u32 mclk_rate;
 	u32 dmic_sample_rate;
 	u32 mad_dmic_sample_rate;
 	u32 dmic_clk_drv;
-	enum codec_variant cdc_variant;
 	u16 use_pinctrl;
 };
 

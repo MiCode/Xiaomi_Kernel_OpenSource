@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,25 +35,41 @@ static const char *wcd_resmgr_clk_type_to_str(enum wcd_clock_type clk_type)
 static int wcd_resmgr_codec_reg_update_bits(struct wcd9xxx_resmgr_v2 *resmgr,
 					    u16 reg, u8 mask, u8 val)
 {
-	int change;
-	if (resmgr->codec)
-		change = snd_soc_update_bits(resmgr->codec, reg, mask, val);
-	else
-		change = wcd9xxx_reg_update_bits(resmgr->core_res, reg,
-						 mask, val);
+	bool change;
+	int ret;
 
-	return change;
+	if (resmgr->codec) {
+		ret = snd_soc_update_bits(resmgr->codec, reg, mask, val);
+	} else if (resmgr->core_res->wcd_core_regmap) {
+		ret = regmap_update_bits_check(
+				resmgr->core_res->wcd_core_regmap,
+				reg, mask, val, &change);
+		if (!ret)
+			ret = change;
+	} else {
+		pr_err("%s: codec/regmap not defined\n", __func__);
+		ret = -EINVAL;
+	}
+
+	return ret;
 }
 
 static int wcd_resmgr_codec_reg_read(struct wcd9xxx_resmgr_v2 *resmgr,
 				     unsigned int reg)
 {
-	int val;
+	int val, ret;
 
-	if (resmgr->codec)
+	if (resmgr->codec) {
 		val = snd_soc_read(resmgr->codec, reg);
-	else
-		val = wcd9xxx_reg_read(resmgr->core_res, reg);
+	} else if (resmgr->core_res->wcd_core_regmap) {
+		ret = regmap_read(resmgr->core_res->wcd_core_regmap,
+				  reg, &val);
+		if (ret)
+			val = ret;
+	} else {
+		pr_err("%s: wcd regmap is null\n", __func__);
+		return -EINVAL;
+	}
 
 	return val;
 }

@@ -191,11 +191,12 @@ obj-$(CONFIG_MFD_DLN2)		+= dln2.o
 obj-$(CONFIG_MFD_RT5033)	+= rt5033.o
 obj-$(CONFIG_MFD_SKY81452)	+= sky81452.o
 obj-$(CONFIG_MSM_CDC_PINCTRL)	+= msm-cdc-pinctrl.o
+obj-$(CONFIG_MSM_CDC_SUPPLY) += msm-cdc-supply.o
+obj-$(CONFIG_WCD9XXX_CODEC_UTIL) += wcd9xxx-utils.o
 obj-$(CONFIG_WCD9330_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o\
-						wcd9xxx-core-resource.o wcd9330-regmap.o
+						wcd9330-regmap.o
 obj-$(CONFIG_WCD9335_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o\
-					wcd9xxx-core-resource.o wcd9335-regmap.o\
-					wcd9335-tables.o wcd-gpio-ctrl.o
+					wcd9335-regmap.o wcd9335-tables.o
 intel-soc-pmic-objs		:= intel_soc_pmic_core.o intel_soc_pmic_crc.o
 intel-soc-pmic-$(CONFIG_INTEL_PMC_IPC)	+= intel_soc_pmic_bxtwc.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= intel-soc-pmic.o

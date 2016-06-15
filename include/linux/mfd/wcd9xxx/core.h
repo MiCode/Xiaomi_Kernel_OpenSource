@@ -16,9 +16,11 @@
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <linux/of_irq.h>
-#include <linux/mfd/wcd9xxx/core-resource.h>
+#include <linux/interrupt.h>
+#include <linux/pm_qos.h>
 
-
+#define WCD9XXX_MAX_IRQ_REGS 4
+#define WCD9XXX_MAX_NUM_IRQS (WCD9XXX_MAX_IRQ_REGS * 8)
 #define WCD9XXX_SLIM_NUM_PORT_REG 3
 #define TABLA_VERSION_1_0	0
 #define TABLA_VERSION_1_1	1
@@ -58,9 +60,15 @@
 #define TASHA_IS_2_0(ver) \
 	((ver == TASHA_VERSION_2_0) ? 1 : 0)
 
-enum wcd9xxx_slim_slave_addr_type {
-	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA,
-	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO,
+#define IS_CODEC_TYPE(wcd, wcdtype) \
+	((wcd->type == wcdtype) ? true : false)
+#define IS_CODEC_VERSION(wcd, wcdversion) \
+	((wcd->version == wcdversion) ? true : false)
+
+enum {
+	CDC_V_1_0,
+	CDC_V_1_1,
+	CDC_V_2_0,
 };
 
 enum codec_variant {
@@ -68,6 +76,32 @@ enum codec_variant {
 	WCD9330,
 	WCD9335,
 	WCD9326,
+};
+
+enum wcd9xxx_slim_slave_addr_type {
+	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_0,
+	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_1,
+};
+
+enum wcd9xxx_pm_state {
+	WCD9XXX_PM_SLEEPABLE,
+	WCD9XXX_PM_AWAKE,
+	WCD9XXX_PM_ASLEEP,
+};
+
+enum {
+	WCD9XXX_INTR_STATUS_BASE = 0,
+	WCD9XXX_INTR_CLEAR_BASE,
+	WCD9XXX_INTR_MASK_BASE,
+	WCD9XXX_INTR_LEVEL_BASE,
+	WCD9XXX_INTR_CLR_COMMIT,
+	WCD9XXX_INTR_REG_MAX,
+};
+
+enum wcd9xxx_intf_status {
+	WCD9XXX_INTERFACE_TYPE_PROBING,
+	WCD9XXX_INTERFACE_TYPE_SLIMBUS,
+	WCD9XXX_INTERFACE_TYPE_I2C,
 };
 
 enum {
@@ -128,50 +162,47 @@ enum {
 };
 
 enum {
-	/* INTR_REG 0 */
-	WCD9335_IRQ_FLL_LOCK_LOSS = 1,
-	WCD9335_IRQ_HPH_PA_OCPL_FAULT,
-	WCD9335_IRQ_HPH_PA_OCPR_FAULT,
-	WCD9335_IRQ_EAR_PA_OCP_FAULT,
-	WCD9335_IRQ_HPH_PA_CNPL_COMPLETE,
-	WCD9335_IRQ_HPH_PA_CNPR_COMPLETE,
-	WCD9335_IRQ_EAR_PA_CNP_COMPLETE,
-	/* INTR_REG 1 */
-	WCD9335_IRQ_MBHC_SW_DET,
-	WCD9335_IRQ_MBHC_ELECT_INS_REM_DET,
-	WCD9335_IRQ_MBHC_BUTTON_PRESS_DET,
-	WCD9335_IRQ_MBHC_BUTTON_RELEASE_DET,
-	WCD9335_IRQ_MBHC_ELECT_INS_REM_LEG_DET,
-	WCD9335_IRQ_RESERVED_0,
-	WCD9335_IRQ_RESERVED_1,
-	WCD9335_IRQ_RESERVED_2,
-	/* INTR_REG 2 */
-	WCD9335_IRQ_LINE_PA1_CNP_COMPLETE,
-	WCD9335_IRQ_LINE_PA2_CNP_COMPLETE,
-	WCD9335_IRQ_LINE_PA3_CNP_COMPLETE,
-	WCD9335_IRQ_LINE_PA4_CNP_COMPLETE,
-	WCD9335_IRQ_SOUNDWIRE,
-	WCD9335_IRQ_VDD_DIG_RAMP_COMPLETE,
-	WCD9335_IRQ_RCO_ERROR,
-	WCD9335_IRQ_SVA_ERROR,
-	/* INTR_REG 3 */
-	WCD9335_IRQ_MAD_AUDIO,
-	WCD9335_IRQ_MAD_BEACON,
-	WCD9335_IRQ_MAD_ULTRASOUND,
-	WCD9335_IRQ_VBAT_ATTACK,
-	WCD9335_IRQ_VBAT_RESTORE,
-	WCD9335_IRQ_SVA_OUTBOX1,
-	WCD9335_IRQ_SVA_OUTBOX2,
-	WCD9335_NUM_IRQS,
-};
-
-enum {
 	TABLA_NUM_IRQS = WCD9310_NUM_IRQS,
 	SITAR_NUM_IRQS = WCD9310_NUM_IRQS,
 	TAIKO_NUM_IRQS = WCD9XXX_NUM_IRQS,
 	TAPAN_NUM_IRQS = WCD9306_NUM_IRQS,
 	TOMTOM_NUM_IRQS = WCD9330_NUM_IRQS,
-	TASHA_NUM_IRQS = WCD9335_NUM_IRQS,
+};
+
+struct intr_data {
+	int intr_num;
+	bool clear_first;
+};
+
+struct wcd9xxx_core_resource {
+	struct mutex irq_lock;
+	struct mutex nested_irq_lock;
+
+	enum wcd9xxx_pm_state pm_state;
+	struct mutex pm_lock;
+	/* pm_wq notifies change of pm_state */
+	wait_queue_head_t pm_wq;
+	struct pm_qos_request pm_qos_req;
+	int wlock_holders;
+
+
+	/* holds the table of interrupts per codec */
+	const struct intr_data *intr_table;
+	int intr_table_size;
+	unsigned int irq_base;
+	unsigned int irq;
+	u8 irq_masks_cur[WCD9XXX_MAX_IRQ_REGS];
+	u8 irq_masks_cache[WCD9XXX_MAX_IRQ_REGS];
+	bool irq_level_high[WCD9XXX_MAX_NUM_IRQS];
+	int num_irqs;
+	int num_irq_regs;
+	u16 intr_reg[WCD9XXX_INTR_REG_MAX];
+	struct regmap *wcd_core_regmap;
+
+	/* Pointer to parent container data structure */
+	void *parent;
+
+	struct device *dev;
 };
 
 /*
@@ -243,6 +274,9 @@ struct wcd9xxx_codec_type {
 	int version; /* -1 to retrive version from chip version register */
 	enum wcd9xxx_slim_slave_addr_type slim_slave_type;
 	u16 i2c_chip_status;
+	const struct intr_data *intr_tbl;
+	int intr_tbl_size;
+	u16 intr_reg[WCD9XXX_INTR_REG_MAX];
 };
 
 struct wcd9xxx_power_region {
@@ -266,6 +300,8 @@ struct wcd9xxx {
 			int bytes, void *dest, bool interface_reg);
 	int (*write_dev)(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			int bytes, void *src, bool interface_reg);
+	int (*multi_reg_write)(struct wcd9xxx *wcd9xxx, const void *data,
+			       size_t count);
 	int (*dev_down)(struct wcd9xxx *wcd9xxx);
 	int (*post_reset)(struct wcd9xxx *wcd9xxx);
 
@@ -287,10 +323,9 @@ struct wcd9xxx {
 	struct wcd9xxx_ch *tx_chs;
 	u32 mclk_rate;
 	enum codec_variant type;
-	bool using_regmap;
 	struct regmap *regmap;
 
-	const struct wcd9xxx_codec_type *codec_type;
+	struct wcd9xxx_codec_type *codec_type;
 	bool prev_pg_valid;
 	u8 prev_pg;
 	struct wcd9xxx_power_region *wcd9xxx_pwr[WCD9XXX_MAX_PWR_REGIONS];
@@ -315,26 +350,43 @@ int wcd9xxx_set_power_state(struct wcd9xxx *, enum codec_power_states,
 int wcd9xxx_get_current_power_state(struct wcd9xxx *,
 				    enum wcd_power_regions);
 
+int wcd9xxx_page_write(struct wcd9xxx *wcd9xxx, unsigned short *reg);
+
 int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
 			    struct wcd9xxx_reg_val *bulk_reg,
 			    unsigned int size, bool interface);
 
+extern int wcd9xxx_core_res_init(
+	struct wcd9xxx_core_resource*,
+	int, int, struct regmap *);
+
+extern void wcd9xxx_core_res_deinit(
+	struct wcd9xxx_core_resource *);
+
+extern int wcd9xxx_core_res_suspend(
+	struct wcd9xxx_core_resource *,
+	pm_message_t);
+
+extern int wcd9xxx_core_res_resume(
+	struct wcd9xxx_core_resource *);
+
+extern int wcd9xxx_core_irq_init(
+	struct wcd9xxx_core_resource*);
+
+extern int wcd9xxx_assign_irq(struct wcd9xxx_core_resource*,
+			      unsigned int,
+			      unsigned int);
+
+extern enum wcd9xxx_intf_status wcd9xxx_get_intf_type(void);
+extern void wcd9xxx_set_intf_type(enum wcd9xxx_intf_status);
+
+extern enum wcd9xxx_pm_state wcd9xxx_pm_cmpxchg(
+			struct wcd9xxx_core_resource *,
+			enum wcd9xxx_pm_state,
+			enum wcd9xxx_pm_state);
 static inline int __init wcd9xxx_irq_of_init(struct device_node *node,
 			       struct device_node *parent)
 {
 	return 0;
-}
-
-static inline void wcd9xxx_reg_update(struct wcd9xxx *core,
-				      unsigned short reg,
-				      u8 mask, u8 val)
-{
-	u8 reg_val;
-
-	if (core) {
-		reg_val = wcd9xxx_reg_read(&core->core_res, reg);
-		reg_val = (reg_val & ~mask) | (val & mask);
-		wcd9xxx_reg_write(&core->core_res, reg, reg_val);
-	}
 }
 #endif

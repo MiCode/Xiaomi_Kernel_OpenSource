@@ -354,7 +354,7 @@ Required properties:
 
 Required properties:
 
- - compatible :                            "qcom,wcd-gpio-ctrl"
+ - compatible :                            "qcom,msm-cdc-pinctrl"
 
  - qcom,cdc-rst-n-gpio :                   TLMM GPIO number
 
@@ -625,7 +625,7 @@ Example:
 	};
 
 	wcd_gpio_ctrl {
-		compatible = "qcom,wcd-gpio-ctrl";
+		compatible = "qcom,msm-cdc-pinctrl";
 		qcom,cdc-rst-n-gpio = <&tlmm 64 0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_reset_active>;
