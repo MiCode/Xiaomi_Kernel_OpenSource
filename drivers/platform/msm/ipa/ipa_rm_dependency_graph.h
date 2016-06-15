@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,10 +38,12 @@ int ipa_rm_dep_graph_remove(struct ipa_rm_dep_graph *graph,
 
 int ipa_rm_dep_graph_add_dependency(struct ipa_rm_dep_graph *graph,
 				enum ipa_rm_resource_name resource_name,
-				enum ipa_rm_resource_name depends_on_name);
+				enum ipa_rm_resource_name depends_on_name,
+				bool userspsace_dep);
 
 int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 				enum ipa_rm_resource_name resource_name,
-				enum ipa_rm_resource_name depends_on_name);
+				enum ipa_rm_resource_name depends_on_name,
+				bool userspsace_dep);
 
 #endif /* _IPA_RM_DEPENDENCY_GRAPH_H_ */

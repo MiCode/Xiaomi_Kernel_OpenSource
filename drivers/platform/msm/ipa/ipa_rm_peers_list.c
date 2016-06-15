@@ -68,7 +68,7 @@ int ipa_rm_peers_list_create(int max_peers,
 
 	(*peers_list)->max_peers = max_peers;
 	(*peers_list)->peers = kzalloc((*peers_list)->max_peers *
-				sizeof(struct ipa_rm_resource *), GFP_ATOMIC);
+			sizeof(*((*peers_list)->peers)), GFP_ATOMIC);
 	if (!((*peers_list)->peers)) {
 		IPA_RM_ERR("no mem\n");
 		result = -ENOMEM;
@@ -112,7 +112,9 @@ void ipa_rm_peers_list_remove_peer(
 		return;
 
 	peers_list->peers[ipa_rm_peers_list_get_resource_index(
-			resource_name)] = NULL;
+			resource_name)].resource = NULL;
+	peers_list->peers[ipa_rm_peers_list_get_resource_index(
+			resource_name)].userspace_dep = false;
 	peers_list->peers_count--;
 }
 
@@ -125,14 +127,16 @@ void ipa_rm_peers_list_remove_peer(
  */
 void ipa_rm_peers_list_add_peer(
 		struct ipa_rm_peers_list *peers_list,
-		struct ipa_rm_resource *resource)
+		struct ipa_rm_resource *resource,
+		bool userspace_dep)
 {
 	if (!peers_list || !resource)
 		return;
 
 	peers_list->peers[ipa_rm_peers_list_get_resource_index(
-			resource->name)] =
-			resource;
+			resource->name)].resource = resource;
+	peers_list->peers[ipa_rm_peers_list_get_resource_index(
+		resource->name)].userspace_dep = userspace_dep;
 	peers_list->peers_count++;
 }
 
@@ -186,6 +190,7 @@ bail:
  * @resource_name: first peers list resource name
  * @depends_on_peers: second peers list
  * @depends_on_name: second peers list resource name
+ * @userspace_dep: [out] dependency was created by userspace
  *
  * Returns: true if there is dependency, false otherwise
  *
@@ -194,20 +199,28 @@ bool ipa_rm_peers_list_check_dependency(
 		struct ipa_rm_peers_list *resource_peers,
 		enum ipa_rm_resource_name resource_name,
 		struct ipa_rm_peers_list *depends_on_peers,
-		enum ipa_rm_resource_name depends_on_name)
+		enum ipa_rm_resource_name depends_on_name,
+		bool *userspace_dep)
 {
 	bool result = false;
+	int resource_index;
 
-	if (!resource_peers || !depends_on_peers)
+	if (!resource_peers || !depends_on_peers || !userspace_dep)
 		return result;
 
-	if (resource_peers->peers[ipa_rm_peers_list_get_resource_index(
-			depends_on_name)] != NULL)
+	resource_index = ipa_rm_peers_list_get_resource_index(depends_on_name);
+	if (resource_peers->peers[resource_index].resource != NULL) {
 		result = true;
+		*userspace_dep = resource_peers->peers[resource_index].
+			userspace_dep;
+	}
 
-	if (depends_on_peers->peers[ipa_rm_peers_list_get_resource_index(
-						resource_name)] != NULL)
+	resource_index = ipa_rm_peers_list_get_resource_index(resource_name);
+	if (depends_on_peers->peers[resource_index].resource != NULL) {
 		result = true;
+		*userspace_dep = depends_on_peers->peers[resource_index].
+			userspace_dep;
+	}
 
 	return result;
 }
@@ -228,7 +241,28 @@ struct ipa_rm_resource *ipa_rm_peers_list_get_resource(int resource_index,
 	if (!ipa_rm_peers_list_check_index(resource_index, resource_peers))
 		goto bail;
 
-	result = resource_peers->peers[resource_index];
+	result = resource_peers->peers[resource_index].resource;
+bail:
+	return result;
+}
+
+/**
+ * ipa_rm_peers_list_get_userspace_dep() - returns whether resource dependency
+ * was added by userspace
+ * @resource_index: resource index
+ * @resource_peers: peers list
+ *
+ * Returns: true if dependency was added by userspace, false by kernel
+ */
+bool ipa_rm_peers_list_get_userspace_dep(int resource_index,
+		struct ipa_rm_peers_list *resource_peers)
+{
+	bool result = false;
+
+	if (!ipa_rm_peers_list_check_index(resource_index, resource_peers))
+		goto bail;
+
+	result = resource_peers->peers[resource_index].userspace_dep;
 bail:
 	return result;
 }
