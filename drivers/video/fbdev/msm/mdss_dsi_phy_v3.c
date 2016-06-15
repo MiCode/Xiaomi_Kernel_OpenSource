@@ -118,6 +118,16 @@ static void mdss_dsi_phy_v3_set_pll_source(
 	DSI_PHY_W32(ctrl->phy_io.base, CMN_CLK_CFG1, reg);
 }
 
+static void mdss_dsi_phy_v3_lane_swap_config(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	DSI_PHY_W32(ctrl->phy_io.base, CMN_LANE_CFG0,
+		ctrl->lane_map[DSI_LOGICAL_LANE_0] |
+		ctrl->lane_map[DSI_LOGICAL_LANE_1] << 4);
+	DSI_PHY_W32(ctrl->phy_io.base, CMN_LANE_CFG1,
+		ctrl->lane_map[DSI_LOGICAL_LANE_2] |
+		ctrl->lane_map[DSI_LOGICAL_LANE_3] << 4);
+}
+
 static void mdss_dsi_phy_v3_lanes_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 data = DSI_PHY_R32(ctrl->phy_io.base, CMN_CTRL_0);
@@ -342,6 +352,8 @@ int mdss_dsi_phy_v3_init(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	/* Enable LDO */
 	DSI_PHY_W32(ctrl->phy_io.base, CMN_VREG_CTRL, 0x59);
+
+	mdss_dsi_phy_v3_lane_swap_config(ctrl);
 
 	mdss_dsi_phy_v3_config_timings(ctrl);
 
