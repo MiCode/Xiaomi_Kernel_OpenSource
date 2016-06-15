@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014,2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -286,7 +286,7 @@ int oneshot_fence_signal(struct oneshot_sync_timeline *timeline,
 	}
 	spin_unlock(&timeline->lock);
 	if (ret == -EINVAL)
-		pr_debug("fence: %p not from this timeline\n", fence);
+		pr_debug("fence: %pK not from this timeline\n", fence);
 
 	if (signaled)
 		sync_timeline_signal(&timeline->obj);
