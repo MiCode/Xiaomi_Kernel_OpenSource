@@ -1306,7 +1306,7 @@ static int hdmi_tx_sysfs_create(struct hdmi_tx_ctrl *hdmi_ctrl,
 		return rc;
 	}
 	hdmi_ctrl->kobj = &fbi->dev->kobj;
-	DEV_DBG("%s: sysfs group %p\n", __func__, hdmi_ctrl->kobj);
+	DEV_DBG("%s: sysfs group %pK\n", __func__, hdmi_ctrl->kobj);
 
 	return 0;
 } /* hdmi_tx_sysfs_create */
@@ -3858,7 +3858,7 @@ static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 			DEV_DBG("%s: '%s' remap failed or not available\n",
 				__func__, hdmi_tx_io_name(i));
 		}
-		DEV_INFO("%s: '%s': start = 0x%p, len=0x%x\n", __func__,
+		DEV_INFO("%s: '%s': start = 0x%pK, len=0x%x\n", __func__,
 			hdmi_tx_io_name(i), pdata->io[i].base,
 			pdata->io[i].len);
 	}
@@ -4361,7 +4361,7 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 
 	data = of_get_property(pdev->dev.of_node, "qcom,display-id", &len);
 	if (!data || len <= 0)
-		pr_err("%s:%d Unable to read qcom,display-id, data=%p,len=%d\n",
+		pr_err("%s:%d Unable to read qcom,display-id, data=%pK,len=%d\n",
 			__func__, __LINE__, data, len);
 	else
 		snprintf(hdmi_ctrl->panel_data.panel_info.display_id,

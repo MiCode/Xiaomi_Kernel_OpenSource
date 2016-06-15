@@ -117,7 +117,7 @@ void *pp_get_driver_ops_v3(struct mdp_pp_driver_ops *ops)
 	void *pp_cfg = NULL;
 
 	if (!ops) {
-		pr_err("PP driver ops invalid %p\n", ops);
+		pr_err("PP driver ops invalid %pK\n", ops);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -158,7 +158,7 @@ static int pp_get_hist_offset(u32 block, u32 *ctl_off)
 	int ret = 0;
 
 	if (!ctl_off) {
-		pr_err("invalid params ctl_off %p\n", ctl_off);
+		pr_err("invalid params ctl_off %pK\n", ctl_off);
 		return -EINVAL;
 	}
 
@@ -184,7 +184,7 @@ static int pp_hist_set_config(char __iomem *base_addr,
 	struct pp_hist_col_info *hist_info = NULL;
 
 	if (!base_addr || !cfg_data || !pp_sts) {
-		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		pr_err("invalid params base_addr %pK cfg_data %pK pp_sts_type %pK\n",
 		      base_addr, cfg_data, pp_sts);
 		return -EINVAL;
 	}
@@ -220,7 +220,7 @@ static int pp_hist_get_config(char __iomem *base_addr, void *cfg_data,
 	char __iomem *hist_addr;
 
 	if (!base_addr || !cfg_data) {
-		pr_err("invalid params base_addr %p cfg_data %p\n",
+		pr_err("invalid params base_addr %pK cfg_data %pK\n",
 		       base_addr, cfg_data);
 		return -EINVAL;
 	}
@@ -253,7 +253,7 @@ static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
 	struct mdp_hist_lut_data *lut_cfg_data = NULL;
 
 	if (!base_addr || !cfg_data) {
-		pr_err("invalid params base_addr %p cfg_data %p\n",
+		pr_err("invalid params base_addr %pK cfg_data %pK\n",
 		       base_addr, cfg_data);
 		return -EINVAL;
 	}
@@ -270,7 +270,7 @@ static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
 	}
 	if (lut_cfg_data->version != mdp_hist_lut_v1_7 ||
 		!lut_cfg_data->cfg_payload) {
-		pr_err("invalid hist_lut version %d payload %p\n",
+		pr_err("invalid hist_lut version %d payload %pK\n",
 		       lut_cfg_data->version, lut_cfg_data->cfg_payload);
 		return -EINVAL;
 	}
@@ -317,7 +317,7 @@ static int pp_hist_lut_set_config(char __iomem *base_addr,
 	char __iomem *hist_lut_addr = NULL, *swap_addr = NULL;
 
 	if (!base_addr || !cfg_data || !pp_sts) {
-		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		pr_err("invalid params base_addr %pK cfg_data %pK pp_sts_type %pK\n",
 		      base_addr, cfg_data, pp_sts);
 		return -EINVAL;
 	}
@@ -344,12 +344,12 @@ static int pp_hist_lut_set_config(char __iomem *base_addr,
 	}
 	lut_data = lut_cfg_data->cfg_payload;
 	if (!lut_data) {
-		pr_err("invalid hist_lut cfg_payload %p\n", lut_data);
+		pr_err("invalid hist_lut cfg_payload %pK\n", lut_data);
 		return -EINVAL;
 	}
 
 	if (lut_data->len != ENHIST_LUT_ENTRIES || !lut_data->data) {
-		pr_err("invalid hist_lut len %d data %p\n",
+		pr_err("invalid hist_lut len %d data %pK\n",
 		       lut_data->len, lut_data->data);
 		return -EINVAL;
 	}
@@ -386,7 +386,7 @@ hist_lut_set_sts:
 static int pp_hist_lut_get_version(u32 *version)
 {
 	if (!version) {
-		pr_err("invalid param version %p\n", version);
+		pr_err("invalid param version %pK\n", version);
 		return -EINVAL;
 	}
 	*version = mdp_hist_lut_v1_7;
@@ -399,7 +399,7 @@ static void pp_hist_lut_opmode_config(char __iomem *base_addr,
 	u32 opmode = 0;
 
 	if (!base_addr || !pp_sts) {
-		pr_err("invalid params base_addr %p pp_sts_type %p\n",
+		pr_err("invalid params base_addr %pK pp_sts_type %pK\n",
 			base_addr, pp_sts);
 		return;
 	}
@@ -428,7 +428,7 @@ static int pp_pa_set_config(char __iomem *base_addr,
 	char __iomem *block_addr = NULL;
 
 	if (!base_addr || !cfg_data || !pp_sts) {
-		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		pr_err("invalid params base_addr %pK cfg_data %pK pp_sts_type %pK\n",
 				base_addr, cfg_data, pp_sts);
 		return -EINVAL;
 	}
@@ -459,7 +459,7 @@ static int pp_pa_set_config(char __iomem *base_addr,
 
 	pa_data = pa_cfg_data->cfg_payload;
 	if (!pa_data) {
-		pr_err("invalid payload for pa %p\n", pa_data);
+		pr_err("invalid payload for pa %pK\n", pa_data);
 		return -EINVAL;
 	}
 
@@ -508,7 +508,7 @@ static int pp_dither_set_config(char __iomem *base_addr,
 	char __iomem *dither_opmode = NULL;
 
 	if (!base_addr || !cfg_data || !pp_sts) {
-		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		pr_err("invalid params base_addr %pK cfg_data %pK pp_sts_type %pK\n",
 		      base_addr, cfg_data, pp_sts);
 		return -EINVAL;
 	}
@@ -537,7 +537,7 @@ static int pp_dither_set_config(char __iomem *base_addr,
 
 	dither_data = dither_cfg_data->cfg_payload;
 	if (!dither_data) {
-		pr_err("invalid payload for dither %p\n", dither_data);
+		pr_err("invalid payload for dither %pK\n", dither_data);
 		return -EINVAL;
 	}
 
@@ -592,7 +592,7 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 		u32 *opmode, int side)
 {
 	if (!pp_sts || !opmode) {
-		pr_err("Invalid pp_sts %p or opmode %p\n", pp_sts, opmode);
+		pr_err("Invalid pp_sts %pK or opmode %pK\n", pp_sts, opmode);
 		return;
 	}
 	switch (location) {
@@ -726,7 +726,7 @@ static void pp_pa_set_six_zone(char __iomem *base_addr,
 	if (pa_data->six_zone_len != MDP_SIX_ZONE_LUT_SIZE ||
 			!pa_data->six_zone_curve_p0 ||
 			!pa_data->six_zone_curve_p1) {
-		pr_err("Invalid six zone data: len %d curve_p0 %p curve_p1 %p\n",
+		pr_err("Invalid six zone data: len %d curve_p0 %pK curve_p1 %pK\n",
 				pa_data->six_zone_len,
 				pa_data->six_zone_curve_p0,
 				pa_data->six_zone_curve_p1);
