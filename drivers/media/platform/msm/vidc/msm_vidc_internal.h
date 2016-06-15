@@ -385,6 +385,7 @@ int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
 		enum smem_cache_ops);
 struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 				enum hal_buffer buffer_type);
+bool msm_smem_compare_buffers(void *clt, int fd, void *priv);
 int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
 		buffer_type, int *domain_num, int *partition_num);
 void msm_vidc_fw_unload_handler(struct work_struct *work);
