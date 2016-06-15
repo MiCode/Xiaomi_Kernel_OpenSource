@@ -573,25 +573,6 @@ static void disable_all_irqs(struct subsys_device *dev)
 	}
 }
 
-int wait_for_shutdown_ack(struct subsys_desc *desc)
-{
-	int count;
-
-	if (!desc || !desc->shutdown_ack_gpio)
-		return 0;
-
-	for (count = SHUTDOWN_ACK_MAX_LOOPS; count > 0; count--) {
-		if (gpio_get_value(desc->shutdown_ack_gpio))
-			return count;
-		msleep(SHUTDOWN_ACK_DELAY_MS);
-	}
-
-	pr_err("[%s]: Timed out waiting for shutdown ack\n", desc->name);
-
-	return -ETIMEDOUT;
-}
-EXPORT_SYMBOL(wait_for_shutdown_ack);
-
 static int wait_for_err_ready(struct subsys_device *subsys)
 {
 	int ret;
@@ -746,6 +727,31 @@ static void subsys_stop(struct subsys_device *subsys)
 	disable_all_irqs(subsys);
 	notify_each_subsys_device(&subsys, 1, SUBSYS_AFTER_SHUTDOWN, NULL);
 }
+
+int wait_for_shutdown_ack(struct subsys_desc *desc)
+{
+	int count;
+	struct subsys_device *dev;
+
+	if (!desc || !desc->shutdown_ack_gpio)
+		return 0;
+
+	dev = find_subsys(desc->name);
+	if (!dev)
+		return 0;
+
+	for (count = SHUTDOWN_ACK_MAX_LOOPS; count > 0; count--) {
+		if (gpio_get_value(desc->shutdown_ack_gpio))
+			return count;
+		else if (subsys_get_crash_status(dev))
+			break;
+		msleep(SHUTDOWN_ACK_DELAY_MS);
+	}
+
+	pr_err("[%s]: Timed out waiting for shutdown ack\n", desc->name);
+	return -ETIMEDOUT;
+}
+EXPORT_SYMBOL(wait_for_shutdown_ack);
 
 void *__subsystem_get(const char *name, const char *fw_name)
 {
