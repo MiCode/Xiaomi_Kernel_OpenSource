@@ -91,7 +91,7 @@ void *pp_get_driver_ops_v3(struct mdp_pp_driver_ops *ops)
 	void *pp_cfg = NULL;
 
 	if (!ops) {
-		pr_err("PP driver ops invalid %p\n", ops);
+		pr_err("PP driver ops invalid %pK\n", ops);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -124,7 +124,7 @@ static int pp_pa_set_config(char __iomem *base_addr,
 	char __iomem *block_addr = NULL;
 
 	if (!base_addr || !cfg_data || !pp_sts) {
-		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		pr_err("invalid params base_addr %pK cfg_data %pK pp_sts_type %pK\n",
 				base_addr, cfg_data, pp_sts);
 		return -EINVAL;
 	}
@@ -155,7 +155,7 @@ static int pp_pa_set_config(char __iomem *base_addr,
 
 	pa_data = pa_cfg_data->cfg_payload;
 	if (!pa_data) {
-		pr_err("invalid payload for pa %p\n", pa_data);
+		pr_err("invalid payload for pa %pK\n", pa_data);
 		return -EINVAL;
 	}
 
@@ -214,7 +214,7 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 		u32 *opmode, int side)
 {
 	if (!pp_sts || !opmode) {
-		pr_err("Invalid pp_sts %p or opmode %p\n", pp_sts, opmode);
+		pr_err("Invalid pp_sts %pK or opmode %pK\n", pp_sts, opmode);
 		return;
 	}
 	switch (location) {
@@ -348,7 +348,7 @@ static void pp_pa_set_six_zone(char __iomem *base_addr,
 	if (pa_data->six_zone_len != MDP_SIX_ZONE_LUT_SIZE ||
 			!pa_data->six_zone_curve_p0 ||
 			!pa_data->six_zone_curve_p1) {
-		pr_err("Invalid six zone data: len %d curve_p0 %p curve_p1 %p\n",
+		pr_err("Invalid six zone data: len %d curve_p0 %pK curve_p1 %pK\n",
 				pa_data->six_zone_len,
 				pa_data->six_zone_curve_p0,
 				pa_data->six_zone_curve_p1);
