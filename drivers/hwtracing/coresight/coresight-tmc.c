@@ -95,6 +95,9 @@
 #define TMC_ETR_BAM_PIPE_INDEX	0
 #define TMC_ETR_BAM_NR_PIPES	2
 
+#define TMC_REG_DUMP_MAGIC_V2		(0x42445953)
+#define TMC_REG_DUMP_VER		(1)
+
 enum tmc_config_type {
 	TMC_CONFIG_TYPE_ETB,
 	TMC_CONFIG_TYPE_ETR,
@@ -196,7 +199,12 @@ struct tmc_drvdata {
 	struct msm_dump_data	buf_data;
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;
+	char			*reg_buf;
+	bool			force_reg_dump;
+	bool			dump_reg;
 };
+
+static void __tmc_reg_dump(struct tmc_drvdata *drvdata);
 
 static void tmc_wait_for_ready(struct tmc_drvdata *drvdata)
 {
@@ -818,6 +826,11 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 			tmc_etf_enable_hw(drvdata);
 	}
 	drvdata->enable = true;
+	if (drvdata->force_reg_dump) {
+		drvdata->dump_reg = true;
+		__tmc_reg_dump(drvdata);
+		drvdata->dump_reg = false;
+	}
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	dev_info(drvdata->dev, "TMC enabled\n");
@@ -875,6 +888,7 @@ static void tmc_etb_disable_hw(struct tmc_drvdata *drvdata)
 
 	tmc_flush_and_stop(drvdata);
 	tmc_etb_dump_hw(drvdata);
+	__tmc_reg_dump(drvdata);
 	tmc_disable_hw(drvdata);
 
 	CS_LOCK(drvdata->base);
@@ -967,6 +981,7 @@ static void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 
 	tmc_flush_and_stop(drvdata);
 	tmc_etr_dump_hw(drvdata);
+	__tmc_reg_dump(drvdata);
 	tmc_disable_hw(drvdata);
 
 	CS_LOCK(drvdata->base);
@@ -1656,10 +1671,64 @@ static int tmc_etf_set_buf_dump(struct tmc_drvdata *drvdata)
 	return 0;
 }
 
+static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
+{
+	uint32_t *reg_buf;
+
+	if (!drvdata->reg_buf)
+		return;
+	else if (!drvdata->dump_reg)
+		return;
+
+	drvdata->reg_data.version = TMC_REG_DUMP_VER;
+
+	reg_buf = (uint32_t *)drvdata->reg_buf;
+
+	reg_buf[1] = readl_relaxed(drvdata->base + TMC_RSZ);
+	reg_buf[3] = readl_relaxed(drvdata->base + TMC_STS);
+	reg_buf[5] = readl_relaxed(drvdata->base + TMC_RRP);
+	reg_buf[6] = readl_relaxed(drvdata->base + TMC_RWP);
+	reg_buf[7] = readl_relaxed(drvdata->base + TMC_TRG);
+	reg_buf[8] = readl_relaxed(drvdata->base + TMC_CTL);
+	reg_buf[10] = readl_relaxed(drvdata->base + TMC_MODE);
+	reg_buf[11] = readl_relaxed(drvdata->base + TMC_LBUFLEVEL);
+	reg_buf[12] = readl_relaxed(drvdata->base + TMC_CBUFLEVEL);
+	reg_buf[13] = readl_relaxed(drvdata->base + TMC_BUFWM);
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		reg_buf[14] = readl_relaxed(drvdata->base + TMC_RRPHI);
+		reg_buf[15] = readl_relaxed(drvdata->base + TMC_RWPHI);
+		reg_buf[68] = readl_relaxed(drvdata->base + TMC_AXICTL);
+		reg_buf[70] = readl_relaxed(drvdata->base + TMC_DBALO);
+		reg_buf[71] = readl_relaxed(drvdata->base + TMC_DBAHI);
+	}
+	reg_buf[192] = readl_relaxed(drvdata->base + TMC_FFSR);
+	reg_buf[193] = readl_relaxed(drvdata->base + TMC_FFCR);
+	reg_buf[194] = readl_relaxed(drvdata->base + TMC_PSCR);
+	reg_buf[1000] = readl_relaxed(drvdata->base + CORESIGHT_CLAIMSET);
+	reg_buf[1001] = readl_relaxed(drvdata->base + CORESIGHT_CLAIMCLR);
+	reg_buf[1005] = readl_relaxed(drvdata->base + CORESIGHT_LSR);
+	reg_buf[1006] = readl_relaxed(drvdata->base + CORESIGHT_AUTHSTATUS);
+	reg_buf[1010] = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
+	reg_buf[1011] = readl_relaxed(drvdata->base + CORESIGHT_DEVTYPE);
+	reg_buf[1012] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR4);
+	reg_buf[1013] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR5);
+	reg_buf[1014] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR6);
+	reg_buf[1015] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR7);
+	reg_buf[1016] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR0);
+	reg_buf[1017] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR1);
+	reg_buf[1018] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR2);
+	reg_buf[1019] = readl_relaxed(drvdata->base + CORESIGHT_PERIPHIDR3);
+	reg_buf[1020] = readl_relaxed(drvdata->base + CORESIGHT_COMPIDR0);
+	reg_buf[1021] = readl_relaxed(drvdata->base + CORESIGHT_COMPIDR1);
+	reg_buf[1022] = readl_relaxed(drvdata->base + CORESIGHT_COMPIDR2);
+	reg_buf[1023] = readl_relaxed(drvdata->base + CORESIGHT_COMPIDR3);
+
+	drvdata->reg_data.magic = TMC_REG_DUMP_MAGIC_V2;
+}
+
 static int tmc_set_reg_dump(struct tmc_drvdata *drvdata)
 {
 	int ret;
-	void *baddr;
 	struct amba_device *adev;
 	struct resource *res;
 	struct device *dev = drvdata->dev;
@@ -1674,11 +1743,11 @@ static int tmc_set_reg_dump(struct tmc_drvdata *drvdata)
 	res = &adev->res;
 	size = resource_size(res);
 
-	baddr = devm_kzalloc(dev, size, GFP_KERNEL);
-	if (!baddr)
+	drvdata->reg_buf = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!drvdata->reg_buf)
 		return -ENOMEM;
 
-	drvdata->reg_data.addr = virt_to_phys(baddr);
+	drvdata->reg_data.addr = virt_to_phys(drvdata->reg_buf);
 	drvdata->reg_data.len = size;
 
 	dump_entry.id = MSM_DUMP_DATA_TMC_REG + count;
@@ -1686,10 +1755,13 @@ static int tmc_set_reg_dump(struct tmc_drvdata *drvdata)
 
 	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
 				     &dump_entry);
-	if (ret) {
-		devm_kfree(dev, baddr);
+	/*
+	 * Don't free the buffer in case of error since it can
+	 * still be used to dump registers as part of abort to
+	 * aid post crash parsing.
+	 */
+	if (ret)
 		return ret;
-	}
 
 	count++;
 
@@ -1732,6 +1804,9 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 
 	spin_lock_init(&drvdata->spinlock);
 	mutex_init(&drvdata->mem_lock);
+
+	drvdata->force_reg_dump = of_property_read_bool(np,
+							"qcom,force-reg-dump");
 
 	devid = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
 	drvdata->config_type = BMVAL(devid, 6, 7);
