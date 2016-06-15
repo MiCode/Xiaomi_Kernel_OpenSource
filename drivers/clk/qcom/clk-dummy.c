@@ -51,10 +51,16 @@ static unsigned long dummy_clk_recalc_rate(struct clk_hw *hw,
 	return dummy->rrate;
 }
 
+static int dummy_clk_set_flags(struct clk_hw *hw, unsigned int flags)
+{
+	return 0;
+}
+
 const struct clk_ops clk_dummy_ops = {
 	.set_rate = dummy_clk_set_rate,
 	.round_rate = dummy_clk_round_rate,
 	.recalc_rate = dummy_clk_recalc_rate,
+	.set_flags = dummy_clk_set_flags,
 };
 EXPORT_SYMBOL_GPL(clk_dummy_ops);
 

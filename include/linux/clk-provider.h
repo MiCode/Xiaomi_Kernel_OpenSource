@@ -177,6 +177,8 @@ struct clk_rate_request {
  *		directory is provided as an argument.  Called with
  *		prepare_lock held.  Returns 0 on success, -EERROR otherwise.
  *
+ * @set_flags: Set custom flags which deal with hardware specifics. Returns 0
+ *	       on success, -EERROR otherwise.
  *
  * The clk_enable/clk_disable and clk_prepare/clk_unprepare pairs allow
  * implementations to split any work between atomic (enable) and sleepable
@@ -217,6 +219,7 @@ struct clk_ops {
 	int		(*set_phase)(struct clk_hw *hw, int degrees);
 	void		(*init)(struct clk_hw *hw);
 	int		(*debug_init)(struct clk_hw *hw, struct dentry *dentry);
+	int		(*set_flags)(struct clk_hw *hw, unsigned int flags);
 };
 
 /**
