@@ -1148,8 +1148,10 @@ static int tmc_open(struct inode *inode, struct file *file)
 		goto out;
 
 	ret = tmc_read_prepare(drvdata);
-	if (ret)
+	if (ret) {
+		drvdata->read_count--;
 		return ret;
+	}
 out:
 	nonseekable_open(inode, file);
 
