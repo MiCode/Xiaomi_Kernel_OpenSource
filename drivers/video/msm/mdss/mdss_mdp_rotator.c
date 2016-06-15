@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,11 +190,11 @@ static struct mdss_mdp_rot_pipe *mdss_mdp_rot_mgr_acquire_pipe(
 			(free_rot_pipe->previous_session != rot);
 
 		rot_pipe = free_rot_pipe;
-		pr_debug("find a free pipe %p\n", rot_pipe->pipe);
+		pr_debug("find a free pipe %pK\n", rot_pipe->pipe);
 	} else {
 		rot_pipe = busy_rot_pipe;
 		if (rot_pipe)
-			pr_debug("find a busy pipe %p\n", rot_pipe->pipe);
+			pr_debug("find a busy pipe %pK\n", rot_pipe->pipe);
 	}
 
 	if (rot_pipe)

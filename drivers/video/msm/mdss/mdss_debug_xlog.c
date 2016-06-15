@@ -235,7 +235,7 @@ static void mdss_dump_debug_bus(u32 bus_dump_flag,
 
 		if (*dump_mem) {
 			dump_addr = *dump_mem;
-			pr_info("bus dump_addr:%p size:%d\n",
+			pr_info("bus dump_addr:%pK size:%d\n",
 				dump_addr, list_size);
 		} else {
 			in_mem = false;
@@ -299,7 +299,7 @@ static void mdss_dump_reg(u32 reg_dump_flag,
 
 		if (*dump_mem) {
 			dump_addr = *dump_mem;
-			pr_info("start_addr:%p end_addr:%p reg_addr=%p\n",
+			pr_info("start_addr:%pK end_addr:%pK reg_addr=%pK\n",
 				dump_addr, dump_addr + (u32)len * 16,
 				addr);
 		} else {
@@ -318,7 +318,7 @@ static void mdss_dump_reg(u32 reg_dump_flag,
 		xc = readl_relaxed(addr+0xc);
 
 		if (in_log)
-			pr_info("%p : %08x %08x %08x %08x\n", addr, x0, x4, x8,
+			pr_info("%pK : %08x %08x %08x %08x\n", addr, x0, x4, x8,
 				xc);
 
 		if (dump_addr && in_mem) {
@@ -354,7 +354,7 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 			len = get_dump_range(&xlog_node->offset,
 				dbg->max_offset);
 			addr = dbg->base + xlog_node->offset.start;
-			pr_info("%s: range_base=0x%p start=0x%x end=0x%x\n",
+			pr_info("%s: range_base=0x%pK start=0x%x end=0x%x\n",
 				xlog_node->range_name,
 				addr, xlog_node->offset.start,
 				xlog_node->offset.end);
@@ -364,7 +364,7 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 	} else {
 		/* If there is no list to dump ranges, dump all registers */
 		pr_info("Ranges not found, will dump full registers");
-		pr_info("base:0x%p len:0x%zu\n", dbg->base, dbg->max_offset);
+		pr_info("base:0x%pK len:0x%zu\n", dbg->base, dbg->max_offset);
 		addr = dbg->base;
 		len = dbg->max_offset;
 		mdss_dump_reg(reg_dump_flag, addr, len, &dbg->reg_dump);
