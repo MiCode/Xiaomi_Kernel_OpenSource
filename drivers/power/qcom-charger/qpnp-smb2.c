@@ -25,38 +25,45 @@
 #include "smb-lib.h"
 #include "pmic-voter.h"
 
-#define SMB2_DEFAULT_FCC_UA 1000000
+#define SMB2_DEFAULT_FCC_UA 3000000
 #define SMB2_DEFAULT_FV_UV 4350000
-#define SMB2_DEFAULT_ICL_UA 1500000
+#define SMB2_DEFAULT_ICL_UA 3000000
 
 static struct smb_params v1_params = {
-	.fcc = {
-		.name = "fast charge current",
-		.reg = FAST_CHARGE_CURRENT_CFG_REG,
-		.min_u = 0,
-		.max_u = 4500000,
-		.step_u = 25000,
+	.fcc		= {
+		.name	= "fast charge current",
+		.reg	= FAST_CHARGE_CURRENT_CFG_REG,
+		.min_u	= 0,
+		.max_u	= 4500000,
+		.step_u	= 25000,
 	},
-	.fv = {
-		.name = "float voltage",
-		.reg = FLOAT_VOLTAGE_CFG_REG,
-		.min_u = 2500000,
-		.max_u = 5000000,
-		.step_u = 10000,
+	.fv		= {
+		.name	= "float voltage",
+		.reg	= FLOAT_VOLTAGE_CFG_REG,
+		.min_u	= 3487500,
+		.max_u	= 4920000,
+		.step_u	= 7500,
 	},
-	.usb_icl = {
-		.name = "usb input current limit",
-		.reg = USBIN_CURRENT_LIMIT_CFG_REG,
-		.min_u = 0,
-		.max_u = 6000000,
-		.step_u = 25000,
+	.usb_icl	= {
+		.name	= "usb input current limit",
+		.reg	= USBIN_CURRENT_LIMIT_CFG_REG,
+		.min_u	= 0,
+		.max_u	= 4800000,
+		.step_u	= 25000,
 	},
-	.dc_icl = {
-		.name = "dc input current limit",
-		.reg = DCIN_CURRENT_LIMIT_CFG_REG,
-		.min_u = 0,
-		.max_u = 6000000,
-		.step_u = 25000,
+	.icl_stat	= {
+		.name	= "input current limit status",
+		.reg	= ICL_STATUS_REG,
+		.min_u	= 0,
+		.max_u	= 4800000,
+		.step_u	= 25000,
+	},
+	.dc_icl		= {
+		.name	= "dc input current limit",
+		.reg	= DCIN_CURRENT_LIMIT_CFG_REG,
+		.min_u	= 0,
+		.max_u	= 3000000,
+		.step_u	= 25000,
 	},
 };
 
@@ -77,6 +84,11 @@ struct smb2 {
 static int __debug_mask;
 module_param_named(
 	debug_mask, __debug_mask, int, 0600
+);
+
+static int __pl_master_percent = 50;
+module_param_named(
+	pl_master_percent, __pl_master_percent, int, 0600
 );
 
 static int smb2_parse_dt(struct smb2 *chip)
@@ -477,6 +489,10 @@ static int smb2_init_hw(struct smb2 *chip)
 	int rc;
 
 	/* votes must be cast before configuring software control */
+	vote(chg->pl_disable_votable,
+		USBIN_ICL_VOTER, true, 0);
+	vote(chg->pl_disable_votable,
+		CHG_STATE_VOTER, true, 0);
 	vote(chg->usb_suspend_votable,
 		DEFAULT_VOTER, chip->dt.suspend_input, 0);
 	vote(chg->dc_suspend_votable,
@@ -725,6 +741,8 @@ static int smb2_probe(struct platform_device *pdev)
 	chg->dev = &pdev->dev;
 	chg->param = v1_params;
 	chg->debug_mask = &__debug_mask;
+	chg->mode = PARALLEL_MASTER;
+	chg->pl.master_percent = &__pl_master_percent;
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {
