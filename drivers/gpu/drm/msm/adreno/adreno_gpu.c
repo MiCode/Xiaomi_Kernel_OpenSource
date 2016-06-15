@@ -68,7 +68,8 @@ int adreno_hw_init(struct msm_gpu *gpu)
 	/* Setup REG_CP_RB_CNTL: */
 	adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_CNTL,
 			/* size is log2(quad-words): */
-			AXXX_CP_RB_CNTL_BUFSZ(ilog2(gpu->rb->size / 8)));
+			AXXX_CP_RB_CNTL_BUFSZ(ilog2(gpu->rb->size / 8))|
+			(1 << 27));
 
 	/* Setup ringbuffer address: */
 	adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_BASE,
