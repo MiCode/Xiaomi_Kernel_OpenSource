@@ -88,6 +88,7 @@ struct smb_charger {
 	struct votable		*dc_icl_votable;
 	struct votable		*pd_allowed_votable;
 	struct votable          *awake_votable;
+	struct votable          *pl_disable_votable;
 
 	/* work */
 	struct delayed_work	hvdcp_detect_work;
