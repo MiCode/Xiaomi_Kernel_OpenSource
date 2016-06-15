@@ -103,7 +103,7 @@ static int pp_hist_lut_cache_params_v1_7(struct mdp_hist_lut_data *config,
 	int ret = 0;
 
 	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, mdss_pp_res);
 		return -EINVAL;
 	}
@@ -113,7 +113,7 @@ static int pp_hist_lut_cache_params_v1_7(struct mdp_hist_lut_data *config,
 		return -EINVAL;
 	}
 	if (!mdss_pp_res->pp_data_v1_7) {
-		pr_err("invalid pp_data_v1_7 %p\n", mdss_pp_res->pp_data_v1_7);
+		pr_err("invalid pp_data_v1_7 %pK\n", mdss_pp_res->pp_data_v1_7);
 		return -EINVAL;
 	}
 
@@ -165,7 +165,7 @@ static int pp_hist_lut_cache_params_pipe_v1_7(struct mdp_hist_lut_data *config,
 	int ret = 0;
 
 	if (!config || !pipe) {
-		pr_err("Invalid param config %p pipe %p\n",
+		pr_err("Invalid param config %pK pipe %pK\n",
 			config, pipe);
 		return -EINVAL;
 	}
@@ -236,7 +236,7 @@ int pp_hist_lut_cache_params(struct mdp_hist_lut_data *config,
 	int ret = 0;
 
 	if (!config || !res_cache) {
-		pr_err("invalid param config %p res_cache %p\n",
+		pr_err("invalid param config %pK res_cache %pK\n",
 			config, res_cache);
 		return -EINVAL;
 	}
@@ -245,7 +245,7 @@ int pp_hist_lut_cache_params(struct mdp_hist_lut_data *config,
 		return -EINVAL;
 	}
 	if (!res_cache->mdss_pp_res && !res_cache->pipe_res) {
-		pr_err("NULL payload for block %d mdss_pp_res %p pipe_res %p\n",
+		pr_err("NULL payload for block %d mdss_pp_res %pK pipe_res %pK\n",
 			res_cache->block, res_cache->mdss_pp_res,
 			res_cache->pipe_res);
 		return -EINVAL;
@@ -286,7 +286,7 @@ int pp_dither_cache_params_v1_7(struct mdp_dither_cfg_data *config,
 	struct mdp_dither_data_v1_7 *v17_cache_data = NULL, v17_usr_config;
 
 	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, mdss_pp_res);
 		return -EINVAL;
 	}
@@ -296,7 +296,7 @@ int pp_dither_cache_params_v1_7(struct mdp_dither_cfg_data *config,
 		return -EINVAL;
 	}
 	if (!mdss_pp_res->pp_data_v1_7) {
-		pr_err("invalid pp_data_v1_7 %p\n", mdss_pp_res->pp_data_v1_7);
+		pr_err("invalid pp_data_v1_7 %pK\n", mdss_pp_res->pp_data_v1_7);
 		return -EINVAL;
 	}
 
@@ -358,7 +358,7 @@ int pp_dither_cache_params(struct mdp_dither_cfg_data *config,
 {
 	int ret = 0;
 	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %pi pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, mdss_pp_res);
 		return -EINVAL;
 	}
@@ -387,7 +387,7 @@ static int pp_gamut_cache_params_v1_7(struct mdp_gamut_cfg_data *config,
 	int ret = 0, i = 0;
 
 	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, mdss_pp_res);
 		return -EINVAL;
 	}
@@ -398,7 +398,7 @@ static int pp_gamut_cache_params_v1_7(struct mdp_gamut_cfg_data *config,
 		return -EINVAL;
 	}
 	if (!mdss_pp_res->pp_data_v1_7) {
-		pr_err("invalid pp_data_v1_7 %p\n", mdss_pp_res->pp_data_v1_7);
+		pr_err("invalid pp_data_v1_7 %pK\n", mdss_pp_res->pp_data_v1_7);
 		return -EINVAL;
 	}
 	res_cache = mdss_pp_res->pp_data_v1_7;
@@ -555,7 +555,7 @@ int pp_gamut_cache_params(struct mdp_gamut_cfg_data *config,
 {
 	int ret = 0;
 	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, mdss_pp_res);
 		return -EINVAL;
 	}
@@ -578,7 +578,7 @@ static int pp_pcc_cache_params_pipe_v1_7(struct mdp_pcc_cfg_data *config,
 	struct mdp_pcc_data_v1_7 *v17_cache_data = NULL, v17_usr_config;
 
 	if (!pipe || !config) {
-		pr_err("invalid params pipe %p config %p\n", pipe, config);
+		pr_err("invalid params pipe %pK config %pK\n", pipe, config);
 		return -EINVAL;
 	}
 
@@ -636,7 +636,7 @@ static int pp_pcc_cache_params_v1_7(struct mdp_pcc_cfg_data *config,
 	struct mdp_pcc_data_v1_7 *v17_cache_data, v17_usr_config;
 
 	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, mdss_pp_res);
 		return -EINVAL;
 	}
@@ -647,7 +647,7 @@ static int pp_pcc_cache_params_v1_7(struct mdp_pcc_cfg_data *config,
 		return -EINVAL;
 	}
 	if (!mdss_pp_res->pp_data_v1_7) {
-		pr_err("invalid pp_data_v1_7 %p\n", mdss_pp_res->pp_data_v1_7);
+		pr_err("invalid pp_data_v1_7 %pK\n", mdss_pp_res->pp_data_v1_7);
 		return -EINVAL;
 	}
 
@@ -687,7 +687,7 @@ int pp_pcc_cache_params(struct mdp_pcc_cfg_data *config,
 {
 	int ret = 0;
 	if (!config || !res_cache) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, res_cache);
 		return -EINVAL;
 	}
@@ -696,7 +696,7 @@ int pp_pcc_cache_params(struct mdp_pcc_cfg_data *config,
 		return -EINVAL;
 	}
 	if (!res_cache->mdss_pp_res && !res_cache->pipe_res) {
-		pr_err("NULL payload for block %d mdss_pp_res %p pipe_res %p\n",
+		pr_err("NULL payload for block %d mdss_pp_res %pK pipe_res %pK\n",
 			res_cache->block, res_cache->mdss_pp_res,
 			res_cache->pipe_res);
 		return -EINVAL;
@@ -735,7 +735,7 @@ static int pp_igc_lut_cache_params_v1_7(struct mdp_igc_lut_data *config,
 	struct mdp_igc_lut_data_v1_7 *v17_cache_data, v17_usr_config;
 	u32 disp_num;
 	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, mdss_pp_res);
 		return -EINVAL;
 	}
@@ -745,7 +745,7 @@ static int pp_igc_lut_cache_params_v1_7(struct mdp_igc_lut_data *config,
 		return -EINVAL;
 	}
 	if (!mdss_pp_res->pp_data_v1_7) {
-		pr_err("invalid pp_data_v1_7 %p\n", mdss_pp_res->pp_data_v1_7);
+		pr_err("invalid pp_data_v1_7 %pK\n", mdss_pp_res->pp_data_v1_7);
 		return -EINVAL;
 	}
 	res_cache = mdss_pp_res->pp_data_v1_7;
@@ -781,7 +781,7 @@ static int pp_igc_lut_cache_params_v1_7(struct mdp_igc_lut_data *config,
 		}
 		if (copy_from_kernel && (!v17_usr_config.c0_c1_data ||
 		    !v17_usr_config.c2_data)) {
-			pr_err("copy from kernel invalid params c0_c1_data %p c2_data %p\n",
+			pr_err("copy from kernel invalid params c0_c1_data %pK c2_data %pK\n",
 				v17_usr_config.c0_c1_data,
 				v17_usr_config.c2_data);
 			ret = -EINVAL;
@@ -837,7 +837,7 @@ static int pp_igc_lut_cache_params_pipe_v1_7(struct mdp_igc_lut_data *config,
 	struct mdp_igc_lut_data_v1_7 *v17_cache_data = NULL, v17_usr_config;
 	int ret = 0, fix_up = 0, i = 0;
 	if (!config || !pipe) {
-		pr_err("invalid param config %p pipe %p\n",
+		pr_err("invalid param config %pK pipe %pK\n",
 			config, pipe);
 		return -EINVAL;
 	}
@@ -865,7 +865,7 @@ static int pp_igc_lut_cache_params_pipe_v1_7(struct mdp_igc_lut_data *config,
 		if (!v17_usr_config.c0_c1_data ||
 		    !v17_usr_config.c2_data ||
 		    v17_usr_config.len != IGC_LUT_ENTRIES) {
-			pr_err("invalid c0_c1data %p c2_data %p tbl len %d\n",
+			pr_err("invalid c0_c1data %pK c2_data %pK tbl len %d\n",
 					v17_usr_config.c0_c1_data,
 					v17_usr_config.c2_data,
 					v17_usr_config.len);
@@ -959,7 +959,7 @@ int pp_igc_lut_cache_params(struct mdp_igc_lut_data *config,
 {
 	int ret = 0;
 	if (!config || !res_cache) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, res_cache);
 		return -EINVAL;
 	}
@@ -968,7 +968,7 @@ int pp_igc_lut_cache_params(struct mdp_igc_lut_data *config,
 		return -EINVAL;
 	}
 	if (!res_cache->mdss_pp_res && !res_cache->pipe_res) {
-		pr_err("NULL payload for block %d mdss_pp_res %p pipe_res %p\n",
+		pr_err("NULL payload for block %d mdss_pp_res %pK pipe_res %pK\n",
 			res_cache->block, res_cache->mdss_pp_res,
 			res_cache->pipe_res);
 		ret = -EINVAL;
@@ -1103,7 +1103,7 @@ int pp_pgc_lut_cache_params(struct mdp_pgc_lut_data *config,
 {
 	int ret = 0;
 	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, mdss_pp_res);
 		return -EINVAL;
 	}
@@ -1128,7 +1128,7 @@ static int pp_pa_cache_params_v1_7(struct mdp_pa_v2_cfg_data *config,
 	int disp_num, ret = 0;
 
 	if (!config || !mdss_pp_res) {
-		pr_err("Invalid param config %p pp_res %p\n",
+		pr_err("Invalid param config %pK pp_res %pK\n",
 			config, mdss_pp_res);
 		return -EINVAL;
 	}
@@ -1140,7 +1140,7 @@ static int pp_pa_cache_params_v1_7(struct mdp_pa_v2_cfg_data *config,
 	}
 
 	if (!mdss_pp_res->pp_data_v1_7) {
-		pr_err("Invalid pp_data_v1_7 %p\n", mdss_pp_res->pp_data_v1_7);
+		pr_err("Invalid pp_data_v1_7 %pK\n", mdss_pp_res->pp_data_v1_7);
 		return -EINVAL;
 	}
 
@@ -1228,7 +1228,7 @@ static int pp_pa_cache_params_pipe_v1_7(struct mdp_pa_v2_cfg_data *config,
 	int ret = 0;
 
 	if (!config || !pipe) {
-		pr_err("Invalid param config %p pipe %p\n",
+		pr_err("Invalid param config %pK pipe %pK\n",
 			config, pipe);
 		return -EINVAL;
 	}
@@ -1284,7 +1284,7 @@ int pp_pa_cache_params(struct mdp_pa_v2_cfg_data *config,
 {
 	int ret = 0;
 	if (!config || !res_cache) {
-		pr_err("invalid param config %p pp_res %p\n",
+		pr_err("invalid param config %pK pp_res %pK\n",
 			config, res_cache);
 		return -EINVAL;
 	}
@@ -1293,7 +1293,7 @@ int pp_pa_cache_params(struct mdp_pa_v2_cfg_data *config,
 		return -EINVAL;
 	}
 	if (!res_cache->mdss_pp_res && !res_cache->pipe_res) {
-		pr_err("NULL payload for block %d mdss_pp_res %p pipe_res %p\n",
+		pr_err("NULL payload for block %d mdss_pp_res %pK pipe_res %pK\n",
 			res_cache->block, res_cache->mdss_pp_res,
 			res_cache->pipe_res);
 		return -EINVAL;
@@ -1344,7 +1344,7 @@ int pp_copy_layer_igc_payload(struct mdp_overlay_pp_params *pp_info)
 				pp_info->igc_cfg.cfg_payload,
 				sizeof(struct mdp_igc_lut_data_v1_7));
 		if (ret) {
-			pr_err("layer list copy from user failed, IGC cfg payload = %p\n",
+			pr_err("layer list copy from user failed, IGC cfg payload = %pK\n",
 				pp_info->igc_cfg.cfg_payload);
 			ret = -EFAULT;
 			kfree(cfg_payload);
@@ -1382,7 +1382,7 @@ int pp_copy_layer_hist_lut_payload(struct mdp_overlay_pp_params *pp_info)
 				pp_info->hist_lut_cfg.cfg_payload,
 				sizeof(struct mdp_hist_lut_data_v1_7));
 		if (ret) {
-			pr_err("layer list copy from user failed, Hist LUT cfg payload = %p\n",
+			pr_err("layer list copy from user failed, Hist LUT cfg payload = %pK\n",
 				pp_info->hist_lut_cfg.cfg_payload);
 			ret = -EFAULT;
 			kfree(cfg_payload);
@@ -1420,7 +1420,7 @@ int pp_copy_layer_pa_payload(struct mdp_overlay_pp_params *pp_info)
 				pp_info->pa_v2_cfg_data.cfg_payload,
 				sizeof(struct mdp_pa_data_v1_7));
 		if (ret) {
-			pr_err("layer list copy from user failed, PA cfg payload = %p\n",
+			pr_err("layer list copy from user failed, PA cfg payload = %pK\n",
 				pp_info->pa_v2_cfg_data.cfg_payload);
 			ret = -EFAULT;
 			kfree(cfg_payload);
@@ -1458,7 +1458,7 @@ int pp_copy_layer_pcc_payload(struct mdp_overlay_pp_params *pp_info)
 				pp_info->pcc_cfg_data.cfg_payload,
 				sizeof(struct mdp_pcc_data_v1_7));
 		if (ret) {
-			pr_err("layer list copy from user failed, PCC cfg payload = %p\n",
+			pr_err("layer list copy from user failed, PCC cfg payload = %pK\n",
 				pp_info->pcc_cfg_data.cfg_payload);
 			ret = -EFAULT;
 			kfree(cfg_payload);
