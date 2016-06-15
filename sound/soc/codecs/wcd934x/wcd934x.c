@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -479,6 +478,9 @@ struct tavil_priv {
 	struct tx_mute_work tx_mute_dwork[WCD934X_NUM_DECIMATORS];
 
 	unsigned int vi_feed_value;
+
+	/* DSP control */
+	struct wcd_dsp_cntl *wdsp_cntl;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -5948,6 +5950,29 @@ static int __tavil_enable_efuse_sensing(struct tavil_priv *tavil)
 
 	return rc;
 }
+
+/*
+ * tavil_get_wcd_dsp_cntl: Get the reference to wcd_dsp_cntl
+ * @dev: Device pointer for codec device
+ *
+ * This API gets the reference to codec's struct wcd_dsp_cntl
+ */
+struct wcd_dsp_cntl *tavil_get_wcd_dsp_cntl(struct device *dev)
+{
+	struct platform_device *pdev;
+	struct tavil_priv *tavil;
+
+	if (!dev) {
+		pr_err("%s: Invalid device\n", __func__);
+		return NULL;
+	}
+
+	pdev = to_platform_device(dev);
+	tavil = platform_get_drvdata(pdev);
+
+	return tavil->wdsp_cntl;
+}
+EXPORT_SYMBOL(tavil_get_wcd_dsp_cntl);
 
 static int tavil_probe(struct platform_device *pdev)
 {
