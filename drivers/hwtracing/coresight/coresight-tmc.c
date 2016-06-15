@@ -185,6 +185,7 @@ struct tmc_drvdata {
 	struct mutex		mem_lock;
 	u32			mem_size;
 	bool			enable;
+	bool			sticky_enable;
 	enum tmc_config_type	config_type;
 	u32			trigger_cntr;
 	enum tmc_etr_mem_type	mem_type;
@@ -831,6 +832,12 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		__tmc_reg_dump(drvdata);
 		drvdata->dump_reg = false;
 	}
+
+	/*
+	 * sticky_enable prevents users from reading tmc dev node before
+	 * enabling tmc at least once.
+	 */
+	drvdata->sticky_enable = true;
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	dev_info(drvdata->dev, "TMC enabled\n");
@@ -1086,6 +1093,12 @@ static int tmc_read_prepare(struct tmc_drvdata *drvdata)
 	enum tmc_mode mode;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
+	if (!drvdata->sticky_enable) {
+		dev_err(drvdata->dev, "enable tmc once before reading\n");
+		ret = -EPERM;
+		goto err;
+	}
+
 	if (!drvdata->enable)
 		goto out;
 
