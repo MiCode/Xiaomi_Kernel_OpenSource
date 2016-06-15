@@ -1590,7 +1590,7 @@ static int __devinit si_8620_mhl_tx_i2c_probe(struct i2c_client *client,
 {
 	int ret;
 
-	pr_info("%s(), i2c_device_id = %p\n", __func__, id);
+	pr_info("%s(), i2c_device_id = %pK\n", __func__, id);
 
 #if defined(SIMG_USE_DTS)
 	/*
@@ -1844,7 +1844,7 @@ static int __devinit si_8620_mhl_tx_spi_probe(struct spi_device *spi)
 {
 	int ret;
 
-	pr_info("%s(), spi = %p\n", __func__, spi);
+	pr_info("%s(), spi = %pK\n", __func__, spi);
 	spi->bits_per_word = 8;
 	spi_dev = spi;
 	spi_bus_num = spi->master->bus_num;
@@ -2161,7 +2161,7 @@ static void __exit si_8620_exit(void)
 		for (idx = 0; idx < ARRAY_SIZE(device_addresses); idx++) {
 			MHL_TX_DBG_INFO("\n");
 			if (device_addresses[idx].client != NULL) {
-				MHL_TX_DBG_INFO("unregistering device:%p\n",
+				MHL_TX_DBG_INFO("unregistering device:%pK\n",
 						device_addresses[idx].client);
 				i2c_unregister_device(device_addresses[idx].
 						      client);

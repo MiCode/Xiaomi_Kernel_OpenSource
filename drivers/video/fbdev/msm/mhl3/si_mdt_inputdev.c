@@ -80,10 +80,11 @@ static void destroy_mouse(struct mhl_dev_context *dev_context)
 	if (dev_context->mdt_devs.dev_mouse == NULL)
 		return;
 
-	MHL_TX_DBG_INFO("Unregistering mouse: %p\n",
+	MHL_TX_DBG_INFO("Unregistering mouse: %pK\n",
 			dev_context->mdt_devs.dev_mouse);
 	input_unregister_device(dev_context->mdt_devs.dev_mouse);
-	MHL_TX_DBG_INFO("Freeing mouse: %p\n", dev_context->mdt_devs.dev_mouse);
+	MHL_TX_DBG_INFO("Freeing mouse: %pK\n",
+		dev_context->mdt_devs.dev_mouse);
 	input_free_device(dev_context->mdt_devs.dev_mouse);
 	dev_context->mdt_devs.dev_mouse = NULL;
 }
@@ -93,10 +94,10 @@ static void destroy_keyboard(struct mhl_dev_context *dev_context)
 	if (dev_context->mdt_devs.dev_keyboard == NULL)
 		return;
 
-	MHL_TX_DBG_INFO("Unregistering keyboard: %p\n",
+	MHL_TX_DBG_INFO("Unregistering keyboard: %pK\n",
 			dev_context->mdt_devs.dev_keyboard);
 	input_unregister_device(dev_context->mdt_devs.dev_keyboard);
-	MHL_TX_DBG_INFO("Freeing keyboard: %p\n",
+	MHL_TX_DBG_INFO("Freeing keyboard: %pK\n",
 			dev_context->mdt_devs.dev_keyboard);
 	input_free_device(dev_context->mdt_devs.dev_keyboard);
 	dev_context->mdt_devs.dev_keyboard = NULL;
@@ -107,10 +108,10 @@ static void destroy_touchscreen(struct mhl_dev_context *dev_context)
 	if (dev_context->mdt_devs.dev_touchscreen == NULL)
 		return;
 
-	MHL_TX_DBG_INFO("Unregistering mouse: %p\n",
+	MHL_TX_DBG_INFO("Unregistering mouse: %pK\n",
 			dev_context->mdt_devs.dev_touchscreen);
 	input_unregister_device(dev_context->mdt_devs.dev_touchscreen);
-	MHL_TX_DBG_INFO("Freeing mouse: %p\n",
+	MHL_TX_DBG_INFO("Freeing mouse: %pK\n",
 			dev_context->mdt_devs.dev_touchscreen);
 	input_free_device(dev_context->mdt_devs.dev_touchscreen);
 	dev_context->mdt_devs.dev_touchscreen = NULL;
@@ -130,7 +131,7 @@ int init_mdt_keyboard(struct mhl_dev_context *dev_context)
 		MHL_TX_DBG_ERR("Not enough memory\n");
 		return -ENOMEM;
 	}
-	MHL_TX_DBG_INFO("Allocated keyboard: %p\n", dev_keyboard);
+	MHL_TX_DBG_INFO("Allocated keyboard: %pK\n", dev_keyboard);
 
 	set_bit(EV_KEY, dev_keyboard->evbit);
 	set_bit(EV_REP, dev_keyboard->evbit);
@@ -158,7 +159,7 @@ int init_mdt_keyboard(struct mhl_dev_context *dev_context)
 		return error;
 	}
 
-	MHL_TX_DBG_INFO("Registered keyboard: %p\n", dev_keyboard);
+	MHL_TX_DBG_INFO("Registered keyboard: %pK\n", dev_keyboard);
 
 	dev_context->mdt_devs.dev_keyboard = dev_keyboard;
 
@@ -175,7 +176,7 @@ int init_mdt_mouse(struct mhl_dev_context *dev_context)
 		MHL_TX_DBG_ERR("Not enough memory\n");
 		return -ENOMEM;
 	}
-	MHL_TX_DBG_INFO("Allocated mouse: %p\n", dev_mouse);
+	MHL_TX_DBG_INFO("Allocated mouse: %pK\n", dev_mouse);
 
 	set_bit(EV_REL, dev_mouse->evbit);
 	set_bit(EV_KEY, dev_mouse->evbit);
@@ -208,7 +209,7 @@ int init_mdt_mouse(struct mhl_dev_context *dev_context)
 		return error;
 	}
 
-	MHL_TX_DBG_INFO("Registered mouse: %p\n", dev_mouse);
+	MHL_TX_DBG_INFO("Registered mouse: %pK\n", dev_mouse);
 
 	dev_context->mdt_devs.dev_mouse = dev_mouse;
 
@@ -226,7 +227,7 @@ int init_mdt_touchscreen(struct mhl_dev_context *dev_context)
 		return -ENOMEM;
 	}
 
-	MHL_TX_DBG_INFO("Allocated touch screen: %p\n", dev_touchscreen);
+	MHL_TX_DBG_INFO("Allocated touch screen: %pK\n", dev_touchscreen);
 
 #if !defined(SINGLE_TOUCH) && defined(KERNEL_2_6_38_AND_LATER)
 	input_mt_init_slots(dev_touchscreen, MAX_TOUCH_CONTACTS);
@@ -301,7 +302,7 @@ int init_mdt_touchscreen(struct mhl_dev_context *dev_context)
 		input_free_device(dev_touchscreen);
 		return error;
 	}
-	MHL_TX_DBG_INFO("Registered touchscreen: %p\n", dev_touchscreen);
+	MHL_TX_DBG_INFO("Registered touchscreen: %pK\n", dev_touchscreen);
 
 	dev_context->mdt_devs.dev_touchscreen = dev_touchscreen;
 

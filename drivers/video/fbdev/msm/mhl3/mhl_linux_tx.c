@@ -5599,7 +5599,7 @@ static int is_timer_handle_valid(struct mhl_dev_context *dev_context,
 	}
 
 	if (timer != timer_handle) {
-		MHL_TX_DBG_WARN("Invalid timer handle %p received\n",
+		MHL_TX_DBG_WARN("Invalid timer handle %pK received\n",
 				timer_handle);
 		return -EINVAL;
 	}

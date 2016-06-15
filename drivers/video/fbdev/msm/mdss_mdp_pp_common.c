@@ -20,7 +20,7 @@ void pp_pa_set_sts(struct pp_sts_type *pp_sts,
 		   int enable_flag, int block_type)
 {
 	if (!pp_sts) {
-		pr_err("invalid input pp_sts %p\n", pp_sts);
+		pr_err("invalid input pp_sts %pK\n", pp_sts);
 		return;
 	}
 
@@ -34,7 +34,7 @@ void pp_pa_set_sts(struct pp_sts_type *pp_sts,
 	}
 
 	if (!pa_data) {
-		pr_err("invalid input pa_data %p\n", pa_data);
+		pr_err("invalid input pa_data %pK\n", pa_data);
 		return;
 	}
 
