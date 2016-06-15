@@ -471,6 +471,12 @@ static int smblib_awake_vote_callback(struct votable *votable, void *data,
 	return 0;
 }
 
+static int smblib_pl_disable_vote_callback(struct votable *votable, void *data,
+			int pl_disable, const char *client)
+{
+	return 0;
+}
+
 /*****************
  * OTG REGULATOR *
  *****************/
@@ -1435,6 +1441,14 @@ int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->pl_disable_votable = create_votable("PL_DISABLE", VOTE_SET_ANY,
+					smblib_pl_disable_vote_callback,
+					chg);
+	if (IS_ERR(chg->pl_disable_votable)) {
+		rc = PTR_ERR(chg->pl_disable_votable);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -1473,6 +1487,7 @@ int smblib_deinit(struct smb_charger *chg)
 	destroy_votable(chg->dc_icl_votable);
 	destroy_votable(chg->pd_allowed_votable);
 	destroy_votable(chg->awake_votable);
+	destroy_votable(chg->pl_disable_votable);
 
 	return 0;
 }
