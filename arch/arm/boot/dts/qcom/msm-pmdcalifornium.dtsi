@@ -129,7 +129,7 @@
 			chan@6 {
 				label = "die_temp";
 				reg = <6>;
-				qcom,decimation = <0>;
+				qcom,decimation = <2>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <3>;
@@ -141,7 +141,7 @@
 			chan@0 {
 				label = "ref_gnd";
 				reg = <0>;
-				qcom,decimation = <0>;
+				qcom,decimation = <2>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
@@ -153,7 +153,7 @@
 			chan@1 {
 				label = "ref_1250v";
 				reg = <1>;
-				qcom,decimation = <0>;
+				qcom,decimation = <2>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <0>;
