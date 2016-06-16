@@ -110,3 +110,7 @@
 	#interrupt-cells = <1>;
 	interrupt-names = "cdc-int";
 };
+
+&pmicobalt_charger {
+	qcom,suspend-input;
+};

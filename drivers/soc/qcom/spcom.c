@@ -96,7 +96,13 @@
 /* SPCOM driver name */
 #define DEVICE_NAME	"spcom"
 
-#define SPCOM_MAX_CHANNELS	20
+#define SPCOM_MAX_CHANNELS	0x20
+
+/* maximum ION buffers should be >= SPCOM_MAX_CHANNELS  */
+#define SPCOM_MAX_ION_BUF_PER_CH (SPCOM_MAX_CHANNELS + 4)
+
+/* maximum ION buffer per send request/response command */
+#define SPCOM_MAX_ION_BUF_PER_CMD SPCOM_MAX_ION_BUF
 
 /* Maximum command size */
 #define SPCOM_MAX_COMMAND_SIZE	(PAGE_SIZE)
@@ -215,8 +221,8 @@ struct spcom_channel {
 	const void *glink_rx_buf;
 
 	/* ION lock/unlock support */
-	int ion_fd_table[SPCOM_MAX_ION_BUF];
-	struct ion_handle *ion_handle_table[SPCOM_MAX_ION_BUF];
+	int ion_fd_table[SPCOM_MAX_ION_BUF_PER_CH];
+	struct ion_handle *ion_handle_table[SPCOM_MAX_ION_BUF_PER_CH];
 };
 
 /**
@@ -607,12 +613,9 @@ static struct spcom_channel *spcom_find_channel_by_name(const char *name)
 		struct spcom_channel *ch = &spcom_dev->channels[i];
 
 		if (strcmp(ch->name, name) == 0) {
-			pr_debug("channel [%s] found.\n", name);
 			return ch;
 		}
 	}
-
-	pr_err("failed to find channel [%s].\n", name);
 
 	return NULL;
 }
@@ -1441,7 +1444,7 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 	void *tx_buf;
 	int tx_buf_size;
 	uint32_t timeout_msec;
-	struct spcom_ion_info ion_info[SPCOM_MAX_ION_BUF];
+	struct spcom_ion_info ion_info[SPCOM_MAX_ION_BUF_PER_CMD];
 	int i;
 
 	pr_debug("send req/resp ch [%s] size [%d] .\n", ch->name, size);
@@ -1477,7 +1480,7 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 	/* user buf */
 	memcpy(hdr->buf, buf, buf_size);
 
-	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+	for (i = 0 ; i < ARRAY_SIZE(ion_info) ; i++) {
 		if (ion_info[i].fd >= 0) {
 			ret = modify_ion_addr(hdr->buf, buf_size, ion_info[i]);
 			if (ret < 0) {
@@ -1532,7 +1535,7 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	pr_debug("ion handle ok.\n");
 
 	/* Check if this ION buffer is already locked */
-	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+	for (i = 0 ; i < ARRAY_SIZE(ch->ion_handle_table) ; i++) {
 		if (ch->ion_handle_table[i] == ion_handle) {
 			pr_debug("fd [%d] ion buf is already locked.\n", fd);
 			/* decrement back the ref count */
@@ -1542,7 +1545,7 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	}
 
        /* Store the ION handle */
-	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+	for (i = 0 ; i < ARRAY_SIZE(ch->ion_handle_table) ; i++) {
 		if (ch->ion_handle_table[i] == NULL) {
 			ch->ion_handle_table[i] = ion_handle;
 			ch->ion_fd_table[i] = fd;
@@ -1576,7 +1579,7 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 
 	if (fd == (int) SPCOM_ION_FD_UNLOCK_ALL) {
 		/* unlock all ION buf */
-		for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+		for (i = 0 ; i < ARRAY_SIZE(ch->ion_handle_table) ; i++) {
 			if (ch->ion_handle_table[i] != NULL) {
 				ion_free(ion_client, ch->ion_handle_table[i]);
 				ch->ion_handle_table[i] = NULL;
@@ -1586,7 +1589,7 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 		}
 	} else {
 		/* unlock specific ION buf */
-		for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+		for (i = 0 ; i < ARRAY_SIZE(ch->ion_handle_table) ; i++) {
 			if (ch->ion_fd_table[i] == fd) {
 				ion_free(ion_client, ch->ion_handle_table[i]);
 				ch->ion_handle_table[i] = NULL;

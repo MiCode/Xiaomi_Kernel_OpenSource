@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,6 +59,7 @@ struct msm_pcie_register_event {
 	u32 options;
 };
 
+#ifdef CONFIG_PCI_MSM
 /**
  * msm_pcie_pm_control - control the power state of a PCIe link.
  * @pm_opt:	power management operation
@@ -168,4 +169,49 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
  */
 int msm_pcie_configure_sid(struct device *dev, u32 *sid,
 			int *domain);
-#endif
+#else /* !CONFIG_PCI_MSM */
+static inline int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr,
+			void *user, void *data, u32 options)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_register_event(struct msm_pcie_register_event *reg)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_recover_config(struct pci_dev *dev)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_enumerate(u32 rc_idx)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_shadow_control(struct pci_dev *dev, bool enable)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
+			u32 offset, u32 mask, u32 value)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_configure_sid(struct device *dev, u32 *sid,
+			int *domain)
+{
+	return -ENODEV;
+}
+#endif /* CONFIG_PCI_MSM */
+
+#endif /* __MSM_PCIE_H */

@@ -105,6 +105,7 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_FW_READY_IND,
 	ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
 	ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
+	ICNSS_DRIVER_EVENT_MAX,
 };
 
 struct icnss_driver_event {
@@ -116,7 +117,7 @@ struct icnss_driver_event {
 	void *data;
 };
 
-enum cnss_driver_state {
+enum icnss_driver_state {
 	ICNSS_WLFW_QMI_CONNECTED,
 	ICNSS_POWER_ON,
 	ICNSS_FW_READY,
@@ -135,6 +136,44 @@ struct icnss_vreg_info {
 	u32 nominal_min;
 	u32 max_voltage;
 	bool state;
+};
+
+struct icnss_stats {
+	struct {
+		uint32_t posted;
+		uint32_t processed;
+	} events[ICNSS_DRIVER_EVENT_MAX];
+
+	struct {
+		uint32_t request;
+		uint32_t free;
+		uint32_t enable;
+		uint32_t disable;
+	} ce_irqs[ICNSS_MAX_IRQ_REGISTRATIONS];
+
+	uint32_t ind_register_req;
+	uint32_t ind_register_resp;
+	uint32_t ind_register_err;
+	uint32_t msa_info_req;
+	uint32_t msa_info_resp;
+	uint32_t msa_info_err;
+	uint32_t msa_ready_req;
+	uint32_t msa_ready_resp;
+	uint32_t msa_ready_err;
+	uint32_t msa_ready_ind;
+	uint32_t cap_req;
+	uint32_t cap_resp;
+	uint32_t cap_err;
+	uint32_t pin_connect_result;
+	uint32_t cfg_req;
+	uint32_t cfg_resp;
+	uint32_t cfg_req_err;
+	uint32_t mode_req;
+	uint32_t mode_resp;
+	uint32_t mode_req_err;
+	uint32_t ini_req;
+	uint32_t ini_resp;
+	uint32_t ini_req_err;
 };
 
 static struct icnss_data {
@@ -173,6 +212,7 @@ static struct icnss_data {
 	bool skip_qmi;
 	struct dentry *root_dentry;
 	spinlock_t on_off_lock;
+	struct icnss_stats stats;
 } *penv;
 
 static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
@@ -188,6 +228,8 @@ static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "REGISTER_DRIVER";
 	case ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER:
 		return "UNREGISTER_DRIVER";
+	case ICNSS_DRIVER_EVENT_MAX:
+		return "EVENT_MAX";
 	}
 
 	return "UNKNOWN";
@@ -196,7 +238,7 @@ static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 static int icnss_driver_event_post(enum icnss_driver_event_type type,
 				   bool sync, void *data)
 {
-	struct icnss_driver_event *event = NULL;
+	struct icnss_driver_event *event;
 	unsigned long flags;
 	int gfp = GFP_KERNEL;
 	int ret = 0;
@@ -204,6 +246,11 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	icnss_pr_dbg("Posting event: %s(%d)%s, state: 0x%lx\n",
 		     icnss_driver_event_to_str(type), type,
 		     sync ? "-sync" : "", penv->state);
+
+	if (type >= ICNSS_DRIVER_EVENT_MAX) {
+		icnss_pr_err("Invalid Event type: %d, can't post", type);
+		return -EINVAL;
+	}
 
 	if (in_interrupt() || irqs_disabled())
 		gfp = GFP_ATOMIC;
@@ -221,6 +268,7 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	list_add_tail(&event->list, &penv->event_list);
 	spin_unlock_irqrestore(&penv->event_lock, flags);
 
+	penv->stats.events[type].posted++;
 	queue_work(penv->event_wq, &penv->event_work);
 	if (sync) {
 		ret = wait_for_completion_interruptible(&event->complete);
@@ -265,6 +313,8 @@ static int icnss_qmi_pin_connect_result_ind(void *msg, unsigned int msg_len)
 	icnss_pr_dbg("Pin connect Result: pwr_pin: 0x%x phy_io_pin: 0x%x rf_io_pin: 0x%x\n",
 		     ind_msg.pwr_pin_result, ind_msg.phy_io_pin_result,
 		     ind_msg.rf_pin_result);
+
+	penv->stats.pin_connect_result++;
 out:
 	return ret;
 }
@@ -485,7 +535,7 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 		goto out;
 	}
 
-	icnss_pr_dbg("Sending MSA info, state: 0x%lx\n", penv->state);
+	icnss_pr_dbg("Sending MSA mem info, state: 0x%lx\n", penv->state);
 
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
@@ -501,6 +551,8 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 	resp_desc.msg_id = QMI_WLFW_MSA_INFO_RESP_V01;
 	resp_desc.ei_array = wlfw_msa_info_resp_msg_v01_ei;
 
+	penv->stats.msa_info_req++;
+
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
@@ -512,6 +564,7 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 		icnss_pr_err("QMI request failed %d %d\n",
 			resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
+		penv->stats.msa_info_err++;
 		goto out;
 	}
 
@@ -522,9 +575,11 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 		icnss_pr_err("Invalid memory region length received%d\n",
 			     resp.mem_region_info_len);
 		ret = -EINVAL;
+		penv->stats.msa_info_err++;
 		goto out;
 	}
 
+	penv->stats.msa_info_resp++;
 	for (i = 0; i < resp.mem_region_info_len; i++) {
 		penv->icnss_mem_region[i].reg_addr =
 			resp.mem_region_info[i].region_addr;
@@ -554,7 +609,8 @@ static int wlfw_msa_ready_send_sync_msg(void)
 		goto out;
 	}
 
-	icnss_pr_dbg("Sending MSA sync message, state: 0x%lx\n", penv->state);
+	icnss_pr_dbg("Sending MSA ready request message, state: 0x%lx\n",
+		     penv->state);
 
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
@@ -567,9 +623,11 @@ static int wlfw_msa_ready_send_sync_msg(void)
 	resp_desc.msg_id = QMI_WLFW_MSA_READY_RESP_V01;
 	resp_desc.ei_array = wlfw_msa_ready_resp_msg_v01_ei;
 
+	penv->stats.msa_ready_req++;
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
+		penv->stats.msa_ready_err++;
 		icnss_pr_err("Send req failed %d\n", ret);
 		goto out;
 	}
@@ -577,9 +635,11 @@ static int wlfw_msa_ready_send_sync_msg(void)
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
 		icnss_pr_err("QMI request failed %d %d\n",
 			resp.resp.result, resp.resp.error);
+		penv->stats.msa_ready_err++;
 		ret = resp.resp.result;
 		goto out;
 	}
+	penv->stats.msa_ready_resp++;
 out:
 	return ret;
 }
@@ -596,7 +656,8 @@ static int wlfw_ind_register_send_sync_msg(void)
 		goto out;
 	}
 
-	icnss_pr_dbg("Sending Sync message, state: 0x%lx\n", penv->state);
+	icnss_pr_dbg("Sending indication register message, state: 0x%lx\n",
+		     penv->state);
 
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
@@ -616,11 +677,15 @@ static int wlfw_ind_register_send_sync_msg(void)
 	resp_desc.msg_id = QMI_WLFW_IND_REGISTER_RESP_V01;
 	resp_desc.ei_array = wlfw_ind_register_resp_msg_v01_ei;
 
+	penv->stats.ind_register_req++;
+
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
+	penv->stats.ind_register_resp++;
 	if (ret < 0) {
 		icnss_pr_err("Send req failed %d\n", ret);
+		penv->stats.ind_register_err++;
 		goto out;
 	}
 
@@ -628,6 +693,7 @@ static int wlfw_ind_register_send_sync_msg(void)
 		icnss_pr_err("QMI request failed %d %d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
+		penv->stats.ind_register_err++;
 		goto out;
 	}
 out:
@@ -658,11 +724,13 @@ static int wlfw_cap_send_sync_msg(void)
 	resp_desc.msg_id = QMI_WLFW_CAP_RESP_V01;
 	resp_desc.ei_array = wlfw_cap_resp_msg_v01_ei;
 
+	penv->stats.cap_req++;
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
 		icnss_pr_err("Send req failed %d\n", ret);
+		penv->stats.cap_err++;
 		goto out;
 	}
 
@@ -670,9 +738,11 @@ static int wlfw_cap_send_sync_msg(void)
 		icnss_pr_err("QMI request failed %d %d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
+		penv->stats.cap_err++;
 		goto out;
 	}
 
+	penv->stats.cap_resp++;
 	/* store cap locally */
 	if (resp.chip_info_valid)
 		penv->chip_info = resp.chip_info;
@@ -685,11 +755,11 @@ static int wlfw_cap_send_sync_msg(void)
 	if (resp.fw_version_info_valid)
 		penv->fw_version_info = resp.fw_version_info;
 
-	icnss_pr_dbg("Capability, chip_id: 0x%0x, chip_family: 0x%0x, board_id: 0x%0x, soc_id: 0x%0x, fw_version: 0x%0x, fw_build_timestamp: %s",
-		penv->chip_info.chip_id, penv->chip_info.chip_family,
-		penv->board_info.board_id, penv->soc_info.soc_id,
-		penv->fw_version_info.fw_version,
-		penv->fw_version_info.fw_build_timestamp);
+	icnss_pr_dbg("Capability, chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s",
+		     penv->chip_info.chip_id, penv->chip_info.chip_family,
+		     penv->board_info.board_id, penv->soc_info.soc_id,
+		     penv->fw_version_info.fw_version,
+		     penv->fw_version_info.fw_build_timestamp);
 out:
 	return ret;
 }
@@ -722,11 +792,13 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 	resp_desc.msg_id = QMI_WLFW_WLAN_MODE_RESP_V01;
 	resp_desc.ei_array = wlfw_wlan_mode_resp_msg_v01_ei;
 
+	penv->stats.mode_req++;
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
 		icnss_pr_err("Send req failed %d\n", ret);
+		penv->stats.mode_req_err++;
 		goto out;
 	}
 
@@ -734,8 +806,10 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 		icnss_pr_err("QMI request failed %d %d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
+		penv->stats.mode_req_err++;
 		goto out;
 	}
+	penv->stats.mode_resp++;
 out:
 	return ret;
 }
@@ -767,11 +841,13 @@ static int wlfw_wlan_cfg_send_sync_msg(struct wlfw_wlan_cfg_req_msg_v01 *data)
 	resp_desc.msg_id = QMI_WLFW_WLAN_CFG_RESP_V01;
 	resp_desc.ei_array = wlfw_wlan_cfg_resp_msg_v01_ei;
 
+	penv->stats.cfg_req++;
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
 		icnss_pr_err("Send req failed %d\n", ret);
+		penv->stats.cfg_req_err++;
 		goto out;
 	}
 
@@ -779,8 +855,10 @@ static int wlfw_wlan_cfg_send_sync_msg(struct wlfw_wlan_cfg_req_msg_v01 *data)
 		icnss_pr_err("QMI request failed %d %d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
+		penv->stats.cfg_req_err++;
 		goto out;
 	}
+	penv->stats.cfg_resp++;
 out:
 	return ret;
 }
@@ -814,10 +892,13 @@ static int wlfw_ini_send_sync_msg(bool enable_fw_log)
 	resp_desc.msg_id = QMI_WLFW_INI_RESP_V01;
 	resp_desc.ei_array = wlfw_ini_resp_msg_v01_ei;
 
+	penv->stats.ini_req++;
+
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
 		icnss_pr_err("send req failed %d\n", ret);
+		penv->stats.ini_req_err++;
 		goto out;
 	}
 
@@ -825,8 +906,10 @@ static int wlfw_ini_send_sync_msg(bool enable_fw_log)
 		icnss_pr_err("QMI request failed %d %d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
+		penv->stats.ini_req_err++;
 		goto out;
 	}
+	penv->stats.ini_resp++;
 out:
 	return ret;
 }
@@ -884,6 +967,7 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 	case QMI_WLFW_MSA_READY_IND_V01:
 		icnss_pr_dbg("Received MSA Ready Indication msg_id 0x%x\n",
 			     msg_id);
+		penv->stats.msa_ready_ind++;
 		break;
 	case QMI_WLFW_PIN_CONNECT_RESULT_IND_V01:
 		icnss_pr_dbg("Received Pin Connect Test Result msg_id 0x%x\n",
@@ -1131,13 +1215,18 @@ static void icnss_driver_event_work(struct work_struct *work)
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
-			break;
+			kfree(event);
+			continue;
 		}
+
+		penv->stats.events[event->type].processed++;
+
 		if (event->sync) {
 			event->ret = ret;
 			complete(&event->complete);
 		} else
 			kfree(event);
+
 		spin_lock_irqsave(&penv->event_lock, flags);
 	}
 	spin_unlock_irqrestore(&penv->event_lock, flags);
@@ -1245,7 +1334,7 @@ int icnss_ce_request_irq(unsigned int ce_id,
 	icnss_pr_dbg("CE request IRQ: %d, state: 0x%lx\n", ce_id, penv->state);
 
 	if (ce_id >= ICNSS_MAX_IRQ_REGISTRATIONS) {
-		icnss_pr_err("Invalid CE ID %d\n", ce_id);
+		icnss_pr_err("Invalid CE ID, ce_id: %d\n", ce_id);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1267,7 +1356,10 @@ int icnss_ce_request_irq(unsigned int ce_id,
 	}
 	irq_entry->irq = irq;
 	irq_entry->handler = handler;
+
 	icnss_pr_dbg("IRQ requested: %d, ce_id: %d\n", irq, ce_id);
+
+	penv->stats.ce_irqs[ce_id].request++;
 out:
 	return ret;
 }
@@ -1286,6 +1378,12 @@ int icnss_ce_free_irq(unsigned int ce_id, void *ctx)
 
 	icnss_pr_dbg("CE free IRQ: %d, state: 0x%lx\n", ce_id, penv->state);
 
+	if (ce_id >= ICNSS_MAX_IRQ_REGISTRATIONS) {
+		icnss_pr_err("Invalid CE ID to free, ce_id: %d\n", ce_id);
+		ret = -EINVAL;
+		goto out;
+	}
+
 	irq = penv->ce_irqs[ce_id];
 	irq_entry = &penv->ce_irq_list[ce_id];
 	if (!irq_entry->handler || !irq_entry->irq) {
@@ -1296,6 +1394,8 @@ int icnss_ce_free_irq(unsigned int ce_id, void *ctx)
 	free_irq(irq, ctx);
 	irq_entry->irq = 0;
 	irq_entry->handler = NULL;
+
+	penv->stats.ce_irqs[ce_id].free++;
 out:
 	return ret;
 }
@@ -1312,6 +1412,13 @@ void icnss_enable_irq(unsigned int ce_id)
 
 	icnss_pr_dbg("Enable IRQ: ce_id: %d, state: 0x%lx\n", ce_id,
 		     penv->state);
+
+	if (ce_id >= ICNSS_MAX_IRQ_REGISTRATIONS) {
+		icnss_pr_err("Invalid CE ID to enable IRQ, ce_id: %d\n", ce_id);
+		return;
+	}
+
+	penv->stats.ce_irqs[ce_id].enable++;
 
 	irq = penv->ce_irqs[ce_id];
 	enable_irq(irq);
@@ -1330,8 +1437,16 @@ void icnss_disable_irq(unsigned int ce_id)
 	icnss_pr_dbg("Disable IRQ: ce_id: %d, state: 0x%lx\n", ce_id,
 		     penv->state);
 
+	if (ce_id >= ICNSS_MAX_IRQ_REGISTRATIONS) {
+		icnss_pr_err("Invalid CE ID to disable IRQ, ce_id: %d\n",
+			     ce_id);
+		return;
+	}
+
 	irq = penv->ce_irqs[ce_id];
 	disable_irq(irq);
+
+	penv->stats.ce_irqs[ce_id].disable++;
 }
 EXPORT_SYMBOL(icnss_disable_irq);
 
@@ -1806,6 +1921,9 @@ static ssize_t icnss_test_mode_write(struct file *fp, const char __user *buf,
 	if (ret)
 		return ret;
 
+	if (ret == 0)
+		memset(&priv->stats, 0, sizeof(priv->stats));
+
 	return count;
 }
 
@@ -1819,6 +1937,172 @@ static const struct file_operations icnss_test_mode_fops = {
 	.write		= icnss_test_mode_write,
 	.release	= single_release,
 	.open		= icnss_test_mode_open,
+	.owner		= THIS_MODULE,
+	.llseek		= seq_lseek,
+};
+
+static ssize_t icnss_stats_write(struct file *fp, const char __user *buf,
+				    size_t count, loff_t *off)
+{
+	struct icnss_data *priv =
+		((struct seq_file *)fp->private_data)->private;
+	int ret;
+	u32 val;
+
+	ret = kstrtou32_from_user(buf, count, 0, &val);
+	if (ret)
+		return ret;
+
+	if (ret == 0)
+		memset(&priv->stats, 0, sizeof(priv->stats));
+
+	return count;
+}
+
+static int icnss_stats_show_state(struct seq_file *s, struct icnss_data *priv)
+{
+	int i;
+	int skip = 0;
+	unsigned long state;
+
+	seq_printf(s, "\nState: 0x%lx(", priv->state);
+	for (i = 0, state = priv->state; state != 0; state >>= 1, i++) {
+
+		if (!(state & 0x1))
+			continue;
+
+		if (skip++)
+			seq_puts(s, " | ");
+
+		switch (i) {
+		case ICNSS_WLFW_QMI_CONNECTED:
+			seq_puts(s, "QMI CONN");
+			continue;
+		case ICNSS_POWER_ON:
+			seq_puts(s, "POWER ON");
+			continue;
+		case ICNSS_FW_READY:
+			seq_puts(s, "FW READY");
+			continue;
+		case ICNSS_DRIVER_PROBED:
+			seq_puts(s, "DRIVER PROBED");
+			continue;
+		case ICNSS_FW_TEST_MODE:
+			seq_puts(s, "FW TEST MODE");
+			continue;
+		}
+
+		seq_printf(s, "UNKNOWN-%d", i);
+	}
+	seq_puts(s, ")\n");
+
+	return 0;
+}
+
+static int icnss_stats_show_capability(struct seq_file *s,
+				       struct icnss_data *priv)
+{
+	if (test_bit(ICNSS_FW_READY, &priv->state)) {
+		seq_puts(s, "\n<---------------- FW Capability ----------------->\n");
+		seq_printf(s, "Chip ID: 0x%x\n", priv->chip_info.chip_id);
+		seq_printf(s, "Chip family: 0x%x\n",
+			  priv->chip_info.chip_family);
+		seq_printf(s, "Board ID: 0x%x\n", priv->board_info.board_id);
+		seq_printf(s, "SOC Info: 0x%x\n", priv->soc_info.soc_id);
+		seq_printf(s, "Firmware Version: 0x%x\n",
+			   priv->fw_version_info.fw_version);
+		seq_printf(s, "Firmware Build Timestamp: %s\n",
+			   priv->fw_version_info.fw_build_timestamp);
+	}
+
+	return 0;
+}
+
+static int icnss_stats_show_events(struct seq_file *s, struct icnss_data *priv)
+{
+	int i;
+
+	seq_puts(s, "\n<----------------- Events stats ------------------->\n");
+	seq_printf(s, "%24s %16s %16s\n", "Events", "Posted", "Processed");
+	for (i = 0; i < ICNSS_DRIVER_EVENT_MAX; i++)
+		seq_printf(s, "%24s %16u %16u\n",
+			   icnss_driver_event_to_str(i),
+			   priv->stats.events[i].posted,
+			   priv->stats.events[i].processed);
+
+	return 0;
+}
+
+static int icnss_stats_show_irqs(struct seq_file *s, struct icnss_data *priv)
+{
+	int i;
+
+	seq_puts(s, "\n<------------------ IRQ stats ------------------->\n");
+	seq_printf(s, "%4s %4s %8s %8s %8s %8s\n", "CE_ID", "IRQ", "Request",
+		   "Free", "Enable", "Disable");
+	for (i = 0; i < ICNSS_MAX_IRQ_REGISTRATIONS; i++)
+		seq_printf(s, "%4d: %4u %8u %8u %8u %8u\n", i,
+			   priv->ce_irqs[i], priv->stats.ce_irqs[i].request,
+			   priv->stats.ce_irqs[i].free,
+			   priv->stats.ce_irqs[i].enable,
+			   priv->stats.ce_irqs[i].disable);
+
+	return 0;
+}
+
+static int icnss_stats_show(struct seq_file *s, void *data)
+{
+#define ICNSS_STATS_DUMP(_s, _priv, _x) \
+	seq_printf(_s, "%24s: %u\n", #_x, _priv->stats._x)
+
+	struct icnss_data *priv = s->private;
+
+	ICNSS_STATS_DUMP(s, priv, ind_register_req);
+	ICNSS_STATS_DUMP(s, priv, ind_register_resp);
+	ICNSS_STATS_DUMP(s, priv, ind_register_err);
+	ICNSS_STATS_DUMP(s, priv, msa_info_req);
+	ICNSS_STATS_DUMP(s, priv, msa_info_resp);
+	ICNSS_STATS_DUMP(s, priv, msa_info_err);
+	ICNSS_STATS_DUMP(s, priv, msa_ready_req);
+	ICNSS_STATS_DUMP(s, priv, msa_ready_resp);
+	ICNSS_STATS_DUMP(s, priv, msa_ready_err);
+	ICNSS_STATS_DUMP(s, priv, msa_ready_ind);
+	ICNSS_STATS_DUMP(s, priv, cap_req);
+	ICNSS_STATS_DUMP(s, priv, cap_resp);
+	ICNSS_STATS_DUMP(s, priv, cap_err);
+	ICNSS_STATS_DUMP(s, priv, pin_connect_result);
+	ICNSS_STATS_DUMP(s, priv, cfg_req);
+	ICNSS_STATS_DUMP(s, priv, cfg_resp);
+	ICNSS_STATS_DUMP(s, priv, cfg_req_err);
+	ICNSS_STATS_DUMP(s, priv, mode_req);
+	ICNSS_STATS_DUMP(s, priv, mode_resp);
+	ICNSS_STATS_DUMP(s, priv, mode_req_err);
+	ICNSS_STATS_DUMP(s, priv, ini_req);
+	ICNSS_STATS_DUMP(s, priv, ini_resp);
+	ICNSS_STATS_DUMP(s, priv, ini_req_err);
+
+	icnss_stats_show_irqs(s, priv);
+
+	icnss_stats_show_capability(s, priv);
+
+	icnss_stats_show_events(s, priv);
+
+	icnss_stats_show_state(s, priv);
+
+	return 0;
+#undef ICNSS_STATS_DUMP
+}
+
+static int icnss_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, icnss_stats_show, inode->i_private);
+}
+
+static const struct file_operations icnss_stats_fops = {
+	.read		= seq_read,
+	.write		= icnss_stats_write,
+	.release	= single_release,
+	.open		= icnss_stats_open,
 	.owner		= THIS_MODULE,
 	.llseek		= seq_lseek,
 };
@@ -1838,8 +2122,11 @@ static int icnss_debugfs_create(struct icnss_data *priv)
 
 	priv->root_dentry = root_dentry;
 
-	debugfs_create_file("test_mode", S_IRUSR | S_IWUSR,
-			    root_dentry, priv, &icnss_test_mode_fops);
+	debugfs_create_file("test_mode", 0644, root_dentry, priv,
+			    &icnss_test_mode_fops);
+
+	debugfs_create_file("stats", 0644, root_dentry, priv,
+			    &icnss_stats_fops);
 
 out:
 	return ret;

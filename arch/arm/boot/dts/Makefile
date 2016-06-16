@@ -768,7 +768,6 @@ dtb-$(CONFIG_MACH_DOVE) += \
 	dove-cubox-es.dtb \
 	dove-d2plug.dtb \
 	dove-d3plug.dtb \
-<<<<<<< HEAD
 	dove-dove-db.dtb \
 	dove-sbc-a510.dtb
 dtb-$(CONFIG_ARCH_MEDIATEK) += \
@@ -806,5 +805,10 @@ endif
 targets += dtbs dtbs_install
 targets += $(DTB_LIST)
 
+ifeq ($(CONFIG_ARM64),y)
 always		:= $(DTB_LIST)
+else
+dtbs: $(addprefix $(obj)/, $(DTB_LIST))
+	$(Q)rm -f $(obj)/../*.dtb
+endif
 clean-files	:= *.dtb

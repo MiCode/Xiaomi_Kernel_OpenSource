@@ -86,6 +86,41 @@ unlock:
  * REGISTER GETTERS *
  ********************/
 
+int smblib_get_charge_param(struct smb_charger *chg,
+			    struct smb_chg_param *param, int *val_u)
+{
+	int rc = 0;
+	u8 val_raw;
+
+	rc = smblib_read(chg, param->reg, &val_raw);
+	if (rc < 0) {
+		dev_err(chg->dev, "%s: Couldn't read from 0x%04x rc=%d\n",
+			param->name, param->reg, rc);
+		return rc;
+	}
+
+	*val_u = val_raw * param->step_u + param->min_u;
+	smblib_dbg(chg, PR_REGISTER, "%s = %d (0x%02x)\n",
+		   param->name, *val_u, val_raw);
+
+	return rc;
+}
+
+int smblib_get_usb_suspend(struct smb_charger *chg, int *suspend)
+{
+	int rc = 0;
+	u8 temp;
+
+	rc = smblib_read(chg, USBIN_CMD_IL_REG, &temp);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read USBIN_CMD_IL rc=%d\n", rc);
+		return rc;
+	}
+	*suspend = temp & USBIN_SUSPEND_BIT;
+
+	return rc;
+}
+
 struct apsd_result {
 	const char * const name;
 	const u8 bit;
@@ -156,8 +191,8 @@ int smblib_enable_charging(struct smb_charger *chg, bool enable)
 	return rc;
 }
 
-static int smblib_set_charge_param(struct smb_charger *chg,
-				struct smb_chg_param *param, int val_u)
+int smblib_set_charge_param(struct smb_charger *chg,
+			    struct smb_chg_param *param, int val_u)
 {
 	int rc = 0;
 	u8 val_raw;
@@ -182,7 +217,7 @@ static int smblib_set_charge_param(struct smb_charger *chg,
 	return rc;
 }
 
-static int smblib_set_usb_suspend(struct smb_charger *chg, bool suspend)
+int smblib_set_usb_suspend(struct smb_charger *chg, bool suspend)
 {
 	int rc = 0;
 
@@ -195,7 +230,7 @@ static int smblib_set_usb_suspend(struct smb_charger *chg, bool suspend)
 	return rc;
 }
 
-static int smblib_set_dc_suspend(struct smb_charger *chg, bool suspend)
+int smblib_set_dc_suspend(struct smb_charger *chg, bool suspend)
 {
 	int rc = 0;
 
@@ -1320,16 +1355,9 @@ static void smblib_hvdcp_detect_work(struct work_struct *work)
 	}
 }
 
-/********
- * INIT *
- * ******/
-
-int smblib_init(struct smb_charger *chg)
+int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
-
-	mutex_init(&chg->write_lock);
-	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 
 	chg->usb_suspend_votable = create_votable("INPUT_SUSPEND", VOTE_SET_ANY,
 					smblib_usb_suspend_vote_callback,
@@ -1386,7 +1414,32 @@ int smblib_init(struct smb_charger *chg)
 		return rc;
 	}
 
-	return 0;
+	return rc;
+}
+
+int smblib_init(struct smb_charger *chg)
+{
+	int rc = 0;
+
+	mutex_init(&chg->write_lock);
+	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
+
+	switch (chg->mode) {
+	case PARALLEL_MASTER:
+		rc = smblib_create_votables(chg);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't create votables rc=%d\n",
+				rc);
+		}
+		break;
+	case PARALLEL_SLAVE:
+		break;
+	default:
+		dev_err(chg->dev, "Unsupported mode %d\n", chg->mode);
+		return -EINVAL;
+	}
+
+	return rc;
 }
 
 int smblib_deinit(struct smb_charger *chg)

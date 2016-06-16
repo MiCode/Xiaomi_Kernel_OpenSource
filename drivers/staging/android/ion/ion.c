@@ -1118,6 +1118,8 @@ void ion_pages_sync_for_device(struct device *dev, struct page *page,
 {
 	struct scatterlist sg;
 
+	WARN_ONCE(!dev, "A device is required for dma_sync\n");
+
 	sg_init_table(&sg, 1);
 	sg_set_page(&sg, page, size, 0);
 	/*

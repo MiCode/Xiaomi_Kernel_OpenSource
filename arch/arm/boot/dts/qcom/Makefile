@@ -106,15 +106,28 @@ dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-rumi.dtb \
 	msmcobalt-cdp.dtb \
 	msmcobalt-mtp.dtb \
+	msmcobalt-qrd.dtb \
 	msmcobalt-v2-sim.dtb \
 	msmcobalt-v2-rumi.dtb \
 	msmcobalt-v2-mtp.dtb \
-	msmcobalt-v2-cdp.dtb
+	msmcobalt-v2-cdp.dtb \
+	apqcobalt-mtp.dtb \
+	apqcobalt-cdp.dtb
 
 dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 
 dtb-$(CONFIG_ARCH_MSMFALCON) += msmfalcon-sim.dtb
 
-always		:= $(dtb-y)
-subdir-y	:= $(dts-dirs)
-clean-files	:= *.dtb
+ifeq ($(CONFIG_ARM64),y)
+always          := $(dtb-y)
+subdir-y        := $(dts-dirs)
+else
+targets += dtbs
+targets += $(addprefix ../, $(dtb-y))
+
+$(obj)/../%.dtb: $(src)/%.dts FORCE
+	$(call if_changed_dep,dtc)
+
+dtbs: $(addprefix $(obj)/../,$(dtb-y))
+endif
+clean-files := *.dtb

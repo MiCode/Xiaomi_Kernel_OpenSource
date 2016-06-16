@@ -262,9 +262,11 @@ int ion_heap_map_user(struct ion_heap *, struct ion_buffer *,
 int ion_heap_buffer_zero(struct ion_buffer *buffer);
 int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot);
 
-int msm_ion_heap_high_order_page_zero(struct page *page, int order);
+int msm_ion_heap_high_order_page_zero(struct device *dev, struct page *page,
+				      int order);
 struct ion_heap *get_ion_heap(int heap_id);
-int msm_ion_heap_sg_table_zero(struct sg_table *, size_t size);
+int msm_ion_heap_sg_table_zero(struct device *dev, struct sg_table *,
+			       size_t size);
 int msm_ion_heap_pages_zero(struct page **pages, int num_pages);
 int msm_ion_heap_alloc_pages_mem(struct pages_mem *pages_mem);
 void msm_ion_heap_free_pages_mem(struct pages_mem *pages_mem);
@@ -435,12 +437,14 @@ struct ion_page_pool {
 	struct list_head high_items;
 	struct list_head low_items;
 	struct mutex mutex;
+	struct device *dev;
 	gfp_t gfp_mask;
 	unsigned int order;
 	struct plist_node list;
 };
 
-struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order);
+struct ion_page_pool *ion_page_pool_create(struct device *dev, gfp_t gfp_mask,
+					   unsigned int order);
 void ion_page_pool_destroy(struct ion_page_pool *);
 void *ion_page_pool_alloc(struct ion_page_pool *, bool *from_pool);
 void *ion_page_pool_alloc_pool_only(struct ion_page_pool *);
