@@ -30,20 +30,20 @@
 #define	FLASH_LED_REG_HDRM_AUTO_MODE_CTRL(base)	(base + 0x50)
 #define	FLASH_LED_REG_ISC_DELAY(base)		(base + 0x52)
 
-#define	FLASH_LED_HDRM_MODE_PRGM_MASK		0xFF
-#define	FLASH_LED_HDRM_VOL_MASK			0xF0
-#define	FLASH_LED_CURRENT_MASK			0x3F
-#define	FLASH_LED_STROBE_CTRL_MASK		0x07
-#define	FLASH_LED_SAFETY_TMR_MASK_MASK		0x7F
-#define	FLASH_LED_MOD_CTRL_MASK			0x80
-#define	FLASH_LED_ISC_DELAY_MASK		0x03
+#define	FLASH_LED_HDRM_MODE_PRGM_MASK		GENMASK(7, 0)
+#define	FLASH_LED_HDRM_VOL_MASK			GENMASK(7, 4)
+#define	FLASH_LED_CURRENT_MASK			GENMASK(6, 0)
+#define	FLASH_LED_STROBE_CTRL_MASK		GENMASK(2, 0)
+#define	FLASH_LED_SAFETY_TMR_MASK		GENMASK(7, 0)
+#define	FLASH_LED_ISC_DELAY_MASK		GENMASK(1, 0)
+#define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 
 #define	FLASH_LED_HEADROOM_AUTO_MODE_ENABLED	true
 #define	FLASH_LED_ISC_DELAY_SHIFT		6
 #define	FLASH_LED_ISC_DELAY_DEFAULT_US		3
 #define	FLASH_LED_SAFETY_TMR_VAL_OFFSET		1
 #define	FLASH_LED_SAFETY_TMR_VAL_DIVISOR	10
-#define	FLASH_LED_SAFETY_TMR_ENABLED		0x08
+#define	FLASH_LED_SAFETY_TMR_ENABLE		BIT(7)
 #define	FLASH_LED_IRES_BASE			3
 #define	FLASH_LED_IRES_DIVISOR			2500
 #define	FLASH_LED_IRES_MIN_UA			5000
@@ -54,8 +54,8 @@
 #define	FLASH_LED_HDRM_VOL_HI_LO_WIN_DEFAULT_MV	0x04
 #define	FLASH_LED_HDRM_VOL_BASE_MV		125
 #define	FLASH_LED_HDRM_VOL_STEP_MV		25
-#define	FLASH_LED_STROBE_ENABLE			0x01
-#define	FLASH_LED_MOD_ENABLE			0x80
+#define	FLASH_LED_STROBE_ENABLE			BIT(0)
+#define	FLASH_LED_MOD_ENABLE			BIT(7)
 #define	FLASH_LED_DISABLE			0x00
 #define	FLASH_LED_SAFETY_TMR_DISABLED		0x13
 #define	FLASH_LED_MIN_CURRENT_MA		25
@@ -196,7 +196,7 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 
 		rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_SAFETY_TMR(led->base + addr_offset),
-			FLASH_LED_SAFETY_TMR_MASK_MASK, led->fnode[i].duration);
+			FLASH_LED_SAFETY_TMR_MASK, led->fnode[i].duration);
 		if (rc)
 			return rc;
 
@@ -392,7 +392,7 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 		fnode->duration = (u8)(((val -
 					FLASH_LED_SAFETY_TMR_VAL_OFFSET) /
 					FLASH_LED_SAFETY_TMR_VAL_DIVISOR) |
-					FLASH_LED_SAFETY_TMR_ENABLED);
+					FLASH_LED_SAFETY_TMR_ENABLE);
 	} else if (rc == -EINVAL) {
 		if (fnode->type == FLASH_LED_TYPE_FLASH) {
 			dev_err(&led->pdev->dev,
