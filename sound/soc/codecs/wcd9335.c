@@ -554,6 +554,8 @@ static int wcd9335_get_micb_vout_ctl_val(u32 micb_mv);
 
 static int tasha_config_compander(struct snd_soc_codec *, int, int);
 static void tasha_codec_set_tx_hold(struct snd_soc_codec *, u16, bool);
+static int tasha_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+				  bool enable);
 
 /* Hold instance to soundwire platform device */
 struct tasha_swr_ctrl_data {
@@ -806,6 +808,8 @@ struct tasha_priv {
 	int hph_r_gain;
 	int rx_7_count;
 	int rx_8_count;
+	bool clk_mode;
+	bool clk_internal;
 };
 
 static int tasha_codec_vote_max_bw(struct snd_soc_codec *codec,
@@ -2084,6 +2088,30 @@ static int tasha_put_anc_func(struct snd_kcontrol *kcontrol,
 	}
 	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_sync(dapm);
+	return 0;
+}
+
+static int tasha_get_clkmode(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.enumerated.item[0] = tasha->clk_mode;
+	dev_dbg(codec->dev, "%s: clk_mode: %d\n", __func__, tasha->clk_mode);
+
+	return 0;
+}
+
+static int tasha_put_clkmode(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	tasha->clk_mode = ucontrol->value.enumerated.item[0];
+	dev_dbg(codec->dev, "%s: clk_mode: %d\n", __func__, tasha->clk_mode);
+
 	return 0;
 }
 
@@ -5611,6 +5639,18 @@ static u32 tasha_get_dmic_sample_rate(struct snd_soc_codec *codec,
 		tx_stream_fs = snd_soc_read(codec, tx_fs_reg) & 0x0F;
 		dmic_fs = tx_stream_fs <= 4 ? WCD9XXX_DMIC_SAMPLE_RATE_2P4MHZ :
 					WCD9XXX_DMIC_SAMPLE_RATE_4P8MHZ;
+
+		/*
+		 * Check for ECPP path selection and DEC1 not connected to
+		 * any other audio path to apply ECPP DMIC sample rate
+		 */
+		if ((adc_mux_index == 1) &&
+		    ((snd_soc_read(codec, WCD9335_CPE_SS_US_EC_MUX_CFG)
+				   & 0x0F) == 0x0A) &&
+		    ((snd_soc_read(codec, WCD9335_CDC_IF_ROUTER_TX_MUX_CFG0)
+				   & 0x0C) == 0x00)) {
+			dmic_fs = pdata->ecpp_dmic_sample_rate;
+		}
 	} else {
 		dmic_fs = pdata->dmic_sample_rate;
 	}
@@ -5906,6 +5946,9 @@ EXPORT_SYMBOL(tasha_codec_enable_standalone_micbias);
 static const char *const tasha_anc_func_text[] = {"OFF", "ON"};
 static const struct soc_enum tasha_anc_func_enum =
 		SOC_ENUM_SINGLE_EXT(2, tasha_anc_func_text);
+
+static const char *const tasha_clkmode_text[] = {"EXTERNAL", "INTERNAL"};
+static SOC_ENUM_SINGLE_EXT_DECL(tasha_clkmode_enum, tasha_clkmode_text);
 
 /* Cutoff frequency for high pass filter */
 static const char * const cf_text[] = {
@@ -8033,6 +8076,9 @@ static const struct snd_kcontrol_new tasha_snd_controls[] = {
 		       tasha_put_anc_slot),
 	SOC_ENUM_EXT("ANC Function", tasha_anc_func_enum, tasha_get_anc_func,
 		     tasha_put_anc_func),
+
+	SOC_ENUM_EXT("CLK MODE", tasha_clkmode_enum, tasha_get_clkmode,
+		     tasha_put_clkmode),
 
 	SOC_ENUM("TX0 HPF cut off", cf_dec0_enum),
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
@@ -11572,6 +11618,44 @@ int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, int enable, bool dapm)
 }
 EXPORT_SYMBOL(tasha_cdc_mclk_enable);
 
+int tasha_cdc_mclk_tx_enable(struct snd_soc_codec *codec, int enable, bool dapm)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	dev_dbg(tasha->dev, "%s: clk_mode: %d, enable: %d, clk_internal: %d\n",
+		__func__, tasha->clk_mode, enable, tasha->clk_internal);
+	if (tasha->clk_mode || tasha->clk_internal) {
+		if (enable) {
+			tasha_cdc_sido_ccl_enable(tasha, true);
+			wcd_resmgr_enable_master_bias(tasha->resmgr);
+			tasha_dig_core_power_collapse(tasha, POWER_RESUME);
+			snd_soc_update_bits(codec,
+					WCD9335_CDC_CLK_RST_CTRL_FS_CNT_CONTROL,
+					0x01, 0x01);
+			snd_soc_update_bits(codec,
+					WCD9335_CDC_CLK_RST_CTRL_MCLK_CONTROL,
+					0x01, 0x01);
+			set_bit(CPE_NOMINAL, &tasha->status_mask);
+			tasha_codec_update_sido_voltage(tasha,
+						SIDO_VOLTAGE_NOMINAL_MV);
+			tasha->clk_internal = true;
+		} else {
+			tasha->clk_internal = false;
+			clear_bit(CPE_NOMINAL, &tasha->status_mask);
+			tasha_codec_update_sido_voltage(tasha,
+						sido_buck_svs_voltage);
+			tasha_dig_core_power_collapse(tasha, POWER_COLLAPSE);
+			wcd_resmgr_disable_master_bias(tasha->resmgr);
+			tasha_cdc_sido_ccl_enable(tasha, false);
+		}
+	} else {
+		ret = __tasha_cdc_mclk_enable(tasha, enable);
+	}
+	return ret;
+}
+EXPORT_SYMBOL(tasha_cdc_mclk_tx_enable);
+
 static ssize_t tasha_codec_version_read(struct snd_info_entry *entry,
 			       void *file_private_data, struct file *file,
 			       char __user *buf, size_t count, loff_t pos)
@@ -12226,6 +12310,17 @@ static int tasha_handle_pdata(struct tasha_priv *tasha,
 		 * if mad dmic sample rate is undefined
 		 */
 		pdata->mad_dmic_sample_rate = pdata->dmic_sample_rate;
+	}
+	if (pdata->ecpp_dmic_sample_rate ==
+	    WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED) {
+		dev_info(codec->dev,
+			 "%s: ecpp_dmic_rate invalid default = %d\n",
+			 __func__, def_dmic_rate);
+		/*
+		 * use dmic_sample_rate as the default for ECPP DMIC
+		 * if ecpp dmic sample rate is undefined
+		 */
+		pdata->ecpp_dmic_sample_rate = pdata->dmic_sample_rate;
 	}
 
 	if (pdata->dmic_clk_drv ==

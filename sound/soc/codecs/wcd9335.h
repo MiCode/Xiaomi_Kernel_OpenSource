@@ -141,6 +141,8 @@ extern void *tasha_get_afe_config(struct snd_soc_codec *codec,
 				  enum afe_config_type config_type);
 extern int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, int enable,
 				 bool dapm);
+extern int tasha_cdc_mclk_tx_enable(struct snd_soc_codec *codec, int enable,
+				    bool dapm);
 extern int tasha_enable_efuse_sensing(struct snd_soc_codec *codec);
 extern int tasha_mbhc_hs_detect(struct snd_soc_codec *codec,
 				struct wcd_mbhc_config *mbhc_cfg);
