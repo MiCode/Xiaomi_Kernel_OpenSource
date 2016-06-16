@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,6 +129,8 @@ int adm_set_volume(int port_id, int copp_idx, int volume);
 
 int adm_set_softvolume(int port_id, int copp_idx,
 		       struct audproc_softvolume_params *softvol_param);
+
+int adm_set_mic_gain(int port_id, int copp_idx, int volume);
 
 int adm_param_enable(int port_id, int copp_idx, int module_id,  int enable);
 

@@ -6273,6 +6273,12 @@ struct admx_mic_gain {
 	/*< Clients must set this field to zero. */
 } __packed;
 
+struct adm_set_mic_gain_params {
+	struct adm_cmd_set_pp_params_v5 params;
+	struct adm_param_data_v5 data;
+	struct admx_mic_gain mic_gain_data;
+} __packed;
+
 /* end_addtogroup audio_pp_param_ids */
 
 /* @ingroup audio_pp_module_ids
