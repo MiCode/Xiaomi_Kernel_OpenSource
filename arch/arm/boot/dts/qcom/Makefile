@@ -213,6 +213,7 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009w-cdp.dtb \
 	msm8909w-swoctp.dtb \
 	apq8009w-swoctp.dtb \
+	apq8009w-nowgr-swoctp.dtb \
 	msm8909-pm8916-cdp.dtb \
 	msm8909w-cdp.dtb \
 	msm8909w-1gb-wtp.dtb \
@@ -220,7 +221,8 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909w-1gb-cdp.dtb \
 	apq8009w-1gb-cdp.dtb \
 	msm8909w-1gb-swoctp.dtb \
-	apq8009w-1gb-swoctp.dtb
+	apq8009w-1gb-swoctp.dtb \
+	apq8009w-1gb-nowgr-swoctp.dtb
 
 
 ifeq ($(CONFIG_ARM64),y)
