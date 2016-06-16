@@ -1132,6 +1132,16 @@
 			qcom,ba-node = <0>;       /* ba node      */
 			qcom,user-type = <1>;     /* user type    */
 		};
+
+		qcom,ba-input-profile-1 {
+			qcom,type = <0>;          /* input type   */
+			qcom,name = "CVBS-0";     /* input name   */
+			qcom,ba-input = <0>;      /* ba input id  */
+			qcom,ba-output = <0>;     /* ba output id */
+			qcom,sd-name = "adv7481"; /* sd name      */
+			qcom,ba-node = <1>;       /* ba node      */
+			qcom,user-type = <1>;     /* user type    */
+		};
 	};
 };
 
