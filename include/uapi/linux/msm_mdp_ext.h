@@ -140,6 +140,8 @@ VALIDATE/COMMIT FLAG CONFIGURATION
 
 #define MDP_COMMIT_VERSION_1_0		0x00010000
 
+#define OUT_LAYER_COLOR_SPACE
+
 /**********************************************************************
 Configuration structures
 All parameters are input to driver unless mentioned output parameter
@@ -332,8 +334,11 @@ struct mdp_output_layer {
 	/* Buffer attached with output layer. Device uses it for commit call */
 	struct mdp_layer_buffer		buffer;
 
+	/* color space of the destination */
+	enum mdp_color_space		color_space;
+
 	/* 32bits reserved value for future usage. */
-	uint32_t			reserved[6];
+	uint32_t			reserved[5];
 };
 
 /*

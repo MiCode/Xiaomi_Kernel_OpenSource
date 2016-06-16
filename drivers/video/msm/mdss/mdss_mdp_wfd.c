@@ -131,6 +131,7 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	u32 wb_idx = layer->writeback_ndx;
 	struct mdss_mdp_ctl *ctl = wfd->ctl;
 	struct mdss_mdp_writeback *wb = NULL;
+	struct mdss_mdp_format_params *fmt = NULL;
 	int ret = 0;
 	u32 width, height, max_mixer_width;
 
@@ -170,6 +171,26 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	ctl->height = height;
 	ctl->roi =  (struct mdss_rect) {0, 0, width, height};
 	ctl->is_secure = (layer->flags & MDP_LAYER_SECURE_SESSION);
+
+	fmt = mdss_mdp_get_format_params(layer->buffer.format);
+
+	/* only 3 csc type supported */
+	if (fmt->is_yuv) {
+		switch (layer->color_space) {
+		case MDP_CSC_ITU_R_601:
+			ctl->csc_type = MDSS_MDP_CSC_RGB2YUV_601L;
+			break;
+		case MDP_CSC_ITU_R_709:
+			ctl->csc_type = MDSS_MDP_CSC_RGB2YUV_709L;
+			break;
+		case MDP_CSC_ITU_R_601_FR:
+		default:
+			ctl->csc_type = MDSS_MDP_CSC_RGB2YUV_601FR;
+			break;
+		}
+	} else {
+		ctl->csc_type = MDSS_MDP_CSC_RGB2RGB;
+	}
 
 	if (ctl->mdata->wfd_mode == MDSS_MDP_WFD_INTERFACE) {
 		ctl->mixer_left = mdss_mdp_mixer_alloc(ctl,
