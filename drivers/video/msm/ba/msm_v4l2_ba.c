@@ -298,7 +298,7 @@ static int parse_ba_dt(struct platform_device *pdev)
 	struct msm_ba_dev *dev_ctxt = NULL;
 	struct ba_ctxt *ba_ctxt = msm_ba_get_ba_context();
 	char *key = NULL;
-	uint32_t err = 0;
+	uint32_t err = 0, i = 0;
 
 	dev_ctxt = ba_ctxt->dev_ctxt;
 
@@ -315,52 +315,54 @@ static int parse_ba_dt(struct platform_device *pdev)
 	if (!dev_ctxt->msm_ba_inp_cfg)
 		return -ENOMEM;
 
+	i = 0;
 	for_each_child_of_node(np, child_np) {
 		key = "qcom,type";
 		err = of_property_read_u32(child_np, key,
-			&dev_ctxt->msm_ba_inp_cfg->input_type);
+			&dev_ctxt->msm_ba_inp_cfg[i].input_type);
 		if (err)
 			goto read_fail;
 
 		key = "qcom,name";
 		err = of_property_read_string(child_np, key,
-			&dev_ctxt->msm_ba_inp_cfg->name);
+			&dev_ctxt->msm_ba_inp_cfg[i].name);
 		if (err)
 			goto read_fail;
 
 		key = "qcom,ba-input";
 		err = of_property_read_u32(child_np, key,
-			&dev_ctxt->msm_ba_inp_cfg->ba_ip);
+			&dev_ctxt->msm_ba_inp_cfg[i].ba_ip);
 		if (err)
 			goto read_fail;
 
 		key = "qcom,ba-output";
 		err = of_property_read_u32(child_np, key,
-			&dev_ctxt->msm_ba_inp_cfg->ba_out);
+			&dev_ctxt->msm_ba_inp_cfg[i].ba_out);
 		if (err)
 			goto read_fail;
 
 		key = "qcom,sd-name";
 		err = of_property_read_string(child_np, key,
-			&dev_ctxt->msm_ba_inp_cfg->sd_name);
+			&dev_ctxt->msm_ba_inp_cfg[i].sd_name);
 		if (err)
 			goto read_fail;
 
 		key = "qcom,ba-node";
 		err = of_property_read_u32(child_np, key,
-			&dev_ctxt->msm_ba_inp_cfg->ba_node);
+			&dev_ctxt->msm_ba_inp_cfg[i].ba_node);
 		if (err)
 			goto read_fail;
 
 
 		key = "qcom,user-type";
 		err = of_property_read_u32(child_np, key,
-			&dev_ctxt->msm_ba_inp_cfg->input_user_type);
+			&dev_ctxt->msm_ba_inp_cfg[i].input_user_type);
 		if (err)
 			goto read_fail;
 
-		dev_ctxt->num_config_inputs++;
+		i++;
 	}
+	dev_ctxt->num_config_inputs = i;
 
 read_fail:
 	if (err) {
