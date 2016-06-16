@@ -1204,10 +1204,13 @@ void ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 			, type, base, offset, hdr_len, is_hdr_proc_ctx,
 			hdr_base_addr, offset_entry);
 
-	BUG_ON(!base ||
+	if (!base ||
 		!hdr_len ||
 		(!phys_base && !hdr_base_addr) ||
-		!hdr_base_addr || offset_entry);
+		!hdr_base_addr || !offset_entry) {
+		IPAHAL_ERR("failure on parameters\n");
+		BUG();
+	}
 
 	hdr_funcs.ipahal_cp_proc_ctx_to_hw_buff(type, base, offset,
 			hdr_len, is_hdr_proc_ctx, phys_base,
