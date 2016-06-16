@@ -907,8 +907,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 
 	for (i = 0; i < b->length; i++) {
 		if (EXTRADATA_IDX(b->length) &&
-			(i == EXTRADATA_IDX(b->length)) &&
-			!b->m.planes[i].m.userptr) {
+			i == EXTRADATA_IDX(b->length)) {
 			continue;
 		}
 		buffer_info = device_to_uvaddr(&inst->registeredbufs,
