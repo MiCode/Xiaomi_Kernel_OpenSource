@@ -519,6 +519,13 @@ static void enable_gfx_crc(void)
 	regval = readl_relaxed(virt_base_gfx + GPU_GX_GDSCR_OFFSET);
 	regval |= SW_COLLAPSE_MASK;
 	writel_relaxed(regval, virt_base_gfx + GPU_GX_GDSCR_OFFSET);
+	/* Write to disable GX GDSC should go through before continuing */
+	wmb();
+	regval = readl_relaxed(virt_base_gfx + GPUCC_GX_DOMAIN_MISC);
+	regval |= BIT(0);
+	writel_relaxed(regval, virt_base_gfx + GPUCC_GX_DOMAIN_MISC);
+	/* Make sure GMEM_CLAMP_IO is asserted before continuing. */
+	wmb();
 	regulator_disable(vdd_gpucc.regulator[0]);
 	regval = readl_relaxed(virt_base_gfx + GPU_CX_GDSCR_OFFSET);
 	regval |= SW_COLLAPSE_MASK;

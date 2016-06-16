@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -338,6 +338,8 @@ static int gdsc_disable(struct regulator_dev *rdev)
 			regval = readl_relaxed(sc->domain_addr);
 			regval |= GMEM_CLAMP_IO_MASK;
 			writel_relaxed(regval, sc->domain_addr);
+			/* Make sure CLAMP_IO is asserted before continuing. */
+			wmb();
 		}
 	} else {
 		for (i = sc->clock_count-1; i >= 0; i--)
