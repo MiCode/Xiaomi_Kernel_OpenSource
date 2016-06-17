@@ -548,6 +548,9 @@ static void gsmd_stop_io(struct gsmd_port *port)
 		gsmd_free_requests(in, &port->write_pool);
 		port->n_read = 0;
 		port->cbits_to_laptop = 0;
+	} else {
+		spin_unlock(&port->port_lock);
+		return;
 	}
 
 	if (port->port_usb->send_modem_ctrl_bits)
