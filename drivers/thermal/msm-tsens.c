@@ -981,9 +981,7 @@ static int32_t get_tsens_sensor_for_client_id(struct tsens_tm_device *tmdev,
 	}
 
 	if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
-		(!strcmp(id->compatible, "qcom,mdm9640-tsens") ||
-		(!strcmp(id->compatible, "qcom,mdm9640v2-tsens") ||
-		(!strcmp(id->compatible, "qcom,msmcobalt-tsens"))))) {
+		(!strcmp(id->compatible, "qcom,msmcobalt-tsens"))) {
 		while (i < tmdev->tsens_num_sensor && !id_found) {
 			if (tmdev->sensor[i].sensor_client_id ==
 							sensor_client_id) {
@@ -1007,6 +1005,8 @@ static struct tsens_tm_device *get_tsens_controller_for_client_id(
 	struct tsens_tm_device *tmdev_chip = NULL;
 	bool id_found = false;
 	uint32_t i = 0;
+	struct device_node *of_node = NULL;
+	const struct of_device_id *id;
 
 	list_for_each_entry(tmdev_chip, &tsens_device_list, list) {
 		i = 0;
@@ -1020,8 +1020,45 @@ static struct tsens_tm_device *get_tsens_controller_for_client_id(
 		}
 	}
 
-	if (!id_found)
-		return NULL;
+	if (!id_found) {
+		list_for_each_entry(tmdev_chip, &tsens_device_list, list) {
+
+			of_node = tmdev_chip->pdev->dev.of_node;
+			if (of_node == NULL) {
+				pr_err("Invalid of_node??\n");
+				return NULL;
+			}
+
+			if (!of_match_node(tsens_match, of_node)) {
+				pr_err("Need to read SoC specific fuse map\n");
+				return NULL;
+			}
+			id = of_match_node(tsens_match, of_node);
+			if (id == NULL) {
+				pr_err("can not find tsens_match of_node\n");
+				return NULL;
+			}
+
+			if (!strcmp(id->compatible, "qcom,mdm9640-tsens") ||
+				(!strcmp(id->compatible,
+						"qcom,mdm9640v2-tsens"))) {
+				i = 0;
+				while (i < tmdev_chip->tsens_num_sensor &&
+								!id_found) {
+					if (tmdev_chip->sensor[i].sensor_sw_id
+							== sensor_client_id) {
+						id_found = true;
+						return tmdev_chip;
+					}
+					i++;
+				}
+
+				if (!id_found)
+					return NULL;
+			} else
+				return NULL;
+			}
+	}
 
 	return tmdev_chip;
 }
@@ -1120,7 +1157,7 @@ int tsens_get_hw_id_mapping(int sensor_sw_id, int *sensor_client_id)
 		 * prior to support for multiple controllres
 		 */
 		while (i < tmdev->tsens_num_sensor && !id_found) {
-			if (sensor_sw_id == tmdev->sensor[i].sensor_client_id) {
+			if (sensor_sw_id == tmdev->sensor[i].sensor_sw_id) {
 				*sensor_client_id =
 					tmdev->sensor[i].sensor_hw_num;
 				id_found = true;
