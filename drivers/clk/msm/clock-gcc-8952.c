@@ -4332,6 +4332,8 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	} else if (compat_bin2) {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8937.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8937.c;
+		vdd_dig.num_levels = VDD_DIG_NUM_8917;
+		vdd_hf_pll.num_levels = VDD_HF_PLL_NUM_8917;
 		override_for_8917();
 	} else {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8952.c;
