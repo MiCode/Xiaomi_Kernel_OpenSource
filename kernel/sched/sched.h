@@ -1196,6 +1196,11 @@ struct related_thread_group *task_related_thread_group(struct task_struct *p)
 	return rcu_dereference(p->grp);
 }
 
+static inline int is_task_in_related_thread_group(struct task_struct *p)
+{
+	return rcu_access_pointer(p->grp) != NULL;
+}
+
 #else	/* CONFIG_SCHED_HMP */
 
 struct hmp_sched_stats;
@@ -1248,6 +1253,11 @@ static inline
 struct related_thread_group *task_related_thread_group(struct task_struct *p)
 {
 	return NULL;
+}
+
+static inline int is_task_in_related_thread_group(struct task_struct *p)
+{
+	return 0;
 }
 
 static inline u32 task_load(struct task_struct *p) { return 0; }

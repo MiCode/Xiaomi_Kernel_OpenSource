@@ -8260,7 +8260,7 @@ static int __migrate_task(struct task_struct *p, int src_cpu, int dest_cpu)
 		goto fail;
 
 	/* No need for rcu_read_lock() here. Protected by pi->lock */
-	check_groups = rcu_access_pointer(p->grp) != NULL;
+	check_groups = is_task_in_related_thread_group(p);
 
 	/*
 	 * If we're not on a rq, the next wake-up will ensure we're
