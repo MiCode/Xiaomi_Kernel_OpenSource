@@ -1368,17 +1368,20 @@
 		};
 
 		/* cnss_pmux */
-		cnss_pmux:cnss_pmux {
-			mux {
-				pins = "gpio95";
-				function = "gpio";
-			};
+		cnss_pmux {
+			cnss_default: default {
+				mux {
+					pins = "gpio95";
+					function = "gpio";
+				};
 
-			config {
-				pins = "gpio95";
-				function = "gpio";
-				drive-strength = <10>;
-				bias-disable;
+				config {
+					pins = "gpio95";
+					function = "gpio";
+					drive-strength = <16>;
+					output-high;
+					bias-pull-up;
+				};
 			};
 		};
 	};
