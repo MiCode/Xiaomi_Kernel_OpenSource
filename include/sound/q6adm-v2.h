@@ -102,6 +102,12 @@ int adm_connect_afe_port(int mode, int session_id, int port_id);
 
 void adm_ec_ref_rx_id(int  port_id);
 
+void adm_num_ec_ref_rx_chans(int num_chans);
+
+void adm_ec_ref_rx_bit_width(int bit_width);
+
+void adm_ec_ref_rx_sampling_rate(int sampling_rate);
+
 int adm_get_lowlatency_copp_id(int port_id);
 
 int adm_set_multi_ch_map(char *channel_map, int path);
