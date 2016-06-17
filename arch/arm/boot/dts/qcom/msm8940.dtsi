@@ -220,6 +220,10 @@
 	/delete-property/ qcom,cpr-quotient-adjustment;
 	/delete-property/ qcom,cpr-init-voltage-adjustment;
 	/delete-property/ qcom,cpr-enable;
+
+	qcom,cpr-quotient-adjustment =
+		<(0)    (28)   (28)>;
+	qcom,cpr-enable;
 };
 
 &mdss_mdp {
