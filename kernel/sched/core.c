@@ -3039,8 +3039,12 @@ void sched_account_irqstart(int cpu, struct task_struct *curr, u64 wallclock)
 	if (!rq->window_start || sched_disable_window_stats)
 		return;
 
-	if (is_idle_task(curr) && use_cycle_counter)
+	if (is_idle_task(curr)) {
+		/* We're here without rq->lock held, IRQ disabled */
+		raw_spin_lock(&rq->lock);
 		update_task_cpu_cycles(curr, cpu);
+		raw_spin_unlock(&rq->lock);
+	}
 }
 
 static void reset_task_stats(struct task_struct *p)
