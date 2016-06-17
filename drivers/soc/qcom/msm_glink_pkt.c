@@ -1125,6 +1125,7 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 
 	devp->link_up = false;
 	devp->link_info.edge = devp->open_cfg.edge;
+	devp->link_info.transport = devp->open_cfg.transport;
 	devp->link_info.glink_link_state_notif_cb =
 				glink_pkt_link_state_cb;
 	devp->i = i;

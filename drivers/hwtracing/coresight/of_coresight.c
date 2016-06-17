@@ -119,10 +119,8 @@ struct coresight_platform_data *of_get_coresight_platform_data(
 		return ERR_PTR(-ENOMEM);
 
 	ret = of_property_read_string(node, "coresight-name", &pdata->name);
-	if (ret) {
-		/* Use device name as sysfs handle */
-		pdata->name = dev_name(dev);
-	}
+	if (ret)
+		return ERR_PTR(ret);
 
 	/* Get the number of input and output port for this component */
 	of_coresight_get_ports(node, &pdata->nr_inport, &pdata->nr_outport);

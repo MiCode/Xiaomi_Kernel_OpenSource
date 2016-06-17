@@ -37,6 +37,8 @@ its hardware characteristcs.
 	  layout using the generic DT graph presentation found in
 	  "bindings/graph.txt".
 
+	* coresight-name: unique descriptive name of the component.
+
 * Required properties for devices that don't show up on the AMBA bus, such as
   non-configurable replicators:
 
@@ -54,8 +56,9 @@ its hardware characteristcs.
 
 	* port or ports: same as above.
 
-* Optional properties for all components:
 	* coresight-name: unique descriptive name of the component.
+
+* Optional properties for all components:
 	* reg-names: names corresponding to each reg property value.
 
 * Optional properties for ETM/PTMs:

@@ -3435,6 +3435,10 @@ static const struct qcom_reset_map gcc_msm8996_resets[] = {
 	[GCC_MSMPU_BCR] = { 0x8d000 },
 	[GCC_MSS_Q6_BCR] = { 0x8e000 },
 	[GCC_QREFS_VBG_CAL_BCR] = { 0x88020 },
+	[GCC_USB3_PHY_BCR] = { 0x50020 },
+	[GCC_USB3PHY_PHY_BCR] = { 0x50024 },
+	[GCC_PCIE_PHY_NOCSR_COM_PHY_BCR] = { 0x6F00C },
+	[GCC_PCIE_PHY_COM_BCR] = { 0x6F014 },
 };
 
 static const struct regmap_config gcc_msm8996_regmap_config = {

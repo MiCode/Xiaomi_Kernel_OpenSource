@@ -705,7 +705,7 @@ failure:
 	for (j = 0; j < i; j++) {
 		next_pkt = list_next_entry(tx_pkt, link);
 		list_del(&tx_pkt->link);
-		if (desc[i].type != IPA_DATA_DESC_SKB_PAGED) {
+		if (desc[j].type != IPA_DATA_DESC_SKB_PAGED) {
 			dma_unmap_single(ipa3_ctx->pdev, tx_pkt->mem.phys_base,
 				tx_pkt->mem.size,
 				DMA_TO_DEVICE);
@@ -3157,12 +3157,8 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 			sys->free_skb = ipa3_free_skb_rx;
 			in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
 			in->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
-			in->ipa_ep_cfg.aggr.aggr_byte_limit =
-				IPA_GENERIC_AGGR_BYTE_LIMIT;
 			in->ipa_ep_cfg.aggr.aggr_time_limit =
 				IPA_GENERIC_AGGR_TIME_LIMIT;
-			in->ipa_ep_cfg.aggr.aggr_pkt_limit =
-				IPA_GENERIC_AGGR_PKT_LIMIT;
 			if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 				sys->pyld_hdlr = ipa3_lan_rx_pyld_hdlr;
 				sys->repl_hdlr =
