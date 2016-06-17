@@ -155,16 +155,9 @@ static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 }
 
 static int mdss_mdp_writeback_cdm_setup(struct mdss_mdp_writeback_ctx *ctx,
-					struct mdss_mdp_cdm *cdm, u32 format)
+	struct mdss_mdp_cdm *cdm, struct mdss_mdp_format_params *fmt)
 {
-	struct mdss_mdp_format_params *fmt;
 	struct mdp_cdm_cfg setup;
-
-	fmt = mdss_mdp_get_format_params(format);
-	if (!fmt) {
-		pr_err("%s: format %d not supported\n", __func__, format);
-		return -EINVAL;
-	}
 
 	switch (fmt->chroma_sample) {
 	case MDSS_MDP_CHROMA_RGB:
@@ -185,7 +178,7 @@ static int mdss_mdp_writeback_cdm_setup(struct mdss_mdp_writeback_ctx *ctx,
 		return -EINVAL;
 	}
 
-	setup.out_format = format;
+	setup.out_format = fmt->format;
 	setup.mdp_csc_bit_depth = MDP_CDM_CSC_8BIT;
 	setup.output_width = ctx->width;
 	setup.output_height = ctx->height;
@@ -248,10 +241,9 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	chroma_samp = fmt->chroma_sample;
 
 	if (ctl->cdm) {
-
-		rc = mdss_mdp_writeback_cdm_setup(ctx, ctl->cdm, format);
+		rc = mdss_mdp_writeback_cdm_setup(ctx, ctl->cdm, fmt);
 		if (rc) {
-			pr_err("%s: CDM configuration failed with error %d\n",
+			pr_err("%s: CDM config failed with error %d\n",
 				__func__, rc);
 			return rc;
 		}
@@ -826,6 +818,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_writeback *wb;
 	u32 mem_sel;
 	u32 mixer_type = MDSS_MDP_MIXER_TYPE_UNUSED;
+	struct mdss_mdp_format_params *fmt = NULL;
 	bool is_rot;
 
 	pr_debug("start ctl=%d\n", ctl->num);
@@ -849,6 +842,10 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 		return -EINVAL;
 	}
 
+	fmt = mdss_mdp_get_format_params(ctl->dst_format);
+	if (!fmt)
+		return -EINVAL;
+
 	is_rot = (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR) ? true : false;
 
 	if (ctl->mixer_left) {
@@ -862,15 +859,13 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	}
 
 	if (mdss_mdp_is_cdm_supported(ctl->mdata, ctl->intf_type,
-				mixer_type)) {
+		mixer_type) && fmt->is_yuv) {
 		ctl->cdm = mdss_mdp_cdm_init(ctl, MDP_CDM_CDWN_OUTPUT_WB);
 		if (IS_ERR_OR_NULL(ctl->cdm)) {
-			pr_err("%s failed to init cdm\n", __func__);
+			pr_err("cdm block already in use\n");
+			ctl->cdm = NULL;
 			return -EBUSY;
 		}
-	} else {
-		ctl->cdm = NULL;
-		pr_debug("%s: cdm not supported\n", __func__);
 	}
 	ctl->priv_data = ctx;
 	ctx->wb_num = wb->num;
