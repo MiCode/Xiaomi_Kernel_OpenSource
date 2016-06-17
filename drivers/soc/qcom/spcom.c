@@ -937,6 +937,21 @@ exit_error:
 }
 
 /*======================================================================*/
+/*		General API for kernel drivers				*/
+/*======================================================================*/
+
+/**
+ * spcom_is_sp_subsystem_link_up() - check if SPSS link is up.
+ *
+ * return: true if link is up, false if link is down.
+ */
+bool spcom_is_sp_subsystem_link_up(void)
+{
+	 return (spcom_dev->link_state == GLINK_LINK_STATE_UP);
+}
+EXPORT_SYMBOL(spcom_is_sp_subsystem_link_up);
+
+/*======================================================================*/
 /*		Client API for kernel drivers				*/
 /*======================================================================*/
 

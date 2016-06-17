@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,19 +85,8 @@ struct spcom_service_info {
 };
 
 /*===========================================================================*/
-/*                           RESET                                           */
+/*                           General API                                     */
 /*===========================================================================*/
-
-
-/**
- * spcom_reset_sp_subsystem() - send reset command to secure processor.
- *
- * Gracefully ask the remote SP to reset itself.
- * SP will probably initiate a Watch-Dog-Bite.
- *
- * return: 0 on success, negative error code on failure.
- */
-int spcom_reset_sp_subsystem(void);
 
 /**
  * spcom_is_sp_subsystem_link_up() - check if SPSS link is up.
@@ -105,38 +94,6 @@ int spcom_reset_sp_subsystem(void);
  * return: true if link is up, false if link is down.
  */
 bool spcom_is_sp_subsystem_link_up(void);
-
-/*===========================================================================*/
-/*                           Client LOAD SP Application                      */
-/*===========================================================================*/
-
-/**
- * spcom_is_app_loaded() - check if the SP App is already loaded.
- *
- * This shall be useful when the HLOS app restarts.
- * This API will check if logical channel node has been created.
- *
- * @ch_name:	glink logical channel name
- *
- * @note: This API is available only on HLOS.
- *
- * return: true if loaded,false otherwise.
- */
-bool spcom_is_app_loaded(const char *ch_name);
-
-/**
- * spcom_load_app() - Load Secure Processor Application.
- *
- * @ch_name:	glink logical channel name
- *      spcom shall open channel file node after application is loaded.
- *
- * @file_path:	Path to the encrypted file containing the application.
- *
- * @note: This API is available only on HLOS.
- *
- * return: 0 on success, negative error code on failure.
- */
-int spcom_load_app(const char *ch_name, const char *file_path);
 
 /*===========================================================================*/
 /*                           Client Send Message                             */
