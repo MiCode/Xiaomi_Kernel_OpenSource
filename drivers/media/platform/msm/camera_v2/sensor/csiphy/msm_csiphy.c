@@ -309,9 +309,9 @@ static int msm_csiphy_3phase_lane_config_v50(
 		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 		mipi_csiphy_3ph_cmn_ctrl6.addr);
 	msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-		mipi_csiphy_3ph_cmn_ctrl7.data,
+		mipi_csiphy_3ph_cmn_ctrl7_cphy.data,
 		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-		mipi_csiphy_3ph_cmn_ctrl7.addr);
+		mipi_csiphy_3ph_cmn_ctrl7_cphy.addr);
 
 	lane_mask = csiphy_params->lane_mask & 0x7;
 	i = 0;
