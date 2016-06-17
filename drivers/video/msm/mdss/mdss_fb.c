@@ -1258,6 +1258,7 @@ static int mdss_fb_remove(struct platform_device *pdev)
 		return -EINVAL;
 
 	mdss_fb_unregister_input_handler(mfd);
+	mdss_panel_debugfs_cleanup(mfd->panel_info);
 
 	if (mdss_fb_suspend_sub(mfd))
 		pr_err("msm_fb_remove: can't stop the device %d\n",
