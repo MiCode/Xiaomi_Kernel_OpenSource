@@ -1353,7 +1353,9 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 				pdata->panel_info.dfps_update
 				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
 				pdata->panel_info.dfps_update
-				== DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
+				== DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP ||
+				pdata->panel_info.dfps_update
+				== DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK) {
 			unsigned long flags;
 			if (!ctx->timegen_en) {
 				pr_err("TG is OFF. DFPS mode invalid\n");
