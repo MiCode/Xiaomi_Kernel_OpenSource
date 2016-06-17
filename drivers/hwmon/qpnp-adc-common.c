@@ -1789,7 +1789,7 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 	struct qpnp_adc_properties *adc_prop;
 	struct qpnp_adc_amux_properties *amux_prop;
 	int count_adc_channel_list = 0, decimation, rc = 0, i = 0;
-	int decimation_tm_hc = 0, fast_avg_setup_tm_hc = 0;
+	int decimation_tm_hc = 0, fast_avg_setup_tm_hc = 0, cal_val_hc = 0;
 	bool adc_hc;
 
 	if (!node)
@@ -1946,6 +1946,17 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 			}
 		} else {
 			fast_avg_setup = fast_avg_setup_tm_hc;
+		}
+
+		if (of_device_is_compatible(node, "qcom,qpnp-vadc-hc")) {
+			rc = of_property_read_u32(child, "qcom,cal-val",
+							&cal_val_hc);
+			if (rc) {
+				pr_debug("Use calibration value from timer\n");
+				adc_channel_list[i].cal_val = ADC_TIMER_CAL;
+			} else {
+				adc_channel_list[i].cal_val = cal_val_hc;
+			}
 		}
 
 		/* Individual channel properties */
