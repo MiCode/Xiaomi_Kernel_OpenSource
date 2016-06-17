@@ -756,6 +756,43 @@ static irqreturn_t smb138x_handle_usb_source_change(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t smb138x_handle_usb_typec_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+	union power_supply_propval otg = {0, };
+	int rc;
+	u8 stat;
+
+	if (!chg->usb_psy)
+		return IRQ_HANDLED;
+
+	rc = smb138x_read(chg, TYPE_C_STATUS_4_REG, &stat);
+	if (rc < 0) {
+		pr_err("Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+	smb_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_4 = 0x%02x\n", stat);
+
+	if (stat & TYPEC_VBUS_ERROR_STATUS_BIT) {
+		dev_err(chg->dev, "IRQ: vbus-error rising\n");
+		return IRQ_HANDLED;
+	}
+
+	if (stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT)
+		otg.intval = (bool)(stat & UFP_DFP_MODE_STATUS_BIT);
+
+	rc = chg->usb_psy->set_property(chg->usb_psy, POWER_SUPPLY_PROP_USB_OTG,
+					&otg);
+	if (rc < 0)
+		pr_err("Couldn't %s OTG rc=%d\n",
+			otg.intval ? "enable" : "disable", rc);
+
+	power_supply_changed(chg->usb_psy);
+
+	return IRQ_HANDLED;
+}
+
 static void smb138x_usb_init_work(struct work_struct *work)
 {
 	struct smb138x *chip = container_of(work, struct smb138x,
@@ -765,6 +802,8 @@ static void smb138x_usb_init_work(struct work_struct *work)
 	power_supply_unreg_notifier(&chip->nb);
 	smb138x_handle_usb_plugin(0, &irq_data);
 	smb138x_handle_usb_source_change(0, &irq_data);
+	if (!chip->dt.micro_usb)
+		smb138x_handle_usb_typec_change(0, &irq_data);
 }
 
 static enum power_supply_property smb138x_batt_props[] = {
@@ -1024,7 +1063,7 @@ static const struct smb138x_irq_info smb138x_irqs[] = {
 	{ "usbin-plugin",		smb138x_handle_usb_plugin },
 	{ "usbin-src-change",		smb138x_handle_usb_source_change },
 	{ "usbin-icl-change",		smb138x_handle_debug },
-	{ "type-c-change",		smb138x_handle_debug },
+	{ "type-c-change",		smb138x_handle_usb_typec_change },
 /* DC INPUT IRQs */
 	{ "dcin-collapse",		smb138x_handle_debug },
 	{ "dcin-lt-3p6v",		smb138x_handle_debug },
