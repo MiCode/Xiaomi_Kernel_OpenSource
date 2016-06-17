@@ -317,8 +317,7 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->evt            = evt;
 		__entry->cpu            = rq->cpu;
 		__entry->cur_pid        = rq->curr->pid;
-		__entry->cur_freq       = cpu_cycles_to_freq(rq->cpu, cycles,
-							     exec_time);
+		__entry->cur_freq       = cpu_cycles_to_freq(cycles, exec_time);
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->pid            = p->pid;
 		__entry->mark_start     = p->ravg.mark_start;
@@ -383,8 +382,7 @@ TRACE_EVENT(sched_get_task_cpu_cycles,
 		__entry->event 		= event;
 		__entry->cycles 	= cycles;
 		__entry->exec_time 	= exec_time;
-		__entry->freq 		= cpu_cycles_to_freq(cpu, cycles,
-							     exec_time);
+		__entry->freq		= cpu_cycles_to_freq(cycles, exec_time);
 		__entry->legacy_freq 	= cpu_cur_freq(cpu);
 	),
 
