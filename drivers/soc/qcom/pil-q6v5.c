@@ -558,7 +558,7 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	struct resource *res;
 	struct pil_desc *desc;
 	struct property *prop;
-	int ret;
+	int ret, vdd_pll;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -700,29 +700,25 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 		return ERR_CAST(prop);
 	}
 
-	drv->vreg_pll = devm_regulator_get(&pdev->dev, "vdd_pll");
-	if (!IS_ERR_OR_NULL(drv->vreg_pll)) {
-		int voltage;
-		ret = of_property_read_u32(pdev->dev.of_node, "qcom,vdd_pll",
-					   &voltage);
-		if (ret) {
-			dev_err(&pdev->dev, "Failed to find vdd_pll voltage.\n");
-			return ERR_PTR(ret);
-		}
+	ret = of_property_read_u32(pdev->dev.of_node, "qcom,vdd_pll",
+		&vdd_pll);
+	if (!ret) {
+		drv->vreg_pll = devm_regulator_get(&pdev->dev, "vdd_pll");
+		if (!IS_ERR_OR_NULL(drv->vreg_pll)) {
+			ret = regulator_set_voltage(drv->vreg_pll, vdd_pll,
+							vdd_pll);
+			if (ret) {
+				dev_err(&pdev->dev, "Failed to set vdd_pll voltage.\n");
+				return ERR_PTR(ret);
+			}
 
-		ret = regulator_set_voltage(drv->vreg_pll, voltage, voltage);
-		if (ret) {
-			dev_err(&pdev->dev, "Failed to request vdd_pll voltage.\n");
-			return ERR_PTR(ret);
-		}
-
-		ret = regulator_set_load(drv->vreg_pll, 10000);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "Failed to set vdd_pll mode.\n");
-			return ERR_PTR(ret);
-		}
-	} else {
-		 drv->vreg_pll = NULL;
+			ret = regulator_set_load(drv->vreg_pll, 10000);
+			if (ret < 0) {
+				dev_err(&pdev->dev, "Failed to set vdd_pll mode.\n");
+				return ERR_PTR(ret);
+			}
+		} else
+			drv->vreg_pll = NULL;
 	}
 
 	return drv;
