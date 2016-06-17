@@ -261,7 +261,7 @@
 			pcie0_clkreq_default: pcie0_clkreq_default {
 				mux {
 					pins = "gpio64";
-					function = "pci_e";
+					function = "pcie_clkreq";
 				};
 
 				config {
@@ -295,7 +295,7 @@
 				config {
 					pins = "gpio65";
 					drive-strength = <2>;
-					bias-pull-up;
+					bias-disable;		/* NO pull */
 				};
 			};
 		};

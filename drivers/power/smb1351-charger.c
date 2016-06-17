@@ -144,7 +144,7 @@
 #define SOFT_LIMIT_COLD_TEMP_ALARM_TRIP_MASK	SMB1351_MASK(3, 2)
 #define SOFT_LIMIT_HOT_TEMP_ALARM_TRIP_MASK	SMB1351_MASK(1, 0)
 
-#define FAULT_INT_REG				0xC
+#define FAULT_INT_CFG_REG				0xC
 #define HOT_COLD_HARD_LIMIT_BIT			BIT(7)
 #define HOT_COLD_SOFT_LIMIT_BIT			BIT(6)
 #define BATT_UVLO_IN_OTG_BIT			BIT(5)
@@ -154,7 +154,7 @@
 #define AICL_DONE_FAIL_BIT			BIT(1)
 #define INTERNAL_OVER_TEMP_BIT			BIT(0)
 
-#define STATUS_INT_REG				0xD
+#define STATUS_INT_CFG_REG				0xD
 #define CHG_OR_PRECHG_TIMEOUT_BIT		BIT(7)
 #define RID_CHANGE_BIT				BIT(6)
 #define BATT_OVP_BIT				BIT(5)
@@ -415,6 +415,7 @@ enum reason {
 	CURRENT = BIT(2),
 	SOC	= BIT(3),
 	PARALLEL = BIT(4),
+	ITERM	= BIT(5),
 };
 
 static char *pm_batt_supplied_to[] = {
@@ -439,6 +440,13 @@ static const char *smb1351_version_str[SMB_MAX_TYPE] = {
 	[SMB1351] = "SMB1351",
 };
 
+enum workaround_flags {
+	CHG_FORCE_ESR_WA	= BIT(0),
+	CHG_FG_NOTIFY_JEITA	= BIT(1),
+	CHG_ITERM_CHECK_SOC	= BIT(2),
+	CHG_SOC_BASED_RESUME	= BIT(3),
+};
+
 enum wakeup_src {
 	I2C_ACCESS,
 	HVDCP_DETECT,
@@ -446,6 +454,8 @@ enum wakeup_src {
 	RERUN_APSD,
 	PARALLEL_CHARGE,
 	PARALLEL_TAPER,
+	FORCE_ESR_PULSE,
+	ITERM_CHECK_SOC,
 	WAKEUP_SRC_MAX,
 };
 #define WAKEUP_SRC_MASK GENMASK(WAKEUP_SRC_MAX, 0)
@@ -487,10 +497,12 @@ struct smb1351_charger {
 	int			switch_freq;
 	int			chg_present;
 	int			fake_battery_soc;
+	int			resume_soc;
 	bool			chg_autonomous_mode;
 	bool			disable_apsd;
 	bool			using_pmic_therm;
 	bool			jeita_supported;
+	bool			fg_notify_jeita;
 	bool			battery_missing;
 	const char		*bms_psy_name;
 	bool			resume_completed;
@@ -498,6 +510,8 @@ struct smb1351_charger {
 	struct delayed_work	chg_remove_work;
 	struct delayed_work	hvdcp_det_work;
 	struct delayed_work	rerun_apsd_work;
+	struct delayed_work	init_fg_work;
+	struct delayed_work	iterm_check_soc_work;
 	struct smb1351_wakeup_source	smb1351_ws;
 
 	/* status tracking */
@@ -511,10 +525,13 @@ struct smb1351_charger {
 	int			usb_suspended_status;
 	int			target_fastchg_current_max_ma;
 	int			fastchg_current_max_ma;
+	int			main_fcc_ma_before_esr;
+	int			slave_fcc_ma_before_esr;
 	int			workaround_flags;
 
 	int			parallel_pin_polarity_setting;
 	bool			is_slave;
+	bool			use_external_fg;
 	bool			parallel_charger_present;
 	bool			bms_controlled_charging;
 	bool			apsd_rerun;
@@ -522,7 +539,10 @@ struct smb1351_charger {
 	bool			chg_remove_work_scheduled;
 	bool			force_hvdcp_2p0;
 	bool			check_parallel;
+	bool			in_esr_pulse;
 	enum chip_version	version;
+	u32			wa_flags;
+	int			pre_soc;
 
 	/* psy */
 	struct power_supply	*usb_psy;
@@ -1169,6 +1189,56 @@ static int smb1351_get_usb_supply_type(struct smb1351_charger *chip,
 	return rc;
 }
 
+static int smb1351_set_bms_property(struct smb1351_charger *chip,
+		enum power_supply_property prop, int value)
+{
+	int rc;
+	union power_supply_propval propval = {0, };
+
+	if (chip->bms_psy_name && !chip->bms_psy)
+		chip->bms_psy =
+			power_supply_get_by_name((char *)chip->bms_psy_name);
+
+	if (IS_ERR_OR_NULL(chip->bms_psy)) {
+		pr_debug("BMS(fg) power supply not present\n");
+		return -ENODEV;
+	}
+
+	propval.intval = value;
+	rc = chip->bms_psy->set_property(chip->bms_psy, prop, &propval);
+	if (rc) {
+		pr_err("Set BMS property %d failed, rc=%d\n", prop, rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int smb1351_get_bms_property(struct smb1351_charger *chip,
+		enum power_supply_property prop, int *val)
+{
+	int rc;
+	union power_supply_propval propval = {0, };
+
+	if (chip->bms_psy_name && !chip->bms_psy)
+		chip->bms_psy =
+			power_supply_get_by_name((char *)chip->bms_psy_name);
+
+	if (IS_ERR_OR_NULL(chip->bms_psy)) {
+		pr_debug("BMS(fg) power supply not present\n");
+		return -ENODEV;
+	}
+
+	rc = chip->bms_psy->get_property(chip->bms_psy, prop, &propval);
+	if (rc) {
+		pr_err("Set BMS property %d failed, rc=%d\n", prop, rc);
+		return rc;
+	}
+	*val = propval.intval;
+
+	return rc;
+}
+
 static int smb1351_chg_otg_regulator_enable(struct regulator_dev *rdev)
 {
 	int rc = 0;
@@ -1274,6 +1344,7 @@ static int smb_chip_get_version(struct smb1351_charger *chip)
 	return rc;
 }
 
+#define INIT_FG_RETRY_MS	1000
 static int smb1351_hw_init(struct smb1351_charger *chip)
 {
 	int rc;
@@ -1355,19 +1426,19 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		return rc;
 	}
 	/* Fault and Status IRQ configuration */
-	reg = HOT_COLD_HARD_LIMIT_BIT | HOT_COLD_SOFT_LIMIT_BIT
+	reg = HOT_COLD_HARD_LIMIT_BIT | HOT_COLD_SOFT_LIMIT_BIT | OTG_OC_BIT
 		| INPUT_OVLO_BIT | INPUT_UVLO_BIT | AICL_DONE_FAIL_BIT;
-	rc = smb1351_write_reg(chip, FAULT_INT_REG, reg);
+	rc = smb1351_write_reg(chip, FAULT_INT_CFG_REG, reg);
 	if (rc) {
-		pr_err("Couldn't set FAULT_INT_REG rc=%d\n", rc);
+		pr_err("Couldn't set FAULT_INT_CFG_REG rc=%d\n", rc);
 		return rc;
 	}
-	reg = CHG_OR_PRECHG_TIMEOUT_BIT | BATT_OVP_BIT |
-		FAST_TERM_TAPER_RECHG_INHIBIT_BIT |
-		BATT_MISSING_BIT | BATT_LOW_BIT;
-	rc = smb1351_write_reg(chip, STATUS_INT_REG, reg);
+	reg = CHG_OR_PRECHG_TIMEOUT_BIT | RID_CHANGE_BIT | BATT_OVP_BIT |
+		FAST_TERM_TAPER_RECHG_INHIBIT_BIT | BATT_MISSING_BIT |
+		BATT_LOW_BIT;
+	rc = smb1351_write_reg(chip, STATUS_INT_CFG_REG, reg);
 	if (rc) {
-		pr_err("Couldn't set STATUS_INT_REG rc=%d\n", rc);
+		pr_err("Couldn't set STATUS_INT_CFG_REG rc=%d\n", rc);
 		return rc;
 	}
 	/* setup THERM Monitor */
@@ -1437,7 +1508,8 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 				return rc;
 			}
 		}
-	} else if (chip->recharge_disabled) {
+	} else if (chip->recharge_disabled ||
+			(chip->wa_flags & CHG_SOC_BASED_RESUME)) {
 		rc = smb1351_masked_write(chip, CHG_CTRL_REG,
 				AUTO_RECHG_BIT,
 				AUTO_RECHG_DISABLE);
@@ -1474,6 +1546,26 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		if (rc) {
 			pr_err("Program PON option failed, rc=%d\n", rc);
 			return rc;
+		}
+	}
+
+	if (chip->use_external_fg) {
+		rc = smb1351_set_bms_property(chip,
+			POWER_SUPPLY_PROP_IGNORE_FALSE_NEGATIVE_ISENSE, 0);
+		if (rc) {
+			pr_debug("set IGNORE_FALSE_NEGATIVE_ISENSE failed, rc=%d\n",
+								rc);
+			/* start a delay worker to do it again if failed */
+			schedule_delayed_work(&chip->init_fg_work,
+				msecs_to_jiffies(INIT_FG_RETRY_MS));
+		} else if (chip->fg_notify_jeita) {
+			rc = smb1351_set_bms_property(chip,
+				POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION, 1);
+			if (rc) {
+				pr_err("Set ENABLE_JEITA_DETECTION failed, rc=%d\n",
+								rc);
+				return rc;
+			}
 		}
 	}
 
@@ -1546,30 +1638,30 @@ static int smb1351_get_prop_batt_present(struct smb1351_charger *chip)
 
 static int smb1351_get_prop_batt_capacity(struct smb1351_charger *chip)
 {
-	union power_supply_propval ret = {0, };
+	int rc = 0, soc = 0;
 
 	if (chip->fake_battery_soc >= 0)
 		return chip->fake_battery_soc;
 
-	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
-				POWER_SUPPLY_PROP_CAPACITY, &ret);
-		return ret.intval;
+	rc = smb1351_get_bms_property(chip, POWER_SUPPLY_PROP_CAPACITY, &soc);
+	if (rc) {
+		pr_debug("Get capacity from BMS failed, rc=%d\n", rc);
+		return DEFAULT_BATT_CAPACITY;
 	}
-	pr_debug("return DEFAULT_BATT_CAPACITY\n");
-	return DEFAULT_BATT_CAPACITY;
+	pr_debug("SoC = %d\n", soc);
+
+	return soc;
 }
 
 static int smb1351_get_prop_batt_temp(struct smb1351_charger *chip)
 {
-	union power_supply_propval ret = {0, };
-	int rc = 0;
+	int rc = 0, temp = 0;
 	struct qpnp_vadc_result results;
 
-	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
-				POWER_SUPPLY_PROP_TEMP, &ret);
-		return ret.intval;
+	rc = smb1351_get_bms_property(chip, POWER_SUPPLY_PROP_TEMP, &temp);
+	if (rc) {
+		temp = DEFAULT_BATT_TEMP;
+		pr_debug("Get tempertory from BMS failed, rc=%d\n", rc);
 	}
 	if (chip->vadc_dev) {
 		rc = qpnp_vadc_read(chip->vadc_dev,
@@ -1577,11 +1669,11 @@ static int smb1351_get_prop_batt_temp(struct smb1351_charger *chip)
 		if (rc)
 			pr_debug("Unable to read adc batt temp rc=%d\n", rc);
 		else
-			return (int)results.physical;
+			temp = (int)results.physical;
 	}
+	pr_debug("temperature: %d\n", temp);
 
-	pr_debug("return default temperature\n");
-	return DEFAULT_BATT_TEMP;
+	return temp;
 }
 
 static int smb1351_get_prop_charge_type(struct smb1351_charger *chip)
@@ -1625,6 +1717,22 @@ static int smb1351_get_prop_batt_health(struct smb1351_charger *chip)
 		ret.intval = POWER_SUPPLY_HEALTH_GOOD;
 
 	return ret.intval;
+}
+
+static int smb1351_get_usbid_status(struct smb1351_charger *chip, bool *gnd)
+{
+	int rc;
+	u8 regval;
+
+	rc = smb1351_read_reg(chip, STATUS_6_REG, &regval);
+	if (rc) {
+		pr_err("Read STATUS_6 failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	*gnd = !regval;
+
+	return rc;
 }
 
 static struct power_supply *smb1351_get_parallel_slave(
@@ -2041,6 +2149,117 @@ static void smb1351_parallel_check_start(struct smb1351_charger *chip)
 	pr_debug("parallel work scheduled\n");
 }
 
+static void smb1351_init_fg_work(struct work_struct *work)
+{
+	int rc;
+	struct smb1351_charger *chip = container_of(work,
+		struct smb1351_charger, init_fg_work.work);
+
+	rc = smb1351_set_bms_property(chip,
+		POWER_SUPPLY_PROP_IGNORE_FALSE_NEGATIVE_ISENSE, 0);
+	if (rc) {
+		pr_debug("Disable isense patch failed, rc=%d\n", rc);
+		goto recheck;
+	}
+
+	if (chip->fg_notify_jeita) {
+		rc = smb1351_set_bms_property(chip,
+			POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION, 1);
+		if (rc) {
+			pr_debug("Enable FG JEITA IRQ failed, rc=%d\n", rc);
+			goto recheck;
+		}
+	}
+	return;
+recheck:
+	/* start a delay worker to do it again if failed */
+	schedule_delayed_work(&chip->init_fg_work,
+			msecs_to_jiffies(INIT_FG_RETRY_MS));
+}
+
+static void smb1351_handle_jeita_from_fg(struct smb1351_charger *chip,
+						int health)
+{
+	int rc;
+	bool disable;
+
+	if (health <= POWER_SUPPLY_HEALTH_UNKNOWN
+		|| health > POWER_SUPPLY_HEALTH_COOL) {
+		pr_err("health state not valid: %d\n", health);
+		return;
+	}
+
+	switch (health) {
+	case POWER_SUPPLY_HEALTH_GOOD:
+		chip->batt_hot = false;
+		chip->batt_cold = false;
+		chip->batt_warm = false;
+		chip->batt_cool = false;
+		break;
+	case POWER_SUPPLY_HEALTH_OVERHEAT:
+		chip->batt_hot = true;
+		chip->batt_cold = false;
+		chip->batt_warm = false;
+		chip->batt_cool = false;
+		break;
+	case POWER_SUPPLY_HEALTH_COLD:
+		chip->batt_hot = false;
+		chip->batt_cold = true;
+		chip->batt_cool = false;
+		chip->batt_warm = false;
+		break;
+	case POWER_SUPPLY_HEALTH_WARM:
+		chip->batt_hot = false;
+		chip->batt_cold = false;
+		chip->batt_warm = true;
+		chip->batt_cool = false;
+		break;
+	case POWER_SUPPLY_HEALTH_COOL:
+		chip->batt_hot = false;
+		chip->batt_cold = false;
+		chip->batt_warm = false;
+		chip->batt_cool = true;
+		break;
+	default:
+		pr_debug("health: %d, not a JEITA state\n", health);
+		break;
+	}
+	pr_debug("hot: %d, cold: %d, warm = %d, cool = %d\n",
+			chip->batt_hot, chip->batt_cold,
+			chip->batt_warm, chip->batt_cool);
+
+	disable = (chip->batt_hot || chip->batt_cold) ? true : false;
+	rc = smb1351_battchg_disable(chip, THERMAL, disable);
+	if (rc) {
+		pr_err("%s charging for THERMAL failed, rc=%d\n",
+				disable ? "Disable" : "Enable", rc);
+		return;
+	}
+
+	rc = smb1351_chg_set_appropriate_battery_current(chip);
+	if (rc) {
+		pr_err("Set battery current failed\n");
+		return;
+	}
+
+	rc = smb1351_chg_set_appropriate_vfloat(chip);
+	if (rc) {
+		pr_err("Set float voltage failed\n");
+		return;
+	}
+
+	smb1351_parallel_check_start(chip);
+
+	if (chip->use_external_fg) {
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+			smb1351_get_prop_batt_status(chip));
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_HEALTH,
+			smb1351_get_prop_batt_health(chip));
+	}
+
+	pr_debug("end!\n");
+}
+
 static int smb1351_batt_property_is_writeable(struct power_supply *psy,
 					enum power_supply_property psp)
 {
@@ -2109,6 +2328,10 @@ static int smb1351_battery_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		chip->fake_battery_soc = val->intval;
 		power_supply_changed(&chip->batt_psy);
+		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		if (chip->fg_notify_jeita)
+			smb1351_handle_jeita_from_fg(chip, val->intval);
 		break;
 	default:
 		return -EINVAL;
@@ -2856,6 +3079,9 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 
 	if (status) {
 		cancel_delayed_work_sync(&chip->hvdcp_det_work);
+		if (chip->wa_flags & CHG_ITERM_CHECK_SOC)
+			cancel_delayed_work_sync(&chip->iterm_check_soc_work);
+		smb1351_relax(&chip->smb1351_ws, REMOVAL_DETECT);
 		pr_debug("schedule charger remove worker\n");
 		if (chip->apsd_rerun)
 			chg_remove_delay = RERUN_CHG_REMOVE_DELAY_MS;
@@ -2915,11 +3141,35 @@ static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 	return 0;
 }
 
+static int smb1351_usbid_handler(struct smb1351_charger *chip, u8 status)
+{
+	bool usbid_gnd;
+	int rc;
+
+	if (!!status) {
+		rc = smb1351_get_usbid_status(chip, &usbid_gnd);
+		if (rc) {
+			pr_err("Get usbid failed!");
+			return 0;
+		}
+		pr_debug("usbid grounded: %d\n", usbid_gnd);
+		if (chip->usb_psy)
+			power_supply_set_usb_otg(chip->usb_psy, usbid_gnd);
+	}
+	if (chip->use_external_fg)
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+			smb1351_get_prop_batt_status(chip));
+
+	return 0;
+}
+
 static int smb1351_fast_chg_handler(struct smb1351_charger *chip, u8 status)
 {
 	pr_debug("enter, status = 0x%02x\n", status);
 	chip->check_parallel = true;
-
+	if (chip->use_external_fg)
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+				smb1351_get_prop_batt_status(chip));
 	return 0;
 }
 
@@ -2929,6 +3179,9 @@ static int smb1351_taper_handler(struct smb1351_charger *chip, u8 status)
 	if (!!status)
 		smb1351_parallel_charger_taper_attempt(chip);
 
+	if (chip->use_external_fg)
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+				smb1351_get_prop_batt_status(chip));
 	return 0;
 }
 
@@ -2939,15 +3192,159 @@ static int smb1351_recharge_handler(struct smb1351_charger *chip, u8 status)
 		chip->batt_full = !status;
 	chip->check_parallel = true;
 
+	if (chip->use_external_fg)
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+				smb1351_get_prop_batt_status(chip));
 	return 0;
+}
+
+#define FULL_SOC		100
+#define ITERM_CHECK_MS		10000
+#define ITERM_RECHECK_COUNT	3
+static void smb1351_iterm_check_soc_work(struct work_struct *work)
+{
+	int rc, current_ua, soc;
+	struct smb1351_charger *chip = container_of(work,
+			struct smb1351_charger, iterm_check_soc_work.work);
+	static int retry;
+
+	if (!chip->chg_present) {
+		pr_debug("Plugged out, ignore!\n");
+		goto done;
+	}
+
+	rc = smb1351_set_bms_property(chip,
+			POWER_SUPPLY_PROP_UPDATE_NOW, 1);
+	if (rc) {
+		pr_err("Update bms status failed, rc=%d\n", rc);
+		goto recheck;
+	}
+
+	rc = smb1351_get_bms_property(chip,
+			POWER_SUPPLY_PROP_CURRENT_NOW, &current_ua);
+	if (rc) {
+		pr_err("Get bms current now failed, rc=%d\n", rc);
+		goto recheck;
+	}
+
+	pr_debug("current: %d ua!", current_ua);
+	if (current_ua >= 0) {
+		pr_debug("Terminated? large current consumption?");
+		retry++;
+		goto recheck;
+	}
+
+	if (retry > ITERM_RECHECK_COUNT) {
+		pr_debug("retry timed out!\n");
+		goto done;
+	}
+
+	if (-1 * current_ua / 1000 < chip->iterm_ma) {
+		pr_debug("Charging current is less than iterm, terminate!");
+		chip->batt_full = true;
+		goto done;
+	}
+
+	rc = smb1351_get_bms_property(chip, POWER_SUPPLY_PROP_CAPACITY, &soc);
+	if (rc) {
+		pr_err("Get bms capacity failed, rc=%d\n", rc);
+		goto recheck;
+	}
+
+	if (soc == FULL_SOC) {
+		pr_debug("FG has terminated, terminate charger!\n");
+		chip->batt_full = true;
+		goto done;
+	}
+done:
+	if (chip->batt_full) {
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+				smb1351_get_prop_batt_status(chip));
+		if (chip->wa_flags & CHG_SOC_BASED_RESUME) {
+			rc = smb1351_battchg_disable(chip, SOC, true);
+			if (rc) {
+				pr_err("Disable charger for SOC failed, rc=%d\n",
+						rc);
+				goto recheck;
+			}
+		}
+	}
+
+	rc = smb1351_masked_write(chip, CHG_CTRL_REG,
+			ITERM_EN_BIT, ITERM_ENABLE);
+	if (rc) {
+		pr_err("Re-enable iterm failed, rc=%d\n", rc);
+		goto recheck;
+	}
+
+	chip->iterm_disabled = false;
+	smb1351_relax(&chip->smb1351_ws, ITERM_CHECK_SOC);
+
+	return;
+
+recheck:
+	schedule_delayed_work(&chip->iterm_check_soc_work,
+			msecs_to_jiffies(ITERM_CHECK_MS));
 }
 
 static int smb1351_chg_term_handler(struct smb1351_charger *chip, u8 status)
 {
+	int rc, soc;
+
 	pr_debug("enter, status = 0x%02x\n", status);
-	if (!chip->bms_controlled_charging)
+	if (!chip->bms_controlled_charging &&
+			!(chip->wa_flags & CHG_ITERM_CHECK_SOC))
 		chip->batt_full = !!status;
-	chip->check_parallel = true;
+
+	/* Only check parallel when falling */
+	if (!status)
+		chip->check_parallel = true;
+
+	if (!(chip->wa_flags & CHG_ITERM_CHECK_SOC))
+		return 0;
+
+	if (!!status && !chip->batt_full) {
+		rc = smb1351_get_bms_property(chip,
+				POWER_SUPPLY_PROP_CAPACITY, &soc);
+		if (rc) {
+			pr_err("Get capacity failed, rc=%d\n", rc);
+			return rc;
+		}
+		if (soc != FULL_SOC) {
+			pr_debug("FG haven't reported FULL, soc=%d\n", soc);
+			/*
+			 * disable termination, restart charging,
+			 * hold a wakelock and start a timer for
+			 * checking SOC until the SOC reach to
+			 * FULL_SOC.
+			 */
+			rc = smb1351_masked_write(chip, CHG_CTRL_REG,
+					ITERM_EN_BIT, ITERM_DISABLE);
+			if (rc) {
+				pr_err("disable iterm failed, rc=%d", rc);
+				return rc;
+			}
+			chip->iterm_disabled = true;
+			/* toggle charging disble bit for re-charge */
+			rc = smb1351_battchg_disable(chip, ITERM, true);
+			if (rc) {
+				pr_err("Disable charger for ITERM failed, rc=%d\n",
+								rc);
+				return rc;
+			}
+			rc = smb1351_battchg_disable(chip, ITERM, false);
+			if (rc) {
+				pr_err("Enable charger for ITERM failed, rc=%d\n",
+								rc);
+				return rc;
+			}
+			smb1351_stay_awake(&chip->smb1351_ws, ITERM_CHECK_SOC);
+			schedule_delayed_work(&chip->iterm_check_soc_work, 0);
+		} else {
+			pr_debug("Terminated, FG report full\n");
+			chip->batt_full = true;
+		}
+	}
 
 	return 0;
 }
@@ -2957,6 +3354,9 @@ static int smb1351_safety_timeout_handler(struct smb1351_charger *chip,
 {
 	pr_debug("enter, status = 0x%02x\n", status);
 	chip->check_parallel = true;
+	if (chip->use_external_fg)
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+				smb1351_get_prop_batt_status(chip));
 	return 0;
 }
 
@@ -2965,6 +3365,9 @@ static int smb1351_chg_error_handler(struct smb1351_charger *chip,
 {
 	pr_debug("enter, status = 0x%02x\n", status);
 	chip->check_parallel = true;
+	if (chip->use_external_fg)
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+				smb1351_get_prop_batt_status(chip));
 	return 0;
 }
 
@@ -3013,6 +3416,9 @@ static int smb1351_battery_missing_handler(struct smb1351_charger *chip,
 	else
 		chip->battery_missing = false;
 
+	if (chip->use_external_fg)
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+				smb1351_get_prop_batt_status(chip));
 	return 0;
 }
 
@@ -3113,6 +3519,7 @@ static struct irq_handler_info handlers[] = {
 			{	.name	 = "otg_oc_retry",
 			},
 			{	.name	 = "rid",
+				.smb_irq = smb1351_usbid_handler,
 			},
 			{	.name	 = "otg_fail",
 			},
@@ -3271,6 +3678,194 @@ static int smb1351_update_usb_supply_icl(struct smb1351_charger *chip)
 	return rc;
 }
 
+#define ESR_PULSE_DELTA_MA	200
+static int smb1351_force_esr_pulse_en(struct smb1351_charger *chip, bool en)
+{
+	int rc = 0, current_in_esr = 0, fg_current_now = 0;
+	int main_fcc_in_esr = 0, slave_fcc_in_esr = 0;
+	int actual_slave_fcc_in_esr = 0;
+	union power_supply_propval pval = {0,};
+	struct power_supply *parallel_psy = smb1351_get_parallel_slave(chip);
+
+	if (chip->in_esr_pulse == en) {
+		pr_err("ESR pulse is already %s\n",
+			en ? "enabled" : "disabled");
+		return 0;
+	}
+
+	if (en) {
+		rc = smb1351_get_bms_property(chip,
+				POWER_SUPPLY_PROP_CURRENT_NOW,
+				&fg_current_now);
+		if (rc) {
+			pr_debug("Get battery current from BMS(fg) failed, rc=%d\n",
+								rc);
+			return rc;
+		}
+		pr_debug("ibatt from FG reading: %duA\n", fg_current_now);
+		fg_current_now = abs(fg_current_now);
+		fg_current_now /= 1000;
+		chip->main_fcc_ma_before_esr = chip->fastchg_current_max_ma;
+		current_in_esr = max(chip->iterm_ma + ESR_PULSE_DELTA_MA,
+				fg_current_now - ESR_PULSE_DELTA_MA);
+		pr_debug("Force battery current to %d in ESR pulse\n",
+							current_in_esr);
+	}
+
+	mutex_lock(&chip->parallel.lock);
+	/*
+	 * If parallel charging is not enabled, set the current_in_esr
+	 * to main charger to achieve the ESR pulse
+	 */
+	if (!parallel_psy || !chip->parallel.slave_detected
+			|| chip->parallel.slave_icl_ma == 0) {
+		rc = smb1351_fastchg_current_set(chip,
+				en ? current_in_esr :
+				chip->main_fcc_ma_before_esr);
+		if (!rc)
+			chip->in_esr_pulse = en;
+		else
+			pr_err("set FCC for ESR failed, rc=%d\n", rc);
+
+		goto unlock;
+	}
+
+	/*
+	 * If parallel charging is enabled, split current_in_esr and
+	 * set it to main and slave charger accordingly
+	 */
+	if (en) {
+		rc = parallel_psy->get_property(parallel_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
+		if (rc) {
+			pr_err("get slave fcc failed, rc=%d\n", rc);
+			goto unlock;
+		}
+
+		chip->slave_fcc_ma_before_esr = pval.intval / 1000;
+		slave_fcc_in_esr = current_in_esr *
+			(100 - chip->parallel.main_chg_fcc_percent) / 100;
+		pval.intval = slave_fcc_in_esr * 1000;
+		rc = parallel_psy->set_property(parallel_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
+		if (rc) {
+			pr_err("set slave fcc for ESR failed, rc=%d\n", rc);
+			goto unlock;
+		}
+
+		rc = parallel_psy->get_property(parallel_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
+		if (rc) {
+			pr_err("get slave fcc for ESR failed, rc=%d\n", rc);
+			goto unlock;
+		}
+
+		actual_slave_fcc_in_esr = pval.intval / 1000;
+		pr_debug("slave_fcc_in_esr = %dmA, actual_slave_fcc_in_esr = %dmA\n",
+				slave_fcc_in_esr, actual_slave_fcc_in_esr);
+		main_fcc_in_esr = current_in_esr - actual_slave_fcc_in_esr;
+		rc = smb1351_fastchg_current_set(chip, main_fcc_in_esr);
+		if (rc) {
+			pr_err("Set main fcc for ESR failed, rc=%d\n",
+								rc);
+			goto unlock;
+		}
+		pr_debug("main_fcc_in_esr = %dmA\n", main_fcc_in_esr);
+	} else {
+		pval.intval = chip->slave_fcc_ma_before_esr * 1000;
+		rc = parallel_psy->set_property(parallel_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+				&pval);
+		if (rc) {
+			pr_err("restore fcc for slave failed, rc=%d\n", rc);
+			goto unlock;
+		}
+		rc = smb1351_fastchg_current_set(chip,
+				chip->main_fcc_ma_before_esr);
+		if (rc) {
+			pr_err("restore fcc for main failed, rc=%d\n", rc);
+			goto unlock;
+		}
+		pr_debug("restore, main_fcc = %dmA, slave_fcc = %dmA\n",
+				chip->main_fcc_ma_before_esr,
+				chip->slave_fcc_ma_before_esr);
+	}
+
+	chip->in_esr_pulse = en;
+unlock:
+	mutex_unlock(&chip->parallel.lock);
+	return rc;
+}
+
+#define ESR_PULSE_TIME_MS	1500
+static void smb1351_force_esr_for_fg(struct smb1351_charger *chip)
+{
+	int rc = 0, esr_count = 0;
+
+	if (!chip->chg_present) {
+		pr_debug("No force ESR pulse when no charging\n");
+		return;
+	}
+
+	rc = smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_UPDATE_NOW, 1);
+	if (rc) {
+		pr_debug("Update BMS(fg) status failed, rc=%d\n", rc);
+		return;
+	}
+	rc = smb1351_get_bms_property(chip, POWER_SUPPLY_PROP_ESR_COUNT,
+					&esr_count);
+	if (rc) {
+		pr_debug("Get ESR count from BMS(fg) failed, rc=%d\n", rc);
+		return;
+	}
+	if (esr_count != 0) {
+		pr_debug("ESR count is not zero: %d, skipping\n",
+					esr_count);
+		return;
+	}
+	smb1351_stay_awake(&chip->smb1351_ws, FORCE_ESR_PULSE);
+	rc = smb1351_force_esr_pulse_en(chip, true);
+	if (rc) {
+		pr_err("Force ESR pulse enable failed, rc=%d\n", rc);
+		smb1351_relax(&chip->smb1351_ws, FORCE_ESR_PULSE);
+		return;
+	}
+
+	msleep(ESR_PULSE_TIME_MS);
+	rc = smb1351_force_esr_pulse_en(chip, false);
+	if (rc)
+		pr_err("Force ESR pulse disable failed, rc=%d\n", rc);
+
+	smb1351_relax(&chip->smb1351_ws, FORCE_ESR_PULSE);
+}
+
+static void battery_soc_changed(struct smb1351_charger *chip)
+{
+	int rc, soc;
+
+	soc = smb1351_get_prop_batt_capacity(chip);
+	if (chip->pre_soc == soc)
+		return;
+
+	if (chip->wa_flags & CHG_FORCE_ESR_WA)
+		smb1351_force_esr_for_fg(chip);
+
+	if ((chip->wa_flags & CHG_SOC_BASED_RESUME)
+		&& chip->batt_full && (soc <= chip->resume_soc)) {
+		rc = smb1351_battchg_disable(chip, SOC, false);
+		if (rc) {
+			pr_err("Enable charge for SOC failed, rc=%d\n",
+						rc);
+			return;
+		}
+		chip->batt_full = false;
+		smb1351_set_bms_property(chip, POWER_SUPPLY_PROP_STATUS,
+				smb1351_get_prop_batt_status(chip));
+	}
+
+	chip->pre_soc = soc;
+}
+
 static void smb1351_external_power_changed(struct power_supply *psy)
 {
 	struct smb1351_charger *chip = container_of(psy,
@@ -3278,9 +3873,7 @@ static void smb1351_external_power_changed(struct power_supply *psy)
 	union power_supply_propval prop = {0,};
 	int rc, online = 0;
 
-	if (chip->bms_psy_name)
-		chip->bms_psy =
-			power_supply_get_by_name((char *)chip->bms_psy_name);
+	battery_soc_changed(chip);
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_ONLINE, &prop);
@@ -3606,7 +4199,16 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 						&chip->bms_psy_name);
 	if (rc)
 		chip->bms_psy_name = NULL;
-
+	chip->resume_soc = -EINVAL;
+	if (of_property_read_bool(node, "qcom,use-external-fg")) {
+		chip->use_external_fg = true;
+		chip->wa_flags |= CHG_FORCE_ESR_WA | CHG_FG_NOTIFY_JEITA
+				| CHG_ITERM_CHECK_SOC;
+		rc = of_property_read_u32(node, "qcom,resume-soc",
+					&chip->resume_soc);
+		if (!rc && chip->resume_soc > 0)
+			chip->wa_flags |= CHG_SOC_BASED_RESUME;
+	}
 	rc = of_property_read_u32(node, "qcom,fastchg-current-max-ma",
 					&chip->target_fastchg_current_max_ma);
 	if (rc)
@@ -3649,11 +4251,17 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 
 	rc = of_property_read_u32(node, "qcom,batt-warm-decidegc",
 						&chip->batt_warm_decidegc);
+	if (rc < 0)
+		chip->batt_warm_decidegc = -EINVAL;
 
-	rc |= of_property_read_u32(node, "qcom,batt-cool-decidegc",
+	rc = of_property_read_u32(node, "qcom,batt-cool-decidegc",
 						&chip->batt_cool_decidegc);
+	if (rc < 0)
+		chip->batt_cool_decidegc = -EINVAL;
 
-	if (!rc) {
+	if ((chip->batt_warm_decidegc != -EINVAL
+			&& chip->batt_cool_decidegc != -EINVAL)
+			|| (chip->wa_flags & CHG_FG_NOTIFY_JEITA)) {
 		rc = of_property_read_u32(node, "qcom,batt-cool-mv",
 						&chip->batt_cool_mv);
 
@@ -3667,11 +4275,14 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 						&chip->batt_warm_ma);
 		if (rc)
 			chip->jeita_supported = false;
+		else if (chip->wa_flags & CHG_FG_NOTIFY_JEITA)
+			chip->fg_notify_jeita = true;
 		else
 			chip->jeita_supported = true;
 	}
 
-	pr_debug("jeita_supported = %d\n", chip->jeita_supported);
+	pr_debug("fg_notify_jeita = %d, jeita_supported = %d\n",
+			chip->fg_notify_jeita, chip->jeita_supported);
 
 	rc = of_property_read_u32(node, "qcom,batt-missing-decidegc",
 						&chip->batt_missing_decidegc);
@@ -3911,6 +4522,9 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 		goto destroy_mutex;
 	}
 	INIT_DELAYED_WORK(&chip->parallel.parallel_work, smb1351_parallel_work);
+	INIT_DELAYED_WORK(&chip->init_fg_work, smb1351_init_fg_work);
+	INIT_DELAYED_WORK(&chip->iterm_check_soc_work,
+					smb1351_iterm_check_soc_work);
 
 	dump_regs(chip);
 

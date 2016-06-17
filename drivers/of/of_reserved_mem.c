@@ -316,6 +316,7 @@ int of_reserved_mem_device_init(struct device *dev)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(of_reserved_mem_device_init);
 
 /**
  * of_reserved_mem_device_release() - release reserved memory device structures
@@ -340,3 +341,4 @@ void of_reserved_mem_device_release(struct device *dev)
 
 	rmem->ops->device_release(rmem, dev);
 }
+EXPORT_SYMBOL_GPL(of_reserved_mem_device_release);

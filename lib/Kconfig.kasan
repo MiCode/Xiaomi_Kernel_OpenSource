@@ -16,8 +16,10 @@ config KASAN
 	  This feature consumes about 1/8 of available memory and brings about
 	  ~x3 performance slowdown.
 	  For better error detection enable CONFIG_STACKTRACE.
-	  See KASAN_SANITIZE_ALL for selectively compiling files and directories
-	  with this compiler feature enabled.
+
+config KASAN_SHADOW_OFFSET
+	hex
+	default 0xdffffc0000000000 if X86_64
 
 choice
 	prompt "Instrumentation type"
@@ -43,22 +45,6 @@ config KASAN_INLINE
 	  This requires a gcc version of 5.0 or later.
 
 endchoice
-
-config KASAN_SANITIZE_ALL
-	bool "KASan: Enable Instrumentation for entire kernel"
-	depends on KASAN
-	default y
-	help
-	  Enable compilation with $(CFLAGS_KASAN) by default.
-	  KASAN_SANITIZE := n - exclude all files in a directory
-	  KASAN_SANITIZE_file_name.o := n - exclude a single file
-	  Setting KASAN_SANITIZE_ALL to 'n' allows enabling kasan in
-	  only certain files or directories.
-	  KASAN_SANITIZE := y - include all files in a directory
-	  KASAN_SANITIZE_file_name.o := y - include single file
-
-	  KASAN_SANITIZE does not affect subdirectories.
-	  KASAN_SANITIZE_file_name.o has priority over KASAN_SANITIZE.
 
 config TEST_KASAN
 	tristate "Module for testing kasan for bug detection"

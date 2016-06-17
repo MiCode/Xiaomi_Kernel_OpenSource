@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -152,12 +152,14 @@ int ipa_rm_dep_graph_remove(struct ipa_rm_dep_graph *graph,
  * @graph: [in] dependency graph
  * @resource_name: [in] resource to add
  * @depends_on_name: [in] resource to add
+ * @userspace_dep: [in] operation requested by userspace ?
  *
  * Returns: 0 on success, negative on failure
  */
 int ipa_rm_dep_graph_add_dependency(struct ipa_rm_dep_graph *graph,
 				    enum ipa_rm_resource_name resource_name,
-				    enum ipa_rm_resource_name depends_on_name)
+				    enum ipa_rm_resource_name depends_on_name,
+				    bool userspace_dep)
 {
 	struct ipa_rm_resource *dependent = NULL;
 	struct ipa_rm_resource *dependency = NULL;
@@ -186,7 +188,8 @@ int ipa_rm_dep_graph_add_dependency(struct ipa_rm_dep_graph *graph,
 		result = -EINVAL;
 		goto bail;
 	}
-	result = ipa_rm_resource_add_dependency(dependent, dependency);
+	result = ipa_rm_resource_add_dependency(dependent, dependency,
+		userspace_dep);
 bail:
 	IPA_RM_DBG("EXIT with %d\n", result);
 
@@ -199,13 +202,15 @@ bail:
  * @graph: [in] dependency graph
  * @resource_name: [in] resource to delete
  * @depends_on_name: [in] resource to delete
+ * @userspace_dep: [in] operation requested by userspace ?
  *
  * Returns: 0 on success, negative on failure
  *
  */
 int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 				enum ipa_rm_resource_name resource_name,
-				enum ipa_rm_resource_name depends_on_name)
+				enum ipa_rm_resource_name depends_on_name,
+				bool userspace_dep)
 {
 	struct ipa_rm_resource *dependent = NULL;
 	struct ipa_rm_resource *dependency = NULL;
@@ -237,7 +242,8 @@ int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 		goto bail;
 	}
 
-	result = ipa_rm_resource_delete_dependency(dependent, dependency);
+	result = ipa_rm_resource_delete_dependency(dependent, dependency,
+		userspace_dep);
 bail:
 	IPA_RM_DBG("EXIT with %d\n", result);
 

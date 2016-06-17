@@ -487,28 +487,79 @@
 		reg-names = "parf", "phy", "dm_core", "elbi",
 				"conf", "io", "bars";
 
-		#address-cells = <0>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges = <0x01000000 0x0 0x40200000 0x40200000 0x0 0x100000>,
+			<0x02000000 0x0 0x40300000 0x40300000 0x0 0xd00000>;
 		interrupt-parent = <&pcie0>;
 		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11>;
 		#interrupt-cells = <1>;
-		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 49 0
-				1 &intc 0 50 0
-				2 &intc 0 51 0
-				3 &intc 0 52 0
-				4 &intc 0 53 0
-				5 &intc 0 54 0
-				6 &intc 0 55 0
-				7 &intc 0 56 0
-				8 &intc 0 57 0
-				9 &intc 0 58 0
-				10 &intc 0 59 0
-				11 &intc 0 60 0>;
+		interrupt-map-mask = <0 0 0 0xffffffff>;
+		interrupt-map = <0 0 0 0 &intc 0 49 0
+				0 0 0 1 &intc 0 50 0
+				0 0 0 2 &intc 0 51 0
+				0 0 0 3 &intc 0 52 0
+				0 0 0 4 &intc 0 53 0
+				0 0 0 5 &intc 0 54 0
+				0 0 0 6 &intc 0 55 0
+				0 0 0 7 &intc 0 56 0
+				0 0 0 8 &intc 0 57 0
+				0 0 0 9 &intc 0 58 0
+				0 0 0 10 &intc 0 59 0
+				0 0 0 11 &intc 0 60 0>;
 
 		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
 				"int_pls_pme", "int_pme_legacy", "int_pls_err",
 				"int_aer_legacy", "int_pls_link_up",
 				"int_pls_link_down", "int_bridge_flush_n";
+
+		qcom,phy-sequence = <0x604 0x03 0x00
+					0x048 0x08 0x00
+					0x0ac 0x82 0x00
+					0x10c 0x03 0x00
+					0x100 0xd5 0x00
+					0x104 0xaa 0x00
+					0x108 0x4d 0x00
+					0x09c 0x03 0x00
+					0x090 0x06 0x00
+					0x094 0x1a 0x00
+					0x114 0x7c 0x00
+					0x034 0x1f 0x00
+					0x038 0x12 0x00
+					0x03c 0x0f 0x00
+					0x024 0x01 0x00
+					0x00c 0x0f 0x00
+					0x010 0x0f 0x00
+					0x014 0x46 0x00
+					0x400 0xf4 0x00
+					0x408 0x2c 0x00
+					0x004 0xe1 0x00
+					0x04c 0x91 0x00
+					0x050 0x07 0x00
+					0x0e0 0x20 0x00
+					0x0e8 0x77 0x00
+					0x0f0 0x15 0x00
+					0x268 0x03 0x00
+					0x414 0x09 0x00
+					0x418 0x04 0x00
+					0x41c 0x49 0x00
+					0x4a8 0xff 0x00
+					0x4ac 0x1f 0x00
+					0x4b0 0xff 0x00
+					0x4b4 0x00 0x00
+					0x4bc 0x1e 0x00
+					0x4f0 0x67 0x00
+					0x4f4 0x80 0x00
+					0x4f8 0x40 0x00
+					0x500 0xb0 0x00
+					0x504 0x06 0x00
+					0x110 0x10 0x00
+					0x648 0x10 0x00
+					0x650 0xa3 0x00
+					0x654 0x4b 0x00
+					0x64c 0x4d 0x00
+					0x600 0x00 0x00
+					0x608 0x03 0x00>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default
@@ -526,6 +577,10 @@
 		qcom,aux-clk-sync;
 
 		qcom,ep-wakeirq;
+
+		linux,pci-domain = <0>;
+
+		qcom,pcie-phy-ver = <0x90>;
 
 		qcom,ep-latency = <10>;
 
@@ -551,7 +606,7 @@
 			"pcie_0_slv_axi_clk", "pcie_0_ldo",
 			"pcie_0_phy_reset";
 
-		max-clock-frequency-hz = <125000000>, <0>, <1000000>,
+		max-clock-frequency-hz = <125000000>, <0>, <1010000>,
 					 <0>, <0>, <0>, <0>, <0>, <0>;
 	};
 
@@ -962,7 +1017,6 @@
 				 0x0 3 &spmi_bus 0x0 0x0 0xc3 0x0>;
 		interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq",
 				"pmic_id_irq";
-		qcom,otg-capability;
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		vdda33-supply = <&pmd9635_l10>;
 		vdda18-supply = <&pmd9635_l8>;
@@ -985,19 +1039,19 @@
 
 		clock-names = "core_clk", "iface_clk", "utmi_clk", "sleep_clk",
 				"xo", "cfg_ahb_clk";
-
+		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		dwc3@8a00000 {
 			compatible = "synopsys,dwc3";
 			reg = <0x08a00000 0xf8000>;
 			interrupt-parent = <&intc>;
-			interrupts = <0 131 0>, <0 134 0>;
-			interrupt-names = "irq", "otg_irq";
+			interrupts = <0 131 0>;
+			interrupt-names = "irq";
 			usb-phy = <&qusb_phy>, <&ssphy>;
+			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
-			snps,hsphy-auto-suspend-disable;
-			snps,ssphy-auto-suspend-disable;
-			snps,hird_thresh = <0x7>;
-			snps,lpm-nyet-thresh = <0x8>;
+			snps,is-utmi-l1-suspend;
+			snps,hird-threshold = /bits/ 8 <0x7>;
+			snps,lpm-nyet-threshold = /bits/ 8 <0x8>;
 			snps,bus-suspend-enable;
 			snps,usb3-u1u2-disable;
 		};
@@ -1149,16 +1203,13 @@
 	ssphy: ssphy@78000 {
 		compatible = "qcom,usb-ssphy-qmp-v1";
 		reg = <0x00078000 0x750>,
-		      <0x0007e000 0x400>,
 		      <0x01947244 0x4>;
 		reg-names = "qmp_phy_base",
-			    "qmp_ahb2phy_base",
 			    "vls_clamp_reg";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 1000000 1000000>;
 		qcom,vbus-valid-override;
-		qcom,ext-vbus-id;
 		qcom,override-pll-calibration;
 
 		clocks = <&clock_gcc clk_gcc_usb3_aux_clk>,

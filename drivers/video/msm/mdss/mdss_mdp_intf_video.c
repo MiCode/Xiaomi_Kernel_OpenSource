@@ -1709,7 +1709,7 @@ static int mdss_mdp_video_cdm_setup(struct mdss_mdp_cdm *cdm,
 	}
 	setup.out_format = pinfo->out_format;
 	if (fmt->is_yuv)
-		setup.csc_type = MDSS_MDP_CSC_RGB2YUV_601L;
+		setup.csc_type = MDSS_MDP_CSC_RGB2YUV_601FR;
 	else
 		setup.csc_type = MDSS_MDP_CSC_RGB2RGB;
 

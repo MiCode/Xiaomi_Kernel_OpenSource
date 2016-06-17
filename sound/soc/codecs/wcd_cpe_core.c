@@ -35,9 +35,10 @@
 #include "wcd_cmi_api.h"
 
 #define CMI_CMD_TIMEOUT (10 * HZ)
-#define WCD_CPE_LSM_MAX_SESSIONS 1
+#define WCD_CPE_LSM_MAX_SESSIONS 2
 #define WCD_CPE_AFE_MAX_PORTS 4
 #define AFE_SVC_EXPLICIT_PORT_START 1
+#define WCD_CPE_EC_PP_BUF_SIZE	480 /* 5 msec buffer */
 
 #define ELF_FLAG_EXECUTE (1 << 0)
 #define ELF_FLAG_WRITE (1 << 1)
@@ -1638,7 +1639,8 @@ static int wcd_cpe_vote(struct wcd_cpe_core *core,
 		core->cpe_users);
 
 	if (enable) {
-		if (core->cpe_users == 0) {
+		core->cpe_users++;
+		if (core->cpe_users == 1) {
 			ret = wcd_cpe_enable(core, enable);
 			if (ret) {
 				dev_err(core->dev,
@@ -1646,7 +1648,6 @@ static int wcd_cpe_vote(struct wcd_cpe_core *core,
 					__func__, ret);
 				goto done;
 			}
-			core->cpe_users++;
 		} else {
 			dev_dbg(core->dev,
 				"%s: cpe already enabled, users = %u\n",
@@ -1654,7 +1655,8 @@ static int wcd_cpe_vote(struct wcd_cpe_core *core,
 			goto done;
 		}
 	} else {
-		if (core->cpe_users == 1) {
+		core->cpe_users--;
+		if (core->cpe_users == 0) {
 			ret = wcd_cpe_enable(core, enable);
 			if (ret) {
 				dev_err(core->dev,
@@ -1662,7 +1664,6 @@ static int wcd_cpe_vote(struct wcd_cpe_core *core,
 					__func__, ret);
 				goto done;
 			}
-			core->cpe_users--;
 		} else {
 			dev_dbg(core->dev,
 				"%s: %u valid users on cpe\n",
@@ -3335,37 +3336,12 @@ static int wcd_cpe_cmd_lsm_start(void *core_handle,
 {
 	struct cmi_hdr cmd_lsm_start;
 	struct wcd_cpe_core *core = core_handle;
-	struct cpe_lsm_ids ids;
 	int ret = 0;
 
 	ret = wcd_cpe_is_valid_lsm_session(core, session,
 					   __func__);
 	if (ret)
 		return ret;
-
-	/* Send connect to port (input) */
-	ids.module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
-	ids.param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
-	ret = wcd_cpe_send_param_connectport(core, session,
-					     NULL, &ids, CPE_AFE_PORT_1_TX);
-	if (ret) {
-		dev_err(core->dev,
-			"%s: Failed to set connectPort, err=%d\n",
-			__func__, ret);
-		return ret;
-	}
-
-	/* Send connect to port (output) */
-	ids.module_id = CPE_LSM_MODULE_FRAMEWORK;
-	ids.param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
-	ret = wcd_cpe_send_param_connectport(core, session,
-					NULL, &ids, session->afe_out_port_id);
-	if (ret) {
-		dev_err(core->dev,
-			"%s: Failed to set connectPort, err=%d\n",
-			__func__, ret);
-		return ret;
-	}
 
 	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 
@@ -3449,9 +3425,12 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 	if (!wcd_cpe_lsm_session_active())
 		afe_register_service = true;
 
-	for (i = 1; i <= WCD_CPE_LSM_MAX_SESSIONS; i++)
-		if (!lsm_sessions[i])
+	for (i = 1; i <= WCD_CPE_LSM_MAX_SESSIONS; i++) {
+		if (!lsm_sessions[i]) {
 			session_id = i;
+			break;
+		}
+	}
 
 	if (session_id < 0) {
 		dev_err(core->dev,
@@ -3875,6 +3854,83 @@ static void wcd_cpe_snd_model_offset(void *core_handle,
 	*offset = sizeof(struct cpe_param_data);
 }
 
+static int wcd_cpe_lsm_set_media_fmt_params(void *core_handle,
+					  struct cpe_lsm_session *session,
+					  struct lsm_hw_params *param)
+{
+	struct cpe_lsm_media_fmt_param media_fmt;
+	struct cmi_hdr *msg_hdr = &media_fmt.hdr;
+	struct wcd_cpe_core *core = core_handle;
+	struct cpe_param_data *param_d = &media_fmt.param;
+	struct cpe_lsm_ids ids;
+	int ret;
+
+	memset(&media_fmt, 0, sizeof(media_fmt));
+	if (fill_lsm_cmd_header_v0_inband(msg_hdr,
+				session->id,
+				CPE_MEDIA_FMT_PLD_SIZE,
+				CPE_LSM_SESSION_CMD_SET_PARAMS_V2)) {
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memset(&ids, 0, sizeof(ids));
+	ids.module_id = CPE_LSM_MODULE_FRAMEWORK;
+	ids.param_id = CPE_LSM_PARAM_ID_MEDIA_FMT;
+
+	wcd_cpe_set_param_data(param_d, &ids, CPE_MEDIA_FMT_PARAM_SIZE,
+			       CPE_LSM_SESSION_CMD_SET_PARAMS_V2);
+
+	media_fmt.minor_version = 1;
+	media_fmt.sample_rate = param->sample_rate;
+	media_fmt.num_channels = param->num_chs;
+	media_fmt.bit_width = param->bit_width;
+
+	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
+	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &media_fmt);
+	if (ret)
+		dev_err(core->dev,
+			"%s: Set_param(media_format) failed, err=%d\n",
+			__func__, ret);
+	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+done:
+	return ret;
+}
+
+static int wcd_cpe_lsm_set_port(void *core_handle,
+				struct cpe_lsm_session *session, void *data)
+{
+	u32 port_id;
+	int ret;
+	struct cpe_lsm_ids ids;
+	struct wcd_cpe_core *core = core_handle;
+
+	ret = wcd_cpe_is_valid_lsm_session(core, session, __func__);
+	if (ret)
+		goto done;
+
+	if (!data) {
+		dev_err(core->dev, "%s: data is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	port_id = *(u32 *)data;
+	dev_dbg(core->dev, "%s: port_id: %d\n", __func__, port_id);
+
+	memset(&ids, 0, sizeof(ids));
+	ids.module_id = LSM_MODULE_ID_FRAMEWORK;
+	ids.param_id = LSM_PARAM_ID_CONNECT_TO_PORT;
+
+	ret = wcd_cpe_send_param_connectport(core, session, NULL,
+					     &ids, port_id);
+	if (ret)
+		dev_err(core->dev,
+			"%s: send_param_connectport failed, err %d\n",
+			__func__, ret);
+done:
+	return ret;
+}
+
 /*
  * wcd_cpe_get_lsm_ops: register lsm driver to codec
  * @lsm_ops: structure with lsm callbacks
@@ -3899,6 +3955,9 @@ int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *lsm_ops)
 	lsm_ops->lsm_set_fmt_cfg = wcd_cpe_lsm_set_fmt_cfg;
 	lsm_ops->lsm_set_one_param = wcd_cpe_set_one_param;
 	lsm_ops->lsm_get_snd_model_offset = wcd_cpe_snd_model_offset;
+	lsm_ops->lsm_set_media_fmt_params = wcd_cpe_lsm_set_media_fmt_params;
+	lsm_ops->lsm_set_port = wcd_cpe_lsm_set_port;
+
 	return 0;
 }
 EXPORT_SYMBOL(wcd_cpe_get_lsm_ops);
@@ -4129,10 +4188,10 @@ static int wcd_cpe_send_afe_cal(void *core_handle,
 			goto rel_cal_mutex;
 		}
 
-		rc = fill_cmi_header(hdr, port_d->port_id,
-				     CMI_CPE_AFE_SERVICE_ID,
-				     0, 20, CPE_AFE_CMD_SET_PARAM,
-				     true);
+		rc = fill_afe_cmd_header(hdr, port_d->port_id,
+					 CPE_AFE_CMD_SET_PARAM,
+					 CPE_AFE_PARAM_PAYLOAD_SIZE,
+					 true);
 		if (rc) {
 			dev_err(core->dev,
 				"%s: invalid params for header, err = %d\n",
@@ -4163,10 +4222,10 @@ static int wcd_cpe_send_afe_cal(void *core_handle,
 
 		hdr = (struct cmi_hdr *) inb_msg;
 
-		rc = fill_cmi_header(hdr, port_d->port_id,
-				     CMI_CPE_AFE_SERVICE_ID,
-				     0, afe_cal->cal_data.size,
-				     CPE_AFE_CMD_SET_PARAM, false);
+		rc = fill_afe_cmd_header(hdr, port_d->port_id,
+					 CPE_AFE_CMD_SET_PARAM,
+					 CPE_AFE_PARAM_PAYLOAD_SIZE,
+					 false);
 		if (rc) {
 			dev_err(core->dev,
 				"%s: invalid params for header, err = %d\n",
@@ -4299,8 +4358,12 @@ static int wcd_cpe_afe_cmd_port_cfg(void *core_handle,
 	port_cfg_cmd.bit_width = afe_cfg->bit_width;
 	port_cfg_cmd.num_channels = afe_cfg->num_channels;
 	port_cfg_cmd.sample_rate = afe_cfg->sample_rate;
-	port_cfg_cmd.buffer_size = AFE_OUT_BUF_SIZE(afe_cfg->bit_width,
-						    afe_cfg->sample_rate);
+
+	if (afe_port_d->port_id == CPE_AFE_PORT_3_TX)
+		port_cfg_cmd.buffer_size = WCD_CPE_EC_PP_BUF_SIZE;
+	else
+		port_cfg_cmd.buffer_size = AFE_OUT_BUF_SIZE(afe_cfg->bit_width,
+							afe_cfg->sample_rate);
 
 	ret = wcd_cpe_cmi_send_afe_msg(core, afe_port_d, &port_cfg_cmd);
 	if (ret)

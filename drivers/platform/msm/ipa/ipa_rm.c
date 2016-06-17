@@ -172,19 +172,9 @@ bail:
 }
 EXPORT_SYMBOL(ipa_rm_delete_resource);
 
-/**
- * ipa_rm_add_dependency() - create dependency
- *					between 2 resources
- * @resource_name: name of dependent resource
- * @depends_on_name: name of its dependency
- *
- * Returns: 0 on success, negative on failure
- *
- * Side effects: IPA_RM_RESORCE_GRANTED could be generated
- * in case client registered with IPA RM
- */
-int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name)
+static int _ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name,
+			bool userspace_dep)
 {
 	unsigned long flags;
 	int result;
@@ -200,29 +190,53 @@ int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
 	result = ipa_rm_dep_graph_add_dependency(
 						ipa_rm_ctx->dep_graph,
 						resource_name,
-						depends_on_name);
+						depends_on_name,
+						userspace_dep);
 	spin_unlock_irqrestore(&ipa_rm_ctx->ipa_rm_lock, flags);
 	IPA_RM_DBG("EXIT with %d\n", result);
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_rm_add_dependency);
 
 /**
- * ipa_rm_add_dependency_sync() - Create a dependency between 2 resources
- * in a synchronized fashion. In case a producer resource is in GRANTED state
- * and the newly added consumer resource is in RELEASED state, the consumer
- * entity will be requested and the function will block until the consumer
- * is granted.
+ * ipa_rm_add_dependency() - create dependency between 2 resources
  * @resource_name: name of dependent resource
  * @depends_on_name: name of its dependency
  *
  * Returns: 0 on success, negative on failure
  *
- * Side effects: May block. See documentation above.
+ * Side effects: IPA_RM_RESORCE_GRANTED could be generated
+ * in case client registered with IPA RM
  */
-int ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name)
+int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name)
+{
+	return _ipa_rm_add_dependency(resource_name, depends_on_name, false);
+}
+EXPORT_SYMBOL(ipa_rm_add_dependency);
+
+/**
+ * ipa_rm_add_dependency_from_ioctl() - create dependency between 2 resources
+ * @resource_name: name of dependent resource
+ * @depends_on_name: name of its dependency
+ *
+ * This function is expected to be called from IOCTL and the dependency will be
+ * marked as is was added by the userspace.
+ *
+ * Returns: 0 on success, negative on failure
+ *
+ * Side effects: IPA_RM_RESORCE_GRANTED could be generated
+ * in case client registered with IPA RM
+ */
+int ipa_rm_add_dependency_from_ioctl(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name)
+{
+	return _ipa_rm_add_dependency(resource_name, depends_on_name, true);
+}
+
+static int _ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_name depends_on_name,
+		bool userspsace_dep)
 {
 	int result;
 	struct ipa_rm_resource *consumer;
@@ -240,7 +254,8 @@ int ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
 	result = ipa_rm_dep_graph_add_dependency(
 						ipa_rm_ctx->dep_graph,
 						resource_name,
-						depends_on_name);
+						depends_on_name,
+						userspsace_dep);
 	spin_unlock_irqrestore(&ipa_rm_ctx->ipa_rm_lock, flags);
 	if (result == -EINPROGRESS) {
 		ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
@@ -268,21 +283,54 @@ int ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
 
 	return result;
 }
+/**
+ * ipa_rm_add_dependency_sync() - Create a dependency between 2 resources
+ * in a synchronized fashion. In case a producer resource is in GRANTED state
+ * and the newly added consumer resource is in RELEASED state, the consumer
+ * entity will be requested and the function will block until the consumer
+ * is granted.
+ * @resource_name: name of dependent resource
+ * @depends_on_name: name of its dependency
+ *
+ * This function is expected to be called from IOCTL and the dependency will be
+ * marked as is was added by the userspace.
+ *
+ * Returns: 0 on success, negative on failure
+ *
+ * Side effects: May block. See documentation above.
+ */
+int ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_name depends_on_name)
+{
+	return _ipa_rm_add_dependency_sync(resource_name, depends_on_name,
+		false);
+}
 EXPORT_SYMBOL(ipa_rm_add_dependency_sync);
 
 /**
- * ipa_rm_delete_dependency() - create dependency
- *					between 2 resources
+ * ipa_rm_add_dependency_sync_from_ioctl() - Create a dependency between 2
+ * resources in a synchronized fashion. In case a producer resource is in
+ * GRANTED state and the newly added consumer resource is in RELEASED state,
+ * the consumer entity will be requested and the function will block until
+ * the consumer is granted.
  * @resource_name: name of dependent resource
  * @depends_on_name: name of its dependency
  *
  * Returns: 0 on success, negative on failure
  *
- * Side effects: IPA_RM_RESORCE_GRANTED could be generated
- * in case client registered with IPA RM
+ * Side effects: May block. See documentation above.
  */
-int ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name)
+int ipa_rm_add_dependency_sync_from_ioctl(
+	enum ipa_rm_resource_name resource_name,
+	enum ipa_rm_resource_name depends_on_name)
+{
+	return _ipa_rm_add_dependency_sync(resource_name, depends_on_name,
+		true);
+}
+
+static int _ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name,
+			bool userspace_dep)
 {
 	unsigned long flags;
 	int result;
@@ -298,13 +346,49 @@ int ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
 	result = ipa_rm_dep_graph_delete_dependency(
 			  ipa_rm_ctx->dep_graph,
 			  resource_name,
-			  depends_on_name);
+			  depends_on_name,
+			  userspace_dep);
 	spin_unlock_irqrestore(&ipa_rm_ctx->ipa_rm_lock, flags);
 	IPA_RM_DBG("EXIT with %d\n", result);
 
 	return result;
 }
+
+/**
+ * ipa_rm_delete_dependency() - delete dependency between 2 resources
+ * @resource_name: name of dependent resource
+ * @depends_on_name: name of its dependency
+ *
+ * Returns: 0 on success, negative on failure
+ *
+ * Side effects: IPA_RM_RESORCE_GRANTED could be generated
+ * in case client registered with IPA RM
+ */
+int ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name)
+{
+	return _ipa_rm_delete_dependency(resource_name, depends_on_name, false);
+}
 EXPORT_SYMBOL(ipa_rm_delete_dependency);
+
+/**
+ * ipa_rm_delete_dependency_fron_ioctl() - delete dependency between 2 resources
+ * @resource_name: name of dependent resource
+ * @depends_on_name: name of its dependency
+ *
+ * This function is expected to be called from IOCTL and the dependency will be
+ * marked as is was added by the userspace.
+ *
+ * Returns: 0 on success, negative on failure
+ *
+ * Side effects: IPA_RM_RESORCE_GRANTED could be generated
+ * in case client registered with IPA RM
+ */
+int ipa_rm_delete_dependency_from_ioctl(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name)
+{
+	return _ipa_rm_delete_dependency(resource_name, depends_on_name, true);
+}
 
 /**
  * ipa_rm_request_resource() - request resource

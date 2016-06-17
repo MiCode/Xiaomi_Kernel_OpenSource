@@ -377,6 +377,7 @@ struct mdss_mdp_ctl {
 
 	/* used for WFD */
 	u32 dst_format;
+	enum mdss_mdp_csc_type csc_type;
 	struct mult_factor dst_comp_ratio;
 
 	u32 clk_rate;
