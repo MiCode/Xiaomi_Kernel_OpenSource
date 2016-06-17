@@ -1318,6 +1318,18 @@ config MFD_STW481X
 	  in various ST Microelectronics and ST-Ericsson embedded
 	  Nomadik series.
 
+config WCD9306_CODEC
+	tristate "WCD9306 Codec"
+	select SLIMBUS
+	select MFD_CORE
+	select REGMAP_ALLOW_WRITE_DEBUGFS
+	help
+	  Enables the WCD9xxx codec core driver. The core driver provides
+	  read/write capability to registers which are part of the
+	  WCD9306 core and gives the ability to use the WCD9306 codec.
+	  The WCD9306 codec support either I2C/I2S or Slimbus for
+	  control and data exchnage with master processor.
+
 config WCD9320_CODEC
 	tristate "WCD9320 Codec"
 	select SLIMBUS
