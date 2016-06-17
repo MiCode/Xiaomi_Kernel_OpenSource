@@ -128,6 +128,9 @@ static const struct adreno_debugbus_block a5xx_debugbus_blocks[] = {
 #define A5XX_NUM_AXI_ARB_BLOCKS	2
 #define A5XX_NUM_XIN_BLOCKS	4
 
+/* Width of A5XX_CP_DRAW_STATE_ADDR is 8 bits */
+#define A5XX_CP_DRAW_STATE_ADDR_WIDTH 8
+
 /* a5xx_snapshot_cp_pm4() - Dump PM4 data in snapshot */
 static size_t a5xx_snapshot_cp_pm4(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
@@ -821,7 +824,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	 /* CP_DRAW_STATE */
 	 kgsl_snapshot_indexed_registers(device, snapshot,
 		A5XX_CP_DRAW_STATE_ADDR, A5XX_CP_DRAW_STATE_DATA,
-		0, 128);
+		0, 1 << A5XX_CP_DRAW_STATE_ADDR_WIDTH);
 
 	 /*
 	  * CP needs to be halted on a530v1 before reading CP_PFP_UCODE_DBG_DATA
