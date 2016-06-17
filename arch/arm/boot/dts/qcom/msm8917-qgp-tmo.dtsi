@@ -15,6 +15,16 @@
 #include "msm8917-qrd.dtsi"
 #include "msm8937-mdss-panels.dtsi"
 
+&pmi_haptic {
+	status = "okay";
+	qcom,actuator-type = "erm";
+	/delete-property/ qcom,lra-auto-res-mode;
+	/delete-property/ qcom,lra-high-z;
+	/delete-property/ qcom,lra-res-cal-period;
+	/delete-property/ qcom,correct-lra-drive-freq;
+	/delete-property/ qcom,misc-trim-error-rc19p2-clk-reg-present;
+};
+
 &flash_led {
 	/delete-node/ qcom,flash_1;
 	/delete-node/ qcom,torch_1;
