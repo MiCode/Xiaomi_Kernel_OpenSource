@@ -1330,6 +1330,7 @@ static struct sched_cluster init_cluster = {
 	.dstate			=	0,
 	.dstate_wakeup_energy	=	0,
 	.dstate_wakeup_latency	=	0,
+	.exec_scale_factor	=	1024,
 };
 
 void update_all_clusters_stats(void)
@@ -1346,6 +1347,10 @@ void update_all_clusters_stats(void)
 		mpc = cluster->max_possible_capacity =
 			compute_max_possible_capacity(cluster);
 		cluster->load_scale_factor = compute_load_scale_factor(cluster);
+
+		cluster->exec_scale_factor =
+			DIV_ROUND_UP(cluster->efficiency * 1024,
+				     max_possible_efficiency);
 
 		if (mpc > highest_mpc)
 			highest_mpc = mpc;
@@ -1864,15 +1869,11 @@ update_window_start(struct rq *rq, u64 wallclock)
 
 static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 {
-	int cpu = cpu_of(rq);
-	int sf;
 	u32 freq;
 
 	freq = cpu_cycles_to_freq(rq->cc.cycles, rq->cc.time);
 	delta = DIV64_U64_ROUNDUP(delta * freq, max_possible_freq);
-	sf = DIV_ROUND_UP(cpu_efficiency(cpu) * 1024, max_possible_efficiency);
-
-	delta *= sf;
+	delta *= rq->cluster->exec_scale_factor;
 	delta >>= 10;
 
 	return delta;
@@ -2315,7 +2316,7 @@ void update_task_pred_demand(struct rq *rq, struct task_struct *p, int event)
 static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 				 int event, u64 wallclock, u64 irqtime)
 {
-	int new_window, nr_full_windows = 0;
+	int new_window, full_window = 0;
 	int p_is_curr_task = (p == rq->curr);
 	u64 mark_start = p->ravg.mark_start;
 	u64 window_start = rq->window_start;
@@ -2332,8 +2333,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 
 	new_window = mark_start < window_start;
 	if (new_window) {
-		nr_full_windows = div64_u64((window_start - mark_start),
-						window_size);
+		full_window = (window_start - mark_start) >= window_size;
 		if (p->ravg.active_windows < USHRT_MAX)
 			p->ravg.active_windows++;
 	}
@@ -2368,7 +2368,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			u64 curr_sum = rq->curr_runnable_sum;
 			u64 nt_curr_sum = rq->nt_curr_runnable_sum;
 
-			if (nr_full_windows)
+			if (full_window)
 				curr_sum = nt_curr_sum = 0;
 
 			rq->prev_runnable_sum = curr_sum;
@@ -2380,7 +2380,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	} else {
 		if (p_is_curr_task && new_window) {
 			flip_counters = 1;
-			if (nr_full_windows)
+			if (full_window)
 				prev_sum_reset = 1;
 		}
 	}
@@ -2390,7 +2390,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	if (new_window && !is_idle_task(p) && !exiting_task(p)) {
 		u32 curr_window = 0;
 
-		if (!nr_full_windows)
+		if (!full_window)
 			curr_window = p->ravg.curr_window;
 
 		p->ravg.prev_window = curr_window;
@@ -2469,7 +2469,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		 * Irqtime can't be accounted by a task that isn't the
 		 * currently running task. */
 
-		if (!nr_full_windows) {
+		if (!full_window) {
 			/* A full window hasn't elapsed, account partial
 			 * contribution to previous completed window. */
 			delta = scale_exec_time(window_start - mark_start, rq);
@@ -2513,7 +2513,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		 * An example of this would be a task that starts execution
 		 * and then sleeps once a new window has begun. */
 
-		if (!nr_full_windows) {
+		if (!full_window) {
 			/* A full window hasn't elapsed, account partial
 			 * contribution to previous completed window. */
 			delta = scale_exec_time(window_start - mark_start, rq);

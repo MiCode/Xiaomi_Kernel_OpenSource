@@ -353,6 +353,7 @@ struct sched_cluster {
 	int capacity;
 	int efficiency; /* Differentiate cpus with different IPC capability */
 	int load_scale_factor;
+	unsigned int exec_scale_factor;
 	/*
 	 * max_freq = user maximum
 	 * max_mitigated_freq = thermal defined maximum
