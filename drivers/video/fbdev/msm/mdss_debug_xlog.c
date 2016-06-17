@@ -349,7 +349,7 @@ static void mdss_dump_vbif_debug_bus(u32 bus_dump_flag,
 		bus_size = mdata->nrt_vbif_dbg_bus_size;
 	}
 
-	if (!dbg_bus || !bus_size)
+	if (!vbif_base || !dbg_bus || !bus_size)
 		return;
 
 	/* allocate memory for each test point */
