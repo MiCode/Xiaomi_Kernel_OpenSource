@@ -147,22 +147,6 @@ this file correlating for that process to:
      2) time spent waiting on a runqueue
      3) # of timeslices run on this cpu
 
-/proc/sys/kernel/{sched_latency_warn_threshold_us,sched_latency_panic_threshold_us}
-----------------
-schedstats provides procfs nodes /proc/sys/kernel/sched_latency_warn_threshold_us
-and /proc/sys/kernel/sched_latency_panic_threshold_us.  These can be configured
-to detect unreasonably high scheduling latency.
-Set sched_latency_warn_threshold_us or sched_latency_panic_threshold_us with
-non-zero threshold to warn or panic system when scheduling latency higher than
-configured threshold is detected.  Default is 0 (disabled) for both.
-
-/proc/sys/kernel/sched_max_latency_us
-----------------
-/proc/sys/kernel/sched_max_latency_us shows the maximum scheduling latency seen
-accross the CPUs.  The file shows the maximum latency seen in microseconds along
-with the cpu number or cpu id and the task that incurred maximum latency on that
-cpu.  The maximum latency can be reset by writing any value to the file.
-
 A program could be easily written to make use of these extra fields to
 report on how well a particular process or set of processes is faring
 under the scheduler's policies.  A simple version of such a program is
