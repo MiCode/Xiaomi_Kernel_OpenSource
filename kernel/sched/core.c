@@ -3302,7 +3302,7 @@ void sched_get_cpus_busy(struct sched_load *busy,
 
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_ktime_clock(),
 				 0);
-		cur_freq[i] = cpu_cycles_to_freq(i, rq->cc.cycles, rq->cc.time);
+		cur_freq[i] = cpu_cycles_to_freq(rq->cc.cycles, rq->cc.time);
 
 		load[i] = rq->old_busy_time = rq->prev_runnable_sum;
 		nload[i] = rq->nt_prev_runnable_sum;
