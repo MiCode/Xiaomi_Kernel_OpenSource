@@ -2522,6 +2522,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	int rc;
 	struct mdss_data_type *mdata;
 	uint32_t intf_sel = 0;
+	uint32_t split_display = 0;
 	int num_of_display_on = 0;
 	int i = 0;
 
@@ -2714,9 +2715,19 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	 */
 	intf_sel = readl_relaxed(mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
+	split_display = readl_relaxed(mdata->mdp_base +
+		MDSS_MDP_REG_SPLIT_DISPLAY_EN);
 	if (intf_sel != 0) {
 		for (i = 0; i < 4; i++)
 			num_of_display_on += ((intf_sel >> i*8) & 0x000000FF);
+
+		/*
+		 * For split display enabled - DSI0, DSI1 interfaces are
+		 * considered as single display. So decrement
+		 * 'num_of_display_on' by 1
+		 */
+		if (split_display)
+			num_of_display_on--;
 	}
 	if (!num_of_display_on)
 		mdss_mdp_footswitch_ctrl_splash(false);
