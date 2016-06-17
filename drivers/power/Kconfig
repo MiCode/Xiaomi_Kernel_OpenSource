@@ -440,6 +440,17 @@ config SMB1360_CHARGER_FG
 	  The driver reports the status via the power supply framework.
 	  A status change triggers an IRQ via the device STAT pin.
 
+config SMB138X_CHARGER
+	tristate "SMB138X Battery Charger"
+	depends on MFD_I2C_PMIC
+	help
+	  Say Y to include support for SMB138X Battery Charger.
+	  SMB1380 is a dual phase 6A battery charger, and SMB1381 is a single
+	  phase 5A battery charger.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  A charger status change triggers an IRQ via the device STAT pin.
+
 config SMB358_CHARGER
 	tristate "SMB358 Battery Charger"
 	depends on I2C
