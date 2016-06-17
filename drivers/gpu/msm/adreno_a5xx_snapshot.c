@@ -345,6 +345,8 @@ a5xx_vbif_snapshot_registers[] = {
 				ARRAY_SIZE(a5xx_vbif_ver_20040000_registers)/2},
 	{ 0x20040001, a5xx_vbif_ver_20040000_registers,
 				ARRAY_SIZE(a5xx_vbif_ver_20040000_registers)/2},
+	{ 0x200A0000, a5xx_vbif_ver_20040000_registers,
+				ARRAY_SIZE(a5xx_vbif_ver_20040000_registers)/2},
 };
 
 /*
