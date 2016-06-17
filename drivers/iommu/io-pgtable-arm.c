@@ -481,9 +481,11 @@ static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
 			pte |= (prot & IOMMU_PRIV) ? ARM_LPAE_PTE_AP_PRIV_RO
 					: ARM_LPAE_PTE_AP_RO;
 
-		if (prot & IOMMU_CACHE)
+		if (prot & IOMMU_CACHE) {
 			pte |= (ARM_LPAE_MAIR_ATTR_IDX_CACHE
 				<< ARM_LPAE_PTE_ATTRINDX_SHIFT);
+			pte |= ARM_LPAE_PTE_SH_OS;
+		}
 
 		if (prot & IOMMU_DEVICE)
 			pte |= (ARM_LPAE_MAIR_ATTR_IDX_DEV <<
