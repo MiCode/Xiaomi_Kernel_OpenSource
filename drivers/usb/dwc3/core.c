@@ -1194,11 +1194,9 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	spin_lock_init(&dwc->lock);
 
-	if (!dev->dma_mask) {
-		dev->dma_mask = dev->parent->dma_mask;
-		dev->dma_parms = dev->parent->dma_parms;
-		dma_set_coherent_mask(dev, dev->parent->coherent_dma_mask);
-	}
+	dev->dma_mask	= dev->parent->dma_mask;
+	dev->dma_parms	= dev->parent->dma_parms;
+	dma_set_coherent_mask(dev, dev->parent->coherent_dma_mask);
 
 	pm_runtime_no_callbacks(dev);
 	pm_runtime_set_active(dev);
