@@ -26,6 +26,8 @@ static u32 cdm_cdwn2_offsite_h_coeff[] = {0x000b0005, 0x01db01eb, 0x00e40046};
 static u32 cdm_cdwn2_cosite_v_coeff[] = {0x00080004};
 static u32 cdm_cdwn2_offsite_v_coeff[] = {0x00060002};
 
+#define VSYNC_TIMEOUT_US 16000
+
 /**
  * @mdss_mdp_cdm_alloc() - Allocates a cdm block by parsing the list of
  *			     available cdm blocks.
@@ -66,6 +68,7 @@ static void mdss_mdp_cdm_free(struct kref *kref)
 	if (!cdm)
 		return;
 
+	complete_all(&cdm->free_comp);
 	pr_debug("free cdm_num = %d\n", cdm->num);
 
 }
@@ -83,6 +86,28 @@ struct mdss_mdp_cdm *mdss_mdp_cdm_init(struct mdss_mdp_ctl *ctl, u32 intf_type)
 	struct mdss_mdp_cdm *cdm = NULL;
 
 	cdm = mdss_mdp_cdm_alloc(mdata);
+
+	/**
+	 * give hdmi interface priority to alloc the cdm block. It will wait
+	 * for one vsync cycle to allow wfd to finish its job and try to reserve
+	 * the block the again.
+	 */
+	if (!cdm && (intf_type == MDP_CDM_CDWN_OUTPUT_HDMI)) {
+		/* always wait for first cdm block */
+		cdm = mdata->cdm_off;
+		if (cdm) {
+			reinit_completion(&cdm->free_comp);
+			/*
+			 * no need to check the return status of completion
+			 * timeout. Next cdm_alloc call will try to reserve
+			 * the cdm block and returns failure if allocation
+			 * fails.
+			 */
+			wait_for_completion_timeout(&cdm->free_comp,
+				usecs_to_jiffies(VSYNC_TIMEOUT_US));
+			cdm = mdss_mdp_cdm_alloc(mdata);
+		}
+	}
 
 	if (!cdm) {
 		pr_err("%s: Unable to allocate cdm\n", __func__);
@@ -351,17 +376,6 @@ int mdss_mdp_cdm_destroy(struct mdss_mdp_cdm *cdm)
 		pr_err("%s: invalid parameters\n", __func__);
 		return -EINVAL;
 	}
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	mutex_lock(&cdm->lock);
-	/* Disable HDMI packer */
-	writel_relaxed(0x0, cdm->base + MDSS_MDP_REG_CDM_HDMI_PACK_OP_MODE);
-
-	/* Put CDM in bypass */
-	writel_relaxed(0x0, cdm->mdata->mdp_base + MDSS_MDP_MDP_OUT_CTL_0);
-
-	mutex_unlock(&cdm->lock);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	kref_put(&cdm->kref, mdss_mdp_cdm_free);
 

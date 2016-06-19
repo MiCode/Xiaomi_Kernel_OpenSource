@@ -641,7 +641,7 @@ While boost is in effect the scheduler checks for the precence of tasks that
 have been runnable for over some period of time within the tick. For such
 tasks the scheduler informs the governor of imminent need for high frequency.
 If there exists a task on the runqueue at the tick that has been runnable
-for greater than sched_early_detection_duration amount of time, it notifies
+for greater than SCHED_EARLY_DETECTION_DURATION amount of time, it notifies
 the governor with a fabricated load of the full window at the highest
 frequency. The fabricated load is maintained until the task is no longer
 runnable or until the next tick.
@@ -920,7 +920,7 @@ The above counters are resued for nt_curr_runnable_sum and
 nt_prev_runnable_sum.
 
 "cpu demand" of a task includes its execution time and can also include its
-wait time. 'sched_freq_account_wait_time' tunable controls whether task's wait
+wait time. 'SCHED_FREQ_ACCOUNT_WAIT_TIME' controls whether task's wait
 time is included in its 'curr_window' and 'prev_window' counters or not.
 
 Needless to say, curr_runnable_sum counter of a cpu is derived from curr_window
@@ -934,7 +934,7 @@ PICK_NEXT_TASK
 	This represents beginning of execution for a task. Provided the task
 	refers to a non-idle task, a portion of task's wait time that
 	corresponds to the current window being tracked on a cpu is added to
-	task's curr_window counter, provided sched_freq_account_wait_time is
+	task's curr_window counter, provided SCHED_FREQ_ACCOUNT_WAIT_TIME is
 	set. The same quantum is also added to cpu's curr_runnable_sum counter.
 	The remaining portion, which corresponds to task's wait time in previous
 	window is added to task's prev_window and cpu's prev_runnable_sum
@@ -969,13 +969,12 @@ TASK_MIGRATE
 	this event reflects actions taken under PICK_NEXT_TASK (i.e its
 	wait time is added to task's curr/prev_window counters as well
 	as src_cpu's curr/prev_runnable_sum counters, provided
-	sched_freq_account_wait_time tunable is non-zero). After that update,
+	SCHED_FREQ_ACCOUNT_WAIT_TIME is non-zero). After that update,
 	src_cpu's curr_runnable_sum is reduced by task's curr_window value
 	and dst_cpu's curr_runnable_sum is increased by task's curr_window
-	value, provided sched_migration_fixup = 1. Similarly, src_cpu's
-	prev_runnable_sum is reduced by task's prev_window value and dst_cpu's
-	prev_runnable_sum is increased by task's prev_window value,
-	provided sched_migration_fixup = 1
+	value. Similarly, src_cpu's prev_runnable_sum is reduced by task's
+	prev_window value and dst_cpu's prev_runnable_sum is increased by
+	task's prev_window value.
 
 IRQ_UPDATE
 	This event signifies end of execution of an interrupt handler. This
@@ -1049,21 +1048,7 @@ high-performance CPU).
 
 See also notes on 'cpu.upmigrate_discourage' tunable.
 
-*** 7.6 sched_enable_power_aware
-
-Appears at: /proc/sys/kernel/sched_enable_power_aware
-
-Default value: 0
-
-Controls whether or not per-CPU power values are used in determining
-task placement. If this is disabled, tasks are simply placed on the
-least capacity CPU that will adequately meet the task's needs as
-determined by the task load tracking mechanism. If this is enabled,
-after a set of CPUs are determined which will meet the task's
-performance needs, a CPU is selected which is reported to have the
-lowest power consumption at that time.
-
-*** 7.7 sched_ravg_hist_size
+*** 7.6 sched_ravg_hist_size
 
 Appears at: /proc/sys/kernel/sched_ravg_hist_size
 
@@ -1072,7 +1057,7 @@ Default value: 5
 This tunable controls the number of samples used from task's sum_history[]
 array for determination of its demand.
 
-*** 7.8 sched_window_stats_policy
+*** 7.7 sched_window_stats_policy
 
 Appears at: /proc/sys/kernel/sched_window_stats_policy
 
@@ -1091,7 +1076,7 @@ Possible values for this tunable are:
    samples), where M = sysctl_sched_ravg_hist_size
 3. Use average of first M samples, where M = sysctl_sched_ravg_hist_size
 
-*** 7.9 sched_ravg_window
+*** 7.8 sched_ravg_window
 
 Appears at: kernel command line argument
 
@@ -1102,7 +1087,7 @@ tracking. By default each window is 10ms long. This quantity must
 currently be set at boot time on the kernel command line (or the
 default value of 10ms can be used).
 
-*** 7.10 RAVG_HIST_SIZE
+*** 7.9 RAVG_HIST_SIZE
 
 Appears at: compile time only (see RAVG_HIST_SIZE in include/linux/sched.h)
 
@@ -1113,35 +1098,7 @@ tracking mechanism maintains per task. If default values are used for
 both this and sched_ravg_window then a total of 50ms of task history
 would be maintained in 5 10ms windows.
 
-*** 7.11 sched_account_wait_time
-
-Appears at: /proc/sys/kernel/sched_account_wait_time
-
-Default value: 1
-
-This controls whether a task's wait time is accounted as its demand for cpu
-and thus the values found in its sum, sum_history[] and demand attributes.
-
-*** 7.12 sched_freq_account_wait_time
-
-Appears at: /proc/sys/kernel/sched_freq_account_wait_time
-
-Default value: 0
-
-This controls whether a task's wait time is accounted in its curr_window and
-prev_window attributes and thus in a cpu's curr_runnable_sum and
-prev_runnable_sum counters.
-
-*** 7.13 sched_migration_fixup
-
-Appears at: /proc/sys/kernel/sched_migration_fixup
-
-Default value: 1
-
-This controls whether a cpu's busy time counters are adjusted during task
-migration.
-
-*** 7.14 sched_freq_inc_notify
+*** 7.10 sched_freq_inc_notify
 
 Appears at: /proc/sys/kernel/sched_freq_inc_notify
 
@@ -1153,7 +1110,7 @@ exceeds sched_freq_inc_notify, where freq_required is the frequency calculated
 by scheduler to meet current task demand. Note that sched_freq_inc_notify is
 specified in kHz units.
 
-*** 7.15 sched_freq_dec_notify
+*** 7.11 sched_freq_dec_notify
 
 Appears at: /proc/sys/kernel/sched_freq_dec_notify
 
@@ -1166,19 +1123,8 @@ exceeds sched_freq_dec_notify, where freq_required is the frequency calculated
 by scheduler to meet current task demand. Note that sched_freq_dec_notify is
 specified in kHz units.
 
-** 7.16 sched_heavy_task
 
-Appears at: /proc/sys/kernel/sched_heavy_task
-
-Default value: 0
-
-This tunable can be used to specify a demand value for tasks above which task
-are classified as "heavy" tasks. Task's ravg.demand attribute is used for this
-comparison. Scheduler will request a raise in cpu frequency when heavy tasks
-wakeup after at least one window of sleep, where window size is defined by
-sched_ravg_window. Value 0 will disable this feature.
-
-*** 7.17 sched_cpu_high_irqload
+*** 7.12 sched_cpu_high_irqload
 
 Appears at: /proc/sys/kernel/sched_cpu_high_irqload
 
@@ -1196,7 +1142,7 @@ longer eligible for placement. This will affect the task placement logic
 described above, causing the scheduler to try and steer tasks away from
 the CPU.
 
-** 7.18 cpu.upmigrate_discourage
+*** 7.13 cpu.upmigrate_discourage
 
 Default value : 0
 
@@ -1212,7 +1158,7 @@ overcommitted scenario. See notes on sched_spill_nr_run and sched_spill_load for
 how overcommitment threshold is defined and also notes on
 'sched_upmigrate_min_nice' tunable.
 
-*** 7.19 sched_static_cpu_pwr_cost
+*** 7.14 sched_static_cpu_pwr_cost
 
 Default value: 0
 
@@ -1227,7 +1173,7 @@ within a cluster and possibly have differing value between clusters as
 needed.
 
 
-*** 7.20 sched_static_cluster_pwr_cost
+*** 7.15 sched_static_cluster_pwr_cost
 
 Default value: 0
 
@@ -1238,18 +1184,8 @@ power mode. It ignores the actual D-state that a cluster may be in and assumes
 the worst case power cost of the highest D-state. It is means of biasing task
 placement away from idle clusters when necessary.
 
-***7.23 sched_early_detection_duration
 
-Default value: 9500000
-
-Appears at /proc/sys/kernel/sched_early_detection_duration
-
-This governs the time in microseconds that a task has to runnable within one
-tick for it to be eligible for the scheduler's early detection feature
-under scheduler boost. For more information on the feature itself please
-refer to section 5.2.1.
-
-*** 7.24 sched_restrict_cluster_spill
+*** 7.16 sched_restrict_cluster_spill
 
 Default value: 0
 
@@ -1268,7 +1204,7 @@ CPU across all clusters. When this tunable is enabled, the RT tasks are
 restricted to the lowest possible power cluster.
 
 
-*** 7.25 sched_downmigrate
+*** 7.17 sched_downmigrate
 
 Appears at: /proc/sys/kernel/sched_downmigrate
 
@@ -1281,7 +1217,7 @@ its demand *in reference to the power-efficient cpu* drops less than 60%
 (sched_downmigrate).
 
 
-*** 7.26 sched_small_wakee_task_load
+*** 7.18 sched_small_wakee_task_load
 
 Appears at: /proc/sys/kernel/sched_small_wakee_task_load
 
@@ -1293,7 +1229,7 @@ categorized as small wakee tasks.  Scheduler places small wakee tasks on the
 waker's cluster.
 
 
-*** 7.27 sched_big_waker_task_load
+*** 7.19 sched_big_waker_task_load
 
 Appears at: /proc/sys/kernel/sched_big_waker_task_load
 
@@ -1303,7 +1239,7 @@ This tunable is a percentage.  Configure the minimum demand of big sync waker
 task.  Scheduler places small wakee tasks woken up by big sync waker on the
 waker's cluster.
 
-*** 7.28 sched_prefer_sync_wakee_to_waker
+*** 7.25 sched_prefer_sync_wakee_to_waker
 
 Appears at: /proc/sys/kernel/sched_prefer_sync_wakee_to_waker
 
@@ -1467,10 +1403,7 @@ cpus are being reset. Changes to below attributes result in such a reset:
 
 * sched_ravg_window (See Sec 2)
 * sched_window_stats_policy (See Sec 2.4)
-* sched_account_wait_time (See Sec 7.15)
 * sched_ravg_hist_size (See Sec 7.11)
-* sched_migration_fixup (See Sec 7.17)
-* sched_freq_account_wait_time (See Sec 7.16)
 
 <task>-0     [004] d.h4 12700.711489: sched_reset_all_windows_stats: time_taken 1123 window_start 0 window_size 0 reason POLICY_CHANGE old_val 0 new_val 1
 

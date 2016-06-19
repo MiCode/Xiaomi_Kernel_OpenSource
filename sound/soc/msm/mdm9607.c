@@ -28,6 +28,7 @@
 #include <sound/q6core.h>
 #include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9330.h"
+#include "../codecs/wcd9306.h"
 
 /* Spk control */
 #define MDM_SPK_ON 1
@@ -76,7 +77,7 @@
 /* Currently enabling only SCLK because
  * MCLK is routed from PLL test pad
  */
-#define PRI_TLMM_CLKS_EN_MASTER 0x4
+#define PRI_TLMM_CLKS_EN_MASTER 0x00020004
 #define SEC_TLMM_CLKS_EN_MASTER 0x2
 #define PRI_TLMM_CLKS_EN_SLAVE 0x100000
 #define SEC_TLMM_CLKS_EN_SLAVE 0x800000
@@ -84,13 +85,21 @@
 #define CLOCK_OFF 0
 
 /* Machine driver Name*/
-#define DRV_NAME "mdm9607-asoc-tomtom"
+#define DRV_NAME "mdm9607-asoc-snd"
 
 enum mi2s_pcm_mux {
 	PRI_MI2S_PCM,
 	SEC_MI2S_PCM,
 	MI2S_PCM_MAX_INTF
 };
+
+struct mdm9607_codec {
+	int (*mclk_enable_fn)(struct snd_soc_codec *codec,
+			      int mclk_enable, bool dapm);
+	int (*mbhc_hs_detect)(struct snd_soc_codec *codec,
+			      struct wcd9xxx_mbhc_config *mbhc_cfg);
+};
+
 struct mdm_machine_data {
 	u32 mclk_freq;
 	atomic_t prim_clk_usrs;
@@ -105,6 +114,7 @@ struct mdm_machine_data {
 	void *lpass_mux_mic_ctl_virt_addr;
 	void *gcc_debug_clk_ctl_virt_addr;
 	void *gcc_plltest_pad_cfg_virt_addr;
+	struct mdm9607_codec mdm9607_codec_fn;
 };
 
 static const struct afe_clk_cfg lpass_default = {
@@ -806,7 +816,7 @@ static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 			}
 		}
 		atomic_inc(&pdata->prim_clk_usrs);
-		tomtom_mclk_enable(codec, 1, dapm);
+		pdata->mdm9607_codec_fn.mclk_enable_fn(codec, 1, dapm);
 	} else {
 		if (atomic_read(&pdata->prim_clk_usrs) > 0)
 			atomic_dec(&pdata->prim_clk_usrs);
@@ -821,7 +831,7 @@ static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 				goto err;
 			}
 		}
-		tomtom_mclk_enable(codec, 0, dapm);
+		pdata->mdm9607_codec_fn.mclk_enable_fn(codec, 0, dapm);
 	}
 	pr_debug("%s clk2 %x mode %x\n",  __func__, lpass_clk->clk_val2,
 		 lpass_clk->clk_set_mode);
@@ -1152,35 +1162,36 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	mbhc_cfg.calibration = def_codec_mbhc_cal();
 	if (mbhc_cfg.calibration) {
-		ret = tomtom_hs_detect(codec, &mbhc_cfg);
+		ret = pdata->mdm9607_codec_fn.mbhc_hs_detect(codec, &mbhc_cfg);
 		if (ret < 0) {
 			pr_err("%s: Failed to intialise mbhc %d\n",
 				__func__, ret);
 			kfree(mbhc_cfg.calibration);
 		}
-	}
-	else
+	} else {
 		ret = -ENOMEM;
+	}
 
-	tomtom_register_ext_clk_cb(mdm_enable_codec_ext_clk,
-				msm_snd_get_ext_clk_cnt,
-				rtd->codec);
+	if (!strcmp(card->name, "mdm9607-tomtom-i2s-snd-card")) {
+		tomtom_register_ext_clk_cb(mdm_enable_codec_ext_clk,
+					   msm_snd_get_ext_clk_cnt,
+					   rtd->codec);
 
-	ret = mdm_enable_codec_ext_clk(rtd->codec, 1, false);
-	if (IS_ERR_VALUE(ret)) {
+		ret = mdm_enable_codec_ext_clk(rtd->codec, 1, false);
+		if (IS_ERR_VALUE(ret)) {
 			pr_err("%s: Failed to enable mclk, err = 0x%x\n",
 				__func__, ret);
 			goto done;
-	}
+		}
 
-	tomtom_enable_qfuse_sensing(rtd->codec);
+		tomtom_enable_qfuse_sensing(rtd->codec);
 
-	ret = mdm_enable_codec_ext_clk(rtd->codec, 0, false);
-	if (IS_ERR_VALUE(ret)) {
-		pr_err("%s: Failed to disable mclk, err = 0x%x\n",
+		ret = mdm_enable_codec_ext_clk(rtd->codec, 0, false);
+		if (IS_ERR_VALUE(ret)) {
+			pr_err("%s: Failed to disable mclk, err = 0x%x\n",
 				__func__, ret);
+		}
 	}
-
 done:
 	return ret;
 }
@@ -1628,37 +1639,6 @@ static struct snd_soc_dai_link mdm_dai[] = {
 	},
 	/* Backend DAI Links */
 	{
-		.name = LPASS_BE_PRI_MI2S_RX,
-		.stream_name = "Primary MI2S Playback",
-		.cpu_dai_name = "msm-dai-q6-mi2s.0",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_i2s_rx1",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
-		.init  = &mdm_mi2s_audrx_init,
-		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
-		.ops = &mdm_mi2s_be_ops,
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_PRI_MI2S_TX,
-		.stream_name = "Primary MI2S Capture",
-		.cpu_dai_name = "msm-dai-q6-mi2s.0",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_i2s_tx1",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
-		.be_hw_params_fixup = &mdm_mi2s_tx_be_hw_params_fixup,
-		.ops = &mdm_mi2s_be_ops,
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-	},
-	{
 		.name = LPASS_BE_AFE_PCM_RX,
 		.stream_name = "AFE Playback",
 		.cpu_dai_name = "msm-dai-q6-dev.224",
@@ -1814,10 +1794,102 @@ static struct snd_soc_dai_link mdm_dai[] = {
 	},
 };
 
-static struct snd_soc_card snd_soc_card_mdm = {
+static struct snd_soc_dai_link mdm_9330_dai[] = {
+		/* Backend DAI Links */
+	{
+		.name = LPASS_BE_PRI_MI2S_RX,
+		.stream_name = "Primary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tomtom_codec",
+		.codec_dai_name = "tomtom_i2s_rx1",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+		.init  = &mdm_mi2s_audrx_init,
+		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_PRI_MI2S_TX,
+		.stream_name = "Primary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tomtom_codec",
+		.codec_dai_name = "tomtom_i2s_tx1",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
+		.be_hw_params_fixup = &mdm_mi2s_tx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
+static struct snd_soc_dai_link mdm_9306_dai[] = {
+		/* Backend DAI Links */
+	{
+		.name = LPASS_BE_PRI_MI2S_RX,
+		.stream_name = "Primary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name = "tapan_i2s_rx1",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+		.init  = &mdm_mi2s_audrx_init,
+		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_PRI_MI2S_TX,
+		.stream_name = "Primary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tapan_codec",
+		.codec_dai_name = "tapan_i2s_tx1",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
+		.be_hw_params_fixup = &mdm_mi2s_tx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
+static struct snd_soc_dai_link mdm_tomtom_dai_links[
+				ARRAY_SIZE(mdm_dai) +
+				ARRAY_SIZE(mdm_9330_dai)];
+
+static struct snd_soc_dai_link mdm_tapan_dai_links[
+				ARRAY_SIZE(mdm_dai) +
+				ARRAY_SIZE(mdm_9306_dai)];
+
+static struct snd_soc_card snd_soc_card_mdm_9330 = {
 	.name = "mdm9607-tomtom-i2s-snd-card",
-	.dai_link = mdm_dai,
-	.num_links = ARRAY_SIZE(mdm_dai),
+	.dai_link = mdm_tomtom_dai_links,
+	.num_links = ARRAY_SIZE(mdm_tomtom_dai_links),
+};
+
+static struct snd_soc_card snd_soc_card_mdm_9306 = {
+	.name = "mdm9607-tapan-i2s-snd-card",
+	.dai_link = mdm_tapan_dai_links,
+	.num_links = ARRAY_SIZE(mdm_tapan_dai_links),
+};
+
+static const struct of_device_id mdm_asoc_machine_of_match[]  = {
+	{ .compatible = "qcom,mdm9607-audio-tomtom",
+	  .data = "tomtom_codec"},
+	{ .compatible = "qcom,mdm9607-audio-tapan",
+	  .data = "tapan_codec"},
+	{},
 };
 
 static int mdm_populate_dai_link_component_of_node(
@@ -1993,10 +2065,55 @@ err:
 	return ret;
 }
 
+static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
+{
+	struct snd_soc_card *card = NULL;
+	struct snd_soc_dai_link *dailink;
+	const struct of_device_id *match;
+	int len_1, len_2;
+
+	match = of_match_node(mdm_asoc_machine_of_match, dev->of_node);
+	if (!match) {
+		dev_err(dev, "%s: No DT match found for sound card\n",
+				__func__);
+		return NULL;
+	}
+
+	if (!strcmp(match->data, "tomtom_codec")) {
+		card = &snd_soc_card_mdm_9330;
+		len_1 = ARRAY_SIZE(mdm_dai);
+		len_2 = len_1 + ARRAY_SIZE(mdm_9330_dai);
+
+		memcpy(mdm_tomtom_dai_links, mdm_dai,
+			   sizeof(mdm_dai));
+		memcpy(mdm_tomtom_dai_links + len_1, mdm_9330_dai,
+			   sizeof(mdm_9330_dai));
+		dailink = mdm_tomtom_dai_links;
+
+	} else if (!strcmp(match->data, "tapan_codec")) {
+		card = &snd_soc_card_mdm_9306;
+		len_1 = ARRAY_SIZE(mdm_dai);
+		len_2 = len_1 + ARRAY_SIZE(mdm_9306_dai);
+
+		memcpy(mdm_tapan_dai_links, mdm_dai,
+			   sizeof(mdm_dai));
+		memcpy(mdm_tapan_dai_links + len_1, mdm_9306_dai,
+			   sizeof(mdm_9306_dai));
+		dailink = mdm_tapan_dai_links;
+	}
+
+	if (card) {
+		card->dai_link = dailink;
+		card->num_links = len_2;
+	}
+
+	return card;
+}
+
 static int mdm_asoc_machine_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct snd_soc_card *card = &snd_soc_card_mdm;
+	struct snd_soc_card *card;
 	struct mdm_machine_data *pdata;
 	enum apr_subsys_state q6_state;
 
@@ -2024,12 +2141,12 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	ret = of_property_read_u32(pdev->dev.of_node,
-				   "qcom,tomtom-mclk-clk-freq",
+				   "qcom,codec-mclk-clk-freq",
 				   &pdata->mclk_freq);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"%s Looking up %s property in node %s failed",
-			__func__, "qcom,tomtom-mclk-clk-freq",
+			__func__, "qcom,codec-mclk-clk-freq",
 			pdev->dev.of_node->full_name);
 
 		goto err;
@@ -2050,6 +2167,20 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	atomic_set(&sec_mi2s_ref_count, 0);
 	atomic_set(&pdata->prim_clk_usrs, 0);
 	atomic_set(&pdata->sec_clk_usrs, 0);
+
+	card = populate_snd_card_dailinks(&pdev->dev);
+	if (!card) {
+		dev_err(&pdev->dev, "%s: Card uninitialized\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	if (!strcmp(card->name, "mdm9607-tapan-i2s-snd-card")) {
+		pdata->mdm9607_codec_fn.mclk_enable_fn = tapan_mclk_enable;
+		pdata->mdm9607_codec_fn.mbhc_hs_detect = tapan_hs_detect;
+	} else if (!strcmp(card->name, "mdm9607-tomtom-i2s-snd-card")) {
+		pdata->mdm9607_codec_fn.mclk_enable_fn = tomtom_mclk_enable;
+		pdata->mdm9607_codec_fn.mbhc_hs_detect = tomtom_hs_detect;
+	}
 
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
@@ -2167,11 +2298,6 @@ static int mdm_asoc_machine_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id mdm_asoc_machine_of_match[]  = {
-	{ .compatible = "qcom,mdm9607-audio-tomtom", },
-	{},
-};
 
 static struct platform_driver mdm_asoc_machine_driver = {
 	.driver = {

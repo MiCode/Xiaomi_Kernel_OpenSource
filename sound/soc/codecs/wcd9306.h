@@ -20,16 +20,10 @@
 #include "wcd9xxx-resmgr.h"
 #include "wcd9xxx-common.h"
 
-#define TAPAN_NUM_REGISTERS 0x400
-#define TAPAN_MAX_REGISTER (TAPAN_NUM_REGISTERS-1)
-#define TAPAN_CACHE_SIZE TAPAN_NUM_REGISTERS
-
 #define TAPAN_REG_VAL(reg, val)		{reg, 0, val}
 
 #define TAPAN_CDC_ZDET_SUPPORTED  true
 
-extern const u8 tapan_reg_readable[TAPAN_CACHE_SIZE];
-extern const u8 tapan_reset_reg_defaults[TAPAN_CACHE_SIZE];
 struct tapan_codec_dai_data {
 	u32 rate;
 	u32 *ch_num;

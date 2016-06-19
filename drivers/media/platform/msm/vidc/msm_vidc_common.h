@@ -98,4 +98,6 @@ int msm_comm_ctrl_deinit(struct msm_vidc_inst *inst);
 void msm_comm_cleanup_internal_buffers(struct msm_vidc_inst *inst);
 int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a);
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
+struct msm_vidc_inst *get_inst(struct msm_vidc_core *core, void *session_id);
+void put_inst(struct msm_vidc_inst *inst);
 #endif

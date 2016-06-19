@@ -28,6 +28,7 @@
 #include <sound/pcm.h>
 #include <sound/jack.h>
 #include <sound/q6afe-v2.h>
+#include <sound/q6adm-v2.h>
 #include <sound/q6core.h>
 #include <sound/pcm_params.h>
 #include <sound/info.h>
@@ -43,6 +44,7 @@
 #define SAMPLING_RATE_48KHZ     48000
 #define SAMPLING_RATE_96KHZ     96000
 #define SAMPLING_RATE_192KHZ    192000
+#define SAMPLING_RATE_384KHZ    384000
 
 static int hdmi_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_auxpcm_rate = SAMPLING_RATE_8KHZ;
@@ -95,6 +97,11 @@ static int msm_quat_tdm_tx_0_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_quat_tdm_tx_1_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_quat_tdm_tx_2_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_quat_tdm_tx_3_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+
+/* EC Reference default values are set in mixer_paths.xml */
+static int msm_ec_ref_ch = 4;
+static int msm_ec_ref_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static int msm_ec_ref_sampling_rate = SAMPLING_RATE_48KHZ;
 
 enum {
 	QUATERNARY_TDM_RX_0,
@@ -241,6 +248,14 @@ static char const *tdm_ch_text[] = {"One", "Two", "Three", "Four",
 static char const *tdm_bit_format_text[] = {"S16_LE", "S24_LE"};
 
 static char const *mi2s_bit_format_text[] = {"S16_LE", "S24_LE"};
+
+static const char *const ec_ref_ch_text[] = {"Zero", "One", "Two", "Three",
+	"Four", "Five", "Six", "Seven", "Eight"};
+
+static char const *ec_ref_bit_format_text[] = {"0", "S16_LE", "S24_LE"};
+
+static const char *const ec_ref_rate_text[] = {"0", "8000", "16000",
+	"32000", "44100", "48000", "96000", "192000", "384000"};
 
 static struct afe_clk_set mi2s_tx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
@@ -1340,6 +1355,113 @@ static int msm_quat_tdm_tx_3_bit_format_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_ec_ref_ch_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm_ec_ref_ch;
+	pr_debug("%s: msm_ec_ref_ch = %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_ec_ref_ch_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	msm_ec_ref_ch = ucontrol->value.integer.value[0];
+	pr_debug("%s: msm_ec_ref_ch = %d\n", __func__, msm_ec_ref_ch);
+	adm_num_ec_ref_rx_chans(msm_ec_ref_ch);
+	return 0;
+}
+
+static int msm_ec_ref_bit_format_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	switch (msm_ec_ref_bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 2;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+	pr_debug("%s: msm_ec_ref_bit_format = %ld\n",
+		 __func__, ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_ec_ref_bit_format_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 2:
+		msm_ec_ref_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 1:
+		msm_ec_ref_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	default:
+		msm_ec_ref_bit_format = 0;
+		break;
+	}
+	pr_debug("%s: msm_ec_ref_bit_format = %d\n",
+		 __func__, msm_ec_ref_bit_format);
+	adm_ec_ref_rx_bit_width(msm_ec_ref_bit_format);
+	return 0;
+}
+
+static int msm_ec_ref_rate_get(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm_ec_ref_sampling_rate;
+	pr_debug("%s: msm_ec_ref_sampling_rate = %ld\n",
+		 __func__, ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_ec_ref_rate_put(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm_ec_ref_sampling_rate = 0;
+		break;
+	case 1:
+		msm_ec_ref_sampling_rate = SAMPLING_RATE_8KHZ;
+		break;
+	case 2:
+		msm_ec_ref_sampling_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 3:
+		msm_ec_ref_sampling_rate = SAMPLING_RATE_32KHZ;
+		break;
+	case 4:
+		msm_ec_ref_sampling_rate = SAMPLING_RATE_44P1KHZ;
+		break;
+	case 5:
+		msm_ec_ref_sampling_rate = SAMPLING_RATE_48KHZ;
+		break;
+	case 6:
+		msm_ec_ref_sampling_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 7:
+		msm_ec_ref_sampling_rate = SAMPLING_RATE_192KHZ;
+		break;
+	case 8:
+		msm_ec_ref_sampling_rate = SAMPLING_RATE_384KHZ;
+		break;
+	default:
+		msm_ec_ref_sampling_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+	pr_debug("%s: msm_ec_ref_sampling_rate = %d\n",
+		 __func__, msm_ec_ref_sampling_rate);
+	adm_ec_ref_rx_sampling_rate(msm_ec_ref_sampling_rate);
+	return 0;
+}
+
 static int msm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				      struct snd_pcm_hw_params *params)
 {
@@ -1880,6 +2002,9 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(8, tdm_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, tdm_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(2, mi2s_bit_format_text),
+	SOC_ENUM_SINGLE_EXT(9, ec_ref_ch_text),
+	SOC_ENUM_SINGLE_EXT(3, ec_ref_bit_format_text),
+	SOC_ENUM_SINGLE_EXT(9, ec_ref_rate_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -1979,6 +2104,12 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("TERT_MI2S_TX Bit Format", msm_snd_enum[7],
 			msm_tert_mi2s_tx_bit_format_get,
 			msm_tert_mi2s_tx_bit_format_put),
+	SOC_ENUM_EXT("EC Reference Channels", msm_snd_enum[8],
+			msm_ec_ref_ch_get, msm_ec_ref_ch_put),
+	SOC_ENUM_EXT("EC Reference Bit Format", msm_snd_enum[9],
+			msm_ec_ref_bit_format_get, msm_ec_ref_bit_format_put),
+	SOC_ENUM_EXT("EC Reference SampleRate", msm_snd_enum[10],
+			msm_ec_ref_rate_get, msm_ec_ref_rate_put),
 };
 
 static int apq8096_get_ll_qos_val(struct snd_pcm_runtime *runtime)

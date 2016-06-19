@@ -1695,19 +1695,10 @@ static inline bool mdss_mdp_video_need_pixel_drop(u32 vic)
 }
 
 static int mdss_mdp_video_cdm_setup(struct mdss_mdp_cdm *cdm,
-				   struct mdss_panel_info *pinfo)
+	struct mdss_panel_info *pinfo, struct mdss_mdp_format_params *fmt)
 {
-	struct mdss_mdp_format_params *fmt;
 	struct mdp_cdm_cfg setup;
 
-	fmt = mdss_mdp_get_format_params(pinfo->out_format);
-
-	if (!fmt) {
-		pr_err("%s: format %d not supported\n", __func__,
-		       pinfo->out_format);
-		return -EINVAL;
-	}
-	setup.out_format = pinfo->out_format;
 	if (fmt->is_yuv)
 		setup.csc_type = MDSS_MDP_CSC_RGB2YUV_601FR;
 	else
@@ -1737,6 +1728,7 @@ static int mdss_mdp_video_cdm_setup(struct mdss_mdp_cdm *cdm,
 		return -EINVAL;
 	}
 
+	setup.out_format = pinfo->out_format;
 	setup.mdp_csc_bit_depth = MDP_CDM_CSC_8BIT;
 	setup.output_width = pinfo->xres + pinfo->lcdc.xres_pad;
 	setup.output_height = pinfo->yres + pinfo->lcdc.yres_pad;
@@ -1770,6 +1762,7 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 {
 	struct intf_timing_params *itp = &ctx->itp;
 	u32 dst_bpp;
+	struct mdss_mdp_format_params *fmt;
 	struct mdss_data_type *mdata = ctl->mdata;
 	struct dsc_desc *dsc = NULL;
 
@@ -1803,17 +1796,32 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 	}
 
 	if (mdss_mdp_is_cdm_supported(mdata, ctl->intf_type, 0)) {
-		ctl->cdm = mdss_mdp_cdm_init(ctl, MDP_CDM_CDWN_OUTPUT_HDMI);
-		if (!IS_ERR_OR_NULL(ctl->cdm)) {
-			if (mdss_mdp_video_cdm_setup(ctl->cdm, pinfo)) {
-				pr_err("%s: setting up cdm failed\n",
-				       __func__);
+
+		fmt = mdss_mdp_get_format_params(pinfo->out_format);
+		if (!fmt) {
+			pr_err("%s: format %d not supported\n", __func__,
+			       pinfo->out_format);
+			return -EINVAL;
+		}
+		if (fmt->is_yuv) {
+			ctl->cdm =
+			mdss_mdp_cdm_init(ctl, MDP_CDM_CDWN_OUTPUT_HDMI);
+			if (!IS_ERR_OR_NULL(ctl->cdm)) {
+				if (mdss_mdp_video_cdm_setup(ctl->cdm,
+					pinfo, fmt)) {
+					pr_err("%s: setting up cdm failed\n",
+					       __func__);
+					return -EINVAL;
+				}
+				ctl->flush_bits |= BIT(26);
+			} else {
+				pr_err("%s: failed to initialize cdm\n",
+					__func__);
 				return -EINVAL;
 			}
-			ctl->flush_bits |= BIT(26);
 		} else {
-			pr_err("%s: failed to initialize cdm\n", __func__);
-			return -EINVAL;
+			pr_debug("%s: Format is not YUV,cdm not required\n",
+				 __func__);
 		}
 	} else {
 		pr_debug("%s: cdm not supported\n", __func__);

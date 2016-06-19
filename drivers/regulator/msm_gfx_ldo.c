@@ -45,6 +45,7 @@
 #define PWRSWITCH_CTRL_REG		0x1C
 #define LDO_CLAMP_IO_BIT		BIT(31)
 #define CPR_BYPASS_IN_LDO_MODE_BIT	BIT(30)
+#define EN_LDOAP_CTRL_CPR_BIT		BIT(29)
 #define PWR_SRC_SEL_BIT			BIT(9)
 #define ACK_SW_OVR_BIT			BIT(8)
 #define LDO_PREON_SW_OVR_BIT		BIT(7)
@@ -967,9 +968,10 @@ static int msm_gfx_ldo_init(struct platform_device *pdev,
 
 	/* HW initialization */
 
-	/* clear clamp_io */
+	/* clear clamp_io, enable CPR in auto-bypass*/
 	ctl = readl_relaxed(ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 	ctl &= ~LDO_CLAMP_IO_BIT;
+	ctl |= EN_LDOAP_CTRL_CPR_BIT;
 	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	i = 0;

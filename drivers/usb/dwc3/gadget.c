@@ -202,9 +202,21 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		int		mult = 1;
 		int		tmp;
 
+		tmp = max_packet + mdwidth;
+		/*
+		 * Interfaces like MBIM or ECM is having multiple data
+		 * interfaces. SET_CONFIG() happens before set_alt with
+		 * data interface 1 which results into calling this API
+		 * before GSI endpoint enabled. This results no txfifo
+		 * resize with GSI endpoint causing low throughput. Hence
+		 * use mult as 3 for GSI IN endpoint always irrespective
+		 * USB speed.
+		 */
+		if (dep->endpoint.ep_type == EP_TYPE_GSI)
+			mult = 3;
+
 		if (!(dep->flags & DWC3_EP_ENABLED)) {
 			dev_dbg(dwc->dev, "ep%dIn not enabled", num);
-			tmp = max_packet + mdwidth;
 			goto resize_fifo;
 		}
 
@@ -213,8 +225,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 				|| usb_endpoint_xfer_isoc(dep->endpoint.desc))
 			mult = 3;
 
-		tmp = mult * (max_packet + mdwidth);
 resize_fifo:
+		tmp *= mult;
 		tmp += mdwidth;
 
 		fifo_size = DIV_ROUND_UP(tmp, mdwidth);

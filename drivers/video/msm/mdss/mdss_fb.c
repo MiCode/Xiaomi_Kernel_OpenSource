@@ -1119,6 +1119,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->ad_bl_level = 0;
 	mfd->fb_imgType = MDP_RGBA_8888;
 	mfd->calib_mode_bl = 0;
+	mfd->unset_bl_level = U32_MAX;
 
 	mfd->pdev = pdev;
 
@@ -1526,7 +1527,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	} else if (mdss_fb_is_power_on(mfd) && mfd->panel_info->panel_dead) {
 		mfd->unset_bl_level = mfd->bl_level;
 	} else {
-		mfd->unset_bl_level = 0;
+		mfd->unset_bl_level = U32_MAX;
 	}
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
@@ -1570,7 +1571,7 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 	u32 temp;
 	bool bl_notify = false;
 
-	if (!mfd->unset_bl_level)
+	if (mfd->unset_bl_level == U32_MAX)
 		return;
 	mutex_lock(&mfd->bl_lock);
 	if (!mfd->allow_bl_update) {
@@ -1781,7 +1782,8 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 			 */
 			if (IS_CALIB_MODE_BL(mfd))
 				mdss_fb_set_backlight(mfd, mfd->calib_mode_bl);
-			else if (!mfd->panel_info->mipi.post_init_delay)
+			else if ((!mfd->panel_info->mipi.post_init_delay) &&
+				(mfd->unset_bl_level != U32_MAX))
 				mdss_fb_set_backlight(mfd, mfd->unset_bl_level);
 
 			/*

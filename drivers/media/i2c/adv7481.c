@@ -916,6 +916,8 @@ static int adv7481_get_sd_timings(struct adv7481_state *state, int *sd_standard)
 	if (sd_standard == NULL)
 		return -EINVAL;
 
+	/* Select SDP read-only main Map */
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e, 0x01);
 	do {
 		sdp_stat = adv7481_rd_byte(&state->i2c_client,
 				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
@@ -924,6 +926,7 @@ static int adv7481_get_sd_timings(struct adv7481_state *state, int *sd_standard)
 		sdp_stat2 = adv7481_rd_byte(&state->i2c_client,
 				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
 	} while ((sdp_stat != sdp_stat2) && (timeout < SDP_NUM_TRIES));
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e, 0x00);
 
 	if (sdp_stat != sdp_stat2) {
 		pr_err("%s, adv7481 SDP status unstable: 1\n", __func__);
@@ -978,10 +981,28 @@ static int adv7481_set_cvbs_mode(struct adv7481_state *state)
 	/* cvbs video settings ntsc etc */
 	ret = adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
 		0x00, 0x30);
+	ret = adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
+		0x0e, 0xff);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
 		0x0f, 0x00);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+		0x52, 0xcd);
+	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
 		0x00, 0x00);
+	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+		0x0e, 0x80);
+	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+		0x9c, 0x00);
+	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+		0x9c, 0xff);
+	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+		0x0e, 0x00);
+	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+		0x80, 0x51);
+	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+		0x81, 0x51);
+	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+		0x82, 0x68);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
 		0x03, 0x42);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
@@ -992,19 +1013,16 @@ static int adv7481_set_cvbs_mode(struct adv7481_state *state)
 		0x17, 0x41);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
 		0x31, 0x12);
-	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
-		0x52, 0xcd);
-	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
-		0x0e, 0xff);
+
 	val = adv7481_rd_byte(&state->i2c_client, state->i2c_io_addr,
 				IO_REG_CSI_PIX_EN_SEL_ADDR);
 	/* Output of SD core routed to MIPI CSI 4-lane Tx */
-	val |= ADV_REG_SETFIELD(0x10, IO_CTRL_CSI4_IN_SEL);
+	val = ADV_REG_SETFIELD(1, IO_CTRL_CSI4_EN) |
+		ADV_REG_SETFIELD(1, IO_CTRL_PIX_OUT_EN) |
+		ADV_REG_SETFIELD(0x2, IO_CTRL_CSI4_IN_SEL);
+
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
 				IO_REG_CSI_PIX_EN_SEL_ADDR, val);
-	/* Enable autodetect */
-	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
-		0x0e, 0x81);
 
 	return ret;
 }
@@ -1348,14 +1366,11 @@ static int adv7481_s_routing(struct v4l2_subdev *sd, u32 input,
 		goto unlock_exit;
 	}
 
-	if (state->mode != adv_input) {
-		ret = adv7481_set_ip_mode(state, adv_input);
-		if (ret)
-			pr_err("%s: Set input mode failed: %d\n",
-				__func__, ret);
-		else
-			state->mode = adv_input;
-	}
+	ret = adv7481_set_ip_mode(state, adv_input);
+	if (ret)
+		pr_err("%s: Set input mode failed: %d\n", __func__, ret);
+	else
+		state->mode = adv_input;
 
 unlock_exit:
 	mutex_unlock(&state->mutex);
@@ -1611,11 +1626,22 @@ static int adv7481_query_sd_std(struct v4l2_subdev *sd, v4l2_std_id *std)
 	int temp = 0;
 	struct adv7481_state *state = to_state(sd);
 	uint8_t tStatus = 0x0;
+	uint32_t count = 0;
 
 	pr_debug("Enter %s\n", __func__);
-	tStatus = adv7481_rd_byte(&state->i2c_client, state->i2c_sdp_addr,
-				SDP_RO_MAIN_STATUS1_ADDR);
-	if (!ADV_REG_GETFIELD(tStatus, SDP_RO_MAIN_IN_LOCK))
+	/* Select SDP read-only main Map */
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e, 0x01);
+	do {
+		tStatus = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
+		if (ADV_REG_GETFIELD(tStatus, SDP_RO_MAIN_IN_LOCK))
+			break;
+		count++;
+		usleep_range(LOCK_MIN_SLEEP, LOCK_MAX_SLEEP);
+	} while (count < LOCK_NUM_TRIES);
+
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e, 0x00);
+	if (count >= LOCK_NUM_TRIES)
 		pr_err("%s(%d), adv7481 SD Input NOT Locked: 0x%x\n",
 			__func__, __LINE__, tStatus);
 
@@ -1697,6 +1723,12 @@ static int adv7481_g_mbus_fmt(struct v4l2_subdev *sd,
 			pr_err("%s: Error %d in adv7481_get_hdmi_timings\n",
 				__func__, ret);
 		}
+		break;
+	case ADV7481_IP_CVBS_1:
+		fmt->code = V4L2_MBUS_FMT_UYVY8_2X8;
+		fmt->colorspace = V4L2_COLORSPACE_SMPTE170M;
+		fmt->width = 720;
+		fmt->height = 576;
 		break;
 	default:
 		return -EINVAL;
@@ -1788,9 +1820,15 @@ static int adv7481_csi_powerup(struct adv7481_state *state,
 	pr_debug("Enter %s for output: %d\n", __func__, output);
 	/* Select CSI TX to configure data */
 	if (output == ADV7481_OP_CSIA) {
-		csi_sel = ADV_REG_SETFIELD(1, IO_CTRL_CSI4_EN) |
-			ADV_REG_SETFIELD(1, IO_CTRL_PIX_OUT_EN) |
-			ADV_REG_SETFIELD(0, IO_CTRL_CSI4_IN_SEL);
+		if (ADV7481_IP_HDMI == state->csia_src) {
+			csi_sel = ADV_REG_SETFIELD(1, IO_CTRL_CSI4_EN) |
+				ADV_REG_SETFIELD(1, IO_CTRL_PIX_OUT_EN) |
+				ADV_REG_SETFIELD(0, IO_CTRL_CSI4_IN_SEL);
+		} else {
+			csi_sel = ADV_REG_SETFIELD(1, IO_CTRL_CSI4_EN) |
+				ADV_REG_SETFIELD(1, IO_CTRL_PIX_OUT_EN) |
+				ADV_REG_SETFIELD(0x2, IO_CTRL_CSI4_IN_SEL);
+		}
 		csi_map = state->i2c_csi_txa_addr;
 	} else if (output == ADV7481_OP_CSIB) {
 		/* Enable 1-Lane MIPI Tx, enable pixel output and
@@ -1925,9 +1963,21 @@ static int adv7481_g_input_status(struct v4l2_subdev *sd, u32 *status)
 			*status |= V4L2_IN_ST_NO_SIGNAL;
 		}
 	} else {
-		val = adv7481_rd_byte(&state->i2c_client, state->i2c_sdp_addr,
-						SDP_RO_MAIN_STATUS1_ADDR);
-		if (!ADV_REG_GETFIELD(val, SDP_RO_MAIN_IN_LOCK)) {
+		/* Select SDP read-only main Map */
+		adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e,
+				0x01);
+		do {
+			val = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
+			if (ADV_REG_GETFIELD(val, SDP_RO_MAIN_IN_LOCK))
+				break;
+			count++;
+			usleep_range(LOCK_MIN_SLEEP, LOCK_MAX_SLEEP);
+		} while (count < LOCK_NUM_TRIES);
+
+		adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e,
+				0x00);
+		if (count >= LOCK_NUM_TRIES) {
 			pr_err("%s(%d), SD Input NOT Locked: 0x%x\n",
 					__func__, __LINE__, val);
 			*status |= V4L2_IN_ST_NO_SIGNAL;
@@ -2035,7 +2085,7 @@ static int adv7481_cci_init(struct adv7481_state *state)
 	cci_client->sid = state->i2c_slave_addr;
 	cci_client->retries = 3;
 	cci_client->id_map = 0;
-	cci_client->i2c_freq_mode = I2C_FAST_MODE;
+	cci_client->i2c_freq_mode = I2C_CUSTOM_MODE;
 	ret = state->i2c_client.i2c_func_tbl->i2c_util(
 				&state->i2c_client, MSM_CCI_INIT);
 	if (ret < 0)
@@ -2210,14 +2260,6 @@ static int adv7481_probe(struct platform_device *pdev)
 		ret = -EIO;
 		pr_err("%s(%d): SW Initialisation Failed\n",
 			__func__, __LINE__);
-		goto err_media_entity;
-	}
-
-	/* Set hdmi settings */
-	ret = adv7481_set_hdmi_mode(state);
-	if (ret) {
-		ret = -EIO;
-		pr_err("%s: failed to set hdmi mode\n", __func__);
 		goto err_media_entity;
 	}
 

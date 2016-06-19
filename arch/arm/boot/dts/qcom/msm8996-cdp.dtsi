@@ -434,7 +434,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,partial-update-enabled;
 	/* panel supports slice height of 8/16/32/48/3840 */
-	qcom,panel-roi-alignment = <1080 8 1080 8 1080 8>;
+	qcom,panel-roi-alignment = <1080 32 1080 32 1080 32>;
 };
 
 &dsi_nt35597_dsc_video {
