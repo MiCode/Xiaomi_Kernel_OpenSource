@@ -31,6 +31,7 @@
 #include <linux/iommu.h>
 #include <linux/types.h>
 #include <linux/of_graph.h>
+#include <linux/mdss_io_util.h>
 #include <asm/sizes.h>
 
 #ifndef CONFIG_OF
@@ -49,6 +50,11 @@
 #include <drm/drm_gem.h>
 
 #include "msm_evtlog.h"
+#include "sde_power_handle.h"
+
+#define GET_MAJOR_REV(rev)		((rev) >> 28)
+#define GET_MINOR_REV(rev)		(((rev) >> 16) & 0xFFF)
+#define GET_STEP_REV(rev)		((rev) & 0xFFFF)
 
 struct msm_kms;
 struct msm_gpu;
@@ -204,6 +210,9 @@ struct display_manager;
 struct msm_drm_private {
 
 	struct msm_kms *kms;
+
+	struct sde_power_handle phandle;
+	struct sde_power_client *pclient;
 
 	/* subordinate devices, if present: */
 	struct platform_device *gpu_pdev;

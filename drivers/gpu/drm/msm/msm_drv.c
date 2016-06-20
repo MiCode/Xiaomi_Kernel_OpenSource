@@ -15,6 +15,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/of_address.h>
 #include "msm_drv.h"
 #include "msm_gpu.h"
 #include "msm_kms.h"
@@ -262,8 +263,6 @@ static int get_mdp_ver(struct platform_device *pdev)
 	return KMS_MDP4;
 }
 
-#include <linux/of_address.h>
-
 static int msm_init_vram(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
@@ -339,6 +338,20 @@ static int msm_init_vram(struct drm_device *dev)
 	return ret;
 }
 
+#ifdef CONFIG_OF
+static int msm_component_bind_all(struct device *dev,
+				struct drm_device *drm_dev)
+{
+	return component_bind_all(dev, drm_dev);
+}
+#else
+static int msm_component_bind_all(struct device *dev,
+				struct drm_device *drm_dev)
+{
+	return 0;
+}
+#endif
+
 static int msm_load(struct drm_device *dev, unsigned long flags)
 {
 	struct platform_device *pdev = dev->platformdev;
@@ -346,7 +359,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	struct msm_kms *kms;
 	int ret;
 
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	priv = platform_get_drvdata(pdev);
 	if (!priv) {
 		dev_err(dev->dev, "failed to allocate private data\n");
 		return -ENOMEM;
@@ -354,22 +367,11 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 
 	dev->dev_private = priv;
 
-	priv->wq = alloc_ordered_workqueue("msm_drm", 0);
-	init_waitqueue_head(&priv->fence_event);
-	init_waitqueue_head(&priv->pending_crtcs_event);
-
-	INIT_LIST_HEAD(&priv->inactive_list);
-	INIT_LIST_HEAD(&priv->fence_cbs);
-	INIT_LIST_HEAD(&priv->vblank_ctrl.event_list);
-	INIT_WORK(&priv->vblank_ctrl.work, vblank_ctrl_worker);
-	spin_lock_init(&priv->vblank_ctrl.lock);
-
 	drm_mode_config_init(dev);
 
 	platform_set_drvdata(pdev, dev);
 
-	/* Bind all our sub-components: */
-	ret = component_bind_all(dev->dev, dev);
+	ret = msm_component_bind_all(dev->dev, dev);
 	if (ret)
 		return ret;
 
@@ -1058,6 +1060,21 @@ static const struct dev_pm_ops msm_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(msm_pm_suspend, msm_pm_resume)
 };
 
+static int msm_drm_bind(struct device *dev)
+{
+	return drm_platform_init(&msm_driver, to_platform_device(dev));
+}
+
+static void msm_drm_unbind(struct device *dev)
+{
+	drm_put_dev(platform_get_drvdata(to_platform_device(dev)));
+}
+
+static const struct component_master_ops msm_drm_ops = {
+	.bind = msm_drm_bind,
+	.unbind = msm_drm_unbind,
+};
+
 /*
  * Componentized driver support:
  */
@@ -1089,27 +1106,30 @@ static int add_components(struct device *dev, struct component_match **matchptr,
 
 	return 0;
 }
+
+static int msm_add_master_component(struct device *dev,
+					struct component_match *match)
+{
+	int ret = component_master_add_with_match(dev, &msm_drm_ops, match);
+
+	if (ret)
+		pr_err("component add match failed\n");
+
+	return ret;
+}
+
 #else
 static int compare_dev(struct device *dev, void *data)
 {
 	return dev == data;
 }
+
+static int msm_add_master_component(struct device *dev,
+					struct component_match *match)
+{
+	return 0;
+}
 #endif
-
-static int msm_drm_bind(struct device *dev)
-{
-	return drm_platform_init(&msm_driver, to_platform_device(dev));
-}
-
-static void msm_drm_unbind(struct device *dev)
-{
-	drm_put_dev(platform_get_drvdata(to_platform_device(dev)));
-}
-
-static const struct component_master_ops msm_drm_ops = {
-	.bind = msm_drm_bind,
-	.unbind = msm_drm_unbind,
-};
 
 /*
  * Platform driver:
@@ -1117,7 +1137,10 @@ static const struct component_master_ops msm_drm_ops = {
 
 static int msm_pdev_probe(struct platform_device *pdev)
 {
+	int ret;
 	struct component_match *match = NULL;
+	struct msm_drm_private *priv;
+
 #ifdef CONFIG_OF
 	add_components(&pdev->dev, &match, "connectors");
 	add_components(&pdev->dev, &match, "gpus");
@@ -1148,14 +1171,55 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	}
 #endif
 
+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
+	priv->wq = alloc_ordered_workqueue("msm_drm", 0);
+	init_waitqueue_head(&priv->fence_event);
+	init_waitqueue_head(&priv->pending_crtcs_event);
+
+	INIT_LIST_HEAD(&priv->inactive_list);
+	INIT_LIST_HEAD(&priv->fence_cbs);
+	INIT_LIST_HEAD(&priv->vblank_ctrl.event_list);
+	INIT_WORK(&priv->vblank_ctrl.work, vblank_ctrl_worker);
+	spin_lock_init(&priv->vblank_ctrl.lock);
+
+	platform_set_drvdata(pdev, priv);
+
+	ret = sde_power_resource_init(pdev, &priv->phandle);
+	if (ret) {
+		pr_err("sde power resource init failed\n");
+		goto hw_setup_failure;
+	}
+
+	priv->pclient = sde_power_client_create(&priv->phandle, "sde");
+	if (IS_ERR_OR_NULL(priv->pclient)) {
+		pr_err("sde power client create failed\n");
+		ret = -EINVAL;
+		goto client_create_err;
+	}
+
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-	return component_master_add_with_match(&pdev->dev, &msm_drm_ops, match);
+
+	return msm_add_master_component(&pdev->dev, match);
+
+client_create_err:
+	sde_power_resource_deinit(pdev, &priv->phandle);
+hw_setup_failure:
+	kfree(priv);
+
+	return ret;
 }
 
 static int msm_pdev_remove(struct platform_device *pdev)
 {
-	component_master_del(&pdev->dev, &msm_drm_ops);
+	struct drm_device *drm_dev = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = drm_dev->dev_private;
 
+	msm_drm_unbind(&pdev->dev);
+	component_master_del(&pdev->dev, &msm_drm_ops);
+	sde_power_resource_deinit(pdev, &priv->phandle);
 	return 0;
 }
 

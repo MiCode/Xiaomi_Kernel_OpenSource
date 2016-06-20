@@ -44,34 +44,6 @@ static const char * const iommu_ports[] = {
 #define SDE_DEBUGFS_DIR "msm_sde"
 #define SDE_DEBUGFS_HWMASKNAME "hw_log_mask"
 
-int sde_disable(struct sde_kms *sde_kms)
-{
-	DBG("");
-
-	clk_disable_unprepare(sde_kms->ahb_clk);
-	clk_disable_unprepare(sde_kms->axi_clk);
-	clk_disable_unprepare(sde_kms->core_clk);
-	clk_disable_unprepare(sde_kms->vsync_clk);
-	if (sde_kms->lut_clk)
-		clk_disable_unprepare(sde_kms->lut_clk);
-
-	return 0;
-}
-
-int sde_enable(struct sde_kms *sde_kms)
-{
-	DBG("");
-
-	clk_prepare_enable(sde_kms->ahb_clk);
-	clk_prepare_enable(sde_kms->axi_clk);
-	clk_prepare_enable(sde_kms->core_clk);
-	clk_prepare_enable(sde_kms->vsync_clk);
-	if (sde_kms->lut_clk)
-		clk_prepare_enable(sde_kms->lut_clk);
-
-	return 0;
-}
-
 static int sde_debugfs_show_regset32(struct seq_file *s, void *data)
 {
 	struct sde_debugfs_regset32 *regset = s->private;
@@ -160,7 +132,10 @@ static void sde_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
-	sde_enable(sde_kms);
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 }
 
 static void sde_commit(struct msm_kms *kms, struct drm_atomic_state *old_state)
@@ -181,6 +156,8 @@ static void sde_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
 	struct drm_connector *connector;
@@ -191,7 +168,7 @@ static void sde_complete_commit(struct msm_kms *kms,
 		sde_crtc_complete_commit(crtc);
 	for_each_connector_in_state(state, connector, conn_state, i)
 		sde_connector_complete_commit(connector);
-	sde_disable(sde_kms);
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	MSM_EVT(sde_kms->dev, 0, 0);
 }
@@ -307,7 +284,6 @@ static int sde_hw_init(struct msm_kms *kms)
 {
 	return 0;
 }
-
 static long sde_round_pixclk(struct msm_kms *kms, unsigned long rate,
 		struct drm_encoder *encoder)
 {
@@ -316,14 +292,30 @@ static long sde_round_pixclk(struct msm_kms *kms, unsigned long rate,
 
 static void sde_postopen(struct msm_kms *kms, struct drm_file *file)
 {
-	if (kms)
-		sde_enable(to_sde_kms(kms));
+	struct sde_kms *sde_kms;
+	struct msm_drm_private *priv;
+
+	if (!kms)
+		return;
+
+	sde_kms = to_sde_kms(kms);
+	priv = sde_kms->dev->dev_private;
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 }
 
 static void sde_preclose(struct msm_kms *kms, struct drm_file *file)
 {
-	if (kms)
-		sde_disable(to_sde_kms(kms));
+	struct sde_kms *sde_kms;
+	struct msm_drm_private *priv;
+
+	if (!kms)
+		return;
+
+	sde_kms = to_sde_kms(kms);
+	priv = sde_kms->dev->dev_private;
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 }
 
 static void sde_destroy(struct msm_kms *kms)
@@ -358,226 +350,16 @@ static const struct msm_kms_funcs kms_funcs = {
 	.destroy         = sde_destroy,
 };
 
-static int get_clk(struct platform_device *pdev, struct clk **clkp,
-		const char *name, bool mandatory)
+/* the caller api needs to turn on clock before calling it */
+static void core_hw_rev_init(struct sde_kms *sde_kms)
 {
-	struct device *dev = &pdev->dev;
-	struct clk *clk = devm_clk_get(dev, name);
-
-	if (IS_ERR(clk) && mandatory) {
-		DRM_ERROR("failed to get %s (%ld)\n", name, PTR_ERR(clk));
-		return PTR_ERR(clk);
-	}
-	if (IS_ERR(clk))
-		DBG("skipping %s", name);
-	else
-		*clkp = clk;
-
-	return 0;
+	sde_kms->core_rev = readl_relaxed(sde_kms->mmio + 0x0);
 }
 
-struct sde_kms *sde_hw_setup(struct platform_device *pdev)
-{
-	struct sde_kms *sde_kms;
-	struct msm_kms *kms = NULL;
-	int ret;
-
-	sde_kms = kzalloc(sizeof(*sde_kms), GFP_KERNEL);
-	if (!sde_kms)
-		return NULL;
-
-	msm_kms_init(&sde_kms->base, &kms_funcs);
-
-	kms = &sde_kms->base;
-
-	sde_kms->mmio = msm_ioremap(pdev, "mdp_phys", "SDE");
-	if (IS_ERR(sde_kms->mmio)) {
-		ret = PTR_ERR(sde_kms->mmio);
-		goto fail;
-	}
-	DRM_INFO("Mapped Mdp address space @%pK\n", sde_kms->mmio);
-
-	sde_kms->vbif[VBIF_RT] = msm_ioremap(pdev, "vbif_phys", "VBIF");
-	if (IS_ERR(sde_kms->vbif[VBIF_RT])) {
-		ret = PTR_ERR(sde_kms->vbif[VBIF_RT]);
-		goto fail;
-	}
-
-	sde_kms->vbif[VBIF_NRT] = msm_ioremap(pdev, "vbif_nrt_phys",
-			"VBIF_NRT");
-	if (IS_ERR(sde_kms->vbif[VBIF_NRT])) {
-		sde_kms->vbif[VBIF_NRT] = NULL;
-		DBG("VBIF NRT is not defined");
-	}
-
-	sde_kms->venus = devm_regulator_get_optional(&pdev->dev, "gdsc-venus");
-	if (IS_ERR(sde_kms->venus)) {
-		ret = PTR_ERR(sde_kms->venus);
-		DBG("failed to get Venus GDSC regulator: %d", ret);
-		sde_kms->venus = NULL;
-	}
-
-	if (sde_kms->venus) {
-		ret = regulator_enable(sde_kms->venus);
-		if (ret) {
-			DBG("failed to enable venus GDSC: %d", ret);
-			goto fail;
-		}
-	}
-
-	sde_kms->vdd = devm_regulator_get(&pdev->dev, "vdd");
-	if (IS_ERR(sde_kms->vdd)) {
-		ret = PTR_ERR(sde_kms->vdd);
-		goto fail;
-	}
-
-	ret = regulator_enable(sde_kms->vdd);
-	if (ret) {
-		DBG("failed to enable regulator vdd: %d", ret);
-		goto fail;
-	}
-
-	sde_kms->mmagic = devm_regulator_get_optional(&pdev->dev, "mmagic");
-	if (IS_ERR(sde_kms->mmagic)) {
-		ret = PTR_ERR(sde_kms->mmagic);
-		DBG("failed to get mmagic GDSC regulator: %d", ret);
-		sde_kms->mmagic = NULL;
-	}
-
-	/* mandatory clocks: */
-	ret = get_clk(pdev, &sde_kms->axi_clk, "bus_clk", true);
-	if (ret)
-		goto fail;
-	ret = get_clk(pdev, &sde_kms->ahb_clk, "iface_clk", true);
-	if (ret)
-		goto fail;
-	ret = get_clk(pdev, &sde_kms->src_clk, "core_clk_src", true);
-	if (ret)
-		goto fail;
-	ret = get_clk(pdev, &sde_kms->core_clk, "core_clk", true);
-	if (ret)
-		goto fail;
-	ret = get_clk(pdev, &sde_kms->vsync_clk, "vsync_clk", true);
-	if (ret)
-		goto fail;
-
-	/* optional clocks: */
-	get_clk(pdev, &sde_kms->lut_clk, "lut_clk", false);
-	get_clk(pdev, &sde_kms->mmagic_clk, "mmagic_clk", false);
-	get_clk(pdev, &sde_kms->iommu_ahb_clk[MSM_SMMU_DOMAIN_UNSECURE],
-			"iommu_mdp_ahb_clk", false);
-	get_clk(pdev, &sde_kms->iommu_axi_clk[MSM_SMMU_DOMAIN_UNSECURE],
-			"iommu_mdp_axi_clk", false);
-	get_clk(pdev, &sde_kms->iommu_ahb_clk[MSM_SMMU_DOMAIN_SECURE],
-			"iommu_mdp_ahb_clk", false);
-	get_clk(pdev, &sde_kms->iommu_axi_clk[MSM_SMMU_DOMAIN_SECURE],
-			"iommu_mdp_axi_clk", false);
-	get_clk(pdev, &sde_kms->iommu_ahb_clk[MSM_SMMU_DOMAIN_NRT_UNSECURE],
-			"iommu_rot_ahb_clk", false);
-	get_clk(pdev, &sde_kms->iommu_axi_clk[MSM_SMMU_DOMAIN_NRT_UNSECURE],
-			"iommu_rot_axi_clk", false);
-	get_clk(pdev, &sde_kms->iommu_ahb_clk[MSM_SMMU_DOMAIN_NRT_SECURE],
-			"iommu_rot_ahb_clk", false);
-	get_clk(pdev, &sde_kms->iommu_axi_clk[MSM_SMMU_DOMAIN_NRT_SECURE],
-			"iommu_rot_axi_clk", false);
-
-	if (sde_kms->mmagic) {
-		ret = regulator_enable(sde_kms->mmagic);
-		if (ret) {
-			DRM_ERROR("failed to enable mmagic GDSC: %d\n", ret);
-			goto fail;
-		}
-	}
-	if (sde_kms->mmagic_clk) {
-		clk_prepare_enable(sde_kms->mmagic_clk);
-		if (ret) {
-			DRM_ERROR("failed to enable mmagic_clk\n");
-			goto undo_gdsc;
-		}
-	}
-
-	return sde_kms;
-
-undo_gdsc:
-	if (sde_kms->mmagic)
-		regulator_disable(sde_kms->mmagic);
-fail:
-	if (kms)
-		sde_destroy(kms);
-
-	return ERR_PTR(ret);
-}
-
-static int sde_translation_ctrl_pwr(struct sde_kms *sde_kms,
-		enum msm_mmu_domain_type domain, bool on)
-{
-	int ret;
-
-	if (on) {
-		if (sde_kms->iommu_ahb_clk[domain]) {
-			ret = clk_prepare_enable(
-					sde_kms->iommu_ahb_clk[domain]);
-			if (ret) {
-				DRM_ERROR("failed to enable iommu_ahb_clk\n");
-				goto undo_mmagic_clk;
-			}
-		}
-		if (sde_kms->iommu_axi_clk[domain]) {
-			ret = clk_prepare_enable(
-					sde_kms->iommu_axi_clk[domain]);
-			if (ret) {
-				DRM_ERROR("failed to enable iommu_axi_clk\n");
-				if (sde_kms->iommu_ahb_clk[domain])
-					clk_disable_unprepare(
-						sde_kms->iommu_ahb_clk[domain]);
-				goto undo_mmagic_clk;
-			}
-		}
-	} else {
-		if (sde_kms->iommu_ahb_clk[domain])
-			clk_disable_unprepare(sde_kms->iommu_ahb_clk[domain]);
-		if (sde_kms->iommu_axi_clk[domain])
-			clk_disable_unprepare(sde_kms->iommu_axi_clk[domain]);
-		if (sde_kms->mmagic_clk)
-			clk_disable_unprepare(sde_kms->mmagic_clk);
-		if (sde_kms->mmagic)
-			regulator_disable(sde_kms->mmagic);
-	}
-
-	return 0;
-
-undo_mmagic_clk:
-	if (sde_kms->mmagic_clk)
-		clk_disable_unprepare(sde_kms->mmagic_clk);
-
-	return ret;
-}
 int sde_mmu_init(struct sde_kms *sde_kms)
 {
-	struct sde_mdss_cfg *catalog = sde_kms->catalog;
-	struct sde_hw_intf *intf = NULL;
 	struct msm_mmu *mmu;
 	int i, ret;
-
-	/*
-	 * Make sure things are off before attaching iommu (bootloader could
-	 * have left things on, in which case we'll start getting faults if
-	 * we don't disable):
-	 */
-	sde_enable(sde_kms);
-	for (i = 0; i < catalog->intf_count; i++) {
-		if (catalog->intf[i].type != INTF_NONE) {
-			intf = sde_hw_intf_init(catalog->intf[i].id,
-					sde_kms->mmio,
-					catalog);
-			if (!IS_ERR_OR_NULL(intf)) {
-				intf->ops.enable_timing(intf, 0x0);
-				sde_hw_intf_destroy(intf);
-			}
-		}
-	}
-	sde_disable(sde_kms);
-	msleep(20);
 
 	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
 		mmu = msm_smmu_new(sde_kms->dev->dev, i);
@@ -587,18 +369,10 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 			goto fail;
 		}
 
-		ret = sde_translation_ctrl_pwr(sde_kms, i, true);
-		if (ret) {
-			DRM_ERROR("failed to power iommu: %d\n", ret);
-			mmu->funcs->destroy(mmu);
-			goto fail;
-		}
-
 		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
 			DRM_ERROR("failed to attach iommu: %d\n", ret);
-			sde_translation_ctrl_pwr(sde_kms, i, false);
 			mmu->funcs->destroy(mmu);
 			goto fail;
 		}
@@ -609,7 +383,6 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 			DRM_ERROR("failed to register sde iommu: %d\n", ret);
 			mmu->funcs->detach(mmu, (const char **)iommu_ports,
 					ARRAY_SIZE(iommu_ports));
-			sde_translation_ctrl_pwr(sde_kms, i, false);
 			goto fail;
 		}
 
@@ -622,53 +395,128 @@ fail:
 
 }
 
-struct msm_kms *sde_kms_init(struct drm_device *dev)
+struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 {
-	struct msm_drm_private *priv = dev->dev_private;
-	struct platform_device *pdev = dev->platformdev;
-	struct sde_mdss_cfg *catalog;
 	struct sde_kms *sde_kms;
-	struct msm_kms *msm_kms;
 	int ret = 0;
 
-	if (!dev || !dev->dev_private) {
-		DRM_ERROR("invalid device\n");
-		goto fail;
+	sde_kms = kzalloc(sizeof(*sde_kms), GFP_KERNEL);
+	if (!sde_kms)
+		return ERR_PTR(-ENOMEM);
+
+	sde_kms->mmio = msm_ioremap(pdev, "mdp_phys", "SDE");
+	if (IS_ERR(sde_kms->mmio)) {
+		SDE_ERROR("mdp register memory map failed\n");
+		ret = PTR_ERR(sde_kms->mmio);
+		goto err;
+	}
+	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
+
+	sde_kms->vbif[VBIF_RT] = msm_ioremap(pdev, "vbif_phys", "VBIF");
+	if (IS_ERR(sde_kms->vbif[VBIF_RT])) {
+		SDE_ERROR("vbif register memory map failed\n");
+		ret = PTR_ERR(sde_kms->vbif[VBIF_RT]);
+		goto vbif_map_err;
 	}
 
-	sde_kms = sde_hw_setup(pdev);
-	if (IS_ERR(sde_kms)) {
-		ret = PTR_ERR(sde_kms);
-		goto fail;
+	sde_kms->vbif[VBIF_NRT] = msm_ioremap(pdev, "vbif_nrt_phys",
+		"VBIF_NRT");
+	if (IS_ERR(sde_kms->vbif[VBIF_NRT])) {
+		sde_kms->vbif[VBIF_NRT] = NULL;
+		SDE_DEBUG("VBIF NRT is not defined");
+	}
+
+	/* junk API - no error return for init api */
+	msm_kms_init(&sde_kms->base, &kms_funcs);
+	if (ret) {
+		SDE_ERROR("mdp/kms hw init failed\n");
+		goto kms_init_err;
+	}
+
+	SDE_DEBUG("sde hw setup successful\n");
+	return sde_kms;
+
+kms_init_err:
+	if (sde_kms->vbif[VBIF_NRT])
+		iounmap(sde_kms->vbif[VBIF_NRT]);
+	iounmap(sde_kms->vbif[VBIF_RT]);
+vbif_map_err:
+	iounmap(sde_kms->mmio);
+err:
+	kfree(sde_kms);
+	return ERR_PTR(ret);
+}
+
+static void sde_hw_destroy(struct sde_kms *sde_kms)
+{
+	if (sde_kms->vbif[VBIF_NRT])
+		iounmap(sde_kms->vbif[VBIF_NRT]);
+	iounmap(sde_kms->vbif[VBIF_RT]);
+	iounmap(sde_kms->mmio);
+	kfree(sde_kms);
+}
+
+struct msm_kms *sde_kms_init(struct drm_device *dev)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	int rc;
+
+	if (!dev) {
+		SDE_ERROR("drm device node invalid\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	priv = dev->dev_private;
+	sde_kms = sde_hw_setup(dev->platformdev);
+	if (IS_ERR_OR_NULL(sde_kms)) {
+		SDE_ERROR("sde hw setup failed\n");
+		rc = PTR_ERR(sde_kms);
+		goto end;
 	}
 
 	sde_kms->dev = dev;
-	msm_kms = &sde_kms->base;
-	priv->kms = msm_kms;
+	priv->kms = &sde_kms->base;
 
-	/*
-	 * Currently hardcoding to MDSS version 1.7.0 (8996)
-	 */
-	catalog = sde_hw_catalog_init(1, 7, 0);
-	if (!catalog)
-		goto fail;
+	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
+	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
+		SDE_ERROR("sde power client create failed\n");
+		rc = -EINVAL;
+		goto kms_destroy;
+	}
 
-	sde_kms->catalog = catalog;
+	rc = sde_power_clk_set_rate(&priv->phandle, "core_clk",
+		DEFAULT_MDP_SRC_CLK);
+	if (rc) {
+		SDE_ERROR("core clock set rate failed\n");
+		goto clk_rate_err;
+	}
 
-	/* we need to set a default rate before enabling.
-	 * Set a safe rate first, before initializing catalog
-	 * later set more optimal rate based on bandwdith/clock
-	 * requirements
-	 */
+	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+		true);
+	if (rc) {
+		SDE_ERROR("resource enable failed\n");
+		goto clk_rate_err;
+	}
 
-	clk_set_rate(sde_kms->src_clk, DEFAULT_MDP_SRC_CLK);
+	core_hw_rev_init(sde_kms);
 
-	sde_enable(sde_kms);
-	ret = sde_rm_init(&sde_kms->rm, sde_kms->catalog, sde_kms->mmio,
+	sde_kms->catalog = sde_hw_catalog_init(GET_MAJOR_REV(sde_kms->core_rev),
+			GET_MINOR_REV(sde_kms->core_rev),
+			GET_STEP_REV(sde_kms->core_rev));
+	if (IS_ERR_OR_NULL(sde_kms->catalog)) {
+		SDE_ERROR("catalog init failed\n");
+		rc = PTR_ERR(sde_kms->catalog);
+		goto catalog_err;
+	}
+
+	rc = sde_rm_init(&sde_kms->rm, sde_kms->catalog, sde_kms->mmio,
 			sde_kms->dev);
-	sde_disable(sde_kms);
-	if (ret)
-		goto fail;
+	if (rc)
+		goto catalog_err;
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	/*
 	 * Now we need to read the HW catalog and initialize resources such as
@@ -698,7 +546,8 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 * max crtc width is equal to the max mixer width * 2 and max height is
 	 * is 4K
 	 */
-	dev->mode_config.max_width =  catalog->mixer[0].sblk->maxwidth * 2;
+	dev->mode_config.max_width =
+			sde_kms->catalog->mixer[0].sblk->maxwidth * 2;
 	dev->mode_config.max_height = 4096;
 
 	/*
@@ -708,13 +557,16 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 
 	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
 	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
-		goto fail;
+		goto clk_rate_err;
 
-	return msm_kms;
+	return &sde_kms->base;
 
-fail:
-	if (msm_kms)
-		sde_destroy(msm_kms);
-
-	return ERR_PTR(ret);
+catalog_err:
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+clk_rate_err:
+	sde_power_client_destroy(&priv->phandle, sde_kms->core_client);
+kms_destroy:
+	sde_hw_destroy(sde_kms);
+end:
+	return ERR_PTR(rc);
 }
