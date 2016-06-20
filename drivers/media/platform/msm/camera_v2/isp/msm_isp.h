@@ -133,6 +133,8 @@ struct msm_isp_timestamp {
 };
 
 struct msm_vfe_irq_ops {
+	void (*read_irq_status_and_clear)(struct vfe_device *vfe_dev,
+		uint32_t *irq_status0, uint32_t *irq_status1);
 	void (*read_irq_status)(struct vfe_device *vfe_dev,
 		uint32_t *irq_status0, uint32_t *irq_status1);
 	void (*process_reg_update)(struct vfe_device *vfe_dev,
@@ -182,6 +184,7 @@ struct msm_vfe_axi_ops {
 		struct msm_vfe_axi_stream *stream_info);
 	void (*clear_wm_irq_mask)(struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info);
+	void (*clear_irq_mask)(struct vfe_device *vfe_dev);
 
 	void (*cfg_wm_reg)(struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info,
