@@ -2249,7 +2249,7 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 	if (ret)
 		return ret;
 
-	if (buf.fd == 0)
+	if (buf.fd < 0)
 		return -EINVAL;
 
 	*fd = buf.fd;
