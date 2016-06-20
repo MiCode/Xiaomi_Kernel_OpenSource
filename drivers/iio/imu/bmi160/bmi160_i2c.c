@@ -1,10 +1,14 @@
 /*!
  * @section LICENSE
- * $license_gpl$
+ * (C) Copyright 2011~2015 Bosch Sensortec GmbH All Rights Reserved
  *
- * @filename $filename$
- * @date     2016/04/21 16:30
- * @id       $id$
+ * This software program is licensed subject to the GNU General
+ * Public License (GPL).Version 2,June 1991,
+ * available at http://www.fsf.org/copyleft/gpl.html
+ *
+ * @filename bmi160_i2c.c
+ * @date     2014/05/06 16:30
+ * @id       "128af5d"
  * @version  0.2
  *
  * @brief
