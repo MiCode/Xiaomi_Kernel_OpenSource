@@ -1522,6 +1522,14 @@ static int msm_ds2_dap_get_param(u32 cmd, void *arg)
 		goto end;
 	}
 
+	/* Return if invalid length */
+	if (dolby_data->length >
+	       (DOLBY_MAX_LENGTH_INDIVIDUAL_PARAM - DOLBY_PARAM_PAYLOAD_SIZE)) {
+		pr_err("Invalid length %d", dolby_data->length);
+		rc = -EINVAL;
+		goto end;
+	}
+
 	for (i = 0; i < DS2_DEVICES_ALL; i++) {
 		if ((dev_map[i].active) &&
 			(dev_map[i].device_id & dolby_data->device_id)) {
