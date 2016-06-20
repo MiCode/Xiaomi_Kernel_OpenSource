@@ -749,7 +749,6 @@ static struct sync_fence *__create_fence(struct msm_fb_data_type *mfd,
 		goto end;
 	}
 
-	sync_fence_install(sync_fence, *fence_fd);
 end:
 	return sync_fence;
 }
@@ -822,6 +821,9 @@ static int __handle_buffer_fences(struct msm_fb_data_type *mfd,
 		ret = PTR_ERR(retire_fence);
 		goto retire_fence_err;
 	}
+
+	sync_fence_install(release_fence, commit->release_fence);
+	sync_fence_install(retire_fence, commit->retire_fence);
 
 	mutex_unlock(&sync_pt_data->sync_mutex);
 	return ret;
