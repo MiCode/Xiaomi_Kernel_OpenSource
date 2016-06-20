@@ -1559,10 +1559,12 @@ static void clk_osm_setup_cycle_counters(struct clk_osm *c)
 
 static void clk_osm_setup_osm_was(struct clk_osm *c)
 {
+	u32 cc_hyst;
 	u32 val;
 
 	val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 	val |= IGNORE_PLL_LOCK_MASK;
+	cc_hyst = clk_osm_read_reg(c, SPM_CC_HYSTERESIS);
 
 	if (c->secure_init) {
 		clk_osm_write_reg(c, val, SEQ_REG(47));
@@ -1578,6 +1580,11 @@ static void clk_osm_setup_osm_was(struct clk_osm *c)
 		clk_osm_write_reg(c, c->pbases[OSM_BASE] + PDN_FSM_CTRL_REG,
 				  SEQ_REG(46));
 
+		/* C2D/C3 + D2D workaround */
+		clk_osm_write_reg(c, c->pbases[OSM_BASE] + SPM_CC_HYSTERESIS,
+				  SEQ_REG(6));
+		clk_osm_write_reg(c, cc_hyst, SEQ_REG(7));
+
 		/* Droop detector PLL lock detect workaround */
 		clk_osm_write_reg(c, PLL_DD_USER_CTL_LO_ENABLE, SEQ_REG(4));
 		clk_osm_write_reg(c, PLL_DD_USER_CTL_LO_DISABLE, SEQ_REG(5));
@@ -1587,6 +1594,10 @@ static void clk_osm_setup_osm_was(struct clk_osm *c)
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(47), val);
 		val &= ~IGNORE_PLL_LOCK_MASK;
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(48), val);
+
+		/* C2D/C3 + D2D workaround */
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(7),
+			     cc_hyst);
 
 		/* Droop detector PLL lock detect workaround */
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(4),
