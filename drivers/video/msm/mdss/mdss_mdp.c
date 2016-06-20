@@ -1187,7 +1187,7 @@ static int mdss_bus_rt_bw_vote(bool enable)
 	int rc = 0;
 	bool changed = false;
 
-	if (!mdata->hw_rt_bus_hdl)
+	if (!mdata->hw_rt_bus_hdl || mdata->handoff_pending)
 		return 0;
 
 	if (enable) {
