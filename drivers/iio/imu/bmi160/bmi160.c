@@ -6,7 +6,7 @@
  * Public License (GPL).Version 2,June 1991,
  * available at http://www.fsf.org/copyleft/gpl.html
 *
-* @filename bmi160_api.c
+* @filename bmi160.c
 * @Date: 2015/04/02
 * @id       "128af5d"
 * @Revision: 2.0.9 $
