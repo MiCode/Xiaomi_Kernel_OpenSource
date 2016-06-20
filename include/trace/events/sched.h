@@ -274,7 +274,7 @@ TRACE_EVENT(sched_set_boost,
 TRACE_EVENT(sched_update_task_ravg,
 
 	TP_PROTO(struct task_struct *p, struct rq *rq, enum task_event evt,
-		 u64 wallclock, u64 irqtime, u32 cycles, u32 exec_time,
+		 u64 wallclock, u64 irqtime, u64 cycles, u64 exec_time,
 		 struct group_cpu_time *cpu_time),
 
 	TP_ARGS(p, rq, evt, wallclock, irqtime, cycles, exec_time, cpu_time),
@@ -364,7 +364,7 @@ TRACE_EVENT(sched_update_task_ravg,
 
 TRACE_EVENT(sched_get_task_cpu_cycles,
 
-	TP_PROTO(int cpu, int event, u64 cycles, u32 exec_time),
+	TP_PROTO(int cpu, int event, u64 cycles, u64 exec_time),
 
 	TP_ARGS(cpu, event, cycles, exec_time),
 
