@@ -69,4 +69,16 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc);
  */
 int sde_cp_crtc_get_property(struct drm_crtc *crtc,
 				struct drm_property *property, uint64_t *val);
+
+/**
+ * sde_cp_crtc_suspend: Suspend the crtc features
+ * @crtc: Pointer to crtc.
+ */
+void sde_cp_crtc_suspend(struct drm_crtc *crtc);
+
+/**
+ * sde_cp_crtc_resume: Resume the crtc features
+ * @crtc: Pointer to crtc.
+ */
+void sde_cp_crtc_resume(struct drm_crtc *crtc);
 #endif /*_SDE_COLOR_PROCESSING_H */

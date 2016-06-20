@@ -430,6 +430,11 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 	}
 
 	sde_crtc = to_sde_crtc(crtc);
+	if (!sde_crtc) {
+		DRM_ERROR("sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+
 	kms = get_kms(crtc);
 	if (!kms || !kms->catalog || !sde_crtc) {
 		DRM_ERROR("invalid sde kms %pK catalog %pK sde_crtc %pK\n",
@@ -637,4 +642,31 @@ void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
 	INIT_LIST_HEAD(&sde_crtc->active_list);
 	INIT_LIST_HEAD(&sde_crtc->dirty_list);
 	INIT_LIST_HEAD(&sde_crtc->feature_list);
+}
+
+void sde_cp_crtc_suspend(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc = NULL;
+	struct sde_color_process_node *prop_node = NULL, *n = NULL;
+
+	if (!crtc) {
+		DRM_ERROR("crtc %pK\n", crtc);
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+	if (!sde_crtc) {
+		DRM_ERROR("sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+
+	list_for_each_entry_safe(prop_node, n, &sde_crtc->active_list,
+				 active_list) {
+		list_add_tail(&prop_node->dirty_list, &sde_crtc->dirty_list);
+		list_del_init(&prop_node->active_list);
+	}
+}
+
+void sde_cp_crtc_resume(struct drm_crtc *crtc)
+{
+	/* placeholder for operations needed during resume */
 }
