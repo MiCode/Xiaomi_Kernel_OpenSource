@@ -9,6 +9,7 @@
 * @filename bmi160.h
 * @Date: 2015/04/02
 * @id       "128af5d"
+
 * @Revision: 2.0.9 $
 *
 * Usage: Sensor Driver for BMI160 sensor
