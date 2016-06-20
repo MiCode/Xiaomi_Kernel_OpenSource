@@ -245,6 +245,16 @@
 
 #define ARM_MMU500_ACR_CACHE_LOCK	(1 << 26)
 
+/* Definitions for implementation-defined registers */
+#define ACTLR_QCOM_OSH_SHIFT		28
+#define ACTLR_QCOM_OSH			1
+
+#define ACTLR_QCOM_ISH_SHIFT		29
+#define ACTLR_QCOM_ISH			1
+
+#define ACTLR_QCOM_NSH_SHIFT		30
+#define ACTLR_QCOM_NSH			1
+
 #define CB_PAR_F			(1 << 0)
 
 #define ATSR_ACTIVE			(1 << 0)
@@ -294,6 +304,7 @@ enum arm_smmu_implementation {
 	GENERIC_SMMU,
 	ARM_MMU500,
 	CAVIUM_SMMUV2,
+	QCOM_SMMUV2,
 };
 
 struct arm_smmu_smr {
@@ -1572,6 +1583,13 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 			reg &= ~ARM_MMU500_ACTLR_CPRE;
 			writel_relaxed(reg, cb_base + ARM_SMMU_CB_ACTLR);
 		}
+
+		if (smmu->model == QCOM_SMMUV2) {
+			reg = ACTLR_QCOM_ISH << ACTLR_QCOM_ISH_SHIFT |
+			ACTLR_QCOM_OSH << ACTLR_QCOM_OSH_SHIFT |
+			ACTLR_QCOM_NSH << ACTLR_QCOM_NSH_SHIFT;
+			writel_relaxed(reg, cb_base + ARM_SMMU_CB_ACTLR);
+		}
 	}
 
 	/* Invalidate the TLB, just in case */
@@ -1841,6 +1859,7 @@ ARM_SMMU_MATCH_DATA(smmu_generic_v2, ARM_SMMU_V2, GENERIC_SMMU);
 ARM_SMMU_MATCH_DATA(arm_mmu401, ARM_SMMU_V1_64K, GENERIC_SMMU);
 ARM_SMMU_MATCH_DATA(arm_mmu500, ARM_SMMU_V2, ARM_MMU500);
 ARM_SMMU_MATCH_DATA(cavium_smmuv2, ARM_SMMU_V2, CAVIUM_SMMUV2);
+ARM_SMMU_MATCH_DATA(qcom_smmuv2, ARM_SMMU_V2, QCOM_SMMUV2);
 
 static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,smmu-v1", .data = &smmu_generic_v1 },
@@ -1849,6 +1868,7 @@ static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,mmu-401", .data = &arm_mmu401 },
 	{ .compatible = "arm,mmu-500", .data = &arm_mmu500 },
 	{ .compatible = "cavium,smmu-v2", .data = &cavium_smmuv2 },
+	{ .compatible = "qcom,smmu-v2", .data = &qcom_smmuv2 },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, arm_smmu_of_match);
