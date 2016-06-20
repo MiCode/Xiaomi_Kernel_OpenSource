@@ -199,6 +199,8 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	struct drm_display_mode *mode = &phys_enc->cached_mode;
 	bool tc_enable = true;
 	u32 vsync_hz;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
 
 	DBG("intf %d, pp %d", cmd_enc->intf_idx, cmd_enc->hw_pp->idx);
 
@@ -208,6 +210,8 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 		return;
 	}
 
+	sde_kms = phys_enc->sde_kms;
+	priv = sde_kms->dev->dev_private;
 	/*
 	 * TE default: dsi byte clock calculated base on 70 fps;
 	 * around 14 ms to complete a kickoff cycle if te disabled;
@@ -217,7 +221,12 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	 * vsync_count is ratio of MDP VSYNC clock frequency to LCD panel
 	 * frequency divided by the no. of rows (lines) in the LCDpanel.
 	 */
-	vsync_hz = clk_get_rate(phys_enc->sde_kms->vsync_clk);
+	vsync_hz = sde_power_clk_get_rate(&priv->phandle, "vsync_clk");
+	if (!vsync_hz) {
+		DBG("invalid vsync clock rate");
+		return;
+	}
+
 	tc_cfg.vsync_count = vsync_hz / (mode->vtotal * mode->vrefresh);
 	tc_cfg.hw_vsync_mode = 1;
 

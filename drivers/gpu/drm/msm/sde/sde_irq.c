@@ -170,11 +170,13 @@ void sde_disable_all_irqs(struct sde_kms *sde_kms)
 void sde_irq_preinstall(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
 
-	sde_enable(sde_kms);
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 	sde_clear_all_irqs(sde_kms);
 	sde_disable_all_irqs(sde_kms);
-	sde_disable(sde_kms);
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	spin_lock_init(&sde_kms->irq_obj.cb_lock);
 
@@ -184,11 +186,14 @@ void sde_irq_preinstall(struct msm_kms *kms)
 			sizeof(struct sde_irq_callback), GFP_KERNEL);
 	if (!sde_kms->irq_obj.irq_cb_tbl)
 		DRM_ERROR("Fail to allocate memory of IRQ callback list\n");
+
 }
 
 int sde_irq_postinstall(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
 	struct sde_irq_callback irq_cb;
 	int irq_idx;
 	int i;
@@ -197,14 +202,14 @@ int sde_irq_postinstall(struct msm_kms *kms)
 	irq_cb.arg  = sde_kms;
 
 	/* Register interface underrun callback */
-	sde_enable(sde_kms);
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 	for (i = 0; i < sde_kms->catalog->intf_count; i++) {
 		irq_idx = sde_irq_idx_lookup(sde_kms,
 				SDE_IRQ_TYPE_INTF_UNDER_RUN, i+INTF_0);
 		sde_register_irq_callback(sde_kms, irq_idx, &irq_cb);
 		sde_enable_irq(sde_kms, &irq_idx, 1);
 	}
-	sde_disable(sde_kms);
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	return 0;
 }
@@ -212,11 +217,13 @@ int sde_irq_postinstall(struct msm_kms *kms)
 void sde_irq_uninstall(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
 
-	sde_enable(sde_kms);
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 	sde_clear_all_irqs(sde_kms);
 	sde_disable_all_irqs(sde_kms);
-	sde_disable(sde_kms);
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	kfree(sde_kms->irq_obj.irq_cb_tbl);
 }

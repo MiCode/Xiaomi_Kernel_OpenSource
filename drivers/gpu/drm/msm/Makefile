@@ -58,6 +58,7 @@ msm-y := \
 	msm_rd.o \
 	msm_ringbuffer.o \
 	msm_evtlog.o \
+	sde_power_handle.o \
 	msm_prop.o \
 
 # use drm gpu driver only if qcom_kgsl driver not available
