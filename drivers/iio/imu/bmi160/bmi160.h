@@ -1,10 +1,14 @@
 /*
 * @section LICENSE
-* $license_gpl$
+ * (C) Copyright 2011~2015 Bosch Sensortec GmbH All Rights Reserved
+ *
+ * This software program is licensed subject to the GNU General
+ * Public License (GPL).Version 2,June 1991,
+ * available at http://www.fsf.org/copyleft/gpl.html
 *
-* @filename $filename$
+* @filename bmi160.h
 * @Date: 2015/04/02
-* @id       $id$
+* @id       "128af5d"
 * @Revision: 2.0.9 $
 *
 * Usage: Sensor Driver for BMI160 sensor
