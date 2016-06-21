@@ -888,6 +888,7 @@
 			<0x8fff0036 0x8fff003a 0x0fff0036>,
 			<0x8fff003d 0x8fff0041 0x0fff003d>;
 
+		qcom,apm-threshold-voltage = <832000>;
 		qcom,boost-fsm-en;
 		qcom,safe-fsm-en;
 		qcom,ps-fsm-en;
