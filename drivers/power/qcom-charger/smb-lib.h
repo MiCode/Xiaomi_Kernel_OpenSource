@@ -62,6 +62,12 @@ struct smb_params {
 	struct smb_chg_param	usb_icl;
 	struct smb_chg_param	icl_stat;
 	struct smb_chg_param	dc_icl;
+	struct smb_chg_param	dc_icl_pt_lv;
+	struct smb_chg_param	dc_icl_pt_hv;
+	struct smb_chg_param	dc_icl_div2_lv;
+	struct smb_chg_param	dc_icl_div2_mid_lv;
+	struct smb_chg_param	dc_icl_div2_mid_hv;
+	struct smb_chg_param	dc_icl_div2_hv;
 };
 
 struct parallel_params {
