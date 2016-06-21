@@ -377,7 +377,6 @@ void display_manager_register(void)
 	dsi_phy_drv_register();
 	dsi_ctrl_drv_register();
 	dsi_display_register();
-
 	platform_driver_register(&disp_manager_driver);
 }
 void display_manager_unregister(void)
