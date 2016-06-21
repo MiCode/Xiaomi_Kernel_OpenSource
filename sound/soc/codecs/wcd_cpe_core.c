@@ -28,7 +28,7 @@
 #include <sound/cpe_err.h>
 #include <soc/qcom/pm.h>
 #include <linux/mfd/wcd9xxx/core.h>
-#include <linux/mfd/wcd9xxx/core-resource.h>
+#include <linux/mfd/wcd9xxx/wcd9xxx-irq.h>
 #include <sound/audio_cal_utils.h>
 #include "wcd_cpe_core.h"
 #include "wcd_cpe_services.h"

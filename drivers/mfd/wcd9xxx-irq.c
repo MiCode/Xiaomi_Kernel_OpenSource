@@ -15,8 +15,10 @@
 #include <linux/sched.h>
 #include <linux/irq.h>
 #include <linux/mfd/core.h>
-#include <linux/mfd/wcd9xxx/core-resource.h>
+#include <linux/regmap.h>
+#include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
+#include <linux/mfd/wcd9xxx/wcd9xxx-irq.h>
 #include <linux/delay.h>
 #include <linux/irqdomain.h>
 #include <linux/interrupt.h>
@@ -75,9 +77,9 @@ static void wcd9xxx_irq_sync_unlock(struct irq_data *data)
 			pr_err("%s: Array Size out of bound\n", __func__);
 			 return;
 	}
-	if (!wcd9xxx_res->codec_reg_write) {
-		pr_err("%s: Codec reg write callback function not defined\n",
-				__func__);
+	if (!wcd9xxx_res->wcd_core_regmap) {
+		pr_err("%s: Codec core regmap not defined\n",
+			__func__);
 		return;
 	}
 
@@ -90,7 +92,7 @@ static void wcd9xxx_irq_sync_unlock(struct irq_data *data)
 
 			wcd9xxx_res->irq_masks_cache[i] =
 					wcd9xxx_res->irq_masks_cur[i];
-			wcd9xxx_res->codec_reg_write(wcd9xxx_res,
+			regmap_write(wcd9xxx_res->wcd_core_regmap,
 			wcd9xxx_res->intr_reg[WCD9XXX_INTR_MASK_BASE] + i,
 			wcd9xxx_res->irq_masks_cur[i]);
 		}
@@ -244,21 +246,21 @@ static void wcd9xxx_irq_dispatch(struct wcd9xxx_core_resource *wcd9xxx_res,
 			struct intr_data *irqdata)
 {
 	int irqbit = irqdata->intr_num;
-	if (!wcd9xxx_res->codec_reg_write) {
-		pr_err("%s: codec read/write callback not defined\n",
-			   __func__);
+	if (!wcd9xxx_res->wcd_core_regmap) {
+		pr_err("%s: codec core regmap not defined\n",
+			__func__);
 		return;
 	}
 
 	if (irqdata->clear_first) {
 		wcd9xxx_nested_irq_lock(wcd9xxx_res);
-		wcd9xxx_res->codec_reg_write(wcd9xxx_res,
+		regmap_write(wcd9xxx_res->wcd_core_regmap,
 			wcd9xxx_res->intr_reg[WCD9XXX_INTR_CLEAR_BASE] +
 					      BIT_BYTE(irqbit),
 			BYTE_BIT_MASK(irqbit));
 
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
-			wcd9xxx_res->codec_reg_write(wcd9xxx_res,
+			regmap_write(wcd9xxx_res->wcd_core_regmap,
 				wcd9xxx_res->intr_reg[WCD9XXX_INTR_CLR_COMMIT],
 				0x02);
 		handle_nested_irq(phyirq_to_virq(wcd9xxx_res, irqbit));
@@ -266,12 +268,12 @@ static void wcd9xxx_irq_dispatch(struct wcd9xxx_core_resource *wcd9xxx_res,
 	} else {
 		wcd9xxx_nested_irq_lock(wcd9xxx_res);
 		handle_nested_irq(phyirq_to_virq(wcd9xxx_res, irqbit));
-		wcd9xxx_res->codec_reg_write(wcd9xxx_res,
+		regmap_write(wcd9xxx_res->wcd_core_regmap,
 			wcd9xxx_res->intr_reg[WCD9XXX_INTR_CLEAR_BASE] +
 					      BIT_BYTE(irqbit),
 			BYTE_BIT_MASK(irqbit));
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
-			wcd9xxx_res->codec_reg_write(wcd9xxx_res,
+			regmap_write(wcd9xxx_res->wcd_core_regmap,
 				wcd9xxx_res->intr_reg[WCD9XXX_INTR_CLR_COMMIT],
 				0x02);
 
@@ -295,16 +297,16 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	if (!wcd9xxx_res->codec_bulk_read) {
+	if (!wcd9xxx_res->wcd_core_regmap) {
 		dev_err(wcd9xxx_res->dev,
-				"%s: Codec Bulk Register read callback not supplied\n",
+			"%s: Codec core regmap not supplied\n",
 			   __func__);
 		goto err_disable_irq;
 	}
 
-	ret = wcd9xxx_res->codec_bulk_read(wcd9xxx_res,
+	ret = regmap_bulk_read(wcd9xxx_res->wcd_core_regmap,
 		wcd9xxx_res->intr_reg[WCD9XXX_INTR_STATUS_BASE],
-		num_irq_regs, status);
+		status, num_irq_regs);
 
 	if (ret < 0) {
 		dev_err(wcd9xxx_res->dev,
@@ -358,11 +360,11 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 
 		memset(status, 0xff, num_irq_regs);
 
-		ret = wcd9xxx_res->codec_bulk_write(wcd9xxx_res,
+		ret = regmap_bulk_write(wcd9xxx_res->wcd_core_regmap,
 			wcd9xxx_res->intr_reg[WCD9XXX_INTR_CLEAR_BASE],
-			num_irq_regs, status);
+			status, num_irq_regs);
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
-			wcd9xxx_res->codec_reg_write(wcd9xxx_res,
+			regmap_write(wcd9xxx_res->wcd_core_regmap,
 				wcd9xxx_res->intr_reg[WCD9XXX_INTR_CLR_COMMIT],
 				0x02);
 	}
@@ -480,9 +482,9 @@ int wcd9xxx_irq_init(struct wcd9xxx_core_resource *wcd9xxx_res)
 		    wcd9xxx_res->irq_level_high[i] << (i % BITS_PER_BYTE);
 	}
 
-	if (!wcd9xxx_res->codec_reg_write) {
+	if (!wcd9xxx_res->wcd_core_regmap) {
 		dev_err(wcd9xxx_res->dev,
-				"%s: Codec Register write callback not defined\n",
+			"%s: Codec core regmap not defined\n",
 			   __func__);
 		ret = -EINVAL;
 		goto fail_irq_init;
@@ -490,10 +492,10 @@ int wcd9xxx_irq_init(struct wcd9xxx_core_resource *wcd9xxx_res)
 
 	for (i = 0; i < wcd9xxx_res->num_irq_regs; i++) {
 		/* Initialize interrupt mask and level registers */
-		wcd9xxx_res->codec_reg_write(wcd9xxx_res,
+		regmap_write(wcd9xxx_res->wcd_core_regmap,
 			wcd9xxx_res->intr_reg[WCD9XXX_INTR_LEVEL_BASE] + i,
 					irq_level[i]);
-		wcd9xxx_res->codec_reg_write(wcd9xxx_res,
+		regmap_write(wcd9xxx_res->wcd_core_regmap,
 			wcd9xxx_res->intr_reg[WCD9XXX_INTR_MASK_BASE] + i,
 			wcd9xxx_res->irq_masks_cur[i]);
 	}

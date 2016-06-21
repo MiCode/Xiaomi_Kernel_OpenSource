@@ -1010,7 +1010,6 @@
 		compatible = "qcom,pil-tz-generic";
 		qcom,pas-id = <0xF>;
 		qcom,firmware-name = "ipa_fws";
-		memory-region = <&peripheral_mem>;
 	};
 
 	qcom,chd {
@@ -2814,9 +2813,8 @@
 };
 
 &gdsc_mdss {
-	clock-names = "bus_clk", "core_clk", "root_clk";
+	clock-names = "bus_clk", "rot_clk";
 	clocks = <&clock_mmss clk_mmss_mdss_axi_clk>,
-		 <&clock_mmss clk_mmss_mdss_mdp_clk>,
 		 <&clock_mmss clk_mmss_mdss_rot_clk>;
 	status = "ok";
 };

@@ -20,7 +20,9 @@
 #include <linux/debugfs.h>
 #include <linux/wait.h>
 #include <linux/bitops.h>
+#include <linux/regmap.h>
 #include <linux/mfd/wcd9xxx/core.h>
+#include <linux/mfd/wcd9xxx/wcd9xxx-irq.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <linux/mfd/wcd9xxx/wcd9330_registers.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
@@ -521,6 +523,45 @@ static const u32 vport_i2s_check_table[NUM_CODEC_DAIS] = {
 	0,	/* AIF2_CAP */
 };
 
+/*
+ * Interrupt table for v3 corresponds to newer version
+ * codecs (wcd9330)
+ */
+static const struct intr_data wcd9330_intr_tbl[] = {
+	{WCD9XXX_IRQ_SLIMBUS, false},
+	{WCD9XXX_IRQ_MBHC_INSERTION, true},
+	{WCD9XXX_IRQ_MBHC_POTENTIAL, true},
+	{WCD9XXX_IRQ_MBHC_RELEASE, true},
+	{WCD9XXX_IRQ_MBHC_PRESS, true},
+	{WCD9XXX_IRQ_MBHC_SHORT_TERM, true},
+	{WCD9XXX_IRQ_MBHC_REMOVAL, true},
+	{WCD9330_IRQ_MBHC_JACK_SWITCH, true},
+	{WCD9XXX_IRQ_BG_PRECHARGE, false},
+	{WCD9XXX_IRQ_PA1_STARTUP, false},
+	{WCD9XXX_IRQ_PA2_STARTUP, false},
+	{WCD9XXX_IRQ_PA3_STARTUP, false},
+	{WCD9XXX_IRQ_PA4_STARTUP, false},
+	{WCD9XXX_IRQ_PA5_STARTUP, false},
+	{WCD9XXX_IRQ_MICBIAS1_PRECHARGE, false},
+	{WCD9XXX_IRQ_MICBIAS2_PRECHARGE, false},
+	{WCD9XXX_IRQ_MICBIAS3_PRECHARGE, false},
+	{WCD9XXX_IRQ_HPH_PA_OCPL_FAULT, false},
+	{WCD9XXX_IRQ_HPH_PA_OCPR_FAULT, false},
+	{WCD9XXX_IRQ_EAR_PA_OCPL_FAULT, false},
+	{WCD9XXX_IRQ_HPH_L_PA_STARTUP, false},
+	{WCD9XXX_IRQ_HPH_R_PA_STARTUP, false},
+	{WCD9320_IRQ_EAR_PA_STARTUP, false},
+	{WCD9330_IRQ_SVASS_ERR_EXCEPTION, false},
+	{WCD9330_IRQ_SVASS_ENGINE, true},
+	{WCD9330_IRQ_MAD_AUDIO, false},
+	{WCD9330_IRQ_MAD_BEACON, false},
+	{WCD9330_IRQ_MAD_ULTRASOUND, false},
+	{WCD9330_IRQ_SPEAKER1_CLIPPING, false},
+	{WCD9330_IRQ_SPEAKER2_CLIPPING, false},
+	{WCD9330_IRQ_VBAT_MONITOR_ATTACK, false},
+	{WCD9330_IRQ_VBAT_MONITOR_RELEASE, false},
+};
+
 struct tomtom_priv {
 	struct snd_soc_codec *codec;
 	u32 adc_count;
@@ -682,6 +723,121 @@ static unsigned short tx_digital_gain_reg[] = {
 	TOMTOM_A_CDC_TX9_VOL_CTL_GAIN,
 	TOMTOM_A_CDC_TX10_VOL_CTL_GAIN,
 };
+
+/*
+ * wcd9330_get_codec_info: Get codec specific information
+ *
+ * @wcd9xxx: pointer to wcd9xxx structure
+ * @wcd_type: pointer to wcd9xxx_codec_type structure
+ *
+ * Returns 0 for success or negative error code for failure
+ */
+int wcd9330_get_codec_info(struct wcd9xxx *wcd9xxx,
+			   struct wcd9xxx_codec_type *wcd_type)
+{
+	u16 id_minor, id_major;
+	struct regmap *wcd_regmap;
+	int rc, val, version = 0;
+
+	if (!wcd9xxx || !wcd_type)
+		return -EINVAL;
+
+	if (!wcd9xxx->regmap) {
+		dev_err(wcd9xxx->dev, "%s: wcd9xxx regmap is null!\n",
+			__func__);
+		return -EINVAL;
+	}
+	wcd_regmap = wcd9xxx->regmap;
+	rc = regmap_bulk_read(wcd_regmap, TOMTOM_A_CHIP_ID_BYTE_0,
+			      (u8 *)&id_minor, sizeof(u16));
+	if (rc)
+		return -EINVAL;
+
+	rc = regmap_bulk_read(wcd_regmap, TOMTOM_A_CHIP_ID_BYTE_2,
+			      (u8 *)&id_major, sizeof(u16));
+	if (rc)
+		return -EINVAL;
+
+	dev_info(wcd9xxx->dev, "%s: wcd9xxx chip id major 0x%x, minor 0x%x\n",
+		 __func__, id_major, id_minor);
+
+	if (id_minor == cpu_to_le16(0x1))
+		version = 2;
+	else if (id_minor == cpu_to_le16(0x0))
+		version = 1;
+	else
+		dev_err(wcd9xxx->dev, "%s: wcd9330 version unknown (major 0x%x, minor 0x%x)\n",
+			__func__, id_major, id_minor);
+
+	/* Fill codec type info */
+	wcd_type->id_major = id_major;
+	wcd_type->id_minor = id_minor;
+	wcd_type->num_irqs = WCD9330_NUM_IRQS;
+	wcd_type->version = version;
+	wcd_type->slim_slave_type = WCD9XXX_SLIM_SLAVE_ADDR_TYPE_1;
+	wcd_type->i2c_chip_status = 0x01;
+	wcd_type->intr_tbl = wcd9330_intr_tbl;
+	wcd_type->intr_tbl_size = ARRAY_SIZE(wcd9330_intr_tbl);
+
+	wcd_type->intr_reg[WCD9XXX_INTR_STATUS_BASE] =
+						TOMTOM_A_INTR1_STATUS0;
+	wcd_type->intr_reg[WCD9XXX_INTR_CLEAR_BASE] =
+						TOMTOM_A_INTR1_CLEAR0;
+	wcd_type->intr_reg[WCD9XXX_INTR_MASK_BASE] =
+						TOMTOM_A_INTR1_MASK0;
+	wcd_type->intr_reg[WCD9XXX_INTR_LEVEL_BASE] =
+						TOMTOM_A_INTR1_LEVEL0;
+	wcd_type->intr_reg[WCD9XXX_INTR_CLR_COMMIT] =
+						TOMTOM_A_INTR_MODE;
+
+	return rc;
+}
+EXPORT_SYMBOL(wcd9330_get_codec_info);
+
+/*
+ * wcd9330_bringdown: Bringdown WCD Codec
+ *
+ * @wcd9xxx: Pointer to wcd9xxx structure
+ *
+ * Returns 0 for success or negative error code for failure
+ */
+int wcd9330_bringdown(struct wcd9xxx *wcd9xxx)
+{
+	if (!wcd9xxx || !wcd9xxx->regmap)
+		return -EINVAL;
+
+	regmap_write(wcd9xxx->regmap, TOMTOM_A_LEAKAGE_CTL, 0x7);
+	regmap_write(wcd9xxx->regmap, TOMTOM_A_LEAKAGE_CTL, 0x6);
+	regmap_write(wcd9xxx->regmap, TOMTOM_A_LEAKAGE_CTL, 0xe);
+	regmap_write(wcd9xxx->regmap, TOMTOM_A_LEAKAGE_CTL, 0x8);
+
+	return 0;
+}
+EXPORT_SYMBOL(wcd9330_bringdown);
+
+/*
+ * wcd9330_bringup: Bring up WCD Codec
+ *
+ * @wcd9xxx: Pointer to wcd9xxx structure
+ *
+ * Returns 0 for success or negative error code for failure
+ */
+int wcd9330_bringup(struct wcd9xxx *wcd9xxx)
+{
+	if (!wcd9xxx || !wcd9xxx->regmap)
+		return -EINVAL;
+
+	regmap_write(wcd9xxx->regmap, TOMTOM_A_LEAKAGE_CTL, 0x4);
+	regmap_write(wcd9xxx->regmap, TOMTOM_A_CDC_CTL, 0x0);
+	/* wait for 5ms after codec reset for it to complete */
+	usleep_range(5000, 5100);
+	regmap_write(wcd9xxx->regmap, TOMTOM_A_CDC_CTL, 0x1);
+	regmap_write(wcd9xxx->regmap, TOMTOM_A_LEAKAGE_CTL, 0x3);
+	regmap_write(wcd9xxx->regmap, TOMTOM_A_CDC_CTL, 0x3);
+
+	return 0;
+}
+EXPORT_SYMBOL(wcd9330_bringup);
 
 int tomtom_enable_qfuse_sensing(struct snd_soc_codec *codec)
 {

@@ -12,7 +12,6 @@
  */
 
 #include <linux/mfd/wcd9xxx/core.h>
-#include <linux/mfd/wcd9xxx/core-resource.h>
 #include <linux/mfd/wcd9335/registers.h>
 #include <linux/regmap.h>
 #include <linux/device.h>

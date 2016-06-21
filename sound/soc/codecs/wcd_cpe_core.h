@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +9,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#ifndef WCD_CPE_CORE_H
+#define WCD_CPE_CORE_H
 
 #include <soc/qcom/ramdump.h>
 #include <linux/dma-mapping.h>
@@ -220,3 +223,4 @@ int wcd_cpe_ssr_event(void *core_handle,
 		      enum wcd_cpe_ssr_state_event event);
 struct wcd_cpe_core *wcd_cpe_init(const char *,
 struct snd_soc_codec *, struct wcd_cpe_params *params);
+#endif

@@ -722,6 +722,7 @@ config SND_SOC_WCD9330
 
 config SND_SOC_WCD9335
         tristate
+	depends on WCD9335_CODEC
 
 config SND_SOC_WSA881X
         tristate

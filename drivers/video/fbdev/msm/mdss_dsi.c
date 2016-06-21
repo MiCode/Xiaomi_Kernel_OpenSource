@@ -3037,9 +3037,31 @@ end:
 	return rc;
 }
 
+static void mdss_dsi_ctrl_validate_lane_swap_config(
+	struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mipi_panel_info *mipi = &ctrl->panel_data.panel_info.mipi;
+
+	if (!mipi->data_lane0)
+		ctrl->lane_map[DSI_LOGICAL_LANE_0] = DSI_PHYSICAL_LANE_INVALID;
+	if (!mipi->data_lane1)
+		ctrl->lane_map[DSI_LOGICAL_LANE_1] = DSI_PHYSICAL_LANE_INVALID;
+	if (!mipi->data_lane2)
+		ctrl->lane_map[DSI_LOGICAL_LANE_2] = DSI_PHYSICAL_LANE_INVALID;
+	if (!mipi->data_lane3)
+		ctrl->lane_map[DSI_LOGICAL_LANE_3] = DSI_PHYSICAL_LANE_INVALID;
+}
+
 static int mdss_dsi_ctrl_validate_config(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	int rc = 0;
+
+	if (!ctrl) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	mdss_dsi_ctrl_validate_lane_swap_config(ctrl);
 
 	/*
 	 * check to make sure that the byte interface clock is specified for
@@ -3052,6 +3074,7 @@ static int mdss_dsi_ctrl_validate_config(struct mdss_dsi_ctrl_pdata *ctrl)
 		rc = -EINVAL;
 	}
 
+error:
 	return rc;
 }
 
@@ -3807,28 +3830,105 @@ static int mdss_dsi_irq_init(struct device *dev, int irq_no,
 	return ret;
 }
 
-static void mdss_dsi_parse_lane_swap(struct device_node *np, char *dlane_swap)
+static void __set_lane_map(struct mdss_dsi_ctrl_pdata *ctrl,
+	enum dsi_physical_lane_id lane0,
+	enum dsi_physical_lane_id lane1,
+	enum dsi_physical_lane_id lane2,
+	enum dsi_physical_lane_id lane3)
 {
-	const char *data;
+	ctrl->lane_map[DSI_LOGICAL_LANE_0] = lane0;
+	ctrl->lane_map[DSI_LOGICAL_LANE_1] = lane1;
+	ctrl->lane_map[DSI_LOGICAL_LANE_2] = lane2;
+	ctrl->lane_map[DSI_LOGICAL_LANE_3] = lane3;
+}
 
-	*dlane_swap = DSI_LANE_MAP_0123;
-	data = of_get_property(np, "qcom,lane-map", NULL);
-	if (data) {
-		if (!strcmp(data, "lane_map_3012"))
-			*dlane_swap = DSI_LANE_MAP_3012;
-		else if (!strcmp(data, "lane_map_2301"))
-			*dlane_swap = DSI_LANE_MAP_2301;
-		else if (!strcmp(data, "lane_map_1230"))
-			*dlane_swap = DSI_LANE_MAP_1230;
-		else if (!strcmp(data, "lane_map_0321"))
-			*dlane_swap = DSI_LANE_MAP_0321;
-		else if (!strcmp(data, "lane_map_1032"))
-			*dlane_swap = DSI_LANE_MAP_1032;
-		else if (!strcmp(data, "lane_map_2103"))
-			*dlane_swap = DSI_LANE_MAP_2103;
-		else if (!strcmp(data, "lane_map_3210"))
-			*dlane_swap = DSI_LANE_MAP_3210;
+static void mdss_dsi_parse_lane_swap(struct device_node *np,
+	struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int rc;
+	const char *data;
+	u8 temp[DSI_LOGICAL_LANE_MAX];
+	int i;
+
+	/* First, check for the newer version of the binding */
+	rc = of_property_read_u8_array(np, "qcom,lane-map-v2", temp,
+		DSI_LOGICAL_LANE_MAX);
+	if (!rc) {
+		for (i = DSI_LOGICAL_LANE_0; i < DSI_LOGICAL_LANE_MAX; i++)
+			ctrl->lane_map[i] = BIT(temp[i]);
+		return;
+	} else if (rc != -EINVAL) {
+		pr_warn("%s: invalid lane map specfied. Defaulting to <0 1 2 3>\n",
+			__func__);
+		goto set_default;
 	}
+
+	/* Check if an older version of the binding is present */
+	data = of_get_property(np, "qcom,lane-map", NULL);
+	if (!data)
+		goto set_default;
+
+	if (!strcmp(data, "lane_map_3012")) {
+		ctrl->dlane_swap = DSI_LANE_MAP_3012;
+		__set_lane_map(ctrl,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_0);
+	} else if (!strcmp(data, "lane_map_2301")) {
+		ctrl->dlane_swap = DSI_LANE_MAP_2301;
+		__set_lane_map(ctrl,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_1);
+	} else if (!strcmp(data, "lane_map_1230")) {
+		ctrl->dlane_swap = DSI_LANE_MAP_1230;
+		__set_lane_map(ctrl,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_2);
+	} else if (!strcmp(data, "lane_map_0321")) {
+		ctrl->dlane_swap = DSI_LANE_MAP_0321;
+		__set_lane_map(ctrl,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_1);
+	} else if (!strcmp(data, "lane_map_1032")) {
+		ctrl->dlane_swap = DSI_LANE_MAP_1032;
+		__set_lane_map(ctrl,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_2);
+	} else if (!strcmp(data, "lane_map_2103")) {
+		ctrl->dlane_swap = DSI_LANE_MAP_2103;
+		__set_lane_map(ctrl,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_3);
+	} else if (!strcmp(data, "lane_map_3210")) {
+		ctrl->dlane_swap = DSI_LANE_MAP_3210;
+		__set_lane_map(ctrl,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_0);
+	} else {
+		pr_warn("%s: invalid lane map %s specified. defaulting to lane_map0123\n",
+			__func__, data);
+	}
+
+	return;
+
+set_default:
+	/* default lane mapping */
+	__set_lane_map(ctrl, DSI_PHYSICAL_LANE_0, DSI_PHYSICAL_LANE_1,
+		DSI_PHYSICAL_LANE_2, DSI_PHYSICAL_LANE_3);
+	ctrl->dlane_swap = DSI_LANE_MAP_0123;
 }
 
 static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
@@ -3904,8 +4004,7 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 				ctrl_pdata->cmd_sync_wait_broadcast,
 				ctrl_pdata->cmd_sync_wait_trigger);
 
-	mdss_dsi_parse_lane_swap(ctrl_pdev->dev.of_node,
-			&(ctrl_pdata->dlane_swap));
+	mdss_dsi_parse_lane_swap(ctrl_pdev->dev.of_node, ctrl_pdata);
 
 	pinfo->is_pluggable = of_property_read_bool(ctrl_pdev->dev.of_node,
 		"qcom,pluggable");

@@ -412,6 +412,7 @@
 #define clk_mmss_mdss_hdmi_clk			0x28460a6d
 #define clk_mmss_mdss_hdmi_dp_ahb_clk		0x5448519f
 #define clk_mmss_mdss_mdp_clk			0x43539b0e
+#define clk_mmss_mdss_mdp_lut_clk		0x00627b2b
 #define clk_mmss_mdss_pclk0_clk			0xcc0e909d
 #define clk_mmss_mdss_pclk1_clk			0x850d9146
 #define clk_mmss_mdss_rot_clk			0xbb7e71c4

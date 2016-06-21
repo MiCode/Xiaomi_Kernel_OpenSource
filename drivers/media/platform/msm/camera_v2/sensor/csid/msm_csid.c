@@ -377,7 +377,7 @@ static int msm_csid_config(struct csid_device *csid_dev,
 			msm_camera_io_w(val, csidbase +
 			csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_1_addr);
 		}
-		if (csid_dev->hw_version == CSID_VERSION_V35 &&
+		if (csid_dev->hw_version >= CSID_VERSION_V35 &&
 			csid_params->csi_3p_sel == 1) {
 			csid_dev->csid_3p_enabled = 1;
 			val = (csid_params->lane_cnt - 1) << ENABLE_3P_BIT;

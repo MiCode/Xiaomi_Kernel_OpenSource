@@ -2019,6 +2019,20 @@ static struct branch_clk mmss_mdss_mdp_clk = {
 	},
 };
 
+static struct branch_clk mmss_mdss_mdp_lut_clk = {
+	.cbcr_reg = MMSS_MDSS_MDP_LUT_CBCR,
+	.has_sibling = 1,
+	.check_enable_bit = true,
+	.halt_check = DELAY,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "mmss_mdss_mdp_lut_clk",
+		.parent = &mdp_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(mmss_mdss_mdp_lut_clk.c),
+	},
+};
+
 static struct branch_clk mmss_mdss_pclk0_clk = {
 	.cbcr_reg = MMSS_MDSS_PCLK0_CBCR,
 	.has_sibling = 0,
@@ -2230,6 +2244,7 @@ static struct mux_clk mmss_debug_mux = {
 		{ &mmss_mdss_rot_clk.c, 0x0012 },
 		{ &mmss_snoc_dvm_axi_clk.c, 0x0013 },
 		{ &mmss_mdss_mdp_clk.c, 0x0014 },
+		{ &mmss_mdss_mdp_lut_clk.c, 0x0015 },
 		{ &mmss_mdss_pclk0_clk.c, 0x0016 },
 		{ &mmss_mdss_pclk1_clk.c, 0x0017 },
 		{ &mmss_mdss_extpclk_clk.c, 0x0018 },
@@ -2455,6 +2470,7 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(mmss_mdss_hdmi_clk),
 	CLK_LIST(mmss_mdss_hdmi_dp_ahb_clk),
 	CLK_LIST(mmss_mdss_mdp_clk),
+	CLK_LIST(mmss_mdss_mdp_lut_clk),
 	CLK_LIST(mmss_mdss_pclk0_clk),
 	CLK_LIST(mmss_mdss_pclk1_clk),
 	CLK_LIST(mmss_mdss_rot_clk),

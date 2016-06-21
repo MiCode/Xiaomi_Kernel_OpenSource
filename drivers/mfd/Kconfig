@@ -1516,10 +1516,29 @@ config MSM_CDC_PINCTRL
 	  This driver acts as interface between codec and pinctrl
 	  framework.
 
+config MSM_CDC_SUPPLY
+	tristate "MSM Codec Power Supply"
+	help
+	  Enables msm codec power supply driver. The power supply
+	  driver provides API support for handling WCD and WSA codec
+	  power supply enable or disable. This driver acts as interface
+	  between codec and regulator framework.
+
+config WCD9XXX_CODEC_UTIL
+	tristate "WCD9XXX Codec Utils"
+	select MFD_CORE
+	help
+	  WCD9XXX Util driver provides APIs for WCD drivers to reset,
+	  suspend/resume, regmap bus callback functions and read/write
+	  functions. This driver also hides the underlying bus related
+	  functionalities.
+
 config WCD9330_CODEC
 	tristate "WCD9330 Codec"
 	select SLIMBUS
 	select MFD_CORE
+	select WCD9XXX_CODEC_UTIL
+	select MSM_CDC_SUPPLY
 	select REGMAP_ALLOW_WRITE_DEBUGFS
 	help
 	  Enables the WCD9xxx codec core driver. The core driver provides
@@ -1530,9 +1549,12 @@ config WCD9330_CODEC
 
 config WCD9335_CODEC
 	tristate "WCD9335 Codec"
-	depends on SLIMBUS
+	select SLIMBUS
 	select SOUNDWIRE_WCD_CTRL
 	select MFD_CORE
+	select WCD9XXX_CODEC_UTIL
+	select MSM_CDC_SUPPLY
+	select MSM_CDC_PINCTRL
 	select REGMAP_ALLOW_WRITE_DEBUGFS
 	help
 	  Enables the WCD9xxx codec core driver. The core driver provides

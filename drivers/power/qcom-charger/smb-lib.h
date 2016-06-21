@@ -87,6 +87,8 @@ struct smb_charger {
 	struct votable		*usb_icl_votable;
 	struct votable		*dc_icl_votable;
 	struct votable		*pd_allowed_votable;
+	struct votable          *awake_votable;
+	struct votable          *pl_disable_votable;
 
 	/* work */
 	struct delayed_work	hvdcp_detect_work;
@@ -122,10 +124,12 @@ int smblib_vconn_regulator_disable(struct regulator_dev *rdev);
 int smblib_vconn_regulator_is_enabled(struct regulator_dev *rdev);
 
 irqreturn_t smblib_handle_debug(int irq, void *data);
+irqreturn_t smblib_handle_chg_state_change(int irq, void *data);
 irqreturn_t smblib_handle_batt_psy_changed(int irq, void *data);
 irqreturn_t smblib_handle_usb_psy_changed(int irq, void *data);
 irqreturn_t smblib_handle_usb_plugin(int irq, void *data);
 irqreturn_t smblib_handle_usb_source_change(int irq, void *data);
+irqreturn_t smblib_handle_icl_change(int irq, void *data);
 irqreturn_t smblib_handle_usb_typec_change(int irq, void *data);
 
 int smblib_get_prop_input_suspend(struct smb_charger *chg,

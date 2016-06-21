@@ -21,7 +21,9 @@
 #include <linux/debugfs.h>
 #include <linux/wait.h>
 #include <linux/bitops.h>
+#include <linux/regmap.h>
 #include <linux/mfd/wcd9xxx/core.h>
+#include <linux/mfd/wcd9xxx/wcd9xxx-irq.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <linux/mfd/wcd9335/registers.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
@@ -532,6 +534,38 @@ enum {
 	SPLINE_SRC_MAX,
 };
 
+/* wcd9335 interrupt table  */
+static const struct intr_data wcd9335_intr_table[] = {
+	{WCD9XXX_IRQ_SLIMBUS, false},
+	{WCD9335_IRQ_MBHC_SW_DET, true},
+	{WCD9335_IRQ_MBHC_BUTTON_PRESS_DET, true},
+	{WCD9335_IRQ_MBHC_BUTTON_RELEASE_DET, true},
+	{WCD9335_IRQ_MBHC_ELECT_INS_REM_DET, true},
+	{WCD9335_IRQ_MBHC_ELECT_INS_REM_LEG_DET, true},
+	{WCD9335_IRQ_FLL_LOCK_LOSS, false},
+	{WCD9335_IRQ_HPH_PA_CNPL_COMPLETE, false},
+	{WCD9335_IRQ_HPH_PA_CNPR_COMPLETE, false},
+	{WCD9335_IRQ_EAR_PA_CNP_COMPLETE, false},
+	{WCD9335_IRQ_LINE_PA1_CNP_COMPLETE, false},
+	{WCD9335_IRQ_LINE_PA2_CNP_COMPLETE, false},
+	{WCD9335_IRQ_LINE_PA3_CNP_COMPLETE, false},
+	{WCD9335_IRQ_LINE_PA4_CNP_COMPLETE, false},
+	{WCD9335_IRQ_HPH_PA_OCPL_FAULT, false},
+	{WCD9335_IRQ_HPH_PA_OCPR_FAULT, false},
+	{WCD9335_IRQ_EAR_PA_OCP_FAULT, false},
+	{WCD9335_IRQ_SOUNDWIRE, false},
+	{WCD9335_IRQ_VDD_DIG_RAMP_COMPLETE, false},
+	{WCD9335_IRQ_RCO_ERROR, false},
+	{WCD9335_IRQ_SVA_ERROR, false},
+	{WCD9335_IRQ_MAD_AUDIO, false},
+	{WCD9335_IRQ_MAD_BEACON, false},
+	{WCD9335_IRQ_SVA_OUTBOX1, true},
+	{WCD9335_IRQ_SVA_OUTBOX2, true},
+	{WCD9335_IRQ_MAD_ULTRASOUND, false},
+	{WCD9335_IRQ_VBAT_ATTACK, false},
+	{WCD9335_IRQ_VBAT_RESTORE, false},
+};
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
@@ -815,6 +849,176 @@ static const struct tasha_reg_mask_val tasha_spkr_mode1[] = {
 	{WCD9335_CDC_BOOST0_BOOST_CTL, 0x7C, 0x44},
 	{WCD9335_CDC_BOOST1_BOOST_CTL, 0x7C, 0x44},
 };
+
+/*
+ * wcd9335_get_codec_info: Get codec specific information
+ *
+ * @wcd9xxx: pointer to wcd9xxx structure
+ * @wcd_type: pointer to wcd9xxx_codec_type structure
+ *
+ * Returns 0 for success or negative error code for failure
+ */
+int wcd9335_get_codec_info(struct wcd9xxx *wcd9xxx,
+			   struct wcd9xxx_codec_type *wcd_type)
+{
+	u16 id_minor, id_major;
+	struct regmap *wcd_regmap;
+	int rc, val, version = 0;
+
+	if (!wcd9xxx || !wcd_type)
+		return -EINVAL;
+
+	if (!wcd9xxx->regmap) {
+		dev_err(wcd9xxx->dev, "%s: wcd9xxx regmap is null!\n",
+			__func__);
+		return -EINVAL;
+	}
+	wcd_regmap = wcd9xxx->regmap;
+
+	rc = regmap_bulk_read(wcd_regmap, WCD9335_CHIP_TIER_CTRL_CHIP_ID_BYTE0,
+			(u8 *)&id_minor, sizeof(u16));
+	if (rc)
+		return -EINVAL;
+
+	rc = regmap_bulk_read(wcd_regmap, WCD9335_CHIP_TIER_CTRL_CHIP_ID_BYTE2,
+			      (u8 *)&id_major, sizeof(u16));
+	if (rc)
+		return -EINVAL;
+
+	dev_info(wcd9xxx->dev, "%s: wcd9xxx chip id major 0x%x, minor 0x%x\n",
+		 __func__, id_major, id_minor);
+
+	/* Version detection */
+	if (id_major == TASHA_MAJOR) {
+		regmap_read(wcd_regmap, WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT0,
+			    &val);
+		version = ((u8)val & 0x80) >> 7;
+	} else if (id_major == TASHA2P0_MAJOR)
+		version = 2;
+	else
+		dev_err(wcd9xxx->dev, "%s: wcd9335 version unknown (major 0x%x, minor 0x%x)\n",
+			__func__, id_major, id_minor);
+
+	/* Fill codec type info */
+	wcd_type->id_major = id_major;
+	wcd_type->id_minor = id_minor;
+	wcd_type->num_irqs = WCD9335_NUM_IRQS;
+	wcd_type->version = version;
+	wcd_type->slim_slave_type = WCD9XXX_SLIM_SLAVE_ADDR_TYPE_1;
+	wcd_type->i2c_chip_status = 0x01;
+	wcd_type->intr_tbl = wcd9335_intr_table;
+	wcd_type->intr_tbl_size = ARRAY_SIZE(wcd9335_intr_table);
+
+	wcd_type->intr_reg[WCD9XXX_INTR_STATUS_BASE] =
+						WCD9335_INTR_PIN1_STATUS0;
+	wcd_type->intr_reg[WCD9XXX_INTR_CLEAR_BASE] =
+						WCD9335_INTR_PIN1_CLEAR0;
+	wcd_type->intr_reg[WCD9XXX_INTR_MASK_BASE] =
+						WCD9335_INTR_PIN1_MASK0;
+	wcd_type->intr_reg[WCD9XXX_INTR_LEVEL_BASE] =
+						WCD9335_INTR_LEVEL0;
+	wcd_type->intr_reg[WCD9XXX_INTR_CLR_COMMIT] =
+						WCD9335_INTR_CLR_COMMIT;
+
+	return rc;
+}
+EXPORT_SYMBOL(wcd9335_get_codec_info);
+
+/*
+ * wcd9335_bringdown: Bringdown WCD Codec
+ *
+ * @wcd9xxx: Pointer to wcd9xxx structure
+ *
+ * Returns 0 for success or negative error code for failure
+ */
+int wcd9335_bringdown(struct wcd9xxx *wcd9xxx)
+{
+	if (!wcd9xxx || !wcd9xxx->regmap)
+		return -EINVAL;
+
+	regmap_write(wcd9xxx->regmap, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+		     0x04);
+
+	return 0;
+}
+EXPORT_SYMBOL(wcd9335_bringdown);
+
+/*
+ * wcd9335_bringup: Bringup WCD Codec
+ *
+ * @wcd9xxx: Pointer to the wcd9xxx structure
+ *
+ * Returns 0 for success or negative error code for failure
+ */
+int wcd9335_bringup(struct wcd9xxx *wcd9xxx)
+{
+	int ret = 0;
+	int val, byte0;
+	struct regmap *wcd_regmap;
+
+	if (!wcd9xxx)
+		return -EINVAL;
+
+	if (!wcd9xxx->regmap) {
+		dev_err(wcd9xxx->dev, "%s: wcd9xxx regmap is null!\n",
+			__func__);
+		return -EINVAL;
+	}
+	wcd_regmap = wcd9xxx->regmap;
+
+	regmap_read(wcd_regmap, WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT0, &val);
+	regmap_read(wcd_regmap, WCD9335_CHIP_TIER_CTRL_CHIP_ID_BYTE0, &byte0);
+
+	if ((val < 0) || (byte0 < 0)) {
+		dev_err(wcd9xxx->dev, "%s: tasha codec version detection fail!\n",
+			__func__);
+		return -EINVAL;
+	}
+	if ((val & 0x80) && (byte0 == 0x0)) {
+		dev_info(wcd9xxx->dev, "%s: wcd9335 codec version is v1.1\n",
+			 __func__);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_RST_CTL, 0x01);
+		regmap_write(wcd_regmap, WCD9335_SIDO_SIDO_CCL_2, 0xFC);
+		regmap_write(wcd_regmap, WCD9335_SIDO_SIDO_CCL_4, 0x21);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			     0x5);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			     0x7);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			     0x3);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_RST_CTL, 0x3);
+	} else if (byte0 == 0x1) {
+		dev_info(wcd9xxx->dev, "%s: wcd9335 codec version is v2.0\n",
+			 __func__);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_RST_CTL, 0x01);
+		regmap_write(wcd_regmap, WCD9335_SIDO_SIDO_TEST_2, 0x00);
+		regmap_write(wcd_regmap, WCD9335_SIDO_SIDO_CCL_8, 0x6F);
+		regmap_write(wcd_regmap, WCD9335_BIAS_VBG_FINE_ADJ, 0x65);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			     0x5);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			     0x7);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			     0x3);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_RST_CTL, 0x3);
+	} else if ((byte0 == 0) && (!(val & 0x80))) {
+		dev_info(wcd9xxx->dev, "%s: wcd9335 codec version is v1.0\n",
+			 __func__);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_RST_CTL, 0x01);
+		regmap_write(wcd_regmap, WCD9335_SIDO_SIDO_CCL_2, 0xFC);
+		regmap_write(wcd_regmap, WCD9335_SIDO_SIDO_CCL_4, 0x21);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			     0x3);
+		regmap_write(wcd_regmap, WCD9335_CODEC_RPM_RST_CTL, 0x3);
+	} else {
+		dev_err(wcd9xxx->dev, "%s: tasha codec version unknown\n",
+			__func__);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(wcd9335_bringup);
 
 /**
  * tasha_set_spkr_gain_offset - offset the speaker path
@@ -1592,7 +1796,7 @@ static inline void tasha_mbhc_get_result_params(struct wcd9xxx *wcd9xxx,
 						int32_t *zdet)
 {
 	int i;
-	u16 val;
+	int val, val1;
 	s16 c1;
 	s32 x1, d1;
 	int32_t denom;
@@ -1600,19 +1804,16 @@ static inline void tasha_mbhc_get_result_params(struct wcd9xxx *wcd9xxx,
 			3277, 1639, 820, 410, 205, 103, 52, 26
 	};
 
-	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_ZDET, 0x20, 0x20);
+	regmap_update_bits(wcd9xxx->regmap, WCD9335_ANA_MBHC_ZDET, 0x20, 0x20);
 	for (i = 0; i < TASHA_ZDET_NUM_MEASUREMENTS; i++) {
-		val = wcd9xxx_reg_read(&wcd9xxx->core_res,
-					WCD9335_ANA_MBHC_RESULT_2);
+		regmap_read(wcd9xxx->regmap, WCD9335_ANA_MBHC_RESULT_2, &val);
 		if (val & 0x80)
 			break;
 	}
 	val = val << 0x8;
-	val |= wcd9xxx_reg_read(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_RESULT_1);
-	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_ZDET, 0x20, 0x00);
+	regmap_read(wcd9xxx->regmap, WCD9335_ANA_MBHC_RESULT_1, &val1);
+	val |= val1;
+	regmap_update_bits(wcd9xxx->regmap, WCD9335_ANA_MBHC_ZDET, 0x20, 0x00);
 	x1 = TASHA_MBHC_GET_X1(val);
 	c1 = TASHA_MBHC_GET_C1(val);
 	/* If ramp is not complete, give additional 5ms */
@@ -1637,8 +1838,8 @@ static inline void tasha_mbhc_get_result_params(struct wcd9xxx *wcd9xxx,
 ramp_down:
 	i = 0;
 	while (x1) {
-		wcd9xxx_bulk_read(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_RESULT_1, 2, (u8 *)&val);
+		regmap_bulk_read(wcd9xxx->regmap,
+				 WCD9335_ANA_MBHC_RESULT_1, (u8 *)&val, 2);
 		x1 = TASHA_MBHC_GET_X1(val);
 		i++;
 		if (i == TASHA_ZDET_NUM_MEASUREMENTS)
@@ -1691,13 +1892,13 @@ static void tasha_mbhc_zdet_ramp(struct snd_soc_codec *codec,
 	if (!zl)
 		goto z_right;
 	/* Start impedance measurement for HPH_L */
-	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_ZDET, 0x80, 0x80);
+	regmap_update_bits(wcd9xxx->regmap,
+			   WCD9335_ANA_MBHC_ZDET, 0x80, 0x80);
 	dev_dbg(wcd9xxx->dev, "%s: ramp for HPH_L, noff = %d\n",
 					__func__, zdet_param->noff);
 	tasha_mbhc_get_result_params(wcd9xxx, d1_a, zdet_param->noff, &zdet);
-	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_ZDET, 0x80, 0x00);
+	regmap_update_bits(wcd9xxx->regmap,
+			   WCD9335_ANA_MBHC_ZDET, 0x80, 0x00);
 
 	*zl = zdet;
 
@@ -1705,13 +1906,13 @@ z_right:
 	if (!zr)
 		return;
 	/* Start impedance measurement for HPH_R */
-	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_ZDET, 0x40, 0x40);
+	regmap_update_bits(wcd9xxx->regmap,
+			   WCD9335_ANA_MBHC_ZDET, 0x40, 0x40);
 	dev_dbg(wcd9xxx->dev, "%s: ramp for HPH_R, noff = %d\n",
 					__func__, zdet_param->noff);
 	tasha_mbhc_get_result_params(wcd9xxx, d1_a, zdet_param->noff, &zdet);
-	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_ZDET, 0x40, 0x00);
+	regmap_update_bits(wcd9xxx->regmap,
+			   WCD9335_ANA_MBHC_ZDET, 0x40, 0x00);
 
 	*zr = zdet;
 }
@@ -1780,23 +1981,22 @@ static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	reg3 = snd_soc_read(codec, WCD9335_MBHC_CTL_1);
 	reg4 = snd_soc_read(codec, WCD9335_MBHC_ZDET_ANA_CTL);
 
-	if (wcd9xxx_reg_read(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_ELECT) & 0x80) {
+	if (snd_soc_read(codec, WCD9335_ANA_MBHC_ELECT) & 0x80) {
 		is_fsm_disable = true;
-		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-					WCD9335_ANA_MBHC_ELECT, 0x80, 0x00);
+		regmap_update_bits(wcd9xxx->regmap,
+				   WCD9335_ANA_MBHC_ELECT, 0x80, 0x00);
 	}
 
 	/* For NO-jack, disable L_DET_EN before Z-det measurements */
 	if (mbhc->hphl_swh)
-		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-					WCD9335_ANA_MBHC_MECH, 0x80, 0x00);
+		regmap_update_bits(wcd9xxx->regmap,
+				   WCD9335_ANA_MBHC_MECH, 0x80, 0x00);
 
 	/* Enable AZ */
 	snd_soc_update_bits(codec, WCD9335_MBHC_CTL_1, 0x0C, 0x04);
 	/* Turn off 100k pull down on HPHL */
-	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_MECH, 0x01, 0x00);
+	regmap_update_bits(wcd9xxx->regmap,
+			   WCD9335_ANA_MBHC_MECH, 0x01, 0x00);
 
 	/* First get impedance on Left */
 	d1 = d1_a[1];
@@ -1911,19 +2111,19 @@ zdet_complete:
 	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN6, reg1);
 	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN7, reg2);
 	/* Turn on 100k pull down on HPHL */
-	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-				WCD9335_ANA_MBHC_MECH, 0x01, 0x01);
+	regmap_update_bits(wcd9xxx->regmap,
+			   WCD9335_ANA_MBHC_MECH, 0x01, 0x01);
 
 	/* For NO-jack, re-enable L_DET_EN after Z-det measurements */
 	if (mbhc->hphl_swh)
-		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-					WCD9335_ANA_MBHC_MECH, 0x80, 0x80);
+		regmap_update_bits(wcd9xxx->regmap,
+				   WCD9335_ANA_MBHC_MECH, 0x80, 0x80);
 
 	snd_soc_write(codec, WCD9335_MBHC_ZDET_ANA_CTL, reg4);
 	snd_soc_write(codec, WCD9335_MBHC_CTL_1, reg3);
 	if (is_fsm_disable)
-		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-					WCD9335_ANA_MBHC_ELECT, 0x80, 0x80);
+		regmap_update_bits(wcd9xxx->regmap,
+				   WCD9335_ANA_MBHC_ELECT, 0x80, 0x80);
 	if (tasha->zdet_gpio_cb && is_change)
 		tasha->zdet_gpio_cb(codec, false);
 }
@@ -11776,18 +11976,18 @@ static void tasha_update_reg_defaults(struct tasha_priv *tasha)
 
 	wcd9xxx = tasha->wcd9xxx;
 	for (i = 0; i < ARRAY_SIZE(tasha_codec_reg_defaults); i++)
-		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-					tasha_codec_reg_defaults[i].reg,
-					tasha_codec_reg_defaults[i].mask,
-					tasha_codec_reg_defaults[i].val);
+		regmap_update_bits(wcd9xxx->regmap,
+				   tasha_codec_reg_defaults[i].reg,
+				   tasha_codec_reg_defaults[i].mask,
+				   tasha_codec_reg_defaults[i].val);
 
 	tasha->intf_type = wcd9xxx_get_intf_type();
 	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_I2C)
 		for (i = 0; i < ARRAY_SIZE(tasha_codec_reg_i2c_defaults); i++)
-			wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
-				tasha_codec_reg_i2c_defaults[i].reg,
-				tasha_codec_reg_i2c_defaults[i].mask,
-				tasha_codec_reg_i2c_defaults[i].val);
+			regmap_update_bits(wcd9xxx->regmap,
+					   tasha_codec_reg_i2c_defaults[i].reg,
+					   tasha_codec_reg_i2c_defaults[i].mask,
+					   tasha_codec_reg_i2c_defaults[i].val);
 
 	return;
 }
@@ -12919,15 +13119,15 @@ static int tasha_swrm_read(void *handle, int reg)
 	swr_rd_data_base = WCD9335_SWR_AHB_BRIDGE_RD_DATA_0;
 	/* read_lock */
 	mutex_lock(&tasha->swr_read_lock);
-	ret = wcd9xxx_bulk_write(&wcd9xxx->core_res, swr_rd_addr_base, 4,
-				 (u8 *)&reg);
+	ret = regmap_bulk_write(wcd9xxx->regmap, swr_rd_addr_base,
+				(u8 *)&reg, 4);
 	if (ret < 0) {
 		pr_err("%s: RD Addr Failure\n", __func__);
 		goto err;
 	}
 	/* Check for RD status */
-	ret = wcd9xxx_bulk_read(&wcd9xxx->core_res, swr_rd_data_base, 4,
-				(u8 *)&val);
+	ret = regmap_bulk_read(wcd9xxx->regmap, swr_rd_data_base,
+			       (u8 *)&val, 4);
 	if (ret < 0) {
 		pr_err("%s: RD Data Failure\n", __func__);
 		goto err;
@@ -12952,16 +13152,16 @@ static int tasha_swrm_i2s_bulk_write(struct wcd9xxx *wcd9xxx,
 
 	for (i = 0; i < (len * 2); i += 2) {
 		/* First Write the Data to register */
-		ret = wcd9xxx_bulk_write(&wcd9xxx->core_res,
-			swr_wr_data_base, 4, bulk_reg[i].buf);
+		ret = regmap_bulk_write(wcd9xxx->regmap,
+			swr_wr_data_base, bulk_reg[i].buf, 4);
 		if (ret < 0) {
 			dev_err(wcd9xxx->dev, "%s: WR Data Failure\n",
 				__func__);
 			break;
 		}
 		/* Next Write Address */
-		ret = wcd9xxx_bulk_write(&wcd9xxx->core_res,
-			swr_wr_addr_base, 4, bulk_reg[i+1].buf);
+		ret = regmap_bulk_write(wcd9xxx->regmap,
+			swr_wr_addr_base, bulk_reg[i+1].buf, 4);
 		if (ret < 0) {
 			dev_err(wcd9xxx->dev, "%s: WR Addr Failure\n",
 				__func__);
@@ -13087,25 +13287,25 @@ static int tasha_swrm_clock(void *handle, bool enable)
 		tasha->swr_clk_users++;
 		if (tasha->swr_clk_users == 1) {
 			if (TASHA_IS_2_0(tasha->wcd9xxx->version))
-				wcd9xxx_reg_update_bits(
-					&tasha->wcd9xxx->core_res,
+				regmap_update_bits(
+					tasha->wcd9xxx->regmap,
 					WCD9335_TEST_DEBUG_NPL_DLY_TEST_1,
 					0x10, 0x00);
 			__tasha_cdc_mclk_enable(tasha, true);
-			wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
+			regmap_update_bits(tasha->wcd9xxx->regmap,
 				WCD9335_CDC_CLK_RST_CTRL_SWR_CONTROL,
 				0x01, 0x01);
 		}
 	} else {
 		tasha->swr_clk_users--;
 		if (tasha->swr_clk_users == 0) {
-			wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
+			regmap_update_bits(tasha->wcd9xxx->regmap,
 				WCD9335_CDC_CLK_RST_CTRL_SWR_CONTROL,
 				0x01, 0x00);
 			__tasha_cdc_mclk_enable(tasha, false);
 			if (TASHA_IS_2_0(tasha->wcd9xxx->version))
-				wcd9xxx_reg_update_bits(
-					&tasha->wcd9xxx->core_res,
+				regmap_update_bits(
+					tasha->wcd9xxx->regmap,
 					WCD9335_TEST_DEBUG_NPL_DLY_TEST_1,
 					0x10, 0x10);
 		}
@@ -13243,31 +13443,35 @@ EXPORT_SYMBOL(tasha_codec_ver);
 
 static int __tasha_enable_efuse_sensing(struct tasha_priv *tasha)
 {
+	int val, rc;
+
 	__tasha_cdc_mclk_enable(tasha, true);
 
-	wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
-			WCD9335_CHIP_TIER_CTRL_EFUSE_CTL, 0x1E, 0x20);
-	wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
-			WCD9335_CHIP_TIER_CTRL_EFUSE_CTL, 0x01, 0x01);
+	regmap_update_bits(tasha->wcd9xxx->regmap,
+			   WCD9335_CHIP_TIER_CTRL_EFUSE_CTL, 0x1E, 0x20);
+	regmap_update_bits(tasha->wcd9xxx->regmap,
+			   WCD9335_CHIP_TIER_CTRL_EFUSE_CTL, 0x01, 0x01);
 
 	/*
 	 * 5ms sleep required after enabling efuse control
 	 * before checking the status.
 	 */
 	usleep_range(5000, 5500);
-	if (!(wcd9xxx_reg_read(&tasha->wcd9xxx->core_res,
-				WCD9335_CHIP_TIER_CTRL_EFUSE_STATUS) & 0x01))
+	rc = regmap_read(tasha->wcd9xxx->regmap,
+			 WCD9335_CHIP_TIER_CTRL_EFUSE_STATUS, &val);
+
+	if (rc || (!(val & 0x01)))
 		WARN(1, "%s: Efuse sense is not complete\n", __func__);
 
 	__tasha_cdc_mclk_enable(tasha, false);
 
-	return 0;
+	return rc;
 }
 
 void tasha_get_codec_ver(struct tasha_priv *tasha)
 {
 	int i;
-	u8 val;
+	int val;
 	struct tasha_reg_mask_val codec_reg[] = {
 		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT10, 0xFF, 0xFF},
 		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT11, 0xFF, 0x83},
@@ -13276,8 +13480,7 @@ void tasha_get_codec_ver(struct tasha_priv *tasha)
 
 	__tasha_enable_efuse_sensing(tasha);
 	for (i = 0; i < ARRAY_SIZE(codec_reg); i++) {
-		val = wcd9xxx_reg_read(&tasha->wcd9xxx->core_res,
-				codec_reg[i].reg);
+		regmap_read(tasha->wcd9xxx->regmap, codec_reg[i].reg, &val);
 		if (!(val && codec_reg[i].val)) {
 			codec_ver = WCD9335;
 			goto ret;

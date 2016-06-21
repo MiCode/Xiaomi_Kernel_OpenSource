@@ -38,6 +38,8 @@
 #define LANE_STATUS	0xA8
 
 #define MDSS_DSI_INT_CTRL	0x0110
+#define LANE_SWAP_CTRL			0x0B0
+#define LOGICAL_LANE_SWAP_CTRL		0x310
 
 struct mdss_dsi_ctrl_pdata *ctrl_list[DSI_CTRL_MAX];
 
@@ -303,6 +305,18 @@ void mdss_dsi_read_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 		ctrl->shared_data->phy_rev = DSI_PHY_REV_UNKNOWN;
 }
 
+static void mdss_dsi_config_data_lane_swap(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	if (ctrl->shared_data->hw_rev < MDSS_DSI_HW_REV_200)
+		MIPI_OUTP((ctrl->ctrl_base) + LANE_SWAP_CTRL, ctrl->dlane_swap);
+	else
+		MIPI_OUTP(ctrl->ctrl_base + LOGICAL_LANE_SWAP_CTRL,
+			ctrl->lane_map[DSI_LOGICAL_LANE_0] |
+			ctrl->lane_map[DSI_LOGICAL_LANE_1] << 4 |
+			ctrl->lane_map[DSI_LOGICAL_LANE_2] << 8 |
+			ctrl->lane_map[DSI_LOGICAL_LANE_3] << 12);
+}
+
 void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 {
 	u32 dsi_ctrl, intr_ctrl;
@@ -400,8 +414,7 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0084,
 				data); /* DSI_TRIG_CTRL */
 
-	/* DSI_LAN_SWAP_CTRL */
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x00b0, ctrl_pdata->dlane_swap);
+	mdss_dsi_config_data_lane_swap(ctrl_pdata);
 
 	/* clock out ctrl */
 	data = pinfo->t_clk_post & 0x3f;	/* 6 bits */

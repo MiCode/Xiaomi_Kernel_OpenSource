@@ -127,6 +127,22 @@ enum dsi_lane_map_type {
 	DSI_LANE_MAP_3210,
 };
 
+enum dsi_logical_lane_id {
+	DSI_LOGICAL_LANE_0 = 0,
+	DSI_LOGICAL_LANE_1,
+	DSI_LOGICAL_LANE_2,
+	DSI_LOGICAL_LANE_3,
+	DSI_LOGICAL_LANE_MAX,
+};
+
+enum dsi_physical_lane_id {
+	DSI_PHYSICAL_LANE_INVALID = 0,
+	DSI_PHYSICAL_LANE_0 = BIT(0),
+	DSI_PHYSICAL_LANE_1 = BIT(1),
+	DSI_PHYSICAL_LANE_2 = BIT(2),
+	DSI_PHYSICAL_LANE_3 = BIT(3),
+};
+
 enum dsi_pm_type {
 	/* PANEL_PM not used as part of power_data in dsi_shared_data */
 	DSI_PANEL_PM,
@@ -503,7 +519,17 @@ struct mdss_dsi_ctrl_pdata {
 	bool ulps;
 	bool core_power;
 	bool mmss_clamp;
-	char dlane_swap;	/* data lane swap */
+
+	/*
+	 * Data lane swap (logical to physical lane map):
+	 *     dlane_swap: used for DSI controller versions < 2.0, where
+	 *               dlane_swap is of type enum dsi_lane_map_type
+	 *     lane_map: used for DSI controller versions > 2.0, where
+	 *               lane_map[logical_lane_id] = physical_lane_id
+	 */
+	char dlane_swap;
+	uint8_t lane_map[DSI_LOGICAL_LANE_MAX];
+
 	bool is_phyreg_enabled;
 	bool burst_mode_enabled;
 
@@ -877,6 +903,27 @@ static inline bool mdss_dsi_cmp_panel_reg(struct dsi_buf status_buf,
 	u32 *status_val, int i)
 {
 	return status_buf.data[i] == status_val[i];
+}
+
+static inline enum dsi_logical_lane_id mdss_dsi_physical_to_logical_lane(
+		struct mdss_dsi_ctrl_pdata *ctrl, enum dsi_physical_lane_id id)
+{
+	int i;
+
+	for (i = DSI_LOGICAL_LANE_0; i < DSI_LOGICAL_LANE_MAX; i++)
+		if (ctrl->lane_map[i] == id)
+			break;
+
+	return i;
+}
+
+static inline enum dsi_physical_lane_id mdss_dsi_logical_to_physical_lane(
+		struct mdss_dsi_ctrl_pdata *ctrl, enum dsi_logical_lane_id id)
+{
+	if (id >= DSI_LOGICAL_LANE_MAX)
+		return DSI_PHYSICAL_LANE_INVALID;
+
+	return ctrl->lane_map[id];
 }
 
 #endif /* MDSS_DSI_H */

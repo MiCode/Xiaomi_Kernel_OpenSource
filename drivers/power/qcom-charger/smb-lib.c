@@ -458,6 +458,25 @@ suspend:
 	return rc;
 }
 
+static int smblib_awake_vote_callback(struct votable *votable, void *data,
+			int awake, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	if (awake)
+		pm_stay_awake(chg->dev);
+	else
+		pm_relax(chg->dev);
+
+	return 0;
+}
+
+static int smblib_pl_disable_vote_callback(struct votable *votable, void *data,
+			int pl_disable, const char *client)
+{
+	return 0;
+}
+
 /*****************
  * OTG REGULATOR *
  *****************/
@@ -1084,6 +1103,16 @@ irqreturn_t smblib_handle_debug(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
+	return IRQ_HANDLED;
+}
+
 irqreturn_t smblib_handle_batt_psy_changed(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -1151,6 +1180,16 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 skip_dpdm_float:
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s %s\n",
 		   irq_data->name, chg->vbus_present ? "attached" : "detached");
+	return IRQ_HANDLED;
+}
+
+irqreturn_t smblib_handle_icl_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
 	return IRQ_HANDLED;
 }
 
@@ -1414,6 +1453,22 @@ int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->awake_votable = create_votable("AWAKE", VOTE_SET_ANY,
+					smblib_awake_vote_callback,
+					chg);
+	if (IS_ERR(chg->awake_votable)) {
+		rc = PTR_ERR(chg->awake_votable);
+		return rc;
+	}
+
+	chg->pl_disable_votable = create_votable("PL_DISABLE", VOTE_SET_ANY,
+					smblib_pl_disable_vote_callback,
+					chg);
+	if (IS_ERR(chg->pl_disable_votable)) {
+		rc = PTR_ERR(chg->pl_disable_votable);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -1451,6 +1506,8 @@ int smblib_deinit(struct smb_charger *chg)
 	destroy_votable(chg->usb_icl_votable);
 	destroy_votable(chg->dc_icl_votable);
 	destroy_votable(chg->pd_allowed_votable);
+	destroy_votable(chg->awake_votable);
+	destroy_votable(chg->pl_disable_votable);
 
 	return 0;
 }

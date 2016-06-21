@@ -125,6 +125,28 @@ Optional properties:
 					"lane_map_1032" = <1 0 3 2>
 					"lane_map_2103" = <2 1 0 3>
 					"lane_map_3210" = <3 2 1 0>
+					where lane_map_ABCD means:
+						Logical_Lane_A = Physical_Lane_0
+						Logical_Lane_B = Physical_Lane_1
+						Logical_Lane_C = Physical_Lane_2
+						Logical_Lane_D = Physical_Lane_3
+					The lane map can vary between multiple instances
+					of the DSI controller and should be set accordingly in all
+					of them based on the board configuration.
+- qcom,lane-map-v2:			An array of size 4 uint8s specifying the corresponding
+					mapping for each of the logical data lanes.
+					For example, a value of <A B C D> means
+						Logical_Lane_0 = Physical_Lane_A
+						Logical_Lane_1 = Physical_Lane_B
+						Logical_Lane_2 = Physical_Lane_C
+						Logical_Lane_3 = Physical_Lane_D
+					The default lane mapping is <0 1 2 3>.
+					Since the values are of type uint8, they need to be
+					specified as below:
+						qcom,lane-map-v2 = /bits/ 8 <0 1 2 3>
+					This binding supersedes qcom,lane-map binding and will
+					override any lane swap setting specified by qcom,lane-map.
+					Refer to qcom,lane-map for additional notes.
 - qcom,pluggable			Boolean to enable hotplug feature.
 - qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
 - qcom,display-id			A string indicates the display ID for the controller.
