@@ -1794,6 +1794,36 @@ static void dwc3_msm_bus_vote_w(struct work_struct *w)
 		dev_err(mdwc->dev, "Failed to reset bus bw vote %d\n", ret);
 }
 
+static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
+{
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	int i, num_ports;
+	u32 reg;
+
+	mdwc->hs_phy->flags &= ~(PHY_HSFS_MODE | PHY_LS_MODE);
+	if (mdwc->in_host_mode) {
+		reg = dwc3_msm_read_reg(mdwc->base, USB3_HCSPARAMS1);
+		num_ports = HCS_MAX_PORTS(reg);
+		for (i = 0; i < num_ports; i++) {
+			reg = dwc3_msm_read_reg(mdwc->base,
+					USB3_PORTSC + i*0x10);
+			if (reg & PORT_PE) {
+				if (DEV_HIGHSPEED(reg) || DEV_FULLSPEED(reg))
+					mdwc->hs_phy->flags |= PHY_HSFS_MODE;
+				else if (DEV_LOWSPEED(reg))
+					mdwc->hs_phy->flags |= PHY_LS_MODE;
+			}
+		}
+	} else {
+		if (dwc->gadget.speed == USB_SPEED_HIGH ||
+			dwc->gadget.speed == USB_SPEED_FULL)
+			mdwc->hs_phy->flags |= PHY_HSFS_MODE;
+		else if (dwc->gadget.speed == USB_SPEED_LOW)
+			mdwc->hs_phy->flags |= PHY_LS_MODE;
+	}
+}
+
+
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret, i;
@@ -1867,6 +1897,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	/* disable power event irq, hs and ss phy irq is used as wake up src */
 	disable_irq(mdwc->pwr_event_irq);
 
+	dwc3_set_phy_speed_flags(mdwc);
 	/* Suspend HS PHY */
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
 
@@ -2016,6 +2047,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		mdwc->lpm_flags &= ~MDWC3_SS_PHY_SUSPEND;
 	}
 
+	mdwc->hs_phy->flags &= ~(PHY_HSFS_MODE | PHY_LS_MODE);
 	/* Resume HS PHY */
 	usb_phy_set_suspend(mdwc->hs_phy, 0);
 
