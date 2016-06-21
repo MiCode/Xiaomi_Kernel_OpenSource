@@ -20,6 +20,7 @@
 extern int msm_cdc_pinctrl_select_sleep_state(struct device_node *);
 extern int msm_cdc_pinctrl_select_active_state(struct device_node *);
 extern bool msm_cdc_pinctrl_get_state(struct device_node *);
+extern int msm_cdc_get_gpio_state(struct device_node *);
 
 #else
 int msm_cdc_pinctrl_select_sleep_state(struct device_node *np)
@@ -30,6 +31,11 @@ int msm_cdc_pinctrl_select_active_state(struct device_node *np)
 {
 	return 0;
 }
+int msm_cdc_get_gpio_state(struct device_node *np)
+{
+	return 0;
+}
+#
 #endif
 
 #endif
