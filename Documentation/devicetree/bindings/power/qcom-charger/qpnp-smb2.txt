@@ -50,6 +50,12 @@ Charger specific properties:
   Value type: <u32>
   Definition: Specifies the DC input current limit in micro-amps.
 
+- qcom,wipower-max-uw
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the DC input power limit in micro-watts.
+		If the value is not present, 8W is used as default.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================
@@ -80,9 +86,7 @@ pmicobalt_charger: qcom,qpnp-smb2 {
 	#address-cells = <1>;
 	#size-cells = <1>;
 
-	qcom,pmic-revid = <&pmicobalt_revid>;
 	qcom,suspend-input;
-	qcom,disable-charging;
 	dpdm-supply = <&qusb_phy0>;
 
 	qcom,chgr@1000 {
