@@ -187,7 +187,7 @@ enum clk_osm_trace_packet_id {
 #define MAX_MEM_ACC_VAL_PER_LEVEL 3
 #define MAX_MEM_ACC_VALUES (MAX_MEM_ACC_LEVELS * \
 			    MAX_MEM_ACC_VAL_PER_LEVEL)
-#define MEM_ACC_READ_MASK 0xff
+#define MEM_ACC_APM_READ_MASK 0xff
 
 #define TRACE_CTRL 0x1F38
 #define TRACE_CTRL_EN_MASK BIT(0)
@@ -303,6 +303,7 @@ struct clk_osm {
 	u32 cluster_num;
 	u32 irq;
 	u32 apm_crossover_vc;
+	u32 apm_threshold_vc;
 	u32 cycle_counter_reads;
 	u32 cycle_counter_delay;
 	u32 cycle_counter_factor;
@@ -556,8 +557,8 @@ static void clk_osm_print_osm_table(struct clk_osm *c)
 			lval,
 			table[i].spare_data);
 	}
-	pr_debug("APM crossover corner: %d\n",
-		 c->apm_crossover_vc);
+	pr_debug("APM threshold corner=%d, crossover corner=%d\n",
+		 c->apm_threshold_vc, c->apm_crossover_vc);
 }
 
 static int clk_osm_get_lut(struct platform_device *pdev,
@@ -1121,10 +1122,21 @@ exit:
 static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 				     struct platform_device *pdev)
 {
+	struct regulator *regulator = c->vdd_reg;
 	struct dev_pm_opp *opp;
 	unsigned long freq = 0;
-	int vc, rc = 0;
+	int vc, i, threshold, rc = 0;
+	u32 corner_volt, data;
 
+	rc = of_property_read_u32(pdev->dev.of_node,
+				  "qcom,apm-threshold-voltage",
+				  &threshold);
+	if (rc) {
+		pr_info("qcom,apm-threshold-voltage property not specified\n");
+		return rc;
+	}
+
+	/* Determine crossover virtual corner */
 	rcu_read_lock();
 	opp = dev_pm_opp_find_freq_exact(&c->vdd_dev->dev, freq, true);
 	if (IS_ERR(opp)) {
@@ -1142,6 +1154,48 @@ static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 	rcu_read_unlock();
 	vc--;
 	c->apm_crossover_vc = vc;
+
+	/* Determine threshold virtual corner */
+	for (i = 0; i < OSM_TABLE_SIZE; i++) {
+		freq = c->osm_table[i].frequency;
+		/*
+		 * Only frequencies that are supported across all configurations
+		 * are present in the OPP table associated with the regulator
+		 * device.
+		 */
+		data = (c->osm_table[i].freq_data & GENMASK(18, 16)) >> 16;
+		if (data != MAX_CONFIG)
+			continue;
+
+		rcu_read_lock();
+		opp = dev_pm_opp_find_freq_exact(&c->vdd_dev->dev, freq, true);
+		if (IS_ERR(opp)) {
+			rc = PTR_ERR(opp);
+			if (rc == -ERANGE)
+				pr_err("Frequency %lu not found\n", freq);
+			goto exit;
+		}
+
+		vc = dev_pm_opp_get_voltage(opp);
+		if (!vc) {
+			pr_err("No virtual corner found for frequency %lu\n",
+			       freq);
+			rc = -ERANGE;
+			goto exit;
+		}
+
+		rcu_read_unlock();
+
+		corner_volt = regulator_list_corner_voltage(regulator, vc);
+
+		/* CPR virtual corners are zero-based numbered */
+		vc--;
+
+		if (corner_volt >= threshold) {
+			c->apm_threshold_vc = vc;
+			break;
+		}
+	}
 
 	return 0;
 exit:
@@ -1458,7 +1512,7 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(1), SEQ_REG(56));
 	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(2), SEQ_REG(57));
 	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(3), SEQ_REG(58));
-	clk_osm_write_reg(c, MEM_ACC_READ_MASK, SEQ_REG(59));
+	clk_osm_write_reg(c, MEM_ACC_APM_READ_MASK, SEQ_REG(59));
 
 	for (i = 0; i < MAX_MEM_ACC_VALUES; i++)
 		clk_osm_write_reg(c, c->apcs_mem_acc_val[i],
@@ -1708,17 +1762,32 @@ static void clk_osm_do_additional_setup(struct clk_osm *c,
 static void clk_osm_apm_vc_setup(struct clk_osm *c)
 {
 	/*
-	 * APM crossover virtual corner at which the switch
-	 * from APC to MX and vice-versa should take place.
+	 * APM crossover virtual corner corresponds to switching
+	 * voltage during APM transition. APM threshold virtual
+	 * corner is the first corner which requires switch
+	 * sequence of APM from MX to APC.
 	 */
 	if (c->secure_init) {
-		clk_osm_write_reg(c, c->apm_crossover_vc, SEQ_REG(1));
+		clk_osm_write_reg(c, c->apm_threshold_vc, SEQ_REG(1));
+		clk_osm_write_reg(c, c->apm_crossover_vc, SEQ_REG(72));
+		clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(74),
+				  SEQ_REG(8));
+		clk_osm_write_reg(c, 0x3b | c->apm_threshold_vc << 6,
+				  SEQ_REG(73));
+		clk_osm_write_reg(c, 0x39 | c->apm_threshold_vc << 6,
+				  SEQ_REG(76));
 
 		/* Ensure writes complete before returning */
 		mb();
 	} else {
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(1),
+			     c->apm_threshold_vc);
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(72),
 			     c->apm_crossover_vc);
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(73),
+			     0x3b | c->apm_threshold_vc << 6);
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(76),
+			     0x39 | c->apm_threshold_vc << 6);
 	}
 }
 

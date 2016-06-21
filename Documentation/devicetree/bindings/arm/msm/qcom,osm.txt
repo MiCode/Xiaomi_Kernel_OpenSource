@@ -182,6 +182,14 @@ Properties:
 		    command register for each of the two clusters managed
 		    by the OSM controller.
 
+- qcom,apm-threshold-voltage
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the APM threshold voltage in microvolts.  If the
+		    VDD_APCC supply voltage is above or at this level, then the
+		    APM is switched to use VDD_APCC.  If VDD_APCC is below
+		    this level, then the APM is switched to use VDD_MX.
+
 - qcom,apm-mode-ctl
 	Usage:      required
 	Value type: <prop-encoded-array>
@@ -391,6 +399,8 @@ Example:
 			<0x179d0004 0x179d0010>;
 		qcom,apm-ctrl-status =
 			<0x179d000c 0x179d0018>;
+
+		qcom,apm-threshold-voltage = <832000>;
 
 		qcom,pwrcl-apcs-mem-acc-cfg =
 			<0x179d1360 0x179d1364 0x179d1364>;
