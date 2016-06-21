@@ -174,7 +174,11 @@
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
-		qcom,wsa-max-devs = <0>;
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
+				<&wsa881x_0213>, <&wsa881x_0214>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+					  "SpkrLeft", "SpkrRight";
 	};
 
 	cpe: qcom,msm-cpe-lsm {

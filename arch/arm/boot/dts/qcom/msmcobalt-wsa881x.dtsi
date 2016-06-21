@@ -9,24 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-&soc {
-	wsa_spkr_sd1: msm_cdc_pinctrl@65 {
-		compatible = "qcom,msm-cdc-pinctrl";
-		qcom,cdc-rst-n-gpio = <&tlmm 65 0>;
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&spkr_1_sd_n_active>;
-		pinctrl-1 = <&spkr_1_sd_n_sleep>;
-	};
-
-	wsa_spkr_sd2: msm_cdc_pinctrl@66 {
-		compatible = "qcom,msm-cdc-pinctrl";
-		qcom,cdc-rst-n-gpio = <&tlmm 66 0>;
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&spkr_2_sd_n_active>;
-		pinctrl-1 = <&spkr_2_sd_n_sleep>;
-	};
-};
+#include "msmcobalt-wcd.dtsi"
 
 &slim_aud {
 	tasha_codec {
@@ -70,25 +53,25 @@
 			wsa881x_0211: wsa881x@20170211 {
 				compatible = "qcom,wsa881x";
 				reg = <0x00 0x20170211>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_sd1>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd1>;
 			};
 
 			wsa881x_0212: wsa881x@20170212 {
 				compatible = "qcom,wsa881x";
 				reg = <0x00 0x20170212>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_sd2>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd2>;
 			};
 
 			wsa881x_0213: wsa881x@21170213 {
 				compatible = "qcom,wsa881x";
 				reg = <0x00 0x21170213>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_sd1>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd1>;
 			};
 
 			wsa881x_0214: wsa881x@21170214 {
 				compatible = "qcom,wsa881x";
 				reg = <0x00 0x21170214>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_sd2>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd2>;
 			};
 		};
 	};
