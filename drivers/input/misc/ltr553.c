@@ -35,6 +35,10 @@
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
 
+#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+#include <linux/input/ltr553.h>
+#endif
+
 #define LTR553_I2C_NAME			"ltr553"
 #define LTR553_LIGHT_INPUT_NAME		"ltr553-light"
 #define LTR553_PROXIMITY_INPUT_NAME	"ltr553-proximity"
@@ -66,6 +70,7 @@
 
 #define LTR553_BOOT_TIME_MS		120
 #define LTR553_WAKE_TIME_MS		10
+#define LTR553_ONDEMAND_WAKE_TIME_MS	10
 
 #define LTR553_PS_SATURATE_MASK		0x8000
 #define LTR553_ALS_INT_MASK		0x08
@@ -281,6 +286,11 @@ static struct sensors_classdev ps_cdev = {
 	.sensors_poll_delay = NULL,
 };
 
+
+#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+static struct sensors_classdev *proximity_sensor_dev = NULL;
+#endif
+
 static int sensor_power_init(struct device *dev, struct regulator_map *map,
 		int size)
 {
@@ -469,6 +479,19 @@ static int ltr553_parse_dt(struct device *dev, struct ltr553_data *ltr)
 		return -EINVAL;
 	}
 	ltr->ps_wakeup_threshold = value;
+#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+	/* Prema Chand Alugu (premaca@gmail.com)
+	 *
+	 * FIXME: Have to check, if this change is effecting regular in-call
+	 * proximity, will reveret if there is an issue
+	 *
+	 * Modify the wakeup threshold to little lower so that the detection
+	 * would be faster
+	 */
+	if (ltr->ps_wakeup_threshold > 2) {
+		ltr->ps_wakeup_threshold = 2;
+	}
+#endif
 
 	/* ps distance table */
 	rc = of_property_read_u32_array(dp, "liteon,ps-distance-table",
@@ -1401,6 +1424,142 @@ exit:
 	mutex_unlock(&ltr->ops_lock);
 }
 
+#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+int ltr553_ps_ondemand_state (void)
+{
+	struct ltr553_data *ltr = container_of(proximity_sensor_dev,
+			struct ltr553_data, ps_cdev);
+	unsigned int config;
+	unsigned int tmp;
+	u8 buf[7];
+	int rc = 0;
+	u8 ps_data[4];
+	int i;
+	int distance;
+	bool powered_on = false;
+	int proximity_state = LTR553_ON_DEMAND_RESET;
+
+	mutex_lock(&ltr->ops_lock);
+	if (!ltr->power_enabled) {
+		if (sensor_power_config(&ltr->i2c->dev, power_config,
+					ARRAY_SIZE(power_config), true)) {
+			dev_err(&ltr->i2c->dev, "power up sensor failed.\n");
+			goto exit;
+		}
+
+		msleep(LTR553_ONDEMAND_WAKE_TIME_MS);
+		powered_on = true;
+
+		if (ltr553_init_device(ltr)) {
+			dev_err(&ltr->i2c->dev, "init device failed\n");
+			goto exit;
+		}
+
+		ltr553_ps_sync_delay(ltr, ltr->ps_delay);
+	}
+
+	rc = regmap_read(ltr->regmap, LTR553_REG_PS_CTL, &config);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
+				LTR553_REG_PS_CTL, rc);
+		goto exit;
+	}
+
+	/* Enable ps sensor */
+	rc = regmap_write(ltr->regmap, LTR553_REG_PS_CTL,
+			config | 0x02);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
+				LTR553_REG_PS_CTL, rc);
+		goto exit;
+	}
+
+
+	rc = regmap_read(ltr->regmap, LTR553_REG_PS_MEAS_RATE, &tmp);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
+				LTR553_REG_PS_MEAS_RATE, rc);
+		goto exit;
+	}
+
+	rc = regmap_write(ltr->regmap, LTR553_REG_PS_MEAS_RATE,
+			LTR553_PS_MEASUREMENT_RATE_10MS);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
+				LTR553_REG_PS_MEAS_RATE, rc);
+		goto exit;
+	}
+
+	/* Wait for data ready */
+	msleep(LTR553_WAKE_TIME_MS);
+
+	rc = regmap_write(ltr->regmap, LTR553_REG_PS_MEAS_RATE, tmp);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
+				LTR553_REG_PS_MEAS_RATE, rc);
+		goto exit;
+	}
+
+	rc = regmap_bulk_read(ltr->regmap, LTR553_REG_PS_DATA_0,
+			ps_data, 2);
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
+				LTR553_REG_PS_DATA_0, rc);
+		goto exit;
+	}
+
+	dev_dbg(&ltr->i2c->dev, "ps data: 0x%x 0x%x\n",
+			ps_data[0], ps_data[1]);
+
+	tmp = (ps_data[1] << 8) | ps_data[0];
+	if (tmp & LTR553_PS_SATURATE_MASK)
+		distance = 0;
+	else {
+		for (i = 0; i < ARRAY_SIZE(ps_distance_table); i++) {
+			if (tmp > ps_distance_table[i]) {
+				distance = i;
+				break;
+			}
+		}
+		distance = i;
+	}
+
+	proximity_state = (distance <= LTR553_ON_DEMAND_DISTANCE_THRESHOLD)
+	    ? LTR553_ON_DEMAND_COVERED 
+	    : LTR553_ON_DEMAND_UNCOVERED;
+
+	/* clear interrupt */
+	rc = regmap_bulk_read(ltr->regmap, LTR553_REG_ALS_DATA_CH1_0,
+			buf, ARRAY_SIZE(buf));
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "clear interrupt failed\n");
+		goto exit;
+	}
+
+
+	/* disable ps_sensor */
+	rc = regmap_write(ltr->regmap, LTR553_REG_PS_CTL,
+			config & (~0x02));
+	if (rc) {
+		dev_err(&ltr->i2c->dev, "write %d failed.(%d)\n",
+				LTR553_REG_PS_CTL, rc);
+		goto exit;
+	}
+
+exit:
+	if (powered_on) {
+		if (sensor_power_config(&ltr->i2c->dev, power_config,
+					ARRAY_SIZE(power_config), false)) {
+			dev_err(&ltr->i2c->dev, "power up sensor failed.\n");
+			goto exit;
+		}
+	}
+	mutex_unlock(&ltr->ops_lock);
+
+	return (proximity_state);
+}
+#endif /* CONFIG_PSENSOR_ONDEMAND_STATE */
+
 static void ltr553_ps_enable_work(struct work_struct *work)
 {
 	struct ltr553_data *ltr = container_of(work, struct ltr553_data,
@@ -2026,6 +2185,10 @@ static int ltr553_probe(struct i2c_client *client,
 			ARRAY_SIZE(power_config), false);
 
 	dev_dbg(&client->dev, "ltr553 successfully probed!\n");
+
+#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+	proximity_sensor_dev = &ltr->ps_cdev;
+#endif
 
 	return 0;
 

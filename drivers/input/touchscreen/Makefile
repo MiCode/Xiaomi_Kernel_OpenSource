@@ -111,3 +111,5 @@ obj-$(CONFIG_INPUT_MT_WRAPPER)		+= input_mt_wrapper.o
 obj-$(CONFIG_TOUCHSCREEN_GSL1688E) += gsl_ts_driver.o gsl_ReadArrayData.o gsl_point_id.o
 #$(obj)/gsl_point_id.o: $(srctree)/$(obj)/gsl_point_id
 #	cp $(srctree)/$(obj)/gsl_point_id $(obj)/gsl_point_id.o
+
+obj-$(CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE)        += doubletap2wake.o
