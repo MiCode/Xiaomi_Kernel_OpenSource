@@ -140,6 +140,7 @@ enum {
 	SDE_DSPP_GAMUT,
 	SDE_DSPP_DITHER,
 	SDE_DSPP_HIST,
+	SDE_DSPP_AD,
 	SDE_DSPP_MAX
 };
 
@@ -356,6 +357,7 @@ struct sde_dspp_sub_blks {
 	struct sde_pp_blk gamut;
 	struct sde_pp_blk dither;
 	struct sde_pp_blk hist;
+	struct sde_pp_blk ad;
 };
 
 struct sde_pingpong_sub_blks {
@@ -537,16 +539,6 @@ struct sde_wb_cfg {
 };
 
 /**
- * struct sde_ad_cfg - information of Assertive Display blocks
- * @id                 enum identifying this block
- * @base               register offset of this block
- * @features           bit mask identifying sub-blocks/features
- */
-struct sde_ad_cfg {
-	SDE_HW_BLK_INFO;
-};
-
-/**
  * struct sde_vbif_dynamic_ot_cfg - dynamic OT setting
  * @pps                pixel per seconds
  * @ot_limit           OT limit to use up to specified pixel per second
@@ -625,9 +617,6 @@ struct sde_mdss_cfg {
 
 	u32 wb_count;
 	struct sde_wb_cfg wb[MAX_BLOCKS];
-
-	u32 ad_count;
-	struct sde_ad_cfg ad[MAX_BLOCKS];
 
 	u32 vbif_count;
 	struct sde_vbif_cfg vbif[MAX_BLOCKS];

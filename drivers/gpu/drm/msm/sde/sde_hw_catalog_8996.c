@@ -41,7 +41,7 @@
 	(BIT(SDE_DSPP_IGC) | BIT(SDE_DSPP_PCC) |\
 	BIT(SDE_DSPP_GC) | BIT(SDE_DSPP_HSIC) | BIT(SDE_DSPP_GAMUT) |\
 	BIT(SDE_DSPP_DITHER) | BIT(SDE_DSPP_HIST) | BIT(SDE_DSPP_MEMCOLOR) |\
-	BIT(SDE_DSPP_SIXZONE))
+	BIT(SDE_DSPP_SIXZONE) | BIT(SDE_DSPP_AD))
 
 #define PINGPONG_17X_MASK \
 	(BIT(SDE_PINGPONG_TE) | BIT(SDE_PINGPONG_DSC))
@@ -344,7 +344,7 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 	static const struct sde_dspp_sub_blks dspp = {
 		.igc = {.id = SDE_DSPP_IGC, .base = 0x0, .len = 0x0,
 			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
-		.pcc = {.id = SDE_DSPP_PCC, .base = 0x0, .len = 0x7,
+		.pcc = {.id = SDE_DSPP_PCC, .base = 0x0, .len = 0x0,
 			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 		.gamut = {.id = SDE_DSPP_GAMUT, .base = 0x0, .len = 0x0,
 			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
@@ -360,6 +360,8 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 		.gc = {.id = SDE_DSPP_GC, .base = 0x0, .len = 0x0,
 			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.ad = {.id = SDE_DSPP_AD, .base = 0x00, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x3, 0x0)},
 	};
 
 	/* PINGPONG capability */
@@ -606,11 +608,6 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 				.vbif_idx = VBIF_NRT,
 				.xin_id = 6,
 				.clk_ctrl = SDE_CLK_CTRL_WB2},
-		},
-		.ad_count = 2,
-		.ad = {
-			{.id = AD_0, .base = 0x00079000},
-			{.id = AD_1, .base = 0x00079800},
 		},
 		.vbif_count = 2,
 		.vbif = {
