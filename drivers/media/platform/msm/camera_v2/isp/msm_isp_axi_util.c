@@ -1609,12 +1609,8 @@ static struct msm_isp_buffer *msm_isp_get_stream_buffer(
 			ISP_EVENT_BUF_FATAL_ERROR);
 		return buf;
 	}
-	if (rc < 0) {
-		vfe_dev->error_info.
-			stream_framedrop_count[bufq_handle & 0xFF]++;
-		vfe_dev->error_info.framedrop_flag = 1;
+	if (rc < 0)
 		return buf;
-	}
 
 	if (buf->num_planes != stream_info->num_planes) {
 		pr_err("%s: Invalid buffer\n", __func__);
@@ -2927,14 +2923,13 @@ static int msm_isp_return_empty_buffer(struct vfe_device *vfe_dev,
 		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_BUF_FATAL_ERROR);
 		return rc;
 	}
+
 	if (rc < 0 || buf == NULL) {
-		vfe_dev->error_info.
-			stream_framedrop_count[bufq_handle & 0xFF]++;
+		pr_err("Skip framedrop report due to no buffer\n");
 		return rc;
 	}
 
 	msm_isp_get_timestamp(&timestamp);
-
 	buf->buf_debug.put_state[buf->buf_debug.put_state_last] =
 		MSM_ISP_BUFFER_STATE_DROP_REG;
 	buf->buf_debug.put_state_last ^= 1;
@@ -2944,7 +2939,7 @@ static int msm_isp_return_empty_buffer(struct vfe_device *vfe_dev,
 		stream_info->runtime_output_format);
 	if (rc == -EFAULT) {
 		msm_isp_halt_send_error(vfe_dev,
-				ISP_EVENT_BUF_FATAL_ERROR);
+			ISP_EVENT_BUF_FATAL_ERROR);
 		return rc;
 	}
 
@@ -3499,6 +3494,12 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	}
 
 	if (!done_buf) {
+		if (stream_info->buf_divert) {
+			vfe_dev->error_info.stream_framedrop_count[
+				stream_info->bufq_handle[
+				VFE_BUF_QUEUE_DEFAULT] & 0xFF]++;
+			vfe_dev->error_info.framedrop_flag = 1;
+		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		return;
 	}
