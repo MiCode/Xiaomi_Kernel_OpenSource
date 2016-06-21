@@ -618,6 +618,10 @@
 					"none";
 			};
 		};
+
+		qcom,power-on@800 {
+			qcom,pon-reset-off;
+		};
 	};
 
 	qcom,pm8994@0 {
