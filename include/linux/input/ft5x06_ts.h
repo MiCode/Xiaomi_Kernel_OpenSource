@@ -265,6 +265,9 @@ struct ft5x06_ts_data {
 	struct dentry *dir;
 	u16 addr;
 	bool suspended;
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+	bool prevent_sleep;
+#endif
 	char *ts_info;
 	u8 *tch_data;
 	u32 tch_data_len;
