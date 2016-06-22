@@ -1347,7 +1347,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	}
 
 	spin_unlock_irqrestore(&smmu->atos_lock, flags);
-	return (phys & GENMASK_ULL(39, 12)) | (iova & 0xfff);
+	return (phys & (PHYS_MASK & ~0xfffULL)) | (iova & 0xfff);
 }
 
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
