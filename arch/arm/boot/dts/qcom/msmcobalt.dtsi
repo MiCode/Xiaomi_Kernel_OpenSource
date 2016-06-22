@@ -333,6 +333,11 @@
 			size = <0 0x2000000>;
 			linux,cma-default;
 		};
+
+		cont_splash_mem: splash_region@9d600000 {
+			reg = <0x0 0x9d600000 0x0 0x02400000>;
+			label = "cont_splash_mem";
+		};
 	};
 };
 
