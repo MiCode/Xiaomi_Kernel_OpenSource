@@ -3264,7 +3264,8 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 static inline bool
 wake_to_waker_cluster(struct cpu_select_env *env)
 {
-	return !env->need_idle && !env->reason && env->sync &&
+	return env->boost_type == SCHED_BOOST_NONE &&
+	       !env->need_idle && !env->reason && env->sync &&
 	       task_load(current) > sched_big_waker_task_load &&
 	       task_load(env->p) < sched_small_wakee_task_load;
 }
