@@ -1174,6 +1174,10 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 		}
 	}
 
+	rc = cpr3_panic_notifier_init(ctrl);
+	if (rc)
+		return rc;
+
 	/*
 	 * Regulator device handles are not necessary for CPRh controllers
 	 * since communication with the regulators is completely managed
@@ -1214,8 +1218,6 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 			return rc;
 		}
 	}
-
-	rc = cpr3_panic_notifier_init(ctrl);
 
 	return rc;
 }
