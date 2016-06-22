@@ -13,9 +13,23 @@
 #define SDE_PIX_FMT_BGRA_8888		V4L2_PIX_FMT_ARGB32
 #define SDE_PIX_FMT_RGBX_8888		v4l2_fourcc('X', 'B', '2', '4')
 #define SDE_PIX_FMT_BGRX_8888		V4L2_PIX_FMT_XRGB32
+#define SDE_PIX_FMT_XBGR_8888		v4l2_fourcc('R', 'X', '2', '4')
 #define SDE_PIX_FMT_RGBA_5551		v4l2_fourcc('R', 'A', '1', '5')
+#define SDE_PIX_FMT_ARGB_1555		V4L2_PIX_FMT_ARGB555
+#define SDE_PIX_FMT_ABGR_1555		v4l2_fourcc('A', 'B', '1', '5')
+#define SDE_PIX_FMT_BGRA_5551		v4l2_fourcc('B', 'A', '1', '5')
+#define SDE_PIX_FMT_BGRX_5551		v4l2_fourcc('B', 'X', '1', '5')
+#define SDE_PIX_FMT_RGBX_5551		v4l2_fourcc('R', 'X', '1', '5')
+#define SDE_PIX_FMT_XBGR_1555		v4l2_fourcc('X', 'B', '1', '5')
+#define SDE_PIX_FMT_XRGB_1555		V4L2_PIX_FMT_XRGB555
 #define SDE_PIX_FMT_ARGB_4444		V4L2_PIX_FMT_ARGB444
 #define SDE_PIX_FMT_RGBA_4444		v4l2_fourcc('R', 'A', '1', '2')
+#define SDE_PIX_FMT_BGRA_4444		v4l2_fourcc('B', 'A', '1', '2')
+#define SDE_PIX_FMT_ABGR_4444		v4l2_fourcc('A', 'B', '1', '2')
+#define SDE_PIX_FMT_RGBX_4444		v4l2_fourcc('R', 'X', '1', '2')
+#define SDE_PIX_FMT_XRGB_4444		V4L2_PIX_FMT_XRGB444
+#define SDE_PIX_FMT_BGRX_4444		v4l2_fourcc('B', 'X', '1', '2')
+#define SDE_PIX_FMT_XBGR_4444		v4l2_fourcc('X', 'B', '1', '2')
 #define SDE_PIX_FMT_RGB_888		V4L2_PIX_FMT_RGB24
 #define SDE_PIX_FMT_BGR_888		V4L2_PIX_FMT_BGR24
 #define SDE_PIX_FMT_RGB_565		V4L2_PIX_FMT_RGB565
