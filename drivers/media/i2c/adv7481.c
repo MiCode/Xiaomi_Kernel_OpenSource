@@ -351,6 +351,15 @@ static int adv7481_set_irq(struct adv7481_state *state)
 			ADV_REG_SETFIELD(1, IO_V_LOCKED_MB1) |
 			ADV_REG_SETFIELD(1, IO_DE_REGEN_LCK_MB1));
 
+	/* set CVBS lock/unlock interrupts */
+	/* Select SDP MAP 1 */
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x20);
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_LOCK_UNLOCK_MASK_ADDR, 0x03);
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x00);
+
 	if (ret)
 		pr_err("%s: Failed %d to setup interrupt regs\n",
 				__func__, ret);
@@ -458,20 +467,59 @@ static void adv7481_irq_delay_work(struct work_struct *work)
 		pr_debug("%s: dev: %d got datapath raw status: 0x%x\n",
 			__func__, state->device_num, raw_status);
 
-		if (ADV_REG_GETFIELD(int_status, IO_CP_LOCK_CP_ST) &&
-			ADV_REG_GETFIELD(raw_status, IO_CP_LOCK_CP_RAW)) {
-			lock_status = 0;
-			pr_debug(
-			"%s: set lock_status IO_CP_LOCK_CP_RAW: 0x%x\n",
-			__func__, lock_status);
+		if (ADV_REG_GETFIELD(int_status, IO_INT_SD_ST) &&
+			ADV_REG_GETFIELD(raw_status, IO_INT_SD_RAW)) {
+			uint8_t sdp_sts = 0;
+
+			adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr, SDP_RW_MAP_REG,
+					0x01);
+			sdp_sts = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
+			pr_debug("%s: dev: %d got sdp status: 0x%x\n",
+					__func__, state->device_num, sdp_sts);
+			adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr, SDP_RW_MAP_REG,
+					0x00);
+			if (ADV_REG_GETFIELD(sdp_sts, SDP_RO_MAIN_IN_LOCK)) {
+				lock_status = 0;
+				pr_debug(
+				"%s: set lock_status SDP_IN_LOCK:0x%x\n",
+				__func__, lock_status);
+			} else {
+				lock_status = 1;
+				pr_debug(
+				"%s: set lock_status SDP_UNLOCK:0x%x\n",
+				__func__, lock_status);
+			}
+			adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr, SDP_RW_MAP_REG,
+					0x20);
+			adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr,
+					SDP_RW_LOCK_UNLOCK_CLR_ADDR, sdp_sts);
+			adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr, SDP_RW_MAP_REG,
+					0x00);
+		} else {
+			if (ADV_REG_GETFIELD(int_status, IO_CP_LOCK_CP_ST) &&
+				ADV_REG_GETFIELD(raw_status,
+						IO_CP_LOCK_CP_RAW)) {
+				lock_status = 0;
+				pr_debug(
+				"%s: set lock_status IO_CP_LOCK_CP_RAW:0x%x\n",
+				__func__, lock_status);
+			}
+			if (ADV_REG_GETFIELD(int_status, IO_CP_UNLOCK_CP_ST) &&
+				ADV_REG_GETFIELD(raw_status,
+						IO_CP_UNLOCK_CP_RAW)) {
+				lock_status = 1;
+				pr_debug(
+				"%s: set lock_status IO_CP_UNLOCK_CP_RAW:0x%x\n",
+				__func__, lock_status);
+			}
 		}
-		if (ADV_REG_GETFIELD(int_status, IO_CP_UNLOCK_CP_ST) &&
-			ADV_REG_GETFIELD(raw_status, IO_CP_UNLOCK_CP_RAW)) {
-			lock_status = 1;
-			pr_debug(
-			"%s: set lock_status IO_CP_UNLOCK_CP_RAW: 0x%x\n",
-			__func__, lock_status);
-		}
+
 		if (lock_status >= 0) {
 			ptr[0] = adv7481_inp_to_ba(state->mode);
 			ptr[1] = lock_status;
@@ -917,7 +965,8 @@ static int adv7481_get_sd_timings(struct adv7481_state *state, int *sd_standard)
 		return -EINVAL;
 
 	/* Select SDP read-only main Map */
-	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e, 0x01);
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x01);
 	do {
 		sdp_stat = adv7481_rd_byte(&state->i2c_client,
 				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
@@ -926,7 +975,8 @@ static int adv7481_get_sd_timings(struct adv7481_state *state, int *sd_standard)
 		sdp_stat2 = adv7481_rd_byte(&state->i2c_client,
 				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
 	} while ((sdp_stat != sdp_stat2) && (timeout < SDP_NUM_TRIES));
-	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e, 0x00);
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x00);
 
 	if (sdp_stat != sdp_stat2) {
 		pr_err("%s, adv7481 SDP status unstable: 1\n", __func__);
@@ -990,13 +1040,13 @@ static int adv7481_set_cvbs_mode(struct adv7481_state *state)
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
 		0x00, 0x00);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
-		0x0e, 0x80);
+		SDP_RW_MAP_REG, 0x80);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
 		0x9c, 0x00);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
 		0x9c, 0xff);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
-		0x0e, 0x00);
+		SDP_RW_MAP_REG, 0x00);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
 		0x80, 0x51);
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
@@ -1630,7 +1680,8 @@ static int adv7481_query_sd_std(struct v4l2_subdev *sd, v4l2_std_id *std)
 
 	pr_debug("Enter %s\n", __func__);
 	/* Select SDP read-only main Map */
-	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e, 0x01);
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x01);
 	do {
 		tStatus = adv7481_rd_byte(&state->i2c_client,
 				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
@@ -1640,7 +1691,8 @@ static int adv7481_query_sd_std(struct v4l2_subdev *sd, v4l2_std_id *std)
 		usleep_range(LOCK_MIN_SLEEP, LOCK_MAX_SLEEP);
 	} while (count < LOCK_NUM_TRIES);
 
-	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e, 0x00);
+	adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x00);
 	if (count >= LOCK_NUM_TRIES)
 		pr_err("%s(%d), adv7481 SD Input NOT Locked: 0x%x\n",
 			__func__, __LINE__, tStatus);
@@ -1947,6 +1999,7 @@ static int adv7481_g_input_status(struct v4l2_subdev *sd, u32 *status)
 	uint8_t val = 0;
 	uint32_t count = 0;
 
+	*status = 0;
 	pr_debug("Enter %s\n", __func__);
 	if (ADV7481_IP_HDMI == state->mode) {
 		/* Check Timing Lock */
@@ -1964,8 +2017,8 @@ static int adv7481_g_input_status(struct v4l2_subdev *sd, u32 *status)
 		}
 	} else {
 		/* Select SDP read-only main Map */
-		adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e,
-				0x01);
+		adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x01);
 		do {
 			val = adv7481_rd_byte(&state->i2c_client,
 				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
@@ -1975,8 +2028,8 @@ static int adv7481_g_input_status(struct v4l2_subdev *sd, u32 *status)
 			usleep_range(LOCK_MIN_SLEEP, LOCK_MAX_SLEEP);
 		} while (count < LOCK_NUM_TRIES);
 
-		adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr, 0x0e,
-				0x00);
+		adv7481_wr_byte(&state->i2c_client, state->i2c_sdp_addr,
+				SDP_RW_MAP_REG, 0x00);
 		if (count >= LOCK_NUM_TRIES) {
 			pr_err("%s(%d), SD Input NOT Locked: 0x%x\n",
 					__func__, __LINE__, val);
