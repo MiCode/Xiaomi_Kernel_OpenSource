@@ -14,6 +14,7 @@
 #include "ipahal.h"
 #include "ipahal_i.h"
 #include "ipahal_reg_i.h"
+#include "ipahal_fltrt_i.h"
 
 struct ipahal_context *ipahal_ctx;
 
@@ -1242,12 +1243,14 @@ int ipahal_get_proc_ctx_needed_len(enum ipa_hdr_proc_type type)
 	return res;
 }
 
-int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
+
+int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base,
+	struct device *ipa_pdev)
 {
 	int result;
 
-	IPAHAL_DBG("Entry - IPA HW TYPE=%d base=%p\n",
-		ipa_hw_type, base);
+	IPAHAL_DBG("Entry - IPA HW TYPE=%d base=%p ipa_pdev=%p\n",
+		ipa_hw_type, base, ipa_pdev);
 
 	ipahal_ctx = kzalloc(sizeof(*ipahal_ctx), GFP_KERNEL);
 	if (!ipahal_ctx) {
@@ -1268,8 +1271,15 @@ int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
 		goto bail_free_ctx;
 	}
 
+	if (!ipa_pdev) {
+		IPAHAL_ERR("invalid IPA platform device\n");
+		result = -EINVAL;
+		goto bail_free_ctx;
+	}
+
 	ipahal_ctx->hw_type = ipa_hw_type;
 	ipahal_ctx->base = base;
+	ipahal_ctx->ipa_pdev = ipa_pdev;
 
 	if (ipahal_reg_init(ipa_hw_type)) {
 		IPAHAL_ERR("failed to init ipahal reg\n");
@@ -1291,6 +1301,12 @@ int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
 
 	ipahal_hdr_init(ipa_hw_type);
 
+	if (ipahal_fltrt_init(ipa_hw_type)) {
+		IPAHAL_ERR("failed to init ipahal flt rt\n");
+		result = -EFAULT;
+		goto bail_free_ctx;
+	}
+
 	ipahal_debugfs_init();
 
 	return 0;
@@ -1305,7 +1321,19 @@ bail_err_exit:
 void ipahal_destroy(void)
 {
 	IPAHAL_DBG("Entry\n");
+	ipahal_fltrt_destroy();
 	ipahal_debugfs_remove();
 	kfree(ipahal_ctx);
 	ipahal_ctx = NULL;
+}
+
+void ipahal_free_dma_mem(struct ipa_mem_buffer *mem)
+{
+	if (likely(mem)) {
+		dma_free_coherent(ipahal_ctx->ipa_pdev, mem->size, mem->base,
+			mem->phys_base);
+		mem->size = 0;
+		mem->base = NULL;
+		mem->phys_base = 0;
+	}
 }

@@ -1391,6 +1391,7 @@ static void __msm_console_write(struct uart_port *port, const char *s,
 		int j;
 		unsigned int num_chars;
 		char buf[4] = { 0 };
+		const u32 *buffer;
 
 		if (is_uartdm)
 			num_chars = min(count - i, (unsigned int)sizeof(buf));
@@ -1415,7 +1416,8 @@ static void __msm_console_write(struct uart_port *port, const char *s,
 		while (!(msm_read(port, UART_SR) & UART_SR_TX_READY))
 			cpu_relax();
 
-		iowrite32_rep(tf, buf, 1);
+		buffer = (const u32 *)buf;
+		writel_relaxed_no_log(*buffer, tf);
 		i += num_chars;
 	}
 	spin_unlock(&port->lock);

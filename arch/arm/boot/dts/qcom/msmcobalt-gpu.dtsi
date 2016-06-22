@@ -16,7 +16,6 @@
 		compatible = "qcom,pil-tz-generic";
 		qcom,pas-id = <13>;
 		qcom,firmware-name = "a530_zap";
-		memory-region = <&peripheral_mem>;
 	};
 
 	msm_bus: qcom,kgsl-busmon{

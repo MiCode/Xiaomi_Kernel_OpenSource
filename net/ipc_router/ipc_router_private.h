@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -140,5 +140,11 @@ int ipc_router_set_conn(struct msm_ipc_port *port_ptr,
 void *msm_ipc_load_default_node(void);
 
 void msm_ipc_unload_default_node(void *pil);
+
+/**
+ * ipc_router_dummy_write_space() - Dummy write space available callback
+ * @sk:	Socket pointer for which the callback is called.
+ */
+void ipc_router_dummy_write_space(struct sock *sk);
 
 #endif

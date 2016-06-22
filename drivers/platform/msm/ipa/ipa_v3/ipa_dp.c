@@ -19,6 +19,7 @@
 #include "ipa_i.h"
 #include "ipa_trace.h"
 #include "ipahal/ipahal.h"
+#include "ipahal/ipahal_fltrt.h"
 
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
@@ -2562,7 +2563,7 @@ begin:
 			 */
 			if (status.exception ==
 				IPAHAL_PKT_STATUS_EXCEPTION_NONE &&
-				status.rt_rule_id == IPA_RULE_ID_INVALID)
+				ipahal_is_rule_miss_id(status.rt_rule_id))
 				sys->drop_packet = true;
 
 			if (skb->len == pkt_status_sz &&

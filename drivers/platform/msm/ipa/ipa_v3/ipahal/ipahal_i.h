@@ -53,11 +53,15 @@
  *  I/O memory mapped address.
  *  Controlled by debugfs. default is off
  * @dent: Debugfs folder dir entry
+ * @ipa_pdev: IPA Platform Device. Will be used for DMA memory
+ * @empty_fltrt_tbl: Empty table to be used at tables init.
  */
 struct ipahal_context {
 	enum ipa_hw_type hw_type;
 	void __iomem *base;
 	struct dentry *dent;
+	struct device *ipa_pdev;
+	struct ipa_mem_buffer empty_fltrt_tbl;
 };
 
 extern struct ipahal_context *ipahal_ctx;

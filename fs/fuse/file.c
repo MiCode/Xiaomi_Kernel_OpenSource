@@ -60,6 +60,9 @@ struct fuse_file *fuse_file_alloc(struct fuse_conn *fc)
 		return NULL;
 
 	ff->passthrough_filp = NULL;
+	ff->passthrough_enabled = 0;
+	if (fc->passthrough)
+		ff->passthrough_enabled = 1;
 	ff->fc = fc;
 	ff->reserved_req = fuse_request_alloc(0);
 	if (unlikely(!ff->reserved_req)) {
@@ -929,7 +932,7 @@ static ssize_t fuse_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 			return err;
 	}
 
-	if (ff && ff->passthrough_filp)
+	if (ff && ff->passthrough_enabled && ff->passthrough_filp)
 		ret_val = fuse_passthrough_read_iter(iocb, to);
 	else
 		ret_val = generic_file_read_iter(iocb, to);
@@ -1200,7 +1203,7 @@ static ssize_t fuse_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	if (err)
 		goto out;
 
-	if (ff && ff->passthrough_filp) {
+	if (ff && ff->passthrough_enabled && ff->passthrough_filp) {
 		written = fuse_passthrough_write_iter(iocb, from);
 		goto out;
 	}
@@ -2071,6 +2074,9 @@ static const struct vm_operations_struct fuse_file_vm_ops = {
 
 static int fuse_file_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	struct fuse_file *ff = file->private_data;
+
+	ff->passthrough_enabled = 0;
 	if ((vma->vm_flags & VM_SHARED) && (vma->vm_flags & VM_MAYWRITE))
 		fuse_link_write_file(file);
 
@@ -2081,6 +2087,9 @@ static int fuse_file_mmap(struct file *file, struct vm_area_struct *vma)
 
 static int fuse_direct_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	struct fuse_file *ff = file->private_data;
+
+	ff->passthrough_enabled = 0;
 	/* Can't provide the coherency needed for MAP_SHARED */
 	if (vma->vm_flags & VM_MAYSHARE)
 		return -ENODEV;

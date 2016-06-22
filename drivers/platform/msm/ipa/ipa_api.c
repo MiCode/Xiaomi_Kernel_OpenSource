@@ -166,6 +166,124 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_TEST4_CONS),
 };
 
+/**
+ * ipa_write_64() - convert 64 bit value to byte array
+ * @w: 64 bit integer
+ * @dest: byte array
+ *
+ * Return value: converted value
+ */
+u8 *ipa_write_64(u64 w, u8 *dest)
+{
+	if (unlikely(dest == NULL)) {
+		pr_err("ipa_write_64: NULL address!\n");
+		return dest;
+	}
+	*dest++ = (u8)((w) & 0xFF);
+	*dest++ = (u8)((w >> 8) & 0xFF);
+	*dest++ = (u8)((w >> 16) & 0xFF);
+	*dest++ = (u8)((w >> 24) & 0xFF);
+	*dest++ = (u8)((w >> 32) & 0xFF);
+	*dest++ = (u8)((w >> 40) & 0xFF);
+	*dest++ = (u8)((w >> 48) & 0xFF);
+	*dest++ = (u8)((w >> 56) & 0xFF);
+
+	return dest;
+}
+
+/**
+ * ipa_write_32() - convert 32 bit value to byte array
+ * @w: 32 bit integer
+ * @dest: byte array
+ *
+ * Return value: converted value
+ */
+u8 *ipa_write_32(u32 w, u8 *dest)
+{
+	if (unlikely(dest == NULL)) {
+		pr_err("ipa_write_32: NULL address!\n");
+		return dest;
+	}
+	*dest++ = (u8)((w) & 0xFF);
+	*dest++ = (u8)((w >> 8) & 0xFF);
+	*dest++ = (u8)((w >> 16) & 0xFF);
+	*dest++ = (u8)((w >> 24) & 0xFF);
+
+	return dest;
+}
+
+/**
+ * ipa_write_16() - convert 16 bit value to byte array
+ * @hw: 16 bit integer
+ * @dest: byte array
+ *
+ * Return value: converted value
+ */
+u8 *ipa_write_16(u16 hw, u8 *dest)
+{
+	if (unlikely(dest == NULL)) {
+		pr_err("ipa_write_16: NULL address!\n");
+		return dest;
+	}
+	*dest++ = (u8)((hw) & 0xFF);
+	*dest++ = (u8)((hw >> 8) & 0xFF);
+
+	return dest;
+}
+
+/**
+ * ipa_write_8() - convert 8 bit value to byte array
+ * @hw: 8 bit integer
+ * @dest: byte array
+ *
+ * Return value: converted value
+ */
+u8 *ipa_write_8(u8 b, u8 *dest)
+{
+	if (unlikely(dest == NULL)) {
+		pr_err("ipa_write_8: NULL address!\n");
+		return dest;
+	}
+	*dest++ = (b) & 0xFF;
+
+	return dest;
+}
+
+/**
+ * ipa_pad_to_64() - pad byte array to 64 bit value
+ * @dest: byte array
+ *
+ * Return value: padded value
+ */
+u8 *ipa_pad_to_64(u8 *dest)
+{
+	int i = (long)dest & 0x7;
+	int j;
+
+	if (i)
+		for (j = 0; j < (8 - i); j++)
+			*dest++ = 0;
+
+	return dest;
+}
+
+/**
+ * ipa_pad_to_32() - pad byte array to 32 bit value
+ * @dest: byte array
+ *
+ * Return value: padded value
+ */
+u8 *ipa_pad_to_32(u8 *dest)
+{
+	int i = (long)dest & 0x3;
+	int j;
+
+	if (i)
+		for (j = 0; j < (4 - i); j++)
+			*dest++ = 0;
+
+	return dest;
+}
 
 /**
  * ipa_connect() - low-level IPA client connect

@@ -2492,8 +2492,6 @@ static void etm4_init_default_data(struct etmv4_drvdata *drvdata)
 	if (drvdata->nr_addr_cmp)
 		drvdata->vinst_ctrl |= BIT(9);
 
-	/* no address range filtering for ViewInst */
-	drvdata->viiectlr = 0x0;
 	/* no start-stop filtering for ViewInst */
 	drvdata->vissctlr = 0x0;
 
@@ -2527,6 +2525,9 @@ static void etm4_init_default_data(struct etmv4_drvdata *drvdata)
 		drvdata->addr_val[1] = (unsigned long)_etext;
 		drvdata->addr_type[0] = ETM_ADDR_TYPE_RANGE;
 		drvdata->addr_type[1] = ETM_ADDR_TYPE_RANGE;
+
+		/* address range filtering for ViewInst */
+		drvdata->viiectlr = 0x1;
 	}
 
 	for (i = 0; i < drvdata->numcidc; i++) {
@@ -2548,6 +2549,41 @@ static void etm4_init_default_data(struct etmv4_drvdata *drvdata)
 	drvdata->trcid = 0x1 + drvdata->cpu;
 }
 
+static int etm4_set_reg_dump(struct etmv4_drvdata *drvdata)
+{
+	int ret;
+	void *baddr;
+	struct amba_device *adev;
+	struct resource *res;
+	struct device *dev = drvdata->dev;
+	struct msm_dump_entry dump_entry;
+	uint32_t size;
+
+	adev = to_amba_device(dev);
+	if (!adev)
+		return -EINVAL;
+
+	res = &adev->res;
+	size = resource_size(res);
+
+	baddr = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!baddr)
+		return -ENOMEM;
+
+	drvdata->reg_data.addr = virt_to_phys(baddr);
+	drvdata->reg_data.len = size;
+
+	dump_entry.id = MSM_DUMP_DATA_ETM_REG + drvdata->cpu;
+	dump_entry.addr = virt_to_phys(&drvdata->reg_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+				     &dump_entry);
+	if (ret)
+		devm_kfree(dev, baddr);
+
+	return ret;
+}
+
 static int etm4_late_init(struct etmv4_drvdata *drvdata)
 {
 	int ret;
@@ -2558,6 +2594,10 @@ static int etm4_late_init(struct etmv4_drvdata *drvdata)
 		return -EINVAL;
 
 	etm4_init_default_data(drvdata);
+
+	ret = etm4_set_reg_dump(drvdata);
+	if (ret)
+		dev_err(dev, "ETM REG dump setup failed. ret %d\n", ret);
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)

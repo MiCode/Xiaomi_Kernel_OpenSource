@@ -382,6 +382,7 @@ struct sched_cluster {
 	int capacity;
 	int efficiency; /* Differentiate cpus with different IPC capability */
 	int load_scale_factor;
+	unsigned int exec_scale_factor;
 	/*
 	 * max_freq = user maximum
 	 * max_mitigated_freq = thermal defined maximum
@@ -1150,7 +1151,7 @@ static inline int cpu_max_power_cost(int cpu)
 	return cpu_rq(cpu)->cluster->max_power_cost;
 }
 
-static inline u32 cpu_cycles_to_freq(int cpu, u64 cycles, u32 period)
+static inline u32 cpu_cycles_to_freq(u64 cycles, u32 period)
 {
 	return div64_u64(cycles, period);
 }

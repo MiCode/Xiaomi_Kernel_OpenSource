@@ -1722,10 +1722,6 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			 const struct ipa_rule_attrib *attrib,
 			 u8 **buf,
 			 u16 *en_rule);
-u8 *ipa_write_32(u32 w, u8 *dest);
-u8 *ipa_write_16(u16 hw, u8 *dest);
-u8 *ipa_write_8(u8 b, u8 *dest);
-u8 *ipa_pad_to_32(u8 *dest);
 int ipa_init_hw(void);
 struct ipa_rt_tbl *__ipa_find_rt_tbl(enum ipa_ip_type ip, const char *name);
 int ipa_set_single_ndp_per_mbim(bool);

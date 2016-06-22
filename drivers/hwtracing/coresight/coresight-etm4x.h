@@ -16,6 +16,7 @@
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include "coresight-priv.h"
+#include <soc/qcom/memory_dump.h>
 
 /*
  * Device registers:
@@ -283,6 +284,7 @@
  * @ns_ex_level:In non-secure state, indicates whether instruction tracing is
  *		supported for the corresponding Exception level.
  * @ext_inp:	External input selection.
+ * @reg_data:   MSM memory dump data
  */
 struct etmv4_drvdata {
 	void __iomem			*base;
@@ -371,6 +373,7 @@ struct etmv4_drvdata {
 	u8				s_ex_level;
 	u8				ns_ex_level;
 	u32				ext_inp;
+	struct msm_dump_data		reg_data;
 };
 
 /* Address comparator access types */

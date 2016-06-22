@@ -343,4 +343,11 @@ void ipa_get_holb(int ep_idx, struct ipa_ep_cfg_holb *holb);
 void ipa_set_tag_process_before_gating(bool val);
 bool ipa_has_open_aggr_frame(enum ipa_client_type client);
 
+u8 *ipa_write_64(u64 w, u8 *dest);
+u8 *ipa_write_32(u32 w, u8 *dest);
+u8 *ipa_write_16(u16 hw, u8 *dest);
+u8 *ipa_write_8(u8 b, u8 *dest);
+u8 *ipa_pad_to_64(u8 *dest);
+u8 *ipa_pad_to_32(u8 *dest);
+
 #endif /* _IPA_COMMON_I_H_ */
