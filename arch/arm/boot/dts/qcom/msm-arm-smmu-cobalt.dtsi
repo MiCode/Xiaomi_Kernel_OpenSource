@@ -113,6 +113,7 @@
 		reg = <0xcd00000 0x40000>;
 		#iommu-cells = <1>;
 		qcom,register-save;
+		qcom,no-smr-check;
 		qcom,skip-init;
 		#global-interrupts = <2>;
 		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
