@@ -39,15 +39,11 @@
 
 #define LOCATOR_NOT_PRESENT	0
 #define LOCATOR_PRESENT		1
-#define LOCATOR_UNKNOWN		-1
 
-static u32 locator_status = LOCATOR_UNKNOWN;
+static u32 locator_status = LOCATOR_NOT_PRESENT;
 static bool service_inited;
 
-int enable;
-module_param(enable, int, 0);
-
-DECLARE_COMPLETION(locator_status_known);
+module_param_named(enable, locator_status, uint, S_IRUGO | S_IWUSR);
 
 static void service_locator_svc_arrive(struct work_struct *work);
 static void service_locator_svc_exit(struct work_struct *work);
@@ -69,47 +65,6 @@ DEFINE_MUTEX(service_init_mutex);
 struct pd_qmi_data service_locator;
 
 /* Please refer soc/qcom/service-locator.h for use about APIs defined here */
-
-static ssize_t show_service_locator_status(struct class *cl,
-						struct class_attribute *attr,
-						char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%x\n", locator_status);
-}
-
-static ssize_t store_service_locator_status(struct class *cl,
-						struct class_attribute *attr,
-						const char *buf, size_t size)
-{
-	u32 val;
-
-	if (kstrtos32(buf, 10, &val) < 0)
-		goto err;
-	if (val != LOCATOR_NOT_PRESENT && val != LOCATOR_PRESENT)
-		goto err;
-
-	mutex_lock(&service_init_mutex);
-	locator_status = val;
-	complete_all(&locator_status_known);
-	mutex_unlock(&service_init_mutex);
-	return size;
-err:
-	pr_err("Invalid input parameters\n");
-	return -EINVAL;
-}
-
-static struct class_attribute service_locator_class_attr[] = {
-	__ATTR(service_locator_status, S_IRUGO | S_IWUSR,
-			show_service_locator_status,
-			store_service_locator_status),
-	__ATTR_NULL,
-};
-
-static struct class service_locator_class  = {
-	.name = "service_locator",
-	.owner = THIS_MODULE,
-	.class_attrs = service_locator_class_attr,
-};
 
 static int service_locator_svc_event_notify(struct notifier_block *this,
 				      unsigned long code,
@@ -338,29 +293,12 @@ static int init_service_locator(void)
 
 	mutex_lock(&service_init_mutex);
 	if (locator_status == LOCATOR_NOT_PRESENT) {
-		pr_err("Service Locator not present\n");
+		pr_err("Service Locator not enabled\n");
 		rc = -ENODEV;
 		goto inited;
 	}
 	if (service_inited)
 		goto inited;
-
-	if (locator_status !=  LOCATOR_PRESENT) {
-		mutex_unlock(&service_init_mutex);
-		rc = wait_for_completion_timeout(&locator_status_known,
-			msecs_to_jiffies(INITIAL_TIMEOUT));
-		if (!rc) {
-			locator_status =  LOCATOR_NOT_PRESENT;
-			pr_err("Timed out waiting for Service Locator\n");
-			return -ENODEV;
-		}
-		mutex_lock(&service_init_mutex);
-		if (locator_status ==  LOCATOR_NOT_PRESENT) {
-			pr_err("Service Locator not present\n");
-			rc = -ENODEV;
-			goto inited;
-		}
-	}
 
 	service_locator.notifier.notifier_call =
 					service_locator_svc_event_notify;
@@ -509,10 +447,7 @@ static struct dentry *test_servloc_file;
 
 static int __init service_locator_init(void)
 {
-	if (!enable)
-		locator_status = LOCATOR_NOT_PRESENT;
-
-	class_register(&service_locator_class);
+	pr_debug("service_locator_status = %d\n", locator_status);
 	test_servloc_file = debugfs_create_file("test_servloc",
 				S_IRUGO | S_IWUSR, NULL, NULL,
 				&servloc_fops);
@@ -523,7 +458,6 @@ static int __init service_locator_init(void)
 
 static void __exit service_locator_exit(void)
 {
-	class_unregister(&service_locator_class);
 	debugfs_remove(test_servloc_file);
 }
 
