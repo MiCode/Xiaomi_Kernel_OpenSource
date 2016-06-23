@@ -54,10 +54,10 @@ struct msm_gem_object {
 	struct list_head submit_entry;
 
 	struct page **pages;
-	struct sg_table *sgt;
 	void *vaddr;
 
 	struct {
+		struct sg_table *sgt;
 		dma_addr_t iova;
 	} domain[NUM_DOMAINS];
 

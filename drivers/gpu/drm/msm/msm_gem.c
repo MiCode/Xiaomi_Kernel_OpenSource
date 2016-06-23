@@ -167,7 +167,6 @@ static struct page **get_pages(struct drm_gem_object *obj)
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
 	if (!msm_obj->pages) {
-		struct drm_device *dev = obj->dev;
 		struct page **p;
 		int npages = obj->size >> PAGE_SHIFT;
 
@@ -179,15 +178,8 @@ static struct page **get_pages(struct drm_gem_object *obj)
 		}
 
 		if (IS_ERR(p)) {
-			dev_err(dev->dev, "could not get pages: %ld\n",
-					PTR_ERR(p));
+			DRM_ERROR("could not get pages: %ld\n", PTR_ERR(p));
 			return p;
-		}
-
-		msm_obj->sgt = drm_prime_pages_to_sg(p, npages);
-		if (IS_ERR(msm_obj->sgt)) {
-			dev_err(dev->dev, "failed to allocate sgt\n");
-			return ERR_CAST(msm_obj->sgt);
 		}
 
 		msm_obj->pages = p;
@@ -199,10 +191,16 @@ static struct page **get_pages(struct drm_gem_object *obj)
 static void put_pages(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	int id;
 
 	if (msm_obj->pages) {
-		sg_free_table(msm_obj->sgt);
-		kfree(msm_obj->sgt);
+		for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
+			if (msm_obj->domain[id].sgt) {
+				sg_free_table(msm_obj->domain[id].sgt);
+				kfree(msm_obj->domain[id].sgt);
+				msm_obj->domain[id].sgt = NULL;
+			}
+		}
 
 		if (use_pages(obj))
 			msm_drm_free_buf(obj);
@@ -339,7 +337,7 @@ static uint64_t mmap_offset(struct drm_gem_object *obj)
 	ret = drm_gem_create_mmap_offset(obj);
 
 	if (ret) {
-		dev_err(dev->dev, "could not allocate mmap offset\n");
+		DRM_ERROR("could not allocate mmap offset\n");
 		return 0;
 	}
 
@@ -370,10 +368,20 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 
 	if (!msm_obj->domain[id].iova) {
 		struct msm_drm_private *priv = obj->dev->dev_private;
+		int npages = obj->size >> PAGE_SHIFT;
 		struct page **pages = get_pages(obj);
 
 		if (IS_ERR(pages))
 			return PTR_ERR(pages);
+
+		if (!msm_obj->domain[id].sgt) {
+			msm_obj->domain[id].sgt =
+					drm_prime_pages_to_sg(pages, npages);
+			if (IS_ERR(msm_obj->domain[id].sgt)) {
+				DRM_ERROR("failed to allocate sgt\n");
+				return PTR_ERR(msm_obj->domain[id].sgt);
+			}
+		}
 
 		if (iommu_present(&platform_bus_type)) {
 			struct msm_mmu *mmu = priv->mmus[id];
@@ -382,7 +390,8 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 				return -EINVAL;
 
 			if (obj->import_attach && mmu->funcs->map_dma_buf) {
-				ret = mmu->funcs->map_dma_buf(mmu, msm_obj->sgt,
+				ret = mmu->funcs->map_dma_buf(mmu,
+						msm_obj->domain[id].sgt,
 						obj->import_attach->dmabuf,
 						DMA_BIDIRECTIONAL);
 				if (ret) {
@@ -390,12 +399,13 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 					return ret;
 				}
 				msm_obj->domain[id].iova =
-					sg_dma_address(msm_obj->sgt->sgl);
+				sg_dma_address(msm_obj->domain[id].sgt->sgl);
 			} else if (!use_pages(obj)) {
 				/* use vram */
 				dma_addr_t pa = physaddr(obj);
 
-				ret = mmu->funcs->map(mmu, pa, msm_obj->sgt,
+				ret = mmu->funcs->map(mmu, pa,
+						msm_obj->domain[id].sgt,
 						obj->size,
 						IOMMU_READ | IOMMU_NOEXEC);
 				if (ret) {
@@ -407,14 +417,15 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 			} else {
 				if (msm_obj->flags &
 						(MSM_BO_WC|MSM_BO_UNCACHED))
-					dma_map_sg(mmu->dev, msm_obj->sgt->sgl,
-							msm_obj->sgt->nents,
-							DMA_BIDIRECTIONAL);
+					dma_map_sg(mmu->dev,
+						msm_obj->domain[id].sgt->sgl,
+						msm_obj->domain[id].sgt->nents,
+						DMA_BIDIRECTIONAL);
 				msm_obj->domain[id].iova =
-					sg_dma_address(msm_obj->sgt->sgl);
+				sg_dma_address(msm_obj->domain[id].sgt->sgl);
 			}
-			dev_dbg(mmu->dev, "iova=0x%lx\n",
-						msm_obj->domain[id].iova);
+			DRM_DEBUG("iova=%p\n",
+					(void *)msm_obj->domain[id].iova);
 		} else {
 			WARN_ONCE(1, "physical address being used\n");
 			msm_obj->domain[id].iova = physaddr(obj);
@@ -658,25 +669,31 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 		struct msm_mmu *mmu = priv->mmus[id];
 		if (mmu && msm_obj->domain[id].iova) {
 			if (obj->import_attach && mmu->funcs->unmap_dma_buf) {
-				mmu->funcs->unmap_dma_buf(mmu, msm_obj->sgt,
+				mmu->funcs->unmap_dma_buf(mmu,
+						msm_obj->domain[id].sgt,
 						obj->import_attach->dmabuf,
 						DMA_BIDIRECTIONAL);
 			} else if (!use_pages(obj)) {
 				uint32_t offset = msm_obj->domain[id].iova;
 
-				mmu->funcs->unmap(mmu, offset, msm_obj->sgt,
+				mmu->funcs->unmap(mmu, offset,
+					msm_obj->domain[id].sgt,
 					obj->size);
 			} else {
-				dma_unmap_sg(mmu->dev, msm_obj->sgt->sgl,
-					msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
+				dma_unmap_sg(mmu->dev,
+					msm_obj->domain[id].sgt->sgl,
+					msm_obj->domain[id].sgt->nents,
+					DMA_BIDIRECTIONAL);
 			}
 			msm_obj->domain[id].iova = 0;
 		}
 	}
 
 	if (obj->import_attach) {
+		drm_prime_gem_destroy(obj, NULL);
 		if (msm_obj->vaddr)
-			dma_buf_vunmap(obj->import_attach->dmabuf, msm_obj->vaddr);
+			dma_buf_vunmap(obj->import_attach->dmabuf,
+					msm_obj->vaddr);
 
 		/* Don't drop the pages for imported dmabuf, as they are not
 		 * ours, just free the array we allocated:
@@ -685,8 +702,6 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 			drm_free_large(msm_obj->pages);
 			msm_obj->pages = NULL;
 		}
-
-		drm_prime_gem_destroy(obj, msm_obj->sgt);
 	} else {
 		if (msm_obj->vaddr)
 			vunmap(msm_obj->vaddr);
@@ -742,7 +757,7 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	case MSM_BO_WC:
 		break;
 	default:
-		dev_err(dev->dev, "invalid cache flag: %x\n",
+		DRM_ERROR("invalid cache flag: %x\n",
 				(flags & MSM_BO_CACHE_MASK));
 		return -EINVAL;
 	}
@@ -835,7 +850,7 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 
 	/* if we don't have IOMMU, don't bother pretending we can import: */
 	if (!iommu_present(&platform_bus_type)) {
-		dev_err(dev->dev, "cannot import without IOMMU\n");
+		DRM_ERROR("cannot import without IOMMU\n");
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -850,14 +865,14 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 	npages = size / PAGE_SIZE;
 
 	msm_obj = to_msm_bo(obj);
-	msm_obj->sgt = sgt;
 	msm_obj->pages = drm_malloc_ab(npages, sizeof(struct page *));
 	if (!msm_obj->pages) {
 		ret = -ENOMEM;
 		goto fail;
 	}
 
-	ret = drm_prime_sg_to_page_addr_arrays(sgt, msm_obj->pages, NULL, npages);
+	ret = drm_prime_sg_to_page_addr_arrays(sgt, msm_obj->pages, NULL,
+						 npages);
 	if (ret)
 		goto fail;
 
