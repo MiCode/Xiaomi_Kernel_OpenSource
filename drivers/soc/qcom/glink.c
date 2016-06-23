@@ -3583,6 +3583,10 @@ int glink_xprt_name_to_id(const char *name, uint16_t *id)
 		*id = SMEM_XPRT_ID;
 		return 0;
 	}
+	if (!strcmp(name, "spi")) {
+		*id = SPIV2_XPRT_ID;
+		return 0;
+	}
 	if (!strcmp(name, "smd_trans")) {
 		*id = SMD_TRANS_XPRT_ID;
 		return 0;

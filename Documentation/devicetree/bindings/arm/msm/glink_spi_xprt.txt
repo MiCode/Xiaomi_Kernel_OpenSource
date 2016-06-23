@@ -1,0 +1,44 @@
+Qualcomm Technologies, Inc. G-link SPI Transport
+
+Required properties:
+-compatible : should be "qcom,glink-spi-xprt".
+-label : the name of the subsystem this link connects to.
+
+Optional properties:
+-qcom,remote-fifo-config: Reference to the FIFO configuratio in the remote
+			processor.
+-qcom,qos-config: Reference to the qos configuration elements.It depends on
+		ramp-time.
+-qcom,ramp-time: Worst case time in microseconds to transition to this power
+		state. Power states are numbered by array index position.
+
+Example:
+
+	glink_spi_xprt_wdsp: qcom,glink-spi-xprt-wdsp {
+		compatible = "qcom,glink-spi-xprt";
+		label = "wdsp";
+		qcom,remote-fifo-config = <&glink_fifo_wdsp>;
+		qcom,qos-config = <&glink_qos_wdsp>;
+		qcom,ramp-time = <0x10>,
+				     <0x20>,
+				     <0x30>,
+				     <0x40>;
+	};
+
+	glink_fifo_wdsp: qcom,glink-fifo-config-wdsp {
+		compatible = "qcom,glink-fifo-config";
+		qcom,out-read-idx-reg = <0x12000>;
+		qcom,out-write-idx-reg = <0x12004>;
+		qcom,in-read-idx-reg = <0x1200C>;
+		qcom,in-write-idx-reg = <0x12010>;
+	};
+
+	glink_qos_wdsp: qcom,glink-qos-config-wdsp {
+		compatible = "qcom,glink-qos-config";
+		qcom,flow-info = <0x80 0x0>,
+				 <0x70 0x1>,
+				 <0x60 0x2>,
+				 <0x50 0x3>;
+		qcom,mtu-size = <0x800>;
+		qcom,tput-stats-cycle = <0xa>;
+	};

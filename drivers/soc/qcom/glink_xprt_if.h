@@ -28,6 +28,7 @@ enum buf_type {
 
 enum xprt_ids {
 	SMEM_XPRT_ID = 100,
+	SPIV2_XPRT_ID = SMEM_XPRT_ID,
 	SMD_TRANS_XPRT_ID = 200,
 	LLOOP_XPRT_ID = 300,
 	MOCK_XPRT_HIGH_ID = 390,
