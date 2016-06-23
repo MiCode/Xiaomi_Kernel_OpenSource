@@ -8,6 +8,9 @@ Required properties:
 - compatible:           Should be "qcom,dsi-ctrl-hw-v<version>". Supported
 			versions include 1.4 and 2.0.
 			eg: qcom,dsi-ctrl-hw-v1.4, qcom,dsi-ctrl-hw-v2.0
+			And for dsi phy driver:
+			qcom,dsi-phy-v1.0, qcom,dsi-phy-v2.0, qcom,dsi-phy-v3.0,
+			qcom,dsi-phy-v4.0
 - reg:                  Base address and length of DSI controller's memory
 			mapped regions.
 - reg-names:            A list of strings that name the list of regs.
