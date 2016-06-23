@@ -60,4 +60,13 @@ Optional properties:
 					there can be more than one instance of this binding,
 					in which case the entry would be appended with the
 					supply entry index.
-
+					e.g. qcom,ctrl-supply-entry@0
+					-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+					-- qcom,supply-min-voltage: minimum voltage level (uV)
+					-- qcom,supply-max-voltage: maximum voltage level (uV)
+					-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+					-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+					-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
