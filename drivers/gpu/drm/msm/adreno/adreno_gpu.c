@@ -68,7 +68,7 @@ int adreno_hw_init(struct msm_gpu *gpu)
 	/* Setup REG_CP_RB_CNTL: */
 	adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_CNTL,
 			/* size is log2(quad-words): */
-			AXXX_CP_RB_CNTL_BUFSZ(ilog2(gpu->rb->size / 8))|
+			AXXX_CP_RB_CNTL_BUFSZ(ilog2(gpu->rb->size / 8)) |
 			(1 << 27));
 
 	/* Setup ringbuffer address: */
@@ -142,9 +142,8 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 	}
 
 	OUT_PKT7(ring, CP_WAIT_FOR_IDLE, 0);
-
 	OUT_PKT7(ring, CP_EVENT_WRITE, 4);
-	OUT_RING(ring, CACHE_FLUSH_TS);
+	OUT_RING(ring, CACHE_FLUSH_TS | (1 << 31));
 	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, fence)));
 	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, fence)));
 	OUT_RING(ring, submit->fence);
@@ -190,10 +189,6 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
 
 	seq_printf(m, "fence:    %d/%d\n", adreno_gpu->memptrs->fence,
 			gpu->submitted_fence);
-	seq_printf(m, "rptr:     %d\n", adreno_gpu->memptrs->rptr);
-	seq_printf(m, "wptr:     %d\n", adreno_gpu->memptrs->wptr);
-	seq_printf(m, "rb wptr:  %d\n", get_wptr(gpu->rb));
-
 	gpu->funcs->pm_resume(gpu);
 
 	/* dump these out in a form that can be parsed by demsm: */
@@ -231,8 +226,6 @@ void adreno_dump_info(struct msm_gpu *gpu)
 
 	pr_info("fence:    %d/%d\n", adreno_gpu->memptrs->fence,
 			gpu->submitted_fence);
-	pr_info("rptr:     %d\n", adreno_gpu->memptrs->rptr);
-	pr_info("wptr:     %d\n", adreno_gpu->memptrs->wptr);
 	pr_info("rb wptr:  %d\n", get_wptr(gpu->rb));
 
 	for (i = 0; i < 8; i++) {

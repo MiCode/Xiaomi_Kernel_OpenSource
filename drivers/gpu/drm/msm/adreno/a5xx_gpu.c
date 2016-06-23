@@ -939,12 +939,17 @@ static int a5xx_idle(struct msm_gpu *gpu)
 	bool timeout = true;
 	unsigned long __t = jiffies + ADRENO_IDLE_TIMEOUT;
 	unsigned int rptr, wptr;
+	unsigned int status;
 
 	/* wait for ringbuffer to drain: */
 	do {
 		rptr = gpu_read(gpu, A5XX_CP_RB_RPTR);
 		wptr = gpu_read(gpu, A5XX_CP_RB_WPTR);
-		if (rptr == wptr) {
+		if (rptr != wptr)
+			continue;
+
+		status = gpu_read(gpu, A5XX_RBBM_STATUS);
+		if ((status & 0xfffffffe) == 0) {
 			timeout = false;
 			break;
 		}
@@ -954,6 +959,7 @@ static int a5xx_idle(struct msm_gpu *gpu)
 		DRM_ERROR("%s: timeout waiting to drain ringbuffer!\n",
 				gpu->name);
 		DRM_ERROR("RPTR:%x WPTR:%x\n", rptr, wptr);
+		DRM_ERROR("Status:%x\n", (status & 0xfffffffe));
 		return -ETIMEDOUT;
 	}
 	return 0;
@@ -1010,6 +1016,8 @@ static void a5xx_err_checker(struct msm_gpu *gpu, unsigned int bit)
 		break;
 	case A5XX_INT_GPMU_VOLTAGE_DROOP:
 		DRM_ERROR("GPMU: Voltage droop\n");
+		break;
+	case A5XX_INT_CP_CACHE_FLUSH_TS:
 		break;
 	default:
 		DRM_ERROR("Unknown interrupt %d\n", bit);
