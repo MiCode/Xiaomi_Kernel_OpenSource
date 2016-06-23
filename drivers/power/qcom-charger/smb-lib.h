@@ -65,6 +65,7 @@ struct smb_params {
 };
 
 struct parallel_params {
+	struct notifier_block	nb;
 	struct power_supply	*psy;
 	int			*master_percent;
 	int			taper_percent;
@@ -107,6 +108,7 @@ struct smb_charger {
 	struct votable		*pl_disable_votable;
 
 	/* work */
+	struct work_struct	pl_detect_work;
 	struct delayed_work	hvdcp_detect_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	pl_taper_work;

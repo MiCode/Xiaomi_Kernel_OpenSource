@@ -596,6 +596,8 @@ static int smb2_determine_initial_status(struct smb2 *chip)
 	smblib_handle_usb_plugin(0, &irq_data);
 	smblib_handle_usb_typec_change(0, &irq_data);
 	smblib_handle_usb_source_change(0, &irq_data);
+	smblib_handle_chg_state_change(0, &irq_data);
+	smblib_handle_icl_change(0, &irq_data);
 
 	return 0;
 }
