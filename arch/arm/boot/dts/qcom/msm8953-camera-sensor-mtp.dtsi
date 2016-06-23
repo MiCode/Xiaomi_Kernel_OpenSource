@@ -178,10 +178,12 @@
 		cam_vio-supply = <&pm8953_l6>;
 		cam_vdig-supply = <&pm8953_l2>;
 		cam_vaf-supply = <&pm8953_l17>;
-		qcom,cam-vreg-name = "cam_vio", "cam_vdig", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <0 1100000 2850000>;
-		qcom,cam-vreg-max-voltage = <0 1100000 2850000>;
-		qcom,cam-vreg-op-mode = <0 105000 100000>;
+		cam_vana-supply = <&pm8953_l22>;
+		qcom,cam-vreg-name = "cam_vio", "cam_vdig", "cam_vaf",
+						"cam_vana";
+		qcom,cam-vreg-min-voltage = <0 1100000 2850000 2800000>;
+		qcom,cam-vreg-max-voltage = <0 1100000 2850000 2800000>;
+		qcom,cam-vreg-op-mode = <0 105000 100000 80000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_default
 				&cam_sensor_rear_default
