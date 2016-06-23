@@ -13,6 +13,7 @@
 #ifndef _MSM_PROP_H_
 #define _MSM_PROP_H_
 
+#include <linux/list.h>
 #include "msm_drv.h"
 
 #define MSM_PROP_STATE_CACHE_SIZE	2
@@ -21,9 +22,11 @@
  * struct msm_property_data - opaque structure for tracking per
  *                            drm-object per property stuff
  * @default_value: Default property value for this drm object
+ * @dirty_node: Linked list node to track if property is dirty or not
  */
 struct msm_property_data {
 	uint64_t default_value;
+	struct list_head dirty_node;
 };
 
 /**
@@ -37,6 +40,9 @@ struct msm_property_data {
  * @install_request: Total number of property 'install' requests
  * @install_count: Total number of successful 'install' requests
  * @recent_idx: Index of property most recently accessed by set/get
+ * @dirty_list: List of all properties that have been 'atomic_set' but not
+ *              yet cleared with 'msm_property_pop_dirty'
+ * @is_active: Whether or not drm component properties are 'active'
  * @state_cache: Cache of local states, to prevent alloc/free thrashing
  * @state_size: Size of local state structures
  * @state_cache_size: Number of state structures currently stored in state_cache
@@ -54,6 +60,9 @@ struct msm_property_info {
 	uint32_t install_count;
 
 	int32_t recent_idx;
+
+	struct list_head dirty_list;
+	bool is_active;
 
 	void *state_cache[MSM_PROP_STATE_CACHE_SIZE];
 	uint32_t state_size;
@@ -83,6 +92,51 @@ uint64_t msm_property_get_default(struct msm_property_info *info,
 
 	return rc;
 }
+
+/**
+ * msm_property_set_is_active - set overall 'active' status for all properties
+ * @info: Pointer to property info container struct
+ * @is_active: New 'is active' status
+ */
+static inline
+void msm_property_set_is_active(struct msm_property_info *info, bool is_active)
+{
+	if (info) {
+		mutex_lock(&info->property_lock);
+		info->is_active = is_active;
+		mutex_unlock(&info->property_lock);
+	}
+}
+
+/**
+ * msm_property_get_is_active - query property 'is active' status
+ * @info: Pointer to property info container struct
+ * Returns: Current 'is active's status
+ */
+static inline
+bool msm_property_get_is_active(struct msm_property_info *info)
+{
+	bool rc = false;
+
+	if (info) {
+		mutex_lock(&info->property_lock);
+		rc = info->is_active;
+		mutex_unlock(&info->property_lock);
+	}
+
+	return rc;
+}
+
+/**
+ * msm_property_pop_dirty - determine next dirty property and clear
+ *                          its dirty flag
+ * @info: Pointer to property info container struct
+ * Returns: Valid msm property index on success,
+ *          -EAGAIN if no dirty properties are available
+ *          Property indicies returned from this function are similar
+ *          to those returned by the msm_property_index function.
+ */
+int msm_property_pop_dirty(struct msm_property_info *info);
 
 /**
  * msm_property_init - initialize property info structure
