@@ -842,12 +842,6 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		return rc;
 	}
 
-	rc = smb138x_init_parallel_psy(chip);
-	if (rc < 0) {
-		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
-		return rc;
-	}
-
 	/* suspend usb input */
 	rc = smblib_set_usb_suspend(chg, true);
 	if (rc < 0) {
@@ -875,6 +869,13 @@ static int smb138x_slave_probe(struct smb138x *chip)
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure charge enable source rc=%d\n",
 			rc);
+		return rc;
+	}
+
+	/* keep at the end of probe, ready to serve before notifying others */
+	rc = smb138x_init_parallel_psy(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
 		return rc;
 	}
 

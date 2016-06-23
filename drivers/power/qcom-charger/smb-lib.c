@@ -339,16 +339,32 @@ static int smblib_detach_usb(struct smb_charger *chg)
 	return rc;
 }
 
-static struct power_supply *get_parallel_psy(struct smb_charger *chg)
+static int pl_notifier_call(struct notifier_block *nb,
+		unsigned long ev, void *v)
 {
-	if (chg->pl.psy)
-		return chg->pl.psy;
+	struct power_supply *psy = v;
+	struct smb_charger *chg = container_of(nb, struct smb_charger, pl.nb);
 
-	chg->pl.psy = power_supply_get_by_name("parallel");
-	if (!chg->pl.psy)
-		smblib_dbg(chg, PR_MISC, "parallel charger not found\n");
+	if (strcmp(psy->desc->name, "parallel") == 0) {
+		chg->pl.psy = psy;
+		schedule_work(&chg->pl_detect_work);
+	}
 
-	return chg->pl.psy;
+	return NOTIFY_OK;
+}
+
+static int register_pl_notifier(struct smb_charger *chg)
+{
+	int rc;
+
+	chg->pl.nb.notifier_call = pl_notifier_call;
+	rc = power_supply_reg_notifier(&chg->pl.nb);
+	if (rc < 0) {
+		pr_err("Couldn't register psy notifier rc = %d\n", rc);
+		return rc;
+	}
+
+	return 0;
 }
 
 /*********************
@@ -436,7 +452,7 @@ static int smblib_fv_vote_callback(struct votable *votable, void *data,
 		return rc;
 	}
 
-	if (chg->mode == PARALLEL_MASTER && get_parallel_psy(chg)) {
+	if (chg->mode == PARALLEL_MASTER && chg->pl.psy) {
 		pval.intval = fv_uv + PARALLEL_FLOAT_VOLTAGE_DELTA_UV;
 		rc = power_supply_set_property(chg->pl.psy,
 				POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
@@ -545,7 +561,7 @@ static int smblib_pl_disable_vote_callback(struct votable *votable, void *data,
 	union power_supply_propval pval = {0, };
 	int rc;
 
-	if (chg->mode != PARALLEL_MASTER || !get_parallel_psy(chg))
+	if (chg->mode != PARALLEL_MASTER || !chg->pl.psy)
 		return 0;
 
 	chg->pl.taper_percent = 100;
@@ -1209,7 +1225,7 @@ irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
-	if (chg->mode != PARALLEL_MASTER || !get_parallel_psy(chg))
+	if (chg->mode != PARALLEL_MASTER)
 		return IRQ_HANDLED;
 
 	rc = smblib_get_prop_batt_charge_type(chg, &pval);
@@ -1569,6 +1585,17 @@ static void smblib_hvdcp_detect_work(struct work_struct *work)
 	}
 }
 
+static void smblib_pl_detect_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						pl_detect_work);
+
+	power_supply_unreg_notifier(&chg->pl.nb);
+
+	if (!get_effective_result_locked(chg->pl_disable_votable))
+		rerun_election(chg->pl_disable_votable);
+}
+
 #define MINIMUM_PARALLEL_FCC_UA		500000
 #define PL_TAPER_WORK_DELAY_MS		100
 #define TAPER_RESIDUAL_PERCENT		75
@@ -1691,6 +1718,7 @@ int smblib_init(struct smb_charger *chg)
 	int rc = 0;
 
 	mutex_init(&chg->write_lock);
+	INIT_WORK(&chg->pl_detect_work, smblib_pl_detect_work);
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 	INIT_DELAYED_WORK(&chg->pl_taper_work, smblib_pl_taper_work);
 
@@ -1700,7 +1728,20 @@ int smblib_init(struct smb_charger *chg)
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't create votables rc=%d\n",
 				rc);
+			return rc;
 		}
+
+		chg->pl.psy = power_supply_get_by_name("parallel");
+		if (!chg->pl.psy) {
+			rc = register_pl_notifier(chg);
+			if (rc < 0) {
+				dev_err(chg->dev,
+					"Couldn't register notifier rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+
 		break;
 	case PARALLEL_SLAVE:
 		break;
