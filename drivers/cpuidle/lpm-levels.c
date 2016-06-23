@@ -456,23 +456,24 @@ static int cpu_power_select(struct cpuidle_device *dev,
 
 		if (next_event_us) {
 			if (next_event_us < lvl_latency_us)
-				continue;
+				break;
 
 			if (((next_event_us - lvl_latency_us) < sleep_us) ||
 					(next_event_us < sleep_us))
 				next_wakeup_us = next_event_us - lvl_latency_us;
 		}
 
-		if (next_wakeup_us <= residency[i]) {
-			best_level = i;
-			if (next_event_us && next_event_us < sleep_us &&
+		best_level = i;
+
+		if (next_event_us && next_event_us < sleep_us &&
 				(mode != MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT))
-				modified_time_us
-					= next_event_us - lvl_latency_us;
-			else
-				modified_time_us = 0;
+			modified_time_us
+				= next_event_us - lvl_latency_us;
+		else
+			modified_time_us = 0;
+
+		if (next_wakeup_us <= residency[i])
 			break;
-		}
 	}
 
 	if (modified_time_us)
@@ -570,10 +571,10 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 			continue;
 
 		if (from_idle && latency_us < pwr_params->latency_us)
-			continue;
+			break;
 
 		if (sleep_us < pwr_params->time_overhead_us)
-			continue;
+			break;
 
 		if (suspend_in_progress && from_idle && level->notify_rpm)
 			continue;
@@ -581,10 +582,10 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 		if (level->notify_rpm && msm_rpm_waiting_for_ack())
 			continue;
 
-		if (sleep_us <= pwr_params->max_residency) {
-			best_level = i;
+		best_level = i;
+
+		if (sleep_us <= pwr_params->max_residency)
 			break;
-		}
 	}
 
 	return best_level;
