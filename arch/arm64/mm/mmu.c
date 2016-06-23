@@ -391,7 +391,6 @@ static void __init __map_memblock(phys_addr_t start, phys_addr_t end)
 				end - kernel_x_end,
 				PAGE_KERNEL);
 	}
-
 }
 #else
 static void __init __map_memblock(phys_addr_t start, phys_addr_t end)
@@ -479,9 +478,8 @@ void __init fixup_executable(void)
 void mark_rodata_ro(void)
 {
 	create_mapping_late(__pa(_stext), (unsigned long)_stext,
-				(unsigned long)_etext - (unsigned long)_stext,
+				(unsigned long)__init_begin - (unsigned long)_stext,
 				PAGE_KERNEL_EXEC | PTE_RDONLY);
-
 }
 #endif
 

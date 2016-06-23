@@ -97,11 +97,12 @@ SECTIONS
 	}
 
 	ALIGN_DEBUG_RO
+	_etext = .;			/* End of text section */
+
 	RO_DATA(PAGE_SIZE)
 	EXCEPTION_TABLE(8)
 	NOTES
 	ALIGN_DEBUG_RO
-	_etext = .;			/* End of text and rodata section */
 
 	ALIGN_DEBUG_RO_MIN(PAGE_SIZE)
 	__init_begin = .;
