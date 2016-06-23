@@ -27,7 +27,7 @@
  * Returns:
  *	x0 - bytes not copied
  */
-ENTRY(__copy_from_user)
+ENTRY(__arch_copy_from_user)
 	add	x4, x1, x2			// upper user buffer boundary
 	subs	x2, x2, #8
 	b.mi	2f
@@ -52,7 +52,7 @@ USER(9f, ldrb	w3, [x1]	)
 	strb	w3, [x0]
 5:	mov	x0, #0
 	ret
-ENDPROC(__copy_from_user)
+ENDPROC(__arch_copy_from_user)
 
 	.section .fixup,"ax"
 	.align	2
