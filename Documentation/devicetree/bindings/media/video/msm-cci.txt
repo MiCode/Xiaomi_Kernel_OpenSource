@@ -166,6 +166,8 @@ Optional properties:
    property should contain phandle of respective eeprom nodes
 - qcom,ois-src : if optical image stabilization is supported by this sensor,
    this property should contain phandle of respective ois node
+- qcom,ir-led-src : if ir led is supported by this sensor, this property
+   should contain phandle of respective ir-led node
 
 * Qualcomm MSM ACTUATOR
 
