@@ -61,7 +61,8 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
 enum {
 	VHOST_NET_FEATURES = VHOST_FEATURES |
 			 (1ULL << VHOST_NET_F_VIRTIO_NET_HDR) |
-			 (1ULL << VIRTIO_NET_F_MRG_RXBUF)
+			 (1ULL << VIRTIO_NET_F_MRG_RXBUF) |
+			 (1ULL << VIRTIO_F_IOMMU_PLATFORM)
 };
 
 enum {
@@ -334,7 +335,7 @@ static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
 {
 	unsigned long uninitialized_var(endtime);
 	int r = vhost_get_vq_desc(vq, vq->iov, ARRAY_SIZE(vq->iov),
-				    out_num, in_num, NULL, NULL);
+				  out_num, in_num, NULL, NULL);
 
 	if (r == vq->num && vq->busyloop_timeout) {
 		preempt_disable();
@@ -344,7 +345,7 @@ static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
 			cpu_relax_lowlatency();
 		preempt_enable();
 		r = vhost_get_vq_desc(vq, vq->iov, ARRAY_SIZE(vq->iov),
-					out_num, in_num, NULL, NULL);
+				      out_num, in_num, NULL, NULL);
 	}
 
 	return r;
@@ -375,6 +376,9 @@ static void handle_tx(struct vhost_net *net)
 	mutex_lock(&vq->mutex);
 	sock = vq->private_data;
 	if (!sock)
+		goto out;
+
+	if (!vq_iotlb_prefetch(vq))
 		goto out;
 
 	vhost_disable_notify(&net->dev, vq);
@@ -638,6 +642,10 @@ static void handle_rx(struct vhost_net *net)
 	sock = vq->private_data;
 	if (!sock)
 		goto out;
+
+	if (!vq_iotlb_prefetch(vq))
+		goto out;
+
 	vhost_disable_notify(&net->dev, vq);
 	vhost_net_disable_vq(net, vq);
 
@@ -1084,10 +1092,14 @@ static int vhost_net_set_features(struct vhost_net *n, u64 features)
 	}
 	mutex_lock(&n->dev.mutex);
 	if ((features & (1 << VHOST_F_LOG_ALL)) &&
-	    !vhost_log_access_ok(&n->dev)) {
-		mutex_unlock(&n->dev.mutex);
-		return -EFAULT;
+	    !vhost_log_access_ok(&n->dev))
+		goto out_unlock;
+
+	if ((features & (1ULL << VIRTIO_F_IOMMU_PLATFORM))) {
+		if (vhost_init_device_iotlb(&n->dev, true))
+			goto out_unlock;
 	}
+
 	for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
 		mutex_lock(&n->vqs[i].vq.mutex);
 		n->vqs[i].vq.acked_features = features;
@@ -1097,6 +1109,10 @@ static int vhost_net_set_features(struct vhost_net *n, u64 features)
 	}
 	mutex_unlock(&n->dev.mutex);
 	return 0;
+
+out_unlock:
+	mutex_unlock(&n->dev.mutex);
+	return -EFAULT;
 }
 
 static long vhost_net_set_owner(struct vhost_net *n)
@@ -1170,9 +1186,40 @@ static long vhost_net_compat_ioctl(struct file *f, unsigned int ioctl,
 }
 #endif
 
+static ssize_t vhost_net_chr_read_iter(struct kiocb *iocb, struct iov_iter *to)
+{
+	struct file *file = iocb->ki_filp;
+	struct vhost_net *n = file->private_data;
+	struct vhost_dev *dev = &n->dev;
+	int noblock = file->f_flags & O_NONBLOCK;
+
+	return vhost_chr_read_iter(dev, to, noblock);
+}
+
+static ssize_t vhost_net_chr_write_iter(struct kiocb *iocb,
+					struct iov_iter *from)
+{
+	struct file *file = iocb->ki_filp;
+	struct vhost_net *n = file->private_data;
+	struct vhost_dev *dev = &n->dev;
+
+	return vhost_chr_write_iter(dev, from);
+}
+
+static unsigned int vhost_net_chr_poll(struct file *file, poll_table *wait)
+{
+	struct vhost_net *n = file->private_data;
+	struct vhost_dev *dev = &n->dev;
+
+	return vhost_chr_poll(file, dev, wait);
+}
+
 static const struct file_operations vhost_net_fops = {
 	.owner          = THIS_MODULE,
 	.release        = vhost_net_release,
+	.read_iter      = vhost_net_chr_read_iter,
+	.write_iter     = vhost_net_chr_write_iter,
+	.poll           = vhost_net_chr_poll,
 	.unlocked_ioctl = vhost_net_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl   = vhost_net_compat_ioctl,
