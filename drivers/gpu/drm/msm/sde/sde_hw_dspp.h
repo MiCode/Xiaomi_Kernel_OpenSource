@@ -118,6 +118,13 @@ struct sde_hw_dspp_ops {
 	 * @cfg: Pointer to configuration
 	 */
 	void (*setup_cont)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_vlut - setup dspp PA VLUT
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_vlut)(struct sde_hw_dspp *ctx, void *cfg);
 };
 
 /**
