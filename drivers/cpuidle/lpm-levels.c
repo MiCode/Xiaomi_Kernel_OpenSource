@@ -1026,12 +1026,13 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	cpu_prepare(cluster, idx, true);
 	cluster_prepare(cluster, cpumask, idx, true, ktime_to_ns(ktime_get()));
 
+	trace_cpu_idle_enter(idx);
+	lpm_stats_cpu_enter(idx, start_time);
+
 	if (need_resched() || (idx < 0))
 		goto exit;
 
 	BUG_ON(!use_psci);
-	trace_cpu_idle_enter(idx);
-	lpm_stats_cpu_enter(idx, start_time);
 	success = psci_enter_sleep(cluster, idx, true);
 
 exit:
