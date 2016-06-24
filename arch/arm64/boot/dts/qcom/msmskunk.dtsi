@@ -532,6 +532,27 @@
 				  "l3-scu-errirq",
 				  "l3-scu-faultirq";
 	};
+
+	qcom,llcc@1300000 {
+		compatible = "llcc-core", "syscon", "simple-mfd";
+		reg = <0x1300000 0x50000>;
+		reg-names = "llcc_base";
+		status = "disabled";
+
+		llcc: qcom,msmskunk-llcc {
+			compatible = "qcom,msmskunk-llcc";
+			#cache-cells = <1>;
+			max-slices = <32>;
+		};
+
+		qcom,llcc-erp {
+			compatible = "qcom,llcc-erp";
+		};
+
+		qcom,llcc-amon {
+			compatible = "qcom,llcc-amon";
+		};
+	};
 };
 
 &pcie_0_gdsc {
