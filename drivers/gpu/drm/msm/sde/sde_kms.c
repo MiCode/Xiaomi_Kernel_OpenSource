@@ -12,31 +12,63 @@
 
 #include <drm/drm_crtc.h>
 #include "msm_drv.h"
+#include "msm_mmu.h"
 #include "sde_kms.h"
 #include "sde_hw_mdss.h"
+#include "sde_hw_intf.h"
 
-static int modeset_init_intf(struct sde_kms *sde_kms, int intf_num)
+static const char * const iommu_ports[] = {
+		"mdp_0",
+};
+
+#define DEFAULT_MDP_SRC_CLK 200000000
+
+int sde_disable(struct sde_kms *sde_kms)
 {
-	struct sde_mdss_cfg *catalog = sde_kms->catalog;
-	u32 intf_type = catalog->intf[intf_num].type;
+	DBG("");
 
-	switch (intf_type) {
-	case INTF_NONE:
-		break;
-	case INTF_DSI:
-		break;
-	case INTF_LCDC:
-		break;
-	case INTF_HDMI:
-		break;
-	case INTF_EDP:
-	default:
-		break;
-	}
+	clk_disable_unprepare(sde_kms->ahb_clk);
+	clk_disable_unprepare(sde_kms->axi_clk);
+	clk_disable_unprepare(sde_kms->core_clk);
+	if (sde_kms->lut_clk)
+		clk_disable_unprepare(sde_kms->lut_clk);
 
 	return 0;
 }
 
+int sde_enable(struct sde_kms *sde_kms)
+{
+	DBG("");
+
+	clk_prepare_enable(sde_kms->ahb_clk);
+	clk_prepare_enable(sde_kms->axi_clk);
+	clk_prepare_enable(sde_kms->core_clk);
+	if (sde_kms->lut_clk)
+		clk_prepare_enable(sde_kms->lut_clk);
+
+	return 0;
+}
+
+static void sde_prepare_commit(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct sde_kms *sde_kms = to_sde_kms(to_mdp_kms(kms));
+
+	sde_enable(sde_kms);
+}
+
+static void sde_complete_commit(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct sde_kms *sde_kms = to_sde_kms(to_mdp_kms(kms));
+
+	sde_disable(sde_kms);
+}
+
+static void sde_wait_for_crtc_commit_done(struct msm_kms *kms,
+						struct drm_crtc *crtc)
+{
+}
 static int modeset_init(struct sde_kms *sde_kms)
 {
 	struct msm_drm_private *priv = sde_kms->dev->dev_private;
@@ -62,8 +94,9 @@ static int modeset_init(struct sde_kms *sde_kms)
 			|| !num_private_planes)
 			primary = false;
 
-		plane = sde_plane_init(dev, primary);
+		plane = sde_plane_init(dev, catalog->sspp[i].id, primary);
 		if (IS_ERR(plane)) {
+			pr_err("%s: sde_plane_init failed", __func__);
 			ret = PTR_ERR(plane);
 			goto fail;
 		}
@@ -71,7 +104,7 @@ static int modeset_init(struct sde_kms *sde_kms)
 
 		if (primary)
 			primary_planes[primary_planes_idx++] = plane;
-		if (num_private_planes)
+		if (primary && num_private_planes)
 			num_private_planes--;
 	}
 
@@ -81,15 +114,21 @@ static int modeset_init(struct sde_kms *sde_kms)
 		goto fail;
 	}
 
-	/* Create one CRTC per mixer */
-	for (i = 0; i < catalog->mixer_count; i++) {
+	/*
+	 * Enumerate displays supported
+	 */
+	sde_encoders_init(dev);
+
+	/* Create one CRTC per display */
+	for (i = 0; i < priv->num_encoders; i++) {
 		/*
-		 * Each mixer receives a private plane. We start
+		 * Each CRTC receives a private plane. We start
 		 * with first RGB, and then DMA and then VIG.
 		 */
 		struct drm_crtc *crtc;
 
-		crtc = sde_crtc_init(dev, NULL, primary_planes[i], i);
+		crtc = sde_crtc_init(dev, priv->encoders[i],
+				primary_planes[i], i);
 		if (IS_ERR(crtc)) {
 			ret = PTR_ERR(crtc);
 			goto fail;
@@ -97,11 +136,13 @@ static int modeset_init(struct sde_kms *sde_kms)
 		priv->crtcs[priv->num_crtcs++] = crtc;
 	}
 
-	for (i = 0; i < catalog->intf_count; i++) {
-		ret = modeset_init_intf(sde_kms, i);
-		if (ret)
-			goto fail;
-	}
+	/*
+	 * Iterate through the list of encoders and
+	 * set the possible CRTCs
+	 */
+	for (i = 0; i < priv->num_encoders; i++)
+		priv->encoders[i]->possible_crtcs = (1 << priv->num_crtcs) - 1;
+
 	return 0;
 fail:
 	return ret;
@@ -137,6 +178,9 @@ static const struct mdp_kms_funcs kms_funcs = {
 		.irq_postinstall = sde_irq_postinstall,
 		.irq_uninstall   = sde_irq_uninstall,
 		.irq             = sde_irq,
+		.prepare_commit  = sde_prepare_commit,
+		.complete_commit = sde_complete_commit,
+		.wait_for_crtc_commit_done = sde_wait_for_crtc_commit_done,
 		.enable_vblank   = sde_enable_vblank,
 		.disable_vblank  = sde_disable_vblank,
 		.get_format      = mdp_get_format,
@@ -184,6 +228,7 @@ struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 		ret = PTR_ERR(sde_kms->mmio);
 		goto fail;
 	}
+	pr_err("Mapped Mdp address space @%pK", sde_kms->mmio);
 
 	sde_kms->vbif = msm_ioremap(pdev, "vbif_phys", "VBIF");
 	if (IS_ERR(sde_kms->vbif)) {
@@ -247,13 +292,137 @@ struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 	get_clk(pdev, &sde_kms->mmagic_clk, "mmagic_clk", false);
 	get_clk(pdev, &sde_kms->iommu_clk, "iommu_clk", false);
 
+	if (sde_kms->mmagic) {
+		ret = regulator_enable(sde_kms->mmagic);
+		if (ret) {
+			dev_err(sde_kms->dev->dev,
+				"failed to enable mmagic GDSC: %d\n", ret);
+			goto fail;
+		}
+	}
+	if (sde_kms->mmagic_clk) {
+		clk_prepare_enable(sde_kms->mmagic_clk);
+		if (ret) {
+			dev_err(sde_kms->dev->dev, "failed to enable mmagic_clk\n");
+			goto undo_gdsc;
+		}
+	}
+
 	return sde_kms;
 
+undo_gdsc:
+	if (sde_kms->mmagic)
+		regulator_disable(sde_kms->mmagic);
 fail:
 	if (kms)
 		sde_destroy(kms);
 
 	return ERR_PTR(ret);
+}
+
+static int sde_translation_ctrl_pwr(struct sde_kms *sde_kms, bool on)
+{
+	struct device *dev = sde_kms->dev->dev;
+	int ret;
+
+	if (on) {
+		if (sde_kms->iommu_clk) {
+			ret = clk_prepare_enable(sde_kms->iommu_clk);
+			if (ret) {
+				dev_err(dev, "failed to enable iommu_clk\n");
+				goto undo_mmagic_clk;
+			}
+		}
+	} else {
+		if (sde_kms->iommu_clk)
+			clk_disable_unprepare(sde_kms->iommu_clk);
+		if (sde_kms->mmagic_clk)
+			clk_disable_unprepare(sde_kms->mmagic_clk);
+		if (sde_kms->mmagic)
+			regulator_disable(sde_kms->mmagic);
+	}
+
+	return 0;
+
+undo_mmagic_clk:
+	if (sde_kms->mmagic_clk)
+		clk_disable_unprepare(sde_kms->mmagic_clk);
+
+	return ret;
+}
+int sde_mmu_init(struct sde_kms *sde_kms)
+{
+	struct sde_mdss_cfg *catalog = sde_kms->catalog;
+	struct sde_hw_intf *intf = NULL;
+	struct iommu_domain *iommu;
+	struct msm_mmu *mmu;
+	int i, ret;
+
+	/*
+	 * Make sure things are off before attaching iommu (bootloader could
+	 * have left things on, in which case we'll start getting faults if
+	 * we don't disable):
+	 */
+	sde_enable(sde_kms);
+	for (i = 0; i < catalog->intf_count; i++) {
+		intf = sde_hw_intf_init(catalog->intf[i].id,
+				sde_kms->mmio,
+				catalog);
+		if (!IS_ERR_OR_NULL(intf)) {
+			intf->ops.enable_timing(intf, 0x0);
+			sde_hw_intf_deinit(intf);
+		}
+	}
+	sde_disable(sde_kms);
+	msleep(20);
+
+	iommu = iommu_domain_alloc(&platform_bus_type);
+
+	if (!IS_ERR_OR_NULL(iommu)) {
+		mmu = msm_smmu_new(sde_kms->dev->dev, MSM_SMMU_DOMAIN_UNSECURE);
+		if (IS_ERR(mmu)) {
+			ret = PTR_ERR(mmu);
+			dev_err(sde_kms->dev->dev,
+				"failed to init iommu: %d\n", ret);
+			iommu_domain_free(iommu);
+			goto fail;
+		}
+
+		ret = sde_translation_ctrl_pwr(sde_kms, true);
+		if (ret) {
+			dev_err(sde_kms->dev->dev,
+				"failed to power iommu: %d\n", ret);
+			mmu->funcs->destroy(mmu);
+			goto fail;
+		}
+
+		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
+				ARRAY_SIZE(iommu_ports));
+		if (ret) {
+			dev_err(sde_kms->dev->dev,
+				"failed to attach iommu: %d\n", ret);
+			mmu->funcs->destroy(mmu);
+			goto fail;
+		}
+	} else {
+		dev_info(sde_kms->dev->dev,
+			"no iommu, fallback to phys contig buffers for scanout\n");
+		mmu = NULL;
+	}
+	sde_kms->mmu = mmu;
+
+	sde_kms->mmu_id = msm_register_mmu(sde_kms->dev, mmu);
+	if (sde_kms->mmu_id < 0) {
+		ret = sde_kms->mmu_id;
+		dev_err(sde_kms->dev->dev,
+			"failed to register sde iommu: %d\n", ret);
+		goto fail;
+	}
+
+	return 0;
+fail:
+	return ret;
+
 }
 
 struct msm_kms *sde_kms_init(struct drm_device *dev)
@@ -282,10 +451,20 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 
 	sde_kms->catalog = catalog;
 
+	/* we need to set a default rate before enabling.
+	 * Set a safe rate first, before initializing catalog
+	 * later set more optimal rate based on bandwdith/clock
+	 * requirements
+	 */
+
+	clk_set_rate(sde_kms->src_clk, DEFAULT_MDP_SRC_CLK);
+	sde_enable(sde_kms);
+
 	/*
 	 * Now we need to read the HW catalog and initialize resources such as
 	 * clocks, regulators, GDSC/MMAGIC, ioremap the register ranges etc
 	 */
+	sde_mmu_init(sde_kms);
 
 	/*
 	 * modeset_init should create the DRM related objects i.e. CRTCs,
@@ -295,6 +474,14 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 
 	dev->mode_config.min_width = 0;
 	dev->mode_config.min_height = 0;
+
+	/*
+	 * we can assume the max crtc width is equal to the max supported
+	 * by LM_0
+	 * Also fixing the max height to 4k
+	 */
+	dev->mode_config.max_width =  catalog->mixer[0].sblk->maxwidth;
+	dev->mode_config.max_height = 4096;
 
 	return msm_kms;
 
