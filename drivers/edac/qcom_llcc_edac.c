@@ -1,0 +1,374 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/kernel.h>
+#include <linux/edac.h>
+#include <linux/of_device.h>
+#include <linux/platform_device.h>
+#include <linux/smp.h>
+#include <linux/spinlock.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
+#include "edac_core.h"
+
+#ifdef CONFIG_EDAC_QCOM_LLCC_PANIC_ON_CE
+#define LLCC_ERP_PANIC_ON_CE 1
+#else
+#define LLCC_ERP_PANIC_ON_CE 0
+#endif
+
+#ifdef CONFIG_EDAC_QCOM_LLCC_PANIC_ON_UE
+#define LLCC_ERP_PANIC_ON_UE 1
+#else
+#define LLCC_ERP_PANIC_ON_UE 0
+#endif
+
+#define EDAC_LLCC	"qcom_llcc"
+
+#define TRP_SYN_REG_CNT	6
+
+#define DRP_SYN_REG_CNT	8
+
+/* single & Double Bit syndrome register offsets */
+#define TRP_ECC_SB_ERR_SYN0		0x0002334c
+#define TRP_ECC_DB_ERR_SYN0		0x00023370
+#define DRP_ECC_SB_ERR_SYN0		0x000400A8
+#define DRP_ECC_DB_ERR_SYN0		0x000400D0
+
+/* Error register offsets */
+#define TRP_ECC_ERROR_STATUS1		0x00023348
+#define TRP_ECC_ERROR_STATUS0		0x00023344
+#define DRP_ECC_ERROR_STATUS1		0x000400A4
+#define DRP_ECC_ERROR_STATUS0		0x000400A0
+
+/* TRP, DRP interrupt register offsets */
+#define DRP_INTERRUPT_STATUS		0x00040060
+#define TRP_INTERRUPT_0_STATUS		0x00024380
+#define DRP_INTERRUPT_CLEAR		0x00040058
+#define DRP_ECC_ERROR_CNTR_CLEAR	0x00040044
+#define TRP_INTERRUPT_0_CLEAR		0x00024384
+#define TRP_ECC_ERROR_CNTR_CLEAR	0x00023440
+
+/* Mask and shift macros */
+#define ECC_DB_ERR_COUNT_MASK	0x0000003f
+#define ECC_DB_ERR_WAYS_MASK	0xffff0000
+#define ECC_DB_ERR_WAYS_SHIFT	16
+
+#define ECC_SB_ERR_COUNT_MASK	0x00ff0000
+#define ECC_SB_ERR_COUNT_SHIFT	16
+#define ECC_SB_ERR_WAYS_MASK	0x0000ffff
+
+#define SB_ECC_ERROR	0x1
+#define DB_ECC_ERROR	0x2
+
+#define DRP_TRP_INT_CLEAR	0x3
+#define DRP_TRP_CNT_CLEAR	0x3
+
+static int poll_msec = 5000;
+module_param(poll_msec, int, 0444);
+
+enum {
+	LLCC_DRAM_CE = 0,
+	LLCC_DRAM_UE,
+	LLCC_TRAM_CE,
+	LLCC_TRAM_UE,
+};
+
+struct errors_edac {
+	const char *msg;
+	void (*func)(struct edac_device_ctl_info *edev_ctl,
+				int inst_nr, int block_nr, const char *msg);
+};
+
+struct erp_drvdata {
+	struct edac_device_ctl_info *edev_ctl;
+	struct regmap *llcc_map;
+};
+
+static const struct errors_edac errors[] = {
+	{"LLCC Data RAM correctable Error", edac_device_handle_ce},
+	{"LLCC Data RAM uncorrectable Error", edac_device_handle_ue},
+	{"LLCC Tag RAM correctable Error", edac_device_handle_ce},
+	{"LLCC Tag RAM uncorrectable Error", edac_device_handle_ue},
+};
+
+/* Clear the error interrupt and counter registers */
+static void qcom_llcc_clear_errors(int err_type, struct regmap *llcc_map)
+{
+	switch (err_type) {
+	case LLCC_DRAM_CE:
+	case LLCC_DRAM_UE:
+		regmap_write(llcc_map, DRP_INTERRUPT_CLEAR, DRP_TRP_INT_CLEAR);
+		regmap_write(llcc_map, TRP_INTERRUPT_CLEAR,
+			     DRP_ECC_ERROR_CNTR_CLEAR);
+		break;
+	case LLCC_TRAM_CE:
+	case LLCC_TRAM_UE:
+		regmap_write(llcc_map, TRP_INTERRUPT_0_CLEAR,
+			     DRP_TRP_INT_CLEAR);
+		regmap_write(llcc_map, TRP_ECC_ERROR_CNTR_CLEAR,
+			     DRP_TRP_CNT_CLEAR);
+		break;
+	}
+}
+
+/* Dump syndrome registers for tag Ram Double bit errors */
+static void dump_trp_db_syn_reg(struct regmap *llcc_map)
+{
+	int i;
+	int db_err_cnt;
+	int db_err_ways;
+	u32 synd_reg;
+	u32 synd_val;
+
+	for (i = 0; i < TRP_SYN_REG_CNT; i++) {
+		synd_reg = TRP_ECC_DB_ERR_SYN0 + (i * 4);
+		regmap_read(llcc_map, synd_reg, &synd_val);
+		edac_printk(KERN_CRIT, EDAC_LLCC, "TRP_ECC_SYN%d: 0x%8x\n",
+			i, synd_val);
+	}
+
+	regmap_read(llcc_map, TRP_ECC_ERROR_STATUS1, &db_err_cnt);
+	db_err_cnt = (db_err_cnt & ECC_DB_ERR_COUNT_MASK);
+	edac_printk(KERN_CRIT, EDAC_LLCC, "Double-Bit error count: 0x%4x\n",
+		db_err_cnt);
+
+	regmap_read(llcc_map, TRP_ECC_ERROR_STATUS0, &db_err_ways);
+	db_err_ways = (db_err_ways & ECC_DB_ERR_WAYS_MASK);
+	db_err_ways >>= ECC_DB_ERR_WAYS_SHIFT;
+
+	edac_printk(KERN_CRIT, EDAC_LLCC, "Double-Bit error ways: 0x%4x\n",
+		db_err_ways);
+}
+
+/* Dump syndrome register for tag Ram Single Bit Errors */
+static void dump_trp_sb_syn_reg(struct regmap *llcc_map)
+{
+	int i;
+	int sb_err_cnt;
+	int sb_err_ways;
+	u32 synd_reg;
+	u32 synd_val;
+
+	for (i = 0; i < TRP_SYN_REG_CNT; i++) {
+		synd_reg = TRP_ECC_SB_ERR_SYN0 + (i * 4);
+		regmap_read(llcc_map, synd_reg, &synd_val);
+		edac_printk(KERN_CRIT, EDAC_LLCC, "TRP_ECC_SYN%d: 0x%8x\n",
+			i, synd_val);
+	}
+
+	regmap_read(llcc_map, TRP_ECC_ERROR_STATUS1, &sb_err_cnt);
+	sb_err_cnt = (sb_err_cnt & ECC_SB_ERR_COUNT_MASK);
+	sb_err_cnt >>= ECC_SB_ERR_COUNT_SHIFT;
+	edac_printk(KERN_CRIT, EDAC_LLCC, "Single-Bit error count: 0x%4x\n",
+		sb_err_cnt);
+
+	regmap_read(llcc_map, TRP_ECC_ERROR_STATUS0, &sb_err_ways);
+	sb_err_ways = sb_err_ways & ECC_SB_ERR_WAYS_MASK;
+
+	edac_printk(KERN_CRIT, EDAC_LLCC, "Single-Bit error ways: 0x%4x\n",
+		sb_err_ways);
+}
+
+/* Dump syndrome registers for Data Ram Double bit errors */
+static void dump_drp_db_syn_reg(struct regmap *llcc_map)
+{
+	int i;
+	int db_err_cnt;
+	int db_err_ways;
+	u32 synd_reg;
+	u32 synd_val;
+
+	for (i = 0; i < DRP_SYN_REG_CNT; i++) {
+		synd_reg = DRP_ECC_DB_ERR_SYN0 + (i * 4);
+		regmap_read(llcc_map, synd_red, &synd_val);
+		edac_printk(KERN_CRIT, EDAC_LLCC, "DRP_ECC_SYN%d: 0x%8x\n",
+			i, synd_val);
+	}
+
+	regmap_read(llcc_map, DRP_ECC_ERROR_STATUS1, &db_err_cnt);
+	db_err_cnt = (db_err_cnt & ECC_DB_ERR_COUNT_MASK);
+	edac_printk(KERN_CRIT, EDAC_LLCC, "Double-Bit error count: 0x%4x\n",
+		db_err_cnt);
+
+	regmap_read(llcc_map, DRP_ECC_ERROR_STATUS0, &db_err_ways);
+	db_err_ways &= ECC_DB_ERR_WAYS_MASK;
+	db_err_ways >>= ECC_DB_ERR_WAYS_SHIFT;
+	edac_printk(KERN_CRIT, EDAC_LLCC, "Double-Bit error ways: 0x%4x\n",
+		db_err_ways);
+}
+
+/* Dump Syndrome registers for Data Ram Single bit errors*/
+static void dump_drp_sb_syn_reg(struct regmap *llcc_map)
+{
+	int i;
+	int sb_err_cnt;
+	int sb_err_ways;
+	u32 synd_reg;
+	u32 synd_val;
+
+	for (i = 0; i < DRP_SYN_REG_CNT; i++) {
+		synd_reg_offset = DRP_ECC_SB_ERR_SYN0 + (i * 4);
+		regmap_read(llcc_map, synd_reg, &synd_val);
+		edac_printk(KERN_CRIT, EDAC_LLCC, "DRP_ECC_SYN%d: 0x%8x\n",
+			i, synd_val);
+	}
+
+	regmap_read(llcc_map, DRP_ECC_ERROR_STATUS1, &sb_err_cnt);
+	sb_err_cnt &= ECC_SB_ERR_COUNT_MASK;
+	sb_err_cnt >>= ECC_SB_ERR_COUNT_SHIFT;
+	edac_printk(KERN_CRIT, EDAC_LLCC, "Single-Bit error count: 0x%4x\n",
+		sb_err_cnt);
+
+	regmap_read(llcc_map, DRP_ECC_ERROR_STATUS0, &sb_err_ways);
+	sb_err_ways = sb_err_ways & ECC_SB_ERR_WAYS_MASK;
+
+	edac_printk(KERN_CRIT, EDAC_LLCC, "Single-Bit error ways: 0x%4x\n",
+		sb_err_ways);
+}
+
+
+static void dump_syn_reg(int err_type, struct regmap *llcc_map)
+{
+	switch (err_type) {
+	case LLCC_DRAM_CE:
+		dump_drp_sb_syn_reg(llcc_map);
+		break;
+	case LLCC_DRAM_UE:
+		dump_drp_db_syn_reg(llcc_map);
+		break;
+	case LLCC_TRAM_CE:
+		dump_trp_sb_syn_reg(llcc_map);
+		break;
+	case LLCC_TRAM_UE:
+		dump_trp_db_syn_reg(llcc_map);
+		break;
+	}
+
+	qcom_llcc_clear_errors(err_type, llcc_map);
+
+	errors[err_type].func(edev_ctl, 1, 0, errors[err_type].msg);
+}
+
+static void qcom_llcc_poll_cache_errors
+		(struct edac_device_ctl_info *edev_ctl)
+{
+	u32 drp_error;
+	u32 trp_error;
+	struct erp_drvdata *drv;
+
+	drv = container_of(edev_ctl, struct erp_drvdata, edev_ctl);
+
+	/* Look for Data RAM errors */
+	regmap_read(drv->llcc_map, DRP_INTERRUPT_STATUS, &drp_error);
+
+	if (drp_error & SB_ECC_ERROR) {
+		edac_printk(KERN_CRIT, EDAC_LLCC,
+			"Single Bit Error detected in Data Ram\n");
+		dump_syn_reg(LLCC_DRAM_CE, drv->llcc_map);
+	} else if (drp_error & DB_ECC_ERROR) {
+		edac_printk(KERN_CRIT, EDAC_LLCC,
+			"Double Bit Error detected in Data Ram\n");
+		dump_syn_reg(LLCC_DRAM_UE, drv->llcc_map);
+	}
+
+	/* Look for Tag RAM errors */
+	regmap_read(drv->llcc_map, TRP_INTERRUPT_0_STATUS, &trp_error);
+	if (trp_error & SB_ECC_ERROR) {
+		edac_printk(KERN_CRIT, EDAC_LLCC,
+			"Single Bit Error detected in Tag Ram\n");
+		dump_syn_reg(LLCC_TRAM_CE, drv->llcc_map);
+	} else if (trp_error & DB_ECC_ERROR) {
+		edac_printk(KERN_CRIT, EDAC_LLCC,
+			"Double Bit Error detected in Tag Ram\n");
+		dump_syn_reg(LLCC_TRAM_UE, drv->llcc_map);
+	}
+}
+
+static int qcom_llcc_erp_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct erp_drvdata *drv;
+	struct device *dev = &pdev->dev;
+
+	drv = devm_kzalloc(dev, sizeof(*drv), GFP_KERNEL);
+	if (!drv)
+		return -ENOMEM;
+
+	drv->llcc_map = syscon_node_to_regmap(dev->parent->of_node);
+	if (IS_ERR(drv->llcc_map)) {
+		dev_err(dev, "no regmap for syscon llcc parent\n");
+		return -ENOMEM;
+	}
+
+	/* Allocate edac control info */
+	drv->edev_ctl = edac_device_alloc_ctl_info(0, "qcom-llcc", 1, NULL, 1,
+				1, NULL, 0, edac_device_alloc_index());
+
+	drv->edev_ctl->dev = dev;
+	drv->edev_ctl->mod_name = dev_name(dev);
+	drv->edev_ctl->dev_name = dev_name(dev);
+	drv->edev_ctl->ctl_name = "llcc";
+	drv->edev_ctl->poll_msec = poll_msec;
+	drv->edev_ctl->edac_check = qcom_llcc_poll_cache_errors;
+	drv->edev_ctl->defer_work = 1;
+	drv->edev_ctl->panic_on_ce = LLCC_ERP_PANIC_ON_CE;
+	drv->edev_ctl->panic_on_ue = LLCC_ERP_PANIC_ON_UE;
+	platform_set_drvdata(pdev, drv);
+
+	rc = edac_device_add_device(drv->edev_ctl);
+	if (rc)
+		edac_device_free_ctl_info(drv->edev_ctl);
+
+	return rc;
+}
+
+static int qcom_llcc_erp_remove(struct platform_device *pdev)
+{
+	struct erp_drvdata *drv = dev_get_drvdata(&pdev->dev);
+	struct edac_device_ctl_info *edev_ctl = drv->edev_ctl;
+
+	edac_device_del_device(edev_ctl->dev);
+	edac_device_free_ctl_info(edev_ctl);
+
+	return 0;
+}
+
+static const struct of_device_id qcom_llcc_erp_match_table[] = {
+	{ .compatible = "qcom,llcc-erp" },
+	{ },
+};
+
+static struct platform_driver qcom_llcc_erp_driver = {
+	.probe = qcom_llcc_erp_probe,
+	.remove = qcom_llcc_erp_remove,
+	.driver = {
+		.name = "qcom_llcc_erp",
+		.owner = THIS_MODULE,
+		.of_match_table = qcom_llcc_erp_match_table,
+	},
+};
+
+static int __init qcom_llcc_erp_init(void)
+{
+	return platform_driver_register(&qcom_llcc_erp_driver);
+}
+module_init(qcom_llcc_erp_init);
+
+static void __exit qcom_llcc_erp_exit(void)
+{
+	platform_driver_unregister(&qcom_llcc_erp_driver);
+}
+module_exit(qcom_llcc_erp_exit);
+
+MODULE_DESCRIPTION("QCOM LLCC Error Reporting");
+MODULE_LICENSE("GPL v2");
