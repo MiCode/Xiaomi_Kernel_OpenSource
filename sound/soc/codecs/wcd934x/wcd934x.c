@@ -5170,6 +5170,67 @@ int tavil_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable)
 }
 EXPORT_SYMBOL(tavil_cdc_mclk_enable);
 
+static int __tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+					   bool enable)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	if (enable) {
+		if (wcd_resmgr_get_clk_type(tavil->resmgr) ==
+		    WCD_CLK_RCO) {
+			ret = wcd_resmgr_enable_clk_block(tavil->resmgr,
+							  WCD_CLK_RCO);
+		} else {
+			ret = tavil_cdc_req_mclk_enable(tavil, true);
+			if (ret) {
+				dev_err(codec->dev,
+					"%s: mclk_enable failed, err = %d\n",
+					__func__, ret);
+				goto done;
+			}
+			ret = wcd_resmgr_enable_clk_block(tavil->resmgr,
+							   WCD_CLK_RCO);
+			ret |= tavil_cdc_req_mclk_enable(tavil, false);
+		}
+
+	} else {
+		ret = wcd_resmgr_disable_clk_block(tavil->resmgr,
+						   WCD_CLK_RCO);
+	}
+
+	if (ret) {
+		dev_err(codec->dev, "%s: Error in %s RCO\n",
+			__func__, (enable ? "enabling" : "disabling"));
+		ret = -EINVAL;
+	}
+
+done:
+	return ret;
+}
+
+/*
+ * tavil_codec_internal_rco_ctrl: Enable/Disable codec's RCO clock
+ * @codec: Handle to the codec
+ * @enable: Indicates whether clock should be enabled or disabled
+ */
+int tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+				  bool enable)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	WCD9XXX_V2_BG_CLK_LOCK(tavil->resmgr);
+	ret = __tavil_codec_internal_rco_ctrl(codec, enable);
+	WCD9XXX_V2_BG_CLK_UNLOCK(tavil->resmgr);
+	return ret;
+}
+EXPORT_SYMBOL(tavil_codec_internal_rco_ctrl);
+
+static const struct wcd_resmgr_cb tavil_resmgr_cb = {
+	.cdc_rco_ctrl = __tavil_codec_internal_rco_ctrl,
+};
+
 static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
 	{WCD934X_BIAS_VBG_FINE_ADJ, 0xFF, 0x75},
 	{WCD934X_CODEC_CPR_SVS_CX_VDD, 0xFF, 0x7C}, /* value in svs mode */
@@ -5218,6 +5279,7 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
 	{WCD934X_CDC_COMPANDER8_CTL3, 0x80, 0x80},
 	{WCD934X_CDC_COMPANDER7_CTL7, 0x01, 0x01},
 	{WCD934X_CDC_COMPANDER8_CTL7, 0x01, 0x01},
+	{WCD934X_CODEC_RPM_CLK_GATE, 0x08, 0x00},
 };
 
 static void tavil_codec_init_reg(struct snd_soc_codec *codec)
