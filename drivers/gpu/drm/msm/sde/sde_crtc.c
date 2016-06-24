@@ -155,14 +155,7 @@ static void sde_crtc_mode_set_nofb(struct drm_crtc *crtc)
 
 	mode = &crtc->state->adjusted_mode;
 
-	DBG("%s: set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
-			sde_crtc->name, mode->base.id, mode->name,
-			mode->vrefresh, mode->clock,
-			mode->hdisplay, mode->hsync_start,
-			mode->hsync_end, mode->htotal,
-			mode->vdisplay, mode->vsync_start,
-			mode->vsync_end, mode->vtotal,
-			mode->type, mode->flags);
+	drm_mode_debug_printmodeline(mode);
 
 	/*
 	 * reserve mixer(s) if not already avaialable
@@ -207,8 +200,7 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 			msm_framebuffer_format(pstate->base.fb));
 	plane = pstate->base.plane;
 
-	cfg->fg.alpha_sel = ALPHA_FG_CONST;
-	cfg->bg.alpha_sel = ALPHA_BG_CONST;
+	memset(cfg, 0, sizeof(*cfg));
 	cfg->fg.const_alpha = pstate->property_values[PLANE_PROP_ALPHA];
 	cfg->bg.const_alpha = 0xFF - cfg->fg.const_alpha;
 
@@ -237,6 +229,13 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 		} else {
 			cfg->bg.inv_mode_alpha = 1;
 		}
+	} else {
+		/* opaque blending */
+		cfg->fg.alpha_sel = ALPHA_FG_CONST;
+		cfg->bg.alpha_sel = ALPHA_BG_CONST;
+		cfg->bg.inv_alpha_sel = 1;
+		cfg->fg.const_alpha = 0xFF;
+		cfg->bg.const_alpha = 0x00;
 	}
 }
 
@@ -245,14 +244,15 @@ static void blend_setup(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_crtc_mixer *mixer = sde_crtc->mixer;
 	struct drm_plane *plane;
-	struct sde_plane_state *pstate, *pstates[SDE_STAGE_MAX] = {0};
+	struct sde_plane_state *pstate;
 	struct sde_hw_stage_cfg stage_cfg;
 	struct sde_hw_blend_cfg blend;
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_mixer *lm;
+	struct sde_hw_color3_cfg alpha_out;
 	u32 flush_mask = 0;
 	unsigned long flags;
-	int i, j, plane_cnt = 0;
+	int i, plane_cnt = 0;
 
 	DBG("");
 	spin_lock_irqsave(&sde_crtc->lm_lock, flags);
@@ -263,16 +263,24 @@ static void blend_setup(struct drm_crtc *crtc)
 
 	/* initialize stage cfg */
 	memset(&stage_cfg, 0, sizeof(stage_cfg));
-	memset(&blend, 0, sizeof(blend));
 
-	/* Collect all plane information */
-	drm_atomic_crtc_for_each_plane(plane, crtc) {
-		pstate = to_sde_plane_state(plane->state);
-		pstates[pstate->stage] = pstate;
-		plane_cnt++;
-		for (i = 0; i < sde_crtc->num_mixers; i++) {
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		if ((!mixer[i].hw_lm) || (!mixer[i].hw_ctl))
+			continue;
+
+		ctl = mixer[i].hw_ctl;
+		lm = mixer[i].hw_lm;
+		memset(&alpha_out, 0, sizeof(alpha_out));
+
+		drm_atomic_crtc_for_each_plane(plane, crtc) {
+			pstate = to_sde_plane_state(plane->state);
 			stage_cfg.stage[pstate->stage][i] =
 				sde_plane_pipe(plane);
+			DBG(" crtc_id %d, layer %d, at stage %d\n",
+					sde_crtc->id,
+					sde_plane_pipe(plane),
+					pstate->stage);
+			plane_cnt++;
 
 			/* Cache the flushmask for this layer
 			 * sourcesplit is always enabled, so this layer will
@@ -281,7 +289,19 @@ static void blend_setup(struct drm_crtc *crtc)
 			ctl = mixer[i].hw_ctl;
 			ctl->ops.get_bitmask_sspp(ctl, &flush_mask,
 					sde_plane_pipe(plane));
+
+			/* blend config */
+			sde_crtc_get_blend_cfg(&blend, pstate);
+			lm->ops.setup_blend_config(lm, pstate->stage, &blend);
+			alpha_out.keep_fg[pstate->stage] = 1;
 		}
+		lm->ops.setup_alpha_out(lm, &alpha_out);
+
+		/* stage config flush mask */
+		mixer[i].flush_mask = flush_mask;
+		/* get the flush mask for mixer */
+		ctl->ops.get_bitmask_mixer(ctl, &mixer[i].flush_mask,
+			mixer[i].hw_lm->idx);
 	}
 
 	/*
@@ -294,12 +314,9 @@ static void blend_setup(struct drm_crtc *crtc)
 		DBG("Border Color is enabled\n");
 	}
 
-	/* Program hw */
-	for (i = 0; i < sde_crtc->num_mixers; i++) {
-		if (!mixer[i].hw_lm)
-			continue;
-
-		if (!mixer[i].hw_ctl)
+	/* Program ctl_paths */
+	for (i = 0; i < sde_crtc->num_ctls; i++) {
+		if ((!mixer[i].hw_lm) || (!mixer[i].hw_ctl))
 			continue;
 
 		ctl = mixer[i].hw_ctl;
@@ -308,25 +325,6 @@ static void blend_setup(struct drm_crtc *crtc)
 		/* stage config */
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
 			&stage_cfg);
-		/* stage config flush mask */
-		mixer[i].flush_mask = flush_mask;
-		/* get the flush mask for mixer */
-		ctl->ops.get_bitmask_mixer(ctl, &mixer[i].flush_mask,
-			mixer[i].hw_lm->idx);
-
-		/* blend config */
-		for (j = SDE_STAGE_0; j < SDE_STAGE_MAX; j++) {
-			if (!pstates[j])
-				continue;
-			sde_crtc_get_blend_cfg(&blend, pstates[j]);
-			blend.fg.alpha_sel = ALPHA_FG_CONST;
-			blend.bg.alpha_sel = ALPHA_BG_CONST;
-			blend.fg.const_alpha =
-				(u32)pstate->property_values[PLANE_PROP_ALPHA];
-			blend.bg.const_alpha = 0xFF -
-				(u32)pstate->property_values[PLANE_PROP_ALPHA];
-			lm->ops.setup_blend_config(lm, j, &blend);
-		}
 	}
 out:
 	spin_unlock_irqrestore(&sde_crtc->lm_lock, flags);

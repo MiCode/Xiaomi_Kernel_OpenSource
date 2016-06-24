@@ -120,14 +120,12 @@ static void sde_hw_lm_setup_blendcfg(struct sde_hw_mixer *ctx,
 
 	/* bg */
 	blend_op |= (bg->alpha_sel & 3) << 8;
-	blend_op |= (bg->inv_alpha_sel & 1) << 2;
-	blend_op |= (bg->mod_alpha & 1) << 3;
-	blend_op |= (bg->inv_mode_alpha & 1) << 4;
+	blend_op |= (bg->inv_alpha_sel & 1) << 10;
+	blend_op |= (bg->mod_alpha & 1) << 11;
+	blend_op |= (bg->inv_mode_alpha & 1) << 12;
 
-	SDE_REG_WRITE(c, LM_BLEND0_FG_ALPHA + stage_off,
-			fg->const_alpha);
-	SDE_REG_WRITE(c, LM_BLEND0_BG_ALPHA + stage_off,
-			bg->const_alpha);
+	SDE_REG_WRITE(c, LM_BLEND0_FG_ALPHA + stage_off, fg->const_alpha);
+	SDE_REG_WRITE(c, LM_BLEND0_BG_ALPHA + stage_off, bg->const_alpha);
 	SDE_REG_WRITE(c, LM_BLEND0_OP + stage_off, blend_op);
 }
 
@@ -142,8 +140,8 @@ static void sde_hw_lm_setup_color3(struct sde_hw_mixer *ctx,
 	/* read the existing op_mode configuration */
 	op_mode = SDE_REG_READ(c, LM_OP_MODE);
 
-	for (i = 0; i < maxblendstages; i++)
-		op_mode |= ((cfg->keep_fg[i]  & 0x1) << i);
+	for (i = SDE_STAGE_0; i <= maxblendstages; i++)
+		op_mode |= (cfg->keep_fg[i]) ? (1 << i) : 0;
 
 	SDE_REG_WRITE(c, LM_OP_MODE, op_mode);
 }
