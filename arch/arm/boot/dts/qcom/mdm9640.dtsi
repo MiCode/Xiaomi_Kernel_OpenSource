@@ -666,6 +666,7 @@
 			snps,hird-threshold = /bits/ 8 <0x7>;
 			snps,bus-suspend-enable;
 			snps,usb3-u1u2-disable;
+			xhci-imod-value = <4000>;
 		};
 
 		qcom,usbbam@8b04000 {

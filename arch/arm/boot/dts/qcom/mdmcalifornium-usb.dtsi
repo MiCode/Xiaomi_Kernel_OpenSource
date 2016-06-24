@@ -68,6 +68,7 @@
 			snps,bus-suspend-enable;
 			snps,usb3-u1u2-disable;
 			snps,num-gsi-evt-buffs = <0x3>;
+			xhci-imod-value = <4000>;
 		};
 
 		qcom,usbbam@0x8B04000 {
