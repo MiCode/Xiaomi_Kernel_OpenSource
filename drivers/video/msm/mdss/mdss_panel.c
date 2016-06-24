@@ -224,6 +224,7 @@ struct dentry *panel_debugfs_create_array(const char *name, umode_t mode,
 	    (size != sizeof(u16)) &&
 	    (size != sizeof(u32))) {
 		pr_warn("Value size %zu bytes is not supported\n", size);
+		kfree(data);
 		return NULL;
 	}
 

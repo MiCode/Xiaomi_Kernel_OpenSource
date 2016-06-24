@@ -132,7 +132,7 @@ static void send_disable_event(struct work_struct *worker)
 
 static void radio_hci_smd_notify_cmd(void *data, unsigned int event)
 {
-	struct radio_hci_dev *hdev = hs.hdev;
+	struct radio_hci_dev *hdev = (struct radio_hci_dev *)data;
 
 	if (!hdev) {
 		FMDERR("Frame for unknown HCI device (hdev=NULL)");
