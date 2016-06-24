@@ -40,6 +40,8 @@ msm-y := \
 	mdp/mdp5/mdp5_smp.o \
 	sde/sde_crtc.o \
 	sde/sde_encoder.o \
+	sde/sde_encoder_phys_vid.o \
+	sde/sde_encoder_phys_cmd.o \
 	sde/sde_irq.o \
 	sde/sde_kms.o \
 	sde/sde_plane.o \
