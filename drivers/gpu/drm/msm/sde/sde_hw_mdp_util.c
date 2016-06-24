@@ -29,19 +29,19 @@ void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
 	u32 val;
 
 	/* Matrix coeff */
-	val = (data->csc_mv[0] & 0x1FF) |
-		((data->csc_mv[1] & 0x1FF) << 16);
+	val = (data->csc_mv[0] & 0x1FFF) |
+		((data->csc_mv[1] & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off,  val);
-	val = (data->csc_mv[2] & 0x1FF) |
-		((data->csc_mv[3] & 0x1FF) << 16);
+	val = (data->csc_mv[2] & 0x1FFF) |
+		((data->csc_mv[3] & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off + 0x4, val);
-	val = (data->csc_mv[4] & 0x1FF) |
-		((data->csc_mv[5] & 0x1FF) >> 16);
+	val = (data->csc_mv[4] & 0x1FFF) |
+		((data->csc_mv[5] & 0x1FFF) >> 16);
 	SDE_REG_WRITE(c, csc_reg_off + 0x8, val);
-	val = (data->csc_mv[6] & 0x1FF) |
-		((data->csc_mv[7] & 0x1FF) << 16);
+	val = (data->csc_mv[6] & 0x1FFF) |
+		((data->csc_mv[7] & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off + 0xc, val);
-	val = data->csc_mv[8] & 0x1FF;
+	val = data->csc_mv[8] & 0x1FFF;
 	SDE_REG_WRITE(c, csc_reg_off + 0x10, val);
 
 	/* Pre clamp */

@@ -29,12 +29,22 @@ struct sde_hw_pipe;
 #define SDE_SSPP_ROT_90  0x10
 
 /**
+ * Define all scaler feature bits in catalog
+ */
+#define SDE_SSPP_SCALER ((1UL << SDE_SSPP_SCALER_RGB) | \
+	(1UL << SDE_SSPP_SCALER_QSEED2) | \
+	(1UL << SDE_SSPP_SCALER_QSEED3))
+
+/**
  * Component indices
  */
 enum {
-	SDE_SSPP_COMP_LUMA = 0,
-	SDE_SSPP_COMP_CHROMA = 1,
-	SDE_SSPP_COMP_ALPHA = 3
+	SDE_SSPP_COMP_0,
+	SDE_SSPP_COMP_1_2,
+	SDE_SSPP_COMP_2,
+	SDE_SSPP_COMP_3,
+
+	SDE_SSPP_COMP_MAX
 };
 
 enum {
@@ -179,8 +189,7 @@ struct sde_hw_sspp_ops {
 	 * @ctx: Pointer to pipe context
 	 * @data: Pointer to config structure
 	 */
-	void (*setup_csc)(struct sde_hw_pipe *ctx,
-			struct sde_csc_cfg *data);
+	void (*setup_csc)(struct sde_hw_pipe *ctx, struct sde_csc_cfg *data);
 
 	/**
 	 * setup_solidfill - enable/disable colorfill
@@ -265,11 +274,11 @@ struct sde_hw_pipe {
  * Should be called once before accessing every pipe.
  * @idx:  Pipe index for which driver object is required
  * @addr: Mapped register io address of MDP
- * @m:    pointer to mdss catalog data @ops:
+ * @catalog : Pointer to mdss catalog data
  */
 struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 			void __iomem *addr,
-			struct sde_mdss_cfg *m);
+			struct sde_mdss_cfg *catalog);
 
 /**
  * sde_hw_sspp_destroy(): Destroys SSPP driver context

@@ -71,10 +71,20 @@ struct msm_file_private {
 };
 
 enum msm_mdp_plane_property {
+	/* range properties */
 	PLANE_PROP_ZPOS,
 	PLANE_PROP_ALPHA,
 	PLANE_PROP_PREMULTIPLIED,
-	PLANE_PROP_MAX_NUM
+
+	/* enum properties */
+
+	/* blob properties */
+	PLANE_PROP_PIXEXT,
+
+	/* property counts */
+	PLANE_PROP_COUNT,
+	PLANE_PROP_FIRSTBLOB = PLANE_PROP_PIXEXT,
+	PLANE_PROP_BLOBCOUNT = PLANE_PROP_COUNT - PLANE_PROP_FIRSTBLOB
 };
 
 struct msm_vblank_ctrl {
@@ -148,7 +158,7 @@ struct msm_drm_private {
 	struct drm_connector *connectors[MAX_CONNECTORS];
 
 	/* Properties */
-	struct drm_property *plane_property[PLANE_PROP_MAX_NUM];
+	struct drm_property *plane_property[PLANE_PROP_COUNT];
 
 	/* VRAM carveout, used when no IOMMU: */
 	struct {
