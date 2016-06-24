@@ -776,8 +776,6 @@
 		qcom,perfcl-speedbin0-v0 =
 			< 300000000  0x0004000f 0x03200020 0x1>;
 
-		qcom,osm-pll-setup;
-
 		qcom,up-timer =
 			<1000 1000>;
 		qcom,down-timer =
