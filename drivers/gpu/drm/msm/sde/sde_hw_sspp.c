@@ -182,7 +182,7 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	u32 opmode = 0;
 	u32 idx;
 
-	if (!_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
 		return;
 
 	opmode = SDE_REG_READ(c, SSPP_SRC_OP_MODE + idx);
@@ -210,7 +210,7 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 
 	src_format = (chroma_samp << 23) | (fmt->fetch_planes << 19) |
 		(fmt->bits[C3_ALPHA] << 6) | (fmt->bits[C2_R_Cr] << 4) |
-		(fmt->bits[C0_G_Y] << 0);
+		(fmt->bits[C1_B_Cb] << 2) | (fmt->bits[C0_G_Y] << 0);
 
 	if (flags & SDE_SSPP_ROT_90)
 		src_format |= BIT(11); /* ROT90 */
@@ -235,12 +235,9 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	}
 
 	/* if this is YUV pixel format, enable CSC */
-	if (fmt->is_yuv) {
-		_sspp_setup_opmode(ctx, CSC, 0x0);
-	} else {
+	if (fmt->is_yuv)
 		src_format |= BIT(15);
-		_sspp_setup_opmode(ctx, CSC, 0x1);
-	}
+	_sspp_setup_opmode(ctx, CSC, fmt->is_yuv);
 
 	opmode |= MDSS_MDP_OP_PE_OVERRIDE;
 
@@ -260,8 +257,8 @@ static void sde_hw_sspp_setup_pe_config(struct sde_hw_pipe *ctx,
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 	u8 color;
 	u32 lr_pe[4], tb_pe[4], tot_req_pixels[4];
-	const u32 bytemask = 0xffff;
-	const u8 shortmask = 0xff;
+	const u32 bytemask = 0xff;
+	const u32 shortmask = 0xffff;
 	u32 idx;
 
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
@@ -283,7 +280,7 @@ static void sde_hw_sspp_setup_pe_config(struct sde_hw_pipe *ctx,
 			((pe_ext->top_ftch[color] & bytemask) << 8)|
 			(pe_ext->top_rpt[color] & bytemask);
 
-		tot_req_pixels[color] = (((cfg->src.height +
+		tot_req_pixels[color] = (((pe_ext->roi_h[color] +
 			pe_ext->num_ext_pxls_top[color] +
 			pe_ext->num_ext_pxls_btm[color]) & shortmask) << 16) |
 			((pe_ext->roi_w[color] +
@@ -323,30 +320,30 @@ static void sde_hw_sspp_setup_scalar(struct sde_hw_pipe *ctx,
 
 	scale_config = BIT(0) | BIT(1);
 	/* RGB/YUV config */
-	scale_config |= (pe_ext->horz_filter[0] & mask) << 8;
-	scale_config |= (pe_ext->vert_filter[0] & mask) << 10;
+	scale_config |= (pe_ext->horz_filter[SDE_SSPP_COMP_LUMA] & mask) << 8;
+	scale_config |= (pe_ext->vert_filter[SDE_SSPP_COMP_LUMA] & mask) << 10;
 	/* Aplha config*/
-	scale_config |= (pe_ext->horz_filter[3] & mask) << 16;
-	scale_config |= (pe_ext->vert_filter[3] & mask) << 18;
+	scale_config |= (pe_ext->horz_filter[SDE_SSPP_COMP_ALPHA] & mask) << 16;
+	scale_config |= (pe_ext->vert_filter[SDE_SSPP_COMP_ALPHA] & mask) << 18;
 
 	SDE_REG_WRITE(c, SCALE_CONFIG + idx,  scale_config);
 	SDE_REG_WRITE(c, COMP0_3_INIT_PHASE_X + idx,
-			pe_ext->init_phase_x[0]);
+			pe_ext->init_phase_x[SDE_SSPP_COMP_LUMA]);
 	SDE_REG_WRITE(c, COMP0_3_INIT_PHASE_Y + idx,
-			pe_ext->init_phase_y[0]);
+			pe_ext->init_phase_y[SDE_SSPP_COMP_LUMA]);
 	SDE_REG_WRITE(c, COMP0_3_PHASE_STEP_X + idx,
-			pe_ext->phase_step_x[0]);
+			pe_ext->phase_step_x[SDE_SSPP_COMP_LUMA]);
 	SDE_REG_WRITE(c, COMP0_3_PHASE_STEP_Y + idx,
-			pe_ext->phase_step_y[0]);
+			pe_ext->phase_step_y[SDE_SSPP_COMP_LUMA]);
 
 	SDE_REG_WRITE(c, COMP1_2_INIT_PHASE_X + idx,
-			pe_ext->init_phase_x[1]);
+			pe_ext->init_phase_x[SDE_SSPP_COMP_CHROMA]);
 	SDE_REG_WRITE(c, COMP1_2_INIT_PHASE_Y + idx,
-			pe_ext->init_phase_y[1]);
+			pe_ext->init_phase_y[SDE_SSPP_COMP_CHROMA]);
 	SDE_REG_WRITE(c, COMP1_2_PHASE_STEP_X + idx,
-			pe_ext->phase_step_x[1]);
+			pe_ext->phase_step_x[SDE_SSPP_COMP_CHROMA]);
 	SDE_REG_WRITE(c, COMP1_2_PHASE_STEP_Y + idx,
-			pe_ext->phase_step_y[0]);
+			pe_ext->phase_step_y[SDE_SSPP_COMP_CHROMA]);
 }
 
 /**
@@ -365,7 +362,7 @@ static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 		return;
 
 	/* program pixel extension override */
-	if (!pe_ext)
+	if (pe_ext)
 		sde_hw_sspp_setup_pe_config(ctx, cfg, pe_ext);
 
 	/* src and dest rect programming */
@@ -388,10 +385,8 @@ static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 		if (test_bit(SDE_SSPP_SCALAR_RGB, &ctx->cap->features) ||
 			test_bit(SDE_SSPP_SCALAR_QSEED2, &ctx->cap->features)) {
 			/* program decimation */
-			if (!cfg->horz_decimation)
-				decimation = (cfg->horz_decimation - 1) <<  8;
-			if (!cfg->vert_decimation)
-				decimation |= (cfg->vert_decimation - 1);
+			decimation = ((1 << cfg->horz_decimation) - 1) << 8;
+			decimation |= ((1 << cfg->vert_decimation) - 1);
 
 			sde_hw_sspp_setup_scalar(ctx, pe_ext);
 		}
@@ -421,7 +416,6 @@ static void sde_hw_sspp_setup_sourceaddress(struct sde_hw_pipe *ctx,
 	for (i = 0; i < cfg->src.num_planes; i++)
 		SDE_REG_WRITE(c, SSPP_SRC0_ADDR  + idx + i*0x4,
 			cfg->addr.plane[i]);
-
 }
 
 static void sde_hw_sspp_setup_csc_8bit(struct sde_hw_pipe *ctx,
@@ -476,7 +470,6 @@ static void sde_hw_sspp_setup_solidfill(struct sde_hw_pipe *ctx,
 static void sde_hw_sspp_setup_histogram_v1(struct sde_hw_pipe *ctx,
 			void *cfg)
 {
-
 }
 
 static void sde_hw_sspp_setup_memcolor(struct sde_hw_pipe *ctx,
@@ -587,5 +580,10 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 				cfg->sblk->safe_lut);
 
 	return c;
+}
+
+void sde_hw_sspp_destroy(struct sde_hw_pipe *ctx)
+{
+	kfree(ctx);
 }
 
