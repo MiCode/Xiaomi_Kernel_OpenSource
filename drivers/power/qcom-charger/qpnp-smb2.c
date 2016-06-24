@@ -642,8 +642,8 @@ static const struct smb2_irq_info smb2_irqs[] = {
 	{ "div2-en-dg",                 smblib_handle_debug },
 	{ "dcin-icl-change",            smblib_handle_debug },
 /* MISCELLANEOUS IRQs */
-	{ "wdog-snarl",                 smblib_handle_debug },
-	{ "wdog-bark",                  smblib_handle_debug },
+	{ "wdog-snarl",                 NULL },
+	{ "wdog-bark",                  NULL },
 	{ "aicl-fail",                  smblib_handle_debug },
 	{ "aicl-done",                  smblib_handle_debug },
 	{ "high-duty-cycle",            smblib_handle_debug },
@@ -682,6 +682,9 @@ static int smb2_request_interrupt(struct smb2 *chip,
 		pr_err("%s is not a defined irq\n", irq_name);
 		return irq_index;
 	}
+
+	if (!smb2_irqs[irq_index].handler)
+		return 0;
 
 	irq_data = devm_kzalloc(chg->dev, sizeof(*irq_data), GFP_KERNEL);
 	if (!irq_data)
