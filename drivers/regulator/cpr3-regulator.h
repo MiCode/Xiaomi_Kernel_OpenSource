@@ -494,6 +494,35 @@ struct cpr3_aging_sensor_info {
 };
 
 /**
+ * struct cpr3_reg_info - Register information data structure
+ * @name:	Register name
+ * @addr:	Register physical address
+ * @value:	Register content
+ *
+ * This data structure is used to dump some critical register contents
+ * when the device crashes due to a kernel panic.
+ */
+struct cpr3_reg_info {
+	const char	*name;
+	u32		addr;
+	u32		value;
+};
+
+/**
+ * struct cpr3_panic_regs_info - Data structure to dump critical register
+ *		contents.
+ * @reg_count:		Number of elements in the regs array
+ * @regs:		Array of critical registers information
+ *
+ * This data structure is used to dump critical register contents when
+ * the device crashes due to a kernel panic.
+ */
+struct cpr3_panic_regs_info {
+	int			reg_count;
+	struct cpr3_reg_info	*regs;
+};
+
+/**
  * struct cpr3_controller - CPR3 controller data structure
  * @dev:		Device pointer for the CPR3 controller device
  * @name:		Unique name for the CPR3 controller
@@ -630,6 +659,13 @@ struct cpr3_aging_sensor_info {
  * @aging_sensor:	Array of CPR3 aging sensors which are used to perform
  *			aging measurements at a runtime.
  * @aging_sensor_count:	Number of elements in the aging_sensor array
+ * @aging_gcnt_scaling_factor: The scaling factor used to derive the gate count
+ *			used for aging measurements. This value is divided by
+ *			1000 when used as shown in the below equation:
+ *			      Aging_GCNT = GCNT_REF * scaling_factor / 1000.
+ *			For example, a value of 1500 specifies that the gate
+ *			count (GCNT) used for aging measurement should be 1.5
+ *			times of reference gate count (GCNT_REF).
  * @step_quot_fixed:	Fixed step quotient value used for target quotient
  *			adjustment if use_dynamic_step_quot is not set.
  *			This parameter is only relevant for CPR4 controllers
@@ -658,6 +694,9 @@ struct cpr3_aging_sensor_info {
  *			VDD supply voltage to settle after being increased or
  *			decreased by step_volt microvolts which is used when
  *			SDELTA voltage margin adjustments are applied.
+ * @panic_regs_info:	Array of panic registers information which provides the
+ *			list of registers to dump when the device crashes.
+ * @panic_notifier:	Notifier block registered to global panic notifier list.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled,
@@ -737,6 +776,7 @@ struct cpr3_controller {
 	bool			aging_failed;
 	struct cpr3_aging_sensor_info *aging_sensor;
 	int			aging_sensor_count;
+	u32			aging_gcnt_scaling_factor;
 
 	u32			step_quot_fixed;
 	u32			initial_temp_band;
@@ -749,6 +789,8 @@ struct cpr3_controller {
 	u32			temp_sensor_id_start;
 	u32			temp_sensor_id_end;
 	u32			voltage_settling_time;
+	struct cpr3_panic_regs_info *panic_regs_info;
+	struct notifier_block	panic_notifier;
 };
 
 /* Used for rounding voltages to the closest physically available set point. */
