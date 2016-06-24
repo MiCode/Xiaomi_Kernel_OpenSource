@@ -116,10 +116,12 @@ int ipa_rm_resource_producer_deregister(struct ipa_rm_resource_prod *producer,
 				struct ipa_rm_register_params *reg_params);
 
 int ipa_rm_resource_add_dependency(struct ipa_rm_resource *resource,
-				   struct ipa_rm_resource *depends_on);
+				   struct ipa_rm_resource *depends_on,
+				   bool userspace_dep);
 
 int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
-				      struct ipa_rm_resource *depends_on);
+				      struct ipa_rm_resource *depends_on,
+				      bool userspace_dep);
 
 int ipa_rm_resource_producer_request(struct ipa_rm_resource_prod *producer);
 

@@ -329,7 +329,7 @@
 	chan@83 {
 		label = "vph_pwr";
 		reg = <0x83>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <1>;
 		qcom,calibration-type = "absolute";
 		qcom,scale-function = <0>;
@@ -340,7 +340,7 @@
 	chan@85 {
 		label = "vcoin";
 		reg = <0x85>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <1>;
 		qcom,calibration-type = "absolute";
 		qcom,scale-function = <0>;
@@ -351,7 +351,7 @@
 	chan@4c {
 		label = "xo_therm";
 		reg = <0x4c>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <4>;
@@ -362,7 +362,7 @@
 	chan@4d {
 		label = "msm_therm";
 		reg = <0x4d>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
@@ -373,7 +373,7 @@
 	chan@51 {
 		label = "quiet_therm";
 		reg = <0x51>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;

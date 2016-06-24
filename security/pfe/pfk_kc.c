@@ -31,6 +31,7 @@
 #include <linux/jiffies.h>
 #include <linux/slab.h>
 #include <linux/printk.h>
+#include <linux/sched.h>
 
 #include "pfk_kc.h"
 #include "pfk_ice.h"
@@ -479,12 +480,12 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 		return -EINVAL;
 
 	if (key_size != PFK_KC_KEY_SIZE) {
-		pr_err("unsupported key size %lu\n", key_size);
+		pr_err("unsupported key size %zu\n", key_size);
 		return -EINVAL;
 	}
 
 	if (salt_size != PFK_KC_SALT_SIZE) {
-		pr_err("unsupported salt size %lu\n", salt_size);
+		pr_err("unsupported salt size %zu\n", salt_size);
 		return -EINVAL;
 	}
 

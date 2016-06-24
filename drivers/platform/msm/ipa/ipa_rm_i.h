@@ -146,6 +146,12 @@ int ipa_rm_request_resource_with_timer(enum ipa_rm_resource_name resource_name);
 
 void delayed_release_work_func(struct work_struct *work);
 
+int ipa_rm_add_dependency_from_ioctl(enum ipa_rm_resource_name resource_name,
+	enum ipa_rm_resource_name depends_on_name);
+
+int ipa_rm_delete_dependency_from_ioctl(enum ipa_rm_resource_name resource_name,
+	enum ipa_rm_resource_name depends_on_name);
+
 void ipa_rm_exit(void);
 
 #endif /* _IPA_RM_I_H_ */

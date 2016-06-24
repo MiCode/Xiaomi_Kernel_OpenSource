@@ -96,10 +96,10 @@ static DEFINE_CLK_VOTER(mcd_ce1_clk, &ce1_clk.c, 85710000);
 DEFINE_CLK_DUMMY(measure_only_bimc_hmss_axi_clk, 0);
 DEFINE_CLK_RPM_SMD(mmssnoc_axi_clk, mmssnoc_axi_a_clk,
 			RPM_MMAXI_CLK_TYPE, MMSSNOC_AXI_CLK_ID, NULL);
-DEFINE_CLK_RPM_SMD_BRANCH(aggre1_noc_clk, aggre1_noc_a_clk,
-				RPM_AGGR_CLK_TYPE, AGGR1_NOC_ID, 1000);
-DEFINE_CLK_RPM_SMD_BRANCH(aggre2_noc_clk, aggre2_noc_a_clk,
-				RPM_AGGR_CLK_TYPE, AGGR2_NOC_ID, 1000);
+DEFINE_CLK_RPM_SMD(aggre1_noc_clk, aggre1_noc_a_clk, RPM_AGGR_CLK_TYPE,
+				AGGR1_NOC_ID, NULL);
+DEFINE_CLK_RPM_SMD(aggre2_noc_clk, aggre2_noc_a_clk, RPM_AGGR_CLK_TYPE,
+				AGGR2_NOC_ID, NULL);
 static DEFINE_CLK_VOTER(qcedev_ce1_clk, &ce1_clk.c, 85710000);
 static DEFINE_CLK_VOTER(qcrypto_ce1_clk, &ce1_clk.c, 85710000);
 DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE,

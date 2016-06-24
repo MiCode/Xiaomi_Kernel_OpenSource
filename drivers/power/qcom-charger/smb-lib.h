@@ -26,6 +26,11 @@ enum print_reason {
 #define DEFAULT_VOTER	"DEFAULT_VOTER"
 #define USER_VOTER	"USER_VOTER"
 #define PD_VOTER	"PD_VOTER"
+#define PL_VOTER	"PL_VOTER"
+#define USBIN_ICL_VOTER	"USBIN_ICL_VOTER"
+#define CHG_STATE_VOTER	"CHG_STATE_VOTER"
+#define TYPEC_SRC_VOTER	"TYPEC_SRC_VOTER"
+#define TAPER_END_VOTER	"TAPER_END_VOTER"
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -55,7 +60,15 @@ struct smb_params {
 	struct smb_chg_param	fcc;
 	struct smb_chg_param	fv;
 	struct smb_chg_param	usb_icl;
+	struct smb_chg_param	icl_stat;
 	struct smb_chg_param	dc_icl;
+};
+
+struct parallel_params {
+	struct power_supply	*psy;
+	int			*master_percent;
+	int			taper_percent;
+	int			slave_fcc;
 };
 
 struct smb_charger {
@@ -74,6 +87,9 @@ struct smb_charger {
 	struct power_supply		*usb_psy;
 	struct power_supply_desc	usb_psy_desc;
 
+	/* parallel charging */
+	struct parallel_params	pl;
+
 	/* regulators */
 	struct smb_regulator	*vbus_vreg;
 	struct smb_regulator	*vconn_vreg;
@@ -87,12 +103,13 @@ struct smb_charger {
 	struct votable		*usb_icl_votable;
 	struct votable		*dc_icl_votable;
 	struct votable		*pd_allowed_votable;
-	struct votable          *awake_votable;
-	struct votable          *pl_disable_votable;
+	struct votable		*awake_votable;
+	struct votable		*pl_disable_votable;
 
 	/* work */
 	struct delayed_work	hvdcp_detect_work;
 	struct delayed_work	ps_change_timeout_work;
+	struct delayed_work	pl_taper_work;
 
 	/* cached status */
 	int			voltage_min_uv;

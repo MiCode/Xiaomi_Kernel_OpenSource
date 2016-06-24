@@ -446,6 +446,7 @@ int ipa_rm_resource_delete(struct ipa_rm_resource *resource)
 	int peers_index;
 	int result = 0;
 	int list_size;
+	bool userspace_dep;
 
 	if (!resource) {
 		IPA_RM_ERR("invalid params\n");
@@ -464,10 +465,16 @@ int ipa_rm_resource_delete(struct ipa_rm_resource *resource)
 				consumer = ipa_rm_peers_list_get_resource(
 						peers_index,
 						resource->peers_list);
-				if (consumer)
+				if (consumer) {
+					userspace_dep =
+					ipa_rm_peers_list_get_userspace_dep(
+							peers_index,
+							resource->peers_list);
 					ipa_rm_resource_delete_dependency(
 						resource,
-						consumer);
+						consumer,
+						userspace_dep);
+				}
 			}
 		}
 
@@ -483,10 +490,16 @@ int ipa_rm_resource_delete(struct ipa_rm_resource *resource)
 				producer = ipa_rm_peers_list_get_resource(
 							peers_index,
 							resource->peers_list);
-				if (producer)
+				if (producer) {
+					userspace_dep =
+					ipa_rm_peers_list_get_userspace_dep(
+						peers_index,
+						resource->peers_list);
 					ipa_rm_resource_delete_dependency(
 							producer,
-							resource);
+							resource,
+							userspace_dep);
+				}
 			}
 		}
 	}
@@ -598,10 +611,12 @@ bail:
  * Returns: 0 on success, negative on failure
  */
 int ipa_rm_resource_add_dependency(struct ipa_rm_resource *resource,
-				   struct ipa_rm_resource *depends_on)
+				   struct ipa_rm_resource *depends_on,
+				   bool userspace_dep)
 {
 	int result = 0;
 	int consumer_result;
+	bool add_dep_by_userspace;
 
 	if (!resource || !depends_on) {
 		IPA_RM_ERR("invalid params\n");
@@ -611,13 +626,17 @@ int ipa_rm_resource_add_dependency(struct ipa_rm_resource *resource,
 	if (ipa_rm_peers_list_check_dependency(resource->peers_list,
 			resource->name,
 			depends_on->peers_list,
-			depends_on->name)) {
-		IPA_RM_ERR("dependency already exists\n");
+			depends_on->name,
+			&add_dep_by_userspace)) {
+		IPA_RM_ERR("dependency already exists, added by %s\n",
+			add_dep_by_userspace ? "userspace" : "kernel");
 		return -EEXIST;
 	}
 
-	ipa_rm_peers_list_add_peer(resource->peers_list, depends_on);
-	ipa_rm_peers_list_add_peer(depends_on->peers_list, resource);
+	ipa_rm_peers_list_add_peer(resource->peers_list, depends_on,
+		userspace_dep);
+	ipa_rm_peers_list_add_peer(depends_on->peers_list, resource,
+		userspace_dep);
 	IPA_RM_DBG("%s state: %d\n", ipa_rm_resource_str(resource->name),
 				resource->state);
 
@@ -671,12 +690,14 @@ bail:
  * will be sent to the RM client
  */
 int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
-				   struct ipa_rm_resource *depends_on)
+				   struct ipa_rm_resource *depends_on,
+				   bool userspace_dep)
 {
 	int result = 0;
 	bool state_changed = false;
 	bool release_consumer = false;
 	enum ipa_rm_event evt;
+	bool add_dep_by_userspace;
 
 	if (!resource || !depends_on) {
 		IPA_RM_ERR("invalid params\n");
@@ -686,10 +707,24 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 	if (!ipa_rm_peers_list_check_dependency(resource->peers_list,
 			resource->name,
 			depends_on->peers_list,
-			depends_on->name)) {
+			depends_on->name,
+			&add_dep_by_userspace)) {
 		IPA_RM_ERR("dependency does not exist\n");
 		return -EINVAL;
 	}
+
+	/*
+	 * to avoid race conditions between kernel and userspace
+	 * need to check that the dependency was added by same entity
+	 */
+	if (add_dep_by_userspace != userspace_dep) {
+		IPA_RM_DBG("dependency was added by %s\n",
+			add_dep_by_userspace ? "userspace" : "kernel");
+		IPA_RM_DBG("ignore request to delete dependency by %s\n",
+			userspace_dep ? "userspace" : "kernel");
+		return 0;
+	}
+
 	IPA_RM_DBG("%s state: %d\n", ipa_rm_resource_str(resource->name),
 				resource->state);
 

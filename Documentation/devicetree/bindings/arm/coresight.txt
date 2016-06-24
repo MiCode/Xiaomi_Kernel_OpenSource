@@ -78,6 +78,8 @@ its hardware characteristcs.
 
 	* coresight-ctis: represents flush and reset CTIs for TMC buffer
 
+	* qcom,force-reg-dump: enables TMC reg dump support
+
 * Required property for TPDAs:
 
 	* qcom,tpda-atid: must be present. Specifies the ATID for TPDA.
