@@ -14,6 +14,7 @@
 #define _SDE_HW_MDP_CTL_H
 
 #include "sde_hw_mdss.h"
+#include "sde_hw_mdp_util.h"
 #include "sde_hw_catalog.h"
 
 struct sde_hw_ctl;
