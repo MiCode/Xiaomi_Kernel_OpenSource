@@ -15,7 +15,6 @@
 
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
-#include "sde_mdp_formats.h"
 #include "sde_hw_mdp_util.h"
 
 struct sde_hw_pipe;
@@ -28,6 +27,15 @@ struct sde_hw_pipe;
 #define SDE_SSPP_FLIP_UD	 0x4
 #define SDE_SSPP_SOURCE_ROTATED_90 0x8
 #define SDE_SSPP_ROT_90  0x10
+
+/**
+ * Component indices
+ */
+enum {
+	SDE_SSPP_COMP_LUMA = 0,
+	SDE_SSPP_COMP_CHROMA = 1,
+	SDE_SSPP_COMP_ALPHA = 3
+};
 
 enum {
 	SDE_MDP_FRAME_LINEAR,
@@ -88,6 +96,7 @@ struct sde_hw_pixel_ext {
 	int btm_rpt[SDE_MAX_PLANES];
 
 	uint32_t roi_w[SDE_MAX_PLANES];
+	uint32_t roi_h[SDE_MAX_PLANES];
 
 	/*
 	 * Filter type to be used for scaling in horizontal and vertical
@@ -261,6 +270,13 @@ struct sde_hw_pipe {
 struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 			void __iomem *addr,
 			struct sde_mdss_cfg *m);
+
+/**
+ * sde_hw_sspp_destroy(): Destroys SSPP driver context
+ * should be called during Hw pipe cleanup.
+ * @ctx:  Pointer to SSPP driver context returned by sde_hw_sspp_init
+ */
+void sde_hw_sspp_destroy(struct sde_hw_pipe *ctx);
 
 #endif /*_SDE_HW_SSPP_H */
 

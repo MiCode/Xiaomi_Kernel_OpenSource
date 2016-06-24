@@ -28,13 +28,45 @@ struct sde_hw_stage_cfg {
 };
 
 /**
+ * struct sde_hw_intf_cfg :Desbribes how the mdp writes data to
+ *                         output interface
+ * @intf :                 Interface id
+ * @wb:                    writeback id
+ * @mode_3d:               3d mux configuration
+ */
+struct sde_hw_intf_cfg {
+	enum sde_intf intf;
+	enum sde_wb wb;
+	enum sde_3d_blend_mode mode_3d;
+};
+
+/**
  * struct sde_hw_ctl_ops - Interface to the wb Hw driver functions
  * Assumption is these functions will be called after clocks are enabled
  */
 struct sde_hw_ctl_ops {
+	/**
+	 * kickoff hw operation for Sw controlled interfaces
+	 * DSI cmd mode and WB interface are SW controlled
+	 * @ctx       : ctl path ctx pointer
+	 */
+	void (*setup_start)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * FLUSH the modules for this control path
+	 * @ctx       : ctl path ctx pointer
+	 * @flushbits : module flushmask
+	 */
 	void (*setup_flush)(struct sde_hw_ctl *ctx,
-		u32  flushbits,
-		u8 force_start);
+		u32  flushbits);
+
+	/**
+	 * Setup ctl_path interface config
+	 * @ctx
+	 * @cfg    : interface config structure pointer
+	 */
+	void (*setup_intf_cfg)(struct sde_hw_ctl *ctx,
+		struct sde_hw_intf_cfg *cfg);
 
 	int (*reset)(struct sde_hw_ctl *c);
 
@@ -87,7 +119,7 @@ struct sde_hw_ctl {
 
 /**
  * sde_hw_ctl_init(): Initializes the ctl_path hw driver object.
- * should be called before accessing every mixer.
+ * should be called before accessing every ctl path registers.
  * @idx:  ctl_path index for which driver object is required
  * @addr: mapped register io address of MDP
  * @m :   pointer to mdss catalog data
@@ -95,5 +127,11 @@ struct sde_hw_ctl {
 struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m);
+
+/**
+ * sde_hw_ctl_destroy(): Destroys ctl driver context
+ * should be called to free the context
+ */
+void sde_hw_ctl_destroy(struct sde_hw_ctl *ctx);
 
 #endif /*_SDE_HW_MDP_CTL_H */

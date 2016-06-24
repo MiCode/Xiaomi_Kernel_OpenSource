@@ -70,7 +70,8 @@ static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 	int i;
 
 	for (i = 0; i < m->intf_count; i++) {
-		if (intf == m->intf[i].id) {
+		if ((intf == m->intf[i].id) &&
+		(m->intf[i].type != INTF_NONE)) {
 			b->base_off = addr;
 			b->blk_off = m->intf[i].base;
 			b->hwversion = m->hwversion;
@@ -158,13 +159,13 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 		(hsync_polarity << 0);  /* HSYNC Polarity */
 
 	if (!fmt->is_yuv)
-		panel_format = (fmt->bits[0] |
-				(fmt->bits[1] << 2) |
-				(fmt->bits[2] << 4) |
+		panel_format = (fmt->bits[C0_G_Y] |
+				(fmt->bits[C1_B_Cb] << 2) |
+				(fmt->bits[C2_R_Cr] << 4) |
 				(0x21 << 8));
 	 else
-	/* Interface treats all the pixel data in RGB888 format */
-		panel_format |= (COLOR_8BIT      |
+		/* Interface treats all the pixel data in RGB888 format */
+		panel_format = (COLOR_8BIT |
 				(COLOR_8BIT << 2) |
 				(COLOR_8BIT << 4) |
 				(0x21 << 8));
@@ -354,8 +355,9 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 		return ERR_PTR(-ENOMEM);
 
 	cfg = _intf_offset(idx, m, addr, &c->hw);
-	if (!cfg) {
+	if (IS_ERR_OR_NULL(cfg)) {
 		kfree(c);
+		pr_err("Error Panic\n");
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -371,3 +373,9 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 	 */
 	return c;
 }
+
+void sde_hw_intf_deinit(struct sde_hw_intf *intf)
+{
+	kfree(intf);
+}
+

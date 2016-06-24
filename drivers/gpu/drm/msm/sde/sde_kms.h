@@ -26,6 +26,7 @@ struct sde_kms {
 	struct sde_mdss_cfg *catalog;
 
 	struct msm_mmu *mmu;
+	int mmu_id;
 
 	/* io/register spaces: */
 	void __iomem *mmio, *vbif;
@@ -86,18 +87,8 @@ int sde_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
 void sde_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
 
 enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
-void sde_plane_install_properties(struct drm_plane *plane,
-		struct drm_mode_object *obj);
-void sde_plane_set_scanout(struct drm_plane *plane,
-		struct drm_framebuffer *fb);
-int sde_plane_mode_set(struct drm_plane *plane,
-		struct drm_crtc *crtc, struct drm_framebuffer *fb,
-		int crtc_x, int crtc_y,
-		unsigned int crtc_w, unsigned int crtc_h,
-		uint32_t src_x, uint32_t src_y,
-		uint32_t src_w, uint32_t src_h);
-void sde_plane_complete_flip(struct drm_plane *plane);
-struct drm_plane *sde_plane_init(struct drm_device *dev, bool private_plane);
+struct drm_plane *sde_plane_init(struct drm_device *dev, uint32_t pipe,
+		bool private_plane);
 
 uint32_t sde_crtc_vblank(struct drm_crtc *crtc);
 
@@ -108,7 +99,16 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 		struct drm_encoder *encoder,
 		struct drm_plane *plane, int id);
 
-struct drm_encoder *sde_encoder_init(struct drm_device *dev, int intf);
+struct sde_encoder_hw_resources {
+	bool intfs[INTF_MAX];
+	bool pingpongs[PINGPONG_MAX];
+};
+void sde_encoder_get_hw_resources(struct drm_encoder *encoder,
+		struct sde_encoder_hw_resources *hw_res);
+void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
+		void (*cb)(void *), void *data);
+void sde_encoders_init(struct drm_device *dev);
+
 
 int sde_irq_domain_init(struct sde_kms *sde_kms);
 int sde_irq_domain_fini(struct sde_kms *sde_kms);

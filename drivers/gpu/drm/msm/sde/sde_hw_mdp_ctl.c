@@ -15,9 +15,9 @@
 #include "sde_hw_mdp_ctl.h"
 
 #define   CTL_LAYER(lm)                 \
-	(((lm) == 5) ? (0x024) : ((lm) * 0x004))
+	(((lm) == LM_5) ? (0x024) : (((lm) - LM_0) * 0x004))
 #define   CTL_LAYER_EXT(lm)             \
-	(0x40 + ((lm) * 0x004))
+	(0x40 + (((lm) - LM_0) * 0x004))
 #define   CTL_TOP                       0x014
 #define   CTL_FLUSH                     0x018
 #define   CTL_START                     0x01C
@@ -61,15 +61,14 @@ static int _mixer_stages(const struct sde_lm_cfg *mixer, int count,
 	return stages;
 }
 
-static inline void sde_hw_ctl_setup_flush(struct sde_hw_ctl *ctx, u32 flushbits,
-		u8 force_start)
+static inline void sde_hw_ctl_force_start(struct sde_hw_ctl *ctx)
 {
-	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	SDE_REG_WRITE(&ctx->hw, CTL_START, 0x1);
+}
 
-	SDE_REG_WRITE(c, CTL_FLUSH, flushbits);
-
-	if (force_start)
-		SDE_REG_WRITE(c, CTL_START, 0x1);
+static inline void sde_hw_ctl_setup_flush(struct sde_hw_ctl *ctx, u32 flushbits)
+{
+	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, flushbits);
 }
 
 static inline int sde_hw_ctl_get_bitmask_sspp(struct sde_hw_ctl *ctx,
@@ -222,7 +221,7 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 		struct sde_hw_stage_cfg *cfg)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
-	u32 mixercfg, mixercfg_ext;
+	u32 mixercfg, mixercfg_ext = 0;
 	int i, j;
 	u8 stages;
 	int pipes_per_stage;
@@ -237,8 +236,8 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	else
 		pipes_per_stage = 1;
 
-	mixercfg = cfg->border_enable >> 24; /* BORDER_OUT */
-;
+	mixercfg = cfg->border_enable << 24; /* BORDER_OUT */
+
 	for (i = 0; i <= stages; i++) {
 		for (j = 0; j < pipes_per_stage; j++) {
 			switch (cfg->stage[i][j]) {
@@ -298,17 +297,38 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	SDE_REG_WRITE(c, CTL_LAYER_EXT(lm), mixercfg_ext);
 }
 
+static void sde_hw_ctl_intf_cfg(struct sde_hw_ctl *ctx,
+		struct sde_hw_intf_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 intf_cfg = 0;
+
+	intf_cfg |= (cfg->intf & 0xF) << 4;
+
+	if (cfg->wb)
+		intf_cfg |= (cfg->wb & 0x3) + 2;
+
+	if (cfg->mode_3d) {
+		intf_cfg |= BIT(19);
+		intf_cfg |= (cfg->mode_3d - 1) << 20;
+	}
+
+	SDE_REG_WRITE(c, CTL_TOP, intf_cfg);
+}
+
 static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		unsigned long cap)
 {
 	ops->setup_flush = sde_hw_ctl_setup_flush;
+	ops->setup_start = sde_hw_ctl_force_start;
+	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
+	ops->setup_blendstage = sde_hw_ctl_setup_blendstage;
 	ops->get_bitmask_sspp = sde_hw_ctl_get_bitmask_sspp;
 	ops->get_bitmask_mixer = sde_hw_ctl_get_bitmask_mixer;
 	ops->get_bitmask_dspp = sde_hw_ctl_get_bitmask_dspp;
 	ops->get_bitmask_intf = sde_hw_ctl_get_bitmask_intf;
 	ops->get_bitmask_cdm = sde_hw_ctl_get_bitmask_cdm;
-	ops->setup_blendstage = sde_hw_ctl_setup_blendstage;
 };
 
 struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
@@ -323,8 +343,9 @@ struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
 		return ERR_PTR(-ENOMEM);
 
 	cfg = _ctl_offset(idx, m, addr, &c->hw);
-	if (cfg) {
+	if (IS_ERR_OR_NULL(cfg)) {
 		kfree(c);
+		pr_err("Error Panic\n");
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -335,4 +356,9 @@ struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
 	c->mixer_hw_caps = m->mixer;
 
 	return c;
+}
+
+void sde_hw_ctl_destroy(struct sde_hw_ctl *ctx)
+{
+	kfree(ctx);
 }
