@@ -121,9 +121,10 @@ struct sde_plane_state {
 	struct drm_plane_state base;
 
 	/* aligned with property */
-	uint8_t premultiplied;
-	uint8_t zpos;
-	uint8_t alpha;
+	uint64_t property_values[PLANE_PROP_COUNT];
+
+	/* blob properties */
+	struct drm_property_blob *property_blobs[PLANE_PROP_BLOBCOUNT];
 
 	/* assigned by crtc blender */
 	enum sde_stage stage;

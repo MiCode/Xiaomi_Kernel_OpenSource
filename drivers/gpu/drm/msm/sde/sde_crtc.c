@@ -209,14 +209,16 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 
 	cfg->fg.alpha_sel = ALPHA_FG_CONST;
 	cfg->bg.alpha_sel = ALPHA_BG_CONST;
-	cfg->fg.const_alpha = pstate->alpha;
-	cfg->bg.const_alpha = 0xFF - pstate->alpha;
+	cfg->fg.const_alpha = pstate->property_values[PLANE_PROP_ALPHA];
+	cfg->bg.const_alpha = 0xFF - cfg->fg.const_alpha;
 
-	if (format->alpha_enable && pstate->premultiplied) {
+	if (format->alpha_enable &&
+			pstate->property_values[PLANE_PROP_PREMULTIPLIED]) {
 		cfg->fg.alpha_sel = ALPHA_FG_CONST;
 		cfg->bg.alpha_sel = ALPHA_FG_PIXEL;
-		if (pstate->alpha != 0xff) {
-			cfg->bg.const_alpha = pstate->alpha;
+		if (pstate->property_values[PLANE_PROP_ALPHA] != 0xff) {
+			cfg->bg.const_alpha =
+				(u32)pstate->property_values[PLANE_PROP_ALPHA];
 			cfg->bg.inv_alpha_sel = 1;
 			cfg->bg.mod_alpha = 1;
 		} else {
@@ -225,8 +227,9 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 	} else if (format->alpha_enable) {
 		cfg->fg.alpha_sel = ALPHA_FG_PIXEL;
 		cfg->bg.alpha_sel = ALPHA_FG_PIXEL;
-		if (pstate->alpha != 0xff) {
-			cfg->bg.const_alpha = pstate->alpha;
+		if (pstate->property_values[PLANE_PROP_ALPHA] != 0xff) {
+			cfg->bg.const_alpha =
+				(u32)pstate->property_values[PLANE_PROP_ALPHA];
 			cfg->fg.mod_alpha = 1;
 			cfg->bg.inv_alpha_sel = 1;
 			cfg->bg.mod_alpha = 1;
@@ -318,8 +321,10 @@ static void blend_setup(struct drm_crtc *crtc)
 			sde_crtc_get_blend_cfg(&blend, pstates[j]);
 			blend.fg.alpha_sel = ALPHA_FG_CONST;
 			blend.bg.alpha_sel = ALPHA_BG_CONST;
-			blend.fg.const_alpha = pstate->alpha;
-			blend.bg.const_alpha = 0xFF - pstate->alpha;
+			blend.fg.const_alpha =
+				(u32)pstate->property_values[PLANE_PROP_ALPHA];
+			blend.bg.const_alpha = 0xFF -
+				(u32)pstate->property_values[PLANE_PROP_ALPHA];
 			lm->ops.setup_blend_config(lm, j, &blend);
 		}
 	}
@@ -546,7 +551,8 @@ static int pstate_cmp(const void *a, const void *b)
 	struct plane_state *pa = (struct plane_state *)a;
 	struct plane_state *pb = (struct plane_state *)b;
 
-	return pa->state->zpos - pb->state->zpos;
+	return (int)pa->state->property_values[PLANE_PROP_ZPOS] -
+		(int)pb->state->property_values[PLANE_PROP_ZPOS];
 }
 
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
