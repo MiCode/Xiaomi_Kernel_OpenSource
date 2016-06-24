@@ -16,14 +16,14 @@
 
 /* VIG layer capability */
 #define VIG_17X_MASK \
-	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_SCALAR_QSEED2) |\
+	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_SCALER_QSEED2) |\
 	BIT(SDE_SSPP_CSC) | BIT(SDE_SSPP_PA_V1) |\
 	BIT(SDE_SSPP_HIST_V1) | BIT(SDE_SSPP_PCC) |\
 	BIT(SDE_SSPP_IGC))
 
 /* RGB layer capability */
 #define RGB_17X_MASK \
-	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_SCALAR_RGB) |\
+	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_SCALER_RGB) |\
 	BIT(SDE_SSPP_PCC) | BIT(SDE_SSPP_IGC))
 
 /* DMA layer capability */
@@ -72,7 +72,7 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.maxdwnscale = 4, .maxupscale = 20,
 		.src_blk = {.id = SDE_SSPP_SRC,
 			.base = 0x00, .len = 0x150,},
-		.scalar_blk = {.id = SDE_SSPP_SCALAR_QSEED2,
+		.scaler_blk = {.id = SDE_SSPP_SCALER_QSEED2,
 			.base = 0x200, .len = 0x70,},
 		.csc_blk = {.id = SDE_SSPP_CSC,
 			.base = 0x320, .len = 0x44,},
@@ -90,7 +90,7 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.safe_lut = 0xFF00,
 		.maxdwnscale = 0, .maxupscale = 0,
 		.src_blk = {.id = SDE_SSPP_SRC, .base = 0x00, .len = 0x0,},
-		.scalar_blk = {.id = 0, .base = 0x00, .len = 0x0,},
+		.scaler_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.csc_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.pa_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.hist_lut = {.id = 0, .base = 0x00, .len = 0x0,},
@@ -103,7 +103,7 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.safe_lut = 0xFF00,
 		.maxdwnscale = 0, .maxupscale = 0,
 		.src_blk = {.id = SDE_SSPP_SRC, .base = 0x00, .len = 0x0,},
-		.scalar_blk = {.id = 0, .base = 0x00, .len = 0x0,},
+		.scaler_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.csc_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.pa_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.hist_lut = {.id = 0, .base = 0x00, .len = 0x0,},

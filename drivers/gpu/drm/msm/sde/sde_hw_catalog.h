@@ -63,10 +63,10 @@ enum {
 /**
  * SSPP sub-blocks/features
  * @SDE_SSPP_SRC             Src and fetch part of the pipes,
- * @SDE_SSPP_SCALAR_QSEED2,  QSEED2 algorithm support
- * @SDE_SSPP_SCALAR_QSEED3,  QSEED3 algorithm support
- * @SDE_SSPP_SCALAR_RGB,     RGB Scalar, supported by RGB pipes
- * @SDE_SSPP_CSC,            Support of Color space conversion
+ * @SDE_SSPP_SCALER_QSEED2,  QSEED2 algorithm support
+ * @SDE_SSPP_SCALER_QSEED3,  QSEED3 alogorithm support
+ * @SDE_SSPP_SCALER_RGB,     RGB Scaler, supported by RGB pipes
+ * @SDE_SSPP_CSC,            Support of Color space converion
  * @SDE_SSPP_PA_V1,          Common op-mode register for PA blocks
  * @SDE_SSPP_HIST_V1         Histogram programming method V1
  * @SDE_SSPP_IGC,            Inverse gamma correction
@@ -76,9 +76,9 @@ enum {
  */
 enum {
 	SDE_SSPP_SRC = 0x1,
-	SDE_SSPP_SCALAR_QSEED2,
-	SDE_SSPP_SCALAR_QSEED3,
-	SDE_SSPP_SCALAR_RGB,
+	SDE_SSPP_SCALER_QSEED2,
+	SDE_SSPP_SCALER_QSEED3,
+	SDE_SSPP_SCALER_RGB,
 	SDE_SSPP_CSC,
 	SDE_SSPP_PA_V1, /* Common op-mode register for PA blocks */
 	SDE_SSPP_HIST_V1,
@@ -201,10 +201,10 @@ struct sde_src_blk {
 };
 
 /**
- * struct sde_scalar_info: Scalar information
+ * struct sde_scaler_blk: Scaler information
  * @info:   HW register and features supported by this sub-blk
  */
-struct sde_scalar_blk {
+struct sde_scaler_blk {
 	SDE_HW_SUBBLK_INFO;
 };
 
@@ -230,7 +230,7 @@ struct sde_pp_blk {
  * @danger_lut:  LUT to generate danger signals
  * @safe_lut:    LUT to generate safe signals
  * @src_blk:
- * @scalar_blk:
+ * @scaler_blk:
  * @csc_blk:
  * @pa_blk:
  * @hist_lut:
@@ -243,7 +243,7 @@ struct sde_sspp_sub_blks {
 	u32 maxdwnscale;
 	u32 maxupscale;
 	struct sde_src_blk src_blk;
-	struct sde_scalar_blk scalar_blk;
+	struct sde_scaler_blk scaler_blk;
 	struct sde_pp_blk csc_blk;
 	struct sde_pp_blk pa_blk;
 	struct sde_pp_blk hist_lut;
