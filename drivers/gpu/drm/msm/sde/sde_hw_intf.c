@@ -13,6 +13,7 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_intf.h"
+#include "sde_hw_mdp_top.h"
 
 #define INTF_TIMING_ENGINE_EN           0x000
 #define INTF_CONFIG                     0x004
@@ -205,10 +206,16 @@ static void sde_hw_intf_enable_timing_engine(
 
 	/* Display interface select */
 	if (enable) {
-		intf_sel = SDE_REG_READ(c, DISP_INTF_SEL);
+		/* top block */
+		struct sde_hw_mdp *mdp = sde_hw_mdptop_init(MDP_TOP,
+				c->base_off,
+				intf->mdss);
+		struct sde_hw_blk_reg_map *top = &mdp->hw;
 
-		intf_sel |= (intf->cap->type << ((intf->idx) * 8));
-		SDE_REG_WRITE(c, DISP_INTF_SEL,  intf_sel);
+		intf_sel = SDE_REG_READ(top, DISP_INTF_SEL);
+
+		intf_sel |= (intf->cap->type << ((intf->idx - INTF_0) * 8));
+		SDE_REG_WRITE(top, DISP_INTF_SEL,  intf_sel);
 	}
 
 	SDE_REG_WRITE(c, INTF_TIMING_ENGINE_EN,
@@ -366,6 +373,7 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 	 */
 	c->idx = idx;
 	c->cap = cfg;
+	c->mdss = m;
 	_setup_intf_ops(&c->ops, c->cap->features);
 
 	/*

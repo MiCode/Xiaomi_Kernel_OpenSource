@@ -76,7 +76,7 @@ static void sde_hw_lm_setup_out(struct sde_hw_mixer *ctx,
 	SDE_REG_WRITE(c, LM_OUT_SIZE, outsize);
 
 	/* SPLIT_LEFT_RIGHT */
-	opmode = (opmode & ~(1 << 31)) | (mixer->right_mixer & 1 << 31);
+	opmode = (opmode & ~(1 << 31)) | ((mixer->right_mixer) ? (1 << 31) : 0);
 	SDE_REG_WRITE(c, LM_OP_MODE, opmode);
 }
 
@@ -128,7 +128,7 @@ static void sde_hw_lm_setup_blendcfg(struct sde_hw_mixer *ctx,
 			fg->const_alpha);
 	SDE_REG_WRITE(c, LM_BLEND0_BG_ALPHA + stage_off,
 			bg->const_alpha);
-	SDE_REG_WRITE(c, LM_OP_MODE, blend_op);
+	SDE_REG_WRITE(c, LM_BLEND0_OP + stage_off, blend_op);
 }
 
 static void sde_hw_lm_setup_color3(struct sde_hw_mixer *ctx,
