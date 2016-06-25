@@ -4228,7 +4228,7 @@ int adm_set_sound_focus(int port_id, int copp_idx,
 
 	soundfocus_params.soundfocus_data.reserved = 0;
 
-	atomic_set(&this_adm.copp.stat[port_idx][copp_idx], 0);
+	atomic_set(&this_adm.copp.stat[port_idx][copp_idx], -1);
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *)&soundfocus_params);
 	if (ret < 0) {
 		pr_err("%s: Set params failed\n", __func__);
@@ -4238,7 +4238,7 @@ int adm_set_sound_focus(int port_id, int copp_idx,
 	}
 	/* Wait for the callback */
 	ret = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx],
-		atomic_read(&this_adm.copp.stat[port_idx][copp_idx]),
+		atomic_read(&this_adm.copp.stat[port_idx][copp_idx]) >= 0,
 		msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: Set params timed out\n", __func__);
