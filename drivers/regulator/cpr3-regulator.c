@@ -316,6 +316,12 @@
  */
 #define CPRH_DELTA_QUOT_STEP_FACTOR 4
 
+/*
+ * The multiplier applied to scaling factor value used to derive GCNT
+ * for aging measurements.
+ */
+#define CPR3_AGING_GCNT_SCALING_UNITY	1000
+
 static DEFINE_MUTEX(cpr3_controller_list_mutex);
 static LIST_HEAD(cpr3_controller_list);
 static struct dentry *cpr3_debugfs_base;
@@ -3364,7 +3370,12 @@ static int cpr3_regulator_measure_aging(struct cpr3_controller *ctrl,
 	gcnt0_restore = cpr3_read(ctrl, CPR3_REG_GCNT(0));
 	gcnt1_restore = cpr3_read(ctrl, CPR3_REG_GCNT(1));
 	gcnt_ref = cpr3_regulator_get_gcnt(ctrl);
-	gcnt = gcnt_ref * 3 / 2;
+
+	gcnt = gcnt_ref;
+	if (ctrl->aging_gcnt_scaling_factor)
+		gcnt = gcnt_ref * ctrl->aging_gcnt_scaling_factor
+				/ CPR3_AGING_GCNT_SCALING_UNITY;
+
 	cpr3_write(ctrl, CPR3_REG_GCNT(0), gcnt);
 	cpr3_write(ctrl, CPR3_REG_GCNT(1), gcnt);
 
@@ -5839,6 +5850,42 @@ static int cpr3_regulator_validate_controller(struct cpr3_controller *ctrl)
 }
 
 /**
+ * cpr3_panic_callback() - panic notification callback function. This function
+ *		is invoked when a kernel panic occurs.
+ * @nfb:	Notifier block pointer of CPR3 controller
+ * @event:	Value passed unmodified to notifier function
+ * @data:	Pointer passed unmodified to notifier function
+ *
+ * Return: NOTIFY_OK
+ */
+static int cpr3_panic_callback(struct notifier_block *nfb,
+			unsigned long event, void *data)
+{
+	struct cpr3_controller *ctrl = container_of(nfb,
+				struct cpr3_controller, panic_notifier);
+	struct cpr3_panic_regs_info *regs_info = ctrl->panic_regs_info;
+	struct cpr3_reg_info *reg;
+	void __iomem *virt_addr;
+	int i = 0;
+
+	for (i = 0; i < regs_info->reg_count; i++) {
+		reg = &(regs_info->regs[i]);
+		virt_addr = ioremap(reg->addr, 0x4);
+		reg->value = readl_relaxed(virt_addr);
+		iounmap(virt_addr);
+		pr_err("%s[0x%08x] = 0x%08x\n", reg->name, reg->addr,
+			reg->value);
+	}
+	/*
+	 * Barrier to ensure that the information has been updated in the
+	 * structure.
+	 */
+	mb();
+
+	return NOTIFY_OK;
+}
+
+/**
  * cpr3_regulator_register() - register the regulators for a CPR3 controller and
  *		perform CPR hardware initialization
  * @pdev:		Platform device pointer for the CPR3 controller
@@ -5982,6 +6029,13 @@ int cpr3_regulator_register(struct platform_device *pdev,
 	list_add(&ctrl->list, &cpr3_controller_list);
 	mutex_unlock(&cpr3_controller_list_mutex);
 
+	if (ctrl->panic_regs_info) {
+		/* Register panic notification call back */
+		ctrl->panic_notifier.notifier_call = cpr3_panic_callback;
+		atomic_notifier_chain_register(&panic_notifier_list,
+			&ctrl->panic_notifier);
+	}
+
 	return 0;
 
 free_regulators:
@@ -6029,6 +6083,10 @@ int cpr3_regulator_unregister(struct cpr3_controller *ctrl)
 	for (i = 0; i < ctrl->thread_count; i++)
 		for (j = 0; j < ctrl->thread[i].vreg_count; j++)
 			regulator_unregister(ctrl->thread[i].vreg[j].rdev);
+
+	if (ctrl->panic_notifier.notifier_call)
+		atomic_notifier_chain_unregister(&panic_notifier_list,
+			&ctrl->panic_notifier);
 
 	return 0;
 }
