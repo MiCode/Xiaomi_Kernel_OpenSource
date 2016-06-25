@@ -414,6 +414,8 @@ apc_cpr: cpr4-ctrl@b018000 {
 			"APCS_ALIAS0_APM_CTLER_STATUS",
 			"APCS0_CPR_CORE_ADJ_MODE_REG";
 
+	qcom,cpr-aging-ref-voltage = <990000>; /* Turbo corner */
+
 	thread@0 {
 		qcom,cpr-thread-id = <0>;
 		qcom,cpr-consecutive-up = <1>;
@@ -517,6 +519,14 @@ apc_cpr: cpr4-ctrl@b018000 {
 				<(-20000) (-15000) (-10000) 0>;
 			qcom,allow-boost =
 				<1>;
+
+			qcom,cpr-aging-max-voltage-adjustment = <15000>;
+			qcom,cpr-aging-ref-corner = <6>; /* Turbo corner */
+			qcom,cpr-aging-ro-scaling-factor = <2800>;
+			qcom,cpr-aging-derate =
+				<1000 1000 1000 1000 1000
+				 1000 1000 1000>;
+			qcom,allow-aging-voltage-adjustment = <1>;
 		};
 	};
 };
