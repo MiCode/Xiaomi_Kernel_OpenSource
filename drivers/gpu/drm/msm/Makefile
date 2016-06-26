@@ -85,11 +85,11 @@ obj-$(CONFIG_DRM_MSM) += sde/sde_hw_catalog.o \
 	sde/sde_hw_dspp.o \
 	sde/sde_hw_intf.o \
 	sde/sde_hw_lm.o \
-	sde/sde_hw_mdp_ctl.o \
-	sde/sde_hw_mdp_util.o \
+	sde/sde_hw_ctl.o \
+	sde/sde_hw_util.o \
 	sde/sde_hw_sspp.o \
 	sde/sde_hw_wb.o \
 	sde/sde_hw_pingpong.o \
-	sde/sde_hw_mdp_top.o \
+	sde/sde_hw_top.o \
 	sde/sde_hw_interrupts.o \
-	sde/sde_mdp_formats.o
+	sde/sde_formats.o

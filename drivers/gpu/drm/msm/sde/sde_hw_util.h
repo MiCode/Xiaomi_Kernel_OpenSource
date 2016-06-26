@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _SDE_HW_MDP_UTIL_H
-#define _SDE_HW_MDP_UTIL_H
+#ifndef _SDE_HW_UTIL_H
+#define _SDE_HW_UTIL_H
 
 #include <linux/io.h>
 #include <linux/slab.h>
@@ -46,5 +46,5 @@ void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
 		u32 csc_reg_off,
 		struct sde_csc_cfg *data);
 
-#endif /* _SDE_HW_MDP_UTIL_H */
+#endif /* _SDE_HW_UTIL_H */
 

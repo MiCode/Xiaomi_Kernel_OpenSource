@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/kernel.h>
-#include "sde_mdp_formats.h"
+#include "sde_kms.h"
+#include "sde_formats.h"
 
 static struct sde_mdp_format_params sde_mdp_format_map[] = {
 	INTERLEAVED_RGB_FMT(ARGB8888,

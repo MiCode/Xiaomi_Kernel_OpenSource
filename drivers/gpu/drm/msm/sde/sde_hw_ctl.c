@@ -12,7 +12,7 @@
 
 #include <linux/delay.h>
 #include "sde_hwio.h"
-#include "sde_hw_mdp_ctl.h"
+#include "sde_hw_ctl.h"
 
 #define   CTL_LAYER(lm)                 \
 	(((lm) == LM_5) ? (0x024) : (((lm) - LM_0) * 0x004))
@@ -228,7 +228,7 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	int pipes_per_stage;
 
 	stages = _mixer_stages(ctx->mixer_hw_caps, ctx->mixer_count, lm);
-	if (WARN_ON(stages < 0))
+	if (stages < 0)
 		return;
 
 	if (test_bit(SDE_MIXER_SOURCESPLIT,

@@ -13,7 +13,7 @@
 #ifndef _SDE_HWIO_H
 #define _SDE_HWIO_H
 
-#include "sde_hw_mdp_util.h"
+#include "sde_hw_util.h"
 
 /**
  * MDP TOP block Register and bit fields and defines

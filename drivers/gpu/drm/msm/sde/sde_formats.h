@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _SDE_MDP_FORMATS_H
-#define _SDE_MDP_FORMATS_H
+#ifndef _SDE_FORMATS_H
+#define _SDE_FORMATS_H
 
 #include <drm/drm_fourcc.h>
 #include "sde_hw_mdss.h"
@@ -30,11 +30,11 @@
 	.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,                        \
 	.alpha_enable = alpha,                                            \
 	.element = { (e0), (e1), (e2), (e3) },                            \
-	.bits = { a, r, g, b},                                            \
+	.bits = { g, b, r, a },                                           \
 	.chroma_sample = SDE_MDP_CHROMA_RGB,                              \
 	.unpack_align_msb = 0,                                            \
 	.unpack_tight = 1,                                                \
-	.unpack_count = (alpha == true) ? 4:3,                            \
+	.unpack_count = (alpha == true) ? 4 : 3,                          \
 	.bpp = bp,                                                        \
 	.fetch_mode = SDE_MDP_FETCH_LINEAR,                               \
 	.is_yuv = false,                                                  \
@@ -48,7 +48,7 @@ alpha, chroma, count, bp, flg)                                          \
 	.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,                        \
 	.alpha_enable = alpha,                                            \
 	.element = { (e0), (e1), (e2), (e3)},                             \
-	.bits = { a, r, g, b},                                            \
+	.bits = { g, b, r, a },                                           \
 	.chroma_sample = chroma,                                          \
 	.unpack_align_msb = 0,                                            \
 	.unpack_tight = 1,                                                \
@@ -65,7 +65,7 @@ alpha, chroma, count, bp, flg)                                          \
 	.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,                      \
 	.alpha_enable = false,                                            \
 	.element = { (e0), (e1), 0, 0 },                                  \
-	.bits = { a, r, g, b},                                            \
+	.bits = { g, b, r, a },                                           \
 	.chroma_sample = chroma,                                          \
 	.unpack_align_msb = 0,                                            \
 	.unpack_tight = 1,                                                \
@@ -82,7 +82,7 @@ alpha, chroma, count, bp, flg)                                          \
 	.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,                           \
 	.alpha_enable = alpha,                                               \
 	.element = { (e0), (e1), (e2), 0 },                               \
-	.bits = { a, r, g, b},                                               \
+	.bits = { g, b, r, a },                                              \
 	.chroma_sample = chroma,                                             \
 	.unpack_align_msb = 0,                                               \
 	.unpack_tight = 1,                                                   \
@@ -101,4 +101,4 @@ alpha, chroma, count, bp, flg)                                          \
 struct sde_mdp_format_params *sde_mdp_get_format_params(u32 format,
 		u32 fmt_modifier);
 
-#endif /*_SDE_MDP_FORMATS_H */
+#endif /*_SDE_FORMATS_H */

@@ -17,7 +17,7 @@
 #include "msm_kms.h"
 #include "mdp/mdp_kms.h"
 #include "sde_hw_catalog.h"
-#include "sde_hw_mdp_ctl.h"
+#include "sde_hw_ctl.h"
 #include "sde_hw_lm.h"
 #include "sde_hw_interrupts.h"
 
