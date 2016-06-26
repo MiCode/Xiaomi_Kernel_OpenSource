@@ -12,7 +12,7 @@
 
 #include "sde_kms.h"
 #include "sde_hw_lm.h"
-#include "sde_hw_mdp_ctl.h"
+#include "sde_hw_ctl.h"
 
 struct sde_hw_intr *sde_rm_acquire_intr(struct sde_kms *sde_kms)
 {

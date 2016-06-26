@@ -14,7 +14,7 @@
 #define _SDE_HW_LM_H
 
 #include "sde_hw_mdss.h"
-#include "sde_hw_mdp_util.h"
+#include "sde_hw_util.h"
 
 struct sde_hw_mixer;
 

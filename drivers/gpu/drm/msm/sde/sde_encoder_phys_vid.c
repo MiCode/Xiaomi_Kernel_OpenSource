@@ -16,8 +16,8 @@
 #include "drm_crtc_helper.h"
 
 #include "sde_encoder_phys.h"
-#include "sde_mdp_formats.h"
-#include "sde_hw_mdp_top.h"
+#include "sde_formats.h"
+#include "sde_hw_top.h"
 
 #define VBLANK_TIMEOUT msecs_to_jiffies(100)
 

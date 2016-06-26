@@ -18,9 +18,8 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_intf.h"
-#include "sde_hw_mdp_ctl.h"
-#include "sde_mdp_formats.h"
-
+#include "sde_hw_ctl.h"
+#include "sde_formats.h"
 #include "sde_encoder_phys.h"
 #include "display_manager.h"
 

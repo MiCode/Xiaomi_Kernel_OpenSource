@@ -18,7 +18,7 @@
 
 #include "sde_kms.h"
 #include "sde_hw_lm.h"
-#include "sde_hw_mdp_ctl.h"
+#include "sde_hw_ctl.h"
 #include "sde_crtc.h"
 
 #define CTL(i)       (CTL_0 + (i))

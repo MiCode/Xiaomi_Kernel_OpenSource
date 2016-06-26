@@ -12,9 +12,7 @@
 #include <linux/debugfs.h>
 #include <uapi/drm/sde_drm.h>
 #include "sde_kms.h"
-#include "sde_hwio.h"
-#include "sde_hw_mdp_ctl.h"
-#include "sde_mdp_formats.h"
+#include "sde_formats.h"
 #include "sde_hw_sspp.h"
 
 #define DECIMATED_DIMENSION(dim, deci) (((dim) + ((1 << (deci)) - 1)) >> (deci))

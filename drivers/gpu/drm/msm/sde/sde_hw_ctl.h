@@ -10,11 +10,11 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _SDE_HW_MDP_CTL_H
-#define _SDE_HW_MDP_CTL_H
+#ifndef _SDE_HW_CTL_H
+#define _SDE_HW_CTL_H
 
 #include "sde_hw_mdss.h"
-#include "sde_hw_mdp_util.h"
+#include "sde_hw_util.h"
 #include "sde_hw_catalog.h"
 
 struct sde_hw_ctl;
@@ -135,4 +135,4 @@ struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
  */
 void sde_hw_ctl_destroy(struct sde_hw_ctl *ctx);
 
-#endif /*_SDE_HW_MDP_CTL_H */
+#endif /*_SDE_HW_CTL_H */

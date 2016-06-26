@@ -12,7 +12,7 @@
 
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
-#include "sde_hw_mdp_top.h"
+#include "sde_hw_top.h"
 
 #define SSPP_SPARE                        0x24
 #define SPLIT_DISPLAY_ENABLE              0x2F4

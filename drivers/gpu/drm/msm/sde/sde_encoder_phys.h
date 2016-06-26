@@ -17,7 +17,7 @@
 
 #include "sde_kms.h"
 #include "sde_hw_intf.h"
-#include "sde_hw_mdp_ctl.h"
+#include "sde_hw_ctl.h"
 
 /**
  * enum sde_enc_split_role - Role this physical encoder will play in a
