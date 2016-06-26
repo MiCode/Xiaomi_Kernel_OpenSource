@@ -43,6 +43,8 @@ struct sde_plane {
 	struct sde_hw_sharp_cfg sharp_cfg;
 	struct sde_hw_scaler3_cfg scaler3_cfg;
 
+	const struct sde_sspp_sub_blks *pipe_sblk;
+
 	char pipe_name[SDE_NAME_SIZE];
 
 	/* debugfs related stuff */
@@ -52,12 +54,6 @@ struct sde_plane {
 	struct sde_debugfs_regset32 debugfs_csc;
 };
 #define to_sde_plane(x) container_of(x, struct sde_plane, base)
-
-/* macro to obtain int/enum value from plane state, no error checking */
-#define SDE_PLANE_GETINT(S, X)   ((S)->property_values[(X)])
-
-/* macro to obtain blob ptr from plane state, no error checking */
-#define SDE_PLANE_GETBLOB(S, X)  ((S)->property_blobs[(X)])
 
 static bool sde_plane_enabled(struct drm_plane_state *state)
 {
@@ -74,7 +70,7 @@ static void _sde_plane_set_scanout(struct drm_plane *plane,
 
 	if (pipe_cfg && fb && psde->pipe_hw->ops.setup_sourceaddress) {
 		/* stride */
-		if (SDE_PLANE_GETINT(pstate, PLANE_PROP_SRC_CONFIG) &
+		if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
 				BIT(SDE_DRM_DEINTERLACE))
 			shift = 1;
 		else
@@ -109,7 +105,7 @@ static void _sde_plane_setup_scaler2(struct drm_plane *plane,
 		enum sde_hw_filter *filter, struct sde_mdp_format_params *fmt,
 		uint32_t chroma_subsampling)
 {
-	/* calcualte phase steps, leave init phase as zero */
+	/* calculate phase steps, leave init phase as zero */
 	phase_steps[SDE_SSPP_COMP_0] =
 		mult_frac(1 << PHASE_STEP_SHIFT, src, dst);
 	phase_steps[SDE_SSPP_COMP_1_2] =
@@ -224,8 +220,10 @@ static void *_sde_plane_get_blob(struct sde_plane_state *pstate,
 	size_t len = 0;
 	void *ret = 0;
 
-	if (pstate && (property < PLANE_PROP_BLOBCOUNT)) {
-		blob = SDE_PLANE_GETBLOB(pstate, property);
+	if (!pstate || (property >= PLANE_PROP_BLOBCOUNT)) {
+		DRM_ERROR("Invalid argument(s)\n");
+	} else {
+		blob = pstate->property_blobs[property];
 		if (blob) {
 			len = blob->length;
 			ret = &blob->data;
@@ -429,21 +427,21 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 
 	/* decimation */
 	psde->pipe_cfg.horz_decimation =
-		SDE_PLANE_GETINT(pstate, PLANE_PROP_H_DECIMATE);
+		sde_plane_get_property(pstate, PLANE_PROP_H_DECIMATE);
 	psde->pipe_cfg.vert_decimation =
-		SDE_PLANE_GETINT(pstate, PLANE_PROP_V_DECIMATE);
+		sde_plane_get_property(pstate, PLANE_PROP_V_DECIMATE);
 
 	/* flags */
 	DBG("Flags 0x%llX, rotation 0x%llX",
-			SDE_PLANE_GETINT(pstate, PLANE_PROP_SRC_CONFIG),
-			SDE_PLANE_GETINT(pstate, PLANE_PROP_ROTATION));
-	if (SDE_PLANE_GETINT(pstate, PLANE_PROP_ROTATION) &
+			sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG),
+			sde_plane_get_property(pstate, PLANE_PROP_ROTATION));
+	if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
 		BIT(DRM_REFLECT_X))
 		src_fmt_flags |= SDE_SSPP_FLIP_LR;
-	if (SDE_PLANE_GETINT(pstate, PLANE_PROP_ROTATION) &
+	if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
 		BIT(DRM_REFLECT_Y))
 		src_fmt_flags |= SDE_SSPP_FLIP_UD;
-	if (SDE_PLANE_GETINT(pstate, PLANE_PROP_SRC_CONFIG) &
+	if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
 		BIT(SDE_DRM_DEINTERLACE)) {
 		src_h /= 2;
 		src_y  = DIV_ROUND_UP(src_y, 2);
@@ -594,8 +592,8 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		}
 	}
 
-	if (psde->pipe_hw->ops.setup_sourceformat)
-		psde->pipe_hw->ops.setup_sourceformat(psde->pipe_hw,
+	if (psde->pipe_hw->ops.setup_format)
+		psde->pipe_hw->ops.setup_format(psde->pipe_hw,
 				&psde->pipe_cfg, src_fmt_flags);
 	if (psde->pipe_hw->ops.setup_rects)
 		psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
@@ -831,9 +829,40 @@ static void _sde_plane_install_blob_property(struct drm_plane *plane,
 	}
 }
 
+static int _sde_plane_get_property_index(struct drm_plane *plane,
+		struct drm_property *property)
+{
+	struct drm_property **prop_array;
+	int idx = PLANE_PROP_COUNT;
+
+	if (!plane) {
+		DRM_ERROR("Invalid plane\n");
+	} else if (!plane->dev || !plane->dev->dev_private) {
+		/* don't access dev_private if !dev */
+		DRM_ERROR("Invalid device\n");
+	} else if (!property) {
+		DRM_ERROR("Incoming property is NULL\n");
+	} else {
+		prop_array = ((struct msm_drm_private *)
+				(plane->dev->dev_private))->plane_property;
+		if (!prop_array)
+			/* should never hit this */
+			DRM_ERROR("Invalid property array\n");
+
+		/* linear search is okay */
+		for (idx = 0; idx < PLANE_PROP_COUNT; ++idx) {
+			if (prop_array[idx] == property)
+				break;
+		}
+	}
+
+	return idx;
+}
+
 /* helper to install properties which are common to planes and crtcs */
 static void _sde_plane_install_properties(struct drm_plane *plane,
-		struct drm_mode_object *obj)
+		struct drm_mode_object *obj,
+		struct sde_mdss_cfg *catalog)
 {
 	static const struct drm_prop_enum_list e_blend_op[] = {
 		{SDE_DRM_BLEND_OP_NOT_DEFINED,    "not_defined"},
@@ -847,33 +876,29 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	struct sde_plane *psde = to_sde_plane(plane);
 	struct drm_device *dev = plane->dev;
 	struct msm_drm_private *dev_priv = dev->dev_private;
-	const struct sde_sspp_sub_blks *sblk = 0;
-	const struct sde_sspp_cfg *cfg = 0;
 
 	DBG("");
 
-	if (psde && psde->pipe_hw)
-		cfg = psde->pipe_hw->cap;
-	if (cfg)
-		sblk = cfg->sblk;
-	if (!sblk) {
+	if (!psde || !psde->pipe_sblk || !catalog) {
 		DRM_ERROR("Failed to identify catalog definition\n");
 		return;
 	}
 
 	/* range properties */
-	_sde_plane_install_range_property(plane, dev, "zpos", 1, 255, 1,
+	_sde_plane_install_range_property(plane, dev, "zpos", 0, 255, 1,
 			&(dev_priv->plane_property[PLANE_PROP_ZPOS]));
 
 	_sde_plane_install_range_property(plane, dev, "alpha", 0, 255, 255,
 			&(dev_priv->plane_property[PLANE_PROP_ALPHA]));
 
+	/* max range of first pipe will be used */
 	_sde_plane_install_range_property(plane, dev, "h_decimate",
-			0, sblk->maxhdeciexp, 0,
+			0, psde->pipe_sblk->maxhdeciexp, 0,
 			&(dev_priv->plane_property[PLANE_PROP_H_DECIMATE]));
 
+	/* max range of first pipe will be used */
 	_sde_plane_install_range_property(plane, dev, "v_decimate",
-			0, sblk->maxvdeciexp, 0,
+			0, psde->pipe_sblk->maxvdeciexp, 0,
 			&(dev_priv->plane_property[PLANE_PROP_V_DECIMATE]));
 
 	_sde_plane_install_range_property(plane, dev, "sync_fence", 0, ~0, 0,
@@ -892,59 +917,55 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			&(dev_priv->plane_property[PLANE_PROP_SRC_CONFIG]));
 
 	/* blob properties */
-	_sde_plane_install_blob_property(plane, dev, "scaler",
+	if (psde->features & SDE_SSPP_SCALER)
+		_sde_plane_install_blob_property(plane, dev, "scaler",
 			&(dev_priv->plane_property[PLANE_PROP_SCALER]));
-	_sde_plane_install_blob_property(plane, dev, "csc",
-			&(dev_priv->plane_property[PLANE_PROP_CSC]));
+	if (psde->features & BIT(SDE_SSPP_CSC))
+		_sde_plane_install_blob_property(plane, dev, "csc",
+				&(dev_priv->plane_property[PLANE_PROP_CSC]));
 }
 
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		struct drm_plane_state *state, struct drm_property *property,
 		uint64_t val)
 {
-	struct drm_device *dev = plane->dev;
 	struct sde_plane_state *pstate;
-	struct drm_property_blob *blob, **prp_blob;
-	struct msm_drm_private *dev_priv = dev->dev_private;
+	struct drm_property_blob *blob, **pr_blob;
 	int idx, ret = -EINVAL;
 
 	DBG("");
 
-	pstate = to_sde_plane_state(state);
+	idx = _sde_plane_get_property_index(plane, property);
+	if (!state) {
+		DRM_ERROR("Invalid state\n");
+	} else if (idx < PLANE_PROP_COUNT) {
+		DBG("Set property %d <= %d", idx, (int)val);
+		pstate = to_sde_plane_state(state);
 
-	for (idx = 0; idx < PLANE_PROP_COUNT && ret; ++idx) {
-		if (dev_priv->plane_property[idx] == property) {
-			DBG("Set property %d <= %d", idx, (int)val);
+		/* extra handling for incoming blob properties */
+		if ((property->flags & DRM_MODE_PROP_BLOB) &&
+			(idx < PLANE_PROP_BLOBCOUNT)) {
+			/* DRM lookup also takes a reference */
+			blob = drm_property_lookup_blob(plane->dev,
+				(uint32_t)val);
+			if (!blob) {
+				DRM_ERROR("Blob not found\n");
+				val = 0;
+			} else {
+				DBG("Blob %u saved", blob->base.id);
+				val = blob->base.id;
 
-			/* extra handling for incoming blob properties */
-			if ((property->flags & DRM_MODE_PROP_BLOB) &&
-				(idx < PLANE_PROP_BLOBCOUNT)) {
-				/* DRM lookup also takes a reference */
-				blob = drm_property_lookup_blob(dev,
-					(uint32_t)val);
-				if (!blob) {
-					DRM_ERROR("Blob not found\n");
-					val = 0;
-				} else {
-					DBG("Blob %u saved", blob->base.id);
-					val = blob->base.id;
-
-					/* save blobs for later */
-					prp_blob = &pstate->property_blobs[idx];
-					/* need to clear previous reference */
-					if (*prp_blob)
-						drm_property_unreference_blob(
-						    *prp_blob);
-					*prp_blob = blob;
-				}
+				/* save blobs for later */
+				pr_blob = &pstate->property_blobs[idx];
+				/* need to clear previous reference */
+				if (*pr_blob)
+					drm_property_unreference_blob(*pr_blob);
+				*pr_blob = blob;
 			}
-			pstate->property_values[idx] = val;
-			ret = 0;
 		}
+		pstate->property_values[idx] = val;
+		ret = 0;
 	}
-
-	if (ret == -EINVAL)
-		DRM_ERROR("Invalid property set\n");
 
 	return ret;
 }
@@ -955,6 +976,10 @@ static int sde_plane_set_property(struct drm_plane *plane,
 	int rc;
 
 	DBG("");
+
+	if (!plane)
+		return -EINVAL;
+
 	rc = sde_plane_atomic_set_property(plane, plane->state, property, val);
 	return rc;
 }
@@ -963,25 +988,23 @@ static int sde_plane_atomic_get_property(struct drm_plane *plane,
 		const struct drm_plane_state *state,
 		struct drm_property *property, uint64_t *val)
 {
-	struct drm_device *dev = plane->dev;
 	struct sde_plane_state *pstate;
-	struct msm_drm_private *dev_priv = dev->dev_private;
 	int idx, ret = -EINVAL;
 
 	DBG("");
-	pstate = to_sde_plane_state(state);
 
-	for (idx = 0; idx < PLANE_PROP_COUNT; ++idx) {
-		if (dev_priv->plane_property[idx] == property) {
-			*val = pstate->property_values[idx];
-			DBG("Get property %d %lld", idx, *val);
-			ret = 0;
-			break;
-		}
+	idx = _sde_plane_get_property_index(plane, property);
+	if (!state) {
+		DRM_ERROR("Invalid state\n");
+	} else if (!val) {
+		DRM_ERROR("Value pointer is NULL\n");
+	} else if (idx < PLANE_PROP_COUNT) {
+		pstate = to_sde_plane_state(state);
+
+		*val = pstate->property_values[idx];
+		DBG("Get property %d %lld", idx, *val);
+		ret = 0;
 	}
-
-	if (ret == -EINVAL)
-		DRM_ERROR("Invalid property get\n");
 
 	return ret;
 }
@@ -997,13 +1020,13 @@ static void sde_plane_destroy(struct drm_plane *plane)
 
 		debugfs_remove_recursive(psde->debugfs_root);
 
-		if (psde->pipe_hw)
-			sde_hw_sspp_destroy(psde->pipe_hw);
-
 		drm_plane_helper_disable(plane);
 
 		/* this will destroy the states as well */
 		drm_plane_cleanup(plane);
+
+		if (psde->pipe_hw)
+			sde_hw_sspp_destroy(psde->pipe_hw);
 
 		kfree(psde);
 	}
@@ -1075,7 +1098,6 @@ static void sde_plane_reset(struct drm_plane *plane)
 
 	/* assign default blend parameters */
 	pstate->property_values[PLANE_PROP_ALPHA] = 255;
-	pstate->property_values[PLANE_PROP_PREMULTIPLIED] = 0;
 
 	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 		pstate->property_values[PLANE_PROP_ZPOS] = STAGE_BASE;
@@ -1131,7 +1153,7 @@ static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 					sde_debugfs_get_root(kms));
 		if (psde->debugfs_root) {
 			/* don't error check these */
-			debugfs_create_x32("features", 0444,
+			debugfs_create_x32("features", S_IRUGO | S_IWUSR,
 					psde->debugfs_root, &psde->features);
 
 			/* add register dump support */
@@ -1139,14 +1161,14 @@ static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 					sblk->src_blk.base + cfg->base,
 					sblk->src_blk.len,
 					kms->mmio);
-			sde_debugfs_create_regset32("src_blk", 0444,
+			sde_debugfs_create_regset32("src_blk", S_IRUGO,
 					psde->debugfs_root, &psde->debugfs_src);
 
 			sde_debugfs_setup_regset32(&psde->debugfs_scaler,
 					sblk->scaler_blk.base + cfg->base,
 					sblk->scaler_blk.len,
 					kms->mmio);
-			sde_debugfs_create_regset32("scaler_blk", 0444,
+			sde_debugfs_create_regset32("scaler_blk", S_IRUGO,
 					psde->debugfs_root,
 					&psde->debugfs_scaler);
 
@@ -1154,7 +1176,7 @@ static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 					sblk->csc_blk.base + cfg->base,
 					sblk->csc_blk.len,
 					kms->mmio);
-			sde_debugfs_create_regset32("csc_blk", 0444,
+			sde_debugfs_create_regset32("csc_blk", S_IRUGO,
 					psde->debugfs_root, &psde->debugfs_csc);
 		}
 	}
@@ -1162,15 +1184,19 @@ static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 
 /* initialize plane */
 struct drm_plane *sde_plane_init(struct drm_device *dev,
-		uint32_t pipe, bool private_plane)
+		uint32_t pipe, bool primary_plane)
 {
 	struct drm_plane *plane = NULL;
 	struct sde_plane *psde;
 	struct msm_drm_private *priv;
 	struct sde_kms *kms;
-	struct sde_mdss_cfg *sde_cat;
-	int ret;
 	enum drm_plane_type type;
+	int ret = -EINVAL;
+
+	if (!dev) {
+		DRM_ERROR("[%u]Device is NULL\n", pipe);
+		goto exit;
+	}
 
 	priv = dev->dev_private;
 	if (!priv) {
@@ -1184,61 +1210,80 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	}
 	kms = to_sde_kms(priv->kms);
 
+	if (!kms->catalog) {
+		DRM_ERROR("[%u]Invalid catalog reference\n", pipe);
+		goto exit;
+	}
+
 	/* create and zero local structure */
 	psde = kzalloc(sizeof(*psde), GFP_KERNEL);
 	if (!psde) {
+		DRM_ERROR("[%u]Failed to allocate local plane struct\n", pipe);
 		ret = -ENOMEM;
-		goto fail;
+		goto exit;
 	}
 
+	/* cache local stuff for later */
 	plane = &psde->base;
-
 	psde->pipe = pipe;
+	psde->mmu_id = kms->mmu_id;
 
-	if (kms) {
-		/* mmu id for buffer mapping */
-		psde->mmu_id = kms->mmu_id;
-
-		/* check catalog for features mask */
-		sde_cat = kms->catalog;
-		if (sde_cat)
-			psde->features = sde_cat->sspp[pipe].features;
+	/* initialize underlying h/w driver */
+	psde->pipe_hw = sde_hw_sspp_init(pipe, kms->mmio, kms->catalog);
+	if (IS_ERR(psde->pipe_hw)) {
+		DRM_ERROR("[%u]SSPP init failed\n", pipe);
+		ret = PTR_ERR(psde->pipe_hw);
+		goto clean_plane;
+	} else if (!psde->pipe_hw->cap || !psde->pipe_hw->cap->sblk) {
+		DRM_ERROR("[%u]SSPP init returned invalid cfg\n", pipe);
+		goto clean_sspp;
 	}
+
+	/* cache features mask for later */
+	psde->features = psde->pipe_hw->cap->features;
+	psde->pipe_sblk = psde->pipe_hw->cap->sblk;
+
+	/* add plane to DRM framework */
 	psde->nformats = mdp_get_formats(psde->formats,
 		ARRAY_SIZE(psde->formats),
 		!(psde->features & BIT(SDE_SSPP_CSC)) ||
 		!(psde->features & SDE_SSPP_SCALER));
 
-	type = private_plane ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
+	if (!psde->nformats) {
+		DRM_ERROR("[%u]No valid formats for plane\n", pipe);
+		goto clean_sspp;
+	}
+
+	if (psde->features & BIT(SDE_SSPP_CURSOR))
+		type = DRM_PLANE_TYPE_CURSOR;
+	else if (primary_plane)
+		type = DRM_PLANE_TYPE_PRIMARY;
+	else
+		type = DRM_PLANE_TYPE_OVERLAY;
 	ret = drm_universal_plane_init(dev, plane, 0xff, &sde_plane_funcs,
 				psde->formats, psde->nformats,
 				type);
 	if (ret)
-		goto fail;
+		goto clean_sspp;
 
+	/* success! finalize initialization */
 	drm_plane_helper_add(plane, &sde_plane_helper_funcs);
 
-	psde->pipe_hw = sde_hw_sspp_init(pipe, kms->mmio, sde_cat);
-	if (IS_ERR(psde->pipe_hw)) {
-		ret = PTR_ERR(psde->pipe_hw);
-		psde->pipe_hw = NULL;
-		goto fail;
-	}
-
-	_sde_plane_install_properties(plane, &plane->base);
+	_sde_plane_install_properties(plane, &plane->base, kms->catalog);
 
 	/* save user friendly pipe name for later */
 	snprintf(psde->pipe_name, SDE_NAME_SIZE, "plane%u", plane->base.id);
 
 	_sde_plane_init_debugfs(psde, kms);
 
-	DRM_INFO("Successfully created plane for %s\n", psde->pipe_name);
+	DRM_INFO("[%u]Successfully created %s\n", pipe, psde->pipe_name);
 	return plane;
 
-fail:
-	DRM_ERROR("Plane creation failed\n");
-	if (plane)
-		sde_plane_destroy(plane);
+clean_sspp:
+	if (psde && psde->pipe_hw)
+		sde_hw_sspp_destroy(psde->pipe_hw);
+clean_plane:
+	kfree(psde);
 exit:
 	return ERR_PTR(ret);
 }

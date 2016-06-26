@@ -11,6 +11,7 @@
  */
 
 #include <linux/sort.h>
+#include <uapi/drm/sde_drm.h>
 #include <drm/drm_mode.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
@@ -198,52 +199,62 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 {
 	struct drm_plane *plane;
 	const struct mdp_format *format;
+	uint32_t blend_op;
 
 	format = to_mdp_format(
 			msm_framebuffer_format(pstate->base.fb));
 	plane = pstate->base.plane;
 
 	memset(cfg, 0, sizeof(*cfg));
-	cfg->fg.const_alpha = pstate->property_values[PLANE_PROP_ALPHA];
+
+	/* default to opaque blending */
+	cfg->fg.alpha_sel = ALPHA_FG_CONST;
+	cfg->bg.alpha_sel = ALPHA_BG_CONST;
+	cfg->fg.const_alpha =
+		sde_plane_get_property32(pstate, PLANE_PROP_ALPHA);
 	cfg->bg.const_alpha = 0xFF - cfg->fg.const_alpha;
 
-	if (format->alpha_enable &&
-			pstate->property_values[PLANE_PROP_PREMULTIPLIED]) {
-		cfg->fg.alpha_sel = ALPHA_FG_CONST;
-		cfg->bg.alpha_sel = ALPHA_FG_PIXEL;
-		if (pstate->property_values[PLANE_PROP_ALPHA] != 0xff) {
-			cfg->bg.const_alpha =
-				(u32)pstate->property_values[PLANE_PROP_ALPHA];
-			cfg->bg.inv_alpha_sel = 1;
-			cfg->bg.mod_alpha = 1;
-		} else {
-			cfg->bg.inv_mode_alpha = 1;
-		}
-	} else if (format->alpha_enable) {
-		cfg->fg.alpha_sel = ALPHA_FG_PIXEL;
-		cfg->bg.alpha_sel = ALPHA_FG_PIXEL;
-		if (pstate->property_values[PLANE_PROP_ALPHA] != 0xff) {
-			cfg->bg.const_alpha =
-				(u32)pstate->property_values[PLANE_PROP_ALPHA];
-			cfg->fg.mod_alpha = 1;
-			cfg->bg.inv_alpha_sel = 1;
-			cfg->bg.mod_alpha = 1;
-			cfg->bg.inv_mode_alpha = 1;
-		} else {
-			cfg->bg.inv_mode_alpha = 1;
+	blend_op = sde_plane_get_property32(pstate, PLANE_PROP_BLEND_OP);
+
+	if (format->alpha_enable) {
+		switch (blend_op) {
+		case SDE_DRM_BLEND_OP_PREMULTIPLIED:
+			cfg->fg.alpha_sel = ALPHA_FG_CONST;
+			cfg->bg.alpha_sel = ALPHA_FG_PIXEL;
+			if (cfg->fg.const_alpha != 0xff) {
+				cfg->bg.const_alpha = cfg->fg.const_alpha;
+				cfg->bg.mod_alpha = 1;
+				cfg->bg.inv_alpha_sel = 1;
+			} else {
+				cfg->bg.inv_mode_alpha = 1;
+			}
+			break;
+		case SDE_DRM_BLEND_OP_COVERAGE:
+			cfg->fg.alpha_sel = ALPHA_FG_PIXEL;
+			cfg->bg.alpha_sel = ALPHA_FG_PIXEL;
+			if (cfg->fg.const_alpha != 0xff) {
+				cfg->bg.const_alpha = cfg->fg.const_alpha;
+				cfg->fg.mod_alpha = 1;
+				cfg->bg.inv_alpha_sel = 1;
+				cfg->bg.mod_alpha = 1;
+				cfg->bg.inv_mode_alpha = 1;
+			} else {
+				cfg->bg.inv_mode_alpha = 1;
+			}
+			break;
+		default:
+			/* do nothing */
+			break;
 		}
 	} else {
-		/* opaque blending */
-		cfg->fg.alpha_sel = ALPHA_FG_CONST;
-		cfg->bg.alpha_sel = ALPHA_BG_CONST;
 		cfg->bg.inv_alpha_sel = 1;
 		cfg->fg.const_alpha = 0xFF;
 		cfg->bg.const_alpha = 0x00;
 	}
 
-	DBG("format 0x%x, alpha_enable %u premultiplied %llu",
+	DBG("format 0x%x, alpha_enable %u blend_op %u",
 			format->base.pixel_format, format->alpha_enable,
-			pstate->property_values[PLANE_PROP_PREMULTIPLIED]);
+			blend_op);
 	DBG("fg alpha config %d %d %d %d %d",
 		cfg->fg.alpha_sel, cfg->fg.const_alpha, cfg->fg.mod_alpha,
 		cfg->fg.inv_alpha_sel, cfg->fg.inv_mode_alpha);
@@ -289,7 +300,7 @@ static void blend_setup(struct drm_crtc *crtc)
 			pstate = to_sde_plane_state(plane->state);
 			stage_cfg.stage[pstate->stage][i] =
 				sde_plane_pipe(plane);
-			DBG(" crtc_id %d, layer %d, at stage %d\n",
+			DBG("crtc_id %d, layer %d, at stage %d",
 					sde_crtc->id,
 					sde_plane_pipe(plane),
 					pstate->stage);
@@ -565,8 +576,8 @@ static int pstate_cmp(const void *a, const void *b)
 	struct plane_state *pa = (struct plane_state *)a;
 	struct plane_state *pb = (struct plane_state *)b;
 
-	return (int)pa->state->property_values[PLANE_PROP_ZPOS] -
-		(int)pb->state->property_values[PLANE_PROP_ZPOS];
+	return (int)sde_plane_get_property(pa->state, PLANE_PROP_ZPOS) -
+		(int)sde_plane_get_property(pb->state, PLANE_PROP_ZPOS);
 }
 
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
