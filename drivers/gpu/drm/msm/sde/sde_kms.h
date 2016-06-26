@@ -373,8 +373,9 @@ void sde_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
  * Plane functions
  */
 enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
-struct drm_plane *sde_plane_init(struct drm_device *dev, uint32_t pipe,
-		bool primary_plane);
+void sde_plane_complete_flip(struct drm_plane *plane);
+struct drm_plane *sde_plane_init(struct drm_device *dev,
+		uint32_t pipe, bool primary_plane);
 
 /**
  * CRTC functions
