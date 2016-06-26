@@ -173,7 +173,6 @@
 		};
 	};
 
-/*
 	ltr559_int_pin {
 		qcom,pins = <&gp 113>;
 		qcom,pin-func = <0>;
@@ -188,8 +187,8 @@
 			bias-pull-down;
 		};
 	};
-*/
 
+	/*
 	ltr553_int_pin {
 		qcom,pins = <&gp 113>;
 		qcom,pin-func = <0>;
@@ -204,6 +203,7 @@
 			bias-pull-down;
 		};
 	};
+	*/
 
 	akm_reset_pin {
 		qcom,pins = <&gp 36>;
@@ -306,7 +306,6 @@
 		yas,position = <5>;
 	};
 
-/*
 	liteon@23 {
 	  	compatible = "ltr,ltr559";
 		reg = <0x23>;
@@ -322,8 +321,8 @@
 		ltr,ps-hysteresis-threshold = <30>;
 		ltr,als-polling-time = <200>;
 	};
-*/
 
+	/*
 	liteon@23 {
 		compatible = "liteon,ltr553";
 		reg = <0x23>;
@@ -346,6 +345,7 @@
 		liteon,als-equation-2 = <0 0 5926 1300 44 1>;
 		liteon,als-equation-3 = <0 0 0 0 1 1>;
 	};
+	*/
 };
 
 &i2c_6 { /* BLSP1 QUP6 */

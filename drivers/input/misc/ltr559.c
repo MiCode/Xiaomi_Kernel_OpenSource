@@ -782,7 +782,7 @@ static int ltr559_gpio_irq(struct ltr559_data *data)
 		struct device_node *np = data->client->dev.of_node;
 	 int err = 0;
 
-		data->platform_data->int_gpio = of_get_named_gpio_flags(np, "ltr, irq-gpio", 0, &data->platform_data->irq_gpio_flags);
+		data->platform_data->int_gpio = of_get_named_gpio_flags(np, "ltr,irq-gpio", 0, &data->platform_data->irq_gpio_flags);
 		if (data->platform_data->int_gpio < 0)
 			return -EIO;
 
@@ -1579,21 +1579,21 @@ static int ltr559_parse_dt(struct device *dev, struct ltr559_data *data)
 	int rc = 0;
 
 	/* ps tuning data*/
-	rc = of_property_read_u32(np, "ltr, ps-threshold", &tmp);
+	rc = of_property_read_u32(np, "ltr,ps-threshold", &tmp);
 	if (rc) {
 		dev_err(dev, "Unable to read ps threshold\n");
 		return rc;
 	}
 	pdata->prox_threshold = tmp;
 
-	rc = of_property_read_u32(np, "ltr, ps-hysteresis-threshold", &tmp);
+	rc = of_property_read_u32(np, "ltr,ps-hysteresis-threshold", &tmp);
 	 if (rc) {
 		dev_err(dev, "Unable to read ps hysteresis threshold\n");
 		return rc;
 	}
 	pdata->prox_hsyteresis_threshold = tmp;
 
-	rc = of_property_read_u32(np, "ltr, als-polling-time", &tmp);
+	rc = of_property_read_u32(np, "ltr,als-polling-time", &tmp);
 	 if (rc) {
 		dev_err(dev, "Unable to read ps hysteresis threshold\n");
 		return rc;
@@ -1897,7 +1897,7 @@ static struct i2c_device_id ltr559_id[] = {
 };
 
 static struct of_device_id ltr_match_table[] = {
-	{.compatible = "ltr, ltr559",},
+	{.compatible = "ltr,ltr559",},
 	{},
 };
 
