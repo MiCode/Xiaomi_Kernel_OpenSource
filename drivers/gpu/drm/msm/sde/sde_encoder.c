@@ -279,7 +279,7 @@ static const struct drm_encoder_funcs sde_encoder_funcs = {
 };
 
 static enum sde_intf sde_encoder_get_intf(struct sde_mdss_cfg *catalog,
-					  enum sde_intf_type type, u32 instance)
+		enum sde_intf_type type, u32 controller_id)
 {
 	int i = 0;
 
@@ -287,7 +287,7 @@ static enum sde_intf sde_encoder_get_intf(struct sde_mdss_cfg *catalog,
 
 	for (i = 0; i < catalog->intf_count; i++) {
 		if (catalog->intf[i].type == type
-		    && catalog->intf[i].controller_id == instance) {
+		    && catalog->intf[i].controller_id == controller_id) {
 			return catalog->intf[i].id;
 		}
 	}
@@ -348,52 +348,49 @@ static int sde_encoder_virt_add_phys_vid_enc(struct sde_encoder_virt *sde_enc,
 	return ret;
 }
 
-static int sde_encoder_setup_hdmi(struct sde_encoder_virt *sde_enc,
-				  struct sde_kms *sde_kms, int *hdmi_info)
-{
-	int ret = 0;
-	enum sde_intf intf_idx = INTF_MAX;
-	enum sde_ctl ctl_idx = CTL_2;
-
-	DBG("");
-
-	intf_idx = sde_encoder_get_intf(sde_kms->catalog, INTF_HDMI, 0);
-	if (intf_idx == INTF_MAX)
-		ret = -EINVAL;
-
-	if (!ret)
-		ret =
-		    sde_encoder_virt_add_phys_vid_enc(sde_enc, sde_kms,
-						      intf_idx, ctl_idx);
-
-	return ret;
-}
-
-static int sde_encoder_setup_dsi(struct sde_encoder_virt *sde_enc,
+static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 				 struct sde_kms *sde_kms,
-				 struct display_info *disp_info)
+				 struct display_info *disp_info,
+				 int *drm_enc_mode)
 {
 	int ret = 0;
 	int i = 0;
+	enum sde_intf_type intf_type = INTF_NONE;
 
 	DBG("");
 
+	if (disp_info->intf == DISPLAY_INTF_DSI) {
+		*drm_enc_mode = DRM_MODE_ENCODER_DSI;
+		intf_type = INTF_DSI;
+	} else if (disp_info->intf == DISPLAY_INTF_HDMI) {
+		*drm_enc_mode = DRM_MODE_ENCODER_TMDS;
+		intf_type = INTF_HDMI;
+	} else {
+		DRM_ERROR("Unsupported display interface type");
+		return -EINVAL;
+	}
+
 	WARN_ON(disp_info->num_of_h_tiles < 1);
 
-	if (disp_info->num_of_h_tiles == 0)
-		disp_info->num_of_h_tiles = 1;
-
-	DBG("num_of_h_tiles %d h_tile_instance_0 %d h_tile_instance_1 %d\n",
-	    disp_info->num_of_h_tiles, disp_info->h_tile_instance[0],
-	    disp_info->h_tile_instance[1]);
+	DBG("dsi_info->num_of_h_tiles %d", disp_info->num_of_h_tiles);
 
 	for (i = 0; i < disp_info->num_of_h_tiles && !ret; i++) {
+		/*
+		 * Left-most tile is at index 0, content is controller id
+		 * h_tile_instance_ids[2] = {0, 1}; DSI0 = left, DSI1 = right
+		 * h_tile_instance_ids[2] = {1, 0}; DSI1 = left, DSI0 = right
+		 */
 		enum sde_intf intf_idx = INTF_MAX;
 		enum sde_ctl ctl_idx = CTL_0;
+		u32 controller_id = disp_info->h_tile_instance[i];
+
+		if (intf_type == INTF_HDMI)
+			ctl_idx = CTL_2;
+
+		DBG("h_tile_instance %d = %d", i, controller_id);
 
 		intf_idx = sde_encoder_get_intf(sde_kms->catalog,
-						INTF_DSI,
-						disp_info->h_tile_instance[i]);
+				intf_type, controller_id);
 		if (intf_idx == INTF_MAX) {
 			DBG("Error: could not get the interface id");
 			ret = -EINVAL;
@@ -401,29 +398,22 @@ static int sde_encoder_setup_dsi(struct sde_encoder_virt *sde_enc,
 
 		/* Create both VID and CMD Phys Encoders here */
 		if (!ret)
-			ret =
-			    sde_encoder_virt_add_phys_vid_enc(sde_enc, sde_kms,
-							      intf_idx,
-							      ctl_idx);
+			ret = sde_encoder_virt_add_phys_vid_enc(
+					sde_enc, sde_kms, intf_idx, ctl_idx);
 	}
+
 
 	return ret;
 }
 
-struct display_probe_info {
-	enum sde_intf_type type;
-	struct display_info disp_info;
-	int hdmi_info;
-};
-
-static struct drm_encoder *sde_encoder_virt_init(struct drm_device *dev,
-		struct display_probe_info *display)
+static struct drm_encoder *sde_encoder_virt_init(
+		struct drm_device *dev, struct display_info *disp_info)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct sde_kms *sde_kms = to_sde_kms(to_mdp_kms(priv->kms));
 	struct drm_encoder *drm_enc = NULL;
 	struct sde_encoder_virt *sde_enc = NULL;
-	int drm_encoder_mode = DRM_MODE_ENCODER_NONE;
+	int drm_enc_mode = DRM_MODE_ENCODER_NONE;
 	int ret = 0;
 
 	DBG("");
@@ -434,28 +424,14 @@ static struct drm_encoder *sde_encoder_virt_init(struct drm_device *dev,
 		goto fail;
 	}
 
-	if (display->type == INTF_DSI) {
-		drm_encoder_mode = DRM_MODE_ENCODER_DSI;
-		ret = sde_encoder_setup_dsi(sde_enc,
-					    sde_kms,
-					    &display->disp_info);
-
-	} else if (display->type == INTF_HDMI) {
-		drm_encoder_mode = DRM_MODE_ENCODER_TMDS;
-		ret =
-		    sde_encoder_setup_hdmi(sde_enc, sde_kms,
-					   &display->hdmi_info);
-	} else {
-		DRM_ERROR("No valid displays found\n");
-		ret = -EINVAL;
-	}
-
+	ret = sde_encoder_setup_display(sde_enc, sde_kms, disp_info,
+			&drm_enc_mode);
 	if (ret)
 		goto fail;
 
 	spin_lock_init(&sde_enc->spin_lock);
 	drm_enc = &sde_enc->base;
-	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_encoder_mode);
+	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
 	bs_init(sde_enc);
 
@@ -469,76 +445,6 @@ fail:
 		sde_encoder_destroy(drm_enc);
 
 	return ERR_PTR(ret);
-}
-
-static int sde_encoder_probe_hdmi(struct drm_device *dev)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-	struct drm_encoder *enc = NULL;
-	struct display_probe_info probe_info = { 0 };
-	int ret = 0;
-
-	DBG("");
-
-	probe_info.type = INTF_HDMI;
-
-	enc = sde_encoder_virt_init(dev, &probe_info);
-	if (IS_ERR(enc))
-		ret = PTR_ERR(enc);
-
-	if (!ret) {
-		/* Register new encoder with the upper layer */
-		priv->encoders[priv->num_encoders++] = enc;
-	}
-
-	return ret;
-}
-
-static int sde_encoder_probe_dsi(struct drm_device *dev)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-	u32 ret = 0;
-	u32 i = 0;
-	u32 num_displays = 0;
-	struct display_manager *dm = priv->dm;
-	struct display_probe_info probe_info = { 0 };
-
-	DBG("");
-
-	num_displays = display_manager_get_count(dm);
-	DBG("num_displays %d", num_displays);
-
-	if (priv->num_encoders + num_displays > ARRAY_SIZE(priv->encoders)) {
-		DBG("Too many displays found in probe");
-		return -EINVAL;
-	}
-
-	for (i = 0; i < num_displays; i++) {
-		struct drm_encoder *enc;
-
-		ret = display_manager_get_info_by_index(dm, i,
-							&probe_info.disp_info);
-		if (ret) {
-			pr_err("Failed to get display info, %d\n", ret);
-			return ret;
-		}
-
-		enc = sde_encoder_virt_init(dev, &probe_info);
-		if (IS_ERR_OR_NULL(enc)) {
-			pr_err("encoder virt init failed\n");
-			return PTR_ERR(enc);
-		}
-
-		ret = display_manager_drm_init_by_index(dm, i, enc);
-		if (ret) {
-			pr_err("display drm init failed\n");
-			return ret;
-		}
-
-		priv->encoders[priv->num_encoders++] = enc;
-	}
-
-	return ret;
 }
 
 void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
@@ -561,7 +467,9 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 void sde_encoders_init(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = NULL;
-	int ret = 0;
+	struct display_manager *disp_man = NULL;
+	u32 i = 0;
+	u32 num_displays = 0;
 
 	DBG("");
 
@@ -571,18 +479,45 @@ void sde_encoders_init(struct drm_device *dev)
 	}
 
 	priv = dev->dev_private;
-	if (!priv->kms) {
+	priv->num_encoders = 0;
+	if (!priv->kms || !priv->dm) {
 		DRM_ERROR("Invalid pointer");
 		return;
 	}
-	/* Start num_encoders at 0, probe functions will increment */
-	priv->num_encoders = 0;
-	ret = sde_encoder_probe_dsi(dev);
-	if (ret)
-		DRM_ERROR("Error probing DSI, %d\n", ret);
-	else {
-		ret = sde_encoder_probe_hdmi(dev);
-		if (ret)
-			DRM_ERROR("Error probing HDMI, %d\n", ret);
+	disp_man = priv->dm;
+
+	num_displays = display_manager_get_count(disp_man);
+	DBG("num_displays %d", num_displays);
+
+	if (num_displays > ARRAY_SIZE(priv->encoders)) {
+		num_displays = ARRAY_SIZE(priv->encoders);
+		DRM_ERROR("Too many displays found, capping to %d",
+				num_displays);
+	}
+
+	for (i = 0; i < num_displays; i++) {
+		struct display_info info = { 0 };
+		struct drm_encoder *enc = NULL;
+		u32 ret = 0;
+
+		ret = display_manager_get_info_by_index(disp_man, i, &info);
+		if (ret) {
+			DRM_ERROR("Failed to get display info, %d", ret);
+			return;
+		}
+
+		enc = sde_encoder_virt_init(dev, &info);
+		if (IS_ERR_OR_NULL(enc)) {
+			DRM_ERROR("Encoder initialization failed");
+			return;
+		}
+
+		ret = display_manager_drm_init_by_index(disp_man, i, enc);
+		if (ret) {
+			DRM_ERROR("Display drm_init failed, %d", ret);
+			return;
+		}
+
+		priv->encoders[priv->num_encoders++] = enc;
 	}
 }
