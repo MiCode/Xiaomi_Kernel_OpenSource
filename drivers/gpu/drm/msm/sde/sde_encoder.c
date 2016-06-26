@@ -101,37 +101,46 @@ static void bs_set(struct sde_encoder_virt *sde_enc, int idx)
 void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 				  struct sde_encoder_hw_resources *hw_res)
 {
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
 
 	DBG("");
 
-	if (!hw_res) {
+	if (!hw_res || !drm_enc) {
 		DRM_ERROR("Invalid pointer");
 		return;
 	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	/* Query resources used by phys encs, expected to be without overlap */
 	memset(hw_res, 0, sizeof(*hw_res));
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys)
+		if (phys && phys->phys_ops.get_hw_resources)
 			phys->phys_ops.get_hw_resources(phys, hw_res);
 	}
 }
 
 static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 {
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
 
 	DBG("");
 
+	if (!drm_enc) {
+		DRM_ERROR("Invalid pointer");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
 	for (i = 0; i < ARRAY_SIZE(sde_enc->phys_encs); i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys) {
+		if (phys && phys->phys_ops.destroy) {
 			phys->phys_ops.destroy(phys);
 			--sde_enc->num_phys_encs;
 			sde_enc->phys_encs[i] = NULL;
@@ -152,69 +161,102 @@ static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
 					const struct drm_display_mode *mode,
 					struct drm_display_mode *adjusted_mode)
 {
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
+	bool ret = true;
 
 	DBG("");
+
+	if (!drm_enc) {
+		DRM_ERROR("Invalid pointer");
+		return false;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys) {
-			phys->phys_ops.mode_fixup(phys, mode, adjusted_mode);
-			if (memcmp(mode, adjusted_mode, sizeof(*mode)) != 0) {
-				DRM_ERROR("adjusted modes not supported\n");
-				return false;
+		if (phys && phys->phys_ops.mode_fixup) {
+			ret =
+			    phys->phys_ops.mode_fixup(phys, mode,
+						      adjusted_mode);
+			if (!ret) {
+				DBG("Mode unsupported by phys_enc %d", i);
+				break;
+			}
+
+			if (sde_enc->num_phys_encs > 1) {
+				DBG("ModeFix only checking 1 phys_enc");
+				break;
 			}
 		}
 	}
 
-	return true;
+	return ret;
 }
 
 static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 				      struct drm_display_mode *mode,
 				      struct drm_display_mode *adjusted_mode)
 {
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
 
 	DBG("");
 
+	if (!drm_enc) {
+		DRM_ERROR("Invalid pointer");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys) {
+		if (phys && phys->phys_ops.mode_set)
 			phys->phys_ops.mode_set(phys, mode, adjusted_mode);
-			if (memcmp(mode, adjusted_mode, sizeof(*mode)) != 0)
-				DRM_ERROR("adjusted modes not supported\n");
-		}
 	}
 }
 
 static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 {
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
 
 	DBG("");
+
+	if (!drm_enc) {
+		DRM_ERROR("Invalid pointer");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	bs_set(sde_enc, 1);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys)
+		if (phys && phys->phys_ops.enable)
 			phys->phys_ops.enable(phys);
 	}
 }
 
 static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 {
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
 
 	DBG("");
+
+	if (!drm_enc) {
+		DRM_ERROR("Invalid pointer");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -256,10 +298,17 @@ static enum sde_intf sde_encoder_get_intf(struct sde_mdss_cfg *catalog,
 
 static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc)
 {
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	struct sde_encoder_virt *sde_enc = NULL;
 	unsigned long lock_flags;
 
 	DBG("");
+
+	if (!drm_enc) {
+		DRM_ERROR("Invalid pointer");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
 	if (sde_enc->kms_vblank_callback)
@@ -286,7 +335,8 @@ static int sde_encoder_virt_add_phys_vid_enc(struct sde_encoder_virt *sde_enc,
 		};
 		struct sde_encoder_phys *enc =
 		    sde_encoder_phys_vid_init(sde_kms, intf_idx, ctl_idx,
-				    &sde_enc->base, parent_ops);
+					      &sde_enc->base,
+					      parent_ops);
 		if (IS_ERR(enc))
 			ret = PTR_ERR(enc);
 
@@ -304,6 +354,7 @@ static int sde_encoder_setup_hdmi(struct sde_encoder_virt *sde_enc,
 {
 	int ret = 0;
 	enum sde_intf intf_idx = INTF_MAX;
+	enum sde_ctl ctl_idx = CTL_2;
 
 	DBG("");
 
@@ -314,8 +365,7 @@ static int sde_encoder_setup_hdmi(struct sde_encoder_virt *sde_enc,
 	if (!ret)
 		ret =
 		    sde_encoder_virt_add_phys_vid_enc(sde_enc, sde_kms,
-						      intf_idx,
-						      CTL_2);
+						      intf_idx, ctl_idx);
 
 	return ret;
 }
@@ -343,13 +393,14 @@ static int sde_encoder_setup_dsi(struct sde_encoder_virt *sde_enc,
 		enum sde_ctl ctl_idx = CTL_0;
 
 		intf_idx = sde_encoder_get_intf(sde_kms->catalog,
-				INTF_DSI, dsi_info->h_tile_ids[i]);
+						INTF_DSI,
+						dsi_info->h_tile_ids[i]);
 		if (intf_idx == INTF_MAX) {
 			DBG("Error: could not get the interface id");
 			ret = -EINVAL;
 		}
 
-		/*  Create both VID and CMD Phys Encoders here */
+		/* Create both VID and CMD Phys Encoders here */
 		if (!ret)
 			ret =
 			    sde_encoder_virt_add_phys_vid_enc(sde_enc, sde_kms,
@@ -511,12 +562,22 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
  */
 void sde_encoders_init(struct drm_device *dev)
 {
-	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_drm_private *priv = NULL;
 	int ret = 0;
 
 	DBG("");
 
-	/*  Start num_encoders at 0, probe functions will increment */
+	if (!dev || !dev->dev_private) {
+		DRM_ERROR("Invalid pointer");
+		return;
+	}
+
+	priv = dev->dev_private;
+	if (!priv->kms) {
+		DRM_ERROR("Invalid pointer");
+		return;
+	}
+	/* Start num_encoders at 0, probe functions will increment */
 	priv->num_encoders = 0;
 	ret = sde_encoder_probe_dsi(dev);
 	if (ret)
