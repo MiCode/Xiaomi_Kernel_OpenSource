@@ -58,6 +58,9 @@
 #define WB2_17X_MASK \
 	(BIT(SDE_WB_LINE_MODE) | BIT(SDE_WB_TRAFFIC_SHAPER))
 
+#define DECIMATION_17X_MAX_H	4
+#define DECIMATION_17X_MAX_V	4
+
 /**
  * set_cfg_1xx_init(): populate sde sub-blocks reg offsets and instance counts
  */
@@ -70,7 +73,8 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.danger_lut = 0xFFFF,
 		.safe_lut = 0xFF00,
 		.maxdwnscale = 4, .maxupscale = 20,
-		.maxhdeciexp = 4, .maxvdeciexp = 4,
+		.maxhdeciexp = DECIMATION_17X_MAX_H,
+		.maxvdeciexp = DECIMATION_17X_MAX_V,
 		.src_blk = {.id = SDE_SSPP_SRC,
 			.base = 0x00, .len = 0x150,},
 		.scaler_blk = {.id = SDE_SSPP_SCALER_QSEED2,
@@ -90,12 +94,13 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.danger_lut = 0xFFFF,
 		.safe_lut = 0xFF00,
 		.maxdwnscale = 0, .maxupscale = 0,
-		.maxhdeciexp = 4, .maxvdeciexp = 4,
-		.src_blk = {.id = SDE_SSPP_SRC, .base = 0x00, .len = 0x0,},
+		.maxhdeciexp = DECIMATION_17X_MAX_H,
+		.maxvdeciexp = DECIMATION_17X_MAX_V,
+		.src_blk = {.id = SDE_SSPP_SRC, .base = 0x00, .len = 0x150,},
 		.scaler_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.csc_blk = {.id = 0, .base = 0x00, .len = 0x0,},
-		.pa_blk = {.id = 0, .base = 0x00, .len = 0x0,},
-		.hist_lut = {.id = 0, .base = 0x00, .len = 0x0,},
+		.pa_blk = {.id = 0, .base = 0x200, .len = 0x0,},
+		.hist_lut = {.id = 0, .base = 0xA00, .len = 0x0,},
 		.pcc_blk = {.id = SDE_SSPP_PCC, .base = 0x01780, .len = 0x64,},
 	};
 
@@ -104,8 +109,9 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.danger_lut = 0xFFFF,
 		.safe_lut = 0xFF00,
 		.maxdwnscale = 0, .maxupscale = 0,
-		.maxhdeciexp = 4, .maxvdeciexp = 4,
-		.src_blk = {.id = SDE_SSPP_SRC, .base = 0x00, .len = 0x0,},
+		.maxhdeciexp = DECIMATION_17X_MAX_H,
+		.maxvdeciexp = DECIMATION_17X_MAX_V,
+		.src_blk = {.id = SDE_SSPP_SRC, .base = 0x00, .len = 0x150,},
 		.scaler_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.csc_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.pa_blk = {.id = 0, .base = 0x00, .len = 0x0,},
