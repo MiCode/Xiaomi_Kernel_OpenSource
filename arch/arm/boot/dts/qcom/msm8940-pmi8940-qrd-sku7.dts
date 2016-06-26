@@ -11,8 +11,18 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8940-pinctrl.dtsi"
-#include "msm8937-cdp.dtsi"
+/dts-v1/;
 
-&soc {
+#include "msm8940.dtsi"
+#include "msm8940-pmi8940-qrd-sku7.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8940-PMI8940 QRD SKU7";
+	compatible = "qcom,msm8940-qrd-sku7", "qcom,msm8940-qrd",
+		   "qcom,msm8940", "qcom,qrd";
+	qcom,board-id= <0x1000b 0x80>;
+};
+
+&int_codec {
+	qcom,model = "msm8917-sku5-snd-card";
 };

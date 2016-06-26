@@ -11,8 +11,12 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8940-pinctrl.dtsi"
-#include "msm8937-cdp.dtsi"
+#include "msm-pmi8940.dtsi"
+#include "msm8937-qrd.dtsi"
+#include "msm8937-mdss-panels.dtsi"
 
 &soc {
+	led_flash0: qcom,camera-flash {
+	};
 };
+

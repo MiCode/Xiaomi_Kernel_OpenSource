@@ -745,7 +745,7 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 	if (lcl) {
 		cmd2 = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
 			GFP_KERNEL);
-		if (cmd1 == NULL) {
+		if (cmd2 == NULL) {
 			IPAERR("Failed to alloc immediate command object\n");
 			rc = -ENOMEM;
 			goto fail_send_cmd1;

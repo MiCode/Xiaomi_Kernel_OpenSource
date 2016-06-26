@@ -42,6 +42,7 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996pro-pmi8996-mtp.dtb \
 	msm8996pro-pmi8996-pmk8001-cdp.dtb \
 	msm8996pro-pmi8996-pmk8001-mtp.dtb \
+	msm8996pro-v1.1-auto-cdp.dtb \
 	msm8996pro-v1.1-pmi8994-cdp.dtb \
 	msm8996pro-v1.1-pmi8994-mtp.dtb \
 	msm8996pro-v1.1-pmi8994-pmk8001-cdp.dtb \
@@ -54,7 +55,9 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996pro-v1.1-pmi8996-mtp.dtb \
 	msm8996pro-v1.1-pmi8996-pmk8001-cdp.dtb \
 	msm8996pro-v1.1-pmi8996-pmk8001-mtp.dtb \
+	apq8096pro-auto-cdp.dtb \
 	apq8096pro-liquid.dtb \
+	apq8096pro-v1.1-auto-cdp.dtb \
 	msm8996-v3.0-pmi8994-cdp.dtb \
 	msm8996-v3.0-pmi8994-mtp.dtb \
 	msm8996-v3.0-pmi8994-pm8004-cdp.dtb \
@@ -180,6 +183,7 @@ dtb-$(CONFIG_ARCH_MSM8940) += msm8940-pmi8937-cdp.dtb \
 	msm8940-pmi8937-rcm.dtb \
 	msm8940-pmi8950-rcm.dtb \
 	msm8940-pmi8950-qrd-sku6.dtb \
+	msm8940-pmi8940-qrd-sku7.dtb \
 	msm8940-pmi8950-ext-codec-cdp.dtb \
 	msm8940-pmi8940-mtp.dtb \
 	msm8940-pmi8940-cdp.dtb \

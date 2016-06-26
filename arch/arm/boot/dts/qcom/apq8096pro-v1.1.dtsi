@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,8 +10,25 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8940-pinctrl.dtsi"
-#include "msm8937-cdp.dtsi"
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. Common device definitions should be placed inside the
+ * msm8996.dtsi file.
+ */
+
+#include "msm8996pro-v1.1.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ 8096 pro v1.1";
+	qcom,msm-id = <312 0x10001>;
+};
 
 &soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
 };
