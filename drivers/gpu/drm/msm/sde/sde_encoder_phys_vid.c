@@ -20,59 +20,44 @@
 #include "sde_encoder_phys.h"
 #include "sde_mdp_formats.h"
 
-
 #define to_sde_encoder_phys_vid(x) \
 	container_of(x, struct sde_encoder_phys_vid, base)
 
-static bool sde_encoder_phys_vid_mode_fixup(struct sde_encoder_phys *drm_enc,
-					    const struct drm_display_mode *mode,
-					    struct drm_display_mode
-					    *adjusted_mode)
+static void drm_mode_to_intf_timing_params(
+		const struct sde_encoder_phys *phys_enc,
+		const struct drm_display_mode *mode,
+		struct intf_timing_params *timing)
 {
-	DBG("");
-	return true;
-}
-
-static void sde_encoder_phys_vid_mode_set(struct sde_encoder_phys *phys_enc,
-					  struct drm_display_mode *mode,
-					  struct drm_display_mode
-					  *adjusted_mode)
-{
-	mode = adjusted_mode;
-	phys_enc->cached_mode = *adjusted_mode;
-
-	DBG("set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
-	    mode->base.id, mode->name, mode->vrefresh, mode->clock,
-	    mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
-	    mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
-	    mode->type, mode->flags);
-}
-
-static void sde_encoder_phys_vid_setup_timing_engine(struct sde_encoder_phys
-						     *phys_enc)
-{
-	struct drm_display_mode *mode = &phys_enc->cached_mode;
-	struct intf_timing_params p = { 0 };
-	uint32_t hsync_polarity = 0;
-	uint32_t vsync_polarity = 0;
-	struct sde_mdp_format_params *sde_fmt_params = NULL;
-	u32 fmt_fourcc = DRM_FORMAT_RGB888;
-	u32 fmt_mod = 0;
-	unsigned long lock_flags;
-	struct sde_hw_intf_cfg intf_cfg = {0};
-
-	DBG("enable mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
-	    mode->base.id, mode->name, mode->vrefresh, mode->clock,
-	    mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
-	    mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
-	    mode->type, mode->flags);
+	memset(timing, 0, sizeof(*timing));
+	/*
+	 * https://www.kernel.org/doc/htmldocs/drm/ch02s05.html
+	 *  Active Region      Front Porch   Sync   Back Porch
+	 * <-----------------><------------><-----><----------->
+	 * <- [hv]display --->
+	 * <--------- [hv]sync_start ------>
+	 * <----------------- [hv]sync_end ------->
+	 * <---------------------------- [hv]total ------------->
+	 */
+	timing->width = mode->hdisplay;	/* active width */
+	timing->height = mode->vdisplay;	/* active height */
+	timing->xres = timing->width;
+	timing->yres = timing->height;
+	timing->h_back_porch = mode->htotal - mode->hsync_end;
+	timing->h_front_porch = mode->hsync_start - mode->hdisplay;
+	timing->v_back_porch = mode->vtotal - mode->vsync_end;
+	timing->v_front_porch = mode->vsync_start - mode->vdisplay;
+	timing->hsync_pulse_width = mode->hsync_end - mode->hsync_start;
+	timing->vsync_pulse_width = mode->vsync_end - mode->vsync_start;
+	timing->hsync_polarity = (mode->flags & DRM_MODE_FLAG_NHSYNC) ? 1 : 0;
+	timing->vsync_polarity = (mode->flags & DRM_MODE_FLAG_NVSYNC) ? 1 : 0;
+	timing->border_clr = 0;
+	timing->underflow_clr = 0xff;
+	timing->hsync_skew = mode->hskew;
 
 	/* DSI controller cannot handle active-low sync signals. */
-	if (phys_enc->hw_intf->cap->type != INTF_DSI) {
-		if (mode->flags & DRM_MODE_FLAG_NHSYNC)
-			hsync_polarity = 1;
-		if (mode->flags & DRM_MODE_FLAG_NVSYNC)
-			vsync_polarity = 1;
+	if (phys_enc->hw_intf->cap->type == INTF_DSI) {
+		timing->hsync_polarity = 0;
+		timing->vsync_polarity = 0;
 	}
 
 	/*
@@ -86,47 +71,186 @@ static void sde_encoder_phys_vid_setup_timing_engine(struct sde_encoder_phys
 	 * display_v_end -= mode->hsync_start - mode->hdisplay;
 	 * }
 	 */
+}
+
+static inline u32 get_horizontal_total(const struct intf_timing_params *timing)
+{
+	u32 active = timing->xres;
+	u32 inactive =
+	    timing->h_back_porch + timing->h_front_porch +
+	    timing->hsync_pulse_width;
+	return active + inactive;
+}
+
+static inline u32 get_vertical_total(const struct intf_timing_params *timing)
+{
+	u32 active = timing->yres;
+	u32 inactive =
+	    timing->v_back_porch + timing->v_front_porch +
+	    timing->vsync_pulse_width;
+	return active + inactive;
+}
+
+/*
+ * programmable_fetch_get_num_lines:
+ *	Number of fetch lines in vertical front porch
+ * @timing: Pointer to the intf timing information for the requested mode
+ *
+ * Returns the number of fetch lines in vertical front porch at which mdp
+ * can start fetching the next frame.
+ *
+ * Number of needed prefetch lines is anything that cannot be absorbed in the
+ * start of frame time (back porch + vsync pulse width).
+ *
+ * Some panels have very large VFP, however we only need a total number of
+ * lines based on the chip worst case latencies.
+ */
+static u32 programmable_fetch_get_num_lines(
+		struct sde_encoder_phys *phys_enc,
+		const struct intf_timing_params *timing)
+{
+	u32 worst_case_needed_lines =
+	    phys_enc->hw_intf->cap->prog_fetch_lines_worst_case;
+	u32 start_of_frame_lines =
+	    timing->v_back_porch + timing->vsync_pulse_width;
+	u32 needed_vfp_lines = worst_case_needed_lines - start_of_frame_lines;
+	u32 actual_vfp_lines = 0;
+
+	/* Fetch must be outside active lines, otherwise undefined. */
+
+	if (start_of_frame_lines >= worst_case_needed_lines) {
+		DBG("Programmable fetch is not needed due to large vbp+vsw");
+		actual_vfp_lines = 0;
+	} else if (timing->v_front_porch < needed_vfp_lines) {
+		/* Warn fetch needed, but not enough porch in panel config */
+		pr_warn_once
+		    ("low vbp+vfp may lead to perf issues in some cases\n");
+		DBG("Less vfp than fetch requires, using entire vfp");
+		actual_vfp_lines = timing->v_front_porch;
+	} else {
+		DBG("Room in vfp for needed prefetch");
+		actual_vfp_lines = needed_vfp_lines;
+	}
+
+	DBG("v_front_porch %u v_back_porch %u vsync_pulse_width %u",
+	    timing->v_front_porch, timing->v_back_porch,
+	    timing->vsync_pulse_width);
+	DBG("wc_lines %u needed_vfp_lines %u actual_vfp_lines %u",
+	    worst_case_needed_lines, needed_vfp_lines, actual_vfp_lines);
+
+	return actual_vfp_lines;
+}
+
+/*
+ * programmable_fetch_config: Programs HW to prefetch lines by offsetting
+ *	the start of fetch into the vertical front porch for cases where the
+ *	vsync pulse width and vertical back porch time is insufficient
+ *
+ *	Gets # of lines to pre-fetch, then calculate VSYNC counter value.
+ *	HW layer requires VSYNC counter of first pixel of tgt VFP line.
+ *
+ * @timing: Pointer to the intf timing information for the requested mode
+ */
+static void programmable_fetch_config(struct sde_encoder_phys *phys_enc,
+				      const struct intf_timing_params *timing)
+{
+	struct intf_prog_fetch f = { 0 };
+	u32 vfp_fetch_lines = 0;
+	u32 horiz_total = 0;
+	u32 vert_total = 0;
+	u32 vfp_fetch_start_vsync_counter = 0;
+	unsigned long lock_flags;
+
+	if (WARN_ON_ONCE(!phys_enc->hw_intf->ops.setup_prg_fetch))
+		return;
+
+	vfp_fetch_lines = programmable_fetch_get_num_lines(phys_enc, timing);
+	if (vfp_fetch_lines) {
+		vert_total = get_vertical_total(timing);
+		horiz_total = get_horizontal_total(timing);
+		vfp_fetch_start_vsync_counter =
+		    (vert_total - vfp_fetch_lines) * horiz_total + 1;
+		f.enable = 1;
+		f.fetch_start = vfp_fetch_start_vsync_counter;
+	}
+
+	DBG("vfp_fetch_lines %u vfp_fetch_start_vsync_counter %u",
+	    vfp_fetch_lines, vfp_fetch_start_vsync_counter);
+
+	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
+	phys_enc->hw_intf->ops.setup_prg_fetch(phys_enc->hw_intf, &f);
+	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+}
+
+static bool sde_encoder_phys_vid_mode_fixup(
+		struct sde_encoder_phys *phys_enc,
+		const struct drm_display_mode *mode,
+		struct drm_display_mode *adjusted_mode)
+{
+	DBG("");
 
 	/*
-	 * https://www.kernel.org/doc/htmldocs/drm/ch02s05.html
-	 *  Active Region            Front Porch       Sync        Back Porch
-	 * <---------------------><----------------><---------><-------------->
-	 * <--- [hv]display ----->
-	 * <----------- [hv]sync_start ------------>
-	 * <------------------- [hv]sync_end ----------------->
-	 * <------------------------------ [hv]total ------------------------->
+	 * Modifying mode has consequences when the mode comes back to us
 	 */
+	return true;
+}
+
+static void sde_encoder_phys_vid_mode_set(
+		struct sde_encoder_phys *phys_enc,
+		struct drm_display_mode *mode,
+		struct drm_display_mode *adjusted_mode)
+{
+	mode = adjusted_mode;
+	phys_enc->cached_mode = *adjusted_mode;
+
+	DBG("set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
+	    mode->base.id, mode->name, mode->vrefresh, mode->clock,
+	    mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
+	    mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
+	    mode->type, mode->flags);
+}
+
+static void sde_encoder_phys_vid_setup_timing_engine(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct drm_display_mode *mode = &phys_enc->cached_mode;
+	struct intf_timing_params p = { 0 };
+	struct sde_mdp_format_params *sde_fmt_params = NULL;
+	u32 fmt_fourcc = DRM_FORMAT_RGB888;
+	u32 fmt_mod = 0;
+	unsigned long lock_flags;
+	struct sde_hw_intf_cfg intf_cfg = { 0 };
+
+	if (WARN_ON(!phys_enc->hw_intf->ops.setup_timing_gen))
+		return;
+
+	if (WARN_ON(!phys_enc->hw_ctl->ops.setup_intf_cfg))
+		return;
+
+	DBG("enable mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
+	    mode->base.id, mode->name, mode->vrefresh, mode->clock,
+	    mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
+	    mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
+	    mode->type, mode->flags);
+
+	drm_mode_to_intf_timing_params(phys_enc, mode, &p);
 
 	sde_fmt_params = sde_mdp_get_format_params(fmt_fourcc, fmt_mod);
-
-	p.width = mode->hdisplay;	/* active width */
-	p.height = mode->vdisplay;	/* active height */
-	p.xres = p.width;		/* Display panel width */
-	p.yres = p.height;		/* Display panel height */
-	p.h_back_porch = mode->htotal - mode->hsync_end;
-	p.h_front_porch = mode->hsync_start - mode->hdisplay;
-	p.v_back_porch = mode->vtotal - mode->vsync_end;
-	p.v_front_porch = mode->vsync_start - mode->vdisplay;
-	p.hsync_pulse_width = mode->hsync_end - mode->hsync_start;
-	p.vsync_pulse_width = mode->vsync_end - mode->vsync_start;
-	p.hsync_polarity = hsync_polarity;
-	p.vsync_polarity = vsync_polarity;
-	p.border_clr = 0;
-	p.underflow_clr = 0xff;
-	p.hsync_skew = mode->hskew;
 
 	intf_cfg.intf = phys_enc->hw_intf->idx;
 	intf_cfg.wb = SDE_NONE;
 
 	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
 	phys_enc->hw_intf->ops.setup_timing_gen(phys_enc->hw_intf, &p,
-						sde_fmt_params);
+			sde_fmt_params);
 	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
 	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+
+	programmable_fetch_config(phys_enc, &p);
 }
 
-static void sde_encoder_phys_vid_wait_for_vblank(struct sde_encoder_phys_vid
-						 *vid_enc)
+static void sde_encoder_phys_vid_wait_for_vblank(
+		struct sde_encoder_phys_vid *vid_enc)
 {
 	DBG("");
 	mdp_irq_wait(vid_enc->base.mdp_kms, vid_enc->vblank_irq.irqmask);
@@ -139,9 +263,7 @@ static void sde_encoder_phys_vid_vblank_irq(struct mdp_irq *irq,
 	    container_of(irq, struct sde_encoder_phys_vid,
 			 vblank_irq);
 	struct sde_encoder_phys *phys_enc = &vid_enc->base;
-	struct intf_status status = { 0 };
 
-	phys_enc->hw_intf->ops.get_status(phys_enc->hw_intf, &status);
 	phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent);
 }
 
@@ -154,6 +276,9 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	DBG("");
 
 	if (WARN_ON(phys_enc->enabled))
+		return;
+
+	if (WARN_ON(!phys_enc->hw_intf->ops.enable_timing))
 		return;
 
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
@@ -178,6 +303,9 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	DBG("");
 
 	if (WARN_ON(!phys_enc->enabled))
+		return;
+
+	if (WARN_ON(!phys_enc->hw_intf->ops.enable_timing))
 		return;
 
 	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
@@ -206,10 +334,9 @@ static void sde_encoder_phys_vid_destroy(struct sde_encoder_phys *phys_enc)
 	kfree(vid_enc);
 }
 
-static void sde_encoder_phys_vid_get_hw_resources(struct sde_encoder_phys
-						  *phys_enc, struct
-						  sde_encoder_hw_resources
-						  *hw_res)
+static void sde_encoder_phys_vid_get_hw_resources(
+		struct sde_encoder_phys *phys_enc,
+		struct sde_encoder_hw_resources *hw_res)
 {
 	DBG("");
 	hw_res->intfs[phys_enc->hw_intf->idx] = true;
@@ -225,15 +352,16 @@ static void sde_encoder_phys_vid_init_cbs(struct sde_encoder_phys_ops *ops)
 	ops->get_hw_resources = sde_encoder_phys_vid_get_hw_resources;
 }
 
-struct sde_encoder_phys *sde_encoder_phys_vid_init(struct sde_kms *sde_kms,
-					      enum sde_intf intf_idx,
-						  enum sde_ctl ctl_idx,
-					      struct drm_encoder *parent,
-					      struct sde_encoder_virt_ops
-					      parent_ops)
+struct sde_encoder_phys *sde_encoder_phys_vid_init(
+		struct sde_kms *sde_kms,
+		enum sde_intf intf_idx,
+		enum sde_ctl ctl_idx,
+		struct drm_encoder *parent,
+		struct sde_encoder_virt_ops parent_ops)
 {
 	struct sde_encoder_phys *phys_enc = NULL;
 	struct sde_encoder_phys_vid *vid_enc = NULL;
+	u32 irq_mask = 0x8000000;
 	int ret = 0;
 
 	DBG("");
@@ -253,7 +381,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(struct sde_kms *sde_kms,
 	}
 
 	phys_enc->hw_ctl = sde_hw_ctl_init(ctl_idx, sde_kms->mmio,
-					    sde_kms->catalog);
+					   sde_kms->catalog);
 	if (!phys_enc->hw_ctl) {
 		ret = -ENOMEM;
 		goto fail;
@@ -264,7 +392,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(struct sde_kms *sde_kms,
 	phys_enc->parent_ops = parent_ops;
 	phys_enc->mdp_kms = &sde_kms->base;
 	vid_enc->vblank_irq.irq = sde_encoder_phys_vid_vblank_irq;
-	vid_enc->vblank_irq.irqmask = 0x8000000;
+	vid_enc->vblank_irq.irqmask = irq_mask;
 	spin_lock_init(&phys_enc->spin_lock);
 
 	DBG("Created sde_encoder_phys_vid for intf %d", phys_enc->hw_intf->idx);
