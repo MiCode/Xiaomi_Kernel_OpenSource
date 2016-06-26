@@ -35,7 +35,6 @@
 #endif
 
 #define PIPES_PER_STAGE			2
-#define VALID_ROT_WB_FORMAT		BIT(0)
 
 enum sde_mdp {
 	MDP_TOP = 0x1,
