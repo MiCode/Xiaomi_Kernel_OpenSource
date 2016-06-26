@@ -10,12 +10,12 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _SDE_HW_MDP_TOP_H
-#define _SDE_HW_MDP_TOP_H
+#ifndef _SDE_HW_TOP_H
+#define _SDE_HW_TOP_H
 
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
-#include "sde_hw_mdp_util.h"
+#include "sde_hw_util.h"
 
 struct sde_hw_mdp;
 
@@ -75,4 +75,4 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 
 void sde_hw_mdp_destroy(struct sde_hw_mdp *mdp);
 
-#endif /*_SDE_HW_MDP_TOP_H */
+#endif /*_SDE_HW_TOP_H */
