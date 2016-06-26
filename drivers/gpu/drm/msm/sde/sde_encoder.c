@@ -22,8 +22,7 @@
 #include "sde_mdp_formats.h"
 
 #include "sde_encoder_phys.h"
-
-#include "../dsi-staging/dsi_display.h"
+#include "display_manager.h"
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
 
@@ -372,29 +371,29 @@ static int sde_encoder_setup_hdmi(struct sde_encoder_virt *sde_enc,
 
 static int sde_encoder_setup_dsi(struct sde_encoder_virt *sde_enc,
 				 struct sde_kms *sde_kms,
-				 struct dsi_display_info *dsi_info)
+				 struct display_info *disp_info)
 {
 	int ret = 0;
 	int i = 0;
 
 	DBG("");
 
-	WARN_ON(dsi_info->num_of_h_tiles < 1);
+	WARN_ON(disp_info->num_of_h_tiles < 1);
 
-	if (dsi_info->num_of_h_tiles == 0)
-		dsi_info->num_of_h_tiles = 1;
+	if (disp_info->num_of_h_tiles == 0)
+		disp_info->num_of_h_tiles = 1;
 
-	DBG("dsi_info->num_of_h_tiles %d h_tiled %d dsi_info->h_tile_ids %d ",
-	    dsi_info->num_of_h_tiles, dsi_info->h_tiled,
-	    dsi_info->h_tile_ids[0]);
+	DBG("num_of_h_tiles %d h_tile_instance_0 %d h_tile_instance_1 %d\n",
+	    disp_info->num_of_h_tiles, disp_info->h_tile_instance[0],
+	    disp_info->h_tile_instance[1]);
 
-	for (i = 0; i < dsi_info->num_of_h_tiles && !ret; i++) {
+	for (i = 0; i < disp_info->num_of_h_tiles && !ret; i++) {
 		enum sde_intf intf_idx = INTF_MAX;
 		enum sde_ctl ctl_idx = CTL_0;
 
 		intf_idx = sde_encoder_get_intf(sde_kms->catalog,
 						INTF_DSI,
-						dsi_info->h_tile_ids[i]);
+						disp_info->h_tile_instance[i]);
 		if (intf_idx == INTF_MAX) {
 			DBG("Error: could not get the interface id");
 			ret = -EINVAL;
@@ -413,7 +412,7 @@ static int sde_encoder_setup_dsi(struct sde_encoder_virt *sde_enc,
 
 struct display_probe_info {
 	enum sde_intf_type type;
-	struct dsi_display_info dsi_info;
+	struct display_info disp_info;
 	int hdmi_info;
 };
 
@@ -437,8 +436,9 @@ static struct drm_encoder *sde_encoder_virt_init(struct drm_device *dev,
 
 	if (display->type == INTF_DSI) {
 		drm_encoder_mode = DRM_MODE_ENCODER_DSI;
-		ret =
-		    sde_encoder_setup_dsi(sde_enc, sde_kms, &display->dsi_info);
+		ret = sde_encoder_setup_dsi(sde_enc,
+					    sde_kms,
+					    &display->disp_info);
 
 	} else if (display->type == INTF_HDMI) {
 		drm_encoder_mode = DRM_MODE_ENCODER_TMDS;
@@ -500,10 +500,12 @@ static int sde_encoder_probe_dsi(struct drm_device *dev)
 	u32 ret = 0;
 	u32 i = 0;
 	u32 num_displays = 0;
+	struct display_manager *dm = priv->dm;
+	struct display_probe_info probe_info = { 0 };
 
 	DBG("");
 
-	num_displays = dsi_display_get_num_of_displays();
+	num_displays = display_manager_get_count(dm);
 	DBG("num_displays %d", num_displays);
 
 	if (priv->num_encoders + num_displays > ARRAY_SIZE(priv->encoders)) {
@@ -512,32 +514,28 @@ static int sde_encoder_probe_dsi(struct drm_device *dev)
 	}
 
 	for (i = 0; i < num_displays; i++) {
+		struct drm_encoder *enc;
 
-		struct dsi_display *dsi = dsi_display_get_display_by_index(i);
-
-		if (dsi_display_is_active(dsi)) {
-			struct drm_encoder *enc = NULL;
-			struct display_probe_info probe_info = { 0 };
-
-			probe_info.type = INTF_DSI;
-
-			DBG("display %d is active", i);
-
-			ret = dsi_display_get_info(dsi, &probe_info.dsi_info);
-			if (ret)
-				return ret;
-
-			enc = sde_encoder_virt_init(dev, &probe_info);
-			if (IS_ERR(enc))
-				return PTR_ERR(enc);
-
-			ret = dsi_display_drm_init(dsi, enc);
-			if (ret)
-				return ret;
-
-			/*  Register new encoder with the upper layer */
-			priv->encoders[priv->num_encoders++] = enc;
+		ret = display_manager_get_info_by_index(dm, i,
+							&probe_info.disp_info);
+		if (ret) {
+			pr_err("Failed to get display info, %d\n", ret);
+			return ret;
 		}
+
+		enc = sde_encoder_virt_init(dev, &probe_info);
+		if (IS_ERR_OR_NULL(enc)) {
+			pr_err("encoder virt init failed\n");
+			return PTR_ERR(enc);
+		}
+
+		ret = display_manager_drm_init_by_index(dm, i, enc);
+		if (ret) {
+			pr_err("display drm init failed\n");
+			return ret;
+		}
+
+		priv->encoders[priv->num_encoders++] = enc;
 	}
 
 	return ret;
