@@ -161,12 +161,12 @@ struct danger_safe_cfg {
  */
 struct sde_hw_sspp_ops {
 	/**
-	 * setup_sourceformat - setup pixel format cropping rectangle, flip
+	 * setup_format - setup pixel format cropping rectangle, flip
 	 * @ctx: Pointer to pipe context
 	 * @cfg: Pointer to pipe config structure
-	 * @flags: Format flags
+	 * @flags: Extra flags for format config
 	 */
-	void (*setup_sourceformat)(struct sde_hw_pipe *ctx,
+	void (*setup_format)(struct sde_hw_pipe *ctx,
 			struct sde_hw_pipe_cfg *cfg,
 			u32 flags);
 

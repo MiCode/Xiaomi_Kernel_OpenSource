@@ -141,7 +141,30 @@ struct sde_plane_state {
 };
 
 #define to_sde_plane_state(x) \
-		container_of(x, struct sde_plane_state, base)
+	container_of(x, struct sde_plane_state, base)
+
+/**
+ * sde_plane_get_property - Query integer value of plane property
+ *
+ * @S: Pointer to plane state
+ * @X: Property index, from enum msm_mdp_plane_property
+ *
+ * Return: Integer value of requested property
+ */
+#define sde_plane_get_property(S, X) \
+	((S) && ((X) < PLANE_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
+
+/**
+ * sde_plane_get_property32 - Query 32-bit representation of plane property
+ *
+ * @S: Pointer to plane state
+ * @X: Property index, from enum msm_mdp_plane_property
+ *
+ * Return: 32-bit value of requested property
+ */
+#define sde_plane_get_property32(S, X) \
+	((S) && ((X) < PLANE_PROP_COUNT) ? \
+	 (uint32_t)((S)->property_values[(X)]) : 0)
 
 int sde_disable(struct sde_kms *sde_kms);
 int sde_enable(struct sde_kms *sde_kms);
@@ -348,7 +371,7 @@ void sde_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
  */
 enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
 struct drm_plane *sde_plane_init(struct drm_device *dev, uint32_t pipe,
-		bool private_plane);
+		bool primary_plane);
 
 /**
  * CRTC functions

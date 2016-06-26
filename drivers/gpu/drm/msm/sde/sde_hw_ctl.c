@@ -256,7 +256,7 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 				break;
 			case SSPP_VIG3:
 				mixercfg |= (i + 1) << 26;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 4;
+				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 6;
 				break;
 			case SSPP_RGB0:
 				mixercfg |= (i + 1) << 9;
@@ -275,12 +275,12 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 14;
 				break;
 			case SSPP_DMA0:
-				mixercfg |= (i + 1) << 0;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 0;
+				mixercfg |= (i + 1) << 18;
+				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 16;
 				break;
 			case SSPP_DMA1:
-				mixercfg |= (i + 1) << 0;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 0;
+				mixercfg |= (i + 1) << 21;
+				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 18;
 				break;
 			case SSPP_CURSOR0:
 				mixercfg_ext |= (i + 1) << 20;
