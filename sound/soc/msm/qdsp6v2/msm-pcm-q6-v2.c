@@ -375,7 +375,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	struct msm_pcm_routing_evt event;
 	int ret = 0;
 	int i = 0;
-	uint16_t bits_per_sample;
+	uint16_t bits_per_sample = 16;
 	uint16_t sample_word_size;
 
 	pdata = (struct msm_plat_data *)
