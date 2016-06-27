@@ -544,6 +544,10 @@ struct dsi_ctrl_hw_ops {
 	 */
 	void (*trigger_cmd_test_pattern)(struct dsi_ctrl_hw *ctrl,
 					 u32 stream_id);
+
+	ssize_t (*reg_dump_to_buffer)(struct dsi_ctrl_hw *ctrl,
+				      char *buf,
+				      u32 size);
 };
 
 /*
