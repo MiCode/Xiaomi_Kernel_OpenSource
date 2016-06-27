@@ -92,10 +92,12 @@ static void _sde_plane_update_sync_fence(struct drm_plane *plane,
 	DBG("0x%llX", fd);
 }
 
-void *sde_plane_get_sync_fence(struct drm_plane *plane)
+int sde_plane_wait_sync_fence(struct drm_plane *plane)
 {
 	struct sde_plane_state *pstate;
-	void *ret = NULL;
+	void *sync_fence;
+	long wait_ms;
+	int ret = -EINVAL;
 
 	if (!plane) {
 		DRM_ERROR("Invalid plane\n");
@@ -103,11 +105,24 @@ void *sde_plane_get_sync_fence(struct drm_plane *plane)
 		DRM_ERROR("Invalid plane state\n");
 	} else {
 		pstate = to_sde_plane_state(plane->state);
-		ret = pstate->sync_fence;
+		sync_fence = pstate->sync_fence;
 
-		DBG("%s", to_sde_plane(plane)->pipe_name);
+		if (sync_fence) {
+			wait_ms = (long)sde_plane_get_property(pstate,
+					PLANE_PROP_SYNC_FENCE_TIMEOUT);
+
+			DBG("%s", to_sde_plane(plane)->pipe_name);
+			ret = sde_sync_wait(sync_fence, wait_ms);
+			if (!ret)
+				DBG("signaled");
+			else if (ret == -ETIME)
+				DRM_ERROR("timeout\n");
+			else
+				DRM_ERROR("error %d\n", ret);
+		} else {
+			ret = 0;
+		}
 	}
-
 	return ret;
 }
 
@@ -148,7 +163,7 @@ static void _sde_plane_set_scanout(struct drm_plane *plane,
 	}
 }
 
-static void _sde_plane_setup_scaler3(struct drm_plane *plane,
+static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 		uint32_t src_w, uint32_t src_h, uint32_t dst_w, uint32_t dst_h,
 		struct sde_hw_scaler3_cfg *scale_cfg,
 		struct sde_mdp_format_params *fmt,
@@ -156,11 +171,28 @@ static void _sde_plane_setup_scaler3(struct drm_plane *plane,
 {
 }
 
-static void _sde_plane_setup_scaler2(struct drm_plane *plane,
+/**
+ * _sde_plane_setup_scaler2(): Determine default scaler phase steps/filter type
+ * @psde: Pointer to SDE plane object
+ * @src: Source size
+ * @dst: Destination size
+ * @phase_steps: Pointer to output array for phase steps
+ * @filter: Pointer to output array for filter type
+ * @fmt: Pointer to format definition
+ * @chroma_subsampling: Subsampling amount for chroma channel
+ *
+ * Returns: 0 on success
+ */
+static int _sde_plane_setup_scaler2(struct sde_plane *psde,
 		uint32_t src, uint32_t dst, uint32_t *phase_steps,
 		enum sde_hw_filter *filter, struct sde_mdp_format_params *fmt,
 		uint32_t chroma_subsampling)
 {
+	if (!psde || !phase_steps || !filter || !fmt) {
+		DRM_ERROR("Invalid arguments\n");
+		return -EINVAL;
+	}
+
 	/* calculate phase steps, leave init phase as zero */
 	phase_steps[SDE_SSPP_COMP_0] =
 		mult_frac(1 << PHASE_STEP_SHIFT, src, dst);
@@ -185,13 +217,30 @@ static void _sde_plane_setup_scaler2(struct drm_plane *plane,
 		}
 	} else {
 		/* disable scaler */
+		DBG("Disable scaler");
 		filter[SDE_SSPP_COMP_0] = SDE_MDP_SCALE_FILTER_MAX;
 		filter[SDE_SSPP_COMP_1_2] = SDE_MDP_SCALE_FILTER_MAX;
 		filter[SDE_SSPP_COMP_3] = SDE_MDP_SCALE_FILTER_MAX;
 	}
+	return 0;
 }
 
-static void _sde_plane_setup_pixel_ext(struct drm_plane *plane,
+/**
+ * _sde_plane_setup_pixel_ext - determine default pixel extension values
+ * @psde: Pointer to SDE plane object
+ * @src: Source size
+ * @dst: Destination size
+ * @decimated_src: Source size after decimation, if any
+ * @phase_steps: Pointer to output array for phase steps
+ * @out_src: Output array for pixel extension values
+ * @out_edge1: Output array for pixel extension first edge
+ * @out_edge2: Output array for pixel extension second edge
+ * @filter: Pointer to array for filter type
+ * @fmt: Pointer to format definition
+ * @chroma_subsampling: Subsampling amount for chroma channel
+ * @post_compare: Whether to chroma subsampled source size for comparisions
+ */
+static void _sde_plane_setup_pixel_ext(struct sde_plane *psde,
 		uint32_t src, uint32_t dst, uint32_t decimated_src,
 		uint32_t *phase_steps, uint32_t *out_src, int *out_edge1,
 		int *out_edge2, enum sde_hw_filter *filter,
@@ -202,7 +251,7 @@ static void _sde_plane_setup_pixel_ext(struct drm_plane *plane,
 	uint32_t src_work;
 	int i, tmp;
 
-	if (plane && phase_steps && out_src && out_edge1 &&
+	if (psde && phase_steps && out_src && out_edge1 &&
 			out_edge2 && filter && fmt) {
 		/* handle CAF for YUV formats */
 		if (SDE_FORMAT_IS_YUV(fmt) &&
@@ -429,95 +478,20 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 	psde->pipe_hw->ops.setup_csc(psde->pipe_hw, psde->csc_ptr);
 }
 
-static int _sde_plane_mode_set(struct drm_plane *plane,
-		struct drm_crtc *crtc, struct drm_framebuffer *fb,
-		int crtc_x, int crtc_y,
-		unsigned int crtc_w, unsigned int crtc_h,
-		uint32_t src_x, uint32_t src_y,
-		uint32_t src_w, uint32_t src_h)
+static void _sde_plane_setup_scaler(struct sde_plane *psde,
+		struct sde_mdp_format_params *fmt,
+		struct sde_plane_state *pstate)
 {
-	struct sde_plane *psde;
-	struct sde_plane_state *pstate;
-	const struct mdp_format *format;
-	uint32_t nplanes, pix_format, tmp;
-	uint32_t chroma_subsmpl_h, chroma_subsmpl_v;
-	uint32_t src_fmt_flags;
-	int i;
-	struct sde_mdp_format_params *fmt;
-	struct sde_hw_pixel_ext *pe;
-	size_t sc_u_size = 0;
+	struct sde_hw_pixel_ext *pe = NULL;
 	struct sde_drm_scaler *sc_u = NULL;
 	struct sde_drm_scaler_v1 *sc_u1 = NULL;
+	size_t sc_u_size = 0;
+	uint32_t chroma_subsmpl_h, chroma_subsmpl_v;
+	uint32_t tmp;
+	int i;
 
-	DBG("");
-
-	if (!plane || !plane->state) {
-		DRM_ERROR("Invalid plane/state\n");
-		return -EINVAL;
-	}
-	if (!crtc || !fb) {
-		DRM_ERROR("Invalid crtc/fb\n");
-		return -EINVAL;
-	}
-
-	psde = to_sde_plane(plane);
-	pstate = to_sde_plane_state(plane->state);
-	nplanes = drm_format_num_planes(fb->pixel_format);
-
-	format = to_mdp_format(msm_framebuffer_format(fb));
-	pix_format = format->base.pixel_format;
-
-	/* src values are in Q16 fixed point, convert to integer */
-	src_x = src_x >> 16;
-	src_y = src_y >> 16;
-	src_w = src_w >> 16;
-	src_h = src_h >> 16;
-
-	DBG("%s: FB[%u] %u,%u,%u,%u -> CRTC[%u] %d,%d,%u,%u", psde->pipe_name,
-			fb->base.id, src_x, src_y, src_w, src_h,
-			crtc->base.id, crtc_x, crtc_y, crtc_w, crtc_h);
-
-	/* update format configuration */
-	memset(&(psde->pipe_cfg), 0, sizeof(struct sde_hw_pipe_cfg));
-	src_fmt_flags = 0;
-
-	psde->pipe_cfg.src.format = sde_mdp_get_format_params(pix_format,
-			fb->modifier[0]);
-	psde->pipe_cfg.src.width = fb->width;
-	psde->pipe_cfg.src.height = fb->height;
-	psde->pipe_cfg.src.num_planes = nplanes;
-
-	_sde_plane_set_scanout(plane, pstate, &psde->pipe_cfg, fb);
-
-	/* flags */
-	DBG("Flags 0x%llX, rotation 0x%llX",
-			sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG),
-			sde_plane_get_property(pstate, PLANE_PROP_ROTATION));
-	if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
-		BIT(DRM_REFLECT_X))
-		src_fmt_flags |= SDE_SSPP_FLIP_LR;
-	if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
-		BIT(DRM_REFLECT_Y))
-		src_fmt_flags |= SDE_SSPP_FLIP_UD;
-	if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
-		BIT(SDE_DRM_DEINTERLACE)) {
-		src_h /= 2;
-		src_y  = DIV_ROUND_UP(src_y, 2);
-		src_y &= ~0x1;
-	}
-
-	psde->pipe_cfg.src_rect.x = src_x;
-	psde->pipe_cfg.src_rect.y = src_y;
-	psde->pipe_cfg.src_rect.w = src_w;
-	psde->pipe_cfg.src_rect.h = src_h;
-
-	psde->pipe_cfg.dst_rect.x = crtc_x;
-	psde->pipe_cfg.dst_rect.y = crtc_y;
-	psde->pipe_cfg.dst_rect.w = crtc_w;
-	psde->pipe_cfg.dst_rect.h = crtc_h;
-
-	/* get sde pixel format definition */
-	fmt = psde->pipe_cfg.src.format;
+	if (!psde || !fmt)
+		return;
 
 	pe = &(psde->pixel_ext);
 	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
@@ -543,21 +517,28 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_DECIMATE)) {
 		psde->pipe_cfg.horz_decimation = sc_u1->horz_decimate;
 		psde->pipe_cfg.vert_decimation = sc_u1->vert_decimate;
+	} else {
+		psde->pipe_cfg.horz_decimation = 0;
+		psde->pipe_cfg.vert_decimation = 0;
 	}
 
 	/* don't chroma subsample if decimating */
 	chroma_subsmpl_h = psde->pipe_cfg.horz_decimation ? 1 :
-		drm_format_horz_chroma_subsampling(pix_format);
+		drm_format_horz_chroma_subsampling(fmt->format);
 	chroma_subsmpl_v = psde->pipe_cfg.vert_decimation ? 1 :
-		drm_format_vert_chroma_subsampling(pix_format);
+		drm_format_vert_chroma_subsampling(fmt->format);
 
 	/* update scaler */
 	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
 		if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_SCALER_3))
-			DBG("QSEED3 blob detected");
+			DBG("SCALER3 blob detected");
 		else
-			_sde_plane_setup_scaler3(plane, src_w, src_h, crtc_w,
-					crtc_h, &psde->scaler3_cfg, fmt,
+			_sde_plane_setup_scaler3(psde,
+					psde->pipe_cfg.src_rect.w,
+					psde->pipe_cfg.src_rect.h,
+					psde->pipe_cfg.dst_rect.w,
+					psde->pipe_cfg.dst_rect.h,
+					&psde->scaler3_cfg, fmt,
 					chroma_subsmpl_h, chroma_subsmpl_v);
 	} else {
 		/* always calculate basic scaler config */
@@ -574,10 +555,14 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 			}
 		} else {
 			/* calculate phase steps */
-			_sde_plane_setup_scaler2(plane, src_w, crtc_w,
+			_sde_plane_setup_scaler2(psde,
+					psde->pipe_cfg.src_rect.w,
+					psde->pipe_cfg.dst_rect.w,
 					pe->phase_step_x,
 					pe->horz_filter, fmt, chroma_subsmpl_h);
-			_sde_plane_setup_scaler2(plane, src_h, crtc_h,
+			_sde_plane_setup_scaler2(psde,
+					psde->pipe_cfg.src_rect.h,
+					psde->pipe_cfg.dst_rect.h,
 					pe->phase_step_y,
 					pe->vert_filter, fmt, chroma_subsmpl_v);
 		}
@@ -586,6 +571,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	/* update pixel extensions */
 	if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_PIX_EXT)) {
 		/* populate from user space */
+		DBG("PIXEXT blob detected");
 		for (i = 0; i < SDE_MAX_PLANES; i++) {
 			pe->num_ext_pxls_left[i] = sc_u1->lr.num_pxls_start[i];
 			pe->num_ext_pxls_right[i] = sc_u1->lr.num_pxls_end[i];
@@ -605,20 +591,22 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		}
 	} else {
 		/* calculate left/right/top/bottom pixel extensions */
-		tmp = DECIMATED_DIMENSION(src_w,
+		tmp = DECIMATED_DIMENSION(psde->pipe_cfg.src_rect.w,
 				psde->pipe_cfg.horz_decimation);
 		if (SDE_FORMAT_IS_YUV(fmt))
 			tmp &= ~0x1;
-		_sde_plane_setup_pixel_ext(plane, src_w, crtc_w, tmp,
+		_sde_plane_setup_pixel_ext(psde, psde->pipe_cfg.src_rect.w,
+				psde->pipe_cfg.dst_rect.w, tmp,
 				pe->phase_step_x,
 				pe->roi_w,
 				pe->num_ext_pxls_left,
 				pe->num_ext_pxls_right, pe->horz_filter, fmt,
 				chroma_subsmpl_h, 0);
 
-		tmp = DECIMATED_DIMENSION(src_h,
+		tmp = DECIMATED_DIMENSION(psde->pipe_cfg.src_rect.h,
 				psde->pipe_cfg.vert_decimation);
-		_sde_plane_setup_pixel_ext(plane, src_h, crtc_h, tmp,
+		_sde_plane_setup_pixel_ext(psde, psde->pipe_cfg.src_rect.h,
+				psde->pipe_cfg.dst_rect.h, tmp,
 				pe->phase_step_y,
 				pe->roi_h,
 				pe->num_ext_pxls_top,
@@ -655,10 +643,152 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 					pe->num_ext_pxls_btm[i];
 		}
 	}
+}
+
+int sde_plane_color_fill(struct drm_plane *plane,
+		uint32_t color, uint32_t alpha)
+{
+	struct sde_plane *psde;
+	struct sde_mdp_format_params *fmt;
+
+	if (!plane) {
+		DRM_ERROR("Invalid plane\n");
+		return -EINVAL;
+	}
+
+	psde = to_sde_plane(plane);
+	if (!psde->pipe_hw) {
+		DRM_ERROR("Invalid plane h/w pointer\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * select fill format to match user property expectation,
+	 * h/w only supports RGB variants
+	 */
+	fmt = sde_mdp_get_format_params(DRM_FORMAT_ABGR8888, 0);
+
+	/* update sspp */
+	if (fmt && psde->pipe_hw->ops.setup_solidfill) {
+		psde->pipe_hw->ops.setup_solidfill(psde->pipe_hw,
+				(color & 0xFFFFFF) | ((alpha & 0xFF) << 24));
+
+		/* override scaler/decimation if solid fill */
+		psde->pipe_cfg.src_rect.x = 0;
+		psde->pipe_cfg.src_rect.y = 0;
+		psde->pipe_cfg.src_rect.w = psde->pipe_cfg.dst_rect.w;
+		psde->pipe_cfg.src_rect.h = psde->pipe_cfg.dst_rect.h;
+
+		_sde_plane_setup_scaler(psde, fmt, 0);
+
+		if (psde->pipe_hw->ops.setup_format)
+			psde->pipe_hw->ops.setup_format(psde->pipe_hw,
+					fmt, SDE_SSPP_SOLID_FILL);
+
+		if (psde->pipe_hw->ops.setup_rects)
+			psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
+					&psde->pipe_cfg, &psde->pixel_ext);
+	}
+
+	return 0;
+}
+
+static int _sde_plane_mode_set(struct drm_plane *plane,
+		struct drm_crtc *crtc, struct drm_framebuffer *fb,
+		int crtc_x, int crtc_y,
+		unsigned int crtc_w, unsigned int crtc_h,
+		uint32_t src_x, uint32_t src_y,
+		uint32_t src_w, uint32_t src_h)
+{
+	struct sde_plane *psde;
+	struct sde_plane_state *pstate;
+	const struct mdp_format *format;
+	uint32_t nplanes, tmp;
+	uint32_t src_flags;
+	struct sde_mdp_format_params *fmt;
+
+	DBG("");
+
+	if (!plane || !plane->state) {
+		DRM_ERROR("Invalid plane/state\n");
+		return -EINVAL;
+	}
+	if (!crtc || !fb) {
+		DRM_ERROR("Invalid crtc/fb\n");
+		return -EINVAL;
+	}
+
+	psde = to_sde_plane(plane);
+	pstate = to_sde_plane_state(plane->state);
+	nplanes = drm_format_num_planes(fb->pixel_format);
+
+	format = to_mdp_format(msm_framebuffer_format(fb));
+	tmp = format->base.pixel_format;
+
+	/* src values are in Q16 fixed point, convert to integer */
+	src_x = src_x >> 16;
+	src_y = src_y >> 16;
+	src_w = src_w >> 16;
+	src_h = src_h >> 16;
+
+	DBG("%s: FB[%u] %u,%u,%u,%u -> CRTC[%u] %d,%d,%u,%u", psde->pipe_name,
+			fb->base.id, src_x, src_y, src_w, src_h,
+			crtc->base.id, crtc_x, crtc_y, crtc_w, crtc_h);
+
+	/* update format configuration */
+	memset(&(psde->pipe_cfg), 0, sizeof(struct sde_hw_pipe_cfg));
+	src_flags = 0;
+
+	psde->pipe_cfg.src.format = sde_mdp_get_format_params(tmp,
+			fb->modifier[0]);
+	psde->pipe_cfg.src.width = fb->width;
+	psde->pipe_cfg.src.height = fb->height;
+	psde->pipe_cfg.src.num_planes = nplanes;
+
+	/* flags */
+	DBG("Flags 0x%llX, rotation 0x%llX",
+			sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG),
+			sde_plane_get_property(pstate, PLANE_PROP_ROTATION));
+	if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
+		BIT(DRM_REFLECT_X))
+		src_flags |= SDE_SSPP_FLIP_LR;
+	if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
+		BIT(DRM_REFLECT_Y))
+		src_flags |= SDE_SSPP_FLIP_UD;
+	if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
+		BIT(SDE_DRM_DEINTERLACE)) {
+		src_h /= 2;
+		src_y  = DIV_ROUND_UP(src_y, 2);
+		src_y &= ~0x1;
+	}
+
+	psde->pipe_cfg.src_rect.x = src_x;
+	psde->pipe_cfg.src_rect.y = src_y;
+	psde->pipe_cfg.src_rect.w = src_w;
+	psde->pipe_cfg.src_rect.h = src_h;
+
+	psde->pipe_cfg.dst_rect.x = crtc_x;
+	psde->pipe_cfg.dst_rect.y = crtc_y;
+	psde->pipe_cfg.dst_rect.w = crtc_w;
+	psde->pipe_cfg.dst_rect.h = crtc_h;
+
+	/* get sde pixel format definition */
+	fmt = psde->pipe_cfg.src.format;
+
+	/* check for color fill */
+	tmp = (uint32_t)sde_plane_get_property(pstate, PLANE_PROP_COLOR_FILL);
+	if (tmp & BIT(31)) {
+		/* force 100% alpha, stop other processing */
+		return sde_plane_color_fill(plane, tmp, 0xFF);
+	}
+
+	_sde_plane_set_scanout(plane, pstate, &psde->pipe_cfg, fb);
+
+	_sde_plane_setup_scaler(psde, fmt, pstate);
 
 	if (psde->pipe_hw->ops.setup_format)
 		psde->pipe_hw->ops.setup_format(psde->pipe_hw,
-				&psde->pipe_cfg, src_fmt_flags);
+				fmt, src_flags);
 	if (psde->pipe_hw->ops.setup_rects)
 		psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
 				&psde->pipe_cfg, &psde->pixel_ext);
@@ -1134,8 +1264,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 
 	DBG("");
 
-	if (!psde || !psde->pipe_sblk || !catalog) {
-		DRM_ERROR("Failed to identify catalog definition\n");
+	if (!psde || !psde->pipe_hw || !psde->pipe_sblk || !catalog) {
+		DRM_ERROR("Catalog or h/w driver definition error\n");
 		return;
 	}
 
@@ -1148,8 +1278,17 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	_sde_plane_install_range_property(plane, dev, "alpha", 0, 255, 255,
 			PLANE_PROP_ALPHA);
 
+	if (psde->pipe_hw->ops.setup_solidfill)
+		_sde_plane_install_range_property(plane, dev, "color_fill",
+				0, 0xFFFFFFFF, 0,
+				PLANE_PROP_COLOR_FILL);
+
 	_sde_plane_install_range_property(plane, dev, "sync_fence", 0, ~0, ~0,
 			PLANE_PROP_SYNC_FENCE);
+
+	_sde_plane_install_range_property(plane, dev, "sync_fence_timeout",
+			0, ~0, 10000,
+			PLANE_PROP_SYNC_FENCE_TIMEOUT);
 
 	/* standard properties */
 	_sde_plane_install_rotation_property(plane, dev, PLANE_PROP_ROTATION);

@@ -376,6 +376,18 @@ enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
 void sde_plane_complete_flip(struct drm_plane *plane);
 struct drm_plane *sde_plane_init(struct drm_device *dev,
 		uint32_t pipe, bool primary_plane);
+int sde_plane_wait_sync_fence(struct drm_plane *plane);
+
+/**
+ * sde_plane_color_fill(): Enables color fill on plane
+ * @plane:  Pointer to DRM plane object
+ * @color:  RGB fill color value, [23..16] Blue, [15..8] Green, [7..0] Red
+ * @alpha:  8-bit fill alpha value, 255 selects 100% alpha
+ *
+ * Returns: 0 on success
+ */
+int sde_plane_color_fill(struct drm_plane *plane,
+		uint32_t color, uint32_t alpha);
 
 /**
  * CRTC functions
