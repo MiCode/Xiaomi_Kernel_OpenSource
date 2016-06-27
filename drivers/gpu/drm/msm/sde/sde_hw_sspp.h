@@ -326,6 +326,35 @@ struct sde_hw_sspp_ops {
 	void (*setup_sharpening)(struct sde_hw_pipe *ctx,
 			struct sde_hw_sharp_cfg *cfg);
 
+
+	/**
+	 * setup_pa_hue(): Setup source hue adjustment
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to hue data
+	 */
+	void (*setup_pa_hue)(struct sde_hw_pipe *ctx, void *cfg);
+
+	/**
+	 * setup_pa_sat(): Setup source saturation adjustment
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to saturation data
+	 */
+	void (*setup_pa_sat)(struct sde_hw_pipe *ctx, void *cfg);
+
+	/**
+	 * setup_pa_val(): Setup source value adjustment
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to value data
+	 */
+	void (*setup_pa_val)(struct sde_hw_pipe *ctx, void *cfg);
+
+	/**
+	 * setup_pa_cont(): Setup source contrast adjustment
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer contrast data
+	 */
+	void (*setup_pa_cont)(struct sde_hw_pipe *ctx, void *cfg);
+
 	/**
 	 * setup_pa_memcolor - setup source color processing
 	 * @ctx: Pointer to pipe context

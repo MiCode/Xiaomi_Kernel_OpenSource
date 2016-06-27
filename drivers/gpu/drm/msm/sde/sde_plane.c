@@ -774,6 +774,33 @@ static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 			psde->csc_ptr->csc_mv[2]);
 }
 
+static void sde_color_process_plane_setup(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+	struct sde_plane_state *pstate;
+	uint32_t hue, saturation, value, contrast;
+
+	psde = to_sde_plane(plane);
+	pstate = to_sde_plane_state(plane->state);
+
+	hue = (uint32_t) sde_plane_get_property(pstate, PLANE_PROP_HUE_ADJUST);
+	if (psde->pipe_hw->ops.setup_pa_hue)
+		psde->pipe_hw->ops.setup_pa_hue(psde->pipe_hw, &hue);
+	saturation = (uint32_t) sde_plane_get_property(pstate,
+		PLANE_PROP_SATURATION_ADJUST);
+	if (psde->pipe_hw->ops.setup_pa_sat)
+		psde->pipe_hw->ops.setup_pa_sat(psde->pipe_hw, &saturation);
+	value = (uint32_t) sde_plane_get_property(pstate,
+		PLANE_PROP_VALUE_ADJUST);
+	if (psde->pipe_hw->ops.setup_pa_val)
+		psde->pipe_hw->ops.setup_pa_val(psde->pipe_hw, &value);
+	contrast = (uint32_t) sde_plane_get_property(pstate,
+		PLANE_PROP_CONTRAST_ADJUST);
+	if (psde->pipe_hw->ops.setup_pa_cont)
+		psde->pipe_hw->ops.setup_pa_cont(psde->pipe_hw, &contrast);
+}
+
+
 static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		const struct sde_format *fmt,
 		struct sde_plane_state *pstate)
@@ -1080,6 +1107,8 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		else
 			psde->csc_ptr = 0;
 	}
+
+	sde_color_process_plane_setup(plane);
 
 	/* update sharpening */
 	if ((pstate->dirty & SDE_PLANE_DIRTY_SHARPEN) &&
@@ -1429,6 +1458,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	struct sde_plane *psde = to_sde_plane(plane);
 	int zpos_max = 255;
 	int zpos_def = 0;
+	char feature_name[256];
 
 	if (!plane || !psde) {
 		SDE_ERROR("invalid plane\n");
@@ -1493,6 +1523,33 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	if (psde->features & BIT(SDE_SSPP_CSC)) {
 		msm_property_install_volatile_range(&psde->property_info,
 			"csc_v1", 0x0, 0, ~0, 0, PLANE_PROP_CSC_V1);
+	}
+
+	if (psde->features & BIT(SDE_SSPP_HSIC)) {
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_SSPP_HUE_V",
+			psde->pipe_sblk->hsic_blk.version >> 16);
+		msm_property_install_range(&psde->property_info,
+			feature_name, 0, 0, 0xFFFFFFFF, 0,
+			PLANE_PROP_HUE_ADJUST);
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_SSPP_SATURATION_V",
+			psde->pipe_sblk->hsic_blk.version >> 16);
+		msm_property_install_range(&psde->property_info,
+			feature_name, 0, 0, 0xFFFFFFFF, 0,
+			PLANE_PROP_SATURATION_ADJUST);
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_SSPP_VALUE_V",
+			psde->pipe_sblk->hsic_blk.version >> 16);
+		msm_property_install_range(&psde->property_info,
+			feature_name, 0, 0, 0xFFFFFFFF, 0,
+			PLANE_PROP_VALUE_ADJUST);
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_SSPP_CONTRAST_V",
+			psde->pipe_sblk->hsic_blk.version >> 16);
+		msm_property_install_range(&psde->property_info,
+			feature_name, 0, 0, 0xFFFFFFFF, 0,
+			PLANE_PROP_CONTRAST_ADJUST);
 	}
 
 	/* standard properties */
