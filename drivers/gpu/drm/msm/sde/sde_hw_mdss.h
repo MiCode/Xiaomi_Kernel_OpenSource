@@ -108,6 +108,7 @@ enum sde_pingpong {
 	PINGPONG_2,
 	PINGPONG_3,
 	PINGPONG_4,
+	PINGPONG_S0,
 	PINGPONG_MAX
 };
 
@@ -152,6 +153,24 @@ enum sde_ad {
 	AD_0 = 0x1,
 	AD_1,
 	AD_MAX
+};
+
+enum sde_cwb {
+	CWB_0 = 0x1,
+	CWB_1,
+	CWB_2,
+	CWB_3,
+	CWB_MAX
+};
+
+enum sde_wd_timer {
+	WD_TIMER_0 = 0x1,
+	WD_TIMER_1,
+	WD_TIMER_2,
+	WD_TIMER_3,
+	WD_TIMER_4,
+	WD_TIMER_5,
+	WD_TIMER_MAX
 };
 
 /**

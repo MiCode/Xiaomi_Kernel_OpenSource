@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,15 +47,23 @@ struct sde_encoder_phys {
 	struct sde_encoder_phys_ops phys_ops;
 	struct sde_hw_intf *hw_intf;
 	struct sde_hw_ctl *hw_ctl;
-	struct mdp_kms *mdp_kms;
+	struct sde_kms *sde_kms;
 	struct drm_display_mode cached_mode;
 	bool enabled;
 	spinlock_t spin_lock;
 };
 
+/**
+ * struct sde_encoder_phys_vid - sub-class of sde_encoder_phys to handle video
+ *	mode specific operations
+ * @base:		Baseclass physical encoder structure
+ * @irq_idx:		IRQ interface lookup index
+ * @vblank_complete:	for vblank irq synchronization
+ */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
-	struct mdp_irq vblank_irq;
+	int irq_idx;
+	struct completion vblank_complete;
 };
 
 struct sde_encoder_virt {
