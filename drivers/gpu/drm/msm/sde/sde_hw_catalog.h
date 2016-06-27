@@ -170,15 +170,26 @@ enum {
 };
 
 /**
+ * INTF sub-blocks
+ * @SDE_INTF_QUIRK_STAGGER_LM_UPDATE	HW quirk requires LM and Timing engine
+ *					be flushed in different VBLANKs
+ */
+enum {
+	SDE_INTF_QUIRK_STAGGER_LM_UPDATE = BIT(0)
+};
+
+/**
  * MACRO SDE_HW_BLK_INFO - information of HW blocks inside SDE
  * @id:                enum identifying this block
  * @base:              register base offset to mdss
  * @features           bit mask identifying sub-blocks/features
+ * @quirks:            bit mask listing chip specific behaviors
  */
 #define SDE_HW_BLK_INFO \
 	u32 id; \
 	u32 base; \
-	unsigned long features
+	unsigned long features; \
+	unsigned long quirks
 
 /**
  * MACRO SDE_HW_SUBBLK_INFO - information of HW sub-block inside SDE

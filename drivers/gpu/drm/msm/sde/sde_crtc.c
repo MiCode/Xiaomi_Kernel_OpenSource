@@ -133,65 +133,40 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 	kfree(sde_crtc);
 }
 
+static void update_crtc_vsync_count(struct sde_crtc *sde_crtc)
+{
+	struct vsync_info vsync;
+
+	/* request vsync info, cache the current frame count */
+	sde_encoder_get_vblank_status(sde_crtc->encoder, &vsync);
+	sde_crtc->vsync_count = vsync.frame_count;
+}
+
 static bool sde_crtc_mode_fixup(struct drm_crtc *crtc,
 		const struct drm_display_mode *mode,
 		struct drm_display_mode *adjusted_mode)
 {
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
 	DBG("");
+
+	/* Update vsync counter incase wait for vsync needed before mode_set */
+	update_crtc_vsync_count(sde_crtc);
+
+	if (msm_is_mode_seamless(adjusted_mode)) {
+		DBG("Seamless mode set requested");
+		if (!crtc->enabled || crtc->state->active_changed) {
+			DRM_ERROR("crtc state prevents seamless transition");
+			return false;
+		}
+	}
+
 	return true;
 }
 
 static void sde_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_crtc_mixer *mixer = sde_crtc->mixer;
-	struct sde_hw_mixer *lm;
-	unsigned long flags;
-	struct drm_display_mode *mode;
-	struct sde_hw_mixer_cfg cfg;
-	u32 mixer_width;
-	int i;
-	int rc;
-
 	DBG("");
-	if (WARN_ON(!crtc->state))
-		return;
-
-	mode = &crtc->state->adjusted_mode;
-
-	drm_mode_debug_printmodeline(mode);
-
-	/*
-	 * reserve mixer(s) if not already avaialable
-	 * if dual mode, mixer_width = half mode width
-	 * program mode configuration on mixer(s)
-	 */
-	if ((sde_crtc->num_ctls == 0) ||
-		(sde_crtc->num_mixers == 0)) {
-		rc = sde_crtc_reserve_hw_resources(crtc, sde_crtc->encoder);
-		if (rc) {
-			DRM_ERROR("error reserving HW resource for CRTC\n");
-			return;
-		}
-	}
-
-	if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
-		mixer_width = mode->hdisplay >> 1;
-	 else
-		mixer_width = mode->hdisplay;
-
-	spin_lock_irqsave(&sde_crtc->lm_lock, flags);
-
-	for (i = 0; i < sde_crtc->num_mixers; i++) {
-		lm = mixer[i].hw_lm;
-		cfg.out_width = mixer_width;
-		cfg.out_height = mode->vdisplay;
-		cfg.right_mixer = (i == 0) ? false : true;
-		cfg.flags = 0;
-		lm->ops.setup_mixer_out(lm, &cfg);
-	}
-
-	spin_unlock_irqrestore(&sde_crtc->lm_lock, flags);
 }
 
 static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
@@ -414,7 +389,7 @@ void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
-	int i, ret;
+	int i, ret, wait_ret_val;
 
 	if (!sde_crtc->num_ctls)
 		return;
@@ -425,10 +400,11 @@ void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc)
 		return;
 
 	/* wait */
-	wait_event_timeout(dev->vblank[drm_crtc_index(crtc)].queue,
+	wait_ret_val = wait_event_timeout(
+			dev->vblank[drm_crtc_index(crtc)].queue,
 			frame_flushed(sde_crtc),
 			msecs_to_jiffies(50));
-	if (ret <= 0)
+	if (wait_ret_val <= 1)
 		dev_warn(dev->dev, "vblank time out, crtc=%d, ret %u\n",
 				sde_crtc->id, ret);
 
@@ -439,22 +415,10 @@ void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc)
 	drm_crtc_vblank_put(crtc);
 }
 
-static void request_pending(struct drm_crtc *crtc, u32 pending)
-{
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct vsync_info vsync;
-
-	/* request vsync info, cache the current frame count */
-	sde_encoder_get_vblank_status(sde_crtc->encoder, &vsync);
-	sde_crtc->vsync_count = vsync.frame_count;
-
-	atomic_or(pending, &sde_crtc->pending);
-}
-
 /**
  * Flush the CTL PATH
  */
-static u32 crtc_flush_all(struct drm_crtc *crtc)
+u32 crtc_flush_all(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_hw_ctl *ctl;
@@ -510,6 +474,14 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	 */
 }
 
+static void request_pending(struct drm_crtc *crtc, u32 pending)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
+	update_crtc_vsync_count(sde_crtc);
+	atomic_or(pending, &sde_crtc->pending);
+}
+
 static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_crtc_state)
 {
@@ -563,7 +535,56 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 static void sde_crtc_enable(struct drm_crtc *crtc)
 {
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct sde_crtc_mixer *mixer = sde_crtc->mixer;
+	struct sde_hw_mixer *lm;
+	unsigned long flags;
+	struct drm_display_mode *mode;
+	struct sde_hw_mixer_cfg cfg;
+	u32 mixer_width;
+	int i;
+	int rc;
+
 	DBG("");
+
+	if (WARN_ON(!crtc->state))
+		return;
+
+	mode = &crtc->state->adjusted_mode;
+
+	drm_mode_debug_printmodeline(mode);
+
+	/*
+	 * reserve mixer(s) if not already avaialable
+	 * if dual mode, mixer_width = half mode width
+	 * program mode configuration on mixer(s)
+	 */
+	if ((sde_crtc->num_ctls == 0) ||
+		(sde_crtc->num_mixers == 0)) {
+		rc = sde_crtc_reserve_hw_resources(crtc, sde_crtc->encoder);
+		if (rc) {
+			DRM_ERROR("error reserving HW resource for CRTC\n");
+			return;
+		}
+	}
+
+	if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
+		mixer_width = mode->hdisplay >> 1;
+	 else
+		mixer_width = mode->hdisplay;
+
+	spin_lock_irqsave(&sde_crtc->lm_lock, flags);
+
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		lm = mixer[i].hw_lm;
+		cfg.out_width = mixer_width;
+		cfg.out_height = mode->vdisplay;
+		cfg.right_mixer = (i == 0) ? false : true;
+		cfg.flags = 0;
+		lm->ops.setup_mixer_out(lm, &cfg);
+	}
+
+	spin_unlock_irqrestore(&sde_crtc->lm_lock, flags);
 }
 
 struct plane_state {
