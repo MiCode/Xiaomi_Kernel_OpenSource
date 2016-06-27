@@ -19,6 +19,7 @@
 #include <linux/syscore_ops.h>
 
 #include "sched.h"
+#include "core_ctl.h"
 
 #include <trace/events/sched.h>
 
@@ -1071,6 +1072,8 @@ int sched_set_boost(int enable)
 	if (!old_refcount && boost_refcount)
 		boost_kick_cpus();
 
+	if (boost_refcount <= 1)
+		core_ctl_set_boost(boost_refcount == 1);
 	trace_sched_set_boost(boost_refcount);
 	spin_unlock_irqrestore(&boost_lock, flags);
 
