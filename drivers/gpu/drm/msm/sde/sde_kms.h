@@ -129,6 +129,9 @@ struct sde_plane_state {
 	/* blob properties */
 	struct drm_property_blob *property_blobs[PLANE_PROP_BLOBCOUNT];
 
+	/* dereferenced sync fence pointer */
+	void *sync_fence;
+
 	/* assigned by crtc blender */
 	enum sde_stage stage;
 
