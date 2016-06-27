@@ -9,17 +9,29 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+#include "msm_drv.h"
+#include "sde_hw_mdss.h"
 #include "sde_hw_mdp_util.h"
 
-void sde_hw_reg_write(void  __iomem *base, u32 blk_off, u32 reg_off, u32 val)
+/* using a file static variables for debugfs access */
+static u32 sde_hw_util_log_mask = SDE_DBG_MASK_NONE;
+
+void SDE_REG_WRITE(struct sde_hw_blk_reg_map *c, u32 reg_off, u32 val)
 {
-	writel_relaxed(val, base + blk_off + reg_off);
+	/* don't need to mutex protect this */
+	if (c->log_mask & sde_hw_util_log_mask)
+		DBG("[0x%X] <= 0x%X", c->blk_off + reg_off, val);
+	writel_relaxed(val, c->base_off + c->blk_off + reg_off);
 }
 
-u32 sde_hw_reg_read(void  __iomem *base, u32 blk_off, u32 reg_off)
+int SDE_REG_READ(struct sde_hw_blk_reg_map *c, u32 reg_off)
 {
-	return readl_relaxed(base + blk_off + reg_off);
+	return readl_relaxed(c->base_off + c->blk_off + reg_off);
+}
+
+u32 *sde_hw_util_get_log_mask_ptr(void)
+{
+	return &sde_hw_util_log_mask;
 }
 
 void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,

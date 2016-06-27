@@ -15,8 +15,6 @@
 
 #include "drm_crtc.h"
 
-#define DBG(fmt, ...) DRM_DEBUG(fmt"\n", ##__VA_ARGS__)
-
 #define CRTC_DUAL_MIXERS	2
 #define PENDING_FLIP		2
 /* worst case one frame wait time based on 30 FPS : 33.33ms*/

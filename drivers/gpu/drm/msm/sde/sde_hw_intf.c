@@ -76,6 +76,7 @@ static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 			b->base_off = addr;
 			b->blk_off = m->intf[i].base;
 			b->hwversion = m->hwversion;
+			b->log_mask = SDE_DBG_MASK_INTF;
 			return &m->intf[i];
 		}
 	}

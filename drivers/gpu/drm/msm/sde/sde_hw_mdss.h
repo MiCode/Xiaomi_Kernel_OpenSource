@@ -355,4 +355,17 @@ struct sde_mdss_color {
 	u32 color_3;
 };
 
+/*
+ * Define bit masks for h/w logging.
+ */
+#define SDE_DBG_MASK_NONE     (1 << 0)
+#define SDE_DBG_MASK_CDM      (1 << 1)
+#define SDE_DBG_MASK_DSPP     (1 << 2)
+#define SDE_DBG_MASK_INTF     (1 << 3)
+#define SDE_DBG_MASK_LM       (1 << 4)
+#define SDE_DBG_MASK_CTL      (1 << 5)
+#define SDE_DBG_MASK_PINGPONG (1 << 6)
+#define SDE_DBG_MASK_SSPP     (1 << 7)
+#define SDE_DBG_MASK_WB       (1 << 8)
+
 #endif  /* _SDE_HW_MDSS_H */

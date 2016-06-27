@@ -11,10 +11,14 @@
  */
 
 #include <drm/drm_crtc.h>
+#include <linux/debugfs.h>
+
 #include "msm_drv.h"
 #include "msm_mmu.h"
 #include "sde_kms.h"
+#include "sde_formats.h"
 #include "sde_hw_mdss.h"
+#include "sde_hw_util.h"
 #include "sde_hw_intf.h"
 
 static const char * const iommu_ports[] = {
@@ -31,6 +35,23 @@ static const struct sde_hw_res_map res_table[INTF_MAX] = {
 
 
 #define DEFAULT_MDP_SRC_CLK 300000000
+
+/**
+ * Controls size of event log buffer. Specified as a power of 2.
+ */
+#define SDE_EVTLOG_SIZE	1024
+
+/*
+ * To enable overall DRM driver logging
+ * # echo 0x2 > /sys/module/drm/parameters/debug
+ *
+ * To enable DRM driver h/w logging
+ * # echo <mask> > /sys/kernel/debug/dri/0/hw_log_mask
+ *
+ * See sde_hw_mdss.h for h/w logging mask definitions (search for SDE_DBG_MASK_)
+ */
+#define SDE_DEBUGFS_DIR "msm_sde"
+#define SDE_DEBUGFS_HWMASKNAME "hw_log_mask"
 
 int sde_disable(struct sde_kms *sde_kms)
 {
@@ -56,6 +77,90 @@ int sde_enable(struct sde_kms *sde_kms)
 		clk_prepare_enable(sde_kms->lut_clk);
 
 	return 0;
+}
+
+static int sde_debugfs_show_regset32(struct seq_file *s, void *data)
+{
+	struct sde_debugfs_regset32 *regset = s->private;
+	void __iomem *base;
+	int i;
+
+	base = regset->base + regset->offset;
+
+	for (i = 0; i < regset->blk_len; i += 4)
+		seq_printf(s, "[%x] 0x%08x\n",
+				regset->offset + i, readl_relaxed(base + i));
+
+	return 0;
+}
+
+static int sde_debugfs_open_regset32(struct inode *inode, struct file *file)
+{
+	return single_open(file, sde_debugfs_show_regset32, inode->i_private);
+}
+
+static const struct file_operations sde_fops_regset32 = {
+	.open =		sde_debugfs_open_regset32,
+	.read =		seq_read,
+	.llseek =	seq_lseek,
+	.release =	single_release,
+};
+
+void sde_debugfs_setup_regset32(struct sde_debugfs_regset32 *regset,
+		uint32_t offset, uint32_t length, void __iomem *base)
+{
+	if (regset) {
+		regset->offset = offset;
+		regset->blk_len = length;
+		regset->base = base;
+	}
+}
+
+void *sde_debugfs_create_regset32(const char *name, umode_t mode,
+		void *parent, struct sde_debugfs_regset32 *regset)
+{
+	if (!name || !regset || !regset->base || !regset->blk_len)
+		return NULL;
+
+	/* make sure offset is a multiple of 4 */
+	regset->offset = round_down(regset->offset, 4);
+
+	return debugfs_create_file(name, mode, parent,
+			regset, &sde_fops_regset32);
+}
+
+void *sde_debugfs_get_root(struct sde_kms *sde_kms)
+{
+	return sde_kms ? sde_kms->debugfs_root : 0;
+}
+
+static int sde_debugfs_init(struct sde_kms *sde_kms)
+{
+	void *p;
+
+	p = sde_hw_util_get_log_mask_ptr();
+
+	if (!sde_kms || !p)
+		return -EINVAL;
+
+	if (sde_kms->dev && sde_kms->dev->primary)
+		sde_kms->debugfs_root = sde_kms->dev->primary->debugfs_root;
+	else
+		sde_kms->debugfs_root = debugfs_create_dir(SDE_DEBUGFS_DIR, 0);
+
+	/* allow debugfs_root to be NULL */
+	debugfs_create_x32(SDE_DEBUGFS_HWMASKNAME,
+			0644, sde_kms->debugfs_root, p);
+	return 0;
+}
+
+static void sde_debugfs_destroy(struct sde_kms *sde_kms)
+{
+	/* don't need to NULL check debugfs_root */
+	if (sde_kms) {
+		debugfs_remove_recursive(sde_kms->debugfs_root);
+		sde_kms->debugfs_root = 0;
+	}
 }
 
 static void sde_prepare_commit(struct msm_kms *kms,
@@ -104,7 +209,7 @@ static int modeset_init(struct sde_kms *sde_kms)
 
 		plane = sde_plane_init(dev, catalog->sspp[i].id, primary);
 		if (IS_ERR(plane)) {
-			pr_err("%s: sde_plane_init failed", __func__);
+			DRM_ERROR("sde_plane_init failed\n");
 			ret = PTR_ERR(plane);
 			goto fail;
 		}
@@ -175,6 +280,7 @@ static void sde_destroy(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 
+	sde_debugfs_destroy(sde_kms);
 	sde_irq_domain_fini(sde_kms);
 	sde_hw_intr_destroy(sde_kms->hw_intr);
 	kfree(sde_kms);
@@ -191,7 +297,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.wait_for_crtc_commit_done = sde_wait_for_crtc_commit_done,
 	.enable_vblank   = sde_enable_vblank,
 	.disable_vblank  = sde_disable_vblank,
-	.get_format      = mdp_get_format,
+	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_round_pixclk,
 	.preclose        = sde_preclose,
 	.destroy         = sde_destroy,
@@ -204,7 +310,7 @@ static int get_clk(struct platform_device *pdev, struct clk **clkp,
 	struct clk *clk = devm_clk_get(dev, name);
 
 	if (IS_ERR(clk) && mandatory) {
-		dev_err(dev, "failed to get %s (%ld)\n", name, PTR_ERR(clk));
+		DRM_ERROR("failed to get %s (%ld)\n", name, PTR_ERR(clk));
 		return PTR_ERR(clk);
 	}
 	if (IS_ERR(clk))
@@ -234,7 +340,7 @@ struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 		ret = PTR_ERR(sde_kms->mmio);
 		goto fail;
 	}
-	pr_err("Mapped Mdp address space @%pK", sde_kms->mmio);
+	DRM_INFO("Mapped Mdp address space @%pK\n", sde_kms->mmio);
 
 	sde_kms->vbif = msm_ioremap(pdev, "vbif_phys", "VBIF");
 	if (IS_ERR(sde_kms->vbif)) {
@@ -245,14 +351,14 @@ struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 	sde_kms->venus = devm_regulator_get_optional(&pdev->dev, "gdsc-venus");
 	if (IS_ERR(sde_kms->venus)) {
 		ret = PTR_ERR(sde_kms->venus);
-		DBG("failed to get Venus GDSC regulator: %d\n", ret);
+		DBG("failed to get Venus GDSC regulator: %d", ret);
 		sde_kms->venus = NULL;
 	}
 
 	if (sde_kms->venus) {
 		ret = regulator_enable(sde_kms->venus);
 		if (ret) {
-			DBG("failed to enable venus GDSC: %d\n", ret);
+			DBG("failed to enable venus GDSC: %d", ret);
 			goto fail;
 		}
 	}
@@ -265,14 +371,14 @@ struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 
 	ret = regulator_enable(sde_kms->vdd);
 	if (ret) {
-		DBG("failed to enable regulator vdd: %d\n", ret);
+		DBG("failed to enable regulator vdd: %d", ret);
 		goto fail;
 	}
 
 	sde_kms->mmagic = devm_regulator_get_optional(&pdev->dev, "mmagic");
 	if (IS_ERR(sde_kms->mmagic)) {
 		ret = PTR_ERR(sde_kms->mmagic);
-		DBG("failed to get mmagic GDSC regulator: %d\n", ret);
+		DBG("failed to get mmagic GDSC regulator: %d", ret);
 		sde_kms->mmagic = NULL;
 	}
 
@@ -301,15 +407,14 @@ struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 	if (sde_kms->mmagic) {
 		ret = regulator_enable(sde_kms->mmagic);
 		if (ret) {
-			dev_err(sde_kms->dev->dev,
-				"failed to enable mmagic GDSC: %d\n", ret);
+			DRM_ERROR("failed to enable mmagic GDSC: %d\n", ret);
 			goto fail;
 		}
 	}
 	if (sde_kms->mmagic_clk) {
 		clk_prepare_enable(sde_kms->mmagic_clk);
 		if (ret) {
-			dev_err(sde_kms->dev->dev, "failed to enable mmagic_clk\n");
+			DRM_ERROR("failed to enable mmagic_clk\n");
 			goto undo_gdsc;
 		}
 	}
@@ -328,14 +433,13 @@ fail:
 
 static int sde_translation_ctrl_pwr(struct sde_kms *sde_kms, bool on)
 {
-	struct device *dev = sde_kms->dev->dev;
 	int ret;
 
 	if (on) {
 		if (sde_kms->iommu_clk) {
 			ret = clk_prepare_enable(sde_kms->iommu_clk);
 			if (ret) {
-				dev_err(dev, "failed to enable iommu_clk\n");
+				DRM_ERROR("failed to enable iommu_clk\n");
 				goto undo_mmagic_clk;
 			}
 		}
@@ -388,16 +492,14 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 		mmu = msm_smmu_new(sde_kms->dev->dev, MSM_SMMU_DOMAIN_UNSECURE);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
-			dev_err(sde_kms->dev->dev,
-				"failed to init iommu: %d\n", ret);
+			DRM_ERROR("failed to init iommu: %d\n", ret);
 			iommu_domain_free(iommu);
 			goto fail;
 		}
 
 		ret = sde_translation_ctrl_pwr(sde_kms, true);
 		if (ret) {
-			dev_err(sde_kms->dev->dev,
-				"failed to power iommu: %d\n", ret);
+			DRM_ERROR("failed to power iommu: %d\n", ret);
 			mmu->funcs->destroy(mmu);
 			goto fail;
 		}
@@ -405,8 +507,7 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
-			dev_err(sde_kms->dev->dev,
-				"failed to attach iommu: %d\n", ret);
+			DRM_ERROR("failed to attach iommu: %d\n", ret);
 			mmu->funcs->destroy(mmu);
 			goto fail;
 		}
@@ -420,8 +521,7 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 	sde_kms->mmu_id = msm_register_mmu(sde_kms->dev, mmu);
 	if (sde_kms->mmu_id < 0) {
 		ret = sde_kms->mmu_id;
-		dev_err(sde_kms->dev->dev,
-			"failed to register sde iommu: %d\n", ret);
+		DRM_ERROR("failed to register sde iommu: %d\n", ret);
 		goto fail;
 	}
 
@@ -433,6 +533,7 @@ fail:
 
 struct msm_kms *sde_kms_init(struct drm_device *dev)
 {
+	struct msm_drm_private *priv = dev->dev_private;
 	struct platform_device *pdev = dev->platformdev;
 	struct sde_mdss_cfg *catalog;
 	struct sde_kms *sde_kms;
@@ -472,6 +573,15 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 * clocks, regulators, GDSC/MMAGIC, ioremap the register ranges etc
 	 */
 	sde_mmu_init(sde_kms);
+
+	/*
+	 * NOTE: Calling sde_debugfs_init here so that the drm_minor device for
+	 *       'primary' is already created.
+	 */
+	sde_debugfs_init(sde_kms);
+	msm_evtlog_init(&priv->evtlog, SDE_EVTLOG_SIZE,
+			sde_debugfs_get_root(sde_kms));
+	MSM_EVT(dev, 0, 0);
 
 	/*
 	 * modeset_init should create the DRM related objects i.e. CRTCs,

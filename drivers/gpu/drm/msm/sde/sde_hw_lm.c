@@ -37,6 +37,7 @@ static struct sde_lm_cfg *_lm_offset(enum sde_lm mixer,
 			b->base_off = addr;
 			b->blk_off = m->mixer[i].base;
 			b->hwversion = m->hwversion;
+			b->log_mask = SDE_DBG_MASK_LM;
 			return &m->mixer[i];
 		}
 	}
