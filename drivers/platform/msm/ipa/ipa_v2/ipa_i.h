@@ -1907,7 +1907,7 @@ int ipa2_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa2_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 u32 ipa_get_num_pipes(void);
-u32 ipa_get_sys_yellow_wm(void);
+u32 ipa_get_sys_yellow_wm(struct ipa_sys_context *sys);
 struct ipa_smmu_cb_ctx *ipa2_get_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa2_get_wlan_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa2_get_uc_smmu_ctx(void);
