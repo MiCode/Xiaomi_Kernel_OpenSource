@@ -1446,7 +1446,6 @@
 	devfreq_spdm_gov {
 		compatible = "qcom,gov_spdm_hyp";
 		interrupt-names = "spdm-irq";
-		interrupt-edge;
-		interrupts = <0 192 0>;
+		interrupts = <0 192 IRQ_TYPE_EDGE_RISING>;
 	};
 };
