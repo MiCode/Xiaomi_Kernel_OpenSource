@@ -879,6 +879,13 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 			c->ops.setup_pa_cont = sde_setup_pipe_pa_cont_v1_7;
 		}
 	}
+
+	if (test_bit(SDE_SSPP_MEMCOLOR, &features)) {
+		if (c->cap->sblk->memcolor_blk.version ==
+			(SDE_COLOR_PROCESS_VER(0x1, 0x7)))
+			c->ops.setup_pa_memcolor =
+				sde_setup_pipe_pa_memcol_v1_7;
+	}
 }
 
 static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,

@@ -43,4 +43,14 @@ void sde_setup_pipe_pa_val_v1_7(struct sde_hw_pipe *ctx, void *cfg);
  */
 void sde_setup_pipe_pa_cont_v1_7(struct sde_hw_pipe *ctx, void *cfg);
 
+/**
+ * sde_setup_pipe_pa_memcol_v1_7 - setup SSPP memory color in v1.7 hardware
+ * @ctx: Pointer to pipe context
+ * @type: Memory color type (Skin, sky, or foliage)
+ * @cfg: Pointer to memory color config data
+ */
+void sde_setup_pipe_pa_memcol_v1_7(struct sde_hw_pipe *ctx,
+				   enum sde_memcolor_type type,
+				   void *cfg);
+
 #endif
