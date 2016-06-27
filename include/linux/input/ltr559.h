@@ -1,7 +1,6 @@
 /* Lite-On LTR-559ALS Linux Driver
 *
 * Copyright (C) 2011 Lite-On Technology Corp (Singapore)
-* Copyright (C) 2016 XiaoMi, Inc.
 *
 * This program is distributed in the hope that it will be useful, but
 * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,6 +18,7 @@ struct ltr559_platform_data {
 
 	unsigned int int_gpio;
 	unsigned int irq_gpio_flags;
+	unsigned int prox_default_noise;
 };
 
 /* POWER SUPPLY VOLTAGE RANGE */
@@ -26,9 +26,6 @@ struct ltr559_platform_data {
 #define LTR559_VDD_MAX_UV  3300000
 #define LTR559_VIO_MIN_UV  1750000
 #define LTR559_VIO_MAX_UV  1950000
-/*calibration*/
-#define FAR_THRES_DATA		10
-#define NEAR_THRES_DATA  	25
 
 /* LTR-559 Registers */
 #define LTR559_ALS_CONTR		0x80
@@ -82,19 +79,6 @@ struct ltr559_platform_data {
 
 /* Power On response time in ms */
 #define PON_DELAY			600
-#define WAKEUP_DELAY			30
-
-/*
- * This value is used when psensor is requested on demand and should be cleared
- * once the state is read by the requestor
- */
-enum {
-	LTR559_ON_DEMAND_RESET,
-	LTR559_ON_DEMAND_COVERED,
-	LTR559_ON_DEMAND_UNCOVERED,
-	LTR559_ON_DEMAND_LAST,
-};
-
-#define LTR559_ON_DEMAND_DISTANCE_THRESHOLD 2
+#define WAKEUP_DELAY			10
 
 #endif
