@@ -268,4 +268,40 @@
 			"smem_targ_info_reg";
 		qcom,mpu-enabled;
 	};
+
+	glink_mpss: qcom,glink-ssr-modem {
+		compatible = "qcom,glink_ssr";
+		label = "modem";
+		qcom,edge = "mpss";
+		qcom,notify-edges = <&glink_lpass>, <&glink_rpm>,
+				<&glink_cdsp>;
+		qcom,xprt = "smem";
+	};
+
+	glink_lpass: qcom,glink-ssr-adsp {
+		compatible = "qcom,glink_ssr";
+		label = "adsp";
+		qcom,edge = "lpass";
+		qcom,notify-edges = <&glink_mpss>, <&glink_rpm>,
+				<&glink_cdsp>;
+		qcom,xprt = "smem";
+	};
+
+	glink_rpm: qcom,glink-ssr-rpm {
+		compatible = "qcom,glink_ssr";
+		label = "rpm";
+		qcom,edge = "rpm";
+		qcom,notify-edges = <&glink_lpass>, <&glink_mpss>,
+				<&glink_cdsp>;
+		qcom,xprt = "smem";
+	};
+
+	glink_cdsp: qcom,glink-ssr-cdsp {
+		compatible = "qcom,glink_ssr";
+		label = "cdsp";
+		qcom,edge = "cdsp";
+		qcom,notify-edges = <&glink_lpass>, <&glink_mpss>,
+				<&glink_rpm>;
+		qcom,xprt = "smem";
+	};
 };
