@@ -313,10 +313,10 @@
 		pinctrl-0 = <&ltr559_default>;
 		pinctrl-1 = <&ltr559_sleep>;
 		interrupt-parent = <&msm_gpio>;
-		interrupts = <113 0x2>;
+		interrupts = <113 0x2002>;
 		vdd-supply = <&pm8916_l17>;
 		vio-supply = <&pm8916_l6>;
-		ltr,irq-gpio = <&msm_gpio 113 0x2>;
+		ltr,irq-gpio = <&msm_gpio 113 0x2002>;
 		ltr,ps-threshold = <45>;
 		ltr,ps-hysteresis-threshold = <30>;
 		ltr,als-polling-time = <200>;
