@@ -17,7 +17,8 @@
 #include "msm_kms.h"
 #include "mdp/mdp_kms.h"
 #include "sde_hw_catalog.h"
-#include "sde_hw_mdss.h"
+#include "sde_hw_mdp_ctl.h"
+#include "sde_hw_lm.h"
 #include "sde_hw_interrupts.h"
 
 /*
@@ -40,6 +41,38 @@ struct sde_irq {
 	u32 total_irqs;
 	struct sde_irq_callback *irq_cb_tbl;
 	spinlock_t cb_lock;
+};
+
+/**
+ *  struct sde_hw_res_map : Default resource table identifying default
+ *             hw resource map. Primarily used for forcing DSI to use CTL_0/1
+ *             and Pingpong 0/1, if the field is set to SDE_NONE means any HW
+ *             intstance for that tpye is allowed as long as it is unused.
+ */
+struct sde_hw_res_map {
+	enum sde_intf intf;
+	enum sde_lm lm;
+	enum sde_pingpong pp;
+	enum sde_ctl ctl;
+};
+
+/* struct sde_hw_resource_manager : Resource mananger maintains the current
+ *                                  platform configuration and manages shared
+ *                                  hw resources ex:ctl_path hw driver context
+ *                                  is needed by CRTCs/PLANEs/ENCODERs
+ * @ctl        : table of control path hw driver contexts allocated
+ * @mixer      : list of mixer hw drivers contexts allocated
+ * @intr       : pointer to hw interrupt context
+ * @res_table  : pointer to default hw_res table for this platform
+ * @feature_map :BIT map for default enabled features ex:specifies if PP_SPLIT
+ *               is enabled/disabled by defalt for this platform
+ */
+struct sde_hw_resource_manager {
+	struct sde_hw_ctl *ctl[CTL_MAX];
+	struct sde_hw_mixer *mixer[LM_MAX];
+	struct sde_hw_intr *intr;
+	const struct sde_hw_res_map *res_table;
+	bool feature_map;
 };
 
 struct sde_kms {
@@ -74,6 +107,7 @@ struct sde_kms {
 
 	struct sde_hw_intr *hw_intr;
 	struct sde_irq irq_obj;
+	struct sde_hw_resource_manager hw_res;
 };
 
 struct vsync_info {
@@ -107,6 +141,36 @@ struct sde_plane_state {
 
 int sde_disable(struct sde_kms *sde_kms);
 int sde_enable(struct sde_kms *sde_kms);
+
+/**
+ * HW resource manager functions
+ * @sde_rm_acquire_ctl_path : Allocates control path
+ * @sde_rm_get_ctl_path     : returns control path driver context for already
+ *                           acquired ctl path
+ * @sde_rm_release_ctl_path : Frees control path driver context
+ * @sde_rm_acquire_mixer   : Allocates mixer hw driver context
+ * @sde_rm_get_mixer       : returns mixer context for already
+ *                           acquired mixer
+ * @sde_rm_release_mixer   : Frees mixer hw driver context
+ * @sde_rm_get_hw_res_map  : Returns map for the passed INTF
+ */
+struct sde_hw_ctl *sde_rm_acquire_ctl_path(struct sde_kms *sde_kms,
+		enum sde_ctl idx);
+struct sde_hw_ctl *sde_rm_get_ctl_path(struct sde_kms *sde_kms,
+		enum sde_ctl idx);
+void sde_rm_release_ctl_path(struct sde_kms *sde_kms,
+		enum sde_ctl idx);
+struct sde_hw_mixer *sde_rm_acquire_mixer(struct sde_kms *sde_kms,
+		enum sde_lm idx);
+struct sde_hw_mixer *sde_rm_get_mixer(struct sde_kms *sde_kms,
+		enum sde_lm idx);
+void sde_rm_release_mixer(struct sde_kms *sde_kms,
+		enum sde_lm idx);
+struct sde_hw_intr *sde_rm_acquire_intr(struct sde_kms *sde_kms);
+struct sde_hw_intr *sde_rm_get_intr(struct sde_kms *sde_kms);
+
+const struct sde_hw_res_map *sde_rm_get_res_map(struct sde_kms *sde_kms,
+		enum sde_intf idx);
 
 /**
  * IRQ functions
@@ -200,31 +264,41 @@ void sde_disable_all_irqs(struct sde_kms *sde_kms);
 int sde_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
 void sde_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
 
+/**
+ * Plane functions
+ */
 enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
 struct drm_plane *sde_plane_init(struct drm_device *dev, uint32_t pipe,
 		bool private_plane);
 
+/**
+ * CRTC functions
+ */
 uint32_t sde_crtc_vblank(struct drm_crtc *crtc);
-
+void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc);
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
-void sde_crtc_attach(struct drm_crtc *crtc, struct drm_plane *plane);
-void sde_crtc_detach(struct drm_crtc *crtc, struct drm_plane *plane);
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 		struct drm_encoder *encoder,
 		struct drm_plane *plane, int id);
 
+/**
+ * Encoder functions and data types
+ */
 struct sde_encoder_hw_resources {
-	bool intfs[INTF_MAX];
+	enum sde_intf_mode intfs[INTF_MAX];
 	bool pingpongs[PINGPONG_MAX];
+	bool ctls[CTL_MAX];
+	bool pingpongsplit;
 };
+
 void sde_encoder_get_hw_resources(struct drm_encoder *encoder,
 		struct sde_encoder_hw_resources *hw_res);
 void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 		void (*cb)(void *), void *data);
 void sde_encoders_init(struct drm_device *dev);
+void sde_encoder_get_vsync_info(struct drm_encoder *encoder,
+		struct vsync_info *vsync);
 
 
-int sde_irq_domain_init(struct sde_kms *sde_kms);
-int sde_irq_domain_fini(struct sde_kms *sde_kms);
 
 #endif /* __sde_kms_H__ */

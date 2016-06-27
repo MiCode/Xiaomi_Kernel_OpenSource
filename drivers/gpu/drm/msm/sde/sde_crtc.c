@@ -19,40 +19,11 @@
 #include "sde_kms.h"
 #include "sde_hw_lm.h"
 #include "sde_hw_mdp_ctl.h"
+#include "sde_crtc.h"
 
-#define CRTC_DUAL_MIXERS	2
-#define PENDING_FLIP		2
-
-#define CRTC_HW_MIXER_MAXSTAGES(c, idx) ((c)->mixer[idx].sblk->maxblendstages)
-
-struct sde_crtc_mixer {
-	struct sde_hw_dspp  *hw_dspp;
-	struct sde_hw_mixer *hw_lm;
-	struct sde_hw_ctl   *hw_ctl;
-	u32 flush_mask;
-};
-
-struct sde_crtc {
-	struct drm_crtc base;
-	char name[8];
-	struct drm_plane *plane;
-	struct drm_plane *planes[8];
-	struct drm_encoder *encoder;
-	int id;
-	bool enabled;
-
-	spinlock_t lm_lock;	/* protect registers */
-
-	/* HW Resources reserved for the crtc */
-	u32  num_ctls;
-	u32  num_mixers;
-	struct sde_crtc_mixer mixer[CRTC_DUAL_MIXERS];
-
-	/*if there is a pending flip, these will be non-null */
-	struct drm_pending_vblank_event *event;
-};
-
-#define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
+#define CTL(i)       (CTL_0 + (i))
+#define LM(i)        (LM_0  + (i))
+#define INTF(i)      (INTF_0 + (i))
 
 static struct sde_kms *get_kms(struct drm_crtc *crtc)
 {
@@ -60,89 +31,91 @@ static struct sde_kms *get_kms(struct drm_crtc *crtc)
 	return to_sde_kms(priv->kms);
 }
 
-static inline struct sde_hw_ctl *sde_crtc_rm_get_ctl_path(enum sde_ctl idx,
-		void __iomem *addr,
-		struct sde_mdss_cfg *m)
-{
-	/*
-	 * This module keeps track of the requested hw resources state,
-	 * if the requested resource is being used it returns NULL,
-	 * otherwise it returns the hw driver struct
-	 */
-	return sde_hw_ctl_init(idx, addr, m);
-}
-
-static inline struct sde_hw_mixer *sde_crtc_rm_get_mixer(enum sde_lm idx,
-		void __iomem *addr,
-		struct sde_mdss_cfg *m)
-{
-	/*
-	 * This module keeps track of the requested hw resources state,
-	 * if the requested resource is being used it returns NULL,
-	 * otherwise it returns the hw driver struct
-	 */
-	return sde_hw_lm_init(idx, addr, m);
-}
-
 static int sde_crtc_reserve_hw_resources(struct drm_crtc *crtc,
 		struct drm_encoder *encoder)
 {
-	/*
-	 * Assign CRTC resources
-	 * num_ctls;
-	 * num_mixers;
-	 * sde_lm mixer[CRTC_MAX_PIPES];
-	 * sde_ctl ctl[CRTC_MAX_PIPES];
-	 */
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_kms *kms = get_kms(crtc);
-	enum sde_lm lm_id[CRTC_DUAL_MIXERS];
-	enum sde_ctl ctl_id[CRTC_DUAL_MIXERS];
-	int i;
+	struct sde_kms *sde_kms = get_kms(crtc);
+	struct sde_encoder_hw_resources enc_hw_res;
+	const struct sde_hw_res_map *plat_hw_res_map;
+	enum sde_lm unused_lm_id[CRTC_DUAL_MIXERS] = {0};
+	enum sde_lm lm_idx;
+	int i, count = 0;
 
-	if (!kms) {
-		DBG("[%s] invalid kms\n", __func__);
+	if (!sde_kms) {
+		DBG("[%s] invalid kms", __func__);
 		return -EINVAL;
 	}
 
-	if (!kms->mmio)
+	if (!sde_kms->mmio)
 		return -EINVAL;
 
-	/*
-	 * simple check validate against catalog
-	 */
-	sde_crtc->num_ctls = 1;
-	sde_crtc->num_mixers = 1;
-	ctl_id[0] = CTL_0;
-	lm_id[0] = LM_0;
-
-	/*
-	 * need to also enable MDP core clock and AHB CLK
-	 * before touching HW driver
-	 */
-	DBG("%s Enable clocks\n", __func__);
-	sde_enable(kms);
-	for (i = 0; i < sde_crtc->num_ctls; i++) {
-		sde_crtc->mixer[i].hw_ctl = sde_crtc_rm_get_ctl_path(ctl_id[i],
-				kms->mmio, kms->catalog);
-		if (!sde_crtc->mixer[i].hw_ctl) {
-			DBG("[%s], Invalid ctl_path", __func__);
-			return -EACCES;
+	/* Get unused LMs */
+	for (i = 0; i < sde_kms->catalog->mixer_count; i++) {
+		if (!sde_rm_get_mixer(sde_kms, LM(i))) {
+			unused_lm_id[count++] = LM(i);
+			if (count == CRTC_DUAL_MIXERS)
+				break;
 		}
 	}
 
-	for (i = 0; i < sde_crtc->num_mixers; i++) {
-		sde_crtc->mixer[i].hw_lm = sde_crtc_rm_get_mixer(lm_id[i],
-				kms->mmio, kms->catalog);
-		if (!sde_crtc->mixer[i].hw_lm) {
-			DBG("[%s], Invalid ctl_path", __func__);
-			return -EACCES;
+	/* query encoder resources */
+	sde_encoder_get_hw_resources(sde_crtc->encoder, &enc_hw_res);
+
+	/* parse encoder hw resources, find CTL paths */
+	for (i = CTL_0; i <= sde_kms->catalog->ctl_count; i++) {
+		WARN_ON(sde_crtc->num_ctls > CRTC_DUAL_MIXERS);
+		if (enc_hw_res.ctls[i]) {
+			struct sde_crtc_mixer *mixer  =
+				&sde_crtc->mixer[sde_crtc->num_ctls];
+			mixer->hw_ctl = sde_rm_get_ctl_path(sde_kms, i);
+			if (IS_ERR_OR_NULL(mixer->hw_ctl)) {
+				DBG("[%s], Invalid ctl_path", __func__);
+				return -EACCES;
+			}
+			sde_crtc->num_ctls++;
 		}
 	}
+
+	/* shortcut this process if encoder has no ctl paths */
+	if (!sde_crtc->num_ctls)
+		return 0;
+
 	/*
-	 * need to disable MDP core clock and AHB CLK
+	 * Get default LMs if specified in platform config
+	 * other wise acquire the free LMs
 	 */
-	sde_disable(kms);
+	for (i = INTF_0; i <= sde_kms->catalog->intf_count; i++) {
+		if (enc_hw_res.intfs[i]) {
+			struct sde_crtc_mixer *mixer  =
+				&sde_crtc->mixer[sde_crtc->num_mixers];
+			plat_hw_res_map = sde_rm_get_res_map(sde_kms, i);
+
+			lm_idx = plat_hw_res_map->lm;
+			if (!lm_idx)
+				lm_idx = unused_lm_id[sde_crtc->num_mixers];
+
+			DBG("Acquiring LM %d", lm_idx);
+			mixer->hw_lm = sde_rm_acquire_mixer(sde_kms, lm_idx);
+			if (IS_ERR_OR_NULL(mixer->hw_lm)) {
+				DBG("[%s], Invalid mixer", __func__);
+				return -EACCES;
+			}
+			/* interface info */
+			mixer->intf_idx = i;
+			mixer->mode = enc_hw_res.intfs[i];
+			sde_crtc->num_mixers++;
+		}
+	}
+
+	DBG("control paths %d, num_mixers %d, lm[0] %d, ctl[0] %d ",
+			sde_crtc->num_ctls, sde_crtc->num_mixers,
+			sde_crtc->mixer[0].hw_lm->idx,
+			sde_crtc->mixer[0].hw_ctl->idx);
+	if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
+		DBG("lm[1] %d, ctl[1], %d",
+			sde_crtc->mixer[1].hw_lm->idx,
+			sde_crtc->mixer[1].hw_ctl->idx);
 	return 0;
 }
 
@@ -278,6 +251,7 @@ static void blend_setup(struct drm_crtc *crtc)
 	unsigned long flags;
 	int i, j, plane_cnt = 0;
 
+	DBG("");
 	spin_lock_irqsave(&sde_crtc->lm_lock, flags);
 
 	/* ctl could be reserved already */
@@ -353,10 +327,104 @@ out:
 	spin_unlock_irqrestore(&sde_crtc->lm_lock, flags);
 }
 
+/* if file!=NULL, this is preclose potential cancel-flip path */
+static void complete_flip(struct drm_crtc *crtc, struct drm_file *file)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct drm_device *dev = crtc->dev;
+	struct drm_pending_vblank_event *event;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+	event = sde_crtc->event;
+	if (event) {
+		/* if regular vblank case (!file) or if cancel-flip from
+		 * preclose on file that requested flip, then send the
+		 * event:
+		 */
+		if (!file || (event->base.file_priv == file)) {
+			sde_crtc->event = NULL;
+			DBG("%s: send event: %pK", sde_crtc->name, event);
+			drm_send_vblank_event(dev, sde_crtc->id, event);
+		}
+	}
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+}
+
+static void sde_crtc_vblank_cb(void *data)
+{
+	struct drm_crtc *crtc = (struct drm_crtc *)data;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	unsigned pending;
+
+	/* unregister callback */
+	sde_encoder_register_vblank_callback(sde_crtc->encoder, NULL, NULL);
+
+	pending = atomic_xchg(&sde_crtc->pending, 0);
+
+	if (pending & PENDING_FLIP)
+		complete_flip(crtc, NULL);
+}
+
+static int frame_flushed(struct sde_crtc *sde_crtc)
+{
+	struct vsync_info vsync;
+
+	/* encoder get vsync_info */
+	/* if frame_count does not match frame is flushed */
+	sde_encoder_get_vsync_info(sde_crtc->encoder, &vsync);
+
+	return (vsync.frame_count & sde_crtc->vsync_count);
+
+}
+
+void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	u32 pending;
+	int i, ret;
+
+	/* ref count the vblank event */
+	ret = drm_crtc_vblank_get(crtc);
+	if (ret)
+		return;
+
+	/* register callback */
+	sde_encoder_register_vblank_callback(sde_crtc->encoder,
+			sde_crtc_vblank_cb,
+			(void *)crtc);
+
+	/* wait */
+	pending = atomic_read(&sde_crtc->pending);
+	if (pending & PENDING_FLIP) {
+		wait_event_timeout(dev->vblank[drm_crtc_index(crtc)].queue,
+				(frame_flushed(sde_crtc) != 0),
+				msecs_to_jiffies(CRTC_MAX_WAIT_ONE_FRAME));
+		if (ret <= 0)
+			dev_warn(dev->dev, "vblank time out, crtc=%d\n",
+					sde_crtc->id);
+	}
+
+	for (i = 0; i < sde_crtc->num_ctls; i++)
+		sde_crtc->mixer[i].flush_mask = 0;
+
+	/* release */
+	drm_crtc_vblank_put(crtc);
+}
+
 static void request_pending(struct drm_crtc *crtc, u32 pending)
 {
-	DBG("");
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct vsync_info vsync;
+
+	/* request vsync info, cache the current frame count */
+	sde_encoder_get_vsync_info(sde_crtc->encoder, &vsync);
+	sde_crtc->vsync_count = vsync.frame_count;
+
+	atomic_or(pending, &sde_crtc->pending);
 }
+
 /**
  * Flush the CTL PATH
  */
@@ -369,14 +437,12 @@ static u32 crtc_flush_all(struct drm_crtc *crtc)
 	DBG("");
 
 	for (i = 0; i < sde_crtc->num_ctls; i++) {
-		/*
-		 * Query flush_mask from encoder
-		 * and append to the ctl_path flush_mask
-		 */
 		ctl = sde_crtc->mixer[i].hw_ctl;
 		ctl->ops.get_bitmask_intf(ctl,
 				&(sde_crtc->mixer[i].flush_mask),
-				INTF_1);
+				sde_crtc->mixer[i].intf_idx);
+		DBG("Flushing CTL_ID %d, flush_mask %x", ctl->idx,
+				sde_crtc->mixer[i].flush_mask);
 		ctl->ops.setup_flush(ctl,
 				sde_crtc->mixer[i].flush_mask);
 	}
@@ -425,7 +491,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	unsigned long flags;
 
-	DBG("");
+	DBG("%s: event: %pK", sde_crtc->name, crtc->state->event);
 
 	WARN_ON(sde_crtc->event);
 
@@ -605,6 +671,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 		return ERR_PTR(-EINVAL);
 	 }
 
-	DBG("%s: Successfully initialized crtc\n", __func__);
+	DBG("%s: Successfully initialized crtc", __func__);
 	return crtc;
 }

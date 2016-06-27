@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,7 +8,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
 #include "msm_drv.h"
@@ -19,6 +17,7 @@
 
 #include "sde_encoder_phys.h"
 #include "sde_mdp_formats.h"
+#include "sde_hw_mdp_top.h"
 
 #define VBLANK_TIMEOUT msecs_to_jiffies(100)
 
@@ -232,14 +231,26 @@ static void sde_encoder_phys_vid_flush_intf(struct sde_encoder_phys *phys_enc)
 			ctl->idx, flush_mask, intf->idx);
 }
 
-static void sde_encoder_phys_vid_mode_set(
-		struct sde_encoder_phys *phys_enc,
-		struct drm_display_mode *mode,
-		struct drm_display_mode *adj_mode)
+static void sde_encoder_phys_vid_mode_set(struct sde_encoder_phys *phys_enc,
+					  struct drm_display_mode *mode,
+					  struct drm_display_mode
+					  *adjusted_mode,
+					  bool splitmode)
 {
-	phys_enc->cached_mode = *adj_mode;
-	DBG("intf %d, caching mode:", phys_enc->hw_intf->idx);
-	drm_mode_debug_printmodeline(adj_mode);
+	mode = adjusted_mode;
+	phys_enc->cached_mode = *adjusted_mode;
+	if (splitmode) {
+		phys_enc->cached_mode.hdisplay >>= 1;
+		phys_enc->cached_mode.htotal >>= 1;
+		phys_enc->cached_mode.hsync_start >>= 1;
+		phys_enc->cached_mode.hsync_end >>= 1;
+	}
+
+	DBG("set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
+	    mode->base.id, mode->name, mode->vrefresh, mode->clock,
+	    mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
+	    mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
+	    mode->type, mode->flags);
 }
 
 static void sde_encoder_phys_vid_setup_timing_engine(
@@ -428,8 +439,57 @@ static void sde_encoder_phys_vid_get_hw_resources(
 		struct sde_encoder_phys *phys_enc,
 		struct sde_encoder_hw_resources *hw_res)
 {
+	struct msm_drm_private *priv = phys_enc->parent->dev->dev_private;
+	struct sde_kms *sde_kms = to_sde_kms(priv->kms);
+	const struct sde_hw_res_map *hw_res_map;
+
+	DBG("Intf %d\n", phys_enc->hw_intf->idx);
+
+	hw_res->intfs[phys_enc->hw_intf->idx] = INTF_MODE_VIDEO;
+	/*
+	 * defaults should not be in use,
+	 * otherwise signal/return failure
+	 */
+	hw_res_map = sde_rm_get_res_map(sde_kms, phys_enc->hw_intf->idx);
+
+	/* This is video mode panel so PINGPONG will be in by-pass mode
+	 * only assign ctl path.For cmd panel check if pp_split is
+	 * enabled, override default map
+	 */
+	hw_res->ctls[hw_res_map->ctl] = true;
+}
+
+/**
+  * video mode will use the intf (get_status)
+  * cmd mode will use the pingpong (get_vsync_info)
+  * to get this information
+  */
+static void sde_encoder_intf_get_vsync_info(struct sde_encoder_phys *phys_enc,
+		struct vsync_info *vsync)
+{
+	struct intf_status status;
+
 	DBG("");
-	hw_res->intfs[phys_enc->hw_intf->idx] = true;
+	phys_enc->hw_intf->ops.get_status(phys_enc->hw_intf, &status);
+	vsync->frame_count = status.frame_count;
+	vsync->line_count = status.line_count;
+	DBG(" sde_encoder_intf_get_vsync_info, count  %d", vsync->frame_count);
+}
+
+static void sde_encoder_intf_split_config(struct sde_encoder_phys *phys_enc,
+		bool enable)
+{
+	struct msm_drm_private *priv = phys_enc->parent->dev->dev_private;
+	struct sde_kms *sde_kms = to_sde_kms(priv->kms);
+	struct sde_hw_mdp *mdp = sde_hw_mdptop_init(MDP_TOP, sde_kms->mmio,
+			sde_kms->catalog);
+	struct split_pipe_cfg cfg;
+
+	DBG("%p", mdp);
+	cfg.en = true;
+	cfg.mode = INTF_MODE_VIDEO;
+	if (!IS_ERR_OR_NULL(mdp))
+		mdp->ops.setup_split_pipe(mdp, &cfg);
 }
 
 static void sde_encoder_phys_vid_init_cbs(struct sde_encoder_phys_ops *ops)
@@ -440,6 +500,8 @@ static void sde_encoder_phys_vid_init_cbs(struct sde_encoder_phys_ops *ops)
 	ops->disable = sde_encoder_phys_vid_disable;
 	ops->destroy = sde_encoder_phys_vid_destroy;
 	ops->get_hw_resources = sde_encoder_phys_vid_get_hw_resources;
+	ops->get_vsync_info = sde_encoder_intf_get_vsync_info;
+	ops->enable_split_config = sde_encoder_intf_split_config;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(
@@ -472,8 +534,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 		goto fail;
 	}
 
-	phys_enc->hw_ctl = sde_hw_ctl_init(ctl_idx, sde_kms->mmio,
-					   sde_kms->catalog);
+	phys_enc->hw_ctl = sde_rm_acquire_ctl_path(sde_kms, ctl_idx);
 	if (!phys_enc->hw_ctl) {
 		ret = -ENOMEM;
 		goto fail;
