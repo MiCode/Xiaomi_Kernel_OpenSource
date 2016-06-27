@@ -1,5 +1,6 @@
 ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
+ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
 
 msm-y := \
 	adreno/adreno_device.o \
@@ -60,6 +61,7 @@ msm-y := \
 	msm_ringbuffer.o
 
 msm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
+msm-$(CONFIG_SYNC) += sde/sde_fence.o
 msm-$(CONFIG_COMMON_CLK) += mdp/mdp4/mdp4_lvds_pll.o
 
 msm-$(CONFIG_DRM_MSM_DSI) += dsi/dsi.o \
