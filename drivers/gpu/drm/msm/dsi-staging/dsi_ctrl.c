@@ -1197,7 +1197,7 @@ static int dsi_ctrl_drv_state_init(struct dsi_ctrl *dsi_ctrl)
 	return rc;
 }
 
-static int dsi_ctrl_intr_deinit(struct dsi_ctrl *dsi_ctrl)
+int dsi_ctrl_intr_deinit(struct dsi_ctrl *dsi_ctrl)
 {
 	struct dsi_ctrl_interrupts *ints = &dsi_ctrl->int_info;
 
