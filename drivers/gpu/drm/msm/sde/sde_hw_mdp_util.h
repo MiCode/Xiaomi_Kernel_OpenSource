@@ -31,22 +31,16 @@ struct sde_hw_blk_reg_map {
 	u32 blk_off;
 	u32 length;
 	u32 hwversion;
+	u32 log_mask;
 };
 
-void sde_hw_reg_write(void __iomem *base, u32 blk_offset, u32 reg, u32 val);
+u32 *sde_hw_util_get_log_mask_ptr(void);
 
-u32 sde_hw_reg_read(void __iomem *base, u32 blk_offset, u32 reg);
+void SDE_REG_WRITE(struct sde_hw_blk_reg_map *c, u32 reg_off, u32 val);
 
-static inline void SDE_REG_WRITE(struct sde_hw_blk_reg_map *c, u32 reg_off,
-		u32 val)
-{
-	sde_hw_reg_write(c->base_off, c->blk_off, reg_off, val);
-}
+int SDE_REG_READ(struct sde_hw_blk_reg_map *c, u32 reg_off);
 
-static inline int SDE_REG_READ(struct sde_hw_blk_reg_map *c, u32 reg_off)
-{
-	return sde_hw_reg_read(c->base_off, c->blk_off, reg_off);
-}
+void *sde_hw_util_get_dir(void);
 
 void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
 		u32 csc_reg_off,

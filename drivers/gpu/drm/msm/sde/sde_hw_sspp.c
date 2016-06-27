@@ -552,6 +552,7 @@ static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,
 				b->base_off = addr;
 				b->blk_off = catalog->sspp[i].base;
 				b->hwversion = catalog->hwversion;
+				b->log_mask = SDE_DBG_MASK_SSPP;
 				return &catalog->sspp[i];
 			}
 		}

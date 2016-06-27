@@ -25,6 +25,10 @@
 #define LM(i)        (LM_0  + (i))
 #define INTF(i)      (INTF_0 + (i))
 
+/* uncomment to enable higher level IRQ msg's */
+/*#define DBG_IRQ      DBG*/
+#define DBG_IRQ(fmt, ...)
+
 static struct sde_kms *get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv = crtc->dev->dev_private;
@@ -369,7 +373,7 @@ static void sde_crtc_vblank_cb(void *data)
 
 	if (sde_crtc->vblank_enable) {
 		drm_handle_vblank(dev, sde_crtc->id);
-		DBG("");
+		DBG_IRQ("");
 	}
 }
 

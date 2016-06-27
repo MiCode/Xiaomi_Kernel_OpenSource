@@ -27,6 +27,7 @@ static struct sde_wb_cfg *_wb_offset(enum sde_wb wb,
 			b->base_off = addr;
 			b->blk_off = m->wb[i].base;
 			b->hwversion = m->hwversion;
+			b->log_mask = SDE_DBG_MASK_WB;
 			return &m->wb[i];
 		}
 	}

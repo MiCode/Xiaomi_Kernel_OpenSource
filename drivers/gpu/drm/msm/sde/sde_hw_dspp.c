@@ -27,6 +27,7 @@ static struct sde_dspp_cfg *_dspp_offset(enum sde_dspp dspp,
 			b->base_off = addr;
 			b->blk_off = m->dspp[i].base;
 			b->hwversion = m->hwversion;
+			b->log_mask = SDE_DBG_MASK_DSPP;
 			return &m->dspp[i];
 		}
 	}

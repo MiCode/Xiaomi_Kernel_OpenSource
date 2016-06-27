@@ -48,6 +48,7 @@ static struct sde_pingpong_cfg *_pingpong_offset(enum sde_pingpong pp,
 			b->base_off = addr;
 			b->blk_off = m->pingpong[i].base;
 			b->hwversion = m->hwversion;
+			b->log_mask = SDE_DBG_MASK_PINGPONG;
 			return &m->pingpong[i];
 		}
 	}
