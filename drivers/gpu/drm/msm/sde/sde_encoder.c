@@ -148,7 +148,7 @@ static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 
 	if (sde_enc->num_phys_encs) {
 		DRM_ERROR("Expected num_phys_encs to be 0 not %d\n",
-			  sde_enc->num_phys_encs);
+				sde_enc->num_phys_encs);
 	}
 
 	drm_encoder_cleanup(drm_enc);
@@ -201,6 +201,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
+	bool splitmode = false;
 
 	DBG("");
 
@@ -211,11 +212,23 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
+	/*
+	 * Panel is driven by two interfaces ,each interface drives half of
+	 * the horizontal
+	 */
+	if (sde_enc->num_phys_encs == 2)
+		splitmode = true;
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-
-		if (phys && phys->phys_ops.mode_set)
-			phys->phys_ops.mode_set(phys, mode, adjusted_mode);
+		if (phys) {
+			phys->phys_ops.mode_set(phys,
+					mode,
+					adjusted_mode,
+					splitmode);
+			if (memcmp(mode, adjusted_mode, sizeof(*mode)) != 0)
+				DRM_ERROR("adjusted modes not supported\n");
+		}
 	}
 }
 
@@ -223,6 +236,7 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
+	bool splitmode = false;
 
 	DBG("");
 
@@ -235,10 +249,19 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 
 	bs_set(sde_enc, 1);
 
+	if (sde_enc->num_phys_encs == 2)
+		splitmode = true;
+
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
 		if (phys && phys->phys_ops.enable)
+
+			/* enable/disable dual interface top config */
+			if (phys->phys_ops.enable_split_config)
+				phys->phys_ops.enable_split_config(phys,
+						splitmode);
 			phys->phys_ops.enable(phys);
 	}
 }
@@ -380,12 +403,10 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		 * h_tile_instance_ids[2] = {0, 1}; DSI0 = left, DSI1 = right
 		 * h_tile_instance_ids[2] = {1, 0}; DSI1 = left, DSI0 = right
 		 */
+		const struct sde_hw_res_map *hw_res_map = NULL;
 		enum sde_intf intf_idx = INTF_MAX;
-		enum sde_ctl ctl_idx = CTL_0;
+		enum sde_ctl ctl_idx = CTL_MAX;
 		u32 controller_id = disp_info->h_tile_instance[i];
-
-		if (intf_type == INTF_HDMI)
-			ctl_idx = CTL_2;
 
 		DBG("h_tile_instance %d = %d", i, controller_id);
 
@@ -395,6 +416,12 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 			DBG("Error: could not get the interface id");
 			ret = -EINVAL;
 		}
+
+		hw_res_map = sde_rm_get_res_map(sde_kms, intf_idx);
+		if (IS_ERR_OR_NULL(hw_res_map))
+			ret = -EINVAL;
+		else
+			ctl_idx = hw_res_map->ctl;
 
 		/* Create both VID and CMD Phys Encoders here */
 		if (!ret)
@@ -459,6 +486,25 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 	sde_enc->kms_vblank_callback = cb;
 	sde_enc->kms_vblank_callback_data = data;
 	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+}
+
+void  sde_encoder_get_vsync_info(struct drm_encoder *drm_enc,
+		struct vsync_info *vsync)
+{
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	struct sde_encoder_phys *phys;
+
+	DBG("");
+
+	if (!vsync) {
+		DRM_ERROR("Invalid pointer");
+		return;
+	}
+
+	/* we get the vsync info from the intf at index 0: master index */
+	phys = sde_enc->phys_encs[0];
+	if (phys)
+		phys->phys_ops.get_vsync_info(phys, vsync);
 }
 
 /* encoders init,
