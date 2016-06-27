@@ -84,6 +84,9 @@ struct sde_kms {
 	struct msm_mmu *mmu;
 	int mmu_id;
 
+	/* directory entry for debugfs */
+	void *debugfs_root;
+
 	/* io/register spaces: */
 	void __iomem *mmio, *vbif;
 
@@ -142,6 +145,79 @@ struct sde_plane_state {
 
 int sde_disable(struct sde_kms *sde_kms);
 int sde_enable(struct sde_kms *sde_kms);
+
+/**
+ * Debugfs functions - extra helper functions for debugfs support
+ *
+ * Main debugfs documentation is located at,
+ *
+ * Documentation/filesystems/debugfs.txt
+ *
+ * @sde_debugfs_setup_regset32: Initialize data for sde_debugfs_create_regset32
+ * @sde_debugfs_create_regset32: Create 32-bit register dump file
+ * @sde_debugfs_get_root: Get root dentry for SDE_KMS's debugfs node
+ */
+
+/**
+ * Companion structure for sde_debugfs_create_regset32. Do not initialize the
+ * members of this structure explicitly; use sde_debugfs_setup_regset32 instead.
+ */
+struct sde_debugfs_regset32 {
+	uint32_t offset;
+	uint32_t blk_len;
+	void __iomem *base;
+};
+
+/**
+ * sde_debugfs_setup_regset32 - Initialize register block definition for debugfs
+ * This function is meant to initialize sde_debugfs_regset32 structures for use
+ * with sde_debugfs_create_regset32.
+ * @regset: opaque register definition structure
+ * @offset: sub-block offset
+ * @length: sub-block length, in bytes
+ * @base: base IOMEM address
+ */
+void sde_debugfs_setup_regset32(struct sde_debugfs_regset32 *regset,
+		uint32_t offset, uint32_t length, void __iomem *base);
+
+/**
+ * sde_debugfs_create_regset32 - Create register read back file for debugfs
+ *
+ * This function is almost identical to the standard debugfs_create_regset32()
+ * function, with the main difference being that a list of register
+ * names/offsets do not need to be provided. The 'read' function simply outputs
+ * sequential register values over a specified range.
+ *
+ * Similar to the related debugfs_create_regset32 API, the structure pointed to
+ * by regset needs to persist for the lifetime of the created file. The calling
+ * code is responsible for initialization/management of this structure.
+ *
+ * The structure pointed to by regset is meant to be opaque. Please use
+ * sde_debugfs_setup_regset32 to initialize it.
+ *
+ * @name:   File name within debugfs
+ * @mode:   File mode within debugfs
+ * @parent: Parent directory entry within debugfs, can be NULL
+ * @regset: Pointer to persistent register block definition
+ *
+ * Return: dentry pointer for newly created file, use either debugfs_remove()
+ *         or debugfs_remove_recursive() (on a parent directory) to remove the
+ *         file
+ */
+void *sde_debugfs_create_regset32(const char *name, umode_t mode,
+		void *parent, struct sde_debugfs_regset32 *regset);
+
+/**
+ * sde_debugfs_get_root - Return root directory entry for SDE's debugfs
+ *
+ * The return value should be passed as the 'parent' argument to subsequent
+ * debugfs create calls.
+ *
+ * @sde_kms: Pointer to SDE's KMS structure
+ *
+ * Return: dentry pointer for SDE's debugfs location
+ */
+void *sde_debugfs_get_root(struct sde_kms *sde_kms);
 
 /**
  * HW resource manager functions

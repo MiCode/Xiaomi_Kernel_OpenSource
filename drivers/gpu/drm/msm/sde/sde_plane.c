@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+#include <linux/debugfs.h>
 #include "sde_kms.h"
 #include "sde_hwio.h"
 #include "sde_hw_mdp_ctl.h"
@@ -26,13 +26,7 @@
 #define SHARP_SMOOTH_THR_DEFAULT	8
 #define SHARP_NOISE_THR_DEFAULT	2
 
-#ifndef SDE_PLANE_DEBUG_START
-#define SDE_PLANE_DEBUG_START()
-#endif
-
-#ifndef SDE_PLANE_DEBUG_END
-#define SDE_PLANE_DEBUG_END()
-#endif
+#define SDE_PIPE_NAME_SIZE  8
 
 struct sde_plane {
 	struct drm_plane base;
@@ -49,6 +43,14 @@ struct sde_plane {
 	struct sde_hw_pipe_cfg pipe_cfg;
 	struct sde_hw_pixel_ext pixel_ext;
 	struct sde_hw_sharp_cfg sharp_cfg;
+
+	char pipe_name[SDE_PIPE_NAME_SIZE];
+
+	/* debugfs related stuff */
+	struct dentry *debugfs_root;
+	struct sde_debugfs_regset32 debugfs_src;
+	struct sde_debugfs_regset32 debugfs_scaler;
+	struct sde_debugfs_regset32 debugfs_csc;
 };
 #define to_sde_plane(x) container_of(x, struct sde_plane, base)
 
@@ -249,7 +251,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	struct sde_hw_pixel_ext *pe;
 	int ret = 0;
 
-	SDE_PLANE_DEBUG_START();
+	DBG("");
 	nplanes = drm_format_num_planes(fb->pixel_format);
 
 	pstate = to_sde_plane_state(plane->state);
@@ -263,7 +265,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	src_w = src_w >> 16;
 	src_h = src_h >> 16;
 
-	DBG("%s: FB[%u] %u,%u,%u,%u -> CRTC[%u] %d,%d,%u,%u", psde->name,
+	DBG("%s: FB[%u] %u,%u,%u,%u -> CRTC[%u] %d,%d,%u,%u", psde->pipe_name,
 			fb->base.id, src_x, src_y, src_w, src_h,
 			crtc->base.id, crtc_x, crtc_y, crtc_w, crtc_h);
 
@@ -387,7 +389,6 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	if (fmt->is_yuv)
 		_sde_plane_setup_csc(psde, pstate, fmt);
 
-	SDE_PLANE_DEBUG_END();
 	return ret;
 }
 
@@ -400,9 +401,7 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 	if (!new_state->fb)
 		return 0;
 
-	SDE_PLANE_DEBUG_START();
-	SDE_PLANE_DEBUG_END();
-	DBG("%s: prepare: FB[%u]", psde->name, fb->base.id);
+	DBG("%s: prepare: FB[%u]", psde->pipe_name, fb->base.id);
 	return msm_framebuffer_prepare(fb, psde->mmu_id);
 }
 
@@ -415,9 +414,7 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 	if (!fb)
 		return;
 
-	SDE_PLANE_DEBUG_START();
-	SDE_PLANE_DEBUG_END();
-	DBG("%s: cleanup: FB[%u]", psde->name, fb->base.id);
+	DBG("%s: cleanup: FB[%u]", psde->pipe_name, fb->base.id);
 	msm_framebuffer_cleanup(fb, psde->mmu_id);
 }
 
@@ -428,9 +425,7 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 	struct drm_plane_state *old_state = plane->state;
 	const struct mdp_format *format;
 
-	SDE_PLANE_DEBUG_START();
-	SDE_PLANE_DEBUG_END();
-	DBG("%s: check (%d -> %d)", psde->name,
+	DBG("%s: check (%d -> %d)", psde->pipe_name,
 			sde_plane_enabled(old_state), sde_plane_enabled(state));
 
 	if (sde_plane_enabled(state)) {
@@ -462,15 +457,15 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 		bool full_modeset = false;
 
 		if (state->fb->pixel_format != old_state->fb->pixel_format) {
-			DBG("%s: pixel_format change!", psde->name);
+			DBG("%s: pixel_format change!", psde->pipe_name);
 			full_modeset = true;
 		}
 		if (state->src_w != old_state->src_w) {
-			DBG("%s: src_w change!", psde->name);
+			DBG("%s: src_w change!", psde->pipe_name);
 			full_modeset = true;
 		}
 		if (to_sde_plane_state(old_state)->pending) {
-			DBG("%s: still pending!", psde->name);
+			DBG("%s: still pending!", psde->pipe_name);
 			full_modeset = true;
 		}
 		if (full_modeset) {
@@ -493,9 +488,8 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 	struct sde_plane *sde_plane = to_sde_plane(plane);
 	struct drm_plane_state *state = plane->state;
 
-	DBG("%s: update", sde_plane->name);
+	DBG("%s: update", sde_plane->pipe_name);
 
-	SDE_PLANE_DEBUG_START();
 	if (!sde_plane_enabled(state)) {
 		to_sde_plane_state(state)->pending = true;
 	} else if (to_sde_plane_state(state)->mode_changed) {
@@ -513,7 +507,6 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 	} else {
 		_sde_plane_set_scanout(plane, &sde_plane->pipe_cfg, state->fb);
 	}
-	SDE_PLANE_DEBUG_END();
 }
 
 static void _sde_plane_install_range_property(struct drm_plane *plane,
@@ -527,8 +520,7 @@ static void _sde_plane_install_range_property(struct drm_plane *plane,
 			*prop = drm_property_create_range(dev,
 					0 /* flags */, name, min, max);
 			if (*prop == 0)
-				dev_warn(dev->dev,
-					"Create property %s failed\n", name);
+				DRM_ERROR("Create property %s failed\n", name);
 		}
 
 		/* always attach property, if created */
@@ -550,7 +542,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	struct drm_device *dev = plane->dev;
 	struct msm_drm_private *dev_priv = dev->dev_private;
 
-	SDE_PLANE_DEBUG_START();
+	DBG("");
 
 	/* range/enum properties */
 	_sde_plane_install_range_property(plane, dev, "zpos", 1, 255, 1,
@@ -559,8 +551,6 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	/* blob properties */
 	_sde_plane_install_blob_property(plane, dev, "pixext",
 			&(dev_priv->plane_property[PLANE_PROP_PIXEXT]));
-
-	SDE_PLANE_DEBUG_END();
 }
 
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
@@ -573,7 +563,7 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 	struct msm_drm_private *dev_priv = dev->dev_private;
 	int idx, ret = -EINVAL;
 
-	SDE_PLANE_DEBUG_START();
+	DBG("");
 
 	pstate = to_sde_plane_state(state);
 
@@ -610,7 +600,6 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 	if (ret == -EINVAL)
 		dev_err(dev->dev, "Invalid property set\n");
 
-	SDE_PLANE_DEBUG_END();
 	return ret;
 }
 
@@ -619,10 +608,9 @@ static int sde_plane_set_property(struct drm_plane *plane,
 {
 	int rc;
 
-	SDE_PLANE_DEBUG_START();
+	DBG("");
 	rc = sde_plane_atomic_set_property(plane, plane->state, property,
 		val);
-	SDE_PLANE_DEBUG_END();
 	return rc;
 }
 
@@ -635,7 +623,7 @@ static int sde_plane_atomic_get_property(struct drm_plane *plane,
 	struct msm_drm_private *dev_priv = dev->dev_private;
 	int idx, ret = -EINVAL;
 
-	SDE_PLANE_DEBUG_START();
+	DBG("");
 
 	pstate = to_sde_plane_state(state);
 
@@ -651,28 +639,30 @@ static int sde_plane_atomic_get_property(struct drm_plane *plane,
 	if (ret == -EINVAL)
 		dev_err(dev->dev, "Invalid property get\n");
 
-	SDE_PLANE_DEBUG_END();
-
 	return ret;
 }
 
 static void sde_plane_destroy(struct drm_plane *plane)
 {
-	struct sde_plane *psde = to_sde_plane(plane);
+	struct sde_plane *psde;
 
-	SDE_PLANE_DEBUG_START();
+	DBG("");
 
-	if (psde->pipe_hw)
-		sde_hw_sspp_destroy(psde->pipe_hw);
+	if (plane) {
+		psde = to_sde_plane(plane);
 
-	drm_plane_helper_disable(plane);
+		debugfs_remove_recursive(psde->debugfs_root);
 
-	/* this will destroy the states as well */
-	drm_plane_cleanup(plane);
+		if (psde->pipe_hw)
+			sde_hw_sspp_destroy(psde->pipe_hw);
 
-	kfree(psde);
+		drm_plane_helper_disable(plane);
 
-	SDE_PLANE_DEBUG_END();
+		/* this will destroy the states as well */
+		drm_plane_cleanup(plane);
+
+		kfree(psde);
+	}
 }
 
 static void sde_plane_destroy_state(struct drm_plane *plane,
@@ -681,7 +671,7 @@ static void sde_plane_destroy_state(struct drm_plane *plane,
 	struct sde_plane_state *pstate;
 	int i;
 
-	SDE_PLANE_DEBUG_START();
+	DBG("");
 
 	/* remove ref count for frame buffers */
 	if (state->fb)
@@ -696,8 +686,6 @@ static void sde_plane_destroy_state(struct drm_plane *plane,
 					pstate->property_blobs[i]);
 
 	kfree(pstate);
-
-	SDE_PLANE_DEBUG_END();
 }
 
 static struct drm_plane_state *
@@ -709,7 +697,7 @@ sde_plane_duplicate_state(struct drm_plane *plane)
 	if (WARN_ON(!plane->state))
 		return NULL;
 
-	SDE_PLANE_DEBUG_START();
+	DBG("");
 	pstate = kmemdup(to_sde_plane_state(plane->state),
 			sizeof(*pstate), GFP_KERNEL);
 	if (pstate) {
@@ -726,7 +714,6 @@ sde_plane_duplicate_state(struct drm_plane *plane)
 		pstate->mode_changed = false;
 		pstate->pending = false;
 	}
-	SDE_PLANE_DEBUG_END();
 
 	return pstate ? &pstate->base : NULL;
 }
@@ -735,7 +722,7 @@ static void sde_plane_reset(struct drm_plane *plane)
 {
 	struct sde_plane_state *pstate;
 
-	SDE_PLANE_DEBUG_START();
+	DBG("");
 	if (plane->state && plane->state->fb)
 		drm_framebuffer_unreference(plane->state->fb);
 
@@ -757,7 +744,6 @@ static void sde_plane_reset(struct drm_plane *plane)
 	pstate->base.plane = plane;
 
 	plane->state = &pstate->base;
-	SDE_PLANE_DEBUG_END();
 }
 
 static const struct drm_plane_funcs sde_plane_funcs = {
@@ -786,11 +772,56 @@ enum sde_sspp sde_plane_pipe(struct drm_plane *plane)
 	return sde_plane->pipe;
 }
 
+static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
+{
+	const struct sde_sspp_sub_blks *sblk = 0;
+	const struct sde_sspp_cfg *cfg = 0;
+
+	if (psde && psde->pipe_hw)
+		cfg = psde->pipe_hw->cap;
+	if (cfg)
+		sblk = cfg->sblk;
+
+	if (kms && sblk) {
+		/* create overall sub-directory for the pipe */
+		psde->debugfs_root =
+			debugfs_create_dir(psde->pipe_name,
+					sde_debugfs_get_root(kms));
+		if (psde->debugfs_root) {
+			/* don't error check these */
+			debugfs_create_x32("features", 0444,
+					psde->debugfs_root, &psde->features);
+
+			/* add register dump support */
+			sde_debugfs_setup_regset32(&psde->debugfs_src,
+					sblk->src_blk.base + cfg->base,
+					sblk->src_blk.len,
+					kms->mmio);
+			sde_debugfs_create_regset32("src_blk", 0444,
+					psde->debugfs_root, &psde->debugfs_src);
+
+			sde_debugfs_setup_regset32(&psde->debugfs_scaler,
+					sblk->scaler_blk.base + cfg->base,
+					sblk->scaler_blk.len,
+					kms->mmio);
+			sde_debugfs_create_regset32("scaler_blk", 0444,
+					psde->debugfs_root,
+					&psde->debugfs_scaler);
+
+			sde_debugfs_setup_regset32(&psde->debugfs_csc,
+					sblk->csc_blk.base + cfg->base,
+					sblk->csc_blk.len,
+					kms->mmio);
+			sde_debugfs_create_regset32("csc_blk", 0444,
+					psde->debugfs_root, &psde->debugfs_csc);
+		}
+	}
+}
+
 /* initialize plane */
 struct drm_plane *sde_plane_init(struct drm_device *dev,
 		uint32_t pipe, bool private_plane)
 {
-	static const char tmp_name[] = "---";
 	struct drm_plane *plane = NULL;
 	struct sde_plane *psde;
 	struct msm_drm_private *priv;
@@ -811,18 +842,16 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	}
 	kms = to_sde_kms(priv->kms);
 
+	/* create and zero local structure */
 	psde = kzalloc(sizeof(*psde), GFP_KERNEL);
 	if (!psde) {
 		ret = -ENOMEM;
 		goto fail;
 	}
 
-	memset(psde, 0, sizeof(*psde));
-
 	plane = &psde->base;
 
 	psde->pipe = pipe;
-	psde->name = tmp_name;
 
 	if (kms) {
 		/* mmu id for buffer mapping */
@@ -856,7 +885,12 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 		goto fail;
 	}
 
-	pr_err("%s: Successfully created plane\n", __func__);
+	/* save user friendly pipe name for later */
+	snprintf(psde->pipe_name, SDE_PIPE_NAME_SIZE, "pipe%u", pipe);
+
+	_sde_plane_init_debugfs(psde, kms);
+
+	DRM_INFO("Successfully created plane for %s\n", psde->pipe_name);
 	return plane;
 
 fail:
