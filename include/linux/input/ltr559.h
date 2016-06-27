@@ -84,4 +84,17 @@ struct ltr559_platform_data {
 #define PON_DELAY			600
 #define WAKEUP_DELAY			30
 
+/*
+ * This value is used when psensor is requested on demand and should be cleared
+ * once the state is read by the requestor
+ */
+enum {
+	LTR559_ON_DEMAND_RESET,
+	LTR559_ON_DEMAND_COVERED,
+	LTR559_ON_DEMAND_UNCOVERED,
+	LTR559_ON_DEMAND_LAST,
+};
+
+#define LTR559_ON_DEMAND_DISTANCE_THRESHOLD 2
+
 #endif
