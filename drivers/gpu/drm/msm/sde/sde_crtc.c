@@ -57,8 +57,7 @@ struct sde_crtc {
 static struct sde_kms *get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv = crtc->dev->dev_private;
-
-	return to_sde_kms(to_mdp_kms(priv->kms));
+	return to_sde_kms(priv->kms);
 }
 
 static inline struct sde_hw_ctl *sde_crtc_rm_get_ctl_path(enum sde_ctl idx,

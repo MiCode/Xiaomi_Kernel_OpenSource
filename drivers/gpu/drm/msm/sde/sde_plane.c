@@ -690,7 +690,16 @@ struct drm_plane *sde_plane_init(struct drm_device *dev, uint32_t pipe,
 	enum drm_plane_type type;
 
 	priv = dev->dev_private;
-	kms = to_sde_kms(to_mdp_kms(priv->kms));
+	if (!priv) {
+		DRM_ERROR("[%u]Private data is NULL\n", pipe);
+		goto exit;
+	}
+
+	if (!priv->kms) {
+		DRM_ERROR("[%u]Invalid KMS reference\n", pipe);
+		goto exit;
+	}
+	kms = to_sde_kms(priv->kms);
 
 	psde = kzalloc(sizeof(*psde), GFP_KERNEL);
 	if (!psde) {
@@ -753,6 +762,6 @@ fail:
 	pr_err("%s: Plane creation failed\n", __func__);
 	if (plane)
 		sde_plane_destroy(plane);
-
+exit:
 	return ERR_PTR(ret);
 }

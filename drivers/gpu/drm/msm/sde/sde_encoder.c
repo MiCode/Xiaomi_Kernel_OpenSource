@@ -410,7 +410,7 @@ static struct drm_encoder *sde_encoder_virt_init(
 		struct drm_device *dev, struct display_info *disp_info)
 {
 	struct msm_drm_private *priv = dev->dev_private;
-	struct sde_kms *sde_kms = to_sde_kms(to_mdp_kms(priv->kms));
+	struct sde_kms *sde_kms = to_sde_kms(priv->kms);
 	struct drm_encoder *drm_enc = NULL;
 	struct sde_encoder_virt *sde_enc = NULL;
 	int drm_enc_mode = DRM_MODE_ENCODER_NONE;
