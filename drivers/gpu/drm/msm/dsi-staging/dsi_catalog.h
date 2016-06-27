@@ -127,4 +127,7 @@ void dsi_ctrl_hw_14_cmd_test_pattern_setup(struct dsi_ctrl_hw *ctrl,
 void dsi_ctrl_hw_14_test_pattern_enable(struct dsi_ctrl_hw *ctrl, bool enable);
 void dsi_ctrl_hw_14_trigger_cmd_test_pattern(struct dsi_ctrl_hw *ctrl,
 				 u32 stream_id);
+ssize_t dsi_ctrl_hw_14_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
+					  char *buf,
+					  u32 size);
 #endif /* _DSI_CATALOG_H_ */

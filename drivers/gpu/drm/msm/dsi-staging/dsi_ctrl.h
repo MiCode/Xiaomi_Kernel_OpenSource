@@ -15,6 +15,8 @@
 #ifndef _DSI_CTRL_H_
 #define _DSI_CTRL_H_
 
+#include <linux/debugfs.h>
+
 #include "dsi_defs.h"
 #include "dsi_ctrl_hw.h"
 #include "dsi_clk_pwr.h"
@@ -251,13 +253,14 @@ void dsi_ctrl_put(struct dsi_ctrl *dsi_ctrl);
 /**
  * dsi_ctrl_drv_init() - initialize dsi controller driver.
  * @dsi_ctrl:      DSI controller handle.
+ * @parent:        Parent directory for debug fs.
  *
  * Initializes DSI controller driver. Driver should be initialized after
  * dsi_ctrl_get() succeeds.
  *
  * Return: error code.
  */
-int dsi_ctrl_drv_init(struct dsi_ctrl *dsi_ctrl);
+int dsi_ctrl_drv_init(struct dsi_ctrl *dsi_ctrl, struct dentry *parent);
 
 /**
  * dsi_ctrl_drv_deinit() - de-initializes dsi controller driver
