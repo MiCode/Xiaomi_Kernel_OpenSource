@@ -662,6 +662,23 @@ exit_fail:
 	return ret;
 }
 
+static int __validate_pipe_priorities(struct mdss_mdp_pipe *left,
+		struct mdss_mdp_pipe *right)
+{
+	if (left->multirect.num > right->multirect.num)
+		return -EINVAL;
+
+	if ((left->multirect.num == right->multirect.num) &&
+			(left->priority >= right->priority))
+		return -EINVAL;
+
+	if ((left->multirect.num < right->multirect.num) &&
+			(left->priority > right->priority))
+		return -EINVAL;
+
+	return 0;
+}
+
 static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_validate_info_t *vinfo, struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_pipe *left_blend_pipe, bool is_single_layer,
@@ -773,10 +790,12 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	 */
 	if (mdata->has_src_split) {
 		if (left_blend_pipe) {
-			if (pipe->priority <= left_blend_pipe->priority) {
-				pr_err("priority limitation. left:%d right%d\n",
-					left_blend_pipe->priority,
-					pipe->priority);
+			if (__validate_pipe_priorities(left_blend_pipe, pipe)) {
+				pr_err("priority limitation. left:%d rect:%d, right:%d rect:%d\n",
+						left_blend_pipe->priority,
+						left_blend_pipe->multirect.num,
+						pipe->priority,
+						pipe->multirect.num);
 				ret = -EPERM;
 				goto end;
 			} else {
@@ -1518,12 +1537,6 @@ static bool __multirect_validate_properties(struct mdp_input_layer **layers,
 	if ((layers[0]->flags & MDP_LAYER_ASYNC) ||
 	    (layers[1]->flags & MDP_LAYER_ASYNC)) {
 		pr_err("ASYNC update is not allowed with multirect\n");
-		return false;
-	}
-
-	if (layers[0]->z_order == layers[1]->z_order) {
-		pr_err("multirect layers cannot have same z_order=%d\n",
-			layers[0]->z_order);
 		return false;
 	}
 

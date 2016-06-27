@@ -614,6 +614,11 @@
 		qcom,cpr-enable;
 		qcom,cpr-hw-closed-loop;
 
+		qcom,cpr-panic-reg-addr-list =
+			<0x179cbaa4 0x17912c18>;
+		qcom,cpr-panic-reg-name-list =
+			"PWR_CPRH_STATUS", "APCLUS0_L2_SAW4_PMIC_STS";
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
@@ -769,6 +774,11 @@
 
 		qcom,cpr-enable;
 		qcom,cpr-hw-closed-loop;
+
+		qcom,cpr-panic-reg-addr-list =
+			<0x179c7aa4 0x17812c18>;
+		qcom,cpr-panic-reg-name-list =
+			"PERF_CPRH_STATUS", "APCLUS1_L2_SAW4_PMIC_STS";
 
 		thread@0 {
 			qcom,cpr-thread-id = <0>;

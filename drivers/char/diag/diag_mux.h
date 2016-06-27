@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,14 @@
 #define DIAG_MUX_H
 #include "diagchar.h"
 
+struct diag_mux_state_t {
+	struct diag_logger_t *logger;
+	struct diag_logger_t *usb_ptr;
+	struct diag_logger_t *md_ptr;
+	unsigned int mux_mask;
+	unsigned int mode;
+};
+
 struct diag_mux_ops {
 	int (*open)(int id, int mode);
 	int (*close)(int id, int mode);
@@ -24,6 +32,7 @@ struct diag_mux_ops {
 #define DIAG_USB_MODE			0
 #define DIAG_MEMORY_DEVICE_MODE		1
 #define DIAG_NO_LOGGING_MODE		2
+#define DIAG_MULTI_MODE			3
 
 #define DIAG_MUX_LOCAL		0
 #define DIAG_MUX_LOCAL_LAST	1
@@ -53,7 +62,7 @@ struct diag_logger_t {
 	struct diag_logger_ops *log_ops;
 };
 
-extern struct diag_logger_t *logger;
+extern struct diag_mux_state_t *diag_mux;
 
 int diag_mux_init(void);
 void diag_mux_exit(void);
@@ -63,5 +72,5 @@ int diag_mux_write(int proc, unsigned char *buf, int len, int ctx);
 int diag_mux_close_peripheral(int proc, uint8_t peripheral);
 int diag_mux_open_all(struct diag_logger_t *logger);
 int diag_mux_close_all(void);
-int diag_mux_switch_logging(int new_mode);
+int diag_mux_switch_logging(int *new_mode, int *peripheral_mask);
 #endif
