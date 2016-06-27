@@ -304,4 +304,43 @@
 				<&glink_rpm>;
 		qcom,xprt = "smem";
 	};
+
+	qcom,glink_pkt {
+		compatible = "qcom,glinkpkt";
+
+		qcom,glinkpkt-at-mdm0 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DS";
+			qcom,glinkpkt-dev-name = "at_mdm0";
+		};
+
+		qcom,glinkpkt-loopback_cntl {
+			qcom,glinkpkt-transport = "lloop";
+			qcom,glinkpkt-edge = "local";
+			qcom,glinkpkt-ch-name = "LOCAL_LOOPBACK_CLNT";
+			qcom,glinkpkt-dev-name = "glink_pkt_loopback_ctrl";
+		};
+
+		qcom,glinkpkt-loopback_data {
+			qcom,glinkpkt-transport = "lloop";
+			qcom,glinkpkt-edge = "local";
+			qcom,glinkpkt-ch-name = "glink_pkt_lloop_CLNT";
+			qcom,glinkpkt-dev-name = "glink_pkt_loopback";
+		};
+
+		qcom,glinkpkt-apr-apps2 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "adsp";
+			qcom,glinkpkt-ch-name = "apr_apps2";
+			qcom,glinkpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,glinkpkt-data40-cntl {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA40_CNTL";
+			qcom,glinkpkt-dev-name = "smdcntl8";
+		};
+	};
 };
