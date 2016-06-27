@@ -16,6 +16,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
+#include "sde_formats.h"
 
 struct sde_hw_pipe;
 
@@ -27,6 +28,7 @@ struct sde_hw_pipe;
 #define SDE_SSPP_FLIP_UD	 0x4
 #define SDE_SSPP_SOURCE_ROTATED_90 0x8
 #define SDE_SSPP_ROT_90  0x10
+#define SDE_SSPP_SOLID_FILL 0x20
 
 /**
  * Define all scaler feature bits in catalog
@@ -167,8 +169,7 @@ struct sde_hw_sspp_ops {
 	 * @flags: Extra flags for format config
 	 */
 	void (*setup_format)(struct sde_hw_pipe *ctx,
-			struct sde_hw_pipe_cfg *cfg,
-			u32 flags);
+			struct sde_mdp_format_params *fmt, u32 flags);
 
 	/**
 	 * setup_rects - setup pipe ROI rectangles
@@ -201,9 +202,7 @@ struct sde_hw_sspp_ops {
 	 * @const_color: Fill color value
 	 * @flags: Pipe flags
 	 */
-	void (*setup_solidfill)(struct sde_hw_pipe *ctx,
-			u32 const_color,
-			u32 flags);
+	void (*setup_solidfill)(struct sde_hw_pipe *ctx, u32 color);
 
 	/**
 	 * setup_sharpening - setup sharpening

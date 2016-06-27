@@ -77,12 +77,6 @@
 #define VIG_0_QSEED2_SHARP                 0x30
 
 /*
- * MDP Solid fill configuration
- * argb8888
- */
-#define SSPP_SOLID_FILL                   0x4037ff
-
-/*
  * Definitions for ViG op modes
  */
 #define VIG_OP_CSC_DST_DATAFMT BIT(19)
@@ -161,28 +155,21 @@ static void _sspp_setup_opmode(struct sde_hw_pipe *ctx,
  * Setup source pixel format, flip,
  */
 static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
-		struct sde_hw_pipe_cfg *cfg,
-		u32 flags)
+		struct sde_mdp_format_params *fmt, u32 flags)
 {
 	struct sde_hw_blk_reg_map *c;
-	struct sde_mdp_format_params *fmt;
 	u32 chroma_samp, unpack, src_format;
 	u32 secure = 0;
 	u32 opmode = 0;
 	u32 idx;
 
-	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx) || !cfg)
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx) || !fmt)
 		return;
 
 	c = &ctx->hw;
 	opmode = SDE_REG_READ(c, SSPP_SRC_OP_MODE + idx);
 	opmode &= ~(MDSS_MDP_OP_FLIP_LR | MDSS_MDP_OP_FLIP_UD |
 			MDSS_MDP_OP_BWC_EN | MDSS_MDP_OP_PE_OVERRIDE);
-
-	/* format info */
-	fmt = cfg->src.format;
-	if (WARN_ON(!fmt))
-		return;
 
 	if (flags & SDE_SSPP_SECURE_OVERLAY_SESSION)
 		secure = 0xF;
@@ -211,6 +198,9 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 			fmt->fetch_planes != SDE_MDP_PLANE_INTERLEAVED)
 		src_format |= BIT(8); /* SRCC3_EN */
 
+	if (flags & SDE_SSPP_SOLID_FILL)
+		src_format |= BIT(22);
+
 	unpack = (fmt->element[3] << 24) | (fmt->element[2] << 16) |
 		(fmt->element[1] << 8) | (fmt->element[0] << 0);
 	src_format |= ((fmt->unpack_count - 1) << 12) |
@@ -219,7 +209,8 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		((fmt->bpp - 1) << 9);
 
 	if (fmt->fetch_mode != SDE_MDP_FETCH_LINEAR) {
-		opmode |= MDSS_MDP_OP_BWC_EN;
+		if (SDE_FORMAT_IS_UBWC(fmt))
+			opmode |= MDSS_MDP_OP_BWC_EN;
 		src_format |= (fmt->fetch_mode & 3) << 30; /*FRAME_FORMAT */
 		SDE_REG_WRITE(c, SSPP_FETCH_CONFIG,
 			SDE_MDP_FETCH_CONFIG_RESET_VALUE |
@@ -379,14 +370,10 @@ static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 		sde_hw_sspp_setup_pe_config(ctx, pe_ext);
 
 	/* src and dest rect programming */
-	src_xy = (cfg->src_rect.y << 16) |
-		(cfg->src_rect.x);
-	src_size = (cfg->src_rect.h << 16) |
-		(cfg->src_rect.w);
-	dst_xy = (cfg->dst_rect.y << 16) |
-		(cfg->dst_rect.x);
-	dst_size = (cfg->dst_rect.h << 16) |
-		(cfg->dst_rect.w);
+	src_xy = (cfg->src_rect.y << 16) | (cfg->src_rect.x);
+	src_size = (cfg->src_rect.h << 16) | (cfg->src_rect.w);
+	dst_xy = (cfg->dst_rect.y << 16) | (cfg->dst_rect.x);
+	dst_size = (cfg->dst_rect.h << 16) | (cfg->dst_rect.w);
 
 	ystride0 =  (cfg->src.ystride[0]) |
 		(cfg->src.ystride[1] << 16);
@@ -402,8 +389,8 @@ static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 		_sde_hw_sspp_setup_scaler(ctx, pe_ext);
 	}
 
-	/* Rectangle Register programming */
-	SDE_REG_WRITE(c, SSPP_SRC_SIZE + idx,  src_size);
+	/* rectangle register programming */
+	SDE_REG_WRITE(c, SSPP_SRC_SIZE + idx, src_size);
 	SDE_REG_WRITE(c, SSPP_SRC_XY + idx, src_xy);
 	SDE_REG_WRITE(c, SSPP_OUT_SIZE + idx, dst_size);
 	SDE_REG_WRITE(c, SSPP_OUT_XY + idx, dst_xy);
@@ -456,32 +443,14 @@ static void sde_hw_sspp_setup_sharpening(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(c, VIG_0_QSEED2_SHARP + idx + 0xC, cfg->noise_thr);
 }
 
-static void sde_hw_sspp_setup_solidfill(struct sde_hw_pipe *ctx,
-		u32 const_color,
-		u32 flags)
+static void sde_hw_sspp_setup_solidfill(struct sde_hw_pipe *ctx, u32 color)
 {
-	struct sde_hw_blk_reg_map *c;
-	u32 secure = 0;
-	u32 unpack, src_format, opmode = 0;
 	u32 idx;
 
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
 		return;
 
-	c = &ctx->hw;
-
-	/* format info */
-	src_format = SSPP_SOLID_FILL;
-	unpack = (C3_ALPHA << 24) | (C2_R_Cr << 16) |
-		(C1_B_Cb << 8) | (C0_G_Y << 0);
-	secure = (flags & SDE_SSPP_SECURE_OVERLAY_SESSION) ? 0xF : 0x00;
-	opmode = MDSS_MDP_OP_PE_OVERRIDE;
-
-	SDE_REG_WRITE(c, SSPP_SRC_FORMAT + idx, src_format);
-	SDE_REG_WRITE(c, SSPP_SRC_UNPACK_PATTERN + idx, unpack);
-	SDE_REG_WRITE(c, SSPP_SRC_ADDR_SW_STATUS + idx, secure);
-	SDE_REG_WRITE(c, SSPP_SRC_CONSTANT_COLOR + idx, const_color);
-	SDE_REG_WRITE(c, SSPP_SRC_OP_MODE + idx, opmode);
+	SDE_REG_WRITE(&ctx->hw, SSPP_SRC_CONSTANT_COLOR + idx, color);
 }
 
 static void sde_hw_sspp_setup_histogram_v1(struct sde_hw_pipe *ctx,
