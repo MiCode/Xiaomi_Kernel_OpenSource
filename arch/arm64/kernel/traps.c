@@ -44,6 +44,8 @@
 #include <asm/esr.h>
 #include <asm/edac.h>
 
+#include <trace/events/exception.h>
+
 static const char *handler[]= {
 	"Synchronous Abort",
 	"IRQ",
@@ -420,6 +422,8 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 
 	if (call_undef_hook(regs) == 0)
 		return;
+
+	trace_undef_instr(regs, (void *)pc);
 
 	if (unhandled_signal(current, SIGILL) && show_unhandled_signals_ratelimited()) {
 		pr_info("%s[%d]: undefined instruction: pc=%p\n",

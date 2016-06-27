@@ -4,6 +4,7 @@
 obj-$(CONFIG_CORESIGHT) += coresight.o
 obj-$(CONFIG_OF) += of_coresight.o
 obj-$(CONFIG_CORESIGHT_CSR) += coresight-csr.o
+obj-$(CONFIG_CORESIGHT_EVENT) += coresight-event.o
 obj-$(CONFIG_CORESIGHT_CTI) += coresight-cti.o
 obj-$(CONFIG_CORESIGHT_LINK_AND_SINK_TMC) += coresight-tmc.o
 obj-$(CONFIG_CORESIGHT_SINK_TPIU) += coresight-tpiu.o

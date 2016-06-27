@@ -383,6 +383,25 @@ out:
 }
 EXPORT_SYMBOL_GPL(coresight_disable);
 
+void coresight_abort(void)
+{
+	if (!mutex_trylock(&coresight_mutex)) {
+		pr_err_ratelimited("coresight: abort could not be processed\n");
+		return;
+	}
+	if (!curr_sink)
+		goto out;
+
+	if (curr_sink->enable && sink_ops(curr_sink)->abort) {
+		sink_ops(curr_sink)->abort(curr_sink);
+		curr_sink->enable = false;
+	}
+
+out:
+	mutex_unlock(&coresight_mutex);
+}
+EXPORT_SYMBOL_GPL(coresight_abort);
+
 static int coresight_disable_all_source(struct device *dev, void *data)
 {
 	struct coresight_device *csdev;

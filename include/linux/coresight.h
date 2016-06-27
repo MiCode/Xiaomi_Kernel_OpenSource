@@ -194,10 +194,12 @@ struct coresight_device {
  * Operations available for sinks
  * @enable:	enables the sink.
  * @disable:	disables the sink.
+ * @abort:	captures sink trace on abort
  */
 struct coresight_ops_sink {
 	int (*enable)(struct coresight_device *csdev);
 	void (*disable)(struct coresight_device *csdev);
+	void (*abort)(struct coresight_device *csdev);
 };
 
 /**
@@ -239,6 +241,7 @@ extern int coresight_enable(struct coresight_device *csdev);
 extern void coresight_disable(struct coresight_device *csdev);
 extern int coresight_timeout(void __iomem *addr, u32 offset,
 			     int position, int value);
+extern void coresight_abort(void);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -248,6 +251,7 @@ coresight_enable(struct coresight_device *csdev) { return -ENOSYS; }
 static inline void coresight_disable(struct coresight_device *csdev) {}
 static inline int coresight_timeout(void __iomem *addr, u32 offset,
 				     int position, int value) { return 1; }
+static inline void coresight_abort(void) {}
 #endif
 
 #if defined(CONFIG_OF) && defined(CONFIG_CORESIGHT)
