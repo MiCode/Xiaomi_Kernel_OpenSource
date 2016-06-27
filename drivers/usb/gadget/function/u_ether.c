@@ -1025,8 +1025,10 @@ struct net_device *gether_setup_name_default(const char *netname)
 
 	eth_random_addr(dev->dev_mac);
 	pr_warn("using random %s ethernet address\n", "self");
-	eth_random_addr(dev->host_mac);
-	pr_warn("using random %s ethernet address\n", "host");
+	if (get_host_ether_addr(host_ethaddr, dev->host_mac))
+		pr_warn("using random %s ethernet address\n", "host");
+        else
+		pr_warn("using previous %s ethernet address\n", "host");
 
 	net->netdev_ops = &eth_netdev_ops;
 
