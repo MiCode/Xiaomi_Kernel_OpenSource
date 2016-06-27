@@ -119,7 +119,8 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	sde/sde_hw_interrupts.o \
 	sde/sde_hw_vbif.o \
 	sde/sde_formats.o \
-	sde_power_handle.o
+	sde_power_handle.o \
+	sde/sde_hw_color_processing_v1_7.o
 
 msm_drm-$(CONFIG_DRM_SDE_WB) += sde/sde_wb.o \
 	sde/sde_encoder_phys_wb.o

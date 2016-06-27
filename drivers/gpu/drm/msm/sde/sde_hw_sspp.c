@@ -14,6 +14,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_lm.h"
 #include "sde_hw_sspp.h"
+#include "sde_hw_color_processing.h"
 
 #define SDE_FETCH_CONFIG_RESET_VALUE   0x00000087
 
@@ -840,31 +841,44 @@ static void sde_hw_sspp_setup_qos_ctrl(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(&ctx->hw, SSPP_QOS_CTRL + idx, qos_ctrl);
 }
 
-static void _setup_layer_ops(struct sde_hw_sspp_ops *ops,
+static void _setup_layer_ops(struct sde_hw_pipe *c,
 		unsigned long features)
 {
 	if (test_bit(SDE_SSPP_SRC, &features)) {
-		ops->setup_format = sde_hw_sspp_setup_format;
-		ops->setup_rects = sde_hw_sspp_setup_rects;
-		ops->setup_sourceaddress = sde_hw_sspp_setup_sourceaddress;
-		ops->setup_solidfill = sde_hw_sspp_setup_solidfill;
+		c->ops.setup_format = sde_hw_sspp_setup_format;
+		c->ops.setup_rects = sde_hw_sspp_setup_rects;
+		c->ops.setup_sourceaddress = sde_hw_sspp_setup_sourceaddress;
+		c->ops.setup_solidfill = sde_hw_sspp_setup_solidfill;
 	}
 	if (test_bit(SDE_SSPP_QOS, &features)) {
-		ops->setup_danger_safe_lut = sde_hw_sspp_setup_danger_safe_lut;
-		ops->setup_creq_lut = sde_hw_sspp_setup_creq_lut;
-		ops->setup_qos_ctrl = sde_hw_sspp_setup_qos_ctrl;
+		c->ops.setup_danger_safe_lut =
+			sde_hw_sspp_setup_danger_safe_lut;
+		c->ops.setup_creq_lut = sde_hw_sspp_setup_creq_lut;
+		c->ops.setup_qos_ctrl = sde_hw_sspp_setup_qos_ctrl;
 	}
+
 	if (test_bit(SDE_SSPP_CSC, &features) ||
 		test_bit(SDE_SSPP_CSC_10BIT, &features))
-		ops->setup_csc = sde_hw_sspp_setup_csc;
+		c->ops.setup_csc = sde_hw_sspp_setup_csc;
 
 	if (test_bit(SDE_SSPP_SCALER_QSEED2, &features))
-		ops->setup_sharpening = sde_hw_sspp_setup_sharpening;
+		c->ops.setup_sharpening = sde_hw_sspp_setup_sharpening;
 
 	if (test_bit(SDE_SSPP_SCALER_QSEED3, &features))
-		ops->setup_scaler = _sde_hw_sspp_setup_scaler3;
+		c->ops.setup_scaler = _sde_hw_sspp_setup_scaler3;
 	else
-		ops->setup_scaler = _sde_hw_sspp_setup_scaler;
+		c->ops.setup_scaler = _sde_hw_sspp_setup_scaler;
+
+	if (test_bit(SDE_SSPP_HSIC, &features)) {
+		/* TODO: add version based assignment here as inline or macro */
+		if (c->cap->sblk->hsic_blk.version ==
+			(SDE_COLOR_PROCESS_VER(0x1, 0x7))) {
+			c->ops.setup_pa_hue = sde_setup_pipe_pa_hue_v1_7;
+			c->ops.setup_pa_sat = sde_setup_pipe_pa_sat_v1_7;
+			c->ops.setup_pa_val = sde_setup_pipe_pa_val_v1_7;
+			c->ops.setup_pa_cont = sde_setup_pipe_pa_cont_v1_7;
+		}
+	}
 }
 
 static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,
@@ -909,7 +923,7 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	/* Assign ops */
 	ctx->idx = idx;
 	ctx->cap = cfg;
-	_setup_layer_ops(&ctx->ops, ctx->cap->features);
+	_setup_layer_ops(ctx, ctx->cap->features);
 	ctx->highest_bank_bit = catalog->mdp[0].highest_bank_bit;
 
 	return ctx;
