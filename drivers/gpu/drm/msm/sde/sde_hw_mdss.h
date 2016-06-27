@@ -17,11 +17,23 @@
 #include <linux/err.h>
 
 #define SDE_NONE                        0
-#define SDE_CSC_MATRIX_COEFF_SIZE	9
-#define SDE_CSC_CLAMP_SIZE		6
-#define SDE_CSC_BIAS_SIZE		3
 
+#ifndef SDE_CSC_MATRIX_COEFF_SIZE
+#define SDE_CSC_MATRIX_COEFF_SIZE	9
+#endif
+
+#ifndef SDE_CSC_CLAMP_SIZE
+#define SDE_CSC_CLAMP_SIZE		6
+#endif
+
+#ifndef SDE_CSC_BIAS_SIZE
+#define SDE_CSC_BIAS_SIZE		3
+#endif
+
+#ifndef SDE_MAX_PLANES
 #define SDE_MAX_PLANES			4
+#endif
+
 #define PIPES_PER_STAGE			2
 #define VALID_ROT_WB_FORMAT		BIT(0)
 

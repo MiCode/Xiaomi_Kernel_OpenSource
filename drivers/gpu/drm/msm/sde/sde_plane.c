@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/debugfs.h>
+#include <uapi/drm/sde_drm.h>
 #include "sde_kms.h"
 #include "sde_hwio.h"
 #include "sde_hw_mdp_ctl.h"
@@ -26,11 +27,10 @@
 #define SHARP_SMOOTH_THR_DEFAULT	8
 #define SHARP_NOISE_THR_DEFAULT	2
 
-#define SDE_PIPE_NAME_SIZE  8
+#define SDE_NAME_SIZE  12
 
 struct sde_plane {
 	struct drm_plane base;
-	const char *name;
 
 	int mmu_id;
 
@@ -43,8 +43,9 @@ struct sde_plane {
 	struct sde_hw_pipe_cfg pipe_cfg;
 	struct sde_hw_pixel_ext pixel_ext;
 	struct sde_hw_sharp_cfg sharp_cfg;
+	struct sde_hw_scaler3_cfg scaler3_cfg;
 
-	char pipe_name[SDE_PIPE_NAME_SIZE];
+	char pipe_name[SDE_NAME_SIZE];
 
 	/* debugfs related stuff */
 	struct dentry *debugfs_root;
@@ -54,23 +55,37 @@ struct sde_plane {
 };
 #define to_sde_plane(x) container_of(x, struct sde_plane, base)
 
+/* macro to obtain int/enum value from plane state, no error checking */
+#define SDE_PLANE_GETINT(S, X)   ((S)->property_values[(X)])
+
+/* macro to obtain blob ptr from plane state, no error checking */
+#define SDE_PLANE_GETBLOB(S, X)  ((S)->property_blobs[(X)])
+
 static bool sde_plane_enabled(struct drm_plane_state *state)
 {
 	return state->fb && state->crtc;
 }
 
 static void _sde_plane_set_scanout(struct drm_plane *plane,
+		struct sde_plane_state *pstate,
 		struct sde_hw_pipe_cfg *pipe_cfg, struct drm_framebuffer *fb)
 {
 	struct sde_plane *psde = to_sde_plane(plane);
+	unsigned int shift;
 	int i;
 
 	if (pipe_cfg && fb && psde->pipe_hw->ops.setup_sourceaddress) {
 		/* stride */
+		if (SDE_PLANE_GETINT(pstate, PLANE_PROP_SRC_CONFIG) &
+				BIT(SDE_DRM_DEINTERLACE))
+			shift = 1;
+		else
+			shift = 0;
+
 		i = min_t(int, ARRAY_SIZE(fb->pitches), SDE_MAX_PLANES);
 		while (i) {
 			--i;
-			pipe_cfg->src.ystride[i] = fb->pitches[i];
+			pipe_cfg->src.ystride[i] = fb->pitches[i] << shift;
 		}
 
 		/* address */
@@ -83,7 +98,15 @@ static void _sde_plane_set_scanout(struct drm_plane *plane,
 	}
 }
 
-static void _sde_plane_setup_scaler(struct drm_plane *plane,
+static void _sde_plane_setup_scaler3(struct drm_plane *plane,
+		uint32_t src_w, uint32_t src_h, uint32_t dst_w, uint32_t dst_h,
+		struct sde_hw_scaler3_cfg *scale_cfg,
+		struct sde_mdp_format_params *fmt,
+		uint32_t chroma_subsmpl_h, uint32_t chroma_subsmpl_v)
+{
+}
+
+static void _sde_plane_setup_scaler2(struct drm_plane *plane,
 		uint32_t src, uint32_t dst, uint32_t *phase_steps,
 		enum sde_hw_filter *filter, struct sde_mdp_format_params *fmt,
 		uint32_t chroma_subsampling)
@@ -196,6 +219,68 @@ static void _sde_plane_setup_pixel_ext(struct drm_plane *plane,
 	}
 }
 
+static void *_sde_plane_get_blob(struct sde_plane_state *pstate,
+		enum msm_mdp_plane_property property, size_t *byte_len)
+{
+	struct drm_property_blob *blob;
+	size_t len = 0;
+	void *ret = 0;
+
+	if (pstate && (property < PLANE_PROP_BLOBCOUNT)) {
+		blob = SDE_PLANE_GETBLOB(pstate, property);
+		if (blob) {
+			len = blob->length;
+			ret = &blob->data;
+		}
+	}
+
+	if (byte_len)
+		*byte_len = len;
+
+	return ret;
+}
+
+/**
+ * _sde_plane_verify_blob - verify incoming blob is big enough to contain
+ *                          sub-structure
+ * @blob_ptr: Pointer to start of incoming blob data
+ * @blob_size: Size of incoming blob data, in bytes
+ * @sub_ptr: Pointer to start of desired sub-structure
+ * @sub_size: Required size of sub-structure, in bytes
+ */
+static int _sde_plane_verify_blob(void *blob_ptr,
+		size_t blob_size,
+		void *sub_ptr,
+		size_t sub_size)
+{
+	/*
+	 * Use the blob size provided by drm to check if there are enough
+	 * bytes from the start of versioned sub-structures to the end of
+	 * blob data:
+	 *
+	 * e.g.,
+	 * blob_ptr             --> struct blob_data {
+	 *                                  uint32_t version;
+	 * sub_ptr              -->         struct blob_data_v1 v1;
+	 * sub_ptr + sub_size   -->         struct blob_stuff more_stuff;
+	 * blob_ptr + blob_size --> };
+	 *
+	 * It's important to check the actual number of bytes from the start
+	 * of the sub-structure to the end of the blob data, and not just rely
+	 * on something like,
+	 *
+	 * sizeof(blob) - sizeof(blob->version) >= sizeof(sub-struct)
+	 *
+	 * This is because the start of the sub-structure can vary based on
+	 * how the compiler pads the overall structure.
+	 */
+	if (blob_ptr && sub_ptr)
+		/* return zero if end of blob >= end of sub-struct */
+		return ((unsigned char *)blob_ptr + blob_size) <
+			((unsigned char *)sub_ptr + sub_size);
+	return -EINVAL;
+}
+
 static void _sde_plane_setup_csc(struct sde_plane *psde,
 		struct sde_plane_state *pstate,
 		struct sde_mdp_format_params *fmt)
@@ -223,16 +308,66 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 	};
+	struct sde_drm_csc *csc = NULL;
+	size_t csc_size = 0;
+	bool user_blob = false;
 
 	if (!psde->pipe_hw->ops.setup_csc)
 		return;
 
-	if (fmt->is_yuv)
+	/* check for user space override */
+	csc = _sde_plane_get_blob(pstate, PLANE_PROP_CSC, &csc_size);
+	if (csc) {
+		struct sde_csc_cfg cfg;
+		int i;
+
+		/* user space override */
+		memcpy(&cfg, &sde_csc_NOP, sizeof(struct sde_csc_cfg));
+		switch (csc->version) {
+		case SDE_DRM_CSC_V1:
+			if (!_sde_plane_verify_blob(csc,
+					csc_size,
+					&csc->v1,
+					sizeof(struct sde_drm_csc_v1))) {
+				for (i = 0; i < SDE_CSC_MATRIX_COEFF_SIZE; ++i)
+					cfg.csc_mv[i] =
+						csc->v1.ctm_coeff[i] >> 23;
+				for (i = 0; i < SDE_CSC_BIAS_SIZE; ++i) {
+					cfg.csc_pre_bv[i] =
+						csc->v1.pre_bias[i];
+					cfg.csc_post_bv[i] =
+						csc->v1.post_bias[i];
+				}
+				for (i = 0; i < SDE_CSC_CLAMP_SIZE; ++i) {
+					cfg.csc_pre_lv[i] =
+						csc->v1.pre_clamp[i];
+					cfg.csc_post_lv[i] =
+						csc->v1.post_clamp[i];
+				}
+				user_blob = true;
+			}
+			break;
+		default:
+			break;
+		}
+
+		if (!user_blob)
+			DRM_ERROR("Invalid csc blob, v%lld\n", csc->version);
+		else
+			psde->pipe_hw->ops.setup_csc(psde->pipe_hw,
+					(struct sde_csc_cfg *)&cfg);
+	}
+
+	if (user_blob) {
+		DBG("User blobs override for CSC");
+	/* revert to kernel default */
+	} else if (fmt->is_yuv) {
 		psde->pipe_hw->ops.setup_csc(psde->pipe_hw,
 			(struct sde_csc_cfg *)&sde_csc_YUV2RGB_601L);
-	else
+	} else {
 		psde->pipe_hw->ops.setup_csc(psde->pipe_hw,
 			(struct sde_csc_cfg *)&sde_csc_NOP);
+	}
 }
 
 static int _sde_plane_mode_set(struct drm_plane *plane,
@@ -242,19 +377,32 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		uint32_t src_x, uint32_t src_y,
 		uint32_t src_w, uint32_t src_h)
 {
-	struct sde_plane *psde = to_sde_plane(plane);
+	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	const struct mdp_format *format;
 	uint32_t nplanes, pix_format, tmp;
+	uint32_t chroma_subsmpl_h, chroma_subsmpl_v;
+	uint32_t src_fmt_flags;
 	int i;
 	struct sde_mdp_format_params *fmt;
 	struct sde_hw_pixel_ext *pe;
-	int ret = 0;
+	size_t sc_u_size = 0;
+	struct sde_drm_scaler *sc_u = NULL;
+	struct sde_drm_scaler_v1 *sc_u1 = NULL;
 
 	DBG("");
-	nplanes = drm_format_num_planes(fb->pixel_format);
 
+	if (!plane || !plane->state) {
+		DRM_ERROR("Invalid plane/state\n");
+		return -EINVAL;
+	}
+	if (!crtc || !fb) {
+		DRM_ERROR("Invalid crtc/fb\n");
+		return -EINVAL;
+	}
+	psde = to_sde_plane(plane);
 	pstate = to_sde_plane_state(plane->state);
+	nplanes = drm_format_num_planes(fb->pixel_format);
 
 	format = to_mdp_format(msm_framebuffer_format(fb));
 	pix_format = format->base.pixel_format;
@@ -271,6 +419,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 
 	/* update format configuration */
 	memset(&(psde->pipe_cfg), 0, sizeof(struct sde_hw_pipe_cfg));
+	src_fmt_flags = 0;
 
 	psde->pipe_cfg.src.format = sde_mdp_get_format_params(pix_format,
 			fb->modifier[0]);
@@ -278,7 +427,30 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	psde->pipe_cfg.src.height = fb->height;
 	psde->pipe_cfg.src.num_planes = nplanes;
 
-	_sde_plane_set_scanout(plane, &psde->pipe_cfg, fb);
+	_sde_plane_set_scanout(plane, pstate, &psde->pipe_cfg, fb);
+
+	/* decimation */
+	psde->pipe_cfg.horz_decimation =
+		SDE_PLANE_GETINT(pstate, PLANE_PROP_H_DECIMATE);
+	psde->pipe_cfg.vert_decimation =
+		SDE_PLANE_GETINT(pstate, PLANE_PROP_V_DECIMATE);
+
+	/* flags */
+	DBG("Flags 0x%llX, rotation 0x%llX",
+			SDE_PLANE_GETINT(pstate, PLANE_PROP_SRC_CONFIG),
+			SDE_PLANE_GETINT(pstate, PLANE_PROP_ROTATION));
+	if (SDE_PLANE_GETINT(pstate, PLANE_PROP_ROTATION) &
+		BIT(DRM_REFLECT_X))
+		src_fmt_flags |= SDE_SSPP_FLIP_LR;
+	if (SDE_PLANE_GETINT(pstate, PLANE_PROP_ROTATION) &
+		BIT(DRM_REFLECT_Y))
+		src_fmt_flags |= SDE_SSPP_FLIP_UD;
+	if (SDE_PLANE_GETINT(pstate, PLANE_PROP_SRC_CONFIG) &
+		BIT(SDE_DRM_DEINTERLACE)) {
+		src_h /= 2;
+		src_y  = DIV_ROUND_UP(src_y, 2);
+		src_y &= ~0x1;
+	}
 
 	psde->pipe_cfg.src_rect.x = src_x;
 	psde->pipe_cfg.src_rect.y = src_y;
@@ -290,33 +462,89 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	psde->pipe_cfg.dst_rect.w = crtc_w;
 	psde->pipe_cfg.dst_rect.h = crtc_h;
 
-	psde->pipe_cfg.horz_decimation = 0;
-	psde->pipe_cfg.vert_decimation = 0;
-
 	/* get sde pixel format definition */
 	fmt = psde->pipe_cfg.src.format;
 
-	/* update pixel extensions */
+	/* don't chroma subsample if decimating */
+	chroma_subsmpl_h = psde->pipe_cfg.horz_decimation ? 1 :
+		drm_format_horz_chroma_subsampling(pix_format);
+	chroma_subsmpl_v = psde->pipe_cfg.vert_decimation ? 1 :
+		drm_format_vert_chroma_subsampling(pix_format);
+
 	pe = &(psde->pixel_ext);
-	if (!pe->enable_pxl_ext) {
-		uint32_t chroma_subsample_h, chroma_subsample_v;
+	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
 
-		chroma_subsample_h = psde->pipe_cfg.horz_decimation ? 1 :
-			drm_format_horz_chroma_subsampling(pix_format);
-		chroma_subsample_v = psde->pipe_cfg.vert_decimation ? 1 :
-			drm_format_vert_chroma_subsampling(pix_format);
+	/* get scaler config from user space */
+	sc_u = _sde_plane_get_blob(pstate, PLANE_PROP_SCALER, &sc_u_size);
+	if (sc_u) {
+		switch (sc_u->version) {
+		case SDE_DRM_SCALER_V1:
+			if (!_sde_plane_verify_blob(sc_u,
+						sc_u_size,
+						&sc_u->v1,
+						sizeof(*sc_u1)))
+				sc_u1 = &sc_u->v1;
+			break;
+		default:
+			DBG("Unrecognized scaler blob v%lld", sc_u->version);
+			break;
+		}
+	}
 
-		memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
+	/* update scaler */
+	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
+		if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_SCALER_3))
+			DBG("QSEED3 blob detected");
+		else
+			_sde_plane_setup_scaler3(plane, src_w, src_h, crtc_w,
+					crtc_h, &psde->scaler3_cfg, fmt,
+					chroma_subsmpl_h, chroma_subsmpl_v);
+	} else {
+		/* always calculate basic scaler config */
+		if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_SCALER_2)) {
+			/* populate from user space */
+			for (i = 0; i < SDE_MAX_PLANES; i++) {
+				pe->init_phase_x[i] = sc_u1->init_phase_x[i];
+				pe->phase_step_x[i] = sc_u1->phase_step_x[i];
+				pe->init_phase_y[i] = sc_u1->init_phase_y[i];
+				pe->phase_step_y[i] = sc_u1->phase_step_y[i];
 
-		/* calculate phase steps */
-		_sde_plane_setup_scaler(plane, src_w, crtc_w,
-				pe->phase_step_x,
-				pe->horz_filter, fmt, chroma_subsample_h);
-		_sde_plane_setup_scaler(plane, src_h, crtc_h,
-				pe->phase_step_y,
-				pe->vert_filter, fmt, chroma_subsample_v);
+				pe->horz_filter[i] = sc_u1->horz_filter[i];
+				pe->vert_filter[i] = sc_u1->vert_filter[i];
+			}
+		} else {
+			/* calculate phase steps */
+			_sde_plane_setup_scaler2(plane, src_w, crtc_w,
+					pe->phase_step_x,
+					pe->horz_filter, fmt, chroma_subsmpl_h);
+			_sde_plane_setup_scaler2(plane, src_h, crtc_h,
+					pe->phase_step_y,
+					pe->vert_filter, fmt, chroma_subsmpl_v);
+		}
+	}
 
-		/* calculate left/right/top/bottom pixel extentions */
+	/* update pixel extensions */
+	if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_PIX_EXT)) {
+		/* populate from user space */
+		for (i = 0; i < SDE_MAX_PLANES; i++) {
+			pe->num_ext_pxls_left[i] = sc_u1->lr.num_pxls_start[i];
+			pe->num_ext_pxls_right[i] = sc_u1->lr.num_pxls_end[i];
+			pe->left_ftch[i] = sc_u1->lr.ftch_start[i];
+			pe->right_ftch[i] = sc_u1->lr.ftch_end[i];
+			pe->left_rpt[i] = sc_u1->lr.rpt_start[i];
+			pe->right_rpt[i] = sc_u1->lr.rpt_end[i];
+			pe->roi_w[i] = sc_u1->lr.roi[i];
+
+			pe->num_ext_pxls_top[i] = sc_u1->tb.num_pxls_start[i];
+			pe->num_ext_pxls_btm[i] = sc_u1->tb.num_pxls_end[i];
+			pe->top_ftch[i] = sc_u1->tb.ftch_start[i];
+			pe->btm_ftch[i] = sc_u1->tb.ftch_end[i];
+			pe->top_rpt[i] = sc_u1->tb.rpt_start[i];
+			pe->btm_rpt[i] = sc_u1->tb.rpt_end[i];
+			pe->roi_h[i] = sc_u1->tb.roi[i];
+		}
+	} else {
+		/* calculate left/right/top/bottom pixel extensions */
 		tmp = DECIMATED_DIMENSION(src_w,
 				psde->pipe_cfg.horz_decimation);
 		if (fmt->is_yuv)
@@ -326,7 +554,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 				pe->roi_w,
 				pe->num_ext_pxls_left,
 				pe->num_ext_pxls_right, pe->horz_filter, fmt,
-				chroma_subsample_h, 0);
+				chroma_subsmpl_h, 0);
 
 		tmp = DECIMATED_DIMENSION(src_h,
 				psde->pipe_cfg.vert_decimation);
@@ -335,7 +563,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 				pe->roi_h,
 				pe->num_ext_pxls_top,
 				pe->num_ext_pxls_btm, pe->vert_filter, fmt,
-				chroma_subsample_v, 1);
+				chroma_subsmpl_v, 1);
 
 		for (i = 0; i < SDE_MAX_PLANES; i++) {
 			if (pe->num_ext_pxls_left[i] >= 0)
@@ -370,7 +598,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 
 	if (psde->pipe_hw->ops.setup_sourceformat)
 		psde->pipe_hw->ops.setup_sourceformat(psde->pipe_hw,
-				&psde->pipe_cfg, 0);
+				&psde->pipe_cfg, src_fmt_flags);
 	if (psde->pipe_hw->ops.setup_rects)
 		psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
 				&psde->pipe_cfg, &psde->pixel_ext);
@@ -389,7 +617,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	if (fmt->is_yuv)
 		_sde_plane_setup_csc(psde, pstate, fmt);
 
-	return ret;
+	return 0;
 }
 
 static int sde_plane_prepare_fb(struct drm_plane *plane,
@@ -484,17 +712,27 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 static void sde_plane_atomic_update(struct drm_plane *plane,
 				struct drm_plane_state *old_state)
 {
-	struct sde_plane *sde_plane = to_sde_plane(plane);
-	struct drm_plane_state *state = plane->state;
+	struct sde_plane *sde_plane;
+	struct drm_plane_state *state;
+	struct sde_plane_state *pstate;
 
 	DBG("%s: update", sde_plane->pipe_name);
 
+	if (!plane || !plane->state) {
+		DRM_ERROR("Invalid plane/state\n");
+		return;
+	}
+
+	sde_plane = to_sde_plane(plane);
+	state = plane->state;
+	pstate = to_sde_plane_state(state);
+
 	if (!sde_plane_enabled(state)) {
-		to_sde_plane_state(state)->pending = true;
-	} else if (to_sde_plane_state(state)->mode_changed) {
+		pstate->pending = true;
+	} else if (pstate->mode_changed) {
 		int ret;
 
-		to_sde_plane_state(state)->pending = true;
+		pstate->pending = true;
 		ret = _sde_plane_mode_set(plane,
 				state->crtc, state->fb,
 				state->crtc_x, state->crtc_y,
@@ -504,7 +742,8 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 		/* atomic_check should have ensured that this doesn't fail */
 		WARN_ON(ret < 0);
 	} else {
-		_sde_plane_set_scanout(plane, &sde_plane->pipe_cfg, state->fb);
+		_sde_plane_set_scanout(plane, pstate,
+				&sde_plane->pipe_cfg, state->fb);
 	}
 }
 
@@ -519,7 +758,7 @@ static void _sde_plane_install_range_property(struct drm_plane *plane,
 			*prop = drm_property_create_range(dev,
 					0 /* flags */, name, min, max);
 			if (*prop == 0)
-				DRM_ERROR("Create property %s failed\n", name);
+				DRM_ERROR("Create %s property failed\n", name);
 		}
 
 		/* always attach property, if created */
@@ -528,28 +767,137 @@ static void _sde_plane_install_range_property(struct drm_plane *plane,
 	}
 }
 
+static void _sde_plane_install_rotation_property(struct drm_plane *plane,
+		struct drm_device *dev, struct drm_property **prop)
+{
+	if (plane && dev && prop) {
+		/* only create the property once */
+		if (*prop == 0) {
+			*prop = drm_mode_create_rotation_property(dev,
+					BIT(DRM_REFLECT_X) |
+					BIT(DRM_REFLECT_Y));
+			if (*prop == 0)
+				DRM_ERROR("Create rotation property failed\n");
+		}
+
+		/* always attach property, if created */
+		if (*prop)
+			drm_object_attach_property(&plane->base, *prop, 0);
+	}
+}
+
+static void _sde_plane_install_enum_property(struct drm_plane *plane,
+		struct drm_device *dev, const char *name, int is_bitmask,
+		const struct drm_prop_enum_list *values, int num_values,
+		struct drm_property **prop)
+{
+	if (plane && dev && name && prop && values && num_values) {
+		/* only create the property once */
+		if (*prop == 0) {
+			/* 'bitmask' is a special type of 'enum' */
+			if (is_bitmask)
+				*prop = drm_property_create_bitmask(dev,
+						DRM_MODE_PROP_BITMASK, name,
+						values, num_values, -1);
+			else
+				*prop = drm_property_create_enum(dev,
+						DRM_MODE_PROP_ENUM, name,
+						values, num_values);
+			if (*prop == 0)
+				DRM_ERROR("Create %s property failed\n", name);
+		}
+
+		/* always attach property, if created */
+		if (*prop)
+			drm_object_attach_property(&plane->base, *prop, 0);
+	}
+}
+
 static void _sde_plane_install_blob_property(struct drm_plane *plane,
 		struct drm_device *dev, const char *name,
 		struct drm_property **prop)
 {
+	if (plane && dev && name && prop) {
+		/* only create the property once */
+		if (*prop == 0) {
+			/* use 'create' for blob property place holder */
+			*prop = drm_property_create(dev,
+					DRM_MODE_PROP_BLOB, name, 0);
+			if (*prop == 0)
+				DRM_ERROR("Create %s property failed\n", name);
+		}
+
+		/* always attach property, if created */
+		if (*prop)
+			drm_object_attach_property(&plane->base, *prop, 0);
+	}
 }
 
 /* helper to install properties which are common to planes and crtcs */
 static void _sde_plane_install_properties(struct drm_plane *plane,
 		struct drm_mode_object *obj)
 {
+	static const struct drm_prop_enum_list e_blend_op[] = {
+		{SDE_DRM_BLEND_OP_NOT_DEFINED,    "not_defined"},
+		{SDE_DRM_BLEND_OP_OPAQUE,         "opaque"},
+		{SDE_DRM_BLEND_OP_PREMULTIPLIED,  "premultiplied"},
+		{SDE_DRM_BLEND_OP_COVERAGE,       "coverage"}
+	};
+	static const struct drm_prop_enum_list e_src_config[] = {
+		{SDE_DRM_DEINTERLACE, "deinterlace"}
+	};
+	struct sde_plane *psde = to_sde_plane(plane);
 	struct drm_device *dev = plane->dev;
 	struct msm_drm_private *dev_priv = dev->dev_private;
+	const struct sde_sspp_sub_blks *sblk = 0;
+	const struct sde_sspp_cfg *cfg = 0;
 
 	DBG("");
 
-	/* range/enum properties */
+	if (psde && psde->pipe_hw)
+		cfg = psde->pipe_hw->cap;
+	if (cfg)
+		sblk = cfg->sblk;
+	if (!sblk) {
+		DRM_ERROR("Failed to identify catalog definition\n");
+		return;
+	}
+
+	/* range properties */
 	_sde_plane_install_range_property(plane, dev, "zpos", 1, 255, 1,
 			&(dev_priv->plane_property[PLANE_PROP_ZPOS]));
 
+	_sde_plane_install_range_property(plane, dev, "alpha", 0, 255, 255,
+			&(dev_priv->plane_property[PLANE_PROP_ALPHA]));
+
+	_sde_plane_install_range_property(plane, dev, "h_decimate",
+			0, sblk->maxhdeciexp, 0,
+			&(dev_priv->plane_property[PLANE_PROP_H_DECIMATE]));
+
+	_sde_plane_install_range_property(plane, dev, "v_decimate",
+			0, sblk->maxvdeciexp, 0,
+			&(dev_priv->plane_property[PLANE_PROP_V_DECIMATE]));
+
+	_sde_plane_install_range_property(plane, dev, "sync_fence", 0, ~0, 0,
+			&(dev_priv->plane_property[PLANE_PROP_SYNC_FENCE]));
+
+	/* standard properties */
+	_sde_plane_install_rotation_property(plane, dev,
+			&(dev_priv->plane_property[PLANE_PROP_ROTATION]));
+
+		/* enum/bitmask properties */
+	_sde_plane_install_enum_property(plane, dev, "blend_op", 0,
+			e_blend_op, ARRAY_SIZE(e_blend_op),
+			&(dev_priv->plane_property[PLANE_PROP_BLEND_OP]));
+	_sde_plane_install_enum_property(plane, dev, "src_config", 1,
+			e_src_config, ARRAY_SIZE(e_src_config),
+			&(dev_priv->plane_property[PLANE_PROP_SRC_CONFIG]));
+
 	/* blob properties */
-	_sde_plane_install_blob_property(plane, dev, "pixext",
-			&(dev_priv->plane_property[PLANE_PROP_PIXEXT]));
+	_sde_plane_install_blob_property(plane, dev, "scaler",
+			&(dev_priv->plane_property[PLANE_PROP_SCALER]));
+	_sde_plane_install_blob_property(plane, dev, "csc",
+			&(dev_priv->plane_property[PLANE_PROP_CSC]));
 }
 
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
@@ -558,7 +906,7 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 {
 	struct drm_device *dev = plane->dev;
 	struct sde_plane_state *pstate;
-	struct drm_property_blob *blob, **prop_blob;
+	struct drm_property_blob *blob, **prp_blob;
 	struct msm_drm_private *dev_priv = dev->dev_private;
 	int idx, ret = -EINVAL;
 
@@ -570,25 +918,26 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		if (dev_priv->plane_property[idx] == property) {
 			DBG("Set property %d <= %d", idx, (int)val);
 
-			/* FUTURE: Add special handling here */
-			if (property->flags & DRM_MODE_PROP_BLOB) {
+			/* extra handling for incoming blob properties */
+			if ((property->flags & DRM_MODE_PROP_BLOB) &&
+				(idx < PLANE_PROP_BLOBCOUNT)) {
+				/* DRM lookup also takes a reference */
 				blob = drm_property_lookup_blob(dev,
 					(uint32_t)val);
 				if (!blob) {
 					DRM_ERROR("Blob not found\n");
 					val = 0;
 				} else {
+					DBG("Blob %u saved", blob->base.id);
 					val = blob->base.id;
 
 					/* save blobs for later */
-					prop_blob =
-						&pstate->property_blobs[idx -
-						PLANE_PROP_FIRSTBLOB];
+					prp_blob = &pstate->property_blobs[idx];
 					/* need to clear previous reference */
-					if (*prop_blob)
+					if (*prp_blob)
 						drm_property_unreference_blob(
-						    *prop_blob);
-					*prop_blob = blob;
+						    *prp_blob);
+					*prp_blob = blob;
 				}
 			}
 			pstate->property_values[idx] = val;
@@ -608,8 +957,7 @@ static int sde_plane_set_property(struct drm_plane *plane,
 	int rc;
 
 	DBG("");
-	rc = sde_plane_atomic_set_property(plane, plane->state, property,
-		val);
+	rc = sde_plane_atomic_set_property(plane, plane->state, property, val);
 	return rc;
 }
 
@@ -623,7 +971,6 @@ static int sde_plane_atomic_get_property(struct drm_plane *plane,
 	int idx, ret = -EINVAL;
 
 	DBG("");
-
 	pstate = to_sde_plane_state(state);
 
 	for (idx = 0; idx < PLANE_PROP_COUNT; ++idx) {
@@ -727,8 +1074,6 @@ static void sde_plane_reset(struct drm_plane *plane)
 
 	kfree(to_sde_plane_state(plane->state));
 	pstate = kzalloc(sizeof(*pstate), GFP_KERNEL);
-
-	memset(pstate, 0, sizeof(struct sde_plane_state));
 
 	/* assign default blend parameters */
 	pstate->property_values[PLANE_PROP_ALPHA] = 255;
@@ -875,8 +1220,6 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 
 	drm_plane_helper_add(plane, &sde_plane_helper_funcs);
 
-	_sde_plane_install_properties(plane, &plane->base);
-
 	psde->pipe_hw = sde_hw_sspp_init(pipe, kms->mmio, sde_cat);
 	if (IS_ERR(psde->pipe_hw)) {
 		ret = PTR_ERR(psde->pipe_hw);
@@ -884,8 +1227,10 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 		goto fail;
 	}
 
+	_sde_plane_install_properties(plane, &plane->base);
+
 	/* save user friendly pipe name for later */
-	snprintf(psde->pipe_name, SDE_PIPE_NAME_SIZE, "pipe%u", pipe);
+	snprintf(psde->pipe_name, SDE_NAME_SIZE, "plane%u", plane->base.id);
 
 	_sde_plane_init_debugfs(psde, kms);
 
