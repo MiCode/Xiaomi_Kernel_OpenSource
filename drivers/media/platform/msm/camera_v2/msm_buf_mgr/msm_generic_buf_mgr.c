@@ -106,8 +106,10 @@ static int32_t msm_buf_mngr_get_buf_by_idx(struct msm_buf_mngr_device *dev,
 		pr_err("%s:No mem\n", __func__);
 		return -ENOMEM;
 	}
-	if (WARN_ON(!buf_info))
+	if (!buf_info) {
+		kfree(new_entry);
 		return -EIO;
+	}
 
 	INIT_LIST_HEAD(&new_entry->entry);
 	new_entry->vb2_buf = dev->vb2_ops.get_buf_by_idx(buf_info->session_id,
@@ -599,7 +601,8 @@ static long msm_camera_buf_mgr_fetch_buf_info(
 		struct msm_buf_mngr_info32_t *buf_info32,
 		struct msm_buf_mngr_info *buf_info, unsigned long arg)
 {
-	WARN_ON(!arg || !buf_info32 || !buf_info);
+	if (!arg || !buf_info32 || !buf_info)
+		return -EINVAL;
 
 	if (copy_from_user(buf_info32, (void __user *)arg,
 				sizeof(struct msm_buf_mngr_info32_t)))
@@ -621,7 +624,8 @@ static long msm_camera_buf_mgr_update_buf_info(
 		struct msm_buf_mngr_info32_t *buf_info32,
 		struct msm_buf_mngr_info *buf_info, unsigned long arg)
 {
-	WARN_ON(!arg || !buf_info32 || !buf_info);
+	if (!arg || !buf_info32 || !buf_info)
+		return -EINVAL;
 
 	buf_info32->session_id = buf_info->session_id;
 	buf_info32->stream_id = buf_info->stream_id;
