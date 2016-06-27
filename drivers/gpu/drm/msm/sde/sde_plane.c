@@ -14,6 +14,7 @@
 
 #include <linux/debugfs.h>
 #include <uapi/drm/sde_drm.h>
+#include <uapi/drm/msm_drm_pp.h>
 
 #include "msm_prop.h"
 
@@ -25,6 +26,7 @@
 #include "sde_crtc.h"
 #include "sde_vbif.h"
 #include "sde_plane.h"
+#include "sde_color_processing.h"
 
 #define SDE_DEBUG_PLANE(pl, fmt, ...) SDE_DEBUG("plane%d " fmt,\
 		(pl) ? (pl)->base.base.id : -1, ##__VA_ARGS__)
@@ -779,6 +781,8 @@ static void sde_color_process_plane_setup(struct drm_plane *plane)
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	uint32_t hue, saturation, value, contrast;
+	struct drm_msm_memcol *memcol = NULL;
+	size_t memcol_sz = 0;
 
 	psde = to_sde_plane(plane);
 	pstate = to_sde_plane_state(plane->state);
@@ -798,8 +802,33 @@ static void sde_color_process_plane_setup(struct drm_plane *plane)
 		PLANE_PROP_CONTRAST_ADJUST);
 	if (psde->pipe_hw->ops.setup_pa_cont)
 		psde->pipe_hw->ops.setup_pa_cont(psde->pipe_hw, &contrast);
-}
 
+	if (psde->pipe_hw->ops.setup_pa_memcolor) {
+		/* Skin memory color setup */
+		memcol = msm_property_get_blob(&psde->property_info,
+					pstate->property_blobs,
+					&memcol_sz,
+					PLANE_PROP_SKIN_COLOR);
+		psde->pipe_hw->ops.setup_pa_memcolor(psde->pipe_hw,
+					MEMCOLOR_SKIN, memcol);
+
+		/* Sky memory color setup */
+		memcol = msm_property_get_blob(&psde->property_info,
+					pstate->property_blobs,
+					&memcol_sz,
+					PLANE_PROP_SKY_COLOR);
+		psde->pipe_hw->ops.setup_pa_memcolor(psde->pipe_hw,
+					MEMCOLOR_SKY, memcol);
+
+		/* Foliage memory color setup */
+		memcol = msm_property_get_blob(&psde->property_info,
+					pstate->property_blobs,
+					&memcol_sz,
+					PLANE_PROP_FOLIAGE_COLOR);
+		psde->pipe_hw->ops.setup_pa_memcolor(psde->pipe_hw,
+					MEMCOLOR_FOLIAGE, memcol);
+	}
+}
 
 static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		const struct sde_format *fmt,
@@ -1602,6 +1631,24 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			info->data, info->len, PLANE_PROP_INFO);
 
 	kfree(info);
+
+	if (psde->features & BIT(SDE_SSPP_MEMCOLOR)) {
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_SSPP_SKIN_COLOR_V",
+			psde->pipe_sblk->memcolor_blk.version >> 16);
+		msm_property_install_blob(&psde->property_info, feature_name, 0,
+			PLANE_PROP_SKIN_COLOR);
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_SSPP_SKY_COLOR_V",
+			psde->pipe_sblk->memcolor_blk.version >> 16);
+		msm_property_install_blob(&psde->property_info, feature_name, 0,
+			PLANE_PROP_SKY_COLOR);
+		snprintf(feature_name, sizeof(feature_name), "%s%d",
+			"SDE_SSPP_FOLIAGE_COLOR_V",
+			psde->pipe_sblk->memcolor_blk.version >> 16);
+		msm_property_install_blob(&psde->property_info, feature_name, 0,
+			PLANE_PROP_FOLIAGE_COLOR);
+	}
 }
 
 static inline void _sde_plane_set_csc_v1(struct sde_plane *psde, void *usr_ptr)

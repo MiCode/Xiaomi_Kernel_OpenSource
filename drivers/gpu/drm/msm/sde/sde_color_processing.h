@@ -1,4 +1,3 @@
-
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -15,6 +14,18 @@
 #ifndef _SDE_COLOR_PROCESSING_H
 #define _SDE_COLOR_PROCESSING_H
 #include <drm/drm_crtc.h>
+
+/*
+ * PA MEMORY COLOR types
+ * @MEMCOLOR_SKIN          Skin memory color type
+ * @MEMCOLOR_SKY           Sky memory color type
+ * @MEMCOLOR_FOLIAGE       Foliage memory color type
+ */
+enum sde_memcolor_type {
+	MEMCOLOR_SKIN = 0,
+	MEMCOLOR_SKY,
+	MEMCOLOR_FOLIAGE
+};
 
 /**
  * sde_cp_crtc_init(): Initialize color processing lists for a crtc.

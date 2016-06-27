@@ -17,6 +17,7 @@
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
 #include "sde_formats.h"
+#include "sde_color_processing.h"
 
 struct sde_hw_pipe;
 
@@ -358,11 +359,11 @@ struct sde_hw_sspp_ops {
 	/**
 	 * setup_pa_memcolor - setup source color processing
 	 * @ctx: Pointer to pipe context
-	 * @memcolortype: Memcolor type
-	 * @en: PA enable
+	 * @type: Memcolor type (Skin, sky or foliage)
+	 * @cfg: Pointer to memory color config data
 	 */
 	void (*setup_pa_memcolor)(struct sde_hw_pipe *ctx,
-			u32 memcolortype, u8 en);
+			enum sde_memcolor_type type, void *cfg);
 
 	/**
 	 * setup_igc - setup inverse gamma correction
