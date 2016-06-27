@@ -1746,9 +1746,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		pwr->grp_clks[0] = pwr->grp_clks[1];
 
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,deep-nap-timeout",
-		&pwr->deep_nap_timeout))
-		pwr->deep_nap_timeout = 20;
+		&result))
+		result = 20;
 
+	pwr->deep_nap_timeout = msecs_to_jiffies(result);
 	pwr->gx_retention = of_property_read_bool(pdev->dev.of_node,
 						"qcom,gx-retention");
 	if (pwr->gx_retention) {
@@ -2246,7 +2247,7 @@ _nap(struct kgsl_device *device)
 		kgsl_pwrscale_update_stats(device);
 
 		mod_timer(&device->pwrctrl.deep_nap_timer, jiffies +
-			msecs_to_jiffies(device->pwrctrl.deep_nap_timeout));
+			device->pwrctrl.deep_nap_timeout);
 
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_OFF, KGSL_STATE_NAP);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_NAP);
