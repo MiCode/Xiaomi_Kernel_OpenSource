@@ -3137,23 +3137,6 @@ CONFIG_BUS_TOPOLOGY_ADHOC=y
 # CONFIG_MSM_UIM_HSL is not set
 # CONFIG_QPNP_HAPTIC is not set
 # CONFIG_SEEMP_CORE is not set
-<<<<<<< HEAD
-# CONFIG_MACH_HAIER is not set
-# CONFIG_MACH_HAIER_MSM8916 is not set
-
-#
-# Haier board selection
-#
-# CONFIG_MACH_RENDANG is not set
-CONFIG_MACH_WINGTECH=y
-CONFIG_MACH_WINGTECH_MSM8916=y
-
-#
-# Wingtech board selection
-#
-CONFIG_MACH_WT88047=y
-=======
->>>>>>> d926826... update defconfig
 CONFIG_CLKDEV_LOOKUP=y
 CONFIG_HAVE_CLK_PREPARE=y
 # CONFIG_MSM_CLK_CONTROLLER_V2 is not set
