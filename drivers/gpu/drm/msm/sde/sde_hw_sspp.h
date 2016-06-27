@@ -117,6 +117,10 @@ struct sde_hw_pixel_ext {
 
 };
 
+struct sde_hw_scaler3_cfg {
+	uint32_t filter_mode;
+};
+
 /**
  * struct sde_hw_pipe_cfg : Pipe description
  * @src:       source surface information

@@ -71,20 +71,28 @@ struct msm_file_private {
 };
 
 enum msm_mdp_plane_property {
+	/* blob properties, always put these first */
+	PLANE_PROP_SCALER,
+	PLANE_PROP_CSC,
+
+	/* # of blob properties */
+	PLANE_PROP_BLOBCOUNT,
+
 	/* range properties */
-	PLANE_PROP_ZPOS,
+	PLANE_PROP_ZPOS = PLANE_PROP_BLOBCOUNT,
 	PLANE_PROP_ALPHA,
 	PLANE_PROP_PREMULTIPLIED,
+	PLANE_PROP_H_DECIMATE,
+	PLANE_PROP_V_DECIMATE,
+	PLANE_PROP_SYNC_FENCE,
 
-	/* enum properties */
+	/* enum/bitmask properties */
+	PLANE_PROP_ROTATION,
+	PLANE_PROP_BLEND_OP,
+	PLANE_PROP_SRC_CONFIG,
 
-	/* blob properties */
-	PLANE_PROP_PIXEXT,
-
-	/* property counts */
-	PLANE_PROP_COUNT,
-	PLANE_PROP_FIRSTBLOB = PLANE_PROP_PIXEXT,
-	PLANE_PROP_BLOBCOUNT = PLANE_PROP_COUNT - PLANE_PROP_FIRSTBLOB
+	/* total # of properties */
+	PLANE_PROP_COUNT
 };
 
 struct msm_vblank_ctrl {

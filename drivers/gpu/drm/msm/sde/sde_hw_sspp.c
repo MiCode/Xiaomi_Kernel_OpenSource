@@ -176,6 +176,8 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 
 	c = &ctx->hw;
 	opmode = SDE_REG_READ(c, SSPP_SRC_OP_MODE + idx);
+	opmode &= ~(MDSS_MDP_OP_FLIP_LR | MDSS_MDP_OP_FLIP_UD |
+			MDSS_MDP_OP_BWC_EN | MDSS_MDP_OP_PE_OVERRIDE);
 
 	/* format info */
 	fmt = cfg->src.format;
