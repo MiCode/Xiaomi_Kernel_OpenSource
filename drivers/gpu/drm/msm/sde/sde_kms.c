@@ -52,16 +52,14 @@ int sde_enable(struct sde_kms *sde_kms)
 static void sde_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
-	struct sde_kms *sde_kms = to_sde_kms(to_mdp_kms(kms));
-
+	struct sde_kms *sde_kms = to_sde_kms(kms);
 	sde_enable(sde_kms);
 }
 
 static void sde_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
-	struct sde_kms *sde_kms = to_sde_kms(to_mdp_kms(kms));
-
+	struct sde_kms *sde_kms = to_sde_kms(kms);
 	sde_disable(sde_kms);
 }
 
@@ -165,30 +163,28 @@ static void sde_preclose(struct msm_kms *kms, struct drm_file *file)
 
 static void sde_destroy(struct msm_kms *kms)
 {
-	struct sde_kms *sde_kms = to_sde_kms(to_mdp_kms(kms));
+	struct sde_kms *sde_kms = to_sde_kms(kms);
 
 	sde_irq_domain_fini(sde_kms);
+	sde_hw_intr_destroy(sde_kms->hw_intr);
 	kfree(sde_kms);
 }
 
-static const struct mdp_kms_funcs kms_funcs = {
-	.base = {
-		.hw_init         = sde_hw_init,
-		.irq_preinstall  = sde_irq_preinstall,
-		.irq_postinstall = sde_irq_postinstall,
-		.irq_uninstall   = sde_irq_uninstall,
-		.irq             = sde_irq,
-		.prepare_commit  = sde_prepare_commit,
-		.complete_commit = sde_complete_commit,
-		.wait_for_crtc_commit_done = sde_wait_for_crtc_commit_done,
-		.enable_vblank   = sde_enable_vblank,
-		.disable_vblank  = sde_disable_vblank,
-		.get_format      = mdp_get_format,
-		.round_pixclk    = sde_round_pixclk,
-		.preclose        = sde_preclose,
-		.destroy         = sde_destroy,
-	},
-	.set_irqmask         = sde_set_irqmask,
+static const struct msm_kms_funcs kms_funcs = {
+	.hw_init         = sde_hw_init,
+	.irq_preinstall  = sde_irq_preinstall,
+	.irq_postinstall = sde_irq_postinstall,
+	.irq_uninstall   = sde_irq_uninstall,
+	.irq             = sde_irq,
+	.prepare_commit  = sde_prepare_commit,
+	.complete_commit = sde_complete_commit,
+	.wait_for_crtc_commit_done = sde_wait_for_crtc_commit_done,
+	.enable_vblank   = sde_enable_vblank,
+	.disable_vblank  = sde_disable_vblank,
+	.get_format      = mdp_get_format,
+	.round_pixclk    = sde_round_pixclk,
+	.preclose        = sde_preclose,
+	.destroy         = sde_destroy,
 };
 
 static int get_clk(struct platform_device *pdev, struct clk **clkp,
@@ -219,9 +215,9 @@ struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 	if (!sde_kms)
 		return NULL;
 
-	mdp_kms_init(&sde_kms->base, &kms_funcs);
+	msm_kms_init(&sde_kms->base, &kms_funcs);
 
-	kms = &sde_kms->base.base;
+	kms = &sde_kms->base;
 
 	sde_kms->mmio = msm_ioremap(pdev, "mdp_phys", "SDE");
 	if (IS_ERR(sde_kms->mmio)) {
@@ -440,7 +436,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	}
 
 	sde_kms->dev = dev;
-	msm_kms = &sde_kms->base.base;
+	msm_kms = &sde_kms->base;
 
 	/*
 	 * Currently hardcoding to MDSS version 1.7.0 (8996)
@@ -482,6 +478,13 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 */
 	dev->mode_config.max_width =  catalog->mixer[0].sblk->maxwidth;
 	dev->mode_config.max_height = 4096;
+
+	sde_enable(sde_kms);
+	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
+	sde_disable(sde_kms);
+
+	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
+		goto fail;
 
 	return msm_kms;
 
