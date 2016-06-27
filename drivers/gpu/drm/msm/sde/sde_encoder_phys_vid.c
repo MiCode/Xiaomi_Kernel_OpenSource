@@ -209,31 +209,38 @@ static void programmable_fetch_config(struct sde_encoder_phys *phys_enc,
 static bool sde_encoder_phys_vid_mode_fixup(
 		struct sde_encoder_phys *phys_enc,
 		const struct drm_display_mode *mode,
-		struct drm_display_mode *adjusted_mode)
+		struct drm_display_mode *adj_mode)
 {
 	DBG("");
 
 	/*
 	 * Modifying mode has consequences when the mode comes back to us
 	 */
+	if (phys_enc->hw_intf->cap->quirks & SDE_INTF_QUIRK_STAGGER_LM_UPDATE)
+		adj_mode->private_flags |= MSM_MODE_FLAG_VBLANK_POST_MODESET;
+
 	return true;
 }
 
-static void sde_encoder_phys_vid_mode_set(
-		struct sde_encoder_phys *phys_enc,
-		struct drm_display_mode *mode,
-		struct drm_display_mode *adjusted_mode)
+static void sde_encoder_phys_vid_flush_intf(struct sde_encoder_phys *phys_enc)
 {
-	mode = adjusted_mode;
-	phys_enc->cached_mode = *adjusted_mode;
-	DBG("intf %d, caching mode:", phys_enc->hw_intf->idx);
-	drm_mode_debug_printmodeline(mode);
+	struct sde_hw_intf *intf = phys_enc->hw_intf;
+	struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
+	u32 flush_mask = 0;
+
+	DBG("");
+
+	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
+	ctl->ops.setup_flush(ctl, flush_mask);
+
+	DBG("Flushing CTL_ID %d, flush_mask %x, INTF %d",
+			ctl->idx, flush_mask, intf->idx);
 }
 
 static void sde_encoder_phys_vid_setup_timing_engine(
 		struct sde_encoder_phys *phys_enc)
 {
-	struct drm_display_mode *mode = &phys_enc->cached_mode;
+	struct drm_display_mode mode = phys_enc->cached_mode;
 	struct intf_timing_params timing_params = { 0 };
 	struct sde_mdp_format_params *fmt_params = NULL;
 	u32 fmt_fourcc = DRM_FORMAT_RGB888;
@@ -249,21 +256,21 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 
 
 	DBG("intf %d, enabling mode:", phys_enc->hw_intf->idx);
-	drm_mode_debug_printmodeline(mode);
+	drm_mode_debug_printmodeline(&mode);
 
 	if (phys_enc->split_role != ENC_ROLE_SOLO) {
-		mode->hdisplay >>= 1;
-		mode->htotal >>= 1;
-		mode->hsync_start >>= 1;
-		mode->hsync_end >>= 1;
+		mode.hdisplay >>= 1;
+		mode.htotal >>= 1;
+		mode.hsync_start >>= 1;
+		mode.hsync_end >>= 1;
 
 		DBG("split_role %d, halve horizontal: %d %d %d %d",
 				phys_enc->split_role,
-				mode->hdisplay, mode->htotal,
-				mode->hsync_start, mode->hsync_end);
+				mode.hdisplay, mode.htotal,
+				mode.hsync_start, mode.hsync_end);
 	}
 
-	drm_mode_to_intf_timing_params(phys_enc, mode, &timing_params);
+	drm_mode_to_intf_timing_params(phys_enc, &mode, &timing_params);
 
 	fmt_params = sde_mdp_get_format_params(fmt_fourcc, fmt_mod);
 	DBG("fmt_fourcc %d, fmt_mod %d", fmt_fourcc, fmt_mod);
@@ -373,6 +380,36 @@ static void sde_encoder_phys_vid_split_config(
 		spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
 		hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
 		spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+	}
+}
+
+static void sde_encoder_phys_vid_mode_set(
+		struct sde_encoder_phys *phys_enc,
+		struct drm_display_mode *mode,
+		struct drm_display_mode *adj_mode)
+{
+	phys_enc->cached_mode = *adj_mode;
+	DBG("intf %d, caching mode:", phys_enc->hw_intf->idx);
+	drm_mode_debug_printmodeline(adj_mode);
+
+	if (msm_is_mode_dynamic_fps(adj_mode)) {
+		DBG("seamless dynamic fps transition");
+		/* Connector has already updated the HFP/VFP values
+		 * Encoder needs to program in the new values
+		 * An enable of the timing engine is not required
+		 * But a Flush of the INTF block is required
+		 * Encoder mode_set happens first
+		 * 1. msm_atomic_layer waits for VSYNC so DSI and INTF are
+		 *	updated in same VSYNC
+		 * 2. Update intf timing with new porch values
+		 * 3. Flush INTF config
+		 * 4. DSI config flushes
+		 * 5. 8996 workaround:
+		 *	Cannot update INTF timing and Layer Mixers
+		 *	in same VSYNC. In case there is an immediate commit
+		 *	after this, wait another VSYNC
+		 */
+		sde_encoder_phys_vid_setup_timing_engine(phys_enc);
 	}
 }
 
@@ -529,6 +566,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->destroy = sde_encoder_phys_vid_destroy;
 	ops->get_hw_resources = sde_encoder_phys_vid_get_hw_resources;
 	ops->get_vblank_status = sde_encoder_intf_get_vblank_status;
+	ops->flush_intf = sde_encoder_phys_vid_flush_intf;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(

@@ -191,7 +191,7 @@ static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 
 static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
 					const struct drm_display_mode *mode,
-					struct drm_display_mode *adjusted_mode)
+					struct drm_display_mode *adj_mode)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
@@ -210,8 +210,7 @@ static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
 		if (phys && phys->ops.mode_fixup) {
-			ret = phys->ops.mode_fixup(phys, mode,
-					adjusted_mode);
+			ret = phys->ops.mode_fixup(phys, mode, adj_mode);
 			if (!ret) {
 				DRM_ERROR("Mode unsupported, phys_enc %d\n", i);
 				break;
@@ -229,7 +228,7 @@ static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
 
 static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 				      struct drm_display_mode *mode,
-				      struct drm_display_mode *adjusted_mode)
+				      struct drm_display_mode *adj_mode)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
@@ -245,8 +244,15 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
 		if (phys && phys->ops.mode_set)
-			phys->ops.mode_set(phys, mode, adjusted_mode);
+			phys->ops.mode_set(phys, mode, adj_mode);
+	}
+
+	if (msm_is_mode_dynamic_fps(adj_mode)) {
+		if (sde_enc->cur_master->ops.flush_intf)
+			sde_enc->cur_master->ops.flush_intf(
+					sde_enc->cur_master);
 	}
 }
 

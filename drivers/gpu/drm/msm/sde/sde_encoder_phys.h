@@ -79,6 +79,7 @@ struct sde_encoder_phys_ops {
 			struct sde_encoder_hw_resources *hw_res);
 	void (*get_vblank_status)(struct sde_encoder_phys *enc,
 			struct vsync_info *vsync);
+	void (*flush_intf)(struct sde_encoder_phys *phys_enc);
 };
 
 /**
