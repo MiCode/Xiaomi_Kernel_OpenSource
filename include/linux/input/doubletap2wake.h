@@ -28,7 +28,7 @@ extern bool dt2w_toggled;
 #define DT2W_DEBUG		1
 
 #ifdef DT2W_DEBUG
-#define DT2W_PRINFO(format, args...) pr_info(format, args)
+#define DT2W_PRINFO(format, args...) pr_info(format, ##args)
 #else
 #define DT2W_PRINFO(format, args...) 
 #endif
