@@ -21,17 +21,20 @@ static const char * const iommu_ports[] = {
 		"mdp_0",
 };
 
+static const struct sde_hw_res_map res_table[INTF_MAX] = {
+	{ SDE_NONE, SDE_NONE, SDE_NONE, SDE_NONE},
+	{ INTF_0, SDE_NONE, SDE_NONE, SDE_NONE},
+	{ INTF_1, LM_0, PINGPONG_0, CTL_0},
+	{ INTF_2, LM_1, PINGPONG_1, CTL_1},
+	{ INTF_3, SDE_NONE, SDE_NONE, CTL_2},
+};
+
+
 #define DEFAULT_MDP_SRC_CLK 200000000
 
 int sde_disable(struct sde_kms *sde_kms)
 {
 	DBG("");
-
-	clk_disable_unprepare(sde_kms->ahb_clk);
-	clk_disable_unprepare(sde_kms->axi_clk);
-	clk_disable_unprepare(sde_kms->core_clk);
-	if (sde_kms->lut_clk)
-		clk_disable_unprepare(sde_kms->lut_clk);
 
 	return 0;
 }
@@ -64,8 +67,9 @@ static void sde_complete_commit(struct msm_kms *kms,
 }
 
 static void sde_wait_for_crtc_commit_done(struct msm_kms *kms,
-						struct drm_crtc *crtc)
+		struct drm_crtc *crtc)
 {
+	sde_crtc_wait_for_commit_done(crtc);
 }
 static int modeset_init(struct sde_kms *sde_kms)
 {
@@ -455,6 +459,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 
 	clk_set_rate(sde_kms->src_clk, DEFAULT_MDP_SRC_CLK);
 	sde_enable(sde_kms);
+	sde_kms->hw_res.res_table = res_table;
 
 	/*
 	 * Now we need to read the HW catalog and initialize resources such as
@@ -479,9 +484,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	dev->mode_config.max_width =  catalog->mixer[0].sblk->maxwidth;
 	dev->mode_config.max_height = 4096;
 
-	sde_enable(sde_kms);
-	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
-	sde_disable(sde_kms);
+	sde_kms->hw_intr = sde_rm_acquire_intr(sde_kms);
 
 	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
 		goto fail;
