@@ -28,10 +28,14 @@
 
 #define SDE_NAME_SIZE  12
 
+#define SDE_STATE_CACHE_SIZE	2
+
 struct sde_plane {
 	struct drm_plane base;
 
 	int mmu_id;
+
+	struct mutex lock;
 
 	enum sde_sspp pipe;
 	uint32_t features;      /* capabilities from catalog */
@@ -53,6 +57,10 @@ struct sde_plane {
 
 	/* cache property default values (for reset) */
 	uint64_t property_defaults[PLANE_PROP_COUNT];
+
+	/* cache for unused plane state structures */
+	struct sde_plane_state *state_cache[SDE_STATE_CACHE_SIZE];
+	int state_cache_size;
 
 	/* debugfs related stuff */
 	struct dentry *debugfs_root;
@@ -1022,18 +1030,21 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		struct drm_plane_state *state, struct drm_property *property,
 		uint64_t val)
 {
+	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	struct drm_property_blob *blob, **pr_blob;
 	int idx, ret = -EINVAL;
 
-	DBG("");
-
 	idx = _sde_plane_get_property_index(plane, property);
 	if (!state) {
 		DRM_ERROR("Invalid state\n");
-	} else if (idx < PLANE_PROP_COUNT) {
-		DBG("Set property %d <= %d", idx, (int)val);
+	} else if (idx >= PLANE_PROP_COUNT) {
+		DRM_ERROR("Invalid property\n");
+	} else {
+		psde = to_sde_plane(plane);
 		pstate = to_sde_plane_state(state);
+
+		DBG("%s: %d <= %d", psde->pipe_name, idx, (int)val);
 
 		/* extra handling for incoming properties */
 		if ((property->flags & DRM_MODE_PROP_BLOB) &&
@@ -1100,6 +1111,48 @@ static int sde_plane_atomic_get_property(struct drm_plane *plane,
 	return ret;
 }
 
+static struct sde_plane_state *sde_plane_alloc_state(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+	struct sde_plane_state *pstate;
+
+	if (!plane)
+		return NULL;
+
+	psde = to_sde_plane(plane);
+	pstate = NULL;
+
+	mutex_lock(&psde->lock);
+	if (psde->state_cache_size)
+		pstate = psde->state_cache[--(psde->state_cache_size)];
+	mutex_unlock(&psde->lock);
+
+	if (!pstate)
+		pstate = kmalloc(sizeof(struct sde_plane_state), GFP_KERNEL);
+
+	return pstate;
+}
+
+static void sde_plane_free_state(struct drm_plane *plane,
+		struct sde_plane_state *pstate)
+{
+	struct sde_plane *psde;
+
+	if (!plane || !pstate)
+		return;
+
+	psde = to_sde_plane(plane);
+
+	mutex_lock(&psde->lock);
+	if (psde->state_cache_size < SDE_STATE_CACHE_SIZE) {
+		psde->state_cache[(psde->state_cache_size)++] = pstate;
+		mutex_unlock(&psde->lock);
+	} else {
+		mutex_unlock(&psde->lock);
+		kfree(pstate);
+	}
+}
+
 static void sde_plane_destroy(struct drm_plane *plane)
 {
 	struct sde_plane *psde;
@@ -1111,6 +1164,8 @@ static void sde_plane_destroy(struct drm_plane *plane)
 
 		debugfs_remove_recursive(psde->debugfs_root);
 
+		mutex_destroy(&psde->lock);
+
 		drm_plane_helper_disable(plane);
 
 		/* this will destroy the states as well */
@@ -1118,6 +1173,10 @@ static void sde_plane_destroy(struct drm_plane *plane)
 
 		if (psde->pipe_hw)
 			sde_hw_sspp_destroy(psde->pipe_hw);
+
+		/* free state cache */
+		while (psde->state_cache_size > 0)
+			kfree(psde->state_cache[--(psde->state_cache_size)]);
 
 		kfree(psde);
 	}
@@ -1129,18 +1188,18 @@ static void sde_plane_destroy_state(struct drm_plane *plane,
 	struct sde_plane_state *pstate;
 	int i;
 
-	DBG("");
-
 	if (!plane || !state) {
 		DRM_ERROR("Invalid plane/state\n");
 		return;
 	}
 
+	pstate = to_sde_plane_state(state);
+
+	DBG("");
+
 	/* remove ref count for frame buffers */
 	if (state->fb)
 		drm_framebuffer_unreference(state->fb);
-
-	pstate = to_sde_plane_state(state);
 
 	/* remove ref count for fence */
 	if (pstate->sync_fence)
@@ -1151,46 +1210,50 @@ static void sde_plane_destroy_state(struct drm_plane *plane,
 		if (pstate->property_blobs[i])
 			drm_property_unreference_blob(
 					pstate->property_blobs[i]);
-	kfree(pstate);
+	sde_plane_free_state(plane, pstate);
 }
 
 static struct drm_plane_state *
 sde_plane_duplicate_state(struct drm_plane *plane)
 {
 	struct sde_plane_state *pstate;
+	struct sde_plane_state *old_state;
 	int i;
 
-	if (WARN_ON(!plane->state))
+	if (!plane || !plane->state)
 		return NULL;
 
-	pstate = kmemdup(to_sde_plane_state(plane->state),
-			sizeof(*pstate), GFP_KERNEL);
+	old_state = to_sde_plane_state(plane->state);
+	pstate = sde_plane_alloc_state(plane);
 
 	DBG("");
 
-	if (pstate) {
-		/* add ref count for frame buffer */
-		if (pstate->base.fb)
-			drm_framebuffer_reference(pstate->base.fb);
+	if (!pstate)
+		return NULL;
 
-		/* add ref count for fence */
-		if (pstate->sync_fence) {
-			pstate->sync_fence = 0;
-			_sde_plane_update_sync_fence(plane, pstate, pstate->
-					property_values[PLANE_PROP_SYNC_FENCE]);
-		}
+	memcpy(pstate, old_state, sizeof(*pstate));
 
-		/* add ref count for blobs */
-		for (i = 0; i < PLANE_PROP_BLOBCOUNT; ++i)
-			if (pstate->property_blobs[i])
-				drm_property_reference_blob(
-						pstate->property_blobs[i]);
+	/* add ref count for frame buffer */
+	if (pstate->base.fb)
+		drm_framebuffer_reference(pstate->base.fb);
 
-		pstate->mode_changed = false;
-		pstate->pending = false;
+	/* add ref count for fence */
+	if (pstate->sync_fence) {
+		pstate->sync_fence = 0;
+		_sde_plane_update_sync_fence(plane, pstate, pstate->
+				property_values[PLANE_PROP_SYNC_FENCE]);
 	}
 
-	return pstate ? &pstate->base : NULL;
+	/* add ref count for blobs */
+	for (i = 0; i < PLANE_PROP_BLOBCOUNT; ++i)
+		if (pstate->property_blobs[i])
+			drm_property_reference_blob(
+					pstate->property_blobs[i]);
+
+	pstate->mode_changed = false;
+	pstate->pending = false;
+
+	return &pstate->base;
 }
 
 static void sde_plane_reset(struct drm_plane *plane)
@@ -1199,26 +1262,28 @@ static void sde_plane_reset(struct drm_plane *plane)
 	struct sde_plane_state *pstate;
 	int i;
 
-	DBG("");
-
 	if (!plane) {
 		DRM_ERROR("Invalid plane\n");
 		return;
 	}
+
+	psde = to_sde_plane(plane);
+	DBG("%s", psde->pipe_name);
 
 	/* remove previous state, if present */
 	if (plane->state)
 		sde_plane_destroy_state(plane, plane->state);
 	plane->state = 0;
 
-	pstate = kzalloc(sizeof(*pstate), GFP_KERNEL);
+	pstate = sde_plane_alloc_state(plane);
 	if (!pstate) {
-		DRM_ERROR("Failed to re-allocate plane state\n");
+		DRM_ERROR("Failed to (re)allocate plane state\n");
 		return;
 	}
 
+	memset(pstate, 0, sizeof(*pstate));
+
 	/* assign default property values */
-	psde = to_sde_plane(plane);
 	for (i = 0; i < PLANE_PROP_COUNT; ++i)
 		pstate->property_values[i] = psde->property_defaults[i];
 
@@ -1390,6 +1455,8 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 
 	/* save user friendly pipe name for later */
 	snprintf(psde->pipe_name, SDE_NAME_SIZE, "plane%u", plane->base.id);
+
+	mutex_init(&psde->lock);
 
 	_sde_plane_init_debugfs(psde, kms);
 
