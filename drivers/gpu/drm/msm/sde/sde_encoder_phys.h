@@ -30,7 +30,8 @@ struct sde_encoder_virt_ops {
 struct sde_encoder_phys_ops {
 	void (*mode_set)(struct sde_encoder_phys *encoder,
 			struct drm_display_mode *mode,
-			struct drm_display_mode *adjusted_mode);
+			struct drm_display_mode *adjusted_mode,
+			bool splitmode);
 	bool (*mode_fixup)(struct sde_encoder_phys *encoder,
 			const struct drm_display_mode *mode,
 			struct drm_display_mode *adjusted_mode);
@@ -39,6 +40,10 @@ struct sde_encoder_phys_ops {
 	void (*destroy)(struct sde_encoder_phys *encoder);
 	void (*get_hw_resources)(struct sde_encoder_phys *encoder,
 			struct sde_encoder_hw_resources *hw_res);
+	void (*get_vsync_info)(struct sde_encoder_phys *enc,
+			struct vsync_info *vsync);
+	void (*enable_split_config)(struct sde_encoder_phys *enc,
+			bool enable);
 };
 
 struct sde_encoder_phys {
