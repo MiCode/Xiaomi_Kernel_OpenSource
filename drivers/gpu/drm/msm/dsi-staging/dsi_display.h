@@ -17,6 +17,7 @@
 
 #include <linux/types.h>
 #include <linux/bitops.h>
+#include <linux/debugfs.h>
 #include <linux/of_device.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
@@ -179,6 +180,9 @@ struct dsi_display {
 	struct dsi_connector *connector;
 	struct dsi_bridge    *bridge;
 	u32 cmd_engine_refcount;
+
+	/* DEBUG FS */
+	struct dentry *root;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);

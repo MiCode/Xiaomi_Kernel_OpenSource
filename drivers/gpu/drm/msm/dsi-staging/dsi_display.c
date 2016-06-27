@@ -31,6 +31,103 @@ static LIST_HEAD(dsi_display_list);
 
 static struct dsi_display *main_display;
 
+static ssize_t debugfs_dump_info_read(struct file *file,
+				      char __user *buff,
+				      size_t count,
+				      loff_t *ppos)
+{
+	struct dsi_display *display = file->private_data;
+	char *buf;
+	u32 len = 0;
+	int i;
+
+	if (!display)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	len += snprintf(buf + len, (SZ_4K - len), "name = %s\n", display->name);
+	len += snprintf(buf + len, (SZ_4K - len),
+			"\tResolution = %dx%d\n",
+			display->config.video_timing.h_active,
+			display->config.video_timing.v_active);
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		len += snprintf(buf + len, (SZ_4K - len),
+				"\tCTRL_%d:\n\t\tctrl = %s\n\t\tphy = %s\n",
+				i, display->ctrl[i].ctrl->name,
+				display->ctrl[i].phy->name);
+	}
+
+	len += snprintf(buf + len, (SZ_4K - len),
+			"\tPanel = %s\n", display->panel->name);
+
+	len += snprintf(buf + len, (SZ_4K - len),
+			"\tClock master = %s\n",
+			display->ctrl[display->clk_master_idx].ctrl->name);
+
+	if (copy_to_user(buff, buf, len)) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
+	*ppos += len;
+
+	kfree(buf);
+	return len;
+}
+
+
+static const struct file_operations dump_info_fops = {
+	.open = simple_open,
+	.read = debugfs_dump_info_read,
+};
+
+static int dsi_display_debugfs_init(struct dsi_display *display)
+{
+	int rc = 0;
+	struct dentry *dir, *dump_file;
+
+	dir = debugfs_create_dir(display->name, NULL);
+	if (IS_ERR_OR_NULL(dir)) {
+		rc = PTR_ERR(dir);
+		pr_err("[%s] debugfs create dir failed, rc = %d\n",
+		       display->name, rc);
+		goto error;
+	}
+
+	dump_file = debugfs_create_file("dump_info",
+					0444,
+					dir,
+					display,
+					&dump_info_fops);
+	if (IS_ERR_OR_NULL(dump_file)) {
+		rc = PTR_ERR(dump_file);
+		pr_err("[%s] debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	display->root = dir;
+	return rc;
+error_remove_dir:
+	debugfs_remove(dir);
+error:
+	return rc;
+}
+
+static int dsi_dipslay_debugfs_deinit(struct dsi_display *display)
+{
+	debugfs_remove(display->root);
+
+	return 0;
+}
+
 static int dsi_display_ctrl_power_on(struct dsi_display *display)
 {
 	int rc = 0;
@@ -1356,10 +1453,16 @@ int dsi_display_bind(struct dsi_display *display, struct drm_device *dev)
 
 	mutex_lock(&display->display_lock);
 
+	rc = dsi_display_debugfs_init(display);
+	if (rc) {
+		pr_err("[%s]Debugfs init failed, rc=%d\n", display->name, rc);
+		goto error;
+	}
+
 	for (i = 0; i < display->ctrl_count; i++) {
 		display_ctrl = &display->ctrl[i];
 
-		rc = dsi_ctrl_drv_init(display_ctrl->ctrl);
+		rc = dsi_ctrl_drv_init(display_ctrl->ctrl, display->root);
 		if (rc) {
 			pr_err("[%s] Failed to initialize ctrl[%d], rc=%d\n",
 			       display->name, i, rc);
@@ -1409,6 +1512,7 @@ error_ctrl_deinit:
 		(void)dsi_phy_drv_deinit(display_ctrl->phy);
 		(void)dsi_ctrl_drv_deinit(display_ctrl->ctrl);
 	}
+	(void)dsi_dipslay_debugfs_deinit(display);
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
