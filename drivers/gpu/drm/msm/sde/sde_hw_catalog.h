@@ -242,6 +242,8 @@ struct sde_sspp_sub_blks {
 	u32 safe_lut;
 	u32 maxdwnscale;
 	u32 maxupscale;
+	u32 maxhdeciexp; /* max decimation is 2^value */
+	u32 maxvdeciexp; /* max decimation is 2^value */
 	struct sde_src_blk src_blk;
 	struct sde_scaler_blk scaler_blk;
 	struct sde_pp_blk csc_blk;
