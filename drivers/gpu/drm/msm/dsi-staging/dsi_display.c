@@ -1501,8 +1501,9 @@ int dsi_display_bind(struct dsi_display *display, struct drm_device *dev)
 
 	rc = dsi_panel_drv_init(display->panel, &display->host);
 	if (rc) {
-		pr_err("[%s] Failed to initialize panel driver, rc=%d\n",
-		       display->name, rc);
+		if (rc != -EPROBE_DEFER)
+			pr_err("[%s] Failed to initialize panel driver, rc=%d\n",
+			       display->name, rc);
 		goto error_host_deinit;
 	}
 
