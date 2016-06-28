@@ -391,6 +391,13 @@ Required properties:
                                            group configuration.
  - pinctrl-x:                              Defines pinctrl state for each pin
                                            group.
+
+* wcd_dsp_glink
+
+Required properties:
+
+ - compatible :                            "qcom,wcd-dsp-glink"
+
 Example:
 
 	qcom,msm-pcm {
@@ -657,6 +664,11 @@ Example:
 		pinctrl-0 = <&cdc_reset_active>;
 		pinctrl-1 = <&cdc_reset_sleep>;
 	};
+
+	wcd_dsp_glink {
+		compatible = "qcom,wcd-dsp-glink";
+	};
+
 
 * MSM8916 ASoC Machine driver
 

@@ -761,4 +761,13 @@ config QSEE_IPC_IRQ_BRIDGE
 	  interrupt from a remote subsystem directed towards Qualcomm
 	  Technologies, Inc. Secure Execution Environment(QSEE).
 
+config WCD_DSP_GLINK
+	tristate "WCD DSP GLINK Driver"
+	depends on MSM_GLINK
+	default y if SND_SOC_WCD934X=y
+	help
+	   This option enables driver which provides communication interface
+	   between MSM and WCD DSP over glink transport protocol. This driver
+	   provides read and write interface via char device.
+
 source "drivers/soc/qcom/memshare/Kconfig"
