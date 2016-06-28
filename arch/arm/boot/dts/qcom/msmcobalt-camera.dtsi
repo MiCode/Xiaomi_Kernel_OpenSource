@@ -342,14 +342,18 @@
 			"mmss_fd_ahb_clk",
 			"mmss_camss_cpp_axi_clk",
 			"mmss_camss_cpp_vbif_ahb_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 200000000 0 0 0 0>;
+		qcom,clock-rates =
+			<0 0 0 0 0 0 404000000 0 0 0 0>,
+			<0 0 0 0 0 0 100000000 0 0 0 0>,
+			<0 0 0 0 0 0 404000000 0 0 0 0>,
+			<0 0 0 0 0 0 404000000 0 0 0 0>;
 		qcom,msm-bus,name = "msm_camera_fd";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <106 512 0 0>,
-			<106 512 13000000 13000000>,
-			<106 512 45000000 45000000>,
-			<106 512 90000000 90000000>;
+			<106 512 1625 0>,
+			<106 512 2995 0>,
+			<106 512 7200 0>;
 		qcom,fd-vbif-reg-settings = <0x20 0x10000000 0x30000000>,
 			<0x24 0x10000000 0x30000000>,
 			<0x28 0x10000000 0x30000000>,
