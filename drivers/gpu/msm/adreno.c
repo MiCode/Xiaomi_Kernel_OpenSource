@@ -1264,6 +1264,9 @@ static uint64_t _read_throttling_counters(struct adreno_device *adreno_dev)
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return 0;
 
+	if (!test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag))
+		return 0;
+
 	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {
 		if (!adreno_dev->gpmu_throttle_counters[i])
 			return 0;
@@ -1272,9 +1275,8 @@ static uint64_t _read_throttling_counters(struct adreno_device *adreno_dev)
 			adreno_dev->gpmu_throttle_counters[i],
 			&busy->throttle_cycles[i]);
 	}
-	return th[CRC_50PCT] + th[CRC_LESS50PCT] / 3 +
-		(th[CRC_MORE50PCT] - th[IDLE_10PCT]) * 3;
-
+	i = th[CRC_MORE50PCT] - th[IDLE_10PCT];
+	return th[CRC_50PCT] + th[CRC_LESS50PCT] / 3 + (i < 0 ? 0 : i) * 3;
 }
 
 static void _update_threshold_count(struct adreno_device *adreno_dev,
