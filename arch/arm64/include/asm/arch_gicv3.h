@@ -104,7 +104,6 @@ static inline u64 gic_read_iar_common(void)
 
 	asm volatile("mrs_s %0, " __stringify(ICC_IAR1_EL1) : "=r" (irqstat));
 	/* As per the architecture specification */
-	isb();
 	mb();
 	return irqstat;
 }
