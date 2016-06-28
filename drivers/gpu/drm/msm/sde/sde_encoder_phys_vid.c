@@ -492,8 +492,13 @@ static void sde_encoder_intf_split_config(struct sde_encoder_phys *phys_enc,
 			sde_kms->catalog);
 	struct split_pipe_cfg cfg;
 
-	cfg.en = true;
+	cfg.en = enable;
+
 	cfg.mode = INTF_MODE_VIDEO;
+	cfg.intf = INTF_1;
+	cfg.pp_split = false;
+	cfg.split_flush_en = true;
+
 	if (!IS_ERR_OR_NULL(mdp))
 		mdp->ops.setup_split_pipe(mdp, &cfg);
 }

@@ -23,10 +23,17 @@ struct sde_hw_mdp;
  * struct split_pipe_cfg - pipe configuration for dual display panels
  * @en        : Enable/disable dual pipe confguration
  * @mode      : Panel interface mode
+ * @intf      : Interface id for main control path
+ * @pp_split  : Ping pong split is enabled or disabled
+ * @split_flush_en: Allows both the paths to be flushed when master path is
+ *              flushed
  */
 struct split_pipe_cfg {
 	bool en;
 	enum sde_intf_mode mode;
+	enum sde_intf intf;
+	bool pp_split;
+	bool split_flush_en;
 };
 
 /**
@@ -35,6 +42,11 @@ struct split_pipe_cfg {
  * @setup_split_pipe : Programs the pipe control registers
  */
 struct sde_hw_mdp_ops {
+	/** setup_split_pipe() : Regsiters are not double buffered, thisk
+	 * function should be called before timing control enable
+	 * @mdp  : mdp top context driver
+	 * @cfg  : upper and lower part of pipe configuration
+	 */
 	void (*setup_split_pipe)(struct sde_hw_mdp *mdp,
 			struct split_pipe_cfg *p);
 };

@@ -39,7 +39,7 @@
 
 static struct msm_bus_vectors mdp_bus_vectors[] = {
 	MDP_BUS_VECTOR_ENTRY(0, 0),
-	MDP_BUS_VECTOR_ENTRY(2000000000, 2000000000),
+	MDP_BUS_VECTOR_ENTRY(8000000000, 8000000000),
 };
 
 static struct msm_bus_paths mdp_bus_usecases[] = { {
