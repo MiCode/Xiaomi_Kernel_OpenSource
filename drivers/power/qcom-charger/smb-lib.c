@@ -662,7 +662,8 @@ int smblib_vconn_regulator_is_enabled(struct regulator_dev *rdev)
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				  union power_supply_propval *val)
 {
-	val->intval = get_client_vote(chg->usb_suspend_votable, USER_VOTER);
+	val->intval = get_client_vote(chg->usb_suspend_votable, USER_VOTER) &&
+			get_client_vote(chg->dc_suspend_votable, USER_VOTER);
 	return 0;
 }
 
@@ -697,15 +698,23 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 {
 	int rc;
 	u8 stat;
-	union power_supply_propval online_pval = {0, };
+	union power_supply_propval pval = {0, };
 
-	rc = smblib_get_prop_usb_online(chg, &online_pval);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't get prop usb online rc=%d\n", rc);
+	smblib_get_prop_input_suspend(chg, &pval);
+	if (pval.intval) {
+		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		return rc;
 	}
 
-	if (!online_pval.intval) {
+	rc = smblib_read(chg, POWER_PATH_STATUS_REG, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read POWER_PATH_STATUS rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	if (!(stat & (USE_USBIN_BIT | USE_DCIN_BIT)) ||
+				!(stat & VALID_INPUT_POWER_SOURCE_BIT)) {
 		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		return rc;
 	}
@@ -720,7 +729,7 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		 stat);
 
 	stat = stat & BATTERY_CHARGER_STATUS_MASK;
-	if (stat == COMPLETED_CHARGE || stat == INHIBIT_CHARGE)
+	if (stat >= COMPLETED_CHARGE)
 		val->intval = POWER_SUPPLY_STATUS_FULL;
 	else
 		val->intval = POWER_SUPPLY_STATUS_CHARGING;
