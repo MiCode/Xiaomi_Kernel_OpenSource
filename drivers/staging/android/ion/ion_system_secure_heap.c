@@ -29,7 +29,7 @@ struct ion_system_secure_heap {
 	spinlock_t work_lock;
 	bool destroy_heap;
 	struct list_head prefetch_list;
-	struct work_struct prefetch_work;
+	struct delayed_work prefetch_work;
 };
 
 struct prefetch_info {
@@ -38,6 +38,14 @@ struct prefetch_info {
 	size_t size;
 	bool shrink;
 };
+
+/*
+ * The video client may not hold the last reference count on the
+ * ion_buffer(s). Delay for a short time after the video client sends
+ * the IOC_DRAIN event to increase the chance that the reference
+ * count drops to zero. Time in milliseconds.
+ */
+#define SHRINK_DELAY 1000
 
 static bool is_cp_flag_present(unsigned long flags)
 {
@@ -191,7 +199,7 @@ static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 {
 	struct ion_system_secure_heap *secure_heap = container_of(work,
 						struct ion_system_secure_heap,
-						prefetch_work);
+						prefetch_work.work);
 	struct ion_heap *sys_heap = secure_heap->sys_heap;
 	struct prefetch_info *info, *tmp;
 	unsigned long flags;
@@ -284,7 +292,8 @@ static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
 		goto out_free;
 	}
 	list_splice_init(&items, &secure_heap->prefetch_list);
-	schedule_work(&secure_heap->prefetch_work);
+	schedule_delayed_work(&secure_heap->prefetch_work,
+			      shrink ? msecs_to_jiffies(SHRINK_DELAY) : 0);
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
 	return 0;
@@ -387,7 +396,8 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	heap->destroy_heap = false;
 	heap->work_lock = __SPIN_LOCK_UNLOCKED(heap->work_lock);
 	INIT_LIST_HEAD(&heap->prefetch_list);
-	INIT_WORK(&heap->prefetch_work, ion_system_secure_heap_prefetch_work);
+	INIT_DELAYED_WORK(&heap->prefetch_work,
+			  ion_system_secure_heap_prefetch_work);
 	return &heap->heap;
 }
 
@@ -406,7 +416,7 @@ void ion_system_secure_heap_destroy(struct ion_heap *heap)
 	list_splice_init(&secure_heap->prefetch_list, &items);
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
-	cancel_work_sync(&secure_heap->prefetch_work);
+	cancel_delayed_work_sync(&secure_heap->prefetch_work);
 
 	list_for_each_entry_safe(info, tmp, &items, list) {
 		list_del(&info->list);
