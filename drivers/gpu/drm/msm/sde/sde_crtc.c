@@ -1195,7 +1195,8 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
-		struct drm_plane *plane,
+		struct drm_plane *primary_plane,
+		struct drm_plane *cursor_plane,
 		int drm_crtc_id)
 {
 	struct drm_crtc *crtc = NULL;
@@ -1215,10 +1216,14 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 	sde_crtc->drm_crtc_id = drm_crtc_id;
 	atomic_set(&sde_crtc->drm_requested_vblank, 0);
 
-	drm_crtc_init_with_planes(dev, crtc, plane, NULL, &sde_crtc_funcs);
+	drm_crtc_init_with_planes(dev, crtc, primary_plane, cursor_plane,
+					&sde_crtc_funcs);
 
 	drm_crtc_helper_add(crtc, &sde_crtc_helper_funcs);
-	plane->crtc = crtc;
+	if (primary_plane)
+		primary_plane->crtc = crtc;
+	if (cursor_plane)
+		cursor_plane->crtc = crtc;
 
 	/* save user friendly CRTC name for later */
 	snprintf(sde_crtc->name, SDE_CRTC_NAME_SIZE, "crtc%u", crtc->base.id);

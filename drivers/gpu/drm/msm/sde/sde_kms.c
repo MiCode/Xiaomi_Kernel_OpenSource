@@ -256,6 +256,7 @@ static int modeset_init(struct sde_kms *sde_kms)
 {
 	struct drm_device *dev;
 	struct drm_plane *primary_planes[MAX_PLANES], *plane;
+	struct drm_plane *cursor_planes[MAX_PLANES];
 	struct drm_crtc *crtc;
 
 	struct msm_drm_private *priv;
@@ -277,6 +278,7 @@ static int modeset_init(struct sde_kms *sde_kms)
 	if (ret)
 		goto fail;
 
+	memset(cursor_planes, 0x00, sizeof(struct drm_plane *) * MAX_PLANES);
 	/* Enumerate displays supported */
 	sde_encoders_init(dev);
 
@@ -288,11 +290,14 @@ static int modeset_init(struct sde_kms *sde_kms)
 
 		for (i = 0; i < max_plane_count; i++) {
 			bool primary = true;
+			bool cursor = false;
 			int crtc_id =
 				sde_get_crtc_id(catalog->vp[i].display_type);
 
 			if (strcmp(catalog->vp[i].plane_type, "primary"))
 				primary = false;
+			if (!strcmp(catalog->vp[i].plane_type, "cursor"))
+				cursor = true;
 
 			plane = sde_plane_init(dev, catalog->vp[i].id,
 					primary, 1UL << crtc_id, true);
@@ -306,6 +311,8 @@ static int modeset_init(struct sde_kms *sde_kms)
 			if (primary) {
 				primary_planes[crtc_id] = plane;
 				primary_planes_idx++;
+			} else if (cursor) {
+				cursor_planes[crtc_id] = plane;
 			}
 		}
 	} else {
@@ -337,7 +344,8 @@ static int modeset_init(struct sde_kms *sde_kms)
 
 	/* Create one CRTC per encoder */
 	for (i = 0; i < max_crtc_count; i++) {
-		crtc = sde_crtc_init(dev, primary_planes[i], i);
+		crtc = sde_crtc_init(dev, primary_planes[i],
+					cursor_planes[i], i);
 		if (IS_ERR(crtc)) {
 			ret = PTR_ERR(crtc);
 			goto fail_irq;

@@ -1738,7 +1738,8 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 
 	_sde_plane_init_debugfs(psde, kms);
 
-	DRM_INFO("[%u]successfully created %s\n", pipe, psde->pipe_name);
+	DRM_INFO("[%u]successfully created %s type=%d\n", pipe, psde->pipe_name,
+		type);
 	return plane;
 
 clean_sspp:

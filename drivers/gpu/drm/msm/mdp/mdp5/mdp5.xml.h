@@ -74,6 +74,8 @@ enum mdp5_pipe {
 	SSPP_DMA1 = 7,
 	SSPP_VIG3 = 8,
 	SSPP_RGB3 = 9,
+	SSPP_CURSOR0 = 10,
+	SSPP_CURSOR1 = 11,
 };
 
 enum mdp5_ctl_mode {
@@ -550,6 +552,8 @@ static inline uint32_t __offset_PIPE(enum mdp5_pipe idx)
 		case SSPP_DMA1: return (mdp5_cfg->pipe_dma.base[1]);
 		case SSPP_VIG3: return (mdp5_cfg->pipe_vig.base[3]);
 		case SSPP_RGB3: return (mdp5_cfg->pipe_rgb.base[3]);
+		case SSPP_CURSOR0: return (mdp5_cfg->pipe_cursor.base[0]);
+		case SSPP_CURSOR1: return (mdp5_cfg->pipe_cursor.base[1]);
 		default: return INVALID_IDX(idx);
 	}
 }

@@ -536,12 +536,14 @@ void sde_crtc_prepare_fence(struct drm_crtc *crtc);
 /**
  * sde_crtc_init - create a new crtc object
  * @dev: sde device
- * @plane: base plane
+ * @primary_plane: base plane
+ * @cursor_plane: cursor plane
  * @vblank_id: Id for reporting vblank. Id in range from 0..dev->num_crtcs.
  * @Return: new crtc object or error
  */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
-		struct drm_plane *plane,
+		struct drm_plane *primary_plane,
+		struct drm_plane *cursor_plane,
 		int vblank_id);
 
 /**

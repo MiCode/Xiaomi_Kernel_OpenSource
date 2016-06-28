@@ -426,6 +426,14 @@ const struct mdp5_cfg_hw msm8x96_config = {
 			MDP_PIPE_CAP_SW_PIX_EXT	|
 			0,
 	},
+	.pipe_cursor = {
+		.count = 2,
+		.base = { 0x35000, 0x37000 },
+		.caps = MDP_PIPE_CAP_HFLIP	|
+			MDP_PIPE_CAP_VFLIP	|
+			MDP_PIPE_CAP_SW_PIX_EXT |
+			0,
+	},
 	.lm = {
 		.count = 6,
 		.base = { 0x45000, 0x46000, 0x47000, 0x48000, 0x49000, 0x4a000 },

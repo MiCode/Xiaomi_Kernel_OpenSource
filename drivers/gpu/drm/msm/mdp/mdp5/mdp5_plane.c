@@ -17,6 +17,7 @@
  */
 
 #include "mdp5_kms.h"
+#include "mdp5_plane.h"
 
 struct mdp5_plane {
 	struct drm_plane base;
@@ -498,11 +499,10 @@ static int calc_phase_step(uint32_t src, uint32_t dst, uint32_t *out_phase)
 	return 0;
 }
 
-static int calc_scalex_steps(struct drm_plane *plane,
+int mdp5_plane_calc_scalex_steps(struct mdp5_kms *mdp5_kms,
 		uint32_t pixel_format, uint32_t src, uint32_t dest,
 		uint32_t phasex_steps[COMP_MAX])
 {
-	struct mdp5_kms *mdp5_kms = get_kms(plane);
 	struct device *dev = mdp5_kms->dev->dev;
 	uint32_t phasex_step;
 	unsigned int hsub;
@@ -523,11 +523,10 @@ static int calc_scalex_steps(struct drm_plane *plane,
 	return 0;
 }
 
-static int calc_scaley_steps(struct drm_plane *plane,
+int mdp5_plane_calc_scaley_steps(struct mdp5_kms *mdp5_kms,
 		uint32_t pixel_format, uint32_t src, uint32_t dest,
 		uint32_t phasey_steps[COMP_MAX])
 {
-	struct mdp5_kms *mdp5_kms = get_kms(plane);
 	struct device *dev = mdp5_kms->dev->dev;
 	uint32_t phasey_step;
 	unsigned int vsub;
@@ -579,7 +578,7 @@ static uint32_t get_scale_config(const struct mdp_format *format,
 			COND(yuv, MDP5_PIPE_SCALE_CONFIG_SCALEY_FILTER_COMP_1_2(uv_filter));
 }
 
-static void calc_pixel_ext(const struct mdp_format *format,
+void mdp5_plane_calc_pixel_ext(const struct mdp_format *format,
 		uint32_t src, uint32_t dst, uint32_t phase_step[2],
 		int pix_ext_edge1[COMP_MAX], int pix_ext_edge2[COMP_MAX],
 		bool horz)
@@ -601,7 +600,7 @@ static void calc_pixel_ext(const struct mdp_format *format,
 	}
 }
 
-static void mdp5_write_pixel_ext(struct mdp5_kms *mdp5_kms, enum mdp5_pipe pipe,
+void mdp5_pipe_write_pixel_ext(struct mdp5_kms *mdp5_kms, enum mdp5_pipe pipe,
 	const struct mdp_format *format,
 	uint32_t src_w, int pe_left[COMP_MAX], int pe_right[COMP_MAX],
 	uint32_t src_h, int pe_top[COMP_MAX], int pe_bottom[COMP_MAX])
@@ -721,18 +720,20 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 	if (mdp5_kms->smp)
 		mdp5_smp_configure(mdp5_kms->smp, pipe);
 
-	ret = calc_scalex_steps(plane, pix_format, src_w, crtc_w, phasex_step);
+	ret = mdp5_plane_calc_scalex_steps(mdp5_kms, pix_format, src_w, crtc_w,
+		phasex_step);
 	if (ret)
 		return ret;
 
-	ret = calc_scaley_steps(plane, pix_format, src_h, crtc_h, phasey_step);
+	ret = mdp5_plane_calc_scaley_steps(mdp5_kms, pix_format, src_h, crtc_h,
+		phasey_step);
 	if (ret)
 		return ret;
 
 	if (mdp5_plane->caps & MDP_PIPE_CAP_SW_PIX_EXT) {
-		calc_pixel_ext(format, src_w, crtc_w, phasex_step,
+		mdp5_plane_calc_pixel_ext(format, src_w, crtc_w, phasex_step,
 					 pe_left, pe_right, true);
-		calc_pixel_ext(format, src_h, crtc_h, phasey_step,
+		mdp5_plane_calc_pixel_ext(format, src_h, crtc_h, phasey_step,
 					pe_top, pe_bottom, false);
 	}
 
@@ -796,7 +797,7 @@ static int mdp5_plane_mode_set(struct drm_plane *plane,
 	mdp5_write(mdp5_kms, REG_MDP5_PIPE_SRC_ADDR_SW_STATUS(pipe), 0);
 
 	if (mdp5_plane->caps & MDP_PIPE_CAP_SW_PIX_EXT)
-		mdp5_write_pixel_ext(mdp5_kms, pipe, format,
+		mdp5_pipe_write_pixel_ext(mdp5_kms, pipe, format,
 				src_w, pe_left, pe_right,
 				src_h, pe_top, pe_bottom);
 
