@@ -2191,6 +2191,8 @@ static int subsys_name_to_id(const char *name)
 		return SMEM_WCNSS;
 	if (!strcmp(name, "spss"))
 		return SMEM_SPSS;
+	if (!strcmp(name, "cdsp"))
+		return SMEM_CDSP;
 	return -ENODEV;
 }
 
