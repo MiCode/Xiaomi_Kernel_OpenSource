@@ -194,6 +194,7 @@
 	};
 };
 
+#include "msmfalcon-smp2p.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
