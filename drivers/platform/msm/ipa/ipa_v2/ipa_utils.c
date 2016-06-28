@@ -44,6 +44,8 @@
 #define IPA_EOT_COAL_GRAN_MIN (1)
 #define IPA_EOT_COAL_GRAN_MAX (16)
 
+#define IPA_DEFAULT_SYS_YELLOW_WM 32
+
 #define IPA_AGGR_BYTE_LIMIT (\
 		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
 		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_SHFT)
@@ -5137,15 +5139,19 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
  * ipa_get_sys_yellow_wm()- Return yellow WM value for IPA SYS pipes.
  *
  * Return value: IPA_YELLOW_MARKER_SYS_CFG_OFST register if IPA_HW_v2.6L,
- *               0 otherwise.
+ *               IPA_DEFAULT_SYS_YELLOW_WM otherwise.
  */
-u32 ipa_get_sys_yellow_wm(void)
+u32 ipa_get_sys_yellow_wm(struct ipa_sys_context *sys)
 {
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_6L)
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_6L) {
 		return ipa_read_reg(ipa_ctx->mmio,
 			IPA_YELLOW_MARKER_SYS_CFG_OFST);
-	else
-		return 0;
+	} else {
+		if (!sys)
+			return 0;
+
+		return IPA_DEFAULT_SYS_YELLOW_WM * sys->rx_buff_sz;
+	}
 }
 EXPORT_SYMBOL(ipa_get_sys_yellow_wm);
 
