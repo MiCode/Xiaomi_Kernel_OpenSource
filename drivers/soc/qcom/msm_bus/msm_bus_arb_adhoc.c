@@ -577,8 +577,6 @@ static uint64_t aggregate_bus_req(struct msm_bus_node_device_type *bus_dev,
 	case AGG_SCHEME_LEG:
 		bw_hz = legacy_agg_scheme(bus_dev, fab_dev, ctx);
 		break;
-	default:
-		panic("Invalid Bus aggregation scheme");
 	}
 
 exit_agg_bus_req:
