@@ -1741,6 +1741,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		   stream can be used for gapless playback
 		*/
 		prtd->gapless_state.set_next_stream_id = false;
+		prtd->gapless_state.gapless_transition = 0;
 		pr_debug("%s:CMD_EOS stream_id %d\n", __func__, ac->stream_id);
 
 		prtd->eos_ack = 0;
