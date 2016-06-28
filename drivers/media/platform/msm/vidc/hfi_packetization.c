@@ -1565,6 +1565,25 @@ int create_pkt_cmd_session_set_property(
 			sizeof(struct hfi_quantization_range);
 		break;
 	}
+	case HAL_PARAM_VENC_SESSION_QP_RANGE_PACKED:
+	{
+		struct hfi_quantization_range *hfi;
+		struct hfi_quantization_range *hal_range =
+			(struct hfi_quantization_range *) pdata;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_SESSION_QP_RANGE;
+		hfi = (struct hfi_quantization_range *)
+				&pkt->rg_property_data[1];
+
+		hfi->min_qp = hal_range->min_qp;
+		hfi->max_qp = hal_range->max_qp;
+		hfi->layer_id = hal_range->layer_id;
+
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_quantization_range);
+		break;
+	}
 	case HAL_PARAM_VENC_SEARCH_RANGE:
 	{
 		struct hfi_vc1e_perf_cfg_type *hfi;
