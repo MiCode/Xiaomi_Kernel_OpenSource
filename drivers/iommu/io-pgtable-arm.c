@@ -1095,7 +1095,6 @@ static void dummy_tlb_add_flush(unsigned long iova, size_t size,
 				size_t granule, bool leaf, void *cookie)
 {
 	WARN_ON(cookie != cfg_cookie);
-	WARN_ON(!(size & cfg_cookie->pgsize_bitmap));
 }
 
 static void dummy_tlb_sync(void *cookie)
@@ -1372,8 +1371,6 @@ static int __init arm_lpae_do_selftests(void)
 {
 	static const unsigned long pgsize[] = {
 		SZ_4K | SZ_2M | SZ_1G,
-		SZ_16K | SZ_32M,
-		SZ_64K | SZ_512M,
 	};
 
 	static const unsigned int ias[] = {
