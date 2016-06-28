@@ -2774,6 +2774,8 @@
 &gdsc_bimc_smmu {
 	clock-names = "bus_clk";
 	clocks = <&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
+	proxy-supply = <&gdsc_bimc_smmu>;
+	qcom,proxy-consumer-enable;
 	status = "ok";
 };
 
