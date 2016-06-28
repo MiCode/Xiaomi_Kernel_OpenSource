@@ -533,6 +533,28 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDEO_MIN_QP_PACKED,
+		.name = "H264 Minimum QP PACKED",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0x00010101,
+		.maximum = 0x00333333,
+		.default_value = 0x00010101,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_MAX_QP_PACKED,
+		.name = "H264 Maximum QP PACKED",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0x00010101,
+		.maximum = 0x00333333,
+		.default_value = 0x00333333,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE,
 		.name = "Slice Mode",
 		.type = V4L2_CTRL_TYPE_MENU,
@@ -2513,6 +2535,46 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		qp_range.layer_id = 0;
 		qp_range.max_qp = ctrl->val;
 		qp_range.min_qp = qp_min->val;
+		pdata = &qp_range;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDEO_MIN_QP_PACKED: {
+		struct v4l2_ctrl *qp_max;
+
+		qp_max = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MAX_QP_PACKED);
+		if (ctrl->val >= qp_max->val) {
+			dprintk(VIDC_ERR,
+					"Bad range: Min QP PACKED (0x%x) > Max QP PACKED (0x%x)\n",
+					ctrl->val, qp_max->val);
+			rc = -ERANGE;
+			break;
+		}
+
+		property_id = HAL_PARAM_VENC_SESSION_QP_RANGE_PACKED;
+		qp_range.layer_id = 0;
+		qp_range.max_qp = qp_max->val;
+		qp_range.min_qp = ctrl->val;
+
+		pdata = &qp_range;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDEO_MAX_QP_PACKED: {
+		struct v4l2_ctrl *qp_min;
+
+		qp_min = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MIN_QP_PACKED);
+		if (ctrl->val <= qp_min->val) {
+			dprintk(VIDC_ERR,
+					"Bad range: Max QP PACKED (%d) < Min QP PACKED (%d)\n",
+					ctrl->val, qp_min->val);
+			rc = -ERANGE;
+			break;
+		}
+
+		property_id = HAL_PARAM_VENC_SESSION_QP_RANGE_PACKED;
+		qp_range.layer_id = 0;
+		qp_range.max_qp = ctrl->val;
+		qp_range.min_qp = qp_min->val;
+
 		pdata = &qp_range;
 		break;
 	}
