@@ -58,3 +58,15 @@
 		< 670000000 RPM_SMD_REGULATOR_LEVEL_TURBO >,
 		< 710000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
 };
+
+&tsens0 {
+	compatible = "qcom,msmhamster-tsens";
+};
+
+&tsens1 {
+	compatible = "qcom,msmhamster-tsens";
+	qcom,client-id = <14 15 16 17 18 19 20>;
+	qcom,sensor-id = <0 1 3 4 5 6 7>;
+	qcom,sensors = <7>;
+	qcom,slope = <2901 2846 3200 3200 3200 3200 3200>;
+};
