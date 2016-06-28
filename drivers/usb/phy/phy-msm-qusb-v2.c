@@ -66,6 +66,9 @@
 #define QUSB2PHY_3P3_VOL_MAX		3200000 /* uV */
 #define QUSB2PHY_3P3_HPM_LOAD		30000	/* uA */
 
+#define LINESTATE_DP			BIT(0)
+#define LINESTATE_DM			BIT(1)
+
 unsigned int phy_tune2;
 module_param(phy_tune2, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(phy_tune2, "QUSB PHY v2 TUNE2");
@@ -520,6 +523,20 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 
 	qusb_phy_enable_clocks(qphy, false);
 }
+
+static u32 qusb_phy_get_linestate(struct qusb_phy *qphy)
+{
+	u32 linestate = 0;
+
+	if (qphy->cable_connected) {
+		if (qphy->phy.flags & PHY_HSFS_MODE)
+			linestate |= LINESTATE_DP;
+		else if (qphy->phy.flags & PHY_LS_MODE)
+			linestate |= LINESTATE_DM;
+	}
+	return linestate;
+}
+
 /**
  * Performs QUSB2 PHY suspend/resume functionality.
  *
@@ -546,8 +563,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_INTR_CTRL);
 
-			linestate = readl_relaxed(qphy->base +
-				QUSB2PHY_INTR_STAT);
+			linestate = qusb_phy_get_linestate(qphy);
 			/*
 			 * D+/D- interrupts are level-triggered, but we are
 			 * only interested if the line state changes, so enable
@@ -558,13 +574,16 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			 * configure the mask to trigger on D+ low OR D- high
 			 */
 			intr_mask = DMSE_INTERRUPT | DPSE_INTERRUPT;
-			if (!(linestate & DPSE_INTR_EN)) /* D+ low */
+			if (!(linestate & LINESTATE_DP)) /* D+ low */
 				intr_mask |= DPSE_INTR_HIGH_SEL;
-			if (!(linestate & DMSE_INTR_EN)) /* D- low */
+			if (!(linestate & LINESTATE_DM)) /* D- low */
 				intr_mask |= DMSE_INTR_HIGH_SEL;
 
 			writel_relaxed(intr_mask,
 				qphy->base + QUSB2PHY_INTR_CTRL);
+
+			dev_dbg(phy->dev, "%s: intr_mask = %x\n",
+			__func__, intr_mask);
 
 			/* Makes sure that above write goes through */
 			wmb();
