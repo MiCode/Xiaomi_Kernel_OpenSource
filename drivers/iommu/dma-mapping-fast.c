@@ -605,10 +605,6 @@ err:
 	return ERR_PTR(-ENOMEM);
 }
 
-
-#define PGTBL_MEM_SIZE (SZ_4K + (4 * SZ_4K) + (2048 * SZ_4K))
-
-
 /**
  * fast_smmu_attach_device
  * @dev: valid struct device pointer
