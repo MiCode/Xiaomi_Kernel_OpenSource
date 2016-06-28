@@ -406,21 +406,6 @@ static int arm_lpae_init_pte(struct arm_lpae_io_pgtable *data,
 		BUG_ON(!suppress_map_failures);
 		return -EEXIST;
 	}
-	if (iopte_leaf(pte, lvl)) {
-		WARN_ON(!selftest_running);
-		return -EEXIST;
-	} else if (iopte_type(pte, lvl) == ARM_LPAE_PTE_TYPE_TABLE) {
-		/*
-		 * We need to unmap and free the old table before
-		 * overwriting it with a block entry.
-		 */
-		arm_lpae_iopte *tblp;
-		size_t sz = ARM_LPAE_BLOCK_SIZE(lvl, data);
-
-		tblp = ptep - ARM_LPAE_LVL_IDX(iova, lvl, data);
-		if (WARN_ON(__arm_lpae_unmap(data, iova, sz, lvl, tblp) != sz))
-			return -EINVAL;
-	}
 
 	__arm_lpae_init_pte(data, paddr, prot, lvl, ptep, flush);
 
