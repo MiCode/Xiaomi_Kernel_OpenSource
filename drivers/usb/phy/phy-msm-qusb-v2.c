@@ -87,6 +87,8 @@ struct qusb_phy {
 	int			vdd_levels[3]; /* none, low, high */
 	int			init_seq_len;
 	int			*qusb_phy_init_seq;
+	int			host_init_seq_len;
+	int			*qusb_phy_host_init_seq;
 
 	u32			tune2_val;
 	int			tune2_efuse_bit_pos;
@@ -374,6 +376,35 @@ static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 	}
 }
 
+static void qusb_phy_host_init(struct usb_phy *phy)
+{
+	u8 reg;
+	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+
+	dev_dbg(phy->dev, "%s\n", __func__);
+
+	/* Perform phy reset */
+	clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
+	usleep_range(100, 150);
+	clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
+
+	qusb_phy_write_seq(qphy->base, qphy->qusb_phy_host_init_seq,
+			qphy->host_init_seq_len, 0);
+
+	/* Ensure above write is completed before turning ON ref clk */
+	wmb();
+
+	/* Require to get phy pll lock successfully */
+	usleep_range(150, 160);
+
+	reg = readb_relaxed(qphy->base + QUSB2PHY_PLL_COMMON_STATUS_ONE);
+	dev_dbg(phy->dev, "QUSB2PHY_PLL_COMMON_STATUS_ONE:%x\n", reg);
+	if (!(reg & CORE_READY_STATUS)) {
+		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n", reg);
+		WARN_ON(1);
+	}
+}
+
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
@@ -602,6 +633,9 @@ static int qusb_phy_notify_connect(struct usb_phy *phy,
 	qphy->cable_connected = true;
 
 	dev_dbg(phy->dev, " cable_connected=%d\n", qphy->cable_connected);
+
+	if (qphy->qusb_phy_host_init_seq && qphy->phy.flags & PHY_HOST_MODE)
+		qusb_phy_host_init(phy);
 
 	/* Set OTG VBUS Valid from HSPHY to controller */
 	qusb_write_readback(qphy->qscratch_base, HS_PHY_CTRL_REG,
@@ -864,6 +898,23 @@ static int qusb_phy_probe(struct platform_device *pdev)
 			dev_err(dev,
 			"error allocating memory for phy_init_seq\n");
 		}
+	}
+
+	qphy->host_init_seq_len = of_property_count_elems_of_size(dev->of_node,
+				"qcom,qusb-phy-host-init-seq",
+				sizeof(*qphy->qusb_phy_host_init_seq));
+	if (qphy->host_init_seq_len > 0) {
+		qphy->qusb_phy_host_init_seq = devm_kcalloc(dev,
+					qphy->host_init_seq_len,
+					sizeof(*qphy->qusb_phy_host_init_seq),
+					GFP_KERNEL);
+		if (qphy->qusb_phy_host_init_seq)
+			of_property_read_u32_array(dev->of_node,
+				"qcom,qusb-phy-host-init-seq",
+				qphy->qusb_phy_host_init_seq,
+				qphy->host_init_seq_len);
+		else
+			return -ENOMEM;
 	}
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
