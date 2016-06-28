@@ -217,7 +217,7 @@ static int bq2022a_probe(struct platform_device *pdev)
 
 	pr_debug(" entry!\n");
 
-	bq2022a_bat_id = of_get_named_gpio(pdev->dev.of_node, "qcom, bq2022a-id-gpio", 0);
+	bq2022a_bat_id = of_get_named_gpio(pdev->dev.of_node, "qcom,bq2022a-id-gpio", 0);
 	if (bq2022a_bat_id <= 0) {
 		pr_err("can't get battery id pin from dts nod, so use BB gpio2\n");
 		bq2022a_bat_id = GPIO_BATT_ID_PIN;
