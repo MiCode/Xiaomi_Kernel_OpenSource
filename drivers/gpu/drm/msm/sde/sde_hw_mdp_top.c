@@ -14,31 +14,54 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdp_top.h"
 
+#define SSPP_SPARE                        0x24
 #define SPLIT_DISPLAY_ENABLE              0x2F4
+
 #define LOWER_PIPE_CTRL                   0x2F8
+#define FLD_SPLIT_DISPLAY_CMD             BIT(1)
+#define FLD_SMART_PANEL_FREE_RUN          BIT(2)
+#define FLD_INTF_1_SW_TRG_MUX             BIT(4)
+#define FLD_INTF_2_SW_TRG_MUX             BIT(8)
+#define FLD_TE_LINE_INTER_WATERLEVEL_MASK 0xFFFF
+
 #define UPPER_PIPE_CTRL                   0x3F0
 #define TE_LINE_INTERVAL                  0x3F4
 
 static void sde_hw_setup_split_pipe_control(struct sde_hw_mdp *mdp,
-		 struct split_pipe_cfg *cfg)
+		struct split_pipe_cfg *cfg)
 {
 	struct sde_hw_blk_reg_map *c = &mdp->hw;
-	u32 upper_pipe;
-	u32 lower_pipe;
+	u32 upper_pipe = 0;
+	u32 lower_pipe = 0;
 
 	if (cfg->en) {
-		upper_pipe = BIT(8);
-		lower_pipe = BIT(8);
-
 		if (cfg->mode == INTF_MODE_CMD) {
-			upper_pipe |= BIT(0);
-			lower_pipe |= BIT(0);
-		}
+			lower_pipe = FLD_SPLIT_DISPLAY_CMD;
+			/* interface controlling sw trigger */
+			if (cfg->intf == INTF_2)
+				lower_pipe |= FLD_INTF_1_SW_TRG_MUX;
+			else
+				lower_pipe |= FLD_INTF_2_SW_TRG_MUX;
 
-		SDE_REG_WRITE(c, LOWER_PIPE_CTRL, lower_pipe);
-		SDE_REG_WRITE(c, UPPER_PIPE_CTRL, upper_pipe);
+			/* free run */
+			if (cfg->pp_split)
+				lower_pipe = FLD_SMART_PANEL_FREE_RUN;
+
+			upper_pipe = lower_pipe;
+		} else {
+			if (cfg->intf == INTF_2) {
+				lower_pipe = FLD_INTF_1_SW_TRG_MUX;
+				upper_pipe = FLD_INTF_2_SW_TRG_MUX;
+			} else {
+				lower_pipe = FLD_INTF_2_SW_TRG_MUX;
+				upper_pipe = FLD_INTF_1_SW_TRG_MUX;
+			}
+		}
 	}
 
+	SDE_REG_WRITE(c, SSPP_SPARE, (cfg->split_flush_en) ? 0x1 : 0x0);
+	SDE_REG_WRITE(c, LOWER_PIPE_CTRL, lower_pipe);
+	SDE_REG_WRITE(c, UPPER_PIPE_CTRL, upper_pipe);
 	SDE_REG_WRITE(c, SPLIT_DISPLAY_ENABLE, cfg->en & 0x1);
 }
 
