@@ -331,17 +331,18 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 		return -EINVAL;
 
 	pool = _kgsl_get_pool_from_order(order);
-	pool_idx = kgsl_pool_idx_lookup(order);
+	if (pool == NULL)
+		return -EINVAL;
 
-	if (pool != NULL)
-		page = _kgsl_pool_get_page(pool);
+	pool_idx = kgsl_pool_idx_lookup(order);
+	page = _kgsl_pool_get_page(pool);
 
 	/* Allocate a new page if not allocated from pool */
 	if (page == NULL) {
 		gfp_t gfp_mask = kgsl_gfp_mask(order);
 
 		/* Only allocate non-reserved memory for certain pools */
-		if (!pool->allocation_allowed) {
+		if (!pool->allocation_allowed && pool_idx > 0) {
 			*page_size = PAGE_SIZE <<
 					kgsl_pools[pool_idx-1].pool_order;
 			*align = ilog2(*page_size);
