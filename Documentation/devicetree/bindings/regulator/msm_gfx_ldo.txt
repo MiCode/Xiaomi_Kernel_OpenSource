@@ -103,6 +103,14 @@ This document describes the bindings that apply for the GFX LDO regulator.
 		    corner value for each gfx corner. The elements in the array
 		    are ordered from lowest voltage corner to highest voltage corner.
 
+- qcom,ldo-init-voltage-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-aray>
+	Definition: Array of voltages in microvolts which indicate the static
+		    adjustment to be applied to the open-loop voltages for the
+		    LDO supported corners. The length of this property must be
+		    equal to qcom,num-ldo-corners.
+
 =======
 Example
 =======
@@ -135,4 +143,5 @@ Example
 
 		mem-acc-supply = <&gfx_mem_acc>;
 		qcom,mem-acc-corner-map = <1 1 2 2 2 2 2>;
+		qcom,ldo-init-voltage-adjustment = <10000 20000 30000>;
 	};

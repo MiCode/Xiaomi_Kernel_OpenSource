@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8937-cdp.dtsi"
 #include "msm8940-pinctrl.dtsi"
+#include "msm8937-cdp.dtsi"
 
 &soc {
 };
