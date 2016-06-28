@@ -861,7 +861,7 @@ static int sensor_parse_dt(struct device *dev,
 	pdata->exit = sensor_platform_hw_exit;
 	pdata->power_on = sensor_platform_hw_power_on;
 
-	rc = of_property_read_u32(np, "yas, position",
+	rc = of_property_read_u32(np, "yas,position",
 							  &temp_val);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read fw delay read id\n");
