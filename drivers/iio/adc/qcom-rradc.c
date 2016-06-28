@@ -549,6 +549,7 @@ static int rradc_get_dt_data(struct rradc_chip *chip, struct device_node *node)
 
 		iio_chan->channel = prop.channel;
 		iio_chan->datasheet_name = rradc_chan->datasheet_name;
+		iio_chan->extend_name = rradc_chan->datasheet_name;
 		iio_chan->info_mask_separate = rradc_chan->info_mask;
 		iio_chan->type = rradc_chan->type;
 		iio_chan->indexed = 1;
