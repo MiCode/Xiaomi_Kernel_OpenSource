@@ -251,6 +251,24 @@ int ipa_reset_endpoint(u32 clnt_hdl)
 }
 EXPORT_SYMBOL(ipa_reset_endpoint);
 
+/**
+* ipa_disable_endpoint() - Disable an endpoint from IPA perspective
+* @clnt_hdl:	[in] IPA client handle
+*
+* Returns:	0 on success, negative on failure
+*
+* Note:		Should not be called from atomic context
+*/
+int ipa_disable_endpoint(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disable_endpoint, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_disable_endpoint);
+
 
 /**
  * ipa_cfg_ep - IPA end-point configuration
