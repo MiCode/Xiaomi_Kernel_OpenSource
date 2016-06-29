@@ -920,10 +920,17 @@ static inline enum dsi_logical_lane_id mdss_dsi_physical_to_logical_lane(
 static inline enum dsi_physical_lane_id mdss_dsi_logical_to_physical_lane(
 		struct mdss_dsi_ctrl_pdata *ctrl, enum dsi_logical_lane_id id)
 {
+	int i;
+
 	if (id >= DSI_LOGICAL_LANE_MAX)
 		return DSI_PHYSICAL_LANE_INVALID;
 
-	return ctrl->lane_map[id];
+	for (i = DSI_LOGICAL_LANE_0; i < DSI_LOGICAL_LANE_MAX; i++) {
+		if (BIT(i) == ctrl->lane_map[id])
+			break;
+	}
+
+	return i;
 }
 
 #endif /* MDSS_DSI_H */
