@@ -2316,11 +2316,36 @@ static struct platform_driver mdm_asoc_machine_driver = {
 	.remove = mdm_asoc_machine_remove,
 };
 
+static int dummy_machine_probe(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static int dummy_machine_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static struct platform_device dummy_machine_device = {
+		.name = "dummymachinedriver",
+};
+
+static struct platform_driver mdm_asoc_machine_dummy_driver = {
+	.driver = {
+		.name = "dummymachinedriver",
+		.owner = THIS_MODULE,
+	},
+	.probe = dummy_machine_probe,
+	.remove = dummy_machine_remove,
+};
+
 static int  mdm_adsp_state_callback(struct notifier_block *nb,
 					unsigned long value, void *priv)
 {
-	if (SUBSYS_AFTER_POWERUP == value)
-		platform_driver_register(&mdm_asoc_machine_driver);
+	if (SUBSYS_AFTER_POWERUP == value) {
+		platform_driver_register(&mdm_asoc_machine_dummy_driver);
+		platform_device_register(&dummy_machine_device);
+	}
 
 		return NOTIFY_OK;
 }
@@ -2338,6 +2363,8 @@ static int __init mdm_soc_platform_init(void)
 }
 
 module_init(mdm_soc_platform_init);
+
+module_platform_driver(mdm_asoc_machine_driver);
 
 MODULE_DESCRIPTION("ALSA SoC msm");
 MODULE_LICENSE("GPL v2");
