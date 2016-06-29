@@ -70,6 +70,7 @@ struct pll_config {
 	u16 l;
 	u32 m;
 	u32 n;
+	u32 frac;
 	u32 vco_val;
 	u32 vco_mask;
 	u32 pre_div_val;
