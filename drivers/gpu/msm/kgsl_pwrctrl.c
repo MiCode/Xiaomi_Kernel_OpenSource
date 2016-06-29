@@ -1771,6 +1771,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pwr->power_flags = BIT(KGSL_PWRFLAGS_RETENTION_ON);
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,no-nap"))
+		device->pwrctrl.ctrl_flags |= BIT(KGSL_PWRFLAGS_NAP_OFF);
+
 	if (pwr->num_pwrlevels == 0) {
 		KGSL_PWR_ERR(device, "No power levels are defined\n");
 		return -EINVAL;
@@ -2577,7 +2580,8 @@ void kgsl_active_count_put(struct kgsl_device *device)
 			device->requested_state == KGSL_STATE_NONE) {
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
 			kgsl_schedule_work(&device->idle_check_ws);
-		}
+		} else if (!nap_on)
+			kgsl_pwrscale_update_stats(device);
 
 		mod_timer(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);
