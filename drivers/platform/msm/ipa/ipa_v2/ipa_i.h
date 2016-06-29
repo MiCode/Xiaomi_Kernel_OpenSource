@@ -553,6 +553,7 @@ struct ipa_ep_context {
 	bool switch_to_intr;
 	int inactive_cycles;
 	u32 eot_in_poll_err;
+	bool ep_disabled;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
@@ -1424,6 +1425,11 @@ int ipa2_reset_endpoint(u32 clnt_hdl);
  * Remove ep delay
  */
 int ipa2_clear_endpoint_delay(u32 clnt_hdl);
+
+/*
+ * Disable ep
+ */
+int ipa2_disable_endpoint(u32 clnt_hdl);
 
 /*
  * Configuration
