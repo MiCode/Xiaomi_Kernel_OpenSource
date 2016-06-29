@@ -621,6 +621,10 @@
 					"none";
 			};
 		};
+
+		qcom,power-on@800 {
+			qcom,pon-reset-off;
+		};
 	};
 
 	qcom,pm8994@0 {
@@ -796,6 +800,18 @@
 };
 
 &blsp1_uart2 {
+	status = "ok";
+};
+
+&spi_0 {
+	status = "ok";
+};
+
+&i2c_12 {
+	status = "disabled";
+};
+
+&spi_12 {
 	status = "ok";
 };
 

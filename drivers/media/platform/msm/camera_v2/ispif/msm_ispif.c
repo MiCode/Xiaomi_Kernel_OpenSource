@@ -58,6 +58,9 @@
 
 static int msm_ispif_clk_ahb_enable(struct ispif_device *ispif, int enable);
 static int ispif_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
+static long msm_ispif_subdev_ioctl_unlocked(struct v4l2_subdev *sd,
+	unsigned int cmd, void *arg);
+
 int msm_ispif_get_clk_info(struct ispif_device *ispif_dev,
 	struct platform_device *pdev);
 
@@ -95,6 +98,189 @@ static struct msm_cam_clk_info ispif_8626_reset_clk_info[] = {
 	{"camss_csi_vfe_clk", NO_SET_RATE},
 };
 
+#ifdef CONFIG_COMPAT
+struct ispif_cfg_data_ext_32 {
+	enum ispif_cfg_type_t cfg_type;
+	compat_caddr_t data;
+	uint32_t size;
+};
+
+#define VIDIOC_MSM_ISPIF_CFG_EXT_COMPAT \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+1, struct ispif_cfg_data_ext_32)
+#endif
+
+static void msm_ispif_get_pack_mask_from_cfg(
+	struct msm_ispif_pack_cfg *pack_cfg,
+	struct msm_ispif_params_entry *entry,
+	uint32_t *pack_mask)
+{
+	int i;
+	uint32_t temp;
+
+	BUG_ON(!entry);
+
+	memset(pack_mask, 0, sizeof(uint32_t) * 2);
+	for (i = 0; i < entry->num_cids; i++) {
+		temp = (pack_cfg[entry->cids[i]].pack_mode & 0x3)|
+			(pack_cfg[entry->cids[i]].even_odd_sel & 0x1) << 2 |
+			(pack_cfg[entry->cids[i]].pixel_swap_en & 0x1) << 3;
+		temp = (temp & 0xF) << ((entry->cids[i] % CID8) * 4);
+
+		if (entry->cids[i] > CID7)
+			pack_mask[1] |= temp;
+		else
+			pack_mask[0] |= temp;
+		CDBG("%s:num %d cid %d mode %d pack_mask %x %x\n",
+			__func__, entry->num_cids, entry->cids[i],
+			pack_cfg[i].pack_mode,
+			pack_mask[0], pack_mask[1]);
+
+	}
+}
+
+static int msm_ispif_config2(struct ispif_device *ispif,
+	void *data)
+{
+	int rc = 0, i = 0;
+	enum msm_ispif_intftype intftype;
+	enum msm_ispif_vfe_intf vfe_intf;
+	uint32_t pack_cfg_mask[2];
+	struct msm_ispif_param_data_ext *params =
+		(struct msm_ispif_param_data_ext *)data;
+
+	BUG_ON(!ispif);
+	BUG_ON(!params);
+
+	if (ispif->ispif_state != ISPIF_POWER_UP) {
+		pr_err("%s: ispif invalid state %d\n", __func__,
+			ispif->ispif_state);
+		rc = -EPERM;
+		return rc;
+	}
+	if (params->num > MAX_PARAM_ENTRIES) {
+		pr_err("%s: invalid param entries %d\n", __func__,
+			params->num);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	for (i = 0; i < params->num; i++) {
+		intftype = params->entries[i].intftype;
+		vfe_intf = params->entries[i].vfe_intf;
+
+		CDBG("%s, num %d intftype %x, vfe_intf %d, csid %d\n", __func__,
+			params->num, intftype, vfe_intf,
+			params->entries[i].csid);
+
+		if ((intftype >= INTF_MAX) ||
+			(vfe_intf >=  ispif->vfe_info.num_vfe) ||
+			(ispif->csid_version <= CSID_VERSION_V22 &&
+			(vfe_intf > VFE0))) {
+			pr_err("%s: VFEID %d and CSID version %d mismatch\n",
+				__func__, vfe_intf, ispif->csid_version);
+			return -EINVAL;
+		}
+
+		msm_ispif_get_pack_mask_from_cfg(params->pack_cfg,
+				&params->entries[i], pack_cfg_mask);
+		msm_ispif_cfg_pack_mode(ispif, intftype, vfe_intf,
+			pack_cfg_mask);
+	}
+	return rc;
+}
+
+static long msm_ispif_cmd_ext(struct v4l2_subdev *sd,
+	void *arg)
+{
+	long rc = 0;
+	struct ispif_device *ispif =
+		(struct ispif_device *)v4l2_get_subdevdata(sd);
+	struct ispif_cfg_data_ext pcdata;
+	struct msm_ispif_param_data_ext *params = NULL;
+#ifdef CONFIG_COMPAT
+	struct ispif_cfg_data_ext_32 *pcdata32 =
+		(struct ispif_cfg_data_ext_32 *)arg;
+
+	if (pcdata32 == NULL) {
+		pr_err("Invalid params passed from user\n");
+		return -EINVAL;
+	}
+	pcdata.cfg_type  = pcdata32->cfg_type;
+	pcdata.size = pcdata32->size;
+	pcdata.data = compat_ptr(pcdata32->data);
+
+#else
+	struct ispif_cfg_data_ext *pcdata64 =
+		(struct ispif_cfg_data_ext *)arg;
+
+	if (pcdata64 == NULL) {
+		pr_err("Invalid params passed from user\n");
+		return -EINVAL;
+	}
+	pcdata.cfg_type  = pcdata64->cfg_type;
+	pcdata.size = pcdata64->size;
+	pcdata.data = pcdata64->data;
+#endif
+	if (pcdata.size != sizeof(struct msm_ispif_param_data_ext)) {
+		pr_err("%s: payload size mismatch\n", __func__);
+		return -EINVAL;
+	}
+
+	params = kzalloc(sizeof(struct msm_ispif_param_data_ext), GFP_KERNEL);
+	if (!params) {
+		CDBG("%s: params alloc failed\n", __func__);
+		return -ENOMEM;
+	}
+	if (copy_from_user(params, (void __user *)(pcdata.data),
+		pcdata.size)) {
+		kfree(params);
+		return -EFAULT;
+	}
+
+	mutex_lock(&ispif->mutex);
+	switch (pcdata.cfg_type) {
+	case ISPIF_CFG2:
+		rc = msm_ispif_config2(ispif, params);
+		msm_ispif_io_dump_reg(ispif);
+		break;
+	default:
+		pr_err("%s: invalid cfg_type\n", __func__);
+		rc = -EINVAL;
+		break;
+	}
+	mutex_unlock(&ispif->mutex);
+	kfree(params);
+	return rc;
+}
+
+#ifdef CONFIG_COMPAT
+static long msm_ispif_subdev_ioctl_compat(struct v4l2_subdev *sd,
+	unsigned int cmd, void *arg)
+{
+	BUG_ON(!sd);
+	switch (cmd) {
+	case VIDIOC_MSM_ISPIF_CFG_EXT_COMPAT:
+		return msm_ispif_cmd_ext(sd, arg);
+
+	default:
+		return msm_ispif_subdev_ioctl_unlocked(sd, cmd, arg);
+	}
+}
+static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
+	unsigned int cmd, void *arg)
+{
+	if (is_compat_task())
+		return msm_ispif_subdev_ioctl_compat(sd, cmd, arg);
+	else
+		return msm_ispif_subdev_ioctl_unlocked(sd, cmd, arg);
+}
+#else
+static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
+	unsigned int cmd, void *arg)
+{
+	return msm_ispif_subdev_ioctl_unlocked(sd, cmd, arg);
+}
+#endif
 static void msm_ispif_put_regulator(struct ispif_device *ispif_dev)
 {
 	int i;
@@ -649,7 +835,6 @@ static uint16_t msm_ispif_get_cids_mask_from_cfg(
 {
 	int i;
 	uint16_t cids_mask = 0;
-
 	BUG_ON(!entry);
 
 	for (i = 0; i < entry->num_cids; i++)
@@ -657,14 +842,15 @@ static uint16_t msm_ispif_get_cids_mask_from_cfg(
 
 	return cids_mask;
 }
-
 static int msm_ispif_config(struct ispif_device *ispif,
-	struct msm_ispif_param_data *params)
+	void *data)
 {
 	int rc = 0, i = 0;
 	uint16_t cid_mask;
 	enum msm_ispif_intftype intftype;
 	enum msm_ispif_vfe_intf vfe_intf;
+	struct msm_ispif_param_data *params =
+		(struct msm_ispif_param_data *)data;
 
 	BUG_ON(!ispif);
 	BUG_ON(!params);
@@ -1415,7 +1601,7 @@ static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
 }
 static struct v4l2_file_operations msm_ispif_v4l2_subdev_fops;
 
-static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
+static long msm_ispif_subdev_ioctl_unlocked(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
 	struct ispif_device *ispif =
@@ -1424,6 +1610,8 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case VIDIOC_MSM_ISPIF_CFG:
 		return msm_ispif_cmd(sd, arg);
+	case VIDIOC_MSM_ISPIF_CFG_EXT:
+		return msm_ispif_cmd_ext(sd, arg);
 	case MSM_SD_NOTIFY_FREEZE: {
 		ispif->ispif_sof_debug = 0;
 		ispif->ispif_rdi0_debug = 0;

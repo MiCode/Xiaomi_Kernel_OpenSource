@@ -164,11 +164,18 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 			return RB_HOSTPTR(rb, ret);
 		}
 
-		cmds = RB_HOSTPTR(rb, rb->_wptr);
-		*cmds = cp_packet(adreno_dev, CP_NOP,
-			KGSL_RB_DWORDS - rb->_wptr - 1);
-
-		rb->_wptr = 0;
+		/*
+		 * There isn't enough space toward the end of ringbuffer. So
+		 * look for space from the beginning of ringbuffer upto the
+		 * read pointer.
+		 */
+		if (dwords < rptr) {
+			cmds = RB_HOSTPTR(rb, rb->_wptr);
+			*cmds = cp_packet(adreno_dev, CP_NOP,
+				KGSL_RB_DWORDS - rb->_wptr - 1);
+			rb->_wptr = dwords;
+			return RB_HOSTPTR(rb, 0);
+		}
 	}
 
 	if (rb->_wptr + dwords < rptr) {

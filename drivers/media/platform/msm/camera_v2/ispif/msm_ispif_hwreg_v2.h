@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,4 +96,9 @@
 
 #define ISPIF_STOP_INTF_IMMEDIATELY              0xAAAAAAAA
 
+/* ISPIF RDI pack mode not supported */
+static inline void msm_ispif_cfg_pack_mode(struct ispif_device *ispif,
+	uint8_t intftype, uint8_t vfe_intf, uint32_t *pack_cfg_mask)
+{
+}
 #endif /* __MSM_ISPIF_HWREG_V2_H__ */

@@ -72,8 +72,31 @@
 	};
 };
 
+&usb_otg {
+	qcom,hsusb-otg-phy-init-seq =
+		<0x39 0x81 0x37 0x82 0xffffffff>;
+};
+
 &i2c_2 {
 	pericom-type-c@1d {
 		status="disabled";
+	};
+};
+
+&sdc2_cmd_on {
+	config {
+		drive-strength = <12>;
+	};
+};
+
+&sdc2_data_on {
+	config {
+		drive-strength = <12>;
+	};
+};
+
+&sdc2_clk_on {
+	config {
+		drive-strength = <12>;
 	};
 };
