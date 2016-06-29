@@ -1546,9 +1546,16 @@ static int venus_hfi_scale_clocks(void *dev, int load,
 	}
 
 	mutex_lock(&device->lock);
-	rc = __scale_clocks(device, load, data, instant_bitrate);
-	mutex_unlock(&device->lock);
 
+	if (__resume(device)) {
+		dprintk(VIDC_ERR, "Resume from power collapse failed\n");
+		rc = -ENODEV;
+		goto exit;
+	}
+
+	rc = __scale_clocks(device, load, data, instant_bitrate);
+exit:
+	mutex_unlock(&device->lock);
 	return rc;
 }
 
