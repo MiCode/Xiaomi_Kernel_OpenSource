@@ -284,6 +284,12 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 			active_lanes);
 		usleep_range(100, 110);
 
+		/* Disable LPRX and CDRX */
+		mdss_dsi_phy_v3_config_lpcdrx(ctrl, false);
+
+		/* Disable lane LDOs */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_VREG_CTRL, 0x19);
+
 		/* Check to make sure that all active data lanes are in ULPS */
 		lane_status = DSI_PHY_R32(ctrl->phy_io.base, CMN_LANE_STATUS0);
 		if (lane_status & active_lanes) {
@@ -293,6 +299,12 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 			goto error;
 		}
 	} else {
+		/* Enable lane LDOs */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_VREG_CTRL, 0x59);
+
+		/* Enable LPRX and CDRX */
+		mdss_dsi_phy_v3_config_lpcdrx(ctrl, true);
+
 		/*
 		 * ULPS Exit Request
 		 * Hardware requirement is to wait for at least 1ms
@@ -300,6 +312,12 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL2,
 			active_lanes);
 		usleep_range(1000, 1010);
+
+		/* Clear ULPS request flags on all lanes */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL1, 0);
+
+		/* Clear ULPS exit flags on all lanes */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL2, 0);
 
 		/*
 		 * Sometimes when exiting ULPS, it is possible that some DSI
@@ -311,8 +329,6 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 			active_lanes);
 
 		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL3, 0);
-		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL2, 0);
-		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL1, 0);
 
 		lane_status = DSI_PHY_R32(ctrl->phy_io.base, CMN_LANE_STATUS0);
 	}
