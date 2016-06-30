@@ -36,6 +36,8 @@ serve as an overall switch.
 			  10ms resolution. This is not required for switch node.
 
 Optional properties inside child node:
+- qcom,current-ma	: operational current intensity for LED in mA. Accepted values are a
+			  positive integer in the range of 0 to qcom,max-current inclusive.
 - qcom,ires-ua		: Integer type to specify current resolution. Accepted values should be
 			  12500, 10000, 7500, and 5000. Unit is uA.
 - qcom,hdrm-voltage-mv	: Integer type specifying headroom voltage. Values are from 125mV to 500mV
@@ -69,6 +71,7 @@ Example:
 			qcom,default-led-trigger =
 						"flash0_trigger";
 			qcom,id = <0>;
+			qcom,current-ma = <1000>;
 			qcom,duration-ms = <1280>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
@@ -82,6 +85,7 @@ Example:
 			qcom,default-led-trigger =
 						"flash1_trigger";
 			qcom,id = <1>;
+			qcom,current-ma = <1000>;
 			qcom,duration-ms = <1280>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
@@ -95,6 +99,7 @@ Example:
 			qcom,default-led-trigger =
 						"flash2_trigger";
 			qcom,id = <2>;
+			qcom,current-ma = <500>;
 			qcom,duration-ms = <1280>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
@@ -111,6 +116,7 @@ Example:
 			qcom,default-led-trigger =
 						"torch0_trigger";
 			qcom,id = <0>;
+			qcom,current-ma = <300>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
 			qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -123,6 +129,7 @@ Example:
 			qcom,default-led-trigger =
 						"torch1_trigger";
 			qcom,id = <1>;
+			qcom,current-ma = <300>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
 			qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -135,6 +142,7 @@ Example:
 			qcom,default-led-trigger =
 						"torch2_trigger";
 			qcom,id = <2>;
+			qcom,current-ma = <300>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
 			qcom,hdrm-vol-hi-lo-win-mv = <100>;

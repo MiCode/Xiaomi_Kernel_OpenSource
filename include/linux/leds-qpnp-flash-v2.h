@@ -26,13 +26,14 @@ struct flash_node_data {
 	struct pinctrl_state		*gpio_state_active;
 	struct pinctrl_state		*gpio_state_suspend;
 	int				ires_ua;
-	u16				prgm_current;
+	int				max_current;
+	int				current_ma;
 	u8				duration;
 	u8				id;
 	u8				type;
 	u8				ires;
 	u8				hdrm_val;
-	u8				brightness;
+	u8				current_reg_val;
 	bool				led_on;
 };
 
