@@ -10,14 +10,4 @@
  * GNU General Public License for more details.
  */
 
-
-/dts-v1/;
-
-#include "msmcobalt.dtsi"
-#include "msmcobalt-qrd.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. MSM COBALT QRD";
-	compatible = "qcom,msmcobalt-qrd", "qcom,msmcobalt", "qcom,qrd";
-	qcom,board-id = <11 0>;
-};
+#include "msmcobalt-mtp.dtsi"
