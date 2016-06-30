@@ -803,6 +803,18 @@
 	status = "ok";
 };
 
+&spi_0 {
+	status = "ok";
+};
+
+&i2c_12 {
+	status = "disabled";
+};
+
+&spi_11 {
+	status = "ok";
+};
+
 &slim_msm {
 	tasha_codec {
 		qcom,cdc-micbias1-ext-cap;
