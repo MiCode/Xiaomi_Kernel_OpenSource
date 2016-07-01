@@ -32,6 +32,7 @@ endif
 
 ifeq ($(CONFIG_FB_MSM_MDSS),y)
 obj-$(CONFIG_DEBUG_FS) += mdss_debug.o mdss_debug_xlog.o
+obj-$(CONFIG_DEBUG_FS) += mdss_debug_frc.o
 endif
 
 ifneq ($(CONFIG_ARCH_MSMFERRUM),y)
