@@ -198,13 +198,21 @@ uint32_t msm_isp_get_framedrop_period(
 	return 1;
 }
 
-void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
+void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp,
+	struct vfe_device *vfe_dev)
 {
 	struct timespec ts;
-	get_monotonic_boottime(&ts);
-	time_stamp->buf_time.tv_sec    = ts.tv_sec;
-	time_stamp->buf_time.tv_usec   = ts.tv_nsec/1000;
 	do_gettimeofday(&(time_stamp->event_time));
+	if (vfe_dev->vt_enable) {
+		msm_isp_get_avtimer_ts(time_stamp);
+		time_stamp->buf_time.tv_sec    = time_stamp->vt_time.tv_sec;
+		time_stamp->buf_time.tv_usec   = time_stamp->vt_time.tv_usec;
+	} else	{
+		get_monotonic_boottime(&ts);
+		time_stamp->buf_time.tv_sec    = ts.tv_sec;
+		time_stamp->buf_time.tv_usec   = ts.tv_nsec/1000;
+	}
+
 }
 
 static inline u32 msm_isp_evt_mask_to_isp_event(u32 evt_mask)
@@ -1820,7 +1828,8 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	}
 	queue_cmd->vfeInterruptStatus0 = irq_status0;
 	queue_cmd->vfeInterruptStatus1 = irq_status1;
-	msm_isp_get_timestamp(&queue_cmd->ts);
+	msm_isp_get_timestamp(&queue_cmd->ts, vfe_dev);
+
 	queue_cmd->cmd_used = 1;
 	vfe_dev->taskletq_idx = (vfe_dev->taskletq_idx + 1) %
 		MSM_VFE_TASKLETQ_SIZE;

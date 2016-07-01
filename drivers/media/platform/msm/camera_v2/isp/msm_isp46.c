@@ -1464,7 +1464,7 @@ static int msm_vfe46_axi_halt(struct vfe_device *vfe_dev,
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x374);
 	}
 
-	msm_isp_get_timestamp(&ts);
+	msm_isp_get_timestamp(&ts, vfe_dev);
 	for (i = VFE_PIX_0; i <= VFE_RAW_2; i++) {
 		msm_isp_axi_stream_update(vfe_dev, i, &ts);
 		msm_isp_axi_stream_update(vfe_dev, i, &ts);

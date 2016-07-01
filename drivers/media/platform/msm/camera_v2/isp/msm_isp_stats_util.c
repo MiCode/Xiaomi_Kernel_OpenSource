@@ -852,7 +852,7 @@ int msm_isp_stats_reset(struct vfe_device *vfe_dev)
 	unsigned long flags;
 	int k;
 
-	msm_isp_get_timestamp(&timestamp);
+	msm_isp_get_timestamp(&timestamp, vfe_dev);
 
 	if (vfe_dev->is_split) {
 		for (i = 0; i < MAX_VFE; i++)
@@ -1077,7 +1077,7 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev_ioctl,
 	uint32_t num_active_streams[MAX_VFE] = {0, 0};
 	struct vfe_device *vfe_dev;
 
-	msm_isp_get_timestamp(&timestamp);
+	msm_isp_get_timestamp(&timestamp, vfe_dev_ioctl);
 
 	num_stats_comp_mask =
 		vfe_dev_ioctl->hw_info->stats_hw_info->num_stats_comp_mask;
@@ -1164,7 +1164,7 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *streams[MSM_ISP_STATS_MAX];
 	unsigned long flags;
 
-	msm_isp_get_timestamp(&timestamp);
+	msm_isp_get_timestamp(&timestamp, vfe_dev);
 
 	num_stats_comp_mask =
 		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
