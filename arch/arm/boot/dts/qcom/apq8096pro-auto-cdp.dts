@@ -15,6 +15,7 @@
 #include "apq8096pro.dtsi"
 #include "msm8996-pm8994.dtsi"
 #include "msm8996-auto-cdp.dtsi"
+#include "msm8996pro-auto.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ 8096 pro AUTO CDP";
@@ -34,22 +35,3 @@
 	};
 };
 
-&gfx_vreg {
-	qcom,cpr-voltage-ceiling =
-		/* Speed bin 0 */
-		<600000  670000  670000  750000  830000  910000  960000 1020000
-		1070000>,
-
-		/* Speed bin 1 */
-		<600000  670000  670000  750000  830000  910000  960000 1020000
-		1070000>;
-
-	qcom,cpr-voltage-floor =
-		/* Speed bin 0 */
-		<600000  600000  600000  600000  600000  600000  600000  600000
-		 600000>,
-
-		/* Speed bin 1 */
-		<600000  600000  600000  600000  600000  600000  600000  600000
-		 600000>;
-};

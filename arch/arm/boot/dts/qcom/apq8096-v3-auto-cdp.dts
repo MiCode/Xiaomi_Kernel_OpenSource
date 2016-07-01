@@ -15,6 +15,7 @@
 #include "apq8096-v3.dtsi"
 #include "msm8996-pm8994.dtsi"
 #include "msm8996-auto-cdp.dtsi"
+#include "msm8996v3-auto.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ 8096 v3 AUTO CDP";
