@@ -1,0 +1,285 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "skeleton64.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM SKUNK";
+	compatible = "qcom,msmskunk";
+	qcom,msm-id = <321 0x0>;
+	interrupt-parent = <&intc>;
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x0>;
+			enable-method = "spin-table";
+			cache-size = <0x8000>;
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_0>;
+			L2_0: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-size = <0x20000>;
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+
+				L3_0: l3-cache {
+				      compatible = "arm,arch-cache";
+				      cache-size = <0x200000>;
+				      cache-level = <3>;
+				};
+			};
+		};
+
+		CPU1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x1>;
+			enable-method = "spin-table";
+			cache-size = <0x8000>;
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_1>;
+			L2_1: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-size = <0x20000>;
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+			};
+		};
+
+		CPU2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x2>;
+			enable-method = "spin-table";
+			cache-size = <0x8000>;
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_2>;
+			L2_2: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-size = <0x20000>;
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+			};
+		};
+
+		CPU3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x3>;
+			enable-method = "spin-table";
+			cache-size = <0x8000>;
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_3>;
+			L2_3: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-size = <0x20000>;
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+			};
+		};
+
+		CPU4: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x100>;
+			enable-method = "spin-table";
+			cache-size = <0x20000>;
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_4>;
+			L2_4: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-size = <0x40000>;
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+			};
+		};
+
+		CPU5: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x101>;
+			enable-method = "spin-table";
+			cache-size = <0x20000>;
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_5>;
+			L2_5: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-size = <0x40000>;
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+			};
+		};
+
+		CPU6: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x102>;
+			enable-method = "spin-table";
+			cache-size = <0x20000>;
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_6>;
+			L2_6: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-size = <0x40000>;
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+			};
+		};
+
+		CPU7: cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x103>;
+			enable-method = "spin-table";
+			cache-size = <0x20000>;
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_7>;
+			L2_7: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-size = <0x40000>;
+			      cache-level = <2>;
+			      next-level-cache = <&L3_0>;
+			};
+		};
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+
+				core1 {
+					cpu = <&CPU1>;
+				};
+
+				core2 {
+					cpu = <&CPU2>;
+				};
+
+				core3 {
+					cpu = <&CPU3>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&CPU4>;
+				};
+
+				core1 {
+					cpu = <&CPU5>;
+				};
+
+				core2 {
+					cpu = <&CPU6>;
+				};
+
+				core3 {
+					cpu = <&CPU7>;
+				};
+			};
+		};
+	};
+
+	soc: soc { };
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0 0 0 0xffffffff>;
+	compatible = "simple-bus";
+
+	intc: interrupt-controller@17a00000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		#redistributor-regions = <1>;
+		redistributor-stride = <0x0 0x20000>;
+		reg = <0x17a00000 0x10000>,     /* GICD */
+		      <0x17b00000 0x100000>;    /* GICR * 8 */
+		interrupts = <1 9 4>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <1 1 0xf08>,
+			     <1 2 0xf08>,
+			     <1 3 0xf08>,
+			     <1 0 0xf08>;
+		clock-frequency = <19200000>;
+	};
+
+	timer@0x17C90000{
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		compatible = "arm,armv7-timer-mem";
+		reg = <0x17C90000 0x1000>;
+		clock-frequency = <19200000>;
+
+		frame@0x17CA0000 {
+			frame-number = <0>;
+			interrupts = <0 8 0x4>,
+				     <0 7 0x4>;
+			reg = <0x17CA0000 0x1000>,
+			      <0x17CB0000 0x1000>;
+		};
+
+		frame@17cc0000 {
+			frame-number = <1>;
+			interrupts = <0 9 0x4>;
+			reg = <0x17cc0000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17cd0000 {
+			frame-number = <2>;
+			interrupts = <0 10 0x4>;
+			reg = <0x17cd0000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17ce0000 {
+			frame-number = <3>;
+			interrupts = <0 11 0x4>;
+			reg = <0x17ce0000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17cf0000 {
+			frame-number = <4>;
+			interrupts = <0 12 0x4>;
+			reg = <0x17cf0000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17d00000 {
+			frame-number = <5>;
+			interrupts = <0 36 0x4>;
+			reg = <0x17d00000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17d10000 {
+			frame-number = <6>;
+			interrupts = <0 37 0x4>;
+			reg = <0x17d10000 0x1000>;
+			status = "disabled";
+		};
+	};
+};
