@@ -2419,7 +2419,9 @@ static int hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 		if (pinfo->dfps_update ==
 			DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
 			pinfo->dfps_update ==
-				DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
+				DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP ||
+			pinfo->dfps_update ==
+				DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK) {
 			DEV_DBG("%s: hfp=%d, hbp=%d, hpw=%d\n", __func__,
 				pinfo->lcdc.h_front_porch,
 				pinfo->lcdc.h_back_porch,
@@ -4739,7 +4741,8 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (hdmi_tx_is_hdcp_enabled(hdmi_ctrl))
 		hdmi_tx_hdcp_off(hdmi_ctrl);
 
-	if (pinfo->dfps_update == DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
+	if (pinfo->dfps_update == DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP ||
+		pinfo->dfps_update == DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK) {
 		if (hdmi_tx_video_setup(hdmi_ctrl)) {
 			DEV_DBG("%s: no change in video timing\n", __func__);
 			return;

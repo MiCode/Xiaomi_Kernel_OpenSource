@@ -4833,8 +4833,13 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 		(pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) ||
 		(pinfo->dfps_update ==
 			DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) ||
+		(pinfo->dfps_update ==
+			DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK) ||
 		pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
-		new_fps = mdss_panel_get_framerate(pinfo);
+		if (pinfo->type == DTV_PANEL)
+			new_fps = pinfo->lcdc.frame_rate;
+		else
+			new_fps = mdss_panel_get_framerate(pinfo);
 	} else {
 		new_fps = pinfo->new_fps;
 	}
