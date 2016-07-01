@@ -180,8 +180,10 @@ extern struct elem_info wlfw_pin_connect_result_ind_msg_v01_ei[];
 
 struct wlfw_wlan_mode_req_msg_v01 {
 	enum wlfw_driver_mode_enum_v01 mode;
+	uint8_t hw_debug_valid;
+	uint8_t hw_debug;
 };
-#define WLFW_WLAN_MODE_REQ_MSG_V01_MAX_MSG_LEN 7
+#define WLFW_WLAN_MODE_REQ_MSG_V01_MAX_MSG_LEN 11
 extern struct elem_info wlfw_wlan_mode_req_msg_v01_ei[];
 
 struct wlfw_wlan_mode_resp_msg_v01 {

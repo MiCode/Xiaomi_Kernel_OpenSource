@@ -97,6 +97,16 @@
 	} while (0)
 #endif
 
+enum icnss_debug_quirks {
+	HW_ALWAY_ON,
+	HW_DEBUG_ENABLE,
+};
+
+#define ICNSS_QUIRKS_DEFAULT 0
+
+unsigned long quirks = ICNSS_QUIRKS_DEFAULT;
+module_param(quirks, ulong, 0600);
+
 void *icnss_ipc_log_context;
 
 enum icnss_driver_event_type {
@@ -783,6 +793,8 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 	memset(&resp, 0, sizeof(resp));
 
 	req.mode = mode;
+	req.hw_debug_valid = 1;
+	req.hw_debug = !!test_bit(HW_DEBUG_ENABLE, &quirks);
 
 	req_desc.max_msg_len = WLFW_WLAN_MODE_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_WLAN_MODE_REQ_V01;
