@@ -615,26 +615,14 @@ static int f2fs_drop_inode(struct inode *inode)
 	return generic_drop_inode(inode);
 }
 
-/*
- * f2fs_dirty_inode() is called from __mark_inode_dirty()
- *
- * We should call set_dirty_inode to write the dirty inode through write_inode.
- */
-static void f2fs_dirty_inode(struct inode *inode, int flags)
+int f2fs_inode_dirtied(struct inode *inode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-
-	if (inode->i_ino == F2FS_NODE_INO(sbi) ||
-			inode->i_ino == F2FS_META_INO(sbi))
-		return;
-
-	if (is_inode_flag_set(inode, FI_AUTO_RECOVER))
-		clear_inode_flag(inode, FI_AUTO_RECOVER);
 
 	spin_lock(&sbi->inode_lock[DIRTY_META]);
 	if (is_inode_flag_set(inode, FI_DIRTY_INODE)) {
 		spin_unlock(&sbi->inode_lock[DIRTY_META]);
-		return;
+		return 1;
 	}
 
 	set_inode_flag(inode, FI_DIRTY_INODE);
@@ -643,6 +631,8 @@ static void f2fs_dirty_inode(struct inode *inode, int flags)
 	inc_page_count(sbi, F2FS_DIRTY_IMETA);
 	stat_inc_dirty_inode(sbi, DIRTY_META);
 	spin_unlock(&sbi->inode_lock[DIRTY_META]);
+
+	return 0;
 }
 
 void f2fs_inode_synced(struct inode *inode)
@@ -660,6 +650,25 @@ void f2fs_inode_synced(struct inode *inode)
 	dec_page_count(sbi, F2FS_DIRTY_IMETA);
 	stat_dec_dirty_inode(F2FS_I_SB(inode), DIRTY_META);
 	spin_unlock(&sbi->inode_lock[DIRTY_META]);
+}
+
+/*
+ * f2fs_dirty_inode() is called from __mark_inode_dirty()
+ *
+ * We should call set_dirty_inode to write the dirty inode through write_inode.
+ */
+static void f2fs_dirty_inode(struct inode *inode, int flags)
+{
+	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
+
+	if (inode->i_ino == F2FS_NODE_INO(sbi) ||
+			inode->i_ino == F2FS_META_INO(sbi))
+		return;
+
+	if (is_inode_flag_set(inode, FI_AUTO_RECOVER))
+		clear_inode_flag(inode, FI_AUTO_RECOVER);
+
+	f2fs_inode_dirtied(inode);
 }
 
 static void f2fs_i_callback(struct rcu_head *head)
