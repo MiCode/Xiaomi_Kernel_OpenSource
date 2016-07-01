@@ -70,7 +70,12 @@ static int change_bw(struct device *dev, unsigned long *freq, u32 flags)
 update_thresholds:
 	desc.arg[0] = SPDM_CMD_ENABLE;
 	desc.arg[1] = data->spdm_client;
-	desc.arg[2] = (clk_get_rate(data->cci_clk)) / 1000;
+
+	if (data->cci_clk)
+		desc.arg[2] = (clk_get_rate(data->cci_clk)) / 1000;
+	else
+		desc.arg[2] = 0;
+
 	ext_status = spdm_ext_call(&desc, 3);
 	if (ext_status)
 		pr_err("External command %u failed with error %u",
@@ -339,8 +344,7 @@ static int probe(struct platform_device *pdev)
 
 	data->cci_clk = clk_get(&pdev->dev, "cci_clk");
 	if (IS_ERR(data->cci_clk)) {
-		ret = PTR_ERR(data->cci_clk);
-		goto no_clock;
+		data->cci_clk = NULL;
 	}
 
 	data->profile =
@@ -376,7 +380,6 @@ static int probe(struct platform_device *pdev)
 no_spdm_device:
 	devm_kfree(&pdev->dev, data->profile);
 no_profile:
-no_clock:
 	msm_bus_scale_unregister_client(data->bus_scale_client_id);
 no_bus_scaling:
 	devm_kfree(&pdev->dev, data->config_data.ports);

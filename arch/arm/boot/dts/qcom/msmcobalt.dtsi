@@ -776,8 +776,6 @@
 		qcom,perfcl-speedbin0-v0 =
 			< 300000000  0x0004000f 0x03200020 0x1>;
 
-		qcom,osm-pll-setup;
-
 		qcom,up-timer =
 			<1000 1000>;
 		qcom,down-timer =
@@ -1982,8 +1980,6 @@
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&pmcobalt_s9_level>;
 		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		vdd_pll-supply = <&pm8005_s3>;
-		qcom,vdd_pll = <600000>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
@@ -2101,6 +2097,7 @@
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor13";
 			qcom,scaling-factor = <10>;
+			qcom,alias-name = "gpu";
 		};
 		sensor_information14: qcom,sensor-information-14 {
 			qcom,sensor-type = "tsens";
@@ -2110,7 +2107,6 @@
 		sensor_information15: qcom,sensor-information-15 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor15";
-			qcom,alias-name = "gpu";
 			qcom,scaling-factor = <10>;
 		};
 		sensor_information16: qcom,sensor-information-16 {

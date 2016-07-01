@@ -25,7 +25,8 @@ Required properties:
 			order as the clocks property.
 				Current values of clock-names are:
 				"src_clk", "core_clk", "iface_clk", "mem_clk", "mem_iface_clk",
-				"alt_mem_iface_clk", "rbbmtimer_clk",  "alwayson_clk"
+				"alt_mem_iface_clk", "rbbmtimer_clk",  "alwayson_clk",
+				"iref_clk"
 				"core_clk" and "iface_clk" are required and others are optional
 
 - qcom,base-leakage-coefficient: Dynamic leakage coefficient.

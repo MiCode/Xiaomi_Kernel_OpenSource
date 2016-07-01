@@ -687,7 +687,7 @@
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 0 108 0
 			    1 &intc 0 0 238 0
-			    2 &tlmm 5 0>;
+			    2 &tlmm 34 0>;
 
 		qcom,inject-rx-on-wakeup;
 		qcom,rx-char-to-inject = <0xFD>;
@@ -724,7 +724,7 @@
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 0 109 0
 			    1 &intc 0 0 238 0
-			    2 &tlmm 9 0>;
+			    2 &tlmm 46 0>;
 
 		qcom,inject-rx-on-wakeup;
 		qcom,rx-char-to-inject = <0xFD>;
@@ -761,7 +761,7 @@
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 0 113 0
 			    1 &intc 0 0 239 0
-			    2 &tlmm 1 0>;
+			    2 &tlmm 54 0>;
 
 		qcom,inject-rx-on-wakeup;
 		qcom,rx-char-to-inject = <0xFD>;
@@ -835,7 +835,7 @@
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 0 115 0
 			    1 &intc 0 0 239 0
-			    2 &tlmm 9 0>;
+			    2 &tlmm 50 0>;
 
 		qcom,inject-rx-on-wakeup;
 		qcom,rx-char-to-inject = <0xFD>;

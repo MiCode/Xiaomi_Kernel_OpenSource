@@ -1254,6 +1254,18 @@ fail_bufq_capture:
 	msm_comm_ctrl_deinit(inst);
 	msm_smem_delete_client(inst->mem_client);
 fail_mem_client:
+	mutex_destroy(&inst->sync_lock);
+	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
+	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
+	mutex_destroy(&inst->lock);
+
+	DEINIT_MSM_VIDC_LIST(&inst->pendingq);
+	DEINIT_MSM_VIDC_LIST(&inst->scratchbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->persistbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
+	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
+
 	kfree(inst);
 	inst = NULL;
 err_invalid_core:
@@ -1316,6 +1328,18 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	mutex_unlock(&core->lock);
 
 	msm_comm_ctrl_deinit(inst);
+
+	mutex_destroy(&inst->sync_lock);
+	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
+	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
+	mutex_destroy(&inst->lock);
+
+	DEINIT_MSM_VIDC_LIST(&inst->pendingq);
+	DEINIT_MSM_VIDC_LIST(&inst->scratchbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->persistbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
+	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
 
 	v4l2_fh_del(&inst->event_handler);
 	v4l2_fh_exit(&inst->event_handler);

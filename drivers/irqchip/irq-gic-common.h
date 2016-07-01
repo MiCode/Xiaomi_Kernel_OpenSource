@@ -28,6 +28,7 @@ struct gic_quirk {
 };
 extern bool from_suspend;
 extern struct irq_chip gic_arch_extn;
+extern int msm_show_resume_irq_mask;
 
 int gic_configure_irq(unsigned int irq, unsigned int type,
                        void __iomem *base, void (*sync_access)(void));

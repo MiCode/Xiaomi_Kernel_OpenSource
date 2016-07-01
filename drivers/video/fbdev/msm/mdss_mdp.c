@@ -1349,14 +1349,31 @@ static void mdss_mdp_memory_retention_enter(void)
 {
 	struct clk *mdss_mdp_clk = NULL;
 	struct clk *mdp_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
+	struct clk *mdss_mdp_lut_clk = NULL;
+	struct clk *mdp_lut_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_LUT);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if (mdp_vote_clk) {
-		mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
-		if (mdss_mdp_clk) {
-			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
-			clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_SET);
-			clk_set_flags(mdss_mdp_clk, CLKFLAG_NORETAIN_PERIPH);
+		if (test_bit(MDSS_CAPS_MDP_VOTE_CLK_NOT_SUPPORTED,
+				mdata->mdss_caps_map)) {
+			mdss_mdp_clk = mdp_vote_clk;
+			mdss_mdp_lut_clk = mdp_lut_vote_clk;
+		} else {
+			mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
+			mdss_mdp_lut_clk = clk_get_parent(mdp_lut_vote_clk);
 		}
+	}
+
+	if (mdss_mdp_clk) {
+		clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
+		clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_SET);
+		clk_set_flags(mdss_mdp_clk, CLKFLAG_NORETAIN_PERIPH);
+	}
+
+	if (mdss_mdp_lut_clk) {
+		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_RETAIN_MEM);
+		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_PERIPH_OFF_SET);
+		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_NORETAIN_PERIPH);
 	}
 }
 
@@ -1364,14 +1381,32 @@ static void mdss_mdp_memory_retention_exit(void)
 {
 	struct clk *mdss_mdp_clk = NULL;
 	struct clk *mdp_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
+	struct clk *mdss_mdp_lut_clk = NULL;
+	struct clk *mdp_lut_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_LUT);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if (mdp_vote_clk) {
-		mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
-		if (mdss_mdp_clk) {
-			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
-			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_PERIPH);
-			clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_CLEAR);
+		if (test_bit(MDSS_CAPS_MDP_VOTE_CLK_NOT_SUPPORTED,
+				mdata->mdss_caps_map)) {
+			mdss_mdp_clk = mdp_vote_clk;
+			mdss_mdp_lut_clk = mdp_lut_vote_clk;
+		} else {
+			mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
+			mdss_mdp_lut_clk = clk_get_parent(mdp_lut_vote_clk);
 		}
+	}
+
+
+	if (mdss_mdp_clk) {
+		clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
+		clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_PERIPH);
+		clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_CLEAR);
+	}
+
+	if (mdss_mdp_lut_clk) {
+		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_RETAIN_MEM);
+		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_RETAIN_PERIPH);
+		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_PERIPH_OFF_CLEAR);
 	}
 }
 
@@ -1900,6 +1935,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_CWB_SUPPORTED, mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_MDP_VOTE_CLK_NOT_SUPPORTED,
+			mdata->mdss_caps_map);
 		mdss_mdp_init_default_prefill_factors(mdata);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);

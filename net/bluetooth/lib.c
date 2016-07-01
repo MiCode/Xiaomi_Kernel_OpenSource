@@ -145,7 +145,7 @@ void bt_info(const char *format, ...)
 	vaf.fmt = format;
 	vaf.va = &args;
 
-	pr_info("%pV", &vaf);
+	pr_info("%pKV", &vaf);
 
 	va_end(args);
 }
@@ -161,7 +161,7 @@ void bt_warn(const char *format, ...)
 	vaf.fmt = format;
 	vaf.va = &args;
 
-	pr_warn("%pV", &vaf);
+	pr_warn("%pKV", &vaf);
 
 	va_end(args);
 }
@@ -177,7 +177,7 @@ void bt_err(const char *format, ...)
 	vaf.fmt = format;
 	vaf.va = &args;
 
-	pr_err("%pV", &vaf);
+	pr_err("%pKV", &vaf);
 
 	va_end(args);
 }
@@ -193,7 +193,7 @@ void bt_err_ratelimited(const char *format, ...)
 	vaf.fmt = format;
 	vaf.va = &args;
 
-	pr_err_ratelimited("%pV", &vaf);
+	pr_err_ratelimited("%pKV", &vaf);
 
 	va_end(args);
 }

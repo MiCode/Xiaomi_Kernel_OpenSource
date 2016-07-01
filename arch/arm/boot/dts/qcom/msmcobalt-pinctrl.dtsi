@@ -1474,7 +1474,7 @@
 				config {
 					pins = "gpio89", "gpio125";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-down;
 				};
 			};
 		};

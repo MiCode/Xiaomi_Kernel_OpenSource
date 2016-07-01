@@ -116,9 +116,11 @@
 			 <&clock_mmss clk_mmss_mdss_axi_clk>,
 			 <&clock_mmss clk_mdp_clk_src>,
 			 <&clock_mmss clk_mmss_mdss_mdp_clk>,
-			 <&clock_mmss clk_mmss_mdss_vsync_clk>;
+			 <&clock_mmss clk_mmss_mdss_vsync_clk>,
+			 <&clock_mmss clk_mmss_mdss_mdp_lut_clk>;
 		clock-names = "mnoc_clk", "iface_clk", "bus_clk",
-				"core_clk_src", "core_clk", "vsync_clk";
+				"core_clk_src", "core_clk", "vsync_clk",
+				"lut_clk";
 
 		qcom,mdp-settings = <0x01190 0x00000000>,
 				    <0x012ac 0xc0000ccc>,

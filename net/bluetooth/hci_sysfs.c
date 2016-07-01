@@ -77,7 +77,7 @@ void hci_conn_init_sysfs(struct hci_conn *conn)
 {
 	struct hci_dev *hdev = conn->hdev;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	conn->dev.type = &bt_link;
 	conn->dev.class = bt_class;
@@ -90,7 +90,7 @@ void hci_conn_add_sysfs(struct hci_conn *conn)
 {
 	struct hci_dev *hdev = conn->hdev;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	dev_set_name(&conn->dev, "%s:%d", hdev->name, conn->handle);
 
