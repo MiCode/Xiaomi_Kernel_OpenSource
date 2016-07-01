@@ -71,6 +71,7 @@ static int ufshcd_tag_req_type(struct request *rq)
 
 static void ufshcd_update_error_stats(struct ufs_hba *hba, int type)
 {
+	ufsdbg_set_err_state(hba);
 	if (type < UFS_ERR_MAX)
 		hba->ufs_stats.err_stats[type]++;
 }
@@ -2109,6 +2110,9 @@ ufshcd_wait_for_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	else
 		ret = -ETIMEDOUT;
 
+	if (ret)
+		ufsdbg_set_err_state(hba);
+
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->active_uic_cmd = NULL;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -2788,6 +2792,9 @@ static int ufshcd_wait_for_dev_cmd(struct ufs_hba *hba,
 		 */
 		ufshcd_outstanding_req_clear(hba, lrbp->task_tag);
 	}
+
+	if (err)
+		ufsdbg_set_err_state(hba);
 
 	return err;
 }
@@ -3821,6 +3828,9 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 		ret = (status != PWR_OK) ? status : -1;
 	}
 out:
+	if (ret)
+		ufsdbg_set_err_state(hba);
+
 	ufshcd_save_tstamp_of_last_dme_cmd(hba);
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->active_uic_cmd = NULL;
@@ -4916,6 +4926,11 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 			ocs == OCS_MISMATCH_DATA_BUF_SIZE);
 		ufshcd_print_trs(hba, 1 << lrbp->task_tag, print_prdt);
 	}
+
+	if ((host_byte(result) == DID_ERROR) ||
+	    (host_byte(result) == DID_ABORT))
+		ufsdbg_set_err_state(hba);
+
 	return result;
 }
 
@@ -5501,6 +5516,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
+	ufsdbg_set_err_state(hba);
 	pm_runtime_get_sync(hba->dev);
 	ufshcd_hold_all(hba);
 
