@@ -19,6 +19,8 @@
 #ifndef __ASM_KERNEL_PGTABLE_H
 #define __ASM_KERNEL_PGTABLE_H
 
+#include <asm/pgtable.h>
+
 /*
  * The idmap and swapper page tables need some space reserved in the kernel
  * image. Both require pgd, pud (4 levels only) and pmd tables to (section)
@@ -36,6 +38,12 @@
 
 #define SWAPPER_DIR_SIZE	(SWAPPER_PGTABLE_LEVELS * PAGE_SIZE)
 #define IDMAP_DIR_SIZE		(3 * PAGE_SIZE)
+
+#ifdef CONFIG_ARM64_SW_TTBR0_PAN
+#define RESERVED_TTBR0_SIZE	(PAGE_SIZE)
+#else
+#define RESERVED_TTBR0_SIZE	(0)
+#endif
 
 /* Initial memory map size */
 #ifdef CONFIG_ARM64_64K_PAGES
