@@ -339,7 +339,7 @@
 };
 
 &mdss_mdp {
-	qcom,mdss-pref-prim-intf = "dsi";
+	qcom,mdss-pref-prim-intf = "hdmi";
 };
 
 &mdss_dsi {
