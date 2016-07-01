@@ -621,7 +621,7 @@ int msm_isp_stats_reset(struct vfe_device *vfe_dev)
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
 	struct msm_isp_timestamp timestamp;
 
-	msm_isp_get_timestamp(&timestamp);
+	msm_isp_get_timestamp(&timestamp, vfe_dev);
 
 	for (i = 0; i < MSM_ISP_STATS_MAX; i++) {
 		stream_info = &stats_data->stream_info[i];
@@ -747,7 +747,7 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
 	struct msm_isp_timestamp timestamp;
 
-	msm_isp_get_timestamp(&timestamp);
+	msm_isp_get_timestamp(&timestamp, vfe_dev);
 
 	num_stats_comp_mask =
 		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
