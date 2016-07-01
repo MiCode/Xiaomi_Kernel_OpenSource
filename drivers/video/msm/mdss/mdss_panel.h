@@ -822,7 +822,7 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info,
 			  panel_info->lcdc.v_pulse_width +
 			  panel_info->yres);
 		if (pixel_total) {
-			rate = panel_info->clk_rate;
+			rate = panel_info->clk_rate * KHZ_TO_HZ;
 			do_div(rate, pixel_total);
 			frame_rate = (u32)rate;
 		} else {
