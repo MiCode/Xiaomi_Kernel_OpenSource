@@ -46,7 +46,7 @@
 /* Values for Dynamic Ramdump Collection*/
 #define CNSS_DUMP_FORMAT_VER	0x11
 #define CNSS_DUMP_MAGIC_VER_V2	0x42445953
-#define CNSS_DUMP_NAME		"CNSS_WLAN"
+#define CNSS_DUMP_NAME		"CNSS_WLAN_SDIO"
 #define CNSS_PINCTRL_SLEEP_STATE	"sleep"
 #define CNSS_PINCTRL_ACTIVE_STATE	"active"
 

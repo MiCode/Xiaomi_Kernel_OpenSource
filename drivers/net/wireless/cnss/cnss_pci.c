@@ -2761,14 +2761,8 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys)
 	wdrv = penv->driver;
 	pdev = penv->pdev;
 
-	penv->dump_data.version = CNSS_DUMP_FORMAT_VER;
-	strlcpy(penv->dump_data.name, CNSS_DUMP_NAME,
-			sizeof(penv->dump_data.name));
-
 	if (pdev && wdrv && wdrv->crash_shutdown)
 		wdrv->crash_shutdown(pdev);
-
-	penv->dump_data.magic = CNSS_DUMP_MAGIC_VER_V2;
 }
 
 void cnss_device_self_recovery(void)
@@ -2829,6 +2823,28 @@ static struct notifier_block mnb = {
 	.notifier_call = cnss_modem_notifier_nb,
 };
 
+static int cnss_init_dump_entry(void)
+{
+	struct msm_dump_entry dump_entry;
+
+	if (!penv)
+		return -ENODEV;
+
+	if (!penv->ramdump_dynamic)
+		return 0;
+
+	penv->dump_data.addr = penv->ramdump_phys;
+	penv->dump_data.len = penv->ramdump_size;
+	penv->dump_data.version = CNSS_DUMP_FORMAT_VER;
+	penv->dump_data.magic = CNSS_DUMP_MAGIC_VER_V2;
+	strlcpy(penv->dump_data.name, CNSS_DUMP_NAME,
+		sizeof(penv->dump_data.name));
+	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
+	dump_entry.addr = virt_to_phys(&penv->dump_data);
+
+	return msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+}
+
 static int cnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2836,7 +2852,6 @@ static int cnss_probe(struct platform_device *pdev)
 	const char *client_desc;
 	struct device *dev = &pdev->dev;
 	u32 rc_num;
-	struct msm_dump_entry dump_entry;
 	struct resource *res;
 	u32 ramdump_size = 0;
 	u32 smmu_iova_address[2];
@@ -2952,18 +2967,10 @@ static int cnss_probe(struct platform_device *pdev)
 		goto skip_ramdump;
 	}
 
-	if (penv->ramdump_dynamic) {
-		penv->dump_data.addr = penv->ramdump_phys;
-		penv->dump_data.len = penv->ramdump_size;
-		dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
-		dump_entry.addr = virt_to_phys(&penv->dump_data);
-
-		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
-		if (ret) {
-			pr_err("%s: Dump table setup failed: %d\n",
-					__func__, ret);
-			goto err_ramdump_create;
-		}
+	ret = cnss_init_dump_entry();
+	if (ret) {
+		pr_err("%s: Dump table setup failed: %d\n", __func__, ret);
+		goto err_ramdump_create;
 	}
 
 	penv->ramdump_dev = create_ramdump_device(penv->subsysdesc.name,
