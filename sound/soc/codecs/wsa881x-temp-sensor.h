@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,8 @@ struct wsa881x_tz_priv {
 	struct wsa_temp_register *wsa_temp_reg;
 	char name[80];
 	wsa_temp_register_read wsa_temp_reg_read;
+	struct notifier_block pm_nb;
+	atomic_t is_suspend_spk;
 };
 
 int wsa881x_get_temp(struct thermal_zone_device *tz_dev, unsigned long *temp);
