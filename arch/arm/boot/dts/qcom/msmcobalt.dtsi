@@ -2899,6 +2899,7 @@
 
 #include "msmcobalt-pm.dtsi"
 #include "msm-arm-smmu-cobalt.dtsi"
+#include "msm-arm-smmu-impl-defs-cobalt.dtsi"
 #include "msmcobalt-ion.dtsi"
 #include "msmcobalt-camera.dtsi"
 #include "msmcobalt-vidc.dtsi"
