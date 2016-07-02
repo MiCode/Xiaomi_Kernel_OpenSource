@@ -1699,7 +1699,6 @@ static void msm_isp_process_overflow_irq(
 
 	if (overflow_mask) {
 		struct msm_isp_event_data error_event;
-		struct msm_vfe_axi_halt_cmd halt_cmd;
 
 		if (vfe_dev->reset_pending == 1) {
 			pr_err("%s:%d failed: overflow %x during reset\n",
@@ -1709,16 +1708,37 @@ static void msm_isp_process_overflow_irq(
 			return;
 		}
 
-		halt_cmd.overflow_detected = 1;
-		halt_cmd.stop_camif = 1;
-		halt_cmd.blocking_halt = 0;
+		ISP_DBG("%s: VFE%d Bus overflow detected: start recovery!\n",
+			__func__, vfe_dev->pdev->id);
 
-		msm_isp_axi_halt(vfe_dev, &halt_cmd);
+		/* maks off irq for current vfe */
+		atomic_cmpxchg(&vfe_dev->error_info.overflow_state,
+			NO_OVERFLOW, OVERFLOW_DETECTED);
+		vfe_dev->hw_info->vfe_ops.core_ops.
+			set_halt_restart_mask(vfe_dev);
 
-		/*Update overflow state*/
+		/* mask off other vfe if dual vfe is used */
+		if (vfe_dev->is_split) {
+			uint32_t other_vfe_id;
+
+			other_vfe_id = (vfe_dev->pdev->id == ISP_VFE0) ?
+				ISP_VFE1 : ISP_VFE0;
+
+			atomic_cmpxchg(&(vfe_dev->common_data->dual_vfe_res->
+				vfe_dev[other_vfe_id]->
+				error_info.overflow_state),
+				NO_OVERFLOW, OVERFLOW_DETECTED);
+
+			vfe_dev->hw_info->vfe_ops.core_ops.
+				set_halt_restart_mask(vfe_dev->common_data->
+				dual_vfe_res->vfe_dev[other_vfe_id]);
+		}
+
+		/* reset irq status so skip further process */
 		*irq_status0 = 0;
 		*irq_status1 = 0;
 
+		/* send overflow event as needed */
 		if (atomic_read(&vfe_dev->error_info.overflow_state)
 			!= HALT_ENFORCED) {
 			memset(&error_event, 0, sizeof(error_event));
