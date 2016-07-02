@@ -2374,6 +2374,9 @@ int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format,
 	case FORMAT_EAC3:
 		open.fmt_id = ASM_MEDIA_FMT_EAC3;
 		break;
+	case FORMAT_DTS:
+		open.fmt_id = ASM_MEDIA_FMT_DTS;
+		break;
 	default:
 		pr_err("%s: Invalid format[%d]\n", __func__, format);
 		rc = -EINVAL;
