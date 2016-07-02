@@ -509,7 +509,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	if (layer->flags & MDP_LAYER_PP)
 		pipe->flags |= MDP_OVERLAY_PP_CFG_EN;
 
-	pipe->scaler.enable = (layer->flags & SCALER_ENABLED);
 	pipe->is_fg = layer->flags & MDP_LAYER_FORGROUND;
 	pipe->img_width = layer->buffer.width & 0x3fff;
 	pipe->img_height = layer->buffer.height & 0x3fff;
@@ -540,6 +539,12 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	pr_debug("src{%d,%d,%d,%d}, dst{%d,%d,%d,%d}\n",
 		pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
 		pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
+
+	if (layer->flags & SCALER_ENABLED)
+		memcpy(&pipe->scaler, layer->scale,
+			sizeof(struct mdp_scale_data_v2));
+
+	pipe->scaler.enable = (layer->flags & SCALER_ENABLED);
 
 	flags = pipe->flags;
 	if (is_single_layer)
@@ -661,9 +666,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	if (layer->flags & SCALER_ENABLED)
-		memcpy(&pipe->scaler, layer->scale,
-			sizeof(struct mdp_scale_data_v2));
 	ret = mdss_mdp_overlay_setup_scaling(pipe);
 	if (ret) {
 		pr_err("scaling setup failed %d\n", ret);
@@ -758,7 +760,6 @@ static struct sync_fence *__create_fence(struct msm_fb_data_type *mfd,
 		goto end;
 	}
 
-	sync_fence_install(sync_fence, *fence_fd);
 end:
 	return sync_fence;
 }
@@ -831,6 +832,9 @@ static int __handle_buffer_fences(struct msm_fb_data_type *mfd,
 		ret = PTR_ERR(retire_fence);
 		goto retire_fence_err;
 	}
+
+	sync_fence_install(release_fence, commit->release_fence);
+	sync_fence_install(retire_fence, commit->retire_fence);
 
 	mutex_unlock(&sync_pt_data->sync_mutex);
 	return ret;
