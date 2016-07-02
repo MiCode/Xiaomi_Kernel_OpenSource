@@ -227,6 +227,18 @@
 				< 1286400 >;
 	};
 
+	ahb_clk: qcom,ahb-clk-src {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_gcc clk_apss_ahb_clk_src>;
+		governor = "powersave";
+		freq-tbl-khz =
+			<  19200 >,
+			<  50000 >,
+			<  100000 >,
+			<  133330 >;
+	};
+
 	devfreq-cpufreq {
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;
@@ -234,6 +246,14 @@
 				<  600000 1541 >,
 				<  787200 3082 >,
 				< 1286400 3952 >;
+		};
+		cpuahb-cpufreq {
+			target-dev = <&ahb_clk>;
+			cpu-to-dev-map =
+				<  200000  19200 >,
+				<  384000  50000 >,
+				<  787200  100000 >,
+				<  1286400 133330 >;
 		};
 	};
 
