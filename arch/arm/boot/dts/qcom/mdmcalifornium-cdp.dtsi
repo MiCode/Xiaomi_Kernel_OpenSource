@@ -90,7 +90,7 @@
 	chan@83 {
 		label = "vph_pwr";
 		reg = <0x83>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <1>;
 		qcom,calibration-type = "absolute";
 		qcom,scale-function = <0>;
@@ -101,7 +101,7 @@
 	chan@4c {
 		label = "xo_therm_buf";
 		reg = <0x4c>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <4>;
@@ -113,7 +113,7 @@
 	chan@53 {
 		label = "ambient_therm";
 		reg = <0x53>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
@@ -125,7 +125,7 @@
 	chan@4d {
 		label = "mdm_case_therm";
 		reg = <0x4d>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
@@ -137,7 +137,7 @@
 	chan@4e {
 		label = "pa_therm1";
 		reg = <0x4e>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
@@ -149,7 +149,7 @@
 	chan@4f {
 		label = "pa_therm2";
 		reg = <0x4f>;
-		qcom,decimation = <0>;
+		qcom,decimation = <2>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
