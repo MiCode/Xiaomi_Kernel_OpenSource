@@ -33,6 +33,12 @@
 		qcom,use-psci;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk";
+		clocks = <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>;
 
 		qcom,pm-cluster@0{
 			reg = <0>;
