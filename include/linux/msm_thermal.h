@@ -45,6 +45,7 @@ struct msm_thermal_data {
 	int32_t hotplug_temp_degC;
 	int32_t hotplug_temp_hysteresis_degC;
 	uint32_t core_control_mask;
+	uint32_t cpus_offlined;
 	uint32_t freq_mitig_temp_degc;
 	uint32_t freq_mitig_temp_hysteresis_degc;
 	uint32_t freq_mitig_control_mask;
@@ -95,6 +96,8 @@ struct threshold_info {
 	struct list_head             list_ptr;
 	struct therm_threshold       *thresh_list;
 };
+
+extern struct msm_thermal_data msm_thermal_info;
 
 enum device_req_type {
 	DEVICE_REQ_NONE = -1,

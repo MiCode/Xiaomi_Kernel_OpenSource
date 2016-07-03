@@ -598,6 +598,10 @@ config SERIAL_NUM
 config STATE_NOTIFIER
         bool "State Notifier"
 
+config STATE_HELPER
+        bool "State Helper"
+	depends on STATE_NOTIFIER
+
 config SECBOOT_FUSE
 	bool "Enable Secure boot fuse Proc Interface"
 	help
