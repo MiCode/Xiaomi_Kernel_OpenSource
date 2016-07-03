@@ -1831,7 +1831,7 @@ int hrtimers_prepare_cpu(unsigned int cpu)
 	return 0;
 }
 
-#if defined(CONFIG_HOTPLUG_CPU) || defined(CONFIG_CPUSETS)
+#ifdef CONFIG_HOTPLUG_CPU
 static void migrate_hrtimer_list(struct hrtimer_clock_base *old_base,
 				 struct hrtimer_clock_base *new_base,
 				 bool remove_pinned)
@@ -1923,9 +1923,7 @@ static void __migrate_hrtimers(unsigned int scpu, bool remove_pinned)
 	local_irq_restore(flags);
 	local_bh_enable();
 }
-#endif /* CONFIG_HOTPLUG_CPU || CONFIG_CPUSETS */
 
-#ifdef CONFIG_HOTPLUG_CPU
 int hrtimers_dead_cpu(unsigned int scpu)
 {
 	BUG_ON(cpu_online(scpu));
@@ -1934,14 +1932,13 @@ int hrtimers_dead_cpu(unsigned int scpu)
 	__migrate_hrtimers(scpu, true);
 	return 0;
 }
-#endif /* CONFIG_HOTPLUG_CPU */
 
-#ifdef CONFIG_CPUSETS
 void hrtimer_quiesce_cpu(void *cpup)
 {
 	__migrate_hrtimers(*(int *)cpup, false);
 }
-#endif /* CONFIG_CPUSETS */
+
+#endif /* CONFIG_HOTPLUG_CPU */
 
 void __init hrtimers_init(void)
 {
