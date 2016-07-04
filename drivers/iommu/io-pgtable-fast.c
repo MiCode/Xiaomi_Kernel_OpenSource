@@ -424,6 +424,9 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 	struct av8l_fast_io_pgtable *data =
 		av8l_fast_alloc_pgtable_data(cfg);
 
+	if (!data)
+		return NULL;
+
 	/* restrict according to the fast map requirements */
 	cfg->ias = 32;
 	cfg->pgsize_bitmap = SZ_4K;
