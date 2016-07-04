@@ -650,7 +650,31 @@ out:
 
 static int ufs_qcom_full_reset(struct ufs_hba *hba)
 {
-	return 0;
+	int ret = -ENOTSUPP;
+
+	if (!hba->core_reset) {
+		dev_err(hba->dev, "%s: failed, err = %d\n", __func__,
+				ret);
+		goto out;
+	}
+
+	ret = reset_control_assert(hba->core_reset);
+	if (ret) {
+		dev_err(hba->dev, "%s: core_reset assert failed, err = %d\n",
+				__func__, ret);
+		goto out;
+	}
+
+	/* Very small delay, per the documented requirement */
+	usleep_range(1, 2);
+
+	ret = reset_control_deassert(hba->core_reset);
+	if (ret)
+		dev_err(hba->dev, "%s: core_reset deassert failed, err = %d\n",
+				__func__, ret);
+
+out:
+	return ret;
 }
 
 static

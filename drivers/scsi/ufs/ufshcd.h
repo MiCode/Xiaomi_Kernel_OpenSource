@@ -55,6 +55,7 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
+#include <linux/reset.h>
 #include "unipro.h"
 
 #include <asm/irq.h>
@@ -894,6 +895,9 @@ struct ufs_hba {
 	bool is_urgent_bkops_lvl_checked;
 
 	struct rw_semaphore clk_scaling_lock;
+
+	struct reset_control *core_reset;
+
 	struct ufs_desc_size desc_size;
 };
 
