@@ -821,8 +821,6 @@ struct mdss_overlay_private {
 	u32 bl_events;
 	u32 ad_events;
 	u32 ad_bl_events;
-
-	bool allow_kickoff;
 };
 
 struct mdss_mdp_set_ot_params {
