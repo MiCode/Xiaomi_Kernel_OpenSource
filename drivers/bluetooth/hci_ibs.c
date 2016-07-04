@@ -231,7 +231,7 @@ static int send_hci_ibs_cmd(u8 cmd, struct hci_uart *hu)
 	struct ibs_struct *ibs = hu->priv;
 	struct hci_ibs_cmd *hci_ibs_packet;
 
-	BT_DBG("hu %p cmd 0x%x", hu, cmd);
+	BT_DBG("hu %pK cmd 0x%x", hu, cmd);
 
 	/* allocate packet */
 	skb = bt_skb_alloc(1, GFP_ATOMIC);
@@ -259,7 +259,7 @@ static void ibs_wq_awake_device(struct work_struct *work)
 	struct hci_uart *hu = (struct hci_uart *)ibs->ibs_hu;
 	unsigned long flags;
 
-	BT_DBG(" %p ", hu);
+	BT_DBG(" %pK ", hu);
 
 	/* Vote for serial clock */
 	ibs_msm_serial_clock_vote(HCI_IBS_TX_VOTE_CLOCK_ON, hu);
@@ -286,7 +286,7 @@ static void ibs_wq_awake_rx(struct work_struct *work)
 	struct hci_uart *hu = (struct hci_uart *)ibs->ibs_hu;
 	unsigned long flags;
 
-	BT_DBG(" %p ", hu);
+	BT_DBG(" %pK ", hu);
 
 	ibs_msm_serial_clock_vote(HCI_IBS_RX_VOTE_CLOCK_ON, hu);
 
@@ -314,7 +314,7 @@ static void ibs_wq_serial_rx_clock_vote_off(struct work_struct *work)
 					ws_rx_vote_off);
 	struct hci_uart *hu = (struct hci_uart *)ibs->ibs_hu;
 
-	BT_DBG(" %p ", hu);
+	BT_DBG(" %pK ", hu);
 
 	ibs_msm_serial_clock_vote(HCI_IBS_RX_VOTE_CLOCK_OFF, hu);
 
@@ -326,7 +326,7 @@ static void ibs_wq_serial_tx_clock_vote_off(struct work_struct *work)
 					ws_tx_vote_off);
 	struct hci_uart *hu = (struct hci_uart *)ibs->ibs_hu;
 
-	BT_DBG(" %p ", hu);
+	BT_DBG(" %pK ", hu);
 
 	hci_uart_tx_wakeup(hu);  /* run HCI tx handling unlocked */
 
@@ -342,7 +342,7 @@ static void hci_ibs_tx_idle_timeout(unsigned long arg)
 	struct ibs_struct *ibs = hu->priv;
 	unsigned long flags;
 
-	BT_DBG("hu %p idle timeout in %lu state", hu, ibs->tx_ibs_state);
+	BT_DBG("hu %pK idle timeout in %lu state", hu, ibs->tx_ibs_state);
 
 	spin_lock_irqsave_nested(&ibs->hci_ibs_lock,
 					flags, SINGLE_DEPTH_NESTING);
@@ -376,8 +376,8 @@ static void hci_ibs_wake_retrans_timeout(unsigned long arg)
 	unsigned long flags;
 	unsigned long retransmit = 0;
 
-	BT_DBG("hu %p wake retransmit timeout in %lu state",
-		hu, ibs->tx_ibs_state);
+	BT_DBG("hu %pK wake retransmit timeout in %lu state",
+	       hu, ibs->tx_ibs_state);
 
 	spin_lock_irqsave_nested(&ibs->hci_ibs_lock,
 					flags, SINGLE_DEPTH_NESTING);
@@ -409,7 +409,7 @@ static int ibs_open(struct hci_uart *hu)
 {
 	struct ibs_struct *ibs;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %pK", hu);
 
 	ibs = kzalloc(sizeof(*ibs), GFP_ATOMIC);
 	if (!ibs)
@@ -505,7 +505,7 @@ static int ibs_flush(struct hci_uart *hu)
 {
 	struct ibs_struct *ibs = hu->priv;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %pK", hu);
 
 	skb_queue_purge(&ibs->tx_wait_q);
 	skb_queue_purge(&ibs->txq);
@@ -518,7 +518,7 @@ static int ibs_close(struct hci_uart *hu)
 {
 	struct ibs_struct *ibs = hu->priv;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %pK", hu);
 
 	ibs_msm_serial_clock_vote(HCI_IBS_VOTE_STATS_UPDATE, hu);
 	ibs_log_local_stats(ibs);
@@ -547,7 +547,7 @@ static void ibs_device_want_to_wakeup(struct hci_uart *hu)
 	unsigned long flags;
 	struct ibs_struct *ibs = hu->priv;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %pK", hu);
 
 	/* lock hci_ibs state */
 	spin_lock_irqsave(&ibs->hci_ibs_lock, flags);
@@ -596,7 +596,7 @@ static void ibs_device_want_to_sleep(struct hci_uart *hu)
 	unsigned long flags;
 	struct ibs_struct *ibs = hu->priv;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %pK", hu);
 
 	/* lock hci_ibs state */
 	spin_lock_irqsave(&ibs->hci_ibs_lock, flags);
@@ -632,7 +632,7 @@ static void ibs_device_woke_up(struct hci_uart *hu)
 	struct ibs_struct *ibs = hu->priv;
 	struct sk_buff *skb = NULL;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %pK", hu);
 
 	/* lock hci_ibs state */
 	spin_lock_irqsave(&ibs->hci_ibs_lock, flags);
@@ -677,7 +677,7 @@ static int ibs_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 	unsigned long flags = 0;
 	struct ibs_struct *ibs = hu->priv;
 
-	BT_DBG("hu %p skb %p", hu, skb);
+	BT_DBG("hu %pK skb %pK", hu, skb);
 
 	/* Prepend skb with frame type */
 	memcpy(skb_push(skb, 1), &bt_cb(skb)->pkt_type, 1);
@@ -756,8 +756,8 @@ static int ibs_recv(struct hci_uart *hu, void *data, int count)
 	struct hci_sco_hdr   *sh;
 	register int len, type, dlen;
 
-	BT_DBG("hu %p count %d rx_state %ld rx_count %ld",
-			hu, count, ibs->rx_state, ibs->rx_count);
+	BT_DBG("hu %pK count %d rx_state %ld rx_count %ld",
+	       hu, count, ibs->rx_state, ibs->rx_count);
 
 	ptr = data;
 	while (count) {
