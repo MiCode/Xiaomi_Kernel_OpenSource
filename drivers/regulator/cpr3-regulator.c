@@ -1011,7 +1011,8 @@ static int cpr3_controller_program_sdelta(struct cpr3_controller *ctrl)
 		max_core_count << CPR4_MARGIN_ADJ_CTL_MAX_NUM_CORES_SHIFT
 		| ((sdelta->allow_core_count_adj || sdelta->allow_boost)
 			? CPR4_MARGIN_ADJ_CTL_CORE_ADJ_EN : 0)
-		| ((sdelta->allow_temp_adj && ctrl->supports_hw_closed_loop)
+		| ((sdelta->allow_temp_adj && ctrl->supports_hw_closed_loop
+			&& sdelta->allow_core_count_adj)
 			? CPR4_MARGIN_ADJ_CTL_TEMP_ADJ_EN : 0)
 		| (((ctrl->use_hw_closed_loop && !sdelta->allow_boost)
 		    || !ctrl->supports_hw_closed_loop)
