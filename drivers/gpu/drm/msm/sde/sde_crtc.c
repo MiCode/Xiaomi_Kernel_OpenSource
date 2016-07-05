@@ -175,10 +175,10 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 		struct sde_plane_state *pstate)
 {
 	struct drm_plane *plane;
-	const struct mdp_format *format;
+	const struct sde_format *format;
 	uint32_t blend_op;
 
-	format = to_mdp_format(
+	format = to_sde_format(
 			msm_framebuffer_format(pstate->base.fb));
 	plane = pstate->base.plane;
 

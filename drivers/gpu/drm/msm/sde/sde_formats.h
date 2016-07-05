@@ -24,35 +24,36 @@
 #define SDE_FORMAT_IS_UBWC(X)       ((X)->flag & SDE_FORMAT_FLAG_UBWC)
 
 /**
- * MDP supported format packing, bpp, and other format
+ * SDE supported format packing, bpp, and other format
  * information.
- * MDP currently only supports interleaved RGB formats
+ * SDE currently only supports interleaved RGB formats
  * UBWC support for a pixel format is indicated by the flag,
  * there is additional meta data plane for such formats
  */
 
-#define INTERLEAVED_RGB_FMT(fmt, a, r, g, b, e0, e1, e2, e3, alpha, bp, flg) \
+#define INTERLEAVED_RGB_FMT(fmt, a, r, g, b, e0, e1, e2, e3, uc, alpha,   \
+bp, flg)                                                                  \
 {                                                                         \
-	.format = DRM_FORMAT_ ## fmt,                                     \
-	.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,                        \
+	.base.pixel_format = DRM_FORMAT_ ## fmt,                          \
+	.fetch_planes = SDE_PLANE_INTERLEAVED,                            \
 	.alpha_enable = alpha,                                            \
 	.element = { (e0), (e1), (e2), (e3) },                            \
 	.bits = { g, b, r, a },                                           \
-	.chroma_sample = SDE_MDP_CHROMA_RGB,                              \
+	.chroma_sample = SDE_CHROMA_RGB,                                  \
 	.unpack_align_msb = 0,                                            \
 	.unpack_tight = 1,                                                \
-	.unpack_count = (alpha == true) ? 4 : 3,                          \
+	.unpack_count = uc,                                               \
 	.bpp = bp,                                                        \
-	.fetch_mode = SDE_MDP_FETCH_LINEAR,                               \
+	.fetch_mode = SDE_FETCH_LINEAR,                                   \
 	.is_yuv = false,                                                  \
-	.flag = flg                                                      \
+	.flag = flg                                                       \
 }
 
-#define INTERLEAVED_YUV_FMT(fmt, a, r, g, b, e0, e1, e2, e3,               \
-alpha, chroma, count, bp, flg)                                          \
+#define INTERLEAVED_YUV_FMT(fmt, a, r, g, b, e0, e1, e2, e3,              \
+alpha, chroma, count, bp, flg)                                            \
 {                                                                         \
-	.format = DRM_FORMAT_ ## fmt,                                     \
-	.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,                        \
+	.base.pixel_format = DRM_FORMAT_ ## fmt,                          \
+	.fetch_planes = SDE_PLANE_INTERLEAVED,                            \
 	.alpha_enable = alpha,                                            \
 	.element = { (e0), (e1), (e2), (e3)},                             \
 	.bits = { g, b, r, a },                                           \
@@ -60,16 +61,16 @@ alpha, chroma, count, bp, flg)                                          \
 	.unpack_align_msb = 0,                                            \
 	.unpack_tight = 1,                                                \
 	.unpack_count = count,                                            \
-	.bpp = bp,                                                       \
-	.fetch_mode = SDE_MDP_FETCH_LINEAR,                               \
+	.bpp = bp,                                                        \
+	.fetch_mode = SDE_FETCH_LINEAR,                                   \
 	.is_yuv = true,                                                   \
-	.flag = flg                                                      \
+	.flag = flg                                                       \
 }
 
-#define PSEDUO_YUV_FMT(fmt, a, r, g, b, e0, e1, chroma, flg)             \
+#define PSEDUO_YUV_FMT(fmt, a, r, g, b, e0, e1, chroma, flg)              \
 {                                                                         \
-	.format = DRM_FORMAT_ ## fmt,                                     \
-	.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,                      \
+	.base.pixel_format = DRM_FORMAT_ ## fmt,                          \
+	.fetch_planes = SDE_PLANE_PSEUDO_PLANAR,                          \
 	.alpha_enable = false,                                            \
 	.element = { (e0), (e1), 0, 0 },                                  \
 	.bits = { g, b, r, a },                                           \
@@ -78,34 +79,66 @@ alpha, chroma, count, bp, flg)                                          \
 	.unpack_tight = 1,                                                \
 	.unpack_count = 2,                                                \
 	.bpp = 2,                                                         \
-	.fetch_mode = SDE_MDP_FETCH_LINEAR,                               \
+	.fetch_mode = SDE_FETCH_LINEAR,                                   \
 	.is_yuv = true,                                                   \
-	.flag = flg                                                      \
+	.flag = flg                                                       \
 }
 
 #define PLANAR_YUV_FMT(fmt, a, r, g, b, e0, e1, e2, alpha, chroma, bp, flg)\
-{                                                                            \
-	.format = DRM_FORMAT_ ## fmt,                                        \
-	.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,                           \
-	.alpha_enable = alpha,                                               \
+{                                                                         \
+	.base.pixel_format = DRM_FORMAT_ ## fmt,                          \
+	.fetch_planes = SDE_PLANE_INTERLEAVED,                            \
+	.alpha_enable = alpha,                                            \
 	.element = { (e0), (e1), (e2), 0 },                               \
-	.bits = { g, b, r, a },                                              \
-	.chroma_sample = chroma,                                             \
-	.unpack_align_msb = 0,                                               \
-	.unpack_tight = 1,                                                   \
-	.unpack_count = 0,                                                   \
-	.bpp = bp,                                                          \
-	.fetch_mode = SDE_MDP_FETCH_LINEAR,                                  \
-	.is_yuv = true,                                                      \
-	.flag = flg                                                         \
+	.bits = { g, b, r, a },                                           \
+	.chroma_sample = chroma,                                          \
+	.unpack_align_msb = 0,                                            \
+	.unpack_tight = 1,                                                \
+	.unpack_count = 0,                                                \
+	.bpp = bp,                                                        \
+	.fetch_mode = SDE_FETCH_LINEAR,                                   \
+	.is_yuv = true,                                                   \
+	.flag = flg                                                       \
 }
 
 /**
- * sde_mdp_get_format_params(): Returns sde format structure pointer.
- * @format:  DRM format
- * @fmt_modifier: DRM format modifier
+ * sde_get_sde_format_ext(): Returns sde format structure pointer.
+ * @format:          DRM FourCC Code
+ * @modifiers:       format modifier array from client, one per plane
+ * @modifiers_len:   number of planes and array size for plane_modifiers
  */
-struct sde_mdp_format_params *sde_mdp_get_format_params(u32 format,
-		u32 fmt_modifier);
+const struct sde_format *sde_get_sde_format_ext(
+		const uint32_t format,
+		const uint64_t *modifiers,
+		const uint32_t modifiers_len);
+
+#define sde_get_sde_format(f) sde_get_sde_format_ext(f, NULL, 0)
+
+/**
+ * sde_get_msm_format: get an sde_format by its msm_format base
+ *                     callback function registers with the msm_kms layer
+ * @kms:             kms driver
+ * @format:          DRM FourCC Code
+ * @modifiers:       format modifier array from client, one per plane
+ * @modifiers_len:   number of planes and array size for plane_modifiers
+ */
+const struct msm_format *sde_get_msm_format(
+		struct msm_kms *kms,
+		const uint32_t format,
+		const uint64_t *modifiers,
+		const uint32_t modifiers_len);
+
+/**
+ * sde_populate_formats: populate the given array with fourcc codes supported
+ * @pixel_formats:   array to populate with fourcc codes
+ * @max_formats:     length of pixel formats array
+ * @rgb_only:        exclude any non-rgb formats from the list
+ *
+ * Return: number of elements populated
+ */
+uint32_t sde_populate_formats(
+		uint32_t *pixel_formats,
+		uint32_t max_formats,
+		bool rgb_only);
 
 #endif /*_SDE_FORMATS_H */

@@ -175,18 +175,19 @@ struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
 	struct msm_framebuffer *msm_fb = NULL;
 	struct drm_framebuffer *fb;
 	const struct msm_format *format;
-	int ret, i, n;
+	int ret, i, num_planes;
 	unsigned int hsub, vsub;
 
 	DBG("create framebuffer: dev=%p, mode_cmd=%p (%dx%d@%4.4s)",
 			dev, mode_cmd, mode_cmd->width, mode_cmd->height,
 			(char *)&mode_cmd->pixel_format);
 
-	n = drm_format_num_planes(mode_cmd->pixel_format);
+	num_planes = drm_format_num_planes(mode_cmd->pixel_format);
 	hsub = drm_format_horz_chroma_subsampling(mode_cmd->pixel_format);
 	vsub = drm_format_vert_chroma_subsampling(mode_cmd->pixel_format);
 
-	format = kms->funcs->get_format(kms, mode_cmd->pixel_format);
+	format = kms->funcs->get_format(kms, mode_cmd->pixel_format,
+			mode_cmd->modifier, num_planes);
 	if (!format) {
 		dev_err(dev->dev, "unsupported pixel format: %4.4s\n",
 				(char *)&mode_cmd->pixel_format);
@@ -204,12 +205,12 @@ struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
 
 	msm_fb->format = format;
 
-	if (n > ARRAY_SIZE(msm_fb->planes)) {
+	if (num_planes > ARRAY_SIZE(msm_fb->planes)) {
 		ret = -EINVAL;
 		goto fail;
 	}
 
-	for (i = 0; i < n; i++) {
+	for (i = 0; i < num_planes; i++) {
 		unsigned int width = mode_cmd->width / (i ? hsub : 1);
 		unsigned int height = mode_cmd->height / (i ? vsub : 1);
 		unsigned int min_size;

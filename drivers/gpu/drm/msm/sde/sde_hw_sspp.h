@@ -50,17 +50,17 @@ enum {
 };
 
 enum {
-	SDE_MDP_FRAME_LINEAR,
-	SDE_MDP_FRAME_TILE_A4X,
-	SDE_MDP_FRAME_TILE_A5X,
+	SDE_FRAME_LINEAR,
+	SDE_FRAME_TILE_A4X,
+	SDE_FRAME_TILE_A5X,
 };
 
 enum sde_hw_filter {
-	SDE_MDP_SCALE_FILTER_NEAREST = 0,
-	SDE_MDP_SCALE_FILTER_BIL,
-	SDE_MDP_SCALE_FILTER_PCMN,
-	SDE_MDP_SCALE_FILTER_CA,
-	SDE_MDP_SCALE_FILTER_MAX
+	SDE_SCALE_FILTER_NEAREST = 0,
+	SDE_SCALE_FILTER_BIL,
+	SDE_SCALE_FILTER_PCMN,
+	SDE_SCALE_FILTER_CA,
+	SDE_SCALE_FILTER_MAX
 };
 
 struct sde_hw_sharp_cfg {
@@ -169,7 +169,7 @@ struct sde_hw_sspp_ops {
 	 * @flags: Extra flags for format config
 	 */
 	void (*setup_format)(struct sde_hw_pipe *ctx,
-			struct sde_mdp_format_params *fmt, u32 flags);
+			const struct sde_format *fmt, u32 flags);
 
 	/**
 	 * setup_rects - setup pipe ROI rectangles
