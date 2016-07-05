@@ -290,13 +290,7 @@ void msm_atomic_helper_commit_modeset_disables(struct drm_device *dev,
 
 	drm_atomic_helper_update_legacy_modeset_state(dev, old_state);
 
-	msm_atomic_wait_for_commit_done(dev, old_state,
-			MSM_MODE_FLAG_VBLANK_PRE_MODESET);
-
 	msm_crtc_set_mode(dev, old_state);
-
-	msm_atomic_wait_for_commit_done(dev, old_state,
-			MSM_MODE_FLAG_VBLANK_POST_MODESET);
 }
 
 /**
@@ -348,6 +342,10 @@ void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		}
 	}
 
+	/* ensure bridge/encoder updates happen on same vblank */
+	msm_atomic_wait_for_commit_done(dev, old_state,
+			MSM_MODE_FLAG_VBLANK_PRE_MODESET);
+
 	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
 		const struct drm_encoder_helper_funcs *funcs;
 		struct drm_encoder *encoder;
@@ -358,9 +356,6 @@ void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		if (!connector->state->crtc->state->active ||
 		    !drm_atomic_crtc_needs_modeset(
 				    connector->state->crtc->state))
-			continue;
-
-		if (msm_is_mode_seamless(&connector->state->crtc->state->mode))
 			continue;
 
 		encoder = connector->state->best_encoder;
