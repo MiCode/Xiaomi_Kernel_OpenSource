@@ -126,5 +126,6 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 
 void sde_hw_mdp_destroy(struct sde_hw_mdp *mdp)
 {
+	kfree(mdp);
 }
 

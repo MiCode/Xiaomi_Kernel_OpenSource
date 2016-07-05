@@ -46,8 +46,8 @@ struct sde_irq {
 /**
  *  struct sde_hw_res_map : Default resource table identifying default
  *             hw resource map. Primarily used for forcing DSI to use CTL_0/1
- *             and Pingpong 0/1, if the field is set to SDE_NONE means any HW
- *             intstance for that tpye is allowed as long as it is unused.
+ *             and PingPong 0/1, if the field is set to SDE_NONE means any HW
+ *             instance for that type is allowed as long as it is unused.
  */
 struct sde_hw_res_map {
 	enum sde_intf intf;
@@ -56,7 +56,7 @@ struct sde_hw_res_map {
 	enum sde_ctl ctl;
 };
 
-/* struct sde_hw_resource_manager : Resource mananger maintains the current
+/* struct sde_hw_resource_manager : Resource manager maintains the current
  *                                  default platform config and manages shared
  *                                  hw resources ex:ctl_path hw driver context
  *                                  is needed by CRTCs/PLANEs/ENCODERs
@@ -65,7 +65,7 @@ struct sde_hw_res_map {
  * @intr       : pointer to hw interrupt context
  * @res_table  : pointer to default hw_res table for this platform
  * @feature_map :BIT map for default enabled features ex:specifies if PP_SPLIT
- *               is enabled/disabled by defalt for this platform
+ *               is enabled/disabled by default for this platform
  */
 struct sde_hw_resource_manager {
 	struct sde_hw_ctl *ctl[CTL_MAX];
@@ -374,10 +374,9 @@ void sde_encoder_get_hw_resources(struct drm_encoder *encoder,
 		struct sde_encoder_hw_resources *hw_res);
 void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 		void (*cb)(void *), void *data);
-void sde_encoders_init(struct drm_device *dev);
-void sde_encoder_get_vsync_info(struct drm_encoder *encoder,
+void sde_encoder_get_vblank_status(struct drm_encoder *encoder,
 		struct vsync_info *vsync);
-
+void sde_encoders_init(struct drm_device *dev);
 
 
 #endif /* __sde_kms_H__ */
