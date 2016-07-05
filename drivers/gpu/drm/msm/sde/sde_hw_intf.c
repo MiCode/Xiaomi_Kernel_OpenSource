@@ -84,8 +84,8 @@ static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 }
 
 static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
-		struct intf_timing_params *p,
-		struct sde_mdp_format_params *fmt)
+		const struct intf_timing_params *p,
+		const struct sde_format *fmt)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 	u32 hsync_period, vsync_period;
@@ -201,7 +201,7 @@ static void sde_hw_intf_enable_timing_engine(
 
 static void sde_hw_intf_setup_prg_fetch(
 		struct sde_hw_intf *intf,
-		struct intf_prog_fetch *fetch)
+		const struct intf_prog_fetch *fetch)
 {
 	struct sde_hw_blk_reg_map *c = &intf->hw;
 	int fetch_enable;

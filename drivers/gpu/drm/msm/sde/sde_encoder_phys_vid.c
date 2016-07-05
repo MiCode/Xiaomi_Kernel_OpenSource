@@ -239,9 +239,8 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 {
 	struct drm_display_mode mode = phys_enc->cached_mode;
 	struct intf_timing_params timing_params = { 0 };
-	struct sde_mdp_format_params *fmt_params = NULL;
+	const struct sde_format *fmt = NULL;
 	u32 fmt_fourcc = DRM_FORMAT_RGB888;
-	u32 fmt_mod = 0;
 	unsigned long lock_flags;
 	struct sde_hw_intf_cfg intf_cfg = { 0 };
 
@@ -269,15 +268,15 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 
 	drm_mode_to_intf_timing_params(phys_enc, &mode, &timing_params);
 
-	fmt_params = sde_mdp_get_format_params(fmt_fourcc, fmt_mod);
-	DBG("fmt_fourcc %d, fmt_mod %d", fmt_fourcc, fmt_mod);
+	fmt = sde_get_sde_format(fmt_fourcc);
+	DBG("fmt_fourcc %d", fmt_fourcc);
 
 	intf_cfg.intf = phys_enc->hw_intf->idx;
 	intf_cfg.wb = SDE_NONE;
 
 	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
 	phys_enc->hw_intf->ops.setup_timing_gen(phys_enc->hw_intf,
-			&timing_params, fmt_params);
+			&timing_params, fmt);
 	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
 	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
 

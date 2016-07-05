@@ -15,7 +15,7 @@
 #include "sde_hw_lm.h"
 #include "sde_hw_sspp.h"
 
-#define SDE_MDP_FETCH_CONFIG_RESET_VALUE   0x00000087
+#define SDE_FETCH_CONFIG_RESET_VALUE   0x00000087
 
 /* SDE_SSPP_SRC */
 #define SSPP_SRC_SIZE                      0x00
@@ -155,7 +155,7 @@ static void _sspp_setup_opmode(struct sde_hw_pipe *ctx,
  * Setup source pixel format, flip,
  */
 static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
-		struct sde_mdp_format_params *fmt, u32 flags)
+		const struct sde_format *fmt, u32 flags)
 {
 	struct sde_hw_blk_reg_map *c;
 	u32 chroma_samp, unpack, src_format;
@@ -181,10 +181,10 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 
 	chroma_samp = fmt->chroma_sample;
 	if (flags & SDE_SSPP_SOURCE_ROTATED_90) {
-		if (chroma_samp == SDE_MDP_CHROMA_H2V1)
-			chroma_samp = SDE_MDP_CHROMA_H1V2;
-		else if (chroma_samp == SDE_MDP_CHROMA_H1V2)
-			chroma_samp = SDE_MDP_CHROMA_H2V1;
+		if (chroma_samp == SDE_CHROMA_H2V1)
+			chroma_samp = SDE_CHROMA_H1V2;
+		else if (chroma_samp == SDE_CHROMA_H1V2)
+			chroma_samp = SDE_CHROMA_H2V1;
 	}
 
 	src_format = (chroma_samp << 23) | (fmt->fetch_planes << 19) |
@@ -195,7 +195,7 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		src_format |= BIT(11); /* ROT90 */
 
 	if (fmt->alpha_enable &&
-			fmt->fetch_planes != SDE_MDP_PLANE_INTERLEAVED)
+			fmt->fetch_planes != SDE_PLANE_INTERLEAVED)
 		src_format |= BIT(8); /* SRCC3_EN */
 
 	if (flags & SDE_SSPP_SOLID_FILL)
@@ -208,12 +208,12 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		(fmt->unpack_align_msb << 18) |
 		((fmt->bpp - 1) << 9);
 
-	if (fmt->fetch_mode != SDE_MDP_FETCH_LINEAR) {
+	if (fmt->fetch_mode != SDE_FETCH_LINEAR) {
 		if (SDE_FORMAT_IS_UBWC(fmt))
 			opmode |= MDSS_MDP_OP_BWC_EN;
 		src_format |= (fmt->fetch_mode & 3) << 30; /*FRAME_FORMAT */
 		SDE_REG_WRITE(c, SSPP_FETCH_CONFIG,
-			SDE_MDP_FETCH_CONFIG_RESET_VALUE |
+			SDE_FETCH_CONFIG_RESET_VALUE |
 			ctx->highest_bank_bit << 18);
 	}
 
@@ -308,21 +308,21 @@ static void _sde_hw_sspp_setup_scaler(struct sde_hw_pipe *ctx,
 	c = &ctx->hw;
 
 	/* enable scaler(s) if valid filter set */
-	if (pe->horz_filter[SDE_SSPP_COMP_0] < SDE_MDP_SCALE_FILTER_MAX)
+	if (pe->horz_filter[SDE_SSPP_COMP_0] < SDE_SCALE_FILTER_MAX)
 		config_h |= pe->horz_filter[SDE_SSPP_COMP_0] << 8;
-	if (pe->horz_filter[SDE_SSPP_COMP_1_2] < SDE_MDP_SCALE_FILTER_MAX)
+	if (pe->horz_filter[SDE_SSPP_COMP_1_2] < SDE_SCALE_FILTER_MAX)
 		config_h |= pe->horz_filter[SDE_SSPP_COMP_1_2] << 12;
-	if (pe->horz_filter[SDE_SSPP_COMP_3] < SDE_MDP_SCALE_FILTER_MAX)
+	if (pe->horz_filter[SDE_SSPP_COMP_3] < SDE_SCALE_FILTER_MAX)
 		config_h |= pe->horz_filter[SDE_SSPP_COMP_3] << 16;
 
 	if (config_h)
 		config_h |= BIT(0);
 
-	if (pe->vert_filter[SDE_SSPP_COMP_0] < SDE_MDP_SCALE_FILTER_MAX)
+	if (pe->vert_filter[SDE_SSPP_COMP_0] < SDE_SCALE_FILTER_MAX)
 		config_v |= pe->vert_filter[SDE_SSPP_COMP_0] << 10;
-	if (pe->vert_filter[SDE_SSPP_COMP_1_2] < SDE_MDP_SCALE_FILTER_MAX)
+	if (pe->vert_filter[SDE_SSPP_COMP_1_2] < SDE_SCALE_FILTER_MAX)
 		config_v |= pe->vert_filter[SDE_SSPP_COMP_1_2] << 14;
-	if (pe->vert_filter[SDE_SSPP_COMP_3] < SDE_MDP_SCALE_FILTER_MAX)
+	if (pe->vert_filter[SDE_SSPP_COMP_3] < SDE_SCALE_FILTER_MAX)
 		config_v |= pe->vert_filter[SDE_SSPP_COMP_3] << 18;
 
 	if (config_v)

@@ -16,6 +16,8 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 
+#include "msm_drv.h"
+
 #define SDE_NONE                        0
 
 #ifndef SDE_CSC_MATRIX_COEFF_SIZE
@@ -185,7 +187,7 @@ enum sde_wd_timer {
 };
 
 /**
- * MDP HW,Component order color map
+ * SDE HW,Component order color map
  */
 enum {
 	C0_G_Y = 0,
@@ -195,43 +197,42 @@ enum {
 };
 
 /**
- * enum sde_mdp_plane_type - defines how the color component pixel packing
- * @SDE_MDP_PLANE_INTERLEAVED   : Color components in single plane
- * @SDE_MDP_PLANE_PLANAR        : Color component in separate planes
- * @SDE_MDP_PLANE_PSEUDO_PLANAR : Chroma components interleaved in separate
- *                                plane
+ * enum sde_plane_type - defines how the color component pixel packing
+ * @SDE_PLANE_INTERLEAVED   : Color components in single plane
+ * @SDE_PLANE_PLANAR        : Color component in separate planes
+ * @SDE_PLANE_PSEUDO_PLANAR : Chroma components interleaved in separate plane
  */
-enum sde_mdp_plane_type {
-	SDE_MDP_PLANE_INTERLEAVED,
-	SDE_MDP_PLANE_PLANAR,
-	SDE_MDP_PLANE_PSEUDO_PLANAR,
+enum sde_plane_type {
+	SDE_PLANE_INTERLEAVED,
+	SDE_PLANE_PLANAR,
+	SDE_PLANE_PSEUDO_PLANAR,
 };
 
 /**
- * enum sde_mdp_chroma_samp_type - chroma sub-samplng type
- * @SDE_MDP_CHROMA_RGB   : no chroma subsampling
- * @SDE_MDP_CHROMA_H2V1  : chroma pixels are horizontally subsampled
- * @SDE_MDP_CHROMA_H1V2  : chroma pixels are vertically subsampled
- * @SDE_MDP_CHROMA_420   : 420 subsampling
+ * enum sde_chroma_samp_type - chroma sub-samplng type
+ * @SDE_CHROMA_RGB   : No chroma subsampling
+ * @SDE_CHROMA_H2V1  : Chroma pixels are horizontally subsampled
+ * @SDE_CHROMA_H1V2  : Chroma pixels are vertically subsampled
+ * @SDE_CHROMA_420   : 420 subsampling
  */
-enum sde_mdp_chroma_samp_type {
-	SDE_MDP_CHROMA_RGB,
-	SDE_MDP_CHROMA_H2V1,
-	SDE_MDP_CHROMA_H1V2,
-	SDE_MDP_CHROMA_420
+enum sde_chroma_samp_type {
+	SDE_CHROMA_RGB,
+	SDE_CHROMA_H2V1,
+	SDE_CHROMA_H1V2,
+	SDE_CHROMA_420
 };
 
 /**
- * enum sde_mdp_fetch_type - format id, used by drm-driver only to map drm forcc
- * Defines How MDP HW fetches data
- * @SDE_MDP_FETCH_LINEAR   : fetch is line by line
- * @SDE_MDP_FETCH_TILE     : fetches data in Z order from a tile
- * @SDE_MDP_FETCH_UBWC     : fetch and decompress data
+ * enum sde_fetch_type - format id, used by drm-driver only to map drm forcc
+ * Defines How HW fetches data
+ * @SDE_FETCH_LINEAR   : Fetch is line by line
+ * @SDE_FETCH_TILE     : Fetches data in Z order from a tile
+ * @SDE_FETCH_UBWC     : Fetch and decompress data
  */
-enum sde_mdp_fetch_type {
-	SDE_MDP_FETCH_LINEAR,
-	SDE_MDP_FETCH_TILE,
-	SDE_MDP_FETCH_UBWC
+enum sde_fetch_type {
+	SDE_FETCH_LINEAR,
+	SDE_FETCH_TILE,
+	SDE_FETCH_UBWC
 };
 
 /**
@@ -278,36 +279,38 @@ struct addr_info {
 };
 
 /**
- * struct sde_mdp_format_params - defines the format configuration which
- * allows MDP HW to correctly fetch and decode the format
- * @format : format id, used by drm-driver only to map drm forcc
- * @flag
- * @chroma_sample
+ * struct sde_format - defines the format configuration which
+ * allows SDE HW to correctly fetch and decode the format
+ * @base             : Base msm_format structure containing fourcc code
  * @fetch_planes
+ * @element
+ * @bits
+ * @chroma_sample
  * @unpack_align_msb
  * @unpack_tight
  * @unpack_count
  * @bpp
  * @alpha_enable
  * @fetch_mode
- * @bits
- * @element
+ * @is_yuv
+ * @flag
  */
-struct sde_mdp_format_params {
-	u32 format;
-	enum sde_mdp_plane_type fetch_planes;
+struct sde_format {
+	struct msm_format base;
+	enum sde_plane_type fetch_planes;
 	u8 element[SDE_MAX_PLANES];
 	u8 bits[SDE_MAX_PLANES];
-	enum sde_mdp_chroma_samp_type chroma_sample;
+	enum sde_chroma_samp_type chroma_sample;
 	u8 unpack_align_msb;	/* 0 to LSB, 1 to MSB */
 	u8 unpack_tight;	/* 0 for loose, 1 for tight */
 	u8 unpack_count;	/* 0 = 1 component, 1 = 2 component ... */
 	u8 bpp;                 /* Bytes per pixel */
 	u8 alpha_enable;	/*  source has alpha */
-	enum sde_mdp_fetch_type fetch_mode;
+	enum sde_fetch_type fetch_mode;
 	u8 is_yuv;
 	u32 flag;
 };
+#define to_sde_format(x) container_of(x, struct sde_format, base)
 
 /**
  * struct sde_hw_source_info - format information of the source pixel data
@@ -317,7 +320,7 @@ struct sde_mdp_format_params {
  * compressed formats @plane: per plane information
  */
 struct sde_hw_source_info {
-	struct sde_mdp_format_params *format;
+	const struct sde_format *format;
 	u32 width;
 	u32 height;
 	u32 num_planes;

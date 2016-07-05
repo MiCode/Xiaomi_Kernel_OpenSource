@@ -166,7 +166,7 @@ static void _sde_plane_set_scanout(struct drm_plane *plane,
 static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 		uint32_t src_w, uint32_t src_h, uint32_t dst_w, uint32_t dst_h,
 		struct sde_hw_scaler3_cfg *scale_cfg,
-		struct sde_mdp_format_params *fmt,
+		const struct sde_format *fmt,
 		uint32_t chroma_subsmpl_h, uint32_t chroma_subsmpl_v)
 {
 }
@@ -185,7 +185,7 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
  */
 static int _sde_plane_setup_scaler2(struct sde_plane *psde,
 		uint32_t src, uint32_t dst, uint32_t *phase_steps,
-		enum sde_hw_filter *filter, struct sde_mdp_format_params *fmt,
+		enum sde_hw_filter *filter, const struct sde_format *fmt,
 		uint32_t chroma_subsampling)
 {
 	if (!psde || !phase_steps || !filter || !fmt) {
@@ -204,23 +204,23 @@ static int _sde_plane_setup_scaler2(struct sde_plane *psde,
 	/* calculate scaler config, if necessary */
 	if (SDE_FORMAT_IS_YUV(fmt) || src != dst) {
 		filter[SDE_SSPP_COMP_3] =
-			(src <= dst) ? SDE_MDP_SCALE_FILTER_BIL :
-			SDE_MDP_SCALE_FILTER_PCMN;
+			(src <= dst) ? SDE_SCALE_FILTER_BIL :
+			SDE_SCALE_FILTER_PCMN;
 
 		if (SDE_FORMAT_IS_YUV(fmt)) {
-			filter[SDE_SSPP_COMP_0] = SDE_MDP_SCALE_FILTER_CA;
+			filter[SDE_SSPP_COMP_0] = SDE_SCALE_FILTER_CA;
 			filter[SDE_SSPP_COMP_1_2] = filter[SDE_SSPP_COMP_3];
 		} else {
 			filter[SDE_SSPP_COMP_0] = filter[SDE_SSPP_COMP_3];
 			filter[SDE_SSPP_COMP_1_2] =
-				SDE_MDP_SCALE_FILTER_NEAREST;
+				SDE_SCALE_FILTER_NEAREST;
 		}
 	} else {
 		/* disable scaler */
 		DBG("Disable scaler");
-		filter[SDE_SSPP_COMP_0] = SDE_MDP_SCALE_FILTER_MAX;
-		filter[SDE_SSPP_COMP_1_2] = SDE_MDP_SCALE_FILTER_MAX;
-		filter[SDE_SSPP_COMP_3] = SDE_MDP_SCALE_FILTER_MAX;
+		filter[SDE_SSPP_COMP_0] = SDE_SCALE_FILTER_MAX;
+		filter[SDE_SSPP_COMP_1_2] = SDE_SCALE_FILTER_MAX;
+		filter[SDE_SSPP_COMP_3] = SDE_SCALE_FILTER_MAX;
 	}
 	return 0;
 }
@@ -244,7 +244,7 @@ static void _sde_plane_setup_pixel_ext(struct sde_plane *psde,
 		uint32_t src, uint32_t dst, uint32_t decimated_src,
 		uint32_t *phase_steps, uint32_t *out_src, int *out_edge1,
 		int *out_edge2, enum sde_hw_filter *filter,
-		struct sde_mdp_format_params *fmt, uint32_t chroma_subsampling,
+		const struct sde_format *fmt, uint32_t chroma_subsampling,
 		bool post_compare)
 {
 	int64_t edge1, edge2, caf;
@@ -254,8 +254,7 @@ static void _sde_plane_setup_pixel_ext(struct sde_plane *psde,
 	if (psde && phase_steps && out_src && out_edge1 &&
 			out_edge2 && filter && fmt) {
 		/* handle CAF for YUV formats */
-		if (SDE_FORMAT_IS_YUV(fmt) &&
-				*filter == SDE_MDP_SCALE_FILTER_CA)
+		if (SDE_FORMAT_IS_YUV(fmt) && *filter == SDE_SCALE_FILTER_CA)
 			caf = PHASE_STEP_UNIT_SCALE;
 		else
 			caf = 0;
@@ -385,7 +384,7 @@ static int _sde_plane_verify_blob(void *blob_ptr,
 
 static void _sde_plane_setup_csc(struct sde_plane *psde,
 		struct sde_plane_state *pstate,
-		struct sde_mdp_format_params *fmt)
+		const struct sde_format *fmt)
 {
 	static const struct sde_csc_cfg sde_csc_YUV2RGB_601L = {
 		{
@@ -479,7 +478,7 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 }
 
 static void _sde_plane_setup_scaler(struct sde_plane *psde,
-		struct sde_mdp_format_params *fmt,
+		const struct sde_format *fmt,
 		struct sde_plane_state *pstate)
 {
 	struct sde_hw_pixel_ext *pe = NULL;
@@ -524,9 +523,9 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 
 	/* don't chroma subsample if decimating */
 	chroma_subsmpl_h = psde->pipe_cfg.horz_decimation ? 1 :
-		drm_format_horz_chroma_subsampling(fmt->format);
+		drm_format_horz_chroma_subsampling(fmt->base.pixel_format);
 	chroma_subsmpl_v = psde->pipe_cfg.vert_decimation ? 1 :
-		drm_format_vert_chroma_subsampling(fmt->format);
+		drm_format_vert_chroma_subsampling(fmt->base.pixel_format);
 
 	/* update scaler */
 	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
@@ -649,7 +648,7 @@ int sde_plane_color_fill(struct drm_plane *plane,
 		uint32_t color, uint32_t alpha)
 {
 	struct sde_plane *psde;
-	struct sde_mdp_format_params *fmt;
+	const struct sde_format *fmt;
 
 	if (!plane) {
 		DRM_ERROR("Invalid plane\n");
@@ -666,7 +665,7 @@ int sde_plane_color_fill(struct drm_plane *plane,
 	 * select fill format to match user property expectation,
 	 * h/w only supports RGB variants
 	 */
-	fmt = sde_mdp_get_format_params(DRM_FORMAT_ABGR8888, 0);
+	fmt = sde_get_sde_format(DRM_FORMAT_ABGR8888);
 
 	/* update sspp */
 	if (fmt && psde->pipe_hw->ops.setup_solidfill) {
@@ -702,10 +701,9 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 {
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
-	const struct mdp_format *format;
-	uint32_t nplanes, tmp;
+	uint32_t nplanes, color_fill;
 	uint32_t src_flags;
-	struct sde_mdp_format_params *fmt;
+	const struct sde_format *fmt;
 
 	DBG("");
 
@@ -722,8 +720,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	pstate = to_sde_plane_state(plane->state);
 	nplanes = drm_format_num_planes(fb->pixel_format);
 
-	format = to_mdp_format(msm_framebuffer_format(fb));
-	tmp = format->base.pixel_format;
+	fmt = to_sde_format(msm_framebuffer_format(fb));
 
 	/* src values are in Q16 fixed point, convert to integer */
 	src_x = src_x >> 16;
@@ -739,8 +736,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	memset(&(psde->pipe_cfg), 0, sizeof(struct sde_hw_pipe_cfg));
 	src_flags = 0;
 
-	psde->pipe_cfg.src.format = sde_mdp_get_format_params(tmp,
-			fb->modifier[0]);
+	psde->pipe_cfg.src.format = fmt;
 	psde->pipe_cfg.src.width = fb->width;
 	psde->pipe_cfg.src.height = fb->height;
 	psde->pipe_cfg.src.num_planes = nplanes;
@@ -776,10 +772,11 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	fmt = psde->pipe_cfg.src.format;
 
 	/* check for color fill */
-	tmp = (uint32_t)sde_plane_get_property(pstate, PLANE_PROP_COLOR_FILL);
-	if (tmp & BIT(31)) {
+	color_fill = (uint32_t)sde_plane_get_property(pstate,
+			PLANE_PROP_COLOR_FILL);
+	if (color_fill & BIT(31)) {
 		/* force 100% alpha, stop other processing */
-		return sde_plane_color_fill(plane, tmp, 0xFF);
+		return sde_plane_color_fill(plane, color_fill, 0xFF);
 	}
 
 	_sde_plane_set_scanout(plane, pstate, &psde->pipe_cfg, fb);
@@ -849,8 +846,7 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	struct drm_plane_state *old_state;
-	const struct mdp_format *format;
-	struct sde_mdp_format_params *fmt;
+	const struct sde_format *fmt;
 	size_t sc_u_size = 0;
 	struct sde_drm_scaler *sc_u = NULL;
 	int ret = 0;
@@ -925,9 +921,7 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 
 	if (sde_plane_enabled(state)) {
 		/* determine SDE format definition. State's fb is valid here. */
-		format = to_mdp_format(msm_framebuffer_format(state->fb));
-		fmt = sde_mdp_get_format_params(format->base.pixel_format,
-				0 /* modifier */);
+		fmt = to_sde_format(msm_framebuffer_format(state->fb));
 
 		/* don't check for other errors after first failure */
 		if (SDE_FORMAT_IS_YUV(fmt) &&
@@ -995,7 +989,7 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 				(deci_h > psde->pipe_sblk->maxvdeciexp)) {
 				DRM_ERROR("Too much decimation requested\n");
 				ret = -EINVAL;
-			} else if (fmt->fetch_mode != SDE_MDP_FETCH_LINEAR) {
+			} else if (fmt->fetch_mode != SDE_FETCH_LINEAR) {
 				DRM_ERROR("Decimation requires linear fetch\n");
 				ret = -EINVAL;
 			}
@@ -1708,7 +1702,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	psde->pipe_sblk = psde->pipe_hw->cap->sblk;
 
 	/* add plane to DRM framework */
-	psde->nformats = mdp_get_formats(psde->formats,
+	psde->nformats = sde_populate_formats(psde->formats,
 		ARRAY_SIZE(psde->formats),
 		!(psde->features & BIT(SDE_SSPP_CSC)) ||
 		!(psde->features & SDE_SSPP_SCALER));
