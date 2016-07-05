@@ -62,11 +62,11 @@ struct intf_status {
  */
 struct sde_hw_intf_ops {
 	void (*setup_timing_gen)(struct sde_hw_intf *intf,
-			struct intf_timing_params *p,
-			struct sde_mdp_format_params *fmt);
+			const struct intf_timing_params *p,
+			const struct sde_format *fmt);
 
 	void (*setup_prg_fetch)(struct sde_hw_intf *intf,
-			struct intf_prog_fetch *fetch);
+			const struct intf_prog_fetch *fetch);
 
 	void (*enable_timing)(struct sde_hw_intf *intf,
 			u8 enable);
