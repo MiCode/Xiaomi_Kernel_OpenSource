@@ -27,7 +27,10 @@
 static bool sde_encoder_phys_vid_is_master(
 		struct sde_encoder_phys *phys_enc)
 {
-	bool ret = true;
+	bool ret = false;
+
+	if (phys_enc->split_role != ENC_ROLE_SLAVE)
+		ret = true;
 
 	return ret;
 }
@@ -145,7 +148,7 @@ static u32 programmable_fetch_get_num_lines(
 	} else if (timing->v_front_porch < needed_vfp_lines) {
 		/* Warn fetch needed, but not enough porch in panel config */
 		pr_warn_once
-		    ("low vbp+vfp may lead to perf issues in some cases\n");
+			("low vbp+vfp may lead to perf issues in some cases\n");
 		DBG("Less vfp than fetch requires, using entire vfp");
 		actual_vfp_lines = timing->v_front_porch;
 	} else {
@@ -216,49 +219,23 @@ static bool sde_encoder_phys_vid_mode_fixup(
 	return true;
 }
 
-static void sde_encoder_phys_vid_flush_intf(struct sde_encoder_phys *phys_enc)
-{
-	struct sde_hw_intf *intf = phys_enc->hw_intf;
-	struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
-	u32 flush_mask = 0;
-
-	DBG("");
-
-	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
-	ctl->ops.setup_flush(ctl, flush_mask);
-
-	DBG("Flushing CTL_ID %d, flush_mask %x, INTF %d",
-			ctl->idx, flush_mask, intf->idx);
-}
-
-static void sde_encoder_phys_vid_mode_set(struct sde_encoder_phys *phys_enc,
-					  struct drm_display_mode *mode,
-					  struct drm_display_mode
-					  *adjusted_mode,
-					  bool splitmode)
+static void sde_encoder_phys_vid_mode_set(
+		struct sde_encoder_phys *phys_enc,
+		struct drm_display_mode *mode,
+		struct drm_display_mode *adjusted_mode)
 {
 	mode = adjusted_mode;
 	phys_enc->cached_mode = *adjusted_mode;
-	if (splitmode) {
-		phys_enc->cached_mode.hdisplay >>= 1;
-		phys_enc->cached_mode.htotal >>= 1;
-		phys_enc->cached_mode.hsync_start >>= 1;
-		phys_enc->cached_mode.hsync_end >>= 1;
-	}
-
-	DBG("set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
-	    mode->base.id, mode->name, mode->vrefresh, mode->clock,
-	    mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
-	    mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
-	    mode->type, mode->flags);
+	DBG("intf %d, caching mode:", phys_enc->hw_intf->idx);
+	drm_mode_debug_printmodeline(mode);
 }
 
 static void sde_encoder_phys_vid_setup_timing_engine(
 		struct sde_encoder_phys *phys_enc)
 {
 	struct drm_display_mode *mode = &phys_enc->cached_mode;
-	struct intf_timing_params p = { 0 };
-	struct sde_mdp_format_params *sde_fmt_params = NULL;
+	struct intf_timing_params timing_params = { 0 };
+	struct sde_mdp_format_params *fmt_params = NULL;
 	u32 fmt_fourcc = DRM_FORMAT_RGB888;
 	u32 fmt_mod = 0;
 	unsigned long lock_flags;
@@ -270,26 +247,37 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	if (WARN_ON(!phys_enc->hw_ctl->ops.setup_intf_cfg))
 		return;
 
-	DBG("enable mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
-	    mode->base.id, mode->name, mode->vrefresh, mode->clock,
-	    mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
-	    mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
-	    mode->type, mode->flags);
 
-	drm_mode_to_intf_timing_params(phys_enc, mode, &p);
+	DBG("intf %d, enabling mode:", phys_enc->hw_intf->idx);
+	drm_mode_debug_printmodeline(mode);
 
-	sde_fmt_params = sde_mdp_get_format_params(fmt_fourcc, fmt_mod);
+	if (phys_enc->split_role != ENC_ROLE_SOLO) {
+		mode->hdisplay >>= 1;
+		mode->htotal >>= 1;
+		mode->hsync_start >>= 1;
+		mode->hsync_end >>= 1;
+
+		DBG("split_role %d, halve horizontal: %d %d %d %d",
+				phys_enc->split_role,
+				mode->hdisplay, mode->htotal,
+				mode->hsync_start, mode->hsync_end);
+	}
+
+	drm_mode_to_intf_timing_params(phys_enc, mode, &timing_params);
+
+	fmt_params = sde_mdp_get_format_params(fmt_fourcc, fmt_mod);
+	DBG("fmt_fourcc %d, fmt_mod %d", fmt_fourcc, fmt_mod);
 
 	intf_cfg.intf = phys_enc->hw_intf->idx;
 	intf_cfg.wb = SDE_NONE;
 
 	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
-	phys_enc->hw_intf->ops.setup_timing_gen(phys_enc->hw_intf, &p,
-			sde_fmt_params);
+	phys_enc->hw_intf->ops.setup_timing_gen(phys_enc->hw_intf,
+			&timing_params, fmt_params);
 	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
 	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
 
-	programmable_fetch_config(phys_enc, &p);
+	programmable_fetch_config(phys_enc, &timing_params);
 }
 
 static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
@@ -306,7 +294,7 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_vid *vid_enc =
-	    to_sde_encoder_phys_vid(phys_enc);
+		to_sde_encoder_phys_vid(phys_enc);
 	struct sde_irq_callback irq_cb;
 	int ret = 0;
 
@@ -365,11 +353,31 @@ static int sde_encoder_phys_vid_unregister_irq(
 	return 0;
 }
 
-static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc,
-		bool intr_en)
+static void sde_encoder_phys_vid_split_config(
+		struct sde_encoder_phys *phys_enc, bool enable)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-	    to_sde_encoder_phys_vid(phys_enc);
+	struct sde_hw_mdp *hw_mdptop = phys_enc->hw_mdptop;
+	struct split_pipe_cfg cfg = { 0 };
+
+	DBG("enable %d", enable);
+
+	cfg.en = enable;
+	cfg.mode = INTF_MODE_VIDEO;
+	cfg.intf = phys_enc->hw_intf->idx;
+	cfg.pp_split = false;
+	cfg.split_flush_en = enable;
+
+	if (hw_mdptop && hw_mdptop->ops.setup_split_pipe) {
+		unsigned long lock_flags;
+
+		spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
+		hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
+		spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+	}
+}
+
+static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
+{
 	int ret = 0;
 
 	DBG("");
@@ -377,18 +385,18 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc,
 	if (WARN_ON(!phys_enc->hw_intf->ops.enable_timing))
 		return;
 
+	if (phys_enc->split_role == ENC_ROLE_MASTER)
+		sde_encoder_phys_vid_split_config(phys_enc, true);
+	else if (phys_enc->split_role == ENC_ROLE_SOLO)
+		sde_encoder_phys_vid_split_config(phys_enc, false);
+
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
 
-	sde_encoder_phys_vid_flush_intf(phys_enc);
-
 	/* Register for interrupt unless we're the slave encoder */
-	if (sde_encoder_phys_vid_is_master(phys_enc) && intr_en) {
+	if (phys_enc->split_role != ENC_ROLE_SLAVE)
 		ret = sde_encoder_phys_vid_register_irq(phys_enc);
-		if (!ret)
-			vid_enc->intr_en = true;
-	}
 
-	if (!ret && !phys_enc->enabled) {
+	if (!ret) {
 		unsigned long lock_flags = 0;
 
 		/* Now enable timing engine */
@@ -428,8 +436,7 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	 * scanout buffer) don't latch properly..
 	 */
 	sde_encoder_phys_vid_wait_for_vblank(vid_enc);
-	if (vid_enc->intr_en)
-		sde_encoder_phys_vid_unregister_irq(phys_enc);
+	sde_encoder_phys_vid_unregister_irq(phys_enc);
 	phys_enc->enabled = false;
 }
 
@@ -438,7 +445,9 @@ static void sde_encoder_phys_vid_destroy(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_vid *vid_enc =
 	    to_sde_encoder_phys_vid(phys_enc);
 	DBG("");
-	kfree(phys_enc->hw_intf);
+	sde_rm_release_ctl_path(phys_enc->sde_kms, phys_enc->hw_ctl->idx);
+	sde_hw_intf_deinit(phys_enc->hw_intf);
+	sde_hw_mdp_destroy(phys_enc->hw_mdptop);
 	kfree(vid_enc);
 }
 
@@ -446,8 +455,6 @@ static void sde_encoder_phys_vid_get_hw_resources(
 		struct sde_encoder_phys *phys_enc,
 		struct sde_encoder_hw_resources *hw_res)
 {
-	struct msm_drm_private *priv = phys_enc->parent->dev->dev_private;
-	struct sde_kms *sde_kms = to_sde_kms(priv->kms);
 	const struct sde_hw_res_map *hw_res_map;
 
 	DBG("Intf %d\n", phys_enc->hw_intf->idx);
@@ -457,11 +464,21 @@ static void sde_encoder_phys_vid_get_hw_resources(
 	 * defaults should not be in use,
 	 * otherwise signal/return failure
 	 */
-	hw_res_map = sde_rm_get_res_map(sde_kms, phys_enc->hw_intf->idx);
+	hw_res_map = sde_rm_get_res_map(phys_enc->sde_kms,
+			phys_enc->hw_intf->idx);
+	if (IS_ERR_OR_NULL(hw_res_map)) {
+		DRM_ERROR("Failed to get hw_res_map: %ld\n",
+				PTR_ERR(hw_res_map));
+		return;
+	}
 
-	/* This is video mode panel so PINGPONG will be in by-pass mode
+	/*
+	 * This is video mode panel so PINGPONG will be in by-pass mode
 	 * only assign ctl path.For cmd panel check if pp_split is
 	 * enabled, override default map
+	 */
+	/*
+	 * phys_enc->hw_ctl->idx
 	 */
 	hw_res->ctls[hw_res_map->ctl] = true;
 }
@@ -471,54 +488,54 @@ static void sde_encoder_phys_vid_get_hw_resources(
   * cmd mode will use the pingpong (get_vsync_info)
   * to get this information
   */
-static void sde_encoder_intf_get_vsync_info(struct sde_encoder_phys *phys_enc,
+static void sde_encoder_intf_get_vblank_status(
+		struct sde_encoder_phys *phys_enc,
 		struct vsync_info *vsync)
 {
-	struct intf_status status;
-
 	DBG("");
-	phys_enc->hw_intf->ops.get_status(phys_enc->hw_intf, &status);
-	vsync->frame_count = status.frame_count;
-	vsync->line_count = status.line_count;
-	DBG(" sde_encoder_intf_get_vsync_info, count  %d", vsync->frame_count);
+
+	/* Slave encoders don't drive VBLANK interrupts, so don't respond */
+	if (phys_enc->split_role == ENC_ROLE_SLAVE)
+		return;
+
+	/*
+	 * Report VBlank Status as the VSYNC Frame/Line Counts from hardware
+	 * Video encoders report from the VSYNC INTF (get_status)
+	 * CMD Encoders report from the PingPong block (get_vsync_info)
+	 */
+	if (phys_enc->hw_intf->ops.get_status) {
+		unsigned long lock_flags = 0;
+		struct intf_status status;
+
+		spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
+		phys_enc->hw_intf->ops.get_status(phys_enc->hw_intf, &status);
+		spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+
+		vsync->frame_count = status.frame_count;
+		vsync->line_count = status.line_count;
+	}
+
+	DBG("frame_count %d line_count %d", vsync->frame_count,
+			vsync->line_count);
 }
 
-static void sde_encoder_intf_split_config(struct sde_encoder_phys *phys_enc,
-		bool enable)
+static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 {
-	struct msm_drm_private *priv = phys_enc->parent->dev->dev_private;
-	struct sde_kms *sde_kms = to_sde_kms(priv->kms);
-	struct sde_hw_mdp *mdp = sde_hw_mdptop_init(MDP_TOP, sde_kms->mmio,
-			sde_kms->catalog);
-	struct split_pipe_cfg cfg;
-
-	cfg.en = enable;
-
-	cfg.mode = INTF_MODE_VIDEO;
-	cfg.intf = INTF_1;
-	cfg.pp_split = false;
-	cfg.split_flush_en = true;
-
-	if (!IS_ERR_OR_NULL(mdp))
-		mdp->ops.setup_split_pipe(mdp, &cfg);
-}
-
-static void sde_encoder_phys_vid_init_cbs(struct sde_encoder_phys_ops *ops)
-{
+	ops->is_master = sde_encoder_phys_vid_is_master;
 	ops->mode_set = sde_encoder_phys_vid_mode_set;
 	ops->mode_fixup = sde_encoder_phys_vid_mode_fixup;
 	ops->enable = sde_encoder_phys_vid_enable;
 	ops->disable = sde_encoder_phys_vid_disable;
 	ops->destroy = sde_encoder_phys_vid_destroy;
 	ops->get_hw_resources = sde_encoder_phys_vid_get_hw_resources;
-	ops->get_vsync_info = sde_encoder_intf_get_vsync_info;
-	ops->enable_split_config = sde_encoder_intf_split_config;
+	ops->get_vblank_status = sde_encoder_intf_get_vblank_status;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(
 		struct sde_kms *sde_kms,
 		enum sde_intf intf_idx,
 		enum sde_ctl ctl_idx,
+		enum sde_enc_split_role split_role,
 		struct drm_encoder *parent,
 		struct sde_encoder_virt_ops parent_ops)
 {
@@ -538,23 +555,34 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 
 	phys_enc = &vid_enc->base;
 
+	phys_enc->hw_mdptop = sde_hw_mdptop_init(MDP_TOP, sde_kms->mmio,
+			sde_kms->catalog);
+	if (IS_ERR_OR_NULL(phys_enc->hw_mdptop)) {
+		ret = PTR_ERR(phys_enc->hw_mdptop);
+		DRM_ERROR("Failed init hw_top: %d\n", ret);
+		goto fail;
+	}
+
 	phys_enc->hw_intf =
 	    sde_hw_intf_init(intf_idx, sde_kms->mmio, sde_kms->catalog);
-	if (!phys_enc->hw_intf) {
-		ret = -ENOMEM;
+	if (IS_ERR_OR_NULL(phys_enc->hw_intf)) {
+		ret = PTR_ERR(phys_enc->hw_intf);
+		DRM_ERROR("Failed init hw_intf: %d\n", ret);
 		goto fail;
 	}
 
 	phys_enc->hw_ctl = sde_rm_acquire_ctl_path(sde_kms, ctl_idx);
-	if (!phys_enc->hw_ctl) {
-		ret = -ENOMEM;
+	if (IS_ERR_OR_NULL(phys_enc->hw_ctl)) {
+		ret = PTR_ERR(phys_enc->hw_ctl);
+		DRM_ERROR("Failed init hw_ctl: %d\n", ret);
 		goto fail;
 	}
 
-	sde_encoder_phys_vid_init_cbs(&phys_enc->phys_ops);
+	sde_encoder_phys_vid_init_ops(&phys_enc->ops);
 	phys_enc->parent = parent;
 	phys_enc->parent_ops = parent_ops;
 	phys_enc->sde_kms = sde_kms;
+	phys_enc->split_role = split_role;
 	spin_lock_init(&phys_enc->spin_lock);
 
 	DBG("Created sde_encoder_phys_vid for intf %d", phys_enc->hw_intf->idx);

@@ -52,7 +52,7 @@ struct sde_crtc_mixer {
  * @event         : Pointer to last received drm vblank event
  * @pending       : Whether or not an update is pending
  * @vsync_count   : Running count of received vsync events
- * @vblank_enable : Whether vblanks have been enabled in the encoder
+ * @drm_requested_vblank : Whether vblanks have been enabled in the encoder
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -71,7 +71,7 @@ struct sde_crtc {
 	struct drm_pending_vblank_event *event;
 	atomic_t pending;
 	u32 vsync_count;
-	bool vblank_enable;
+	bool drm_requested_vblank;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
