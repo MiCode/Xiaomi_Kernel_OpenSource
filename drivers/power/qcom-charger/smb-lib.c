@@ -1280,15 +1280,6 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 	int rc;
 	u8 stat;
 
-	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't read USB_INT_RT_STS rc=%d\n",
-			rc);
-		return IRQ_HANDLED;
-	}
-
-	chg->vbus_present = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
-
 	/* fetch the DPDM regulator */
 	if (!chg->dpdm_reg && of_get_property(chg->dev->of_node,
 					      "dpdm-supply", NULL)) {
@@ -1303,18 +1294,30 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 	if (!chg->dpdm_reg)
 		goto skip_dpdm_float;
 
-	if (chg->vbus_present && !regulator_is_enabled(chg->dpdm_reg)) {
-		smblib_dbg(chg, PR_MISC, "enabling DPDM regulator\n");
-		rc = regulator_enable(chg->dpdm_reg);
-		if (rc < 0)
-			dev_err(chg->dev, "Couldn't enable dpdm regulator rc=%d\n",
-				rc);
-	} else if (regulator_is_enabled(chg->dpdm_reg)) {
-		smblib_dbg(chg, PR_MISC, "disabling DPDM regulator\n");
-		rc = regulator_disable(chg->dpdm_reg);
-		if (rc < 0)
-			dev_err(chg->dev, "Couldn't disable dpdm regulator rc=%d\n",
-				rc);
+	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read USB_INT_RT_STS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	chg->vbus_present = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
+
+	if (chg->vbus_present) {
+		if (!regulator_is_enabled(chg->dpdm_reg)) {
+			smblib_dbg(chg, PR_MISC, "enabling DPDM regulator\n");
+			rc = regulator_enable(chg->dpdm_reg);
+			if (rc < 0)
+				dev_err(chg->dev, "Couldn't enable dpdm regulator rc=%d\n",
+					rc);
+		}
+	} else {
+		if (regulator_is_enabled(chg->dpdm_reg)) {
+			smblib_dbg(chg, PR_MISC, "disabling DPDM regulator\n");
+			rc = regulator_disable(chg->dpdm_reg);
+			if (rc < 0)
+				dev_err(chg->dev, "Couldn't disable dpdm regulator rc=%d\n",
+					rc);
+		}
 	}
 
 skip_dpdm_float:
