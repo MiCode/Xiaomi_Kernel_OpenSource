@@ -1636,6 +1636,13 @@ static int msm_ds2_dap_param_visualizer_control_get(u32 cmd, void *arg)
 	}
 
 	length = ds2_dap_params[cache_dev].params_val[DOLBY_PARAM_VCNB_OFFSET];
+
+	if (length > DOLBY_PARAM_VCNB_MAX_LENGTH || length <= 0) {
+		ret = 0;
+		dolby_data->length = 0;
+		pr_err("%s Incorrect VCNB length", __func__);
+	}
+
 	params_length = (2*length + DOLBY_VIS_PARAM_HEADER_SIZE) *
 							 sizeof(uint32_t);
 
