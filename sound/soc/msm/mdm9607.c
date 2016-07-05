@@ -247,8 +247,8 @@ static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
 		 lpass_clk->clk_set_mode);
 
 	kfree(lpass_clk);
-done:
 	clk_users = atomic_read(&pdata->prim_clk_usrs);
+done:
 	return ret;
 }
 
