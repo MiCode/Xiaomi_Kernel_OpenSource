@@ -383,7 +383,6 @@
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <2>;
 			#pwm-cells = <2>;
-			status = "disabled";
 		};
 
 		pmicobalt_pwm_4: pwm@b400 {
@@ -396,7 +395,6 @@
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <3>;
 			#pwm-cells = <2>;
-			status = "disabled";
 		};
 
 		pmicobalt_pwm_5: pwm@b500 {
@@ -409,7 +407,6 @@
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <4>;
 			#pwm-cells = <2>;
-			status = "disabled";
 		};
 
 		pmicobalt_pwm_6: pwm@b600 {
@@ -423,6 +420,50 @@
 			qcom,ramp-index = <5>;
 			#pwm-cells = <2>;
 			status = "disabled";
+		};
+
+		qcom,leds@d000 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd000 0x100>;
+			label = "rgb";
+			status = "okay";
+
+			red_led: qcom,rgb_0 {
+				label = "rgb";
+				qcom,id = <3>;
+				qcom,mode = "pwm";
+				pwms = <&pmicobalt_pwm_5 0 0>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				linux,name = "red";
+				linux,default-trigger =
+					"battery-charging";
+			};
+
+			green_led: qcom,rgb_1 {
+				label = "rgb";
+				qcom,id = <4>;
+				qcom,mode = "pwm";
+				pwms = <&pmicobalt_pwm_4 0 0>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				linux,name = "green";
+				linux,default-trigger = "battery-full";
+			};
+
+			blue_led: qcom,rgb_2 {
+				label = "rgb";
+				qcom,id = <5>;
+				qcom,mode = "pwm";
+				pwms = <&pmicobalt_pwm_3 0 0>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				linux,name = "blue";
+				linux,default-trigger = "boot-indication";
+			};
 		};
 
 		labibb: qpnp-labibb-regulator {
