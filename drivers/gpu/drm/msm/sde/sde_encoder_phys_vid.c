@@ -216,9 +216,6 @@ static bool sde_encoder_phys_vid_mode_fixup(
 	/*
 	 * Modifying mode has consequences when the mode comes back to us
 	 */
-	if (phys_enc->hw_intf->cap->quirks & SDE_INTF_QUIRK_STAGGER_LM_UPDATE)
-		adj_mode->private_flags |= MSM_MODE_FLAG_VBLANK_POST_MODESET;
-
 	return true;
 }
 
@@ -391,26 +388,6 @@ static void sde_encoder_phys_vid_mode_set(
 	phys_enc->cached_mode = *adj_mode;
 	DBG("intf %d, caching mode:", phys_enc->hw_intf->idx);
 	drm_mode_debug_printmodeline(adj_mode);
-
-	if (msm_is_mode_dynamic_fps(adj_mode)) {
-		DBG("seamless dynamic fps transition");
-		/* Connector has already updated the HFP/VFP values
-		 * Encoder needs to program in the new values
-		 * An enable of the timing engine is not required
-		 * But a Flush of the INTF block is required
-		 * Encoder mode_set happens first
-		 * 1. msm_atomic_layer waits for VSYNC so DSI and INTF are
-		 *	updated in same VSYNC
-		 * 2. Update intf timing with new porch values
-		 * 3. Flush INTF config
-		 * 4. DSI config flushes
-		 * 5. 8996 workaround:
-		 *	Cannot update INTF timing and Layer Mixers
-		 *	in same VSYNC. In case there is an immediate commit
-		 *	after this, wait another VSYNC
-		 */
-		sde_encoder_phys_vid_setup_timing_engine(phys_enc);
-	}
 }
 
 static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
@@ -429,11 +406,13 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
 
+	sde_encoder_phys_vid_flush_intf(phys_enc);
+
 	/* Register for interrupt unless we're the slave encoder */
 	if (phys_enc->split_role != ENC_ROLE_SLAVE)
 		ret = sde_encoder_phys_vid_register_irq(phys_enc);
 
-	if (!ret) {
+	if (!ret && !phys_enc->enabled) {
 		unsigned long lock_flags = 0;
 
 		/* Now enable timing engine */
