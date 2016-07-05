@@ -355,56 +355,52 @@ static void sde_crtc_vblank_cb(void *data)
 {
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct sde_kms *sde_kms = get_kms(crtc);
+	struct drm_device *dev = sde_kms->dev;
 	unsigned pending;
-
-	/* unregister callback */
-	sde_encoder_register_vblank_callback(sde_crtc->encoder, NULL, NULL);
 
 	pending = atomic_xchg(&sde_crtc->pending, 0);
 
 	if (pending & PENDING_FLIP)
 		complete_flip(crtc, NULL);
+
+	if (sde_crtc->vblank_enable) {
+		drm_handle_vblank(dev, sde_crtc->id);
+		DBG("");
+	}
 }
 
-static int frame_flushed(struct sde_crtc *sde_crtc)
+static bool frame_flushed(struct sde_crtc *sde_crtc)
 {
 	struct vsync_info vsync;
 
 	/* encoder get vsync_info */
 	/* if frame_count does not match frame is flushed */
 	sde_encoder_get_vsync_info(sde_crtc->encoder, &vsync);
-
-	return (vsync.frame_count & sde_crtc->vsync_count);
-
+	return (vsync.frame_count != sde_crtc->vsync_count) ? true : false;
 }
 
 void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc)
 {
-	struct drm_device *dev = crtc->dev;
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	u32 pending;
+	struct drm_device *dev = crtc->dev;
 	int i, ret;
+
+	if (!sde_crtc->num_ctls)
+		return;
 
 	/* ref count the vblank event */
 	ret = drm_crtc_vblank_get(crtc);
 	if (ret)
 		return;
 
-	/* register callback */
-	sde_encoder_register_vblank_callback(sde_crtc->encoder,
-			sde_crtc_vblank_cb,
-			(void *)crtc);
-
 	/* wait */
-	pending = atomic_read(&sde_crtc->pending);
-	if (pending & PENDING_FLIP) {
-		wait_event_timeout(dev->vblank[drm_crtc_index(crtc)].queue,
-				(frame_flushed(sde_crtc) != 0),
-				msecs_to_jiffies(CRTC_MAX_WAIT_ONE_FRAME));
-		if (ret <= 0)
-			dev_warn(dev->dev, "vblank time out, crtc=%d\n",
-					sde_crtc->id);
-	}
+	wait_event_timeout(dev->vblank[drm_crtc_index(crtc)].queue,
+			frame_flushed(sde_crtc),
+			msecs_to_jiffies(50));
+	if (ret <= 0)
+		dev_warn(dev->dev, "vblank time out, crtc=%d, ret %u\n",
+				sde_crtc->id, ret);
 
 	for (i = 0; i < sde_crtc->num_ctls; i++)
 		sde_crtc->mixer[i].flush_mask = 0;
@@ -625,8 +621,19 @@ static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
 	.atomic_flush = sde_crtc_atomic_flush,
 };
 
-uint32_t sde_crtc_vblank(struct drm_crtc *crtc)
+int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 {
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
+	DBG("%d", en);
+	if (en)
+		sde_encoder_register_vblank_callback(sde_crtc->encoder,
+				sde_crtc_vblank_cb, (void *)crtc);
+	else
+		sde_encoder_register_vblank_callback(sde_crtc->encoder,
+				NULL, NULL);
+
+	sde_crtc->vblank_enable = en;
 	return 0;
 }
 
