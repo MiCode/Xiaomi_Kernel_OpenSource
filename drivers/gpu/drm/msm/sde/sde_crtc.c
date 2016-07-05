@@ -197,8 +197,8 @@ static void sde_crtc_mode_set_nofb(struct drm_crtc *crtc)
 static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 		struct sde_plane_state *pstate)
 {
-	const struct mdp_format *format;
 	struct drm_plane *plane;
+	const struct mdp_format *format;
 
 	format = to_mdp_format(
 			msm_framebuffer_format(pstate->base.fb));
@@ -241,6 +241,16 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 		cfg->fg.const_alpha = 0xFF;
 		cfg->bg.const_alpha = 0x00;
 	}
+
+	DBG("format 0x%x, alpha_enable %u premultiplied %llu",
+			format->base.pixel_format, format->alpha_enable,
+			pstate->property_values[PLANE_PROP_PREMULTIPLIED]);
+	DBG("fg alpha config %d %d %d %d %d",
+		cfg->fg.alpha_sel, cfg->fg.const_alpha, cfg->fg.mod_alpha,
+		cfg->fg.inv_alpha_sel, cfg->fg.inv_mode_alpha);
+	DBG("bg alpha config %d %d %d %d %d",
+		cfg->bg.alpha_sel, cfg->bg.const_alpha, cfg->bg.mod_alpha,
+		cfg->bg.inv_alpha_sel, cfg->bg.inv_mode_alpha);
 }
 
 static void blend_setup(struct drm_crtc *crtc)
@@ -312,10 +322,9 @@ static void blend_setup(struct drm_crtc *crtc)
 	 * If there is no base layer, enable border color.
 	 * currently border color is always black
 	 */
-	if ((stage_cfg.stage[SDE_STAGE_BASE][0] == SSPP_NONE) &&
-		plane_cnt) {
+	if ((stage_cfg.stage[SDE_STAGE_BASE][0] == SSPP_NONE) && plane_cnt) {
 		stage_cfg.border_enable = 1;
-		DBG("Border Color is enabled\n");
+		DBG("Border Color is enabled");
 	}
 
 	/* Program ctl_paths */
@@ -371,7 +380,7 @@ static void sde_crtc_vblank_cb(void *data)
 	if (pending & PENDING_FLIP)
 		complete_flip(crtc, NULL);
 
-	if (sde_crtc->vblank_enable) {
+	if (sde_crtc->drm_requested_vblank) {
 		drm_handle_vblank(dev, sde_crtc->id);
 		DBG_IRQ("");
 	}
@@ -381,9 +390,13 @@ static bool frame_flushed(struct sde_crtc *sde_crtc)
 {
 	struct vsync_info vsync;
 
-	/* encoder get vsync_info */
-	/* if frame_count does not match frame is flushed */
-	sde_encoder_get_vsync_info(sde_crtc->encoder, &vsync);
+	/*
+	 * encoder get vsync_info
+	 * if frame_count does not match
+	 * frame is flushed
+	 */
+	sde_encoder_get_vblank_status(sde_crtc->encoder, &vsync);
+
 	return (vsync.frame_count != sde_crtc->vsync_count) ? true : false;
 }
 
@@ -422,7 +435,7 @@ static void request_pending(struct drm_crtc *crtc, u32 pending)
 	struct vsync_info vsync;
 
 	/* request vsync info, cache the current frame count */
-	sde_encoder_get_vsync_info(sde_crtc->encoder, &vsync);
+	sde_encoder_get_vblank_status(sde_crtc->encoder, &vsync);
 	sde_crtc->vsync_count = vsync.frame_count;
 
 	atomic_or(pending, &sde_crtc->pending);
@@ -634,6 +647,15 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
 	DBG("%d", en);
+
+	/*
+	 * Mark that framework requested vblank,
+	 * as opposed to enabling vblank only for our internal purposes
+	 * Currently this variable isn't required, but may be useful for future
+	 * features
+	 */
+	sde_crtc->drm_requested_vblank = en;
+
 	if (en)
 		sde_encoder_register_vblank_callback(sde_crtc->encoder,
 				sde_crtc_vblank_cb, (void *)crtc);
@@ -641,7 +663,6 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 		sde_encoder_register_vblank_callback(sde_crtc->encoder,
 				NULL, NULL);
 
-	sde_crtc->vblank_enable = en;
 	return 0;
 }
 

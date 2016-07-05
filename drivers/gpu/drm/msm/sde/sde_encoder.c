@@ -24,6 +24,40 @@
 #include "sde_encoder_phys.h"
 #include "display_manager.h"
 
+#define NUM_PHYS_ENCODER_TYPES 2
+#define MAX_PHYS_ENCODERS_PER_VIRTUAL \
+	(MAX_H_TILES_PER_DISPLAY * NUM_PHYS_ENCODER_TYPES)
+
+/**
+ * struct sde_encoder_virt - virtual encoder. Container of one or more physical
+ *	encoders. Virtual encoder manages one "logical" display. Physical
+ *	encoders manage one intf block, tied to a specific panel/sub-panel.
+ *	Virtual encoder defers as much as possible to the physical encoders.
+ *	Virtual encoder registers itself with the DRM Framework as the encoder.
+ * @base:		drm_encoder base class for registration with DRM
+ * @spin_lock:		Lock for IRQ purposes
+ * @bus_scaling_client:	Client handle to the bus scaling interface
+ * @num_phys_encs:	Actual number of physical encoders contained.
+ * @phys_encs:		Container of physical encoders managed.
+ * @cur_master:		Pointer to the current master in this mode. Optimization
+ *			Only valid after enable. Cleared as disable.
+ * @kms_vblank_callback:	Callback into the upper layer / CRTC for
+ *				notification of the VBLANK
+ * @kms_vblank_callback_data:	Data from upper layer for VBLANK notification
+ */
+struct sde_encoder_virt {
+	struct drm_encoder base;
+	spinlock_t spin_lock;
+	uint32_t bus_scaling_client;
+
+	int num_phys_encs;
+	struct sde_encoder_phys *phys_encs[MAX_PHYS_ENCODERS_PER_VIRTUAL];
+	struct sde_encoder_phys *cur_master;
+
+	void (*kms_vblank_callback)(void *);
+	void *kms_vblank_callback_data;
+};
+
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
 
 #ifdef CONFIG_QCOM_BUS_SCALING
@@ -117,8 +151,8 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->phys_ops.get_hw_resources)
-			phys->phys_ops.get_hw_resources(phys, hw_res);
+		if (phys && phys->ops.get_hw_resources)
+			phys->ops.get_hw_resources(phys, hw_res);
 	}
 }
 
@@ -139,8 +173,8 @@ static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	for (i = 0; i < ARRAY_SIZE(sde_enc->phys_encs); i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->phys_ops.destroy) {
-			phys->phys_ops.destroy(phys);
+		if (phys && phys->ops.destroy) {
+			phys->ops.destroy(phys);
 			--sde_enc->num_phys_encs;
 			sde_enc->phys_encs[i] = NULL;
 		}
@@ -176,12 +210,11 @@ static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->phys_ops.mode_fixup) {
-			ret =
-			    phys->phys_ops.mode_fixup(phys, mode,
-						      adjusted_mode);
+		if (phys && phys->ops.mode_fixup) {
+			ret = phys->ops.mode_fixup(phys, mode,
+					adjusted_mode);
 			if (!ret) {
-				DBG("Mode unsupported by phys_enc %d", i);
+				DRM_ERROR("Mode unsupported, phys_enc %d\n", i);
 				break;
 			}
 
@@ -201,7 +234,6 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
-	bool splitmode = false;
 
 	DBG("");
 
@@ -212,23 +244,10 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
-	/*
-	 * Panel is driven by two interfaces ,each interface drives half of
-	 * the horizontal
-	 */
-	if (sde_enc->num_phys_encs == 2)
-		splitmode = true;
-
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-		if (phys) {
-			phys->phys_ops.mode_set(phys,
-					mode,
-					adjusted_mode,
-					splitmode);
-			if (memcmp(mode, adjusted_mode, sizeof(*mode)) != 0)
-				DRM_ERROR("adjusted modes not supported\n");
-		}
+		if (phys && phys->ops.mode_set)
+			phys->ops.mode_set(phys, mode, adjusted_mode);
 	}
 }
 
@@ -236,7 +255,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
-	bool splitmode = false;
 
 	DBG("");
 
@@ -249,21 +267,22 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 
 	bs_set(sde_enc, 1);
 
-	if (sde_enc->num_phys_encs == 2)
-		splitmode = true;
-
-
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-		if (phys && phys->phys_ops.enable) {
-			/* enable/disable dual interface top config */
-			if (phys->phys_ops.enable_split_config)
-				phys->phys_ops.enable_split_config(phys,
-						splitmode);
+
+		if (phys) {
+			if (phys->ops.enable)
+				phys->ops.enable(phys);
+
 			/*
-			 * enable interrupts on master only
+			 * Master can switch at enable time.
+			 * It is based on the current mode (CMD/VID) and
+			 * the encoder role found at panel probe time
 			 */
-			phys->phys_ops.enable(phys, (i == 0) ? true : false);
+			if (phys->ops.is_master && phys->ops.is_master(phys)) {
+				DBG("phys enc master is now idx %d", i);
+				sde_enc->cur_master = phys;
+			}
 		}
 	}
 }
@@ -285,9 +304,12 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->phys_ops.disable)
-			phys->phys_ops.disable(phys);
+		if (phys && phys->ops.disable)
+			phys->ops.disable(phys);
 	}
+
+	sde_enc->cur_master = NULL;
+	DBG("clear phys enc master");
 
 	bs_set(sde_enc, 0);
 }
@@ -338,10 +360,12 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc)
 	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
 }
 
-static int sde_encoder_virt_add_phys_vid_enc(struct sde_encoder_virt *sde_enc,
-					     struct sde_kms *sde_kms,
-					     enum sde_intf intf_idx,
-					     enum sde_ctl ctl_idx)
+static int sde_encoder_virt_add_phys_vid_enc(
+		struct sde_encoder_virt *sde_enc,
+		struct sde_kms *sde_kms,
+		enum sde_intf intf_idx,
+		enum sde_ctl ctl_idx,
+		enum sde_enc_split_role split_role)
 {
 	int ret = 0;
 
@@ -357,12 +381,12 @@ static int sde_encoder_virt_add_phys_vid_enc(struct sde_encoder_virt *sde_enc,
 		};
 		struct sde_encoder_phys *enc =
 		    sde_encoder_phys_vid_init(sde_kms, intf_idx, ctl_idx,
-					      &sde_enc->base,
-					      parent_ops);
-		if (IS_ERR(enc))
-			ret = PTR_ERR(enc);
-
-		if (!ret) {
+				    split_role, &sde_enc->base, parent_ops);
+		if (IS_ERR_OR_NULL(enc)) {
+			DRM_ERROR("Failed to initialize phys enc: %ld\n",
+					PTR_ERR(enc));
+			ret = enc == 0 ? -EINVAL : PTR_ERR(enc);
+		} else {
 			sde_enc->phys_encs[sde_enc->num_phys_encs] = enc;
 			++sde_enc->num_phys_encs;
 		}
@@ -407,26 +431,36 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		enum sde_intf intf_idx = INTF_MAX;
 		enum sde_ctl ctl_idx = CTL_MAX;
 		u32 controller_id = disp_info->h_tile_instance[i];
+		enum sde_enc_split_role split_role = ENC_ROLE_SOLO;
 
-		DBG("h_tile_instance %d = %d", i, controller_id);
+		if (disp_info->num_of_h_tiles > 1) {
+			if (i == 0)
+				split_role = ENC_ROLE_MASTER;
+			else
+				split_role = ENC_ROLE_SLAVE;
+		}
+
+		DBG("h_tile_instance %d = %d, split_role %d",
+				i, controller_id, split_role);
 
 		intf_idx = sde_encoder_get_intf(sde_kms->catalog,
 				intf_type, controller_id);
 		if (intf_idx == INTF_MAX) {
-			DBG("Error: could not get the interface id");
+			DRM_ERROR("Error: could not get the interface id\n");
 			ret = -EINVAL;
 		}
 
 		hw_res_map = sde_rm_get_res_map(sde_kms, intf_idx);
-		if (IS_ERR_OR_NULL(hw_res_map))
+		if (IS_ERR_OR_NULL(hw_res_map)) {
 			ret = -EINVAL;
-		else
+		} else {
 			ctl_idx = hw_res_map->ctl;
-
-		/* Create both VID and CMD Phys Encoders here */
-		if (!ret)
 			ret = sde_encoder_virt_add_phys_vid_enc(
-					sde_enc, sde_kms, intf_idx, ctl_idx);
+					sde_enc, sde_kms, intf_idx, ctl_idx,
+					split_role);
+			if (ret)
+				DRM_ERROR("Failed to add phys enc\n");
+		}
 	}
 
 
@@ -456,6 +490,7 @@ static struct drm_encoder *sde_encoder_virt_init(
 	if (ret)
 		goto fail;
 
+	sde_enc->cur_master = NULL;
 	spin_lock_init(&sde_enc->spin_lock);
 	drm_enc = &sde_enc->base;
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode);
@@ -488,23 +523,25 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
 }
 
-void  sde_encoder_get_vsync_info(struct drm_encoder *drm_enc,
+void  sde_encoder_get_vblank_status(struct drm_encoder *drm_enc,
 		struct vsync_info *vsync)
 {
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
-	struct sde_encoder_phys *phys;
+	struct sde_encoder_virt *sde_enc = NULL;
+	struct sde_encoder_phys *master = NULL;
 
 	DBG("");
 
-	if (!vsync) {
+	if (!vsync || !drm_enc) {
 		DRM_ERROR("Invalid pointer");
 		return;
 	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
 
-	/* we get the vsync info from the intf at index 0: master index */
-	phys = sde_enc->phys_encs[0];
-	if (phys)
-		phys->phys_ops.get_vsync_info(phys, vsync);
+	memset(vsync, 0, sizeof(*vsync));
+
+	master = sde_enc->cur_master;
+	if (master && master->ops.get_vblank_status)
+		master->ops.get_vblank_status(master, vsync);
 }
 
 /* encoders init,
