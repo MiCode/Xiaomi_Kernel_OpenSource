@@ -255,14 +255,16 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-
-		if (phys && phys->phys_ops.enable)
-
+		if (phys && phys->phys_ops.enable) {
 			/* enable/disable dual interface top config */
 			if (phys->phys_ops.enable_split_config)
 				phys->phys_ops.enable_split_config(phys,
 						splitmode);
-			phys->phys_ops.enable(phys);
+			/*
+			 * enable interrupts on master only
+			 */
+			phys->phys_ops.enable(phys, (i == 0) ? true : false);
+		}
 	}
 }
 
@@ -322,8 +324,6 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	unsigned long lock_flags;
-
-	DBG("");
 
 	if (!drm_enc) {
 		DRM_ERROR("Invalid pointer");

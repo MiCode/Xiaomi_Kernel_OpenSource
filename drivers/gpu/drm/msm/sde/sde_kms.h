@@ -57,7 +57,7 @@ struct sde_hw_res_map {
 };
 
 /* struct sde_hw_resource_manager : Resource mananger maintains the current
- *                                  platform configuration and manages shared
+ *                                  default platform config and manages shared
  *                                  hw resources ex:ctl_path hw driver context
  *                                  is needed by CRTCs/PLANEs/ENCODERs
  * @ctl        : table of control path hw driver contexts allocated
@@ -152,6 +152,8 @@ int sde_enable(struct sde_kms *sde_kms);
  * @sde_rm_get_mixer       : returns mixer context for already
  *                           acquired mixer
  * @sde_rm_release_mixer   : Frees mixer hw driver context
+ * @sde_rm_acquire_intr    : Allocate hw intr context
+ * @sde_rm_get_intr        : Returns already acquired intr context
  * @sde_rm_get_hw_res_map  : Returns map for the passed INTF
  */
 struct sde_hw_ctl *sde_rm_acquire_ctl_path(struct sde_kms *sde_kms,
@@ -274,7 +276,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev, uint32_t pipe,
 /**
  * CRTC functions
  */
-uint32_t sde_crtc_vblank(struct drm_crtc *crtc);
+int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
 void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc);
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,

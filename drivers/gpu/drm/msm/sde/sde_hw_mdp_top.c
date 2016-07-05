@@ -75,13 +75,10 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 	const struct sde_mdp_cfg *cfg;
 
 	/* mdp top is singleton */
-	if (c) {
-		pr_err(" %s returning  %p", __func__, c);
+	if (c)
 		return c;
-	}
 
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
-	pr_err(" %s returning  %p", __func__, c);
 	if (!c)
 		return ERR_PTR(-ENOMEM);
 

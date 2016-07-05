@@ -365,8 +365,11 @@ static int sde_encoder_phys_vid_unregister_irq(
 	return 0;
 }
 
-static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
+static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc,
+		bool intr_en)
 {
+	struct sde_encoder_phys_vid *vid_enc =
+	    to_sde_encoder_phys_vid(phys_enc);
 	int ret = 0;
 
 	DBG("");
@@ -379,8 +382,11 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	sde_encoder_phys_vid_flush_intf(phys_enc);
 
 	/* Register for interrupt unless we're the slave encoder */
-	if (sde_encoder_phys_vid_is_master(phys_enc))
+	if (sde_encoder_phys_vid_is_master(phys_enc) && intr_en) {
 		ret = sde_encoder_phys_vid_register_irq(phys_enc);
+		if (!ret)
+			vid_enc->intr_en = true;
+	}
 
 	if (!ret && !phys_enc->enabled) {
 		unsigned long lock_flags = 0;
@@ -422,7 +428,8 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	 * scanout buffer) don't latch properly..
 	 */
 	sde_encoder_phys_vid_wait_for_vblank(vid_enc);
-	sde_encoder_phys_vid_unregister_irq(phys_enc);
+	if (vid_enc->intr_en)
+		sde_encoder_phys_vid_unregister_irq(phys_enc);
 	phys_enc->enabled = false;
 }
 
@@ -485,7 +492,6 @@ static void sde_encoder_intf_split_config(struct sde_encoder_phys *phys_enc,
 			sde_kms->catalog);
 	struct split_pipe_cfg cfg;
 
-	DBG("%p", mdp);
 	cfg.en = true;
 	cfg.mode = INTF_MODE_VIDEO;
 	if (!IS_ERR_OR_NULL(mdp))

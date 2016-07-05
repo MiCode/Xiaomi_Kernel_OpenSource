@@ -35,7 +35,7 @@ struct sde_encoder_phys_ops {
 	bool (*mode_fixup)(struct sde_encoder_phys *encoder,
 			const struct drm_display_mode *mode,
 			struct drm_display_mode *adjusted_mode);
-	void (*enable)(struct sde_encoder_phys *encoder);
+	void (*enable)(struct sde_encoder_phys *encoder, bool intr_en);
 	void (*disable)(struct sde_encoder_phys *encoder);
 	void (*destroy)(struct sde_encoder_phys *encoder);
 	void (*get_hw_resources)(struct sde_encoder_phys *encoder,
@@ -69,6 +69,7 @@ struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
 	int irq_idx;
 	struct completion vblank_complete;
+	bool intr_en;
 };
 
 struct sde_encoder_virt {

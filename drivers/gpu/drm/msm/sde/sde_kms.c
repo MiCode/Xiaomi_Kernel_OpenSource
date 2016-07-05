@@ -22,19 +22,25 @@ static const char * const iommu_ports[] = {
 };
 
 static const struct sde_hw_res_map res_table[INTF_MAX] = {
-	{ SDE_NONE, SDE_NONE, SDE_NONE, SDE_NONE},
-	{ INTF_0, SDE_NONE, SDE_NONE, SDE_NONE},
-	{ INTF_1, LM_0, PINGPONG_0, CTL_0},
-	{ INTF_2, LM_1, PINGPONG_1, CTL_1},
-	{ INTF_3, SDE_NONE, SDE_NONE, CTL_2},
+	{ SDE_NONE,	SDE_NONE,	SDE_NONE,	SDE_NONE },
+	{ INTF_0,	SDE_NONE,	SDE_NONE,	SDE_NONE },
+	{ INTF_1,	LM_0,		PINGPONG_0,	CTL_0 },
+	{ INTF_2,	LM_1,		PINGPONG_1,	CTL_1 },
+	{ INTF_3,	SDE_NONE,	SDE_NONE,	CTL_2 },
 };
 
 
-#define DEFAULT_MDP_SRC_CLK 200000000
+#define DEFAULT_MDP_SRC_CLK 300000000
 
 int sde_disable(struct sde_kms *sde_kms)
 {
 	DBG("");
+
+	clk_disable_unprepare(sde_kms->ahb_clk);
+	clk_disable_unprepare(sde_kms->axi_clk);
+	clk_disable_unprepare(sde_kms->core_clk);
+	if (sde_kms->lut_clk)
+		clk_disable_unprepare(sde_kms->lut_clk);
 
 	return 0;
 }
