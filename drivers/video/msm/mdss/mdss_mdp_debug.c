@@ -1137,7 +1137,7 @@ static void __dump_timings(struct seq_file *s, struct mdss_mdp_ctl *ctl)
 	pinfo = &ctl->panel_data->panel_info;
 	seq_printf(s, "Panel #%d %dx%dp%d\n",
 			pinfo->pdest, pinfo->xres, pinfo->yres,
-			mdss_panel_get_framerate(pinfo));
+			mdss_panel_get_framerate(pinfo, FPS_RESOLUTION_HZ));
 	seq_printf(s, "\tvbp=%d vfp=%d vpw=%d hbp=%d hfp=%d hpw=%d\n",
 			pinfo->lcdc.v_back_porch,
 			pinfo->lcdc.v_front_porch,
