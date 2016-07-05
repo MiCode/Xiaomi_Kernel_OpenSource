@@ -235,6 +235,15 @@ static void ipa3_tx_suspend_interrupt_wa(void)
 	IPADBG_LOW("Exit\n");
 }
 
+static inline bool is_uc_irq(int irq_num)
+{
+	if (ipa_interrupt_to_cb[irq_num].interrupt >= IPA_UC_IRQ_0 &&
+		ipa_interrupt_to_cb[irq_num].interrupt <= IPA_UC_IRQ_3)
+		return true;
+	else
+		return false;
+}
+
 static void ipa3_process_interrupts(bool isr_context)
 {
 	u32 reg;
@@ -242,6 +251,7 @@ static void ipa3_process_interrupts(bool isr_context)
 	u32 i = 0;
 	u32 en;
 	unsigned long flags;
+	bool uc_irq;
 
 	IPADBG_LOW("Enter\n");
 
@@ -252,6 +262,14 @@ static void ipa3_process_interrupts(bool isr_context)
 		bmsk = 1;
 		for (i = 0; i < IPA_IRQ_NUM_MAX; i++) {
 			if (en & reg & bmsk) {
+				uc_irq = is_uc_irq(i);
+
+				/* Clear uC interrupt before processing to avoid
+						clearing unhandled interrupts */
+				if (uc_irq)
+					ipa3_uc_rg10_write_reg(IPA_IRQ_CLR_EE_n,
+							ipa_ee, bmsk);
+
 				/*
 				 * handle the interrupt with spin_lock
 				 * unlocked to avoid calling client in atomic
@@ -262,6 +280,12 @@ static void ipa3_process_interrupts(bool isr_context)
 				spin_unlock_irqrestore(&suspend_wa_lock, flags);
 				ipa3_handle_interrupt(i, isr_context);
 				spin_lock_irqsave(&suspend_wa_lock, flags);
+
+				/* Clear non uC interrupt after processing
+				   to avoid clearing interrupt data */
+				if (!uc_irq)
+					ipa3_uc_rg10_write_reg(IPA_IRQ_CLR_EE_n,
+							ipa_ee, bmsk);
 			}
 			bmsk = bmsk << 1;
 		}
@@ -272,7 +296,6 @@ static void ipa3_process_interrupts(bool isr_context)
 		if (ipa3_ctx->apply_rg10_wa && ipa3_ctx->uc_ctx.uc_failed)
 			break;
 
-		ipa3_uc_rg10_write_reg(IPA_IRQ_CLR_EE_n, ipa_ee, reg);
 		reg = ipahal_read_reg_n(IPA_IRQ_STTS_EE_n, ipa_ee);
 		/* since the suspend interrupt HW bug we must
 		  * read again the EN register, otherwise the while is endless
