@@ -11,6 +11,7 @@
  */
 
 #include <linux/sort.h>
+#include <linux/debugfs.h>
 #include <uapi/drm/sde_drm.h>
 #include <drm/drm_mode.h>
 #include <drm/drm_crtc.h>
@@ -45,7 +46,7 @@ static int sde_crtc_reserve_hw_resources(struct drm_crtc *crtc,
 	const struct sde_hw_res_map *plat_hw_res_map;
 	enum sde_lm unused_lm_id[CRTC_DUAL_MIXERS] = {0};
 	enum sde_lm lm_idx;
-	int i, count = 0;
+	int i, unused_lm_count = 0;
 
 	if (!sde_kms) {
 		DBG("[%s] invalid kms", __func__);
@@ -56,10 +57,10 @@ static int sde_crtc_reserve_hw_resources(struct drm_crtc *crtc,
 		return -EINVAL;
 
 	/* Get unused LMs */
-	for (i = 0; i < sde_kms->catalog->mixer_count; i++) {
+	for (i = sde_kms->catalog->mixer_count - 1; i >= 0; --i) {
 		if (!sde_rm_get_mixer(sde_kms, LM(i))) {
-			unused_lm_id[count++] = LM(i);
-			if (count == CRTC_DUAL_MIXERS)
+			unused_lm_id[unused_lm_count++] = LM(i);
+			if (unused_lm_count == CRTC_DUAL_MIXERS)
 				break;
 		}
 	}
@@ -97,13 +98,13 @@ static int sde_crtc_reserve_hw_resources(struct drm_crtc *crtc,
 			plat_hw_res_map = sde_rm_get_res_map(sde_kms, i);
 
 			lm_idx = plat_hw_res_map->lm;
-			if (!lm_idx)
-				lm_idx = unused_lm_id[sde_crtc->num_mixers];
+			if (!lm_idx && unused_lm_count)
+				lm_idx = unused_lm_id[--unused_lm_count];
 
 			DBG("Acquiring LM %d", lm_idx);
 			mixer->hw_lm = sde_rm_acquire_mixer(sde_kms, lm_idx);
 			if (IS_ERR_OR_NULL(mixer->hw_lm)) {
-				DBG("[%s], Invalid mixer", __func__);
+				DRM_ERROR("Invalid mixer\n");
 				return -EACCES;
 			}
 			/* interface info */
@@ -117,7 +118,7 @@ static int sde_crtc_reserve_hw_resources(struct drm_crtc *crtc,
 			sde_crtc->num_ctls, sde_crtc->num_mixers,
 			sde_crtc->mixer[0].hw_lm->idx,
 			sde_crtc->mixer[0].hw_ctl->idx);
-	if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
+	if (sde_crtc->num_mixers > 1)
 		DBG("lm[1] %d, ctl[1], %d",
 			sde_crtc->mixer[1].hw_lm->idx,
 			sde_crtc->mixer[1].hw_ctl->idx);
@@ -129,6 +130,7 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
 	DBG("");
+	debugfs_remove_recursive(sde_crtc->debugfs_root);
 	drm_crtc_cleanup(crtc);
 	kfree(sde_crtc);
 }
@@ -223,6 +225,7 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 		}
 	} else {
 		cfg->bg.inv_alpha_sel = 1;
+		/* force 100% alpha */
 		cfg->fg.const_alpha = 0xFF;
 		cfg->bg.const_alpha = 0x00;
 	}
@@ -244,7 +247,6 @@ static void blend_setup(struct drm_crtc *crtc)
 	struct sde_crtc_mixer *mixer = sde_crtc->mixer;
 	struct drm_plane *plane;
 	struct sde_plane_state *pstate;
-	struct sde_hw_stage_cfg stage_cfg;
 	struct sde_hw_blend_cfg blend;
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_mixer *lm;
@@ -261,7 +263,7 @@ static void blend_setup(struct drm_crtc *crtc)
 		goto out;
 
 	/* initialize stage cfg */
-	memset(&stage_cfg, 0, sizeof(stage_cfg));
+	memset(&sde_crtc->stage_cfg, 0, sizeof(struct sde_hw_stage_cfg));
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		if ((!mixer[i].hw_lm) || (!mixer[i].hw_ctl))
@@ -273,9 +275,9 @@ static void blend_setup(struct drm_crtc *crtc)
 
 		drm_atomic_crtc_for_each_plane(plane, crtc) {
 			pstate = to_sde_plane_state(plane->state);
-			stage_cfg.stage[pstate->stage][i] =
+			sde_crtc->stage_cfg.stage[pstate->stage][i] =
 				sde_plane_pipe(plane);
-			DBG("crtc_id %d, layer %d, at stage %d",
+			DBG("crtc_id %d - pipe %d at stage %d",
 					sde_crtc->id,
 					sde_plane_pipe(plane),
 					pstate->stage);
@@ -307,8 +309,9 @@ static void blend_setup(struct drm_crtc *crtc)
 	 * If there is no base layer, enable border color.
 	 * currently border color is always black
 	 */
-	if ((stage_cfg.stage[SDE_STAGE_BASE][0] == SSPP_NONE) && plane_cnt) {
-		stage_cfg.border_enable = 1;
+	if ((sde_crtc->stage_cfg.stage[SDE_STAGE_BASE][0] == SSPP_NONE) &&
+			plane_cnt) {
+		sde_crtc->stage_cfg.border_enable = 1;
 		DBG("Border Color is enabled");
 	}
 
@@ -320,9 +323,9 @@ static void blend_setup(struct drm_crtc *crtc)
 		ctl = mixer[i].hw_ctl;
 		lm = mixer[i].hw_lm;
 
-		/* stage config */
+		/* same stage config to all mixers */
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
-			&stage_cfg);
+			&sde_crtc->stage_cfg);
 	}
 out:
 	spin_unlock_irqrestore(&sde_crtc->lm_lock, flags);
@@ -705,6 +708,70 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 {
 }
 
+static int _sde_debugfs_mixer_read(struct seq_file *s, void *data)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_mixer *m;
+	int i, j;
+
+	if (!s || !s->private)
+		return -EINVAL;
+
+	sde_crtc = s->private;
+	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+		m = &sde_crtc->mixer[i];
+		if (!m->hw_lm) {
+			seq_printf(s, "Mixer[%d] has no LM\n", i);
+		} else if (!m->hw_ctl) {
+			seq_printf(s, "Mixer[%d] has no CTL\n", i);
+		} else {
+			seq_printf(s, "LM_%d/CTL_%d -> INTF_%d\n",
+					m->hw_lm->idx - LM_0,
+					m->hw_ctl->idx - CTL_0,
+					m->intf_idx - INTF_0);
+		}
+	}
+	seq_printf(s, "Border: %d\n", sde_crtc->stage_cfg.border_enable);
+	for (i = 0; i < SDE_STAGE_MAX; ++i) {
+		if (i == SDE_STAGE_BASE)
+			seq_puts(s, "Base Stage:");
+		else
+			seq_printf(s, "Stage %d:", i - SDE_STAGE_0);
+		for (j = 0; j < PIPES_PER_STAGE; ++j)
+			seq_printf(s, " % 2d", sde_crtc->stage_cfg.stage[i][j]);
+		seq_puts(s, "\n");
+	}
+	return 0;
+}
+
+static int _sde_debugfs_mixer_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, _sde_debugfs_mixer_read, inode->i_private);
+}
+
+static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
+		struct sde_kms *sde_kms)
+{
+	static const struct file_operations debugfs_mixer_fops = {
+		.open =		_sde_debugfs_mixer_open,
+		.read =		seq_read,
+		.llseek =	seq_lseek,
+		.release =	single_release,
+	};
+	if (sde_crtc && sde_kms) {
+		sde_crtc->debugfs_root = debugfs_create_dir(sde_crtc->name,
+				sde_debugfs_get_root(sde_kms));
+		if (sde_crtc->debugfs_root) {
+			/* don't error check these */
+			debugfs_create_u32("vsync_count", S_IRUGO,
+					sde_crtc->debugfs_root,
+					&sde_crtc->vsync_count);
+			debugfs_create_file("mixers", S_IRUGO,
+					sde_crtc->debugfs_root,
+					sde_crtc, &debugfs_mixer_fops);
+		}
+	}
+}
 
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
@@ -712,8 +779,13 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 		struct drm_plane *plane, int id)
 {
 	struct drm_crtc *crtc = NULL;
-	struct sde_crtc *sde_crtc;
+	struct sde_crtc *sde_crtc = NULL;
+	struct msm_drm_private *priv = NULL;
+	struct sde_kms *kms = NULL;
 	int rc;
+
+	priv = dev->dev_private;
+	kms = to_sde_kms(priv->kms);
 
 	sde_crtc = kzalloc(sizeof(*sde_crtc), GFP_KERNEL);
 	if (!sde_crtc)
@@ -737,6 +809,11 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 		return ERR_PTR(-EINVAL);
 	 }
 
-	DBG("%s: Successfully initialized crtc", __func__);
+	/* save user friendly CRTC name for later */
+	snprintf(sde_crtc->name, SDE_CRTC_NAME_SIZE, "crtc%u", crtc->base.id);
+
+	_sde_crtc_init_debugfs(sde_crtc, kms);
+
+	DBG("%s: Successfully initialized crtc", sde_crtc->name);
 	return crtc;
 }

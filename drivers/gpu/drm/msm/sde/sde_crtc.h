@@ -16,6 +16,7 @@
 #include "drm_crtc.h"
 
 #define CRTC_DUAL_MIXERS	2
+#define SDE_CRTC_NAME_SIZE	12
 #define PENDING_FLIP		2
 /* worst case one frame wait time based on 30 FPS : 33.33ms*/
 #define CRTC_MAX_WAIT_ONE_FRAME     34
@@ -53,10 +54,12 @@ struct sde_crtc_mixer {
  * @pending       : Whether or not an update is pending
  * @vsync_count   : Running count of received vsync events
  * @drm_requested_vblank : Whether vblanks have been enabled in the encoder
+ * @stage_cfg     : H/w mixer stage configuration
+ * @debugfs_root  : Parent of debugfs node
  */
 struct sde_crtc {
 	struct drm_crtc base;
-	char name[8];
+	char name[SDE_CRTC_NAME_SIZE];
 	struct drm_encoder *encoder;
 	int id;
 
@@ -72,6 +75,9 @@ struct sde_crtc {
 	atomic_t pending;
 	u32 vsync_count;
 	bool drm_requested_vblank;
+
+	struct sde_hw_stage_cfg stage_cfg;
+	struct dentry *debugfs_root;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
