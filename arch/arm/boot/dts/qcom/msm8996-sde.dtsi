@@ -24,13 +24,19 @@
 			 <&clock_mmss clk_mdp_clk_src>,
 			 <&clock_mmss clk_mdss_mdp_vote_clk>,
 			 <&clock_mmss clk_smmu_mdp_axi_clk>,
+			 <&clock_mmss clk_smmu_mdp_ahb_clk>,
+			 <&clock_mmss clk_smmu_rot_axi_clk>,
+			 <&clock_mmss clk_smmu_rot_ahb_clk>,
 			 <&clock_mmss clk_mmagic_mdss_axi_clk>,
 			 <&clock_mmss clk_mdss_vsync_clk>;
 		clock-names = "iface_clk",
 			"bus_clk",
 			"core_clk_src",
 			"core_clk",
-			"iommu_clk",
+			"iommu_mdp_axi_clk",
+			"iommu_mdp_ahb_clk",
+			"iommu_rot_axi_clk",
+			"iommu_rot_ahb_clk",
 			"mmagic_clk",
 			"vsync_clk";
 		mmagic-supply = <&gdsc_mmagic_mdss>;
@@ -40,6 +46,26 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		iommus = <&mdp_smmu 0>;
+
+		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
+			compatible = "qcom,smmu_mdp_unsec";
+			iommus = <&mdp_smmu 0>;
+		};
+
+		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
+			compatible = "qcom,smmu_rot_unsec";
+			iommus = <&rot_smmu 0>;
+		};
+
+		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
+			compatible = "qcom,smmu_mdp_sec";
+			iommus = <&mdp_smmu 1>;
+		};
+
+		smmu_rot_sec: qcom,smmu_rot_sec_cb {
+			compatible = "qcom,smmu_rot_sec";
+			iommus = <&rot_smmu 1>;
+		};
 	};
 
 	mdss_dsi0: qcom,mdss_dsi_ctrl0@994000 {
