@@ -56,6 +56,8 @@ static struct usb_gsi_debugfs debugfs;
 static void ipa_disconnect_handler(struct gsi_data_port *d_port);
 static int gsi_ctrl_send_notification(struct f_gsi *gsi,
 		enum gsi_ctrl_notify_state);
+static int gsi_alloc_trb_buffer(struct f_gsi *gsi);
+static void gsi_free_trb_buffer(struct f_gsi *gsi);
 
 void post_event(struct gsi_data_port *port, u8 event)
 {
@@ -665,6 +667,9 @@ static void ipa_disconnect_work_handler(struct gsi_data_port *d_port)
 
 	if (gsi->d_port.out_ep)
 		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_FREE_TRBS);
+
+	/* free buffers allocated with each TRB */
+	gsi_free_trb_buffer(gsi);
 }
 
 static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
@@ -738,6 +743,7 @@ static void ipa_work_handler(struct work_struct *w)
 	struct usb_gadget *gadget = d_port->gadget;
 	struct device *dev;
 	struct device *gad_dev;
+	struct f_gsi *gsi;
 
 	event = read_event(d_port);
 
@@ -757,6 +763,8 @@ static void ipa_work_handler(struct work_struct *w)
 		return;
 	}
 
+	gsi = d_port_to_gsi(d_port);
+
 	switch (d_port->sm_state) {
 	case STATE_UNINITIALIZED:
 		break;
@@ -765,28 +773,16 @@ static void ipa_work_handler(struct work_struct *w)
 			usb_gadget_autopm_get(d_port->gadget);
 			log_event_dbg("%s: get = %d", __func__,
 				atomic_read(&gad_dev->power.usage_count));
+			/* allocate buffers used with each TRB */
+			ret = gsi_alloc_trb_buffer(gsi);
+			if (ret) {
+				log_event_err("%s: gsi_alloc_trb_failed\n",
+								__func__);
+				break;
+			}
 			ipa_connect_channels(d_port);
 			d_port->sm_state = STATE_CONNECT_IN_PROGRESS;
 			log_event_dbg("%s: ST_INIT_EVT_CONN_IN_PROG",
-					__func__);
-		} else if (event == EVT_HOST_READY) {
-			/*
-			 * When in a composition such as RNDIS + ADB,
-			 * RNDIS host sends a GEN_CURRENT_PACKET_FILTER msg
-			 * to enable/disable flow control eg. during RNDIS
-			 * adaptor disable/enable from device manager.
-			 * In the case of the msg to disable flow control,
-			 * connect IPA channels and enable data path.
-			 * EVT_HOST_READY is posted to the state machine
-			 * in the handler for this msg.
-			 */
-			usb_gadget_autopm_get(d_port->gadget);
-			log_event_dbg("%s: get = %d", __func__,
-				atomic_read(&gad_dev->power.usage_count));
-			ipa_connect_channels(d_port);
-			ipa_data_path_enable(d_port);
-			d_port->sm_state = STATE_CONNECTED;
-			log_event_dbg("%s: ST_INIT_EVT_HOST_READY",
 					__func__);
 		}
 		break;
@@ -1956,6 +1952,92 @@ static int gsi_get_alt(struct usb_function *f, unsigned intf)
 	return -EINVAL;
 }
 
+static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
+{
+	u32 len_in = 0, len_out = 0;
+	int ret = 0;
+
+	log_event_dbg("allocate trb's buffer\n");
+
+	if (gsi->d_port.in_ep && !gsi->d_port.in_request.buf_base_addr) {
+		log_event_dbg("IN: num_bufs:=%zu, buf_len=%zu\n",
+			gsi->d_port.in_request.num_bufs,
+			gsi->d_port.in_request.buf_len);
+
+		len_in = gsi->d_port.in_request.buf_len *
+				gsi->d_port.in_request.num_bufs;
+		gsi->d_port.in_request.buf_base_addr =
+			dma_zalloc_coherent(&gsi->d_port.gadget->dev, len_in,
+				&gsi->d_port.in_request.dma, GFP_KERNEL);
+		if (!gsi->d_port.in_request.buf_base_addr) {
+			dev_err(&gsi->d_port.gadget->dev,
+					"IN buf_base_addr allocate failed %s\n",
+					gsi->function.name);
+			ret = -ENOMEM;
+			goto fail1;
+		}
+	}
+
+	if (gsi->d_port.out_ep && !gsi->d_port.out_request.buf_base_addr) {
+		log_event_dbg("OUT: num_bufs:=%zu, buf_len=%zu\n",
+			gsi->d_port.out_request.num_bufs,
+			gsi->d_port.out_request.buf_len);
+
+		len_out = gsi->d_port.out_request.buf_len *
+				gsi->d_port.out_request.num_bufs;
+		gsi->d_port.out_request.buf_base_addr =
+			dma_zalloc_coherent(&gsi->d_port.gadget->dev, len_out,
+				&gsi->d_port.out_request.dma, GFP_KERNEL);
+		if (!gsi->d_port.out_request.buf_base_addr) {
+			dev_err(&gsi->d_port.gadget->dev,
+					"OUT buf_base_addr allocate failed %s\n",
+					gsi->function.name);
+			ret = -ENOMEM;
+			goto fail;
+		}
+	}
+
+	log_event_dbg("finished allocating trb's buffer\n");
+	return ret;
+
+fail:
+	if (len_in && gsi->d_port.in_request.buf_base_addr) {
+		dma_free_coherent(&gsi->d_port.gadget->dev, len_in,
+				gsi->d_port.in_request.buf_base_addr,
+				gsi->d_port.in_request.dma);
+		gsi->d_port.in_request.buf_base_addr = NULL;
+	}
+fail1:
+	return ret;
+}
+
+static void gsi_free_trb_buffer(struct f_gsi *gsi)
+{
+	u32 len;
+
+	log_event_dbg("freeing trb's buffer\n");
+
+	if (gsi->d_port.out_ep &&
+			gsi->d_port.out_request.buf_base_addr) {
+		len = gsi->d_port.out_request.buf_len *
+			gsi->d_port.out_request.num_bufs;
+		dma_free_coherent(&gsi->d_port.gadget->dev, len,
+			gsi->d_port.out_request.buf_base_addr,
+			gsi->d_port.out_request.dma);
+		gsi->d_port.out_request.buf_base_addr = NULL;
+	}
+
+	if (gsi->d_port.in_ep &&
+			gsi->d_port.in_request.buf_base_addr) {
+		len = gsi->d_port.in_request.buf_len *
+			gsi->d_port.in_request.num_bufs;
+		dma_free_coherent(&gsi->d_port.gadget->dev, len,
+			gsi->d_port.in_request.buf_base_addr,
+			gsi->d_port.in_request.dma);
+		gsi->d_port.in_request.buf_base_addr = NULL;
+	}
+}
+
 static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_gsi	 *gsi = func_to_gsi(f);
@@ -2072,14 +2154,14 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			if (gsi->prot_id == IPA_USB_ECM)
 				gsi->d_port.cdc_filter = DEFAULT_FILTER;
 
+			post_event(&gsi->d_port, EVT_CONNECT_IN_PROGRESS);
 			/*
 			 * For RNDIS the event is posted from the flow control
 			 * handler which is invoked when the host sends the
 			 * GEN_CURRENT_PACKET_FILTER message.
 			 */
 			if (gsi->prot_id != IPA_USB_RNDIS)
-				post_event(&gsi->d_port,
-						EVT_CONNECT_IN_PROGRESS);
+				post_event(&gsi->d_port, EVT_HOST_READY);
 			queue_work(gsi->d_port.ipa_usb_wq,
 					&gsi->d_port.usb_ipa_w);
 		}
@@ -2309,7 +2391,6 @@ static int gsi_update_function_bind_params(struct f_gsi *gsi,
 	struct usb_ep *ep;
 	struct usb_cdc_notification *event;
 	struct usb_function *f = &gsi->function;
-	u32 len = 0;
 	int status;
 
 	/* maybe allocate device-global string IDs */
@@ -2429,37 +2510,10 @@ skip_string_id_alloc:
 
 	gsi->d_port.in_request.buf_len = info->in_req_buf_len;
 	gsi->d_port.in_request.num_bufs = info->in_req_num_buf;
-	len = gsi->d_port.in_request.buf_len * gsi->d_port.in_request.num_bufs;
-	dev_dbg(&cdev->gadget->dev, "%zu %zu\n", gsi->d_port.in_request.buf_len,
-			gsi->d_port.in_request.num_bufs);
-	gsi->d_port.in_request.buf_base_addr =
-		dma_zalloc_coherent(&cdev->gadget->dev, len,
-				&gsi->d_port.in_request.dma, GFP_KERNEL);
-	if (!gsi->d_port.in_request.buf_base_addr) {
-		dev_err(&cdev->gadget->dev,
-				"IN buf_base_addr allocate failed %s\n",
-				gsi->function.name);
-		goto fail;
-	}
 
 	if (gsi->d_port.out_ep) {
 		gsi->d_port.out_request.buf_len = info->out_req_buf_len;
 		gsi->d_port.out_request.num_bufs = info->out_req_num_buf;
-		len =
-		gsi->d_port.out_request.buf_len *
-			gsi->d_port.out_request.num_bufs;
-		dev_dbg(&cdev->gadget->dev, "%zu %zu\n",
-				gsi->d_port.out_request.buf_len,
-				gsi->d_port.out_request.num_bufs);
-		gsi->d_port.out_request.buf_base_addr =
-			dma_zalloc_coherent(&cdev->gadget->dev, len,
-				&gsi->d_port.out_request.dma, GFP_KERNEL);
-		if (!gsi->d_port.out_request.buf_base_addr) {
-			dev_err(&cdev->gadget->dev,
-				"OUT buf_base_addr allocate failed %s\n",
-					gsi->function.name);
-			goto fail;
-		}
 	}
 
 	/* Initialize event queue */
@@ -2530,14 +2584,6 @@ fail:
 		gsi->d_port.out_ep->driver_data = NULL;
 	if (gsi->d_port.in_ep && gsi->d_port.in_ep->desc)
 		gsi->d_port.in_ep->driver_data = NULL;
-	if (len && gsi->d_port.in_request.buf_base_addr)
-		dma_free_coherent(&cdev->gadget->dev, len,
-			gsi->d_port.in_request.buf_base_addr,
-			gsi->d_port.in_request.dma);
-	if (len && gsi->d_port.out_request.buf_base_addr)
-		dma_free_coherent(&cdev->gadget->dev, len,
-			gsi->d_port.out_request.buf_base_addr,
-			gsi->d_port.out_request.dma);
 	log_event_err("%s: bind failed for %s", __func__, f->name);
 	return -ENOMEM;
 }
@@ -2795,8 +2841,6 @@ fail:
 static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_gsi *gsi = func_to_gsi(f);
-	struct usb_composite_dev *cdev = c->cdev;
-	u32 len;
 
 	/*
 	 * Use drain_workqueue to accomplish below conditions:
@@ -2826,19 +2870,7 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	if (gsi->c_port.notify) {
 		kfree(gsi->c_port.notify_req->buf);
 		usb_ep_free_request(gsi->c_port.notify, gsi->c_port.notify_req);
-
-		len =
-		gsi->d_port.out_request.buf_len *
-			gsi->d_port.out_request.num_bufs;
-		dma_free_coherent(&cdev->gadget->dev, len,
-			gsi->d_port.out_request.buf_base_addr,
-			gsi->d_port.out_request.dma);
 	}
-
-	len = gsi->d_port.in_request.buf_len * gsi->d_port.in_request.num_bufs;
-	dma_free_coherent(&cdev->gadget->dev, len,
-		gsi->d_port.in_request.buf_base_addr,
-		gsi->d_port.in_request.dma);
 }
 
 static void ipa_ready_callback(void *user_data)
