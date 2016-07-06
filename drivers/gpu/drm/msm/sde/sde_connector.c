@@ -552,7 +552,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	}
 
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
-			0, ~0, ~0, CONNECTOR_PROP_RETIRE_FENCE);
+			0x0, 0, ~0, ~0, CONNECTOR_PROP_RETIRE_FENCE);
 
 	rc = msm_property_install_get_status(&c_conn->property_info);
 	if (rc) {

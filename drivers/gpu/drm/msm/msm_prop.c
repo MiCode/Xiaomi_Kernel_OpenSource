@@ -73,8 +73,8 @@ void msm_property_destroy(struct msm_property_info *info)
 }
 
 void msm_property_install_range(struct msm_property_info *info,
-		const char *name, uint64_t min, uint64_t max, uint64_t init,
-		uint32_t property_idx)
+		const char *name, int flags, uint64_t min, uint64_t max,
+		uint64_t init, uint32_t property_idx)
 {
 	struct drm_property **prop;
 
@@ -93,7 +93,7 @@ void msm_property_install_range(struct msm_property_info *info,
 		 */
 		if (*prop == 0) {
 			*prop = drm_property_create_range(info->dev,
-					0 /* flags */, name, min, max);
+					flags, name, min, max);
 			if (*prop == 0)
 				DRM_ERROR("create %s property failed\n", name);
 		}
@@ -146,7 +146,7 @@ void msm_property_install_rotation(struct msm_property_info *info,
 }
 
 void msm_property_install_enum(struct msm_property_info *info,
-		const char *name, int is_bitmask,
+		const char *name, int flags, int is_bitmask,
 		const struct drm_prop_enum_list *values, int num_values,
 		uint32_t property_idx)
 {
@@ -170,12 +170,12 @@ void msm_property_install_enum(struct msm_property_info *info,
 			/* 'bitmask' is a special type of 'enum' */
 			if (is_bitmask)
 				*prop = drm_property_create_bitmask(info->dev,
-						DRM_MODE_PROP_BITMASK, name,
-						values, num_values, -1);
+						DRM_MODE_PROP_BITMASK | flags,
+						name, values, num_values, -1);
 			else
 				*prop = drm_property_create_enum(info->dev,
-						DRM_MODE_PROP_ENUM, name,
-						values, num_values);
+						DRM_MODE_PROP_ENUM | flags,
+						name, values, num_values);
 			if (*prop == 0)
 				DRM_ERROR("create %s property failed\n", name);
 		}

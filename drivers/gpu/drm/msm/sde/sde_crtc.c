@@ -1047,11 +1047,11 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc)
 	/* range properties */
 	msm_property_install_range(&sde_crtc->property_info,
 			"input_fence_timeout",
-			0, ~0, SDE_CRTC_INPUT_FENCE_TIMEOUT,
+			0x0, 0, ~0, SDE_CRTC_INPUT_FENCE_TIMEOUT,
 			CRTC_PROP_INPUT_FENCE_TIMEOUT);
 	msm_property_install_range(&sde_crtc->property_info,
 			"output_fence",
-			0, ~0, ~0,
+			0x0, 0, ~0, ~0,
 			CRTC_PROP_OUTPUT_FENCE);
 }
 

@@ -1136,21 +1136,21 @@ static void _sde_plane_install_properties(struct drm_plane *plane)
 	}
 
 	/* range properties */
-	msm_property_install_range(&psde->property_info, "zpos", 0, 255,
+	msm_property_install_range(&psde->property_info, "zpos", 0x0, 0, 255,
 			plane->type == DRM_PLANE_TYPE_PRIMARY ?
 				STAGE_BASE : STAGE0 + drm_plane_index(plane),
 			PLANE_PROP_ZPOS);
 
-	msm_property_install_range(&psde->property_info, "alpha", 0, 255, 255,
-			PLANE_PROP_ALPHA);
+	msm_property_install_range(&psde->property_info, "alpha",
+			0x0, 0, 255, 255, PLANE_PROP_ALPHA);
 
 	if (psde->pipe_hw->ops.setup_solidfill)
 		msm_property_install_range(&psde->property_info, "color_fill",
-				0, 0xFFFFFFFF, 0,
+				0, 0, 0xFFFFFFFF, 0,
 				PLANE_PROP_COLOR_FILL);
 
 	msm_property_install_range(&psde->property_info, "input_fence",
-			0, ~0, ~0,
+			0x0, 0, ~0, ~0,
 			PLANE_PROP_INPUT_FENCE);
 
 	/* standard properties */
@@ -1159,10 +1159,10 @@ static void _sde_plane_install_properties(struct drm_plane *plane)
 			PLANE_PROP_ROTATION);
 
 	/* enum/bitmask properties */
-	msm_property_install_enum(&psde->property_info, "blend_op", 0,
+	msm_property_install_enum(&psde->property_info, "blend_op", 0x0, 0,
 			e_blend_op, ARRAY_SIZE(e_blend_op),
 			PLANE_PROP_BLEND_OP);
-	msm_property_install_enum(&psde->property_info, "src_config", 1,
+	msm_property_install_enum(&psde->property_info, "src_config", 0x0, 1,
 			e_src_config, ARRAY_SIZE(e_src_config),
 			PLANE_PROP_SRC_CONFIG);
 
