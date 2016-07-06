@@ -1238,6 +1238,13 @@ static unsigned long __get_clock_rate_with_bitrate(struct clock_info *clock,
 				break;
 			}
 		}
+
+		/*
+		 * Current bitrate is higher than max supported load.
+		 * Select max frequency to handle this load.
+		 */
+		if (i < 0)
+			supported_clk[j] = table[0].freq;
 	}
 
 	for (i = 0; i < data->num_sessions; i++)
