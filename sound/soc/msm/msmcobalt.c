@@ -572,9 +572,9 @@ static int msm_slim_tx_ch_put(struct snd_kcontrol *kcontrol,
 	if (ch_num < 0)
 		return ch_num;
 
-	slim_rx_cfg[ch_num].channels = ucontrol->value.enumerated.item[0] + 1;
+	slim_tx_cfg[ch_num].channels = ucontrol->value.enumerated.item[0] + 1;
 	pr_debug("%s: msm_slim_[%d]_tx_ch = %d\n", __func__,
-		 ch_num, slim_rx_cfg[ch_num].channels);
+		 ch_num, slim_tx_cfg[ch_num].channels);
 
 	return 1;
 }
