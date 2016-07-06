@@ -1393,6 +1393,13 @@ static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
 			pr_debug("%s: ADSP Audio is ready\n", __func__);
 			adsp_ready = 1;
 			break;
+		} else {
+			/*
+			 * ADSP will be coming up after subsystem restart and
+			 * it might not be fully up when the control reaches
+			 * here. So, wait for 50msec before checking ADSP state
+			 */
+			msleep(50);
 		}
 	} while (time_after(timeout, jiffies));
 
