@@ -242,74 +242,57 @@ struct sde_encoder_phys_wb {
 };
 
 /**
- * sde_encoder_phys_vid_init - Construct a new video mode physical encoder
+ * struct sde_enc_phys_init_params - initialization parameters for phys encs
  * @sde_kms:		Pointer to the sde_kms top level
- * @intf_idx:		Interface index this phys_enc will control
- * @ctl_idx:		Control index this phys_enc requires
- * @split_role:		Role to play in a split-panel configuration
  * @parent:		Pointer to the containing virtual encoder
  * @parent_ops:		Callbacks exposed by the parent to the phys_enc
+ * @split_role:		Role to play in a split-panel configuration
+ * @intf_idx:		Interface index this phys_enc will control
+ * @wb_idx:		Writeback index this phys_enc will control
+ * @pp_idx:		Pingpong index this phys_enc will control
+ * @ctl_idx:		Control path index this phys_enc will use
+ * @cdm_idx:		Chromadown index this phys_enc will use
+ */
+struct sde_enc_phys_init_params {
+	struct sde_kms *sde_kms;
+	struct drm_encoder *parent;
+	struct sde_encoder_virt_ops parent_ops;
+	enum sde_enc_split_role split_role;
+	enum sde_intf intf_idx;
+	enum sde_wb wb_idx;
+	enum sde_pingpong pp_idx;
+	enum sde_ctl ctl_idx;
+	enum sde_cdm cdm_idx;
+};
+
+/**
+ * sde_encoder_phys_vid_init - Construct a new video mode physical encoder
+ * @p:	Pointer to init params structure
  * Return: Error code or newly allocated encoder
  */
 struct sde_encoder_phys *sde_encoder_phys_vid_init(
-		struct sde_kms *sde_kms,
-		enum sde_intf intf_idx,
-		enum sde_ctl ctl_idx,
-		enum sde_enc_split_role split_role,
-		struct drm_encoder *parent,
-		struct sde_encoder_virt_ops parent_ops);
+		struct sde_enc_phys_init_params *p);
 
 /**
  * sde_encoder_phys_cmd_init - Construct a new command mode physical encoder
- * @sde_kms:		Pointer to the sde_kms top level
- * @intf_idx:		Interface index this phys_enc will control
- * @pp_idx:		PingPong index this phys_enc will control
- * @ctl_idx:		Control index this phys_enc requires
- * @split_role:		Role to play in a split-panel configuration
- * @parent:		Pointer to the containing virtual encoder
- * @parent_ops:		Callbacks exposed by the parent to the phys_enc
+ * @p:	Pointer to init params structure
  * Return: Error code or newly allocated encoder
  */
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(
-		struct sde_kms *sde_kms,
-		enum sde_intf intf_idx,
-		enum sde_pingpong pp_idx,
-		enum sde_ctl ctl_idx,
-		enum sde_enc_split_role split_role,
-		struct drm_encoder *parent,
-		struct sde_encoder_virt_ops parent_ops);
+		struct sde_enc_phys_init_params *p);
 
 /**
  * sde_encoder_phys_wb_init - Construct a new writeback physical encoder
- * @sde_kms:		Pointer to the sde_kms top level
- * @wb_idx:		Writeback index this phys_enc will control
- * @ctl_idx:		Control index this phys_enc requires
- * @cdm_idx:		Chromadown index this phys_enc requires
- * @split_role:		Role to play in a split-panel configuration
- * @parent:		Pointer to the containing virtual encoder
- * @parent_ops:		Callbacks exposed by the parent to the phys_enc
- *
+ * @p:	Pointer to init params structure
  * Return: Error code or newly allocated encoder
  */
 #ifdef CONFIG_DRM_SDE_WB
 struct sde_encoder_phys *sde_encoder_phys_wb_init(
-		struct sde_kms *sde_kms,
-		enum sde_wb wb_idx,
-		enum sde_ctl ctl_idx,
-		enum sde_cdm cdm_idx,
-		enum sde_enc_split_role split_role,
-		struct drm_encoder *parent,
-		struct sde_encoder_virt_ops parent_ops);
+		struct sde_enc_phys_init_params *p);
 #else
 static inline
 struct sde_encoder_phys *sde_encoder_phys_wb_init(
-		struct sde_kms *sde_kms,
-		enum sde_wb wb_idx,
-		enum sde_ctl ctl_idx,
-		enum sde_cdm cdm_idx,
-		enum sde_enc_split_role split_role,
-		struct drm_encoder *parent,
-		struct sde_encoder_virt_ops parent_ops)
+		struct sde_enc_phys_init_params *p)
 {
 	return NULL;
 }

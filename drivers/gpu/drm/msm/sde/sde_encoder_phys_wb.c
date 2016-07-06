@@ -886,22 +886,10 @@ static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 
 /**
  * sde_encoder_phys_wb_init - initialize writeback encoder
- * @sde_kms:	Pointer to SDE KMS object
- * @wb_idx:	Writeback index
- * @ctl_idx:	Control index
- * @cdm_idx:	Chroma down index
- * @split_role:	Master/slave mode
- * @parent:	Pointer to virtual encoder
- * @parent_ops:	Pointer to virtual encoder operations
+ * @init:	Pointer to init info structure with initialization params
  */
 struct sde_encoder_phys *sde_encoder_phys_wb_init(
-		struct sde_kms *sde_kms,
-		enum sde_wb wb_idx,
-		enum sde_ctl ctl_idx,
-		enum sde_cdm cdm_idx,
-		enum sde_enc_split_role split_role,
-		struct drm_encoder *parent,
-		struct sde_encoder_virt_ops parent_ops)
+		struct sde_enc_phys_init_params *p)
 {
 	struct sde_encoder_phys *phys_enc;
 	struct sde_encoder_phys_wb *wb_enc;
@@ -921,19 +909,20 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 
 	phys_enc = &wb_enc->base;
 
-	if (sde_kms->vbif[VBIF_NRT]) {
+	if (p->sde_kms->vbif[VBIF_NRT]) {
 		wb_enc->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE] =
-			sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_UNSECURE];
+			p->sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_UNSECURE];
 		wb_enc->mmu_id[SDE_IOMMU_DOMAIN_SECURE] =
-			sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_SECURE];
+			p->sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_SECURE];
 	} else {
 		wb_enc->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE] =
-			sde_kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
+			p->sde_kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
 		wb_enc->mmu_id[SDE_IOMMU_DOMAIN_SECURE] =
-			sde_kms->mmu_id[MSM_SMMU_DOMAIN_SECURE];
+			p->sde_kms->mmu_id[MSM_SMMU_DOMAIN_SECURE];
 	}
 
-	hw_mdp = sde_hw_mdptop_init(MDP_TOP, sde_kms->mmio, sde_kms->catalog);
+	hw_mdp = sde_hw_mdptop_init(MDP_TOP, p->sde_kms->mmio,
+			p->sde_kms->catalog);
 	if (IS_ERR_OR_NULL(hw_mdp)) {
 		ret = PTR_ERR(hw_mdp);
 		SDE_ERROR("failed to init hw_top: %d\n", ret);
@@ -941,15 +930,15 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	}
 	phys_enc->hw_mdptop = hw_mdp;
 
-	if (wb_idx != SDE_NONE) {
+	if (p->wb_idx != SDE_NONE) {
 		struct sde_hw_wb *hw_wb;
 
-		hw_wb = sde_hw_wb_init(wb_idx, sde_kms->mmio,
-				sde_kms->catalog, phys_enc->hw_mdptop);
+		hw_wb = sde_hw_wb_init(p->wb_idx, p->sde_kms->mmio,
+				p->sde_kms->catalog, phys_enc->hw_mdptop);
 		if (IS_ERR_OR_NULL(hw_wb)) {
 			ret = PTR_ERR(hw_wb);
 			SDE_ERROR("failed to init hw_wb%d: %d\n",
-					wb_idx - WB_0, ret);
+					p->wb_idx - WB_0, ret);
 			goto fail_wb_init;
 		}
 		wb_enc->hw_wb = hw_wb;
@@ -959,30 +948,30 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 		goto fail_wb_check;
 	}
 
-	if (cdm_idx != SDE_NONE) {
+	if (p->cdm_idx != SDE_NONE) {
 		struct sde_hw_cdm *hw_cdm;
 
-		SDE_DEBUG("Acquiring CDM %d\n", cdm_idx - CDM_0);
-		hw_cdm = sde_rm_acquire_cdm_path(sde_kms, cdm_idx,
+		SDE_DEBUG("Acquiring CDM %d\n", p->cdm_idx - CDM_0);
+		hw_cdm = sde_rm_acquire_cdm_path(p->sde_kms, p->cdm_idx,
 				phys_enc->hw_mdptop);
 		if (IS_ERR_OR_NULL(hw_cdm)) {
 			ret = PTR_ERR(hw_cdm);
 			SDE_ERROR("failed to init hw_cdm%d: %d\n",
-					cdm_idx - CDM_0, ret);
+					p->cdm_idx - CDM_0, ret);
 			goto fail_cdm_init;
 		}
 		phys_enc->hw_cdm = hw_cdm;
 	}
 
-	if (ctl_idx != SDE_NONE) {
+	if (p->ctl_idx != SDE_NONE) {
 		struct sde_hw_ctl *hw_ctl;
 
-		SDE_DEBUG("Acquiring CTL %d\n", ctl_idx - CTL_0);
-		hw_ctl = sde_rm_acquire_ctl_path(sde_kms, ctl_idx);
+		SDE_DEBUG("Acquiring CTL %d\n", p->ctl_idx - CTL_0);
+		hw_ctl = sde_rm_acquire_ctl_path(p->sde_kms, p->ctl_idx);
 		if (IS_ERR_OR_NULL(hw_ctl)) {
 			ret = PTR_ERR(hw_ctl);
 			SDE_ERROR("failed to init hw_ctl%d: %d\n",
-					ctl_idx - CTL_0, ret);
+					p->ctl_idx - CTL_0, ret);
 			goto fail_ctl_init;
 		}
 		phys_enc->hw_ctl = hw_ctl;
@@ -993,13 +982,13 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	}
 
 	sde_encoder_phys_wb_init_ops(&phys_enc->ops);
-	phys_enc->parent = parent;
-	phys_enc->parent_ops = parent_ops;
-	phys_enc->sde_kms = sde_kms;
-	phys_enc->split_role = split_role;
+	phys_enc->parent = p->parent;
+	phys_enc->parent_ops = p->parent_ops;
+	phys_enc->sde_kms = p->sde_kms;
+	phys_enc->split_role = p->split_role;
 	spin_lock_init(&phys_enc->spin_lock);
 
-	ret = sde_encoder_phys_wb_init_debugfs(phys_enc, sde_kms);
+	ret = sde_encoder_phys_wb_init_debugfs(phys_enc, p->sde_kms);
 	if (ret) {
 		SDE_ERROR("failed to init debugfs %d\n", ret);
 		goto fail_debugfs_init;
@@ -1011,10 +1000,10 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	return phys_enc;
 
 fail_debugfs_init:
-	sde_rm_release_ctl_path(sde_kms, ctl_idx);
+	sde_rm_release_ctl_path(p->sde_kms, p->ctl_idx);
 fail_ctl_init:
 fail_ctl_check:
-	sde_rm_release_cdm_path(sde_kms, cdm_idx);
+	sde_rm_release_cdm_path(p->sde_kms, p->cdm_idx);
 fail_cdm_init:
 	sde_hw_wb_destroy(wb_enc->hw_wb);
 fail_wb_init:

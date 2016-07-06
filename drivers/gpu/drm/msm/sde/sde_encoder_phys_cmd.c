@@ -439,19 +439,13 @@ static void sde_encoder_phys_cmd_init_ops(
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(
-		struct sde_kms *sde_kms,
-		enum sde_intf intf_idx,
-		enum sde_pingpong pp_idx,
-		enum sde_ctl ctl_idx,
-		enum sde_enc_split_role split_role,
-		struct drm_encoder *parent,
-		struct sde_encoder_virt_ops parent_ops)
+		struct sde_enc_phys_init_params *p)
 {
 	struct sde_encoder_phys *phys_enc = NULL;
 	struct sde_encoder_phys_cmd *cmd_enc = NULL;
 	int ret = 0;
 
-	DBG("intf %d, pp %d", intf_idx, pp_idx);
+	DBG("intf %d, pp %d", p->intf_idx, p->pp_idx);
 
 	cmd_enc = kzalloc(sizeof(*cmd_enc), GFP_KERNEL);
 	if (!cmd_enc) {
@@ -460,8 +454,8 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	}
 	phys_enc = &cmd_enc->base;
 
-	phys_enc->hw_mdptop = sde_hw_mdptop_init(MDP_TOP, sde_kms->mmio,
-			sde_kms->catalog);
+	phys_enc->hw_mdptop = sde_hw_mdptop_init(MDP_TOP, p->sde_kms->mmio,
+			p->sde_kms->catalog);
 	if (IS_ERR_OR_NULL(phys_enc->hw_mdptop)) {
 		ret = PTR_ERR(phys_enc->hw_mdptop);
 		phys_enc->hw_mdptop = NULL;
@@ -469,11 +463,11 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 		goto fail_mdptop;
 	}
 
-	cmd_enc->intf_idx = intf_idx;
+	cmd_enc->intf_idx = p->intf_idx;
 
-	phys_enc->hw_ctl = sde_rm_acquire_ctl_path(sde_kms, ctl_idx);
+	phys_enc->hw_ctl = sde_rm_acquire_ctl_path(p->sde_kms, p->ctl_idx);
 	if (phys_enc->hw_ctl == ERR_PTR(-ENODEV))
-		phys_enc->hw_ctl = sde_rm_get_ctl_path(sde_kms, ctl_idx);
+		phys_enc->hw_ctl = sde_rm_get_ctl_path(p->sde_kms, p->ctl_idx);
 
 	if (IS_ERR_OR_NULL(phys_enc->hw_ctl)) {
 		ret = PTR_ERR(phys_enc->hw_ctl);
@@ -482,8 +476,8 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 		goto fail_ctl;
 	}
 
-	cmd_enc->hw_pp = sde_hw_pingpong_init(pp_idx, sde_kms->mmio,
-			sde_kms->catalog);
+	cmd_enc->hw_pp = sde_hw_pingpong_init(p->pp_idx, p->sde_kms->mmio,
+			p->sde_kms->catalog);
 	if (IS_ERR_OR_NULL(cmd_enc->hw_pp)) {
 		ret = PTR_ERR(cmd_enc->hw_pp);
 		cmd_enc->hw_pp = NULL;
@@ -492,10 +486,10 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	}
 
 	sde_encoder_phys_cmd_init_ops(&phys_enc->ops);
-	phys_enc->parent = parent;
-	phys_enc->parent_ops = parent_ops;
-	phys_enc->sde_kms = sde_kms;
-	phys_enc->split_role = split_role;
+	phys_enc->parent = p->parent;
+	phys_enc->parent_ops = p->parent_ops;
+	phys_enc->sde_kms = p->sde_kms;
+	phys_enc->split_role = p->split_role;
 	spin_lock_init(&phys_enc->spin_lock);
 	phys_enc->mode_3d = BLEND_3D_NONE;
 	cmd_enc->stream_sel = 0;
