@@ -308,15 +308,15 @@ int sde_wb_connector_post_init(struct drm_connector *connector,
 	 * Add extra connector properties
 	 */
 	msm_property_install_range(&c_conn->property_info, "FB_ID",
-			0, ~0, ~0, CONNECTOR_PROP_OUT_FB);
+			0x0, 0, ~0, ~0, CONNECTOR_PROP_OUT_FB);
 	msm_property_install_range(&c_conn->property_info, "DST_X",
-			0, UINT_MAX, 0, CONNECTOR_PROP_DST_X);
+			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_X);
 	msm_property_install_range(&c_conn->property_info, "DST_Y",
-			0, UINT_MAX, 0, CONNECTOR_PROP_DST_Y);
+			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_Y);
 	msm_property_install_range(&c_conn->property_info, "DST_W",
-			0, UINT_MAX, 0, CONNECTOR_PROP_DST_W);
+			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_W);
 	msm_property_install_range(&c_conn->property_info, "DST_H",
-			0, UINT_MAX, 0, CONNECTOR_PROP_DST_H);
+			0x0, 0, UINT_MAX, 0, CONNECTOR_PROP_DST_H);
 
 	/*
 	 * Populate info buffer
