@@ -645,6 +645,7 @@ void mdss_panel_info_from_timing(struct mdss_panel_timing *pt,
 	pinfo->fbc = pt->fbc;
 	pinfo->compression_mode = pt->compression_mode;
 
+	pinfo->roi_alignment = pt->roi_alignment;
 	pinfo->te = pt->te;
 
 	/* override te parameters if panel is in sw te mode */

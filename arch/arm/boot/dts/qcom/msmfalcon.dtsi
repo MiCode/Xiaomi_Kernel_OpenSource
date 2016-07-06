@@ -11,7 +11,9 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/msm-clocks-cobalt.h>
+#include <dt-bindings/clock/qcom,gcc-msmfalcon.h>
+#include <dt-bindings/clock/qcom,gpu-msmfalcon.h>
+#include <dt-bindings/clock/qcom,mmcc-msmfalcon.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
@@ -159,13 +161,18 @@
 		clock-frequency = <19200000>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps_4k";
+		qcom,pipe-attr-ee;
+	};
+
 	uartblsp2dm1: serial@0c1b0000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0xc1b0000 0x1000>;
 		interrupts = <0 114 0>;
 		status = "disabled";
-		clocks = <&clock_gcc clk_gcc_blsp2_uart2_apps_clk>,
-			 <&clock_gcc clk_gcc_blsp2_ahb_clk>;
+		clocks = <&clock_gcc GCC_BLSP2_UART2_APPS_CLK>,
+			 <&clock_gcc GCC_BLSP2_AHB_CLK>;
 		clock-names = "core", "iface";
 	};
 

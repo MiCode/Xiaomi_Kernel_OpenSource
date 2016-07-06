@@ -136,8 +136,13 @@
 /* The SPSS RAM size is 256 KB so SP App must fit into it */
 #define SPCOM_MAX_APP_SIZE	SZ_256K
 
-/* ACK timeout from remote side for TX data */
-#define TX_DONE_TIMEOUT_MSEC	100
+/*
+ * ACK timeout from remote side for TX data.
+ * Normally, it takes few msec for SPSS to responde with ACK for TX data.
+ * However, due to SPSS HW issue, the SPSS might disable interrupts
+ * for a very long time.
+ */
+#define TX_DONE_TIMEOUT_MSEC	5000
 
 /*
  * Initial transaction id, use non-zero nonce for debug.

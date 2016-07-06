@@ -4543,14 +4543,14 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 		return;
 
 	/* Dynamic OT setting done only for rotator and WFD */
-	if (!((params->is_rot && params->is_yuv) || params->is_wb))
+	if (!((params->is_rot && params->is_yuv) || params->is_wfd))
 		return;
 
 	res = params->width * params->height;
 
 	pr_debug("w:%d h:%d rot:%d yuv:%d wb:%d res:%d fps:%d\n",
 		params->width, params->height, params->is_rot,
-		params->is_yuv, params->is_wb, res, params->frame_rate);
+		params->is_yuv, params->is_wfd, res, params->frame_rate);
 
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_114:

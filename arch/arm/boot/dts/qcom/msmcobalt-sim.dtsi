@@ -114,3 +114,11 @@
 &pmicobalt_charger {
 	qcom,suspend-input;
 };
+
+&tsens0 {
+	status = "disabled";
+};
+
+&tsens1 {
+	status = "disabled";
+};

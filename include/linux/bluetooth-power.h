@@ -44,6 +44,15 @@ struct bt_power_vreg_data {
 	bool is_enabled;
 };
 
+struct bt_power_clk_data {
+	/* clock regulator handle */
+	struct clk *clk;
+	/* clock name */
+	const char *name;
+	/* is this clock enabled? */
+	bool is_enabled;
+};
+
 /*
  * Platform data for the bluetooth power driver.
  */
@@ -67,6 +76,8 @@ struct bluetooth_power_platform_data {
 	 * shares a common gpio to bring chip out of reset.
 	 */
 	struct bt_power_vreg_data *bt_chip_pwd;
+	/* bluetooth reference clock */
+	struct bt_power_clk_data *bt_chip_clk;
 	/* Optional: Bluetooth power setup function */
 	int (*bt_power_setup)(int);
 };

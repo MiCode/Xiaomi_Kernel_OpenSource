@@ -3358,8 +3358,11 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 	if (cwb->priv_data == NULL) {
 		pr_err("fail to get writeback context\n");
 		rc = -ENOMEM;
-		goto cwb_setup_done;
+		goto cwb_setup_fail;
 	}
+
+	/* reset wb to null to avoid deferencing in ctl free */
+	ctl->wb = NULL;
 
 	mutex_lock(&cwb->queue_lock);
 	cwb_data = list_first_entry_or_null(&cwb->data_queue,
@@ -3368,13 +3371,13 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 	if (cwb_data == NULL) {
 		pr_err("no output buffer for cwb\n");
 		rc = -ENOMEM;
-		goto cwb_setup_done;
+		goto cwb_setup_fail;
 	}
 
 	rc = mdss_mdp_data_map(&cwb_data->data, true, DMA_FROM_DEVICE);
 	if (rc) {
 		pr_err("fail to acquire CWB output buffer\n");
-		goto cwb_setup_done;
+		goto cwb_setup_fail;
 	}
 
 	memset(&wb_args, 0, sizeof(wb_args));
@@ -3383,7 +3386,7 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 	rc =  mdss_mdp_writeback_prepare_cwb(ctl, &wb_args);
 	if (rc) {
 		pr_err("failed to writeback prepare cwb\n");
-		goto cwb_setup_done;
+		goto cwb_setup_fail;
 	}
 
 	/* Select MEM_SEL to WB */
@@ -3409,11 +3412,13 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 			sctl->opmode;
 		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_TOP, opmode);
 	}
+	goto cwb_setup_done;
+
+cwb_setup_fail:
+	atomic_add_unless(&mdp5_data->wb_busy, -1, 0);
 
 cwb_setup_done:
 	cwb->valid = 0;
-	atomic_add_unless(&mdp5_data->wb_busy, -1, 0);
-
 	return 0;
 }
 
@@ -3616,10 +3621,28 @@ skip_intf_reconfig:
 		ctl->width  = get_panel_xres(&pdata->panel_info);
 		ctl->height = get_panel_yres(&pdata->panel_info);
 	}
-	if (ctl->mixer_left) {
-		ctl->mixer_left->width = ctl->width;
-		ctl->mixer_left->height = ctl->height;
+
+	if (ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) {
+		if (ctl->mixer_left) {
+			ctl->mixer_left->width = ctl->width / 2;
+			ctl->mixer_left->height = ctl->height;
+		}
+		if (ctl->mixer_right) {
+			ctl->mixer_right->width = ctl->width / 2;
+			ctl->mixer_right->height = ctl->height;
+		}
+	} else {
+		/*
+		 * Handles MDP_SPLIT_MODE_NONE, MDP_DUAL_LM_DUAL_DISPLAY and
+		 * MDP_PINGPONG_SPLIT case.
+		 */
+		if (ctl->mixer_left) {
+			ctl->mixer_left->width = ctl->width;
+			ctl->mixer_left->height = ctl->height;
+		}
 	}
+	ctl->roi = (struct mdss_rect) {0, 0, ctl->width, ctl->height};
+
 	ctl->border_x_off = pdata->panel_info.lcdc.border_left;
 	ctl->border_y_off = pdata->panel_info.lcdc.border_top;
 
@@ -3955,7 +3978,13 @@ static void mdss_mdp_ctl_restore_sub(struct mdss_mdp_ctl *ctl)
 		mdss_mdp_pp_resume(ctl->mfd);
 
 		if (is_dsc_compression(&ctl->panel_data->panel_info)) {
-			mdss_mdp_ctl_dsc_setup(ctl,
+			/*
+			 * Avoid redundant call to dsc_setup when mode switch
+			 * is in progress. During the switch, dsc_setup is
+			 * handled in mdss_mode_switch() function.
+			 */
+			if (ctl->pending_mode_switch != SWITCH_RESOLUTION)
+				mdss_mdp_ctl_dsc_setup(ctl,
 					&ctl->panel_data->panel_info);
 		} else if (ctl->panel_data->panel_info.compression_mode ==
 				COMPRESSION_FBC) {

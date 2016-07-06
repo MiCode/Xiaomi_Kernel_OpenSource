@@ -234,6 +234,9 @@ static int __init parse_dt_topology(void)
 	unsigned long capacity = 0;
 	int cpu = 0, ret = 0;
 
+	__cpu_capacity = kcalloc(nr_cpu_ids, sizeof(*__cpu_capacity),
+				 GFP_NOWAIT);
+
 	cn = of_find_node_by_path("/cpus");
 	if (!cn) {
 		pr_err("No CPU information found in DT\n");
@@ -259,9 +262,6 @@ static int __init parse_dt_topology(void)
 	for_each_possible_cpu(cpu)
 		if (cpu_topology[cpu].cluster_id == -1)
 			ret = -EINVAL;
-
-	__cpu_capacity = kcalloc(nr_cpu_ids, sizeof(*__cpu_capacity),
-				 GFP_NOWAIT);
 
 	for_each_possible_cpu(cpu) {
 		const u32 *rate;
@@ -456,6 +456,30 @@ static struct sched_domain_topology_level arm_topology[] = {
 	{ NULL, },
 };
 
+static void __init reset_cpu_topology(void)
+{
+	unsigned int cpu;
+
+	for_each_possible_cpu(cpu) {
+		struct cputopo_arm *cpu_topo = &cpu_topology[cpu];
+
+		cpu_topo->thread_id = -1;
+		cpu_topo->core_id = -1;
+		cpu_topo->cluster_id = -1;
+
+		cpumask_clear(&cpu_topo->core_sibling);
+		cpumask_clear(&cpu_topo->thread_sibling);
+	}
+}
+
+static void __init reset_cpu_capacity(void)
+{
+	unsigned int cpu;
+
+	for_each_possible_cpu(cpu)
+		set_capacity_scale(cpu, SCHED_CAPACITY_SCALE);
+}
+
 /*
  * init_cpu_topology is called at boot when only one cpu is running
  * which prevent simultaneous write access to cpu_topology array
@@ -465,29 +489,13 @@ void __init init_cpu_topology(void)
 	unsigned int cpu;
 
 	/* init core mask and capacity */
-	for_each_possible_cpu(cpu) {
-		struct cputopo_arm *cpu_topo = &(cpu_topology[cpu]);
-
-		cpu_topo->thread_id = -1;
-		cpu_topo->core_id =  -1;
-		cpu_topo->cluster_id = -1;
-		cpumask_clear(&cpu_topo->core_sibling);
-		cpumask_clear(&cpu_topo->thread_sibling);
-
-		set_capacity_scale(cpu, SCHED_CAPACITY_SCALE);
-	}
+	reset_cpu_topology();
+	reset_cpu_capacity();
 	smp_wmb();
 
 	if (parse_dt_topology()) {
-		struct cputopo_arm *cpu_topo = &(cpu_topology[cpu]);
-
-		cpu_topo->thread_id = -1;
-		cpu_topo->core_id =  -1;
-		cpu_topo->cluster_id = -1;
-		cpumask_clear(&cpu_topo->core_sibling);
-		cpumask_clear(&cpu_topo->thread_sibling);
-
-		set_capacity_scale(cpu, SCHED_CAPACITY_SCALE);
+		reset_cpu_topology();
+		reset_cpu_capacity();
 	}
 
 	for_each_possible_cpu(cpu)

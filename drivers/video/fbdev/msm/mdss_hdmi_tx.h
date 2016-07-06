@@ -94,7 +94,8 @@ struct hdmi_tx_ctrl {
 	u32 panel_power_on;
 	u32 panel_suspend;
 	u32 vic;
-	u32 hdmi_tx_ver;
+	u32 hdmi_tx_version;
+	u32 hdmi_tx_major_version;
 	u32 max_pclk_khz;
 	u32 hpd_state;
 	u32 hpd_off_pending;

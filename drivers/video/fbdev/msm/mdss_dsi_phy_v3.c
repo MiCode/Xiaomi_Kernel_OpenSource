@@ -160,6 +160,25 @@ static void mdss_dsi_phy_v3_config_timings(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 }
 
+static void mdss_dsi_phy_v3_config_lpcdrx(struct mdss_dsi_ctrl_pdata *ctrl,
+	bool enable)
+{
+	struct mdss_dsi_phy_ctrl *pd =
+		&(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
+	enum dsi_physical_lane_id phy_lane_0 =
+		mdss_dsi_logical_to_physical_lane(ctrl, DSI_LOGICAL_LANE_0);
+
+	/*
+	 * LPRX and CDRX need to enabled only for physical data lane
+	 * corresponding to the logical data lane 0
+	 */
+	if (enable)
+		DSI_PHY_W32(ctrl->phy_io.base, LNX_LPRX_CTRL(phy_lane_0),
+			    pd->strength[(phy_lane_0 * 2) + 1]);
+	else
+		DSI_PHY_W32(ctrl->phy_io.base, LNX_LPRX_CTRL(phy_lane_0), 0);
+}
+
 static void mdss_dsi_phy_v3_config_lane_settings(
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -172,11 +191,17 @@ static void mdss_dsi_phy_v3_config_lane_settings(
 	for (i = 0; i < 5; i++) {
 		DSI_PHY_W32(ctrl->phy_io.base, LNX_LPTX_STR_CTRL(i),
 			    pd->strength[(i * 2)]);
-		DSI_PHY_W32(ctrl->phy_io.base, LNX_LPRX_CTRL(i),
-			    pd->strength[(i * 2) + 1]);
+		/*
+		 * Disable LPRX and CDRX for all lanes. And later on, it will
+		 * be only enabled for the physical data lane corresponding
+		 * to the logical data lane 0
+		 */
+		DSI_PHY_W32(ctrl->phy_io.base, LNX_LPRX_CTRL(i), 0);
+
 		DSI_PHY_W32(ctrl->phy_io.base, LNX_HSTX_STR_CTRL(i), 0x88);
 		DSI_PHY_W32(ctrl->phy_io.base, LNX_PIN_SWAP(i), 0x0);
 	}
+	mdss_dsi_phy_v3_config_lpcdrx(ctrl, true);
 
 	/* Other settings */
 	for (i = 0; i < 5; i++) {
@@ -259,6 +284,12 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 			active_lanes);
 		usleep_range(100, 110);
 
+		/* Disable LPRX and CDRX */
+		mdss_dsi_phy_v3_config_lpcdrx(ctrl, false);
+
+		/* Disable lane LDOs */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_VREG_CTRL, 0x19);
+
 		/* Check to make sure that all active data lanes are in ULPS */
 		lane_status = DSI_PHY_R32(ctrl->phy_io.base, CMN_LANE_STATUS0);
 		if (lane_status & active_lanes) {
@@ -268,6 +299,12 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 			goto error;
 		}
 	} else {
+		/* Enable lane LDOs */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_VREG_CTRL, 0x59);
+
+		/* Enable LPRX and CDRX */
+		mdss_dsi_phy_v3_config_lpcdrx(ctrl, true);
+
 		/*
 		 * ULPS Exit Request
 		 * Hardware requirement is to wait for at least 1ms
@@ -275,6 +312,12 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL2,
 			active_lanes);
 		usleep_range(1000, 1010);
+
+		/* Clear ULPS request flags on all lanes */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL1, 0);
+
+		/* Clear ULPS exit flags on all lanes */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL2, 0);
 
 		/*
 		 * Sometimes when exiting ULPS, it is possible that some DSI
@@ -286,8 +329,6 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 			active_lanes);
 
 		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL3, 0);
-		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL2, 0);
-		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL1, 0);
 
 		lane_status = DSI_PHY_R32(ctrl->phy_io.base, CMN_LANE_STATUS0);
 	}
@@ -306,6 +347,7 @@ int mdss_dsi_phy_v3_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (mdss_dsi_phy_v3_is_pll_on(ctrl))
 		pr_warn("Disabling phy with PLL still enabled\n");
 
+	mdss_dsi_phy_v3_config_lpcdrx(ctrl, false);
 	mdss_dsi_phy_v3_lanes_disable(ctrl);
 
 	/* Turn off all PHY blocks */
