@@ -124,6 +124,7 @@ enum clk_osm_trace_packet_id {
 #define SPM_CC_CTRL 0x1028
 #define SPM_CC_HYSTERESIS 0x101C
 #define SPM_CORE_RET_MAPPING 0x1024
+#define CFG_DELAY_VAL_3 0x12C
 
 #define LLM_FREQ_VOTE_HYSTERESIS 0x102C
 #define LLM_VOLT_VOTE_HYSTERESIS 0x1030
@@ -229,48 +230,45 @@ static u32 seq_instr[] = {
 	0x700a500b, 0x5001aefc, 0xaefd7000, 0x390938c8, 0xcb44c833,
 	0xce56cd54, 0x341336e0, 0xa4baadba, 0xb480a493, 0x10004000,
 	0x70005001, 0x1000500c, 0xc792c5a1, 0x501625e1, 0x3da335a2,
-	0x50170006, 0x50150006, 0xafb9c633, 0xacb31000, 0xacb41000,
-	0x1000c422, 0x500baefc, 0x5001700a, 0xaefd7000, 0x700b5010,
-	0x700c5012, 0xadb9ad41, 0x500c181b, 0x5011500f, 0x181b3413,
-	0x853984b9, 0x0003bd80, 0xa0012ba4, 0x72050006, 0x500e1000,
-	0x500c1000, 0x1c011c0a, 0x1c063b18, 0x336c3b6b, 0x10001c07,
-	0x39831c06, 0x500c1c07, 0x1c0a1c02, 0x8ed61000, 0xc8dd0000,
-	0x10003e03, 0x70015002, 0x81031000, 0x70025003, 0x70035004,
-	0x1000a503, 0x84848548, 0x0003b500, 0x3b8423ae, 0x39853b44,
-	0x50038155, 0x40037002, 0x70095005, 0xb1c0a146, 0x238b0003,
-	0x10004005, 0x848b8308, 0x1000850c, 0x848e830d, 0x1000850c,
-	0x3a4c5006, 0x3a8f39cd, 0x40063ad0, 0x50071000, 0x2c127006,
-	0x4007a00f, 0x72050006, 0x700daefc, 0x1000aefd, 0x1c1aa964,
-	0xaefc4007, 0xaefd700d, 0x50071000, 0x1c167006, 0x50125010,
-	0x40072411, 0x700daefc, 0x1000aefd, 0xa821a00f, 0x72050006,
-	0xaefc4007, 0xaefd700d, 0x91ad500c, 0x500f1c15, 0x10005011,
-	0x500c2bd4, 0x0006a00f, 0x10007205, 0xa00fa9d1, 0x0006a821,
-	0xa9d07005, 0x91ad500c, 0x500f1c15, 0x10005011, 0x1c162bce,
-	0x50125010, 0x0006a022, 0xa82a7205, 0x1c1591a6, 0x5011500f,
-	0x5014500c, 0x0006a00f, 0x10007205, 0x501391a4, 0x22172217,
-	0x70075008, 0xa9634008, 0x1c1a0006, 0x70085009, 0x10004009,
-	0x850c848e, 0x0003b1c0, 0x400d2b99, 0x500d1000, 0xabaf1000,
-	0x853184b0, 0x0003bb80, 0x1000239f, 0x0006a037, 0x10007205,
-	0x84c28548, 0x0003bf80, 0x84c12ba7, 0x0003bf80, 0x10002ba6,
-	0x8dc28ec6, 0x25eac6dd, 0x8ccd8c4c, 0x1c008d4e, 0x8dc18ec5,
-	0x25eac6dd, 0x8cca8c49, 0x1c008d4b, 0xc6338dc0, 0x8548182a,
-	0xbf8084c0, 0x2ba80003, 0xbf8084c1, 0x2ba90003, 0x8ec41000,
-	0xc6dd8dc0, 0x8c4c25ea, 0x8d4e8ccd, 0x8ec51c00, 0xc6dd8dc1,
-	0x8c4f25ea, 0x8d518cd0, 0x8dc21c00, 0xaf9bc633, 0x10001000,
-	0xa759a79a, 0x1000a718,
+	0x50170006, 0x50150006, 0x1000c633, 0x1000acb3, 0xc422acb4,
+	0xaefc1000, 0x700a500b, 0x70005001, 0x5010aefd, 0x5012700b,
+	0xad41700c, 0x84e5adb9, 0xb3808566, 0x239b0003, 0x856484e3,
+	0xb9800007, 0x2bad0003, 0xac3aa20b, 0x0003181b, 0x0003bb40,
+	0xa30d239b, 0x500c181b, 0x5011500f, 0x181b3413, 0x853984b9,
+	0x0003bd80, 0xa0012ba4, 0x72050803, 0x500e1000, 0x500c1000,
+	0x1c011c0a, 0x3b181c06, 0x1c073b43, 0x1c061000, 0x1c073983,
+	0x1c02500c, 0x10001c0a, 0x70015002, 0x81031000, 0x70025003,
+	0x70035004, 0x3b441000, 0x81553985, 0x70025003, 0x50054003,
+	0xa1467009, 0x0003b1c0, 0x4005238b, 0x835a1000, 0x855c84db,
+	0x1000a51f, 0x84de835d, 0xa52c855c, 0x50061000, 0x39cd3a4c,
+	0x3ad03a8f, 0x10004006, 0x70065007, 0xa00f2c12, 0x08034007,
+	0xaefc7205, 0xaefd700d, 0xa9641000, 0x40071c1a, 0x700daefc,
+	0x1000aefd, 0x70065007, 0x50101c16, 0x40075012, 0x700daefc,
+	0x2411aefd, 0xa8211000, 0x0803a00f, 0x500c7005, 0x1c1591e0,
+	0x500f5014, 0x10005011, 0x500c2bd4, 0x0803a00f, 0x10007205,
+	0xa00fa9d1, 0x0803a821, 0xa9d07005, 0x91e0500c, 0x500f1c15,
+	0x10005011, 0x1c162bce, 0x50125010, 0xa022a82a, 0x70050803,
+	0x1c1591df, 0x5011500f, 0x5014500c, 0x0803a00f, 0x10007205,
+	0x501391a4, 0x22172217, 0x70075008, 0xa9634008, 0x1c1a0006,
+	0x70085009, 0x10004009, 0x00008ed9, 0x3e05c8dd, 0x1c033604,
+	0xabaf1000, 0x856284e1, 0x0003bb80, 0x1000239f, 0x0803a037,
+	0x10007205, 0x8dc61000, 0x38a71c2a, 0x1c2a8dc4, 0x100038a6,
+	0x1c2a8dc5, 0x8dc73867, 0x38681c2a, 0x8c491000, 0x8d4b8cca,
+	0x10001c00, 0x8ccd8c4c, 0x1c008d4e, 0x8c4f1000, 0x8d518cd0,
+	0x10001c00, 0xa759a79a, 0x1000a718, 0xbf80af9b, 0x00001000,
 };
 
 static u32 seq_br_instr[] = {
-	0x280, 0x208, 0x242, 0xec, 0x108,
-	0x110, 0xcc, 0xd2, 0xa2, 0xb4,
-	0x118, 0xfe, 0x17c, 0x1a0, 0x1a8,
-	0x126, 0x14a, 0x160, 0x13c, 0x9e,
-	0x188, 0x1ca, 0x1c4, 0x1cc, 0x1e0,
-	0x1ee, 0x1f2, 0x32, 0x68, 0x8c,
-	0x82, 0x1f8, 0x3c, 0x44, 0x5e,
-	0x62, 0x200, 0x30, 0x22c, 0x21c,
-	0x256, 0x266, 0x27a, 0xc2, 0xe0,
-	0x0, 0x27e,
+	0x248, 0x20e, 0x21c, 0xf6, 0x112,
+	0x11c, 0xe4, 0xea, 0xc6, 0xd6,
+	0x126, 0x108, 0x184, 0x1a8, 0x1b0,
+	0x134, 0x158, 0x16e, 0x14a, 0xc2,
+	0x190, 0x1d2, 0x1cc, 0x1d4, 0x1e8,
+	0x0, 0x1f6, 0x32, 0x66, 0xb0,
+	0xa6, 0x1fc, 0x3c, 0x44, 0x5c,
+	0x60, 0x204, 0x30, 0x22a, 0x234,
+	0x23e, 0x0, 0x250, 0x0, 0x0, 0x9a,
+	0x20c,
 };
 
 DEFINE_EXT_CLK(xo_ao, NULL);
@@ -1472,55 +1470,77 @@ static void clk_osm_program_apm_regs(struct clk_osm *c)
 	 */
 	clk_osm_write_reg(c, c->apm_mode_ctl, SEQ_REG(2));
 
-	/* Program mode value to switch APM from VDD_APCC to VDD_MX */
-	clk_osm_write_reg(c, APM_MX_MODE, SEQ_REG(22));
-
-	/* Program mode value to switch APM from VDD_MX to VDD_APCC */
-	clk_osm_write_reg(c, APM_APC_MODE, SEQ_REG(25));
-
 	/* Program address of controller status register */
 	clk_osm_write_reg(c, c->apm_ctrl_status, SEQ_REG(3));
 
-	/* Program mask used to determine status of APM power supply switch */
-	clk_osm_write_reg(c, APM_MODE_SWITCH_MASK, SEQ_REG(24));
+	/* Program mode value to switch APM from VDD_APCC to VDD_MX */
+	clk_osm_write_reg(c, APM_MX_MODE, SEQ_REG(77));
 
 	/* Program value used to determine current APM power supply is VDD_MX */
-	clk_osm_write_reg(c, APM_MX_MODE_VAL, SEQ_REG(23));
+	clk_osm_write_reg(c, APM_MX_MODE_VAL, SEQ_REG(78));
+
+	/* Program mask used to determine status of APM power supply switch */
+	clk_osm_write_reg(c, APM_MODE_SWITCH_MASK, SEQ_REG(79));
+
+	/* Program mode value to switch APM from VDD_MX to VDD_APCC */
+	clk_osm_write_reg(c, APM_APC_MODE, SEQ_REG(80));
 
 	/*
 	 * Program value used to determine current APM power supply
 	 * is VDD_APCC
 	 */
-	clk_osm_write_reg(c, APM_APC_MODE_VAL, SEQ_REG(26));
+	clk_osm_write_reg(c, APM_APC_MODE_VAL, SEQ_REG(81));
 }
 
 static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 {
-	int i;
+	int i, curr_level, j = 0;
+	int mem_acc_level_map[MAX_MEM_ACC_LEVELS] = {0, 0, 0};
 
-	if (!c->secure_init)
-		return;
+	curr_level = c->osm_table[0].spare_data;
+	for (i = 0; i < c->num_entries; i++) {
+		if (curr_level == MAX_MEM_ACC_LEVELS)
+			break;
 
-	clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(50),
-			  SEQ_REG(49));
-	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(1), SEQ_REG(50));
-	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(1), SEQ_REG(51));
-	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(2), SEQ_REG(52));
-	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(3), SEQ_REG(53));
-	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(4), SEQ_REG(54));
-	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(0), SEQ_REG(55));
-	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(1), SEQ_REG(56));
-	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(2), SEQ_REG(57));
-	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(3), SEQ_REG(58));
-	clk_osm_write_reg(c, MEM_ACC_APM_READ_MASK, SEQ_REG(59));
+		if (c->osm_table[i].spare_data != curr_level) {
+			mem_acc_level_map[j++] = i - 1;
+			curr_level = c->osm_table[i].spare_data;
+		}
+	}
 
-	for (i = 0; i < MAX_MEM_ACC_VALUES; i++)
-		clk_osm_write_reg(c, c->apcs_mem_acc_val[i],
-				  MEM_ACC_SEQ_REG_VAL_START(i));
+	if (c->secure_init) {
+		clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(1), SEQ_REG(51));
+		clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(2), SEQ_REG(52));
+		clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(3), SEQ_REG(53));
+		clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(4), SEQ_REG(54));
+		clk_osm_write_reg(c, MEM_ACC_APM_READ_MASK, SEQ_REG(59));
+		clk_osm_write_reg(c, mem_acc_level_map[0], SEQ_REG(55));
+		clk_osm_write_reg(c, mem_acc_level_map[0] + 1, SEQ_REG(56));
+		clk_osm_write_reg(c, mem_acc_level_map[1], SEQ_REG(57));
+		clk_osm_write_reg(c, mem_acc_level_map[1] + 1, SEQ_REG(58));
+		clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(28),
+				  SEQ_REG(49));
 
-	for (i = 0; i < MAX_MEM_ACC_VAL_PER_LEVEL; i++)
-		clk_osm_write_reg(c, c->apcs_mem_acc_cfg[i],
-				  MEM_ACC_SEQ_REG_CFG_START(i));
+		for (i = 0; i < MAX_MEM_ACC_VALUES; i++)
+			clk_osm_write_reg(c, c->apcs_mem_acc_val[i],
+					  MEM_ACC_SEQ_REG_VAL_START(i));
+
+		for (i = 0; i < MAX_MEM_ACC_VAL_PER_LEVEL; i++)
+			clk_osm_write_reg(c, c->apcs_mem_acc_cfg[i],
+					  MEM_ACC_SEQ_REG_CFG_START(i));
+	} else {
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(55),
+			     mem_acc_level_map[0]);
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(56),
+			     mem_acc_level_map[0] + 1);
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(57),
+			     mem_acc_level_map[1]);
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(58),
+			     mem_acc_level_map[1] + 1);
+		/* SEQ_REG(49) = SEQ_REG(28) init by TZ */
+	}
+
+	return;
 }
 
 void clk_osm_setup_sequencer(struct clk_osm *c)
@@ -1590,6 +1610,28 @@ static void clk_osm_setup_osm_was(struct clk_osm *c)
 		clk_osm_write_reg(c, PLL_DD_USER_CTL_LO_DISABLE, SEQ_REG(5));
 		clk_osm_write_reg(c, c->cluster_num == 0 ? PLL_DD_D0_USER_CTL_LO
 				  : PLL_DD_D1_USER_CTL_LO, SEQ_REG(21));
+
+		/* PLL lock detect and HMSS AHB clock workaround */
+		clk_osm_write_reg(c, 0x640, CFG_DELAY_VAL_3);
+
+		/* DxFSM workaround */
+		clk_osm_write_reg(c, c->cluster_num == 0 ? 0x17911200 :
+				  0x17811200, SEQ_REG(22));
+		clk_osm_write_reg(c, 0x80800, SEQ_REG(23));
+		clk_osm_write_reg(c, 0x179D1100, SEQ_REG(24));
+		clk_osm_write_reg(c, 0x11f, SEQ_REG(25));
+		clk_osm_write_reg(c, c->cluster_num == 0 ? 0x17912000 :
+				  0x17811290, SEQ_REG(26));
+		clk_osm_write_reg(c, c->cluster_num == 0 ? 0x17911290 :
+				  0x17811290, SEQ_REG(20));
+		clk_osm_write_reg(c, c->cluster_num == 0 ? 0x17811290 :
+				  0x17911290, SEQ_REG(32));
+		clk_osm_write_reg(c, 0x179D4020, SEQ_REG(35));
+		clk_osm_write_reg(c, 0x11f, SEQ_REG(25));
+		clk_osm_write_reg(c, 0xa, SEQ_REG(86));
+		clk_osm_write_reg(c, 0xe, SEQ_REG(87));
+		clk_osm_write_reg(c, 0x00400000, SEQ_REG(88));
+		clk_osm_write_reg(c, 0x00700000, SEQ_REG(89));
 	} else {
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(47), val);
 		val &= ~IGNORE_PLL_LOCK_MASK;
@@ -1751,18 +1793,15 @@ static void clk_osm_do_additional_setup(struct clk_osm *c,
 	/* APM Programming */
 	clk_osm_program_apm_regs(c);
 
-	/* MEM-ACC Programming */
-	clk_osm_program_mem_acc_regs(c);
-
 	/* GFMUX Programming */
 	clk_osm_write_reg(c, c->apcs_cfg_rcgr, SEQ_REG(16));
-	clk_osm_write_reg(c, GPLL_SEL, SEQ_REG(17));
-	clk_osm_write_reg(c, PLL_EARLY_SEL, SEQ_REG(20));
-	clk_osm_write_reg(c, PLL_MAIN_SEL, SEQ_REG(32));
 	clk_osm_write_reg(c, c->apcs_cmd_rcgr, SEQ_REG(33));
 	clk_osm_write_reg(c, RCG_UPDATE, SEQ_REG(34));
-	clk_osm_write_reg(c, RCG_UPDATE_SUCCESS, SEQ_REG(35));
-	clk_osm_write_reg(c, RCG_UPDATE, SEQ_REG(36));
+	clk_osm_write_reg(c, GPLL_SEL, SEQ_REG(17));
+	clk_osm_write_reg(c, PLL_EARLY_SEL, SEQ_REG(82));
+	clk_osm_write_reg(c, PLL_MAIN_SEL, SEQ_REG(83));
+	clk_osm_write_reg(c, RCG_UPDATE_SUCCESS, SEQ_REG(84));
+	clk_osm_write_reg(c, RCG_UPDATE, SEQ_REG(85));
 
 	pr_debug("seq_size: %lu, seqbr_size: %lu\n", ARRAY_SIZE(seq_instr),
 						ARRAY_SIZE(seq_br_instr));
@@ -1781,8 +1820,13 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 	if (c->secure_init) {
 		clk_osm_write_reg(c, c->apm_threshold_vc, SEQ_REG(1));
 		clk_osm_write_reg(c, c->apm_crossover_vc, SEQ_REG(72));
-		clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(74),
+		clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(1),
 				  SEQ_REG(8));
+		clk_osm_write_reg(c, c->apm_threshold_vc,
+				  SEQ_REG(15));
+		clk_osm_write_reg(c, c->apm_threshold_vc != 0 ?
+				  c->apm_threshold_vc - 1 : 0xff,
+				  SEQ_REG(31));
 		clk_osm_write_reg(c, 0x3b | c->apm_threshold_vc << 6,
 				  SEQ_REG(73));
 		clk_osm_write_reg(c, 0x39 | c->apm_threshold_vc << 6,
@@ -1795,6 +1839,12 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 			     c->apm_threshold_vc);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(72),
 			     c->apm_crossover_vc);
+		/* SEQ_REG(8) = address of SEQ_REG(1) init by TZ */
+		clk_osm_write_reg(c, c->apm_threshold_vc,
+				  SEQ_REG(15));
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(31),
+			     c->apm_threshold_vc != 0 ?
+			     c->apm_threshold_vc - 1 : 0xff);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(73),
 			     0x3b | c->apm_threshold_vc << 6);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(76),
@@ -2506,6 +2556,10 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	 */
 	clk_osm_do_additional_setup(&pwrcl_clk, pdev);
 	clk_osm_do_additional_setup(&perfcl_clk, pdev);
+
+	/* MEM-ACC Programming */
+	clk_osm_program_mem_acc_regs(&pwrcl_clk);
+	clk_osm_program_mem_acc_regs(&perfcl_clk);
 
 	/* Program APM crossover corners */
 	clk_osm_apm_vc_setup(&pwrcl_clk);
