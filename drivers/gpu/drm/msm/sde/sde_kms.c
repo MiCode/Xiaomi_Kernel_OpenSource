@@ -540,6 +540,11 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	struct msm_kms *msm_kms;
 	int ret = 0;
 
+	if (!dev || !dev->dev_private) {
+		DRM_ERROR("invalid device\n");
+		goto fail;
+	}
+
 	sde_kms = sde_hw_setup(pdev);
 	if (IS_ERR(sde_kms)) {
 		ret = PTR_ERR(sde_kms);
@@ -548,6 +553,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 
 	sde_kms->dev = dev;
 	msm_kms = &sde_kms->base;
+	priv->kms = msm_kms;
 
 	/*
 	 * Currently hardcoding to MDSS version 1.7.0 (8996)
