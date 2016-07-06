@@ -611,11 +611,13 @@ struct adreno_vbif_platform {
  * struct adreno_vbif_snapshot_registers - Holds an array of vbif registers
  * listed for snapshot dump for a particular core
  * @version: vbif version
+ * @mask: vbif revision mask
  * @registers: vbif registers listed for snapshot dump
  * @count: count of vbif registers listed for snapshot
  */
 struct adreno_vbif_snapshot_registers {
 	const unsigned int version;
+	const unsigned int mask;
 	const unsigned int *registers;
 	const int count;
 };
