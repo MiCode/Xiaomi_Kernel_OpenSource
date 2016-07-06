@@ -575,14 +575,6 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 	if (rot->irq_num >= 0)
 		reinit_completion(&ctx->regdma_comp);
 
-	/* enable IRQ for first regdma submission from idle */
-	if (atomic_read(&rot->regdma_submit_count) ==
-				atomic_read(&rot->regdma_done_count)) {
-		SDEROT_DBG("Enable IRQ! regdma submitcnt==donecnt -> %d\n",
-				atomic_read(&rot->regdma_submit_count));
-		enable_irq(rot->irq_num);
-	}
-
 	/*
 	 * Last ROT command must be ROT_START before REGDMA start
 	 */
@@ -639,9 +631,6 @@ static u32 sde_hw_rotator_start_regdma(struct sde_hw_rotator_context *ctx,
 				REGDMA_CSR_REGDMA_QUEUE_1_SUBMIT,
 				enableInt | (ts_length << 14) | offset);
 	}
-
-	/* Update REGDMA submit count */
-	atomic_inc(&rot->regdma_submit_count);
 
 	/* Update command queue write ptr */
 	sde_hw_rotator_put_regdma_segment(ctx, wrptr);
@@ -731,7 +720,6 @@ static u32 sde_hw_rotator_wait_done_regdma(
 	u32 last_ts;
 	u32 int_id;
 	u32 sts = 0;
-	u32 d_count;
 	unsigned long flags;
 
 	if (rot->irq_num >= 0) {
@@ -753,6 +741,8 @@ static u32 sde_hw_rotator_wait_done_regdma(
 			SDEROT_ERR(
 				"Timeout wait for regdma interrupt status, ts:%X\n",
 				ctx->timestamp);
+			SDEROT_ERR("last_isr:0x%X, last_ts:0x%X, rc=%d\n",
+					last_isr, last_ts, rc);
 
 			if (status & REGDMA_WATCHDOG_INT)
 				SDEROT_ERR("REGDMA watchdog interrupt\n");
@@ -782,17 +772,6 @@ static u32 sde_hw_rotator_wait_done_regdma(
 					int_id);
 
 			status = 0;
-		}
-
-		/* regardless success or timeout, update done count */
-		d_count = atomic_inc_return(&rot->regdma_done_count);
-
-		/* disable IRQ if no more regdma submission in queue */
-		if (d_count == atomic_read(&rot->regdma_submit_count)) {
-			SDEROT_DBG(
-				"Disable IRQ!! regdma donecnt==submitcnt -> %d\n",
-				d_count);
-			disable_irq_nosync(rot->irq_num);
 		}
 
 		spin_unlock_irqrestore(&rot->rotisr_lock, flags);
@@ -1027,6 +1006,9 @@ static struct sde_rot_hw_resource *sde_hw_rotator_alloc_ext(
 			sde_hw_rotator_swts_create(resinfo->rot);
 	}
 
+	if (resinfo->rot->irq_num >= 0)
+		enable_irq(resinfo->rot->irq_num);
+
 	SDEROT_DBG("New rotator resource:%p, priority:%d\n",
 			resinfo, wb_id);
 
@@ -1052,6 +1034,9 @@ static void sde_hw_rotator_free_ext(struct sde_rot_mgr *mgr,
 		"Free rotator resource:%p, priority:%d, active:%d, pending:%d\n",
 		resinfo, hw->wb_id, atomic_read(&hw->num_active),
 		hw->pending_count);
+
+	if (resinfo->rot->irq_num >= 0)
+		disable_irq(resinfo->rot->irq_num);
 
 	devm_kfree(&mgr->pdev->dev, resinfo);
 }
@@ -1505,8 +1490,7 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 			ctx->last_regdma_isr_status = isr;
 			ctx->last_regdma_timestamp  = ts;
 			SDEROT_DBG(
-				"regdma complete: ctx:%p, ts:%X, dcount:%X\n",
-				ctx, ts, atomic_read(&rot->regdma_done_count));
+				"regdma complete: ctx:%p, ts:%X\n", ctx, ts);
 			complete_all(&ctx->regdma_comp);
 
 			ts  = (ts - 1) & SDE_REGDMA_SWTS_MASK;
@@ -1854,8 +1838,6 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 
 	atomic_set(&rot->timestamp[0], 0);
 	atomic_set(&rot->timestamp[1], 0);
-	atomic_set(&rot->regdma_submit_count, 0);
-	atomic_set(&rot->regdma_done_count, 0);
 
 	ret = sde_rotator_hw_rev_init(rot);
 	if (ret)
