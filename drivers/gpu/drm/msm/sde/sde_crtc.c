@@ -12,6 +12,7 @@
 
 #include <linux/sort.h>
 #include <linux/debugfs.h>
+#include <linux/ktime.h>
 #include <uapi/drm/sde_drm.h>
 #include <drm/drm_mode.h>
 #include <drm/drm_crtc.h>
@@ -30,6 +31,9 @@
 /* uncomment to enable higher level IRQ msg's */
 /*#define DBG_IRQ      DBG*/
 #define DBG_IRQ(fmt, ...)
+
+/* default input fence timeout, in ms */
+#define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
 
 static struct sde_kms *get_kms(struct drm_crtc *crtc)
 {
@@ -451,14 +455,81 @@ u32 crtc_flush_all(struct drm_crtc *crtc)
 	return 0;
 }
 
+/**
+ * _sde_crtc_set_input_fence_timeout - update ns version of in fence timeout
+ * @cstate: Pointer to sde crtc state
+ */
+static void _sde_crtc_set_input_fence_timeout(struct sde_crtc_state *cstate)
+{
+	if (!cstate) {
+		DRM_ERROR("invalid cstate\n");
+		return;
+	}
+	cstate->input_fence_timeout_ns =
+		sde_crtc_get_property(cstate, CRTC_PROP_INPUT_FENCE_TIMEOUT);
+	cstate->input_fence_timeout_ns *= NSEC_PER_MSEC;
+}
+
+/**
+ * _sde_crtc_wait_for_fences - wait for incoming framebuffer sync fences
+ * @crtc: Pointer to CRTC object
+ */
+static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
+{
+	struct drm_plane *plane = NULL;
+	uint32_t wait_ms = 1;
+	u64 ktime_end;
+	s64 ktime_wait; /* need signed 64-bit type */
+
+	DBG("");
+
+	if (!crtc || !crtc->state) {
+		DRM_ERROR("invalid crtc/state %pK\n", crtc);
+		return;
+	}
+
+	/* use monotonic timer to limit total fence wait time */
+	ktime_end = ktime_get_ns() +
+		to_sde_crtc_state(crtc->state)->input_fence_timeout_ns;
+
+	/*
+	 * Wait for fences sequentially, as all of them need to be signalled
+	 * before we can proceed.
+	 *
+	 * Limit total wait time to INPUT_FENCE_TIMEOUT, but still call
+	 * sde_plane_wait_input_fence with wait_ms == 0 after the timeout so
+	 * that each plane can check its fence status and react appropriately
+	 * if its fence has timed out.
+	 */
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		if (wait_ms) {
+			/* determine updated wait time */
+			ktime_wait = ktime_end - ktime_get_ns();
+			if (ktime_wait >= 0)
+				wait_ms = ktime_wait / NSEC_PER_MSEC;
+			else
+				wait_ms = 0;
+		}
+		sde_plane_wait_input_fence(plane, wait_ms);
+	}
+}
+
 static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_crtc_state)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct drm_device *dev = crtc->dev;
+	struct sde_crtc *sde_crtc;
+	struct drm_device *dev;
 	unsigned long flags;
 
 	DBG("");
+
+	if (!crtc) {
+		DRM_ERROR("invalid crtc\n");
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	dev = crtc->dev;
 
 	if (sde_crtc->event) {
 		WARN_ON(sde_crtc->event);
@@ -498,10 +569,21 @@ static void request_pending(struct drm_crtc *crtc, u32 pending)
 static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_crtc_state)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct drm_device *dev = crtc->dev;
+	struct sde_crtc *sde_crtc;
+	struct drm_device *dev;
 	struct drm_plane *plane;
 	unsigned long flags;
+
+	if (!crtc) {
+		DRM_ERROR("invalid crtc\n");
+		return;
+	}
+
+	DBG("");
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	dev = crtc->dev;
 
 	if (sde_crtc->event) {
 		DBG("already received sde_crtc->event");
@@ -520,13 +602,20 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (unlikely(!sde_crtc->num_ctls))
 		return;
 
+	/* wait for acquire fences before anything else is done */
+	_sde_crtc_wait_for_fences(crtc);
+
+	/*
+	 * Final plane updates: Give each plane a chance to complete all
+	 *                      required writes/flushing before crtc's "flush
+	 *                      everything" call below.
+	 */
+	drm_atomic_crtc_for_each_plane(plane, crtc)
+		sde_plane_flush(plane);
+
 	crtc_flush_all(crtc);
 
 	request_pending(crtc, PENDING_FLIP);
-
-	drm_atomic_crtc_for_each_plane(plane, crtc) {
-		sde_plane_complete_flip(plane);
-	}
 }
 
 /**
@@ -624,6 +713,8 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 	msm_property_reset_state(&sde_crtc->property_info, cstate,
 			cstate->property_values, cstate->property_blobs);
 
+	_sde_crtc_set_input_fence_timeout(cstate);
+
 	cstate->base.crtc = crtc;
 	crtc->state = &cstate->base;
 }
@@ -647,8 +738,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 static void sde_crtc_enable(struct drm_crtc *crtc)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_crtc_mixer *mixer = sde_crtc->mixer;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_mixer *mixer;
 	struct sde_hw_mixer *lm;
 	unsigned long flags;
 	struct drm_display_mode *mode;
@@ -657,7 +748,15 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	int i;
 	int rc;
 
+	if (!crtc) {
+		DRM_ERROR("invalid crtc\n");
+		return;
+	}
+
 	DBG("");
+
+	sde_crtc = to_sde_crtc(crtc);
+	mixer = sde_crtc->mixer;
 
 	if (WARN_ON(!crtc->state))
 		return;
@@ -716,12 +815,25 @@ static int pstate_cmp(const void *a, const void *b)
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_kms *sde_kms = get_kms(crtc);
+	struct sde_crtc *sde_crtc;
+	struct sde_kms *sde_kms;
 	struct drm_plane *plane;
 	struct plane_state pstates[SDE_STAGE_MAX];
-	int max_stages = CRTC_HW_MIXER_MAXSTAGES(sde_kms->catalog, 0);
+	int max_stages;
 	int cnt = 0, i;
+
+	if (!crtc) {
+		DRM_ERROR("invalid crtc\n");
+		return -EINVAL;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	sde_kms = get_kms(crtc);
+	if (!sde_kms) {
+		DRM_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+	max_stages = CRTC_HW_MIXER_MAXSTAGES(sde_kms->catalog, 0);
 
 	DBG("%s: check", sde_crtc->name);
 
@@ -813,8 +925,9 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc)
 
 	/* range properties */
 	msm_property_install_range(&sde_crtc->property_info,
-			"sync_fence_timeout", 0, ~0, 10000,
-			CRTC_PROP_SYNC_FENCE_TIMEOUT);
+			"input_fence_timeout",
+			0, ~0, SDE_CRTC_INPUT_FENCE_TIMEOUT,
+			CRTC_PROP_INPUT_FENCE_TIMEOUT);
 }
 
 /**
@@ -832,7 +945,7 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
-	int ret = -EINVAL;
+	int idx, ret = -EINVAL;
 
 	if (!crtc || !state || !property) {
 		DRM_ERROR("invalid argument(s)\n");
@@ -842,6 +955,12 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 		ret = msm_property_atomic_set(&sde_crtc->property_info,
 				cstate->property_values, cstate->property_blobs,
 				property, val);
+		if (!ret) {
+			idx = msm_property_index(&sde_crtc->property_info,
+					property);
+			if (idx == CRTC_PROP_INPUT_FENCE_TIMEOUT)
+				_sde_crtc_set_input_fence_timeout(cstate);
+		}
 	}
 
 	return ret;

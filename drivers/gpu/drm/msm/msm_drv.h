@@ -84,7 +84,7 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_ZPOS = PLANE_PROP_BLOBCOUNT,
 	PLANE_PROP_ALPHA,
 	PLANE_PROP_COLOR_FILL,
-	PLANE_PROP_SYNC_FENCE,
+	PLANE_PROP_INPUT_FENCE,
 
 	/* enum/bitmask properties */
 	PLANE_PROP_ROTATION,
@@ -100,7 +100,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_BLOBCOUNT,
 
 	/* range properties */
-	CRTC_PROP_SYNC_FENCE_TIMEOUT = CRTC_PROP_BLOBCOUNT,
+	CRTC_PROP_INPUT_FENCE_TIMEOUT = CRTC_PROP_BLOBCOUNT,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT
