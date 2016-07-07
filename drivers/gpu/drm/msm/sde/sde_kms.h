@@ -129,8 +129,8 @@ struct sde_plane_state {
 	/* blob properties */
 	struct drm_property_blob *property_blobs[PLANE_PROP_BLOBCOUNT];
 
-	/* dereferenced sync fence pointer */
-	void *sync_fence;
+	/* dereferenced input fence pointer */
+	void *input_fence;
 
 	/* assigned by crtc blender */
 	enum sde_stage stage;
@@ -373,20 +373,20 @@ void sde_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
  * Plane functions
  */
 enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
-void sde_plane_complete_flip(struct drm_plane *plane);
+void sde_plane_flush(struct drm_plane *plane);
 struct drm_plane *sde_plane_init(struct drm_device *dev,
 		uint32_t pipe, bool primary_plane);
 
 /**
- * sde_plane_wait_sync_fence - wait for sync fence object
+ * sde_plane_wait_input_fence - wait for input fence object
  * @plane:   Pointer to DRM plane object
  * @wait_ms: Wait timeout value
  * Returns: Zero on success
  */
-int sde_plane_wait_sync_fence(struct drm_plane *plane, uint32_t wait_ms);
+int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms);
 
 /**
- * sde_plane_color_fill(): Enables color fill on plane
+ * sde_plane_color_fill - Enables color fill on plane
  * @plane:  Pointer to DRM plane object
  * @color:  RGB fill color value, [23..16] Blue, [15..8] Green, [7..0] Red
  * @alpha:  8-bit fill alpha value, 255 selects 100% alpha
