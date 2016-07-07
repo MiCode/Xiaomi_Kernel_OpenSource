@@ -16,8 +16,22 @@ Optional properties:
 - interrupts		: Specifies the interrupts associated with flash-led.
 - interrupt-names	: Specify the interrupt names associated with interrupts.
 - qcom,hdrm-auto-mode	: Boolean type to select headroom auto mode enabled or not
-- qcom,isc-delay	: Integer type to specify short circuit delay. Valid values are 32, 64,
-			  128, 192. Unit is us.
+- qcom,isc-delay-us	: Integer type to specify short circuit delay. Valid values are 32, 64,
+			  128, 192. Unit is uS.
+- qcom,warmup-delay-us	: Integer type to specify warm up delay. Valid values are 32, 64,
+			  128, 192. Unit is uS.
+- qcom,short-circuit-det	: Boolean property which enables short circuit fault detection.
+- qcom,open-circuit-det		: Boolean property which enables open circuit fault detection.
+- qcom,vph-droop-det	: Boolean property which enables VPH droop detection.
+- qcom,vph-droop-hys-mv	: Integer property to specify VPH droop hysteresis. It is only used if
+			  qcom,vph-droop-det is specified. Valid values are 0, 25, 50 and 75.
+			  Unit is mV.
+- qcom,vph-droop-thresh-mv	: Integer property to specify VPH droop threshold. It is only used if
+				  qcom,vph-droop-det is specified. Valid values are
+				  2500 to 3200 with step size of 100. Unit is mV.
+- qcom,vph-droop-debounce-us	: Integer property to specify VPH droop debounce time. It is only used
+				  if qcom,vph-droop-det is specified. Valid values are 0, 8, 16 and 26.
+				  Unit is uS.
 - qcom,hw-strobe-option	: Integer type to specify hardware strobe option. Based on the specified
 			  value, additional GPIO configuration may be required to provide strobing
 			  support. Supported values are:

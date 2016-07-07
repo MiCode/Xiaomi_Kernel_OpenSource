@@ -37,21 +37,39 @@
 #define	FLASH_LED_EN_LED_CTRL(base)		(base + 0x4C)
 #define	FLASH_LED_REG_HDRM_PRGM(base)		(base + 0x4D)
 #define	FLASH_LED_REG_HDRM_AUTO_MODE_CTRL(base)	(base + 0x50)
+#define	FLASH_LED_REG_WARMUP_DELAY(base)	(base + 0x51)
 #define	FLASH_LED_REG_ISC_DELAY(base)		(base + 0x52)
+#define	FLASH_LED_REG_VPH_DROOP_THRESHOLD(base)	(base + 0x61)
+#define	FLASH_LED_REG_VPH_DROOP_DEBOUNCE(base)	(base + 0x62)
+#define	FLASH_LED_REG_CURRENT_DERATE_EN(base)	(base + 0x76)
 
 #define	FLASH_LED_HDRM_MODE_PRGM_MASK		GENMASK(7, 0)
 #define	FLASH_LED_HDRM_VOL_MASK			GENMASK(7, 4)
 #define	FLASH_LED_CURRENT_MASK			GENMASK(6, 0)
 #define	FLASH_LED_ENABLE_MASK			GENMASK(2, 0)
 #define	FLASH_LED_SAFETY_TMR_MASK		GENMASK(7, 0)
-#define	FLASH_LED_ISC_DELAY_MASK		GENMASK(1, 0)
 #define	FLASH_LED_INT_RT_STS_MASK		GENMASK(7, 0)
+#define	FLASH_LED_ISC_WARMUP_DELAY_MASK		GENMASK(1, 0)
+#define	FLASH_LED_CURRENT_DERATE_EN_MASK	GENMASK(2, 0)
+#define	FLASH_LED_VPH_DROOP_DEBOUNCE_MASK	GENMASK(1, 0)
+#define	FLASH_LED_VPH_DROOP_HYSTERESIS_MASK	GENMASK(5, 4)
+#define	FLASH_LED_VPH_DROOP_THRESHOLD_MASK	GENMASK(2, 0)
 #define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 #define	FLASH_LED_HW_SW_STROBE_SEL_MASK		BIT(2)
 
-#define	FLASH_LED_HEADROOM_AUTO_MODE_ENABLED	true
-#define	FLASH_LED_ISC_DELAY_SHIFT		6
-#define	FLASH_LED_ISC_DELAY_DEFAULT_US		3
+#define	VPH_DROOP_DEBOUNCE_US_TO_VAL(val_us)	(val_us / 8)
+#define	VPH_DROOP_HYST_MV_TO_VAL(val_mv)	(val_mv / 25)
+#define	VPH_DROOP_THRESH_MV_TO_VAL(val_mv)	((val_mv / 100) - 25)
+
+#define	FLASH_LED_ISC_WARMUP_DELAY_SHIFT	6
+#define	FLASH_LED_WARMUP_DELAY_DEFAULT		2
+#define	FLASH_LED_ISC_DELAY_DEFAULT		3
+#define	FLASH_LED_VPH_DROOP_DEBOUNCE_DEFAULT	2
+#define	FLASH_LED_VPH_DROOP_HYST_DEFAULT	2
+#define	FLASH_LED_VPH_DROOP_THRESH_DEFAULT	5
+#define	FLASH_LED_VPH_DROOP_DEBOUNCE_MAX	3
+#define	FLASH_LED_VPH_DROOP_HYST_MAX		3
+#define	FLASH_LED_VPH_DROOP_THRESH_MAX		7
 #define	FLASH_LED_SAFETY_TMR_VAL_OFFSET		1
 #define	FLASH_LED_SAFETY_TMR_VAL_DIVISOR	10
 #define	FLASH_LED_SAFETY_TMR_ENABLE		BIT(7)
@@ -136,7 +154,12 @@ struct flash_switch_data {
 struct flash_led_platform_data {
 	int	all_ramp_up_done_irq;
 	int	all_ramp_down_done_irq;
-	u8	isc_delay_us;
+	u8	isc_delay;
+	u8	warmup_delay;
+	u8	current_derate_en_cfg;
+	u8	vph_droop_threshold;
+	u8	vph_droop_hysteresis;
+	u8	vph_droop_debounce;
 	u8	hw_strobe_option;
 	bool	hdrm_auto_mode_en;
 };
@@ -223,7 +246,43 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 	rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_ISC_DELAY(led->base),
-			FLASH_LED_ISC_DELAY_MASK, led->pdata->isc_delay_us);
+			FLASH_LED_ISC_WARMUP_DELAY_MASK,
+			led->pdata->isc_delay);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_WARMUP_DELAY(led->base),
+			FLASH_LED_ISC_WARMUP_DELAY_MASK,
+			led->pdata->warmup_delay);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_CURRENT_DERATE_EN(led->base),
+			FLASH_LED_CURRENT_DERATE_EN_MASK,
+			led->pdata->current_derate_en_cfg);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_VPH_DROOP_DEBOUNCE(led->base),
+			FLASH_LED_VPH_DROOP_DEBOUNCE_MASK,
+			led->pdata->vph_droop_debounce);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_VPH_DROOP_THRESHOLD(led->base),
+			FLASH_LED_VPH_DROOP_THRESHOLD_MASK,
+			led->pdata->vph_droop_threshold);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_VPH_DROOP_THRESHOLD(led->base),
+			FLASH_LED_VPH_DROOP_HYSTERESIS_MASK,
+			led->pdata->vph_droop_hysteresis);
 	if (rc < 0)
 		return rc;
 
@@ -980,25 +1039,98 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 {
 	int rc;
 	u32 val;
+	bool short_circuit_det, open_circuit_det, vph_droop_det;
 
-	led->pdata->hdrm_auto_mode_en = FLASH_LED_HEADROOM_AUTO_MODE_ENABLED;
 	led->pdata->hdrm_auto_mode_en = of_property_read_bool(node,
 							"qcom,hdrm-auto-mode");
 
-	led->pdata->isc_delay_us = FLASH_LED_ISC_DELAY_DEFAULT_US;
-	rc = of_property_read_u32(node, "qcom,isc-delay", &val);
+	led->pdata->isc_delay = FLASH_LED_ISC_DELAY_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,isc-delay-us", &val);
 	if (!rc) {
-		led->pdata->isc_delay_us = val >> FLASH_LED_ISC_DELAY_SHIFT;
+		led->pdata->isc_delay =
+				val >> FLASH_LED_ISC_WARMUP_DELAY_SHIFT;
 	} else if (rc != -EINVAL) {
-		dev_err(&led->pdev->dev, "Unable to read ISC delay\n");
+		dev_err(&led->pdev->dev,
+				"Unable to read ISC delay, rc=%d\n", rc);
 		return rc;
+	}
+
+	led->pdata->warmup_delay = FLASH_LED_WARMUP_DELAY_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,warmup-delay-us", &val);
+	if (!rc) {
+		led->pdata->warmup_delay =
+				val >> FLASH_LED_ISC_WARMUP_DELAY_SHIFT;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev,
+				"Unable to read WARMUP delay, rc=%d\n", rc);
+		return rc;
+	}
+
+	short_circuit_det =
+		of_property_read_bool(node, "qcom,short-circuit-det");
+	open_circuit_det = of_property_read_bool(node, "qcom,open-circuit-det");
+	vph_droop_det = of_property_read_bool(node, "qcom,vph-droop-det");
+	led->pdata->current_derate_en_cfg = (vph_droop_det << 2) |
+				(open_circuit_det << 1) | short_circuit_det;
+
+	led->pdata->vph_droop_debounce = FLASH_LED_VPH_DROOP_DEBOUNCE_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,vph-droop-debounce-us", &val);
+	if (!rc) {
+		led->pdata->vph_droop_debounce =
+			VPH_DROOP_DEBOUNCE_US_TO_VAL(val);
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev,
+			"Unable to read VPH droop debounce, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (led->pdata->vph_droop_debounce > FLASH_LED_VPH_DROOP_DEBOUNCE_MAX) {
+		dev_err(&led->pdev->dev,
+				"Invalid VPH droop debounce specified");
+		return -EINVAL;
+	}
+
+	led->pdata->vph_droop_threshold = FLASH_LED_VPH_DROOP_THRESH_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,vph-droop-threshold-mv", &val);
+	if (!rc) {
+		led->pdata->vph_droop_threshold =
+			VPH_DROOP_THRESH_MV_TO_VAL(val);
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev,
+			"Unable to read VPH droop threshold, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (led->pdata->vph_droop_threshold > FLASH_LED_VPH_DROOP_THRESH_MAX) {
+		dev_err(&led->pdev->dev,
+				"Invalid VPH droop threshold specified");
+		return -EINVAL;
+	}
+
+	led->pdata->vph_droop_hysteresis =
+			FLASH_LED_VPH_DROOP_HYST_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,vph-droop-hysteresis-mv", &val);
+	if (!rc) {
+		led->pdata->vph_droop_hysteresis =
+			VPH_DROOP_HYST_MV_TO_VAL(val);
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev,
+			"Unable to read VPH droop hysteresis, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (led->pdata->vph_droop_hysteresis > FLASH_LED_VPH_DROOP_HYST_MAX) {
+		dev_err(&led->pdev->dev,
+				"Invalid VPH droop hysteresis specified");
+		return -EINVAL;
 	}
 
 	rc = of_property_read_u32(node, "qcom,hw-strobe-option", &val);
 	if (!rc) {
 		led->pdata->hw_strobe_option = (u8)val;
 	} else if (rc != -EINVAL) {
-		dev_err(&led->pdev->dev, "Unable to parse hw strobe option\n");
+		dev_err(&led->pdev->dev,
+			"Unable to parse hw strobe option, rc=%d\n", rc);
 		return rc;
 	}
 
