@@ -98,6 +98,14 @@ static inline int thermal_gov_power_allocator_register(void) { return 0; }
 static inline void thermal_gov_power_allocator_unregister(void) {}
 #endif /* CONFIG_THERMAL_GOV_POWER_ALLOCATOR */
 
+#ifdef CONFIG_THERMAL_GOV_LOW_LIMITS
+int thermal_gov_low_limits_register(void);
+void thermal_gov_low_limits_unregister(void);
+#else
+static inline int thermal_gov_low_limits_register(void) { return 0; }
+static inline void thermal_gov_low_limits_unregister(void) {}
+#endif /* CONFIG_THERMAL_GOV_LOW_LIMITS */
+
 /* device tree support */
 #ifdef CONFIG_THERMAL_OF
 int of_parse_thermal_zones(void);
