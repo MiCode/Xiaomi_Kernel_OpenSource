@@ -246,9 +246,9 @@ void inet_twsk_schedule(struct inet_timewait_sock *tw, const int timeo)
 
 	tw->tw_kill = timeo <= 4*HZ;
 	if (!mod_timer_pinned(&tw->tw_timer, jiffies + timeo)) {
+		atomic_inc(&tw->tw_refcnt);
 		atomic_inc(&tw->tw_dr->tw_count);
 	}
-	atomic_inc(&tw->tw_refcnt);
 }
 EXPORT_SYMBOL_GPL(inet_twsk_schedule);
 
