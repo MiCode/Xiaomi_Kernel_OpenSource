@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/ipa_uc_offload.h>
 #include "ipa_api.h"
 
 #define DRV_NAME "ipa"
@@ -2670,6 +2671,35 @@ void ipa_assert(void)
 {
 	pr_err("IPA: unrecoverable error has occurred, asserting\n");
 	BUG();
+}
+
+/**
+ * ipa_setup_uc_ntn_pipes() - setup uc offload pipes
+ */
+int ipa_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *inp,
+		ipa_notify_cb notify, void *priv, u8 hdr_len,
+		struct ipa_ntn_conn_out_params *outp)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_setup_uc_ntn_pipes, inp,
+		notify, priv, hdr_len, outp);
+
+	return ret;
+}
+
+/**
+ * ipa_tear_down_uc_offload_pipes() - tear down uc offload pipes
+ */
+int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
+		int ipa_ep_idx_dl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_tear_down_uc_offload_pipes, ipa_ep_idx_ul,
+		ipa_ep_idx_dl);
+
+	return ret;
 }
 
 static const struct dev_pm_ops ipa_pm_ops = {

@@ -173,7 +173,7 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_APPS_LAN_CONS]      =  2,
 	[IPA_2_0][IPA_CLIENT_APPS_WAN_CONS]      =  5,
 	[IPA_2_0][IPA_CLIENT_ODU_EMB_CONS]       = 13,
-	[IPA_2_0][IPA_CLIENT_ODU_TETH_CONS]      =  1,
+	[IPA_2_0][IPA_CLIENT_ODU_TETH_CONS]      = 1,
 	[IPA_2_0][IPA_CLIENT_MHI_CONS]           = 17,
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        =  9,
@@ -5148,6 +5148,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_dma_dev = ipa2_get_dma_dev;
 	api_ctrl->ipa_get_gsi_ep_info = ipa2_get_gsi_ep_info;
 	api_ctrl->ipa_stop_gsi_channel = ipa2_stop_gsi_channel;
+	api_ctrl->ipa_register_ipa_ready_cb = ipa2_register_ipa_ready_cb;
 	api_ctrl->ipa_inc_client_enable_clks = ipa2_inc_client_enable_clks;
 	api_ctrl->ipa_dec_client_disable_clks = ipa2_dec_client_disable_clks;
 	api_ctrl->ipa_inc_client_enable_clks_no_block =
@@ -5160,7 +5161,9 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		ipa2_set_required_perf_profile;
 	api_ctrl->ipa_get_ipc_logbuf = ipa2_get_ipc_logbuf;
 	api_ctrl->ipa_get_ipc_logbuf_low = ipa2_get_ipc_logbuf_low;
-
+	api_ctrl->ipa_setup_uc_ntn_pipes = ipa2_setup_uc_ntn_pipes;
+	api_ctrl->ipa_tear_down_uc_offload_pipes =
+		ipa2_tear_down_uc_offload_pipes;
 
 	return 0;
 }

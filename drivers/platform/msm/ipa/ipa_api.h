@@ -11,6 +11,7 @@
  */
 
 #include <linux/ipa_mhi.h>
+#include <linux/ipa_uc_offload.h>
 #include "ipa_common_i.h"
 
 #ifndef _IPA_API_H_
@@ -358,6 +359,12 @@ struct ipa_api_controller {
 
 	void *(*ipa_get_ipc_logbuf_low)(void);
 
+	int (*ipa_setup_uc_ntn_pipes)(struct ipa_ntn_conn_in_params *in,
+		ipa_notify_cb notify, void *priv, u8 hdr_len,
+		struct ipa_ntn_conn_out_params *);
+
+	int (*ipa_tear_down_uc_offload_pipes)(int ipa_ep_idx_ul,
+		int ipa_ep_idx_dl);
 };
 
 #ifdef CONFIG_IPA
