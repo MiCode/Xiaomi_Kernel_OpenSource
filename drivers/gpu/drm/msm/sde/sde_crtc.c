@@ -130,7 +130,13 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
 	DBG("");
+
+	if (!crtc)
+		return;
+
+	msm_property_destroy(&sde_crtc->property_info);
 	debugfs_remove_recursive(sde_crtc->debugfs_root);
+
 	drm_crtc_cleanup(crtc);
 	kfree(sde_crtc);
 }
@@ -523,10 +529,103 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 }
 
-static int sde_crtc_set_property(struct drm_crtc *crtc,
-		struct drm_property *property, uint64_t val)
+/**
+ * sde_crtc_destroy_state - state destroy hook
+ * @crtc: drm CRTC
+ * @state: CRTC state object to release
+ */
+static void sde_crtc_destroy_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
 {
-	return -EINVAL;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+
+	if (!crtc || !state) {
+		DRM_ERROR("invalid argument(s)\n");
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(state);
+
+	DBG("");
+
+	__drm_atomic_helper_crtc_destroy_state(crtc, state);
+
+	/* destroy value helper */
+	msm_property_destroy_state(&sde_crtc->property_info, cstate,
+			cstate->property_values, cstate->property_blobs);
+}
+
+/**
+ * sde_crtc_duplicate_state - state duplicate hook
+ * @crtc: Pointer to drm crtc structure
+ * @Returns: Pointer to new drm_crtc_state structure
+ */
+static struct drm_crtc_state *sde_crtc_duplicate_state(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate, *old_cstate;
+
+	if (!crtc || !crtc->state) {
+		DRM_ERROR("invalid argument(s)\n");
+		return NULL;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	old_cstate = to_sde_crtc_state(crtc->state);
+	cstate = msm_property_alloc_state(&sde_crtc->property_info);
+	if (!cstate) {
+		DRM_ERROR("failed to allocate state\n");
+		return NULL;
+	}
+
+	/* duplicate value helper */
+	msm_property_duplicate_state(&sde_crtc->property_info,
+			old_cstate, cstate,
+			cstate->property_values, cstate->property_blobs);
+
+	/* duplicate base helper */
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &cstate->base);
+
+	return &cstate->base;
+}
+
+/**
+ * sde_crtc_reset - reset hook for CRTCs
+ * Resets the atomic state for @crtc by freeing the state pointer (which might
+ * be NULL, e.g. at driver load time) and allocating a new empty state object.
+ * @crtc: Pointer to drm crtc structure
+ */
+static void sde_crtc_reset(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+
+	if (!crtc) {
+		DRM_ERROR("invalid crtc\n");
+		return;
+	}
+
+	/* remove previous state, if present */
+	if (crtc->state) {
+		sde_crtc_destroy_state(crtc, crtc->state);
+		crtc->state = 0;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = msm_property_alloc_state(&sde_crtc->property_info);
+	if (!cstate) {
+		DRM_ERROR("failed to allocate state\n");
+		return;
+	}
+
+	/* reset value helper */
+	msm_property_reset_state(&sde_crtc->property_info, cstate,
+			cstate->property_values, cstate->property_blobs);
+
+	cstate->base.crtc = crtc;
+	crtc->state = &cstate->base;
 }
 
 static int sde_crtc_cursor_set(struct drm_crtc *crtc,
@@ -665,28 +764,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	return 0;
 }
 
-static const struct drm_crtc_funcs sde_crtc_funcs = {
-	.set_config = drm_atomic_helper_set_config,
-	.destroy = sde_crtc_destroy,
-	.page_flip = drm_atomic_helper_page_flip,
-	.set_property = sde_crtc_set_property,
-	.reset = drm_atomic_helper_crtc_reset,
-	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
-	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
-	.cursor_set = sde_crtc_cursor_set,
-	.cursor_move = sde_crtc_cursor_move,
-};
-
-static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
-	.mode_fixup = sde_crtc_mode_fixup,
-	.mode_set_nofb = sde_crtc_mode_set_nofb,
-	.disable = sde_crtc_disable,
-	.enable = sde_crtc_enable,
-	.atomic_check = sde_crtc_atomic_check,
-	.atomic_begin = sde_crtc_atomic_begin,
-	.atomic_flush = sde_crtc_atomic_flush,
-};
-
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
@@ -715,9 +792,104 @@ void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
 {
 }
 
-static void sde_crtc_install_properties(struct drm_crtc *crtc,
-	struct drm_mode_object *obj)
+/**
+ * sde_crtc_install_properties - install all drm properties for crtc
+ * @crtc: Pointer to drm crtc structure
+ */
+static void sde_crtc_install_properties(struct drm_crtc *crtc)
 {
+	struct sde_crtc *sde_crtc;
+	struct drm_device *dev;
+
+	DBG("");
+
+	if (!crtc) {
+		DRM_ERROR("invalid crtc\n");
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	dev = crtc->dev;
+
+	/* range properties */
+	msm_property_install_range(&sde_crtc->property_info,
+			"sync_fence_timeout", 0, ~0, 10000,
+			CRTC_PROP_SYNC_FENCE_TIMEOUT);
+}
+
+/**
+ * sde_crtc_atomic_set_property - atomically set a crtc drm property
+ * @crtc: Pointer to drm crtc structure
+ * @state: Pointer to drm crtc state structure
+ * @property: Pointer to targeted drm property
+ * @val: Updated property value
+ * @Returns: Zero on success
+ */
+static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
+		struct drm_crtc_state *state,
+		struct drm_property *property,
+		uint64_t val)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	int ret = -EINVAL;
+
+	if (!crtc || !state || !property) {
+		DRM_ERROR("invalid argument(s)\n");
+	} else {
+		sde_crtc = to_sde_crtc(crtc);
+		cstate = to_sde_crtc_state(state);
+		ret = msm_property_atomic_set(&sde_crtc->property_info,
+				cstate->property_values, cstate->property_blobs,
+				property, val);
+	}
+
+	return ret;
+}
+
+/**
+ * sde_crtc_set_property - set a crtc drm property
+ * @crtc: Pointer to drm crtc structure
+ * @property: Pointer to targeted drm property
+ * @val: Updated property value
+ * @Returns: Zero on success
+ */
+static int sde_crtc_set_property(struct drm_crtc *crtc,
+		struct drm_property *property, uint64_t val)
+{
+	DBG("");
+
+	return sde_crtc_atomic_set_property(crtc, crtc->state, property, val);
+}
+
+/**
+ * sde_crtc_atomic_get_property - retrieve a crtc drm property
+ * @crtc: Pointer to drm crtc structure
+ * @state: Pointer to drm crtc state structure
+ * @property: Pointer to targeted drm property
+ * @val: Pointer to variable for receiving property value
+ * @Returns: Zero on success
+ */
+static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
+		const struct drm_crtc_state *state,
+		struct drm_property *property,
+		uint64_t *val)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	int ret = -EINVAL;
+
+	if (!crtc || !state) {
+		DRM_ERROR("invalid argument(s)\n");
+	} else {
+		sde_crtc = to_sde_crtc(crtc);
+		cstate = to_sde_crtc_state(state);
+		ret = msm_property_atomic_get(&sde_crtc->property_info,
+				cstate->property_values, cstate->property_blobs,
+				property, val);
+	}
+
+	return ret;
 }
 
 static int _sde_debugfs_mixer_read(struct seq_file *s, void *data)
@@ -760,6 +932,30 @@ static int _sde_debugfs_mixer_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, _sde_debugfs_mixer_read, inode->i_private);
 }
+
+static const struct drm_crtc_funcs sde_crtc_funcs = {
+	.set_config = drm_atomic_helper_set_config,
+	.destroy = sde_crtc_destroy,
+	.page_flip = drm_atomic_helper_page_flip,
+	.set_property = sde_crtc_set_property,
+	.atomic_set_property = sde_crtc_atomic_set_property,
+	.atomic_get_property = sde_crtc_atomic_get_property,
+	.reset = sde_crtc_reset,
+	.atomic_duplicate_state = sde_crtc_duplicate_state,
+	.atomic_destroy_state = sde_crtc_destroy_state,
+	.cursor_set = sde_crtc_cursor_set,
+	.cursor_move = sde_crtc_cursor_move,
+};
+
+static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
+	.mode_fixup = sde_crtc_mode_fixup,
+	.mode_set_nofb = sde_crtc_mode_set_nofb,
+	.disable = sde_crtc_disable,
+	.enable = sde_crtc_enable,
+	.atomic_check = sde_crtc_atomic_check,
+	.atomic_begin = sde_crtc_atomic_begin,
+	.atomic_flush = sde_crtc_atomic_flush,
+};
 
 static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 		struct sde_kms *sde_kms)
@@ -809,8 +1005,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 	sde_crtc->encoder = encoder;
 	spin_lock_init(&sde_crtc->lm_lock);
 
-	sde_crtc_install_properties(crtc, &crtc->base);
-
 	drm_crtc_init_with_planes(dev, crtc, plane, NULL, &sde_crtc_funcs);
 
 	drm_crtc_helper_add(crtc, &sde_crtc_helper_funcs);
@@ -826,6 +1020,14 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 	snprintf(sde_crtc->name, SDE_CRTC_NAME_SIZE, "crtc%u", crtc->base.id);
 
 	_sde_crtc_init_debugfs(sde_crtc, kms);
+
+	/* create CRTC properties */
+	msm_property_init(&sde_crtc->property_info, &crtc->base, dev,
+			priv->crtc_property, sde_crtc->property_data,
+			CRTC_PROP_COUNT, CRTC_PROP_BLOBCOUNT,
+			sizeof(struct sde_crtc_state));
+
+	sde_crtc_install_properties(crtc);
 
 	DBG("%s: Successfully initialized crtc", sde_crtc->name);
 	return crtc;

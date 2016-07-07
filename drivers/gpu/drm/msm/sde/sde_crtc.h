@@ -14,6 +14,8 @@
 #define _SDE_CRTC_H_
 
 #include "drm_crtc.h"
+#include "msm_prop.h"
+#include "sde_kms.h"
 
 #define CRTC_DUAL_MIXERS	2
 #define SDE_CRTC_NAME_SIZE	12
@@ -54,6 +56,8 @@ struct sde_crtc_mixer {
  * @pending       : Whether or not an update is pending
  * @vsync_count   : Running count of received vsync events
  * @drm_requested_vblank : Whether vblanks have been enabled in the encoder
+ * @property_info : Opaque structure for generic property support
+ * @property_defaults : Array of default values for generic property support
  * @stage_cfg     : H/w mixer stage configuration
  * @debugfs_root  : Parent of debugfs node
  */
@@ -76,10 +80,37 @@ struct sde_crtc {
 	u32 vsync_count;
 	bool drm_requested_vblank;
 
+	struct msm_property_info property_info;
+	struct msm_property_data property_data[CRTC_PROP_COUNT];
+
 	struct sde_hw_stage_cfg stage_cfg;
 	struct dentry *debugfs_root;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
+
+/**
+ * struct sde_crtc_state - sde container for atomic crtc state
+ * @base: Base drm crtc state structure
+ * @property_values: Current crtc property values
+ * @property_blobs: Reference pointers for blob properties
+ */
+struct sde_crtc_state {
+	struct drm_crtc_state base;
+	uint64_t property_values[CRTC_PROP_COUNT];
+	struct drm_property_blob *property_blobs[CRTC_PROP_COUNT];
+};
+
+#define to_sde_crtc_state(x) \
+	container_of(x, struct sde_crtc_state, base)
+
+/**
+ * sde_crtc_get_property - query integer value of crtc property
+ * @S: Pointer to crtc state
+ * @X: Property index, from enum msm_mdp_crtc_property
+ * Returns: Integer value of requested property
+ */
+#define sde_crtc_get_property(S, X) \
+	((S) && ((X) < CRTC_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
 
 #endif /* _SDE_CRTC_H_ */

@@ -85,7 +85,6 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_ALPHA,
 	PLANE_PROP_COLOR_FILL,
 	PLANE_PROP_SYNC_FENCE,
-	PLANE_PROP_SYNC_FENCE_TIMEOUT,
 
 	/* enum/bitmask properties */
 	PLANE_PROP_ROTATION,
@@ -94,6 +93,17 @@ enum msm_mdp_plane_property {
 
 	/* total # of properties */
 	PLANE_PROP_COUNT
+};
+
+enum msm_mdp_crtc_property {
+	/* # of blob properties */
+	CRTC_PROP_BLOBCOUNT,
+
+	/* range properties */
+	CRTC_PROP_SYNC_FENCE_TIMEOUT = CRTC_PROP_BLOBCOUNT,
+
+	/* total # of properties */
+	CRTC_PROP_COUNT
 };
 
 struct msm_vblank_ctrl {
@@ -173,6 +183,7 @@ struct msm_drm_private {
 
 	/* Properties */
 	struct drm_property *plane_property[PLANE_PROP_COUNT];
+	struct drm_property *crtc_property[CRTC_PROP_COUNT];
 
 	/* VRAM carveout, used when no IOMMU: */
 	struct {
