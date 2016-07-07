@@ -93,11 +93,13 @@ struct sde_crtc {
  * struct sde_crtc_state - sde container for atomic crtc state
  * @base: Base drm crtc state structure
  * @property_values: Current crtc property values
+ * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @property_blobs: Reference pointers for blob properties
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
 	uint64_t property_values[CRTC_PROP_COUNT];
+	uint64_t input_fence_timeout_ns;
 	struct drm_property_blob *property_blobs[CRTC_PROP_COUNT];
 };
 
