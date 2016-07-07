@@ -229,8 +229,15 @@
 	/delete-property/ qcom,cpr-init-voltage-adjustment;
 	/delete-property/ qcom,cpr-enable;
 
+	qcom,pvs-version-fuse-sel = <37 40 3 0>; /* foundry */
+	qcom,cpr-fuse-version-map =
+		<(-1)   0  (-1) (-1) (-1) (-1)>,
+		<(-1)   1  (-1) (-1) (-1) (-1)>;
+
 	qcom,cpr-quotient-adjustment =
-		<(0)    (28)   (28)>;
+		<0    0    0>,
+		<0   28   28>;
+
 	qcom,cpr-enable;
 };
 

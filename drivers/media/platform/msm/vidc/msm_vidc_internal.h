@@ -367,6 +367,7 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 struct context_bank_info *msm_smem_get_context_bank(void *clt,
 		bool is_secure, enum hal_buffer buffer_type);
 void msm_vidc_fw_unload_handler(struct work_struct *work);
+bool msm_smem_compare_buffers(void *clt, int fd, void *priv);
 /* XXX: normally should be in msm_vidc.h, but that's meant for public APIs,
  * whereas this is private */
 int msm_vidc_destroy(struct msm_vidc_inst *inst);
