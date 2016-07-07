@@ -986,6 +986,8 @@ int ipa_rm_stat(char *buf, int size)
 	unsigned long flags;
 	int i, cnt = 0, result = EINVAL;
 	struct ipa_rm_resource *resource = NULL;
+	u32 sum_bw_prod = 0;
+	u32 sum_bw_cons = 0;
 
 	if (!buf || size < 0)
 		return result;
@@ -1005,6 +1007,24 @@ int ipa_rm_stat(char *buf, int size)
 			cnt += result;
 		}
 	}
+
+	for (i = 0; i < IPA_RM_RESOURCE_PROD_MAX; i++)
+		sum_bw_prod += ipa_rm_ctx->prof_vote.bw_prods[i];
+
+	for (i = 0; i < IPA_RM_RESOURCE_CONS_MAX; i++)
+		sum_bw_cons += ipa_rm_ctx->prof_vote.bw_cons[i];
+
+	result = scnprintf(buf + cnt, size - cnt,
+		"All prod bandwidth: %d, All cons bandwidth: %d\n",
+		sum_bw_prod, sum_bw_cons);
+	cnt += result;
+
+	result = scnprintf(buf + cnt, size - cnt,
+		"Voting: voltage %d, bandwidth %d\n",
+		ipa_rm_ctx->prof_vote.curr_volt,
+		ipa_rm_ctx->prof_vote.curr_bw);
+	cnt += result;
+
 	result = cnt;
 bail:
 	spin_unlock_irqrestore(&ipa_rm_ctx->ipa_rm_lock, flags);

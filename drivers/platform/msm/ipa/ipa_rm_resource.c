@@ -1133,7 +1133,7 @@ int ipa_rm_resource_producer_print_stat(
 	nbytes = scnprintf(buf + cnt, size - cnt,
 		ipa_rm_resource_str(resource->name));
 	cnt += nbytes;
-	nbytes = scnprintf(buf + cnt, size - cnt, "[");
+	nbytes = scnprintf(buf + cnt, size - cnt, "[%d, ", resource->max_bw);
 	cnt += nbytes;
 
 	switch (resource->state) {
@@ -1170,7 +1170,8 @@ int ipa_rm_resource_producer_print_stat(
 			nbytes = scnprintf(buf + cnt, size - cnt,
 				ipa_rm_resource_str(consumer->name));
 			cnt += nbytes;
-			nbytes = scnprintf(buf + cnt, size - cnt, "[");
+			nbytes = scnprintf(buf + cnt, size - cnt, "[%d, ",
+				consumer->max_bw);
 			cnt += nbytes;
 
 			switch (consumer->state) {
