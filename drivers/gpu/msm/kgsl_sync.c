@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -474,22 +474,22 @@ long kgsl_ioctl_syncsource_create(struct kgsl_device_private *dev_priv,
 		goto out;
 	}
 
+	kref_init(&syncsource->refcount);
+	syncsource->private = private;
+
 	idr_preload(GFP_KERNEL);
 	spin_lock(&private->syncsource_lock);
 	id = idr_alloc(&private->syncsource_idr, syncsource, 1, 0, GFP_NOWAIT);
-	spin_unlock(&private->syncsource_lock);
-	idr_preload_end();
-
 	if (id > 0) {
-		kref_init(&syncsource->refcount);
 		syncsource->id = id;
-		syncsource->private = private;
-
 		param->id = id;
 		ret = 0;
 	} else {
 		ret = id;
 	}
+
+	spin_unlock(&private->syncsource_lock);
+	idr_preload_end();
 
 out:
 	if (ret) {
@@ -548,24 +548,22 @@ long kgsl_ioctl_syncsource_destroy(struct kgsl_device_private *dev_priv,
 {
 	struct kgsl_syncsource_destroy *param = data;
 	struct kgsl_syncsource *syncsource = NULL;
-	struct kgsl_process_private *private;
+	struct kgsl_process_private *private = dev_priv->process_priv;
 
-	syncsource = kgsl_syncsource_get(dev_priv->process_priv,
-				     param->id);
+	spin_lock(&private->syncsource_lock);
+	syncsource = idr_find(&private->syncsource_idr, param->id);
+
+	if (syncsource) {
+		idr_remove(&private->syncsource_idr, param->id);
+		syncsource->id = 0;
+	}
+
+	spin_unlock(&private->syncsource_lock);
 
 	if (syncsource == NULL)
 		return -EINVAL;
 
-	private = syncsource->private;
-
-	spin_lock(&private->syncsource_lock);
-	idr_remove(&private->syncsource_idr, param->id);
-	syncsource->id = 0;
-	spin_unlock(&private->syncsource_lock);
-
 	/* put reference from syncsource creation */
-	kgsl_syncsource_put(syncsource);
-	/* put reference from getting the syncsource above */
 	kgsl_syncsource_put(syncsource);
 	return 0;
 }
