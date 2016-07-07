@@ -873,6 +873,7 @@ static int req_crypt_endio(struct dm_target *ti, struct request *clone,
 	/* If it is for ICE, free up req_io and return */
 	if (encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT) {
 		mempool_free(req_io, req_io_pool);
+		err = error;
 		goto submit_request;
 	}
 
