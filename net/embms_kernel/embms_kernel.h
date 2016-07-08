@@ -32,7 +32,7 @@
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
 
-#define EMBMS_MAX_IFACE_NAME    20
+#define EMBMS_MAX_IFACE_NAME    16
 
 /* Defining IP and UDP header related macros*/
 
