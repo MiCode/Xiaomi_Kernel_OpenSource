@@ -64,6 +64,7 @@
 #define	VPH_DROOP_DEBOUNCE_US_TO_VAL(val_us)	(val_us / 8)
 #define	VPH_DROOP_HYST_MV_TO_VAL(val_mv)	(val_mv / 25)
 #define	VPH_DROOP_THRESH_MV_TO_VAL(val_mv)	((val_mv / 100) - 25)
+#define	VPH_DROOP_THRESH_VAL_TO_UV(val)		((val + 25) * 100000)
 
 #define	FLASH_LED_ISC_WARMUP_DELAY_SHIFT	6
 #define	FLASH_LED_WARMUP_DELAY_DEFAULT		2
@@ -74,6 +75,9 @@
 #define	FLASH_LED_VPH_DROOP_DEBOUNCE_MAX	3
 #define	FLASH_LED_VPH_DROOP_HYST_MAX		3
 #define	FLASH_LED_VPH_DROOP_THRESH_MAX		7
+#define	FLASH_LED_VLED_MAX_DEFAULT_UV		3500000
+#define	FLASH_LED_IBATT_OCP_THRESH_DEFAULT_UA	4500000
+#define	FLASH_LED_RPARA_DEFAULT_UOHM		0
 #define	FLASH_LED_SAFETY_TMR_VAL_OFFSET		1
 #define	FLASH_LED_SAFETY_TMR_VAL_DIVISOR	10
 #define	FLASH_LED_SAFETY_TMR_ENABLE		BIT(7)
@@ -96,6 +100,7 @@
 #define	FLASH_LED_DISABLE			0x00
 #define	FLASH_LED_SAFETY_TMR_DISABLED		0x13
 #define	FLASH_LED_MIN_CURRENT_MA		25
+#define	FLASH_LED_MAX_TOTAL_CURRENT_MA		3750
 
 /* notifier call chain for flash-led irqs */
 static ATOMIC_NOTIFIER_HEAD(irq_notifier_list);
@@ -159,6 +164,9 @@ struct flash_led_platform_data {
 	int	all_ramp_up_done_irq;
 	int	all_ramp_down_done_irq;
 	int	led_fault_irq;
+	int	ibatt_ocp_threshold_ua;
+	int	vled_max_uv;
+	int	rpara_uohm;
 	u8	isc_delay;
 	u8	warmup_delay;
 	u8	current_derate_en_cfg;
@@ -364,10 +372,120 @@ out:
 	return rc;
 }
 
+static int get_property_from_fg(struct qpnp_flash_led *led,
+		enum power_supply_property prop, int *val)
+{
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	if (!led->bms_psy) {
+		dev_err(&led->pdev->dev, "no bms psy found\n");
+		return -EINVAL;
+	}
+
+	rc = power_supply_get_property(led->bms_psy, prop, &pval);
+	if (rc) {
+		dev_err(&led->pdev->dev,
+			"bms psy doesn't support reading prop %d rc = %d\n",
+			prop, rc);
+		return rc;
+	}
+
+	*val = pval.intval;
+	return rc;
+}
+
+#define UCONV			1000000LL
+#define MCONV			1000LL
+#define V_HEADROOM_DEFAULT	350000LL
+#define FLASH_VDIP_MARGIN	50000
+#define BOB_EFFICIENCY		900LL
+#define VIN_FLASH_MIN_UV	3300000LL
+static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
+{
+	int ocv_uv, rbatt_uohm, ibat_now, rc;
+	int64_t ibat_flash_ua, avail_flash_ua, avail_flash_power_fw;
+	int64_t ibat_safe_ua, vin_flash_uv, vph_flash_uv, vph_flash_vdip;
+
+	/* RESISTANCE = esr_uohm + rslow_uohm */
+	rc = get_property_from_fg(led, POWER_SUPPLY_PROP_RESISTANCE,
+			&rbatt_uohm);
+	if (rc < 0) {
+		dev_err(&led->pdev->dev, "bms psy does not support resistance, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/* If no battery is connected, return max possible flash current */
+	if (!rbatt_uohm)
+		return FLASH_LED_MAX_TOTAL_CURRENT_MA;
+
+	rc = get_property_from_fg(led, POWER_SUPPLY_PROP_VOLTAGE_OCV, &ocv_uv);
+	if (rc < 0) {
+		dev_err(&led->pdev->dev, "bms psy does not support OCV, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = get_property_from_fg(led, POWER_SUPPLY_PROP_CURRENT_NOW,
+			&ibat_now);
+	if (rc < 0) {
+		dev_err(&led->pdev->dev, "bms psy does not support current, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rbatt_uohm += led->pdata->rpara_uohm;
+	vph_flash_vdip =
+		VPH_DROOP_THRESH_VAL_TO_UV(led->pdata->vph_droop_threshold)
+							+ FLASH_VDIP_MARGIN;
+
+	/*
+	 * Calculate the maximum current that can pulled out of the battery
+	 * before the battery voltage dips below a safe threshold.
+	 */
+	ibat_safe_ua = div_s64((ocv_uv - vph_flash_vdip) * UCONV,
+				rbatt_uohm);
+
+	if (ibat_safe_ua <= led->pdata->ibatt_ocp_threshold_ua) {
+		/*
+		 * If the calculated current is below the OCP threshold, then
+		 * use it as the possible flash current.
+		 */
+		ibat_flash_ua = ibat_safe_ua - ibat_now;
+		vph_flash_uv = vph_flash_vdip;
+	} else {
+		/*
+		 * If the calculated current is above the OCP threshold, then
+		 * use the ocp threshold instead.
+		 *
+		 * Any higher current will be tripping the battery OCP.
+		 */
+		ibat_flash_ua = led->pdata->ibatt_ocp_threshold_ua - ibat_now;
+		vph_flash_uv = ocv_uv - div64_s64((int64_t)rbatt_uohm
+				* led->pdata->ibatt_ocp_threshold_ua, UCONV);
+	}
+	/* Calculate the input voltage of the flash module. */
+	vin_flash_uv = max((led->pdata->vled_max_uv + V_HEADROOM_DEFAULT),
+				VIN_FLASH_MIN_UV);
+	/* Calculate the available power for the flash module. */
+	avail_flash_power_fw = BOB_EFFICIENCY * vph_flash_uv * ibat_flash_ua;
+	/*
+	 * Calculate the available amount of current the flash module can draw
+	 * before collapsing the battery. (available power/ flash input voltage)
+	 */
+	avail_flash_ua = div64_s64(avail_flash_power_fw, vin_flash_uv * MCONV);
+	dev_dbg(&led->pdev->dev,
+		"avail_iflash=%lld, ocv=%d, ibat=%d, rbatt=%d\n",
+		avail_flash_ua, ocv_uv, ibat_now, rbatt_uohm);
+	return min(FLASH_LED_MAX_TOTAL_CURRENT_MA,
+			(int)(avail_flash_ua / MCONV));
+}
+
 static int qpnp_flash_led_get_max_avail_current(struct flash_switch_data *snode,
 						struct qpnp_flash_led *led)
 {
-	return 3750;
+	return qpnp_flash_led_calc_max_current(led);
 }
 
 static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
@@ -1201,6 +1319,37 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 	} else if (rc != -EINVAL) {
 		dev_err(&led->pdev->dev,
 			"Unable to parse hw strobe option, rc=%d\n", rc);
+		return rc;
+	}
+
+	led->pdata->vled_max_uv = FLASH_LED_VLED_MAX_DEFAULT_UV;
+	rc = of_property_read_u32(node, "qcom,vled-max-uv", &val);
+	if (!rc) {
+		led->pdata->vled_max_uv = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to parse vled_max voltage, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->ibatt_ocp_threshold_ua =
+		FLASH_LED_IBATT_OCP_THRESH_DEFAULT_UA;
+	rc = of_property_read_u32(node, "qcom,ibatt-ocp-threshold-ua", &val);
+	if (!rc) {
+		led->pdata->ibatt_ocp_threshold_ua = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to parse ibatt_ocp threshold, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->rpara_uohm = FLASH_LED_RPARA_DEFAULT_UOHM;
+	rc = of_property_read_u32(node, "qcom,rparasitic-uohm", &val);
+	if (!rc) {
+		led->pdata->rpara_uohm = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to parse rparasitic, rc=%d\n",
+				rc);
 		return rc;
 	}
 

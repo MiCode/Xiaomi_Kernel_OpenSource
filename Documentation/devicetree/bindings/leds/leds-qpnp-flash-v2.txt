@@ -32,6 +32,12 @@ Optional properties:
 - qcom,vph-droop-debounce-us	: Integer property to specify VPH droop debounce time. It is only used
 				  if qcom,vph-droop-det is specified. Valid values are 0, 8, 16 and 26.
 				  Unit is uS.
+- qcom,vled-max-uv		: Integer property for flash current predictive mitigation.
+				  Default value is 3500000 uV.
+- qcom,ibatt-ocp-threshold-ua	: Integer property for flash current predictive mitigation.
+				  Default value is 4500000 uA.
+- qcom,rparasitic-uohm		: Integer property for flash current predictive mitigation indicating
+				  parasitic component of battery resistance. Default value is 0 uOhm.
 - qcom,hw-strobe-option	: Integer type to specify hardware strobe option. Based on the specified
 			  value, additional GPIO configuration may be required to provide strobing
 			  support. Supported values are:
