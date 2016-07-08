@@ -210,22 +210,6 @@ static const struct apsd_result *smblib_get_apsd_result(struct smb_charger *chg)
  * REGISTER SETTERS *
  ********************/
 
-int smblib_enable_charging(struct smb_charger *chg, bool enable)
-{
-	int rc = 0;
-
-	rc = smblib_masked_write(chg, CHARGING_ENABLE_CMD_REG,
-				 CHARGING_ENABLE_CMD_BIT,
-				 enable ? CHARGING_ENABLE_CMD_BIT : 0);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't %s charging rc=%d\n",
-			enable ? "enable" : "disable", rc);
-		return rc;
-	}
-
-	return rc;
-}
-
 int smblib_set_charge_param(struct smb_charger *chg,
 			    struct smb_chg_param *param, int val_u)
 {
@@ -606,6 +590,23 @@ static int smblib_pl_disable_vote_callback(struct votable *votable, void *data,
 	return 0;
 }
 
+static int smblib_chg_disable_vote_callback(struct votable *votable, void *data,
+			int chg_disable, const char *client)
+{
+	struct smb_charger *chg = data;
+	int rc;
+
+	rc = smblib_masked_write(chg, CHARGING_ENABLE_CMD_REG,
+				 CHARGING_ENABLE_CMD_BIT,
+				 chg_disable ? 0 : CHARGING_ENABLE_CMD_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't %s charging rc=%d\n",
+			chg_disable ? "disable" : "enable", rc);
+		return rc;
+	}
+
+	return 0;
+}
 /*****************
  * OTG REGULATOR *
  *****************/
@@ -1745,6 +1746,14 @@ int smblib_create_votables(struct smb_charger *chg)
 					chg);
 	if (IS_ERR(chg->pl_disable_votable)) {
 		rc = PTR_ERR(chg->pl_disable_votable);
+		return rc;
+	}
+
+	chg->chg_disable_votable = create_votable("CHG_DISABLE", VOTE_SET_ANY,
+					smblib_chg_disable_vote_callback,
+					chg);
+	if (IS_ERR(chg->chg_disable_votable)) {
+		rc = PTR_ERR(chg->chg_disable_votable);
 		return rc;
 	}
 
