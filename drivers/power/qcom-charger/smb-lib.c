@@ -400,6 +400,14 @@ static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
 	return smblib_set_dc_suspend(chg, suspend);
 }
 
+static int smblib_fcc_max_vote_callback(struct votable *votable, void *data,
+			int fcc_ua, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	return vote(chg->fcc_votable, FCC_MAX_RESULT, true, fcc_ua);
+}
+
 static int smblib_fcc_vote_callback(struct votable *votable, void *data,
 			int fcc_ua, const char *client)
 {
@@ -850,6 +858,13 @@ done:
 	return rc;
 }
 
+int smblib_get_prop_system_temp_level(struct smb_charger *chg,
+				union power_supply_propval *val)
+{
+	val->intval = chg->system_temp_level;
+	return 0;
+}
+
 /***********************
  * BATTERY PSY SETTERS *
  ***********************/
@@ -874,6 +889,31 @@ int smblib_set_prop_input_suspend(struct smb_charger *chg,
 	}
 
 	return rc;
+}
+
+int smblib_set_prop_system_temp_level(struct smb_charger *chg,
+				const union power_supply_propval *val)
+{
+	if (val->intval < 0)
+		return -EINVAL;
+
+	if (chg->thermal_levels <= 0)
+		return -EINVAL;
+
+	if (val->intval > chg->thermal_levels)
+		return -EINVAL;
+
+	chg->system_temp_level = val->intval;
+	if (chg->system_temp_level == chg->thermal_levels)
+		return vote(chg->chg_disable_votable, THERMAL_DAEMON, true, 0);
+
+	vote(chg->chg_disable_votable, THERMAL_DAEMON, false, 0);
+	if (chg->system_temp_level == 0)
+		return vote(chg->fcc_votable, THERMAL_DAEMON, false, 0);
+
+	vote(chg->fcc_votable, THERMAL_DAEMON, true,
+			chg->thermal_mitigation[chg->system_temp_level]);
+	return 0;
 }
 
 /*******************
@@ -1694,7 +1734,15 @@ int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
-	chg->fcc_votable = create_votable("FCC", VOTE_MAX,
+	chg->fcc_max_votable = create_votable("FCC_MAX", VOTE_MAX,
+					smblib_fcc_max_vote_callback,
+					chg);
+	if (IS_ERR(chg->fcc_max_votable)) {
+		rc = PTR_ERR(chg->fcc_max_votable);
+		return rc;
+	}
+
+	chg->fcc_votable = create_votable("FCC", VOTE_MIN,
 					smblib_fcc_vote_callback,
 					chg);
 	if (IS_ERR(chg->fcc_votable)) {
@@ -1804,6 +1852,7 @@ int smblib_deinit(struct smb_charger *chg)
 {
 	destroy_votable(chg->usb_suspend_votable);
 	destroy_votable(chg->dc_suspend_votable);
+	destroy_votable(chg->fcc_max_votable);
 	destroy_votable(chg->fcc_votable);
 	destroy_votable(chg->fv_votable);
 	destroy_votable(chg->usb_icl_votable);

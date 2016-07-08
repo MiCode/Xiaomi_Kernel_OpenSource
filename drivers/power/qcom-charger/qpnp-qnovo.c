@@ -153,7 +153,7 @@ struct qnovo {
 	struct work_struct	status_change_work;
 	int			fv_uV_request;
 	int			fcc_uA_request;
-	struct votable		*fcc_votable;
+	struct votable		*fcc_max_votable;
 	struct votable		*fv_votable;
 };
 
@@ -243,8 +243,9 @@ static int qnovo_disable_cb(struct votable *votable, void *data, int disable,
 				vote(chip->fv_votable, QNOVO_VOTER, false, 0);
 		}
 		if (chip->fcc_uA_request != -EINVAL) {
-			if (chip->fcc_votable)
-				vote(chip->fcc_votable, QNOVO_VOTER, false, 0);
+			if (chip->fcc_max_votable)
+				vote(chip->fcc_max_votable, QNOVO_VOTER,
+						false, 0);
 		}
 	}
 
@@ -265,10 +266,10 @@ static int qnovo_disable_cb(struct votable *votable, void *data, int disable,
 						true, chip->fv_uV_request);
 		}
 		if (chip->fcc_uA_request != -EINVAL) {
-			if (!chip->fcc_votable)
-				chip->fcc_votable = find_votable("FCC");
-			if (chip->fcc_votable)
-				vote(chip->fcc_votable, QNOVO_VOTER,
+			if (!chip->fcc_max_votable)
+				chip->fcc_max_votable = find_votable("FCC_MAX");
+			if (chip->fcc_max_votable)
+				vote(chip->fcc_max_votable, QNOVO_VOTER,
 						true, chip->fcc_uA_request);
 		}
 	}
