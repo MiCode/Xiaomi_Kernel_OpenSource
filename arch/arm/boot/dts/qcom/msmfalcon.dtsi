@@ -130,6 +130,68 @@
 	};
 
 	soc: soc { };
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		removed_regions: removed_regions@85800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85800000 0x0 0x3700000>;
+		};
+
+		modem_fw_mem: modem_fw_region@8ac00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x8ac00000 0x0 0x7800000>;
+		};
+
+		adsp_fw_mem: adsp_fw_region@92400000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x92400000 0x0 0x1e00000>;
+		};
+
+		cdsp_fw_mem: cdsp_fw_region@94200000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x94200000 0x0 0x600000>;
+		};
+
+		venus_fw_mem: venus_fw_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x80000000 0x0 0x20000000>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x800000>;
+		};
+
+		adsp_mem: adsp_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x400000>;
+		};
+
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1400000>;
+		};
+
+		secure_display_memory: secure_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x5c00000>;
+		};
+	};
 };
 
 &soc {
