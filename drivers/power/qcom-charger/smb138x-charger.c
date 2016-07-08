@@ -564,7 +564,7 @@ static int smb138x_init_hw(struct smb138x *chip)
 	}
 
 	/* enable the charging path */
-	rc = smblib_enable_charging(chg, true);
+	rc = vote(chg->chg_disable_votable, DEFAULT_VOTER, false, 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't enable charging rc=%d\n", rc);
 		return rc;
@@ -857,7 +857,9 @@ static int smb138x_slave_probe(struct smb138x *chip)
 	}
 
 	/* enable the charging path */
-	rc = smblib_enable_charging(chg, true);
+	rc = smblib_masked_write(chg, CHARGING_ENABLE_CMD_REG,
+				 CHARGING_ENABLE_CMD_BIT,
+				 CHARGING_ENABLE_CMD_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't enable charging rc=%d\n", rc);
 		return rc;

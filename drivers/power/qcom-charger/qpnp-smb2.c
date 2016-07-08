@@ -627,7 +627,7 @@ static int smb2_init_hw(struct smb2 *chip)
 	}
 
 	/* enable the charging path */
-	rc = smblib_enable_charging(chg, true);
+	rc = vote(chg->chg_disable_votable, DEFAULT_VOTER, false, 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't enable charging rc=%d\n", rc);
 		return rc;
