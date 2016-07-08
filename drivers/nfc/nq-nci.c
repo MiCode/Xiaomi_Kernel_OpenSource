@@ -107,35 +107,13 @@ static void nqx_disable_irq(struct nqx_dev *nqx_dev)
 	spin_unlock_irqrestore(&nqx_dev->irq_enabled_lock, flags);
 }
 
-static void nqx_enable_irq(struct nqx_dev *nqx_dev)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&nqx_dev->irq_enabled_lock, flags);
-	if (!nqx_dev->irq_enabled) {
-		nqx_dev->irq_enabled = true;
-		enable_irq(nqx_dev->client->irq);
-	}
-	spin_unlock_irqrestore(&nqx_dev->irq_enabled_lock, flags);
-}
-
 static irqreturn_t nqx_dev_irq_handler(int irq, void *dev_id)
 {
 	struct nqx_dev *nqx_dev = dev_id;
 	unsigned long flags;
-	int ret;
 
 	if (device_may_wakeup(&nqx_dev->client->dev))
 		pm_wakeup_event(&nqx_dev->client->dev, WAKEUP_SRC_TIMEOUT);
-
-	ret = gpio_get_value(nqx_dev->irq_gpio);
-	if (!ret) {
-#ifdef NFC_KERNEL_BU
-		dev_info(&nqx_dev->client->dev,
-			"nqx nfc : nqx_dev_irq_handler error = %d\n", ret);
-#endif
-		return IRQ_HANDLED;
-	}
 
 	nqx_disable_irq(nqx_dev);
 	spin_lock_irqsave(&nqx_dev->irq_enabled_lock, flags);
@@ -175,15 +153,24 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 			ret = -EAGAIN;
 			goto err;
 		}
-		if (!nqx_dev->irq_enabled) {
-			enable_irq(nqx_dev->client->irq);
-			nqx_dev->irq_enabled = true;
+		while (1) {
+			ret = 0;
+			if (!nqx_dev->irq_enabled) {
+				nqx_dev->irq_enabled = true;
+				enable_irq(nqx_dev->client->irq);
+			}
+			if (!gpio_get_value(nqx_dev->irq_gpio)) {
+				ret = wait_event_interruptible(nqx_dev->read_wq,
+					!nqx_dev->irq_enabled);
+			}
+			if (ret)
+				goto err;
+			nqx_disable_irq(nqx_dev);
+
+			if (gpio_get_value(nqx_dev->irq_gpio))
+				break;
+			dev_err_ratelimited(&nqx_dev->client->dev, "gpio is low, no need to read data\n");
 		}
-		ret = wait_event_interruptible(nqx_dev->read_wq,
-				gpio_get_value(nqx_dev->irq_gpio));
-		if (ret)
-			goto err;
-		nqx_disable_irq(nqx_dev);
 	}
 
 	tmp = nqx_dev->kbuf;
@@ -391,7 +378,6 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		/* hardware dependent delay */
 		msleep(100);
 	} else if (arg == 1) {
-		nqx_enable_irq(nqx_dev);
 		dev_dbg(&nqx_dev->client->dev,
 			"gpio_set_value enable: %s: info: %p\n",
 			__func__, nqx_dev);
