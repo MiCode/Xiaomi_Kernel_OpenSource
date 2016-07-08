@@ -23,6 +23,11 @@
 #include <linux/regulator/consumer.h>
 #include <uapi/linux/hbtp_input.h>
 #include "../input-compat.h"
+#if defined(CONFIG_HBTP_INPUT_SECURE_TOUCH)
+#include <linux/gpio.h>
+#include <linux/interrupt.h>
+#endif
+#include <linux/of_gpio.h>
 
 #if defined(CONFIG_FB)
 #include <linux/notifier.h>
@@ -55,6 +60,17 @@ struct hbtp_data {
 	int def_maxy;		/* Default Max Y */
 	int des_maxx;		/* Desired Max X */
 	int des_maxy;		/* Desired Max Y */
+	int gpio_irq;
+	u32 irq_gpio_flags;
+#if defined(CONFIG_HBTP_INPUT_SECURE_TOUCH)
+	int irq_num;
+	atomic_t st_enabled;
+	atomic_t st_pending_irqs;
+	struct completion st_powerdown;
+	struct completion st_irq_processed;
+	struct completion st_userspace_task;
+	bool st_initialized;
+#endif
 	bool use_scaling;
 	bool override_disp_coords;
 	bool manage_afe_power_ana;
@@ -62,6 +78,260 @@ struct hbtp_data {
 };
 
 static struct hbtp_data *hbtp;
+
+#if defined(CONFIG_HBTP_INPUT_SECURE_TOUCH)
+static irqreturn_t hbtp_filter_interrupt(int irq, void *context)
+{
+	if (atomic_read(&hbtp->st_enabled)) {
+		if (atomic_cmpxchg(&hbtp->st_pending_irqs, 0, 1) == 0) {
+			reinit_completion(&hbtp->st_irq_processed);
+			sysfs_notify(&hbtp->pdev->dev.kobj, NULL,
+							"secure_touch");
+			wait_for_completion_interruptible(
+					&hbtp->st_irq_processed);
+		}
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
+}
+
+static void hbtp_secure_touch_init(struct hbtp_data *hbtp)
+{
+	hbtp->st_initialized = 0;
+	init_completion(&hbtp->st_powerdown);
+	init_completion(&hbtp->st_irq_processed);
+	init_completion(&hbtp->st_userspace_task);
+	hbtp->st_initialized = 1;
+}
+
+/*
+ * 'blocking' variable will have value 'true' when we want to prevent the driver
+ * from accessing the xPU/SMMU protected HW resources while the session is
+ * active.
+ */
+static void hbtp_secure_touch_stop(struct hbtp_data *hbtp, bool blocking)
+{
+	if (atomic_read(&hbtp->st_enabled)) {
+		atomic_set(&hbtp->st_pending_irqs, -1);
+		sysfs_notify(&hbtp->pdev->dev.kobj, NULL, "secure_touch");
+		if (blocking)
+			wait_for_completion_interruptible(
+					&hbtp->st_powerdown);
+	}
+	dev_dbg(hbtp->pdev->dev.parent, "Secure Touch session stopped\n");
+}
+
+static int hbtp_gpio_configure(struct hbtp_data *hbtp, bool on)
+{
+	int retval = 0;
+
+	if (on) {
+		if (gpio_is_valid(hbtp->gpio_irq)) {
+			retval = gpio_request(hbtp->gpio_irq, "hbtp_irq");
+			if (retval) {
+				dev_err(hbtp->pdev->dev.parent,
+					"unable to request GPIO [%d]\n",
+					hbtp->gpio_irq);
+				goto err_gpio_irq_req;
+			}
+
+			retval = gpio_direction_input(hbtp->gpio_irq);
+			if (retval) {
+				dev_err(hbtp->pdev->dev.parent,
+					"unable to set dir for GPIO[%d]\n",
+					hbtp->gpio_irq);
+				goto err_gpio_irq_dir;
+			}
+		} else {
+			dev_err(hbtp->pdev->dev.parent,
+					"GPIO [%d] is not valid\n",
+					hbtp->gpio_irq);
+		}
+	} else {
+		if (gpio_is_valid(hbtp->gpio_irq))
+			gpio_free(hbtp->gpio_irq);
+	}
+
+	return 0;
+
+err_gpio_irq_dir:
+	if (gpio_is_valid(hbtp->gpio_irq))
+		gpio_free(hbtp->gpio_irq);
+err_gpio_irq_req:
+	return retval;
+}
+
+static ssize_t hbtp_secure_touch_enable_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d", atomic_read(&hbtp->st_enabled));
+}
+
+/*
+ * Accept only "0" and "1" valid values.
+ * "0" will reset the st_enabled flag, then wake up the reading process and
+ * the interrupt handler.
+ * The bus driver is notified via pm_runtime that it is not required to stay
+ * awake anymore.
+ * It will also make sure the queue of events is emptied in the controller,
+ * in case a touch happened in between the secure touch being disabled and
+ * the local ISR being ungated.
+ * "1" will set the st_enabled flag and clear the st_pending_irqs flag.
+ * The bus driver is requested via pm_runtime to stay awake.
+ */
+static ssize_t hbtp_secure_touch_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	u8 value;
+	int err = 0, retval;
+
+	if (!hbtp->input_dev || !hbtp->st_initialized)
+		return -EIO;
+
+	if (count > 2)
+		return -EINVAL;
+	err = kstrtou8(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	err = count;
+
+	switch (value) {
+	case 0:
+		if (atomic_read(&hbtp->st_enabled) == 0)
+			break;
+		atomic_set(&hbtp->st_enabled, 0);
+		complete(&hbtp->st_irq_processed);
+		complete(&hbtp->st_powerdown);
+		disable_irq(hbtp->irq_num);
+		free_irq(hbtp->irq_num, hbtp);
+		hbtp_gpio_configure(hbtp, false);
+		reinit_completion(&hbtp->st_userspace_task);
+		sysfs_notify(&hbtp->pdev->dev.kobj, NULL,
+							"secure_touch_enable");
+		wait_for_completion_interruptible(&hbtp->st_userspace_task);
+		sysfs_notify(&hbtp->pdev->dev.kobj, NULL, "secure_touch");
+		break;
+	case 1:
+		if (atomic_read(&hbtp->st_enabled)) {
+			err = -EBUSY;
+			break;
+		}
+		reinit_completion(&hbtp->st_powerdown);
+		reinit_completion(&hbtp->st_irq_processed);
+		reinit_completion(&hbtp->st_userspace_task);
+		atomic_set(&hbtp->st_enabled, 1);
+		sysfs_notify(&hbtp->pdev->dev.kobj, NULL,
+							"secure_touch_enable");
+		atomic_set(&hbtp->st_pending_irqs,  0);
+		wait_for_completion_interruptible(&hbtp->st_userspace_task);
+		retval = hbtp_gpio_configure(hbtp, true);
+		if (retval)
+			return retval;
+
+		hbtp->irq_num = gpio_to_irq(hbtp->gpio_irq);
+		retval = request_threaded_irq(hbtp->irq_num, NULL,
+			hbtp_filter_interrupt,
+			IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+			"hbtp", hbtp);
+		if (retval < 0) {
+			dev_err(hbtp->pdev->dev.parent,
+				"%s: Failed to create irq thread ", __func__);
+			return retval;
+		}
+		break;
+	default:
+		dev_err(hbtp->pdev->dev.parent,
+			"unsupported value: %d\n", value);
+		err = -EINVAL;
+		break;
+	}
+	return err;
+}
+
+/*
+ * Accept only "0" and "1" valid values.
+ * "0" will reset the st_enabled flag, then wake up the reading process and
+ * the interrupt handler.
+ * The bus driver is notified via pm_runtime that it is not required to stay
+ * awake anymore.
+ * It will also make sure the queue of events is emptied in the controller,
+ * in case a touch happened in between the secure touch being disabled and
+ * the local ISR being ungated.
+ * "1" will set the st_enabled flag and clear the st_pending_irqs flag.
+ * The bus driver is requested via pm_runtime to stay awake.
+ */
+static ssize_t hbtp_secure_touch_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int val = 0;
+
+	if (atomic_read(&hbtp->st_enabled) == 0)
+		return -EBADF;
+	if (atomic_cmpxchg(&hbtp->st_pending_irqs, -1, 0) == -1)
+		return -EINVAL;
+	if (atomic_cmpxchg(&hbtp->st_pending_irqs, 1, 0) == 1)
+		val = 1;
+	else
+		complete(&hbtp->st_irq_processed);
+	return scnprintf(buf, PAGE_SIZE, "%u", val);
+}
+
+static ssize_t hbtp_secure_touch_userspace_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	u8 value;
+	int err = 0;
+
+	if (!hbtp->input_dev)
+		return -EIO;
+
+	if (count > 2)
+		return -EINVAL;
+	err = kstrtou8(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	if (value == 0 || value == 1) {
+		dev_dbg(hbtp->pdev->dev.parent,
+			"%s: Userspace is %s\n", __func__,
+			(value == 0) ? "started" : "stopped");
+		complete(&hbtp->st_userspace_task);
+	} else {
+		dev_err(hbtp->pdev->dev.parent,
+			"%s: Wrong value sent\n", __func__);
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(secure_touch_enable, S_IRUGO | S_IWUSR | S_IWGRP,
+		hbtp_secure_touch_enable_show, hbtp_secure_touch_enable_store);
+static DEVICE_ATTR(secure_touch, S_IRUGO, hbtp_secure_touch_show, NULL);
+static DEVICE_ATTR(secure_touch_userspace, S_IRUGO | S_IWUSR | S_IWGRP,
+		hbtp_secure_touch_enable_show,
+		hbtp_secure_touch_userspace_store);
+#else
+static void hbtp_secure_touch_init(struct hbtp_data *hbtp)
+{
+}
+static void hbtp_secure_touch_stop(struct hbtp_data *data, bool blocking)
+{
+}
+#endif
+
+static struct attribute *secure_touch_attrs[] = {
+#if defined(CONFIG_HBTP_INPUT_SECURE_TOUCH)
+	&dev_attr_secure_touch_enable.attr,
+	&dev_attr_secure_touch.attr,
+	&dev_attr_secure_touch_userspace.attr,
+	NULL
+#endif
+};
+
+static const struct attribute_group secure_touch_attr_group = {
+	.attrs = secure_touch_attrs,
+};
 
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
@@ -79,9 +349,11 @@ static int fb_notifier_callback(struct notifier_block *self,
 		if (blank == FB_BLANK_UNBLANK)
 			kobject_uevent_env(&hbtp_data->input_dev->dev.kobj,
 					KOBJ_ONLINE, envp);
-		else if (blank == FB_BLANK_POWERDOWN)
+		else if (blank == FB_BLANK_POWERDOWN) {
+			hbtp_secure_touch_stop(hbtp, true);
 			kobject_uevent_env(&hbtp_data->input_dev->dev.kobj,
 					KOBJ_OFFLINE, envp);
+		}
 	}
 
 	return 0;
@@ -120,8 +392,7 @@ static int hbtp_input_create_input_dev(struct hbtp_input_absinfo *absinfo)
 {
 	struct input_dev *input_dev;
 	struct hbtp_input_absinfo *abs;
-	int error;
-	int i;
+	int i, error;
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {
@@ -538,6 +809,9 @@ static int hbtp_parse_dt(struct device *dev)
 		hbtp->override_disp_coords = true;
 	}
 
+	hbtp->gpio_irq = of_get_named_gpio_flags(np,
+				"hbtp,irq-gpio", 0, &hbtp->irq_gpio_flags);
+
 	hbtp->use_scaling = of_property_read_bool(np, "qcom,use-scale");
 	if (hbtp->use_scaling) {
 		rc = of_property_read_u32(np, "qcom,default-max-x", &temp_val);
@@ -663,12 +937,29 @@ static int hbtp_pdev_probe(struct platform_device *pdev)
 	}
 
 	hbtp->pdev = pdev;
+	error = sysfs_create_group(&hbtp->pdev->dev.kobj,
+					&secure_touch_attr_group);
+	if (error) {
+		dev_err(&pdev->dev, "Failed to create sysfs entries\n");
+		goto err_sysfs_create_group;
+	}
+
+	hbtp_secure_touch_init(hbtp);
+	hbtp_secure_touch_stop(hbtp, true);
 
 	return 0;
+
+err_sysfs_create_group:
+	if (hbtp->manage_power_dig)
+		regulator_put(vcc_dig);
+	if (hbtp->manage_afe_power_ana)
+		regulator_put(vcc_ana);
+	return error;
 }
 
 static int hbtp_pdev_remove(struct platform_device *pdev)
 {
+	sysfs_remove_group(&hbtp->pdev->dev.kobj, &secure_touch_attr_group);
 	if (hbtp->vcc_ana || hbtp->vcc_dig) {
 		hbtp_pdev_power_on(hbtp, false);
 		if (hbtp->vcc_ana)
