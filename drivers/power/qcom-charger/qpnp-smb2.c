@@ -146,7 +146,7 @@ static int smb2_parse_dt(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	struct device_node *node = chg->dev->of_node;
-	int rc;
+	int rc, byte_len;
 
 	if (!node) {
 		pr_err("device tree node missing\n");
@@ -180,6 +180,25 @@ static int smb2_parse_dt(struct smb2 *chip)
 			"qcom,wipower-max-uw", &chip->dt.wipower_max_uw);
 	if (rc < 0)
 		chip->dt.wipower_max_uw	= SMB2_DEFAULT_WPWR_UW;
+
+	if (of_find_property(node, "qcom,thermal-mitigation", &byte_len)) {
+		chg->thermal_mitigation = devm_kzalloc(chg->dev, byte_len,
+			GFP_KERNEL);
+
+		if (chg->thermal_mitigation == NULL)
+			return -ENOMEM;
+
+		chg->thermal_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,thermal-mitigation",
+				chg->thermal_mitigation,
+				chg->thermal_levels);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
 
 	return 0;
 }
@@ -360,6 +379,7 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -387,9 +407,11 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		smblib_get_prop_batt_capacity(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
+		smblib_get_prop_system_temp_level(chg, val);
+		break;
 	default:
-		pr_err("batt power supply prop %d not supported\n",
-			psp);
+		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
 	}
 
@@ -400,17 +422,21 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		enum power_supply_property prop,
 		const union power_supply_propval *val)
 {
+	int rc = 0;
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		smblib_set_prop_input_suspend(chg, val);
+		rc = smblib_set_prop_input_suspend(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
+		rc = smblib_set_prop_system_temp_level(chg, val);
 		break;
 	default:
-		return -EINVAL;
+		rc = -EINVAL;
 	}
 
-	return 0;
+	return rc;
 }
 
 static int smb2_batt_prop_is_writeable(struct power_supply *psy,
@@ -418,6 +444,7 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		return 1;
 	default:
 		break;
@@ -608,7 +635,7 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, chip->dt.suspend_input, 0);
 	vote(chg->dc_suspend_votable,
 		DEFAULT_VOTER, chip->dt.suspend_input, 0);
-	vote(chg->fcc_votable,
+	vote(chg->fcc_max_votable,
 		DEFAULT_VOTER, true, chip->dt.fcc_ua);
 	vote(chg->fv_votable,
 		DEFAULT_VOTER, true, chip->dt.fv_uv);
