@@ -1635,7 +1635,7 @@ static void migrate_timer_list(struct tvec_base *new_base, struct hlist_head *he
 	}
 }
 
-static void migrate_timers(int cpu)
+static void migrate_timers(int cpu, bool wait)
 {
 	struct tvec_base *old_base;
 	struct tvec_base *new_base;
@@ -1651,7 +1651,18 @@ static void migrate_timers(int cpu)
 	spin_lock_irq(&new_base->lock);
 	spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
 
-	BUG_ON(old_base->running_timer);
+	if (wait) {
+		/* Ensure timers are done running before continuing */
+		while (old_base->running_timer) {
+			spin_unlock(&old_base->lock);
+			spin_unlock_irq(&new_base->lock);
+			cpu_relax();
+			spin_lock_irq(&new_base->lock);
+			spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
+		}
+	} else {
+		BUG_ON(old_base->running_timer);
+	}
 
 	for (i = 0; i < TVR_SIZE; i++)
 		migrate_timer_list(new_base, old_base->tv1.vec + i);
@@ -1676,7 +1687,7 @@ static int timer_cpu_notify(struct notifier_block *self,
 	switch (action) {
 	case CPU_DEAD:
 	case CPU_DEAD_FROZEN:
-		migrate_timers((long)hcpu);
+		migrate_timers((long)hcpu, false);
 		break;
 	default:
 		break;
