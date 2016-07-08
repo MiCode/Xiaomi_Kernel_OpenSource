@@ -1412,8 +1412,10 @@ static ssize_t ufsdbg_reset_controller_write(struct file *filp,
 	struct ufs_hba *hba = filp->f_mapping->host->i_private;
 	unsigned long flags;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	pm_runtime_get_sync(hba->dev);
+	ufshcd_hold(hba, false);
 
+	spin_lock_irqsave(hba->host->host_lock, flags);
 	/*
 	 * simulating a dummy error in order to "convince"
 	 * eh_work to actually reset the controller
@@ -1421,8 +1423,12 @@ static ssize_t ufsdbg_reset_controller_write(struct file *filp,
 	hba->saved_err |= INT_FATAL_ERRORS;
 	hba->silence_err_logs = true;
 	schedule_work(&hba->eh_work);
-
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	flush_work(&hba->eh_work);
+
+	ufshcd_release(hba, false);
+	pm_runtime_put_sync(hba->dev);
 
 	return cnt;
 }
