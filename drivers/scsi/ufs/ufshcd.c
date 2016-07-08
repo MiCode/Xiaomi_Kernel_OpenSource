@@ -2554,6 +2554,13 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		return SCSI_MLQUEUE_HOST_BUSY;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
+
+	/* if error handling is in progress, return host busy */
+	if (ufshcd_eh_in_progress(hba)) {
+		err = SCSI_MLQUEUE_HOST_BUSY;
+		goto out_unlock;
+	}
+
 	switch (hba->ufshcd_state) {
 	case UFSHCD_STATE_OPERATIONAL:
 		break;
@@ -2568,13 +2575,6 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		dev_WARN_ONCE(hba->dev, 1, "%s: invalid state %d\n",
 				__func__, hba->ufshcd_state);
 		set_host_byte(cmd, DID_BAD_TARGET);
-		cmd->scsi_done(cmd);
-		goto out_unlock;
-	}
-
-	/* if error handling is in progress, don't issue commands */
-	if (ufshcd_eh_in_progress(hba)) {
-		set_host_byte(cmd, DID_ERROR);
 		cmd->scsi_done(cmd);
 		goto out_unlock;
 	}
@@ -3950,31 +3950,49 @@ out:
 
 static int ufshcd_link_recovery(struct ufs_hba *hba)
 {
-	int ret;
+	int ret = 0;
 	unsigned long flags;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	hba->ufshcd_state = UFSHCD_STATE_RESET;
-	ufshcd_set_eh_in_progress(hba);
+	/*
+	 * Check if there is any race with fatal error handling.
+	 * If so, wait for it to complete. Even though fatal error
+	 * handling does reset and restore in some cases, don't assume
+	 * anything out of it. We are just avoiding race here.
+	 */
+	do {
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		if (!(work_pending(&hba->eh_work) ||
+				hba->ufshcd_state == UFSHCD_STATE_RESET))
+			break;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		dev_dbg(hba->dev, "%s: reset in progress\n", __func__);
+		flush_work(&hba->eh_work);
+	} while (1);
+
+
+	/*
+	 * we don't know if previous reset had really reset the host controller
+	 * or not. So let's force reset here to be sure.
+	 */
+	hba->ufshcd_state = UFSHCD_STATE_ERROR;
+	hba->force_host_reset = true;
+	schedule_work(&hba->eh_work);
+
+	/* wait for the reset work to finish */
+	do {
+		if (!(work_pending(&hba->eh_work) ||
+				hba->ufshcd_state == UFSHCD_STATE_RESET))
+			break;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		dev_dbg(hba->dev, "%s: reset in progress\n", __func__);
+		flush_work(&hba->eh_work);
+		spin_lock_irqsave(hba->host->host_lock, flags);
+	} while (1);
+
+	if (!((hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL) &&
+	      ufshcd_is_link_active(hba)))
+		ret = -ENOLINK;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
-	ret = ufshcd_vops_full_reset(hba);
-	if (ret)
-		dev_warn(hba->dev,
-			"full reset returned %d, trying to recover the link\n",
-			ret);
-
-	ret = ufshcd_host_reset_and_restore(hba);
-
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	if (ret)
-		hba->ufshcd_state = UFSHCD_STATE_ERROR;
-	ufshcd_clear_eh_in_progress(hba);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
-	if (ret)
-		dev_err(hba->dev, "%s: link recovery failed, err %d",
-			__func__, ret);
 
 	return ret;
 }
@@ -3998,8 +4016,7 @@ static int __ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 		 * If link recovery fails then return error so that caller
 		 * don't retry the hibern8 enter again.
 		 */
-		if (ufshcd_link_recovery(hba))
-			ret = -ENOLINK;
+		ret = ufshcd_link_recovery(hba);
 	} else {
 		dev_dbg(hba->dev, "%s: Hibern8 Enter at %lld us", __func__,
 			ktime_to_us(ktime_get()));
@@ -5531,11 +5548,9 @@ static void ufshcd_err_handler(struct work_struct *work)
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
-	ufsdbg_set_err_state(hba);
-	pm_runtime_get_sync(hba->dev);
-	ufshcd_hold_all(hba);
-
 	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufsdbg_set_err_state(hba);
+
 	if (hba->ufshcd_state == UFSHCD_STATE_RESET)
 		goto out;
 
@@ -5571,7 +5586,8 @@ static void ufshcd_err_handler(struct work_struct *work)
 		}
 	}
 
-	if ((hba->saved_err & INT_FATAL_ERRORS) || hba->saved_ce_err ||
+	if ((hba->saved_err & INT_FATAL_ERRORS)
+	    || hba->saved_ce_err || hba->force_host_reset ||
 	    ((hba->saved_err & UIC_ERROR) &&
 	    (hba->saved_uic_err & (UFSHCD_UIC_DL_PA_INIT_ERROR |
 				   UFSHCD_UIC_DL_NAC_RECEIVED_ERROR |
@@ -5659,6 +5675,7 @@ skip_pending_xfer_clear:
 		hba->saved_err = 0;
 		hba->saved_uic_err = 0;
 		hba->saved_ce_err = 0;
+		hba->force_host_reset = false;
 	}
 
 skip_err_handling:
@@ -5670,12 +5687,9 @@ skip_err_handling:
 	}
 
 	hba->silence_err_logs = false;
-	ufshcd_clear_eh_in_progress(hba);
 out:
+	ufshcd_clear_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	ufshcd_scsi_unblock_requests(hba);
-	ufshcd_release_all(hba);
-	pm_runtime_put_sync(hba->dev);
 }
 
 static void ufshcd_update_uic_reg_hist(struct ufs_uic_err_reg_hist *reg_hist,
@@ -5776,8 +5790,11 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 
 		/* handle fatal errors only when link is functional */
 		if (hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL) {
-			/* block commands from scsi mid-layer */
-			__ufshcd_scsi_block_requests(hba);
+			/*
+			 * Set error handling in progress flag early so that we
+			 * don't issue new requests any more.
+			 */
+			ufshcd_set_eh_in_progress(hba);
 
 			hba->ufshcd_state = UFSHCD_STATE_ERROR;
 			schedule_work(&hba->eh_work);
@@ -6281,6 +6298,11 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	int retries = MAX_HOST_RESET_RETRIES;
 
 	do {
+		err = ufshcd_vops_full_reset(hba);
+		if (err)
+			dev_warn(hba->dev, "%s: full reset returned %d\n",
+				 __func__, err);
+
 		err = ufshcd_host_reset_and_restore(hba);
 	} while (err && --retries);
 
@@ -6304,13 +6326,12 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
  */
 static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
 {
-	int err;
+	int err = SUCCESS;
 	unsigned long flags;
 	struct ufs_hba *hba;
 
 	hba = shost_priv(cmd->device->host);
 
-	ufshcd_hold_all(hba);
 	/*
 	 * Check if there is any race with fatal error handling.
 	 * If so, wait for it to complete. Even though fatal error
@@ -6323,29 +6344,37 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
 				hba->ufshcd_state == UFSHCD_STATE_RESET))
 			break;
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
-		dev_dbg(hba->dev, "%s: reset in progress\n", __func__);
+		dev_err(hba->dev, "%s: reset in progress - 1\n", __func__);
 		flush_work(&hba->eh_work);
 	} while (1);
 
-	hba->ufshcd_state = UFSHCD_STATE_RESET;
-	ufshcd_set_eh_in_progress(hba);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	/*
+	 * we don't know if previous reset had really reset the host controller
+	 * or not. So let's force reset here to be sure.
+	 */
+	hba->ufshcd_state = UFSHCD_STATE_ERROR;
+	hba->force_host_reset = true;
+	schedule_work(&hba->eh_work);
 
-	ufshcd_update_error_stats(hba, UFS_ERR_EH);
-	err = ufshcd_reset_and_restore(hba);
+	/* wait for the reset work to finish */
+	do {
+		if (!(work_pending(&hba->eh_work) ||
+				hba->ufshcd_state == UFSHCD_STATE_RESET))
+			break;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		dev_err(hba->dev, "%s: reset in progress - 2\n", __func__);
+		flush_work(&hba->eh_work);
+		spin_lock_irqsave(hba->host->host_lock, flags);
+	} while (1);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	if (!err) {
-		err = SUCCESS;
-		hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
-	} else {
+	if (!((hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL) &&
+	      ufshcd_is_link_active(hba))) {
 		err = FAILED;
 		hba->ufshcd_state = UFSHCD_STATE_ERROR;
 	}
-	ufshcd_clear_eh_in_progress(hba);
+
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	ufshcd_release_all(hba);
 	return err;
 }
 
