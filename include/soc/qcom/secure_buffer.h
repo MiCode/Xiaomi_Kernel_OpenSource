@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,8 @@
 #define VMID_CP_CAMERA 0xD
 #define VMID_HLOS_FREE 0xE
 #define VMID_MSS_NONMSA 0x10
+#define VMID_CP_SEC_DISPLAY 0x11
+#define VMID_CP_APP 0x12
 #define VMID_INVAL -1
 
 #define PERM_READ                       0x4
