@@ -54,7 +54,10 @@ Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
 - qcom,loop-ea-gm	: control the gm for gm stage in control loop. default is 3.
 - qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.
 - qcom,vref-psm-mv	: reference psm voltage in mv. default for amoled is 450.
-- qcom,avdd-trim-steps-from-center : The number of steps to trim the OVP threshold voltage. The possible values can be between -7 to 8.
+- qcom,avdd-target-voltage-mv: The target voltage desired for the AVDD module in mV.
+				The supported values are:
+				7900, 7600, 7300, 6400, 6100, 5800.
+				If not specified, default value used is 7600.
 
 Example:
 	qcom,leds@d800 {
