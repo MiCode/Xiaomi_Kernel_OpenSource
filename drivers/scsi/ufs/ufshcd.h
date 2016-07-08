@@ -850,6 +850,7 @@ struct ufs_hba {
 	u32 saved_uic_err;
 	u32 saved_ce_err;
 	bool silence_err_logs;
+	bool force_host_reset;
 	struct ufs_stats ufs_stats;
 
 	/* Device management request data */
