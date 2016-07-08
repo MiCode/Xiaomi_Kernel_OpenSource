@@ -16,6 +16,7 @@
 #include <dt-bindings/clock/qcom,dispcc-skunk.h>
 #include <dt-bindings/clock/qcom,gpucc-skunk.h>
 #include <dt-bindings/clock/qcom,videocc-skunk.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM SKUNK";
@@ -416,3 +417,5 @@
 &venus_gdsc {
 	status = "ok";
 };
+
+#include "msmskunk-regulator.dtsi"
