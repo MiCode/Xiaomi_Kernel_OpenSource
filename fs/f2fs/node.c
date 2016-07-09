@@ -650,6 +650,7 @@ release_out:
 	if (err == -ENOENT) {
 		dn->cur_level = i;
 		dn->max_level = level;
+		dn->ofs_in_node = offset[level];
 	}
 	return err;
 }
