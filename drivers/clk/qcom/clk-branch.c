@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -83,6 +83,9 @@ static int clk_branch_wait(const struct clk_branch *br, bool enabling,
 
 	if (br->halt_check == BRANCH_HALT_DELAY || (!enabling && voted)) {
 		udelay(10);
+	} else if ((br->halt_check == BRANCH_HALT_NO_CHECK_ON_DISABLE) &&
+								!enabling) {
+		return 0;
 	} else if (br->halt_check == BRANCH_HALT_ENABLE ||
 		   br->halt_check == BRANCH_HALT ||
 		   (enabling && voted)) {
