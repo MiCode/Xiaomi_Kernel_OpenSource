@@ -810,8 +810,8 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->xhci_resources[1].name = res->name;
 
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
-	ret = devm_request_irq(dev, irq, dwc3_interrupt, IRQF_SHARED, "dwc3",
-			dwc);
+	ret = devm_request_threaded_irq(dev, irq, NULL, dwc3_interrupt,
+				IRQF_SHARED | IRQF_ONESHOT, "dwc3", dwc);
 	if (ret) {
 		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
 				irq, ret);
