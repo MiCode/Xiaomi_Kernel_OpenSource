@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011,2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011,2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,7 +58,7 @@ int kgsl_cff_dump_enable_set(void *data, u64 val);
 int kgsl_cff_dump_enable_get(void *data, u64 *val);
 int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 				struct kgsl_context *context,
-				struct kgsl_cmdbatch *cmdbatch);
+				struct kgsl_drawobj *drawobj);
 
 void kgsl_cffdump_printline(int id, uint opcode, uint op1, uint op2,
 	uint op3, uint op4, uint op5);
@@ -164,7 +164,7 @@ static inline void kgsl_cffdump_user_event(struct kgsl_device *device,
 
 static inline int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 				struct kgsl_context *context,
-				struct kgsl_cmdbatch *cmdbatch)
+				struct kgsl_drawobj *drawobj)
 {
 	return 0;
 }

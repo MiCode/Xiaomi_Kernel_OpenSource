@@ -702,7 +702,7 @@ static inline bool _ringbuffer_verify_ib(struct kgsl_device_private *dev_priv,
 int
 adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				struct kgsl_context *context,
-				struct kgsl_cmdbatch *cmdbatch,
+				struct kgsl_drawobj *drawobj,
 				uint32_t *timestamp)
 {
 	struct kgsl_device *device = dev_priv->device;
@@ -715,29 +715,29 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 		return -EDEADLK;
 
 	/* Verify the IBs before they get queued */
-	list_for_each_entry(ib, &cmdbatch->cmdlist, node)
+	list_for_each_entry(ib, &drawobj->cmdlist, node)
 		if (_ringbuffer_verify_ib(dev_priv, context, ib) == false)
 			return -EINVAL;
 
 	/* wait for the suspend gate */
-	wait_for_completion(&device->cmdbatch_gate);
+	wait_for_completion(&device->halt_gate);
 
 	/*
 	 * Clear the wake on touch bit to indicate an IB has been
 	 * submitted since the last time we set it. But only clear
 	 * it when we have rendering commands.
 	 */
-	if (!(cmdbatch->flags & KGSL_CMDBATCH_MARKER)
-		&& !(cmdbatch->flags & KGSL_CMDBATCH_SYNC))
+	if (!(drawobj->flags & KGSL_DRAWOBJ_MARKER)
+		&& !(drawobj->flags & KGSL_DRAWOBJ_SYNC))
 		device->flags &= ~KGSL_FLAG_WAKE_ON_TOUCH;
 
-	/* A3XX does not have support for command batch profiling */
+	/* A3XX does not have support for drawobj profiling */
 	if (adreno_is_a3xx(adreno_dev) &&
-			(cmdbatch->flags & KGSL_CMDBATCH_PROFILING))
+			(drawobj->flags & KGSL_DRAWOBJ_PROFILING))
 		return -EOPNOTSUPP;
 
 	/* Queue the command in the ringbuffer */
-	ret = adreno_dispatcher_queue_cmd(adreno_dev, drawctxt, cmdbatch,
+	ret = adreno_dispatcher_queue_cmd(adreno_dev, drawctxt, drawobj,
 		timestamp);
 
 	/*
@@ -751,16 +751,16 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 }
 
 static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
-			struct kgsl_cmdbatch *cmdbatch)
+			struct kgsl_drawobj *drawobj)
 {
-	struct kgsl_context *context = cmdbatch->context;
+	struct kgsl_context *context = drawobj->context;
 	/*
 	 * Check if the context has a constraint and constraint flags are
 	 * set.
 	 */
 	if (context->pwr_constraint.type &&
 		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
-			(cmdbatch->flags & KGSL_CONTEXT_PWR_CONSTRAINT)))
+			(drawobj->flags & KGSL_CONTEXT_PWR_CONSTRAINT)))
 		kgsl_pwrctrl_set_constraint(device, &context->pwr_constraint,
 						context->id);
 }
@@ -792,7 +792,7 @@ static inline int _get_alwayson_counter(struct adreno_device *adreno_dev,
 
 /* adreno_rindbuffer_submitcmd - submit userspace IBs to the GPU */
 int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
-		struct kgsl_cmdbatch *cmdbatch, struct adreno_submit_time *time)
+		struct kgsl_drawobj *drawobj, struct adreno_submit_time *time)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -803,25 +803,25 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	struct kgsl_context *context;
 	struct adreno_context *drawctxt;
 	bool use_preamble = true;
-	bool cmdbatch_user_profiling = false;
-	bool cmdbatch_kernel_profiling = false;
+	bool drawobj_user_profiling = false;
+	bool drawobj_kernel_profiling = false;
 	int flags = KGSL_CMD_FLAGS_NONE;
 	int ret;
 	struct adreno_ringbuffer *rb;
-	struct kgsl_cmdbatch_profiling_buffer *profile_buffer = NULL;
+	struct kgsl_drawobj_profiling_buffer *profile_buffer = NULL;
 	unsigned int dwords = 0;
 	struct adreno_submit_time local;
 
-	struct kgsl_mem_entry *entry = cmdbatch->profiling_buf_entry;
+	struct kgsl_mem_entry *entry = drawobj->profiling_buf_entry;
 	if (entry)
 		profile_buffer = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
-					cmdbatch->profiling_buffer_gpuaddr);
+					drawobj->profiling_buffer_gpuaddr);
 
-	context = cmdbatch->context;
+	context = drawobj->context;
 	drawctxt = ADRENO_CONTEXT(context);
 
 	/* Get the total IBs in the list */
-	list_for_each_entry(ib, &cmdbatch->cmdlist, node)
+	list_for_each_entry(ib, &drawobj->cmdlist, node)
 		numibs++;
 
 	rb = drawctxt->rb;
@@ -838,14 +838,14 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	 * c) force preamble for commandbatch
 	 */
 	if (test_bit(ADRENO_CONTEXT_SKIP_CMD, &drawctxt->base.priv) &&
-		(!test_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv))) {
+		(!test_bit(DRAWOBJ_FLAG_SKIP, &drawobj->priv))) {
 
-		set_bit(KGSL_FT_SKIPCMD, &cmdbatch->fault_recovery);
-		cmdbatch->fault_policy = drawctxt->fault_policy;
-		set_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv);
+		set_bit(KGSL_FT_SKIPCMD, &drawobj->fault_recovery);
+		drawobj->fault_policy = drawctxt->fault_policy;
+		set_bit(DRAWOBJ_FLAG_FORCE_PREAMBLE, &drawobj->priv);
 
 		/* if context is detached print fault recovery */
-		adreno_fault_skipcmd_detached(adreno_dev, drawctxt, cmdbatch);
+		adreno_fault_skipcmd_detached(adreno_dev, drawctxt, drawobj);
 
 		/* clear the drawctxt flags */
 		clear_bit(ADRENO_CONTEXT_SKIP_CMD, &drawctxt->base.priv);
@@ -857,7 +857,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if a context switch hasn't occured */
 
 	if ((drawctxt->base.flags & KGSL_CONTEXT_PREAMBLE) &&
-		!test_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv) &&
+		!test_bit(DRAWOBJ_FLAG_FORCE_PREAMBLE, &drawobj->priv) &&
 		(rb->drawctxt_active == drawctxt))
 		use_preamble = false;
 
@@ -867,7 +867,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	 * the accounting sane. Set start_index and numibs to 0 to just
 	 * generate the start and end markers and skip everything else
 	 */
-	if (test_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv)) {
+	if (test_bit(DRAWOBJ_FLAG_SKIP, &drawobj->priv)) {
 		use_preamble = false;
 		numibs = 0;
 	}
@@ -884,9 +884,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	/* Each IB takes up 30 dwords in worst case */
 	dwords += (numibs * 30);
 
-	if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING &&
+	if (drawobj->flags & KGSL_DRAWOBJ_PROFILING &&
 		!adreno_is_a3xx(adreno_dev) && profile_buffer) {
-		cmdbatch_user_profiling = true;
+		drawobj_user_profiling = true;
 		dwords += 6;
 
 		/*
@@ -907,8 +907,8 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			time = &local;
 	}
 
-	if (test_bit(CMDBATCH_FLAG_PROFILE, &cmdbatch->priv)) {
-		cmdbatch_kernel_profiling = true;
+	if (test_bit(DRAWOBJ_FLAG_PROFILE, &drawobj->priv)) {
+		drawobj_kernel_profiling = true;
 		dwords += 6;
 		if (adreno_is_a5xx(adreno_dev))
 			dwords += 2;
@@ -929,26 +929,26 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	*cmds++ = cp_packet(adreno_dev, CP_NOP, 1);
 	*cmds++ = KGSL_START_OF_IB_IDENTIFIER;
 
-	if (cmdbatch_kernel_profiling) {
+	if (drawobj_kernel_profiling) {
 		cmds += _get_alwayson_counter(adreno_dev, cmds,
-			adreno_dev->cmdbatch_profile_buffer.gpuaddr +
-			ADRENO_CMDBATCH_PROFILE_OFFSET(cmdbatch->profile_index,
+			adreno_dev->profile_buffer.gpuaddr +
+			ADRENO_DRAWOBJ_PROFILE_OFFSET(drawobj->profile_index,
 				started));
 	}
 
 	/*
-	 * Add cmds to read the GPU ticks at the start of the cmdbatch and
-	 * write it into the appropriate cmdbatch profiling buffer offset
+	 * Add cmds to read the GPU ticks at the start of the drawobj and
+	 * write it into the appropriate drawobj profiling buffer offset
 	 */
-	if (cmdbatch_user_profiling) {
+	if (drawobj_user_profiling) {
 		cmds += _get_alwayson_counter(adreno_dev, cmds,
-			cmdbatch->profiling_buffer_gpuaddr +
-			offsetof(struct kgsl_cmdbatch_profiling_buffer,
+			drawobj->profiling_buffer_gpuaddr +
+			offsetof(struct kgsl_drawobj_profiling_buffer,
 			gpu_ticks_submitted));
 	}
 
 	if (numibs) {
-		list_for_each_entry(ib, &cmdbatch->cmdlist, node) {
+		list_for_each_entry(ib, &drawobj->cmdlist, node) {
 			/*
 			 * Skip 0 sized IBs - these are presumed to have been
 			 * removed from consideration by the FT policy
@@ -972,21 +972,21 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 				adreno_is_preemption_enabled(adreno_dev))
 		cmds += gpudev->preemption_yield_enable(cmds);
 
-	if (cmdbatch_kernel_profiling) {
+	if (drawobj_kernel_profiling) {
 		cmds += _get_alwayson_counter(adreno_dev, cmds,
-			adreno_dev->cmdbatch_profile_buffer.gpuaddr +
-			ADRENO_CMDBATCH_PROFILE_OFFSET(cmdbatch->profile_index,
+			adreno_dev->profile_buffer.gpuaddr +
+			ADRENO_DRAWOBJ_PROFILE_OFFSET(drawobj->profile_index,
 				retired));
 	}
 
 	/*
-	 * Add cmds to read the GPU ticks at the end of the cmdbatch and
-	 * write it into the appropriate cmdbatch profiling buffer offset
+	 * Add cmds to read the GPU ticks at the end of the drawobj and
+	 * write it into the appropriate drawobj profiling buffer offset
 	 */
-	if (cmdbatch_user_profiling) {
+	if (drawobj_user_profiling) {
 		cmds += _get_alwayson_counter(adreno_dev, cmds,
-			cmdbatch->profiling_buffer_gpuaddr +
-			offsetof(struct kgsl_cmdbatch_profiling_buffer,
+			drawobj->profiling_buffer_gpuaddr +
+			offsetof(struct kgsl_drawobj_profiling_buffer,
 			gpu_ticks_retired));
 	}
 
@@ -1012,7 +1012,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		goto done;
 	}
 
-	if (test_bit(CMDBATCH_FLAG_WFI, &cmdbatch->priv))
+	if (test_bit(DRAWOBJ_FLAG_WFI, &drawobj->priv))
 		flags = KGSL_CMD_FLAGS_WFI;
 
 	/*
@@ -1025,26 +1025,26 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		flags |= KGSL_CMD_FLAGS_PWRON_FIXUP;
 
 	/* Set the constraints before adding to ringbuffer */
-	adreno_ringbuffer_set_constraint(device, cmdbatch);
+	adreno_ringbuffer_set_constraint(device, drawobj);
 
 	/* CFF stuff executed only if CFF is enabled */
-	kgsl_cffdump_capture_ib_desc(device, context, cmdbatch);
+	kgsl_cffdump_capture_ib_desc(device, context, drawobj);
 
 
 	ret = adreno_ringbuffer_addcmds(rb, flags,
 					&link[0], (cmds - link),
-					cmdbatch->timestamp, time);
+					drawobj->timestamp, time);
 
 	if (!ret) {
-		cmdbatch->global_ts = drawctxt->internal_timestamp;
+		drawobj->global_ts = drawctxt->internal_timestamp;
 
 		/* Put the timevalues in the profiling buffer */
-		if (cmdbatch_user_profiling) {
+		if (drawobj_user_profiling) {
 			/*
 			* Return kernel clock time to the the client
 			* if requested
 			*/
-			if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING_KTIME) {
+			if (drawobj->flags & KGSL_DRAWOBJ_PROFILING_KTIME) {
 				uint64_t secs = time->ktime;
 
 				profile_buffer->wall_clock_ns =
@@ -1069,9 +1069,9 @@ done:
 		kgsl_memdesc_unmap(&entry->memdesc);
 
 
-	trace_kgsl_issueibcmds(device, context->id, cmdbatch,
-			numibs, cmdbatch->timestamp,
-			cmdbatch->flags, ret, drawctxt->type);
+	trace_kgsl_issueibcmds(device, context->id, drawobj,
+			numibs, drawobj->timestamp,
+			drawobj->flags, ret, drawctxt->type);
 
 	kfree(link);
 	return ret;

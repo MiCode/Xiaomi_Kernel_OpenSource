@@ -36,7 +36,7 @@
 #include "kgsl_cffdump.h"
 #include "kgsl_log.h"
 #include "kgsl_sharedmem.h"
-#include "kgsl_cmdbatch.h"
+#include "kgsl_drawobj.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 #include "kgsl_sync.h"
@@ -1497,11 +1497,16 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_ringbuffer_issueibcmds *param = data;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
-	struct kgsl_cmdbatch *cmdbatch = NULL;
+	struct kgsl_drawobj *drawobj = NULL;
 	long result = -EINVAL;
 
 	/* The legacy functions don't support synchronization commands */
-	if ((param->flags & (KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER)))
+	if ((param->flags & (KGSL_DRAWOBJ_SYNC | KGSL_DRAWOBJ_MARKER)))
+		return -EINVAL;
+
+	/* Sanity check the number of IBs */
+	if (param->flags & KGSL_DRAWOBJ_SUBMIT_IB_LIST &&
+			(param->numibs == 0 || param->numibs > KGSL_MAX_NUMIBS))
 		return -EINVAL;
 
 	/* Get the context */
@@ -1509,23 +1514,18 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	if (context == NULL)
 		return -EINVAL;
 
-	/* Create a command batch */
-	cmdbatch = kgsl_cmdbatch_create(device, context, param->flags);
-	if (IS_ERR(cmdbatch)) {
-		result = PTR_ERR(cmdbatch);
-		goto done;
+	/* Create a drawobj */
+	drawobj = kgsl_drawobj_create(device, context, param->flags);
+	if (IS_ERR(drawobj)) {
+		kgsl_context_put(context);
+		return PTR_ERR(drawobj);
 	}
 
-	if (param->flags & KGSL_CMDBATCH_SUBMIT_IB_LIST) {
-		/* Sanity check the number of IBs */
-		if (param->numibs == 0 || param->numibs > KGSL_MAX_NUMIBS) {
-			result = -EINVAL;
-			goto done;
-		}
-		result = kgsl_cmdbatch_add_ibdesc_list(device, cmdbatch,
+	if (param->flags & KGSL_DRAWOBJ_SUBMIT_IB_LIST)
+		result = kgsl_drawobj_add_ibdesc_list(device, drawobj,
 			(void __user *) param->ibdesc_addr,
 			param->numibs);
-	} else {
+	else {
 		struct kgsl_ibdesc ibdesc;
 		/* Ultra legacy path */
 
@@ -1533,22 +1533,19 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		ibdesc.sizedwords = param->numibs;
 		ibdesc.ctrl = 0;
 
-		result = kgsl_cmdbatch_add_ibdesc(device, cmdbatch, &ibdesc);
+		result = kgsl_drawobj_add_ibdesc(device, drawobj, &ibdesc);
 	}
 
-	if (result)
-		goto done;
+	if (result == 0)
+		result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
+				drawobj, &param->timestamp);
 
-	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
-		cmdbatch, &param->timestamp);
-
-done:
 	/*
 	 * -EPROTO is a "success" error - it just tells the user that the
 	 * context had previously faulted
 	 */
 	if (result && result != -EPROTO)
-		kgsl_cmdbatch_destroy(cmdbatch);
+		kgsl_drawobj_destroy(drawobj);
 
 	kgsl_context_put(context);
 	return result;
@@ -1560,56 +1557,53 @@ long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 	struct kgsl_submit_commands *param = data;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
-	struct kgsl_cmdbatch *cmdbatch = NULL;
+	struct kgsl_drawobj *drawobj = NULL;
 	long result = -EINVAL;
 
 	/*
 	 * The SYNC bit is supposed to identify a dummy sync object so warn the
 	 * user if they specified any IBs with it.  A MARKER command can either
 	 * have IBs or not but if the command has 0 IBs it is automatically
-	 * assumed to be a marker.  If none of the above make sure that the user
-	 * specified a sane number of IBs
+	 * assumed to be a marker.
 	 */
 
-	if ((param->flags & KGSL_CMDBATCH_SYNC) && param->numcmds)
+	if ((param->flags & KGSL_DRAWOBJ_SYNC) && param->numcmds)
 		KGSL_DEV_ERR_ONCE(device,
 			"Commands specified with the SYNC flag.  They will be ignored\n");
-	else if (param->numcmds > KGSL_MAX_NUMIBS)
-		return -EINVAL;
-	else if (!(param->flags & KGSL_CMDBATCH_SYNC) && param->numcmds == 0)
-		param->flags |= KGSL_CMDBATCH_MARKER;
+	else if (!(param->flags & KGSL_DRAWOBJ_SYNC) && param->numcmds == 0)
+		param->flags |= KGSL_DRAWOBJ_MARKER;
 
-	/* Make sure that we don't have too many syncpoints */
-	if (param->numsyncs > KGSL_MAX_SYNCPOINTS)
+	if (param->numcmds > KGSL_MAX_NUMIBS ||
+			param->numsyncs > KGSL_MAX_SYNCPOINTS)
 		return -EINVAL;
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 	if (context == NULL)
 		return -EINVAL;
 
-	/* Create a command batch */
-	cmdbatch = kgsl_cmdbatch_create(device, context, param->flags);
-	if (IS_ERR(cmdbatch)) {
-		result = PTR_ERR(cmdbatch);
+	/* Create a drawobj */
+	drawobj = kgsl_drawobj_create(device, context, param->flags);
+	if (IS_ERR(drawobj)) {
+		result = PTR_ERR(drawobj);
 		goto done;
 	}
 
-	result = kgsl_cmdbatch_add_ibdesc_list(device, cmdbatch,
+	result = kgsl_drawobj_add_ibdesc_list(device, drawobj,
 		param->cmdlist, param->numcmds);
 	if (result)
 		goto done;
 
-	result = kgsl_cmdbatch_add_syncpoints(device, cmdbatch,
+	result = kgsl_drawobj_add_syncpoints(device, drawobj,
 		param->synclist, param->numsyncs);
 	if (result)
 		goto done;
 
 	/* If no profiling buffer was specified, clear the flag */
-	if (cmdbatch->profiling_buf_entry == NULL)
-		cmdbatch->flags &= ~KGSL_CMDBATCH_PROFILING;
+	if (drawobj->profiling_buf_entry == NULL)
+		drawobj->flags &= ~KGSL_DRAWOBJ_PROFILING;
 
 	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
-		cmdbatch, &param->timestamp);
+		drawobj, &param->timestamp);
 
 done:
 	/*
@@ -1617,7 +1611,7 @@ done:
 	 * context had previously faulted
 	 */
 	if (result && result != -EPROTO)
-		kgsl_cmdbatch_destroy(cmdbatch);
+		kgsl_drawobj_destroy(drawobj);
 
 	kgsl_context_put(context);
 	return result;
@@ -1629,7 +1623,7 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 	struct kgsl_gpu_command *param = data;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
-	struct kgsl_cmdbatch *cmdbatch = NULL;
+	struct kgsl_drawobj *drawobj = NULL;
 
 	long result = -EINVAL;
 
@@ -1640,11 +1634,11 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 	 * assumed to be a marker.  If none of the above make sure that the user
 	 * specified a sane number of IBs
 	 */
-	if ((param->flags & KGSL_CMDBATCH_SYNC) && param->numcmds)
+	if ((param->flags & KGSL_DRAWOBJ_SYNC) && param->numcmds)
 		KGSL_DEV_ERR_ONCE(device,
 			"Commands specified with the SYNC flag.  They will be ignored\n");
-	else if (!(param->flags & KGSL_CMDBATCH_SYNC) && param->numcmds == 0)
-		param->flags |= KGSL_CMDBATCH_MARKER;
+	else if (!(param->flags & KGSL_DRAWOBJ_SYNC) && param->numcmds == 0)
+		param->flags |= KGSL_DRAWOBJ_MARKER;
 
 	/* Make sure that the memobj and syncpoint count isn't too big */
 	if (param->numcmds > KGSL_MAX_NUMIBS ||
@@ -1656,36 +1650,36 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 	if (context == NULL)
 		return -EINVAL;
 
-	cmdbatch = kgsl_cmdbatch_create(device, context, param->flags);
-	if (IS_ERR(cmdbatch)) {
-		result = PTR_ERR(cmdbatch);
+	drawobj = kgsl_drawobj_create(device, context, param->flags);
+	if (IS_ERR(drawobj)) {
+		result = PTR_ERR(drawobj);
 		goto done;
 	}
 
-	result = kgsl_cmdbatch_add_cmdlist(device, cmdbatch,
+	result = kgsl_drawobj_add_cmdlist(device, drawobj,
 		to_user_ptr(param->cmdlist),
 		param->cmdsize, param->numcmds);
 	if (result)
 		goto done;
 
-	result = kgsl_cmdbatch_add_memlist(device, cmdbatch,
+	result = kgsl_drawobj_add_memlist(device, drawobj,
 		to_user_ptr(param->objlist),
 		param->objsize, param->numobjs);
 	if (result)
 		goto done;
 
-	result = kgsl_cmdbatch_add_synclist(device, cmdbatch,
+	result = kgsl_drawobj_add_synclist(device, drawobj,
 		to_user_ptr(param->synclist),
 		param->syncsize, param->numsyncs);
 	if (result)
 		goto done;
 
 	/* If no profiling buffer was specified, clear the flag */
-	if (cmdbatch->profiling_buf_entry == NULL)
-		cmdbatch->flags &= ~KGSL_CMDBATCH_PROFILING;
+	if (drawobj->profiling_buf_entry == NULL)
+		drawobj->flags &= ~KGSL_DRAWOBJ_PROFILING;
 
 	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
-		cmdbatch, &param->timestamp);
+		drawobj, &param->timestamp);
 
 done:
 	/*
@@ -1693,7 +1687,7 @@ done:
 	 * context had previously faulted
 	 */
 	if (result && result != -EPROTO)
-		kgsl_cmdbatch_destroy(cmdbatch);
+		kgsl_drawobj_destroy(drawobj);
 
 	kgsl_context_put(context);
 	return result;
@@ -4600,7 +4594,7 @@ static void kgsl_core_exit(void)
 		kgsl_driver.class = NULL;
 	}
 
-	kgsl_cmdbatch_exit();
+	kgsl_drawobj_exit();
 
 	kgsl_memfree_exit();
 	unregister_chrdev_region(kgsl_driver.major, KGSL_DEVICE_MAX);
@@ -4676,7 +4670,7 @@ static int __init kgsl_core_init(void)
 
 	kgsl_events_init();
 
-	result = kgsl_cmdbatch_init();
+	result = kgsl_drawobj_init();
 	if (result)
 		goto err;
 

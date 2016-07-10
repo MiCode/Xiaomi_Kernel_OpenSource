@@ -119,7 +119,7 @@ struct adreno_ringbuffer {
 	struct adreno_context *drawctxt_active;
 	struct kgsl_memdesc preemption_desc;
 	struct kgsl_memdesc pagetable_desc;
-	struct adreno_dispatcher_cmdqueue dispatch_q;
+	struct adreno_dispatcher_drawqueue dispatch_q;
 	wait_queue_head_t ts_expire_waitq;
 	unsigned int wptr_preempt_end;
 	unsigned int gpr11;
@@ -136,11 +136,11 @@ int cp_secure_mode(struct adreno_device *adreno_dev, uint *cmds, int set);
 
 int adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				struct kgsl_context *context,
-				struct kgsl_cmdbatch *cmdbatch,
+				struct kgsl_drawobj *drawobj,
 				uint32_t *timestamp);
 
 int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
-		struct kgsl_cmdbatch *cmdbatch,
+		struct kgsl_drawobj *drawobj,
 		struct adreno_submit_time *time);
 
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev, bool nopreempt);

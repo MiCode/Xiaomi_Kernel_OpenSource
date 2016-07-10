@@ -236,8 +236,8 @@ static inline compat_size_t sizet_to_compat(size_t size)
 	return (compat_size_t)size;
 }
 
-int kgsl_cmdbatch_create_compat(struct kgsl_device *device, unsigned int flags,
-			struct kgsl_cmdbatch *cmdbatch, void __user *cmdlist,
+int kgsl_drawobj_create_compat(struct kgsl_device *device, unsigned int flags,
+			struct kgsl_drawobj *drawobj, void __user *cmdlist,
 			unsigned int numcmds, void __user *synclist,
 			unsigned int numsyncs);
 
@@ -245,8 +245,8 @@ long kgsl_compat_ioctl(struct file *filep, unsigned int cmd,
 			unsigned long arg);
 
 #else
-static inline int kgsl_cmdbatch_create_compat(struct kgsl_device *device,
-			unsigned int flags, struct kgsl_cmdbatch *cmdbatch,
+static inline int kgsl_drawobj_create_compat(struct kgsl_device *device,
+			unsigned int flags, struct kgsl_drawobj *drawobj,
 			void __user *cmdlist, unsigned int numcmds,
 			void __user *synclist, unsigned int numsyncs)
 {
