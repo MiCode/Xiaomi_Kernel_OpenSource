@@ -2772,7 +2772,6 @@ int mmc_resume_bus(struct mmc_host *host)
 	pr_debug("%s: Starting deferred resume\n", mmc_hostname(host));
 	spin_lock_irqsave(&host->lock, flags);
 	host->bus_resume_flags &= ~MMC_BUSRESUME_NEEDS_RESUME;
-	host->rescan_disable = 0;
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_bus_get(host);
@@ -3749,6 +3748,7 @@ EXPORT_SYMBOL(mmc_detect_card_removed);
 
 void mmc_rescan(struct work_struct *work)
 {
+	unsigned long flags;
 	struct mmc_host *host =
 		container_of(work, struct mmc_host, detect.work);
 
@@ -3757,8 +3757,12 @@ void mmc_rescan(struct work_struct *work)
 		host->trigger_card_event = false;
 	}
 
-	if (host->rescan_disable)
+	spin_lock_irqsave(&host->lock, flags);
+	if (host->rescan_disable) {
+		spin_unlock_irqrestore(&host->lock, flags);
 		return;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
 
 	/* If there is a non-removable card registered, only scan once */
 	if ((host->caps & MMC_CAP_NONREMOVABLE) && host->rescan_entered)
@@ -4001,10 +4005,6 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 	case PM_SUSPEND_PREPARE:
 	case PM_RESTORE_PREPARE:
 		spin_lock_irqsave(&host->lock, flags);
-		if (mmc_bus_needs_resume(host)) {
-			spin_unlock_irqrestore(&host->lock, flags);
-			break;
-		}
 		host->rescan_disable = 1;
 		spin_unlock_irqrestore(&host->lock, flags);
 		cancel_delayed_work_sync(&host->detect);
