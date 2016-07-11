@@ -37,8 +37,8 @@ Required properties:
 					"display_2" = DISPLAY_2
 - qcom,mdss-dsi-panel-timings:		An array of length 12 that specifies the PHY
 					timing settings for the panel.
-- qcom,mdss-dsi-panel-timings-8996:		An array of length 40 char that specifies the 8996 PHY lane
-					timing settings for the panel.
+- qcom,mdss-dsi-panel-timings-phy-v2:	An array of length 40 char that specifies the PHY version 2
+					lane timing settings for the panel.
 - qcom,mdss-dsi-on-command:		A byte stream formed by multiple dcs packets base on
 					qcom dsi controller protocol.
 					byte 0: dcs data type
@@ -570,7 +570,7 @@ Example:
 		qcom,mdss-mdp-transfer-time-us = <12500>;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
 					22 27 1e 03 04 00];
-                qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
+                qcom,mdss-dsi-panel-timings-phy-v2 = [23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
