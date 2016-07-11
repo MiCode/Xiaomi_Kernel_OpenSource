@@ -31,7 +31,7 @@
 #include <linux/kthread.h>
 
 #include "mdss.h"
-#include "mdss_edp.h"
+#include "mdss_dp.h"
 #include "mdss_dp_util.h"
 #include "mdss_debug.h"
 

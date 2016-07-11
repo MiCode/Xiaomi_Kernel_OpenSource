@@ -31,7 +31,7 @@
 #include <linux/clk/msm-clk.h>
 
 #include "mdss_panel.h"
-#include "mdss_edp.h"
+#include "mdss_dp.h"
 #include "mdss_dp_util.h"
 
 /*

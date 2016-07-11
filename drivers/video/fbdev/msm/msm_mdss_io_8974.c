@@ -18,7 +18,7 @@
 #include <linux/clk/msm-clk.h>
 
 #include "mdss_dsi.h"
-#include "mdss_edp.h"
+#include "mdss_dp.h"
 #include "mdss_dsi_phy.h"
 
 #define MDSS_DSI_DSIPHY_REGULATOR_CTRL_0	0x00

@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef MDSS_EDP_H
-#define MDSS_EDP_H
+#ifndef MDSS_DP_H
+#define MDSS_DP_H
 
 #include <linux/list.h>
 #include <linux/mdss_io_util.h>
@@ -380,4 +380,4 @@ void mdss_dp_sink_power_down(struct mdss_dp_drv_pdata *ep);
 void mdss_dp_lane_power_ctrl(struct mdss_dp_drv_pdata *ep, int up);
 void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *ep);
 
-#endif /* MDSS_EDP_H */
+#endif /* MDSS_DP_H */
