@@ -214,6 +214,7 @@ static ssize_t panel_debug_base_reg_read(struct file *file,
 	struct mdss_panel_data *panel_data = ctl->panel_data;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = container_of(panel_data,
 					struct mdss_dsi_ctrl_pdata, panel_data);
+	int rc = -EFAULT;
 
 	if (!dbg)
 		return -ENODEV;
@@ -232,7 +233,8 @@ static ssize_t panel_debug_base_reg_read(struct file *file,
 
 	if (!rx_buf || !panel_reg_buf) {
 		pr_err("not enough memory to hold panel reg dump\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto read_reg_fail;
 	}
 
 	if (mdata->debug_inf.debug_enable_clock)
@@ -267,8 +269,7 @@ static ssize_t panel_debug_base_reg_read(struct file *file,
 read_reg_fail:
 	kfree(rx_buf);
 	kfree(panel_reg_buf);
-	return -EFAULT;
-
+	return rc;
 }
 
 static const struct file_operations panel_off_fops = {
