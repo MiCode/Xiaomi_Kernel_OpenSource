@@ -772,6 +772,7 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	case QBT1000_LOAD_APP:
 	{
 		struct qbt1000_app app;
+		struct qseecom_handle *app_handle;
 
 		if (copy_from_user(&app, priv_arg,
 			sizeof(app)) != 0) {
@@ -782,8 +783,15 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto end;
 		}
 
+		if (!app.app_handle) {
+			dev_err(drvdata->dev, "%s: LOAD app_handle is null\n",
+				__func__);
+			rc = -EINVAL;
+			goto end;
+		}
+
 		/* start the TZ app */
-		rc = qseecom_start_app(app.app_handle, app.name, app.size);
+		rc = qseecom_start_app(&app_handle, app.name, app.size);
 		if (rc == 0) {
 			g_app_buf_size = app.size;
 		} else {
@@ -792,33 +800,76 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto end;
 		}
 
+		/* copy the app handle to user */
+		rc = copy_to_user((void __user *)app.app_handle, &app_handle,
+			sizeof(*app.app_handle));
+
+		if (rc != 0) {
+			dev_err(drvdata->dev,
+				"%s: Failed copy 2us LOAD rc:%d\n",
+				 __func__, rc);
+			rc = -ENOMEM;
+			goto end;
+		}
+
 		break;
 	}
 	case QBT1000_UNLOAD_APP:
 	{
 		struct qbt1000_app app;
+		struct qseecom_handle *app_handle;
 
 		if (copy_from_user(&app, priv_arg,
 			sizeof(app)) != 0) {
 			rc = -ENOMEM;
 			dev_err(drvdata->dev,
-				"%s: Failed copy from user space-LOAD\n",
+				"%s: Failed copy from user space-UNLOAD\n",
 				 __func__);
 			goto end;
 		}
 
-		/* if the app hasn't been loaded already, return err */
 		if (!app.app_handle) {
+			dev_err(drvdata->dev, "%s: UNLOAD app_handle is null\n",
+				__func__);
+			rc = -EINVAL;
+			goto end;
+		}
+
+		rc = copy_from_user(&app_handle, app.app_handle,
+			sizeof(app_handle));
+
+		if (rc != 0) {
+			dev_err(drvdata->dev,
+				"%s: Failed copy from user space-UNLOAD handle rc:%d\n",
+				 __func__, rc);
+			rc = -ENOMEM;
+			goto end;
+		}
+
+		/* if the app hasn't been loaded already, return err */
+		if (!app_handle) {
 			dev_err(drvdata->dev, "%s: App not loaded\n",
 				__func__);
 			rc = -EINVAL;
 			goto end;
 		}
 
-		rc = qseecom_shutdown_app(app.app_handle);
+		rc = qseecom_shutdown_app(&app_handle);
 		if (rc != 0) {
 			dev_err(drvdata->dev, "%s: App failed to shutdown\n",
 				__func__);
+			goto end;
+		}
+
+		/* copy the app handle (should be null) to user */
+		rc = copy_to_user((void __user *)app.app_handle, &app_handle,
+			sizeof(*app.app_handle));
+
+		if (rc != 0) {
+			dev_err(drvdata->dev,
+				"%s: Failed copy 2us UNLOAD rc:%d\n",
+				 __func__, rc);
+			rc = -ENOMEM;
 			goto end;
 		}
 
