@@ -4299,6 +4299,9 @@ static inline int __resume(struct venus_hfi_device *device)
 	} else if (device->power_enabled) {
 		dprintk(VIDC_DBG, "Power is already enabled\n");
 		goto exit;
+	} else if (!__core_in_valid_state(device)) {
+		dprintk(VIDC_DBG, "venus_hfi_device in deinit state.");
+		return -EINVAL;
 	}
 
 	dprintk(VIDC_DBG, "Resuming from power collapse\n");
