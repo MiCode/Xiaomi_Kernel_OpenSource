@@ -7511,9 +7511,9 @@ static int tasha_mad_input_put(struct snd_kcontrol *kcontrol,
 		"%s: tasha input widget = %s\n", __func__,
 		mad_input_widget);
 
-	for (i = 0; i < card->num_dapm_routes; i++) {
-		if (!strcmp(card->dapm_routes[i].sink, mad_input_widget)) {
-			source_widget = card->dapm_routes[i].source;
+	for (i = 0; i < card->num_of_dapm_routes; i++) {
+		if (!strcmp(card->of_dapm_routes[i].sink, mad_input_widget)) {
+			source_widget = card->of_dapm_routes[i].source;
 			if (!source_widget) {
 				dev_err(codec->dev,
 					"%s: invalid source widget\n",

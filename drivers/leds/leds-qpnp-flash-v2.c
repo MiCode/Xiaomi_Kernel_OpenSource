@@ -30,22 +30,20 @@
 #define	FLASH_LED_REG_HDRM_AUTO_MODE_CTRL(base)	(base + 0x50)
 #define	FLASH_LED_REG_ISC_DELAY(base)		(base + 0x52)
 
-#define	FLASH_LED_HDRM_MODE_PRGM_MASK		0xFF
-#define	FLASH_LED_HDRM_VOL_MASK			0xF0
-#define	FLASH_LED_CURRENT_MASK			0x3F
-#define	FLASH_LED_STROBE_CTRL_MASK		0x07
-#define	FLASH_LED_SAFETY_TMR_MASK_MASK		0x7F
-#define	FLASH_LED_MOD_CTRL_MASK			0x80
-#define	FLASH_LED_ISC_DELAY_MASK		0x03
+#define	FLASH_LED_HDRM_MODE_PRGM_MASK		GENMASK(7, 0)
+#define	FLASH_LED_HDRM_VOL_MASK			GENMASK(7, 4)
+#define	FLASH_LED_CURRENT_MASK			GENMASK(6, 0)
+#define	FLASH_LED_STROBE_CTRL_MASK		GENMASK(2, 0)
+#define	FLASH_LED_SAFETY_TMR_MASK		GENMASK(7, 0)
+#define	FLASH_LED_ISC_DELAY_MASK		GENMASK(1, 0)
+#define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 
-#define	FLASH_LED_TYPE_FLASH			0
-#define	FLASH_LED_TYPE_TORCH			1
 #define	FLASH_LED_HEADROOM_AUTO_MODE_ENABLED	true
 #define	FLASH_LED_ISC_DELAY_SHIFT		6
 #define	FLASH_LED_ISC_DELAY_DEFAULT_US		3
 #define	FLASH_LED_SAFETY_TMR_VAL_OFFSET		1
 #define	FLASH_LED_SAFETY_TMR_VAL_DIVISOR	10
-#define	FLASH_LED_SAFETY_TMR_ENABLED		0x08
+#define	FLASH_LED_SAFETY_TMR_ENABLE		BIT(7)
 #define	FLASH_LED_IRES_BASE			3
 #define	FLASH_LED_IRES_DIVISOR			2500
 #define	FLASH_LED_IRES_MIN_UA			5000
@@ -56,10 +54,16 @@
 #define	FLASH_LED_HDRM_VOL_HI_LO_WIN_DEFAULT_MV	0x04
 #define	FLASH_LED_HDRM_VOL_BASE_MV		125
 #define	FLASH_LED_HDRM_VOL_STEP_MV		25
-#define	FLASH_LED_STROBE_ENABLE			0x01
-#define	FLASH_LED_MOD_ENABLE			0x80
+#define	FLASH_LED_STROBE_ENABLE			BIT(0)
+#define	FLASH_LED_MOD_ENABLE			BIT(7)
 #define	FLASH_LED_DISABLE			0x00
 #define	FLASH_LED_SAFETY_TMR_DISABLED		0x13
+#define	FLASH_LED_MIN_CURRENT_MA		25
+
+enum flash_led_type {
+	FLASH_LED_TYPE_FLASH,
+	FLASH_LED_TYPE_TORCH,
+};
 
 /*
  * Flash LED configuration read from device tree
@@ -141,13 +145,17 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 {
-	int prgm_current_ma;
+	int prgm_current_ma = value;
 
-	prgm_current_ma = value < 0 ? 0 : value;
-	prgm_current_ma = value > fnode->cdev.max_brightness ?
-					fnode->cdev.max_brightness : value;
+	if (value <= 0)
+		prgm_current_ma = 0;
+	else if (value < FLASH_LED_MIN_CURRENT_MA)
+		prgm_current_ma = FLASH_LED_MIN_CURRENT_MA;
+
+	prgm_current_ma = min(prgm_current_ma, fnode->max_current);
+	fnode->current_ma = prgm_current_ma;
 	fnode->cdev.brightness = prgm_current_ma;
-	fnode->brightness = prgm_current_ma * 1000 / fnode->ires_ua + 1;
+	fnode->current_reg_val = prgm_current_ma * 1000 / fnode->ires_ua + 1;
 	fnode->led_on = prgm_current_ma != 0;
 }
 
@@ -182,13 +190,13 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 
 		rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_TGR_CURRENT(led->base + addr_offset),
-			FLASH_LED_CURRENT_MASK, led->fnode[i].brightness);
+			FLASH_LED_CURRENT_MASK, led->fnode[i].current_reg_val);
 		if (rc)
 			return rc;
 
 		rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_SAFETY_TMR(led->base + addr_offset),
-			FLASH_LED_SAFETY_TMR_MASK_MASK, led->fnode[i].duration);
+			FLASH_LED_SAFETY_TMR_MASK, led->fnode[i].duration);
 		if (rc)
 			return rc;
 
@@ -240,6 +248,7 @@ leds_turn_off:
 			FLASH_LED_CURRENT_MASK, 0);
 		if (rc)
 			return rc;
+
 		led->fnode[i].led_on = false;
 
 		if (led->fnode[i].pinctrl) {
@@ -305,14 +314,6 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
-	rc = of_property_read_u32(node, "qcom,max-current", &val);
-	if (!rc) {
-		fnode->cdev.max_brightness = val;
-	} else {
-		dev_err(&led->pdev->dev, "Unable to read max current\n");
-		return rc;
-	}
-
 	rc = of_property_read_string(node, "label", &temp_string);
 	if (!rc) {
 		if (!strcmp(temp_string, "flash"))
@@ -355,13 +356,43 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
+	rc = of_property_read_u32(node, "qcom,max-current", &val);
+	if (!rc) {
+		if (val < FLASH_LED_MIN_CURRENT_MA)
+			val = FLASH_LED_MIN_CURRENT_MA;
+		fnode->max_current = val;
+		fnode->cdev.max_brightness = val;
+	} else {
+		dev_err(&led->pdev->dev,
+				"Unable to read max current, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,current-ma", &val);
+	if (!rc) {
+		if (val < FLASH_LED_MIN_CURRENT_MA ||
+				val > fnode->max_current)
+			dev_warn(&led->pdev->dev,
+				 "Invalid operational current specified, capping it\n");
+		if (val < FLASH_LED_MIN_CURRENT_MA)
+			val = FLASH_LED_MIN_CURRENT_MA;
+		if (val > fnode->max_current)
+			val = fnode->max_current;
+		fnode->current_ma = val;
+		fnode->cdev.brightness = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev,
+			"Unable to read operational current, rc=%d\n", rc);
+		return rc;
+	}
+
 	fnode->duration = FLASH_LED_SAFETY_TMR_DISABLED;
 	rc = of_property_read_u32(node, "qcom,duration-ms", &val);
 	if (!rc) {
 		fnode->duration = (u8)(((val -
 					FLASH_LED_SAFETY_TMR_VAL_OFFSET) /
 					FLASH_LED_SAFETY_TMR_VAL_DIVISOR) |
-					FLASH_LED_SAFETY_TMR_ENABLED);
+					FLASH_LED_SAFETY_TMR_ENABLE);
 	} else if (rc == -EINVAL) {
 		if (fnode->type == FLASH_LED_TYPE_FLASH) {
 			dev_err(&led->pdev->dev,

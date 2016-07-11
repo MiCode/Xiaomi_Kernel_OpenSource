@@ -287,7 +287,7 @@ static inline bool hdmi_tx_is_hdcp_enabled(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static inline bool hdmi_tx_dc_support(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	return hdmi_ctrl->dc_support &&
+	return hdmi_ctrl->dc_feature_on && hdmi_ctrl->dc_support &&
 		(hdmi_edid_get_deep_color(
 			hdmi_tx_get_fd(HDMI_TX_FEAT_EDID)) & BIT(1));
 }
@@ -2204,8 +2204,12 @@ static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 		}
 	}
 
-	DEV_DBG("%s: Features <HDMI:%s, HDCP:%s>\n", __func__,
-		hdmi_disabled ? "OFF" : "ON", hdcp_disabled ? "OFF" : "ON");
+	if (hdmi_ctrl->hdmi_tx_version >= HDMI_TX_VERSION_403)
+		hdmi_ctrl->dc_feature_on = true;
+
+	DEV_DBG("%s: Features <HDMI:%s, HDCP:%s, Deep Color:%s>\n", __func__,
+		hdmi_disabled ? "OFF" : "ON", hdcp_disabled ? "OFF" : "ON",
+		hdmi_ctrl->dc_feature_on ? "OFF" : "ON");
 
 	if (hdmi_disabled) {
 		DEV_ERR("%s: HDMI disabled\n", __func__);
@@ -2836,6 +2840,9 @@ static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	rate = timing->pixel_freq / rate_ratio;
+
+	if (hdmi_tx_dc_support(hdmi_ctrl))
+		rate += rate >> 2;
 
 end:
 	return rate;

@@ -396,6 +396,14 @@ struct hc_driver {
 	/* Call for power on/off the port if necessary */
 	int	(*port_power)(struct usb_hcd *hcd, int portnum, bool enable);
 
+	int (*sec_event_ring_setup)(struct usb_hcd *hcd, unsigned intr_num);
+	int (*sec_event_ring_cleanup)(struct usb_hcd *hcd, unsigned intr_num);
+	dma_addr_t (*get_sec_event_ring_dma_addr)(struct usb_hcd *hcd,
+			unsigned intr_num);
+	dma_addr_t (*get_xfer_ring_dma_addr)(struct usb_hcd *hcd,
+			struct usb_device *udev, struct usb_host_endpoint *ep);
+	dma_addr_t (*get_dcba_dma_addr)(struct usb_hcd *hcd,
+			struct usb_device *udev);
 };
 
 static inline int hcd_giveback_urb_in_bh(struct usb_hcd *hcd)
@@ -434,6 +442,17 @@ extern int usb_hcd_alloc_bandwidth(struct usb_device *udev,
 		struct usb_host_interface *old_alt,
 		struct usb_host_interface *new_alt);
 extern int usb_hcd_get_frame_number(struct usb_device *udev);
+extern int usb_hcd_sec_event_ring_setup(struct usb_device *udev,
+	unsigned intr_num);
+extern int usb_hcd_sec_event_ring_cleanup(struct usb_device *udev,
+	unsigned intr_num);
+extern dma_addr_t
+usb_hcd_get_sec_event_ring_dma_addr(struct usb_device *udev,
+		unsigned intr_num);
+extern dma_addr_t usb_hcd_get_dcba_dma_addr(struct usb_device *udev);
+extern dma_addr_t
+usb_hcd_get_xfer_ring_dma_addr(struct usb_device *udev,
+	struct usb_host_endpoint *ep);
 
 extern struct usb_hcd *usb_create_hcd(const struct hc_driver *driver,
 		struct device *dev, const char *bus_name);

@@ -29,13 +29,15 @@ serve as an overall switch.
 			  not required for switch node.
 - qcom,max-current	: Maximum current allowed on this LED. Valid values should be
 			  integer from 0 to 1500 inclusive. Flash 2 should have maximum current of
-			  750 per hardware requirement. Unit is mA. This is not required for switch
-			  node.
+			  750 per hardware requirement. Unit is mA. For torch, the maximum current
+			  is clamped at 500 mA. This is not required for the switch node.
 - qcom,duration-ms	: Required property for flash nodes but not needed for torch. Integer
 			  type specifying flash duration. Values are from 10ms to 1280ms with
 			  10ms resolution. This is not required for switch node.
 
 Optional properties inside child node:
+- qcom,current-ma	: operational current intensity for LED in mA. Accepted values are a
+			  positive integer in the range of 0 to qcom,max-current inclusive.
 - qcom,ires-ua		: Integer type to specify current resolution. Accepted values should be
 			  12500, 10000, 7500, and 5000. Unit is uA.
 - qcom,hdrm-voltage-mv	: Integer type specifying headroom voltage. Values are from 125mV to 500mV
@@ -69,6 +71,7 @@ Example:
 			qcom,default-led-trigger =
 						"flash0_trigger";
 			qcom,id = <0>;
+			qcom,current-ma = <1000>;
 			qcom,duration-ms = <1280>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
@@ -82,6 +85,7 @@ Example:
 			qcom,default-led-trigger =
 						"flash1_trigger";
 			qcom,id = <1>;
+			qcom,current-ma = <1000>;
 			qcom,duration-ms = <1280>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
@@ -95,6 +99,7 @@ Example:
 			qcom,default-led-trigger =
 						"flash2_trigger";
 			qcom,id = <2>;
+			qcom,current-ma = <500>;
 			qcom,duration-ms = <1280>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
@@ -107,10 +112,11 @@ Example:
 		pmi8998_torch0: qcom,torch_0 {
 			label = "torch";
 			qcom,led-name = "led:torch_0";
-			qcom,max-current = <200>;
+			qcom,max-current = <500>;
 			qcom,default-led-trigger =
 						"torch0_trigger";
 			qcom,id = <0>;
+			qcom,current-ma = <300>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
 			qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -119,10 +125,11 @@ Example:
 		pmi8998_torch1: qcom,torch_1 {
 			label = "torch";
 			qcom,led-name = "led:torch_1";
-			qcom,max-current = <200>;
+			qcom,max-current = <500>;
 			qcom,default-led-trigger =
 						"torch1_trigger";
 			qcom,id = <1>;
+			qcom,current-ma = <300>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
 			qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -131,10 +138,11 @@ Example:
 		pmi8998_torch2: qcom,torch_2 {
 			label = "torch";
 			qcom,led-name = "led:torch_2";
-			qcom,max-current = <200>;
+			qcom,max-current = <500>;
 			qcom,default-led-trigger =
 						"torch2_trigger";
 			qcom,id = <2>;
+			qcom,current-ma = <300>;
 			qcom,ires-ua = <12500>;
 			qcom,hdrm-voltage-mv = <325>;
 			qcom,hdrm-vol-hi-lo-win-mv = <100>;
