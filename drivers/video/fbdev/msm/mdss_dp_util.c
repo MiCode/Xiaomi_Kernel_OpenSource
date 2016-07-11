@@ -214,6 +214,15 @@ void mdss_dp_sw_mvid_nvid(struct dss_io_data *ctrl_io)
 	writel_relaxed(0x3c, ctrl_io->base + DP_SOFTWARE_NVID);
 }
 
+void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io)
+{
+	/* Current Tr unit configuration supports only 1080p */
+	writel_relaxed(0x21, ctrl_io->base + DP_MISC1_MISC0);
+	writel_relaxed(0x0f0016, ctrl_io->base + DP_VALID_BOUNDARY);
+	writel_relaxed(0x1f, ctrl_io->base + DP_TU);
+	writel_relaxed(0x0, ctrl_io->base + DP_VALID_BOUNDARY_2);
+}
+
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
 				struct lane_mapping l_map)
 {

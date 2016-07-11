@@ -1312,9 +1312,14 @@ train_start:
 
 	pr_debug("Training 2 completed successfully\n");
 
-	mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
+
 clear:
 	dp_clear_training_pattern(dp);
+	if (ret != -1) {
+		mdss_dp_setup_tr_unit(&dp->ctrl_io);
+		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
+		pr_debug("State_ctrl set to SEND_VIDEO\n");
+	}
 
 	complete(&dp->train_comp);
 	return ret;

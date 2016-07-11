@@ -48,10 +48,13 @@
 #define	DP_START_HOR_VER_FROM_SYNC		(0x00000420)
 #define	DP_HSYNC_VSYNC_WIDTH_POLARITY		(0x00000424)
 #define	DP_ACTIVE_HOR_VER			(0x00000428)
-
+#define	DP_MISC1_MISC0				(0x0000042C)
+#define	DP_VALID_BOUNDARY			(0x00000430)
+#define	DP_VALID_BOUNDARY_2			(0x00000434)
 #define	DP_LOGICAL2PHYSCIAL_LANE_MAPPING	(0x00000438)
 
 #define	DP_MAINLINK_READY			(0x00000440)
+#define	DP_TU					(0x0000044C)
 
 /*DP PHY Register offsets */
 #define DP_PHY_REVISION_ID0                     (0x00000000)
@@ -99,6 +102,7 @@ void mdss_dp_mainlink_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_phy_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_switch_usb3_phy_to_dp_mode(struct dss_io_data *tcsr_reg_io);
 void mdss_dp_assert_phy_reset(struct dss_io_data *ctrl_io, bool assert);
+void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io);
 void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io);
 void mdss_dp_hpd_configure(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_aux_ctrl(struct dss_io_data *ctrl_io, bool enable);
