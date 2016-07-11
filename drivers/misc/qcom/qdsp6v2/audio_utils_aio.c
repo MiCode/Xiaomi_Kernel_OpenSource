@@ -1318,7 +1318,6 @@ int audio_aio_open(struct q6audio_aio *audio, struct file *file)
 	spin_lock_init(&audio->event_queue_lock);
 	init_waitqueue_head(&audio->cmd_wait);
 	init_waitqueue_head(&audio->write_wait);
-	init_waitqueue_head(&audio->event_wait);
 	INIT_LIST_HEAD(&audio->out_queue);
 	INIT_LIST_HEAD(&audio->in_queue);
 	INIT_LIST_HEAD(&audio->ion_region_queue);

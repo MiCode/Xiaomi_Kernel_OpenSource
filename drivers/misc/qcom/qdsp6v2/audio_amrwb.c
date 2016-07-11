@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -90,6 +90,8 @@ static int audio_open(struct inode *inode, struct file *file)
 	audio->miscdevice = &audio_amrwb_misc;
 	audio->wakelock_voted = false;
 	audio->audio_ws_mgr = &audio_amrwb_ws_mgr;
+
+	init_waitqueue_head(&audio->event_wait);
 
 	audio->ac = q6asm_audio_client_alloc((app_cb) q6_audio_cb,
 					     (void *)audio);
