@@ -192,6 +192,7 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 #define AGC_LM_CONFIG_ENABLE_GPMU_ADAPTIVE (1)
 
 #define AGC_LM_CONFIG_ENABLE_ERROR	(3 << 4)
+#define AGC_LM_CONFIG_ISENSE_ENABLE     (1 << 4)
 
 #define AGC_THROTTLE_SEL_DCS		(1 << 8)
 #define AGC_THROTTLE_DISABLE            (2 << 8)
@@ -205,7 +206,7 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 
 #define AGC_LEVEL_CONFIG		(140/4)
 
-#define LM_DCVS_LIMIT			2
+#define LM_DCVS_LIMIT			1
 /* FW file tages */
 #define GPMU_FIRMWARE_ID		2
 #define GPMU_SEQUENCE_ID		3

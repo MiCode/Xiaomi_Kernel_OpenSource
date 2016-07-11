@@ -1666,90 +1666,6 @@ static void a530_lm_enable(struct adreno_device *adreno_dev)
 			adreno_is_a530v2(adreno_dev) ? 0x00060011 : 0x00000011);
 }
 
-static int isense_cot(struct adreno_device *adreno_dev)
-{
-	unsigned int r, ret;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	kgsl_regrmw(device, A5XX_GPU_CS_AMP_CALIBRATION_DONE,
-		SW_OPAMP_CAL_DONE, 0);
-	kgsl_regrmw(device, A5XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
-		AMP_SW_TRIM_START, 0);
-	kgsl_regrmw(device, A5XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
-		AMP_SW_TRIM_START, AMP_SW_TRIM_START);
-
-	for (ret = 0; ret < AMP_CALIBRATION_TIMEOUT; ret++) {
-		kgsl_regread(device, A5XX_GPU_CS_SENSOR_GENERAL_STATUS, &r);
-		if (r & SS_AMPTRIM_DONE)
-			break;
-		udelay(10);
-	}
-
-	if (ret == AMP_CALIBRATION_TIMEOUT)
-		return -ETIMEDOUT;
-
-	if (adreno_is_a540v1(adreno_dev)) {
-		/* HM */
-		kgsl_regread(device, A5XX_GPU_CS_AMP_CALIBRATION_STATUS1_0, &r);
-		if (r & AMP_CALIBRATION_ERR)
-			return -EIO;
-	}
-	/* SPTP */
-	kgsl_regread(device, A5XX_GPU_CS_AMP_CALIBRATION_STATUS1_2, &r);
-	if (r & AMP_CALIBRATION_ERR)
-		return -EIO;
-	/* RAC */
-	kgsl_regread(device, A5XX_GPU_CS_AMP_CALIBRATION_STATUS1_4, &r);
-	if (r & AMP_CALIBRATION_ERR)
-		return -EIO;
-
-	kgsl_regrmw(device, A5XX_GPU_CS_AMP_CALIBRATION_DONE,
-		SW_OPAMP_CAL_DONE, 1);
-
-	return 0;
-}
-
-static int isense_enable(struct adreno_device *adreno_dev)
-{
-	unsigned int r;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	kgsl_regrmw(device, A5XX_GPMU_GPMU_ISENSE_CTRL, 0,
-		ISENSE_CGC_EN_DISABLE);
-
-	kgsl_regwrite(device, A5XX_GPU_CS_ENABLE_REG,
-		adreno_is_a540v1(adreno_dev) ? 7 : 6);
-	udelay(2);
-	kgsl_regread(device, A5XX_GPU_CS_SENSOR_GENERAL_STATUS, &r);
-	if ((r & CS_PWR_ON_STATUS) == 0) {
-		KGSL_CORE_ERR("GPMU: ISENSE enabling failure\n");
-		return -EIO;
-	}
-
-	return 0;
-}
-
-static void isense_disable(struct adreno_device *adreno_dev)
-{
-	unsigned int r;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	kgsl_regwrite(device, A5XX_GPU_CS_ENABLE_REG, 0);
-	udelay(1);
-	kgsl_regread(device, A5XX_GPU_CS_SENSOR_GENERAL_STATUS, &r);
-	if ((r & CS_PWR_ON_STATUS) != 0)
-		KGSL_CORE_ERR("GPMU: ISENSE disabling failure\n");
-}
-
-static bool isense_is_enabled(struct adreno_device *adreno_dev)
-{
-	unsigned int r;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	kgsl_regread(device, A5XX_GPU_CS_SENSOR_GENERAL_STATUS, &r);
-	return r & CS_PWR_ON_STATUS;
-}
-
 static bool llm_is_enabled(struct adreno_device *adreno_dev)
 {
 	unsigned int r;
@@ -1851,7 +1767,7 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 	uint32_t agc_lm_config =
 		((ADRENO_CHIPID_PATCH(adreno_dev->chipid) & 0x3)
 		<< AGC_GPU_VERSION_SHIFT);
-	unsigned int r, i;
+	unsigned int r;
 
 	if (!test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag))
 		agc_lm_config |= AGC_THROTTLE_DISABLE;
@@ -1859,7 +1775,7 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 	if (lm_on(adreno_dev)) {
 		agc_lm_config |=
 			AGC_LM_CONFIG_ENABLE_GPMU_ADAPTIVE |
-			AGC_THROTTLE_SEL_DCS;
+			AGC_LM_CONFIG_ISENSE_ENABLE;
 
 		kgsl_regread(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, &r);
 		if (!(r & GPMU_BCL_ENABLED))
@@ -1872,35 +1788,16 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 			KGSL_CORE_ERR(
 				"GPMU: ISENSE end point calibration failure\n");
 			agc_lm_config |= AGC_LM_CONFIG_ENABLE_ERROR;
-			goto start_agc;
-		}
-
-		if (!isense_enable(adreno_dev)) {
-			agc_lm_config |= AGC_LM_CONFIG_ENABLE_ERROR;
-			goto start_agc;
-		}
-
-		for (i = 0; i < AMP_CALIBRATION_RETRY_CNT; i++) {
-			if (isense_cot(adreno_dev))
-				cpu_relax();
-			else
-				break;
-		}
-
-		if (i == AMP_CALIBRATION_RETRY_CNT) {
-			KGSL_CORE_ERR("GPMU: ISENSE cold trimming failure\n");
-			agc_lm_config |= AGC_LM_CONFIG_ENABLE_ERROR;
 		}
 	}
 
-start_agc:
 	kgsl_regwrite(device, AGC_MSG_STATE, 0x80000001);
 	kgsl_regwrite(device, AGC_MSG_COMMAND, AGC_POWER_CONFIG_PRODUCTION_ID);
 	(void) _write_voltage_table(adreno_dev, AGC_MSG_PAYLOAD);
 	kgsl_regwrite(device, AGC_MSG_PAYLOAD + AGC_LM_CONFIG, agc_lm_config);
 	kgsl_regwrite(device, AGC_MSG_PAYLOAD + AGC_LEVEL_CONFIG,
-		(unsigned int) (~GENMASK(LM_DCVS_LIMIT, 0) |
-				~GENMASK(16+LM_DCVS_LIMIT, 16)));
+		(unsigned int) ~(GENMASK(LM_DCVS_LIMIT, 0) |
+				GENMASK(16+LM_DCVS_LIMIT, 16)));
 
 	kgsl_regwrite(device, AGC_MSG_PAYLOAD_SIZE,
 		(AGC_LEVEL_CONFIG + 1) * sizeof(uint32_t));
@@ -2018,8 +1915,6 @@ static void a5xx_pre_reset(struct adreno_device *adreno_dev)
 	if (adreno_is_a540(adreno_dev) && lm_on(adreno_dev)) {
 		if (llm_is_awake(adreno_dev))
 			sleep_llm(adreno_dev);
-		if (isense_is_enabled(adreno_dev))
-			isense_disable(adreno_dev);
 	}
 }
 
