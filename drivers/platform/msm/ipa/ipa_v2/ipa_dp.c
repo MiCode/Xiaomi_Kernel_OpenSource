@@ -2984,7 +2984,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						IPA_GENERIC_RX_BUFF_SZ(
 						ipa_adjust_ra_buff_base_sz(
 						in->ipa_ep_cfg.aggr.
-							aggr_byte_limit));
+							aggr_byte_limit-
+							IPA_HEADROOM));
 						in->ipa_ep_cfg.aggr.
 							aggr_byte_limit =
 						sys->rx_buff_sz < in->
