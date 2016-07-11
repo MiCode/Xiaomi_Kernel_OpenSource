@@ -1549,6 +1549,13 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 
 		mbhc->btn_press_intr = false;
 		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
+			wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_REM,
+					     false);
+			wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS,
+					     false);
+			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_DETECTION_TYPE,
+						 1);
+			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
 		} else if (mbhc->current_plug == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_UNSUPPORTED);
