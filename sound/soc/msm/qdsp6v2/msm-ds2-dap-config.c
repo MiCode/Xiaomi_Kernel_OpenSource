@@ -1554,7 +1554,8 @@ static int msm_ds2_dap_get_param(u32 cmd, void *arg)
 	pr_debug("%s: port_id 0x%x, copp_idx %d, dev_map[i].device_id %x\n",
 		 __func__, port_id, copp_idx, dev_map[i].device_id);
 
-	params_value = kzalloc(params_length, GFP_KERNEL);
+	params_value = kzalloc(params_length + param_payload_len,
+				GFP_KERNEL);
 	if (!params_value) {
 		pr_err("%s: params memory alloc failed\n", __func__);
 		rc = -ENOMEM;
@@ -1578,9 +1579,9 @@ static int msm_ds2_dap_get_param(u32 cmd, void *arg)
 			rc = -EINVAL;
 			goto end;
 		} else {
-			params_length = (ds2_dap_params_length[i] +
-						DOLBY_PARAM_PAYLOAD_SIZE) *
-						sizeof(uint32_t);
+			params_length =
+			ds2_dap_params_length[i] * sizeof(uint32_t);
+
 			rc = adm_get_params(port_id, copp_idx,
 					    DOLBY_BUNDLE_MODULE_ID,
 					    ds2_dap_params_id[i],
