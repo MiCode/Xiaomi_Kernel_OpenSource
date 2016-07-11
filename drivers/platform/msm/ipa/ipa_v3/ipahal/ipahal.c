@@ -1207,7 +1207,8 @@ void ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 	if (!base ||
 		!hdr_len ||
 		(!phys_base && !hdr_base_addr) ||
-		!hdr_base_addr || !offset_entry) {
+		!hdr_base_addr ||
+		((is_hdr_proc_ctx == false) && !offset_entry)) {
 		IPAHAL_ERR("failure on parameters\n");
 		BUG();
 	}
