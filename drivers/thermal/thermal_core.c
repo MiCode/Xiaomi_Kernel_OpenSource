@@ -2172,6 +2172,8 @@ static struct genl_family thermal_event_genl_family = {
 	.n_mcgrps = ARRAY_SIZE(thermal_event_mcgrps),
 };
 
+static int allow_netlink_events;
+
 int thermal_generate_netlink_event(struct thermal_zone_device *tz,
 					enum events event)
 {
@@ -2185,6 +2187,9 @@ int thermal_generate_netlink_event(struct thermal_zone_device *tz,
 
 	if (!tz)
 		return -EINVAL;
+
+	if (!allow_netlink_events)
+		return -ENODEV;
 
 	/* allocate memory */
 	size = nla_total_size(sizeof(struct thermal_genl_event)) +
@@ -2237,7 +2242,13 @@ EXPORT_SYMBOL_GPL(thermal_generate_netlink_event);
 
 static int genetlink_init(void)
 {
-	return genl_register_family(&thermal_event_genl_family);
+	int ret;
+
+	ret = genl_register_family(&thermal_event_genl_family);
+	if (!ret)
+		allow_netlink_events = true;
+
+	return ret;
 }
 
 static void genetlink_exit(void)
@@ -2247,6 +2258,8 @@ static void genetlink_exit(void)
 #else /* !CONFIG_NET */
 static inline int genetlink_init(void) { return 0; }
 static inline void genetlink_exit(void) {}
+static inline int thermal_generate_netlink_event(struct thermal_zone_device *tz,
+		enum events event) { return -ENODEV; }
 #endif /* !CONFIG_NET */
 
 static int __init thermal_register_governors(void)
@@ -2318,19 +2331,15 @@ static int __init thermal_init(void)
 
 	result = thermal_register_governors();
 	if (result)
-		goto error;
+		goto init_exit;
 
 	result = class_register(&thermal_class);
 	if (result)
 		goto unregister_governors;
 
-	result = genetlink_init();
-	if (result)
-		goto unregister_class;
-
 	result = of_parse_thermal_zones();
 	if (result)
-		goto exit_netlink;
+		goto exit_zone_parse;
 
 	result = register_pm_notifier(&thermal_pm_nb);
 	if (result)
@@ -2339,13 +2348,11 @@ static int __init thermal_init(void)
 
 	return 0;
 
-exit_netlink:
-	genetlink_exit();
-unregister_class:
+exit_zone_parse:
 	class_unregister(&thermal_class);
 unregister_governors:
 	thermal_unregister_governors();
-error:
+init_exit:
 	idr_destroy(&thermal_tz_idr);
 	idr_destroy(&thermal_cdev_idr);
 	mutex_destroy(&thermal_idr_lock);
@@ -2368,5 +2375,19 @@ static void __exit thermal_exit(void)
 	mutex_destroy(&thermal_governor_lock);
 }
 
-fs_initcall(thermal_init);
+static int __init thermal_netlink_init(void)
+{
+	int ret = 0;
+
+	ret = genetlink_init();
+	if (!ret)
+		goto exit_netlink;
+
+	thermal_exit();
+exit_netlink:
+	return ret;
+}
+
+subsys_initcall(thermal_init);
+fs_initcall(thermal_netlink_init);
 module_exit(thermal_exit);
