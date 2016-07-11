@@ -2734,12 +2734,12 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.ss_desc_hdr = ecm_gsi_ss_function;
 		info.in_epname = "gsi-epin";
 		info.out_epname = "gsi-epout";
-		gsi->d_port.in_aggr_size = GSI_IN_ECM_AGGR_SIZE;
+		gsi->d_port.in_aggr_size = GSI_ECM_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
-		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
+		gsi->d_port.out_aggr_size = GSI_ECM_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_ECM_BUF_LEN;
-		info.out_req_num_buf = num_out_bufs;
+		info.out_req_num_buf = GSI_ECM_NUM_OUT_BUFFERS;
 		info.notify_buf_len = GSI_CTRL_NOTIFY_BUFF_LEN;
 
 		/* export host's Ethernet address in CDC format */
