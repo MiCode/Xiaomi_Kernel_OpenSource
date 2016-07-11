@@ -168,15 +168,15 @@ static const unsigned int a4xx_vbif_ver_20050000_registers[] = {
 
 static const struct adreno_vbif_snapshot_registers
 					a4xx_vbif_snapshot_registers[] = {
-	{ 0x20000000, a4xx_vbif_ver_20000000_registers,
+	{ 0x20000000, 0xFFFF0000, a4xx_vbif_ver_20000000_registers,
 				ARRAY_SIZE(a4xx_vbif_ver_20000000_registers)/2},
-	{ 0x20020000, a4xx_vbif_ver_20020000_registers,
+	{ 0x20020000, 0xFFFF0000, a4xx_vbif_ver_20020000_registers,
 				ARRAY_SIZE(a4xx_vbif_ver_20020000_registers)/2},
-	{ 0x20050000, a4xx_vbif_ver_20050000_registers,
+	{ 0x20050000, 0xFFFF0000, a4xx_vbif_ver_20050000_registers,
 				ARRAY_SIZE(a4xx_vbif_ver_20050000_registers)/2},
-	{ 0x20070000, a4xx_vbif_ver_20020000_registers,
+	{ 0x20070000, 0xFFFF0000, a4xx_vbif_ver_20020000_registers,
 				ARRAY_SIZE(a4xx_vbif_ver_20020000_registers)/2},
-	{ 0x20090000, a4xx_vbif_ver_20050000_registers,
+	{ 0x20090000, 0xFFFF0000, a4xx_vbif_ver_20050000_registers,
 				ARRAY_SIZE(a4xx_vbif_ver_20050000_registers)/2},
 };
 

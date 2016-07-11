@@ -268,6 +268,7 @@ config ARCH_MSM8940
 config ARCH_MSM8953
 	bool "Enable Support for Qualcomm Technologies Inc MSM8953"
 	depends on ARCH_MSM
+	select ARCH_MSM8953_SOC_SETTINGS
 	help
 	  This enables support for the MSM8953 chipset. If you don't
 	  know what to do here, say N
@@ -520,6 +521,15 @@ config ENABLE_FP_SIMD_SETTINGS
 	  Enable FP(Floating Point) and SIMD settings for the MSM8996 during
 	  the execution of the aarch32 processes and disable these settings
 	  when you switch to the aarch64 processes.
+
+	  If you are not sure what to do, select 'N' here.
+
+config ARCH_MSM8953_SOC_SETTINGS
+	bool "Enable MSM8953 SOC settings"
+	depends on ARCH_MSM8953
+	help
+	  Enable generic MSM8953 related settings which are required for
+	  some of CPUSS sub-system functionality.
 
 	  If you are not sure what to do, select 'N' here.
 

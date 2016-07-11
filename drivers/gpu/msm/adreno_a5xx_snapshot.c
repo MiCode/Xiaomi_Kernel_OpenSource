@@ -128,6 +128,9 @@ static const struct adreno_debugbus_block a5xx_debugbus_blocks[] = {
 #define A5XX_NUM_AXI_ARB_BLOCKS	2
 #define A5XX_NUM_XIN_BLOCKS	5
 
+/* Width of A5XX_CP_DRAW_STATE_ADDR is 8 bits */
+#define A5XX_CP_DRAW_STATE_ADDR_WIDTH 8
+
 /* a5xx_snapshot_cp_pm4() - Dump PM4 data in snapshot */
 static size_t a5xx_snapshot_cp_pm4(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
@@ -326,8 +329,7 @@ static void a5xx_snapshot_debugbus(struct kgsl_device *device,
 	}
 }
 
-static const unsigned int a5xx_vbif_ver_20040000_registers[] = {
-	/* VBIF version 0x20040000*/
+static const unsigned int a5xx_vbif_ver_20xxxxxx_registers[] = {
 	0x3000, 0x3007, 0x300C, 0x3014, 0x3018, 0x302C, 0x3030, 0x3030,
 	0x3034, 0x3036, 0x3038, 0x3038, 0x303C, 0x303D, 0x3040, 0x3040,
 	0x3042, 0x3042, 0x3049, 0x3049, 0x3058, 0x3058, 0x305A, 0x3061,
@@ -341,10 +343,8 @@ static const unsigned int a5xx_vbif_ver_20040000_registers[] = {
 
 static const struct adreno_vbif_snapshot_registers
 a5xx_vbif_snapshot_registers[] = {
-	{ 0x20040000, a5xx_vbif_ver_20040000_registers,
-				ARRAY_SIZE(a5xx_vbif_ver_20040000_registers)/2},
-	{ 0x20040001, a5xx_vbif_ver_20040000_registers,
-				ARRAY_SIZE(a5xx_vbif_ver_20040000_registers)/2},
+	{ 0x20000000, 0xFF000000, a5xx_vbif_ver_20xxxxxx_registers,
+				ARRAY_SIZE(a5xx_vbif_ver_20xxxxxx_registers)/2},
 };
 
 /*
@@ -862,7 +862,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	 /* CP_DRAW_STATE */
 	 kgsl_snapshot_indexed_registers(device, snapshot,
 		A5XX_CP_DRAW_STATE_ADDR, A5XX_CP_DRAW_STATE_DATA,
-		0, 128);
+		0, 1 << A5XX_CP_DRAW_STATE_ADDR_WIDTH);
 
 	 /*
 	  * CP needs to be halted on a530v1 before reading CP_PFP_UCODE_DBG_DATA
