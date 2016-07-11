@@ -1040,7 +1040,7 @@ static enum handoff fabia_alpha_pll_handoff(struct clk *c)
 	if (!is_locked(pll)) {
 		if (c->rate && fabia_alpha_pll_set_rate(c, c->rate))
 			WARN(1, "%s: Failed to configure rate\n", c->dbg_name);
-		__init_alpha_pll(c);
+		__init_fabia_alpha_pll(c);
 		return HANDOFF_DISABLED_CLK;
 	} else if (pll->fsm_en_mask && !is_fsm_mode(MODE_REG(pll))) {
 		WARN(1, "%s should be in FSM mode but is not\n", c->dbg_name);
