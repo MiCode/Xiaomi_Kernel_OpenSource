@@ -561,7 +561,8 @@ int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 				rc, src, pipe->dst.h);
 	}
 
-	if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map))
+	if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map) &&
+			(pipe->type == MDSS_MDP_PIPE_TYPE_VIG))
 		mdss_mdp_pipe_calc_qseed3_cfg(pipe);
 	else
 		mdss_mdp_pipe_calc_pixel_extn(pipe);
