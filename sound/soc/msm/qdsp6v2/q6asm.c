@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -87,7 +87,8 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir);
 static void q6asm_reset_buf_state(struct audio_client *ac);
 
-static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels);
+static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels,
+				bool use_back_flavor);
 void *q6asm_mmap_apr_reg(void);
 
 static int q6asm_is_valid_session(struct apr_client_data *data, void *priv);
@@ -2794,7 +2795,7 @@ int q6asm_set_encdec_chan_map(struct audio_client *ac,
 	channel_mapping = chan_map.channel_mapping;
 	memset(channel_mapping, PCM_CHANNEL_NULL, MAX_CHAN_MAP_CHANNELS);
 
-	if (q6asm_map_channels(channel_mapping, num_channels)) {
+	if (q6asm_map_channels(channel_mapping, num_channels, false)) {
 		pr_err("%s: map channels failed %d\n", __func__, num_channels);
 		return -EINVAL;
 	}
@@ -2826,7 +2827,8 @@ fail_cmd:
 }
 
 static int __q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
-		uint32_t rate, uint32_t channels, uint16_t bits_per_sample)
+		uint32_t rate, uint32_t channels, uint16_t bits_per_sample,
+		bool use_back_flavor)
 {
 	struct asm_multi_channel_pcm_enc_cfg_v2  enc_cfg;
 	u8 *channel_mapping;
@@ -2855,7 +2857,7 @@ static int __q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 
 	memset(channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
 
-	if (q6asm_map_channels(channel_mapping, channels)) {
+	if (q6asm_map_channels(channel_mapping, channels, use_back_flavor)) {
 		pr_err("%s: map channels failed %d", __func__, channels);
 		return -EINVAL;
 	}
@@ -2884,15 +2886,16 @@ fail_cmd:
 }
 
 int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
-			uint32_t rate, uint32_t channels)
+			uint32_t rate, uint32_t channels, bool use_back_flavor)
 {
-	return __q6asm_enc_cfg_blk_pcm(ac, rate, channels, 16);
+	return __q6asm_enc_cfg_blk_pcm(ac, rate, channels, 16, use_back_flavor);
 }
 
 int q6asm_enc_cfg_blk_pcm_format_support(struct audio_client *ac,
 		uint32_t rate, uint32_t channels, uint16_t bits_per_sample)
 {
-	 return __q6asm_enc_cfg_blk_pcm(ac, rate, channels, bits_per_sample);
+	 return __q6asm_enc_cfg_blk_pcm(ac, rate, channels,
+			 bits_per_sample, false);
 }
 
 int q6asm_enc_cfg_blk_pcm_native(struct audio_client *ac,
@@ -2926,7 +2929,7 @@ int q6asm_enc_cfg_blk_pcm_native(struct audio_client *ac,
 
 	memset(channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
 
-	if (q6asm_map_channels(channel_mapping, channels)) {
+	if (q6asm_map_channels(channel_mapping, channels, false)) {
 		pr_err("%s: map channels failed %d\n", __func__, channels);
 		return -EINVAL;
 	}
@@ -2954,7 +2957,8 @@ fail_cmd:
 	return -EINVAL;
 }
 
-static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels)
+static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels,
+		bool use_back_flavor)
 {
 	u8 *lchannel_mapping;
 	lchannel_mapping = channel_mapping;
@@ -2971,21 +2975,27 @@ static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels)
 	} else if (channels == 4) {
 		lchannel_mapping[0] = PCM_CHANNEL_FL;
 		lchannel_mapping[1] = PCM_CHANNEL_FR;
-		lchannel_mapping[2] = PCM_CHANNEL_LS;
-		lchannel_mapping[3] = PCM_CHANNEL_RS;
+		lchannel_mapping[2] = use_back_flavor ?
+			PCM_CHANNEL_LB : PCM_CHANNEL_LS;
+		lchannel_mapping[3] = use_back_flavor ?
+			PCM_CHANNEL_RB : PCM_CHANNEL_RS;
 	} else if (channels == 5) {
 		lchannel_mapping[0] = PCM_CHANNEL_FL;
 		lchannel_mapping[1] = PCM_CHANNEL_FR;
 		lchannel_mapping[2] = PCM_CHANNEL_FC;
-		lchannel_mapping[3] = PCM_CHANNEL_LS;
-		lchannel_mapping[4] = PCM_CHANNEL_RS;
+		lchannel_mapping[3] = use_back_flavor ?
+			PCM_CHANNEL_LB : PCM_CHANNEL_LS;
+		lchannel_mapping[4] = use_back_flavor ?
+			PCM_CHANNEL_RB : PCM_CHANNEL_RS;
 	} else if (channels == 6) {
 		lchannel_mapping[0] = PCM_CHANNEL_FL;
 		lchannel_mapping[1] = PCM_CHANNEL_FR;
 		lchannel_mapping[2] = PCM_CHANNEL_FC;
 		lchannel_mapping[3] = PCM_CHANNEL_LFE;
-		lchannel_mapping[4] = PCM_CHANNEL_LS;
-		lchannel_mapping[5] = PCM_CHANNEL_RS;
+		lchannel_mapping[4] = use_back_flavor ?
+			PCM_CHANNEL_LB : PCM_CHANNEL_LS;
+		lchannel_mapping[5] = use_back_flavor ?
+			PCM_CHANNEL_RB : PCM_CHANNEL_RS;
 	} else if (channels == 8) {
 		lchannel_mapping[0] = PCM_CHANNEL_FL;
 		lchannel_mapping[1] = PCM_CHANNEL_FR;
@@ -3363,7 +3373,7 @@ static int __q6asm_media_format_block_pcm(struct audio_client *ac,
 	memset(channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
 
 	if (use_default_chmap) {
-		if (q6asm_map_channels(channel_mapping, channels)) {
+		if (q6asm_map_channels(channel_mapping, channels, false)) {
 			pr_err("%s: map channels failed %d\n",
 				__func__, channels);
 			return -EINVAL;
@@ -3454,7 +3464,7 @@ static int __q6asm_media_format_block_multi_ch_pcm(struct audio_client *ac,
 	memset(channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
 
 	if (use_default_chmap) {
-		if (q6asm_map_channels(channel_mapping, channels)) {
+		if (q6asm_map_channels(channel_mapping, channels, false)) {
 			pr_err("%s: map channels failed %d\n",
 				__func__, channels);
 			return -EINVAL;
