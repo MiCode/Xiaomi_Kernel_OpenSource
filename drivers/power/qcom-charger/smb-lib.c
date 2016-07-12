@@ -783,22 +783,16 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 		goto done;
 	}
 
-	switch (stat & BAT_TEMP_STATUS_MASK) {
-	case BAT_TEMP_STATUS_TOO_COLD_BIT:
+	if (stat & BAT_TEMP_STATUS_TOO_COLD_BIT)
 		val->intval = POWER_SUPPLY_HEALTH_COLD;
-		break;
-	case BAT_TEMP_STATUS_TOO_HOT_BIT:
+	else if (stat & BAT_TEMP_STATUS_TOO_HOT_BIT)
 		val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
-		break;
-	case BAT_TEMP_STATUS_COLD_SOFT_LIMIT_BIT:
+	else if (stat & BAT_TEMP_STATUS_COLD_SOFT_LIMIT_BIT)
 		val->intval = POWER_SUPPLY_HEALTH_COOL;
-		break;
-	case BAT_TEMP_STATUS_HOT_SOFT_LIMIT_BIT:
+	else if (stat & BAT_TEMP_STATUS_HOT_SOFT_LIMIT_BIT)
 		val->intval = POWER_SUPPLY_HEALTH_WARM;
-		break;
-	default:
+	else
 		val->intval = POWER_SUPPLY_HEALTH_GOOD;
-	}
 
 done:
 	return rc;
