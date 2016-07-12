@@ -387,6 +387,7 @@ static int snd_usb_audio_free(struct snd_usb_audio *chip)
 	list_for_each_entry_safe(ep, n, &chip->ep_list, list)
 		snd_usb_endpoint_free(ep);
 
+	mutex_destroy(&chip->dev_lock);
 	mutex_destroy(&chip->mutex);
 	kfree(chip);
 	return 0;
@@ -442,6 +443,7 @@ static int snd_usb_audio_create(struct usb_interface *intf,
 	}
 
 	mutex_init(&chip->mutex);
+	mutex_init(&chip->dev_lock);
 	init_waitqueue_head(&chip->shutdown_wait);
 	chip->index = idx;
 	chip->dev = dev;

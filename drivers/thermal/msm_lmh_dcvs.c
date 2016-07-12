@@ -44,11 +44,13 @@
 #define MSM_LIMITS_ALGO_MODE_ENABLE	0x454E424C
 
 #define MSM_LIMITS_HI_THRESHOLD		0x48494748
-#define MSM_LIMITS_LO_THRESHOLD		0x4C4F5700
+#define MSM_LIMITS_ARM_THRESHOLD	0x41524D00
 
 #define MSM_LIMITS_CLUSTER_0		0x6370302D
 #define MSM_LIMITS_CLUSTER_1		0x6370312D
 
+#define MSM_LIMITS_HIGH_THRESHOLD_VAL	95000
+#define MSM_LIMITS_ARM_THRESHOLD_VAL	65000
 #define MSM_LIMITS_POLLING_DELAY_MS	10
 #define MSM_LIMITS_CLUSTER_0_REQ	0x179C1B04
 #define MSM_LIMITS_CLUSTER_1_REQ	0x179C3B04
@@ -203,7 +205,7 @@ static int lmh_activate_trip(struct thermal_zone_device *dev,
 			hw->temp_limits[LIMITS_TRIP_HI])
 		return -EINVAL;
 
-	thresh = (trip == LIMITS_TRIP_LO) ? MSM_LIMITS_LO_THRESHOLD :
+	thresh = (trip == LIMITS_TRIP_LO) ? MSM_LIMITS_ARM_THRESHOLD :
 			MSM_LIMITS_HI_THRESHOLD;
 	temp = hw->temp_limits[trip];
 
@@ -306,11 +308,11 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	hw->default_lo.temp = 65000;
+	hw->default_lo.temp = MSM_LIMITS_ARM_THRESHOLD_VAL;
 	hw->default_lo.trip = THERMAL_TRIP_CONFIGURABLE_LOW;
 	hw->default_lo.notify = trip_notify;
 
-	hw->default_hi.temp = 95000;
+	hw->default_hi.temp = MSM_LIMITS_HIGH_THRESHOLD_VAL;
 	hw->default_hi.trip = THERMAL_TRIP_CONFIGURABLE_HI;
 	hw->default_hi.notify = trip_notify;
 

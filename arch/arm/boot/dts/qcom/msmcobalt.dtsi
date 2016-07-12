@@ -258,7 +258,7 @@
 		removed_regions: removed_regions@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x85800000 0 0x5300000>;
+			reg = <0 0x85800000 0 0x3700000>;
 		};
 
 		peripheral_mem: peripheral_region@91900000 {
@@ -309,6 +309,16 @@
 			reusable;
 			alignment = <0 0x200000>;
 			size = <0 0x5c00000>;
+		};
+
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x2000000>;
+			linux,cma-default;
 		};
 	};
 };
@@ -2495,6 +2505,12 @@
 	qcom,msm-rtb {
 		compatible = "qcom,msm-rtb";
 		qcom,rtb-size = <0x100000>;
+	};
+
+	qcom,mpm2-sleep-counter@10a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x010a3000 0x1000>;
+		clock-frequency = <32768>;
 	};
 
 	qcom,msm-imem@146bf000 {

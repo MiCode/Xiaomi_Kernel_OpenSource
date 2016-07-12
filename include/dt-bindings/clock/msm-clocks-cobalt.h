@@ -306,6 +306,11 @@
 #define clk_csi2_clk_src			0x4113589f
 #define clk_csi3_clk_src			0xfd934012
 #define clk_fd_core_clk_src			0xe4799ab7
+#define clk_ext_dp_phy_pll_vco			0x441b576b
+#define clk_ext_dp_phy_pll_link			0xea12644c
+#define clk_dp_link_clk_src			0x370d0626
+#define clk_dp_crypto_clk_src			0xf8faa811
+#define clk_dp_pixel_clk_src			0xf5dfbabf
 #define clk_ext_extpclk_clk_src			0xe5b273af
 #define clk_ext_pclk0_clk_src			0x087c1612
 #define clk_ext_pclk1_clk_src			0x8067c5a3
@@ -405,6 +410,10 @@
 #define clk_mmss_mdss_byte1_intf_clk		0xcf654d8e
 #define clk_mmss_mdss_byte1_intf_div_clk	0xcdf334c5
 #define clk_mmss_mdss_dp_aux_clk		0x23125eb6
+#define clk_mmss_mdss_dp_crypto_clk		0x9a072d4e
+#define clk_mmss_mdss_dp_link_clk		0x8dd302d1
+#define clk_mmss_mdss_dp_link_intf_clk		0x70e386e6
+#define clk_mmss_mdss_dp_pixel_clk		0xb707b765
 #define clk_mmss_mdss_dp_gtc_clk		0xb59c151a
 #define clk_mmss_mdss_esc0_clk			0x5721ff83
 #define clk_mmss_mdss_esc1_clk			0xc3d0376b

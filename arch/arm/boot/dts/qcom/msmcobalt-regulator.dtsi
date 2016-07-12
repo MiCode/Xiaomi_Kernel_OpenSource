@@ -149,6 +149,9 @@
 		pmcobalt_l1: regulator-l1 {
 			regulator-min-microvolt = <880000>;
 			regulator-max-microvolt = <880000>;
+			proxy-supply = <&pmcobalt_l1>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <73400>;
 			status = "okay";
 		};
 	};
@@ -158,6 +161,9 @@
 		pmcobalt_l2: regulator-l2 {
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
+			proxy-supply = <&pmcobalt_l2>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <12560>;
 			status = "okay";
 		};
 	};
@@ -298,6 +304,9 @@
 		pmcobalt_l14: regulator-l14 {
 			regulator-min-microvolt = <1880000>;
 			regulator-max-microvolt = <1880000>;
+			proxy-supply = <&pmcobalt_l14>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <32000>;
 			status = "okay";
 		};
 	};

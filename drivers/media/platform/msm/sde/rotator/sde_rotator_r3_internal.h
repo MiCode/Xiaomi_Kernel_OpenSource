@@ -263,9 +263,6 @@ struct sde_hw_rotator {
 	struct completion rot_comp;
 	struct completion regdma_comp;
 
-	atomic_t regdma_submit_count;
-	atomic_t regdma_done_count;
-
 	spinlock_t rotctx_lock;
 	spinlock_t rotisr_lock;
 

@@ -357,14 +357,14 @@ int core_dts_eagle_set(int size, char *data)
 	}
 
 	size_aligned4byte = (size+3) & 0xFFFFFFFC;
+	mutex_lock(&(q6core_lcl.cmd_lock));
 	ocm_core_open();
 	if (q6core_lcl.core_handle_q) {
 		payload = kzalloc(sizeof(struct adsp_dts_eagle) +
 				  size_aligned4byte, GFP_KERNEL);
 		if (!payload) {
-			pr_err("DTS_EAGLE_CORE - %s: out of memory (aligned size %i).\n",
-				__func__, size_aligned4byte);
-			return -ENOMEM;
+			rc = -ENOMEM;
+			goto exit;
 		}
 		payload->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
 						APR_HDR_LEN(APR_HDR_SIZE),
@@ -387,6 +387,9 @@ int core_dts_eagle_set(int size, char *data)
 		}
 		kfree(payload);
 	}
+
+exit:
+	mutex_unlock(&(q6core_lcl.cmd_lock));
 	return rc;
 }
 
@@ -401,6 +404,7 @@ int core_dts_eagle_get(int id, int size, char *data)
 			__func__, size, data);
 		return -EINVAL;
 	}
+	mutex_lock(&(q6core_lcl.cmd_lock));
 	ocm_core_open();
 	if (q6core_lcl.core_handle_q) {
 		ah.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
@@ -415,9 +419,8 @@ int core_dts_eagle_get(int id, int size, char *data)
 		generic_get_data = kzalloc(sizeof(struct generic_get_data_)
 					   + size, GFP_KERNEL);
 		if (!generic_get_data) {
-			pr_err("DTS_EAGLE_CORE - %s: error allocating memory of size %i\n",
-				__func__, size);
-			return -ENOMEM;
+			rc = -ENOMEM;
+			goto exit;
 		}
 
 		rc = apr_send_pkt(q6core_lcl.core_handle_q,
@@ -425,7 +428,7 @@ int core_dts_eagle_get(int id, int size, char *data)
 		if (rc < 0) {
 			pr_err("DTS_EAGLE_CORE - %s: failed op[0x%x]rc[%d]\n",
 				__func__, ah.opcode, rc);
-			goto fail_cmd_2;
+			goto exit;
 		}
 
 		rc = wait_event_timeout(q6core_lcl.bus_bw_req_wait,
@@ -435,7 +438,7 @@ int core_dts_eagle_get(int id, int size, char *data)
 			pr_err("DTS_EAGLE_CORE - %s: EAGLE get params timed out\n",
 				__func__);
 			rc = -EINVAL;
-			goto fail_cmd_2;
+			goto exit;
 		}
 		if (generic_get_data->valid) {
 			rc = 0;
@@ -447,9 +450,10 @@ int core_dts_eagle_get(int id, int size, char *data)
 		}
 	}
 
-fail_cmd_2:
+exit:
 	kfree(generic_get_data);
 	generic_get_data = NULL;
+	mutex_unlock(&(q6core_lcl.cmd_lock));
 	return rc;
 }
 
@@ -496,6 +500,7 @@ bool q6core_is_adsp_ready(void)
 	hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, 0);
 	hdr.opcode = AVCS_CMD_ADSP_EVENT_GET_STATE;
 
+	mutex_lock(&(q6core_lcl.cmd_lock));
 	ocm_core_open();
 	q6core_lcl.bus_bw_resp_received = 0;
 	rc = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *)&hdr);
@@ -515,6 +520,7 @@ bool q6core_is_adsp_ready(void)
 	}
 bail:
 	pr_debug("%s: leave, rc %d, adsp ready %d\n", __func__, rc, ret);
+	mutex_unlock(&(q6core_lcl.cmd_lock));
 	return ret;
 }
 
@@ -692,6 +698,11 @@ static int q6core_send_custom_topologies(void)
 	struct cal_block_data *cal_block = NULL;
 	struct avcs_cmd_register_topologies reg_top;
 
+	if (!q6core_is_adsp_ready()) {
+		pr_err("%s: ADSP is not ready!\n", __func__);
+		return -ENODEV;
+	}
+
 	memset(&reg_top, 0, sizeof(reg_top));
 	mutex_lock(&q6core_lcl.cal_data[CUST_TOP_CAL]->lock);
 	mutex_lock(&q6core_lcl.cmd_lock);
@@ -705,12 +716,6 @@ static int q6core_send_custom_topologies(void)
 	if (cal_block->cal_data.size <= 0) {
 		pr_debug("%s: cal size is %zd not sending\n",
 			__func__, cal_block->cal_data.size);
-		goto unlock;
-	}
-
-	if (!q6core_is_adsp_ready()) {
-		pr_err("%s: ADSP is not ready!\n", __func__);
-		ret  = -ENODEV;
 		goto unlock;
 	}
 

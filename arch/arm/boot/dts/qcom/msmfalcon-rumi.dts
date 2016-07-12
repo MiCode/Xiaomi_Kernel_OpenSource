@@ -13,11 +13,17 @@
 
 /dts-v1/;
 
-#include "msmcobalt.dtsi"
-#include "msmcobalt-qrd.dtsi"
+#include "msmfalcon.dtsi"
+#include "msmfalcon-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM COBALT QRD";
-	compatible = "qcom,msmcobalt-qrd", "qcom,msmcobalt", "qcom,qrd";
-	qcom,board-id = <11 0>;
+	model = "Qualcomm Technologies, Inc. MSM FALCON RUMI";
+	compatible = "qcom,msmfalcon-rumi", "qcom,msmfalcon", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};
+
+&uartblsp2dm1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
 };

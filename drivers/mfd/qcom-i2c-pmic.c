@@ -58,7 +58,6 @@ struct i2c_pmic_periph {
 
 struct i2c_pmic {
 	struct device		*dev;
-	struct i2c_client	*client;
 	struct regmap		*regmap;
 	struct irq_domain	*domain;
 	struct i2c_pmic_periph	*periph;
@@ -497,25 +496,28 @@ static struct regmap_config i2c_pmic_regmap_config = {
 static int i2c_pmic_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
 {
-	int rc;
 	struct i2c_pmic *chip;
+	int rc = 0;
 
 	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
 		return -ENOMEM;
 
+	chip->dev = &client->dev;
 	chip->regmap = devm_regmap_init_i2c(client, &i2c_pmic_regmap_config);
 	if (!chip->regmap)
 		return -ENODEV;
 
+	i2c_set_clientdata(client, chip);
+	if (!of_property_read_bool(chip->dev->of_node, "interrupt-controller"))
+		goto probe_children;
+
 	chip->domain = irq_domain_add_tree(client->dev.of_node,
 					   &i2c_pmic_domain_ops, chip);
-	if (!chip->domain)
-		return -ENOMEM;
-
-	chip->client = client;
-	chip->dev = &client->dev;
-	i2c_set_clientdata(client, chip);
+	if (!chip->domain) {
+		rc = -ENOMEM;
+		goto cleanup;
+	}
 
 	rc = i2c_pmic_parse_dt(chip);
 	if (rc < 0) {
@@ -549,6 +551,8 @@ static int i2c_pmic_probe(struct i2c_client *client,
 	}
 
 	enable_irq_wake(client->irq);
+
+probe_children:
 	of_platform_populate(chip->dev->of_node, NULL, NULL, chip->dev);
 	pr_info("I2C PMIC probe successful\n");
 	return rc;
@@ -565,7 +569,8 @@ static int i2c_pmic_remove(struct i2c_client *client)
 	struct i2c_pmic *chip = i2c_get_clientdata(client);
 
 	of_platform_depopulate(chip->dev);
-	irq_domain_remove(chip->domain);
+	if (chip->domain)
+		irq_domain_remove(chip->domain);
 	i2c_set_clientdata(client, NULL);
 	return 0;
 }

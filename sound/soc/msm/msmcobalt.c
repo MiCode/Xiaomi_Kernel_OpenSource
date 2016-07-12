@@ -89,13 +89,7 @@ enum {
 	SLIM_TX_MAX,
 };
 
-struct slim_ch_config {
-	u32 sample_rate;
-	u32 bit_format;
-	u32 channels;
-};
-
-struct usb_be_config {
+struct dev_config {
 	u32 sample_rate;
 	u32 bit_format;
 	u32 channels;
@@ -122,7 +116,7 @@ struct msm_asoc_wcd93xx_codec {
 };
 
 /* Default configuration of slimbus channels */
-static struct slim_ch_config slim_rx_cfg[] = {
+static struct dev_config slim_rx_cfg[] = {
 	[SLIM_RX_0] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SLIM_RX_1] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SLIM_RX_2] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
@@ -133,7 +127,7 @@ static struct slim_ch_config slim_rx_cfg[] = {
 	[SLIM_RX_7] = {SAMPLING_RATE_8KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 };
 
-static struct slim_ch_config slim_tx_cfg[] = {
+static struct dev_config slim_tx_cfg[] = {
 	[SLIM_TX_0] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SLIM_TX_1] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SLIM_TX_2] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
@@ -145,16 +139,22 @@ static struct slim_ch_config slim_tx_cfg[] = {
 	[SLIM_TX_8] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
 };
 
-static struct usb_be_config usb_rx_cfg = {
+static struct dev_config usb_rx_cfg = {
 	.sample_rate = SAMPLING_RATE_48KHZ,
 	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
 	.channels = 2,
 };
 
-static struct usb_be_config usb_tx_cfg = {
+static struct dev_config usb_tx_cfg = {
 	.sample_rate = SAMPLING_RATE_48KHZ,
 	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
 	.channels = 1,
+};
+
+static struct dev_config hdmi_rx_cfg = {
+	.sample_rate = SAMPLING_RATE_48KHZ,
+	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
+	.channels = 2,
 };
 
 static int msm_vi_feed_tx_ch = 2;
@@ -169,10 +169,14 @@ static char const *slim_sample_rate_text[] = {"KHZ_8", "KHZ_16",
 					"KHZ_96", "KHZ_192"};
 static char const *bt_sco_sample_rate_text[] = {"KHZ_8", "KHZ_16"};
 static const char *const usb_ch_text[] = {"One", "Two"};
+static char const *hdmi_rx_ch_text[] = {"Two", "Three", "Four", "Five",
+					"Six", "Seven", "Eight"};
 static char const *usb_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
 					"KHZ_16", "KHZ_22P05",
 					"KHZ_32", "KHZ_44P1", "KHZ_48",
 					"KHZ_96", "KHZ_192"};
+static char const *hdmi_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
+						 "KHZ_192"};
 
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_chs, slim_tx_ch_text);
@@ -182,12 +186,14 @@ static SOC_ENUM_SINGLE_EXT_DECL(slim_6_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_chs, usb_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_chs, usb_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(vi_feed_tx_chs, vi_feed_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(hdmi_rx_chs, hdmi_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_6_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_format, bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(hdmi_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_sample_rate, slim_sample_rate_text);
@@ -195,6 +201,7 @@ static SOC_ENUM_SINGLE_EXT_DECL(slim_6_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(bt_sco_sample_rate, bt_sco_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_sample_rate, usb_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_sample_rate, usb_sample_rate_text);
+static SOC_ENUM_SINGLE_EXT_DECL(hdmi_rx_sample_rate, hdmi_rx_sample_rate_text);
 
 static struct platform_device *spdev;
 
@@ -565,9 +572,9 @@ static int msm_slim_tx_ch_put(struct snd_kcontrol *kcontrol,
 	if (ch_num < 0)
 		return ch_num;
 
-	slim_rx_cfg[ch_num].channels = ucontrol->value.enumerated.item[0] + 1;
+	slim_tx_cfg[ch_num].channels = ucontrol->value.enumerated.item[0] + 1;
 	pr_debug("%s: msm_slim_[%d]_tx_ch = %d\n", __func__,
-		 ch_num, slim_rx_cfg[ch_num].channels);
+		 ch_num, slim_tx_cfg[ch_num].channels);
 
 	return 1;
 }
@@ -914,6 +921,130 @@ static int usb_audio_tx_format_put(struct snd_kcontrol *kcontrol,
 	return rc;
 }
 
+static int hdmi_rx_format_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+
+	switch (hdmi_rx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		ucontrol->value.integer.value[0] = 2;
+		break;
+
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: hdmi_rx_cfg = %d, ucontrol value = %ld\n",
+		 __func__, hdmi_rx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int hdmi_rx_format_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 2:
+		hdmi_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_3LE;
+		break;
+	case 1:
+		hdmi_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		hdmi_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: hdmi_rx_cfg.bit_format = %d, ucontrol value = %ld\n",
+		 __func__, hdmi_rx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int hdmi_rx_ch_get(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: hdmi_rx_cfg.channels  = %d\n", __func__,
+		 hdmi_rx_cfg.channels);
+	ucontrol->value.integer.value[0] = hdmi_rx_cfg.channels - 2;
+
+	return 0;
+}
+
+static int hdmi_rx_ch_put(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol)
+{
+	hdmi_rx_cfg.channels = ucontrol->value.integer.value[0] + 2;
+	if (hdmi_rx_cfg.channels > 8) {
+		pr_err("%s: channels %d exceeded 8.Limiting to max chs-8\n",
+			__func__, hdmi_rx_cfg.channels);
+		hdmi_rx_cfg.channels = 8;
+	}
+	pr_debug("%s: hdmi_rx_cfg.channels = %d\n", __func__,
+		 hdmi_rx_cfg.channels);
+
+	return 1;
+}
+
+static int hdmi_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	int sample_rate_val = 0;
+
+	switch (hdmi_rx_cfg.sample_rate) {
+	case SAMPLING_RATE_192KHZ:
+		sample_rate_val = 2;
+		break;
+
+	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 1;
+		break;
+
+	case SAMPLING_RATE_48KHZ:
+	default:
+		sample_rate_val = 0;
+		break;
+	}
+
+	ucontrol->value.integer.value[0] = sample_rate_val;
+	pr_debug("%s: hdmi_rx_sample_rate = %d\n", __func__,
+		 hdmi_rx_cfg.sample_rate);
+
+	return 0;
+}
+
+static int hdmi_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: ucontrol value = %ld\n", __func__,
+		 ucontrol->value.integer.value[0]);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 2:
+		hdmi_rx_cfg.sample_rate = SAMPLING_RATE_192KHZ;
+		break;
+	case 1:
+		hdmi_rx_cfg.sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 0:
+	default:
+		hdmi_rx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
+	}
+
+	pr_debug("%s: hdmi_rx_cfg.sample_rate = %d\n", __func__,
+		 hdmi_rx_cfg.sample_rate);
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("SLIM_0_RX Channels", slim_0_rx_chs,
 			msm_slim_rx_ch_get, msm_slim_rx_ch_put),
@@ -931,6 +1062,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			usb_audio_rx_ch_get, usb_audio_rx_ch_put),
 	SOC_ENUM_EXT("USB_AUDIO_TX Channels", usb_tx_chs,
 			usb_audio_tx_ch_get, usb_audio_tx_ch_put),
+	SOC_ENUM_EXT("HDMI_RX Channels", hdmi_rx_chs,
+			hdmi_rx_ch_get, hdmi_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_RX Format", slim_0_rx_format,
 			slim_rx_bit_format_get, slim_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_5_RX Format", slim_5_rx_format,
@@ -943,6 +1076,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			usb_audio_rx_format_get, usb_audio_rx_format_put),
 	SOC_ENUM_EXT("USB_AUDIO_TX Format", usb_tx_format,
 			usb_audio_tx_format_get, usb_audio_tx_format_put),
+	SOC_ENUM_EXT("HDMI_RX Bit Format", hdmi_rx_format,
+			hdmi_rx_format_get, hdmi_rx_format_put),
 	SOC_ENUM_EXT("SLIM_0_RX SampleRate", slim_0_rx_sample_rate,
 			slim_rx_sample_rate_get, slim_rx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_0_TX SampleRate", slim_0_tx_sample_rate,
@@ -960,6 +1095,9 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("USB_AUDIO_TX SampleRate", usb_tx_sample_rate,
 			usb_audio_tx_sample_rate_get,
 			usb_audio_tx_sample_rate_put),
+	SOC_ENUM_EXT("HDMI_RX SampleRate", hdmi_rx_sample_rate,
+			hdmi_rx_sample_rate_get,
+			hdmi_rx_sample_rate_put),
 };
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
@@ -1147,6 +1285,15 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		channels->min = channels->max = usb_tx_cfg.channels;
 		break;
 
+	case MSM_BACKEND_DAI_HDMI_RX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				hdmi_rx_cfg.bit_format);
+		if (channels->max < 2)
+			channels->min = channels->max = 2;
+		rate->min = rate->max = hdmi_rx_cfg.sample_rate;
+		channels->min = channels->max = hdmi_rx_cfg.channels;
+		break;
+
 	default:
 		rate->min = rate->max = SAMPLING_RATE_48KHZ;
 		break;
@@ -1246,6 +1393,13 @@ static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
 			pr_debug("%s: ADSP Audio is ready\n", __func__);
 			adsp_ready = 1;
 			break;
+		} else {
+			/*
+			 * ADSP will be coming up after subsystem restart and
+			 * it might not be fully up when the control reaches
+			 * here. So, wait for 50msec before checking ADSP state
+			 */
+			msleep(50);
 		}
 	} while (time_after(timeout, jiffies));
 
@@ -2761,12 +2915,31 @@ static struct snd_soc_dai_link msm_wcn_be_dai_links[] = {
 	},
 };
 
+static struct snd_soc_dai_link hdmi_be_dai_link[] = {
+	/* HDMI BACK END DAI Link */
+	{
+		.name = LPASS_BE_HDMI,
+		.stream_name = "HDMI Playback",
+		.cpu_dai_name = "msm-dai-q6-hdmi.8",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-hdmi-audio-codec-rx",
+		.codec_dai_name = "msm_hdmi_audio_codec_rx_dai",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_HDMI_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
 static struct snd_soc_dai_link msm_tasha_dai_links[
 			 ARRAY_SIZE(msm_common_dai_links) +
 			 ARRAY_SIZE(msm_tasha_fe_dai_links) +
 			 ARRAY_SIZE(msm_common_be_dai_links) +
 			 ARRAY_SIZE(msm_tasha_be_dai_links) +
-			 ARRAY_SIZE(msm_wcn_be_dai_links)];
+			 ARRAY_SIZE(msm_wcn_be_dai_links) +
+			 ARRAY_SIZE(hdmi_be_dai_link)];
 
 static int msm_snd_card_late_probe(struct snd_soc_card *card)
 {
@@ -3083,10 +3256,9 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 {
 	struct snd_soc_card *card = NULL;
 	struct snd_soc_dai_link *dailink;
-	int len_1, len_2, len_3, len_4;
+	int len_1, len_2, len_3;
 	int total_links;
 	const struct of_device_id *match;
-	bool use_wcn_btfm = false;
 
 	match = of_match_node(msmcobalt_asoc_machine_of_match, dev->of_node);
 	if (!match) {
@@ -3095,26 +3267,12 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		return NULL;
 	}
 
-	if (of_property_read_bool(dev->of_node, "qcom,wcn-btfm")) {
-		use_wcn_btfm = true;
-		dev_dbg(dev, "%s(): WCN BTFM support present\n", __func__);
-	} else {
-		dev_dbg(dev, "%s(): No WCN BTFM support\n", __func__);
-	}
-
 	if (!strcmp(match->data, "tasha_codec")) {
 		card = &snd_soc_card_tasha_msm;
 		len_1 = ARRAY_SIZE(msm_common_dai_links);
 		len_2 = len_1 + ARRAY_SIZE(msm_tasha_fe_dai_links);
 		len_3 = len_2 + ARRAY_SIZE(msm_common_be_dai_links);
-		len_4 = len_3 + ARRAY_SIZE(msm_tasha_be_dai_links);
-		if (use_wcn_btfm) {
-			total_links = len_4 +
-				ARRAY_SIZE(msm_wcn_be_dai_links);
-		} else {
-			total_links = len_4;
-		}
-
+		total_links = len_3 + ARRAY_SIZE(msm_tasha_be_dai_links);
 		memcpy(msm_tasha_dai_links,
 		       msm_common_dai_links,
 		       sizeof(msm_common_dai_links));
@@ -3127,10 +3285,23 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		memcpy(msm_tasha_dai_links + len_3,
 		       msm_tasha_be_dai_links,
 		       sizeof(msm_tasha_be_dai_links));
-		if (use_wcn_btfm)
-			memcpy(msm_tasha_dai_links + len_4,
+
+		if (of_property_read_bool(dev->of_node, "qcom,wcn-btfm")) {
+			dev_dbg(dev, "%s(): WCN BTFM support present\n",
+				__func__);
+			memcpy(msm_tasha_dai_links + total_links,
 			       msm_wcn_be_dai_links,
 			       sizeof(msm_wcn_be_dai_links));
+			total_links += ARRAY_SIZE(msm_wcn_be_dai_links);
+		}
+
+		if (of_property_read_bool(dev->of_node, "qcom,hdmi-audio-rx")) {
+			dev_dbg(dev, "%s(): HDMI support present\n", __func__);
+			memcpy(msm_tasha_dai_links + total_links,
+			       hdmi_be_dai_link,
+			       sizeof(hdmi_be_dai_link));
+			total_links += ARRAY_SIZE(hdmi_be_dai_link);
+		}
 
 		dailink = msm_tasha_dai_links;
 	} else if (!strcmp(match->data, "stub_codec")) {

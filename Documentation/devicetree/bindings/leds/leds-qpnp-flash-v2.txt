@@ -6,6 +6,8 @@ camera sensor when background light is dim to capture good
 picture. It can also be used for flashlight/torch application.
 It is part of PMIC on Qualcomm Technologies Inc. reference platforms.
 
+Main node:
+
 Required properties:
 - compatible		: Should be "qcom,qpnp-flash-led-v2"
 - reg			: Base address and size for flash LED modules
@@ -14,10 +16,17 @@ Optional properties:
 - qcom,hdrm-auto-mode	: Boolean type to select headroom auto mode enabled or not
 - qcom,isc-delay	: Integer type to specify short circuit delay. Valid values are 32, 64,
 			  128, 192. Unit is us.
+- qcom,hw-strobe-option	: Integer type to specify hardware strobe option. Based on the specified
+			  value, additional GPIO configuration may be required to provide strobing
+			  support. Supported values are:
+			  0: Flash strobe is used for LED1, LED2, LED3
+			  1: Flash strobe is used for LED1, LED2 and GPIO10 is used for LED3
+			  2: Flash strobe is used for LED1; GPIO9 is used for LED2; GPIO10 is used for LED3
 
-Required properties inside child node. Child node contains settings for each individual LED.
-Each LED channel needs a flash node and torch node for itself, and an individual switch node to
-serve as an overall switch.
+Child node: Contains settings for each individual LED. Each LED channel needs a flash node and
+torch node for itself, and an individual switch node to serve as an overall switch.
+
+Required Properties:
 - label			: Type of led that will be used, either "flash", "torch", or "switch.
 - qcom,led-name		: Name of the LED.
 - qcom,default-led-trigger	: Trigger for the camera flash and torch. Accepted values are
@@ -35,7 +44,7 @@ serve as an overall switch.
 			  type specifying flash duration. Values are from 10ms to 1280ms with
 			  10ms resolution. This is not required for switch node.
 
-Optional properties inside child node:
+Optional properties:
 - qcom,current-ma	: operational current intensity for LED in mA. Accepted values are a
 			  positive integer in the range of 0 to qcom,max-current inclusive.
 - qcom,ires-ua		: Integer type to specify current resolution. Accepted values should be
@@ -44,15 +53,35 @@ Optional properties inside child node:
 			  with 25mV resolution. Default setting is 325mV
 - qcom,hdrm-vol-hi-lo-win-mv	: Integer type to specify headroom voltage swing range. Values are
 				  from 0mV to 375mV with 25mV resolution. Default setting is 100mV.
-- pinctrl-names		: This should be defined if a target uses pinctrl framework and there is GPIO
-			requirement for flash LEDs. See "pinctrl" in
-			Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt. It should specify
-			the names of the configs that pinctrl can install in driver.
-                        Following are the pinctrl configs that can be installed:
-                        "led_enable" : Enablement configuration of pins. This should specify active
-                        config defined in each pin or pin group.
-                        "led_disable" : Disablement configuration of pins. This should specify inactive
-                        config defined in each pin or pin groups.
+- pinctrl-names		: Name of the pinctrl configuration that will be used when external GPIOs
+			  are used for enabling/disabling, HW strobing of flash LEDs. For more
+			  information on using pinctrl, please refer
+			  Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt
+                          Following are the pinctrl configs that can be specified:
+                          "led_enable" : pinctrl config to enable led. This should specify the active
+                          configuration defined for each pin or pin group.
+                          "led_disable" : pinctrl config to disable led. This should specify the sleep
+                          configuration defined for each pin or pin group.
+                          "strobe_enable" : pinctrl config to enable hw-strobe. This should specify the
+                          active configuration defined for each pin or pin group.
+                          "strobe_disable" : pinctrl config to disable hw-strobe. This should specify the
+                          sleep configuration defined for each pin or pin group.
+- qcom,hw-strobe-gpio	: phandle to specify GPIO for hardware strobing. This is used when there is no
+			  pinctrl support or PMIC GPIOs are used.
+- qcom,hw-strobe-sel	: Boolean property to enable hardware strobe. If not defined, software strobe
+			  will be used.
+- qcom,hw-strobe-edge-trigger	: Boolean property to select trigger type. If defined, hw-strobe is set to
+				  be edge triggered. Otherwise, it is level triggered.
+- qcom,hw-strobe-active-low	: Boolean property to select strobe signal polarity. If defined, hw-strobe
+				  signal polarity is set to active-low, else it is active-high.
+- reg<n>		: reg<n> (<n> represents number. e.g. 0,1,2,..) subnode is to add support for
+			  multiple power sources. This subnode should only be specified for switch nodes.
+			  Required property inside regulator node:
+			  - regulator-name	: Name of the regulator which has to be used for this
+						  switch node.
+			  Optional property inside regulator node:
+			  - max-voltage-uv	: This specifies max voltage of regulator. Some switch
+						  or boost regulator does not need this property.
 
 Example:
 	qcom,leds@d300 {
@@ -156,6 +185,10 @@ Example:
 			qcom,led-name = "led:switch";
 			qcom,default-led-trigger =
 						"switch_trigger";
+			reg0 {
+				regulator-name = "pmicobalt_bob";
+				max-voltage-uv = <3600000>;
+			};
 		};
 	};
 
