@@ -521,6 +521,7 @@ struct sdhci_host {
 
 	/* Internal data */
 	struct mmc_host *mmc;	/* MMC structure */
+	struct mmc_host_ops mmc_host_ops;	/* MMC host ops */
 	u64 dma_mask;		/* custom DMA mask */
 	u64 coherent_dma_mask;
 
