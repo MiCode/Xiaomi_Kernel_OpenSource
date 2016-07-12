@@ -3699,6 +3699,9 @@ static ssize_t mdss_mdp_misr_store(struct device *dev,
 		return rc;
 	}
 
+	req.block_id = DISPLAY_MISR_MAX;
+	sreq.block_id = DISPLAY_MISR_MAX;
+
 	pr_debug("intf_type:%d enable:%d\n", ctl->intf_type, enable_misr);
 	if (ctl->intf_type == MDSS_INTF_DSI) {
 

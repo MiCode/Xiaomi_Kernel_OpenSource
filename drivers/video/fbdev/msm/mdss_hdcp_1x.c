@@ -633,7 +633,7 @@ static int hdcp_1x_authentication_part1(struct hdcp_1x_ctrl *hdcp_ctrl)
 	u8 aksv[5], *bksv = NULL;
 	u8 an[8];
 	u8 bcaps = 0;
-	u32 link0_status;
+	u32 link0_status = 0;
 	u8 buf[0xFF];
 	struct scm_hdcp_req scm_buf[SCM_HDCP_MAX_REG];
 	u32 phy_addr;
