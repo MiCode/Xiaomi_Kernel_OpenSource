@@ -28,6 +28,7 @@ struct power_params {
 	uint32_t energy_overhead;	/* Enter + exit over head */
 	uint32_t time_overhead_us;	/* Enter + exit overhead */
 	uint32_t residencies[NR_LPM_LEVELS];
+	uint32_t min_residency;
 	uint32_t max_residency;
 };
 
@@ -125,6 +126,7 @@ bool lpm_cpu_mode_allow(unsigned int cpu,
 bool lpm_cluster_mode_allow(struct lpm_cluster *cluster,
 		unsigned int mode, bool from_idle);
 uint32_t *get_per_cpu_max_residency(int cpu);
+uint32_t *get_per_cpu_min_residency(int cpu);
 extern struct lpm_cluster *lpm_root_node;
 
 #ifdef CONFIG_SMP
