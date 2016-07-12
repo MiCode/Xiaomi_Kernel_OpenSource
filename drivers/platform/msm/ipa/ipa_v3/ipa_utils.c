@@ -3349,6 +3349,12 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		}
 	}
 
+	/* move resource group configuration from HLOS to TZ */
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1) {
+		IPAERR("skip configuring ipa_rx_hps_clients from HLOS\n");
+		return;
+	}
+
 	IPADBG("Assign RX_HPS CMDQ rsrc groups min-max limits\n");
 
 	ipa3_configure_rx_hps_clients(0, true);
