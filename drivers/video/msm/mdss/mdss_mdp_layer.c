@@ -1592,7 +1592,7 @@ static int __validate_multirect(struct msm_fb_data_type *mfd,
 static int __validate_layers(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
-	int ret, i;
+	int ret, i = 0;
 	int rec_ndx[MDSS_MDP_PIPE_MAX_RECTS] = { 0 };
 	int rec_release_ndx[MDSS_MDP_PIPE_MAX_RECTS] = { 0 };
 	int rec_destroy_ndx[MDSS_MDP_PIPE_MAX_RECTS] = { 0 };

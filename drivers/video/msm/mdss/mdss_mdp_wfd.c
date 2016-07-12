@@ -174,6 +174,12 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 
 	fmt = mdss_mdp_get_format_params(layer->buffer.format);
 
+	if (fmt == NULL) {
+		pr_err("invalid buffer format\n");
+		ret = -EINVAL;
+		goto wfd_setup_error;
+	}
+
 	/* only 3 csc type supported */
 	if (fmt->is_yuv) {
 		switch (layer->color_space) {
