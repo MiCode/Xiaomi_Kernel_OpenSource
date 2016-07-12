@@ -48,6 +48,7 @@
 /* Z value compared in milliOhm */
 #define TAVIL_MBHC_IS_SECOND_RAMP_REQUIRED(z) ((z > 400000) || (z < 32000))
 #define TAVIL_MBHC_ZDET_CONST         (86 * 16384)
+#define TAVIL_MBHC_MOISTURE_RREF      R_24_KOHM
 
 static struct wcd_mbhc_register
 	wcd_mbhc_registers[WCD_MBHC_REG_FUNC_MAX] = {
@@ -109,8 +110,6 @@ static struct wcd_mbhc_register
 			  WCD934X_ANA_HPH, 0xC0, 6, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_SWCH_LEVEL_REMOVE",
 			  WCD934X_ANA_MBHC_RESULT_3, 0x10, 4, 0),
-	WCD_MBHC_REGISTER("WCD_MBHC_MOISTURE_VREF",
-			  WCD934X_MBHC_NEW_CTL_2, 0x0C, 2, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_PULLDOWN_CTRL",
 			  0, 0, 0, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_ANC_DET_EN",
@@ -761,6 +760,23 @@ static void tavil_mbhc_hph_pull_down_ctrl(struct snd_soc_codec *codec,
 				    0x10, 0x00);
 	}
 }
+static void tavil_mbhc_moisture_config(struct wcd_mbhc *mbhc)
+{
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	if (TAVIL_MBHC_MOISTURE_RREF == R_OFF)
+		return;
+
+	/* Donot enable moisture detection if jack type is NC */
+	if (!mbhc->hphl_swh) {
+		dev_dbg(codec->dev, "%s: disable moisture detection for NC\n",
+			__func__);
+		return;
+	}
+
+	snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_2,
+			    0x0C, TAVIL_MBHC_MOISTURE_RREF << 2);
+}
 
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.request_irq = tavil_mbhc_request_irq,
@@ -783,6 +799,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.compute_impedance = tavil_wcd_mbhc_calc_impedance,
 	.mbhc_gnd_det_ctrl = tavil_mbhc_gnd_det_ctrl,
 	.hph_pull_down_ctrl = tavil_mbhc_hph_pull_down_ctrl,
+	.mbhc_moisture_config = tavil_mbhc_moisture_config,
 };
 
 static struct regulator *tavil_codec_find_ondemand_regulator(

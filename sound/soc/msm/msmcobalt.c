@@ -248,7 +248,7 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[6] = 0,
 	.key_code[7] = 0,
 	.linein_th = 5000,
-	.moist_cfg = { V_45_MV, I_3P0_UA },
+	.moisture_en = true,
 };
 
 static struct snd_soc_dapm_route wcd_audio_paths[] = {
