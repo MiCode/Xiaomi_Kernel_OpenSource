@@ -1420,12 +1420,14 @@ static void __parse_frc_info(struct mdss_overlay_private *mdp5_data,
 	struct mdp_frc_info *input_frc)
 {
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
-	struct mdss_mdp_frc_info *frc_info = mdp5_data->frc_info;
+	struct mdss_mdp_frc_fsm *frc_fsm = mdp5_data->frc_fsm;
 
 	if (input_frc->flags & MDP_VIDEO_FRC_ENABLE) {
-		if (!frc_info->enable) {
-			/* init frc_info when first entry */
-			memset(frc_info, 0, sizeof(struct mdss_mdp_frc_info));
+		struct mdss_mdp_frc_info *frc_info = &frc_fsm->frc_info;
+
+		if (!frc_fsm->enable) {
+			/* init frc_fsm when first entry */
+			mdss_mdp_frc_fsm_init_state(frc_fsm);
 			/* keep vsync on when FRC is enabled */
 			ctl->ops.add_vsync_handler(ctl,
 					&ctl->frc_vsync_handler);
@@ -1433,14 +1435,14 @@ static void __parse_frc_info(struct mdss_overlay_private *mdp5_data,
 
 		frc_info->cur_frc.frame_cnt = input_frc->frame_cnt;
 		frc_info->cur_frc.timestamp = input_frc->timestamp;
-	} else if (frc_info->enable) {
+	} else if (frc_fsm->enable) {
 		/* remove vsync handler when FRC is disabled */
 		ctl->ops.remove_vsync_handler(ctl, &ctl->frc_vsync_handler);
 	}
 
-	frc_info->enable = input_frc->flags & MDP_VIDEO_FRC_ENABLE;
+	frc_fsm->enable = input_frc->flags & MDP_VIDEO_FRC_ENABLE;
 
-	pr_debug("frc_enable=%d\n", frc_info->enable);
+	pr_debug("frc_enable=%d\n", frc_fsm->enable);
 }
 
 /*

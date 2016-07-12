@@ -349,28 +349,6 @@ static void __check_cadence_pattern(struct mdss_dbg_frc_stat *frc_stat,
 	}
 }
 
-static void __check_unexpected_delay(struct mdss_dbg_frc_stat *frc_stat,
-	int s_idx, int e_idx)
-{
-	int i = 0;
-	struct kickoff_samples *ks = &frc_stat->ks;
-
-	pr_info("===== Check Unexpected Delay: =====\n");
-
-	for (i = s_idx; i < e_idx; i++) {
-		struct cadence *p_info = &frc_stat->cadence_info[i];
-		struct kick_stat *kickoff = &ks->samples[p_info->kickoff_idx];
-
-		if (kickoff->remain + kickoff->vsync
-			!= kickoff->frc_info.last_vsync_cnt)
-			pr_info("\tUnexpected Delay: timestamp=%lld, vsync=%d\n",
-				kickoff->frc_info.cur_frc.timestamp,
-				kickoff->vsync);
-	}
-
-	pr_info("===== Check Unexpected Delay End =====\n");
-}
-
 static int __is_cadence_check_supported(struct mdss_dbg_frc_stat *frc_stat)
 {
 	int cadence = frc_stat->cadence_id;
@@ -506,8 +484,6 @@ static void mdss_frc_dump_debug_stat(struct mdss_dbg_frc *frc_debug)
 	__dump_frc_samples(frc_stat, cnt);
 
 	if (__is_cadence_check_supported(frc_stat)) {
-		__check_unexpected_delay(frc_stat, 0, cnt);
-
 		pr_info("===== Check Cadence Pattern: =====\n");
 		__check_cadence_pattern(frc_stat, 0, cnt);
 		pr_info("===== Check Cadence Pattern End =====\n");
