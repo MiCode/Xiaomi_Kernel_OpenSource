@@ -7561,7 +7561,7 @@ static int fg_hw_init(struct fg_chip *chip)
 		/* Setup workaround flag based on PMIC type */
 		if (fg_sense_type == INTERNAL_CURRENT_SENSE)
 			chip->wa_flag |= IADC_GAIN_COMP_WA;
-		if (chip->pmic_revision[REVID_DIG_MAJOR] > 1)
+		if (chip->pmic_revision[REVID_DIG_MAJOR] >= 1)
 			chip->wa_flag |= USE_CC_SOC_REG;
 
 		break;
