@@ -85,6 +85,13 @@ void  audio_in_get_dsp_frames(void *priv,
 	pr_debug("%s:session id %d: enc_framesotal_size=0x%8x\n", __func__,
 			audio->ac->session, payload[4]);
 
+	/* Ensure the index is within max array size: FRAME_NUM */
+	if (index >= FRAME_NUM) {
+		pr_err("%s: Invalid index %d\n",
+			__func__, index);
+		return;
+	}
+
 	audio->out_frame_info[index][0] = payload[9];
 	audio->out_frame_info[index][1] = payload[5];
 
