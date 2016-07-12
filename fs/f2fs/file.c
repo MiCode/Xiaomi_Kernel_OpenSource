@@ -1045,6 +1045,9 @@ static int f2fs_do_collapse(struct inode *inode, pgoff_t start, pgoff_t end)
 
 	f2fs_balance_fs(sbi, true);
 	f2fs_lock_op(sbi);
+
+	f2fs_drop_extent_tree(inode);
+
 	ret = __exchange_data_block(inode, inode, end, start, nrpages - end, true);
 	f2fs_unlock_op(sbi);
 	return ret;
@@ -1279,6 +1282,8 @@ static int f2fs_insert_range(struct inode *inode, loff_t offset, loff_t len)
 		idx -= nr;
 
 		f2fs_lock_op(sbi);
+		f2fs_drop_extent_tree(inode);
+
 		ret = __exchange_data_block(inode, inode, idx,
 					idx + delta, nr, false);
 		f2fs_unlock_op(sbi);
