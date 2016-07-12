@@ -63,6 +63,16 @@
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
 
+#define FASTRPC_LINK_STATE_DOWN   (0x0)
+#define FASTRPC_LINK_STATE_UP     (0x1)
+#define FASTRPC_LINK_DISCONNECTED (0x0)
+#define FASTRPC_LINK_CONNECTING   (0x1)
+#define FASTRPC_LINK_CONNECTED    (0x3)
+#define FASTRPC_LINK_DISCONNECTING (0x7)
+
+static int fastrpc_glink_open(int cid);
+static void fastrpc_glink_close(void *chan, int cid);
+
 static inline uint64_t buf_page_start(uint64_t buf)
 {
 	uint64_t start = (uint64_t) buf & PAGE_MASK;
@@ -161,6 +171,14 @@ struct fastrpc_session_ctx {
 	int used;
 };
 
+struct fastrpc_glink_info {
+	int link_state;
+	int port_state;
+	struct glink_open_config cfg;
+	struct glink_link_info link_info;
+	void *link_notify_handle;
+};
+
 struct fastrpc_channel_ctx {
 	char *name;
 	char *subsys;
@@ -178,10 +196,7 @@ struct fastrpc_channel_ctx {
 	int vmid;
 	int ramdumpenabled;
 	void *remoteheap_ramdump_dev;
-	struct glink_link_info link_info;
-	void *link_notify_handle;
-	struct glink_open_config cfg;
-	char *edge;
+	struct fastrpc_glink_info link;
 };
 
 struct fastrpc_apps {
@@ -244,13 +259,15 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.name = "adsprpc-smd",
 		.subsys = "adsp",
 		.channel = SMD_APPS_QDSP,
-		.edge = "lpass",
+		.link.link_info.edge = "lpass",
+		.link.link_info.transport = "smem",
 	},
 	{
 		.name = "sdsprpc-smd",
 		.subsys = "dsps",
 		.channel = SMD_APPS_DSPS,
-		.edge = "dsps",
+		.link.link_info.edge = "dsps",
+		.link.link_info.transport = "smem",
 		.vmid = VMID_SSC_Q6,
 	},
 };
@@ -1719,16 +1736,14 @@ static void fastrpc_channel_close(struct kref *kref)
 	int cid;
 
 	ctx = container_of(kref, struct fastrpc_channel_ctx, kref);
+	cid = ctx - &gcinfo[0];
 	if (!me->glink) {
 		smd_close(ctx->chan);
 	} else {
-		glink_close(ctx->chan);
-		glink_unregister_link_state_cb(ctx->link_notify_handle);
+		fastrpc_glink_close(ctx->chan, cid);
 	}
 	ctx->chan = 0;
-	ctx->link_notify_handle = NULL;
 	mutex_unlock(&me->smd_mutex);
-	cid = ctx - &gcinfo[0];
 	pr_info("'closed /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
 }
@@ -1796,16 +1811,26 @@ void fastrpc_glink_notify_state(void *handle, const void *priv, unsigned event)
 {
 	struct fastrpc_apps *me = &gfa;
 	int cid = (int)(uintptr_t)priv;
+	struct fastrpc_glink_info *link;
 
+	if (cid < 0 || cid >= NUM_CHANNELS)
+		return;
+	link = &me->channel[cid].link;
 	switch (event) {
 	case GLINK_CONNECTED:
+		link->port_state = FASTRPC_LINK_CONNECTED;
 		complete(&me->channel[cid].work);
 		break;
 	case GLINK_LOCAL_DISCONNECTED:
+		link->port_state = FASTRPC_LINK_DISCONNECTED;
 		fastrpc_notify_drivers(me, cid);
+		if (link->link_state == FASTRPC_LINK_STATE_UP)
+			fastrpc_glink_open(cid);
 		break;
 	case GLINK_REMOTE_DISCONNECTED:
-		fastrpc_notify_drivers(me, cid);
+		fastrpc_glink_close(me->channel[cid].chan, cid);
+		break;
+	default:
 		break;
 	}
 }
@@ -1875,46 +1900,99 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static void fastrpc_glink_register_cb(struct glink_link_state_cb_info *cb_info,
+static void fastrpc_link_state_handler(struct glink_link_state_cb_info *cb_info,
 					 void *priv)
 {
+	struct fastrpc_apps *me = &gfa;
+	int cid = (int)((uintptr_t)priv);
+	struct fastrpc_glink_info *link;
+
+	if (cid < 0 || cid >= NUM_CHANNELS)
+		return;
+
+	link = &me->channel[cid].link;
 	switch (cb_info->link_state) {
 	case GLINK_LINK_STATE_UP:
-		if (priv)
-			complete(priv);
+		link->link_state = FASTRPC_LINK_STATE_UP;
+		complete(&me->channel[cid].work);
 		break;
 	case GLINK_LINK_STATE_DOWN:
+		link->link_state = FASTRPC_LINK_STATE_DOWN;
 		break;
 	default:
-		pr_err("adsprpc: unknown glnk state %d\n", cb_info->link_state);
+		pr_err("adsprpc: unknown link state %d\n", cb_info->link_state);
 		break;
 	}
 }
 
-static int fastrpc_glink_open(int cid, struct fastrpc_apps *me)
+static int fastrpc_glink_register(int cid, struct fastrpc_apps *me)
+{
+	int err = 0;
+	struct fastrpc_glink_info *link;
+
+	VERIFY(err, (cid >= 0 && cid < NUM_CHANNELS));
+	if (err)
+		goto bail;
+
+	link = &me->channel[cid].link;
+	if (link->link_notify_handle != NULL)
+		goto bail;
+
+	link->link_info.glink_link_state_notif_cb = fastrpc_link_state_handler;
+	link->link_notify_handle = glink_register_link_state_cb(
+					&link->link_info,
+					(void *)((uintptr_t)cid));
+	VERIFY(err, !IS_ERR_OR_NULL(me->channel[cid].link.link_notify_handle));
+	if (err) {
+		link->link_notify_handle = NULL;
+		goto bail;
+	}
+	VERIFY(err, wait_for_completion_timeout(&me->channel[cid].work,
+			RPC_TIMEOUT));
+bail:
+	return err;
+}
+
+static void fastrpc_glink_close(void *chan, int cid)
+{
+	int err = 0;
+	struct fastrpc_glink_info *link;
+
+	VERIFY(err, (cid >= 0 && cid < NUM_CHANNELS));
+	if (err)
+		return;
+	link = &gfa.channel[cid].link;
+	if (link->port_state == FASTRPC_LINK_CONNECTED) {
+		link->port_state = FASTRPC_LINK_DISCONNECTING;
+		glink_close(chan);
+	}
+}
+
+static int fastrpc_glink_open(int cid)
 {
 	int err = 0;
 	void *handle = NULL;
-	struct glink_open_config *cfg = &me->channel[cid].cfg;
-	struct glink_link_info *link_info = &me->channel[cid].link_info;
+	struct fastrpc_apps *me = &gfa;
+	struct glink_open_config *cfg;
+	struct fastrpc_glink_info *link;
 
-	link_info->edge = gcinfo[cid].edge;
-	link_info->transport = "smem";
-	link_info->glink_link_state_notif_cb = fastrpc_glink_register_cb;
-	me->channel[cid].link_notify_handle = glink_register_link_state_cb(
-					&me->channel[cid].link_info,
-					(void *)(&me->channel[cid].work));
-	VERIFY(err, !IS_ERR_OR_NULL(me->channel[cid].link_notify_handle));
+	VERIFY(err, (cid >= 0 && cid < NUM_CHANNELS));
+	if (err)
+		goto bail;
+	link = &me->channel[cid].link;
+	cfg = &me->channel[cid].link.cfg;
+	VERIFY(err, (link->link_state == FASTRPC_LINK_STATE_UP));
 	if (err)
 		goto bail;
 
-	VERIFY(err, wait_for_completion_timeout(&me->channel[cid].work,
-						RPC_TIMEOUT));
-	if (err)
+	if (link->port_state == FASTRPC_LINK_CONNECTED ||
+		link->port_state == FASTRPC_LINK_CONNECTING) {
 		goto bail;
+	}
 
+	link->port_state = FASTRPC_LINK_CONNECTING;
 	cfg->priv = (void *)(uintptr_t)cid;
-	cfg->edge = gcinfo[cid].edge;
+	cfg->edge = gcinfo[cid].link.link_info.edge;
 	cfg->name = FASTRPC_GLINK_GUID;
 	cfg->notify_rx = fastrpc_glink_notify_rx;
 	cfg->notify_tx_done = fastrpc_glink_notify_tx_done;
@@ -1961,7 +2039,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	if ((kref_get_unless_zero(&me->channel[cid].kref) == 0) ||
 	    (me->channel[cid].chan == 0)) {
 		if (me->glink) {
-			VERIFY(err, 0 == fastrpc_glink_open(cid, me));
+			fastrpc_glink_register(cid, me);
+			VERIFY(err, 0 == fastrpc_glink_open(cid));
 		} else {
 			VERIFY(err, !smd_named_open_on_edge(FASTRPC_SMD_GUID,
 				    gcinfo[cid].channel,
@@ -2124,14 +2203,11 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		ctx->ssrcount++;
 		if (ctx->chan) {
 			if (me->glink) {
-				glink_close(ctx->chan);
-				glink_unregister_link_state_cb(
-					ctx->link_notify_handle);
+				fastrpc_glink_close(ctx->chan, cid);
 			} else {
 				smd_close(ctx->chan);
 			}
 			ctx->chan = 0;
-			ctx->link_notify_handle = NULL;
 			pr_info("'restart notifier: closed /dev/%s c %d %d'\n",
 				 gcinfo[cid].name, MAJOR(me->dev_no), cid);
 		}
@@ -2356,7 +2432,6 @@ static int fastrpc_probe(struct platform_device *pdev)
 	}
 
 	me->glink = of_property_read_bool(dev->of_node, "qcom,fastrpc-glink");
-	pr_debug("adsprpc: channel link type: %d\n", me->glink);
 
 	VERIFY(err, !of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,
