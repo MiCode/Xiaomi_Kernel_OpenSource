@@ -26,6 +26,7 @@
 #include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
+#include "adreno.h"
 #include <soc/qcom/devfreq_devbw.h>
 
 #define KGSL_PWRFLAGS_POWER_ON 0
@@ -70,6 +71,7 @@ static const char * const clocks[] = {
 static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
 static int last_vote_buslevel;
 static int max_vote_buslevel;
+static int limit_pwrlevel;
 
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					int requested_state);
@@ -590,8 +592,8 @@ static ssize_t kgsl_pwrctrl_min_pwrlevel_store(struct device *dev,
 		return ret;
 
 	mutex_lock(&device->mutex);
-	if (level > pwr->num_pwrlevels - 2)
-		level = pwr->num_pwrlevels - 2;
+	if (level > (pwr->num_pwrlevels - 2 - limit_pwrlevel))
+		level = pwr->num_pwrlevels - 2 - limit_pwrlevel;
 
 	/* You can't set a minimum power level lower than the maximum */
 	if (level < pwr->max_pwrlevel)
@@ -1663,6 +1665,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	struct msm_bus_scale_pdata *bus_scale_table;
 	struct device_node *gpubw_dev_node = NULL;
 	struct platform_device *p2dev;
+	struct adreno_device *adreno_dev  =
+			container_of(device, struct adreno_device, dev);
 
 	bus_scale_table = msm_bus_cl_get_pdata(device->pdev);
 	if (bus_scale_table == NULL)
@@ -1705,10 +1709,13 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		return -EINVAL;
 	}
 
+	if (adreno_is_a506(adreno_dev))
+		limit_pwrlevel = 1;
+
 	/* Initialize the user and thermal clock constraints */
 
 	pwr->max_pwrlevel = 0;
-	pwr->min_pwrlevel = pwr->num_pwrlevels - 2;
+	pwr->min_pwrlevel = pwr->num_pwrlevels - 2 - limit_pwrlevel;
 	pwr->thermal_pwrlevel = 0;
 
 	pwr->wakeup_maxpwrlevel = 0;
