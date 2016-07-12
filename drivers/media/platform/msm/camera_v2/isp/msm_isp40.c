@@ -20,7 +20,6 @@
 #include "msm_isp.h"
 #include "msm.h"
 #include "msm_camera_io_util.h"
-#include "cam_hw_ops.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -292,19 +291,6 @@ static int32_t msm_vfe40_init_vbif_parms(struct vfe_device *vfe_dev,
 static int msm_vfe40_init_hardware(struct vfe_device *vfe_dev)
 {
 	int rc = -1;
-	enum cam_ahb_clk_client id;
-
-	if (vfe_dev->pdev->id == 0)
-		id = CAM_AHB_CLIENT_VFE0;
-	else
-		id = CAM_AHB_CLIENT_VFE1;
-
-	rc = cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SVS_VOTE);
-	if (rc < 0) {
-		pr_err("%s: failed to vote for AHB\n", __func__);
-		goto ahb_vote_fail;
-	}
-
 	rc = msm_isp_init_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 	if (rc < 0) {
 		pr_err("%s: Bandwidth registration Failed!\n", __func__);
@@ -383,16 +369,11 @@ clk_enable_failed:
 fs_failed:
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 bus_scale_register_failed:
-	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
-		pr_err("%s: failed to remove vote for AHB\n", __func__);
-ahb_vote_fail:
 	return rc;
 }
 
 static void msm_vfe40_release_hardware(struct vfe_device *vfe_dev)
 {
-	enum cam_ahb_clk_client id;
-
 	/* disable all mask before tasklet kill */
 	vfe_dev->irq0_mask = 0;
 	vfe_dev->irq1_mask = 0;
@@ -413,14 +394,6 @@ static void msm_vfe40_release_hardware(struct vfe_device *vfe_dev)
 	kfree(vfe_dev->vfe_clk);
 	regulator_disable(vfe_dev->fs_vfe);
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
-
-	if (vfe_dev->pdev->id == 0)
-		id = CAM_AHB_CLIENT_VFE0;
-	else
-		id = CAM_AHB_CLIENT_VFE1;
-
-	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
-		pr_err("%s: failed to vote for AHB\n", __func__);
 }
 
 static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
