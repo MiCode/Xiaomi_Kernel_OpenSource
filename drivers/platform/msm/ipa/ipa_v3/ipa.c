@@ -5168,16 +5168,16 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 				return -EOPNOTSUPP;
 			}
 		}
-	}
 
-	if (!ipa3_bus_scale_table)
-		ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
+		if (!ipa3_bus_scale_table)
+			ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
 
-	/* Proceed to real initialization */
-	result = ipa3_pre_init(&ipa3_res, dev);
-	if (result) {
-		IPAERR("ipa3_init failed\n");
-		return result;
+		/* Proceed to real initialization */
+		result = ipa3_pre_init(&ipa3_res, dev);
+		if (result) {
+			IPAERR("ipa3_init failed\n");
+			return result;
+		}
 	}
 
 	return result;

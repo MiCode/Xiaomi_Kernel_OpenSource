@@ -32,29 +32,29 @@ Platform independent properties:
 	Definition: 7-bit I2C address of the device.
 
 - interrupt-parent
-	Usage:      required
+	Usage:      optional
 	Value type: <phandle>
 	Definition: phandle of the interrupt controller which services the
 		    summary interrupt.
 
 - interrupts
-	Usage:      required
+	Usage:      optional
 	Value type: <prop-encoded-array>
 	Definition: Summary interrupt specifier.
 
 - interrupt-controller
-	Usage:      required
+	Usage:      optional
 	Value type: <empty>
 	Definition: Boolean flag which indicates this device node is an
 		    interrupt controller.
 
 - #interrupt-cells
-	Usage:      required
+	Usage:      optional
 	Value type: <u32>
 	Definition: Number of cells to encode an interrupt source.
 
 - qcom,periph-map
-	Usage:      required
+	Usage:      optional
 	Value type: <prop-encoded-array>
 	Definition: A list of u32 arrays. This provides a mapping between the
 		    summary status register bits and peripheral addresses.

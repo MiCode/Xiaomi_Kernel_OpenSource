@@ -2969,7 +2969,7 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 
 	if (pdata->panel_info.dfps_update ==
 		DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
-		if (sscanf(buf, "%d %d %d %d %d",
+		if (sscanf(buf, "%u %u %u %u %u",
 		    &data.hfp, &data.hbp, &data.hpw,
 		    &data.clk_rate, &data.fps) != 5) {
 			pr_err("could not read input\n");
@@ -3046,7 +3046,7 @@ static ssize_t mdss_mdp_lineptr_show_event(struct device *dev,
 	if (!mdp5_data->ctl ||
 		(!mdp5_data->ctl->panel_data->panel_info.cont_splash_enabled
 			&& !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)))
-		return -EAGAIN;
+		return -EPERM;
 
 	lineptr_ticks = ktime_to_ns(mdp5_data->lineptr_time);
 
@@ -3067,7 +3067,7 @@ static ssize_t mdss_mdp_lineptr_show_value(struct device *dev,
 	if (!mdp5_data->ctl ||
 		(!mdp5_data->ctl->panel_data->panel_info.cont_splash_enabled
 			&& !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)))
-		return -EAGAIN;
+		return -EPERM;
 
 	lineptr_val = mfd->panel_info->te.wr_ptr_irq;
 

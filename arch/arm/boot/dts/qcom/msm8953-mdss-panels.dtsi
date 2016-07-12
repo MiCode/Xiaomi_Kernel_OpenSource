@@ -67,7 +67,7 @@
 };
 
 &dsi_truly_1080_vid {
-	qcom,mdss-dsi-panel-timings-8996 = [23 1e 08 09 05 03 04 a0
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 08 09 05 03 04 a0
 		23 1e 08 09 05 03 04 a0
 		23 1e 08 09 05 03 04 a0
 		23 1e 08 09 05 03 04 a0
@@ -75,7 +75,7 @@
 };
 
 &dsi_truly_1080_cmd {
-	qcom,mdss-dsi-panel-timings-8996 = [23 1e 08 09 05 03 04 a0
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 08 09 05 03 04 a0
 		23 1e 08 09 05 03 04 a0
 		23 1e 08 09 05 03 04 a0
 		23 1e 08 09 05 03 04 a0
@@ -83,7 +83,7 @@
 };
 
 &dsi_r69006_1080p_video {
-	qcom,mdss-dsi-panel-timings-8996 = [24 1f 08 09 05 03 04 a0
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
@@ -91,7 +91,7 @@
 };
 
 &dsi_r69006_1080p_cmd{
-	qcom,mdss-dsi-panel-timings-8996 = [24 1f 08 09 05 03 04 a0
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
@@ -99,7 +99,7 @@
 };
 
 &dsi_adv7533_1080p {
-	qcom,mdss-dsi-panel-timings-8996 = [24 1f 08 09 05 03 04 a0
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
@@ -107,7 +107,7 @@
 };
 
 &dsi_adv7533_720p {
-	qcom,mdss-dsi-panel-timings-8996 = [1e 1b 04 06 02 03 04 a0
+	qcom,mdss-dsi-panel-timings-phy-v2 = [1e 1b 04 06 02 03 04 a0
 		1e 1b 04 06 02 03 04 a0
 		1e 1b 04 06 02 03 04 a0
 		1e 1b 04 06 02 03 04 a0
@@ -115,7 +115,7 @@
 };
 
 &dsi_truly_wuxga_vid {
-	qcom,mdss-dsi-panel-timings-8996 = [24 1f 08 09 05 03 04 a0
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
 		24 1f 08 09 05 03 04 a0
