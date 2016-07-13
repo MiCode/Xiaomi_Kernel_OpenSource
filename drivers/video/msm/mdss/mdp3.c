@@ -1071,6 +1071,17 @@ u64 mdp3_get_panic_lut_cfg(u32 panel_width)
 	return panic_config;
 }
 
+int mdp3_enable_panic_ctrl(void)
+{
+	int rc = 0;
+
+	if (MDP3_REG_READ(MDP3_PANIC_ROBUST_CTRL) == 0) {
+		pr_err("%s: Enable Panic Control\n", __func__);
+		MDP3_REG_WRITE(MDP3_PANIC_ROBUST_CTRL, BIT(0));
+	}
+	return rc;
+}
+
 int mdp3_qos_remapper_setup(struct mdss_panel_data *panel)
 {
 	int rc = 0;

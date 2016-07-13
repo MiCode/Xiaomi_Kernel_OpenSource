@@ -773,6 +773,8 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 				MDSS_EVENT_UNBLANK, NULL);
 		rc |= panel->event_handler(panel,
 				MDSS_EVENT_PANEL_ON, NULL);
+		if (mdss_fb_is_power_on_ulp(mfd))
+			rc |= mdp3_enable_panic_ctrl();
 			mdp3_clk_enable(0, 0);
 		}
 	}
@@ -1020,6 +1022,18 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	if (mdss_fb_is_power_on_ulp(mfd) &&
 		(mfd->panel.type == MIPI_CMD_PANEL)) {
 		pr_debug("%s: Disable MDP3 clocks in ULP\n", __func__);
+		if (!mdp3_session->clk_on)
+			mdp3_ctrl_clk_enable(mfd, 1);
+		/*
+		 * STOP DMA transfer first and signal vsync notification
+		 * Before releasing the resource in ULP state.
+		 */
+		rc = mdp3_session->dma->stop(mdp3_session->dma,
+					mdp3_session->intf);
+		if (rc)
+			pr_warn("fail to stop the MDP3 dma in ULP\n");
+		/* Wait to ensure TG to turn off */
+		msleep(20);
 		/*
 		 * Handle ULP request initiated from fb_pm_suspend.
 		 * For ULP panel power state disabling vsync and set
