@@ -109,7 +109,7 @@ static struct alpha_pll_clk gpu_pll0_pll = {
 		.parent = &gpucc_xo.c,
 		.dbg_name = "gpu_pll0_pll",
 		.ops = &clk_ops_fabia_alpha_pll,
-		VDD_GPU_PLL_FMAX_MAP1(NOMINAL, 1300000500),
+		VDD_GPU_PLL_FMAX_MAP1(MIN, 1300000500),
 		CLK_INIT(gpu_pll0_pll.c),
 	},
 };
@@ -168,7 +168,7 @@ static struct alpha_pll_clk gpu_pll1_pll = {
 		.parent = &gpucc_xo.c,
 		.dbg_name = "gpu_pll1_pll",
 		.ops = &clk_ops_fabia_alpha_pll,
-		VDD_GPU_PLL_FMAX_MAP1(NOMINAL, 1300000500),
+		VDD_GPU_PLL_FMAX_MAP1(MIN, 1300000500),
 		CLK_INIT(gpu_pll1_pll.c),
 	},
 };
@@ -670,15 +670,15 @@ static struct clk_lookup msm_clocks_gfxcc_cobalt[] = {
 
 static void msm_gfxcc_hamster_fixup(void)
 {
-	gpu_pll0_pll.c.fmax[VDD_DIG_NOMINAL] = 1420000500;
-	gpu_pll1_pll.c.fmax[VDD_DIG_NOMINAL] = 1420000500;
+	gpu_pll0_pll.c.fmax[VDD_DIG_MIN] = 1420000500;
+	gpu_pll1_pll.c.fmax[VDD_DIG_MIN] = 1420000500;
 	gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_vq;
 }
 
 static void msm_gfxcc_cobalt_v2_fixup(void)
 {
-	gpu_pll0_pll.c.fmax[VDD_DIG_NOMINAL] = 1420000500;
-	gpu_pll1_pll.c.fmax[VDD_DIG_NOMINAL] = 1420000500;
+	gpu_pll0_pll.c.fmax[VDD_DIG_MIN] = 1420000500;
+	gpu_pll1_pll.c.fmax[VDD_DIG_MIN] = 1420000500;
 	gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_v2;
 }
 
