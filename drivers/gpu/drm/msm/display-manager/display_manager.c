@@ -100,16 +100,17 @@ static int disp_manager_comp_ops_bind(struct device *dev,
 	int rc = 0;
 	struct drm_device *drm = dev_get_drvdata(master);
 	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_drm_private *priv = drm->dev_private;
+	struct msm_drm_private *priv;
 	struct display_manager *disp_m;
 	struct dsi_display *dsi_display;
-	int i = 0;
+	int i;
 
-	if (!pdev || !drm) {
+	if (!master || !dev || !drm->dev_private) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
+	priv = drm->dev_private;
 	disp_m = platform_get_drvdata(pdev);
 
 	/* DSI displays */
@@ -152,13 +153,12 @@ static void disp_manager_comp_ops_unbind(struct device *dev,
 					void *data)
 {
 	int rc = 0;
-	struct drm_device *drm = dev_get_drvdata(master);
 	struct platform_device *pdev = to_platform_device(dev);
 	struct display_manager *disp_m;
 	struct dsi_display *dsi_display;
-	int i = 0;
+	int i;
 
-	if (!pdev || !drm) {
+	if (!dev) {
 		pr_err("Invalid params\n");
 		return;
 	}
@@ -252,6 +252,19 @@ error_free_disp_m:
 
 static int disp_manager_dev_remove(struct platform_device *pdev)
 {
+	struct display_manager *disp_m;
+
+	if (!pdev) {
+		pr_err("invalid pdev argument\n");
+		return -ENODEV;
+	}
+
+	disp_m = platform_get_drvdata(pdev);
+
+	(void)dm_deinit_active_displays(disp_m);
+	of_platform_depopulate(&pdev->dev);
+	devm_kfree(&pdev->dev, disp_m);
+
 	return 0;
 }
 
@@ -292,7 +305,7 @@ int display_manager_get_info_by_index(struct display_manager *disp_m,
 				      struct display_info *info)
 {
 	int rc = 0;
-	int i = 0, j = 0;
+	int i, j;
 	struct dsi_display *display;
 	struct dsi_display_info dsi_info;
 
@@ -300,6 +313,8 @@ int display_manager_get_info_by_index(struct display_manager *disp_m,
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
+
+	memset(info, 0, sizeof(*info));
 
 	mutex_lock(&disp_m->lock);
 
@@ -327,6 +342,15 @@ int display_manager_get_info_by_index(struct display_manager *disp_m,
 		info->max_width = 1920; /* TODO: */
 		info->max_height = 1080; /* TODO: */
 		info->compression = DISPLAY_COMPRESSION_NONE;
+		if (dsi_info.op_mode == DSI_OP_VIDEO_MODE) {
+			info->intf_mode |= DISPLAY_INTF_MODE_VID;
+		} else if (dsi_info.op_mode == DSI_OP_CMD_MODE) {
+			info->intf_mode |= DISPLAY_INTF_MODE_CMD;
+		} else {
+			pr_err("unknwown dsi op_mode %d\n", dsi_info.op_mode);
+			rc = -EINVAL;
+			goto error;
+		}
 		break;
 	}
 
@@ -340,7 +364,7 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 				      struct drm_encoder *encoder)
 {
 	int rc = 0;
-	int i = 0;
+	int i;
 	struct dsi_display *display;
 
 	if (!disp_m || !encoder) {
@@ -368,6 +392,27 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 int display_manager_drm_deinit_by_index(struct display_manager *disp_m,
 					u32 display_index)
 {
+	int i;
+	struct dsi_display *display;
+
+	if (!disp_m) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&disp_m->lock);
+
+	for (i = 0; i < disp_m->dsi_display_count; i++) {
+		display = dsi_display_get_display_by_index(i);
+		if (!display || !dsi_display_is_active(display))
+			continue;
+
+		dsi_display_drm_deinit(display);
+		break;
+	}
+
+	mutex_unlock(&disp_m->lock);
+
 	return 0;
 }
 
@@ -383,6 +428,6 @@ void display_manager_unregister(void)
 {
 	platform_driver_unregister(&disp_manager_driver);
 	dsi_display_unregister();
-	dsi_ctrl_drv_register();
+	dsi_ctrl_drv_unregister();
 	dsi_phy_drv_unregister();
 }
