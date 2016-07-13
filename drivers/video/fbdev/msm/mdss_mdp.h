@@ -86,6 +86,11 @@
 
 #define MAX_LAYER_COUNT		0xC
 
+/* For SRC QSEED3, when user space does not send the scaler information,
+ * this flag allows pixel _extension to be programmed when scaler is disabled
+ */
+#define ENABLE_PIXEL_EXT_ONLY 0x80000000
+
 /**
  * Destination Scaler control flags setting
  *

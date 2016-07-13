@@ -1491,13 +1491,18 @@ int mdss_mdp_scaler_lut_cfg(struct mdp_scale_data_v2 *scaler,
 	uint32_t *lut_type[QSEED3_FILTERS] = {NULL, NULL, NULL, NULL, NULL};
 	uint32_t lut_offset, lut_len;
 	struct mdss_mdp_qseed3_lut_tbl *lut_tbl;
-	/* for each filter, 4 lut regions offset and length table */
+	/* for each filter, 4 lut regions length and offset table */
 	static uint32_t offset_tbl[QSEED3_FILTERS][QSEED3_LUT_REGIONS][2] = {
+		/* DIR */
 		{{18, 0x000}, {12, 0x120}, {12, 0x1E0}, {8, 0x2A0} },
+		/* Y_CIR */
 		{{6, 0x320}, {3, 0x3E0}, {3, 0x440}, {3, 0x4A0} },
-		{{6, 0x380}, {3, 0x410}, {3, 0x470}, {3, 0x4d0} },
-		{{6, 0x500}, {3, 0x5c0}, {3, 0x620}, {3, 0x680} },
-		{{6, 0x560}, {3, 0x5f0}, {3, 0x650}, {3, 0x6b0} },
+		/* Y_SEP */
+		{{6, 0x380}, {3, 0x410}, {3, 0x470}, {3, 0x4D0} },
+		/* UV_CIR */
+		{{6, 0x500}, {3, 0x5C0}, {3, 0x620}, {3, 0x680} },
+		/* UV_SEP */
+		{{6, 0x560}, {3, 0x5F0}, {3, 0x650}, {3, 0x6B0} },
 	};
 
 	mdata = mdss_mdp_get_mdata();
@@ -1518,13 +1523,14 @@ int mdss_mdp_scaler_lut_cfg(struct mdp_scale_data_v2 *scaler,
 			lut_type[1] =
 				lut_tbl->cir_lut + scaler->y_rgb_cir_lut_idx *
 				CIR_LUT_COEFFS;
-		if (scaler->lut_flag & SCALER_LUT_UV_CIR_WR)
-			lut_type[2] = lut_tbl->cir_lut +
-				scaler->uv_cir_lut_idx * CIR_LUT_COEFFS;
 		if (scaler->lut_flag & SCALER_LUT_Y_SEP_WR)
-			lut_type[3] =
+			lut_type[2] =
 				lut_tbl->sep_lut + scaler->y_rgb_sep_lut_idx *
 				SEP_LUT_COEFFS;
+		if (scaler->lut_flag & SCALER_LUT_UV_CIR_WR)
+			lut_type[3] =
+				lut_tbl->cir_lut + scaler->uv_cir_lut_idx *
+				CIR_LUT_COEFFS;
 		if (scaler->lut_flag & SCALER_LUT_UV_SEP_WR)
 			lut_type[4] =
 				lut_tbl->sep_lut + scaler->uv_sep_lut_idx *
@@ -1622,25 +1628,26 @@ int mdss_mdp_qseed3_setup(struct mdp_scale_data_v2 *scaler,
 
 	pr_debug("scaler->enable=%d", scaler->enable);
 
-	if (scaler->enable) {
+
+	if (fmt->is_yuv)
+		op_mode |= (1 << SCALER_COLOR_SPACE);
+	if (fmt->alpha_enable)
+		op_mode |= SCALER_ALPHA_EN;
+	if (!fmt->unpack_dx_format)
+		op_mode |= 0x1 << SCALER_BIT_WIDTH;
+
+	if (scaler->enable & ENABLE_SCALE) {
 		op_mode |= SCALER_EN;
 		op_mode |= (scaler->y_rgb_filter_cfg & 0x3) <<
 			Y_FILTER_CFG;
 
-		if (fmt->is_yuv) {
-			op_mode |= (1 << SCALER_COLOR_SPACE);
+		if (fmt->is_yuv)
 			op_mode |= (scaler->uv_filter_cfg & 0x3) <<
 				UV_FILTER_CFG;
-		}
 
-		if (fmt->alpha_enable) {
-			op_mode |= SCALER_ALPHA_EN;
+		if (fmt->alpha_enable)
 			op_mode |= (scaler->alpha_filter_cfg & 1) <<
 				ALPHA_FILTER_CFG;
-		}
-
-		if (!fmt->unpack_dx_format)
-			op_mode |= 0x1 << SCALER_BIT_WIDTH;
 
 		op_mode |= (scaler->blend_cfg & 1) <<
 			SCALER_BLEND_CFG;
@@ -1712,9 +1719,9 @@ int mdss_mdp_qseed3_setup(struct mdp_scale_data_v2 *scaler,
 		writel_relaxed(scaler->phase_step_y[1] &
 				PHASE_STEP_BITS,
 				MDSS_MDP_REG_SCALER_PHASE_STEP_UV_V + offset);
-
 		writel_relaxed(preload, MDSS_MDP_REG_SCALER_PRELOAD +
 				offset);
+
 		writel_relaxed(src_y_rgb,
 				MDSS_MDP_REG_SCALER_SRC_SIZE_Y_RGB_A +
 				offset);
@@ -1723,10 +1730,22 @@ int mdss_mdp_qseed3_setup(struct mdp_scale_data_v2 *scaler,
 
 		writel_relaxed(dst, MDSS_MDP_REG_SCALER_DST_SIZE +
 				offset);
+
+		pr_debug("phase_init %x, step_y_h %x, step_y_v %x, step_uv_h %x, step_uv_v %x\n",
+				phase_init,
+				scaler->phase_step_x[0] & PHASE_STEP_BITS,
+				scaler->phase_step_x[1] & PHASE_STEP_BITS,
+				scaler->phase_step_y[0] & PHASE_STEP_BITS,
+				scaler->phase_step_y[1] & PHASE_STEP_BITS);
+		pr_debug("src_size_y_rgb %x, src_size_uv %x, dst_size %x,\n",
+				src_y_rgb,
+				src_uv,
+				dst);
 	} else {
 		op_mode &= ~SCALER_EN;
 	}
 
+	pr_debug("op_mode %x\n", op_mode);
 	writel_relaxed(op_mode, MDSS_MDP_REG_SCALER_OP_MODE +
 			offset);
 	return rc;

@@ -3136,6 +3136,13 @@ void mdss_mdp_pipe_calc_qseed3_cfg(struct mdss_mdp_pipe *pipe)
 				pipe->scaler.src_height[i]);
 	}
 
+	if ((!pipe->src_fmt->is_yuv) &&
+		(pipe->src.w == pipe->dst.w) &&
+		(pipe->src.h == pipe->dst.h)) {
+		pipe->scaler.enable = ENABLE_PIXEL_EXT_ONLY;
+		return;
+	}
+
 	pipe->scaler.dst_width = pipe->dst.w;
 	pipe->scaler.dst_height = pipe->dst.h;
 	/* assign filters */
@@ -3143,5 +3150,6 @@ void mdss_mdp_pipe_calc_qseed3_cfg(struct mdss_mdp_pipe *pipe)
 	pipe->scaler.uv_filter_cfg = FILTER_BILINEAR;
 	pipe->scaler.alpha_filter_cfg = FILTER_ALPHA_BILINEAR;
 	pipe->scaler.lut_flag = 0;
+	pipe->scaler.blend_cfg = 1;
 	pipe->scaler.enable = ENABLE_SCALE;
 }
