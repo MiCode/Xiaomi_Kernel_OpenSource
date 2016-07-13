@@ -288,6 +288,57 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+static int mdss_mdp_avr_validate(struct msm_fb_data_type *mfd,
+				struct mdp_layer_commit_v1 *commit)
+{
+	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	int req = 0;
+	struct mdss_panel_info *pinfo = NULL;
+
+	if (!ctl || !mdata || !commit) {
+		pr_err("Invalid input parameters\n");
+		return -EINVAL;
+	}
+
+	if (!(commit->flags & MDP_COMMIT_AVR_EN))
+		return 0;
+
+	pinfo = &ctl->panel_data->panel_info;
+
+	if (!test_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map) ||
+		(pinfo->max_fps == pinfo->min_fps)) {
+		pr_err("AVR not supported\n");
+		return -ENODEV;
+	}
+
+	if (pinfo->dynamic_fps &&
+		!(pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
+		pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP)) {
+		pr_err("Dynamic fps and AVR cannot coexists\n");
+		return -EINVAL;
+	}
+
+	if (!ctl->is_video_mode) {
+		pr_err("AVR not supported in command mode\n");
+		return -EINVAL;
+	}
+
+	return req;
+}
+
+static void __update_avr_info(struct mdss_mdp_ctl *ctl,
+			struct mdp_layer_commit_v1 *commit)
+{
+	if (commit->flags & MDP_COMMIT_AVR_EN)
+		ctl->avr_info.avr_enabled = true;
+
+	ctl->avr_info.avr_mode = MDSS_MDP_AVR_CONTINUOUS;
+
+	if (commit->flags & MDP_COMMIT_AVR_ONE_SHOT_MODE)
+		ctl->avr_info.avr_mode = MDSS_MDP_AVR_ONE_SHOT;
+}
+
 /*
  * __layer_needs_src_split() - check needs source split configuration
  * @layer:	input layer
@@ -2247,12 +2298,12 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_data *src_data[MDSS_MDP_MAX_SSPP];
 	struct mdss_mdp_validate_info_t *validate_info_list;
+	struct mdss_mdp_ctl *sctl = NULL;
 
 	mdp5_data = mfd_to_mdp5_data(mfd);
 
 	if (!mdp5_data || !mdp5_data->ctl)
 		return -EINVAL;
-
 
 	if (commit->output_layer) {
 		ret = __is_cwb_requested(commit->output_layer->flags);
@@ -2266,6 +2317,18 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 			}
 		}
 	}
+
+	ret = mdss_mdp_avr_validate(mfd, commit);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("AVR validate failed\n");
+		return -EINVAL;
+	}
+
+	__update_avr_info(mdp5_data->ctl, commit);
+
+	sctl = mdss_mdp_get_split_ctl(mdp5_data->ctl);
+	if (sctl)
+		__update_avr_info(sctl, commit);
 
 	layer_list = commit->input_layers;
 
@@ -2426,6 +2489,12 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 			pr_err("Destination scaler pre-validate failed\n");
 			return -EINVAL;
 		}
+	}
+
+	rc = mdss_mdp_avr_validate(mfd, commit);
+	if (IS_ERR_VALUE(rc)) {
+		pr_err("AVR validate failed\n");
+		return -EINVAL;
 	}
 
 	return __validate_layers(mfd, file, commit);

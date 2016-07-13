@@ -644,6 +644,7 @@ void mdss_panel_info_from_timing(struct mdss_panel_timing *pt,
 	pinfo->dsc_enc_total = pt->dsc_enc_total;
 	pinfo->fbc = pt->fbc;
 	pinfo->compression_mode = pt->compression_mode;
+	pinfo->default_fps = pinfo->mipi.frame_rate;
 
 	pinfo->roi_alignment = pt->roi_alignment;
 	pinfo->te = pt->te;
