@@ -1986,9 +1986,11 @@ Example:
 * MSMCOBALT ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,msmcobalt-asoc-snd-tasha"
+- compatible : "qcom,msmcobalt-asoc-snd-tasha" for tasha codec,
+		"qcom,msmcobalt-asoc-snd-tavil" for tavil codec.
 - qcom,model : The user-visible name of this sound card.
 - qcom,tasha-mclk-clk-freq : MCLK frequency value for tasha codec
+- qcom,tavil-mclk-clk-freq : MCLK frequency value for tavil codec
 - qcom,audio-routing : A list of the connections between audio components.
 - asoc-platform: This is phandle list containing the references to platform device
 		 nodes that are used as part of the sound card dai-links.

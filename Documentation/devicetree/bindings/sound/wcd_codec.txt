@@ -1,10 +1,9 @@
-taiko audio CODEC
+WCD audio CODEC
 
 Required properties:
 
- - compatible : "qcom,taiko-slim-pgd" or "qcom,tapan-slim-pgd" for Tapan codec
-		or "qcom,tomtom-slim-pgd" for the Tomtom codec
-		or "qcom,tasha-slim-pgd" or "qcom,tasha-i2c-pgd" for Tasha Codec
+ - compatible : "qcom,tasha-slim-pgd" or "qcom,tasha-i2c-pgd" for Tasha Codec
+		or "qcom,tavil-slim-pgd" for Tavil Codec
  - elemental-addr: codec slimbus slave PGD enumeration address.(48 bits)
 
  - qcom,cdc-reset-gpio: gpio used for codec SOC reset.

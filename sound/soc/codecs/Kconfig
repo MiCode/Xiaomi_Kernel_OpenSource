@@ -724,6 +724,12 @@ config SND_SOC_WCD9335
         tristate
 	depends on WCD9335_CODEC
 
+config SND_SOC_WCD934X
+        tristate
+	depends on WCD934X_CODEC
+	select SND_SOC_WCD9XXX_V2
+	select AUDIO_EXT_CLK
+
 config SND_SOC_WSA881X
         tristate
 	select MSM_CDC_PINCTRL
