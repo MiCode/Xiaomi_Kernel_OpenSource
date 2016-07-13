@@ -499,38 +499,6 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 	return rc;
 }
 
-static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
-{
-	struct dsi_ctrl *dsi_ctrl = ptr;
-	u32 interrupt_status = 0;
-	u64 error_status = 0;
-	unsigned long flags;
-
-	spin_lock_irqsave(&dsi_ctrl->int_info.intr_lock, flags);
-	interrupt_status = dsi_ctrl->hw.ops.get_interrupt_status(&dsi_ctrl->hw);
-	error_status = dsi_ctrl->hw.ops.get_error_status(&dsi_ctrl->hw);
-
-	dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw,
-						interrupt_status);
-	dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw, error_status);
-
-	dsi_ctrl->int_info.interrupt_status = interrupt_status;
-	dsi_ctrl->int_info.error_status = error_status;
-
-	spin_unlock_irqrestore(&dsi_ctrl->int_info.intr_lock, flags);
-
-	if (interrupt_status & DSI_CMD_MODE_DMA_DONE)
-		complete(&dsi_ctrl->int_info.cmd_dma_done);
-
-	if (interrupt_status & DSI_VIDEO_MODE_FRAME_DONE)
-		complete(&dsi_ctrl->int_info.vid_frame_done);
-
-	if (interrupt_status & DSI_CMD_FRAME_DONE)
-		complete(&dsi_ctrl->int_info.cmd_frame_done);
-
-	return IRQ_HANDLED;
-}
-
 static int dsi_ctrl_clocks_deinit(struct dsi_ctrl *ctrl)
 {
 	struct dsi_core_clk_info *core = &ctrl->clk_info.core_clks;
@@ -1038,17 +1006,6 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			       dsi_ctrl->index);
 
 		dsi_ctrl->hw.ops.reset_cmd_fifo(&dsi_ctrl->hw);
-		rc = wait_for_completion_timeout(
-			&dsi_ctrl->int_info.cmd_dma_done,
-			msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
-		if (rc == 0) {
-			pr_err("[%s] timedout waiting for cmd tx\n",
-				dsi_ctrl->name);
-			rc = -ETIMEDOUT;
-			goto error;
-		} else {
-			rc = 0;
-		}
 	}
 error:
 	if (buffer)
@@ -1212,38 +1169,6 @@ int dsi_ctrl_intr_deinit(struct dsi_ctrl *dsi_ctrl)
 	devm_free_irq(&dsi_ctrl->pdev->dev, ints->irq, dsi_ctrl);
 
 	return 0;
-}
-
-static int dsi_ctrl_intr_init(struct dsi_ctrl *dsi_ctrl)
-{
-	int rc = 0;
-	struct dsi_ctrl_interrupts *ints = &dsi_ctrl->int_info;
-
-	ints->irq = irq_of_parse_and_map(dsi_ctrl->pdev->dev.of_node, 0);
-	if ((int)ints->irq < 0) {
-		rc = -EINVAL;
-		pr_err("failed to parse and map irq, rc=%d\n", rc);
-		dsi_ctrl->int_info.irq = 0;
-		goto end;
-	}
-
-	spin_lock_init(&ints->intr_lock);
-
-	init_completion(&ints->cmd_dma_done);
-	init_completion(&ints->vid_frame_done);
-	init_completion(&ints->cmd_frame_done);
-
-	rc = devm_request_threaded_irq(&dsi_ctrl->pdev->dev,
-				       ints->irq,
-				       NULL,
-				       dsi_ctrl_isr,
-				       IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-				       dsi_ctrl->name,
-				       dsi_ctrl);
-	if (rc)
-		pr_err("IRQ request failed, rc=%d\n", rc);
-end:
-	return rc;
 }
 
 static int dsi_ctrl_buffer_deinit(struct dsi_ctrl *dsi_ctrl)
@@ -1540,18 +1465,6 @@ int dsi_ctrl_drv_init(struct dsi_ctrl *dsi_ctrl, struct dentry *parent)
 		goto error;
 	}
 
-	rc = dsi_ctrl_intr_init(dsi_ctrl);
-	if (rc) {
-		pr_err("Failed to initialize interrupt deps, rc=%d\n", rc);
-		goto error;
-	}
-
-	rc = dsi_ctrl_buffer_init(dsi_ctrl);
-	if (rc) {
-		pr_err("Failed to initialize tx buffer, rc=%d\n", rc);
-		goto error;
-	}
-
 	rc = dsi_ctrl_debugfs_init(dsi_ctrl, parent);
 	if (rc) {
 		pr_err("[DSI_%d] failed to init debug fs, rc=%d\n",
@@ -1590,10 +1503,6 @@ int dsi_ctrl_drv_deinit(struct dsi_ctrl *dsi_ctrl)
 	rc = dsi_ctrl_buffer_deinit(dsi_ctrl);
 	if (rc)
 		pr_err("Failed to free cmd buffers, rc=%d\n", rc);
-
-	rc = dsi_ctrl_intr_deinit(dsi_ctrl);
-	if (rc)
-		pr_err("Failed to free interrupt deps, rc=%d\n", rc);
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
@@ -1951,15 +1860,6 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 		if (retry == 0)
 			pr_err("[DSI_%d]Command transfer failed\n",
 			       dsi_ctrl->index);
-	}
-
-	rc = wait_for_completion_timeout(&dsi_ctrl->int_info.cmd_dma_done,
-					 msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
-	if (rc == 0) {
-		pr_err("[%s] timedout waiting for cmd tx\n", dsi_ctrl->name);
-		rc = -ETIMEDOUT;
-	} else {
-		rc = 0;
 	}
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
