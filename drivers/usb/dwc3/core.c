@@ -1021,8 +1021,8 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	/* will be enabled in dwc3_msm_resume() */
 	irq_set_status_flags(irq, IRQ_NOAUTOEN);
-	ret = devm_request_irq(dev, irq, dwc3_interrupt, IRQF_SHARED, "dwc3",
-			dwc);
+	ret = devm_request_threaded_irq(dev, irq, NULL, dwc3_interrupt,
+				IRQF_SHARED | IRQF_ONESHOT, "dwc3", dwc);
 	if (ret) {
 		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
 				irq, ret);
