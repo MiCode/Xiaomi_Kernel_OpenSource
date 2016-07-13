@@ -48,7 +48,7 @@
 #include <net/cfg80211.h>
 #include <soc/qcom/memory_dump.h>
 #include <net/cnss.h>
-#include <net/cnss_common.h>
+#include "cnss_common.h"
 
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 #include <net/cnss_prealloc.h>
@@ -2059,7 +2059,6 @@ end:
 	*num = 0;
 	return NULL;
 }
-EXPORT_SYMBOL(cnss_pci_get_wlan_mac_address);
 
 /**
  * cnss_get_wlan_mac_address() - API to return MAC addresses buffer
@@ -2149,7 +2148,6 @@ int cnss_pcie_set_wlan_mac_address(const u8 *in, uint32_t len)
 	}
 	return 0;
 }
-EXPORT_SYMBOL(cnss_pcie_set_wlan_mac_address);
 
 int cnss_wlan_register_driver(struct cnss_wlan_driver *driver)
 {
