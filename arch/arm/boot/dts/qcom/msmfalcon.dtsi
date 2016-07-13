@@ -302,3 +302,5 @@
 		#clock-cells = <1>;
 	};
 };
+
+#include "msmfalcon-ion.dtsi"
