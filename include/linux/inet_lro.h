@@ -81,6 +81,7 @@ struct net_lro_mgr {
 #define LRO_F_EXTRACT_VLAN_ID 2  /* Set flag if VLAN IDs are extracted
 				    from received packets and eth protocol
 				    is still ETH_P_8021Q */
+#define LRO_F_NI              4  /* If not NAPI, Pass packets to stack via NI */
 
 	/*
 	 * Set for generated SKBs that are not added to
@@ -122,6 +123,50 @@ struct net_lro_mgr {
 };
 
 /*
+ * Large Receive Offload (LRO) information provided by the driver
+ *
+ * Fields must be set by driver when using the lro_receive_skb_ext()
+ */
+struct net_lro_info {
+	/* bitmask indicating the supported fields */
+	unsigned long valid_fields;
+	/*
+	 * Driver has checked the LRO eligibilty of the skb
+	 */
+	#define LRO_ELIGIBILITY_CHECKED (1 << 0)
+	/*
+	 * Driver has provided the TCP payload checksum
+	 */
+	#define LRO_TCP_DATA_CSUM (1 << 1)
+	/*
+	 * Driver has extracted the TCP window from the skb
+	 * The value is in network format
+	 */
+	#define LRO_TCP_WIN (1 << 2)
+	/*
+	 * Driver has extracted the TCP sequence number from skb
+	 * The value is in network format
+	 */
+	#define LRO_TCP_SEQ_NUM (1 << 3)
+	/*
+	 * Driver has extracted the TCP ack number from the skb
+	 * The value is in network format
+	 */
+	#define LRO_TCP_ACK_NUM (1 << 4)
+	/*
+	 * Driver has provided the LRO descriptor
+	 */
+	#define LRO_DESC (1 << 5)
+
+	bool lro_eligible;
+	__wsum tcp_data_csum;
+	__be16 tcp_win;
+	__be32 tcp_seq_num;
+	__be32 tcp_ack_num;
+	struct net_lro_desc *lro_desc;
+};
+
+/*
  * Processes a SKB
  *
  * @lro_mgr: LRO manager to use
@@ -133,10 +178,54 @@ struct net_lro_mgr {
 void lro_receive_skb(struct net_lro_mgr *lro_mgr,
 		     struct sk_buff *skb,
 		     void *priv);
+
+/*
+ * Processes an SKB
+ *
+ * This API provides means to pass any LRO information that has already
+ * been extracted by the driver
+ *
+ * @lro_mgr: LRO manager to use
+ * @skb: SKB to aggregate
+ * @priv: Private data that may be used by driver functions
+ *       (for example get_tcp_ip_hdr)
+ * @lro_info: LRO information extracted by the driver
+ */
+
+void lro_receive_skb_ext(struct net_lro_mgr *lro_mgr,
+		struct sk_buff *skb,
+		void *priv,
+		struct net_lro_info *lro_info);
+
+/*
+ * Processes a fragment list
+ *
+ * This functions aggregate fragments and generate SKBs do pass
+ * the packets to the stack.
+ *
+ * @lro_mgr: LRO manager to use
+ * @frags: Fragment to be processed. Must contain entire header in first
+ *         element.
+ * @len: Length of received data
+ * @true_size: Actual size of memory the fragment is consuming
+ * @priv: Private data that may be used by driver functions
+ *        (for example get_tcp_ip_hdr)
+ */
+
+void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+		       struct skb_frag_struct *frags,
+		       int len, int true_size, void *priv, __wsum sum);
+
 /*
  * Forward all aggregated SKBs held by lro_mgr to network stack
  */
 
 void lro_flush_all(struct net_lro_mgr *lro_mgr);
+
+void lro_flush_pkt(struct net_lro_mgr *lro_mgr,
+		   struct iphdr *iph, struct tcphdr *tcph);
+
+void lro_flush_desc(struct net_lro_mgr *lro_mgr,
+		    struct net_lro_desc *lro_desc);
 
 #endif
