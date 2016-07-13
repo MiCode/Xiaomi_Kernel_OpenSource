@@ -87,6 +87,7 @@ static const int wcd9xxx_cdc_types[] = {
 	[WCD9XXX] = WCD9XXX,
 	[WCD9330] = WCD9330,
 	[WCD9335] = WCD9335,
+	[WCD934X] = WCD934X,
 };
 
 static const struct of_device_id wcd9xxx_of_match[] = {
@@ -326,7 +327,7 @@ int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 	struct slim_ele_access slim_msg;
 
 	mutex_lock(&wcd9xxx->io_lock);
-	if (wcd9xxx->type == WCD9335) {
+	if (wcd9xxx->type == WCD9335 || wcd9xxx->type == WCD934X) {
 		ret = wcd9xxx_page_write(wcd9xxx, &reg);
 		if (ret)
 			goto done;
@@ -1321,7 +1322,7 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	 * Vout_D to be ready after BUCK_SIDO is powered up.
 	 * SYS_RST_N shouldn't be pulled high during this time
 	 */
-	if (wcd9xxx->type == WCD9335)
+	if (wcd9xxx->type == WCD9335 || wcd9xxx->type == WCD934X)
 		usleep_range(600, 650);
 	else
 		usleep_range(5, 10);
@@ -1555,6 +1556,7 @@ static const struct slim_device_id wcd_slim_device_id[] = {
 	{"tapan-slim-pgd", 0},
 	{"tomtom-slim-pgd", WCD9330},
 	{"tasha-slim-pgd", WCD9335},
+	{"tavil-slim-pgd", WCD934X},
 	{}
 };
 

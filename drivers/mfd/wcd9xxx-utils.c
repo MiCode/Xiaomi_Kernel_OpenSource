@@ -37,6 +37,12 @@
 
 static enum wcd9xxx_intf_status wcd9xxx_intf = -1;
 
+static struct mfd_cell tavil_devs[] = {
+	{
+		.name = "tavil_codec",
+	},
+};
+
 static struct mfd_cell tasha_devs[] = {
 	{
 		.name = "tasha_codec",
@@ -418,7 +424,7 @@ int wcd9xxx_page_write(struct wcd9xxx *wcd9xxx, unsigned short *reg)
 	unsigned short c_reg, reg_addr;
 	u8 pg_num, prev_pg_num;
 
-	if (wcd9xxx->type != WCD9335)
+	if (wcd9xxx->type != WCD9335 && wcd9xxx->type != WCD934X)
 		return ret;
 
 	c_reg = *reg;
@@ -815,6 +821,10 @@ int wcd9xxx_get_codec_info(struct device *dev)
 	}
 
 	switch (wcd9xxx->type) {
+	case WCD934X:
+		cinfo->dev = tavil_devs;
+		cinfo->size = ARRAY_SIZE(tavil_devs);
+		break;
 	case WCD9335:
 		cinfo->dev = tasha_devs;
 		cinfo->size = ARRAY_SIZE(tasha_devs);

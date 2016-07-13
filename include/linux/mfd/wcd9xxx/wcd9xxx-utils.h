@@ -33,6 +33,13 @@ typedef int (*codec_bringdown_fn)(struct wcd9xxx *);
 typedef int (*codec_type_fn)(struct wcd9xxx *,
 			     struct wcd9xxx_codec_type *);
 
+#ifdef CONFIG_WCD934X_CODEC
+extern int wcd934x_bringup(struct wcd9xxx *wcd9xxx);
+extern int wcd934x_bringdown(struct wcd9xxx *wcd9xxx);
+extern int wcd934x_get_codec_info(struct wcd9xxx *,
+				  struct wcd9xxx_codec_type *);
+#endif
+
 #ifdef CONFIG_WCD9335_CODEC
 extern int wcd9335_bringup(struct wcd9xxx *wcd9xxx);
 extern int wcd9335_bringdown(struct wcd9xxx *wcd9xxx);
@@ -52,6 +59,11 @@ static inline codec_bringdown_fn wcd9xxx_bringdown_fn(int type)
 	codec_bringdown_fn cdc_bdown_fn;
 
 	switch (type) {
+#ifdef CONFIG_WCD934X_CODEC
+	case WCD934X:
+		cdc_bdown_fn = wcd934x_bringdown;
+		break;
+#endif
 #ifdef CONFIG_WCD9335_CODEC
 	case WCD9335:
 		cdc_bdown_fn = wcd9335_bringdown;
@@ -75,6 +87,11 @@ static inline codec_bringup_fn wcd9xxx_bringup_fn(int type)
 	codec_bringup_fn cdc_bup_fn;
 
 	switch (type) {
+#ifdef CONFIG_WCD934X_CODEC
+	case WCD934X:
+		cdc_bup_fn = wcd934x_bringup;
+		break;
+#endif
 #ifdef CONFIG_WCD9335_CODEC
 	case WCD9335:
 		cdc_bup_fn = wcd9335_bringup;
@@ -98,6 +115,11 @@ static inline codec_type_fn wcd9xxx_get_codec_info_fn(int type)
 	codec_type_fn cdc_type_fn;
 
 	switch (type) {
+#ifdef CONFIG_WCD934X_CODEC
+	case WCD934X:
+		cdc_type_fn = wcd934x_get_codec_info;
+		break;
+#endif
 #ifdef CONFIG_WCD9335_CODEC
 	case WCD9335:
 		cdc_type_fn = wcd9335_get_codec_info;
