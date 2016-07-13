@@ -969,6 +969,8 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 		return -ENOMEM;
 	}
 
+	dep->num_trbs = num_trbs;
+
 	dep->trb_pool = dma_pool_alloc(dep->trb_dma_pool,
 					   GFP_KERNEL, &dep->trb_pool_dma);
 	if (!dep->trb_pool) {
