@@ -683,10 +683,22 @@
 				pinctrl-1 = <&led_disable>;
 			};
 
-			pmicobalt_switch: qcom,led_switch {
+			pmicobalt_switch0: qcom,led_switch_0 {
 				label = "switch";
-				qcom,led-name = "led:switch";
-				qcom,default-led-trigger = "switch_trigger";
+				qcom,led-name = "led:switch_0";
+				qcom,led-mask = <3>;
+				qcom,default-led-trigger = "switch0_trigger";
+				reg0 {
+					regulator-name = "pmicobalt_bob";
+					max-voltage-uv = <3600000>;
+				};
+			};
+
+			pmicobalt_switch1: qcom,led_switch_1 {
+				label = "switch";
+				qcom,led-name = "led:switch_1";
+				qcom,led-mask = <4>;
+				qcom,default-led-trigger = "switch1_trigger";
 				reg0 {
 					regulator-name = "pmicobalt_bob";
 					max-voltage-uv = <3600000>;
