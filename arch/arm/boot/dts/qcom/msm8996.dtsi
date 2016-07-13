@@ -42,7 +42,7 @@
 
 	chosen {
 		stdout-path = "serial0";
-		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
+		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1 rcupdate.rcu_expedited=1";
 	};
 
 	psci {
