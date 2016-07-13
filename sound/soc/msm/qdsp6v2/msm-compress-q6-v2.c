@@ -2749,7 +2749,35 @@ static int msm_compr_app_type_cfg_put(struct snd_kcontrol *kcontrol,
 static int msm_compr_app_type_cfg_get(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
 {
-	return 0;
+	u64 fe_id = kcontrol->private_value;
+	int ret = 0;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, &app_type,
+		&acdb_dev_id, &sample_rate);
+	if (ret < 0) {
+		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ucontrol->value.integer.value[0] = app_type;
+	ucontrol->value.integer.value[1] = acdb_dev_id;
+	ucontrol->value.integer.value[2] = sample_rate;
+	pr_debug("%s: fedai_id %llu, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fe_id, app_type, acdb_dev_id, sample_rate);
+done:
+	return ret;
 }
 
 static int msm_compr_channel_map_put(struct snd_kcontrol *kcontrol,
