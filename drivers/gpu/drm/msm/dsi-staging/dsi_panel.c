@@ -185,7 +185,7 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 	rc = dsi_pwr_enable_regulator(&panel->power_info, true);
 	if (rc) {
 		pr_err("[%s] failed to enable vregs, rc=%d\n", panel->name, rc);
-		goto error;
+		goto exit;
 	}
 
 	rc = dsi_panel_set_pinctrl_state(panel, true);
@@ -197,25 +197,30 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 	rc = dsi_panel_reset(panel);
 	if (rc) {
 		pr_err("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
-		goto error_disable_pinctrl;
+		goto error_disable_gpio;
 	}
 
-	/* TODO:  backlight */
-	goto error;
-error_disable_pinctrl:
+	goto exit;
+
+error_disable_gpio:
+	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
+		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
+
+	if (gpio_is_valid(panel->bl_config.en_gpio))
+		gpio_set_value(panel->bl_config.en_gpio, 0);
+
 	(void)dsi_panel_set_pinctrl_state(panel, false);
+
 error_disable_vregs:
 	(void)dsi_pwr_enable_regulator(&panel->power_info, false);
-error:
+
+exit:
 	return rc;
 }
 
 static int dsi_panel_power_off(struct dsi_panel *panel)
 {
 	int rc = 0;
-
-	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
-		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
 
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
