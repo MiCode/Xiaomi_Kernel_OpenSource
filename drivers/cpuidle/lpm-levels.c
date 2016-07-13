@@ -44,6 +44,7 @@
 #include <asm/arch_timer.h>
 #include <asm/cacheflush.h>
 #include <asm/suspend.h>
+#include <asm/cpuidle.h>
 #include "lpm-levels.h"
 #include "lpm-workarounds.h"
 #include <trace/events/power.h>
@@ -914,7 +915,6 @@ unlock_and_return:
 }
 
 #if !defined(CONFIG_CPU_V7)
-#include <asm/cpuidle.h>
 asmlinkage int __invoke_psci_fn_smc(u64, u64, u64, u64);
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 {
@@ -976,7 +976,7 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 		update_debug_pc_event(CPU_ENTER, state_id,
 						0xdeaffeed, 0xdeaffeed, true);
 		stop_critical_timings();
-		success = !cpu_suspend(state_id);
+		success = !arm_cpuidle_suspend(state_id);
 		start_critical_timings();
 		update_debug_pc_event(CPU_EXIT, state_id,
 						success, 0xdeaffeed, true);
