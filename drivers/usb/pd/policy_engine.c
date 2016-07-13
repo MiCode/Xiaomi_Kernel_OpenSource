@@ -575,8 +575,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_ERROR_RECOVERY: /* perform hard disconnect/reconnect */
 		pd->in_pr_swap = false;
 		set_power_role(pd, PR_NONE);
-		hrtimer_start(&pd->timer, ms_to_ktime(ERROR_RECOVERY_TIME),
-				HRTIMER_MODE_REL);
+		pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
+		queue_work(pd->wq, &pd->sm_work);
 		break;
 
 	/* Source states */
@@ -1271,12 +1271,18 @@ static void usbpd_sm(struct work_struct *w)
 
 		reset_vdm_state(pd);
 
+		if (pd->current_state == PE_ERROR_RECOVERY)
+			/* forced disconnect, wait before resetting to DRP */
+			usleep_range(ERROR_RECOVERY_TIME * USEC_PER_MSEC,
+				(ERROR_RECOVERY_TIME + 5) * USEC_PER_MSEC);
+
 		/* Set CC back to DRP toggle */
 		val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &val);
 
 		pd->current_state = PE_UNKNOWN;
+
 		return;
 	}
 
