@@ -780,6 +780,8 @@ enum {
 #define WDOG_STATUS_1_BIT			BIT(1)
 #define BARK_BITE_STATUS_BIT			BIT(0)
 
+#define MISC_INT_RT_STS_REG			(MISC_BASE + 0x10)
+
 /* MISC Interrupt Bits */
 #define SWITCHER_POWER_OK_RT_STS_BIT		BIT(7)
 #define TEMPERATURE_CHANGE_RT_STS_BIT		BIT(6)
