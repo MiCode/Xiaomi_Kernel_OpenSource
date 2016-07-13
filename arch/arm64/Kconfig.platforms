@@ -56,6 +56,7 @@ config ARCH_QCOM
     	select SOC_BUS
 	select MSM_IRQ
 	select THERMAL_WRITABLE_TRIPS
+	select RATIONAL
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 

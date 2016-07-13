@@ -1107,6 +1107,29 @@ static struct rcg_clk dp_aux_clk_src = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_dp_pixel_clk_src[] = {
+	{
+		.div_src_val = BVAL(10, 8, ext_dp_phy_pll_vco_mm_source_val),
+		.src_clk = &ext_dp_phy_pll_vco.c,
+	},
+	F_END
+};
+
+static struct rcg_clk dp_pixel_clk_src = {
+	.cmd_rcgr_reg = MMSS_DP_PIXEL_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.current_freq = ftbl_dp_pixel_clk_src,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "dp_pixel_clk_src",
+		.parent = &ext_dp_phy_pll_vco.c,
+		.ops = &clk_ops_rcg_dp,
+		VDD_DIG_FMAX_MAP3(LOWER, 148380000, LOW, 296740000,
+					NOMINAL, 593470000),
+		CLK_INIT(dp_pixel_clk_src.c),
+	},
+};
+
 static struct clk_freq_tbl ftbl_dp_link_clk_src[] = {
 	F_SLEW( 162000000,  324000000, ext_dp_phy_pll_link,   2,   0,   0),
 	F_SLEW( 270000000,  540000000, ext_dp_phy_pll_link,   2,   0,   0),
@@ -2003,6 +2026,18 @@ static struct branch_clk mmss_mdss_dp_aux_clk = {
 	},
 };
 
+static struct branch_clk mmss_mdss_dp_pixel_clk = {
+	.cbcr_reg = MMSS_MDSS_DP_PIXEL_CBCR,
+	.has_sibling = 0,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "mmss_mdss_dp_pixel_clk",
+		.parent = &dp_pixel_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(mmss_mdss_dp_pixel_clk.c),
+	},
+};
+
 static struct branch_clk mmss_mdss_dp_link_clk = {
 	.cbcr_reg = MMSS_MDSS_DP_LINK_CBCR,
 	.has_sibling = 0,
@@ -2425,6 +2460,7 @@ static struct mux_clk mmss_debug_mux = {
 		{ &mmss_mdss_dp_link_clk.c, 0x0098 },
 		{ &mmss_mdss_dp_link_intf_clk.c, 0x0099 },
 		{ &mmss_mdss_dp_crypto_clk.c, 0x009a },
+		{ &mmss_mdss_dp_pixel_clk.c, 0x009b },
 		{ &mmss_mdss_dp_aux_clk.c, 0x009c },
 		{ &mmss_mdss_dp_gtc_clk.c, 0x009d },
 		{ &mmss_mdss_byte0_intf_clk.c, 0x00ad },
@@ -2494,6 +2530,7 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(extpclk_clk_src),
 	CLK_LIST(ext_dp_phy_pll_vco),
 	CLK_LIST(ext_dp_phy_pll_link),
+	CLK_LIST(dp_pixel_clk_src),
 	CLK_LIST(dp_link_clk_src),
 	CLK_LIST(dp_crypto_clk_src),
 	CLK_LIST(csi0phytimer_clk_src),
@@ -2576,6 +2613,7 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(mmss_mdss_byte1_intf_clk),
 	CLK_LIST(mmss_mdss_dp_aux_clk),
 	CLK_LIST(mmss_mdss_dp_crypto_clk),
+	CLK_LIST(mmss_mdss_dp_pixel_clk),
 	CLK_LIST(mmss_mdss_dp_link_clk),
 	CLK_LIST(mmss_mdss_dp_link_intf_clk),
 	CLK_LIST(mmss_mdss_dp_gtc_clk),
