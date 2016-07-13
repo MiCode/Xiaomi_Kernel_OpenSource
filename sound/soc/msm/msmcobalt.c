@@ -157,6 +157,12 @@ static struct dev_config hdmi_rx_cfg = {
 	.channels = 2,
 };
 
+static struct dev_config proxy_rx_cfg = {
+	.sample_rate = SAMPLING_RATE_48KHZ,
+	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
+	.channels = 2,
+};
+
 static int msm_vi_feed_tx_ch = 2;
 static const char *const slim_rx_ch_text[] = {"One", "Two"};
 static const char *const slim_tx_ch_text[] = {"One", "Two", "Three", "Four",
@@ -169,7 +175,7 @@ static char const *slim_sample_rate_text[] = {"KHZ_8", "KHZ_16",
 					"KHZ_96", "KHZ_192"};
 static char const *bt_sco_sample_rate_text[] = {"KHZ_8", "KHZ_16"};
 static const char *const usb_ch_text[] = {"One", "Two"};
-static char const *hdmi_rx_ch_text[] = {"Two", "Three", "Four", "Five",
+static char const *ch_text[] = {"Two", "Three", "Four", "Five",
 					"Six", "Seven", "Eight"};
 static char const *usb_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
 					"KHZ_16", "KHZ_22P05",
@@ -186,7 +192,8 @@ static SOC_ENUM_SINGLE_EXT_DECL(slim_6_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_chs, usb_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_chs, usb_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(vi_feed_tx_chs, vi_feed_ch_text);
-static SOC_ENUM_SINGLE_EXT_DECL(hdmi_rx_chs, hdmi_rx_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(hdmi_rx_chs, ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(proxy_rx_chs, ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_6_rx_format, bit_format_text);
@@ -1045,6 +1052,26 @@ static int hdmi_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int proxy_rx_ch_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: proxy_rx channels = %d\n",
+		 __func__, proxy_rx_cfg.channels);
+	ucontrol->value.integer.value[0] = proxy_rx_cfg.channels - 1;
+
+	return 0;
+}
+
+static int proxy_rx_ch_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	proxy_rx_cfg.channels = ucontrol->value.integer.value[0] + 1;
+	pr_debug("%s: proxy_rx channels = %d\n",
+		 __func__, proxy_rx_cfg.channels);
+
+	return 1;
+}
+
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("SLIM_0_RX Channels", slim_0_rx_chs,
 			msm_slim_rx_ch_get, msm_slim_rx_ch_put),
@@ -1064,6 +1091,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			usb_audio_tx_ch_get, usb_audio_tx_ch_put),
 	SOC_ENUM_EXT("HDMI_RX Channels", hdmi_rx_chs,
 			hdmi_rx_ch_get, hdmi_rx_ch_put),
+	SOC_ENUM_EXT("PROXY_RX Channels", proxy_rx_chs,
+			proxy_rx_ch_get, proxy_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_RX Format", slim_0_rx_format,
 			slim_rx_bit_format_get, slim_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_5_RX Format", slim_5_rx_format,
@@ -1292,6 +1321,13 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			channels->min = channels->max = 2;
 		rate->min = rate->max = hdmi_rx_cfg.sample_rate;
 		channels->min = channels->max = hdmi_rx_cfg.channels;
+		break;
+
+	case MSM_BACKEND_DAI_AFE_PCM_RX:
+		if (channels->max < 2)
+			channels->min = channels->max = 2;
+		channels->min = channels->max = proxy_rx_cfg.channels;
+		rate->min = rate->max = SAMPLING_RATE_48KHZ;
 		break;
 
 	default:
