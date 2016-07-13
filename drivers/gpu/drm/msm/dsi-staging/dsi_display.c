@@ -2005,6 +2005,9 @@ int dsi_display_get_info(struct dsi_display *display,
 	info->height_mm = phy_props.panel_height_mm;
 	strlcpy(info->display_type, display->display_type,
 		sizeof(display->display_type));
+
+	info->op_mode = display->panel->mode.panel_mode;
+
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;

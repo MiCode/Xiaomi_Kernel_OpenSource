@@ -67,6 +67,7 @@ enum dsi_display_type {
  * @is_edid_supported: Does panel support reading EDID information.
  * @width_mm:          Physical width of panel in millimeters.
  * @height_mm:         Physical height of panel in millimeters.
+ * @dsi_op_mode:       dsi operation mode, video or cmd mode
  */
 struct dsi_display_info {
 	char display_type[20];
@@ -85,6 +86,9 @@ struct dsi_display_info {
 	/* Physical properties */
 	u32 width_mm;
 	u32 height_mm;
+
+	/* Operation properties */
+	enum dsi_op_mode op_mode;
 };
 
 /**
@@ -93,10 +97,6 @@ struct dsi_display_info {
  * @ctrl_of_node:   pHandle to the DSI controller device.
  * @dsi_ctrl_idx:   DSI controller instance id.
  * @power_state:    Current power state of the DSI controller.
- * @cmd_engine_enabled:   Command engine status.
- * @video_engine_enabled: Video engine status.
- * @ulps_enabled:         ULPS status for the controller.
- * @clamps_enabled:       Clamps status for the controller.
  * @phy:                  Handle to the DSI PHY device.
  * @phy_of_node:          pHandle to the DSI PHY device.
  * @phy_enabled:          PHY power status.
@@ -153,6 +153,8 @@ struct dsi_display_clk_info {
  * @host:             DRM MIPI DSI Host.
  * @connector:        Pointer to DRM connector object.
  * @bridge:           Pointer to DRM bridge object.
+ * @cmd_engine_refcount:  Reference count enforcing single instance of cmd eng
+ * @root:                 Debugfs root directory
  */
 struct dsi_display {
 	struct platform_device *pdev;
