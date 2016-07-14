@@ -46,6 +46,7 @@ struct mdss_dba_utils_data {
 	struct cec_cbs ccbs;
 	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 	u32 current_vic;
+	bool support_audio;
 };
 
 static struct mdss_dba_utils_data *mdss_dba_utils_get_data(
@@ -84,7 +85,7 @@ end:
 	return udata;
 }
 
-static void mdss_dba_utils_send_display_notification(
+static void mdss_dba_utils_notify_display(
 	struct mdss_dba_utils_data *udata, int val)
 {
 	int state = 0;
@@ -109,7 +110,7 @@ static void mdss_dba_utils_send_display_notification(
 		udata->sdev_display.state);
 }
 
-static void mdss_dba_utils_send_audio_notification(
+static void mdss_dba_utils_notify_audio(
 	struct mdss_dba_utils_data *udata, int val)
 {
 	int state = 0;
@@ -291,6 +292,31 @@ static void mdss_dba_utils_sysfs_remove(struct kobject *kobj)
 	sysfs_remove_group(kobj, &mdss_dba_utils_fs_attrs_group);
 }
 
+static bool mdss_dba_check_audio_support(struct mdss_dba_utils_data *udata)
+{
+	bool dvi_mode = false;
+	int audio_blk_size = 0;
+	struct msm_hdmi_audio_edid_blk audio_blk;
+
+	if (!udata) {
+		pr_debug("%s: Invalid input\n", __func__);
+		return false;
+	}
+	memset(&audio_blk, 0, sizeof(audio_blk));
+
+	/* check if sink is in DVI mode */
+	dvi_mode = !hdmi_edid_get_sink_mode(udata->edid_data);
+
+	/* get the audio block size info from EDID */
+	hdmi_edid_get_audio_blk(udata->edid_data, &audio_blk);
+	audio_blk_size = audio_blk.audio_data_blk_size;
+
+	if (dvi_mode || !audio_blk_size)
+		return false;
+	else
+		return true;
+}
+
 static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 {
 	int ret = -EINVAL;
@@ -322,19 +348,26 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 
 			if (!ret) {
 				hdmi_edid_parser(udata->edid_data);
-				hdmi_edid_get_audio_blk(udata->edid_data, &blk);
-				if (udata->ops.set_audio_block)
-					udata->ops.set_audio_block(
+				/* check whether audio is supported or not */
+				udata->support_audio =
+					mdss_dba_check_audio_support(udata);
+				if (udata->support_audio) {
+					hdmi_edid_get_audio_blk(
+						udata->edid_data, &blk);
+					if (udata->ops.set_audio_block)
+						udata->ops.set_audio_block(
 							udata->dba_data,
 							sizeof(blk), &blk);
+				}
 			} else {
 				pr_err("failed to get edid%d\n", ret);
 			}
 		}
 
 		if (pluggable) {
-			mdss_dba_utils_send_display_notification(udata, 1);
-			mdss_dba_utils_send_audio_notification(udata, 1);
+			mdss_dba_utils_notify_display(udata, 1);
+			if (udata->support_audio)
+				mdss_dba_utils_notify_audio(udata, 1);
 		} else {
 			mdss_dba_utils_video_on(udata, udata->pinfo);
 		}
@@ -346,8 +379,9 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 		if (!udata->hpd_state)
 			break;
 		if (pluggable) {
-			mdss_dba_utils_send_audio_notification(udata, 0);
-			mdss_dba_utils_send_display_notification(udata, 0);
+			if (udata->support_audio)
+				mdss_dba_utils_notify_audio(udata, 0);
+			mdss_dba_utils_notify_display(udata, 0);
 		} else {
 			mdss_dba_utils_video_off(udata);
 		}
