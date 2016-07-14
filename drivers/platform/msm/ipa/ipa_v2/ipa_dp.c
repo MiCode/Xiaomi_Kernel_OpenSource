@@ -20,8 +20,6 @@
 
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
-#define POLLING_MIN_SLEEP_RX 1010
-#define POLLING_MAX_SLEEP_RX 1050
 #define POLLING_INACTIVITY_TX 40
 #define POLLING_MIN_SLEEP_TX 400
 #define POLLING_MAX_SLEEP_TX 500
@@ -1020,8 +1018,8 @@ static void ipa_handle_rx(struct ipa_sys_context *sys)
 		if (cnt == 0) {
 			inactive_cycles++;
 			trace_idle_sleep_enter(sys->ep->client);
-			usleep_range(POLLING_MIN_SLEEP_RX,
-					POLLING_MAX_SLEEP_RX);
+			usleep_range(ipa_ctx->ipa_rx_min_timeout_usec,
+					ipa_ctx->ipa_rx_max_timeout_usec);
 			trace_idle_sleep_exit(sys->ep->client);
 		} else {
 			inactive_cycles = 0;
@@ -1034,7 +1032,7 @@ static void ipa_handle_rx(struct ipa_sys_context *sys)
 		if (sys->len == 0)
 			break;
 
-	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
+	} while (inactive_cycles <= ipa_ctx->ipa_polling_iteration);
 
 	trace_poll_to_intr(sys->ep->client);
 	ipa_rx_switch_to_intr_mode(sys);

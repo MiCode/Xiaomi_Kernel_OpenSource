@@ -1237,6 +1237,9 @@ struct ipa_context {
 	/* M-release support to know client pipes */
 	struct ipacm_client_info ipacm_client[IPA_MAX_NUM_PIPES];
 	bool tethered_flow_control;
+	u32 ipa_rx_min_timeout_usec;
+	u32 ipa_rx_max_timeout_usec;
+	u32 ipa_polling_iteration;
 };
 
 /**
@@ -1288,6 +1291,8 @@ struct ipa_plat_drv_res {
 	bool skip_uc_pipe_reset;
 	bool use_dma_zone;
 	bool tethered_flow_control;
+	u32 ipa_rx_polling_sleep_msec;
+	u32 ipa_polling_iteration;
 };
 
 struct ipa_mem_partition {
@@ -1732,6 +1737,9 @@ void ipa_debugfs_init(void);
 void ipa_debugfs_remove(void);
 
 void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
+
+void ipa_rx_timeout_min_max_calc(u32 *min, u32 *max, s8 time);
+
 #ifdef IPA_DEBUG
 #define IPA_DUMP_BUFF(base, phy_base, size) \
 	ipa_dump_buff_internal(base, phy_base, size)
