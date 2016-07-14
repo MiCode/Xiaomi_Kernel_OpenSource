@@ -51,6 +51,12 @@
 
 #define VFE47_VBIF_CLK_OFFSET    0x4
 
+#ifdef CONFIG_MSM_CAMERA_AUTOMOTIVE
+#define UB_CFG_POLICY MSM_WM_UB_EQUAL_SLICING
+#else
+#define UB_CFG_POLICY MSM_WM_UB_CFG_DEFAULT
+#endif
+
 static uint32_t stats_base_addr[] = {
 	0x1D4, /* HDR_BE */
 	0x254, /* BG(AWB_BG) */
@@ -1710,7 +1716,7 @@ void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev)
 {
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 
-	axi_data->wm_ub_cfg_policy = MSM_WM_UB_CFG_DEFAULT;
+	axi_data->wm_ub_cfg_policy = UB_CFG_POLICY;
 	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING)
 		msm_vfe47_cfg_axi_ub_equal_slicing(vfe_dev);
 	else

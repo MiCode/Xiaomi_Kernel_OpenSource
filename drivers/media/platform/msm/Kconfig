@@ -22,6 +22,13 @@ config MSM_CAMERA_DEBUG
 	---help---
 	  Enable printk() debug for msm camera
 
+config MSM_CAMERA_AUTOMOTIVE
+	bool "Qualcomm MSM camera for automotive support"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Enables support for automotive targets
+
 menuconfig MSMB_CAMERA
 	bool "Qualcomm MSM camera and video capture 2.0 support"
 	depends on ARCH_MSM && VIDEO_V4L2 && I2C
