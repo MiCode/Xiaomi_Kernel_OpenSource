@@ -234,7 +234,9 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909-mtp-wcd9326-refboard.dtb \
 	msm8909-512mb-mtp-wcd9326-refboard.dtb \
 	apq8009-mtp-wcd9326-refboard.dtb \
-	apq8009-512mb-mtp-wcd9326-refboard.dtb
+	apq8009-512mb-mtp-wcd9326-refboard.dtb \
+        msm8909-mtp.dtb \
+        msm8909-1gb-mtp.dtb
 
 
 ifeq ($(CONFIG_ARM64),y)
