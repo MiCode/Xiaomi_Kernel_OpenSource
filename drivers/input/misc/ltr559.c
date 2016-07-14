@@ -272,6 +272,11 @@ static struct sensors_classdev sensors_proximity_cdev = {
 	.sensors_poll_delay = NULL,
 };
 
+#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+static struct sensors_classdev *proximity_sensor_dev = NULL;
+#endif
+
+
 static int ltr559_ps_read(struct i2c_client *client)
 {
 	int psdata;
@@ -567,6 +572,90 @@ static void ltr559_als_work_func(struct work_struct *work)
 workout:
 	mutex_unlock(&data->op_lock);
 }
+
+#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+int ltr559_ps_ondemand_state (void)
+{
+    struct ltr559_data *data = container_of(proximity_sensor_dev, struct
+	    ltr559_data, ps_cdev);
+    struct i2c_client *client = data->client;
+    int contr_data;
+
+    u32	ondemand_ps_state = 0;
+    u32 psdata = 0;
+    int proximity_state = LTR559_ON_DEMAND_RESET;
+    int ret = 0;
+
+
+    // Enable the Sensor
+    ltr559_set_ps_threshold(client, LTR559_PS_THRES_LOW_0, 0);
+    ltr559_set_ps_threshold(client, LTR559_PS_THRES_UP_0, data->platform_data->prox_threshold);
+    ret = i2c_smbus_write_byte_data(client, LTR559_PS_CONTR, reg_tbl[REG_PS_CONTR].curval);
+    if(ret<0){
+	pr_err("%s: enable=(%d) failed!\n", __func__, 1);
+	return ret;
+    }
+    contr_data = i2c_smbus_read_byte_data(client, LTR559_PS_CONTR);
+    if(contr_data != reg_tbl[REG_PS_CONTR].curval){
+	pr_err("%s: enable=(%d) failed!\n", __func__, 1);
+	return -EFAULT;
+    }
+
+    msleep(WAKEUP_DELAY);
+
+    data->ps_state = 1;
+    ps_state_last = 1;
+
+    ltr559_ps_dynamic_caliberate(&data->ps_cdev);
+    printk("%s, report ABS_DISTANCE=%s\n",__func__, data->ps_state ? "far" : "near");
+    input_report_abs(data->input_dev_ps, ABS_DISTANCE, data->ps_state);
+#ifdef CONFIG_MACH_WT88047
+    input_event(data->input_dev_ps, EV_SYN, SYN_TIME_SEC,
+	    ktime_to_timespec(timestamp).tv_sec);
+    input_event(data->input_dev_ps, EV_SYN, SYN_TIME_NSEC,
+	    ktime_to_timespec(timestamp).tv_nsec);
+#endif
+
+    /* Read the proximity data */
+    psdata = ltr559_ps_read(client);
+    printk("%s ps data =%d(0x%x) \n", __func__, psdata, psdata);
+
+    /* Classify the data */
+    if (psdata >= data->platform_data->prox_threshold) {
+	ondemand_ps_state= 0;
+    } else if (psdata <=
+	    data->platform_data->prox_hsyteresis_threshold) {
+	ondemand_ps_state = 1;
+    } else {
+	ondemand_ps_state = ps_state_last;
+    }
+
+    printk("%s, current ps_open_state  %s\n", __func__, data->ps_open_state ?  "OPENED" : "CLOSED");
+    if (ps_state_last != ondemand_ps_state) {
+	printk("%s, ps_state changed to %s\n", __func__, ondemand_ps_state ? "far" : "near");
+	ps_state_last = data->ps_state;
+    } else
+	printk("%s, ps_state still %s\n", __func__, ondemand_ps_state ? "far" : "near");
+
+    
+    // Disable the Sensor
+    ret = i2c_smbus_write_byte_data(client, LTR559_PS_CONTR, MODE_PS_StdBy);
+    if(ret<0){
+	pr_err("%s: enable=(%d) failed!\n", __func__, 0);
+	return ret;
+    }
+    contr_data = i2c_smbus_read_byte_data(client, LTR559_PS_CONTR);
+    if(contr_data != reg_tbl[REG_PS_CONTR].defval){
+	pr_err("%s:  enable=(%d) failed!\n", __func__, 0);
+	return -EFAULT;
+    }
+
+    proximity_state = (ondemand_ps_state == 0) ? LTR559_ON_DEMAND_COVERED 
+	: LTR559_ON_DEMAND_UNCOVERED;
+
+    return (proximity_state);
+}
+#endif
 
 static irqreturn_t ltr559_irq_handler(int irq, void *arg)
 {
@@ -1435,6 +1524,10 @@ int ltr559_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	pdata->prox_default_noise=-1;
 	ltr559_ps_enable(client,1);
 	ltr559_ps_enable(client,0);
+
+#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+	proximity_sensor_dev = &data->ps_cdev;
+#endif
 
 	dev_dbg(&client->dev,"probe succece\n");
 	return 0;
