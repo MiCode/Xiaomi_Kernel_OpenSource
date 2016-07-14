@@ -42,6 +42,9 @@
 
 #define SYS_AUTHORITY		(S_IRUGO|S_IWUGO)
 
+// premaca - define it here, for CM proximity sensor
+#define CONFIG_MACH_WT88047
+
 struct ps_thre {
 	int noise;
 	int th_hi;
@@ -585,6 +588,11 @@ int ltr559_ps_ondemand_state (void)
     u32 psdata = 0;
     int proximity_state = LTR559_ON_DEMAND_RESET;
     int ret = 0;
+#ifdef CONFIG_MACH_WT88047
+	ktime_t	timestamp;
+
+	timestamp = ktime_get_boottime();
+#endif
 
 
     // Enable the Sensor
