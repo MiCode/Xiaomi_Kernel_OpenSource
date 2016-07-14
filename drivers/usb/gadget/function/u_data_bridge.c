@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2016, The Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -818,6 +818,40 @@ static ssize_t debug_gbridge_reset_stats(struct file *file,
 	return count;
 }
 
+static ssize_t gbridge_rw_write(struct file *file, const char __user *ubuf,
+					size_t count, loff_t *ppos)
+{
+	struct gbridge_port *ui_dev = ports[0];
+	struct gserial *gser;
+	struct usb_function *func;
+	struct usb_gadget   *gadget;
+
+	if (!ui_dev) {
+		pr_err("%s ui_dev is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	gser = ui_dev->port_usb;
+	if (!gser) {
+		pr_err("%s gser is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	func = &gser->func;
+	if (!func) {
+		pr_err("%s func is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	gadget = gser->func.config->cdev->gadget;
+	if ((gadget->speed == USB_SPEED_SUPER) && (func->func_is_suspended)) {
+		pr_debug("%s Calling usb_func_wakeup\n", __func__);
+		usb_func_wakeup(func);
+	}
+
+	return count;
+}
+
 static int debug_gbridge_open(struct inode *inode, struct file *file)
 {
 	return 0;
@@ -829,6 +863,11 @@ static const struct file_operations debug_gbridge_ops = {
 	.write = debug_gbridge_reset_stats,
 };
 
+const struct file_operations gbridge_rem_wakeup_fops = {
+	.open = debug_gbridge_open,
+	.write = gbridge_rw_write,
+};
+
 static void gbridge_debugfs_init(void)
 {
 	struct dentry *dent;
@@ -838,7 +877,10 @@ static void gbridge_debugfs_init(void)
 		return;
 
 	debugfs_create_file("status", 0444, dent, 0, &debug_gbridge_ops);
+	debugfs_create_file("remote_wakeup", S_IWUSR,
+				dent, 0, &gbridge_rem_wakeup_fops);
 }
+
 #else
 static void gbridge_debugfs_init(void) {}
 #endif
