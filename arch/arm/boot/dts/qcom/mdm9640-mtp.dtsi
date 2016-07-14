@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,9 +27,28 @@
 
 &blsp1_uart2 {
 	status = "ok";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_console_active>;
+};
 
+&ipa_hw {
+	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
+};
+
+&i2c_3 {
+	smb1357_otg_supply: smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <83 0>;    /* MDM GPIO 83 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <200>;
+		qcom,iterm-ma = <100>;
+		regulator-name = "smb1357_otg_supply";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pmx_smb_stat_active>;
+		qcom,id-line-not-connected;
+		qcom,bmd-algo-disabled;
+	};
 };
 
 &pmd9635_gpios {
@@ -228,4 +247,9 @@
 
 &qnand_1 {
 	status = "ok";
+};
+
+&usb3 {
+	vbus_dwc3-supply = <&smb1357_otg_supply>;
+	qcom,cpe-gpio = <&tlmm_pinmux 87 0>;
 };
