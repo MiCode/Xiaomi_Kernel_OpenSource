@@ -842,7 +842,9 @@ static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
 	} else if (state->fb->pixel_format != old_state->fb->pixel_format) {
 		DBG("%s: format change!", psde->pipe_name);
 		pstate->mode_changed = true;
-	} else {
+	}
+
+	if (!pstate->mode_changed) {
 		uint64_t *new_mods = state->fb->modifier;
 		uint64_t *old_mods = old_state->fb->modifier;
 		int i;
@@ -851,6 +853,22 @@ static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
 			if (new_mods[i] != old_mods[i]) {
 				DBG("%s: format modifiers change",
 					psde->pipe_name);
+				pstate->mode_changed = true;
+				break;
+			}
+		}
+	}
+
+	if (!pstate->mode_changed) {
+		uint32_t *new_pitches = state->fb->pitches;
+		uint32_t *old_pitches = old_state->fb->pitches;
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(state->fb->pitches); i++) {
+			if (new_pitches[i] != old_pitches[i]) {
+				DBG("%s: pitches change plane %d: %u, %u",
+					psde->pipe_name, i, old_pitches[i],
+					new_pitches[i]);
 				pstate->mode_changed = true;
 				break;
 			}
