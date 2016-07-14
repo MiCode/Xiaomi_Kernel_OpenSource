@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -805,7 +805,7 @@ void msm_jpeg_hw_write(struct msm_jpeg_hw_cmd *hw_cmd_p,
 
 	new_data = hw_cmd_p->data & hw_cmd_p->mask;
 	new_data |= old_data;
-	JPEG_DBG("%s:%d] %p %08x\n", __func__, __LINE__,
+	JPEG_DBG("%s:%d] %pK %08x\n", __func__, __LINE__,
 		paddr, new_data);
 	msm_camera_io_w(new_data, paddr);
 }
@@ -908,7 +908,7 @@ void msm_jpeg_io_dump(void *base, int size)
 	int i;
 	u32 *p = (u32 *) addr;
 	u32 data;
-	JPEG_DBG_HIGH("%s:%d] %p %d", __func__, __LINE__, addr, size);
+	JPEG_DBG_HIGH("%s:%d] %pK %d", __func__, __LINE__, addr, size);
 	line_str[0] = '\0';
 	p_str = line_str;
 	for (i = 0; i < size/4; i++) {

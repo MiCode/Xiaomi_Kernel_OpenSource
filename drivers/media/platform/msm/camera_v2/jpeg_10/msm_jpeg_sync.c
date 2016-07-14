@@ -754,7 +754,7 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 			__LINE__, rc);
 		goto platform_init_fail;
 	}
-	JPEG_DBG("%s:%d] platform resources - base %p, irq %d\n",
+	JPEG_DBG("%s:%d] platform resources - base %pK, irq %d\n",
 		__func__, __LINE__,
 		pgmn_dev->base, (int)pgmn_dev->jpeg_irq_res->start);
 	msm_jpeg_q_cleanup(&pgmn_dev->evt_q);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,4 +52,14 @@ struct msm_buf_mngr_user_buf_cont_info {
 	uint32_t cnt;
 	struct ion_handle *ion_handle;
 };
+
+/* kernel space functions*/
+struct msm_cam_buf_mgr_req_ops {
+	int (*msm_cam_buf_mgr_ops)(unsigned int cmd, void *argp);
+};
+
+/* API to register callback from client. This assumes cb_struct is allocated by
+ * client.
+ */
+int msm_cam_buf_mgr_register_ops(struct msm_cam_buf_mgr_req_ops *cb_struct);
 #endif
