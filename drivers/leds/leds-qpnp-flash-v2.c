@@ -14,6 +14,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -44,6 +45,9 @@
 #define	FLASH_LED_REG_ISC_DELAY(base)		(base + 0x52)
 #define	FLASH_LED_REG_VPH_DROOP_THRESHOLD(base)	(base + 0x61)
 #define	FLASH_LED_REG_VPH_DROOP_DEBOUNCE(base)	(base + 0x62)
+#define	FLASH_LED_REG_MITIGATION_SEL(base)	(base + 0x6E)
+#define	FLASH_LED_REG_MITIGATION_SW(base)	(base + 0x6F)
+#define	FLASH_LED_REG_LMH_LEVEL(base)		(base + 0x70)
 #define	FLASH_LED_REG_CURRENT_DERATE_EN(base)	(base + 0x76)
 
 #define	FLASH_LED_HDRM_MODE_PRGM_MASK		GENMASK(7, 0)
@@ -55,11 +59,14 @@
 #define	FLASH_LED_ISC_WARMUP_DELAY_MASK		GENMASK(1, 0)
 #define	FLASH_LED_CURRENT_DERATE_EN_MASK	GENMASK(2, 0)
 #define	FLASH_LED_VPH_DROOP_DEBOUNCE_MASK	GENMASK(1, 0)
+#define	FLASH_LED_LMH_MITIGATION_SEL_MASK	GENMASK(1, 0)
+#define	FLASH_LED_LMH_LEVEL_MASK		GENMASK(1, 0)
 #define	FLASH_LED_VPH_DROOP_HYSTERESIS_MASK	GENMASK(5, 4)
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MASK	GENMASK(2, 0)
 #define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 #define	FLASH_LED_HW_SW_STROBE_SEL_MASK		BIT(2)
 #define	FLASH_LED_VPH_DROOP_FAULT_MASK		BIT(4)
+#define	FLASH_LED_LMH_MITIGATION_EN_MASK	BIT(0)
 
 #define	VPH_DROOP_DEBOUNCE_US_TO_VAL(val_us)	(val_us / 8)
 #define	VPH_DROOP_HYST_MV_TO_VAL(val_mv)	(val_mv / 25)
@@ -81,6 +88,13 @@
 #define	FLASH_LED_SAFETY_TMR_VAL_OFFSET		1
 #define	FLASH_LED_SAFETY_TMR_VAL_DIVISOR	10
 #define	FLASH_LED_SAFETY_TMR_ENABLE		BIT(7)
+#define	FLASH_LED_LMH_LEVEL_DEFAULT		0
+#define	FLASH_LED_LMH_MITIGATION_ENABLE		1
+#define	FLASH_LED_LMH_MITIGATION_DISABLE	0
+#define	FLASH_LED_LMH_MITIGATION_SEL_DEFAULT	2
+#define	FLASH_LED_LMH_MITIGATION_SEL_MAX	2
+#define	FLASH_LED_LMH_OCV_THRESH_DEFAULT_UV	3700000
+#define	FLASH_LED_LMH_RBATT_THRESH_DEFAULT_UOHM	400000
 #define	FLASH_LED_IRES_BASE			3
 #define	FLASH_LED_IRES_DIVISOR			2500
 #define	FLASH_LED_IRES_MIN_UA			5000
@@ -167,12 +181,16 @@ struct flash_led_platform_data {
 	int	ibatt_ocp_threshold_ua;
 	int	vled_max_uv;
 	int	rpara_uohm;
+	int	lmh_rbatt_threshold_uohm;
+	int	lmh_ocv_threshold_uv;
 	u8	isc_delay;
 	u8	warmup_delay;
 	u8	current_derate_en_cfg;
 	u8	vph_droop_threshold;
 	u8	vph_droop_hysteresis;
 	u8	vph_droop_debounce;
+	u8	lmh_mitigation_sel;
+	u8	lmh_level;
 	u8	hw_strobe_option;
 	bool	hdrm_auto_mode_en;
 };
@@ -193,6 +211,7 @@ struct qpnp_flash_led {
 	int				num_snodes;
 	int				enable;
 	u16				base;
+	bool				trigger_lmh;
 };
 
 static int
@@ -298,6 +317,20 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 			FLASH_LED_REG_VPH_DROOP_THRESHOLD(led->base),
 			FLASH_LED_VPH_DROOP_HYSTERESIS_MASK,
 			led->pdata->vph_droop_hysteresis);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_MITIGATION_SEL(led->base),
+			FLASH_LED_LMH_MITIGATION_SEL_MASK,
+			led->pdata->lmh_mitigation_sel);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_LMH_LEVEL(led->base),
+			FLASH_LED_LMH_LEVEL_MASK,
+			led->pdata->lmh_level);
 	if (rc < 0)
 		return rc;
 
@@ -440,6 +473,26 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 		VPH_DROOP_THRESH_VAL_TO_UV(led->pdata->vph_droop_threshold)
 							+ FLASH_VDIP_MARGIN;
 
+	/* Check if LMH_MITIGATION needs to be triggered */
+	if (!led->trigger_lmh && (ocv_uv < led->pdata->lmh_ocv_threshold_uv ||
+			rbatt_uohm > led->pdata->lmh_rbatt_threshold_uohm)) {
+		led->trigger_lmh = true;
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_MITIGATION_SW(led->base),
+				FLASH_LED_LMH_MITIGATION_EN_MASK,
+				FLASH_LED_LMH_MITIGATION_ENABLE);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev, "trigger lmh mitigation failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Wait for LMH mitigation to take effect */
+		udelay(100);
+
+		return qpnp_flash_led_calc_max_current(led);
+	}
+
 	/*
 	 * Calculate the maximum current that can pulled out of the battery
 	 * before the battery voltage dips below a safe threshold.
@@ -475,16 +528,16 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 	 * before collapsing the battery. (available power/ flash input voltage)
 	 */
 	avail_flash_ua = div64_s64(avail_flash_power_fw, vin_flash_uv * MCONV);
-	dev_dbg(&led->pdev->dev,
-		"avail_iflash=%lld, ocv=%d, ibat=%d, rbatt=%d\n",
-		avail_flash_ua, ocv_uv, ibat_now, rbatt_uohm);
+	dev_dbg(&led->pdev->dev, "avail_iflash=%lld, ocv=%d, ibat=%d, rbatt=%d, trigger_lmh=%d\n",
+			avail_flash_ua, ocv_uv, ibat_now, rbatt_uohm,
+			led->trigger_lmh);
 	return min(FLASH_LED_MAX_TOTAL_CURRENT_MA,
 			(int)(avail_flash_ua / MCONV));
 }
 
-static int qpnp_flash_led_get_max_avail_current(struct flash_switch_data *snode,
-						struct qpnp_flash_led *led)
+static int qpnp_flash_led_get_max_avail_current(struct qpnp_flash_led *led)
 {
+	led->trigger_lmh = false;
 	return qpnp_flash_led_calc_max_current(led);
 }
 
@@ -514,6 +567,18 @@ static int qpnp_flash_led_switch_disable(struct flash_switch_data *snode)
 				snode->led_mask, FLASH_LED_DISABLE);
 	if (rc < 0)
 		return rc;
+
+	if (led->trigger_lmh) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_MITIGATION_SW(led->base),
+				FLASH_LED_LMH_MITIGATION_EN_MASK,
+				FLASH_LED_LMH_MITIGATION_DISABLE);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev, "disable lmh mitigation failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
 
 	led->enable--;
 	if (led->enable == 0) {
@@ -661,6 +726,18 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 	}
 	led->enable++;
 
+	if (led->trigger_lmh) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_MITIGATION_SW(led->base),
+				FLASH_LED_LMH_MITIGATION_EN_MASK,
+				FLASH_LED_LMH_MITIGATION_ENABLE);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev, "trigger lmh mitigation failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	rc = qpnp_flash_led_masked_write(led,
 					FLASH_LED_EN_LED_CTRL(led->base),
 					snode->led_mask, val);
@@ -701,7 +778,7 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
 	}
 
 	if (options & QUERY_MAX_CURRENT) {
-		val = qpnp_flash_led_get_max_avail_current(snode, led);
+		val = qpnp_flash_led_get_max_avail_current(led);
 		if (val < 0) {
 			dev_err(&led->pdev->dev,
 				"query max current failed, rc=%d\n", val);
@@ -1351,6 +1428,53 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		dev_err(&led->pdev->dev, "Unable to parse rparasitic, rc=%d\n",
 				rc);
 		return rc;
+	}
+
+	led->pdata->lmh_ocv_threshold_uv =
+		FLASH_LED_LMH_OCV_THRESH_DEFAULT_UV;
+	rc = of_property_read_u32(node, "qcom,lmh-ocv-threshold-uv", &val);
+	if (!rc) {
+		led->pdata->lmh_ocv_threshold_uv = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to parse lmh ocv threshold, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->lmh_rbatt_threshold_uohm =
+		FLASH_LED_LMH_RBATT_THRESH_DEFAULT_UOHM;
+	rc = of_property_read_u32(node, "qcom,lmh-rbatt-threshold-uohm", &val);
+	if (!rc) {
+		led->pdata->lmh_rbatt_threshold_uohm = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to parse lmh rbatt threshold, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->lmh_level = FLASH_LED_LMH_LEVEL_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,lmh-level", &val);
+	if (!rc) {
+		led->pdata->lmh_level = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to parse lmh_level, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->lmh_mitigation_sel = FLASH_LED_LMH_MITIGATION_SEL_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,lmh-mitigation-sel", &val);
+	if (!rc) {
+		led->pdata->lmh_mitigation_sel = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to parse lmh_mitigation_sel, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	if (led->pdata->lmh_mitigation_sel > FLASH_LED_LMH_MITIGATION_SEL_MAX) {
+		dev_err(&led->pdev->dev, "Invalid lmh_mitigation_sel specified\n");
+		return -EINVAL;
 	}
 
 	led->pdata->all_ramp_up_done_irq =
