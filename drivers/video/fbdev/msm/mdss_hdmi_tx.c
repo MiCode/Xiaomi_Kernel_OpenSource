@@ -79,6 +79,8 @@
 #define HDMI_TX_MAX_FPS 120000
 
 #define HDMI_TX_VERSION_403	0x40000003	/* msmcobalt */
+#define HDMI_GET_MSB(x)		(x >> 8)
+#define HDMI_GET_LSB(x)		(x & 0xff)
 
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
@@ -113,6 +115,7 @@ static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl);
 static void hdmi_tx_fps_work(struct work_struct *work);
 static int hdmi_tx_pinctrl_set_state(struct hdmi_tx_ctrl *hdmi_ctrl,
 			enum hdmi_tx_power_module_type module, bool active);
+static void hdmi_panel_set_hdr_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl);
 
 static struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
@@ -285,6 +288,29 @@ static inline bool hdmi_tx_is_hdcp_enabled(struct hdmi_tx_ctrl *hdmi_ctrl)
 	return hdmi_ctrl->hdcp_feature_on &&
 		(hdmi_ctrl->hdcp14_present || hdmi_ctrl->hdcp22_present) &&
 		hdmi_ctrl->hdcp_ops;
+}
+
+/*
+ * The sink must support at least one electro-optical transfer function for
+ * HDMI controller to sendi the dynamic range and mastering infoframe.
+ */
+static inline bool hdmi_tx_is_hdr_supported(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	struct hdmi_edid_hdr_data *hdr_data;
+
+	hdmi_edid_get_hdr_data(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID), &hdr_data);
+
+	return (hdr_data->eotf & BIT(0)) || (hdr_data->eotf & BIT(1)) ||
+			(hdr_data->eotf & BIT(2));
+}
+
+static inline bool hdmi_tx_metadata_type_one(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	struct hdmi_edid_hdr_data *hdr_data;
+
+	hdmi_edid_get_hdr_data(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID), &hdr_data);
+
+	return hdr_data->metadata_type_one;
 }
 
 static inline bool hdmi_tx_dc_support(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -1246,6 +1272,72 @@ end:
 	return ret;
 }
 
+static ssize_t hdmi_tx_sysfs_wta_hdr_stream(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	u32 const hdr_param_count = 13;
+	struct hdmi_tx_ctrl *ctrl = NULL;
+
+	ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+	if (!ctrl) {
+		pr_err("%s: invalid input\n", __func__);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	if (!hdmi_tx_is_hdr_supported(ctrl)) {
+		pr_err("%s: Sink does not support HDR\n", __func__);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	if (sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u %u %u",
+			&ctrl->hdr_data.eotf,
+			&ctrl->hdr_data.display_primaries_x[0],
+			&ctrl->hdr_data.display_primaries_y[0],
+			&ctrl->hdr_data.display_primaries_x[1],
+			&ctrl->hdr_data.display_primaries_y[1],
+			&ctrl->hdr_data.display_primaries_x[2],
+			&ctrl->hdr_data.display_primaries_y[2],
+			&ctrl->hdr_data.white_point_x,
+			&ctrl->hdr_data.white_point_y,
+			&ctrl->hdr_data.max_luminance,
+			&ctrl->hdr_data.min_luminance,
+			&ctrl->hdr_data.max_content_light_level,
+			&ctrl->hdr_data.max_average_light_level)
+			!= hdr_param_count) {
+		pr_err("%s: Invalid HDR stream data\n", __func__);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	pr_debug("%s: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
+			__func__,
+			ctrl->hdr_data.eotf,
+			ctrl->hdr_data.display_primaries_x[0],
+			ctrl->hdr_data.display_primaries_y[0],
+			ctrl->hdr_data.display_primaries_x[1],
+			ctrl->hdr_data.display_primaries_y[1],
+			ctrl->hdr_data.display_primaries_x[2],
+			ctrl->hdr_data.display_primaries_y[2]);
+
+	pr_debug("%s: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
+			__func__,
+			ctrl->hdr_data.white_point_x,
+			ctrl->hdr_data.white_point_y,
+			ctrl->hdr_data.max_luminance,
+			ctrl->hdr_data.min_luminance,
+			ctrl->hdr_data.max_content_light_level,
+			ctrl->hdr_data.max_average_light_level);
+
+	hdmi_panel_set_hdr_infoframe(ctrl);
+
+	ret = strnlen(buf, PAGE_SIZE);
+end:
+	return ret;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 static DEVICE_ATTR(hdmi_audio_cb, S_IWUSR, NULL, hdmi_tx_sysfs_wta_audio_cb);
 static DEVICE_ATTR(hot_plug, S_IWUSR, NULL, hdmi_tx_sysfs_wta_hot_plug);
@@ -1266,6 +1358,7 @@ static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_cn_bits);
 static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_s3d_mode,
 	hdmi_tx_sysfs_wta_s3d_mode);
 static DEVICE_ATTR(5v, S_IWUSR, NULL, hdmi_tx_sysfs_wta_5v);
+static DEVICE_ATTR(hdr_stream, S_IWUSR, NULL, hdmi_tx_sysfs_wta_hdr_stream);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
@@ -1281,6 +1374,7 @@ static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_avi_cn0_1.attr,
 	&dev_attr_s3d_mode.attr,
 	&dev_attr_5v.attr,
+	&dev_attr_hdr_stream.attr,
 	NULL,
 };
 static struct attribute_group hdmi_tx_fs_attrs_group = {
@@ -2210,7 +2304,7 @@ static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	DEV_DBG("%s: Features <HDMI:%s, HDCP:%s, Deep Color:%s>\n", __func__,
 		hdmi_disabled ? "OFF" : "ON", hdcp_disabled ? "OFF" : "ON",
-		hdmi_ctrl->dc_feature_on ? "OFF" : "ON");
+		!hdmi_ctrl->dc_feature_on ? "OFF" : "ON");
 
 	if (hdmi_disabled) {
 		DEV_ERR("%s: HDMI disabled\n", __func__);
@@ -2635,6 +2729,102 @@ static void hdmi_tx_phy_reset(struct hdmi_tx_ctrl *hdmi_ctrl)
 	else
 		DSS_REG_W_ND(io, HDMI_PHY_CTRL, val | SW_RESET_PLL);
 } /* hdmi_tx_phy_reset */
+
+static void hdmi_panel_set_hdr_infoframe(struct hdmi_tx_ctrl *ctrl)
+{
+	u32 packet_payload = 0;
+	u32 packet_header = 0;
+	u32 packet_control = 0;
+	u32 const type_code = 0x87;
+	u32 const version = 0x01;
+	u32 const length = 0x1a;
+	u32 const descriptor_id = 0x00;
+	struct dss_io_data *io = NULL;
+
+	if (!ctrl) {
+		pr_err("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (!hdmi_tx_is_hdr_supported(ctrl)) {
+		pr_err("%s: Sink does not support HDR\n", __func__);
+		return;
+	}
+
+	io = &ctrl->pdata.io[HDMI_TX_CORE_IO];
+	if (!io->base) {
+		pr_err("%s: core io not inititalized\n", __func__);
+		return;
+	}
+
+	/* Setup Packet header and payload */
+	packet_header = type_code | (version << 8) | (length << 16);
+	DSS_REG_W(io, HDMI_GENERIC0_HDR, packet_header);
+
+	packet_payload = (ctrl->hdr_data.eotf << 8);
+	if (hdmi_tx_metadata_type_one(ctrl)) {
+		packet_payload |= (descriptor_id << 16)
+			| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_x[0])
+					<< 24);
+		DSS_REG_W(io, HDMI_GENERIC0_0, packet_payload);
+	} else {
+		pr_debug("%s: Metadata Type 1 not supported\n", __func__);
+		DSS_REG_W(io, HDMI_GENERIC0_0, packet_payload);
+		goto enable_packet_control;
+	}
+
+	packet_payload =
+		(HDMI_GET_MSB(ctrl->hdr_data.display_primaries_x[0]))
+		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_y[0]) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_data.display_primaries_y[0]) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_x[1]) << 24);
+	DSS_REG_W(io, HDMI_GENERIC0_1, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(ctrl->hdr_data.display_primaries_x[1]))
+		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_y[1]) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_data.display_primaries_y[1]) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_x[2]) << 24);
+	DSS_REG_W(io, HDMI_GENERIC0_2, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(ctrl->hdr_data.display_primaries_x[2]))
+		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_y[2]) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_data.display_primaries_y[2]) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_data.white_point_x) << 24);
+	DSS_REG_W(io, HDMI_GENERIC0_3, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(ctrl->hdr_data.white_point_x))
+		| (HDMI_GET_LSB(ctrl->hdr_data.white_point_y) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_data.white_point_y) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_data.max_luminance) << 24);
+	DSS_REG_W(io, HDMI_GENERIC0_4, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(ctrl->hdr_data.max_luminance))
+		| (HDMI_GET_LSB(ctrl->hdr_data.min_luminance) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_data.min_luminance) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_data.max_content_light_level) << 24);
+	DSS_REG_W(io, HDMI_GENERIC0_5, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(ctrl->hdr_data.max_content_light_level))
+		| (HDMI_GET_LSB(ctrl->hdr_data.max_average_light_level) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_data.max_average_light_level) << 16);
+	DSS_REG_W(io, HDMI_GENERIC0_6, packet_payload);
+
+enable_packet_control:
+	/*
+	 * GENERIC0_LINE | GENERIC0_CONT | GENERIC0_SEND
+	 * Setup HDMI TX generic packet control
+	 * Enable this packet to transmit every frame
+	 * Enable HDMI TX engine to transmit Generic packet 1
+	 */
+	packet_control = DSS_REG_R_ND(io, HDMI_GEN_PKT_CTRL);
+	packet_control |= BIT(0) | BIT(1) | BIT(2) | BIT(16);
+	DSS_REG_W(io, HDMI_GEN_PKT_CTRL, packet_control);
+}
 
 static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 	struct msm_ext_disp_audio_setup_params *params)
