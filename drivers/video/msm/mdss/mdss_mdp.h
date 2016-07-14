@@ -643,6 +643,7 @@ struct mdss_mdp_ctl {
 
 	/* vsync handler for FRC */
 	struct mdss_mdp_vsync_handler frc_vsync_handler;
+	bool commit_in_progress;
 };
 
 struct mdss_mdp_mixer {
