@@ -318,7 +318,7 @@ int pd_phy_open(struct pd_phy_params *params)
 	struct usb_pdphy *pdphy = __pdphy;
 
 	if (!pdphy) {
-		dev_err(pdphy->dev, "%s: pdphy not found\n", __func__);
+		pr_err("%s: pdphy not found\n", __func__);
 		return -ENODEV;
 	}
 
@@ -382,7 +382,7 @@ int pd_phy_signal(enum pd_sig_type type, unsigned int timeout_ms)
 			timeout_ms);
 
 	if (!pdphy) {
-		dev_err(pdphy->dev, "%s: pdphy not found\n", __func__);
+		pr_err("%s: pdphy not found\n", __func__);
 		return -ENODEV;
 	}
 
@@ -440,7 +440,7 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 		data, data_len, false);
 
 	if (!pdphy) {
-		dev_err(pdphy->dev, "%s: pdphy not found\n", __func__);
+		pr_err("%s: pdphy not found\n", __func__);
 		return -ENODEV;
 	}
 
@@ -507,7 +507,7 @@ void pd_phy_close(void)
 	struct usb_pdphy *pdphy = __pdphy;
 
 	if (!pdphy) {
-		dev_err(pdphy->dev, "%s: pdphy not found\n", __func__);
+		pr_err("%s: pdphy not found\n", __func__);
 		return;
 	}
 
@@ -766,14 +766,16 @@ static int pdphy_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
+	/* usbpd_create() could call back to us, so have __pdphy ready */
+	__pdphy = pdphy;
+
 	pdphy->usbpd = usbpd_create(&pdev->dev);
 	if (IS_ERR(pdphy->usbpd)) {
 		dev_err(&pdev->dev, "usbpd_create failed: %ld\n",
 				PTR_ERR(pdphy->usbpd));
+		__pdphy = NULL;
 		return PTR_ERR(pdphy->usbpd);
 	}
-
-	__pdphy = pdphy;
 
 	pdphy_create_debugfs_entries(pdphy);
 
