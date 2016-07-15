@@ -1897,11 +1897,11 @@ int dsi_display_unbind(struct dsi_display *display)
 	return rc;
 }
 
-int dsi_display_drm_init(struct dsi_display *display, struct drm_encoder *enc)
+int dsi_display_drm_bridge_init(struct dsi_display *display,
+		struct drm_encoder *enc)
 {
 	int rc = 0;
 	struct dsi_bridge *bridge;
-	struct dsi_connector *connector;
 	struct msm_drm_private *priv = NULL;
 
 	if (!display || !enc) {
@@ -1918,7 +1918,7 @@ int dsi_display_drm_init(struct dsi_display *display, struct drm_encoder *enc)
 		goto error;
 	}
 
-	if (display->connector || display->bridge) {
+	if (display->bridge) {
 		pr_err("display is already initialize\n");
 		goto error;
 	}
@@ -1930,28 +1930,15 @@ int dsi_display_drm_init(struct dsi_display *display, struct drm_encoder *enc)
 		goto error;
 	}
 
-	connector = dsi_drm_connector_init(display, display->drm_dev, bridge);
-	if (IS_ERR_OR_NULL(connector)) {
-		rc = PTR_ERR(connector);
-		pr_err("[%s] connector init failed, rc=%d\n", display->name,
-		       rc);
-		goto error_bridge_deinit;
-	}
-
-	display->connector = connector;
-	priv->connectors[priv->num_connectors++] = &connector->base;
 	display->bridge = bridge;
 	priv->bridges[priv->num_bridges++] = &bridge->base;
 
-	goto error;
-error_bridge_deinit:
-	dsi_drm_bridge_cleanup(bridge);
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
 }
 
-int dsi_display_drm_deinit(struct dsi_display *display)
+int dsi_display_drm_bridge_deinit(struct dsi_display *display)
 {
 	int rc = 0;
 
@@ -1962,9 +1949,7 @@ int dsi_display_drm_deinit(struct dsi_display *display)
 
 	mutex_lock(&display->display_lock);
 
-	dsi_drm_connector_cleanup(display->connector);
 	dsi_drm_bridge_cleanup(display->bridge);
-	display->connector = NULL;
 	display->bridge = NULL;
 
 	mutex_unlock(&display->display_lock);
@@ -2003,8 +1988,6 @@ int dsi_display_get_info(struct dsi_display *display,
 
 	info->width_mm = phy_props.panel_width_mm;
 	info->height_mm = phy_props.panel_height_mm;
-	strlcpy(info->display_type, display->display_type,
-		sizeof(display->display_type));
 
 	info->op_mode = display->panel->mode.panel_mode;
 
