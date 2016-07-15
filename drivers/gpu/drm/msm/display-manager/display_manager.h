@@ -87,6 +87,7 @@ struct display_info {
 };
 
 struct display_manager {
+	struct drm_device *drm_dev;
 	struct platform_device *pdev;
 	const char *name;
 
