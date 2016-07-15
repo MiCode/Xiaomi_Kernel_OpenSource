@@ -117,5 +117,7 @@ void mdss_dp_sw_mvid_nvid(struct dss_io_data *ctrl_io);
 void mdss_dp_usbpd_ext_capabilities(struct usbpd_dp_capabilities *dp_cap);
 void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status);
 u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp);
+void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
+					struct lane_mapping l_map);
 
 #endif /* __DP_UTIL_H__ */

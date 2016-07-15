@@ -219,9 +219,10 @@ void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
 {
 	u8 bits_per_lane = 2;
 	u32 lane_map = ((l_map.lane0 << (bits_per_lane * 0))
-			    || (l_map.lane1 << (bits_per_lane * 1))
-			    || (l_map.lane2 << (bits_per_lane * 2))
-			    || (l_map.lane3 << (bits_per_lane * 3)));
+			    | (l_map.lane1 << (bits_per_lane * 1))
+			    | (l_map.lane2 << (bits_per_lane * 2))
+			    | (l_map.lane3 << (bits_per_lane * 3)));
+	pr_debug("%s: lane mapping reg = 0x%x\n", __func__, lane_map);
 	writel_relaxed(lane_map,
 		ctrl_io->base + DP_LOGICAL2PHYSCIAL_LANE_MAPPING);
 }

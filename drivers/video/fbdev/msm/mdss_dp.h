@@ -400,6 +400,7 @@ struct mdss_dp_drv_pdata {
 	struct completion video_comp;
 	struct mutex aux_mutex;
 	struct mutex train_mutex;
+	struct mutex host_mutex;
 	struct mutex pd_msg_mutex;
 	bool cable_connected;
 	u32 aux_cmd_busy;

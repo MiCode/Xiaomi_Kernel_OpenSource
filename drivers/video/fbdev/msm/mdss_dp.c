@@ -878,6 +878,8 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
 	int ret = 0;
+	enum plug_orientation orientation = ORIENTATION_NONE;
+	struct lane_mapping ln_map;
 
 	if (!pdata) {
 		pr_err("Invalid input data\n");
@@ -887,7 +889,15 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
 
-	pr_debug("++ cont_splash=%d\n", dp_drv->cont_splash);
+	/* wait until link training is completed */
+	mutex_lock(&dp_drv->host_mutex);
+
+	pr_debug("Enter++ cont_splash=%d\n", dp_drv->cont_splash);
+	/* Default lane mapping */
+	ln_map.lane0 = 2;
+	ln_map.lane1 = 3;
+	ln_map.lane2 = 1;
+	ln_map.lane3 = 0;
 
 	if (!dp_drv->cont_splash) { /* vote for clocks */
 		ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
@@ -897,9 +907,26 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		}
 		mdss_dp_phy_reset(&dp_drv->ctrl_io);
 		mdss_dp_aux_reset(&dp_drv->ctrl_io);
-		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 		mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
 		mdss_dp_hpd_configure(&dp_drv->ctrl_io, true);
+
+		orientation = usbpd_get_plug_orientation(dp_drv->pd);
+		pr_debug("plug Orientation = %d\n", orientation);
+
+		if (orientation == ORIENTATION_CC2) {
+			/* update lane mapping */
+			ln_map.lane0 = 1;
+			ln_map.lane1 = 0;
+			ln_map.lane2 = 2;
+			ln_map.lane3 = 3;
+
+			if (gpio_is_valid(dp_drv->usbplug_cc_gpio)) {
+				gpio_set_value(
+					dp_drv->usbplug_cc_gpio, 1);
+				pr_debug("Configured cc gpio for new Orientation\n");
+			}
+
+		}
 
 		mdss_dp_phy_aux_setup(&dp_drv->phy_io);
 
@@ -935,6 +962,7 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 
 		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 
+		mdss_dp_ctrl_lane_mapping(&dp_drv->ctrl_io, ln_map);
 		reinit_completion(&dp_drv->idle_comp);
 		mdss_dp_fill_link_cfg(dp_drv);
 		mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, true);
@@ -956,7 +984,9 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	if (mdss_dp_mainlink_ready(dp_drv, BIT(0)))
 		pr_debug("mainlink ready\n");
 
+	mutex_unlock(&dp_drv->host_mutex);
 	pr_debug("End-\n");
+
 	return ret;
 }
 
@@ -1533,6 +1563,7 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	dp_drv->mask1 = EDP_INTR_MASK1;
 	dp_drv->mask2 = EDP_INTR_MASK2;
 	mutex_init(&dp_drv->emutex);
+	mutex_init(&dp_drv->host_mutex);
 	mutex_init(&dp_drv->pd_msg_mutex);
 	spin_lock_init(&dp_drv->lock);
 
