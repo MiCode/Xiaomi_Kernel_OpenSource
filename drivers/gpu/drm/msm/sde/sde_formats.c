@@ -814,21 +814,34 @@ const struct msm_format *sde_get_msm_format(
 	return NULL;
 }
 
-uint32_t sde_populate_formats(uint32_t *pixel_formats,
-		uint32_t pixel_formats_max, bool rgb_only)
+uint32_t sde_populate_formats(
+		const struct sde_format_extended *format_list,
+		uint32_t *pixel_formats,
+		uint64_t *pixel_modifiers,
+		uint32_t pixel_formats_max)
 {
-	uint32_t i;
+	uint32_t i, fourcc_format;
 
-	for (i = 0; i < ARRAY_SIZE(sde_format_map); i++) {
-		const struct sde_format *fmt = &sde_format_map[i];
+	if (!format_list || !pixel_formats)
+		return 0;
 
-		if (i == pixel_formats_max)
-			break;
+	for (i = 0, fourcc_format = 0;
+			format_list->fourcc_format && i < pixel_formats_max;
+			++format_list) {
+		/* verify if listed format is in sde_format_map? */
 
-		if (rgb_only && SDE_FORMAT_IS_YUV(fmt))
-			continue;
-
-		pixel_formats[i] = fmt->base.pixel_format;
+		/* optionally return modified formats */
+		if (pixel_modifiers) {
+			/* assume same modifier for all fb planes */
+			pixel_formats[i] = format_list->fourcc_format;
+			pixel_modifiers[i++] = format_list->modifier;
+		} else {
+			/* assume base formats grouped together */
+			if (fourcc_format != format_list->fourcc_format) {
+				fourcc_format = format_list->fourcc_format;
+				pixel_formats[i++] = fourcc_format;
+			}
+		}
 	}
 
 	return i;

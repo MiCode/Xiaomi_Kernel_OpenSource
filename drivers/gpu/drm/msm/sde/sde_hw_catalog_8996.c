@@ -61,6 +61,84 @@
 #define DECIMATION_17X_MAX_H	4
 #define DECIMATION_17X_MAX_V	4
 
+static const struct sde_format_extended plane_formats[] = {
+	{DRM_FORMAT_ARGB8888, 0},
+	{DRM_FORMAT_ABGR8888, 0},
+	{DRM_FORMAT_RGBA8888, 0},
+	{DRM_FORMAT_RGBA8888, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_BGRA8888, 0},
+	{DRM_FORMAT_XRGB8888, 0},
+	{DRM_FORMAT_RGBX8888, 0},
+	{DRM_FORMAT_RGBX8888, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_RGB888, 0},
+	{DRM_FORMAT_BGR888, 0},
+	{DRM_FORMAT_RGB565, 0},
+	{DRM_FORMAT_RGB565, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_BGR565, 0},
+	{DRM_FORMAT_ARGB1555, 0},
+	{DRM_FORMAT_ABGR1555, 0},
+	{DRM_FORMAT_RGBA5551, 0},
+	{DRM_FORMAT_BGRA5551, 0},
+	{DRM_FORMAT_XRGB1555, 0},
+	{DRM_FORMAT_XBGR1555, 0},
+	{DRM_FORMAT_RGBX5551, 0},
+	{DRM_FORMAT_BGRX5551, 0},
+	{DRM_FORMAT_ARGB4444, 0},
+	{DRM_FORMAT_ABGR4444, 0},
+	{DRM_FORMAT_RGBA4444, 0},
+	{DRM_FORMAT_BGRA4444, 0},
+	{DRM_FORMAT_XRGB4444, 0},
+	{DRM_FORMAT_XBGR4444, 0},
+	{DRM_FORMAT_RGBX4444, 0},
+	{DRM_FORMAT_BGRX4444, 0},
+	{0, 0},
+};
+
+static const struct sde_format_extended plane_formats_yuv[] = {
+	{DRM_FORMAT_ARGB8888, 0},
+	{DRM_FORMAT_ABGR8888, 0},
+	{DRM_FORMAT_RGBA8888, 0},
+	{DRM_FORMAT_RGBA8888, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_BGRA8888, 0},
+	{DRM_FORMAT_XRGB8888, 0},
+	{DRM_FORMAT_RGBX8888, 0},
+	{DRM_FORMAT_RGBX8888, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_RGB888, 0},
+	{DRM_FORMAT_BGR888, 0},
+	{DRM_FORMAT_RGB565, 0},
+	{DRM_FORMAT_RGB565, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_BGR565, 0},
+	{DRM_FORMAT_ARGB1555, 0},
+	{DRM_FORMAT_ABGR1555, 0},
+	{DRM_FORMAT_RGBA5551, 0},
+	{DRM_FORMAT_BGRA5551, 0},
+	{DRM_FORMAT_XRGB1555, 0},
+	{DRM_FORMAT_XBGR1555, 0},
+	{DRM_FORMAT_RGBX5551, 0},
+	{DRM_FORMAT_BGRX5551, 0},
+	{DRM_FORMAT_ARGB4444, 0},
+	{DRM_FORMAT_ABGR4444, 0},
+	{DRM_FORMAT_RGBA4444, 0},
+	{DRM_FORMAT_BGRA4444, 0},
+	{DRM_FORMAT_XRGB4444, 0},
+	{DRM_FORMAT_XBGR4444, 0},
+	{DRM_FORMAT_RGBX4444, 0},
+	{DRM_FORMAT_BGRX4444, 0},
+
+	{DRM_FORMAT_NV12, 0},
+	{DRM_FORMAT_NV12, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_NV21, 0},
+	{DRM_FORMAT_NV16, 0},
+	{DRM_FORMAT_NV61, 0},
+	{DRM_FORMAT_VYUY, 0},
+	{DRM_FORMAT_UYVY, 0},
+	{DRM_FORMAT_YUYV, 0},
+	{DRM_FORMAT_YVYU, 0},
+	{DRM_FORMAT_YUV420, 0},
+	{DRM_FORMAT_YVU420, 0},
+	{0, 0},
+};
+
 /**
  * set_cfg_1xx_init(): populate sde sub-blocks reg offsets and instance counts
  */
@@ -68,6 +146,28 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 {
 
 	/* Layer capability */
+	static const struct sde_sspp_sub_blks vig_layer = {
+		.maxlinewidth = 2560,
+		.danger_lut = 0xFFFF,
+		.safe_lut = 0xFF00,
+		.maxdwnscale = 4, .maxupscale = 20,
+		.maxhdeciexp = DECIMATION_17X_MAX_H,
+		.maxvdeciexp = DECIMATION_17X_MAX_V,
+		.src_blk = {.id = SDE_SSPP_SRC,
+			.base = 0x00, .len = 0x150,},
+		.scaler_blk = {.id = SDE_SSPP_SCALER_QSEED2,
+			.base = 0x200, .len = 0x70,},
+		.csc_blk = {.id = SDE_SSPP_CSC,
+			.base = 0x320, .len = 0x44,},
+		.pa_blk = {.id = SDE_SSPP_PA_V1,
+			.base = 0x200, .len = 0x0,},
+		.hist_lut = {.id = SDE_SSPP_HIST_V1,
+			.base = 0xA00, .len = 0x400,},
+		.pcc_blk = {.id = SDE_SSPP_PCC,
+			.base = 0x1780, .len = 0x64,},
+		.format_list = plane_formats_yuv,
+	};
+
 	static const struct sde_sspp_sub_blks layer = {
 		.maxlinewidth = 2560,
 		.danger_lut = 0xFFFF,
@@ -87,6 +187,7 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 			.base = 0xA00, .len = 0x400,},
 		.pcc_blk = {.id = SDE_SSPP_PCC,
 			.base = 0x1780, .len = 0x64,},
+		.format_list = plane_formats,
 	};
 
 	static const struct sde_sspp_sub_blks dma = {
@@ -102,6 +203,7 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.pa_blk = {.id = 0, .base = 0x200, .len = 0x0,},
 		.hist_lut = {.id = 0, .base = 0xA00, .len = 0x0,},
 		.pcc_blk = {.id = SDE_SSPP_PCC, .base = 0x01780, .len = 0x64,},
+		.format_list = plane_formats,
 	};
 
 	static const struct sde_sspp_sub_blks cursor = {
@@ -117,6 +219,7 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.pa_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.hist_lut = {.id = 0, .base = 0x00, .len = 0x0,},
 		.pcc_blk = {.id = 0, .base = 0x00, .len = 0x0,},
+		.format_list = plane_formats,
 	};
 
 	/* MIXER capability */
@@ -176,13 +279,13 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.sspp_count = 12,
 		.sspp = {
 			{.id = SSPP_VIG0, .base = 0x00005000,
-			.features = VIG_17X_MASK, .sblk = &layer},
+			.features = VIG_17X_MASK, .sblk = &vig_layer},
 			{.id = SSPP_VIG1, .base = 0x00007000,
-			.features = VIG_17X_MASK, .sblk = &layer},
+			.features = VIG_17X_MASK, .sblk = &vig_layer},
 			{.id = SSPP_VIG2, .base = 0x00009000,
-			.features = VIG_17X_MASK, .sblk = &layer},
+			.features = VIG_17X_MASK, .sblk = &vig_layer},
 			{.id = SSPP_VIG3, .base = 0x0000b000,
-			.features = VIG_17X_MASK, .sblk = &layer},
+			.features = VIG_17X_MASK, .sblk = &vig_layer},
 
 			{.id = SSPP_RGB0, .base = 0x00015000,
 			.features = RGB_17X_MASK, .sblk = &layer},
