@@ -91,6 +91,7 @@
 			"mem_clk", "mem_iface_clk", "isense_clk", "rbcpr_clk",
 			"iref_clk";
 
+		qcom,isense-clk-on-level = <1>;
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
 		qcom,bus-control;
