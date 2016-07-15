@@ -626,7 +626,8 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 
 		if (len) {
 			/* tran, valid */
-			sdhci_adma_write_desc(host, desc, addr, len, ADMA2_TRAN_VALID);
+			sdhci_adma_write_desc(host, desc, addr, len,
+					      ADMA2_TRAN_VALID);
 			desc += host->desc_sz;
 		}
 
@@ -3383,7 +3384,7 @@ static int sdhci_runtime_pm_put(struct sdhci_host *host)
 
 static void sdhci_runtime_pm_bus_on(struct sdhci_host *host)
 {
-	if (host->runtime_suspended || host->bus_on)
+	if (host->bus_on)
 		return;
 	host->bus_on = true;
 	pm_runtime_get_noresume(host->mmc->parent);
@@ -3391,7 +3392,7 @@ static void sdhci_runtime_pm_bus_on(struct sdhci_host *host)
 
 static void sdhci_runtime_pm_bus_off(struct sdhci_host *host)
 {
-	if (host->runtime_suspended || !host->bus_on)
+	if (!host->bus_on)
 		return;
 	host->bus_on = false;
 	pm_runtime_put_noidle(host->mmc->parent);
@@ -3484,6 +3485,8 @@ struct sdhci_host *sdhci_alloc_host(struct device *dev,
 
 	host = mmc_priv(mmc);
 	host->mmc = mmc;
+	host->mmc_host_ops = sdhci_ops;
+	mmc->ops = &host->mmc_host_ops;
 
 	spin_lock_init(&host->lock);
 	ratelimit_state_init(&host->dbg_dump_rs, SDHCI_DBG_DUMP_RS_INTERVAL,
@@ -3885,7 +3888,6 @@ int sdhci_add_host(struct sdhci_host *host)
 	/*
 	 * Set host parameters.
 	 */
-	mmc->ops = &sdhci_ops;
 	max_clk = host->max_clk;
 
 	if (host->ops->get_min_clock)
