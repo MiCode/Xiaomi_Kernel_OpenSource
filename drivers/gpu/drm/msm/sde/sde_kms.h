@@ -272,6 +272,123 @@ void *sde_debugfs_create_regset32(const char *name, umode_t mode,
 void *sde_debugfs_get_root(struct sde_kms *sde_kms);
 
 /**
+ * SDE info management functions
+ * These functions/definitions allow for building up a 'sde_info' structure
+ * containing one or more "key=value\n" entries.
+ */
+#define SDE_KMS_INFO_MAX_SIZE	4096
+
+/**
+ * struct sde_kms_info - connector information structure container
+ * @data: Array of information character data
+ * @len: Current length of information data
+ * @staged_len: Temporary data buffer length, commit to
+ *              len using sde_kms_info_stop
+ * @start: Whether or not a partial data entry was just started
+ */
+struct sde_kms_info {
+	char data[SDE_KMS_INFO_MAX_SIZE];
+	uint32_t len;
+	uint32_t staged_len;
+	bool start;
+};
+
+/**
+ * SDE_KMS_INFO_DATA - Macro for accessing sde_kms_info data bytes
+ * @S: Pointer to sde_kms_info structure
+ * Returns: Pointer to byte data
+ */
+#define SDE_KMS_INFO_DATA(S)    ((S) ? ((struct sde_kms_info *)(S))->data : 0)
+
+/**
+ * SDE_KMS_INFO_DATALEN - Macro for accessing sde_kms_info data length
+ * @S: Pointer to sde_kms_info structure
+ * Returns: Size of available byte data
+ */
+#define SDE_KMS_INFO_DATALEN(S) ((S) ? ((struct sde_kms_info *)(S))->len : 0)
+
+/**
+ * sde_kms_info_reset - reset sde_kms_info structure
+ * @info: Pointer to sde_kms_info structure
+ */
+void sde_kms_info_reset(struct sde_kms_info *info);
+
+/**
+ * sde_kms_info_add_keyint - add integer value to 'sde_kms_info'
+ * @info: Pointer to sde_kms_info structure
+ * @key: Pointer to key string
+ * @value: Signed 32-bit integer value
+ */
+void sde_kms_info_add_keyint(struct sde_kms_info *info,
+		const char *key,
+		int32_t value);
+
+/**
+ * sde_kms_info_add_keystr - add string value to 'sde_kms_info'
+ * @info: Pointer to sde_kms_info structure
+ * @key: Pointer to key string
+ * @value: Pointer to string value
+ */
+void sde_kms_info_add_keystr(struct sde_kms_info *info,
+		const char *key,
+		const char *value);
+
+/**
+ * sde_kms_info_start - begin adding key to 'sde_kms_info'
+ * Usage:
+ *      sde_kms_info_start(key)
+ *      sde_kms_info_append(val_1)
+ *      ...
+ *      sde_kms_info_append(val_n)
+ *      sde_kms_info_stop
+ * @info: Pointer to sde_kms_info structure
+ * @key: Pointer to key string
+ */
+void sde_kms_info_start(struct sde_kms_info *info,
+		const char *key);
+
+/**
+ * sde_kms_info_append - append value string to 'sde_kms_info'
+ * Usage:
+ *      sde_kms_info_start(key)
+ *      sde_kms_info_append(val_1)
+ *      ...
+ *      sde_kms_info_append(val_n)
+ *      sde_kms_info_stop
+ * @info: Pointer to sde_kms_info structure
+ * @str: Pointer to partial value string
+ */
+void sde_kms_info_append(struct sde_kms_info *info,
+		const char *str);
+
+/**
+ * sde_kms_info_append_format - append format code string to 'sde_kms_info'
+ * Usage:
+ *      sde_kms_info_start(key)
+ *      sde_kms_info_append_format(fourcc, modifier)
+ *      ...
+ *      sde_kms_info_stop
+ * @info: Pointer to sde_kms_info structure
+ * @pixel_format: FOURCC format code
+ * @modifier: 64-bit drm format modifier
+ */
+void sde_kms_info_append_format(struct sde_kms_info *info,
+		uint32_t pixel_format,
+		uint64_t modifier);
+
+/**
+ * sde_kms_info_stop - finish adding key to 'sde_kms_info'
+ * Usage:
+ *      sde_kms_info_start(key)
+ *      sde_kms_info_append(val_1)
+ *      ...
+ *      sde_kms_info_append(val_n)
+ *      sde_kms_info_stop
+ * @info: Pointer to sde_kms_info structure
+ */
+void sde_kms_info_stop(struct sde_kms_info *info);
+
+/**
  * HW resource manager functions
  * @sde_rm_acquire_ctl_path : Allocates control path
  * @sde_rm_get_ctl_path     : returns control path driver context for already
