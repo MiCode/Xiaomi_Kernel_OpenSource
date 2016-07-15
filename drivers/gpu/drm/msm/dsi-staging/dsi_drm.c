@@ -282,28 +282,28 @@ enum drm_connector_status dsi_conn_detect(struct drm_connector *conn,
 		void *display)
 {
 	enum drm_connector_status status = connector_status_unknown;
-	struct dsi_display_info dsi_info;
+	struct msm_display_info info;
 	int rc;
 
 	if (!conn || !display)
 		return status;
 
 	/* get display dsi_info */
-	memset(&dsi_info, 0x0, sizeof(dsi_info));
-	rc = dsi_display_get_info(display, &dsi_info);
+	memset(&info, 0x0, sizeof(info));
+	rc = dsi_display_get_info(&info, display);
 	if (rc) {
-		pr_err("failed to get display dsi_info, rc=%d\n", rc);
+		pr_err("failed to get display info, rc=%d\n", rc);
 		return connector_status_disconnected;
 	}
 
-	if (dsi_info.is_hot_pluggable)
-		status = (dsi_info.is_connected ? connector_status_connected :
+	if (info.capabilities & MSM_DISPLAY_CAP_HOT_PLUG)
+		status = (info.is_connected ? connector_status_connected :
 					      connector_status_disconnected);
 	else
 		status = connector_status_connected;
 
-	conn->display_info.width_mm = dsi_info.width_mm;
-	conn->display_info.height_mm = dsi_info.height_mm;
+	conn->display_info.width_mm = info.width_mm;
+	conn->display_info.height_mm = info.height_mm;
 
 	return status;
 }

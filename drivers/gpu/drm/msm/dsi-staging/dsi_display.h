@@ -22,6 +22,7 @@
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
 
+#include "msm_drv.h"
 #include "dsi_defs.h"
 #include "dsi_ctrl.h"
 #include "dsi_phy.h"
@@ -51,42 +52,6 @@ enum dsi_display_type {
 	DSI_DISPLAY_SPLIT,
 	DSI_DISPLAY_SPLIT_EXT_BRIDGE,
 	DSI_DISPLAY_MAX,
-};
-
-/**
- * struct dsi_display_info - defines dsi display properties
- * @type:              Type of panel connected to DSI interface.
- * @num_of_h_tiles:    In case of split panels, number of h tiles indicates the
- *		       number of dsi interfaces used. For single DSI panels this
- *		       is set to 1. This will be set for horizontally split
- *		       panels.
- * @h_tile_ids:        The DSI instance ID for each tile.
- * @is_hot_pluggable:  Can panel be hot plugged.
- * @is_connected:      Is panel connected.
- * @is_edid_supported: Does panel support reading EDID information.
- * @width_mm:          Physical width of panel in millimeters.
- * @height_mm:         Physical height of panel in millimeters.
- * @dsi_op_mode:       dsi operation mode, video or cmd mode
- */
-struct dsi_display_info {
-	enum dsi_display_type type;
-
-	/* Split DSI properties */
-	bool h_tiled;
-	u32 num_of_h_tiles;
-	u32 h_tile_ids[MAX_DSI_CTRLS_PER_DISPLAY];
-
-	/* HPD */
-	bool is_hot_pluggable;
-	bool is_connected;
-	bool is_edid_supported;
-
-	/* Physical properties */
-	u32 width_mm;
-	u32 height_mm;
-
-	/* Operation properties */
-	enum dsi_op_mode op_mode;
 };
 
 /**
@@ -301,13 +266,12 @@ int dsi_display_drm_bridge_deinit(struct dsi_display *display);
 
 /**
  * dsi_display_get_info() - returns the display properties
- * @display:          Handle to the display.
  * @info:             Pointer to the structure where info is stored.
+ * @disp:             Handle to the display.
  *
  * Return: error code.
  */
-int dsi_display_get_info(struct dsi_display *display,
-			 struct dsi_display_info *info);
+int dsi_display_get_info(struct msm_display_info *info, void *disp);
 
 /**
  * dsi_display_get_modes() - get modes supported by display
