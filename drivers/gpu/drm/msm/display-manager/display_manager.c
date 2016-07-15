@@ -310,12 +310,10 @@ int display_manager_get_count(struct display_manager *disp_m)
 
 int display_manager_get_info_by_index(struct display_manager *disp_m,
 				      u32 display_index,
-				      struct display_info *info)
+				      struct msm_display_info *info)
 {
-	int rc = 0;
-	int i, j;
 	struct dsi_display *display;
-	struct dsi_display_info dsi_info;
+	int i, rc = 0;
 
 	if (!disp_m || !info) {
 		pr_err("Invalid params\n");
@@ -331,38 +329,15 @@ int display_manager_get_info_by_index(struct display_manager *disp_m,
 		if (!display || !dsi_display_is_active(display))
 			continue;
 
-		memset(&dsi_info, 0x0, sizeof(dsi_info));
-		rc = dsi_display_get_info(display, &dsi_info);
+		memset(info, 0x0, sizeof(*info));
+		rc = dsi_display_get_info(info, display);
 		if (rc) {
-			pr_err("failed to get display info, rc=%d\n", rc);
-			goto error;
-		}
-
-		info->intf = DISPLAY_INTF_DSI;
-		info->num_of_h_tiles = dsi_info.num_of_h_tiles;
-
-		for (j = 0; j < info->num_of_h_tiles; j++)
-			info->h_tile_instance[j] = dsi_info.h_tile_ids[j];
-
-		info->is_hot_pluggable = dsi_info.is_hot_pluggable;
-		info->is_connected = dsi_info.is_connected;
-		info->is_edid_supported = dsi_info.is_edid_supported;
-		info->max_width = 1920; /* TODO: */
-		info->max_height = 1080; /* TODO: */
-		info->compression = DISPLAY_COMPRESSION_NONE;
-		if (dsi_info.op_mode == DSI_OP_VIDEO_MODE) {
-			info->intf_mode |= DISPLAY_INTF_MODE_VID;
-		} else if (dsi_info.op_mode == DSI_OP_CMD_MODE) {
-			info->intf_mode |= DISPLAY_INTF_MODE_CMD;
-		} else {
-			pr_err("unknwown dsi op_mode %d\n", dsi_info.op_mode);
+			pr_err("failed to get dsi info, rc=%d\n", rc);
 			rc = -EINVAL;
-			goto error;
 		}
 		break;
 	}
 
-error:
 	mutex_unlock(&disp_m->lock);
 	return rc;
 }
