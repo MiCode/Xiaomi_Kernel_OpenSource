@@ -45,16 +45,17 @@ const struct msm_format *sde_get_msm_format(
 
 /**
  * sde_populate_formats - populate the given array with fourcc codes supported
- * @pixel_formats:   array to populate with fourcc codes
- * @max_formats:     length of pixel formats array
- * @rgb_only:        exclude any non-rgb formats from the list
- *
+ * @format_list:       pointer to list of possible formats
+ * @pixel_formats:     array to populate with fourcc codes
+ * @pixel_modifiers:   array to populate with drm modifiers, can be NULL
+ * @pixel_formats_max: length of pixel formats array
  * Return: number of elements populated
  */
 uint32_t sde_populate_formats(
+		const struct sde_format_extended *format_list,
 		uint32_t *pixel_formats,
-		uint32_t max_formats,
-		bool rgb_only);
+		uint64_t *pixel_modifiers,
+		uint32_t pixel_formats_max);
 
 /**
  * sde_format_check_modified_format - validate format and buffers for

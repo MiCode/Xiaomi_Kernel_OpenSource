@@ -76,6 +76,7 @@ enum msm_mdp_plane_property {
 	/* blob properties, always put these first */
 	PLANE_PROP_SCALER,
 	PLANE_PROP_CSC,
+	PLANE_PROP_SDE_INFO,
 
 	/* # of blob properties */
 	PLANE_PROP_BLOBCOUNT,
