@@ -91,6 +91,7 @@ Optional Properties:
 - qcom,idle-timeout:	   This property represents the time in milliseconds for idle timeout.
 - qcom,deep-nap-timeout:   This property represents the time in milliseconds for entering deeper
 			   power state.
+- qcom,no-nap:		   If it exists software clockgating will be disabled at boot time.
 - qcom,chipid:		   If it exists this property is used to replace
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
