@@ -111,6 +111,8 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable);
 static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl);
 static void hdmi_tx_fps_work(struct work_struct *work);
+static int hdmi_tx_pinctrl_set_state(struct hdmi_tx_ctrl *hdmi_ctrl,
+			enum hdmi_tx_power_module_type module, bool active);
 
 static struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
@@ -478,25 +480,30 @@ void *hdmi_get_featuredata_from_sysfs_dev(struct device *device,
 } /* hdmi_tx_get_featuredata_from_sysfs_dev */
 EXPORT_SYMBOL(hdmi_get_featuredata_from_sysfs_dev);
 
-static int hdmi_tx_config_5v(struct hdmi_tx_ctrl *hdmi_ctrl, bool enable)
+static int hdmi_tx_config_5v(struct hdmi_tx_ctrl *ctrl, bool enable)
 {
-	struct dss_module_power *pd = NULL;
 	int ret = 0;
+	struct dss_module_power *pd = NULL;
 
-	if (!hdmi_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+	if (!ctrl) {
+		DEV_ERR("%s: Invalid HDMI ctrl\n", __func__);
 		ret = -EINVAL;
 		goto end;
 	}
 
-	pd = &hdmi_ctrl->pdata.power_data[HDMI_TX_HPD_PM];
-	if (!pd || !pd->gpio_config) {
-		DEV_ERR("%s: Error: invalid power data\n", __func__);
-		ret = -EINVAL;
-		goto end;
+	if (ctrl->hdmi_tx_version >= HDMI_TX_VERSION_403)
+		ret = hdmi_tx_pinctrl_set_state(ctrl, HDMI_TX_HPD_PM, enable);
+	else {
+		pd = &ctrl->pdata.power_data[HDMI_TX_HPD_PM];
+		if (!pd || !pd->gpio_config) {
+			DEV_ERR("%s: Invalid power data\n", __func__);
+			ret = -EINVAL;
+			goto end;
+		}
+
+		gpio_set_value(pd->gpio_config->gpio, enable);
 	}
 
-	gpio_set_value(pd->gpio_config->gpio, enable);
 end:
 	return ret;
 }
@@ -1220,12 +1227,6 @@ static ssize_t hdmi_tx_sysfs_wta_5v(struct device *dev,
 	}
 
 	mutex_lock(&hdmi_ctrl->tx_lock);
-	pd = &hdmi_ctrl->pdata.power_data[HDMI_TX_HPD_PM];
-	if (!pd || !pd->gpio_config) {
-		DEV_ERR("%s: Error: invalid power data\n", __func__);
-		ret = -EINVAL;
-		goto end;
-	}
 
 	ret = kstrtoint(buf, 10, &read);
 	if (ret) {
