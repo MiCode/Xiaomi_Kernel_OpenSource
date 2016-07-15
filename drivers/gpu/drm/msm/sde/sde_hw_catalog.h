@@ -223,6 +223,17 @@ struct sde_pp_blk {
 };
 
 /**
+ * struct sde_format_extended - define sde specific pixel format+modifier
+ * @fourcc_format: Base FOURCC pixel format code
+ * @modifier: 64-bit drm format modifier, same modifier must be applied to all
+ *            framebuffer planes
+ */
+struct sde_format_extended {
+	uint32_t fourcc_format;
+	uint64_t modifier;
+};
+
+/**
  * struct sde_sspp_sub_blks : SSPP sub-blocks
  * @maxdwnscale: max downscale ratio supported(without DECIMATION)
  * @maxupscale:  maxupscale ratio supported
@@ -235,6 +246,7 @@ struct sde_pp_blk {
  * @pa_blk:
  * @hist_lut:
  * @pcc_blk:
+ * @format_list: Pointer to list of supported formats
  */
 struct sde_sspp_sub_blks {
 	u32 maxlinewidth;
@@ -250,6 +262,8 @@ struct sde_sspp_sub_blks {
 	struct sde_pp_blk pa_blk;
 	struct sde_pp_blk hist_lut;
 	struct sde_pp_blk pcc_blk;
+
+	const struct sde_format_extended *format_list;
 };
 
 /**
