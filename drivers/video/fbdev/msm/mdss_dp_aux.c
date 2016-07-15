@@ -484,6 +484,37 @@ void dp_extract_edid_feature(struct edp_edid *edid, char *buf)
 			edid->dpm, edid->color_format);
 };
 
+char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
+{
+	const u32 encoding_factx10 = 8;
+	const u32 ln_to_link_ratio = 10;
+	u32 min_link_rate;
+	char calc_link_rate = 0;
+
+	pr_debug("clk_rate=%llu, bpp= %d, lane_cnt=%d\n",
+	       pinfo->clk_rate, pinfo->bpp, lane_cnt);
+	min_link_rate = (pinfo->clk_rate * 10) /
+		(lane_cnt * encoding_factx10);
+	min_link_rate = (min_link_rate * pinfo->bpp)
+				/ (DP_LINK_RATE_MULTIPLIER);
+	min_link_rate /= ln_to_link_ratio;
+
+	pr_debug("min_link_rate = %d\n", min_link_rate);
+
+	if (min_link_rate <= DP_LINK_RATE_162)
+		calc_link_rate = DP_LINK_RATE_162;
+	else if (min_link_rate <= DP_LINK_RATE_270)
+		calc_link_rate = DP_LINK_RATE_270;
+	else if (min_link_rate <= DP_LINK_RATE_540)
+		calc_link_rate = DP_LINK_RATE_540;
+	else {
+		pr_err("link_rate = %d is unsupported\n", min_link_rate);
+		calc_link_rate = 0;
+	}
+
+	return calc_link_rate;
+}
+
 void dp_extract_edid_detailed_timing_description(struct edp_edid *edid,
 		char *buf)
 {

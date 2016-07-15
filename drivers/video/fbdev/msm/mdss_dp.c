@@ -906,6 +906,26 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		mdss_dp_irq_enable(dp_drv);
 		pr_debug("irq enabled\n");
 		mdss_dp_dpcd_cap_read(dp_drv);
+		dp_drv->link_rate =
+			mdss_dp_gen_link_clk(&dp_drv->panel_data.panel_info,
+						dp_drv->dpcd.max_lane_count);
+
+		pr_debug("link_rate=0x%x, Max rate supported by sink=0x%x\n",
+			       dp_drv->link_rate, dp_drv->dpcd.max_link_rate);
+		if (!dp_drv->link_rate) {
+			pr_err("Unable to configure required link rate\n");
+			return -EINVAL;
+		}
+
+		pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
+
+		dp_drv->power_data[DP_CTRL_PM].clk_config[0].rate =
+				dp_drv->link_rate * DP_LINK_RATE_MULTIPLIER;
+
+		dp_drv->pixel_rate = dp_drv->panel_data.panel_info.clk_rate;
+		dp_drv->power_data[DP_CTRL_PM].clk_config[3].rate =
+							dp_drv->pixel_rate;
+
 		ret = mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, true);
 		if (ret) {
 			mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);

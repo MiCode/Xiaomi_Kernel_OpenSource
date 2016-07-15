@@ -164,6 +164,8 @@ enum dp_pm_type {
 #define DP_LINK_RATE_540	20	/* 5.40G = 270M * 20 */
 #define DP_LINK_RATE_MAX	DP_LINK_RATE_540
 
+#define DP_LINK_RATE_MULTIPLIER	27000000
+
 struct dpcd_cap {
 	char major;
 	char minor;
@@ -388,5 +390,6 @@ void mdss_dp_fill_link_cfg(struct mdss_dp_drv_pdata *ep);
 void mdss_dp_sink_power_down(struct mdss_dp_drv_pdata *ep);
 void mdss_dp_lane_power_ctrl(struct mdss_dp_drv_pdata *ep, int up);
 void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *ep);
+char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt);
 
 #endif /* MDSS_DP_H */
