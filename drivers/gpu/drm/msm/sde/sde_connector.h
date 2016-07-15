@@ -17,6 +17,7 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_panel.h>
 
+#include "msm_drv.h"
 #include "msm_prop.h"
 #include "sde_kms.h"
 #include "sde_fence.h"
@@ -102,6 +103,14 @@ struct sde_connector_ops {
 			int property_index,
 			uint64_t *value,
 			void *display);
+
+	/**
+	 * get_info - get display information
+	 * @info: Pointer to msm display info structure
+	 * @display: Pointer to private display structure
+	 * Returns: Zero on success
+	 */
+	int (*get_info)(struct msm_display_info *info, void *display);
 };
 
 /**
@@ -250,6 +259,15 @@ void sde_connector_prepare_fence(struct drm_connector *connector);
  * @connector: Pointer to drm connector object
  */
 void sde_connector_complete_commit(struct drm_connector *connector);
+
+/**
+ * sde_connector_get_info - query display specific information
+ * @connector: Pointer to drm connector object
+ * @info: Pointer to msm display information structure
+ * Returns: Zero on success
+ */
+int sde_connector_get_info(struct drm_connector *connector,
+		struct msm_display_info *info);
 
 #endif /* _SDE_CONNECTOR_H_ */
 

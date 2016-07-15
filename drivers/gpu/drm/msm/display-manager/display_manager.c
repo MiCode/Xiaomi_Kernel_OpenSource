@@ -350,7 +350,8 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 		.post_init =  dsi_conn_post_init,
 		.detect =     dsi_conn_detect,
 		.get_modes =  dsi_connector_get_modes,
-		.mode_valid = dsi_conn_mode_valid
+		.mode_valid = dsi_conn_mode_valid,
+		.get_info =   dsi_display_get_info,
 	};
 	int rc = -EINVAL;
 	int i;
