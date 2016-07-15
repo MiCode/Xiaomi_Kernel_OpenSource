@@ -131,6 +131,68 @@ struct msm_vblank_ctrl {
 	spinlock_t lock;
 };
 
+#define MAX_H_TILES_PER_DISPLAY 2
+
+/**
+ * enum msm_display_compression - compression method used for pixel stream
+ * @MSM_DISPLAY_COMPRESS_NONE:     Pixel data is not compressed
+ * @MSM_DISPLAY_COMPRESS_DSC:      DSC compresison is used
+ * @MSM_DISPLAY_COMPRESS_FBC:      FBC compression is used
+ */
+enum msm_display_compression {
+	MSM_DISPLAY_COMPRESS_NONE,
+	MSM_DISPLAY_COMPRESS_DSC,
+	MSM_DISPLAY_COMPRESS_FBC,
+};
+
+/**
+ * enum msm_display_caps - features/capabilities supported by displays
+ * @MSM_DISPLAY_CAP_VID_MODE:           Video or "active" mode supported
+ * @MSM_DISPLAY_CAP_CMD_MODE:           Command mode supported
+ * @MSM_DISPLAY_CAP_HOT_PLUG:           Hot plug detection supported
+ * @MSM_DISPLAY_CAP_EDID:               EDID supported
+ */
+enum msm_display_caps {
+	MSM_DISPLAY_CAP_VID_MODE	= BIT(0),
+	MSM_DISPLAY_CAP_CMD_MODE	= BIT(1),
+	MSM_DISPLAY_CAP_HOT_PLUG	= BIT(2),
+	MSM_DISPLAY_CAP_EDID		= BIT(3),
+};
+
+/**
+ * struct msm_display_info - defines display properties
+ * @intf_type:          DRM_MODE_CONNECTOR_ display type
+ * @capabilities:       Bitmask of display flags
+ * @num_of_h_tiles:     Number of horizontal tiles in case of split interface
+ * @h_tile_instance:    Controller instance used per tile. Number of elements is
+ *                      based on num_of_h_tiles
+ * @is_connected:       Set to true if display is connected
+ * @width_mm:           Physical width
+ * @height_mm:          Physical height
+ * @max_width:          Max width of display. In case of hot pluggable display
+ *                      this is max width supported by controller
+ * @max_height:         Max height of display. In case of hot pluggable display
+ *                      this is max height supported by controller
+ * @compression:        Compression supported by the display
+ */
+struct msm_display_info {
+	int intf_type;
+	uint32_t capabilities;
+
+	uint32_t num_of_h_tiles;
+	uint32_t h_tile_instance[MAX_H_TILES_PER_DISPLAY];
+
+	bool is_connected;
+
+	unsigned int width_mm;
+	unsigned int height_mm;
+
+	uint32_t max_width;
+	uint32_t max_height;
+
+	enum msm_display_compression compression;
+};
+
 struct display_manager;
 
 struct msm_drm_private {
