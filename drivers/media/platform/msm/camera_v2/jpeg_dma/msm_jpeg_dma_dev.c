@@ -1009,13 +1009,7 @@ static int msm_jpegdma_s_crop(struct file *file, void *fh,
 	if (crop->c.width % formats[ctx->format_idx].h_align)
 		return -EINVAL;
 
-	if (crop->c.left % formats[ctx->format_idx].h_align)
-		return -EINVAL;
-
 	if (crop->c.height % formats[ctx->format_idx].v_align)
-		return -EINVAL;
-
-	if (crop->c.top % formats[ctx->format_idx].v_align)
 		return -EINVAL;
 
 	ctx->crop = crop->c;
