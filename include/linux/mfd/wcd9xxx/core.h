@@ -328,6 +328,7 @@ struct wcd9xxx {
 	struct wcd9xxx_codec_type *codec_type;
 	bool prev_pg_valid;
 	u8 prev_pg;
+	u8 avoid_cdc_rstlow;
 	struct wcd9xxx_power_region *wcd9xxx_pwr[WCD9XXX_MAX_PWR_REGIONS];
 };
 

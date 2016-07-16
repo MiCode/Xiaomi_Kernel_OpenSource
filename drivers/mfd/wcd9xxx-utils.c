@@ -618,6 +618,7 @@ int wcd9xxx_reset(struct device *dev)
 {
 	struct wcd9xxx *wcd9xxx;
 	int rc;
+	int value;
 
 	if (!dev)
 		return -ENODEV;
@@ -630,6 +631,12 @@ int wcd9xxx_reset(struct device *dev)
 		dev_err(dev, "%s: reset gpio device node not specified\n",
 			__func__);
 		return -EINVAL;
+	}
+
+	value = msm_cdc_get_gpio_state(wcd9xxx->wcd_rst_np);
+	if (value > 0) {
+		wcd9xxx->avoid_cdc_rstlow = 1;
+		return 0;
 	}
 
 	rc = msm_cdc_pinctrl_select_sleep_state(wcd9xxx->wcd_rst_np);
@@ -678,6 +685,11 @@ int wcd9xxx_reset_low(struct device *dev)
 		dev_err(dev, "%s: reset gpio device node not specified\n",
 			__func__);
 		return -EINVAL;
+	}
+	if (wcd9xxx->avoid_cdc_rstlow) {
+		wcd9xxx->avoid_cdc_rstlow = 0;
+		dev_dbg(dev, "%s: avoid pull down of reset GPIO\n", __func__);
+		return 0;
 	}
 
 	rc = msm_cdc_pinctrl_select_sleep_state(wcd9xxx->wcd_rst_np);

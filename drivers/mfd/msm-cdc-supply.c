@@ -202,7 +202,6 @@ int msm_cdc_release_supplies(struct device *dev,
 
 	msm_cdc_disable_static_supplies(dev, supplies, cdc_vreg,
 					num_supplies);
-
 	for (i = 0; i < num_supplies; i++) {
 		if (regulator_count_voltages(supplies[i].consumer) < 0)
 			continue;
@@ -210,9 +209,9 @@ int msm_cdc_release_supplies(struct device *dev,
 		regulator_set_voltage(supplies[i].consumer, 0,
 				      cdc_vreg[i].max_uV);
 		regulator_set_load(supplies[i].consumer, 0);
+		devm_regulator_put(supplies[i].consumer);
+		supplies[i].consumer = NULL;
 	}
-
-	regulator_bulk_free(num_supplies, supplies);
 	devm_kfree(dev, supplies);
 
 	return rc;
