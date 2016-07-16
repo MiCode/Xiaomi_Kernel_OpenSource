@@ -2342,6 +2342,9 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		if (!base_sel) {
 			PCIE_DBG_FS(dev, "Invalid base_sel: 0x%x\n", base_sel);
 			break;
+		} else if (base_sel - 1 == MSM_PCIE_RES_PARF) {
+			pcie_parf_dump(dev);
+			break;
 		} else if (base_sel - 1 == MSM_PCIE_RES_PHY) {
 			pcie_phy_dump(dev);
 			break;
