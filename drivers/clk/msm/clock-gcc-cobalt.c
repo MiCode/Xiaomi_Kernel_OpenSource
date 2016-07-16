@@ -1698,19 +1698,6 @@ static struct branch_clk gcc_gpu_iref_clk = {
 	},
 };
 
-static struct local_vote_clk gcc_bimc_hmss_axi_clk = {
-	.cbcr_reg = GCC_BIMC_HMSS_AXI_CBCR,
-	.vote_reg = GCC_APCS_CLOCK_BRANCH_ENA_VOTE,
-	.en_mask = BIT(22),
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_bimc_hmss_axi_clk",
-		.always_on = true,
-		.ops = &clk_ops_vote,
-		CLK_INIT(gcc_bimc_hmss_axi_clk.c),
-	},
-};
-
 static struct local_vote_clk gcc_hmss_ahb_clk = {
 	.cbcr_reg = GCC_HMSS_AHB_CBCR,
 	.vote_reg = GCC_APCS_CLOCK_BRANCH_ENA_VOTE,
@@ -2439,7 +2426,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &ce1_clk.c, 0x0097 },
 		{ &gcc_ce1_axi_m_clk.c, 0x0098 },
 		{ &gcc_ce1_ahb_m_clk.c, 0x0099 },
-		{ &gcc_bimc_hmss_axi_clk.c, 0x00bb },
+		{ &measure_only_bimc_hmss_axi_clk.c, 0x00bb },
 		{ &gcc_bimc_gfx_clk.c, 0x00ac },
 		{ &gcc_hmss_ahb_clk.c, 0x00ba },
 		{ &gcc_hmss_rbcpr_clk.c, 0x00bc },
@@ -2661,7 +2648,6 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_gpu_cfg_ahb_clk),
 	CLK_LIST(gcc_gpu_snoc_dvm_gfx_clk),
 	CLK_LIST(gcc_gpu_iref_clk),
-	CLK_LIST(gcc_bimc_hmss_axi_clk),
 	CLK_LIST(gcc_hmss_ahb_clk),
 	CLK_LIST(gcc_hmss_dvm_bus_clk),
 	CLK_LIST(gcc_hmss_rbcpr_clk),
