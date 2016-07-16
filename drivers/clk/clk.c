@@ -1955,6 +1955,18 @@ bool clk_is_match(const struct clk *p, const struct clk *q)
 }
 EXPORT_SYMBOL_GPL(clk_is_match);
 
+int clk_set_flags(struct clk *clk, unsigned long flags)
+{
+	if (!clk)
+		return 0;
+
+	if (!clk->core->ops->set_flags)
+		return -EINVAL;
+
+	return clk->core->ops->set_flags(clk->core->hw, flags);
+}
+EXPORT_SYMBOL_GPL(clk_set_flags);
+
 /***        debugfs support        ***/
 
 #ifdef CONFIG_DEBUG_FS
