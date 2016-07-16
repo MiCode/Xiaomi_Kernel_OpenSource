@@ -166,6 +166,18 @@
 		qcom,pipe-attr-ee;
 	};
 
+	tsens: tsens@10ad000 {
+		compatible = "qcom,msmfalcon-tsens";
+		reg = <0x10ad000 0x2000>,
+			<0x784240 0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>, <0 430 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		qcom,sensors = <14>;
+		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200
+					3200 3200 3200 3200 3200 3200>;
+	};
+
 	uartblsp2dm1: serial@0c1b0000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0xc1b0000 0x1000>;
