@@ -4343,7 +4343,7 @@ __update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 		return 0;
 	sa->last_update_time = now;
 
-	if (sched_use_pelt && !cfs_rq && weight) {
+	if (sched_use_pelt && cfs_rq && weight) {
 		se = container_of(sa, struct sched_entity, avg);
 		if (entity_is_task(se) && se->on_rq)
 			dec_hmp_sched_stats_fair(rq_of(cfs_rq), task_of(se));
