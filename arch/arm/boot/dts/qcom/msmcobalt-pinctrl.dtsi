@@ -1465,16 +1465,29 @@
 				};
 			};
 
-			ts_suspend: ts_suspend {
+			ts_reset_suspend: ts_reset_suspend {
 				mux {
-					pins = "gpio89", "gpio125";
+					pins = "gpio89";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio89", "gpio125";
+					pins = "gpio89";
 					drive-strength = <2>;
 					bias-pull-down;
+				};
+			};
+
+			ts_int_suspend: ts_int_suspend {
+				mux {
+					pins = "gpio125";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio125";
+					drive-strength = <2>;
+					bias-disable;
 				};
 			};
 		};
