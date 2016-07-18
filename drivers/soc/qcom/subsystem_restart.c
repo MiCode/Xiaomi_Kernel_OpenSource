@@ -269,7 +269,8 @@ static ssize_t firmware_name_store(struct device *dev,
 
 	pr_info("Changing subsys fw_name to %s\n", buf);
 	mutex_lock(&track->lock);
-	strlcpy(subsys->desc->fw_name, buf, count + 1);
+	strlcpy(subsys->desc->fw_name, buf,
+			min(count + 1, sizeof(subsys->desc->fw_name)));
 	mutex_unlock(&track->lock);
 	return orig_count;
 }
