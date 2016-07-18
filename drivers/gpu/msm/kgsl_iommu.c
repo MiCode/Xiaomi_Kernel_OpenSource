@@ -96,6 +96,7 @@ static struct kgsl_memdesc *global_pt_entries[GLOBAL_PT_ENTRIES];
 static struct kgsl_memdesc *kgsl_global_secure_pt_entry;
 static int global_pt_count;
 uint64_t global_pt_alloc;
+static struct kgsl_memdesc gpu_qdss_desc;
 
 static void kgsl_iommu_unmap_globals(struct kgsl_pagetable *pagetable)
 {
@@ -181,6 +182,51 @@ void kgsl_add_global_secure_entry(struct kgsl_device *device,
 {
 	memdesc->gpuaddr = KGSL_IOMMU_SECURE_BASE;
 	kgsl_global_secure_pt_entry = memdesc;
+}
+
+struct kgsl_memdesc *kgsl_iommu_get_qdss_global_entry(void)
+{
+	return &gpu_qdss_desc;
+}
+
+static void kgsl_setup_qdss_desc(struct kgsl_device *device)
+{
+	int result = 0;
+	uint32_t gpu_qdss_entry[2];
+
+	if (!of_find_property(device->pdev->dev.of_node,
+		"qcom,gpu-qdss-stm", NULL))
+		return;
+
+	if (of_property_read_u32_array(device->pdev->dev.of_node,
+				"qcom,gpu-qdss-stm", gpu_qdss_entry, 2)) {
+		KGSL_CORE_ERR("Failed to read gpu qdss dts entry\n");
+		return;
+	}
+
+	gpu_qdss_desc.flags = 0;
+	gpu_qdss_desc.priv = 0;
+	gpu_qdss_desc.physaddr = gpu_qdss_entry[0];
+	gpu_qdss_desc.size = gpu_qdss_entry[1];
+	gpu_qdss_desc.pagetable = NULL;
+	gpu_qdss_desc.ops = NULL;
+	gpu_qdss_desc.dev = device->dev->parent;
+	gpu_qdss_desc.hostptr = NULL;
+
+	result = memdesc_sg_dma(&gpu_qdss_desc, gpu_qdss_desc.physaddr,
+			gpu_qdss_desc.size);
+	if (result) {
+		KGSL_CORE_ERR("memdesc_sg_dma failed: %d\n", result);
+		return;
+	}
+
+	kgsl_mmu_add_global(device, &gpu_qdss_desc);
+}
+
+static inline void kgsl_cleanup_qdss_desc(struct kgsl_mmu *mmu)
+{
+	kgsl_iommu_remove_global(mmu, &gpu_qdss_desc);
+	kgsl_sharedmem_free(&gpu_qdss_desc);
 }
 
 
@@ -1268,6 +1314,7 @@ static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 
 	kgsl_iommu_remove_global(mmu, &iommu->setstate);
 	kgsl_sharedmem_free(&iommu->setstate);
+	kgsl_cleanup_qdss_desc(mmu);
 }
 
 static int _setstate_alloc(struct kgsl_device *device,
@@ -1339,6 +1386,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	}
 
 	kgsl_iommu_add_global(mmu, &iommu->setstate);
+	kgsl_setup_qdss_desc(device);
 
 done:
 	if (status)
@@ -2367,6 +2415,7 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_add_global = kgsl_iommu_add_global,
 	.mmu_remove_global = kgsl_iommu_remove_global,
 	.mmu_getpagetable = kgsl_iommu_getpagetable,
+	.mmu_get_qdss_global_entry = kgsl_iommu_get_qdss_global_entry,
 	.probe = kgsl_iommu_probe,
 };
 
