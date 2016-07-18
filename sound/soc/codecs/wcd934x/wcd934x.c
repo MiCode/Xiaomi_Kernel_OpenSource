@@ -385,6 +385,14 @@ static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 
+#define WCD934X_TX_UNMUTE_DELAY_MS 25
+
+static int tx_unmute_delay = WCD934X_TX_UNMUTE_DELAY_MS;
+module_param(tx_unmute_delay, int,
+	     S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(tx_unmute_delay, "delay to unmute the tx path");
+
+
 /* Hold instance to soundwire platform device */
 struct tavil_swr_ctrl_data {
 	struct platform_device *swr_pdev;
@@ -413,6 +421,19 @@ struct wcd934x_swr {
 	int clk_users;
 	int rx_7_count;
 	int rx_8_count;
+};
+
+struct tx_mute_work {
+	struct tavil_priv *tavil;
+	u8 decimator;
+	struct delayed_work dwork;
+};
+
+struct hpf_work {
+	struct tavil_priv *tavil;
+	u8 decimator;
+	u8 hpf_cut_off_freq;
+	struct delayed_work dwork;
 };
 
 struct tavil_priv {
@@ -450,6 +471,8 @@ struct tavil_priv {
 
 	struct mutex codec_mutex;
 	struct work_struct wcd_add_child_devices_work;
+	struct hpf_work tx_hpf_work[WCD934X_NUM_DECIMATORS];
+	struct tx_mute_work tx_mute_dwork[WCD934X_NUM_DECIMATORS];
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -1873,21 +1896,54 @@ static int tavil_codec_find_amic_input(struct snd_soc_codec *codec,
 	    adc_mux_n == WCD934X_INVALID_ADC_MUX)
 		return 0;
 
-	/* Check whether adc mux input is AMIC or DMIC */
-	if (adc_mux_n < 4) {
+	if (adc_mux_n < 3) {
 		adc_mux_in_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG1 +
-				 2 * adc_mux_n;
-		amic_mux_sel_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG0 +
-				   2 * adc_mux_n;
+				 adc_mux_n;
 		mask = 0x03;
 		shift = 0;
+		amic_mux_sel_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG0 +
+				   2 * adc_mux_n;
+	} else if (adc_mux_n < 4) {
+		adc_mux_in_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX3_CFG1;
+		mask = 0x03;
+		shift = 0;
+		amic_mux_sel_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG0 +
+				   2 * adc_mux_n;
+	} else if (adc_mux_n < 7) {
+		adc_mux_in_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG1 +
+				 (adc_mux_n - 4);
+		mask = 0x0C;
+		shift = 2;
+		amic_mux_sel_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX4_CFG0 +
+				   adc_mux_n - 4;
+	} else if (adc_mux_n < 8) {
+		adc_mux_in_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX3_CFG1;
+		mask = 0x0C;
+		shift = 2;
+		amic_mux_sel_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX4_CFG0 +
+				   adc_mux_n - 4;
+	} else if (adc_mux_n < 12) {
+		adc_mux_in_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG1 +
+				 ((adc_mux_n == 8) ? (adc_mux_n - 8) :
+				  (adc_mux_n - 9));
+		mask = 0x30;
+		shift = 4;
+		amic_mux_sel_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX4_CFG0 +
+				   adc_mux_n - 4;
+	} else if (adc_mux_n < 13) {
+		adc_mux_in_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX3_CFG1;
+		mask = 0x30;
+		shift = 4;
+		amic_mux_sel_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX4_CFG0 +
+				   adc_mux_n - 4;
 	} else {
-		adc_mux_in_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX4_CFG0 +
-				 adc_mux_n - 4;
-		amic_mux_sel_reg = adc_mux_in_reg;
+		adc_mux_in_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG1;
 		mask = 0xC0;
 		shift = 6;
+		amic_mux_sel_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX4_CFG0 +
+				   adc_mux_n - 4;
 	}
+
 	is_amic = (((snd_soc_read(codec, adc_mux_in_reg) & mask) >> shift)
 		    == 1);
 	if (!is_amic)
@@ -1972,10 +2028,67 @@ static u16 tavil_codec_get_amic_pwlvl_reg(struct snd_soc_codec *codec, int amic)
 	return pwr_level_reg;
 }
 
+#define  TX_HPF_CUT_OFF_FREQ_MASK 0x60
+#define  CF_MIN_3DB_4HZ     0x0
+#define  CF_MIN_3DB_75HZ    0x1
+#define  CF_MIN_3DB_150HZ   0x2
+
+static void tavil_tx_hpf_corner_freq_callback(struct work_struct *work)
+{
+	struct delayed_work *hpf_delayed_work;
+	struct hpf_work *hpf_work;
+	struct tavil_priv *tavil;
+	struct snd_soc_codec *codec;
+	u16 dec_cfg_reg, amic_reg;
+	u8 hpf_cut_off_freq;
+	int amic_n;
+
+	hpf_delayed_work = to_delayed_work(work);
+	hpf_work = container_of(hpf_delayed_work, struct hpf_work, dwork);
+	tavil = hpf_work->tavil;
+	codec = tavil->codec;
+	hpf_cut_off_freq = hpf_work->hpf_cut_off_freq;
+
+	dec_cfg_reg = WCD934X_CDC_TX0_TX_PATH_CFG0 + 16 * hpf_work->decimator;
+
+	dev_dbg(codec->dev, "%s: decimator %u hpf_cut_of_freq 0x%x\n",
+		__func__, hpf_work->decimator, hpf_cut_off_freq);
+
+	amic_n = tavil_codec_find_amic_input(codec, hpf_work->decimator);
+	if (amic_n) {
+		amic_reg = WCD934X_ANA_AMIC1 + amic_n - 1;
+		tavil_codec_set_tx_hold(codec, amic_reg, false);
+	}
+	snd_soc_update_bits(codec, dec_cfg_reg, TX_HPF_CUT_OFF_FREQ_MASK,
+			    hpf_cut_off_freq << 5);
+}
+
+static void tavil_tx_mute_update_callback(struct work_struct *work)
+{
+	struct tx_mute_work *tx_mute_dwork;
+	struct tavil_priv *tavil;
+	struct delayed_work *delayed_work;
+	struct snd_soc_codec *codec;
+	u16 tx_vol_ctl_reg, hpf_gate_reg;
+
+	delayed_work = to_delayed_work(work);
+	tx_mute_dwork = container_of(delayed_work, struct tx_mute_work, dwork);
+	tavil = tx_mute_dwork->tavil;
+	codec = tavil->codec;
+
+	tx_vol_ctl_reg = WCD934X_CDC_TX0_TX_PATH_CTL +
+			 16 * tx_mute_dwork->decimator;
+	hpf_gate_reg = WCD934X_CDC_TX0_TX_PATH_SEC2 +
+		       16 * tx_mute_dwork->decimator;
+	snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x01);
+	snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x00);
+}
+
 static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 				  struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
 	unsigned int decimator;
 	char *dec_adc_mux_name = NULL;
 	char *widget_name = NULL;
@@ -2056,6 +2169,9 @@ static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		}
 		hpf_cut_off_freq = (snd_soc_read(codec, dec_cfg_reg) &
 				   TX_HPF_CUT_OFF_FREQ_MASK) >> 5;
+
+		tavil->tx_hpf_work[decimator].hpf_cut_off_freq =
+							hpf_cut_off_freq;
 		if (hpf_cut_off_freq != CF_MIN_3DB_150HZ)
 			snd_soc_update_bits(codec, dec_cfg_reg,
 					    TX_HPF_CUT_OFF_FREQ_MASK,
@@ -2065,9 +2181,29 @@ static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x00);
+		/* schedule work queue to Remove Mute */
+		schedule_delayed_work(&tavil->tx_mute_dwork[decimator].dwork,
+				      msecs_to_jiffies(tx_unmute_delay));
+		if (tavil->tx_hpf_work[decimator].hpf_cut_off_freq !=
+							CF_MIN_3DB_150HZ)
+			schedule_delayed_work(
+					&tavil->tx_hpf_work[decimator].dwork,
+					msecs_to_jiffies(300));
+
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+		hpf_cut_off_freq =
+			tavil->tx_hpf_work[decimator].hpf_cut_off_freq;
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
+		if (cancel_delayed_work_sync(
+		    &tavil->tx_hpf_work[decimator].dwork)) {
+			if (hpf_cut_off_freq != CF_MIN_3DB_150HZ)
+				snd_soc_update_bits(codec, dec_cfg_reg,
+						    TX_HPF_CUT_OFF_FREQ_MASK,
+						    hpf_cut_off_freq << 5);
+		}
+		cancel_delayed_work_sync(
+				&tavil->tx_mute_dwork[decimator].dwork);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x00);
@@ -3033,7 +3169,7 @@ static int tavil_dec_enum_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int val;
-	u16 mic_sel_reg;
+	u16 mic_sel_reg = 0;
 	u8 mic_sel;
 
 	val = ucontrol->value.enumerated.item[0];
@@ -3045,31 +3181,30 @@ static int tavil_dec_enum_put(struct snd_kcontrol *kcontrol,
 
 	switch (e->reg) {
 	case WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG1:
-		mic_sel_reg = WCD934X_CDC_TX0_TX_PATH_CFG0;
+		if (e->shift_l == 0)
+			mic_sel_reg = WCD934X_CDC_TX0_TX_PATH_CFG0;
+		else if (e->shift_l == 2)
+			mic_sel_reg = WCD934X_CDC_TX4_TX_PATH_CFG0;
+		else if (e->shift_l == 4)
+			mic_sel_reg = WCD934X_CDC_TX8_TX_PATH_CFG0;
 		break;
 	case WCD934X_CDC_TX_INP_MUX_ADC_MUX1_CFG1:
-		mic_sel_reg = WCD934X_CDC_TX1_TX_PATH_CFG0;
+		if (e->shift_l == 0)
+			mic_sel_reg = WCD934X_CDC_TX1_TX_PATH_CFG0;
+		else if (e->shift_l == 2)
+			mic_sel_reg = WCD934X_CDC_TX5_TX_PATH_CFG0;
 		break;
 	case WCD934X_CDC_TX_INP_MUX_ADC_MUX2_CFG1:
-		mic_sel_reg = WCD934X_CDC_TX2_TX_PATH_CFG0;
+		if (e->shift_l == 0)
+			mic_sel_reg = WCD934X_CDC_TX2_TX_PATH_CFG0;
+		else if (e->shift_l == 2)
+			mic_sel_reg = WCD934X_CDC_TX6_TX_PATH_CFG0;
 		break;
 	case WCD934X_CDC_TX_INP_MUX_ADC_MUX3_CFG1:
-		mic_sel_reg = WCD934X_CDC_TX3_TX_PATH_CFG0;
-		break;
-	case WCD934X_CDC_TX_INP_MUX_ADC_MUX4_CFG0:
-		mic_sel_reg = WCD934X_CDC_TX4_TX_PATH_CFG0;
-		break;
-	case WCD934X_CDC_TX_INP_MUX_ADC_MUX5_CFG0:
-		mic_sel_reg = WCD934X_CDC_TX5_TX_PATH_CFG0;
-		break;
-	case WCD934X_CDC_TX_INP_MUX_ADC_MUX6_CFG0:
-		mic_sel_reg = WCD934X_CDC_TX6_TX_PATH_CFG0;
-		break;
-	case WCD934X_CDC_TX_INP_MUX_ADC_MUX7_CFG0:
-		mic_sel_reg = WCD934X_CDC_TX7_TX_PATH_CFG0;
-		break;
-	case WCD934X_CDC_TX_INP_MUX_ADC_MUX8_CFG0:
-		mic_sel_reg = WCD934X_CDC_TX8_TX_PATH_CFG0;
+		if (e->shift_l == 0)
+			mic_sel_reg = WCD934X_CDC_TX3_TX_PATH_CFG0;
+		else if (e->shift_l == 2)
+			mic_sel_reg = WCD934X_CDC_TX7_TX_PATH_CFG0;
 		break;
 	default:
 		dev_err(codec->dev, "%s: e->reg: 0x%x not expected\n",
@@ -3079,7 +3214,8 @@ static int tavil_dec_enum_put(struct snd_kcontrol *kcontrol,
 
 	/* ADC: 0, DMIC: 1 */
 	mic_sel = val ? 0x0 : 0x1;
-	snd_soc_update_bits(codec, mic_sel_reg, 1 << 7, mic_sel << 7);
+	if (mic_sel_reg)
+		snd_soc_update_bits(codec, mic_sel_reg, 1 << 7, mic_sel << 7);
 
 	return snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
 }
@@ -4137,7 +4273,7 @@ static int tavil_get_channel_map(struct snd_soc_dai *dai,
 	case AIF3_PB:
 	case AIF4_PB:
 		if (!rx_slot || !rx_num) {
-			dev_err(tavil->dev, "%s: Invalid rx_slot %pk or rx_num %pk\n",
+			dev_err(tavil->dev, "%s: Invalid rx_slot 0x%pK or rx_num 0x%pK\n",
 				 __func__, rx_slot, rx_num);
 			ret = -EINVAL;
 			break;
@@ -4161,7 +4297,7 @@ static int tavil_get_channel_map(struct snd_soc_dai *dai,
 	case AIF2_CAP:
 	case AIF3_CAP:
 		if (!tx_slot || !tx_num) {
-			dev_err(tavil->dev, "%s: Invalid tx_slot %pk or tx_num %pk\n",
+			dev_err(tavil->dev, "%s: Invalid tx_slot 0x%pK or tx_num 0x%pK\n",
 				 __func__, tx_slot, tx_num);
 			ret = -EINVAL;
 			break;
@@ -4202,7 +4338,7 @@ static int tavil_set_channel_map(struct snd_soc_dai *dai,
 	core = dev_get_drvdata(dai->codec->dev->parent);
 
 	if (!tx_slot || !rx_slot) {
-		dev_err(tavil->dev, "%s: Invalid tx_slot=%pk, rx_slot=%pk\n",
+		dev_err(tavil->dev, "%s: Invalid tx_slot 0x%pK, rx_slot 0x%pK\n",
 			__func__, tx_slot, rx_slot);
 		return -EINVAL;
 	}
@@ -4773,7 +4909,7 @@ int tavil_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable)
 EXPORT_SYMBOL(tavil_cdc_mclk_enable);
 
 static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
-	{WCD934X_BIAS_VBG_FINE_ADJ, 0xFF, 0xD5},
+	{WCD934X_BIAS_VBG_FINE_ADJ, 0xFF, 0x75},
 	{WCD934X_CODEC_CPR_SVS_CX_VDD, 0xFF, 0x7C}, /* value in svs mode */
 	{WCD934X_CODEC_CPR_SVS2_CX_VDD, 0xFF, 0x58}, /* value in svs2 mode */
 	{WCD934X_SIDO_NEW_VOUT_D_FREQ2, 0x01, 0x01},
@@ -5134,6 +5270,18 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 		dev_err(tavil->dev, "%s: tavil irq setup failed %d\n",
 			__func__, ret);
 		goto err_pdata;
+	}
+
+	for (i = 0; i < WCD934X_NUM_DECIMATORS; i++) {
+		tavil->tx_hpf_work[i].tavil = tavil;
+		tavil->tx_hpf_work[i].decimator = i;
+		INIT_DELAYED_WORK(&tavil->tx_hpf_work[i].dwork,
+				  tavil_tx_hpf_corner_freq_callback);
+
+		tavil->tx_mute_dwork[i].tavil = tavil;
+		tavil->tx_mute_dwork[i].decimator = i;
+		INIT_DELAYED_WORK(&tavil->tx_mute_dwork[i].dwork,
+				  tavil_tx_mute_update_callback);
 	}
 	snd_soc_dapm_sync(dapm);
 	return ret;
