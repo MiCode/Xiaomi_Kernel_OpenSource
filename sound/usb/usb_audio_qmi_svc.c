@@ -405,12 +405,15 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 				subs->interface, subs->altset_idx);
 			goto err;
 		}
-		resp->bDelay = as->bDelay;
+		resp->data_path_delay = as->bDelay;
+		resp->data_path_delay_valid = 1;
 		fmt_v1 = (struct uac_format_type_i_discrete_descriptor *)fmt;
-		resp->bSubslotSize = fmt_v1->bSubframeSize;
+		resp->usb_audio_subslot_size = fmt_v1->bSubframeSize;
+		resp->usb_audio_subslot_size_valid = 1;
 	} else if (protocol == UAC_VERSION_2) {
 		fmt_v2 = (struct uac_format_type_i_ext_descriptor *)fmt;
-		resp->bSubslotSize = fmt_v2->bSubslotSize;
+		resp->usb_audio_subslot_size = fmt_v2->bSubslotSize;
+		resp->usb_audio_subslot_size_valid = 1;
 	} else {
 		pr_err("%s: unknown protocol version %x\n", __func__, protocol);
 		goto err;
@@ -424,11 +427,14 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 			subs->interface, subs->altset_idx);
 		goto err;
 	}
-	resp->bcdADC = ac->bcdADC;
+	resp->usb_audio_spec_revision = ac->bcdADC;
+	resp->usb_audio_spec_revision_valid = 1;
 
 	resp->slot_id = subs->dev->slot_id;
+	resp->slot_id_valid = 1;
 
 	memcpy(&resp->std_as_opr_intf_desc, &alts->desc, sizeof(alts->desc));
+	resp->std_as_opr_intf_desc_valid = 1;
 
 	ep = usb_pipe_endpoint(subs->dev, subs->data_endpoint->pipe);
 	if (!ep) {
@@ -437,6 +443,7 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		goto err;
 	}
 	memcpy(&resp->std_as_data_ep_desc, &ep->desc, sizeof(ep->desc));
+	resp->std_as_data_ep_desc_valid = 1;
 
 	xhci_pa = usb_get_xfer_ring_dma_addr(subs->dev, ep);
 	if (!xhci_pa) {
@@ -454,6 +461,8 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 			goto err;
 		}
 		memcpy(&resp->std_as_sync_ep_desc, &ep->desc, sizeof(ep->desc));
+		resp->std_as_sync_ep_desc_valid = 1;
+
 		xhci_pa = usb_get_xfer_ring_dma_addr(subs->dev, ep);
 		if (!xhci_pa) {
 			pr_err("%s:failed to get sync ep ring dma address\n",
@@ -464,6 +473,7 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	}
 
 	resp->interrupter_num = uaudio_qdev->intr_num;
+	resp->interrupter_num_valid = 1;
 
 	/*  map xhci data structures PA memory to iova */
 
@@ -569,6 +579,8 @@ skip_sync:
 	xfer_buf_va = va;
 	resp->xhci_mem_info.xfer_buff.va = PREPEND_SID_TO_IOVA(va,
 						uaudio_qdev->sid);
+
+	resp->xhci_mem_info_valid = 1;
 
 	if (!atomic_read(&uadev[card_num].in_use)) {
 		kref_init(&uadev[card_num].kref);
@@ -734,7 +746,7 @@ static void uaudio_dev_release(struct kref *kref)
 static int handle_uaudio_stream_req(void *req_h, void *req)
 {
 	struct qmi_uaudio_stream_req_msg_v01 *req_msg;
-	struct qmi_uaudio_stream_resp_msg_v01 resp = {0};
+	struct qmi_uaudio_stream_resp_msg_v01 resp = {{0}, 0};
 	struct snd_usb_substream *subs;
 	struct snd_usb_audio *chip = NULL;
 	struct uaudio_qmi_svc *svc = uaudio_svc;
@@ -743,6 +755,13 @@ static int handle_uaudio_stream_req(void *req_h, void *req)
 	int intf_num = -1, ret = 0;
 
 	req_msg = (struct qmi_uaudio_stream_req_msg_v01 *)req;
+
+	if (!req_msg->audio_format_valid || !req_msg->bit_rate_valid ||
+	!req_msg->number_of_ch_valid || !req_msg->xfer_buff_size_valid) {
+		pr_err("%s: invalid request msg\n", __func__);
+		ret = -EINVAL;
+		goto response;
+	}
 
 	direction = req_msg->usb_token & SND_PCM_STREAM_DIRECTION;
 	pcm_dev_num = (req_msg->usb_token & SND_PCM_DEV_NUM_MASK) >> 8;
@@ -828,7 +847,12 @@ response:
 					uaudio_dev_release);
 	}
 
-	resp.status = ret;
+	resp.usb_token = req_msg->usb_token;
+	resp.usb_token_valid = 1;
+	resp.internal_status = ret;
+	resp.internal_status_valid = 1;
+	resp.status = ret ? USB_AUDIO_STREAM_REQ_FAILURE_V01 : ret;
+	resp.status_valid = 1;
 	ret = qmi_send_resp_from_cb(svc->uaudio_svc_hdl, svc->curr_conn, req_h,
 			&uaudio_stream_resp_desc, &resp, sizeof(resp));
 
