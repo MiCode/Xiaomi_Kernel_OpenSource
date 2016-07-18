@@ -341,6 +341,13 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&dsi_sharp_1080_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
 &i2c_7 {
 	status = "okay";
 	qcom,smb138x@8 {
