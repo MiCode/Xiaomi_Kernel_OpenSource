@@ -44,6 +44,18 @@
 			};
 		};
 
+		uart3_console_sleep: uart3_console_sleep {
+			mux {
+				pins = "gpio8", "gpio9";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio8", "gpio9";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		/* I2C CONFIGURATION */
 		i2c_1 {
 			i2c_1_active: i2c_1_active {
