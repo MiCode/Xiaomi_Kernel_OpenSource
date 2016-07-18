@@ -571,11 +571,12 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	u32 fps, u32 v_total)
 {
 	u32 active_line_cycle, backfill_cycle, total_cycle;
-	u32 ver_dwnscale;
+	u64 ver_dwnscale;
 	u32 active_line;
 	u32 backfill_line;
 
-	ver_dwnscale = (src_h << PHASE_STEP_SHIFT) / dst.h;
+	ver_dwnscale = src_h << PHASE_STEP_SHIFT;
+	do_div(ver_dwnscale, dst.h);
 
 	if (ver_dwnscale > (MDSS_MDP_QSEED3_VER_DOWNSCALE_LIM
 			<< PHASE_STEP_SHIFT)) {
@@ -599,7 +600,7 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	total_cycle = active_line_cycle + backfill_cycle;
 
 	pr_debug("line: active=%d backfill=%d vds=%d\n",
-		active_line, backfill_line, ver_dwnscale);
+		active_line, backfill_line, (u32)ver_dwnscale);
 	pr_debug("cycle: total=%d active=%d backfill=%d\n",
 		total_cycle, active_line_cycle, backfill_cycle);
 
