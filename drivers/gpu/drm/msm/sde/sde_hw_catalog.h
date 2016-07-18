@@ -77,6 +77,7 @@ enum {
  * @SDE_SSPP_IGC,            Inverse gamma correction
  * @SDE_SSPP_PCC,            Color correction support
  * @SDE_SSPP_CURSOR,         SSPP can be used as a cursor layer
+ * @SDE_SSPP_QOS,            SSPP support QoS control, danger/safe/creq
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -90,6 +91,7 @@ enum {
 	SDE_SSPP_IGC,
 	SDE_SSPP_PCC,
 	SDE_SSPP_CURSOR,
+	SDE_SSPP_QOS,
 	SDE_SSPP_MAX
 };
 
@@ -257,8 +259,16 @@ struct sde_format_extended {
  * @maxdwnscale: max downscale ratio supported(without DECIMATION)
  * @maxupscale:  maxupscale ratio supported
  * @maxwidth:    max pixelwidth supported by this pipe
- * @danger_lut:  LUT to generate danger signals
- * @safe_lut:    LUT to generate safe signals
+ * @danger_lut_linear: LUT to generate danger signals for linear format
+ * @safe_lut_linear: LUT to generate safe signals for linear format
+ * @danger_lut_tile: LUT to generate danger signals for tile format
+ * @safe_lut_tile: LUT to generate safe signals for tile format
+ * @danger_lut_nrt: LUT to generate danger signals for non-realtime use case
+ * @safe_lut_nrt: LUT to generate safe signals for non-realtime use case
+ * @creq_lut_nrt: LUT to generate creq signals for non-realtime use case
+ * @creq_vblank: creq priority during vertical blanking
+ * @danger_vblank: danger priority during vertical blanking
+ * @pixel_ram_size: size of latency hiding and de-tiling buffer in bytes
  * @src_blk:
  * @scaler_blk:
  * @csc_blk:
@@ -269,8 +279,16 @@ struct sde_format_extended {
  */
 struct sde_sspp_sub_blks {
 	u32 maxlinewidth;
-	u32 danger_lut;
-	u32 safe_lut;
+	u32 danger_lut_linear;
+	u32 safe_lut_linear;
+	u32 danger_lut_tile;
+	u32 safe_lut_tile;
+	u32 danger_lut_nrt;
+	u32 safe_lut_nrt;
+	u32 creq_lut_nrt;
+	u32 creq_vblank;
+	u32 danger_vblank;
+	u32 pixel_ram_size;
 	u32 maxdwnscale;
 	u32 maxupscale;
 	u32 maxhdeciexp; /* max decimation is 2^value */

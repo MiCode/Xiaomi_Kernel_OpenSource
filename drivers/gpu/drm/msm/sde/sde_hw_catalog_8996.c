@@ -19,17 +19,17 @@
 	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_SCALER_QSEED2) |\
 	BIT(SDE_SSPP_CSC) | BIT(SDE_SSPP_PA_V1) |\
 	BIT(SDE_SSPP_HIST_V1) | BIT(SDE_SSPP_PCC) |\
-	BIT(SDE_SSPP_IGC))
+	BIT(SDE_SSPP_IGC) | BIT(SDE_SSPP_QOS))
 
 /* RGB layer capability */
 #define RGB_17X_MASK \
 	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_SCALER_RGB) |\
-	BIT(SDE_SSPP_PCC) | BIT(SDE_SSPP_IGC))
+	BIT(SDE_SSPP_PCC) | BIT(SDE_SSPP_IGC) | BIT(SDE_SSPP_QOS))
 
 /* DMA layer capability */
 #define DMA_17X_MASK \
 	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_PA_V1) |\
-	BIT(SDE_SSPP_PCC) | BIT(SDE_SSPP_IGC))
+	BIT(SDE_SSPP_PCC) | BIT(SDE_SSPP_IGC) | BIT(SDE_SSPP_QOS))
 
 /* Cursor layer capability */
 #define CURSOR_17X_MASK  (BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_CURSOR))
@@ -232,8 +232,16 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 	/* Layer capability */
 	static const struct sde_sspp_sub_blks vig_layer = {
 		.maxlinewidth = 2560,
-		.danger_lut = 0xFFFF,
-		.safe_lut = 0xFF00,
+		.danger_lut_linear = 0x000f,
+		.safe_lut_linear = 0xfffc,
+		.danger_lut_tile = 0xffff,
+		.safe_lut_tile = 0xff00,
+		.danger_lut_nrt = 0x0,
+		.safe_lut_nrt = 0xffff,
+		.creq_lut_nrt = 0x0,
+		.creq_vblank = 0x2,
+		.danger_vblank = 0,
+		.pixel_ram_size = 50 * 1024,
 		.maxdwnscale = 4, .maxupscale = 20,
 		.maxhdeciexp = DECIMATION_17X_MAX_H,
 		.maxvdeciexp = DECIMATION_17X_MAX_V,
@@ -254,8 +262,16 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 
 	static const struct sde_sspp_sub_blks layer = {
 		.maxlinewidth = 2560,
-		.danger_lut = 0xFFFF,
-		.safe_lut = 0xFF00,
+		.danger_lut_linear = 0x000f,
+		.safe_lut_linear = 0xfffc,
+		.danger_lut_tile = 0xffff,
+		.safe_lut_tile = 0xff00,
+		.danger_lut_nrt = 0x0,
+		.safe_lut_nrt = 0xffff,
+		.creq_lut_nrt = 0x0,
+		.creq_vblank = 0x2,
+		.danger_vblank = 0,
+		.pixel_ram_size = 50 * 1024,
 		.maxdwnscale = 4, .maxupscale = 20,
 		.maxhdeciexp = DECIMATION_17X_MAX_H,
 		.maxvdeciexp = DECIMATION_17X_MAX_V,
@@ -276,8 +292,16 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 
 	static const struct sde_sspp_sub_blks dma = {
 		.maxlinewidth = 2560,
-		.danger_lut = 0xFFFF,
-		.safe_lut = 0xFF00,
+		.danger_lut_linear = 0x000f,
+		.safe_lut_linear = 0xfffc,
+		.danger_lut_tile = 0xffff,
+		.safe_lut_tile = 0xff00,
+		.danger_lut_nrt = 0x0,
+		.safe_lut_nrt = 0xffff,
+		.creq_lut_nrt = 0x0,
+		.creq_vblank = 0x2,
+		.danger_vblank = 0,
+		.pixel_ram_size = 50 * 1024,
 		.maxdwnscale = 1, .maxupscale = 1,
 		.maxhdeciexp = DECIMATION_17X_MAX_H,
 		.maxvdeciexp = DECIMATION_17X_MAX_V,
@@ -292,8 +316,6 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 
 	static const struct sde_sspp_sub_blks cursor = {
 		.maxlinewidth = 128,
-		.danger_lut = 0xFFFF,
-		.safe_lut = 0xFF00,
 		.maxdwnscale = 1, .maxupscale = 1,
 		.maxhdeciexp = DECIMATION_17X_MAX_H,
 		.maxvdeciexp = DECIMATION_17X_MAX_V,

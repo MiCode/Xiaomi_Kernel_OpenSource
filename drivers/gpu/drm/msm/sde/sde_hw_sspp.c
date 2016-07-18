@@ -50,6 +50,7 @@
 #define SSPP_DANGER_LUT                    0x60
 #define SSPP_SAFE_LUT                      0x64
 #define SSPP_CREQ_LUT                      0x68
+#define SSPP_QOS_CTRL                      0x6C
 #define SSPP_DECIMATION_CONFIG             0xB4
 #define SSPP_SRC_ADDR_SW_STATUS            0x70
 #define SSPP_SW_PIX_EXT_C0_LR              0x100
@@ -63,6 +64,14 @@
 #define SSPP_SW_PIX_EXT_C3_REQ_PIXELS      0x128
 #define SSPP_UBWC_ERROR_STATUS             0x138
 #define SSPP_VIG_OP_MODE                   0x0
+
+/* SSPP_QOS_CTRL */
+#define SSPP_QOS_CTRL_VBLANK_EN            BIT(16)
+#define SSPP_QOS_CTRL_DANGER_SAFE_EN       BIT(0)
+#define SSPP_QOS_CTRL_DANGER_VBLANK_MASK   0x3
+#define SSPP_QOS_CTRL_DANGER_VBLANK_OFF    4
+#define SSPP_QOS_CTRL_CREQ_VBLANK_MASK     0x3
+#define SSPP_QOS_CTRL_CREQ_VBLANK_OFF      20
 
 /* SDE_SSPP_SCALER_QSEED2 */
 #define SCALE_CONFIG                       0x04
@@ -470,16 +479,52 @@ void sde_sspp_setup_pa(struct sde_hw_pipe *c)
 {
 }
 
-static void sde_hw_sspp_setup_danger_safe(struct sde_hw_pipe *ctx,
-		u32 danger_lut, u32 safe_lut)
+static void sde_hw_sspp_setup_danger_safe_lut(struct sde_hw_pipe *ctx,
+		struct sde_hw_pipe_qos_cfg *cfg)
 {
 	u32 idx;
 
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
 		return;
 
-	SDE_REG_WRITE(&ctx->hw, SSPP_DANGER_LUT + idx, danger_lut);
-	SDE_REG_WRITE(&ctx->hw, SSPP_SAFE_LUT + idx, safe_lut);
+	SDE_REG_WRITE(&ctx->hw, SSPP_DANGER_LUT + idx, cfg->danger_lut);
+	SDE_REG_WRITE(&ctx->hw, SSPP_SAFE_LUT + idx, cfg->safe_lut);
+}
+
+static void sde_hw_sspp_setup_creq_lut(struct sde_hw_pipe *ctx,
+		struct sde_hw_pipe_qos_cfg *cfg)
+{
+	u32 idx;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	SDE_REG_WRITE(&ctx->hw, SSPP_CREQ_LUT + idx, cfg->creq_lut);
+}
+
+static void sde_hw_sspp_setup_qos_ctrl(struct sde_hw_pipe *ctx,
+		struct sde_hw_pipe_qos_cfg *cfg)
+{
+	u32 idx;
+	u32 qos_ctrl = 0;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	if (cfg->vblank_en) {
+		qos_ctrl |= ((cfg->creq_vblank &
+				SSPP_QOS_CTRL_CREQ_VBLANK_MASK) <<
+				SSPP_QOS_CTRL_CREQ_VBLANK_OFF);
+		qos_ctrl |= ((cfg->danger_vblank &
+				SSPP_QOS_CTRL_DANGER_VBLANK_MASK) <<
+				SSPP_QOS_CTRL_DANGER_VBLANK_OFF);
+		qos_ctrl |= SSPP_QOS_CTRL_VBLANK_EN;
+	}
+
+	if (cfg->danger_safe_en)
+		qos_ctrl |= SSPP_QOS_CTRL_DANGER_SAFE_EN;
+
+	SDE_REG_WRITE(&ctx->hw, SSPP_QOS_CTRL + idx, qos_ctrl);
 }
 
 static void sde_hw_sspp_qseed2_coeff(void *ctx)
@@ -494,7 +539,11 @@ static void _setup_layer_ops(struct sde_hw_sspp_ops *ops,
 		ops->setup_rects = sde_hw_sspp_setup_rects;
 		ops->setup_sourceaddress = sde_hw_sspp_setup_sourceaddress;
 		ops->setup_solidfill = sde_hw_sspp_setup_solidfill;
-		ops->setup_danger_safe = sde_hw_sspp_setup_danger_safe;
+	}
+	if (test_bit(SDE_SSPP_QOS, &features)) {
+		ops->setup_danger_safe_lut = sde_hw_sspp_setup_danger_safe_lut;
+		ops->setup_creq_lut = sde_hw_sspp_setup_creq_lut;
+		ops->setup_qos_ctrl = sde_hw_sspp_setup_qos_ctrl;
 	}
 	if (test_bit(SDE_SSPP_CSC, &features))
 		ops->setup_csc = sde_hw_sspp_setup_csc;
@@ -560,11 +609,6 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	 */
 	if (test_bit(SDE_SSPP_SCALER_QSEED2, &cfg->features))
 		sde_hw_sspp_qseed2_coeff(ctx);
-
-	if (test_bit(SDE_MDP_PANIC_PER_PIPE, &catalog->mdp[0].features))
-		sde_hw_sspp_setup_danger_safe(ctx,
-				cfg->sblk->danger_lut,
-				cfg->sblk->safe_lut);
 
 	return ctx;
 }
