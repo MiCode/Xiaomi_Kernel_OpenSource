@@ -3507,19 +3507,27 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 	if (chip->battery_type && !strcmp(prop.strval, chip->battery_type))
 		return 0;
 
+	chip->battery_type = prop.strval;
 	batt_node = of_parse_phandle(node, "qcom,battery-data", 0);
 	if (!batt_node) {
 		pr_smb(PR_MISC, "No batterydata available\n");
 		return 0;
 	}
 
-	profile_node = of_batterydata_get_best_profile(batt_node,
-							"bms", NULL);
-	if (!profile_node) {
-		pr_err("couldn't find profile handle\n");
-		return -EINVAL;
+	rc = power_supply_get_property(chip->bms_psy,
+			POWER_SUPPLY_PROP_RESISTANCE_ID, &prop);
+	if (rc < 0) {
+		pr_smb(PR_STATUS, "Unable to read battery-id rc=%d\n", rc);
+		return 0;
 	}
-	chip->battery_type = prop.strval;
+
+	profile_node = of_batterydata_get_best_profile(batt_node,
+				prop.intval / 1000, NULL);
+	if (IS_ERR_OR_NULL(profile_node)) {
+		rc = PTR_ERR(profile_node);
+		pr_err("couldn't find profile handle %d\n", rc);
+		return rc;
+	}
 
 	/* change vfloat */
 	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",

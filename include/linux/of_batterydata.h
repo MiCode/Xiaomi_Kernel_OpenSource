@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,10 +39,7 @@ int of_batterydata_read_data(struct device_node *container_node,
  * of_batterydata_get_best_profile() - Find matching battery data device node
  * @batterydata_container_node: pointer to the battery-data container device
  *		node containing the profile nodes.
- * @psy_name: Name of the power supply which holds the
- *		POWER_SUPPLY_RESISTANCE_ID value to be used to match
- *		against the id resistances specified in the corresponding
- *		battery data profiles.
+ * @batt_id_kohm: Battery ID in KOhms for which we want to find the profile.
  * @batt_type: Battery type which we want to force load the profile.
  *
  * This routine returns a device_node pointer to the closest match battery data
@@ -50,7 +47,7 @@ int of_batterydata_read_data(struct device_node *container_node,
  */
 struct device_node *of_batterydata_get_best_profile(
 		struct device_node *batterydata_container_node,
-		const char *psy_name, const char *batt_type);
+		int batt_id_kohm, const char *batt_type);
 #else
 static inline int of_batterydata_read_data(struct device_node *container_node,
 				struct bms_battery_data *batt_data,
@@ -60,7 +57,7 @@ static inline int of_batterydata_read_data(struct device_node *container_node,
 }
 static inline struct device_node *of_batterydata_get_best_profile(
 		struct device_node *batterydata_container_node,
-		struct device_node *best_node, const char *psy_name)
+		int batt_id_kohm, const char *batt_type)
 {
 	return -ENXIO;
 }
