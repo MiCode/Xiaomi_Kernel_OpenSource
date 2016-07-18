@@ -477,11 +477,11 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
 
 	/* get scaler config from user space */
-	/* get scaler config from user space */
-	sc_u = msm_property_get_blob(&psde->property_info,
-			pstate->property_blobs,
-			&sc_u_size,
-			PLANE_PROP_SCALER);
+	if (pstate)
+		sc_u = msm_property_get_blob(&psde->property_info,
+				pstate->property_blobs,
+				&sc_u_size,
+				PLANE_PROP_SCALER);
 	if (sc_u) {
 		switch (sc_u->version) {
 		case SDE_DRM_SCALER_V1:
