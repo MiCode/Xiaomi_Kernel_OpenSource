@@ -300,7 +300,7 @@ enum fg_mem_backup_index {
 
 static struct fg_mem_data fg_backup_regs[FG_BACKUP_MAX] = {
 	/*       ID           Address, Offset, Length, Value*/
-	BACKUP(SOC,		0x560,   0,      28,     -EINVAL),
+	BACKUP(SOC,		0x564,   0,      24,     -EINVAL),
 	BACKUP(CYCLE_COUNT,	0x5E8,   0,      16,     -EINVAL),
 	BACKUP(CC_SOC_COEFF,	0x5BC,   0,      8,     -EINVAL),
 	BACKUP(IGAIN,		0x424,   0,      4,     -EINVAL),
@@ -8215,6 +8215,7 @@ static void ima_error_recovery_work(struct work_struct *work)
 				ima_error_recovery_work);
 	bool tried_again = false;
 	int rc;
+	u8 buf[4] = {0, 0, 0, 0};
 
 	fg_stay_awake(&chip->fg_reset_wakeup_source);
 	mutex_lock(&chip->ima_recovery_lock);
@@ -8339,6 +8340,12 @@ wait:
 		pr_err("fg_restart taking long time rc=%d\n", rc);
 		goto out;
 	}
+
+	rc = fg_mem_write(chip, buf, fg_data[FG_DATA_VINT_ERR].address,
+			fg_data[FG_DATA_VINT_ERR].len,
+			fg_data[FG_DATA_VINT_ERR].offset, 0);
+	if (rc < 0)
+		pr_err("Error in clearing VACT_INT_ERR, rc=%d\n", rc);
 
 	if (fg_debug_mask & FG_STATUS)
 		pr_info("IMA error recovery done...\n");
