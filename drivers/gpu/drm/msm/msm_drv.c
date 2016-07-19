@@ -353,7 +353,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 
 	dev->dev_private = priv;
 
-	priv->wq = alloc_ordered_workqueue("msm", 0);
+	priv->wq = alloc_ordered_workqueue("msm_drm", 0);
 	init_waitqueue_head(&priv->fence_event);
 	init_waitqueue_head(&priv->pending_crtcs_event);
 
@@ -1011,7 +1011,7 @@ static struct drm_driver msm_driver = {
 	.ioctls             = msm_ioctls,
 	.num_ioctls         = DRM_MSM_NUM_IOCTLS,
 	.fops               = &fops,
-	.name               = "msm",
+	.name               = "msm_drm",
 	.desc               = "MSM Snapdragon DRM",
 	.date               = "20130625",
 	.major              = 1,
@@ -1160,7 +1160,7 @@ static struct platform_driver msm_platform_driver = {
 	.probe      = msm_pdev_probe,
 	.remove     = msm_pdev_remove,
 	.driver     = {
-		.name   = "msm",
+		.name   = "msm_drm",
 		.of_match_table = dt_match,
 		.pm     = &msm_pm_ops,
 	},
