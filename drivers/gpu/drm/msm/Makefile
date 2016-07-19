@@ -1,4 +1,5 @@
 ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging
+ccflags-y += -Idrivers/gpu/drm/msm/display-manager
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
@@ -86,7 +87,6 @@ msm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_ctrl.o \
 				dsi-staging/dsi_catalog.o \
 				dsi-staging/dsi_drm.o \
-				dsi-staging/display_manager.o \
 				dsi-staging/dsi_display.o \
 				dsi-staging/dsi_panel.o \
 				dsi-staging/dsi_display_test.o
@@ -110,3 +110,5 @@ obj-$(CONFIG_DRM_MSM) += sde/sde_hw_catalog.o \
 	sde/sde_hw_top.o \
 	sde/sde_hw_interrupts.o \
 	sde/sde_formats.o
+
+obj-$(CONFIG_DRM_MSM) += display-manager/display_manager.o
