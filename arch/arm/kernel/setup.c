@@ -59,7 +59,7 @@
 
 #include "atags.h"
 
-
+int is_tp_driver_loaded = 0;
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
 char fpe_type[8];
 

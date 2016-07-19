@@ -4,6 +4,7 @@
  *  Copyright (C) 2003-2004 Russell King, All Rights Reserved.
  *  SD support Copyright (C) 2004 Ian Molton, All Rights Reserved.
  *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -455,6 +456,8 @@ static int sd_select_driver_type(struct mmc_card *card, u8 *status)
 	return 0;
 }
 
+static unsigned int sd_bus_speed = 0;
+
 static void sd_update_bus_speed_mode(struct mmc_card *card)
 {
 	/*
@@ -468,28 +471,33 @@ static void sd_update_bus_speed_mode(struct mmc_card *card)
 
 	if ((card->host->caps & MMC_CAP_UHS_SDR104) &&
 	    (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR104) &&
-	    (card->host->f_max > UHS_SDR104_MIN_DTR)) {
+	    (card->host->f_max > UHS_SDR104_MIN_DTR) && (sd_bus_speed == 0)) {
 			card->sd_bus_speed = UHS_SDR104_BUS_SPEED;
 	} else if ((card->host->caps & MMC_CAP_UHS_DDR50) &&
 		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_DDR50) &&
-		    (card->host->f_max > UHS_DDR50_MIN_DTR)) {
+		    (card->host->f_max > UHS_DDR50_MIN_DTR) && (sd_bus_speed == 0)) {
 			card->sd_bus_speed = UHS_DDR50_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50)) && (card->sw_caps.sd3_bus_mode &
 		    SD_MODE_UHS_SDR50) &&
-		    (card->host->f_max > UHS_SDR50_MIN_DTR)) {
+		    (card->host->f_max > UHS_SDR50_MIN_DTR) && (sd_bus_speed == 0)) {
 			card->sd_bus_speed = UHS_SDR50_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR25)) &&
 		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR25) &&
-		 (card->host->f_max > UHS_SDR25_MIN_DTR)) {
+		 (card->host->f_max > UHS_SDR25_MIN_DTR) &&
+		 ((sd_bus_speed == UHS_SDR104_BUS_SPEED) ||
+		 (sd_bus_speed == UHS_DDR50_BUS_SPEED) ||
+		 (sd_bus_speed == UHS_SDR50_BUS_SPEED) || (sd_bus_speed == 0))) {
 			card->sd_bus_speed = UHS_SDR25_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR25 |
 		    MMC_CAP_UHS_SDR12)) && (card->sw_caps.sd3_bus_mode &
-		    SD_MODE_UHS_SDR12)) {
+		    SD_MODE_UHS_SDR12) &&
+		    ((sd_bus_speed == UHS_SDR25_BUS_SPEED) || (sd_bus_speed == 0))) {
 			card->sd_bus_speed = UHS_SDR12_BUS_SPEED;
 	}
+	sd_bus_speed = card->sd_bus_speed;
 }
 
 static int sd_set_bus_speed_mode(struct mmc_card *card, u8 *status)
@@ -1220,6 +1228,7 @@ static int mmc_sd_suspend(struct mmc_host *host)
 	if (!mmc_host_is_spi(host))
 		err = mmc_deselect_cards(host);
 	host->card->state &= ~MMC_STATE_HIGHSPEED;
+	sd_bus_speed = 0;
 	mmc_release_host(host);
 
 	return err;
@@ -1254,6 +1263,7 @@ static int mmc_sd_resume(struct mmc_host *host)
 			mmc_power_off(host);
 			usleep_range(5000, 5500);
 			mmc_power_up(host);
+			mmc_delay(200);
 			mmc_select_voltage(host, host->ocr);
 			continue;
 		}
@@ -1397,6 +1407,7 @@ int mmc_attach_sd(struct mmc_host *host)
 			mmc_power_off(host);
 			usleep_range(5000, 5500);
 			mmc_power_up(host);
+			mmc_delay(200);
 			mmc_select_voltage(host, host->ocr);
 			continue;
 		}

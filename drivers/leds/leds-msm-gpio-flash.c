@@ -1,5 +1,6 @@
 
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,11 +53,12 @@ static void led_gpio_brightness_set(struct led_classdev *led_cdev,
 	int flash_en = 0, flash_now = 0;
 
 	if (brightness > LED_HALF) {
-		flash_en = 1;
-		flash_now = 1;
-	} else if (brightness > LED_OFF) {
+
 		flash_en = 1;
 		flash_now = 0;
+	} else if (brightness > LED_OFF) {
+		flash_en = 0;
+		flash_now = 1;
 	} else {
 		flash_en = 0;
 		flash_now = 0;

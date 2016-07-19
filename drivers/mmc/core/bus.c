@@ -26,7 +26,7 @@
 #include "bus.h"
 
 #define to_mmc_driver(d)	container_of(d, struct mmc_driver, drv)
-#define RUNTIME_SUSPEND_DELAY_MS 10000
+#define RUNTIME_SUSPEND_DELAY_MS 200000
 
 static ssize_t mmc_type_show(struct device *dev,
 	struct device_attribute *attr, char *buf)

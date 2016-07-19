@@ -26,13 +26,6 @@
 			qcom,ion-heap-type = "SYSTEM_CONTIG";
 		};
 
-		qcom,ion-heap@8 { /* CP_MM HEAP */
-			compatible = "qcom,msm-ion-reserve";
-			reg = <8>;
-			qcom,heap-align = <0x1000>;
-			linux,contiguous-region = <&secure_mem>;
-			qcom,ion-heap-type = "SECURE_DMA";
-		};
 
 		qcom,ion-heap@27 { /* QSEECOM HEAP */
 			compatible = "qcom,msm-ion-reserve";

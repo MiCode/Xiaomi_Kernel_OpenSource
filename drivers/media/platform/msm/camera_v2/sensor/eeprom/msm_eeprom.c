@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +27,7 @@
 #endif
 
 DEFINE_MSM_MUTEX(msm_eeprom_mutex);
-
+int mid;
 
 
 /**
@@ -338,6 +339,17 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 			if (rc < 0) {
 				pr_err("%s: read failed\n", __func__);
 				return rc;
+			}
+			if (3 == j || 6 == j || 9 == j) {
+				if (64 == memptr[0] && emap[j].mem.addr == 0x3D00) {
+					mid = memptr[1];
+					if (3 == j)
+						printk("group1 is valid and mid is %d\n", mid);
+					else if (6 == j)
+						printk("group2 is valid and mid is %d\n", mid);
+					else
+						printk("group3 is valid and mid is %d\n", mid);
+				}
 			}
 			memptr += emap[j].mem.valid_size;
 		}

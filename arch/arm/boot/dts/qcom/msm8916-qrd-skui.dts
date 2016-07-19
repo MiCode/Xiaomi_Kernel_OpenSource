@@ -29,10 +29,30 @@
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <62 8>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&smb_int_default>;
+			pinctrl-0 = <&smb_int_default &board_id_default>;
 			qcom,chg-inhibit-disabled;
+
+			qcom,batt-profile-select;
+			qcom,shdn-after-pwroff;
+			qcom,rsense-10mhom;
+			qcom,smb1360-vadc = <&pm8916_vadc>;
+			qcom,batt-id-vref-uv = <1800000>;
+			qcom,batt-id-rpullup-kohm = <68>;
+			qcom,profile-a-rid-kohm = <10>;
+			qcom,profile-b-rid-kohm = <200>;
+			qcom,id = <&msm_gpio 49 0x0>;
+			qcom,fg-batt-capacity-mah = <3100>;
+			qcom,fg-cc-soc-coeff = <0x8149>;
+			qcom,fg-delta-soc = <1>;
+			qcom,fg-cutoff-voltage-mv = <3400>;
+			qcom,fg-iterm-ma = <100>;
+			qcom,fg-ibatt-standby-ma = <200>;
+			qcom,fg-cc-to-cv-mv = <4328>;
+			qcom,thermistor-c1-coeff = <0x85D2>;
+
 			qcom,float-voltage-mv = <4350>;
-			qcom,iterm-ma = <200>;
+			qcom,iterm-ma = <100>;
+			qcom,otg-batt-curr-limit = <1500>;
 			qcom,recharge-thresh-mv = <100>;
 			qcom,thermal-mitigation = <1500 700 600 0>;
 			qcom,fg-auto-recharge-soc = <99>;
@@ -41,50 +61,65 @@
 	};
 
 	i2c@78b9000 { /* BLSP1 QUP5 */
-		focaltech@38 {
-			compatible = "focaltech,5x06";
-			reg = <0x38>;
+		atmel@4a{
+			compatible = "atmel,mxt-ts-1";
+			reg = <0x4a>;
 			interrupt-parent = <&msm_gpio>;
-			interrupts = <13 0x2008>;
-			vdd-supply = <&pm8916_l17>;
+			interrupts = <13 0x2>;
 			vcc_i2c-supply = <&pm8916_l6>;
 			/* pins used by touchscreen */
-			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
-			pinctrl-0 = <&ts_int_active &ts_reset_active>;
-			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-			pinctrl-2 = <&ts_release>;
-			focaltech,name = "ft6436";
-			focaltech,family-id = <0x36>;
-			focaltech,reset-gpio = <&msm_gpio 12 0x0>;
-			focaltech,irq-gpio = <&msm_gpio 13 0x2008>;
-			focaltech,display-coords = <0 0 480 854>;
-			focaltech,panel-coords = <0 0 480 950>;
-			focaltech,button-map= <139 102 158>;
-			focaltech,no-force-update;
-			focaltech,i2c-pull-up;
-			focaltech,group-id = <1>;
-			focaltech,hard-reset-delay-ms = <20>;
-			focaltech,soft-reset-delay-ms = <200>;
-			focaltech,num-max-touches = <5>;
-			focaltech,fw-delay-aa-ms = <30>;
-			focaltech,fw-delay-55-ms = <30>;
-			focaltech,fw-upgrade-id1 = <0x79>;
-			focaltech,fw-upgrade-id2 = <0x18>;
-			focaltech,fw-delay-readid-ms = <10>;
-			focaltech,fw-delay-era-flsh-ms = <2000>;
-			focaltech,fw-auto-cal;
-			focaltech,ignore-id-check;
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active &ts_power_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend &ts_power_suspend>;
+			atmel,family-id = <0x82>;
+			atmel,reset-gpio = <&msm_gpio 12 0x0>;
+			atmel,power_ldo-gpio = <&msm_gpio 32 0x0>;
+			atmel,irq-gpio = <&msm_gpio 13 0x2008>; //IRQF_TRIGGER_LOW
+			atmel,display-coords = <0 0 720 1280>;
+			atmel,panel-coords = <0 0 720 1280>;
+			atmel,button-map= <158 102 139>;
+			atmel,no-force-update;
+			atmel,i2c-pull-up;
+		};
+        ist30xx@50{
+			compatible = "ist30xx";
+			reg = <0x50>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2002>;
+			vcc_i2c-supply = <&pm8916_l6>;
+
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active &ts_power_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend &ts_power_suspend>;
+			ist30xx,family-id = <0x82>;
+			ist30xx,reset-gpio = <&msm_gpio 12 0x0>;
+			ist30xx,power-gpio = <&msm_gpio 32 0x0>;
+			ist30xx,irq-gpio = <&msm_gpio 13 0x2002>;
+			ist30xx,irqflags = <0x2002>;
+			ist30xx,max-x = <720>;
+			ist30xx,max-y = <1280>;
+			ist30xx,max-w = <200>;
+			ist30xx,key-num = <3>;
+			ist30xx,config-array-size = <1>;
+			ist30xx,i2c-pull-up;
+			ist30xx,cfg_0{
+			ist30xx,tsp-type = <0xf>;
+			ist30xx,tsp-name = "WINTEK";
+			ist30xx,key-code = <158 172 139>;
+			ist30xx,cmcs-name = "imagis/ist30xx.cms";
+			ist30xx,fw-name = "imagis/ist30xx.fw";
+			};
 		};
 	};
 
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
 		label = "ft5x06_ts";
-		qcom,disp-maxx = <480>;
-		qcom,disp-maxy = <854>;
-		qcom,panel-maxx = <480>;
-		qcom,panel-maxy = <946>;
-		qcom,key-codes = <139 172 158>;
+		qcom,disp-maxx = <720>;
+		qcom,disp-maxy = <1280>;
+		qcom,panel-maxx = <720>;
+		qcom,panel-maxy = <1600>;
+		qcom,key-codes = <139 102 158>;
 		qcom,y-offset = <0>;
 	};
 };
@@ -102,6 +137,7 @@
 &usb_otg {
 	qcom,hsusb-otg-mode = <3>;
 	qcom,usbid-gpio = <&msm_gpio 110 0>;
+	qcom,usbid-switch = <&msm_gpio 38 0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&usbid_default>;
 	vbus_otg-supply = <&smb1360_otg_supply>;

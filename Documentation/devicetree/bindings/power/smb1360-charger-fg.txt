@@ -101,6 +101,9 @@ Optional Properties:
 				from battery when device working at OTG mode.
 				The possible values are: 350, 550, 950, 1500mA.
 - qcom,fg-auto-recharge-soc	This property defines the auto recharging SOC threshold.
+- qcom,rsense-10mhom		A bool property to indicate the Rsense resistor
+				configuraton. If set, the Rsense is 10mOhm else
+				its 20mOhm.
 
 Example:
 	i2c@f9967000 {

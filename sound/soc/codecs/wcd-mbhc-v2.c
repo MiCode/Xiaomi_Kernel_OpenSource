@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,8 +41,7 @@
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
 			   SND_JACK_UNSUPPORTED)
 #define WCD_MBHC_JACK_BUTTON_MASK (SND_JACK_BTN_0 | SND_JACK_BTN_1 | \
-				  SND_JACK_BTN_2 | SND_JACK_BTN_3 | \
-				  SND_JACK_BTN_4)
+				  SND_JACK_BTN_2)
 #define OCP_ATTEMPT 1
 #define HS_DETECT_PLUG_TIME_MS (3 * 1000)
 #define SPECIAL_HS_DETECT_TIME_MS (2 * 1000)
@@ -234,8 +234,8 @@ static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc)
 		fine = ((btn_det->_v_btn_high[i] % 100) / 12);
 		reg_val = (course << 5) | (fine << 2);
 		snd_soc_update_bits(codec, reg_addr, 0xFC, reg_val);
-		pr_debug("%s: course: %d fine: %d reg_addr: %x reg_val: %x\n",
-				__func__, course, fine, reg_addr, reg_val);
+		pr_debug("%s: course: %d fine: %d reg_addr: %x reg_val: %x v_btn_high: %d \n",
+				__func__, course, fine, reg_addr, reg_val, btn_det->_v_btn_high[i]);
 		reg_addr++;
 	}
 }
@@ -1048,7 +1048,7 @@ exit:
 	if (plug_type == MBHC_PLUG_TYPE_HEADSET ||
 			plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
 		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
-		wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
+
 	} else
 		wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 	pr_debug("%s: leave\n", __func__);
@@ -1223,6 +1223,7 @@ static int wcd_mbhc_get_button_mask(u16 btn)
 	default:
 		break;
 	}
+	pr_debug("%s : mask = %d, btn = %d \n", __func__, mask, btn);
 	return mask;
 }
 
@@ -1438,8 +1439,8 @@ irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_LOCK(mbhc);
 	/* send event to sw intr handler*/
-	mbhc->is_btn_press = true;
-	wake_up_interruptible(&mbhc->wait_btn_press);
+
+
 	if (wcd_swch_level_remove(mbhc)) {
 		pr_debug("%s: Switch level is low ", __func__);
 		goto done;
@@ -1471,14 +1472,18 @@ irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 				__func__);
 		goto done;
 	}
+	mbhc->is_btn_press = true;
+	wake_up_interruptible(&mbhc->wait_btn_press);
 	result1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
 	mask = wcd_mbhc_get_button_mask(result1);
 	mbhc->buttons_pressed |= mask;
-	wcd9xxx_spmi_lock_sleep();
-	if (schedule_delayed_work(&mbhc->mbhc_btn_dwork,
+	if (mbhc->buttons_pressed & WCD_MBHC_JACK_BUTTON_MASK) {
+		wcd9xxx_spmi_lock_sleep();
+		if (schedule_delayed_work(&mbhc->mbhc_btn_dwork,
 				msecs_to_jiffies(400)) == 0) {
-		WARN(1, "Button pressed twice without release event\n");
-		wcd9xxx_spmi_unlock_sleep();
+			WARN(1, "Button pressed twice without release event\n");
+			wcd9xxx_spmi_unlock_sleep();
+		}
 	}
 done:
 	pr_debug("%s: leave\n", __func__);
@@ -1744,6 +1749,14 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		ret = snd_jack_set_key(mbhc->button_jack.jack,
 				       SND_JACK_BTN_0,
 				       KEY_MEDIA);
+
+		ret = ret & snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_1,
+				       KEY_NEXTSONG);
+		ret = ret & snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_2,
+				       KEY_PREVIOUSSONG);
+
 		if (ret) {
 			pr_err("%s: Failed to set code for btn-0\n",
 				__func__);

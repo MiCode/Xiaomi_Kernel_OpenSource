@@ -165,7 +165,7 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 	243273344, 244321936, 245370528, 246419120};
 
 static int mdss_mdp_hscl_filter[] = {
-	0, 0,  0, 512,  0,  0, 0, 0,
+	0, 0, 0, 512, 0, 0, 0, 0,
 	-1, 4, -13, 511, 14, -4, 1, 0,
 	-2, 8, -25, 509, 30, -9, 2, -1,
 	-3, 11, -36, 505, 46, -14, 4, -1,
@@ -2780,7 +2780,7 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 		argc_addr = mdss_mdp_get_mixer_addr_off(dspp_num) +
 			MDSS_MDP_REG_LM_GC_LUT_BASE;
 		pgc_ptr = &mdss_pp_res->argc_disp_cfg[disp_num];
-		if (config->flags & MDP_PP_OPS_WRITE)
+		if (!(config->flags & MDP_PP_OPS_READ))
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 				PP_FLAGS_DIRTY_ARGC;
 		break;
@@ -2788,7 +2788,7 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 		argc_addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
 					MDSS_MDP_REG_DSPP_GC_BASE;
 		pgc_ptr = &mdss_pp_res->pgc_disp_cfg[disp_num];
-		if (config->flags & MDP_PP_OPS_WRITE)
+		if (!(config->flags & MDP_PP_OPS_READ))
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 				PP_FLAGS_DIRTY_PGC;
 		break;

@@ -209,7 +209,7 @@ static struct device_attribute sensors_class_attrs[] = {
 	__ATTR(fifo_max_event_count, 0444, sensors_fifo_max_show, NULL),
 	__ATTR(enable, 0664, sensors_enable_show, sensors_enable_store),
 	__ATTR(poll_delay, 0664, sensors_delay_show, sensors_delay_store),
-	__ATTR(self_test, 0440, sensors_test_show, NULL),
+	__ATTR(self_test, 0444, sensors_test_show, NULL),
 	__ATTR_NULL,
 };
 

@@ -567,6 +567,12 @@ config HAPTIC_ISA1200
 	help
 	  The ISA1200 is a high performance enhanced haptic driver.
 
+config ISA1000_VIBRATOR
+	tristate "ISA1000 haptic vibrator support"
+	default n
+	help
+	  The ISA1000 is a high performance enhanced haptic driver.
+
 config QSEECOM
 	tristate "Qualcomm Secure Execution Communicator driver"
 	help
@@ -629,4 +635,5 @@ source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/mei/Kconfig"
 source "drivers/misc/vmw_vmci/Kconfig"
 source "drivers/misc/qcom/Kconfig"
+source "drivers/misc/tspdrv/Kconfig"
 endmenu

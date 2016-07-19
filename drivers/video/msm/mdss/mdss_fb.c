@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2007 Google Incorporated
  * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -52,6 +53,7 @@
 #include <linux/msm_iommu_domains.h>
 #include <mach/msm_memtypes.h>
 
+#include "mdss_dsi.h"
 #include "mdss_fb.h"
 #include "mdss_mdp_splash_logo.h"
 
@@ -481,6 +483,68 @@ static int mdss_fb_lpm_enable(struct msm_fb_data_type *mfd, int mode)
 	return 0;
 }
 
+extern void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+			struct dsi_panel_cmds *pcmds);
+static ssize_t mdss_fb_set_dispparam(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	struct mdss_panel_data *pdata;
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+	int rc = 0;
+	int param = 0;
+	int temp;
+
+	rc = kstrtoint(buf, 10, &param);
+	if (rc) {
+		pr_err("kstrtoint failed. rc=%d\n", rc);
+		return rc;
+	}
+	pr_info("cmd: %d\n", param);
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	temp = param & 0x000000F0;
+	switch (temp) {
+	case 0x10:
+		if (ctrl->ceon_cmds.cmd_cnt) {
+			pr_info("enable ce: %d\n", ctrl->ceon_cmds.cmd_cnt);
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->ceon_cmds);
+		}
+		break;
+	case 0xF0:
+		if (ctrl->ceoff_cmds.cmd_cnt) {
+			pr_info("enable off:%d\n", ctrl->ceoff_cmds.cmd_cnt);
+				mdss_dsi_panel_cmds_send(ctrl, &ctrl->ceoff_cmds);
+		}
+		break;
+	default:
+		break;
+	}
+	temp = param & 0x0000000F;
+	switch (temp) {
+	case 0x1:
+		if (ctrl->warm_cmds.cmd_cnt)
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->warm_cmds);
+		break;
+	case 0x2:
+		if (ctrl->default_cmds.cmd_cnt)
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->default_cmds);
+		break;
+	case 0x3:
+		if (ctrl->cold_cmds.cmd_cnt)
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->cold_cmds);
+		break;
+	default:
+		pr_err("unknow cmds: %d\n", param);
+		break;
+	}
+
+
+	return count;
+}
+
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO, mdss_fb_get_split, NULL);
 static DEVICE_ATTR(show_blank_event, S_IRUGO, mdss_mdp_show_blank_event, NULL);
@@ -488,6 +552,7 @@ static DEVICE_ATTR(idle_time, S_IRUGO | S_IWUSR | S_IWGRP,
 	mdss_fb_get_idle_time, mdss_fb_set_idle_time);
 static DEVICE_ATTR(idle_notify, S_IRUGO, mdss_fb_get_idle_notify, NULL);
 static DEVICE_ATTR(msm_fb_panel_info, S_IRUGO, mdss_fb_get_panel_info, NULL);
+static DEVICE_ATTR(msm_fb_dispparam, 0644, NULL, mdss_fb_set_dispparam);
 
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
@@ -496,6 +561,7 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_idle_time.attr,
 	&dev_attr_idle_notify.attr,
 	&dev_attr_msm_fb_panel_info.attr,
+	&dev_attr_msm_fb_dispparam.attr,
 	NULL,
 };
 

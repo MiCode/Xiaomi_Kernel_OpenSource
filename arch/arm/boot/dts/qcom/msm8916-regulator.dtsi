@@ -140,7 +140,7 @@
 		status = "okay";
 		pm8916_s3: regulator-s3 {
 			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1300000>;
+			regulator-max-microvolt = <1350000>;
 			qcom,init-voltage = <1200000>;
 			status = "okay";
 		};

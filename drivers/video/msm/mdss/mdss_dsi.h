@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,6 +80,7 @@ enum dsi_panel_bl_ctrl {
 	BL_PWM,
 	BL_WLED,
 	BL_DCS_CMD,
+	BL_GPIO,
 	UNKNOWN_CTRL,
 };
 
@@ -285,6 +287,7 @@ struct mdss_dsi_ctrl_pdata {
 	int bklt_ctrl;	/* backlight ctrl */
 	int pwm_period;
 	int pwm_pmic_gpio;
+	int pulse_gpio;
 	int pwm_lpg_chan;
 	int bklt_max;
 	int new_fps;
@@ -301,6 +304,14 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds off_cmds;
 	struct dsi_panel_cmds status_cmds;
+
+	struct dsi_panel_cmds ceon_cmds;
+	struct dsi_panel_cmds ceoff_cmds;
+	struct dsi_panel_cmds warm_cmds;
+	struct dsi_panel_cmds cold_cmds;
+	struct dsi_panel_cmds default_cmds;
+
+
 	u32 status_value;
 
 	struct dsi_panel_cmds video2cmd;

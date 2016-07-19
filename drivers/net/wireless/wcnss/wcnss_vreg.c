@@ -79,7 +79,7 @@ struct vregs_info {
 /* IRIS regulators for Riva hardware */
 static struct vregs_info iris_vregs_riva[] = {
 	{"iris_vddxo",  VREG_NULL_CONFIG, 1800000, 0, 1800000, 10000,  NULL},
-	{"iris_vddrfa", VREG_NULL_CONFIG, 1300000, 0, 1300000, 100000, NULL},
+	{"iris_vddrfa", VREG_NULL_CONFIG, 1350000, 0, 1350000, 100000, NULL},
 	{"iris_vddpa",  VREG_NULL_CONFIG, 2900000, 0, 3000000, 515000, NULL},
 	{"iris_vdddig", VREG_NULL_CONFIG, 1200000, 0, 1225000, 10000,  NULL},
 };
@@ -96,8 +96,8 @@ static struct vregs_info riva_vregs[] = {
 static struct vregs_info iris_vregs_pronto[] = {
 	{"qcom,iris-vddxo",  VREG_NULL_CONFIG, 1800000, 0,
 		1800000, 10000,  NULL},
-	{"qcom,iris-vddrfa", VREG_NULL_CONFIG, 1300000, 0,
-		1300000, 100000, NULL},
+	{"qcom,iris-vddrfa", VREG_NULL_CONFIG, 1350000, 0,
+		1350000, 100000, NULL},
 	{"qcom,iris-vddpa",  VREG_NULL_CONFIG, 2900000, 0,
 		3000000, 515000, NULL},
 	{"qcom,iris-vdddig", VREG_NULL_CONFIG, 1225000, 0,
@@ -119,8 +119,8 @@ static struct vregs_info pronto_vregs[] = {
 static struct vregs_info iris_vregs_pronto_v2[] = {
 	{"qcom,iris-vddxo",  VREG_NULL_CONFIG, 1800000, 0,
 		1800000, 10000,  NULL},
-	{"qcom,iris-vddrfa", VREG_NULL_CONFIG, 1300000, 0,
-		1300000, 100000, NULL},
+	{"qcom,iris-vddrfa", VREG_NULL_CONFIG, 1350000, 0,
+		1350000, 100000, NULL},
 	{"qcom,iris-vddpa",  VREG_NULL_CONFIG, 3300000, 0,
 		3300000, 515000, NULL},
 	{"qcom,iris-vdddig", VREG_NULL_CONFIG, 1800000, 0,

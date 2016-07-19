@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -248,7 +249,7 @@
 			label = "sdc2-cmd";
 			sdc2_cmd_on: cmd_on {
 				bias-pull-up; /* pull up */
-				drive-strength = <10>; /* 10 MA */
+				drive-strength = <14>; /* 10 MA */
 			};
 			sdc2_cmd_off: cmd_off {
 				bias-pull-up; /* pull up */
@@ -262,7 +263,7 @@
 			label = "sdc2-data";
 			sdc2_data_on: data_on {
 				bias-pull-up; /* pull up */
-				drive-strength = <10>; /* 10 MA */
+				drive-strength = <14>; /* 10 MA */
 			};
 			sdc2_data_off: data_off {
 				bias-pull-up; /* pull up */
@@ -1159,6 +1160,29 @@
 			};
 		};
 
+		pmx_ts_power_active {
+			qcom,pins = <&gp 32>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_power_active";
+
+			ts_power_active: ts_power_active {
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_ts_power_suspend {
+			qcom,pins = <&gp 32>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_power_suspend";
+
+			ts_power_suspend: ts_power_suspend {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
 		cci0_pinmux {
 			/* CLK, DATA */
 			qcom,pins = <&gp 29>, <&gp 30>;
@@ -1327,6 +1351,17 @@
 			};
 		};
 
+		board_id_pin {
+			qcom,pins = <&gp 49>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "board_id_gpio";
+			board_id_default: board_id_default {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-down;		/* PULL DOWN*/
+			};
+		};
+
 		button_backlight_pin {
 			qcom,pins = <&gp 119>;
 			qcom,num-grp-pins = <1>;
@@ -1353,6 +1388,20 @@
 			};
 		};
 
+		ltr559_int_pin {
+			qcom,pins = <&gp 113>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "ltr559-irq";
+			ltr_default: ltr_default {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+			ltr_sleep: ltr_sleep {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
 		apds99xx_int_pin {
 			qcom,pins = <&gp 113>;
 			qcom,pin-func = <0>;
@@ -1367,16 +1416,16 @@
 				bias-pull-down;
 			};
 		};
-		ak8963_int_pin {
+		akm09911_rstn_pin {
 			qcom,pins = <&gp 69>;
 			qcom,pin-func = <0>;
 			qcom,num-grp-pins = <1>;
-			label = "ak8963-irq";
-			ak8963_default: ak8963_default {
+			label = "akm09911-rstn";
+			akm09911_default: akm09911_default {
 				drive-strength = <6>;
 				bias-pull-up;
 			};
-			ak8963_sleep: ak8963_sleep {
+			akm09911_sleep: akm09911_sleep {
 				drive-strength = <2>;
 				bias-pull-down;
 			};

@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2014, Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,7 +92,7 @@ module_param(lpm_disconnect_thresh , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(lpm_disconnect_thresh,
 	"Delay before entering LPM on USB disconnect");
 
-static bool floated_charger_enable;
+static bool floated_charger_enable = true;
 module_param(floated_charger_enable , bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(floated_charger_enable,
 	"Whether to enable floated charger");
@@ -4541,6 +4542,10 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	if (pdata->usb_id_gpio < 0)
 		pr_debug("usb_id_gpio is not available\n");
 
+	pdata->usbid_switch_gpio = of_get_named_gpio(node, "qcom,usbid-switch", 0);
+	if (pdata->usbid_switch_gpio < 0)
+		pr_debug("usbid_switch_gpio is not available\n");
+
 	pdata->l1_supported = of_property_read_bool(node,
 				"qcom,hsusb-l1-supported");
 	pdata->enable_ahb2ahb_bypass = of_property_read_bool(node,
@@ -4942,6 +4947,18 @@ static int msm_otg_probe(struct platform_device *pdev)
 		motg->pdata->otg_control == OTG_PMIC_CONTROL) {
 
 		if (gpio_is_valid(motg->pdata->usb_id_gpio)) {
+			if (gpio_is_valid(motg->pdata->usbid_switch_gpio)) {
+				ret = gpio_request(motg->pdata->usbid_switch_gpio,
+								"USBID_SIWTCH_GPIO");
+				if (ret == 0) {
+					gpio_direction_output(pdata->usbid_switch_gpio, 1);
+					gpio_set_value(pdata->usbid_switch_gpio, 1);
+				} else {
+					dev_err(&pdev->dev, "gpio req failed for USBID_SIWTCH_GPIO\n");
+					motg->pdata->usbid_switch_gpio = 0;
+				}
+			}
+
 			/* usb_id_gpio request */
 			ret = gpio_request(motg->pdata->usb_id_gpio,
 							"USB_ID_GPIO");

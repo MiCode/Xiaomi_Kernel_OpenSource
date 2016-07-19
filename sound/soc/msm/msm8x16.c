@@ -1,4 +1,5 @@
  /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1069,15 +1070,15 @@ static void *def_msm8x16_wcd_mbhc_cal(void)
 	btn_high = btn_cfg->_v_btn_high;
 
 	btn_low[0] = 0;
-	btn_high[0] = 25;
-	btn_low[1] = 25;
-	btn_high[1] = 50;
-	btn_low[2] = 50;
-	btn_high[2] = 75;
-	btn_low[3] = 75;
-	btn_high[3] = 112;
-	btn_low[4] = 112;
-	btn_high[4] = 137;
+	btn_high[0] = 50;
+	btn_low[1] = 50;
+	btn_high[1] = 200;
+	btn_low[2] = 200;
+	btn_high[2] = 500;
+	btn_low[3] = 500;
+	btn_high[3] = 512;
+	btn_low[4] = 512;
+	btn_high[4] = 524;
 
 	return msm8x16_wcd_cal;
 }

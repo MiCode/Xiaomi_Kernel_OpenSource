@@ -360,6 +360,20 @@ config LEDS_REGULATOR
 	help
 	  This option enables support for regulator driven LEDs.
 
+config LEDS_AW2013
+	tristate "LED driver for AW2013 RGB LED"
+	depends on LEDS_CLASS
+	depends on REGULATOR
+	help
+	  This option enables support for AW2013 RGB LED driver chips
+	  accessed via the I2C bus.
+
+config SET_AW2013_VCC_AND_NOT_PULLDWN
+	bool "SET VCC for aw2013 and not pull down"
+	depends on LEDS_AW2013
+	help
+	  This option enables support for set vdd
+
 config LEDS_BD2802
 	tristate "LED driver for BD2802 RGB LED"
 	depends on LEDS_CLASS

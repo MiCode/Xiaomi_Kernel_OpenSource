@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -462,6 +463,7 @@ rtc_alarm_handled:
 	return IRQ_HANDLED;
 }
 
+extern void rtc_sysfs_add_device(struct rtc_device *rtc);
 static int qpnp_rtc_probe(struct spmi_device *spmi)
 {
 	int rc;
@@ -605,6 +607,8 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 
 	device_init_wakeup(&spmi->dev, 1);
 	enable_irq_wake(rtc_dd->rtc_alarm_irq);
+
+	rtc_sysfs_add_device(rtc_dd->rtc);
 
 	dev_dbg(&spmi->dev, "Probe success !!\n");
 

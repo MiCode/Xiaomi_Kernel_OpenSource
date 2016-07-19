@@ -350,6 +350,13 @@ config BATTERY_MSM_FAKE
 	help
 	  Say Y to bypass actual battery queries.
 
+config BATTERY_BQ2022A
+	tristate "bq2022a battery"
+	depends on ARCH_MSM
+	default n
+	help
+	  Say Y to enable BQ2022A battery.
+
 config SMB137C_CHARGER
 	tristate "Summit SMB137C Battery Charger"
 	depends on I2C

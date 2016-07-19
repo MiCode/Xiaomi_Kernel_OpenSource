@@ -100,6 +100,18 @@ config TOUCHSCREEN_ATMEL_MXT
 	  To compile this driver as a module, choose M here: the
 	  module will be called atmel_mxt_ts.
 
+config TOUCHSCREEN_IMAGIS
+	tristate "Imagis I2C Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have Imagis series I2C touchscreen,
+	  such as ist30xx, connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ist30xx.
+
 config TOUCHSCREEN_ATMEL_MAXTOUCH_TS
 	tristate "Atmel Maxtouch Touchscreen Family"
 	depends on I2C
