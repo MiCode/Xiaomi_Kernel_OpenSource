@@ -111,6 +111,7 @@
 #define PMIC_MPP_CONF_ANALOG_LEVEL		(PIN_CONFIG_END + 2)
 #define PMIC_MPP_CONF_DTEST_SELECTOR		(PIN_CONFIG_END + 3)
 #define PMIC_MPP_CONF_PAIRED			(PIN_CONFIG_END + 4)
+#define PMIC_MPP_CONF_DTEST_BUFFER		(PIN_CONFIG_END + 5)
 
 /**
  * struct pmic_mpp_pad - keep current MPP settings
@@ -129,6 +130,7 @@
  * @function: See pmic_mpp_functions[].
  * @drive_strength: Amount of current in sink mode
  * @dtest: DTEST route selector
+ * @dtest_buffer: the DTEST buffer selection for digital input mode
  */
 struct pmic_mpp_pad {
 	u16		base;
@@ -146,6 +148,7 @@ struct pmic_mpp_pad {
 	unsigned int	function;
 	unsigned int	drive_strength;
 	unsigned int	dtest;
+	unsigned int	dtest_buffer;
 };
 
 struct pmic_mpp_state {
@@ -160,6 +163,7 @@ static const struct pinconf_generic_params pmic_mpp_bindings[] = {
 	{"qcom,analog-level",	PMIC_MPP_CONF_ANALOG_LEVEL,	0},
 	{"qcom,dtest",		PMIC_MPP_CONF_DTEST_SELECTOR,	0},
 	{"qcom,paired",		PMIC_MPP_CONF_PAIRED,		0},
+	{"qcom,dtest-buffer",	PMIC_MPP_CONF_DTEST_BUFFER,	0},
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -168,6 +172,7 @@ static const struct pin_config_item pmic_conf_items[] = {
 	PCONFDUMP(PMIC_MPP_CONF_ANALOG_LEVEL, "analog level", NULL, true),
 	PCONFDUMP(PMIC_MPP_CONF_DTEST_SELECTOR, "dtest", NULL, true),
 	PCONFDUMP(PMIC_MPP_CONF_PAIRED, "paired", NULL, false),
+	PCONFDUMP(PMIC_MPP_CONF_DTEST_BUFFER, "dtest buffer", NULL, true),
 };
 #endif
 
@@ -397,6 +402,9 @@ static int pmic_mpp_config_get(struct pinctrl_dev *pctldev,
 	case PMIC_MPP_CONF_ANALOG_LEVEL:
 		arg = pad->aout_level;
 		break;
+	case PMIC_MPP_CONF_DTEST_BUFFER:
+		arg = pad->dtest_buffer;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -475,6 +483,15 @@ static int pmic_mpp_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 		case PMIC_MPP_CONF_PAIRED:
 			pad->paired = !!arg;
 			break;
+		case PMIC_MPP_CONF_DTEST_BUFFER:
+			/*
+			 * 0xf is the max value which selects
+			 * 4 dtest rails simultaneously
+			 */
+			if (arg > 0xf)
+				return -EINVAL;
+			pad->dtest_buffer = arg;
+			break;
 		default:
 			return -EINVAL;
 		}
@@ -483,6 +500,11 @@ static int pmic_mpp_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 	val = pad->power_source << PMIC_MPP_REG_VIN_SHIFT;
 
 	ret = pmic_mpp_write(state, pad, PMIC_MPP_REG_DIG_VIN_CTL, val);
+	if (ret < 0)
+		return ret;
+
+	val = pad->dtest_buffer;
+	ret = pmic_mpp_write(state, pad, PMIC_MPP_REG_DIG_IN_CTL, val);
 	if (ret < 0)
 		return ret;
 
@@ -559,6 +581,8 @@ static void pmic_mpp_config_dbg_show(struct pinctrl_dev *pctldev,
 			seq_printf(s, " dtest%d", pad->dtest);
 		if (pad->paired)
 			seq_puts(s, " paired");
+		if (pad->dtest_buffer)
+			seq_printf(s, " dtest buffer %d", pad->dtest_buffer);
 	}
 }
 
@@ -766,6 +790,12 @@ static int pmic_mpp_populate(struct pmic_mpp_state *state,
 
 	pad->power_source = val >> PMIC_MPP_REG_VIN_SHIFT;
 	pad->power_source &= PMIC_MPP_REG_VIN_MASK;
+
+	val = pmic_mpp_read(state, pad, PMIC_MPP_REG_DIG_IN_CTL);
+	if (val < 0)
+		return val;
+
+	pad->dtest_buffer = val;
 
 	val = pmic_mpp_read(state, pad, PMIC_MPP_REG_DIG_PULL_CTL);
 	if (val < 0)
