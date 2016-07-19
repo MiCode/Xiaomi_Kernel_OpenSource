@@ -10,6 +10,11 @@ Required properties :
 	"hs_phy_irq" : Interrupt from HS PHY for asynchronous events in LPM.
 	"pwr_event_irq" : Interrupt to controller for asynchronous events in LPM.
 	Used for SS-USB power events.
+ - clocks: a list of phandles to the controller clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. Required clocks are "xo", "iface_clk", "core_clk", "sleep_clk"
+   and "utmi_clk".
 
 Optional properties :
 - reg: Additional registers
@@ -27,6 +32,10 @@ Optional properties :
 - interrupt-names : Optional interrupt resource entries are:
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
     "ss_phy_irq"  : Interrupt from super speed phy for wake up notification.
+ - clocks: a list of phandles to the controller clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. Optional clocks are "bus_aggr_clk" and "cfg_ahb_clk".
 - qcom,charging-disabled: If present then battery charging using USB
   is disabled.
 - vbus_dwc3-supply: phandle to the 5V VBUS supply regulator used for host mode.
@@ -77,6 +86,18 @@ Example MSM USB3.0 controller device node :
 		qcom,msm_bus,vectors =
 				<61 512 0 0>,
 				<61 512 240000000 960000000>;
+
+		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
+			<&clock_gcc clk_gcc_cfg_noc_usb3_axi_clk>,
+			<&clock_gcc clk_gcc_aggre1_usb3_axi_clk>,
+			<&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
+			<&clock_gcc clk_gcc_usb30_sleep_clk>,
+			<&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+			<&clock_gcc clk_cxo_dwc3_clk>;
+
+		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
+				"utmi_clk", "sleep_clk", "cfg_ahb_clk", "xo";
+
 		dwc3@f9200000 {
 			compatible = "synopsys,dwc3";
 			reg = <0xf9200000 0xfc000>;
