@@ -414,48 +414,48 @@ static const unsigned int a5xx_registers[] = {
 	0xB000, 0xB97F, 0xB9A0, 0xB9BF,
 };
 
-/*
- * The HLSQ registers can only be read via the crash dumper (not AHB) so they
- * need to be in their own array because the array above does double duty for
- * the fallback path too
- */
-static const unsigned int a5xx_hlsq_registers[] = {
-	/* SP non context */
-	0x0EC0, 0xEC2, 0xED0, 0xEE0, 0xEF0, 0xEF2, 0xEFA, 0xEFF,
-	/* SP CTX 0 2D */
-	0x2040, 0x2040,
-	/* SP CTX 1 2D */
-	0x2440, 0x2440,
-	/* SP CTXT 0 3D */
-	0xE580, 0xE580, 0xE584, 0xE58B, 0xE590, 0xE5B1, 0xE5C0, 0xE5DF,
-	0xE5F0, 0xE5F9, 0xE600, 0xE608, 0xE610, 0xE631, 0xE640, 0xE661,
-	0xE670, 0xE673, 0xE6F0, 0xE6F0,
-	/* SP CTXT 1 3D */
-	0xED80, 0xED80, 0xED84, 0xED8B, 0xED90, 0xEDB1, 0xEDC0, 0xEDDF,
-	0xEDF0, 0xEDF9, 0xEE00, 0xEE08, 0xEE10, 0xEE31, 0xEE40, 0xEE61,
-	0xEE70, 0xEE73, 0xEEF0, 0xEEF0,
-	/* TP non context */
-	0xF00, 0xF03, 0xF08, 0xF08, 0xF10, 0xF1B,
-	/* TP CTX 0 2D */
-	0x2000, 0x2009,
-	/* TP CTX 1 2D */
-	0x2400, 0x2409,
-	/* TP CTX 0 3D */
-	0xE700, 0xE707, 0xE70E, 0xE731,
-	0xE750, 0xE751, 0xE75A, 0xE764, 0xE76C, 0xE77F,
-	/* TP CTX 1 3D */
-	0xEF00, 0xEF07, 0xEF0E, 0xEF31,
-	0xEF50, 0xEF51, 0xEF5A, 0xEF64, 0xEF6C, 0xEF7F,
-	/* HLSQ non context */
-	0xE00, 0xE01, 0xE04, 0xE06, 0xE08, 0xE09, 0xE10, 0xE17,
-	0xE20, 0xE25,
-	/* HLSQ CTXT 0 3D */
-	0xE784, 0xE789, 0xE78B, 0xE796, 0xE7A0, 0xE7A2, 0xE7B0, 0xE7BB,
-	0xE7C0, 0xE7DD, 0xE7E0, 0xE7E1,
-	/* HLSQ CTXT 1 3D */
-	0xEF84, 0xEF89, 0xEF8B, 0xEF96, 0xEFA0, 0xEFA2, 0xEFB0, 0xEFBB,
-	0xEFC0, 0xEFDD, 0xEFE0, 0xEFE1,
+struct a5xx_hlsq_sp_tp_regs {
+	unsigned int statetype;
+	unsigned int ahbaddr;
+	unsigned int size;
+	uint64_t offset;
 };
+
+static struct a5xx_hlsq_sp_tp_regs a5xx_hlsq_sp_tp_registers[] = {
+	/* HSLQ non context. 0xe32 - 0xe3f are holes so don't include them */
+	{ 0x35, 0xE00, 0x32 },
+	/* HLSQ CTX 0 2D */
+	{ 0x31, 0x2080, 0x1 },
+	/* HLSQ CTX 1 2D */
+	{ 0x33, 0x2480, 0x1 },
+	/* HLSQ CTX 0 3D. 0xe7e2 - 0xe7ff are holes so don't inculde them */
+	{ 0x32, 0xE780, 0x62 },
+	/* HLSQ CTX 1 3D. 0xefe2 - 0xefff are holes so don't include them */
+	{ 0x34, 0xEF80, 0x62 },
+
+	/* SP non context */
+	{ 0x3f, 0x0EC0, 0x40 },
+	/* SP CTX 0 2D */
+	{ 0x3d, 0x2040, 0x1 },
+	/* SP CTX 1 2D */
+	{ 0x3b, 0x2440, 0x1 },
+	/* SP CTX 0 3D */
+	{ 0x3e, 0xE580, 0x180 },
+	/* SP CTX 1 3D */
+	{ 0x3c, 0xED80, 0x180 },
+
+	/* TP non context. 0x0f1c - 0x0f3f are holes so don't include them */
+	{ 0x3a, 0x0F00, 0x1c },
+	/* TP CTX 0 2D. 0x200a - 0x200f are holes so don't include them */
+	{ 0x38, 0x2000, 0xa },
+	/* TP CTX 1 2D.   0x240a - 0x240f are holes so don't include them */
+	{ 0x36, 0x2400, 0xa },
+	/* TP CTX 0 3D */
+	{ 0x39, 0xE700, 0x80 },
+	/* TP CTX 1 3D */
+	{ 0x37, 0xEF00, 0x80 },
+};
+
 
 #define A5XX_NUM_SHADER_BANKS 4
 #define A5XX_SHADER_STATETYPE_SHIFT 8
@@ -652,7 +652,6 @@ static struct cdregs {
 	unsigned int size;
 } _a5xx_cd_registers[] = {
 	{ a5xx_registers, ARRAY_SIZE(a5xx_registers) },
-	{ a5xx_hlsq_registers, ARRAY_SIZE(a5xx_hlsq_registers) },
 };
 
 #define REG_PAIR_COUNT(_a, _i) \
@@ -748,6 +747,46 @@ static void _a5xx_do_crashdump(struct kgsl_device *device)
 	crash_dump_valid = true;
 }
 
+static int get_hlsq_registers(struct kgsl_device *device,
+		const struct a5xx_hlsq_sp_tp_regs *regs, unsigned int *data)
+{
+	unsigned int i;
+	unsigned int *src = registers.hostptr + regs->offset;
+
+	for (i = 0; i < regs->size; i++) {
+		*data++ = regs->ahbaddr + i;
+		*data++ = *(src + i);
+	}
+
+	return (2 * regs->size);
+}
+
+static size_t a5xx_snapshot_dump_hlsq_sp_tp_regs(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int count = 0, i;
+
+	/* Figure out how many registers we are going to dump */
+	for (i = 0; i < ARRAY_SIZE(a5xx_hlsq_sp_tp_registers); i++)
+		count += a5xx_hlsq_sp_tp_registers[i].size;
+
+	if (remain < (count * 8) + sizeof(*header)) {
+		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+		return 0;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(a5xx_hlsq_sp_tp_registers); i++)
+		data += get_hlsq_registers(device,
+				&a5xx_hlsq_sp_tp_registers[i], data);
+
+	header->count = count;
+
+	/* Return the size of the section */
+	return (count * 8) + sizeof(*header);
+}
+
 /*
  * a5xx_snapshot() - A5XX GPU snapshot function
  * @adreno_dev: Device being snapshotted
@@ -776,6 +815,10 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	adreno_snapshot_vbif_registers(device, snapshot,
 		a5xx_vbif_snapshot_registers,
 		ARRAY_SIZE(a5xx_vbif_snapshot_registers));
+
+	/* Dump SP TP HLSQ registers */
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
+		a5xx_snapshot_dump_hlsq_sp_tp_regs, NULL);
 
 	/* CP_PFP indexed registers */
 	kgsl_snapshot_indexed_registers(device, snapshot,
@@ -840,8 +883,8 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	a5xx_snapshot_debugbus(device, snapshot);
 }
 
-static int _a5xx_crashdump_init(struct a5xx_shader_block *block, uint64_t *ptr,
-		uint64_t *offset)
+static int _a5xx_crashdump_init_shader(struct a5xx_shader_block *block,
+		uint64_t *ptr, uint64_t *offset)
 {
 	int qwords = 0;
 	unsigned int j;
@@ -866,6 +909,31 @@ static int _a5xx_crashdump_init(struct a5xx_shader_block *block, uint64_t *ptr,
 
 		*offset += block->sz * sizeof(unsigned int);
 	}
+
+	return qwords;
+}
+
+static int _a5xx_crashdump_init_hlsq(struct a5xx_hlsq_sp_tp_regs *regs,
+		uint64_t *ptr, uint64_t *offset)
+{
+	int qwords = 0;
+
+	/* Program the aperture */
+	ptr[qwords++] =
+		(regs->statetype << A5XX_SHADER_STATETYPE_SHIFT);
+	ptr[qwords++] = (((uint64_t) A5XX_HLSQ_DBG_READ_SEL << 44)) |
+		(1 << 21) | 1;
+
+	/* Read all the data in one chunk */
+	ptr[qwords++] = registers.gpuaddr + *offset;
+	ptr[qwords++] =
+		(((uint64_t) A5XX_HLSQ_DBG_AHB_READ_APERTURE << 44)) |
+		regs->size;
+
+	/* Remember the offset of the first bank for easy access */
+	regs->offset = *offset;
+
+	*offset += regs->size * sizeof(unsigned int);
 
 	return qwords;
 }
@@ -916,6 +984,11 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 		data_size += a5xx_shader_blocks[i].sz * sizeof(unsigned int) *
 			A5XX_NUM_SHADER_BANKS;
 	}
+	for (i = 0; i < ARRAY_SIZE(a5xx_hlsq_sp_tp_registers); i++) {
+		script_size += 32;
+		data_size +=
+		a5xx_hlsq_sp_tp_registers[i].size * sizeof(unsigned int);
+	}
 
 	/* Now allocate the script and data buffers */
 
@@ -930,7 +1003,6 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 		kgsl_free_global(KGSL_DEVICE(adreno_dev), &capturescript);
 		return;
 	}
-
 	/* Build the crash script */
 
 	ptr = (uint64_t *) capturescript.hostptr;
@@ -949,9 +1021,13 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 
 	/* Program each shader block */
 	for (i = 0; i < ARRAY_SIZE(a5xx_shader_blocks); i++) {
-		ptr += _a5xx_crashdump_init(&a5xx_shader_blocks[i], ptr,
+		ptr += _a5xx_crashdump_init_shader(&a5xx_shader_blocks[i], ptr,
 			&offset);
 	}
+	/* Program the hlsq sp tp register sets */
+	for (i = 0; i < ARRAY_SIZE(a5xx_hlsq_sp_tp_registers); i++)
+		ptr += _a5xx_crashdump_init_hlsq(&a5xx_hlsq_sp_tp_registers[i],
+			ptr, &offset);
 
 	*ptr++ = 0;
 	*ptr++ = 0;
