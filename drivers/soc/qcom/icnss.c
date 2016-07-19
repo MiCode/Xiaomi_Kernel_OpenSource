@@ -45,8 +45,105 @@
 #define WLFW_TIMEOUT_MS			3000
 #define WLFW_SERVICE_INS_ID_V01		0
 #define MAX_PROP_SIZE			32
-#define MPM2_MPM_WCSSAON_CONFIG_OFFSET	0x18
 #define NUM_LOG_PAGES			4
+
+/*
+ * Registers: MPM2_PSHOLD
+ * Base Address: 0x10AC000
+ */
+#define MPM_WCSSAON_CONFIG_OFFSET				0x18
+#define MPM_WCSSAON_CONFIG_ARES_N				BIT(0)
+#define MPM_WCSSAON_CONFIG_WLAN_DISABLE				BIT(1)
+#define MPM_WCSSAON_CONFIG_FORCE_ACTIVE				BIT(14)
+#define MPM_WCSSAON_CONFIG_FORCE_XO_ENABLE			BIT(19)
+#define MPM_WCSSAON_CONFIG_DISCONNECT_CLR			BIT(21)
+
+/*
+ * Registers: WCSS_SR_SHADOW_REGISTERS
+ * Base Address: 0x18820000
+ */
+#define SR_WCSSAON_SR_LSB_OFFSET				0x22070
+#define SR_WCSSAON_SR_LSB_RETENTION_STATUS			BIT(20)
+
+#define SR_PMM_SR_MSB						0x2206C
+#define SR_PMM_SR_MSB_AHB_CLOCK_MASK				GENMASK(26, 22)
+#define SR_PMM_SR_MSB_XO_CLOCK_MASK				GENMASK(31, 27)
+
+/*
+ * Registers: WCSS_HM_A_WCSS_CLK_CTL_WCSS_CC_REG
+ * Base Address: 0x189D0000
+ */
+#define WCSS_WLAN1_GDSCR_OFFSET					0x1D3004
+#define WCSS_WLAN1_GDSCR_SW_COLLAPSE				BIT(0)
+#define WCSS_WLAN1_GDSCR_HW_CONTROL				BIT(1)
+#define WCSS_WLAN1_GDSCR_PWR_ON					BIT(31)
+
+#define WCSS_RFACTRL_GDSCR_OFFSET				0x1D60C8
+#define WCSS_RFACTRL_GDSCR_SW_COLLAPSE				BIT(0)
+#define WCSS_RFACTRL_GDSCR_HW_CONTROL				BIT(1)
+#define WCSS_RFACTRL_GDSCR_PWR_ON				BIT(31)
+
+#define WCSS_CLK_CTL_WCSS_CSS_GDSCR_OFFSET			0x1D1004
+#define WCSS_CLK_CTL_WCSS_CSS_GDSCR_SW_COLLAPSE			BIT(0)
+#define WCSS_CLK_CTL_WCSS_CSS_GDSCR_HW_CONTROL			BIT(1)
+#define WCSS_CLK_CTL_WCSS_CSS_GDSCR_PWR_ON			BIT(31)
+
+/*
+ * Registers: WCSS_HM_A_WIFI_APB_3_A_WCMN_MAC_WCMN_REG
+ * Base Address: 0x18AF0000
+ */
+#define WCMN_PMM_WLAN1_CFG_REG1_OFFSET				0x2F0804
+#define WCMN_PMM_WLAN1_CFG_REG1_RFIF_ADC_PORDN_N		BIT(9)
+#define WCMN_PMM_WLAN1_CFG_REG1_ADC_DIGITAL_CLAMP		BIT(10)
+
+/*
+ * Registers: WCSS_HM_A_PMM_PMM
+ * Base Address: 0x18880000
+ */
+#define PMM_COMMON_IDLEREQ_CSR_OFFSET				0x80120
+#define PMM_COMMON_IDLEREQ_CSR_SW_WNOC_IDLEREQ_SET		BIT(16)
+#define PMM_COMMON_IDLEREQ_CSR_WNOC_IDLEACK			BIT(26)
+#define PMM_COMMON_IDLEREQ_CSR_WNOC_IDLE			BIT(27)
+
+#define PMM_RFACTRL_IDLEREQ_CSR_OFFSET				0x80164
+#define PMM_RFACTRL_IDLEREQ_CSR_SW_RFACTRL_IDLEREQ_SET		BIT(16)
+#define PMM_RFACTRL_IDLEREQ_CSR_RFACTRL_IDLETACK		BIT(26)
+
+#define PMM_WSI_CMD_OFFSET					0x800E0
+#define PMM_WSI_CMD_USE_WLAN1_WSI				BIT(0)
+#define PMM_WSI_CMD_SW_USE_PMM_WSI				BIT(2)
+#define PMM_WSI_CMD_SW_BUS_SYNC					BIT(3)
+#define PMM_WSI_CMD_SW_RF_RESET					BIT(4)
+#define PMM_WSI_CMD_SW_REG_READ					BIT(5)
+#define PMM_WSI_CMD_SW_XO_DIS					BIT(8)
+#define PMM_WSI_CMD_SW_FORCE_IDLE				BIT(9)
+#define PMM_WSI_CMD_PMM_WSI_SM					GENMASK(24, 16)
+#define PMM_WSI_CMD_RF_CMD_IP					BIT(31)
+
+#define PMM_REG_RW_ADDR_OFFSET					0x800F0
+#define PMM_REG_RW_ADDR_SW_REG_RW_ADDR				GENMASK(15, 0)
+
+#define PMM_REG_READ_DATA_OFFSET				0x800F8
+
+#define PMM_RF_VAULT_REG_ADDR_OFFSET				0x800FC
+#define PMM_RF_VAULT_REG_ADDR_RF_VAULT_REG_ADDR			GENMASK(15, 0)
+
+#define PMM_RF_VAULT_REG_DATA_OFFSET				0x80100
+#define PMM_RF_VAULT_REG_DATA_RF_VAULT_REG_DATA			GENMASK(31, 0)
+
+#define PMM_XO_DIS_ADDR_OFFSET					0x800E8
+#define PMM_XO_DIS_ADDR_XO_DIS_ADDR				GENMASK(15, 0)
+
+#define PMM_XO_DIS_DATA_OFFSET					0x800EC
+#define PMM_XO_DIS_DATA_XO_DIS_DATA				GENMASK(31, 0)
+
+#define PMM_RF_RESET_ADDR_OFFSET				0x80104
+#define PMM_RF_RESET_ADDR_RF_RESET_ADDR				GENMASK(15, 0)
+
+#define PMM_RF_RESET_DATA_OFFSET				0x80108
+#define PMM_RF_RESET_DATA_RF_RESET_DATA				GENMASK(31, 0)
+
+#define ICNSS_HW_REG_RETRY					10
 
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
@@ -96,9 +193,10 @@
 #endif
 
 enum icnss_debug_quirks {
-	HW_ALWAY_ON,
+	HW_ALWAYS_ON,
 	HW_DEBUG_ENABLE,
 	SKIP_QMI,
+	HW_ONLY_TOP_LEVEL_RESET,
 };
 
 #define ICNSS_QUIRKS_DEFAULT 0
@@ -251,6 +349,71 @@ static struct icnss_priv {
 	spinlock_t on_off_lock;
 	struct icnss_stats stats;
 } *penv;
+
+static void icnss_hw_write_reg(void *base, u32 offset, u32 val)
+{
+	writel_relaxed(val, base + offset);
+	wmb(); /* Ensure data is written to hardware register */
+}
+
+static u32 icnss_hw_read_reg(void *base, u32 offset)
+{
+	u32 rdata = readl_relaxed(base + offset);
+
+	icnss_pr_dbg(" READ: offset: 0x%06x 0x%08x\n", offset, rdata);
+
+	return rdata;
+}
+
+static void icnss_hw_write_reg_field(void *base, u32 offset, u32 mask, u32 val)
+{
+	u32 shift = find_first_bit((void *)&mask, 32);
+	u32 rdata = readl_relaxed(base + offset);
+
+	val = (rdata & ~mask) | (val << shift);
+
+	icnss_pr_dbg("WRITE: offset: 0x%06x 0x%08x -> 0x%08x\n",
+		     offset, rdata, val);
+
+	icnss_hw_write_reg(base, offset, val);
+}
+
+static int icnss_hw_poll_reg_field(void *base, u32 offset, u32 mask, u32 val,
+				    unsigned long usecs, int retry)
+{
+	u32 shift;
+	u32 rdata;
+	int r = 0;
+
+	shift = find_first_bit((void *)&mask, 32);
+
+	val = val << shift;
+
+	rdata  = readl_relaxed(base + offset);
+
+	icnss_pr_dbg(" POLL: offset: 0x%06x 0x%08x == 0x%08x & 0x%08x\n",
+		     offset, val, rdata, mask);
+
+	while ((rdata & mask) != val) {
+		if (retry != 0 && r >= retry) {
+			icnss_pr_err(" POLL FAILED: offset: 0x%06x 0x%08x == 0x%08x & 0x%08x\n",
+				     offset, val, rdata, mask);
+
+			return -EIO;
+		}
+
+		r++;
+		udelay(usecs);
+		rdata = readl_relaxed(base + offset);
+
+		if (retry)
+			icnss_pr_dbg(" POLL: offset: 0x%06x 0x%08x == 0x%08x & 0x%08x\n",
+				     offset, val, rdata, mask);
+
+	}
+
+	return 0;
+}
 
 static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 {
@@ -525,36 +688,394 @@ static int icnss_clk_deinit(struct icnss_priv *priv)
 	return 0;
 }
 
-static void icnss_hw_release_reset(struct icnss_priv *priv)
+static void icnss_hw_top_level_release_reset(struct icnss_priv *priv)
 {
-	uint32_t rdata = 0;
+	icnss_pr_dbg("RESET: HW Release reset: state: 0x%lx\n", priv->state);
 
-	icnss_pr_dbg("HW Release reset: state: 0x%lx\n", priv->state);
+	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
+				 MPM_WCSSAON_CONFIG_ARES_N, 1);
 
-	if (priv->mpm_config_va) {
-		writel_relaxed(0x1,
-			       priv->mpm_config_va +
-			       MPM2_MPM_WCSSAON_CONFIG_OFFSET);
-		while (rdata != 0x1)
-			rdata = readl_relaxed(priv->mpm_config_va +
-					      MPM2_MPM_WCSSAON_CONFIG_OFFSET);
-	}
+	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
+				 MPM_WCSSAON_CONFIG_WLAN_DISABLE, 0x0);
+
+	icnss_hw_poll_reg_field(priv->mpm_config_va,
+				MPM_WCSSAON_CONFIG_OFFSET,
+				MPM_WCSSAON_CONFIG_ARES_N, 1, 10,
+				ICNSS_HW_REG_RETRY);
 }
 
-static void icnss_hw_reset(struct icnss_priv *priv)
+static void icnss_hw_top_level_reset(struct icnss_priv *priv)
 {
-	uint32_t rdata = 0;
+	icnss_pr_dbg("RESET: HW top level reset: state: 0x%lx\n", priv->state);
 
-	icnss_pr_dbg("HW reset: state: 0x%lx\n", priv->state);
+	icnss_hw_write_reg_field(priv->mpm_config_va,
+				 MPM_WCSSAON_CONFIG_OFFSET,
+				 MPM_WCSSAON_CONFIG_ARES_N, 0);
 
-	if (priv->mpm_config_va) {
-		writel_relaxed(0x0,
-			       priv->mpm_config_va +
-			       MPM2_MPM_WCSSAON_CONFIG_OFFSET);
-		while (rdata != 0x0)
-			rdata = readl_relaxed(priv->mpm_config_va +
-					      MPM2_MPM_WCSSAON_CONFIG_OFFSET);
+	icnss_hw_poll_reg_field(priv->mpm_config_va,
+				MPM_WCSSAON_CONFIG_OFFSET,
+				MPM_WCSSAON_CONFIG_ARES_N, 0, 10,
+				ICNSS_HW_REG_RETRY);
+}
+
+int icnss_hw_reset_wlan_ss_power_down(struct icnss_priv *priv)
+{
+	u32 rdata;
+
+	icnss_pr_dbg("RESET: WLAN SS power down, state: 0x%lx\n", priv->state);
+
+	rdata = icnss_hw_read_reg(priv->mem_base_va, WCSS_WLAN1_GDSCR_OFFSET);
+
+	if ((rdata & WCSS_WLAN1_GDSCR_PWR_ON) == 0)
+		return 0;
+
+	icnss_hw_write_reg_field(priv->mem_base_va, WCSS_WLAN1_GDSCR_OFFSET,
+				 WCSS_WLAN1_GDSCR_HW_CONTROL, 0);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, WCSS_WLAN1_GDSCR_OFFSET,
+				 WCSS_WLAN1_GDSCR_SW_COLLAPSE, 1);
+
+	icnss_hw_poll_reg_field(priv->mem_base_va, WCSS_WLAN1_GDSCR_OFFSET,
+				WCSS_WLAN1_GDSCR_PWR_ON, 0, 10,
+				ICNSS_HW_REG_RETRY);
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 WCMN_PMM_WLAN1_CFG_REG1_OFFSET,
+				 WCMN_PMM_WLAN1_CFG_REG1_ADC_DIGITAL_CLAMP, 1);
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 WCMN_PMM_WLAN1_CFG_REG1_OFFSET,
+				 WCMN_PMM_WLAN1_CFG_REG1_RFIF_ADC_PORDN_N, 0);
+
+	return 0;
+}
+
+int icnss_hw_reset_common_ss_power_down(struct icnss_priv *priv)
+{
+	u32 rdata;
+
+	icnss_pr_dbg("RESET: Common SS power down, state: 0x%lx\n",
+		     priv->state);
+
+	rdata = icnss_hw_read_reg(priv->mem_base_va,
+				  WCSS_CLK_CTL_WCSS_CSS_GDSCR_OFFSET);
+
+	if ((rdata & WCSS_CLK_CTL_WCSS_CSS_GDSCR_PWR_ON) == 0)
+		return 0;
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 PMM_COMMON_IDLEREQ_CSR_OFFSET,
+				 PMM_COMMON_IDLEREQ_CSR_SW_WNOC_IDLEREQ_SET,
+				 1);
+
+	icnss_hw_poll_reg_field(priv->mem_base_va,
+				PMM_COMMON_IDLEREQ_CSR_OFFSET,
+				PMM_COMMON_IDLEREQ_CSR_WNOC_IDLEACK,
+				1, 20, ICNSS_HW_REG_RETRY);
+
+	icnss_hw_poll_reg_field(priv->mem_base_va,
+				PMM_COMMON_IDLEREQ_CSR_OFFSET,
+				PMM_COMMON_IDLEREQ_CSR_WNOC_IDLE,
+				1, 10, ICNSS_HW_REG_RETRY);
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 WCSS_CLK_CTL_WCSS_CSS_GDSCR_OFFSET,
+				 WCSS_CLK_CTL_WCSS_CSS_GDSCR_HW_CONTROL, 0);
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 WCSS_CLK_CTL_WCSS_CSS_GDSCR_OFFSET,
+				 WCSS_CLK_CTL_WCSS_CSS_GDSCR_SW_COLLAPSE, 1);
+
+	icnss_hw_poll_reg_field(priv->mem_base_va,
+				WCSS_CLK_CTL_WCSS_CSS_GDSCR_OFFSET,
+				WCSS_CLK_CTL_WCSS_CSS_GDSCR_PWR_ON, 0, 10,
+				ICNSS_HW_REG_RETRY);
+
+	return 0;
+
+}
+
+int icnss_hw_reset_wlan_rfactrl_power_down(struct icnss_priv *priv)
+{
+	u32 rdata;
+
+	icnss_pr_dbg("RESET: RFACTRL power down, state: 0x%lx\n", priv->state);
+
+	rdata = icnss_hw_read_reg(priv->mem_base_va, WCSS_RFACTRL_GDSCR_OFFSET);
+
+	if ((rdata & WCSS_RFACTRL_GDSCR_PWR_ON) == 0)
+		return 0;
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 PMM_RFACTRL_IDLEREQ_CSR_OFFSET,
+				 PMM_RFACTRL_IDLEREQ_CSR_SW_RFACTRL_IDLEREQ_SET,
+				 1);
+
+	icnss_hw_poll_reg_field(priv->mem_base_va,
+				PMM_RFACTRL_IDLEREQ_CSR_OFFSET,
+				PMM_RFACTRL_IDLEREQ_CSR_RFACTRL_IDLETACK,
+				1, 10, ICNSS_HW_REG_RETRY);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, WCSS_RFACTRL_GDSCR_OFFSET,
+				 WCSS_RFACTRL_GDSCR_HW_CONTROL, 0);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, WCSS_RFACTRL_GDSCR_OFFSET,
+				 WCSS_RFACTRL_GDSCR_SW_COLLAPSE, 1);
+
+	return 0;
+}
+
+void icnss_hw_wsi_cmd_error_recovery(struct icnss_priv *priv)
+{
+	icnss_pr_dbg("RESET: WSI CMD Error recovery, state: 0x%lx\n",
+		     priv->state);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_FORCE_IDLE, 1);
+
+	icnss_hw_poll_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				PMM_WSI_CMD_PMM_WSI_SM, 1, 100, 0);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_FORCE_IDLE, 0);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_BUS_SYNC, 1);
+
+	icnss_hw_poll_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				PMM_WSI_CMD_RF_CMD_IP, 0, 100, 0);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_BUS_SYNC, 0);
+}
+
+u32 icnss_hw_rf_register_read_command(struct icnss_priv *priv, u32 addr)
+{
+	u32 rdata = 0;
+	int ret;
+	int i;
+
+	icnss_pr_dbg("RF register read command, addr: 0x%04x, state: 0x%lx\n",
+		     addr, priv->state);
+
+	for (i = 0; i < ICNSS_HW_REG_RETRY; i++) {
+		icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+					 PMM_WSI_CMD_USE_WLAN1_WSI, 1);
+
+		icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+					 PMM_WSI_CMD_SW_USE_PMM_WSI, 1);
+
+		icnss_hw_write_reg_field(priv->mem_base_va,
+					 PMM_REG_RW_ADDR_OFFSET,
+					 PMM_REG_RW_ADDR_SW_REG_RW_ADDR,
+					 addr & 0xFFFF);
+
+		icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+					 PMM_WSI_CMD_SW_REG_READ, 1);
+
+		ret = icnss_hw_poll_reg_field(priv->mem_base_va,
+					      PMM_WSI_CMD_OFFSET,
+					      PMM_WSI_CMD_RF_CMD_IP, 0, 10,
+					      ICNSS_HW_REG_RETRY);
+		if (ret == 0)
+			break;
+
+		icnss_hw_wsi_cmd_error_recovery(priv);
 	}
+
+
+	rdata = icnss_hw_read_reg(priv->mem_base_va, PMM_REG_READ_DATA_OFFSET);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_USE_PMM_WSI, 0);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_REG_READ, 0);
+
+	icnss_pr_dbg("RF register read command, data: 0x%08x, state: 0x%lx\n",
+		     rdata, priv->state);
+
+	return rdata;
+}
+
+int icnss_hw_reset_rf_reset_cmd(struct icnss_priv *priv)
+{
+	u32 rdata;
+	int ret;
+
+	icnss_pr_dbg("RESET: RF reset command, state: 0x%lx\n", priv->state);
+
+	rdata = icnss_hw_rf_register_read_command(priv, 0x5080);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_USE_WLAN1_WSI, 1);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_USE_PMM_WSI, 1);
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 PMM_RF_VAULT_REG_ADDR_OFFSET,
+				 PMM_RF_VAULT_REG_ADDR_RF_VAULT_REG_ADDR,
+				 0x5082);
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 PMM_RF_VAULT_REG_DATA_OFFSET,
+				 PMM_RF_VAULT_REG_DATA_RF_VAULT_REG_DATA,
+				 0x12AB8FAD);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_RF_RESET_ADDR_OFFSET,
+				 PMM_RF_RESET_ADDR_RF_RESET_ADDR, 0x5080);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_RF_RESET_DATA_OFFSET,
+				 PMM_RF_RESET_DATA_RF_RESET_DATA,
+				 rdata & 0xBFFF);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_RF_RESET, 1);
+
+	ret = icnss_hw_poll_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				      PMM_WSI_CMD_RF_CMD_IP, 0, 10,
+				      ICNSS_HW_REG_RETRY);
+
+	if (ret) {
+		icnss_pr_err("RESET: RF reset command failed, state: 0x%lx\n",
+			     priv->state);
+		icnss_hw_wsi_cmd_error_recovery(priv);
+	}
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_USE_PMM_WSI, 0);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_RF_RESET, 0);
+
+	return 0;
+}
+
+int icnss_hw_reset_xo_disable_cmd(struct icnss_priv *priv)
+{
+	int ret;
+
+	icnss_pr_dbg("RESET: XO disable command, state: 0x%lx\n", priv->state);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_USE_WLAN1_WSI, 1);
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_USE_PMM_WSI, 1);
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 PMM_RF_VAULT_REG_ADDR_OFFSET,
+				 PMM_RF_VAULT_REG_ADDR_RF_VAULT_REG_ADDR,
+				 0x5082);
+
+	icnss_hw_write_reg_field(priv->mem_base_va,
+				 PMM_RF_VAULT_REG_DATA_OFFSET,
+				 PMM_RF_VAULT_REG_DATA_RF_VAULT_REG_DATA,
+				 0x12AB8FAD);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_XO_DIS_ADDR_OFFSET,
+				 PMM_XO_DIS_ADDR_XO_DIS_ADDR, 0x5081);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_XO_DIS_DATA_OFFSET,
+				 PMM_XO_DIS_DATA_XO_DIS_DATA, 1);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_XO_DIS, 1);
+
+	ret = icnss_hw_poll_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				      PMM_WSI_CMD_RF_CMD_IP, 0, 10,
+				      ICNSS_HW_REG_RETRY);
+	if (ret) {
+		icnss_pr_err("RESET: XO disable command failed, state: 0x%lx\n",
+			     priv->state);
+		icnss_hw_wsi_cmd_error_recovery(priv);
+	}
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_USE_PMM_WSI, 0);
+
+	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
+				 PMM_WSI_CMD_SW_XO_DIS, 0);
+
+	return 0;
+}
+
+int icnss_hw_reset(struct icnss_priv *priv)
+{
+	u32 rdata;
+	u32 rdata1;
+	int i;
+
+	if (test_bit(HW_ONLY_TOP_LEVEL_RESET, &quirks))
+		goto top_level_reset;
+
+	icnss_pr_dbg("RESET: START, state: 0x%lx\n", priv->state);
+
+	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
+				 MPM_WCSSAON_CONFIG_FORCE_ACTIVE, 1);
+
+	icnss_hw_poll_reg_field(priv->mem_base_va, SR_WCSSAON_SR_LSB_OFFSET,
+				SR_WCSSAON_SR_LSB_RETENTION_STATUS, 1, 10,
+				ICNSS_HW_REG_RETRY);
+
+	for (i = 0; i < ICNSS_HW_REG_RETRY; i++) {
+		rdata = icnss_hw_read_reg(priv->mem_base_va, SR_PMM_SR_MSB);
+		udelay(10);
+		rdata1 = icnss_hw_read_reg(priv->mem_base_va, SR_PMM_SR_MSB);
+
+		icnss_pr_dbg("RESET: XO: 0x%05lx/0x%05lx, AHB: 0x%05lx/0x%05lx\n",
+			     rdata & SR_PMM_SR_MSB_XO_CLOCK_MASK,
+			     rdata1 & SR_PMM_SR_MSB_XO_CLOCK_MASK,
+			     rdata & SR_PMM_SR_MSB_AHB_CLOCK_MASK,
+			     rdata1 & SR_PMM_SR_MSB_AHB_CLOCK_MASK);
+
+		if ((rdata & SR_PMM_SR_MSB_AHB_CLOCK_MASK) !=
+		    (rdata1 & SR_PMM_SR_MSB_AHB_CLOCK_MASK) &&
+		    (rdata & SR_PMM_SR_MSB_XO_CLOCK_MASK) !=
+		    (rdata1 & SR_PMM_SR_MSB_XO_CLOCK_MASK))
+			break;
+
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+					 MPM_WCSSAON_CONFIG_OFFSET,
+					 MPM_WCSSAON_CONFIG_FORCE_XO_ENABLE,
+					 0x1);
+		usleep_range(2000, 3000);
+	}
+
+	if (i >= ICNSS_HW_REG_RETRY)
+		ICNSS_ASSERT(false);
+
+	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
+				 MPM_WCSSAON_CONFIG_DISCONNECT_CLR, 0x1);
+
+	icnss_hw_reset_wlan_ss_power_down(priv);
+
+	icnss_hw_reset_common_ss_power_down(priv);
+
+	icnss_hw_reset_wlan_rfactrl_power_down(priv);
+
+	icnss_hw_reset_rf_reset_cmd(priv);
+
+	icnss_hw_reset_xo_disable_cmd(priv);
+
+	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
+				 MPM_WCSSAON_CONFIG_FORCE_ACTIVE, 0);
+
+	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
+				 MPM_WCSSAON_CONFIG_DISCONNECT_CLR, 0);
+
+	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
+				 MPM_WCSSAON_CONFIG_WLAN_DISABLE, 1);
+
+	icnss_hw_poll_reg_field(priv->mem_base_va, SR_WCSSAON_SR_LSB_OFFSET,
+				BIT(26), 1, 200, ICNSS_HW_REG_RETRY);
+
+top_level_reset:
+	icnss_hw_top_level_reset(priv);
+
+	icnss_pr_dbg("RESET: DONE, state: 0x%lx\n", priv->state);
+
+	return 0;
 }
 
 static int icnss_hw_power_on(struct icnss_priv *priv)
@@ -580,7 +1101,7 @@ static int icnss_hw_power_on(struct icnss_priv *priv)
 	if (ret)
 		goto out;
 
-	icnss_hw_release_reset(priv);
+	icnss_hw_top_level_release_reset(priv);
 
 	return ret;
 out:
@@ -592,6 +1113,9 @@ static int icnss_hw_power_off(struct icnss_priv *priv)
 {
 	int ret = 0;
 	unsigned long flags;
+
+	if (test_bit(HW_ALWAYS_ON, &quirks))
+		return 0;
 
 	icnss_pr_dbg("Power off: 0x%lx\n", priv->state);
 
@@ -1317,34 +1841,32 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
 
+	icnss_hw_power_off(penv);
+
 	if (!penv->pdev) {
 		icnss_pr_err("Device is not ready\n");
 		ret = -ENODEV;
 		goto out;
 	}
 
-	/*
-	 * WAR required after FW ready without which CCPM init fails in firmware
-	 * when WLAN enable is sent to firmware
-	 */
-	icnss_hw_reset(penv);
-	usleep_range(100, 102);
-	icnss_hw_release_reset(penv);
-
 	if (!penv->ops || !penv->ops->probe)
 		goto out;
+
+	icnss_hw_power_on(penv);
 
 	ret = penv->ops->probe(&penv->pdev->dev);
 	if (ret < 0) {
 		icnss_pr_err("Driver probe failed: %d\n", ret);
-		goto out;
+		goto out_power_off;
 	}
 
 	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
 
 	return 0;
-out:
+
+out_power_off:
 	icnss_hw_power_off(penv);
+out:
 	return ret;
 }
 
