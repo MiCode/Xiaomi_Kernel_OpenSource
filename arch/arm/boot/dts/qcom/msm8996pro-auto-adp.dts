@@ -16,6 +16,7 @@
 #include "msm8996pro.dtsi"
 #include "msm8996-pm8994.dtsi"
 #include "msm8996-agave-adp.dtsi"
+#include "msm8996pro-auto.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996pro AUTO ADP";
@@ -61,14 +62,6 @@
 	};
 };
 
-&hl7509_en_vreg {
-	status = "ok";
-};
-
-&hl7509_vreg {
-	status = "ok";
-};
-
 &sdhc_2 {
 	cd-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
 	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on_sbc>;
@@ -82,99 +75,3 @@
 	};
 };
 
-&gfx_cpr {
-	vdd-supply = <&hl7509_vreg>;
-	qcom,cpr-step-quot-init-min = <20>;
-	qcom,cpr-step-quot-init-max = <26>;
-	qcom,voltage-step = <10000>;
-	/delete-property/ qcom,cpr-enable;
-};
-
-&gfx_vreg {
-	qcom,cpr-voltage-ceiling =
-		<600000  670000  670000  750000  830000
-		 910000  960000 1020000>;
-	qcom,cpr-voltage-floor =
-		<600000  600000  600000  600000  600000
-		 600000  600000  600000>;
-};
-
-&pm8994_l3 {
-	regulator-min-microvolt = <875000>;
-	regulator-max-microvolt = <875000>;
-	qcom,init-voltage = <875000>;
-};
-
-&pm8994_l11 {
-	regulator-min-microvolt = <850000>;
-	regulator-max-microvolt = <850000>;
-	qcom,init-voltage = <850000>;
-};
-
-&pm8994_l17 {
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
-	qcom,init-voltage = <1800000>;
-};
-
-&pm8994_l23 {
-	regulator-min-microvolt = <1100000>;
-	regulator-max-microvolt = <1100000>;
-	qcom,init-voltage = <1100000>;
-};
-
-&pm8994_l27 {
-	regulator-min-microvolt = <800000>;
-	regulator-max-microvolt = <800000>;
-	qcom,init-voltage = <800000>;
-};
-
-&pm8994_l29 {
-	regulator-min-microvolt = <2500000>;
-	regulator-max-microvolt = <2500000>;
-	qcom,init-voltage = <2500000>;
-};
-
-&rpm_bus {
-	rpm-regulator-ldoa26 {
-		/delete-node/ pm8994_l26_corner;
-		/delete-node/ pm8994_l26_floor_corner;
-
-		pm8994_l26: regulator-l26 {
-			regulator-min-microvolt = <1100000>;
-			regulator-max-microvolt = <1100000>;
-			qcom,init-voltage = <1100000>;
-			status = "okay";
-		};
-	};
-
-	rpm-regulator-ldoa31 {
-		status = "okay";
-		pm8994_l31: regulator-l31 {
-			regulator-min-microvolt = <1100000>;
-			regulator-max-microvolt = <1100000>;
-			qcom,init-voltage = <1100000>;
-			status = "okay";
-		};
-	};
-};
-
-&gfx_vreg {
-	qcom,cpr-voltage-ceiling =
-		/* Speed bin 0 */
-		<600000  670000  670000  750000  830000  910000  960000 1020000
-		1070000>,
-
-		/* Speed bin 1 */
-		<600000  670000  670000  750000  830000  910000  960000 1020000
-		1070000>;
-
-	qcom,cpr-voltage-floor =
-		/* Speed bin 0 */
-		<600000  600000  600000  600000  600000  600000  600000  600000
-		 600000>,
-
-		/* Speed bin 1 */
-		<600000  600000  600000  600000  600000  600000  600000  600000
-		 600000>;
-};
