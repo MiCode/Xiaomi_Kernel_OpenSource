@@ -4530,6 +4530,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_disconnect = ipa3_disconnect;
 	api_ctrl->ipa_reset_endpoint = ipa3_reset_endpoint;
 	api_ctrl->ipa_clear_endpoint_delay = ipa3_clear_endpoint_delay;
+	api_ctrl->ipa_disable_endpoint = NULL;
 	api_ctrl->ipa_cfg_ep = ipa3_cfg_ep;
 	api_ctrl->ipa_cfg_ep_nat = ipa3_cfg_ep_nat;
 	api_ctrl->ipa_cfg_ep_hdr = ipa3_cfg_ep_hdr;
