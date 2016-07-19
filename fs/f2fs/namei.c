@@ -203,9 +203,13 @@ out:
 struct dentry *f2fs_get_parent(struct dentry *child)
 {
 	struct qstr dotdot = QSTR_INIT("..", 2);
-	unsigned long ino = f2fs_inode_by_name(child->d_inode, &dotdot);
-	if (!ino)
+	struct page *page;
+	unsigned long ino = f2fs_inode_by_name(child->d_inode, &dotdot, &page);
+	if (!ino) {
+		if (IS_ERR(page))
+			return ERR_CAST(page);
 		return ERR_PTR(-ENOENT);
+	}
 	return d_obtain_alias(f2fs_iget(child->d_inode->i_sb, ino));
 }
 
@@ -332,8 +336,11 @@ static int f2fs_unlink(struct inode *dir, struct dentry *dentry)
 	trace_f2fs_unlink_enter(dir, dentry);
 
 	de = f2fs_find_entry(dir, &dentry->d_name, &page);
-	if (!de)
+	if (!de) {
+		if (IS_ERR(page))
+			err = PTR_ERR(page);
 		goto fail;
+	}
 
 	f2fs_balance_fs(sbi, true);
 
@@ -662,13 +669,17 @@ static int f2fs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	}
 
 	old_entry = f2fs_find_entry(old_dir, &old_dentry->d_name, &old_page);
-	if (!old_entry)
+	if (!old_entry) {
+		if (IS_ERR(old_page))
+			err = PTR_ERR(old_page);
 		goto out;
+	}
 
 	if (S_ISDIR(old_inode->i_mode)) {
 		old_dir_entry = f2fs_parent_dir(old_inode, &old_dir_page);
 		if (!old_dir_entry) {
-			err = PTR_ERR(old_dir_page);
+			if (IS_ERR(old_dir_page))
+				err = PTR_ERR(old_dir_page);
 			goto out_old;
 		}
 	}
@@ -688,8 +699,11 @@ static int f2fs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		err = -ENOENT;
 		new_entry = f2fs_find_entry(new_dir, &new_dentry->d_name,
 						&new_page);
-		if (!new_entry)
+		if (!new_entry) {
+			if (IS_ERR(new_page))
+				err = PTR_ERR(new_page);
 			goto out_whiteout;
+		}
 
 		f2fs_balance_fs(sbi, true);
 
@@ -747,7 +761,9 @@ static int f2fs_rename(struct inode *old_dir, struct dentry *old_dentry,
 			old_entry = f2fs_find_entry(old_dir,
 						&old_dentry->d_name, &old_page);
 			if (!old_entry) {
-				err = -EIO;
+				err = -ENOENT;
+				if (IS_ERR(old_page))
+					err = PTR_ERR(old_page);
 				f2fs_unlock_op(sbi);
 				goto out_dir;
 			}
@@ -833,12 +849,18 @@ static int f2fs_cross_rename(struct inode *old_dir, struct dentry *old_dentry,
 		return -EPERM;
 
 	old_entry = f2fs_find_entry(old_dir, &old_dentry->d_name, &old_page);
-	if (!old_entry)
+	if (!old_entry) {
+		if (IS_ERR(old_page))
+			err = PTR_ERR(old_page);
 		goto out;
+	}
 
 	new_entry = f2fs_find_entry(new_dir, &new_dentry->d_name, &new_page);
-	if (!new_entry)
+	if (!new_entry) {
+		if (IS_ERR(new_page))
+			err = PTR_ERR(new_page);
 		goto out_old;
+	}
 
 	/* prepare for updating ".." directory entry info later */
 	if (old_dir != new_dir) {
@@ -846,7 +868,8 @@ static int f2fs_cross_rename(struct inode *old_dir, struct dentry *old_dentry,
 			old_dir_entry = f2fs_parent_dir(old_inode,
 							&old_dir_page);
 			if (!old_dir_entry) {
-				err = PTR_ERR(old_dir_page);
+				if (IS_ERR(old_dir_page))
+					err = PTR_ERR(old_dir_page);
 				goto out_new;
 			}
 		}
@@ -855,7 +878,8 @@ static int f2fs_cross_rename(struct inode *old_dir, struct dentry *old_dentry,
 			new_dir_entry = f2fs_parent_dir(new_inode,
 							&new_dir_page);
 			if (!new_dir_entry) {
-				err = PTR_ERR(new_dir_page);
+				if (IS_ERR(new_dir_page))
+					err = PTR_ERR(new_dir_page);
 				goto out_old_dir;
 			}
 		}
