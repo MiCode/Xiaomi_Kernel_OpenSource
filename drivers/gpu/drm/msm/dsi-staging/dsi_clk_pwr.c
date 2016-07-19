@@ -446,6 +446,61 @@ error:
 }
 
 /**
+* dsi_clk_pwr_of_get_vreg_data - Parse regulator supply information
+* @of_node:        Device of node to parse for supply information.
+* @regs:           Pointer where regulator information will be copied to.
+* @supply_name:    Name of the supply node.
+*
+* return: error code in case of failure or 0 for success.
+*/
+int dsi_clk_pwr_of_get_vreg_data(struct device_node *of_node,
+				 struct dsi_regulator_info *regs,
+				 char *supply_name)
+{
+	int rc = 0;
+	struct device_node *supply_root_node = NULL;
+
+	if (!of_node || !regs) {
+		pr_err("Bad params\n");
+		return -EINVAL;
+	}
+
+	regs->count = 0;
+	supply_root_node = of_get_child_by_name(of_node, supply_name);
+	if (!supply_root_node) {
+		supply_root_node = of_parse_phandle(of_node, supply_name, 0);
+		if (!supply_root_node) {
+			pr_err("No supply entry present for %s\n", supply_name);
+			return -EINVAL;
+		}
+	}
+
+	regs->count = of_get_available_child_count(supply_root_node);
+	if (regs->count == 0) {
+		pr_err("No vregs defined for %s\n", supply_name);
+		return -EINVAL;
+	}
+
+	regs->vregs = kcalloc(regs->count, sizeof(*regs->vregs), GFP_KERNEL);
+	if (!regs->vregs) {
+		regs->count = 0;
+		return -ENOMEM;
+	}
+
+	rc = dsi_pwr_parse_supply_node(supply_root_node, regs);
+	if (rc) {
+		pr_err("failed to parse supply node for %s, rc = %d\n",
+			supply_name, rc);
+
+		kfree(regs->vregs);
+		regs->vregs = NULL;
+		regs->count = 0;
+	}
+
+	return rc;
+}
+
+/**
  * dsi_clk_pwr_get_dt_vreg_data - parse regulator supply information
  * @dev:            Device whose of_node needs to be parsed.
  * @regs:           Pointer where regulator information will be copied to.
