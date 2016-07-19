@@ -107,6 +107,8 @@ struct msm_asoc_mach_data {
 	int hph_en0_gpio;
 	int us_euro_gpio; /* used by gpio driver API */
 	struct device_node *us_euro_gpio_p; /* used by pinctrl API */
+	struct device_node *hph_en1_gpio_p; /* used by pinctrl API */
+	struct device_node *hph_en0_gpio_p; /* used by pinctrl API */
 	struct snd_info_entry *codec_root;
 };
 
@@ -3968,17 +3970,24 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	pdata->hph_en1_gpio = of_get_named_gpio(pdev->dev.of_node,
 						"qcom,hph-en1-gpio", 0);
-	if (pdata->hph_en1_gpio < 0) {
-		dev_dbg(&pdev->dev, "%s: %s property not found %d\n",
-			__func__, "qcom,hph-en1-gpio", pdata->hph_en1_gpio);
+	if (!gpio_is_valid(pdata->hph_en1_gpio))
+		pdata->hph_en1_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,hph-en1-gpio", 0);
+	if (!gpio_is_valid(pdata->hph_en1_gpio) && (!pdata->hph_en1_gpio_p)) {
+		dev_dbg(&pdev->dev, "property %s not detected in node %s",
+			"qcom,hph-en1-gpio", pdev->dev.of_node->full_name);
 	}
 
 	pdata->hph_en0_gpio = of_get_named_gpio(pdev->dev.of_node,
 						"qcom,hph-en0-gpio", 0);
-	if (pdata->hph_en0_gpio < 0) {
-		dev_dbg(&pdev->dev, "%s: %s property not found %d\n",
-			__func__, "qcom,hph-en0-gpio", pdata->hph_en0_gpio);
+	if (!gpio_is_valid(pdata->hph_en0_gpio))
+		pdata->hph_en0_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,hph-en0-gpio", 0);
+	if (!gpio_is_valid(pdata->hph_en0_gpio) && (!pdata->hph_en0_gpio_p)) {
+		dev_dbg(&pdev->dev, "property %s not detected in node %s",
+			"qcom,hph-en0-gpio", pdev->dev.of_node->full_name);
 	}
+
 	ret = msm_prepare_hifi(card);
 	if (ret)
 		dev_dbg(&pdev->dev, "msm_prepare_hifi failed (%d)\n",
@@ -4020,11 +4029,11 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	 */
 	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,us-euro-gpios", 0);
-	if (pdata->us_euro_gpio < 0)
+	if (!gpio_is_valid(pdata->us_euro_gpio))
 		pdata->us_euro_gpio_p = of_parse_phandle(pdev->dev.of_node,
 					"qcom,us-euro-gpios", 0);
-	if ((pdata->us_euro_gpio < 0) && (!pdata->us_euro_gpio_p)) {
-		dev_info(&pdev->dev, "property %s not detected in node %s",
+	if (!gpio_is_valid(pdata->us_euro_gpio) && (!pdata->us_euro_gpio_p)) {
+		dev_dbg(&pdev->dev, "property %s not detected in node %s",
 			"qcom,us-euro-gpios", pdev->dev.of_node->full_name);
 	} else {
 		dev_dbg(&pdev->dev, "%s detected",
@@ -4034,7 +4043,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	ret = msm_prepare_us_euro(card);
 	if (ret)
-		dev_info(&pdev->dev, "msm_prepare_us_euro failed (%d)\n",
+		dev_dbg(&pdev->dev, "msm_prepare_us_euro failed (%d)\n",
 			ret);
 	return 0;
 err:
