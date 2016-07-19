@@ -13648,7 +13648,7 @@ static int tasha_probe(struct platform_device *pdev)
 			       GFP_KERNEL);
 	if (!cdc_pwr) {
 		ret = -ENOMEM;
-		goto cdc_pwr_fail;
+		goto err_cdc_pwr;
 	}
 	tasha->wcd9xxx->wcd9xxx_pwr[WCD9XXX_DIG_CORE_REGION_1] = cdc_pwr;
 	cdc_pwr->pwr_collapse_reg_min = TASHA_DIG_CORE_REG_MIN;
@@ -13657,18 +13657,6 @@ static int tasha_probe(struct platform_device *pdev)
 				WCD_REGION_POWER_COLLAPSE_REMOVE,
 				WCD9XXX_DIG_CORE_REGION_1);
 
-	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
-		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tasha,
-					     tasha_dai, ARRAY_SIZE(tasha_dai));
-	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
-		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tasha,
-					     tasha_i2s_dai,
-					     ARRAY_SIZE(tasha_i2s_dai));
-	if (ret) {
-		dev_err(&pdev->dev, "%s: Codec registration failed\n",
-			__func__);
-		goto cdc_reg_fail;
-	}
 	mutex_init(&tasha->codec_mutex);
 	/*
 	 * Init resource manager so that if child nodes such as SoundWire
@@ -13679,7 +13667,7 @@ static int tasha_probe(struct platform_device *pdev)
 		ret = PTR_ERR(resmgr);
 		dev_err(&pdev->dev, "%s: Failed to initialize wcd resmgr\n",
 			__func__);
-		goto unregister_codec;
+		goto err_resmgr;
 	}
 	tasha->resmgr = resmgr;
 	tasha->swr_plat_data.handle = (void *) tasha;
@@ -13694,7 +13682,7 @@ static int tasha_probe(struct platform_device *pdev)
 	if (IS_ERR(wcd_ext_clk)) {
 		dev_err(tasha->wcd9xxx->dev, "%s: clk get %s failed\n",
 			__func__, "wcd_ext_clk");
-		goto resmgr_remove;
+		goto err_clk;
 	}
 	tasha->wcd_ext_clk = wcd_ext_clk;
 	tasha->sido_voltage = SIDO_VOLTAGE_NOMINAL_MV;
@@ -13708,23 +13696,38 @@ static int tasha_probe(struct platform_device *pdev)
 			__func__, "wcd_native_clk");
 	else
 		tasha->wcd_native_clk = wcd_native_clk;
+
+	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tasha,
+					     tasha_dai, ARRAY_SIZE(tasha_dai));
+	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
+		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tasha,
+					     tasha_i2s_dai,
+					     ARRAY_SIZE(tasha_i2s_dai));
+	else
+		ret = -EINVAL;
+	if (ret) {
+		dev_err(&pdev->dev, "%s: Codec registration failed, ret = %d\n",
+			__func__, ret);
+		goto err_cdc_reg;
+	}
 	/* Update codec register default values */
 	tasha_update_reg_defaults(tasha);
 	schedule_work(&tasha->swr_add_devices_work);
-
 	tasha_get_codec_ver(tasha);
 
+	dev_info(&pdev->dev, "%s: Tasha driver probe done\n", __func__);
 	return ret;
 
-resmgr_remove:
+err_cdc_reg:
+	clk_put(tasha->wcd_ext_clk);
+	if (tasha->wcd_native_clk)
+		clk_put(tasha->wcd_native_clk);
+err_clk:
 	wcd_resmgr_remove(tasha->resmgr);
-unregister_codec:
-	if ((wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS) ||
-	    (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C))
-		snd_soc_unregister_codec(&pdev->dev);
-cdc_reg_fail:
+err_resmgr:
 	devm_kfree(&pdev->dev, cdc_pwr);
-cdc_pwr_fail:
+err_cdc_pwr:
 	devm_kfree(&pdev->dev, tasha);
 	return ret;
 }
