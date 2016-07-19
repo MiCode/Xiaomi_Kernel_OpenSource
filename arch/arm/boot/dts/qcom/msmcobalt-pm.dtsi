@@ -19,7 +19,7 @@
 		qcom,name = "gold-l2"; /* Gold L2 SAW */
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,cpu-vctl-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,vctl-timeout-us = <50>;
+		qcom,vctl-timeout-us = <500>;
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
 		qcom,saw2-avs-ctl = <0x1010031>;
@@ -35,7 +35,7 @@
 		qcom,name = "silver-l2"; /* Silver L2 SAW */
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
-		qcom,vctl-timeout-us = <50>;
+		qcom,vctl-timeout-us = <500>;
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
 		qcom,saw2-avs-ctl = <0x1010031>;
