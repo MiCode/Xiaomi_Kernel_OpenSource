@@ -145,20 +145,37 @@ static __wsum lro_tcp_data_csum(struct iphdr *iph, struct tcphdr *tcph, int len)
 }
 
 static void lro_init_desc(struct net_lro_desc *lro_desc, struct sk_buff *skb,
-			  struct iphdr *iph, struct tcphdr *tcph)
+			  struct iphdr *iph, struct tcphdr *tcph,
+			  struct net_lro_info *lro_info)
 {
 	int nr_frags;
 	__be32 *ptr;
 	u32 tcp_data_len = TCP_PAYLOAD_LENGTH(iph, tcph);
+	u64 hw_marked = 0;
+
+	if (lro_info)
+		hw_marked = lro_info->valid_fields;
 
 	nr_frags = skb_shinfo(skb)->nr_frags;
 	lro_desc->parent = skb;
 	lro_desc->next_frag = &(skb_shinfo(skb)->frags[nr_frags]);
 	lro_desc->iph = iph;
 	lro_desc->tcph = tcph;
-	lro_desc->tcp_next_seq = ntohl(tcph->seq) + tcp_data_len;
-	lro_desc->tcp_ack = tcph->ack_seq;
-	lro_desc->tcp_window = tcph->window;
+
+	if (hw_marked & LRO_TCP_SEQ_NUM)
+		lro_desc->tcp_next_seq = lro_info->tcp_seq_num + tcp_data_len;
+	else
+		lro_desc->tcp_next_seq = ntohl(tcph->seq) + tcp_data_len;
+
+	if (hw_marked & LRO_TCP_ACK_NUM)
+		lro_desc->tcp_ack = htonl(lro_info->tcp_ack_num);
+	else
+		lro_desc->tcp_ack = tcph->ack_seq;
+
+	if (hw_marked & LRO_TCP_WIN)
+		lro_desc->tcp_window = htons(lro_info->tcp_win);
+	else
+		lro_desc->tcp_window = tcph->window;
 
 	lro_desc->pkt_aggr_cnt = 1;
 	lro_desc->ip_tot_len = ntohs(iph->tot_len);
@@ -173,8 +190,11 @@ static void lro_init_desc(struct net_lro_desc *lro_desc, struct sk_buff *skb,
 	lro_desc->mss = tcp_data_len;
 	lro_desc->active = 1;
 
-	lro_desc->data_csum = lro_tcp_data_csum(iph, tcph,
-						tcp_data_len);
+	if (hw_marked & LRO_TCP_DATA_CSUM)
+		lro_desc->data_csum = lro_info->tcp_data_csum;
+	else
+		lro_desc->data_csum = lro_tcp_data_csum(iph, tcph,
+							tcp_data_len);
 }
 
 static inline void lro_clear_desc(struct net_lro_desc *lro_desc)
@@ -183,16 +203,29 @@ static inline void lro_clear_desc(struct net_lro_desc *lro_desc)
 }
 
 static void lro_add_common(struct net_lro_desc *lro_desc, struct iphdr *iph,
-			   struct tcphdr *tcph, int tcp_data_len)
+			   struct tcphdr *tcph, int tcp_data_len,
+			   struct net_lro_info *lro_info)
 {
 	struct sk_buff *parent = lro_desc->parent;
 	__be32 *topt;
+	u64 hw_marked = 0;
+
+	if (lro_info)
+		hw_marked = lro_info->valid_fields;
 
 	lro_desc->pkt_aggr_cnt++;
 	lro_desc->ip_tot_len += tcp_data_len;
 	lro_desc->tcp_next_seq += tcp_data_len;
-	lro_desc->tcp_window = tcph->window;
-	lro_desc->tcp_ack = tcph->ack_seq;
+
+	if (hw_marked & LRO_TCP_WIN)
+		lro_desc->tcp_window = htons(lro_info->tcp_win);
+	else
+		lro_desc->tcp_window = tcph->window;
+
+	if (hw_marked & LRO_TCP_ACK_NUM)
+		lro_desc->tcp_ack = htonl(lro_info->tcp_ack_num);
+	else
+		lro_desc->tcp_ack = tcph->ack_seq;
 
 	/* don't update tcp_rcv_tsval, would not work with PAWS */
 	if (lro_desc->tcp_saw_tstamp) {
@@ -200,10 +233,17 @@ static void lro_add_common(struct net_lro_desc *lro_desc, struct iphdr *iph,
 		lro_desc->tcp_rcv_tsecr = *(topt + 2);
 	}
 
-	lro_desc->data_csum = csum_block_add(lro_desc->data_csum,
-					     lro_tcp_data_csum(iph, tcph,
-							       tcp_data_len),
-					     parent->len);
+	if (hw_marked & LRO_TCP_DATA_CSUM)
+		lro_desc->data_csum = csum_block_add(lro_desc->data_csum,
+						     lro_info->tcp_data_csum,
+						     parent->len);
+	else
+		lro_desc->data_csum =
+			csum_block_add(lro_desc->data_csum,
+				       lro_tcp_data_csum(iph,
+							 tcph,
+							 tcp_data_len),
+				       parent->len);
 
 	parent->len += tcp_data_len;
 	parent->data_len += tcp_data_len;
@@ -212,12 +252,13 @@ static void lro_add_common(struct net_lro_desc *lro_desc, struct iphdr *iph,
 }
 
 static void lro_add_packet(struct net_lro_desc *lro_desc, struct sk_buff *skb,
-			   struct iphdr *iph, struct tcphdr *tcph)
+			   struct iphdr *iph, struct tcphdr *tcph,
+			   struct net_lro_info *lro_info)
 {
 	struct sk_buff *parent = lro_desc->parent;
 	int tcp_data_len = TCP_PAYLOAD_LENGTH(iph, tcph);
 
-	lro_add_common(lro_desc, iph, tcph, tcp_data_len);
+	lro_add_common(lro_desc, iph, tcph, tcp_data_len, lro_info);
 
 	skb_pull(skb, (skb->len - tcp_data_len));
 	parent->truesize += skb->truesize;
@@ -230,6 +271,29 @@ static void lro_add_packet(struct net_lro_desc *lro_desc, struct sk_buff *skb,
 	lro_desc->last_skb = skb;
 }
 
+static void lro_add_frags(struct net_lro_desc *lro_desc,
+			  int len, int hlen, int truesize,
+			  struct skb_frag_struct *skb_frags,
+			  struct iphdr *iph, struct tcphdr *tcph)
+{
+	struct sk_buff *skb = lro_desc->parent;
+	int tcp_data_len = TCP_PAYLOAD_LENGTH(iph, tcph);
+
+	lro_add_common(lro_desc, iph, tcph, tcp_data_len, NULL);
+
+	skb->truesize += truesize;
+
+	skb_frags[0].page_offset += hlen;
+	skb_frag_size_sub(&skb_frags[0], hlen);
+
+	while (tcp_data_len > 0) {
+		*lro_desc->next_frag = *skb_frags;
+		tcp_data_len -= skb_frag_size(skb_frags);
+		lro_desc->next_frag++;
+		skb_frags++;
+		skb_shinfo(skb)->nr_frags++;
+	}
+}
 
 static int lro_check_tcp_conn(struct net_lro_desc *lro_desc,
 			      struct iphdr *iph,
@@ -284,6 +348,8 @@ static void lro_flush(struct net_lro_mgr *lro_mgr,
 
 	if (lro_mgr->features & LRO_F_NAPI)
 		netif_receive_skb(lro_desc->parent);
+	else if (lro_mgr->features & LRO_F_NI)
+		netif_rx_ni(lro_desc->parent);
 	else
 		netif_rx(lro_desc->parent);
 
@@ -292,12 +358,13 @@ static void lro_flush(struct net_lro_mgr *lro_mgr,
 }
 
 static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
-			  void *priv)
+			  void *priv, struct net_lro_info *lro_info)
 {
 	struct net_lro_desc *lro_desc;
 	struct iphdr *iph;
 	struct tcphdr *tcph;
 	u64 flags;
+	u64 hw_marked = 0;
 	int vlan_hdr_len = 0;
 
 	if (!lro_mgr->get_skb_header ||
@@ -308,7 +375,14 @@ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
 	if (!(flags & LRO_IPV4) || !(flags & LRO_TCP))
 		goto out;
 
-	lro_desc = lro_get_desc(lro_mgr, lro_mgr->lro_arr, iph, tcph);
+	if (lro_info)
+		hw_marked = lro_info->valid_fields;
+
+	if (hw_marked & LRO_DESC)
+		lro_desc = lro_info->lro_desc;
+	else
+		lro_desc = lro_get_desc(lro_mgr, lro_mgr->lro_arr, iph, tcph);
+
 	if (!lro_desc)
 		goto out;
 
@@ -317,22 +391,38 @@ static int __lro_proc_skb(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
 		vlan_hdr_len = VLAN_HLEN;
 
 	if (!lro_desc->active) { /* start new lro session */
-		if (lro_tcp_ip_check(iph, tcph, skb->len - vlan_hdr_len, NULL))
-			goto out;
+		if (hw_marked & LRO_ELIGIBILITY_CHECKED) {
+			if (!lro_info->lro_eligible)
+				goto out;
+		} else {
+			if (lro_tcp_ip_check(iph, tcph,
+					     skb->len - vlan_hdr_len, NULL))
+				goto out;
+		}
 
 		skb->ip_summed = lro_mgr->ip_summed_aggr;
-		lro_init_desc(lro_desc, skb, iph, tcph);
+		lro_init_desc(lro_desc, skb, iph, tcph, lro_info);
 		LRO_INC_STATS(lro_mgr, aggregated);
 		return 0;
 	}
 
-	if (lro_desc->tcp_next_seq != ntohl(tcph->seq))
-		goto out2;
+	if (hw_marked & LRO_TCP_SEQ_NUM) {
+		if (lro_desc->tcp_next_seq != lro_info->tcp_seq_num)
+			goto out2;
+	} else {
+		if (lro_desc->tcp_next_seq != ntohl(tcph->seq))
+			goto out2;
+	}
 
-	if (lro_tcp_ip_check(iph, tcph, skb->len, lro_desc))
-		goto out2;
+	if (hw_marked & LRO_ELIGIBILITY_CHECKED) {
+		if (!lro_info->lro_eligible)
+			goto out2;
+	} else {
+		if (lro_tcp_ip_check(iph, tcph, skb->len, lro_desc))
+			goto out2;
+	}
 
-	lro_add_packet(lro_desc, skb, iph, tcph);
+	lro_add_packet(lro_desc, skb, iph, tcph, lro_info);
 	LRO_INC_STATS(lro_mgr, aggregated);
 
 	if ((lro_desc->pkt_aggr_cnt >= lro_mgr->max_aggr) ||
@@ -348,18 +438,160 @@ out:
 	return 1;
 }
 
+static struct sk_buff *lro_gen_skb(struct net_lro_mgr *lro_mgr,
+				   struct skb_frag_struct *frags,
+				   int len, int true_size,
+				   void *mac_hdr,
+				   int hlen, __wsum sum,
+				   u32 ip_summed)
+{
+	struct sk_buff *skb;
+	struct skb_frag_struct *skb_frags;
+	int data_len = len;
+	int hdr_len = min(len, hlen);
+
+	skb = netdev_alloc_skb(lro_mgr->dev, hlen + lro_mgr->frag_align_pad);
+	if (!skb)
+		return NULL;
+
+	skb_reserve(skb, lro_mgr->frag_align_pad);
+	skb->len = len;
+	skb->data_len = len - hdr_len;
+	skb->truesize += true_size;
+	skb->tail += hdr_len;
+
+	memcpy(skb->data, mac_hdr, hdr_len);
+
+	skb_frags = skb_shinfo(skb)->frags;
+	while (data_len > 0) {
+		*skb_frags = *frags;
+		data_len -= skb_frag_size(frags);
+		skb_frags++;
+		frags++;
+		skb_shinfo(skb)->nr_frags++;
+	}
+
+	skb_shinfo(skb)->frags[0].page_offset += hdr_len;
+	skb_frag_size_sub(&skb_shinfo(skb)->frags[0], hdr_len);
+
+	skb->ip_summed = ip_summed;
+	skb->csum = sum;
+	skb->protocol = eth_type_trans(skb, lro_mgr->dev);
+	return skb;
+}
+
+static struct sk_buff *__lro_proc_segment(struct net_lro_mgr *lro_mgr,
+					  struct skb_frag_struct *frags,
+					  int len, int true_size,
+					  void *priv, __wsum sum)
+{
+	struct net_lro_desc *lro_desc;
+	struct iphdr *iph;
+	struct tcphdr *tcph;
+	struct sk_buff *skb;
+	u64 flags;
+	void *mac_hdr;
+	int mac_hdr_len;
+	int hdr_len = LRO_MAX_PG_HLEN;
+	int vlan_hdr_len = 0;
+
+	if (!lro_mgr->get_frag_header ||
+	    lro_mgr->get_frag_header(frags, (void *)&mac_hdr, (void *)&iph,
+				     (void *)&tcph, &flags, priv)) {
+		mac_hdr = skb_frag_address(frags);
+		goto out1;
+	}
+
+	if (!(flags & LRO_IPV4) || !(flags & LRO_TCP))
+		goto out1;
+
+	hdr_len = (int)((void *)(tcph) + TCP_HDR_LEN(tcph) - mac_hdr);
+	mac_hdr_len = (int)((void *)(iph) - mac_hdr);
+
+	lro_desc = lro_get_desc(lro_mgr, lro_mgr->lro_arr, iph, tcph);
+	if (!lro_desc)
+		goto out1;
+
+	if (!lro_desc->active) { /* start new lro session */
+		if (lro_tcp_ip_check(iph, tcph, len - mac_hdr_len, NULL))
+			goto out1;
+
+		skb = lro_gen_skb(lro_mgr, frags, len, true_size, mac_hdr,
+				  hdr_len, 0, lro_mgr->ip_summed_aggr);
+		if (!skb)
+			goto out;
+
+		if ((skb->protocol == htons(ETH_P_8021Q)) &&
+		    !(lro_mgr->features & LRO_F_EXTRACT_VLAN_ID))
+			vlan_hdr_len = VLAN_HLEN;
+
+		iph = (void *)(skb->data + vlan_hdr_len);
+		tcph = (void *)((u8 *)skb->data + vlan_hdr_len
+				+ IP_HDR_LEN(iph));
+
+		lro_init_desc(lro_desc, skb, iph, tcph, NULL);
+		LRO_INC_STATS(lro_mgr, aggregated);
+		return NULL;
+	}
+
+	if (lro_desc->tcp_next_seq != ntohl(tcph->seq))
+		goto out2;
+
+	if (lro_tcp_ip_check(iph, tcph, len - mac_hdr_len, lro_desc))
+		goto out2;
+
+	lro_add_frags(lro_desc, len, hdr_len, true_size, frags, iph, tcph);
+	LRO_INC_STATS(lro_mgr, aggregated);
+
+	if ((skb_shinfo(lro_desc->parent)->nr_frags >= lro_mgr->max_aggr) ||
+	    lro_desc->parent->len > (0xFFFF - lro_mgr->dev->mtu))
+		lro_flush(lro_mgr, lro_desc);
+
+	return NULL;
+
+out2: /* send aggregated packets to the stack */
+	lro_flush(lro_mgr, lro_desc);
+
+out1:  /* Original packet has to be posted to the stack */
+	skb = lro_gen_skb(lro_mgr, frags, len, true_size, mac_hdr,
+			  hdr_len, sum, lro_mgr->ip_summed);
+out:
+	return skb;
+}
+
 void lro_receive_skb(struct net_lro_mgr *lro_mgr,
 		     struct sk_buff *skb,
 		     void *priv)
 {
-	if (__lro_proc_skb(lro_mgr, skb, priv)) {
+	if (__lro_proc_skb(lro_mgr, skb, priv, NULL)) {
 		if (lro_mgr->features & LRO_F_NAPI)
 			netif_receive_skb(skb);
+		else if (lro_mgr->features & LRO_F_NI)
+			netif_rx_ni(skb);
 		else
 			netif_rx(skb);
 	}
 }
 EXPORT_SYMBOL(lro_receive_skb);
+
+void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+		       struct skb_frag_struct *frags,
+		       int len, int true_size, void *priv, __wsum sum)
+{
+	struct sk_buff *skb;
+
+	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, priv, sum);
+	if (!skb)
+		return;
+
+	if (lro_mgr->features & LRO_F_NAPI)
+		netif_receive_skb(skb);
+	else if (lro_mgr->features & LRO_F_NI)
+		netif_rx_ni(skb);
+	else
+		netif_rx(skb);
+}
+EXPORT_SYMBOL(lro_receive_frags);
 
 void lro_flush_all(struct net_lro_mgr *lro_mgr)
 {
@@ -372,3 +604,35 @@ void lro_flush_all(struct net_lro_mgr *lro_mgr)
 	}
 }
 EXPORT_SYMBOL(lro_flush_all);
+
+void lro_flush_pkt(struct net_lro_mgr *lro_mgr, struct iphdr *iph,
+		   struct tcphdr *tcph)
+{
+	struct net_lro_desc *lro_desc;
+
+	lro_desc = lro_get_desc(lro_mgr, lro_mgr->lro_arr, iph, tcph);
+	if (lro_desc && lro_desc->active)
+		lro_flush(lro_mgr, lro_desc);
+}
+EXPORT_SYMBOL(lro_flush_pkt);
+
+void lro_flush_desc(struct net_lro_mgr *lro_mgr, struct net_lro_desc *lro_desc)
+{
+	if (lro_desc->active)
+		lro_flush(lro_mgr, lro_desc);
+}
+EXPORT_SYMBOL(lro_flush_desc);
+
+void lro_receive_skb_ext(struct net_lro_mgr *lro_mgr, struct sk_buff *skb,
+			 void *priv, struct net_lro_info *lro_info)
+{
+	if (__lro_proc_skb(lro_mgr, skb, priv, lro_info)) {
+		if (lro_mgr->features & LRO_F_NAPI)
+			netif_receive_skb(skb);
+		else if (lro_mgr->features & LRO_F_NI)
+			netif_rx_ni(skb);
+		else
+			netif_rx(skb);
+	}
+}
+EXPORT_SYMBOL(lro_receive_skb_ext);

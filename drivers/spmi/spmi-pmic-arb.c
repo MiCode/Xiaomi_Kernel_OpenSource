@@ -783,7 +783,7 @@ pmic_arb_ppid_to_apid_v1(struct spmi_pmic_arb *pa, u8 sid, u16 addr, u8 *apid)
 }
 
 static int
-pmic_arb_mode_v1(struct spmi_pmic_arb *pa, u8 sid, u16 addr, mode_t *mode)
+pmic_arb_mode_v1_v3(struct spmi_pmic_arb *pa, u8 sid, u16 addr, mode_t *mode)
 {
 	*mode = S_IRUSR | S_IWUSR;
 	return 0;
@@ -940,7 +940,7 @@ static u32 pmic_arb_irq_clear_v2(u8 n)
 static const struct pmic_arb_ver_ops pmic_arb_v1 = {
 	.ver_str		= "v1",
 	.ppid_to_apid		= pmic_arb_ppid_to_apid_v1,
-	.mode			= pmic_arb_mode_v1,
+	.mode			= pmic_arb_mode_v1_v3,
 	.non_data_cmd		= pmic_arb_non_data_cmd_v1,
 	.offset			= pmic_arb_offset_v1,
 	.fmt_cmd		= pmic_arb_fmt_cmd_v1,
@@ -966,7 +966,7 @@ static const struct pmic_arb_ver_ops pmic_arb_v2 = {
 static const struct pmic_arb_ver_ops pmic_arb_v3 = {
 	.ver_str		= "v3",
 	.ppid_to_apid		= pmic_arb_ppid_to_apid_v2,
-	.mode			= pmic_arb_mode_v2,
+	.mode			= pmic_arb_mode_v1_v3,
 	.non_data_cmd		= pmic_arb_non_data_cmd_v2,
 	.offset			= pmic_arb_offset_v2,
 	.fmt_cmd		= pmic_arb_fmt_cmd_v2,
@@ -1134,6 +1134,7 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	}
 
 	irq_set_chained_handler_and_data(pa->irq, pmic_arb_chained_irq, pa);
+	enable_irq_wake(pa->irq);
 
 	err = spmi_controller_add(ctrl);
 	if (err)

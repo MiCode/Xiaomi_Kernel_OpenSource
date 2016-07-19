@@ -42,6 +42,7 @@ struct wcd9xxx_resmgr_v2 {
 	struct mutex codec_bg_clk_lock;
 	struct mutex master_bias_lock;
 
+	enum codec_variant codec_type;
 	enum wcd_clock_type clk_type;
 
 	const struct wcd_resmgr_cb *resmgr_cb;

@@ -1491,13 +1491,18 @@ int mdss_mdp_scaler_lut_cfg(struct mdp_scale_data_v2 *scaler,
 	uint32_t *lut_type[QSEED3_FILTERS] = {NULL, NULL, NULL, NULL, NULL};
 	uint32_t lut_offset, lut_len;
 	struct mdss_mdp_qseed3_lut_tbl *lut_tbl;
-	/* for each filter, 4 lut regions offset and length table */
+	/* for each filter, 4 lut regions length and offset table */
 	static uint32_t offset_tbl[QSEED3_FILTERS][QSEED3_LUT_REGIONS][2] = {
+		/* DIR */
 		{{18, 0x000}, {12, 0x120}, {12, 0x1E0}, {8, 0x2A0} },
+		/* Y_CIR */
 		{{6, 0x320}, {3, 0x3E0}, {3, 0x440}, {3, 0x4A0} },
-		{{6, 0x380}, {3, 0x410}, {3, 0x470}, {3, 0x4d0} },
-		{{6, 0x500}, {3, 0x5c0}, {3, 0x620}, {3, 0x680} },
-		{{6, 0x560}, {3, 0x5f0}, {3, 0x650}, {3, 0x6b0} },
+		/* Y_SEP */
+		{{6, 0x380}, {3, 0x410}, {3, 0x470}, {3, 0x4D0} },
+		/* UV_CIR */
+		{{6, 0x500}, {3, 0x5C0}, {3, 0x620}, {3, 0x680} },
+		/* UV_SEP */
+		{{6, 0x560}, {3, 0x5F0}, {3, 0x650}, {3, 0x6B0} },
 	};
 
 	mdata = mdss_mdp_get_mdata();
@@ -1518,13 +1523,14 @@ int mdss_mdp_scaler_lut_cfg(struct mdp_scale_data_v2 *scaler,
 			lut_type[1] =
 				lut_tbl->cir_lut + scaler->y_rgb_cir_lut_idx *
 				CIR_LUT_COEFFS;
-		if (scaler->lut_flag & SCALER_LUT_UV_CIR_WR)
-			lut_type[2] = lut_tbl->cir_lut +
-				scaler->uv_cir_lut_idx * CIR_LUT_COEFFS;
 		if (scaler->lut_flag & SCALER_LUT_Y_SEP_WR)
-			lut_type[3] =
+			lut_type[2] =
 				lut_tbl->sep_lut + scaler->y_rgb_sep_lut_idx *
 				SEP_LUT_COEFFS;
+		if (scaler->lut_flag & SCALER_LUT_UV_CIR_WR)
+			lut_type[3] =
+				lut_tbl->cir_lut + scaler->uv_cir_lut_idx *
+				CIR_LUT_COEFFS;
 		if (scaler->lut_flag & SCALER_LUT_UV_SEP_WR)
 			lut_type[4] =
 				lut_tbl->sep_lut + scaler->uv_sep_lut_idx *
@@ -1622,25 +1628,26 @@ int mdss_mdp_qseed3_setup(struct mdp_scale_data_v2 *scaler,
 
 	pr_debug("scaler->enable=%d", scaler->enable);
 
-	if (scaler->enable) {
+
+	if (fmt->is_yuv)
+		op_mode |= (1 << SCALER_COLOR_SPACE);
+	if (fmt->alpha_enable)
+		op_mode |= SCALER_ALPHA_EN;
+	if (!fmt->unpack_dx_format)
+		op_mode |= 0x1 << SCALER_BIT_WIDTH;
+
+	if (scaler->enable & ENABLE_SCALE) {
 		op_mode |= SCALER_EN;
 		op_mode |= (scaler->y_rgb_filter_cfg & 0x3) <<
 			Y_FILTER_CFG;
 
-		if (fmt->is_yuv) {
-			op_mode |= (1 << SCALER_COLOR_SPACE);
+		if (fmt->is_yuv)
 			op_mode |= (scaler->uv_filter_cfg & 0x3) <<
 				UV_FILTER_CFG;
-		}
 
-		if (fmt->alpha_enable) {
-			op_mode |= SCALER_ALPHA_EN;
+		if (fmt->alpha_enable)
 			op_mode |= (scaler->alpha_filter_cfg & 1) <<
 				ALPHA_FILTER_CFG;
-		}
-
-		if (!fmt->unpack_dx_format)
-			op_mode |= 0x1 << SCALER_BIT_WIDTH;
 
 		op_mode |= (scaler->blend_cfg & 1) <<
 			SCALER_BLEND_CFG;
@@ -1712,9 +1719,9 @@ int mdss_mdp_qseed3_setup(struct mdp_scale_data_v2 *scaler,
 		writel_relaxed(scaler->phase_step_y[1] &
 				PHASE_STEP_BITS,
 				MDSS_MDP_REG_SCALER_PHASE_STEP_UV_V + offset);
-
 		writel_relaxed(preload, MDSS_MDP_REG_SCALER_PRELOAD +
 				offset);
+
 		writel_relaxed(src_y_rgb,
 				MDSS_MDP_REG_SCALER_SRC_SIZE_Y_RGB_A +
 				offset);
@@ -1723,10 +1730,22 @@ int mdss_mdp_qseed3_setup(struct mdp_scale_data_v2 *scaler,
 
 		writel_relaxed(dst, MDSS_MDP_REG_SCALER_DST_SIZE +
 				offset);
+
+		pr_debug("phase_init %x, step_y_h %x, step_y_v %x, step_uv_h %x, step_uv_v %x\n",
+				phase_init,
+				scaler->phase_step_x[0] & PHASE_STEP_BITS,
+				scaler->phase_step_x[1] & PHASE_STEP_BITS,
+				scaler->phase_step_y[0] & PHASE_STEP_BITS,
+				scaler->phase_step_y[1] & PHASE_STEP_BITS);
+		pr_debug("src_size_y_rgb %x, src_size_uv %x, dst_size %x,\n",
+				src_y_rgb,
+				src_uv,
+				dst);
 	} else {
 		op_mode &= ~SCALER_EN;
 	}
 
+	pr_debug("op_mode %x\n", op_mode);
 	writel_relaxed(op_mode, MDSS_MDP_REG_SCALER_OP_MODE +
 			offset);
 	return rc;
@@ -3099,8 +3118,8 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 	mutex_lock(&ad->lock);
 	if (!mfd->ad_bl_level)
 		mfd->ad_bl_level = bl_in;
-	if (!(ad->state & PP_AD_STATE_RUN)) {
-		pr_debug("AD is not running.\n");
+	if (!(ad->sts & PP_STS_ENABLE)) {
+		pr_debug("AD is not enabled.\n");
 		mutex_unlock(&ad->lock);
 		return -EPERM;
 	}
@@ -3123,22 +3142,27 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		return ret;
 	}
 
-	ret = pp_ad_attenuate_bl(ad, temp, &temp);
-	if (ret) {
-		pr_err("Failed to attenuate BL: %d\n", ret);
-		mutex_unlock(&ad->lock);
-		return ret;
-	}
-	ad_bl_out = temp;
+	if (ad->init.alpha > 0) {
+		ret = pp_ad_attenuate_bl(ad, temp, &temp);
+		if (ret) {
+			pr_err("Failed to attenuate BL: %d\n", ret);
+			mutex_unlock(&ad->lock);
+			return ret;
+		}
+		ad_bl_out = temp;
 
-	ret = pp_ad_linearize_bl(ad, temp, &temp, MDP_PP_AD_BL_LINEAR_INV);
-	if (ret) {
-		pr_err("Failed to inverse linearize BL: %d\n", ret);
-		mutex_unlock(&ad->lock);
-		return ret;
+		ret = pp_ad_linearize_bl(ad, temp, &temp,
+						MDP_PP_AD_BL_LINEAR_INV);
+		if (ret) {
+			pr_err("Failed to inverse linearize BL: %d\n", ret);
+			mutex_unlock(&ad->lock);
+			return ret;
+		}
+		*bl_out = temp;
+	} else {
+		ad_bl_out = temp;
 	}
 
-	*bl_out = temp;
 	if (pp_ad_bl_threshold_check(ad->init.al_thresh, ad->init.alpha_base,
 					ad->last_bl, ad_bl_out)) {
 		mfd->ad_bl_level = ad_bl_out;
@@ -6193,6 +6217,8 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		ad->sts &= ~PP_AD_STS_DIRTY_DATA;
 		ad->state |= PP_AD_STATE_DATA;
 		pr_debug("dirty data, last_bl = %d\n", ad->last_bl);
+		if (!bl_mfd->ad_bl_level)
+			bl_mfd->ad_bl_level = bl_mfd->bl_level;
 		bl = bl_mfd->ad_bl_level;
 
 		if (ad->last_bl != bl) {
@@ -6280,6 +6306,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 			memset(&ad->cfg, 0, sizeof(struct mdss_ad_cfg));
 			bl_mfd->ext_bl_ctrl = 0;
 			bl_mfd->ext_ad_ctrl = -1;
+			bl_mfd->ad_bl_level = 0;
 		}
 		ad->state &= ~PP_AD_STATE_RUN;
 	}
@@ -6384,7 +6411,7 @@ static void pp_ad_cfg_lut(char __iomem *addr, u32 *data)
 }
 
 /* must call this function from within ad->lock */
-static int  pp_ad_attenuate_bl(struct mdss_ad_info *ad, u32 bl, u32 *bl_out)
+static int pp_ad_attenuate_bl(struct mdss_ad_info *ad, u32 bl, u32 *bl_out)
 {
 	u32 shift = 0, ratio_temp = 0;
 	u32 n, lut_interval, bl_att;
@@ -7401,8 +7428,8 @@ static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd)
 	ad->mfd = NULL;
 	ad->bl_mfd = NULL;
 	ad->state = 0;
-	cancel_work_sync(&ad->calc_work);
 	mutex_unlock(&ad->lock);
+	cancel_work_sync(&ad->calc_work);
 
 	ctl = mfd_to_ctl(mfd);
 	if (ctl && ctl->ops.remove_vsync_handler)

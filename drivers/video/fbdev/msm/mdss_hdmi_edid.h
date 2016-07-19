@@ -28,6 +28,22 @@ struct hdmi_edid_init_data {
 	u32 buf_size;
 };
 
+/*
+ * struct hdmi_edid_hdr_data - HDR Static Metadata
+ * @eotf: Electro-Optical Transfer Function
+ * @descriptor: Static Metadata Descriptor
+ * @max_luminance: Desired Content Maximum Luminance
+ * @avg_luminance: Desired Content Frame-average Luminance
+ * @min_luminance: Desired Content Minimum Luminance
+ */
+struct hdmi_edid_hdr_data {
+	u32 eotf;
+	u32 descriptor;
+	u32 max_luminance;
+	u32 avg_luminance;
+	u32 min_luminance;
+};
+
 int hdmi_edid_parser(void *edid_ctrl);
 u32 hdmi_edid_get_raw_data(void *edid_ctrl, u8 *buf, u32 size);
 u8 hdmi_edid_get_sink_scaninfo(void *edid_ctrl, u32 resolution);
@@ -44,5 +60,7 @@ void *hdmi_edid_init(struct hdmi_edid_init_data *init_data);
 bool hdmi_edid_is_s3d_mode_supported(void *input,
 	u32 video_mode, u32 s3d_mode);
 u8 hdmi_edid_get_deep_color(void *edid_ctrl);
+void hdmi_edid_get_hdr_data(void *edid_ctrl,
+		struct hdmi_edid_hdr_data *hdr_data);
 
 #endif /* __HDMI_EDID_H__ */

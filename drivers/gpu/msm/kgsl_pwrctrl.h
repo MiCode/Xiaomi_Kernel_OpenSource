@@ -33,7 +33,8 @@
 /* Only two supported levels, min & max */
 #define KGSL_CONSTRAINT_PWR_MAXLEVELS 2
 
-#define KGSL_RBBMTIMER_CLK_FREQ	19200000
+#define KGSL_XO_CLK_FREQ	19200000
+#define KGSL_RBBMTIMER_CLK_FREQ	KGSL_XO_CLK_FREQ
 #define KGSL_ISENSE_CLK_FREQ	200000000
 
 /* Symbolic table for the constraint type */
@@ -154,6 +155,8 @@ struct kgsl_regulator {
  * @deep_nap_timer - Timer struct for entering deep nap
  * @deep_nap_timeout - Timeout for entering deep nap
  * @gx_retention - true if retention voltage is allowed
+ * isense_clk_indx - index of isense clock, 0 if no isense
+ * isense_clk_on_level - isense clock rate is XO rate below this level.
  */
 
 struct kgsl_pwrctrl {
@@ -162,6 +165,7 @@ struct kgsl_pwrctrl {
 	struct clk *dummy_mx_clk;
 	struct clk *gpu_bimc_int_clk;
 	int isense_clk_indx;
+	int isense_clk_on_level;
 	unsigned long power_flags;
 	unsigned long ctrl_flags;
 	struct kgsl_pwrlevel pwrlevels[KGSL_MAX_PWRLEVELS];

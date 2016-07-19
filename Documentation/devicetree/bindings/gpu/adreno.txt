@@ -31,6 +31,8 @@ Required properties:
 
 - qcom,base-leakage-coefficient: Dynamic leakage coefficient.
 - qcom,lm-limit:	Current limit for GPU limit management.
+- qcom,isense-clk-on-level: below or equal this power level isense clock is at XO rate,
+				above this powerlevel isense clock is at working frequency.
 
 Bus Scaling Data:
 - qcom,msm-bus,name: String property to describe the name of the 3D graphics processor.
@@ -89,6 +91,7 @@ Optional Properties:
 - qcom,idle-timeout:	   This property represents the time in milliseconds for idle timeout.
 - qcom,deep-nap-timeout:   This property represents the time in milliseconds for entering deeper
 			   power state.
+- qcom,no-nap:		   If it exists software clockgating will be disabled at boot time.
 - qcom,chipid:		   If it exists this property is used to replace
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.

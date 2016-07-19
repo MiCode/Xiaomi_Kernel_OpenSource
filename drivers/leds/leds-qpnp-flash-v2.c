@@ -81,6 +81,47 @@ enum {
 };
 
 /*
+ * Configurations for each individual LED
+ */
+struct flash_node_data {
+	struct platform_device		*pdev;
+	struct led_classdev		cdev;
+	struct pinctrl			*pinctrl;
+	struct pinctrl_state		*gpio_state_active;
+	struct pinctrl_state		*gpio_state_suspend;
+	struct pinctrl_state		*hw_strobe_state_active;
+	struct pinctrl_state		*hw_strobe_state_suspend;
+	int				hw_strobe_gpio;
+	int				ires_ua;
+	int				max_current;
+	int				current_ma;
+	u8				duration;
+	u8				id;
+	u8				type;
+	u8				ires;
+	u8				hdrm_val;
+	u8				current_reg_val;
+	u8				trigger;
+	bool				led_on;
+};
+
+struct flash_regulator_data {
+	struct regulator		*vreg;
+	const char			*reg_name;
+	u32				max_volt_uv;
+};
+
+struct flash_switch_data {
+	struct platform_device		*pdev;
+	struct led_classdev		cdev;
+	struct flash_regulator_data	*reg_data;
+	int				led_mask;
+	int				num_regulators;
+	bool				regulator_on;
+	bool				enabled;
+};
+
+/*
  * Flash LED configuration read from device tree
  */
 struct flash_led_platform_data {
@@ -99,8 +140,9 @@ struct qpnp_flash_led {
 	struct flash_node_data		*fnode;
 	struct flash_switch_data	*snode;
 	spinlock_t			lock;
-	int				num_led_nodes;
-	int				num_avail_leds;
+	int				num_fnodes;
+	int				num_snodes;
+	int				enable;
 	u16				base;
 };
 
@@ -111,12 +153,13 @@ qpnp_flash_led_masked_write(struct qpnp_flash_led *led, u16 addr, u8 mask,
 	int rc;
 
 	rc = regmap_update_bits(led->regmap, addr, mask, val);
-	if (rc)
+	if (rc < 0)
 		dev_err(&led->pdev->dev,
 			"Unable to update bits from 0x%02X, rc = %d\n",
 								addr, rc);
-
-	dev_dbg(&led->pdev->dev, "Write 0x%02X to addr 0x%02X\n", val, addr);
+	else
+		dev_dbg(&led->pdev->dev, "Wrote 0x%02X to addr 0x%02X\n",
+								val, addr);
 
 	return rc;
 }
@@ -132,13 +175,13 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 	int rc, i, addr_offset;
 	u8 val = 0;
 
-	for (i = 0; i < led->num_avail_leds; i++) {
+	for (i = 0; i < led->num_fnodes; i++) {
 		addr_offset = led->fnode[i].id;
 		rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_HDRM_PRGM(led->base + addr_offset),
 			FLASH_LED_HDRM_MODE_PRGM_MASK,
 			led->fnode[i].hdrm_val);
-		if (rc)
+		if (rc < 0)
 			return rc;
 
 		val |= 0x1 << led->fnode[i].id;
@@ -147,13 +190,13 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 	rc = qpnp_flash_led_masked_write(led,
 				FLASH_LED_REG_HDRM_AUTO_MODE_CTRL(led->base),
 				FLASH_LED_HDRM_MODE_PRGM_MASK, val);
-	if (rc)
+	if (rc < 0)
 		return rc;
 
 	rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_ISC_DELAY(led->base),
 			FLASH_LED_ISC_DELAY_MASK, led->pdata->isc_delay_us);
-	if (rc)
+	if (rc < 0)
 		return rc;
 
 	return 0;
@@ -184,7 +227,7 @@ static int qpnp_flash_led_hw_strobe_enable(struct flash_node_data *fnode,
 		rc = pinctrl_select_state(fnode->pinctrl,
 			on ? fnode->hw_strobe_state_active :
 			fnode->hw_strobe_state_suspend);
-		if (rc) {
+		if (rc < 0) {
 			dev_err(&fnode->pdev->dev,
 				"failed to change hw strobe pin state\n");
 			return rc;
@@ -249,56 +292,129 @@ static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 	fnode->led_on = prgm_current_ma != 0;
 }
 
+static int qpnp_flash_led_switch_disable(struct flash_switch_data *snode)
+{
+	struct qpnp_flash_led *led = dev_get_drvdata(&snode->pdev->dev);
+	int i, rc, addr_offset;
+
+	rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_EN_LED_CTRL(led->base),
+				snode->led_mask, FLASH_LED_DISABLE);
+	if (rc < 0)
+		return rc;
+
+	led->enable--;
+	if (led->enable == 0) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_MOD_CTRL(led->base),
+				FLASH_LED_MOD_CTRL_MASK, FLASH_LED_DISABLE);
+		if (rc < 0)
+			return rc;
+	}
+
+	for (i = 0; i < led->num_fnodes; i++) {
+		if (!led->fnode[i].led_on ||
+				!(snode->led_mask & BIT(led->fnode[i].id)))
+			continue;
+
+		addr_offset = led->fnode[i].id;
+		rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_TGR_CURRENT(led->base + addr_offset),
+			FLASH_LED_CURRENT_MASK, 0);
+		if (rc < 0)
+			return rc;
+
+		led->fnode[i].led_on = false;
+
+		if (led->fnode[i].pinctrl) {
+			rc = pinctrl_select_state(led->fnode[i].pinctrl,
+					led->fnode[i].gpio_state_suspend);
+			if (rc < 0) {
+				dev_err(&led->pdev->dev,
+					"failed to disable GPIO, rc=%d\n", rc);
+				return rc;
+			}
+		}
+
+		if (led->fnode[i].trigger & FLASH_LED_HW_SW_STROBE_SEL_MASK) {
+			rc = qpnp_flash_led_hw_strobe_enable(&led->fnode[i],
+					led->pdata->hw_strobe_option, false);
+			if (rc < 0) {
+				dev_err(&led->pdev->dev,
+					"Unable to disable hw strobe, rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+	}
+
+	qpnp_flash_led_regulator_enable(led, snode, false);
+	snode->enabled = false;
+	return 0;
+}
+
 static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 {
 	struct qpnp_flash_led *led = dev_get_drvdata(&snode->pdev->dev);
 	int rc, i, addr_offset;
 	u8 val;
 
-	if (!on)
-		goto leds_turn_off;
+	if (snode->enabled == on) {
+		dev_warn(&led->pdev->dev, "Switch node is already %s!\n",
+				on ? "enabled" : "disabled");
+		return 0;
+	}
+
+	if (!on) {
+		rc = qpnp_flash_led_switch_disable(snode);
+		return rc;
+	}
 
 	rc = qpnp_flash_led_regulator_enable(led, snode, true);
-	if (rc)
+	if (rc < 0)
 		return rc;
 
+	/* Iterate over all leds for this switch node */
 	val = 0;
-	for (i = 0; i < led->num_led_nodes; i++)
-		val |= led->fnode[i].ires << (led->fnode[i].id * 2);
+	for (i = 0; i < led->num_fnodes; i++)
+		if (snode->led_mask & BIT(led->fnode[i].id))
+			val |= led->fnode[i].ires << (led->fnode[i].id * 2);
+
 	rc = qpnp_flash_led_masked_write(led, FLASH_LED_REG_IRES(led->base),
 						FLASH_LED_CURRENT_MASK, val);
-	if (rc)
+	if (rc < 0)
 		return rc;
 
 	rc = qpnp_flash_led_masked_write(led,
 					FLASH_LED_REG_STROBE_CFG(led->base),
 					FLASH_LED_ENABLE_MASK,
 					led->pdata->hw_strobe_option);
-	if (rc)
+	if (rc < 0)
 		return rc;
 
 	val = 0;
-	for (i = 0; i < led->num_avail_leds; i++) {
-		if (!led->fnode[i].led_on)
+	for (i = 0; i < led->num_fnodes; i++) {
+		if (!led->fnode[i].led_on ||
+				!(snode->led_mask & BIT(led->fnode[i].id)))
 			continue;
 
 		addr_offset = led->fnode[i].id;
 		rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_STROBE_CTRL(led->base + addr_offset),
 			FLASH_LED_ENABLE_MASK, led->fnode[i].trigger);
-		if (rc)
+		if (rc < 0)
 			return rc;
 
 		rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_TGR_CURRENT(led->base + addr_offset),
 			FLASH_LED_CURRENT_MASK, led->fnode[i].current_reg_val);
-		if (rc)
+		if (rc < 0)
 			return rc;
 
 		rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_SAFETY_TMR(led->base + addr_offset),
 			FLASH_LED_SAFETY_TMR_MASK, led->fnode[i].duration);
-		if (rc)
+		if (rc < 0)
 			return rc;
 
 		val |= FLASH_LED_ENABLE << led->fnode[i].id;
@@ -306,7 +422,7 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		if (led->fnode[i].pinctrl) {
 			rc = pinctrl_select_state(led->fnode[i].pinctrl,
 					led->fnode[i].gpio_state_active);
-			if (rc) {
+			if (rc < 0) {
 				dev_err(&led->pdev->dev,
 						"failed to enable GPIO\n");
 				return rc;
@@ -316,7 +432,7 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		if (led->fnode[i].trigger & FLASH_LED_HW_SW_STROBE_SEL_MASK) {
 			rc = qpnp_flash_led_hw_strobe_enable(&led->fnode[i],
 					led->pdata->hw_strobe_option, true);
-			if (rc) {
+			if (rc < 0) {
 				dev_err(&led->pdev->dev,
 					"Unable to enable hw strobe\n");
 				return rc;
@@ -324,67 +440,22 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		}
 	}
 
-	rc = qpnp_flash_led_masked_write(led, FLASH_LED_REG_MOD_CTRL(led->base),
+	if (led->enable == 0) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_MOD_CTRL(led->base),
 				FLASH_LED_MOD_CTRL_MASK, FLASH_LED_MOD_ENABLE);
-	if (rc)
-		return rc;
+		if (rc < 0)
+			return rc;
+	}
+	led->enable++;
 
 	rc = qpnp_flash_led_masked_write(led,
 					FLASH_LED_EN_LED_CTRL(led->base),
-					FLASH_LED_ENABLE_MASK, val);
-	if (rc)
+					snode->led_mask, val);
+	if (rc < 0)
 		return rc;
 
-	return 0;
-
-leds_turn_off:
-	rc = qpnp_flash_led_masked_write(led,
-				FLASH_LED_EN_LED_CTRL(led->base),
-				FLASH_LED_ENABLE_MASK, FLASH_LED_DISABLE);
-	if (rc)
-		return rc;
-
-	rc = qpnp_flash_led_masked_write(led, FLASH_LED_REG_MOD_CTRL(led->base),
-				FLASH_LED_MOD_CTRL_MASK, FLASH_LED_DISABLE);
-	if (rc)
-		return rc;
-
-	for (i = 0; i < led->num_led_nodes; i++) {
-		if (!led->fnode[i].led_on)
-			continue;
-
-		addr_offset = led->fnode[i].id;
-		rc = qpnp_flash_led_masked_write(led,
-			FLASH_LED_REG_TGR_CURRENT(led->base + addr_offset),
-			FLASH_LED_CURRENT_MASK, 0);
-		if (rc)
-			return rc;
-
-		led->fnode[i].led_on = false;
-
-		if (led->fnode[i].pinctrl) {
-			rc = pinctrl_select_state(led->fnode[i].pinctrl,
-					led->fnode[i].gpio_state_suspend);
-			if (rc) {
-				dev_err(&led->pdev->dev,
-						"failed to disable GPIO\n");
-				return rc;
-			}
-		}
-
-		if (led->fnode[i].trigger & FLASH_LED_HW_SW_STROBE_SEL_MASK) {
-			rc = qpnp_flash_led_hw_strobe_enable(&led->fnode[i],
-					led->pdata->hw_strobe_option, false);
-			if (rc) {
-				dev_err(&led->pdev->dev,
-					"Unable to disable hw strobe\n");
-				return rc;
-			}
-		}
-	}
-
-	qpnp_flash_led_regulator_enable(led, snode, false);
-
+	snode->enabled = true;
 	return 0;
 }
 
@@ -429,7 +500,7 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 	struct qpnp_flash_led *led = dev_get_drvdata(&fnode->pdev->dev);
 	int rc;
 
-	if (!strcmp(led_cdev->name, "led:switch")) {
+	if (!strncmp(led_cdev->name, "led:switch", strlen("led:switch"))) {
 		snode = container_of(led_cdev, struct flash_switch_data, cdev);
 		led = dev_get_drvdata(&snode->pdev->dev);
 	} else {
@@ -438,18 +509,15 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 	}
 
 	spin_lock(&led->lock);
-	if (!fnode) {
+	if (snode) {
 		rc = qpnp_flash_led_switch_set(snode, value > 0);
-		if (rc) {
+		if (rc < 0)
 			dev_err(&led->pdev->dev,
 					"Failed to set flash LED switch\n");
-			goto exit;
-		}
-	} else {
+	} else if (fnode) {
 		qpnp_flash_led_node_set(fnode, value);
 	}
 
-exit:
 	spin_unlock(&led->lock);
 }
 
@@ -564,18 +632,18 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 	fnode->cdev.brightness_get = qpnp_flash_led_brightness_get;
 
 	rc = of_property_read_string(node, "qcom,led-name", &fnode->cdev.name);
-	if (rc) {
+	if (rc < 0) {
 		dev_err(&led->pdev->dev, "Unable to read flash LED names\n");
 		return rc;
 	}
 
 	rc = of_property_read_string(node, "label", &temp_string);
 	if (!rc) {
-		if (!strcmp(temp_string, "flash"))
+		if (!strcmp(temp_string, "flash")) {
 			fnode->type = FLASH_LED_TYPE_FLASH;
-		else if (!strcmp(temp_string, "torch"))
+		} else if (!strcmp(temp_string, "torch")) {
 			fnode->type = FLASH_LED_TYPE_TORCH;
-		else {
+		} else {
 			dev_err(&led->pdev->dev, "Wrong flash LED type\n");
 			return rc;
 		}
@@ -594,7 +662,7 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 
 	rc = of_property_read_string(node, "qcom,default-led-trigger",
 						&fnode->cdev.default_trigger);
-	if (rc) {
+	if (rc < 0) {
 		dev_err(&led->pdev->dev, "Unable to read trigger name\n");
 		return rc;
 	}
@@ -729,16 +797,17 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 	}
 
 	rc = led_classdev_register(&led->pdev->dev, &fnode->cdev);
-	if (rc) {
+	if (rc < 0) {
 		dev_err(&led->pdev->dev, "Unable to register led node %d\n",
 								fnode->id);
 		return rc;
 	}
+
 	fnode->cdev.dev->of_node = node;
 
 	fnode->pinctrl = devm_pinctrl_get(fnode->cdev.dev);
 	if (IS_ERR_OR_NULL(fnode->pinctrl)) {
-		dev_err(&led->pdev->dev, "No pinctrl defined\n");
+		dev_warn(&led->pdev->dev, "No pinctrl defined\n");
 		fnode->pinctrl = NULL;
 	} else {
 		fnode->gpio_state_active =
@@ -766,49 +835,64 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 }
 
 static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
+						struct flash_switch_data *snode,
 						struct device_node *node)
 {
 	int rc = 0;
 
-	rc = of_property_read_string(node, "qcom,led-name",
-							&led->snode->cdev.name);
-	if (rc) {
-		dev_err(&led->pdev->dev, "Failed to read switch node name\n");
+	rc = of_property_read_string(node, "qcom,led-name", &snode->cdev.name);
+	if (rc < 0) {
+		dev_err(&led->pdev->dev,
+				"Failed to read switch node name, rc=%d\n", rc);
 		return rc;
 	}
 
 	rc = of_property_read_string(node, "qcom,default-led-trigger",
-					&led->snode->cdev.default_trigger);
-	if (rc) {
-		dev_err(&led->pdev->dev, "Unable to read trigger name\n");
+					&snode->cdev.default_trigger);
+	if (rc < 0) {
+		dev_err(&led->pdev->dev,
+				"Unable to read trigger name, rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = qpnp_flash_led_regulator_parse_dt(led, led->snode, node);
+	rc = of_property_read_u32(node, "qcom,led-mask", &snode->led_mask);
+	if (rc < 0) {
+		dev_err(&led->pdev->dev, "Unable to read led mask rc=%d\n", rc);
+		return rc;
+	}
+
+	if (snode->led_mask < 1 || snode->led_mask > 7) {
+		dev_err(&led->pdev->dev, "Invalid value for led-mask\n");
+		return -EINVAL;
+	}
+
+	rc = qpnp_flash_led_regulator_parse_dt(led, snode, node);
 	if (rc < 0) {
 		dev_err(&led->pdev->dev,
 			"Unable to parse regulator data, rc=%d\n", rc);
 		return rc;
 	}
 
-	if (led->snode->num_regulators) {
-		rc = qpnp_flash_led_regulator_setup(led, led->snode, true);
-		if (rc) {
-			dev_err(&led->pdev->dev, "Unable to setup regulator\n");
+	if (snode->num_regulators) {
+		rc = qpnp_flash_led_regulator_setup(led, snode, true);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev,
+				"Unable to setup regulator, rc=%d\n", rc);
 			return rc;
 		}
 	}
 
-	led->snode->pdev = led->pdev;
-	led->snode->cdev.brightness_set = qpnp_flash_led_brightness_set;
-	led->snode->cdev.brightness_get = qpnp_flash_led_brightness_get;
-	rc = led_classdev_register(&led->pdev->dev, &led->snode->cdev);
-	if (rc) {
+	snode->pdev = led->pdev;
+	snode->cdev.brightness_set = qpnp_flash_led_brightness_set;
+	snode->cdev.brightness_get = qpnp_flash_led_brightness_get;
+	rc = led_classdev_register(&led->pdev->dev, &snode->cdev);
+	if (rc < 0) {
 		dev_err(&led->pdev->dev,
 					"Unable to register led switch node\n");
 		return rc;
 	}
 
+	snode->cdev.dev->of_node = node;
 	return 0;
 }
 
@@ -846,6 +930,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 {
 	struct qpnp_flash_led *led;
 	struct device_node *node, *temp;
+	const char *temp_string;
 	unsigned int base;
 	int rc, i = 0;
 
@@ -856,7 +941,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_u32(node, "reg", &base);
-	if (rc) {
+	if (rc < 0) {
 		dev_err(&pdev->dev, "Couldn't find reg in node %s, rc = %d\n",
 							node->full_name, rc);
 		return rc;
@@ -881,56 +966,77 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	rc = qpnp_flash_led_parse_common_dt(led, node);
-	if (rc) {
+	if (rc < 0) {
 		dev_err(&pdev->dev,
 			"Failed to parse common flash LED device tree\n");
 		return rc;
 	}
 
-	for_each_child_of_node(node, temp)
-		led->num_led_nodes++;
-	if (!led->num_led_nodes) {
+	for_each_available_child_of_node(node, temp) {
+		rc = of_property_read_string(temp, "label", &temp_string);
+		if (rc < 0) {
+			dev_err(&pdev->dev,
+				"Failed to parse label, rc=%d\n", rc);
+			return rc;
+		}
+
+		if (!strcmp("switch", temp_string)) {
+			led->num_snodes++;
+		} else if (!strcmp("flash", temp_string) ||
+				!strcmp("torch", temp_string)) {
+			led->num_fnodes++;
+		} else {
+			dev_err(&pdev->dev,
+					"Invalid label for led node\n");
+			return -EINVAL;
+		}
+	}
+
+	if (!led->num_fnodes) {
 		dev_err(&pdev->dev, "No LED nodes defined\n");
 		return -ECHILD;
 	}
 
-	led->fnode = devm_kzalloc(&pdev->dev,
-			sizeof(struct flash_node_data) * (--led->num_led_nodes),
-			GFP_KERNEL);
+	led->fnode = devm_kcalloc(&pdev->dev, led->num_fnodes,
+				sizeof(*led->fnode),
+				GFP_KERNEL);
 	if (!led->fnode)
 		return -ENOMEM;
 
+	led->snode = devm_kcalloc(&pdev->dev, led->num_snodes,
+				sizeof(*led->snode),
+				GFP_KERNEL);
+	if (!led->snode)
+		return -ENOMEM;
+
 	temp = NULL;
-	for (i = 0; i < led->num_led_nodes; i++) {
-		temp = of_get_next_child(node, temp);
+	for (i = 0; i < led->num_fnodes; i++) {
+		temp = of_get_next_available_child(node, temp);
 		rc = qpnp_flash_led_parse_each_led_dt(led,
 							&led->fnode[i], temp);
-		if (rc) {
+		if (rc < 0) {
 			dev_err(&pdev->dev,
-					"Unable to parse flash node %d\n", i);
+				"Unable to parse flash node %d rc=%d\n", i, rc);
 			goto error_led_register;
 		}
 	}
-	led->num_avail_leds = i;
 
-	led->snode = devm_kzalloc(&pdev->dev,
-				sizeof(struct flash_switch_data), GFP_KERNEL);
-	if (!led->snode) {
-		rc = -ENOMEM;
-		goto error_led_register;
-	}
-
-	temp = of_get_next_child(node, temp);
-	rc = qpnp_flash_led_parse_and_register_switch(led, temp);
-	if (rc) {
-		dev_err(&pdev->dev,
-				"Unable to parse and register switch node\n");
-		goto error_led_register;
+	for (i = 0; i < led->num_snodes; i++) {
+		temp = of_get_next_available_child(node, temp);
+		rc = qpnp_flash_led_parse_and_register_switch(led,
+							&led->snode[i], temp);
+		if (rc < 0) {
+			dev_err(&pdev->dev,
+				"Unable to parse and register switch node, rc=%d\n",
+				rc);
+			goto error_switch_register;
+		}
 	}
 
 	rc = qpnp_flash_led_init_settings(led);
-	if (rc) {
-		dev_err(&pdev->dev, "Failed to initialize flash LED\n");
+	if (rc < 0) {
+		dev_err(&pdev->dev,
+				"Failed to initialize flash LED, rc=%d\n", rc);
 		goto error_switch_register;
 	}
 
@@ -941,7 +1047,9 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	return 0;
 
 error_switch_register:
-	led_classdev_unregister(&led->snode->cdev);
+	while (i > 0)
+		led_classdev_unregister(&led->snode[--i].cdev);
+	i = led->num_fnodes;
 error_led_register:
 	while (i > 0)
 		led_classdev_unregister(&led->fnode[--i].cdev);
@@ -952,15 +1060,21 @@ error_led_register:
 static int qpnp_flash_led_remove(struct platform_device *pdev)
 {
 	struct qpnp_flash_led *led = dev_get_drvdata(&pdev->dev);
-	int i = led->num_led_nodes;
+	int i;
 
-	if (led->snode->num_regulators) {
-		if (led->snode->regulator_on)
-			qpnp_flash_led_regulator_enable(led, led->snode, false);
-		qpnp_flash_led_regulator_setup(led, led->snode, false);
+	for (i = 0; i < led->num_snodes; i++) {
+		if (led->snode[i].num_regulators) {
+			if (led->snode[i].regulator_on)
+				qpnp_flash_led_regulator_enable(led,
+						&led->snode[i], false);
+			qpnp_flash_led_regulator_setup(led,
+					&led->snode[i], false);
+		}
 	}
 
-	led_classdev_unregister(&led->snode->cdev);
+	while (i > 0)
+		led_classdev_unregister(&led->snode[--i].cdev);
+	i = led->num_fnodes;
 	while (i > 0)
 		led_classdev_unregister(&led->fnode[--i].cdev);
 

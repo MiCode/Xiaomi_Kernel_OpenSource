@@ -37,6 +37,12 @@
 
 static enum wcd9xxx_intf_status wcd9xxx_intf = -1;
 
+static struct mfd_cell tavil_devs[] = {
+	{
+		.name = "tavil_codec",
+	},
+};
+
 static struct mfd_cell tasha_devs[] = {
 	{
 		.name = "tasha_codec",
@@ -418,7 +424,7 @@ int wcd9xxx_page_write(struct wcd9xxx *wcd9xxx, unsigned short *reg)
 	unsigned short c_reg, reg_addr;
 	u8 pg_num, prev_pg_num;
 
-	if (wcd9xxx->type != WCD9335)
+	if (wcd9xxx->type != WCD9335 && wcd9xxx->type != WCD934X)
 		return ret;
 
 	c_reg = *reg;
@@ -618,6 +624,7 @@ int wcd9xxx_reset(struct device *dev)
 {
 	struct wcd9xxx *wcd9xxx;
 	int rc;
+	int value;
 
 	if (!dev)
 		return -ENODEV;
@@ -630,6 +637,12 @@ int wcd9xxx_reset(struct device *dev)
 		dev_err(dev, "%s: reset gpio device node not specified\n",
 			__func__);
 		return -EINVAL;
+	}
+
+	value = msm_cdc_get_gpio_state(wcd9xxx->wcd_rst_np);
+	if (value > 0) {
+		wcd9xxx->avoid_cdc_rstlow = 1;
+		return 0;
 	}
 
 	rc = msm_cdc_pinctrl_select_sleep_state(wcd9xxx->wcd_rst_np);
@@ -678,6 +691,11 @@ int wcd9xxx_reset_low(struct device *dev)
 		dev_err(dev, "%s: reset gpio device node not specified\n",
 			__func__);
 		return -EINVAL;
+	}
+	if (wcd9xxx->avoid_cdc_rstlow) {
+		wcd9xxx->avoid_cdc_rstlow = 0;
+		dev_dbg(dev, "%s: avoid pull down of reset GPIO\n", __func__);
+		return 0;
 	}
 
 	rc = msm_cdc_pinctrl_select_sleep_state(wcd9xxx->wcd_rst_np);
@@ -803,6 +821,10 @@ int wcd9xxx_get_codec_info(struct device *dev)
 	}
 
 	switch (wcd9xxx->type) {
+	case WCD934X:
+		cinfo->dev = tavil_devs;
+		cinfo->size = ARRAY_SIZE(tavil_devs);
+		break;
 	case WCD9335:
 		cinfo->dev = tasha_devs;
 		cinfo->size = ARRAY_SIZE(tasha_devs);

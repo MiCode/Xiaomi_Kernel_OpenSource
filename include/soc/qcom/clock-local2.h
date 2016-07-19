@@ -255,6 +255,7 @@ extern struct clk_ops clk_ops_branch_hw_ctl;
 extern struct clk_ops clk_ops_vote;
 extern struct clk_ops clk_ops_rcg_hdmi;
 extern struct clk_ops clk_ops_rcg_edp;
+extern struct clk_ops clk_ops_rcg_dp;
 extern struct clk_ops clk_ops_byte;
 extern struct clk_ops clk_ops_pixel;
 extern struct clk_ops clk_ops_byte_multiparent;

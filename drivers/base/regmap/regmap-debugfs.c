@@ -667,6 +667,7 @@ void regmap_debugfs_init(struct regmap *map, const char *name)
 
 		debugfs_create_x32("address", 0600, map->debugfs,
 				    &map->dump_address);
+		map->dump_count = 1;
 		debugfs_create_u32("count", 0600, map->debugfs,
 				    &map->dump_count);
 		debugfs_create_file("data", registers_mode, map->debugfs,

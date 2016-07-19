@@ -34,6 +34,7 @@
 
 	chosen {
 		stdout-path = "serial0";
+		bootargs = "rcupdate.rcu_expedited=1";
 	};
 
 	cpus {
@@ -261,10 +262,22 @@
 			reg = <0 0x85800000 0 0x3700000>;
 		};
 
-		peripheral_mem: peripheral_region@91900000 {
+		pil_slpi_mem: pil_slpi_region@93800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x91900000 0 0x2e00000>;
+			reg = <0 0x93800000 0 0xf00000>;
+		};
+
+		pil_video_mem: pil_video_region@93300000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93300000 0 0x500000>;
+		};
+
+		pil_adsp_mem: pil_adsp_region@91900000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x91900000 0 0x1a00000>;
 		};
 
 		modem_mem: modem_region@8ac00000 {
@@ -284,7 +297,7 @@
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
 			reusable;
 			alignment = <0 0x400000>;
-			size = <0 0x400000>;
+			size = <0 0x800000>;
 		};
 
 		qseecom_mem: qseecom_region {
@@ -656,7 +669,31 @@
 			< 1881600 >;
 
 		qcom,cpufreq-table-4 =
-			<  300000 >;
+			<  300000 >,
+			<  345600 >,
+			<  422400 >,
+			<  480000 >,
+			<  556800 >,
+			<  633600 >,
+			<  710400 >,
+			<  787200 >,
+			<  844800 >,
+			<  902400 >,
+			<  979200 >,
+			< 1056000 >,
+			< 1171200 >,
+			< 1248000 >,
+			< 1324800 >,
+			< 1401600 >,
+			< 1478400 >,
+			< 1536000 >,
+			< 1632000 >,
+			< 1708800 >,
+			< 1785600 >,
+			< 1862400 >,
+			< 1939200 >,
+			< 2016000 >,
+			< 2092800 >;
 	};
 
 	arm64-cpu-erp {
@@ -784,7 +821,31 @@
 			<  1881600000 0x04040062 0x094e004e 0x4 >;
 
 		qcom,perfcl-speedbin0-v0 =
-			< 300000000  0x0004000f 0x03200020 0x1>;
+			<   300000000 0x0004000f 0x01200020 0x1 >,
+			<   345600000 0x05040012 0x02200020 0x1 >,
+			<   422400000 0x05040016 0x02200020 0x1 >,
+			<   480000000 0x05040019 0x02200020 0x1 >,
+			<   556800000 0x0504001d 0x03200020 0x1 >,
+			<   633600000 0x05040021 0x03200020 0x1 >,
+			<   710400000 0x05040025 0x03200020 0x1 >,
+			<   787200000 0x05040029 0x04200020 0x1 >,
+			<   844800000 0x0404002c 0x04230023 0x1 >,
+			<   902400000 0x0404002f 0x04260026 0x1 >,
+			<   979200000 0x04040033 0x05290029 0x1 >,
+			<  1056000000 0x04040037 0x052c002c 0x1 >,
+			<  1171200000 0x0404003d 0x06310031 0x2 >,
+			<  1248000000 0x04040041 0x06340034 0x2 >,
+			<  1324800000 0x04040045 0x06370037 0x2 >,
+			<  1401600000 0x04040049 0x073a003a 0x2 >,
+			<  1478400000 0x0404004d 0x073e003e 0x2 >,
+			<  1536000000 0x04040050 0x07400040 0x2 >,
+			<  1632000000 0x04040055 0x08440044 0x3 >,
+			<  1708800000 0x04040059 0x08470047 0x3 >,
+			<  1785600000 0x0404005d 0x094a004a 0x3 >,
+			<  1862400000 0x04040061 0x094e004e 0x3 >,
+			<  1939200000 0x04040065 0x09510051 0x3 >,
+			<  2016000000 0x04040069 0x0a540054 0x3 >,
+			<  2092800000 0x0404006d 0x0a570057 0x3 >;
 
 		qcom,up-timer =
 			<1000 1000>;
@@ -1127,11 +1188,6 @@
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 11>;
 		};
-		qcom,msm_fastrpc_compute_cb5 {
-			compatible = "qcom,msm-fastrpc-compute-cb";
-			label = "adsprpc-smd";
-			iommus = <&lpass_q6_smmu 12>;
-		};
 		qcom,msm_fastrpc_compute_cb6 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
@@ -1420,10 +1476,6 @@
 		qcom,vreg-0.9-voltage-level = <880000 880000 24000>;
 		qcom,vreg-cx-voltage-level = <RPM_SMD_REGULATOR_LEVEL_BINNING
 						RPM_SMD_REGULATOR_LEVEL_SVS 0>;
-
-		qcom,l1-supported;
-		qcom,l1ss-supported;
-		qcom,aux-clk-sync;
 
 		qcom,ep-latency = <10>;
 
@@ -1916,6 +1968,13 @@
 			      "phy_phy_reset", "ref_clk_src", "ref_clk";
 	};
 
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		iommus = <&lpass_q6_smmu 12>;
+		qcom,usb-audio-stream-id = <12>;
+		qcom,usb-audio-intr-num = <2>;
+	};
+
 	dbm_1p5: dbm@a8f8000 {
 		compatible = "qcom,usb-dbm-1p5";
 		reg = <0xa8f8000 0x300>;
@@ -1946,7 +2005,7 @@
 		status = "ok";
 		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
-		memory-region = <&peripheral_mem>;
+		memory-region = <&pil_adsp_mem>;
 
 		/* GPIO inputs from lpass */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
@@ -2426,7 +2485,7 @@
 		qcom,ssctl-instance-id = <0x16>;
 		qcom,firmware-name = "slpi";
 		status = "ok";
-		memory-region = <&peripheral_mem>;
+		memory-region = <&pil_slpi_mem>;
 
 		/* GPIO inputs from ssc */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_3_in 0 0>;
@@ -2459,7 +2518,7 @@
 		qcom,pas-id = <9>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "venus";
-		memory-region = <&peripheral_mem>;
+		memory-region = <&pil_video_mem>;
 		status = "ok";
 	};
 
@@ -2774,6 +2833,8 @@
 &gdsc_bimc_smmu {
 	clock-names = "bus_clk";
 	clocks = <&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
+	proxy-supply = <&gdsc_bimc_smmu>;
+	qcom,proxy-consumer-enable;
 	status = "ok";
 };
 

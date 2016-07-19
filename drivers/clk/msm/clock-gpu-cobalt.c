@@ -285,9 +285,10 @@ static struct rcg_clk rbbmtimer_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gfx3d_isense_clk_src[] = {
-	F(  40000000, gpucc_gpll0,   15,    0,     0),
-	F( 200000000, gpucc_gpll0,    3,    0,     0),
-	F( 300000000, gpucc_gpll0,    2,    0,     0),
+	F(  19200000, gpucc_cxo_clk,    1,    0,     0),
+	F(  40000000,   gpucc_gpll0,   15,    0,     0),
+	F( 200000000,   gpucc_gpll0,    3,    0,     0),
+	F( 300000000,   gpucc_gpll0,    2,    0,     0),
 	F_END
 };
 

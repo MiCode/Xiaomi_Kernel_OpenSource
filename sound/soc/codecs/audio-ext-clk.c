@@ -146,6 +146,15 @@ static struct audio_ext_pmi_clk audio_pmi_clk = {
 	},
 };
 
+static struct audio_ext_pmi_clk audio_pmi_lnbb_clk = {
+	.gpio = -EINVAL,
+	.c = {
+		.dbg_name = "audio_ext_pmi_lnbb_clk",
+		.ops = &clk_ops_dummy,
+		CLK_INIT(audio_pmi_lnbb_clk.c),
+	},
+};
+
 static struct audio_ext_ap_clk audio_ap_clk = {
 	.gpio = -EINVAL,
 	.c = {
@@ -166,6 +175,7 @@ static struct audio_ext_ap_clk2 audio_ap_clk2 = {
 static struct clk_lookup audio_ref_clock[] = {
 	CLK_LIST(audio_ap_clk),
 	CLK_LIST(audio_pmi_clk),
+	CLK_LIST(audio_pmi_lnbb_clk),
 	CLK_LIST(audio_ap_clk2),
 };
 
@@ -216,38 +226,44 @@ static int audio_ref_clk_probe(struct platform_device *pdev)
 {
 	int clk_gpio;
 	int ret;
-	struct clk *div_clk1;
+	struct clk *audio_clk;
 
 	clk_gpio = of_get_named_gpio(pdev->dev.of_node,
 				     "qcom,audio-ref-clk-gpio", 0);
-	if (clk_gpio < 0) {
-		dev_err(&pdev->dev,
-			"Looking up %s property in node %s failed %d\n",
-			"qcom,audio-ref-clk-gpio",
-			pdev->dev.of_node->full_name,
-			clk_gpio);
-		ret = -EINVAL;
-		goto err;
-	}
-	ret = gpio_request(clk_gpio, "EXT_CLK");
-	if (ret) {
-		dev_err(&pdev->dev,
-			"Request ext clk gpio failed %d, err:%d\n",
-			clk_gpio, ret);
-		goto err;
-	}
-	if (of_property_read_bool(pdev->dev.of_node,
-				  "qcom,node_has_rpm_clock")) {
-		div_clk1 = clk_get(&pdev->dev, "osr_clk");
-		if (IS_ERR(div_clk1)) {
-			dev_err(&pdev->dev, "Failed to get RPM div clk\n");
-			ret = PTR_ERR(div_clk1);
-			goto err_gpio;
+	if (clk_gpio > 0) {
+		ret = gpio_request(clk_gpio, "EXT_CLK");
+		if (ret) {
+			dev_err(&pdev->dev,
+				"Request ext clk gpio failed %d, err:%d\n",
+				clk_gpio, ret);
+			goto err;
 		}
-		audio_pmi_clk.c.parent = div_clk1;
-		audio_pmi_clk.gpio = clk_gpio;
-	} else
-		audio_ap_clk.gpio = clk_gpio;
+		if (of_property_read_bool(pdev->dev.of_node,
+					"qcom,node_has_rpm_clock")) {
+			audio_clk = clk_get(&pdev->dev, NULL);
+			if (IS_ERR(audio_clk)) {
+				dev_err(&pdev->dev, "Failed to get RPM div clk\n");
+				ret = PTR_ERR(audio_clk);
+				goto err_gpio;
+			}
+			audio_pmi_clk.c.parent = audio_clk;
+			audio_pmi_clk.gpio = clk_gpio;
+		} else
+			audio_ap_clk.gpio = clk_gpio;
+
+	} else {
+		if (of_property_read_bool(pdev->dev.of_node,
+					"qcom,node_has_rpm_clock")) {
+			audio_clk = clk_get(&pdev->dev, NULL);
+			if (IS_ERR(audio_clk)) {
+				dev_err(&pdev->dev, "Failed to get lnbbclk2\n");
+				ret = PTR_ERR(audio_clk);
+				goto err;
+			}
+			audio_pmi_lnbb_clk.c.parent = audio_clk;
+			audio_pmi_lnbb_clk.gpio = -EINVAL;
+		}
+	}
 
 	ret = audio_get_pinctrl(pdev);
 	if (ret)

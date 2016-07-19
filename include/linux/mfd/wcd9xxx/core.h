@@ -76,6 +76,7 @@ enum codec_variant {
 	WCD9330,
 	WCD9335,
 	WCD9326,
+	WCD934X,
 };
 
 enum wcd9xxx_slim_slave_addr_type {
@@ -252,6 +253,7 @@ enum wcd9xxx_chipid_major {
 	TOMTOM_MAJOR = cpu_to_le16(0x105),
 	TASHA_MAJOR = cpu_to_le16(0x0),
 	TASHA2P0_MAJOR = cpu_to_le16(0x107),
+	TAVIL_MAJOR = cpu_to_le16(0x108),
 };
 
 enum codec_power_states {
@@ -328,6 +330,7 @@ struct wcd9xxx {
 	struct wcd9xxx_codec_type *codec_type;
 	bool prev_pg_valid;
 	u8 prev_pg;
+	u8 avoid_cdc_rstlow;
 	struct wcd9xxx_power_region *wcd9xxx_pwr[WCD9XXX_MAX_PWR_REGIONS];
 };
 

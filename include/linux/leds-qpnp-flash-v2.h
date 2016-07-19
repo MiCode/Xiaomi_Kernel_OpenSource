@@ -19,45 +19,6 @@
 #define ENABLE_REGULATOR	BIT(0)
 #define QUERY_MAX_CURRENT	BIT(1)
 
-struct flash_regulator_data {
-	struct regulator	*vreg;
-	const char		*reg_name;
-	u32			max_volt_uv;
-};
-
-/*
- * Configurations for each individual LED
- */
-struct flash_node_data {
-	struct platform_device		*pdev;
-	struct led_classdev		cdev;
-	struct pinctrl			*pinctrl;
-	struct pinctrl_state		*gpio_state_active;
-	struct pinctrl_state		*gpio_state_suspend;
-	struct pinctrl_state		*hw_strobe_state_active;
-	struct pinctrl_state		*hw_strobe_state_suspend;
-	int				hw_strobe_gpio;
-	int				ires_ua;
-	int				max_current;
-	int				current_ma;
-	u8				duration;
-	u8				id;
-	u8				type;
-	u8				ires;
-	u8				hdrm_val;
-	u8				current_reg_val;
-	u8				trigger;
-	bool				led_on;
-};
-
-struct flash_switch_data {
-	struct platform_device		*pdev;
-	struct led_classdev		cdev;
-	struct flash_regulator_data	*reg_data;
-	u8				num_regulators;
-	bool				regulator_on;
-};
-
 int qpnp_flash_led_prepare(struct led_classdev *led_cdev, int options);
 
 #endif

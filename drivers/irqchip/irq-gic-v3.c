@@ -29,6 +29,7 @@
 #include <linux/irqchip.h>
 #include <linux/irqchip/arm-gic-v3.h>
 #include <linux/syscore_ops.h>
+#include <linux/irqchip/msm-mpm-irq.h>
 
 #include <asm/cputype.h>
 #include <asm/exception.h>
@@ -1107,6 +1108,7 @@ static int __init gic_of_init(struct device_node *node, struct device_node *pare
 	gic_dist_init();
 	gic_cpu_init();
 	gic_cpu_pm_init();
+	of_mpm_init();
 
 #ifdef CONFIG_ARM_GIC_PANIC_HANDLER
 	atomic_notifier_chain_register(&panic_notifier_list, &gic_panic_blk);

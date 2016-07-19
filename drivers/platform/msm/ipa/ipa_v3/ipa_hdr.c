@@ -324,6 +324,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	struct ipa3_hdr_proc_ctx_tbl *htbl = &ipa3_ctx->hdr_proc_ctx_tbl;
 	int id;
 	int needed_len;
+	int mem_size;
 
 	IPADBG_LOW("processing type %d hdr_hdl %d\n",
 		proc_ctx->type, proc_ctx->hdr_hdl);
@@ -363,6 +364,14 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	} else {
 		IPAERR("unexpected needed len %d\n", needed_len);
 		WARN_ON(1);
+		goto bad_len;
+	}
+
+	mem_size = (ipa3_ctx->hdr_proc_ctx_tbl_lcl) ?
+		IPA_MEM_PART(apps_hdr_proc_ctx_size) :
+		IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr);
+	if (htbl->end + ipa_hdr_proc_ctx_bin_sz[bin] > mem_size) {
+		IPAERR("hdr proc ctx table overflow\n");
 		goto bad_len;
 	}
 

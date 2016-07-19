@@ -67,11 +67,12 @@
 		qcom,initial-pwrlevel = <4>;
 
 		qcom,idle-timeout = <80>; //<HZ/12>
+		qcom,no-nap;
 		/*
 		 * Timeout to enter deeper power saving state
 		 * from NAP.
 		 */
-		qcom,deep-nap-timeout = <2>; //<HZ/50>
+		qcom,deep-nap-timeout = <200>;
 		qcom,strtstp-sleepwake;
 
 		qcom,highest-bank-bit = <15>;
@@ -91,6 +92,7 @@
 			"mem_clk", "mem_iface_clk", "isense_clk", "rbcpr_clk",
 			"iref_clk";
 
+		qcom,isense-clk-on-level = <1>;
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
 		qcom,bus-control;
@@ -128,9 +130,9 @@
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
-				qcom,gpu-freq = <504000000>;
-				qcom,bus-freq = <11>;
-				qcom,bus-min = <10>;
+				qcom,gpu-freq = <650000000>;
+				qcom,bus-freq = <12>;
+				qcom,bus-min = <11>;
 				qcom,bus-max = <12>;
 			};
 

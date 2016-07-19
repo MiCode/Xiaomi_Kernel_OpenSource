@@ -1,5 +1,6 @@
 config MSM_MDSS_PLL
 	bool "MDSS pll programming"
+	depends on COMMON_CLK_MSM
 	---help---
 	It provides support for DSI, eDP and HDMI interface pll programming on MDSS
 	hardware. It also handles the pll specific resources and turn them on/off when

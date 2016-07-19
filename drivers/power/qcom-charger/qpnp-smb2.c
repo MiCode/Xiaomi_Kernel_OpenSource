@@ -596,6 +596,8 @@ static int smb2_determine_initial_status(struct smb2 *chip)
 	smblib_handle_usb_plugin(0, &irq_data);
 	smblib_handle_usb_typec_change(0, &irq_data);
 	smblib_handle_usb_source_change(0, &irq_data);
+	smblib_handle_chg_state_change(0, &irq_data);
+	smblib_handle_icl_change(0, &irq_data);
 
 	return 0;
 }
@@ -605,14 +607,16 @@ static int smb2_determine_initial_status(struct smb2 *chip)
  **************************/
 
 struct smb2_irq_info {
-	const char *name;
-	const irq_handler_t handler;
+	const char		*name;
+	const irq_handler_t	handler;
+	const bool		wake;
+	int			irq;
 };
 
-static const struct smb2_irq_info smb2_irqs[] = {
+static struct smb2_irq_info smb2_irqs[] = {
 /* CHARGER IRQs */
 	{ "chg-error",                  smblib_handle_debug },
-	{ "chg-state-change",           smblib_handle_chg_state_change },
+	{ "chg-state-change",           smblib_handle_chg_state_change,	true },
 	{ "step-chg-state-change",      smblib_handle_debug },
 	{ "step-chg-soc-update-fail",   smblib_handle_debug },
 	{ "step-chg-soc-update-request", smblib_handle_debug },
@@ -633,10 +637,10 @@ static const struct smb2_irq_info smb2_irqs[] = {
 	{ "usbin-lt-3p6v",              smblib_handle_debug },
 	{ "usbin-uv",                   smblib_handle_debug },
 	{ "usbin-ov",                   smblib_handle_debug },
-	{ "usbin-plugin",               smblib_handle_usb_plugin },
-	{ "usbin-src-change",           smblib_handle_usb_source_change },
-	{ "usbin-icl-change",           smblib_handle_icl_change },
-	{ "type-c-change",		smblib_handle_usb_typec_change },
+	{ "usbin-plugin",               smblib_handle_usb_plugin,	true },
+	{ "usbin-src-change",           smblib_handle_usb_source_change, true },
+	{ "usbin-icl-change",           smblib_handle_icl_change,	true },
+	{ "type-c-change",		smblib_handle_usb_typec_change,	true },
 /* DC INPUT IRQs */
 	{ "dcin-collapse",              smblib_handle_debug },
 	{ "dcin-lt-3p6v",               smblib_handle_debug },
@@ -704,6 +708,10 @@ static int smb2_request_interrupt(struct smb2 *chip,
 		pr_err("Couldn't request irq %d\n", irq);
 		return rc;
 	}
+
+	smb2_irqs[irq_index].irq = irq;
+	if (smb2_irqs[irq_index].wake)
+		enable_irq_wake(irq);
 
 	return rc;
 }

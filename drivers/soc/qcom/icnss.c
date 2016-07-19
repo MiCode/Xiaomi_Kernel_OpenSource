@@ -36,6 +36,7 @@
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/msm_qmi_interface.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include "wlan_firmware_service_v01.h"
 
@@ -133,6 +134,7 @@ enum icnss_driver_state {
 	ICNSS_FW_READY,
 	ICNSS_DRIVER_PROBED,
 	ICNSS_FW_TEST_MODE,
+	ICNSS_SUSPEND,
 };
 
 struct ce_irq_list {
@@ -531,6 +533,105 @@ int icnss_power_off(struct device *dev)
 	return icnss_hw_power_off(priv);
 }
 EXPORT_SYMBOL(icnss_power_off);
+
+int icnss_map_msa_permissions(struct icnss_data *priv, u32 index)
+{
+	int ret = 0;
+	phys_addr_t addr;
+	u32 size;
+	u32 source_vmlist[1] = {VMID_HLOS};
+	int dest_vmids[3] = {VMID_MSS_MSA, VMID_WLAN, 0};
+	int dest_perms[3] = {PERM_READ|PERM_WRITE,
+			     PERM_READ|PERM_WRITE,
+			     PERM_READ|PERM_WRITE};
+	int source_nelems = sizeof(source_vmlist)/sizeof(u32);
+	int dest_nelems = 0;
+
+	addr = priv->icnss_mem_region[index].reg_addr;
+	size = priv->icnss_mem_region[index].size;
+
+	if (!priv->icnss_mem_region[index].secure_flag) {
+		dest_vmids[2] = VMID_WLAN_CE;
+		dest_nelems = 3;
+	} else {
+		dest_vmids[2] = 0;
+		dest_nelems = 2;
+	}
+	ret = hyp_assign_phys(addr, size, source_vmlist, source_nelems,
+			      dest_vmids, dest_perms, dest_nelems);
+	if (ret) {
+		icnss_pr_err("region %u hyp_assign_phys failed IPA=%pa size=%u err=%d\n",
+			     index, &addr, size, ret);
+		goto out;
+	}
+	icnss_pr_dbg("hypervisor map for region %u: source=%x, dest_nelems=%d, dest[0]=%x, dest[1]=%x, dest[2]=%x\n",
+		     index, source_vmlist[0], dest_nelems,
+		     dest_vmids[0], dest_vmids[1], dest_vmids[2]);
+out:
+	return ret;
+
+}
+
+int icnss_unmap_msa_permissions(struct icnss_data *priv, u32 index)
+{
+	int ret = 0;
+	phys_addr_t addr;
+	u32 size;
+	u32 dest_vmids[1] = {VMID_HLOS};
+	int source_vmlist[3] = {VMID_MSS_MSA, VMID_WLAN, 0};
+	int dest_perms[1] = {PERM_READ|PERM_WRITE};
+	int source_nelems = 0;
+	int dest_nelems = sizeof(dest_vmids)/sizeof(u32);
+
+	addr = priv->icnss_mem_region[index].reg_addr;
+	size = priv->icnss_mem_region[index].size;
+	if (!priv->icnss_mem_region[index].secure_flag) {
+		source_vmlist[2] = VMID_WLAN_CE;
+		source_nelems = 3;
+	} else {
+		source_vmlist[2] = 0;
+		source_nelems = 2;
+	}
+
+	ret = hyp_assign_phys(addr, size, source_vmlist, source_nelems,
+			      dest_vmids, dest_perms, dest_nelems);
+	if (ret) {
+		icnss_pr_err("region %u hyp_assign_phys failed IPA=%pa size=%u err=%d\n",
+			     index, &addr, size, ret);
+		goto out;
+	}
+	icnss_pr_dbg("hypervisor unmap for region %u, source_nelems=%d, source[0]=%x, source[1]=%x, source[2]=%x, dest=%x\n",
+		     index, source_nelems,
+		     source_vmlist[0], source_vmlist[1], source_vmlist[2],
+		     dest_vmids[0]);
+out:
+	return ret;
+}
+
+static int icnss_setup_msa_permissions(struct icnss_data *priv)
+{
+	int ret = 0;
+
+	ret = icnss_map_msa_permissions(priv, 0);
+	if (ret)
+		return ret;
+
+	ret = icnss_map_msa_permissions(priv, 1);
+	if (ret)
+		goto err_map_msa;
+
+	return ret;
+
+err_map_msa:
+	icnss_unmap_msa_permissions(priv, 0);
+	return ret;
+}
+
+static void icnss_remove_msa_permissions(struct icnss_data *priv)
+{
+	icnss_unmap_msa_permissions(priv, 0);
+	icnss_unmap_msa_permissions(priv, 1);
+}
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
 {
@@ -1048,19 +1149,27 @@ static int icnss_driver_event_server_arrive(void *data)
 		icnss_pr_err("Failed to send MSA info: %d\n", ret);
 		goto err_power_on;
 	}
+	ret = icnss_setup_msa_permissions(penv);
+	if (ret < 0) {
+		icnss_pr_err("Failed to setup msa permissions: %d\n",
+			     ret);
+		goto err_power_on;
+	}
 	ret = wlfw_msa_ready_send_sync_msg();
 	if (ret < 0) {
 		icnss_pr_err("Failed to send MSA ready : %d\n", ret);
-		goto err_power_on;
+		goto err_setup_msa;
 	}
 
 	ret = wlfw_cap_send_sync_msg();
 	if (ret < 0) {
 		icnss_pr_err("Failed to get capability: %d\n", ret);
-		goto err_power_on;
+		goto err_setup_msa;
 	}
 	return ret;
 
+err_setup_msa:
+	icnss_remove_msa_permissions(penv);
 err_power_on:
 	icnss_hw_power_off(penv);
 fail:
@@ -2002,6 +2111,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_data *priv)
 		case ICNSS_FW_TEST_MODE:
 			seq_puts(s, "FW TEST MODE");
 			continue;
+		case ICNSS_SUSPEND:
+			seq_puts(s, "DRIVER SUSPENDED");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -2362,6 +2474,54 @@ static int icnss_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int icnss_suspend(struct platform_device *pdev,
+			 pm_message_t state)
+{
+	int ret = 0;
+
+	if (!penv) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	icnss_pr_dbg("Driver suspending, state: 0x%lx\n",
+		     penv->state);
+
+	if (!penv->ops)
+		goto out;
+
+	if (penv->ops->suspend)
+		ret = penv->ops->suspend(&pdev->dev, state);
+
+out:
+	if (ret == 0)
+		set_bit(ICNSS_SUSPEND, &penv->state);
+	return ret;
+}
+
+static int icnss_resume(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	if (!penv) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	icnss_pr_dbg("Driver resuming, state: 0x%lx\n",
+		     penv->state);
+
+	if (!penv->ops)
+		goto out;
+
+	if (penv->ops->resume)
+		ret = penv->ops->resume(&pdev->dev);
+
+out:
+	if (ret == 0)
+		clear_bit(ICNSS_SUSPEND, &penv->state);
+	return ret;
+}
 
 static const struct of_device_id icnss_dt_match[] = {
 	{.compatible = "qcom,icnss"},
@@ -2373,6 +2533,8 @@ MODULE_DEVICE_TABLE(of, icnss_dt_match);
 static struct platform_driver icnss_driver = {
 	.probe  = icnss_probe,
 	.remove = icnss_remove,
+	.suspend = icnss_suspend,
+	.resume = icnss_resume,
 	.driver = {
 		.name = "icnss",
 		.owner = THIS_MODULE,

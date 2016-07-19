@@ -218,6 +218,7 @@ static struct {
 	bool disable_htw;
 	bool fast_map;
 	bool s1_bypass;
+	bool use_64_bit_dma_mask;
 	u32 ipa_base;
 	u32 ipa_size;
 } smmu_info;
@@ -3961,7 +3962,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_bind;
 	}
 
-	result = ipa3_init_mem_partition(ipa_dev->of_node);
+	result = ipa3_init_mem_partition(master_dev->of_node);
 	if (result) {
 		IPAERR(":ipa3_init_mem_partition failed!\n");
 		result = -ENODEV;
@@ -4715,7 +4716,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	cb->va_end = cb->va_start + cb->va_size;
 	IPADBG("UC va_start=0x%x va_sise=0x%x\n", cb->va_start, cb->va_size);
 
-	if (ipa3_ctx->use_64_bit_dma_mask) {
+	if (smmu_info.use_64_bit_dma_mask) {
 		if (dma_set_mask(dev, DMA_BIT_MASK(64)) ||
 				dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
 			IPAERR("DMA set 64bit mask failed\n");
@@ -4826,7 +4827,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	cb->va_end = cb->va_start + cb->va_size;
 	IPADBG("AP va_start=0x%x va_sise=0x%x\n", cb->va_start, cb->va_size);
 
-	if (ipa3_ctx->use_64_bit_dma_mask) {
+	if (smmu_info.use_64_bit_dma_mask) {
 		if (dma_set_mask(dev, DMA_BIT_MASK(64)) ||
 				dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
 			IPAERR("DMA set 64bit mask failed\n");
@@ -5035,6 +5036,9 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		if (of_property_read_bool(pdev_p->dev.of_node,
 			"qcom,smmu-fast-map"))
 			smmu_info.fast_map = true;
+		if (of_property_read_bool(pdev_p->dev.of_node,
+			"qcom,use-64-bit-dma-mask"))
+			smmu_info.use_64_bit_dma_mask = true;
 		smmu_info.arm_smmu = true;
 		pr_info("IPA smmu_info.s1_bypass=%d smmu_info.fast_map=%d\n",
 			smmu_info.s1_bypass, smmu_info.fast_map);

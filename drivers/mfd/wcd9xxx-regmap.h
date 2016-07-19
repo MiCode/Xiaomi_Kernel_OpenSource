@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,10 @@
 
 typedef int (*regmap_patch_fptr)(struct regmap *, int);
 
+#ifdef CONFIG_WCD934X_CODEC
+extern struct regmap_config wcd934x_regmap_config;
+#endif
+
 #ifdef CONFIG_WCD9335_CODEC
 extern struct regmap_config wcd9335_regmap_config;
 extern int wcd9335_regmap_register_patch(struct regmap *regmap,
@@ -34,6 +38,11 @@ static inline struct regmap_config *wcd9xxx_get_regmap_config(int type)
 	struct regmap_config *regmap_config;
 
 	switch (type) {
+#ifdef CONFIG_WCD934X_CODEC
+	case WCD934X:
+		regmap_config = &wcd934x_regmap_config;
+		break;
+#endif
 #ifdef CONFIG_WCD9335_CODEC
 	case WCD9335:
 		regmap_config = &wcd9335_regmap_config;

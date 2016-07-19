@@ -81,6 +81,8 @@ static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
 				unsigned int state);
 static void kgsl_pwrctrl_retention_clk(struct kgsl_device *device, int state);
+static int _isense_clk_set_rate(struct kgsl_pwrctrl *pwr, int level);
+
 
 /**
  * _record_pwrevent() - Record the history of the new event
@@ -387,6 +389,8 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	/* Change register settings if any  BEFORE pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 0);
 	clk_set_rate(pwr->grp_clks[0], pwrlevel->gpu_freq);
+	_isense_clk_set_rate(pwr, pwr->active_pwrlevel);
+
 	trace_kgsl_pwrlevel(device,
 			pwr->active_pwrlevel, pwrlevel->gpu_freq,
 			pwr->previous_pwrlevel,
@@ -1374,15 +1378,20 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 				clk_set_rate(pwr->grp_clks[0],
 					pwr->pwrlevels[pwr->num_pwrlevels - 1].
 					gpu_freq);
+				_isense_clk_set_rate(pwr,
+					pwr->num_pwrlevels - 1);
 			}
 		} else if (requested_state == KGSL_STATE_SLEEP) {
 			/* High latency clock maintenance. */
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 				clk_unprepare(pwr->grp_clks[i]);
-			if ((pwr->pwrlevels[0].gpu_freq > 0))
+			if ((pwr->pwrlevels[0].gpu_freq > 0)) {
 				clk_set_rate(pwr->grp_clks[0],
 					pwr->pwrlevels[pwr->num_pwrlevels - 1].
 					gpu_freq);
+				_isense_clk_set_rate(pwr,
+					pwr->num_pwrlevels - 1);
+			}
 		}
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_CLK_ON,
@@ -1392,11 +1401,15 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 			/* High latency clock maintenance. */
 			if ((device->state != KGSL_STATE_NAP) &&
 			(device->state != KGSL_STATE_DEEP_NAP)) {
-				if (pwr->pwrlevels[0].gpu_freq > 0)
+				if (pwr->pwrlevels[0].gpu_freq > 0) {
 					clk_set_rate(pwr->grp_clks[0],
 						pwr->pwrlevels
 						[pwr->active_pwrlevel].
 						gpu_freq);
+					_isense_clk_set_rate(pwr,
+						pwr->active_pwrlevel);
+				}
+
 				for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 					clk_prepare(pwr->grp_clks[i]);
 			}
@@ -1720,7 +1733,25 @@ static int _get_clocks(struct kgsl_device *device)
 		}
 	}
 
+	if (pwr->isense_clk_indx && of_property_read_u32(dev->of_node,
+		"qcom,isense-clk-on-level", &pwr->isense_clk_on_level)) {
+		KGSL_CORE_ERR("Couldn't get isense clock on level\n");
+		return -ENXIO;
+	}
 	return 0;
+}
+
+static int _isense_clk_set_rate(struct kgsl_pwrctrl *pwr, int level)
+{
+	int rate;
+
+	if (!pwr->isense_clk_indx)
+		return -EINVAL;
+
+	rate = clk_round_rate(pwr->grp_clks[pwr->isense_clk_indx],
+		level > pwr->isense_clk_on_level ?
+		KGSL_XO_CLK_FREQ : KGSL_ISENSE_CLK_FREQ);
+	return clk_set_rate(pwr->grp_clks[pwr->isense_clk_indx], rate);
 }
 
 int kgsl_pwrctrl_init(struct kgsl_device *device)
@@ -1771,6 +1802,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pwr->power_flags = BIT(KGSL_PWRFLAGS_RETENTION_ON);
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,no-nap"))
+		device->pwrctrl.ctrl_flags |= BIT(KGSL_PWRFLAGS_NAP_OFF);
+
 	if (pwr->num_pwrlevels == 0) {
 		KGSL_PWR_ERR(device, "No power levels are defined\n");
 		return -EINVAL;
@@ -1799,9 +1833,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	clk_set_rate(pwr->grp_clks[6],
 		clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ));
 
-	if (pwr->isense_clk_indx)
-		clk_set_rate(pwr->grp_clks[pwr->isense_clk_indx],
-			KGSL_ISENSE_CLK_FREQ);
+	_isense_clk_set_rate(pwr, pwr->num_pwrlevels - 1);
 
 	result = get_regulators(device);
 	if (result)
@@ -2577,7 +2609,8 @@ void kgsl_active_count_put(struct kgsl_device *device)
 			device->requested_state == KGSL_STATE_NONE) {
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
 			kgsl_schedule_work(&device->idle_check_ws);
-		}
+		} else if (!nap_on)
+			kgsl_pwrscale_update_stats(device);
 
 		mod_timer(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);

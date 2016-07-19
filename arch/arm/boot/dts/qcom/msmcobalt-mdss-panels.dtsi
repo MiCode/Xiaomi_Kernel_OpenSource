@@ -14,6 +14,8 @@
 #include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-cmd.dtsi"
+#include "dsi-panel-nt35597-truly-dualmipi-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-truly-dualmipi-wqxga-cmd.dtsi"
 #include "dsi-panel-nt35597-dsc-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dsc-wqxga-cmd.dtsi"
 #include "dsi-panel-sharp-dsc-4k-video.dtsi"
@@ -76,12 +78,26 @@
 	qcom,mdss-dsi-panel-timings = [00 1a 04 06 0a 0a 05 06 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_dual_nt35597_cmd {
 	qcom,mdss-dsi-panel-timings = [00 1a 04 06 0a 0a 05 06 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+};
+
+&dsi_dual_nt35597_truly_video {
+	qcom,mdss-dsi-panel-timings = [00 1a 04 06 0a 0a 05 06 05 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x07>;
+	qcom,mdss-dsi-t-clk-pre = <0x25>;
+};
+
+&dsi_dual_nt35597_truly_cmd {
+	qcom,mdss-dsi-panel-timings = [00 1a 04 06 0a 0a 05 06 05 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x07>;
+	qcom,mdss-dsi-t-clk-pre = <0x25>;
 };
 
 &dsi_nt35597_dsc_video {

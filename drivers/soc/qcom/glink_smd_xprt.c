@@ -731,6 +731,7 @@ static void process_reopen_event(struct work_struct *work)
 		mutex_unlock(&einfo->rx_cmd_lock);
 	}
 	if (ch->local_legacy) {
+		ch->local_legacy = false;
 		mutex_lock(&einfo->rx_cmd_lock);
 		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
 								&einfo->xprt_if,
@@ -944,6 +945,7 @@ static void smd_data_ch_close(struct channel *ch)
 		ch->smd_ch = NULL;
 	} else if (ch->local_legacy) {
 		ch_work = kzalloc(sizeof(*ch_work), GFP_KERNEL);
+		ch->local_legacy = false;
 		if (ch_work) {
 			ch_work->ch = ch;
 			INIT_WORK(&ch_work->work, deferred_close_ack);
@@ -952,7 +954,6 @@ static void smd_data_ch_close(struct channel *ch)
 	}
 	mutex_unlock(&ch->ch_probe_lock);
 
-	ch->local_legacy = false;
 
 	spin_lock_irqsave(&ch->intents_lock, flags);
 	while (!list_empty(&ch->intents)) {
@@ -1854,8 +1855,14 @@ static int tx_cmd_rx_intent_req(struct glink_transport_if *if_ptr,
 	struct edge_info *einfo;
 	struct channel *ch;
 	unsigned long flags;
+	int rcu_id;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+	rcu_id = srcu_read_lock(&einfo->ssr_sync);
+	if (einfo->in_ssr) {
+		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+		return -EFAULT;
+	}
 	spin_lock_irqsave(&einfo->channels_lock, flags);
 	list_for_each_entry(ch, &einfo->channels, node) {
 		if (lcid == ch->lcid)
@@ -1871,6 +1878,7 @@ static int tx_cmd_rx_intent_req(struct glink_transport_if *if_ptr,
 							ch->rcid,
 							ch->next_intent_id++,
 							size);
+	srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 	return 0;
 }
 

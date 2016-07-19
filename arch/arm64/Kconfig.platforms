@@ -56,12 +56,14 @@ config ARCH_QCOM
     	select SOC_BUS
 	select MSM_IRQ
 	select THERMAL_WRITABLE_TRIPS
+	select RATIONAL
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
 config ARCH_MSM8996
         bool "Enable Support for Qualcomm MSM8996"
 	depends on ARCH_QCOM
+	select COMMON_CLK_MSM
 	help
 	This enables support for the MSM8996 chipset. If you do not
 	wish to build a kernel that runs on this chipset, say 'N' here.
@@ -69,6 +71,7 @@ config ARCH_MSM8996
 config ARCH_MSMCOBALT
         bool "Enable Support for Qualcomm MSMCOBALT"
 	depends on ARCH_QCOM
+	select COMMON_CLK_MSM
 	help
 	This enables support for the MSMCOBALT chipset. If you do not
 	wish to build a kernel that runs on this chipset, say 'N' here.
@@ -76,6 +79,7 @@ config ARCH_MSMCOBALT
 config ARCH_MSMHAMSTER
 	bool "Enable Support for Qualcomm Technologies Inc MSMHAMSTER"
 	depends on ARCH_QCOM
+	select COMMON_CLK_MSM
 	help
 	  This enables support for the MSMHAMSTER chipset.
 	  If you do not wish to build a kernel that runs
@@ -84,6 +88,7 @@ config ARCH_MSMHAMSTER
 config ARCH_MSMFALCON
 	bool "Enable Support for Qualcomm Technologies Inc MSMFALCON"
 	depends on ARCH_QCOM
+	select COMMON_CLK_MSM
 	help
 	  This enables support for the MSMFALCON chipset.
 	  If you do not wish to build a kernel that runs
