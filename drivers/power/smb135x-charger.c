@@ -331,6 +331,11 @@ struct smb135x_regulator {
 	struct regulator_dev	*rdev;
 };
 
+struct smb135x_wakeup_source {
+	struct wakeup_source    source;
+	unsigned long           enabled;
+};
+
 struct smb135x_chg {
 	struct i2c_client		*client;
 	struct device			*dev;
@@ -396,6 +401,7 @@ struct smb135x_chg {
 
 	bool				resume_completed;
 	bool				irq_waiting;
+	bool				device_suspended;
 	u32				usb_suspended;
 	u32				dc_suspended;
 	struct mutex			path_suspend_lock;
@@ -424,12 +430,34 @@ struct smb135x_chg {
 
 	bool				apsd_rerun;
 	bool				id_line_not_connected;
+	struct smb135x_wakeup_source    wake_source;
 };
 
 #define RETRY_COUNT 5
 int retry_sleep_ms[RETRY_COUNT] = {
 	10, 20, 30, 40, 50
 };
+
+static void smb135x_stay_awake(struct smb135x_chg *chip)
+{
+	if (chip->device_suspended)
+		return;
+
+	if (!__test_and_set_bit(0, &chip->wake_source.enabled)) {
+		__pm_stay_awake(&chip->wake_source.source);
+		dev_dbg(chip->dev, "enabled source %s\n",
+				chip->wake_source.source.name);
+	}
+}
+
+static void smb135x_relax(struct smb135x_chg *chip)
+{
+	if (__test_and_clear_bit(0, &chip->wake_source.enabled)) {
+		__pm_relax(&chip->wake_source.source);
+		dev_dbg(chip->dev, "disable source %s\n",
+				chip->wake_source.source.name);
+	}
+}
 
 static int __smb135x_read(struct smb135x_chg *chip, int reg,
 				u8 *val)
@@ -488,9 +516,9 @@ static int smb135x_read(struct smb135x_chg *chip, int reg,
 		return 0;
 	}
 	mutex_lock(&chip->read_write_lock);
-	pm_stay_awake(chip->dev);
+	smb135x_stay_awake(chip);
 	rc = __smb135x_read(chip, reg, val);
-	pm_relax(chip->dev);
+	smb135x_relax(chip);
 	mutex_unlock(&chip->read_write_lock);
 
 	return rc;
@@ -505,9 +533,9 @@ static int smb135x_write(struct smb135x_chg *chip, int reg,
 		return 0;
 
 	mutex_lock(&chip->read_write_lock);
-	pm_stay_awake(chip->dev);
+	smb135x_stay_awake(chip);
 	rc = __smb135x_write(chip, reg, val);
-	pm_relax(chip->dev);
+	smb135x_relax(chip);
 	mutex_unlock(&chip->read_write_lock);
 
 	return rc;
@@ -2682,7 +2710,7 @@ static int handle_usb_removal(struct smb135x_chg *chip)
 {
 	if (chip->usb_psy) {
 		cancel_delayed_work_sync(&chip->hvdcp_det_work);
-		pm_relax(chip->dev);
+		smb135x_relax(chip);
 		pr_debug("setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_supply_type(chip->usb_psy,
@@ -2743,7 +2771,7 @@ static void smb135x_hvdcp_det_work(struct work_struct *work)
 			POWER_SUPPLY_TYPE_USB_HVDCP);
 	}
 end:
-	pm_relax(chip->dev);
+	smb135x_relax(chip);
 }
 
 #define HVDCP_NOTIFY_MS 2500
@@ -2794,7 +2822,7 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 
 	if (usb_supply_type == POWER_SUPPLY_TYPE_USB_DCP) {
 		pr_debug("schedule hvdcp detection worker\n");
-		pm_stay_awake(chip->dev);
+		smb135x_stay_awake(chip);
 		schedule_delayed_work(&chip->hvdcp_det_work,
 					msecs_to_jiffies(HVDCP_NOTIFY_MS));
 	}
@@ -4197,6 +4225,7 @@ static int smb135x_main_charger_probe(struct i2c_client *client,
 	mutex_init(&chip->read_write_lock);
 	mutex_init(&chip->otg_oc_count_lock);
 	device_init_wakeup(chip->dev, true);
+	wakeup_source_init(&chip->wake_source.source, "smb_wake_source");
 	/* probe the device to check if its actually connected */
 	rc = smb135x_read(chip, CFG_4_REG, &reg);
 	if (rc) {
@@ -4446,6 +4475,7 @@ static int smb135x_suspend(struct device *dev)
 	if (chip->parallel_charger)
 		return 0;
 
+	chip->device_suspended = true;
 	/* Save the current IRQ config */
 	for (i = 0; i < 3; i++) {
 		rc = smb135x_read(chip, IRQ_CFG_REG + i,
@@ -4520,6 +4550,8 @@ static int smb135x_resume(struct device *dev)
 	} else {
 		mutex_unlock(&chip->irq_complete);
 	}
+
+	chip->device_suspended = false;
 	return 0;
 }
 
