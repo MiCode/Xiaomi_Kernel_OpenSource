@@ -4096,7 +4096,8 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 	int nice;
 	struct related_thread_group *grp;
 
-	if (!sched_enable_hmp || p->state != TASK_RUNNING)
+	if (!sched_enable_hmp || p->state != TASK_RUNNING ||
+	    p->nr_cpus_allowed == 1)
 		return 0;
 
 	/* No need to migrate task that is about to be throttled */
