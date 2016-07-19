@@ -27,6 +27,8 @@
 #include <linux/leds-qpnp-flash-v2.h>
 #include "leds.h"
 
+#define	FLASH_LED_REG_LED_STATUS1(base)		(base + 0x08)
+#define	FLASH_LED_REG_LED_STATUS2(base)		(base + 0x09)
 #define	FLASH_LED_REG_INT_RT_STS(base)		(base + 0x10)
 #define	FLASH_LED_REG_SAFETY_TMR(base)		(base + 0x40)
 #define	FLASH_LED_REG_TGR_CURRENT(base)		(base + 0x43)
@@ -56,6 +58,7 @@
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MASK	GENMASK(2, 0)
 #define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 #define	FLASH_LED_HW_SW_STROBE_SEL_MASK		BIT(2)
+#define	FLASH_LED_VPH_DROOP_FAULT_MASK		BIT(4)
 
 #define	VPH_DROOP_DEBOUNCE_US_TO_VAL(val_us)	(val_us / 8)
 #define	VPH_DROOP_HYST_MV_TO_VAL(val_mv)	(val_mv / 25)
@@ -154,6 +157,7 @@ struct flash_switch_data {
 struct flash_led_platform_data {
 	int	all_ramp_up_done_irq;
 	int	all_ramp_down_done_irq;
+	int	led_fault_irq;
 	u8	isc_delay;
 	u8	warmup_delay;
 	u8	current_derate_en_cfg;
@@ -622,30 +626,58 @@ static irqreturn_t qpnp_flash_led_irq_handler(int irq, void *_led)
 	struct qpnp_flash_led *led = _led;
 	enum flash_led_irq_type irq_type = INVALID_IRQ;
 	int rc;
-	u8 status;
+	u8 irq_status, led_status1, led_status2;
 
 	dev_dbg(&led->pdev->dev, "irq received, irq=%d\n", irq);
 
 	rc = qpnp_flash_led_read(led,
-			FLASH_LED_REG_INT_RT_STS(led->base), &status);
+			FLASH_LED_REG_INT_RT_STS(led->base), &irq_status);
 	if (rc < 0) {
 		dev_err(&led->pdev->dev, "Failed to read interrupt status reg, rc=%d\n",
 				rc);
-		return IRQ_HANDLED;
+		goto exit;
 	}
 
 	if (irq == led->pdata->all_ramp_up_done_irq)
 		irq_type = ALL_RAMP_UP_DONE_IRQ;
 	else if (irq == led->pdata->all_ramp_down_done_irq)
 		irq_type = ALL_RAMP_DOWN_DONE_IRQ;
+	else if (irq == led->pdata->led_fault_irq)
+		irq_type = LED_FAULT_IRQ;
 
 	if (irq_type == ALL_RAMP_UP_DONE_IRQ)
 		atomic_notifier_call_chain(&irq_notifier_list,
 						irq_type, NULL);
 
-	dev_dbg(&led->pdev->dev, "irq handled, irq_type=%x, irq_status=%x\n",
-		irq_type, status);
+	if (irq_type == LED_FAULT_IRQ) {
+		rc = qpnp_flash_led_read(led,
+			FLASH_LED_REG_LED_STATUS1(led->base), &led_status1);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev, "Failed to read led_status1 reg, rc=%d\n",
+					rc);
+			goto exit;
+		}
 
+		rc = qpnp_flash_led_read(led,
+			FLASH_LED_REG_LED_STATUS2(led->base), &led_status2);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev, "Failed to read led_status2 reg, rc=%d\n",
+					rc);
+			goto exit;
+		}
+
+		if (led_status1)
+			dev_emerg(&led->pdev->dev, "led short/open fault detected! led_status1=%x\n",
+					led_status1);
+
+		if (led_status2 & FLASH_LED_VPH_DROOP_FAULT_MASK)
+			dev_emerg(&led->pdev->dev, "led vph_droop fault detected!\n");
+	}
+
+	dev_dbg(&led->pdev->dev, "irq handled, irq_type=%x, irq_status=%x\n",
+		irq_type, irq_status);
+
+exit:
 	return IRQ_HANDLED;
 }
 
@@ -1144,6 +1176,11 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 	if (led->pdata->all_ramp_down_done_irq < 0)
 		dev_dbg(&led->pdev->dev, "all-ramp-down-done-irq not used\n");
 
+	led->pdata->led_fault_irq =
+		of_irq_get_byname(node, "led-fault-irq");
+	if (led->pdata->led_fault_irq < 0)
+		dev_dbg(&led->pdev->dev, "led-fault-irq not used\n");
+
 	return 0;
 }
 
@@ -1279,6 +1316,20 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to request all_ramp_down_done(%d) IRQ(err:%d)\n",
 				led->pdata->all_ramp_down_done_irq, rc);
+			return rc;
+		}
+	}
+
+	if (led->pdata->led_fault_irq >= 0) {
+		rc = devm_request_threaded_irq(&led->pdev->dev,
+			led->pdata->led_fault_irq,
+			NULL, qpnp_flash_led_irq_handler,
+			IRQF_ONESHOT,
+			"qpnp_flash_led_fault_irq", led);
+		if (rc < 0) {
+			dev_err(&pdev->dev,
+				"Unable to request led_fault(%d) IRQ(err:%d)\n",
+				led->pdata->led_fault_irq, rc);
 			return rc;
 		}
 	}
