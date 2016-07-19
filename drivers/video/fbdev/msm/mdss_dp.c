@@ -1186,7 +1186,7 @@ static void mdss_dp_event_work(struct work_struct *work)
 	struct mdss_dp_drv_pdata *dp = NULL;
 	struct delayed_work *dw = to_delayed_work(work);
 	unsigned long flag;
-	u32 todo = 0;
+	u32 todo = 0, dp_config_pkt[2];
 
 	if (!dw) {
 		pr_err("invalid work structure\n");
@@ -1203,23 +1203,46 @@ static void mdss_dp_event_work(struct work_struct *work)
 	pr_debug("todo=%x\n", todo);
 
 	switch (todo) {
-	case (EV_EDID_READ):
+	case EV_EDID_READ:
 		mdss_dp_edid_read(dp, 0);
 		break;
-	case (EV_DPCD_CAP_READ):
+	case EV_DPCD_CAP_READ:
 		mdss_dp_dpcd_cap_read(dp);
 		break;
-	case (EV_DPCD_STATUS_READ):
+	case EV_DPCD_STATUS_READ:
 		mdss_dp_dpcd_status_read(dp);
 		break;
-	case (EV_LINK_TRAIN):
+	case EV_LINK_TRAIN:
 		mdss_dp_do_link_train(dp);
 		break;
-	case (EV_VIDEO_READY):
+	case EV_VIDEO_READY:
 		mdss_dp_video_ready(dp);
 		break;
-	case (EV_IDLE_PATTERNS_SENT):
+	case EV_IDLE_PATTERNS_SENT:
 		mdss_dp_idle_patterns_sent(dp);
+		break;
+	case EV_USBPD_DISCOVER_MODES:
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_DISCOVER_MODES,
+			SVDM_CMD_TYPE_INITIATOR, 0x0, 0x0, 0x0);
+		break;
+	case EV_USBPD_ENTER_MODE:
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_ENTER_MODE,
+			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+		break;
+	case EV_USBPD_EXIT_MODE:
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_EXIT_MODE,
+			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+		break;
+	case EV_USBPD_DP_STATUS:
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_STATUS,
+			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+		break;
+	case EV_USBPD_DP_CONFIGURE:
+		dp_config_pkt[0] = SVDM_HDR(USB_C_DP_SID, VDM_VERSION, 0x1,
+			SVDM_CMD_TYPE_INITIATOR, DP_VDM_CONFIGURE);
+		dp_config_pkt[1] = mdss_dp_usbpd_gen_config_pkt(dp);
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_CONFIGURE,
+			SVDM_CMD_TYPE_INITIATOR, 0x1, dp_config_pkt, 0x2);
 		break;
 	default:
 		pr_err("Unknown event:%d\n", todo);
@@ -1308,6 +1331,165 @@ static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 	return 0;
 }
 
+static void usbpd_connect_callback(struct usbpd_svid_handler *hdlr)
+{
+	struct mdss_dp_drv_pdata *dp_drv;
+
+	dp_drv = container_of(hdlr, struct mdss_dp_drv_pdata, svid_handler);
+	if (!dp_drv->pd) {
+		pr_err("get_usbpd phandle failed\n");
+		return;
+	}
+
+	mutex_lock(&dp_drv->pd_msg_mutex);
+	dp_drv->cable_connected = true;
+	dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
+	mutex_unlock(&dp_drv->pd_msg_mutex);
+	pr_debug("discover_mode event sent\n");
+}
+
+static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
+{
+	struct mdss_dp_drv_pdata *dp_drv;
+
+	dp_drv = container_of(hdlr, struct mdss_dp_drv_pdata, svid_handler);
+	if (!dp_drv->pd) {
+		pr_err("get_usbpd phandle failed\n");
+		return;
+	}
+
+	pr_debug("cable disconnected\n");
+	mutex_lock(&dp_drv->pd_msg_mutex);
+	dp_drv->cable_connected = false;
+	mutex_unlock(&dp_drv->pd_msg_mutex);
+}
+
+static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
+				enum usbpd_svdm_cmd_type cmd_type,
+				const u32 *vdos, int num_vdos)
+{
+	struct mdss_dp_drv_pdata *dp_drv;
+
+	dp_drv = container_of(hdlr, struct mdss_dp_drv_pdata, svid_handler);
+	if (!dp_drv->pd) {
+		pr_err("get_usbpd phandle failed\n");
+		return;
+	}
+
+	pr_debug("callback -> cmd: 0x%x, *vdos = 0x%x, num_vdos = %d\n",
+				cmd, *vdos, num_vdos);
+
+	switch (cmd) {
+	case USBPD_SVDM_DISCOVER_MODES:
+		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
+			dp_drv->alt_mode.dp_cap.response = *vdos;
+			mdss_dp_usbpd_ext_capabilities
+					(&dp_drv->alt_mode.dp_cap);
+			dp_drv->alt_mode.current_state = DISCOVER_MODES_DONE;
+			dp_send_events(dp_drv, EV_USBPD_ENTER_MODE);
+		} else {
+			pr_err("unknown response: %d for Discover_modes\n",
+			       cmd_type);
+		}
+		break;
+	case USBPD_SVDM_ENTER_MODE:
+		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
+			dp_drv->alt_mode.current_state = ENTER_MODE_DONE;
+			dp_send_events(dp_drv, EV_USBPD_DP_STATUS);
+		} else {
+			pr_err("unknown response: %d for Enter_mode\n",
+			       cmd_type);
+		}
+		break;
+	case USBPD_SVDM_ATTENTION:
+		if (cmd_type == SVDM_CMD_TYPE_INITIATOR) {
+			pr_debug("Attention. cmd_type=%d\n",
+			       cmd_type);
+			if (!dp_drv->alt_mode.current_state
+						== ENTER_MODE_DONE) {
+				pr_debug("sending discover_mode\n");
+				dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
+				break;
+			}
+			if (num_vdos == 1) {
+				dp_drv->alt_mode.dp_status.response = *vdos;
+				mdss_dp_usbpd_ext_dp_status
+						(&dp_drv->alt_mode.dp_status);
+				if (dp_drv->alt_mode.dp_status.hpd_high) {
+					pr_debug("HPD high\n");
+					dp_drv->alt_mode.current_state =
+							DP_STATUS_DONE;
+					dp_send_events
+						(dp_drv, EV_USBPD_DP_CONFIGURE);
+				}
+			}
+		} else {
+			pr_debug("unknown response: %d for Attention\n",
+			       cmd_type);
+		}
+		break;
+	case DP_VDM_STATUS:
+		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
+			dp_drv->alt_mode.dp_status.response = *vdos;
+			mdss_dp_usbpd_ext_dp_status
+					(&dp_drv->alt_mode.dp_status);
+			if (dp_drv->alt_mode.dp_status.hpd_high) {
+				pr_debug("HDP high\n");
+				dp_drv->alt_mode.current_state =
+						DP_STATUS_DONE;
+				dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
+			}
+		} else {
+			pr_err("unknown response: %d for DP_Status\n",
+			       cmd_type);
+		}
+		break;
+	case DP_VDM_CONFIGURE:
+		if ((dp_drv->cable_connected == true)
+				|| (cmd_type == SVDM_CMD_TYPE_RESP_ACK)) {
+			dp_drv->alt_mode.current_state = DP_CONFIGURE_DONE;
+			pr_debug("config USBPD to DP done\n");
+			mdss_dp_host_init(&dp_drv->panel_data);
+		} else {
+			pr_err("unknown response: %d for DP_Configure\n",
+			       cmd_type);
+		}
+		break;
+	default:
+		pr_err("unknown cmd: %d\n", cmd);
+		break;
+	}
+}
+
+static int mdss_dp_usbpd_setup(struct mdss_dp_drv_pdata *dp_drv)
+{
+	int ret = 0;
+	const char *pd_phandle = "qcom,dp-usbpd-detection";
+
+	dp_drv->pd = devm_usbpd_get_by_phandle(&dp_drv->pdev->dev,
+						    pd_phandle);
+
+	if (IS_ERR(dp_drv->pd)) {
+		pr_err("get_usbpd phandle failed (%ld)\n",
+				PTR_ERR(dp_drv->pd));
+		return PTR_ERR(dp_drv->pd);
+	}
+
+	dp_drv->svid_handler.svid = USB_C_DP_SID;
+	dp_drv->svid_handler.vdm_received = NULL;
+	dp_drv->svid_handler.connect = &usbpd_connect_callback;
+	dp_drv->svid_handler.svdm_received = &usbpd_response_callback;
+	dp_drv->svid_handler.disconnect = &usbpd_disconnect_callback;
+
+	ret = usbpd_register_svid(dp_drv->pd, &dp_drv->svid_handler);
+	if (ret) {
+		pr_err("usbpd registration failed\n");
+		return -ENODEV;
+	}
+
+	return ret;
+}
+
 static int mdss_dp_probe(struct platform_device *pdev)
 {
 	int ret, i;
@@ -1351,7 +1533,15 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	dp_drv->mask1 = EDP_INTR_MASK1;
 	dp_drv->mask2 = EDP_INTR_MASK2;
 	mutex_init(&dp_drv->emutex);
+	mutex_init(&dp_drv->pd_msg_mutex);
 	spin_lock_init(&dp_drv->lock);
+
+	if (mdss_dp_usbpd_setup(dp_drv)) {
+		pr_err("Error usbpd setup!\n");
+		devm_kfree(&pdev->dev, dp_drv);
+		dp_drv = NULL;
+		return -EPROBE_DEFER;
+	}
 
 	ret = mdss_retrieve_dp_ctrl_resources(pdev, dp_drv);
 	if (ret)
@@ -1423,6 +1613,8 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	dp_drv->inited = true;
 
 	pr_debug("done\n");
+
+	dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
 
 	return 0;
 

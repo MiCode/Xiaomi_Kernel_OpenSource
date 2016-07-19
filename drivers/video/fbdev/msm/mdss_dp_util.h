@@ -114,5 +114,8 @@ int mdss_dp_irq_setup(struct mdss_dp_drv_pdata *dp_drv);
 void mdss_dp_irq_enable(struct mdss_dp_drv_pdata *dp_drv);
 void mdss_dp_irq_disable(struct mdss_dp_drv_pdata *dp_drv);
 void mdss_dp_sw_mvid_nvid(struct dss_io_data *ctrl_io);
+void mdss_dp_usbpd_ext_capabilities(struct usbpd_dp_capabilities *dp_cap);
+void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status);
+u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp);
 
 #endif /* __DP_UTIL_H__ */
