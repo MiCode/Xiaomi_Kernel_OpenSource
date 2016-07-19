@@ -140,6 +140,9 @@
 
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,us-euro-gpios = <&tavil_us_euro_sw>;
+		qcom,hph-en0-gpio = <&tavil_hph_en0>;
+		qcom,hph-en1-gpio = <&tavil_hph_en1>;
 		qcom,tavil-mclk-clk-freq = <9600000>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
