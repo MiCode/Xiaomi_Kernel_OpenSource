@@ -528,11 +528,10 @@ static int smb2_init_hw(struct smb2 *chip)
 
 	/*
 	 * trigger the usb-typec-change interrupt only when the CC state
-	 * changes, or there was a VBUS error
+	 * changes
 	 */
 	rc = smblib_write(chg, TYPE_C_INTRPT_ENB_REG,
-			    TYPEC_CCSTATE_CHANGE_INT_EN_BIT
-			  | TYPEC_VBUS_ERROR_INT_EN_BIT);
+			  TYPEC_CCSTATE_CHANGE_INT_EN_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure Type-C interrupts rc=%d\n", rc);
