@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,10 @@
 /* PMIC_MPP_REG_AIN_CTL */
 #define PMIC_MPP_REG_AIN_ROUTE_SHIFT		0
 #define PMIC_MPP_REG_AIN_ROUTE_MASK		0x7
+
+/* PMIC_MPP_REG_SINK_CTL */
+#define PMIC_MPP_REG_CURRENT_SINK_MASK		0x7
+#define MPP_CURRENT_SINK_MA_STEP_SIZE		5
 
 #define PMIC_MPP_MODE_DIGITAL_INPUT		0
 #define PMIC_MPP_MODE_DIGITAL_OUTPUT		1
@@ -458,7 +462,7 @@ static int pmic_mpp_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			pad->dtest = arg;
 			break;
 		case PIN_CONFIG_DRIVE_STRENGTH:
-			arg = pad->drive_strength;
+			pad->drive_strength = arg;
 			break;
 		case PMIC_MPP_CONF_AMUX_ROUTE:
 			if (arg >= PMIC_MPP_AMUX_ROUTE_ABUS4)
@@ -495,6 +499,16 @@ static int pmic_mpp_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 		return ret;
 
 	ret = pmic_mpp_write(state, pad, PMIC_MPP_REG_AOUT_CTL, pad->aout_level);
+	if (ret < 0)
+		return ret;
+
+	val = 0;
+	if (pad->drive_strength >= MPP_CURRENT_SINK_MA_STEP_SIZE)
+		val = DIV_ROUND_UP(pad->drive_strength,
+				MPP_CURRENT_SINK_MA_STEP_SIZE) - 1;
+
+	val &= PMIC_MPP_REG_CURRENT_SINK_MASK;
+	ret = pmic_mpp_write(state, pad, PMIC_MPP_REG_SINK_CTL, val);
 	if (ret < 0)
 		return ret;
 
@@ -771,7 +785,8 @@ static int pmic_mpp_populate(struct pmic_mpp_state *state,
 	if (val < 0)
 		return val;
 
-	pad->drive_strength = val;
+	val &= PMIC_MPP_REG_CURRENT_SINK_MASK;
+	pad->drive_strength = (val + 1) * MPP_CURRENT_SINK_MA_STEP_SIZE;
 
 	val = pmic_mpp_read(state, pad, PMIC_MPP_REG_AOUT_CTL);
 	if (val < 0)
