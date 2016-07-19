@@ -438,7 +438,10 @@ struct dynamic_fps_data {
  * @DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP: update fps using vertical timings
  * @DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP: update fps using horizontal timings
  * @DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP: update fps using both horizontal
- *    timings and clock.
+ *  timings and clock.
+ * @DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK: update fps using both
+ *  horizontal timings, clock need to be caculate base on new clock and
+ *  porches.
  * @DFPS_MODE_MAX: defines maximum limit of supported modes.
  */
 enum dynamic_fps_update {
@@ -447,6 +450,7 @@ enum dynamic_fps_update {
 	DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP,
 	DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP,
 	DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP,
+	DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK,
 	DFPS_MODE_MAX
 };
 
@@ -784,6 +788,7 @@ struct mdss_panel_data {
 
 struct mdss_panel_debugfs_info {
 	struct dentry *root;
+	struct dentry *parent;
 	struct mdss_panel_info panel_info;
 	u32 override_flag;
 	struct mdss_panel_debugfs_info *next;
@@ -814,7 +819,9 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 		break;
 	case DTV_PANEL:
 		if (panel_info->dynamic_fps) {
-			frame_rate = panel_info->lcdc.frame_rate;
+			frame_rate = panel_info->lcdc.frame_rate / 1000;
+			if (panel_info->lcdc.frame_rate % 1000)
+				frame_rate += 1;
 			break;
 		}
 	default:

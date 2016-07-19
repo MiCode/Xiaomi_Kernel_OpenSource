@@ -4271,6 +4271,9 @@ static inline int __resume(struct venus_hfi_device *device)
 	} else if (device->power_enabled) {
 		dprintk(VIDC_DBG, "Power is already enabled\n");
 		goto exit;
+	} else if (!__core_in_valid_state(device)) {
+		dprintk(VIDC_DBG, "venus_hfi_device in deinit state.");
+		return -EINVAL;
 	}
 
 	dprintk(VIDC_DBG, "Resuming from power collapse\n");
@@ -4397,6 +4400,7 @@ static void __unload_fw(struct venus_hfi_device *device)
 	if (device->state != VENUS_STATE_DEINIT)
 		flush_workqueue(device->venus_pm_workq);
 
+	__vote_buses(device, NULL, 0);
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
 	__venus_power_off(device, false);

@@ -3035,7 +3035,7 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_ctrl->mdss_util->disable_irq(&hdmi_tx_hw);
 		hdmi_tx_set_mode(hdmi_ctrl, false);
 	}
-
+	hdmi_tx_config_5v(hdmi_ctrl, false);
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, 0);
 	if (rc)
 		DEV_INFO("%s: Failed to disable hpd power. Error=%d\n",
