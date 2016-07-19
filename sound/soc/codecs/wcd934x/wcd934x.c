@@ -108,6 +108,7 @@ static const struct snd_kcontrol_new name##_mux = \
 #define WCD934X_DEC_PWR_LVL_LP 0x02
 #define WCD934X_DEC_PWR_LVL_HP 0x04
 #define WCD934X_DEC_PWR_LVL_DF 0x00
+#define WCD934X_STRING_LEN 100
 
 #define WCD934X_MAX_MICBIAS 4
 #define DAPM_MICBIAS1_STANDALONE "MIC BIAS1 Standalone"
@@ -470,7 +471,7 @@ struct tavil_priv {
 	struct clk *wcd_ext_clk;
 
 	struct mutex codec_mutex;
-	struct work_struct wcd_add_child_devices_work;
+	struct work_struct tavil_add_child_devices_work;
 	struct hpf_work tx_hpf_work[WCD934X_NUM_DECIMATORS];
 	struct tx_mute_work tx_mute_dwork[WCD934X_NUM_DECIMATORS];
 };
@@ -5551,7 +5552,7 @@ static int tavil_swrm_handle_irq(void *handle,
 	return ret;
 }
 
-static void wcd_add_child_devices(struct work_struct *work)
+static void tavil_add_child_devices(struct work_struct *work)
 {
 	struct tavil_priv *tavil;
 	struct platform_device *pdev;
@@ -5560,9 +5561,10 @@ static void wcd_add_child_devices(struct work_struct *work)
 	struct tavil_swr_ctrl_data *swr_ctrl_data = NULL, *temp;
 	int ret, ctrl_num = 0;
 	struct wcd_swr_ctrl_platform_data *platdata;
+	char plat_dev_name[WCD934X_STRING_LEN];
 
 	tavil = container_of(work, struct tavil_priv,
-			     wcd_add_child_devices_work);
+			     tavil_add_child_devices_work);
 	if (!tavil) {
 		pr_err("%s: Memory for WCD934X does not exist\n",
 			__func__);
@@ -5583,17 +5585,17 @@ static void wcd_add_child_devices(struct work_struct *work)
 	platdata = &tavil->swr.plat_data;
 
 	for_each_child_of_node(wcd9xxx->dev->of_node, node) {
-		temp = krealloc(swr_ctrl_data,
-			(ctrl_num + 1) * sizeof(struct tavil_swr_ctrl_data),
-			GFP_KERNEL);
-		if (!temp) {
-			dev_err(wcd9xxx->dev, "out of memory\n");
-			ret = -ENOMEM;
-			goto err_mem;
-		}
-		swr_ctrl_data = temp;
-		swr_ctrl_data[ctrl_num].swr_pdev = NULL;
-		pdev = platform_device_alloc("tavil_swr_ctrl", -1);
+		if (!strcmp(node->name, "swr_master"))
+			strlcpy(plat_dev_name, "tavil_swr_ctrl",
+				(WCD934X_STRING_LEN - 1));
+		else if (strnstr(node->name, "msm_cdc_pinctrl",
+				 strlen("msm_cdc_pinctrl")) != NULL)
+			strlcpy(plat_dev_name, node->name,
+				(WCD934X_STRING_LEN - 1));
+		else
+			continue;
+
+		pdev = platform_device_alloc(plat_dev_name, -1);
 		if (!pdev) {
 			dev_err(wcd9xxx->dev, "%s: pdev memory alloc failed\n",
 				__func__);
@@ -5603,34 +5605,51 @@ static void wcd_add_child_devices(struct work_struct *work)
 		pdev->dev.parent = tavil->dev;
 		pdev->dev.of_node = node;
 
-		ret = platform_device_add_data(pdev, platdata,
-					       sizeof(*platdata));
-		if (ret) {
-			dev_err(&pdev->dev, "%s: cannot add plat data for ctrl:%d\n",
-				__func__, ctrl_num);
-			goto err_pdev_add;
+		if (strcmp(node->name, "swr_master") == 0) {
+			ret = platform_device_add_data(pdev, platdata,
+						       sizeof(*platdata));
+			if (ret) {
+				dev_err(&pdev->dev,
+					"%s: cannot add plat data ctrl:%d\n",
+					__func__, ctrl_num);
+				goto err_pdev_add;
+			}
 		}
 
 		ret = platform_device_add(pdev);
 		if (ret) {
-			dev_err(&pdev->dev, "%s: Cannot add swr platform device\n",
+			dev_err(&pdev->dev,
+				"%s: Cannot add platform device\n",
 				__func__);
 			goto err_pdev_add;
 		}
 
-		swr_ctrl_data[ctrl_num].swr_pdev = pdev;
-		ctrl_num++;
-		dev_dbg(&pdev->dev, "%s: Added soundwire ctrl device(s)\n",
-			__func__);
+		if (strcmp(node->name, "swr_master") == 0) {
+			temp = krealloc(swr_ctrl_data,
+					(ctrl_num + 1) * sizeof(
+					struct tavil_swr_ctrl_data),
+					GFP_KERNEL);
+			if (!temp) {
+				dev_err(wcd9xxx->dev, "out of memory\n");
+				ret = -ENOMEM;
+				goto err_pdev_add;
+			}
+			swr_ctrl_data = temp;
+			swr_ctrl_data[ctrl_num].swr_pdev = pdev;
+			ctrl_num++;
+			dev_dbg(&pdev->dev,
+				"%s: Added soundwire ctrl device(s)\n",
+				__func__);
+			tavil->swr.ctrl_data = swr_ctrl_data;
+		}
 	}
-	tavil->swr.ctrl_data = swr_ctrl_data;
 
 	return;
 
 err_pdev_add:
 	platform_device_put(pdev);
 err_mem:
-	kfree(swr_ctrl_data);
+	return;
 }
 
 static int __tavil_enable_efuse_sensing(struct tavil_priv *tavil)
@@ -5676,7 +5695,8 @@ static int tavil_probe(struct platform_device *pdev)
 
 	tavil->wcd9xxx = dev_get_drvdata(pdev->dev.parent);
 	tavil->dev = &pdev->dev;
-	INIT_WORK(&tavil->wcd_add_child_devices_work, wcd_add_child_devices);
+	INIT_WORK(&tavil->tavil_add_child_devices_work,
+		  tavil_add_child_devices);
 	mutex_init(&tavil->swr.read_mutex);
 	mutex_init(&tavil->swr.write_mutex);
 	mutex_init(&tavil->swr.clk_mutex);
@@ -5733,7 +5753,7 @@ static int tavil_probe(struct platform_device *pdev)
 		 __func__);
 		goto err_cdc_reg;
 	}
-	schedule_work(&tavil->wcd_add_child_devices_work);
+	schedule_work(&tavil->tavil_add_child_devices_work);
 
 	return ret;
 
