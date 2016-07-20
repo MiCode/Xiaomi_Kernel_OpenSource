@@ -22,6 +22,7 @@
 #define WCD934X_REGISTER_START_OFFSET  0x800
 #define WCD934X_SB_PGD_PORT_RX_BASE   0x40
 #define WCD934X_SB_PGD_PORT_TX_BASE   0x50
+#define WCD934X_RX_PORT_START_NUMBER  16
 
 #define WCD934X_DMIC_CLK_DIV_2  0x0
 #define WCD934X_DMIC_CLK_DIV_3  0x1
@@ -72,8 +73,21 @@ enum {
 };
 
 enum {
+	INTERP_EAR = 0,
+	INTERP_HPHL,
+	INTERP_HPHR,
+	INTERP_LO1,
+	INTERP_LO2,
+	INTERP_LO3_NA, /* LO3 not avalible in Tavil*/
+	INTERP_LO4_NA,
+	INTERP_SPKR1,
+	INTERP_SPKR2,
+	INTERP_MAX,
+};
+
+enum {
 	/* INTR_REG 0 */
-	WCD934X_IRQ_FLL_LOCK_LOSS = 1,
+	WCD934X_IRQ_MISC = 1,
 	WCD934X_IRQ_HPH_PA_OCPL_FAULT,
 	WCD934X_IRQ_HPH_PA_OCPR_FAULT,
 	WCD934X_IRQ_EAR_PA_OCP_FAULT,
@@ -165,4 +179,5 @@ extern int tavil_mbhc_micb_adjust_voltage(struct snd_soc_codec *codec,
 extern struct wcd934x_mbhc *tavil_soc_get_mbhc(struct snd_soc_codec *codec);
 extern int tavil_codec_enable_interp_clk(struct snd_soc_codec *codec,
 					 int event, int intp_idx);
+extern struct tavil_dsd_config *tavil_get_dsd_config(struct snd_soc_codec *);
 #endif

@@ -47,8 +47,7 @@
 #include "../wcd9xxx-common-v2.h"
 #include "../wcd9xxx-resmgr-v2.h"
 #include "../wcdcal-hwdep.h"
-
-#define WCD934X_RX_PORT_START_NUMBER  16
+#include "wcd934x-dsd.h"
 
 #define WCD934X_RATES_MASK (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			    SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
@@ -178,18 +177,6 @@ enum {
 	INTn_2_INP_SEL_PROXIMITY,
 };
 
-enum {
-	INTERP_EAR = 0,
-	INTERP_HPHL,
-	INTERP_HPHR,
-	INTERP_LO1,
-	INTERP_LO2,
-	INTERP_LO3_NA, /* LO3 not avalible in Tavil*/
-	INTERP_LO4_NA,
-	INTERP_SPKR1,
-	INTERP_SPKR2,
-};
-
 static const struct intr_data wcd934x_intr_table[] = {
 	{WCD9XXX_IRQ_SLIMBUS, false},
 	{WCD934X_IRQ_MBHC_SW_DET, true},
@@ -197,7 +184,7 @@ static const struct intr_data wcd934x_intr_table[] = {
 	{WCD934X_IRQ_MBHC_BUTTON_RELEASE_DET, true},
 	{WCD934X_IRQ_MBHC_ELECT_INS_REM_DET, true},
 	{WCD934X_IRQ_MBHC_ELECT_INS_REM_LEG_DET, true},
-	{WCD934X_IRQ_FLL_LOCK_LOSS, false},
+	{WCD934X_IRQ_MISC, false},
 	{WCD934X_IRQ_HPH_PA_CNPL_COMPLETE, false},
 	{WCD934X_IRQ_HPH_PA_CNPR_COMPLETE, false},
 	{WCD934X_IRQ_EAR_PA_CNP_COMPLETE, false},
@@ -516,6 +503,7 @@ struct tavil_priv {
 	int asrc_users[ASRC_MAX];
 	/* Main path clock users count */
 	int main_clk_users[WCD934X_NUM_INTERPOLATORS];
+	struct tavil_dsd_config *dsd_config;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -1402,6 +1390,7 @@ static int tavil_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	struct tavil_dsd_config *dsd_conf = tavil->dsd_config;
 
 	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
@@ -1430,8 +1419,25 @@ static int tavil_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					    WCD934X_CDC_RX2_RX_PATH_MIX_CTL,
 					    0x10, 0x00);
+		if (dsd_conf &&
+		    (snd_soc_read(codec, WCD934X_CDC_DSD1_PATH_CTL) & 0x01)) {
+			/* Set regulator mode to AB if DSD is enabled */
+			snd_soc_update_bits(codec, WCD934X_ANA_RX_SUPPLIES,
+					    0x02, 0x02);
+			snd_soc_update_bits(codec, WCD934X_CDC_DSD1_CFG2,
+					    0x04, 0x00);
+		}
 		break;
-	default:
+	case SND_SOC_DAPM_PRE_PMD:
+		/* Enable DSD Mute before PA disable */
+		if (dsd_conf &&
+		    (snd_soc_read(codec, WCD934X_CDC_DSD1_PATH_CTL) & 0x01))
+			snd_soc_update_bits(codec, WCD934X_CDC_DSD1_CFG2,
+					    0x04, 0x04);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* 5ms sleep is required after PA disable */
+		usleep_range(5000, 5100);
 		break;
 	};
 
@@ -1444,6 +1450,7 @@ static int tavil_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	struct tavil_dsd_config *dsd_conf = tavil->dsd_config;
 
 	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
@@ -1469,8 +1476,25 @@ static int tavil_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					    WCD934X_CDC_RX1_RX_PATH_MIX_CTL,
 					    0x10, 0x00);
+		if (dsd_conf &&
+		    (snd_soc_read(codec, WCD934X_CDC_DSD0_PATH_CTL) & 0x01)) {
+			/* Set regulator mode to AB if DSD is enabled */
+			snd_soc_update_bits(codec, WCD934X_ANA_RX_SUPPLIES,
+					    0x02, 0x02);
+			snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2,
+					    0x04, 0x00);
+		}
 		break;
-	default:
+	case SND_SOC_DAPM_PRE_PMD:
+		/* Enable DSD Mute before PA disable */
+		if (dsd_conf &&
+		    (snd_soc_read(codec, WCD934X_CDC_DSD0_PATH_CTL) & 0x01))
+			snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2,
+					    0x04, 0x04);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* 5ms sleep is required after PA disable */
+		usleep_range(5000, 5100);
 		break;
 	};
 
@@ -1562,6 +1586,7 @@ static int tavil_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
 	int hph_mode = tavil->hph_mode;
 	u8 dem_inp;
+	struct tavil_dsd_config *dsd_conf = tavil->dsd_config;
 
 	dev_dbg(codec->dev, "%s wname: %s event: %d hph_mode: %d\n", __func__,
 		w->name, event, hph_mode);
@@ -1580,6 +1605,11 @@ static int tavil_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 		/* Disable AutoChop timer during power up */
 		snd_soc_update_bits(codec, WCD934X_HPH_NEW_INT_HPH_TIMER1,
 					0x02, 0x00);
+
+		if (dsd_conf &&
+		    (snd_soc_read(codec, WCD934X_CDC_DSD1_PATH_CTL) & 0x01))
+			hph_mode = CLS_H_HIFI;
+
 		wcd_clsh_fsm(codec, &tavil->clsh_d,
 			     WCD_CLSH_EVENT_PRE_DAC,
 			     WCD_CLSH_STATE_HPHR,
@@ -1611,6 +1641,7 @@ static int tavil_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 	int hph_mode = tavil->hph_mode;
 	u8 dem_inp;
 	int ret = 0;
+	struct tavil_dsd_config *dsd_conf = tavil->dsd_config;
 
 	dev_dbg(codec->dev, "%s wname: %s event: %d hph_mode: %d\n", __func__,
 		w->name, event, hph_mode);
@@ -1626,6 +1657,10 @@ static int tavil_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 					__func__, hph_mode);
 			return -EINVAL;
 		}
+		if (dsd_conf &&
+		    (snd_soc_read(codec, WCD934X_CDC_DSD0_PATH_CTL) & 0x01))
+			hph_mode = CLS_H_HIFI;
+
 		wcd_clsh_fsm(codec, &tavil->clsh_d,
 			     WCD_CLSH_EVENT_PRE_DAC,
 			     WCD_CLSH_STATE_HPHL,
@@ -2388,6 +2423,29 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 
 	return 0;
 }
+
+/**
+ * tavil_get_dsd_config - Get pointer to dsd config structure
+ *
+ * @codec: pointer to snd_soc_codec structure
+ *
+ * Returns pointer to tavil_dsd_config structure
+ */
+struct tavil_dsd_config *tavil_get_dsd_config(struct snd_soc_codec *codec)
+{
+	struct tavil_priv *tavil;
+
+	if (!codec)
+		return NULL;
+
+	tavil = snd_soc_codec_get_drvdata(codec);
+
+	if (!tavil)
+		return NULL;
+
+	return tavil->dsd_config;
+}
+EXPORT_SYMBOL(tavil_get_dsd_config);
 
 static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 					struct snd_kcontrol *kcontrol,
@@ -4824,6 +4882,61 @@ static const struct snd_kcontrol_new rx_int4_asrc_switch[] = {
 	SOC_DAPM_SINGLE("LO2 Switch", SND_SOC_NOPM, 0, 1, 0),
 };
 
+static int tavil_dsd_mixer_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_context *dapm =
+				snd_soc_dapm_kcontrol_dapm(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(dapm);
+	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	struct tavil_dsd_config *dsd_conf = tavil_p->dsd_config;
+	int val;
+
+	val = tavil_dsd_get_current_mixer_value(dsd_conf, mc->shift);
+
+	ucontrol->value.integer.value[0] = ((val < 0) ? 0 : val);
+
+	return 0;
+}
+
+static int tavil_dsd_mixer_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_dapm_context *dapm =
+		snd_soc_dapm_kcontrol_dapm(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(dapm);
+	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
+	unsigned int wval = ucontrol->value.integer.value[0];
+	struct tavil_dsd_config *dsd_conf = tavil_p->dsd_config;
+
+	if (!dsd_conf)
+		return 0;
+
+	mutex_lock(&tavil_p->codec_mutex);
+
+	tavil_dsd_set_out_select(dsd_conf, mc->shift);
+	tavil_dsd_set_mixer_value(dsd_conf, mc->shift, wval);
+
+	mutex_unlock(&tavil_p->codec_mutex);
+	snd_soc_dapm_mixer_update_power(dapm, kcontrol, wval, NULL);
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new hphl_mixer[] = {
+	SOC_SINGLE_EXT("DSD HPHL Switch", SND_SOC_NOPM, INTERP_HPHL, 1, 0,
+			tavil_dsd_mixer_get, tavil_dsd_mixer_put),
+};
+
+static const struct snd_kcontrol_new hphr_mixer[] = {
+	SOC_SINGLE_EXT("DSD HPHR Switch", SND_SOC_NOPM, INTERP_HPHR, 1, 0,
+			tavil_dsd_mixer_get, tavil_dsd_mixer_put),
+};
+
 static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_IN_E("AIF1 PB", "AIF1 Playback", 0, SND_SOC_NOPM,
 		AIF1_PB, 0, tavil_codec_enable_slimrx,
@@ -4950,7 +5063,11 @@ static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MIXER("RX INT0 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT1 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT1 MIX3", SND_SOC_NOPM, 0, 0, hphl_mixer,
+			   ARRAY_SIZE(hphl_mixer)),
 	SND_SOC_DAPM_MIXER("RX INT2 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT2 MIX3", SND_SOC_NOPM, 0, 0, hphr_mixer,
+			   ARRAY_SIZE(hphr_mixer)),
 	SND_SOC_DAPM_MIXER("RX INT3 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT4 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -5665,6 +5782,7 @@ static int tavil_set_prim_interpolator_rate(struct snd_soc_dai *dai,
 	struct snd_soc_codec *codec = dai->codec;
 	struct wcd9xxx_ch *ch;
 	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	struct tavil_dsd_config *dsd_conf = tavil->dsd_config;
 
 	list_for_each_entry(ch, &tavil->dai[dai->id].wcd9xxx_ch_list, list) {
 		int_1_mix1_inp = INTn_1_INP_SEL_RX0 + ch->port -
@@ -5727,6 +5845,9 @@ static int tavil_set_prim_interpolator_rate(struct snd_soc_dai *dai,
 			}
 			int_mux_cfg0 += 2;
 		}
+		if (dsd_conf)
+			tavil_dsd_set_interp_rate(dsd_conf, ch->port,
+						  sample_rate, rate_reg_val);
 	}
 
 	return 0;
@@ -6239,6 +6360,32 @@ static void tavil_slim_interface_init_reg(struct snd_soc_codec *codec)
 				    0xFF);
 }
 
+static irqreturn_t tavil_misc_irq(int irq, void *data)
+{
+	struct tavil_priv *tavil = data;
+	int misc_val;
+
+	/* Find source of interrupt */
+	regmap_read(tavil->wcd9xxx->regmap, WCD934X_INTR_CODEC_MISC_STATUS,
+		    &misc_val);
+
+	if (misc_val & 0x08) {
+		dev_info(tavil->dev, "%s: irq: %d, DSD DC detected!\n",
+			 __func__, irq);
+		/* DSD DC interrupt, reset DSD path */
+		tavil_dsd_reset(tavil->dsd_config);
+	} else {
+		dev_err(tavil->dev, "%s: Codec misc irq: %d, val: 0x%x\n",
+			__func__, irq, misc_val);
+	}
+
+	/* Clear interrupt status */
+	regmap_update_bits(tavil->wcd9xxx->regmap,
+			   WCD934X_INTR_CODEC_MISC_CLEAR, misc_val, 0x00);
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t tavil_slimbus_irq(int irq, void *data)
 {
 	struct tavil_priv *tavil = data;
@@ -6351,6 +6498,13 @@ static int tavil_setup_irqs(struct tavil_priv *tavil)
 		       WCD9XXX_IRQ_SLIMBUS);
 	else
 		tavil_slim_interface_init_reg(codec);
+
+	/* Register for misc interrupts as well */
+	ret = wcd9xxx_request_irq(core_res, WCD934X_IRQ_MISC,
+				  tavil_misc_irq, "CDC MISC Irq", tavil);
+	if (ret)
+		dev_err(codec->dev, "%s: Failed to request cdc misc irq\n",
+			__func__);
 
 	return ret;
 }
@@ -6728,6 +6882,11 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	tavil_mclk2_reg_defaults(tavil);
+
+	/* DSD initialization */
+	tavil->dsd_config = tavil_dsd_init(codec);
+	if (IS_ERR_OR_NULL(tavil->dsd_config))
+		dev_dbg(tavil->dev, "%s: DSD init failed\n", __func__);
 
 	snd_soc_dapm_sync(dapm);
 
@@ -7381,6 +7540,10 @@ static int tavil_remove(struct platform_device *pdev)
 	snd_soc_unregister_codec(&pdev->dev);
 	clk_put(tavil->wcd_ext_clk);
 	wcd_resmgr_remove(tavil->resmgr);
+	if (tavil->dsd_config) {
+		tavil_dsd_deinit(tavil->dsd_config);
+		tavil->dsd_config = NULL;
+	}
 	devm_kfree(&pdev->dev, tavil);
 	return 0;
 }
