@@ -40,6 +40,7 @@
 	qcom,usbbam@78c4000 {
 		qcom,enable-hsusb-bam-on-boot;
 
+		/delete-property/ qcom,reset-bam-on-disconnect;
 		/delete-node/ qcom,pipe0;
 		qcom,pipe0 {
 			label = "hsusb-ipa-out-0";
