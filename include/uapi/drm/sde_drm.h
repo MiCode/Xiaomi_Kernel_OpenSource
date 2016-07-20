@@ -220,4 +220,24 @@ struct sde_drm_csc {
 	};
 };
 
+/* Writeback Config version definition */
+#define SDE_DRM_WB_CFG		0x1
+
+/* SDE_DRM_WB_CONFIG_FLAGS - Writeback configuration flags */
+#define SDE_DRM_WB_CFG_FLAGS_CONNECTED	(1<<0)
+
+/**
+ * struct sde_drm_wb_cfg - Writeback configuration structure
+ * @flags:		see DRM_MSM_WB_CONFIG_FLAGS
+ * @connector_id:	writeback connector identifier
+ * @count_modes:	Count of modes in modes_ptr
+ * @modes:		Pointer to struct drm_mode_modeinfo
+ */
+struct sde_drm_wb_cfg {
+	uint32_t flags;
+	uint32_t connector_id;
+	uint32_t count_modes;
+	uint64_t modes;
+};
+
 #endif /* _SDE_DRM_H_ */

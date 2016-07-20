@@ -140,6 +140,89 @@ static const struct sde_format_extended plane_formats_yuv[] = {
 	{0, 0},
 };
 
+static const struct sde_format_extended wb0_formats[] = {
+	{DRM_FORMAT_RGB565, 0},
+	{DRM_FORMAT_RGB888, 0},
+	{DRM_FORMAT_ARGB8888, 0},
+	{DRM_FORMAT_RGBA8888, 0},
+	{DRM_FORMAT_XRGB8888, 0},
+	{DRM_FORMAT_RGBX8888, 0},
+	{DRM_FORMAT_ARGB1555, 0},
+	{DRM_FORMAT_RGBA5551, 0},
+	{DRM_FORMAT_XRGB1555, 0},
+	{DRM_FORMAT_RGBX5551, 0},
+	{DRM_FORMAT_ARGB4444, 0},
+	{DRM_FORMAT_RGBA4444, 0},
+	{DRM_FORMAT_RGBX4444, 0},
+	{DRM_FORMAT_XRGB4444, 0},
+
+	{DRM_FORMAT_BGR565, 0},
+	{DRM_FORMAT_BGR888, 0},
+	{DRM_FORMAT_ABGR8888, 0},
+	{DRM_FORMAT_BGRA8888, 0},
+	{DRM_FORMAT_BGRX8888, 0},
+	{DRM_FORMAT_ABGR1555, 0},
+	{DRM_FORMAT_BGRA5551, 0},
+	{DRM_FORMAT_XBGR1555, 0},
+	{DRM_FORMAT_BGRX5551, 0},
+	{DRM_FORMAT_ABGR4444, 0},
+	{DRM_FORMAT_BGRA4444, 0},
+	{DRM_FORMAT_BGRX4444, 0},
+	{DRM_FORMAT_XBGR4444, 0},
+
+	{DRM_FORMAT_RGBX8888, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_RGBA8888, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_RGB565, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+
+	{DRM_FORMAT_YUV420, 0},
+	{DRM_FORMAT_NV12, 0},
+	{DRM_FORMAT_NV16, 0},
+	{DRM_FORMAT_YUYV, 0},
+
+	{DRM_FORMAT_NV12, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+	{DRM_FORMAT_AYUV, DRM_FORMAT_MOD_QCOM_COMPRESSED},
+
+	{0, 0},
+};
+
+static const struct sde_format_extended wb2_formats[] = {
+	{DRM_FORMAT_RGB565, 0},
+	{DRM_FORMAT_RGB888, 0},
+	{DRM_FORMAT_ARGB8888, 0},
+	{DRM_FORMAT_RGBA8888, 0},
+	{DRM_FORMAT_XRGB8888, 0},
+	{DRM_FORMAT_RGBX8888, 0},
+	{DRM_FORMAT_ARGB1555, 0},
+	{DRM_FORMAT_RGBA5551, 0},
+	{DRM_FORMAT_XRGB1555, 0},
+	{DRM_FORMAT_RGBX5551, 0},
+	{DRM_FORMAT_ARGB4444, 0},
+	{DRM_FORMAT_RGBA4444, 0},
+	{DRM_FORMAT_RGBX4444, 0},
+	{DRM_FORMAT_XRGB4444, 0},
+
+	{DRM_FORMAT_BGR565, 0},
+	{DRM_FORMAT_BGR888, 0},
+	{DRM_FORMAT_ABGR8888, 0},
+	{DRM_FORMAT_BGRA8888, 0},
+	{DRM_FORMAT_BGRX8888, 0},
+	{DRM_FORMAT_ABGR1555, 0},
+	{DRM_FORMAT_BGRA5551, 0},
+	{DRM_FORMAT_XBGR1555, 0},
+	{DRM_FORMAT_BGRX5551, 0},
+	{DRM_FORMAT_ABGR4444, 0},
+	{DRM_FORMAT_BGRA4444, 0},
+	{DRM_FORMAT_BGRX4444, 0},
+	{DRM_FORMAT_XBGR4444, 0},
+
+	{DRM_FORMAT_YUV420, 0},
+	{DRM_FORMAT_NV12, 0},
+	{DRM_FORMAT_NV16, 0},
+	{DRM_FORMAT_YUYV, 0},
+
+	{0, 0},
+};
+
 /**
  * set_cfg_1xx_init(): populate sde sub-blocks reg offsets and instance counts
  */
@@ -255,6 +338,16 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 			.version = 0x1},
 		.dsc = {.id = SDE_PINGPONG_DSC, .base = 0x10000, .len = 0x0,
 			.version = 0x1},
+	};
+
+	/* Writeback 0/1 capability */
+	static const struct sde_wb_sub_blocks wb0 = {
+		.maxlinewidth = 2048,
+	};
+
+	/* Writeback 2 capability */
+	static const struct sde_wb_sub_blocks wb2 = {
+		.maxlinewidth = 4096,
 	};
 
 	/* Setup Register maps and defaults */
@@ -376,11 +469,17 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.wb_count = 3,
 		.wb = {
 			{.id = WB_0, .base = 0x00065000,
-				.features = WB01_17X_MASK},
+				.features = WB01_17X_MASK,
+				.sblk = &wb0,
+				.format_list = wb0_formats},
 			{.id = WB_1, .base = 0x00065800,
-				.features = WB01_17X_MASK},
+				.features = WB01_17X_MASK,
+				.sblk = &wb0,
+				.format_list = wb0_formats},
 			{.id = WB_2, .base = 0x00066000,
-				.features = WB2_17X_MASK},
+				.features = WB2_17X_MASK,
+				.sblk = &wb2,
+				.format_list = wb2_formats},
 		},
 		.ad_count = 2,
 		.ad = {

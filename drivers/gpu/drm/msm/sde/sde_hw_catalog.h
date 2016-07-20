@@ -408,10 +408,13 @@ struct sde_intf_cfg  {
  * @id                 enum identifying this block
  * @base               register offset of this block
  * @features           bit mask identifying sub-blocks/features
+ * @sblk               sub-block information
+ * @format_list: Pointer to list of supported formats
  */
 struct sde_wb_cfg {
 	SDE_HW_BLK_INFO;
-	struct sde_wb_sub_blocks *sblk;
+	const struct sde_wb_sub_blocks *sblk;
+	const struct sde_format_extended *format_list;
 };
 
 /**

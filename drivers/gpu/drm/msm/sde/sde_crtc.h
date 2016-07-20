@@ -31,6 +31,7 @@
  * @hw_lm       : LM HW Driver context
  * @hw_ctl      : CTL Path HW driver context
  * @intf_idx    : Interface idx
+ * @wb_idx      : Writeback idx
  * @mode        : Interface mode Active/CMD
  * @flush_mask  : Flush mask value for this commit
  */
@@ -39,6 +40,7 @@ struct sde_crtc_mixer {
 	struct sde_hw_mixer *hw_lm;
 	struct sde_hw_ctl   *hw_ctl;
 	enum sde_intf       intf_idx;
+	enum sde_wb         wb_idx;
 	enum sde_intf_mode  mode;
 	u32 flush_mask;
 };

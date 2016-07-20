@@ -80,3 +80,11 @@ config DRM_MSM_HDCP
 	default n
 	help
 	  Chose this option if HDCP supported is needed in DRM/KMS driver.
+
+config DRM_SDE_WB
+	bool "Enable Writeback support in SDE DRM"
+	depends on DRM_MSM
+	default y
+	help
+	  Choose this option for writeback connector support.
+

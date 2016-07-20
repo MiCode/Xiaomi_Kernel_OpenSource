@@ -20,6 +20,10 @@
 #include "sde_hw_pingpong.h"
 #include "sde_hw_ctl.h"
 #include "sde_hw_top.h"
+#include "sde_hw_wb.h"
+#include "sde_hw_cdm.h"
+
+#define SDE_ENCODER_NAME_MAX	16
 
 /**
  * enum sde_enc_split_role - Role this physical encoder will play in a
@@ -62,6 +66,7 @@ struct sde_encoder_virt_ops {
  *				This likely caches the mode, for use at enable.
  * @enable:			DRM Call. Enable a DRM mode.
  * @disable:			DRM Call. Disable mode.
+ * @atomic_check:		DRM Call. Atomic check new DRM state.
  * @destroy:			DRM Call. Destroy and release resources.
  * @get_hw_resources:		Populate the structure with the hardware
  *				resources that this phys_enc is using.
@@ -86,6 +91,9 @@ struct sde_encoder_phys_ops {
 			struct drm_display_mode *adjusted_mode);
 	void (*enable)(struct sde_encoder_phys *encoder);
 	void (*disable)(struct sde_encoder_phys *encoder);
+	int (*atomic_check)(struct sde_encoder_phys *encoder,
+			    struct drm_crtc_state *crtc_state,
+			    struct drm_connector_state *conn_state);
 	void (*destroy)(struct sde_encoder_phys *encoder);
 	void (*get_hw_resources)(struct sde_encoder_phys *encoder,
 			struct sde_encoder_hw_resources *hw_res);
@@ -118,6 +126,8 @@ enum sde_enc_enable_state {
  * @parent_ops:		Callbacks exposed by the parent to the phys_enc
  * @hw_mdptop:		Hardware interface to the top registers
  * @hw_ctl:		Hardware interface to the ctl registers
+ * @hw_cdm:		Hardware interface to the cdm registers
+ * @cdm_cfg:		Chroma-down hardware configuration
  * @sde_kms:		Pointer to the sde_kms top level
  * @cached_mode:	DRM mode cached at mode_set time, acted on in enable
  * @enabled:		Whether the encoder has enabled and running a mode
@@ -132,6 +142,8 @@ struct sde_encoder_phys {
 	struct sde_encoder_virt_ops parent_ops;
 	struct sde_hw_mdp *hw_mdptop;
 	struct sde_hw_ctl *hw_ctl;
+	struct sde_hw_cdm *hw_cdm;
+	struct sde_hw_cdm_cfg cdm_cfg;
 	struct sde_kms *sde_kms;
 	struct drm_display_mode cached_mode;
 	enum sde_enc_split_role split_role;
@@ -185,6 +197,51 @@ struct sde_encoder_phys_cmd {
 };
 
 /**
+ * struct sde_encoder_phys_wb - sub-class of sde_encoder_phys to handle
+ *	writeback specific operations
+ * @base:		Baseclass physical encoder structure
+ * @hw_wb:		Hardware interface to the wb registers
+ * @irq_idx:		IRQ interface lookup index
+ * @wbdone_timeout:	Timeout value for writeback done in msec
+ * @bypass_irqreg:	Bypass irq register/unregister if non-zero
+ * @wbdone_complete:	for wbdone irq synchronization
+ * @wb_cfg:		Writeback hardware configuration
+ * @intf_cfg:		Interface hardware configuration
+ * @wb_roi:		Writeback region-of-interest
+ * @wb_fmt:		Writeback pixel format
+ * @frame_count:	Counter of completed writeback operations
+ * @kickoff_count:	Counter of issued writeback operations
+ * @mmu_id:		mmu identifier for non-secure/secure domain
+ * @wb_dev:		Pointer to writeback device
+ * @start_time:		Start time of writeback latest request
+ * @end_time:		End time of writeback latest request
+ * @wb_name:		Name of this writeback device
+ * @debugfs_root:	Root entry of writeback debugfs
+ */
+struct sde_encoder_phys_wb {
+	struct sde_encoder_phys base;
+	struct sde_hw_wb *hw_wb;
+	int irq_idx;
+	u32 wbdone_timeout;
+	u32 bypass_irqreg;
+	struct completion wbdone_complete;
+	struct sde_hw_wb_cfg wb_cfg;
+	struct sde_hw_intf_cfg intf_cfg;
+	struct sde_rect wb_roi;
+	const struct sde_format *wb_fmt;
+	u32 frame_count;
+	u32 kickoff_count;
+	int mmu_id[SDE_IOMMU_DOMAIN_MAX];
+	struct sde_wb_device *wb_dev;
+	ktime_t start_time;
+	ktime_t end_time;
+#ifdef CONFIG_DEBUG_FS
+	char wb_name[SDE_ENCODER_NAME_MAX];
+	struct dentry *debugfs_root;
+#endif
+};
+
+/**
  * sde_encoder_phys_vid_init - Construct a new video mode physical encoder
  * @sde_kms:		Pointer to the sde_kms top level
  * @intf_idx:		Interface index this phys_enc will control
@@ -222,6 +279,44 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 		struct drm_encoder *parent,
 		struct sde_encoder_virt_ops parent_ops);
 
+/**
+ * sde_encoder_phys_wb_init - Construct a new writeback physical encoder
+ * @sde_kms:		Pointer to the sde_kms top level
+ * @wb_idx:		Writeback index this phys_enc will control
+ * @ctl_idx:		Control index this phys_enc requires
+ * @cdm_idx:		Chromadown index this phys_enc requires
+ * @split_role:		Role to play in a split-panel configuration
+ * @parent:		Pointer to the containing virtual encoder
+ * @parent_ops:		Callbacks exposed by the parent to the phys_enc
+ *
+ * Return: Error code or newly allocated encoder
+ */
+#ifdef CONFIG_DRM_SDE_WB
+struct sde_encoder_phys *sde_encoder_phys_wb_init(
+		struct sde_kms *sde_kms,
+		enum sde_wb wb_idx,
+		enum sde_ctl ctl_idx,
+		enum sde_cdm cdm_idx,
+		enum sde_enc_split_role split_role,
+		struct drm_encoder *parent,
+		struct sde_encoder_virt_ops parent_ops);
+#else
+static inline
+struct sde_encoder_phys *sde_encoder_phys_wb_init(
+		struct sde_kms *sde_kms,
+		enum sde_wb wb_idx,
+		enum sde_ctl ctl_idx,
+		enum sde_cdm cdm_idx,
+		enum sde_enc_split_role split_role,
+		struct drm_encoder *parent,
+		struct sde_encoder_virt_ops parent_ops)
+{
+	return NULL;
+}
+#endif
 
+void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
+		struct drm_framebuffer *fb, const struct sde_format *format,
+		struct sde_rect *wb_roi);
 
 #endif /* __sde_encoder_phys_H__ */
