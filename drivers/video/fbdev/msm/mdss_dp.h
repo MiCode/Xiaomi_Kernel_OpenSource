@@ -103,10 +103,6 @@
 
 #define EDP_INTR_MASK2		(EDP_INTR_STATUS2 << 2)
 
-
-#define EDP_PHY_EDPPHY_GLB_VM_CFG0	0x510
-#define EDP_PHY_EDPPHY_GLB_VM_CFG1	0x514
-
 struct edp_cmd {
 	char read;	/* 1 == read, 0 == write */
 	char i2c;	/* 1 == i2c cmd, 0 == native cmd */
@@ -148,15 +144,16 @@ enum dp_pm_type {
 #define EV_IDLE_PATTERNS_SENT		BIT(30)
 #define EV_VIDEO_READY			BIT(31)
 
-/* edp state ctrl */
+/* dp state ctrl */
 #define ST_TRAIN_PATTERN_1		BIT(0)
 #define ST_TRAIN_PATTERN_2		BIT(1)
 #define ST_TRAIN_PATTERN_3		BIT(2)
-#define ST_SYMBOL_ERR_RATE_MEASUREMENT	BIT(3)
-#define ST_PRBS7			BIT(4)
-#define ST_CUSTOM_80_BIT_PATTERN	BIT(5)
-#define ST_SEND_VIDEO			BIT(6)
-#define ST_PUSH_IDLE			BIT(7)
+#define ST_TRAIN_PATTERN_4		BIT(3)
+#define ST_SYMBOL_ERR_RATE_MEASUREMENT	BIT(4)
+#define ST_PRBS7			BIT(5)
+#define ST_CUSTOM_80_BIT_PATTERN	BIT(6)
+#define ST_SEND_VIDEO			BIT(7)
+#define ST_PUSH_IDLE			BIT(8)
 
 /* sink power state  */
 #define SINK_POWER_ON		1

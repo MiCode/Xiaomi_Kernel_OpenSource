@@ -76,6 +76,12 @@
 #define DP_PHY_AUX_INTERRUPT_MASK               (0x00000044)
 #define DP_PHY_AUX_INTERRUPT_CLEAR              (0x00000048)
 
+#define QSERDES_TX0_OFFSET			0x0400
+#define QSERDES_TX1_OFFSET			0x0800
+
+#define TXn_TX_EMP_POST1_LVL			0x000C
+#define TXn_TX_DRV_LVL				0x001C
+
 #define TCSR_USB3_DP_PHYMODE			0x48
 
 struct lane_mapping {
@@ -85,6 +91,7 @@ struct lane_mapping {
 	char lane3;
 };
 
+void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data);
 u32 mdss_dp_get_ctrl_hw_version(struct dss_io_data *ctrl_io);
 u32 mdss_dp_get_phy_hw_version(struct dss_io_data *phy_io);
 void mdss_dp_aux_reset(struct dss_io_data *ctrl_io);
