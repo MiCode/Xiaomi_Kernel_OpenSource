@@ -669,12 +669,13 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->current_dr = DR_UFP;
 
 			if (pd->psy_type == POWER_SUPPLY_TYPE_USB ||
-				pd->psy_type == POWER_SUPPLY_TYPE_USB_CDP)
+				pd->psy_type == POWER_SUPPLY_TYPE_USB_CDP) {
 				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB_CC,
 						is_cable_flipped(pd));
 				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB, 1);
+			}
 		}
 
 		pd->rx_msg_len = 0;
