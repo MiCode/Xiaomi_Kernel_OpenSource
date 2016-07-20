@@ -93,6 +93,7 @@ struct smb_charger {
 	/* power supplies */
 	struct power_supply		*batt_psy;
 	struct power_supply		*usb_psy;
+	struct power_supply		*dc_psy;
 	struct power_supply_desc	usb_psy_desc;
 
 	/* parallel charging */
@@ -172,6 +173,15 @@ int smblib_get_prop_batt_charge_type(struct smb_charger *chg,
 int smblib_get_prop_batt_health(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
+				const union power_supply_propval *val);
+
+int smblib_get_prop_dc_present(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_dc_online(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_dc_current_max(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_set_prop_dc_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 
 int smblib_get_prop_usb_present(struct smb_charger *chg,

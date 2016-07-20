@@ -350,6 +350,105 @@ static int smb2_init_usb_psy(struct smb2 *chip)
 }
 
 /*************************
+ * DC PSY REGISTRATION   *
+ *************************/
+
+static enum power_supply_property smb2_dc_props[] = {
+	POWER_SUPPLY_PROP_PRESENT,
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+};
+
+static int smb2_dc_get_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		union power_supply_propval *val)
+{
+	struct smb2 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_PRESENT:
+		rc = smblib_get_prop_dc_present(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		rc = smblib_get_prop_dc_online(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = smblib_get_prop_dc_current_max(chg, val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int smb2_dc_set_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		const union power_supply_propval *val)
+{
+	struct smb2 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = smblib_set_prop_dc_current_max(chg, val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int smb2_dc_prop_is_writeable(struct power_supply *psy,
+		enum power_supply_property psp)
+{
+	int rc;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = 1;
+		break;
+	default:
+		rc = 0;
+		break;
+	}
+
+	return rc;
+}
+
+static const struct power_supply_desc dc_psy_desc = {
+	.name = "dc",
+	.type = POWER_SUPPLY_TYPE_WIPOWER,
+	.properties = smb2_dc_props,
+	.num_properties = ARRAY_SIZE(smb2_dc_props),
+	.get_property = smb2_dc_get_prop,
+	.set_property = smb2_dc_set_prop,
+	.property_is_writeable = smb2_dc_prop_is_writeable,
+};
+
+static int smb2_init_dc_psy(struct smb2 *chip)
+{
+	struct power_supply_config dc_cfg = {};
+	struct smb_charger *chg = &chip->chg;
+
+	dc_cfg.drv_data = chip;
+	dc_cfg.of_node = chg->dev->of_node;
+	chg->dc_psy = devm_power_supply_register(chg->dev,
+						  &dc_psy_desc,
+						  &dc_cfg);
+	if (IS_ERR(chg->dc_psy)) {
+		pr_err("Couldn't register USB power supply\n");
+		return PTR_ERR(chg->dc_psy);
+	}
+
+	return 0;
+}
+
+/*************************
  * BATT PSY REGISTRATION *
  *************************/
 
@@ -901,6 +1000,12 @@ static int smb2_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		pr_err("Couldn't initialize vconn regulator rc=%d\n",
 			rc);
+		goto cleanup;
+	}
+
+	rc = smb2_init_dc_psy(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize dc psy rc=%d\n", rc);
 		goto cleanup;
 	}
 
