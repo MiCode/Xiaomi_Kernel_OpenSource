@@ -107,6 +107,23 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_COUNT
 };
 
+enum msm_mdp_conn_property {
+	/* blob properties, always put these first */
+	CONNECTOR_PROP_SDE_INFO,
+
+	/* # of blob properties */
+	CONNECTOR_PROP_BLOBCOUNT,
+
+	/* range properties */
+	CONNECTOR_PROP_OUT_FB = CONNECTOR_PROP_BLOBCOUNT,
+	CONNECTOR_PROP_RETIRE_FENCE,
+
+	/* enum/bitmask properties */
+
+	/* total # of properties */
+	CONNECTOR_PROP_COUNT
+};
+
 struct msm_vblank_ctrl {
 	struct work_struct work;
 	struct list_head event_list;
@@ -185,6 +202,7 @@ struct msm_drm_private {
 	/* Properties */
 	struct drm_property *plane_property[PLANE_PROP_COUNT];
 	struct drm_property *crtc_property[CRTC_PROP_COUNT];
+	struct drm_property *conn_property[CONNECTOR_PROP_COUNT];
 
 	/* VRAM carveout, used when no IOMMU: */
 	struct {

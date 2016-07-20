@@ -3,6 +3,7 @@ ccflags-y += -Idrivers/gpu/drm/msm/display-manager
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
+ccflags-y += -Idrivers/gpu/drm/msm/sde
 
 msm-y := \
 	hdmi/hdmi.o \
@@ -38,6 +39,7 @@ msm-y := \
 	sde/sde_kms_utils.o \
 	sde/sde_kms.o \
 	sde/sde_plane.o \
+	sde/sde_connector.o \
 	msm_atomic.o \
 	msm_drv.o \
 	msm_fb.o \
