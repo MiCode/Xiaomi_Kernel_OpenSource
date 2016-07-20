@@ -664,6 +664,9 @@ static int hdmi_tx_update_pixel_clk(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	power_data->clk_config->rate = pinfo->clk_rate;
 
+	if (pinfo->out_format == MDP_Y_CBCR_H2V2)
+		power_data->clk_config->rate /= 2;
+
 	DEV_DBG("%s: rate %ld\n", __func__, power_data->clk_config->rate);
 
 	msm_dss_clk_set_rate(power_data->clk_config, power_data->num_clk);
@@ -3494,6 +3497,9 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
+	DEV_DBG("%s: current fps %d, new fps %d\n", __func__,
+		pinfo->current_fps, hdmi_ctrl->dynamic_fps);
+
 	if (hdmi_ctrl->dynamic_fps == pinfo->current_fps) {
 		DEV_DBG("%s: Panel is already at this FPS: %d\n",
 			__func__, hdmi_ctrl->dynamic_fps);
@@ -3759,6 +3765,7 @@ static int hdmi_tx_event_handler(struct mdss_panel_data *panel_data,
 	/* UPDATE FPS is called from atomic context */
 	if (event == MDSS_EVENT_PANEL_UPDATE_FPS) {
 		hdmi_ctrl->dynamic_fps = (u32) (unsigned long)arg;
+		DEV_DBG("%s: fps %d\n", __func__, hdmi_ctrl->dynamic_fps);
 		queue_work(hdmi_ctrl->workq, &hdmi_ctrl->fps_work);
 		return rc;
 	}

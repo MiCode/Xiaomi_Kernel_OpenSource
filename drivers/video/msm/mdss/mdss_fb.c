@@ -3404,7 +3404,8 @@ void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 	var->left_margin = pinfo->lcdc.h_back_porch;
 	var->hsync_len = pinfo->lcdc.h_pulse_width;
 
-	frame_rate = mdss_panel_get_framerate(pinfo);
+	frame_rate = mdss_panel_get_framerate(pinfo,
+					FPS_RESOLUTION_HZ);
 	if (frame_rate) {
 		unsigned long clk_rate, h_total, v_total;
 
