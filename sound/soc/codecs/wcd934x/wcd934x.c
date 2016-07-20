@@ -127,6 +127,8 @@ static const struct snd_kcontrol_new name##_mux = \
 #define CPE_ERR_WDOG_BITE BIT(0)
 #define CPE_FATAL_IRQS CPE_ERR_WDOG_BITE
 
+#define WCD934X_MAD_AUDIO_FIRMWARE_PATH "wcd934x/wcd934x_mad_audio.bin"
+
 enum {
 	VI_SENSE_1,
 	VI_SENSE_2,
@@ -449,6 +451,9 @@ struct tavil_priv {
 	struct wcd_clsh_cdc_data clsh_d;
 	/* Tavil Interpolator Mode Select for EAR, HPH_L and HPH_R */
 	u32 hph_mode;
+
+	/* Mad switch reference count */
+	int mad_switch_cnt;
 
 	u16 prim_int_users[WCD934X_NUM_INTERPOLATORS];
 	/* to track the status */
@@ -1953,6 +1958,212 @@ static int tavil_config_compander(struct snd_soc_codec *codec, int interp_n,
 	return 0;
 }
 
+static int tavil_codec_config_mad(struct snd_soc_codec *codec)
+{
+	int ret = 0;
+	int idx;
+	const struct firmware *fw;
+	struct firmware_cal *hwdep_cal = NULL;
+	struct wcd_mad_audio_cal *mad_cal = NULL;
+	const void *data;
+	const char *filename = WCD934X_MAD_AUDIO_FIRMWARE_PATH;
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	size_t cal_size;
+
+	hwdep_cal = wcdcal_get_fw_cal(tavil->fw_data, WCD9XXX_MAD_CAL);
+	if (hwdep_cal) {
+		data = hwdep_cal->data;
+		cal_size = hwdep_cal->size;
+		dev_dbg(codec->dev, "%s: using hwdep calibration\n",
+			__func__);
+	} else {
+		ret = request_firmware(&fw, filename, codec->dev);
+		if (ret || !fw) {
+			dev_err(codec->dev,
+				"%s: MAD firmware acquire failed, err = %d\n",
+				__func__, ret);
+			return -ENODEV;
+		}
+		data = fw->data;
+		cal_size = fw->size;
+		dev_dbg(codec->dev, "%s: using request_firmware calibration\n",
+			__func__);
+	}
+
+	if (cal_size < sizeof(*mad_cal)) {
+		dev_err(codec->dev,
+			"%s: Incorrect size %zd for MAD Cal, expected %zd\n",
+			__func__, cal_size, sizeof(*mad_cal));
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	mad_cal = (struct wcd_mad_audio_cal *) (data);
+	if (!mad_cal) {
+		dev_err(codec->dev,
+			"%s: Invalid calibration data\n",
+			__func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	snd_soc_write(codec, WCD934X_SOC_MAD_MAIN_CTL_2,
+		      mad_cal->microphone_info.cycle_time);
+	snd_soc_update_bits(codec, WCD934X_SOC_MAD_MAIN_CTL_1, 0xFF << 3,
+			    ((uint16_t)mad_cal->microphone_info.settle_time)
+			    << 3);
+
+	/* Audio */
+	snd_soc_write(codec, WCD934X_SOC_MAD_AUDIO_CTL_8,
+		      mad_cal->audio_info.rms_omit_samples);
+	snd_soc_update_bits(codec, WCD934X_SOC_MAD_AUDIO_CTL_1,
+			    0x07 << 4, mad_cal->audio_info.rms_comp_time << 4);
+	snd_soc_update_bits(codec, WCD934X_SOC_MAD_AUDIO_CTL_2, 0x03 << 2,
+			    mad_cal->audio_info.detection_mechanism << 2);
+	snd_soc_write(codec, WCD934X_SOC_MAD_AUDIO_CTL_7,
+		      mad_cal->audio_info.rms_diff_threshold & 0x3F);
+	snd_soc_write(codec, WCD934X_SOC_MAD_AUDIO_CTL_5,
+		      mad_cal->audio_info.rms_threshold_lsb);
+	snd_soc_write(codec, WCD934X_SOC_MAD_AUDIO_CTL_6,
+		      mad_cal->audio_info.rms_threshold_msb);
+
+	for (idx = 0; idx < ARRAY_SIZE(mad_cal->audio_info.iir_coefficients);
+	     idx++) {
+		snd_soc_update_bits(codec, WCD934X_SOC_MAD_AUDIO_IIR_CTL_PTR,
+				    0x3F, idx);
+		snd_soc_write(codec, WCD934X_SOC_MAD_AUDIO_IIR_CTL_VAL,
+			      mad_cal->audio_info.iir_coefficients[idx]);
+		dev_dbg(codec->dev, "%s:MAD Audio IIR Coef[%d] = 0X%x",
+			__func__, idx,
+			mad_cal->audio_info.iir_coefficients[idx]);
+	}
+
+	/* Beacon */
+	snd_soc_write(codec, WCD934X_SOC_MAD_BEACON_CTL_8,
+		      mad_cal->beacon_info.rms_omit_samples);
+	snd_soc_update_bits(codec, WCD934X_SOC_MAD_BEACON_CTL_1,
+			    0x07 << 4, mad_cal->beacon_info.rms_comp_time << 4);
+	snd_soc_update_bits(codec, WCD934X_SOC_MAD_BEACON_CTL_2, 0x03 << 2,
+			    mad_cal->beacon_info.detection_mechanism << 2);
+	snd_soc_write(codec, WCD934X_SOC_MAD_BEACON_CTL_7,
+		      mad_cal->beacon_info.rms_diff_threshold & 0x1F);
+	snd_soc_write(codec, WCD934X_SOC_MAD_BEACON_CTL_5,
+		      mad_cal->beacon_info.rms_threshold_lsb);
+	snd_soc_write(codec, WCD934X_SOC_MAD_BEACON_CTL_6,
+		      mad_cal->beacon_info.rms_threshold_msb);
+
+	for (idx = 0; idx < ARRAY_SIZE(mad_cal->beacon_info.iir_coefficients);
+	     idx++) {
+		snd_soc_update_bits(codec, WCD934X_SOC_MAD_BEACON_IIR_CTL_PTR,
+				    0x3F, idx);
+		snd_soc_write(codec, WCD934X_SOC_MAD_BEACON_IIR_CTL_VAL,
+			      mad_cal->beacon_info.iir_coefficients[idx]);
+		dev_dbg(codec->dev, "%s:MAD Beacon IIR Coef[%d] = 0X%x",
+			__func__, idx,
+			mad_cal->beacon_info.iir_coefficients[idx]);
+	}
+
+	/* Ultrasound */
+	snd_soc_update_bits(codec, WCD934X_SOC_MAD_ULTR_CTL_1,
+			    0x07 << 4,
+			    mad_cal->ultrasound_info.rms_comp_time << 4);
+	snd_soc_update_bits(codec, WCD934X_SOC_MAD_ULTR_CTL_2, 0x03 << 2,
+			    mad_cal->ultrasound_info.detection_mechanism << 2);
+	snd_soc_write(codec, WCD934X_SOC_MAD_ULTR_CTL_7,
+		      mad_cal->ultrasound_info.rms_diff_threshold & 0x1F);
+	snd_soc_write(codec, WCD934X_SOC_MAD_ULTR_CTL_5,
+		      mad_cal->ultrasound_info.rms_threshold_lsb);
+	snd_soc_write(codec, WCD934X_SOC_MAD_ULTR_CTL_6,
+		      mad_cal->ultrasound_info.rms_threshold_msb);
+
+done:
+	if (!hwdep_cal)
+		release_firmware(fw);
+
+	return ret;
+}
+
+static int tavil_codec_enable_mad(struct snd_soc_codec *codec, bool enable)
+{
+	int rc = 0;
+
+	/* Return if CPE INPUT is DEC1 */
+	if (snd_soc_read(codec, WCD934X_CPE_SS_SVA_CFG) & 0x04) {
+		dev_dbg(codec->dev, "%s: MAD is bypassed, skip mad %s\n",
+			__func__, enable ? "enable" : "disable");
+		return rc;
+	}
+
+	dev_dbg(codec->dev, "%s: enable = %s\n", __func__,
+		enable ? "enable" : "disable");
+
+	if (enable) {
+		snd_soc_update_bits(codec, WCD934X_SOC_MAD_AUDIO_CTL_2,
+				    0x03, 0x03);
+		rc = tavil_codec_config_mad(codec);
+		if (IS_ERR_VALUE(rc)) {
+			snd_soc_update_bits(codec, WCD934X_SOC_MAD_AUDIO_CTL_2,
+					    0x03, 0x00);
+			goto done;
+		}
+
+		/* Turn on MAD clk */
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_MAD_CTL,
+				    0x01, 0x01);
+
+		/* Undo reset for MAD */
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_MAD_CTL,
+				    0x02, 0x00);
+	} else {
+		snd_soc_update_bits(codec, WCD934X_SOC_MAD_AUDIO_CTL_2,
+				    0x03, 0x00);
+		/* Reset the MAD block */
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_MAD_CTL,
+				    0x02, 0x02);
+		/* Turn off MAD clk */
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_MAD_CTL,
+				    0x01, 0x00);
+	}
+done:
+	return rc;
+}
+
+static int tavil_codec_cpe_mad_ctl(struct snd_soc_dapm_widget *w,
+				   struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int rc = 0;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		tavil->mad_switch_cnt++;
+		if (tavil->mad_switch_cnt != 1)
+			goto done;
+
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_SVA_CFG, 0x20, 0x20);
+		rc = tavil_codec_enable_mad(codec, true);
+		if (IS_ERR_VALUE(rc)) {
+			tavil->mad_switch_cnt--;
+			goto done;
+		}
+
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		tavil->mad_switch_cnt--;
+		if (tavil->mad_switch_cnt != 0)
+			goto done;
+
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_SVA_CFG, 0x20, 0x00);
+		tavil_codec_enable_mad(codec, false);
+		break;
+	}
+done:
+	dev_dbg(tavil->dev, "%s: event = %d, mad_switch_cnt = %d\n",
+		__func__, event, tavil->mad_switch_cnt);
+	return rc;
+}
+
 static int tavil_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 					   struct snd_kcontrol *kcontrol,
 					   int event)
@@ -3223,8 +3434,136 @@ static int tavil_amic_pwr_lvl_put(struct snd_kcontrol *kcontrol,
 
 	snd_soc_update_bits(codec, amic_reg, WCD934X_AMIC_PWR_LVL_MASK,
 			    mode_val << WCD934X_AMIC_PWR_LVL_SHIFT);
-
 ret:
+	return 0;
+}
+
+static const char *const tavil_conn_mad_text[] = {
+	"NOTUSED1", "ADC1", "ADC2", "ADC3", "ADC4", "NOTUSED5",
+	"NOTUSED6", "NOTUSED2", "DMIC0", "DMIC1", "DMIC2", "DMIC3",
+	"DMIC4", "DMIC5", "NOTUSED3", "NOTUSED4"
+};
+
+static const struct soc_enum tavil_conn_mad_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tavil_conn_mad_text),
+			    tavil_conn_mad_text);
+
+static int tavil_mad_input_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	u8 tavil_mad_input;
+
+	tavil_mad_input = snd_soc_read(codec, WCD934X_SOC_MAD_INP_SEL) & 0x0F;
+	ucontrol->value.integer.value[0] = tavil_mad_input;
+
+	dev_dbg(codec->dev, "%s: tavil_mad_input = %s\n", __func__,
+		tavil_conn_mad_text[tavil_mad_input]);
+
+	return 0;
+}
+
+static int tavil_mad_input_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct snd_soc_card *card = codec->component.card;
+	u8 tavil_mad_input;
+	char mad_amic_input_widget[6];
+	const char *mad_input_widget;
+	const char *source_widget = NULL;
+	u32 adc, i, mic_bias_found = 0;
+	int ret = 0;
+	char *mad_input;
+
+	tavil_mad_input = ucontrol->value.integer.value[0];
+
+	if (strnstr(tavil_conn_mad_text[tavil_mad_input], "NOTUSED",
+				sizeof("NOTUSED"))) {
+		dev_err(codec->dev,
+			"%s: Unsupported tavil_mad_input = %s\n",
+			__func__, tavil_conn_mad_text[tavil_mad_input]);
+		return -EINVAL;
+	}
+
+	if (strnstr(tavil_conn_mad_text[tavil_mad_input],
+		    "ADC", sizeof("ADC"))) {
+		mad_input = strpbrk(tavil_conn_mad_text[tavil_mad_input],
+				    "1234");
+		if (!mad_input) {
+			dev_err(codec->dev, "%s: Invalid MAD input %s\n",
+				__func__, tavil_conn_mad_text[tavil_mad_input]);
+			return -EINVAL;
+		}
+
+		ret = kstrtouint(mad_input, 10, &adc);
+		if ((ret < 0) || (adc > 4)) {
+			dev_err(codec->dev, "%s: Invalid ADC = %s\n", __func__,
+				tavil_conn_mad_text[tavil_mad_input]);
+			return -EINVAL;
+		}
+
+		/*AMIC4 and AMIC5 share ADC4*/
+		if ((adc == 4) &&
+		    (snd_soc_read(codec, WCD934X_TX_NEW_AMIC_4_5_SEL) & 0x10))
+			adc = 5;
+
+		snprintf(mad_amic_input_widget, 6, "%s%u", "AMIC", adc);
+
+		mad_input_widget = mad_amic_input_widget;
+	} else {
+		/* DMIC type input widget*/
+		mad_input_widget = tavil_conn_mad_text[tavil_mad_input];
+	}
+
+	dev_dbg(codec->dev,
+		"%s: tavil input widget = %s\n", __func__,
+		mad_input_widget);
+
+	for (i = 0; i < card->num_of_dapm_routes; i++) {
+		if (!strcmp(card->of_dapm_routes[i].sink, mad_input_widget)) {
+			source_widget = card->of_dapm_routes[i].source;
+			if (!source_widget) {
+				dev_err(codec->dev,
+					"%s: invalid source widget\n",
+					__func__);
+				return -EINVAL;
+			}
+
+			if (strnstr(source_widget,
+				"MIC BIAS1", sizeof("MIC BIAS1"))) {
+				mic_bias_found = 1;
+				break;
+			} else if (strnstr(source_widget,
+				"MIC BIAS2", sizeof("MIC BIAS2"))) {
+				mic_bias_found = 2;
+				break;
+			} else if (strnstr(source_widget,
+				"MIC BIAS3", sizeof("MIC BIAS3"))) {
+				mic_bias_found = 3;
+				break;
+			} else if (strnstr(source_widget,
+				"MIC BIAS4", sizeof("MIC BIAS4"))) {
+				mic_bias_found = 4;
+				break;
+			}
+		}
+	}
+
+	if (!mic_bias_found) {
+		dev_err(codec->dev, "%s: mic bias not found for input %s\n",
+			__func__, mad_input_widget);
+		return -EINVAL;
+	}
+
+	dev_dbg(codec->dev, "%s: mic_bias found = %d\n", __func__,
+		mic_bias_found);
+
+	snd_soc_update_bits(codec, WCD934X_SOC_MAD_INP_SEL,
+			    0x0F, tavil_mad_input);
+	snd_soc_update_bits(codec, WCD934X_ANA_MAD_SETUP,
+			    0x03, mic_bias_found);
+
 	return 0;
 }
 
@@ -3502,6 +3841,9 @@ static const struct snd_kcontrol_new tavil_snd_controls[] = {
 	SOC_SINGLE_EXT("COMP8 Switch", SND_SOC_NOPM, COMPANDER_8, 1, 0,
 		tavil_compander_get, tavil_compander_put),
 
+	SOC_ENUM_EXT("MAD Input", tavil_conn_mad_enum,
+		     tavil_mad_input_get, tavil_mad_input_put),
+
 	SOC_SINGLE_EXT("DMIC1_CLK_PIN_MODE", SND_SOC_NOPM, 17, 1, 0,
 		tavil_dmic_pin_mode_get, tavil_dmic_pin_mode_put),
 
@@ -3720,6 +4062,14 @@ static const char * const rx_int7_interp_mux_text[] = {
 
 static const char * const rx_int8_interp_mux_text[] = {
 	"ZERO", "RX INT8 SEC MIX"
+};
+
+static const char * const mad_sel_txt[] = {
+	"SPE", "MSM"
+};
+
+static const char * const mad_inp_mux_txt[] = {
+	"MAD", "DEC1"
 };
 
 static const char * const adc_mux_text[] = {
@@ -4112,6 +4462,12 @@ WCD_DAPM_ENUM(rx_int7_interp, WCD934X_CDC_RX7_RX_PATH_CTL, 5,
 WCD_DAPM_ENUM(rx_int8_interp, WCD934X_CDC_RX8_RX_PATH_CTL, 5,
 	rx_int8_interp_mux_text);
 
+WCD_DAPM_ENUM(mad_sel, WCD934X_CPE_SS_SVA_CFG, 0,
+	mad_sel_txt);
+
+WCD_DAPM_ENUM(mad_inp_mux, WCD934X_CPE_SS_SVA_CFG, 2,
+	mad_inp_mux_txt);
+
 WCD_DAPM_ENUM_EXT(rx_int0_dem_inp, WCD934X_CDC_RX0_RX_PATH_SEC0, 0,
 	rx_int_dem_inp_mux_text, snd_soc_dapm_get_enum_double,
 	tavil_int_dem_inp_mux_put);
@@ -4140,6 +4496,12 @@ WCD_DAPM_ENUM_EXT(tx_adc_mux7, WCD934X_CDC_TX_INP_MUX_ADC_MUX3_CFG1, 2,
 	adc_mux_text, snd_soc_dapm_get_enum_double, tavil_dec_enum_put);
 WCD_DAPM_ENUM_EXT(tx_adc_mux8, WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG1, 4,
 	adc_mux_text, snd_soc_dapm_get_enum_double, tavil_dec_enum_put);
+
+static const struct snd_kcontrol_new mad_cpe1_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new mad_cpe2_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
 
 static const struct snd_kcontrol_new adc_us_mux0_switch =
 	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
@@ -4588,6 +4950,23 @@ static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 		0, &adc_us_mux7_switch),
 	SND_SOC_DAPM_SWITCH("ADC US MUX8", WCD934X_CDC_TX8_TX_PATH_192_CTL, 0,
 		0, &adc_us_mux8_switch),
+
+	/* MAD related widgets */
+	SND_SOC_DAPM_INPUT("MAD_CPE_INPUT"),
+	SND_SOC_DAPM_INPUT("MADINPUT"),
+
+	WCD_DAPM_MUX("MAD_SEL MUX", 0, mad_sel),
+	WCD_DAPM_MUX("MAD_INP MUX", 0, mad_inp_mux),
+
+	SND_SOC_DAPM_SWITCH_E("MAD_CPE1", SND_SOC_NOPM, 0, 0,
+			      &mad_cpe1_switch, tavil_codec_cpe_mad_ctl,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_SWITCH_E("MAD_CPE2", SND_SOC_NOPM, 0, 0,
+			      &mad_cpe2_switch, tavil_codec_cpe_mad_ctl,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_OUTPUT("MAD_CPE_OUT1"),
+	SND_SOC_DAPM_OUTPUT("MAD_CPE_OUT2"),
 
 	SND_SOC_DAPM_DAC_E("RX INT0 DAC", NULL, SND_SOC_NOPM,
 		0, 0, tavil_codec_ear_dac_event,
@@ -5405,6 +5784,7 @@ static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
 	{WCD934X_CDC_BOOST0_BOOST_CFG2, 0x1C, 0x08},
 	{WCD934X_CDC_BOOST1_BOOST_CFG1, 0x3F, 0x12},
 	{WCD934X_CDC_BOOST1_BOOST_CFG2, 0x1C, 0x08},
+	{WCD934X_CPE_SS_CPARMAD_BUFRDY_INT_PERIOD, 0x1F, 0x03},
 };
 
 static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
@@ -5437,6 +5817,7 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
 	{WCD934X_CODEC_RPM_CLK_GATE, 0x08, 0x00},
 	{WCD934X_TLMM_DMIC3_CLK_PINCFG, 0xFF, 0x0a},
 	{WCD934X_TLMM_DMIC3_DATA_PINCFG, 0xFF, 0x0a},
+	{WCD934X_CPE_SS_SVA_CFG, 0x60, 0x00},
 };
 
 static void tavil_codec_init_reg(struct snd_soc_codec *codec)
@@ -5642,6 +6023,8 @@ static int tavil_handle_pdata(struct tavil_priv *tavil,
 			      struct wcd9xxx_pdata *pdata)
 {
 	struct snd_soc_codec *codec = tavil->codec;
+	u8 mad_dmic_ctl_val;
+	u32 def_dmic_rate, dmic_clk_drv;
 	int vout_ctl_1, vout_ctl_2, vout_ctl_3, vout_ctl_4;
 	int rc = 0;
 
@@ -5665,6 +6048,86 @@ static int tavil_handle_pdata(struct tavil_priv *tavil,
 	snd_soc_update_bits(codec, WCD934X_ANA_MICB2, 0x3F, vout_ctl_2);
 	snd_soc_update_bits(codec, WCD934X_ANA_MICB3, 0x3F, vout_ctl_3);
 	snd_soc_update_bits(codec, WCD934X_ANA_MICB4, 0x3F, vout_ctl_4);
+
+	/* Set the DMIC sample rate */
+	switch (pdata->mclk_rate) {
+	case WCD934X_MCLK_CLK_9P6MHZ:
+		def_dmic_rate = WCD9XXX_DMIC_SAMPLE_RATE_4P8MHZ;
+		break;
+	case WCD934X_MCLK_CLK_12P288MHZ:
+		def_dmic_rate = WCD9XXX_DMIC_SAMPLE_RATE_4P096MHZ;
+		break;
+	default:
+		/* should never happen */
+		dev_err(codec->dev, "%s: Invalid mclk_rate %d\n",
+			__func__, pdata->mclk_rate);
+		rc = -EINVAL;
+		goto done;
+	};
+
+	if (pdata->dmic_sample_rate ==
+	    WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED) {
+		dev_info(codec->dev, "%s: dmic_rate invalid default = %d\n",
+			__func__, def_dmic_rate);
+		pdata->dmic_sample_rate = def_dmic_rate;
+	}
+	if (pdata->mad_dmic_sample_rate ==
+	    WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED) {
+		dev_info(codec->dev, "%s: mad_dmic_rate invalid default = %d\n",
+			__func__, def_dmic_rate);
+		/*
+		 * use dmic_sample_rate as the default for MAD
+		 * if mad dmic sample rate is undefined
+		 */
+		pdata->mad_dmic_sample_rate = pdata->dmic_sample_rate;
+	}
+
+	if (pdata->dmic_clk_drv ==
+	    WCD9XXX_DMIC_CLK_DRIVE_UNDEFINED) {
+		pdata->dmic_clk_drv = WCD934X_DMIC_CLK_DRIVE_DEFAULT;
+		dev_info(codec->dev,
+			 "%s: dmic_clk_strength invalid, default = %d\n",
+			 __func__, pdata->dmic_clk_drv);
+	}
+
+	switch (pdata->dmic_clk_drv) {
+	case 2:
+		dmic_clk_drv = 0;
+		break;
+	case 4:
+		dmic_clk_drv = 1;
+		break;
+	case 8:
+		dmic_clk_drv = 2;
+		break;
+	case 16:
+		dmic_clk_drv = 3;
+		break;
+	default:
+		dev_err(codec->dev,
+			"%s: invalid dmic_clk_drv %d, using default\n",
+			__func__, pdata->dmic_clk_drv);
+		dmic_clk_drv = 0;
+		break;
+	}
+
+	snd_soc_update_bits(codec, WCD934X_TEST_DEBUG_PAD_DRVCTL_0,
+			    0x0C, dmic_clk_drv << 2);
+
+	/*
+	 * Default the DMIC clk rates to mad_dmic_sample_rate,
+	 * whereas, the anc/txfe dmic rates to dmic_sample_rate
+	 * since the anc/txfe are independent of mad block.
+	 */
+	mad_dmic_ctl_val = tavil_get_dmic_clk_val(tavil->codec,
+				pdata->mclk_rate,
+				pdata->mad_dmic_sample_rate);
+	snd_soc_update_bits(codec, WCD934X_CPE_SS_DMIC0_CTL,
+		0x0E, mad_dmic_ctl_val << 1);
+	snd_soc_update_bits(codec, WCD934X_CPE_SS_DMIC1_CTL,
+		0x0E, mad_dmic_ctl_val << 1);
+	snd_soc_update_bits(codec, WCD934X_CPE_SS_DMIC2_CTL,
+		0x0E, mad_dmic_ctl_val << 1);
 
 done:
 	return rc;

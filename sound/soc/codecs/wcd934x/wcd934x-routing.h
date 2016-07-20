@@ -114,6 +114,19 @@ const struct snd_soc_dapm_route tavil_slim_audio_map[] = {
 
 const struct snd_soc_dapm_route tavil_audio_map[] = {
 
+	/* MAD */
+	{"MAD_SEL MUX", "SPE", "MAD_CPE_INPUT"},
+	{"MAD_SEL MUX", "MSM", "MADINPUT"},
+
+	{"MAD_INP MUX", "MAD", "MAD_SEL MUX"},
+	{"MAD_INP MUX", "DEC1", "ADC MUX1"},
+
+	{"MAD_CPE1", "Switch", "MAD_INP MUX"},
+	{"MAD_CPE2", "Switch", "MAD_INP MUX"},
+
+	{"MAD_CPE_OUT1", NULL, "MAD_CPE1"},
+	{"MAD_CPE_OUT2", NULL, "MAD_CPE2"},
+
 	/* VI Feedback */
 	{"AIF4_VI Mixer", "SPKR_VI_1", "VIINPUT"},
 	{"AIF4_VI Mixer", "SPKR_VI_2", "VIINPUT"},
