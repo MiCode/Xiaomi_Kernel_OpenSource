@@ -1123,15 +1123,6 @@
 		reg-names = "smem", "irq-reg-base", "aux-mem1",
 			"smem_targ_info_reg";
 		qcom,mpu-enabled;
-
-		qcom,smd-dsps {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <3>;
-			qcom,smd-irq-offset = <0x0>;
-			qcom,smd-irq-bitmask = <0x2000000>;
-			interrupts = <0 176 1>;
-			label = "dsps";
-		};
 	};
 
 	qcom,msm-adsprpc-mem {
