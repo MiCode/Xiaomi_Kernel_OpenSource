@@ -50,6 +50,10 @@ Optional properties:
 				  Default value is 2.
 - qcom,lmh-level		: Optional property to configure flash current preemptive mitigation.
 				  Accepted values are 0, 1, and 3. Default value is 0.
+- qcom,thermal-derate-en	: Boolean property to enable flash current thermal mitigation.
+- qcom,thermal-derate-current	: Array of currrent limits for thermal mitigation. Required if
+				  qcom,thermal-derate-en is specified. Unit is mA. Format is
+				  qcom,thermal-derate-current = <OTST1_LIMIT, OTST2_LIMIT, OTST3_LIMIT>.
 - qcom,hw-strobe-option	: Integer type to specify hardware strobe option. Based on the specified
 			  value, additional GPIO configuration may be required to provide strobing
 			  support. Supported values are:

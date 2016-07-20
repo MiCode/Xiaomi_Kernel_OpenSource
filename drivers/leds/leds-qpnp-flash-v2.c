@@ -43,6 +43,9 @@
 #define	FLASH_LED_REG_HDRM_AUTO_MODE_CTRL(base)	(base + 0x50)
 #define	FLASH_LED_REG_WARMUP_DELAY(base)	(base + 0x51)
 #define	FLASH_LED_REG_ISC_DELAY(base)		(base + 0x52)
+#define	FLASH_LED_REG_THERMAL_THRSH1(base)	(base + 0x56)
+#define	FLASH_LED_REG_THERMAL_THRSH2(base)	(base + 0x57)
+#define	FLASH_LED_REG_THERMAL_THRSH3(base)	(base + 0x58)
 #define	FLASH_LED_REG_VPH_DROOP_THRESHOLD(base)	(base + 0x61)
 #define	FLASH_LED_REG_VPH_DROOP_DEBOUNCE(base)	(base + 0x62)
 #define	FLASH_LED_REG_MITIGATION_SEL(base)	(base + 0x6E)
@@ -63,6 +66,8 @@
 #define	FLASH_LED_LMH_LEVEL_MASK		GENMASK(1, 0)
 #define	FLASH_LED_VPH_DROOP_HYSTERESIS_MASK	GENMASK(5, 4)
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MASK	GENMASK(2, 0)
+#define	FLASH_LED_THERMAL_THRSH_MASK		GENMASK(2, 0)
+#define	FLASH_LED_THERMAL_OTST_MASK		GENMASK(2, 0)
 #define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 #define	FLASH_LED_HW_SW_STROBE_SEL_MASK		BIT(2)
 #define	FLASH_LED_VPH_DROOP_FAULT_MASK		BIT(4)
@@ -82,6 +87,8 @@
 #define	FLASH_LED_VPH_DROOP_DEBOUNCE_MAX	3
 #define	FLASH_LED_VPH_DROOP_HYST_MAX		3
 #define	FLASH_LED_VPH_DROOP_THRESH_MAX		7
+#define	FLASH_LED_THERMAL_THRSH_MIN		3
+#define	FLASH_LED_THERMAL_OTST_LEVELS		3
 #define	FLASH_LED_VLED_MAX_DEFAULT_UV		3500000
 #define	FLASH_LED_IBATT_OCP_THRESH_DEFAULT_UA	4500000
 #define	FLASH_LED_RPARA_DEFAULT_UOHM		0
@@ -175,6 +182,7 @@ struct flash_switch_data {
  * Flash LED configuration read from device tree
  */
 struct flash_led_platform_data {
+	int	*thermal_derate_current;
 	int	all_ramp_up_done_irq;
 	int	all_ramp_down_done_irq;
 	int	led_fault_irq;
@@ -193,6 +201,7 @@ struct flash_led_platform_data {
 	u8	lmh_level;
 	u8	hw_strobe_option;
 	bool	hdrm_auto_mode_en;
+	bool	thermal_derate_en;
 };
 
 /*
@@ -229,6 +238,20 @@ qpnp_flash_led_read(struct qpnp_flash_led *led, u16 addr, u8 *data)
 			val, addr);
 
 	*data = (u8)val;
+	return rc;
+}
+
+static int
+qpnp_flash_led_masked_read(struct qpnp_flash_led *led, u16 addr, u8 mask,
+								u8 *val)
+{
+	int rc;
+
+	rc = qpnp_flash_led_read(led, addr, val);
+	if (rc < 0)
+		return rc;
+
+	*val &= mask;
 	return rc;
 }
 
@@ -535,10 +558,107 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 			(int)(avail_flash_ua / MCONV));
 }
 
+static int qpnp_flash_led_calc_thermal_current_lim(struct qpnp_flash_led *led)
+{
+	int thermal_current_lim = 0;
+	int rc;
+	u8 thermal_thrsh1, thermal_thrsh2, thermal_thrsh3, otst_status;
+
+	/* Store THERMAL_THRSHx register values */
+	rc = qpnp_flash_led_masked_read(led,
+			FLASH_LED_REG_THERMAL_THRSH1(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			&thermal_thrsh1);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_read(led,
+			FLASH_LED_REG_THERMAL_THRSH2(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			&thermal_thrsh2);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_read(led,
+			FLASH_LED_REG_THERMAL_THRSH3(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			&thermal_thrsh3);
+	if (rc < 0)
+		return rc;
+
+	/* Lower THERMAL_THRSHx thresholds to minimum */
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH1(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			FLASH_LED_THERMAL_THRSH_MIN);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH2(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			FLASH_LED_THERMAL_THRSH_MIN);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH3(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			FLASH_LED_THERMAL_THRSH_MIN);
+	if (rc < 0)
+		return rc;
+
+	/* Check THERMAL_OTST status */
+	rc = qpnp_flash_led_read(led,
+			FLASH_LED_REG_LED_STATUS2(led->base),
+			&otst_status);
+	if (rc < 0)
+		return rc;
+
+	/* Look up current limit based on THERMAL_OTST status */
+	if (otst_status)
+		thermal_current_lim =
+			led->pdata->thermal_derate_current[otst_status >> 1];
+
+	/* Restore THERMAL_THRESHx registers to original values */
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH1(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			thermal_thrsh1);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH2(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			thermal_thrsh2);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH3(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			thermal_thrsh3);
+	if (rc < 0)
+		return rc;
+
+	return thermal_current_lim;
+}
+
 static int qpnp_flash_led_get_max_avail_current(struct qpnp_flash_led *led)
 {
+	int max_avail_current, thermal_current_lim = 0;
+
 	led->trigger_lmh = false;
-	return qpnp_flash_led_calc_max_current(led);
+	max_avail_current = qpnp_flash_led_calc_max_current(led);
+	if (led->pdata->thermal_derate_en)
+		thermal_current_lim =
+			qpnp_flash_led_calc_thermal_current_lim(led);
+
+	if (thermal_current_lim)
+		max_avail_current = min(max_avail_current, thermal_current_lim);
+
+	return max_avail_current;
 }
 
 static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
@@ -1337,6 +1457,28 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 	vph_droop_det = of_property_read_bool(node, "qcom,vph-droop-det");
 	led->pdata->current_derate_en_cfg = (vph_droop_det << 2) |
 				(open_circuit_det << 1) | short_circuit_det;
+
+	led->pdata->thermal_derate_en =
+		of_property_read_bool(node, "qcom,thermal-derate-en");
+
+	if (led->pdata->thermal_derate_en) {
+		led->pdata->thermal_derate_current =
+			devm_kcalloc(&led->pdev->dev,
+					FLASH_LED_THERMAL_OTST_LEVELS,
+					sizeof(int), GFP_KERNEL);
+		if (!led->pdata->thermal_derate_current)
+			return -ENOMEM;
+
+		rc = of_property_read_u32_array(node,
+					"qcom,thermal-derate-current",
+					led->pdata->thermal_derate_current,
+					FLASH_LED_THERMAL_OTST_LEVELS);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev, "Unable to read thermal current limits, rc=%d\n",
+					rc);
+			return rc;
+		}
+	}
 
 	led->pdata->vph_droop_debounce = FLASH_LED_VPH_DROOP_DEBOUNCE_DEFAULT;
 	rc = of_property_read_u32(node, "qcom,vph-droop-debounce-us", &val);
