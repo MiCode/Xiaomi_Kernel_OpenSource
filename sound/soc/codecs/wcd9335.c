@@ -129,6 +129,7 @@
 #define WCD9335_DEC_PWR_LVL_LP 0x02
 #define WCD9335_DEC_PWR_LVL_HP 0x04
 #define WCD9335_DEC_PWR_LVL_DF 0x00
+#define WCD9335_STRING_LEN 100
 
 #define CALCULATE_VOUT_D(req_mv) (((req_mv - 650) * 10) / 25)
 
@@ -786,7 +787,7 @@ struct tasha_priv {
 	/* to track the status */
 	unsigned long status_mask;
 
-	struct work_struct swr_add_devices_work;
+	struct work_struct tasha_add_child_devices_work;
 	struct wcd_swr_ctrl_platform_data swr_plat_data;
 
 	/* Port values for Rx and Tx codec_dai */
@@ -13464,7 +13465,7 @@ static int tasha_swrm_handle_irq(void *handle,
 	return ret;
 }
 
-static void wcd_swr_ctrl_add_devices(struct work_struct *work)
+static void tasha_add_child_devices(struct work_struct *work)
 {
 	struct tasha_priv *tasha;
 	struct platform_device *pdev;
@@ -13473,9 +13474,10 @@ static void wcd_swr_ctrl_add_devices(struct work_struct *work)
 	struct tasha_swr_ctrl_data *swr_ctrl_data = NULL, *temp;
 	int ret, ctrl_num = 0;
 	struct wcd_swr_ctrl_platform_data *platdata;
+	char plat_dev_name[WCD9335_STRING_LEN];
 
 	tasha = container_of(work, struct tasha_priv,
-			     swr_add_devices_work);
+			     tasha_add_child_devices_work);
 	if (!tasha) {
 		pr_err("%s: Memory for WCD9335 does not exist\n",
 			__func__);
@@ -13496,17 +13498,17 @@ static void wcd_swr_ctrl_add_devices(struct work_struct *work)
 	platdata = &tasha->swr_plat_data;
 
 	for_each_child_of_node(wcd9xxx->dev->of_node, node) {
-		temp = krealloc(swr_ctrl_data,
-			(ctrl_num + 1) * sizeof(struct tasha_swr_ctrl_data),
-			GFP_KERNEL);
-		if (!temp) {
-			dev_err(wcd9xxx->dev, "out of memory\n");
-			ret = -ENOMEM;
-			goto err;
-		}
-		swr_ctrl_data = temp;
-		swr_ctrl_data[ctrl_num].swr_pdev = NULL;
-		pdev = platform_device_alloc("tasha_swr_ctrl", -1);
+		if (!strcmp(node->name, "swr_master"))
+			strlcpy(plat_dev_name, "tasha_swr_ctrl",
+				(WCD9335_STRING_LEN - 1));
+		else if (strnstr(node->name, "msm_cdc_pinctrl",
+				 strlen("msm_cdc_pinctrl")) != NULL)
+			strlcpy(plat_dev_name, node->name,
+				(WCD9335_STRING_LEN - 1));
+		else
+			continue;
+
+		pdev = platform_device_alloc(plat_dev_name, -1);
 		if (!pdev) {
 			dev_err(wcd9xxx->dev, "%s: pdev memory alloc failed\n",
 				__func__);
@@ -13516,28 +13518,45 @@ static void wcd_swr_ctrl_add_devices(struct work_struct *work)
 		pdev->dev.parent = tasha->dev;
 		pdev->dev.of_node = node;
 
-		ret = platform_device_add_data(pdev, platdata,
-					       sizeof(*platdata));
-		if (ret) {
-			dev_err(&pdev->dev, "%s: cannot add plat data for ctrl:%d\n",
-				__func__, ctrl_num);
-			goto fail_pdev_add;
+		if (!strcmp(node->name, "swr_master")) {
+			ret = platform_device_add_data(pdev, platdata,
+						       sizeof(*platdata));
+			if (ret) {
+				dev_err(&pdev->dev,
+					"%s: cannot add plat data ctrl:%d\n",
+					__func__, ctrl_num);
+				goto fail_pdev_add;
+			}
 		}
 
 		ret = platform_device_add(pdev);
 		if (ret) {
-			dev_err(&pdev->dev, "%s: Cannot add swr platform device\n",
+			dev_err(&pdev->dev,
+				"%s: Cannot add platform device\n",
 				__func__);
 			goto fail_pdev_add;
 		}
 
-		swr_ctrl_data[ctrl_num].swr_pdev = pdev;
-		ctrl_num++;
-		dev_dbg(&pdev->dev, "%s: Added soundwire ctrl device(s)\n",
-			__func__);
+		if (!strcmp(node->name, "swr_master")) {
+			temp = krealloc(swr_ctrl_data,
+					(ctrl_num + 1) * sizeof(
+					struct tasha_swr_ctrl_data),
+					GFP_KERNEL);
+			if (!temp) {
+				dev_err(wcd9xxx->dev, "out of memory\n");
+				ret = -ENOMEM;
+				goto err;
+			}
+			swr_ctrl_data = temp;
+			swr_ctrl_data[ctrl_num].swr_pdev = pdev;
+			ctrl_num++;
+			dev_dbg(&pdev->dev,
+				"%s: Added soundwire ctrl device(s)\n",
+				__func__);
+			tasha->nr = ctrl_num;
+			tasha->swr_ctrl_data = swr_ctrl_data;
+		}
 	}
-	tasha->nr = ctrl_num;
-	tasha->swr_ctrl_data = swr_ctrl_data;
 
 	return;
 fail_pdev_add:
@@ -13637,7 +13656,8 @@ static int tasha_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&tasha->power_gate_work, tasha_codec_power_gate_work);
 	mutex_init(&tasha->power_lock);
 	mutex_init(&tasha->sido_lock);
-	INIT_WORK(&tasha->swr_add_devices_work, wcd_swr_ctrl_add_devices);
+	INIT_WORK(&tasha->tasha_add_child_devices_work,
+		  tasha_add_child_devices);
 	BLOCKING_INIT_NOTIFIER_HEAD(&tasha->notifier);
 	mutex_init(&tasha->micb_lock);
 	mutex_init(&tasha->swr_read_lock);
@@ -13713,7 +13733,7 @@ static int tasha_probe(struct platform_device *pdev)
 	}
 	/* Update codec register default values */
 	tasha_update_reg_defaults(tasha);
-	schedule_work(&tasha->swr_add_devices_work);
+	schedule_work(&tasha->tasha_add_child_devices_work);
 	tasha_get_codec_ver(tasha);
 
 	dev_info(&pdev->dev, "%s: Tasha driver probe done\n", __func__);
