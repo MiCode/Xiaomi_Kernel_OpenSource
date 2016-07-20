@@ -217,6 +217,7 @@ struct smb_dt_props {
 	u32	step_soc_threshold[STEP_CHARGING_MAX_STEPS - 1];
 	s32	step_cc_delta[STEP_CHARGING_MAX_STEPS];
 	struct	device_node *revid_dev_node;
+	int	float_option;
 };
 
 struct smb2 {
@@ -320,6 +321,12 @@ static int smb2_parse_dt(struct smb2 *chip)
 				"Couldn't read threm limits rc = %d\n", rc);
 			return rc;
 		}
+	}
+
+	of_property_read_u32(node, "qcom,float-option", &chip->dt.float_option);
+	if (chip->dt.float_option < 0 || chip->dt.float_option > 4) {
+		pr_err("qcom,float-option is out of range [0, 4]\n");
+		return -EINVAL;
 	}
 
 	return 0;
@@ -1118,6 +1125,35 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure signal for parallel rc=%d\n", rc);
+		return rc;
+	}
+
+	/* configure float charger options */
+	switch (chip->dt.float_option) {
+	case 1:
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK, 0);
+		break;
+	case 2:
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK, FORCE_FLOAT_SDP_CFG_BIT);
+		break;
+	case 3:
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK, FLOAT_DIS_CHGING_CFG_BIT);
+		break;
+	case 4:
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK, SUSPEND_FLOAT_CFG_BIT);
+		break;
+	default:
+		rc = 0;
+		break;
+	}
+
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure float charger options rc=%d\n",
+			rc);
 		return rc;
 	}
 
