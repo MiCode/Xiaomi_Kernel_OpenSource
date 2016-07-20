@@ -258,6 +258,13 @@ struct dp_statistic {
 #define DPCD_LINK_VOLTAGE_MAX	4
 #define DPCD_LINK_PRE_EMPHASIS_MAX	4
 
+struct dp_pinctrl_res {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *state_active;
+	struct pinctrl_state *state_hpd_active;
+	struct pinctrl_state *state_suspend;
+};
+
 irqreturn_t dp_isr(int irq, void *ptr);
 
 struct mdss_dp_drv_pdata {
@@ -302,6 +309,11 @@ struct mdss_dp_drv_pdata {
 
 	/* regulators */
 	struct dss_module_power power_data[DP_MAX_PM];
+	struct dp_pinctrl_res pin_res;
+	int aux_sel_gpio;
+	int aux_en_gpio;
+	int usbplug_cc_gpio;
+	int hpd_gpio;
 	int clk_on;
 
 	/* hpd */

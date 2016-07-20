@@ -551,6 +551,218 @@ static int mdss_dp_regulator_init(struct platform_device *pdev,
 	return rc;
 }
 
+static int mdss_dp_pinctrl_set_state(
+	struct mdss_dp_drv_pdata *dp,
+	bool active)
+{
+	struct pinctrl_state *pin_state;
+	int rc = -EFAULT;
+
+	if (IS_ERR_OR_NULL(dp->pin_res.pinctrl))
+		return PTR_ERR(dp->pin_res.pinctrl);
+
+	pin_state = active ? dp->pin_res.state_active
+				: dp->pin_res.state_suspend;
+	if (!IS_ERR_OR_NULL(pin_state)) {
+		rc = pinctrl_select_state(dp->pin_res.pinctrl,
+				pin_state);
+		if (rc)
+			pr_err("can not set %s pins\n",
+			       active ? "mdss_dp_active"
+			       : "mdss_dp_sleep");
+	} else {
+		pr_err("invalid '%s' pinstate\n",
+		       active ? "mdss_dp_active"
+		       : "mdss_dp_sleep");
+	}
+	return rc;
+}
+
+static int mdss_dp_pinctrl_init(struct platform_device *pdev,
+			struct mdss_dp_drv_pdata *dp)
+{
+	dp->pin_res.pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(dp->pin_res.pinctrl)) {
+		pr_err("failed to get pinctrl\n");
+		return PTR_ERR(dp->pin_res.pinctrl);
+	}
+
+	dp->pin_res.state_active
+		= pinctrl_lookup_state(dp->pin_res.pinctrl,
+				"mdss_dp_active");
+	if (IS_ERR_OR_NULL(dp->pin_res.state_active)) {
+		pr_err("can not get dp active pinstate\n");
+		return PTR_ERR(dp->pin_res.state_active);
+	}
+
+	dp->pin_res.state_suspend
+		= pinctrl_lookup_state(dp->pin_res.pinctrl,
+				"mdss_dp_sleep");
+	if (IS_ERR_OR_NULL(dp->pin_res.state_suspend)) {
+		pr_err("can not get dp sleep pinstate\n");
+		return PTR_ERR(dp->pin_res.state_suspend);
+	}
+
+	return 0;
+}
+
+static int mdss_dp_request_gpios(struct mdss_dp_drv_pdata *dp)
+{
+	int rc = 0;
+	struct device *dev = NULL;
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dev = &dp->pdev->dev;
+	if (gpio_is_valid(dp->aux_en_gpio)) {
+		rc = devm_gpio_request(dev, dp->aux_en_gpio,
+						"aux_enable");
+		if (rc) {
+			pr_err("request aux_en gpio failed, rc=%d\n",
+				       rc);
+			goto aux_en_gpio_err;
+		}
+	}
+	if (gpio_is_valid(dp->aux_sel_gpio)) {
+		rc = devm_gpio_request(dev, dp->aux_sel_gpio, "aux_sel");
+		if (rc) {
+			pr_err("request aux_sel gpio failed, rc=%d\n",
+				rc);
+			goto aux_sel_gpio_err;
+		}
+	}
+	if (gpio_is_valid(dp->usbplug_cc_gpio)) {
+		rc = devm_gpio_request(dev, dp->usbplug_cc_gpio,
+						"usbplug_cc");
+		if (rc) {
+			pr_err("request usbplug_cc gpio failed, rc=%d\n",
+				rc);
+			goto usbplug_cc_gpio_err;
+		}
+	}
+	if (gpio_is_valid(dp->hpd_gpio)) {
+		rc = devm_gpio_request(dev, dp->hpd_gpio, "hpd");
+		if (rc) {
+			pr_err("request hpd gpio failed, rc=%d\n",
+				rc);
+			goto hpd_gpio_err;
+		}
+	}
+	return rc;
+
+hpd_gpio_err:
+	if (gpio_is_valid(dp->usbplug_cc_gpio))
+		gpio_free(dp->usbplug_cc_gpio);
+usbplug_cc_gpio_err:
+	if (gpio_is_valid(dp->aux_sel_gpio))
+		gpio_free(dp->aux_sel_gpio);
+aux_sel_gpio_err:
+	if (gpio_is_valid(dp->aux_en_gpio))
+		gpio_free(dp->aux_en_gpio);
+aux_en_gpio_err:
+	return rc;
+}
+
+static int mdss_dp_config_gpios(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	int rc = 0;
+
+	if (enable == true) {
+		rc = mdss_dp_request_gpios(dp);
+		if (rc) {
+			pr_err("gpio request failed\n");
+			return rc;
+		}
+
+		if (gpio_is_valid(dp->aux_en_gpio)) {
+			rc = gpio_direction_output(
+				dp->aux_en_gpio, 0);
+			if (rc)
+				pr_err("unable to set dir for aux_en gpio\n");
+		}
+		if (gpio_is_valid(dp->aux_sel_gpio)) {
+			rc = gpio_direction_output(
+				dp->aux_sel_gpio, 0);
+			if (rc)
+				pr_err("unable to set dir for aux_sel gpio\n");
+		}
+		if (gpio_is_valid(dp->usbplug_cc_gpio)) {
+			gpio_set_value(
+				dp->usbplug_cc_gpio, 0);
+		}
+		if (gpio_is_valid(dp->hpd_gpio)) {
+			gpio_set_value(
+				dp->hpd_gpio, 1);
+		}
+	} else {
+		if (gpio_is_valid(dp->aux_en_gpio)) {
+			gpio_set_value((dp->aux_en_gpio), 0);
+			gpio_free(dp->aux_en_gpio);
+		}
+		if (gpio_is_valid(dp->aux_sel_gpio)) {
+			gpio_set_value((dp->aux_sel_gpio), 0);
+			gpio_free(dp->aux_sel_gpio);
+		}
+		if (gpio_is_valid(dp->usbplug_cc_gpio)) {
+			gpio_set_value((dp->usbplug_cc_gpio), 0);
+			gpio_free(dp->usbplug_cc_gpio);
+		}
+		if (gpio_is_valid(dp->hpd_gpio)) {
+			gpio_set_value((dp->hpd_gpio), 0);
+			gpio_free(dp->hpd_gpio);
+		}
+	}
+	return 0;
+}
+
+static int mdss_dp_parse_gpio_params(struct platform_device *pdev,
+	struct mdss_dp_drv_pdata *dp)
+{
+	dp->aux_en_gpio = of_get_named_gpio(
+			pdev->dev.of_node,
+			"qcom,aux-en-gpio", 0);
+
+	if (!gpio_is_valid(dp->aux_en_gpio)) {
+		pr_err("%d, Aux_en gpio not specified\n",
+					__LINE__);
+		return -EINVAL;
+	}
+
+	dp->aux_sel_gpio = of_get_named_gpio(
+			pdev->dev.of_node,
+			"qcom,aux-sel-gpio", 0);
+
+	if (!gpio_is_valid(dp->aux_sel_gpio)) {
+		pr_err("%d, Aux_sel gpio not specified\n",
+					__LINE__);
+		return -EINVAL;
+	}
+
+	dp->usbplug_cc_gpio = of_get_named_gpio(
+			pdev->dev.of_node,
+			"qcom,usbplug-cc-gpio", 0);
+
+	if (!gpio_is_valid(dp->usbplug_cc_gpio)) {
+		pr_err("%d,usbplug_cc gpio not specified\n",
+					__LINE__);
+		return -EINVAL;
+	}
+
+	dp->hpd_gpio = of_get_named_gpio(
+			pdev->dev.of_node,
+			"qcom,hpd-gpio", 0);
+
+	if (!gpio_is_valid(dp->hpd_gpio)) {
+		pr_info("%d,hpd gpio not specified\n",
+					__LINE__);
+	}
+
+	return 0;
+}
+
 void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp)
 {
 	/*
@@ -759,6 +971,9 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 	mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
 
+	mdss_dp_config_gpios(dp_drv, false);
+	mdss_dp_pinctrl_set_state(dp_drv, false);
+
 	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, false);
 	mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, false);
 	mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
@@ -790,6 +1005,9 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		pr_err("failed to enable regulators\n");
 		goto vreg_error;
 	}
+
+	mdss_dp_pinctrl_set_state(dp_drv, true);
+	mdss_dp_config_gpios(dp_drv, true);
 
 	ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
 	if (ret) {
@@ -1165,6 +1383,20 @@ static int mdss_dp_probe(struct platform_device *pdev)
 		MDSS_PANEL_INTF_EDP) ? true : false;
 
 	platform_set_drvdata(pdev, dp_drv);
+
+	ret = mdss_dp_pinctrl_init(pdev, dp_drv);
+	if (ret) {
+		pr_err("pinctrl init failed, ret=%d\n",
+						ret);
+		goto probe_err;
+	}
+
+	ret = mdss_dp_parse_gpio_params(pdev, dp_drv);
+	if (ret) {
+		pr_err("failed to parse gpio params, ret=%d\n",
+						ret);
+		goto probe_err;
+	}
 
 	mdss_dp_device_register(dp_drv);
 
