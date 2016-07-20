@@ -2487,11 +2487,11 @@ static int icnss_suspend(struct platform_device *pdev,
 	icnss_pr_dbg("Driver suspending, state: 0x%lx\n",
 		     penv->state);
 
-	if (!penv->ops)
+	if (!penv->ops || !penv->ops->suspend ||
+	    !test_bit(ICNSS_DRIVER_PROBED, &penv->state))
 		goto out;
 
-	if (penv->ops->suspend)
-		ret = penv->ops->suspend(&pdev->dev, state);
+	ret = penv->ops->suspend(&pdev->dev, state);
 
 out:
 	if (ret == 0)
@@ -2511,11 +2511,11 @@ static int icnss_resume(struct platform_device *pdev)
 	icnss_pr_dbg("Driver resuming, state: 0x%lx\n",
 		     penv->state);
 
-	if (!penv->ops)
+	if (!penv->ops || !penv->ops->resume ||
+	    !test_bit(ICNSS_DRIVER_PROBED, &penv->state))
 		goto out;
 
-	if (penv->ops->resume)
-		ret = penv->ops->resume(&pdev->dev);
+	ret = penv->ops->resume(&pdev->dev);
 
 out:
 	if (ret == 0)
