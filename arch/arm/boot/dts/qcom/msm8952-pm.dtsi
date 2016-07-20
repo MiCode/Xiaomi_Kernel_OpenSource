@@ -29,7 +29,7 @@
 		qcom,saw2-pmic-data1 = <0x00030000>;
 		qcom,saw2-pmic-data4 = <0x00010080>;
 		qcom,saw2-pmic-data5 = <0x00010000>;
-		qcom,vctl-timeout-us = <50>;
+		qcom,vctl-timeout-us = <500>;
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
 		qcom,pfm-port = <0x2>;

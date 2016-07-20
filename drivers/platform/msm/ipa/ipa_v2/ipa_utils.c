@@ -4984,6 +4984,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_disconnect = ipa2_disconnect;
 	api_ctrl->ipa_reset_endpoint = ipa2_reset_endpoint;
 	api_ctrl->ipa_clear_endpoint_delay = ipa2_clear_endpoint_delay;
+	api_ctrl->ipa_disable_endpoint = ipa2_disable_endpoint;
 	api_ctrl->ipa_cfg_ep = ipa2_cfg_ep;
 	api_ctrl->ipa_cfg_ep_nat = ipa2_cfg_ep_nat;
 	api_ctrl->ipa_cfg_ep_hdr = ipa2_cfg_ep_hdr;

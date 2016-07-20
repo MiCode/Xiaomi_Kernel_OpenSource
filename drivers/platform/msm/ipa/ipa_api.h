@@ -26,6 +26,8 @@ struct ipa_api_controller {
 
 	int (*ipa_clear_endpoint_delay)(u32 clnt_hdl);
 
+	int (*ipa_disable_endpoint)(u32 clnt_hdl);
+
 	int (*ipa_cfg_ep)(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg);
 
 	int (*ipa_cfg_ep_nat)(u32 clnt_hdl,

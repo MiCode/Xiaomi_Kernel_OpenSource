@@ -560,22 +560,30 @@ int ipa2_disconnect(u32 clnt_hdl)
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_INC_EP(client_type);
 
-	/* Set Disconnect in Progress flag. */
-	spin_lock(&ipa_ctx->disconnect_lock);
-	ep->disconnect_in_progress = true;
-	spin_unlock(&ipa_ctx->disconnect_lock);
+	/* For USB 2.0 controller, first the ep will be disabled.
+	 * so this sequence is not needed again when disconnecting the pipe.
+	 */
+	if (!ep->ep_disabled) {
+		/* Set Disconnect in Progress flag. */
+		spin_lock(&ipa_ctx->disconnect_lock);
+		ep->disconnect_in_progress = true;
+		spin_unlock(&ipa_ctx->disconnect_lock);
 
-	/* Notify uc to stop monitoring holb on USB BAM Producer pipe. */
-	if (IPA_CLIENT_IS_USB_CONS(ep->client)) {
-		ipa_uc_monitor_holb(ep->client, false);
-		IPADBG("Disabling holb monitor for client: %d\n", ep->client);
-	}
+		/* Notify uc to stop monitoring holb on USB BAM
+		 * Producer pipe.
+		 */
+		if (IPA_CLIENT_IS_USB_CONS(ep->client)) {
+			ipa_uc_monitor_holb(ep->client, false);
+			IPADBG("Disabling holb monitor for client: %d\n",
+				ep->client);
+		}
 
-	result = ipa_disable_data_path(clnt_hdl);
-	if (result) {
-		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
-				clnt_hdl);
-		return -EPERM;
+		result = ipa_disable_data_path(clnt_hdl);
+		if (result) {
+			IPAERR("disable data path failed res=%d clnt=%d.\n",
+				result, clnt_hdl);
+			return -EPERM;
+		}
 	}
 
 	result = sps_disconnect(ep->ep_hdl);
@@ -782,6 +790,79 @@ int ipa2_clear_endpoint_delay(u32 clnt_hdl)
 
 	return 0;
 }
+
+/**
+ * ipa2_disable_endpoint() - low-level IPA client disable endpoint
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ *
+ * Should be called by the driver of the peripheral that wants to
+ * disable the pipe from IPA in BAM-BAM mode.
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa2_disable_endpoint(u32 clnt_hdl)
+{
+	int result;
+	struct ipa_ep_context *ep;
+	enum ipa_client_type client_type;
+	unsigned long bam;
+
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
+		ipa_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm.\n");
+		return -EINVAL;
+	}
+
+	ep = &ipa_ctx->ep[clnt_hdl];
+	client_type = ipa2_get_client_mapping(clnt_hdl);
+	if (!ep->keep_ipa_awake)
+		IPA_ACTIVE_CLIENTS_INC_EP(client_type);
+
+	/* Set Disconnect in Progress flag. */
+	spin_lock(&ipa_ctx->disconnect_lock);
+	ep->disconnect_in_progress = true;
+	spin_unlock(&ipa_ctx->disconnect_lock);
+
+	/* Notify uc to stop monitoring holb on USB BAM Producer pipe. */
+	if (IPA_CLIENT_IS_USB_CONS(ep->client)) {
+		ipa_uc_monitor_holb(ep->client, false);
+		IPADBG("Disabling holb monitor for client: %d\n", ep->client);
+	}
+
+	result = ipa_disable_data_path(clnt_hdl);
+	if (result) {
+		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
+				clnt_hdl);
+		return -EPERM;
+	}
+
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		bam = ep->connect.source;
+	else
+		bam = ep->connect.destination;
+
+	result = sps_pipe_reset(bam, clnt_hdl);
+	if (result) {
+		IPAERR("SPS pipe reset failed.\n");
+		return -EPERM;
+	}
+
+	ep->ep_disabled = true;
+
+	IPA_ACTIVE_CLIENTS_DEC_EP(client_type);
+
+	IPADBG("client (ep: %d) disabled\n", clnt_hdl);
+
+	return 0;
+}
+
 
 /**
  * ipa_sps_connect_safe() - connect endpoint from BAM prespective
