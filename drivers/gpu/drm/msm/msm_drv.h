@@ -118,6 +118,10 @@ enum msm_mdp_conn_property {
 	/* range properties */
 	CONNECTOR_PROP_OUT_FB = CONNECTOR_PROP_BLOBCOUNT,
 	CONNECTOR_PROP_RETIRE_FENCE,
+	CONNECTOR_PROP_DST_X,
+	CONNECTOR_PROP_DST_Y,
+	CONNECTOR_PROP_DST_W,
+	CONNECTOR_PROP_DST_H,
 
 	/* enum/bitmask properties */
 
@@ -467,6 +471,5 @@ static inline int align_pitch(int width, int bpp)
 
 /* for conditionally setting boolean flag(s): */
 #define COND(bool, val) ((bool) ? (val) : 0)
-
 
 #endif /* __MSM_DRV_H__ */

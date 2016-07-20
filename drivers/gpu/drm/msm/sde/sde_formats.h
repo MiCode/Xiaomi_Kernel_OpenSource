@@ -87,4 +87,20 @@ int sde_format_populate_layout(
 		struct drm_framebuffer *fb,
 		struct sde_hw_fmt_layout *fmtl);
 
+/**
+ * sde_format_populate_layout_with_roi - populate the given format layout
+ *                     based on mmu, fb, roi, and format found in the fb
+ * @mmu_id:            mmu id handle
+ * @fb:                framebuffer pointer
+ * @roi:               region of interest (optional)
+ * @fmtl:              format layout structure to populate
+ *
+ * Return: error code on failure, 0 on success
+ */
+int sde_format_populate_layout_with_roi(
+		int mmu_id,
+		struct drm_framebuffer *fb,
+		struct sde_rect *roi,
+		struct sde_hw_fmt_layout *fmtl);
+
 #endif /*_SDE_FORMATS_H */

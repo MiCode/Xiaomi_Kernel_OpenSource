@@ -148,7 +148,10 @@ enum sde_intf_type {
 	INTF_HDMI = 0x3,
 	INTF_LCDC = 0x5,
 	INTF_EDP = 0x9,
-	INTF_TYPE_MAX
+	INTF_TYPE_MAX,
+
+	/* virtual interfaces */
+	INTF_WB = 0x100,
 };
 
 enum sde_intf_mode {

@@ -119,6 +119,34 @@ static int sde_crtc_reserve_hw_resources(struct drm_crtc *crtc,
 		}
 	}
 
+	/*
+	 * Get default LMs if specified in platform config,
+	 * otherwise acquire the free LMs.
+	 */
+	for (i = WB_0; i < WB_MAX; i++) {
+		if (enc_hw_res.wbs[i]) {
+			struct sde_crtc_mixer *mixer =
+				&sde_crtc->mixer[sde_crtc->num_mixers];
+			plat_hw_res_map = sde_rm_get_res_map(sde_kms,
+					SDE_NONE, i);
+
+			lm_idx = plat_hw_res_map->lm;
+			if (!lm_idx && unused_lm_count)
+				lm_idx = unused_lm_id[--unused_lm_count];
+
+			DBG("Acquiring LM %d", lm_idx);
+			mixer->hw_lm = sde_rm_acquire_mixer(sde_kms, lm_idx);
+			if (IS_ERR_OR_NULL(mixer->hw_lm)) {
+				DRM_ERROR("Invalid mixer\n");
+				return -EACCES;
+			}
+			/* interface info */
+			mixer->wb_idx = i;
+			mixer->mode = enc_hw_res.wbs[i];
+			sde_crtc->num_mixers++;
+		}
+	}
+
 	DBG("control paths %d, num_mixers %d, lm[0] %d, ctl[0] %d ",
 			sde_crtc->num_ctls, sde_crtc->num_mixers,
 			sde_crtc->mixer[0].hw_lm->idx,
@@ -412,8 +440,23 @@ static u32 _sde_crtc_update_ctl_flush_mask(struct drm_crtc *crtc)
 	for (i = 0; i < sde_crtc->num_ctls; i++) {
 		mixer = &sde_crtc->mixer[i];
 		ctl = mixer->hw_ctl;
-		ctl->ops.get_bitmask_intf(ctl, &mixer->flush_mask,
-				mixer->intf_idx);
+
+		switch (mixer->mode) {
+		case INTF_MODE_CMD:
+		case INTF_MODE_VIDEO:
+			ctl->ops.get_bitmask_intf(ctl, &mixer->flush_mask,
+					mixer->intf_idx);
+			break;
+		case INTF_MODE_WB_LINE:
+			ctl->ops.get_bitmask_wb(ctl, &mixer->flush_mask,
+					mixer->wb_idx);
+			break;
+		default:
+			DBG("Invalid ctl %d interface mode %d", ctl->idx,
+					mixer->mode);
+			return -EINVAL;
+		}
+
 		ctl->ops.update_pending_flush(ctl, mixer->flush_mask);
 		DBG("added CTL_ID %d mask 0x%x to pending flush", ctl->idx,
 						mixer->flush_mask);
@@ -1115,10 +1158,11 @@ static int _sde_debugfs_mixer_read(struct seq_file *s, void *data)
 		} else if (!m->hw_ctl) {
 			seq_printf(s, "Mixer[%d] has no CTL\n", i);
 		} else {
-			seq_printf(s, "LM_%d/CTL_%d -> INTF_%d\n",
+			seq_printf(s, "LM_%d/CTL_%d -> INTF_%d, WB_%d\n",
 					m->hw_lm->idx - LM_0,
 					m->hw_ctl->idx - CTL_0,
-					m->intf_idx - INTF_0);
+					m->intf_idx - INTF_0,
+					m->wb_idx - WB_0);
 		}
 	}
 	seq_printf(s, "Border: %d\n", sde_crtc->stage_cfg.border_enable);
