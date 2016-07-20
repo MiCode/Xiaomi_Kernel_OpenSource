@@ -29,9 +29,6 @@
 #include <linux/of_gpio.h>
 #include <linux/bitops.h>
 #include <linux/qpnp/qpnp-adc.h>
-#ifdef CONFIG_STATE_HELPER
-#include <linux/state_helper.h>
-#endif
 
 #define _SMB1360_MASK(BITS, POS) \
 	((unsigned char)(((1 << (BITS)) - 1) << (POS)))
@@ -1540,9 +1537,6 @@ static int smb1360_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = smb1360_get_prop_batt_capacity(chip);
-        #ifdef CONFIG_STATE_HELPER
-		batt_level_notify(val->intval);
-        #endif
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = smb1360_get_prop_chg_full_design(chip);
