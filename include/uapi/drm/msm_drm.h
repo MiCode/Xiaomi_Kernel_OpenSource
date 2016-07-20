@@ -19,6 +19,8 @@
 #define __MSM_DRM_H__
 
 #include "drm.h"
+#include <stddef.h>
+#include "sde_drm.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -253,6 +255,7 @@ struct drm_msm_gem_madvise {
 #define DRM_MSM_GEM_SUBMIT             0x06
 #define DRM_MSM_WAIT_FENCE             0x07
 #define DRM_MSM_GEM_MADVISE            0x08
+#define DRM_SDE_WB_CONFIG              0x08
 #define DRM_MSM_NUM_IOCTLS             0x09
 
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
@@ -263,6 +266,8 @@ struct drm_msm_gem_madvise {
 #define DRM_IOCTL_MSM_GEM_SUBMIT       DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_SUBMIT, struct drm_msm_gem_submit)
 #define DRM_IOCTL_MSM_WAIT_FENCE       DRM_IOW (DRM_COMMAND_BASE + DRM_MSM_WAIT_FENCE, struct drm_msm_wait_fence)
 #define DRM_IOCTL_MSM_GEM_MADVISE      DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_MADVISE, struct drm_msm_gem_madvise)
+#define DRM_IOCTL_SDE_WB_CONFIG \
+	DRM_IOW((DRM_COMMAND_BASE + DRM_SDE_WB_CONFIG), struct sde_drm_wb_cfg)
 
 #if defined(__cplusplus)
 }

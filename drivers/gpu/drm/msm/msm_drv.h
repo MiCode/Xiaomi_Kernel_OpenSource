@@ -116,6 +116,10 @@ enum msm_mdp_conn_property {
 	/* range properties */
 	CONNECTOR_PROP_OUT_FB = CONNECTOR_PROP_BLOBCOUNT,
 	CONNECTOR_PROP_RETIRE_FENCE,
+	CONNECTOR_PROP_DST_X,
+	CONNECTOR_PROP_DST_Y,
+	CONNECTOR_PROP_DST_W,
+	CONNECTOR_PROP_DST_H,
 
 	/* enum/bitmask properties */
 
