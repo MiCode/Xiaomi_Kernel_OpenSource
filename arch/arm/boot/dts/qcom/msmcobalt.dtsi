@@ -1124,16 +1124,6 @@
 			"smem_targ_info_reg";
 		qcom,mpu-enabled;
 
-		qcom,smd-modem {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <0>;
-			qcom,smd-irq-offset = <0x0>;
-			qcom,smd-irq-bitmask = <0x1000>;
-			interrupts = <0 449 1>;
-			label = "modem";
-			qcom,not-loadable;
-		};
-
 		qcom,smd-adsp {
 			compatible = "qcom,smd";
 			qcom,smd-edge = <1>;
