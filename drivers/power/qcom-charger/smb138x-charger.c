@@ -423,7 +423,7 @@ static int smb138x_parallel_prop_is_writeable(struct power_supply *psy,
 
 static const struct power_supply_desc parallel_psy_desc = {
 	.name			= "parallel",
-	.type			= POWER_SUPPLY_TYPE_BATTERY,
+	.type			= POWER_SUPPLY_TYPE_USB_PARALLEL,
 	.properties		= smb138x_parallel_props,
 	.num_properties		= ARRAY_SIZE(smb138x_parallel_props),
 	.get_property		= smb138x_parallel_get_prop,
