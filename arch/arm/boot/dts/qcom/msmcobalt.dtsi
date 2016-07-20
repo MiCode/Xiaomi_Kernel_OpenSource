@@ -1124,15 +1124,6 @@
 			"smem_targ_info_reg";
 		qcom,mpu-enabled;
 
-		qcom,smd-adsp {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <1>;
-			qcom,smd-irq-offset = <0x0>;
-			qcom,smd-irq-bitmask = <0x100>;
-			interrupts = <0 156 1>;
-			label = "adsp";
-		};
-
 		qcom,smd-dsps {
 			compatible = "qcom,smd";
 			qcom,smd-edge = <3>;
