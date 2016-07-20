@@ -85,10 +85,36 @@ unlock:
 static void smblib_fcc_split_ua(struct smb_charger *chg, int total_fcc,
 			int *master_ua, int *slave_ua)
 {
+	int rc, cc_reduction_ua = 0;
 	int master_percent = min(max(*chg->pl.master_percent, 0), 100);
+	union power_supply_propval pval = {0, };
 
+	/*
+	 * if master_percent is 0, s/w will configure master's fcc to zero and
+	 * slave's fcc to the max. However since master's fcc is zero it
+	 * disables its own charging and as a result the slave's charging is
+	 * disabled via the fault line.
+	 */
+
+	rc = smblib_get_prop_batt_health(chg, &pval);
+	if (rc == 0) {
+		if (pval.intval == POWER_SUPPLY_HEALTH_WARM
+			|| pval.intval == POWER_SUPPLY_HEALTH_COOL) {
+			rc = smblib_get_charge_param(chg,
+					&chg->param.jeita_cc_comp,
+					&cc_reduction_ua);
+			if (rc < 0) {
+				dev_err(chg->dev, "Could not get jeita comp, rc=%d\n",
+					rc);
+				cc_reduction_ua = 0;
+			}
+		}
+	}
+
+	total_fcc = max(0, total_fcc - cc_reduction_ua);
 	*master_ua = (total_fcc * master_percent) / 100;
 	*slave_ua = (total_fcc - *master_ua) * chg->pl.taper_percent / 100;
+	*master_ua += cc_reduction_ua;
 }
 
 /********************
@@ -1250,6 +1276,16 @@ irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 	if (pval.intval == POWER_SUPPLY_STATUS_FULL)
 		vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
 
+	return IRQ_HANDLED;
+}
+
+irqreturn_t smblib_handle_batt_temp_changed(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	rerun_election(chg->fcc_votable);
+	power_supply_changed(chg->batt_psy);
 	return IRQ_HANDLED;
 }
 
