@@ -325,8 +325,10 @@ static int nqx_ese_pwr(struct nqx_dev *nqx_dev, unsigned long int arg)
 	} else if (arg == 3) {
 		if (!nqx_dev->nfc_ven_enabled)
 			r = 0;
-		else
-			r = gpio_get_value(nqx_dev->ese_gpio);
+		else {
+			if (gpio_is_valid(nqx_dev->ese_gpio))
+				r = gpio_get_value(nqx_dev->ese_gpio);
+		}
 	}
 	return r;
 }
@@ -375,11 +377,14 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			__func__, nqx_dev);
 		if (gpio_is_valid(nqx_dev->firm_gpio))
 			gpio_set_value(nqx_dev->firm_gpio, 0);
-		if (!gpio_get_value(nqx_dev->ese_gpio)) {
-			dev_dbg(&nqx_dev->client->dev, "disabling en_gpio\n");
-			gpio_set_value(nqx_dev->en_gpio, 0);
-		} else {
-			dev_dbg(&nqx_dev->client->dev, "keeping en_gpio high\n");
+
+		if (gpio_is_valid(nqx_dev->ese_gpio)) {
+			if (!gpio_get_value(nqx_dev->ese_gpio)) {
+				dev_dbg(&nqx_dev->client->dev, "disabling en_gpio\n");
+				gpio_set_value(nqx_dev->en_gpio, 0);
+			} else {
+				dev_dbg(&nqx_dev->client->dev, "keeping en_gpio high\n");
+			}
 		}
 		r = nqx_clock_deselect(nqx_dev);
 		if (r < 0)
@@ -405,9 +410,11 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		 * We are switching to Dowload Mode, toggle the enable pin
 		 * in order to set the NFCC in the new mode
 		 */
-		if (gpio_get_value(nqx_dev->ese_gpio)) {
-			dev_err(&nqx_dev->client->dev, "FW download forbidden while ese is on\n");
-			return -EBUSY; /* Device or resource busy */
+		if (gpio_is_valid(nqx_dev->ese_gpio)) {
+			if (gpio_get_value(nqx_dev->ese_gpio)) {
+				dev_err(&nqx_dev->client->dev, "FW download forbidden while ese is on\n");
+				return -EBUSY; /* Device or resource busy */
+			}
 		}
 		gpio_set_value(nqx_dev->en_gpio, 1);
 		msleep(20);
@@ -828,6 +835,7 @@ static int nqx_probe(struct i2c_client *client,
 	nqx_dev->en_gpio = platform_data->en_gpio;
 	nqx_dev->irq_gpio = platform_data->irq_gpio;
 	nqx_dev->firm_gpio  = platform_data->firm_gpio;
+	nqx_dev->ese_gpio = platform_data->ese_gpio;
 	nqx_dev->clkreq_gpio = platform_data->clkreq_gpio;
 	nqx_dev->pdata = platform_data;
 
