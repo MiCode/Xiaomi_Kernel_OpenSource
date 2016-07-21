@@ -4935,9 +4935,12 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 	if ((inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_CLOSE_DONE) ||
 			inst->state == MSM_VIDC_CORE_INVALID) {
-		if (msm_comm_session_abort(inst)) {
+		rc = msm_comm_session_abort(inst);
+		if (rc == -EBUSY) {
 			msm_comm_generate_sys_error(inst);
 			return 0;
+		} else if (rc) {
+			return rc;
 		}
 		change_inst_state(inst, MSM_VIDC_CLOSE_DONE);
 		msm_comm_generate_session_error(inst);
