@@ -123,6 +123,23 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 	struct dsi_panel_reset_config *r_config = &panel->reset_config;
 	int i;
 
+	if (gpio_is_valid(panel->reset_config.disp_en_gpio)) {
+		rc = gpio_direction_output(panel->bl_config.en_gpio, 1);
+		if (rc) {
+			pr_err("unable to set dir for disp gpio rc=%d\n", rc);
+			goto exit;
+		}
+	}
+
+	if (r_config->count) {
+		rc = gpio_direction_output(r_config->reset_gpio,
+			r_config->sequence[0].level);
+		if (rc) {
+			pr_err("unable to set dir for rst gpio rc=%d\n", rc);
+			goto exit;
+		}
+	}
+
 	for (i = 0; i < r_config->count; i++) {
 		gpio_set_value(r_config->reset_gpio,
 			       r_config->sequence[i].level);
@@ -133,6 +150,12 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 				     r_config->sequence[i].sleep_ms * 1000);
 	}
 
+	if (gpio_is_valid(panel->bl_config.en_gpio)) {
+		rc = gpio_direction_output(panel->bl_config.en_gpio, 1);
+		if (rc)
+			pr_err("unable to set dir for bklt gpio rc=%d\n", rc);
+	}
+exit:
 	return rc;
 }
 
@@ -170,12 +193,6 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		pr_err("[%s] failed to set pinctrl, rc=%d\n", panel->name, rc);
 		goto error_disable_vregs;
 	}
-
-	if (gpio_is_valid(panel->bl_config.en_gpio))
-		gpio_set_value(panel->bl_config.en_gpio, 1);
-
-	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
-		gpio_set_value(panel->reset_config.disp_en_gpio, 1);
 
 	rc = dsi_panel_reset(panel);
 	if (rc) {
