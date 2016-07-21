@@ -1921,6 +1921,7 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 			.get_pingpong_status = msm_vfe44_get_pingpong_status,
 			.update_cgc_override =
 				msm_vfe44_stats_update_cgc_override,
+			.enable_stats_wm = NULL,
 		},
 		.platform_ops = {
 			.get_platform_data = msm_vfe47_get_platform_data,

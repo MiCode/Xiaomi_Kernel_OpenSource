@@ -282,6 +282,8 @@ struct msm_vfe_stats_ops {
 
 	void (*update_cgc_override)(struct vfe_device *vfe_dev,
 		uint32_t stats_mask, uint8_t enable);
+	void (*enable_stats_wm)(struct vfe_device *vfe_dev,
+		uint32_t stats_mask, uint8_t enable);
 };
 
 enum msm_isp_hw_client {
@@ -515,6 +517,7 @@ struct msm_vfe_axi_shared_data {
 struct msm_vfe_stats_hardware_info {
 	uint32_t stats_capability_mask;
 	uint8_t *stats_ping_pong_offset;
+	uint8_t *stats_wm_index;
 	uint8_t num_stats_type;
 	uint8_t num_stats_comp_mask;
 };

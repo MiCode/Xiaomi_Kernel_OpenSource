@@ -46,20 +46,9 @@
 #define VFE47_PING_PONG_BASE(wm, ping_pong) \
 	(VFE47_WM_BASE(wm) + 0x4 * (1 + (((~ping_pong) & 0x1) * 2)))
 #define SHIFT_BF_SCALE_BIT 1
-#define VFE47_NUM_STATS_COMP 2
 
 #define VFE47_BUS_RD_CGC_OVERRIDE_BIT 16
 
-/*composite mask order*/
-#define STATS_COMP_IDX_HDR_BE    0
-#define STATS_COMP_IDX_BG        1
-#define STATS_COMP_IDX_BF        2
-#define STATS_COMP_IDX_HDR_BHIST 3
-#define STATS_COMP_IDX_RS        4
-#define STATS_COMP_IDX_CS        5
-#define STATS_COMP_IDX_IHIST     6
-#define STATS_COMP_IDX_BHIST     7
-#define STATS_COMP_IDX_AEC_BG    8
 #define VFE47_VBIF_CLK_OFFSET    0x4
 
 static uint32_t stats_base_addr[] = {
@@ -97,7 +86,6 @@ static uint8_t stats_irq_map_comp_mask[] = {
 	23, /* BHIST (SKIN_BHIST) */
 	15, /* AEC_BG */
 };
-#define VFE47_NUM_STATS_TYPE 9
 #define VFE47_STATS_BASE(idx) (stats_base_addr[idx])
 #define VFE47_STATS_PING_PONG_BASE(idx, ping_pong) \
 	(VFE47_STATS_BASE(idx) + 0x4 * \
@@ -713,6 +701,7 @@ long msm_vfe47_reset_hardware(struct vfe_device *vfe_dev,
 	uint32_t first_start, uint32_t blocking_call)
 {
 	long rc = 0;
+	uint32_t reset;
 
 	init_completion(&vfe_dev->reset_complete);
 
@@ -720,9 +709,17 @@ long msm_vfe47_reset_hardware(struct vfe_device *vfe_dev,
 		vfe_dev->reset_pending = 1;
 
 	if (first_start) {
-		msm_camera_io_w_mb(0x3FF, vfe_dev->vfe_base + 0x18);
+		if (msm_vfe_is_vfe48(vfe_dev))
+			reset = 0x3F7;
+		else
+			reset = 0x3FF;
+		msm_camera_io_w_mb(reset, vfe_dev->vfe_base + 0x18);
 	} else {
-		msm_camera_io_w_mb(0x3EF, vfe_dev->vfe_base + 0x18);
+		if (msm_vfe_is_vfe48(vfe_dev))
+			reset = 0x3E7;
+		else
+			reset = 0x3EF;
+		msm_camera_io_w_mb(reset, vfe_dev->vfe_base + 0x18);
 		msm_camera_io_w(0x7FFFFFFF, vfe_dev->vfe_base + 0x64);
 		msm_camera_io_w(0xFFFFFEFF, vfe_dev->vfe_base + 0x68);
 		msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x58);
@@ -2187,16 +2184,10 @@ void msm_vfe47_stats_enable_module(struct vfe_device *vfe_dev,
 		module_cfg &= ~module_cfg_mask;
 
 	msm_camera_io_w(module_cfg, vfe_dev->vfe_base + 0x44);
-
-/* need to move to userspace
-	uint32_t stats_cfg;
-	stats_cfg = msm_camera_io_r(vfe_dev->vfe_base + 0x9B8);
-	if (enable)
-		stats_cfg |= stats_cfg_mask;
-	else
-		stats_cfg &= ~stats_cfg_mask;
-	msm_camera_io_w(stats_cfg, vfe_dev->vfe_base + 0x9B8);
-*/
+	/* enable wm if needed */
+	if (vfe_dev->hw_info->vfe_ops.stats_ops.enable_stats_wm)
+		vfe_dev->hw_info->vfe_ops.stats_ops.enable_stats_wm(vfe_dev,
+						stats_mask, enable);
 }
 
 void msm_vfe47_stats_update_ping_pong_addr(
@@ -2707,6 +2698,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.get_pingpong_status = msm_vfe47_get_pingpong_status,
 			.update_cgc_override =
 				msm_vfe47_stats_update_cgc_override,
+			.enable_stats_wm = NULL,
 		},
 		.platform_ops = {
 			.get_platform_data = msm_vfe47_get_platform_data,

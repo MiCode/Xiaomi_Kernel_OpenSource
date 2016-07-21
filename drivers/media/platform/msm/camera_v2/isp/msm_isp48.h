@@ -22,4 +22,14 @@ enum msm_vfe_clk_rates {
 	MSM_VFE_MAX_CLK_RATES = 3,
 };
 
+#define MSM_VFE48_HW_VERSION 0x8
+#define MSM_VFE48_HW_VERSION_SHIFT 28
+#define MSM_VFE48_HW_VERSION_MASK 0xF
+
+static inline int msm_vfe_is_vfe48(struct vfe_device *vfe_dev)
+{
+	return (((vfe_dev->vfe_hw_version >> MSM_VFE48_HW_VERSION_SHIFT) &
+		MSM_VFE48_HW_VERSION_MASK) == MSM_VFE48_HW_VERSION);
+}
+
 #endif /* __MSM_ISP48_H__ */
