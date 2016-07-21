@@ -27,6 +27,8 @@
 static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 				struct dsi_display_mode *dsi_mode)
 {
+	memset(dsi_mode, 0, sizeof(*dsi_mode));
+
 	dsi_mode->timing.h_active = drm_mode->hdisplay;
 	dsi_mode->timing.h_back_porch = drm_mode->htotal - drm_mode->hsync_end;
 	dsi_mode->timing.h_sync_width = drm_mode->htotal -
@@ -59,6 +61,8 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 				struct drm_display_mode *drm_mode)
 {
+	memset(drm_mode, 0, sizeof(*drm_mode));
+
 	drm_mode->hdisplay = dsi_mode->timing.h_active;
 	drm_mode->hsync_start = drm_mode->hdisplay +
 				dsi_mode->timing.h_front_porch;
