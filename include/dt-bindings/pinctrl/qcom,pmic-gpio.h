@@ -93,15 +93,24 @@
 #define PM8994_GPIO_S4			2
 #define PM8994_GPIO_L12			3
 
+/* ATEST MUX selection for analog-pass-through mode */
+#define PMIC_GPIO_AOUT_ATEST1		0
+#define PMIC_GPIO_AOUT_ATEST2		1
+#define PMIC_GPIO_AOUT_ATEST3		2
+#define PMIC_GPIO_AOUT_ATEST4		3
+
 /* To be used with "function" */
 #define PMIC_GPIO_FUNC_NORMAL		"normal"
 #define PMIC_GPIO_FUNC_PAIRED		"paired"
 #define PMIC_GPIO_FUNC_FUNC1		"func1"
 #define PMIC_GPIO_FUNC_FUNC2		"func2"
+#define PMIC_GPIO_FUNC_FUNC3		"func3"
+#define PMIC_GPIO_FUNC_FUNC4		"func4"
 #define PMIC_GPIO_FUNC_DTEST1		"dtest1"
 #define PMIC_GPIO_FUNC_DTEST2		"dtest2"
 #define PMIC_GPIO_FUNC_DTEST3		"dtest3"
 #define PMIC_GPIO_FUNC_DTEST4		"dtest4"
+#define PMIC_GPIO_FUNC_ANALOG		"analog"
 
 #define PM8038_GPIO1_2_LPG_DRV		PMIC_GPIO_FUNC_FUNC1
 #define PM8038_GPIO3_5V_BOOST_EN	PMIC_GPIO_FUNC_FUNC1
