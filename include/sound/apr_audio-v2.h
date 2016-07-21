@@ -9067,6 +9067,7 @@ struct asm_aptx_dec_fmt_blk_v2 {
 #define LSM_PARAM_ID_SWMAD_MODEL			(0x00012C19)
 #define LSM_PARAM_ID_SWMAD_ENABLE			(0x00012C1A)
 #define LSM_PARAM_ID_POLLING_ENABLE			(0x00012C1B)
+#define LSM_PARAM_ID_MEDIA_FMT				(0x00012C1E)
 #define LSM_PARAM_ID_FWK_MODE_CONFIG			(0x00012C27)
 
 /* HW MAD specific */
