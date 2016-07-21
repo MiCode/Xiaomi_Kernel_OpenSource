@@ -139,14 +139,16 @@
 					0x9f 0x1c
 					0x00 0x18>;
 		phy_type = "utmi";
+		USB3_GDSC-supply = <&gdsc_usb30>;
 
 		clocks = <&clock_gcc clk_ln_bb_clk>,
 			 <&clock_gcc clk_gcc_qusb_ref_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
-			 <&clock_gcc clk_gcc_qusb2a_phy_reset>;
+			 <&clock_gcc clk_gcc_qusb2a_phy_reset>,
+			 <&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>;
 
 		clock-names = "ref_clk_src", "ref_clk", "cfg_ahb_clk",
-			"phy_reset";
+			"phy_reset", "iface_clk";
 	};
 
 	ssphy: ssphy@78000 {
