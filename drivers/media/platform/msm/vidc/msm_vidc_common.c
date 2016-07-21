@@ -1209,7 +1209,8 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 			"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to bit-depth change\n");
 	}
 
-	if (inst->pic_struct != event_notify->pic_struct) {
+	if (inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_NV12 &&
+		inst->pic_struct != event_notify->pic_struct) {
 		inst->pic_struct = event_notify->pic_struct;
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 		ptr[2] |= V4L2_EVENT_PICSTRUCT_FLAG;
