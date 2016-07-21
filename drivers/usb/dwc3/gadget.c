@@ -666,7 +666,7 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 	 * with HWO bit set from previous composition when update transfer cmd
 	 * is issued.
 	 */
-	if (dep->number > 1) {
+	if (dep->number > 1 && dep->trb_pool) {
 		memset(&dep->trb_pool[0], 0,
 			sizeof(struct dwc3_trb) * dep->num_trbs);
 		dbg_event(dep->number, "Clr_TRB", 0);
