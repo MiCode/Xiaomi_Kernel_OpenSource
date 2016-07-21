@@ -308,11 +308,17 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_GPMU_VERSION		0x16
 #define KGSL_PROP_HIGHEST_BANK_BIT	0x17
 #define KGSL_PROP_DEVICE_BITNESS	0x18
+#define KGSL_PROP_DEVICE_QDSS_STM	0x19
 
 struct kgsl_shadowprop {
 	unsigned long gpuaddr;
 	size_t size;
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
+};
+
+struct kgsl_qdss_stm_prop {
+	uint64_t gpuaddr;
+	uint64_t size;
 };
 
 struct kgsl_version {
