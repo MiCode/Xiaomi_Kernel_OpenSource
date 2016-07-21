@@ -43,11 +43,6 @@ struct mem_prot_info {
 	u64 size;
 };
 
-struct info_list {
-	struct mem_prot_info *list_head;
-	u64 list_size;
-};
-
 #define MEM_PROT_ASSIGN_ID		0x16
 #define MEM_PROTECT_LOCK_ID2		0x0A
 #define MEM_PROTECT_LOCK_ID2_FLAT	0x11
@@ -61,14 +56,8 @@ struct dest_vm_and_perm_info {
 	u32 ctx_size;
 };
 
-struct dest_info_list {
-	struct dest_vm_and_perm_info *dest_info;
-	u64 list_size;
-};
-
 static void *qcom_secure_mem;
 #define QCOM_SECURE_MEM_SIZE (512*1024)
-#define PADDING 32
 
 static int secure_buffer_change_chunk(u32 chunks,
 				u32 nchunks,
@@ -200,14 +189,22 @@ int msm_unsecure_table(struct sg_table *table)
 
 }
 
-static void populate_dest_info(int *dest_vmids, int nelements,
-			int *dest_perms, struct dest_info_list **list,
-			void *current_qcom_secure_mem)
+static struct dest_vm_and_perm_info *
+populate_dest_info(int *dest_vmids, int nelements, int *dest_perms,
+		   size_t *size_in_bytes)
 {
 	struct dest_vm_and_perm_info *dest_info;
 	int i;
+	size_t size;
 
-	dest_info = (struct dest_vm_and_perm_info *)current_qcom_secure_mem;
+	/* Ensure allocated size is less than PAGE_ALLOC_COSTLY_ORDER */
+	size = nelements * sizeof(*dest_info);
+	if (size > PAGE_SIZE)
+		return NULL;
+
+	dest_info = kzalloc(size, GFP_KERNEL);
+	if (!dest_info)
+		return NULL;
 
 	for (i = 0; i < nelements; i++) {
 		dest_info[i].vm = dest_vmids[i];
@@ -216,30 +213,43 @@ static void populate_dest_info(int *dest_vmids, int nelements,
 		dest_info[i].ctx_size = 0;
 	}
 
-	*list = (struct dest_info_list *)&dest_info[i];
-
-	(*list)->dest_info = dest_info;
-	(*list)->list_size = nelements * sizeof(struct dest_vm_and_perm_info);
+	*size_in_bytes = size;
+	return dest_info;
 }
 
-static void get_info_list_from_table(struct sg_table *table,
-					struct info_list **list)
+/* Must hold secure_buffer_mutex while allocated buffer is in use */
+static struct mem_prot_info *get_info_list_from_table(struct sg_table *table,
+						      size_t *size_in_bytes)
 {
 	int i;
 	struct scatterlist *sg;
 	struct mem_prot_info *info;
+	size_t size;
 
-	info = (struct mem_prot_info *)qcom_secure_mem;
+	size = table->nents * sizeof(*info);
+
+	if (size >= QCOM_SECURE_MEM_SIZE) {
+		pr_err("%s: Not enough memory allocated. Required size %zd\n",
+				__func__, size);
+		return NULL;
+	}
+
+	if (!qcom_secure_mem) {
+		pr_err("%s is not functional as qcom_secure_mem is not allocated.\n",
+				__func__);
+		return NULL;
+	}
+
+	/* "Allocate" it */
+	info = qcom_secure_mem;
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		info[i].addr = page_to_phys(sg_page(sg));
 		info[i].size = sg->length;
 	}
 
-	*list = (struct info_list *)&(info[i]);
-
-	(*list)->list_head = info;
-	(*list)->list_size = table->nents * sizeof(struct mem_prot_info);
+	*size_in_bytes = size;
+	return info;
 }
 
 int hyp_assign_table(struct sg_table *table,
@@ -248,66 +258,58 @@ int hyp_assign_table(struct sg_table *table,
 			int dest_nelems)
 {
 	int ret;
-	struct info_list *info_list = NULL;
-	struct dest_info_list *dest_info_list = NULL;
 	struct scm_desc desc = {0};
 	u32 *source_vm_copy;
-	void *current_qcom_secure_mem;
-
-	size_t reqd_size = dest_nelems * sizeof(struct dest_vm_and_perm_info) +
-			table->nents * sizeof(struct mem_prot_info) +
-			sizeof(dest_info_list) + sizeof(info_list) + PADDING;
-
-	if (!qcom_secure_mem) {
-		pr_err("%s is not functional as qcom_secure_mem is not allocated.\n",
-				__func__);
-		return -ENOMEM;
-	}
-
-	if (QCOM_SECURE_MEM_SIZE < reqd_size) {
-		pr_err("%s: Not enough memory allocated. Required size %zd\n",
-				__func__, reqd_size);
-		return -EINVAL;
-	}
+	size_t source_vm_copy_size;
+	struct dest_vm_and_perm_info *dest_vm_copy;
+	size_t dest_vm_copy_size;
+	struct mem_prot_info *sg_table_copy;
+	size_t sg_table_copy_size;
 
 	/*
 	 * We can only pass cache-aligned sizes to hypervisor, so we need
 	 * to kmalloc and memcpy the source_vm_list here.
 	 */
-	source_vm_copy = kmalloc_array(
-		source_nelems, sizeof(*source_vm_copy), GFP_KERNEL);
-	if (!source_vm_copy) {
+	source_vm_copy_size = sizeof(*source_vm_copy) * source_nelems;
+	source_vm_copy = kzalloc(source_vm_copy_size, GFP_KERNEL);
+	if (!source_vm_copy)
 		return -ENOMEM;
-	}
 
-	memcpy(source_vm_copy, source_vm_list,
-	       sizeof(*source_vm_list) * source_nelems);
+	memcpy(source_vm_copy, source_vm_list, source_vm_copy_size);
+
+
+	dest_vm_copy = populate_dest_info(dest_vmids, dest_nelems, dest_perms,
+					  &dest_vm_copy_size);
+	if (!dest_vm_copy) {
+		ret = -ENOMEM;
+		goto out_free;
+	}
 
 	mutex_lock(&secure_buffer_mutex);
 
-	get_info_list_from_table(table, &info_list);
+	sg_table_copy = get_info_list_from_table(table, &sg_table_copy_size);
+	if (!sg_table_copy) {
+		ret = -ENOMEM;
+		goto out_unlock;
+	}
 
-	current_qcom_secure_mem = &(info_list[1]);
-	populate_dest_info(dest_vmids, dest_nelems, dest_perms,
-				&dest_info_list, current_qcom_secure_mem);
-
-	desc.args[0] = virt_to_phys(info_list->list_head);
-	desc.args[1] = info_list->list_size;
+	desc.args[0] = virt_to_phys(sg_table_copy);
+	desc.args[1] = sg_table_copy_size;
 	desc.args[2] = virt_to_phys(source_vm_copy);
-	desc.args[3] = sizeof(*source_vm_copy) * source_nelems;
-	desc.args[4] = virt_to_phys(dest_info_list->dest_info);
-	desc.args[5] = dest_info_list->list_size;
+	desc.args[3] = source_vm_copy_size;
+	desc.args[4] = virt_to_phys(dest_vm_copy);
+	desc.args[5] = dest_vm_copy_size;
 	desc.args[6] = 0;
 
 	desc.arginfo = SCM_ARGS(7, SCM_RO, SCM_VAL, SCM_RO, SCM_VAL, SCM_RO,
 				SCM_VAL, SCM_VAL);
 
-	dmac_flush_range(source_vm_copy, source_vm_copy + source_nelems);
-	dmac_flush_range(info_list->list_head, info_list->list_head +
-		(info_list->list_size / sizeof(*info_list->list_head)));
-	dmac_flush_range(dest_info_list->dest_info, dest_info_list->dest_info +
-		(dest_info_list->list_size /
-				sizeof(*dest_info_list->dest_info)));
+	dmac_flush_range(source_vm_copy,
+			 (void *)source_vm_copy + source_vm_copy_size);
+	dmac_flush_range(sg_table_copy,
+			 (void *)sg_table_copy + sg_table_copy_size);
+	dmac_flush_range(dest_vm_copy,
+			 (void *)dest_vm_copy + dest_vm_copy_size);
 
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 			MEM_PROT_ASSIGN_ID), &desc);
@@ -315,7 +317,10 @@ int hyp_assign_table(struct sg_table *table,
 		pr_info("%s: Failed to assign memory protection, ret = %d\n",
 			__func__, ret);
 
+out_unlock:
 	mutex_unlock(&secure_buffer_mutex);
+	kfree(dest_vm_copy);
+out_free:
 	kfree(source_vm_copy);
 	return ret;
 }
