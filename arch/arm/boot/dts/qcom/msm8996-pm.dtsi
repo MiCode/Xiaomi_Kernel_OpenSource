@@ -407,6 +407,7 @@
 			<0xff 330>, /* camss_irq4 */
 			<0xff 331>, /* camss_irq5 */
 			<0xff 332>, /* sps */
+			<0xff 341>, /* camss_irq6 */
 			<0xff 346>, /* camss_irq8 */
 			<0xff 347>, /* camss_irq9 */
 			<0xff 352>, /* mdss_mmu_cirpt[0] */
