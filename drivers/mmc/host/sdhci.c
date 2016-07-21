@@ -2371,9 +2371,10 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	switch (host->timing) {
 	/* HS400 tuning is done in HS200 mode */
 	case MMC_TIMING_MMC_HS400:
-		err = -EINVAL;
-		goto out_unlock;
-
+		if (!(mmc->caps2 & MMC_CAP2_HS400_POST_TUNING)) {
+			err = -EINVAL;
+			goto out_unlock;
+		}
 	case MMC_TIMING_MMC_HS200:
 		/*
 		 * Periodic re-tuning for HS400 is not expected to be needed, so
