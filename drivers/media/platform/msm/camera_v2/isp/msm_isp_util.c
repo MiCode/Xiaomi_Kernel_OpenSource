@@ -969,7 +969,8 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 	case VFE_READ_DMI_16BIT:
 	case VFE_READ_DMI_32BIT:
 	case VFE_READ_DMI_64BIT: {
-		if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_64BIT) {
+		if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_64BIT ||
+			reg_cfg_cmd->cmd_type == VFE_READ_DMI_64BIT) {
 			if ((reg_cfg_cmd->u.dmi_info.hi_tbl_offset <=
 				reg_cfg_cmd->u.dmi_info.lo_tbl_offset) ||
 				(reg_cfg_cmd->u.dmi_info.hi_tbl_offset -
