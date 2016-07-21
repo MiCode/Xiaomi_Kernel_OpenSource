@@ -2046,13 +2046,13 @@ static void cpuset_bind(struct cgroup_subsys_state *root_css)
 	mutex_unlock(&cpuset_mutex);
 }
 
-static int cpuset_allow_attach(struct cgroup_taskset *tset)
+static int cpuset_allow_attach(struct cgroup_subsys_state *css,
+			       struct cgroup_taskset *tset)
 {
 	const struct cred *cred = current_cred(), *tcred;
 	struct task_struct *task;
-	struct cgroup_subsys_state *css;
 
-	cgroup_taskset_for_each(task, css, tset) {
+	cgroup_taskset_for_each(task, tset) {
 		tcred = __task_cred(task);
 
 		if ((current != task) && !capable(CAP_SYS_ADMIN) &&
