@@ -23,6 +23,8 @@
 
 #define ADM_LSM_PORT_ID 0xADCB
 
+#define LSM_MAX_NUM_CHANNELS 8
+
 typedef void (*lsm_app_cb)(uint32_t opcode, uint32_t token,
 		       uint32_t *payload, void *priv);
 
@@ -51,11 +53,12 @@ struct lsm_lab_buffer {
 	uint32_t mem_map_handle;
 };
 
-struct lsm_lab_hw_params {
+struct lsm_hw_params {
 	u16 sample_rate;
 	u16 sample_size;
 	u32 buf_sz;
 	u32 period_count;
+	u16 num_chs;
 };
 
 struct lsm_client {
@@ -81,7 +84,7 @@ struct lsm_client {
 	bool		lab_enable;
 	bool		lab_started;
 	struct lsm_lab_buffer *lab_buffer;
-	struct lsm_lab_hw_params hw_params;
+	struct lsm_hw_params hw_params;
 	bool		use_topology;
 	int		session_state;
 	bool		poll_enable;
@@ -151,6 +154,15 @@ struct lsm_param_fwk_mode_cfg {
 	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
 	uint32_t	mode;
+} __packed;
+
+struct lsm_param_media_fmt {
+	struct lsm_param_payload_common common;
+	uint32_t	minor_version;
+	uint32_t	sample_rate;
+	uint16_t	num_channels;
+	uint16_t	bit_width;
+	uint8_t		channel_mapping[LSM_MAX_NUM_CHANNELS];
 } __packed;
 
 /*
@@ -285,6 +297,13 @@ struct lsm_cmd_set_fwk_mode_cfg {
 	struct lsm_param_fwk_mode_cfg fwk_mode_cfg;
 } __packed;
 
+struct lsm_cmd_set_media_fmt {
+	struct apr_hdr  msg_hdr;
+	struct lsm_set_params_hdr params_hdr;
+	struct lsm_param_media_fmt media_fmt;
+} __packed;
+
+
 struct lsm_client *q6lsm_client_alloc(lsm_app_cb cb, void *priv);
 void q6lsm_client_free(struct lsm_client *client);
 int q6lsm_open(struct lsm_client *client, uint16_t app_id);
@@ -316,4 +335,5 @@ void q6lsm_sm_set_param_data(struct lsm_client *client,
 int q6lsm_set_port_connected(struct lsm_client *client);
 int q6lsm_polling_enable(struct lsm_client *client, bool poll_enable);
 int q6lsm_set_fwk_mode_cfg(struct lsm_client *client, uint32_t event_mode);
+int q6lsm_set_media_fmt_params(struct lsm_client *client);
 #endif /* __Q6LSM_H__ */

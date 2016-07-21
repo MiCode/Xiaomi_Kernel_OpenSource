@@ -35,7 +35,7 @@
 
 #define CAPTURE_MIN_NUM_PERIODS     2
 #define CAPTURE_MAX_NUM_PERIODS     8
-#define CAPTURE_MAX_PERIOD_SIZE     4096
+#define CAPTURE_MAX_PERIOD_SIZE     61440
 #define CAPTURE_MIN_PERIOD_SIZE     320
 #define LISTEN_MAX_STATUS_PAYLOAD_SIZE 256
 
@@ -53,12 +53,14 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 				SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				SNDRV_PCM_INFO_INTERLEAVED |
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
-	.formats =              SNDRV_PCM_FMTBIT_S16_LE,
-	.rates =                SNDRV_PCM_RATE_16000,
+	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE),
+	.rates =		(SNDRV_PCM_RATE_16000 |
+				SNDRV_PCM_RATE_48000),
 	.rate_min =             16000,
-	.rate_max =             16000,
+	.rate_max =             48000,
 	.channels_min =         1,
-	.channels_max =         1,
+	.channels_max =         4,
 	.buffer_bytes_max =     CAPTURE_MAX_NUM_PERIODS *
 				CAPTURE_MAX_PERIOD_SIZE,
 	.period_bytes_min =	CAPTURE_MIN_PERIOD_SIZE,
@@ -70,7 +72,7 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 
 /* Conventional and unconventional sample rate supported */
 static unsigned int supported_sample_rates[] = {
-	16000,
+	16000, 48000,
 };
 
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
@@ -2033,6 +2035,10 @@ static int msm_lsm_prepare(struct snd_pcm_substream *substream)
 		return -EINVAL;
 	}
 
+	if (q6lsm_set_media_fmt_params(prtd->lsm_client))
+		dev_dbg(rtd->dev,
+			"%s: failed to set lsm media fmt params\n", __func__);
+
 	if (prtd->lsm_client->session_state == IDLE) {
 		ret = msm_pcm_routing_reg_phy_compr_stream(
 				rtd->dai_link->be_id,
@@ -2124,7 +2130,7 @@ static int msm_lsm_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct lsm_priv *prtd = runtime->private_data;
-	struct lsm_lab_hw_params *hw_params = NULL;
+	struct lsm_hw_params *hw_params = NULL;
 	struct snd_soc_pcm_runtime *rtd;
 
 	if (!substream->private_data) {
@@ -2140,25 +2146,36 @@ static int msm_lsm_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 	hw_params = &prtd->lsm_client->hw_params;
-	hw_params->sample_rate = params_rate(params);
-	hw_params->sample_size =
-	(params_format(params) == SNDRV_PCM_FORMAT_S16_LE) ? 16 : 0;
+	hw_params->num_chs = params_channels(params);
 	hw_params->period_count = params_periods(params);
-	if (hw_params->sample_rate != 16000 || hw_params->sample_size != 16 ||
-		hw_params->period_count == 0) {
+	hw_params->sample_rate = params_rate(params);
+	if (((hw_params->sample_rate != 16000) &&
+		(hw_params->sample_rate != 48000)) ||
+		(hw_params->period_count == 0)) {
 		dev_err(rtd->dev,
-			"%s: Invalid params sample rate %d sample size %d period count %d",
+			"%s: Invalid Params sample rate %d period count %d\n",
 			__func__, hw_params->sample_rate,
-			hw_params->sample_size,
-		hw_params->period_count);
+			hw_params->period_count);
 		return -EINVAL;
 	}
+
+	if (params_format(params) == SNDRV_PCM_FORMAT_S16_LE) {
+		hw_params->sample_size = 16;
+	} else if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE) {
+		hw_params->sample_size = 24;
+	} else {
+		dev_err(rtd->dev, "%s: Invalid Format 0x%x\n",
+			__func__, params_format(params));
+		return -EINVAL;
+	}
+
 	hw_params->buf_sz = params_buffer_bytes(params) /
-	hw_params->period_count;
+			hw_params->period_count;
 	dev_dbg(rtd->dev,
-		"%s: sample rate %d sample size %d buffer size %d period count %d\n",
-		__func__, hw_params->sample_rate, hw_params->sample_size,
-		hw_params->buf_sz, hw_params->period_count);
+		"%s: channels %d sample rate %d sample size %d buffer size %d period count %d\n",
+		__func__, hw_params->num_chs, hw_params->sample_rate,
+		hw_params->sample_size, hw_params->buf_sz,
+		hw_params->period_count);
 	return 0;
 }
 

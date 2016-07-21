@@ -38,6 +38,8 @@
 #define LSM_ALIGN_BOUNDARY 512
 #define LSM_SAMPLE_RATE 16000
 #define QLSM_PARAM_ID_MINOR_VERSION 1
+#define QLSM_PARAM_ID_MINOR_VERSION_2 2
+
 static int lsm_afe_port;
 
 enum {
@@ -909,6 +911,98 @@ int q6lsm_set_fwk_mode_cfg(struct lsm_client *client,
 	if (rc)
 		pr_err("%s: Failed set_params opcode 0x%x, rc %d\n",
 		       __func__, msg_hdr->opcode, rc);
+	return rc;
+}
+
+static int q6lsm_arrange_mch_map(struct lsm_param_media_fmt *media_fmt,
+			 int channel_count)
+{
+	int rc = 0;
+
+	memset(media_fmt->channel_mapping, 0, LSM_MAX_NUM_CHANNELS);
+
+	switch (channel_count) {
+	case 1:
+		media_fmt->channel_mapping[0] = PCM_CHANNEL_FC;
+		break;
+	case 2:
+		media_fmt->channel_mapping[0] = PCM_CHANNEL_FL;
+		media_fmt->channel_mapping[1] = PCM_CHANNEL_FR;
+		break;
+	case 3:
+		media_fmt->channel_mapping[0] = PCM_CHANNEL_FL;
+		media_fmt->channel_mapping[1] = PCM_CHANNEL_FR;
+		media_fmt->channel_mapping[2] = PCM_CHANNEL_FC;
+		break;
+	case 4:
+		media_fmt->channel_mapping[0] = PCM_CHANNEL_FL;
+		media_fmt->channel_mapping[1] = PCM_CHANNEL_FR;
+		media_fmt->channel_mapping[2] = PCM_CHANNEL_LS;
+		media_fmt->channel_mapping[3] = PCM_CHANNEL_RS;
+		break;
+	default:
+		pr_err("%s: invalid num_chan %d\n", __func__, channel_count);
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
+int q6lsm_set_media_fmt_params(struct lsm_client *client)
+{
+	int rc = 0;
+	struct lsm_cmd_set_media_fmt cmd;
+	struct lsm_module_param_ids media_fmt_ids;
+	struct apr_hdr  *msg_hdr;
+	struct lsm_param_media_fmt *media_fmt;
+	u32 data_payload_size, param_size, set_param_opcode;
+	struct lsm_hw_params param = client->hw_params;
+
+	if (client->use_topology) {
+		set_param_opcode = LSM_SESSION_CMD_SET_PARAMS_V2;
+		media_fmt_ids.module_id = LSM_MODULE_ID_FRAMEWORK;
+		media_fmt_ids.param_id = LSM_PARAM_ID_MEDIA_FMT;
+	} else {
+		pr_debug("%s: Ignore sending media format\n", __func__);
+		goto err_ret;
+	}
+
+	msg_hdr = &cmd.msg_hdr;
+	q6lsm_add_hdr(client, msg_hdr,
+		      sizeof(struct lsm_cmd_set_media_fmt), true);
+	msg_hdr->opcode = set_param_opcode;
+	data_payload_size = sizeof(struct lsm_cmd_set_media_fmt) -
+			    sizeof(struct apr_hdr) -
+			    sizeof(struct lsm_set_params_hdr);
+	q6lsm_set_param_hdr_info(&cmd.params_hdr,
+				 data_payload_size, 0, 0, 0);
+	media_fmt = &cmd.media_fmt;
+
+	param_size = (sizeof(struct lsm_param_media_fmt) -
+		      sizeof(media_fmt->common));
+	q6lsm_set_param_common(&media_fmt->common,
+			       &media_fmt_ids, param_size,
+			       set_param_opcode);
+
+	media_fmt->minor_version = QLSM_PARAM_ID_MINOR_VERSION_2;
+	media_fmt->sample_rate = param.sample_rate;
+	media_fmt->num_channels = param.num_chs;
+	media_fmt->bit_width = param.sample_size;
+
+	rc = q6lsm_arrange_mch_map(media_fmt, media_fmt->num_channels);
+	if (rc)
+		goto err_ret;
+
+	pr_debug("%s: sample rate= %d, channels %d bit width %d\n",
+		 __func__, media_fmt->sample_rate, media_fmt->num_channels,
+		 media_fmt->bit_width);
+
+	rc = q6lsm_apr_send_pkt(client, client->apr,
+				&cmd, true, NULL);
+	if (rc)
+		pr_err("%s: Failed set_params opcode 0x%x, rc %d\n",
+		       __func__, msg_hdr->opcode, rc);
+err_ret:
 	return rc;
 }
 
