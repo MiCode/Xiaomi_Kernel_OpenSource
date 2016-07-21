@@ -86,6 +86,7 @@ struct lsm_client {
 	int		session_state;
 	bool		poll_enable;
 	int		perf_mode;
+	uint32_t	event_mode;
 };
 
 struct lsm_stream_cmd_open_tx {
@@ -144,6 +145,12 @@ struct lsm_param_poll_enable {
 	uint32_t	minor_version;
 	/* indicates to voice wakeup that HW MAD/SW polling is enabled or not */
 	uint32_t	polling_enable;
+} __packed;
+
+struct lsm_param_fwk_mode_cfg {
+	struct lsm_param_payload_common common;
+	uint32_t	minor_version;
+	uint32_t	mode;
 } __packed;
 
 /*
@@ -272,6 +279,12 @@ struct lsm_cmd_read_done {
 	uint32_t flags;
 } __packed;
 
+struct lsm_cmd_set_fwk_mode_cfg {
+	struct apr_hdr  msg_hdr;
+	struct lsm_set_params_hdr params_hdr;
+	struct lsm_param_fwk_mode_cfg fwk_mode_cfg;
+} __packed;
+
 struct lsm_client *q6lsm_client_alloc(lsm_app_cb cb, void *priv);
 void q6lsm_client_free(struct lsm_client *client);
 int q6lsm_open(struct lsm_client *client, uint16_t app_id);
@@ -302,4 +315,5 @@ void q6lsm_sm_set_param_data(struct lsm_client *client,
 		size_t *offset);
 int q6lsm_set_port_connected(struct lsm_client *client);
 int q6lsm_polling_enable(struct lsm_client *client, bool poll_enable);
+int q6lsm_set_fwk_mode_cfg(struct lsm_client *client, uint32_t event_mode);
 #endif /* __Q6LSM_H__ */

@@ -864,6 +864,54 @@ int q6lsm_polling_enable(struct lsm_client *client, bool poll_en)
 	return rc;
 }
 
+int q6lsm_set_fwk_mode_cfg(struct lsm_client *client,
+			   uint32_t event_mode)
+{
+	int rc = 0;
+	struct lsm_cmd_set_fwk_mode_cfg cmd;
+	struct lsm_module_param_ids fwk_mode_cfg_ids;
+	struct apr_hdr  *msg_hdr;
+	struct lsm_param_fwk_mode_cfg *fwk_mode_cfg;
+	u32 data_payload_size, param_size, set_param_opcode;
+
+	if (client->use_topology) {
+		set_param_opcode = LSM_SESSION_CMD_SET_PARAMS_V2;
+		fwk_mode_cfg_ids.module_id = LSM_MODULE_ID_FRAMEWORK;
+		fwk_mode_cfg_ids.param_id = LSM_PARAM_ID_FWK_MODE_CONFIG;
+	} else {
+		pr_debug("%s: Ignore sending event mode\n", __func__);
+		return rc;
+	}
+
+	msg_hdr = &cmd.msg_hdr;
+	q6lsm_add_hdr(client, msg_hdr,
+		      sizeof(struct lsm_cmd_set_fwk_mode_cfg), true);
+	msg_hdr->opcode = set_param_opcode;
+	data_payload_size = sizeof(struct lsm_cmd_set_fwk_mode_cfg) -
+			    sizeof(struct apr_hdr) -
+			    sizeof(struct lsm_set_params_hdr);
+	q6lsm_set_param_hdr_info(&cmd.params_hdr,
+				 data_payload_size, 0, 0, 0);
+	fwk_mode_cfg = &cmd.fwk_mode_cfg;
+
+	param_size = (sizeof(struct lsm_param_fwk_mode_cfg) -
+		      sizeof(fwk_mode_cfg->common));
+	q6lsm_set_param_common(&fwk_mode_cfg->common,
+			       &fwk_mode_cfg_ids, param_size,
+			       set_param_opcode);
+
+	fwk_mode_cfg->minor_version = QLSM_PARAM_ID_MINOR_VERSION;
+	fwk_mode_cfg->mode = event_mode;
+	pr_debug("%s: mode = %d\n", __func__, fwk_mode_cfg->mode);
+
+	rc = q6lsm_apr_send_pkt(client, client->apr,
+				&cmd, true, NULL);
+	if (rc)
+		pr_err("%s: Failed set_params opcode 0x%x, rc %d\n",
+		       __func__, msg_hdr->opcode, rc);
+	return rc;
+}
+
 int q6lsm_set_data(struct lsm_client *client,
 			   enum lsm_detection_mode mode,
 			   bool detectfailure)
