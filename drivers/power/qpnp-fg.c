@@ -4998,6 +4998,9 @@ static irqreturn_t fg_jeita_soft_hot_irq_handler(int irq, void *_chip)
 	bool batt_warm;
 	union power_supply_propval val = {0, };
 
+	if (!is_charger_available(chip))
+		return IRQ_HANDLED;
+
 	rc = fg_read(chip, &regval, INT_RT_STS(chip->batt_base), 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n",
@@ -5040,6 +5043,9 @@ static irqreturn_t fg_jeita_soft_cold_irq_handler(int irq, void *_chip)
 	u8 regval;
 	bool batt_cool;
 	union power_supply_propval val = {0, };
+
+	if (!is_charger_available(chip))
+		return IRQ_HANDLED;
 
 	rc = fg_read(chip, &regval, INT_RT_STS(chip->batt_base), 1);
 	if (rc) {
