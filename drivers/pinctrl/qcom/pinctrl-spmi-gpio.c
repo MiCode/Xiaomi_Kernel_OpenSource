@@ -51,6 +51,7 @@
 #define PMIC_GPIO_REG_DIG_VIN_CTL		0x41
 #define PMIC_GPIO_REG_DIG_PULL_CTL		0x42
 #define PMIC_GPIO_REG_LV_MV_DIG_OUT_SOURCE_CTL	0x44
+#define PMIC_GPIO_REG_DIG_IN_CTL		0x43
 #define PMIC_GPIO_REG_DIG_OUT_CTL		0x45
 #define PMIC_GPIO_REG_EN_CTL			0x46
 #define PMIC_GPIO_REG_LV_MV_ANA_PASS_THRU_SEL	0x4A
@@ -85,6 +86,11 @@
 #define PMIC_GPIO_LV_MV_OUTPUT_INVERT_SHIFT	7
 #define PMIC_GPIO_LV_MV_OUTPUT_SOURCE_SEL_MASK	0xF
 
+/* PMIC_GPIO_REG_DIG_IN_CTL */
+#define PMIC_GPIO_LV_MV_DIG_IN_DTEST_EN		0x80
+#define PMIC_GPIO_LV_MV_DIG_IN_DTEST_SEL_MASK	0x7
+#define PMIC_GPIO_DIG_IN_DTEST_SEL_MASK		0xf
+
 /* PMIC_GPIO_REG_DIG_OUT_CTL */
 #define PMIC_GPIO_REG_OUT_STRENGTH_SHIFT	0
 #define PMIC_GPIO_REG_OUT_STRENGTH_MASK		0x3
@@ -111,6 +117,7 @@
 #define PMIC_GPIO_CONF_PULL_UP			(PIN_CONFIG_END + 1)
 #define PMIC_GPIO_CONF_STRENGTH			(PIN_CONFIG_END + 2)
 #define PMIC_GPIO_CONF_ATEST			(PIN_CONFIG_END + 3)
+#define PMIC_GPIO_CONF_DTEST_BUFFER		(PIN_CONFIG_END + 4)
 
 /* The index of each function in pmic_gpio_functions[] array */
 enum pmic_gpio_func_index {
@@ -145,6 +152,8 @@ enum pmic_gpio_func_index {
  * @strength: No, Low, Medium, High
  * @function: See pmic_gpio_functions[]
  * @atest: the ATEST selection for GPIO analog-pass-through mode
+ * @dtest_buffer: the DTEST buffer selection for digital input mode,
+ *	the default value is INT_MAX if not used.
  */
 struct pmic_gpio_pad {
 	u16		base;
@@ -162,6 +171,7 @@ struct pmic_gpio_pad {
 	unsigned int	strength;
 	unsigned int	function;
 	unsigned int	atest;
+	unsigned int	dtest_buffer;
 };
 
 struct pmic_gpio_state {
@@ -175,6 +185,7 @@ static const struct pinconf_generic_params pmic_gpio_bindings[] = {
 	{"qcom,pull-up-strength",	PMIC_GPIO_CONF_PULL_UP,		0},
 	{"qcom,drive-strength",		PMIC_GPIO_CONF_STRENGTH,	0},
 	{"qcom,atest",			PMIC_GPIO_CONF_ATEST,	0},
+	{"qcom,dtest-buffer",		PMIC_GPIO_CONF_DTEST_BUFFER,	0},
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -433,6 +444,9 @@ static int pmic_gpio_config_get(struct pinctrl_dev *pctldev,
 	case PMIC_GPIO_CONF_ATEST:
 		arg = pad->atest;
 		break;
+	case PMIC_GPIO_CONF_DTEST_BUFFER:
+		arg = pad->dtest_buffer;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -512,6 +526,13 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 				return -EINVAL;
 			pad->atest = arg;
 			break;
+		case PMIC_GPIO_CONF_DTEST_BUFFER:
+			if ((pad->lv_mv_type && arg > PMIC_GPIO_DIN_DTEST4)
+					|| (!pad->lv_mv_type && arg >
+					PMIC_GPIO_DIG_IN_DTEST_SEL_MASK))
+				return -EINVAL;
+			pad->dtest_buffer = arg;
+			break;
 		default:
 			return -EINVAL;
 		}
@@ -542,6 +563,17 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			val = PMIC_GPIO_MODE_DIGITAL_INPUT_OUTPUT;
 		else
 			val = PMIC_GPIO_MODE_DIGITAL_OUTPUT;
+	}
+
+	if (pad->dtest_buffer != INT_MAX) {
+		val = pad->dtest_buffer;
+		if (pad->lv_mv_type)
+			val |= PMIC_GPIO_LV_MV_DIG_IN_DTEST_EN;
+
+		ret = pmic_gpio_write(state, pad,
+				PMIC_GPIO_REG_DIG_IN_CTL, val);
+		if (ret < 0)
+			return ret;
 	}
 
 	if (pad->lv_mv_type) {
@@ -641,6 +673,8 @@ static void pmic_gpio_config_dbg_show(struct pinctrl_dev *pctldev,
 		seq_printf(s, " %-10s", buffer_types[pad->buffer_type]);
 		seq_printf(s, " %-4s", pad->out_value ? "high" : "low");
 		seq_printf(s, " %-7s", strengths[pad->strength]);
+		if (pad->dtest_buffer != INT_MAX)
+			seq_printf(s, " dtest buffer %d", pad->dtest_buffer);
 	}
 }
 
@@ -859,6 +893,17 @@ static int pmic_gpio_populate(struct pmic_gpio_state *state,
 
 	pad->pullup = val >> PMIC_GPIO_REG_PULL_SHIFT;
 	pad->pullup &= PMIC_GPIO_REG_PULL_MASK;
+
+	val = pmic_gpio_read(state, pad, PMIC_GPIO_REG_DIG_IN_CTL);
+	if (val < 0)
+		return val;
+
+	if (pad->lv_mv_type && (val & PMIC_GPIO_LV_MV_DIG_IN_DTEST_EN))
+		pad->dtest_buffer = val & PMIC_GPIO_LV_MV_DIG_IN_DTEST_SEL_MASK;
+	else if (!pad->lv_mv_type)
+		pad->dtest_buffer = val & PMIC_GPIO_DIG_IN_DTEST_SEL_MASK;
+	else
+		pad->dtest_buffer = INT_MAX;
 
 	val = pmic_gpio_read(state, pad, PMIC_GPIO_REG_DIG_OUT_CTL);
 	if (val < 0)
