@@ -760,9 +760,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 
 	core_hw_rev_init(sde_kms);
 
-	sde_kms->catalog = sde_hw_catalog_init(GET_MAJOR_REV(sde_kms->core_rev),
-			GET_MINOR_REV(sde_kms->core_rev),
-			GET_STEP_REV(sde_kms->core_rev));
+	sde_kms->catalog = sde_hw_catalog_init(dev, sde_kms->core_rev);
 	if (IS_ERR_OR_NULL(sde_kms->catalog)) {
 		SDE_ERROR("catalog init failed\n");
 		rc = PTR_ERR(sde_kms->catalog);
