@@ -2091,6 +2091,15 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 
+	usb_ep_disable(gr->in);
+	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		spin_lock_irqsave(&port->port_lock_dl, flags_dl);
+		if (d->tx_req) {
+			usb_ep_free_request(gr->in, d->tx_req);
+			d->tx_req = NULL;
+		}
+		spin_unlock_irqrestore(&port->port_lock_dl, flags_dl);
+	}
 	/* disable endpoints */
 	if (gr->out) {
 		usb_ep_disable(gr->out);
@@ -2102,15 +2111,6 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 			}
 			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 		}
-	}
-	usb_ep_disable(gr->in);
-	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		spin_lock_irqsave(&port->port_lock_dl, flags_dl);
-		if (d->tx_req) {
-			usb_ep_free_request(gr->in, d->tx_req);
-			d->tx_req = NULL;
-		}
-		spin_unlock_irqrestore(&port->port_lock_dl, flags_dl);
 	}
 
 	/*
