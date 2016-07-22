@@ -313,6 +313,23 @@
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
+
+	qcom,ipc-spinlock@1f40000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0x1f40000 0x8000>;
+		qcom,num-locks = <8>;
+	};
+
+	qcom,smem@86000000 {
+		compatible = "qcom,smem";
+		reg = <0x86000000 0x200000>,
+			<0x17911008 0x4>,
+			<0x778000 0x7000>,
+			<0x1fd4000 0x8>;
+		reg-names = "smem", "irq-reg-base", "aux-mem1",
+			"smem_targ_info_reg";
+		qcom,mpu-enabled;
+	};
 };
 
 #include "msmfalcon-ion.dtsi"
