@@ -2,6 +2,7 @@ config COMMON_CLK_MSM
 	tristate "Support for MSM clock controllers"
 	depends on OF
 	depends on ARCH_QCOM
+	select RATIONAL
 	help
 	  This support clock controller used by MSM devices which support
 	  global, mmss and gpu clock controller.
