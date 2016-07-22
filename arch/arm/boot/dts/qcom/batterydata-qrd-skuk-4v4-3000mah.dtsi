@@ -1,0 +1,78 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,qrd_msmcobalt_skuk_3000mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "qrd_msmcobalt_skuk_300mah";
+	qcom,checksum = <0x0F19>;
+	qcom,fg-profile-data = [
+		 05 B2 1F 6F
+		 FC A3 0A 6E
+		 FD DB 1D 8C
+		 1D AE 12 C2
+		 23 00 18 7E
+		 52 B4 45 8D
+		 00 00 00 55
+		 00 00 00 0F
+		 C5 92 00 00
+		 CA A0 CD 95
+		 00 0C 00 1F
+		 EC C3 F2 56
+		 F3 27 06 7B
+		 12 FF 01 02
+		 3A 21 DA 1C
+		 40 40 09 1C
+		 00 05 00 07
+		 05 B4 1F AC
+		 FC EF 0A 57
+		 00 2E 1D 6A
+		 14 BA 0B 12
+		 22 DC 19 40
+		 53 03 45 79
+		 00 00 00 53
+		 00 00 00 0E
+		 CC 05 00 00
+		 CA 24 BB 3A
+		 00 00 00 1C
+		 EC C3 F2 56
+		 F2 A2 06 A6
+		 01 C7 06 96
+		 1A CF EA 8B
+		 33 08 33 BA
+		 00 00 10 07
+		 46 66 0C 3A
+		 00 19 00 1C
+		 FA 0A 01 98
+		 00 00 00 FF
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};
