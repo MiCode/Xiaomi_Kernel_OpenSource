@@ -13,9 +13,9 @@ obj-$(CONFIG_COMMON_CLK_MSM)	+= clock-debug.o
 
 # MSM 8996
 ifeq ($(CONFIG_COMMON_CLK_MSM), y)
-	obj-$(CONFIG_ARCH_QCOM) += clock-gcc-8996.o
-	obj-$(CONFIG_ARCH_QCOM) += clock-mmss-8996.o
-	obj-$(CONFIG_ARCH_QCOM) += clock-cpu-8996.o
+	obj-$(CONFIG_ARCH_MSM8996) += clock-gcc-8996.o
+	obj-$(CONFIG_ARCH_MSM8996) += clock-mmss-8996.o
+	obj-$(CONFIG_ARCH_MSM8996) += clock-cpu-8996.o
 endif
 
 # MSM COBALT
