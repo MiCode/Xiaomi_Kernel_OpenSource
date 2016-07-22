@@ -36,9 +36,9 @@
 
 /* Dma input output size limitations */
 #define MSM_JPEGDMA_MAX_WIDTH 65536
-#define MSM_JPEGDMA_MIN_WIDTH 32
+#define MSM_JPEGDMA_MIN_WIDTH 8
 #define MSM_JPEGDMA_MAX_HEIGHT 65536
-#define MSM_JPEGDMA_MIN_HEIGHT 32
+#define MSM_JPEGDMA_MIN_HEIGHT 8
 #define MSM_JPEGDMA_STRIDE_ALIGN 8
 
 /*
