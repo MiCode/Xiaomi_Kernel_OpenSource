@@ -858,3 +858,9 @@
 		drive-strength = <8>; /* 8 MA */
 	};
 };
+
+&wil6210 {
+	status = "ok";
+	/delete-property/ qcom,wigig-en;
+	/delete-property/ qcom,sleep-clk-en;
+};
