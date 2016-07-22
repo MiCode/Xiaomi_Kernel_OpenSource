@@ -19,6 +19,7 @@
 #include <linux/kernel.h>
 #include <linux/kref.h>
 #include <linux/ratelimit.h>
+#include <linux/sched.h>
 #include <linux/seq_file.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
