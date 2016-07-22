@@ -254,7 +254,16 @@ static void dt2w_input_event(struct input_handle *handle, unsigned int type,
 		return;
 
 	if (code == ABS_MT_SLOT) {
-		doubletap2wake_reset();
+		/* We did not handle EV_SYN event gracefully before we change
+		 * the SLOT. However we are simply resetting the touch count
+		 * here which results the loss of the previous touch. Then we
+		 * need two more touches for dt2w.
+		 * So, let us not reset the touch as EV_SYN is not handled
+		 * and considered gracefully. This we do only if we have already
+		 * recognized one touch, Too much description, Huh...
+		 */
+		if (!touch_nr)
+		    doubletap2wake_reset();
 		return;
 	}
 
