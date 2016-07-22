@@ -456,7 +456,7 @@ static int f2fs_file_open(struct inode *inode, struct file *filp)
 		if (!fscrypt_has_encryption_key(inode))
 			return -ENOKEY;
 	}
-	dir = dget_parent(filp->f_path.dentry);
+	dir = dget_parent(file_dentry(filp));
 	if (f2fs_encrypted_inode(d_inode(dir)) &&
 			!fscrypt_has_permitted_context(d_inode(dir), inode)) {
 		dput(dir);
@@ -641,7 +641,7 @@ int f2fs_truncate(struct inode *inode)
 int f2fs_getattr(struct vfsmount *mnt,
 			 struct dentry *dentry, struct kstat *stat)
 {
-	struct inode *inode = dentry->d_inode;
+	struct inode *inode = d_inode(dentry);
 	generic_fillattr(inode, stat);
 	stat->blocks <<= 3;
 	return 0;
@@ -679,7 +679,7 @@ static void __setattr_copy(struct inode *inode, const struct iattr *attr)
 
 int f2fs_setattr(struct dentry *dentry, struct iattr *attr)
 {
-	struct inode *inode = dentry->d_inode;
+	struct inode *inode = d_inode(dentry);
 	int err;
 
 	err = inode_change_ok(inode, attr);
@@ -1682,22 +1682,22 @@ static int f2fs_ioc_shutdown(struct file *filp, unsigned long arg)
 		return ret;
 
 	switch (in) {
-	case FS_GOING_DOWN_FULLSYNC:
+	case F2FS_GOING_DOWN_FULLSYNC:
 		sb = freeze_bdev(sb->s_bdev);
 		if (sb && !IS_ERR(sb)) {
 			f2fs_stop_checkpoint(sbi, false);
 			thaw_bdev(sb->s_bdev, sb);
 		}
 		break;
-	case FS_GOING_DOWN_METASYNC:
+	case F2FS_GOING_DOWN_METASYNC:
 		/* do checkpoint only */
 		f2fs_sync_fs(sb, 1);
 		f2fs_stop_checkpoint(sbi, false);
 		break;
-	case FS_GOING_DOWN_NOSYNC:
+	case F2FS_GOING_DOWN_NOSYNC:
 		f2fs_stop_checkpoint(sbi, false);
 		break;
-	case FS_GOING_DOWN_METAFLUSH:
+	case F2FS_GOING_DOWN_METAFLUSH:
 		sync_meta_pages(sbi, META, LONG_MAX);
 		f2fs_stop_checkpoint(sbi, false);
 		break;
@@ -2219,7 +2219,7 @@ long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return f2fs_ioc_release_volatile_write(filp);
 	case F2FS_IOC_ABORT_VOLATILE_WRITE:
 		return f2fs_ioc_abort_volatile_write(filp);
-	case FS_IOC_SHUTDOWN:
+	case F2FS_IOC_SHUTDOWN:
 		return f2fs_ioc_shutdown(filp, arg);
 	case FITRIM:
 		return f2fs_ioc_fitrim(filp, arg);
@@ -2297,7 +2297,7 @@ long f2fs_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case F2FS_IOC_START_VOLATILE_WRITE:
 	case F2FS_IOC_RELEASE_VOLATILE_WRITE:
 	case F2FS_IOC_ABORT_VOLATILE_WRITE:
-	case FS_IOC_SHUTDOWN:
+	case F2FS_IOC_SHUTDOWN:
 	case F2FS_IOC_SET_ENCRYPTION_POLICY:
 	case F2FS_IOC_GET_ENCRYPTION_PWSALT:
 	case F2FS_IOC_GET_ENCRYPTION_POLICY:

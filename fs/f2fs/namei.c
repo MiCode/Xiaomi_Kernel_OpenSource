@@ -168,7 +168,7 @@ out:
 static int f2fs_link(struct dentry *old_dentry, struct inode *dir,
 		struct dentry *dentry)
 {
-	struct inode *inode = old_dentry->d_inode;
+	struct inode *inode = d_inode(old_dentry);
 	struct f2fs_sb_info *sbi = F2FS_I_SB(dir);
 	int err;
 
@@ -204,20 +204,20 @@ struct dentry *f2fs_get_parent(struct dentry *child)
 {
 	struct qstr dotdot = QSTR_INIT("..", 2);
 	struct page *page;
-	unsigned long ino = f2fs_inode_by_name(child->d_inode, &dotdot, &page);
+	unsigned long ino = f2fs_inode_by_name(d_inode(child), &dotdot, &page);
 	if (!ino) {
 		if (IS_ERR(page))
 			return ERR_CAST(page);
 		return ERR_PTR(-ENOENT);
 	}
-	return d_obtain_alias(f2fs_iget(child->d_inode->i_sb, ino));
+	return d_obtain_alias(f2fs_iget(child->d_sb, ino));
 }
 
 static int __recover_dot_dentries(struct inode *dir, nid_t pino)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(dir);
-	struct qstr dot = {.len = 1, .name = "."};
-	struct qstr dotdot = {.len = 2, .name = ".."};
+	struct qstr dot = QSTR_INIT(".", 1);
+	struct qstr dotdot = QSTR_INIT("..", 2);
 	struct f2fs_dir_entry *de;
 	struct page *page;
 	int err = 0;
@@ -335,7 +335,7 @@ err_out:
 static int f2fs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(dir);
-	struct inode *inode = dentry->d_inode;
+	struct inode *inode = d_inode(dentry);
 	struct f2fs_dir_entry *de;
 	struct page *page;
 	int err = -ENOENT;
@@ -424,6 +424,7 @@ static int f2fs_symlink(struct inode *dir, struct dentry *dentry,
 		inode->i_op = &f2fs_encrypted_symlink_inode_operations;
 	else
 		inode->i_op = &f2fs_symlink_inode_operations;
+	inode_nohighmem(inode);
 	inode->i_mapping->a_ops = &f2fs_dblock_aops;
 
 	f2fs_balance_fs(sbi, true);
@@ -537,7 +538,7 @@ out_fail:
 
 static int f2fs_rmdir(struct inode *dir, struct dentry *dentry)
 {
-	struct inode *inode = dentry->d_inode;
+	struct inode *inode = d_inode(dentry);
 	if (f2fs_empty_dir(inode))
 		return f2fs_unlink(dir, dentry);
 	return -ENOTEMPTY;
@@ -658,8 +659,8 @@ static int f2fs_rename(struct inode *old_dir, struct dentry *old_dentry,
 			unsigned int flags)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(old_dir);
-	struct inode *old_inode = old_dentry->d_inode;
-	struct inode *new_inode = new_dentry->d_inode;
+	struct inode *old_inode = d_inode(old_dentry);
+	struct inode *new_inode = d_inode(new_dentry);
 	struct inode *whiteout = NULL;
 	struct page *old_dir_page;
 	struct page *old_page, *new_page = NULL;
@@ -840,8 +841,8 @@ static int f2fs_cross_rename(struct inode *old_dir, struct dentry *old_dentry,
 			     struct inode *new_dir, struct dentry *new_dentry)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(old_dir);
-	struct inode *old_inode = old_dentry->d_inode;
-	struct inode *new_inode = new_dentry->d_inode;
+	struct inode *old_inode = d_inode(old_dentry);
+	struct inode *new_inode = d_inode(new_dentry);
 	struct page *old_dir_page, *new_dir_page;
 	struct page *old_page, *new_page;
 	struct f2fs_dir_entry *old_dir_entry = NULL, *new_dir_entry = NULL;
@@ -1020,7 +1021,7 @@ static void *f2fs_encrypted_follow_link(struct dentry *dentry,
 	struct fscrypt_str cstr = FSTR_INIT(NULL, 0);
 	struct fscrypt_str pstr = FSTR_INIT(NULL, 0);
 	struct fscrypt_symlink_data *sd;
-	struct inode *inode = dentry->d_inode;
+	struct inode *inode = d_inode(dentry);
 	loff_t size = min_t(loff_t, i_size_read(inode), PAGE_SIZE - 1);
 	u32 max_size = inode->i_sb->s_blocksize;
 	int res;
