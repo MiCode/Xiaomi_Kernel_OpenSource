@@ -27,4 +27,4 @@ ifeq ($(CONFIG_COMMON_CLK_MSM), y)
 endif
 
 obj-$(CONFIG_COMMON_CLK_MSM)	+= gdsc.o
-obj-$(CONFIG_COMMON_CLK_MSM)-y	+= mdss/
+obj-$(CONFIG_COMMON_CLK_MSM)	+= mdss/
