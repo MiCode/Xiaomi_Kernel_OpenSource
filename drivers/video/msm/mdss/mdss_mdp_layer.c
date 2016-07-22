@@ -1526,7 +1526,8 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 		goto map_err;
 	}
 
-	__parse_frc_info(mdp5_data, commit->frc_info);
+	if (commit->frc_info)
+		__parse_frc_info(mdp5_data, commit->frc_info);
 
 	ret = __handle_buffer_fences(mfd, commit, layer_list);
 
