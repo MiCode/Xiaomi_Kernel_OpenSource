@@ -63,7 +63,8 @@ MODULE_LICENSE("GPLv2");
 #define DT2W_DEFAULT		0
 
 #define DT2W_PWRKEY_DUR		60
-#define DT2W_TIME		700
+#define DT2W_TIME		900
+#define DT2W_DEFAULT_FEATHER    700
 
 #define DT2W_OFF 0
 #define DT2W_ON 1
@@ -201,15 +202,13 @@ static void detect_doubletap2wake(int x, int y, bool st)
 	else if (dt2w_feather_w == 3)
 		dt2w_feather = 40;
 	else
-		dt2w_feather = 200;
+		dt2w_feather = DT2W_DEFAULT_FEATHER;
 	if ((single_touch) && (dt2w_switch > 0) && (exec_count) && (touch_cnt)) {
 		touch_cnt = false;
 		if (touch_nr == 0) {
 			new_touch(x, y);
 		} else if (touch_nr == 1) {
-			if ((calc_feather(x, x_pre) < dt2w_feather) &&
-			    (calc_feather(y, y_pre) < dt2w_feather) &&
-			    ((ktime_to_ms(ktime_get_real())-tap_time_pre) < DT2W_TIME)) {
+			if ((ktime_to_ms(ktime_get_real())-tap_time_pre) < DT2W_TIME) {
 				touch_nr++;
 				DT2W_PRINFO(LOGTAG"touch_nr is now %d\n",touch_nr);
 			} else {
