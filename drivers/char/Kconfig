@@ -630,6 +630,15 @@ config MSM_ADSPRPC
 	  applications DSP processor. Say M if you want to enable this
 	  module.
 
+config MSM_MDSP_TS
+	tristate "Qualcomm Technologies Inc MDSP TimeStamp driver"
+	depends on MSM_SMD
+	help
+	  Provides a high response mechanism that allows for AP to get
+	  timestamp from mDSP. It provides the device /dev/vsync_ts_diff
+	  for user to read the timestamp, and the timestamp is tranfered
+	  through smd between mDSP and AP.
+
 config MSM_RDBG
 	tristate "Qualcomm Remote debug driver"
 	help
