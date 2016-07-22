@@ -1055,6 +1055,83 @@ static bool ipa3_is_legal_params(struct ipa_request_gsi_channel_params *params)
 		return true;
 }
 
+int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map)
+{
+	struct iommu_domain *smmu_domain;
+	int res;
+
+	if (ipa3_ctx->smmu_s1_bypass)
+		return 0;
+
+	smmu_domain = ipa3_get_smmu_domain();
+	if (!smmu_domain) {
+		IPAERR("invalid smmu domain\n");
+		return -EINVAL;
+	}
+
+	if (map) {
+		res = ipa3_iommu_map(smmu_domain, phys_addr, phys_addr,
+			PAGE_SIZE, IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+	} else {
+		res = iommu_unmap(smmu_domain, phys_addr, PAGE_SIZE);
+		res = (res != PAGE_SIZE);
+	}
+	if (res) {
+		IPAERR("Fail to %s reg 0x%pa\n", map ? "map" : "unmap",
+			&phys_addr);
+		return -EINVAL;
+	}
+
+	IPADBG("Peer reg 0x%pa %s\n", &phys_addr, map ? "map" : "unmap");
+
+	return 0;
+}
+
+int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr, u32 size, bool map)
+{
+	struct iommu_domain *smmu_domain;
+	int res;
+
+	if (ipa3_ctx->smmu_s1_bypass)
+		return 0;
+
+	smmu_domain = ipa3_get_smmu_domain();
+	if (!smmu_domain) {
+		IPAERR("invalid smmu domain\n");
+		return -EINVAL;
+	}
+
+	if (map) {
+		res = ipa3_iommu_map(smmu_domain,
+			rounddown(iova, PAGE_SIZE),
+			rounddown(phys_addr, PAGE_SIZE),
+			roundup(size + iova - rounddown(iova, PAGE_SIZE),
+			PAGE_SIZE),
+			IOMMU_READ | IOMMU_WRITE);
+		if (res) {
+			IPAERR("Fail to map 0x%llx->0x%pa\n", iova, &phys_addr);
+			return -EINVAL;
+		}
+	} else {
+		res = iommu_unmap(smmu_domain,
+			rounddown(iova, PAGE_SIZE),
+			roundup(size + iova - rounddown(iova, PAGE_SIZE),
+			PAGE_SIZE));
+		if (res != roundup(size + iova - rounddown(iova, PAGE_SIZE),
+			PAGE_SIZE)) {
+			IPAERR("Fail to unmap 0x%llx->0x%pa\n",
+				iova, &phys_addr);
+			return -EINVAL;
+		}
+	}
+
+	IPADBG("Peer buff %s 0x%llx->0x%pa\n", map ? "map" : "unmap",
+		iova, &phys_addr);
+
+	return 0;
+}
+
+
 int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 			     struct ipa_req_chan_out_params *out_params)
 {
