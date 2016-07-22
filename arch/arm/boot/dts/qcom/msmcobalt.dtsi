@@ -2061,27 +2061,22 @@
 
 	tsens0: tsens@10aa000 {
 		compatible = "qcom,msmcobalt-tsens";
-		reg = <0x10aa000 0x2000>,
-			<0x74230 0x1000>;
-		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		reg = <0x10aa000 0x2000>;
+		reg-names = "tsens_physical";
 		interrupts = <0 458 0>, <0 445 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
 		qcom,sensors = <14>;
-		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200 3200
-						3200 3200 3200 3200 3200>;
 	};
 
 	tsens1: tsens@10ad000 {
 		compatible = "qcom,msmcobalt-tsens";
-		reg = <0x10ad000 0x2000>,
-			<0x75230 0x1000>;
-		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		reg = <0x10ad000 0x2000>;
+		reg-names = "tsens_physical";
 		interrupts = <0 184 0>, <0 430 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
 		qcom,client-id = <14 15 16 17 18 19 20 21>;
 		qcom,sensor-id = <0 1 3 4 5 6 7 2>;
 		qcom,sensors = <8>;
-		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200>;
 	};
 
 	qcom,sensor-information {
