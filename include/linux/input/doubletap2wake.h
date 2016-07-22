@@ -25,7 +25,7 @@ extern bool dt2w_scr_suspended;
 extern int dt2w_switch;
 extern bool dt2w_toggled;
 
-#define DT2W_DEBUG		1
+#define DT2W_DEBUG		0
 
 #ifdef DT2W_DEBUG
 #define DT2W_PRINFO(format, args...) pr_info(format, ##args)
