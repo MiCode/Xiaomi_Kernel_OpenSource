@@ -2271,6 +2271,109 @@ static int msm_lsm_pcm_copy(struct snd_pcm_substream *substream, int ch,
 	return 0;
 }
 
+static int msm_lsm_app_type_cfg_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if ((fe_id < MSM_FRONTEND_DAI_LSM1) ||
+		(fe_id > MSM_FRONTEND_DAI_LSM8)) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	app_type = ucontrol->value.integer.value[0];
+	acdb_dev_id = ucontrol->value.integer.value[1];
+	sample_rate = ucontrol->value.integer.value[2];
+
+	pr_debug("%s: app_type- %d acdb_dev_id- %d sample_rate- %d session_type- %d\n",
+		__func__, app_type, acdb_dev_id, sample_rate, SESSION_TYPE_TX);
+	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type,
+			acdb_dev_id, sample_rate, SESSION_TYPE_TX);
+
+	return 0;
+}
+
+static int msm_lsm_app_type_cfg_ctl_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int ret = 0;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if ((fe_id < MSM_FRONTEND_DAI_LSM1) ||
+		(fe_id > MSM_FRONTEND_DAI_LSM8)) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, SESSION_TYPE_TX,
+		&app_type, &acdb_dev_id, &sample_rate);
+	if (ret < 0) {
+		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ucontrol->value.integer.value[0] = app_type;
+	ucontrol->value.integer.value[1] = acdb_dev_id;
+	ucontrol->value.integer.value[2] = sample_rate;
+	pr_debug("%s: fedai_id %llu, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fe_id, SESSION_TYPE_TX,
+		app_type, acdb_dev_id, sample_rate);
+done:
+	return ret;
+}
+
+static int msm_lsm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_pcm *pcm = rtd->pcm;
+	struct snd_pcm_usr *app_type_info;
+	struct snd_kcontrol *kctl;
+	const char *mixer_ctl_name	= "Listen Stream";
+	const char *deviceNo		= "NN";
+	const char *suffix		= "App Type Cfg";
+	int ctl_len, ret = 0;
+
+	ctl_len = strlen(mixer_ctl_name) + 1 +
+			strlen(deviceNo) + 1 + strlen(suffix) + 1;
+	pr_debug("%s: Listen app type cntrl add\n", __func__);
+	ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_CAPTURE,
+				NULL, 1, ctl_len, rtd->dai_link->be_id,
+				&app_type_info);
+	if (ret < 0) {
+		pr_err("%s: Listen app type cntrl add failed: %d\n",
+			__func__, ret);
+		return ret;
+	}
+	kctl = app_type_info->kctl;
+	snprintf(kctl->id.name, ctl_len, "%s %d %s",
+		mixer_ctl_name, rtd->pcm->device, suffix);
+	kctl->put = msm_lsm_app_type_cfg_ctl_put;
+	kctl->get = msm_lsm_app_type_cfg_ctl_get;
+	return 0;
+}
+
+static int msm_lsm_add_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+
+	ret = msm_lsm_add_app_type_controls(rtd);
+	if (ret)
+		pr_err("%s, add  app type controls failed:%d\n", __func__, ret);
+
+	return ret;
+}
+
 static struct snd_pcm_ops msm_lsm_ops = {
 	.open           = msm_lsm_open,
 	.close          = msm_lsm_close,
@@ -2285,11 +2388,16 @@ static struct snd_pcm_ops msm_lsm_ops = {
 static int msm_asoc_lsm_new(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_card *card = rtd->card->snd_card;
+	int ret = 0;
 
 	if (!card->dev->coherent_dma_mask)
 		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
-	return 0;
+	ret = msm_lsm_add_controls(rtd);
+	if (ret)
+		pr_err("%s, kctl add failed:%d\n", __func__, ret);
+
+	return ret;
 }
 
 static int msm_asoc_lsm_probe(struct snd_soc_platform *platform)

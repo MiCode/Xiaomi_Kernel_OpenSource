@@ -573,6 +573,7 @@ static struct msm_pcm_routing_fdai_data
 static unsigned long session_copp_map[MSM_FRONTEND_DAI_MAX][2]
 				     [MSM_BACKEND_DAI_MAX];
 static struct msm_pcm_routing_app_type_data app_type_cfg[MAX_APP_TYPES];
+static struct msm_pcm_routing_app_type_data lsm_app_type_cfg[MAX_APP_TYPES];
 static struct msm_pcm_stream_app_type_cfg
 			 fe_dai_app_type_cfg[MSM_FRONTEND_DAI_MAX][2];
 
@@ -617,13 +618,39 @@ static int msm_pcm_routing_get_app_type_idx(int app_type)
 	return 0;
 }
 
+static int msm_pcm_routing_get_lsm_app_type_idx(int app_type)
+{
+	int idx;
+
+	pr_debug("%s: app_type: %d\n", __func__, app_type);
+	for (idx = 0; idx < MAX_APP_TYPES; idx++) {
+		if (lsm_app_type_cfg[idx].app_type == app_type)
+			return idx;
+	}
+	pr_debug("%s: App type not available, fallback to default\n", __func__);
+	return 0;
+}
+
+static bool is_mm_lsm_fe_id(int fe_id)
+{
+	bool rc = true;
+
+	if (fe_id > MSM_FRONTEND_DAI_MM_MAX_ID &&
+		((fe_id < MSM_FRONTEND_DAI_LSM1) ||
+		 (fe_id > MSM_FRONTEND_DAI_LSM8))) {
+		rc = false;
+	}
+	return rc;
+}
+
+
 void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
 	int acdb_dev_id, int sample_rate, int session_type)
 {
 	pr_debug("%s: fedai_id %d, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
 		__func__, fedai_id, session_type, app_type,
 		acdb_dev_id, sample_rate);
-	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
+	if (!is_mm_lsm_fe_id(fedai_id)) {
 		pr_err("%s: Invalid machine driver ID %d\n",
 			__func__, fedai_id);
 		return;
@@ -670,7 +697,7 @@ int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int session_type,
 		pr_err("%s: NULL pointer sent for sample rate\n", __func__);
 		ret = -EINVAL;
 		goto done;
-	} else if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
+	} else if (!is_mm_lsm_fe_id(fedai_id)) {
 		pr_err("%s: Invalid FE ID %d\n",
 			__func__, fedai_id);
 		ret = -EINVAL;
@@ -886,18 +913,6 @@ static bool route_check_fe_id_adm_support(int fe_id)
 	return rc;
 }
 
-static bool is_mm_lsm_fe_id(int fe_id)
-{
-	bool rc = true;
-
-	if (fe_id > MSM_FRONTEND_DAI_MM_MAX_ID &&
-		((fe_id < MSM_FRONTEND_DAI_LSM1) ||
-		 (fe_id > MSM_FRONTEND_DAI_LSM8))) {
-		rc = false;
-	}
-	return rc;
-}
-
 int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 					  int dspst_id, int stream_type,
 					  uint32_t passthr_mode)
@@ -906,6 +921,7 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 	struct route_payload payload;
 	u32 channels, sample_rate;
 	u16 bit_width = 16;
+	bool is_lsm;
 
 	pr_debug("%s:fe_id[%d] perf_mode[%d] id[%d] stream_type[%d] passt[%d]",
 		 __func__, fe_id, perf_mode, dspst_id,
@@ -938,6 +954,8 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 		return -EINVAL;
 	}
 
+	is_lsm = (fe_id >= MSM_FRONTEND_DAI_LSM1) &&
+			 (fe_id <= MSM_FRONTEND_DAI_LSM8);
 	mutex_lock(&routing_lock);
 
 	payload.num_copps = 0; /* only RX needs to use payload */
@@ -960,7 +978,15 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 						msm_bedais[i].format);
 			app_type =
 			fe_dai_app_type_cfg[fe_id][session_type].app_type;
-			if (app_type) {
+			if (app_type && is_lsm) {
+				app_type_idx =
+				msm_pcm_routing_get_lsm_app_type_idx(app_type);
+				sample_rate =
+				fe_dai_app_type_cfg[fe_id][session_type].
+					sample_rate;
+				bit_width =
+				lsm_app_type_cfg[app_type_idx].bit_width;
+			} else if (app_type) {
 				app_type_idx =
 					msm_pcm_routing_get_app_type_idx(
 						app_type);
@@ -1023,6 +1049,8 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 			fe_dai_app_type_cfg[fe_id][session_type].app_type;
 		payload.acdb_dev_id =
 			fe_dai_app_type_cfg[fe_id][session_type].acdb_dev_id;
+		payload.sample_rate =
+			fe_dai_app_type_cfg[fe_id][session_type].sample_rate;
 		adm_matrix_map(path_type, payload, perf_mode, passthr_mode);
 		msm_pcm_routng_cfg_matrix_map_pp(payload, path_type, perf_mode);
 	}
@@ -1291,6 +1319,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	uint16_t bits_per_sample = 16;
 	struct msm_pcm_routing_fdai_data *fdai;
 	uint32_t passthr_mode = msm_bedais[reg].passthr_mode;
+	bool is_lsm;
 
 	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 
@@ -1317,6 +1346,8 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		session_type = SESSION_TYPE_TX;
 		path_type = ADM_PATH_LIVE_REC;
 	}
+	is_lsm = (val >= MSM_FRONTEND_DAI_LSM1) &&
+			 (val <= MSM_FRONTEND_DAI_LSM8);
 
 	mutex_lock(&routing_lock);
 	if (set) {
@@ -1349,7 +1380,15 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 
 			app_type =
 				fe_dai_app_type_cfg[val][session_type].app_type;
-			if (app_type) {
+			if (app_type && is_lsm) {
+				app_type_idx =
+				msm_pcm_routing_get_lsm_app_type_idx(app_type);
+				sample_rate =
+				fe_dai_app_type_cfg[val][session_type].
+					sample_rate;
+				bits_per_sample =
+				lsm_app_type_cfg[app_type_idx].bit_width;
+			} else if (app_type) {
 				app_type_idx =
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
@@ -6816,6 +6855,45 @@ static const struct snd_kcontrol_new app_type_cfg_controls[] = {
 	msm_routing_put_app_type_cfg_control),
 };
 
+static int msm_routing_get_lsm_app_type_cfg_control(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int msm_routing_put_lsm_app_type_cfg_control(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int i = 0, j;
+	int num_app_types = ucontrol->value.integer.value[i++];
+
+	memset(lsm_app_type_cfg, 0, MAX_APP_TYPES*
+				sizeof(struct msm_pcm_routing_app_type_data));
+	if (num_app_types > MAX_APP_TYPES) {
+		pr_err("%s: number of app types exceed the max supported\n",
+			__func__);
+		return -EINVAL;
+	}
+	for (j = 0; j < num_app_types; j++) {
+		lsm_app_type_cfg[j].app_type =
+				ucontrol->value.integer.value[i++];
+		lsm_app_type_cfg[j].sample_rate =
+				ucontrol->value.integer.value[i++];
+		lsm_app_type_cfg[j].bit_width =
+				ucontrol->value.integer.value[i++];
+	}
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new lsm_app_type_cfg_controls[] = {
+	SOC_SINGLE_MULTI_EXT("Listen App Type Config", SND_SOC_NOPM, 0,
+	0xFFFFFFFF, 0, 128, msm_routing_get_lsm_app_type_cfg_control,
+	msm_routing_put_lsm_app_type_cfg_control),
+};
+
 static int msm_routing_get_use_ds1_or_ds2_control(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
@@ -9983,6 +10061,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	uint16_t bits_per_sample = 16, voc_path_type;
 	struct msm_pcm_routing_fdai_data *fdai;
 	u32 session_id;
+	bool is_lsm;
 
 	pr_debug("%s: substream->pcm->id:%s\n",
 		 __func__, substream->pcm->id);
@@ -10020,6 +10099,9 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 		if (!(is_mm_lsm_fe_id(i) &&
 				route_check_fe_id_adm_support(i)))
 			continue;
+
+		is_lsm = (i >= MSM_FRONTEND_DAI_LSM1) &&
+				 (i <= MSM_FRONTEND_DAI_LSM8);
 		fdai = &fe_dai_map[i][session_type];
 		if (fdai->strm_id != INVALID_SESSION) {
 			int app_type, app_type_idx, copp_idx, acdb_dev_id;
@@ -10041,7 +10123,15 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 
 			app_type =
 				fe_dai_app_type_cfg[i][session_type].app_type;
-			if (app_type) {
+			if (app_type && is_lsm) {
+				app_type_idx =
+				msm_pcm_routing_get_lsm_app_type_idx(app_type);
+				sample_rate =
+				fe_dai_app_type_cfg[i][session_type].
+					sample_rate;
+				bits_per_sample =
+				lsm_app_type_cfg[app_type_idx].bit_width;
+			} else if (app_type) {
 				app_type_idx =
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
@@ -10311,6 +10401,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, app_type_cfg_controls,
 				      ARRAY_SIZE(app_type_cfg_controls));
+
+	snd_soc_add_platform_controls(platform, lsm_app_type_cfg_controls,
+				      ARRAY_SIZE(lsm_app_type_cfg_controls));
 
 	snd_soc_add_platform_controls(platform,
 				stereo_to_custom_stereo_controls,
