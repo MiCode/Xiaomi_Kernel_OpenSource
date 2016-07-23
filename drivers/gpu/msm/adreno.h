@@ -776,7 +776,7 @@ struct adreno_gpudev {
  * @KGSL_FT_REPLAY: Replay the faulting command
  * @KGSL_FT_SKIPIB: Skip the faulting indirect buffer
  * @KGSL_FT_SKIPFRAME: Skip the frame containing the faulting IB
- * @KGSL_FT_DISABLE: Tells the dispatcher to disable FT for the drawobj
+ * @KGSL_FT_DISABLE: Tells the dispatcher to disable FT for the command obj
  * @KGSL_FT_TEMP_DISABLE: Disables FT for all commands
  * @KGSL_FT_THROTTLE: Disable the context if it faults too often
  * @KGSL_FT_SKIPCMD: Skip the command containing the faulting IB
@@ -793,7 +793,7 @@ enum kgsl_ft_policy_bits {
 	/* KGSL_FT_MAX_BITS is used to calculate the mask */
 	KGSL_FT_MAX_BITS,
 	/* Internal bits - set during GFT */
-	/* Skip the PM dump on replayed drawobjs */
+	/* Skip the PM dump on replayed command obj's */
 	KGSL_FT_SKIP_PMDUMP = 31,
 };
 

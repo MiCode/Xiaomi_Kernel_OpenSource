@@ -40,6 +40,7 @@
 
 /* Include the master list of GPU cores that are supported */
 #include "adreno-gpulist.h"
+#include "adreno_dispatch.h"
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "adreno."
@@ -2813,7 +2814,7 @@ static const struct kgsl_functable adreno_functable = {
 	.getproperty_compat = adreno_getproperty_compat,
 	.waittimestamp = adreno_waittimestamp,
 	.readtimestamp = adreno_readtimestamp,
-	.issueibcmds = adreno_ringbuffer_issueibcmds,
+	.queue_cmds = adreno_dispatcher_queue_cmds,
 	.ioctl = adreno_ioctl,
 	.compat_ioctl = adreno_compat_ioctl,
 	.power_stats = adreno_power_stats,

@@ -140,7 +140,7 @@ int adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				uint32_t *timestamp);
 
 int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
-		struct kgsl_drawobj *drawobj,
+		struct kgsl_drawobj_cmd *cmdobj,
 		struct adreno_submit_time *time);
 
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev, bool nopreempt);

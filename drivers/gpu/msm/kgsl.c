@@ -1497,7 +1497,8 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_ringbuffer_issueibcmds *param = data;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
-	struct kgsl_drawobj *drawobj = NULL;
+	struct kgsl_drawobj *drawobj;
+	struct kgsl_drawobj_cmd *cmdobj;
 	long result = -EINVAL;
 
 	/* The legacy functions don't support synchronization commands */
@@ -1514,15 +1515,17 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	if (context == NULL)
 		return -EINVAL;
 
-	/* Create a drawobj */
-	drawobj = kgsl_drawobj_create(device, context, param->flags);
-	if (IS_ERR(drawobj)) {
+	cmdobj = kgsl_drawobj_cmd_create(device, context, param->flags,
+					CMDOBJ_TYPE);
+	if (IS_ERR(cmdobj)) {
 		kgsl_context_put(context);
-		return PTR_ERR(drawobj);
+		return PTR_ERR(cmdobj);
 	}
 
+	drawobj = DRAWOBJ(cmdobj);
+
 	if (param->flags & KGSL_DRAWOBJ_SUBMIT_IB_LIST)
-		result = kgsl_drawobj_add_ibdesc_list(device, drawobj,
+		result = kgsl_drawobj_cmd_add_ibdesc_list(device, cmdobj,
 			(void __user *) param->ibdesc_addr,
 			param->numibs);
 	else {
@@ -1533,12 +1536,12 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		ibdesc.sizedwords = param->numibs;
 		ibdesc.ctrl = 0;
 
-		result = kgsl_drawobj_add_ibdesc(device, drawobj, &ibdesc);
+		result = kgsl_drawobj_cmd_add_ibdesc(device, cmdobj, &ibdesc);
 	}
 
 	if (result == 0)
-		result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
-				drawobj, &param->timestamp);
+		result = dev_priv->device->ftbl->queue_cmds(dev_priv, context,
+				&drawobj, 1, &param->timestamp);
 
 	/*
 	 * -EPROTO is a "success" error - it just tells the user that the
@@ -1551,59 +1554,101 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	return result;
 }
 
+/* Returns 0 on failure.  Returns command type(s) on success */
+static unsigned int _process_command_input(struct kgsl_device *device,
+		unsigned int flags, unsigned int numcmds,
+		unsigned int numobjs, unsigned int numsyncs)
+{
+	if (numcmds > KGSL_MAX_NUMIBS ||
+			numobjs > KGSL_MAX_NUMIBS ||
+			numsyncs > KGSL_MAX_SYNCPOINTS)
+		return 0;
+
+	/*
+	 * The SYNC bit is supposed to identify a dummy sync object
+	 * so warn the user if they specified any IBs with it.
+	 * A MARKER command can either have IBs or not but if the
+	 * command has 0 IBs it is automatically assumed to be a marker.
+	 */
+
+	/* If they specify the flag, go with what they say */
+	if (flags & KGSL_DRAWOBJ_MARKER)
+		return MARKEROBJ_TYPE;
+	else if (flags & KGSL_DRAWOBJ_SYNC)
+		return SYNCOBJ_TYPE;
+
+	/* If not, deduce what they meant */
+	if (numsyncs && numcmds)
+		return SYNCOBJ_TYPE | CMDOBJ_TYPE;
+	else if (numsyncs)
+		return SYNCOBJ_TYPE;
+	else if (numcmds)
+		return CMDOBJ_TYPE;
+	else if (numcmds == 0)
+		return MARKEROBJ_TYPE;
+
+	return 0;
+}
+
 long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 				      unsigned int cmd, void *data)
 {
 	struct kgsl_submit_commands *param = data;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
-	struct kgsl_drawobj *drawobj = NULL;
-	long result = -EINVAL;
+	struct kgsl_drawobj *drawobj[2];
+	unsigned int type;
+	long result;
+	unsigned int i = 0;
 
-	/*
-	 * The SYNC bit is supposed to identify a dummy sync object so warn the
-	 * user if they specified any IBs with it.  A MARKER command can either
-	 * have IBs or not but if the command has 0 IBs it is automatically
-	 * assumed to be a marker.
-	 */
-
-	if ((param->flags & KGSL_DRAWOBJ_SYNC) && param->numcmds)
-		KGSL_DEV_ERR_ONCE(device,
-			"Commands specified with the SYNC flag.  They will be ignored\n");
-	else if (!(param->flags & KGSL_DRAWOBJ_SYNC) && param->numcmds == 0)
-		param->flags |= KGSL_DRAWOBJ_MARKER;
-
-	if (param->numcmds > KGSL_MAX_NUMIBS ||
-			param->numsyncs > KGSL_MAX_SYNCPOINTS)
+	type = _process_command_input(device, param->flags, param->numcmds, 0,
+			param->numsyncs);
+	if (!type)
 		return -EINVAL;
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 	if (context == NULL)
 		return -EINVAL;
 
-	/* Create a drawobj */
-	drawobj = kgsl_drawobj_create(device, context, param->flags);
-	if (IS_ERR(drawobj)) {
-		result = PTR_ERR(drawobj);
-		goto done;
+	if (type & SYNCOBJ_TYPE) {
+		struct kgsl_drawobj_sync *syncobj =
+				kgsl_drawobj_sync_create(device, context);
+		if (IS_ERR(syncobj)) {
+			result = PTR_ERR(syncobj);
+			goto done;
+		}
+
+		drawobj[i++] = DRAWOBJ(syncobj);
+
+		result = kgsl_drawobj_sync_add_syncpoints(device, syncobj,
+				param->synclist, param->numsyncs);
+		if (result)
+			goto done;
 	}
 
-	result = kgsl_drawobj_add_ibdesc_list(device, drawobj,
-		param->cmdlist, param->numcmds);
-	if (result)
-		goto done;
+	if (type & (CMDOBJ_TYPE | MARKEROBJ_TYPE)) {
+		struct kgsl_drawobj_cmd *cmdobj =
+				kgsl_drawobj_cmd_create(device,
+					context, param->flags, type);
+		if (IS_ERR(cmdobj)) {
+			result = PTR_ERR(cmdobj);
+			goto done;
+		}
 
-	result = kgsl_drawobj_add_syncpoints(device, drawobj,
-		param->synclist, param->numsyncs);
-	if (result)
-		goto done;
+		drawobj[i++] = DRAWOBJ(cmdobj);
 
-	/* If no profiling buffer was specified, clear the flag */
-	if (drawobj->profiling_buf_entry == NULL)
-		drawobj->flags &= ~KGSL_DRAWOBJ_PROFILING;
+		result = kgsl_drawobj_cmd_add_ibdesc_list(device, cmdobj,
+				param->cmdlist, param->numcmds);
+		if (result)
+			goto done;
 
-	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
-		drawobj, &param->timestamp);
+		/* If no profiling buffer was specified, clear the flag */
+		if (cmdobj->profiling_buf_entry == NULL)
+			DRAWOBJ(cmdobj)->flags &= ~KGSL_DRAWOBJ_PROFILING;
+	}
+
+	result = device->ftbl->queue_cmds(dev_priv, context, drawobj,
+			i, &param->timestamp);
 
 done:
 	/*
@@ -1611,7 +1656,9 @@ done:
 	 * context had previously faulted
 	 */
 	if (result && result != -EPROTO)
-		kgsl_drawobj_destroy(drawobj);
+		while (i--)
+			kgsl_drawobj_destroy(drawobj[i]);
+
 
 	kgsl_context_put(context);
 	return result;
@@ -1623,63 +1670,69 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 	struct kgsl_gpu_command *param = data;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
-	struct kgsl_drawobj *drawobj = NULL;
+	struct kgsl_drawobj *drawobj[2];
+	unsigned int type;
+	long result;
+	unsigned int i = 0;
 
-	long result = -EINVAL;
-
-	/*
-	 * The SYNC bit is supposed to identify a dummy sync object so warn the
-	 * user if they specified any IBs with it.  A MARKER command can either
-	 * have IBs or not but if the command has 0 IBs it is automatically
-	 * assumed to be a marker.  If none of the above make sure that the user
-	 * specified a sane number of IBs
-	 */
-	if ((param->flags & KGSL_DRAWOBJ_SYNC) && param->numcmds)
-		KGSL_DEV_ERR_ONCE(device,
-			"Commands specified with the SYNC flag.  They will be ignored\n");
-	else if (!(param->flags & KGSL_DRAWOBJ_SYNC) && param->numcmds == 0)
-		param->flags |= KGSL_DRAWOBJ_MARKER;
-
-	/* Make sure that the memobj and syncpoint count isn't too big */
-	if (param->numcmds > KGSL_MAX_NUMIBS ||
-		param->numobjs > KGSL_MAX_NUMIBS ||
-		param->numsyncs > KGSL_MAX_SYNCPOINTS)
+	type = _process_command_input(device, param->flags, param->numcmds,
+			param->numobjs, param->numsyncs);
+	if (!type)
 		return -EINVAL;
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 	if (context == NULL)
 		return -EINVAL;
 
-	drawobj = kgsl_drawobj_create(device, context, param->flags);
-	if (IS_ERR(drawobj)) {
-		result = PTR_ERR(drawobj);
-		goto done;
+	if (type & SYNCOBJ_TYPE) {
+		struct kgsl_drawobj_sync *syncobj =
+				kgsl_drawobj_sync_create(device, context);
+
+		if (IS_ERR(syncobj)) {
+			result = PTR_ERR(syncobj);
+			goto done;
+		}
+
+		drawobj[i++] = DRAWOBJ(syncobj);
+
+		result = kgsl_drawobj_sync_add_synclist(device, syncobj,
+				to_user_ptr(param->synclist),
+				param->syncsize, param->numsyncs);
+		if (result)
+			goto done;
 	}
 
-	result = kgsl_drawobj_add_cmdlist(device, drawobj,
-		to_user_ptr(param->cmdlist),
-		param->cmdsize, param->numcmds);
-	if (result)
-		goto done;
+	if (type & (CMDOBJ_TYPE | MARKEROBJ_TYPE)) {
+		struct kgsl_drawobj_cmd *cmdobj =
+				kgsl_drawobj_cmd_create(device,
+					context, param->flags, type);
 
-	result = kgsl_drawobj_add_memlist(device, drawobj,
-		to_user_ptr(param->objlist),
-		param->objsize, param->numobjs);
-	if (result)
-		goto done;
+		if (IS_ERR(cmdobj)) {
+			result = PTR_ERR(cmdobj);
+			goto done;
+		}
 
-	result = kgsl_drawobj_add_synclist(device, drawobj,
-		to_user_ptr(param->synclist),
-		param->syncsize, param->numsyncs);
-	if (result)
-		goto done;
+		drawobj[i++] = DRAWOBJ(cmdobj);
 
-	/* If no profiling buffer was specified, clear the flag */
-	if (drawobj->profiling_buf_entry == NULL)
-		drawobj->flags &= ~KGSL_DRAWOBJ_PROFILING;
+		result = kgsl_drawobj_cmd_add_cmdlist(device, cmdobj,
+			to_user_ptr(param->cmdlist),
+			param->cmdsize, param->numcmds);
+		if (result)
+			goto done;
 
-	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
-		drawobj, &param->timestamp);
+		result = kgsl_drawobj_cmd_add_memlist(device, cmdobj,
+			to_user_ptr(param->objlist),
+			param->objsize, param->numobjs);
+		if (result)
+			goto done;
+
+		/* If no profiling buffer was specified, clear the flag */
+		if (cmdobj->profiling_buf_entry == NULL)
+			DRAWOBJ(cmdobj)->flags &= ~KGSL_DRAWOBJ_PROFILING;
+	}
+
+	result = device->ftbl->queue_cmds(dev_priv, context, drawobj,
+				i, &param->timestamp);
 
 done:
 	/*
@@ -1687,7 +1740,8 @@ done:
 	 * context had previously faulted
 	 */
 	if (result && result != -EPROTO)
-		kgsl_drawobj_destroy(drawobj);
+		while (i--)
+			kgsl_drawobj_destroy(drawobj[i]);
 
 	kgsl_context_put(context);
 	return result;

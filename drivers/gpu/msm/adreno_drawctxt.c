@@ -59,14 +59,14 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED, &retire);
 
 	/*
-	 * We may have drawobj timer running, which also uses same
+	 * We may have kgsl sync obj timer running, which also uses same
 	 * lock, take a lock with software interrupt disabled (bh)
 	 * to avoid spin lock recursion.
 	 *
 	 * Use Spin trylock because dispatcher can acquire drawctxt->lock
 	 * if context is pending and the fence it is waiting on just got
 	 * signalled. Dispatcher acquires drawctxt->lock and tries to
-	 * delete the drawobj timer using del_timer_sync().
+	 * delete the sync obj timer using del_timer_sync().
 	 * del_timer_sync() waits till timer and its pending handlers
 	 * are deleted. But if the timer expires at the same time,
 	 * timer handler could be waiting on drawctxt->lock leading to a
@@ -87,19 +87,23 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 		struct kgsl_drawobj *drawobj =
 			drawctxt->drawqueue[drawctxt->drawqueue_head];
 
-		if (test_bit(DRAWOBJ_FLAG_FENCE_LOG, &drawobj->priv)) {
+		if (test_bit(ADRENO_CONTEXT_FENCE_LOG, &context->priv)) {
 			dev_err(device->dev,
 				"  possible deadlock. Context %d might be blocked for itself\n",
 				context->id);
 			goto stats;
 		}
 
-		if (kgsl_drawobj_events_pending(drawobj)) {
-			dev_err(device->dev,
-				"  context[%d] (ts=%d) Active sync points:\n",
-				context->id, drawobj->timestamp);
+		if (drawobj->type == SYNCOBJ_TYPE) {
+			struct kgsl_drawobj_sync *syncobj = SYNCOBJ(drawobj);
 
-			kgsl_dump_syncpoints(device, drawobj);
+			if (kgsl_drawobj_events_pending(syncobj)) {
+				dev_err(device->dev,
+					"  context[%d] (ts=%d) Active sync points:\n",
+					context->id, drawobj->timestamp);
+
+				kgsl_dump_syncpoints(device, syncobj);
+			}
 		}
 	}
 

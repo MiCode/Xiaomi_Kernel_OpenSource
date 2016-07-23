@@ -705,7 +705,7 @@ static int kgsl_cffdump_capture_adreno_ib_cff(struct kgsl_device *device,
  */
 int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 				struct kgsl_context *context,
-				struct kgsl_drawobj *drawobj)
+				struct kgsl_drawobj_cmd *cmdobj)
 {
 	int ret = 0;
 	struct kgsl_memobj_node *ib;
@@ -713,7 +713,7 @@ int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 	if (!device->cff_dump_enable)
 		return 0;
 	/* Dump CFF for IB and all objects in it */
-	list_for_each_entry(ib, &drawobj->cmdlist, node) {
+	list_for_each_entry(ib, &cmdobj->cmdlist, node) {
 		ret = kgsl_cffdump_capture_adreno_ib_cff(
 			device, context->proc_priv, ib->gpuaddr,
 			ib->size >> 2);

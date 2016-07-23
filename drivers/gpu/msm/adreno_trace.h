@@ -100,8 +100,9 @@ TRACE_EVENT(adreno_cmdbatch_submitted,
 TRACE_EVENT(adreno_cmdbatch_retired,
 	TP_PROTO(struct kgsl_drawobj *drawobj, int inflight,
 		uint64_t start, uint64_t retire,
-		struct adreno_ringbuffer *rb, unsigned int rptr),
-	TP_ARGS(drawobj, inflight, start, retire, rb, rptr),
+		struct adreno_ringbuffer *rb, unsigned int rptr,
+		unsigned long fault_recovery),
+	TP_ARGS(drawobj, inflight, start, retire, rb, rptr, fault_recovery),
 	TP_STRUCT__entry(
 		__field(unsigned int, id)
 		__field(unsigned int, timestamp)
@@ -115,12 +116,13 @@ TRACE_EVENT(adreno_cmdbatch_retired,
 		__field(unsigned int, rptr)
 		__field(unsigned int, wptr)
 		__field(int, q_inflight)
+		__field(unsigned long, fault_recovery)
 	),
 	TP_fast_assign(
 		__entry->id = drawobj->context->id;
 		__entry->timestamp = drawobj->timestamp;
 		__entry->inflight = inflight;
-		__entry->recovery = drawobj->fault_recovery;
+		__entry->recovery = fault_recovery;
 		__entry->flags = drawobj->flags;
 		__entry->start = start;
 		__entry->retire = retire;
@@ -147,16 +149,16 @@ TRACE_EVENT(adreno_cmdbatch_retired,
 );
 
 TRACE_EVENT(adreno_cmdbatch_fault,
-	TP_PROTO(struct kgsl_drawobj *drawobj, unsigned int fault),
-	TP_ARGS(drawobj, fault),
+	TP_PROTO(struct kgsl_drawobj_cmd *cmdobj, unsigned int fault),
+	TP_ARGS(cmdobj, fault),
 	TP_STRUCT__entry(
 		__field(unsigned int, id)
 		__field(unsigned int, timestamp)
 		__field(unsigned int, fault)
 	),
 	TP_fast_assign(
-		__entry->id = drawobj->context->id;
-		__entry->timestamp = drawobj->timestamp;
+		__entry->id = cmdobj->base.context->id;
+		__entry->timestamp = cmdobj->base.timestamp;
 		__entry->fault = fault;
 	),
 	TP_printk(
@@ -171,16 +173,16 @@ TRACE_EVENT(adreno_cmdbatch_fault,
 );
 
 TRACE_EVENT(adreno_cmdbatch_recovery,
-	TP_PROTO(struct kgsl_drawobj *drawobj, unsigned int action),
-	TP_ARGS(drawobj, action),
+	TP_PROTO(struct kgsl_drawobj_cmd *cmdobj, unsigned int action),
+	TP_ARGS(cmdobj, action),
 	TP_STRUCT__entry(
 		__field(unsigned int, id)
 		__field(unsigned int, timestamp)
 		__field(unsigned int, action)
 	),
 	TP_fast_assign(
-		__entry->id = drawobj->context->id;
-		__entry->timestamp = drawobj->timestamp;
+		__entry->id = cmdobj->base.context->id;
+		__entry->timestamp = cmdobj->base.timestamp;
 		__entry->action = action;
 	),
 	TP_printk(

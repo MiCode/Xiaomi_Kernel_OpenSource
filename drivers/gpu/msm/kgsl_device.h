@@ -127,9 +127,9 @@ struct kgsl_functable {
 		unsigned int msecs);
 	int (*readtimestamp) (struct kgsl_device *device, void *priv,
 		enum kgsl_timestamp_type type, unsigned int *timestamp);
-	int (*issueibcmds) (struct kgsl_device_private *dev_priv,
-		struct kgsl_context *context, struct kgsl_drawobj *drawobj,
-		uint32_t *timestamps);
+	int (*queue_cmds)(struct kgsl_device_private *dev_priv,
+		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
+		uint32_t count, uint32_t *timestamp);
 	void (*power_stats)(struct kgsl_device *device,
 		struct kgsl_power_stats *stats);
 	unsigned int (*gpuid)(struct kgsl_device *device, unsigned int *chipid);
@@ -184,7 +184,7 @@ long kgsl_ioctl_helper(struct file *filep, unsigned int cmd, unsigned long arg,
 
 /**
  * struct kgsl_memobj_node - Memory object descriptor
- * @node: Local list node for the drawobj
+ * @node: Local list node for the object
  * @id: GPU memory ID for the object
  * offset: Offset within the object
  * @gpuaddr: GPU address for the object

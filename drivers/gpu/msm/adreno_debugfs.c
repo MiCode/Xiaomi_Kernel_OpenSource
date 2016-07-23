@@ -155,10 +155,10 @@ struct flag_entry {
 
 static const struct flag_entry drawobj_flags[] = {KGSL_DRAWOBJ_FLAGS};
 
-static const struct flag_entry drawobj_priv[] = {
-	{ DRAWOBJ_FLAG_SKIP, "skip"},
-	{ DRAWOBJ_FLAG_FORCE_PREAMBLE, "force_preamble"},
-	{ DRAWOBJ_FLAG_WFI, "wait_for_idle" },
+static const struct flag_entry cmdobj_priv[] = {
+	{ CMDOBJ_SKIP, "skip"},
+	{ CMDOBJ_FORCE_PREAMBLE, "force_preamble"},
+	{ CMDOBJ_WFI, "wait_for_idle" },
 };
 
 static const struct flag_entry context_flags[] = {KGSL_CONTEXT_FLAGS};
@@ -199,42 +199,54 @@ static void print_flags(struct seq_file *s, const struct flag_entry *table,
 		seq_puts(s, "None");
 }
 
-static void drawobj_print(struct seq_file *s, struct kgsl_drawobj *drawobj)
+static void syncobj_print(struct seq_file *s,
+			struct kgsl_drawobj_sync *syncobj)
 {
 	struct kgsl_drawobj_sync_event *event;
 	unsigned int i;
 
-	/* print fences first, since they block this drawobj */
+	seq_puts(s, " syncobj ");
 
-	for (i = 0; i < drawobj->numsyncs; i++) {
-		event = &drawobj->synclist[i];
+	for (i = 0; i < syncobj->numsyncs; i++) {
+		event = &syncobj->synclist[i];
 
-		if (!kgsl_drawobj_event_pending(drawobj, i))
+		if (!kgsl_drawobj_event_pending(syncobj, i))
 			continue;
 
-		/*
-		 * Timestamp is 0 for KGSL_CONTEXT_SYNC, but print it anyways
-		 * so that it is clear if the fence was a separate submit
-		 * or part of an IB submit.
-		 */
-		seq_printf(s, "\t%d ", drawobj->timestamp);
 		sync_event_print(s, event);
 		seq_puts(s, "\n");
 	}
+}
 
-	/* if this flag is set, there won't be an IB */
-	if (drawobj->flags & KGSL_CONTEXT_SYNC)
-		return;
+static void cmdobj_print(struct seq_file *s,
+			struct kgsl_drawobj_cmd *cmdobj)
+{
+	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 
-	seq_printf(s, "\t%d: ", drawobj->timestamp);
+	if (drawobj->type == CMDOBJ_TYPE)
+		seq_puts(s, " cmdobj ");
+	else
+		seq_puts(s, " markerobj ");
+
+	seq_printf(s, "\t %d ", drawobj->timestamp);
+
+	seq_puts(s, " priv: ");
+	print_flags(s, cmdobj_priv, ARRAY_SIZE(cmdobj_priv),
+				cmdobj->priv);
+}
+
+static void drawobj_print(struct seq_file *s,
+			struct kgsl_drawobj *drawobj)
+{
+	if (drawobj->type == SYNCOBJ_TYPE)
+		syncobj_print(s, SYNCOBJ(drawobj));
+	else if ((drawobj->type == CMDOBJ_TYPE) ||
+			(drawobj->type == MARKEROBJ_TYPE))
+		cmdobj_print(s, CMDOBJ(drawobj));
 
 	seq_puts(s, " flags: ");
 	print_flags(s, drawobj_flags, ARRAY_SIZE(drawobj_flags),
 		    drawobj->flags);
-
-	seq_puts(s, " priv: ");
-	print_flags(s, drawobj_priv, ARRAY_SIZE(drawobj_priv),
-		    drawobj->priv);
 
 	seq_puts(s, "\n");
 }

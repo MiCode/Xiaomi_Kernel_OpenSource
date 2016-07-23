@@ -50,7 +50,7 @@ enum adreno_dispatcher_starve_timer_states {
 
 /**
  * struct adreno_dispatcher_drawqueue - List of commands for a RB level
- * @cmd_q: List of drawobjs submitted to dispatcher
+ * @cmd_q: List of command obj's submitted to dispatcher
  * @inflight: Number of commands inflight in this q
  * @head: Head pointer to the q
  * @tail: Queues tail pointer
@@ -58,7 +58,7 @@ enum adreno_dispatcher_starve_timer_states {
  * @expires: The jiffies value at which this drawqueue has run too long
  */
 struct adreno_dispatcher_drawqueue {
-	struct kgsl_drawobj *cmd_q[ADRENO_DISPATCH_DRAWQUEUE_SIZE];
+	struct kgsl_drawobj_cmd *cmd_q[ADRENO_DISPATCH_DRAWQUEUE_SIZE];
 	unsigned int inflight;
 	unsigned int head;
 	unsigned int tail;
@@ -109,9 +109,9 @@ int adreno_dispatcher_idle(struct adreno_device *adreno_dev);
 void adreno_dispatcher_irq_fault(struct adreno_device *adreno_dev);
 void adreno_dispatcher_stop(struct adreno_device *adreno_dev);
 
-int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
-		struct adreno_context *drawctxt, struct kgsl_drawobj *drawobj,
-		uint32_t *timestamp);
+int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
+		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
+		uint32_t count, uint32_t *timestamp);
 
 void adreno_dispatcher_schedule(struct kgsl_device *device);
 void adreno_dispatcher_pause(struct adreno_device *adreno_dev);
