@@ -39,6 +39,10 @@ static enum wcd9xxx_intf_status wcd9xxx_intf = -1;
 
 static struct mfd_cell tavil_devs[] = {
 	{
+		.name = "qcom-wcd-pinctrl",
+		.of_compatible = "qcom,wcd-pinctrl",
+	},
+	{
 		.name = "tavil_codec",
 	},
 };
