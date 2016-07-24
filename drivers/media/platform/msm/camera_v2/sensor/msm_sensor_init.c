@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,8 +49,10 @@ static int msm_sensor_wait_for_probe_done(struct msm_sensor_init_t *s_init)
 	}
 	rc = wait_event_timeout(s_init->state_wait,
 		(s_init->module_init_status == 1), msecs_to_jiffies(tm));
-	if (rc == 0)
+	if (rc == 0) {
 		pr_err("%s:%d wait timeout\n", __func__, __LINE__);
+		rc = -1;
+	}
 
 	return rc;
 }
@@ -64,7 +66,7 @@ static int32_t msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init,
 
 	/* Validate input parameters */
 	if (!s_init || !cfg) {
-		pr_err("failed: s_init %p cfg %p", s_init, cfg);
+		pr_err("failed: s_init %pK cfg %pK", s_init, cfg);
 		return -EINVAL;
 	}
 
@@ -86,7 +88,7 @@ static int32_t msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init,
 		break;
 
 	case CFG_SINIT_PROBE_WAIT_DONE:
-		msm_sensor_wait_for_probe_done(s_init);
+		rc = msm_sensor_wait_for_probe_done(s_init);
 		break;
 
 	default:
@@ -106,7 +108,7 @@ static long msm_sensor_init_subdev_ioctl(struct v4l2_subdev *sd,
 
 	/* Validate input parameters */
 	if (!s_init) {
-		pr_err("failed: s_init %p", s_init);
+		pr_err("failed: s_init %pK", s_init);
 		return -EINVAL;
 	}
 
@@ -167,12 +169,10 @@ static int __init msm_sensor_init_module(void)
 	int ret = 0;
 	/* Allocate memory for msm_sensor_init control structure */
 	s_init = kzalloc(sizeof(struct msm_sensor_init_t), GFP_KERNEL);
-	if (!s_init) {
-		pr_err("failed: no memory s_init %p", NULL);
+	if (!s_init)
 		return -ENOMEM;
-	}
 
-	CDBG("MSM_SENSOR_INIT_MODULE %p", NULL);
+	CDBG("MSM_SENSOR_INIT_MODULE %pK", NULL);
 
 	/* Initialize mutex */
 	mutex_init(&s_init->imutex);

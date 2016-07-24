@@ -15,6 +15,7 @@ Required properties for child node:
     - "qcom,vfe44"
     - "qcom,vfe46"
     - "qcom,vfe47"
+    - "qcom,vfe48"
 - reg : offset and length of the register set for the device
     for the vfe operating in compatible mode. For parent node, add union of
     all registers for both vfe.

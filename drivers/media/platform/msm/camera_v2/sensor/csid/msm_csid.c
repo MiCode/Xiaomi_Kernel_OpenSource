@@ -194,9 +194,20 @@ static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 	struct msm_camera_csid_params *csid_params) {}
 #endif
 
-static void msm_csid_set_sof_freeze_debug_reg(struct csid_device *csid_dev)
+static void msm_csid_set_sof_freeze_debug_reg(
+	struct csid_device *csid_dev, uint8_t irq_enable)
 {
 	uint32_t val = 0;
+
+	if (!irq_enable) {
+		val = msm_camera_io_r(csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
+		msm_camera_io_w(val, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
+		msm_camera_io_w(0, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
+		return;
+	}
 
 	if (csid_dev->csid_3p_enabled == 1) {
 		val = ((1 << csid_dev->current_csid_params.lane_cnt) - 1) <<
@@ -265,7 +276,7 @@ static int msm_csid_config(struct csid_device *csid_dev,
 	void __iomem *csidbase;
 	csidbase = csid_dev->base;
 	if (!csidbase || !csid_params) {
-		pr_err("%s:%d csidbase %p, csid params %p\n", __func__,
+		pr_err("%s:%d csidbase %pK, csid params %pK\n", __func__,
 			__LINE__, csidbase, csid_params);
 		return -EINVAL;
 	}
@@ -446,6 +457,16 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 		pr_err("%s:%d csid_dev NULL\n", __func__, __LINE__);
 		return IRQ_HANDLED;
 	}
+
+	if (csid_dev->csid_sof_debug == SOF_DEBUG_ENABLE) {
+		if (csid_dev->csid_sof_debug_count < CSID_SOF_DEBUG_COUNT)
+			csid_dev->csid_sof_debug_count++;
+		else {
+			msm_csid_set_sof_freeze_debug_reg(csid_dev, false);
+			return IRQ_HANDLED;
+		}
+	}
+
 	irq = msm_camera_io_r(csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
 	pr_err_ratelimited("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
@@ -480,6 +501,7 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 		return rc;
 	}
 
+	csid_dev->csid_sof_debug_count = 0;
 	csid_dev->reg_ptr = NULL;
 
 	if (csid_dev->csid_state == CSID_POWER_UP) {
@@ -651,7 +673,7 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
 	struct csid_cfg_data *cdata = (struct csid_cfg_data *)arg;
 
 	if (!csid_dev || !cdata) {
-		pr_err("%s:%d csid_dev %p, cdata %p\n", __func__, __LINE__,
+		pr_err("%s:%d csid_dev %pK, cdata %pK\n", __func__, __LINE__,
 			csid_dev, cdata);
 		return -EINVAL;
 	}
@@ -760,13 +782,14 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 			break;
 		if (csid_dev->csid_sof_debug == SOF_DEBUG_DISABLE) {
 			csid_dev->csid_sof_debug = SOF_DEBUG_ENABLE;
-			msm_csid_set_sof_freeze_debug_reg(csid_dev);
+			msm_csid_set_sof_freeze_debug_reg(csid_dev, true);
 		}
 		break;
 	case MSM_SD_UNNOTIFY_FREEZE:
 		if (csid_dev->csid_state != CSID_POWER_UP)
 			break;
 		csid_dev->csid_sof_debug = SOF_DEBUG_DISABLE;
+		msm_csid_set_sof_freeze_debug_reg(csid_dev, false);
 		break;
 	case VIDIOC_MSM_CSID_RELEASE:
 	case MSM_SD_SHUTDOWN:
@@ -792,7 +815,7 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 	cdata = &local_arg;
 
 	if (!csid_dev || !cdata) {
-		pr_err("%s:%d csid_dev %p, cdata %p\n", __func__, __LINE__,
+		pr_err("%s:%d csid_dev %pK, cdata %pK\n", __func__, __LINE__,
 			csid_dev, cdata);
 		return -EINVAL;
 	}
@@ -916,13 +939,14 @@ static long msm_csid_subdev_ioctl32(struct v4l2_subdev *sd,
 			break;
 		if (csid_dev->csid_sof_debug == SOF_DEBUG_DISABLE) {
 			csid_dev->csid_sof_debug = SOF_DEBUG_ENABLE;
-			msm_csid_set_sof_freeze_debug_reg(csid_dev);
+			msm_csid_set_sof_freeze_debug_reg(csid_dev, true);
 		}
 		break;
 	case MSM_SD_UNNOTIFY_FREEZE:
 		if (csid_dev->csid_state != CSID_POWER_UP)
 			break;
 		csid_dev->csid_sof_debug = SOF_DEBUG_DISABLE;
+		msm_csid_set_sof_freeze_debug_reg(csid_dev, false);
 		break;
 	case VIDIOC_MSM_CSID_RELEASE:
 	case MSM_SD_SHUTDOWN:

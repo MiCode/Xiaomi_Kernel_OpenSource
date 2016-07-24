@@ -40,6 +40,8 @@
 
 #include <asm/current.h>
 
+#include "peripheral-loader.h"
+
 #define DISABLE_SSR 0x9889deed
 /* If set to 0x9889deed, call to subsystem_restart_dev() returns immediately */
 static uint disable_restart_work;
@@ -267,7 +269,8 @@ static ssize_t firmware_name_store(struct device *dev,
 
 	pr_info("Changing subsys fw_name to %s\n", buf);
 	mutex_lock(&track->lock);
-	strlcpy(subsys->desc->fw_name, buf, count + 1);
+	strlcpy(subsys->desc->fw_name, buf,
+			min(count + 1, sizeof(subsys->desc->fw_name)));
 	mutex_unlock(&track->lock);
 	return orig_count;
 }
@@ -597,8 +600,8 @@ static int wait_for_err_ready(struct subsys_device *subsys)
 	 * If subsys is using generic_irq in which case err_ready_irq will be 0,
 	 * don't return.
 	 */
-	if ((subsys->desc->generic_irq <= 0 && !subsys->desc->err_ready_irq)
-							|| enable_debug == 1)
+	if ((subsys->desc->generic_irq <= 0 && !subsys->desc->err_ready_irq) ||
+				enable_debug == 1 || is_timeout_disabled())
 		return 0;
 
 	ret = wait_for_completion_timeout(&subsys->err_ready,

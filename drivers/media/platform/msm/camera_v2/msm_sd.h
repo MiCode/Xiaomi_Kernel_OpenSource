@@ -72,6 +72,8 @@ struct msm_sd_req_vb2_q {
 	struct vb2_buffer * (*get_buf)(int session_id, unsigned int stream_id);
 	struct vb2_queue * (*get_vb2_queue)(int session_id,
 		unsigned int stream_id);
+	struct vb2_buffer * (*get_buf_by_idx)(int session_id,
+		unsigned int stream_id, uint32_t index);
 	int (*put_buf)(struct vb2_buffer *vb2_buf, int session_id,
 		unsigned int stream_id);
 	int (*buf_done)(struct vb2_buffer *vb2_buf, int session_id,
@@ -83,6 +85,9 @@ struct msm_sd_req_vb2_q {
 #define MSM_SD_NOTIFY_GET_SD 0x00000001
 #define MSM_SD_NOTIFY_PUT_SD 0x00000002
 #define MSM_SD_NOTIFY_REQ_CB 0x00000003
+
+#define MSM_CAM_GET_IOCTL_ARG_PTR(ptr, \
+	ioctl_ptr, len) memcpy(ptr, ioctl_ptr, len)
 
 int msm_sd_register(struct msm_sd_subdev *msm_subdev);
 int msm_sd_unregister(struct msm_sd_subdev *sd);
