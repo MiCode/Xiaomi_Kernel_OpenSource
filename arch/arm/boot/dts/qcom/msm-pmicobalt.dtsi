@@ -603,6 +603,8 @@
 			qcom,short-circuit-det;
 			qcom,open-circuit-det;
 			qcom,vph-droop-det;
+			qcom,thermal-derate-en;
+			qcom,thermal-derate-current = <200 500 1000>;
 			qcom,isc-delay = <192>;
 
 			pmicobalt_flash0: qcom,flash_0 {
