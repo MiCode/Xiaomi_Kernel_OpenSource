@@ -65,6 +65,10 @@
 #define IPA2_ACTIVE_CLIENT_LOG_TYPE_RESOURCE 2
 #define IPA2_ACTIVE_CLIENT_LOG_TYPE_SPECIAL 3
 
+#define MAX_POLLING_ITERATION 40
+#define MIN_POLLING_ITERATION 1
+#define ONE_MSEC 1
+
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
 
@@ -3698,6 +3702,19 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->use_dma_zone = resource_p->use_dma_zone;
 	ipa_ctx->tethered_flow_control = resource_p->tethered_flow_control;
 
+	/* Setting up IPA RX Polling Timeout Seconds */
+	ipa_rx_timeout_min_max_calc(&ipa_ctx->ipa_rx_min_timeout_usec,
+		&ipa_ctx->ipa_rx_max_timeout_usec,
+		resource_p->ipa_rx_polling_sleep_msec);
+
+	/* Setting up ipa polling iteration */
+	if ((resource_p->ipa_polling_iteration >= MIN_POLLING_ITERATION)
+		&& (resource_p->ipa_polling_iteration <= MAX_POLLING_ITERATION))
+		ipa_ctx->ipa_polling_iteration =
+			resource_p->ipa_polling_iteration;
+	else
+		ipa_ctx->ipa_polling_iteration = MAX_POLLING_ITERATION;
+
 	/* default aggregation parameters */
 	ipa_ctx->aggregation_type = IPA_MBIM_16;
 	ipa_ctx->aggregation_byte_limit = 1;
@@ -4352,6 +4369,31 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			&ipa_drv_res->ee);
 	if (result)
 		ipa_drv_res->ee = 0;
+
+	/* Get IPA RX Polling Timeout Seconds */
+	result = of_property_read_u32(pdev->dev.of_node,
+				"qcom,rx-polling-sleep-ms",
+				&ipa_drv_res->ipa_rx_polling_sleep_msec);
+
+	if (result) {
+		ipa_drv_res->ipa_rx_polling_sleep_msec = ONE_MSEC;
+		IPADBG("using default polling timeout of 1MSec\n");
+	} else {
+		IPADBG(": found ipa_drv_res->ipa_rx_polling_sleep_sec = %d",
+			ipa_drv_res->ipa_rx_polling_sleep_msec);
+	}
+
+	/* Get IPA Polling Iteration */
+	result = of_property_read_u32(pdev->dev.of_node,
+				"qcom,ipa-polling-iteration",
+				&ipa_drv_res->ipa_polling_iteration);
+	if (result) {
+		ipa_drv_res->ipa_polling_iteration = MAX_POLLING_ITERATION;
+		IPADBG("using default polling iteration\n");
+	} else {
+		IPADBG(": found ipa_drv_res->ipa_polling_iteration = %d",
+			ipa_drv_res->ipa_polling_iteration);
+	}
 
 	return 0;
 }
