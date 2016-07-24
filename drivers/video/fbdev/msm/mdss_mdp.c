@@ -1638,9 +1638,16 @@ static int mdss_mdp_gdsc_notifier_call(struct notifier_block *self,
 	if (event & REGULATOR_EVENT_ENABLE) {
 		__mdss_restore_sec_cfg(mdata);
 	} else if (event & REGULATOR_EVENT_PRE_DISABLE) {
-		pr_debug("mdss gdsc is getting disabled\n");
-		/* halt the vbif transactions */
-		mdss_mdp_vbif_axi_halt(mdata);
+		int active_cnt = atomic_read(&mdata->active_intf_cnt);
+
+		pr_debug("mdss gdsc is getting disabled, active_cnt=%d\n",
+			active_cnt);
+		/*
+		 * halt the vbif transactions only if we have any active
+		 * overlay session
+		 */
+		if (active_cnt)
+			mdss_mdp_vbif_axi_halt(mdata);
 	}
 
 	return NOTIFY_OK;
