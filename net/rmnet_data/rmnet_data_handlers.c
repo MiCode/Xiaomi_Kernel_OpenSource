@@ -22,6 +22,7 @@
 #include <linux/netdev_features.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
+#include <net/rmnet_config.h>
 #include "rmnet_data_private.h"
 #include "rmnet_data_config.h"
 #include "rmnet_data_vnd.h"
@@ -321,7 +322,7 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
  *      - RX_HANDLER_PASS if packet should be passed up the stack by caller
  */
 static rx_handler_result_t rmnet_ingress_deliver_packet(struct sk_buff *skb,
-					    struct rmnet_phys_ep_conf_s *config)
+					   struct rmnet_phys_ep_config *config)
 {
 	if (!config) {
 		LOGD("%s", "NULL physical EP provided");
@@ -356,7 +357,7 @@ static rx_handler_result_t rmnet_ingress_deliver_packet(struct sk_buff *skb,
  *      - result of __rmnet_deliver_skb() for all other cases
  */
 static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
-					    struct rmnet_phys_ep_conf_s *config)
+					   struct rmnet_phys_ep_config *config)
 {
 	struct rmnet_logical_ep_conf_s *ep;
 	uint8_t mux_id;
@@ -440,7 +441,7 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
  *      - result of _rmnet_map_ingress_handler() for all other cases
  */
 static rx_handler_result_t rmnet_map_ingress_handler(struct sk_buff *skb,
-					    struct rmnet_phys_ep_conf_s *config)
+					   struct rmnet_phys_ep_config *config)
 {
 	struct sk_buff *skbn;
 	int rc, co = 0;
@@ -480,7 +481,7 @@ static rx_handler_result_t rmnet_map_ingress_handler(struct sk_buff *skb,
  *      - 1 on failure
  */
 static int rmnet_map_egress_handler(struct sk_buff *skb,
-				    struct rmnet_phys_ep_conf_s *config,
+				    struct rmnet_phys_ep_config *config,
 				    struct rmnet_logical_ep_conf_s *ep,
 				    struct net_device *orig_dev)
 {
@@ -563,7 +564,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
  */
 rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 {
-	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *config;
 	struct net_device *dev;
 	int rc;
 
@@ -574,8 +575,7 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 	trace_rmnet_ingress_handler(skb);
 	rmnet_print_packet(skb, dev->name, 'r');
 
-	config = (struct rmnet_phys_ep_conf_s *)
-		rcu_dereference(skb->dev->rx_handler_data);
+	config = _rmnet_get_phys_ep_config(skb->dev);
 
 	if (!config) {
 		LOGD("%s is not associated with rmnet_data", skb->dev->name);
@@ -654,14 +654,13 @@ rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
 void rmnet_egress_handler(struct sk_buff *skb,
 			  struct rmnet_logical_ep_conf_s *ep)
 {
-	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *config;
 	struct net_device *orig_dev;
 	int rc;
 	orig_dev = skb->dev;
 	skb->dev = ep->egress_dev;
 
-	config = (struct rmnet_phys_ep_conf_s *)
-		rcu_dereference(skb->dev->rx_handler_data);
+	config = _rmnet_get_phys_ep_config(skb->dev);
 
 	if (!config) {
 		LOGD("%s is not associated with rmnet_data", skb->dev->name);

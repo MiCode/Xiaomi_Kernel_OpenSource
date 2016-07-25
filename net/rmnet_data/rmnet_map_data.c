@@ -31,6 +31,7 @@
 #include <net/ip.h>
 #include <net/checksum.h>
 #include <net/ip6_checksum.h>
+#include <net/rmnet_config.h>
 #include "rmnet_data_config.h"
 #include "rmnet_map.h"
 #include "rmnet_data_private.h"
@@ -52,7 +53,7 @@ MODULE_PARM_DESC(agg_bypass_time, "Skip agg when apart spaced more than this");
 
 struct agg_work {
 	struct delayed_work work;
-	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *config;
 };
 
 #define RMNET_MAP_DEAGGR_SPACING  64
@@ -131,7 +132,7 @@ done:
  *     - 0 (null) if no more aggregated packets
  */
 struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
-				      struct rmnet_phys_ep_conf_s *config)
+				      struct rmnet_phys_ep_config *config)
 {
 	struct sk_buff *skbn;
 	struct rmnet_map_header_s *maph;
@@ -185,7 +186,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 static void rmnet_map_flush_packet_queue(struct work_struct *work)
 {
 	struct agg_work *real_work;
-	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *config;
 	unsigned long flags;
 	struct sk_buff *skb;
 	int rc, agg_count = 0;
@@ -233,7 +234,7 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
  * the argument SKB and should not be further processed by any other function.
  */
 void rmnet_map_aggregate(struct sk_buff *skb,
-			 struct rmnet_phys_ep_conf_s *config) {
+			 struct rmnet_phys_ep_config *config) {
 	uint8_t *dest_buff;
 	struct agg_work *work;
 	unsigned long flags;

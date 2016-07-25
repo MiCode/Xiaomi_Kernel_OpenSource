@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
 #include <linux/rmnet_data.h>
+#include <net/rmnet_config.h>
 #include "rmnet_data_config.h"
 #include "rmnet_data_handlers.h"
 #include "rmnet_data_vnd.h"
@@ -141,14 +142,22 @@ static inline int _rmnet_is_physical_endpoint_associated(struct net_device *dev)
  *     - pointer to configuration if successful
  *     - 0 (null) if device is not associated
  */
-static inline struct rmnet_phys_ep_conf_s *_rmnet_get_phys_ep_config
-							(struct net_device *dev)
+struct rmnet_phys_ep_config *_rmnet_get_phys_ep_config
+						(struct net_device *dev)
 {
-	if (_rmnet_is_physical_endpoint_associated(dev))
-		return (struct rmnet_phys_ep_conf_s *)
-			rcu_dereference(dev->rx_handler_data);
-	else
+	struct rmnet_phys_ep_conf_s *_rmnet_phys_ep_config;
+
+	if (_rmnet_is_physical_endpoint_associated(dev)) {
+		_rmnet_phys_ep_config = (struct rmnet_phys_ep_conf_s *)
+					rcu_dereference(dev->rx_handler_data);
+		if (_rmnet_phys_ep_config && _rmnet_phys_ep_config->config)
+			return (struct rmnet_phys_ep_config *)
+					_rmnet_phys_ep_config->config;
+		else
+			return 0;
+	} else {
 		return 0;
+	}
 }
 
 /**
@@ -165,7 +174,7 @@ static inline struct rmnet_phys_ep_conf_s *_rmnet_get_phys_ep_config
 struct rmnet_logical_ep_conf_s *_rmnet_get_logical_ep(struct net_device *dev,
 						      int config_id)
 {
-	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *config;
 	struct rmnet_logical_ep_conf_s *epconfig_l;
 
 	if (rmnet_vnd_is_vnd(dev))
@@ -400,7 +409,7 @@ static void _rmnet_netlink_get_link_egress_data_format
 					 struct rmnet_nl_msg_s *resp_rmnet)
 {
 	struct net_device *dev;
-	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *config;
 	_RMNET_NETLINK_NULL_CHECKS();
 	resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
 
@@ -432,7 +441,7 @@ static void _rmnet_netlink_get_link_ingress_data_format
 					 struct rmnet_nl_msg_s *resp_rmnet)
 {
 	struct net_device *dev;
-	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *config;
 	_RMNET_NETLINK_NULL_CHECKS();
 	resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
 
@@ -725,7 +734,7 @@ int rmnet_set_ingress_data_format(struct net_device *dev,
 				  uint32_t ingress_data_format,
 				  uint8_t  tail_spacing)
 {
-	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *config;
 	ASSERT_RTNL();
 
 	LOGL("(%s,0x%08X);", dev->name, ingress_data_format);
@@ -762,7 +771,7 @@ int rmnet_set_egress_data_format(struct net_device *dev,
 				 uint16_t agg_size,
 				 uint16_t agg_count)
 {
-	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *config;
 	ASSERT_RTNL();
 
 	LOGL("(%s,0x%08X, %d, %d);",
@@ -800,7 +809,9 @@ int rmnet_set_egress_data_format(struct net_device *dev,
 int rmnet_associate_network_device(struct net_device *dev)
 {
 	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_phys_ep_config *conf;
 	int rc;
+
 	ASSERT_RTNL();
 
 	LOGL("(%s);\n", dev->name);
@@ -819,19 +830,25 @@ int rmnet_associate_network_device(struct net_device *dev)
 	}
 
 	config = kmalloc(sizeof(*config), GFP_ATOMIC);
+	conf = kmalloc(sizeof(*conf), GFP_ATOMIC);
 
-	if (!config)
+	if (!config || !conf)
 		return RMNET_CONFIG_NOMEM;
 
 	memset(config, 0, sizeof(struct rmnet_phys_ep_conf_s));
-	config->dev = dev;
-	spin_lock_init(&config->agg_lock);
+	memset(conf, 0, sizeof(struct rmnet_phys_ep_config));
+
+	config->config = conf;
+	conf->dev = dev;
+	spin_lock_init(&conf->agg_lock);
+	config->recycle = kfree_skb;
 
 	rc = netdev_rx_handler_register(dev, rmnet_rx_handler, config);
 
 	if (rc) {
 		LOGM("netdev_rx_handler_register returns %d", rc);
 		kfree(config);
+		kfree(conf);
 		return RMNET_CONFIG_DEVICE_IN_USE;
 	}
 
