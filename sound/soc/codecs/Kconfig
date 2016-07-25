@@ -739,9 +739,6 @@ config SND_SOC_WSA881X_ANALOG
         tristate
 	select REGMAP_I2C
 
-config SND_SOC_MSM8X16_WCD
-	tristate
-
 config SND_SOC_WCD9XXX
 	tristate
 	default y if SND_SOC_WCD9320=y || SND_SOC_WCD9330=y || SND_SOC_WCD9335=y
@@ -984,4 +981,7 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 	help
 	HDMI audio drivers should be built only if the platform
         supports hdmi panel.
+
+source "sound/soc/codecs/msm8x16/Kconfig"
+
 endmenu
