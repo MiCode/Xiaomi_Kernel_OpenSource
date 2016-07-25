@@ -227,6 +227,7 @@ struct kgsl_device {
 	/* GPU shader memory size */
 	unsigned int shader_mem_len;
 	struct kgsl_memdesc memstore;
+	struct kgsl_memdesc scratch;
 	const char *iomemname;
 	const char *shadermemname;
 

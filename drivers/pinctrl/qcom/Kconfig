@@ -120,4 +120,11 @@ config PINCTRL_MSMFALCON
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm TLMM block found in the Qualcomm MSMFALCON platform.
 
+config PINCTRL_WCD
+	tristate "Qualcomm Technologies, Inc WCD pin controller driver"
+	depends on WCD934X_CODEC
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  WCD gpio controller block.
+
 endif

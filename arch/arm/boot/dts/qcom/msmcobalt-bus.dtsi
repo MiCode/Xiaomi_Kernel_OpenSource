@@ -131,6 +131,16 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 				<&clock_gcc clk_mmssnoc_axi_a_clk>;
+			clk-mdss-axi-no-rate-supply =
+					<&gdsc_mdss>;
+			clk-mdss-ahb-no-rate-supply =
+					<&gdsc_mdss>;
+			clk-camss-ahb-no-rate-supply =
+					<&gdsc_camss_top>;
+			clk-video-ahb-no-rate-supply =
+					<&gdsc_venus>;
+			clk-video-axi-no-rate-supply =
+					<&gdsc_venus>;
 			qcom,node-qos-clks {
 				clock-names =
 				"clk-noc-cfg-ahb-no-rate",
@@ -141,6 +151,7 @@
 				"clk-video-ahb-no-rate",
 				"clk-video-axi-no-rate";
 				clocks =
+				<&clock_gcc clk_mmssnoc_axi_clk>,
 				<&clock_gcc clk_gcc_mmss_noc_cfg_ahb_clk>,
 				<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 				<&clock_mmss clk_mmss_mdss_ahb_clk>,

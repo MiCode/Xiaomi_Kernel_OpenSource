@@ -130,6 +130,68 @@
 	};
 
 	soc: soc { };
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		removed_regions: removed_regions@85800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85800000 0x0 0x3700000>;
+		};
+
+		modem_fw_mem: modem_fw_region@8ac00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x8ac00000 0x0 0x7800000>;
+		};
+
+		adsp_fw_mem: adsp_fw_region@92400000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x92400000 0x0 0x1e00000>;
+		};
+
+		cdsp_fw_mem: cdsp_fw_region@94200000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x94200000 0x0 0x600000>;
+		};
+
+		venus_fw_mem: venus_fw_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x80000000 0x0 0x20000000>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x800000>;
+		};
+
+		adsp_mem: adsp_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x400000>;
+		};
+
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1400000>;
+		};
+
+		secure_display_memory: secure_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x5c00000>;
+		};
+	};
 };
 
 &soc {
@@ -251,4 +313,59 @@
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
+
+	qcom,ipc-spinlock@1f40000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0x1f40000 0x8000>;
+		qcom,num-locks = <8>;
+	};
+
+	qcom,smem@86000000 {
+		compatible = "qcom,smem";
+		reg = <0x86000000 0x200000>,
+			<0x17911008 0x4>,
+			<0x778000 0x7000>,
+			<0x1fd4000 0x8>;
+		reg-names = "smem", "irq-reg-base", "aux-mem1",
+			"smem_targ_info_reg";
+		qcom,mpu-enabled;
+	};
+
+	glink_mpss: qcom,glink-ssr-modem {
+		compatible = "qcom,glink_ssr";
+		label = "modem";
+		qcom,edge = "mpss";
+		qcom,notify-edges = <&glink_lpass>, <&glink_rpm>,
+				<&glink_cdsp>;
+		qcom,xprt = "smem";
+	};
+
+	glink_lpass: qcom,glink-ssr-adsp {
+		compatible = "qcom,glink_ssr";
+		label = "adsp";
+		qcom,edge = "lpass";
+		qcom,notify-edges = <&glink_mpss>, <&glink_rpm>,
+				<&glink_cdsp>;
+		qcom,xprt = "smem";
+	};
+
+	glink_rpm: qcom,glink-ssr-rpm {
+		compatible = "qcom,glink_ssr";
+		label = "rpm";
+		qcom,edge = "rpm";
+		qcom,notify-edges = <&glink_lpass>, <&glink_mpss>,
+				<&glink_cdsp>;
+		qcom,xprt = "smem";
+	};
+
+	glink_cdsp: qcom,glink-ssr-cdsp {
+		compatible = "qcom,glink_ssr";
+		label = "cdsp";
+		qcom,edge = "cdsp";
+		qcom,notify-edges = <&glink_lpass>, <&glink_mpss>,
+				<&glink_rpm>;
+		qcom,xprt = "smem";
+	};
 };
+
+#include "msmfalcon-ion.dtsi"

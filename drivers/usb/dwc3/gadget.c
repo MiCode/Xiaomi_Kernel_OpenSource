@@ -1787,6 +1787,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 	if (is_on) {
+		dbg_event(0xFF, "Pullup_enable", is_on);
 		if (dwc->revision <= DWC3_REVISION_187A) {
 			reg &= ~DWC3_DCTL_TRGTULST_MASK;
 			reg |= DWC3_DCTL_TRGTULST_RX_DET;
@@ -1824,6 +1825,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 		dwc->pullups_connected = true;
 	} else {
+		dbg_event(0xFF, "Pullup_disable", is_on);
 		dwc3_gadget_disable_irq(dwc);
 		__dwc3_gadget_ep_disable(dwc->eps[0]);
 		__dwc3_gadget_ep_disable(dwc->eps[1]);
@@ -1849,8 +1851,15 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 				break;
 		}
 		timeout--;
-		if (!timeout)
+		if (!timeout) {
+			dev_err(dwc->dev, "failed to %s controller\n",
+					is_on ? "start" : "stop");
+			if (is_on)
+				dbg_event(0xFF, "STARTTOUT", reg);
+			else
+				dbg_event(0xFF, "STOPTOUT", reg);
 			return -ETIMEDOUT;
+		}
 		udelay(1);
 	} while (1);
 

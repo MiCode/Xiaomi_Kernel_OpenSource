@@ -82,7 +82,7 @@
 	rpm-regulator-smpa5 {
 		status = "okay";
 		pmcobalt_s5: regulator-s5 {
-			regulator-min-microvolt = <2040000>;
+			regulator-min-microvolt = <1904000>;
 			regulator-max-microvolt = <2040000>;
 			status = "okay";
 		};
@@ -91,7 +91,7 @@
 	rpm-regulator-smpa7 {
 		status = "okay";
 		pmcobalt_s7: regulator-s7 {
-			regulator-min-microvolt = <1028000>;
+			regulator-min-microvolt = <900000>;
 			regulator-max-microvolt = <1028000>;
 			status = "okay";
 		};

@@ -363,6 +363,9 @@ struct hfi_hybrid_hierp {
 #define HFI_RATE_CONTROL_VBR_CFR	(HFI_OX_BASE + 0x3)
 #define HFI_RATE_CONTROL_CBR_VFR	(HFI_OX_BASE + 0x4)
 #define HFI_RATE_CONTROL_CBR_CFR	(HFI_OX_BASE + 0x5)
+#define HFI_RATE_CONTROL_MBR_CFR	(HFI_OX_BASE + 0x6)
+#define HFI_RATE_CONTROL_MBR_VFR	(HFI_OX_BASE + 0x7)
+
 
 struct hfi_uncompressed_plane_actual_constraints_info {
 	u32 buffer_type;

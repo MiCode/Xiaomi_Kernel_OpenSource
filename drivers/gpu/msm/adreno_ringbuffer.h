@@ -73,13 +73,16 @@ struct adreno_ringbuffer_pagetable_info {
 	unsigned int contextidr;
 };
 
+#define PT_INFO_OFFSET(_field) \
+	offsetof(struct adreno_ringbuffer_pagetable_info, _field)
+
 /**
  * struct adreno_ringbuffer - Definition for an adreno ringbuffer object
  * @flags: Internal control flags for the ringbuffer
- * @buffer_desc: Pointer to the ringbuffer memory descriptor
- * @wptr: Local copy of the wptr offset
- * @rptr: Read pointer offset in dwords from baseaddr
- * @last_wptr: offset of the last H/W committed wptr
+ * @buffer_desc: Pointer to the ringbuffer memory descripto
+ * @_wptr: The next value of wptr to be written to the hardware on submit
+ * @wptr: Local copy of the wptr offset last written to hardware
+ * @last_wptr: offset of the last wptr that was written to CFF
  * @rb_ctx: The context that represents a ringbuffer
  * @id: Priority level of the ringbuffer, also used as an ID
  * @fault_detect_ts: The last retired global timestamp read during fault detect
@@ -101,12 +104,13 @@ struct adreno_ringbuffer_pagetable_info {
  * @sched_timer: Timer that tracks how long RB has been waiting to be scheduled
  * or how long it has been scheduled for after preempting in
  * @starve_timer_state: Indicates the state of the wait.
+ * @preempt_lock: Lock to protect the wptr pointer while it is being updated
  */
 struct adreno_ringbuffer {
 	uint32_t flags;
 	struct kgsl_memdesc buffer_desc;
+	unsigned int _wptr;
 	unsigned int wptr;
-	unsigned int rptr;
 	unsigned int last_wptr;
 	int id;
 	unsigned int fault_detect_ts;
@@ -122,13 +126,11 @@ struct adreno_ringbuffer {
 	int preempted_midway;
 	unsigned long sched_timer;
 	enum adreno_dispatcher_starve_timer_states starve_timer_state;
+	spinlock_t preempt_lock;
 };
 
 /* Returns the current ringbuffer */
 #define ADRENO_CURRENT_RINGBUFFER(a)	((a)->cur_rb)
-
-#define KGSL_MEMSTORE_RB_OFFSET(rb, field)	\
-	KGSL_MEMSTORE_OFFSET((rb->id + KGSL_MEMSTORE_MAX), field)
 
 int cp_secure_mode(struct adreno_device *adreno_dev, uint *cmds, int set);
 
@@ -170,9 +172,6 @@ void adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
 
 void adreno_ringbuffer_read_pm4_ucode(struct kgsl_device *device);
 
-void adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
-			struct adreno_ringbuffer *rb, unsigned int ts);
-
 int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 					unsigned int timestamp,
 					unsigned int msecs);
@@ -204,9 +203,10 @@ static inline unsigned int adreno_ringbuffer_dec_wrapped(unsigned int val,
 }
 
 static inline int adreno_ringbuffer_set_pt_ctx(struct adreno_ringbuffer *rb,
-		struct kgsl_pagetable *pt, struct adreno_context *context)
+		struct kgsl_pagetable *pt, struct adreno_context *context,
+		unsigned long flags)
 {
-	return adreno_iommu_set_pt_ctx(rb, pt, context);
+	return adreno_iommu_set_pt_ctx(rb, pt, context, flags);
 }
 
 #endif  /* __ADRENO_RINGBUFFER_H */

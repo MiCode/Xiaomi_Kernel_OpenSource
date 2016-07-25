@@ -561,7 +561,8 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	u64 active_line;
 	u64 backfill_line;
 
-	ver_dwnscale = ((u64)src_h << PHASE_STEP_SHIFT) / dst.h;
+	ver_dwnscale = (u64)src_h << PHASE_STEP_SHIFT;
+	do_div(ver_dwnscale, dst.h);
 
 	if (ver_dwnscale > (MDSS_MDP_QSEED3_VER_DOWNSCALE_LIM
 			<< PHASE_STEP_SHIFT)) {

@@ -233,6 +233,8 @@ int kgsl_readtimestamp(struct kgsl_device *device, void *priv,
 }
 EXPORT_SYMBOL(kgsl_readtimestamp);
 
+static long gpumem_free_entry(struct kgsl_mem_entry *entry);
+
 /* Scheduled by kgsl_mem_entry_put_deferred() */
 static void _deferred_put(struct work_struct *work)
 {
@@ -247,10 +249,8 @@ kgsl_mem_entry_create(void)
 {
 	struct kgsl_mem_entry *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 
-	if (entry != NULL) {
+	if (entry != NULL)
 		kref_init(&entry->refcount);
-		INIT_WORK(&entry->work, _deferred_put);
-	}
 
 	return entry;
 }
@@ -1150,6 +1150,8 @@ static int kgsl_open_device(struct kgsl_device *device)
 		atomic_inc(&device->active_cnt);
 		kgsl_sharedmem_set(device, &device->memstore, 0, 0,
 				device->memstore.size);
+		kgsl_sharedmem_set(device, &device->scratch, 0, 0,
+				device->scratch.size);
 
 		result = device->ftbl->init(device);
 		if (result)
@@ -1855,7 +1857,10 @@ static long gpuobj_free_on_timestamp(struct kgsl_device_private *dev_priv,
 
 static void gpuobj_free_fence_func(void *priv)
 {
-	kgsl_mem_entry_put_deferred((struct kgsl_mem_entry *) priv);
+	struct kgsl_mem_entry *entry = priv;
+
+	INIT_WORK(&entry->work, _deferred_put);
+	queue_work(kgsl_driver.mem_workqueue, &entry->work);
 }
 
 static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
@@ -3910,11 +3915,13 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	status = kgsl_allocate_global(device, &device->memstore,
 		KGSL_MEMSTORE_SIZE, 0, 0);
 
-	if (status != 0) {
-		KGSL_DRV_ERR(device, "kgsl_allocate_global failed %d\n",
-				status);
+	if (status != 0)
 		goto error_close_mmu;
-	}
+
+	status = kgsl_allocate_global(device, &device->scratch,
+		PAGE_SIZE, 0, 0);
+	if (status != 0)
+		goto error_free_memstore;
 
 	/*
 	 * The default request type PM_QOS_REQ_ALL_CORES is
@@ -3964,6 +3971,8 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	return 0;
 
+error_free_memstore:
+	kgsl_free_global(device, &device->memstore);
 error_close_mmu:
 	kgsl_mmu_close(device);
 error_pwrctrl_close:
@@ -3989,6 +3998,8 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 		pm_qos_remove_request(&device->pwrctrl.l2pc_cpus_qos);
 
 	idr_destroy(&device->context_idr);
+
+	kgsl_free_global(device, &device->scratch);
 
 	kgsl_free_global(device, &device->memstore);
 
@@ -4091,8 +4102,9 @@ static int __init kgsl_core_init(void)
 	INIT_LIST_HEAD(&kgsl_driver.pagetable_list);
 
 	kgsl_driver.workqueue = create_singlethread_workqueue("kgsl-workqueue");
-	kgsl_driver.mem_workqueue =
-		create_singlethread_workqueue("kgsl-mementry");
+
+	kgsl_driver.mem_workqueue = alloc_workqueue("kgsl-mementry",
+		WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
 
 	kgsl_events_init();
 

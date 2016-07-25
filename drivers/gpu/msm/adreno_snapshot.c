@@ -467,7 +467,7 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	header->start = 0;
 	header->end = KGSL_RB_DWORDS;
 	header->wptr = rb->wptr;
-	header->rptr = rb->rptr;
+	header->rptr = adreno_get_rptr(rb);
 	header->rbsize = KGSL_RB_DWORDS;
 	header->count = KGSL_RB_DWORDS;
 	adreno_rb_readtimestamp(adreno_dev, rb, KGSL_TIMESTAMP_QUEUED,
@@ -741,8 +741,7 @@ static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
 
 	header->size = memdesc->size >> 2;
 	header->gpuaddr = memdesc->gpuaddr;
-	header->ptbase =
-		kgsl_mmu_pagetable_get_ttbr0(device->mmu.defaultpagetable);
+	header->ptbase = MMU_DEFAULT_TTBR0(device);
 	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
 
 	memcpy(ptr, memdesc->hostptr, memdesc->size);
