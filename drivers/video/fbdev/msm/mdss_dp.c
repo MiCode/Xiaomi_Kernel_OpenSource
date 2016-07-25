@@ -199,6 +199,97 @@ exit:
 	return rc;
 } /* mdss_dp_get_dt_clk_data */
 
+static int mdss_dp_clk_init(struct mdss_dp_drv_pdata *dp_drv,
+				struct device *dev, bool initialize)
+{
+	struct dss_module_power *core_power_data = NULL;
+	struct dss_module_power *ctrl_power_data = NULL;
+	int rc = 0;
+
+	if (!dp_drv || !dev) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	core_power_data = &dp_drv->power_data[DP_CORE_PM];
+	ctrl_power_data = &dp_drv->power_data[DP_CTRL_PM];
+
+	if (!core_power_data || !ctrl_power_data) {
+		pr_err("invalid power_data\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if (initialize) {
+		rc = msm_dss_get_clk(dev, core_power_data->clk_config,
+			core_power_data->num_clk);
+		if (rc) {
+			DEV_ERR("Failed to get %s clk. Err=%d\n",
+				__mdss_dp_pm_name(DP_CORE_PM), rc);
+			goto exit;
+		}
+
+		rc = msm_dss_get_clk(dev, ctrl_power_data->clk_config,
+			ctrl_power_data->num_clk);
+		if (rc) {
+			DEV_ERR("Failed to get %s clk. Err=%d\n",
+				__mdss_dp_pm_name(DP_CTRL_PM), rc);
+			goto ctrl_get_error;
+		}
+
+	} else {
+		msm_dss_put_clk(ctrl_power_data->clk_config,
+					ctrl_power_data->num_clk);
+		msm_dss_put_clk(core_power_data->clk_config,
+					core_power_data->num_clk);
+	}
+
+	return rc;
+
+ctrl_get_error:
+	msm_dss_put_clk(core_power_data->clk_config,
+				core_power_data->num_clk);
+
+exit:
+	return rc;
+}
+
+static int mdss_dp_clk_set_rate_enable(
+		struct dss_module_power *power_data,
+		bool enable)
+{
+	int ret = 0;
+
+	if (enable) {
+		ret = msm_dss_clk_set_rate(
+			power_data->clk_config,
+			power_data->num_clk);
+		if (ret) {
+			pr_err("failed to set clks rate.\n");
+			goto exit;
+		}
+
+		ret = msm_dss_enable_clk(
+			power_data->clk_config,
+			power_data->num_clk, 1);
+		if (ret) {
+			pr_err("failed to enable clks\n");
+			goto exit;
+		}
+	} else {
+		ret = msm_dss_enable_clk(
+			power_data->clk_config,
+			power_data->num_clk, 0);
+		if (ret) {
+			pr_err("failed to disable clks\n");
+				goto exit;
+		}
+	}
+exit:
+	return ret;
+}
+
 /*
  * This clock control function supports enabling/disabling
  * of core and ctrl power module clocks
@@ -232,35 +323,27 @@ static int mdss_dp_clk_ctrl(struct mdss_dp_drv_pdata *dp_drv,
 			&& (!dp_drv->core_clks_on)) {
 			pr_debug("Need to enable core clks before link clks\n");
 
-			ret = msm_dss_enable_clk(
-				dp_drv->power_data[DP_CORE_PM].clk_config,
-				dp_drv->power_data[DP_CORE_PM].num_clk, 1);
+			ret = mdss_dp_clk_set_rate_enable(
+				&dp_drv->power_data[DP_CORE_PM],
+				enable);
 			if (ret) {
-				pr_err("failed to enable clks for %s\n",
-					__mdss_dp_pm_name(pm_type));
+				pr_err("failed to enable clks: %s. err=%d\n",
+					__mdss_dp_pm_name(DP_CORE_PM), ret);
 				goto error;
 			} else {
 				dp_drv->core_clks_on = true;
 			}
 		}
+	}
 
-		ret = msm_dss_enable_clk(
-			dp_drv->power_data[pm_type].clk_config,
-			dp_drv->power_data[pm_type].num_clk, 1);
-		if (ret) {
-			pr_err("failed to enable clks for %s\n",
-				 __mdss_dp_pm_name(pm_type));
-				goto error;
-		}
-	} else {
-		ret = msm_dss_enable_clk(
-			dp_drv->power_data[pm_type].clk_config,
-			dp_drv->power_data[pm_type].num_clk, 0);
-		if (ret) {
-			pr_err("failed to disable clks for %s\n",
-				__mdss_dp_pm_name(pm_type));
-				goto error;
-		}
+	ret = mdss_dp_clk_set_rate_enable(
+		&dp_drv->power_data[pm_type],
+		enable);
+	if (ret) {
+		pr_err("failed to '%s' clks for: %s. err=%d\n",
+			enable ? "enable" : "disable",
+			__mdss_dp_pm_name(pm_type), ret);
+			goto error;
 	}
 
 	if (pm_type == DP_CORE_PM)
@@ -275,7 +358,7 @@ error:
 static int mdss_dp_regulator_ctrl(struct mdss_dp_drv_pdata *dp_drv,
 					bool enable)
 {
-	int i, ret = 0;
+	int ret = 0, i = 0, j = 0;
 
 	if (dp_drv->core_power == enable) {
 		pr_debug("regulators already %s\n",
@@ -283,27 +366,23 @@ static int mdss_dp_regulator_ctrl(struct mdss_dp_drv_pdata *dp_drv,
 		return 0;
 	}
 
-	if (enable) {
-		for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
-			ret = msm_dss_enable_vreg(
-				dp_drv->power_data[i].vreg_config,
-				dp_drv->power_data[i].num_vreg, 1);
-			if (ret) {
-				pr_err("failed to enable vregs for %s\n",
+	for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
+		ret = msm_dss_enable_vreg(
+			dp_drv->power_data[i].vreg_config,
+			dp_drv->power_data[i].num_vreg, enable);
+		if (ret) {
+			pr_err("failed to '%s' vregs for %s\n",
+					enable ? "enable" : "disable",
 					__mdss_dp_pm_name(i));
-				goto error;
+			if (enable) {
+				/* Disabling the enabled vregs */
+				for (j = i-1; j >= DP_CORE_PM; j--) {
+					msm_dss_enable_vreg(
+					dp_drv->power_data[j].vreg_config,
+					dp_drv->power_data[j].num_vreg, 0);
+				}
 			}
-		}
-	} else {
-		for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
-			ret = msm_dss_enable_vreg(
-				dp_drv->power_data[i].vreg_config,
-				dp_drv->power_data[i].num_vreg, 1);
-			if (ret) {
-				pr_err("failed to disable vregs for %s\n",
-					__mdss_dp_pm_name(i));
-				goto error;
-			}
+			goto error;
 		}
 	}
 
@@ -725,6 +804,10 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	mdss_dp_phy_initialize(dp_drv);
 	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
 
+	pr_debug("Ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
+	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
+	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
+
 	return ret;
 
 clk_error:
@@ -1062,6 +1145,14 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	if (ret)
 		goto probe_err;
 
+	ret = mdss_dp_clk_init(dp_drv,
+				&pdev->dev, true);
+	if (ret) {
+		DEV_ERR("clk_init failed.ret=%d\n",
+				ret);
+		goto probe_err;
+	}
+
 	ret = mdss_dp_irq_setup(dp_drv);
 	if (ret)
 		goto probe_err;
@@ -1069,22 +1160,6 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	ret = mdss_dp_event_setup(dp_drv);
 	if (ret)
 		goto probe_err;
-
-	ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
-	if (ret) {
-		pr_err("Unabled to enable core clocks\n");
-		goto probe_err;
-	}
-
-	pr_info("ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
-	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
-	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
-
-	ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
-	if (ret) {
-		pr_err("Unabled to disable core clocks\n");
-		goto probe_err;
-	}
 
 	dp_drv->cont_splash = dp_drv->mdss_util->panel_intf_status(DISPLAY_1,
 		MDSS_PANEL_INTF_EDP) ? true : false;
