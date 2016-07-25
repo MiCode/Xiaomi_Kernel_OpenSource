@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MSM_ISPIF_HWREG_V2_H__
-#define __MSM_ISPIF_HWREG_V2_H__
+#ifndef __MSM_ISPIF_HWREG_V3_H__
+#define __MSM_ISPIF_HWREG_V3_H__
 
 /* common registers */
 #define ISPIF_RST_CMD_ADDR                       0x008
@@ -99,4 +99,37 @@
 
 #define ISPIF_STOP_INTF_IMMEDIATELY              0xAAAAAAAA
 
-#endif /* __MSM_ISPIF_HWREG_V2_H__ */
+/* ISPIF RDI pack mode support */
+static inline void msm_ispif_cfg_pack_mode(struct ispif_device *ispif,
+	uint8_t intftype, uint8_t vfe_intf, uint32_t *pack_cfg_mask)
+{
+	uint32_t pack_addr[2];
+
+	BUG_ON(!ispif);
+
+	switch (intftype) {
+	case RDI0:
+		pack_addr[0] = ISPIF_VFE_m_RDI_INTF_n_PACK_0(vfe_intf, 0);
+		pack_addr[1] = ISPIF_VFE_m_RDI_INTF_n_PACK_1(vfe_intf, 0);
+		break;
+	case RDI1:
+		pack_addr[0] = ISPIF_VFE_m_RDI_INTF_n_PACK_0(vfe_intf, 1);
+		pack_addr[1] = ISPIF_VFE_m_RDI_INTF_n_PACK_1(vfe_intf, 1);
+		break;
+	case RDI2:
+		pack_addr[0] = ISPIF_VFE_m_RDI_INTF_n_PACK_0(vfe_intf, 2);
+		pack_addr[1] = ISPIF_VFE_m_RDI_INTF_n_PACK_1(vfe_intf, 2);
+		break;
+	default:
+		pr_debug("%s: pack_mode not supported on intftype=%d\n",
+			__func__, intftype);
+		return;
+	}
+	pr_debug("%s: intftype %d pack_mask %x: 0x%x, %x:0x%x\n",
+		__func__, intftype, pack_addr[0],
+		pack_cfg_mask[0], pack_addr[1],
+		pack_cfg_mask[1]);
+	msm_camera_io_w_mb(pack_cfg_mask[0], ispif->base + pack_addr[0]);
+	msm_camera_io_w_mb(pack_cfg_mask[1], ispif->base + pack_addr[1]);
+}
+#endif /* __MSM_ISPIF_HWREG_V3_H__ */
