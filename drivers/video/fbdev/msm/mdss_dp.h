@@ -23,6 +23,7 @@
 #include <linux/usb/usbpd.h>
 
 #include "mdss_hdmi_util.h"
+#include "mdss_hdmi_edid.h"
 #include "video/msm_hdmi_modes.h"
 #include "mdss.h"
 #include "mdss_panel.h"
@@ -235,7 +236,7 @@ struct dp_alt_mode {
 #define DP_LINK_RATE_MAX	DP_LINK_RATE_540
 
 #define DP_LINK_RATE_MULTIPLIER	27000000
-
+#define DP_MAX_PIXEL_CLK_KHZ	675000
 struct dpcd_cap {
 	char major;
 	char minor;
@@ -429,6 +430,9 @@ struct mdss_dp_drv_pdata {
 	spinlock_t event_lock;
 	spinlock_t lock;
 	struct hdmi_util_ds_data ds_data;
+	struct kobject *kobj;
+	u32 max_pclk_khz;
+	int fb_node;
 };
 
 static inline const char *__mdss_dp_pm_name(enum dp_pm_type module)
