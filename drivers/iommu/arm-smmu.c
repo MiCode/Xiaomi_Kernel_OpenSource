@@ -2820,10 +2820,16 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 	struct iommu_group *group;
 	int ret;
 
-	if (dev_is_pci(dev))
-		group = pci_device_group(dev);
-	else
-		group = generic_device_group(dev);
+	/*
+	 * We used to call pci_device_group here for dev_is_pci(dev)
+	 * devices.  However, that causes the root complex device to be
+	 * placed in the same group as endpoint devices (and probably puts
+	 * all endpoint devices in the same group as well), which makes
+	 * things tricky in the DMA layer since we don't actually want to
+	 * attach *everybody* in the group when one client calls attach.
+	 * Instead, we'll just allocate a new group for everybody here.
+	 */
+	group = generic_device_group(dev);
 
 	if (IS_ERR(group))
 		return group;
