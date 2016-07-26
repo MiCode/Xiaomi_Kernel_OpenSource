@@ -100,7 +100,6 @@ const char *task_event_names[] = {"PUT_PREV_TASK", "PICK_NEXT_TASK",
 const char *migrate_type_names[] = {"GROUP_TO_RQ", "RQ_TO_GROUP",
 					 "RQ_TO_RQ", "GROUP_TO_GROUP"};
 
-ATOMIC_NOTIFIER_HEAD(migration_notifier_head);
 ATOMIC_NOTIFIER_HEAD(load_alert_notifier_head);
 
 DEFINE_MUTEX(sched_domains_mutex);
@@ -4333,7 +4332,6 @@ static struct rq *__migrate_task(struct rq *rq, struct task_struct *p, int dest_
 static void notify_migration(int src_cpu, int dest_cpu, bool src_cpu_dead,
 			     struct task_struct *p)
 {
-	struct migration_notify_data mnd;
 	bool check_groups;
 
 	rcu_read_lock();
@@ -4347,14 +4345,6 @@ static void notify_migration(int src_cpu, int dest_cpu, bool src_cpu_dead,
 		check_for_freq_change(cpu_rq(dest_cpu), false, check_groups);
 	} else {
 		check_for_freq_change(cpu_rq(dest_cpu), true, check_groups);
-	}
-
-	if (task_notify_on_migrate(p)) {
-		mnd.src_cpu = src_cpu;
-		mnd.dest_cpu = dest_cpu;
-		mnd.load = pct_task_load(p);
-		atomic_notifier_call_chain(&migration_notifier_head, 0,
-					   (void *)&mnd);
 	}
 }
 
@@ -5181,8 +5171,6 @@ static void ttwu_queue(struct task_struct *p, int cpu)
 	raw_spin_unlock(&rq->lock);
 }
 
-__read_mostly unsigned int sysctl_sched_wakeup_load_threshold = 110;
-
 /**
  * try_to_wake_up - wake up a thread
  * @p: the thread to be awakened
@@ -5203,8 +5191,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 {
 	unsigned long flags;
 	int cpu, src_cpu, success = 0;
-	int notify = 0;
-	struct migration_notify_data mnd;
 #ifdef CONFIG_SMP
 	unsigned int old_load;
 	struct rq *rq;
@@ -5309,30 +5295,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	ttwu_queue(p, cpu);
 stat:
 	ttwu_stat(p, cpu, wake_flags);
-
-	if (task_notify_on_migrate(p)) {
-		mnd.src_cpu = src_cpu;
-		mnd.dest_cpu = cpu;
-		mnd.load = pct_task_load(p);
-
-		/*
-		 * Call the migration notifier with mnd for foreground task
-		 * migrations as well as for wakeups if their load is above
-		 * sysctl_sched_wakeup_load_threshold. This would prompt the
-		 * cpu-boost to boost the CPU frequency on wake up of a heavy
-		 * weight foreground task
-		 */
-		if ((src_cpu != cpu) || (mnd.load >
-					sysctl_sched_wakeup_load_threshold))
-			notify = 1;
-	}
-
 out:
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
-
-	if (notify)
-		atomic_notifier_call_chain(&migration_notifier_head,
-					   0, (void *)&mnd);
 
 	if (freq_notif_allowed) {
 		if (!same_freq_domain(src_cpu, cpu)) {
@@ -11793,24 +11757,6 @@ static void cpu_cgroup_attach(struct cgroup_taskset *tset)
 		sched_move_task(task);
 }
 
-static u64 cpu_notify_on_migrate_read_u64(struct cgroup_subsys_state *css,
-					  struct cftype *cft)
-{
-	struct task_group *tg = css_tg(css);
-
-	return tg->notify_on_migrate;
-}
-
-static int cpu_notify_on_migrate_write_u64(struct cgroup_subsys_state *css,
-					   struct cftype *cft, u64 notify)
-{
-	struct task_group *tg = css_tg(css);
-
-	tg->notify_on_migrate = (notify > 0);
-
-	return 0;
-}
-
 #ifdef CONFIG_SCHED_HMP
 
 static u64 cpu_upmigrate_discourage_read_u64(struct cgroup_subsys_state *css,
@@ -12135,11 +12081,6 @@ static u64 cpu_rt_period_read_uint(struct cgroup_subsys_state *css,
 #endif /* CONFIG_RT_GROUP_SCHED */
 
 static struct cftype cpu_files[] = {
-	{
-		.name = "notify_on_migrate",
-		.read_u64 = cpu_notify_on_migrate_read_u64,
-		.write_u64 = cpu_notify_on_migrate_write_u64,
-	},
 #ifdef CONFIG_SCHED_HMP
 	{
 		.name = "upmigrate_discourage",
