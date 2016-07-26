@@ -349,13 +349,20 @@ static int smblib_detach_usb(struct smb_charger *chg)
 	return rc;
 }
 
-static int pl_notifier_call(struct notifier_block *nb,
+static int smblib_notifier_call(struct notifier_block *nb,
 		unsigned long ev, void *v)
 {
 	struct power_supply *psy = v;
-	struct smb_charger *chg = container_of(nb, struct smb_charger, pl.nb);
+	struct smb_charger *chg = container_of(nb, struct smb_charger, nb);
 
-	if (strcmp(psy->desc->name, "parallel") == 0) {
+	if (!strcmp(psy->desc->name, "bms")) {
+		if (!chg->bms_psy)
+			chg->bms_psy = psy;
+		if (ev == PSY_EVENT_PROP_CHANGED && chg->batt_psy)
+			schedule_work(&chg->bms_update_work);
+	}
+
+	if (!chg->pl.psy && !strcmp(psy->desc->name, "parallel")) {
 		chg->pl.psy = psy;
 		schedule_work(&chg->pl_detect_work);
 	}
@@ -363,12 +370,12 @@ static int pl_notifier_call(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-static int register_pl_notifier(struct smb_charger *chg)
+static int smblib_register_notifier(struct smb_charger *chg)
 {
 	int rc;
 
-	chg->pl.nb.notifier_call = pl_notifier_call;
-	rc = power_supply_reg_notifier(&chg->pl.nb);
+	chg->nb.notifier_call = smblib_notifier_call;
+	rc = power_supply_reg_notifier(&chg->nb);
 	if (rc < 0) {
 		pr_err("Couldn't register psy notifier rc = %d\n", rc);
 		return rc;
@@ -740,8 +747,12 @@ int smblib_get_prop_batt_present(struct smb_charger *chg,
 int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 				  union power_supply_propval *val)
 {
-	val->intval = 50;
-	return 0;
+	int rc = -EINVAL;
+
+	if (chg->bms_psy)
+		rc = power_supply_get_property(chg->bms_psy,
+				POWER_SUPPLY_PROP_CAPACITY, val);
+	return rc;
 }
 
 int smblib_get_prop_batt_status(struct smb_charger *chg,
@@ -1738,12 +1749,17 @@ static void smblib_hvdcp_detect_work(struct work_struct *work)
 	}
 }
 
+static void smblib_bms_update_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						bms_update_work);
+	power_supply_changed(chg->batt_psy);
+}
+
 static void smblib_pl_detect_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						pl_detect_work);
-
-	power_supply_unreg_notifier(&chg->pl.nb);
 
 	if (!get_effective_result_locked(chg->pl_disable_votable))
 		rerun_election(chg->pl_disable_votable);
@@ -1887,6 +1903,7 @@ int smblib_init(struct smb_charger *chg)
 	int rc = 0;
 
 	mutex_init(&chg->write_lock);
+	INIT_WORK(&chg->bms_update_work, smblib_bms_update_work);
 	INIT_WORK(&chg->pl_detect_work, smblib_pl_detect_work);
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 	INIT_DELAYED_WORK(&chg->pl_taper_work, smblib_pl_taper_work);
@@ -1901,14 +1918,12 @@ int smblib_init(struct smb_charger *chg)
 		}
 
 		chg->pl.psy = power_supply_get_by_name("parallel");
-		if (!chg->pl.psy) {
-			rc = register_pl_notifier(chg);
-			if (rc < 0) {
-				dev_err(chg->dev,
-					"Couldn't register notifier rc=%d\n",
-					rc);
-				return rc;
-			}
+
+		rc = smblib_register_notifier(chg);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't register notifier rc=%d\n", rc);
+			return rc;
 		}
 
 		break;
@@ -1934,6 +1949,8 @@ int smblib_deinit(struct smb_charger *chg)
 	destroy_votable(chg->pd_allowed_votable);
 	destroy_votable(chg->awake_votable);
 	destroy_votable(chg->pl_disable_votable);
+
+	power_supply_unreg_notifier(&chg->nb);
 
 	return 0;
 }
