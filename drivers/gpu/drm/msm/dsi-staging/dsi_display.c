@@ -1673,24 +1673,30 @@ u32 dsi_display_get_num_of_displays(void)
 	return count;
 }
 
-struct dsi_display *dsi_display_get_display_by_index(u32 index)
+int dsi_display_get_active_displays(void **display_array, u32 max_display_count)
 {
-	struct dsi_display *display = NULL;
 	struct dsi_display *pos;
 	int i = 0;
+
+	if (!display_array || !max_display_count) {
+		if (!display_array)
+			pr_err("invalid params\n");
+		return 0;
+	}
 
 	mutex_lock(&dsi_display_list_lock);
 
 	list_for_each_entry(pos, &dsi_display_list, list) {
-		if (i == index) {
-			display = pos;
+		if (i >= max_display_count) {
+			pr_err("capping display count to %d\n", i);
 			break;
 		}
-		i++;
+		if (pos->is_active)
+			display_array[i++] = pos;
 	}
 
 	mutex_unlock(&dsi_display_list_lock);
-	return display;
+	return i;
 }
 
 struct dsi_display *dsi_display_get_display_by_name(const char *name)
@@ -1714,17 +1720,6 @@ void dsi_display_set_active_state(struct dsi_display *display, bool is_active)
 	mutex_lock(&display->display_lock);
 	display->is_active = is_active;
 	mutex_unlock(&display->display_lock);
-}
-
-bool dsi_display_is_active(struct dsi_display *display)
-{
-	bool is_active;
-
-	mutex_lock(&display->display_lock);
-	is_active = display->is_active;
-	mutex_unlock(&display->display_lock);
-
-	return is_active;
 }
 
 int dsi_display_dev_init(struct dsi_display *display)
@@ -1926,7 +1921,7 @@ int dsi_display_drm_bridge_init(struct dsi_display *display,
 	bridge = dsi_drm_bridge_init(display, display->drm_dev, enc);
 	if (IS_ERR_OR_NULL(bridge)) {
 		rc = PTR_ERR(bridge);
-		pr_err("[%s] brige init failed, rc=%d\n", display->name, rc);
+		pr_err("[%s] brige init failed, %d\n", display->name, rc);
 		goto error;
 	}
 

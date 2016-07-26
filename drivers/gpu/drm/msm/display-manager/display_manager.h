@@ -21,10 +21,19 @@ struct display_manager {
 	const char *name;
 
 	struct mutex lock;
+
 	u32 display_count;
+	void **displays;
+
 	u32 dsi_display_count;
+	void **dsi_displays;
+
 	u32 hdmi_display_count;
+	void **hdmi_displays;
+
 	u32 dp_display_count;
+	void **dp_displays;
+
 	/* Debug fs */
 	struct dentry *debugfs_root;
 };
