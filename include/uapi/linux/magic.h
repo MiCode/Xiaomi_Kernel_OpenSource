@@ -78,5 +78,6 @@
 #define BTRFS_TEST_MAGIC	0x73727279
 #define NSFS_MAGIC		0x6e736673
 #define BPF_FS_MAGIC		0xcafe4a11
+#define BALLOON_KVM_MAGIC	0x13661366
 
 #endif /* __LINUX_MAGIC_H__ */
