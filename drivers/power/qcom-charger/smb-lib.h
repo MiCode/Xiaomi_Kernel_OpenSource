@@ -74,7 +74,6 @@ struct smb_params {
 };
 
 struct parallel_params {
-	struct notifier_block	nb;
 	struct power_supply	*psy;
 	int			*master_percent;
 	int			taper_percent;
@@ -96,7 +95,11 @@ struct smb_charger {
 	struct power_supply		*batt_psy;
 	struct power_supply		*usb_psy;
 	struct power_supply		*dc_psy;
+	struct power_supply		*bms_psy;
 	struct power_supply_desc	usb_psy_desc;
+
+	/* notifiers */
+	struct notifier_block	nb;
 
 	/* parallel charging */
 	struct parallel_params	pl;
@@ -120,6 +123,7 @@ struct smb_charger {
 	struct votable		*chg_disable_votable;
 
 	/* work */
+	struct work_struct	bms_update_work;
 	struct work_struct	pl_detect_work;
 	struct delayed_work	hvdcp_detect_work;
 	struct delayed_work	ps_change_timeout_work;
