@@ -1063,7 +1063,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->split_role = p->split_role;
 	phys_enc->intf_mode = INTF_MODE_WB_LINE;
 	phys_enc->intf_idx = p->intf_idx;
-	spin_lock_init(&phys_enc->spin_lock);
+	phys_enc->enc_spinlock = p->enc_spinlock;
 	INIT_LIST_HEAD(&wb_enc->irq_cb.list);
 
 	ret = sde_encoder_phys_wb_init_debugfs(phys_enc, p->sde_kms);
