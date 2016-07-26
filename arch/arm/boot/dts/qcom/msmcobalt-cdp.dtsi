@@ -205,6 +205,68 @@
 	};
 };
 
+&i2c_7 {
+	status = "okay";
+	qcom,smb138x@8 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x8>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xd1 0x0 IRQ_TYPE_LEVEL_LOW>;
+		interrupt_names = "smb138x";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		qcom,periph-map = <0x10 0x11 0x12 0x13 0x14 0x16 0x36>;
+
+		smb138x_tadc: qcom,tadc@3600 {
+			compatible = "qcom,tadc";
+			reg = <0x3600 0x100>;
+
+			interrupts = <0x36 0x0 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "eoc";
+
+			batt_therm {
+				qcom,rbias = <68100>;
+				qcom,rtherm-at-25degc = <68000>;
+				qcom,beta-coefficient = <3450>;
+			};
+
+			skin_temp {
+				qcom,rbias = <33000>;
+				qcom,rtherm-at-25degc = <68000>;
+				qcom,beta-coefficient = <3450>;
+			};
+
+			die_temp {
+				qcom,scale = <(-1032)>;
+				qcom,offset = <344125>;
+			};
+
+			batt_i {
+				qcom,channel = <3>;
+				qcom,scale = <20000000>;
+			};
+
+			batt_v {
+				qcom,scale = <5000000>;
+			};
+
+			input_i {
+				qcom,scale = <14285714>;
+			};
+
+			input_v {
+				qcom,scale = <25000000>;
+			};
+
+			otg_i {
+				qcom,scale = <5714286>;
+			};
+		};
+	};
+};
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
