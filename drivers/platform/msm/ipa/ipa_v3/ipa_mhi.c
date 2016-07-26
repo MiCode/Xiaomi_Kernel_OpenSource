@@ -67,24 +67,6 @@
 #define IPA_MHI_HOST_ADDR_COND(addr) \
 		((params->assert_bit40)?(IPA_MHI_HOST_ADDR(addr)):(addr))
 
-/**
- * enum ipa3_mhi_burst_mode - MHI channel burst mode state
- *
- * Values are according to MHI specification
- * @IPA_MHI_BURST_MODE_DEFAULT: burst mode enabled for HW channels,
- * disabled for SW channels
- * @IPA_MHI_BURST_MODE_RESERVED:
- * @IPA_MHI_BURST_MODE_DISABLE: Burst mode is disabled for this channel
- * @IPA_MHI_BURST_MODE_ENABLE: Burst mode is enabled for this channel
- *
- */
-enum ipa3_mhi_burst_mode {
-	IPA_MHI_BURST_MODE_DEFAULT,
-	IPA_MHI_BURST_MODE_RESERVED,
-	IPA_MHI_BURST_MODE_DISABLE,
-	IPA_MHI_BURST_MODE_ENABLE,
-};
-
 enum ipa3_mhi_polling_mode {
 	IPA_MHI_POLLING_MODE_DB_MODE,
 	IPA_MHI_POLLING_MODE_POLL_MODE,
@@ -224,7 +206,6 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 
 	/* allocate event ring only for the first time pipe is connected */
 	if (params->state == IPA_HW_MHI_CHANNEL_STATE_INVALID) {
-		IPA_MHI_DBG("allocating event ring\n");
 		memset(&ev_props, 0, sizeof(ev_props));
 		ev_props.intf = GSI_EVT_CHTYPE_MHI_EV;
 		ev_props.intr = GSI_INTR_MSI;
@@ -247,6 +228,8 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		ev_props.user_data = params->channel;
 		ev_props.evchid_valid = true;
 		ev_props.evchid = params->evchid;
+		IPA_MHI_DBG("allocating event ring ep:%u evchid:%u\n",
+			ipa_ep_idx, ev_props.evchid);
 		res = gsi_alloc_evt_ring(&ev_props, ipa3_ctx->gsi_dev_hdl,
 			&ep->gsi_evt_ring_hdl);
 		if (res) {
@@ -260,6 +243,10 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		*params->cached_gsi_evt_ring_hdl =
 			ep->gsi_evt_ring_hdl;
 
+	} else {
+		IPA_MHI_DBG("event ring already exists: evt_ring_hdl=%lu\n",
+			*params->cached_gsi_evt_ring_hdl);
+		ep->gsi_evt_ring_hdl = *params->cached_gsi_evt_ring_hdl;
 	}
 
 	memset(&ch_props, 0, sizeof(ch_props));

@@ -84,8 +84,60 @@ static const struct file_operations ipa_ut_dbgfs_regression_test_fops = {
 
 static struct ipa_ut_context *ipa_ut_ctx;
 char *_IPA_UT_TEST_LOG_BUF_NAME;
-struct ipa_ut_tst_fail_report _IPA_UT_TEST_FAIL_REPORT_DATA;
+struct ipa_ut_tst_fail_report
+	_IPA_UT_TEST_FAIL_REPORT_DATA[_IPA_UT_TEST_FAIL_REPORT_SIZE];
+u32 _IPA_UT_TEST_FAIL_REPORT_IDX;
 
+/**
+ * ipa_ut_print_log_buf() - Dump given buffer via kernel error mechanism
+ * @buf: Buffer to print
+ *
+ * Tokenize the string according to new-line and then print
+ *
+ * Note: Assumes lock acquired
+ */
+static void ipa_ut_print_log_buf(char *buf)
+{
+	char *token;
+
+	if (!buf) {
+		IPA_UT_ERR("Input error - no buf\n");
+		return;
+	}
+
+	for (token = strsep(&buf, "\n"); token; token = strsep(&buf, "\n"))
+		pr_err("%s\n", token);
+}
+
+/**
+ * ipa_ut_dump_fail_report_stack() - dump the report info stack via kernel err
+ *
+ * Note: Assumes lock acquired
+ */
+static void ipa_ut_dump_fail_report_stack(void)
+{
+	int i;
+
+	IPA_UT_DBG("Entry\n");
+
+	if (_IPA_UT_TEST_FAIL_REPORT_IDX == 0) {
+		IPA_UT_DBG("no report info\n");
+		return;
+	}
+
+	for (i = 0 ; i < _IPA_UT_TEST_FAIL_REPORT_IDX; i++) {
+		if (i == 0)
+			pr_err("***** FAIL INFO STACK *****:\n");
+		else
+			pr_err("Called From:\n");
+
+		pr_err("\tFILE = %s\n\tFUNC = %s()\n\tLINE = %d\n",
+			_IPA_UT_TEST_FAIL_REPORT_DATA[i].file,
+			_IPA_UT_TEST_FAIL_REPORT_DATA[i].func,
+			_IPA_UT_TEST_FAIL_REPORT_DATA[i].line);
+		pr_err("\t%s\n", _IPA_UT_TEST_FAIL_REPORT_DATA[i].info);
+	}
+}
 
 /**
  * ipa_ut_show_suite_exec_summary() - Show tests run summary
@@ -157,7 +209,7 @@ static ssize_t ipa_ut_dbgfs_meta_test_write(struct file *file,
 	int i;
 	enum ipa_hw_type ipa_ver;
 	int rc = 0;
-	enum ipa_ut_meta_test_type meta_type;
+	long meta_type;
 	bool tst_fail = false;
 
 	IPA_UT_DBG("Entry\n");
@@ -165,8 +217,8 @@ static ssize_t ipa_ut_dbgfs_meta_test_write(struct file *file,
 	mutex_lock(&ipa_ut_ctx->lock);
 	suite = file->f_inode->i_private;
 	ipa_assert_on(!suite);
-	meta_type = (int)(file->private_data);
-	IPA_UT_DBG("Meta test type %d\n", meta_type);
+	meta_type = (long)(file->private_data);
+	IPA_UT_DBG("Meta test type %ld\n", meta_type);
 
 	_IPA_UT_TEST_LOG_BUF_NAME = kzalloc(_IPA_UT_TEST_LOG_BUF_SIZE,
 		GFP_KERNEL);
@@ -231,14 +283,14 @@ static ssize_t ipa_ut_dbgfs_meta_test_write(struct file *file,
 		}
 
 		_IPA_UT_TEST_LOG_BUF_NAME[0] = '\0';
-		_IPA_UT_TEST_FAIL_REPORT_DATA.valid = false;
+		_IPA_UT_TEST_FAIL_REPORT_IDX = 0;
 		pr_info("*** Test '%s': Running... ***\n",
 			suite->tests[i].name);
 		rc = suite->tests[i].run(suite->meta_data->priv);
 		if (rc) {
 			tst_fail = true;
 			suite->tests[i].res = IPA_UT_TEST_RES_FAIL;
-			pr_info("%s", _IPA_UT_TEST_LOG_BUF_NAME);
+			ipa_ut_print_log_buf(_IPA_UT_TEST_LOG_BUF_NAME);
 		} else {
 			suite->tests[i].res = IPA_UT_TEST_RES_SUCCESS;
 		}
@@ -246,14 +298,8 @@ static ssize_t ipa_ut_dbgfs_meta_test_write(struct file *file,
 		pr_info(">>>>>>**** TEST '%s': %s ****<<<<<<\n",
 			suite->tests[i].name, tst_fail ? "FAIL" : "SUCCESS");
 
-		if (tst_fail && _IPA_UT_TEST_FAIL_REPORT_DATA.valid) {
-			pr_info("*** FAIL INFO:\n");
-			pr_info("\tFILE = %s\n\tFUNC = %s()\n\tLINE = %d\n",
-				_IPA_UT_TEST_FAIL_REPORT_DATA.file,
-				_IPA_UT_TEST_FAIL_REPORT_DATA.func,
-				_IPA_UT_TEST_FAIL_REPORT_DATA.line);
-			pr_info("\t%s\n", _IPA_UT_TEST_FAIL_REPORT_DATA.info);
-		}
+		if (tst_fail)
+			ipa_ut_dump_fail_report_stack();
 
 		pr_info("\n");
 	}
@@ -279,6 +325,7 @@ release_clock:
 	IPA_ACTIVE_CLIENTS_DEC_SPECIAL("IPA_UT");
 free_mem:
 	kfree(_IPA_UT_TEST_LOG_BUF_NAME);
+	_IPA_UT_TEST_LOG_BUF_NAME = NULL;
 unlock_mutex:
 	mutex_unlock(&ipa_ut_ctx->lock);
 	return ((!rc && !tst_fail) ? count : -EFAULT);
@@ -304,7 +351,7 @@ static ssize_t ipa_ut_dbgfs_meta_test_read(struct file *file,
 	struct ipa_ut_suite *suite;
 	int nbytes;
 	ssize_t cnt;
-	enum ipa_ut_meta_test_type meta_type;
+	long meta_type;
 	int i;
 
 	IPA_UT_DBG("Entry\n");
@@ -312,8 +359,8 @@ static ssize_t ipa_ut_dbgfs_meta_test_read(struct file *file,
 	mutex_lock(&ipa_ut_ctx->lock);
 	suite = file->f_inode->i_private;
 	ipa_assert_on(!suite);
-	meta_type = (int)(file->private_data);
-	IPA_UT_DBG("Meta test type %d\n", meta_type);
+	meta_type = (long)(file->private_data);
+	IPA_UT_DBG("Meta test type %ld\n", meta_type);
 
 	buf = kmalloc(IPA_UT_DEBUG_READ_BUF_SIZE, GFP_KERNEL);
 	if (!buf) {
@@ -470,23 +517,16 @@ static ssize_t ipa_ut_dbgfs_test_write(struct file *file,
 	}
 
 	IPA_UT_DBG("*** Test '%s': Running... ***\n", test->name);
-	_IPA_UT_TEST_FAIL_REPORT_DATA.valid = false;
+	_IPA_UT_TEST_FAIL_REPORT_IDX = 0;
 	rc = test->run(suite->meta_data->priv);
 	if (rc)
 		tst_fail = true;
 	IPA_UT_DBG("*** Test %s - ***\n", tst_fail ? "FAIL" : "SUCCESS");
 	if (tst_fail) {
 		pr_info("=================>>>>>>>>>>>\n");
-		pr_info("%s\n", _IPA_UT_TEST_LOG_BUF_NAME);
+		ipa_ut_print_log_buf(_IPA_UT_TEST_LOG_BUF_NAME);
 		pr_info("**** TEST %s FAILED ****\n", test->name);
-		if (_IPA_UT_TEST_FAIL_REPORT_DATA.valid) {
-			pr_info("*** FAIL INFO:\n");
-			pr_info("\tFILE = %s\n\tFUNC = %s()\n\tLINE = %d\n",
-				_IPA_UT_TEST_FAIL_REPORT_DATA.file,
-				_IPA_UT_TEST_FAIL_REPORT_DATA.func,
-				_IPA_UT_TEST_FAIL_REPORT_DATA.line);
-			pr_info("\t%s\n", _IPA_UT_TEST_FAIL_REPORT_DATA.info);
-		}
+		ipa_ut_dump_fail_report_stack();
 		pr_info("<<<<<<<<<<<=================\n");
 	}
 
@@ -509,6 +549,7 @@ release_clock:
 	IPA_ACTIVE_CLIENTS_DEC_SPECIAL("IPA_UT");
 free_mem:
 	kfree(_IPA_UT_TEST_LOG_BUF_NAME);
+	_IPA_UT_TEST_LOG_BUF_NAME = NULL;
 unlock_mutex:
 	mutex_unlock(&ipa_ut_ctx->lock);
 	return ((!rc && !tst_fail) ? count : -EFAULT);
@@ -856,6 +897,7 @@ static int ipa_ut_framework_init(void)
 		goto fail_clean_dbgfs;
 	}
 
+	_IPA_UT_TEST_FAIL_REPORT_IDX = 0;
 	ipa_ut_ctx->inited = true;
 	IPA_UT_DBG("Done\n");
 	ret = 0;

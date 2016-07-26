@@ -20,6 +20,7 @@
  * Declare every suite here so that it will be found later below
  * No importance for order.
  */
+IPA_UT_DECLARE_SUITE(mhi);
 IPA_UT_DECLARE_SUITE(example);
 
 
@@ -29,6 +30,7 @@ IPA_UT_DECLARE_SUITE(example);
  */
 IPA_UT_DEFINE_ALL_SUITES_START
 {
+	IPA_UT_REGISTER_SUITE(mhi),
 	IPA_UT_REGISTER_SUITE(example),
 } IPA_UT_DEFINE_ALL_SUITES_END;
 

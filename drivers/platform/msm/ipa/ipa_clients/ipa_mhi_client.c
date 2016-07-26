@@ -40,9 +40,6 @@
 #define IPA_MHI_MAX_UL_CHANNELS 1
 #define IPA_MHI_MAX_DL_CHANNELS 1
 
-#define IPA_MHI_GSI_ER_START 10
-#define IPA_MHI_GSI_ER_END 16
-
 #if (IPA_MHI_MAX_UL_CHANNELS + IPA_MHI_MAX_DL_CHANNELS) > \
 	(IPA_MHI_GSI_ER_END - IPA_MHI_GSI_ER_START)
 #error not enought event rings for MHI
@@ -1504,10 +1501,11 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 
 	/* for event context address index needs to read from host */
 
-	IPA_MHI_DBG("client %d channelHandle %d channelIndex %d, state %d\n",
+	IPA_MHI_DBG("client %d channelIndex %d channelID %d, state %d\n",
 		channel->client, channel->index, channel->id, channel->state);
-	IPA_MHI_DBG("channel_context_addr 0x%llx\n",
-		channel->channel_context_addr);
+	IPA_MHI_DBG("channel_context_addr 0x%llx cached_gsi_evt_ring_hdl %lu\n",
+		channel->channel_context_addr,
+		channel->cached_gsi_evt_ring_hdl);
 
 	IPA_ACTIVE_CLIENTS_INC_EP(in->sys.client);
 
@@ -2584,6 +2582,28 @@ int ipa_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req)
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 }
+
+int ipa_mhi_is_using_dma(bool *flag)
+{
+	IPA_MHI_FUNC_ENTRY();
+
+	if (!ipa_mhi_client_ctx) {
+		IPA_MHI_ERR("not initialized\n");
+		return -EPERM;
+	}
+
+	*flag = ipa_mhi_client_ctx->use_ipadma ? true : false;
+
+	IPA_MHI_FUNC_EXIT();
+	return 0;
+}
+EXPORT_SYMBOL(ipa_mhi_is_using_dma);
+
+const char *ipa_mhi_get_state_str(int state)
+{
+	return MHI_STATE_STR(state);
+}
+EXPORT_SYMBOL(ipa_mhi_get_state_str);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA MHI client driver");

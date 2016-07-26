@@ -37,10 +37,12 @@
 
 /* Test Log buffer name and size */
 #define _IPA_UT_TEST_LOG_BUF_NAME ipa_ut_tst_log_buf
-#define _IPA_UT_TEST_LOG_BUF_SIZE 2048
+#define _IPA_UT_TEST_LOG_BUF_SIZE 8192
 
 /* Global structure  for test fail execution result information */
 #define _IPA_UT_TEST_FAIL_REPORT_DATA ipa_ut_tst_fail_report_data
+#define _IPA_UT_TEST_FAIL_REPORT_SIZE 5
+#define _IPA_UT_TEST_FAIL_REPORT_IDX ipa_ut_tst_fail_report_data_index
 
 /* Start/End definitions of the array of suites */
 #define IPA_UT_DEFINE_ALL_SUITES_START \
