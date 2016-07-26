@@ -12,6 +12,7 @@
  *
  */
 
+#define pr_fmt(fmt)	"dm-drm:[%s] " fmt, __func__
 #include <linux/of_device.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
@@ -28,72 +29,142 @@
 #include "dsi_drm.h"
 #include "display_manager.h"
 
-static u32 dm_get_num_of_displays(struct display_manager *disp_m)
+/**
+ * _dm_cache_active_displays - determine display type based on index
+ * @disp_m: Pointer to display manager structure
+ * Returns: Number of active displays in the system
+ */
+static u32 _dm_cache_active_displays(struct display_manager *disp_m)
 {
-	u32 count = 0;
+	u32 count;
 
-	count = dsi_display_get_num_of_displays();
-	disp_m->display_count = count;
-	disp_m->dsi_display_count = count;
+	if (!disp_m)
+		return 0;
 
-	/* TODO: get HDMI and DP display count here */
+	disp_m->display_count = 0;
+
+	/* query dsi displays */
+	disp_m->dsi_display_count = dsi_display_get_num_of_displays();
+
+	/* query hdmi displays */
+	disp_m->hdmi_display_count = 0;
+
+	/* query dp displays */
+	disp_m->dp_display_count = 0;
+
+	count = disp_m->dsi_display_count
+		+ disp_m->hdmi_display_count
+		+ disp_m->dp_display_count;
+
+	disp_m->displays = kcalloc(count, sizeof(void *), GFP_KERNEL);
+	if (!disp_m->displays) {
+		disp_m->dsi_displays = 0;
+		disp_m->dsi_display_count = 0;
+
+		disp_m->hdmi_displays = 0;
+		disp_m->hdmi_display_count = 0;
+
+		disp_m->dp_displays = 0;
+		disp_m->dp_display_count = 0;
+	} else {
+		/* get final dsi display list */
+		disp_m->dsi_displays = disp_m->displays;
+		disp_m->dsi_display_count =
+			dsi_display_get_active_displays(disp_m->dsi_displays,
+					disp_m->dsi_display_count);
+
+		/* get final hdmi display list */
+		disp_m->hdmi_displays = disp_m->dsi_displays
+			+ disp_m->dsi_display_count;
+		disp_m->hdmi_display_count = 0;
+
+		/* get final dp display list */
+		disp_m->dp_displays = disp_m->hdmi_displays
+			+ disp_m->hdmi_display_count;
+		disp_m->dp_display_count = 0;
+	}
+
+	/* set final display count */
+	disp_m->display_count = disp_m->dsi_display_count
+		+ disp_m->hdmi_display_count
+		+ disp_m->dp_display_count;
+
 	return disp_m->display_count;
 }
 
-static int dm_set_active_displays(struct display_manager *disp_m)
+/**
+ * _dm_get_type_by_index - determine display type based on index
+ * @disp_m: Pointer to display manager structure
+ * @display_index: Incoming display index
+ * Returns: DRM_MODE_CONNECTOR_ definition corresponding to display_index
+ */
+static int _dm_get_type_by_index(struct display_manager *disp_m,
+				      u32 display_index)
 {
-	/* TODO: Make changes from DT config here */
-	return 0;
+	if (disp_m) {
+		if (display_index < disp_m->dsi_display_count)
+			return DRM_MODE_CONNECTOR_DSI;
+		display_index -= disp_m->dsi_display_count;
+
+		if (display_index < disp_m->hdmi_display_count)
+			return DRM_MODE_CONNECTOR_HDMIA;
+		display_index -= disp_m->hdmi_display_count;
+
+		if (display_index < disp_m->dp_display_count)
+			return DRM_MODE_CONNECTOR_DisplayPort;
+		display_index -= disp_m->dp_display_count;
+	}
+	return DRM_MODE_CONNECTOR_Unknown;
 }
 
-static int dm_init_active_displays(struct display_manager *disp_m)
+/**
+ * _dm_init_active_displays - initialize active display drivers
+ * @disp_m: Pointer to display manager structure
+ * Returns: Zero on success
+ */
+static int _dm_init_active_displays(struct display_manager *disp_m)
 {
+	void *display;
 	int rc = 0;
 	int i = 0;
-	struct dsi_display *dsi_display;
 
 	for (i = 0; i < disp_m->dsi_display_count; i++) {
-		dsi_display = dsi_display_get_display_by_index(i);
-		if (!dsi_display || !dsi_display_is_active(dsi_display))
-			continue;
+		display = disp_m->dsi_displays[i];
 
-		rc = dsi_display_dev_init(dsi_display);
+		rc = dsi_display_dev_init(display);
 		if (rc) {
 			pr_err("failed to init dsi display, rc=%d\n", rc);
-			goto error_deinit_dsi_displays;
+
+			for (i = i - 1; i >= 0; i--) {
+				display = disp_m->dsi_displays[i];
+				(void)dsi_display_dev_deinit(display);
+			}
+			break;
 		}
 	}
 
 	/* TODO: INIT HDMI and DP displays here */
 	return rc;
-error_deinit_dsi_displays:
-	for (i = i - 1; i >= 0; i--) {
-		dsi_display = dsi_display_get_display_by_index(i);
-		if (dsi_display && dsi_display_is_active(dsi_display))
-			(void)dsi_display_dev_deinit(dsi_display);
-	}
-
-	return rc;
 }
 
-static int dm_deinit_active_displays(struct display_manager *disp_m)
+/**
+ * _dm_deinit_active_displays - deconstruct active display drivers
+ * @disp_m: Pointer to display manager structure
+ * Returns: Zero on success
+ */
+static void _dm_deinit_active_displays(struct display_manager *disp_m)
 {
-	int rc = 0;
-	int i = 0;
-	struct dsi_display *dsi_display;
+	void *display;
+	int rc, i;
 
 	for (i = 0; i < disp_m->dsi_display_count; i++) {
-		dsi_display = dsi_display_get_display_by_index(i);
-		if (!dsi_display || !dsi_display_is_active(dsi_display))
-			continue;
-
-		rc = dsi_display_dev_deinit(dsi_display);
+		display = disp_m->dsi_displays[i];
+		rc = dsi_display_dev_deinit(display);
 		if (rc)
 			pr_err("failed to deinit dsi display, rc=%d\n", rc);
 	}
 
 	/* TODO: DEINIT HDMI and DP displays here */
-	return rc;
 }
 
 static int disp_manager_comp_ops_bind(struct device *dev,
@@ -103,7 +174,7 @@ static int disp_manager_comp_ops_bind(struct device *dev,
 	struct drm_device *drm;
 	struct msm_drm_private *priv;
 	struct display_manager *disp_m;
-	struct dsi_display *dsi_display;
+	void *display;
 	int i, rc = -EINVAL;
 
 	if (master && dev) {
@@ -123,21 +194,20 @@ static int disp_manager_comp_ops_bind(struct device *dev,
 
 	/* DSI displays */
 	for (i = 0; i < disp_m->dsi_display_count; i++) {
-		dsi_display = dsi_display_get_display_by_index(i);
-		if (!dsi_display) {
-			pr_err("Display does not exist\n");
-			continue;
-		}
+		display = disp_m->dsi_displays[i];
 
-		if (!dsi_display_is_active(dsi_display))
-			continue;
-
-		rc = dsi_display_bind(dsi_display, drm);
+		rc = dsi_display_bind(display, drm);
 		if (rc) {
 			if (rc != -EPROBE_DEFER)
 				pr_err("Failed to bind dsi display_%d, rc=%d\n",
 					i, rc);
-			goto error_unbind_dsi;
+
+			/* clean up DSI bindings */
+			for (i = i - 1; i >= 0; i--) {
+				display = disp_m->dsi_displays[i];
+				(void)dsi_display_unbind(display);
+			}
+			goto exit;
 		}
 	}
 
@@ -145,14 +215,7 @@ static int disp_manager_comp_ops_bind(struct device *dev,
 	/* TODO: BIND DP display here */
 
 	priv->dm = disp_m;
-	return rc;
-error_unbind_dsi:
-	for (i = i - 1; i >= 0; i--) {
-		dsi_display = dsi_display_get_display_by_index(i);
-		if (!dsi_display || !dsi_display_is_active(dsi_display))
-			continue;
-		(void)dsi_display_unbind(dsi_display);
-	}
+exit:
 	return rc;
 }
 
@@ -163,7 +226,7 @@ static void disp_manager_comp_ops_unbind(struct device *dev,
 	int rc = 0;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct display_manager *disp_m;
-	struct dsi_display *dsi_display;
+	void *display;
 	int i;
 
 	if (!dev) {
@@ -175,11 +238,9 @@ static void disp_manager_comp_ops_unbind(struct device *dev,
 
 	/* DSI displays */
 	for (i = 0; i < disp_m->dsi_display_count; i++) {
-		dsi_display = dsi_display_get_display_by_index(i);
-		if (!dsi_display || !dsi_display_is_active(dsi_display))
-			continue;
+		display = disp_m->dsi_displays[i];
 
-		rc = dsi_display_unbind(dsi_display);
+		rc = dsi_display_unbind(display);
 		if (rc)
 			pr_err("failed to unbind dsi display_%d, rc=%d\n",
 			       i, rc);
@@ -220,20 +281,14 @@ static int disp_manager_dev_probe(struct platform_device *pdev)
 	of_platform_populate(pdev->dev.of_node, displays_dt_match,
 			     NULL, &pdev->dev);
 
-	disp_m->display_count = dm_get_num_of_displays(disp_m);
+	disp_m->display_count = _dm_cache_active_displays(disp_m);
 	if (!disp_m->display_count) {
 		rc = -ENODEV;
-		pr_err("No display found, rc=%d\n", rc);
+		pr_err("no displays found, rc=%d\n", rc);
 		goto error_free_disp_m;
 	}
 
-	rc = dm_set_active_displays(disp_m);
-	if (rc) {
-		pr_err("failed to set active displays, rc=%d\n", rc);
-		goto error_remove_displays;
-	}
-
-	rc = dm_init_active_displays(disp_m);
+	rc = _dm_init_active_displays(disp_m);
 	if (rc) {
 		pr_err("failed to initialize displays, rc=%d\n", rc);
 		goto error_remove_displays;
@@ -250,7 +305,7 @@ static int disp_manager_dev_probe(struct platform_device *pdev)
 
 	return rc;
 error_deinit_displays:
-	(void)dm_deinit_active_displays(disp_m);
+	_dm_deinit_active_displays(disp_m);
 error_remove_displays:
 	of_platform_depopulate(&pdev->dev);
 error_free_disp_m:
@@ -269,7 +324,7 @@ static int disp_manager_dev_remove(struct platform_device *pdev)
 
 	disp_m = platform_get_drvdata(pdev);
 
-	(void)dm_deinit_active_displays(disp_m);
+	_dm_deinit_active_displays(disp_m);
 	of_platform_depopulate(&pdev->dev);
 	devm_kfree(&pdev->dev, disp_m);
 
@@ -290,19 +345,18 @@ static struct platform_driver disp_manager_driver = {
 	},
 };
 
-
 int display_manager_get_count(struct display_manager *disp_m)
 {
 	int count;
 
 	if (!disp_m) {
-		pr_err("Invalid params\n");
-		return -EINVAL;
+		pr_err("invalid params\n");
+		return 0;
 	}
 
 	mutex_lock(&disp_m->lock);
 
-	count = 1; /* TODO: keep track of active displays */
+	count = disp_m->display_count;
 
 	mutex_unlock(&disp_m->lock);
 	return count;
@@ -312,8 +366,8 @@ int display_manager_get_info_by_index(struct display_manager *disp_m,
 				      u32 display_index,
 				      struct msm_display_info *info)
 {
-	struct dsi_display *display;
-	int i, rc = 0;
+	void *display;
+	int rc = 0;
 
 	if (!disp_m || !info) {
 		pr_err("Invalid params\n");
@@ -324,11 +378,11 @@ int display_manager_get_info_by_index(struct display_manager *disp_m,
 
 	mutex_lock(&disp_m->lock);
 
-	for (i = 0; i < disp_m->dsi_display_count; i++) {
-		display = dsi_display_get_display_by_index(i);
-		if (!display || !dsi_display_is_active(display))
-			continue;
+	if (display_index < disp_m->display_count)
+		display = disp_m->displays[display_index];
 
+	switch (_dm_get_type_by_index(disp_m, display_index)) {
+	case DRM_MODE_CONNECTOR_DSI:
 		memset(info, 0x0, sizeof(*info));
 		rc = dsi_display_get_info(info, display);
 		if (rc) {
@@ -336,8 +390,11 @@ int display_manager_get_info_by_index(struct display_manager *disp_m,
 			rc = -EINVAL;
 		}
 		break;
+	default:
+		pr_err("invalid index %d\n", display_index);
+		rc = -EINVAL;
+		break;
 	}
-
 	mutex_unlock(&disp_m->lock);
 	return rc;
 }
@@ -353,9 +410,8 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 		.mode_valid = dsi_conn_mode_valid,
 		.get_info =   dsi_display_get_info,
 	};
+	void *display;
 	int rc = -EINVAL;
-	int i;
-	struct dsi_display *display;
 	struct drm_connector *connector;
 
 	if (!disp_m || !encoder) {
@@ -365,14 +421,16 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 
 	mutex_lock(&disp_m->lock);
 
-	for (i = 0; i < disp_m->dsi_display_count; i++) {
-		display = dsi_display_get_display_by_index(i);
-		if (!display || !dsi_display_is_active(display))
-			continue;
+	if (display_index < disp_m->display_count)
+		display = disp_m->displays[display_index];
 
+	switch (_dm_get_type_by_index(disp_m, display_index)) {
+	case DRM_MODE_CONNECTOR_DSI:
 		rc = dsi_display_drm_bridge_init(display, encoder);
-		if (rc)
-			continue;
+		if (rc) {
+			pr_err("dsi bridge init failed\n");
+			break;
+		}
 
 		connector = sde_connector_init(disp_m->drm_dev,
 				encoder,
@@ -386,6 +444,9 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 		else if (IS_ERR(connector))
 			rc = PTR_ERR(connector);
 		break;
+	default:
+		pr_err("invalid index %d\n", display_index);
+		break;
 	}
 
 	mutex_unlock(&disp_m->lock);
@@ -397,8 +458,8 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 int display_manager_drm_deinit_by_index(struct display_manager *disp_m,
 					u32 display_index)
 {
-	int i;
-	struct dsi_display *display;
+	void *display;
+	int rc = 0;
 
 	if (!disp_m) {
 		pr_err("Invalid params\n");
@@ -407,18 +468,22 @@ int display_manager_drm_deinit_by_index(struct display_manager *disp_m,
 
 	mutex_lock(&disp_m->lock);
 
-	for (i = 0; i < disp_m->dsi_display_count; i++) {
-		display = dsi_display_get_display_by_index(i);
-		if (!display || !dsi_display_is_active(display))
-			continue;
+	if (display_index < disp_m->display_count)
+		display = disp_m->displays[display_index];
 
+	switch (_dm_get_type_by_index(disp_m, display_index)) {
+	case DRM_MODE_CONNECTOR_DSI:
 		dsi_display_drm_bridge_deinit(display);
+		break;
+	default:
+		pr_err("invalid index\n");
+		rc = -EINVAL;
 		break;
 	}
 
 	mutex_unlock(&disp_m->lock);
 
-	return 0;
+	return rc;
 }
 
 
