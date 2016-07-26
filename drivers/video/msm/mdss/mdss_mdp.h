@@ -257,6 +257,7 @@ struct mdss_mdp_ctl_intfs_ops {
 	int (*prepare_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
 	int (*display_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
 	int (*wait_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
+	int (*wait_vsync_fnc)(struct mdss_mdp_ctl *ctl);
 	int (*wait_pingpong)(struct mdss_mdp_ctl *ctl, void *arg);
 	u32 (*read_line_cnt_fnc)(struct mdss_mdp_ctl *);
 	int (*add_vsync_handler)(struct mdss_mdp_ctl *,
@@ -278,6 +279,106 @@ struct mdss_mdp_ctl_intfs_ops {
 
 	/* to update lineptr, [1..yres] - enable, 0 - disable */
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
+};
+
+/* FRC info used for Deterministic Frame Rate Control */
+#define FRC_CADENCE_22_RATIO 2000000000u /* 30fps -> 60fps, 29.97 -> 59.94 */
+#define FRC_CADENCE_22_RATIO_LOW 1940000000u
+#define FRC_CADENCE_22_RATIO_HIGH 2060000000u
+
+#define FRC_CADENCE_23_RATIO 2500000000u /* 24fps -> 60fps, 23.976 -> 59.94 */
+#define FRC_CADENCE_23_RATIO_LOW 2450000000u
+#define FRC_CADENCE_23_RATIO_HIGH 2550000000u
+
+#define FRC_CADENCE_23223_RATIO 2400000000u /* 25fps -> 60fps */
+#define FRC_CADENCE_23223_RATIO_LOW 2360000000u
+#define FRC_CADENCE_23223_RATIO_HIGH 2440000000u
+
+#define FRC_VIDEO_TS_DELTA_THRESHOLD_US (16666 * 10) /* 10 frames at 60fps */
+
+/*
+ * In current FRC design, the minimum video fps change we can support is 24fps
+ * to 25fps, so the timestamp delta per frame is 1667. Use this threshold to
+ * catch this case and ignore more trivial video fps variations.
+ */
+#define FRC_VIDEO_FPS_CHANGE_THRESHOLD_US 1667
+#define FRC_VIDEO_FPS_DETECT_WINDOW 32 /* how many samples we need for video
+				fps calculation */
+
+/*
+ * Experimental value. Mininum vsync counts during video's single update could
+ * be thought of as pause. If video fps is 10fps and display is 60fps, every
+ * video frame should arrive per 6 vsync, and add 2 more vsync delay, each frame
+ * should arrive in at most 8 vsync interval, otherwise it's considered as a
+ * pause. This value might need tuning in some cases.
+ */
+#define FRC_VIDEO_PAUSE_THRESHOLD 8
+
+#define FRC_MAX_VIDEO_DROPPING_CNT 10 /* how many drops before we disable FRC */
+#define FRC_VIDEO_DROP_TOLERANCE_WINDOW 1000 /* how many frames to count drop */
+
+/* DONOT change the definition order. __check_known_cadence depends on it */
+enum {
+	FRC_CADENCE_NONE = 0, /* Waiting for samples to compute cadence */
+	FRC_CADENCE_23,
+	FRC_CADENCE_22,
+	FRC_CADENCE_23223,
+	FRC_CADENCE_FREE_RUN, /* No extra repeat, but wait for changes */
+	FRC_CADENCE_DISABLE, /* FRC disabled, no extra repeat */
+};
+#define FRC_MAX_SUPPORT_CADENCE FRC_CADENCE_FREE_RUN
+
+#define FRC_CADENCE_SEQUENCE_MAX_LEN 5 /* 5 -> 23223 */
+#define FRC_CADENCE_SEQUENCE_MAX_RETRY 5 /* max retry of matching sequence */
+
+/* sequence generator for pre-defined cadence */
+struct mdss_mdp_frc_seq_gen {
+	int seq[FRC_CADENCE_SEQUENCE_MAX_LEN];
+	int cache[FRC_CADENCE_SEQUENCE_MAX_LEN]; /* 0 -> this slot is empty */
+	int len;
+	int pos; /* current position in seq, < 0 -> pattern not matched */
+	int base;
+	int retry;
+};
+
+struct mdss_mdp_frc_data {
+	u32 frame_cnt; /* video frame count */
+	s64 timestamp; /* video timestamp in millisecond */
+};
+
+struct mdss_mdp_frc_video_stat {
+	u32 frame_cnt; /* video frame count */
+	s64 timestamp; /* video timestamp in millisecond */
+	s64 last_delta;
+};
+
+struct mdss_mdp_frc_drop_stat {
+	u32 drop_cnt; /* how many video buffer drop */
+	u32 frame_cnt; /* the first frame cnt where drop happens */
+};
+
+#define FRC_CADENCE_DETECT_WINDOW 6 /* how many samples at least we need for
+					cadence detection */
+
+struct mdss_mdp_frc_cadence_calc {
+	struct mdss_mdp_frc_data samples[FRC_CADENCE_DETECT_WINDOW];
+	int sample_cnt;
+};
+
+struct mdss_mdp_frc_info {
+	bool enable; /* FRC is enabled or not */
+	u32 cadence_id; /* patterns such as 22/23/23223 */
+	u32 display_fp1000s; /* display fps multiplied by 1000 */
+	u32 last_vsync_cnt; /* vsync when we kicked off last frame */
+	u32 last_repeat; /* how many times last frame was repeated */
+	u32 base_vsync_cnt; /* vsync when base sample is set */
+	struct mdss_mdp_frc_data cur_frc;
+	struct mdss_mdp_frc_data last_frc;
+	struct mdss_mdp_frc_data base_frc;
+	struct mdss_mdp_frc_video_stat video_stat;
+	struct mdss_mdp_frc_drop_stat drop_stat;
+	struct mdss_mdp_frc_cadence_calc calc;
+	struct mdss_mdp_frc_seq_gen gen;
 };
 
 struct mdss_mdp_ctl {
@@ -387,6 +488,9 @@ struct mdss_mdp_ctl {
 	u64 last_input_time;
 	int pending_mode_switch;
 	u16 frame_rate;
+
+	/* vsync handler for FRC */
+	struct mdss_mdp_vsync_handler frc_vsync_handler;
 };
 
 struct mdss_mdp_mixer {
@@ -719,6 +823,8 @@ struct mdss_overlay_private {
 	u32 ad_bl_events;
 
 	bool allow_kickoff;
+	/* video frame info used by deterministic frame rate control */
+	struct mdss_mdp_frc_info *frc_info;
 };
 
 struct mdss_mdp_set_ot_params {
