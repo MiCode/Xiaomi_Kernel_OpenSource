@@ -1545,7 +1545,7 @@
 			<0x704000 0x20000>;
 		reg-names = "crypto-base","crypto-bam-base";
 		interrupts = <0 207 0>;
-		qcom,bam-pipe-pair = <2>;
+		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
 		qcom,ce-hw-shared;
@@ -1554,7 +1554,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<47 512 0 0>,
-			<47 512 3936000 393600>;
+			<47 512 393600 393600>;
 		clocks =
 			<&clock_gcc clk_qcedev_ce_clk>,
 			<&clock_gcc clk_qcedev_ce_clk>,
@@ -1562,6 +1562,7 @@
 			<&clock_gcc clk_qcedev_ce_clk>;
 		clock-names = "core_clk", "iface_clk",
 			"bus_clk","core_clk_src";
+		qcom,ce-opp-freq = <171430000>;
 	};
 
 	qcom,qcrypto@720000 {
@@ -1570,7 +1571,7 @@
 			<0x704000 0x20000>;
 		reg-names = "crypto-base","crypto-bam-base";
 		interrupts = <0 207 0>;
-		qcom,bam-pipe-pair = <3>;
+		qcom,bam-pipe-pair = <2>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
 		qcom,ce-hw-shared;
@@ -1579,7 +1580,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<47 512 0 0>,
-			<47 512 3936000 393600>;
+			<47 512 393600 393600>;
 		clocks =
 			<&clock_gcc clk_qcedev_ce_clk>,
 			<&clock_gcc clk_qcedev_ce_clk>,
@@ -1587,6 +1588,13 @@
 			<&clock_gcc clk_qcedev_ce_clk>;
 		clock-names = "core_clk", "iface_clk",
 			"bus_clk","core_clk_src";
+		qcom,use-sw-aes-cbc-ecb-ctr-algo;
+		qcom,use-sw-aes-xts-algo;
+		qcom,use-sw-aes-ccm-algo;
+		qcom,use-sw-ahash-algo;
+		qcom,use-sw-hmac-algo;
+		qcom,use-sw-aead-algo;
+		qcom,ce-opp-freq = <171430000>;
 	};
 
 	qcom,mss@4080000{
