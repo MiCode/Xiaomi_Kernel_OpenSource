@@ -3697,6 +3697,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
 	ipa_ctx->ipa_bam_remote_mode = resource_p->ipa_bam_remote_mode;
 	ipa_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
+	ipa_ctx->ipa_wdi2 = resource_p->ipa_wdi2;
 	ipa_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa_ctx->lan_rx_ring_size = resource_p->lan_rx_ring_size;
 	ipa_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
@@ -4235,6 +4236,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_hw_mode = 0;
 	ipa_drv_res->ipa_bam_remote_mode = false;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
+	ipa_drv_res->ipa_wdi2 = false;
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 	ipa_drv_res->lan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 
@@ -4300,6 +4302,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": modem configure embedded pipe filtering = %s\n",
 			ipa_drv_res->modem_cfg_emb_pipe_flt
 			? "True" : "False");
+
+	ipa_drv_res->ipa_wdi2 =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,ipa-wdi2");
+	IPADBG(": WDI-2.0 = %s\n",
+		ipa_drv_res->ipa_wdi2
+		? "True" : "False");
 
 	ipa_drv_res->skip_uc_pipe_reset =
 		of_property_read_bool(pdev->dev.of_node,
