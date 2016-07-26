@@ -51,7 +51,7 @@ struct panel_id {
 #define MIPI_CMD_PANEL		9	/* MIPI */
 #define WRITEBACK_PANEL		10	/* Wifi display */
 #define LVDS_PANEL		11	/* LVDS */
-#define EDP_PANEL		12	/* LVDS */
+#define DP_PANEL		12	/* LVDS */
 
 #define DSC_PPS_LEN		128
 
@@ -61,7 +61,7 @@ static inline const char *mdss_panel2str(u32 panel)
 #define PANEL_NAME(n) [n ## _PANEL] = __stringify(n)
 		PANEL_NAME(MIPI_VIDEO),
 		PANEL_NAME(MIPI_CMD),
-		PANEL_NAME(EDP),
+		PANEL_NAME(DP),
 		PANEL_NAME(HDMI),
 		PANEL_NAME(DTV),
 		PANEL_NAME(WRITEBACK),
@@ -811,7 +811,7 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 	case MIPI_CMD_PANEL:
 		frame_rate = panel_info->mipi.frame_rate;
 		break;
-	case EDP_PANEL:
+	case DP_PANEL:
 		frame_rate = panel_info->edp.frame_rate;
 		break;
 	case WRITEBACK_PANEL:

@@ -150,7 +150,7 @@ enum hdmi_scaling_info {
 	HDMI_SCALING_HORZ_VERT,
 };
 
-static int hdmi_panel_get_vic(struct mdss_panel_info *pinfo,
+int hdmi_panel_get_vic(struct mdss_panel_info *pinfo,
 		struct hdmi_util_ds_data *ds_data)
 {
 	int new_vic = -1;
