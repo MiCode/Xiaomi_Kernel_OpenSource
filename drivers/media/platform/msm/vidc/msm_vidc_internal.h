@@ -204,9 +204,9 @@ struct dcvs_stats {
 	int load_high;
 	int min_threshold;
 	int max_threshold;
-	bool is_clock_scaled;
 	int etb_counter;
 	bool is_power_save_mode;
+	unsigned int extra_buffer_count;
 	u32 supported_codecs;
 };
 
@@ -279,7 +279,6 @@ struct msm_vidc_inst {
 	bool in_reconfig;
 	u32 reconfig_width;
 	u32 reconfig_height;
-	u32 seqchanged_count;
 	struct dentry *debugfs_root;
 	void *priv;
 	struct msm_vidc_debug debug;

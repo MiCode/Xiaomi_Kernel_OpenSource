@@ -20,9 +20,18 @@
 		((__cur_mbpf) >= (__min_mbpf))
 
 static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst);
-static bool msm_dcvs_enc_check(struct msm_vidc_inst *inst);
 static int msm_dcvs_enc_scale_clocks(struct msm_vidc_inst *inst);
 static int msm_dcvs_dec_scale_clocks(struct msm_vidc_inst *inst, bool fbd);
+
+int msm_dcvs_try_enable(struct msm_vidc_inst *inst)
+{
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: Invalid args: %p\n", __func__, inst);
+		return -EINVAL;
+	}
+	inst->dcvs_mode = msm_dcvs_check_supported(inst);
+	return 0;
+}
 
 static inline int msm_dcvs_get_mbs_per_frame(struct msm_vidc_inst *inst)
 {
@@ -41,20 +50,27 @@ static inline int msm_dcvs_get_mbs_per_frame(struct msm_vidc_inst *inst)
 	return NUM_MBS_PER_FRAME(height, width);
 }
 
-static inline int msm_dcvs_count_active_instances(struct msm_vidc_core *core)
+static inline int msm_dcvs_count_active_instances(struct msm_vidc_core *core,
+	enum session_type session_type)
 {
 	int active_instances = 0;
-	struct msm_vidc_inst *inst = NULL;
+	struct msm_vidc_inst *temp = NULL;
 
 	if (!core) {
 		dprintk(VIDC_ERR, "%s: Invalid args: %pK\n", __func__, core);
 		return -EINVAL;
 	}
 
+	/* DCVS condition is as following
+	 * Decoder DCVS : Only for ONE decoder session.
+	 * Encoder DCVS : Only for ONE encoder session + ONE decoder session
+	 */
 	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list) {
-		if (inst->state >= MSM_VIDC_OPEN_DONE &&
-			inst->state < MSM_VIDC_STOP_DONE)
+	list_for_each_entry(temp, &core->instances, list) {
+		if (temp->state >= MSM_VIDC_OPEN_DONE &&
+			temp->state < MSM_VIDC_STOP_DONE &&
+			(temp->session_type == session_type ||
+			 temp->session_type == MSM_VIDC_ENCODER))
 			active_instances++;
 	}
 	mutex_unlock(&core->lock);
@@ -112,17 +128,12 @@ static void msm_dcvs_enc_check_and_scale_clocks(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 
-	if (inst->session_type == MSM_VIDC_ENCODER && msm_vidc_enc_dcvs_mode) {
-		inst->dcvs_mode = msm_dcvs_check_supported(inst);
-		dprintk(VIDC_DBG, "%s: session DCVS %s supported\n",
-				__func__, inst->dcvs_mode ? "" : "not");
-
-		if (inst->dcvs_mode) {
-			rc = msm_dcvs_enc_scale_clocks(inst);
-			if (rc) {
-				dprintk(VIDC_DBG,
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+		msm_vidc_enc_dcvs_mode) {
+		rc = msm_dcvs_enc_scale_clocks(inst);
+		if (rc) {
+			dprintk(VIDC_DBG,
 				"ENC_DCVS: error while scaling clocks\n");
-			}
 		}
 	}
 }
@@ -131,28 +142,14 @@ static void msm_dcvs_dec_check_and_scale_clocks(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 
-	if (inst->session_type != MSM_VIDC_DECODER || !msm_vidc_dec_dcvs_mode)
-		return;
-
-	if (msm_dcvs_check_supported(inst)) {
-		inst->dcvs_mode = true;
-		dprintk(VIDC_DBG,
-			"%s: session DCVS supported, decode_dcvs_mode = %d\n",
-			__func__, inst->dcvs_mode);
-	} else {
-		inst->dcvs_mode = false;
-		dprintk(VIDC_DBG,
-			"%s: session DCVS not supported, decode_dcvs_mode = %d\n",
-			__func__, inst->dcvs_mode);
-	}
-
-	if (msm_vidc_dec_dcvs_mode && inst->dcvs_mode) {
+	if (inst->session_type == MSM_VIDC_DECODER &&
+		msm_vidc_dec_dcvs_mode) {
 		msm_dcvs_monitor_buffer(inst);
 		rc = msm_dcvs_dec_scale_clocks(inst, false);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"%s: Failed to scale clocks in DCVS: %d\n",
-				__func__, rc);
+					"%s: Failed to scale clocks in DCVS: %d\n",
+					__func__, rc);
 		}
 	}
 }
@@ -161,6 +158,11 @@ void msm_dcvs_check_and_scale_clocks(struct msm_vidc_inst *inst, bool is_etb)
 {
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, inst);
+		return;
+	}
+	msm_dcvs_try_enable(inst);
+	if (!inst->dcvs_mode) {
+		dprintk(VIDC_DBG, "DCVS is not enabled\n");
 		return;
 	}
 
@@ -531,48 +533,6 @@ static int msm_dcvs_dec_scale_clocks(struct msm_vidc_inst *inst, bool fbd)
 	return rc;
 }
 
-static bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
-{
-	int num_mbs_per_frame = 0;
-	long int instance_load = 0;
-	long int dcvs_limit = 0;
-	bool dcvs_check_passed = false, is_codec_supported  = false;
-	struct msm_vidc_platform_resources *res = NULL;
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
-		return dcvs_check_passed;
-	}
-
-	res = &inst->core->resources;
-	if (!res->dcvs_limit) {
-		dprintk(VIDC_ERR,
-			"%s Dcvs limit table uninitialized\n", __func__);
-		return false;
-	}
-
-	is_codec_supported =
-		msm_dcvs_check_codec_supported(
-				inst->fmts[CAPTURE_PORT]->fourcc,
-				inst->dcvs.supported_codecs,
-				inst->session_type);
-
-	num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
-	instance_load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
-	dcvs_limit =
-		(long int)res->dcvs_limit[inst->session_type].min_mbpf *
-		res->dcvs_limit[inst->session_type].fps;
-
-	if (msm_vidc_enc_dcvs_mode && is_codec_supported &&
-		inst->dcvs.is_power_save_mode &&
-		IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-			res->dcvs_limit[inst->session_type].min_mbpf) &&
-		IS_VALID_DCVS_SESSION(instance_load, dcvs_limit)) {
-		dcvs_check_passed = true;
-	}
-	return dcvs_check_passed;
-}
-
 static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 {
 	int num_mbs_per_frame = 0, instance_count = 0;
@@ -583,6 +543,7 @@ static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 	struct hal_buffer_requirements *output_buf_req;
 	struct dcvs_stats *dcvs;
 	bool is_codec_supported = false;
+	bool is_dcvs_supported = true;
 	struct msm_vidc_platform_resources *res = NULL;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -599,104 +560,88 @@ static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 				"%s: dcvs limit table not found\n", __func__);
 		return false;
 	}
-	instance_count = msm_dcvs_count_active_instances(core);
+	instance_count = msm_dcvs_count_active_instances(core,
+		inst->session_type);
+	num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
+	instance_load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
+	dcvs_limit =
+		(long int)res->dcvs_limit[inst->session_type].min_mbpf *
+		res->dcvs_limit[inst->session_type].fps;
+	inst->dcvs.extra_buffer_count = 0;
 
-	if (instance_count == 1 && inst->session_type == MSM_VIDC_DECODER &&
-		!msm_comm_turbo_session(inst)) {
-		num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
-		instance_load = msm_comm_get_inst_load(inst,
-			LOAD_CALC_NO_QUIRKS);
+	if (!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
+				res->dcvs_limit[inst->session_type].min_mbpf)) {
+		inst->dcvs.extra_buffer_count = 0;
+		is_dcvs_supported = false;
+		goto dcvs_decision_done;
+
+	}
+
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		inst->dcvs.extra_buffer_count = DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
 		output_buf_req = get_buff_req_buffer(inst,
-			msm_comm_get_hal_output_buffer(inst));
-		dcvs_limit =
-			(long int)res->dcvs_limit[inst->session_type].min_mbpf *
-			res->dcvs_limit[inst->session_type].fps;
-		is_codec_supported =
-			msm_dcvs_check_codec_supported(
-					inst->fmts[OUTPUT_PORT]->fourcc,
-					inst->dcvs.supported_codecs,
-					inst->session_type);
-		if (!is_codec_supported ||
-			!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-				res->dcvs_limit[inst->session_type].min_mbpf) ||
-			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit) ||
-			inst->seqchanged_count > 1)
-			return false;
-
+				msm_comm_get_hal_output_buffer(inst));
 		if (!output_buf_req) {
 			dprintk(VIDC_ERR,
-				"%s: No buffer requirement for buffer type %x\n",
-				__func__, HAL_BUFFER_OUTPUT);
+					"%s: No buffer requirement for buffer type %x\n",
+					__func__, HAL_BUFFER_OUTPUT);
 			return false;
 		}
-	} else if (instance_count == 1 &&
-			inst->session_type == MSM_VIDC_ENCODER &&
-			!msm_comm_turbo_session(inst)) {
-		if (!msm_dcvs_enc_check(inst))
-			return false;
-	} else {
-		/*
-		* For multiple instance use case with 4K, clocks will be scaled
-		* as per load in streamon, but the clocks may be scaled
-		* down as DCVS is running for first playback instance
-		* Rescaling the core clock for multiple instance use case
-		*/
-		if (!dcvs->is_clock_scaled) {
-			if (!msm_comm_scale_clocks(core)) {
-				dcvs->is_clock_scaled = true;
-				dprintk(VIDC_DBG,
-					"%s: Scaled clocks = %d\n",
-					__func__, dcvs->is_clock_scaled);
-			} else {
-				dprintk(VIDC_DBG,
-					"%s: Failed to Scale clocks. Perf might be impacted\n",
-					__func__);
-			}
+		is_codec_supported =
+			msm_dcvs_check_codec_supported(
+				inst->fmts[OUTPUT_PORT]->fourcc,
+				inst->dcvs.supported_codecs,
+				inst->session_type);
+		if (!is_codec_supported ||
+				!msm_vidc_dec_dcvs_mode) {
+			inst->dcvs.extra_buffer_count = 0;
+			is_dcvs_supported = false;
+			goto dcvs_decision_done;
 		}
-		/*
-		* For multiple instance use case turn OFF DCVS algorithm
-		* immediately
-		*/
+		if (msm_comm_turbo_session(inst) ||
+			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit ||
+			instance_count > 1))
+			is_dcvs_supported = false;
+	}
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		inst->dcvs.extra_buffer_count = DCVS_ENC_EXTRA_OUTPUT_BUFFERS;
+		is_codec_supported =
+			msm_dcvs_check_codec_supported(
+				inst->fmts[CAPTURE_PORT]->fourcc,
+				inst->dcvs.supported_codecs,
+				inst->session_type);
+		if (!is_codec_supported ||
+				!msm_vidc_enc_dcvs_mode) {
+			inst->dcvs.extra_buffer_count = 0;
+			is_dcvs_supported = false;
+			goto dcvs_decision_done;
+		}
+		if (msm_comm_turbo_session(inst) ||
+			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit ||
+				instance_count > 1))
+			is_dcvs_supported = false;
+	}
+dcvs_decision_done:
+	if (!is_dcvs_supported) {
+		msm_comm_scale_clocks(core);
 		if (instance_count > 1) {
 			mutex_lock(&core->lock);
 			list_for_each_entry(temp, &core->instances, list)
 				temp->dcvs_mode = false;
 			mutex_unlock(&core->lock);
 		}
-
-		return false;
 	}
-
-	return true;
+	return is_dcvs_supported;
 }
 
 int msm_dcvs_get_extra_buff_count(struct msm_vidc_inst *inst)
 {
-	int extra_buffer = 0;
-
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
 		return 0;
 	}
 
-	if (inst->session_type == MSM_VIDC_ENCODER) {
-		if (msm_dcvs_enc_check(inst))
-			extra_buffer = DCVS_ENC_EXTRA_OUTPUT_BUFFERS;
-	} else if (inst->session_type == MSM_VIDC_DECODER) {
-		if (msm_dcvs_check_supported(inst))
-			extra_buffer = DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
-	}
-	return extra_buffer;
+	return inst->dcvs.extra_buffer_count;
 }
 
 
-void msm_dcvs_enc_set_power_save_mode(struct msm_vidc_inst *inst,
-					bool is_power_save_mode)
-{
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
-		return;
-	}
-
-	inst->dcvs.is_power_save_mode = is_power_save_mode;
-}

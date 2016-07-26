@@ -1237,8 +1237,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 			inst->prop.width[OUTPUT_PORT] = event_notify->width;
 	}
 
-	inst->seqchanged_count++;
-
 	if (inst->session_type == MSM_VIDC_DECODER)
 		msm_dcvs_init_load(inst);
 
@@ -2225,11 +2223,32 @@ void handle_cmd_response(enum hal_command_response cmd, void *data)
 
 int msm_comm_scale_clocks(struct msm_vidc_core *core)
 {
-	int num_mbs_per_sec =
-		msm_comm_get_load(core, MSM_VIDC_ENCODER, LOAD_CALC_NO_QUIRKS) +
+	int num_mbs_per_sec, enc_mbs_per_sec, dec_mbs_per_sec;
+
+	enc_mbs_per_sec =
+		msm_comm_get_load(core, MSM_VIDC_ENCODER, LOAD_CALC_NO_QUIRKS);
+	dec_mbs_per_sec	=
 		msm_comm_get_load(core, MSM_VIDC_DECODER, LOAD_CALC_NO_QUIRKS);
+
+	if (enc_mbs_per_sec >= dec_mbs_per_sec) {
+	/*
+	 * If Encoder load is higher, use that load. Encoder votes for higher
+	 * clock. Since Encoder and Deocder run on parallel cores, this clock
+	 * should suffice decoder usecases.
+	 */
+		num_mbs_per_sec = enc_mbs_per_sec;
+	} else {
+	/*
+	 * If Decoder load is higher, it's tricky to decide clock. Decoder
+	 * higher load might results less clocks than Encoder smaller load.
+	 * At this point driver doesn't know which clock to vote. Hence use
+	 * total load.
+	 */
+		num_mbs_per_sec = enc_mbs_per_sec + dec_mbs_per_sec;
+	}
+
 	return msm_comm_scale_clocks_load(core, num_mbs_per_sec,
-				LOAD_CALC_NO_QUIRKS);
+			LOAD_CALC_NO_QUIRKS);
 }
 
 int msm_comm_scale_clocks_load(struct msm_vidc_core *core,
@@ -4894,6 +4913,9 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		return -ENOTSUPP;
 	}
 
+	if (!rc)
+		msm_dcvs_try_enable(inst);
+
 	if (!rc) {
 		if (inst->prop.width[CAPTURE_PORT] < capability->width.min ||
 			inst->prop.height[CAPTURE_PORT] <
@@ -5203,6 +5225,7 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 			msm_dcvs_init_load(inst);
 		}
 		msm_comm_scale_clocks_and_bus(inst);
+		msm_dcvs_try_enable(inst);
 	}
 exit:
 	return rc;
