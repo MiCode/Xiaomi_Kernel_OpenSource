@@ -21,7 +21,7 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_sharp_4k_dsc_video>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -31,7 +31,7 @@
 };
 
 &mdss_dsi1 {
-	qcom,dsi-pref-prim-pan = <&dsi_sharp_4k_dsc_video>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
