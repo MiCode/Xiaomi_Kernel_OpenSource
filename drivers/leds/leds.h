@@ -48,11 +48,28 @@ static inline void *led_get_trigger_data(struct led_classdev *led_cdev)
 	return led_cdev->trigger_data;
 }
 
+static inline struct led_classdev *trigger_to_lcdev(struct led_trigger *trig)
+{
+	struct led_classdev *led_cdev;
+
+	read_lock(&trig->leddev_list_lock);
+	list_for_each_entry(led_cdev, &trig->led_cdevs, trig_list) {
+		if (!strcmp(led_cdev->default_trigger, trig->name)) {
+			read_unlock(&trig->leddev_list_lock);
+			return led_cdev;
+		}
+	}
+
+	read_unlock(&trig->leddev_list_lock);
+	return NULL;
+}
+
 #else
 #define led_trigger_set_default(x) do {} while (0)
 #define led_trigger_set(x, y) do {} while (0)
 #define led_trigger_remove(x) do {} while (0)
 #define led_get_trigger_data(x) (NULL)
+#define trigger_to_lcdev(x) (NULL)
 #endif
 
 ssize_t led_trigger_store(struct device *dev, struct device_attribute *attr,
