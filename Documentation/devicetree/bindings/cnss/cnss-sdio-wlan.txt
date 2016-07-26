@@ -29,7 +29,8 @@ Optional properties:
   - qcom,msm-bus,num-cases: number of cases for bus scaling.
   - qcom,msm-bus,num-paths: number of paths for bus scale vector.
   - qcom,msm-bus,vectors-KBps: bus scale vector table.
-
+  - qcom,skip-wlan-en-toggle: Boolean property to be enabled for platforms where
+                           wlan_en toggling is not supported.
 Example:
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
