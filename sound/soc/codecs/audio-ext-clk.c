@@ -91,6 +91,10 @@ static int audio_ext_clk2_prepare(struct clk *clk)
 	struct pinctrl_info *pnctrl_info = &audio_clk2->pnctrl_info;
 	int ret;
 
+
+	if (!pnctrl_info->pinctrl || !pnctrl_info->active)
+		return 0;
+
 	ret = pinctrl_select_state(pnctrl_info->pinctrl,
 				   pnctrl_info->active);
 	if (ret) {
@@ -114,6 +118,9 @@ static void audio_ext_clk2_unprepare(struct clk *clk)
 	struct audio_ext_ap_clk2 *audio_clk2 = to_audio_ap_clk2(clk);
 	struct pinctrl_info *pnctrl_info = &audio_clk2->pnctrl_info;
 	int ret;
+
+	if (!pnctrl_info->pinctrl || !pnctrl_info->sleep)
+		return;
 
 	ret = pinctrl_select_state(pnctrl_info->pinctrl,
 				   pnctrl_info->sleep);
