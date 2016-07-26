@@ -19,6 +19,7 @@
 
 #include "msm_prop.h"
 #include "sde_kms.h"
+#include "sde_fence.h"
 
 #define SDE_CONNECTOR_NAME_SIZE	16
 
@@ -112,6 +113,7 @@ struct sde_connector_ops {
  * @display: Pointer to private display data structure
  * @mmu_id: MMU is for buffer mapping
  * @name: ASCII name of connector
+ * @retire_fence: Retire fence reference
  * @ops: Local callback function pointer table
  * @property_info: Private structure for generic property handling
  * @property_data: Array of private data for generic property handling
@@ -130,6 +132,7 @@ struct sde_connector {
 
 	char name[SDE_CONNECTOR_NAME_SIZE];
 
+	struct sde_fence retire_fence;
 	struct sde_connector_ops ops;
 
 	struct msm_property_info property_info;
@@ -235,6 +238,18 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		const struct sde_connector_ops *ops,
 		int connector_poll,
 		int connector_type);
+
+/**
+ * sde_connector_prepare_fence - prepare fence support for current commit
+ * @connector: Pointer to drm connector object
+ */
+void sde_connector_prepare_fence(struct drm_connector *connector);
+
+/**
+ * sde_connector_complete_commit - signal completion of current commit
+ * @connector: Pointer to drm connector object
+ */
+void sde_connector_complete_commit(struct drm_connector *connector);
 
 #endif /* _SDE_CONNECTOR_H_ */
 
