@@ -1458,7 +1458,7 @@
 		qcom,pcie-phy-ver = <0x20>;
 		qcom,use-19p2mhz-aux-clk;
 
-		iommus = <&anoc1_smmu 0x1>;
+		iommus = <&anoc1_smmu>;
 		qcom,smmu-exist;
 		qcom,smmu-sid-base = <0x1480>;
 
