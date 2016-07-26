@@ -999,7 +999,7 @@ static bool free_pages_prepare(struct page *page, unsigned int order)
 	trace_mm_page_free(page, order);
 	kmemcheck_free_shadow(page, order);
 
-	if (PageAnon(page))
+	if (PageMappingFlags(page))
 		page->mapping = NULL;
 	bad += free_pages_check(page);
 	for (i = 1; i < (1 << order); i++) {
