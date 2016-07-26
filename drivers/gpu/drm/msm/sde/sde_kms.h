@@ -20,6 +20,7 @@
 #include "sde_hw_ctl.h"
 #include "sde_hw_lm.h"
 #include "sde_hw_interrupts.h"
+#include "sde_connector.h"
 
 /**
  * SDE_DEBUG - macro for kms/plane/crtc/encoder/connector logs
