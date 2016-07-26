@@ -177,12 +177,13 @@ void dsi_display_unregister(void);
 u32 dsi_display_get_num_of_displays(void);
 
 /**
- * dsi_display_get_display_by_index()- finds display by index
- * @index:      index of the display.
- *
- * Return: handle to the display or error code.
+ * dsi_display_get_active_displays - returns pointers for active display devices
+ * @display_array: Pointer to display array to be filled
+ * @max_display_count: Size of display_array
+ * @Returns: Number of display entries filled
  */
-struct dsi_display *dsi_display_get_display_by_index(u32 index);
+int dsi_display_get_active_displays(void **display_array,
+		u32 max_display_count);
 
 /**
  * dsi_display_get_display_by_name()- finds display by name
@@ -198,14 +199,6 @@ struct dsi_display *dsi_display_get_display_by_name(const char *name);
  * @is_active:      state
  */
 void dsi_display_set_active_state(struct dsi_display *display, bool is_active);
-
-/**
- * dsi_display_is_active() - returns the state of the display
- * @display:        Handle to the display.
- *
- * Return: state.
- */
-bool dsi_display_is_active(struct dsi_display *display);
 
 /**
  * dsi_display_dev_init() - Initializes the display device
