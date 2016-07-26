@@ -103,7 +103,7 @@ void hci_conn_init_sysfs(struct hci_conn *conn)
 {
 	struct hci_dev *hdev = conn->hdev;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	conn->dev.type = &bt_link;
 	conn->dev.class = bt_class;
@@ -116,7 +116,7 @@ void hci_conn_add_sysfs(struct hci_conn *conn)
 {
 	struct hci_dev *hdev = conn->hdev;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	dev_set_name(&conn->dev, "%s:%d", hdev->name, conn->handle);
 
@@ -547,7 +547,7 @@ int hci_add_sysfs(struct hci_dev *hdev)
 	struct device *dev = &hdev->dev;
 	int err;
 
-	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
+	BT_DBG("%pK name %s bus %d", hdev, hdev->name, hdev->bus);
 
 	dev_set_name(dev, "%s", hdev->name);
 
@@ -577,7 +577,7 @@ int hci_add_sysfs(struct hci_dev *hdev)
 
 void hci_del_sysfs(struct hci_dev *hdev)
 {
-	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
+	BT_DBG("%pK name %s bus %d", hdev, hdev->name, hdev->bus);
 
 	debugfs_remove_recursive(hdev->debugfs);
 

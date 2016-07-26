@@ -56,7 +56,7 @@ static int smp_e(struct crypto_blkcipher *tfm, const u8 *k, u8 *r)
 	unsigned char iv[128];
 
 	if (tfm == NULL) {
-		BT_ERR("tfm %p", tfm);
+		BT_ERR("tfm %pK", tfm);
 		return -EINVAL;
 	}
 
@@ -375,7 +375,7 @@ static void confirm_work(struct work_struct *work)
 	int ret;
 	u8 res[16], reason;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	tfm = crypto_alloc_blkcipher("ecb(aes)", 0, CRYPTO_ALG_ASYNC);
 	if (IS_ERR(tfm)) {
@@ -422,7 +422,7 @@ static void random_work(struct work_struct *work)
 		goto error;
 	}
 
-	BT_DBG("conn %p %s", conn, conn->hcon->out ? "master" : "slave");
+	BT_DBG("conn %pK %s", conn, conn->hcon->out ? "master" : "slave");
 
 	if (hcon->out)
 		ret = smp_c1(tfm, smp->tk, smp->rrnd, smp->preq, smp->prsp, 0,
@@ -574,7 +574,7 @@ static u8 smp_cmd_pairing_req(struct l2cap_conn *conn, struct sk_buff *skb)
 	u8 auth = SMP_AUTH_NONE;
 	int ret;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	if (conn->hcon->link_mode & HCI_LM_MASTER)
 		return SMP_CMD_NOTSUPP;
@@ -628,7 +628,7 @@ static u8 smp_cmd_pairing_rsp(struct l2cap_conn *conn, struct sk_buff *skb)
 	u8 key_size, auth = SMP_AUTH_NONE;
 	int ret;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	if (!(conn->hcon->link_mode & HCI_LM_MASTER))
 		return SMP_CMD_NOTSUPP;
@@ -674,7 +674,7 @@ static u8 smp_cmd_pairing_confirm(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct smp_chan *smp = conn->smp_chan;
 	struct hci_dev *hdev = conn->hcon->hdev;
 
-	BT_DBG("conn %p %s", conn, conn->hcon->out ? "master" : "slave");
+	BT_DBG("conn %pK %s", conn, conn->hcon->out ? "master" : "slave");
 
 	memcpy(smp->pcnf, skb->data, sizeof(smp->pcnf));
 	skb_pull(skb, sizeof(smp->pcnf));
@@ -699,7 +699,7 @@ static u8 smp_cmd_pairing_random(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct smp_chan *smp = conn->smp_chan;
 	struct hci_dev *hdev = conn->hcon->hdev;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	swap128(skb->data, smp->rrnd);
 	skb_pull(skb, sizeof(smp->rrnd));
@@ -737,7 +737,7 @@ static u8 smp_cmd_security_req(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct hci_conn *hcon = conn->hcon;
 	struct smp_chan *smp;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	hcon->pending_sec_level = authreq_to_seclevel(rp->auth_req);
 
@@ -770,7 +770,7 @@ int smp_conn_security(struct hci_conn *hcon, __u8 sec_level)
 	struct smp_chan *smp = conn->smp_chan;
 	__u8 authreq;
 
-	BT_DBG("conn %p hcon %p level 0x%2.2x", conn, hcon, sec_level);
+	BT_DBG("conn %pK hcon %pK level 0x%2.2x", conn, hcon, sec_level);
 
 	if (!test_bit(HCI_LE_ENABLED, &hcon->hdev->dev_flags))
 		return 1;
@@ -938,7 +938,7 @@ int smp_distribute_keys(struct l2cap_conn *conn, __u8 force)
 	struct smp_chan *smp = conn->smp_chan;
 	__u8 *keydist;
 
-	BT_DBG("conn %p force %d", conn, force);
+	BT_DBG("conn %pK force %d", conn, force);
 
 	if (!test_bit(HCI_CONN_LE_SMP_PEND, &conn->hcon->flags))
 		return 0;
