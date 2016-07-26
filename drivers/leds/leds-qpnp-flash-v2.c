@@ -23,7 +23,9 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/regulator/consumer.h>
+#include <linux/leds-qpnp-flash.h>
 #include <linux/leds-qpnp-flash-v2.h>
+#include "leds.h"
 
 #define	FLASH_LED_REG_INT_RT_STS(base)		(base + 0x10)
 #define	FLASH_LED_REG_SAFETY_TMR(base)		(base + 0x40)
@@ -485,12 +487,20 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 	return 0;
 }
 
-int qpnp_flash_led_prepare(struct led_classdev *led_cdev, int options)
+int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
 {
-	struct flash_switch_data *snode =
-			container_of(led_cdev, struct flash_switch_data, cdev);
-	struct qpnp_flash_led *led = dev_get_drvdata(&snode->pdev->dev);
+	struct led_classdev *led_cdev = trigger_to_lcdev(trig);
+	struct flash_switch_data *snode;
+	struct qpnp_flash_led *led;
 	int rc, val = 0;
+
+	if (!led_cdev) {
+		pr_err("Invalid led_trigger provided\n");
+		return -EINVAL;
+	}
+
+	snode = container_of(led_cdev, struct flash_switch_data, cdev);
+	led = dev_get_drvdata(&snode->pdev->dev);
 
 	if (!(options & (ENABLE_REGULATOR | QUERY_MAX_CURRENT))) {
 		dev_err(&led->pdev->dev, "Invalid options %d\n", options);

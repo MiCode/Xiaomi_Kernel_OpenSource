@@ -15,10 +15,6 @@
 
 #include <linux/leds.h>
 #include <linux/notifier.h>
-#include "leds.h"
-
-#define ENABLE_REGULATOR	BIT(0)
-#define QUERY_MAX_CURRENT	BIT(1)
 
 enum flash_led_irq_type {
 	LED_FAULT_IRQ = BIT(0),
@@ -31,8 +27,6 @@ enum flash_led_irq_type {
 	LED1_RAMP_UP_DONE_IRQ = BIT(7),
 	INVALID_IRQ = BIT(8),
 };
-
-int qpnp_flash_led_prepare(struct led_classdev *led_cdev, int options);
 
 int qpnp_flash_led_register_irq_notifier(struct notifier_block *nb);
 int qpnp_flash_led_unregister_irq_notifier(struct notifier_block *nb);
