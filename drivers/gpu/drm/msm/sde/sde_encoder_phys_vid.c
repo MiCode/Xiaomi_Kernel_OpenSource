@@ -42,24 +42,6 @@ static bool sde_encoder_phys_vid_is_master(
 	return ret;
 }
 
-static void sde_encoder_phys_vid_wait_for_vblank(
-		struct sde_encoder_phys_vid *vid_enc)
-{
-	int rc = 0;
-
-	if (!vid_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return;
-	}
-	SDE_DEBUG_VIDENC(vid_enc, "\n");
-	rc = wait_for_completion_timeout(&vid_enc->vblank_completion,
-			KICKOFF_TIMEOUT_JIFFIES);
-	if (rc == 0) {
-		SDE_ERROR_VIDENC(vid_enc, "timed out waiting for vblank irq\n");
-		SDE_DBG_DUMP("panic");
-	}
-}
-
 static void drm_mode_to_intf_timing_params(
 		const struct sde_encoder_phys_vid *vid_enc,
 		const struct drm_display_mode *mode,
@@ -220,9 +202,9 @@ static void programmable_fetch_config(struct sde_encoder_phys *phys_enc,
 		"vfp_fetch_lines %u vfp_fetch_start_vsync_counter %u\n",
 		vfp_fetch_lines, vfp_fetch_start_vsync_counter);
 
-	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 	vid_enc->hw_intf->ops.setup_prg_fetch(vid_enc->hw_intf, &f);
-	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 }
 
 static bool sde_encoder_phys_vid_mode_fixup(
@@ -288,11 +270,11 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	intf_cfg.stream_sel = 0; /* Don't care value for video mode */
 	intf_cfg.mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
 
-	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 	vid_enc->hw_intf->ops.setup_timing_gen(vid_enc->hw_intf,
 			&timing_params, fmt);
 	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
-	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	programmable_fetch_config(phys_enc, &timing_params);
 }
@@ -301,6 +283,8 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys_vid *vid_enc = arg;
 	struct sde_encoder_phys *phys_enc;
+	unsigned long lock_flags;
+	int new_cnt;
 
 	if (!vid_enc)
 		return;
@@ -310,8 +294,14 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 				phys_enc);
 
-	/* signal VBLANK completion */
-	complete_all(&vid_enc->vblank_completion);
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
+			new_cnt);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+
+	/* Signal any waiting atomic commit thread */
+	wake_up_all(&phys_enc->pending_kickoff_wq);
 }
 
 static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
@@ -354,9 +344,9 @@ static void _sde_encoder_phys_vid_split_config(
 	if (hw_mdptop && hw_mdptop->ops.setup_split_pipe) {
 		unsigned long lock_flags;
 
-		spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
+		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 		hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
-		spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 	}
 }
 
@@ -573,59 +563,6 @@ end:
 	return;
 }
 
-static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
-{
-	unsigned long lock_flags;
-	struct sde_encoder_phys_vid *vid_enc;
-
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return;
-	}
-
-	vid_enc = to_sde_encoder_phys_vid(phys_enc);
-	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
-		SDE_ERROR("invalid hw_intf %d hw_ctl %d\n",
-				vid_enc->hw_intf != 0, phys_enc->hw_ctl != 0);
-		return;
-	}
-
-	SDE_DEBUG_VIDENC(vid_enc, "\n");
-
-	if (WARN_ON(!vid_enc->hw_intf->ops.enable_timing))
-		return;
-
-	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
-		SDE_ERROR("already disabled\n");
-		return;
-	}
-
-	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
-	vid_enc->hw_intf->ops.enable_timing(vid_enc->hw_intf, 0);
-	reinit_completion(&vid_enc->vblank_completion);
-	phys_enc->enable_state = SDE_ENC_DISABLED;
-	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
-
-	/*
-	 * Wait for a vsync so we know the ENABLE=0 latched before
-	 * the (connector) source of the vsync's gets disabled,
-	 * otherwise we end up in a funny state if we re-enable
-	 * before the disable latches, which results that some of
-	 * the settings changes for the new modeset (like new
-	 * scanout buffer) don't latch properly..
-	 */
-	if (sde_encoder_phys_vid_is_master(phys_enc)) {
-		sde_encoder_phys_vid_wait_for_vblank(vid_enc);
-		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
-	}
-
-	if (atomic_read(&phys_enc->vblank_refcount))
-		SDE_ERROR("enc:%d role:%d invalid vblank refcount %d\n",
-				phys_enc->parent->base.id,
-				phys_enc->split_role,
-				atomic_read(&phys_enc->vblank_refcount));
-}
-
 static void sde_encoder_phys_vid_destroy(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_vid *vid_enc;
@@ -666,9 +603,10 @@ static void sde_encoder_phys_vid_get_hw_resources(
 static int sde_encoder_phys_vid_wait_for_commit_done(
 		struct sde_encoder_phys *phys_enc)
 {
-	unsigned long ret;
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
+	u32 irq_status;
+	int ret;
 
 	if (!sde_encoder_phys_vid_is_master(phys_enc))
 		return 0;
@@ -678,33 +616,99 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 		return -EWOULDBLOCK;
 	}
 
-	SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx,
+	SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
 			SDE_EVTLOG_FUNC_ENTRY);
 
-	ret = wait_for_completion_timeout(&vid_enc->vblank_completion,
-			KICKOFF_TIMEOUT_JIFFIES);
-	if (!ret) {
-		SDE_DEBUG_VIDENC(vid_enc, "wait %u ms timed out\n",
-				KICKOFF_TIMEOUT_MS);
-		SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx,
-				KICKOFF_TIMEOUT_MS);
-		return -ETIMEDOUT;
+	/* Wait for kickoff to complete */
+	ret = sde_encoder_helper_wait_event_timeout(
+			DRMID(phys_enc->parent),
+			vid_enc->hw_intf->idx - INTF_0,
+			&phys_enc->pending_kickoff_wq,
+			&phys_enc->pending_kickoff_cnt,
+			KICKOFF_TIMEOUT_MS);
+	if (ret <= 0) {
+		irq_status = sde_core_irq_read(phys_enc->sde_kms,
+				INTR_IDX_VSYNC, true);
+		if (irq_status) {
+			SDE_EVT32(DRMID(phys_enc->parent),
+					vid_enc->hw_intf->idx - INTF_0);
+			SDE_DEBUG_VIDENC(vid_enc, "done, irq not triggered\n");
+			sde_encoder_phys_vid_vblank_irq(vid_enc,
+					INTR_IDX_VSYNC);
+			ret = 0;
+		} else {
+			SDE_EVT32(DRMID(phys_enc->parent),
+					vid_enc->hw_intf->idx - INTF_0);
+			SDE_ERROR_VIDENC(vid_enc, "kickoff timed out\n");
+			ret = -ETIMEDOUT;
+		}
+	} else {
+		ret = 0;
 	}
-
-	SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx,
-			SDE_EVTLOG_FUNC_EXIT);
 
 	return 0;
 }
 
-static void sde_encoder_phys_vid_prepare_for_kickoff(
-		struct sde_encoder_phys *phys_enc)
+static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-			to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
+	unsigned long lock_flags;
+	int ret;
 
-	/* Reset completion to wait for the next vblank */
-	reinit_completion(&vid_enc->vblank_completion);
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid hw_intf %d hw_ctl %d\n",
+				vid_enc->hw_intf != 0, phys_enc->hw_ctl != 0);
+		return;
+	}
+
+	SDE_DEBUG_VIDENC(vid_enc, "\n");
+
+	if (WARN_ON(!vid_enc->hw_intf->ops.enable_timing))
+		return;
+
+	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
+		SDE_ERROR("already disabled\n");
+		return;
+	}
+
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+	vid_enc->hw_intf->ops.enable_timing(vid_enc->hw_intf, 0);
+	if (sde_encoder_phys_vid_is_master(phys_enc))
+		sde_encoder_phys_inc_pending(phys_enc);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+
+	/*
+	 * Wait for a vsync so we know the ENABLE=0 latched before
+	 * the (connector) source of the vsync's gets disabled,
+	 * otherwise we end up in a funny state if we re-enable
+	 * before the disable latches, which results that some of
+	 * the settings changes for the new modeset (like new
+	 * scanout buffer) don't latch properly..
+	 */
+	if (sde_encoder_phys_vid_is_master(phys_enc)) {
+		ret = sde_encoder_phys_vid_wait_for_commit_done(phys_enc);
+		if (ret) {
+			atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+			SDE_ERROR_VIDENC(vid_enc,
+					"failure waiting for disable: %d\n",
+					ret);
+			SDE_EVT32(DRMID(phys_enc->parent),
+					vid_enc->hw_intf->idx - INTF_0, ret);
+		}
+		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
+	}
+
+	if (atomic_read(&phys_enc->vblank_refcount))
+		SDE_ERROR_VIDENC(vid_enc, "invalid vblank refcount %d\n",
+				atomic_read(&phys_enc->vblank_refcount));
+
+	phys_enc->enable_state = SDE_ENC_DISABLED;
 }
 
 static void sde_encoder_phys_vid_handle_post_kickoff(
@@ -726,10 +730,11 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 	 * Video encoders need to turn on their interfaces now
 	 */
 	if (phys_enc->enable_state == SDE_ENC_ENABLING) {
-		SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx);
-		spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
+		SDE_EVT32(DRMID(phys_enc->parent),
+				vid_enc->hw_intf->idx - INTF_0);
+		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 		vid_enc->hw_intf->ops.enable_timing(vid_enc->hw_intf, 1);
-		spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 		phys_enc->enable_state = SDE_ENC_ENABLED;
 	}
 }
@@ -765,7 +770,6 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->get_hw_resources = sde_encoder_phys_vid_get_hw_resources;
 	ops->control_vblank_irq = sde_encoder_phys_vid_control_vblank_irq;
 	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_commit_done;
-	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
 	ops->needs_split_flush = sde_encoder_phys_vid_needs_split_flush;
 	ops->setup_misr = sde_encoder_phys_vid_setup_misr;
@@ -791,7 +795,6 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 		ret = -ENOMEM;
 		goto fail;
 	}
-	init_completion(&vid_enc->vblank_completion);
 
 	phys_enc = &vid_enc->base;
 
@@ -839,11 +842,12 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	phys_enc->sde_kms = p->sde_kms;
 	phys_enc->split_role = p->split_role;
 	phys_enc->intf_mode = INTF_MODE_VIDEO;
-	spin_lock_init(&phys_enc->spin_lock);
-	init_completion(&vid_enc->vblank_completion);
+	phys_enc->enc_spinlock = p->enc_spinlock;
 	for (i = 0; i < INTR_IDX_MAX; i++)
 		INIT_LIST_HEAD(&vid_enc->irq_cb[i].list);
 	atomic_set(&phys_enc->vblank_refcount, 0);
+	atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+	init_waitqueue_head(&phys_enc->pending_kickoff_wq);
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 
 	SDE_DEBUG_VIDENC(vid_enc, "created intf idx:%d\n", p->intf_idx);

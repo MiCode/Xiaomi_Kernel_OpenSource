@@ -97,6 +97,7 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys_cmd *cmd_enc = arg;
 	struct sde_encoder_phys *phys_enc;
+	unsigned long lock_flags;
 	int new_cnt;
 
 	if (!cmd_enc)
@@ -104,12 +105,15 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 
 	phys_enc = &cmd_enc->base;
 
-	new_cnt = atomic_add_unless(&cmd_enc->pending_cnt, -1, 0);
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
 			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt);
 
 	/* Signal any waiting atomic commit thread */
-	wake_up_all(&cmd_enc->pp_tx_done_wq);
+	wake_up_all(&phys_enc->pending_kickoff_wq);
 }
 
 static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
@@ -134,9 +138,8 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	int ret;
 
 	/* return EWOULDBLOCK since we know the wait isn't necessary */
-	if (phys_enc->enable_state != SDE_ENC_ENABLED) {
-		SDE_ERROR_CMDENC(cmd_enc, "encoder not enabled, state: %d\n",
-				phys_enc->enable_state);
+	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
+		SDE_ERROR_CMDENC(cmd_enc, "encoder is disabled\n");
 		return -EWOULDBLOCK;
 	}
 
@@ -144,8 +147,8 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	ret = sde_encoder_helper_wait_event_timeout(
 			DRMID(phys_enc->parent),
 			phys_enc->hw_pp->idx - PINGPONG_0,
-			&cmd_enc->pp_tx_done_wq,
-			&cmd_enc->pending_cnt,
+			&phys_enc->pending_kickoff_wq,
+			&phys_enc->pending_kickoff_cnt,
 			KICKOFF_TIMEOUT_MS);
 	if (ret <= 0) {
 		irq_status = sde_core_irq_read(phys_enc->sde_kms,
@@ -528,9 +531,12 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 
 	ret = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
 	if (ret) {
-		atomic_set(&cmd_enc->pending_cnt, 0);
-		SDE_ERROR("failure waiting for idle before disable: %d\n", ret);
-		SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx, ret);
+		atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+		SDE_ERROR_CMDENC(cmd_enc,
+				"pp %d failed wait for idle at disable: %d\n",
+				phys_enc->hw_pp->idx - PINGPONG_0, ret);
+		SDE_EVT32(DRMID(phys_enc->parent),
+				phys_enc->hw_pp->idx - PINGPONG_0, ret);
 	}
 
 	sde_encoder_phys_cmd_unregister_irq(phys_enc, INTR_IDX_UNDERRUN);
@@ -591,7 +597,6 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
-	int new_pending_cnt;
 	int ret;
 
 	if (!phys_enc) {
@@ -607,16 +612,12 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 	 */
 	ret = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
 	if (ret) {
-		/* force pending_cnt 0 to discard failed kickoff */
-		atomic_set(&cmd_enc->pending_cnt, 0);
+		/* force pending_kickoff_cnt 0 to discard failed kickoff */
+		atomic_set(&phys_enc->pending_kickoff_cnt, 0);
 		SDE_EVT32(DRMID(phys_enc->parent),
 				phys_enc->hw_pp->idx - PINGPONG_0);
 		SDE_ERROR("failed wait_for_idle: %d\n", ret);
 	}
-
-	new_pending_cnt = atomic_inc_return(&cmd_enc->pending_cnt);
-	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx,
-			new_pending_cnt);
 }
 
 static void sde_encoder_phys_cmd_init_ops(
@@ -671,15 +672,14 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	phys_enc->sde_kms = p->sde_kms;
 	phys_enc->split_role = p->split_role;
 	phys_enc->intf_mode = INTF_MODE_CMD;
-	spin_lock_init(&phys_enc->spin_lock);
+	phys_enc->enc_spinlock = p->enc_spinlock;
 	cmd_enc->stream_sel = 0;
 	phys_enc->enable_state = SDE_ENC_DISABLED;
-	atomic_set(&cmd_enc->pending_cnt, 0);
 	for (i = 0; i < INTR_IDX_MAX; i++)
 		INIT_LIST_HEAD(&cmd_enc->irq_cb[i].list);
 	atomic_set(&phys_enc->vblank_refcount, 0);
-
-	init_waitqueue_head(&cmd_enc->pp_tx_done_wq);
+	atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+	init_waitqueue_head(&phys_enc->pending_kickoff_wq);
 
 	SDE_DEBUG_CMDENC(cmd_enc, "created\n");
 

@@ -52,7 +52,7 @@
  *	Virtual encoder defers as much as possible to the physical encoders.
  *	Virtual encoder registers itself with the DRM Framework as the encoder.
  * @base:		drm_encoder base class for registration with DRM
- * @spin_lock:		Lock for IRQ purposes
+ * @enc_spin_lock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  * @bus_scaling_client:	Client handle to the bus scaling interface
  * @num_phys_encs:	Actual number of physical encoders contained.
  * @phys_encs:		Container of physical encoders managed.
@@ -72,7 +72,7 @@
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
-	spinlock_t spin_lock;
+	spinlock_t enc_spinlock;
 	uint32_t bus_scaling_client;
 
 	uint32_t display_num_of_h_tiles;
@@ -527,10 +527,10 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc,
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
-	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
+	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
 	if (sde_enc->crtc_vblank_cb)
 		sde_enc->crtc_vblank_cb(sde_enc->crtc_vblank_cb_data);
-	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 
 	atomic_inc(&phy_enc->vsync_cnt);
 }
@@ -561,10 +561,10 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc), enable);
 
-	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
+	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
 	sde_enc->crtc_vblank_cb = vbl_cb;
 	sde_enc->crtc_vblank_cb_data = vbl_data;
-	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -676,6 +676,8 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 {
 	struct sde_hw_ctl *ctl;
 	uint32_t i, pending_flush;
+	unsigned long lock_flags;
+	int pending_kickoff_cnt;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -684,12 +686,20 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 
 	pending_flush = 0x0;
 
+	/* update pending counts and trigger kickoff ctl flush atomically */
+	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
+
 	/* don't perform flush/start operations for slave encoders */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
+			continue;
+
+		pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
+		SDE_EVT32(DRMID(&sde_enc->base), i, pending_kickoff_cnt);
 
 		ctl = phys->hw_ctl;
-		if (!ctl || phys->enable_state == SDE_ENC_DISABLED)
+		if (!ctl)
 			continue;
 
 		if (!phys->ops.needs_split_flush ||
@@ -708,6 +718,8 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	}
 
 	_sde_encoder_trigger_start(sde_enc->cur_master);
+
+	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 }
 
 void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
@@ -1040,6 +1052,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	phys_params.sde_kms = sde_kms;
 	phys_params.parent = &sde_enc->base;
 	phys_params.parent_ops = parent_ops;
+	phys_params.enc_spinlock = &sde_enc->enc_spinlock;
 
 	SDE_DEBUG("\n");
 
@@ -1152,7 +1165,7 @@ struct drm_encoder *sde_encoder_init(
 		goto fail;
 
 	sde_enc->cur_master = NULL;
-	spin_lock_init(&sde_enc->spin_lock);
+	spin_lock_init(&sde_enc->enc_spinlock);
 	drm_enc = &sde_enc->base;
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
