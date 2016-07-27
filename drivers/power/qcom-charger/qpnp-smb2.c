@@ -25,9 +25,6 @@
 #include "smb-lib.h"
 #include "pmic-voter.h"
 
-#define SMB2_DEFAULT_FCC_UA	3000000
-#define SMB2_DEFAULT_FV_UV	4350000
-#define SMB2_DEFAULT_ICL_UA	3000000
 #define SMB2_DEFAULT_WPWR_UW	8000000
 
 static struct smb_params v1_params = {
@@ -152,22 +149,22 @@ static int smb2_parse_dt(struct smb2 *chip)
 	rc = of_property_read_u32(node,
 				"qcom,fcc-max-ua", &chip->dt.fcc_ua);
 	if (rc < 0)
-		chip->dt.fcc_ua = SMB2_DEFAULT_FCC_UA;
+		chip->dt.fcc_ua = -EINVAL;
 
 	rc = of_property_read_u32(node,
 				"qcom,fv-max-uv", &chip->dt.fv_uv);
 	if (rc < 0)
-		chip->dt.fv_uv = SMB2_DEFAULT_FV_UV;
+		chip->dt.fv_uv = -EINVAL;
 
 	rc = of_property_read_u32(node,
 				"qcom,usb-icl-ua", &chip->dt.usb_icl_ua);
 	if (rc < 0)
-		chip->dt.usb_icl_ua = SMB2_DEFAULT_ICL_UA;
+		chip->dt.usb_icl_ua = -EINVAL;
 
 	rc = of_property_read_u32(node,
 				"qcom,dc-icl-ua", &chip->dt.dc_icl_ua);
 	if (rc < 0)
-		chip->dt.dc_icl_ua = SMB2_DEFAULT_ICL_UA;
+		chip->dt.dc_icl_ua = -EINVAL;
 
 	rc = of_property_read_u32(node,
 			"qcom,wipower-max-uw", &chip->dt.wipower_max_uw);
@@ -591,6 +588,20 @@ static int smb2_init_hw(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	int rc;
+
+	if (chip->dt.fcc_ua < 0)
+		smblib_get_charge_param(chg, &chg->param.fcc, &chip->dt.fcc_ua);
+
+	if (chip->dt.fv_uv < 0)
+		smblib_get_charge_param(chg, &chg->param.fv, &chip->dt.fv_uv);
+
+	if (chip->dt.usb_icl_ua < 0)
+		smblib_get_charge_param(chg, &chg->param.usb_icl,
+					&chip->dt.usb_icl_ua);
+
+	if (chip->dt.dc_icl_ua < 0)
+		smblib_get_charge_param(chg, &chg->param.dc_icl,
+					&chip->dt.dc_icl_ua);
 
 	/* votes must be cast before configuring software control */
 	vote(chg->pl_disable_votable,
