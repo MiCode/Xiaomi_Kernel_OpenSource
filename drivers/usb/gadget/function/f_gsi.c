@@ -263,7 +263,7 @@ static ssize_t usb_gsi_debugfs_read(struct file *file,
 			ipa_chnl_params->xfer_scratch.depcmd_low_addr);
 			len += scnprintf(buf + len, buf_len - len,
 			"%25s %10x\n", "IN LastTRB Addr Off: ",
-				ipa_chnl_params->xfer_scratch.last_trb_addr);
+			ipa_chnl_params->xfer_scratch.last_trb_addr_iova);
 			len += scnprintf(buf + len, buf_len - len,
 			"%25s %10u\n", "IN Buffer Size: ",
 			ipa_chnl_params->xfer_scratch.const_buffer_size);
@@ -297,7 +297,7 @@ static ssize_t usb_gsi_debugfs_read(struct file *file,
 				ipa_chnl_params->xfer_scratch.depcmd_low_addr);
 			len += scnprintf(buf + len, buf_len - len,
 			"%25s %10x\n", "OUT LastTRB Addr Off: ",
-				ipa_chnl_params->xfer_scratch.last_trb_addr);
+			ipa_chnl_params->xfer_scratch.last_trb_addr_iova);
 			len += scnprintf(buf + len, buf_len - len,
 			"%25s %10u\n", "OUT Buffer Size: ",
 			ipa_chnl_params->xfer_scratch.const_buffer_size);
@@ -453,7 +453,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	in_params->dir = GSI_CHAN_DIR_FROM_GSI;
 	in_params->xfer_ring_len = gsi_channel_info.xfer_ring_len;
 	in_params->xfer_ring_base_addr = gsi_channel_info.xfer_ring_base_addr;
-	in_params->xfer_scratch.last_trb_addr =
+	in_params->xfer_scratch.last_trb_addr_iova =
 		d_port->in_last_trb_addr = gsi_channel_info.last_trb_addr;
 	in_params->xfer_scratch.const_buffer_size =
 		gsi_channel_info.const_buffer_size;
@@ -487,7 +487,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 			gsi_channel_info.xfer_ring_len;
 		out_params->xfer_ring_base_addr =
 			gsi_channel_info.xfer_ring_base_addr;
-		out_params->xfer_scratch.last_trb_addr =
+		out_params->xfer_scratch.last_trb_addr_iova =
 			gsi_channel_info.last_trb_addr;
 		out_params->xfer_scratch.const_buffer_size =
 			gsi_channel_info.const_buffer_size;
