@@ -1061,8 +1061,8 @@ static bool ipa3_usb_check_chan_params(struct ipa_usb_xdci_chan_params *params)
 	IPA_USB_DBG_LOW("xfer_ring_len = %d\n", params->xfer_ring_len);
 	IPA_USB_DBG_LOW("xfer_ring_base_addr = %llx\n",
 		params->xfer_ring_base_addr);
-	IPA_USB_DBG_LOW("last_trb_addr = %x\n",
-		params->xfer_scratch.last_trb_addr);
+	IPA_USB_DBG_LOW("last_trb_addr_iova = %x\n",
+		params->xfer_scratch.last_trb_addr_iova);
 	IPA_USB_DBG_LOW("const_buffer_size = %d\n",
 		params->xfer_scratch.const_buffer_size);
 	IPA_USB_DBG_LOW("depcmd_low_addr = %x\n",
@@ -1227,7 +1227,7 @@ static int ipa3_usb_request_xdci_channel(
 	chan_params.chan_params.err_cb = ipa3_usb_gsi_chan_err_cb;
 	chan_params.chan_params.chan_user_data = NULL;
 	chan_params.chan_scratch.xdci.last_trb_addr =
-		params->xfer_scratch.last_trb_addr;
+		params->xfer_scratch.last_trb_addr_iova;
 	/* xferrscidx will be updated later */
 	chan_params.chan_scratch.xdci.xferrscidx = 0;
 	chan_params.chan_scratch.xdci.const_buffer_size =
