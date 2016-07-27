@@ -149,12 +149,12 @@
 #define FG_ADC_RR_TEMP_FS_VOLTAGE_NUM		5000000
 #define FG_ADC_RR_TEMP_FS_VOLTAGE_DEN		3
 #define FG_ADC_RR_DIE_TEMP_OFFSET		600000
-#define FG_ADC_RR_DIE_TEMP_SLOPE		2000
-#define FG_ADC_RR_DIE_TEMP_OFFSET_DEGC		25
+#define FG_ADC_RR_DIE_TEMP_SLOPE		2
+#define FG_ADC_RR_DIE_TEMP_OFFSET_MILLI_DEGC	25000
 
 #define FG_ADC_RR_CHG_TEMP_OFFSET		1288000
-#define FG_ADC_RR_CHG_TEMP_SLOPE		4000
-#define FG_ADC_RR_CHG_TEMP_OFFSET_DEGC		27
+#define FG_ADC_RR_CHG_TEMP_SLOPE		4
+#define FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC	27000
 
 #define FG_ADC_RR_VOLT_INPUT_FACTOR		8
 #define FG_ADC_RR_CURR_INPUT_FACTOR		2
@@ -331,8 +331,8 @@ static int rradc_post_process_die_temp(struct rradc_chip *chip,
 					FG_MAX_ADC_READINGS));
 	temp -= FG_ADC_RR_DIE_TEMP_OFFSET;
 	temp = div64_s64(temp, FG_ADC_RR_DIE_TEMP_SLOPE);
-	temp += FG_ADC_RR_DIE_TEMP_OFFSET_DEGC;
-	*result_millidegc = (temp * FG_ADC_SCALE_MILLI_FACTOR);
+	temp += FG_ADC_RR_DIE_TEMP_OFFSET_MILLI_DEGC;
+	*result_millidegc = temp;
 
 	return 0;
 }
@@ -348,8 +348,8 @@ static int rradc_post_process_chg_temp(struct rradc_chip *chip,
 					FG_MAX_ADC_READINGS));
 	temp = FG_ADC_RR_CHG_TEMP_OFFSET - temp;
 	temp = div64_s64(temp, FG_ADC_RR_CHG_TEMP_SLOPE);
-	temp = temp + FG_ADC_RR_CHG_TEMP_OFFSET_DEGC;
-	*result_millidegc = (temp * FG_ADC_SCALE_MILLI_FACTOR);
+	temp = temp + FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC;
+	*result_millidegc = temp;
 
 	return 0;
 }
