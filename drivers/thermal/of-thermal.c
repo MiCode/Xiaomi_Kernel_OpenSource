@@ -62,11 +62,16 @@ struct __thermal_bind_params {
  * struct __sensor_param - Holds individual sensor data
  * @sensor_data: sensor driver private data passed as input argument
  * @ops: sensor driver ops
+ * @trip_high: last trip high value programmed in the sensor driver
+ * @trip_low: last trip low value programmed in the sensor driver
+ * @lock: mutex lock acquired before updating the trip temperatures
  * @first_tz: list head pointing the first thermal zone
  */
 struct __sensor_param {
 	void *sensor_data;
 	const struct thermal_zone_of_device_ops *ops;
+	int trip_high, trip_low;
+	struct mutex lock;
 	struct list_head first_tz;
 };
 
@@ -107,6 +112,9 @@ struct __thermal_zone {
 	struct __sensor_param *senps;
 };
 
+static int of_thermal_aggregate_trip_types(struct thermal_zone_device *tz,
+		unsigned int trip_type_mask, int *low, int *high);
+
 /***   DT thermal zone device callbacks   ***/
 
 static int of_thermal_get_temp(struct thermal_zone_device *tz,
@@ -121,14 +129,29 @@ static int of_thermal_get_temp(struct thermal_zone_device *tz,
 }
 
 static int of_thermal_set_trips(struct thermal_zone_device *tz,
-				int low, int high)
+				int inp_low, int inp_high)
 {
 	struct __thermal_zone *data = tz->devdata;
+	int high = INT_MAX, low = INT_MIN, ret = 0;
 
 	if (!data->senps || !data->senps->ops->set_trips)
 		return -EINVAL;
 
-	return data->senps->ops->set_trips(data->senps->sensor_data, low, high);
+	mutex_lock(&data->senps->lock);
+	of_thermal_aggregate_trip_types(tz, GENMASK(THERMAL_TRIP_CRITICAL, 0),
+					&low, &high);
+	if (low == data->senps->trip_low
+		&& high == data->senps->trip_high)
+		goto set_trips_exit;
+
+	data->senps->trip_low = low;
+	data->senps->trip_high = high;
+	ret = data->senps->ops->set_trips(data->senps->sensor_data,
+					  low, high);
+
+set_trips_exit:
+	mutex_unlock(&data->senps->lock);
+	return ret;
 }
 
 /**
@@ -405,6 +428,70 @@ static int of_thermal_get_crit_temp(struct thermal_zone_device *tz,
 	return -EINVAL;
 }
 
+static int of_thermal_aggregate_trip_types(struct thermal_zone_device *tz,
+		unsigned int trip_type_mask, int *low, int *high)
+{
+	int min = INT_MIN;
+	int max = INT_MAX;
+	int tt, th, trip;
+	int temp = tz->temperature;
+	struct thermal_zone_device *zone = NULL;
+	struct __thermal_zone *data = tz->devdata;
+	struct list_head *head;
+	enum thermal_trip_type type = 0;
+
+	head = &data->senps->first_tz;
+	for_each_tz_sibling(data, head) {
+		zone = data->tzd;
+		for (trip = 0; trip < data->ntrips; trip++) {
+			of_thermal_get_trip_type(zone, trip, &type);
+			if (!(BIT(type) & trip_type_mask))
+				continue;
+
+			if (!zone->tzp->tracks_low) {
+				tt = data->trips[trip].temperature;
+				if (tt > temp && tt < max)
+					max = tt;
+				th = tt - data->trips[trip].hysteresis;
+				if (th < temp && th > min)
+					min = th;
+			} else {
+				tt = data->trips[trip].temperature;
+				if (tt < temp && tt > min)
+					min = tt;
+				th = tt + data->trips[trip].hysteresis;
+				if (th > temp && th < max)
+					max = th;
+			}
+		}
+	}
+
+	*high = max;
+	*low = min;
+
+	return 0;
+}
+
+/*
+ * of_thermal_aggregate_trip - aggregate trip temperatures across sibling
+ *				thermal zones.
+ * @tz: pointer to the primary thermal zone.
+ * @type: the thermal trip type to be aggregated upon
+ * @low: the low trip threshold which the most lesser than the @temp
+ * @high: the high trip threshold which is the least greater than the @temp
+ */
+int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
+				enum thermal_trip_type type,
+				int *low, int *high)
+{
+	if (type <= THERMAL_TRIP_CRITICAL)
+		return of_thermal_aggregate_trip_types(tz, BIT(type), low,
+						       high);
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(of_thermal_aggregate_trip);
+
 static struct thermal_zone_device_ops of_thermal_ops = {
 	.get_mode = of_thermal_get_mode,
 	.set_mode = of_thermal_set_mode,
@@ -518,6 +605,9 @@ thermal_zone_of_sensor_register(struct device *dev, int sensor_id, void *data,
 	sens_param->sensor_data = data;
 	sens_param->ops = ops;
 	INIT_LIST_HEAD(&sens_param->first_tz);
+	sens_param->trip_high = INT_MAX;
+	sens_param->trip_low = INT_MIN;
+	mutex_init(&sens_param->lock);
 	sensor_np = of_node_get(dev->of_node);
 
 	for_each_available_child_of_node(np, child) {
