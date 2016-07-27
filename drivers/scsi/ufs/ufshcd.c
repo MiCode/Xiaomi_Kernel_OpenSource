@@ -4067,8 +4067,11 @@ int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 
 	for (retries = UIC_HIBERN8_ENTER_RETRIES; retries > 0; retries--) {
 		ret = __ufshcd_uic_hibern8_enter(hba);
-		if (!ret || ret == -ENOLINK)
+		if (!ret)
 			goto out;
+		/* Unable to recover the link, so no point proceeding */
+		 if (ret == -ENOLINK)
+			BUG();
 	}
 out:
 	return ret;
@@ -4089,7 +4092,9 @@ int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 		ufshcd_update_error_stats(hba, UFS_ERR_HIBERN8_EXIT);
 		dev_err(hba->dev, "%s: hibern8 exit failed. ret = %d",
 			__func__, ret);
-		ret = ufshcd_link_recovery(hba);
+		/* Unable to recover the link, so no point proceeding */
+		if (ufshcd_link_recovery(hba))
+			BUG();
 	} else {
 		dev_dbg(hba->dev, "%s: Hibern8 Exit at %lld us", __func__,
 			ktime_to_us(ktime_get()));
@@ -6315,6 +6320,12 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 		err = ufshcd_host_reset_and_restore(hba);
 	} while (err && --retries);
 
+	/*
+	 * There is no point proceeding even after failing
+	 * to recover after multiple retries.
+	 */
+	if (err)
+		BUG();
 	/*
 	 * After reset the door-bell might be cleared, complete
 	 * outstanding requests in s/w here.
