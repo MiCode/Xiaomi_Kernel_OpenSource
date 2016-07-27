@@ -378,6 +378,8 @@ struct mdss_dp_drv_pdata {
 	char train_link_rate;	/* X 27000000 for real rate */
 	char train_lane_cnt;
 
+	u8 *edid_buf;
+	u32 edid_buf_size;
 	struct edp_edid edid;
 	struct dpcd_cap dpcd;
 
@@ -464,7 +466,7 @@ void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp);
 
 void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *dp);
-void mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp, int block);
+int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp);
 void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *dp, u32 isr);
 void dp_aux_native_handler(struct mdss_dp_drv_pdata *dp, u32 isr);
