@@ -786,6 +786,27 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8917[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8917_650MHz[] = {
+	F_SLEW( 19200000,  FIXED_CLK_SRC, xo,		1,	0,	0),
+	F_SLEW( 50000000,  FIXED_CLK_SRC, gpll0,	16,	0,	0),
+	F_SLEW( 80000000,  FIXED_CLK_SRC, gpll0,	10,	0,	0),
+	F_SLEW( 100000000, FIXED_CLK_SRC, gpll0,	8,	0,	0),
+	F_SLEW( 160000000, FIXED_CLK_SRC, gpll0,	5,	0,	0),
+	F_SLEW( 200000000, FIXED_CLK_SRC, gpll0,	4,	0,	0),
+	F_SLEW( 228570000, FIXED_CLK_SRC, gpll0,	3.5,	0,	0),
+	F_SLEW( 240000000, FIXED_CLK_SRC, gpll6_aux,	4.5,	0,	0),
+	F_SLEW( 266670000, FIXED_CLK_SRC, gpll0,	3,	0,	0),
+	F_SLEW( 270000000, FIXED_CLK_SRC, gpll6_aux,	4,	0,	0),
+	F_SLEW( 320000000, FIXED_CLK_SRC, gpll0,	2.5,	0,	0),
+	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0,	2,	0,	0),
+	F_SLEW( 484800000, 969600000,	  gpll3,	1,	0,	0),
+	F_SLEW( 523200000, 1046400000,	  gpll3,	1,	0,	0),
+	F_SLEW( 550000000, 1100000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 598000000, 1196000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 650000000, 1300000000,	  gpll3,	1,	0,	0),
+	F_END
+};
+
 static struct  rcg_clk gfx3d_clk_src = {
 	.cmd_rcgr_reg = GFX3D_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -4026,13 +4047,13 @@ static int get_mmio_addr(struct platform_device *pdev, u32 nbases)
 	struct device *dev = &pdev->dev;
 
 	count = of_property_count_strings(dev->of_node, "reg-names");
-	if (count != nbases) {
+	if (count < nbases) {
 		dev_err(dev, "missing reg-names property, expected %d strings\n",
 				nbases);
 		return -EINVAL;
 	}
 
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < nbases; i++) {
 		of_property_read_string_index(dev->of_node, "reg-names", i,
 						&str);
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, str);
@@ -4052,7 +4073,7 @@ static int get_mmio_addr(struct platform_device *pdev, u32 nbases)
 	return 0;
 }
 
-static void override_for_8917(void)
+static void override_for_8917(int speed_bin)
 {
 	gpll3_clk_src.c.rate = 930000000;
 
@@ -4090,10 +4111,19 @@ static void override_for_8917(void)
 		NOM_PLUS, 308570000, HIGH, 320000000);
 	/* Frequency Table same as 8937 */
 	OVERRIDE_FTABLE(jpeg0, ftbl_gcc_camss_jpeg0_clk, 8937);
-	OVERRIDE_FMAX5(gfx3d,
-		LOWER, 270000000, LOW, 400000000, NOMINAL, 484800000,
-		NOM_PLUS, 532200000, HIGH, 598000000);
-	OVERRIDE_FTABLE(gfx3d, ftbl_gcc_oxili_gfx3d_clk, 8917);
+
+	if (speed_bin) {
+		OVERRIDE_FMAX5(gfx3d,
+			LOWER, 270000000, LOW, 400000000, NOMINAL, 484800000,
+			NOM_PLUS, 523200000, HIGH, 650000000);
+		OVERRIDE_FTABLE(gfx3d, ftbl_gcc_oxili_gfx3d_clk, 8917_650MHz);
+	} else {
+		OVERRIDE_FMAX5(gfx3d,
+			LOWER, 270000000, LOW, 400000000, NOMINAL, 484800000,
+			NOM_PLUS, 523200000, HIGH, 598000000);
+		OVERRIDE_FTABLE(gfx3d, ftbl_gcc_oxili_gfx3d_clk, 8917);
+	}
+
 	OVERRIDE_FMAX1(cci, LOWER, 37500000);
 
 	OVERRIDE_FTABLE(csi0phytimer, ftbl_gcc_camss_csi0_1phytimer_clk, 8917);
@@ -4336,7 +4366,8 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		vdd_dig.cur_level = VDD_DIG_NUM_8917;
 		vdd_hf_pll.num_levels = VDD_HF_PLL_NUM_8917;
 		vdd_hf_pll.cur_level = VDD_HF_PLL_NUM_8917;
-		override_for_8917();
+		get_speed_bin(pdev, &speed_bin);
+		override_for_8917(speed_bin);
 	} else {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8952.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8952.c;
