@@ -3243,6 +3243,110 @@ static ssize_t mdss_mdp_dyn_pu_store(struct device *dev,
 
 	return count;
 }
+
+static ssize_t mdss_mdp_panel_disable_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_mdp_ctl *ctl;
+	struct mdss_panel_data *pdata;
+
+	if (!mfd) {
+		pr_err("Invalid mfd structure\n");
+		return -EINVAL;
+	}
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("Invalid ctl structure\n");
+		return -EINVAL;
+	}
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n",
+		pdata->panel_disable_mode);
+
+	return ret;
+}
+
+int mdss_mdp_enable_panel_disable_mode(struct msm_fb_data_type *mfd,
+	bool disable_panel)
+{
+	struct mdss_mdp_ctl *ctl;
+	int ret = 0;
+	struct mdss_panel_data *pdata;
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("Invalid ctl structure\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+
+	pr_debug("config panel %d\n", disable_panel);
+	if (disable_panel) {
+		/* first set the flag that we enter this mode */
+		pdata->panel_disable_mode = true;
+
+		/*
+		 * setup any interface config that needs to change  before
+		 * disabling the panel
+		 */
+		if (ctl->ops.panel_disable_cfg)
+			ctl->ops.panel_disable_cfg(ctl, disable_panel);
+
+		/* disable panel */
+		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DISABLE_PANEL,
+				NULL, CTL_INTF_EVENT_FLAG_DEFAULT);
+		if (ret)
+			pr_err("failed to disable panel! %d\n", ret);
+	} else {
+		/* restore any interface configuration */
+		if (ctl->ops.panel_disable_cfg)
+			ctl->ops.panel_disable_cfg(ctl, disable_panel);
+
+		/*
+		 * no other action is needed when reconfiguring, since all the
+		 * re-configuration will happen during restore
+		 */
+		pdata->panel_disable_mode = false;
+	}
+
+	return ret;
+}
+
+static ssize_t mdss_mdp_panel_disable_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	int disable_panel, rc;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+
+	if (!mfd) {
+		pr_err("Invalid mfd structure\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	rc = kstrtoint(buf, 10, &disable_panel);
+	if (rc) {
+		pr_err("kstrtoint failed. rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("disable panel: %d ++\n", disable_panel);
+	/* we only support disabling the panel from sysfs */
+	if (disable_panel)
+		mdss_mdp_enable_panel_disable_mode(mfd, true);
+
+	return len;
+}
+
 static ssize_t mdss_mdp_cmd_autorefresh_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -3433,6 +3537,8 @@ static DEVICE_ATTR(msm_misr_en, S_IRUGO | S_IWUSR,
 	mdss_mdp_misr_show, mdss_mdp_misr_store);
 static DEVICE_ATTR(msm_cmd_autorefresh_en, S_IRUGO | S_IWUSR,
 	mdss_mdp_cmd_autorefresh_show, mdss_mdp_cmd_autorefresh_store);
+static DEVICE_ATTR(msm_disable_panel, S_IRUGO | S_IWUSR,
+	mdss_mdp_panel_disable_show, mdss_mdp_panel_disable_store);
 static DEVICE_ATTR(vsync_event, S_IRUGO, mdss_mdp_vsync_show_event, NULL);
 static DEVICE_ATTR(lineptr_event, S_IRUGO, mdss_mdp_lineptr_show_event, NULL);
 static DEVICE_ATTR(lineptr_value, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -3454,6 +3560,7 @@ static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_dyn_pu.attr,
 	&dev_attr_msm_misr_en.attr,
 	&dev_attr_msm_cmd_autorefresh_en.attr,
+	&dev_attr_msm_disable_panel.attr,
 	&dev_attr_hist_event.attr,
 	&dev_attr_bl_event.attr,
 	&dev_attr_ad_event.attr,

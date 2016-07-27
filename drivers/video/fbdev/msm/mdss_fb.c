@@ -1950,6 +1950,9 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 		pdata->panel_info.is_lpm_mode = false;
 	}
 
+	if (pdata->panel_disable_mode)
+		mdss_mdp_enable_panel_disable_mode(mfd, false);
+
 	return mdss_fb_blank_sub(blank_mode, info, mfd->op_enable);
 }
 
