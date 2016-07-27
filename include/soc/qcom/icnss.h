@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 
 #define ICNSS_MAX_IRQ_REGISTRATIONS    12
+#define ICNSS_MAX_TIMESTAMP_LEN        32
 
 struct icnss_driver_ops {
 	char *name;
@@ -79,7 +80,12 @@ enum icnss_driver_mode {
 struct icnss_soc_info {
 	void __iomem *v_addr;
 	phys_addr_t p_addr;
-	u32 version;
+	uint32_t chip_id;
+	uint32_t chip_family;
+	uint32_t board_id;
+	uint32_t soc_id;
+	uint32_t fw_version;
+	char fw_build_timestamp[ICNSS_MAX_TIMESTAMP_LEN + 1];
 };
 
 extern int icnss_register_driver(struct icnss_driver_ops *driver);
