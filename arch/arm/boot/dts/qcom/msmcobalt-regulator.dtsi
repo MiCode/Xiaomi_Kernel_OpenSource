@@ -576,6 +576,7 @@
 		qcom,cpr-voltage-settling-time = <1760>;
 
 		qcom,apm-threshold-voltage = <832000>;
+		qcom,apm-crossover-voltage = <880000>;
 		qcom,apm-hysteresis-voltage = <32000>;
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <352000>;
@@ -737,6 +738,7 @@
 		qcom,cpr-voltage-settling-time = <1760>;
 
 		qcom,apm-threshold-voltage = <832000>;
+		qcom,apm-crossover-voltage = <880000>;
 		qcom,apm-hysteresis-voltage = <32000>;
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <352000>;

@@ -42,10 +42,21 @@ KBSS specific properties:
 - qcom,apm-threshold-voltage
 	Usage:      optional
 	Value type: <u32>
-	Definition: Specifies the APM threshold voltage in microvolts.  If the
-		    VDD_APCC supply voltage is above this level, then the APM is
-		    switched to use VDD_APCC.  If VDD_APCC is below this level,
-		    then the APM is switched to use VDD_MX.
+	Definition: Specifies the APM threshold voltage in microvolts.  The
+		    floor to ceiling range for every corner is adjusted to ensure
+		    it does not intersect this voltage. The value of this property
+		    must match with the APM threshold voltage defined in the OSM
+		    device to ensure that if the VDD_APCC supply voltage is above
+		    this level, then the APM is switched to use VDD_APCC and if
+		    VDD_APCC is below this level, then the APM is switched to use
+		    VDD_MX.
+
+- qcom,apm-crossover-voltage
+	Usage:      required if qcom,apm-threshold-voltage is specified
+	Value type: <u32>
+	Definition: Specifies the APM crossover voltage in microvolts which
+		    corresponds to the voltage the VDD supply must be set at
+		    during an APM switch transition.
 
 - qcom,apm-hysteresis-voltage
 	Usage:      optional

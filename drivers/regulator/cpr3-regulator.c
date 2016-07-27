@@ -1109,10 +1109,18 @@ static int cpr3_regulator_init_cprh_corners(struct cpr3_regulator *vreg)
 		}
 
 		if (ro_sel == INT_MAX) {
-			cpr3_err(vreg, "corner=%d has invalid RO select value\n",
-				i);
-			rc = -EINVAL;
-			goto free_base_quots;
+			if (!corner->proc_freq) {
+				/*
+				 * Corner is not used as active DCVS set point
+				 * select RO 0 arbitrarily.
+				 */
+				ro_sel = 0;
+			} else {
+				cpr3_err(vreg, "corner=%d has invalid RO select value\n",
+					 i);
+				rc = -EINVAL;
+				goto free_base_quots;
+			}
 		}
 
 		open_loop_volt_steps = DIV_ROUND_UP(corner->open_loop_volt -
@@ -1121,9 +1129,11 @@ static int cpr3_regulator_init_cprh_corners(struct cpr3_regulator *vreg)
 		floor_volt_steps = DIV_ROUND_UP(corner->floor_volt -
 						ctrl->base_volt,
 						ctrl->step_volt);
-		delta_quot_steps = DIV_ROUND_UP(corner->target_quot[ro_sel] -
-						base_quots[ro_sel],
-						CPRH_DELTA_QUOT_STEP_FACTOR);
+		delta_quot_steps = corner->proc_freq ?
+			DIV_ROUND_UP(corner->target_quot[ro_sel] -
+				     base_quots[ro_sel],
+				     CPRH_DELTA_QUOT_STEP_FACTOR) :
+			0;
 
 		if (open_loop_volt_steps > CPRH_CORNER_INIT_VOLTAGE_MAX_VALUE ||
 		    floor_volt_steps > CPRH_CORNER_FLOOR_VOLTAGE_MAX_VALUE ||

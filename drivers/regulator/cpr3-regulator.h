@@ -572,7 +572,13 @@ struct cpr3_panic_regs_info {
  *			when hardware closed-loop attempts to exceed the ceiling
  *			voltage
  * @apm:		Handle to the array power mux (APM)
- * @apm_threshold_volt:	APM threshold voltage in microvolts
+ * @apm_threshold_volt:	Voltage in microvolts which defines the threshold
+ *			voltage to determine the APM supply selection for
+ *			each corner
+ * @apm_crossover_volt:	Voltage in microvolts corresponding to the voltage that
+ *			the VDD supply must be set to while an APM switch is in
+ *			progress. This element must be initialized for CPRh
+ *			controllers when an APM threshold voltage is defined
  * @apm_adj_volt:	Minimum difference between APM threshold voltage and
  *			open-loop voltage which allows the APM threshold voltage
  *			to be used as a ceiling
@@ -736,6 +742,7 @@ struct cpr3_controller {
 	int			ceiling_irq;
 	struct msm_apm_ctrl_dev *apm;
 	int			apm_threshold_volt;
+	int			apm_crossover_volt;
 	int			apm_adj_volt;
 	enum msm_apm_supply	apm_high_supply;
 	enum msm_apm_supply	apm_low_supply;

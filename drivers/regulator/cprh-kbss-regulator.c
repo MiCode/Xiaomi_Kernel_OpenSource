@@ -697,61 +697,38 @@ free_temp:
 }
 
 /**
- * cprh_kbss_apm_threshold_as_corner() - introduce a corner whose floor, open-loop,
- *		and ceiling voltages correspond to the APM threshold voltage.
+ * cprh_kbss_apm_crossover_as_corner() - introduce a corner whose floor,
+ *		open-loop, and ceiling voltages correspond to the APM
+ *		crossover voltage.
  * @vreg:		Pointer to the CPR3 regulator
  *
  * The APM corner is utilized as a crossover corner by OSM and CPRh
- * hardware to determine the correct APM supply selection for the
- * rest of the corners. This function must be called after all other
- * functions which load per-corner values.
+ * hardware to set the VDD supply voltage during the APM switch
+ * routine.
  *
  * Return: 0 on success, errno on failure
  */
-static int cprh_kbss_apm_threshold_as_corner(struct cpr3_regulator *vreg)
+static int cprh_kbss_apm_crossover_as_corner(struct cpr3_regulator *vreg)
 {
 	struct cpr3_controller *ctrl = vreg->thread->ctrl;
 	struct cpr3_corner *corner;
-	struct cprh_corner_band *corner_band;
-	int i, threshold, apm_corner = 0;
 
-	if (!ctrl->apm_threshold_volt) {
-		/* APM voltage threshold corner not required. */
+	if (!ctrl->apm_crossover_volt) {
+		/* APM voltage crossover corner not required. */
 		return 0;
 	}
 
-	threshold = ctrl->apm_threshold_volt;
-	vreg->corner_count++;
-
-	for (i = vreg->corner_count - 1; i >= 1; i--) {
-		corner = &vreg->corner[i];
-
-		if (threshold >= vreg->corner[i - 1].open_loop_volt) {
-			apm_corner = i;
-			break;
-		}
-
-		memcpy(corner, &vreg->corner[i - 1], sizeof(*corner));
-	}
-
-	corner = &vreg->corner[apm_corner];
-	corner->proc_freq = 0;
-	corner->floor_volt = threshold;
-	corner->ceiling_volt = threshold;
-	corner->open_loop_volt = threshold;
-	corner->use_open_loop = true;
-	cpr3_info(vreg, "APM threshold corner=%d, open-loop=%d\n",
-		  apm_corner, threshold);
-
+	corner = &vreg->corner[vreg->corner_count];
 	/*
-	 * Update corner band mappings to account for the inserted
-	 * APM crossover corner.
+	 * 0 MHz indicates this corner is not to be
+	 * used as active DCVS set point.
 	 */
-	for (i = 0; i < vreg->corner_band_count; i++) {
-		corner_band = &vreg->corner_band[i];
-		if (corner_band->corner >= apm_corner)
-			corner_band->corner++;
-	}
+	corner->proc_freq = 0;
+	corner->floor_volt = ctrl->apm_crossover_volt;
+	corner->ceiling_volt = ctrl->apm_crossover_volt;
+	corner->open_loop_volt = ctrl->apm_crossover_volt;
+	corner->use_open_loop = true;
+	vreg->corner_count++;
 
 	return 0;
 }
@@ -1203,9 +1180,9 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 		return -EINVAL;
 	}
 
-	rc = cprh_kbss_apm_threshold_as_corner(vreg);
+	rc = cprh_kbss_apm_crossover_as_corner(vreg);
 	if (rc) {
-		cpr3_err(vreg, "unable to introduce APM voltage threshold corner\n, rc=%d\n",
+		cpr3_err(vreg, "unable to introduce APM voltage crossover corner, rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -1288,8 +1265,18 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 	rc = of_property_read_u32(ctrl->dev->of_node,
 				  "qcom,apm-threshold-voltage",
 				  &ctrl->apm_threshold_volt);
-	if (rc)
+	if (rc) {
 		cpr3_debug(ctrl, "qcom,apm-threshold-voltage not specified\n");
+	} else {
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					  "qcom,apm-crossover-voltage",
+					  &ctrl->apm_crossover_volt);
+		if (rc) {
+			cpr3_err(ctrl, "error reading property qcom,apm-crossover-voltage, rc=%d\n",
+				 rc);
+			return rc;
+		}
+	}
 
 	of_property_read_u32(ctrl->dev->of_node, "qcom,apm-hysteresis-voltage",
 				&ctrl->apm_adj_volt);
