@@ -29,6 +29,8 @@
 #include <asm/cacheflush.h>
 #include <asm/dma-iommu.h>
 
+#if defined(CONFIG_IOMMU_DEBUG_TRACKING) || defined(CONFIG_IOMMU_TESTS)
+
 static const char *iommu_debug_attr_to_string(enum iommu_attr attr)
 {
 	switch (attr) {
@@ -74,6 +76,7 @@ static const char *iommu_debug_attr_to_string(enum iommu_attr attr)
 		return "Unknown attr!";
 	}
 }
+#endif
 
 #ifdef CONFIG_IOMMU_DEBUG_TRACKING
 
@@ -457,6 +460,20 @@ static inline void iommu_debug_destroy_tracking(void) { }
 
 #ifdef CONFIG_IOMMU_TESTS
 
+#ifdef CONFIG_64BIT
+
+#define kstrtoux kstrtou64
+#define kstrtox_from_user kstrtoll_from_user
+#define kstrtosize_t kstrtoul
+
+#else
+
+#define kstrtoux kstrtou32
+#define kstrtox_from_user kstrtoint_from_user
+#define kstrtosize_t kstrtouint
+
+#endif
+
 static LIST_HEAD(iommu_debug_devices);
 static struct dentry *debugfs_tests_dir;
 static u32 iters_per_op = 1;
@@ -549,10 +566,10 @@ DEFINE_SIMPLE_ATTRIBUTE(iommu_debug_nr_iters_ops,
 static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 					 enum iommu_attr attrs[],
 					 void *attr_values[], int nattrs,
-					 const unsigned long sizes[])
+					 const size_t sizes[])
 {
 	int i;
-	const unsigned long *sz;
+	const size_t *sz;
 	struct iommu_domain *domain;
 	struct bus_type *bus;
 	unsigned long iova = 0x10000;
@@ -593,7 +610,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 	seq_printf(s, "(average over %d iterations)\n", iters_per_op);
 	seq_printf(s, "%8s %19s %16s\n", "size", "iommu_map", "iommu_unmap");
 	for (sz = sizes; *sz; ++sz) {
-		unsigned long size = *sz;
+		size_t size = *sz;
 		size_t unmapped;
 		u64 map_elapsed_ns = 0, unmap_elapsed_ns = 0;
 		u64 map_elapsed_us = 0, unmap_elapsed_us = 0;
@@ -625,8 +642,10 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 			unmap_elapsed_ns += timespec_to_ns(&diff);
 		}
 
-		map_elapsed_ns /= iters_per_op;
-		unmap_elapsed_ns /= iters_per_op;
+		map_elapsed_ns = div_u64_rem(map_elapsed_ns, iters_per_op,
+				&map_elapsed_rem);
+		unmap_elapsed_ns = div_u64_rem(unmap_elapsed_ns, iters_per_op,
+				&unmap_elapsed_rem);
 
 		map_elapsed_us = div_u64_rem(map_elapsed_ns, 1000,
 						&map_elapsed_rem);
@@ -642,7 +661,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 	seq_putc(s, '\n');
 	seq_printf(s, "%8s %19s %16s\n", "size", "iommu_map_sg", "iommu_unmap");
 	for (sz = sizes; *sz; ++sz) {
-		unsigned long size = *sz;
+		size_t size = *sz;
 		size_t unmapped;
 		u64 map_elapsed_ns = 0, unmap_elapsed_ns = 0;
 		u64 map_elapsed_us = 0, unmap_elapsed_us = 0;
@@ -683,8 +702,10 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 			unmap_elapsed_ns += timespec_to_ns(&diff);
 		}
 
-		map_elapsed_ns /= iters_per_op;
-		unmap_elapsed_ns /= iters_per_op;
+		map_elapsed_ns = div_u64_rem(map_elapsed_ns, iters_per_op,
+				&map_elapsed_rem);
+		unmap_elapsed_ns = div_u64_rem(unmap_elapsed_ns, iters_per_op,
+				&unmap_elapsed_rem);
 
 		map_elapsed_us = div_u64_rem(map_elapsed_ns, 1000,
 						&map_elapsed_rem);
@@ -709,7 +730,7 @@ out_domain_free:
 static int iommu_debug_profiling_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_device *ddev = s->private;
-	const unsigned long sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
+	const size_t sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
 					SZ_1M * 20, 0 };
 	enum iommu_attr attrs[] = {
 		DOMAIN_ATTR_COHERENT_HTW_DISABLE,
@@ -739,7 +760,7 @@ static const struct file_operations iommu_debug_profiling_fops = {
 static int iommu_debug_secure_profiling_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_device *ddev = s->private;
-	const unsigned long sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
+	const size_t sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
 					SZ_1M * 20, 0 };
 
 	enum iommu_attr attrs[] = {
@@ -830,7 +851,7 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 	if (!virt)
 		goto out;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4ULL);
+	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4UL);
 	if (!mapping) {
 		seq_puts(s, "fast_smmu_create_mapping failed\n");
 		goto out_kfree;
@@ -851,7 +872,7 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 		goto out_detach;
 	}
 	for (experiment = 0; experiment < 2; ++experiment) {
-		u64 map_avg = 0, unmap_avg = 0;
+		size_t map_avg = 0, unmap_avg = 0;
 
 		for (i = 0; i < 10; ++i) {
 			struct timespec tbefore, tafter, diff;
@@ -888,7 +909,7 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 				   i < 9 ? ", " : "");
 		}
 		map_avg /= 10;
-		seq_printf(s, "] (avg: %llu)\n", map_avg);
+		seq_printf(s, "] (avg: %zu)\n", map_avg);
 
 		seq_printf(s, "%13s %24s (ns): [", extra_labels[experiment],
 			   "dma_unmap_single_attrs");
@@ -898,7 +919,7 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 				   i < 9 ? ", " : "");
 		}
 		unmap_avg /= 10;
-		seq_printf(s, "] (avg: %llu)\n", unmap_avg);
+		seq_printf(s, "] (avg: %zu)\n", unmap_avg);
 	}
 
 out_disable_config_clocks:
@@ -1382,7 +1403,7 @@ static int __apply_to_new_mapping(struct seq_file *s,
 	int ret = -EINVAL, fast = 1;
 	phys_addr_t pt_phys;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4ULL);
+	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4UL);
 	if (!mapping)
 		goto out;
 
@@ -1631,7 +1652,7 @@ static ssize_t iommu_debug_atos_write(struct file *file,
 	struct iommu_debug_device *ddev = file->private_data;
 	dma_addr_t iova;
 
-	if (kstrtoll_from_user(ubuf, count, 0, &iova)) {
+	if (kstrtox_from_user(ubuf, count, 0, &iova)) {
 		pr_err("Invalid format for iova\n");
 		ddev->iova = 0;
 		return -EINVAL;
@@ -1730,13 +1751,13 @@ static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
 	/* split up the words */
 	*comma1 = *comma2 = *comma3 = '\0';
 
-	if (kstrtou64(buf, 0, &iova))
+	if (kstrtoux(buf, 0, &iova))
 		goto invalid_format;
 
-	if (kstrtou64(comma1 + 1, 0, &phys))
+	if (kstrtoux(comma1 + 1, 0, &phys))
 		goto invalid_format;
 
-	if (kstrtoul(comma2 + 1, 0, &size))
+	if (kstrtosize_t(comma2 + 1, 0, &size))
 		goto invalid_format;
 
 	if (kstrtoint(comma3 + 1, 0, &prot))
@@ -1802,10 +1823,10 @@ static ssize_t iommu_debug_unmap_write(struct file *file,
 	/* split up the words */
 	*comma1 = '\0';
 
-	if (kstrtou64(buf, 0, &iova))
+	if (kstrtoux(buf, 0, &iova))
 		goto invalid_format;
 
-	if (kstrtoul(comma1 + 1, 0, &size))
+	if (kstrtosize_t(comma1 + 1, 0, &size))
 		goto invalid_format;
 
 	unmapped = iommu_unmap(ddev->domain, iova, size);
