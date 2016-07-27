@@ -75,6 +75,8 @@
 
 		qcom,highest-bank-bit = <14>;
 
+		qcom,snapshot-size = <1048576>; //bytes
+
 		clocks = <&clock_gcc_gfx clk_gcc_oxili_gfx3d_clk>,
 			<&clock_gcc_gfx clk_gcc_oxili_ahb_clk>,
 			<&clock_gcc_gfx clk_gcc_bimc_gfx_clk>,
