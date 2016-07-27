@@ -741,6 +741,7 @@ static int wcd9xxx_irq_remove(struct platform_device *pdev)
 	wmb();
 	irq_domain_remove(data->domain);
 	kfree(data);
+	domain->host_data = NULL;
 
 	return 0;
 }
