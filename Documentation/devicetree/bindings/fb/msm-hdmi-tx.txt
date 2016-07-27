@@ -61,7 +61,17 @@ these devices will be disabled as well. Ex. HDMI Audio Codec device.
 Required properties:
 - compatible : "msm-hdmi-audio-codec-rx";
 
+msm_ext_disp is a device which manages the interaction between external
+displays (HDMI and Display Port) and the audio and display frameworks.
+
+Required properties:
+- compatible:				Must be "qcom,msm-ext-disp"
+
 Example:
+	msm_ext_disp: qcom,msm_ext_disp {
+		compatible = "qcom,msm-ext-disp";
+	};
+
 	mdss_hdmi_tx: qcom,hdmi_tx@fd922100 {
 		cell-index = <0>;
 		compatible = "qcom,hdmi-tx";
@@ -82,6 +92,8 @@ Example:
 		qcom,max-voltage-level = <0 0 0 1800000 1800000>;
 		qcom,enable-load = <0 0 0 1800000 0>;
 		qcom,disable-load = <0 0 0 0 0>;
+
+		qcom,msm_ext_disp = <&msm_ext_disp>;
 
 		qcom,hdmi-tx-ddc-mux-sel = <&pma8084_gpios 6 0>;
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;

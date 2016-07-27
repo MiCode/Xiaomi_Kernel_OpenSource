@@ -88,6 +88,7 @@ struct hdmi_tx_hdr_stream_data {
 
 struct hdmi_tx_ctrl {
 	struct platform_device *pdev;
+	struct platform_device *ext_pdev;
 	struct hdmi_tx_platform_data pdata;
 	struct mdss_panel_data panel_data;
 	struct mdss_util_intf *mdss_util;
@@ -112,6 +113,7 @@ struct hdmi_tx_ctrl {
 	struct hdmi_panel_data panel;
 	struct hdmi_panel_ops panel_ops;
 	struct msm_ext_disp_audio_setup_params audio_params;
+	struct msm_ext_disp_init_data ext_audio_data;
 	struct work_struct fps_work;
 	struct hdmi_tx_hdr_stream_data hdr_data;
 
