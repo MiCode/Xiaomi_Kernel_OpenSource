@@ -290,7 +290,6 @@
 			<22 512 0 0>,
 			<22 512 0 1000>;
 
-		qcom,timing-db-mode;
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 
 		clocks = <&clock_mmss clk_mmss_mdss_mdp_clk>,
@@ -362,6 +361,7 @@
 				<0xc828000 0xac>;
 			reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 
+			qcom,timing-db-mode;
 			wqhd-vddio-supply = <&pmcobalt_l14>;
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
@@ -399,6 +399,7 @@
 				<0xc828000 0xac>;
 			reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 
+			qcom,timing-db-mode;
 			wqhd-vddio-supply = <&pmcobalt_l14>;
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
