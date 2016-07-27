@@ -568,6 +568,28 @@ static struct arm_smmu_master *find_smmu_master(struct arm_smmu_device *smmu,
 	return NULL;
 }
 
+static struct arm_smmu_master *find_smmu_master_by_sid(
+			struct arm_smmu_device *smmu, u32 sid)
+{
+	struct rb_node *next;
+	struct arm_smmu_master *master;
+	struct arm_smmu_master_cfg *cfg;
+	int i;
+
+	next = rb_first(&smmu->masters);
+	for (; next; next = rb_next(next)) {
+		master = container_of(next, struct arm_smmu_master, node);
+		cfg = &master->cfg;
+
+		for (i = 0; i < cfg->num_streamids; i++) {
+			if (cfg->streamids[i] == sid)
+				return master;
+		}
+	}
+
+	return NULL;
+}
+
 static struct arm_smmu_master_cfg *
 find_smmu_master_cfg(struct device *dev)
 {
@@ -1175,8 +1197,9 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	bool fatal_asf;
 	void __iomem *gr1_base;
 	phys_addr_t phys_soft;
-	u32 frsynra;
+	u32 sid;
 	bool non_fatal_fault = smmu_domain->non_fatal_faults;
+	struct arm_smmu_master *master;
 
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
@@ -1231,7 +1254,9 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	iova = far;
 
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
-	frsynra = readl_relaxed(gr1_base + ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
+	sid = readl_relaxed(gr1_base + ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
+	sid &= 0xffff;
+	master = find_smmu_master_by_sid(smmu, sid);
 	tmp = report_iommu_fault(domain, smmu->dev, iova, flags);
 	if (!tmp || (tmp == -EBUSY)) {
 		dev_dbg(smmu->dev,
@@ -1246,6 +1271,9 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 							      fsr);
 
 		if (__ratelimit(&_rs)) {
+			dev_err(smmu->dev, "Context Fault for %s\n",
+				master ? master->of_node->name : "Unknown SID");
+
 			dev_err(smmu->dev,
 				"Unhandled context fault: iova=0x%08lx, fsr=0x%x, fsynr=0x%x, cb=%d\n",
 				iova, fsr, fsynr, cfg->cbndx);
@@ -1271,7 +1299,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 					dev_name(smmu->dev));
 			dev_err(smmu->dev,
 				"hard iova-to-phys (ATOS)=%pa\n", &phys_atos);
-			dev_err(smmu->dev, "SID=0x%x\n", frsynra & 0xffff);
+			dev_err(smmu->dev, "SID=0x%x\n", sid);
 		}
 		ret = IRQ_NONE;
 		resume = RESUME_TERMINATE;
