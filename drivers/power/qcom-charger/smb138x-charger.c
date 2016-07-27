@@ -357,6 +357,8 @@ static int smb138x_init_batt_psy(struct smb138x *chip)
  *****************************/
 
 static enum power_supply_property smb138x_parallel_props[] = {
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
@@ -368,8 +370,21 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 {
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
 	int rc = 0;
+	u8 temp;
 
 	switch (prop) {
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		rc = smblib_read(chg, BATTERY_CHARGER_STATUS_5_REG,
+				 &temp);
+		if (rc >= 0)
+			val->intval = (bool)(temp & CHARGING_ENABLE_BIT);
+		break;
+	case POWER_SUPPLY_PROP_PIN_ENABLED:
+		rc = smblib_read(chg, BATTERY_CHARGER_STATUS_5_REG,
+				 &temp);
+		if (rc >= 0)
+			val->intval = !(temp & DISABLE_CHARGING_BIT);
+		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smblib_get_usb_suspend(chg, &val->intval);
 		break;
