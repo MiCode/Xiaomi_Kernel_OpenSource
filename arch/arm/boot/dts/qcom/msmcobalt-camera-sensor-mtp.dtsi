@@ -90,22 +90,27 @@
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
-				 &cam_sensor_rear_active>;
+				&cam_sensor_rear_active
+				&cam_actuator_vaf_active>;
 		pinctrl-1 = <&cam_sensor_mclk0_suspend
-				 &cam_sensor_rear_suspend>;
+				&cam_sensor_rear_suspend
+				&cam_actuator_vaf_suspend>;
 		gpios = <&tlmm 13 0>,
 			<&tlmm 30 0>,
 			<&pmcobalt_gpios 20 0>,
-			<&tlmm 29 0>;
+			<&tlmm 29 0>,
+			<&tlmm 27 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-vdig = <2>;
 		qcom,gpio-vana = <3>;
-		qcom,gpio-req-tbl-num = <0 1 2 3>;
-		qcom,gpio-req-tbl-flags = <1 0 0 0>;
+		qcom,gpio-vaf = <4>;
+		qcom,gpio-req-tbl-num = <0 1 2 3 4>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
 					"CAM_RESET0",
 					"CAM_VDIG",
-					"CAM_VANA";
+					"CAM_VANA",
+					"CAM_VAF";
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
