@@ -163,4 +163,6 @@ extern int tavil_mbhc_micb_adjust_voltage(struct snd_soc_codec *codec,
 					  int req_volt,
 					  int micb_num);
 extern struct wcd934x_mbhc *tavil_soc_get_mbhc(struct snd_soc_codec *codec);
+extern int tavil_codec_enable_interp_clk(struct snd_soc_codec *codec,
+					 int event, int intp_idx);
 #endif
