@@ -384,7 +384,7 @@ static int print_to_log(struct fg_log_buffer *log, const char *fmt, ...)
 static int write_next_line_to_log(struct fg_trans *trans, int offset,
 				size_t *pcnt)
 {
-	int i, j;
+	int i;
 	u8 data[ITEMS_PER_LINE];
 	u16 address;
 	struct fg_log_buffer *log = trans->log;
@@ -397,7 +397,6 @@ static int write_next_line_to_log(struct fg_trans *trans, int offset,
 		goto done;
 
 	memcpy(data, trans->data + (offset - trans->addr), items_to_read);
-
 	*pcnt -= items_to_read;
 
 	/* address is in word now and it increments by 1. */
@@ -407,8 +406,8 @@ static int write_next_line_to_log(struct fg_trans *trans, int offset,
 		goto done;
 
 	/* Log the data items */
-	for (j = 0; i < items_to_log; ++i, ++j) {
-		cnt = print_to_log(log, "%2.2X ", data[j]);
+	for (i = 0; i < items_to_log; ++i) {
+		cnt = print_to_log(log, "%2.2X ", data[i]);
 		if (cnt == 0)
 			goto done;
 	}
@@ -552,7 +551,8 @@ static ssize_t fg_sram_dfs_reg_write(struct file *file, const char __user *buf,
 	values = kbuf;
 
 	/* Parse the data in the buffer.  It should be a string of numbers */
-	while (sscanf(kbuf + pos, "%i%n", &data, &bytes_read) == 1) {
+	while ((pos < count) &&
+		sscanf(kbuf + pos, "%i%n", &data, &bytes_read) == 1) {
 		pos += bytes_read;
 		values[cnt++] = data & 0xff;
 	}
