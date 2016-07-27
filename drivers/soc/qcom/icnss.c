@@ -2387,7 +2387,7 @@ static int icnss_probe(struct platform_device *pdev)
 	spin_lock_init(&penv->event_lock);
 	spin_lock_init(&penv->on_off_lock);
 
-	penv->event_wq = alloc_workqueue("icnss_driver_event", 0, 0);
+	penv->event_wq = alloc_workqueue("icnss_driver_event", WQ_UNBOUND, 1);
 	if (!penv->event_wq) {
 		icnss_pr_err("Workqueue creation failed\n");
 		ret = -EFAULT;
