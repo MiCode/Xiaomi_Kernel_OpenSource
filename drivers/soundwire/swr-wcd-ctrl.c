@@ -325,6 +325,7 @@ static int swrm_set_ch_map(struct swr_mstr_ctrl *swrm, void *data)
 					GFP_KERNEL);
 	if (!swrm->mstr_port->port) {
 		kfree(swrm->mstr_port);
+		swrm->mstr_port = NULL;
 		return -ENOMEM;
 	}
 	memcpy(swrm->mstr_port->port, pinfo->port, pinfo->num_port);
@@ -1474,7 +1475,9 @@ static int swrm_remove(struct platform_device *pdev)
 			swrm, SWR_IRQ_FREE);
 	if (swrm->mstr_port) {
 		kfree(swrm->mstr_port->port);
+		swrm->mstr_port->port = NULL;
 		kfree(swrm->mstr_port);
+		swrm->mstr_port = NULL;
 	}
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
