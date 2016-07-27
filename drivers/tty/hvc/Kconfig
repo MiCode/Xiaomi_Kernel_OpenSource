@@ -98,6 +98,27 @@ config HVC_RISCV_SBI
 
 	  If you don't know what do to here, say Y.
 
+config HVC_DCC_SERIALIZE_SMP
+	bool "Use DCC only on core 0"
+	depends on SMP && HVC_DCC
+	help
+	  Some debuggers, such as Trace32 from Lauterbach GmbH, do not handle
+	  reads/writes from/to DCC on more than one core.  Each core has its
+	  own DCC device registers, so when a core reads or writes from/to DCC,
+	  it only accesses its own DCC device.  Since kernel code can run on
+	  any core, every time the kernel wants to write to the console, it
+	  might write to a different DCC.
+
+	  In SMP mode, Trace32 only uses the DCC on core 0.  In AMP mode, it
+	  creates multiple windows, and each window shows the DCC output
+	  only from that core's DCC.  The result is that console output is
+	  either lost or scattered across windows.
+
+	  Selecting this option will enable code that serializes all console
+	  input and output to core 0.  The DCC driver will create input and
+	  output FIFOs that all cores will use.  Reads and writes from/to DCC
+	  are handled by a workqueue that runs only core 0.
+
 config HVCS
 	tristate "IBM Hypervisor Virtual Console Server support"
 	depends on PPC_PSERIES && HVC_CONSOLE
