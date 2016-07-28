@@ -735,7 +735,6 @@ struct rq {
 	u64 age_stamp;
 	u64 idle_stamp;
 	u64 avg_idle;
-	int cstate, wakeup_latency, wakeup_energy;
 
 	/* This is used to determine avg_idle's max value */
 	u64 max_idle_balance_cost;
@@ -746,6 +745,7 @@ struct rq {
 	struct cpumask freq_domain_cpumask;
 	struct hmp_sched_stats hmp_stats;
 
+	int cstate, wakeup_latency, wakeup_energy;
 	u64 window_start;
 	unsigned long hmp_flags;
 
