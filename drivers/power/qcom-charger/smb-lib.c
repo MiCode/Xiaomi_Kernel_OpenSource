@@ -846,6 +846,7 @@ int smblib_set_prop_input_suspend(struct smb_charger *chg,
 		return rc;
 	}
 
+	power_supply_changed(chg->batt_psy);
 	return rc;
 }
 
