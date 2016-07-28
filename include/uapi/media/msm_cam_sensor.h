@@ -34,6 +34,9 @@
 #define MAX_NUMBER_OF_STEPS 47
 #define MAX_REGULATOR 5
 
+/*msm_flash_query_data_t query types*/
+#define FLASH_QUERY_CURRENT 1
+
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
 #define MSM_V4L2_PIX_FMT_SBGGR14 v4l2_fourcc('B', 'G', '1', '4')
 	/* 14  BGBG.. GRGR.. */
@@ -530,6 +533,12 @@ struct msm_flash_cfg_data_t {
 	} cfg;
 };
 
+struct msm_flash_query_data_t {
+	int32_t flags;
+	int32_t query_type;
+	int32_t max_avail_curr;
+};
+
 /* sensor init structures and enums */
 enum msm_sensor_init_cfg_type_t {
 	CFG_SINIT_PROBE,
@@ -584,6 +593,9 @@ struct sensor_init_cfg_data {
 
 #define VIDIOC_MSM_OIS_CFG_DOWNLOAD \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct msm_ois_cfg_download_data)
+
+#define VIDIOC_MSM_FLASH_QUERY_DATA \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 15, struct msm_flash_query_data_t)
 
 #endif
 
