@@ -138,6 +138,11 @@ Optional Properties:
 				Specify the size of snapshot in bytes. This will override
 				snapshot size defined in the driver code.
 
+- qcom,gpu-qdss-stm:
+				<baseAddr size>
+				baseAddr - base address of the gpu channels in the qdss stm memory region
+				size     - size of the gpu stm region
+
 GPU Quirks:
 - qcom,gpu-quirk-two-pass-use-wfi:
 				Signal the GPU to set Set TWOPASSUSEWFI bit in
