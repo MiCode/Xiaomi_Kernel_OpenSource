@@ -19,6 +19,40 @@ Required properties
 - #interrupt-cells: Should be one. The first cell is interrupt number.
 - iommus: Specifies the SID's used by this context bank.
 
+Optional properties:
+- clock-rate:		List of clock rates in Hz.
+- qcom,platform-supply-entries:	A node that lists the elements of the supply. There
+				can be more than one instance of this binding,
+				in which case the entry would be appended with
+				the supply entry index.
+				e.g. qcom,platform-supply-entry@0
+				-- reg: offset and length of the register set for the device.
+				-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+				-- qcom,supply-min-voltage: minimum voltage level (uV)
+				-- qcom,supply-max-voltage: maximum voltage level (uV)
+				-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+				-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+				-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+				-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+				-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+				-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+- qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
+				mdss blocks.
+
+
+Bus Scaling Data:
+- qcom,msm-bus,name:		String property describing client name.
+- qcom,msm-bus,num-cases:	This is the the number of Bus Scaling use cases
+				defined in the vectors property.
+- qcom,msm-bus,num-paths:	This represents the number of paths in each
+				Bus Scaling Usecase.
+- qcom,msm-bus,vectors-KBps:	* A series of 4 cell properties, with a format
+				of (src, dst, ab, ib) which is defined at
+				Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+				* Current values of src & dst are defined at
+				include/linux/msm-bus-board.h
+
+
 Please refer to ../../interrupt-controller/interrupts.txt for a general
 description of interrupt bindings.
 
@@ -45,6 +79,7 @@ Example:
       "iommu_clk",
       "mmagic_clk",
       "vsync_clk";
+    clock-rate = <0>, <0>, <0>;
     mmagic-supply = <&gdsc_mmagic_mdss>;
     vdd-supply = <&gdsc_mdss>;
     interrupt-parent = <&intc>;
@@ -52,4 +87,34 @@ Example:
     interrupt-controller;
     #interrupt-cells = <1>;
     iommus = <&mdp_smmu 0>;
+
+    qcom,platform-supply-entries {
+       #address-cells = <1>;
+       #size-cells = <0>;
+       qcom,platform-supply-entry@0 {
+           reg = <0>;
+           qcom,supply-name = "vdd";
+           qcom,supply-min-voltage = <0>;
+           qcom,supply-max-voltage = <0>;
+           qcom,supply-enable-load = <0>;
+           qcom,supply-disable-load = <0>;
+           qcom,supply-pre-on-sleep = <0>;
+           qcom,supply-post-on-sleep = <0>;
+           qcom,supply-pre-off-sleep = <0>;
+           qcom,supply-post-off-sleep = <0>;
+        };
+    };
+
+    qcom,sde-reg-bus {
+        /* Reg Bus Scale Settings */
+        qcom,msm-bus,name = "mdss_reg";
+        qcom,msm-bus,num-cases = <4>;
+        qcom,msm-bus,num-paths = <1>;
+        qcom,msm-bus,active-only;
+        qcom,msm-bus,vectors-KBps =
+              <1 590 0 0>,
+              <1 590 0 76800>,
+              <1 590 0 160000>,
+              <1 590 0 320000>;
+        };
   };
