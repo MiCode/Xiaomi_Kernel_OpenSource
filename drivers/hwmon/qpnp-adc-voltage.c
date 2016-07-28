@@ -1642,8 +1642,12 @@ static int32_t qpnp_vadc_calib_device(struct qpnp_vadc_chip *vadc)
 	vadc->adc->amux_prop->chan_prop->adc_graph[calib_type].dy =
 				(calib_read_1 - calib_read_2);
 
-	vadc->adc->amux_prop->chan_prop->adc_graph[calib_type].dx
+	if (calib_type == CALIB_ABSOLUTE)
+		vadc->adc->amux_prop->chan_prop->adc_graph[calib_type].dx
 						= QPNP_ADC_625_UV;
+	else if (calib_type == ADC_HC_ABS_CAL)
+		vadc->adc->amux_prop->chan_prop->adc_graph[calib_type].dx
+						= QPNP_ADC_1P25_UV;
 	vadc->adc->amux_prop->chan_prop->adc_graph[calib_type].adc_vref =
 					calib_read_1;
 	vadc->adc->amux_prop->chan_prop->adc_graph[calib_type].adc_gnd =
