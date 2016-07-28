@@ -1215,7 +1215,10 @@ int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		(!phys_base && !hdr_base_addr) ||
 		!hdr_base_addr ||
 		((is_hdr_proc_ctx == false) && !offset_entry)) {
-		IPAHAL_ERR("failed on validating params");
+		IPAHAL_ERR(
+			"invalid input: hdr_len:%u phys_base:%pad hdr_base_addr:%u is_hdr_proc_ctx:%d offset_entry:%pK\n"
+			, hdr_len, &phys_base, hdr_base_addr
+			, is_hdr_proc_ctx, offset_entry);
 		return -EINVAL;
 	}
 
