@@ -355,6 +355,7 @@ enum {
 	ANC_MIC_AMIC4,
 	ANC_MIC_AMIC5,
 	ANC_MIC_AMIC6,
+	CLASSH_CONFIG,
 };
 
 enum {
@@ -4461,6 +4462,7 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 	int hph_mode = tasha->hph_mode;
 	u8 dem_inp;
 	int ret = 0;
+	uint32_t impedl = 0, impedr = 0;
 
 	dev_dbg(codec->dev, "%s wname: %s event: %d hph_mode: %d\n", __func__,
 		w->name, event, hph_mode);
@@ -4494,6 +4496,16 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_RX1_RX_PATH_CFG0, 0x10, 0x10);
 
+		ret = wcd_mbhc_get_impedance(&tasha->mbhc,
+					&impedl, &impedr);
+		if (!ret) {
+			wcd_clsh_imped_config(codec, impedl, false);
+			set_bit(CLASSH_CONFIG, &tasha->status_mask);
+		} else
+			dev_dbg(codec->dev, "%s: Failed to get mbhc impedance %d\n",
+						__func__, ret);
+
+
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/* 1000us required as per HW requirement */
@@ -4523,6 +4535,15 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			     WCD_CLSH_STATE_HPHL,
 			     ((hph_mode == CLS_H_LOHIFI) ?
 			       CLS_H_HIFI : hph_mode));
+
+		if (test_bit(CLASSH_CONFIG, &tasha->status_mask)) {
+			wcd_clsh_imped_config(codec, impedl, true);
+			clear_bit(CLASSH_CONFIG, &tasha->status_mask);
+		} else
+			dev_dbg(codec->dev, "%s: Failed to get mbhc impedance %d\n",
+						__func__, ret);
+
+
 		break;
 	};
 
@@ -11888,7 +11909,7 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val_2_0[] = {
 	{WCD9335_RCO_CTRL_2, 0x0F, 0x08},
 	{WCD9335_RX_BIAS_FLYB_MID_RST, 0xF0, 0x10},
 	{WCD9335_FLYBACK_CTRL_1, 0x20, 0x20},
-	{WCD9335_HPH_OCP_CTL, 0xFF, 0x5A},
+	{WCD9335_HPH_OCP_CTL, 0xFF, 0x7A},
 	{WCD9335_HPH_L_TEST, 0x01, 0x01},
 	{WCD9335_HPH_R_TEST, 0x01, 0x01},
 	{WCD9335_CDC_BOOST0_BOOST_CFG1, 0x3F, 0x12},
