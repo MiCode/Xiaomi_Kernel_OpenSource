@@ -16,12 +16,13 @@
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/platform_device.h>
+#include <linux/of_platform.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/extcon.h>
+#include <linux/usb/usbpd.h>
 #include "usbpd.h"
 
 enum usbpd_state {
@@ -119,10 +120,13 @@ enum usbpd_data_msg_type {
 	MSG_VDM = 0xF,
 };
 
-enum plug_orientation {
-	ORIENTATION_NONE,
-	ORIENTATION_CC1,
-	ORIENTATION_CC2,
+enum vdm_state {
+	VDM_NONE,
+	DISCOVERED_ID,
+	DISCOVERED_SVIDS,
+	DISCOVERED_MODES,
+	MODE_ENTERED,
+	MODE_EXITED,
 };
 
 static void *usbpd_ipc_log;
@@ -162,6 +166,7 @@ static void *usbpd_ipc_log;
 #define PS_HARD_RESET_TIME	35
 #define PS_SOURCE_ON		400
 #define PS_SOURCE_OFF		900
+#define VDM_BUSY_TIME		50
 
 #define PD_CAPS_COUNT		50
 
@@ -205,6 +210,33 @@ static void *usbpd_ipc_log;
 #define PD_SRC_PDO_VAR_BATT_MIN_VOLT(pdo)	(((pdo) >> 10) & 0x3FF)
 #define PD_SRC_PDO_VAR_BATT_MAX(pdo)		((pdo) & 0x3FF)
 
+/* Vendor Defined Messages */
+#define MAX_CRC_RECEIVE_TIME	9 /* ~(2 * tReceive_max(1.1ms) * # retry 4) */
+#define MAX_VDM_RESPONSE_TIME	60 /* 2 * tVDMSenderResponse_max(30ms) */
+#define MAX_VDM_BUSY_TIME	100 /* 2 * tVDMBusy (50ms) */
+
+/* VDM header is the first 32-bit object following the 16-bit PD header */
+#define VDM_HDR_SVID(hdr)	((hdr) >> 16)
+#define VDM_HDR_TYPE(hdr)	((hdr) & 0x8000)
+#define VDM_HDR_CMD_TYPE(hdr)	(((hdr) >> 6) & 0x3)
+#define VDM_HDR_CMD(hdr)	((hdr) & 0x1f)
+
+#define SVDM_HDR(svid, ver, obj, cmd_type, cmd) \
+	(((svid) << 16) | (1 << 15) | ((ver) << 13) \
+	| ((obj) << 8) | ((cmd_type) << 6) | (cmd))
+
+/* discover id response vdo bit fields */
+#define ID_HDR_USB_HOST		BIT(31)
+#define ID_HDR_USB_DEVICE	BIT(30)
+#define ID_HDR_MODAL_OPR	BIT(26)
+#define ID_HDR_PRODUCT_TYPE(n)	((n) >> 27)
+#define ID_HDR_PRODUCT_PER_MASK	(2 << 27)
+#define ID_HDR_PRODUCT_HUB	1
+#define ID_HDR_PRODUCT_PER	2
+#define ID_HDR_PRODUCT_AMA	5
+#define ID_HDR_VID		0x05c6 /* qcom */
+#define PROD_VDO_PID		0x0a00 /* TBD */
+
 static int min_sink_current = 900;
 module_param(min_sink_current, int, S_IRUSR | S_IWUSR);
 
@@ -216,6 +248,12 @@ static const u32 default_src_caps[] = { 0x36019096 };	/* VSafe5V @ 1.5A */
 static const u32 default_snk_caps[] = { 0x2601905A,	/* 5V @ 900mA */
 					0x0002D096,	/* 9V @ 1.5A */
 					0x0003C064 };	/* 12V @ 1A */
+
+struct vdm_tx {
+	u32			data[7];
+	int			size;
+	struct list_head	entry;
+};
 
 struct usbpd {
 	struct device		dev;
@@ -265,6 +303,12 @@ struct usbpd {
 	int			caps_count;
 	int			hard_reset_count;
 
+	enum vdm_state		vdm_state;
+	u16			*discovered_svids;
+	struct vdm_tx		*vdm_tx_retry;
+	struct list_head	vdm_tx_queue;
+	struct list_head	svid_handlers;
+
 	struct list_head	instance;
 };
 
@@ -280,7 +324,7 @@ static const unsigned int usbpd_extcon_cable[] = {
 /* EXTCON_USB and EXTCON_USB_HOST are mutually exclusive */
 static const u32 usbpd_extcon_exclusive[] = {0x3, 0};
 
-static enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
+enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 {
 	int ret;
 	union power_supply_propval val;
@@ -292,6 +336,7 @@ static enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 
 	return val.intval;
 }
+EXPORT_SYMBOL(usbpd_get_plug_orientation);
 
 static bool is_cable_flipped(struct usbpd *pd)
 {
@@ -327,6 +372,17 @@ static int set_power_role(struct usbpd *pd, enum power_role pr)
 
 	return power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &val);
+}
+
+static struct usbpd_svid_handler *find_svid_handler(struct usbpd *pd, u16 svid)
+{
+	struct usbpd_svid_handler *handler;
+
+	list_for_each_entry(handler, &pd->svid_handlers, entry)
+		if (svid == handler->svid)
+			return handler;
+
+	return NULL;
 }
 
 static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
@@ -604,9 +660,17 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_SRC_READY:
-		if (pd->current_dr == DR_DFP)
-			extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 1);
 		pd->in_explicit_contract = true;
+		if (pd->current_dr == DR_DFP) {
+			if (pd->vdm_state == VDM_NONE)
+				usbpd_send_svdm(pd, USBPD_SID,
+						USBPD_SVDM_DISCOVER_IDENTITY,
+						SVDM_CMD_TYPE_INITIATOR, 0,
+						NULL, 0);
+
+			extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 1);
+		}
+
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		break;
 
@@ -669,12 +733,13 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->current_dr = DR_UFP;
 
 			if (pd->psy_type == POWER_SUPPLY_TYPE_USB ||
-				pd->psy_type == POWER_SUPPLY_TYPE_USB_CDP)
+				pd->psy_type == POWER_SUPPLY_TYPE_USB_CDP) {
 				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB_CC,
 						is_cable_flipped(pd));
 				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB, 1);
+			}
 		}
 
 		pd->rx_msg_len = 0;
@@ -799,6 +864,315 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	}
 }
 
+int usbpd_register_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
+{
+	if (find_svid_handler(pd, hdlr->svid)) {
+		usbpd_err(&pd->dev, "SVID 0x%04x already registered\n",
+				hdlr->svid);
+		return -EINVAL;
+	}
+
+	usbpd_dbg(&pd->dev, "registered handler for SVID 0x%04x\n", hdlr->svid);
+
+	list_add_tail(&hdlr->entry, &pd->svid_handlers);
+
+	/* already connected with this SVID discovered? */
+	if (pd->vdm_state >= DISCOVERED_SVIDS) {
+		u16 *psvid;
+
+		for (psvid = pd->discovered_svids; *psvid; psvid++) {
+			if (*psvid == hdlr->svid) {
+				if (hdlr->connect)
+					hdlr->connect(hdlr);
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(usbpd_register_svid);
+
+void usbpd_unregister_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
+{
+	list_del_init(&hdlr->entry);
+}
+EXPORT_SYMBOL(usbpd_unregister_svid);
+
+int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
+{
+	struct vdm_tx *vdm_tx;
+
+	if (!pd->in_explicit_contract)
+		return -EBUSY;
+
+	vdm_tx = kzalloc(sizeof(*vdm_tx), GFP_KERNEL);
+	if (!vdm_tx)
+		return -ENOMEM;
+
+	vdm_tx->data[0] = vdm_hdr;
+	memcpy(&vdm_tx->data[1], vdos, num_vdos * sizeof(u32));
+	vdm_tx->size = num_vdos + 1; /* include the header */
+
+	/* VDM will get sent in PE_SRC/SNK_READY state handling */
+	list_add_tail(&vdm_tx->entry, &pd->vdm_tx_queue);
+	queue_delayed_work(pd->wq, &pd->sm_work, 0);
+
+	return 0;
+}
+EXPORT_SYMBOL(usbpd_send_vdm);
+
+int usbpd_send_svdm(struct usbpd *pd, u16 svid, u8 cmd,
+		enum usbpd_svdm_cmd_type cmd_type, int obj_pos,
+		const u32 *vdos, int num_vdos)
+{
+	u32 svdm_hdr = SVDM_HDR(svid, 0, obj_pos, cmd_type, cmd);
+
+	usbpd_dbg(&pd->dev, "VDM tx: svid:%x cmd:%x cmd_type:%x svdm_hdr:%x\n",
+			svid, cmd, cmd_type, svdm_hdr);
+
+	return usbpd_send_vdm(pd, svdm_hdr, vdos, num_vdos);
+}
+EXPORT_SYMBOL(usbpd_send_svdm);
+
+static void handle_vdm_rx(struct usbpd *pd)
+{
+	u32 vdm_hdr = pd->rx_payload[0];
+	u32 *vdos = &pd->rx_payload[1];
+	u16 svid = VDM_HDR_SVID(vdm_hdr);
+	u16 *psvid;
+	u8 i, num_vdos = pd->rx_msg_len - 1;	/* num objects minus header */
+	u8 cmd = VDM_HDR_CMD(vdm_hdr);
+	u8 cmd_type = VDM_HDR_CMD_TYPE(vdm_hdr);
+	struct usbpd_svid_handler *handler;
+
+	usbpd_dbg(&pd->dev, "VDM rx: svid:%x cmd:%x cmd_type:%x vdm_hdr:%x\n",
+			svid, cmd, cmd_type, vdm_hdr);
+
+	/* if it's a supported SVID, pass the message to the handler */
+	handler = find_svid_handler(pd, svid);
+
+	/* Unstructured VDM */
+	if (!VDM_HDR_TYPE(vdm_hdr)) {
+		if (handler && handler->vdm_received)
+			handler->vdm_received(handler, vdm_hdr, vdos, num_vdos);
+		return;
+	}
+
+	if (handler && handler->svdm_received)
+		handler->svdm_received(handler, cmd, cmd_type, vdos, num_vdos);
+
+	switch (cmd_type) {
+	case SVDM_CMD_TYPE_INITIATOR:
+		if (cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
+			u32 tx_vdos[3] = {
+				ID_HDR_USB_HOST | ID_HDR_USB_DEVICE |
+					ID_HDR_PRODUCT_PER_MASK | ID_HDR_VID,
+				0x0, /* TBD: Cert Stat VDO */
+				(PROD_VDO_PID << 16),
+				/* TBD: Get these from gadget */
+			};
+
+			usbpd_send_svdm(pd, USBPD_SID, cmd,
+					SVDM_CMD_TYPE_RESP_ACK, 0, tx_vdos, 3);
+		} else {
+			usbpd_send_svdm(pd, USBPD_SID, cmd,
+					SVDM_CMD_TYPE_RESP_NAK, 0, NULL, 0);
+		}
+		break;
+
+	case SVDM_CMD_TYPE_RESP_ACK:
+		switch (cmd) {
+		case USBPD_SVDM_DISCOVER_IDENTITY:
+			if (svid != USBPD_SID) {
+				usbpd_err(&pd->dev, "invalid VID:0x%x\n", svid);
+				break;
+			}
+
+			kfree(pd->vdm_tx_retry);
+			pd->vdm_tx_retry = NULL;
+
+			pd->vdm_state = DISCOVERED_ID;
+			usbpd_send_svdm(pd, USBPD_SID,
+					USBPD_SVDM_DISCOVER_SVIDS,
+					SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
+			break;
+
+		case USBPD_SVDM_DISCOVER_SVIDS:
+			if (svid != USBPD_SID) {
+				usbpd_err(&pd->dev, "invalid VID:0x%x\n", svid);
+				break;
+			}
+
+			pd->vdm_state = DISCOVERED_SVIDS;
+
+			kfree(pd->vdm_tx_retry);
+			pd->vdm_tx_retry = NULL;
+
+			kfree(pd->discovered_svids);
+
+			/* TODO: handle > 12 SVIDs */
+			pd->discovered_svids = kzalloc((2 * num_vdos + 1) *
+							sizeof(u16),
+							GFP_KERNEL);
+			if (!pd->discovered_svids) {
+				usbpd_err(&pd->dev, "unable to allocate SVIDs\n");
+				break;
+			}
+
+			/* convert 32-bit VDOs to list of 16-bit SVIDs */
+			psvid = pd->discovered_svids;
+			for (i = 0; i < num_vdos * 2; i++) {
+				/*
+				 * Within each 32-bit VDO,
+				 *    SVID[i]: upper 16-bits
+				 *    SVID[i+1]: lower 16-bits
+				 * where i is even.
+				 */
+				if (!(i & 1))
+					svid = vdos[i >> 1] >> 16;
+				else
+					svid = vdos[i >> 1] & 0xFFFF;
+
+				/*
+				 * There are some devices that incorrectly
+				 * swap the order of SVIDs within a VDO. So in
+				 * case of an odd-number of SVIDs it could end
+				 * up with SVID[i] as 0 while SVID[i+1] is
+				 * non-zero. Just skip over the zero ones.
+				 */
+				if (svid) {
+					usbpd_dbg(&pd->dev, "Discovered SVID: 0x%04x\n",
+							svid);
+					*psvid++ = svid;
+
+					/* if SVID supported notify handler */
+					handler = find_svid_handler(pd, svid);
+					if (handler && handler->connect)
+						handler->connect(handler);
+				}
+			}
+
+			break;
+
+		case USBPD_SVDM_DISCOVER_MODES:
+			usbpd_info(&pd->dev, "SVID:0x%04x VDM Modes discovered\n",
+					svid);
+			pd->vdm_state = DISCOVERED_MODES;
+			break;
+
+		case USBPD_SVDM_ENTER_MODE:
+			usbpd_info(&pd->dev, "SVID:0x%04x VDM Mode entered\n",
+					svid);
+			pd->vdm_state = MODE_ENTERED;
+			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
+			break;
+
+		case USBPD_SVDM_EXIT_MODE:
+			usbpd_info(&pd->dev, "SVID:0x%04x VDM Mode exited\n",
+					svid);
+			pd->vdm_state = MODE_EXITED;
+			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
+			break;
+
+		default:
+			break;
+		}
+		break;
+
+	case SVDM_CMD_TYPE_RESP_NAK:
+		usbpd_info(&pd->dev, "VDM NAK received for SVID:0x%04x command:%d\n",
+				svid, cmd);
+		break;
+
+	case SVDM_CMD_TYPE_RESP_BUSY:
+		switch (cmd) {
+		case USBPD_SVDM_DISCOVER_IDENTITY:
+		case USBPD_SVDM_DISCOVER_SVIDS:
+			if (!pd->vdm_tx_retry) {
+				usbpd_err(&pd->dev, "Discover command %d VDM was unexpectedly freed\n",
+						cmd);
+				break;
+			}
+
+			/* wait tVDMBusy, then retry */
+			list_move(&pd->vdm_tx_retry->entry, &pd->vdm_tx_queue);
+			pd->vdm_tx_retry = NULL;
+			queue_delayed_work(pd->wq, &pd->sm_work,
+					msecs_to_jiffies(VDM_BUSY_TIME));
+			break;
+		default:
+			break;
+		}
+		break;
+	}
+}
+
+static void handle_vdm_tx(struct usbpd *pd)
+{
+	int ret;
+
+	/* only send one VDM at a time */
+	if (!list_empty(&pd->vdm_tx_queue)) {
+		struct vdm_tx *vdm_tx = list_first_entry(&pd->vdm_tx_queue,
+				struct vdm_tx, entry);
+		u32 vdm_hdr = vdm_tx->data[0];
+
+		ret = pd_send_msg(pd, MSG_VDM, vdm_tx->data, vdm_tx->size,
+				SOP_MSG);
+		if (ret) {
+			usbpd_err(&pd->dev, "Error sending VDM command %d\n",
+					VDM_HDR_CMD(vdm_tx->data[0]));
+			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
+					PE_SRC_SEND_SOFT_RESET :
+					PE_SNK_SEND_SOFT_RESET);
+
+			/* retry when hitting PE_SRC/SNK_Ready again */
+			return;
+		}
+
+		list_del(&vdm_tx->entry);
+
+		/*
+		 * special case: keep initiated Discover ID/SVIDs
+		 * around in case we need to re-try when receiving BUSY
+		 */
+		if (VDM_HDR_TYPE(vdm_hdr) &&
+			VDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR &&
+			VDM_HDR_CMD(vdm_hdr) <= USBPD_SVDM_DISCOVER_SVIDS) {
+			if (pd->vdm_tx_retry) {
+				usbpd_err(&pd->dev, "Previous Discover VDM command %d not ACKed/NAKed\n",
+					VDM_HDR_CMD(pd->vdm_tx_retry->data[0]));
+				kfree(pd->vdm_tx_retry);
+			}
+			pd->vdm_tx_retry = vdm_tx;
+		} else {
+			kfree(vdm_tx);
+		}
+	}
+}
+
+static void reset_vdm_state(struct usbpd *pd)
+{
+	struct usbpd_svid_handler *handler;
+
+	pd->vdm_state = VDM_NONE;
+	list_for_each_entry(handler, &pd->svid_handlers, entry)
+		if (handler->disconnect)
+			handler->disconnect(handler);
+	kfree(pd->vdm_tx_retry);
+	pd->vdm_tx_retry = NULL;
+	kfree(pd->discovered_svids);
+	pd->discovered_svids = NULL;
+	while (!list_empty(&pd->vdm_tx_queue)) {
+		struct vdm_tx *vdm_tx =
+			list_first_entry(&pd->vdm_tx_queue,
+				struct vdm_tx, entry);
+		list_del(&vdm_tx->entry);
+		kfree(vdm_tx);
+	}
+}
+
 static void dr_swap(struct usbpd *pd)
 {
 	if (pd->current_dr == DR_DFP) {
@@ -813,6 +1187,12 @@ static void dr_swap(struct usbpd *pd)
 				is_cable_flipped(pd));
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 1);
 		pd->current_dr = DR_DFP;
+
+		if (pd->vdm_state == VDM_NONE)
+			usbpd_send_svdm(pd, USBPD_SID,
+					USBPD_SVDM_DISCOVER_IDENTITY,
+					SVDM_CMD_TYPE_INITIATOR, 0,
+					NULL, 0);
 	}
 
 	pd_phy_update_roles(pd->current_dr, pd->current_pr);
@@ -873,6 +1253,8 @@ static void usbpd_sm(struct work_struct *w)
 		pd->current_pr = PR_NONE;
 		pd->current_dr = DR_NONE;
 
+		reset_vdm_state(pd);
+
 		/* Set CC back to DRP toggle */
 		val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
 		power_supply_set_property(pd->usb_psy,
@@ -884,6 +1266,8 @@ static void usbpd_sm(struct work_struct *w)
 
 	/* Hard reset? */
 	if (pd->hard_reset) {
+		reset_vdm_state(pd);
+
 		if (pd->current_pr == PR_SINK)
 			usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
 		else
@@ -1001,6 +1385,11 @@ static void usbpd_sm(struct work_struct *w)
 			pd->rdo = pd->rx_payload[0];
 			usbpd_set_state(pd, PE_SRC_NEGOTIATE_CAPABILITY);
 		} else if (ctrl_recvd == MSG_DR_SWAP) {
+			if (pd->vdm_state == MODE_ENTERED) {
+				usbpd_set_state(pd, PE_SRC_HARD_RESET);
+				break;
+			}
+
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
 				usbpd_err(&pd->dev, "Error sending Accept\n");
@@ -1022,12 +1411,18 @@ static void usbpd_sm(struct work_struct *w)
 			pd->current_state = PE_PRS_SRC_SNK_TRANSITION_TO_OFF;
 			queue_delayed_work(pd->wq, &pd->sm_work, 0);
 			break;
+		} else {
+			if (data_recvd == MSG_VDM)
+				handle_vdm_rx(pd);
+			else
+				handle_vdm_tx(pd);
 		}
 		break;
 
 	case PE_SRC_HARD_RESET:
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;
+		reset_vdm_state(pd);
 
 		msleep(PS_HARD_RESET_TIME);
 		usbpd_set_state(pd, PE_SRC_TRANSITION_TO_DEFAULT);
@@ -1133,6 +1528,11 @@ static void usbpd_sm(struct work_struct *w)
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 			}
 		} else if (ctrl_recvd == MSG_DR_SWAP) {
+			if (pd->vdm_state == MODE_ENTERED) {
+				usbpd_set_state(pd, PE_SNK_HARD_RESET);
+				break;
+			}
+
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
 				usbpd_err(&pd->dev, "Error sending Accept\n");
@@ -1166,6 +1566,11 @@ static void usbpd_sm(struct work_struct *w)
 			queue_delayed_work(pd->wq, &pd->sm_work,
 					msecs_to_jiffies(PS_SOURCE_OFF));
 			break;
+		} else {
+			if (data_recvd == MSG_VDM)
+				handle_vdm_rx(pd);
+			else
+				handle_vdm_tx(pd);
 		}
 		break;
 
@@ -1218,6 +1623,7 @@ static void usbpd_sm(struct work_struct *w)
 
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;
+		reset_vdm_state(pd);
 		usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
 		break;
 
@@ -1480,6 +1886,7 @@ static int usbpd_uevent(struct device *dev, struct kobj_uevent_env *env)
 	add_uevent_var(env, "RDO=%08x", pd->rdo);
 	add_uevent_var(env, "CONTRACT=%s", pd->in_explicit_contract ?
 				"explicit" : "implicit");
+	add_uevent_var(env, "ALT_MODE=%d", pd->vdm_state == MODE_ENTERED);
 
 	return 0;
 }
@@ -1782,6 +2189,61 @@ static struct class usbpd_class = {
 	.dev_groups = usbpd_groups,
 };
 
+static int match_usbpd_device(struct device *dev, const void *data)
+{
+	return dev->parent == data;
+}
+
+static void devm_usbpd_put(struct device *dev, void *res)
+{
+	struct usbpd **ppd = res;
+
+	put_device(&(*ppd)->dev);
+}
+
+struct usbpd *devm_usbpd_get_by_phandle(struct device *dev, const char *phandle)
+{
+	struct usbpd **ptr, *pd = NULL;
+	struct device_node *pd_np;
+	struct platform_device *pdev;
+	struct device *pd_dev;
+
+	if (!dev->of_node)
+		return ERR_PTR(-ENODEV);
+
+	pd_np = of_parse_phandle(dev->of_node, phandle, 0);
+	if (!pd_np)
+		return ERR_PTR(-ENODEV);
+
+	pdev = of_find_device_by_node(pd_np);
+	if (!pdev)
+		return ERR_PTR(-ENODEV);
+
+	pd_dev = class_find_device(&usbpd_class, NULL, &pdev->dev,
+			match_usbpd_device);
+	if (!pd_dev) {
+		platform_device_put(pdev);
+		return ERR_PTR(-ENODEV);
+	}
+
+	ptr = devres_alloc(devm_usbpd_put, sizeof(*ptr), GFP_KERNEL);
+	if (!ptr) {
+		put_device(pd_dev);
+		platform_device_put(pdev);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	pd = dev_get_drvdata(pd_dev);
+	if (!pd)
+		return ERR_PTR(-ENODEV);
+
+	*ptr = pd;
+	devres_add(dev, ptr);
+
+	return pd;
+}
+EXPORT_SYMBOL(devm_usbpd_get_by_phandle);
+
 static int num_pd_instances;
 
 /**
@@ -1868,6 +2330,9 @@ struct usbpd *usbpd_create(struct device *parent)
 	pd->current_pr = PR_NONE;
 	pd->current_dr = DR_NONE;
 	list_add_tail(&pd->instance, &_usbpd);
+
+	INIT_LIST_HEAD(&pd->vdm_tx_queue);
+	INIT_LIST_HEAD(&pd->svid_handlers);
 
 	/* force read initial power_supply values */
 	psy_changed(&pd->psy_nb, PSY_EVENT_PROP_CHANGED, pd->usb_psy);

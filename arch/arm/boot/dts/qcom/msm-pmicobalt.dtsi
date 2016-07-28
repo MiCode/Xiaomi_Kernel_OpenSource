@@ -339,6 +339,41 @@
 				channel = <0xc>;
 			};
 		};
+
+		pmicobalt_fg: qpnp,fg {
+			compatible = "qcom,fg-gen3";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,pmic-revid = <&pmicobalt_revid>;
+			io-channels = <&pmicobalt_rradc 0>;
+			io-channel-names = "rradc_batt_id";
+			status = "okay";
+
+			qcom,fg-batt-soc@4000 {
+				status = "okay";
+				reg = <0x4000 0x100>;
+				interrupts = <0x2 0x40 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x2 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x3 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "soc-update",
+						  "soc-ready",
+						  "bsoc-delta",
+						  "msoc-delta";
+			};
+
+			qcom,fg-batt-info@4100 {
+				status = "okay";
+				reg = <0x4100 0x100>;
+				interrupts = <0x2 0x41 0x3 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "batt-missing";
+			};
+
+			qcom,fg-memif@4400 {
+				status = "okay";
+				reg = <0x4400 0x100>;
+			};
+		};
 	};
 
 	qcom,pmicobalt@3 {

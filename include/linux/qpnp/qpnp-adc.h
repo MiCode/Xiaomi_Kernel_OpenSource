@@ -242,6 +242,7 @@ enum qpnp_iadc_channels {
 #define QPNP_ADC_HWMON_NAME_LENGTH				64
 #define QPNP_MAX_PROP_NAME_LEN					32
 #define QPNP_THERMALNODE_NAME_LENGTH                            25
+#define QPNP_ADC_1P25_UV					1250000
 
 /* Structure device for qpnp vadc */
 struct qpnp_vadc_chip;
@@ -950,6 +951,7 @@ enum qpnp_state_request {
  * @low_temp: Low temperature threshold for which notification is requested.
  * @high_thr_voltage: High voltage for which notification is requested.
  * @low_thr_voltage: Low voltage for which notification is requested.
+ * @adc_tm_hc: Represents the refreshed BTM register design.
  * @state_request: Enable/disable the corresponding high and low temperature
  *		thresholds.
  * @timer_interval1: Select polling rate from qpnp_adc_meas_timer_1 type.
@@ -972,6 +974,7 @@ struct qpnp_adc_tm_btm_param {
 	int32_t					low_thr;
 	int32_t					gain_num;
 	int32_t					gain_den;
+	bool					adc_tm_hc;
 	enum qpnp_vadc_channels			channel;
 	enum qpnp_state_request			state_request;
 	enum qpnp_adc_meas_timer_1		timer_interval;

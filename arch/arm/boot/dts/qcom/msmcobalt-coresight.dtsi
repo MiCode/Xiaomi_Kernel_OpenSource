@@ -20,6 +20,7 @@
 		reg-names = "tmc-base", "bam-base";
 
 		arm,buffer-size = <0x400000>;
+		arm,sg-enable;
 
 		coresight-ctis = <&cti0 &cti8>;
 
@@ -74,6 +75,8 @@
 		coresight-ctis = <&cti0 &cti8>;
 
 		coresight-name = "coresight-tmc-etf";
+
+		arm,default-sink;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;

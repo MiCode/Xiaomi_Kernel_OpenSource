@@ -2194,4 +2194,7 @@ const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 int ipa_gsi_ch20_wa(void);
 int ipa3_rx_poll(u32 clnt_hdl, int budget);
 void ipa3_recycle_wan_skb(struct sk_buff *skb);
+int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map);
+int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr,
+	u32 size, bool map);
 #endif /* _IPA3_I_H_ */

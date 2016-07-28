@@ -101,6 +101,10 @@ Required properties:
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
 	"core" : high-voltage analog supply for SSPHY
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. Required clocks are "aux_clk" and "pipe_clk".
  - qcom,vdd-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner
@@ -119,6 +123,10 @@ Optional properties:
  - reg: Additional register set of address and length to control QMP PHY are:
    "tcsr_usb3_dp_phymode" : top-level CSR register to be written to select
    super speed usb qmp phy.
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. Required clocks are "cfg_ahb_clk", "phy_reset" and "phy_phy_reset".
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
@@ -138,6 +146,17 @@ Example:
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;
 		qcom,vbus-valid-override;
+
+		clocks = <&clock_gcc clk_gcc_usb3_phy_aux_clk>,
+			 <&clock_gcc clk_gcc_usb3_phy_pipe_clk>,
+			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+			 <&clock_gcc clk_gcc_usb3_phy_reset>,
+			 <&clock_gcc clk_gcc_usb3phy_phy_reset>,
+			 <&clock_gcc clk_ln_bb_clk1>,
+			 <&clock_gcc clk_gcc_usb3_clkref_clk>;
+
+		clock-names = "aux_clk", "pipe_clk", "cfg_ahb_clk", "phy_reset",
+			      "phy_phy_reset", "ref_clk_src", "ref_clk";
 	};
 
 QUSB2 High-Speed PHY
@@ -157,7 +176,7 @@ Required properties:
  - clocks: a list of phandles to the PHY clocks. Use as per
    Documentation/devicetree/bindings/clock/clock-bindings.txt
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
-   property. Required clocks are "cfg_ahb_clk" and "phy_reset".
+   property. Required clock is "phy_reset".
  - phy_type: Should be one of "ulpi" or "utmi". ChipIdea core uses "ulpi" mode.
 
 Optional properties:
@@ -171,7 +190,13 @@ Optional properties:
    allows us to manipulate QUSB PHY bits eg. to enable D+ pull-up using s/w
    control in device mode. The reg-names property is required if the
    reg property is specified.
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. "cfg_ahb_clk", "ref_clk_src" and "ref_clk" are optional clocks.
  - qcom,qusb-phy-init-seq: QUSB PHY initialization sequence with value,reg pair.
+ - qcom,qusb-phy-host-init-seq: QUSB PHY initialization sequence for host mode
+   with value,reg pair.
  - qcom,emu-init-seq : emulation initialization sequence with value,reg pair.
  - qcom,phy-pll-reset-seq : emulation PLL reset sequence with value,reg pair.
  - qcom,emu-dcm-reset-seq : emulation DCM reset sequence with value,reg pair.

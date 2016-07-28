@@ -241,7 +241,6 @@
 #define clk_gcc_usb30_sleep_clk			0xd0b65c92
 #define clk_gcc_usb3_phy_aux_clk		0x0d9a36e0
 #define clk_gcc_usb3_phy_pipe_clk		0xf279aff2
-#define clk_gcc_usb_phy_cfg_ahb2phy_clk		0xd1231a0e
 #define clk_gcc_wcss_ahb_s0_clk			0x639a01c4
 #define clk_gcc_wcss_axi_m_clk			0xabc48ebd
 #define clk_gcc_wcss_ecahb_clk			0xf1815ce9

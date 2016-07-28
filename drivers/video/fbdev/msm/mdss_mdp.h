@@ -678,6 +678,8 @@ struct mdss_ad_info {
 	bool last_calib_valid;
 	u32 ipc_frame_count;
 	u32 bl_data;
+	u32 bl_min_delta;
+	u32 bl_low_limit;
 	u32 calc_itr;
 	uint32_t bl_lin[AD_BL_LIN_LEN];
 	uint32_t bl_lin_inv[AD_BL_LIN_LEN];
@@ -1733,6 +1735,8 @@ void mdss_mdp_hist_intr_done(u32 isr);
 
 int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 				struct mdss_ad_init_cfg *init_cfg);
+int mdss_mdp_ad_bl_config(struct msm_fb_data_type *mfd,
+				struct mdss_ad_bl_cfg *ad_bl_cfg);
 int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 				struct mdss_ad_input *input, int wait);
 int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_offsets);

@@ -60,6 +60,7 @@
 		      <0xc8ce024 0x4>;
 		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 

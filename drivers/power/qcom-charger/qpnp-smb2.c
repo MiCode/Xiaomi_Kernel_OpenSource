@@ -25,54 +25,105 @@
 #include "smb-lib.h"
 #include "pmic-voter.h"
 
-#define SMB2_DEFAULT_FCC_UA 3000000
-#define SMB2_DEFAULT_FV_UV 4350000
-#define SMB2_DEFAULT_ICL_UA 3000000
+#define SMB2_DEFAULT_FCC_UA	3000000
+#define SMB2_DEFAULT_FV_UV	4350000
+#define SMB2_DEFAULT_ICL_UA	3000000
+#define SMB2_DEFAULT_WPWR_UW	8000000
 
 static struct smb_params v1_params = {
-	.fcc		= {
+	.fcc			= {
 		.name	= "fast charge current",
 		.reg	= FAST_CHARGE_CURRENT_CFG_REG,
 		.min_u	= 0,
 		.max_u	= 4500000,
 		.step_u	= 25000,
 	},
-	.fv		= {
+	.fv			= {
 		.name	= "float voltage",
 		.reg	= FLOAT_VOLTAGE_CFG_REG,
-		.min_u	= 3487500,
-		.max_u	= 4920000,
-		.step_u	= 7500,
+		.min_u	= 2500000,
+		.max_u	= 5000000,
+		.step_u	= 10000,
 	},
-	.usb_icl	= {
+	.usb_icl		= {
 		.name	= "usb input current limit",
 		.reg	= USBIN_CURRENT_LIMIT_CFG_REG,
 		.min_u	= 0,
-		.max_u	= 4800000,
+		.max_u	= 6000000,
 		.step_u	= 25000,
 	},
-	.icl_stat	= {
+	.icl_stat		= {
 		.name	= "input current limit status",
 		.reg	= ICL_STATUS_REG,
 		.min_u	= 0,
 		.max_u	= 4800000,
 		.step_u	= 25000,
 	},
-	.dc_icl		= {
+	.dc_icl			= {
 		.name	= "dc input current limit",
 		.reg	= DCIN_CURRENT_LIMIT_CFG_REG,
 		.min_u	= 0,
+		.max_u	= 6000000,
+		.step_u	= 25000,
+	},
+	.dc_icl_pt_lv		= {
+		.name	= "dc icl PT <8V",
+		.reg	= ZIN_ICL_PT_REG,
+		.min_u	= 0,
 		.max_u	= 3000000,
+		.step_u	= 25000,
+	},
+	.dc_icl_pt_hv		= {
+		.name	= "dc icl PT >8V",
+		.reg	= ZIN_ICL_PT_HV_REG,
+		.min_u	= 0,
+		.max_u	= 3000000,
+		.step_u	= 25000,
+	},
+	.dc_icl_div2_lv		= {
+		.name	= "dc icl div2 <5.5V",
+		.reg	= ZIN_ICL_LV_REG,
+		.min_u	= 0,
+		.max_u	= 3000000,
+		.step_u	= 25000,
+	},
+	.dc_icl_div2_mid_lv	= {
+		.name	= "dc icl div2 5.5-6.5V",
+		.reg	= ZIN_ICL_MID_LV_REG,
+		.min_u	= 0,
+		.max_u	= 3000000,
+		.step_u	= 25000,
+	},
+	.dc_icl_div2_mid_hv	= {
+		.name	= "dc icl div2 6.5-8.0V",
+		.reg	= ZIN_ICL_MID_HV_REG,
+		.min_u	= 0,
+		.max_u	= 3000000,
+		.step_u	= 25000,
+	},
+	.dc_icl_div2_hv		= {
+		.name	= "dc icl div2 >8.0V",
+		.reg	= ZIN_ICL_HV_REG,
+		.min_u	= 0,
+		.max_u	= 3000000,
+		.step_u	= 25000,
+	},
+	.jeita_cc_comp		= {
+		.name	= "jeita fcc reduction",
+		.reg	= JEITA_CCCOMP_CFG_REG,
+		.min_u	= 0,
+		.max_u	= 1575000,
 		.step_u	= 25000,
 	},
 };
 
 struct smb_dt_props {
-	bool suspend_input;
-	int fcc_ua;
-	int usb_icl_ua;
-	int dc_icl_ua;
-	int fv_uv;
+	bool	suspend_input;
+	int	fcc_ua;
+	int	usb_icl_ua;
+	int	dc_icl_ua;
+	int	fv_uv;
+	int	wipower_max_uw;
 };
 
 struct smb2 {
@@ -124,6 +175,11 @@ static int smb2_parse_dt(struct smb2 *chip)
 				"qcom,dc-icl-ua", &chip->dt.dc_icl_ua);
 	if (rc < 0)
 		chip->dt.dc_icl_ua = SMB2_DEFAULT_ICL_UA;
+
+	rc = of_property_read_u32(node,
+			"qcom,wipower-max-uw", &chip->dt.wipower_max_uw);
+	if (rc < 0)
+		chip->dt.wipower_max_uw	= SMB2_DEFAULT_WPWR_UW;
 
 	return 0;
 }
@@ -486,6 +542,57 @@ static int smb2_init_vconn_regulator(struct smb2 *chip)
 /***************************
  * HARDWARE INITIALIZATION *
  ***************************/
+static int smb2_config_wipower_input_power(struct smb2 *chip, int uw)
+{
+	int rc;
+	int ua;
+	struct smb_charger *chg = &chip->chg;
+	s64 nw = (s64)uw * 1000;
+
+	ua = div_s64(nw, ZIN_ICL_PT_MAX_MV);
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl_pt_lv, ua);
+	if (rc < 0) {
+		pr_err("Couldn't configure dc_icl_pt_lv rc = %d\n", rc);
+		return rc;
+	}
+
+	ua = div_s64(nw, ZIN_ICL_PT_HV_MAX_MV);
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl_pt_hv, ua);
+	if (rc < 0) {
+		pr_err("Couldn't configure dc_icl_pt_hv rc = %d\n", rc);
+		return rc;
+	}
+
+	ua = div_s64(nw, ZIN_ICL_LV_MAX_MV);
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl_div2_lv, ua);
+	if (rc < 0) {
+		pr_err("Couldn't configure dc_icl_div2_lv rc = %d\n", rc);
+		return rc;
+	}
+
+	ua = div_s64(nw, ZIN_ICL_MID_LV_MAX_MV);
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl_div2_mid_lv, ua);
+	if (rc < 0) {
+		pr_err("Couldn't configure dc_icl_div2_mid_lv rc = %d\n", rc);
+		return rc;
+	}
+
+	ua = div_s64(nw, ZIN_ICL_MID_HV_MAX_MV);
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl_div2_mid_hv, ua);
+	if (rc < 0) {
+		pr_err("Couldn't configure dc_icl_div2_mid_hv rc = %d\n", rc);
+		return rc;
+	}
+
+	ua = div_s64(nw, ZIN_ICL_HV_MAX_MV);
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl_div2_hv, ua);
+	if (rc < 0) {
+		pr_err("Couldn't configure dc_icl_div2_hv rc = %d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
 
 static int smb2_init_hw(struct smb2 *chip)
 {
@@ -582,6 +689,13 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	/* configure wipower watts */
+	rc = smb2_config_wipower_input_power(chip, chip->dt.wipower_max_uw);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure wipower rc=%d\n", rc);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -615,49 +729,49 @@ struct smb2_irq_info {
 
 static struct smb2_irq_info smb2_irqs[] = {
 /* CHARGER IRQs */
-	{ "chg-error",                  smblib_handle_debug },
-	{ "chg-state-change",           smblib_handle_chg_state_change,	true },
-	{ "step-chg-state-change",      smblib_handle_debug },
-	{ "step-chg-soc-update-fail",   smblib_handle_debug },
+	{ "chg-error",			smblib_handle_debug },
+	{ "chg-state-change",		smblib_handle_chg_state_change,	true },
+	{ "step-chg-state-change",	smblib_handle_debug },
+	{ "step-chg-soc-update-fail",	smblib_handle_debug },
 	{ "step-chg-soc-update-request", smblib_handle_debug },
 /* OTG IRQs */
-	{ "otg-fail",                   smblib_handle_debug },
-	{ "otg-overcurrent",            smblib_handle_debug },
-	{ "otg-oc-dis-sw-sts",          smblib_handle_debug },
-	{ "testmode-change-detect",     smblib_handle_debug },
+	{ "otg-fail",			smblib_handle_debug },
+	{ "otg-overcurrent",		smblib_handle_debug },
+	{ "otg-oc-dis-sw-sts",		smblib_handle_debug },
+	{ "testmode-change-detect",	smblib_handle_debug },
 /* BATTERY IRQs */
-	{ "bat-temp",                   smblib_handle_batt_psy_changed },
-	{ "bat-ocp",                    smblib_handle_batt_psy_changed },
-	{ "bat-ov",                     smblib_handle_batt_psy_changed },
-	{ "bat-low",                    smblib_handle_batt_psy_changed },
-	{ "bat-therm-or-id-missing",    smblib_handle_batt_psy_changed },
-	{ "bat-terminal-missing",       smblib_handle_batt_psy_changed },
+	{ "bat-temp",			smblib_handle_batt_temp_changed },
+	{ "bat-ocp",			smblib_handle_batt_psy_changed },
+	{ "bat-ov",			smblib_handle_batt_psy_changed },
+	{ "bat-low",			smblib_handle_batt_psy_changed },
+	{ "bat-therm-or-id-missing",	smblib_handle_batt_psy_changed },
+	{ "bat-terminal-missing",	smblib_handle_batt_psy_changed },
 /* USB INPUT IRQs */
-	{ "usbin-collapse",             smblib_handle_debug },
-	{ "usbin-lt-3p6v",              smblib_handle_debug },
-	{ "usbin-uv",                   smblib_handle_debug },
-	{ "usbin-ov",                   smblib_handle_debug },
-	{ "usbin-plugin",               smblib_handle_usb_plugin,	true },
-	{ "usbin-src-change",           smblib_handle_usb_source_change, true },
-	{ "usbin-icl-change",           smblib_handle_icl_change,	true },
+	{ "usbin-collapse",		smblib_handle_debug },
+	{ "usbin-lt-3p6v",		smblib_handle_debug },
+	{ "usbin-uv",			smblib_handle_debug },
+	{ "usbin-ov",			smblib_handle_debug },
+	{ "usbin-plugin",		smblib_handle_usb_plugin,	true },
+	{ "usbin-src-change",		smblib_handle_usb_source_change, true },
+	{ "usbin-icl-change",		smblib_handle_icl_change,	true },
 	{ "type-c-change",		smblib_handle_usb_typec_change,	true },
 /* DC INPUT IRQs */
-	{ "dcin-collapse",              smblib_handle_debug },
-	{ "dcin-lt-3p6v",               smblib_handle_debug },
-	{ "dcin-uv",                    smblib_handle_debug },
-	{ "dcin-ov",                    smblib_handle_debug },
-	{ "dcin-plugin",                smblib_handle_debug },
-	{ "div2-en-dg",                 smblib_handle_debug },
-	{ "dcin-icl-change",            smblib_handle_debug },
+	{ "dcin-collapse",		smblib_handle_debug },
+	{ "dcin-lt-3p6v",		smblib_handle_debug },
+	{ "dcin-uv",			smblib_handle_debug },
+	{ "dcin-ov",			smblib_handle_debug },
+	{ "dcin-plugin",		smblib_handle_debug },
+	{ "div2-en-dg",			smblib_handle_debug },
+	{ "dcin-icl-change",		smblib_handle_debug },
 /* MISCELLANEOUS IRQs */
-	{ "wdog-snarl",                 NULL },
-	{ "wdog-bark",                  NULL },
-	{ "aicl-fail",                  smblib_handle_debug },
-	{ "aicl-done",                  smblib_handle_debug },
-	{ "high-duty-cycle",            smblib_handle_debug },
-	{ "input-current-limiting",     smblib_handle_debug },
-	{ "temperature-change",         smblib_handle_debug },
-	{ "switcher-power-ok",          smblib_handle_debug },
+	{ "wdog-snarl",			NULL },
+	{ "wdog-bark",			NULL },
+	{ "aicl-fail",			smblib_handle_debug },
+	{ "aicl-done",			smblib_handle_debug },
+	{ "high-duty-cycle",		smblib_handle_debug },
+	{ "input-current-limiting",	smblib_handle_debug },
+	{ "temperature-change",		smblib_handle_debug },
+	{ "switcher-power-ok",		smblib_handle_debug },
 };
 
 static int smb2_get_irq_index_byname(const char *irq_name)

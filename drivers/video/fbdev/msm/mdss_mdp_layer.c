@@ -114,7 +114,7 @@ static int __dest_scaler_data_setup(struct mdp_destination_scaler_data *ds_data,
 }
 
 static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
-		struct mdp_destination_scaler_data *ds_data)
+		struct mdp_destination_scaler_data *ds_data, int ds_count)
 {
 	struct mdss_data_type *mdata;
 	struct mdss_panel_info *pinfo;
@@ -127,7 +127,7 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 	 * when we switch between scaling factor or disabling scaling.
 	 */
 	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map)) {
-		if (ctl->mixer_left) {
+		if (ctl->mixer_left && ctl->mixer_left->ds) {
 			/*
 			 * Any scale update from usermode, we will update the
 			 * mixer width and height with the given LM width and
@@ -149,10 +149,25 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 			ctl->mixer_left->height = ds_data->lm_height;
 			pr_debug("Update mixer-left width/height: %dx%d\n",
 					ds_data->lm_width, ds_data->lm_width);
-
 		}
 
-		if (ctl->mixer_right) {
+		if (ctl->mixer_right && ctl->mixer_right->ds) {
+			/*
+			 * Advanced to next ds_data structure from commit if
+			 * there is more than 1 for split display usecase.
+			 */
+			if (ds_count > 1)
+				ds_data++;
+
+			pinfo = &ctl->panel_data->panel_info;
+			if ((ds_data->lm_width > get_panel_xres(pinfo)) ||
+				(ds_data->lm_height >  get_panel_yres(pinfo)) ||
+				(ds_data->lm_width == 0) ||
+				(ds_data->lm_height == 0)) {
+				pr_err("Invalid LM width / height setting\n");
+				return -EINVAL;
+			}
+
 			/*
 			 * Split display both left and right should have the
 			 * same width and height
@@ -161,6 +176,15 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 			ctl->mixer_right->height = ds_data->lm_height;
 			pr_info("Update mixer-right width/height: %dx%d\n",
 					ds_data->lm_width, ds_data->lm_height);
+
+			if (ctl->mixer_left &&
+					((ctl->mixer_right->width !=
+					  ctl->mixer_left->width) ||
+					 (ctl->mixer_right->height !=
+					  ctl->mixer_left->height))) {
+				pr_err("Mismatch width/heigth in LM for split display\n");
+				return -EINVAL;
+			}
 
 			/*
 			 * For split display, CTL width should be equal to
@@ -2098,17 +2122,17 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) &&
 			commit->dest_scaler &&
 			commit->dest_scaler_cnt) {
+		struct mdp_destination_scaler_data *ds_data =
+			commit->dest_scaler;
+
 		/*
-		 * Find out which DS block to use based on LM assignment
+		 * Find out which DS block to use based on DS commit info
 		 */
-		if ((left_cnt > 0) && (right_cnt > 0) &&
-				(commit->dest_scaler_cnt == 2))
+		if (commit->dest_scaler_cnt == 2)
 			ds_mode = DS_DUAL_MODE;
-		else if ((left_cnt > 0) && (right_cnt == 0) &&
-				(commit->dest_scaler_cnt == 1))
+		else if (ds_data->dest_scaler_ndx == 0)
 			ds_mode = DS_LEFT;
-		else if ((left_cnt == 0) && (right_cnt > 0) &&
-				(commit->dest_scaler_cnt == 1))
+		else if (ds_data->dest_scaler_ndx == 1)
 			ds_mode = DS_RIGHT;
 		else {
 			pr_err("Commit destination scaler count not matching with LM assignment, DS-cnt:%d\n",
@@ -2396,7 +2420,8 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 
 	if (commit->dest_scaler && commit->dest_scaler_cnt) {
 		rc = mdss_mdp_destination_scaler_pre_validate(mdp5_data->ctl,
-				commit->dest_scaler);
+				commit->dest_scaler,
+				commit->dest_scaler_cnt);
 		if (IS_ERR_VALUE(rc)) {
 			pr_err("Destination scaler pre-validate failed\n");
 			return -EINVAL;

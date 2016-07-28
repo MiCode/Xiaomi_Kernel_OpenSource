@@ -45,7 +45,7 @@ static struct {
 	[MDSS_MDP_SSPP_VIG0]    = {  0, {  0, 3, 0 }, {  0, 1, 3 } },
 	[MDSS_MDP_SSPP_VIG1]    = {  1, {  3, 3, 0 }, {  2, 1, 3 } },
 	[MDSS_MDP_SSPP_VIG2]    = {  2, {  6, 3, 0 }, {  4, 1, 3 } },
-	[MDSS_MDP_SSPP_VIG3]    = { 18, { 26, 3, 0 }, {  4, 1, 3 } },
+	[MDSS_MDP_SSPP_VIG3]    = { 18, { 26, 3, 0 }, {  6, 1, 3 } },
 	[MDSS_MDP_SSPP_RGB0]    = {  3, {  9, 3, 0 }, {  8, 1, 3 } },
 	[MDSS_MDP_SSPP_RGB1]    = {  4, { 12, 3, 0 }, { 10, 1, 3 } },
 	[MDSS_MDP_SSPP_RGB2]    = {  5, { 15, 3, 0 }, { 12, 1, 3 } },

@@ -759,9 +759,9 @@ enum tsens_trip_type {
 };
 
 enum tsens_tm_trip_type {
-	TSENS_TM_TRIP_CRITICAL = 0,
-	TSENS_TM_TRIP_WARM,
+	TSENS_TM_TRIP_WARM = 0,
 	TSENS_TM_TRIP_COOL,
+	TSENS_TM_TRIP_CRITICAL,
 	TSENS_TM_TRIP_NUM,
 };
 
@@ -1574,9 +1574,6 @@ static int tsens_tm_get_trip_type(struct thermal_zone_device *thermal,
 		break;
 	case TSENS_TM_TRIP_COOL:
 		*type = THERMAL_TRIP_CONFIGURABLE_LOW;
-		break;
-	case TSENS_TM_TRIP_CRITICAL:
-		*type = THERMAL_TRIP_CRITICAL;
 		break;
 	default:
 		return -EINVAL;
@@ -5717,8 +5714,8 @@ static int tsens_thermal_zone_register(struct tsens_tm_device *tmdev)
 		tmdev->sensor[i].tm = tmdev;
 		if (tmdev->tsens_type == TSENS_TYPE3) {
 			tmdev->sensor[i].tz_dev = thermal_zone_device_register(
-					name, TSENS_TM_TRIP_NUM,
-					TSENS_TM_WRITABLE_TRIPS_MASK,
+					name, TSENS_TRIP_NUM,
+					TSENS_WRITABLE_TRIPS_MASK,
 					&tmdev->sensor[i],
 					&tsens_tm_thermal_zone_ops, NULL, 0, 0);
 			if (IS_ERR(tmdev->sensor[i].tz_dev)) {
