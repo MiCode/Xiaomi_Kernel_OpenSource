@@ -237,6 +237,18 @@ config USB_F_CDEV
 config USB_F_GSI
 	tristate
 
+config USB_F_FS_IPC_LOGGING
+	bool "Enable IPC logging for FunctionFS"
+	depends on QGKI
+	default IPC_LOGGING
+	help
+	  Enables additional debug messages in FunctionFS driver to be
+	  output via IPC Logging mechanism. This can be useful when
+	  troubleshooting transfer stalls or other general failures and
+	  determine if the issue is in the kernel gadget or the userspace
+	  client. Separate IPC log contexts are created for each function
+	  instance at mount time.
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
