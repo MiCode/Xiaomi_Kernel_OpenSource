@@ -35,16 +35,11 @@
 #include <linux/debugfs.h>
 #include <linux/list.h>
 
-#define TS_DIFF_PORT_NAME	"vsync_ts_diff"
-#define TS_CHANNEL_TYPE		SMD_APPS_MODEM
 #define TS_FIFO_SIZE		(1024)
-
 #define TS_DIFF_BUF_NUM		33
 
 struct smd_ts_apps {
 	spinlock_t lock;
-	char *dev_name;
-	smd_channel_t *chan;
 	struct completion work;
 
 	/* for dev node */
@@ -65,6 +60,12 @@ struct smd_ts_apps {
 	unsigned int buf_len;
 	/* the length of ready buf */
 	unsigned int ready_buf_len;
+
+	smd_channel_t *chan;
+	/* the name of smd channel */
+	const char *ch_name;
+	/* the type of smd channel */
+	unsigned int ch_type;
 };
 
 #endif

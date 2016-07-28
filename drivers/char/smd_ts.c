@@ -77,10 +77,11 @@ static void ts_smdl_transfer(struct smd_ts_apps *ts_app)
 		complete(&ts_app->work);
 }
 
-/* event handler of timestamp_diff, called in smd_irq */
-static void ts_diff_handler(void *priv, unsigned event)
+/* event handler of smd_timestamp, called in smd_irq */
+static void smd_ts_handler(void *priv, unsigned event)
 {
-	struct completion *work = &ts_diff.work;
+	struct smd_ts_apps *ts_app = priv;
+	struct completion *work = &ts_app->work;
 
 	switch (event) {
 	case SMD_EVENT_OPEN:
@@ -91,7 +92,7 @@ static void ts_diff_handler(void *priv, unsigned event)
 		break;
 
 	case SMD_EVENT_DATA:
-		ts_smdl_transfer(&ts_diff);
+		ts_smdl_transfer(ts_app);
 		break;
 	}
 }
@@ -101,22 +102,20 @@ static int ts_smdl_open(struct smd_ts_apps *ts_app)
 {
 	int ret;
 
-	if (ts_app->chan)
-		return 0;
-
 	/* open timestamp's smd channel */
-	ret = smd_named_open_on_edge(ts_app->dev_name, TS_CHANNEL_TYPE,
+	ret = smd_named_open_on_edge(ts_app->ch_name, ts_app->ch_type,
 		&ts_app->chan, ts_app, ts_app->event_handler);
 	if (ret) {
-		pr_err("open channel %s failed\n", ts_app->dev_name);
+		pr_err("open channel %s failed\n", ts_app->ch_name);
 		return ret;
 	}
 
 	/* wait for DSP---AP finish communication */
 	ret = wait_for_completion_timeout(&ts_app->work, 5*HZ);
 	if (ret == 0) {
-		pr_err("%s wait for completion failed\n", ts_app->dev_name);
+		pr_err("%s wait for completion failed\n", ts_app->ch_name);
 		smd_close(ts_app->chan);
+		ts_app->chan = NULL;
 		return ret;
 	}
 
@@ -192,10 +191,21 @@ static ssize_t ts_diff_read(struct file *file, char __user *user_buf,
 {
 	return ts_buf_read(&ts_diff, user_buf, count);
 }
+
 static int ts_diff_release(struct inode *inode, struct file *file)
 {
-	return smd_close(ts_diff.chan);
+	int ret = 0;
+
+	ret = smd_close(ts_diff.chan);
+	ts_diff.chan = NULL;
+	return ret;
 }
+
+static const struct file_operations ts_diff_fops = {
+	.open = ts_diff_open,
+	.read = ts_diff_read,
+	.release = ts_diff_release,
+};
 
 /* alloc dev and open channel */
 static int smd_ts_apps_init(struct smd_ts_apps *ts_app)
@@ -213,7 +223,7 @@ static int smd_ts_apps_init(struct smd_ts_apps *ts_app)
 	init_completion(&ts_app->work);
 	spin_lock_init(&ts_app->lock);
 
-	ret = alloc_chrdev_region(&ts_app->dev_no, 0, 1, ts_app->dev_name);
+	ret = alloc_chrdev_region(&ts_app->dev_no, 0, 1, ts_app->ch_name);
 	if (ret != 0)
 		goto alloc_chrdev_fail;
 	cdev_init(&ts_app->cdev, ts_app->fops);
@@ -223,13 +233,13 @@ static int smd_ts_apps_init(struct smd_ts_apps *ts_app)
 	if (ret != 0)
 		goto cdev_add_fail;
 
-	ts_app->class = class_create(THIS_MODULE, ts_app->dev_name);
+	ts_app->class = class_create(THIS_MODULE, ts_app->ch_name);
 	if (IS_ERR(ts_app->class))
 		goto class_create_fail;
 
 	ts_app->dev = device_create(ts_app->class, NULL,
 					MKDEV(MAJOR(ts_app->dev_no), 0),
-					NULL, ts_app->dev_name);
+					NULL, ts_app->ch_name);
 	if (IS_ERR(ts_app->dev))
 		goto device_create_fail;
 
@@ -247,47 +257,89 @@ alloc_chrdev_fail:
 	return ret;
 }
 
-static const struct file_operations ts_diff_fops = {
-	.open = ts_diff_open,
-	.read = ts_diff_read,
-	.release = ts_diff_release,
-};
-
-/* close smd and free device */
-static void smd_ts_apps_deinit(struct smd_ts_apps *ts_app)
+static int smd_ts_probe(struct platform_device *pdev)
 {
-	if (ts_app->chan)
-		smd_close(ts_app->chan);
-	class_destroy(ts_app->class);
-	cdev_del(&ts_app->cdev);
-	unregister_chrdev_region(ts_app->dev_no, 1);
-	kfree(ts_app->ts_buf);
-}
+	char *key = NULL;
+	int ret = 0;
 
-static int __init smd_ts_init(void)
-{
-	int ret;
+	key = "ts-channel-name";
+	ret = of_property_read_string(pdev->dev.of_node, key,
+					&ts_diff.ch_name);
+	if (ret) {
+		pr_err("%s(): Failed to read node: %s, key=%s\n", __func__,
+			pdev->dev.of_node->full_name, key);
+		goto fail;
+	}
+
+	key = "ts-channel-type";
+	ret = of_property_read_u32(pdev->dev.of_node, key,
+					&ts_diff.ch_type);
+	if (ret) {
+		pr_err("%s(): Failed to read node: %s, key=%s\n", __func__,
+			pdev->dev.of_node->full_name, key);
+		goto fail;
+	}
 
 	ts_diff.buf_len = TS_DIFF_BUF_NUM,
-	ts_diff.dev_name = TS_DIFF_PORT_NAME,
 	ts_diff.fops = &ts_diff_fops,
-	ts_diff.event_handler = ts_diff_handler,
+	ts_diff.event_handler = smd_ts_handler,
 
 	ret = smd_ts_apps_init(&ts_diff);
 	if (ret != 0) {
 		pr_err("failed to init ts_diff\n");
-		return ret;
+		goto fail;
 	}
 
+	platform_set_drvdata(pdev, &ts_diff);
+fail:
+	return ret;
+}
+
+/* close smd and free device */
+static int smd_ts_remove(struct platform_device *pdev)
+{
+	struct smd_ts_apps *ts_app;
+
+	ts_app = platform_get_drvdata(pdev);
+	if (ts_app->chan)
+		smd_close(ts_app->chan);
+
+	device_destroy(ts_app->class, MKDEV(MAJOR(ts_app->dev_no), 0));
+	class_destroy(ts_app->class);
+	cdev_del(&ts_app->cdev);
+	unregister_chrdev_region(ts_app->dev_no, 1);
+	kfree(ts_app->ts_buf);
+	ts_app->ts_buf = NULL;
+	ts_app->class = NULL;
 	return 0;
 }
 
-static void __exit smd_ts_exit(void)
+static struct of_device_id msm_smd_ts_match_table[] =  {
+	{.compatible = "qcom,smd-ts"},
+	{},
+};
+
+static struct platform_driver msm_smd_ts_driver = {
+	.probe = smd_ts_probe,
+	.remove = smd_ts_remove,
+	.driver = {
+		.name = "smd-ts",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_smd_ts_match_table,
+	},
+};
+
+static int __init msm_smd_ts_driver_init(void)
 {
-	smd_ts_apps_deinit(&ts_diff);
+	return platform_driver_register(&msm_smd_ts_driver);
 }
 
-module_init(smd_ts_init);
-module_exit(smd_ts_exit);
+static void __exit msm_smd_ts_driver_exit(void)
+{
+	platform_driver_unregister(&msm_smd_ts_driver);
+}
+
+module_init(msm_smd_ts_driver_init);
+module_exit(msm_smd_ts_driver_exit);
 
 MODULE_LICENSE("GPL v2");
