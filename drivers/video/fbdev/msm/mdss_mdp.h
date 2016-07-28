@@ -410,7 +410,7 @@ struct mdss_mdp_cwb {
 	struct list_head data_queue;
 	int valid;
 	u32 wb_idx;
-	struct mdp_output_layer *layer;
+	struct mdp_output_layer layer;
 	void *priv_data;
 	struct msm_sync_pt_data cwb_sync_pt_data;
 	struct blocking_notifier_head notifier_head;

@@ -471,7 +471,7 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 	cwb = &mdp5_data->cwb;
 	ctx = (struct mdss_mdp_writeback_ctx *)cwb->priv_data;
 
-	buffer = &cwb->layer->buffer;
+	buffer = &cwb->layer.buffer;
 
 	ctx->opmode = 0;
 	ctx->img_width = buffer->width;

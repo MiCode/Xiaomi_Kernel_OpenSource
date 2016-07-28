@@ -3424,6 +3424,7 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 	mutex_lock(&cwb->queue_lock);
 	cwb_data = list_first_entry_or_null(&cwb->data_queue,
 			struct mdss_mdp_wb_data, next);
+	__list_del_entry(&cwb_data->next);
 	mutex_unlock(&cwb->queue_lock);
 	if (cwb_data == NULL) {
 		pr_err("no output buffer for cwb\n");
@@ -3453,14 +3454,14 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 		sctl->opmode |= MDSS_MDP_CTL_OP_WFD_MODE;
 
 	/* Select CWB data point */
-	data_point = (cwb->layer->flags & MDP_COMMIT_CWB_DSPP) ? 0x4 : 0;
+	data_point = (cwb->layer.flags & MDP_COMMIT_CWB_DSPP) ? 0x4 : 0;
 	writel_relaxed(data_point, mdata->mdp_base + mdata->ppb_ctl[2]);
 	if (sctl)
 		writel_relaxed(data_point + 1,
 				mdata->mdp_base + mdata->ppb_ctl[3]);
 
-	/* Flush WB */
-	ctl->flush_bits |= BIT(16);
+	/* Flush WB and CTL */
+	ctl->flush_bits |= BIT(16) | BIT(17);
 
 	opmode = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_TOP) | ctl->opmode;
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_TOP, opmode);
@@ -3469,6 +3470,10 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 			sctl->opmode;
 		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_TOP, opmode);
 	}
+
+	/* Increase commit count to signal CWB release fence */
+	atomic_inc(&cwb->cwb_sync_pt_data.commit_cnt);
+
 	goto cwb_setup_done;
 
 cwb_setup_fail:
