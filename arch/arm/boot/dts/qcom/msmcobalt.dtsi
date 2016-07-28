@@ -1727,11 +1727,10 @@
 			<&clock_gcc clk_gcc_aggre1_usb3_axi_clk>,
 			<&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
 			<&clock_gcc clk_gcc_usb30_sleep_clk>,
-			<&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			<&clock_gcc clk_cxo_dwc3_clk>;
 
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
-				"utmi_clk", "sleep_clk", "cfg_ahb_clk", "xo";
+				"utmi_clk", "sleep_clk", "xo";
 
 		dwc3@a800000 {
 			compatible = "snps,dwc3";
@@ -1799,11 +1798,9 @@
 
 		clocks = <&clock_gcc clk_ln_bb_clk1>,
 			 <&clock_gcc clk_gcc_rx1_usb2_clkref_clk>,
-			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			 <&clock_gcc clk_gcc_qusb2phy_prim_reset>;
 
-		clock-names = "ref_clk_src", "ref_clk", "cfg_ahb_clk",
-			      "phy_reset";
+		clock-names = "ref_clk_src", "ref_clk", "phy_reset";
 	};
 
 	ssphy: ssphy@c010000 {
@@ -1951,13 +1948,12 @@
 
 		clocks = <&clock_gcc clk_gcc_usb3_phy_aux_clk>,
 			 <&clock_gcc clk_gcc_usb3_phy_pipe_clk>,
-			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			 <&clock_gcc clk_gcc_usb3_phy_reset>,
 			 <&clock_gcc clk_gcc_usb3phy_phy_reset>,
 			 <&clock_gcc clk_ln_bb_clk1>,
 			 <&clock_gcc clk_gcc_usb3_clkref_clk>;
 
-		clock-names = "aux_clk", "pipe_clk", "cfg_ahb_clk", "phy_reset",
+		clock-names = "aux_clk", "pipe_clk", "phy_reset",
 			      "phy_phy_reset", "ref_clk_src", "ref_clk";
 	};
 
