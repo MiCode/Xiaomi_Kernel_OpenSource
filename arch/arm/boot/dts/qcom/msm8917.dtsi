@@ -212,7 +212,7 @@
 
 	qcom,rmtfs_sharedmem@00000000 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x00000000 0x00180000>;
+		reg = <0x00000000 0x00e0000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 	};

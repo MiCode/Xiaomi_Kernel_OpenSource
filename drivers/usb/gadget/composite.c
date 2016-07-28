@@ -18,7 +18,9 @@
 #include <linux/device.h>
 #include <linux/utsname.h>
 
+#include "gadget_chips.h"
 #include <linux/usb/composite.h>
+#include <linux/usb/msm_hsusb.h>
 #include <asm/unaligned.h>
 
 #include "u_os_desc.h"
@@ -722,6 +724,11 @@ static void reset_config(struct usb_composite_dev *cdev)
 
 	DBG(cdev, "reset config\n");
 
+	if (!cdev->config) {
+		pr_err("%s:cdev->config is already NULL\n", __func__);
+		return;
+	}
+
 	list_for_each_entry(f, &cdev->config->functions, list) {
 		if (f->disable)
 			f->disable(f);
@@ -1023,8 +1030,14 @@ void usb_remove_config(struct usb_composite_dev *cdev,
 		return;
 	}
 
-	if (cdev->config == config)
+	if (cdev->config == config) {
+		if (!gadget_is_dwc3(cdev->gadget) && !cdev->suspended) {
+			spin_unlock_irqrestore(&cdev->lock, flags);
+			msm_do_bam_disable_enable(CI_CTRL);
+			spin_lock_irqsave(&cdev->lock, flags);
+		}
 		reset_config(cdev);
+	}
 
 	list_del(&config->list);
 
@@ -2015,8 +2028,14 @@ void composite_disconnect(struct usb_gadget *gadget)
 	 * disconnect callbacks?
 	 */
 	spin_lock_irqsave(&cdev->lock, flags);
-	if (cdev->config)
+	if (cdev->config) {
+		if (!gadget_is_dwc3(gadget) && !cdev->suspended) {
+			spin_unlock_irqrestore(&cdev->lock, flags);
+			msm_do_bam_disable_enable(CI_CTRL);
+			spin_lock_irqsave(&cdev->lock, flags);
+		}
 		reset_config(cdev);
+	}
 	if (cdev->driver->disconnect)
 		cdev->driver->disconnect(cdev);
 	if (cdev->delayed_status != 0) {

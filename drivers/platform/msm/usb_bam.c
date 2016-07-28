@@ -2644,12 +2644,12 @@ int usb_bam_disconnect_pipe(enum usb_ctrl bam_type, u8 idx)
 
 		if (bam_type == CI_CTRL)
 			msm_hw_bam_disable(0);
-		/* Enable usb irq here which is disabled in function drivers
-		 * during disconnect after BAM reset.
-		 */
-		if (bam_type == CI_CTRL)
-			msm_usb_irq_disable(false);
 	}
+	/* Enable usb irq here which is disabled in function drivers
+	 * during disconnect after BAM reset.
+	 */
+	if (!ctx->pipes_enabled_per_bam && (bam_type == CI_CTRL))
+		msm_usb_irq_disable(false);
 	/* This function is directly called by USB Transport drivers
 	 * to disconnect pipes. Drop runtime usage count here. For
 	 * IPA, caller takes care of it
@@ -3053,6 +3053,7 @@ static int usb_bam_init(struct platform_device *pdev)
 	if (pdata->enable_hsusb_bam_on_boot && bam_type == CI_CTRL) {
 		pr_debug("Register and enable HSUSB BAM\n");
 		props.options |= SPS_BAM_OPT_ENABLE_AT_BOOT;
+		props.options |= SPS_BAM_FORCE_RESET;
 	}
 	ret = sps_register_bam_device(&props, &ctx->h_bam);
 
@@ -3394,6 +3395,127 @@ int usb_bam_get_bam_type(const char *core_name)
 	return bam_type;
 }
 EXPORT_SYMBOL(usb_bam_get_bam_type);
+
+/*
+ * This function makes sure ipa endpoints are disabled for both USB->IPA
+ * and IPA->USB pipes before USB bam reset. USB BAM reset is required to
+ * to avoid EP flush issues while disabling USB endpoints on disconnect.
+ */
+int msm_do_bam_disable_enable(enum usb_ctrl bam)
+{
+	struct usb_bam_ctx_type *ctx = &msm_usb_bam[bam];
+	struct sps_pipe *pipe;
+	u32 timeout = 10, pipe_empty;
+	int ret = 0, i;
+	struct sps_connect *sps_connection;
+	struct usb_bam_sps_type usb_bam_sps = ctx->usb_bam_sps;
+	struct usb_bam_pipe_connect *pipe_connect;
+	int qdss_idx;
+	struct msm_usb_bam_platform_data *pdata;
+
+	if (!ctx->usb_bam_pdev)
+		return 0;
+
+	pdata = ctx->usb_bam_pdev->dev.platform_data;
+	if ((bam != CI_CTRL) || !pdata->enable_hsusb_bam_on_boot)
+		return 0;
+
+	if (!ctx->pipes_enabled_per_bam || info[bam].pipes_suspended)
+		return 0;
+
+	if (in_interrupt()) {
+		pr_err("%s:API called in interrupt context\n", __func__);
+		return 0;
+	}
+
+	mutex_lock(&info[bam].suspend_resume_mutex);
+	log_event_dbg("%s: Perform USB BAM reset\n", __func__);
+	/* Get QDSS pipe index to avoid pipe reset */
+	qdss_idx = usb_bam_get_connection_idx(qdss_usb_bam_type, QDSS_P_BAM,
+		PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, 0);
+
+	for (i = 0; i < ctx->max_connections; i++) {
+		pipe_connect = &ctx->usb_bam_connections[i];
+		if (pipe_connect->enabled &&
+				(pipe_connect->dir == PEER_PERIPHERAL_TO_USB) &&
+							(qdss_idx != i)) {
+			/* Call to disable IPA producer endpoint */
+			ipa_disable_endpoint(pipe_connect->ipa_clnt_hdl);
+			sps_pipe_reset(ctx->h_bam,
+						pipe_connect->dst_pipe_index);
+		}
+	}
+
+	for (i = 0; i < ctx->max_connections; i++) {
+		pipe_connect = &ctx->usb_bam_connections[i];
+		if (pipe_connect->enabled &&
+				(pipe_connect->dir == USB_TO_PEER_PERIPHERAL) &&
+							(qdss_idx != i)) {
+			pipe = ctx->usb_bam_sps.sps_pipes[i];
+			sps_connection = &usb_bam_sps.sps_connections[i];
+			timeout = 10;
+			/*
+			 * On some platforms, there is a chance that flow
+			 * control is disabled from IPA side, due to this IPA
+			 * core may not consume data from USB. Hence notify IPA
+			 * to enable flow control and then check sps pipe is
+			 * empty or not before processing USB->IPA disconnect.
+			 */
+			ipa_clear_endpoint_delay(pipe_connect->ipa_clnt_hdl);
+
+			/* Make sure pipes are empty before disconnecting it */
+			while (1) {
+				ret = sps_is_pipe_empty(pipe, &pipe_empty);
+				if (ret) {
+					log_event_err("%s: pipeempty fail %d\n",
+								__func__, ret);
+					goto err;
+				}
+				if (pipe_empty || !--timeout)
+					break;
+
+				/* Check again */
+				usleep_range(1000, 2000);
+			}
+			if (!pipe_empty) {
+				log_event_dbg("%s: Inject ZLT\n", __func__);
+				sps_pipe_inject_zlt(sps_connection->destination,
+					sps_connection->dest_pipe_index);
+
+				timeout = 0;
+				while (1) {
+					ret = sps_is_pipe_empty(pipe,
+								&pipe_empty);
+					if (ret)
+						goto err;
+
+					if (pipe_empty)
+						break;
+
+					timeout++;
+					/* Check again */
+					usleep_range(1000, 2000);
+				}
+			}
+			/* Call to disable IPA consumer endpoint */
+			ipa_disable_endpoint(pipe_connect->ipa_clnt_hdl);
+			sps_pipe_reset(ctx->h_bam,
+						pipe_connect->src_pipe_index);
+		}
+	}
+
+	/* Perform USB BAM reset */
+	msm_hw_bam_disable(1);
+	sps_device_reset(ctx->h_bam);
+	msm_hw_bam_disable(0);
+	log_event_dbg("%s: USB BAM reset done\n", __func__);
+	ret = 0;
+
+err:
+	mutex_unlock(&info[bam].suspend_resume_mutex);
+	return ret;
+}
+EXPORT_SYMBOL(msm_do_bam_disable_enable);
 
 bool msm_usb_bam_enable(enum usb_ctrl bam, bool bam_enable)
 {

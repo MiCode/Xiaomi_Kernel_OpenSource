@@ -5435,20 +5435,14 @@ static int populate_system_data(struct fg_chip *chip)
 				chip->ocv_coeffs[8], chip->ocv_coeffs[9],
 				chip->ocv_coeffs[10], chip->ocv_coeffs[11]);
 	}
-	rc = fg_mem_read(chip, buffer, OCV_JUNCTION_REG, 1, 0, 0);
-	if (rc) {
-		pr_err("Failed to read ocv junctions: %d\n", rc);
-		goto done;
-	}
-
-	rc = fg_mem_read(chip, buffer, OCV_JUNCTION_REG, 1, 1, 0);
+	rc = fg_mem_read(chip, buffer, OCV_JUNCTION_REG, 2, 0, 0);
 	if (rc) {
 		pr_err("Failed to read ocv junctions: %d\n", rc);
 		goto done;
 	}
 
 	chip->ocv_junction_p1p2 = buffer[0] * 100 / 255;
-	chip->ocv_junction_p2p3 = buffer[0] * 100 / 255;
+	chip->ocv_junction_p2p3 = buffer[1] * 100 / 255;
 
 	rc = load_battery_aging_data(chip);
 	if (rc) {

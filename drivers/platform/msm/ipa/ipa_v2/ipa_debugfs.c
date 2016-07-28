@@ -25,6 +25,12 @@
 			* IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES) \
 			+ IPA_MAX_MSG_LEN)
 
+#define RX_MIN_POLL_CNT "Rx Min Poll Count"
+#define RX_MAX_POLL_CNT "Rx Max Poll Count"
+#define MAX_COUNT_LENGTH 6
+#define MAX_POLLING_ITERATION 40
+#define MIN_POLLING_ITERATION 1
+
 #define IPA_DUMP_STATUS_FIELD(f) \
 	pr_err(#f "=0x%x\n", status->f)
 
@@ -104,12 +110,16 @@ static struct dentry *dfile_ip6_flt;
 static struct dentry *dfile_stats;
 static struct dentry *dfile_wstats;
 static struct dentry *dfile_wdi_stats;
+static struct dentry *dfile_ntn_stats;
 static struct dentry *dfile_dbg_cnt;
 static struct dentry *dfile_msg;
 static struct dentry *dfile_ip4_nat;
 static struct dentry *dfile_rm_stats;
 static struct dentry *dfile_status_stats;
 static struct dentry *dfile_active_clients;
+static struct dentry *dfile_ipa_rx_poll_timeout;
+static struct dentry *dfile_ipa_poll_iteration;
+
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static char *active_clients_buf;
 static s8 ep_reg_idx;
@@ -1091,6 +1101,110 @@ nxt_clnt_cons:
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static ssize_t ipa_read_ntn(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+#define TX_STATS(y) \
+	ipa_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->tx_ch_stats[0].y
+#define RX_STATS(y) \
+	ipa_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->rx_ch_stats[0].y
+
+	struct IpaHwStatsNTNInfoData_t stats;
+	int nbytes;
+	int cnt = 0;
+
+	if (!ipa2_get_ntn_stats(&stats)) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"TX num_pkts_processed=%u\n"
+			"TX tail_ptr_val=%u\n"
+			"TX num_db_fired=%u\n"
+			"TX ringFull=%u\n"
+			"TX ringEmpty=%u\n"
+			"TX ringUsageHigh=%u\n"
+			"TX ringUsageLow=%u\n"
+			"TX RingUtilCount=%u\n"
+			"TX bamFifoFull=%u\n"
+			"TX bamFifoEmpty=%u\n"
+			"TX bamFifoUsageHigh=%u\n"
+			"TX bamFifoUsageLow=%u\n"
+			"TX bamUtilCount=%u\n"
+			"TX num_db=%u\n"
+			"TX num_unexpected_db=%u\n"
+			"TX num_bam_int_handled=%u\n"
+			"TX num_bam_int_in_non_running_state=%u\n"
+			"TX num_qmb_int_handled=%u\n"
+			"TX num_bam_int_handled_while_wait_for_bam=%u\n"
+			"TX num_bam_int_handled_while_not_in_bam=%u\n",
+			TX_STATS(num_pkts_processed),
+			TX_STATS(tail_ptr_val),
+			TX_STATS(num_db_fired),
+			TX_STATS(tx_comp_ring_stats.ringFull),
+			TX_STATS(tx_comp_ring_stats.ringEmpty),
+			TX_STATS(tx_comp_ring_stats.ringUsageHigh),
+			TX_STATS(tx_comp_ring_stats.ringUsageLow),
+			TX_STATS(tx_comp_ring_stats.RingUtilCount),
+			TX_STATS(bam_stats.bamFifoFull),
+			TX_STATS(bam_stats.bamFifoEmpty),
+			TX_STATS(bam_stats.bamFifoUsageHigh),
+			TX_STATS(bam_stats.bamFifoUsageLow),
+			TX_STATS(bam_stats.bamUtilCount),
+			TX_STATS(num_db),
+			TX_STATS(num_unexpected_db),
+			TX_STATS(num_bam_int_handled),
+			TX_STATS(num_bam_int_in_non_running_state),
+			TX_STATS(num_qmb_int_handled),
+			TX_STATS(num_bam_int_handled_while_wait_for_bam),
+			TX_STATS(num_bam_int_handled_while_not_in_bam));
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"RX max_outstanding_pkts=%u\n"
+			"RX num_pkts_processed=%u\n"
+			"RX rx_ring_rp_value=%u\n"
+			"RX ringFull=%u\n"
+			"RX ringEmpty=%u\n"
+			"RX ringUsageHigh=%u\n"
+			"RX ringUsageLow=%u\n"
+			"RX RingUtilCount=%u\n"
+			"RX bamFifoFull=%u\n"
+			"RX bamFifoEmpty=%u\n"
+			"RX bamFifoUsageHigh=%u\n"
+			"RX bamFifoUsageLow=%u\n"
+			"RX bamUtilCount=%u\n"
+			"RX num_bam_int_handled=%u\n"
+			"RX num_db=%u\n"
+			"RX num_unexpected_db=%u\n"
+			"RX num_pkts_in_dis_uninit_state=%u\n"
+			"num_ic_inj_vdev_change=%u\n"
+			"num_ic_inj_fw_desc_change=%u\n",
+			RX_STATS(max_outstanding_pkts),
+			RX_STATS(num_pkts_processed),
+			RX_STATS(rx_ring_rp_value),
+			RX_STATS(rx_ind_ring_stats.ringFull),
+			RX_STATS(rx_ind_ring_stats.ringEmpty),
+			RX_STATS(rx_ind_ring_stats.ringUsageHigh),
+			RX_STATS(rx_ind_ring_stats.ringUsageLow),
+			RX_STATS(rx_ind_ring_stats.RingUtilCount),
+			RX_STATS(bam_stats.bamFifoFull),
+			RX_STATS(bam_stats.bamFifoEmpty),
+			RX_STATS(bam_stats.bamFifoUsageHigh),
+			RX_STATS(bam_stats.bamFifoUsageLow),
+			RX_STATS(bam_stats.bamUtilCount),
+			RX_STATS(num_bam_int_handled),
+			RX_STATS(num_db),
+			RX_STATS(num_unexpected_db),
+			RX_STATS(num_pkts_in_dis_uninit_state),
+			RX_STATS(num_bam_int_handled_while_not_in_bam),
+			RX_STATS(num_bam_int_handled_while_in_bam_state));
+		cnt += nbytes;
+	} else {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"Fail to read NTN stats\n");
+		cnt += nbytes;
+	}
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 static ssize_t ipa_read_wdi(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -1597,6 +1711,97 @@ static ssize_t ipa2_clear_active_clients_log(struct file *file,
 	return count;
 }
 
+static ssize_t ipa_read_rx_polling_timeout(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int min_cnt;
+	int max_cnt;
+
+	if (active_clients_buf == NULL) {
+		IPAERR("Active Clients buffer is not allocated");
+		return 0;
+	}
+	memset(active_clients_buf, 0, IPA_DBG_ACTIVE_CLIENTS_BUF_SIZE);
+	min_cnt = scnprintf(active_clients_buf,
+		IPA_DBG_ACTIVE_CLIENTS_BUF_SIZE,
+		"Rx Min Poll count = %u\n",
+		ipa_ctx->ipa_rx_min_timeout_usec);
+
+	max_cnt = scnprintf(active_clients_buf + min_cnt,
+		IPA_DBG_ACTIVE_CLIENTS_BUF_SIZE,
+		"Rx Max Poll count = %u\n",
+		ipa_ctx->ipa_rx_max_timeout_usec);
+
+	return simple_read_from_buffer(ubuf, count, ppos, active_clients_buf,
+			min_cnt + max_cnt);
+}
+
+static ssize_t ipa_write_rx_polling_timeout(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	s8 polltime = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	if (copy_from_user(dbg_buff, ubuf, count))
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+
+	if (kstrtos8(dbg_buff, 0, &polltime))
+		return -EFAULT;
+
+	ipa_rx_timeout_min_max_calc(&ipa_ctx->ipa_rx_min_timeout_usec,
+		&ipa_ctx->ipa_rx_max_timeout_usec, polltime);
+	return count;
+}
+
+static ssize_t ipa_read_polling_iteration(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int cnt;
+
+	if (active_clients_buf == NULL) {
+		IPAERR("Active Clients buffer is not allocated");
+		return 0;
+	}
+
+	memset(active_clients_buf, 0, IPA_DBG_ACTIVE_CLIENTS_BUF_SIZE);
+
+	cnt = scnprintf(active_clients_buf, IPA_DBG_ACTIVE_CLIENTS_BUF_SIZE,
+			"Polling Iteration count = %u\n",
+			ipa_ctx->ipa_polling_iteration);
+
+	return simple_read_from_buffer(ubuf, count, ppos, active_clients_buf,
+			cnt);
+}
+
+static ssize_t ipa_write_polling_iteration(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	s8 iteration_cnt = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	if (copy_from_user(dbg_buff, ubuf, count))
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+
+	if (kstrtos8(dbg_buff, 0, &iteration_cnt))
+		return -EFAULT;
+
+	if ((iteration_cnt >= MIN_POLLING_ITERATION) &&
+		(iteration_cnt <= MAX_POLLING_ITERATION))
+		ipa_ctx->ipa_polling_iteration = iteration_cnt;
+	else
+		ipa_ctx->ipa_polling_iteration = MAX_POLLING_ITERATION;
+
+	return count;
+}
+
 const struct file_operations ipa_gen_reg_ops = {
 	.read = ipa_read_gen_reg,
 };
@@ -1645,6 +1850,10 @@ const struct file_operations ipa_wdi_ops = {
 	.read = ipa_read_wdi,
 };
 
+const struct file_operations ipa_ntn_ops = {
+	.read = ipa_read_ntn,
+};
+
 const struct file_operations ipa_msg_ops = {
 	.read = ipa_read_msg,
 };
@@ -1669,6 +1878,16 @@ const struct file_operations ipa_status_stats_ops = {
 const struct file_operations ipa2_active_clients = {
 	.read = ipa2_print_active_clients_log,
 	.write = ipa2_clear_active_clients_log,
+};
+
+const struct file_operations ipa_rx_poll_time_ops = {
+	.read = ipa_read_rx_polling_timeout,
+	.write = ipa_write_rx_polling_timeout,
+};
+
+const struct file_operations ipa_poll_iteration_ops = {
+	.read = ipa_read_polling_iteration,
+	.write = ipa_write_polling_iteration,
 };
 
 void ipa_debugfs_init(void)
@@ -1797,6 +2016,13 @@ void ipa_debugfs_init(void)
 		goto fail;
 	}
 
+	dfile_ntn_stats = debugfs_create_file("ntn", read_only_mode, dent, 0,
+			&ipa_ntn_ops);
+	if (!dfile_ntn_stats || IS_ERR(dfile_ntn_stats)) {
+		IPAERR("fail to create file for debug_fs ntn stats\n");
+		goto fail;
+	}
+
 	dfile_dbg_cnt = debugfs_create_file("dbg_cnt", read_write_mode, dent, 0,
 			&ipa_dbg_cnt_ops);
 	if (!dfile_dbg_cnt || IS_ERR(dfile_dbg_cnt)) {
@@ -1829,6 +2055,20 @@ void ipa_debugfs_init(void)
 			read_only_mode, dent, 0, &ipa_status_stats_ops);
 	if (!dfile_status_stats || IS_ERR(dfile_status_stats)) {
 		IPAERR("fail to create file for debug_fs status_stats\n");
+		goto fail;
+	}
+
+	dfile_ipa_rx_poll_timeout = debugfs_create_file("ipa_rx_poll_time",
+			read_write_mode, dent, 0, &ipa_rx_poll_time_ops);
+	if (!dfile_ipa_rx_poll_timeout || IS_ERR(dfile_ipa_rx_poll_timeout)) {
+		IPAERR("fail to create file for debug_fs rx poll timeout\n");
+		goto fail;
+	}
+
+	dfile_ipa_poll_iteration = debugfs_create_file("ipa_poll_iteration",
+			read_write_mode, dent, 0, &ipa_poll_iteration_ops);
+	if (!dfile_ipa_poll_iteration || IS_ERR(dfile_ipa_poll_iteration)) {
+		IPAERR("fail to create file for debug_fs poll iteration\n");
 		goto fail;
 	}
 

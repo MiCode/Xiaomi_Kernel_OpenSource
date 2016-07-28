@@ -1423,6 +1423,13 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 			 * to obtain the spinlock as well.
 			 */
 			spin_unlock_irqrestore(&port->port_lock, flags);
+			usb_ep_disable(port->port_usb->in);
+			if (d->tx_req) {
+				usb_ep_free_request(port->port_usb->in,
+								d->tx_req);
+				d->tx_req = NULL;
+			}
+
 			usb_ep_disable(port->port_usb->out);
 			if (d->rx_req) {
 				usb_ep_free_request(port->port_usb->out,
@@ -1430,12 +1437,6 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 				d->rx_req = NULL;
 			}
 
-			usb_ep_disable(port->port_usb->in);
-			if (d->tx_req) {
-				usb_ep_free_request(port->port_usb->in,
-								d->tx_req);
-				d->tx_req = NULL;
-			}
 			spin_lock_irqsave(&port->port_lock, flags);
 
 			/* Only for SYS2BAM mode related UL workaround */

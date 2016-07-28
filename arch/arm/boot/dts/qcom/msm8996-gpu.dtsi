@@ -79,6 +79,8 @@
 
 		qcom,snapshot-size = <1048576>; //bytes
 
+		qcom,gpu-qdss-stm = <0x081c0000 0x40000>; // base addr, size
+
 		/* Trace bus */
 		coresight-id = <300>;
 		coresight-name = "coresight-gfx";

@@ -1192,7 +1192,7 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
-	ep->wdi_state |= IPA_WDI_CONNECTED;
+	ep->uc_offload_state |= IPA_WDI_CONNECTED;
 	IPADBG("client %d (ep: %d) connected\n", in->sys.client, ipa_ep_idx);
 
 	return 0;
@@ -1224,7 +1224,7 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
@@ -1236,8 +1236,8 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != IPA_WDI_CONNECTED) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (ep->uc_offload_state != IPA_WDI_CONNECTED) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 
@@ -1285,7 +1285,7 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
@@ -1297,8 +1297,8 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != IPA_WDI_CONNECTED) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (ep->uc_offload_state != IPA_WDI_CONNECTED) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
@@ -1321,7 +1321,7 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 		result = ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
-	ep->wdi_state |= IPA_WDI_ENABLED;
+	ep->uc_offload_state |= IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) enabled\n", clnt_hdl);
 
 uc_timeout:
@@ -1347,7 +1347,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
@@ -1381,8 +1381,8 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED)) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (ep->uc_offload_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED)) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
@@ -1438,7 +1438,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
-	ep->wdi_state &= ~IPA_WDI_ENABLED;
+	ep->uc_offload_state &= ~IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) disabled\n", clnt_hdl);
 
 uc_timeout:
@@ -1462,7 +1462,7 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
@@ -1474,8 +1474,8 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED)) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (ep->uc_offload_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED)) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
@@ -1499,7 +1499,7 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl)
 	else
 		IPADBG("client (ep: %d) un-susp/delay\n", clnt_hdl);
 
-	ep->wdi_state |= IPA_WDI_RESUMED;
+	ep->uc_offload_state |= IPA_WDI_RESUMED;
 	IPADBG("client (ep: %d) resumed\n", clnt_hdl);
 
 uc_timeout:
@@ -1523,7 +1523,7 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
@@ -1535,9 +1535,9 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	if (ep->wdi_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED |
+	if (ep->uc_offload_state != (IPA_WDI_CONNECTED | IPA_WDI_ENABLED |
 				IPA_WDI_RESUMED)) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 
@@ -1590,7 +1590,7 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 
 	ipa3_ctx->tag_process_before_gating = true;
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
-	ep->wdi_state &= ~IPA_WDI_RESUMED;
+	ep->uc_offload_state &= ~IPA_WDI_RESUMED;
 	IPADBG("client (ep: %d) suspended\n", clnt_hdl);
 
 uc_timeout:
@@ -1605,7 +1605,7 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm.\n");
+		IPAERR("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
@@ -1617,8 +1617,8 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	if (!(ep->wdi_state & IPA_WDI_CONNECTED)) {
-		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
+	if (!(ep->uc_offload_state & IPA_WDI_CONNECTED)) {
+		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));

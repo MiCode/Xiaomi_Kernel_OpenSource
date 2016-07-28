@@ -444,30 +444,6 @@ static int rh850_query_firmware_version(struct rh850_can *priv_data)
 	return ret;
 }
 
-static int rh850_query_firmware_br_version(struct rh850_can *priv_data)
-{
-	char *tx_buf, *rx_buf;
-	int ret;
-	struct spi_mosi *req;
-
-	mutex_lock(&priv_data->spi_lock);
-	tx_buf = priv_data->tx_buf;
-	rx_buf = priv_data->rx_buf;
-	memset(tx_buf, 0, XFER_BUFFER_SIZE);
-	memset(rx_buf, 0, XFER_BUFFER_SIZE);
-	priv_data->xfer_length = XFER_BUFFER_SIZE;
-
-	req = (struct spi_mosi *)tx_buf;
-	req->cmd = CMD_GET_FW_BR_VERSION;
-	req->len = 0;
-	req->seq = atomic_inc_return(&priv_data->msg_seq);
-
-	ret = rh850_do_spi_transaction(priv_data);
-	mutex_unlock(&priv_data->spi_lock);
-
-	return ret;
-}
-
 static int rh850_set_bitrate(struct net_device *netdev)
 {
 	char *tx_buf, *rx_buf;
@@ -1048,7 +1024,6 @@ static int rh850_probe(struct spi_device *spi)
 	dev_info(dev, "Request irq %d ret %d\n", spi->irq, err);
 
 	rh850_query_firmware_version(priv_data);
-	rh850_query_firmware_br_version(priv_data);
 	return 0;
 
 unregister_candev:

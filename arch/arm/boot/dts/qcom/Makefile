@@ -200,7 +200,9 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	apq8053-cdp.dtb \
 	apq8053-mtp.dtb \
 	apq8053-ext-audio-mtp.dtb \
-	msm8953-cdp-1200p.dtb
+	msm8953-cdp-1200p.dtb \
+	msm8953-iot-mtp.dtb \
+	apq8053-iot-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9607-cdp.dtb \
@@ -234,7 +236,9 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909-mtp-wcd9326-refboard.dtb \
 	msm8909-512mb-mtp-wcd9326-refboard.dtb \
 	apq8009-mtp-wcd9326-refboard.dtb \
-	apq8009-512mb-mtp-wcd9326-refboard.dtb
+	apq8009-512mb-mtp-wcd9326-refboard.dtb \
+        msm8909-mtp.dtb \
+        msm8909-1gb-mtp.dtb
 
 
 ifeq ($(CONFIG_ARM64),y)

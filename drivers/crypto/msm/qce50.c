@@ -84,6 +84,8 @@ static LIST_HEAD(qce50_bam_list);
 /* Index to point the dummy request */
 #define DUMMY_REQ_INDEX			MAX_QCE_BAM_REQ
 
+#define TOTAL_IOVEC_SPACE_PER_PIPE (QCE_MAX_NUM_DSCR * sizeof(struct sps_iovec))
+
 enum qce_owner {
 	QCE_OWNER_NONE   = 0,
 	QCE_OWNER_CLIENT = 1,
@@ -110,6 +112,8 @@ struct qce_device {
 	unsigned char *coh_vmem;    /* Allocated coherent virtual memory */
 	dma_addr_t coh_pmem;	    /* Allocated coherent physical memory */
 	int memsize;				/* Memory allocated */
+	unsigned char *iovec_vmem;  /* Allocate iovec virtual memory */
+	int iovec_memsize;				/* Memory allocated */
 	uint32_t bam_mem;		/* bam physical address, from DT */
 	uint32_t bam_mem_size;		/* bam io size, from DT */
 	int is_shared;			/* CE HW is shared */
@@ -4254,24 +4258,30 @@ static int qce_setup_ce_sps_data(struct qce_device *pce_dev)
 {
 	unsigned char *vaddr;
 	int i;
+	unsigned char *iovec_vaddr;
+	int iovec_memsize;
 
 	vaddr = pce_dev->coh_vmem;
 	vaddr = (unsigned char *)ALIGN(((uintptr_t)vaddr),
 					pce_dev->ce_bam_info.ce_burst_size);
+	iovec_vaddr = pce_dev->iovec_vmem;
+	iovec_memsize = pce_dev->iovec_memsize;
 	for (i = 0; i < MAX_QCE_ALLOC_BAM_REQ; i++) {
 		/* Allow for 256 descriptor (cmd and data) entries per pipe */
 		pce_dev->ce_request_info[i].ce_sps.in_transfer.iovec =
-				(struct sps_iovec *)vaddr;
+				(struct sps_iovec *)iovec_vaddr;
 		pce_dev->ce_request_info[i].ce_sps.in_transfer.iovec_phys =
-				(uintptr_t)GET_PHYS_ADDR(vaddr);
-		vaddr += QCE_MAX_NUM_DSCR * sizeof(struct sps_iovec);
-
+			virt_to_phys(pce_dev->ce_request_info[i].
+				ce_sps.in_transfer.iovec);
+		iovec_vaddr += TOTAL_IOVEC_SPACE_PER_PIPE;
+		iovec_memsize -= TOTAL_IOVEC_SPACE_PER_PIPE;
 		pce_dev->ce_request_info[i].ce_sps.out_transfer.iovec =
-				(struct sps_iovec *)vaddr;
+				(struct sps_iovec *)iovec_vaddr;
 		pce_dev->ce_request_info[i].ce_sps.out_transfer.iovec_phys =
-				(uintptr_t)GET_PHYS_ADDR(vaddr);
-		vaddr += QCE_MAX_NUM_DSCR * sizeof(struct sps_iovec);
-
+			virt_to_phys(pce_dev->ce_request_info[i].
+				ce_sps.out_transfer.iovec);
+		iovec_vaddr += TOTAL_IOVEC_SPACE_PER_PIPE;
+		iovec_memsize -= TOTAL_IOVEC_SPACE_PER_PIPE;
 		if (pce_dev->support_cmd_dscr)
 			qce_setup_cmdlistptrs(pce_dev, i, &vaddr);
 		vaddr = (unsigned char *)ALIGN(((uintptr_t)vaddr),
@@ -4298,7 +4308,8 @@ static int qce_setup_ce_sps_data(struct qce_device *pce_dev)
 	}
 	pce_dev->dummyreq.in_buf = (uint8_t *)vaddr;
 	vaddr += DUMMY_REQ_DATA_LEN;
-	if ((vaddr - pce_dev->coh_vmem) > pce_dev->memsize)
+	if ((vaddr - pce_dev->coh_vmem) > pce_dev->memsize ||
+							iovec_memsize < 0)
 		panic("qce50: Not enough coherent memory. Allocate %x , need %lx\n",
 				 pce_dev->memsize, (uintptr_t)vaddr -
 				(uintptr_t)pce_dev->coh_vmem);
@@ -5946,11 +5957,18 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	pce_dev->memsize = 10 * PAGE_SIZE * MAX_QCE_ALLOC_BAM_REQ;
 	pce_dev->coh_vmem = dma_alloc_coherent(pce_dev->pdev,
 			pce_dev->memsize, &pce_dev->coh_pmem, GFP_KERNEL);
+
 	if (pce_dev->coh_vmem == NULL) {
 		*rc = -ENOMEM;
 		pr_err("Can not allocate coherent memory for sps data\n");
 		goto err_iobase;
 	}
+
+	pce_dev->iovec_memsize = TOTAL_IOVEC_SPACE_PER_PIPE *
+						MAX_QCE_ALLOC_BAM_REQ * 2;
+	pce_dev->iovec_vmem = kzalloc(pce_dev->iovec_memsize, GFP_KERNEL);
+	if (pce_dev->iovec_vmem == NULL)
+		goto err_mem;
 
 	*rc = __qce_init_clk(pce_dev);
 	if (*rc)
@@ -5991,6 +6009,7 @@ err_enable_clk:
 	__qce_deinit_clk(pce_dev);
 
 err_mem:
+	kfree(pce_dev->iovec_vmem);
 	if (pce_dev->coh_vmem)
 		dma_free_coherent(pce_dev->pdev, pce_dev->memsize,
 			pce_dev->coh_vmem, pce_dev->coh_pmem);
@@ -6021,6 +6040,7 @@ int qce_close(void *handle)
 	if (pce_dev->coh_vmem)
 		dma_free_coherent(pce_dev->pdev, pce_dev->memsize,
 				pce_dev->coh_vmem, pce_dev->coh_pmem);
+	kfree(pce_dev->iovec_vmem);
 
 	qce_disable_clk(pce_dev);
 	__qce_deinit_clk(pce_dev);

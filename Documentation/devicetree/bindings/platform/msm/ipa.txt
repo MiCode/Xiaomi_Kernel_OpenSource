@@ -74,6 +74,10 @@ memory allocation over a PCIe bridge
 - qcom,tethered-flow-control:   Boolean context flag to indicate whether
                                 apps based flow control is needed for tethered
                                 call.
+- qcom,rx-polling-sleep-ms:	Receive Polling Timeout in millisecond,
+				default is 1 millisecond.
+- qcom,ipa-polling-iteration:	IPA Polling Iteration Count,default is 40.
+
 IPA pipe sub nodes (A2 static pipes configurations):
 
 -label: two labels are supported, a2-to-ipa and ipa-to-a2 which
