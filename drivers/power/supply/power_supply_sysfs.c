@@ -281,6 +281,8 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(pd_in_hard_reset),
 	POWER_SUPPLY_ATTR(pd_current_max),
 	POWER_SUPPLY_ATTR(pd_usb_suspend_supported),
+	POWER_SUPPLY_ATTR(charger_temp),
+	POWER_SUPPLY_ATTR(charger_temp_max),
 	POWER_SUPPLY_ATTR(pe_start),
 	POWER_SUPPLY_ATTR(set_ship_mode),
 	POWER_SUPPLY_ATTR(soc_reporting_ready),
