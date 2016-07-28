@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,16 +51,22 @@ struct pd_qmi_client_data {
 	struct servreg_loc_entry_v01 *domain_list;
 };
 
+enum service_locator_state {
+	LOCATOR_DOWN = 0x0F,
+	LOCATOR_UP = 0x1F,
+};
+
 #if defined(CONFIG_MSM_SERVICE_LOCATOR)
 /*
- * Use this api to request information regarding the process domains on which
- * a particular service runs. The client name and the service name inside the
- * pd_qmi_client_data structure need to be filled in by the client calling the
- * api. The total domains, db revision and the domain list will be filled in
+ * Use this api to request information regarding the process domains on
+ * which a particular service runs. The client name, the service name
+ * and notifier block pointer need to be provided by client calling the api.
+ * The total domains, db revision and the domain list will be filled in
  * by the service locator.
  * Returns 0 on success; otherwise a value < 0 if no valid subsystem is found.
  */
-int get_service_location(struct pd_qmi_client_data *data);
+int get_service_location(char *client_name, char *service_name,
+		struct notifier_block *locator_nb);
 
 /*
  * Use this api to request information regarding the subsystem the process
@@ -73,9 +79,10 @@ int find_subsys(const char *pd_path, char *subsys);
 
 #else
 
-static inline int get_service_location(struct pd_qmi_client_data *data)
+static inline int get_service_location(char *client_name,
+		char *service_name, struct notifier_block *locator_nb);
 {
-	return 0;
+	return -ENODEV;
 }
 
 static inline int find_subsys(const char *pd_path, const char *subsys)
