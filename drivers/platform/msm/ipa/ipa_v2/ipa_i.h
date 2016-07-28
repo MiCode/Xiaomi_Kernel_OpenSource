@@ -26,12 +26,14 @@
 #include <linux/platform_device.h>
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
+#include <linux/ipa_uc_offload.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
 #include "ipa_reg.h"
 #include "ipa_qmi_service.h"
 #include "../ipa_api.h"
 #include "../ipa_common_i.h"
+#include "ipa_uc_offload_i.h"
 
 #define DRV_NAME "ipa"
 #define NAT_DEV_NAME "ipaNatTable"
@@ -541,7 +543,7 @@ struct ipa_ep_context {
 	bool skip_ep_cfg;
 	bool keep_ipa_awake;
 	struct ipa_wlan_stats wstats;
-	u32 wdi_state;
+	u32 uc_offload_state;
 	u32 rx_replenish_threshold;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
@@ -807,134 +809,6 @@ struct ipa_tag_completion {
 };
 
 struct ipa_controller;
-
-/**
- *  @brief   Enum value determined based on the feature it
- *           corresponds to
- *  +----------------+----------------+
- *  |    3 bits      |     5 bits     |
- *  +----------------+----------------+
- *  |   HW_FEATURE   |     OPCODE     |
- *  +----------------+----------------+
- *
- */
-#define FEATURE_ENUM_VAL(feature, opcode) ((feature << 5) | opcode)
-#define EXTRACT_UC_FEATURE(value) (value >> 5)
-
-#define IPA_HW_NUM_FEATURES 0x8
-
-/**
- * enum ipa_hw_features - Values that represent the features supported in IPA HW
- * @IPA_HW_FEATURE_COMMON : Feature related to common operation of IPA HW
- * @IPA_HW_FEATURE_MHI : Feature related to MHI operation in IPA HW
- * @IPA_HW_FEATURE_WDI : Feature related to WDI operation in IPA HW
-*/
-enum ipa_hw_features {
-	IPA_HW_FEATURE_COMMON = 0x0,
-	IPA_HW_FEATURE_MHI    = 0x1,
-	IPA_HW_FEATURE_WDI    = 0x3,
-	IPA_HW_FEATURE_MAX    = IPA_HW_NUM_FEATURES
-};
-
-/**
- * struct IpaHwSharedMemCommonMapping_t - Structure referring to the common
- * section in 128B shared memory located in offset zero of SW Partition in IPA
- * SRAM.
- * @cmdOp : CPU->HW command opcode. See IPA_CPU_2_HW_COMMANDS
- * @cmdParams : CPU->HW command parameter. The parameter filed can hold 32 bits
- * of parameters (immediate parameters) and point on structure in system memory
- * (in such case the address must be accessible for HW)
- * @responseOp : HW->CPU response opcode. See IPA_HW_2_CPU_RESPONSES
- * @responseParams : HW->CPU response parameter. The parameter filed can hold 32
- * bits of parameters (immediate parameters) and point on structure in system
- * memory
- * @eventOp : HW->CPU event opcode. See IPA_HW_2_CPU_EVENTS
- * @eventParams : HW->CPU event parameter. The parameter filed can hold 32 bits of
- * parameters (immediate parameters) and point on structure in system memory
- * @firstErrorAddress : Contains the address of first error-source on SNOC
- * @hwState : State of HW. The state carries information regarding the error type.
- * @warningCounter : The warnings counter. The counter carries information regarding
- * non fatal errors in HW
- * @interfaceVersionCommon : The Common interface version as reported by HW
- *
- * The shared memory is used for communication between IPA HW and CPU.
- */
-struct IpaHwSharedMemCommonMapping_t {
-	u8  cmdOp;
-	u8  reserved_01;
-	u16 reserved_03_02;
-	u32 cmdParams;
-	u8  responseOp;
-	u8  reserved_09;
-	u16 reserved_0B_0A;
-	u32 responseParams;
-	u8  eventOp;
-	u8  reserved_11;
-	u16 reserved_13_12;
-	u32 eventParams;
-	u32 reserved_1B_18;
-	u32 firstErrorAddress;
-	u8  hwState;
-	u8  warningCounter;
-	u16 reserved_23_22;
-	u16 interfaceVersionCommon;
-	u16 reserved_27_26;
-} __packed;
-
-/**
- * union IpaHwFeatureInfoData_t - parameters for stats/config blob
- *
- * @offset : Location of a feature within the EventInfoData
- * @size : Size of the feature
- */
-union IpaHwFeatureInfoData_t {
-	struct IpaHwFeatureInfoParams_t {
-		u32 offset:16;
-		u32 size:16;
-	} __packed params;
-	u32 raw32b;
-} __packed;
-
-/**
- * struct IpaHwEventInfoData_t - Structure holding the parameters for
- * statistics and config info
- *
- * @baseAddrOffset : Base Address Offset of the statistics or config
- * structure from IPA_WRAPPER_BASE
- * @IpaHwFeatureInfoData_t : Location and size of each feature within
- * the statistics or config structure
- *
- * @note    Information about each feature in the featureInfo[]
- * array is populated at predefined indices per the IPA_HW_FEATURES
- * enum definition
- */
-struct IpaHwEventInfoData_t {
-	u32 baseAddrOffset;
-	union IpaHwFeatureInfoData_t featureInfo[IPA_HW_NUM_FEATURES];
-} __packed;
-
-/**
- * struct IpaHwEventLogInfoData_t - Structure holding the parameters for
- * IPA_HW_2_CPU_EVENT_LOG_INFO Event
- *
- * @featureMask : Mask indicating the features enabled in HW.
- * Refer IPA_HW_FEATURE_MASK
- * @circBuffBaseAddrOffset : Base Address Offset of the Circular Event
- * Log Buffer structure
- * @statsInfo : Statistics related information
- * @configInfo : Configuration related information
- *
- * @note    The offset location of this structure from IPA_WRAPPER_BASE
- * will be provided as Event Params for the IPA_HW_2_CPU_EVENT_LOG_INFO
- * Event
- */
-struct IpaHwEventLogInfoData_t {
-	u32 featureMask;
-	u32 circBuffBaseAddrOffset;
-	struct IpaHwEventInfoData_t statsInfo;
-	struct IpaHwEventInfoData_t configInfo;
-
-} __packed;
 
 /**
  * struct ipa_uc_hdlrs - IPA uC callback functions
@@ -1218,6 +1092,7 @@ struct ipa_context {
 	struct ipa_uc_ctx uc_ctx;
 
 	struct ipa_uc_wdi_ctx uc_wdi_ctx;
+	struct ipa_uc_ntn_ctx uc_ntn_ctx;
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	bool smmu_present;
@@ -1596,6 +1471,11 @@ int ipa2_resume_wdi_pipe(u32 clnt_hdl);
 int ipa2_suspend_wdi_pipe(u32 clnt_hdl);
 int ipa2_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
 u16 ipa2_get_smem_restr_bytes(void);
+int ipa2_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *inp,
+		ipa_notify_cb notify, void *priv, u8 hdr_len,
+		struct ipa_ntn_conn_out_params *outp);
+int ipa2_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
+
 /*
  * To retrieve doorbell physical address of
  * wlan pipes
@@ -1943,4 +1823,8 @@ void ipa_inc_acquire_wakelock(enum ipa_wakelock_ref_client ref_client);
 void ipa_dec_release_wakelock(enum ipa_wakelock_ref_client ref_client);
 int ipa_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	phys_addr_t paddr, size_t size, int prot);
+int ipa_ntn_init(void);
+int ipa2_get_ntn_stats(struct IpaHwStatsNTNInfoData_t *stats);
+int ipa2_register_ipa_ready_cb(void (*ipa_ready_cb)(void *),
+				void *user_data);
 #endif /* _IPA_I_H_ */

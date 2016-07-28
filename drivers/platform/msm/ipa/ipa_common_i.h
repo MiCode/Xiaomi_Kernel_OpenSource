@@ -17,6 +17,7 @@
 #define _IPA_COMMON_I_H_
 #include <linux/ipc_logging.h>
 #include <linux/ipa.h>
+#include <linux/ipa_uc_offload.h>
 
 #define __FILENAME__ \
 	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -342,5 +343,10 @@ int ipa_uc_state_check(void);
 void ipa_get_holb(int ep_idx, struct ipa_ep_cfg_holb *holb);
 void ipa_set_tag_process_before_gating(bool val);
 bool ipa_has_open_aggr_frame(enum ipa_client_type client);
+int ipa_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
+	ipa_notify_cb notify, void *priv, u8 hdr_len,
+	struct ipa_ntn_conn_out_params *outp);
+
+int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
 
 #endif /* _IPA_COMMON_I_H_ */

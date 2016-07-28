@@ -35,6 +35,7 @@
 #include "ipahal/ipahal_reg.h"
 #include "ipahal/ipahal.h"
 #include "../ipa_common_i.h"
+#include "ipa_uc_offload_i.h"
 
 #define DRV_NAME "ipa"
 #define NAT_DEV_NAME "ipaNatTable"
@@ -580,7 +581,7 @@ struct ipa3_ep_context {
 	bool skip_ep_cfg;
 	bool keep_ipa_awake;
 	struct ipa3_wlan_stats wstats;
-	u32 wdi_state;
+	u32 uc_offload_state;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
 
@@ -921,200 +922,6 @@ struct ipa3_debugfs_rt_entry {
 struct ipa3_controller;
 
 /**
- *  @brief   Enum value determined based on the feature it
- *           corresponds to
- *  +----------------+----------------+
- *  |    3 bits      |     5 bits     |
- *  +----------------+----------------+
- *  |   HW_FEATURE   |     OPCODE     |
- *  +----------------+----------------+
- *
- */
-#define FEATURE_ENUM_VAL(feature, opcode) ((feature << 5) | opcode)
-#define EXTRACT_UC_FEATURE(value) (value >> 5)
-
-#define IPA_HW_NUM_FEATURES 0x8
-
-/**
- * enum ipa3_hw_features - Values that represent the features supported in IPA HW
- * @IPA_HW_FEATURE_COMMON : Feature related to common operation of IPA HW
- * @IPA_HW_FEATURE_MHI : Feature related to MHI operation in IPA HW
- * @IPA_HW_FEATURE_POWER_COLLAPSE: Feature related to IPA Power collapse
- * @IPA_HW_FEATURE_WDI : Feature related to WDI operation in IPA HW
- * @IPA_HW_FEATURE_ZIP: Feature related to CMP/DCMP operation in IPA HW
-*/
-enum ipa3_hw_features {
-	IPA_HW_FEATURE_COMMON		=	0x0,
-	IPA_HW_FEATURE_MHI		=	0x1,
-	IPA_HW_FEATURE_POWER_COLLAPSE	=	0x2,
-	IPA_HW_FEATURE_WDI		=	0x3,
-	IPA_HW_FEATURE_ZIP		=	0x4,
-	IPA_HW_FEATURE_MAX		=	IPA_HW_NUM_FEATURES
-};
-
-/**
- * enum ipa3_hw_2_cpu_events - Values that represent HW event to be sent to CPU.
- * @IPA_HW_2_CPU_EVENT_NO_OP : No event present
- * @IPA_HW_2_CPU_EVENT_ERROR : Event specify a system error is detected by the
- *  device
- * @IPA_HW_2_CPU_EVENT_LOG_INFO : Event providing logging specific information
- */
-enum ipa3_hw_2_cpu_events {
-	IPA_HW_2_CPU_EVENT_NO_OP     =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 0),
-	IPA_HW_2_CPU_EVENT_ERROR     =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
-	IPA_HW_2_CPU_EVENT_LOG_INFO  =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
-};
-
-/**
- * enum ipa3_hw_errors - Common error types.
- * @IPA_HW_ERROR_NONE : No error persists
- * @IPA_HW_INVALID_DOORBELL_ERROR : Invalid data read from doorbell
- * @IPA_HW_DMA_ERROR : Unexpected DMA error
- * @IPA_HW_FATAL_SYSTEM_ERROR : HW has crashed and requires reset.
- * @IPA_HW_INVALID_OPCODE : Invalid opcode sent
- * @IPA_HW_INVALID_PARAMS : Invalid params for the requested command
- * @IPA_HW_GSI_CH_NOT_EMPTY_FAILURE : GSI channel emptiness validation failed
- */
-enum ipa3_hw_errors {
-	IPA_HW_ERROR_NONE              =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 0),
-	IPA_HW_INVALID_DOORBELL_ERROR  =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
-	IPA_HW_DMA_ERROR               =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
-	IPA_HW_FATAL_SYSTEM_ERROR      =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 3),
-	IPA_HW_INVALID_OPCODE          =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 4),
-	IPA_HW_INVALID_PARAMS        =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 5),
-	IPA_HW_CONS_DISABLE_CMD_GSI_STOP_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 6),
-	IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7),
-	IPA_HW_GSI_CH_NOT_EMPTY_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 8)
-};
-
-/**
- * struct IpaHwSharedMemCommonMapping_t - Structure referring to the common
- * section in 128B shared memory located in offset zero of SW Partition in IPA
- * SRAM.
- * @cmdOp : CPU->HW command opcode. See IPA_CPU_2_HW_COMMANDS
- * @cmdParams : CPU->HW command parameter lower 32bit.
- * @cmdParams_hi : CPU->HW command parameter higher 32bit.
- * of parameters (immediate parameters) and point on structure in system memory
- * (in such case the address must be accessible for HW)
- * @responseOp : HW->CPU response opcode. See IPA_HW_2_CPU_RESPONSES
- * @responseParams : HW->CPU response parameter. The parameter filed can hold 32
- * bits of parameters (immediate parameters) and point on structure in system
- * memory
- * @eventOp : HW->CPU event opcode. See IPA_HW_2_CPU_EVENTS
- * @eventParams : HW->CPU event parameter. The parameter filed can hold 32 bits of
- * parameters (immediate parameters) and point on structure in system memory
- * @firstErrorAddress : Contains the address of first error-source on SNOC
- * @hwState : State of HW. The state carries information regarding the error type.
- * @warningCounter : The warnings counter. The counter carries information regarding
- * non fatal errors in HW
- * @interfaceVersionCommon : The Common interface version as reported by HW
- *
- * The shared memory is used for communication between IPA HW and CPU.
- */
-struct IpaHwSharedMemCommonMapping_t {
-	u8  cmdOp;
-	u8  reserved_01;
-	u16 reserved_03_02;
-	u32 cmdParams;
-	u32 cmdParams_hi;
-	u8  responseOp;
-	u8  reserved_0D;
-	u16 reserved_0F_0E;
-	u32 responseParams;
-	u8  eventOp;
-	u8  reserved_15;
-	u16 reserved_17_16;
-	u32 eventParams;
-	u32 firstErrorAddress;
-	u8  hwState;
-	u8  warningCounter;
-	u16 reserved_23_22;
-	u16 interfaceVersionCommon;
-	u16 reserved_27_26;
-} __packed;
-
-/**
- * union IpaHwFeatureInfoData_t - parameters for stats/config blob
- *
- * @offset : Location of a feature within the EventInfoData
- * @size : Size of the feature
- */
-union IpaHwFeatureInfoData_t {
-	struct IpaHwFeatureInfoParams_t {
-		u32 offset:16;
-		u32 size:16;
-	} __packed params;
-	u32 raw32b;
-} __packed;
-
-/**
- * union IpaHwErrorEventData_t - HW->CPU Common Events
- * @errorType : Entered when a system error is detected by the HW. Type of
- * error is specified by IPA_HW_ERRORS
- * @reserved : Reserved
- */
-union IpaHwErrorEventData_t {
-	struct IpaHwErrorEventParams_t {
-		u32 errorType:8;
-		u32 reserved:24;
-	} __packed params;
-	u32 raw32b;
-} __packed;
-
-/**
- * struct IpaHwEventInfoData_t - Structure holding the parameters for
- * statistics and config info
- *
- * @baseAddrOffset : Base Address Offset of the statistics or config
- * structure from IPA_WRAPPER_BASE
- * @IpaHwFeatureInfoData_t : Location and size of each feature within
- * the statistics or config structure
- *
- * @note    Information about each feature in the featureInfo[]
- * array is populated at predefined indices per the IPA_HW_FEATURES
- * enum definition
- */
-struct IpaHwEventInfoData_t {
-	u32 baseAddrOffset;
-	union IpaHwFeatureInfoData_t featureInfo[IPA_HW_NUM_FEATURES];
-} __packed;
-
-/**
- * struct IpaHwEventLogInfoData_t - Structure holding the parameters for
- * IPA_HW_2_CPU_EVENT_LOG_INFO Event
- *
- * @featureMask : Mask indicating the features enabled in HW.
- * Refer IPA_HW_FEATURE_MASK
- * @circBuffBaseAddrOffset : Base Address Offset of the Circular Event
- * Log Buffer structure
- * @statsInfo : Statistics related information
- * @configInfo : Configuration related information
- *
- * @note    The offset location of this structure from IPA_WRAPPER_BASE
- * will be provided as Event Params for the IPA_HW_2_CPU_EVENT_LOG_INFO
- * Event
- */
-struct IpaHwEventLogInfoData_t {
-	u32 featureMask;
-	u32 circBuffBaseAddrOffset;
-	struct IpaHwEventInfoData_t statsInfo;
-	struct IpaHwEventInfoData_t configInfo;
-
-} __packed;
-
-/**
  * struct ipa3_uc_hdlrs - IPA uC callback functions
  * @ipa_uc_loaded_hdlr: Function handler when uC is loaded
  * @ipa_uc_event_hdlr: Event handler function
@@ -1449,6 +1256,7 @@ struct ipa3_context {
 	struct ipa3_uc_ctx uc_ctx;
 
 	struct ipa3_uc_wdi_ctx uc_wdi_ctx;
+	struct ipa3_uc_ntn_ctx uc_ntn_ctx;
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
@@ -1834,6 +1642,11 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl);
 int ipa3_suspend_wdi_pipe(u32 clnt_hdl);
 int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
 u16 ipa3_get_smem_restr_bytes(void);
+int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
+		ipa_notify_cb notify, void *priv, u8 hdr_len,
+		struct ipa_ntn_conn_out_params *outp);
+int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
+
 /*
  * To retrieve doorbell physical address of
  * wlan pipes
@@ -2185,4 +1998,6 @@ int ipa3_load_fws(const struct firmware *firmware);
 int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 int ipa_gsi_ch20_wa(void);
+int ipa3_ntn_init(void);
+int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats);
 #endif /* _IPA3_I_H_ */
