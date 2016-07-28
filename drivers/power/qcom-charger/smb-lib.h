@@ -68,6 +68,7 @@ struct smb_params {
 	struct smb_chg_param	dc_icl_div2_mid_lv;
 	struct smb_chg_param	dc_icl_div2_mid_hv;
 	struct smb_chg_param	dc_icl_div2_hv;
+	struct smb_chg_param	jeita_cc_comp;
 };
 
 struct parallel_params {
@@ -150,6 +151,7 @@ int smblib_vconn_regulator_is_enabled(struct regulator_dev *rdev);
 
 irqreturn_t smblib_handle_debug(int irq, void *data);
 irqreturn_t smblib_handle_chg_state_change(int irq, void *data);
+irqreturn_t smblib_handle_batt_temp_changed(int irq, void *data);
 irqreturn_t smblib_handle_batt_psy_changed(int irq, void *data);
 irqreturn_t smblib_handle_usb_psy_changed(int irq, void *data);
 irqreturn_t smblib_handle_usb_plugin(int irq, void *data);
