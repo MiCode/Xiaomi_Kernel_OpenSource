@@ -184,6 +184,10 @@ enum rradc_channel_id {
 	RR_ADC_DIE_TEMP,
 	RR_ADC_CHG_TEMP,
 	RR_ADC_GPIO,
+	RR_ADC_CHG_HOT_TEMP,
+	RR_ADC_CHG_TOO_HOT_TEMP,
+	RR_ADC_SKIN_HOT_TEMP,
+	RR_ADC_SKIN_TOO_HOT_TEMP,
 	RR_ADC_MAX
 };
 
@@ -337,6 +341,39 @@ static int rradc_post_process_die_temp(struct rradc_chip *chip,
 	return 0;
 }
 
+static int rradc_post_process_chg_temp_hot(struct rradc_chip *chip,
+			struct rradc_chan_prop *prop, u16 adc_code,
+			int *result_millidegc)
+{
+	int64_t temp = 0;
+
+	temp = (int64_t) adc_code * 4;
+	temp = temp * FG_ADC_RR_TEMP_FS_VOLTAGE_NUM;
+	temp = div64_s64(temp, (FG_ADC_RR_TEMP_FS_VOLTAGE_DEN *
+					FG_MAX_ADC_READINGS));
+	temp = FG_ADC_RR_CHG_TEMP_OFFSET - temp;
+	temp = div64_s64(temp, FG_ADC_RR_CHG_TEMP_SLOPE);
+	temp = temp + FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC;
+	*result_millidegc = temp;
+
+	return 0;
+}
+
+static int rradc_post_process_skin_temp_hot(struct rradc_chip *chip,
+			struct rradc_chan_prop *prop, u16 adc_code,
+			int *result_millidegc)
+{
+	int64_t temp = 0;
+
+	temp = (int64_t) adc_code;
+	temp = div64_s64(temp, 2);
+	temp = temp - 30;
+	temp *= FG_ADC_SCALE_MILLI_FACTOR;
+	*result_millidegc = temp;
+
+	return 0;
+}
+
 static int rradc_post_process_chg_temp(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 adc_code,
 			int *result_millidegc)
@@ -430,6 +467,18 @@ static const struct rradc_channels rradc_chans[] = {
 	RR_ADC_CHAN_VOLT("gpio", &rradc_post_process_gpio,
 			FG_ADC_RR_GPIO_LSB, FG_ADC_RR_GPIO_MSB,
 			FG_ADC_RR_GPIO_STS)
+	RR_ADC_CHAN_TEMP("chg_temp_hot", &rradc_post_process_chg_temp_hot,
+			FG_ADC_RR_CHARGER_HOT, FG_ADC_RR_CHARGER_HOT,
+			FG_ADC_RR_CHARGER_TEMP_STS)
+	RR_ADC_CHAN_TEMP("chg_temp_too_hot", &rradc_post_process_chg_temp_hot,
+			FG_ADC_RR_CHARGER_TOO_HOT, FG_ADC_RR_CHARGER_TOO_HOT,
+			FG_ADC_RR_CHARGER_TEMP_STS)
+	RR_ADC_CHAN_TEMP("skin_temp_hot", &rradc_post_process_skin_temp_hot,
+			FG_ADC_RR_SKIN_HOT, FG_ADC_RR_SKIN_HOT,
+			FG_ADC_RR_AUX_THERM_STS)
+	RR_ADC_CHAN_TEMP("skin_temp_too_hot", &rradc_post_process_skin_temp_hot,
+			FG_ADC_RR_SKIN_TOO_HOT, FG_ADC_RR_SKIN_TOO_HOT,
+			FG_ADC_RR_AUX_THERM_STS)
 };
 
 static int rradc_do_conversion(struct rradc_chip *chip,
@@ -442,7 +491,11 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 
 	mutex_lock(&chip->lock);
 
-	if (prop->channel != RR_ADC_BATT_ID) {
+	if ((prop->channel != RR_ADC_BATT_ID) &&
+			(prop->channel != RR_ADC_CHG_HOT_TEMP) &&
+			(prop->channel != RR_ADC_CHG_TOO_HOT_TEMP) &&
+			(prop->channel != RR_ADC_SKIN_HOT_TEMP) &&
+			(prop->channel != RR_ADC_SKIN_TOO_HOT_TEMP)) {
 		/* BATT_ID STS bit does not get set initially */
 		status = rradc_chans[prop->channel].sts;
 		rc = rradc_read(chip, status, buf, 1);
@@ -463,6 +516,11 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 	offset = rradc_chans[prop->channel].lsb;
 	if (prop->channel == RR_ADC_BATT_ID)
 		bytes_to_read = 6;
+	else if ((prop->channel == RR_ADC_CHG_HOT_TEMP) ||
+		(prop->channel == RR_ADC_CHG_TOO_HOT_TEMP) ||
+		(prop->channel == RR_ADC_SKIN_HOT_TEMP) ||
+		(prop->channel == RR_ADC_SKIN_TOO_HOT_TEMP))
+		bytes_to_read = 1;
 	else
 		bytes_to_read = 2;
 
@@ -496,6 +554,11 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 			*data = batt_id_5;
 			prop->channel_data = FG_ADC_RR_BATT_ID_5_MA;
 		}
+	} else if ((prop->channel == RR_ADC_CHG_HOT_TEMP) ||
+		(prop->channel == RR_ADC_CHG_TOO_HOT_TEMP) ||
+		(prop->channel == RR_ADC_SKIN_HOT_TEMP) ||
+		(prop->channel == RR_ADC_SKIN_TOO_HOT_TEMP)) {
+		*data = buf[0];
 	} else {
 		*data = (buf[1] << 8) | buf[0];
 	}
