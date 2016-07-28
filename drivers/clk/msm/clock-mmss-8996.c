@@ -32,6 +32,7 @@
 
 #include "vdd-level-8996.h"
 #include "clock.h"
+#include "reset.h"
 
 static void __iomem *virt_base;
 static void __iomem *virt_base_gpu;
@@ -3032,6 +3033,17 @@ static struct branch_clk vmem_maxi_clk = {
 	},
 };
 
+static const struct msm_reset_map mmss_msm8996_resets[] = {
+	[VIDEO_BCR] = { 0x1020 },
+	[MDSS_BCR] = { 0x2300 },
+	[CAMSS_MICRO_BCR] = { 0x3490 },
+	[CAMSS_JPEG_BCR] = { 0x35a0 },
+	[CAMSS_VFE0_BCR] = { 0x3660 },
+	[CAMSS_VFE1_BCR] = { 0x3670 },
+	[FD_BCR] = { 0x3b60 },
+	[GPU_GX_BCR] = { 0x4020 },
+};
+
 static struct mux_clk mmss_gcc_dbg_clk = {
 	.ops = &mux_reg_ops,
 	.en_mask = BIT(16),
@@ -3778,6 +3790,11 @@ int msm_mmsscc_8996_probe(struct platform_device *pdev)
 		if (rc)
 			return rc;
 	}
+
+	 /* Register block resets */
+	msm_reset_controller_register(pdev, mmss_msm8996_resets,
+			ARRAY_SIZE(mmss_msm8996_resets), virt_base);
+
 	dev_info(&pdev->dev, "Registered MMSS clocks.\n");
 
 	return platform_driver_register(&msm_clock_gpu_driver);

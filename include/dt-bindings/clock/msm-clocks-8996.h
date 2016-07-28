@@ -540,4 +540,33 @@
 #define clk_sys_apcsaux_clk 0x0b0dd513
 #define clk_cpu_debug_mux 0xc7acaa31
 
+/* GCC block resets */
+#define QUSB2PHY_PRIM_BCR		0
+#define QUSB2PHY_SEC_BCR		1
+#define BLSP1_BCR			2
+#define BLSP2_BCR			3
+#define BOOT_ROM_BCR			4
+#define PRNG_BCR			5
+#define UFS_BCR				6
+#define USB_20_BCR			7
+#define USB_30_BCR			8
+#define USB3_PHY_BCR			9
+#define USB3PHY_PHY_BCR			10
+#define PCIE_0_PHY_BCR			11
+#define PCIE_1_PHY_BCR			12
+#define PCIE_2_PHY_BCR			13
+#define PCIE_PHY_BCR			14
+#define PCIE_PHY_COM_BCR		15
+#define PCIE_PHY_NOCSR_COM_PHY_BCR	16
+
+/* MMSS Block resets */
+#define VIDEO_BCR			0
+#define MDSS_BCR			1
+#define CAMSS_MICRO_BCR			2
+#define CAMSS_JPEG_BCR			3
+#define CAMSS_VFE0_BCR			4
+#define CAMSS_VFE1_BCR			5
+#define FD_BCR				6
+#define GPU_GX_BCR			7
+
 #endif
