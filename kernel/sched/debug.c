@@ -417,10 +417,8 @@ static void sched_debug_header(struct seq_file *m)
 	P(sched_upmigrate);
 	P(sched_downmigrate);
 	P(sched_init_task_load_windows);
-	P(sched_init_task_load_pelt);
 	P(min_capacity);
 	P(max_capacity);
-	P(sched_use_pelt);
 	P(sched_ravg_window);
 #endif
 #undef PN
@@ -644,7 +642,6 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 	__P(load_avg);
 #ifdef CONFIG_SCHED_HMP
 	P(ravg.demand);
-	P(se.avg.runnable_avg_sum_scaled);
 #endif
 #endif
 

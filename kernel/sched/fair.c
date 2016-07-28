@@ -2577,9 +2577,6 @@ static u32 __compute_runnable_contrib(u64 n)
 	return contrib + runnable_avg_yN_sum[n];
 }
 
-static void add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta);
-static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods);
-
 struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
 {
 	return NULL;
@@ -2594,15 +2591,11 @@ enum sched_boost_type {
 #ifdef CONFIG_SCHED_HMP
 
 /* Initial task load. Newly created tasks are assigned this load. */
-unsigned int __read_mostly sched_init_task_load_pelt;
 unsigned int __read_mostly sched_init_task_load_windows;
 unsigned int __read_mostly sysctl_sched_init_task_load_pct = 15;
 
 unsigned int max_task_load(void)
 {
-	if (sched_use_pelt)
-		return LOAD_AVG_MAX;
-
 	return sched_ravg_window;
 }
 
@@ -2723,11 +2716,6 @@ void set_hmp_defaults(void)
 	sched_major_task_runtime =
 		mult_frac(sched_ravg_window, MAJOR_TASK_PCT, 100);
 #endif
-
-	sched_init_task_load_pelt =
-		div64_u64((u64)sysctl_sched_init_task_load_pct *
-			  (u64)LOAD_AVG_MAX, 100);
-
 	sched_init_task_load_windows =
 		div64_u64((u64)sysctl_sched_init_task_load_pct *
 			  (u64)sched_ravg_window, 100);
@@ -4323,7 +4311,6 @@ __update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 	u32 contrib;
 	unsigned int delta_w, scaled_delta_w, decayed = 0;
 	unsigned long scale_freq, scale_cpu;
-	struct sched_entity *se = NULL;
 
 	delta = now - sa->last_update_time;
 	/*
@@ -4343,12 +4330,6 @@ __update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 	if (!delta)
 		return 0;
 	sa->last_update_time = now;
-
-	if (sched_use_pelt && cfs_rq && weight) {
-		se = container_of(sa, struct sched_entity, avg);
-		if (entity_is_task(se) && se->on_rq)
-			dec_hmp_sched_stats_fair(rq_of(cfs_rq), task_of(se));
-	}
 
 	scale_freq = arch_scale_freq_capacity(NULL, cpu);
 	scale_cpu = arch_scale_cpu_capacity(NULL, cpu);
@@ -4370,7 +4351,6 @@ __update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 		scaled_delta_w = cap_scale(delta_w, scale_freq);
 		if (weight) {
 			sa->load_sum += weight * scaled_delta_w;
-			add_to_scaled_stat(cpu, sa, delta_w);
 			if (cfs_rq) {
 				cfs_rq->runnable_load_sum +=
 						weight * scaled_delta_w;
@@ -4397,7 +4377,6 @@ __update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 		contrib = cap_scale(contrib, scale_freq);
 		if (weight) {
 			sa->load_sum += weight * contrib;
-			add_to_scaled_stat(cpu, sa, contrib);
 			if (cfs_rq)
 				cfs_rq->runnable_load_sum += weight * contrib;
 		}
@@ -4409,13 +4388,9 @@ __update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 	scaled_delta = cap_scale(delta, scale_freq);
 	if (weight) {
 		sa->load_sum += weight * scaled_delta;
-		add_to_scaled_stat(cpu, sa, delta);
 		if (cfs_rq)
 			cfs_rq->runnable_load_sum += weight * scaled_delta;
 	}
-
-	if (se && entity_is_task(se) && se->on_rq)
-		inc_hmp_sched_stats_fair(rq_of(cfs_rq), task_of(se));
 
 	if (running)
 		sa->util_sum += scaled_delta * scale_cpu;
@@ -4676,7 +4651,6 @@ void init_new_task_load(struct task_struct *p)
 {
 	int i;
 	u32 init_load_windows = sched_init_task_load_windows;
-	u32 init_load_pelt = sched_init_task_load_pelt;
 	u32 init_load_pct = current->init_load_pct;
 
 	p->init_load_pct = 0;
@@ -4685,18 +4659,14 @@ void init_new_task_load(struct task_struct *p)
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
 
-	if (init_load_pct) {
-		init_load_pelt = div64_u64((u64)init_load_pct *
-			  (u64)LOAD_AVG_MAX, 100);
+	if (init_load_pct)
 		init_load_windows = div64_u64((u64)init_load_pct *
 			  (u64)sched_ravg_window, 100);
-	}
 
 	p->ravg.demand = init_load_windows;
 	clear_ravg_pred_demand();
 	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = init_load_windows;
-	p->se.avg.runnable_avg_sum_scaled = init_load_pelt;
 }
 
 #else /* CONFIG_SCHED_HMP */
@@ -4717,40 +4687,6 @@ unsigned int pct_task_load(struct task_struct *p)
 	load = div64_u64((u64)task_load(p) * 100, (u64)max_task_load());
 
 	return load;
-}
-
-/*
- * Add scaled version of 'delta' to runnable_avg_sum_scaled
- * 'delta' is scaled in reference to "best" cpu
- */
-static inline void
-add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta)
-{
-	int cur_freq = cpu_cur_freq(cpu);
-	u64 scaled_delta;
-	int sf;
-
-	if (!sched_enable_hmp)
-		return;
-
-	if (unlikely(cur_freq > max_possible_freq))
-		cur_freq = max_possible_freq;
-
-	scaled_delta = div64_u64(delta * cur_freq, max_possible_freq);
-	sf = (cpu_efficiency(cpu) * 1024) / max_possible_efficiency;
-	scaled_delta *= sf;
-	scaled_delta >>= 10;
-	sa->runnable_avg_sum_scaled += scaled_delta;
-}
-
-static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods)
-{
-	if (!sched_enable_hmp)
-		return;
-
-	sa->runnable_avg_sum_scaled =
-		decay_load(sa->runnable_avg_sum_scaled,
-			   periods);
 }
 
 #ifdef CONFIG_CFS_BANDWIDTH
@@ -4813,15 +4749,6 @@ static inline void dec_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
 #endif	/* CONFIG_CFS_BANDWIDTH */
 
 #else  /* CONFIG_SCHED_HMP */
-
-static inline void
-add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta)
-{
-}
-
-static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods)
-{
-}
 
 static inline void init_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq) { }
 

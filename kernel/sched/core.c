@@ -1801,9 +1801,6 @@ __read_mostly unsigned int sysctl_sched_pred_alert_freq = 10 * 1024 * 1024;
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT */
 
-/* 1 -> use PELT based load stats, 0 -> use window-based load stats */
-unsigned int __read_mostly sched_use_pelt;
-
 /*
  * Maximum possible frequency across all cpus. Task demand and cpu
  * capacity (cpu_power) metrics are scaled in reference to it.
@@ -1911,11 +1908,17 @@ static inline int exiting_task(struct task_struct *p)
 
 static int __init set_sched_ravg_window(char *str)
 {
-	get_option(&str, &sched_ravg_window);
+	unsigned int window_size;
 
-	sched_use_pelt = (sched_ravg_window < MIN_SCHED_RAVG_WINDOW ||
-				sched_ravg_window > MAX_SCHED_RAVG_WINDOW);
+	get_option(&str, &window_size);
 
+	if (window_size < MIN_SCHED_RAVG_WINDOW ||
+			window_size > MAX_SCHED_RAVG_WINDOW) {
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	sched_ravg_window = window_size;
 	return 0;
 }
 
@@ -2949,7 +2952,7 @@ static void
 update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 		 u64 wallclock, u64 irqtime)
 {
-	if (sched_use_pelt || !rq->window_start || sched_disable_window_stats)
+	if (!rq->window_start || sched_disable_window_stats)
 		return;
 
 	lockdep_assert_held(&rq->lock);
@@ -3430,9 +3433,8 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 	s64 ws;
 	unsigned long flags;
 
-	if (sched_use_pelt ||
-		 (window_size * TICK_NSEC <  MIN_SCHED_RAVG_WINDOW))
-			return -EINVAL;
+	if (window_size * TICK_NSEC <  MIN_SCHED_RAVG_WINDOW)
+		return -EINVAL;
 
 	mutex_lock(&policy_mutex);
 
