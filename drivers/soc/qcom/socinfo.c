@@ -701,13 +701,14 @@ static uint32_t socinfo_get_foundry_id(void)
 		: 0;
 }
 
-static uint32_t socinfo_get_serial_number(void)
+uint32_t socinfo_get_serial_number(void)
 {
 	return socinfo ?
 		(socinfo_format >= SOCINFO_VERSION(0, 10) ?
 			socinfo->v0_10.serial_number : 0)
 		: 0;
 }
+EXPORT_SYMBOL(socinfo_get_serial_number);
 
 static uint32_t socinfo_get_chip_family(void)
 {
