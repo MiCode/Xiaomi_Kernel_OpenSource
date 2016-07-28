@@ -138,7 +138,9 @@ Optional Properties:
 - qcom,ca-target-pwrlevel:
                                 This value indicates which qcom,gpu-pwrlevel to jump on in case
                                 of context aware power level jump.
-
+- qcom,snapshot-size:
+				Specify the size of snapshot in bytes. This will override
+				snapshot size defined in the driver code.
 GPU Quirks:
 - qcom,gpu-quirk-two-pass-use-wfi:
 				Signal the GPU to set Set TWOPASSUSEWFI bit in
