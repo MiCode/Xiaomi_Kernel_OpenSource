@@ -56,6 +56,7 @@ static void __iomem *virt_dbgbase;
 	}
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
+static DEFINE_VDD_REGULATORS(vdd_dig_ao, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_clk_src_ao, RPM_MISC_CLK_TYPE,
 			  CXO_CLK_SRC_ID, 19200000);
@@ -211,7 +212,7 @@ static struct rcg_clk hmss_ahb_clk_src = {
 	.c = {
 		.dbg_name = "hmss_ahb_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOWER, 19200000, LOW, 50000000,
+		VDD_DIG_FMAX_MAP3_AO(LOWER, 19200000, LOW, 50000000,
 					NOMINAL, 100000000),
 		CLK_INIT(hmss_ahb_clk_src.c),
 	},
@@ -1029,7 +1030,7 @@ static struct rcg_clk hmss_gpll0_clk_src = {
 	.c = {
 		.dbg_name = "hmss_gpll0_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP1(LOWER, 600000000),
+		VDD_DIG_FMAX_MAP1_AO(LOWER, 600000000),
 		CLK_INIT(hmss_gpll0_clk_src.c),
 	},
 };
@@ -2748,11 +2749,6 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	/* Set the HMSS_AHB_CLK_ENA bit to enable the hmss_ahb_clk */
-	regval = readl_relaxed(virt_base + GCC_APCS_CLOCK_BRANCH_ENA_VOTE);
-	regval |= BIT(21);
-	writel_relaxed(regval, virt_base + GCC_APCS_CLOCK_BRANCH_ENA_VOTE);
-
 	/*
 	 * Set the HMSS_AHB_CLK_SLEEP_ENA bit to allow the hmss_ahb_clk to be
 	 * turned off by hardware during certain apps low power modes.
@@ -2767,6 +2763,14 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 					"Unable to get vdd_dig regulator\n");
 		return PTR_ERR(vdd_dig.regulator[0]);
+	}
+
+	vdd_dig_ao.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig_ao");
+	if (IS_ERR(vdd_dig_ao.regulator[0])) {
+		if (!(PTR_ERR(vdd_dig_ao.regulator[0]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev,
+					"Unable to get vdd_dig_ao regulator\n");
+		return PTR_ERR(vdd_dig_ao.regulator[0]);
 	}
 
 	bimc_clk.c.parent = &cxo_clk_src.c;

@@ -716,6 +716,7 @@
 		reg = <0x100000 0xb0000>;
 		reg-names = "cc_base";
 		vdd_dig-supply = <&pmcobalt_s1_level>;
+		vdd_dig_ao-supply = <&pmcobalt_s1_level_ao>;
 		#clock-cells = <1>;
 	};
 
