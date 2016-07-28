@@ -1131,6 +1131,10 @@ static int __ipa_finish_rt_rule_add(struct ipa3_rt_entry *entry, u32 *rule_hdl,
 	return 0;
 
 ipa_insert_failed:
+	if (entry->hdr)
+		entry->hdr->ref_cnt--;
+	else if (entry->proc_ctx)
+		entry->proc_ctx->ref_cnt--;
 	idr_remove(&tbl->rule_ids, entry->rule_id);
 	list_del(&entry->link);
 	kmem_cache_free(ipa3_ctx->rt_rule_cache, entry);
