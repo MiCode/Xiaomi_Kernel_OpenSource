@@ -1562,6 +1562,9 @@ static inline void sched_avg_update(struct rq *rq) { }
 
 extern void start_bandwidth_timer(struct hrtimer *period_timer, ktime_t period);
 
+extern struct rq *lock_rq_of(struct task_struct *p, unsigned long *flags);
+extern void unlock_rq_of(struct rq *rq, struct task_struct *p, unsigned long *flags);
+
 #ifdef CONFIG_SMP
 #ifdef CONFIG_PREEMPT
 
