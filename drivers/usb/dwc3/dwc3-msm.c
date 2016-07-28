@@ -2366,11 +2366,18 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 	if (IS_ERR(mdwc->bus_aggr_clk))
 		mdwc->bus_aggr_clk = NULL;
 
-	mdwc->cfg_ahb_clk = devm_clk_get(mdwc->dev, "cfg_ahb_clk");
-	if (IS_ERR(mdwc->cfg_ahb_clk)) {
-		dev_err(mdwc->dev, "failed to get cfg_ahb_clk\n");
-		ret = PTR_ERR(mdwc->cfg_ahb_clk);
-		return ret;
+	if (of_property_match_string(mdwc->dev->of_node,
+				"clock-names", "cfg_ahb_clk") >= 0) {
+		mdwc->cfg_ahb_clk = devm_clk_get(mdwc->dev, "cfg_ahb_clk");
+		if (IS_ERR(mdwc->cfg_ahb_clk)) {
+			ret = PTR_ERR(mdwc->cfg_ahb_clk);
+			mdwc->cfg_ahb_clk = NULL;
+			if (ret != -EPROBE_DEFER)
+				dev_err(mdwc->dev,
+					"failed to get cfg_ahb_clk ret %d\n",
+					ret);
+			return ret;
+		}
 	}
 
 	return 0;

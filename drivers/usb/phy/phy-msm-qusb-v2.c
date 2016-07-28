@@ -820,9 +820,17 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	else
 		clk_set_rate(qphy->ref_clk, 19200000);
 
-	qphy->cfg_ahb_clk = devm_clk_get(dev, "cfg_ahb_clk");
-	if (IS_ERR(qphy->cfg_ahb_clk))
-		return PTR_ERR(qphy->cfg_ahb_clk);
+	if (of_property_match_string(pdev->dev.of_node,
+				"clock-names", "cfg_ahb_clk") >= 0) {
+		qphy->cfg_ahb_clk = devm_clk_get(dev, "cfg_ahb_clk");
+		if (IS_ERR(qphy->cfg_ahb_clk)) {
+			ret = PTR_ERR(qphy->cfg_ahb_clk);
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev,
+				"clk get failed for cfg_ahb_clk ret %d\n", ret);
+			return ret;
+		}
+	}
 
 	qphy->phy_reset = devm_clk_get(dev, "phy_reset");
 	if (IS_ERR(qphy->phy_reset))
