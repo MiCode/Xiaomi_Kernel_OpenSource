@@ -172,6 +172,8 @@ Optional properties:
    control in device mode. The reg-names property is required if the
    reg property is specified.
  - qcom,qusb-phy-init-seq: QUSB PHY initialization sequence with value,reg pair.
+ - qcom,qusb-phy-host-init-seq: QUSB PHY initialization sequence for host mode
+   with value,reg pair.
  - qcom,emu-init-seq : emulation initialization sequence with value,reg pair.
  - qcom,phy-pll-reset-seq : emulation PLL reset sequence with value,reg pair.
  - qcom,emu-dcm-reset-seq : emulation DCM reset sequence with value,reg pair.
