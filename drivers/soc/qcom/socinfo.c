@@ -528,10 +528,11 @@ static struct msm_soc_info cpu_of_id[] = {
 	[270] = {MSM_CPU_8929, "MSM8229"},
 	[271] = {MSM_CPU_8929, "APQ8029"},
 
-	/* Cobalt ID */
+	/* Cobalt IDs */
 	[292] = {MSM_CPU_COBALT, "MSMCOBALT"},
+	[319] = {MSM_CPU_COBALT, "APQCOBALT"},
 
-	/* Cobalt ID */
+	/* Hamster ID */
 	[306] = {MSM_CPU_HAMSTER, "MSMHAMSTER"},
 
 	/* falcon ID */
@@ -1204,6 +1205,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msmfalcon()) {
 		dummy_socinfo.id = 317;
 		strlcpy(dummy_socinfo.build_id, "msmfalcon - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_apqcobalt()) {
+		dummy_socinfo.id = 319;
+		strlcpy(dummy_socinfo.build_id, "apqcobalt - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 
