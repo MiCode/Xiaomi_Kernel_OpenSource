@@ -483,6 +483,18 @@ int sde_disable_irq(
 		uint32_t irq_count);
 
 /**
+ * sde_read_irq - IRQ helper function for reading IRQ status
+ * @sde_kms:		SDE handle
+ * @irq_idx:		irq index
+ * @clear:		True to clear the irq after read
+ * @return:		non-zero if irq detected; otherwise no irq detected
+ */
+u32 sde_read_irq(
+		struct sde_kms *sde_kms,
+		int irq_idx,
+		bool clear);
+
+/**
  * sde_register_irq_callback - For registering callback function on IRQ
  *                             interrupt
  * @sde_kms:		SDE handle

@@ -891,6 +891,27 @@ static void sde_hw_intr_clear_interrupt_status(struct sde_hw_intr *intr,
 	spin_unlock_irqrestore(&intr->mask_lock, irq_flags);
 }
 
+static u32 sde_hw_intr_get_interrupt_status(struct sde_hw_intr *intr,
+		int irq_idx, bool clear)
+{
+	int reg_idx;
+	unsigned long irq_flags;
+	u32 intr_status;
+
+	spin_lock_irqsave(&intr->mask_lock, irq_flags);
+
+	reg_idx = sde_irq_map[irq_idx].reg_idx;
+	intr_status = SDE_REG_READ(&intr->hw,
+			sde_intr_set[reg_idx].status_off) &
+					sde_irq_map[irq_idx].irq_mask;
+	if (intr_status && clear)
+		SDE_REG_WRITE(&intr->hw, sde_intr_set[irq_idx].clr_off,
+				intr_status);
+
+	spin_unlock_irqrestore(&intr->mask_lock, irq_flags);
+
+	return intr_status;
+}
 
 static void __setup_intr_ops(struct sde_hw_intr_ops *ops)
 {
@@ -905,6 +926,7 @@ static void __setup_intr_ops(struct sde_hw_intr_ops *ops)
 	ops->get_interrupt_sources = sde_hw_intr_get_interrupt_sources;
 	ops->get_interrupt_statuses = sde_hw_intr_get_interrupt_statuses;
 	ops->clear_interrupt_status = sde_hw_intr_clear_interrupt_status;
+	ops->get_interrupt_status = sde_hw_intr_get_interrupt_status;
 }
 
 static struct sde_mdss_base_cfg *__intr_offset(struct sde_mdss_cfg *m,
