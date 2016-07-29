@@ -1470,8 +1470,8 @@ static int msm_vfe46_axi_restart(struct vfe_device *vfe_dev,
 	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
 	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
 
-	msm_vfe46_config_irq(vfe_dev, vfe_dev->irq0_mask,
-		vfe_dev->irq1_mask, MSM_ISP_IRQ_SET);
+	msm_vfe46_config_irq(vfe_dev, vfe_dev->recovery_irq0_mask,
+		vfe_dev->recovery_irq1_mask, MSM_ISP_IRQ_SET);
 
 	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev, VFE_SRC_MAX);
 
