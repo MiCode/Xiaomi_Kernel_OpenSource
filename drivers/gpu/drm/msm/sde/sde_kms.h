@@ -116,7 +116,7 @@ struct sde_kms {
 	void *debugfs_root;
 
 	/* io/register spaces: */
-	void __iomem *mmio, *vbif;
+	void __iomem *mmio, *vbif[VBIF_MAX];
 
 	struct regulator *vdd;
 	struct regulator *mmagic;
