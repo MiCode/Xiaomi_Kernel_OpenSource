@@ -46,6 +46,11 @@
 		qcom,hotplug-temp-hysteresis = <25>;
 		qcom,therm-reset-temp = <119>;
 	};
+
+	qcom,adv7481@70 {
+		qcom,cam-vreg-min-voltage = <1300000 0 1800000>;
+		qcom,cam-vreg-max-voltage = <1300000 0 1800000>;
+	};
 };
 
 &pil_modem {
