@@ -21,6 +21,8 @@
 #include "sde_hw_ctl.h"
 #include "sde_hw_lm.h"
 #include "sde_hw_interrupts.h"
+#include "sde_hw_wb.h"
+#include "sde_hw_top.h"
 #include "sde_connector.h"
 
 /**
@@ -79,9 +81,11 @@ struct sde_irq {
  */
 struct sde_hw_res_map {
 	enum sde_intf intf;
+	enum sde_wb wb;
 	enum sde_lm lm;
 	enum sde_pingpong pp;
 	enum sde_ctl ctl;
+	enum sde_cdm cdm;
 };
 
 /* struct sde_hw_resource_manager : Resource manager maintains the current
@@ -89,6 +93,7 @@ struct sde_hw_res_map {
  *                                  hw resources ex:ctl_path hw driver context
  *                                  is needed by CRTCs/PLANEs/ENCODERs
  * @ctl        : table of control path hw driver contexts allocated
+ * @cdm        : table of chroma down path hw driver contexts allocated
  * @mixer      : list of mixer hw drivers contexts allocated
  * @intr       : pointer to hw interrupt context
  * @res_table  : pointer to default hw_res table for this platform
@@ -97,6 +102,7 @@ struct sde_hw_res_map {
  */
 struct sde_hw_resource_manager {
 	struct sde_hw_ctl *ctl[CTL_MAX];
+	struct sde_hw_cdm *cdm[CDM_MAX];
 	struct sde_hw_mixer *mixer[LM_MAX];
 	struct sde_hw_intr *intr;
 	const struct sde_hw_res_map *res_table;
@@ -411,6 +417,14 @@ struct sde_hw_ctl *sde_rm_get_ctl_path(struct sde_kms *sde_kms,
 		enum sde_ctl idx);
 void sde_rm_release_ctl_path(struct sde_kms *sde_kms,
 		enum sde_ctl idx);
+
+struct sde_hw_cdm *sde_rm_acquire_cdm_path(struct sde_kms *sde_kms,
+		enum sde_cdm idx, struct sde_hw_mdp *hw_mdp);
+struct sde_hw_cdm *sde_rm_get_cdm_path(struct sde_kms *sde_kms,
+		enum sde_cdm idx);
+void sde_rm_release_cdm_path(struct sde_kms *sde_kms,
+		enum sde_cdm idx);
+
 struct sde_hw_mixer *sde_rm_acquire_mixer(struct sde_kms *sde_kms,
 		enum sde_lm idx);
 struct sde_hw_mixer *sde_rm_get_mixer(struct sde_kms *sde_kms,
@@ -421,7 +435,7 @@ struct sde_hw_intr *sde_rm_acquire_intr(struct sde_kms *sde_kms);
 struct sde_hw_intr *sde_rm_get_intr(struct sde_kms *sde_kms);
 
 const struct sde_hw_res_map *sde_rm_get_res_map(struct sde_kms *sde_kms,
-		enum sde_intf idx);
+		enum sde_intf intf, enum sde_wb wb);
 
 /**
  * IRQ functions
@@ -583,6 +597,7 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc);
  */
 struct sde_encoder_hw_resources {
 	enum sde_intf_mode intfs[INTF_MAX];
+	enum sde_intf_mode wbs[WB_MAX];
 	bool pingpongs[PINGPONG_MAX];
 	bool ctls[CTL_MAX];
 	bool pingpongsplit;

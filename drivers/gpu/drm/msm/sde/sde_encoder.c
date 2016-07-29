@@ -623,7 +623,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 			ret = -EINVAL;
 		}
 
-		hw_res_map = sde_rm_get_res_map(sde_kms, intf_idx);
+		hw_res_map = sde_rm_get_res_map(sde_kms, intf_idx, SDE_NONE);
 		if (IS_ERR_OR_NULL(hw_res_map)) {
 			ret = -EINVAL;
 		} else {

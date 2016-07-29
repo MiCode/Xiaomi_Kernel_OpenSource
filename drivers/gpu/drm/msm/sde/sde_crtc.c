@@ -99,7 +99,8 @@ static int sde_crtc_reserve_hw_resources(struct drm_crtc *crtc,
 		if (enc_hw_res.intfs[i]) {
 			struct sde_crtc_mixer *mixer  =
 				&sde_crtc->mixer[sde_crtc->num_mixers];
-			plat_hw_res_map = sde_rm_get_res_map(sde_kms, i);
+			plat_hw_res_map = sde_rm_get_res_map(sde_kms,
+					i, SDE_NONE);
 
 			lm_idx = plat_hw_res_map->lm;
 			if (!lm_idx && unused_lm_count)

@@ -25,12 +25,15 @@ static const char * const iommu_ports[] = {
 		"mdp_0",
 };
 
-static const struct sde_hw_res_map res_table[INTF_MAX] = {
-	{ SDE_NONE,	SDE_NONE,	SDE_NONE,	SDE_NONE },
-	{ INTF_0,	SDE_NONE,	SDE_NONE,	SDE_NONE },
-	{ INTF_1,	LM_0,		PINGPONG_0,	CTL_0 },
-	{ INTF_2,	LM_1,		PINGPONG_1,	CTL_1 },
-	{ INTF_3,	SDE_NONE,	SDE_NONE,	CTL_2 },
+static const struct sde_hw_res_map res_table[INTF_MAX + WB_MAX] = {
+	{SDE_NONE, SDE_NONE, SDE_NONE, SDE_NONE,   SDE_NONE, SDE_NONE},
+	{INTF_0,   SDE_NONE, SDE_NONE, SDE_NONE,   SDE_NONE, SDE_NONE},
+	{INTF_1,   SDE_NONE, LM_0,     PINGPONG_0, CTL_0,    SDE_NONE},
+	{INTF_2,   SDE_NONE, LM_1,     PINGPONG_1, CTL_1,    SDE_NONE },
+	{INTF_3,   SDE_NONE, SDE_NONE, SDE_NONE,   CTL_2,    SDE_NONE},
+	{SDE_NONE, WB_0,     LM_3,     SDE_NONE,   CTL_3,    SDE_NONE},
+	{SDE_NONE, WB_1,     LM_4,     SDE_NONE,   CTL_4,    SDE_NONE},
+	{SDE_NONE, WB_2,     LM_2,     SDE_NONE,   CTL_2,    CDM_0},
 };
 
 
