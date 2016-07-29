@@ -27,6 +27,7 @@
 
 #include "dsi_display.h"
 #include "dsi_drm.h"
+#include "sde_wb.h"
 #include "display_manager.h"
 
 /**
@@ -52,9 +53,14 @@ static u32 _dm_cache_active_displays(struct display_manager *disp_m)
 	/* query dp displays */
 	disp_m->dp_display_count = 0;
 
+	/* query wb displays */
+	disp_m->wb_display_count = sde_wb_get_num_of_displays();
+	DBG("wb display count=%d", disp_m->wb_display_count);
+
 	count = disp_m->dsi_display_count
 		+ disp_m->hdmi_display_count
-		+ disp_m->dp_display_count;
+		+ disp_m->dp_display_count
+		+ disp_m->wb_display_count;
 
 	disp_m->displays = kcalloc(count, sizeof(void *), GFP_KERNEL);
 	if (!disp_m->displays) {
@@ -66,6 +72,9 @@ static u32 _dm_cache_active_displays(struct display_manager *disp_m)
 
 		disp_m->dp_displays = 0;
 		disp_m->dp_display_count = 0;
+
+		disp_m->wb_displays = 0;
+		disp_m->wb_display_count = 0;
 	} else {
 		/* get final dsi display list */
 		disp_m->dsi_displays = disp_m->displays;
@@ -82,12 +91,20 @@ static u32 _dm_cache_active_displays(struct display_manager *disp_m)
 		disp_m->dp_displays = disp_m->hdmi_displays
 			+ disp_m->hdmi_display_count;
 		disp_m->dp_display_count = 0;
+
+		/* get final wb display list */
+		disp_m->wb_displays = disp_m->dp_displays
+			+ disp_m->dp_display_count;
+		disp_m->wb_display_count =
+			wb_display_get_displays(disp_m->wb_displays,
+					disp_m->wb_display_count);
 	}
 
 	/* set final display count */
 	disp_m->display_count = disp_m->dsi_display_count
 		+ disp_m->hdmi_display_count
-		+ disp_m->dp_display_count;
+		+ disp_m->dp_display_count
+		+ disp_m->wb_display_count;
 
 	return disp_m->display_count;
 }
@@ -113,6 +130,10 @@ static int _dm_get_type_by_index(struct display_manager *disp_m,
 		if (display_index < disp_m->dp_display_count)
 			return DRM_MODE_CONNECTOR_DisplayPort;
 		display_index -= disp_m->dp_display_count;
+
+		if (display_index < disp_m->wb_display_count)
+			return DRM_MODE_CONNECTOR_VIRTUAL;
+		display_index -= disp_m->wb_display_count;
 	}
 	return DRM_MODE_CONNECTOR_Unknown;
 }
@@ -126,24 +147,43 @@ static int _dm_init_active_displays(struct display_manager *disp_m)
 {
 	void *display;
 	int rc = 0;
-	int i = 0;
+	int dsi_idx, wb_idx;
 
-	for (i = 0; i < disp_m->dsi_display_count; i++) {
-		display = disp_m->dsi_displays[i];
+	for (dsi_idx = 0; dsi_idx < disp_m->dsi_display_count; dsi_idx++) {
+		display = disp_m->dsi_displays[dsi_idx];
 
 		rc = dsi_display_dev_init(display);
 		if (rc) {
 			pr_err("failed to init dsi display, rc=%d\n", rc);
+			goto error_deinit_dsi_displays;
+		}
+	}
 
-			for (i = i - 1; i >= 0; i--) {
-				display = disp_m->dsi_displays[i];
-				(void)dsi_display_dev_deinit(display);
-			}
-			break;
+	for (wb_idx = 0; wb_idx < disp_m->wb_display_count; wb_idx++) {
+		display = disp_m->wb_displays[wb_idx];
+
+		rc = sde_wb_dev_init(display);
+		if (rc) {
+			pr_err("failed to init wb display, rc=%d\n", rc);
+			goto error_deinit_sde_wb;
 		}
 	}
 
 	/* TODO: INIT HDMI and DP displays here */
+	return rc;
+
+error_deinit_sde_wb:
+	for (wb_idx = wb_idx - 1; wb_idx >= 0; wb_idx--) {
+		display = disp_m->wb_displays[wb_idx];
+		(void)sde_wb_dev_deinit(display);
+	}
+
+error_deinit_dsi_displays:
+	for (dsi_idx = dsi_idx - 1; dsi_idx >= 0; dsi_idx--) {
+		display = disp_m->dsi_displays[dsi_idx];
+		(void)dsi_display_dev_deinit(display);
+	}
+
 	return rc;
 }
 
@@ -156,6 +196,14 @@ static void _dm_deinit_active_displays(struct display_manager *disp_m)
 {
 	void *display;
 	int rc, i;
+
+	for (i = 0; i < disp_m->wb_display_count; i++) {
+		display = disp_m->wb_displays[i];
+
+		rc = sde_wb_dev_deinit(display);
+		if (rc)
+			pr_err("failed to deinit wb display, rc=%d\n", rc);
+	}
 
 	for (i = 0; i < disp_m->dsi_display_count; i++) {
 		display = disp_m->dsi_displays[i];
@@ -175,7 +223,8 @@ static int disp_manager_comp_ops_bind(struct device *dev,
 	struct msm_drm_private *priv;
 	struct display_manager *disp_m;
 	void *display;
-	int i, rc = -EINVAL;
+	int dsi_idx, wb_idx;
+	int rc = -EINVAL;
 
 	if (master && dev) {
 		drm = dev_get_drvdata(master);
@@ -193,29 +242,46 @@ static int disp_manager_comp_ops_bind(struct device *dev,
 	disp_m->drm_dev = drm;
 
 	/* DSI displays */
-	for (i = 0; i < disp_m->dsi_display_count; i++) {
-		display = disp_m->dsi_displays[i];
+	for (dsi_idx = 0; dsi_idx < disp_m->dsi_display_count; dsi_idx++) {
+		display = disp_m->dsi_displays[dsi_idx];
 
 		rc = dsi_display_bind(display, drm);
 		if (rc) {
 			if (rc != -EPROBE_DEFER)
 				pr_err("Failed to bind dsi display_%d, rc=%d\n",
-					i, rc);
+					dsi_idx, rc);
+			goto error_unbind_dsi;
+		}
+	}
 
-			/* clean up DSI bindings */
-			for (i = i - 1; i >= 0; i--) {
-				display = disp_m->dsi_displays[i];
-				(void)dsi_display_unbind(display);
-			}
-			goto exit;
+	/* WB displays */
+	for (wb_idx = 0; wb_idx < disp_m->wb_display_count; wb_idx++) {
+		display = disp_m->wb_displays[wb_idx];
+
+		rc = sde_wb_bind(display, drm);
+		if (rc) {
+			pr_err("Failed to bind wb display_%d, rc=%d\n",
+				wb_idx, rc);
+			goto error_unbind_wb;
 		}
 	}
 
 	/* TODO: BIND HDMI display here */
 	/* TODO: BIND DP display here */
-
 	priv->dm = disp_m;
-exit:
+	return rc;
+
+error_unbind_wb:
+	for (wb_idx = wb_idx - 1; wb_idx >= 0; wb_idx--) {
+		display = disp_m->wb_displays[wb_idx];
+		(void)sde_wb_unbind(display);
+	}
+
+error_unbind_dsi:
+	for (dsi_idx = dsi_idx - 1; dsi_idx >= 0; dsi_idx--) {
+		display = disp_m->dsi_displays[dsi_idx];
+		(void)dsi_display_unbind(display);
+	}
 	return rc;
 }
 
@@ -236,6 +302,16 @@ static void disp_manager_comp_ops_unbind(struct device *dev,
 
 	disp_m = platform_get_drvdata(pdev);
 
+	/* WB displays */
+	for (i = 0; i < disp_m->wb_display_count; i++) {
+		display = disp_m->wb_displays[i];
+
+		rc = sde_wb_unbind(display);
+		if (rc)
+			pr_err("failed to unbind wb display_%d, rc=%d\n",
+			       i, rc);
+	}
+
 	/* DSI displays */
 	for (i = 0; i < disp_m->dsi_display_count; i++) {
 		display = disp_m->dsi_displays[i];
@@ -254,6 +330,7 @@ static const struct of_device_id displays_dt_match[] = {
 	{.compatible = "qcom,dsi-display"},
 	{.compatible = "qcom,hdmi-display"},
 	{.compatible = "qcom,dp-display"},
+	{.compatible = "qcom,wb-display"},
 	{}
 };
 
@@ -369,7 +446,7 @@ int display_manager_get_info_by_index(struct display_manager *disp_m,
 	void *display;
 	int rc = 0;
 
-	if (!disp_m || !info) {
+	if (!disp_m || !info || (display_index >= disp_m->display_count)) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
@@ -378,15 +455,20 @@ int display_manager_get_info_by_index(struct display_manager *disp_m,
 
 	mutex_lock(&disp_m->lock);
 
-	if (display_index < disp_m->display_count)
-		display = disp_m->displays[display_index];
+	display = disp_m->displays[display_index];
 
 	switch (_dm_get_type_by_index(disp_m, display_index)) {
 	case DRM_MODE_CONNECTOR_DSI:
-		memset(info, 0x0, sizeof(*info));
 		rc = dsi_display_get_info(info, display);
 		if (rc) {
 			pr_err("failed to get dsi info, rc=%d\n", rc);
+			rc = -EINVAL;
+		}
+		break;
+	case DRM_MODE_CONNECTOR_VIRTUAL:
+		rc = sde_wb_get_info(info, display);
+		if (rc) {
+			pr_err("failed to get wb info, rc=%d\n", rc);
 			rc = -EINVAL;
 		}
 		break;
@@ -410,19 +492,25 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 		.mode_valid = dsi_conn_mode_valid,
 		.get_info =   dsi_display_get_info,
 	};
+	static const struct sde_connector_ops wb_ops = {
+		.post_init =    sde_wb_connector_post_init,
+		.detect =       sde_wb_connector_detect,
+		.get_modes =    sde_wb_connector_get_modes,
+		.set_property = sde_wb_connector_set_property,
+		.get_info =     sde_wb_get_info,
+	};
 	void *display;
 	int rc = -EINVAL;
 	struct drm_connector *connector;
 
-	if (!disp_m || !encoder) {
+	if (!disp_m || !encoder || (display_index >= disp_m->display_count)) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
 	mutex_lock(&disp_m->lock);
 
-	if (display_index < disp_m->display_count)
-		display = disp_m->displays[display_index];
+	display = disp_m->displays[display_index];
 
 	switch (_dm_get_type_by_index(disp_m, display_index)) {
 	case DRM_MODE_CONNECTOR_DSI:
@@ -439,6 +527,25 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 				&dsi_ops,
 				DRM_CONNECTOR_POLL_HPD,
 				DRM_MODE_CONNECTOR_DSI);
+		if (!connector)
+			rc = -ENOMEM;
+		else if (IS_ERR(connector))
+			rc = PTR_ERR(connector);
+		break;
+	case DRM_MODE_CONNECTOR_VIRTUAL:
+		rc = sde_wb_drm_init(display, encoder);
+		if (rc) {
+			pr_err("writeback init failed\n");
+			break;
+		}
+
+		connector = sde_connector_init(disp_m->drm_dev,
+				encoder,
+				0,
+				display,
+				&wb_ops,
+				DRM_CONNECTOR_POLL_HPD,
+				DRM_MODE_CONNECTOR_VIRTUAL);
 		if (!connector)
 			rc = -ENOMEM;
 		else if (IS_ERR(connector))
@@ -490,13 +597,14 @@ void display_manager_register(void)
 	dsi_phy_drv_register();
 	dsi_ctrl_drv_register();
 	dsi_display_register();
-
+	sde_wb_register();
 	platform_driver_register(&disp_manager_driver);
 }
 
 void display_manager_unregister(void)
 {
 	platform_driver_unregister(&disp_manager_driver);
+	sde_wb_unregister();
 	dsi_display_unregister();
 	dsi_ctrl_drv_unregister();
 	dsi_phy_drv_unregister();
