@@ -27,6 +27,11 @@
 #define UPPER_PIPE_CTRL                   0x3F0
 #define TE_LINE_INTERVAL                  0x3F4
 
+#define TRAFFIC_SHAPER_EN                 BIT(31)
+#define TRAFFIC_SHAPER_RD_CLIENT(num)     (0x030 + (num * 4))
+#define TRAFFIC_SHAPER_WR_CLIENT(num)     (0x060 + (num * 4))
+#define TRAFFIC_SHAPER_FIXPOINT_FACTOR    4
+
 static void sde_hw_setup_split_pipe_control(struct sde_hw_mdp *mdp,
 		struct split_pipe_cfg *cfg)
 {
@@ -65,10 +70,35 @@ static void sde_hw_setup_split_pipe_control(struct sde_hw_mdp *mdp,
 	SDE_REG_WRITE(c, SPLIT_DISPLAY_ENABLE, cfg->en & 0x1);
 }
 
+static void sde_hw_setup_traffic_shaper(struct sde_hw_mdp *mdp,
+		struct traffic_shaper_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	u32 ts_control = 0;
+	u32 offset;
+	u64 bpc;
+
+	if (cfg->rd_client)
+		offset = TRAFFIC_SHAPER_RD_CLIENT(cfg->client_id);
+	else
+		offset = TRAFFIC_SHAPER_WR_CLIENT(cfg->client_id);
+
+	if (cfg->en) {
+		bpc = cfg->bpc_numer;
+		do_div(bpc, (cfg->bpc_denom >>
+					TRAFFIC_SHAPER_FIXPOINT_FACTOR));
+		ts_control = lower_32_bits(bpc) + 1;
+		ts_control |= TRAFFIC_SHAPER_EN;
+	}
+
+	SDE_REG_WRITE(c, offset, ts_control);
+}
+
 static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		unsigned long cap)
 {
 	ops->setup_split_pipe = sde_hw_setup_split_pipe_control;
+	ops->setup_traffic_shaper = sde_hw_setup_traffic_shaper;
 }
 
 static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,
