@@ -1633,7 +1633,7 @@
 		vreg-cx-supply = <&pm8994_s1_corner_ao>;
 
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
-		qcom,vreg-cx-voltage-level = <7 4 0>;
+		qcom,vreg-cx-voltage-level = <7 5 0>;
 
 		qcom,l1-supported;
 		qcom,l1ss-supported;
