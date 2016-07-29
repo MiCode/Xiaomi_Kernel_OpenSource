@@ -70,6 +70,20 @@ static void sde_hw_setup_split_pipe_control(struct sde_hw_mdp *mdp,
 	SDE_REG_WRITE(c, SPLIT_DISPLAY_ENABLE, cfg->en & 0x1);
 }
 
+static void sde_hw_setup_cdm_output(struct sde_hw_mdp *mdp,
+		struct cdm_output_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	u32 out_ctl = 0;
+
+	if (cfg->wb_en)
+		out_ctl |= BIT(24);
+	else if (cfg->intf_en)
+		out_ctl |= BIT(19);
+
+	SDE_REG_WRITE(c, MDP_OUT_CTL_0, out_ctl);
+}
+
 static void sde_hw_setup_traffic_shaper(struct sde_hw_mdp *mdp,
 		struct traffic_shaper_cfg *cfg)
 {
@@ -98,6 +112,7 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		unsigned long cap)
 {
 	ops->setup_split_pipe = sde_hw_setup_split_pipe_control;
+	ops->setup_cdm_output = sde_hw_setup_cdm_output;
 	ops->setup_traffic_shaper = sde_hw_setup_traffic_shaper;
 }
 
