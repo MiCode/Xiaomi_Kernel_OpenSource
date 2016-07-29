@@ -339,7 +339,8 @@ static int of_read_regs(struct device *dev, struct reg_info **regs_ref,
 		rc = of_property_read_u32_array(dev->of_node, reg_uV_uA_name,
 					vdd_uV_uA, len);
 		if (rc) {
-			dev_err(dev, "Failed to read uV/uA values\n");
+			dev_err(dev, "Failed to read uV/uA values(rc:%d)\n",
+									rc);
 			return rc;
 		}
 
@@ -423,7 +424,8 @@ static int enable_regulators(struct pil_tz_data *d, struct device *dev,
 			rc = regulator_set_voltage(regs[i].reg,
 					regs[i].uV, INT_MAX);
 			if (rc) {
-				dev_err(dev, "Failed to request voltage.\n");
+				dev_err(dev, "Failed to request voltage(rc:%d)\n",
+									rc);
 				goto err_voltage;
 			}
 		}
@@ -432,7 +434,8 @@ static int enable_regulators(struct pil_tz_data *d, struct device *dev,
 			rc = regulator_set_load(regs[i].reg,
 						regs[i].uA);
 			if (rc < 0) {
-				dev_err(dev, "Failed to set regulator mode\n");
+				dev_err(dev, "Failed to set regulator mode(rc:%d)\n",
+									rc);
 				goto err_mode;
 			}
 		}
@@ -442,7 +445,7 @@ static int enable_regulators(struct pil_tz_data *d, struct device *dev,
 
 		rc = regulator_enable(regs[i].reg);
 		if (rc) {
-			dev_err(dev, "Regulator enable failed\n");
+			dev_err(dev, "Regulator enable failed(rc:%d)\n", rc);
 			goto err_enable;
 		}
 	}
@@ -499,7 +502,7 @@ static int prepare_enable_clocks(struct device *dev, struct clk **clks,
 	for (i = 0; i < clk_count; i++) {
 		rc = clk_prepare_enable(clks[i]);
 		if (rc) {
-			dev_err(dev, "Clock enable failed\n");
+			dev_err(dev, "Clock enable failed(rc:%d)\n", rc);
 			goto err;
 		}
 	}
@@ -541,7 +544,8 @@ static int pil_make_proxy_vote(struct pil_desc *pil)
 	if (d->bus_client) {
 		rc = msm_bus_scale_client_update_request(d->bus_client, 1);
 		if (rc) {
-			dev_err(pil->dev, "bandwidth request failed\n");
+			dev_err(pil->dev, "bandwidth request failed(rc:%d)\n",
+									rc);
 			goto err_bw;
 		}
 	} else
@@ -995,7 +999,8 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		rc = of_property_read_u32(pdev->dev.of_node, "qcom,smem-id",
 						&d->smem_id);
 		if (rc) {
-			dev_err(&pdev->dev, "Failed to get the smem_id.\n");
+			dev_err(&pdev->dev, "Failed to get the smem_id(rc:%d)\n",
+									rc);
 			return rc;
 		}
 	}
@@ -1019,7 +1024,8 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		rc = of_property_read_u32(pdev->dev.of_node, "qcom,pas-id",
 								&d->pas_id);
 		if (rc) {
-			dev_err(&pdev->dev, "Failed to find the pas_id.\n");
+			dev_err(&pdev->dev, "Failed to find the pas_id(rc:%d)\n",
+									rc);
 			return rc;
 		}
 		scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE0);
