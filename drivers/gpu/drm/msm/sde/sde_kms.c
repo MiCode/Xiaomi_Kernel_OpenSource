@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+
 #include <drm/drm_crtc.h>
 #include <linux/debugfs.h>
 
@@ -20,6 +22,7 @@
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
 #include "sde_hw_intf.h"
+#include "sde_hw_vbif.h"
 
 #define CREATE_TRACE_POINTS
 #include "sde_trace.h"
@@ -324,6 +327,14 @@ static void sde_preclose(struct msm_kms *kms, struct drm_file *file)
 static void sde_destroy(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
+	int i;
+
+	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
+		u32 vbif_idx = sde_kms->catalog->vbif[i].id;
+
+		if ((vbif_idx < VBIF_MAX) && sde_kms->hw_vbif[vbif_idx])
+			sde_hw_vbif_destroy(sde_kms->hw_vbif[vbif_idx]);
+	}
 
 	sde_debugfs_destroy(sde_kms);
 	sde_irq_domain_fini(sde_kms);
@@ -357,6 +368,198 @@ static const struct msm_kms_funcs kms_funcs = {
 static void core_hw_rev_init(struct sde_kms *sde_kms)
 {
 	sde_kms->core_rev = readl_relaxed(sde_kms->mmio + 0x0);
+}
+
+/**
+ * _sde_vbif_wait_for_xin_halt - wait for the xin to halt
+ * @vbif:	Pointer to hardware vbif driver
+ * @xin_id:	Client interface identifier
+ * @return:	0 if success; error code otherwise
+ */
+static int _sde_vbif_wait_for_xin_halt(struct sde_hw_vbif *vbif, u32 xin_id)
+{
+	ktime_t timeout;
+	bool status;
+	int rc;
+
+	if (!vbif || !vbif->cap || !vbif->ops.get_halt_ctrl) {
+		SDE_ERROR("invalid arguments vbif %d\n", vbif != 0);
+		return -EINVAL;
+	}
+
+	timeout = ktime_add_us(ktime_get(), vbif->cap->xin_halt_timeout);
+	for (;;) {
+		status = vbif->ops.get_halt_ctrl(vbif, xin_id);
+		if (status)
+			break;
+		if (ktime_compare_safe(ktime_get(), timeout) > 0) {
+			status = vbif->ops.get_halt_ctrl(vbif, xin_id);
+			break;
+		}
+		usleep_range(501, 1000);
+	}
+
+	if (!status) {
+		rc = -ETIMEDOUT;
+		SDE_ERROR("VBIF %d client %d not halting. TIMEDOUT.\n",
+				vbif->idx - VBIF_0, xin_id);
+	} else {
+		rc = 0;
+		SDE_DEBUG("VBIF %d client %d is halted\n",
+				vbif->idx - VBIF_0, xin_id);
+	}
+
+	return rc;
+}
+
+/**
+ * _sde_vbif_apply_dynamic_ot_limit - determine OT based on usecase parameters
+ * @vbif:	Pointer to hardware vbif driver
+ * @ot_lim:	Pointer to OT limit to be modified
+ * @params:	Pointer to usecase parameters
+ */
+static void _sde_vbif_apply_dynamic_ot_limit(struct sde_hw_vbif *vbif,
+		u32 *ot_lim, struct sde_vbif_set_ot_params *params)
+{
+	u64 pps;
+	const struct sde_vbif_dynamic_ot_tbl *tbl;
+	u32 i;
+
+	if (!vbif || !(vbif->cap->features & BIT(SDE_VBIF_QOS_OTLIM)))
+		return;
+
+	/* Dynamic OT setting done only for WFD */
+	if (!params->is_wfd)
+		return;
+
+	pps = params->frame_rate;
+	pps *= params->width;
+	pps *= params->height;
+
+	tbl = params->rd ? &vbif->cap->dynamic_ot_rd_tbl :
+			&vbif->cap->dynamic_ot_wr_tbl;
+
+	for (i = 0; i < tbl->count; i++) {
+		if (pps <= tbl->cfg[i].pps) {
+			*ot_lim = tbl->cfg[i].ot_limit;
+			break;
+		}
+	}
+
+	SDE_DEBUG("vbif:%d xin:%d w:%d h:%d fps:%d pps:%llu ot:%u\n",
+			vbif->idx - VBIF_0, params->xin_id,
+			params->width, params->height, params->frame_rate,
+			pps, *ot_lim);
+}
+
+/**
+ * _sde_vbif_get_ot_limit - get OT based on usecase & configuration parameters
+ * @vbif:	Pointer to hardware vbif driver
+ * @params:	Pointer to usecase parameters
+ * @return:	OT limit
+ */
+static u32 _sde_vbif_get_ot_limit(struct sde_hw_vbif *vbif,
+	struct sde_vbif_set_ot_params *params)
+{
+	u32 ot_lim = 0;
+	u32 val;
+
+	if (!vbif || !vbif->cap) {
+		SDE_ERROR("invalid arguments vbif %d\n", vbif != 0);
+		return -EINVAL;
+	}
+
+	if (vbif->cap->default_ot_wr_limit && !params->rd)
+		ot_lim = vbif->cap->default_ot_wr_limit;
+	else if (vbif->cap->default_ot_rd_limit && params->rd)
+		ot_lim = vbif->cap->default_ot_rd_limit;
+
+	/*
+	 * If default ot is not set from dt/catalog,
+	 * then do not configure it.
+	 */
+	if (ot_lim == 0)
+		goto exit;
+
+	/* Modify the limits if the target and the use case requires it */
+	_sde_vbif_apply_dynamic_ot_limit(vbif, &ot_lim, params);
+
+	if (vbif && vbif->ops.get_limit_conf) {
+		val = vbif->ops.get_limit_conf(vbif,
+				params->xin_id, params->rd);
+		if (val == ot_lim)
+			ot_lim = 0;
+	}
+
+exit:
+	SDE_DEBUG("vbif:%d xin:%d ot_lim:%d\n",
+			vbif->idx - VBIF_0, params->xin_id, ot_lim);
+	return ot_lim;
+}
+
+/**
+ * sde_vbif_set_ot_limit - set OT based on usecase & configuration parameters
+ * @vbif:	Pointer to hardware vbif driver
+ * @params:	Pointer to usecase parameters
+ *
+ * Note this function would block waiting for bus halt.
+ */
+void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
+		struct sde_vbif_set_ot_params *params)
+{
+	struct sde_hw_vbif *vbif = NULL;
+	struct sde_hw_mdp *mdp;
+	bool forced_on = false;
+	u32 ot_lim;
+	int ret, i;
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid arguments\n");
+		return;
+	}
+	mdp = sde_kms->hw_mdp;
+
+	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
+		if (sde_kms->hw_vbif[i] &&
+				sde_kms->hw_vbif[i]->idx == params->vbif_idx)
+			vbif = sde_kms->hw_vbif[i];
+	}
+
+	if (!vbif || !mdp) {
+		SDE_ERROR("invalid arguments vbif %d mdp %d\n",
+				vbif != 0, mdp != 0);
+		return;
+	}
+
+	if (!mdp->ops.setup_clk_force_ctrl ||
+			!vbif->ops.set_limit_conf ||
+			!vbif->ops.set_halt_ctrl)
+		return;
+
+	ot_lim = _sde_vbif_get_ot_limit(vbif, params) & 0xFF;
+
+	if (ot_lim == 0)
+		goto exit;
+
+	trace_sde_perf_set_ot(params->num, params->xin_id, ot_lim,
+		params->vbif_idx);
+
+	forced_on = mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, true);
+
+	vbif->ops.set_limit_conf(vbif, params->xin_id, params->rd, ot_lim);
+
+	vbif->ops.set_halt_ctrl(vbif, params->xin_id, true);
+
+	ret = _sde_vbif_wait_for_xin_halt(vbif, params->xin_id);
+	if (ret)
+		MSM_EVT(sde_kms->dev, vbif->idx, params->xin_id);
+
+	vbif->ops.set_halt_ctrl(vbif, params->xin_id, false);
+
+	if (forced_on)
+		mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, false);
+exit:
+	return;
 }
 
 int sde_mmu_init(struct sde_kms *sde_kms)
@@ -463,6 +666,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 {
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	int i;
 	int rc;
 
 	if (!dev) {
@@ -518,6 +722,25 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 			sde_kms->dev);
 	if (rc)
 		goto catalog_err;
+
+	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
+		u32 vbif_idx = sde_kms->catalog->vbif[i].id;
+
+		sde_kms->hw_vbif[i] = sde_hw_vbif_init(vbif_idx,
+				sde_kms->vbif[vbif_idx], sde_kms->catalog);
+		if (IS_ERR_OR_NULL(sde_kms->hw_vbif[vbif_idx])) {
+			SDE_ERROR("failed to init vbif %d\n", vbif_idx);
+			sde_kms->hw_vbif[vbif_idx] = NULL;
+			goto catalog_err;
+		}
+	}
+
+	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
+	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
+		SDE_ERROR("failed to get hw_mdp\n");
+		sde_kms->hw_mdp = NULL;
+		goto catalog_err;
+	}
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
