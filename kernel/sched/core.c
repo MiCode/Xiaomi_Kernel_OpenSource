@@ -1591,7 +1591,6 @@ static void add_cluster(const struct cpumask *cpus, struct list_head *head)
 	num_clusters++;
 }
 
-#ifdef CONFIG_SMP
 static void update_cluster_topology(void)
 {
 	struct cpumask cpus = *cpu_possible_mask;
@@ -1616,7 +1615,6 @@ static void update_cluster_topology(void)
 	 */
 	move_list(&cluster_head, &new_head, false);
 }
-#endif
 
 static void init_clusters(void)
 {
@@ -1721,32 +1719,6 @@ unsigned int sched_get_static_cluster_pwr_cost(int cpu)
 {
 	return cpu_rq(cpu)->cluster->static_cluster_pwr_cost;
 }
-
-#else /* CONFIG_SCHED_HMP */
-
-static inline int got_boost_kick(void)
-{
-	return 0;
-}
-
-static inline void clear_boost_kick(int cpu) { }
-
-static inline void clear_hmp_request(int cpu) { }
-
-int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
-{
-	return 0;
-}
-
-#ifdef CONFIG_SMP
-static void update_cluster_topology(void) { }
-#endif
-
-#endif	/* CONFIG_SCHED_HMP */
-
-#define SCHED_MIN_FREQ 1
-
-#if defined(CONFIG_SCHED_HMP)
 
 /*
  * sched_window_stats_policy and sched_ravg_hist_size have a 'sysctl' copy
@@ -4166,9 +4138,50 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 	return 0;
 }
 
-#else	/* CONFIG_SCHED_HMP */
+static bool early_detection_notify(struct rq *rq, u64 wallclock)
+{
+	struct task_struct *p;
+	int loop_max = 10;
+
+	if (!sched_boost() || !rq->cfs.h_nr_running)
+		return 0;
+
+	rq->ed_task = NULL;
+	list_for_each_entry(p, &rq->cfs_tasks, se.group_node) {
+		if (!loop_max)
+			break;
+
+		if (wallclock - p->last_wake_ts >= EARLY_DETECTION_DURATION) {
+			rq->ed_task = p;
+			return 1;
+		}
+
+		loop_max--;
+	}
+
+	return 0;
+}
+
+#else /* CONFIG_SCHED_HMP */
 
 static inline void fixup_busy_time(struct task_struct *p, int new_cpu) { }
+static inline void clear_boost_kick(int cpu) { }
+static inline void clear_hmp_request(int cpu) { }
+static inline void mark_task_starting(struct task_struct *p) {}
+static inline void set_window_start(struct rq *rq) {}
+static inline void migrate_sync_cpu(int cpu) {}
+
+static inline int got_boost_kick(void)
+{
+	return 0;
+}
+
+int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
+{
+	return 0;
+}
+
+static inline void update_cluster_topology(void) { }
 
 static void
 update_task_ravg(struct task_struct *p, struct rq *rq,
@@ -4176,11 +4189,10 @@ update_task_ravg(struct task_struct *p, struct rq *rq,
 {
 }
 
-static inline void mark_task_starting(struct task_struct *p) {}
-
-static inline void set_window_start(struct rq *rq) {}
-
-static inline void migrate_sync_cpu(int cpu) {}
+static bool early_detection_notify(struct rq *rq, u64 wallclock)
+{
+	return 0;
+}
 
 #endif	/* CONFIG_SCHED_HMP */
 
@@ -6127,37 +6139,6 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 
 	return ns;
 }
-
-#ifdef CONFIG_SCHED_HMP
-static bool early_detection_notify(struct rq *rq, u64 wallclock)
-{
-	struct task_struct *p;
-	int loop_max = 10;
-
-	if (!sched_boost() || !rq->cfs.h_nr_running)
-		return 0;
-
-	rq->ed_task = NULL;
-	list_for_each_entry(p, &rq->cfs_tasks, se.group_node) {
-		if (!loop_max)
-			break;
-
-		if (wallclock - p->last_wake_ts >= EARLY_DETECTION_DURATION) {
-			rq->ed_task = p;
-			return 1;
-		}
-
-		loop_max--;
-	}
-
-	return 0;
-}
-#else /* CONFIG_SCHED_HMP */
-static bool early_detection_notify(struct rq *rq, u64 wallclock)
-{
-	return 0;
-}
-#endif /* CONFIG_SCHED_HMP */
 
 /*
  * This function gets called by the timer code, with HZ frequency.
@@ -10865,7 +10846,7 @@ void __init sched_init(void)
 		rq->avg_irqload = 0;
 		rq->irqload_ts = 0;
 		rq->static_cpu_pwr_cost = 0;
-		rq->cc.cycles = SCHED_MIN_FREQ;
+		rq->cc.cycles = 1;
 		rq->cc.time = 1;
 		rq->cstate = 0;
 		rq->wakeup_latency = 0;

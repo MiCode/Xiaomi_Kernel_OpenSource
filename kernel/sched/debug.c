@@ -327,8 +327,6 @@ do {									\
 	P(cluster->cur_freq);
 	P(cluster->max_freq);
 	P(cluster->exec_scale_factor);
-#endif
-#ifdef CONFIG_SCHED_HMP
 	P(hmp_stats.nr_big_tasks);
 	SEQ_printf(m, "  .%-30s: %llu\n", "hmp_stats.cumulative_runnable_avg",
 			rq->hmp_stats.cumulative_runnable_avg);
