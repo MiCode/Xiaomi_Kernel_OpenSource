@@ -14,6 +14,7 @@
 #define _SDE_HW_CDM_H
 
 #include "sde_hw_mdss.h"
+#include "sde_hw_top.h"
 
 struct sde_hw_cdm;
 
@@ -23,7 +24,7 @@ struct sde_hw_cdm_cfg {
 	u32 output_bit_depth;
 	u32 h_cdwn_type;
 	u32 v_cdwn_type;
-	struct sde_format *output_fmt;
+	const struct sde_format *output_fmt;
 	u32 output_type;
 	int flags;
 };
@@ -59,7 +60,7 @@ enum sde_hw_cdwn_output_bit_depth {
 struct sde_hw_cdm_ops {
 	/**
 	 * Programs the CSC matrix for conversion from RGB space to YUV space,
-	 * it is optinal to call this function as this matrix is automatically
+	 * it is optional to call this function as this matrix is automatically
 	 * set during initialization, user should call this if it wants
 	 * to program a different matrix than default matrix.
 	 * @cdm:          Pointer to the chroma down context structure
@@ -97,6 +98,9 @@ struct sde_hw_cdm {
 	const struct sde_cdm_cfg   *cdm_hw_cap;
 	enum  sde_cdm  idx;
 
+	/* mdp top hw driver */
+	struct sde_hw_mdp *hw_mdp;
+
 	/* ops */
 	struct sde_hw_cdm_ops ops;
 };
@@ -107,9 +111,11 @@ struct sde_hw_cdm {
  * @idx:  cdm index for which driver object is required
  * @addr: mapped register io address of MDP
  * @m :   pointer to mdss catalog data
+ * @hw_mdp:  pointer to mdp top hw driver object
  */
 struct sde_hw_cdm *sde_hw_cdm_init(enum sde_cdm idx,
 		void __iomem *addr,
-		struct sde_mdss_cfg *m);
+		struct sde_mdss_cfg *m,
+		struct sde_hw_mdp *hw_mdp);
 
 #endif /*_SDE_HW_CDM_H */
