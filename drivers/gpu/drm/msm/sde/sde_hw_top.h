@@ -53,9 +53,20 @@ struct split_pipe_cfg {
 };
 
 /**
+ * struct cdm_output_cfg: output configuration for cdm
+ * @wb_en     : enable/disable writeback output
+ * @intf_en   : enable/disable interface output
+ */
+struct cdm_output_cfg {
+	bool wb_en;
+	bool intf_en;
+};
+
+/**
  * struct sde_hw_mdp_ops - interface to the MDP TOP Hw driver functions
  * Assumption is these functions will be called after clocks are enabled.
  * @setup_split_pipe : Programs the pipe control registers
+ * @setup_cdm_output : programs cdm control
  * @setup_traffic_shaper : programs traffic shaper control
  */
 struct sde_hw_mdp_ops {
@@ -66,6 +77,14 @@ struct sde_hw_mdp_ops {
 	 */
 	void (*setup_split_pipe)(struct sde_hw_mdp *mdp,
 			struct split_pipe_cfg *p);
+
+	/**
+	 * setup_cdm_output() : Setup selection control of the cdm data path
+	 * @mdp  : mdp top context driver
+	 * @cfg  : cdm output configuration
+	 */
+	void (*setup_cdm_output)(struct sde_hw_mdp *mdp,
+			struct cdm_output_cfg *cfg);
 
 	/**
 	 * setup_traffic_shaper() : Setup traffic shaper control
