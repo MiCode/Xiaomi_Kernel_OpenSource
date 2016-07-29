@@ -1777,8 +1777,6 @@ __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
 unsigned int __read_mostly sysctl_sched_enable_colocation = 1;
 
-#ifdef CONFIG_SCHED_FREQ_INPUT
-
 __read_mostly unsigned int sysctl_sched_new_task_windows = 5;
 
 #define SCHED_FREQ_ACCOUNT_WAIT_TIME 0
@@ -1798,8 +1796,6 @@ __read_mostly int sysctl_sched_freq_dec_notify = 10 * 1024 * 1024; /* - 10GHz */
 static __read_mostly unsigned int sched_io_is_busy;
 
 __read_mostly unsigned int sysctl_sched_pred_alert_freq = 10 * 1024 * 1024;
-
-#endif	/* CONFIG_SCHED_FREQ_INPUT */
 
 /*
  * Maximum possible frequency across all cpus. Task demand and cpu
@@ -1838,9 +1834,7 @@ unsigned int __read_mostly sched_disable_window_stats;
  * in a window, it's considered to be generating majority of workload
  * for this window. Prediction could be adjusted for such tasks.
  */
-#ifdef CONFIG_SCHED_FREQ_INPUT
 __read_mostly unsigned int sched_major_task_runtime = 10000000;
-#endif
 
 static unsigned int sync_cpu;
 
@@ -1952,8 +1946,6 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 
 	return delta;
 }
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
 
 static inline int cpu_is_waiting_on_io(struct rq *rq)
 {
@@ -2671,28 +2663,6 @@ static inline u32 predict_and_update_buckets(struct rq *rq,
 
 	return pred_demand;
 }
-#define assign_ravg_pred_demand(x) (p->ravg.pred_demand = x)
-
-#else	/* CONFIG_SCHED_FREQ_INPUT */
-
-static inline void
-update_task_pred_demand(struct rq *rq, struct task_struct *p, int event)
-{
-}
-
-static inline void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
-	     int event, u64 wallclock, u64 irqtime)
-{
-}
-
-static inline u32 predict_and_update_buckets(struct rq *rq,
-			struct task_struct *p, u32 runtime)
-{
-	return 0;
-}
-#define assign_ravg_pred_demand(x)
-
-#endif	/* CONFIG_SCHED_FREQ_INPUT */
 
 static void update_task_cpu_cycles(struct task_struct *p, int cpu)
 {
@@ -2831,7 +2801,7 @@ static void update_history(struct rq *rq, struct task_struct *p,
 						      pred_demand);
 
 	p->ravg.demand = demand;
-	assign_ravg_pred_demand(pred_demand);
+	p->ravg.pred_demand = pred_demand;
 
 done:
 	trace_sched_update_history(rq, p, runtime, samples, event);
@@ -3074,10 +3044,8 @@ static inline void set_window_start(struct rq *rq)
 		raw_spin_unlock(&rq->lock);
 		double_rq_lock(rq, sync_rq);
 		rq->window_start = cpu_rq(sync_cpu)->window_start;
-#ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
-#endif
 		raw_spin_unlock(&sync_rq->lock);
 	}
 
@@ -3222,10 +3190,8 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 
 		if (window_start)
 			rq->window_start = window_start;
-#ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
-#endif
 		reset_cpu_hmp_stats(cpu, 1);
 	}
 
@@ -3240,7 +3206,6 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		new = sysctl_sched_ravg_hist_size;
 		sched_ravg_hist_size = sysctl_sched_ravg_hist_size;
 	}
-#ifdef CONFIG_SCHED_FREQ_INPUT
 	else if (sched_freq_aggregate !=
 					sysctl_sched_freq_aggregate) {
 		reason = FREQ_AGGREGATE_CHANGE;
@@ -3248,7 +3213,6 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		new = sysctl_sched_freq_aggregate;
 		sched_freq_aggregate = sysctl_sched_freq_aggregate;
 	}
-#endif
 
 	for_each_possible_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
@@ -3262,8 +3226,6 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 	trace_sched_reset_all_window_stats(window_start, window_size,
 		sched_ktime_clock() - start_ts, reason, old, new);
 }
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
 
 static inline void
 sync_window_start(struct rq *rq, struct group_cpu_time *cpu_time);
@@ -3585,12 +3547,6 @@ done:
 		double_rq_unlock(src_rq, dest_rq);
 }
 
-#else
-
-static inline void fixup_busy_time(struct task_struct *p, int new_cpu) { }
-
-#endif	/* CONFIG_SCHED_FREQ_INPUT */
-
 #define sched_up_down_migrate_auto_update 1
 static void check_for_up_down_migrate_update(const struct cpumask *cpus)
 {
@@ -3662,8 +3618,6 @@ static void set_preferred_cluster(struct related_thread_group *grp)
 
 #define ADD_TASK	0
 #define REM_TASK	1
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
 
 static void
 update_task_ravg(struct task_struct *p, struct rq *rq,
@@ -3824,34 +3778,6 @@ _group_cpu_time(struct related_thread_group *grp, int cpu)
 {
 	return grp ? per_cpu_ptr(grp->cpu_time, cpu) : NULL;
 }
-
-#else	/* CONFIG_SCHED_FREQ_INPUT */
-
-static inline void free_group_cputime(struct related_thread_group *grp) { }
-
-static inline int alloc_group_cputime(struct related_thread_group *grp)
-{
-	return 0;
-}
-
-static inline void transfer_busy_time(struct rq *rq,
-	 struct related_thread_group *grp, struct task_struct *p, int event)
-{
-}
-
-static struct group_cpu_time *
-task_group_cpu_time(struct task_struct *p, int cpu)
-{
-	return NULL;
-}
-
-static inline struct group_cpu_time *
-_group_cpu_time(struct related_thread_group *grp, int cpu)
-{
-	return NULL;
-}
-
-#endif
 
 struct related_thread_group *alloc_related_thread_group(int group_id)
 {
@@ -10951,7 +10877,6 @@ void __init sched_init(void)
 		 * like select_best_cpu()
 		 */
 		rq->cluster = &init_cluster;
-#ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
 		rq->old_busy_time = 0;
@@ -10959,7 +10884,6 @@ void __init sched_init(void)
 		rq->old_busy_time_group = 0;
 		rq->notifier_sent = 0;
 		rq->hmp_stats.pred_demands_sum = 0;
-#endif
 #endif
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 

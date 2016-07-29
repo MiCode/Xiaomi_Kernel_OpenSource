@@ -25,16 +25,6 @@ config CPU_FREQ_BOOST_SW
 	bool
 	depends on THERMAL
 
-config SCHED_FREQ_INPUT
-	bool "Scheduler inputs to cpufreq governor"
-	depends on SCHED_HMP
-	help
-	  This option enables support for scheduler based CPU utilization
-	  calculations which may then be used by any cpufreq governor. The
-	  scheduler keeps track of "recent" cpu demand of tasks, which can
-	  help determine need for changing frequency well in advance of what
-	  a governor would have been able to detect on its own.
-
 config CPU_FREQ_STAT
 	tristate "CPU frequency translation statistics"
 	default y

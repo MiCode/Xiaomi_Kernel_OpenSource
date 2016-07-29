@@ -292,7 +292,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
-#ifdef CONFIG_SCHED_FREQ_INPUT
+#ifdef CONFIG_SCHED_HMP
 	{
 		.procname	= "sched_freq_inc_notify",
 		.data		= &sysctl_sched_freq_inc_notify,
@@ -309,8 +309,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &zero,
 	},
-#endif
-#ifdef CONFIG_SCHED_HMP
 	{
 		.procname       = "sched_cpu_high_irqload",
 		.data           = &sysctl_sched_cpu_high_irqload,
@@ -407,7 +405,6 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler   = sched_hmp_proc_update_handler,
 	},
-#ifdef CONFIG_SCHED_FREQ_INPUT
 	{
 		.procname       = "sched_new_task_windows",
 		.data           = &sysctl_sched_new_task_windows,
@@ -430,7 +427,6 @@ static struct ctl_table kern_table[] = {
 		.mode           = 0644,
 		.proc_handler   = sched_window_update_handler,
 	},
-#endif
 	{
 		.procname	= "sched_boost",
 		.data		= &sysctl_sched_boost,

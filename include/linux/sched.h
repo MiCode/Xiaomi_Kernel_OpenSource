@@ -1305,12 +1305,10 @@ struct ravg {
 	u64 mark_start;
 	u32 sum, demand;
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
-#ifdef CONFIG_SCHED_FREQ_INPUT
 	u32 curr_window, prev_window;
 	u16 active_windows;
 	u32 pred_demand;
 	u8 busy_buckets[NUM_BUSY_BUCKETS];
-#endif
 };
 
 struct sched_entity {
@@ -2152,32 +2150,6 @@ static inline cputime_t task_gtime(struct task_struct *t)
 extern void task_cputime_adjusted(struct task_struct *p, cputime_t *ut, cputime_t *st);
 extern void thread_group_cputime_adjusted(struct task_struct *p, cputime_t *ut, cputime_t *st);
 
-struct sched_load {
-	unsigned long prev_load;
-	unsigned long new_task_load;
-	unsigned long predicted_load;
-};
-
-#if defined(CONFIG_SCHED_FREQ_INPUT)
-extern int sched_set_window(u64 window_start, unsigned int window_size);
-extern unsigned long sched_get_busy(int cpu);
-extern void sched_get_cpus_busy(struct sched_load *busy,
-				const struct cpumask *query_cpus);
-extern void sched_set_io_is_busy(int val);
-#else
-static inline int sched_set_window(u64 window_start, unsigned int window_size)
-{
-	return -EINVAL;
-}
-static inline unsigned long sched_get_busy(int cpu)
-{
-	return 0;
-}
-static inline void sched_get_cpus_busy(struct sched_load *busy,
-				       const struct cpumask *query_cpus) {};
-static inline void sched_set_io_is_busy(int val) {};
-#endif
-
 /*
  * Per process flags
  */
@@ -2360,13 +2332,23 @@ static inline int set_cpus_allowed_ptr(struct task_struct *p,
 }
 #endif
 
+struct sched_load {
+	unsigned long prev_load;
+	unsigned long new_task_load;
+	unsigned long predicted_load;
+};
+
 extern int sched_set_wake_up_idle(struct task_struct *p, int wake_up_idle);
 extern u32 sched_get_wake_up_idle(struct task_struct *p);
 extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
 
 #ifdef CONFIG_SCHED_HMP
-
+extern int sched_set_window(u64 window_start, unsigned int window_size);
+extern unsigned long sched_get_busy(int cpu);
+extern void sched_get_cpus_busy(struct sched_load *busy,
+				const struct cpumask *query_cpus);
+extern void sched_set_io_is_busy(int val);
 extern int sched_set_boost(int enable);
 extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
 extern u32 sched_get_init_task_load(struct task_struct *p);
@@ -2383,6 +2365,19 @@ extern void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
 				int wakeup_energy, int wakeup_latency);
 
 #else /* CONFIG_SCHED_HMP */
+static inline int sched_set_window(u64 window_start, unsigned int window_size)
+{
+	return -EINVAL;
+}
+static inline unsigned long sched_get_busy(int cpu)
+{
+	return 0;
+}
+static inline void sched_get_cpus_busy(struct sched_load *busy,
+				       const struct cpumask *query_cpus) {};
+
+static inline void sched_set_io_is_busy(int val) {};
+
 static inline int sched_set_boost(int enable)
 {
 	return -EINVAL;

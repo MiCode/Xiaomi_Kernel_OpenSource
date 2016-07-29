@@ -40,20 +40,14 @@ extern unsigned int sysctl_sched_min_granularity;
 extern unsigned int sysctl_sched_wakeup_granularity;
 extern unsigned int sysctl_sched_child_runs_first;
 extern unsigned int sysctl_sched_wake_to_idle;
+
+#ifdef CONFIG_SCHED_HMP
+extern int sysctl_sched_freq_inc_notify;
+extern int sysctl_sched_freq_dec_notify;
 extern unsigned int sysctl_sched_window_stats_policy;
 extern unsigned int sysctl_sched_ravg_hist_size;
 extern unsigned int sysctl_sched_cpu_high_irqload;
-
-#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 extern unsigned int sysctl_sched_init_task_load_pct;
-#endif
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
-extern int sysctl_sched_freq_inc_notify;
-extern int sysctl_sched_freq_dec_notify;
-#endif
-
-#ifdef CONFIG_SCHED_HMP
 extern unsigned int sysctl_sched_spill_nr_run;
 extern unsigned int sysctl_sched_spill_load_pct;
 extern unsigned int sysctl_sched_upmigrate_pct;
@@ -65,11 +59,9 @@ extern unsigned int sysctl_sched_big_waker_task_load_pct;
 extern unsigned int sysctl_sched_select_prev_cpu_us;
 extern unsigned int sysctl_sched_enable_colocation;
 extern unsigned int sysctl_sched_restrict_cluster_spill;
-#if defined(CONFIG_SCHED_FREQ_INPUT)
 extern unsigned int sysctl_sched_new_task_windows;
 extern unsigned int sysctl_sched_pred_alert_freq;
 extern unsigned int sysctl_sched_freq_aggregate;
-#endif
 
 #else /* CONFIG_SCHED_HMP */
 

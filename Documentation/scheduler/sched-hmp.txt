@@ -189,9 +189,6 @@ struct ravg {
 	u64 mark_start;
 	u32 sum, demand;
 	u32 sum_history[RAVG_HIST_SIZE];
-#ifdef CONFIG_SCHED_FREQ_INPUT
-	u32 curr_window, prev_window;
-#endif
 };
 
 struct task_struct {
@@ -842,8 +839,7 @@ As mentioned in the introduction section the scheduler is in a unique
 position to assist with the determination of CPU frequency. Because
 the scheduler now maintains an estimate of per-task CPU demand, task
 activity can be tracked, aggregated and provided to the CPUfreq
-governor as a replacement for simple CPU busy time. CONFIG_SCHED_FREQ_INPUT
-kernel configuration variable needs to be enabled for this feature to be active.
+governor as a replacement for simple CPU busy time.
 
 Two of the most popular CPUfreq governors, interactive and ondemand,
 utilize a window-based approach for measuring CPU busy time. This
@@ -1384,8 +1380,7 @@ cpus are being reset. Changes to below attributes result in such a reset:
 
 *** 8.7 sched_migration_update_sum
 
-Logged when CONFIG_SCHED_FREQ_INPUT feature is enabled and a task is migrating
-to another cpu.
+Logged when a task is migrating to another cpu.
 
 <task>-0 [000] d..8  5020.404137: sched_migration_update_sum: cpu 0: cs 471278 ps 902463 nt_cs 0 nt_ps 0 pid 2645
 

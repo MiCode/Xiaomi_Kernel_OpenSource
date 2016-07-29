@@ -366,9 +366,7 @@ struct cfs_bandwidth { };
 struct hmp_sched_stats {
 	int nr_big_tasks;
 	u64 cumulative_runnable_avg;
-#ifdef CONFIG_SCHED_FREQ_INPUT
 	u64 pred_demands_sum;
-#endif
 };
 
 struct sched_cluster {
@@ -409,16 +407,12 @@ struct related_thread_group {
 	struct sched_cluster *preferred_cluster;
 	struct rcu_head rcu;
 	u64 last_update;
-#ifdef CONFIG_SCHED_FREQ_INPUT
 	struct group_cpu_time __percpu *cpu_time;	/* one per cluster */
-#endif
 };
 
 struct migration_sum_data {
 	struct rq *src_rq, *dst_rq;
-#ifdef CONFIG_SCHED_FREQ_INPUT
 	struct group_cpu_time *src_cpu_time, *dst_cpu_time;
-#endif
 };
 
 extern struct list_head cluster_head;
@@ -435,7 +429,7 @@ struct cpu_cycle {
 #define for_each_sched_cluster(cluster) \
 	list_for_each_entry_rcu(cluster, &cluster_head, list)
 
-#endif
+#endif /* CONFIG_SCHED_HMP */
 
 /* CFS-related fields in a runqueue */
 struct cfs_rq {
@@ -755,15 +749,9 @@ struct rq {
 	unsigned int static_cpu_pwr_cost;
 	struct task_struct *ed_task;
 	struct cpu_cycle cc;
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
 	u64 old_busy_time, old_busy_time_group;
 	int notifier_sent;
 	u64 old_estimated_time;
-#endif
-#endif
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
 	u64 curr_runnable_sum;
 	u64 prev_runnable_sum;
 	u64 nt_curr_runnable_sum;
@@ -1045,6 +1033,8 @@ extern void init_new_task_load(struct task_struct *p);
 #define WINDOW_STATS_AVG		3
 #define WINDOW_STATS_INVALID_POLICY	4
 
+#define MAJOR_TASK_PCT 85
+
 extern struct mutex policy_mutex;
 extern unsigned int sched_ravg_window;
 extern unsigned int sched_disable_window_stats;
@@ -1065,11 +1055,7 @@ extern unsigned int sched_init_task_load_windows;
 extern unsigned int up_down_migrate_scale_factor;
 extern unsigned int sysctl_sched_restrict_cluster_spill;
 extern unsigned int sched_pred_alert_load;
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
-#define MAJOR_TASK_PCT 85
 extern unsigned int sched_major_task_runtime;
-#endif
 
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern unsigned int max_task_load(void);
@@ -1180,14 +1166,6 @@ static inline unsigned int task_load(struct task_struct *p)
 	return p->ravg.demand;
 }
 
-#ifdef CONFIG_SCHED_FREQ_INPUT
-#define set_pred_demands_sum(stats, x) ((stats)->pred_demands_sum = (x))
-#define verify_pred_demands_sum(stat) BUG_ON((s64)(stat)->pred_demands_sum < 0)
-#else
-#define set_pred_demands_sum(stats, x)
-#define verify_pred_demands_sum(stat)
-#endif
-
 static inline void
 inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 				 struct task_struct *p)
@@ -1200,13 +1178,12 @@ inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 	task_load = sched_disable_window_stats ? 0 : p->ravg.demand;
 
 	stats->cumulative_runnable_avg += task_load;
-	set_pred_demands_sum(stats, stats->pred_demands_sum +
-			     p->ravg.pred_demand);
+	stats->pred_demands_sum += p->ravg.pred_demand;
 }
 
 static inline void
 dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
-				 struct task_struct *p)
+				struct task_struct *p)
 {
 	u32 task_load;
 
@@ -1219,9 +1196,8 @@ dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 
 	BUG_ON((s64)stats->cumulative_runnable_avg < 0);
 
-	set_pred_demands_sum(stats, stats->pred_demands_sum -
-			     p->ravg.pred_demand);
-	verify_pred_demands_sum(stats);
+	stats->pred_demands_sum -= p->ravg.pred_demand;
+	BUG_ON((s64)stats->pred_demands_sum < 0);
 }
 
 static inline void
@@ -1235,11 +1211,9 @@ fixup_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 	stats->cumulative_runnable_avg += task_load_delta;
 	BUG_ON((s64)stats->cumulative_runnable_avg < 0);
 
-	set_pred_demands_sum(stats, stats->pred_demands_sum +
-			     pred_demand_delta);
-	verify_pred_demands_sum(stats);
+	stats->pred_demands_sum += pred_demand_delta;
+	BUG_ON((s64)stats->pred_demands_sum < 0);
 }
-
 
 #define pct_to_real(tunable)	\
 		(div64_u64((u64)tunable * (u64)max_task_load(), 100))
@@ -1277,6 +1251,87 @@ struct related_thread_group *task_related_thread_group(struct task_struct *p)
 {
 	return rcu_dereference(p->grp);
 }
+
+#define PRED_DEMAND_DELTA ((s64)new_pred_demand - p->ravg.pred_demand)
+
+extern void
+check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
+
+struct group_cpu_time {
+	u64 curr_runnable_sum;
+	u64 prev_runnable_sum;
+	u64 nt_curr_runnable_sum;
+	u64 nt_prev_runnable_sum;
+	u64 window_start;
+};
+
+/* Is frequency of two cpus synchronized with each other? */
+static inline int same_freq_domain(int src_cpu, int dst_cpu)
+{
+	struct rq *rq = cpu_rq(src_cpu);
+
+	if (src_cpu == dst_cpu)
+		return 1;
+
+	return cpumask_test_cpu(dst_cpu, &rq->freq_domain_cpumask);
+}
+
+#define	BOOST_KICK	0
+#define	CPU_RESERVED	1
+
+static inline int is_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return test_bit(CPU_RESERVED, &rq->hmp_flags);
+}
+
+static inline int mark_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	/* Name boost_flags as hmp_flags? */
+	return test_and_set_bit(CPU_RESERVED, &rq->hmp_flags);
+}
+
+static inline void clear_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	clear_bit(CPU_RESERVED, &rq->hmp_flags);
+}
+
+static inline u64 cpu_cravg_sync(int cpu, int sync)
+{
+	struct rq *rq = cpu_rq(cpu);
+	u64 load;
+
+	load = rq->hmp_stats.cumulative_runnable_avg;
+
+	/*
+	 * If load is being checked in a sync wakeup environment,
+	 * we may want to discount the load of the currently running
+	 * task.
+	 */
+	if (sync && cpu == smp_processor_id()) {
+		if (load > rq->curr->ravg.demand)
+			load -= rq->curr->ravg.demand;
+		else
+			load = 0;
+	}
+
+	return load;
+}
+
+extern void check_for_migration(struct rq *rq, struct task_struct *p);
+extern void pre_big_task_count_change(const struct cpumask *cpus);
+extern void post_big_task_count_change(const struct cpumask *cpus);
+extern void set_hmp_defaults(void);
+extern int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost);
+extern unsigned int power_cost(int cpu, u64 demand);
+extern void reset_all_window_stats(u64 window_start, unsigned int window_size);
+extern void boost_kick(int cpu);
+extern int sched_boost(void);
 
 #else	/* CONFIG_SCHED_HMP */
 
@@ -1340,41 +1395,8 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 	return 0;
 }
 
-#endif	/* CONFIG_SCHED_HMP */
-
-/*
- * Returns the rq capacity of any rq in a group. This does not play
- * well with groups where rq capacity can change independently.
- */
-#define group_rq_capacity(group) cpu_capacity(group_first_cpu(group))
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
-#define PRED_DEMAND_DELTA ((s64)new_pred_demand - p->ravg.pred_demand)
-
-extern void
-check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
-
-struct group_cpu_time {
-	u64 curr_runnable_sum;
-	u64 prev_runnable_sum;
-	u64 nt_curr_runnable_sum;
-	u64 nt_prev_runnable_sum;
-	u64 window_start;
-};
-
-/* Is frequency of two cpus synchronized with each other? */
-static inline int same_freq_domain(int src_cpu, int dst_cpu)
-{
-	struct rq *rq = cpu_rq(src_cpu);
-
-	if (src_cpu == dst_cpu)
-		return 1;
-
-	return cpumask_test_cpu(dst_cpu, &rq->freq_domain_cpumask);
-}
-
-#else	/* CONFIG_SCHED_FREQ_INPUT */
-
+#define sched_enable_hmp 0
+#define sched_freq_legacy_mode 1
 #define sched_migration_fixup	0
 #define PRED_DEMAND_DELTA (0)
 
@@ -1385,72 +1407,6 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 {
 	return 1;
 }
-
-#endif	/* CONFIG_SCHED_FREQ_INPUT */
-
-#ifdef CONFIG_SCHED_HMP
-
-#define	BOOST_KICK	0
-#define	CPU_RESERVED	1
-
-static inline int is_reserved(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	return test_bit(CPU_RESERVED, &rq->hmp_flags);
-}
-
-static inline int mark_reserved(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	/* Name boost_flags as hmp_flags? */
-	return test_and_set_bit(CPU_RESERVED, &rq->hmp_flags);
-}
-
-static inline void clear_reserved(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	clear_bit(CPU_RESERVED, &rq->hmp_flags);
-}
-
-static inline u64 cpu_cravg_sync(int cpu, int sync)
-{
-	struct rq *rq = cpu_rq(cpu);
-	u64 load;
-
-	load = rq->hmp_stats.cumulative_runnable_avg;
-
-	/*
-	 * If load is being checked in a sync wakeup environment,
-	 * we may want to discount the load of the currently running
-	 * task.
-	 */
-	if (sync && cpu == smp_processor_id()) {
-		if (load > rq->curr->ravg.demand)
-			load -= rq->curr->ravg.demand;
-		else
-			load = 0;
-	}
-
-	return load;
-}
-
-extern void check_for_migration(struct rq *rq, struct task_struct *p);
-extern void pre_big_task_count_change(const struct cpumask *cpus);
-extern void post_big_task_count_change(const struct cpumask *cpus);
-extern void set_hmp_defaults(void);
-extern int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost);
-extern unsigned int power_cost(int cpu, u64 demand);
-extern void reset_all_window_stats(u64 window_start, unsigned int window_size);
-extern void boost_kick(int cpu);
-extern int sched_boost(void);
-
-#else /* CONFIG_SCHED_HMP */
-
-#define sched_enable_hmp 0
-#define sched_freq_legacy_mode 1
 
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 static inline void pre_big_task_count_change(void) { }
@@ -1464,7 +1420,13 @@ static inline void clear_reserved(int cpu) { }
 #define trace_sched_cpu_load_cgroup(...)
 #define trace_sched_cpu_load_wakeup(...)
 
-#endif /* CONFIG_SCHED_HMP */
+#endif	/* CONFIG_SCHED_HMP */
+
+/*
+ * Returns the rq capacity of any rq in a group. This does not play
+ * well with groups where rq capacity can change independently.
+ */
+#define group_rq_capacity(group) cpu_capacity(group_first_cpu(group))
 
 #ifdef CONFIG_CGROUP_SCHED
 
