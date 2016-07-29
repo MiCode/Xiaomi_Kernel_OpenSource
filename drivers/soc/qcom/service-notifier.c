@@ -140,19 +140,9 @@ static int service_notif_queue_notification(struct service_notif_info
 		enum qmi_servreg_notif_service_state_enum_type_v01 notif_type,
 		void *info)
 {
-	int ret = 0;
-
-	if (!service_notif)
-		return -EINVAL;
-
-	if ((int) notif_type < QMI_STATE_MIN_VAL ||
-					(int) notif_type > QMI_STATE_MAX_VAL)
-		return -EINVAL;
+	int ret;
 
 	if (service_notif->curr_state == notif_type)
-		return 0;
-
-	if (!service_notif->service_notif_rcvr_list.head)
 		return 0;
 
 	ret = srcu_notifier_call_chain(&service_notif->service_notif_rcvr_list,
@@ -244,8 +234,8 @@ static void root_service_service_ind_cb(struct qmi_handle *handle,
 	ind_desc.ei_array = qmi_servreg_notif_state_updated_ind_msg_v01_ei;
 	rc = qmi_kernel_decode(&ind_desc, &ind_msg, msg, msg_len);
 	if (rc < 0) {
-		pr_err("Failed to decode message!\n");
-		goto send_ind_resp;
+		pr_err("Failed to decode message rc:%d\n", rc);
+		return;
 	}
 
 	pr_debug("Indication received from %s, state: 0x%x, trans-id: %d\n",
@@ -263,15 +253,15 @@ static void root_service_service_ind_cb(struct qmi_handle *handle,
 	else {
 		mutex_lock(&notif_add_lock);
 		mutex_lock(&service_list_lock);
-		if (service_notif_queue_notification(service_notif,
-						ind_msg.curr_state, NULL))
-			pr_err("Nnotification failed for %s\n",
-							ind_msg.service_name);
+		rc = service_notif_queue_notification(service_notif,
+						ind_msg.curr_state, NULL);
+		if (rc & NOTIFY_STOP_MASK)
+			pr_err("Notifier callback aborted for %s with error %d\n",
+						ind_msg.service_name, rc);
 		service_notif->curr_state = ind_msg.curr_state;
 		mutex_unlock(&service_list_lock);
 		mutex_unlock(&notif_add_lock);
 	}
-send_ind_resp:
 	data->ind_msg.transaction_id = ind_msg.transaction_id;
 	snprintf(data->ind_msg.service_path,
 		ARRAY_SIZE(data->ind_msg.service_path), "%s",
@@ -320,7 +310,8 @@ static int send_notif_listener_msg_req(struct service_notif_info *service_notif,
 
 	if ((int) resp.curr_state < QMI_STATE_MIN_VAL ||
 				(int) resp.curr_state > QMI_STATE_MAX_VAL) {
-		pr_err("Invalid notif info 0x%x\n", resp.curr_state);
+		pr_err("Invalid indication notification state %d\n",
+							resp.curr_state);
 		rc = -EINVAL;
 	}
 	*curr_state = resp.curr_state;
@@ -356,8 +347,8 @@ static void root_service_service_arrive(struct work_struct *work)
 			SERVREG_NOTIF_SERVICE_ID, SERVREG_NOTIF_SERVICE_VERS,
 			data->instance_id);
 	if (rc < 0) {
-		pr_err("Could not connect handle to service(instance-id: %d)\n",
-							data->instance_id);
+		pr_err("Could not connect to service(instance-id: %d) rc:%d\n",
+							data->instance_id, rc);
 		qmi_handle_destroy(data->clnt_handle);
 		data->clnt_handle = NULL;
 		return;
@@ -369,8 +360,8 @@ static void root_service_service_arrive(struct work_struct *work)
 	rc = qmi_register_ind_cb(data->clnt_handle, root_service_service_ind_cb,
 							(void *)data);
 	if (rc < 0)
-		pr_err("Indication callback register failed(instance-id: %d)\n",
-							data->instance_id);
+		pr_err("Indication callback register failed(instance-id: %d) rc:%d\n",
+							data->instance_id, rc);
 
 	mutex_lock(&notif_add_lock);
 	mutex_lock(&service_list_lock);
@@ -379,15 +370,14 @@ static void root_service_service_arrive(struct work_struct *work)
 			rc = register_notif_listener(service_notif, data,
 								&curr_state);
 			if (rc) {
-				pr_err("Notifier registration failed for %s\n",
-						service_notif->service_path);
+				pr_err("Notifier registration failed for %s rc:%d\n",
+					service_notif->service_path, rc);
 			} else {
 				rc = service_notif_queue_notification(
-							service_notif,
-							curr_state, NULL);
-				if (rc)
-					pr_err("Notifier failed for %s\n",
-						service_notif->service_path);
+					service_notif, curr_state, NULL);
+				if (rc & NOTIFY_STOP_MASK)
+					pr_err("Notifier callback aborted for %s error:%d\n",
+					service_notif->service_path, rc);
 				service_notif->curr_state = curr_state;
 			}
 		}
@@ -412,9 +402,9 @@ static void root_service_service_exit(struct qmi_client_info *data)
 			rc = service_notif_queue_notification(service_notif,
 					SERVREG_NOTIF_SERVICE_STATE_DOWN_V01,
 					NULL);
-			if (rc)
-				pr_err("Notification failed for %s\n",
-						service_notif->service_path);
+			if (rc & NOTIFY_STOP_MASK)
+				pr_err("Notifier callback aborted for %s with error %d\n",
+					service_notif->service_path, rc);
 			service_notif->curr_state =
 					SERVREG_NOTIF_SERVICE_STATE_DOWN_V01;
 		}
