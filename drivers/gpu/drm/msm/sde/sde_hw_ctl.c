@@ -197,6 +197,21 @@ static inline int sde_hw_ctl_get_bitmask_intf(struct sde_hw_ctl *ctx,
 	return 0;
 }
 
+static inline int sde_hw_ctl_get_bitmask_wb(struct sde_hw_ctl *ctx,
+		u32 *flushbits, enum sde_wb wb)
+{
+	switch (wb) {
+	case WB_0:
+	case WB_1:
+	case WB_2:
+		*flushbits |= BIT(16);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static inline int sde_hw_ctl_get_bitmask_cdm(struct sde_hw_ctl *ctx,
 		u32 *flushbits, enum sde_cdm cdm)
 {
@@ -364,6 +379,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->get_bitmask_dspp = sde_hw_ctl_get_bitmask_dspp;
 	ops->get_bitmask_intf = sde_hw_ctl_get_bitmask_intf;
 	ops->get_bitmask_cdm = sde_hw_ctl_get_bitmask_cdm;
+	ops->get_bitmask_wb = sde_hw_ctl_get_bitmask_wb;
 };
 
 struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,

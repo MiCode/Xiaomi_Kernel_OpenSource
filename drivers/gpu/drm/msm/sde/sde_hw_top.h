@@ -20,6 +20,22 @@
 struct sde_hw_mdp;
 
 /**
+ * struct traffic_shaper_cfg: traffic shaper configuration
+ * @en        : enable/disable traffic shaper
+ * @rd_client : true if read client; false if write client
+ * @client_id : client identifier
+ * @bpc_denom : denominator of byte per clk
+ * @bpc_numer : numerator of byte per clk
+ */
+struct traffic_shaper_cfg {
+	bool en;
+	bool rd_client;
+	u32 client_id;
+	u32 bpc_denom;
+	u64 bpc_numer;
+};
+
+/**
  * struct split_pipe_cfg - pipe configuration for dual display panels
  * @en        : Enable/disable dual pipe confguration
  * @mode      : Panel interface mode
@@ -40,6 +56,7 @@ struct split_pipe_cfg {
  * struct sde_hw_mdp_ops - interface to the MDP TOP Hw driver functions
  * Assumption is these functions will be called after clocks are enabled.
  * @setup_split_pipe : Programs the pipe control registers
+ * @setup_traffic_shaper : programs traffic shaper control
  */
 struct sde_hw_mdp_ops {
 	/** setup_split_pipe() : Regsiters are not double buffered, thisk
@@ -49,6 +66,14 @@ struct sde_hw_mdp_ops {
 	 */
 	void (*setup_split_pipe)(struct sde_hw_mdp *mdp,
 			struct split_pipe_cfg *p);
+
+	/**
+	 * setup_traffic_shaper() : Setup traffic shaper control
+	 * @mdp  : mdp top context driver
+	 * @cfg  : traffic shaper configuration
+	 */
+	void (*setup_traffic_shaper)(struct sde_hw_mdp *mdp,
+			struct traffic_shaper_cfg *cfg);
 };
 
 struct sde_hw_mdp {
