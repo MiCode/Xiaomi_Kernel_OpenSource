@@ -111,6 +111,16 @@ int sde_disable_irq(struct sde_kms *sde_kms, int *irq_idxs, u32 irq_count)
 	return ret;
 }
 
+u32 sde_read_irq(struct sde_kms *sde_kms, int irq_idx, bool clear)
+{
+	if (!sde_kms || !sde_kms->hw_intr ||
+			!sde_kms->hw_intr->ops.get_interrupt_status)
+		return 0;
+
+	return sde_kms->hw_intr->ops.get_interrupt_status(sde_kms->hw_intr,
+			irq_idx, clear);
+}
+
 int sde_register_irq_callback(struct sde_kms *sde_kms, int irq_idx,
 		struct sde_irq_callback *register_irq_cb)
 {
