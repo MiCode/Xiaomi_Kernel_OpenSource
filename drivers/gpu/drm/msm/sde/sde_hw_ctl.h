@@ -118,6 +118,10 @@ struct sde_hw_ctl_ops {
 		u32 *flushbits,
 		enum sde_cdm blk);
 
+	int (*get_bitmask_wb)(struct sde_hw_ctl *ctx,
+		u32 *flushbits,
+		enum sde_wb blk);
+
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
 		enum sde_lm lm,
 		struct sde_hw_stage_cfg *cfg);

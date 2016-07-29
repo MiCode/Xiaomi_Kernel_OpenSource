@@ -39,10 +39,9 @@
 #define PIPES_PER_STAGE			2
 
 #define SDE_FORMAT_FLAG_YUV		(1 << 0)
-#define SDE_FORMAT_FLAG_ROTATOR		(1 << 1)
 
 #define SDE_FORMAT_IS_YUV(X)		((X)->flag & SDE_FORMAT_FLAG_YUV)
-#define SDE_FORMAT_IS_ROTATOR(X)	((X)->flag & SDE_FORMAT_FLAG_ROTATOR)
+#define SDE_FORMAT_IS_LINEAR(X)		((X)->fetch_mode == SDE_FETCH_LINEAR)
 #define SDE_FORMAT_IS_UBWC(X)		((X)->fetch_mode == SDE_FETCH_UBWC)
 
 enum sde_mdp {
