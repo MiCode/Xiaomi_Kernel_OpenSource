@@ -1,6 +1,6 @@
 /* Qualcomm CE device driver.
  *
- * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1543,7 +1543,7 @@ static int qcedev_check_cipher_params(struct qcedev_cipher_op_req *req,
 	}
 	/* Check for sum of all dst length is equal to data_len  */
 	for (i = 0; i < req->entries; i++) {
-		if (req->vbuf.dst[i].len >= ULONG_MAX - total) {
+		if (req->vbuf.dst[i].len >= U32_MAX - total) {
 			pr_err("%s: Integer overflow on total req dst vbuf length\n",
 				__func__);
 			goto error;
@@ -1557,7 +1557,7 @@ static int qcedev_check_cipher_params(struct qcedev_cipher_op_req *req,
 	}
 	/* Check for sum of all src length is equal to data_len  */
 	for (i = 0, total = 0; i < req->entries; i++) {
-		if (req->vbuf.src[i].len > ULONG_MAX - total) {
+		if (req->vbuf.src[i].len > U32_MAX - total) {
 			pr_err("%s: Integer overflow on total req src vbuf length\n",
 				__func__);
 			goto error;
@@ -1619,7 +1619,7 @@ static int qcedev_check_sha_params(struct qcedev_sha_op_req *req,
 
 	/* Check for sum of all src length is equal to data_len  */
 	for (i = 0, total = 0; i < req->entries; i++) {
-		if (req->data[i].len > ULONG_MAX - total) {
+		if (req->data[i].len > U32_MAX - total) {
 			pr_err("%s: Integer overflow on total req buf length\n",
 				__func__);
 			goto sha_error;
