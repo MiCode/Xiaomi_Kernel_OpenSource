@@ -429,6 +429,12 @@ struct kgsl_device_private {
 
 /**
  * struct kgsl_snapshot - details for a specific snapshot instance
+ * @ib1base: Active IB1 base address at the time of fault
+ * @ib2base: Active IB2 base address at the time of fault
+ * @ib1size: Number of DWORDS pending in IB1 at the time of fault
+ * @ib2size: Number of DWORDS pending in IB2 at the time of fault
+ * @ib1dumped: Active IB1 dump status to sansphot binary
+ * @ib2dumped: Active IB2 dump status to sansphot binary
  * @start: Pointer to the start of the static snapshot region
  * @size: Size of the current snapshot instance
  * @ptr: Pointer to the next block of memory to write to during snapshotting
@@ -444,6 +450,12 @@ struct kgsl_device_private {
  * @sysfs_read: An atomic for concurrent snapshot reads via syfs.
  */
 struct kgsl_snapshot {
+	uint64_t ib1base;
+	uint64_t ib2base;
+	unsigned int ib1size;
+	unsigned int ib2size;
+	bool ib1dumped;
+	bool ib2dumped;
 	u8 *start;
 	size_t size;
 	u8 *ptr;
