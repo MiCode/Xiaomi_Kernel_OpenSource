@@ -224,7 +224,12 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 			SDE_ERROR("failed to look up fb %lld\n", val);
 			rc = -EFAULT;
 		} else {
-			c_state->mmu_id = c_conn->mmu_id;
+			if (c_state->out_fb->flags & DRM_MODE_FB_SECURE)
+				c_state->mmu_id =
+				c_conn->mmu_id[SDE_IOMMU_DOMAIN_SECURE];
+			else
+				c_state->mmu_id =
+				c_conn->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE];
 
 			rc = msm_framebuffer_prepare(c_state->out_fb,
 					c_state->mmu_id);
@@ -459,8 +464,19 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	c_conn->panel = panel;
 	c_conn->display = display;
 
+	/* cache mmu_id's for later */
 	sde_kms = to_sde_kms(priv->kms);
-	c_conn->mmu_id = sde_kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
+	if (sde_kms->vbif[VBIF_NRT]) {
+		c_conn->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE] =
+			sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_UNSECURE];
+		c_conn->mmu_id[SDE_IOMMU_DOMAIN_SECURE] =
+			sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_SECURE];
+	} else {
+		c_conn->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE] =
+			sde_kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
+		c_conn->mmu_id[SDE_IOMMU_DOMAIN_SECURE] =
+			sde_kms->mmu_id[MSM_SMMU_DOMAIN_SECURE];
+	}
 
 	if (ops)
 		c_conn->ops = *ops;

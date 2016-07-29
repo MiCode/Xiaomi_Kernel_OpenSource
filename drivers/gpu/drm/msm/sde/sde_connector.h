@@ -120,7 +120,8 @@ struct sde_connector_ops {
  * @encoder: Pointer to preferred drm encoder
  * @panel: Pointer to drm panel, if present
  * @display: Pointer to private display data structure
- * @mmu_id: MMU is for buffer mapping
+ * @mmu_secure: MMU id for secure buffers
+ * @mmu_unsecure: MMU id for unsecure buffers
  * @name: ASCII name of connector
  * @retire_fence: Retire fence reference
  * @ops: Local callback function pointer table
@@ -137,7 +138,7 @@ struct sde_connector {
 	struct drm_panel *panel;
 	void *display;
 
-	int mmu_id;
+	int mmu_id[SDE_IOMMU_DOMAIN_MAX];
 
 	char name[SDE_CONNECTOR_NAME_SIZE];
 
