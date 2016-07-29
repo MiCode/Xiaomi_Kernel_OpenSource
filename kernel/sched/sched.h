@@ -1246,6 +1246,11 @@ static inline int sched_cpu_high_irqload(int cpu)
 	return sched_irqload(cpu) >= sysctl_sched_cpu_high_irqload;
 }
 
+static inline bool task_in_related_thread_group(struct task_struct *p)
+{
+	return !!(rcu_access_pointer(p->grp) != NULL);
+}
+
 static inline
 struct related_thread_group *task_related_thread_group(struct task_struct *p)
 {
@@ -1380,6 +1385,11 @@ static inline void sched_account_irqstart(int cpu, struct task_struct *curr,
 static inline int sched_cpu_high_irqload(int cpu) { return 0; }
 
 static inline void set_preferred_cluster(struct related_thread_group *grp) { }
+
+static inline bool task_in_related_thread_group(struct task_struct *p)
+{
+	return false;
+}
 
 static inline
 struct related_thread_group *task_related_thread_group(struct task_struct *p)

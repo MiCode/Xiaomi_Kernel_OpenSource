@@ -4182,8 +4182,7 @@ unsigned int cpu_temp(int cpu)
 struct cpu_select_env;
 struct sched_cluster;
 
-static inline int task_will_fit(struct task_struct *p, int cpu,
-				enum sched_boost_type boost_type)
+static inline int task_will_fit(struct task_struct *p, int cpu)
 {
 	return 1;
 }
@@ -7700,7 +7699,7 @@ static void detach_task(struct task_struct *p, struct lb_env *env)
 	deactivate_task(env->src_rq, p, 0);
 	double_lock_balance(env->src_rq, env->dst_rq);
 	set_task_cpu(p, env->dst_cpu);
-	if (rcu_access_pointer(p->grp))
+	if (task_in_related_thread_group(p))
 		env->flags |= LBF_MOVED_RELATED_THREAD_GROUP_TASK;
 	double_unlock_balance(env->src_rq, env->dst_rq);
 }

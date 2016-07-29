@@ -4263,7 +4263,7 @@ static void notify_migration(int src_cpu, int dest_cpu, bool src_cpu_dead,
 	bool check_groups;
 
 	rcu_read_lock();
-	check_groups = rcu_access_pointer(p->grp) != NULL;
+	check_groups = task_in_related_thread_group(p);
 	rcu_read_unlock();
 
 	if (!same_freq_domain(src_cpu, dest_cpu)) {
