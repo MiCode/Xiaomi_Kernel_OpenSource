@@ -191,6 +191,16 @@ enum {
 };
 
 /**
+ * VBIF sub-blocks and features
+ * @SDE_VBIF_QOS_OTLIM        VBIF supports OT Limit
+ * @SDE_VBIF_MAX              maximum value
+ */
+enum {
+	SDE_VBIF_QOS_OTLIM = 0x1,
+	SDE_VBIF_MAX
+};
+
+/**
  * MACRO SDE_HW_BLK_INFO - information of HW blocks inside SDE
  * @id:                enum identifying this block
  * @base:              register base offset to mdss
@@ -339,15 +349,50 @@ struct sde_mdss_base_cfg {
 	SDE_HW_BLK_INFO;
 };
 
+/**
+ * sde_clk_ctrl_type - Defines top level clock control signals
+ */
+enum sde_clk_ctrl_type {
+	SDE_CLK_CTRL_NONE,
+	SDE_CLK_CTRL_VIG0,
+	SDE_CLK_CTRL_VIG1,
+	SDE_CLK_CTRL_VIG2,
+	SDE_CLK_CTRL_VIG3,
+	SDE_CLK_CTRL_VIG4,
+	SDE_CLK_CTRL_RGB0,
+	SDE_CLK_CTRL_RGB1,
+	SDE_CLK_CTRL_RGB2,
+	SDE_CLK_CTRL_RGB3,
+	SDE_CLK_CTRL_DMA0,
+	SDE_CLK_CTRL_DMA1,
+	SDE_CLK_CTRL_CURSOR0,
+	SDE_CLK_CTRL_CURSOR1,
+	SDE_CLK_CTRL_WB0,
+	SDE_CLK_CTRL_WB1,
+	SDE_CLK_CTRL_WB2,
+	SDE_CLK_CTRL_MAX,
+};
+
+/* struct sde_clk_ctrl_reg : Clock control register
+ * @reg_off:           register offset
+ * @bit_off:           bit offset
+ */
+struct sde_clk_ctrl_reg {
+	u32 reg_off;
+	u32 bit_off;
+};
+
 /* struct sde_mdp_cfg : MDP TOP-BLK instance info
  * @id:                index identifying this block
  * @base:              register base offset to mdss
  * @features           bit mask identifying sub-blocks/features
  * @highest_bank_bit:  UBWC parameter
+ * @clk_ctrls          clock control register definition
  */
 struct sde_mdp_cfg {
 	SDE_HW_BLK_INFO;
 	u32 highest_bank_bit;
+	struct sde_clk_ctrl_reg clk_ctrls[SDE_CLK_CTRL_MAX];
 };
 
 /* struct sde_mdp_cfg : MDP TOP-BLK instance info
@@ -365,10 +410,14 @@ struct sde_ctl_cfg {
  * @base               register offset of this block
  * @features           bit mask identifying sub-blocks/features
  * @sblk:              SSPP sub-blocks information
+ * @xin_id:            bus client identifier
+ * @clk_ctrl           clock control identifier
  */
 struct sde_sspp_cfg {
 	SDE_HW_BLK_INFO;
 	const struct sde_sspp_sub_blks *sblk;
+	u32 xin_id;
+	enum sde_clk_ctrl_type clk_ctrl;
 };
 
 /**
@@ -451,11 +500,17 @@ struct sde_intf_cfg  {
  * @features           bit mask identifying sub-blocks/features
  * @sblk               sub-block information
  * @format_list: Pointer to list of supported formats
+ * @vbif_idx           vbif identifier
+ * @xin_id             client interface identifier
+ * @clk_ctrl           clock control identifier
  */
 struct sde_wb_cfg {
 	SDE_HW_BLK_INFO;
 	const struct sde_wb_sub_blocks *sblk;
 	const struct sde_format_extended *format_list;
+	u32 vbif_idx;
+	u32 xin_id;
+	enum sde_clk_ctrl_type clk_ctrl;
 };
 
 /**
@@ -466,6 +521,47 @@ struct sde_wb_cfg {
  */
 struct sde_ad_cfg {
 	SDE_HW_BLK_INFO;
+};
+
+/**
+ * struct sde_vbif_dynamic_ot_cfg - dynamic OT setting
+ * @pps                pixel per seconds
+ * @ot_limit           OT limit to use up to specified pixel per second
+ */
+struct sde_vbif_dynamic_ot_cfg {
+	u64 pps;
+	u32 ot_limit;
+};
+
+/**
+ * struct sde_vbif_dynamic_ot_tbl - dynamic OT setting table
+ * @count              length of cfg
+ * @cfg                pointer to array of configuration settings with
+ *                     ascending requirements
+ */
+struct sde_vbif_dynamic_ot_tbl {
+	u32 count;
+	const struct sde_vbif_dynamic_ot_cfg *cfg;
+};
+
+/**
+ * struct sde_vbif_cfg - information of VBIF blocks
+ * @id                 enum identifying this block
+ * @base               register offset of this block
+ * @features           bit mask identifying sub-blocks/features
+ * @ot_rd_limit        default OT read limit
+ * @ot_wr_limit        default OT write limit
+ * @xin_halt_timeout   maximum time (in usec) for xin to halt
+ * @dynamic_ot_rd_tbl  dynamic OT read configuration table
+ * @dynamic_ot_wr_tbl  dynamic OT write configuration table
+ */
+struct sde_vbif_cfg {
+	SDE_HW_BLK_INFO;
+	u32 default_ot_rd_limit;
+	u32 default_ot_wr_limit;
+	u32 xin_halt_timeout;
+	struct sde_vbif_dynamic_ot_tbl dynamic_ot_rd_tbl;
+	struct sde_vbif_dynamic_ot_tbl dynamic_ot_wr_tbl;
 };
 
 /**
@@ -509,6 +605,9 @@ struct sde_mdss_cfg {
 
 	u32 ad_count;
 	struct sde_ad_cfg ad[MAX_BLOCKS];
+
+	u32 vbif_count;
+	struct sde_vbif_cfg vbif[MAX_BLOCKS];
 	/* Add additional block data structures here */
 };
 

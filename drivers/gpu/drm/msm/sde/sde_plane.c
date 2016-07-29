@@ -407,6 +407,52 @@ static void _sde_plane_set_qos_ctrl(struct drm_plane *plane,
 			&psde->pipe_qos_cfg);
 }
 
+/**
+ * _sde_plane_set_ot_limit - set OT limit for the given plane
+ * @plane:		Pointer to drm plane
+ * @crtc:		Pointer to drm crtc
+ */
+static void _sde_plane_set_ot_limit(struct drm_plane *plane,
+		struct drm_crtc *crtc)
+{
+	struct sde_plane *psde;
+	struct sde_vbif_set_ot_params ot_params;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!plane || !plane->dev || !crtc) {
+		SDE_ERROR("invalid arguments plane %d crtc %d\n",
+				plane != 0, crtc != 0);
+		return;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+	psde = to_sde_plane(plane);
+	if (!psde->pipe_hw) {
+		SDE_ERROR("invalid pipe reference\n");
+		return;
+	}
+
+	memset(&ot_params, 0, sizeof(ot_params));
+	ot_params.xin_id = psde->pipe_hw->cap->xin_id;
+	ot_params.num = psde->pipe_hw->idx - SSPP_NONE;
+	ot_params.width = psde->pipe_cfg.src_rect.w;
+	ot_params.height = psde->pipe_cfg.src_rect.h;
+	ot_params.is_wfd = !psde->is_rt_pipe;
+	ot_params.frame_rate = crtc->mode.vrefresh;
+	ot_params.vbif_idx = VBIF_RT;
+	ot_params.clk_ctrl = psde->pipe_hw->cap->clk_ctrl;
+	ot_params.rd = true;
+
+	sde_vbif_set_ot_limit(sde_kms, &ot_params);
+}
+
 /* helper to update a state's input fence pointer from the property */
 static void _sde_plane_set_input_fence(struct drm_plane *plane,
 		struct sde_plane_state *pstate, uint64_t fd)
@@ -1115,8 +1161,10 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	_sde_plane_set_qos_lut(plane, fb);
 	_sde_plane_set_danger_lut(plane, fb);
 
-	if (plane->type != DRM_PLANE_TYPE_CURSOR)
+	if (plane->type != DRM_PLANE_TYPE_CURSOR) {
 		_sde_plane_set_qos_ctrl(plane, true, SDE_PLANE_QOS_PANIC_CTRL);
+		_sde_plane_set_ot_limit(plane, crtc);
+	}
 
 	return 0;
 }
