@@ -389,10 +389,17 @@ struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 	}
 	DRM_INFO("Mapped Mdp address space @%pK\n", sde_kms->mmio);
 
-	sde_kms->vbif = msm_ioremap(pdev, "vbif_phys", "VBIF");
-	if (IS_ERR(sde_kms->vbif)) {
-		ret = PTR_ERR(sde_kms->vbif);
+	sde_kms->vbif[VBIF_RT] = msm_ioremap(pdev, "vbif_phys", "VBIF");
+	if (IS_ERR(sde_kms->vbif[VBIF_RT])) {
+		ret = PTR_ERR(sde_kms->vbif[VBIF_RT]);
 		goto fail;
+	}
+
+	sde_kms->vbif[VBIF_NRT] = msm_ioremap(pdev, "vbif_nrt_phys",
+			"VBIF_NRT");
+	if (IS_ERR(sde_kms->vbif[VBIF_NRT])) {
+		sde_kms->vbif[VBIF_NRT] = NULL;
+		DBG("VBIF NRT is not defined");
 	}
 
 	sde_kms->venus = devm_regulator_get_optional(&pdev->dev, "gdsc-venus");

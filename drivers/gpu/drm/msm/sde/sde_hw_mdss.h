@@ -193,6 +193,20 @@ enum sde_wd_timer {
 	WD_TIMER_MAX
 };
 
+enum sde_vbif {
+	VBIF_0,
+	VBIF_1,
+	VBIF_MAX,
+	VBIF_RT = VBIF_0,
+	VBIF_NRT = VBIF_1
+};
+
+enum sde_iommu_domain {
+	SDE_IOMMU_DOMAIN_UNSECURE,
+	SDE_IOMMU_DOMAIN_SECURE,
+	SDE_IOMMU_DOMAIN_MAX
+};
+
 /**
  * SDE HW,Component order color map
  */
