@@ -811,15 +811,17 @@ int pil_boot(struct pil_desc *desc)
 	}
 
 	if (desc->subsys_vmid > 0) {
-		/* Make sure the memory is actually assigned to Linux. In the
-		 * case where the shutdown sequence is not able to immediately
-		 * assign the memory back to Linux, we need to do this here. */
-		ret = pil_assign_mem_to_linux(desc, priv->region_start,
+		/* In case of modem ssr, we need to assign memory back to linux.
+		 * This is not true after cold boot since linux already owns it.
+		 * Also for secure boot devices, modem memory has to be released
+		 * after MBA is booted. */
+		if (desc->modem_ssr) {
+			ret = pil_assign_mem_to_linux(desc, priv->region_start,
 				(priv->region_end - priv->region_start));
-		if (ret)
-			pil_err(desc, "Failed to assign to linux, ret - %d\n",
+			if (ret)
+				pil_err(desc, "Failed to assign to linux, ret- %d\n",
 								ret);
-
+		}
 		ret = pil_assign_mem_to_subsys_and_linux(desc,
 				priv->region_start,
 				(priv->region_end - priv->region_start));
@@ -855,6 +857,7 @@ int pil_boot(struct pil_desc *desc)
 		goto err_auth_and_reset;
 	}
 	pil_info(desc, "Brought out of reset\n");
+	desc->modem_ssr = false;
 err_auth_and_reset:
 	if (ret && desc->subsys_vmid > 0) {
 		pil_assign_mem_to_linux(desc, priv->region_start,
@@ -915,6 +918,7 @@ void pil_shutdown(struct pil_desc *desc)
 		pil_proxy_unvote(desc, 1);
 	else
 		flush_delayed_work(&priv->proxy);
+	desc->modem_ssr = true;
 }
 EXPORT_SYMBOL(pil_shutdown);
 
