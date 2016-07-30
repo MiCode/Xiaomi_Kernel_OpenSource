@@ -2059,11 +2059,9 @@
 	qusb_phy0: qusb@7411000 {
 		compatible = "qcom,qusb2phy";
 		reg = <0x07411000 0x180>,
-			<0x06af8800 0x400>,
 			<0x0007024c 0x4>,
 			<0x00388018 0x4>;
 		reg-names = "qusb_phy_base",
-			"qscratch_base",
 			"tune2_efuse_addr",
 			"ref_clk_addr";
 		vdd-supply = <&pm8994_s2_corner>;
@@ -2096,11 +2094,9 @@
 	qusb_phy1: qusb@7412000 {
 		compatible = "qcom,qusb2phy";
 		reg = <0x07412000 0x180>,
-			<0x076f8800 0x400>,
 			<0x0007024c 0x4>,
 			<0x00388014 0x4>;
 		reg-names = "qusb_phy_base",
-			"qscratch_base",
 			"tune2_efuse_addr",
 			"ref_clk_addr";
 		vdd-supply = <&pm8994_s2_corner>;
