@@ -92,6 +92,13 @@ MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
 #define PIPE3_PHYSTATUS_SW	BIT(3)
 #define PIPE_UTMI_CLK_DIS	BIT(8)
 
+#define HS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x10)
+#define UTMI_OTG_VBUS_VALID	BIT(20)
+#define SW_SESSVLD_SEL		BIT(28)
+
+#define SS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x30)
+#define LANE0_PWR_PRESENT	BIT(24)
+
 /* GSI related registers */
 #define GSI_TRB_ADDR_BIT_53_MASK	(1 << 21)
 #define GSI_TRB_ADDR_BIT_55_MASK	(1 << 23)
@@ -3090,6 +3097,25 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	return 0;
 }
 
+static void dwc3_override_vbus_status(struct dwc3_msm *mdwc, bool vbus_present)
+{
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	/* Update OTG VBUS Valid from HSPHY to controller */
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
+		vbus_present ? UTMI_OTG_VBUS_VALID | SW_SESSVLD_SEL :
+		UTMI_OTG_VBUS_VALID,
+		vbus_present ? UTMI_OTG_VBUS_VALID | SW_SESSVLD_SEL : 0);
+
+	/* Update only if Super Speed is supported */
+	if (dwc->maximum_speed == USB_SPEED_SUPER) {
+		/* Update VBUS Valid from SSPHY to controller */
+		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG,
+			LANE0_PWR_PRESENT,
+			vbus_present ? LANE0_PWR_PRESENT : 0);
+	}
+}
+
 /**
  * dwc3_otg_start_peripheral -  bind/unbind the peripheral controller.
  *
@@ -3110,6 +3136,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		dev_dbg(mdwc->dev, "%s: turn on gadget %s\n",
 					__func__, dwc->gadget.name);
 
+		dwc3_override_vbus_status(mdwc, true);
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_notify_connect(mdwc->ss_phy, USB_SPEED_SUPER);
 
@@ -3125,6 +3152,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		usb_gadget_vbus_disconnect(&dwc->gadget);
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
+		dwc3_override_vbus_status(mdwc, false);
 		dwc3_usb3_phy_suspend(dwc, false);
 	}
 
