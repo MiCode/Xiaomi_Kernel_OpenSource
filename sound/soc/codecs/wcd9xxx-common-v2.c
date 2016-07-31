@@ -386,7 +386,7 @@ static void wcd_clsh_flyback_ctrl(struct snd_soc_codec *codec,
 				    (1 << 6), (enable << 6));
 		/* 100usec delay is needed as per HW requirement */
 		usleep_range(100, 110);
-		if (enable && (TASHA_IS_1_1(wcd9xxx->version))) {
+		if (enable && (TASHA_IS_1_1(wcd9xxx))) {
 			wcd_clsh_set_flyback_mode(codec, CLS_H_HIFI);
 			snd_soc_update_bits(codec, WCD9XXX_FLYBACK_EN,
 					    0x60, 0x40);
@@ -427,7 +427,7 @@ static void wcd_clsh_set_gain_path(struct snd_soc_codec *codec,
 	u8 val = 0;
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 
-	if (!TASHA_IS_2_0(wcd9xxx->version))
+	if (!TASHA_IS_2_0(wcd9xxx))
 		return;
 
 	switch (mode) {
@@ -484,7 +484,7 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 	};
 
 	snd_soc_update_bits(codec, WCD9XXX_A_ANA_HPH, 0x0C, val);
-	if (TASHA_IS_2_0(wcd9xxx->version)) {
+	if (TASHA_IS_2_0(wcd9xxx)) {
 		snd_soc_update_bits(codec, WCD9XXX_CLASSH_CTRL_VCL_2,
 				    0x30, (res_val << 4));
 		if (mode != CLS_H_LP)
@@ -515,7 +515,7 @@ static void wcd_clsh_set_flyback_current(struct snd_soc_codec *codec, int mode)
 {
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 
-	if (!TASHA_IS_2_0(wcd9xxx->version))
+	if (!TASHA_IS_2_0(wcd9xxx))
 		return;
 
 	snd_soc_update_bits(codec, WCD9XXX_RX_BIAS_FLYB_BUFF, 0x0F, 0x0A);

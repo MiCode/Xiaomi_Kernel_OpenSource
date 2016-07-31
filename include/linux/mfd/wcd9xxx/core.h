@@ -53,12 +53,18 @@
 #define TASHA_VERSION_1_0     0
 #define TASHA_VERSION_1_1     1
 #define TASHA_VERSION_2_0     2
-#define TASHA_IS_1_0(ver) \
-	((ver == TASHA_VERSION_1_0) ? 1 : 0)
-#define TASHA_IS_1_1(ver) \
-	((ver == TASHA_VERSION_1_1) ? 1 : 0)
-#define TASHA_IS_2_0(ver) \
-	((ver == TASHA_VERSION_2_0) ? 1 : 0)
+
+#define TASHA_IS_1_0(wcd) \
+	((wcd->type == WCD9335 || wcd->type == WCD9326) ? \
+	((wcd->version == TASHA_VERSION_1_0) ? 1 : 0) : 0)
+
+#define TASHA_IS_1_1(wcd) \
+	((wcd->type == WCD9335 || wcd->type == WCD9326) ? \
+	((wcd->version == TASHA_VERSION_1_1) ? 1 : 0) : 0)
+
+#define TASHA_IS_2_0(wcd) \
+	((wcd->type == WCD9335 || wcd->type == WCD9326) ? \
+	((wcd->version == TASHA_VERSION_2_0) ? 1 : 0) : 0)
 
 #define IS_CODEC_TYPE(wcd, wcdtype) \
 	((wcd->type == wcdtype) ? true : false)
