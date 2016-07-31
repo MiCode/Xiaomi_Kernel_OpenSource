@@ -199,6 +199,97 @@ exit:
 	return rc;
 } /* mdss_dp_get_dt_clk_data */
 
+static int mdss_dp_clk_init(struct mdss_dp_drv_pdata *dp_drv,
+				struct device *dev, bool initialize)
+{
+	struct dss_module_power *core_power_data = NULL;
+	struct dss_module_power *ctrl_power_data = NULL;
+	int rc = 0;
+
+	if (!dp_drv || !dev) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	core_power_data = &dp_drv->power_data[DP_CORE_PM];
+	ctrl_power_data = &dp_drv->power_data[DP_CTRL_PM];
+
+	if (!core_power_data || !ctrl_power_data) {
+		pr_err("invalid power_data\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if (initialize) {
+		rc = msm_dss_get_clk(dev, core_power_data->clk_config,
+			core_power_data->num_clk);
+		if (rc) {
+			DEV_ERR("Failed to get %s clk. Err=%d\n",
+				__mdss_dp_pm_name(DP_CORE_PM), rc);
+			goto exit;
+		}
+
+		rc = msm_dss_get_clk(dev, ctrl_power_data->clk_config,
+			ctrl_power_data->num_clk);
+		if (rc) {
+			DEV_ERR("Failed to get %s clk. Err=%d\n",
+				__mdss_dp_pm_name(DP_CTRL_PM), rc);
+			goto ctrl_get_error;
+		}
+
+	} else {
+		msm_dss_put_clk(ctrl_power_data->clk_config,
+					ctrl_power_data->num_clk);
+		msm_dss_put_clk(core_power_data->clk_config,
+					core_power_data->num_clk);
+	}
+
+	return rc;
+
+ctrl_get_error:
+	msm_dss_put_clk(core_power_data->clk_config,
+				core_power_data->num_clk);
+
+exit:
+	return rc;
+}
+
+static int mdss_dp_clk_set_rate_enable(
+		struct dss_module_power *power_data,
+		bool enable)
+{
+	int ret = 0;
+
+	if (enable) {
+		ret = msm_dss_clk_set_rate(
+			power_data->clk_config,
+			power_data->num_clk);
+		if (ret) {
+			pr_err("failed to set clks rate.\n");
+			goto exit;
+		}
+
+		ret = msm_dss_enable_clk(
+			power_data->clk_config,
+			power_data->num_clk, 1);
+		if (ret) {
+			pr_err("failed to enable clks\n");
+			goto exit;
+		}
+	} else {
+		ret = msm_dss_enable_clk(
+			power_data->clk_config,
+			power_data->num_clk, 0);
+		if (ret) {
+			pr_err("failed to disable clks\n");
+				goto exit;
+		}
+	}
+exit:
+	return ret;
+}
+
 /*
  * This clock control function supports enabling/disabling
  * of core and ctrl power module clocks
@@ -232,35 +323,27 @@ static int mdss_dp_clk_ctrl(struct mdss_dp_drv_pdata *dp_drv,
 			&& (!dp_drv->core_clks_on)) {
 			pr_debug("Need to enable core clks before link clks\n");
 
-			ret = msm_dss_enable_clk(
-				dp_drv->power_data[DP_CORE_PM].clk_config,
-				dp_drv->power_data[DP_CORE_PM].num_clk, 1);
+			ret = mdss_dp_clk_set_rate_enable(
+				&dp_drv->power_data[DP_CORE_PM],
+				enable);
 			if (ret) {
-				pr_err("failed to enable clks for %s\n",
-					__mdss_dp_pm_name(pm_type));
+				pr_err("failed to enable clks: %s. err=%d\n",
+					__mdss_dp_pm_name(DP_CORE_PM), ret);
 				goto error;
 			} else {
 				dp_drv->core_clks_on = true;
 			}
 		}
+	}
 
-		ret = msm_dss_enable_clk(
-			dp_drv->power_data[pm_type].clk_config,
-			dp_drv->power_data[pm_type].num_clk, 1);
-		if (ret) {
-			pr_err("failed to enable clks for %s\n",
-				 __mdss_dp_pm_name(pm_type));
-				goto error;
-		}
-	} else {
-		ret = msm_dss_enable_clk(
-			dp_drv->power_data[pm_type].clk_config,
-			dp_drv->power_data[pm_type].num_clk, 0);
-		if (ret) {
-			pr_err("failed to disable clks for %s\n",
-				__mdss_dp_pm_name(pm_type));
-				goto error;
-		}
+	ret = mdss_dp_clk_set_rate_enable(
+		&dp_drv->power_data[pm_type],
+		enable);
+	if (ret) {
+		pr_err("failed to '%s' clks for: %s. err=%d\n",
+			enable ? "enable" : "disable",
+			__mdss_dp_pm_name(pm_type), ret);
+			goto error;
 	}
 
 	if (pm_type == DP_CORE_PM)
@@ -275,7 +358,7 @@ error:
 static int mdss_dp_regulator_ctrl(struct mdss_dp_drv_pdata *dp_drv,
 					bool enable)
 {
-	int i, ret = 0;
+	int ret = 0, i = 0, j = 0;
 
 	if (dp_drv->core_power == enable) {
 		pr_debug("regulators already %s\n",
@@ -283,27 +366,23 @@ static int mdss_dp_regulator_ctrl(struct mdss_dp_drv_pdata *dp_drv,
 		return 0;
 	}
 
-	if (enable) {
-		for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
-			ret = msm_dss_enable_vreg(
-				dp_drv->power_data[i].vreg_config,
-				dp_drv->power_data[i].num_vreg, 1);
-			if (ret) {
-				pr_err("failed to enable vregs for %s\n",
+	for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
+		ret = msm_dss_enable_vreg(
+			dp_drv->power_data[i].vreg_config,
+			dp_drv->power_data[i].num_vreg, enable);
+		if (ret) {
+			pr_err("failed to '%s' vregs for %s\n",
+					enable ? "enable" : "disable",
 					__mdss_dp_pm_name(i));
-				goto error;
+			if (enable) {
+				/* Disabling the enabled vregs */
+				for (j = i-1; j >= DP_CORE_PM; j--) {
+					msm_dss_enable_vreg(
+					dp_drv->power_data[j].vreg_config,
+					dp_drv->power_data[j].num_vreg, 0);
+				}
 			}
-		}
-	} else {
-		for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
-			ret = msm_dss_enable_vreg(
-				dp_drv->power_data[i].vreg_config,
-				dp_drv->power_data[i].num_vreg, 1);
-			if (ret) {
-				pr_err("failed to disable vregs for %s\n",
-					__mdss_dp_pm_name(i));
-				goto error;
-			}
+			goto error;
 		}
 	}
 
@@ -472,6 +551,218 @@ static int mdss_dp_regulator_init(struct platform_device *pdev,
 	return rc;
 }
 
+static int mdss_dp_pinctrl_set_state(
+	struct mdss_dp_drv_pdata *dp,
+	bool active)
+{
+	struct pinctrl_state *pin_state;
+	int rc = -EFAULT;
+
+	if (IS_ERR_OR_NULL(dp->pin_res.pinctrl))
+		return PTR_ERR(dp->pin_res.pinctrl);
+
+	pin_state = active ? dp->pin_res.state_active
+				: dp->pin_res.state_suspend;
+	if (!IS_ERR_OR_NULL(pin_state)) {
+		rc = pinctrl_select_state(dp->pin_res.pinctrl,
+				pin_state);
+		if (rc)
+			pr_err("can not set %s pins\n",
+			       active ? "mdss_dp_active"
+			       : "mdss_dp_sleep");
+	} else {
+		pr_err("invalid '%s' pinstate\n",
+		       active ? "mdss_dp_active"
+		       : "mdss_dp_sleep");
+	}
+	return rc;
+}
+
+static int mdss_dp_pinctrl_init(struct platform_device *pdev,
+			struct mdss_dp_drv_pdata *dp)
+{
+	dp->pin_res.pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(dp->pin_res.pinctrl)) {
+		pr_err("failed to get pinctrl\n");
+		return PTR_ERR(dp->pin_res.pinctrl);
+	}
+
+	dp->pin_res.state_active
+		= pinctrl_lookup_state(dp->pin_res.pinctrl,
+				"mdss_dp_active");
+	if (IS_ERR_OR_NULL(dp->pin_res.state_active)) {
+		pr_err("can not get dp active pinstate\n");
+		return PTR_ERR(dp->pin_res.state_active);
+	}
+
+	dp->pin_res.state_suspend
+		= pinctrl_lookup_state(dp->pin_res.pinctrl,
+				"mdss_dp_sleep");
+	if (IS_ERR_OR_NULL(dp->pin_res.state_suspend)) {
+		pr_err("can not get dp sleep pinstate\n");
+		return PTR_ERR(dp->pin_res.state_suspend);
+	}
+
+	return 0;
+}
+
+static int mdss_dp_request_gpios(struct mdss_dp_drv_pdata *dp)
+{
+	int rc = 0;
+	struct device *dev = NULL;
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dev = &dp->pdev->dev;
+	if (gpio_is_valid(dp->aux_en_gpio)) {
+		rc = devm_gpio_request(dev, dp->aux_en_gpio,
+						"aux_enable");
+		if (rc) {
+			pr_err("request aux_en gpio failed, rc=%d\n",
+				       rc);
+			goto aux_en_gpio_err;
+		}
+	}
+	if (gpio_is_valid(dp->aux_sel_gpio)) {
+		rc = devm_gpio_request(dev, dp->aux_sel_gpio, "aux_sel");
+		if (rc) {
+			pr_err("request aux_sel gpio failed, rc=%d\n",
+				rc);
+			goto aux_sel_gpio_err;
+		}
+	}
+	if (gpio_is_valid(dp->usbplug_cc_gpio)) {
+		rc = devm_gpio_request(dev, dp->usbplug_cc_gpio,
+						"usbplug_cc");
+		if (rc) {
+			pr_err("request usbplug_cc gpio failed, rc=%d\n",
+				rc);
+			goto usbplug_cc_gpio_err;
+		}
+	}
+	if (gpio_is_valid(dp->hpd_gpio)) {
+		rc = devm_gpio_request(dev, dp->hpd_gpio, "hpd");
+		if (rc) {
+			pr_err("request hpd gpio failed, rc=%d\n",
+				rc);
+			goto hpd_gpio_err;
+		}
+	}
+	return rc;
+
+hpd_gpio_err:
+	if (gpio_is_valid(dp->usbplug_cc_gpio))
+		gpio_free(dp->usbplug_cc_gpio);
+usbplug_cc_gpio_err:
+	if (gpio_is_valid(dp->aux_sel_gpio))
+		gpio_free(dp->aux_sel_gpio);
+aux_sel_gpio_err:
+	if (gpio_is_valid(dp->aux_en_gpio))
+		gpio_free(dp->aux_en_gpio);
+aux_en_gpio_err:
+	return rc;
+}
+
+static int mdss_dp_config_gpios(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	int rc = 0;
+
+	if (enable == true) {
+		rc = mdss_dp_request_gpios(dp);
+		if (rc) {
+			pr_err("gpio request failed\n");
+			return rc;
+		}
+
+		if (gpio_is_valid(dp->aux_en_gpio)) {
+			rc = gpio_direction_output(
+				dp->aux_en_gpio, 0);
+			if (rc)
+				pr_err("unable to set dir for aux_en gpio\n");
+		}
+		if (gpio_is_valid(dp->aux_sel_gpio)) {
+			rc = gpio_direction_output(
+				dp->aux_sel_gpio, 0);
+			if (rc)
+				pr_err("unable to set dir for aux_sel gpio\n");
+		}
+		if (gpio_is_valid(dp->usbplug_cc_gpio)) {
+			gpio_set_value(
+				dp->usbplug_cc_gpio, 0);
+		}
+		if (gpio_is_valid(dp->hpd_gpio)) {
+			gpio_set_value(
+				dp->hpd_gpio, 1);
+		}
+	} else {
+		if (gpio_is_valid(dp->aux_en_gpio)) {
+			gpio_set_value((dp->aux_en_gpio), 0);
+			gpio_free(dp->aux_en_gpio);
+		}
+		if (gpio_is_valid(dp->aux_sel_gpio)) {
+			gpio_set_value((dp->aux_sel_gpio), 0);
+			gpio_free(dp->aux_sel_gpio);
+		}
+		if (gpio_is_valid(dp->usbplug_cc_gpio)) {
+			gpio_set_value((dp->usbplug_cc_gpio), 0);
+			gpio_free(dp->usbplug_cc_gpio);
+		}
+		if (gpio_is_valid(dp->hpd_gpio)) {
+			gpio_set_value((dp->hpd_gpio), 0);
+			gpio_free(dp->hpd_gpio);
+		}
+	}
+	return 0;
+}
+
+static int mdss_dp_parse_gpio_params(struct platform_device *pdev,
+	struct mdss_dp_drv_pdata *dp)
+{
+	dp->aux_en_gpio = of_get_named_gpio(
+			pdev->dev.of_node,
+			"qcom,aux-en-gpio", 0);
+
+	if (!gpio_is_valid(dp->aux_en_gpio)) {
+		pr_err("%d, Aux_en gpio not specified\n",
+					__LINE__);
+		return -EINVAL;
+	}
+
+	dp->aux_sel_gpio = of_get_named_gpio(
+			pdev->dev.of_node,
+			"qcom,aux-sel-gpio", 0);
+
+	if (!gpio_is_valid(dp->aux_sel_gpio)) {
+		pr_err("%d, Aux_sel gpio not specified\n",
+					__LINE__);
+		return -EINVAL;
+	}
+
+	dp->usbplug_cc_gpio = of_get_named_gpio(
+			pdev->dev.of_node,
+			"qcom,usbplug-cc-gpio", 0);
+
+	if (!gpio_is_valid(dp->usbplug_cc_gpio)) {
+		pr_err("%d,usbplug_cc gpio not specified\n",
+					__LINE__);
+		return -EINVAL;
+	}
+
+	dp->hpd_gpio = of_get_named_gpio(
+			pdev->dev.of_node,
+			"qcom,hpd-gpio", 0);
+
+	if (!gpio_is_valid(dp->hpd_gpio)) {
+		pr_info("%d,hpd gpio not specified\n",
+					__LINE__);
+	}
+
+	return 0;
+}
+
 void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp)
 {
 	/*
@@ -587,6 +878,8 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
 	int ret = 0;
+	enum plug_orientation orientation = ORIENTATION_NONE;
+	struct lane_mapping ln_map;
 
 	if (!pdata) {
 		pr_err("Invalid input data\n");
@@ -596,7 +889,15 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
 
-	pr_debug("++ cont_splash=%d\n", dp_drv->cont_splash);
+	/* wait until link training is completed */
+	mutex_lock(&dp_drv->host_mutex);
+
+	pr_debug("Enter++ cont_splash=%d\n", dp_drv->cont_splash);
+	/* Default lane mapping */
+	ln_map.lane0 = 2;
+	ln_map.lane1 = 3;
+	ln_map.lane2 = 1;
+	ln_map.lane3 = 0;
 
 	if (!dp_drv->cont_splash) { /* vote for clocks */
 		ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
@@ -606,15 +907,52 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		}
 		mdss_dp_phy_reset(&dp_drv->ctrl_io);
 		mdss_dp_aux_reset(&dp_drv->ctrl_io);
-		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 		mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
 		mdss_dp_hpd_configure(&dp_drv->ctrl_io, true);
+
+		orientation = usbpd_get_plug_orientation(dp_drv->pd);
+		pr_debug("plug Orientation = %d\n", orientation);
+
+		if (orientation == ORIENTATION_CC2) {
+			/* update lane mapping */
+			ln_map.lane0 = 1;
+			ln_map.lane1 = 0;
+			ln_map.lane2 = 2;
+			ln_map.lane3 = 3;
+
+			if (gpio_is_valid(dp_drv->usbplug_cc_gpio)) {
+				gpio_set_value(
+					dp_drv->usbplug_cc_gpio, 1);
+				pr_debug("Configured cc gpio for new Orientation\n");
+			}
+
+		}
 
 		mdss_dp_phy_aux_setup(&dp_drv->phy_io);
 
 		mdss_dp_irq_enable(dp_drv);
 		pr_debug("irq enabled\n");
 		mdss_dp_dpcd_cap_read(dp_drv);
+		dp_drv->link_rate =
+			mdss_dp_gen_link_clk(&dp_drv->panel_data.panel_info,
+						dp_drv->dpcd.max_lane_count);
+
+		pr_debug("link_rate=0x%x, Max rate supported by sink=0x%x\n",
+			       dp_drv->link_rate, dp_drv->dpcd.max_link_rate);
+		if (!dp_drv->link_rate) {
+			pr_err("Unable to configure required link rate\n");
+			return -EINVAL;
+		}
+
+		pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
+
+		dp_drv->power_data[DP_CTRL_PM].clk_config[0].rate =
+				dp_drv->link_rate * DP_LINK_RATE_MULTIPLIER;
+
+		dp_drv->pixel_rate = dp_drv->panel_data.panel_info.clk_rate;
+		dp_drv->power_data[DP_CTRL_PM].clk_config[3].rate =
+							dp_drv->pixel_rate;
+
 		ret = mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, true);
 		if (ret) {
 			mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
@@ -624,6 +962,7 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 
 		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 
+		mdss_dp_ctrl_lane_mapping(&dp_drv->ctrl_io, ln_map);
 		reinit_completion(&dp_drv->idle_comp);
 		mdss_dp_fill_link_cfg(dp_drv);
 		mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, true);
@@ -645,7 +984,9 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	if (mdss_dp_mainlink_ready(dp_drv, BIT(0)))
 		pr_debug("mainlink ready\n");
 
+	mutex_unlock(&dp_drv->host_mutex);
 	pr_debug("End-\n");
+
 	return ret;
 }
 
@@ -680,6 +1021,9 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 	mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
 
+	mdss_dp_config_gpios(dp_drv, false);
+	mdss_dp_pinctrl_set_state(dp_drv, false);
+
 	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, false);
 	mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, false);
 	mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
@@ -712,6 +1056,9 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		goto vreg_error;
 	}
 
+	mdss_dp_pinctrl_set_state(dp_drv, true);
+	mdss_dp_config_gpios(dp_drv, true);
+
 	ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
 	if (ret) {
 		pr_err("Unabled to start core clocks\n");
@@ -724,6 +1071,10 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	mdss_dp_aux_reset(&dp_drv->ctrl_io);
 	mdss_dp_phy_initialize(dp_drv);
 	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
+
+	pr_debug("Ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
+	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
+	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
 
 	return ret;
 
@@ -865,7 +1216,7 @@ static void mdss_dp_event_work(struct work_struct *work)
 	struct mdss_dp_drv_pdata *dp = NULL;
 	struct delayed_work *dw = to_delayed_work(work);
 	unsigned long flag;
-	u32 todo = 0;
+	u32 todo = 0, dp_config_pkt[2];
 
 	if (!dw) {
 		pr_err("invalid work structure\n");
@@ -882,23 +1233,46 @@ static void mdss_dp_event_work(struct work_struct *work)
 	pr_debug("todo=%x\n", todo);
 
 	switch (todo) {
-	case (EV_EDID_READ):
+	case EV_EDID_READ:
 		mdss_dp_edid_read(dp, 0);
 		break;
-	case (EV_DPCD_CAP_READ):
+	case EV_DPCD_CAP_READ:
 		mdss_dp_dpcd_cap_read(dp);
 		break;
-	case (EV_DPCD_STATUS_READ):
+	case EV_DPCD_STATUS_READ:
 		mdss_dp_dpcd_status_read(dp);
 		break;
-	case (EV_LINK_TRAIN):
+	case EV_LINK_TRAIN:
 		mdss_dp_do_link_train(dp);
 		break;
-	case (EV_VIDEO_READY):
+	case EV_VIDEO_READY:
 		mdss_dp_video_ready(dp);
 		break;
-	case (EV_IDLE_PATTERNS_SENT):
+	case EV_IDLE_PATTERNS_SENT:
 		mdss_dp_idle_patterns_sent(dp);
+		break;
+	case EV_USBPD_DISCOVER_MODES:
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_DISCOVER_MODES,
+			SVDM_CMD_TYPE_INITIATOR, 0x0, 0x0, 0x0);
+		break;
+	case EV_USBPD_ENTER_MODE:
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_ENTER_MODE,
+			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+		break;
+	case EV_USBPD_EXIT_MODE:
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_EXIT_MODE,
+			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+		break;
+	case EV_USBPD_DP_STATUS:
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_STATUS,
+			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+		break;
+	case EV_USBPD_DP_CONFIGURE:
+		dp_config_pkt[0] = SVDM_HDR(USB_C_DP_SID, VDM_VERSION, 0x1,
+			SVDM_CMD_TYPE_INITIATOR, DP_VDM_CONFIGURE);
+		dp_config_pkt[1] = mdss_dp_usbpd_gen_config_pkt(dp);
+		usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_CONFIGURE,
+			SVDM_CMD_TYPE_INITIATOR, 0x1, dp_config_pkt, 0x2);
 		break;
 	default:
 		pr_err("Unknown event:%d\n", todo);
@@ -987,6 +1361,165 @@ static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 	return 0;
 }
 
+static void usbpd_connect_callback(struct usbpd_svid_handler *hdlr)
+{
+	struct mdss_dp_drv_pdata *dp_drv;
+
+	dp_drv = container_of(hdlr, struct mdss_dp_drv_pdata, svid_handler);
+	if (!dp_drv->pd) {
+		pr_err("get_usbpd phandle failed\n");
+		return;
+	}
+
+	mutex_lock(&dp_drv->pd_msg_mutex);
+	dp_drv->cable_connected = true;
+	dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
+	mutex_unlock(&dp_drv->pd_msg_mutex);
+	pr_debug("discover_mode event sent\n");
+}
+
+static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
+{
+	struct mdss_dp_drv_pdata *dp_drv;
+
+	dp_drv = container_of(hdlr, struct mdss_dp_drv_pdata, svid_handler);
+	if (!dp_drv->pd) {
+		pr_err("get_usbpd phandle failed\n");
+		return;
+	}
+
+	pr_debug("cable disconnected\n");
+	mutex_lock(&dp_drv->pd_msg_mutex);
+	dp_drv->cable_connected = false;
+	mutex_unlock(&dp_drv->pd_msg_mutex);
+}
+
+static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
+				enum usbpd_svdm_cmd_type cmd_type,
+				const u32 *vdos, int num_vdos)
+{
+	struct mdss_dp_drv_pdata *dp_drv;
+
+	dp_drv = container_of(hdlr, struct mdss_dp_drv_pdata, svid_handler);
+	if (!dp_drv->pd) {
+		pr_err("get_usbpd phandle failed\n");
+		return;
+	}
+
+	pr_debug("callback -> cmd: 0x%x, *vdos = 0x%x, num_vdos = %d\n",
+				cmd, *vdos, num_vdos);
+
+	switch (cmd) {
+	case USBPD_SVDM_DISCOVER_MODES:
+		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
+			dp_drv->alt_mode.dp_cap.response = *vdos;
+			mdss_dp_usbpd_ext_capabilities
+					(&dp_drv->alt_mode.dp_cap);
+			dp_drv->alt_mode.current_state = DISCOVER_MODES_DONE;
+			dp_send_events(dp_drv, EV_USBPD_ENTER_MODE);
+		} else {
+			pr_err("unknown response: %d for Discover_modes\n",
+			       cmd_type);
+		}
+		break;
+	case USBPD_SVDM_ENTER_MODE:
+		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
+			dp_drv->alt_mode.current_state = ENTER_MODE_DONE;
+			dp_send_events(dp_drv, EV_USBPD_DP_STATUS);
+		} else {
+			pr_err("unknown response: %d for Enter_mode\n",
+			       cmd_type);
+		}
+		break;
+	case USBPD_SVDM_ATTENTION:
+		if (cmd_type == SVDM_CMD_TYPE_INITIATOR) {
+			pr_debug("Attention. cmd_type=%d\n",
+			       cmd_type);
+			if (!dp_drv->alt_mode.current_state
+						== ENTER_MODE_DONE) {
+				pr_debug("sending discover_mode\n");
+				dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
+				break;
+			}
+			if (num_vdos == 1) {
+				dp_drv->alt_mode.dp_status.response = *vdos;
+				mdss_dp_usbpd_ext_dp_status
+						(&dp_drv->alt_mode.dp_status);
+				if (dp_drv->alt_mode.dp_status.hpd_high) {
+					pr_debug("HPD high\n");
+					dp_drv->alt_mode.current_state =
+							DP_STATUS_DONE;
+					dp_send_events
+						(dp_drv, EV_USBPD_DP_CONFIGURE);
+				}
+			}
+		} else {
+			pr_debug("unknown response: %d for Attention\n",
+			       cmd_type);
+		}
+		break;
+	case DP_VDM_STATUS:
+		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
+			dp_drv->alt_mode.dp_status.response = *vdos;
+			mdss_dp_usbpd_ext_dp_status
+					(&dp_drv->alt_mode.dp_status);
+			if (dp_drv->alt_mode.dp_status.hpd_high) {
+				pr_debug("HDP high\n");
+				dp_drv->alt_mode.current_state =
+						DP_STATUS_DONE;
+				dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
+			}
+		} else {
+			pr_err("unknown response: %d for DP_Status\n",
+			       cmd_type);
+		}
+		break;
+	case DP_VDM_CONFIGURE:
+		if ((dp_drv->cable_connected == true)
+				|| (cmd_type == SVDM_CMD_TYPE_RESP_ACK)) {
+			dp_drv->alt_mode.current_state = DP_CONFIGURE_DONE;
+			pr_debug("config USBPD to DP done\n");
+			mdss_dp_host_init(&dp_drv->panel_data);
+		} else {
+			pr_err("unknown response: %d for DP_Configure\n",
+			       cmd_type);
+		}
+		break;
+	default:
+		pr_err("unknown cmd: %d\n", cmd);
+		break;
+	}
+}
+
+static int mdss_dp_usbpd_setup(struct mdss_dp_drv_pdata *dp_drv)
+{
+	int ret = 0;
+	const char *pd_phandle = "qcom,dp-usbpd-detection";
+
+	dp_drv->pd = devm_usbpd_get_by_phandle(&dp_drv->pdev->dev,
+						    pd_phandle);
+
+	if (IS_ERR(dp_drv->pd)) {
+		pr_err("get_usbpd phandle failed (%ld)\n",
+				PTR_ERR(dp_drv->pd));
+		return PTR_ERR(dp_drv->pd);
+	}
+
+	dp_drv->svid_handler.svid = USB_C_DP_SID;
+	dp_drv->svid_handler.vdm_received = NULL;
+	dp_drv->svid_handler.connect = &usbpd_connect_callback;
+	dp_drv->svid_handler.svdm_received = &usbpd_response_callback;
+	dp_drv->svid_handler.disconnect = &usbpd_disconnect_callback;
+
+	ret = usbpd_register_svid(dp_drv->pd, &dp_drv->svid_handler);
+	if (ret) {
+		pr_err("usbpd registration failed\n");
+		return -ENODEV;
+	}
+
+	return ret;
+}
+
 static int mdss_dp_probe(struct platform_device *pdev)
 {
 	int ret, i;
@@ -1030,7 +1563,16 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	dp_drv->mask1 = EDP_INTR_MASK1;
 	dp_drv->mask2 = EDP_INTR_MASK2;
 	mutex_init(&dp_drv->emutex);
+	mutex_init(&dp_drv->host_mutex);
+	mutex_init(&dp_drv->pd_msg_mutex);
 	spin_lock_init(&dp_drv->lock);
+
+	if (mdss_dp_usbpd_setup(dp_drv)) {
+		pr_err("Error usbpd setup!\n");
+		devm_kfree(&pdev->dev, dp_drv);
+		dp_drv = NULL;
+		return -EPROBE_DEFER;
+	}
 
 	ret = mdss_retrieve_dp_ctrl_resources(pdev, dp_drv);
 	if (ret)
@@ -1062,6 +1604,14 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	if (ret)
 		goto probe_err;
 
+	ret = mdss_dp_clk_init(dp_drv,
+				&pdev->dev, true);
+	if (ret) {
+		DEV_ERR("clk_init failed.ret=%d\n",
+				ret);
+		goto probe_err;
+	}
+
 	ret = mdss_dp_irq_setup(dp_drv);
 	if (ret)
 		goto probe_err;
@@ -1070,32 +1620,32 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	if (ret)
 		goto probe_err;
 
-	ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
-	if (ret) {
-		pr_err("Unabled to enable core clocks\n");
-		goto probe_err;
-	}
-
-	pr_info("ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
-	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
-	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
-
-	ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
-	if (ret) {
-		pr_err("Unabled to disable core clocks\n");
-		goto probe_err;
-	}
-
 	dp_drv->cont_splash = dp_drv->mdss_util->panel_intf_status(DISPLAY_1,
 		MDSS_PANEL_INTF_EDP) ? true : false;
 
 	platform_set_drvdata(pdev, dp_drv);
+
+	ret = mdss_dp_pinctrl_init(pdev, dp_drv);
+	if (ret) {
+		pr_err("pinctrl init failed, ret=%d\n",
+						ret);
+		goto probe_err;
+	}
+
+	ret = mdss_dp_parse_gpio_params(pdev, dp_drv);
+	if (ret) {
+		pr_err("failed to parse gpio params, ret=%d\n",
+						ret);
+		goto probe_err;
+	}
 
 	mdss_dp_device_register(dp_drv);
 
 	dp_drv->inited = true;
 
 	pr_debug("done\n");
+
+	dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
 
 	return 0;
 

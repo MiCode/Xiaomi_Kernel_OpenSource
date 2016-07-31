@@ -20,6 +20,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/usb/usbpd.h>
 
 #include "mdss_hdmi_util.h"
 #include "video/msm_hdmi_modes.h"
@@ -103,10 +104,6 @@
 
 #define EDP_INTR_MASK2		(EDP_INTR_STATUS2 << 2)
 
-
-#define EDP_PHY_EDPPHY_GLB_VM_CFG0	0x510
-#define EDP_PHY_EDPPHY_GLB_VM_CFG1	0x514
-
 struct edp_cmd {
 	char read;	/* 1 == read, 0 == write */
 	char i2c;	/* 1 == i2c cmd, 0 == native cmd */
@@ -126,11 +123,73 @@ struct edp_buf {
 	char i2c;	/* 1 == i2c cmd, 0 == native cmd */
 };
 
+/* USBPD-TypeC specific Macros */
+#define VDM_VERSION		0x0
+#define USB_C_DP_SID		0xFF01
+
 enum dp_pm_type {
 	DP_CORE_PM,
 	DP_CTRL_PM,
 	DP_PHY_PM,
 	DP_MAX_PM
+};
+
+#define PIN_ASSIGN_A		BIT(0)
+#define PIN_ASSIGN_B		BIT(1)
+#define PIN_ASSIGN_C		BIT(2)
+#define PIN_ASSIGN_D		BIT(3)
+#define PIN_ASSIGN_E		BIT(4)
+#define PIN_ASSIGN_F		BIT(5)
+
+#define SVDM_HDR(svid, ver, mode, cmd_type, cmd) \
+	(((svid) << 16) | (1 << 15) | ((ver) <<  13) \
+	| ((mode) << 8) | ((cmd_type) << 6) | (cmd))
+
+/* DP specific VDM commands */
+#define DP_VDM_STATUS		0x10
+#define DP_VDM_CONFIGURE	0x11
+
+enum dp_port_cap {
+	PORT_NONE = 0,
+	PORT_UFP_D,
+	PORT_DFP_D,
+	PORT_D_UFP_D,
+};
+
+struct usbpd_dp_capabilities {
+	u32 response;
+	enum dp_port_cap s_port;
+	bool receptacle_state;
+	u8 ulink_pin_config;
+	u8 dlink_pin_config;
+};
+
+struct usbpd_dp_status {
+	u32 response;
+	enum dp_port_cap c_port;
+	bool low_pow_st;
+	bool adaptor_dp_en;
+	bool multi_func;
+	bool switch_to_usb_config;
+	bool exit_dp_mode;
+	bool hpd_high;
+	bool hpd_irq;
+};
+
+enum dp_alt_mode_state {
+	ALT_MODE_INIT_STATE = 0,
+	DISCOVER_MODES_DONE,
+	ENTER_MODE_DONE,
+	DP_STATUS_DONE,
+	DP_CONFIGURE_DONE,
+	UNKNOWN_STATE,
+};
+
+struct dp_alt_mode {
+	struct usbpd_dp_capabilities dp_cap;
+	struct usbpd_dp_status dp_status;
+	u32 usbpd_dp_config;
+	enum dp_alt_mode_state current_state;
 };
 
 #define DPCD_ENHANCED_FRAME	BIT(0)
@@ -145,18 +204,26 @@ enum dp_pm_type {
 #define EV_DPCD_CAP_READ		BIT(2)
 #define EV_DPCD_STATUS_READ		BIT(3)
 #define EV_LINK_TRAIN			BIT(4)
-#define EV_IDLE_PATTERNS_SENT		BIT(30)
-#define EV_VIDEO_READY			BIT(31)
+#define EV_IDLE_PATTERNS_SENT		BIT(5)
+#define EV_VIDEO_READY			BIT(6)
 
-/* edp state ctrl */
+#define EV_USBPD_DISCOVER_MODES		BIT(7)
+#define EV_USBPD_ENTER_MODE		BIT(8)
+#define EV_USBPD_DP_STATUS		BIT(9)
+#define EV_USBPD_DP_CONFIGURE		BIT(10)
+#define EV_USBPD_CC_PIN_POLARITY	BIT(11)
+#define EV_USBPD_EXIT_MODE		BIT(12)
+
+/* dp state ctrl */
 #define ST_TRAIN_PATTERN_1		BIT(0)
 #define ST_TRAIN_PATTERN_2		BIT(1)
 #define ST_TRAIN_PATTERN_3		BIT(2)
-#define ST_SYMBOL_ERR_RATE_MEASUREMENT	BIT(3)
-#define ST_PRBS7			BIT(4)
-#define ST_CUSTOM_80_BIT_PATTERN	BIT(5)
-#define ST_SEND_VIDEO			BIT(6)
-#define ST_PUSH_IDLE			BIT(7)
+#define ST_TRAIN_PATTERN_4		BIT(3)
+#define ST_SYMBOL_ERR_RATE_MEASUREMENT	BIT(4)
+#define ST_PRBS7			BIT(5)
+#define ST_CUSTOM_80_BIT_PATTERN	BIT(6)
+#define ST_SEND_VIDEO			BIT(7)
+#define ST_PUSH_IDLE			BIT(8)
 
 /* sink power state  */
 #define SINK_POWER_ON		1
@@ -166,6 +233,8 @@ enum dp_pm_type {
 #define DP_LINK_RATE_270	10	/* 2.70G = 270M * 10 */
 #define DP_LINK_RATE_540	20	/* 5.40G = 270M * 20 */
 #define DP_LINK_RATE_MAX	DP_LINK_RATE_540
+
+#define DP_LINK_RATE_MULTIPLIER	27000000
 
 struct dpcd_cap {
 	char major;
@@ -254,9 +323,15 @@ struct dp_statistic {
 	u32 aux_native_rx;
 };
 
-
 #define DPCD_LINK_VOLTAGE_MAX	4
 #define DPCD_LINK_PRE_EMPHASIS_MAX	4
+
+struct dp_pinctrl_res {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *state_active;
+	struct pinctrl_state *state_hpd_active;
+	struct pinctrl_state *state_suspend;
+};
 
 irqreturn_t dp_isr(int irq, void *ptr);
 
@@ -265,6 +340,10 @@ struct mdss_dp_drv_pdata {
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	struct platform_device *pdev;
+
+	struct usbpd *pd;
+	struct usbpd_svid_handler svid_handler;
+	struct dp_alt_mode alt_mode;
 
 	struct mutex emutex;
 	int clk_cnt;
@@ -302,6 +381,11 @@ struct mdss_dp_drv_pdata {
 
 	/* regulators */
 	struct dss_module_power power_data[DP_MAX_PM];
+	struct dp_pinctrl_res pin_res;
+	int aux_sel_gpio;
+	int aux_en_gpio;
+	int usbplug_cc_gpio;
+	int hpd_gpio;
 	int clk_on;
 
 	/* hpd */
@@ -316,6 +400,9 @@ struct mdss_dp_drv_pdata {
 	struct completion video_comp;
 	struct mutex aux_mutex;
 	struct mutex train_mutex;
+	struct mutex host_mutex;
+	struct mutex pd_msg_mutex;
+	bool cable_connected;
 	u32 aux_cmd_busy;
 	u32 aux_cmd_i2c;
 	int aux_trans_num;
@@ -379,5 +466,6 @@ void mdss_dp_fill_link_cfg(struct mdss_dp_drv_pdata *ep);
 void mdss_dp_sink_power_down(struct mdss_dp_drv_pdata *ep);
 void mdss_dp_lane_power_ctrl(struct mdss_dp_drv_pdata *ep, int up);
 void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *ep);
+char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt);
 
 #endif /* MDSS_DP_H */

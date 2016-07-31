@@ -214,14 +214,24 @@ void mdss_dp_sw_mvid_nvid(struct dss_io_data *ctrl_io)
 	writel_relaxed(0x3c, ctrl_io->base + DP_SOFTWARE_NVID);
 }
 
+void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io)
+{
+	/* Current Tr unit configuration supports only 1080p */
+	writel_relaxed(0x21, ctrl_io->base + DP_MISC1_MISC0);
+	writel_relaxed(0x0f0016, ctrl_io->base + DP_VALID_BOUNDARY);
+	writel_relaxed(0x1f, ctrl_io->base + DP_TU);
+	writel_relaxed(0x0, ctrl_io->base + DP_VALID_BOUNDARY_2);
+}
+
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
 				struct lane_mapping l_map)
 {
 	u8 bits_per_lane = 2;
 	u32 lane_map = ((l_map.lane0 << (bits_per_lane * 0))
-			    || (l_map.lane1 << (bits_per_lane * 1))
-			    || (l_map.lane2 << (bits_per_lane * 2))
-			    || (l_map.lane3 << (bits_per_lane * 3)));
+			    | (l_map.lane1 << (bits_per_lane * 1))
+			    | (l_map.lane2 << (bits_per_lane * 2))
+			    | (l_map.lane3 << (bits_per_lane * 3)));
+	pr_debug("%s: lane mapping reg = 0x%x\n", __func__, lane_map);
 	writel_relaxed(lane_map,
 		ctrl_io->base + DP_LOGICAL2PHYSCIAL_LANE_MAPPING);
 }
@@ -281,4 +291,82 @@ void mdss_dp_irq_disable(struct mdss_dp_drv_pdata *dp_drv)
 	spin_unlock_irqrestore(&dp_drv->lock, flags);
 
 	dp_drv->mdss_util->disable_irq(&mdss_dp_hw);
+}
+
+static void mdss_dp_initialize_s_port(enum dp_port_cap *s_port, int port)
+{
+	switch (port) {
+	case 0:
+		*s_port = PORT_NONE;
+		break;
+	case 1:
+		*s_port = PORT_UFP_D;
+		break;
+	case 2:
+		*s_port = PORT_DFP_D;
+		break;
+	case 3:
+		*s_port = PORT_D_UFP_D;
+		break;
+	default:
+		*s_port = PORT_NONE;
+	}
+}
+
+void mdss_dp_usbpd_ext_capabilities(struct usbpd_dp_capabilities *dp_cap)
+{
+	u32 buf = dp_cap->response;
+	int port = buf & 0x3;
+
+	dp_cap->receptacle_state =
+			(buf & BIT(6)) ? true : false;
+
+	dp_cap->dlink_pin_config =
+			(buf >> 8) & 0xff;
+
+	dp_cap->ulink_pin_config =
+			(buf >> 16) & 0xff;
+
+	mdss_dp_initialize_s_port(&dp_cap->s_port, port);
+}
+
+void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status)
+{
+	u32 buf = dp_status->response;
+	int port = buf & 0x3;
+
+	dp_status->low_pow_st =
+			(buf & BIT(2)) ? true : false;
+
+	dp_status->adaptor_dp_en =
+			(buf & BIT(3)) ? true : false;
+
+	dp_status->multi_func =
+			(buf & BIT(4)) ? true : false;
+
+	dp_status->switch_to_usb_config =
+			(buf & BIT(5)) ? true : false;
+
+	dp_status->exit_dp_mode =
+			(buf & BIT(6)) ? true : false;
+
+	dp_status->hpd_high =
+			(buf & BIT(7)) ? true : false;
+
+	dp_status->hpd_irq =
+			(buf & BIT(8)) ? true : false;
+
+	mdss_dp_initialize_s_port(&dp_status->c_port, port);
+}
+
+u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp)
+{
+	u32 config = 0;
+
+	config |= (dp->alt_mode.dp_cap.dlink_pin_config << 8);
+	config |= (0x1 << 2); /* configure for DPv1.3 */
+	config |= 0x2; /* Configuring for UFP_D */
+
+	pr_debug("DP config = 0x%x\n", config);
+	return config;
 }

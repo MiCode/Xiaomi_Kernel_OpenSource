@@ -484,6 +484,37 @@ void dp_extract_edid_feature(struct edp_edid *edid, char *buf)
 			edid->dpm, edid->color_format);
 };
 
+char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
+{
+	const u32 encoding_factx10 = 8;
+	const u32 ln_to_link_ratio = 10;
+	u32 min_link_rate;
+	char calc_link_rate = 0;
+
+	pr_debug("clk_rate=%llu, bpp= %d, lane_cnt=%d\n",
+	       pinfo->clk_rate, pinfo->bpp, lane_cnt);
+	min_link_rate = (pinfo->clk_rate * 10) /
+		(lane_cnt * encoding_factx10);
+	min_link_rate = (min_link_rate * pinfo->bpp)
+				/ (DP_LINK_RATE_MULTIPLIER);
+	min_link_rate /= ln_to_link_ratio;
+
+	pr_debug("min_link_rate = %d\n", min_link_rate);
+
+	if (min_link_rate <= DP_LINK_RATE_162)
+		calc_link_rate = DP_LINK_RATE_162;
+	else if (min_link_rate <= DP_LINK_RATE_270)
+		calc_link_rate = DP_LINK_RATE_270;
+	else if (min_link_rate <= DP_LINK_RATE_540)
+		calc_link_rate = DP_LINK_RATE_540;
+	else {
+		pr_err("link_rate = %d is unsupported\n", min_link_rate);
+		calc_link_rate = 0;
+	}
+
+	return calc_link_rate;
+}
+
 void dp_extract_edid_detailed_timing_description(struct edp_edid *edid,
 		char *buf)
 {
@@ -1037,23 +1068,37 @@ char vm_voltage_swing[4][4] = {
 	{0x1E, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
-static void dp_voltage_pre_emphasise_set(struct mdss_dp_drv_pdata *ep)
+static void dp_voltage_pre_emphasise_set(struct mdss_dp_drv_pdata *dp)
 {
 	u32 value0 = 0;
 	u32 value1 = 0;
 
-	pr_debug("v=%d p=%d\n", ep->v_level, ep->p_level);
+	pr_debug("v=%d p=%d\n", dp->v_level, dp->p_level);
 
-	value0 = vm_pre_emphasis[(int)(ep->v_level)][(int)(ep->p_level)];
-	value1 = vm_voltage_swing[(int)(ep->v_level)][(int)(ep->p_level)];
+	value0 = vm_voltage_swing[(int)(dp->v_level)][(int)(dp->p_level)];
+	value1 = vm_pre_emphasis[(int)(dp->v_level)][(int)(dp->p_level)];
 
+	/* Enable MUX to use Cursor values from these registers */
+	value0 |= BIT(5);
+	value1 |= BIT(5);
 	/* Configure host and panel only if both values are allowed */
 	if (value0 != 0xFF && value1 != 0xFF) {
-		dp_write(ep->base + EDP_PHY_EDPPHY_GLB_VM_CFG0, value0);
-		dp_write(ep->base + EDP_PHY_EDPPHY_GLB_VM_CFG1, value1);
+		dp_write(dp->phy_io.base +
+			QSERDES_TX0_OFFSET + TXn_TX_DRV_LVL,
+			value0);
+		dp_write(dp->phy_io.base +
+			QSERDES_TX1_OFFSET + TXn_TX_DRV_LVL,
+			value0);
+		dp_write(dp->phy_io.base +
+			QSERDES_TX0_OFFSET + TXn_TX_EMP_POST1_LVL,
+			value1);
+		dp_write(dp->phy_io.base +
+			QSERDES_TX1_OFFSET + TXn_TX_EMP_POST1_LVL,
+			value1);
+
 		pr_debug("value0=0x%x value1=0x%x",
 						value0, value1);
-		dp_lane_set_write(ep, ep->v_level, ep->p_level);
+		dp_lane_set_write(dp, dp->v_level, dp->p_level);
 	}
 
 }
@@ -1212,34 +1257,36 @@ static void dp_clear_training_pattern(struct mdss_dp_drv_pdata *ep)
 	usleep_range(usleep_time, usleep_time);
 }
 
-static int dp_aux_link_train(struct mdss_dp_drv_pdata *ep)
+static int dp_aux_link_train(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 	int usleep_time;
 
-	ret = dp_aux_chan_ready(ep);
+	ret = dp_aux_chan_ready(dp);
 	if (ret) {
 		pr_err("LINK Train failed: aux chan NOT ready\n");
-		complete(&ep->train_comp);
+		complete(&dp->train_comp);
 		return ret;
 	}
 
-	dp_write(ep->base + DP_MAINLINK_CTRL, 0x1);
+	dp_write(dp->base + DP_MAINLINK_CTRL, 0x1);
 
-	mdss_dp_sink_power_state(ep, SINK_POWER_ON);
+	mdss_dp_sink_power_state(dp, SINK_POWER_ON);
 
 train_start:
-	ep->v_level = 0; /* start from default level */
-	ep->p_level = 0;
-	dp_cap_lane_rate_set(ep);
+	dp->v_level = 0; /* start from default level */
+	dp->p_level = 0;
+	dp_cap_lane_rate_set(dp);
+	mdss_dp_config_ctrl(dp);
 
-	dp_clear_training_pattern(ep);
-	usleep_time = ep->dpcd.training_read_interval;
+	mdss_dp_state_ctrl(&dp->ctrl_io, 0);
+	dp_clear_training_pattern(dp);
+	usleep_time = dp->dpcd.training_read_interval;
 	usleep_range(usleep_time, usleep_time);
 
-	ret = dp_start_link_train_1(ep);
+	ret = dp_start_link_train_1(dp);
 	if (ret < 0) {
-		if (dp_link_rate_down_shift(ep) == 0) {
+		if (dp_link_rate_down_shift(dp) == 0) {
 			goto train_start;
 		} else {
 			pr_err("Training 1 failed\n");
@@ -1250,10 +1297,11 @@ train_start:
 
 	pr_debug("Training 1 completed successfully\n");
 
-	dp_clear_training_pattern(ep);
-	ret = dp_start_link_train_2(ep);
+	mdss_dp_state_ctrl(&dp->ctrl_io, 0);
+	dp_clear_training_pattern(dp);
+	ret = dp_start_link_train_2(dp);
 	if (ret < 0) {
-		if (dp_link_rate_down_shift(ep) == 0) {
+		if (dp_link_rate_down_shift(dp) == 0) {
 			goto train_start;
 		} else {
 			pr_err("Training 2 failed\n");
@@ -1264,10 +1312,16 @@ train_start:
 
 	pr_debug("Training 2 completed successfully\n");
 
-clear:
-	dp_clear_training_pattern(ep);
 
-	complete(&ep->train_comp);
+clear:
+	dp_clear_training_pattern(dp);
+	if (ret != -1) {
+		mdss_dp_setup_tr_unit(&dp->ctrl_io);
+		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
+		pr_debug("State_ctrl set to SEND_VIDEO\n");
+	}
+
+	complete(&dp->train_comp);
 	return ret;
 }
 
