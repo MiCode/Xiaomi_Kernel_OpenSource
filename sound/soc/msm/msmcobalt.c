@@ -170,7 +170,7 @@ static const char *const slim_tx_ch_text[] = {"One", "Two", "Three", "Four",
 						"Five", "Six", "Seven",
 						"Eight"};
 static const char *const vi_feed_ch_text[] = {"One", "Two"};
-static char const *bit_format_text[] = {"S16_LE", "S24_LE"};
+static char const *bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE"};
 static char const *slim_sample_rate_text[] = {"KHZ_8", "KHZ_16",
 					"KHZ_32", "KHZ_44P1", "KHZ_48",
 					"KHZ_96", "KHZ_192"};
@@ -325,6 +325,9 @@ static int slim_get_bit_format_val(int bit_format)
 	int val = 0;
 
 	switch (bit_format) {
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		val = 2;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		val = 1;
 		break;
@@ -346,6 +349,9 @@ static int slim_get_bit_format(int val)
 		break;
 	case 1:
 		bit_fmt = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 2:
+		bit_fmt = SNDRV_PCM_FORMAT_S24_3LE;
 		break;
 	default:
 		bit_fmt = SNDRV_PCM_FORMAT_S16_LE;
@@ -749,6 +755,9 @@ static int usb_audio_rx_format_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	switch (usb_rx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		ucontrol->value.integer.value[0] = 2;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		ucontrol->value.integer.value[0] = 1;
 		break;
@@ -770,6 +779,9 @@ static int usb_audio_rx_format_put(struct snd_kcontrol *kcontrol,
 	int rc = 0;
 
 	switch (ucontrol->value.integer.value[0]) {
+	case 2:
+		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_3LE;
+		break;
 	case 1:
 		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_LE;
 		break;
@@ -893,6 +905,9 @@ static int usb_audio_tx_format_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	switch (usb_tx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		ucontrol->value.integer.value[0] = 2;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		ucontrol->value.integer.value[0] = 1;
 		break;
@@ -914,6 +929,9 @@ static int usb_audio_tx_format_put(struct snd_kcontrol *kcontrol,
 	int rc = 0;
 
 	switch (ucontrol->value.integer.value[0]) {
+	case 2:
+		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_3LE;
+		break;
 	case 1:
 		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_LE;
 		break;
