@@ -1311,6 +1311,29 @@ static int venus_hfi_suspend(void *dev)
 	return rc;
 }
 
+static int venus_hfi_flush_debug_queue(void *dev)
+{
+	int rc = 0;
+	struct venus_hfi_device *device = (struct venus_hfi_device *) dev;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s invalid device\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&device->lock);
+
+	if (device->power_enabled) {
+		dprintk(VIDC_DBG, "Venus is busy\n");
+		rc = -EBUSY;
+		goto exit;
+	}
+	__flush_debug_queue(device, NULL);
+exit:
+	mutex_unlock(&device->lock);
+	return rc;
+}
+
 static enum hal_default_properties venus_hfi_get_default_properties(void *dev)
 {
 	enum hal_default_properties prop = 0;
@@ -3322,6 +3345,7 @@ static void __process_sys_error(struct venus_hfi_device *device)
 static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 {
 	bool local_packet = false;
+	enum vidc_msg_prio log_level = VIDC_FW;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
@@ -3337,6 +3361,13 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 		}
 
 		local_packet = true;
+
+		/*
+		 * Local packek is used when something FATAL occurred.
+		 * It is good to print these logs by default.
+		 */
+
+		log_level = VIDC_ERR;
 	}
 
 	while (!__iface_dbgq_read(device, packet)) {
@@ -3353,7 +3384,7 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 		} else {
 			struct hfi_msg_sys_debug_packet *pkt =
 				(struct hfi_msg_sys_debug_packet *) packet;
-			dprintk(VIDC_FW, "%s", pkt->rg_msg_data);
+			dprintk(log_level, "%s", pkt->rg_msg_data);
 		}
 	}
 
@@ -4629,6 +4660,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->get_fw_info = venus_hfi_get_fw_info;
 	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
 	hdev->suspend = venus_hfi_suspend;
+	hdev->flush_debug_queue = venus_hfi_flush_debug_queue;
 	hdev->get_core_clock_rate = venus_hfi_get_core_clock_rate;
 	hdev->get_default_properties = venus_hfi_get_default_properties;
 }

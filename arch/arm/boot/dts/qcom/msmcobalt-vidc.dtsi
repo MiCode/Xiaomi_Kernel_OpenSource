@@ -25,6 +25,7 @@
 		qcom,firmware-name = "venus";
 		qcom,never-unload-fw;
 		qcom,sw-power-collapse;
+		qcom,debug-timeout;
 		qcom,reg-presets =
 			<0x80124 0x0002000>,
 			<0x80550 0x0000001>,
