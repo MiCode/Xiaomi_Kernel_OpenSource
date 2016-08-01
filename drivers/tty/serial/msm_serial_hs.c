@@ -2221,12 +2221,12 @@ void enable_wakeup_interrupt(struct msm_hs_port *msm_uport)
 		return;
 
 	if (!(msm_uport->wakeup.enabled)) {
-		enable_irq(msm_uport->wakeup.irq);
-		disable_irq(uport->irq);
 		spin_lock_irqsave(&uport->lock, flags);
 		msm_uport->wakeup.ignore = 1;
 		msm_uport->wakeup.enabled = true;
 		spin_unlock_irqrestore(&uport->lock, flags);
+		disable_irq(uport->irq);
+		enable_irq(msm_uport->wakeup.irq);
 	} else {
 		MSM_HS_WARN("%s:Wake up IRQ already enabled", __func__);
 	}
