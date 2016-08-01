@@ -1848,6 +1848,15 @@ static bool wcd934x_is_volatile_register(struct device *dev, unsigned int reg)
 	if (reg_tbl && reg_tbl[reg_offset] == WCD934X_READ)
 		return true;
 
+	/*
+	 * Need to mark volatile for registers that are writable but
+	 * only few bits are read-only
+	 */
+	switch (reg) {
+	case WCD934X_CPE_SS_SOC_SW_COLLAPSE_CTL:
+		return true;
+	}
+
 	return false;
 }
 
