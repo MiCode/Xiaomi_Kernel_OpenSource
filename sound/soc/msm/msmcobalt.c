@@ -1231,6 +1231,40 @@ static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
 	}
 }
 
+static int msm_slim_get_ch_from_beid(int32_t be_id)
+{
+	int ch_id = 0;
+
+	switch (be_id) {
+	case MSM_BACKEND_DAI_SLIMBUS_0_RX:
+		ch_id = SLIM_RX_0;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_1_RX:
+		ch_id = SLIM_RX_1;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_3_RX:
+		ch_id = SLIM_RX_3;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_4_RX:
+		ch_id = SLIM_RX_4;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_6_RX:
+		ch_id = SLIM_RX_6;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_0_TX:
+		ch_id = SLIM_TX_0;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_3_TX:
+		ch_id = SLIM_TX_3;
+		break;
+	default:
+		ch_id = SLIM_RX_0;
+		break;
+	}
+
+	return ch_id;
+}
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				  struct snd_pcm_hw_params *params)
 {
@@ -1242,6 +1276,7 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	int rc = 0;
 	void *config = NULL;
 	struct snd_soc_codec *codec = NULL;
+	int ch_num;
 
 	pr_debug("%s: format = %d, rate = %d\n",
 		  __func__, params_format(params), params_rate(params));
@@ -1252,18 +1287,20 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	case MSM_BACKEND_DAI_SLIMBUS_3_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_4_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_6_RX:
+		ch_num = msm_slim_get_ch_from_beid(dai_link->be_id);
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
-				slim_rx_cfg[0].bit_format);
-		rate->min = rate->max = slim_rx_cfg[0].sample_rate;
-		channels->min = channels->max = slim_rx_cfg[0].channels;
+				slim_rx_cfg[ch_num].bit_format);
+		rate->min = rate->max = slim_rx_cfg[ch_num].sample_rate;
+		channels->min = channels->max = slim_rx_cfg[ch_num].channels;
 		break;
 
 	case MSM_BACKEND_DAI_SLIMBUS_0_TX:
 	case MSM_BACKEND_DAI_SLIMBUS_3_TX:
+		ch_num = msm_slim_get_ch_from_beid(dai_link->be_id);
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
-				slim_tx_cfg[0].bit_format);
-		rate->min = rate->max = slim_tx_cfg[0].sample_rate;
-		channels->min = channels->max = slim_tx_cfg[0].channels;
+				slim_tx_cfg[ch_num].bit_format);
+		rate->min = rate->max = slim_tx_cfg[ch_num].sample_rate;
+		channels->min = channels->max = slim_tx_cfg[ch_num].channels;
 		break;
 
 	case MSM_BACKEND_DAI_SLIMBUS_1_TX:
