@@ -77,7 +77,7 @@ void amdgpu_connector_hotplug(struct drm_connector *connector)
 			} else if (amdgpu_atombios_dp_needs_link_train(amdgpu_connector)) {
 				/* Don't try to start link training before we
 				 * have the dpcd */
-				if (!amdgpu_atombios_dp_get_dpcd(amdgpu_connector))
+				if (amdgpu_atombios_dp_get_dpcd(amdgpu_connector))
 					return;
 
 				/* set it to OFF so that drm_helper_connector_dpms()
@@ -194,12 +194,12 @@ int amdgpu_connector_get_monitor_bpc(struct drm_connector *connector)
 				bpc = 8;
 				DRM_DEBUG("%s: HDMI deep color 10 bpc exceeds max tmds clock. Using %d bpc.\n",
 					  connector->name, bpc);
-			} else if (bpc > 8) {
-				/* max_tmds_clock missing, but hdmi spec mandates it for deep color. */
-				DRM_DEBUG("%s: Required max tmds clock for HDMI deep color missing. Using 8 bpc.\n",
-					  connector->name);
-				bpc = 8;
 			}
+		} else if (bpc > 8) {
+			/* max_tmds_clock missing, but hdmi spec mandates it for deep color. */
+			DRM_DEBUG("%s: Required max tmds clock for HDMI deep color missing. Using 8 bpc.\n",
+				  connector->name);
+			bpc = 8;
 		}
 	}
 

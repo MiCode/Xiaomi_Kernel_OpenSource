@@ -793,7 +793,7 @@ static int snd_nativeinstruments_control_put(struct snd_kcontrol *kcontrol,
 		return 0;
 
 	kcontrol->private_value &= ~(0xff << 24);
-	kcontrol->private_value |= newval;
+	kcontrol->private_value |= (unsigned int)newval << 24;
 	err = snd_ni_update_cur_val(list);
 	return err < 0 ? err : 1;
 }
@@ -1519,7 +1519,11 @@ static int snd_microii_spdif_default_get(struct snd_kcontrol *kcontrol,
 
 	/* use known values for that card: interface#1 altsetting#1 */
 	iface = usb_ifnum_to_if(chip->dev, 1);
+	if (!iface || iface->num_altsetting < 2)
+		return -EINVAL;
 	alts = &iface->altsetting[1];
+	if (get_iface_desc(alts)->bNumEndpoints < 1)
+		return -EINVAL;
 	ep = get_endpoint(alts, 0)->bEndpointAddress;
 
 	err = snd_usb_ctl_msg(chip->dev,
