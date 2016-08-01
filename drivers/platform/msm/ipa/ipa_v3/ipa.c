@@ -1890,36 +1890,44 @@ static int ipa3_q6_clean_q6_tables(void)
 
 	if (ipa3_q6_clean_q6_flt_tbls(IPA_IP_v4, IPA_RULE_HASHABLE, &mem)) {
 		IPAERR("failed to clean q6 flt tbls (v4/hashable)\n");
-		goto bail_desc;
+		retval = -EFAULT;
+		goto bail_dma;
 	}
 	if (ipa3_q6_clean_q6_flt_tbls(IPA_IP_v6, IPA_RULE_HASHABLE, &mem)) {
 		IPAERR("failed to clean q6 flt tbls (v6/hashable)\n");
-		goto bail_desc;
+		retval = -EFAULT;
+		goto bail_dma;
 	}
 	if (ipa3_q6_clean_q6_flt_tbls(IPA_IP_v4, IPA_RULE_NON_HASHABLE, &mem)) {
 		IPAERR("failed to clean q6 flt tbls (v4/non-hashable)\n");
-		goto bail_desc;
+		retval = -EFAULT;
+		goto bail_dma;
 	}
 	if (ipa3_q6_clean_q6_flt_tbls(IPA_IP_v6, IPA_RULE_NON_HASHABLE, &mem)) {
 		IPAERR("failed to clean q6 flt tbls (v6/non-hashable)\n");
-		goto bail_desc;
+		retval = -EFAULT;
+		goto bail_dma;
 	}
 
 	if (ipa3_q6_clean_q6_rt_tbls(IPA_IP_v4, IPA_RULE_HASHABLE, &mem)) {
 		IPAERR("failed to clean q6 rt tbls (v4/hashable)\n");
-		goto bail_desc;
+		retval = -EFAULT;
+		goto bail_dma;
 	}
 	if (ipa3_q6_clean_q6_rt_tbls(IPA_IP_v6, IPA_RULE_HASHABLE, &mem)) {
 		IPAERR("failed to clean q6 rt tbls (v6/hashable)\n");
-		goto bail_desc;
+		retval = -EFAULT;
+		goto bail_dma;
 	}
 	if (ipa3_q6_clean_q6_rt_tbls(IPA_IP_v4, IPA_RULE_NON_HASHABLE, &mem)) {
 		IPAERR("failed to clean q6 rt tbls (v4/non-hashable)\n");
-		goto bail_desc;
+		retval = -EFAULT;
+		goto bail_dma;
 	}
 	if (ipa3_q6_clean_q6_rt_tbls(IPA_IP_v6, IPA_RULE_NON_HASHABLE, &mem)) {
 		IPAERR("failed to clean q6 rt tbls (v6/non-hashable)\n");
-		goto bail_desc;
+		retval = -EFAULT;
+		goto bail_dma;
 	}
 
 	/* Flush rules cache */
@@ -1944,6 +1952,7 @@ static int ipa3_q6_clean_q6_tables(void)
 		&reg_write_cmd, false);
 	if (!cmd_pyld) {
 		IPAERR("fail construct register_write imm cmd\n");
+		retval = -EFAULT;
 		goto bail_desc;
 	}
 	desc->opcode =
