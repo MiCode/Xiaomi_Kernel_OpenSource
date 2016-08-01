@@ -316,26 +316,31 @@ static int xenbus_write_transaction(unsigned msg_type,
 			rc = -ENOMEM;
 			goto out;
 		}
+	} else {
+		list_for_each_entry(trans, &u->transactions, list)
+			if (trans->handle.id == u->u.msg.tx_id)
+				break;
+		if (&trans->list == &u->transactions)
+			return -ESRCH;
 	}
 
 	reply = xenbus_dev_request_and_reply(&u->u.msg);
 	if (IS_ERR(reply)) {
-		kfree(trans);
+		if (msg_type == XS_TRANSACTION_START)
+			kfree(trans);
 		rc = PTR_ERR(reply);
 		goto out;
 	}
 
 	if (msg_type == XS_TRANSACTION_START) {
-		trans->handle.id = simple_strtoul(reply, NULL, 0);
-
-		list_add(&trans->list, &u->transactions);
-	} else if (msg_type == XS_TRANSACTION_END) {
-		list_for_each_entry(trans, &u->transactions, list)
-			if (trans->handle.id == u->u.msg.tx_id)
-				break;
-		BUG_ON(&trans->list == &u->transactions);
+		if (u->u.msg.type == XS_ERROR)
+			kfree(trans);
+		else {
+			trans->handle.id = simple_strtoul(reply, NULL, 0);
+			list_add(&trans->list, &u->transactions);
+		}
+	} else if (u->u.msg.type == XS_TRANSACTION_END) {
 		list_del(&trans->list);
-
 		kfree(trans);
 	}
 
