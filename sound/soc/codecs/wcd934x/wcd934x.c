@@ -41,6 +41,7 @@
 #include <sound/info.h>
 #include "wcd934x.h"
 #include "wcd934x-routing.h"
+#include "wcd934x-dsp-cntl.h"
 #include "../wcd9xxx-common-v2.h"
 #include "../wcd9xxx-resmgr-v2.h"
 
@@ -119,6 +120,9 @@ static const struct snd_kcontrol_new name##_mux = \
 #define  CF_MIN_3DB_4HZ			0x0
 #define  CF_MIN_3DB_75HZ		0x1
 #define  CF_MIN_3DB_150HZ		0x2
+
+#define CPE_ERR_WDOG_BITE BIT(0)
+#define CPE_FATAL_IRQS CPE_ERR_WDOG_BITE
 
 enum {
 	VI_SENSE_1,
@@ -613,6 +617,7 @@ int wcd934x_bringup(struct wcd9xxx *wcd9xxx)
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x3);
+	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x7);
 
 	return 0;
 }
@@ -5214,8 +5219,8 @@ done:
  * @codec: Handle to the codec
  * @enable: Indicates whether clock should be enabled or disabled
  */
-int tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
-				  bool enable)
+static int tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+					 bool enable)
 {
 	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
@@ -5225,7 +5230,6 @@ int tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 	WCD9XXX_V2_BG_CLK_UNLOCK(tavil->resmgr);
 	return ret;
 }
-EXPORT_SYMBOL(tavil_codec_internal_rco_ctrl);
 
 static const struct wcd_resmgr_cb tavil_resmgr_cb = {
 	.cdc_rco_ctrl = __tavil_codec_internal_rco_ctrl,
@@ -5280,6 +5284,8 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
 	{WCD934X_CDC_COMPANDER7_CTL7, 0x01, 0x01},
 	{WCD934X_CDC_COMPANDER8_CTL7, 0x01, 0x01},
 	{WCD934X_CODEC_RPM_CLK_GATE, 0x08, 0x00},
+	{WCD934X_TLMM_DMIC3_CLK_PINCFG, 0xFF, 0x0a},
+	{WCD934X_TLMM_DMIC3_DATA_PINCFG, 0xFF, 0x0a},
 };
 
 static void tavil_codec_init_reg(struct snd_soc_codec *codec)
@@ -5521,6 +5527,37 @@ static void tavil_enable_sido_buck(struct snd_soc_codec *codec)
 	tavil->resmgr->sido_input_src = SIDO_SOURCE_RCO_BG;
 }
 
+struct wcd_dsp_cdc_cb cdc_cb = {
+	.cdc_clk_en = tavil_codec_internal_rco_ctrl,
+};
+
+static int tavil_wdsp_initialize(struct snd_soc_codec *codec)
+{
+	struct wcd9xxx *control;
+	struct tavil_priv *tavil;
+	struct wcd_dsp_params params;
+	int ret = 0;
+
+	control = dev_get_drvdata(codec->dev->parent);
+	tavil = snd_soc_codec_get_drvdata(codec);
+
+	params.cb = &cdc_cb;
+	params.irqs.cpe_ipc1_irq = WCD934X_IRQ_CPE1_INTR;
+	params.irqs.cpe_err_irq = WCD934X_IRQ_CPE_ERROR;
+	params.irqs.fatal_irqs = CPE_FATAL_IRQS;
+	params.clk_rate = control->mclk_rate;
+	params.dsp_instance = 0;
+
+	wcd_dsp_cntl_init(codec, &params, &tavil->wdsp_cntl);
+	if (!tavil->wdsp_cntl) {
+		dev_err(tavil->dev, "%s: wcd-dsp-control init failed\n",
+			__func__);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -5616,6 +5653,9 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 				  tavil_tx_mute_update_callback);
 	}
 	snd_soc_dapm_sync(dapm);
+
+	tavil_wdsp_initialize(codec);
+
 	return ret;
 
 err_pdata:
@@ -5636,6 +5676,9 @@ static int tavil_soc_codec_remove(struct snd_soc_codec *codec)
 	control->rx_chs = NULL;
 	control->tx_chs = NULL;
 	tavil_cleanup_irqs(tavil);
+
+	if (tavil->wdsp_cntl)
+		wcd_dsp_cntl_deinit(&tavil->wdsp_cntl);
 
 	return 0;
 }
