@@ -646,6 +646,9 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		if (sys_pm_ops && sys_pm_ops->enter)
 			if ((sys_pm_ops->enter(nextcpu)))
 				return -EBUSY;
+
+		if (cluster->no_saw_devices && !use_psci)
+			msm_spm_set_rpm_hs(true);
 	}
 
 	/* Notify cluster enter event after successfully config completion */
@@ -776,6 +779,9 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 		 * reduce the power impact
 		 */
 		lpm_wa_cx_unvote_send();
+
+		if (cluster->no_saw_devices && !use_psci)
+			msm_spm_set_rpm_hs(false);
 
 	}
 
