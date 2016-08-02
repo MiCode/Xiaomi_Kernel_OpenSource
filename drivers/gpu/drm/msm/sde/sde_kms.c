@@ -551,12 +551,14 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 	 */
 	sde_enable(sde_kms);
 	for (i = 0; i < catalog->intf_count; i++) {
-		intf = sde_hw_intf_init(catalog->intf[i].id,
-				sde_kms->mmio,
-				catalog);
-		if (!IS_ERR_OR_NULL(intf)) {
-			intf->ops.enable_timing(intf, 0x0);
-			sde_hw_intf_deinit(intf);
+		if (catalog->intf[i].type != INTF_NONE) {
+			intf = sde_hw_intf_init(catalog->intf[i].id,
+					sde_kms->mmio,
+					catalog);
+			if (!IS_ERR_OR_NULL(intf)) {
+				intf->ops.enable_timing(intf, 0x0);
+				sde_hw_intf_deinit(intf);
+			}
 		}
 	}
 	sde_disable(sde_kms);
