@@ -1678,10 +1678,14 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 	memset(buf, 0, 100);
 
 	phys = iommu_iova_to_phys_hard(ddev->domain, ddev->iova);
-	if (!phys)
+	if (!phys) {
 		strlcpy(buf, "FAIL\n", 100);
-	else
+		phys = iommu_iova_to_phys(ddev->domain, ddev->iova);
+		dev_err(ddev->dev, "ATOS for %pa failed. Software walk returned: %pa\n",
+			&ddev->iova, &phys);
+	} else {
 		snprintf(buf, 100, "%pa\n", &phys);
+	}
 
 	buflen = strlen(buf);
 	if (copy_to_user(ubuf, buf, buflen)) {
