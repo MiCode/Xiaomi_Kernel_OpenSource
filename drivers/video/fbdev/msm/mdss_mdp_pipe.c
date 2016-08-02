@@ -2690,6 +2690,16 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 
 		if (pipe->scaler.enable)
 			mdss_mdp_pipe_program_pixel_extn(pipe);
+
+		ret = mdss_mdp_pipe_pp_setup(pipe, &opmode);
+		if (ret) {
+			pr_err("pipe pp setup error for pnum=%d\n", pipe->num);
+
+			MDSS_XLOG(pipe->num, pipe->mixer_left->num,
+				pipe->play_cnt, 0xbad);
+
+			goto done;
+		}
 	}
 
 	if ((!(pipe->flags & MDP_VPU_PIPE) && (src_data == NULL)) ||
@@ -2707,12 +2717,6 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 
 	if (params_changed) {
 		pipe->params_changed = 0;
-
-		ret = mdss_mdp_pipe_pp_setup(pipe, &opmode);
-		if (ret) {
-			pr_err("pipe pp setup error for pnum=%d\n", pipe->num);
-			goto done;
-		}
 
 		ret = mdss_mdp_image_setup(pipe, src_data);
 		if (ret) {
