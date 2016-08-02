@@ -2340,8 +2340,10 @@ struct sched_load {
 
 extern int sched_set_wake_up_idle(struct task_struct *p, int wake_up_idle);
 extern u32 sched_get_wake_up_idle(struct task_struct *p);
-extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
-extern unsigned int sched_get_group_id(struct task_struct *p);
+
+struct cpu_cycle_counter_cb {
+	u64 (*get_cpu_cycle_counter)(int cpu);
+};
 
 #ifdef CONFIG_SCHED_HMP
 extern int sched_set_window(u64 window_start, unsigned int window_size);
@@ -2363,8 +2365,23 @@ extern void sched_set_cpu_cstate(int cpu, int cstate,
 			 int wakeup_energy, int wakeup_latency);
 extern void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
 				int wakeup_energy, int wakeup_latency);
+extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
+extern u64 sched_ktime_clock(void);
+extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
+extern unsigned int sched_get_group_id(struct task_struct *p);
 
 #else /* CONFIG_SCHED_HMP */
+static inline u64 sched_ktime_clock(void)
+{
+	return 0;
+}
+
+static inline int
+register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
+{
+	return 0;
+}
+
 static inline int sched_set_window(u64 window_start, unsigned int window_size)
 {
 	return -EINVAL;
@@ -2434,8 +2451,6 @@ extern u64 cpu_clock(int cpu);
 extern u64 local_clock(void);
 extern u64 running_clock(void);
 extern u64 sched_clock_cpu(int cpu);
-
-extern u64 sched_ktime_clock(void);
 
 extern void sched_clock_init(void);
 extern int sched_clock_initialized(void);
@@ -3372,10 +3387,5 @@ static inline unsigned long rlimit_max(unsigned int limit)
 {
 	return task_rlimit_max(current, limit);
 }
-
-struct cpu_cycle_counter_cb {
-	u64 (*get_cpu_cycle_counter)(int cpu);
-};
-int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
 
 #endif
