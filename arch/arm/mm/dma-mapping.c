@@ -2078,7 +2078,7 @@ arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, u64 size)
 	mapping->nr_bitmaps = 1;
 	mapping->extensions = extensions;
 	mapping->base = base;
-	mapping->bits = BITS_PER_BYTE * bitmap_size;
+	mapping->bits = bits;
 
 	spin_lock_init(&mapping->lock);
 
