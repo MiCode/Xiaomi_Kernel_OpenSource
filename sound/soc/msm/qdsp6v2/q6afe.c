@@ -292,11 +292,13 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			this_afe.tx_cb(data->opcode, data->token,
 					data->payload,
 					this_afe.tx_private_data);
+			this_afe.tx_cb = NULL;
 		}
 		if (this_afe.rx_cb) {
 			this_afe.rx_cb(data->opcode, data->token,
 					data->payload,
 					this_afe.rx_private_data);
+			this_afe.rx_cb = NULL;
 		}
 
 		return 0;
