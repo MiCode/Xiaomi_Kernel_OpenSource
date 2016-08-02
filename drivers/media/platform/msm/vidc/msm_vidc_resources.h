@@ -104,6 +104,7 @@ struct clock_info {
 	struct load_freq_table *load_freq_tbl;
 	u32 count;
 	bool has_scaling;
+	bool has_mem_retention;
 };
 
 struct clock_set {
