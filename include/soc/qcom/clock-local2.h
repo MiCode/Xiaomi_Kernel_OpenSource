@@ -52,6 +52,7 @@ struct clk_freq_tbl {
 /**
  * struct rcg_clk - root clock generator
  * @cmd_rcgr_reg: command register
+ * @mnd_reg_width: Width of MND register
  * @set_rate: function to set frequency
  * @freq_tbl: frequency table for this RCG
  * @current_freq: current RCG frequency
@@ -66,6 +67,7 @@ struct clk_freq_tbl {
  */
 struct rcg_clk {
 	u32 cmd_rcgr_reg;
+	u32 mnd_reg_width;
 
 	void   (*set_rate)(struct rcg_clk *, struct clk_freq_tbl *);
 
