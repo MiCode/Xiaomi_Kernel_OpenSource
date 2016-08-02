@@ -22,6 +22,7 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
 #include <media/videobuf2-v4l2.h>
+#include <linux/clk/msm-clk.h>
 
 #include "msm_fd_dev.h"
 #include "msm_fd_hw.h"
@@ -1203,6 +1204,7 @@ static int fd_probe(struct platform_device *pdev)
 {
 	struct msm_fd_device *fd;
 	int ret;
+	int i;
 
 	/* Face detection device struct */
 	fd = kzalloc(sizeof(struct msm_fd_device), GFP_KERNEL);
@@ -1235,6 +1237,19 @@ static int fd_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Fail to get clocks\n");
 		goto error_get_clocks;
+	}
+
+	/*set memcore and mem periphery logic flags to 0*/
+	for (i = 0; i < fd->clk_num; i++) {
+		if ((strcmp(fd->clk_info[i].clk_name,
+			"mmss_fd_core_clk") == 0) ||
+			(strcmp(fd->clk_info[i].clk_name,
+			"mmss_fd_core_uar_clk") == 0)) {
+			msm_camera_set_clk_flags(fd->clk[i],
+				CLKFLAG_NORETAIN_MEM);
+			msm_camera_set_clk_flags(fd->clk[i],
+				CLKFLAG_NORETAIN_PERIPH);
+		}
 	}
 
 	ret = msm_camera_register_bus_client(pdev, CAM_BUS_CLIENT_FD);
