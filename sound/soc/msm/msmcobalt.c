@@ -1076,7 +1076,7 @@ static int proxy_rx_ch_get(struct snd_kcontrol *kcontrol,
 {
 	pr_debug("%s: proxy_rx channels = %d\n",
 		 __func__, proxy_rx_cfg.channels);
-	ucontrol->value.integer.value[0] = proxy_rx_cfg.channels - 1;
+	ucontrol->value.integer.value[0] = proxy_rx_cfg.channels - 2;
 
 	return 0;
 }
@@ -1084,7 +1084,7 @@ static int proxy_rx_ch_get(struct snd_kcontrol *kcontrol,
 static int proxy_rx_ch_put(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	proxy_rx_cfg.channels = ucontrol->value.integer.value[0] + 1;
+	proxy_rx_cfg.channels = ucontrol->value.integer.value[0] + 2;
 	pr_debug("%s: proxy_rx channels = %d\n",
 		 __func__, proxy_rx_cfg.channels);
 
@@ -1375,15 +1375,11 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	case MSM_BACKEND_DAI_HDMI_RX:
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 				hdmi_rx_cfg.bit_format);
-		if (channels->max < 2)
-			channels->min = channels->max = 2;
 		rate->min = rate->max = hdmi_rx_cfg.sample_rate;
 		channels->min = channels->max = hdmi_rx_cfg.channels;
 		break;
 
 	case MSM_BACKEND_DAI_AFE_PCM_RX:
-		if (channels->max < 2)
-			channels->min = channels->max = 2;
 		channels->min = channels->max = proxy_rx_cfg.channels;
 		rate->min = rate->max = SAMPLING_RATE_48KHZ;
 		break;
