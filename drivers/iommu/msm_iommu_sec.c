@@ -75,7 +75,7 @@ static const struct of_device_id msm_smmu_list[] = {
 };
 
 struct msm_scm_paddr_list {
-	unsigned int list;
+	phys_addr_t list;
 	unsigned int list_size;
 	unsigned int size;
 };
@@ -267,8 +267,8 @@ static void print_iova_to_phys(struct msm_iommu_ctx_drvdata *ctx_drvdata,
 		pagetable_phys = msm_iommu_iova_to_phys_soft(
 					ctx_drvdata->attached_domain,
 					faulty_iova);
-		pr_err("Page table in DDR shows PA = %lx\n",
-					(unsigned long) pagetable_phys);
+		pr_err("Page table in DDR shows PA = %pa\n",
+					&pagetable_phys);
 	}
 }
 
@@ -571,14 +571,14 @@ static int msm_iommu_sec_ptbl_map(struct msm_iommu_drvdata *iommu_drvdata,
 	return 0;
 }
 
-static unsigned int get_phys_addr(struct scatterlist *sg)
+static phys_addr_t get_phys_addr(struct scatterlist *sg)
 {
 	/*
 	 * Try sg_dma_address first so that we can
 	 * map carveout regions that do not have a
 	 * struct page associated with them.
 	 */
-	unsigned int pa = sg_dma_address(sg);
+	phys_addr_t pa = sg_dma_address(sg);
 
 	if (pa == 0)
 		pa = sg_phys(sg);
@@ -591,8 +591,9 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 {
 	struct scatterlist *sgiter;
 	struct msm_scm_map2_req map;
-	unsigned int *pa_list = 0;
-	unsigned int pa, cnt;
+	phys_addr_t *pa_list = 0;
+	unsigned int cnt;
+	phys_addr_t pa;
 	void *flush_va, *flush_va_end;
 	unsigned int offset = 0, chunk_offset = 0;
 	int ret;
