@@ -39,13 +39,39 @@
 			"iommu_rot_ahb_clk",
 			"mmagic_clk",
 			"vsync_clk";
-		mmagic-supply = <&gdsc_mmagic_mdss>;
-		vdd-supply = <&gdsc_mdss>;
+		clock-rate = <0 0 300000000 300000000 0 0 0 0>;
+
 		interrupt-parent = <&intc>;
 		interrupts = <0 83 0>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		iommus = <&mdp_smmu 0>;
+
+		mmagic-supply = <&gdsc_mmagic_mdss>;
+		vdd-supply = <&gdsc_mdss>;
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "mmagic";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+
+			qcom,platform-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
 
 		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
 			compatible = "qcom,smmu_mdp_unsec";
