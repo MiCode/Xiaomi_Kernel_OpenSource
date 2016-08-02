@@ -53,7 +53,7 @@
 #define SDP_NUM_TRIES		30
 #define LOCK_MIN_SLEEP		5000
 #define LOCK_MAX_SLEEP		6000
-#define LOCK_NUM_TRIES		20
+#define LOCK_NUM_TRIES		200
 
 #define MAX_DEFAULT_WIDTH       1280
 #define MAX_DEFAULT_HEIGHT      720
