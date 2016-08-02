@@ -35,6 +35,7 @@ struct device_node;
 #if defined(CONFIG_MSM_SPM)
 
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm);
+void msm_spm_set_rpm_hs(bool allow_rpm_hs);
 int msm_spm_probe_done(void);
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel);
 int msm_spm_get_vdd(unsigned int cpu);
@@ -78,6 +79,11 @@ static inline int msm_spm_enable_fts_lpm(int cpu, uint32_t mode)
 #endif /* defined(CONFIG_MSM_L2_SPM) */
 #else /* defined(CONFIG_MSM_SPM) */
 static inline int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
+{
+	return -ENOSYS;
+}
+
+static inline void msm_spm_set_rpm_hs(bool allow_rpm_hs)
 {
 	return -ENOSYS;
 }

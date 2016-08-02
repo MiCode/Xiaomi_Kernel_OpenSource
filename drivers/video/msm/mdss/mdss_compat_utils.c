@@ -197,7 +197,7 @@ static struct mdp_input_layer *__create_layer_list(
 	struct mdp_input_layer32 *layer_list32,
 	u32 layer_count)
 {
-	int i, ret;
+	int i, ret = 0;
 	u32 buffer_size;
 	struct mdp_input_layer *layer, *layer_list;
 	struct mdp_input_layer32 *layer32;

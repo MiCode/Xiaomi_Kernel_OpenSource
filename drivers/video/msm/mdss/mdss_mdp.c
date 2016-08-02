@@ -2259,12 +2259,12 @@ static void __update_sspp_info(struct mdss_mdp_pipe *pipe,
 #define SPRINT(fmt, ...) \
 		(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
 
-	for (i = 0; i < pipe_cnt; i++) {
+	for (i = 0; i < pipe_cnt && pipe; i++) {
 		SPRINT("pipe_num:%d pipe_type:%s pipe_ndx:%d rects:%d pipe_is_handoff:%d display_id:%d ",
 			pipe->num, type, pipe->ndx, pipe->multirect.max_rects,
 			pipe->is_handed_off, mdss_mdp_get_display_id(pipe));
 		SPRINT("fmts_supported:");
-		for (j = 0; j < num_bytes && pipe; j++)
+		for (j = 0; j < num_bytes; j++)
 			SPRINT("%d,", pipe->supported_formats[j]);
 		SPRINT("\n");
 		pipe += pipe->multirect.max_rects;
@@ -3217,15 +3217,18 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-sw-reset-off",
 		&sw_reset_offset, 1);
 	if (sw_reset_offset) {
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-vig-sw-reset-map", mdata->vig_pipes,
-			mdata->nvig_pipes);
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-rgb-sw-reset-map", mdata->rgb_pipes,
-			mdata->nrgb_pipes);
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-dma-sw-reset-map", mdata->dma_pipes,
-			mdata->ndma_pipes);
+		if (mdata->vig_pipes)
+			mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+				"qcom,mdss-pipe-vig-sw-reset-map",
+				mdata->vig_pipes, mdata->nvig_pipes);
+		if (mdata->rgb_pipes)
+			mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+				"qcom,mdss-pipe-rgb-sw-reset-map",
+				mdata->rgb_pipes, mdata->nrgb_pipes);
+		if (mdata->dma_pipes)
+			mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+				"qcom,mdss-pipe-dma-sw-reset-map",
+				mdata->dma_pipes, mdata->ndma_pipes);
 	}
 
 	mdata->has_panic_ctrl = of_property_read_bool(pdev->dev.of_node,

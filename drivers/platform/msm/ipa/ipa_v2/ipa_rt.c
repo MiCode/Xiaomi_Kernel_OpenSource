@@ -1029,6 +1029,10 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 	return 0;
 
 ipa_insert_failed:
+	if (entry->hdr)
+		entry->hdr->ref_cnt--;
+	else if (entry->proc_ctx)
+		entry->proc_ctx->ref_cnt--;
 	list_del(&entry->link);
 	kmem_cache_free(ipa_ctx->rt_rule_cache, entry);
 error:

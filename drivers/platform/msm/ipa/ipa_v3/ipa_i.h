@@ -307,7 +307,7 @@ struct ipa3_rt_tbl {
  * @is_partial: flag indicating if header table entry is partial
  * @is_hdr_proc_ctx: false - hdr entry resides in hdr table,
  * true - hdr entry resides in DDR and pointed to by proc ctx
- * @phys_base: physical address of entry in SRAM when is_hdr_proc_ctx is true,
+ * @phys_base: physical address of entry in DDR when is_hdr_proc_ctx is true,
  * else 0
  * @proc_ctx: processing context header
  * @offset_entry: entry's offset
@@ -2000,4 +2000,7 @@ const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 int ipa_gsi_ch20_wa(void);
 int ipa3_ntn_init(void);
 int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats);
+int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map);
+int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr,
+	u32 size, bool map);
 #endif /* _IPA3_I_H_ */
