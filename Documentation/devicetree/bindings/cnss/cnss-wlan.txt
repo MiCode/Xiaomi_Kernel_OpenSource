@@ -44,6 +44,9 @@ Optional properties:
                          which should be drived depending on platforms
   - qcom,is-dual-wifi-enabled: Boolean property to control wlan enable(wlan-en)
                                gpio on dual-wifi platforms.
+  - vdd-wlan-en-supply: WLAN_EN fixed regulator specified by QCA6174 specifications.
+  - qcom,wlan-en-vreg-support: Boolean property to decide the whether the WLAN_EN pin
+				is a gpio or fixed regulator.
 
 Example:
 

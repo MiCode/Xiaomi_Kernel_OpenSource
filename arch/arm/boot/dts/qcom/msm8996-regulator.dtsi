@@ -1614,6 +1614,13 @@
 		gpio = <&pm8994_gpios 9 0>;
 	};
 
+	wlan_en_vreg: wlan_en_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_en_vreg";
+		enable-active-high;
+		gpio = <&pm8994_gpios 8 0>;
+	};
+
 	hl7509_en_vreg: hl7509_en_vreg {
 		compatible = "regulator-fixed";
 		regulator-name = "hl7509_en_vreg";
