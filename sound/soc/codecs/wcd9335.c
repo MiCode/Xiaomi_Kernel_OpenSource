@@ -3289,7 +3289,7 @@ static int __tasha_codec_enable_slimtx(struct snd_soc_codec *codec,
 			ret = wcd9xxx_disconnect_port(core,
 						      &dai->wcd9xxx_ch_list,
 						      dai->grph);
-			pr_debug("%s: Disconnect RX port, ret = %d\n",
+			pr_debug("%s: Disconnect TX port, ret = %d\n",
 				 __func__, ret);
 		}
 
@@ -13097,6 +13097,20 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	control->num_tx_port = TASHA_TX_MAX;
 	control->tx_chs = ptr + sizeof(tasha_rx_chs);
 	memcpy(control->tx_chs, tasha_tx_chs, sizeof(tasha_tx_chs));
+
+	snd_soc_dapm_ignore_suspend(dapm, "AIF1 Playback");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF1 Capture");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF2 Playback");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF2 Capture");
+
+	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
+		snd_soc_dapm_ignore_suspend(dapm, "AIF3 Playback");
+		snd_soc_dapm_ignore_suspend(dapm, "AIF3 Capture");
+		snd_soc_dapm_ignore_suspend(dapm, "AIF4 Playback");
+		snd_soc_dapm_ignore_suspend(dapm, "AIF Mix Playback");
+		snd_soc_dapm_ignore_suspend(dapm, "AIF4 MAD TX");
+		snd_soc_dapm_ignore_suspend(dapm, "VIfeed");
+	}
 
 	snd_soc_dapm_sync(dapm);
 
