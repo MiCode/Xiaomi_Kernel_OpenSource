@@ -2647,11 +2647,11 @@ static ssize_t tpdm_store_dsb_edge_ctrl_mask(struct device *dev,
 					     size_t size)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned start, end, val;
+	unsigned long start, end, val;
 	uint32_t set;
 	int i, bit, reg;
 
-	if (sscanf(buf, "%ui %ui %ui", &start, &end, &val) != 3)
+	if (sscanf(buf, "%lx %lx %lx", &start, &end, &val) != 3)
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_DSB, drvdata->datasets) ||
 	    (start >= TPDM_DSB_MAX_LINES) || (end >= TPDM_DSB_MAX_LINES))

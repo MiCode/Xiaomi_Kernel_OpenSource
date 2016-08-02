@@ -24,6 +24,9 @@ Required properties
 - clocks:				List of Phandles for clock device nodes
 					needed by the device.
 - clock-names:				List of clock names needed by the device.
+- qcom,aux-en-gpio:			Specifies the aux-channel enable gpio.
+- qcom,aux-sel-gpio:			Specifies the aux-channel select gpio.
+- qcom,usbplug-cc-gpio:			Specifies the usbplug orientation gpio.
 
 Optional properties:
 - qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
@@ -42,6 +45,12 @@ Optional properties:
 					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+- qcom,hpd-gpio:			Specifies the HPD gpio.
+- pinctrl-names:			List of names to assign mdss pin states defined in pinctrl device node
+					Refer to pinctrl-bindings.txt
+- pinctrl-<0..n>:			Lists phandles each pointing to the pin configuration node within a pin
+					controller. These pin configurations are installed in the pinctrl
+					device node. Refer to pinctrl-bindings.txt
 
 Example:
 	mdss_dp_ctrl: qcom,dp_ctrl@c990000 {
@@ -115,5 +124,15 @@ Example:
 				qcom,supply-disable-load = <32>;
 			};
 		};
+
+		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+		pinctrl-0 = <&mdss_dp_aux_active &mdss_dp_usbplug_cc_active
+				&mdss_dp_hpd_active>;
+		pinctrl-1 = <&mdss_dp_aux_suspend &mdss_dp_usbplug_cc_suspend
+				&mdss_dp_hpd_suspend>;
+		qcom,aux-en-gpio = <&tlmm 77 0>;
+		qcom,aux-sel-gpio = <&tlmm 78 0>;
+		qcom,usbplug-cc-gpio = <&tlmm 38 0>;
+		qcom,hpd-gpio = <&tlmm 34 0>;
 	};
 

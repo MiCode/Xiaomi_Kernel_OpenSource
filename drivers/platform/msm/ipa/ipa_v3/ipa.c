@@ -37,6 +37,7 @@
 #include <linux/hashtable.h>
 #include <linux/hash.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/smem.h>
 #define IPA_SUBSYSTEM_NAME "ipa_fws"
 #include "ipa_i.h"
 #include "../ipa_rm_i.h"
@@ -74,6 +75,17 @@
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_SIMPLE 1
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_RESOURCE 2
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_SPECIAL 3
+
+#define IPA_SMEM_SIZE (8 * 1024)
+
+/* round addresses for closes page per SMMU requirements */
+#define IPA_SMMU_ROUND_TO_PAGE(iova, pa, size, iova_p, pa_p, size_p) \
+	do { \
+		(iova_p) = rounddown((iova), PAGE_SIZE); \
+		(pa_p) = rounddown((pa), PAGE_SIZE); \
+		(size_p) = roundup((size) + (pa) - (pa_p), PAGE_SIZE); \
+	} while (0)
+
 
 /* The relative location in /lib/firmware where the FWs will reside */
 #define IPA_FWS_PATH "ipa/ipa_fws.elf"
@@ -4813,6 +4825,10 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	int fast = 1;
 	int bypass = 1;
 	u32 iova_ap_mapping[2];
+	u32 add_map_size;
+	const u32 *add_map;
+	void *smem_addr;
+	int i;
 
 	IPADBG("AP CB probe: sub pdev=%p\n", dev);
 
@@ -4901,6 +4917,55 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		cb->valid = false;
 		return result;
 	}
+
+	add_map = of_get_property(dev->of_node,
+		"qcom,additional-mapping", &add_map_size);
+	if (add_map) {
+		/* mapping size is an array of 3-tuple of u32 */
+		if (add_map_size % (3 * sizeof(u32))) {
+			IPAERR("wrong additional mapping format\n");
+			cb->valid = false;
+			return -EFAULT;
+		}
+
+		/* iterate of each entry of the additional mapping array */
+		for (i = 0; i < add_map_size / sizeof(u32); i += 3) {
+			u32 iova = be32_to_cpu(add_map[i]);
+			u32 pa = be32_to_cpu(add_map[i + 1]);
+			u32 size = be32_to_cpu(add_map[i + 2]);
+			unsigned long iova_p;
+			phys_addr_t pa_p;
+			u32 size_p;
+
+			IPA_SMMU_ROUND_TO_PAGE(iova, pa, size,
+				iova_p, pa_p, size_p);
+			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+				iova_p, &pa_p, size_p);
+			ipa3_iommu_map(cb->mapping->domain,
+				iova_p, pa_p, size_p,
+				IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+		}
+	}
+
+	/* map SMEM memory for IPA table accesses */
+	smem_addr = smem_alloc(SMEM_IPA_FILTER_TABLE, IPA_SMEM_SIZE,
+		SMEM_MODEM, 0);
+	if (smem_addr) {
+		phys_addr_t iova = smem_virt_to_phys(smem_addr);
+		phys_addr_t pa = iova;
+		unsigned long iova_p;
+		phys_addr_t pa_p;
+		u32 size_p;
+
+		IPA_SMMU_ROUND_TO_PAGE(iova, pa, IPA_SMEM_SIZE,
+			iova_p, pa_p, size_p);
+		IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+			iova_p, &pa_p, size_p);
+		ipa3_iommu_map(cb->mapping->domain,
+			iova_p, pa_p, size_p,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+	}
+
 
 	smmu_info.present = true;
 

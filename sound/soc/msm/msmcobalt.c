@@ -170,7 +170,7 @@ static const char *const slim_tx_ch_text[] = {"One", "Two", "Three", "Four",
 						"Five", "Six", "Seven",
 						"Eight"};
 static const char *const vi_feed_ch_text[] = {"One", "Two"};
-static char const *bit_format_text[] = {"S16_LE", "S24_LE"};
+static char const *bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE"};
 static char const *slim_sample_rate_text[] = {"KHZ_8", "KHZ_16",
 					"KHZ_32", "KHZ_44P1", "KHZ_48",
 					"KHZ_96", "KHZ_192"};
@@ -325,6 +325,9 @@ static int slim_get_bit_format_val(int bit_format)
 	int val = 0;
 
 	switch (bit_format) {
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		val = 2;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		val = 1;
 		break;
@@ -346,6 +349,9 @@ static int slim_get_bit_format(int val)
 		break;
 	case 1:
 		bit_fmt = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 2:
+		bit_fmt = SNDRV_PCM_FORMAT_S24_3LE;
 		break;
 	default:
 		bit_fmt = SNDRV_PCM_FORMAT_S16_LE;
@@ -749,6 +755,9 @@ static int usb_audio_rx_format_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	switch (usb_rx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		ucontrol->value.integer.value[0] = 2;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		ucontrol->value.integer.value[0] = 1;
 		break;
@@ -770,6 +779,9 @@ static int usb_audio_rx_format_put(struct snd_kcontrol *kcontrol,
 	int rc = 0;
 
 	switch (ucontrol->value.integer.value[0]) {
+	case 2:
+		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_3LE;
+		break;
 	case 1:
 		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_LE;
 		break;
@@ -893,6 +905,9 @@ static int usb_audio_tx_format_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	switch (usb_tx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		ucontrol->value.integer.value[0] = 2;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		ucontrol->value.integer.value[0] = 1;
 		break;
@@ -914,6 +929,9 @@ static int usb_audio_tx_format_put(struct snd_kcontrol *kcontrol,
 	int rc = 0;
 
 	switch (ucontrol->value.integer.value[0]) {
+	case 2:
+		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_3LE;
+		break;
 	case 1:
 		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_LE;
 		break;
@@ -1213,6 +1231,40 @@ static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
 	}
 }
 
+static int msm_slim_get_ch_from_beid(int32_t be_id)
+{
+	int ch_id = 0;
+
+	switch (be_id) {
+	case MSM_BACKEND_DAI_SLIMBUS_0_RX:
+		ch_id = SLIM_RX_0;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_1_RX:
+		ch_id = SLIM_RX_1;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_3_RX:
+		ch_id = SLIM_RX_3;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_4_RX:
+		ch_id = SLIM_RX_4;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_6_RX:
+		ch_id = SLIM_RX_6;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_0_TX:
+		ch_id = SLIM_TX_0;
+		break;
+	case MSM_BACKEND_DAI_SLIMBUS_3_TX:
+		ch_id = SLIM_TX_3;
+		break;
+	default:
+		ch_id = SLIM_RX_0;
+		break;
+	}
+
+	return ch_id;
+}
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				  struct snd_pcm_hw_params *params)
 {
@@ -1224,6 +1276,7 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	int rc = 0;
 	void *config = NULL;
 	struct snd_soc_codec *codec = NULL;
+	int ch_num;
 
 	pr_debug("%s: format = %d, rate = %d\n",
 		  __func__, params_format(params), params_rate(params));
@@ -1234,18 +1287,20 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	case MSM_BACKEND_DAI_SLIMBUS_3_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_4_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_6_RX:
+		ch_num = msm_slim_get_ch_from_beid(dai_link->be_id);
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
-				slim_rx_cfg[0].bit_format);
-		rate->min = rate->max = slim_rx_cfg[0].sample_rate;
-		channels->min = channels->max = slim_rx_cfg[0].channels;
+				slim_rx_cfg[ch_num].bit_format);
+		rate->min = rate->max = slim_rx_cfg[ch_num].sample_rate;
+		channels->min = channels->max = slim_rx_cfg[ch_num].channels;
 		break;
 
 	case MSM_BACKEND_DAI_SLIMBUS_0_TX:
 	case MSM_BACKEND_DAI_SLIMBUS_3_TX:
+		ch_num = msm_slim_get_ch_from_beid(dai_link->be_id);
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
-				slim_tx_cfg[0].bit_format);
-		rate->min = rate->max = slim_tx_cfg[0].sample_rate;
-		channels->min = channels->max = slim_tx_cfg[0].channels;
+				slim_tx_cfg[ch_num].bit_format);
+		rate->min = rate->max = slim_tx_cfg[ch_num].sample_rate;
+		channels->min = channels->max = slim_tx_cfg[ch_num].channels;
 		break;
 
 	case MSM_BACKEND_DAI_SLIMBUS_1_TX:

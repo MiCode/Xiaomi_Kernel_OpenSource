@@ -4092,8 +4092,9 @@ int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 		ufshcd_update_error_stats(hba, UFS_ERR_HIBERN8_EXIT);
 		dev_err(hba->dev, "%s: hibern8 exit failed. ret = %d",
 			__func__, ret);
+		ret = ufshcd_link_recovery(hba);
 		/* Unable to recover the link, so no point proceeding */
-		if (ufshcd_link_recovery(hba))
+		if (ret)
 			BUG();
 	} else {
 		dev_dbg(hba->dev, "%s: Hibern8 Exit at %lld us", __func__,

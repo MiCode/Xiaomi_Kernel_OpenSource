@@ -1499,6 +1499,7 @@ struct hfi_device {
 	int (*session_clean)(void *sess);
 	int (*get_core_capabilities)(void *dev);
 	int (*suspend)(void *dev);
+	int (*flush_debug_queue)(void *dev);
 	unsigned long (*get_core_clock_rate)(void *dev, bool actual_rate);
 	enum hal_default_properties (*get_default_properties)(void *dev);
 };

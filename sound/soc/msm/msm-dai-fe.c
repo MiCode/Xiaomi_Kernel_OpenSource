@@ -63,6 +63,7 @@ static int fe_dai_probe(struct snd_soc_dai *dai)
 		dev_dbg(dai->dev, "%s src %s sink %s\n",
 			   __func__, intercon.source, intercon.sink);
 		snd_soc_dapm_add_routes(dapm, &intercon, 1);
+		snd_soc_dapm_ignore_suspend(dapm, intercon.source);
 	}
 	if (dai->driver->capture.stream_name &&
 	   dai->driver->capture.aif_name) {
@@ -73,6 +74,7 @@ static int fe_dai_probe(struct snd_soc_dai *dai)
 		dev_dbg(dai->dev, "%s src %s sink %s\n",
 			   __func__, intercon.source, intercon.sink);
 		snd_soc_dapm_add_routes(dapm, &intercon, 1);
+		snd_soc_dapm_ignore_suspend(dapm, intercon.sink);
 	}
 	return 0;
 }

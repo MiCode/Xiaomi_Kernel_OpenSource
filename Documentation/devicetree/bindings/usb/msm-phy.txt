@@ -180,16 +180,11 @@ Required properties:
  - phy_type: Should be one of "ulpi" or "utmi". ChipIdea core uses "ulpi" mode.
 
 Optional properties:
- - reg: Address and length register set to control QUSB2 PHY
-   "qscratch_base" : QSCRATCH base register set.
+ - reg-names: Additional registers corresponding with the following:
    "tune2_efuse_addr": EFUSE based register address to read TUNE2 parameter.
    via the QSCRATCH interface.
    "emu_phy_base" : phy base address used for programming emulation target phy.
    "ref_clk_addr" : ref_clk bcr address used for on/off ref_clk before reset.
- - reg-names: Should be "qscratch_base". The qscratch register bank
-   allows us to manipulate QUSB PHY bits eg. to enable D+ pull-up using s/w
-   control in device mode. The reg-names property is required if the
-   reg property is specified.
  - clocks: a list of phandles to the PHY clocks. Use as per
    Documentation/devicetree/bindings/clock/clock-bindings.txt
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
@@ -210,10 +205,8 @@ Optional properties:
 Example:
 	qusb_phy: qusb@f9b39000 {
 		compatible = "qcom,qusb2phy";
-		reg = <0x00079000 0x7000>,
-			<0x08af8800 0x400>;
-		reg-names = "qusb_phy_base",
-			    "qscratch_base";
+		reg = <0x00079000 0x7000>;
+		reg-names = "qusb_phy_base";
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l6>;
 		vdda33-supply = <&pm8994_l24>;

@@ -50,7 +50,7 @@ struct msm_pcm_loopback {
 	int capture_start;
 	int session_id;
 	struct audio_client *audio_client;
-	int volume;
+	uint32_t volume;
 };
 
 struct fe_dai_session_map {
@@ -64,6 +64,8 @@ static struct fe_dai_session_map session_map[LOOPBACK_SESSION_MAX] = {
 	{ {}, NULL},
 	{ {}, NULL},
 };
+
+static u32 hfp_tx_mute;
 
 static void stop_pcm(struct msm_pcm_loopback *pcm);
 static int msm_pcm_loopback_get_session(struct snd_soc_pcm_runtime *rtd,
@@ -109,6 +111,13 @@ static void msm_pcm_loopback_event_handler(uint32_t opcode, uint32_t token,
 	}
 }
 
+static int msm_loopback_session_mute_get(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = hfp_tx_mute;
+	return 0;
+}
+
 static int msm_loopback_session_mute_put(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_value *ucontrol)
 {
@@ -123,7 +132,7 @@ static int msm_loopback_session_mute_put(struct snd_kcontrol *kcontrol,
 	}
 
 	pr_debug("%s: mute=%d\n", __func__, mute);
-
+	hfp_tx_mute = mute;
 	for (n = 0; n < LOOPBACK_SESSION_MAX; n++) {
 		if (!strcmp(session_map[n].stream_name, "MultiMedia6"))
 			pcm = session_map[n].loopback_priv;
@@ -140,7 +149,8 @@ done:
 
 static struct snd_kcontrol_new msm_loopback_controls[] = {
 	SOC_SINGLE_EXT("HFP TX Mute", SND_SOC_NOPM, 0, 1, 0,
-			NULL, msm_loopback_session_mute_put),
+			msm_loopback_session_mute_get,
+			msm_loopback_session_mute_put),
 };
 
 static int msm_pcm_loopback_probe(struct snd_soc_platform *platform)
@@ -150,7 +160,8 @@ static int msm_pcm_loopback_probe(struct snd_soc_platform *platform)
 
 	return 0;
 }
-static int pcm_loopback_set_volume(struct msm_pcm_loopback *prtd, int volume)
+static int pcm_loopback_set_volume(struct msm_pcm_loopback *prtd,
+				   uint32_t volume)
 {
 	int rc = -EINVAL;
 
@@ -459,10 +470,49 @@ static int msm_pcm_volume_ctl_put(struct snd_kcontrol *kcontrol,
 	int rc = 0;
 	struct snd_pcm_volume *vol = kcontrol->private_data;
 	struct snd_pcm_substream *substream = vol->pcm->streams[0].substream;
-	struct msm_pcm_loopback *prtd = substream->runtime->private_data;
+	struct msm_pcm_loopback *prtd;
 	int volume = ucontrol->value.integer.value[0];
 
+	pr_debug("%s: volume : 0x%x\n", __func__, volume);
+	if ((!substream) || (!substream->runtime)) {
+		pr_err("%s substream or runtime not found\n", __func__);
+		rc = -ENODEV;
+		goto exit;
+	}
+	prtd = substream->runtime->private_data;
+	if (!prtd) {
+		rc = -ENODEV;
+		goto exit;
+	}
 	rc = pcm_loopback_set_volume(prtd, volume);
+
+exit:
+	return rc;
+}
+
+static int msm_pcm_volume_ctl_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+	struct snd_pcm_volume *vol = snd_kcontrol_chip(kcontrol);
+	struct snd_pcm_substream *substream =
+		vol->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	struct msm_pcm_loopback *prtd;
+
+	pr_debug("%s\n", __func__);
+	if ((!substream) || (!substream->runtime)) {
+		pr_err("%s substream or runtime not found\n", __func__);
+		rc = -ENODEV;
+		goto exit;
+	}
+	prtd = substream->runtime->private_data;
+	if (!prtd) {
+		rc = -ENODEV;
+		goto exit;
+	}
+	ucontrol->value.integer.value[0] = prtd->volume;
+
+exit:
 	return rc;
 }
 
@@ -482,6 +532,7 @@ static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
 		return ret;
 	kctl = volume_info->kctl;
 	kctl->put = msm_pcm_volume_ctl_put;
+	kctl->get = msm_pcm_volume_ctl_get;
 	kctl->tlv.p = loopback_rx_vol_gain;
 	return 0;
 }

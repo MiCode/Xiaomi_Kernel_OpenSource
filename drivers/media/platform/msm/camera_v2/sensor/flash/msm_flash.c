@@ -756,9 +756,14 @@ static int32_t msm_flash_get_pmic_source_info(
 				"qcom,current",
 				&fctrl->flash_op_current[i]);
 			if (rc < 0) {
-				pr_err("current: read failed\n");
-				of_node_put(flash_src_node);
-				continue;
+				rc = of_property_read_u32(flash_src_node,
+					"qcom,current-ma",
+					&fctrl->flash_op_current[i]);
+				if (rc < 0) {
+					pr_err("current: read failed\n");
+					of_node_put(flash_src_node);
+					continue;
+				}
 			}
 
 			/* Read max-current */
@@ -776,8 +781,13 @@ static int32_t msm_flash_get_pmic_source_info(
 				"qcom,duration",
 				&fctrl->flash_max_duration[i]);
 			if (rc < 0) {
-				pr_err("duration: read failed\n");
-				of_node_put(flash_src_node);
+				rc = of_property_read_u32(flash_src_node,
+					"qcom,duration-ms",
+					&fctrl->flash_max_duration[i]);
+				if (rc < 0) {
+					pr_err("duration: read failed\n");
+					of_node_put(flash_src_node);
+				}
 				/* Non-fatal; this property is optional */
 			}
 

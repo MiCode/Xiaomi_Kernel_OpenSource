@@ -1,0 +1,80 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,itech_3000mah {
+	/* #Itech_B00826LF_3000mAh_ver1660_averaged_MasterSlave_Jul20th2016*/
+	qcom,max-voltage-uv = <4350000>;
+	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3450>;
+	qcom,battery-type = "itech_b00826lf_3000mah_ver1660";
+	qcom,checksum = <0xE06B>;
+	qcom,gui-version = "PMI8998GUI - 0.0.0.82";
+	qcom,fg-profile-data = [
+		 A4 1F 6E 05
+		 9C 0A 16 06
+		 32 1D 24 E5
+		 61 0B 1B 15
+		 AD 17 8C 22
+		 EB 3C 87 4A
+		 5B 00 00 00
+		 12 00 00 00
+		 00 00 62 C2
+		 0C CD D8 C2
+		 19 00 0C 00
+		 7E 00 C7 EC
+		 E3 05 5D FA
+		 97 F5 12 12
+		 C2 05 90 3B
+		 22 09 40 40
+		 07 00 05 00
+		 7D 1F DE 05
+		 3F 0A 73 06
+		 72 1D E2 F5
+		 6F 12 BF 1D
+		 88 18 FB 22
+		 8D 45 C6 52
+		 54 00 00 00
+		 0F 00 00 00
+		 00 00 BD CD
+		 55 C2 5D C5
+		 14 00 00 00
+		 7E 00 C7 EC
+		 60 06 BB 00
+		 B3 FC 61 03
+		 6A 06 78 1B
+		 B3 33 08 33
+		 07 10 00 00
+		 3E 0B 99 45
+		 14 00 19 00
+		 AE 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};
