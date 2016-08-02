@@ -1716,7 +1716,7 @@ int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *sctl;
-	int rc;
+	int rc = 0;
 
 	pr_debug("fb%d switch to mode=%x\n", mfd->index, mode);
 	ATRACE_FUNC();
@@ -3433,6 +3433,9 @@ static ssize_t mdss_mdp_misr_store(struct device *dev,
 		pr_err("kstrtoint failed. rc=%d\n", rc);
 		return rc;
 	}
+
+	req.block_id = DISPLAY_MISR_MAX;
+	sreq.block_id = DISPLAY_MISR_MAX;
 
 	pr_debug("intf_type:%d enable:%d\n", ctl->intf_type, enable_misr);
 	if (ctl->intf_type == MDSS_INTF_DSI) {

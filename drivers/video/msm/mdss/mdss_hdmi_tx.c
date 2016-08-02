@@ -328,9 +328,14 @@ static inline bool hdmi_tx_is_panel_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static inline bool hdmi_tx_is_cec_wakeup_en(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	void *fd = hdmi_tx_get_fd(HDMI_TX_FEAT_CEC_HW);
+	void *fd = NULL;
 
-	if (!hdmi_ctrl || !fd)
+	if (!hdmi_ctrl)
+		return false;
+
+	fd = hdmi_tx_get_fd(HDMI_TX_FEAT_CEC_HW);
+
+	if (!fd)
 		return false;
 
 	return hdmi_cec_is_wakeup_en(fd);
@@ -338,9 +343,14 @@ static inline bool hdmi_tx_is_cec_wakeup_en(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static inline void hdmi_tx_cec_device_suspend(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	void *fd = hdmi_tx_get_fd(HDMI_TX_FEAT_CEC_HW);
+	void *fd = NULL;
 
-	if (!hdmi_ctrl || !fd)
+	if (!hdmi_ctrl)
+		return;
+
+	fd = hdmi_tx_get_fd(HDMI_TX_FEAT_CEC_HW);
+
+	if (!fd)
 		return;
 
 	hdmi_cec_device_suspend(fd, hdmi_ctrl->panel_suspend);

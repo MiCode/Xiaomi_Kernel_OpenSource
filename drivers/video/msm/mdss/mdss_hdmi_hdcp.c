@@ -355,9 +355,9 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	struct dss_io_data *hdcp_io;
 	u8 aksv[5], *bksv = NULL;
 	u8 an[8];
-	u8 bcaps;
+	u8 bcaps = 0;
 	struct hdmi_tx_ddc_data ddc_data;
-	u32 link0_status, an_ready, keys_state;
+	u32 link0_status = 0, an_ready, keys_state;
 	u8 buf[0xFF];
 
 	struct scm_hdcp_req scm_buf[SCM_HDCP_MAX_REG];
@@ -679,7 +679,7 @@ error:
 do { \
 	ddc_data.offset = (off); \
 	memset(what, 0, sizeof(what)); \
-	snprintf(what, sizeof(what), (name)); \
+	snprintf(what, 20, (name)); \
 	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data; \
 	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl); \
 	if (rc) { \
