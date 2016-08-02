@@ -1199,16 +1199,26 @@ static int mdp3_overlay_queue_buffer(struct msm_fb_data_type *mfd,
 					struct msmfb_overlay_data *req)
 {
 	int rc;
+	bool is_panel_type_cmd = false;
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
 	struct msmfb_data *img = &req->data;
 	struct mdp3_img_data data;
 	struct mdp3_dma *dma = mdp3_session->dma;
 
 	memset(&data, 0, sizeof(struct mdp3_img_data));
+	if (mfd->panel.type == MIPI_CMD_PANEL)
+		is_panel_type_cmd = true;
+	if (is_panel_type_cmd) {
+		rc = mdp3_iommu_enable(MDP3_CLIENT_DMA_P);
+		if (rc) {
+			pr_err("fail to enable iommu\n");
+			return rc;
+		}
+	}
 	rc = mdp3_get_img(img, &data, MDP3_CLIENT_DMA_P);
 	if (rc) {
 		pr_err("fail to get overlay buffer\n");
-		return rc;
+		goto err;
 	}
 
 	if (data.len < dma->source_config.stride * dma->source_config.height) {
@@ -1216,16 +1226,20 @@ static int mdp3_overlay_queue_buffer(struct msm_fb_data_type *mfd,
 			data.len, (dma->source_config.stride *
 			dma->source_config.height));
 		mdp3_put_img(&data, MDP3_CLIENT_DMA_P);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto err;
 	}
-
 	rc = mdp3_bufq_push(&mdp3_session->bufq_in, &data);
 	if (rc) {
 		pr_err("fail to queue the overlay buffer, buffer drop\n");
 		mdp3_put_img(&data, MDP3_CLIENT_DMA_P);
-		return rc;
+		goto err;
 	}
-	return 0;
+	rc = 0;
+err:
+	if (is_panel_type_cmd)
+		mdp3_iommu_disable(MDP3_CLIENT_DMA_P);
+	return rc;
 }
 
 static int mdp3_overlay_play(struct msm_fb_data_type *mfd,
