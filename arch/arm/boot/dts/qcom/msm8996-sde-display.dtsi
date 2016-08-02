@@ -223,7 +223,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&mdss_hdmi &display_manager>;
+	connectors = <&display_manager>;
 };
 
 &dsi_dual_sharp_video {
