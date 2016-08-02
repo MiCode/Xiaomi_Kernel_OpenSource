@@ -102,6 +102,7 @@ config ARCH_MVEBU
 config ARCH_QCOM
 	bool "Qualcomm Platforms"
 	select PINCTRL
+	select SOC_BUS
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
