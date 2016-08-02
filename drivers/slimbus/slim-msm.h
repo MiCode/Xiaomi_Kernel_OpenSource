@@ -67,7 +67,7 @@
 #define SLIM_MSG_ASM_FIRST_WORD(l, mt, mc, dt, ad) \
 		((l) | ((mt) << 5) | ((mc) << 8) | ((dt) << 15) | ((ad) << 16))
 
-#define INIT_MX_RETRIES 10
+#define INIT_MX_RETRIES 3
 #define DEF_RETRY_MS	10
 #define MSM_CONCUR_MSG	8
 #define SAT_CONCUR_MSG	8
