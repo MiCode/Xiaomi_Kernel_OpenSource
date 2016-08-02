@@ -1786,6 +1786,25 @@ void check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups)
 		(void *)(long)cpu);
 }
 
+void notify_migration(int src_cpu, int dest_cpu, bool src_cpu_dead,
+			     struct task_struct *p)
+{
+	bool check_groups;
+
+	rcu_read_lock();
+	check_groups = task_in_related_thread_group(p);
+	rcu_read_unlock();
+
+	if (!same_freq_domain(src_cpu, dest_cpu)) {
+		if (!src_cpu_dead)
+			check_for_freq_change(cpu_rq(src_cpu), false,
+					      check_groups);
+		check_for_freq_change(cpu_rq(dest_cpu), false, check_groups);
+	} else {
+		check_for_freq_change(cpu_rq(dest_cpu), true, check_groups);
+	}
+}
+
 static int account_busy_for_cpu_time(struct rq *rq, struct task_struct *p,
 				     u64 irqtime, int event)
 {

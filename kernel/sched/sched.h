@@ -1300,6 +1300,9 @@ struct related_thread_group *task_related_thread_group(struct task_struct *p)
 extern void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
 
+extern void notify_migration(int src_cpu, int dest_cpu,
+			bool src_cpu_dead, struct task_struct *p);
+
 struct group_cpu_time {
 	u64 curr_runnable_sum;
 	u64 prev_runnable_sum;
@@ -1579,6 +1582,9 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 
 static inline void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups) { }
+
+static inline void notify_migration(int src_cpu, int dest_cpu,
+			bool src_cpu_dead, struct task_struct *p) { }
 
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
 {

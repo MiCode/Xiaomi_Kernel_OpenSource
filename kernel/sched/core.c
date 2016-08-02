@@ -1134,25 +1134,6 @@ static struct rq *__migrate_task(struct rq *rq, struct task_struct *p, int dest_
 	return rq;
 }
 
-static void notify_migration(int src_cpu, int dest_cpu, bool src_cpu_dead,
-			     struct task_struct *p)
-{
-	bool check_groups;
-
-	rcu_read_lock();
-	check_groups = task_in_related_thread_group(p);
-	rcu_read_unlock();
-
-	if (!same_freq_domain(src_cpu, dest_cpu)) {
-		if (!src_cpu_dead)
-			check_for_freq_change(cpu_rq(src_cpu), false,
-					      check_groups);
-		check_for_freq_change(cpu_rq(dest_cpu), false, check_groups);
-	} else {
-		check_for_freq_change(cpu_rq(dest_cpu), true, check_groups);
-	}
-}
-
 /*
  * migration_cpu_stop - this will be executed by a highprio stopper thread
  * and performs thread migration by bumping thread off CPU then
