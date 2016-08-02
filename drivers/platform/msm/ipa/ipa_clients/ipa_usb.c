@@ -162,6 +162,12 @@ struct ipa3_usb_transport_type_ctx {
 	void *user_data;
 	enum ipa3_usb_state state;
 	struct finish_suspend_work_context finish_suspend_work;
+	struct ipa_usb_xdci_chan_params ch_params;
+};
+
+struct ipa3_usb_smmu_reg_map {
+	int cnt;
+	phys_addr_t addr;
 };
 
 struct ipa3_usb_context {
@@ -179,6 +185,7 @@ struct ipa3_usb_context {
 		ttype_ctx[IPA_USB_TRANSPORT_MAX];
 	struct dentry *dfile_state_info;
 	struct dentry *dent;
+	struct ipa3_usb_smmu_reg_map smmu_reg_map;
 };
 
 enum ipa3_usb_op {
@@ -1112,6 +1119,74 @@ static bool ipa3_usb_check_chan_params(struct ipa_usb_xdci_chan_params *params)
 	return true;
 }
 
+static int ipa3_usb_smmu_map_xdci_channel(
+	struct ipa_usb_xdci_chan_params *params, bool map)
+{
+	int result;
+	u32 gevntcount_r = rounddown(params->gevntcount_low_addr, PAGE_SIZE);
+	u32 xfer_scratch_r =
+		rounddown(params->xfer_scratch.depcmd_low_addr, PAGE_SIZE);
+
+	if (gevntcount_r != xfer_scratch_r) {
+		IPA_USB_ERR("No support more than 1 page map for USB regs\n");
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	if (map) {
+		if (ipa3_usb_ctx->smmu_reg_map.cnt == 0) {
+			ipa3_usb_ctx->smmu_reg_map.addr = gevntcount_r;
+			result = ipa3_smmu_map_peer_reg(
+				ipa3_usb_ctx->smmu_reg_map.addr, true);
+			if (result) {
+				IPA_USB_ERR("failed to map USB regs %d\n",
+					result);
+				return result;
+			}
+		} else {
+			if (gevntcount_r != ipa3_usb_ctx->smmu_reg_map.addr) {
+				IPA_USB_ERR(
+					"No support for map different reg\n");
+				return -EINVAL;
+			}
+		}
+		ipa3_usb_ctx->smmu_reg_map.cnt++;
+	} else {
+		if (gevntcount_r != ipa3_usb_ctx->smmu_reg_map.addr) {
+			IPA_USB_ERR(
+				"No support for map different reg\n");
+			return -EINVAL;
+		}
+
+		if (ipa3_usb_ctx->smmu_reg_map.cnt == 1) {
+			result = ipa3_smmu_map_peer_reg(
+				ipa3_usb_ctx->smmu_reg_map.addr, false);
+			if (result) {
+				IPA_USB_ERR("failed to unmap USB regs %d\n",
+					result);
+				return result;
+			}
+		}
+		ipa3_usb_ctx->smmu_reg_map.cnt--;
+	}
+
+	result = ipa3_smmu_map_peer_buff(params->xfer_ring_base_addr_iova,
+		params->xfer_ring_base_addr, params->xfer_ring_len, map);
+	if (result) {
+		IPA_USB_ERR("failed to map Xfer ring %d\n", result);
+		return result;
+	}
+
+	result = ipa3_smmu_map_peer_buff(params->data_buff_base_addr_iova,
+		params->data_buff_base_addr, params->data_buff_base_len, map);
+	if (result) {
+		IPA_USB_ERR("failed to map TRBs buff %d\n", result);
+		return result;
+	}
+
+	return 0;
+}
+
 static int ipa3_usb_request_xdci_channel(
 	struct ipa_usb_xdci_chan_params *params,
 	struct ipa_req_chan_out_params *out_params)
@@ -1186,6 +1261,16 @@ static int ipa3_usb_request_xdci_channel(
 	default:
 		break;
 	}
+
+	result = ipa3_usb_smmu_map_xdci_channel(params, true);
+	if (result) {
+		IPA_USB_ERR("failed to smmu map %d\n", result);
+		return result;
+	}
+
+	/* store channel params for SMMU unmap */
+	ipa3_usb_ctx->ttype_ctx[ttype].ch_params = *params;
+
 	chan_params.keep_ipa_awake = params->keep_ipa_awake;
 	chan_params.evt_ring_params.intf = GSI_EVT_CHTYPE_XDCI_EV;
 	chan_params.evt_ring_params.intr = GSI_INTR_IRQ;
@@ -1243,6 +1328,7 @@ static int ipa3_usb_request_xdci_channel(
 	result = ipa3_request_gsi_channel(&chan_params, out_params);
 	if (result) {
 		IPA_USB_ERR("failed to allocate GSI channel\n");
+		ipa3_usb_smmu_map_xdci_channel(params, false);
 		return result;
 	}
 
@@ -1272,6 +1358,9 @@ static int ipa3_usb_release_xdci_channel(u32 clnt_hdl,
 		IPA_USB_ERR("failed to deallocate channel.\n");
 		return result;
 	}
+
+	result = ipa3_usb_smmu_map_xdci_channel(
+		&ipa3_usb_ctx->ttype_ctx[ttype].ch_params, false);
 
 	/* Change ipa_usb state to INITIALIZED */
 	if (!ipa3_usb_set_state(IPA_USB_INITIALIZED, false, ttype))
