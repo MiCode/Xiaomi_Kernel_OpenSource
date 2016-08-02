@@ -2142,6 +2142,14 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(*signal_info);
 		break;
 	}
+	case HAL_PARAM_VENC_H264_TRANSFORM_8x8:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VENC_H264_8X8_TRANSFORM,
+			((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
+		break;
+	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
