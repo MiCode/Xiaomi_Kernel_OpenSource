@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014-2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,11 @@
 #include "mdss_hdmi_util.h"
 #include <video/msm_hdmi_modes.h>
 #include <soc/qcom/scm.h>
+
+enum hdcp_client_id {
+	HDCP_CLIENT_HDMI,
+	HDCP_CLIENT_DP,
+};
 
 enum hdmi_hdcp_state {
 	HDCP_STATE_INACTIVE,
@@ -41,6 +46,8 @@ struct hdmi_hdcp_init_data {
 	u32 hdmi_tx_ver;
 	struct msm_hdmi_mode_timing_info *timing;
 	bool tethered;
+	bool sec_access;
+	enum hdcp_client_id client_id;
 };
 
 struct hdmi_hdcp_ops {
