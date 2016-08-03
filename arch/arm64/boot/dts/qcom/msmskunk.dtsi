@@ -11,6 +11,11 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-skunk.h>
+#include <dt-bindings/clock/qcom,camcc-skunk.h>
+#include <dt-bindings/clock/qcom,dispcc-skunk.h>
+#include <dt-bindings/clock/qcom,gpucc-skunk.h>
+#include <dt-bindings/clock/qcom,videocc-skunk.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM SKUNK";
