@@ -87,6 +87,30 @@
 
 #define TCSR_USB3_DP_PHYMODE			0x48
 
+/* DP HDCP 1.3 registers */
+#define DP_HDCP_CTRL                                   (0x0A0)
+#define DP_HDCP_STATUS                                 (0x0A4)
+#define DP_HDCP_SW_UPPER_AKSV                          (0x298)
+#define DP_HDCP_SW_LOWER_AKSV                          (0x29C)
+#define DP_HDCP_ENTROPY_CTRL0                          (0x750)
+#define DP_HDCP_ENTROPY_CTRL1                          (0x75C)
+#define DP_HDCP_SHA_STATUS                             (0x0C8)
+#define DP_HDCP_RCVPORT_DATA2_0                        (0x0B0)
+#define DP_HDCP_RCVPORT_DATA3                          (0x2A4)
+#define DP_HDCP_RCVPORT_DATA4                          (0x2A8)
+#define DP_HDCP_RCVPORT_DATA5                          (0x0C0)
+#define DP_HDCP_RCVPORT_DATA6                          (0x0C4)
+
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_SHA_CTRL           (0x024)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA0      (0x004)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA1      (0x008)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA7      (0x00C)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA8      (0x010)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA9      (0x014)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA10     (0x018)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA11     (0x01C)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA12     (0x020)
+
 struct lane_mapping {
 	char lane0;
 	char lane1;

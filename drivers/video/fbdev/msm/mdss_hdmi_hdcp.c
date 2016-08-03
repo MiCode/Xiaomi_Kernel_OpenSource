@@ -119,6 +119,25 @@ struct hdcp_reg_set {
 	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA11, \
 	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA12}
 
+#define HDCP_REG_SET_CLIENT_DP \
+	{DP_HDCP_STATUS, 16, 14, 13, DP_HDCP_CTRL, \
+	 DP_HDCP_SW_LOWER_AKSV, DP_HDCP_SW_UPPER_AKSV, \
+	 DP_HDCP_ENTROPY_CTRL0, DP_HDCP_ENTROPY_CTRL1, \
+	 0, HDCP_SEC_DP_TZ_HV_HLOS_HDCP_SHA_CTRL, \
+	 DP_HDCP_SHA_STATUS, 0, 0, DP_HDCP_RCVPORT_DATA2_0, \
+	 DP_HDCP_RCVPORT_DATA3, DP_HDCP_RCVPORT_DATA4, \
+	 DP_HDCP_RCVPORT_DATA5, DP_HDCP_RCVPORT_DATA6, \
+	 0, 0, 0, 0, 0, 0, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA0, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA1, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA7, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA8, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA9, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA10, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA11, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA12}
+
+
 struct hdmi_hdcp_ctrl {
 	u32 auth_retries;
 	u32 tp_msgid;
@@ -1576,6 +1595,10 @@ static void hdmi_hdcp_update_client_reg_set(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
 	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_HDMI) {
 		struct hdcp_reg_set reg_set = HDCP_REG_SET_CLIENT_HDMI;
+
+		hdcp_ctrl->reg_set = reg_set;
+	} else if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP) {
+		struct hdcp_reg_set reg_set = HDCP_REG_SET_CLIENT_DP;
 
 		hdcp_ctrl->reg_set = reg_set;
 	}
