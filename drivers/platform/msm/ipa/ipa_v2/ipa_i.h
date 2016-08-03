@@ -242,7 +242,7 @@ struct ipa_rt_tbl {
  * @is_partial: flag indicating if header table entry is partial
  * @is_hdr_proc_ctx: false - hdr entry resides in hdr table,
  * true - hdr entry resides in DDR and pointed to by proc ctx
- * @phys_base: physical address of entry in SRAM when is_hdr_proc_ctx is true,
+ * @phys_base: physical address of entry in DDR when is_hdr_proc_ctx is true,
  * else 0
  * @proc_ctx: processing context header
  * @offset_entry: entry's offset
