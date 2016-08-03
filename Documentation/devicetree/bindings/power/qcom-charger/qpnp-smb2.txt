@@ -56,6 +56,15 @@ Charger specific properties:
   Definition: Specifies the DC input power limit in micro-watts.
 		If the value is not present, 8W is used as default.
 
+- qcom,thermal-mitigation
+  Usage:      optional
+  Value type: Array of <u32>
+  Definition: Array of fast charge current limit values for
+		different system thermal mitigation levels.
+		This should be a flat array that denotes the
+		maximum charge current in mA for each thermal
+		level.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================

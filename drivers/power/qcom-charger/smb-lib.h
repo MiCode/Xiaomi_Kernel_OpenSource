@@ -31,6 +31,8 @@ enum print_reason {
 #define CHG_STATE_VOTER	"CHG_STATE_VOTER"
 #define TYPEC_SRC_VOTER	"TYPEC_SRC_VOTER"
 #define TAPER_END_VOTER	"TAPER_END_VOTER"
+#define FCC_MAX_RESULT	"FCC_MAX_RESULT"
+#define THERMAL_DAEMON	"THERMAL_DAEMON"
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -106,6 +108,7 @@ struct smb_charger {
 	/* votables */
 	struct votable		*usb_suspend_votable;
 	struct votable		*dc_suspend_votable;
+	struct votable		*fcc_max_votable;
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
@@ -126,6 +129,10 @@ struct smb_charger {
 	int			voltage_max_uv;
 	bool			pd_active;
 	bool			vbus_present;
+
+	int			system_temp_level;
+	int			thermal_levels;
+	int			*thermal_mitigation;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -172,7 +179,12 @@ int smblib_get_prop_batt_charge_type(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_health(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_system_temp_level(struct smb_charger *chg,
+				union power_supply_propval *val);
+
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 				const union power_supply_propval *val);
 
 int smblib_get_prop_usb_present(struct smb_charger *chg,
