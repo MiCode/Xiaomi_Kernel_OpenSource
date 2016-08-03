@@ -374,6 +374,15 @@ config QCOM_WATCHDOG_V2
 	  deadlocks. It does not run during the bootup process, so it will
 	  not catch any early lockups.
 
+config QCOM_IRQ_HELPER
+	bool "QCOM Irq Helper"
+	help
+	  This enables the irq helper module. It exposes two APIs
+	  int irq_blacklist_on(void) and int irq_blacklist_off(void)
+	  to other kernel module.
+	  These two apis will be used to control the black list used
+	  by the irq balancer.
+
 config QCOM_MEMORY_DUMP
 	bool "Qualcomm Memory Dump Support"
 	help
