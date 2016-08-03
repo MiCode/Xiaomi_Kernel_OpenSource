@@ -16,6 +16,7 @@
 #include <linux/irqreturn.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
+#include "storm-watch.h"
 
 enum print_reason {
 	PR_INTERRUPT	= BIT(0),
@@ -46,8 +47,9 @@ struct smb_regulator {
 };
 
 struct smb_irq_data {
-	void		*parent_data;
-	const char	*name;
+	void			*parent_data;
+	const char		*name;
+	struct storm_watch	storm_data;
 };
 
 struct smb_chg_param {
