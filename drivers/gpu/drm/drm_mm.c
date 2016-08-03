@@ -250,6 +250,11 @@ int drm_mm_reserve_node(struct drm_mm *mm, struct drm_mm_node *node)
 	struct drm_mm_node *hole;
 	u64 hole_start, hole_end;
 
+	if (WARN_ON(node->size == 0))
+		return -EINVAL;
+
+	end = node->start + node->size;
+
 	/* Find the relevant hole to add our node to */
 	hole = drm_mm_interval_tree_iter_first(&mm->interval_tree,
 					       node->start, ~(u64)0);
@@ -314,6 +319,9 @@ int drm_mm_insert_node_generic(struct drm_mm *mm, struct drm_mm_node *node,
 			       enum drm_mm_allocator_flags aflags)
 {
 	struct drm_mm_node *hole_node;
+
+	if (WARN_ON(size == 0))
+		return -EINVAL;
 
 	hole_node = drm_mm_search_free_generic(mm, size, alignment,
 					       color, sflags);
@@ -416,6 +424,9 @@ int drm_mm_insert_node_in_range_generic(struct drm_mm *mm, struct drm_mm_node *n
 					enum drm_mm_allocator_flags aflags)
 {
 	struct drm_mm_node *hole_node;
+
+	if (WARN_ON(size == 0))
+		return -EINVAL;
 
 	hole_node = drm_mm_search_free_in_range_generic(mm,
 							size, alignment, color,
