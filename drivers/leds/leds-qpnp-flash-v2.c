@@ -451,15 +451,52 @@ static int get_property_from_fg(struct qpnp_flash_led *led,
 	return rc;
 }
 
+#define VOLTAGE_HDRM_DEFAULT_MV	350
+static int qpnp_flash_led_get_voltage_headroom(struct qpnp_flash_led *led)
+{
+	int i, voltage_hdrm_mv = 0, voltage_hdrm_max = 0;
+
+	for (i = 0; i < led->num_fnodes; i++) {
+		if (led->fnode[i].led_on) {
+			if (led->fnode[i].id < 2) {
+				if (led->fnode[i].current_ma < 750)
+					voltage_hdrm_mv = 125;
+				else if (led->fnode[i].current_ma < 1000)
+					voltage_hdrm_mv = 175;
+				else if (led->fnode[i].current_ma < 1250)
+					voltage_hdrm_mv = 250;
+				else
+					voltage_hdrm_mv = 350;
+			} else {
+				if (led->fnode[i].current_ma < 375)
+					voltage_hdrm_mv = 125;
+				else if (led->fnode[i].current_ma < 500)
+					voltage_hdrm_mv = 175;
+				else if (led->fnode[i].current_ma < 625)
+					voltage_hdrm_mv = 250;
+				else
+					voltage_hdrm_mv = 350;
+			}
+
+			voltage_hdrm_max = max(voltage_hdrm_max,
+						voltage_hdrm_mv);
+		}
+	}
+
+	if (!voltage_hdrm_max)
+		return VOLTAGE_HDRM_DEFAULT_MV;
+
+	return voltage_hdrm_max;
+}
+
 #define UCONV			1000000LL
 #define MCONV			1000LL
-#define V_HEADROOM_DEFAULT	350000LL
 #define FLASH_VDIP_MARGIN	50000
 #define BOB_EFFICIENCY		900LL
 #define VIN_FLASH_MIN_UV	3300000LL
 static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 {
-	int ocv_uv, rbatt_uohm, ibat_now, rc;
+	int ocv_uv, rbatt_uohm, ibat_now, voltage_hdrm_mv, rc;
 	int64_t ibat_flash_ua, avail_flash_ua, avail_flash_power_fw;
 	int64_t ibat_safe_ua, vin_flash_uv, vph_flash_uv, vph_flash_vdip;
 
@@ -492,6 +529,7 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 	}
 
 	rbatt_uohm += led->pdata->rpara_uohm;
+	voltage_hdrm_mv = qpnp_flash_led_get_voltage_headroom(led);
 	vph_flash_vdip =
 		VPH_DROOP_THRESH_VAL_TO_UV(led->pdata->vph_droop_threshold)
 							+ FLASH_VDIP_MARGIN;
@@ -542,8 +580,8 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 				* led->pdata->ibatt_ocp_threshold_ua, UCONV);
 	}
 	/* Calculate the input voltage of the flash module. */
-	vin_flash_uv = max((led->pdata->vled_max_uv + V_HEADROOM_DEFAULT),
-				VIN_FLASH_MIN_UV);
+	vin_flash_uv = max((led->pdata->vled_max_uv +
+				(voltage_hdrm_mv * MCONV)), VIN_FLASH_MIN_UV);
 	/* Calculate the available power for the flash module. */
 	avail_flash_power_fw = BOB_EFFICIENCY * vph_flash_uv * ibat_flash_ua;
 	/*
