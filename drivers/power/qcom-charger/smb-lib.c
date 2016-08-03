@@ -18,6 +18,7 @@
 #include <linux/irq.h>
 #include "smb-lib.h"
 #include "smb-reg.h"
+#include "storm-watch.h"
 #include "pmic-voter.h"
 
 #define smblib_dbg(chg, reason, fmt, ...)			\
@@ -1643,7 +1644,6 @@ irqreturn_t smblib_handle_debug(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
-
 	return IRQ_HANDLED;
 }
 
@@ -1753,7 +1753,7 @@ irqreturn_t smblib_handle_batt_psy_changed(int irq, void *data)
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 
-	smblib_handle_debug(irq, data);
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 	power_supply_changed(chg->batt_psy);
 	return IRQ_HANDLED;
 }
@@ -1763,7 +1763,7 @@ irqreturn_t smblib_handle_usb_psy_changed(int irq, void *data)
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 
-	smblib_handle_debug(irq, data);
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 	power_supply_changed(chg->usb_psy);
 	return IRQ_HANDLED;
 }
