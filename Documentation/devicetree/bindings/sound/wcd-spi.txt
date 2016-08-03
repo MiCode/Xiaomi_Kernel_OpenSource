@@ -1,0 +1,27 @@
+WCD audio codec SPI driver support
+
+* wcd_spi
+
+The wcd_spi device is child device node to the master contoller's device node
+and will have properties that the SPI framework or the master controller driver
+expects. The properties listed here are specific to wcd-spi driver.
+
+Required properties:
+
+- compatible : "qcom,wcd-spi-v2"
+
+- qcom,mem-base-addr : Defines the memory base address from the SPI
+		       memory map. This will be used as an offset to read
+		       and write memory.
+
+Example:
+
+&spi_10 {
+	status = "ok";
+	wcd_spi_0: wcd_spi@0 {
+		compatible = "qcom,wcd-spi-v2";
+		reg = <0>;
+		spi-max-frequency = <24000000>;
+		qcom,mem-base-addr = <0x100000>;
+	};
+};
