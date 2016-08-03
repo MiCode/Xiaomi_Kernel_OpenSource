@@ -243,6 +243,12 @@ enum msmcobalt_cpr_partial_binning {
 	MSMCOBALT_CPR_PARTIAL_BINNING_SAFE_CORNER = 0xE,
 };
 
+/*
+ * The partial binning open-loop voltage fuse values only apply to the lowest
+ * two fuse corners (0 and 1, i.e. MinSVS and SVS).
+ */
+#define MSMCOBALT_CPR_PARTIAL_BINNING_MAX_FUSE_CORNER	1
+
 /**
  * cpr3_msm8996_mmss_read_fuse_data() - load MMSS specific fuse parameter values
  * @vreg:		Pointer to the CPR3 regulator
@@ -738,7 +744,8 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 		 */
 		if (is_msmcobalt &&
 		    (volt_init == MSMCOBALT_CPR_PARTIAL_BINNING_NEXT_CORNER ||
-		     volt_init == MSMCOBALT_CPR_PARTIAL_BINNING_SAFE_CORNER))
+		     volt_init == MSMCOBALT_CPR_PARTIAL_BINNING_SAFE_CORNER) &&
+		    i <= MSMCOBALT_CPR_PARTIAL_BINNING_MAX_FUSE_CORNER)
 			volt_init = MSM8996_MMSS_MIN_VOLTAGE_FUSE_VAL;
 
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(ref_volt[i],
@@ -849,19 +856,25 @@ static int cpr3_msmcobalt_partial_binning_override(struct cpr3_regulator *vreg)
 	u32 proc_freq;
 	struct cpr3_corner *corner;
 	struct cpr3_corner *safe_corner;
-	int i, j, low, high, safe_fuse_corner;
+	int i, j, low, high, safe_fuse_corner, max_fuse_corner;
 
 	if (vreg->thread->ctrl->soc_revision != MSMCOBALT_SOC_ID)
 		return 0;
 
-	/* Loop over all fuse corners except for the highest one. */
-	for (i = 0; i < vreg->fuse_corner_count - 1; i++) {
+	/*
+	 * Allow up to the max corner which can be fused with partial
+	 * binning values.
+	 */
+	max_fuse_corner = min(MSMCOBALT_CPR_PARTIAL_BINNING_MAX_FUSE_CORNER,
+				vreg->fuse_corner_count - 2);
+
+	for (i = 0; i <= max_fuse_corner; i++) {
 		/* Determine which higher corners to override with (if any). */
 		if (fuse->init_voltage[i] != next
 		    && fuse->init_voltage[i] != safe)
 			continue;
 
-		for (j = i + 1; j < vreg->fuse_corner_count - 1; j++)
+		for (j = i + 1; j <= max_fuse_corner; j++)
 			if (fuse->init_voltage[j] != next
 			    && fuse->init_voltage[j] != safe)
 				break;
