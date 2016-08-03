@@ -34,16 +34,22 @@ Required properties:
 	       should be "qcom,msmfalcon-tsens" for falcon TSENS driver.
 	       The compatible property is used to identify the respective fusemap to use
 	       for the corresponding SoC.
-- reg : offset and length of the TSENS registers.
-- reg : offset and length of the QFPROM registers used for storing
-	the calibration data for the individual sensors.
+- reg : offset and length of the TSENS registers with associated property in reg-names
+	as "tsens_physical" and QFPROM registers with associated property in reg-names
+	as "tsens_eeprom_physical". The efuse registers are used for storing
+	the calibration data for the individual sensors. If the gain and offset are
+	programmed by the TSENS control registers then adding the QFPROM register property
+	is optional.
 - reg-names : resource names used for the physical address of the TSENS
 	      registers, the QFPROM efuse primary calibration address region,
 	      Should be "tsens_physical" for physical address of the TSENS,
 	      "tsens_eeprom_physical" for physical address where primary
 	      calibration data is stored. This includes the backup
 	      calibration address region if TSENS calibration data is stored
-	      in the region.
+	      in the region. The reg-name "tsens_eeprom_physical" property is
+	      optional if the gain and offset are programmed by the TSENS
+	      control registers and the status registers directly reports the TSENS
+	      temperature readings.
 - interrupts : TSENS interrupt to notify Upper/Lower temperature threshold.
 - interrupt-names: Should be "tsens-upper-lower" for temperature threshold.
 		   Add "tsens-critical" for Critical temperature threshold notification
@@ -53,7 +59,8 @@ Required properties:
 - qcom,slope : One point calibration characterized slope data for each
 	       sensor used to compute the offset. Slope is represented
 	       as ADC code/DegC and the value is multipled by a factor
-	       of 1000.
+	       of 1000. If gain and offset are programmed by the TSENS control
+	       registers then this property is optional.
 
 Optional properties:
 - qcom,calibration-less-mode : If present the pre-characterized data for offsets
