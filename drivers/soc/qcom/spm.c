@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -233,7 +233,7 @@ uint32_t msm_spm_drv_get_sts_curr_pmic_data(
 		struct msm_spm_driver_data *dev)
 {
 	msm_spm_drv_load_shadow(dev, MSM_SPM_REG_SAW_PMIC_STS);
-	return dev->reg_shadow[MSM_SPM_REG_SAW_PMIC_STS] & 0xFF;
+	return dev->reg_shadow[MSM_SPM_REG_SAW_PMIC_STS] & 0x300FF;
 }
 
 static inline void msm_spm_drv_get_saw2_ver(struct msm_spm_driver_data *dev,
@@ -534,10 +534,12 @@ int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev, unsigned int vlevel)
 	timeout_us = dev->vctl_timeout_us;
 	/* Confirm the voltage we set was what hardware sent */
 	do {
-		new_level = msm_spm_drv_get_sts_curr_pmic_data(dev);
-		if (new_level == vlevel)
-			break;
 		udelay(1);
+		new_level = msm_spm_drv_get_sts_curr_pmic_data(dev);
+		/* FSM is idle */
+		if (((new_level & 0x30000) == 0) &&
+				((new_level & 0xFF) == vlevel))
+			break;
 	} while (--timeout_us);
 	if (!timeout_us) {
 		pr_info("Wrong level %#x\n", new_level);
