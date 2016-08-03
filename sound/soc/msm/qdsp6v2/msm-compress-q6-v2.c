@@ -3192,7 +3192,7 @@ static int msm_compr_dec_params_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int msm_compr_app_type_cfg_put(struct snd_kcontrol *kcontrol,
+static int msm_compr_playback_app_type_cfg_put(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
 {
 	u64 fe_id = kcontrol->private_value;
@@ -3219,7 +3219,7 @@ static int msm_compr_app_type_cfg_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int msm_compr_app_type_cfg_get(struct snd_kcontrol *kcontrol,
+static int msm_compr_playback_app_type_cfg_get(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
 {
 	u64 fe_id = kcontrol->private_value;
@@ -3249,6 +3249,68 @@ static int msm_compr_app_type_cfg_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[2] = sample_rate;
 	pr_debug("%s: fedai_id %llu, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
 		__func__, fe_id, SESSION_TYPE_RX,
+		app_type, acdb_dev_id, sample_rate);
+done:
+	return ret;
+}
+
+static int msm_compr_capture_app_type_cfg_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate = 48000;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	app_type = ucontrol->value.integer.value[0];
+	acdb_dev_id = ucontrol->value.integer.value[1];
+	if (0 != ucontrol->value.integer.value[2])
+		sample_rate = ucontrol->value.integer.value[2];
+	pr_debug("%s: app_type- %d acdb_dev_id- %d sample_rate- %d session_type- %d\n",
+		__func__, app_type, acdb_dev_id, sample_rate, SESSION_TYPE_TX);
+	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type,
+		acdb_dev_id, sample_rate, SESSION_TYPE_TX);
+
+	return 0;
+}
+
+static int msm_compr_capture_app_type_cfg_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int ret = 0;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, SESSION_TYPE_TX,
+		&app_type, &acdb_dev_id, &sample_rate);
+	if (ret < 0) {
+		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ucontrol->value.integer.value[0] = app_type;
+	ucontrol->value.integer.value[1] = acdb_dev_id;
+	ucontrol->value.integer.value[2] = sample_rate;
+	pr_debug("%s: fedai_id %llu, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fe_id, SESSION_TYPE_TX,
 		app_type, acdb_dev_id, sample_rate);
 done:
 	return ret;
@@ -3641,7 +3703,8 @@ static int msm_compr_add_dec_runtime_params_control(
 
 static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 {
-	const char *mixer_ctl_name	= "Audio Stream";
+	const char *playback_mixer_ctl_name	= "Audio Stream";
+	const char *capture_mixer_ctl_name	= "Audio Stream Capture";
 	const char *deviceNo		= "NN";
 	const char *suffix		= "App Type Cfg";
 	char *mixer_str = NULL;
@@ -3652,8 +3715,8 @@ static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 		.name = "?",
 		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
 		.info = msm_compr_app_type_cfg_info,
-		.put = msm_compr_app_type_cfg_put,
-		.get = msm_compr_app_type_cfg_get,
+		.put = msm_compr_playback_app_type_cfg_put,
+		.get = msm_compr_playback_app_type_cfg_get,
 		.private_value = 0,
 		}
 	};
@@ -3664,11 +3727,15 @@ static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	pr_debug("%s: added new compr FE ctl with name %s, id %d, cpu dai %s, device no %d\n",
-		 __func__, rtd->dai_link->name, rtd->dai_link->be_id,
-		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+		__func__, rtd->dai_link->name, rtd->dai_link->be_id,
+			rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+	if (rtd->compr->direction == SND_COMPRESS_PLAYBACK)
+		ctl_len = strlen(playback_mixer_ctl_name) + 1 + strlen(deviceNo)
+			 + 1 + strlen(suffix) + 1;
+	else
+		ctl_len = strlen(capture_mixer_ctl_name) + 1 + strlen(deviceNo)
+			+ 1 + strlen(suffix) + 1;
 
-	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
-		  strlen(suffix) + 1;
 	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
 
 	if (!mixer_str) {
@@ -3676,14 +3743,31 @@ static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 		return 0;
 	}
 
-	snprintf(mixer_str, ctl_len, "%s %d %s", mixer_ctl_name,
-		 rtd->pcm->device, suffix);
+	if (rtd->compr->direction == SND_COMPRESS_PLAYBACK)
+		snprintf(mixer_str, ctl_len, "%s %d %s",
+			 playback_mixer_ctl_name, rtd->pcm->device, suffix);
+	else
+		snprintf(mixer_str, ctl_len, "%s %d %s",
+			 capture_mixer_ctl_name, rtd->pcm->device, suffix);
+
 	fe_app_type_cfg_control[0].name = mixer_str;
 	fe_app_type_cfg_control[0].private_value = rtd->dai_link->be_id;
+
+	if (rtd->compr->direction == SND_COMPRESS_PLAYBACK) {
+		fe_app_type_cfg_control[0].put =
+					 msm_compr_playback_app_type_cfg_put;
+		fe_app_type_cfg_control[0].get =
+					 msm_compr_playback_app_type_cfg_get;
+	} else {
+		fe_app_type_cfg_control[0].put =
+					 msm_compr_capture_app_type_cfg_put;
+		fe_app_type_cfg_control[0].get =
+					 msm_compr_capture_app_type_cfg_get;
+	}
 	pr_debug("Registering new mixer ctl %s", mixer_str);
 	snd_soc_add_platform_controls(rtd->platform,
-				      fe_app_type_cfg_control,
-				      ARRAY_SIZE(fe_app_type_cfg_control));
+				fe_app_type_cfg_control,
+				ARRAY_SIZE(fe_app_type_cfg_control));
 	kfree(mixer_str);
 	return 0;
 }
