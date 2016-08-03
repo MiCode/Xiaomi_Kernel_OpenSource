@@ -374,6 +374,9 @@ static int qiib_parse_node(struct device_node *node, struct qiib_dev *devp)
 	}
 	QIIB_DBG("%s: %s = %d\n", __func__, key, devp->irq_line);
 
+	irqtype = irqd_get_trigger_type(irq_get_irq_data(devp->irq_line));
+	QIIB_DBG("%s: irqtype = %d\n", __func__, irqtype);
+
 	key = "label";
 	subsys_name = of_get_property(node, key, NULL);
 	if (!subsys_name) {
@@ -382,8 +385,8 @@ static int qiib_parse_node(struct device_node *node, struct qiib_dev *devp)
 	}
 	QIIB_DBG("%s: %s = %s\n", __func__, key, subsys_name);
 
-	if ((irqtype & IRQF_TRIGGER_HIGH) && !strcmp(devp->ssr_name, "mpss")) {
-		key = "qcom,irq-mask";
+	if (irqtype & IRQF_TRIGGER_HIGH) {
+		key = "qcom,rx-irq-clr-mask";
 		ret = of_property_read_u32(node, key, &devp->irq_mask);
 		if (ret) {
 			QIIB_ERR("%s: missing key: %s\n", __func__, key);
@@ -421,9 +424,6 @@ static int qiib_parse_node(struct device_node *node, struct qiib_dev *devp)
 		ret = -EINVAL;
 		goto ssr_reg_fail;
 	}
-
-	irqtype = irqd_get_trigger_type(irq_get_irq_data(devp->irq_line));
-	QIIB_DBG("%s: irqtype = %d\n", __func__, irqtype);
 
 	ret = request_irq(devp->irq_line, qiib_irq_handler,
 			irqtype | IRQF_NO_SUSPEND,
