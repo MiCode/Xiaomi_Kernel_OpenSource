@@ -72,22 +72,28 @@ EXPORT_SYMBOL(core_ctl_find_cpu_device);
 
 int __ref core_ctl_online_core(unsigned int cpu)
 {
-	int ret;
+	int ret = -EINVAL;
+	struct device *dev = get_cpu_device(cpu);
 
-	lock_device_hotplug();
-	ret = device_online(get_cpu_device(cpu));
-	unlock_device_hotplug();
+	if (dev) {
+		lock_device_hotplug();
+		ret = device_online(dev);
+		unlock_device_hotplug();
+	}
 	return ret;
 }
 EXPORT_SYMBOL(core_ctl_online_core);
 
 int __ref core_ctl_offline_core(unsigned int cpu)
 {
-	int ret;
+	int ret = -EINVAL;
+	struct device *dev = get_cpu_device(cpu);
 
-	lock_device_hotplug();
-	ret = device_offline(get_cpu_device(cpu));
-	unlock_device_hotplug();
+	if (dev) {
+		lock_device_hotplug();
+		ret = device_offline(dev);
+		unlock_device_hotplug();
+	}
 	return ret;
 }
 EXPORT_SYMBOL(core_ctl_offline_core);
