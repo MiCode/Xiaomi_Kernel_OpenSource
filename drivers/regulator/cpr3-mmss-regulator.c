@@ -50,6 +50,9 @@
  * @limitation:		CPR limitation select fuse parameter value
  * @aging_init_quot_diff:	Initial quotient difference between CPR aging
  *			min and max sensors measured at time of manufacturing
+ * @force_highest_corner:	Flag indicating that all corners must operate
+ *			at the voltage of the highest corner.  This is
+ *			applicable to MSMCOBALT only.
  *
  * This struct holds the values for all of the fuses read from memory.
  */
@@ -60,6 +63,7 @@ struct cpr3_msm8996_mmss_fuses {
 	u64	cpr_fusing_rev;
 	u64	limitation;
 	u64	aging_init_quot_diff;
+	u64	force_highest_corner;
 };
 
 /* Fuse combos 0 -  7 map to CPR fusing revision 0 - 7 */
@@ -156,6 +160,12 @@ msmcobalt_mmss_offset_voltage_param[MSM8996_MMSS_FUSE_CORNERS][2] = {
 	{{65, 52, 55}, {} },
 	{{65, 48, 51}, {} },
 	{{65, 44, 47}, {} },
+};
+
+static const struct cpr3_fuse_param
+msmcobalt_cpr_force_highest_corner_param[] = {
+	{100, 45, 45},
+	{},
 };
 
 #define MSM8996PRO_SOC_ID			4
@@ -341,6 +351,19 @@ static int cpr3_msm8996_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 				i, rc);
 			return rc;
 		}
+	}
+
+	if (vreg->thread->ctrl->soc_revision == MSMCOBALT_SOC_ID) {
+		rc = cpr3_read_fuse_param(base,
+			msmcobalt_cpr_force_highest_corner_param,
+			&fuse->force_highest_corner);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read CPR force highest corner fuse, rc=%d\n",
+				rc);
+			return rc;
+		}
+		if (fuse->force_highest_corner)
+			cpr3_info(vreg, "Fusing requires all operation at the highest corner\n");
 	}
 
 	if (vreg->thread->ctrl->soc_revision == MSMCOBALT_SOC_ID) {
@@ -860,6 +883,24 @@ static int cpr3_msmcobalt_partial_binning_override(struct cpr3_regulator *vreg)
 
 	if (vreg->thread->ctrl->soc_revision != MSMCOBALT_SOC_ID)
 		return 0;
+
+	/* Handle the force highest corner fuse. */
+	if (fuse->force_highest_corner) {
+		cpr3_info(vreg, "overriding CPR parameters for corners 0 to %d with quotients and voltages of corner %d\n",
+			vreg->corner_count - 2, vreg->corner_count - 1);
+		corner = &vreg->corner[vreg->corner_count - 1];
+		for (i = 0; i < vreg->corner_count - 1; i++) {
+			proc_freq = vreg->corner[i].proc_freq;
+			vreg->corner[i] = *corner;
+			vreg->corner[i].proc_freq = proc_freq;
+		}
+
+		/*
+		 * Return since the potential partial binning fuse values are
+		 * superceded by the force highest corner fuse value.
+		 */
+		return 0;
+	}
 
 	/*
 	 * Allow up to the max corner which can be fused with partial
