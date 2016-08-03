@@ -586,6 +586,7 @@ struct ipa_sys_context {
 	int (*pyld_hdlr)(struct sk_buff *skb, struct ipa_sys_context *sys);
 	struct sk_buff * (*get_skb)(unsigned int len, gfp_t flags);
 	void (*free_skb)(struct sk_buff *skb);
+	void (*free_rx_wrapper)(struct ipa_rx_pkt_wrapper *rk_pkt);
 	u32 rx_buff_sz;
 	u32 rx_pool_sz;
 	struct sk_buff *prev_skb;
@@ -606,6 +607,7 @@ struct ipa_sys_context {
 	/* ordering is important - mutable fields go above */
 	struct ipa_ep_context *ep;
 	struct list_head head_desc_list;
+	struct list_head rcycl_list;
 	spinlock_t spinlock;
 	struct workqueue_struct *wq;
 	struct workqueue_struct *repl_wq;
