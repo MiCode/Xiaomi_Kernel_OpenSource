@@ -31,14 +31,14 @@ struct hdmi_edid_init_data {
 /*
  * struct hdmi_edid_hdr_data - HDR Static Metadata
  * @eotf: Electro-Optical Transfer Function
- * @descriptor: Static Metadata Descriptor
+ * @metadata_type_one: Static Metadata Type 1 support
  * @max_luminance: Desired Content Maximum Luminance
  * @avg_luminance: Desired Content Frame-average Luminance
  * @min_luminance: Desired Content Minimum Luminance
  */
 struct hdmi_edid_hdr_data {
 	u32 eotf;
-	u32 descriptor;
+	bool metadata_type_one;
 	u32 max_luminance;
 	u32 avg_luminance;
 	u32 min_luminance;
@@ -61,6 +61,6 @@ bool hdmi_edid_is_s3d_mode_supported(void *input,
 	u32 video_mode, u32 s3d_mode);
 u8 hdmi_edid_get_deep_color(void *edid_ctrl);
 void hdmi_edid_get_hdr_data(void *edid_ctrl,
-		struct hdmi_edid_hdr_data *hdr_data);
+		struct hdmi_edid_hdr_data **hdr_data);
 
 #endif /* __HDMI_EDID_H__ */
