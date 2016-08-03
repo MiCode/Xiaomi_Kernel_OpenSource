@@ -17,6 +17,7 @@ Required properties:
 			  same as "interrupts" node. It will also
 			  contain active low or active high information.
  - ite,reset-gpio	: reset gpio to control the reset of chip
+ - ite,reset-delay	: reset delay for controller (ms), default 20
 
 Optional properties:
  - avdd-supply		: Analog power supply needed to power device
@@ -31,6 +32,19 @@ Optional properties:
  - ite,display-coords	: display min x, min y, max x and
 			  max y resolution
  - ite,num-fingers	: number of fingers supported by the touch controller
+ - pinctrl-names		: This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_release" : Release configuration of pins, this should specify
+			release config defined in pin groups of interrupt and reset gpio.
+ - ite,low-reset	: boolean, if the controller needs low-state of the reset gpio while
+			  initializing, and reset gpio should be made as high-state to reset the
+			  controller. It means the controller needs "active-high" reset gpio.
 
 Required properties palm-detect-en feature:
  - ite,palm-detect-keycode	: The keycode that is required to be sent when
@@ -42,6 +56,11 @@ Example:
 			compatible = "ite,it7260_ts";
 			reg = <0x46>;
 			interrupt-parent = <&msmgpio>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>
 			interrupts = <17 0x2>;
 			avdd-supply = <&pm8226_l19>;
 			vdd-supply = <&pm8226_lvs1>;
@@ -55,5 +74,7 @@ Example:
 			ite,panel-coords = <0 0 320 320>;
 			ite,display-coords = <0 0 320 320>;
 			ite,num-fingers = <2>;
+			ite,reset-delay = <20>;
+			ite,low-reset;
 		};
 	};

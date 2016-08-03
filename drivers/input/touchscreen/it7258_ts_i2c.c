@@ -99,7 +99,7 @@
 #define FW_WRITE_CHUNK_SIZE		128
 #define FW_WRITE_RETRY_COUNT		4
 #define CHIP_FLASH_SIZE			0x8000
-#define DEVICE_READY_MAX_WAIT		500
+#define DEVICE_READY_MAX_WAIT		10
 
 /* result of reading with BUF_QUERY bits */
 #define CMD_STATUS_BITS			0x07
@@ -124,8 +124,15 @@
 
 #define IT_VTG_MIN_UV		1800000
 #define IT_VTG_MAX_UV		1800000
+#define IT_ACTIVE_LOAD_UA	15000
 #define IT_I2C_VTG_MIN_UV	2600000
 #define IT_I2C_VTG_MAX_UV	3300000
+#define IT_I2C_ACTIVE_LOAD_UA	10000
+
+#define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE	"pmx_ts_release"
+#define IT_I2C_WAIT		1000
 
 struct FingerData {
 	uint8_t xLo;
@@ -159,6 +166,8 @@ struct IT7260_ts_platform_data {
 	unsigned int disp_maxx;
 	unsigned int disp_maxy;
 	unsigned num_of_fingers;
+	unsigned int reset_delay;
+	bool low_reset;
 };
 
 struct IT7260_ts_data {
@@ -184,6 +193,10 @@ struct IT7260_ts_data {
 	struct notifier_block fb_notif;
 #endif
 	struct dentry *dir;
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+	struct pinctrl_state *pinctrl_state_release;
 };
 
 /* Function declarations */
@@ -277,7 +290,7 @@ static bool IT7260_waitDeviceReady(bool forever, bool slowly)
 			query = CMD_STATUS_BUSY;
 
 		if (slowly)
-			mdelay(1000);
+			msleep(IT_I2C_WAIT);
 		if (!forever)
 			count--;
 
@@ -1104,27 +1117,27 @@ static void IT7260_ts_work_func(struct work_struct *work)
 	pm_relax(&gl_ts->client->dev);
 }
 
-static bool IT7260_chipIdentify(void)
+static int IT7260_chipIdentify(void)
 {
 	static const uint8_t cmd_ident[] = {CMD_IDENT_CHIP};
 	static const uint8_t expected_id[] = {0x0A, 'I', 'T', 'E', '7',
 							'2', '6', '0'};
 	uint8_t chip_id[10] = {0,};
 
-	IT7260_waitDeviceReady(true, false);
+	IT7260_waitDeviceReady(false, false);
 
 	if (!IT7260_i2cWriteNoReadyCheck(BUF_COMMAND, cmd_ident,
 							sizeof(cmd_ident))) {
 		dev_err(&gl_ts->client->dev, "failed to write CMD_IDENT_CHIP\n");
-		return false;
+		return -ENODEV;
 	}
 
-	IT7260_waitDeviceReady(true, false);
+	IT7260_waitDeviceReady(false, false);
 
 	if (!IT7260_i2cReadNoReadyCheck(BUF_RESPONSE, chip_id,
 							sizeof(chip_id))) {
 		dev_err(&gl_ts->client->dev, "failed to read chip-id\n");
-		return false;
+		return -ENODEV;
 	}
 	dev_info(&gl_ts->client->dev,
 		"IT7260_chipIdentify read id: %02X %c%c%c%c%c%c%c %c%c\n",
@@ -1132,7 +1145,7 @@ static bool IT7260_chipIdentify(void)
 		chip_id[5], chip_id[6], chip_id[7], chip_id[8], chip_id[9]);
 
 	if (memcmp(chip_id, expected_id, sizeof(expected_id)))
-		return false;
+		return -EINVAL;
 
 	if (chip_id[8] == '5' && chip_id[9] == '6')
 		dev_info(&gl_ts->client->dev, "rev BX3 found\n");
@@ -1142,7 +1155,227 @@ static bool IT7260_chipIdentify(void)
 		dev_info(&gl_ts->client->dev, "unknown revision (0x%02X 0x%02X) found\n",
 						chip_id[8], chip_id[9]);
 
-	return true;
+	return 0;
+}
+
+static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
+{
+	return (regulator_count_voltages(reg) > 0) ?
+		regulator_set_optimum_mode(reg, load_uA) : 0;
+}
+
+static int IT7260_regulator_configure(bool on)
+{
+	int retval;
+
+	if (on == false)
+		goto hw_shutdown;
+
+	gl_ts->vdd = devm_regulator_get(&gl_ts->client->dev, "vdd");
+	if (IS_ERR(gl_ts->vdd)) {
+		dev_err(&gl_ts->client->dev,
+				"%s: Failed to get vdd regulator\n", __func__);
+		return PTR_ERR(gl_ts->vdd);
+	}
+
+	if (regulator_count_voltages(gl_ts->vdd) > 0) {
+		retval = regulator_set_voltage(gl_ts->vdd,
+			IT_VTG_MIN_UV, IT_VTG_MAX_UV);
+		if (retval) {
+			dev_err(&gl_ts->client->dev,
+				"regulator set_vtg failed retval =%d\n",
+				retval);
+			goto err_set_vtg_vdd;
+		}
+	}
+
+	gl_ts->avdd = devm_regulator_get(&gl_ts->client->dev, "avdd");
+	if (IS_ERR(gl_ts->avdd)) {
+		dev_err(&gl_ts->client->dev,
+				"%s: Failed to get i2c regulator\n", __func__);
+		retval = PTR_ERR(gl_ts->avdd);
+		goto err_get_vtg_i2c;
+	}
+
+	if (regulator_count_voltages(gl_ts->avdd) > 0) {
+		retval = regulator_set_voltage(gl_ts->avdd,
+			IT_I2C_VTG_MIN_UV, IT_I2C_VTG_MAX_UV);
+		if (retval) {
+			dev_err(&gl_ts->client->dev,
+				"reg set i2c vtg failed retval =%d\n",
+				retval);
+		goto err_set_vtg_i2c;
+		}
+	}
+
+	return 0;
+
+err_set_vtg_i2c:
+err_get_vtg_i2c:
+	if (regulator_count_voltages(gl_ts->vdd) > 0)
+		regulator_set_voltage(gl_ts->vdd, 0, IT_VTG_MAX_UV);
+err_set_vtg_vdd:
+	return retval;
+
+hw_shutdown:
+	if (regulator_count_voltages(gl_ts->vdd) > 0)
+		regulator_set_voltage(gl_ts->vdd, 0, IT_VTG_MAX_UV);
+	if (regulator_count_voltages(gl_ts->avdd) > 0)
+		regulator_set_voltage(gl_ts->avdd, 0, IT_I2C_VTG_MAX_UV);
+	return 0;
+};
+
+static int IT7260_power_on(bool on)
+{
+	int retval;
+
+	if (on == false)
+		goto power_off;
+
+	retval = reg_set_optimum_mode_check(gl_ts->vdd,
+		IT_ACTIVE_LOAD_UA);
+	if (retval < 0) {
+		dev_err(&gl_ts->client->dev,
+			"Regulator vdd set_opt failed rc=%d\n",
+			retval);
+		return retval;
+	}
+
+	retval = regulator_enable(gl_ts->vdd);
+	if (retval) {
+		dev_err(&gl_ts->client->dev,
+			"Regulator vdd enable failed rc=%d\n",
+			retval);
+		goto error_reg_en_vdd;
+	}
+
+	retval = reg_set_optimum_mode_check(gl_ts->avdd,
+		IT_I2C_ACTIVE_LOAD_UA);
+	if (retval < 0) {
+		dev_err(&gl_ts->client->dev,
+			"Regulator avdd set_opt failed rc=%d\n",
+			retval);
+		goto error_reg_opt_i2c;
+	}
+
+	retval = regulator_enable(gl_ts->avdd);
+	if (retval) {
+		dev_err(&gl_ts->client->dev,
+			"Regulator avdd enable failed rc=%d\n",
+			retval);
+		goto error_reg_en_avdd;
+	}
+
+	return 0;
+
+error_reg_en_avdd:
+	reg_set_optimum_mode_check(gl_ts->avdd, 0);
+error_reg_opt_i2c:
+	regulator_disable(gl_ts->vdd);
+error_reg_en_vdd:
+	reg_set_optimum_mode_check(gl_ts->vdd, 0);
+	return retval;
+
+power_off:
+	reg_set_optimum_mode_check(gl_ts->vdd, 0);
+	regulator_disable(gl_ts->vdd);
+	reg_set_optimum_mode_check(gl_ts->avdd, 0);
+	regulator_disable(gl_ts->avdd);
+
+	return 0;
+}
+
+static int IT7260_gpio_configure(bool on)
+{
+	int retval = 0;
+
+	if (on) {
+		if (gpio_is_valid(gl_ts->pdata->irq_gpio)) {
+			/* configure touchscreen irq gpio */
+			retval = gpio_request(gl_ts->pdata->irq_gpio,
+					"ite_irq_gpio");
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to request irq gpio [%d]\n",
+					retval);
+				goto err_irq_gpio_req;
+			}
+
+			retval = gpio_direction_input(gl_ts->pdata->irq_gpio);
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to set direction for irq gpio [%d]\n",
+					retval);
+				goto err_irq_gpio_dir;
+			}
+		} else {
+			dev_err(&gl_ts->client->dev,
+				"irq gpio not provided\n");
+				goto err_irq_gpio_req;
+		}
+
+		if (gpio_is_valid(gl_ts->pdata->reset_gpio)) {
+			/* configure touchscreen reset out gpio */
+			retval = gpio_request(gl_ts->pdata->reset_gpio,
+					"ite_reset_gpio");
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to request reset gpio [%d]\n",
+					retval);
+					goto err_reset_gpio_req;
+			}
+
+			retval = gpio_direction_output(
+					gl_ts->pdata->reset_gpio, 1);
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to set direction for reset gpio [%d]\n",
+					retval);
+				goto err_reset_gpio_dir;
+			}
+
+			if (gl_ts->pdata->low_reset)
+				gpio_set_value(gl_ts->pdata->reset_gpio, 0);
+			else
+				gpio_set_value(gl_ts->pdata->reset_gpio, 1);
+
+			msleep(gl_ts->pdata->reset_delay);
+		} else {
+			dev_err(&gl_ts->client->dev,
+				"reset gpio not provided\n");
+				goto err_reset_gpio_req;
+		}
+	} else {
+		if (gpio_is_valid(gl_ts->pdata->irq_gpio))
+			gpio_free(gl_ts->pdata->irq_gpio);
+		if (gpio_is_valid(gl_ts->pdata->reset_gpio)) {
+			/*
+			 * This is intended to save leakage current
+			 * only. Even if the call(gpio_direction_input)
+			 * fails, only leakage current will be more but
+			 * functionality will not be affected.
+			 */
+			retval = gpio_direction_input(gl_ts->pdata->reset_gpio);
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to set direction for gpio reset [%d]\n",
+					retval);
+			}
+			gpio_free(gl_ts->pdata->reset_gpio);
+		}
+	}
+
+	return 0;
+
+err_reset_gpio_dir:
+	if (gpio_is_valid(gl_ts->pdata->reset_gpio))
+		gpio_free(gl_ts->pdata->reset_gpio);
+err_reset_gpio_req:
+err_irq_gpio_dir:
+	if (gpio_is_valid(gl_ts->pdata->irq_gpio))
+		gpio_free(gl_ts->pdata->irq_gpio);
+err_irq_gpio_req:
+	return retval;
 }
 
 #if CONFIG_OF
@@ -1251,6 +1484,16 @@ static int IT7260_parse_dt(struct device *dev,
 	snprintf(gl_ts->cfg_name, MAX_BUFFER_SIZE, "%s",
 		(pdata->cfg_name != NULL) ? pdata->cfg_name : CFG_NAME);
 
+	rc = of_property_read_u32(np, "ite,reset-delay", &temp_val);
+	if (!rc)
+		pdata->reset_delay = temp_val;
+	else if (rc != -EINVAL) {
+		dev_err(dev, "Unable to read reset delay\n");
+		return rc;
+	}
+
+	pdata->low_reset = of_property_read_bool(np, "ite,low-reset");
+
 	rc = IT7260_get_dt_coords(dev, "ite,display-coords", pdata);
 	if (rc && (rc != -EINVAL))
 		return rc;
@@ -1269,13 +1512,67 @@ static inline int IT7260_ts_parse_dt(struct device *dev,
 }
 #endif
 
+static int IT7260_ts_pinctrl_init(struct IT7260_ts_data *ts_data)
+{
+	int retval;
+
+	/* Get pinctrl if target uses pinctrl */
+	ts_data->ts_pinctrl = devm_pinctrl_get(&(ts_data->client->dev));
+	if (IS_ERR_OR_NULL(ts_data->ts_pinctrl)) {
+		retval = PTR_ERR(ts_data->ts_pinctrl);
+		dev_dbg(&ts_data->client->dev,
+			"Target does not use pinctrl %d\n", retval);
+		goto err_pinctrl_get;
+	}
+
+	ts_data->pinctrl_state_active
+		= pinctrl_lookup_state(ts_data->ts_pinctrl,
+				PINCTRL_STATE_ACTIVE);
+	if (IS_ERR_OR_NULL(ts_data->pinctrl_state_active)) {
+		retval = PTR_ERR(ts_data->pinctrl_state_active);
+		dev_err(&ts_data->client->dev,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_ACTIVE, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	ts_data->pinctrl_state_suspend
+		= pinctrl_lookup_state(ts_data->ts_pinctrl,
+			PINCTRL_STATE_SUSPEND);
+	if (IS_ERR_OR_NULL(ts_data->pinctrl_state_suspend)) {
+		retval = PTR_ERR(ts_data->pinctrl_state_suspend);
+		dev_err(&ts_data->client->dev,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_SUSPEND, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	ts_data->pinctrl_state_release
+		= pinctrl_lookup_state(ts_data->ts_pinctrl,
+			PINCTRL_STATE_RELEASE);
+	if (IS_ERR_OR_NULL(ts_data->pinctrl_state_release)) {
+		retval = PTR_ERR(ts_data->pinctrl_state_release);
+		dev_dbg(&ts_data->client->dev,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_RELEASE, retval);
+	}
+
+	return 0;
+
+err_pinctrl_lookup:
+	devm_pinctrl_put(ts_data->ts_pinctrl);
+err_pinctrl_get:
+	ts_data->ts_pinctrl = NULL;
+	return retval;
+}
+
 static int IT7260_ts_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
 	static const uint8_t cmd_start[] = {CMD_UNKNOWN_7};
 	struct IT7260_ts_platform_data *pdata;
 	uint8_t rsp[2];
-	int ret = -1;
+	int ret = -1, err;
 	struct dentry *temp;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -1310,82 +1607,43 @@ static int IT7260_ts_probe(struct i2c_client *client,
 
 	gl_ts->pdata = pdata;
 
-	gl_ts->vdd = devm_regulator_get(&gl_ts->client->dev, "vdd");
-	if (IS_ERR(gl_ts->vdd)) {
-		dev_err(&client->dev,
-				"Regulator get failed vdd\n");
-		gl_ts->vdd = NULL;
-	} else {
-		ret = regulator_set_voltage(gl_ts->vdd,
-				IT_VTG_MIN_UV, IT_VTG_MAX_UV);
-		if (ret) {
-			dev_err(&client->dev,
-				"Regulator set_vtg failed vdd %d\n", ret);
-			return ret;
-		}
+	ret = IT7260_regulator_configure(true);
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to configure regulators\n");
+		goto err_reg_configure;
 	}
 
-	gl_ts->avdd = devm_regulator_get(&gl_ts->client->dev, "avdd");
-	if (IS_ERR(gl_ts->avdd)) {
-		dev_err(&client->dev,
-				"Regulator get failed avdd\n");
-		gl_ts->avdd = NULL;
-	} else {
-		ret = regulator_set_voltage(gl_ts->avdd, IT_I2C_VTG_MIN_UV,
-							IT_I2C_VTG_MAX_UV);
-		if (ret) {
-			dev_err(&client->dev,
-				"Regulator get failed avdd %d\n", ret);
-			return ret;
-		}
+	ret = IT7260_power_on(true);
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to power on\n");
+		goto err_power_device;
 	}
 
-	if (gl_ts->vdd) {
-		ret = regulator_enable(gl_ts->vdd);
-		if (ret) {
+	ret = IT7260_ts_pinctrl_init(gl_ts);
+	if (!ret && gl_ts->ts_pinctrl) {
+		/*
+		 * Pinctrl handle is optional. If pinctrl handle is found
+		 * let pins to be configured in active state. If not
+		 * found continue further without error.
+		 */
+		ret = pinctrl_select_state(gl_ts->ts_pinctrl,
+					gl_ts->pinctrl_state_active);
+		if (ret < 0) {
 			dev_err(&gl_ts->client->dev,
-				"Regulator vdd enable failed ret=%d\n", ret);
-			return ret;
+				"failed to select pin to active state %d",
+				ret);
 		}
-	}
-
-	if (gl_ts->avdd) {
-		ret = regulator_enable(gl_ts->avdd);
-		if (ret) {
-			dev_err(&gl_ts->client->dev,
-				"Regulator avdd enable failed ret=%d\n", ret);
-			return ret;
-		}
-	}
-
-	/* reset gpio info */
-	if (gpio_is_valid(pdata->reset_gpio)) {
-		if (gpio_request(pdata->reset_gpio, "ite_reset_gpio")) {
-			dev_err(&client->dev,
-				"gpio_request failed for reset GPIO\n");
-			return -EINVAL;
-		}
-		if (gpio_direction_output(pdata->reset_gpio, 0)) {
-			dev_err(&client->dev,
-				"gpio_direction_output for reset GPIO\n");
-			return -EINVAL;
-		}
-		dev_dbg(&gl_ts->client->dev, "Reset GPIO %d\n",
-							pdata->reset_gpio);
 	} else {
-		return pdata->reset_gpio;
+		ret = IT7260_gpio_configure(true);
+		if (ret < 0) {
+			dev_err(&client->dev, "Failed to configure gpios\n");
+			goto err_gpio_config;
+		}
 	}
 
-	/* irq gpio info */
-	if (gpio_is_valid(pdata->irq_gpio)) {
-		dev_dbg(&gl_ts->client->dev, "IRQ GPIO %d, IRQ # %d\n",
-				pdata->irq_gpio, gpio_to_irq(pdata->irq_gpio));
-	} else {
-		return pdata->irq_gpio;
-	}
-
-	if (!IT7260_chipIdentify()) {
-		dev_err(&client->dev, "Failed to identify chip!!!");
+	ret = IT7260_chipIdentify();
+	if (ret) {
+		dev_err(&client->dev, "Failed to identify chip %d!!!", ret);
 		goto err_identification_fail;
 	}
 
@@ -1455,9 +1713,9 @@ static int IT7260_ts_probe(struct i2c_client *client,
 #endif
 	
 	IT7260_i2cWriteNoReadyCheck(BUF_COMMAND, cmd_start, sizeof(cmd_start));
-	mdelay(10);
+	msleep(pdata->reset_delay);
 	IT7260_i2cReadNoReadyCheck(BUF_RESPONSE, rsp, sizeof(rsp));
-	mdelay(10);
+	msleep(pdata->reset_delay);
 
 	gl_ts->dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
 	if (gl_ts->dir == NULL || IS_ERR(gl_ts->dir)) {
@@ -1506,21 +1764,39 @@ err_input_register:
 
 err_input_alloc:
 err_identification_fail:
-	if (gpio_is_valid(pdata->reset_gpio))
-		gpio_free(pdata->reset_gpio);
-	if (gpio_is_valid(pdata->irq_gpio))
-		gpio_free(pdata->irq_gpio);
+	if (gl_ts->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(gl_ts->pinctrl_state_release)) {
+			devm_pinctrl_put(gl_ts->ts_pinctrl);
+			gl_ts->ts_pinctrl = NULL;
+		} else {
+			err = pinctrl_select_state(gl_ts->ts_pinctrl,
+					gl_ts->pinctrl_state_release);
+			if (err)
+				dev_err(&gl_ts->client->dev,
+					"failed to select relase pinctrl state %d\n",
+					err);
+		}
+	} else {
+		if (gpio_is_valid(pdata->reset_gpio))
+			gpio_free(pdata->reset_gpio);
+		if (gpio_is_valid(pdata->irq_gpio))
+			gpio_free(pdata->irq_gpio);
+	}
 
-	regulator_disable(gl_ts->vdd);
-	regulator_disable(gl_ts->avdd);
-	regulator_put(gl_ts->vdd);
-	regulator_put(gl_ts->avdd);
+err_gpio_config:
+	IT7260_power_on(false);
 
+err_power_device:
+	IT7260_regulator_configure(false);
+
+err_reg_configure:
 	return ret;
 }
 
 static int IT7260_ts_remove(struct i2c_client *client)
 {
+	int ret;
+
 	debugfs_remove_recursive(gl_ts->dir);
 #if defined(CONFIG_FB)
 	if (fb_unregister_client(&gl_ts->fb_notif))
@@ -1536,14 +1812,27 @@ static int IT7260_ts_remove(struct i2c_client *client)
 		cancel_work_sync(&gl_ts->work_pm_relax);
 		device_init_wakeup(&client->dev, false);
 	}
-	if (gpio_is_valid(gl_ts->pdata->reset_gpio))
-		gpio_free(gl_ts->pdata->reset_gpio);
-	if (gpio_is_valid(gl_ts->pdata->irq_gpio))
-		gpio_free(gl_ts->pdata->irq_gpio);
-	regulator_disable(gl_ts->vdd);
-	regulator_disable(gl_ts->avdd);
-	regulator_put(gl_ts->vdd);
-	regulator_put(gl_ts->avdd);
+	if (gl_ts->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(gl_ts->pinctrl_state_release)) {
+			devm_pinctrl_put(gl_ts->ts_pinctrl);
+			gl_ts->ts_pinctrl = NULL;
+		} else {
+			ret = pinctrl_select_state(gl_ts->ts_pinctrl,
+					gl_ts->pinctrl_state_release);
+			if (ret)
+				dev_err(&gl_ts->client->dev,
+					"failed to select relase pinctrl state %d\n",
+					ret);
+		}
+	} else {
+		if (gpio_is_valid(gl_ts->pdata->reset_gpio))
+			gpio_free(gl_ts->pdata->reset_gpio);
+		if (gpio_is_valid(gl_ts->pdata->irq_gpio))
+			gpio_free(gl_ts->pdata->irq_gpio);
+	}
+	IT7260_power_on(false);
+	IT7260_regulator_configure(false);
+
 	return 0;
 }
 
@@ -1572,6 +1861,8 @@ static int fb_notifier_callback(struct notifier_block *self,
 #ifdef CONFIG_PM
 static int IT7260_ts_resume(struct device *dev)
 {
+	int retval;
+
 	if (device_may_wakeup(dev)) {
 		if (gl_ts->device_needs_wakeup) {
 			gl_ts->device_needs_wakeup = false;
@@ -1580,13 +1871,28 @@ static int IT7260_ts_resume(struct device *dev)
 		return 0;
 	}
 
+	if (gl_ts->ts_pinctrl) {
+		retval = pinctrl_select_state(gl_ts->ts_pinctrl,
+				gl_ts->pinctrl_state_active);
+		if (retval < 0) {
+			dev_err(dev, "Cannot get default pinctrl state %d\n",
+				retval);
+			goto err_pinctrl_select_suspend;
+		}
+	}
+
 	enable_irq(gl_ts->client->irq);
 	gl_ts->suspended = false;
 	return 0;
+
+err_pinctrl_select_suspend:
+	return retval;
 }
 
 static int IT7260_ts_suspend(struct device *dev)
 {
+	int retval;
+
 	if (gl_ts->fw_cfg_uploading) {
 		dev_dbg(dev, "Fw/cfg uploading. Can't go to suspend.\n");
 		return -EBUSY;
@@ -1606,9 +1912,23 @@ static int IT7260_ts_suspend(struct device *dev)
 	disable_irq(gl_ts->client->irq);
 
 	IT7260_ts_release_all();
+
+	if (gl_ts->ts_pinctrl) {
+		retval = pinctrl_select_state(gl_ts->ts_pinctrl,
+				gl_ts->pinctrl_state_suspend);
+		if (retval < 0) {
+			dev_err(dev, "Cannot get idle pinctrl state %d\n",
+				retval);
+			goto err_pinctrl_select_suspend;
+		}
+	}
+
 	gl_ts->suspended = true;
 
 	return 0;
+
+err_pinctrl_select_suspend:
+	return retval;
 }
 
 static const struct dev_pm_ops IT7260_ts_dev_pm_ops = {
