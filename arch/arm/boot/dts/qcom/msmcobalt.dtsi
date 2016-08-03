@@ -761,7 +761,7 @@
 		vdd_gpucc-supply = <&gfx_vreg>;
 		vdd_mx-supply = <&pmcobalt_s9_level>;
 		vdd_gpu_mx-supply = <&pmcobalt_s9_level>;
-		qcom,gfx3d_clk_src-opp-store-vcorner = <&msm_gpu>;
+		qcom,gfx3d_clk_src-opp-handle = <&msm_gpu>;
 		qcom,gfxfreq-speedbin0 =
 			<	  0 0				0 >,
 			< 171000000 1 RPM_SMD_REGULATOR_LEVEL_SVS >,
