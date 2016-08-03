@@ -2285,7 +2285,8 @@ static void q6asm_add_mmaphdr(struct audio_client *ac, struct apr_hdr *hdr,
 
 static int __q6asm_open_read(struct audio_client *ac,
 			     uint32_t format, uint16_t bits_per_sample,
-			     uint32_t pcm_format_block_ver)
+			     uint32_t pcm_format_block_ver,
+			     bool ts_mode)
 {
 	int rc = 0x00;
 	struct asm_stream_cmd_open_read_v3 open;
@@ -2329,6 +2330,8 @@ static int __q6asm_open_read(struct audio_client *ac,
 	case FORMAT_LINEAR_PCM:
 		open.mode_flags |= 0x00;
 		open.enc_cfg_id = q6asm_get_pcm_format_id(pcm_format_block_ver);
+		if (ts_mode)
+			open.mode_flags |= ABSOLUTE_TIMESTAMP_ENABLE;
 		break;
 	case FORMAT_MPEG4_AAC:
 		open.mode_flags |= BUFFER_META_ENABLE;
@@ -2391,14 +2394,16 @@ int q6asm_open_read(struct audio_client *ac,
 		uint32_t format)
 {
 	return __q6asm_open_read(ac, format, 16,
-				PCM_MEDIA_FORMAT_V2 /*media fmt block ver*/);
+				PCM_MEDIA_FORMAT_V2 /*media fmt block ver*/,
+				false/*ts_mode*/);
 }
 
 int q6asm_open_read_v2(struct audio_client *ac, uint32_t format,
 			uint16_t bits_per_sample)
 {
 	return __q6asm_open_read(ac, format, bits_per_sample,
-				 PCM_MEDIA_FORMAT_V2 /*media fmt block ver*/);
+				 PCM_MEDIA_FORMAT_V2 /*media fmt block ver*/,
+				 false/*ts_mode*/);
 }
 
 /*
@@ -2412,7 +2417,8 @@ int q6asm_open_read_v3(struct audio_client *ac, uint32_t format,
 			uint16_t bits_per_sample)
 {
 	return __q6asm_open_read(ac, format, bits_per_sample,
-				 PCM_MEDIA_FORMAT_V3/*media fmt block ver*/);
+				 PCM_MEDIA_FORMAT_V3/*media fmt block ver*/,
+				 false/*ts_mode*/);
 }
 EXPORT_SYMBOL(q6asm_open_read_v3);
 
@@ -2427,7 +2433,8 @@ int q6asm_open_read_v4(struct audio_client *ac, uint32_t format,
 			uint16_t bits_per_sample)
 {
 	return __q6asm_open_read(ac, format, bits_per_sample,
-				 PCM_MEDIA_FORMAT_V4 /*media fmt block ver*/);
+				 PCM_MEDIA_FORMAT_V4 /*media fmt block ver*/,
+				 true/*ts_mode*/);
 }
 EXPORT_SYMBOL(q6asm_open_read_v4);
 
@@ -7150,7 +7157,11 @@ int q6asm_async_read(struct audio_client *ac,
 		lbuf_phys_addr = (param->paddr - 64);
 		dir = OUT;
 	} else {
-		lbuf_phys_addr = param->paddr;
+		if (param->flags & COMPRESSED_TIMESTAMP_FLAG)
+			lbuf_phys_addr = param->paddr -
+				 sizeof(struct snd_codec_metadata);
+		else
+			lbuf_phys_addr = param->paddr;
 		dir = OUT;
 	}
 
