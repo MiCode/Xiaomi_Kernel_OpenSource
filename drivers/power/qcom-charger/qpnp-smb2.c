@@ -146,7 +146,7 @@ static int smb2_parse_dt(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	struct device_node *node = chg->dev->of_node;
-	int rc;
+	int rc, byte_len;
 
 	if (!node) {
 		pr_err("device tree node missing\n");
@@ -180,6 +180,25 @@ static int smb2_parse_dt(struct smb2 *chip)
 			"qcom,wipower-max-uw", &chip->dt.wipower_max_uw);
 	if (rc < 0)
 		chip->dt.wipower_max_uw	= SMB2_DEFAULT_WPWR_UW;
+
+	if (of_find_property(node, "qcom,thermal-mitigation", &byte_len)) {
+		chg->thermal_mitigation = devm_kzalloc(chg->dev, byte_len,
+			GFP_KERNEL);
+
+		if (chg->thermal_mitigation == NULL)
+			return -ENOMEM;
+
+		chg->thermal_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,thermal-mitigation",
+				chg->thermal_mitigation,
+				chg->thermal_levels);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
 
 	return 0;
 }
@@ -350,6 +369,105 @@ static int smb2_init_usb_psy(struct smb2 *chip)
 }
 
 /*************************
+ * DC PSY REGISTRATION   *
+ *************************/
+
+static enum power_supply_property smb2_dc_props[] = {
+	POWER_SUPPLY_PROP_PRESENT,
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+};
+
+static int smb2_dc_get_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		union power_supply_propval *val)
+{
+	struct smb2 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_PRESENT:
+		rc = smblib_get_prop_dc_present(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		rc = smblib_get_prop_dc_online(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = smblib_get_prop_dc_current_max(chg, val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int smb2_dc_set_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		const union power_supply_propval *val)
+{
+	struct smb2 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = smblib_set_prop_dc_current_max(chg, val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int smb2_dc_prop_is_writeable(struct power_supply *psy,
+		enum power_supply_property psp)
+{
+	int rc;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = 1;
+		break;
+	default:
+		rc = 0;
+		break;
+	}
+
+	return rc;
+}
+
+static const struct power_supply_desc dc_psy_desc = {
+	.name = "dc",
+	.type = POWER_SUPPLY_TYPE_WIPOWER,
+	.properties = smb2_dc_props,
+	.num_properties = ARRAY_SIZE(smb2_dc_props),
+	.get_property = smb2_dc_get_prop,
+	.set_property = smb2_dc_set_prop,
+	.property_is_writeable = smb2_dc_prop_is_writeable,
+};
+
+static int smb2_init_dc_psy(struct smb2 *chip)
+{
+	struct power_supply_config dc_cfg = {};
+	struct smb_charger *chg = &chip->chg;
+
+	dc_cfg.drv_data = chip;
+	dc_cfg.of_node = chg->dev->of_node;
+	chg->dc_psy = devm_power_supply_register(chg->dev,
+						  &dc_psy_desc,
+						  &dc_cfg);
+	if (IS_ERR(chg->dc_psy)) {
+		pr_err("Couldn't register USB power supply\n");
+		return PTR_ERR(chg->dc_psy);
+	}
+
+	return 0;
+}
+
+/*************************
  * BATT PSY REGISTRATION *
  *************************/
 
@@ -360,6 +478,7 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -387,9 +506,11 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		smblib_get_prop_batt_capacity(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
+		smblib_get_prop_system_temp_level(chg, val);
+		break;
 	default:
-		pr_err("batt power supply prop %d not supported\n",
-			psp);
+		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
 	}
 
@@ -400,17 +521,21 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		enum power_supply_property prop,
 		const union power_supply_propval *val)
 {
+	int rc = 0;
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		smblib_set_prop_input_suspend(chg, val);
+		rc = smblib_set_prop_input_suspend(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
+		rc = smblib_set_prop_system_temp_level(chg, val);
 		break;
 	default:
-		return -EINVAL;
+		rc = -EINVAL;
 	}
 
-	return 0;
+	return rc;
 }
 
 static int smb2_batt_prop_is_writeable(struct power_supply *psy,
@@ -418,6 +543,7 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		return 1;
 	default:
 		break;
@@ -608,7 +734,7 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, chip->dt.suspend_input, 0);
 	vote(chg->dc_suspend_votable,
 		DEFAULT_VOTER, chip->dt.suspend_input, 0);
-	vote(chg->fcc_votable,
+	vote(chg->fcc_max_votable,
 		DEFAULT_VOTER, true, chip->dt.fcc_ua);
 	vote(chg->fv_votable,
 		DEFAULT_VOTER, true, chip->dt.fv_uv);
@@ -617,12 +743,16 @@ static int smb2_init_hw(struct smb2 *chip)
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 
-	/* configure charge enable for software control; active high */
+	/*
+	 * Configure charge enable for software control; active high, and end
+	 * the charge cycle while the battery is OV.
+	 */
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
-				 CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT, 0);
+				 CHG_EN_POLARITY_BIT |
+				 CHG_EN_SRC_BIT |
+				 BAT_OV_ECC_BIT, BAT_OV_ECC_BIT);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure charge enable source rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't configure charger rc=%d\n", rc);
 		return rc;
 	}
 
@@ -900,6 +1030,12 @@ static int smb2_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		pr_err("Couldn't initialize vconn regulator rc=%d\n",
 			rc);
+		goto cleanup;
+	}
+
+	rc = smb2_init_dc_psy(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize dc psy rc=%d\n", rc);
 		goto cleanup;
 	}
 

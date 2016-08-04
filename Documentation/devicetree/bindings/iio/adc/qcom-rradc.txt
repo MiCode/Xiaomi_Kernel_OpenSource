@@ -36,13 +36,10 @@ Main node properties:
     Definition: Must be one. For details about IIO bindings see:
             Documentation/devicetree/bindings/iio/iio-bindings.txt
 
-Channel subnode properties:
-
-- channel:
-    Usage: required
-    Value type: <u32>
-    Definition: ADC channel number.
-            See drivers/iio/adc/qcom-rradc.c for channels within rradc_channel_id
+IIO client nodes need to specify the RRADC channel number while requesting ADC reads.
+The channel list supported by the RRADC driver is available in the enum rradc_channel_id
+located at at drivers/iio/adc/qcom-rradc.c. Clients can use this index from the enum
+as the channel number while requesting ADC reads.
 
 Example:
 
@@ -53,11 +50,6 @@ Example:
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#io-channel-cells = <1>;
-
-		/* Channel node */
-		batt_id {
-			channel = <0>;
-		};
 	};
 
 	/* IIO client node */

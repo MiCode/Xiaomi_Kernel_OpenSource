@@ -40,7 +40,9 @@
 #define IPA_TAG_SLEEP_MIN_USEC (1000)
 #define IPA_TAG_SLEEP_MAX_USEC (2000)
 #define IPA_FORCE_CLOSE_TAG_PROCESS_TIMEOUT (10 * HZ)
-#define IPA_BCR_REG_VAL (0x00000001)
+#define IPA_BCR_REG_VAL_v3_0 (0x00000001)
+#define IPA_BCR_REG_VAL_v3_1 (0x00000003)
+#define IPA_BCR_REG_VAL_v3_5_1 (0x0000003B)
 #define IPA_AGGR_GRAN_MIN (1)
 #define IPA_AGGR_GRAN_MAX (32)
 #define IPA_EOT_COAL_GRAN_MIN (1)
@@ -848,14 +850,29 @@ void ipa3_cfg_qsb(void)
 int ipa3_init_hw(void)
 {
 	u32 ipa_version = 0;
+	u32 val;
 
 	/* Read IPA version and make sure we have access to the registers */
 	ipa_version = ipahal_read_reg(IPA_VERSION);
 	if (ipa_version == 0)
 		return -EFAULT;
 
-	/* using old BCR configuration(IPAv2.6)*/
-	ipahal_write_reg(IPA_BCR, IPA_BCR_REG_VAL);
+	switch (ipa3_ctx->ipa_hw_type) {
+	case IPA_HW_v3_0:
+		val = IPA_BCR_REG_VAL_v3_0;
+		break;
+	case IPA_HW_v3_1:
+		val = IPA_BCR_REG_VAL_v3_1;
+		break;
+	case IPA_HW_v3_5_1:
+		val = IPA_BCR_REG_VAL_v3_5_1;
+		break;
+	default:
+		IPAERR("unknown HW type in dts\n");
+		return -EFAULT;
+	}
+
+	ipahal_write_reg(IPA_BCR, val);
 
 	ipa3_cfg_qsb();
 
@@ -3029,6 +3046,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_disconnect = ipa3_disconnect;
 	api_ctrl->ipa_reset_endpoint = ipa3_reset_endpoint;
 	api_ctrl->ipa_clear_endpoint_delay = ipa3_clear_endpoint_delay;
+	api_ctrl->ipa_disable_endpoint = NULL;
 	api_ctrl->ipa_cfg_ep = ipa3_cfg_ep;
 	api_ctrl->ipa_cfg_ep_nat = ipa3_cfg_ep_nat;
 	api_ctrl->ipa_cfg_ep_hdr = ipa3_cfg_ep_hdr;

@@ -456,6 +456,7 @@ struct hdcp_lib_handle {
 	atomic_t hdcp_off;
 	uint32_t session_id;
 	bool legacy_app;
+	enum hdcp_device_type device_type;
 
 	struct task_struct *thread;
 	struct completion topo_wait;
@@ -901,7 +902,7 @@ static int hdcp_lib_session_init(struct hdcp_lib_handle *handle)
 	req_buf =
 	    (struct hdcp_lib_session_init_req *)handle->qseecom_handle->sbuf;
 	req_buf->commandid = HDCP_SESSION_INIT;
-	req_buf->deviceid = HDCP_TXMTR_HDMI;
+	req_buf->deviceid = handle->device_type;
 	rsp_buf = (struct hdcp_lib_session_init_rsp *)
 	    (handle->qseecom_handle->sbuf +
 	     QSEECOM_ALIGN(sizeof(struct hdcp_lib_session_init_req)));
@@ -2060,6 +2061,7 @@ int hdcp_library_register(struct hdcp_register_data *data)
 	handle->tethered = data->tethered;
 	handle->hdcp_app_init = NULL;
 	handle->hdcp_txmtr_init = NULL;
+	handle->device_type = data->device_type;
 
 	pr_debug("tethered %d\n", handle->tethered);
 

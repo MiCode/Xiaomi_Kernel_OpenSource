@@ -242,7 +242,7 @@ struct ipa_rt_tbl {
  * @is_partial: flag indicating if header table entry is partial
  * @is_hdr_proc_ctx: false - hdr entry resides in hdr table,
  * true - hdr entry resides in DDR and pointed to by proc ctx
- * @phys_base: physical address of entry in SRAM when is_hdr_proc_ctx is true,
+ * @phys_base: physical address of entry in DDR when is_hdr_proc_ctx is true,
  * else 0
  * @proc_ctx: processing context header
  * @offset_entry: entry's offset
@@ -553,6 +553,7 @@ struct ipa_ep_context {
 	bool switch_to_intr;
 	int inactive_cycles;
 	u32 eot_in_poll_err;
+	bool ep_disabled;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
@@ -1244,6 +1245,9 @@ struct ipa_context {
 	/* M-release support to know client pipes */
 	struct ipacm_client_info ipacm_client[IPA_MAX_NUM_PIPES];
 	bool tethered_flow_control;
+	u32 ipa_rx_min_timeout_usec;
+	u32 ipa_rx_max_timeout_usec;
+	u32 ipa_polling_iteration;
 };
 
 /**
@@ -1295,6 +1299,8 @@ struct ipa_plat_drv_res {
 	bool skip_uc_pipe_reset;
 	bool use_dma_zone;
 	bool tethered_flow_control;
+	u32 ipa_rx_polling_sleep_msec;
+	u32 ipa_polling_iteration;
 };
 
 struct ipa_mem_partition {
@@ -1424,6 +1430,11 @@ int ipa2_reset_endpoint(u32 clnt_hdl);
  * Remove ep delay
  */
 int ipa2_clear_endpoint_delay(u32 clnt_hdl);
+
+/*
+ * Disable ep
+ */
+int ipa2_disable_endpoint(u32 clnt_hdl);
 
 /*
  * Configuration
@@ -1730,6 +1741,9 @@ void ipa_debugfs_init(void);
 void ipa_debugfs_remove(void);
 
 void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
+
+void ipa_rx_timeout_min_max_calc(u32 *min, u32 *max, s8 time);
+
 #ifdef IPA_DEBUG
 #define IPA_DUMP_BUFF(base, phy_base, size) \
 	ipa_dump_buff_internal(base, phy_base, size)

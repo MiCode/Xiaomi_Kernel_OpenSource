@@ -149,12 +149,12 @@
 #define FG_ADC_RR_TEMP_FS_VOLTAGE_NUM		5000000
 #define FG_ADC_RR_TEMP_FS_VOLTAGE_DEN		3
 #define FG_ADC_RR_DIE_TEMP_OFFSET		600000
-#define FG_ADC_RR_DIE_TEMP_SLOPE		2000
-#define FG_ADC_RR_DIE_TEMP_OFFSET_DEGC		25
+#define FG_ADC_RR_DIE_TEMP_SLOPE		2
+#define FG_ADC_RR_DIE_TEMP_OFFSET_MILLI_DEGC	25000
 
 #define FG_ADC_RR_CHG_TEMP_OFFSET		1288000
-#define FG_ADC_RR_CHG_TEMP_SLOPE		4000
-#define FG_ADC_RR_CHG_TEMP_OFFSET_DEGC		27
+#define FG_ADC_RR_CHG_TEMP_SLOPE		4
+#define FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC	27000
 
 #define FG_ADC_RR_VOLT_INPUT_FACTOR		8
 #define FG_ADC_RR_CURR_INPUT_FACTOR		2
@@ -162,6 +162,9 @@
 #define FG_ADC_KELVINMIL_CELSIUSMIL		273150
 
 #define FG_ADC_RR_GPIO_FS_RANGE			5000
+#define FG_RR_ADC_COHERENT_CHECK_RETRY		5
+#define FG_RR_ADC_MAX_CONTINUOUS_BUFFER_LEN	16
+#define FG_RR_ADC_STS_CHANNEL_READING_MASK	0x3
 
 /*
  * The channel number is not a physical index in hardware,
@@ -171,21 +174,20 @@
  * the RR ADC before RR_ADC_MAX.
  */
 enum rradc_channel_id {
-	RR_ADC_BATT_ID_5 = 0,
-	RR_ADC_BATT_ID_15,
-	RR_ADC_BATT_ID_150,
-	RR_ADC_BATT_ID,
+	RR_ADC_BATT_ID = 0,
 	RR_ADC_BATT_THERM,
 	RR_ADC_SKIN_TEMP,
-	RR_ADC_USBIN_V,
 	RR_ADC_USBIN_I,
-	RR_ADC_DCIN_V,
+	RR_ADC_USBIN_V,
 	RR_ADC_DCIN_I,
+	RR_ADC_DCIN_V,
 	RR_ADC_DIE_TEMP,
 	RR_ADC_CHG_TEMP,
 	RR_ADC_GPIO,
-	RR_ADC_ATEST,
-	RR_ADC_TM_ADC,
+	RR_ADC_CHG_HOT_TEMP,
+	RR_ADC_CHG_TOO_HOT_TEMP,
+	RR_ADC_SKIN_HOT_TEMP,
+	RR_ADC_SKIN_TOO_HOT_TEMP,
 	RR_ADC_MAX
 };
 
@@ -205,51 +207,75 @@ struct rradc_channels {
 	long				info_mask;
 	u8				lsb;
 	u8				msb;
+	u8				sts;
 	int (*scale)(struct rradc_chip *chip, struct rradc_chan_prop *prop,
 					u16 adc_code, int *result);
 };
 
 struct rradc_chan_prop {
 	enum rradc_channel_id		channel;
+	uint32_t			channel_data;
 	int (*scale)(struct rradc_chip *chip, struct rradc_chan_prop *prop,
 					u16 adc_code, int *result);
 };
 
 static int rradc_read(struct rradc_chip *rr_adc, u16 offset, u8 *data, int len)
 {
-	int rc = 0;
+	int rc = 0, retry_cnt = 0, i = 0;
+	u8 data_check[FG_RR_ADC_MAX_CONTINUOUS_BUFFER_LEN];
+	bool coherent_err = false;
 
-	rc = regmap_bulk_read(rr_adc->regmap, rr_adc->base + offset, data, len);
-	if (rc < 0)
-		pr_err("rr adc read reg %d failed with %d\n", offset, rc);
+	if (len > FG_RR_ADC_MAX_CONTINUOUS_BUFFER_LEN) {
+		pr_err("Increase the buffer length\n");
+		return -EINVAL;
+	}
+
+	while (retry_cnt < FG_RR_ADC_COHERENT_CHECK_RETRY) {
+		rc = regmap_bulk_read(rr_adc->regmap, rr_adc->base + offset,
+							data, len);
+		if (rc < 0) {
+			pr_err("rr_adc reg 0x%x failed :%d\n", offset, rc);
+			return rc;
+		}
+
+		rc = regmap_bulk_read(rr_adc->regmap, rr_adc->base + offset,
+							data_check, len);
+		if (rc < 0) {
+			pr_err("rr_adc reg 0x%x failed :%d\n", offset, rc);
+			return rc;
+		}
+
+		for (i = 0; i < len; i++) {
+			if (data[i] != data_check[i])
+				coherent_err = true;
+		}
+
+		if (coherent_err) {
+			retry_cnt++;
+			coherent_err = false;
+			pr_debug("retry_cnt:%d\n", retry_cnt);
+		} else {
+			break;
+		}
+	}
+
+	if (retry_cnt == FG_RR_ADC_COHERENT_CHECK_RETRY)
+		pr_err("Retry exceeded for coherrency check\n");
 
 	return rc;
 }
 
 static int rradc_post_process_batt_id(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 adc_code,
-			int *result_mohms)
+			int *result_ohms)
 {
 	uint32_t current_value;
 	int64_t r_id;
 
-	switch (prop->channel) {
-	case RR_ADC_BATT_ID_5:
-		current_value = FG_ADC_RR_BATT_ID_5_MA;
-		break;
-	case RR_ADC_BATT_ID_15:
-		current_value = FG_ADC_RR_BATT_ID_15_MA;
-		break;
-	case RR_ADC_BATT_ID_150:
-		current_value = FG_ADC_RR_BATT_ID_150_MA;
-		break;
-	default:
-		return -EINVAL;
-	}
-
+	current_value = prop->channel_data;
 	r_id = ((int64_t)adc_code * FG_ADC_RR_FS_VOLTAGE_MV);
 	r_id = div64_s64(r_id, (FG_MAX_ADC_READINGS * current_value));
-	*result_mohms = (r_id * FG_ADC_SCALE_MILLI_FACTOR);
+	*result_ohms = (r_id * FG_ADC_SCALE_MILLI_FACTOR);
 
 	return 0;
 }
@@ -270,30 +296,30 @@ static int rradc_post_process_therm(struct rradc_chip *chip,
 
 static int rradc_post_process_volt(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 adc_code,
-			int *result_mv)
+			int *result_uv)
 {
-	int64_t mv = 0;
+	int64_t uv = 0;
 
 	/* 8x input attenuation; 2.5V ADC full scale */
-	mv = ((int64_t)adc_code * FG_ADC_RR_VOLT_INPUT_FACTOR);
-	mv *= FG_ADC_RR_FS_VOLTAGE_MV;
-	mv = div64_s64(mv, FG_MAX_ADC_READINGS);
-	*result_mv = mv;
+	uv = ((int64_t)adc_code * FG_ADC_RR_VOLT_INPUT_FACTOR);
+	uv *= (FG_ADC_RR_FS_VOLTAGE_MV * FG_ADC_SCALE_MILLI_FACTOR);
+	uv = div64_s64(uv, FG_MAX_ADC_READINGS);
+	*result_uv = uv;
 
 	return 0;
 }
 
 static int rradc_post_process_curr(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 adc_code,
-			int *result_ma)
+			int *result_ua)
 {
-	int64_t ma = 0;
+	int64_t ua = 0;
 
 	/* 0.5 V/A; 2.5V ADC full scale */
-	ma = ((int64_t)adc_code * FG_ADC_RR_CURR_INPUT_FACTOR);
-	ma *= FG_ADC_RR_FS_VOLTAGE_MV;
-	ma = div64_s64(ma, FG_MAX_ADC_READINGS);
-	*result_ma = ma;
+	ua = ((int64_t)adc_code * FG_ADC_RR_CURR_INPUT_FACTOR);
+	ua *= (FG_ADC_RR_FS_VOLTAGE_MV * FG_ADC_SCALE_MILLI_FACTOR);
+	ua = div64_s64(ua, FG_MAX_ADC_READINGS);
+	*result_ua = ua;
 
 	return 0;
 }
@@ -309,8 +335,41 @@ static int rradc_post_process_die_temp(struct rradc_chip *chip,
 					FG_MAX_ADC_READINGS));
 	temp -= FG_ADC_RR_DIE_TEMP_OFFSET;
 	temp = div64_s64(temp, FG_ADC_RR_DIE_TEMP_SLOPE);
-	temp += FG_ADC_RR_DIE_TEMP_OFFSET_DEGC;
-	*result_millidegc = (temp * FG_ADC_SCALE_MILLI_FACTOR);
+	temp += FG_ADC_RR_DIE_TEMP_OFFSET_MILLI_DEGC;
+	*result_millidegc = temp;
+
+	return 0;
+}
+
+static int rradc_post_process_chg_temp_hot(struct rradc_chip *chip,
+			struct rradc_chan_prop *prop, u16 adc_code,
+			int *result_millidegc)
+{
+	int64_t temp = 0;
+
+	temp = (int64_t) adc_code * 4;
+	temp = temp * FG_ADC_RR_TEMP_FS_VOLTAGE_NUM;
+	temp = div64_s64(temp, (FG_ADC_RR_TEMP_FS_VOLTAGE_DEN *
+					FG_MAX_ADC_READINGS));
+	temp = FG_ADC_RR_CHG_TEMP_OFFSET - temp;
+	temp = div64_s64(temp, FG_ADC_RR_CHG_TEMP_SLOPE);
+	temp = temp + FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC;
+	*result_millidegc = temp;
+
+	return 0;
+}
+
+static int rradc_post_process_skin_temp_hot(struct rradc_chip *chip,
+			struct rradc_chan_prop *prop, u16 adc_code,
+			int *result_millidegc)
+{
+	int64_t temp = 0;
+
+	temp = (int64_t) adc_code;
+	temp = div64_s64(temp, 2);
+	temp = temp - 30;
+	temp *= FG_ADC_SCALE_MILLI_FACTOR;
+	*result_millidegc = temp;
 
 	return 0;
 }
@@ -326,8 +385,8 @@ static int rradc_post_process_chg_temp(struct rradc_chip *chip,
 					FG_MAX_ADC_READINGS));
 	temp = FG_ADC_RR_CHG_TEMP_OFFSET - temp;
 	temp = div64_s64(temp, FG_ADC_RR_CHG_TEMP_SLOPE);
-	temp = temp + FG_ADC_RR_CHG_TEMP_OFFSET_DEGC;
-	*result_millidegc = (temp * FG_ADC_SCALE_MILLI_FACTOR);
+	temp = temp + FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC;
+	*result_millidegc = temp;
 
 	return 0;
 }
@@ -346,63 +405,80 @@ static int rradc_post_process_gpio(struct rradc_chip *chip,
 	return 0;
 }
 
-#define RR_ADC_CHAN(_dname, _type, _mask, _scale, _lsb, _msb)		\
+#define RR_ADC_CHAN(_dname, _type, _mask, _scale, _lsb, _msb, _sts)	\
 	{								\
-		.datasheet_name = __stringify(_dname),			\
+		.datasheet_name = (_dname),				\
 		.type = _type,						\
 		.info_mask = _mask,					\
 		.scale = _scale,					\
 		.lsb = _lsb,						\
 		.msb = _msb,						\
+		.sts = _sts,						\
 	},								\
 
-#define RR_ADC_CHAN_TEMP(_dname, _scale, _lsb, _msb)			\
+#define RR_ADC_CHAN_TEMP(_dname, _scale, _lsb, _msb, _sts)		\
 	RR_ADC_CHAN(_dname, IIO_TEMP,					\
 		BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),	\
-		_scale, _lsb, _msb)					\
+		_scale, _lsb, _msb, _sts)				\
 
-#define RR_ADC_CHAN_VOLT(_dname, _scale, _lsb, _msb)			\
+#define RR_ADC_CHAN_VOLT(_dname, _scale, _lsb, _msb, _sts)		\
 	RR_ADC_CHAN(_dname, IIO_VOLTAGE,				\
 		  BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),\
-		  _scale, _lsb, _msb)					\
+		  _scale, _lsb, _msb, _sts)				\
 
-#define RR_ADC_CHAN_CURRENT(_dname, _scale, _lsb, _msb)			\
+#define RR_ADC_CHAN_CURRENT(_dname, _scale, _lsb, _msb, _sts)		\
 	RR_ADC_CHAN(_dname, IIO_CURRENT,				\
 		  BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),\
-		  _scale, _lsb, _msb)					\
+		  _scale, _lsb, _msb, _sts)				\
 
-#define RR_ADC_CHAN_RESISTANCE(_dname, _scale, _lsb, _msb)		\
+#define RR_ADC_CHAN_RESISTANCE(_dname, _scale, _lsb, _msb, _sts)	\
 	RR_ADC_CHAN(_dname, IIO_RESISTANCE,				\
 		  BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),\
-		  _scale, _lsb, _msb)					\
+		  _scale, _lsb, _msb, _sts)				\
 
 static const struct rradc_channels rradc_chans[] = {
-	RR_ADC_CHAN_RESISTANCE("batt_id_5", rradc_post_process_batt_id,
-			FG_ADC_RR_BATT_ID_5_LSB, FG_ADC_RR_BATT_ID_5_MSB)
-	RR_ADC_CHAN_RESISTANCE("batt_id_15", rradc_post_process_batt_id,
-			FG_ADC_RR_BATT_ID_15_LSB, FG_ADC_RR_BATT_ID_15_MSB)
-	RR_ADC_CHAN_RESISTANCE("batt_id_150", rradc_post_process_batt_id,
-			FG_ADC_RR_BATT_ID_150_LSB, FG_ADC_RR_BATT_ID_150_MSB)
 	RR_ADC_CHAN_RESISTANCE("batt_id", rradc_post_process_batt_id,
-			FG_ADC_RR_BATT_ID_5_LSB, FG_ADC_RR_BATT_ID_5_MSB)
+			FG_ADC_RR_BATT_ID_5_LSB, FG_ADC_RR_BATT_ID_5_MSB,
+			FG_ADC_RR_BATT_ID_STS)
 	RR_ADC_CHAN_TEMP("batt_therm", &rradc_post_process_therm,
-			FG_ADC_RR_BATT_THERM_LSB, FG_ADC_RR_BATT_THERM_MSB)
+			FG_ADC_RR_BATT_THERM_LSB, FG_ADC_RR_BATT_THERM_MSB,
+			FG_ADC_RR_BATT_THERM_STS)
 	RR_ADC_CHAN_TEMP("skin_temp", &rradc_post_process_therm,
-			FG_ADC_RR_SKIN_TEMP_LSB, FG_ADC_RR_SKIN_TEMP_MSB)
+			FG_ADC_RR_SKIN_TEMP_LSB, FG_ADC_RR_SKIN_TEMP_MSB,
+			FG_ADC_RR_AUX_THERM_STS)
 	RR_ADC_CHAN_CURRENT("usbin_i", &rradc_post_process_curr,
-			FG_ADC_RR_USB_IN_V_LSB, FG_ADC_RR_USB_IN_V_MSB)
+			FG_ADC_RR_USB_IN_I_LSB, FG_ADC_RR_USB_IN_I_MSB,
+			FG_ADC_RR_USB_IN_I_STS)
 	RR_ADC_CHAN_VOLT("usbin_v", &rradc_post_process_volt,
-			FG_ADC_RR_USB_IN_I_LSB, FG_ADC_RR_USB_IN_I_MSB)
+			FG_ADC_RR_USB_IN_V_LSB, FG_ADC_RR_USB_IN_V_MSB,
+			FG_ADC_RR_USB_IN_V_STS)
 	RR_ADC_CHAN_CURRENT("dcin_i", &rradc_post_process_curr,
-			FG_ADC_RR_DC_IN_V_LSB, FG_ADC_RR_DC_IN_V_MSB)
+			FG_ADC_RR_DC_IN_I_LSB, FG_ADC_RR_DC_IN_I_MSB,
+			FG_ADC_RR_DC_IN_I_STS)
 	RR_ADC_CHAN_VOLT("dcin_v", &rradc_post_process_volt,
-			FG_ADC_RR_DC_IN_I_LSB, FG_ADC_RR_DC_IN_I_MSB)
+			FG_ADC_RR_DC_IN_V_LSB, FG_ADC_RR_DC_IN_V_MSB,
+			FG_ADC_RR_DC_IN_V_STS)
 	RR_ADC_CHAN_TEMP("die_temp", &rradc_post_process_die_temp,
-			FG_ADC_RR_PMI_DIE_TEMP_LSB, FG_ADC_RR_PMI_DIE_TEMP_MSB)
+			FG_ADC_RR_PMI_DIE_TEMP_LSB, FG_ADC_RR_PMI_DIE_TEMP_MSB,
+			FG_ADC_RR_PMI_DIE_TEMP_STS)
 	RR_ADC_CHAN_TEMP("chg_temp", &rradc_post_process_chg_temp,
-			FG_ADC_RR_CHARGER_TEMP_LSB, FG_ADC_RR_CHARGER_TEMP_MSB)
+			FG_ADC_RR_CHARGER_TEMP_LSB, FG_ADC_RR_CHARGER_TEMP_MSB,
+			FG_ADC_RR_CHARGER_TEMP_STS)
 	RR_ADC_CHAN_VOLT("gpio", &rradc_post_process_gpio,
-			FG_ADC_RR_GPIO_LSB, FG_ADC_RR_GPIO_MSB)
+			FG_ADC_RR_GPIO_LSB, FG_ADC_RR_GPIO_MSB,
+			FG_ADC_RR_GPIO_STS)
+	RR_ADC_CHAN_TEMP("chg_temp_hot", &rradc_post_process_chg_temp_hot,
+			FG_ADC_RR_CHARGER_HOT, FG_ADC_RR_CHARGER_HOT,
+			FG_ADC_RR_CHARGER_TEMP_STS)
+	RR_ADC_CHAN_TEMP("chg_temp_too_hot", &rradc_post_process_chg_temp_hot,
+			FG_ADC_RR_CHARGER_TOO_HOT, FG_ADC_RR_CHARGER_TOO_HOT,
+			FG_ADC_RR_CHARGER_TEMP_STS)
+	RR_ADC_CHAN_TEMP("skin_temp_hot", &rradc_post_process_skin_temp_hot,
+			FG_ADC_RR_SKIN_HOT, FG_ADC_RR_SKIN_HOT,
+			FG_ADC_RR_AUX_THERM_STS)
+	RR_ADC_CHAN_TEMP("skin_temp_too_hot", &rradc_post_process_skin_temp_hot,
+			FG_ADC_RR_SKIN_TOO_HOT, FG_ADC_RR_SKIN_TOO_HOT,
+			FG_ADC_RR_AUX_THERM_STS)
 };
 
 static int rradc_do_conversion(struct rradc_chip *chip,
@@ -411,15 +487,44 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 	int rc = 0, bytes_to_read = 0;
 	u8 buf[6];
 	u16 offset = 0, batt_id_5 = 0, batt_id_15 = 0, batt_id_150 = 0;
+	u16 status = 0;
 
 	mutex_lock(&chip->lock);
+
+	if ((prop->channel != RR_ADC_BATT_ID) &&
+			(prop->channel != RR_ADC_CHG_HOT_TEMP) &&
+			(prop->channel != RR_ADC_CHG_TOO_HOT_TEMP) &&
+			(prop->channel != RR_ADC_SKIN_HOT_TEMP) &&
+			(prop->channel != RR_ADC_SKIN_TOO_HOT_TEMP)) {
+		/* BATT_ID STS bit does not get set initially */
+		status = rradc_chans[prop->channel].sts;
+		rc = rradc_read(chip, status, buf, 1);
+		if (rc < 0) {
+			pr_err("status read failed:%d\n", rc);
+			goto fail;
+		}
+
+		buf[0] &= FG_RR_ADC_STS_CHANNEL_READING_MASK;
+		if (buf[0] != FG_RR_ADC_STS_CHANNEL_READING_MASK) {
+			pr_warn("%s is not ready; nothing to read\n",
+				rradc_chans[prop->channel].datasheet_name);
+			rc = -ENODATA;
+			goto fail;
+		}
+	}
 
 	offset = rradc_chans[prop->channel].lsb;
 	if (prop->channel == RR_ADC_BATT_ID)
 		bytes_to_read = 6;
+	else if ((prop->channel == RR_ADC_CHG_HOT_TEMP) ||
+		(prop->channel == RR_ADC_CHG_TOO_HOT_TEMP) ||
+		(prop->channel == RR_ADC_SKIN_HOT_TEMP) ||
+		(prop->channel == RR_ADC_SKIN_TOO_HOT_TEMP))
+		bytes_to_read = 1;
 	else
 		bytes_to_read = 2;
 
+	buf[0] = 0;
 	rc = rradc_read(chip, offset, buf, bytes_to_read);
 	if (rc) {
 		pr_err("read data failed\n");
@@ -427,19 +532,33 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 	}
 
 	if (prop->channel == RR_ADC_BATT_ID) {
-		batt_id_150 = (buf[4] << 8) | buf[5];
-		batt_id_15 = (buf[2] << 8) | buf[3];
-		batt_id_5 = (buf[0] << 8) | buf[1];
+		batt_id_150 = (buf[5] << 8) | buf[4];
+		batt_id_15 = (buf[3] << 8) | buf[2];
+		batt_id_5 = (buf[1] << 8) | buf[0];
+		if ((!batt_id_150) && (!batt_id_15) && (!batt_id_5)) {
+			pr_err("Invalid batt_id values with all zeros\n");
+			rc = -EINVAL;
+			goto fail;
+		}
+
 		if (batt_id_150 <= FG_ADC_RR_BATT_ID_RANGE) {
 			pr_debug("Batt_id_150 is chosen\n");
 			*data = batt_id_150;
+			prop->channel_data = FG_ADC_RR_BATT_ID_150_MA;
 		} else if (batt_id_15 <= FG_ADC_RR_BATT_ID_RANGE) {
 			pr_debug("Batt_id_15 is chosen\n");
 			*data = batt_id_15;
+			prop->channel_data = FG_ADC_RR_BATT_ID_15_MA;
 		} else {
 			pr_debug("Batt_id_5 is chosen\n");
 			*data = batt_id_5;
+			prop->channel_data = FG_ADC_RR_BATT_ID_5_MA;
 		}
+	} else if ((prop->channel == RR_ADC_CHG_HOT_TEMP) ||
+		(prop->channel == RR_ADC_CHG_TOO_HOT_TEMP) ||
+		(prop->channel == RR_ADC_SKIN_HOT_TEMP) ||
+		(prop->channel == RR_ADC_SKIN_TOO_HOT_TEMP)) {
+		*data = buf[0];
 	} else {
 		*data = (buf[1] << 8) | buf[0];
 	}
@@ -457,6 +576,11 @@ static int rradc_read_raw(struct iio_dev *indio_dev,
 	struct rradc_chan_prop *prop;
 	u16 adc_code;
 	int rc = 0;
+
+	if (chan->address >= RR_ADC_MAX) {
+		pr_err("Invalid channel index:%ld\n", chan->address);
+		return -EINVAL;
+	}
 
 	switch (mask) {
 	case IIO_CHAN_INFO_PROCESSED:
@@ -477,10 +601,6 @@ static int rradc_read_raw(struct iio_dev *indio_dev,
 		*val = (int) adc_code;
 
 		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_SCALE:
-		*val = 0;
-		*val2 = 1000;
-		return IIO_VAL_INT_PLUS_MICRO;
 	default:
 		rc = -EINVAL;
 		break;
@@ -498,15 +618,11 @@ static int rradc_get_dt_data(struct rradc_chip *chip, struct device_node *node)
 {
 	const struct rradc_channels *rradc_chan;
 	struct iio_chan_spec *iio_chan;
-	struct device_node *child;
-	unsigned int index = 0, chan, base;
+	unsigned int i = 0, base;
 	int rc = 0;
 	struct rradc_chan_prop prop;
 
-	chip->nchannels = of_get_available_child_count(node);
-	if (!chip->nchannels || (chip->nchannels >= RR_ADC_MAX))
-		return -EINVAL;
-
+	chip->nchannels = RR_ADC_MAX;
 	chip->iio_chans = devm_kcalloc(chip->dev, chip->nchannels,
 				       sizeof(*chip->iio_chans), GFP_KERNEL);
 	if (!chip->iio_chans)
@@ -529,30 +645,21 @@ static int rradc_get_dt_data(struct rradc_chip *chip, struct device_node *node)
 	chip->base = base;
 	iio_chan = chip->iio_chans;
 
-	for_each_available_child_of_node(node, child) {
-		rc = of_property_read_u32(child, "channel", &chan);
-		if (rc) {
-			dev_err(chip->dev, "invalid channel number %d\n", chan);
-			return rc;
-		}
+	for (i = 0; i < RR_ADC_MAX; i++) {
+		prop.channel = i;
+		prop.scale = rradc_chans[i].scale;
+		/* Private channel data used for selecting batt_id */
+		prop.channel_data = 0;
+		chip->chan_props[i] = prop;
 
-		if (chan > RR_ADC_MAX || chan < RR_ADC_BATT_ID_5) {
-			dev_err(chip->dev, "invalid channel number %d\n", chan);
-			return -EINVAL;
-		}
-
-		prop.channel = chan;
-		prop.scale = rradc_chans[chan].scale;
-		chip->chan_props[index] = prop;
-
-		rradc_chan = &rradc_chans[chan];
+		rradc_chan = &rradc_chans[i];
 
 		iio_chan->channel = prop.channel;
 		iio_chan->datasheet_name = rradc_chan->datasheet_name;
+		iio_chan->extend_name = rradc_chan->datasheet_name;
 		iio_chan->info_mask_separate = rradc_chan->info_mask;
 		iio_chan->type = rradc_chan->type;
-		iio_chan->indexed = 1;
-		iio_chan->address = index++;
+		iio_chan->address = i;
 		iio_chan++;
 	}
 

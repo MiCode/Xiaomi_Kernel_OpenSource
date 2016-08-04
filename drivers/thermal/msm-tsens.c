@@ -831,6 +831,7 @@ struct tsens_tm_device {
 	bool				prev_reading_avail;
 	bool				calibration_less_mode;
 	bool				tsens_local_init;
+	bool				gain_offset_programmed;
 	int				tsens_factor;
 	uint32_t			tsens_num_sensor;
 	int				tsens_irq;
@@ -5341,17 +5342,25 @@ static int get_device_tree_data(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	tsens_slope_data = devm_kzalloc(&pdev->dev,
+	/* TSENS calibration region */
+	tmdev->res_calib_mem = platform_get_resource_byname(pdev,
+				IORESOURCE_MEM, "tsens_eeprom_physical");
+	if (!tmdev->res_calib_mem) {
+		pr_debug("Using controller programmed gain and offset\n");
+		tmdev->gain_offset_programmed = true;
+	} else {
+		tsens_slope_data = devm_kzalloc(&pdev->dev,
 			tsens_num_sensors * sizeof(u32), GFP_KERNEL);
-	if (!tsens_slope_data)
-		return -ENOMEM;
+		if (!tsens_slope_data)
+			return -ENOMEM;
 
-	rc = of_property_read_u32_array(of_node,
-		"qcom,slope", tsens_slope_data, tsens_num_sensors);
-	if (rc) {
-		dev_err(&pdev->dev, "invalid or missing property: tsens-slope\n");
-		return rc;
-	};
+		rc = of_property_read_u32_array(of_node,
+			"qcom,slope", tsens_slope_data, tsens_num_sensors);
+		if (rc) {
+			dev_err(&pdev->dev, "missing property: tsens-slope\n");
+			return rc;
+		};
+	}
 
 	if (!of_match_node(tsens_match, of_node)) {
 		pr_err("Need to read SoC specific fuse map\n");
@@ -5364,9 +5373,13 @@ static int get_device_tree_data(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	for (i = 0; i < tsens_num_sensors; i++)
-		tmdev->sensor[i].slope_mul_tsens_factor = tsens_slope_data[i];
-	tmdev->tsens_factor = TSENS_SLOPE_FACTOR;
+	if (!tmdev->gain_offset_programmed) {
+		for (i = 0; i < tsens_num_sensors; i++)
+			tmdev->sensor[i].slope_mul_tsens_factor =
+							tsens_slope_data[i];
+		tmdev->tsens_factor = TSENS_SLOPE_FACTOR;
+	}
+
 	tmdev->tsens_num_sensor = tsens_num_sensors;
 	tmdev->calibration_less_mode = of_property_read_bool(of_node,
 				"qcom,calibration-less-mode");
@@ -5536,24 +5549,17 @@ static int get_device_tree_data(struct platform_device *pdev,
 		goto fail_unmap_tsens_region;
 	}
 
-	/* TSENS calibration region */
-	tmdev->res_calib_mem = platform_get_resource_byname(pdev,
-				IORESOURCE_MEM, "tsens_eeprom_physical");
-	if (!tmdev->res_calib_mem) {
-		pr_err("Could not get qfprom physical address resource\n");
-		rc = -EINVAL;
-		goto fail_unmap_tsens;
-	}
-
-	tmdev->calib_len = tmdev->res_calib_mem->end -
+	if (!tmdev->gain_offset_programmed) {
+		tmdev->calib_len = tmdev->res_calib_mem->end -
 					tmdev->res_calib_mem->start + 1;
 
-	tmdev->tsens_calib_addr = ioremap(tmdev->res_calib_mem->start,
+		tmdev->tsens_calib_addr = ioremap(tmdev->res_calib_mem->start,
 						tmdev->calib_len);
-	if (!tmdev->tsens_calib_addr) {
-		pr_err("Failed to IO map EEPROM registers.\n");
-		rc = -EINVAL;
-		goto fail_unmap_tsens;
+		if (!tmdev->tsens_calib_addr) {
+			pr_err("Failed to IO map EEPROM registers.\n");
+			rc = -EINVAL;
+			goto fail_unmap_tsens;
+		}
 	}
 
 	return 0;

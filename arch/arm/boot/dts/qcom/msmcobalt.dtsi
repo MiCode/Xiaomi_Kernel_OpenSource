@@ -761,7 +761,7 @@
 		vdd_gpucc-supply = <&gfx_vreg>;
 		vdd_mx-supply = <&pmcobalt_s9_level>;
 		vdd_gpu_mx-supply = <&pmcobalt_s9_level>;
-		qcom,gfx3d_clk_src-opp-store-vcorner = <&msm_gpu>;
+		qcom,gfx3d_clk_src-opp-handle = <&msm_gpu>;
 		qcom,gfxfreq-speedbin0 =
 			<	  0 0				0 >,
 			< 171000000 1 RPM_SMD_REGULATOR_LEVEL_SVS >,
@@ -815,9 +815,9 @@
 			<  1324800000 0x04040045 0x06370037 0x2 >,
 			<  1401600000 0x04040049 0x073a003a 0x2 >,
 			<  1478400000 0x0404004d 0x073e003e 0x2 >,
-			<  1574400000 0x04040052 0x08420042 0x3 >,
-			<  1651200000 0x04040056 0x08450045 0x3 >,
-			<  1728000000 0x0404005a 0x08480048 0x3 >,
+			<  1574400000 0x04040052 0x08420042 0x2 >,
+			<  1651200000 0x04040056 0x08450045 0x2 >,
+			<  1728000000 0x0404005a 0x08480048 0x2 >,
 			<  1804800000 0x0404005e 0x094b004b 0x3 >,
 			<  1881600000 0x04040062 0x094e004e 0x3 >;
 
@@ -840,10 +840,10 @@
 			<  1401600000 0x04040049 0x073a003a 0x2 >,
 			<  1478400000 0x0404004d 0x073e003e 0x2 >,
 			<  1536000000 0x04040050 0x07400040 0x2 >,
-			<  1632000000 0x04040055 0x08440044 0x3 >,
-			<  1708800000 0x04040059 0x08470047 0x3 >,
-			<  1785600000 0x0404005d 0x094a004a 0x3 >,
-			<  1862400000 0x04040061 0x094e004e 0x3 >,
+			<  1632000000 0x04040055 0x08440044 0x2 >,
+			<  1708800000 0x04040059 0x08470047 0x2 >,
+			<  1785600000 0x0404005d 0x094a004a 0x2 >,
+			<  1862400000 0x04040061 0x094e004e 0x2 >,
 			<  1939200000 0x04040065 0x09510051 0x3 >,
 			<  2016000000 0x04040069 0x0a540054 0x3 >,
 			<  2092800000 0x0404006d 0x0a570057 0x3 >;
@@ -983,15 +983,15 @@
 		/* SVS */
 			<90 512 80000 640000>,
 			<90 585 80000 640000>,
-			<1 676 80000 160000>,
+			<1 676 80000 80000>,
 		/* NOMINAL */
 			<90 512 206000 960000>,
 			<90 585 206000 960000>,
-			<1 676 206000 200000>,
+			<1 676 206000 160000>,
 		/* TURBO */
 			<90 512 206000 3600000>,
 			<90 585 206000 3600000>,
-			<1 676 206000 960000>;
+			<1 676 206000 300000>;
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
 
 		/* IPA RAM mmap */
@@ -2059,27 +2059,22 @@
 
 	tsens0: tsens@10aa000 {
 		compatible = "qcom,msmcobalt-tsens";
-		reg = <0x10aa000 0x2000>,
-			<0x74230 0x1000>;
-		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		reg = <0x10aa000 0x2000>;
+		reg-names = "tsens_physical";
 		interrupts = <0 458 0>, <0 445 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
 		qcom,sensors = <14>;
-		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200 3200
-						3200 3200 3200 3200 3200>;
 	};
 
 	tsens1: tsens@10ad000 {
 		compatible = "qcom,msmcobalt-tsens";
-		reg = <0x10ad000 0x2000>,
-			<0x75230 0x1000>;
-		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		reg = <0x10ad000 0x2000>;
+		reg-names = "tsens_physical";
 		interrupts = <0 184 0>, <0 430 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
 		qcom,client-id = <14 15 16 17 18 19 20 21>;
 		qcom,sensor-id = <0 1 3 4 5 6 7 2>;
 		qcom,sensors = <8>;
-		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200>;
 	};
 
 	qcom,sensor-information {

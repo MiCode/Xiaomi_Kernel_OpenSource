@@ -216,7 +216,7 @@ static int hdmi_edid_reset_parser(struct hdmi_edid_ctrl *edid_ctrl)
 	/* reset HDR related data */
 	edid_ctrl->hdr_supported = false;
 	edid_ctrl->hdr_data.eotf = 0;
-	edid_ctrl->hdr_data.descriptor = 0;
+	edid_ctrl->hdr_data.metadata_type_one = false;
 	edid_ctrl->hdr_data.max_luminance = 0;
 	edid_ctrl->hdr_data.avg_luminance = 0;
 	edid_ctrl->hdr_data.min_luminance = 0;
@@ -794,7 +794,7 @@ static ssize_t hdmi_edid_sysfs_rda_hdr_data(struct device *dev,
 	ret = scnprintf(buf, PAGE_SIZE, "%d, %u, %u, %u, %u, %u\n",
 			edid_ctrl->hdr_supported,
 			edid_ctrl->hdr_data.eotf,
-			edid_ctrl->hdr_data.descriptor,
+			edid_ctrl->hdr_data.metadata_type_one,
 			edid_ctrl->hdr_data.max_luminance,
 			edid_ctrl->hdr_data.avg_luminance,
 			edid_ctrl->hdr_data.min_luminance);
@@ -964,8 +964,8 @@ static void hdmi_edid_parse_hdrdb(struct hdmi_edid_ctrl *edid_ctrl,
 	/* Byte 3: Electro-Optical Transfer Functions */
 	edid_ctrl->hdr_data.eotf = data_block[2] & 0x3F;
 
-	/* Byte 4: Static Metadata Descriptors */
-	edid_ctrl->hdr_data.descriptor = data_block[3] & 0x1;
+	/* Byte 4: Static Metadata Descriptor Type 1 */
+	edid_ctrl->hdr_data.metadata_type_one = (data_block[3] & 0x1) & BIT(0);
 
 	/* Byte 5: Desired Content Maximum Luminance */
 	if (hdmi_edid_is_luminance_value_present(len, MAXIMUM_LUMINANCE))
@@ -2458,16 +2458,16 @@ u8 hdmi_edid_get_deep_color(void *input)
  * Return: HDR data.
  */
 void hdmi_edid_get_hdr_data(void *input,
-		struct hdmi_edid_hdr_data *hdr_data)
+		struct hdmi_edid_hdr_data **hdr_data)
 {
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
 
-	if (!edid_ctrl || !hdr_data) {
+	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
 
-	hdr_data = &edid_ctrl->hdr_data;
+	*hdr_data = &edid_ctrl->hdr_data;
 }
 
 bool hdmi_edid_is_s3d_mode_supported(void *input, u32 video_mode, u32 s3d_mode)

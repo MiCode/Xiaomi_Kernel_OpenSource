@@ -734,7 +734,7 @@ continue_merging:
 
 			if (migratetype != buddy_mt
 					&& (is_migrate_isolate(migratetype) ||
-					is_migrate_isolate(buddy_mt)))
+						is_migrate_isolate(buddy_mt)))
 				goto done_merging;
 		}
 		max_order++;
@@ -742,7 +742,6 @@ continue_merging:
 	}
 
 done_merging:
-
 	set_page_order(page, order);
 
 	/*

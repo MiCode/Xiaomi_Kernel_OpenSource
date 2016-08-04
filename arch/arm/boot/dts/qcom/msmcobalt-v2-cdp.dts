@@ -17,7 +17,7 @@
 #include "msmcobalt-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM cobalt v2";
+	model = "Qualcomm Technologies, Inc. MSM COBALT v2 CDP";
 	compatible = "qcom,msmcobalt-cdp", "qcom,msmcobalt", "qcom,cdp";
 	qcom,board-id = <1 0>;
 };
