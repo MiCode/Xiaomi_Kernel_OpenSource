@@ -316,14 +316,7 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	open_cfg.notify_rx_intent_req = apr_tal_notify_rx_intent_req;
 	open_cfg.notify_remote_rx_intent = apr_tal_notify_remote_rx_intent;
 	open_cfg.priv = apr_ch;
-	/*
-	 * The transport name "smd_trans" is required if far end is using SMD.
-	 * In that case Glink will fall back to SMD and the client (APR in this
-	 * case) will still work as if Glink is the communication channel.
-	 * If far end is already using Glink, this property will be ignored in
-	 * Glink layer and communication will be through Glink.
-	 */
-	open_cfg.transport = "smd_trans";
+	open_cfg.transport = "smem";
 
 	apr_ch->channel_state = GLINK_REMOTE_DISCONNECTED;
 	apr_ch->handle = glink_open(&open_cfg);
@@ -420,13 +413,13 @@ static void apr_tal_link_state_cb(struct glink_link_state_cb_info *cb_info,
 }
 
 static struct glink_link_info mpss_link_info = {
-	.transport = NULL,
+	.transport = "smem",
 	.edge = "mpss",
 	.glink_link_state_notif_cb = apr_tal_link_state_cb,
 };
 
 static struct glink_link_info lpass_link_info = {
-	.transport = NULL,
+	.transport = "smem",
 	.edge = "lpass",
 	.glink_link_state_notif_cb = apr_tal_link_state_cb,
 };
