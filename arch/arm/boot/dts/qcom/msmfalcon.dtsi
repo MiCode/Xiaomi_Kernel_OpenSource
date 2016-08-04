@@ -1555,6 +1555,7 @@
 #include "msmfalcon-regulator.dtsi"
 #include "msm-gdsc-falcon.dtsi"
 #include "msmfalcon-gpu.dtsi"
+#include "msmfalcon-pm.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
