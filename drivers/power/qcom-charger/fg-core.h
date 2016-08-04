@@ -40,7 +40,6 @@
 
 #define SRAM_READ	"fg_sram_read"
 #define SRAM_WRITE	"fg_sram_write"
-#define SRAM_UPDATE	"fg_sram_update"
 #define PROFILE_LOAD	"fg_profile_load"
 #define DELTA_SOC	"fg_delta_soc"
 

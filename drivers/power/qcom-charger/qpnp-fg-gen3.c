@@ -413,13 +413,12 @@ static int fg_get_sram_prop(struct fg_chip *chip, enum fg_sram_param_id id,
 	if (id < 0 || id > FG_SRAM_MAX || chip->sp[id].len > sizeof(buf))
 		return -EINVAL;
 
-	vote(chip->awake_votable, SRAM_UPDATE, true, 0);
 	rc = fg_sram_read(chip, chip->sp[id].address, chip->sp[id].offset,
 		buf, chip->sp[id].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error reading address 0x%04x[%d] rc=%d\n",
 			chip->sp[id].address, chip->sp[id].offset, rc);
-		goto out;
+		return rc;
 	}
 
 	for (i = 0, temp = 0; i < chip->sp[id].len; i++)
@@ -427,9 +426,6 @@ static int fg_get_sram_prop(struct fg_chip *chip, enum fg_sram_param_id id,
 
 	*val = fg_decode(chip->sp, id, temp);
 	return 0;
-out:
-	vote(chip->awake_votable, SRAM_UPDATE, false, 0);
-	return rc;
 }
 
 #define BATT_TEMP_NUMR		1
