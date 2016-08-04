@@ -107,3 +107,12 @@ config PANIC_ON_GLADIATOR_ERROR_V2
                Meant to be used for debug scenarios only.
 
                If unsure, say N.
+
+config QCOM_WATCHDOG_V2
+	bool "Qualcomm Watchdog Support"
+	depends on ARCH_QCOM
+	help
+	  This enables the watchdog module. It causes kernel panic if the
+	  watchdog times out. It allows for detection of cpu hangs and
+	  deadlocks. It does not run during the bootup process, so it will
+	  not catch any early lockups.
