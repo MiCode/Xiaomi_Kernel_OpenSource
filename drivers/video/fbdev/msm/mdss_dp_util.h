@@ -118,6 +118,18 @@ struct lane_mapping {
 	char lane3;
 };
 
+struct edp_cmd {
+	char read;	/* 1 == read, 0 == write */
+	char i2c;	/* 1 == i2c cmd, 0 == native cmd */
+	u32 addr;	/* 20 bits */
+	char *datap;
+	char *out_buf;
+	int len;	/* len to be tx OR len to be rx for read */
+	char next;	/* next command */
+};
+
+int dp_aux_read(void *ep, struct edp_cmd *cmds);
+int dp_aux_write(void *ep, struct edp_cmd *cmd);
 void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data);
 u32 mdss_dp_get_ctrl_hw_version(struct dss_io_data *ctrl_io);
 u32 mdss_dp_get_phy_hw_version(struct dss_io_data *phy_io);
