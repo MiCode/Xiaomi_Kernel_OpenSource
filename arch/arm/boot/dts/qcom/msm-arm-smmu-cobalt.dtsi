@@ -19,7 +19,7 @@
 		status = "ok";
 		compatible = "qcom,smmu-v2";
 		reg = <0x1680000 0x10000>;
-		#iommu-cells = <1>;
+		#iommu-cells = <0>;
 		qcom,register-save;
 		qcom,skip-init;
 		#global-interrupts = <2>;
