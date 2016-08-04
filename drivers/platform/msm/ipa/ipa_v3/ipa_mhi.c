@@ -549,11 +549,6 @@ int ipa3_mhi_resume_channels_internal(enum ipa_client_type client,
 			return res;
 		}
 	}
-	if (res) {
-		IPA_MHI_ERR("failed to resume channel error %d\n",
-			res);
-		return res;
-	}
 
 	res = gsi_start_channel(ep->gsi_chan_hdl);
 	if (res) {
