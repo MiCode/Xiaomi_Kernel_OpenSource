@@ -202,7 +202,7 @@ struct sde_hw_rotator_context {
 	u32    *regdma_wrptr;
 	u32    timestamp;
 	struct completion rot_comp;
-	struct completion regdma_comp;
+	wait_queue_head_t regdma_waitq;
 	struct sde_dbg_buf src_dbgbuf;
 	struct sde_dbg_buf dst_dbgbuf;
 	u32    last_regdma_isr_status;
@@ -253,6 +253,7 @@ struct sde_hw_rotator {
 
 	/* logical interrupt number */
 	int    irq_num;
+	atomic_t irq_enabled;
 
 	/* internal ION memory for SW timestamp */
 	struct ion_client *iclient;
@@ -260,8 +261,6 @@ struct sde_hw_rotator {
 	void *swts_buffer;
 
 	u32    highest_bank;
-	struct completion rot_comp;
-	struct completion regdma_comp;
 
 	spinlock_t rotctx_lock;
 	spinlock_t rotisr_lock;
