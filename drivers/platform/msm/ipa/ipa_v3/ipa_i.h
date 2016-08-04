@@ -2003,4 +2003,5 @@ int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats);
 int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map);
 int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr,
 	u32 size, bool map);
+struct dentry *ipa_debugfs_get_root(void);
 #endif /* _IPA3_I_H_ */

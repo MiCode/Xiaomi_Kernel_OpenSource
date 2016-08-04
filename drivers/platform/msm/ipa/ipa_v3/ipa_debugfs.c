@@ -2072,6 +2072,12 @@ void ipa3_debugfs_remove(void)
 	debugfs_remove_recursive(dent);
 }
 
+struct dentry *ipa_debugfs_get_root(void)
+{
+	return dent;
+}
+EXPORT_SYMBOL(ipa_debugfs_get_root);
+
 #else /* !CONFIG_DEBUG_FS */
 void ipa3_debugfs_init(void) {}
 void ipa3_debugfs_remove(void) {}
