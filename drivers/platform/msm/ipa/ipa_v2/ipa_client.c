@@ -822,8 +822,7 @@ int ipa2_disable_endpoint(u32 clnt_hdl)
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 	client_type = ipa2_get_client_mapping(clnt_hdl);
-	if (!ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_INC_EP(client_type);
+	IPA_ACTIVE_CLIENTS_INC_EP(client_type);
 
 	/* Set Disconnect in Progress flag. */
 	spin_lock(&ipa_ctx->disconnect_lock);
@@ -840,7 +839,7 @@ int ipa2_disable_endpoint(u32 clnt_hdl)
 	if (result) {
 		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
 				clnt_hdl);
-		return -EPERM;
+		goto fail;
 	}
 
 	if (IPA_CLIENT_IS_CONS(ep->client))
@@ -851,7 +850,7 @@ int ipa2_disable_endpoint(u32 clnt_hdl)
 	result = sps_pipe_reset(bam, clnt_hdl);
 	if (result) {
 		IPAERR("SPS pipe reset failed.\n");
-		return -EPERM;
+		goto fail;
 	}
 
 	ep->ep_disabled = true;
@@ -861,6 +860,10 @@ int ipa2_disable_endpoint(u32 clnt_hdl)
 	IPADBG("client (ep: %d) disabled\n", clnt_hdl);
 
 	return 0;
+
+fail:
+	IPA_ACTIVE_CLIENTS_DEC_EP(client_type);
+	return -EPERM;
 }
 
 
