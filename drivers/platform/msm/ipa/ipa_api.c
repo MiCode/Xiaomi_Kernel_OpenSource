@@ -2415,6 +2415,50 @@ int ipa_stop_gsi_channel(u32 clnt_hdl)
 }
 EXPORT_SYMBOL(ipa_stop_gsi_channel);
 
+/**
+ * ipa_get_version_string() - Get string representation of IPA version
+ * @ver: IPA version
+ *
+ * Return: Constant string representation
+ */
+const char *ipa_get_version_string(enum ipa_hw_type ver)
+{
+	const char *str;
+
+	switch (ver) {
+	case IPA_HW_v1_0:
+		str = "1.0";
+		break;
+	case IPA_HW_v1_1:
+		str = "1.1";
+		break;
+	case IPA_HW_v2_0:
+		str = "2.0";
+		break;
+	case IPA_HW_v2_1:
+		str = "2.1";
+		break;
+	case IPA_HW_v2_5:
+		str = "2.5/2.6";
+		break;
+	case IPA_HW_v2_6L:
+		str = "2.6L";
+		break;
+	case IPA_HW_v3_0:
+		str = "3.0";
+		break;
+	case IPA_HW_v3_1:
+		str = "3.1";
+		break;
+	default:
+		str = "Invalid version";
+		break;
+	}
+
+	return str;
+}
+EXPORT_SYMBOL(ipa_get_version_string);
+
 static struct of_device_id ipa_plat_drv_match[] = {
 	{ .compatible = "qcom,ipa", },
 	{ .compatible = "qcom,ipa-smmu-ap-cb", },

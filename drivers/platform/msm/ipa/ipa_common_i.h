@@ -348,5 +348,6 @@ int ipa_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	struct ipa_ntn_conn_out_params *outp);
 
 int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
+const char *ipa_get_version_string(enum ipa_hw_type ver);
 
 #endif /* _IPA_COMMON_I_H_ */
