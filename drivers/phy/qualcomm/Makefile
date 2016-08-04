@@ -7,5 +7,6 @@ obj-$(CONFIG_PHY_QCOM_UFS) 	+= phy-qcom-ufs-qmp-20nm.o
 obj-$(CONFIG_PHY_QCOM_UFS) 	+= phy-qcom-ufs-qmp-14nm.o
 obj-$(CONFIG_PHY_QCOM_UFS) 	+= phy-qcom-ufs-qmp-v3.o
 obj-$(CONFIG_PHY_QCOM_UFS) 	+= phy-qcom-ufs-qrbtc-v2.o
+obj-$(CONFIG_PHY_QCOM_UFS) 	+= phy-qcom-ufs-qrbtc-msmskunk.o
 obj-$(CONFIG_PHY_QCOM_USB_HS) 		+= phy-qcom-usb-hs.o
 obj-$(CONFIG_PHY_QCOM_USB_HSIC) 	+= phy-qcom-usb-hsic.o

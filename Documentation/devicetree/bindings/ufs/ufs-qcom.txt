@@ -14,6 +14,8 @@ Required properties:
 			 on msmcobalt platform,
 			"qcom,ufs-phy-qrbtc-v2" for QRBTC V2 ufs phy
 			 present on msmcobalt platform,
+			"qcom,ufs-phy-qrbtc-msmskunk" for phy support
+			 for msmskunk emulation
 			"qcom,msm8996-ufs-phy-qmp-14nm" for 14nm ufs phy
 			 present on MSM8996 chipset.
 - reg               : should contain PHY register address space (mandatory),
