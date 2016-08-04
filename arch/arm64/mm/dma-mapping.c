@@ -2147,7 +2147,7 @@ EXPORT_SYMBOL(arm_iommu_attach_device);
 void arm_iommu_detach_device(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
-	int is_fast;
+	int is_fast, s1_bypass = 0;
 
 	mapping = to_dma_iommu_mapping(dev);
 	if (!mapping) {
@@ -2161,10 +2161,14 @@ void arm_iommu_detach_device(struct device *dev)
 		return;
 	}
 
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+
 	iommu_detach_device(mapping->domain, dev);
 	kref_put(&mapping->kref, release_iommu_mapping);
 	dev->archdata.mapping = NULL;
-	set_dma_ops(dev, NULL);
+	if (!s1_bypass)
+		set_dma_ops(dev, NULL);
 
 	pr_debug("Detached IOMMU controller from %s device.\n", dev_name(dev));
 }
