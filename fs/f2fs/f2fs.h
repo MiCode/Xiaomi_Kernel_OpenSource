@@ -148,6 +148,11 @@ static inline void inode_lock(struct inode *inode)
 	mutex_lock(&inode->i_mutex);
 }
 
+static inline int inode_trylock(struct inode *inode)
+{
+	return mutex_trylock(&inode->i_mutex);
+}
+
 static inline void inode_unlock(struct inode *inode)
 {
 	mutex_unlock(&inode->i_mutex);
