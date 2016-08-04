@@ -403,6 +403,76 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 	}
 }
 
+static void mdss_mdp_video_avr_vtotal_setup(struct mdss_mdp_ctl *ctl,
+					struct intf_timing_params *p,
+					struct mdss_mdp_video_ctx *ctx)
+{
+	struct mdss_data_type *mdata = ctl->mdata;
+
+	if (test_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map)) {
+		struct mdss_panel_data *pdata = ctl->panel_data;
+		u32 hsync_period = p->hsync_pulse_width + p->h_back_porch +
+				p->width + p->h_front_porch;
+		u32 vsync_period = p->vsync_pulse_width + p->v_back_porch +
+				p->height + p->v_front_porch;
+		u32 min_fps = pdata->panel_info.min_fps;
+		u32 diff_fps = abs(pdata->panel_info.default_fps - min_fps);
+		u32 vtotal = mdss_panel_get_vtotal(&pdata->panel_info);
+
+		int add_porches = mult_frac(vtotal, diff_fps, min_fps);
+
+		u32 vsync_period_slow = vsync_period + add_porches;
+		u32 avr_vtotal = vsync_period_slow * hsync_period;
+
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_AVR_VTOTAL, avr_vtotal);
+
+		MDSS_XLOG(min_fps, vsync_period, vsync_period_slow, avr_vtotal);
+	}
+}
+
+static int mdss_mdp_video_avr_trigger_setup(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_video_ctx *ctx = NULL;
+	struct mdss_data_type *mdata = ctl->mdata;
+
+	ctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[MASTER_CTX];
+	if (!ctx || !ctx->ref_cnt) {
+		pr_err("invalid master ctx\n");
+		return -EINVAL;
+	}
+
+	if (!ctl->is_master)
+		return 0;
+
+	if (ctl->avr_info.avr_enabled &&
+		test_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map))
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_AVR_TRIGGER, 1);
+
+	return 0;
+}
+
+static void mdss_mdp_video_avr_ctrl_setup(struct mdss_mdp_video_ctx *ctx,
+		struct mdss_mdp_avr_info *avr_info, bool is_master)
+{
+	u32 avr_ctrl = 0;
+	u32 avr_mode = 0;
+
+	avr_ctrl = avr_info->avr_enabled;
+	avr_mode = avr_info->avr_mode;
+
+	/* Enable avr_vsync_clear_en bit to clear avr in next vsync */
+	if (avr_mode == MDSS_MDP_AVR_ONE_SHOT)
+		avr_mode |= (1 << 8);
+
+	if (is_master)
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_AVR_CONTROL, avr_ctrl);
+
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_AVR_MODE, avr_mode);
+
+	pr_debug("intf:%d avr_mode:%x avr_ctrl:%x\n",
+		ctx->intf_num, avr_mode, avr_ctrl);
+}
+
 static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 					struct intf_timing_params *p,
 					struct mdss_mdp_video_ctx *ctx)
@@ -1530,6 +1600,12 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 			CTL_INTF_EVENT_FLAG_DEFAULT);
 	}
 
+	rc = mdss_mdp_video_avr_trigger_setup(ctl);
+	if (rc) {
+		pr_err("avr trigger setup failed\n");
+		return rc;
+	}
+
 	if (mdss_mdp_is_lineptr_supported(ctl))
 		mdss_mdp_video_lineptr_ctrl(ctl, true);
 
@@ -1886,6 +1962,8 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 		mdss_mdp_handoff_programmable_fetch(ctl, ctx);
 	}
 
+	mdss_mdp_video_avr_vtotal_setup(ctl, itp, ctx);
+
 	mdss_mdp_disable_prefill(ctl);
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_PANEL_FORMAT, ctl->dst_format);
@@ -2124,6 +2202,29 @@ static int mdss_mdp_video_early_wake_up(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
+static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_video_ctx *ctx = NULL, *sctx = NULL;
+
+	ctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[MASTER_CTX];
+	if (!ctx || !ctx->ref_cnt) {
+		pr_err("invalid master ctx\n");
+		return -EINVAL;
+	}
+	mdss_mdp_video_avr_ctrl_setup(ctx, &ctl->avr_info, ctl->is_master);
+
+	if (is_pingpong_split(ctl->mfd)) {
+		sctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[SLAVE_CTX];
+		if (!sctx || !sctx->ref_cnt) {
+			pr_err("invalid slave ctx\n");
+			return -EINVAL;
+		}
+		mdss_mdp_video_avr_ctrl_setup(sctx, &ctl->avr_info, false);
+	}
+
+	return 0;
+}
+
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 {
 	int intfs_num, ret = 0;
@@ -2144,6 +2245,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	ctl->ops.config_fps_fnc = mdss_mdp_video_config_fps;
 	ctl->ops.early_wake_up_fnc = mdss_mdp_video_early_wake_up;
 	ctl->ops.update_lineptr = mdss_mdp_video_lineptr_ctrl;
+	ctl->ops.avr_ctrl_fnc = mdss_mdp_video_avr_ctrl;
 
 	return 0;
 }

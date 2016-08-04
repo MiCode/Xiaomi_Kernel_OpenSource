@@ -1950,6 +1950,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_SRC_SPLIT_ALWAYS);
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -2489,6 +2490,8 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" separate_rotator");
 	if (test_bit(MDSS_CAPS_CWB_SUPPORTED, mdata->mdss_caps_map))
 		SPRINT(" concurrent_writeback");
+	if (test_bit(MDSS_CAPS_AVR_SUPPORTED,  mdata->mdss_caps_map))
+		SPRINT(" avr");
 	SPRINT("\n");
 #undef SPRINT
 

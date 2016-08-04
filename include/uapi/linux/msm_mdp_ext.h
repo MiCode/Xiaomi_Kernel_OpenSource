@@ -138,6 +138,15 @@ VALIDATE/COMMIT FLAG CONFIGURATION
  */
 #define MDP_COMMIT_SYNC_FENCE_WAIT		0x04
 
+/* Flag to enable AVR(Adaptive variable refresh) feature. */
+#define MDP_COMMIT_AVR_EN			0x08
+
+/*
+ * Flag to select one shot mode when AVR feature is enabled.
+ * Default mode is continuous mode.
+ */
+#define MDP_COMMIT_AVR_ONE_SHOT_MODE		0x10
+
 /* Flag to enable concurrent writeback for the frame */
 #define MDP_COMMIT_CWB_EN 0x800
 

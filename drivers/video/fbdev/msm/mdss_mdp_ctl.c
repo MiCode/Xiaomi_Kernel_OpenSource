@@ -5528,6 +5528,26 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	sctl = mdss_mdp_get_split_ctl(ctl);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
+	if (ctl->ops.avr_ctrl_fnc) {
+		ret = ctl->ops.avr_ctrl_fnc(ctl);
+		if (ret) {
+			pr_err("error configuring avr ctrl registers ctl=%d err=%d\n",
+				ctl->num, ret);
+			mutex_unlock(&ctl->lock);
+			return ret;
+		}
+	}
+
+	if (sctl && sctl->ops.avr_ctrl_fnc) {
+		ret = sctl->ops.avr_ctrl_fnc(sctl);
+		if (ret) {
+			pr_err("error configuring avr ctrl registers sctl=%d err=%d\n",
+				sctl->num, ret);
+			mutex_unlock(&ctl->lock);
+			return ret;
+		}
+	}
+
 	mutex_lock(&ctl->flush_lock);
 
 	/*
