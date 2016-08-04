@@ -252,6 +252,9 @@ static struct mem_prot_info *get_info_list_from_table(struct sg_table *table,
 	return info;
 }
 
+#define BATCH_MAX_SIZE SZ_2M
+#define BATCH_MAX_SECTIONS 32
+
 int hyp_assign_table(struct sg_table *table,
 			u32 *source_vm_list, int source_nelems,
 			int *dest_vmids, int *dest_perms,
@@ -265,6 +268,9 @@ int hyp_assign_table(struct sg_table *table,
 	size_t dest_vm_copy_size;
 	struct mem_prot_info *sg_table_copy;
 	size_t sg_table_copy_size;
+
+	int batch_start, batch_end;
+	u64 batch_size;
 
 	/*
 	 * We can only pass cache-aligned sizes to hypervisor, so we need
@@ -311,11 +317,40 @@ int hyp_assign_table(struct sg_table *table,
 	dmac_flush_range(dest_vm_copy,
 			 (void *)dest_vm_copy + dest_vm_copy_size);
 
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
-			MEM_PROT_ASSIGN_ID), &desc);
-	if (ret)
-		pr_info("%s: Failed to assign memory protection, ret = %d\n",
-			__func__, ret);
+	batch_start = 0;
+	while (batch_start < table->nents) {
+		/* Ensure no size zero batches */
+		batch_size = sg_table_copy[batch_start].size;
+		batch_end = batch_start + 1;
+		while (1) {
+			u64 size;
+
+			if (batch_end >= table->nents)
+				break;
+			if (batch_end - batch_start >= BATCH_MAX_SECTIONS)
+				break;
+
+			size = sg_table_copy[batch_end].size;
+			if (size + batch_size >= BATCH_MAX_SIZE)
+				break;
+
+			batch_size += size;
+			batch_end++;
+		}
+
+		desc.args[0] = virt_to_phys(&sg_table_copy[batch_start]);
+		desc.args[1] = (batch_end - batch_start) *
+				sizeof(sg_table_copy[0]);
+
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				MEM_PROT_ASSIGN_ID), &desc);
+		if (ret) {
+			pr_info("%s: Failed to assign memory protection, ret = %d\n",
+				__func__, ret);
+			break;
+		}
+		batch_start = batch_end;
+	}
 
 out_unlock:
 	mutex_unlock(&secure_buffer_mutex);
