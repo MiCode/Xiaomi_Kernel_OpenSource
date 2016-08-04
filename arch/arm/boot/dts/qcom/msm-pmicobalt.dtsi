@@ -309,6 +309,8 @@
 			qcom,pmic-revid = <&pmicobalt_revid>;
 			io-channels = <&pmicobalt_rradc 0>;
 			io-channel-names = "rradc_batt_id";
+			qcom,fg-esr-timer-awake = <64>;
+			qcom,fg-esr-timer-asleep = <256>;
 			status = "okay";
 
 			qcom,fg-batt-soc@4000 {
