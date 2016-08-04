@@ -96,6 +96,11 @@
 #define IPA_MBIM_MAX_STREAM_NUM 8
 
 /**
+ *  size of the ipv6 address
+ */
+#define IPA_WAN_MSG_IPv6_ADDR_GW_LEN 4
+
+/**
  * the attributes of the rule (routing or filtering)
  */
 #define IPA_FLT_TOS			(1ul << 0)
@@ -1435,12 +1440,15 @@ struct ipa_ecm_msg {
  * @name: name of the wan interface
  *
  * CnE need to pass the name of default wan iface when connected/disconnected.
+ * CNE need to pass the gw info in wlan AP+STA mode.
  * netmgr need to pass the name of wan eMBMS iface when connected.
  */
 struct ipa_wan_msg {
 	char upstream_ifname[IPA_RESOURCE_NAME_MAX];
 	char tethered_ifname[IPA_RESOURCE_NAME_MAX];
 	enum ipa_ip_type ip;
+	uint32_t ipv4_addr_gw;
+	uint32_t ipv6_addr_gw[IPA_WAN_MSG_IPv6_ADDR_GW_LEN];
 };
 
 /**
