@@ -364,6 +364,7 @@ int msm_vidc_load_u32_table(struct platform_device *pdev,
 
 	return rc;
 }
+EXPORT_SYMBOL(msm_vidc_load_u32_table);
 
 static int msm_vidc_load_platform_version_table(
 		struct msm_vidc_platform_resources *res)

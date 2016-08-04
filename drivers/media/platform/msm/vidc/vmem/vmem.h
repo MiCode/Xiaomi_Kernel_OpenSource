@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 #ifndef __VMEM_H__
 #define __VMEM_H__
 
-#ifdef CONFIG_MSM_VIDC_VMEM
+#if (defined CONFIG_MSM_VIDC_VMEM) || (defined CONFIG_MSM_VIDC_VMEM_MODULE)
 
 int vmem_allocate(size_t size, phys_addr_t *addr);
 void vmem_free(phys_addr_t to_free);

@@ -781,3 +781,5 @@ static void __exit msm_vidc_exit(void)
 
 module_init(msm_vidc_init);
 module_exit(msm_vidc_exit);
+
+MODULE_LICENSE("GPL");
