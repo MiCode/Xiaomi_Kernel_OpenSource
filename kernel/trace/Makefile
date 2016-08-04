@@ -74,4 +74,5 @@ obj-$(CONFIG_GPU_TRACEPOINTS) += gpu-traces.o
 
 obj-$(CONFIG_TRACEPOINT_BENCHMARK) += trace_benchmark.o
 
+obj-$(CONFIG_QCOM_RTB) += msm_rtb.o
 libftrace-y := ftrace.o
