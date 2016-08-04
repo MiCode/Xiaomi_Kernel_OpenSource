@@ -140,6 +140,7 @@ struct qusb_phy {
 	u32			tune2_val;
 	int			tune2_efuse_bit_pos;
 	int			tune2_efuse_num_of_bits;
+	int			tune2_efuse_correction;
 
 	bool			power_enabled;
 	bool			clocks_enabled;
@@ -557,6 +558,17 @@ static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 
 	qphy->tune2_val = TUNE2_HIGH_NIBBLE_VAL(qphy->tune2_val,
 				qphy->tune2_efuse_bit_pos, bit_mask);
+
+	/* Update higher nibble of TUNE2 value for better rise/fall times */
+	if (qphy->tune2_efuse_correction) {
+		if (qphy->tune2_efuse_correction > 5 ||
+				qphy->tune2_efuse_correction < -10)
+			pr_warn("Correction value is out of range : %d\n",
+					qphy->tune2_efuse_correction);
+		else
+			qphy->tune2_val = qphy->tune2_val +
+						qphy->tune2_efuse_correction;
+	}
 
 	if (!qphy->tune2_val)
 		qphy->tune2_val = TUNE2_DEFAULT_HIGH_NIBBLE;
@@ -1039,6 +1051,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 						"qcom,tune2-efuse-num-bits",
 						&qphy->tune2_efuse_num_of_bits);
 			}
+			of_property_read_u32(dev->of_node,
+						"qcom,tune2-efuse-correction",
+						&qphy->tune2_efuse_correction);
 
 			if (ret) {
 				dev_err(dev, "DT Value for tune2 efuse is invalid.\n");
