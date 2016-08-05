@@ -70,6 +70,8 @@ struct msm_pcm_pdata {
 	int perf_mode;
 };
 
+static u32 hfp_tx_mute;
+
 static void stop_pcm(struct msm_pcm_loopback *pcm);
 static int msm_pcm_loopback_get_session(struct snd_soc_pcm_runtime *rtd,
 					struct msm_pcm_loopback **pcm);
@@ -114,6 +116,13 @@ static void msm_pcm_loopback_event_handler(uint32_t opcode, uint32_t token,
 	}
 }
 
+static int msm_loopback_session_mute_get(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = hfp_tx_mute;
+	return 0;
+}
+
 static int msm_loopback_session_mute_put(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_value *ucontrol)
 {
@@ -128,7 +137,7 @@ static int msm_loopback_session_mute_put(struct snd_kcontrol *kcontrol,
 	}
 
 	pr_debug("%s: mute=%d\n", __func__, mute);
-
+	hfp_tx_mute = mute;
 	for (n = 0; n < LOOPBACK_SESSION_MAX; n++) {
 		if (!strcmp(session_map[n].stream_name, "MultiMedia6"))
 			pcm = session_map[n].loopback_priv;
@@ -145,7 +154,8 @@ done:
 
 static struct snd_kcontrol_new msm_loopback_controls[] = {
 	SOC_SINGLE_EXT("HFP TX Mute", SND_SOC_NOPM, 0, 1, 0,
-			NULL, msm_loopback_session_mute_put),
+			msm_loopback_session_mute_get,
+			msm_loopback_session_mute_put),
 };
 
 static int msm_pcm_loopback_probe(struct snd_soc_platform *platform)
