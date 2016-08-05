@@ -111,6 +111,8 @@
 #define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA11     (0x01C)
 #define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA12     (0x020)
 
+#define DP_INTERRUPT_STATUS_2                          (0x024)
+
 struct lane_mapping {
 	char lane0;
 	char lane1;
