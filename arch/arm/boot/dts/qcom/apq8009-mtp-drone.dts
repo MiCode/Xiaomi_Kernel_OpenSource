@@ -21,7 +21,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 Drone Reference Board";
 	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
-	qcom,msm-id = <265 2>;
+	qcom,msm-id = <265 2>, <245 2>;
 	qcom,board-id= <8 0xB>;
 };
 
@@ -50,4 +50,61 @@
 			qcom,cdc-reset-gpio = <&msm_gpio 27 0>;
 		};
 	};
+};
+
+&msm_gpio {
+	sdc2_wlan_gpio_on: sdc2_wlan_gpio_on {
+		mux {
+			pins = "gpio43";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio43";
+			drive-strength = <10>;
+			bias-pull-up;
+			output-high;
+		};
+	};
+	sdc2_wlan_gpio_off: sdc2_wlan_gpio_off {
+		mux {
+			pins = "gpio43";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio43";
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
+&sdhc_2 {
+	/delete-property/cd-gpios;
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0
+			2 &msm_gpio 38 0>;
+	interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
+
+	qcom,vdd-voltage-level = <1800000 1800000>;
+	qcom,vdd-current-level = <15000 400000>;
+
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 50000>;
+	qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000
+			50000000 100000000>;
+	qcom,clk-rates = <400000 25000000 50000000 100000000 >;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50","SDR104";
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
+			&sdc2_wlan_gpio_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+	qcom,nonremovable;
+	status = "ok";
 };
