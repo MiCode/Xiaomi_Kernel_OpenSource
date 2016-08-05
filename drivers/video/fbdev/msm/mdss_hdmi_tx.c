@@ -1803,6 +1803,7 @@ static int hdmi_tx_init_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdcp_init_data.hdmi_tx_ver   = hdmi_ctrl->hdmi_tx_major_version;
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.timing        = &hdmi_ctrl->timing;
+	hdcp_init_data.client_id     = HDCP_CLIENT_HDMI;
 
 	if (hdmi_ctrl->hdcp14_present) {
 		hdcp_data = hdmi_hdcp_init(&hdcp_init_data);

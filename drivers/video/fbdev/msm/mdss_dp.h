@@ -345,12 +345,15 @@ struct mdss_dp_drv_pdata {
 	bool core_power;
 	bool core_clks_on;
 	bool link_clks_on;
+	bool power_on;
 
 	/* dp specific */
 	unsigned char *base;
 	struct dss_io_data ctrl_io;
 	struct dss_io_data phy_io;
 	struct dss_io_data tcsr_reg_io;
+	struct dss_io_data qfprom_io;
+	struct dss_io_data hdcp_io;
 	int base_size;
 	unsigned char *mmss_cc_base;
 	u32 mask1;
@@ -397,6 +400,7 @@ struct mdss_dp_drv_pdata {
 	struct mutex train_mutex;
 	struct mutex host_mutex;
 	struct mutex pd_msg_mutex;
+	struct mutex hdcp_mutex;
 	bool cable_connected;
 	u32 aux_cmd_busy;
 	u32 aux_cmd_i2c;
@@ -430,6 +434,9 @@ struct mdss_dp_drv_pdata {
 	u32 vic;
 	u32 new_vic;
 	int fb_node;
+
+	void *hdcp_data;
+	struct hdmi_hdcp_ops *hdcp_ops;
 };
 
 static inline const char *__mdss_dp_pm_name(enum dp_pm_type module)
