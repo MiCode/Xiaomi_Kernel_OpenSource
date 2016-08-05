@@ -15,13 +15,17 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/reset-controller.h>
 
 struct clk_dummy {
 	struct clk_hw hw;
+	struct reset_controller_dev reset;
 	unsigned long rrate;
 };
 
 #define to_clk_dummy(_hw)	container_of(_hw, struct clk_dummy, hw)
+
+#define RESET_MAX	100
 
 static int dummy_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 					unsigned long parent_rate)
@@ -58,15 +62,35 @@ struct clk_ops clk_dummy_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_dummy_ops);
 
+static int dummy_reset_assert(struct reset_controller_dev *rcdev,
+				unsigned long id)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+static int dummy_reset_deassert(struct reset_controller_dev *rcdev,
+				unsigned long id)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+static struct reset_control_ops dummy_reset_ops = {
+	.assert         = dummy_reset_assert,
+	.deassert       = dummy_reset_deassert,
+};
+
 /**
  * clk_register_dummy - register dummy clock with the
  *				   clock framework
  * @dev: device that is registering this clock
  * @name: name of this clock
  * @flags: framework-specific flags
+ * @node: device node
  */
 static struct clk *clk_register_dummy(struct device *dev, const char *name,
-		unsigned long flags)
+		unsigned long flags, struct device_node *node)
 {
 	struct clk_dummy *dummy;
 	struct clk *clk;
@@ -85,8 +109,20 @@ static struct clk *clk_register_dummy(struct device *dev, const char *name,
 
 	/* register the clock */
 	clk = clk_register(dev, &dummy->hw);
-	if (IS_ERR(clk))
+	if (IS_ERR(clk)) {
 		kfree(dummy);
+		return clk;
+	}
+
+	dummy->reset.of_node = node;
+	dummy->reset.ops = &dummy_reset_ops;
+	dummy->reset.nr_resets = RESET_MAX;
+
+	if (reset_controller_register(&dummy->reset))
+		pr_err("Failed to register reset controller for %s\n", name);
+	else
+		pr_info("Successfully registered dummy reset controller for %s\n",
+								name);
 
 	return clk;
 }
@@ -101,10 +137,16 @@ static void of_dummy_clk_setup(struct device_node *node)
 
 	of_property_read_string(node, "clock-output-names", &clk_name);
 
-	clk = clk_register_dummy(NULL, clk_name, 0);
-	if (!IS_ERR(clk))
+	clk = clk_register_dummy(NULL, clk_name, 0, node);
+	if (!IS_ERR(clk)) {
 		of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	} else {
+		pr_err("Failed to register dummy clock controller for %s\n",
+								clk_name);
+		return;
+	}
 
-	pr_info("%s: Dummy clock registered\n", clk_name);
+	pr_info("Successfully registered dummy clock controller for %s\n",
+								clk_name);
 }
 CLK_OF_DECLARE(dummy_clk, "qcom,dummycc", of_dummy_clk_setup);
