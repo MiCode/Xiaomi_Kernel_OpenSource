@@ -68,8 +68,9 @@ enum fg_debug_flag {
 
 /* SRAM access */
 enum sram_access_flags {
-	FG_IMA_DEFAULT = 0,
-	FG_IMA_ATOMIC,
+	FG_IMA_DEFAULT	= 0,
+	FG_IMA_ATOMIC	= BIT(0),
+	FG_IMA_NO_WLOCK	= BIT(1),
 };
 
 /* JEITA */
