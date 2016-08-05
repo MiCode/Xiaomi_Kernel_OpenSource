@@ -186,6 +186,7 @@ qcom	Qualcomm Technologies, Inc
 qemu	QEMU, a generic and open source machine emulator and virtualizer
 qi	Qi Hardware
 qnap	QNAP Systems, Inc.
+qvm	BlackBerry Ltd
 radxa	Radxa
 raidsonic	RaidSonic Technology GmbH
 ralink	Mediatek/Ralink Technology Corp.
