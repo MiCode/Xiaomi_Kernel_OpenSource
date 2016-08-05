@@ -1228,12 +1228,14 @@
 				0x93 0x88  /* Tune3 */
 				0xd5 0x8c>; /* Tune4 */
 		phy_type = "utmi";
-
+		USB3_GDSC-supply = <&gdsc_usb30>;
 		clocks = <&clock_gcc clk_ln_bb_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
-			 <&clock_gcc clk_gcc_qusb2a_phy_reset>;
+			 <&clock_gcc clk_gcc_qusb2a_phy_reset>,
+			 <&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>;
 
-		clock-names = "ref_clk_src", "cfg_ahb_clk", "phy_reset";
+		clock-names = "ref_clk_src", "cfg_ahb_clk", "phy_reset",
+			      "iface_clk";
 	};
 
 	ssphy: ssphy@78000 {
