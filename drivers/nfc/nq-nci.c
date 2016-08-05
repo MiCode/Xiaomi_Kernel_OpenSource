@@ -370,6 +370,9 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			} else {
 				dev_dbg(&nqx_dev->client->dev, "keeping en_gpio high\n");
 			}
+		} else {
+			dev_dbg(&nqx_dev->client->dev, "ese_gpio invalid, set en_gpio to low\n");
+			gpio_set_value(nqx_dev->en_gpio, 0);
 		}
 		r = nqx_clock_deselect(nqx_dev);
 		if (r < 0)
@@ -774,21 +777,28 @@ static int nqx_probe(struct i2c_client *client,
 		r = gpio_request(platform_data->ese_gpio,
 				"nfc-ese_pwr");
 		if (r) {
+			nqx_dev->ese_gpio = -EINVAL;
 			dev_err(&client->dev,
 				"%s: unable to request nfc ese gpio [%d]\n",
 					__func__, platform_data->ese_gpio);
 			/* ese gpio optional so we should continue */
 		} else {
 			nqx_dev->ese_gpio = platform_data->ese_gpio;
-		}
-		r = gpio_direction_output(platform_data->ese_gpio, 0);
-		if (r) {
-			dev_err(&client->dev,
-			"%s: cannot set direction for nfc ese gpio [%d]\n",
-			__func__, platform_data->ese_gpio);
-			/* ese gpio optional so we should continue */
+			r = gpio_direction_output(platform_data->ese_gpio, 0);
+			if (r) {
+				/* free ese gpio and set invalid
+				   to avoid further use
+				*/
+				gpio_free(platform_data->ese_gpio);
+				nqx_dev->ese_gpio = -EINVAL;
+				dev_err(&client->dev,
+				"%s: cannot set direction for nfc ese gpio [%d]\n",
+				__func__, platform_data->ese_gpio);
+				/* ese gpio optional so we should continue */
+			}
 		}
 	} else {
+		nqx_dev->ese_gpio = -EINVAL;
 		dev_err(&client->dev,
 			"%s: ese gpio not provided\n", __func__);
 		/* ese gpio optional so we should continue */
@@ -818,7 +828,6 @@ static int nqx_probe(struct i2c_client *client,
 	nqx_dev->en_gpio = platform_data->en_gpio;
 	nqx_dev->irq_gpio = platform_data->irq_gpio;
 	nqx_dev->firm_gpio  = platform_data->firm_gpio;
-	nqx_dev->ese_gpio = platform_data->ese_gpio;
 	nqx_dev->clkreq_gpio = platform_data->clkreq_gpio;
 	nqx_dev->pdata = platform_data;
 
@@ -904,7 +913,7 @@ err_clkreq_gpio:
 	gpio_free(platform_data->clkreq_gpio);
 err_ese_gpio:
 	/* optional gpio, not sure was configured in probe */
-	if (nqx_dev->ese_gpio)
+	if (nqx_dev->ese_gpio > 0)
 		gpio_free(platform_data->ese_gpio);
 err_firm_gpio:
 	gpio_free(platform_data->firm_gpio);
@@ -945,7 +954,7 @@ static int nqx_remove(struct i2c_client *client)
 	mutex_destroy(&nqx_dev->read_mutex);
 	gpio_free(nqx_dev->clkreq_gpio);
 	/* optional gpio, not sure was configured in probe */
-	if (nqx_dev->ese_gpio)
+	if (nqx_dev->ese_gpio > 0)
 		gpio_free(nqx_dev->ese_gpio);
 	gpio_free(nqx_dev->firm_gpio);
 	gpio_free(nqx_dev->irq_gpio);
