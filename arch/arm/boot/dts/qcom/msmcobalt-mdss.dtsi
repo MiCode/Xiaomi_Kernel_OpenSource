@@ -44,7 +44,8 @@
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
-		qcom,vbif-settings = <0x00ac 0x00000040>;
+		qcom,vbif-settings = <0x00ac 0x00000040>,
+				     <0x00d0 0x00001010>; /* v1 only */
 
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-per-pipe-panic-luts = <0x000f>,
@@ -57,9 +58,8 @@
 		qcom,max-bandwidth-high-kbps = <6700000>;
 		qcom,max-bandwidth-per-pipe-kbps = <2400000>;
 		qcom,max-clk-rate = <412500000>;
-		/* OT settings and bw for v1, revisit for v2 */
-		qcom,mdss-default-ot-rd-limit = <16>;
-		qcom,mdss-default-ot-wr-limit = <16>;
+		qcom,mdss-default-ot-rd-limit = <32>;
+		qcom,mdss-default-ot-wr-limit = <32>;
 		qcom,mdss-dram-channels = <2>;
 
 		qcom,mdss-pipe-vig-off = <0x00005000 0x00007000
