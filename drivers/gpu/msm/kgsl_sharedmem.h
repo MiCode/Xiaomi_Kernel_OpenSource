@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,6 +70,10 @@ int kgsl_allocate_user(struct kgsl_device *device,
 		uint64_t size, uint64_t flags);
 
 void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
+
+int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
+				struct kgsl_pagetable *pagetable,
+				uint64_t size);
 
 #define MEMFLAGS(_flags, _mask, _shift) \
 	((unsigned int) (((_flags) & (_mask)) >> (_shift)))
@@ -266,7 +270,16 @@ static inline int kgsl_allocate_global(struct kgsl_device *device,
 	memdesc->flags = flags;
 	memdesc->priv = priv;
 
-	ret = kgsl_sharedmem_alloc_contig(device, memdesc, NULL, (size_t) size);
+	if ((memdesc->priv & KGSL_MEMDESC_CONTIG) != 0)
+		ret = kgsl_sharedmem_alloc_contig(device, memdesc, NULL,
+						(size_t) size);
+	else {
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, NULL,
+						(size_t) size);
+		if (ret == 0)
+			kgsl_memdesc_map(memdesc);
+	}
+
 	if (ret == 0)
 		kgsl_mmu_add_global(device, memdesc);
 

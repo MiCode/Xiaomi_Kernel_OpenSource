@@ -163,6 +163,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_PRIVILEGED BIT(6)
 /* The memdesc is TZ locked content protection */
 #define KGSL_MEMDESC_TZ_LOCKED BIT(7)
+/* The memdesc is allocated through contiguous memory */
+#define KGSL_MEMDESC_CONTIG BIT(8)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor
