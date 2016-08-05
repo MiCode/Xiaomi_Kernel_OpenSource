@@ -4034,8 +4034,10 @@ static void ffs_closed(struct ffs_data *ffs)
 	ffs_dev_lock();
 
 	ffs_obj = ffs->private_data;
-	if (!ffs_obj)
+	if (!ffs_obj) {
+		ffs_dev_unlock();
 		goto done;
+	}
 
 	ffs_obj->desc_ready = false;
 
@@ -4043,22 +4045,26 @@ static void ffs_closed(struct ffs_data *ffs)
 	    ffs_obj->ffs_closed_callback)
 		ffs_obj->ffs_closed_callback(ffs);
 
-	if (ffs_obj->opts)
+	if (ffs_obj->opts) {
 		opts = ffs_obj->opts;
-	else
+	} else {
+		ffs_dev_unlock();
 		goto done;
+	}
 
 	if (opts->no_configfs || !opts->func_inst.group.cg_item.ci_parent
-	    || !atomic_read(&opts->func_inst.group.cg_item.ci_kref.refcount))
+	    || !atomic_read(&opts->func_inst.group.cg_item.ci_kref.refcount)) {
+		ffs_dev_unlock();
 		goto done;
+	}
 
-	unregister_gadget_item(ffs_obj->opts->
+	ffs_dev_unlock();
+
+	unregister_gadget_item(opts->
 			       func_inst.group.cg_item.ci_parent->ci_parent);
 
 	ffs_log("unreg gadget done");
 done:
-	ffs_dev_unlock();
-
 	ffs_log("exit");
 }
 
