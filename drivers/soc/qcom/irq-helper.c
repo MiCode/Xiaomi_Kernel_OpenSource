@@ -18,6 +18,7 @@
 #include <linux/kobject.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
+#include <soc/qcom/irq-helper.h>
 
 struct irq_helper {
 	bool enable;
