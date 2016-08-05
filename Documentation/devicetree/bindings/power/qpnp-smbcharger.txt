@@ -297,6 +297,9 @@ Optional Properties:
 - qcom,override-usb-current	A boolean property to override the ICL limit
 				for USB charger(SDP) based on the current
 				reported by USB driver.
+- qcom,max-pulse-allowed	The maximum number of pulses allowed in
+				HVDCP3 mode. It can be used to restrict VBUS
+				to a value.
 
 Example:
 	qcom,qpnp-smbcharger {
