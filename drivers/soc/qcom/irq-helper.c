@@ -161,7 +161,7 @@ static int __init irq_helper_init(void)
 	irq_h->enable = true;
 	return 0;
 out_put_kobj:
-	koject_put(&irq_h->kobj);
+	kobject_put(&irq_h->kobj);
 out_free_irq:
 	kfree(irq_h);
 	return ret;
