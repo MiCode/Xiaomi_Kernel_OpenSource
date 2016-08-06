@@ -45,6 +45,7 @@
 #include "wcd934x-dsp-cntl.h"
 #include "../wcd9xxx-common-v2.h"
 #include "../wcd9xxx-resmgr-v2.h"
+#include "../wcdcal-hwdep.h"
 
 #define WCD934X_RX_PORT_START_NUMBER  16
 
@@ -486,6 +487,9 @@ struct tavil_priv {
 
 	/* DSP control */
 	struct wcd_dsp_cntl *wdsp_cntl;
+
+	/* cal info for codec */
+	struct fw_info *fw_data;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -5585,6 +5589,23 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	/* Default HPH Mode to Class-H HiFi */
 	tavil->hph_mode = CLS_H_HIFI;
 
+	tavil->fw_data = devm_kzalloc(codec->dev, sizeof(*(tavil->fw_data)),
+				      GFP_KERNEL);
+	if (!tavil->fw_data)
+		goto err;
+
+	set_bit(WCD9XXX_ANC_CAL, tavil->fw_data->cal_bit);
+	set_bit(WCD9XXX_MBHC_CAL, tavil->fw_data->cal_bit);
+	set_bit(WCD9XXX_MAD_CAL, tavil->fw_data->cal_bit);
+	set_bit(WCD9XXX_VBAT_CAL, tavil->fw_data->cal_bit);
+
+	ret = wcd_cal_create_hwdep(tavil->fw_data,
+				   WCD9XXX_CODEC_HWDEP_NODE, codec);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
+		goto err_hwdep;
+	}
+
 	tavil->codec = codec;
 	for (i = 0; i < COMPANDER_MAX; i++)
 		tavil->comp_enabled[i] = 0;
@@ -5604,14 +5625,14 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	ret = tavil_handle_pdata(tavil, pdata);
 	if (IS_ERR_VALUE(ret)) {
 		dev_err(codec->dev, "%s: bad pdata\n", __func__);
-		goto err;
+		goto err_hwdep;
 	}
 
 	ptr = devm_kzalloc(codec->dev, (sizeof(tavil_rx_chs) +
 			   sizeof(tavil_tx_chs)), GFP_KERNEL);
 	if (!ptr) {
 		ret = -ENOMEM;
-		goto err;
+		goto err_hwdep;
 	}
 
 	snd_soc_dapm_add_routes(dapm, tavil_slim_audio_map,
@@ -5663,6 +5684,8 @@ err_pdata:
 	devm_kfree(codec->dev, ptr);
 	control->rx_chs = NULL;
 	control->tx_chs = NULL;
+err_hwdep:
+	devm_kfree(codec->dev, tavil->fw_data);
 err:
 	return ret;
 }
