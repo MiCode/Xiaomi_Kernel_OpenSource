@@ -40,8 +40,7 @@
 #define IPA_TAG_SLEEP_MAX_USEC (2000)
 #define IPA_FORCE_CLOSE_TAG_PROCESS_TIMEOUT (10 * HZ)
 #define IPA_BCR_REG_VAL_v3_0 (0x00000001)
-#define IPA_BCR_REG_VAL_v3_1 (0x00000003)
-#define IPA_BCR_REG_VAL_v3_5_1 (0x0000003B)
+#define IPA_BCR_REG_VAL_v3_5 (0x0000003B)
 #define IPA_AGGR_GRAN_MIN (1)
 #define IPA_AGGR_GRAN_MAX (32)
 #define IPA_EOT_COAL_GRAN_MIN (1)
@@ -868,13 +867,12 @@ int ipa3_init_hw(void)
 
 	switch (ipa3_ctx->ipa_hw_type) {
 	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
 		val = IPA_BCR_REG_VAL_v3_0;
 		break;
-	case IPA_HW_v3_1:
-		val = IPA_BCR_REG_VAL_v3_1;
-		break;
+	case IPA_HW_v3_5:
 	case IPA_HW_v3_5_1:
-		val = IPA_BCR_REG_VAL_v3_5_1;
+		val = IPA_BCR_REG_VAL_v3_5;
 		break;
 	default:
 		IPAERR("unknown HW type in dts\n");
