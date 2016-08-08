@@ -30,6 +30,8 @@ static struct device_type drm_sysfs_device_minor = {
 	.name = "drm_minor"
 };
 
+struct class *drm_class;
+
 /**
  * __drm_class_suspend - internal DRM class suspend routine
  * @dev: Linux device to suspend
@@ -112,41 +114,34 @@ static CLASS_ATTR_STRING(version, S_IRUGO,
 		CORE_DATE);
 
 /**
- * drm_sysfs_create - create a struct drm_sysfs_class structure
- * @owner: pointer to the module that is to "own" this struct drm_sysfs_class
- * @name: pointer to a string for the name of this class.
+ * drm_sysfs_init - initialize sysfs helpers
  *
- * This is used to create DRM class pointer that can then be used
- * in calls to drm_sysfs_device_add().
+ * This is used to create the DRM class, which is the implicit parent of any
+ * other top-level DRM sysfs objects.
  *
- * Note, the pointer created here is to be destroyed when finished by making a
- * call to drm_sysfs_destroy().
+ * You must call drm_sysfs_destroy() to release the allocated resources.
+ *
+ * Return: 0 on success, negative error code on failure.
  */
-struct class *drm_sysfs_create(struct module *owner, char *name)
+int drm_sysfs_init(void)
 {
-	struct class *class;
 	int err;
 
-	class = class_create(owner, name);
-	if (IS_ERR(class)) {
-		err = PTR_ERR(class);
-		goto err_out;
+	drm_class = class_create(THIS_MODULE, "drm");
+	if (IS_ERR(drm_class))
+		return PTR_ERR(drm_class);
+
+	drm_class->pm = &drm_class_dev_pm_ops;
+
+	err = class_create_file(drm_class, &class_attr_version.attr);
+	if (err) {
+		class_destroy(drm_class);
+		drm_class = NULL;
+		return err;
 	}
 
-	class->pm = &drm_class_dev_pm_ops;
-
-	err = class_create_file(class, &class_attr_version.attr);
-	if (err)
-		goto err_out_class;
-
-	class->devnode = drm_devnode;
-
-	return class;
-
-err_out_class:
-	class_destroy(class);
-err_out:
-	return ERR_PTR(err);
+	drm_class->devnode = drm_devnode;
+	return 0;
 }
 
 /**
@@ -156,7 +151,7 @@ err_out:
  */
 void drm_sysfs_destroy(void)
 {
-	if ((drm_class == NULL) || (IS_ERR(drm_class)))
+	if (IS_ERR_OR_NULL(drm_class))
 		return;
 	class_remove_file(drm_class, &class_attr_version.attr);
 	class_destroy(drm_class);
@@ -166,23 +161,68 @@ void drm_sysfs_destroy(void)
 /*
  * Connector properties
  */
+static ssize_t status_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	struct drm_device *dev = connector->dev;
+	enum drm_connector_status old_status;
+	int ret;
+
+	ret = mutex_lock_interruptible(&dev->mode_config.mutex);
+	if (ret)
+		return ret;
+
+	old_status = connector->status;
+
+	if (sysfs_streq(buf, "detect")) {
+		connector->force = 0;
+		connector->status = connector->funcs->detect(connector, true);
+	} else if (sysfs_streq(buf, "on")) {
+		connector->force = DRM_FORCE_ON;
+	} else if (sysfs_streq(buf, "on-digital")) {
+		connector->force = DRM_FORCE_ON_DIGITAL;
+	} else if (sysfs_streq(buf, "off")) {
+		connector->force = DRM_FORCE_OFF;
+	} else
+		ret = -EINVAL;
+
+	if (ret == 0 && connector->force) {
+		if (connector->force == DRM_FORCE_ON ||
+		    connector->force == DRM_FORCE_ON_DIGITAL)
+			connector->status = connector_status_connected;
+		else
+			connector->status = connector_status_disconnected;
+		if (connector->funcs->force)
+			connector->funcs->force(connector);
+	}
+
+	if (old_status != connector->status) {
+		DRM_DEBUG_KMS("[CONNECTOR:%d:%s] status updated from %d to %d\n",
+			      connector->base.id,
+			      connector->name,
+			      old_status, connector->status);
+
+		dev->mode_config.delayed_event = true;
+		if (dev->mode_config.poll_enabled)
+			schedule_delayed_work(&dev->mode_config.output_poll_work,
+					      0);
+	}
+
+	mutex_unlock(&dev->mode_config.mutex);
+
+	return ret ? ret : count;
+}
+
 static ssize_t status_show(struct device *device,
 			   struct device_attribute *attr,
 			   char *buf)
 {
 	struct drm_connector *connector = to_drm_connector(device);
-	enum drm_connector_status status;
-	int ret;
-
-	ret = mutex_lock_interruptible(&connector->dev->mode_config.mutex);
-	if (ret)
-		return ret;
-
-	status = connector->funcs->detect(connector, true);
-	mutex_unlock(&connector->dev->mode_config.mutex);
 
 	return snprintf(buf, PAGE_SIZE, "%s\n",
-			drm_get_connector_status_name(status));
+			drm_get_connector_status_name(connector->status));
 }
 
 static ssize_t dpms_show(struct device *device,
@@ -190,18 +230,12 @@ static ssize_t dpms_show(struct device *device,
 			   char *buf)
 {
 	struct drm_connector *connector = to_drm_connector(device);
-	struct drm_device *dev = connector->dev;
-	uint64_t dpms_status;
-	int ret;
+	int dpms;
 
-	ret = drm_object_property_get_value(&connector->base,
-					    dev->mode_config.dpms_property,
-					    &dpms_status);
-	if (ret)
-		return 0;
+	dpms = READ_ONCE(connector->dpms);
 
 	return snprintf(buf, PAGE_SIZE, "%s\n",
-			drm_get_dpms_name((int)dpms_status));
+			drm_get_dpms_name(dpms));
 }
 
 static ssize_t enabled_show(struct device *device,
@@ -257,33 +291,17 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
-static ssize_t subconnector_show(struct device *device,
-			   struct device_attribute *attr,
-			   char *buf)
+static ssize_t tv_subconnector_show(struct device *device,
+				    struct device_attribute *attr,
+				    char *buf)
 {
 	struct drm_connector *connector = to_drm_connector(device);
 	struct drm_device *dev = connector->dev;
-	struct drm_property *prop = NULL;
+	struct drm_property *prop;
 	uint64_t subconnector;
-	int is_tv = 0;
 	int ret;
 
-	switch (connector->connector_type) {
-		case DRM_MODE_CONNECTOR_DVII:
-			prop = dev->mode_config.dvi_i_subconnector_property;
-			break;
-		case DRM_MODE_CONNECTOR_Composite:
-		case DRM_MODE_CONNECTOR_SVIDEO:
-		case DRM_MODE_CONNECTOR_Component:
-		case DRM_MODE_CONNECTOR_TV:
-			prop = dev->mode_config.tv_subconnector_property;
-			is_tv = 1;
-			break;
-		default:
-			DRM_ERROR("Wrong connector type for this property\n");
-			return 0;
-	}
-
+	prop = dev->mode_config.tv_subconnector_property;
 	if (!prop) {
 		DRM_ERROR("Unable to find subconnector property\n");
 		return 0;
@@ -293,38 +311,21 @@ static ssize_t subconnector_show(struct device *device,
 	if (ret)
 		return 0;
 
-	return snprintf(buf, PAGE_SIZE, "%s", is_tv ?
-			drm_get_tv_subconnector_name((int)subconnector) :
-			drm_get_dvi_i_subconnector_name((int)subconnector));
+	return snprintf(buf, PAGE_SIZE, "%s",
+			drm_get_tv_subconnector_name((int)subconnector));
 }
 
-static ssize_t select_subconnector_show(struct device *device,
-			   struct device_attribute *attr,
-			   char *buf)
+static ssize_t tv_select_subconnector_show(struct device *device,
+					   struct device_attribute *attr,
+					   char *buf)
 {
 	struct drm_connector *connector = to_drm_connector(device);
 	struct drm_device *dev = connector->dev;
-	struct drm_property *prop = NULL;
+	struct drm_property *prop;
 	uint64_t subconnector;
-	int is_tv = 0;
 	int ret;
 
-	switch (connector->connector_type) {
-		case DRM_MODE_CONNECTOR_DVII:
-			prop = dev->mode_config.dvi_i_select_subconnector_property;
-			break;
-		case DRM_MODE_CONNECTOR_Composite:
-		case DRM_MODE_CONNECTOR_SVIDEO:
-		case DRM_MODE_CONNECTOR_Component:
-		case DRM_MODE_CONNECTOR_TV:
-			prop = dev->mode_config.tv_select_subconnector_property;
-			is_tv = 1;
-			break;
-		default:
-			DRM_ERROR("Wrong connector type for this property\n");
-			return 0;
-	}
-
+	prop = dev->mode_config.tv_select_subconnector_property;
 	if (!prop) {
 		DRM_ERROR("Unable to find select subconnector property\n");
 		return 0;
@@ -334,29 +335,151 @@ static ssize_t select_subconnector_show(struct device *device,
 	if (ret)
 		return 0;
 
-	return snprintf(buf, PAGE_SIZE, "%s", is_tv ?
-			drm_get_tv_select_name((int)subconnector) :
+	return snprintf(buf, PAGE_SIZE, "%s",
+			drm_get_tv_select_name((int)subconnector));
+}
+
+static ssize_t dvii_subconnector_show(struct device *device,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	struct drm_device *dev = connector->dev;
+	struct drm_property *prop;
+	uint64_t subconnector;
+	int ret;
+
+	prop = dev->mode_config.dvi_i_subconnector_property;
+	if (!prop) {
+		DRM_ERROR("Unable to find subconnector property\n");
+		return 0;
+	}
+
+	ret = drm_object_property_get_value(&connector->base, prop, &subconnector);
+	if (ret)
+		return 0;
+
+	return snprintf(buf, PAGE_SIZE, "%s",
+			drm_get_dvi_i_subconnector_name((int)subconnector));
+}
+
+static ssize_t dvii_select_subconnector_show(struct device *device,
+					     struct device_attribute *attr,
+					     char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	struct drm_device *dev = connector->dev;
+	struct drm_property *prop;
+	uint64_t subconnector;
+	int ret;
+
+	prop = dev->mode_config.dvi_i_select_subconnector_property;
+	if (!prop) {
+		DRM_ERROR("Unable to find select subconnector property\n");
+		return 0;
+	}
+
+	ret = drm_object_property_get_value(&connector->base, prop, &subconnector);
+	if (ret)
+		return 0;
+
+	return snprintf(buf, PAGE_SIZE, "%s",
 			drm_get_dvi_i_select_name((int)subconnector));
 }
 
-static struct device_attribute connector_attrs[] = {
-	__ATTR_RO(status),
-	__ATTR_RO(enabled),
-	__ATTR_RO(dpms),
-	__ATTR_RO(modes),
+static DEVICE_ATTR_RW(status);
+static DEVICE_ATTR_RO(enabled);
+static DEVICE_ATTR_RO(dpms);
+static DEVICE_ATTR_RO(modes);
+
+static struct attribute *connector_dev_attrs[] = {
+	&dev_attr_status.attr,
+	&dev_attr_enabled.attr,
+	&dev_attr_dpms.attr,
+	&dev_attr_modes.attr,
+	NULL
 };
 
-/* These attributes are for both DVI-I connectors and all types of tv-out. */
-static struct device_attribute connector_attrs_opt1[] = {
-	__ATTR_RO(subconnector),
-	__ATTR_RO(select_subconnector),
+static DEVICE_ATTR_RO(tv_subconnector);
+static DEVICE_ATTR_RO(tv_select_subconnector);
+
+static struct attribute *connector_tv_dev_attrs[] = {
+	&dev_attr_tv_subconnector.attr,
+	&dev_attr_tv_select_subconnector.attr,
+	NULL
 };
+
+static DEVICE_ATTR_RO(dvii_subconnector);
+static DEVICE_ATTR_RO(dvii_select_subconnector);
+
+static struct attribute *connector_dvii_dev_attrs[] = {
+	&dev_attr_dvii_subconnector.attr,
+	&dev_attr_dvii_select_subconnector.attr,
+	NULL
+};
+
+/* Connector type related helpers */
+static int kobj_connector_type(struct kobject *kobj)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct drm_connector *connector = to_drm_connector(dev);
+
+	return connector->connector_type;
+}
+
+static umode_t connector_is_dvii(struct kobject *kobj,
+				 struct attribute *attr, int idx)
+{
+	return kobj_connector_type(kobj) == DRM_MODE_CONNECTOR_DVII ?
+		attr->mode : 0;
+}
+
+static umode_t connector_is_tv(struct kobject *kobj,
+			       struct attribute *attr, int idx)
+{
+	switch (kobj_connector_type(kobj)) {
+	case DRM_MODE_CONNECTOR_Composite:
+	case DRM_MODE_CONNECTOR_SVIDEO:
+	case DRM_MODE_CONNECTOR_Component:
+	case DRM_MODE_CONNECTOR_TV:
+		return attr->mode;
+	}
+
+	return 0;
+}
 
 static struct bin_attribute edid_attr = {
 	.attr.name = "edid",
 	.attr.mode = 0444,
 	.size = 0,
 	.read = edid_show,
+};
+
+static struct bin_attribute *connector_bin_attrs[] = {
+	&edid_attr,
+	NULL
+};
+
+static const struct attribute_group connector_dev_group = {
+	.attrs = connector_dev_attrs,
+	.bin_attrs = connector_bin_attrs,
+};
+
+static const struct attribute_group connector_tv_dev_group = {
+	.attrs = connector_tv_dev_attrs,
+	.is_visible = connector_is_tv,
+};
+
+static const struct attribute_group connector_dvii_dev_group = {
+	.attrs = connector_dvii_dev_attrs,
+	.is_visible = connector_is_dvii,
+};
+
+static const struct attribute_group *connector_dev_groups[] = {
+	&connector_dev_group,
+	&connector_tv_dev_group,
+	&connector_dvii_dev_group,
+	NULL
 };
 
 /**
@@ -371,73 +494,27 @@ static struct bin_attribute edid_attr = {
 int drm_sysfs_connector_add(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
-	int attr_cnt = 0;
-	int opt_cnt = 0;
-	int i;
-	int ret;
 
 	if (connector->kdev)
 		return 0;
 
-	connector->kdev = device_create(drm_class, dev->primary->kdev,
-					0, connector, "card%d-%s",
-					dev->primary->index, connector->name);
+	connector->kdev =
+		device_create_with_groups(drm_class, dev->primary->kdev, 0,
+					  connector, connector_dev_groups,
+					  "card%d-%s", dev->primary->index,
+					  connector->name);
 	DRM_DEBUG("adding \"%s\" to sysfs\n",
 		  connector->name);
 
 	if (IS_ERR(connector->kdev)) {
 		DRM_ERROR("failed to register connector device: %ld\n", PTR_ERR(connector->kdev));
-		ret = PTR_ERR(connector->kdev);
-		goto out;
+		return PTR_ERR(connector->kdev);
 	}
-
-	/* Standard attributes */
-
-	for (attr_cnt = 0; attr_cnt < ARRAY_SIZE(connector_attrs); attr_cnt++) {
-		ret = device_create_file(connector->kdev, &connector_attrs[attr_cnt]);
-		if (ret)
-			goto err_out_files;
-	}
-
-	/* Optional attributes */
-	/*
-	 * In the long run it maybe a good idea to make one set of
-	 * optionals per connector type.
-	 */
-	switch (connector->connector_type) {
-		case DRM_MODE_CONNECTOR_DVII:
-		case DRM_MODE_CONNECTOR_Composite:
-		case DRM_MODE_CONNECTOR_SVIDEO:
-		case DRM_MODE_CONNECTOR_Component:
-		case DRM_MODE_CONNECTOR_TV:
-			for (opt_cnt = 0; opt_cnt < ARRAY_SIZE(connector_attrs_opt1); opt_cnt++) {
-				ret = device_create_file(connector->kdev, &connector_attrs_opt1[opt_cnt]);
-				if (ret)
-					goto err_out_files;
-			}
-			break;
-		default:
-			break;
-	}
-
-	ret = sysfs_create_bin_file(&connector->kdev->kobj, &edid_attr);
-	if (ret)
-		goto err_out_files;
 
 	/* Let userspace know we have a new connector */
 	drm_sysfs_hotplug_event(dev);
 
 	return 0;
-
-err_out_files:
-	for (i = 0; i < opt_cnt; i++)
-		device_remove_file(connector->kdev, &connector_attrs_opt1[i]);
-	for (i = 0; i < attr_cnt; i++)
-		device_remove_file(connector->kdev, &connector_attrs[i]);
-	device_unregister(connector->kdev);
-
-out:
-	return ret;
 }
 
 /**
@@ -455,16 +532,11 @@ out:
  */
 void drm_sysfs_connector_remove(struct drm_connector *connector)
 {
-	int i;
-
 	if (!connector->kdev)
 		return;
 	DRM_DEBUG("removing \"%s\" from sysfs\n",
 		  connector->name);
 
-	for (i = 0; i < ARRAY_SIZE(connector_attrs); i++)
-		device_remove_file(connector->kdev, &connector_attrs[i]);
-	sysfs_remove_bin_file(&connector->kdev->kobj, &edid_attr);
 	device_unregister(connector->kdev);
 	connector->kdev = NULL;
 }

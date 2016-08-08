@@ -158,7 +158,7 @@ done:
 #define HEADER_SIZE (BARE_ADDRESS_SIZE + 1)
 
 static ssize_t
-radeon_dp_aux_transfer(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
+radeon_dp_aux_transfer_atom(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
 {
 	struct radeon_i2c_chan *chan =
 		container_of(aux, struct radeon_i2c_chan, aux);
@@ -171,13 +171,22 @@ radeon_dp_aux_transfer(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
 		return -E2BIG;
 
 	tx_buf[0] = msg->address & 0xff;
-	tx_buf[1] = msg->address >> 8;
-	tx_buf[2] = msg->request << 4;
+	tx_buf[1] = (msg->address >> 8) & 0xff;
+	tx_buf[2] = (msg->request << 4) |
+		((msg->address >> 16) & 0xf);
 	tx_buf[3] = msg->size ? (msg->size - 1) : 0;
 
 	switch (msg->request & ~DP_AUX_I2C_MOT) {
 	case DP_AUX_NATIVE_WRITE:
 	case DP_AUX_I2C_WRITE:
+	case DP_AUX_I2C_WRITE_STATUS_UPDATE:
+		/* The atom implementation only supports writes with a max payload of
+		 * 12 bytes since it uses 4 bits for the total count (header + payload)
+		 * in the parameter space.  The atom interface supports 16 byte
+		 * payloads for reads. The hw itself supports up to 16 bytes of payload.
+		 */
+		if (WARN_ON_ONCE(msg->size > 12))
+			return -E2BIG;
 		/* tx_size needs to be 4 even for bare address packets since the atom
 		 * table needs the info in tx_buf[3].
 		 */
@@ -219,11 +228,20 @@ radeon_dp_aux_transfer(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
 
 void radeon_dp_aux_init(struct radeon_connector *radeon_connector)
 {
+	struct drm_device *dev = radeon_connector->base.dev;
+	struct radeon_device *rdev = dev->dev_private;
 	int ret;
 
 	radeon_connector->ddc_bus->rec.hpd = radeon_connector->hpd.hpd;
 	radeon_connector->ddc_bus->aux.dev = radeon_connector->base.kdev;
-	radeon_connector->ddc_bus->aux.transfer = radeon_dp_aux_transfer;
+	if (ASIC_IS_DCE5(rdev)) {
+		if (radeon_auxch)
+			radeon_connector->ddc_bus->aux.transfer = radeon_dp_aux_transfer_native;
+		else
+			radeon_connector->ddc_bus->aux.transfer = radeon_dp_aux_transfer_atom;
+	} else {
+		radeon_connector->ddc_bus->aux.transfer = radeon_dp_aux_transfer_atom;
+	}
 
 	ret = drm_dp_aux_register(&radeon_connector->ddc_bus->aux);
 	if (!ret)
@@ -237,7 +255,7 @@ void radeon_dp_aux_init(struct radeon_connector *radeon_connector)
 #define DP_VOLTAGE_MAX         DP_TRAIN_VOLTAGE_SWING_LEVEL_3
 #define DP_PRE_EMPHASIS_MAX    DP_TRAIN_PRE_EMPH_LEVEL_3
 
-static void dp_get_adjust_train(u8 link_status[DP_LINK_STATUS_SIZE],
+static void dp_get_adjust_train(const u8 link_status[DP_LINK_STATUS_SIZE],
 				int lane_count,
 				u8 train_set[4])
 {
@@ -294,8 +312,8 @@ static int dp_get_max_dp_pix_clock(int link_rate,
 
 /***** radeon specific DP functions *****/
 
-static int radeon_dp_get_max_link_rate(struct drm_connector *connector,
-				       u8 dpcd[DP_DPCD_SIZE])
+int radeon_dp_get_max_link_rate(struct drm_connector *connector,
+				const u8 dpcd[DP_DPCD_SIZE])
 {
 	int max_link_rate;
 
@@ -312,7 +330,7 @@ static int radeon_dp_get_max_link_rate(struct drm_connector *connector,
  * if the max lane# < low rate lane# then use max lane# instead.
  */
 static int radeon_dp_get_dp_lane_number(struct drm_connector *connector,
-					u8 dpcd[DP_DPCD_SIZE],
+					const u8 dpcd[DP_DPCD_SIZE],
 					int pix_clock)
 {
 	int bpp = convert_bpc_to_bpp(radeon_get_monitor_bpc(connector));
@@ -331,7 +349,7 @@ static int radeon_dp_get_dp_lane_number(struct drm_connector *connector,
 }
 
 static int radeon_dp_get_dp_link_clock(struct drm_connector *connector,
-				       u8 dpcd[DP_DPCD_SIZE],
+				       const u8 dpcd[DP_DPCD_SIZE],
 				       int pix_clock)
 {
 	int bpp = convert_bpc_to_bpp(radeon_get_monitor_bpc(connector));

@@ -144,7 +144,7 @@ static int radeon_init_mem_type(struct ttm_bo_device *bdev, uint32_t type,
 		man->available_caching = TTM_PL_MASK_CACHING;
 		man->default_caching = TTM_PL_FLAG_CACHED;
 		man->flags = TTM_MEMTYPE_FLAG_MAPPABLE | TTM_MEMTYPE_FLAG_CMA;
-#if __OS_HAS_AGP
+#if IS_ENABLED(CONFIG_AGP)
 		if (rdev->flags & RADEON_IS_AGP) {
 			if (!rdev->ddev->agp) {
 				DRM_ERROR("AGP is not enabled for memory type %u\n",
@@ -198,7 +198,30 @@ static void radeon_evict_flags(struct ttm_buffer_object *bo,
 	case TTM_PL_VRAM:
 		if (rbo->rdev->ring[radeon_copy_ring_index(rbo->rdev)].ready == false)
 			radeon_ttm_placement_from_domain(rbo, RADEON_GEM_DOMAIN_CPU);
-		else
+		else if (rbo->rdev->mc.visible_vram_size < rbo->rdev->mc.real_vram_size &&
+			 bo->mem.start < (rbo->rdev->mc.visible_vram_size >> PAGE_SHIFT)) {
+			unsigned fpfn = rbo->rdev->mc.visible_vram_size >> PAGE_SHIFT;
+			int i;
+
+			/* Try evicting to the CPU inaccessible part of VRAM
+			 * first, but only set GTT as busy placement, so this
+			 * BO will be evicted to GTT rather than causing other
+			 * BOs to be evicted from VRAM
+			 */
+			radeon_ttm_placement_from_domain(rbo, RADEON_GEM_DOMAIN_VRAM |
+							 RADEON_GEM_DOMAIN_GTT);
+			rbo->placement.num_busy_placement = 0;
+			for (i = 0; i < rbo->placement.num_placement; i++) {
+				if (rbo->placements[i].flags & TTM_PL_FLAG_VRAM) {
+					if (rbo->placements[0].fpfn < fpfn)
+						rbo->placements[0].fpfn = fpfn;
+				} else {
+					rbo->placement.busy_placement =
+						&rbo->placements[i];
+					rbo->placement.num_busy_placement = 1;
+				}
+			}
+		} else
 			radeon_ttm_placement_from_domain(rbo, RADEON_GEM_DOMAIN_GTT);
 		break;
 	case TTM_PL_TT:
@@ -212,6 +235,8 @@ static int radeon_verify_access(struct ttm_buffer_object *bo, struct file *filp)
 {
 	struct radeon_bo *rbo = container_of(bo, struct radeon_bo, tbo);
 
+	if (radeon_ttm_tt_has_userptr(bo->ttm))
+		return -EPERM;
 	return drm_vma_node_verify_access(&rbo->gem_base.vma_node, filp);
 }
 
@@ -438,7 +463,7 @@ static int radeon_ttm_io_mem_reserve(struct ttm_bo_device *bdev, struct ttm_mem_
 		/* system memory */
 		return 0;
 	case TTM_PL_TT:
-#if __OS_HAS_AGP
+#if IS_ENABLED(CONFIG_AGP)
 		if (rdev->flags & RADEON_IS_AGP) {
 			/* RADEON_IS_AGP is set only if AGP is active */
 			mem->bus.offset = mem->start << PAGE_SHIFT;
@@ -657,7 +682,7 @@ static struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
 	struct radeon_ttm_tt *gtt;
 
 	rdev = radeon_get_rdev(bdev);
-#if __OS_HAS_AGP
+#if IS_ENABLED(CONFIG_AGP)
 	if (rdev->flags & RADEON_IS_AGP) {
 		return ttm_agp_tt_create(bdev, rdev->ddev->agp->bridge,
 					 size, page_flags, dummy_read_page);
@@ -696,7 +721,7 @@ static int radeon_ttm_tt_populate(struct ttm_tt *ttm)
 		return 0;
 
 	if (gtt && gtt->userptr) {
-		ttm->sg = kcalloc(1, sizeof(struct sg_table), GFP_KERNEL);
+		ttm->sg = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
 		if (!ttm->sg)
 			return -ENOMEM;
 
@@ -713,7 +738,7 @@ static int radeon_ttm_tt_populate(struct ttm_tt *ttm)
 	}
 
 	rdev = radeon_get_rdev(ttm->bdev);
-#if __OS_HAS_AGP
+#if IS_ENABLED(CONFIG_AGP)
 	if (rdev->flags & RADEON_IS_AGP) {
 		return ttm_agp_tt_populate(ttm);
 	}
@@ -764,7 +789,7 @@ static void radeon_ttm_tt_unpopulate(struct ttm_tt *ttm)
 		return;
 
 	rdev = radeon_get_rdev(ttm->bdev);
-#if __OS_HAS_AGP
+#if IS_ENABLED(CONFIG_AGP)
 	if (rdev->flags & RADEON_IS_AGP) {
 		ttm_agp_tt_unpopulate(ttm);
 		return;
