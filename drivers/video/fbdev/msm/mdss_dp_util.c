@@ -239,13 +239,13 @@ void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
 void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io)
 {
 	writel_relaxed(0x3d, phy_io->base + DP_PHY_PD_CTL);
-	writel_relaxed(0x03, phy_io->base + DP_PHY_AUX_CFG1);
-	writel_relaxed(0x00, phy_io->base + DP_PHY_AUX_CFG3);
+	writel_relaxed(0x13, phy_io->base + DP_PHY_AUX_CFG1);
+	writel_relaxed(0x10, phy_io->base + DP_PHY_AUX_CFG3);
 	writel_relaxed(0x0a, phy_io->base + DP_PHY_AUX_CFG4);
 	writel_relaxed(0x26, phy_io->base + DP_PHY_AUX_CFG5);
 	writel_relaxed(0x0a, phy_io->base + DP_PHY_AUX_CFG6);
 	writel_relaxed(0x03, phy_io->base + DP_PHY_AUX_CFG7);
-	writel_relaxed(0xbb, phy_io->base + DP_PHY_AUX_CFG8);
+	writel_relaxed(0x8b, phy_io->base + DP_PHY_AUX_CFG8);
 	writel_relaxed(0x03, phy_io->base + DP_PHY_AUX_CFG9);
 	writel_relaxed(0x1f, phy_io->base + DP_PHY_AUX_INTERRUPT_MASK);
 }
