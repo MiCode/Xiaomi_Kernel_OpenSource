@@ -3968,10 +3968,11 @@ static void ffs_closed(struct ffs_data *ffs)
 
 	ffs_dev_unlock();
 
-	unregister_gadget_item(opts->
+	if (test_bit(FFS_FL_BOUND, &ffs->flags)) {
+		unregister_gadget_item(opts->
 			       func_inst.group.cg_item.ci_parent->ci_parent);
-
-	ffs_log("unreg gadget done");
+		ffs_log("unreg gadget done");
+	}
 done:
 	ffs_log("exit");
 }
