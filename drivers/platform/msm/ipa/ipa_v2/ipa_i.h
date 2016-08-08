@@ -1094,6 +1094,7 @@ struct ipa_context {
 	struct ipa_uc_wdi_ctx uc_wdi_ctx;
 	struct ipa_uc_ntn_ctx uc_ntn_ctx;
 	u32 wan_rx_ring_size;
+	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	bool smmu_present;
 	bool smmu_s1_bypass;
@@ -1163,6 +1164,7 @@ struct ipa_plat_drv_res {
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
 	u32 wan_rx_ring_size;
+	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	bool use_dma_zone;
 	bool tethered_flow_control;
