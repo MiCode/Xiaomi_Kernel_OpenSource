@@ -1732,6 +1732,7 @@
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
 				"utmi_clk", "sleep_clk", "xo";
 
+		qcom,core-clk-rate = <120000000>;
 		dwc3@a800000 {
 			compatible = "snps,dwc3";
 			reg = <0x0a800000 0xcd00>;
