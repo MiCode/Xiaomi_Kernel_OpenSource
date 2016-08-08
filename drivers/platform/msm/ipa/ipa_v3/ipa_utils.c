@@ -3196,6 +3196,9 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_ipc_logbuf_low = ipa3_get_ipc_logbuf_low;
 	api_ctrl->ipa_rx_poll = ipa3_rx_poll;
 	api_ctrl->ipa_recycle_wan_skb = ipa3_recycle_wan_skb;
+	api_ctrl->ipa_setup_uc_ntn_pipes = ipa3_setup_uc_ntn_pipes;
+	api_ctrl->ipa_tear_down_uc_offload_pipes =
+		ipa3_tear_down_uc_offload_pipes;
 
 	return 0;
 }
