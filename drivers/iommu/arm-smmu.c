@@ -386,6 +386,7 @@ struct arm_smmu_device {
 	unsigned int			*irqs;
 
 	struct list_head		list;
+	struct list_head		static_cbndx_list;
 	struct rb_root			masters;
 
 	int				num_clocks;
@@ -489,6 +490,18 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_HALT, "qcom,enable-smmu-halt"},
 	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
 	{ 0, NULL},
+};
+
+#define TYPE_TRANS	(S2CR_TYPE_TRANS >> S2CR_TYPE_SHIFT)
+#define TYPE_BYPASS	(S2CR_TYPE_BYPASS >> S2CR_TYPE_SHIFT)
+#define TYPE_FAULT	(S2CR_TYPE_FAULT >> S2CR_TYPE_SHIFT)
+
+struct static_cbndx_entry {
+	struct list_head list;
+	u8 cbndx;
+	u8 smr_idx;
+	u16 sid;
+	u8 type;
 };
 
 static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu);
@@ -767,9 +780,101 @@ static int __arm_smmu_alloc_bitmap(unsigned long *map, int start, int end)
 	return idx;
 }
 
+static int __arm_smmu_set_bitmap(unsigned long *map, int idx)
+{
+	return test_and_set_bit(idx, map);
+}
+
+static struct static_cbndx_entry *arm_smmu_get_static_entry_from_sid(
+		struct arm_smmu_device *smmu, int sid)
+{
+	struct static_cbndx_entry *entry;
+
+	list_for_each_entry(entry, &smmu->static_cbndx_list, list) {
+		if (entry->sid == sid)
+			return entry;
+	}
+
+	return NULL;
+}
+
+static struct static_cbndx_entry *arm_smmu_get_static_entry_from_context(
+		struct arm_smmu_device *smmu, int idx)
+{
+	struct static_cbndx_entry *entry;
+
+	list_for_each_entry(entry, &smmu->static_cbndx_list, list) {
+		if (entry->type == TYPE_TRANS && entry->cbndx == idx)
+			return entry;
+	}
+
+	return NULL;
+}
+
+static struct static_cbndx_entry *arm_smmu_get_static_entry_from_smr(
+		struct arm_smmu_device *smmu, int idx)
+{
+	struct static_cbndx_entry *entry;
+
+	list_for_each_entry(entry, &smmu->static_cbndx_list, list) {
+		if (entry->smr_idx == idx)
+			return entry;
+	}
+
+	return NULL;
+}
+
+static int arm_smmu_alloc_smr_idx(struct arm_smmu_device *smmu, int start,
+		int end, int sid)
+{
+	struct static_cbndx_entry *entry = arm_smmu_get_static_entry_from_sid(
+								smmu, sid);
+
+	if (entry)
+		return entry->smr_idx;
+	else
+		return __arm_smmu_alloc_bitmap(smmu->smr_map, start, end);
+}
+
+static int arm_smmu_alloc_context_idx(struct arm_smmu_device *smmu, int start,
+		int end, u16 *streamids, int num_streamids)
+{
+	struct static_cbndx_entry *entry = NULL;
+	int i;
+
+	for (i = 0; i < num_streamids; ++i) {
+		entry = arm_smmu_get_static_entry_from_sid(smmu, streamids[i]);
+		if (entry && entry->type == TYPE_TRANS)
+			break;
+	}
+
+	if (entry && entry->type == TYPE_TRANS)
+		return entry->cbndx;
+	else
+		return __arm_smmu_alloc_bitmap(smmu->context_map, start, end);
+}
+
 static void __arm_smmu_free_bitmap(unsigned long *map, int idx)
 {
 	clear_bit(idx, map);
+}
+
+static void arm_smmu_free_smr_idx(struct arm_smmu_device *smmu, int idx)
+{
+	struct static_cbndx_entry *entry = arm_smmu_get_static_entry_from_smr(
+								smmu, idx);
+
+	if (!entry)
+		__arm_smmu_free_bitmap(smmu->smr_map, idx);
+}
+
+static void arm_smmu_free_context_idx(struct arm_smmu_device *smmu, int idx)
+{
+	struct static_cbndx_entry *entry =
+		arm_smmu_get_static_entry_from_context(smmu, idx);
+
+	if (!entry)
+		__arm_smmu_free_bitmap(smmu->context_map, idx);
 }
 
 static void arm_smmu_unprepare_clocks(struct arm_smmu_device *smmu)
@@ -1582,7 +1687,8 @@ static int arm_smmu_restore_sec_cfg(struct arm_smmu_device *smmu)
 }
 
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
-					struct arm_smmu_device *smmu)
+					struct arm_smmu_device *smmu,
+					struct arm_smmu_master_cfg *master_cfg)
 {
 	int irq, start, ret = 0;
 	unsigned long ias, oas;
@@ -1650,14 +1756,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	}
 
 	if (cfg->cbndx == INVALID_CBNDX) {
-		ret = __arm_smmu_alloc_bitmap(smmu->context_map, start,
-				smmu->num_context_banks);
+		ret = arm_smmu_alloc_context_idx(smmu, start,
+			smmu->num_context_banks, master_cfg->streamids,
+			master_cfg->num_streamids);
 		if (IS_ERR_VALUE(ret))
 			goto out;
 		cfg->cbndx = ret;
-	} else {
-		if (test_and_set_bit(cfg->cbndx, smmu->context_map))
-			goto out;
 	}
 
 	if (smmu->version == ARM_SMMU_V1) {
@@ -1764,7 +1868,7 @@ free_irqs:
 		free_irq(irq, domain);
 	}
 
-	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
+	arm_smmu_free_context_idx(smmu, cfg->cbndx);
 	smmu_domain->smmu = NULL;
 }
 
@@ -1847,8 +1951,8 @@ static int arm_smmu_master_configure_smrs(struct arm_smmu_device *smmu,
 
 	/* Allocate the SMRs on the SMMU */
 	for (i = 0; i < cfg->num_streamids; ++i) {
-		int idx = __arm_smmu_alloc_bitmap(smmu->smr_map, 0,
-						  smmu->num_mapping_groups);
+		int idx = arm_smmu_alloc_smr_idx(smmu, 0,
+				smmu->num_mapping_groups, cfg->streamids[i]);
 		if (IS_ERR_VALUE(idx)) {
 			dev_err(smmu->dev, "failed to allocate free SMR\n");
 			goto err_free_smrs;
@@ -1873,7 +1977,7 @@ static int arm_smmu_master_configure_smrs(struct arm_smmu_device *smmu,
 
 err_free_smrs:
 	while (--i >= 0)
-		__arm_smmu_free_bitmap(smmu->smr_map, smrs[i].idx);
+		arm_smmu_free_smr_idx(smmu, smrs[i].idx);
 	kfree(smrs);
 	return -ENOSPC;
 }
@@ -1893,7 +1997,7 @@ static void arm_smmu_master_free_smrs(struct arm_smmu_device *smmu,
 		u8 idx = smrs[i].idx;
 
 		writel_relaxed(~SMR_VALID, gr0_base + ARM_SMMU_GR0_SMR(idx));
-		__arm_smmu_free_bitmap(smmu->smr_map, idx);
+		arm_smmu_free_smr_idx(smmu, idx);
 	}
 
 	cfg->smrs = NULL;
@@ -2051,32 +2155,18 @@ out:
 static int arm_smmu_populate_cb(struct arm_smmu_device *smmu,
 		struct arm_smmu_domain *smmu_domain, struct device *dev)
 {
-	void __iomem *gr0_base;
 	struct arm_smmu_master_cfg *cfg;
 	struct arm_smmu_cfg *smmu_cfg = &smmu_domain->cfg;
-	int i;
-	u32 sid;
+	struct static_cbndx_entry *entry;
 
-	gr0_base = ARM_SMMU_GR0(smmu);
 	cfg = find_smmu_master_cfg(dev);
-
 	if (!cfg)
 		return -ENODEV;
 
-	sid = cfg->streamids[0];
-
-	for (i = 0; i < smmu->num_mapping_groups; i++) {
-		u32 smr, s2cr;
-		u8 cbndx;
-
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
-
-		if (sid == ((smr >> SMR_ID_SHIFT) & SMR_ID_MASK)) {
-			s2cr = readl_relaxed(gr0_base + ARM_SMMU_GR0_S2CR(i));
-			cbndx = (s2cr >> S2CR_CBNDX_SHIFT) & S2CR_CBNDX_MASK;
-			smmu_cfg->cbndx = cbndx;
-			return 0;
-		}
+	entry = arm_smmu_get_static_entry_from_sid(smmu, cfg->streamids[0]);
+	if (entry && entry->type == TYPE_TRANS) {
+		smmu_cfg->cbndx = entry->cbndx;
+		return 0;
 	}
 
 	return -EINVAL;
@@ -2150,8 +2240,14 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		smmu_domain->slave_side_secure = true;
 	}
 
+	cfg = find_smmu_master_cfg(dev);
+	if (!cfg) {
+		ret = -ENODEV;
+		goto err_disable_clocks;
+	}
+
 	/* Ensure that the domain is finalised */
-	ret = arm_smmu_init_domain_context(domain, smmu);
+	ret = arm_smmu_init_domain_context(domain, smmu, cfg);
 	if (IS_ERR_VALUE(ret))
 		goto err_disable_clocks;
 
@@ -2177,12 +2273,6 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	}
 
 	/* Looks ok, so add the device to the domain */
-	cfg = find_smmu_master_cfg(dev);
-	if (!cfg) {
-		ret = -ENODEV;
-		goto err_destroy_domain_context;
-	}
-
 	ret = arm_smmu_domain_add_master(smmu_domain, cfg);
 	if (ret)
 		goto err_destroy_domain_context;
@@ -3603,6 +3693,62 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static int arm_smmu_add_static_cbndx(struct arm_smmu_device *smmu, int sid,
+		int smr_idx)
+{
+	void __iomem *gr0_base;
+	u32 s2cr_reg;
+	struct static_cbndx_entry *entry;
+
+	entry = devm_kzalloc(smmu->dev, sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	gr0_base = ARM_SMMU_GR0(smmu);
+	s2cr_reg = readl_relaxed(gr0_base + ARM_SMMU_GR0_S2CR(smr_idx));
+	entry->type = (s2cr_reg >> S2CR_TYPE_SHIFT) & S2CR_TYPE_MASK;
+	entry->smr_idx = smr_idx;
+	entry->sid = sid;
+
+	if (entry->type == TYPE_TRANS) {
+		entry->cbndx = (s2cr_reg >> S2CR_CBNDX_SHIFT) &
+					S2CR_CBNDX_MASK;
+		__arm_smmu_set_bitmap(smmu->context_map, entry->cbndx);
+		pr_debug("Static context bank: smr:%d, sid:%d, cbndx:%d\n",
+			smr_idx, sid, entry->cbndx);
+	}
+	__arm_smmu_set_bitmap(smmu->smr_map, smr_idx);
+	list_add(&entry->list, &smmu->static_cbndx_list);
+
+	return 0;
+}
+
+static int arm_smmu_init_static_cbndx_list(struct arm_smmu_device *smmu)
+{
+	int i, ret = 0;
+	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
+
+	for (i = 0; i < smmu->num_mapping_groups; ++i) {
+		u32 smr_reg, sid;
+
+		smr_reg = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
+		if (smr_reg & SMR_VALID) {
+			u32 smr_mask = (smr_reg >> SMR_MASK_SHIFT) &
+					SMR_MASK_MASK;
+
+			if (smr_mask != 0)
+				dev_warn(smmu->dev,
+					"Static smr mask not supported\n");
+			sid = ((smr_reg >> SMR_ID_SHIFT) & SMR_ID_MASK);
+			ret = arm_smmu_add_static_cbndx(smmu, sid, i);
+			if (ret)
+				break;
+		}
+	}
+
+	return ret;
+}
+
 static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,smmu-v1", .data = (void *)ARM_SMMU_V1 },
 	{ .compatible = "arm,smmu-v2", .data = (void *)ARM_SMMU_V2 },
@@ -3632,6 +3778,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	mutex_init(&smmu->attach_lock);
 	spin_lock_init(&smmu->atos_lock);
 	spin_lock_init(&smmu->clock_refs_lock);
+	INIT_LIST_HEAD(&smmu->static_cbndx_list);
 
 	of_id = of_match_node(arm_smmu_of_match, dev->of_node);
 	if (!of_id)
@@ -3713,6 +3860,9 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 
 	smmu->sec_id = msm_dev_to_device_id(dev);
 	err = arm_smmu_device_cfg_probe(smmu);
+	if (!err)
+		err = arm_smmu_init_static_cbndx_list(smmu);
+
 	arm_smmu_disable_clocks(smmu);
 	if (err)
 		goto out_put_masters;
