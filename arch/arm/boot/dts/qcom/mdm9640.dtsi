@@ -352,6 +352,8 @@
 		qcom,use-ipa-tethering-bridge;
 		qcom,ipa-bam-remote-mode;
 		qcom,modem-cfg-emb-pipe-flt;
+		qcom,wan-rx-ring-size = <192>;
+		qcom,lan-rx-ring-size = <192>;
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
 		qcom,msm-bus,name = "ipa";
