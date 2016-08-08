@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,6 +70,10 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 50>;
+		qcom,mdss-dsi-min-refresh-rate = <55>;
+		qcom,mdss-dsi-max-refresh-rate = <60>;
+		qcom,mdss-dsi-pan-enable-dynamic-fps;
+		qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 
 		qcom,config-select = <&dsi_dual_nt35597_video_config0>;
 
