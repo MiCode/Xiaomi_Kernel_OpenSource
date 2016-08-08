@@ -284,6 +284,7 @@ static void _retire_marker(struct kgsl_cmdbatch *cmdbatch)
 	struct kgsl_context *context = cmdbatch->context;
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(cmdbatch->context);
 	struct kgsl_device *device = context->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/*
 	 * Write the start and end timestamp to the memstore to keep the
@@ -301,7 +302,16 @@ static void _retire_marker(struct kgsl_cmdbatch *cmdbatch)
 	/* Retire pending GPU events for the object */
 	kgsl_process_event_group(device, &context->events);
 
-	trace_adreno_cmdbatch_retired(cmdbatch, -1, 0, 0, drawctxt->rb,
+	/*
+	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of
+	 * rptr scratch out address. At this point GPU clocks turned off.
+	 * So avoid reading GPU register directly for A3xx.
+	 */
+	if (adreno_is_a3xx(adreno_dev))
+		trace_adreno_cmdbatch_retired(cmdbatch, -1, 0, 0, drawctxt->rb,
+				0);
+	else
+		trace_adreno_cmdbatch_retired(cmdbatch, -1, 0, 0, drawctxt->rb,
 			adreno_get_rptr(drawctxt->rb));
 	kgsl_cmdbatch_destroy(cmdbatch);
 }
@@ -613,11 +623,12 @@ static int sendcmd(struct adreno_device *adreno_dev,
 		}
 	}
 
-	mutex_unlock(&device->mutex);
 
 	if (ret) {
 		dispatcher->inflight--;
 		dispatch_q->inflight--;
+
+		mutex_unlock(&device->mutex);
 
 		/*
 		 * Don't log a message in case of:
@@ -641,6 +652,8 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	trace_adreno_cmdbatch_submitted(cmdbatch, (int) dispatcher->inflight,
 		time.ticks, (unsigned long) secs, nsecs / 1000, drawctxt->rb,
 		adreno_get_rptr(drawctxt->rb));
+
+	mutex_unlock(&device->mutex);
 
 	cmdbatch->submit_ticks = time.ticks;
 
@@ -1923,9 +1936,20 @@ static void retire_cmdbatch(struct adreno_device *adreno_dev,
 	if (test_bit(CMDBATCH_FLAG_PROFILE, &cmdbatch->priv))
 		cmdbatch_profile_ticks(adreno_dev, cmdbatch, &start, &end);
 
-	trace_adreno_cmdbatch_retired(cmdbatch, (int) dispatcher->inflight,
-		start, end, ADRENO_CMDBATCH_RB(cmdbatch),
-		adreno_get_rptr(drawctxt->rb));
+	/*
+	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of
+	 * rptr scratch out address. At this point GPU clocks turned off.
+	 * So avoid reading GPU register directly for A3xx.
+	 */
+	if (adreno_is_a3xx(adreno_dev))
+		trace_adreno_cmdbatch_retired(cmdbatch,
+				(int) dispatcher->inflight, start, end,
+				ADRENO_CMDBATCH_RB(cmdbatch), 0);
+	else
+		trace_adreno_cmdbatch_retired(cmdbatch,
+				(int) dispatcher->inflight, start, end,
+				ADRENO_CMDBATCH_RB(cmdbatch),
+				adreno_get_rptr(drawctxt->rb));
 
 	drawctxt->submit_retire_ticks[drawctxt->ticks_index] =
 		end - cmdbatch->submit_ticks;

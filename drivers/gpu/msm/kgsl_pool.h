@@ -34,6 +34,7 @@ kgsl_gfp_mask(unsigned int page_order)
 }
 
 void kgsl_pool_free_sgt(struct sg_table *sgt);
+void kgsl_pool_free_pages(struct page **pages, unsigned int page_count);
 void kgsl_init_page_pools(void);
 void kgsl_exit_page_pools(void);
 int kgsl_pool_alloc_page(int *page_size, struct page **pages,

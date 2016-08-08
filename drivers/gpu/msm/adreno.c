@@ -1130,7 +1130,10 @@ static int adreno_init(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+	ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+	if (ret)
+		return ret;
+
 	/*
 	 * initialization only needs to be done once initially until
 	 * device is shutdown
@@ -1594,6 +1597,8 @@ static int adreno_stop(struct kgsl_device *device)
 	adreno_dispatcher_stop(adreno_dev);
 
 	adreno_ringbuffer_stop(adreno_dev);
+
+	kgsl_pwrscale_update_stats(device);
 
 	adreno_irqctrl(adreno_dev, 0);
 
