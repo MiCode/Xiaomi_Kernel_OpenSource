@@ -1338,10 +1338,11 @@ static struct mdss_mdp_pipe *__pipe_lookup(struct mdss_mdp_pipe *pipe_list,
 		bool (*cmp)(struct mdss_mdp_pipe *, void *), void *data)
 {
 	struct mdss_mdp_pipe *pipe;
-	int i, j;
+	int i, j, max_rects;
 
 	for (i = 0, pipe = pipe_list; i < count; i++) {
-		for (j = 0; j < pipe->multirect.max_rects; j++, pipe++)
+		max_rects = pipe->multirect.max_rects;
+		for (j = 0; j < max_rects; j++, pipe++)
 			if ((rect_num == pipe->multirect.num) &&
 					cmp(pipe, data))
 				return pipe;

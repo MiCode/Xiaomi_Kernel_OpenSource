@@ -177,6 +177,8 @@ Optional properties:
  - qcom,hold-reset: Indicates that hold QUSB PHY into reset state.
  - qcom,enable-dpdm-pulsing: enables dp and dm pulsing for PMIC driver to
    perform charger detection.
+ - qcom,tune2-efuse-correction: The value to be adjusted from the higher nibble of TUNE2
+   for improved rise/fall times.
 
 Example:
 	qusb_phy: qusb@f9b39000 {

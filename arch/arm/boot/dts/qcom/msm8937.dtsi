@@ -61,7 +61,6 @@
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x7000000>;
-			status = "disabled";
 		};
 
 		qseecom_mem: qseecom_region@0 {

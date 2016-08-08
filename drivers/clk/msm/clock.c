@@ -825,6 +825,28 @@ int clk_set_flags(struct clk *clk, unsigned long flags)
 }
 EXPORT_SYMBOL(clk_set_flags);
 
+int clk_set_duty_cycle(struct clk *clk, u32 numerator, u32 denominator)
+{
+	if (IS_ERR_OR_NULL(clk))
+		return -EINVAL;
+
+	if (numerator > denominator) {
+		pr_err("Numerator cannot be > denominator\n");
+		return -EINVAL;
+	}
+
+	if (!denominator) {
+		pr_err("Denominator can not be Zero\n");
+		return -EINVAL;
+	}
+
+	if (!clk->ops->set_duty_cycle)
+		return -ENOSYS;
+
+	return clk->ops->set_duty_cycle(clk, numerator, denominator);
+}
+EXPORT_SYMBOL(clk_set_duty_cycle);
+
 static LIST_HEAD(initdata_list);
 
 static void init_sibling_lists(struct clk_lookup *clock_tbl, size_t num_clocks)

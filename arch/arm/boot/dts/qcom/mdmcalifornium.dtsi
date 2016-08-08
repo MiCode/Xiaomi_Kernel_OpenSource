@@ -558,7 +558,7 @@
 		/* NOMINAL */
 			<90 512 206000 960000>,
 			<90 585 206000 960000>,
-			<1 676 206000 200000>,
+			<1 676 206000 400000>,
 		/* TURBO */
 			<90 512 206000 3600000>,
 			<90 585 206000 3600000>,
@@ -885,8 +885,9 @@
 		vdd-wlan-io-supply = <&pmdcalifornium_l6>;
 		vdd-wlan-xtal-aon-supply = <&pmdcalifornium_l4>;
 		qcom,notify-modem-status;
-		pinctrl-names = "default";
-		pinctrl-0 = <&cnss_default>;
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+		pinctrl-0 = <&cnss_wlan_en_active>;
+		pinctrl-1 = <&cnss_wlan_en_sleep>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 
