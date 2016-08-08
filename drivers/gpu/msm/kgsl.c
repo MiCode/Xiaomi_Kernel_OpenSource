@@ -2249,7 +2249,7 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 	if (ret)
 		return ret;
 
-	if (buf.fd == 0)
+	if (buf.fd < 0)
 		return -EINVAL;
 
 	*fd = buf.fd;
@@ -3953,8 +3953,8 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 				PM_QOS_DEFAULT_VALUE);
 	}
 
-
-	device->events_wq = create_singlethread_workqueue("kgsl-events");
+	device->events_wq = alloc_workqueue("kgsl-events",
+		WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
 
 	/* Initalize the snapshot engine */
 	kgsl_device_snapshot_init(device);
