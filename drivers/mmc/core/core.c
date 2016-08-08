@@ -1476,6 +1476,12 @@ int mmc_cmdq_halt(struct mmc_host *host, bool halt)
 {
 	int err = 0;
 
+	if (mmc_host_cq_disable(host)) {
+		pr_debug("%s: %s: CQE is already disabled\n",
+				mmc_hostname(host), __func__);
+		return 0;
+	}
+
 	if ((halt && mmc_host_halt(host)) ||
 			(!halt && !mmc_host_halt(host))) {
 		pr_debug("%s: %s: CQE is already %s\n", mmc_hostname(host),
