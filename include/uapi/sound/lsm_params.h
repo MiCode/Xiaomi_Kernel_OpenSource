@@ -2,6 +2,7 @@
 #define _UAPI_LSM_PARAMS_H__
 
 #define LSM_POLLING_ENABLE_SUPPORT
+#define LSM_EVENT_TIMESTAMP_MODE_SUPPORT
 
 #include <linux/types.h>
 #include <sound/asound.h>
@@ -19,6 +20,9 @@
 
 #define LSM_OUT_TRANSFER_MODE_RT (0)
 #define LSM_OUT_TRANSFER_MODE_FTRT (1)
+
+#define LSM_EVENT_NON_TIME_STAMP_MODE (0)
+#define LSM_EVENT_TIME_STAMP_MODE (1)
 
 enum lsm_app_id {
 	LSM_VOICE_WAKEUP_APP_ID = 1,
@@ -104,6 +108,14 @@ struct snd_lsm_event_status {
 	__u8 payload[0];
 };
 
+struct snd_lsm_event_status_v3 {
+	__u32 timestamp_lsw;
+	__u32 timestamp_msw;
+	__u16 status;
+	__u16 payload_size;
+	__u8 payload[0];
+};
+
 struct snd_lsm_detection_params {
 	__u8 *conf_level;
 	enum lsm_detection_mode detect_mode;
@@ -182,5 +194,8 @@ struct snd_lsm_output_format_cfg {
 #define SNDRV_LSM_OUT_FORMAT_CFG _IOW('U', 0x0C, \
 				      struct snd_lsm_output_format_cfg)
 #define SNDRV_LSM_SET_PORT	_IO('U', 0x0D)
+#define SNDRV_LSM_SET_FWK_MODE_CONFIG	_IOW('U', 0x0E, uint32_t)
+#define SNDRV_LSM_EVENT_STATUS_V3	_IOW('U', 0x0F, \
+					struct snd_lsm_event_status_v3)
 
 #endif
