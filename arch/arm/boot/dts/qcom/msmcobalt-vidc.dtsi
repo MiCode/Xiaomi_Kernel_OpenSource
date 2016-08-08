@@ -96,7 +96,7 @@
 			<&clock_mmss clk_mmss_video_subcore0_clk>,
 			<&clock_mmss clk_mmss_video_subcore1_clk>;
 		qcom,clock-configs = <0x0 0x0 0x0 0x0 0x0 0x0
-				0x1 0x0 0x0 0x0 0x1 0x1>;
+				0x3 0x0 0x2 0x2 0x3 0x3>;
 
 		/* Buses */
 		bus_cnoc {
@@ -233,6 +233,7 @@
 			<&clock_mmss clk_mmss_vmem_maxi_clk>;
 		clock-names = "mnoc_ahb","mnoc_maxi",
 			"ahb", "maxi";
+		clock-config = <0x0 0x0 0x0 0x1>;
 
 		qcom,msm-bus,name = "vmem";
 		qcom,msm-bus,num-cases = <2>;
