@@ -106,7 +106,7 @@ struct hdmi_tx_ctrl {
 	struct delayed_work hdcp_cb_work;
 	struct work_struct cable_notify_work;
 	struct hdmi_tx_ddc_ctrl ddc_ctrl;
-	struct hdmi_hdcp_ops *hdcp_ops;
+	struct hdcp_ops *hdcp_ops;
 	struct cec_ops hdmi_cec_ops;
 	struct cec_cbs hdmi_cec_cbs;
 	struct hdmi_audio_ops audio_ops;

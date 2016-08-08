@@ -436,7 +436,7 @@ struct mdss_dp_drv_pdata {
 	int fb_node;
 
 	void *hdcp_data;
-	struct hdmi_hdcp_ops *hdcp_ops;
+	struct hdcp_ops *hdcp_ops;
 };
 
 static inline const char *__mdss_dp_pm_name(enum dp_pm_type module)

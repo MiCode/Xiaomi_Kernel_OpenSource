@@ -20,7 +20,7 @@
 #include <linux/kthread.h>
 
 #include <linux/hdcp_qseecom.h>
-#include "mdss_hdmi_hdcp.h"
+#include "mdss_hdcp_1x.h"
 #include "video/msm_hdmi_hdcp_mgr.h"
 #include "mdss_hdmi_util.h"
 
@@ -56,11 +56,11 @@ struct hdmi_hdcp2p2_ctrl {
 	atomic_t auth_state;
 	bool tethered;
 	enum hdmi_hdcp2p2_sink_status sink_status; /* Is sink connected */
-	struct hdmi_hdcp_init_data init_data; /* Feature data from HDMI drv */
+	struct hdcp_init_data init_data; /* Feature data from HDMI drv */
 	struct mutex mutex; /* mutex to protect access to ctrl */
 	struct mutex msg_lock; /* mutex to protect access to msg buffer */
 	struct mutex wakeup_mutex; /* mutex to protect access to wakeup call*/
-	struct hdmi_hdcp_ops *ops;
+	struct hdcp_ops *ops;
 	void *lib_ctx; /* Handle to HDCP 2.2 Trustzone library */
 	struct hdcp_txmtr_ops *lib; /* Ops for driver to call into TZ */
 
@@ -401,7 +401,7 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 	struct hdcp_lib_wakeup_data cdata = {
 		HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE};
 	bool enc_notify = true;
-	enum hdmi_hdcp_state enc_lvl;
+	enum hdcp_states enc_lvl;
 	int min_enc_lvl;
 	int rc;
 
@@ -982,15 +982,15 @@ void hdmi_hdcp2p2_deinit(void *input)
 	kfree(ctrl);
 }
 
-void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
+void *hdmi_hdcp2p2_init(struct hdcp_init_data *init_data)
 {
 	int rc;
 	struct hdmi_hdcp2p2_ctrl *ctrl;
-	static struct hdmi_hdcp_ops ops = {
-		.hdmi_hdcp_reauthenticate = hdmi_hdcp2p2_reauthenticate,
-		.hdmi_hdcp_authenticate = hdmi_hdcp2p2_authenticate,
+	static struct hdcp_ops ops = {
+		.reauthenticate = hdmi_hdcp2p2_reauthenticate,
+		.authenticate = hdmi_hdcp2p2_authenticate,
 		.feature_supported = hdmi_hdcp2p2_feature_supported,
-		.hdmi_hdcp_off = hdmi_hdcp2p2_off
+		.off = hdmi_hdcp2p2_off
 	};
 
 	static struct hdcp_client_ops client_ops = {
@@ -1094,7 +1094,7 @@ error:
 	return false;
 }
 
-struct hdmi_hdcp_ops *hdmi_hdcp2p2_start(void *input)
+struct hdcp_ops *hdmi_hdcp2p2_start(void *input)
 {
 	struct hdmi_hdcp2p2_ctrl *ctrl = input;
 

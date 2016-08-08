@@ -29,7 +29,7 @@
 #include "mdss_fb.h"
 #include "mdss_hdmi_cec.h"
 #include "mdss_hdmi_edid.h"
-#include "mdss_hdmi_hdcp.h"
+#include "mdss_hdcp_1x.h"
 #include "mdss_hdmi_tx.h"
 #include "mdss_hdmi_audio.h"
 #include "mdss.h"
@@ -1447,7 +1447,7 @@ end:
 	return enc_en;
 } /* hdmi_tx_is_encryption_set */
 
-static void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
+static void hdmi_tx_hdcp_cb(void *ptr, enum hdcp_states status)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = (struct hdmi_tx_ctrl *)ptr;
 
@@ -1526,7 +1526,7 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 
 		if (hdmi_tx_is_panel_on(hdmi_ctrl)) {
 			DEV_DBG("%s: Reauthenticating\n", __func__);
-			rc = hdmi_ctrl->hdcp_ops->hdmi_hdcp_reauthenticate(
+			rc = hdmi_ctrl->hdcp_ops->reauthenticate(
 				hdmi_ctrl->hdcp_data);
 			if (rc)
 				DEV_ERR("%s: HDCP reauth failed. rc=%d\n",
@@ -1777,7 +1777,7 @@ end:
 
 static int hdmi_tx_init_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	struct hdmi_hdcp_init_data hdcp_init_data = {0};
+	struct hdcp_init_data hdcp_init_data = {0};
 	struct resource *res;
 	void *hdcp_data;
 	int rc = 0;
@@ -1806,7 +1806,7 @@ static int hdmi_tx_init_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdcp_init_data.client_id     = HDCP_CLIENT_HDMI;
 
 	if (hdmi_ctrl->hdcp14_present) {
-		hdcp_data = hdmi_hdcp_init(&hdcp_init_data);
+		hdcp_data = hdcp_1x_init(&hdcp_init_data);
 
 		if (IS_ERR_OR_NULL(hdcp_data)) {
 			DEV_ERR("%s: hdcp 1.4 init failed\n", __func__);
@@ -1983,7 +1983,7 @@ static void hdmi_tx_deinit_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 	if (features & HDMI_TX_FEAT_HDCP) {
 		fd = hdmi_tx_get_fd(HDMI_TX_FEAT_HDCP);
 
-		hdmi_hdcp_deinit(fd);
+		hdcp_1x_deinit(fd);
 		hdmi_tx_set_fd(HDMI_TX_FEAT_HDCP, 0);
 	}
 
@@ -2171,7 +2171,7 @@ error:
 static void hdmi_tx_update_hdcp_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	void *fd = NULL;
-	struct hdmi_hdcp_ops *ops = NULL;
+	struct hdcp_ops *ops = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -2195,7 +2195,7 @@ static void hdmi_tx_update_hdcp_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 		if (hdmi_ctrl->hdcp14_present) {
 			fd = hdmi_tx_get_fd(HDMI_TX_FEAT_HDCP);
-			ops = hdmi_hdcp_start(fd);
+			ops = hdcp_1x_start(fd);
 		}
 	}
 
@@ -3446,10 +3446,10 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 	}
 
 	if (hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp_data) {
-		if (hdmi_ctrl->hdcp_ops->hdmi_hdcp_isr) {
-			if (hdmi_ctrl->hdcp_ops->hdmi_hdcp_isr(
+		if (hdmi_ctrl->hdcp_ops->isr) {
+			if (hdmi_ctrl->hdcp_ops->isr(
 				hdmi_ctrl->hdcp_data))
-				DEV_ERR("%s: hdmi_hdcp_isr failed\n",
+				DEV_ERR("%s: hdcp_1x_isr failed\n",
 					 __func__);
 		}
 	}
@@ -3554,7 +3554,7 @@ static int hdmi_tx_start_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (hdmi_tx_is_encryption_set(hdmi_ctrl))
 		hdmi_tx_config_avmute(hdmi_ctrl, true);
 
-	rc = hdmi_ctrl->hdcp_ops->hdmi_hdcp_authenticate(hdmi_ctrl->hdcp_data);
+	rc = hdmi_ctrl->hdcp_ops->authenticate(hdmi_ctrl->hdcp_data);
 	if (rc)
 		DEV_ERR("%s: hdcp auth failed. rc=%d\n", __func__, rc);
 
@@ -3571,8 +3571,7 @@ static int hdmi_tx_hdcp_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	DEV_DBG("%s: Turning off HDCP\n", __func__);
-	hdmi_ctrl->hdcp_ops->hdmi_hdcp_off(
-		hdmi_ctrl->hdcp_data);
+	hdmi_ctrl->hdcp_ops->off(hdmi_ctrl->hdcp_data);
 
 	flush_delayed_work(&hdmi_ctrl->hdcp_cb_work);
 

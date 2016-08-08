@@ -35,7 +35,7 @@
 #include "mdss_dp_util.h"
 #include "mdss_hdmi_panel.h"
 #include <linux/hdcp_qseecom.h>
-#include "mdss_hdmi_hdcp.h"
+#include "mdss_hdcp_1x.h"
 #include "mdss_debug.h"
 
 #define RGB_COMPONENTS		3
@@ -1219,10 +1219,10 @@ end:
 	return rc;
 }
 
-static void mdss_dp_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
+static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
 {
 	struct mdss_dp_drv_pdata *dp = ptr;
-	struct hdmi_hdcp_ops *ops;
+	struct hdcp_ops *ops;
 	int rc = 0;
 
 	if (!dp) {
@@ -1241,9 +1241,8 @@ static void mdss_dp_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 	case HDCP_STATE_AUTH_FAIL:
 		if (dp->power_on) {
 			pr_debug("Reauthenticating\n");
-			if (ops && ops->hdmi_hdcp_reauthenticate) {
-				rc = ops->hdmi_hdcp_reauthenticate(
-					dp->hdcp_data);
+			if (ops && ops->reauthenticate) {
+				rc = ops->reauthenticate(dp->hdcp_data);
 				if (rc)
 					pr_err("HDCP reauth failed. rc=%d\n",
 						rc);
@@ -1262,7 +1261,7 @@ static void mdss_dp_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 
 static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 {
-	struct hdmi_hdcp_init_data hdcp_init_data = {0};
+	struct hdcp_init_data hdcp_init_data = {0};
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
 	struct resource *res;
 	int rc = 0;
@@ -1295,7 +1294,7 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
 
-	dp_drv->hdcp_data = hdmi_hdcp_init(&hdcp_init_data);
+	dp_drv->hdcp_data = hdcp_1x_init(&hdcp_init_data);
 	if (IS_ERR_OR_NULL(dp_drv->hdcp_data)) {
 		pr_err("Error hdcp init\n");
 		rc = -EINVAL;
@@ -1304,7 +1303,7 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 
 	pr_debug("HDCP 1.3 initialized\n");
 
-	dp_drv->hdcp_ops = hdmi_hdcp_start(dp_drv->hdcp_data);
+	dp_drv->hdcp_ops = hdcp_1x_start(dp_drv->hdcp_data);
 
 	return 0;
 error:
@@ -1317,7 +1316,7 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 	int rc = 0;
 	struct fb_info *fbi;
 	struct mdss_dp_drv_pdata *dp = NULL;
-	struct hdmi_hdcp_ops *ops;
+	struct hdcp_ops *ops;
 
 	if (!pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1337,16 +1336,16 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_PANEL_ON:
 		if (hdcp1_check_if_supported_load_app()) {
-			if (ops && ops->hdmi_hdcp_authenticate)
-				rc = ops->hdmi_hdcp_authenticate(dp->hdcp_data);
+			if (ops && ops->authenticate)
+				rc = ops->authenticate(dp->hdcp_data);
 		}
 		break;
 	case MDSS_EVENT_PANEL_OFF:
 		rc = mdss_dp_off(pdata);
 		break;
 	case MDSS_EVENT_BLANK:
-		if (ops && ops->hdmi_hdcp_off)
-			ops->hdmi_hdcp_off(dp->hdcp_data);
+		if (ops && ops->off)
+			ops->off(dp->hdcp_data);
 		break;
 	case MDSS_EVENT_FB_REGISTERED:
 		fbi = (struct fb_info *)arg;
@@ -1620,9 +1619,9 @@ irqreturn_t dp_isr(int irq, void *ptr)
 			dp_aux_native_handler(dp, isr1);
 	}
 
-	if (dp->hdcp_ops && dp->hdcp_ops->hdmi_hdcp_isr) {
-		if (dp->hdcp_ops->hdmi_hdcp_isr(dp->hdcp_data))
-			pr_err("isr failed\n");
+	if (dp->hdcp_ops && dp->hdcp_ops->isr) {
+		if (dp->hdcp_ops->isr(dp->hdcp_data))
+			pr_err("dp_hdcp_isr failed\n");
 	}
 
 	return IRQ_HANDLED;
