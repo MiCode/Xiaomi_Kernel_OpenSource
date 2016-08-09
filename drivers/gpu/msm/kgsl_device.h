@@ -263,6 +263,7 @@ struct kgsl_device {
 	struct kgsl_snapshot *snapshot;
 
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
+	bool force_panic;		/* Force panic after snapshot dump */
 	struct kobject snapshot_kobj;
 
 	struct kobject ppd_kobj;
