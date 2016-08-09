@@ -18,6 +18,7 @@
 #include "msm_drv.h"
 #include "msm_mmu.h"
 #include "sde_kms.h"
+#include "sde_core_irq.h"
 #include "sde_formats.h"
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
@@ -134,6 +135,16 @@ static void sde_debugfs_destroy(struct sde_kms *sde_kms)
 	}
 }
 
+static int sde_kms_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
+{
+	return sde_crtc_vblank(crtc, true);
+}
+
+static void sde_kms_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
+{
+	sde_crtc_vblank(crtc, false);
+}
+
 static void sde_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
@@ -237,10 +248,6 @@ static int modeset_init(struct sde_kms *sde_kms)
 	int primary_planes_idx = 0, i, ret, max_crtc_count;
 	int max_private_planes = catalog->mixer_count;
 
-	ret = sde_irq_domain_init(sde_kms);
-	if (ret)
-		goto fail;
-
 	/* Create the planes */
 	for (i = 0; i < catalog->sspp_count; i++) {
 		bool primary = true;
@@ -337,7 +344,6 @@ static void sde_destroy(struct msm_kms *kms)
 	}
 
 	sde_debugfs_destroy(sde_kms);
-	sde_irq_domain_fini(sde_kms);
 	sde_hw_intr_destroy(sde_kms->hw_intr);
 	sde_rm_destroy(&sde_kms->rm);
 	kfree(sde_kms);
@@ -354,8 +360,8 @@ static const struct msm_kms_funcs kms_funcs = {
 	.commit          = sde_commit,
 	.complete_commit = sde_complete_commit,
 	.wait_for_crtc_commit_done = sde_wait_for_commit_done,
-	.enable_vblank   = sde_enable_vblank,
-	.disable_vblank  = sde_disable_vblank,
+	.enable_vblank   = sde_kms_enable_vblank,
+	.disable_vblank  = sde_kms_disable_vblank,
 	.check_modified_format = sde_format_check_modified_format,
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_round_pixclk,

@@ -16,6 +16,7 @@
 
 #include "sde_encoder_phys.h"
 #include "sde_hw_interrupts.h"
+#include "sde_core_irq.h"
 #include "sde_formats.h"
 
 #define to_sde_encoder_phys_cmd(x) \
@@ -133,7 +134,7 @@ static int sde_encoder_phys_cmd_register_pp_irq(
 	struct sde_irq_callback irq_cb;
 	int ret = 0;
 
-	*irq_idx = sde_irq_idx_lookup(phys_enc->sde_kms, intr_type,
+	*irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms, intr_type,
 			cmd_enc->hw_pp->idx);
 	if (*irq_idx < 0) {
 		DRM_ERROR(
@@ -145,13 +146,14 @@ static int sde_encoder_phys_cmd_register_pp_irq(
 
 	irq_cb.func = irq_func;
 	irq_cb.arg = cmd_enc;
-	ret = sde_register_irq_callback(phys_enc->sde_kms, *irq_idx, &irq_cb);
+	ret = sde_core_irq_register_callback(phys_enc->sde_kms, *irq_idx,
+			&irq_cb);
 	if (ret) {
 		DRM_ERROR("Failed to register IRQ callback %s", irq_name);
 		return ret;
 	}
 
-	ret = sde_enable_irq(phys_enc->sde_kms, irq_idx, 1);
+	ret = sde_core_irq_enable(phys_enc->sde_kms, irq_idx, 1);
 	if (ret) {
 		DRM_ERROR(
 			"Failed to enable IRQ for %s, pp %d, irq_idx=%d",
@@ -161,7 +163,8 @@ static int sde_encoder_phys_cmd_register_pp_irq(
 		*irq_idx = -EINVAL;
 
 		/* Unregister callback on IRQ enable failure */
-		sde_register_irq_callback(phys_enc->sde_kms, *irq_idx, NULL);
+		sde_core_irq_register_callback(phys_enc->sde_kms, *irq_idx,
+				NULL);
 		return ret;
 	}
 
@@ -180,8 +183,9 @@ static int sde_encoder_phys_cmd_unregister_pp_irq(
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 
-	sde_disable_irq(phys_enc->sde_kms, &irq_idx, 1);
-	sde_register_irq_callback(phys_enc->sde_kms, irq_idx, NULL);
+	sde_core_irq_disable(phys_enc->sde_kms, &irq_idx, 1);
+	sde_core_irq_register_callback(phys_enc->sde_kms, irq_idx,
+			NULL);
 
 	DBG("unregister IRQ for pp %d, irq_idx=%d\n",
 			cmd_enc->hw_pp->idx,
