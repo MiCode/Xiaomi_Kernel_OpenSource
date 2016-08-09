@@ -274,7 +274,7 @@
 			0xcccc1111	0xcccc1111
 			0xcccc1111	0xcccc1111
 			0xcccc1111	0x00000110>;
-		max-clk-nominal = <320000000>;
+		max-clk-nominal = <465000000>;
 		max-clk-turbo = <465000000>;
 	};
 
@@ -324,7 +324,7 @@
 			0xcccc1111	0xcccc1111
 			0xcccc1111	0xcccc1111
 			0xcccc1111	0x00000110>;
-		max-clk-nominal = <320000000>;
+		max-clk-nominal = <465000000>;
 		max-clk-turbo = <465000000>;
 	};
 
