@@ -1242,7 +1242,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 			}
 
 			of_property_read_u32_array(dev->of_node,
-				"qcom,qemu-init-seq",
+				"qcom,emu-init-seq",
 				qphy->emu_init_seq,
 				qphy->emu_init_seq_len);
 		} else {
