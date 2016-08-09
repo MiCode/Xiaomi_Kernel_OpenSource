@@ -303,6 +303,11 @@ enum mdp_wb_blk_caps {
 	MDSS_MDP_WB_UBWC = BIT(3),
 };
 
+enum mdss_mdp_avr_mode {
+	MDSS_MDP_AVR_CONTINUOUS = 0,
+	MDSS_MDP_AVR_ONE_SHOT,
+};
+
 /**
  * enum perf_calc_vote_mode - enum to decide if mdss_mdp_get_bw_vote_mode
  *		function needs an extra efficiency factor.
@@ -391,6 +396,7 @@ struct mdss_mdp_ctl_intfs_ops {
 
 	/* to update lineptr, [1..yres] - enable, 0 - disable */
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
+	int (*avr_ctrl_fnc)(struct mdss_mdp_ctl *);
 };
 
 struct mdss_mdp_cwb {
@@ -404,6 +410,11 @@ struct mdss_mdp_cwb {
 	struct blocking_notifier_head notifier_head;
 	struct workqueue_struct *cwb_work_queue;
 	struct work_struct cwb_work;
+};
+
+struct mdss_mdp_avr_info {
+	bool avr_enabled;
+	int avr_mode;
 };
 
 struct mdss_mdp_ctl {
@@ -513,6 +524,7 @@ struct mdss_mdp_ctl {
 
 	/* dynamic resolution switch during cont-splash handoff */
 	bool switch_with_handoff;
+	struct mdss_mdp_avr_info avr_info;
 };
 
 struct mdss_mdp_mixer {

@@ -189,8 +189,8 @@ int pil_assign_mem_to_subsys(struct pil_desc *desc, phys_addr_t addr,
 
 	ret = hyp_assign_phys(addr, size, srcVM, 1, destVM, destVMperm, 1);
 	if (ret)
-		pil_err(desc, "%s: failed for %pa address of size %zx - subsys VMid %d\n",
-				__func__, &addr, size, desc->subsys_vmid);
+		pil_err(desc, "%s: failed for %pa address of size %zx - subsys VMid %d rc:%d\n",
+				__func__, &addr, size, desc->subsys_vmid, ret);
 	return ret;
 }
 EXPORT_SYMBOL(pil_assign_mem_to_subsys);
@@ -205,8 +205,8 @@ int pil_assign_mem_to_linux(struct pil_desc *desc, phys_addr_t addr,
 
 	ret = hyp_assign_phys(addr, size, srcVM, 1, destVM, destVMperm, 1);
 	if (ret)
-		panic("%s: failed for %pa address of size %zx - subsys VMid %d. Fatal error.\n",
-				__func__, &addr, size, desc->subsys_vmid);
+		panic("%s: failed for %pa address of size %zx - subsys VMid %d rc:%d\n",
+				__func__, &addr, size, desc->subsys_vmid, ret);
 
 	return ret;
 }
@@ -222,8 +222,8 @@ int pil_assign_mem_to_subsys_and_linux(struct pil_desc *desc,
 
 	ret = hyp_assign_phys(addr, size, srcVM, 1, destVM, destVMperm, 2);
 	if (ret)
-		pil_err(desc, "%s: failed for %pa address of size %zx - subsys VMid %d\n",
-				__func__, &addr, size, desc->subsys_vmid);
+		pil_err(desc, "%s: failed for %pa address of size %zx - subsys VMid %d rc:%d\n",
+				__func__, &addr, size, desc->subsys_vmid, ret);
 
 	return ret;
 }
@@ -642,8 +642,8 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 					      seg->filesz, desc->map_fw_mem,
 					      desc->unmap_fw_mem, map_data);
 		if (ret < 0) {
-			pil_err(desc, "Failed to locate blob %s or blob is too big.\n",
-				fw_name);
+			pil_err(desc, "Failed to locate blob %s or blob is too big(rc:%d)\n",
+				fw_name, ret);
 			return ret;
 		}
 
@@ -679,7 +679,8 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 	if (desc->ops->verify_blob) {
 		ret = desc->ops->verify_blob(desc, seg->paddr, seg->sz);
 		if (ret)
-			pil_err(desc, "Blob%u failed verification\n", num);
+			pil_err(desc, "Blob%u failed verification(rc:%d)\n",
+								num, ret);
 	}
 
 	return ret;
@@ -754,7 +755,7 @@ int pil_boot(struct pil_desc *desc)
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", desc->fw_name);
 	ret = request_firmware(&fw, fw_name, desc->dev);
 	if (ret) {
-		pil_err(desc, "Failed to locate %s\n", fw_name);
+		pil_err(desc, "Failed to locate %s(rc:%d)\n", fw_name, ret);
 		goto out;
 	}
 
@@ -792,14 +793,14 @@ int pil_boot(struct pil_desc *desc)
 	desc->priv->unvoted_flag = 0;
 	ret = pil_proxy_vote(desc);
 	if (ret) {
-		pil_err(desc, "Failed to proxy vote\n");
+		pil_err(desc, "Failed to proxy vote(rc:%d)\n", ret);
 		goto release_fw;
 	}
 
 	if (desc->ops->init_image)
 		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
-		pil_err(desc, "Invalid firmware metadata\n");
+		pil_err(desc, "Initializing image failed(rc:%d)\n", ret);
 		goto err_boot;
 	}
 
@@ -807,7 +808,7 @@ int pil_boot(struct pil_desc *desc)
 		ret = desc->ops->mem_setup(desc, priv->region_start,
 				priv->region_end - priv->region_start);
 	if (ret) {
-		pil_err(desc, "Memory setup error\n");
+		pil_err(desc, "Memory setup error(rc:%d)\n", ret);
 		goto err_deinit_image;
 	}
 
@@ -852,7 +853,7 @@ int pil_boot(struct pil_desc *desc)
 
 	ret = desc->ops->auth_and_reset(desc);
 	if (ret) {
-		pil_err(desc, "Failed to bring out of reset\n");
+		pil_err(desc, "Failed to bring out of reset(rc:%d)\n", ret);
 		goto err_auth_and_reset;
 	}
 	pil_info(desc, "Brought out of reset\n");

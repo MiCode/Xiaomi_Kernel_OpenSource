@@ -20,6 +20,7 @@
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
 #include <linux/regmap.h>
+#include <linux/power_supply.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/regulator/consumer.h>
@@ -177,6 +178,8 @@ struct qpnp_flash_led {
 	struct regmap			*regmap;
 	struct flash_node_data		*fnode;
 	struct flash_switch_data	*snode;
+	struct power_supply		*bms_psy;
+	struct notifier_block		nb;
 	spinlock_t			lock;
 	int				num_fnodes;
 	int				num_snodes;
@@ -618,6 +621,41 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 	}
 
 	spin_unlock(&led->lock);
+}
+
+static int flash_led_psy_notifier_call(struct notifier_block *nb,
+		unsigned long ev, void *v)
+{
+	struct power_supply *psy = v;
+	struct qpnp_flash_led *led =
+			container_of(nb, struct qpnp_flash_led, nb);
+
+	if (ev != PSY_EVENT_PROP_CHANGED)
+		return NOTIFY_OK;
+
+	if (!strcmp(psy->desc->name, "bms")) {
+		led->bms_psy = power_supply_get_by_name("bms");
+		if (!led->bms_psy)
+			dev_err(&led->pdev->dev, "Failed to get bms power_supply\n");
+		else
+			power_supply_unreg_notifier(&led->nb);
+	}
+
+	return NOTIFY_OK;
+}
+
+static int flash_led_psy_register_notifier(struct qpnp_flash_led *led)
+{
+	int rc;
+
+	led->nb.notifier_call = flash_led_psy_notifier_call;
+	rc = power_supply_reg_notifier(&led->nb);
+	if (rc < 0) {
+		pr_err("Couldn't register psy notifier, rc = %d\n", rc);
+		return rc;
+	}
+
+	return 0;
 }
 
 /* irq handler */
@@ -1302,7 +1340,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to request all_ramp_up_done(%d) IRQ(err:%d)\n",
 				led->pdata->all_ramp_up_done_irq, rc);
-			return rc;
+			goto error_switch_register;
 		}
 	}
 
@@ -1316,7 +1354,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to request all_ramp_down_done(%d) IRQ(err:%d)\n",
 				led->pdata->all_ramp_down_done_irq, rc);
-			return rc;
+			goto error_switch_register;
 		}
 	}
 
@@ -1330,7 +1368,17 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to request led_fault(%d) IRQ(err:%d)\n",
 				led->pdata->led_fault_irq, rc);
-			return rc;
+			goto error_switch_register;
+		}
+	}
+
+	led->bms_psy = power_supply_get_by_name("bms");
+	if (!led->bms_psy) {
+		rc = flash_led_psy_register_notifier(led);
+		if (rc < 0) {
+			dev_err(&pdev->dev, "Couldn't register psy notifier, rc = %d\n",
+					rc);
+			goto error_switch_register;
 		}
 	}
 
@@ -1338,7 +1386,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		dev_err(&pdev->dev,
 				"Failed to initialize flash LED, rc=%d\n", rc);
-		goto error_switch_register;
+		goto unreg_notifier;
 	}
 
 	spin_lock_init(&led->lock);
@@ -1347,6 +1395,8 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 
 	return 0;
 
+unreg_notifier:
+	power_supply_unreg_notifier(&led->nb);
 error_switch_register:
 	while (i > 0)
 		led_classdev_unregister(&led->snode[--i].cdev);
@@ -1379,6 +1429,7 @@ static int qpnp_flash_led_remove(struct platform_device *pdev)
 	while (i > 0)
 		led_classdev_unregister(&led->fnode[--i].cdev);
 
+	power_supply_unreg_notifier(&led->nb);
 	return 0;
 }
 

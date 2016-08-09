@@ -150,7 +150,7 @@ static int print_mem_entry(int id, void *ptr, void *data)
 			(unsigned long *) m->useraddr,
 			m->size, entry->id, flags,
 			memtype_str(kgsl_memdesc_usermem_type(m)),
-			usage, m->sgt->nents, m->mapsize);
+			usage, (m->sgt ? m->sgt->nents : 0), m->mapsize);
 
 	if (entry->metadata[0] != 0)
 		seq_printf(s, " %s", entry->metadata);

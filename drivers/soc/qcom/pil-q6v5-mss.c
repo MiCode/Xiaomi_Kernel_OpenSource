@@ -291,11 +291,13 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 		ret = regulator_set_voltage(q6->vreg, VDD_MSS_UV,
 						MAX_VDD_MSS_UV);
 		if (ret)
-			dev_err(&pdev->dev, "Failed to set vreg voltage.\n");
+			dev_err(&pdev->dev, "Failed to set vreg voltage(rc:%d)\n",
+									ret);
 
 		ret = regulator_set_load(q6->vreg, 100000);
 		if (ret < 0) {
-			dev_err(&pdev->dev, "Failed to set vreg mode.\n");
+			dev_err(&pdev->dev, "Failed to set vreg mode(rc:%d)\n",
+									ret);
 			return ret;
 		}
 	}
@@ -330,7 +332,7 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	ret = of_property_read_u32(pdev->dev.of_node,
 					"qcom,pas-id", &drv->pas_id);
 	if (ret)
-		dev_warn(&pdev->dev, "Failed to find the pas_id.\n");
+		dev_info(&pdev->dev, "No pas_id found.\n");
 
 	drv->subsys_desc.pil_mss_memsetup =
 	of_property_read_bool(pdev->dev.of_node, "qcom,pil-mss-memsetup");

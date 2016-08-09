@@ -1124,6 +1124,7 @@ static struct rcg_clk dp_pixel_clk_src = {
 		.dbg_name = "dp_pixel_clk_src",
 		.parent = &ext_dp_phy_pll_vco.c,
 		.ops = &clk_ops_rcg_dp,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 148380000, LOW, 296740000,
 					NOMINAL, 593470000),
 		CLK_INIT(dp_pixel_clk_src.c),
@@ -2033,6 +2034,7 @@ static struct branch_clk mmss_mdss_dp_pixel_clk = {
 	.c = {
 		.dbg_name = "mmss_mdss_dp_pixel_clk",
 		.parent = &dp_pixel_clk_src.c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_mdss_dp_pixel_clk.c),
 	},
@@ -2801,8 +2803,10 @@ int msm_mmsscc_cobalt_probe(struct platform_device *pdev)
 
 	ext_dp_phy_pll_link.dev = &pdev->dev;
 	ext_dp_phy_pll_link.clk_id = "dp_link_src";
+	ext_dp_phy_pll_link.c.flags = CLKFLAG_NO_RATE_CACHE;
 	ext_dp_phy_pll_vco.dev = &pdev->dev;
 	ext_dp_phy_pll_vco.clk_id = "dp_vco_div";
+	ext_dp_phy_pll_vco.c.flags = CLKFLAG_NO_RATE_CACHE;
 
 	is_vq = of_device_is_compatible(pdev->dev.of_node,
 					"qcom,mmsscc-hamster");

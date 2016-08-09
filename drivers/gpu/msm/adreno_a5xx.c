@@ -2373,17 +2373,25 @@ static int a5xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	int ret;
 
-	ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-			 adreno_dev->gpucore->pm4fw_name, &adreno_dev->pm4,
-			 &adreno_dev->pm4_fw_size, &adreno_dev->pm4_fw_version);
-	if (ret)
-		return ret;
+	if (adreno_dev->pm4.hostptr == NULL) {
+		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
+				 adreno_dev->gpucore->pm4fw_name,
+				 &adreno_dev->pm4,
+				 &adreno_dev->pm4_fw_size,
+				 &adreno_dev->pm4_fw_version);
+		if (ret)
+			return ret;
+	}
 
-	ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-			 adreno_dev->gpucore->pfpfw_name, &adreno_dev->pfp,
-			 &adreno_dev->pfp_fw_size, &adreno_dev->pfp_fw_version);
-	if (ret)
-		return ret;
+	if (adreno_dev->pfp.hostptr == NULL) {
+		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
+				 adreno_dev->gpucore->pfpfw_name,
+				 &adreno_dev->pfp,
+				 &adreno_dev->pfp_fw_size,
+				 &adreno_dev->pfp_fw_version);
+		if (ret)
+			return ret;
+	}
 
 	ret = _load_gpmu_firmware(adreno_dev);
 	if (ret)
@@ -3058,7 +3066,6 @@ static void a5xx_irq_storm_worker(struct work_struct *work)
 	mutex_unlock(&device->mutex);
 
 	/* Reschedule just to make sure everything retires */
-	kgsl_schedule_work(&device->event_work);
 	adreno_dispatcher_schedule(device);
 }
 
@@ -3109,8 +3116,6 @@ static void a5xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	}
 
 	a5xx_preemption_trigger(adreno_dev);
-
-	kgsl_schedule_work(&device->event_work);
 	adreno_dispatcher_schedule(device);
 }
 

@@ -255,6 +255,9 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
+			qcom,cont-splash-memory {
+				linux,contiguous-region = <&cont_splash_mem>;
+			};
 		};
 
 		mdss_fb1: qcom,mdss_fb_wfd {
@@ -266,6 +269,12 @@
 			cell-index = <2>;
 			compatible = "qcom,mdss-fb";
 		};
+
+		mdss_fb3: qcom,mdss_fb_dp {
+			cell-index = <3>;
+			compatible = "qcom,mdss-fb";
+		};
+
 	};
 
 	mdss_dsi: qcom,mdss_dsi@0 {
@@ -290,7 +299,6 @@
 			<22 512 0 0>,
 			<22 512 0 1000>;
 
-		qcom,timing-db-mode;
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 
 		clocks = <&clock_mmss clk_mmss_mdss_mdp_clk>,
@@ -362,6 +370,7 @@
 				<0xc828000 0xac>;
 			reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 
+			qcom,timing-db-mode;
 			wqhd-vddio-supply = <&pmcobalt_l14>;
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
@@ -399,6 +408,7 @@
 				<0xc828000 0xac>;
 			reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 
+			qcom,timing-db-mode;
 			wqhd-vddio-supply = <&pmcobalt_l14>;
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
@@ -433,6 +443,81 @@
 		qcom,mdss_pan_res = <640 480>;
 		qcom,mdss_pan_bpp = <24>;
 		qcom,mdss-fb-map = <&mdss_fb1>;
+	};
+
+	mdss_dp_ctrl: qcom,dp_ctrl@c990000 {
+		cell-index = <0>;
+		compatible = "qcom,mdss-dp";
+		qcom,mdss-fb-map = <&mdss_fb3>;
+
+		gdsc-supply = <&gdsc_mdss>;
+		vdda-1p2-supply = <&pmcobalt_l2>;
+		vdda-0p9-supply = <&pmcobalt_l1>;
+
+		reg =	<0xc990000 0xa84>,
+			<0xc011000 0x910>,
+			<0x1fcb200 0x050>;
+		reg-names = "dp_ctrl", "dp_phy", "tcsr_regs";
+
+		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			 <&clock_mmss clk_mmss_mdss_ahb_clk>,
+			 <&clock_mmss clk_mmss_mdss_axi_clk>,
+			 <&clock_mmss clk_mmss_mdss_mdp_clk>,
+			 <&clock_mmss clk_mmss_mdss_hdmi_dp_ahb_clk>,
+			 <&clock_mmss clk_mmss_mdss_dp_aux_clk>,
+			 <&clock_mmss clk_mmss_mdss_dp_link_clk>,
+			 <&clock_mmss clk_mmss_mdss_dp_link_intf_clk>,
+			 <&clock_mmss clk_mmss_mdss_dp_crypto_clk>,
+			 <&clock_mmss clk_mmss_mdss_dp_pixel_clk>;
+		clock-names = "core_mnoc_clk", "core_iface_clk", "core_bus_clk",
+			"core_mdp_core_clk", "core_alt_iface_clk",
+			"core_aux_clk", "ctrl_link_clk",
+			"ctrl_link_iface_clk", "ctrl_crypto_clk",
+			"ctrl_pixel_clk";
+
+		qcom,dp-usbpd-detection = <&pmicobalt_pdphy>;
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-1p2";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <12560>;
+				qcom,supply-disable-load = <4>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-0p9";
+				qcom,supply-min-voltage = <880000>;
+				qcom,supply-max-voltage = <880000>;
+				qcom,supply-enable-load = <73400>;
+				qcom,supply-disable-load = <32>;
+			};
+		};
 	};
 
 	mdss_rotator: qcom,mdss_rotator {

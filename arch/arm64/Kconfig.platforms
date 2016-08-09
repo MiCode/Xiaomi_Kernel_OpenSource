@@ -57,6 +57,7 @@ config ARCH_QCOM
 	select MSM_IRQ
 	select THERMAL_WRITABLE_TRIPS
 	select RATIONAL
+	select ARCH_HAS_RESET_CONTROLLER
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 

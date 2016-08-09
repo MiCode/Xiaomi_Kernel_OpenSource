@@ -2115,19 +2115,12 @@ int arm_iommu_attach_device(struct device *dev,
 {
 	int err;
 	int s1_bypass = 0, is_fast = 0;
-	struct iommu_group *group;
 
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
 	if (is_fast)
 		return fast_smmu_attach_device(dev, mapping);
 
-	group = iommu_group_get(dev);
-	if (!group) {
-		dev_err(dev, "Couldn't get group\n");
-		return -ENODEV;
-	}
-
-	err = iommu_attach_group(mapping->domain, group);
+	err = iommu_attach_device(mapping->domain, dev);
 	if (err)
 		return err;
 
@@ -2154,8 +2147,7 @@ EXPORT_SYMBOL(arm_iommu_attach_device);
 void arm_iommu_detach_device(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
-	int is_fast;
-	struct iommu_group *group;
+	int is_fast, s1_bypass = 0;
 
 	mapping = to_dma_iommu_mapping(dev);
 	if (!mapping) {
@@ -2169,16 +2161,14 @@ void arm_iommu_detach_device(struct device *dev)
 		return;
 	}
 
-	group = iommu_group_get(dev);
-	if (!group) {
-		dev_err(dev, "Couldn't get group\n");
-		return;
-	}
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
 
-	iommu_detach_group(mapping->domain, group);
+	iommu_detach_device(mapping->domain, dev);
 	kref_put(&mapping->kref, release_iommu_mapping);
 	dev->archdata.mapping = NULL;
-	set_dma_ops(dev, NULL);
+	if (!s1_bypass)
+		set_dma_ops(dev, NULL);
 
 	pr_debug("Detached IOMMU controller from %s device.\n", dev_name(dev));
 }

@@ -333,6 +333,11 @@
 			size = <0 0x2000000>;
 			linux,cma-default;
 		};
+
+		cont_splash_mem: splash_region@9d600000 {
+			reg = <0x0 0x9d600000 0x0 0x02400000>;
+			label = "cont_splash_mem";
+		};
 	};
 };
 
@@ -1479,7 +1484,7 @@
 		qcom,pcie-phy-ver = <0x20>;
 		qcom,use-19p2mhz-aux-clk;
 
-		iommus = <&anoc1_smmu 0x1>;
+		iommus = <&anoc1_smmu>;
 		qcom,smmu-exist;
 		qcom,smmu-sid-base = <0x1480>;
 
@@ -2293,6 +2298,8 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
+		qcom,use-sw-aead-algo;
+		qcom,use-sw-hmac-algo;
 	};
 
 	qcom_cedev: qcedev@1DE0000{
@@ -2884,6 +2891,8 @@
 	clock-names = "bus_clk", "rot_clk";
 	clocks = <&clock_mmss clk_mmss_mdss_axi_clk>,
 		 <&clock_mmss clk_mmss_mdss_rot_clk>;
+	proxy-supply = <&gdsc_mdss>;
+	qcom,proxy-consumer-enable;
 	status = "ok";
 };
 

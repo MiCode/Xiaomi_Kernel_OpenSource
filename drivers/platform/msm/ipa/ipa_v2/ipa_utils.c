@@ -5084,6 +5084,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_dma_dev = ipa2_get_dma_dev;
 	api_ctrl->ipa_get_gsi_ep_info = ipa2_get_gsi_ep_info;
 	api_ctrl->ipa_stop_gsi_channel = ipa2_stop_gsi_channel;
+	api_ctrl->ipa_register_ipa_ready_cb = ipa2_register_ipa_ready_cb;
 	api_ctrl->ipa_inc_client_enable_clks = ipa2_inc_client_enable_clks;
 	api_ctrl->ipa_dec_client_disable_clks = ipa2_dec_client_disable_clks;
 	api_ctrl->ipa_inc_client_enable_clks_no_block =
@@ -5098,6 +5099,9 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_ipc_logbuf_low = ipa2_get_ipc_logbuf_low;
 	api_ctrl->ipa_rx_poll = ipa2_rx_poll;
 	api_ctrl->ipa_recycle_wan_skb = ipa2_recycle_wan_skb;
+	api_ctrl->ipa_setup_uc_ntn_pipes = ipa2_setup_uc_ntn_pipes;
+	api_ctrl->ipa_tear_down_uc_offload_pipes =
+		ipa2_tear_down_uc_offload_pipes;
 
 	return 0;
 }

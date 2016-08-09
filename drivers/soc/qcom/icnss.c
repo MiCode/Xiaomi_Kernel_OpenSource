@@ -1580,6 +1580,14 @@ int icnss_get_soc_info(struct icnss_soc_info *info)
 
 	info->v_addr = penv->mem_base_va;
 	info->p_addr = penv->mem_base_pa;
+	info->chip_id = penv->chip_info.chip_id;
+	info->chip_family = penv->chip_info.chip_family;
+	info->board_id = penv->board_info.board_id;
+	info->soc_id = penv->soc_info.soc_id;
+	info->fw_version = penv->fw_version_info.fw_version;
+	strlcpy(info->fw_build_timestamp,
+		penv->fw_version_info.fw_build_timestamp,
+		QMI_WLFW_MAX_TIMESTAMP_LEN_V01 + 1);
 
 	return 0;
 }

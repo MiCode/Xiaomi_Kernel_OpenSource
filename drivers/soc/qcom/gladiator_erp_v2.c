@@ -758,7 +758,7 @@ static int gladiator_erp_pm_callback(struct notifier_block *nb,
 
 static int gladiator_erp_v2_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret = -1;
 	struct msm_gladiator_data *msm_gld_data;
 
 	msm_gld_data = devm_kzalloc(&pdev->dev,

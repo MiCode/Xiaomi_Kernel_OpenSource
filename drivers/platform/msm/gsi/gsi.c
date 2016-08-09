@@ -93,26 +93,6 @@ static void __gsi_config_gen_irq(int ee, uint32_t mask, uint32_t val)
 			GSI_EE_n_CNTXT_GSI_IRQ_EN_OFFS(ee));
 }
 
-static void __gsi_config_inter_ee_ch_irq(int ee, uint32_t mask, uint32_t val)
-{
-	uint32_t curr;
-
-	curr = gsi_readl(gsi_ctx->base +
-			GSI_INTER_EE_n_SRC_GSI_CH_IRQ_MSK_OFFS(ee));
-	gsi_writel((curr & ~mask) | (val & mask), gsi_ctx->base +
-			GSI_INTER_EE_n_SRC_GSI_CH_IRQ_MSK_OFFS(ee));
-}
-
-static void __gsi_config_inter_ee_evt_irq(int ee, uint32_t mask, uint32_t val)
-{
-	uint32_t curr;
-
-	curr = gsi_readl(gsi_ctx->base +
-			GSI_INTER_EE_n_SRC_EV_CH_IRQ_MSK_OFFS(ee));
-	gsi_writel((curr & ~mask) | (val & mask), gsi_ctx->base +
-			GSI_INTER_EE_n_SRC_EV_CH_IRQ_MSK_OFFS(ee));
-}
-
 static void gsi_handle_ch_ctrl(int ee)
 {
 	uint32_t ch;
@@ -684,7 +664,10 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	/* only support 16 un-reserved + 7 reserved event virtual IDs */
 	gsi_ctx->evt_bmap = ~0x7E03FF;
 
-	/* enable all interrupts but GSI_BREAK_POINT */
+	/*
+	 * enable all interrupts but GSI_BREAK_POINT.
+	 * Inter EE commands / interrupt are no supported.
+	 */
 	__gsi_config_type_irq(props->ee, ~0, ~0);
 	__gsi_config_ch_irq(props->ee, ~0, ~0);
 	__gsi_config_evt_irq(props->ee, ~0, ~0);
@@ -692,8 +675,6 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	__gsi_config_glob_irq(props->ee, ~0, ~0);
 	__gsi_config_gen_irq(props->ee, ~0,
 		~GSI_EE_n_CNTXT_GSI_IRQ_CLR_GSI_BREAK_POINT_BMSK);
-	__gsi_config_inter_ee_ch_irq(props->ee, ~0, ~0);
-	__gsi_config_inter_ee_evt_irq(props->ee, ~0, ~0);
 
 	gsi_writel(props->intr, gsi_ctx->base +
 			GSI_EE_n_CNTXT_INTSET_OFFS(gsi_ctx->per.ee));
@@ -791,8 +772,6 @@ int gsi_deregister_device(unsigned long dev_hdl, bool force)
 	__gsi_config_ieob_irq(gsi_ctx->per.ee, ~0, 0);
 	__gsi_config_glob_irq(gsi_ctx->per.ee, ~0, 0);
 	__gsi_config_gen_irq(gsi_ctx->per.ee, ~0, 0);
-	__gsi_config_inter_ee_ch_irq(gsi_ctx->per.ee, ~0, 0);
-	__gsi_config_inter_ee_evt_irq(gsi_ctx->per.ee, ~0, 0);
 
 	devm_free_irq(gsi_ctx->dev, gsi_ctx->per.irq, gsi_ctx);
 	devm_iounmap(gsi_ctx->dev, gsi_ctx->base);
