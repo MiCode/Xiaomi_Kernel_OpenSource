@@ -643,6 +643,13 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 			GSIERR("failed to register isr for %u\n", props->irq);
 			return -GSI_STATUS_ERROR;
 		}
+
+		res = enable_irq_wake(props->irq);
+		if (res)
+			GSIERR("failed to enable wake irq %u\n", props->irq);
+		else
+			GSIERR("GSI irq is wake enabled %u\n", props->irq);
+
 	} else {
 		GSIERR("do not support interrupt type %u\n", props->intr);
 		return -GSI_STATUS_UNSUPPORTED_OP;
