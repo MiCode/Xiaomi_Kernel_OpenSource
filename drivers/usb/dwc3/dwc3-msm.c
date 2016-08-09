@@ -187,6 +187,7 @@ struct dwc3_msm {
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	struct power_supply	*usb_psy;
+	struct work_struct	vbus_draw_work;
 	bool			in_host_mode;
 	unsigned int		tx_fifo_size;
 	bool			vbus_active;
@@ -1595,6 +1596,15 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 
 }
 
+static void dwc3_msm_vbus_draw_work(struct work_struct *w)
+{
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
+			vbus_draw_work);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dwc3_msm_gadget_vbus_draw(mdwc, dwc->vbus_draw);
+}
+
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
@@ -1680,7 +1690,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 		break;
 	case DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT received\n");
-		dwc3_msm_gadget_vbus_draw(mdwc, dwc->vbus_draw);
+		schedule_work(&mdwc->vbus_draw_work);
 		break;
 	case DWC3_CONTROLLER_RESTART_USB_SESSION:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_RESTART_USB_SESSION received\n");
@@ -2582,6 +2592,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_WORK(&mdwc->resume_work, dwc3_resume_work);
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
 	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
+	INIT_WORK(&mdwc->vbus_draw_work, dwc3_msm_vbus_draw_work);
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
 
 	mdwc->dwc3_wq = alloc_ordered_workqueue("dwc3_wq", 0);
