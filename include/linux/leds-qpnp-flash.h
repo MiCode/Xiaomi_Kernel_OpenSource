@@ -16,8 +16,10 @@
 #include <linux/leds.h>
 
 #define ENABLE_REGULATOR	BIT(0)
-#define QUERY_MAX_CURRENT	BIT(1)
+#define DISABLE_REGULATOR	BIT(1)
+#define QUERY_MAX_CURRENT	BIT(2)
 
-int qpnp_flash_led_prepare(struct led_trigger *trig, int options);
+int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+					int *max_current);
 
 #endif

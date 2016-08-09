@@ -68,6 +68,7 @@
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MASK	GENMASK(2, 0)
 #define	FLASH_LED_THERMAL_THRSH_MASK		GENMASK(2, 0)
 #define	FLASH_LED_THERMAL_OTST_MASK		GENMASK(2, 0)
+#define	FLASH_LED_PREPARE_OPTIONS_MASK		GENMASK(2, 0)
 #define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 #define	FLASH_LED_HW_SW_STROBE_SEL_MASK		BIT(2)
 #define	FLASH_LED_VPH_DROOP_FAULT_MASK		BIT(4)
@@ -783,7 +784,6 @@ static int qpnp_flash_led_switch_disable(struct flash_switch_data *snode)
 		}
 	}
 
-	qpnp_flash_led_regulator_enable(led, snode, false);
 	snode->enabled = false;
 	return 0;
 }
@@ -804,10 +804,6 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		rc = qpnp_flash_led_switch_disable(snode);
 		return rc;
 	}
-
-	rc = qpnp_flash_led_regulator_enable(led, snode, true);
-	if (rc < 0)
-		return rc;
 
 	/* Iterate over all leds for this switch node */
 	val = 0;
@@ -906,12 +902,13 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 	return 0;
 }
 
-int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
+int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+					int *max_current)
 {
 	struct led_classdev *led_cdev = trigger_to_lcdev(trig);
 	struct flash_switch_data *snode;
 	struct qpnp_flash_led *led;
-	int rc, val = 0;
+	int rc;
 
 	if (!led_cdev) {
 		pr_err("Invalid led_trigger provided\n");
@@ -921,7 +918,7 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
 	snode = container_of(led_cdev, struct flash_switch_data, cdev);
 	led = dev_get_drvdata(&snode->pdev->dev);
 
-	if (!(options & (ENABLE_REGULATOR | QUERY_MAX_CURRENT))) {
+	if (!(options & FLASH_LED_PREPARE_OPTIONS_MASK)) {
 		dev_err(&led->pdev->dev, "Invalid options %d\n", options);
 		return -EINVAL;
 	}
@@ -935,16 +932,26 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
 		}
 	}
 
-	if (options & QUERY_MAX_CURRENT) {
-		val = qpnp_flash_led_get_max_avail_current(led);
-		if (val < 0) {
+	if (options & DISABLE_REGULATOR) {
+		rc = qpnp_flash_led_regulator_enable(led, snode, false);
+		if (rc < 0) {
 			dev_err(&led->pdev->dev,
-				"query max current failed, rc=%d\n", val);
-			return val;
+				"disable regulator failed, rc=%d\n", rc);
+			return rc;
 		}
 	}
 
-	return val;
+	if (options & QUERY_MAX_CURRENT) {
+		rc = qpnp_flash_led_get_max_avail_current(led);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev,
+				"query max current failed, rc=%d\n", rc);
+			return rc;
+		}
+		*max_current = rc;
+	}
+
+	return 0;
 }
 
 static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,

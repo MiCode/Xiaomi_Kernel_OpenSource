@@ -82,6 +82,7 @@
 #define FLASH_LED_HDRM_SNS_ENABLE_MASK				0x81
 #define	FLASH_MASK_MODULE_CONTRL_MASK				0xE0
 #define FLASH_FOLLOW_OTST2_RB_MASK				0x08
+#define FLASH_PREPARE_OPTIONS_MASK				0x08
 
 #define FLASH_LED_TRIGGER_DEFAULT				"none"
 #define FLASH_LED_HEADROOM_DEFAULT_MV				500
@@ -1155,12 +1156,13 @@ error_regulator_enable:
 	return rc;
 }
 
-int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
+int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+					int *max_current)
 {
 	struct led_classdev *led_cdev = trigger_to_lcdev(trig);
 	struct flash_node_data *flash_node;
 	struct qpnp_flash_led *led;
-	int rc, val = 0;
+	int rc;
 
 	if (!led_cdev) {
 		pr_err("Invalid led_trigger provided\n");
@@ -1170,7 +1172,7 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
 	flash_node = container_of(led_cdev, struct flash_node_data, cdev);
 	led = dev_get_drvdata(&flash_node->pdev->dev);
 
-	if (!(options & (ENABLE_REGULATOR | QUERY_MAX_CURRENT))) {
+	if (!(options & FLASH_PREPARE_OPTIONS_MASK)) {
 		dev_err(&led->pdev->dev, "Invalid options %d\n", options);
 		return -EINVAL;
 	}
@@ -1184,16 +1186,26 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
 		}
 	}
 
-	if (options & QUERY_MAX_CURRENT) {
-		val = qpnp_flash_led_get_max_avail_current(flash_node, led);
-		if (val < 0) {
+	if (options & DISABLE_REGULATOR) {
+		rc = flash_regulator_enable(led, flash_node, false);
+		if (rc < 0) {
 			dev_err(&led->pdev->dev,
-				"query max current failed, rc=%d\n", val);
-			return val;
+				"disable regulator failed, rc=%d\n", rc);
+			return rc;
 		}
 	}
 
-	return val;
+	if (options & QUERY_MAX_CURRENT) {
+		rc = qpnp_flash_led_get_max_avail_current(flash_node, led);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev,
+				"query max current failed, rc=%d\n", rc);
+			return rc;
+		}
+		*max_current = rc;
+	}
+
+	return 0;
 }
 
 static void qpnp_flash_led_work(struct work_struct *work)
