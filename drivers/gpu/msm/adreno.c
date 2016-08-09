@@ -826,6 +826,8 @@ static struct {
 	 { ADRENO_QUIRK_IOMMU_SYNC, "qcom,gpu-quirk-iommu-sync" },
 	 { ADRENO_QUIRK_CRITICAL_PACKETS, "qcom,gpu-quirk-critical-packets" },
 	 { ADRENO_QUIRK_FAULT_DETECT_MASK, "qcom,gpu-quirk-fault-detect-mask" },
+	 { ADRENO_QUIRK_DISABLE_RB_DP2CLOCKGATING,
+			"qcom,gpu-quirk-dp2clockgating-disable" },
 };
 
 static int adreno_of_get_power(struct adreno_device *adreno_dev,

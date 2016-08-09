@@ -1935,6 +1935,13 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 			kgsl_regrmw(device, A5XX_PC_DBG_ECO_CNTL, 0, (1 << 8));
 	}
 
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_DISABLE_RB_DP2CLOCKGATING)) {
+		/*
+		 * Disable RB sampler datapath DP2 clock gating
+		 * optimization for 1-SP GPU's, by default it is enabled.
+		 */
+		kgsl_regrmw(device, A5XX_RB_DBG_ECO_CNT, 0, (1 << 9));
+	}
 	/* Set the USE_RETENTION_FLOPS chicken bit */
 	kgsl_regwrite(device, A5XX_CP_CHICKEN_DBG, 0x02000000);
 
