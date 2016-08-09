@@ -1061,7 +1061,6 @@ struct dwc3 {
 
 	/* IRQ timing statistics */
 	int			irq;
-	struct tasklet_struct	bh;
 	unsigned long		irq_cnt;
 	unsigned int		bh_completion_time[MAX_INTR_STATS];
 	unsigned int		bh_handled_evt_cnt[MAX_INTR_STATS];
