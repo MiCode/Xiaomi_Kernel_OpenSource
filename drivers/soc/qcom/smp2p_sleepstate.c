@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,7 @@ static int smp2p_sleepstate_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_smp2p_slst_match_table[] = {
 	{.compatible = "qcom,smp2pgpio_sleepstate_3_out"},
+	{.compatible = "qcom,smp2pgpio-sleepstate-out"},
 	{},
 };
 
