@@ -14,6 +14,7 @@
 
 #include "sde_encoder_phys.h"
 #include "sde_hw_interrupts.h"
+#include "sde_core_irq.h"
 #include "sde_formats.h"
 
 #define VBLANK_TIMEOUT msecs_to_jiffies(100)
@@ -318,7 +319,7 @@ static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc)
 	struct sde_irq_callback irq_cb;
 	int ret = 0;
 
-	vid_enc->irq_idx = sde_irq_idx_lookup(phys_enc->sde_kms,
+	vid_enc->irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms,
 			SDE_IRQ_TYPE_INTF_VSYNC, vid_enc->hw_intf->idx);
 	if (vid_enc->irq_idx < 0) {
 		DRM_ERROR(
@@ -329,14 +330,14 @@ static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc)
 
 	irq_cb.func = sde_encoder_phys_vid_vblank_irq;
 	irq_cb.arg = vid_enc;
-	ret = sde_register_irq_callback(phys_enc->sde_kms, vid_enc->irq_idx,
-			&irq_cb);
+	ret = sde_core_irq_register_callback(phys_enc->sde_kms,
+			vid_enc->irq_idx, &irq_cb);
 	if (ret) {
 		DRM_ERROR("failed to register IRQ callback INTF_VSYNC");
 		return ret;
 	}
 
-	ret = sde_enable_irq(phys_enc->sde_kms, &vid_enc->irq_idx, 1);
+	ret = sde_core_irq_enable(phys_enc->sde_kms, &vid_enc->irq_idx, 1);
 	if (ret) {
 		DRM_ERROR(
 			"failed to enable IRQ for INTF_VSYNC, intf %d, irq_idx=%d",
@@ -345,8 +346,8 @@ static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc)
 		vid_enc->irq_idx = -EINVAL;
 
 		/* Unregister callback on IRQ enable failure */
-		sde_register_irq_callback(phys_enc->sde_kms, vid_enc->irq_idx,
-				NULL);
+		sde_core_irq_register_callback(phys_enc->sde_kms,
+				vid_enc->irq_idx, NULL);
 		return ret;
 	}
 
@@ -363,8 +364,9 @@ static int sde_encoder_phys_vid_unregister_irq(
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
 
-	sde_register_irq_callback(phys_enc->sde_kms, vid_enc->irq_idx, NULL);
-	sde_disable_irq(phys_enc->sde_kms, &vid_enc->irq_idx, 1);
+	sde_core_irq_register_callback(phys_enc->sde_kms, vid_enc->irq_idx,
+			NULL);
+	sde_core_irq_disable(phys_enc->sde_kms, &vid_enc->irq_idx, 1);
 
 	DBG("unregister IRQ for intf %d, irq_idx=%d",
 			vid_enc->hw_intf->idx,
