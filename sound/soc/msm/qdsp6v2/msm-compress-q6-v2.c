@@ -1740,7 +1740,12 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			prtd->app_pointer  = 0;
 			prtd->first_buffer = 1;
 			prtd->last_buffer = 0;
-			prtd->gapless_state.gapless_transition = 1;
+			/*
+			 * Set gapless transition flag only if EOS hasn't been
+			 * acknowledged already.
+			 */
+			if (atomic_read(&prtd->eos))
+				prtd->gapless_state.gapless_transition = 1;
 			prtd->marker_timestamp = 0;
 
 			/*
