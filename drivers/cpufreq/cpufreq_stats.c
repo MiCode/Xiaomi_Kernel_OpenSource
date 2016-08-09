@@ -187,10 +187,8 @@ static int __cpufreq_stats_create_table(struct cpufreq_policy *policy,
 	struct cpufreq_stats *stat;
 	unsigned int alloc_size;
 	unsigned int cpu = policy->cpu;
-
 	if (per_cpu(cpufreq_stats_table, cpu))
-		return 0;
-
+		return -EBUSY;
 	stat = kzalloc(sizeof(*stat), GFP_KERNEL);
 	if ((stat) == NULL) {
 		pr_err("Failed to alloc cpufreq_stats table\n");
