@@ -3176,7 +3176,8 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 {
-	union power_supply_propval pval = {0,};
+	union power_supply_propval pval = {1000 * mA};
+	int ret;
 
 	if (mdwc->charging_disabled)
 		return 0;
@@ -3194,42 +3195,16 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 
 	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
 
-	if (mdwc->max_power <= 2 && mA > 2) {
-		/* Enable Charging */
-		pval.intval = true;
-		if (power_supply_set_property(mdwc->usb_psy,
-					POWER_SUPPLY_PROP_ONLINE, &pval))
-			goto psy_error;
-		pval.intval = 1000 * mA;
-		if (power_supply_set_property(mdwc->usb_psy,
-					POWER_SUPPLY_PROP_CURRENT_MAX, &pval))
-			goto psy_error;
-	} else if (mdwc->max_power > 0 && (mA == 0 || mA == 2)) {
-		/* Disable charging */
-		pval.intval = false;
-		if (power_supply_set_property(mdwc->usb_psy,
-					POWER_SUPPLY_PROP_ONLINE, &pval))
-			goto psy_error;
-	} else {
-		/* Enable charging */
-		pval.intval = true;
-		if (power_supply_set_property(mdwc->usb_psy,
-					POWER_SUPPLY_PROP_ONLINE, &pval))
-			goto psy_error;
-	}
-
 	/* Set max current limit in uA */
-	pval.intval = 1000 * mA;
-	if (power_supply_set_property(mdwc->usb_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &pval))
-		goto psy_error;
+	ret = power_supply_set_property(mdwc->usb_psy,
+				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
+	if (ret) {
+		dev_dbg(mdwc->dev, "power supply error when setting property\n");
+		return ret;
+	}
 
 	mdwc->max_power = mA;
 	return 0;
-
-psy_error:
-	dev_dbg(mdwc->dev, "power supply error when setting property\n");
-	return -ENXIO;
 }
 
 
