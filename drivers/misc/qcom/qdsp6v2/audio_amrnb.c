@@ -14,6 +14,9 @@
  * GNU General Public License for more details.
  *
  */
+
+#include <linux/types.h>
+#include <linux/compat.h>
 #include "audio_utils_aio.h"
 
 static struct miscdevice audio_amrnb_misc;
@@ -67,6 +70,50 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 	return rc;
 }
+
+static long audio_compat_ioctl(struct file *file, unsigned int cmd,
+			       unsigned long arg)
+{
+	struct q6audio_aio *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_START: {
+		pr_debug("%s[%pK]: AUDIO_START session_id[%d]\n", __func__,
+				audio, audio->ac->session);
+		if (audio->feedback == NON_TUNNEL_MODE) {
+			/* Configure PCM output block */
+			rc = q6asm_enc_cfg_blk_pcm(audio->ac,
+					audio->pcm_cfg.sample_rate,
+					audio->pcm_cfg.channel_count);
+			if (rc < 0) {
+				pr_err("pcm output block config failed\n");
+				break;
+			}
+		}
+
+		rc = audio_aio_enable(audio);
+		audio->eos_rsp = 0;
+		audio->eos_flag = 0;
+		if (!rc) {
+			audio->enabled = 1;
+		} else {
+			audio->enabled = 0;
+			pr_err("Audio Start procedure failed rc=%d\n", rc);
+			break;
+		}
+		pr_debug("AUDIO_START success enable[%d]\n", audio->enabled);
+		if (audio->stopped == 1)
+			audio->stopped = 0;
+		break;
+	}
+	default:
+		pr_debug("%s[%pK]: Calling utils ioctl\n", __func__, audio);
+		rc = audio->codec_compat_ioctl(file, cmd, arg);
+	}
+	return rc;
+}
+
 
 static int audio_open(struct inode *inode, struct file *file)
 {
@@ -157,6 +204,7 @@ static const struct file_operations audio_amrnb_fops = {
 	.release = audio_aio_release,
 	.unlocked_ioctl = audio_ioctl,
 	.fsync = audio_aio_fsync,
+	.compat_ioctl = audio_compat_ioctl
 };
 
 static struct miscdevice audio_amrnb_misc = {
