@@ -4381,6 +4381,7 @@ static int smb135x_parallel_charger_probe(struct i2c_client *client,
 	mutex_init(&chip->path_suspend_lock);
 	mutex_init(&chip->current_change_lock);
 	mutex_init(&chip->read_write_lock);
+	wakeup_source_init(&chip->wake_source.source, "smb_wake_source");
 
 	match = of_match_node(smb135x_match_table, node);
 	if (match == NULL) {
