@@ -27,6 +27,21 @@
 
 #define UDC_TRACE_STR_MAX	512
 
+/*
+ * The following are bit fields describing the usb_request.udc_priv word.
+ * These bit fields are set by function drivers that wish to queue
+ * usb_requests with sps/bam parameters.
+ */
+#define MSM_PIPE_ID_MASK		(0x1F)
+#define MSM_TX_PIPE_ID_OFS		(16)
+#define MSM_SPS_MODE			BIT(5)
+#define MSM_IS_FINITE_TRANSFER		BIT(6)
+#define MSM_PRODUCER			BIT(7)
+#define MSM_DISABLE_WB			BIT(8)
+#define MSM_ETD_IOC			BIT(9)
+#define MSM_INTERNAL_MEM		BIT(10)
+#define MSM_VENDOR_ID			BIT(16)
+
 struct usb_ep;
 struct usb_gadget;
 
@@ -928,4 +943,33 @@ extern void usb_ep_autoconfig_release(struct usb_ep *);
 
 extern void usb_ep_autoconfig_reset(struct usb_gadget *);
 
+#ifdef CONFIG_USB_DWC3_MSM
+int msm_ep_config(struct usb_ep *ep);
+int msm_ep_unconfig(struct usb_ep *ep);
+void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
+int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr, u32 size,
+	u8 dst_pipe_idx);
+bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget);
+int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
+#else
+static inline int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr,
+	u32 size, u8 dst_pipe_idx)
+{	return -ENODEV; }
+
+static inline int msm_ep_config(struct usb_ep *ep)
+{ return -ENODEV; }
+
+static inline int msm_ep_unconfig(struct usb_ep *ep)
+{ return -ENODEV; }
+
+static inline void dwc3_tx_fifo_resize_request(struct usb_ep *ep,
+	bool qdss_enable)
+{ }
+
+static inline bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget)
+{ return false; }
+
+static inline int msm_dwc3_reset_dbm_ep(struct usb_ep *ep)
+{ return -ENODEV; }
+#endif
 #endif /* __LINUX_USB_GADGET_H */
