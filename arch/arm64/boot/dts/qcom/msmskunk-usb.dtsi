@@ -1,0 +1,95 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/qcom,gcc-skunk.h>
+&soc {
+	usb3: ssusb@a600000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0x0a600000 0xf8c00>,
+		      <0x0141e000 0x400>;
+		reg-names = "core_base", "ahb2phy_base";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		interrupts = <0 346 0>, <0 130 0>;
+		interrupt-names = "hs_phy_irq", "pwr_event_irq";
+
+		USB3_GDSC-supply = <&usb30_prim_gdsc>;
+		qcom,usb-dbm = <&dbm_1p5>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+
+		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
+			 <&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
+			 <&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
+			 <&clock_gcc GCC_USB30_PRIM_MOCK_UTMI_CLK>,
+			 <&clock_gcc GCC_USB30_PRIM_SLEEP_CLK>,
+			 <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>;
+
+		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
+			"utmi_clk", "sleep_clk", "cfg_ahb_clk", "xo";
+
+		resets = <&clock_gcc GCC_USB30_PRIM_BCR>;
+		reset-names = "core_reset";
+
+		dwc3@a600000 {
+			compatible = "snps,dwc3";
+			reg = <0x0a600000 0xcd00>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 133 0>;
+			usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
+			tx-fifo-resize;
+			snps,nominal-elastic-buffer;
+			snps,hird_thresh = <0x10>;
+			snps,num-gsi-evt-buffs = <0x3>;
+		};
+	};
+
+	qusb_phy0: qusb@88e2000 {
+		compatible = "qcom,qusb2phy-v2";
+		reg = <0x088e2000 0x400>;
+		reg-names = "qusb_phy_base";
+
+		vdd-supply = <&pmcobalt_l1>;
+		vdda18-supply = <&pmcobalt_l12>;
+		vdda33-supply = <&pmcobalt_l24>;
+		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,qusb-phy-init-seq =
+				/* <value reg_offset> */
+					<0x13 0x04
+					0x7c 0x18c
+					0x80 0x2c
+					0x0a 0x184
+					0x00 0x240>;
+		phy_type= "utmi";
+		clocks = <&clock_gcc GCC_USB3_PRIM_PHY_COM_AUX_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_PHY_AUX_CLK>,
+			 <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
+		clock-names = "ref_clk_src", "ref_clk", "cfg_ahb_clk";
+
+		resets = <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_BCR>;
+		reset-names = "phy_reset";
+
+	};
+
+	dbm_1p5: dbm@a8f8000 {
+		compatible = "qcom,usb-dbm-1p5";
+		reg = <0xa8f8000 0x400>;
+		qcom,reset-ep-after-lpm-resume;
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
+};
