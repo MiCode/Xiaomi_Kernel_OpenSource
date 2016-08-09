@@ -65,6 +65,8 @@
 #define LINESTATE_DP			BIT(0)
 #define LINESTATE_DM			BIT(1)
 
+#define QUSB2PHY_PLL_ANALOG_CONTROLS_ONE	0x0
+
 unsigned int phy_tune2;
 module_param(phy_tune2, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(phy_tune2, "QUSB PHY v2 TUNE2");
@@ -73,6 +75,7 @@ struct qusb_phy {
 	struct usb_phy		phy;
 	void __iomem		*base;
 	void __iomem		*tune2_efuse_reg;
+	void __iomem		*tcsr_clamp_dig_n;
 
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
@@ -554,6 +557,11 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 		/* Bus suspend case */
 		if (qphy->cable_connected ||
 			(qphy->phy.flags & PHY_HOST_MODE)) {
+
+			/* enable clock bypass */
+			writel_relaxed(0x90,
+				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_ONE);
+
 			/* Disable all interrupts */
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_INTR_CTRL);
@@ -584,15 +592,20 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			wmb();
 			qusb_phy_enable_clocks(qphy, false);
 		} else { /* Cable disconnect case */
-			/* Disable all interrupts */
-			writel_relaxed(0x00,
-				qphy->base + QUSB2PHY_INTR_CTRL);
 
-			/* Put PHY into non-driving mode */
-			writel_relaxed(0x23,
-				qphy->base + QUSB2PHY_PWR_CTRL1);
+			clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
+			usleep_range(100, 150);
+			clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
 
-			/* Makes sure that above write goes through */
+			/* enable clock bypass */
+			writel_relaxed(0x90,
+				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_ONE);
+
+			writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
+			/*
+			 * clamp needs asserted before
+			 * power/clocks can be turned off
+			 */
 			wmb();
 
 			qusb_phy_enable_clocks(qphy, false);
@@ -604,6 +617,11 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 		if (qphy->cable_connected ||
 			(qphy->phy.flags & PHY_HOST_MODE)) {
 			qusb_phy_enable_clocks(qphy, true);
+
+			/* disable clock bypass */
+			writel_relaxed(0x80,
+				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_ONE);
+
 			/* Clear all interrupts on resume */
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_INTR_CTRL);
@@ -611,6 +629,16 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			/* Makes sure that above write goes through */
 			wmb();
 		} else { /* Cable connect case */
+			writel_relaxed(0x1, qphy->tcsr_clamp_dig_n);
+
+			/*
+			 * clamp needs de-asserted before
+			 * power/clocks can be turned on
+			 */
+			wmb();
+
+			clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
+
 			qusb_phy_enable_power(qphy, true, true);
 			qusb_phy_enable_clocks(qphy, true);
 		}
@@ -731,6 +759,16 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		if (IS_ERR(qphy->emu_phy_base)) {
 			dev_dbg(dev, "couldn't ioremap emu_phy_base\n");
 			qphy->emu_phy_base = NULL;
+		}
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"tcsr_clamp_dig_n_1p8");
+	if (res) {
+		qphy->tcsr_clamp_dig_n = devm_ioremap_resource(dev, res);
+		if (IS_ERR(qphy->tcsr_clamp_dig_n)) {
+			dev_dbg(dev, "couldn't ioremap tcsr_clamp_dig_n\n");
+			return PTR_ERR(qphy->tcsr_clamp_dig_n);
 		}
 	}
 
