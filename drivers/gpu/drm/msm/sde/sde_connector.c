@@ -16,6 +16,21 @@
 #include "sde_kms.h"
 #include "sde_connector.h"
 
+static const struct drm_prop_enum_list e_topology_name[] = {
+	{SDE_RM_TOPOLOGY_UNKNOWN,	"sde_unknown"},
+	{SDE_RM_TOPOLOGY_SINGLEPIPE,	"sde_singlepipe"},
+	{SDE_RM_TOPOLOGY_DUALPIPE,	"sde_dualpipe"},
+	{SDE_RM_TOPOLOGY_PPSPLIT,	"sde_ppsplit"},
+	{SDE_RM_TOPOLOGY_DUALPIPEMERGE,	"sde_dualpipemerge"}
+};
+static const struct drm_prop_enum_list e_topology_control[] = {
+	{SDE_RM_TOPCTL_RESERVE_LOCK,	"reserve_lock"},
+	{SDE_RM_TOPCTL_RESERVE_CLEAR,	"reserve_clear"},
+	{SDE_RM_TOPCTL_DSPP,		"dspp"},
+	{SDE_RM_TOPCTL_FORCE_TILING,	"force_tiling"},
+	{SDE_RM_TOPCTL_PPSPLIT,		"ppsplit"}
+};
+
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info)
 {
@@ -554,11 +569,24 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
 			0x0, 0, ~0, ~0, CONNECTOR_PROP_RETIRE_FENCE);
 
+	/* enum/bitmask properties */
+	msm_property_install_enum(&c_conn->property_info, "topology_name",
+			DRM_MODE_PROP_IMMUTABLE, 0, e_topology_name,
+			ARRAY_SIZE(e_topology_name),
+			CONNECTOR_PROP_TOPOLOGY_NAME);
+	msm_property_install_enum(&c_conn->property_info, "topology_control",
+			0, 1, e_topology_control,
+			ARRAY_SIZE(e_topology_control),
+			CONNECTOR_PROP_TOPOLOGY_CONTROL);
+
 	rc = msm_property_install_get_status(&c_conn->property_info);
 	if (rc) {
 		SDE_ERROR("failed to create one or more properties\n");
 		goto error_destroy_property;
 	}
+
+	SDE_DEBUG("connector %d attach encoder %d\n",
+			c_conn->base.base.id, encoder->base.id);
 
 	priv->connectors[priv->num_connectors++] = &c_conn->base;
 
@@ -579,4 +607,3 @@ error_free_conn:
 
 	return ERR_PTR(rc);
 }
-
