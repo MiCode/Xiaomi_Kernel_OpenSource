@@ -346,5 +346,20 @@ int msm_property_set_blob(struct msm_property_info *info,
 		size_t byte_len,
 		uint32_t property_idx);
 
+/**
+ * msm_property_set_property - update property on a drm object
+ * This function updates the property value of the given drm object. Its
+ * intended use is to update properties that have been created with the
+ * DRM_MODE_PROP_IMMUTABLE flag set.
+ * Note: This function cannot be called on a blob.
+ * @info: Pointer to property info container struct
+ * @property_idx: Property index
+ * @val: value of the property to set
+ * Returns: Zero on success
+ */
+int msm_property_set_property(struct msm_property_info *info,
+		uint32_t property_idx,
+		uint64_t val);
+
 #endif /* _MSM_PROP_H_ */
 

@@ -589,3 +589,24 @@ exit:
 	return rc;
 }
 
+int msm_property_set_property(struct msm_property_info *info,
+		uint32_t property_idx,
+		uint64_t val)
+{
+	int rc = -EINVAL;
+
+	if (!info || (property_idx >= info->property_count) ||
+			property_idx < info->blob_count) {
+		DRM_ERROR("invalid argument(s)\n");
+	} else {
+		/* update drm object */
+		rc = drm_object_property_set_value(info->base,
+				info->property_array[property_idx], val);
+		if (rc)
+			DRM_ERROR("failed set property value, idx %d rc %d\n",
+					property_idx, rc);
+	}
+
+	return rc;
+}
+

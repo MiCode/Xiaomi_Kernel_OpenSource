@@ -51,6 +51,47 @@
 
 #define SDE_ERROR(fmt, ...) pr_err(fmt, ##__VA_ARGS__)
 
+/**
+ * enum sde_rm_topology_name - HW resource use case in use by connector
+ * @SDE_RM_TOPOLOGY_UNKNOWN: No topology in use currently
+ * @SDE_RM_TOPOLOGY_SINGLEPIPE: 1 LM, 1 PP, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE: 2 LM, 2 PP, 2 INTF/WB
+ * @SDE_RM_TOPOLOGY_PPSPLIT: 1 LM, 2 PPs, 2 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPEMERGE: 2 LM, 2 PP, 3DMux, 1 INTF/WB
+ */
+enum sde_rm_topology_name {
+	SDE_RM_TOPOLOGY_UNKNOWN = 0,
+	SDE_RM_TOPOLOGY_SINGLEPIPE,
+	SDE_RM_TOPOLOGY_DUALPIPE,
+	SDE_RM_TOPOLOGY_PPSPLIT,
+	SDE_RM_TOPOLOGY_DUALPIPEMERGE,
+};
+
+/**
+ * enum sde_rm_topology_control - HW resource use case in use by connector
+ * @SDE_RM_TOPCTL_RESERVE_LOCK: If set, in AtomicTest phase, after a successful
+ *                              test, reserve the resources for this display.
+ *                              Normal behavior would not impact the reservation
+ *                              list during the AtomicTest phase.
+ * @SDE_RM_TOPCTL_RESERVE_CLEAR: If set, in AtomicTest phase, before testing,
+ *                               release any reservation held by this display.
+ *                               Normal behavior would not impact the
+ *                               reservation list during the AtomicTest phase.
+ * @SDE_RM_TOPCTL_DSPP: Require layer mixers with DSPP capabilities
+ * @SDE_RM_TOPCTL_FORCE_TILING: Require kernel to split across multiple layer
+ *                              mixers, despite width fitting within capability
+ *                              of a single layer mixer.
+ * @SDE_RM_TOPCTL_PPSPLIT: Require kernel to use pingpong split pipe
+ *                         configuration instead of dual pipe.
+ */
+enum sde_rm_topology_control {
+	SDE_RM_TOPCTL_RESERVE_LOCK,
+	SDE_RM_TOPCTL_RESERVE_CLEAR,
+	SDE_RM_TOPCTL_DSPP,
+	SDE_RM_TOPCTL_FORCE_TILING,
+	SDE_RM_TOPCTL_PPSPLIT,
+};
+
 /*
  * struct sde_irq_callback - IRQ callback handlers
  * @func: intr handler
