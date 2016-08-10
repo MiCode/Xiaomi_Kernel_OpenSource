@@ -220,7 +220,8 @@ int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx,
 		 __func__, ch_cnt, rate, WATER_MARK_VAL);
 	/* slim_define_ch api */
 	prop.prot = SLIM_AUTO_ISO;
-	if (rate == 44100) {
+	if ((rate == 44100) || (rate == 88200) || (rate == 176400) ||
+	    (rate == 352800)) {
 		prop.baser = SLIM_RATE_11025HZ;
 		prop.ratem = (rate/11025);
 	} else {
