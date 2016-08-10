@@ -1523,8 +1523,9 @@ static int msm_ds2_dap_get_param(u32 cmd, void *arg)
 	}
 
 	/* Return if invalid length */
-	if (dolby_data->length >
-	       (DOLBY_MAX_LENGTH_INDIVIDUAL_PARAM - DOLBY_PARAM_PAYLOAD_SIZE)) {
+	if ((dolby_data->length >
+	      (DOLBY_MAX_LENGTH_INDIVIDUAL_PARAM - DOLBY_PARAM_PAYLOAD_SIZE)) ||
+	      (dolby_data->length <= 0)) {
 		pr_err("Invalid length %d", dolby_data->length);
 		rc = -EINVAL;
 		goto end;
