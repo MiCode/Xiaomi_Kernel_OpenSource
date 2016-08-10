@@ -38,15 +38,15 @@ static struct smb_params v1_params = {
 	.fv			= {
 		.name	= "float voltage",
 		.reg	= FLOAT_VOLTAGE_CFG_REG,
-		.min_u	= 2500000,
-		.max_u	= 5000000,
-		.step_u	= 10000,
+		.min_u	= 3487500,
+		.max_u	= 4920000,
+		.step_u	= 7500,
 	},
 	.usb_icl		= {
 		.name	= "usb input current limit",
 		.reg	= USBIN_CURRENT_LIMIT_CFG_REG,
 		.min_u	= 0,
-		.max_u	= 6000000,
+		.max_u	= 4800000,
 		.step_u	= 25000,
 	},
 	.icl_stat		= {
@@ -112,8 +112,90 @@ static struct smb_params v1_params = {
 		.max_u	= 1575000,
 		.step_u	= 25000,
 	},
+	.step_soc_threshold[0]		= {
+		.name	= "step charge soc threshold 1",
+		.reg	= STEP_CHG_SOC_OR_BATT_V_TH1_REG,
+		.min_u	= 0,
+		.max_u	= 100,
+		.step_u	= 1,
+	},
+	.step_soc_threshold[1]		= {
+		.name	= "step charge soc threshold 2",
+		.reg	= STEP_CHG_SOC_OR_BATT_V_TH2_REG,
+		.min_u	= 0,
+		.max_u	= 100,
+		.step_u	= 1,
+	},
+	.step_soc_threshold[2]         = {
+		.name	= "step charge soc threshold 3",
+		.reg	= STEP_CHG_SOC_OR_BATT_V_TH3_REG,
+		.min_u	= 0,
+		.max_u	= 100,
+		.step_u	= 1,
+	},
+	.step_soc_threshold[3]         = {
+		.name	= "step charge soc threshold 4",
+		.reg	= STEP_CHG_SOC_OR_BATT_V_TH4_REG,
+		.min_u	= 0,
+		.max_u	= 100,
+		.step_u	= 1,
+	},
+	.step_soc			= {
+		.name	= "step charge soc",
+		.reg	= STEP_CHG_SOC_VBATT_V_REG,
+		.min_u	= 0,
+		.max_u	= 100,
+		.step_u	= 1,
+		.set_proc	= smblib_mapping_soc_from_field_value,
+	},
+	.step_cc_delta[0]	= {
+		.name	= "step charge current delta 1",
+		.reg	= STEP_CHG_CURRENT_DELTA1_REG,
+		.min_u	= 100000,
+		.max_u	= 3200000,
+		.step_u	= 100000,
+		.get_proc	= smblib_mapping_cc_delta_to_field_value,
+		.set_proc	= smblib_mapping_cc_delta_from_field_value,
+	},
+	.step_cc_delta[1]	= {
+		.name	= "step charge current delta 2",
+		.reg	= STEP_CHG_CURRENT_DELTA2_REG,
+		.min_u	= 100000,
+		.max_u	= 3200000,
+		.step_u	= 100000,
+		.get_proc	= smblib_mapping_cc_delta_to_field_value,
+		.set_proc	= smblib_mapping_cc_delta_from_field_value,
+	},
+	.step_cc_delta[2]	= {
+		.name	= "step charge current delta 3",
+		.reg	= STEP_CHG_CURRENT_DELTA3_REG,
+		.min_u	= 100000,
+		.max_u	= 3200000,
+		.step_u	= 100000,
+		.get_proc	= smblib_mapping_cc_delta_to_field_value,
+		.set_proc	= smblib_mapping_cc_delta_from_field_value,
+	},
+	.step_cc_delta[3]	= {
+		.name	= "step charge current delta 4",
+		.reg	= STEP_CHG_CURRENT_DELTA4_REG,
+		.min_u	= 100000,
+		.max_u	= 3200000,
+		.step_u	= 100000,
+		.get_proc	= smblib_mapping_cc_delta_to_field_value,
+		.set_proc	= smblib_mapping_cc_delta_from_field_value,
+	},
+	.step_cc_delta[4]	= {
+		.name	= "step charge current delta 5",
+		.reg	= STEP_CHG_CURRENT_DELTA5_REG,
+		.min_u	= 100000,
+		.max_u	= 3200000,
+		.step_u	= 100000,
+		.get_proc	= smblib_mapping_cc_delta_to_field_value,
+		.set_proc	= smblib_mapping_cc_delta_from_field_value,
+	},
 };
 
+#define STEP_CHARGING_MAX_STEPS	5
 struct smb_dt_props {
 	bool	suspend_input;
 	int	fcc_ua;
@@ -121,6 +203,8 @@ struct smb_dt_props {
 	int	dc_icl_ua;
 	int	fv_uv;
 	int	wipower_max_uw;
+	u32	step_soc_threshold[STEP_CHARGING_MAX_STEPS - 1];
+	s32	step_cc_delta[STEP_CHARGING_MAX_STEPS];
 };
 
 struct smb2 {
@@ -149,6 +233,28 @@ static int smb2_parse_dt(struct smb2 *chip)
 		pr_err("device tree node missing\n");
 		return -EINVAL;
 	}
+
+	chg->step_chg_enabled = true;
+
+	if (of_property_count_u32_elems(node, "qcom,step-soc-thresholds")
+			!= STEP_CHARGING_MAX_STEPS - 1)
+		chg->step_chg_enabled = false;
+
+	rc = of_property_read_u32_array(node, "qcom,step-soc-thresholds",
+			chip->dt.step_soc_threshold,
+			STEP_CHARGING_MAX_STEPS - 1);
+	if (rc < 0)
+		chg->step_chg_enabled = false;
+
+	if (of_property_count_u32_elems(node, "qcom,step-current-deltas")
+			!= STEP_CHARGING_MAX_STEPS)
+		chg->step_chg_enabled = false;
+
+	rc = of_property_read_u32_array(node, "qcom,step-current-deltas",
+			chip->dt.step_cc_delta,
+			STEP_CHARGING_MAX_STEPS);
+	if (rc < 0)
+		chg->step_chg_enabled = false;
 
 	chip->dt.suspend_input = of_property_read_bool(node,
 				"qcom,suspend-input");
@@ -669,6 +775,73 @@ static int smb2_init_vconn_regulator(struct smb2 *chip)
 /***************************
  * HARDWARE INITIALIZATION *
  ***************************/
+static int smb2_config_step_charging(struct smb2 *chip)
+{
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+	int i;
+
+	if (!chg->step_chg_enabled)
+		return rc;
+
+	for (i = 0; i < STEP_CHARGING_MAX_STEPS - 1; i++) {
+		rc = smblib_set_charge_param(chg,
+					     &chg->param.step_soc_threshold[i],
+					     chip->dt.step_soc_threshold[i]);
+		if (rc < 0) {
+			pr_err("Couldn't configure soc thresholds rc = %d\n",
+				rc);
+			goto err_out;
+		}
+	}
+
+	for (i = 0; i < STEP_CHARGING_MAX_STEPS; i++) {
+		rc = smblib_set_charge_param(chg, &chg->param.step_cc_delta[i],
+					     chip->dt.step_cc_delta[i]);
+		if (rc < 0) {
+			pr_err("Couldn't configure cc delta rc = %d\n",
+				rc);
+			goto err_out;
+		}
+	}
+
+	rc = smblib_write(chg, STEP_CHG_UPDATE_REQUEST_TIMEOUT_CFG_REG,
+			  STEP_CHG_UPDATE_REQUEST_TIMEOUT_40S);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure soc request timeout reg rc=%d\n",
+			 rc);
+		goto err_out;
+	}
+
+	rc = smblib_write(chg, STEP_CHG_UPDATE_FAIL_TIMEOUT_CFG_REG,
+			  STEP_CHG_UPDATE_FAIL_TIMEOUT_120S);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure soc fail timeout reg rc=%d\n",
+			rc);
+		goto err_out;
+	}
+
+	/*
+	 *  enable step charging, source soc, standard mode, go to final
+	 *  state in case of failure.
+	 */
+	rc = smblib_write(chg, CHGR_STEP_CHG_MODE_CFG_REG,
+			       STEP_CHARGING_ENABLE_BIT |
+			       STEP_CHARGING_SOURCE_SELECT_BIT |
+			       STEP_CHARGING_SOC_FAIL_OPTION_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure charger rc=%d\n", rc);
+		goto err_out;
+	}
+
+	return 0;
+err_out:
+	chg->step_chg_enabled = false;
+	return rc;
+}
+
 static int smb2_config_wipower_input_power(struct smb2 *chip, int uw)
 {
 	int rc;
@@ -833,6 +1006,14 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	/* configure step charging */
+	rc = smb2_config_step_charging(chip);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure step charging rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	/* configure wipower watts */
 	rc = smb2_config_wipower_input_power(chip, chip->dt.wipower_max_uw);
 	if (rc < 0) {
@@ -856,6 +1037,8 @@ static int smb2_determine_initial_status(struct smb2 *chip)
 	smblib_handle_usb_source_change(0, &irq_data);
 	smblib_handle_chg_state_change(0, &irq_data);
 	smblib_handle_icl_change(0, &irq_data);
+	smblib_handle_step_chg_state_change(0, &irq_data);
+	smblib_handle_step_chg_soc_update_request(0, &irq_data);
 
 	return 0;
 }
@@ -875,9 +1058,12 @@ static struct smb2_irq_info smb2_irqs[] = {
 /* CHARGER IRQs */
 	{ "chg-error",			smblib_handle_debug },
 	{ "chg-state-change",		smblib_handle_chg_state_change,	true },
-	{ "step-chg-state-change",	smblib_handle_debug },
-	{ "step-chg-soc-update-fail",	smblib_handle_debug },
-	{ "step-chg-soc-update-request", smblib_handle_debug },
+	{ "step-chg-state-change",	smblib_handle_step_chg_state_change,
+	  true },
+	{ "step-chg-soc-update-fail",	smblib_handle_step_chg_soc_update_fail,
+	  true },
+	{ "step-chg-soc-update-request",
+	  smblib_handle_step_chg_soc_update_request, true },
 /* OTG IRQs */
 	{ "otg-fail",			smblib_handle_debug },
 	{ "otg-overcurrent",		smblib_handle_debug },
