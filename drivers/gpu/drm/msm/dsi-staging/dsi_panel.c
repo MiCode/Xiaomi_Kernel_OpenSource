@@ -238,7 +238,6 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	if (rc)
 		pr_err("[%s] failed to enable vregs, rc=%d\n", panel->name, rc);
 
-	/* TODO:  backlight */
 	return rc;
 }
 static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
@@ -1858,6 +1857,8 @@ int dsi_panel_pre_disable(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
+	/* disable backlight in order to shutdown regulator */
+	led_trigger_event(panel->bl_config.wled, 0x0);
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_PRE_OFF);
 	if (rc) {
 		pr_err("[%s] failed to send DSI_CMD_SET_PRE_OFF cmds, rc=%d\n",
