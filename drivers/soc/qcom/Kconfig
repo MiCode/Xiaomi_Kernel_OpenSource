@@ -104,6 +104,16 @@ config MSM_GLINK_SMEM_NATIVE_XPRT
 	  transport to only connecting with entities internal to the
 	  System-on-Chip.
 
+config MSM_GLINK_SPI_XPRT
+	depends on MSM_GLINK
+	tristate "Generic Link (G-Link) SPI Transport"
+	help
+	  G-Link SPI Transport is a Transport plug-in developed over SPI
+	  bus. This transport plug-in performs marshaling of G-Link
+	  commands & data to the appropriate SPI bus wire format and
+	  allows for G-Link communication with remote subsystems that are
+	  external to the System-on-Chip.
+
 config MSM_SPCOM
 	depends on MSM_GLINK
 	bool "Secure Processor Communication over GLINK"

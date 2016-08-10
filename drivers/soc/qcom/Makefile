@@ -11,6 +11,7 @@ obj-$(CONFIG_MSM_GLINK)	+=	glink.o glink_debugfs.o glink_ssr.o
 obj-$(CONFIG_MSM_GLINK_LOOPBACK_SERVER)	+=	glink_loopback_server.o
 obj-$(CONFIG_MSM_GLINK_SMD_XPRT)	+=	glink_smd_xprt.o
 obj-$(CONFIG_MSM_GLINK_SMEM_NATIVE_XPRT)+=	glink_smem_native_xprt.o
+obj-$(CONFIG_MSM_GLINK_SPI_XPRT)	+=	glink_spi_xprt.o
 obj-$(CONFIG_MSM_SMEM_LOGGING)	+=	smem_log.o
 obj-$(CONFIG_MSM_SYSMON_GLINK_COMM)	+= sysmon-glink.o sysmon-qmi.o
 obj-$(CONFIG_ARCH_MSM8996) +=	kryo-l2-accessors.o
