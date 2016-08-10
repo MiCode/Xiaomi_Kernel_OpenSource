@@ -992,7 +992,7 @@ static const struct genl_multicast_group genl_ctrl_groups[] = {
 
 static int genl_bind(struct net *net, int group)
 {
-	int i, err = -ENOENT;
+	int i, err = 0;
 
 	down_read(&cb_lock);
 	for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
