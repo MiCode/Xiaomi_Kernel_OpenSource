@@ -351,7 +351,7 @@ struct sde_lm_cfg {
 	const struct sde_lm_sub_blks *sblk;
 	u32 dspp;
 	u32 pingpong;
-	u32 lm_pair_mask;
+	unsigned long lm_pair_mask;
 };
 
 /**
@@ -384,13 +384,13 @@ struct sde_pingpong_cfg  {
  * @id                 enum identifying this block
  * @base               register offset of this block
  * @features           bit mask identifying sub-blocks/features
- * @intf_connect       Connects to which interfaces
- * @wb_connect:        Connects to which writebacks
+ * @intf_connect       Bitmask of INTF IDs this CDM can connect to
+ * @wb_connect:        Bitmask of Writeback IDs this CDM can connect to
  */
 struct sde_cdm_cfg   {
 	SDE_HW_BLK_INFO;
-	u32 intf_connect[MAX_BLOCKS];
-	u32 wb_connect[MAX_BLOCKS];
+	unsigned long intf_connect;
+	unsigned long wb_connect;
 };
 
 /**

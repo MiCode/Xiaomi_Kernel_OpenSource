@@ -102,6 +102,10 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m);
 
-void sde_hw_intf_deinit(struct sde_hw_intf *intf);
+/**
+ * sde_hw_intf_destroy(): Destroys INTF driver context
+ * @intf:   Pointer to INTF driver context
+ */
+void sde_hw_intf_destroy(struct sde_hw_intf *intf);
 
 #endif /*_SDE_HW_INTF_H */
