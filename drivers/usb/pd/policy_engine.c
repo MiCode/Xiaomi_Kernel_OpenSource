@@ -849,10 +849,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 				POWER_SUPPLY_PROP_VOLTAGE_MAX, &val);
 		pd->current_voltage = pd->requested_voltage;
 
-		val.intval = pd->requested_current * 1000; /* mA->uA */
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &val);
-
 		/* recursive call; go back to beginning state */
 		usbpd_set_state(pd, PE_SNK_STARTUP);
 		break;
@@ -1615,7 +1611,12 @@ static void usbpd_sm(struct work_struct *w)
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
 		pd->requested_voltage = 5000000;
-		pd->requested_current = max_sink_current;
+
+		if (pd->requested_current) {
+			val.intval = pd->requested_current = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+		}
 
 		val.intval = pd->requested_voltage;
 		power_supply_set_property(pd->usb_psy,
