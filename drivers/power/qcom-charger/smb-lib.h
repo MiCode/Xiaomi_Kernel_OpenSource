@@ -56,6 +56,11 @@ struct smb_chg_param {
 	int		min_u;
 	int		max_u;
 	int		step_u;
+	int		(*get_proc)(struct smb_chg_param *param,
+				    u8 val_raw);
+	int		(*set_proc)(struct smb_chg_param *param,
+				    int val_u,
+				    u8 *val_raw);
 };
 
 struct smb_params {
