@@ -189,3 +189,8 @@ struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,
 	 */
 	return c;
 }
+
+void sde_hw_lm_destroy(struct sde_hw_mixer *lm)
+{
+	kfree(lm);
+}

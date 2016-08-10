@@ -124,4 +124,10 @@ struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 			void __iomem *addr,
 			struct sde_mdss_cfg *m);
 
+/**
+ * sde_hw_dspp_destroy(): Destroys DSPP driver context
+ * @dspp:   Pointer to DSPP driver context
+ */
+void sde_hw_dspp_destroy(struct sde_hw_dspp *dspp);
+
 #endif /*_SDE_HW_DSPP_H */

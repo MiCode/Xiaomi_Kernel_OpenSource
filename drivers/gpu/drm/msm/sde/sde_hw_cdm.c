@@ -335,3 +335,8 @@ struct sde_hw_cdm *sde_hw_cdm_init(enum sde_cdm idx,
 
 	return c;
 }
+
+void sde_hw_cdm_destroy(struct sde_hw_cdm *cdm)
+{
+	kfree(cdm);
+}

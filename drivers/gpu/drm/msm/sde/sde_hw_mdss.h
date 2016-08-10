@@ -44,6 +44,19 @@
 #define SDE_FORMAT_IS_LINEAR(X)		((X)->fetch_mode == SDE_FETCH_LINEAR)
 #define SDE_FORMAT_IS_UBWC(X)		((X)->fetch_mode == SDE_FETCH_UBWC)
 
+enum sde_hw_blk_type {
+	SDE_HW_BLK_TOP = 0,
+	SDE_HW_BLK_SSPP,
+	SDE_HW_BLK_LM,
+	SDE_HW_BLK_DSPP,
+	SDE_HW_BLK_CTL,
+	SDE_HW_BLK_CDM,
+	SDE_HW_BLK_PINGPONG,
+	SDE_HW_BLK_INTF,
+	SDE_HW_BLK_WB,
+	SDE_HW_BLK_MAX,
+};
+
 enum sde_mdp {
 	MDP_TOP = 0x1,
 	MDP_MAX,
