@@ -1927,6 +1927,12 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		clk_disable_unprepare(mdwc->bus_aggr_clk);
 	clk_disable_unprepare(mdwc->utmi_clk);
 
+	/* Memory core: OFF, Memory periphery: OFF */
+	if (!mdwc->in_host_mode && !mdwc->vbus_active) {
+		clk_set_flags(mdwc->core_clk, CLKFLAG_NORETAIN_MEM);
+		clk_set_flags(mdwc->core_clk, CLKFLAG_NORETAIN_PERIPH);
+	}
+
 	clk_set_rate(mdwc->core_clk, 19200000);
 	clk_disable_unprepare(mdwc->core_clk);
 	/*
