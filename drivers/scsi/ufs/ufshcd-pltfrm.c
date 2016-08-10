@@ -234,6 +234,36 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 	}
 }
 
+static void ufshcd_parse_gear_limits(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	if (!np)
+		return;
+
+	ret = of_property_read_u32(np, "limit-tx-hs-gear",
+		&hba->limit_tx_hs_gear);
+	if (ret)
+		hba->limit_tx_hs_gear = -1;
+
+	ret = of_property_read_u32(np, "limit-rx-hs-gear",
+		&hba->limit_rx_hs_gear);
+	if (ret)
+		hba->limit_rx_hs_gear = -1;
+
+	ret = of_property_read_u32(np, "limit-tx-pwm-gear",
+		&hba->limit_tx_pwm_gear);
+	if (ret)
+		hba->limit_tx_pwm_gear = -1;
+
+	ret = of_property_read_u32(np, "limit-rx-pwm-gear",
+		&hba->limit_rx_pwm_gear);
+	if (ret)
+		hba->limit_rx_pwm_gear = -1;
+}
+
 #ifdef CONFIG_SMP
 /**
  * ufshcd_pltfrm_suspend - suspend power management function
@@ -339,6 +369,7 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 	}
 
 	ufshcd_parse_pm_levels(hba);
+	ufshcd_parse_gear_limits(hba);
 
 	if (!dev->dma_mask)
 		dev->dma_mask = &dev->coherent_dma_mask;

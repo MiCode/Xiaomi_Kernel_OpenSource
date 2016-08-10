@@ -840,6 +840,12 @@ struct ufs_hba {
 	/* Number of lanes available (1 or 2) for Rx/Tx */
 	u32 lanes_per_direction;
 
+	/* Gear limits */
+	u32 limit_tx_hs_gear;
+	u32 limit_rx_hs_gear;
+	u32 limit_tx_pwm_gear;
+	u32 limit_rx_pwm_gear;
+
 	/* Bitmask for enabling debug prints */
 	u32 ufshcd_dbg_print;
 

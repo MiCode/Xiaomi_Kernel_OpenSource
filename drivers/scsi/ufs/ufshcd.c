@@ -4164,8 +4164,16 @@ static int ufshcd_get_max_pwr_mode(struct ufs_hba *hba)
 			dev_err(hba->dev, "%s: invalid max pwm rx gear read = %d\n",
 				__func__, pwr_info->gear_rx);
 			return -EINVAL;
+		} else {
+			if (hba->limit_rx_pwm_gear > 0 &&
+			    (hba->limit_rx_pwm_gear < pwr_info->gear_rx))
+				pwr_info->gear_rx = hba->limit_rx_pwm_gear;
 		}
 		pwr_info->pwr_rx = SLOW_MODE;
+	} else {
+		if (hba->limit_rx_hs_gear > 0 &&
+		    (hba->limit_rx_hs_gear < pwr_info->gear_rx))
+			pwr_info->gear_rx = hba->limit_rx_hs_gear;
 	}
 
 	ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_MAXRXHSGEAR),
@@ -4177,8 +4185,16 @@ static int ufshcd_get_max_pwr_mode(struct ufs_hba *hba)
 			dev_err(hba->dev, "%s: invalid max pwm tx gear read = %d\n",
 				__func__, pwr_info->gear_tx);
 			return -EINVAL;
+		} else {
+			if (hba->limit_tx_pwm_gear > 0 &&
+			    (hba->limit_tx_pwm_gear < pwr_info->gear_tx))
+				pwr_info->gear_tx = hba->limit_tx_pwm_gear;
 		}
 		pwr_info->pwr_tx = SLOW_MODE;
+	} else {
+		if (hba->limit_tx_hs_gear > 0 &&
+		    (hba->limit_tx_hs_gear < pwr_info->gear_tx))
+			pwr_info->gear_tx = hba->limit_tx_hs_gear;
 	}
 
 	hba->max_pwr_info.is_valid = true;
