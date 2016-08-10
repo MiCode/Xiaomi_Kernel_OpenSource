@@ -2841,10 +2841,6 @@
 };
 
 &gdsc_ufs {
-	clock-names = "bus_clk", "ice_clk", "unipro_clk";
-	clocks = <&clock_gcc clk_gcc_ufs_axi_clk>,
-		 <&clock_gcc clk_gcc_ufs_ice_core_clk>,
-		 <&clock_gcc clk_gcc_ufs_unipro_core_clk>;
 	status = "ok";
 };
 
