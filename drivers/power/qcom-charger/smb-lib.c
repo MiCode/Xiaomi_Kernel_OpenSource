@@ -134,7 +134,10 @@ int smblib_get_charge_param(struct smb_charger *chg,
 		return rc;
 	}
 
-	*val_u = val_raw * param->step_u + param->min_u;
+	if (param->get_proc)
+		*val_u = param->get_proc(param, val_raw);
+	else
+		*val_u = val_raw * param->step_u + param->min_u;
 	smblib_dbg(chg, PR_REGISTER, "%s = %d (0x%02x)\n",
 		   param->name, *val_u, val_raw);
 
@@ -216,13 +219,20 @@ int smblib_set_charge_param(struct smb_charger *chg,
 	int rc = 0;
 	u8 val_raw;
 
-	if (val_u > param->max_u || val_u < param->min_u) {
-		dev_err(chg->dev, "%s: %d is out of range [%d, %d]\n",
-			param->name, val_u, param->min_u, param->max_u);
-		return -EINVAL;
+	if (param->set_proc) {
+		rc = param->set_proc(param, val_u, &val_raw);
+		if (rc < 0)
+			return -EINVAL;
+	} else {
+		if (val_u > param->max_u || val_u < param->min_u) {
+			dev_err(chg->dev, "%s: %d is out of range [%d, %d]\n",
+				param->name, val_u, param->min_u, param->max_u);
+			return -EINVAL;
+		}
+
+		val_raw = (val_u - param->min_u) / param->step_u;
 	}
 
-	val_raw = (val_u - param->min_u) / param->step_u;
 	rc = smblib_write(chg, param->reg, val_raw);
 	if (rc < 0) {
 		dev_err(chg->dev, "%s: Couldn't write 0x%02x to 0x%04x rc=%d\n",
