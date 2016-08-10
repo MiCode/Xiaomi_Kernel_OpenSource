@@ -319,8 +319,16 @@ static long sde_round_pixclk(struct msm_kms *kms, unsigned long rate,
 	return rate;
 }
 
+static void sde_postopen(struct msm_kms *kms, struct drm_file *file)
+{
+	if (kms)
+		sde_enable(to_sde_kms(kms));
+}
+
 static void sde_preclose(struct msm_kms *kms, struct drm_file *file)
 {
+	if (kms)
+		sde_disable(to_sde_kms(kms));
 }
 
 static void sde_destroy(struct msm_kms *kms)
@@ -349,6 +357,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.check_modified_format = sde_format_check_modified_format,
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_round_pixclk,
+	.postopen        = sde_postopen,
 	.preclose        = sde_preclose,
 	.destroy         = sde_destroy,
 };
@@ -657,7 +666,6 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 */
 
 	clk_set_rate(sde_kms->src_clk, DEFAULT_MDP_SRC_CLK);
-	sde_enable(sde_kms);
 	sde_kms->hw_res.res_table = res_table;
 
 	/*
