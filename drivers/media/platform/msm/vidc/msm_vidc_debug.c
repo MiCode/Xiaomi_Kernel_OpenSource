@@ -171,8 +171,6 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 			&msm_vidc_fw_low_power_mode) &&
 	__debugfs_create(u32, "debug_output", &msm_vidc_debug_out) &&
 	__debugfs_create(u32, "hw_rsp_timeout", &msm_vidc_hw_rsp_timeout) &&
-	__debugfs_create(bool, "enable_vpe_csc_601_709",
-			&msm_vidc_vpe_csc_601_to_709) &&
 	__debugfs_create(bool, "sys_idle_indicator",
 			&msm_vidc_sys_idle_indicator) &&
 	__debugfs_create(u32, "firmware_unload_delay",
