@@ -464,8 +464,8 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.cdm_count = 1,
 		.cdm = {
 			{.id = CDM_0, .base = 0x0007A200, .features = 0,
-				.intf_connect = { BIT(INTF_3)},
-				.wb_connect = { BIT(WB_2)},}
+				.intf_connect = BIT(INTF_3),
+				.wb_connect = BIT(WB_2),}
 		},
 		.intf_count = 4,
 		.intf = {

@@ -482,7 +482,7 @@ static void sde_encoder_phys_vid_destroy(struct sde_encoder_phys *phys_enc)
 
 	DBG("intf %d", vid_enc->hw_intf->idx);
 	sde_rm_release_ctl_path(phys_enc->sde_kms, phys_enc->hw_ctl->idx);
-	sde_hw_intf_deinit(vid_enc->hw_intf);
+	sde_hw_intf_destroy(vid_enc->hw_intf);
 	sde_hw_mdp_destroy(phys_enc->hw_mdptop);
 	kfree(vid_enc);
 }

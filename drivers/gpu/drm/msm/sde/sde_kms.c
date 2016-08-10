@@ -576,7 +576,7 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 					catalog);
 			if (!IS_ERR_OR_NULL(intf)) {
 				intf->ops.enable_timing(intf, 0x0);
-				sde_hw_intf_deinit(intf);
+				sde_hw_intf_destroy(intf);
 			}
 		}
 	}

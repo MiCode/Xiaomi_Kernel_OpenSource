@@ -359,7 +359,7 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 	return c;
 }
 
-void sde_hw_intf_deinit(struct sde_hw_intf *intf)
+void sde_hw_intf_destroy(struct sde_hw_intf *intf)
 {
 	kfree(intf);
 }
