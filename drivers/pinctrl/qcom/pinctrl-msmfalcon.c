@@ -204,9 +204,13 @@ static const struct pinctrl_pin_desc msmfalcon_pins[] = {
 	PINCTRL_PIN(108, "GPIO_108"),
 	PINCTRL_PIN(109, "GPIO_109"),
 	PINCTRL_PIN(110, "GPIO_110"),
-	PINCTRL_PIN(111, "SDC2_CLK"),
-	PINCTRL_PIN(112, "SDC2_CMD"),
-	PINCTRL_PIN(113, "SDC2_DATA"),
+	PINCTRL_PIN(111, "SDC1_CLK"),
+	PINCTRL_PIN(112, "SDC1_CMD"),
+	PINCTRL_PIN(113, "SDC1_DATA"),
+	PINCTRL_PIN(114, "SDC2_CLK"),
+	PINCTRL_PIN(115, "SDC2_CMD"),
+	PINCTRL_PIN(116, "SDC2_DATA"),
+	PINCTRL_PIN(117, "SDC1_RCLK"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -323,9 +327,13 @@ DECLARE_MSM_GPIO_PINS(108);
 DECLARE_MSM_GPIO_PINS(109);
 DECLARE_MSM_GPIO_PINS(110);
 
-static const unsigned int sdc2_clk_pins[] = { 111 };
-static const unsigned int sdc2_cmd_pins[] = { 112 };
-static const unsigned int sdc2_data_pins[] = { 113 };
+static const unsigned int sdc1_clk_pins[] = { 111 };
+static const unsigned int sdc1_cmd_pins[] = { 112 };
+static const unsigned int sdc1_data_pins[] = { 113 };
+static const unsigned int sdc2_clk_pins[] = { 114 };
+static const unsigned int sdc2_cmd_pins[] = { 115 };
+static const unsigned int sdc2_data_pins[] = { 116 };
+static const unsigned int sdc1_rclk_pins[] = { 117 };
 
 enum msmfalcon_functions {
 	msm_mux_blsp_spi1,
@@ -1512,9 +1520,13 @@ static const struct msm_pingroup msmfalcon_groups[] = {
 	PINGROUP(108, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(109, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(110, EAST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	SDC_QDSD_PINGROUP(sdc2_clk, 0x999000, 14, 6),
-	SDC_QDSD_PINGROUP(sdc2_cmd, 0x999000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc2_data, 0x999000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc1_clk, 0x99a000, 13, 6),
+	SDC_QDSD_PINGROUP(sdc1_cmd, 0x99a000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc1_data, 0x99a000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc2_clk, 0x99b000, 14, 6),
+	SDC_QDSD_PINGROUP(sdc2_cmd, 0x99b000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc2_data, 0x99b000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc1_rclk, 0x99a000, 15, 0),
 };
 
 static const struct msm_pinctrl_soc_data msmfalcon_pinctrl = {
