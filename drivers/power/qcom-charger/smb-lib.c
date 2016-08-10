@@ -82,12 +82,40 @@ unlock:
 	return rc;
 }
 
+static int smblib_get_step_charging_adjustment(struct smb_charger *chg,
+					       int *cc_offset)
+{
+	int step_state;
+	int rc;
+	u8 stat;
+
+	if (!chg->step_chg_enabled) {
+		*cc_offset = 0;
+		return 0;
+	}
+
+	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read BATTERY_CHARGER_STATUS_1 rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	step_state = (stat & STEP_CHARGING_STATUS_MASK) >> 3;
+	rc = smblib_get_charge_param(chg, &chg->param.step_cc_delta[step_state],
+				     cc_offset);
+
+	return rc;
+}
+
 static void smblib_fcc_split_ua(struct smb_charger *chg, int total_fcc,
 			int *master_ua, int *slave_ua)
 {
 	int rc, cc_reduction_ua = 0;
+	int step_cc_delta;
 	int master_percent = min(max(*chg->pl.master_percent, 0), 100);
 	union power_supply_propval pval = {0, };
+	int effective_fcc;
 
 	/*
 	 * if master_percent is 0, s/w will configure master's fcc to zero and
@@ -111,10 +139,21 @@ static void smblib_fcc_split_ua(struct smb_charger *chg, int total_fcc,
 		}
 	}
 
-	total_fcc = max(0, total_fcc - cc_reduction_ua);
-	*master_ua = (total_fcc * master_percent) / 100;
-	*slave_ua = (total_fcc - *master_ua) * chg->pl.taper_percent / 100;
-	*master_ua += cc_reduction_ua;
+	rc = smblib_get_step_charging_adjustment(chg, &step_cc_delta);
+	if (rc < 0)
+		step_cc_delta = 0;
+
+	/*
+	 * During JEITA condition and with step_charging enabled, PMI will
+	 * pick the lower of the two value: (FCC - JEITA current compensation)
+	 * or (FCC + step_charging current delta)
+	 */
+
+	effective_fcc = min(max(0, total_fcc - cc_reduction_ua),
+			    max(0, total_fcc + step_cc_delta));
+	*master_ua = (effective_fcc * master_percent) / 100;
+	*slave_ua = (effective_fcc - *master_ua) * chg->pl.taper_percent / 100;
+	*master_ua = max(0, *master_ua + total_fcc - effective_fcc);
 }
 
 /********************
@@ -242,6 +281,28 @@ int smblib_set_charge_param(struct smb_charger *chg,
 
 	smblib_dbg(chg, PR_REGISTER, "%s = %d (0x%02x)\n",
 		   param->name, val_u, val_raw);
+
+	return rc;
+}
+
+static int step_charge_soc_update(struct smb_charger *chg, int capacity)
+{
+	int rc = 0;
+
+	rc = smblib_set_charge_param(chg, &chg->param.step_soc, capacity);
+	if (rc < 0) {
+		dev_err(chg->dev, "Error in updating soc, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_write(chg, STEP_CHG_SOC_VBATT_V_UPDATE_REG,
+			STEP_CHG_SOC_VBATT_V_UPDATE_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't set STEP_CHG_SOC_VBATT_V_UPDATE_REG rc=%d\n",
+			rc);
+		return rc;
+	}
 
 	return rc;
 }
@@ -390,6 +451,41 @@ static int smblib_register_notifier(struct smb_charger *chg)
 		pr_err("Couldn't register psy notifier rc = %d\n", rc);
 		return rc;
 	}
+
+	return 0;
+}
+
+int smblib_mapping_soc_from_field_value(struct smb_chg_param *param,
+					     int val_u, u8 *val_raw)
+{
+	if (val_u > param->max_u || val_u < param->min_u)
+		return -EINVAL;
+
+	*val_raw = val_u << 1;
+
+	return 0;
+}
+
+int smblib_mapping_cc_delta_to_field_value(struct smb_chg_param *param,
+					   u8 val_raw)
+{
+	int val_u  = val_raw * param->step_u + param->min_u;
+
+	if (val_u > param->max_u)
+		val_u -= param->max_u * 2;
+
+	return val_u;
+}
+
+int smblib_mapping_cc_delta_from_field_value(struct smb_chg_param *param,
+					     int val_u, u8 *val_raw)
+{
+	if (val_u > param->max_u || val_u < param->min_u - param->max_u)
+		return -EINVAL;
+
+	val_u += param->max_u * 2 - param->min_u;
+	val_u %= param->max_u * 2;
+	*val_raw = val_u / param->step_u;
 
 	return 0;
 }
@@ -1427,6 +1523,57 @@ irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smblib_handle_step_chg_state_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
+	if (chg->step_chg_enabled)
+		rerun_election(chg->fcc_votable);
+
+	return IRQ_HANDLED;
+}
+
+irqreturn_t smblib_handle_step_chg_soc_update_fail(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
+	if (chg->step_chg_enabled)
+		rerun_election(chg->fcc_votable);
+
+	return IRQ_HANDLED;
+}
+
+#define STEP_SOC_REQ_MS	3000
+irqreturn_t smblib_handle_step_chg_soc_update_request(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
+	if (!chg->bms_psy) {
+		schedule_delayed_work(&chg->step_soc_req_work,
+				      msecs_to_jiffies(STEP_SOC_REQ_MS));
+		return IRQ_HANDLED;
+	}
+
+	rc = smblib_get_prop_batt_capacity(chg, &pval);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't get batt capacity rc=%d\n", rc);
+	else
+		step_charge_soc_update(chg, pval.intval);
+
+	return IRQ_HANDLED;
+}
+
 irqreturn_t smblib_handle_batt_temp_changed(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -1774,11 +1921,27 @@ static void smblib_hvdcp_detect_work(struct work_struct *work)
 	}
 }
 
-static void smblib_bms_update_work(struct work_struct *work)
+static void bms_update_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						bms_update_work);
 	power_supply_changed(chg->batt_psy);
+}
+
+static void step_soc_req_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						step_soc_req_work.work);
+	union power_supply_propval pval = {0, };
+	int rc;
+
+	rc = smblib_get_prop_batt_capacity(chg, &pval);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't get batt capacity rc=%d\n", rc);
+		return;
+	}
+
+	step_charge_soc_update(chg, pval.intval);
 }
 
 static void smblib_pl_detect_work(struct work_struct *work)
@@ -1928,10 +2091,11 @@ int smblib_init(struct smb_charger *chg)
 	int rc = 0;
 
 	mutex_init(&chg->write_lock);
-	INIT_WORK(&chg->bms_update_work, smblib_bms_update_work);
+	INIT_WORK(&chg->bms_update_work, bms_update_work);
 	INIT_WORK(&chg->pl_detect_work, smblib_pl_detect_work);
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 	INIT_DELAYED_WORK(&chg->pl_taper_work, smblib_pl_taper_work);
+	INIT_DELAYED_WORK(&chg->step_soc_req_work, step_soc_req_work);
 	chg->fake_capacity = -EINVAL;
 
 	switch (chg->mode) {
@@ -1943,6 +2107,7 @@ int smblib_init(struct smb_charger *chg)
 			return rc;
 		}
 
+		chg->bms_psy = power_supply_get_by_name("bms");
 		chg->pl.psy = power_supply_get_by_name("parallel");
 
 		rc = smblib_register_notifier(chg);
