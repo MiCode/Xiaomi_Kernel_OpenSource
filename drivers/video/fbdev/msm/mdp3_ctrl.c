@@ -1603,10 +1603,6 @@ int mdp3_validate_scale_config(struct mdp_bl_scale_data *data)
 		pr_err("%s invalid bl_scale\n", __func__);
 		return -EINVAL;
 	}
-	if (data->min_lvl > MDP_HISTOGRAM_BL_LEVEL_MAX) {
-		pr_err("%s invalid bl_min_lvl\n", __func__);
-		return -EINVAL;
-	}
 	return 0;
 }
 
@@ -1810,9 +1806,7 @@ static int mdp3_bl_scale_config(struct msm_fb_data_type *mfd,
 	mutex_lock(&mfd->bl_lock);
 	curr_bl = mfd->bl_level;
 	mfd->bl_scale = data->scale;
-	mfd->bl_min_lvl = data->min_lvl;
-	pr_debug("update scale = %d, min_lvl = %d\n", mfd->bl_scale,
-							mfd->bl_min_lvl);
+	pr_debug("update scale = %d\n", mfd->bl_scale);
 
 	/* update current backlight to use new scaling*/
 	mdss_fb_set_backlight(mfd, curr_bl);

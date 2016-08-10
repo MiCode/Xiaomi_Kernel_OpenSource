@@ -1131,7 +1131,6 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		mfd->bl_level = 0;
 
 	mfd->bl_scale = 1024;
-	mfd->bl_min_lvl = 30;
 	mfd->ad_bl_level = 0;
 	mfd->fb_imgType = MDP_RGBA_8888;
 	mfd->calib_mode_bl = 0;
@@ -1507,27 +1506,22 @@ static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 	u32 temp = *bl_lvl;
 
 	pr_debug("input = %d, scale = %d\n", temp, mfd->bl_scale);
-	if (temp >= mfd->bl_min_lvl) {
-		if (temp > mfd->panel_info->bl_max) {
-			pr_warn("%s: invalid bl level\n",
+	if (temp > mfd->panel_info->bl_max) {
+		pr_warn("%s: invalid bl level\n",
 				__func__);
-			temp = mfd->panel_info->bl_max;
-		}
-		if (mfd->bl_scale > 1024) {
-			pr_warn("%s: invalid bl scale\n",
-				__func__);
-			mfd->bl_scale = 1024;
-		}
-		/*
-		 * bl_scale is the numerator of
-		 * scaling fraction (x/1024)
-		 */
-		temp = (temp * mfd->bl_scale) / 1024;
-
-		/*if less than minimum level, use min level*/
-		if (temp < mfd->bl_min_lvl)
-			temp = mfd->bl_min_lvl;
+		temp = mfd->panel_info->bl_max;
 	}
+	if (mfd->bl_scale > 1024) {
+		pr_warn("%s: invalid bl scale\n",
+				__func__);
+		mfd->bl_scale = 1024;
+	}
+	/*
+	 * bl_scale is the numerator of
+	 * scaling fraction (x/1024)
+	 */
+	temp = (temp * mfd->bl_scale) / 1024;
+
 	pr_debug("output = %d\n", temp);
 
 	(*bl_lvl) = temp;
