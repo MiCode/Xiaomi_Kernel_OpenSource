@@ -613,7 +613,6 @@ int sde_plane_color_fill(struct drm_plane *plane,
  * CRTC functions
  */
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
-void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc);
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
 
@@ -623,9 +622,18 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
  */
 void sde_crtc_prepare_fence(struct drm_crtc *crtc);
 
+/**
+ * sde_crtc_init - create a new crtc object
+ * @dev: sde device
+ * @encoder: encoder attached to this crtc
+ * @plane: base plane
+ * @vblank_id: Id for reporting vblank. Id in range from 0..dev->num_crtcs.
+ * @Return: new crtc object or error
+ */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 		struct drm_encoder *encoder,
-		struct drm_plane *plane, int id);
+		struct drm_plane *plane,
+		int vblank_id);
 
 /**
  * sde_crtc_complete_commit - callback signalling completion of current commit
@@ -651,6 +659,14 @@ struct sde_encoder_hw_resources {
  */
 void sde_encoder_get_hw_resources(struct drm_encoder *encoder,
 		struct sde_encoder_hw_resources *hw_res);
+
+/**
+ * sde_encoder_needs_ctl_start - Get whether encoder type requires ctl_start
+ *	CMD and WB encoders need ctl_start, video encs do not.
+ * @encoder:	encoder pointer
+ * @Return: true if the encoder type requires ctl_start issued
+ */
+bool sde_encoder_needs_ctl_start(struct drm_encoder *encoder);
 
 /**
  * sde_encoder_register_vblank_callback - provide callback to encoder that

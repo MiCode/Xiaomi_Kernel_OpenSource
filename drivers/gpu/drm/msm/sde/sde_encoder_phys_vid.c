@@ -586,6 +586,12 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 	}
 }
 
+static bool sde_encoder_phys_vid_needs_ctl_start(
+		struct sde_encoder_phys *phys_enc)
+{
+	return false;
+}
+
 static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 {
 	ops->is_master = sde_encoder_phys_vid_is_master;
@@ -599,6 +605,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
+	ops->needs_ctl_start = sde_encoder_phys_vid_needs_ctl_start;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(

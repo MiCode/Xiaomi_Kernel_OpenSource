@@ -423,6 +423,12 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 	MSM_EVT(DEV(phys_enc), cmd_enc->hw_pp->idx, new_pending_cnt);
 }
 
+static bool sde_encoder_phys_cmd_needs_ctl_start(
+		struct sde_encoder_phys *phys_enc)
+{
+	return true;
+}
+
 static void sde_encoder_phys_cmd_init_ops(
 		struct sde_encoder_phys_ops *ops)
 {
@@ -436,6 +442,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->control_vblank_irq = sde_encoder_phys_cmd_control_vblank_irq;
 	ops->wait_for_commit_done = sde_encoder_phys_cmd_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_cmd_prepare_for_kickoff;
+	ops->needs_ctl_start = sde_encoder_phys_cmd_needs_ctl_start;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(
