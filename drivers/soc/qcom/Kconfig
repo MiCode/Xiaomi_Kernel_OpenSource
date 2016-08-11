@@ -51,6 +51,10 @@ config QCOM_SMD_RPM
 	  Say M here if you want to include support for the Qualcomm RPM as a
 	  module. This will build a module called "qcom-smd-rpm".
 
+config QCOM_SCM
+	bool "Secure Channel Manager (SCM) support"
+	default n
+
 config QCOM_SMEM_STATE
 	bool
 
