@@ -284,8 +284,12 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	u32 fps;
 	struct v4l2_control ctrl;
 
-	output_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
-		inst->prop.height[OUTPUT_PORT]);
+	output_port_mbs = inst->in_reconfig ?
+			NUM_MBS_PER_FRAME(inst->reconfig_width,
+				inst->reconfig_height) :
+			NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
+				inst->prop.height[OUTPUT_PORT]);
+
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
 
@@ -1227,14 +1231,12 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		inst->in_reconfig = true;
 	} else {
 		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
-			dprintk(VIDC_DBG,
-					"event_notify->height = %d event_notify->width = %d\n",
-					event_notify->height,
-					event_notify->width);
-			inst->prop.height[CAPTURE_PORT] = event_notify->height;
-			inst->prop.width[CAPTURE_PORT] = event_notify->width;
-			inst->prop.height[OUTPUT_PORT] = event_notify->height;
-			inst->prop.width[OUTPUT_PORT] = event_notify->width;
+		dprintk(VIDC_DBG,
+			"event_notify->height = %d event_notify->width = %d\n",
+			event_notify->height,
+			event_notify->width);
+		inst->prop.height[OUTPUT_PORT] = event_notify->height;
+		inst->prop.width[OUTPUT_PORT] = event_notify->width;
 	}
 
 	inst->seqchanged_count++;
