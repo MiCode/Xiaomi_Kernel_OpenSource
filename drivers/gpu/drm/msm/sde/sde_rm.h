@@ -190,4 +190,11 @@ bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *iter);
  */
 int sde_rm_check_property_topctl(uint64_t val);
 
+/**
+ * sde_rm_check_property_topctl - validate property bitmask before it is set
+ * @val: user's proposed topology control bitmask
+ * @Return: 0 on success or error
+ */
+int sde_rm_check_property_topctl(uint64_t val);
+
 #endif /* __sde_kms_rm_H__ */

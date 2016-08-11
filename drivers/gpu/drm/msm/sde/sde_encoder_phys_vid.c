@@ -379,11 +379,30 @@ static void sde_encoder_phys_vid_mode_set(
 		struct drm_display_mode *adj_mode)
 {
 	struct sde_encoder_phys_vid *vid_enc =
-	    to_sde_encoder_phys_vid(phys_enc);
+		to_sde_encoder_phys_vid(phys_enc);
+	struct sde_rm *rm = &phys_enc->sde_kms->rm;
+	struct sde_rm_hw_iter iter;
+	int i, instance;
 
 	phys_enc->cached_mode = *adj_mode;
-	DBG("intf %d, caching mode:", vid_enc->hw_intf->idx);
+	SDE_DEBUG("intf %d, caching mode:\n", vid_enc->hw_intf->idx);
 	drm_mode_debug_printmodeline(adj_mode);
+
+	instance = phys_enc->split_role == ENC_ROLE_SLAVE ? 1 : 0;
+
+	/* Retrieve previously allocated HW Resources. Shouldn't fail */
+	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_CTL);
+	for (i = 0; i <= instance; i++) {
+		sde_rm_get_hw(rm, &iter);
+		if (i == instance)
+			phys_enc->hw_ctl = (struct sde_hw_ctl *) iter.hw;
+	}
+
+	if (IS_ERR_OR_NULL(phys_enc->hw_ctl)) {
+		SDE_ERROR("failed init ctl: %ld\n", PTR_ERR(phys_enc->hw_ctl));
+		phys_enc->hw_ctl = NULL;
+		return;
+	}
 }
 
 static int sde_encoder_phys_vid_control_vblank_irq(
@@ -417,6 +436,12 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
 	u32 flush_mask = 0;
 
+	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid hw: intf %pK ctl %pK\n", vid_enc->hw_intf,
+				phys_enc->hw_ctl);
+		return;
+	}
+
 	DBG("intf %d", vid_enc->hw_intf->idx);
 
 	if (WARN_ON(!vid_enc->hw_intf->ops.enable_timing))
@@ -428,13 +453,13 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		sde_encoder_phys_vid_split_config(phys_enc, false);
 
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
-
 	sde_encoder_phys_vid_control_vblank_irq(phys_enc, true);
 
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
-	DBG("Update pending flush CTL_ID %d flush_mask %x, INTF %d",
-			ctl->idx, flush_mask, intf->idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
+
+	DBG("Update pending flush CTL_ID %d flush_mask %x, INTF %d",
+		ctl->idx, flush_mask, intf->idx);
 
 	/* ctl_flush & timing engine enable will be triggered by framework */
 	if (phys_enc->enable_state == SDE_ENC_DISABLED)
@@ -446,6 +471,12 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	unsigned long lock_flags;
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
+
+	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid hw: intf %pK ctl %pK\n", vid_enc->hw_intf,
+				phys_enc->hw_ctl);
+		return;
+	}
 
 	DBG("intf %d", vid_enc->hw_intf->idx);
 
@@ -481,44 +512,19 @@ static void sde_encoder_phys_vid_destroy(struct sde_encoder_phys *phys_enc)
 	    to_sde_encoder_phys_vid(phys_enc);
 
 	DBG("intf %d", vid_enc->hw_intf->idx);
-	sde_rm_release_ctl_path(phys_enc->sde_kms, phys_enc->hw_ctl->idx);
-	sde_hw_intf_destroy(vid_enc->hw_intf);
-	sde_hw_mdp_destroy(phys_enc->hw_mdptop);
 	kfree(vid_enc);
 }
 
 static void sde_encoder_phys_vid_get_hw_resources(
 		struct sde_encoder_phys *phys_enc,
-		struct sde_encoder_hw_resources *hw_res)
+		struct sde_encoder_hw_resources *hw_res,
+		struct drm_connector_state *conn_state)
 {
-	const struct sde_hw_res_map *hw_res_map;
 	struct sde_encoder_phys_vid *vid_enc =
 		to_sde_encoder_phys_vid(phys_enc);
 
-	DBG("Intf %d", vid_enc->hw_intf->idx);
-
-	hw_res->intfs[vid_enc->hw_intf->idx] = INTF_MODE_VIDEO;
-
-	/*
-	 * defaults should not be in use,
-	 * otherwise signal/return failure
-	 */
-	hw_res_map = sde_rm_get_res_map(phys_enc->sde_kms,
-			vid_enc->hw_intf->idx, SDE_NONE);
-	if (IS_ERR_OR_NULL(hw_res_map)) {
-		DRM_ERROR("Failed to get hw_res_map: %ld", PTR_ERR(hw_res_map));
-		return;
-	}
-
-	/*
-	 * This is video mode panel so PINGPONG will be in by-pass mode
-	 * only assign ctl path.For cmd panel check if pp_split is
-	 * enabled, override default map
-	 */
-	/*
-	 * phys_enc->hw_ctl->idx
-	 */
-	hw_res->ctls[hw_res_map->ctl] = true;
+	DBG("intf %d", vid_enc->hw_intf->idx);
+	hw_res->intfs[vid_enc->hw_intf->idx - INTF_0] = INTF_MODE_VIDEO;
 }
 
 static int sde_encoder_phys_vid_wait_for_commit_done(
@@ -613,6 +619,8 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 {
 	struct sde_encoder_phys *phys_enc = NULL;
 	struct sde_encoder_phys_vid *vid_enc = NULL;
+	struct sde_rm_hw_iter iter;
+	struct sde_hw_mdp *hw_mdp;
 	int ret = 0;
 
 	DBG("intf %d", p->intf_idx);
@@ -627,37 +635,31 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 
 	phys_enc = &vid_enc->base;
 
-	phys_enc->hw_mdptop = sde_hw_mdptop_init(MDP_TOP, p->sde_kms->mmio,
-			p->sde_kms->catalog);
-	if (IS_ERR_OR_NULL(phys_enc->hw_mdptop)) {
-		ret = PTR_ERR(phys_enc->hw_mdptop);
-		phys_enc->hw_mdptop = NULL;
-		DRM_ERROR("Failed init hw_top: %d\n", ret);
+	hw_mdp = sde_rm_get_mdp(&p->sde_kms->rm);
+	if (IS_ERR_OR_NULL(hw_mdp)) {
+		ret = PTR_ERR(hw_mdp);
+		SDE_ERROR("failed to get mdptop\n");
 		goto fail;
 	}
+	phys_enc->hw_mdptop = hw_mdp;
 
-	vid_enc->hw_intf = sde_hw_intf_init(p->intf_idx, p->sde_kms->mmio,
-			p->sde_kms->catalog);
-	if (IS_ERR_OR_NULL(vid_enc->hw_intf)) {
-		ret = PTR_ERR(vid_enc->hw_intf);
-		vid_enc->hw_intf = NULL;
-		DRM_ERROR("Failed init hw_intf: %d\n", ret);
-		goto fail;
-	}
-
-	/*
-	 * For cmd/vid switching, same ctl is used. VID enc and CMD enc
-	 * will both try to get it, depending on which is first need to call
-	 * acquire (initial), and other one needs to call get (add ref count)
+	/**
+	 * hw_intf resource permanently assigned to this encoder
+	 * Other resources allocated at atomic commit time by use case
 	 */
-	phys_enc->hw_ctl = sde_rm_acquire_ctl_path(p->sde_kms, p->ctl_idx);
-	if (phys_enc->hw_ctl == ERR_PTR(-ENODEV))
-		phys_enc->hw_ctl = sde_rm_get_ctl_path(p->sde_kms, p->ctl_idx);
+	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_INTF);
+	while (sde_rm_get_hw(&p->sde_kms->rm, &iter)) {
+		struct sde_hw_intf *hw_intf = (struct sde_hw_intf *)iter.hw;
 
-	if (IS_ERR_OR_NULL(phys_enc->hw_ctl)) {
-		ret = PTR_ERR(phys_enc->hw_ctl);
-		phys_enc->hw_ctl = NULL;
-		DRM_ERROR("Failed init hw_ctl: %d\n", ret);
+		if (hw_intf->idx == p->intf_idx) {
+			vid_enc->hw_intf = hw_intf;
+			break;
+		}
+	}
+
+	if (!vid_enc->hw_intf) {
+		ret = -EINVAL;
+		DRM_ERROR("failed to get hw_intf\n");
 		goto fail;
 	}
 

@@ -62,6 +62,7 @@ struct sde_crtc_mixer {
 struct sde_crtc {
 	struct drm_crtc base;
 	char name[SDE_CRTC_NAME_SIZE];
+
 	int drm_crtc_id;
 
 	spinlock_t lm_lock;	/* protect registers */

@@ -25,18 +25,6 @@ static const char * const iommu_ports[] = {
 		"mdp_0",
 };
 
-static const struct sde_hw_res_map res_table[INTF_MAX + WB_MAX] = {
-	{SDE_NONE, SDE_NONE, SDE_NONE, SDE_NONE,   SDE_NONE, SDE_NONE},
-	{INTF_0,   SDE_NONE, SDE_NONE, SDE_NONE,   SDE_NONE, SDE_NONE},
-	{INTF_1,   SDE_NONE, LM_0,     PINGPONG_0, CTL_0,    SDE_NONE},
-	{INTF_2,   SDE_NONE, LM_1,     PINGPONG_1, CTL_1,    SDE_NONE },
-	{INTF_3,   SDE_NONE, SDE_NONE, SDE_NONE,   CTL_2,    SDE_NONE},
-	{SDE_NONE, WB_0,     LM_3,     SDE_NONE,   CTL_3,    SDE_NONE},
-	{SDE_NONE, WB_1,     LM_4,     SDE_NONE,   CTL_4,    SDE_NONE},
-	{SDE_NONE, WB_2,     LM_2,     SDE_NONE,   CTL_2,    CDM_0},
-};
-
-
 #define DEFAULT_MDP_SRC_CLK 300000000
 
 /**
@@ -299,21 +287,15 @@ static int modeset_init(struct sde_kms *sde_kms)
 		goto fail;
 	}
 
-	/*
-	 * Enumerate displays supported
-	 */
-	sde_encoders_init(dev);
-
-	/* Create one CRTC per display */
-	for (i = 0; i < priv->num_encoders; i++) {
+	/* Create one CRTC per layer mixer */
+	for (i = 0; i < catalog->mixer_count; i++) {
 		/*
 		 * Each CRTC receives a private plane. We start
 		 * with first RGB, and then DMA and then VIG.
 		 */
 		struct drm_crtc *crtc;
 
-		crtc = sde_crtc_init(dev, priv->encoders[i],
-				primary_planes[i], i);
+		crtc = sde_crtc_init(dev, primary_planes[i], i);
 		if (IS_ERR(crtc)) {
 			ret = PTR_ERR(crtc);
 			goto fail;
@@ -321,10 +303,10 @@ static int modeset_init(struct sde_kms *sde_kms)
 		priv->crtcs[priv->num_crtcs++] = crtc;
 	}
 
-	/*
-	 * Iterate through the list of encoders and
-	 * set the possible CRTCs
-	 */
+	/* Enumerate displays supported */
+	sde_encoders_init(dev);
+
+	/* All CRTCs are compatible with all encoders */
 	for (i = 0; i < priv->num_encoders; i++)
 		priv->encoders[i]->possible_crtcs = (1 << priv->num_crtcs) - 1;
 
@@ -363,6 +345,7 @@ static void sde_destroy(struct msm_kms *kms)
 	sde_debugfs_destroy(sde_kms);
 	sde_irq_domain_fini(sde_kms);
 	sde_hw_intr_destroy(sde_kms->hw_intr);
+	sde_rm_destroy(&sde_kms->rm);
 	kfree(sde_kms);
 }
 
@@ -691,7 +674,13 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 */
 
 	clk_set_rate(sde_kms->src_clk, DEFAULT_MDP_SRC_CLK);
-	sde_kms->hw_res.res_table = res_table;
+
+	sde_enable(sde_kms);
+	ret = sde_rm_init(&sde_kms->rm, sde_kms->catalog, sde_kms->mmio,
+			sde_kms->dev);
+	sde_disable(sde_kms);
+	if (ret)
+		goto fail;
 
 	/*
 	 * Now we need to read the HW catalog and initialize resources such as
@@ -730,8 +719,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 */
 	dev->mode_config.allow_fb_modifiers = true;
 
-	sde_kms->hw_intr = sde_rm_acquire_intr(sde_kms);
-
+	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
 	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
 		goto fail;
 
