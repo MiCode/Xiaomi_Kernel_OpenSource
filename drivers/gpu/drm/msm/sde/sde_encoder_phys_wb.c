@@ -32,6 +32,14 @@
 #define DEV(phy_enc) (phy_enc->parent->dev)
 
 /**
+ * sde_encoder_phys_wb_is_master - report wb always as master encoder
+ */
+static bool sde_encoder_phys_wb_is_master(struct sde_encoder_phys *phys_enc)
+{
+	return true;
+}
+
+/**
  * sde_encoder_phys_wb_get_intr_type - get interrupt type based on block mode
  * @hw_wb:	Pointer to h/w writeback driver
  */
@@ -769,6 +777,17 @@ static void sde_encoder_phys_wb_get_hw_resources(
 	 * cached ctl_idx at init time, shouldn't we use that?
 	 */
 	hw_res->ctls[hw_res_map->ctl] = true;
+
+}
+/**
+ * sde_encoder_phys_wb_needs_ctl_start - Whether encoder needs ctl_start
+ * @phys_enc:	Pointer to physical encoder
+ * @Return:	Whether encoder needs ctl_start
+ */
+static bool sde_encoder_phys_wb_needs_ctl_start(
+		struct sde_encoder_phys *phys_enc)
+{
+	return true;
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -872,6 +891,7 @@ static void sde_encoder_phys_wb_destroy(struct sde_encoder_phys *phys_enc)
  */
 static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 {
+	ops->is_master = sde_encoder_phys_wb_is_master;
 	ops->mode_set = sde_encoder_phys_wb_mode_set;
 	ops->enable = sde_encoder_phys_wb_enable;
 	ops->disable = sde_encoder_phys_wb_disable;
@@ -882,6 +902,7 @@ static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->wait_for_commit_done = sde_encoder_phys_wb_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_wb_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_wb_handle_post_kickoff;
+	ops->needs_ctl_start = sde_encoder_phys_wb_needs_ctl_start;
 }
 
 /**

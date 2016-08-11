@@ -79,6 +79,7 @@ struct sde_encoder_virt_ops {
  *				triggering the next kickoff
  *				(ie for previous tx to complete)
  * @handle_post_kickoff:	Do any work necessary post-kickoff work
+ * @needs_ctl_start:		Whether encoder type needs ctl_start
  */
 
 struct sde_encoder_phys_ops {
@@ -102,6 +103,7 @@ struct sde_encoder_phys_ops {
 	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
 			bool *wait_until_ready);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
+	bool (*needs_ctl_start)(struct sde_encoder_phys *phys_enc);
 };
 
 /**

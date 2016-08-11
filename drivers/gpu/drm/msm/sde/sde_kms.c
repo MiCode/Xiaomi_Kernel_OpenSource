@@ -208,10 +208,35 @@ static void sde_complete_commit(struct msm_kms *kms,
 	MSM_EVT(sde_kms->dev, 0, 0);
 }
 
-static void sde_wait_for_crtc_commit_done(struct msm_kms *kms,
+static void sde_wait_for_commit_done(struct msm_kms *kms,
 		struct drm_crtc *crtc)
 {
-	sde_crtc_wait_for_commit_done(crtc);
+	struct drm_encoder *encoder;
+	struct drm_device *dev = crtc->dev;
+	int ret;
+
+	 /* ref count the vblank event and interrupts while we wait for it */
+	if (drm_crtc_vblank_get(crtc))
+		return;
+
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
+		/*
+		 * Wait post-flush if necessary to delay before plane_cleanup
+		 * For example, wait for vsync in case of video mode panels
+		 * This should be a no-op for command mode panels
+		 */
+		MSM_EVT(crtc->dev, crtc->base.id, 0);
+		ret = sde_encoder_wait_for_commit_done(encoder);
+		if (ret && ret != -EWOULDBLOCK) {
+			DRM_ERROR("wait for commit done returned %d\n", ret);
+			break;
+		}
+	}
+
+	 /* release vblank event ref count */
+	drm_crtc_vblank_put(crtc);
 }
 
 static void sde_kms_prepare_fence(struct msm_kms *kms,
@@ -351,7 +376,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.prepare_commit  = sde_prepare_commit,
 	.commit          = sde_commit,
 	.complete_commit = sde_complete_commit,
-	.wait_for_crtc_commit_done = sde_wait_for_crtc_commit_done,
+	.wait_for_crtc_commit_done = sde_wait_for_commit_done,
 	.enable_vblank   = sde_enable_vblank,
 	.disable_vblank  = sde_disable_vblank,
 	.check_modified_format = sde_format_check_modified_format,

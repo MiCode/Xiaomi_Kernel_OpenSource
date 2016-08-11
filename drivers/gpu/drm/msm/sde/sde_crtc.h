@@ -26,31 +26,26 @@
 #define CRTC_HW_MIXER_MAXSTAGES(c, idx) ((c)->mixer[idx].sblk->maxblendstages)
 
 /**
- * struct sde_crtc_mixer - stores the map for each virtual pipeline in the CRTC
- * @hw_dspp     : DSPP HW Driver context
- * @hw_lm       : LM HW Driver context
- * @hw_ctl      : CTL Path HW driver context
- * @intf_idx    : Interface idx
- * @wb_idx      : Writeback idx
- * @mode        : Interface mode Active/CMD
- * @flush_mask  : Flush mask value for this commit
+ * struct sde_crtc_mixer: stores the map for each virtual pipeline in the CRTC
+ * @hw_lm:	LM HW Driver context
+ * @hw_ctl:	CTL Path HW driver context
+ * @flush_mask:	Flush mask value for this commit
+ * @encoder:	Encoder attached to this lm & ctl
  */
 struct sde_crtc_mixer {
-	struct sde_hw_dspp  *hw_dspp;
 	struct sde_hw_mixer *hw_lm;
 	struct sde_hw_ctl   *hw_ctl;
-	enum sde_intf       intf_idx;
-	enum sde_wb         wb_idx;
-	enum sde_intf_mode  mode;
 	u32 flush_mask;
+	struct drm_encoder *encoder;
 };
 
 /**
  * struct sde_crtc - virtualized CRTC data structure
  * @base          : Base drm crtc structure
  * @name          : ASCII description of this crtc
- * @encoder       : Associated drm encoder object
- * @id            : Unique crtc identifier
+ * @drm_crtc_id   : Id for reporting vblank. Id is relative init order into
+ *                  mode_config.crtc_list and used by user space to identify
+ *                  specific crtc in apis such as drm_wait_vblank
  * @lm_lock       : LM register access spinlock
  * @num_ctls      : Number of ctl paths in use
  * @num_mixers    : Number of mixers in use
@@ -67,21 +62,20 @@ struct sde_crtc_mixer {
 struct sde_crtc {
 	struct drm_crtc base;
 	char name[SDE_CRTC_NAME_SIZE];
-	struct drm_encoder *encoder;
-	int id;
+	int drm_crtc_id;
 
 	spinlock_t lm_lock;	/* protect registers */
 
 	/* HW Resources reserved for the crtc */
 	u32  num_ctls;
 	u32  num_mixers;
-	struct sde_crtc_mixer mixer[CRTC_DUAL_MIXERS];
+	struct sde_crtc_mixer mixers[CRTC_DUAL_MIXERS];
 
 	/*if there is a pending flip, these will be non-null */
 	struct drm_pending_vblank_event *event;
 	atomic_t pending;
 	u32 vsync_count;
-	bool drm_requested_vblank;
+	atomic_t drm_requested_vblank;
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CRTC_PROP_COUNT];

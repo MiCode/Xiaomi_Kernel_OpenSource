@@ -179,6 +179,24 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 	}
 }
 
+bool sde_encoder_needs_ctl_start(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+	struct sde_encoder_phys *phys;
+
+	if (!drm_enc) {
+		DRM_ERROR("Invalid pointer");
+		return false;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	phys = sde_enc->cur_master;
+
+	if (phys && phys->ops.needs_ctl_start)
+		return phys->ops.needs_ctl_start(phys);
+
+	return false;
+}
+
 static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
