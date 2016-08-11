@@ -37,7 +37,6 @@ config SCSI_UFSHCD
 	depends on SCSI && SCSI_DMA
 	select PM_DEVFREQ
 	select DEVFREQ_GOV_SIMPLE_ONDEMAND
-	select NLS
 	---help---
 	This selects the support for UFS devices in Linux, say Y and make
 	  sure that you know the name of your UFS host adapter (the card
@@ -61,14 +60,6 @@ config SCSI_UFSHCD_PCI
 
 	  If unsure, say N.
 
-config SCSI_UFS_DWC_TC_PCI
-	tristate "DesignWare pci support using a G210 Test Chip"
-	depends on SCSI_UFSHCD && PCI
-	---help---
-	  Synopsys Test Chip is a PHY for prototyping purposes.
-
-	  If unsure, say N.
-
 config SCSI_UFSHCD_PLATFORM
 	tristate "Platform bus based UFS Controller support"
 	depends on SCSI_UFSHCD
@@ -77,14 +68,6 @@ config SCSI_UFSHCD_PLATFORM
 	you have an UFS controller on Platform bus.
 
 	If you have a controller with this interface, say Y or M here.
-
-	  If unsure, say N.
-
-config SCSI_UFS_DWC_TC_PLATFORM
-	tristate "DesignWare platform support using a G210 Test Chip"
-	depends on SCSI_UFSHCD_PLATFORM
-	---help---
-	  Synopsys Test Chip is a PHY for prototyping purposes.
 
 	  If unsure, say N.
 
@@ -100,3 +83,26 @@ config SCSI_UFS_QCOM
 
 	  Select this if you have UFS controller on QCOM chipset.
 	  If unsure, say N.
+
+config SCSI_UFS_QCOM_ICE
+	bool "QCOM specific hooks to Inline Crypto Engine for UFS driver"
+	depends on SCSI_UFS_QCOM && CRYPTO_DEV_QCOM_ICE
+	help
+	  This selects the QCOM specific additions to support Inline Crypto
+	  Engine (ICE).
+	  ICE accelerates the crypto operations and maintains the high UFS
+	  performance.
+
+	  Select this if you have ICE supported for UFS on QCOM chipset.
+	  If unsure, say N.
+
+
+config SCSI_UFS_TEST
+	tristate "Universal Flash Storage host controller driver unit-tests"
+	depends on SCSI_UFSHCD && IOSCHED_TEST
+	default m
+	---help---
+	This adds UFS Host controller unit-test framework.
+	The UFS unit-tests register as a block device test utility to
+	the test-iosched and will be initiated when the test-iosched will
+	be chosen to be the active I/O scheduler.

@@ -15,19 +15,49 @@
 #include "phy-qcom-ufs-qmp-14nm.h"
 
 #define UFS_PHY_NAME "ufs_phy_qmp_14nm"
-#define UFS_PHY_VDDA_PHY_UV	(925000)
 
 static
 int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 					bool is_rate_B)
 {
-	int tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
-	int tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
 	int err;
+	int tbl_size_A, tbl_size_B;
+	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
+	u8 major = ufs_qcom_phy->host_ctrl_rev_major;
+	u16 minor = ufs_qcom_phy->host_ctrl_rev_minor;
+	u16 step = ufs_qcom_phy->host_ctrl_rev_step;
 
-	err = ufs_qcom_phy_calibrate(ufs_qcom_phy, phy_cal_table_rate_A,
-		tbl_size_A, phy_cal_table_rate_B, tbl_size_B, is_rate_B);
+	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
+	tbl_B = phy_cal_table_rate_B;
 
+	if ((major == 0x2) && (minor == 0x000) && (step == 0x0000)) {
+		tbl_A = phy_cal_table_rate_A_2_0_0;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_2_0_0);
+	} else if ((major == 0x2) && (minor == 0x001) && (step == 0x0000)) {
+		tbl_A = phy_cal_table_rate_A_2_1_0;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_2_1_0);
+	} else if ((major == 0x2) && (minor == 0x002) && (step == 0x0000)) {
+		tbl_A = phy_cal_table_rate_A_2_2_0;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_2_2_0);
+		tbl_B = phy_cal_table_rate_B_2_2_0;
+		tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B_2_2_0);
+	} else {
+		dev_err(ufs_qcom_phy->dev,
+			"%s: Unknown UFS-PHY version (major 0x%x minor 0x%x step 0x%x), no calibration values\n",
+			__func__, major, minor, step);
+		err = -ENODEV;
+		goto out;
+	}
+
+	err = ufs_qcom_phy_calibrate(ufs_qcom_phy,
+				     tbl_A, tbl_size_A,
+				     tbl_B, tbl_size_B,
+				     is_rate_B);
+
+	if (ufs_qcom_phy->quirks & UFS_QCOM_PHY_QUIRK_VCO_MANUAL_TUNING)
+		writel_relaxed(ufs_qcom_phy->vco_tune1_mode1,
+			ufs_qcom_phy->mmio + QSERDES_COM_VCO_TUNE1_MODE1);
+out:
 	if (err)
 		dev_err(ufs_qcom_phy->dev,
 			"%s: ufs_qcom_phy_calibrate() failed %d\n",
@@ -38,8 +68,15 @@ int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 static
 void ufs_qcom_phy_qmp_14nm_advertise_quirks(struct ufs_qcom_phy *phy_common)
 {
-	phy_common->quirks =
-		UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE;
+	u8 major = phy_common->host_ctrl_rev_major;
+	u16 minor = phy_common->host_ctrl_rev_minor;
+	u16 step = phy_common->host_ctrl_rev_step;
+
+	if ((major == 0x2) && (minor == 0x000) && (step == 0x0000))
+		phy_common->quirks =
+			UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE |
+			UFS_QCOM_PHY_QUIRK_SVS_MODE |
+			UFS_QCOM_PHY_QUIRK_VCO_MANUAL_TUNING;
 }
 
 static int ufs_qcom_phy_qmp_14nm_init(struct phy *generic_phy)
@@ -61,24 +98,66 @@ static int ufs_qcom_phy_qmp_14nm_init(struct phy *generic_phy)
 			__func__, err);
 		goto out;
 	}
-	phy_common->vdda_phy.max_uV = UFS_PHY_VDDA_PHY_UV;
-	phy_common->vdda_phy.min_uV = UFS_PHY_VDDA_PHY_UV;
 
 	ufs_qcom_phy_qmp_14nm_advertise_quirks(phy_common);
+
+	if (phy_common->quirks & UFS_QCOM_PHY_QUIRK_VCO_MANUAL_TUNING) {
+		phy_common->vco_tune1_mode1 = readl_relaxed(phy_common->mmio +
+						QSERDES_COM_VCO_TUNE1_MODE1);
+		dev_info(phy_common->dev, "%s: vco_tune1_mode1 0x%x\n",
+			__func__, phy_common->vco_tune1_mode1);
+	}
 
 out:
 	return err;
 }
 
 static
-void ufs_qcom_phy_qmp_14nm_power_control(struct ufs_qcom_phy *phy, bool val)
+void ufs_qcom_phy_qmp_14nm_power_control(struct ufs_qcom_phy *phy,
+					 bool power_ctrl)
 {
-	writel_relaxed(val ? 0x1 : 0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
-	/*
-	 * Before any transactions involving PHY, ensure PHY knows
-	 * that it's analog rail is powered ON (or OFF).
-	 */
-	mb();
+	bool is_workaround_req = false;
+
+	if (phy->quirks &
+	    UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE)
+		is_workaround_req = true;
+
+	if (!power_ctrl) {
+		/* apply PHY analog power collapse */
+		if (is_workaround_req) {
+			/* assert common reset before analog power collapse */
+			writel_relaxed(0x1, phy->mmio + QSERDES_COM_SW_RESET);
+			/*
+			 * make sure that reset is propogated before analog
+			 * power collapse
+			 */
+			mb();
+		}
+		/* apply analog power collapse */
+		writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
+		/*
+		 * Make sure that PHY knows its analog rail is going to be
+		 * powered OFF.
+		 */
+		mb();
+	} else {
+		/* bring PHY out of analog power collapse */
+		writel_relaxed(0x1, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
+		/*
+		 * Before any transactions involving PHY, ensure PHY knows
+		 * that it's analog rail is powered ON.
+		 */
+		mb();
+		if (is_workaround_req) {
+			/*
+			 * de-assert common reset after coming out of analog
+			 * power collapse
+			 */
+			writel_relaxed(0x0, phy->mmio + QSERDES_COM_SW_RESET);
+			/* make common reset is de-asserted before proceeding */
+			mb();
+		}
+	}
 }
 
 static inline
@@ -88,6 +167,23 @@ void ufs_qcom_phy_qmp_14nm_set_tx_lane_enable(struct ufs_qcom_phy *phy, u32 val)
 	 * 14nm PHY does not have TX_LANE_ENABLE register.
 	 * Implement this function so as not to propagate error to caller.
 	 */
+}
+
+static
+void ufs_qcom_phy_qmp_14nm_ctrl_rx_linecfg(struct ufs_qcom_phy *phy, bool ctrl)
+{
+	u32 temp;
+
+	temp = readl_relaxed(phy->mmio + UFS_PHY_LINECFG_DISABLE);
+
+	if (ctrl) /* enable RX LineCfg */
+		temp &= ~UFS_PHY_RX_LINECFG_DISABLE_BIT;
+	else /* disable RX LineCfg */
+		temp |= UFS_PHY_RX_LINECFG_DISABLE_BIT;
+
+	writel_relaxed(temp, phy->mmio + UFS_PHY_LINECFG_DISABLE);
+	/* make sure that RX LineCfg config applied before we return */
+	mb();
 }
 
 static inline void ufs_qcom_phy_qmp_14nm_start_serdes(struct ufs_qcom_phy *phy)
@@ -109,9 +205,24 @@ static int ufs_qcom_phy_qmp_14nm_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 
 	err = readl_poll_timeout(phy_common->mmio + UFS_PHY_PCS_READY_STATUS,
 		val, (val & MASK_PCS_READY), 10, 1000000);
-	if (err)
+	if (err) {
 		dev_err(phy_common->dev, "%s: poll for pcs failed err = %d\n",
 			__func__, err);
+		goto out;
+	}
+
+	if (phy_common->quirks & UFS_QCOM_PHY_QUIRK_SVS_MODE) {
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(phy_svs_mode_config_2_0_0); i++)
+			writel_relaxed(phy_svs_mode_config_2_0_0[i].cfg_value,
+				(phy_common->mmio +
+				phy_svs_mode_config_2_0_0[i].reg_offset));
+		/* apply above configuration immediately */
+		mb();
+	}
+
+out:
 	return err;
 }
 
@@ -128,6 +239,7 @@ static struct ufs_qcom_phy_specific_ops phy_14nm_ops = {
 	.start_serdes		= ufs_qcom_phy_qmp_14nm_start_serdes,
 	.is_physical_coding_sublayer_ready = ufs_qcom_phy_qmp_14nm_is_pcs_ready,
 	.set_tx_lane_enable	= ufs_qcom_phy_qmp_14nm_set_tx_lane_enable,
+	.ctrl_rx_linecfg	= ufs_qcom_phy_qmp_14nm_ctrl_rx_linecfg,
 	.power_control		= ufs_qcom_phy_qmp_14nm_power_control,
 };
 
@@ -140,6 +252,7 @@ static int ufs_qcom_phy_qmp_14nm_probe(struct platform_device *pdev)
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy) {
+		dev_err(dev, "%s: failed to allocate phy\n", __func__);
 		err = -ENOMEM;
 		goto out;
 	}

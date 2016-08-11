@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,7 @@
 #define MAX_PROP_NAME              32
 #define VDDA_PHY_MIN_UV            1000000
 #define VDDA_PHY_MAX_UV            1000000
-#define VDDA_PLL_MIN_UV            1800000
+#define VDDA_PLL_MIN_UV            1200000
 #define VDDA_PLL_MAX_UV            1800000
 #define VDDP_REF_CLK_MIN_UV        1200000
 #define VDDP_REF_CLK_MAX_UV        1200000
@@ -29,13 +29,24 @@ static int ufs_qcom_phy_init_vreg(struct phy *, struct ufs_qcom_phy_vreg *,
 static int ufs_qcom_phy_base_init(struct platform_device *pdev,
 				  struct ufs_qcom_phy *phy_common);
 
+void ufs_qcom_phy_write_tbl(struct ufs_qcom_phy *ufs_qcom_phy,
+			   struct ufs_qcom_phy_calibration *tbl,
+			   int tbl_size)
+{
+	int i;
+
+	for (i = 0; i < tbl_size; i++)
+		writel_relaxed(tbl[i].cfg_value,
+			       ufs_qcom_phy->mmio + tbl[i].reg_offset);
+}
+EXPORT_SYMBOL(ufs_qcom_phy_write_tbl);
+
 int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			   struct ufs_qcom_phy_calibration *tbl_A,
 			   int tbl_size_A,
 			   struct ufs_qcom_phy_calibration *tbl_B,
 			   int tbl_size_B, bool is_rate_B)
 {
-	int i;
 	int ret = 0;
 
 	if (!tbl_A) {
@@ -44,9 +55,7 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 		goto out;
 	}
 
-	for (i = 0; i < tbl_size_A; i++)
-		writel_relaxed(tbl_A[i].cfg_value,
-			       ufs_qcom_phy->mmio + tbl_A[i].reg_offset);
+	ufs_qcom_phy_write_tbl(ufs_qcom_phy, tbl_A, tbl_size_A);
 
 	/*
 	 * In case we would like to work in rate B, we need
@@ -62,9 +71,7 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			goto out;
 		}
 
-		for (i = 0; i < tbl_size_B; i++)
-			writel_relaxed(tbl_B[i].cfg_value,
-				ufs_qcom_phy->mmio + tbl_B[i].reg_offset);
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, tbl_B, tbl_size_B);
 	}
 
 	/* flush buffered writes */
@@ -135,23 +142,21 @@ int ufs_qcom_phy_base_init(struct platform_device *pdev,
 	int err = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "phy_mem");
+	if (!res) {
+		dev_err(dev, "%s: phy_mem resource not found\n", __func__);
+		err = -ENOMEM;
+		goto out;
+	}
+
 	phy_common->mmio = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *)phy_common->mmio)) {
 		err = PTR_ERR((void const *)phy_common->mmio);
 		phy_common->mmio = NULL;
 		dev_err(dev, "%s: ioremap for phy_mem resource failed %d\n",
 			__func__, err);
-		return err;
 	}
-
-	/* "dev_ref_clk_ctrl_mem" is optional resource */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					   "dev_ref_clk_ctrl_mem");
-	phy_common->dev_ref_clk_ctrl_mmio = devm_ioremap_resource(dev, res);
-	if (IS_ERR((void const *)phy_common->dev_ref_clk_ctrl_mmio))
-		phy_common->dev_ref_clk_ctrl_mmio = NULL;
-
-	return 0;
+out:
+	return err;
 }
 
 static int __ufs_qcom_phy_clk_get(struct phy *phy,
@@ -186,16 +191,27 @@ ufs_qcom_phy_init_clks(struct phy *generic_phy,
 		       struct ufs_qcom_phy *phy_common)
 {
 	int err;
+	struct ufs_qcom_phy *phy = get_ufs_qcom_phy(generic_phy);
 
 	err = ufs_qcom_phy_clk_get(generic_phy, "tx_iface_clk",
 				   &phy_common->tx_iface_clk);
+	/*
+	 * tx_iface_clk does not exist in newer version of ufs-phy HW,
+	 * so don't return error if it is not found
+	 */
 	if (err)
-		goto out;
+		dev_dbg(phy->dev, "%s: failed to get tx_iface_clk\n",
+			__func__);
 
 	err = ufs_qcom_phy_clk_get(generic_phy, "rx_iface_clk",
 				   &phy_common->rx_iface_clk);
+	/*
+	 * rx_iface_clk does not exist in newer version of ufs-phy HW,
+	 * so don't return error if it is not found
+	 */
 	if (err)
-		goto out;
+		dev_dbg(phy->dev, "%s: failed to get rx_iface_clk\n",
+			__func__);
 
 	err = ufs_qcom_phy_clk_get(generic_phy, "ref_clk_src",
 				   &phy_common->ref_clk_src);
@@ -211,7 +227,15 @@ ufs_qcom_phy_init_clks(struct phy *generic_phy,
 
 	err = ufs_qcom_phy_clk_get(generic_phy, "ref_clk",
 				   &phy_common->ref_clk);
+	if (err)
+		goto out;
 
+	/*
+	 * "ref_aux_clk" is optional and only supported by certain
+	 * phy versions, don't abort init if it's not found.
+	 */
+	 __ufs_qcom_phy_clk_get(generic_phy, "ref_aux_clk",
+				   &phy_common->ref_aux_clk, false);
 out:
 	return err;
 }
@@ -222,6 +246,7 @@ ufs_qcom_phy_init_vregulators(struct phy *generic_phy,
 			      struct ufs_qcom_phy *phy_common)
 {
 	int err;
+	int vdda_phy_uV;
 
 	err = ufs_qcom_phy_init_vreg(generic_phy, &phy_common->vdda_pll,
 		"vdda-pll");
@@ -230,9 +255,12 @@ ufs_qcom_phy_init_vregulators(struct phy *generic_phy,
 
 	err = ufs_qcom_phy_init_vreg(generic_phy, &phy_common->vdda_phy,
 		"vdda-phy");
-
 	if (err)
 		goto out;
+
+	vdda_phy_uV = regulator_get_voltage(phy_common->vdda_phy.reg);
+	phy_common->vdda_phy.max_uV = vdda_phy_uV;
+	phy_common->vdda_phy.min_uV = vdda_phy_uV;
 
 	/* vddp-ref-clk-* properties are optional */
 	__ufs_qcom_phy_init_vreg(generic_phy, &phy_common->vddp_ref_clk,
@@ -421,9 +449,26 @@ int ufs_qcom_phy_enable_ref_clk(struct phy *generic_phy)
 		goto out_disable_parent;
 	}
 
+	/*
+	 * "ref_aux_clk" is optional clock and only supported by certain
+	 * phy versions, hence make sure that clk reference is available
+	 * before trying to enable the clock.
+	 */
+	if (phy->ref_aux_clk) {
+		ret = clk_prepare_enable(phy->ref_aux_clk);
+		if (ret) {
+			dev_err(phy->dev, "%s: ref_aux_clk enable failed %d\n",
+					__func__, ret);
+			goto out_disable_ref;
+		}
+	}
+
 	phy->is_ref_clk_enabled = true;
 	goto out;
 
+out_disable_ref:
+	if (phy->ref_clk)
+		clk_disable_unprepare(phy->ref_clk);
 out_disable_parent:
 	if (phy->ref_clk_parent)
 		clk_disable_unprepare(phy->ref_clk_parent);
@@ -464,6 +509,13 @@ void ufs_qcom_phy_disable_ref_clk(struct phy *generic_phy)
 	struct ufs_qcom_phy *phy = get_ufs_qcom_phy(generic_phy);
 
 	if (phy->is_ref_clk_enabled) {
+		/*
+		 * "ref_aux_clk" is optional clock and only supported by
+		 * certain phy versions, hence make sure that clk reference
+		 * is available before trying to disable the clock.
+		 */
+		if (phy->ref_aux_clk)
+			clk_disable_unprepare(phy->ref_aux_clk);
 		clk_disable_unprepare(phy->ref_clk);
 		/*
 		 * "ref_clk_parent" is optional clock hence make sure that clk
@@ -477,56 +529,6 @@ void ufs_qcom_phy_disable_ref_clk(struct phy *generic_phy)
 }
 EXPORT_SYMBOL_GPL(ufs_qcom_phy_disable_ref_clk);
 
-#define UFS_REF_CLK_EN	(1 << 5)
-
-static void ufs_qcom_phy_dev_ref_clk_ctrl(struct phy *generic_phy, bool enable)
-{
-	struct ufs_qcom_phy *phy = get_ufs_qcom_phy(generic_phy);
-
-	if (phy->dev_ref_clk_ctrl_mmio &&
-	    (enable ^ phy->is_dev_ref_clk_enabled)) {
-		u32 temp = readl_relaxed(phy->dev_ref_clk_ctrl_mmio);
-
-		if (enable)
-			temp |= UFS_REF_CLK_EN;
-		else
-			temp &= ~UFS_REF_CLK_EN;
-
-		/*
-		 * If we are here to disable this clock immediately after
-		 * entering into hibern8, we need to make sure that device
-		 * ref_clk is active atleast 1us after the hibern8 enter.
-		 */
-		if (!enable)
-			udelay(1);
-
-		writel_relaxed(temp, phy->dev_ref_clk_ctrl_mmio);
-		/* ensure that ref_clk is enabled/disabled before we return */
-		wmb();
-		/*
-		 * If we call hibern8 exit after this, we need to make sure that
-		 * device ref_clk is stable for atleast 1us before the hibern8
-		 * exit command.
-		 */
-		if (enable)
-			udelay(1);
-
-		phy->is_dev_ref_clk_enabled = enable;
-	}
-}
-
-void ufs_qcom_phy_enable_dev_ref_clk(struct phy *generic_phy)
-{
-	ufs_qcom_phy_dev_ref_clk_ctrl(generic_phy, true);
-}
-EXPORT_SYMBOL_GPL(ufs_qcom_phy_enable_dev_ref_clk);
-
-void ufs_qcom_phy_disable_dev_ref_clk(struct phy *generic_phy)
-{
-	ufs_qcom_phy_dev_ref_clk_ctrl(generic_phy, false);
-}
-EXPORT_SYMBOL_GPL(ufs_qcom_phy_disable_dev_ref_clk);
-
 /* Turn ON M-PHY RMMI interface clocks */
 int ufs_qcom_phy_enable_iface_clk(struct phy *generic_phy)
 {
@@ -534,6 +536,9 @@ int ufs_qcom_phy_enable_iface_clk(struct phy *generic_phy)
 	int ret = 0;
 
 	if (phy->is_iface_clk_enabled)
+		goto out;
+
+	if (!phy->tx_iface_clk)
 		goto out;
 
 	ret = clk_prepare_enable(phy->tx_iface_clk);
@@ -560,6 +565,9 @@ EXPORT_SYMBOL_GPL(ufs_qcom_phy_enable_iface_clk);
 void ufs_qcom_phy_disable_iface_clk(struct phy *generic_phy)
 {
 	struct ufs_qcom_phy *phy = get_ufs_qcom_phy(generic_phy);
+
+	if (!phy->tx_iface_clk)
+		return;
 
 	if (phy->is_iface_clk_enabled) {
 		clk_disable_unprepare(phy->tx_iface_clk);
@@ -591,18 +599,25 @@ int ufs_qcom_phy_set_tx_lane_enable(struct phy *generic_phy, u32 tx_lanes)
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
 	int ret = 0;
 
-	if (!ufs_qcom_phy->phy_spec_ops->set_tx_lane_enable) {
-		dev_err(ufs_qcom_phy->dev, "%s: set_tx_lane_enable() callback is not supported\n",
-			__func__);
-		ret = -ENOTSUPP;
-	} else {
+	if (ufs_qcom_phy->phy_spec_ops->set_tx_lane_enable)
 		ufs_qcom_phy->phy_spec_ops->set_tx_lane_enable(ufs_qcom_phy,
 							       tx_lanes);
-	}
 
 	return ret;
 }
 EXPORT_SYMBOL_GPL(ufs_qcom_phy_set_tx_lane_enable);
+
+int ufs_qcom_phy_ctrl_rx_linecfg(struct phy *generic_phy, bool ctrl)
+{
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+	int ret = 0;
+
+	if (ufs_qcom_phy->phy_spec_ops->ctrl_rx_linecfg)
+		ufs_qcom_phy->phy_spec_ops->ctrl_rx_linecfg(ufs_qcom_phy, ctrl);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(ufs_qcom_phy_ctrl_rx_linecfg);
 
 void ufs_qcom_phy_save_controller_version(struct phy *generic_phy,
 					  u8 major, u16 minor, u16 step)
@@ -635,6 +650,14 @@ int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy, bool is_rate_B)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(ufs_qcom_phy_calibrate_phy);
+
+const char *ufs_qcom_phy_name(struct phy *phy)
+{
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(phy);
+
+	return ufs_qcom_phy->name;
+}
+EXPORT_SYMBOL(ufs_qcom_phy_name);
 
 int ufs_qcom_phy_remove(struct phy *generic_phy,
 			struct ufs_qcom_phy *ufs_qcom_phy)
@@ -747,3 +770,21 @@ int ufs_qcom_phy_power_off(struct phy *generic_phy)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ufs_qcom_phy_power_off);
+
+int ufs_qcom_phy_configure_lpm(struct phy *generic_phy, bool enable)
+{
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+	int ret = 0;
+
+	if (ufs_qcom_phy->phy_spec_ops->configure_lpm) {
+		ret = ufs_qcom_phy->phy_spec_ops->
+				configure_lpm(ufs_qcom_phy, enable);
+		if (ret)
+			dev_err(ufs_qcom_phy->dev,
+				"%s: configure_lpm(%s) failed %d\n",
+				__func__, enable ? "enable" : "disable", ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(ufs_qcom_phy_configure_lpm);

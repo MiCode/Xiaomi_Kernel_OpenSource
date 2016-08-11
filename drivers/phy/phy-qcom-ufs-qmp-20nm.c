@@ -147,6 +147,23 @@ void ufs_qcom_phy_qmp_20nm_set_tx_lane_enable(struct ufs_qcom_phy *phy, u32 val)
 	mb();
 }
 
+static
+void ufs_qcom_phy_qmp_20nm_ctrl_rx_linecfg(struct ufs_qcom_phy *phy, bool ctrl)
+{
+	u32 temp;
+
+	temp = readl_relaxed(phy->mmio + UFS_PHY_LINECFG_DISABLE);
+
+	if (ctrl) /* enable RX LineCfg */
+		temp &= ~UFS_PHY_RX_LINECFG_DISABLE_BIT;
+	else /* disable RX LineCfg */
+		temp |= UFS_PHY_RX_LINECFG_DISABLE_BIT;
+
+	writel_relaxed(temp, phy->mmio + UFS_PHY_LINECFG_DISABLE);
+	/* make sure that RX LineCfg config applied before we return */
+	mb();
+}
+
 static inline void ufs_qcom_phy_qmp_20nm_start_serdes(struct ufs_qcom_phy *phy)
 {
 	u32 tmp;
@@ -171,7 +188,7 @@ static int ufs_qcom_phy_qmp_20nm_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 	return err;
 }
 
-static const struct phy_ops ufs_qcom_phy_qmp_20nm_phy_ops = {
+struct phy_ops ufs_qcom_phy_qmp_20nm_phy_ops = {
 	.init		= ufs_qcom_phy_qmp_20nm_init,
 	.exit		= ufs_qcom_phy_exit,
 	.power_on	= ufs_qcom_phy_power_on,
@@ -179,11 +196,12 @@ static const struct phy_ops ufs_qcom_phy_qmp_20nm_phy_ops = {
 	.owner		= THIS_MODULE,
 };
 
-static struct ufs_qcom_phy_specific_ops phy_20nm_ops = {
+struct ufs_qcom_phy_specific_ops phy_20nm_ops = {
 	.calibrate_phy		= ufs_qcom_phy_qmp_20nm_phy_calibrate,
 	.start_serdes		= ufs_qcom_phy_qmp_20nm_start_serdes,
 	.is_physical_coding_sublayer_ready = ufs_qcom_phy_qmp_20nm_is_pcs_ready,
 	.set_tx_lane_enable	= ufs_qcom_phy_qmp_20nm_set_tx_lane_enable,
+	.ctrl_rx_linecfg	= ufs_qcom_phy_qmp_20nm_ctrl_rx_linecfg,
 	.power_control		= ufs_qcom_phy_qmp_20nm_power_control,
 };
 
@@ -196,6 +214,7 @@ static int ufs_qcom_phy_qmp_20nm_probe(struct platform_device *pdev)
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy) {
+		dev_err(dev, "%s: failed to allocate phy\n", __func__);
 		err = -ENOMEM;
 		goto out;
 	}

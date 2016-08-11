@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,10 @@
 
 #ifndef UFS_QCOM_H_
 #define UFS_QCOM_H_
+
+#include <linux/phy/phy.h>
+#include <linux/pm_qos.h>
+#include "ufshcd.h"
 
 #define MAX_UFS_QCOM_HOSTS	1
 #define MAX_U32                 (~(u32)0)
@@ -71,6 +75,7 @@ enum {
 	UFS_AH8_CFG				= 0xFC,
 };
 
+
 /* QCOM UFS host controller vendor specific debug registers */
 enum {
 	UFS_DBG_RD_REG_UAWM			= 0x100,
@@ -114,6 +119,17 @@ enum {
 				 DFC_HW_CGC_EN | TRLUT_HW_CGC_EN |\
 				 TMRLUT_HW_CGC_EN | OCSC_HW_CGC_EN)
 
+/* bit definitions for UFS_AH8_CFG register */
+#define CC_UFS_HCLK_REQ_EN		BIT(1)
+#define CC_UFS_SYS_CLK_REQ_EN		BIT(2)
+#define CC_UFS_ICE_CORE_CLK_REQ_EN	BIT(3)
+#define CC_UFS_UNIPRO_CORE_CLK_REQ_EN	BIT(4)
+#define CC_UFS_AUXCLK_REQ_EN		BIT(5)
+
+#define UFS_HW_CLK_CTRL_EN	(CC_UFS_SYS_CLK_REQ_EN |\
+				 CC_UFS_ICE_CORE_CLK_REQ_EN |\
+				 CC_UFS_UNIPRO_CORE_CLK_REQ_EN |\
+				 CC_UFS_AUXCLK_REQ_EN)
 /* bit offset */
 enum {
 	OFFSET_UFS_PHY_SOFT_RESET           = 1,
@@ -142,10 +158,20 @@ enum ufs_qcom_phy_init_type {
 	 UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
 /* QUniPro Vendor specific attributes */
+#define PA_VS_CONFIG_REG1		0x9000
+#define SAVECONFIGTIME_MODE_MASK	0x6000
+
+#define PA_VS_CLK_CFG_REG	0x9004
+#define PA_VS_CLK_CFG_REG_MASK	0x1FF
+
+#define DL_VS_CLK_CFG		0xA00B
+#define DL_VS_CLK_CFG_MASK	0x3FF
+
 #define DME_VS_CORE_CLK_CTRL	0xD002
 /* bit and mask definitions for DME_VS_CORE_CLK_CTRL attribute */
-#define DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT		BIT(8)
 #define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK	0xFF
+#define DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT		BIT(8)
+#define DME_VS_CORE_CLK_CTRL_DME_HW_CGC_EN			BIT(9)
 
 static inline void
 ufs_qcom_get_controller_revision(struct ufs_hba *hba,
@@ -192,6 +218,26 @@ struct ufs_qcom_bus_vote {
 	struct device_attribute max_bus_bw;
 };
 
+/**
+ * struct ufs_qcom_ice_data - ICE related information
+ * @vops:	pointer to variant operations of ICE
+ * @async_done:	completion for supporting ICE's driver asynchronous nature
+ * @pdev:	pointer to the proper ICE platform device
+ * @state:      UFS-ICE interface's internal state (see
+ *       ufs-qcom-ice.h for possible internal states)
+ * @quirks:     UFS-ICE interface related quirks
+ * @crypto_engine_err: crypto engine errors
+ */
+struct ufs_qcom_ice_data {
+	struct qcom_ice_variant_ops *vops;
+	struct platform_device *pdev;
+	int state;
+
+	u16 quirks;
+
+	bool crypto_engine_err;
+};
+
 /* Host controller hardware version: major.minor.step */
 struct ufs_hw_version {
 	u16 step;
@@ -199,9 +245,74 @@ struct ufs_hw_version {
 	u8 major;
 };
 
+#ifdef CONFIG_DEBUG_FS
+struct qcom_debugfs_files {
+	struct dentry *debugfs_root;
+	struct dentry *dbg_print_en;
+	struct dentry *testbus;
+	struct dentry *testbus_en;
+	struct dentry *testbus_cfg;
+	struct dentry *testbus_bus;
+	struct dentry *dbg_regs;
+	struct dentry *pm_qos;
+};
+#endif
+
 struct ufs_qcom_testbus {
 	u8 select_major;
 	u8 select_minor;
+};
+
+/* PM QoS voting state  */
+enum ufs_qcom_pm_qos_state {
+	PM_QOS_UNVOTED,
+	PM_QOS_VOTED,
+	PM_QOS_REQ_VOTE,
+	PM_QOS_REQ_UNVOTE,
+};
+
+/**
+ * struct ufs_qcom_pm_qos_cpu_group - data related to cluster PM QoS voting
+ *	logic
+ * @req: request object for PM QoS
+ * @vote_work: work object for voting procedure
+ * @unvote_work: work object for un-voting procedure
+ * @host: back pointer to the main structure
+ * @state: voting state machine current state
+ * @latency_us: requested latency value used for cluster voting, in
+ *	microseconds
+ * @mask: cpu mask defined for this cluster
+ * @active_reqs: number of active requests on this cluster
+ */
+struct ufs_qcom_pm_qos_cpu_group {
+	struct pm_qos_request req;
+	struct work_struct vote_work;
+	struct work_struct unvote_work;
+	struct ufs_qcom_host *host;
+	enum ufs_qcom_pm_qos_state state;
+	s32 latency_us;
+	cpumask_t mask;
+	int active_reqs;
+};
+
+/**
+ * struct ufs_qcom_pm_qos - data related to PM QoS voting logic
+ * @groups: PM QoS cpu group state array
+ * @enable_attr: sysfs attribute to enable/disable PM QoS voting logic
+ * @latency_attr: sysfs attribute to set latency value
+ * @workq: single threaded workqueue to run PM QoS voting/unvoting
+ * @num_clusters: number of clusters defined
+ * @default_cpu: cpu to use for voting for request not specifying a cpu
+ * @is_enabled: flag specifying whether voting logic is enabled
+ */
+struct ufs_qcom_pm_qos {
+	struct ufs_qcom_pm_qos_cpu_group *groups;
+	struct device_attribute enable_attr;
+	struct device_attribute latency_attr;
+	struct workqueue_struct *workq;
+	int num_groups;
+	int default_cpu;
+	bool is_enabled;
 };
 
 struct ufs_qcom_host {
@@ -218,6 +329,17 @@ struct ufs_qcom_host {
 	 * configuration even after UFS controller core power collapse.
 	 */
 	#define UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE	UFS_BIT(1)
+
+	/*
+	 * Set this capability if host controller supports Qunipro internal
+	 * clock gating.
+	 */
+	#define UFS_QCOM_CAP_QUNIPRO_CLK_GATING		UFS_BIT(2)
+
+	/*
+	 * Set this capability if host controller supports SVS2 frequencies.
+	 */
+	#define UFS_QCOM_CAP_SVS2	UFS_BIT(3)
 	u32 caps;
 
 	struct phy *generic_phy;
@@ -228,17 +350,27 @@ struct ufs_qcom_host {
 	struct clk *tx_l0_sync_clk;
 	struct clk *rx_l1_sync_clk;
 	struct clk *tx_l1_sync_clk;
-	bool is_lane_clks_enabled;
 
+	/* PM Quality-of-Service (QoS) data */
+	struct ufs_qcom_pm_qos pm_qos;
+
+	bool disable_lpm;
+	bool is_lane_clks_enabled;
+	bool sec_cfg_updated;
+	struct ufs_qcom_ice_data ice;
 	void __iomem *dev_ref_clk_ctrl_mmio;
 	bool is_dev_ref_clk_enabled;
 	struct ufs_hw_version hw_ver;
-
 	u32 dev_ref_clk_en_mask;
-
+#ifdef CONFIG_DEBUG_FS
+	struct qcom_debugfs_files debugfs_files;
+#endif
 	/* Bitmask for enabling debug prints */
 	u32 dbg_print_en;
 	struct ufs_qcom_testbus testbus;
+
+	struct work_struct ice_cfg_work;
+	struct request *req_pending;
 };
 
 static inline u32
@@ -255,6 +387,9 @@ ufs_qcom_get_debug_reg_offset(struct ufs_qcom_host *host, u32 reg)
 #define ufs_qcom_is_link_hibern8(hba) ufshcd_is_link_hibern8(hba)
 
 int ufs_qcom_testbus_config(struct ufs_qcom_host *host);
+void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
+		void (*print_fn)(struct ufs_hba *hba, int offset, int num_regs,
+				char *str, void *priv));
 
 static inline bool ufs_qcom_cap_qunipro(struct ufs_qcom_host *host)
 {
@@ -262,6 +397,16 @@ static inline bool ufs_qcom_cap_qunipro(struct ufs_qcom_host *host)
 		return true;
 	else
 		return false;
+}
+
+static inline bool ufs_qcom_cap_qunipro_clk_gating(struct ufs_qcom_host *host)
+{
+	return !!(host->caps & UFS_QCOM_CAP_QUNIPRO_CLK_GATING);
+}
+
+static inline bool ufs_qcom_cap_svs2(struct ufs_qcom_host *host)
+{
+	return !!(host->caps & UFS_QCOM_CAP_SVS2);
 }
 
 #endif /* UFS_QCOM_H_ */
