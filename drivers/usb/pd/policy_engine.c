@@ -240,9 +240,6 @@ static void *usbpd_ipc_log;
 static int min_sink_current = 900;
 module_param(min_sink_current, int, S_IRUSR | S_IWUSR);
 
-static int max_sink_current = 3000;
-module_param(max_sink_current, int, S_IRUSR | S_IWUSR);
-
 static const u32 default_src_caps[] = { 0x36019096 };	/* VSafe5V @ 1.5A */
 
 static const u32 default_snk_caps[] = { 0x2601905A,	/* 5V @ 900mA */
@@ -406,8 +403,8 @@ static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
 
 static int pd_select_pdo(struct usbpd *pd, int pdo_pos)
 {
-	int curr = min_sink_current;
-	int max_current = max_sink_current;
+	int curr;
+	int max_current;
 	bool mismatch = false;
 	u32 pdo = pd->received_pdos[pdo_pos - 1];
 
@@ -417,18 +414,19 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos)
 		return -ENOTSUPP;
 	}
 
+	curr = max_current = PD_SRC_PDO_FIXED_MAX_CURR(pdo) * 10;
+
 	/*
 	 * Check if the PDO has enough current, otherwise set the
 	 * Capability Mismatch flag
 	 */
-	if ((PD_SRC_PDO_FIXED_MAX_CURR(pdo) * 10) < curr) {
+	if (curr < min_sink_current) {
 		mismatch = true;
-		max_current = curr;
-		curr = PD_SRC_PDO_FIXED_MAX_CURR(pdo) * 10;
+		max_current = min_sink_current;
 	}
 
 	pd->requested_voltage = PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50 * 1000;
-	pd->requested_current = max_current;
+	pd->requested_current = curr;
 	pd->requested_pdo = pdo_pos;
 	pd->rdo = PD_RDO_FIXED(pdo_pos, 0, mismatch, 1, 1, curr / 10,
 			max_current / 10);
