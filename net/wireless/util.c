@@ -1490,7 +1490,7 @@ int cfg80211_validate_beacon_int(struct cfg80211_registered_device *rdev,
 		.beacon_int_gcd = beacon_int,	/* GCD(n) = n */
 	};
 
-	if (!beacon_int)
+	if (beacon_int < 10 || beacon_int > 10000)
 		return -EINVAL;
 
 	params.iftype_num[iftype] = 1;

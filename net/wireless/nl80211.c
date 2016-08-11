@@ -7770,12 +7770,14 @@ static int nl80211_join_ibss(struct sk_buff *skb, struct genl_info *info)
 
 	ibss.beacon_interval = 100;
 
-	if (info->attrs[NL80211_ATTR_BEACON_INTERVAL]) {
+	if (info->attrs[NL80211_ATTR_BEACON_INTERVAL])
 		ibss.beacon_interval =
 			nla_get_u32(info->attrs[NL80211_ATTR_BEACON_INTERVAL]);
-		if (ibss.beacon_interval < 1 || ibss.beacon_interval > 10000)
-			return -EINVAL;
-	}
+
+	err = cfg80211_validate_beacon_int(rdev, NL80211_IFTYPE_ADHOC,
+					   ibss.beacon_interval);
+	if (err)
+		return err;
 
 	if (!rdev->ops->join_ibss)
 		return -EOPNOTSUPP;
@@ -9013,9 +9015,12 @@ static int nl80211_join_mesh(struct sk_buff *skb, struct genl_info *info)
 	if (info->attrs[NL80211_ATTR_BEACON_INTERVAL]) {
 		setup.beacon_interval =
 			nla_get_u32(info->attrs[NL80211_ATTR_BEACON_INTERVAL]);
-		if (setup.beacon_interval < 10 ||
-		    setup.beacon_interval > 10000)
-			return -EINVAL;
+
+		err = cfg80211_validate_beacon_int(rdev,
+						   NL80211_IFTYPE_MESH_POINT,
+						   setup.beacon_interval);
+		if (err)
+			return err;
 	}
 
 	if (info->attrs[NL80211_ATTR_DTIM_PERIOD]) {
