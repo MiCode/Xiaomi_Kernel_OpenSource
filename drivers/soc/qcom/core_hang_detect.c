@@ -33,6 +33,7 @@
 #define _WRITE(x, y, z)		(((~(_VAL(z))) & y) | _VALUE(x, z))
 
 #define MODULE_NAME	"msm_hang_detect"
+#define MAX_SYSFS_LEN 12
 
 struct hang_detect {
 	phys_addr_t threshold[NR_CPUS];
@@ -108,8 +109,7 @@ static ssize_t show_threshold(struct kobject *kobj, struct attribute *attr,
 {
 	struct hang_detect *device =  to_core_hang_dev(kobj);
 
-	return snprintf(buf, sizeof(device->threshold_val),
-				"%u\n", device->threshold_val);
+	return snprintf(buf, MAX_SYSFS_LEN, "0x%x\n", device->threshold_val);
 }
 
 static size_t store_threshold(struct kobject *kobj, struct attribute *attr,
@@ -147,8 +147,8 @@ static ssize_t show_pmu_event_sel(struct kobject *kobj, struct attribute *attr,
 {
 	struct hang_detect *hang_device = to_core_hang_dev(kobj);
 
-	return snprintf(buf, sizeof(hang_device->pmu_event_sel),
-				"%u\n", hang_device->pmu_event_sel);
+	return snprintf(buf, MAX_SYSFS_LEN, "0x%x\n",
+			hang_device->pmu_event_sel);
 }
 
 static size_t store_pmu_event_sel(struct kobject *kobj, struct attribute *attr,
@@ -188,8 +188,7 @@ static ssize_t show_enable(struct kobject *kobj, struct attribute *attr,
 {
 	struct hang_detect *hang_device = to_core_hang_dev(kobj);
 
-	return snprintf(buf, sizeof(hang_device->enabled),
-			"%u\n", hang_device->enabled);
+	return snprintf(buf, MAX_SYSFS_LEN, "%u\n", hang_device->enabled);
 }
 
 static size_t store_enable(struct kobject *kobj, struct attribute *attr,
