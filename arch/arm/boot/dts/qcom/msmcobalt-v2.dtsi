@@ -58,3 +58,7 @@
 		< 670000000 RPM_SMD_REGULATOR_LEVEL_TURBO >,
 		< 710000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
 };
+
+&mdss_mdp {
+	qcom,vbif-settings = <0x00d0 0x00002020>;
+};
