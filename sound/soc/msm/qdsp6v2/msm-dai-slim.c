@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -467,7 +467,9 @@ static void msm_dai_slim_remove_dai_data(
 		dai_data_t = &drv_data->slim_dai_data[i];
 
 		kfree(dai_data_t->chan_h);
+		dai_data_t->chan_h = NULL;
 		kfree(dai_data_t->sh_ch);
+		dai_data_t->sh_ch = NULL;
 	}
 }
 
