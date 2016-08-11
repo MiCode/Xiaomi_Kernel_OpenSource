@@ -6,6 +6,7 @@ obj-$(CONFIG_COMMON_CLK_MSM)	+= clock-pll.o
 obj-$(CONFIG_COMMON_CLK_MSM)	+= clock-alpha-pll.o
 obj-$(CONFIG_COMMON_CLK_MSM)	+= clock-rpm.o
 obj-$(CONFIG_COMMON_CLK_MSM)	+= clock-voter.o
+obj-$(CONFIG_COMMON_CLK_MSM)	+= reset.o
 
 obj-$(CONFIG_MSM_CLK_CONTROLLER_V2)	+= msm-clock-controller.o
 
