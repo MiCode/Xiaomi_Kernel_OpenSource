@@ -221,11 +221,6 @@ DEFINE_EVENT(kgsl_pwr_template, kgsl_rail,
 	TP_ARGS(device, on)
 );
 
-DEFINE_EVENT(kgsl_pwr_template, kgsl_retention_clk,
-	TP_PROTO(struct kgsl_device *device, int on),
-	TP_ARGS(device, on)
-);
-
 TRACE_EVENT(kgsl_clk,
 
 	TP_PROTO(struct kgsl_device *device, unsigned int on,

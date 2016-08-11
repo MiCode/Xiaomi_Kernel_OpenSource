@@ -111,7 +111,6 @@ struct kgsl_regulator {
  * struct kgsl_pwrctrl - Power control settings for a KGSL device
  * @interrupt_num - The interrupt number for the device
  * @grp_clks - Array of clocks structures that we control
- * @dummy_mx_clk - mx clock that is contolled during retention
  * @power_flags - Control flags for power
  * @pwrlevels - List of supported power levels
  * @active_pwrlevel - The currently active power level
@@ -155,7 +154,6 @@ struct kgsl_regulator {
  * @sysfs_pwr_limit - pointer to the sysfs limits node
  * @deep_nap_timer - Timer struct for entering deep nap
  * @deep_nap_timeout - Timeout for entering deep nap
- * @gx_retention - true if retention voltage is allowed
  * isense_clk_indx - index of isense clock, 0 if no isense
  * isense_clk_on_level - isense clock rate is XO rate below this level.
  */
@@ -163,7 +161,6 @@ struct kgsl_regulator {
 struct kgsl_pwrctrl {
 	int interrupt_num;
 	struct clk *grp_clks[KGSL_MAX_CLKS];
-	struct clk *dummy_mx_clk;
 	struct clk *gpu_bimc_int_clk;
 	int isense_clk_indx;
 	int isense_clk_on_level;
@@ -212,7 +209,6 @@ struct kgsl_pwrctrl {
 	struct kgsl_pwr_limit *sysfs_pwr_limit;
 	struct timer_list deep_nap_timer;
 	uint32_t deep_nap_timeout;
-	bool gx_retention;
 	unsigned int gpu_bimc_int_clk_freq;
 	bool gpu_bimc_interface_enabled;
 };
