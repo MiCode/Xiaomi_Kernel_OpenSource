@@ -1066,6 +1066,11 @@ int ipahal_reg_init(enum ipa_hw_type ipa_hw_type)
 
 	IPAHAL_DBG_LOW("Entry - HW_TYPE=%d\n", ipa_hw_type);
 
+	if ((ipa_hw_type < 0) || (ipa_hw_type >= IPA_HW_MAX)) {
+		IPAHAL_ERR("invalid IPA HW type (%d)\n", ipa_hw_type);
+		return -EINVAL;
+	}
+
 	memset(&zero_obj, 0, sizeof(zero_obj));
 	for (i = IPA_HW_v3_0 ; i < ipa_hw_type ; i++) {
 		for (j = 0; j < IPA_REG_MAX ; j++) {
