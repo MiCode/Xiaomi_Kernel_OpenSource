@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -342,6 +342,35 @@ void msm_dma_unmap_sg(struct device *dev, struct scatterlist *sgl, int nents,
 
 out:
 	return;
+}
+
+int msm_dma_unmap_all_for_dev(struct device *dev)
+{
+	int ret = 0;
+	struct msm_iommu_meta *meta;
+	struct rb_root *root;
+	struct rb_node *meta_node;
+
+	mutex_lock(&msm_iommu_map_mutex);
+	root = &iommu_root;
+	meta_node = rb_first(root);
+	while (meta_node) {
+		struct msm_iommu_map *iommu_map;
+
+		meta = rb_entry(meta_node, struct msm_iommu_meta, node);
+		mutex_lock(&meta->lock);
+		list_for_each_entry(iommu_map, &meta->iommu_maps, lnode)
+			if (iommu_map->dev == dev)
+				if (!kref_put(&iommu_map->ref,
+						msm_iommu_map_release))
+					ret = -EINVAL;
+
+		mutex_unlock(&meta->lock);
+		meta_node = rb_next(meta_node);
+	}
+	mutex_unlock(&msm_iommu_map_mutex);
+
+	return ret;
 }
 
 /*

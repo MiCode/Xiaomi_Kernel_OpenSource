@@ -28,6 +28,7 @@
 #include <linux/vmalloc.h>
 #include <linux/sizes.h>
 #include <linux/cma.h>
+#include <linux/msm_dma_iommu_mapping.h>
 
 #include <asm/memory.h>
 #include <asm/highmem.h>
@@ -2189,6 +2190,9 @@ static void __arm_iommu_detach_device(struct device *dev)
 		dev_warn(dev, "Not attached\n");
 		return;
 	}
+
+	if (msm_dma_unmap_all_for_dev(dev))
+		dev_warn(dev, "IOMMU detach with outstanding mappings\n");
 
 	iommu_detach_device(mapping->domain, dev);
 	kref_put(&mapping->kref, release_iommu_mapping);
