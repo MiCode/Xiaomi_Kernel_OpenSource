@@ -2711,10 +2711,23 @@ static int debugfs_get_debug_reg(void *data, u64 *val)
 		*val = clk_osm_acd_local_read_reg(c, c->acd_debugfs_addr);
 	return 0;
 }
+
+static int debugfs_set_debug_reg(void *data, u64 val)
+{
+	struct clk_osm *c = data;
+
+	if (c->acd_debugfs_addr >= ACD_MASTER_ONLY_REG_ADDR)
+		clk_osm_acd_master_write_reg(c, val, c->acd_debugfs_addr);
+	else
+		clk_osm_acd_master_write_through_reg(c, val,
+						     c->acd_debugfs_addr);
+
+	return 0;
+}
 DEFINE_SIMPLE_ATTRIBUTE(debugfs_acd_debug_reg_fops,
 			debugfs_get_debug_reg,
-			NULL,
-			"%llu\n");
+			debugfs_set_debug_reg,
+			"0x%llx\n");
 
 static int debugfs_get_debug_reg_addr(void *data, u64 *val)
 {
