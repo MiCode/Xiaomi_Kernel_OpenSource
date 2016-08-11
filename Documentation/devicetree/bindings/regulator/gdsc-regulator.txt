@@ -50,6 +50,12 @@ Optional properties:
 			to enable.
  - qcom,reset-aon-logic: If present, the GPU DEMET cells need to be reset while
 			 enabling the GX GDSC.
+ - resets: reset specifier pair consisting of phandle for the reset controller
+			and reset lines used by this controller. These can be
+			supplied only if we support qcom,skip-logic-collapse.
+ - reset-names: reset signal name strings sorted in the same order as the resets
+			property. These can be supplied only if we support
+			qcom,skip-logic-collapse.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {

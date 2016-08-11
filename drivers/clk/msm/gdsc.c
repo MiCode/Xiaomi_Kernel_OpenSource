@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#include <linux/reset.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
@@ -48,7 +49,9 @@ struct gdsc {
 	struct regulator_desc	rdesc;
 	void __iomem		*gdscr;
 	struct clk		**clocks;
+	struct reset_control	**reset_clocks;
 	int			clock_count;
+	int			reset_count;
 	bool			toggle_mem;
 	bool			toggle_periph;
 	bool			toggle_logic;
@@ -247,9 +250,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 			}
 		}
 	} else {
-		for (i = 0; i < sc->clock_count; i++)
-			if (likely(i != sc->root_clk_idx))
-				clk_reset(sc->clocks[i], CLK_RESET_DEASSERT);
+		for (i = 0; i < sc->reset_count; i++)
+			reset_control_deassert(sc->reset_clocks[i]);
 		sc->resets_asserted = false;
 	}
 
@@ -342,9 +344,8 @@ static int gdsc_disable(struct regulator_dev *rdev)
 			wmb();
 		}
 	} else {
-		for (i = sc->clock_count-1; i >= 0; i--)
-			if (likely(i != sc->root_clk_idx))
-				clk_reset(sc->clocks[i], CLK_RESET_ASSERT);
+		for (i = sc->reset_count-1; i >= 0; i--)
+			reset_control_assert(sc->reset_clocks[i]);
 		sc->resets_asserted = true;
 	}
 
@@ -605,6 +606,39 @@ static int gdsc_probe(struct platform_device *pdev)
 	}
 
 	if (!sc->toggle_logic) {
+		sc->reset_count = of_property_count_strings(pdev->dev.of_node,
+							"reset-names");
+		if (sc->reset_count == -EINVAL) {
+			sc->reset_count = 0;
+		} else if (IS_ERR_VALUE(sc->reset_count)) {
+			dev_err(&pdev->dev, "Failed to get reset reset names\n");
+			return -EINVAL;
+		}
+
+		sc->reset_clocks = devm_kzalloc(&pdev->dev,
+					sizeof(struct reset_control *) *
+					sc->reset_count,
+					GFP_KERNEL);
+		if (!sc->reset_clocks)
+			return -ENOMEM;
+
+		for (i = 0; i < sc->reset_count; i++) {
+			const char *reset_name;
+
+			of_property_read_string_index(pdev->dev.of_node,
+					"reset-names", i, &reset_name);
+			sc->reset_clocks[i] = devm_reset_control_get(&pdev->dev,
+								reset_name);
+			if (IS_ERR(sc->reset_clocks[i])) {
+				int rc = PTR_ERR(sc->reset_clocks[i]);
+
+				if (rc != -EPROBE_DEFER)
+					dev_err(&pdev->dev, "Failed to get %s\n",
+							reset_name);
+				return rc;
+			}
+		}
+
 		regval &= ~SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
 
