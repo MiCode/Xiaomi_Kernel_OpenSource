@@ -2668,7 +2668,7 @@ int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl, bool handoff)
 {
 	switch (ctl->panel_data->panel_info.type) {
 	case MIPI_VIDEO_PANEL:
-	case EDP_PANEL:
+	case DP_PANEL:
 	case DTV_PANEL:
 		return mdss_mdp_video_reconfigure_splash_done(ctl, handoff);
 	case MIPI_CMD_PANEL:
@@ -3686,7 +3686,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	ctl->disable_prefill = false;
 
 	switch (pdata->panel_info.type) {
-	case EDP_PANEL:
+	case DP_PANEL:
 		ctl->is_video_mode = true;
 		ctl->intf_num = MDSS_MDP_INTF0;
 		ctl->intf_type = MDSS_INTF_EDP;

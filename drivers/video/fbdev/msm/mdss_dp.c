@@ -33,6 +33,7 @@
 #include "mdss.h"
 #include "mdss_dp.h"
 #include "mdss_dp_util.h"
+#include "mdss_hdmi_panel.h"
 #include "mdss_debug.h"
 
 #define RGB_COMPONENTS		3
@@ -863,7 +864,7 @@ int mdss_dp_wait4train(struct mdss_dp_drv_pdata *dp_drv)
 
 #define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
 
-static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv)
+static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 {
 	struct mdss_panel_info *pinfo;
 	struct msm_hdmi_mode_timing_info timing = {0};
@@ -875,8 +876,7 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv)
 	}
 
 	dp_drv->ds_data.ds_registered = false;
-	ret = hdmi_get_supported_mode(&timing, &dp_drv->ds_data,
-		DEFAULT_VIDEO_RESOLUTION);
+	ret = hdmi_get_supported_mode(&timing, &dp_drv->ds_data, vic);
 	pinfo = &dp_drv->panel_data.panel_info;
 
 	if (ret || !timing.supported || !pinfo) {
@@ -884,6 +884,7 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv)
 		return -EINVAL;
 	}
 
+	dp_drv->vic = vic;
 	pinfo->xres = timing.active_h;
 	pinfo->yres = timing.active_v;
 	pinfo->clk_rate = timing.pixel_freq * 1000;
@@ -895,7 +896,7 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv)
 	pinfo->lcdc.v_front_porch = timing.front_porch_v;
 	pinfo->lcdc.v_pulse_width = timing.pulse_width_v;
 
-	pinfo->type = EDP_PANEL;
+	pinfo->type = DP_PANEL;
 	pinfo->pdest = DISPLAY_4;
 	pinfo->wait_cycle = 0;
 	pinfo->bpp = 24;
@@ -904,6 +905,10 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv)
 	pinfo->lcdc.border_clr = 0; /* blk */
 	pinfo->lcdc.underflow_clr = 0xff; /* blue */
 	pinfo->lcdc.hsync_skew = 0;
+	pinfo->is_pluggable = true;
+
+	pr_debug("update res. vic= %d, pclk_rate = %llu\n",
+				dp_drv->vic, pinfo->clk_rate);
 
 	return 0;
 } /* dp_init_panel_info */
@@ -962,6 +967,9 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 			}
 
 		}
+
+		if (dp_drv->new_vic && (dp_drv->new_vic != dp_drv->vic))
+			dp_init_panel_info(dp_drv, dp_drv->new_vic);
 
 		mdss_dp_phy_aux_setup(&dp_drv->phy_io);
 
@@ -1072,6 +1080,44 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	return 0;
 }
 
+static void mdss_dp_send_cable_notification(
+	struct mdss_dp_drv_pdata *dp, int val)
+{
+	int state = 0;
+
+	if (!dp) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+	state = dp->sdev.state;
+
+	switch_set_state(&dp->sdev, val);
+
+	DEV_INFO("%s: cable state %s %d\n", __func__,
+		dp->sdev.state == state ?
+			"is same" : "switched to",
+		dp->sdev.state);
+}
+
+static int mdss_dp_register_switch_event(struct mdss_dp_drv_pdata *dp)
+{
+	int rc = -EINVAL;
+
+	if (!dp) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		goto end;
+	}
+
+	dp->sdev.name = "hdmi";
+	rc = switch_dev_register(&dp->sdev);
+	if (rc) {
+		DEV_ERR("%s: display switch registration failed\n", __func__);
+		goto end;
+	}
+end:
+	return rc;
+}
+
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
@@ -1096,9 +1142,6 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 		DEV_ERR("%s: edid init failed\n", __func__);
 		return -ENODEV;
 	}
-
-	edid_init_data.buf = edid_init_data.buf;
-	edid_init_data.buf_size = edid_init_data.buf_size;
 
 	/* Use the existing EDID buffer for 1080p */
 	memcpy(edid_init_data.buf, edid_buf1, sizeof(edid_buf1));
@@ -1152,6 +1195,8 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		goto edid_parser_error;
 	}
 
+	mdss_dp_send_cable_notification(dp_drv, true);
+
 	return ret;
 
 edid_parser_error:
@@ -1160,6 +1205,44 @@ clk_error:
 	mdss_dp_regulator_ctrl(dp_drv, false);
 vreg_error:
 	return ret;
+}
+
+static int mdss_dp_check_params(struct mdss_dp_drv_pdata *dp, void *arg)
+{
+	struct mdss_panel_info *var_pinfo, *pinfo;
+	int rc = 0;
+	int new_vic = -1;
+
+	if (!dp || !arg)
+		return 0;
+
+	pinfo = &dp->panel_data.panel_info;
+	var_pinfo = (struct mdss_panel_info *)arg;
+
+	pr_debug("reconfig xres: %d yres: %d, current xres: %d yres: %d\n",
+			var_pinfo->xres, var_pinfo->yres,
+					pinfo->xres, pinfo->yres);
+
+	new_vic = hdmi_panel_get_vic(var_pinfo, &dp->ds_data);
+
+	if ((new_vic < 0) || (new_vic > HDMI_VFRMT_MAX)) {
+		DEV_ERR("%s: invalid or not supported vic\n", __func__);
+		goto end;
+	}
+
+	/*
+	 * return value of 1 lets mdss know that panel
+	 * needs a reconfig due to new resolution and
+	 * it will issue close and open subsequently.
+	 */
+	if (new_vic != dp->vic) {
+		rc = 1;
+		DEV_ERR("%s: res change %d ==> %d\n", __func__,
+			dp->vic, new_vic);
+	}
+	dp->new_vic = new_vic;
+end:
+	return rc;
 }
 
 static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
@@ -1194,9 +1277,13 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		dp->kobj = &fbi->dev->kobj;
 		dp->fb_node = fbi->node;
 		mdss_dp_edid_init(pdata);
+		mdss_dp_register_switch_event(dp);
+		break;
+	case MDSS_EVENT_CHECK_PARAMS:
+		rc = mdss_dp_check_params(dp, arg);
 		break;
 	default:
-		pr_debug("%s: unhandled event=%d\n", __func__, event);
+		pr_debug("unhandled event=%d\n", event);
 		break;
 	}
 	return rc;
@@ -1220,7 +1307,7 @@ static int mdss_dp_device_register(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret;
 
-	ret = dp_init_panel_info(dp_drv);
+	ret = dp_init_panel_info(dp_drv, DEFAULT_VIDEO_RESOLUTION);
 	if (ret) {
 		DEV_ERR("%s: dp_init_panel_info failed\n", __func__);
 		return ret;
@@ -1493,6 +1580,7 @@ static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
 	mutex_lock(&dp_drv->pd_msg_mutex);
 	dp_drv->cable_connected = false;
 	mutex_unlock(&dp_drv->pd_msg_mutex);
+	mdss_dp_send_cable_notification(dp_drv, false);
 }
 
 static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,

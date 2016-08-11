@@ -104,4 +104,7 @@ void *hdmi_panel_init(struct hdmi_panel_init_data *data);
  */
 void hdmi_panel_deinit(void *input);
 
+int hdmi_panel_get_vic(struct mdss_panel_info *pinfo,
+				struct hdmi_util_ds_data *ds_data);
+
 #endif /* __MDSS_HDMI_PANEL_H__ */
