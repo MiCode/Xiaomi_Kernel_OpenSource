@@ -516,7 +516,6 @@ static void usb_cser_disable(struct usb_function *f)
 
 	usb_cser_disconnect(port);
 	usb_ep_disable(port->port_usb.notify);
-	usb_cser_free_req(port->port_usb.notify, port->port_usb.notify_req);
 	port->port_usb.notify->driver_data = NULL;
 }
 
@@ -817,7 +816,11 @@ static void cser_free_inst(struct usb_function_instance *fi)
 
 static void usb_cser_unbind(struct usb_configuration *c, struct usb_function *f)
 {
+	struct f_cdev *port = func_to_port(f);
+
 	usb_free_all_descriptors(f);
+	usb_cser_free_req(port->port_usb.notify, port->port_usb.notify_req);
+	port->port_usb.notify_req = NULL;
 }
 
 static int usb_cser_alloc_requests(struct usb_ep *ep, struct list_head *head,
