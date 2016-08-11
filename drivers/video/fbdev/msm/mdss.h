@@ -460,6 +460,7 @@ struct mdss_data_type {
 	struct ion_client *iclient;
 	int iommu_attached;
 
+	u32 dbg_bus_flags;
 	struct debug_bus *dbg_bus;
 	u32 dbg_bus_size;
 	struct vbif_debug_bus *vbif_dbg_bus;

@@ -234,6 +234,7 @@ static void mdss_dump_debug_bus(u32 bus_dump_flag,
 	phys_addr_t phys = 0;
 	int list_size = mdata->dbg_bus_size;
 	int i;
+	u32 offset;
 
 	if (!(mdata->dbg_bus && list_size))
 		return;
@@ -267,8 +268,14 @@ static void mdss_dump_debug_bus(u32 bus_dump_flag,
 		writel_relaxed(TEST_MASK(head->block_id, head->test_id),
 				mdss_res->mdp_base + head->wr_addr);
 		wmb(); /* make sure test bits were written */
+
+		if (mdata->dbg_bus_flags & DEBUG_FLAGS_DSPP)
+			offset = MDSS_MDP_DSPP_DEBUGBUS_STATUS;
+		else
+			offset = head->wr_addr + 0x4;
+
 		status = readl_relaxed(mdss_res->mdp_base +
-			head->wr_addr + 0x4);
+			offset);
 
 		if (in_log)
 			pr_err("waddr=0x%x blk=%d tst=%d val=0x%x\n",

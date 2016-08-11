@@ -31,6 +31,8 @@
 #define XLOG_FUNC_EXIT	0x2222
 #define MDSS_REG_BLOCK_NAME_LEN (5)
 
+#define DEBUG_FLAGS_DSPP BIT(0)
+
 enum mdss_dbg_reg_dump_flag {
 	MDSS_DBG_DUMP_IN_LOG = BIT(0),
 	MDSS_DBG_DUMP_IN_MEM = BIT(1),
