@@ -39,7 +39,7 @@ static inline int msm_dcvs_count_active_instances(struct msm_vidc_core *core)
 	struct msm_vidc_inst *inst = NULL;
 
 	if (!core) {
-		dprintk(VIDC_ERR, "%s: Invalid args: %p\n", __func__, core);
+		dprintk(VIDC_ERR, "%s: Invalid args: %pK\n", __func__, core);
 		return -EINVAL;
 	}
 
@@ -115,7 +115,7 @@ static void msm_dcvs_dec_check_and_scale_clocks(struct msm_vidc_inst *inst)
 void msm_dcvs_check_and_scale_clocks(struct msm_vidc_inst *inst, bool is_etb)
 {
 	if (!inst) {
-		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
+		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, inst);
 		return;
 	}
 
@@ -178,7 +178,7 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "Init DCVS Load\n");
 
 	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
+		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, inst);
 		return;
 	}
 
@@ -243,7 +243,7 @@ void msm_dcvs_init(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "Init DCVS Struct\n");
 
 	if (!inst) {
-		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
+		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, inst);
 		return;
 	}
 
@@ -260,7 +260,7 @@ void msm_dcvs_monitor_buffer(struct msm_vidc_inst *inst)
 	struct hal_buffer_requirements *output_buf_req;
 
 	if (!inst) {
-		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
+		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, inst);
 		return;
 	}
 	dcvs = &inst->dcvs;
@@ -269,7 +269,7 @@ void msm_dcvs_monitor_buffer(struct msm_vidc_inst *inst)
 	output_buf_req = get_buff_req_buffer(inst,
 				msm_comm_get_hal_output_buffer(inst));
 	if (!output_buf_req) {
-		dprintk(VIDC_ERR, "%s : Get output buffer req failed %p\n",
+		dprintk(VIDC_ERR, "%s : Get output buffer req failed %pK\n",
 			__func__, inst);
 		mutex_unlock(&inst->lock);
 		return;
