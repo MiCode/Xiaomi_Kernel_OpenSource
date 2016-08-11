@@ -8379,6 +8379,13 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	if (list_empty(head))
 		goto out;
 
+	/* call vendor specific bus vote before enabling the clocks */
+	if (on) {
+		ret = ufshcd_vops_set_bus_vote(hba, on);
+		if (ret)
+			return ret;
+	}
+
 	/*
 	 * vendor specific setup_clocks ops may depend on clocks managed by
 	 * this standard driver hence call the vendor specific setup_clocks
@@ -8420,8 +8427,15 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	if (on) {
 		ret = ufshcd_vops_setup_clocks(hba, on, POST_CHANGE);
 		if (ret)
-			return ret;
+			goto out;
 	}
+
+	/*
+	 * call vendor specific bus vote to remove the vote after
+	 * disabling the clocks.
+	 */
+	if (!on)
+		ret = ufshcd_vops_set_bus_vote(hba, on);
 
 out:
 	if (ret) {
