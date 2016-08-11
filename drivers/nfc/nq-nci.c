@@ -63,6 +63,8 @@ struct nqx_dev {
 	bool			nfc_ven_enabled;
 	/* NFC_IRQ state */
 	bool			irq_enabled;
+	/* NFC_IRQ wake-up state */
+	bool			irq_wake_up;
 	spinlock_t		irq_enabled_lock;
 	unsigned int		count_irq;
 	/* Initial CORE RESET notification */
@@ -899,6 +901,7 @@ static int nqx_probe(struct i2c_client *client,
 	device_init_wakeup(&client->dev, true);
 	device_set_wakeup_capable(&client->dev, true);
 	i2c_set_clientdata(client, nqx_dev);
+	nqx_dev->irq_wake_up = false;
 
 	dev_err(&client->dev,
 	"%s: probing NFCC NQxxx exited successfully\n",
@@ -979,17 +982,22 @@ static int nqx_suspend(struct device *device)
 	struct i2c_client *client = to_i2c_client(device);
 	struct nqx_dev *nqx_dev = i2c_get_clientdata(client);
 
-	if (device_may_wakeup(&client->dev) && nqx_dev->irq_enabled)
-		enable_irq_wake(client->irq);
+	if (device_may_wakeup(&client->dev) && nqx_dev->irq_enabled) {
+		if (!enable_irq_wake(client->irq))
+			nqx_dev->irq_wake_up = true;
+	}
 	return 0;
 }
 
 static int nqx_resume(struct device *device)
 {
 	struct i2c_client *client = to_i2c_client(device);
+	struct nqx_dev *nqx_dev = i2c_get_clientdata(client);
 
-	if (device_may_wakeup(&client->dev))
-		disable_irq_wake(client->irq);
+	if (device_may_wakeup(&client->dev) && nqx_dev->irq_wake_up) {
+		if (!disable_irq_wake(client->irq))
+			nqx_dev->irq_wake_up = false;
+	}
 	return 0;
 }
 
