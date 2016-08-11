@@ -41,116 +41,6 @@ static struct sde_kms *get_kms(struct drm_crtc *crtc)
 	return to_sde_kms(priv->kms);
 }
 
-static int sde_crtc_reserve_hw_resources(struct drm_crtc *crtc)
-{
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_kms *sde_kms = get_kms(crtc);
-	struct sde_encoder_hw_resources enc_hw_res;
-	const struct sde_hw_res_map *plat_hw_res_map;
-	enum sde_lm unused_lm_id[CRTC_DUAL_MIXERS] = {0};
-	enum sde_lm lm_idx;
-	int i, unused_lm_count = 0;
-
-	if (!sde_kms) {
-		DBG("[%s] invalid kms", __func__);
-		return -EINVAL;
-	}
-
-	if (!sde_kms->mmio)
-		return -EINVAL;
-
-	/* Get unused LMs */
-	for (i = sde_kms->catalog->mixer_count - 1; i >= 0; --i) {
-		if (!sde_rm_get_mixer(sde_kms, LM(i))) {
-			unused_lm_id[unused_lm_count++] = LM(i);
-			if (unused_lm_count == CRTC_DUAL_MIXERS)
-				break;
-		}
-	}
-
-	/* query encoder resources */
-	sde_encoder_get_hw_resources(sde_crtc->mixers[0].encoder, &enc_hw_res);
-
-	/* parse encoder hw resources, find CTL paths */
-	for (i = CTL_0; i <= sde_kms->catalog->ctl_count; i++) {
-		WARN_ON(sde_crtc->num_ctls > CRTC_DUAL_MIXERS);
-		if (enc_hw_res.ctls[i]) {
-			struct sde_crtc_mixer *mixer  =
-				&sde_crtc->mixers[sde_crtc->num_ctls];
-			mixer->hw_ctl = sde_rm_get_ctl_path(sde_kms, i);
-			if (IS_ERR_OR_NULL(mixer->hw_ctl)) {
-				DRM_ERROR("Invalid ctl_path\n");
-				return PTR_ERR(mixer->hw_ctl);
-			}
-			sde_crtc->num_ctls++;
-		}
-	}
-
-	/* shortcut this process if encoder has no ctl paths */
-	if (!sde_crtc->num_ctls)
-		return 0;
-
-	/*
-	 * Get default LMs if specified in platform config
-	 * other wise acquire the free LMs
-	 */
-	for (i = INTF_0; i <= sde_kms->catalog->intf_count; i++) {
-		if (enc_hw_res.intfs[i]) {
-			struct sde_crtc_mixer *mixer  =
-				&sde_crtc->mixers[sde_crtc->num_mixers];
-			plat_hw_res_map = sde_rm_get_res_map(sde_kms,
-					i, SDE_NONE);
-
-			lm_idx = plat_hw_res_map->lm;
-			if (!lm_idx && unused_lm_count)
-				lm_idx = unused_lm_id[--unused_lm_count];
-
-			DBG("intf %d acquiring lm %d", i, lm_idx);
-			mixer->hw_lm = sde_rm_acquire_mixer(sde_kms, lm_idx);
-			if (IS_ERR_OR_NULL(mixer->hw_lm)) {
-				DRM_ERROR("Invalid mixer\n");
-				return -EACCES;
-			}
-			sde_crtc->num_mixers++;
-		}
-	}
-
-	/*
-	 * Get default LMs if specified in platform config,
-	 * otherwise acquire the free LMs.
-	 */
-	for (i = WB_0; i < WB_MAX; i++) {
-		if (enc_hw_res.wbs[i]) {
-			struct sde_crtc_mixer *mixer =
-				&sde_crtc->mixers[sde_crtc->num_mixers];
-			plat_hw_res_map = sde_rm_get_res_map(sde_kms,
-					SDE_NONE, i);
-
-			lm_idx = plat_hw_res_map->lm;
-			if (!lm_idx && unused_lm_count)
-				lm_idx = unused_lm_id[--unused_lm_count];
-
-			DBG("wb %d acquiring lm %d", i, lm_idx);
-			mixer->hw_lm = sde_rm_acquire_mixer(sde_kms, lm_idx);
-			if (IS_ERR_OR_NULL(mixer->hw_lm)) {
-				DRM_ERROR("Invalid mixer\n");
-				return -EACCES;
-			}
-			sde_crtc->num_mixers++;
-		}
-	}
-
-	DBG("control paths %d, num_mixers %d, lm[0] %d, ctl[0] %d ",
-			sde_crtc->num_ctls, sde_crtc->num_mixers,
-			sde_crtc->mixers[0].hw_lm->idx,
-			sde_crtc->mixers[0].hw_ctl->idx);
-	if (sde_crtc->num_mixers > 1)
-		DBG("lm[1] %d, ctl[1], %d",
-			sde_crtc->mixers[1].hw_lm->idx,
-			sde_crtc->mixers[1].hw_ctl->idx);
-	return 0;
-}
-
 static void sde_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
@@ -560,6 +450,66 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 	}
 }
 
+static void _sde_crtc_setup_mixer_for_encoder(
+		struct drm_crtc *crtc,
+		struct drm_encoder *enc)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct sde_kms *sde_kms = get_kms(crtc);
+	struct sde_rm *rm = &sde_kms->rm;
+	struct sde_crtc_mixer *mixer;
+	int i;
+	struct sde_rm_hw_iter lm_iter, ctl_iter;
+
+	sde_rm_init_hw_iter(&lm_iter, enc->base.id, SDE_HW_BLK_LM);
+	sde_rm_init_hw_iter(&ctl_iter, enc->base.id, SDE_HW_BLK_CTL);
+
+	/* Set up the mixer for this encoder, checking all channels */
+	for (i = sde_crtc->num_mixers; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
+		mixer = &sde_crtc->mixers[i];
+
+		/* Add mixer if reservation exists on (encoder, chan) */
+		if (!sde_rm_get_hw(rm, &lm_iter))
+			break;
+		mixer->hw_lm = (struct sde_hw_mixer *)lm_iter.hw;
+
+		/* CTL may be null, not necessarily 1:1 with LM */
+		(void) sde_rm_get_hw(rm, &ctl_iter);
+		mixer->hw_ctl = (struct sde_hw_ctl *)ctl_iter.hw;
+
+		mixer->flush_mask = 0;
+		mixer->encoder = enc;
+
+		sde_crtc->num_mixers++;
+		SDE_DEBUG("setup mixer %d: lm %d\n",
+				i, mixer->hw_lm->idx);
+
+		if (mixer->hw_ctl) {
+			sde_crtc->num_ctls++;
+			SDE_DEBUG("setup mixer %d: ctl %d\n",
+					i, mixer->hw_ctl->idx);
+		}
+	}
+}
+
+static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct drm_encoder *enc;
+
+	sde_crtc->num_ctls = 0;
+	sde_crtc->num_mixers = 0;
+	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
+
+	/* Check for mixers on all encoders attached to this crtc */
+	list_for_each_entry(enc, &crtc->dev->mode_config.encoder_list, head) {
+		if (enc->crtc != crtc)
+			continue;
+
+		_sde_crtc_setup_mixer_for_encoder(crtc, enc);
+	}
+}
+
 static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_crtc_state)
 {
@@ -577,6 +527,8 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
+
+	_sde_crtc_setup_mixers(crtc);
 
 	if (sde_crtc->event) {
 		WARN_ON(sde_crtc->event);
@@ -831,7 +783,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	struct sde_hw_mixer_cfg cfg;
 	u32 mixer_width;
 	int i;
-	int rc;
 
 	if (!crtc) {
 		DRM_ERROR("invalid crtc\n");
@@ -850,20 +801,7 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 
 	drm_mode_debug_printmodeline(mode);
 
-	/*
-	 * reserve mixer(s) if not already avaialable
-	 * if dual mode, mixer_width = half mode width
-	 * program mode configuration on mixer(s)
-	 */
-	if ((sde_crtc->num_ctls == 0) ||
-		(sde_crtc->num_mixers == 0)) {
-		rc = sde_crtc_reserve_hw_resources(crtc);
-		if (rc) {
-			DRM_ERROR("error reserving HW resource for CRTC\n");
-			return;
-		}
-	}
-
+	/* Update LMs for dual mode: mixer_width = half mode width */
 	if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
 		mixer_width = mode->hdisplay >> 1;
 	 else
@@ -1199,7 +1137,6 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
-		struct drm_encoder *encoder,
 		struct drm_plane *plane,
 		int drm_crtc_id)
 {
@@ -1207,7 +1144,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 	struct sde_crtc *sde_crtc = NULL;
 	struct msm_drm_private *priv = NULL;
 	struct sde_kms *kms = NULL;
-	int i, rc;
 
 	priv = dev->dev_private;
 	kms = to_sde_kms(priv->kms);
@@ -1227,15 +1163,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 
 	drm_crtc_helper_add(crtc, &sde_crtc_helper_funcs);
 	plane->crtc = crtc;
-
-	for (i = 0; i < ARRAY_SIZE(sde_crtc->mixers); i++)
-		sde_crtc->mixers[i].encoder = encoder;
-
-	rc = sde_crtc_reserve_hw_resources(crtc);
-	 if (rc) {
-		DRM_ERROR(" error reserving HW resource for this CRTC\n");
-		return ERR_PTR(-EINVAL);
-	 }
 
 	/* save user friendly CRTC name for later */
 	snprintf(sde_crtc->name, SDE_CRTC_NAME_SIZE, "crtc%u", crtc->base.id);

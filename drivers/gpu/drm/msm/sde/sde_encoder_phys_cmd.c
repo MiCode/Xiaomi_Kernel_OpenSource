@@ -54,10 +54,46 @@ static void sde_encoder_phys_cmd_mode_set(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
+	struct sde_rm *rm = &phys_enc->sde_kms->rm;
+	struct sde_rm_hw_iter iter;
+	int i, instance;
 
 	phys_enc->cached_mode = *adj_mode;
-	DBG("intf %d, caching mode:", cmd_enc->intf_idx);
+	SDE_DEBUG("intf %d, caching mode:\n", cmd_enc->intf_idx);
 	drm_mode_debug_printmodeline(adj_mode);
+
+	instance = phys_enc->split_role == ENC_ROLE_SLAVE ? 1 : 0;
+
+	/* Retrieve previously allocated HW Resources. Shouldn't fail */
+	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_CTL);
+	for (i = 0; i <= instance; i++) {
+		sde_rm_get_hw(rm, &iter);
+		if (i == instance)
+			phys_enc->hw_ctl = (struct sde_hw_ctl *) iter.hw;
+	}
+
+	if (IS_ERR_OR_NULL(phys_enc->hw_ctl)) {
+		SDE_ERROR("failed init ctl: %ld\n", PTR_ERR(phys_enc->hw_ctl));
+		phys_enc->hw_ctl = NULL;
+		return;
+	}
+
+	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id,
+			SDE_HW_BLK_PINGPONG);
+	for (i = 0; i <= instance; i++) {
+		sde_rm_get_hw(rm, &iter);
+		if (i == instance)
+			cmd_enc->hw_pp = (struct sde_hw_pingpong *) iter.hw;
+	}
+
+	if (IS_ERR_OR_NULL(cmd_enc->hw_pp)) {
+		SDE_ERROR("failed init pingpong: %ld\n",
+				PTR_ERR(cmd_enc->hw_pp));
+		cmd_enc->hw_pp = NULL;
+		phys_enc->hw_ctl = NULL;
+		return;
+	}
+
 }
 
 static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
@@ -293,10 +329,10 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 	u32 flush_mask;
 	int ret = 0;
 
-	DBG("intf %d, pp %d", cmd_enc->intf_idx, cmd_enc->hw_pp->idx);
-
 	if (WARN_ON(phys_enc->enable_state == SDE_ENC_ENABLED))
 		return;
+
+	DBG("intf %d, pp %d", cmd_enc->intf_idx, cmd_enc->hw_pp->idx);
 
 	/*
 	 * Only master configures master/slave configuration, so no slave check
@@ -358,33 +394,19 @@ static void sde_encoder_phys_cmd_destroy(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 
-	if (phys_enc->hw_ctl)
-		sde_rm_release_ctl_path(phys_enc->sde_kms,
-				phys_enc->hw_ctl->idx);
-	sde_hw_mdp_destroy(phys_enc->hw_mdptop);
-	sde_hw_pingpong_destroy(cmd_enc->hw_pp);
 	kfree(cmd_enc);
 }
 
 static void sde_encoder_phys_cmd_get_hw_resources(
 		struct sde_encoder_phys *phys_enc,
-		struct sde_encoder_hw_resources *hw_res)
+		struct sde_encoder_hw_resources *hw_res,
+		struct drm_connector_state *conn_state)
 {
-	const struct sde_hw_res_map *hw_res_map;
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 
-	DBG("intf %d pp %d", cmd_enc->intf_idx, cmd_enc->hw_pp->idx);
-
-	hw_res->intfs[cmd_enc->intf_idx] = INTF_MODE_CMD;
-	hw_res->pingpongs[cmd_enc->hw_pp->idx] = true;
-	hw_res_map = sde_rm_get_res_map(phys_enc->sde_kms,
-			cmd_enc->intf_idx, SDE_NONE);
-	if (IS_ERR_OR_NULL(hw_res_map)) {
-		DRM_ERROR("Failed to get hw_res_map: %ld", PTR_ERR(hw_res_map));
-		return;
-	}
-	hw_res->ctls[hw_res_map->ctl] = true;
+	DBG("intf %d", cmd_enc->intf_idx);
+	hw_res->intfs[cmd_enc->intf_idx - INTF_0] = INTF_MODE_CMD;
 }
 
 static int sde_encoder_phys_cmd_wait_for_commit_done(
@@ -450,9 +472,10 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 {
 	struct sde_encoder_phys *phys_enc = NULL;
 	struct sde_encoder_phys_cmd *cmd_enc = NULL;
+	struct sde_hw_mdp *hw_mdp;
 	int ret = 0;
 
-	DBG("intf %d, pp %d", p->intf_idx, p->pp_idx);
+	DBG("intf %d", p->intf_idx);
 
 	cmd_enc = kzalloc(sizeof(*cmd_enc), GFP_KERNEL);
 	if (!cmd_enc) {
@@ -461,36 +484,15 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	}
 	phys_enc = &cmd_enc->base;
 
-	phys_enc->hw_mdptop = sde_hw_mdptop_init(MDP_TOP, p->sde_kms->mmio,
-			p->sde_kms->catalog);
-	if (IS_ERR_OR_NULL(phys_enc->hw_mdptop)) {
-		ret = PTR_ERR(phys_enc->hw_mdptop);
-		phys_enc->hw_mdptop = NULL;
-		DRM_ERROR("Failed init hw_top: %d\n", ret);
-		goto fail_mdptop;
+	hw_mdp = sde_rm_get_mdp(&p->sde_kms->rm);
+	if (IS_ERR_OR_NULL(hw_mdp)) {
+		ret = PTR_ERR(hw_mdp);
+		SDE_ERROR("failed to get mdptop\n");
+		goto fail_mdp_init;
 	}
+	phys_enc->hw_mdptop = hw_mdp;
 
 	cmd_enc->intf_idx = p->intf_idx;
-
-	phys_enc->hw_ctl = sde_rm_acquire_ctl_path(p->sde_kms, p->ctl_idx);
-	if (phys_enc->hw_ctl == ERR_PTR(-ENODEV))
-		phys_enc->hw_ctl = sde_rm_get_ctl_path(p->sde_kms, p->ctl_idx);
-
-	if (IS_ERR_OR_NULL(phys_enc->hw_ctl)) {
-		ret = PTR_ERR(phys_enc->hw_ctl);
-		phys_enc->hw_ctl = NULL;
-		DRM_ERROR("Failed init hw_ctl: %d\n", ret);
-		goto fail_ctl;
-	}
-
-	cmd_enc->hw_pp = sde_hw_pingpong_init(p->pp_idx, p->sde_kms->mmio,
-			p->sde_kms->catalog);
-	if (IS_ERR_OR_NULL(cmd_enc->hw_pp)) {
-		ret = PTR_ERR(cmd_enc->hw_pp);
-		cmd_enc->hw_pp = NULL;
-		DRM_ERROR("Failed init hw_pingpong: %d\n", ret);
-		goto fail_pingpong;
-	}
 
 	sde_encoder_phys_cmd_init_ops(&phys_enc->ops);
 	phys_enc->parent = p->parent;
@@ -505,16 +507,11 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 
 	init_waitqueue_head(&cmd_enc->pp_tx_done_wq);
 
-	DBG("Created sde_encoder_phys_cmd for intf %d pp %d",
-			cmd_enc->intf_idx, cmd_enc->hw_pp->idx);
+	DBG("Created sde_encoder_phys_cmd for intf %d", cmd_enc->intf_idx);
 
 	return phys_enc;
 
-fail_pingpong:
-	sde_rm_release_ctl_path(phys_enc->sde_kms, phys_enc->hw_ctl->idx);
-fail_ctl:
-	sde_hw_mdp_destroy(phys_enc->hw_mdptop);
-fail_mdptop:
+fail_mdp_init:
 	kfree(cmd_enc);
 fail:
 	return ERR_PTR(ret);
