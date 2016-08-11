@@ -1297,17 +1297,9 @@ static int venus_hfi_suspend(void *dev)
 		return -ENOTSUPP;
 	}
 
-	mutex_lock(&device->lock);
+	dprintk(VIDC_DBG, "Suspending Venus\n");
+	rc = flush_delayed_work(&venus_hfi_pm_work);
 
-	if (device->power_enabled) {
-		dprintk(VIDC_DBG, "Venus is busy\n");
-		rc = -EBUSY;
-	} else {
-		dprintk(VIDC_DBG, "Venus is power suspended\n");
-		rc = 0;
-	}
-
-	mutex_unlock(&device->lock);
 	return rc;
 }
 
