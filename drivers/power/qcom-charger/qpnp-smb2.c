@@ -279,10 +279,10 @@ static int smb2_parse_dt(struct smb2 *chip)
 	if (rc < 0)
 		chip->dt.dc_icl_ua = -EINVAL;
 
-	rc = of_property_read_u32(node,
-			"qcom,wipower-max-uw", &chip->dt.wipower_max_uw);
+	rc = of_property_read_u32(node, "qcom,wipower-max-uw",
+				&chip->dt.wipower_max_uw);
 	if (rc < 0)
-		chip->dt.wipower_max_uw	= SMB2_DEFAULT_WPWR_UW;
+		chip->dt.wipower_max_uw = -EINVAL;
 
 	if (of_find_property(node, "qcom,thermal-mitigation", &byte_len)) {
 		chg->thermal_mitigation = devm_kzalloc(chg->dev, byte_len,
@@ -861,6 +861,9 @@ static int smb2_config_wipower_input_power(struct smb2 *chip, int uw)
 	int ua;
 	struct smb_charger *chg = &chip->chg;
 	s64 nw = (s64)uw * 1000;
+
+	if (uw < 0)
+		return 0;
 
 	ua = div_s64(nw, ZIN_ICL_PT_MAX_MV);
 	rc = smblib_set_charge_param(chg, &chg->param.dc_icl_pt_lv, ua);
