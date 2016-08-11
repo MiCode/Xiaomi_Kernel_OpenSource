@@ -225,7 +225,7 @@ static void sde_encoder_phys_wb_setup_cdp(struct sde_encoder_phys *phys_enc)
 	intf_cfg->intf = SDE_NONE;
 	intf_cfg->wb = hw_wb->idx;
 
-	if (phys_enc->hw_ctl->ops.setup_intf_cfg)
+	if (phys_enc->hw_ctl && phys_enc->hw_ctl->ops.setup_intf_cfg)
 		phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl,
 				intf_cfg);
 }
@@ -297,6 +297,8 @@ static int sde_encoder_phys_wb_atomic_check(
 		return -EINVAL;
 	}
 
+	phys_enc->needs_cdm = SDE_FORMAT_IS_YUV(fmt);
+
 	if (wb_roi.w && wb_roi.h) {
 		if (wb_roi.w != mode->hdisplay) {
 			SDE_ERROR("invalid roi w=%d, mode w=%d\n", wb_roi.w,
@@ -355,6 +357,11 @@ static void sde_encoder_phys_wb_flush(struct sde_encoder_phys *phys_enc)
 	u32 flush_mask = 0;
 
 	SDE_DEBUG("[wb:%d]\n", hw_wb->idx - WB_0);
+
+	if (!hw_ctl) {
+		SDE_DEBUG("[wb:%d] no ctl assigned\n", hw_wb->idx - WB_0);
+		return;
+	}
 
 	if (hw_ctl->ops.get_bitmask_wb)
 		hw_ctl->ops.get_bitmask_wb(hw_ctl, &flush_mask, hw_wb->idx);
@@ -537,13 +544,48 @@ static void sde_encoder_phys_wb_mode_set(
 		struct drm_display_mode *adj_mode)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
+	struct sde_rm *rm = &phys_enc->sde_kms->rm;
 	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
+	struct sde_rm_hw_iter iter;
+	int i, instance;
 
 	phys_enc->cached_mode = *adj_mode;
+	instance = phys_enc->split_role == ENC_ROLE_SLAVE ? 1 : 0;
 
 	SDE_DEBUG("[mode_set_cache:%d,%d,\"%s\",%d,%d]\n",
 			hw_wb->idx - WB_0, mode->base.id,
 			mode->name, mode->hdisplay, mode->vdisplay);
+
+	/* Retrieve previously allocated HW Resources. CTL shouldn't fail */
+	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_CTL);
+	for (i = 0; i <= instance; i++) {
+		sde_rm_get_hw(rm, &iter);
+		if (i == instance)
+			phys_enc->hw_ctl = (struct sde_hw_ctl *) iter.hw;
+	}
+
+	if (IS_ERR_OR_NULL(phys_enc->hw_ctl)) {
+		SDE_ERROR("failed init ctl: %ld\n", PTR_ERR(phys_enc->hw_ctl));
+		phys_enc->hw_ctl = NULL;
+		return;
+	}
+
+	/* CDM is optional */
+	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_CDM);
+	for (i = 0; i <= instance; i++) {
+		sde_rm_get_hw(rm, &iter);
+		if (i == instance)
+			phys_enc->hw_cdm = (struct sde_hw_cdm *) iter.hw;
+	}
+
+	if (IS_ERR_OR_NULL(phys_enc->hw_cdm)) {
+		if (phys_enc->needs_cdm) {
+			SDE_ERROR("CDM required but not allocated: %ld\n",
+					PTR_ERR(phys_enc->hw_cdm));
+			phys_enc->hw_ctl = NULL;
+		}
+		phys_enc->hw_cdm = NULL;
+	}
 }
 
 /**
@@ -740,6 +782,11 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 		sde_encoder_phys_wb_wait_for_commit_done(phys_enc);
 	}
 
+	if (phys_enc->hw_cdm && phys_enc->hw_cdm->ops.disable) {
+		SDE_DEBUG_DRIVER("[cdm_disable]\n");
+		phys_enc->hw_cdm->ops.disable(phys_enc->hw_cdm);
+	}
+
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }
 
@@ -750,35 +797,17 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
  */
 static void sde_encoder_phys_wb_get_hw_resources(
 		struct sde_encoder_phys *phys_enc,
-		struct sde_encoder_hw_resources *hw_res)
+		struct sde_encoder_hw_resources *hw_res,
+		struct drm_connector_state *conn_state)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
-	const struct sde_hw_res_map *hw_res_map;
 
 	SDE_DEBUG("[wb:%d]\n", hw_wb->idx - WB_0);
-
-	hw_res->wbs[hw_wb->idx] = INTF_MODE_WB_LINE;
-
-	/*
-	 * Validate if we want to use the default map
-	 * defaults should not be in use,
-	 * otherwise signal/return failure
-	 */
-	hw_res_map = sde_rm_get_res_map(phys_enc->sde_kms,
-			SDE_NONE, hw_wb->idx);
-	if (IS_ERR_OR_NULL(hw_res_map)) {
-		SDE_ERROR("failed to get hw_res_map: %ld\n",
-				PTR_ERR(hw_res_map));
-		return;
-	}
-
-	/*
-	 * cached ctl_idx at init time, shouldn't we use that?
-	 */
-	hw_res->ctls[hw_res_map->ctl] = true;
-
+	hw_res->wbs[hw_wb->idx - WB_0] = INTF_MODE_WB_LINE;
+	hw_res->needs_cdm = phys_enc->needs_cdm;
 }
+
 /**
  * sde_encoder_phys_wb_needs_ctl_start - Whether encoder needs ctl_start
  * @phys_enc:	Pointer to physical encoder
@@ -871,17 +900,6 @@ static void sde_encoder_phys_wb_destroy(struct sde_encoder_phys *phys_enc)
 
 	sde_encoder_phys_wb_destroy_debugfs(phys_enc);
 
-	if (phys_enc->hw_ctl)
-		sde_rm_release_ctl_path(phys_enc->sde_kms,
-				phys_enc->hw_ctl->idx);
-	if (phys_enc->hw_cdm)
-		sde_rm_release_cdm_path(phys_enc->sde_kms,
-				phys_enc->hw_cdm->idx);
-	if (hw_wb)
-		sde_hw_wb_destroy(hw_wb);
-	if (phys_enc->hw_mdptop)
-		sde_hw_mdp_destroy(phys_enc->hw_mdptop);
-
 	kfree(wb_enc);
 }
 
@@ -942,8 +960,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 			p->sde_kms->mmu_id[MSM_SMMU_DOMAIN_SECURE];
 	}
 
-	hw_mdp = sde_hw_mdptop_init(MDP_TOP, p->sde_kms->mmio,
-			p->sde_kms->catalog);
+	hw_mdp = sde_rm_get_mdp(&p->sde_kms->rm);
 	if (IS_ERR_OR_NULL(hw_mdp)) {
 		ret = PTR_ERR(hw_mdp);
 		SDE_ERROR("failed to init hw_top: %d\n", ret);
@@ -951,55 +968,32 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	}
 	phys_enc->hw_mdptop = hw_mdp;
 
+	/**
+	 * hw_wb resource permanently assigned to this encoder
+	 * Other resources allocated at atomic commit time by use case
+	 */
 	if (p->wb_idx != SDE_NONE) {
-		struct sde_hw_wb *hw_wb;
+		struct sde_rm_hw_iter iter;
 
-		hw_wb = sde_hw_wb_init(p->wb_idx, p->sde_kms->mmio,
-				p->sde_kms->catalog, phys_enc->hw_mdptop);
-		if (IS_ERR_OR_NULL(hw_wb)) {
-			ret = PTR_ERR(hw_wb);
-			SDE_ERROR("failed to init hw_wb%d: %d\n",
-					p->wb_idx - WB_0, ret);
+		sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_WB);
+		while (sde_rm_get_hw(&p->sde_kms->rm, &iter)) {
+			struct sde_hw_wb *hw_wb = (struct sde_hw_wb *)iter.hw;
+
+			if (hw_wb->idx == p->wb_idx) {
+				wb_enc->hw_wb = hw_wb;
+				break;
+			}
+		}
+
+		if (!wb_enc->hw_wb) {
+			ret = -EINVAL;
+			SDE_ERROR("failed to init hw_wb%d\n", p->wb_idx - WB_0);
 			goto fail_wb_init;
 		}
-		wb_enc->hw_wb = hw_wb;
 	} else {
 		ret = -EINVAL;
 		SDE_ERROR("invalid wb_idx\n");
 		goto fail_wb_check;
-	}
-
-	if (p->cdm_idx != SDE_NONE) {
-		struct sde_hw_cdm *hw_cdm;
-
-		SDE_DEBUG("Acquiring CDM %d\n", p->cdm_idx - CDM_0);
-		hw_cdm = sde_rm_acquire_cdm_path(p->sde_kms, p->cdm_idx,
-				phys_enc->hw_mdptop);
-		if (IS_ERR_OR_NULL(hw_cdm)) {
-			ret = PTR_ERR(hw_cdm);
-			SDE_ERROR("failed to init hw_cdm%d: %d\n",
-					p->cdm_idx - CDM_0, ret);
-			goto fail_cdm_init;
-		}
-		phys_enc->hw_cdm = hw_cdm;
-	}
-
-	if (p->ctl_idx != SDE_NONE) {
-		struct sde_hw_ctl *hw_ctl;
-
-		SDE_DEBUG("Acquiring CTL %d\n", p->ctl_idx - CTL_0);
-		hw_ctl = sde_rm_acquire_ctl_path(p->sde_kms, p->ctl_idx);
-		if (IS_ERR_OR_NULL(hw_ctl)) {
-			ret = PTR_ERR(hw_ctl);
-			SDE_ERROR("failed to init hw_ctl%d: %d\n",
-					p->ctl_idx - CTL_0, ret);
-			goto fail_ctl_init;
-		}
-		phys_enc->hw_ctl = hw_ctl;
-	} else {
-		ret = -EINVAL;
-		SDE_ERROR("invalid ctl_idx\n");
-		goto fail_ctl_check;
 	}
 
 	sde_encoder_phys_wb_init_ops(&phys_enc->ops);
@@ -1021,15 +1015,8 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	return phys_enc;
 
 fail_debugfs_init:
-	sde_rm_release_ctl_path(p->sde_kms, p->ctl_idx);
-fail_ctl_init:
-fail_ctl_check:
-	sde_rm_release_cdm_path(p->sde_kms, p->cdm_idx);
-fail_cdm_init:
-	sde_hw_wb_destroy(wb_enc->hw_wb);
 fail_wb_init:
 fail_wb_check:
-	sde_hw_mdp_destroy(phys_enc->hw_mdptop);
 fail_mdp_init:
 	kfree(wb_enc);
 fail_alloc:

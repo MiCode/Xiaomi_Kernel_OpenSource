@@ -24,6 +24,7 @@
 #include "sde_hw_wb.h"
 #include "sde_hw_top.h"
 #include "sde_connector.h"
+#include "sde_rm.h"
 
 /**
  * SDE_DEBUG - macro for kms/plane/crtc/encoder/connector logs
@@ -51,47 +52,6 @@
 
 #define SDE_ERROR(fmt, ...) pr_err(fmt, ##__VA_ARGS__)
 
-/**
- * enum sde_rm_topology_name - HW resource use case in use by connector
- * @SDE_RM_TOPOLOGY_UNKNOWN: No topology in use currently
- * @SDE_RM_TOPOLOGY_SINGLEPIPE: 1 LM, 1 PP, 1 INTF/WB
- * @SDE_RM_TOPOLOGY_DUALPIPE: 2 LM, 2 PP, 2 INTF/WB
- * @SDE_RM_TOPOLOGY_PPSPLIT: 1 LM, 2 PPs, 2 INTF/WB
- * @SDE_RM_TOPOLOGY_DUALPIPEMERGE: 2 LM, 2 PP, 3DMux, 1 INTF/WB
- */
-enum sde_rm_topology_name {
-	SDE_RM_TOPOLOGY_UNKNOWN = 0,
-	SDE_RM_TOPOLOGY_SINGLEPIPE,
-	SDE_RM_TOPOLOGY_DUALPIPE,
-	SDE_RM_TOPOLOGY_PPSPLIT,
-	SDE_RM_TOPOLOGY_DUALPIPEMERGE,
-};
-
-/**
- * enum sde_rm_topology_control - HW resource use case in use by connector
- * @SDE_RM_TOPCTL_RESERVE_LOCK: If set, in AtomicTest phase, after a successful
- *                              test, reserve the resources for this display.
- *                              Normal behavior would not impact the reservation
- *                              list during the AtomicTest phase.
- * @SDE_RM_TOPCTL_RESERVE_CLEAR: If set, in AtomicTest phase, before testing,
- *                               release any reservation held by this display.
- *                               Normal behavior would not impact the
- *                               reservation list during the AtomicTest phase.
- * @SDE_RM_TOPCTL_DSPP: Require layer mixers with DSPP capabilities
- * @SDE_RM_TOPCTL_FORCE_TILING: Require kernel to split across multiple layer
- *                              mixers, despite width fitting within capability
- *                              of a single layer mixer.
- * @SDE_RM_TOPCTL_PPSPLIT: Require kernel to use pingpong split pipe
- *                         configuration instead of dual pipe.
- */
-enum sde_rm_topology_control {
-	SDE_RM_TOPCTL_RESERVE_LOCK,
-	SDE_RM_TOPCTL_RESERVE_CLEAR,
-	SDE_RM_TOPCTL_DSPP,
-	SDE_RM_TOPCTL_FORCE_TILING,
-	SDE_RM_TOPCTL_PPSPLIT,
-};
-
 /*
  * struct sde_irq_callback - IRQ callback handlers
  * @func: intr handler
@@ -115,39 +75,17 @@ struct sde_irq {
 };
 
 /**
- *  struct sde_hw_res_map : Default resource table identifying default
- *             hw resource map. Primarily used for forcing DSI to use CTL_0/1
- *             and PingPong 0/1, if the field is set to SDE_NONE means any HW
- *             instance for that type is allowed as long as it is unused.
+ * Encoder functions and data types
+ * @intfs:	Interfaces this encoder is using, INTF_MODE_NONE if unused
+ * @wbs:	Writebacks this encoder is using, INTF_MODE_NONE if unused
+ * @needs_cdm:	Encoder requests a CDM based on pixel format conversion needs
+ * @display_num_of_h_tiles:
  */
-struct sde_hw_res_map {
-	enum sde_intf intf;
-	enum sde_wb wb;
-	enum sde_lm lm;
-	enum sde_pingpong pp;
-	enum sde_ctl ctl;
-	enum sde_cdm cdm;
-};
-
-/* struct sde_hw_resource_manager : Resource manager maintains the current
- *                                  default platform config and manages shared
- *                                  hw resources ex:ctl_path hw driver context
- *                                  is needed by CRTCs/PLANEs/ENCODERs
- * @ctl        : table of control path hw driver contexts allocated
- * @cdm        : table of chroma down path hw driver contexts allocated
- * @mixer      : list of mixer hw drivers contexts allocated
- * @intr       : pointer to hw interrupt context
- * @res_table  : pointer to default hw_res table for this platform
- * @feature_map :BIT map for default enabled features ex:specifies if PP_SPLIT
- *               is enabled/disabled by default for this platform
- */
-struct sde_hw_resource_manager {
-	struct sde_hw_ctl *ctl[CTL_MAX];
-	struct sde_hw_cdm *cdm[CDM_MAX];
-	struct sde_hw_mixer *mixer[LM_MAX];
-	struct sde_hw_intr *intr;
-	const struct sde_hw_res_map *res_table;
-	bool feature_map;
+struct sde_encoder_hw_resources {
+	enum sde_intf_mode intfs[INTF_MAX];
+	enum sde_intf_mode wbs[WB_MAX];
+	bool needs_cdm;
+	u32 display_num_of_h_tiles;
 };
 
 struct sde_kms {
@@ -186,7 +124,8 @@ struct sde_kms {
 
 	struct sde_hw_intr *hw_intr;
 	struct sde_irq irq_obj;
-	struct sde_hw_resource_manager hw_res;
+
+	struct sde_rm rm;
 };
 
 struct vsync_info {
@@ -439,46 +378,6 @@ void sde_kms_info_append_format(struct sde_kms_info *info,
 void sde_kms_info_stop(struct sde_kms_info *info);
 
 /**
- * HW resource manager functions
- * @sde_rm_acquire_ctl_path : Allocates control path
- * @sde_rm_get_ctl_path     : returns control path driver context for already
- *                           acquired ctl path
- * @sde_rm_release_ctl_path : Frees control path driver context
- * @sde_rm_acquire_mixer   : Allocates mixer hw driver context
- * @sde_rm_get_mixer       : returns mixer context for already
- *                           acquired mixer
- * @sde_rm_release_mixer   : Frees mixer hw driver context
- * @sde_rm_acquire_intr    : Allocate hw intr context
- * @sde_rm_get_intr        : Returns already acquired intr context
- * @sde_rm_get_hw_res_map  : Returns map for the passed INTF
- */
-struct sde_hw_ctl *sde_rm_acquire_ctl_path(struct sde_kms *sde_kms,
-		enum sde_ctl idx);
-struct sde_hw_ctl *sde_rm_get_ctl_path(struct sde_kms *sde_kms,
-		enum sde_ctl idx);
-void sde_rm_release_ctl_path(struct sde_kms *sde_kms,
-		enum sde_ctl idx);
-
-struct sde_hw_cdm *sde_rm_acquire_cdm_path(struct sde_kms *sde_kms,
-		enum sde_cdm idx, struct sde_hw_mdp *hw_mdp);
-struct sde_hw_cdm *sde_rm_get_cdm_path(struct sde_kms *sde_kms,
-		enum sde_cdm idx);
-void sde_rm_release_cdm_path(struct sde_kms *sde_kms,
-		enum sde_cdm idx);
-
-struct sde_hw_mixer *sde_rm_acquire_mixer(struct sde_kms *sde_kms,
-		enum sde_lm idx);
-struct sde_hw_mixer *sde_rm_get_mixer(struct sde_kms *sde_kms,
-		enum sde_lm idx);
-void sde_rm_release_mixer(struct sde_kms *sde_kms,
-		enum sde_lm idx);
-struct sde_hw_intr *sde_rm_acquire_intr(struct sde_kms *sde_kms);
-struct sde_hw_intr *sde_rm_get_intr(struct sde_kms *sde_kms);
-
-const struct sde_hw_res_map *sde_rm_get_res_map(struct sde_kms *sde_kms,
-		enum sde_intf intf, enum sde_wb wb);
-
-/**
  * IRQ functions
  */
 int sde_irq_domain_init(struct sde_kms *sde_kms);
@@ -625,13 +524,11 @@ void sde_crtc_prepare_fence(struct drm_crtc *crtc);
 /**
  * sde_crtc_init - create a new crtc object
  * @dev: sde device
- * @encoder: encoder attached to this crtc
  * @plane: base plane
  * @vblank_id: Id for reporting vblank. Id in range from 0..dev->num_crtcs.
  * @Return: new crtc object or error
  */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
-		struct drm_encoder *encoder,
 		struct drm_plane *plane,
 		int vblank_id);
 
@@ -642,23 +539,14 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 void sde_crtc_complete_commit(struct drm_crtc *crtc);
 
 /**
- * Encoder functions and data types
- */
-struct sde_encoder_hw_resources {
-	enum sde_intf_mode intfs[INTF_MAX];
-	enum sde_intf_mode wbs[WB_MAX];
-	bool pingpongs[PINGPONG_MAX];
-	bool ctls[CTL_MAX];
-	bool pingpongsplit;
-};
-
-/**
  * sde_encoder_get_hw_resources - Populate table of required hardware resources
  * @encoder:	encoder pointer
  * @hw_res:	resource table to populate with encoder required resources
+ * @conn_state:	report hw reqs based on this proposed connector state
  */
 void sde_encoder_get_hw_resources(struct drm_encoder *encoder,
-		struct sde_encoder_hw_resources *hw_res);
+		struct sde_encoder_hw_resources *hw_res,
+		struct drm_connector_state *conn_state);
 
 /**
  * sde_encoder_needs_ctl_start - Get whether encoder type requires ctl_start

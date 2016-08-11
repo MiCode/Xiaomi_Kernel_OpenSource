@@ -253,6 +253,12 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		}
 	}
 
+	if (idx == CONNECTOR_PROP_TOPOLOGY_CONTROL) {
+		rc = sde_rm_check_property_topctl(val);
+		if (rc)
+			SDE_ERROR("invalid topology_control: 0x%llX\n", val);
+	}
+
 	/* check for custom property handling */
 	if (!rc && c_conn->ops.set_property) {
 		rc = c_conn->ops.set_property(connector,

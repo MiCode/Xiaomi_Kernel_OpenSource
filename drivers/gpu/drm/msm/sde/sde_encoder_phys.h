@@ -97,7 +97,8 @@ struct sde_encoder_phys_ops {
 			    struct drm_connector_state *conn_state);
 	void (*destroy)(struct sde_encoder_phys *encoder);
 	void (*get_hw_resources)(struct sde_encoder_phys *encoder,
-			struct sde_encoder_hw_resources *hw_res);
+			struct sde_encoder_hw_resources *hw_res,
+			struct drm_connector_state *conn_state);
 	int (*control_vblank_irq)(struct sde_encoder_phys *enc, bool enable);
 	int (*wait_for_commit_done)(struct sde_encoder_phys *phys_enc);
 	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
@@ -130,6 +131,7 @@ enum sde_enc_enable_state {
  * @hw_ctl:		Hardware interface to the ctl registers
  * @hw_cdm:		Hardware interface to the cdm registers
  * @cdm_cfg:		Chroma-down hardware configuration
+ * @needs_cdm:		Whether the mode / fmt require a CDM to function
  * @sde_kms:		Pointer to the sde_kms top level
  * @cached_mode:	DRM mode cached at mode_set time, acted on in enable
  * @enabled:		Whether the encoder has enabled and running a mode
@@ -144,6 +146,7 @@ struct sde_encoder_phys {
 	struct sde_encoder_virt_ops parent_ops;
 	struct sde_hw_mdp *hw_mdptop;
 	struct sde_hw_ctl *hw_ctl;
+	bool needs_cdm;
 	struct sde_hw_cdm *hw_cdm;
 	struct sde_hw_cdm_cfg cdm_cfg;
 	struct sde_kms *sde_kms;
@@ -251,9 +254,6 @@ struct sde_encoder_phys_wb {
  * @split_role:		Role to play in a split-panel configuration
  * @intf_idx:		Interface index this phys_enc will control
  * @wb_idx:		Writeback index this phys_enc will control
- * @pp_idx:		Pingpong index this phys_enc will control
- * @ctl_idx:		Control path index this phys_enc will use
- * @cdm_idx:		Chromadown index this phys_enc will use
  */
 struct sde_enc_phys_init_params {
 	struct sde_kms *sde_kms;
@@ -262,9 +262,6 @@ struct sde_enc_phys_init_params {
 	enum sde_enc_split_role split_role;
 	enum sde_intf intf_idx;
 	enum sde_wb wb_idx;
-	enum sde_pingpong pp_idx;
-	enum sde_ctl ctl_idx;
-	enum sde_cdm cdm_idx;
 };
 
 /**

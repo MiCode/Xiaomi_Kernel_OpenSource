@@ -117,7 +117,7 @@ struct sde_hw_mdp *sde_rm_get_mdp(struct sde_rm *rm)
 	return rm->hw_mdp;
 }
 
-void sde_rm_init_iter(
+void sde_rm_init_hw_iter(
 		struct sde_rm_hw_iter *iter,
 		uint32_t enc_id,
 		enum sde_hw_blk_type type)
