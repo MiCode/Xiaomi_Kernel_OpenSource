@@ -601,10 +601,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
 
-static int set_buffer_size(struct msm_vidc_inst *inst,
-				u32 buffer_size, enum hal_buffer buffer_type);
-static int update_output_buffer_size(struct msm_vidc_inst *inst,
-		struct v4l2_format *f, int num_planes);
 static int vdec_hal_to_v4l2(int id, int value);
 
 static u32 get_frame_size_nv12(int plane,
@@ -1181,13 +1177,6 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		for (i = 0; i < fmt->num_planes; ++i)
 			inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[i] =
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
-		rc = update_output_buffer_size(inst, f, fmt->num_planes);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"%s - failed to update buffer size: %d\n",
-				__func__, rc);
-			goto exit;
-		}
 	}
 
 	if (stride && scanlines) {
@@ -1216,95 +1205,6 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				(__u16)inst->prop.height[OUTPUT_PORT];
 		}
 	}
-exit:
-	return rc;
-}
-
-static int set_buffer_size(struct msm_vidc_inst *inst,
-				u32 buffer_size, enum hal_buffer buffer_type)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-	struct hal_buffer_size_minimum b;
-
-	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	hdev = inst->core->device;
-
-	dprintk(VIDC_DBG,
-		"Set minimum buffer size = %d for buffer type %d to fw\n",
-		buffer_size, buffer_type);
-
-	b.buffer_type = buffer_type;
-	b.buffer_size = buffer_size;
-	rc = call_hfi_op(hdev, session_set_property,
-			 inst->session, HAL_PARAM_BUFFER_SIZE_MINIMUM,
-			 &b);
-	if (rc)
-		dprintk(VIDC_ERR,
-			"%s - failed to set actual buffer size %u on firmware\n",
-			__func__, buffer_size);
-	return rc;
-}
-
-static int update_output_buffer_size(struct msm_vidc_inst *inst,
-		struct v4l2_format *f, int num_planes)
-{
-	int rc = 0, i = 0;
-	struct hal_buffer_requirements *bufreq;
-
-	if (!inst || !f)
-		return -EINVAL;
-
-	/*
-	 * Firmware expects driver to always set the minimum buffer
-	 * size negotiated with the v4l2 client. Firmware will use this
-	 * size to check for buffer sufficiency in dynamic buffer mode.
-	 */
-	for (i = 0; i < num_planes; ++i) {
-		enum hal_buffer type = msm_comm_get_hal_output_buffer(inst);
-
-		if (EXTRADATA_IDX(num_planes) &&
-			i == EXTRADATA_IDX(num_planes))
-			continue;
-
-		bufreq = get_buff_req_buffer(inst, type);
-		if (!bufreq)
-			goto exit;
-
-		if (f->fmt.pix_mp.plane_fmt[i].sizeimage >=
-			bufreq->buffer_size) {
-			rc = set_buffer_size(inst,
-				f->fmt.pix_mp.plane_fmt[i].sizeimage, type);
-			if (rc)
-				goto exit;
-		}
-	}
-
-	/*
-	 * Set min buffer size for DPB buffers as well.
-	 * Firmware mandates setting of minimum buffer size
-	 * and actual buffer count for both OUTPUT and OUTPUT2.
-	 * Hence we are setting back the same buffer size
-	 * information back to firmware.
-	 */
-	if (msm_comm_get_stream_output_mode(inst) ==
-		HAL_VIDEO_DECODER_SECONDARY) {
-		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
-		if (!bufreq) {
-			rc = -EINVAL;
-			goto exit;
-		}
-
-		rc = set_buffer_size(inst, bufreq->buffer_size,
-			HAL_BUFFER_OUTPUT);
-		if (rc)
-			goto exit;
-	}
-
 exit:
 	return rc;
 }
@@ -1370,13 +1270,9 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
-		if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_PRIMARY) {
-			inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
-			inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
-			msm_comm_set_color_format(inst, HAL_BUFFER_OUTPUT,
+		msm_comm_set_color_format(inst,
+				msm_comm_get_hal_output_buffer(inst),
 				f->fmt.pix_mp.pixelformat);
-		}
 
 		inst->fmts[fmt->type] = fmt;
 		if (msm_comm_get_stream_output_mode(inst) ==
@@ -1384,8 +1280,6 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			frame_sz.buffer_type = HAL_BUFFER_OUTPUT2;
 			frame_sz.width = inst->prop.width[CAPTURE_PORT];
 			frame_sz.height = inst->prop.height[CAPTURE_PORT];
-			msm_comm_set_color_format(inst, HAL_BUFFER_OUTPUT2,
-				f->fmt.pix_mp.pixelformat);
 			dprintk(VIDC_DBG,
 				"buffer type = %d width = %d, height = %d\n",
 				frame_sz.buffer_type, frame_sz.width,
@@ -1793,12 +1687,28 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	bool slave_side_cp = inst->core->resources.slave_side_cp;
+	struct hal_buffer_size_minimum b;
+	unsigned int buffer_size;
+	struct msm_vidc_format *fmt = NULL;
 
+	fmt = inst->fmts[CAPTURE_PORT];
+	buffer_size = fmt->get_frame_size(0,
+		inst->prop.height[CAPTURE_PORT],
+		inst->prop.width[CAPTURE_PORT]);
 	hdev = inst->core->device;
 
 	if (msm_comm_get_stream_output_mode(inst) ==
-		HAL_VIDEO_DECODER_SECONDARY)
+		HAL_VIDEO_DECODER_SECONDARY) {
 		rc = msm_vidc_check_scaling_supported(inst);
+		b.buffer_type = HAL_BUFFER_OUTPUT2;
+	} else {
+		b.buffer_type = HAL_BUFFER_OUTPUT;
+	}
+
+	b.buffer_size = buffer_size;
+	rc = call_hfi_op(hdev, session_set_property,
+		 inst->session, HAL_PARAM_BUFFER_SIZE_MINIMUM,
+		 &b);
 	if (rc) {
 		dprintk(VIDC_ERR, "H/w scaling is not in valid range\n");
 		return -EINVAL;
