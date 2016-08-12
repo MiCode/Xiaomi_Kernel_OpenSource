@@ -10,7 +10,6 @@ msm-y := \
 	hdmi/hdmi_audio.o \
 	hdmi/hdmi_bridge.o \
 	hdmi/hdmi_connector.o \
-	hdmi/hdmi_hdcp.o \
 	hdmi/hdmi_i2c.o \
 	hdmi/hdmi_phy_8960.o \
 	hdmi/hdmi_phy_8x60.o \
@@ -63,6 +62,8 @@ msm-y += adreno/adreno_device.o \
 	adreno/a3xx_gpu.o \
 	adreno/a4xx_gpu.o
 endif
+
+msm-$(CONFIG_DRM_MSM_HDCP) += hdmi/hdmi_hdcp.o
 
 msm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \
 	mdp/mdp4/mdp4_dtv_encoder.o \

@@ -130,6 +130,7 @@ static inline int sde_fence_init(void *dev,
 		int offset)
 {
 	/* do nothing */
+	return 0;
 }
 
 static inline void sde_fence_deinit(struct sde_fence *fence)
@@ -140,6 +141,12 @@ static inline void sde_fence_deinit(struct sde_fence *fence)
 static inline void sde_fence_prepare(struct sde_fence *fence)
 {
 	/* do nothing */
+}
+
+static inline int sde_fence_create(struct sde_fence *fence, uint64_t *val)
+{
+	/* do nothing */
+	return 0;
 }
 
 static inline int sde_fence_get(struct sde_fence *fence, uint64_t *val)

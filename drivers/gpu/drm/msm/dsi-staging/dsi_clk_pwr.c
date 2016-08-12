@@ -371,8 +371,10 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 			if (vreg->pre_on_sleep)
 				msleep(vreg->pre_on_sleep);
 
-			rc = regulator_set_load(vreg->vreg,
-						vreg->enable_load);
+			rc = regulator_set_optimum_mode(
+						vreg->vreg,
+						vreg->enable_load
+						);
 			if (rc < 0) {
 				pr_err("Setting optimum mode failed for %s\n",
 				       vreg->vreg_name);
@@ -405,8 +407,10 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 			if (regs->vregs[i].pre_off_sleep)
 				msleep(regs->vregs[i].pre_off_sleep);
 
-			(void)regulator_set_load(regs->vregs[i].vreg,
-						regs->vregs[i].disable_load);
+			(void)regulator_set_optimum_mode(
+						regs->vregs[i].vreg,
+						regs->vregs[i].disable_load
+						);
 			(void)regulator_disable(regs->vregs[i].vreg);
 
 			if (regs->vregs[i].post_off_sleep)
@@ -416,8 +420,8 @@ static int dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable)
 
 	return 0;
 error_disable_opt_mode:
-	(void)regulator_set_load(regs->vregs[i].vreg,
-				 regs->vregs[i].disable_load);
+	(void)regulator_set_optimum_mode(regs->vregs[i].vreg,
+					 regs->vregs[i].disable_load);
 
 error_disable_voltage:
 	if (num_of_v > 0)
@@ -428,8 +432,8 @@ error:
 		if (regs->vregs[i].pre_off_sleep)
 			msleep(regs->vregs[i].pre_off_sleep);
 
-		(void)regulator_set_load(regs->vregs[i].vreg,
-					 regs->vregs[i].disable_load);
+		(void)regulator_set_optimum_mode(regs->vregs[i].vreg,
+						 regs->vregs[i].disable_load);
 
 		num_of_v = regulator_count_voltages(regs->vregs[i].vreg);
 		if (num_of_v > 0)

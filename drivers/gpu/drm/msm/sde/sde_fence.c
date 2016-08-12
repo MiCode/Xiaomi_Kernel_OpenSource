@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#include <sync.h>
-#include <sw_sync.h>
+#include <linux/sync.h>
+#include <linux/sw_sync.h>
 #include "msm_drv.h"
 #include "sde_kms.h"
 #include "sde_fence.h"

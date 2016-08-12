@@ -2,14 +2,13 @@
 config DRM_MSM
 	tristate "MSM DRM"
 	depends on DRM
-	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
+	depends on ARCH_MSM || (ARM && COMPILE_TEST)
 	depends on OF
 	select REGULATOR
 	select DRM_KMS_HELPER
 	select DRM_PANEL
 	select SHMEM
 	select TMPFS
-	select QCOM_SCM
 	default y
 	help
 	  DRM/KMS driver for MSM/snapdragon.
@@ -28,7 +27,7 @@ config DRM_MSM_DSI
 	depends on DRM_MSM
 	select DRM_PANEL
 	select DRM_MIPI_DSI
-	default y
+	default n
 	help
 	  Choose this option if you have a need for MIPI DSI connector
 	  support.

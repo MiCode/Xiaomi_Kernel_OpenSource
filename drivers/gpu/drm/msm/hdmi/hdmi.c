@@ -54,9 +54,11 @@ static irqreturn_t hdmi_irq(int irq, void *dev_id)
 	/* Process DDC: */
 	hdmi_i2c_irq(hdmi->i2c);
 
+#ifdef CONFIG_DRM_MSM_HDCP
 	/* Process HDCP: */
 	if (hdmi->hdcp_ctrl)
 		hdmi_hdcp_ctrl_irq(hdmi->hdcp_ctrl);
+#endif
 
 	/* TODO audio.. */
 
@@ -75,8 +77,9 @@ static void hdmi_destroy(struct hdmi *hdmi)
 		flush_workqueue(hdmi->workq);
 		destroy_workqueue(hdmi->workq);
 	}
-
+#ifdef CONFIG_DRM_MSM_HDCP
 	hdmi_hdcp_ctrl_destroy(hdmi);
+#endif
 	if (phy)
 		phy->funcs->destroy(phy);
 
@@ -229,11 +232,13 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 		goto fail;
 	}
 
+#ifdef CONFIG_DRM_MSM_HDCP
 	hdmi->hdcp_ctrl = hdmi_hdcp_ctrl_init(hdmi);
 	if (IS_ERR(hdmi->hdcp_ctrl)) {
 		dev_warn(&pdev->dev, "failed to init hdcp: disabled\n");
 		hdmi->hdcp_ctrl = NULL;
 	}
+#endif
 
 	return hdmi;
 

@@ -105,8 +105,10 @@ static void hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 
 	hdmi_set_mode(hdmi, true);
 
+#ifdef CONFIG_DRM_MSM_HDCP
 	if (hdmi->hdcp_ctrl)
 		hdmi_hdcp_ctrl_on(hdmi->hdcp_ctrl);
+#endif
 }
 
 static void hdmi_bridge_enable(struct drm_bridge *bridge)
@@ -123,8 +125,10 @@ static void hdmi_bridge_post_disable(struct drm_bridge *bridge)
 	struct hdmi *hdmi = hdmi_bridge->hdmi;
 	struct hdmi_phy *phy = hdmi->phy;
 
+#ifdef CONFIG_DRM_MSM_HDCP
 	if (hdmi->hdcp_ctrl)
 		hdmi_hdcp_ctrl_off(hdmi->hdcp_ctrl);
+#endif
 
 	DBG("power down");
 	hdmi_set_mode(hdmi, false);
