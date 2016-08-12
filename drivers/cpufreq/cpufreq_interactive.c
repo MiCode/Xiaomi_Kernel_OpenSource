@@ -1296,10 +1296,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 	return 0;
 }
 
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE
-static
-#endif
-struct cpufreq_governor cpufreq_gov_interactive = {
+static struct cpufreq_governor cpufreq_gov_interactive = {
 	.name = "interactive",
 	.governor = cpufreq_governor_interactive,
 	.max_transition_latency = 10000000,
@@ -1347,6 +1344,10 @@ static int __init cpufreq_interactive_init(void)
 }
 
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE
+struct cpufreq_governor *cpufreq_default_governor(void)
+{
+	return &cpufreq_gov_interactive;
+}
 fs_initcall(cpufreq_interactive_init);
 #else
 module_init(cpufreq_interactive_init);
