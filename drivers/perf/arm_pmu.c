@@ -550,6 +550,7 @@ static void armpmu_init(struct arm_pmu *armpmu)
 		.stop		= armpmu_stop,
 		.read		= armpmu_read,
 		.filter_match	= armpmu_filter_match,
+		.events_across_hotplug = 1,
 	};
 }
 
@@ -686,31 +687,12 @@ static int cpu_pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
 	return 0;
 }
 
-/*
- * PMU hardware loses all context when a CPU goes offline.
- * When a CPU is hotplugged back in, since some hardware registers are
- * UNKNOWN at reset, the PMU must be explicitly reset to avoid reading
- * junk values out of them.
- */
-static int cpu_pmu_notify(struct notifier_block *b, unsigned long action,
-			  void *hcpu)
-{
-	int cpu = (unsigned long)hcpu;
-	struct arm_pmu *pmu = container_of(b, struct arm_pmu, hotplug_nb);
-
-	if ((action & ~CPU_TASKS_FROZEN) != CPU_STARTING)
-		return NOTIFY_DONE;
-
-	if (!cpumask_test_cpu(cpu, &pmu->supported_cpus))
-		return NOTIFY_DONE;
-
-	if (pmu->reset)
-		pmu->reset(pmu);
-	else
-		return NOTIFY_DONE;
-
-	return NOTIFY_OK;
-}
+struct cpu_pm_pmu_args {
+	struct arm_pmu	*armpmu;
+	unsigned long	cmd;
+	int		cpu;
+	int		ret;
+};
 
 #ifdef CONFIG_CPU_PM
 static void cpu_pm_pmu_setup(struct arm_pmu *armpmu, unsigned long cmd)
@@ -758,15 +740,19 @@ static void cpu_pm_pmu_setup(struct arm_pmu *armpmu, unsigned long cmd)
 	}
 }
 
-static int cpu_pm_pmu_notify(struct notifier_block *b, unsigned long cmd,
-			     void *v)
+static void cpu_pm_pmu_common(void *info)
 {
-	struct arm_pmu *armpmu = container_of(b, struct arm_pmu, cpu_pm_nb);
+	struct cpu_pm_pmu_args *data	= info;
+	struct arm_pmu *armpmu		= data->armpmu;
+	unsigned long cmd		= data->cmd;
+	int cpu				= data->cpu;
 	struct pmu_hw_events *hw_events = this_cpu_ptr(armpmu->hw_events);
 	int enabled = bitmap_weight(hw_events->used_mask, armpmu->num_events);
 
-	if (!cpumask_test_cpu(smp_processor_id(), &armpmu->supported_cpus))
-		return NOTIFY_DONE;
+	if (!cpumask_test_cpu(cpu, &armpmu->supported_cpus)) {
+		data->ret = NOTIFY_DONE;
+		return;
+	}
 
 	/*
 	 * Always reset the PMU registers on power-up even if
@@ -775,8 +761,12 @@ static int cpu_pm_pmu_notify(struct notifier_block *b, unsigned long cmd,
 	if (cmd == CPU_PM_EXIT && armpmu->reset)
 		armpmu->reset(armpmu);
 
-	if (!enabled)
-		return NOTIFY_OK;
+	if (!enabled) {
+		data->ret = NOTIFY_OK;
+		return;
+	}
+
+	data->ret = NOTIFY_OK;
 
 	switch (cmd) {
 	case CPU_PM_ENTER:
@@ -784,15 +774,29 @@ static int cpu_pm_pmu_notify(struct notifier_block *b, unsigned long cmd,
 		cpu_pm_pmu_setup(armpmu, cmd);
 		break;
 	case CPU_PM_EXIT:
-		cpu_pm_pmu_setup(armpmu, cmd);
 	case CPU_PM_ENTER_FAILED:
+		cpu_pm_pmu_setup(armpmu, cmd);
 		armpmu->start(armpmu);
 		break;
 	default:
-		return NOTIFY_DONE;
+		data->ret = NOTIFY_DONE;
+		break;
 	}
 
-	return NOTIFY_OK;
+	return;
+}
+
+static int cpu_pm_pmu_notify(struct notifier_block *b, unsigned long cmd,
+			     void *v)
+{
+	struct cpu_pm_pmu_args data = {
+		.armpmu	= container_of(b, struct arm_pmu, cpu_pm_nb),
+		.cmd	= cmd,
+		.cpu	= smp_processor_id(),
+	};
+
+	cpu_pm_pmu_common(&data);
+	return data.ret;
 }
 
 static int cpu_pm_pmu_register(struct arm_pmu *cpu_pmu)
@@ -808,7 +812,61 @@ static void cpu_pm_pmu_unregister(struct arm_pmu *cpu_pmu)
 #else
 static inline int cpu_pm_pmu_register(struct arm_pmu *cpu_pmu) { return 0; }
 static inline void cpu_pm_pmu_unregister(struct arm_pmu *cpu_pmu) { }
+static inline void cpu_pm_pmu_common(void *info) { }
 #endif
+
+/*
+ * PMU hardware loses all context when a CPU goes offline.
+ * When a CPU is hotplugged back in, since some hardware registers are
+ * UNKNOWN at reset, the PMU must be explicitly reset to avoid reading
+ * junk values out of them.
+ */
+static int cpu_pmu_notify(struct notifier_block *b, unsigned long action,
+			  void *hcpu)
+{
+	unsigned long masked_action = (action & ~CPU_TASKS_FROZEN);
+	struct cpu_pm_pmu_args data = {
+		.armpmu	= container_of(b, struct arm_pmu, hotplug_nb),
+		.cpu	= (unsigned long)hcpu,
+	};
+
+	if (!cpumask_test_cpu(data.cpu, &data.armpmu->supported_cpus))
+		return NOTIFY_DONE;
+
+	switch (masked_action) {
+	case CPU_STARTING:
+		data.cmd = CPU_PM_EXIT;
+		break;
+	case CPU_DYING:
+		data.cmd = CPU_PM_ENTER;
+		break;
+	case CPU_DOWN_FAILED:
+		data.cmd = CPU_PM_ENTER_FAILED;
+		break;
+	case CPU_ONLINE:
+		if (data.armpmu->plat_device) {
+			struct platform_device *pmu_device =
+				data.armpmu->plat_device;
+			int irq = platform_get_irq(pmu_device, 0);
+
+			if (irq >= 0 && irq_is_percpu(irq)) {
+				smp_call_function_single(data.cpu,
+					cpu_pmu_enable_percpu_irq, &irq, 1);
+			}
+		}
+		return NOTIFY_DONE;
+	default:
+		return NOTIFY_DONE;
+	}
+
+	if (smp_processor_id() == data.cpu)
+		cpu_pm_pmu_common(&data);
+	else
+		smp_call_function_single(data.cpu,
+			cpu_pm_pmu_common, &data, 1);
+
+	return data.ret;
+}
 
 static int cpu_pmu_init(struct arm_pmu *cpu_pmu)
 {
