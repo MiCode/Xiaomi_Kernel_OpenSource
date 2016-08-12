@@ -1636,7 +1636,14 @@ config ARCH_NR_GPIO
 	  If unsure, leave the default value.
 
 source kernel/Kconfig.preempt
-source kernel/Kconfig.hz
+
+config HZ
+	int
+	default 200 if ARCH_EBSA110 || ARCH_S3C24XX || ARCH_S5P64X0 || \
+		ARCH_S5PV210 || ARCH_EXYNOS4
+	default AT91_TIMER_HZ if ARCH_AT91
+	default SHMOBILE_TIMER_HZ if ARCH_SHMOBILE
+	default 100
 
 config SCHED_HRTICK
 	def_bool HIGH_RES_TIMERS
