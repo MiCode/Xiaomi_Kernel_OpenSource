@@ -31,6 +31,7 @@
 #include "uvc_v4l2.h"
 #include "uvc_video.h"
 #include "u_uvc.h"
+#include "f_uvc.h"
 
 unsigned int uvc_gadget_trace_param;
 
@@ -412,7 +413,8 @@ uvc_function_connect(struct uvc_device *uvc)
 	struct usb_composite_dev *cdev = uvc->func.config->cdev;
 	int ret;
 
-	if ((ret = usb_function_activate(&uvc->func)) < 0)
+	ret = video_ready_callback(&uvc->func);
+	if (ret < 0)
 		INFO(cdev, "UVC connect failed with %d\n", ret);
 }
 
@@ -422,7 +424,8 @@ uvc_function_disconnect(struct uvc_device *uvc)
 	struct usb_composite_dev *cdev = uvc->func.config->cdev;
 	int ret;
 
-	if ((ret = usb_function_deactivate(&uvc->func)) < 0)
+	ret = video_closed_callback(&uvc->func);
+	if (ret < 0)
 		INFO(cdev, "UVC disconnect failed with %d\n", ret);
 }
 
@@ -717,11 +720,9 @@ uvc_function_bind(struct usb_configuration *c, struct usb_function *f)
 	uvc->control_req->complete = uvc_function_ep0_complete;
 	uvc->control_req->context = uvc;
 
-	/* Avoid letting this gadget enumerate until the userspace server is
-	 * active.
+	/* Gadget drivers avoids enumerattion until the userspace server is
+	 * active - when it opens uvc video device node.
 	 */
-	if ((ret = usb_function_deactivate(f)) < 0)
-		goto error;
 
 	if (v4l2_device_register(&cdev->gadget->dev, &uvc->v4l2_dev)) {
 		printk(KERN_INFO "v4l2_device_register failed\n");
