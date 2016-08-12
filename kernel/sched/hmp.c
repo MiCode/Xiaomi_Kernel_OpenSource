@@ -356,6 +356,7 @@ struct sched_cluster init_cluster = {
 	.dstate_wakeup_energy	=	0,
 	.dstate_wakeup_latency	=	0,
 	.exec_scale_factor	=	1024,
+	.notifier_sent		=	0,
 };
 
 static void update_all_clusters_stats(void)
@@ -519,6 +520,7 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 	if (cluster->efficiency < min_possible_efficiency)
 		min_possible_efficiency = cluster->efficiency;
 
+	cluster->notifier_sent = 0;
 	return cluster;
 }
 
@@ -1769,8 +1771,8 @@ static int send_notification(struct rq *rq, int check_pred, int check_groups)
 	}
 
 	raw_spin_lock_irqsave(&rq->lock, flags);
-	if (!rq->notifier_sent) {
-		rq->notifier_sent = 1;
+	if (!rq->cluster->notifier_sent) {
+		rq->cluster->notifier_sent = 1;
 		rc = 1;
 		trace_sched_freq_alert(cpu_of(rq), check_pred, check_groups, rq,
 				       new_load);
@@ -2938,7 +2940,7 @@ void sched_get_cpus_busy(struct sched_load *busy,
 	u64 nload[cpus], ngload[cpus];
 	u64 pload[cpus];
 	unsigned int cur_freq[cpus], max_freq[cpus];
-	int notifier_sent[cpus];
+	int notifier_sent = 0;
 	int early_detection[cpus];
 	int cpu, i = 0;
 	unsigned int window_size;
@@ -2979,9 +2981,17 @@ void sched_get_cpus_busy(struct sched_load *busy,
 			max_busy_cpu = cpu;
 		}
 
-		notifier_sent[i] = rq->notifier_sent;
+		/*
+		 * sched_get_cpus_busy() is called for all CPUs in a
+		 * frequency domain. So the notifier_sent flag per
+		 * cluster works even when a frequency domain spans
+		 * more than 1 cluster.
+		 */
+		if (rq->cluster->notifier_sent) {
+			notifier_sent = 1;
+			rq->cluster->notifier_sent = 0;
+		}
 		early_detection[i] = (rq->ed_task != NULL);
-		rq->notifier_sent = 0;
 		cur_freq[i] = cpu_cur_freq(cpu);
 		max_freq[i] = cpu_max_freq(cpu);
 		i++;
@@ -3005,7 +3015,7 @@ void sched_get_cpus_busy(struct sched_load *busy,
 			goto skip_early;
 
 		rq = cpu_rq(cpu);
-		if (!notifier_sent[i]) {
+		if (!notifier_sent) {
 			if (cpu == max_busy_cpu)
 				group_load_in_freq_domain(
 					&rq->freq_domain_cpumask,
@@ -3046,7 +3056,7 @@ skip_early:
 			goto exit_early;
 		}
 
-		if (!notifier_sent[i]) {
+		if (!notifier_sent) {
 			load[i] = scale_load_to_freq(load[i], max_freq[i],
 						     cur_freq[i]);
 			nload[i] = scale_load_to_freq(nload[i], max_freq[i],
