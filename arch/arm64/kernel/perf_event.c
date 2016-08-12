@@ -232,6 +232,11 @@ static const unsigned armv8_a57_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
 #define	ARMV8_EXCLUDE_EL0	(1 << 30)
 #define	ARMV8_INCLUDE_EL2	(1 << 27)
 
+struct arm_pmu_and_idle_nb {
+	struct arm_pmu *cpu_pmu;
+	struct notifier_block perf_cpu_idle_nb;
+};
+
 static inline u32 armv8pmu_pmcr_read(void)
 {
 	u32 val;
@@ -541,8 +546,6 @@ static int armv8pmu_set_event_filter(struct hw_perf_event *event,
 {
 	unsigned long config_base = 0;
 
-	if (attr->exclude_idle)
-		return -EPERM;
 	if (attr->exclude_user)
 		config_base |= ARMV8_EXCLUDE_EL0;
 	if (attr->exclude_kernel)
@@ -574,6 +577,33 @@ static inline void armv8pmu_init_usermode(void)
 
 }
 #endif
+
+
+static void armv8pmu_idle_update(struct arm_pmu *cpu_pmu)
+{
+	struct pmu_hw_events *hw_events;
+	struct perf_event *event;
+	int idx;
+
+	if (!cpu_pmu)
+		return;
+
+	hw_events = this_cpu_ptr(cpu_pmu->hw_events);
+
+	for (idx = 0; idx < cpu_pmu->num_events; ++idx) {
+
+		if (!test_bit(idx, hw_events->used_mask))
+			continue;
+
+		event = hw_events->events[idx];
+
+		if (!event || !event->attr.exclude_idle ||
+				event->state != PERF_EVENT_STATE_ACTIVE)
+			continue;
+
+		cpu_pmu->pmu.read(event);
+	}
+}
 
 static void armv8pmu_reset(void *info)
 {
@@ -624,11 +654,40 @@ static void armv8pmu_read_num_pmnc_events(void *info)
 	*nb_cnt += 1;
 }
 
+static int perf_cpu_idle_notifier(struct notifier_block *nb,
+				unsigned long action, void *data)
+{
+	struct arm_pmu_and_idle_nb *pmu_nb = container_of(nb,
+				struct arm_pmu_and_idle_nb, perf_cpu_idle_nb);
+
+	if (action == IDLE_START)
+		armv8pmu_idle_update(pmu_nb->cpu_pmu);
+
+	return NOTIFY_OK;
+}
+
 int armv8pmu_probe_num_events(struct arm_pmu *arm_pmu)
 {
-	return smp_call_function_any(&arm_pmu->supported_cpus,
+	int ret;
+	struct arm_pmu_and_idle_nb *pmu_idle_nb;
+
+	pmu_idle_nb = devm_kzalloc(&arm_pmu->plat_device->dev,
+					sizeof(*pmu_idle_nb), GFP_KERNEL);
+	if (!pmu_idle_nb)
+		return -ENOMEM;
+
+	pmu_idle_nb->cpu_pmu = arm_pmu;
+	pmu_idle_nb->perf_cpu_idle_nb.notifier_call = perf_cpu_idle_notifier;
+	idle_notifier_register(&pmu_idle_nb->perf_cpu_idle_nb);
+
+	ret = smp_call_function_any(&arm_pmu->supported_cpus,
 				    armv8pmu_read_num_pmnc_events,
 				    &arm_pmu->num_events, 1);
+	if (!ret)
+		idle_notifier_unregister(&pmu_idle_nb->perf_cpu_idle_nb);
+	return ret;
+
+
 }
 
 void armv8_pmu_init(struct arm_pmu *cpu_pmu)
