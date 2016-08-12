@@ -2498,6 +2498,7 @@ void usb_hc_died (struct usb_hcd *hcd)
 	}
 	spin_unlock_irqrestore (&hcd_root_hub_lock, flags);
 	/* Make sure that the other roothub is also deallocated. */
+	usb_atomic_notify_dead_bus(&hcd->self);
 }
 EXPORT_SYMBOL_GPL (usb_hc_died);
 
