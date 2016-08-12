@@ -15,6 +15,7 @@ Optional properties:
   - vdd-ntn-phy-supply: Ethernet PHY power supply
   - vdd-ntn-core-supply: Neutrino core power supply
   - ntn-supply-enable-gpio: GPIO used to control power supply to Neutrino
+  - qcom,ntn-fw-load-delay-msec: Delay used after loading the firmware to SRAM
 
 Example:
 	qcom,ntn_avb {
@@ -34,4 +35,5 @@ Example:
 		ntn-supply-enable-gpio = <&pmd9635_gpios 3 0>;
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
+		qcom,ntn-fw-load-delay-msec = <200>;
 	};
