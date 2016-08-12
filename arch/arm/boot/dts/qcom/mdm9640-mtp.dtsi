@@ -23,6 +23,7 @@
 		ntn-supply-enable-gpio = <&pmd9635_gpios 3 0>;
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <0>;
+		qcom,ntn-fw-load-delay-msec = <200>;
 	};
 };
 
