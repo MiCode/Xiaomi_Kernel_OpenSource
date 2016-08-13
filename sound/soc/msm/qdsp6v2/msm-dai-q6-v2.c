@@ -37,6 +37,14 @@
 #define CHANNEL_STATUS_MASK 0x4
 #define AFE_API_VERSION_CLOCK_SET 1
 
+enum {
+	ENC_FMT_NONE,
+	ENC_FMT_SBC = ASM_MEDIA_FMT_SBC,
+	ENC_FMT_AAC_V2 = ASM_MEDIA_FMT_AAC_V2,
+	ENC_FMT_APTX = ASM_MEDIA_FMT_APTX,
+	ENC_FMT_APTX_HD = ASM_MEDIA_FMT_APTX_HD,
+};
+
 static const struct afe_clk_set lpass_clk_set_default = {
 	AFE_API_VERSION_CLOCK_SET,
 	Q6AFE_LPASS_CLK_ID_PRI_PCM_IBIT,
@@ -157,6 +165,8 @@ struct msm_dai_q6_dai_data {
 	u32 channels;
 	u32 bitwidth;
 	u32 cal_mode;
+	u32 afe_in_channels;
+	struct afe_enc_config enc_config;
 	union afe_port_config port_config;
 };
 
@@ -1330,9 +1340,20 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 	int rc = 0;
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		rc = afe_port_start(dai->id, &dai_data->port_config,
-					dai_data->rate);
-
+		if (dai_data->enc_config.format != ENC_FMT_NONE) {
+			pr_debug("%s: calling AFE_PORT_START_V2 with enc_format: %d\n",
+				 __func__, dai_data->enc_config.format);
+			rc = afe_port_start_v2(dai->id, &dai_data->port_config,
+					       dai_data->rate,
+					       dai_data->afe_in_channels,
+					       &dai_data->enc_config);
+			if (rc < 0)
+				pr_err("%s: afe_port_start_v2 failed error: %d\n",
+					__func__, rc);
+		} else {
+			rc = afe_port_start(dai->id, &dai_data->port_config,
+						dai_data->rate);
+		}
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to open AFE port 0x%x\n",
 				dai->id);
@@ -1941,6 +1962,151 @@ static int msm_dai_q6_usb_audio_cfg_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int  msm_dai_q6_afe_enc_cfg_info(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = sizeof(struct afe_enc_config);
+
+	return 0;
+}
+
+static int msm_dai_q6_afe_enc_cfg_get(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (dai_data) {
+		int format_size = sizeof(dai_data->enc_config.format);
+
+		pr_debug("%s:encoder config for %d format\n",
+			 __func__, dai_data->enc_config.format);
+		memcpy(ucontrol->value.bytes.data,
+			&dai_data->enc_config.format,
+			format_size);
+		switch (dai_data->enc_config.format) {
+		case ENC_FMT_SBC:
+			memcpy(ucontrol->value.bytes.data + format_size,
+				&dai_data->enc_config.data,
+				sizeof(struct asm_sbc_enc_cfg_t));
+			break;
+		case ENC_FMT_AAC_V2:
+			memcpy(ucontrol->value.bytes.data + format_size,
+				&dai_data->enc_config.data,
+				sizeof(struct asm_aac_enc_cfg_v2_t));
+			break;
+		case ENC_FMT_APTX:
+		case ENC_FMT_APTX_HD:
+			memcpy(ucontrol->value.bytes.data + format_size,
+				&dai_data->enc_config.data,
+				sizeof(struct asm_aac_enc_cfg_v2_t));
+			break;
+		default:
+			pr_debug("%s: unknown format = %d\n",
+				 __func__, dai_data->enc_config.format);
+			ret = -EINVAL;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int msm_dai_q6_afe_enc_cfg_put(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (dai_data) {
+		int format_size = sizeof(dai_data->enc_config.format);
+
+		memset(&dai_data->enc_config, 0x0,
+			sizeof(struct afe_enc_config));
+		memcpy(&dai_data->enc_config.format,
+			ucontrol->value.bytes.data,
+			format_size);
+		pr_debug("%s: Received encoder config for %d format\n",
+			 __func__, dai_data->enc_config.format);
+		switch (dai_data->enc_config.format) {
+		case ENC_FMT_SBC:
+			memcpy(&dai_data->enc_config.data,
+				ucontrol->value.bytes.data + format_size,
+				sizeof(struct asm_sbc_enc_cfg_t));
+			break;
+		case ENC_FMT_AAC_V2:
+			memcpy(&dai_data->enc_config.data,
+				ucontrol->value.bytes.data + format_size,
+				sizeof(struct asm_aac_enc_cfg_v2_t));
+			break;
+		case ENC_FMT_APTX:
+		case ENC_FMT_APTX_HD:
+			memcpy(&dai_data->enc_config.data,
+				ucontrol->value.bytes.data + format_size,
+				sizeof(struct asm_custom_enc_cfg_aptx_t));
+			break;
+		default:
+			pr_debug("%s: Ignore enc config for unknown format = %d\n",
+				 __func__, dai_data->enc_config.format);
+			ret = -EINVAL;
+			break;
+		}
+	} else
+		ret = -EINVAL;
+
+	return ret;
+}
+
+static const char *const afe_input_chs_text[] = {"Zero", "One", "Two"};
+
+static const struct soc_enum afe_input_chs_enum[] = {
+	SOC_ENUM_SINGLE_EXT(3, afe_input_chs_text),
+};
+
+static int msm_dai_q6_afe_input_channel_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (dai_data) {
+		ucontrol->value.integer.value[0] = dai_data->afe_in_channels;
+		pr_debug("%s:afe input channel = %d\n",
+			  __func__, dai_data->afe_in_channels);
+	}
+
+	return 0;
+}
+
+static int msm_dai_q6_afe_input_channel_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (dai_data) {
+		dai_data->afe_in_channels = ucontrol->value.integer.value[0];
+		pr_debug("%s: updating afe input channel : %d\n",
+			__func__, dai_data->afe_in_channels);
+	}
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new afe_enc_config_controls[] = {
+	{
+		.access = (SNDRV_CTL_ELEM_ACCESS_READWRITE |
+			   SNDRV_CTL_ELEM_ACCESS_INACTIVE),
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.name = "SLIM_7_RX Encoder Config",
+		.info = msm_dai_q6_afe_enc_cfg_info,
+		.get = msm_dai_q6_afe_enc_cfg_get,
+		.put = msm_dai_q6_afe_enc_cfg_put,
+	},
+	SOC_ENUM_EXT("AFE Input Channels", afe_input_chs_enum[0],
+		     msm_dai_q6_afe_input_channel_get,
+		     msm_dai_q6_afe_input_channel_put),
+};
+
 static const char * const afe_cal_mode_text[] = {
 	"CAL_MODE_DEFAULT", "CAL_MODE_NONE"
 };
@@ -2018,6 +2184,17 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 	case SLIMBUS_2_RX:
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&sb_config_controls[1],
+				 dai_data));
+		break;
+	case SLIMBUS_7_RX:
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(&afe_enc_config_controls[0],
+				 dai_data));
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(&afe_enc_config_controls[1],
+				 dai_data));
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(&afe_enc_config_controls[2],
 				 dai_data));
 		break;
 	case RT_PROXY_DAI_001_RX:
