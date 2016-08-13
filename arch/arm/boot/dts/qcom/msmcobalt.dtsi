@@ -1309,6 +1309,35 @@
 		qcom,rx-ring-size = <0x800>;
 	};
 
+	glink_spi_xprt_wdsp: qcom,glink-spi-xprt-wdsp {
+		compatible = "qcom,glink-spi-xprt";
+		label = "wdsp";
+		qcom,remote-fifo-config = <&glink_fifo_wdsp>;
+		qcom,qos-config = <&glink_qos_wdsp>;
+		qcom,ramp-time = <0x10>,
+				     <0x20>,
+				     <0x30>,
+				     <0x40>;
+	};
+
+	glink_fifo_wdsp: qcom,glink-fifo-config-wdsp {
+		compatible = "qcom,glink-fifo-config";
+		qcom,out-read-idx-reg = <0x12000>;
+		qcom,out-write-idx-reg = <0x12004>;
+		qcom,in-read-idx-reg = <0x1200C>;
+		qcom,in-write-idx-reg = <0x12010>;
+	};
+
+	glink_qos_wdsp: qcom,glink-qos-config-wdsp {
+		compatible = "qcom,glink-qos-config";
+		qcom,flow-info = <0x80 0x0>,
+				 <0x70 0x1>,
+				 <0x60 0x2>,
+				 <0x50 0x3>;
+		qcom,mtu-size = <0x800>;
+		qcom,tput-stats-cycle = <0xa>;
+	};
+
 	qcom,glink_pkt {
 		compatible = "qcom,glinkpkt";
 
@@ -1737,6 +1766,7 @@
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
 				"utmi_clk", "sleep_clk", "xo";
 
+		qcom,core-clk-rate = <120000000>;
 		dwc3@a800000 {
 			compatible = "snps,dwc3";
 			reg = <0x0a800000 0xcd00>;
@@ -2918,6 +2948,7 @@
 
 #include "msmcobalt-pm.dtsi"
 #include "msm-arm-smmu-cobalt.dtsi"
+#include "msm-arm-smmu-impl-defs-cobalt.dtsi"
 #include "msmcobalt-ion.dtsi"
 #include "msmcobalt-camera.dtsi"
 #include "msmcobalt-vidc.dtsi"

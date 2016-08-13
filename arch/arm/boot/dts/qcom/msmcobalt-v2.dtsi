@@ -58,3 +58,10 @@
 		< 670000000 RPM_SMD_REGULATOR_LEVEL_TURBO >,
 		< 710000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
 };
+
+&mdss_mdp {
+	qcom,vbif-settings = <0x00d0 0x00002020>;
+	qcom,max-bandwidth-low-kbps = <9400000>;
+	qcom,max-bandwidth-high-kbps = <9400000>;
+	qcom,max-bandwidth-per-pipe-kbps = <4700000>;
+};

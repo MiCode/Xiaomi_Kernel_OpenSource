@@ -314,6 +314,16 @@
 		#clock-cells = <1>;
 	};
 
+	clock_mmss: qcom,dummycc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_gfx: qcom,dummycc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
 	qcom,ipc-spinlock@1f40000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0x1f40000 0x8000>;

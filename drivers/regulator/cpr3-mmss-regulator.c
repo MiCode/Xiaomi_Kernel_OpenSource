@@ -50,6 +50,9 @@
  * @limitation:		CPR limitation select fuse parameter value
  * @aging_init_quot_diff:	Initial quotient difference between CPR aging
  *			min and max sensors measured at time of manufacturing
+ * @force_highest_corner:	Flag indicating that all corners must operate
+ *			at the voltage of the highest corner.  This is
+ *			applicable to MSMCOBALT only.
  *
  * This struct holds the values for all of the fuses read from memory.
  */
@@ -60,6 +63,7 @@ struct cpr3_msm8996_mmss_fuses {
 	u64	cpr_fusing_rev;
 	u64	limitation;
 	u64	aging_init_quot_diff;
+	u64	force_highest_corner;
 };
 
 /* Fuse combos 0 -  7 map to CPR fusing revision 0 - 7 */
@@ -158,6 +162,12 @@ msmcobalt_mmss_offset_voltage_param[MSM8996_MMSS_FUSE_CORNERS][2] = {
 	{{65, 44, 47}, {} },
 };
 
+static const struct cpr3_fuse_param
+msmcobalt_cpr_force_highest_corner_param[] = {
+	{100, 45, 45},
+	{},
+};
+
 #define MSM8996PRO_SOC_ID			4
 #define MSMCOBALT_SOC_ID			5
 
@@ -242,6 +252,12 @@ enum msmcobalt_cpr_partial_binning {
 	MSMCOBALT_CPR_PARTIAL_BINNING_NEXT_CORNER = 0xF,
 	MSMCOBALT_CPR_PARTIAL_BINNING_SAFE_CORNER = 0xE,
 };
+
+/*
+ * The partial binning open-loop voltage fuse values only apply to the lowest
+ * two fuse corners (0 and 1, i.e. MinSVS and SVS).
+ */
+#define MSMCOBALT_CPR_PARTIAL_BINNING_MAX_FUSE_CORNER	1
 
 /**
  * cpr3_msm8996_mmss_read_fuse_data() - load MMSS specific fuse parameter values
@@ -335,6 +351,19 @@ static int cpr3_msm8996_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 				i, rc);
 			return rc;
 		}
+	}
+
+	if (vreg->thread->ctrl->soc_revision == MSMCOBALT_SOC_ID) {
+		rc = cpr3_read_fuse_param(base,
+			msmcobalt_cpr_force_highest_corner_param,
+			&fuse->force_highest_corner);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read CPR force highest corner fuse, rc=%d\n",
+				rc);
+			return rc;
+		}
+		if (fuse->force_highest_corner)
+			cpr3_info(vreg, "Fusing requires all operation at the highest corner\n");
 	}
 
 	if (vreg->thread->ctrl->soc_revision == MSMCOBALT_SOC_ID) {
@@ -738,7 +767,8 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 		 */
 		if (is_msmcobalt &&
 		    (volt_init == MSMCOBALT_CPR_PARTIAL_BINNING_NEXT_CORNER ||
-		     volt_init == MSMCOBALT_CPR_PARTIAL_BINNING_SAFE_CORNER))
+		     volt_init == MSMCOBALT_CPR_PARTIAL_BINNING_SAFE_CORNER) &&
+		    i <= MSMCOBALT_CPR_PARTIAL_BINNING_MAX_FUSE_CORNER)
 			volt_init = MSM8996_MMSS_MIN_VOLTAGE_FUSE_VAL;
 
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(ref_volt[i],
@@ -849,19 +879,43 @@ static int cpr3_msmcobalt_partial_binning_override(struct cpr3_regulator *vreg)
 	u32 proc_freq;
 	struct cpr3_corner *corner;
 	struct cpr3_corner *safe_corner;
-	int i, j, low, high, safe_fuse_corner;
+	int i, j, low, high, safe_fuse_corner, max_fuse_corner;
 
 	if (vreg->thread->ctrl->soc_revision != MSMCOBALT_SOC_ID)
 		return 0;
 
-	/* Loop over all fuse corners except for the highest one. */
-	for (i = 0; i < vreg->fuse_corner_count - 1; i++) {
+	/* Handle the force highest corner fuse. */
+	if (fuse->force_highest_corner) {
+		cpr3_info(vreg, "overriding CPR parameters for corners 0 to %d with quotients and voltages of corner %d\n",
+			vreg->corner_count - 2, vreg->corner_count - 1);
+		corner = &vreg->corner[vreg->corner_count - 1];
+		for (i = 0; i < vreg->corner_count - 1; i++) {
+			proc_freq = vreg->corner[i].proc_freq;
+			vreg->corner[i] = *corner;
+			vreg->corner[i].proc_freq = proc_freq;
+		}
+
+		/*
+		 * Return since the potential partial binning fuse values are
+		 * superceded by the force highest corner fuse value.
+		 */
+		return 0;
+	}
+
+	/*
+	 * Allow up to the max corner which can be fused with partial
+	 * binning values.
+	 */
+	max_fuse_corner = min(MSMCOBALT_CPR_PARTIAL_BINNING_MAX_FUSE_CORNER,
+				vreg->fuse_corner_count - 2);
+
+	for (i = 0; i <= max_fuse_corner; i++) {
 		/* Determine which higher corners to override with (if any). */
 		if (fuse->init_voltage[i] != next
 		    && fuse->init_voltage[i] != safe)
 			continue;
 
-		for (j = i + 1; j < vreg->fuse_corner_count - 1; j++)
+		for (j = i + 1; j <= max_fuse_corner; j++)
 			if (fuse->init_voltage[j] != next
 			    && fuse->init_voltage[j] != safe)
 				break;

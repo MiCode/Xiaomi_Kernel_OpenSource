@@ -34,6 +34,7 @@
 #define NR_GLA_REG 6
 #define MODULE_NAME	"gladiator_hang_detect"
 #define MAX_THRES	0xFFFFFFFF
+#define MAX_LEN_SYSFS 12
 
 struct hang_detect {
 	phys_addr_t threshold[NR_GLA_REG];
@@ -199,8 +200,7 @@ static inline ssize_t generic_enable_show(struct kobject *kobj,
 	uint32_t reg_value;
 
 	get_enable(offset, hang_dev, &reg_value);
-	return snprintf(buf, sizeof(hang_dev->ACE_enable),
-			"%d\n", reg_value);
+	return snprintf(buf, MAX_LEN_SYSFS, "%u\n", reg_value);
 }
 
 static inline ssize_t generic_threshold_show(struct kobject *kobj,
@@ -210,9 +210,7 @@ static inline ssize_t generic_threshold_show(struct kobject *kobj,
 	uint32_t reg_value;
 
 	get_threshold(offset, hang_dev, &reg_value);
-	return snprintf(buf, sizeof(hang_dev->ACE_threshold),
-			"%u\n", reg_value);
-
+	return snprintf(buf, MAX_LEN_SYSFS, "0x%x\n", reg_value);
 }
 
 static inline size_t generic_threshold_store(struct kobject *kobj,

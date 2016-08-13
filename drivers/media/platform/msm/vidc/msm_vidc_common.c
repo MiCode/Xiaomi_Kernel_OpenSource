@@ -77,6 +77,8 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata display colour SEI",
 	"Extradata light level SEI",
 	"Extradata PQ Info",
+	"Extradata display VUI",
+	"Extradata vpx color space",
 };
 
 struct getprop_buf {
@@ -210,7 +212,8 @@ int msm_comm_ctrl_init(struct msm_vidc_inst *inst,
 		}
 
 		if (!ctrl) {
-			dprintk(VIDC_ERR, "%s - invalid ctrl\n", __func__);
+			dprintk(VIDC_ERR, "%s - invalid ctrl %s\n", __func__,
+				 drv_ctrls[idx].name);
 			return -EINVAL;
 		}
 
@@ -1719,6 +1722,19 @@ static struct vb2_buffer *get_vb_from_device_addr(struct buf_queue *bufq,
 	return vb;
 }
 
+static void msm_vidc_try_suspend(struct msm_vidc_inst *inst)
+{
+	bool batch_mode;
+
+	batch_mode = msm_comm_g_ctrl_for_id(inst, V4L2_CID_VIDC_QBUF_MODE)
+		== V4L2_VIDC_QBUF_BATCHED;
+	if (batch_mode) {
+		dprintk(VIDC_DBG,
+			"Trying to suspend Venus after finishing Batch\n");
+		msm_comm_suspend(inst->core->id);
+	}
+}
+
 static void handle_ebd(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
@@ -1789,6 +1805,8 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 		mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
 		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_EBD);
 	}
+
+	msm_vidc_try_suspend(inst);
 
 	put_inst(inst);
 }
@@ -2089,6 +2107,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_FBD);
 	}
 
+	msm_vidc_try_suspend(inst);
 err_handle_fbd:
 	put_inst(inst);
 }
@@ -4691,6 +4710,13 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_PQ_INFO:
 		ret = HAL_EXTRADATA_PQ_INFO;
+		break;
+
+	case V4L2_MPEG_VIDC_EXTRADATA_VUI_DISPLAY:
+		ret = HAL_EXTRADATA_VUI_DISPLAY_INFO;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_VPX_COLORSPACE:
+		ret = HAL_EXTRADATA_VPX_COLORSPACE;
 		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);

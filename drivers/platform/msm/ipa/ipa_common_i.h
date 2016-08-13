@@ -355,5 +355,6 @@ u8 *ipa_write_16(u16 hw, u8 *dest);
 u8 *ipa_write_8(u8 b, u8 *dest);
 u8 *ipa_pad_to_64(u8 *dest);
 u8 *ipa_pad_to_32(u8 *dest);
+const char *ipa_get_version_string(enum ipa_hw_type ver);
 
 #endif /* _IPA_COMMON_I_H_ */

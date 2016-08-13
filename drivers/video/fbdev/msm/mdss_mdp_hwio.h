@@ -819,6 +819,8 @@ enum mdss_mdp_pingpong_index {
 
 #define MDSS_MDP_REG_CDM_HDMI_PACK_OP_MODE              0x200
 
+#define MDSS_MDP_DSPP_DEBUGBUS_STATUS                   0x34C
+
 /* Following offsets are with respect to MDP base */
 #define MDSS_MDP_MDP_OUT_CTL_0                          0x410
 #define MDSS_MDP_INTF_CMD_MISR_CTRL		(MDSS_MDP_INTF_MISR_CTRL + 0x8)

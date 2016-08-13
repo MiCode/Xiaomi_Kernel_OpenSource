@@ -2738,6 +2738,333 @@ struct afe_param_id_set_topology_cfg {
 	u32		topology_id;
 } __packed;
 
+
+/*
+ * Generic encoder module ID.
+ * This module supports the following parameter IDs:
+ * #AVS_ENCODER_PARAM_ID_ENC_FMT_ID (cannot be set run time)
+ * #AVS_ENCODER_PARAM_ID_ENC_CFG_BLK (may be set run time)
+ * #AVS_ENCODER_PARAM_ID_ENC_BITRATE (may be set run time)
+ * #AVS_ENCODER_PARAM_ID_PACKETIZER_ID (cannot be set run time)
+ * Opcode - AVS_MODULE_ID_ENCODER
+ * AFE Command AFE_PORT_CMD_SET_PARAM_V2 supports this module ID.
+ */
+#define AFE_MODULE_ID_ENCODER        0x00013229
+
+/* Macro for defining the packetizer ID: COP. */
+#define AFE_MODULE_ID_PACKETIZER_COP 0x0001322A
+
+/*
+ * Packetizer type parameter for the #AVS_MODULE_ID_ENCODER module.
+ * This parameter cannot be set runtime.
+ */
+#define AFE_ENCODER_PARAM_ID_PACKETIZER_ID 0x0001322E
+
+/*
+ * Encoder config block  parameter for the #AVS_MODULE_ID_ENCODER module.
+ * This parameter may be set runtime.
+ */
+#define AFE_ENCODER_PARAM_ID_ENC_CFG_BLK 0x0001322C
+
+/*
+ * Encoder format ID parameter for the #AVS_MODULE_ID_ENCODER module.
+ * This parameter cannot be set runtime.
+ */
+#define AFE_ENCODER_PARAM_ID_ENC_FMT_ID         0x0001322B
+
+/*
+ * Data format to send compressed data
+ * is transmitted/received over Slimbus lines.
+ */
+#define AFE_SB_DATA_FORMAT_GENERIC_COMPRESSED    0x3
+
+/*
+ * ID for AFE port module. This will be used to define port properties.
+ * This module supports following parameter IDs:
+ * #AFE_PARAM_ID_PORT_MEDIA_TYPE
+ * To configure the port property, the client must use the
+ * #AFE_PORT_CMD_SET_PARAM_V2 command,
+ * and fill the module ID with the respective parameter IDs as listed above.
+ * @apr_hdr_fields
+ * Opcode -- AFE_MODULE_PORT
+ */
+#define AFE_MODULE_PORT                          0x000102a6
+
+/*
+ * ID of the parameter used by #AFE_MODULE_PORT to set the port media type.
+ * parameter ID is currently supported using#AFE_PORT_CMD_SET_PARAM_V2 command.
+ */
+#define AFE_PARAM_ID_PORT_MEDIA_TYPE              0x000102a7
+
+/*
+ * Macros for defining the "data_format" field in the
+ * #AFE_PARAM_ID_PORT_MEDIA_TYPE
+ */
+#define AFE_PORT_DATA_FORMAT_PCM                  0x0
+#define AFE_PORT_DATA_FORMAT_GENERIC_COMPRESSED   0x1
+
+/*
+ * Macro for defining the "minor_version" field in the
+ * #AFE_PARAM_ID_PORT_MEDIA_TYPE
+ */
+#define AFE_API_VERSION_PORT_MEDIA_TYPE           0x1
+
+#define ASM_MEDIA_FMT_NONE                        0x0
+
+/*
+ * Media format ID for SBC encode configuration.
+ * @par SBC encode configuration (asm_sbc_enc_cfg_t)
+ * @table{weak__asm__sbc__enc__cfg__t}
+ */
+#define ASM_MEDIA_FMT_SBC                         0x00010BF2
+
+/* SBC channel Mono mode.*/
+#define ASM_MEDIA_FMT_SBC_CHANNEL_MODE_MONO                     1
+
+/* SBC channel Stereo mode. */
+#define ASM_MEDIA_FMT_SBC_CHANNEL_MODE_STEREO                   2
+
+/* SBC channel Dual Mono mode. */
+#define ASM_MEDIA_FMT_SBC_CHANNEL_MODE_DUAL_MONO                8
+
+/* SBC channel Joint Stereo mode. */
+#define ASM_MEDIA_FMT_SBC_CHANNEL_MODE_JOINT_STEREO             9
+
+/* SBC bit allocation method = loudness. */
+#define ASM_MEDIA_FMT_SBC_ALLOCATION_METHOD_LOUDNESS            0
+
+/* SBC bit allocation method = SNR. */
+#define ASM_MEDIA_FMT_SBC_ALLOCATION_METHOD_SNR                 1
+
+
+/*
+ * Payload of the SBC encoder configuration parameters in the
+ * #ASM_MEDIA_FMT_SBC media format.
+ */
+struct asm_sbc_enc_cfg_t {
+	/*
+	 * Number of subbands.
+	 * @values 4, 8
+	 */
+	uint32_t    num_subbands;
+
+	/*
+	 * Size of the encoded block in samples.
+	 * @values 4, 8, 12, 16
+	 */
+	uint32_t    blk_len;
+
+	/*
+	 * Mode used to allocate bits between channels.
+	 * @values
+	 * 0 (Native mode)
+	 * #ASM_MEDIA_FMT_SBC_CHANNEL_MODE_MONO
+	 * #ASM_MEDIA_FMT_SBC_CHANNEL_MODE_STEREO
+	 * #ASM_MEDIA_FMT_SBC_CHANNEL_MODE_DUAL_MONO
+	 * #ASM_MEDIA_FMT_SBC_CHANNEL_MODE_JOINT_STEREO
+	 * Native mode indicates that encoding must be performed with the number
+	 * of channels at the input.
+	 * If postprocessing outputs one-channel data, Mono mode is used. If
+	 * postprocessing outputs two-channel data, Stereo mode is used.
+	 * The number of channels must not change during encoding.
+	 */
+	uint32_t    channel_mode;
+
+	/*
+	 * Encoder bit allocation method.
+	 * @values
+	 * #ASM_MEDIA_FMT_SBC_ALLOCATION_METHOD_LOUDNESS
+	 * #ASM_MEDIA_FMT_SBC_ALLOCATION_METHOD_SNR @tablebulletend
+	 */
+	uint32_t    alloc_method;
+
+	/*
+	 * Number of encoded bits per second.
+	 * @values
+	 * Mono channel -- Maximum of 320 kbps
+	 * Stereo channel -- Maximum of 512 kbps @tablebulletend
+	 */
+	uint32_t    bit_rate;
+
+	/*
+	 * Number of samples per second.
+	 * @values 0 (Native mode), 16000, 32000, 44100, 48000&nbsp;Hz
+	 * Native mode indicates that encoding must be performed with the
+	 * sampling rate at the input.
+	 * The sampling rate must not change during encoding.
+	 */
+	uint32_t    sample_rate;
+};
+
+#define ASM_MEDIA_FMT_AAC_AOT_LC            2
+#define ASM_MEDIA_FMT_AAC_AOT_SBR           5
+#define ASM_MEDIA_FMT_AAC_AOT_PS            29
+#define ASM_MEDIA_FMT_AAC_FORMAT_FLAG_ADTS  0
+#define ASM_MEDIA_FMT_AAC_FORMAT_FLAG_RAW   3
+
+struct asm_aac_enc_cfg_v2_t {
+
+	/* Encoding rate in bits per second.*/
+	uint32_t     bit_rate;
+
+	/*
+	 * Encoding mode.
+	 * Supported values:
+	 * #ASM_MEDIA_FMT_AAC_AOT_LC
+	 * #ASM_MEDIA_FMT_AAC_AOT_SBR
+	 * #ASM_MEDIA_FMT_AAC_AOT_PS
+	 */
+	uint32_t     enc_mode;
+
+	/*
+	 * AAC format flag.
+	 * Supported values:
+	 * #ASM_MEDIA_FMT_AAC_FORMAT_FLAG_ADTS
+	 * #ASM_MEDIA_FMT_AAC_FORMAT_FLAG_RAW
+	 */
+	uint16_t     aac_fmt_flag;
+
+	/*
+	 * Number of channels to encode.
+	 * Supported values:
+	 * 0 - Native mode
+	 * 1 - Mono
+	 * 2 - Stereo
+	 * Other values are not supported.
+	 * @note1hang The eAAC+ encoder mode supports only stereo.
+	 * Native mode indicates that encoding must be performed with the
+	 * number of channels at the input.
+	 * The number of channels must not change during encoding.
+	 */
+	uint32_t     channel_cfg;
+
+	/*
+	 * Number of samples per second.
+	 * Supported values: - 0 -- Native mode - For other values,
+	 * Native mode indicates that encoding must be performed with the
+	 * sampling rate at the input.
+	 * The sampling rate must not change during encoding.
+	 */
+	uint32_t     sample_rate;
+} __packed;
+
+/* FMT ID for apt-X Classic */
+#define ASM_MEDIA_FMT_APTX 0x000131ff
+
+/* FMT ID for apt-X HD */
+#define ASM_MEDIA_FMT_APTX_HD 0x00013200
+
+#define PCM_CHANNEL_L         1
+#define PCM_CHANNEL_R         2
+#define PCM_CHANNEL_C         3
+
+struct asm_custom_enc_cfg_aptx_t {
+	uint32_t    sample_rate;
+	/* Mono or stereo */
+	uint16_t    num_channels;
+	uint16_t    reserved;
+	/* num_ch == 1, then PCM_CHANNEL_C,
+	 * num_ch == 2, then {PCM_CHANNEL_L, PCM_CHANNEL_R}
+	 */
+	uint8_t     channel_mapping[8];
+	uint32_t    custom_size;
+} __packed;
+
+struct afe_enc_fmt_id_param_t {
+	/*
+	 * Supported values:
+	 *  #ASM_MEDIA_FMT_SBC
+	 *  #ASM_MEDIA_FMT_AAC_V2
+	 * Any OpenDSP supported values
+	 */
+	uint32_t    fmt_id;
+} __packed;
+
+struct afe_port_media_type_t {
+	/*
+	 * Minor version
+	 * @values #AFE_API_VERSION_PORT_MEDIA_TYPE.
+	 */
+	uint32_t    minor_version;
+
+	/*
+	 * Sampling rate of the port.
+	 * @values
+	 * #AFE_PORT_SAMPLE_RATE_8K
+	 * #AFE_PORT_SAMPLE_RATE_11_025K
+	 * #AFE_PORT_SAMPLE_RATE_12K
+	 * #AFE_PORT_SAMPLE_RATE_16K
+	 * #AFE_PORT_SAMPLE_RATE_22_05K
+	 * #AFE_PORT_SAMPLE_RATE_24K
+	 * #AFE_PORT_SAMPLE_RATE_32K
+	 * #AFE_PORT_SAMPLE_RATE_44_1K
+	 * #AFE_PORT_SAMPLE_RATE_48K
+	 * #AFE_PORT_SAMPLE_RATE_88_2K
+	 * #AFE_PORT_SAMPLE_RATE_96K
+	 * #AFE_PORT_SAMPLE_RATE_176_4K
+	 * #AFE_PORT_SAMPLE_RATE_192K
+	 * #AFE_PORT_SAMPLE_RATE_352_8K
+	 * #AFE_PORT_SAMPLE_RATE_384K
+	 */
+	uint32_t    sample_rate;
+
+	/*
+	 * Bit width of the sample.
+	 * @values 16, 24
+	 */
+	uint16_t    bit_width;
+
+	/*
+	 * Number of channels.
+	 * @values 1 to #AFE_PORT_MAX_AUDIO_CHAN_CNT
+	 */
+	uint16_t    num_channels;
+
+	/*
+	 * Data format supported by this port.
+	 * If the port media type and device media type are different,
+	 * it signifies a encoding/decoding use case
+	 * @values
+	 * #AFE_PORT_DATA_FORMAT_PCM
+	 * #AFE_PORT_DATA_FORMAT_GENERIC_COMPRESSED
+	 */
+	uint16_t   data_format;
+
+	/*This field must be set to zero.*/
+	uint16_t   reserved;
+} __packed;
+
+union afe_enc_config_data {
+	struct asm_sbc_enc_cfg_t sbc_config;
+	struct asm_aac_enc_cfg_v2_t aac_config;
+	struct asm_custom_enc_cfg_aptx_t  aptx_config;
+};
+
+struct afe_enc_config {
+	u32 format;
+	union afe_enc_config_data data;
+};
+
+struct afe_enc_cfg_blk_param_t {
+	uint32_t enc_cfg_blk_size;
+	/*
+	 *Size of the encoder configuration block that follows this member
+	 */
+	union afe_enc_config_data enc_blk_config;
+};
+
+/*
+ * Payload of the AVS_ENCODER_PARAM_ID_PACKETIZER_ID parameter.
+ */
+struct avs_enc_packetizer_id_param_t {
+	/*
+	 * Supported values:
+	 * #AVS_MODULE_ID_PACKETIZER_COP
+	 * Any OpenDSP supported values
+	 */
+	uint32_t enc_packetizer_id;
+};
+
 union afe_port_config {
 	struct afe_param_id_pcm_cfg               pcm;
 	struct afe_param_id_i2s_cfg               i2s;
@@ -2751,6 +3078,10 @@ union afe_port_config {
 	struct afe_param_id_set_topology_cfg      topology;
 	struct afe_param_id_tdm_cfg               tdm;
 	struct afe_param_id_usb_audio_cfg         usb_audio;
+	struct afe_enc_fmt_id_param_t             enc_fmt;
+	struct afe_port_media_type_t              media_type;
+	struct afe_enc_cfg_blk_param_t            enc_blk_param;
+	struct avs_enc_packetizer_id_param_t      enc_pkt_id_param;
 } __packed;
 
 struct afe_audioif_config_command_no_payload {

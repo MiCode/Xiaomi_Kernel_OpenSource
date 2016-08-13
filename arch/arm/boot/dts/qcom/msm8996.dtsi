@@ -781,6 +781,7 @@
 		reg-names = "cc_base";
 		vdd_dig-supply = <&pm8994_s1_corner>;
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	clock_mmss: qcom,mmsscc@8c0000 {

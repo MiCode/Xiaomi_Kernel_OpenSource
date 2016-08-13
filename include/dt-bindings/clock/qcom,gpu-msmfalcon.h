@@ -14,25 +14,27 @@
 #ifndef _DT_BINDINGS_CLK_MSM_GPU_FALCON_H
 #define _DT_BINDINGS_CLK_MSM_GPU_FALCON_H
 
-/* Clocks */
-#define GPU_PLL0_PLL			0
-#define GPU_PLL1_PLL			1
-#define GFX3D_CLK_SRC			2
-#define RBBMTIMER_CLK_SRC		3
-#define RBCPR_CLK_SRC			4
-#define GPUCC_CXO_CLK			5
-#define GPUCC_GFX3D_CLK			6
-#define GPUCC_RBBMTIMER_CLK		7
-#define GPUCC_RBCPR_CLK			8
+#define GFX3D_CLK_SRC                            0
+#define GPU_PLL0_PLL                             1
+#define GPU_PLL0_PLL_OUT_AUX                     2
+#define GPU_PLL0_PLL_OUT_AUX2                    3
+#define GPU_PLL0_PLL_OUT_EARLY                   4
+#define GPU_PLL0_PLL_OUT_MAIN                    5
+#define GPU_PLL0_PLL_OUT_TEST                    6
+#define GPU_PLL1_PLL                             7
+#define GPU_PLL1_PLL_OUT_AUX                     8
+#define GPU_PLL1_PLL_OUT_AUX2                    9
+#define GPU_PLL1_PLL_OUT_EARLY                   10
+#define GPU_PLL1_PLL_OUT_MAIN                    11
+#define GPU_PLL1_PLL_OUT_TEST                    12
+#define GPUCC_CXO_CLK                            13
+#define GPUCC_GFX3D_CLK                          14
+#define GPUCC_RBBMTIMER_CLK                      15
+#define GPUCC_RBCPR_CLK                          16
+#define RBBMTIMER_CLK_SRC                        18
+#define RBCPR_CLK_SRC                            19
 
-/* Block Reset */
-#define GPU_CC_GPU_GX_BCR		0
-#define GPU_CC_GPU_CX_BCR		1
-#define GPU_CC_RBCPR_BCR		2
-#define GPU_CC_SPDM_BCR			3
-
-/* GDSC */
-#define GPU_GX_GDSC			0
-#define GPU_CX_GDSC			1
+#define GPU_CX_GDSC                              0
+#define GPU_GX_GDSC                              1
 
 #endif

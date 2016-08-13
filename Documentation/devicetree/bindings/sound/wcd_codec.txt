@@ -92,6 +92,14 @@ Optional properties:
 			   involving DMIC will use the rate defined by
 			   cdc-dmic-sample-rate.
 
+ - qcom,cdc-ecpp-dmic-rate: Specifies the sample rate of digital mic in HZ to be
+			    used by ECPP (Echo Cancellation Ping Pong) block
+			    on the codec. The valid set of values are same
+			    as that of cdc-dmic-sample-rate, but this rate will
+			    only be used by ECPP and all other audio use cases
+			    involving DMIC will use the rate defined by
+			    cdc-dmic-sample-rate.
+
  - qcom,cdc-dmic-clk-drv-strength: Specifies the drive strength for digital microphone
 				   clock in the codec. Accepted values are 2,4,8 and 16.
 				   The clock drive strentgh is in uA. Codec driver will
@@ -375,7 +383,9 @@ i2c@f9925000 {
 
 Tombak audio CODEC in SPMI mode
 
- - compatible = "qcom,msm8x16_wcd_codec";
+ - compatible = "qcom,msm-codec-core",
+ - compatible = "qcom,pmic-codec-digital"
+ - compatible = "qcom,pmic-codec-analog"
  - reg: represents the slave base address provided to the peripheral.
  - interrupt-parent : The parent interrupt controller.
  - interrupts: List of interrupts in given SPMI peripheral.
@@ -427,8 +437,19 @@ Optional properties:
 				core register writes.
 
 Example:
+
+msm_dig_codec: qcom,msm-int-codec {
+	compatible = "qcom,msm_int_core_codec";
+	qcom,dig-cdc-base-addr = <0xc0f0000>;
+};
+
+msm8x16_wcd_codec@f100 {
+	compatible = "qcom,msm_int_pmic_analog_codec";
+	reg = <0xf100 0x100>;
+};
+
 msm8x16_wcd_codec@f000{
-	compatible = "qcom,msm8x16_wcd_codec";
+	compatible = "qcom,msm_int_pmic_digital_codec";
 	reg = <0xf000 0x100>;
 	interrupt-parent = <&spmi_bus>;
 	interrupts = <0x1 0xf0 0x0>,

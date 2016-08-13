@@ -725,6 +725,11 @@ Optional Properties:
 
 Example:
 
+	msm_dig_codec: qcom,msm-int-codec {
+		compatible = "qcom,msm_int_core_codec";
+		qcom,dig-cdc-base-addr = <0xc0f0000>;
+	};
+
 	sound {
 		compatible = "qcom,msm8x16-audio-codec";
 		qcom,model = "msm8x16-snd-card";

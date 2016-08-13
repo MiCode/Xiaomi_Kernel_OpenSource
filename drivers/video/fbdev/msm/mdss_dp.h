@@ -21,6 +21,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/usb/usbpd.h>
+#include <linux/switch.h>
 
 #include "mdss_hdmi_util.h"
 #include "mdss_hdmi_edid.h"
@@ -430,8 +431,11 @@ struct mdss_dp_drv_pdata {
 	spinlock_t event_lock;
 	spinlock_t lock;
 	struct hdmi_util_ds_data ds_data;
+	struct switch_dev sdev;
 	struct kobject *kobj;
 	u32 max_pclk_khz;
+	u32 vic;
+	u32 new_vic;
 	int fb_node;
 };
 

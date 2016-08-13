@@ -311,19 +311,19 @@ static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
 	hw->of_node = of_parse_phandle(dev->of_node, "qcom,target-dev", 0);
 	if (!hw->of_node) {
 		dev_err(dev, "Couldn't find a target device\n");
-		goto err_out;
+		return -ENODEV;
 	}
 
 	if (get_mask_from_dev_handle(pdev, &cpu_grp->cpus)) {
 		dev_err(dev, "CPU list is empty\n");
-		goto err_out;
+		return -ENODEV;
 	}
 
 	hw->num_cores = cpumask_weight(&cpu_grp->cpus);
 	hw->core_stats = devm_kzalloc(dev, hw->num_cores *
 				sizeof(*(hw->core_stats)), GFP_KERNEL);
 	if (!hw->core_stats)
-		goto err_out;
+		return -ENOMEM;
 
 	for_each_cpu(cpu, &cpu_grp->cpus)
 		hw->core_stats[cpu - cpumask_first(&cpu_grp->cpus)].id = cpu;
@@ -335,14 +335,10 @@ static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
 	ret = register_memlat(dev, hw);
 	if (ret) {
 		pr_err("Mem Latency Gov registration failed\n");
-		goto err_out;
+		return ret;
 	}
 
 	return 0;
-
-err_out:
-	kfree(cpu_grp);
-	return -EINVAL;
 }
 
 static struct of_device_id match_table[] = {
