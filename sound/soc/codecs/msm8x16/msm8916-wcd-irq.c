@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,20 +56,20 @@ char *irq_names[MAX_NUM_IRQS] = {
 };
 
 int order[MAX_NUM_IRQS] = {
-	MSM8X16_WCD_IRQ_SPKR_CNP,
-	MSM8X16_WCD_IRQ_SPKR_CLIP,
-	MSM8X16_WCD_IRQ_SPKR_OCP,
-	MSM8X16_WCD_IRQ_MBHC_INSREM_DET1,
-	MSM8X16_WCD_IRQ_MBHC_RELEASE,
-	MSM8X16_WCD_IRQ_MBHC_PRESS,
-	MSM8X16_WCD_IRQ_MBHC_INSREM_DET,
-	MSM8X16_WCD_IRQ_MBHC_HS_DET,
-	MSM8X16_WCD_IRQ_EAR_OCP,
-	MSM8X16_WCD_IRQ_HPHR_OCP,
-	MSM8X16_WCD_IRQ_HPHL_OCP,
-	MSM8X16_WCD_IRQ_EAR_CNP,
-	MSM8X16_WCD_IRQ_HPHR_CNP,
-	MSM8X16_WCD_IRQ_HPHL_CNP,
+	MSM89XX_IRQ_SPKR_CNP,
+	MSM89XX_IRQ_SPKR_CLIP,
+	MSM89XX_IRQ_SPKR_OCP,
+	MSM89XX_IRQ_MBHC_INSREM_DET1,
+	MSM89XX_IRQ_MBHC_RELEASE,
+	MSM89XX_IRQ_MBHC_PRESS,
+	MSM89XX_IRQ_MBHC_INSREM_DET,
+	MSM89XX_IRQ_MBHC_HS_DET,
+	MSM89XX_IRQ_EAR_OCP,
+	MSM89XX_IRQ_HPHR_OCP,
+	MSM89XX_IRQ_HPHL_OCP,
+	MSM89XX_IRQ_EAR_CNP,
+	MSM89XX_IRQ_HPHR_CNP,
+	MSM89XX_IRQ_HPHL_CNP,
 };
 
 enum wcd9xxx_spmi_pm_state {
@@ -101,18 +101,18 @@ void wcd9xxx_spmi_enable_irq(int irq)
 	pr_debug("%s: irqno =%d\n", __func__, irq);
 	if ((irq >= 0) && (irq <= 7)) {
 		snd_soc_update_bits(map.codec,
-				MSM8X16_WCD_A_DIGITAL_INT_EN_CLR,
+				MSM89XX_PMIC_DIGITAL_INT_EN_CLR,
 				(0x01 << irq), 0x00);
 		snd_soc_update_bits(map.codec,
-				MSM8X16_WCD_A_DIGITAL_INT_EN_SET,
+				MSM89XX_PMIC_DIGITAL_INT_EN_SET,
 				(0x01 << irq), (0x01 << irq));
 	}
 	if ((irq > 7) && (irq <= 15)) {
 		snd_soc_update_bits(map.codec,
-				MSM8X16_WCD_A_ANALOG_INT_EN_CLR,
+				MSM89XX_PMIC_ANALOG_INT_EN_CLR,
 				(0x01 << (irq - 8)), 0x00);
 		snd_soc_update_bits(map.codec,
-				MSM8X16_WCD_A_ANALOG_INT_EN_SET,
+				MSM89XX_PMIC_ANALOG_INT_EN_SET,
 				(0x01 << (irq - 8)), (0x01 << (irq - 8)));
 	}
 
@@ -130,19 +130,19 @@ void wcd9xxx_spmi_disable_irq(int irq)
 	pr_debug("%s: irqno =%d\n", __func__, irq);
 	if ((irq >= 0) && (irq <= 7)) {
 		snd_soc_update_bits(map.codec,
-				MSM8X16_WCD_A_DIGITAL_INT_EN_SET,
+				MSM89XX_PMIC_DIGITAL_INT_EN_SET,
 				(0x01 << (irq)), 0x00);
 		snd_soc_update_bits(map.codec,
-				MSM8X16_WCD_A_DIGITAL_INT_EN_CLR,
+				MSM89XX_PMIC_DIGITAL_INT_EN_CLR,
 				(0x01 << irq), (0x01 << irq));
 	}
 
 	if ((irq > 7) && (irq <= 15)) {
 		snd_soc_update_bits(map.codec,
-				MSM8X16_WCD_A_ANALOG_INT_EN_SET,
+				MSM89XX_PMIC_ANALOG_INT_EN_SET,
 				(0x01 << (irq - 8)), 0x00);
 		snd_soc_update_bits(map.codec,
-				MSM8X16_WCD_A_ANALOG_INT_EN_CLR,
+				MSM89XX_PMIC_ANALOG_INT_EN_CLR,
 				(0x01 << (irq - 8)), (0x01 << (irq - 8)));
 	}
 
@@ -160,10 +160,6 @@ int wcd9xxx_spmi_request_irq(int irq, irq_handler_t handler,
 {
 	int rc;
 	unsigned long irq_flags;
-
-	map.linuxirq[irq] =
-		spmi_get_irq_byname(map.spmi[BIT_BYTE(irq)], NULL,
-				    irq_names[irq]);
 
 	if (strcmp(name, "mbhc sw intr"))
 		irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
@@ -234,7 +230,7 @@ static irqreturn_t wcd9xxx_spmi_irq_handler(int linux_irq, void *data)
 	for (i = 0; i < NUM_IRQ_REGS; i++) {
 		status[i] |= snd_soc_read(map.codec,
 				BIT_BYTE(irq) * 0x100 +
-			MSM8X16_WCD_A_DIGITAL_INT_LATCHED_STS);
+			MSM89XX_PMIC_DIGITAL_INT_LATCHED_STS);
 		status[i] &= ~map.mask[i];
 	}
 	for (i = 0; i < MAX_NUM_IRQS; i++) {
@@ -418,10 +414,10 @@ void wcd9xxx_spmi_set_codec(struct snd_soc_codec *codec)
 	map.codec = codec;
 }
 
-void wcd9xxx_spmi_set_dev(struct platform_device *pdev, int i)
+void wcd9xxx_spmi_set_dev(struct spmi_device *spmi, int i)
 {
 	if (i < NUM_IRQ_REGS)
-		map.spmi[i] = pdev;
+		map.spmi[i] = spmi;
 }
 
 int wcd9xxx_spmi_irq_init(void)
