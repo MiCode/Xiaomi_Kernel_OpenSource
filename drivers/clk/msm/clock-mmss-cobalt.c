@@ -1665,6 +1665,10 @@ static struct branch_clk mmss_camss_jpeg0_clk = {
 	},
 };
 
+static DEFINE_CLK_VOTER(mmss_camss_jpeg0_vote_clk, &mmss_camss_jpeg0_clk.c, 0);
+static DEFINE_CLK_VOTER(mmss_camss_jpeg0_dma_vote_clk,
+					&mmss_camss_jpeg0_clk.c, 0);
+
 static struct branch_clk mmss_camss_jpeg_ahb_clk = {
 	.cbcr_reg = MMSS_CAMSS_JPEG_AHB_CBCR,
 	.has_sibling = 1,
@@ -2572,6 +2576,8 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(mmss_camss_gp1_clk),
 	CLK_LIST(mmss_camss_ispif_ahb_clk),
 	CLK_LIST(mmss_camss_jpeg0_clk),
+	CLK_LIST(mmss_camss_jpeg0_vote_clk),
+	CLK_LIST(mmss_camss_jpeg0_dma_vote_clk),
 	CLK_LIST(mmss_camss_jpeg_ahb_clk),
 	CLK_LIST(mmss_camss_jpeg_axi_clk),
 	CLK_LIST(mmss_camss_mclk0_clk),
