@@ -124,7 +124,7 @@ static void service_locator_svc_arrive(struct work_struct *work)
 		qmi_handle_destroy(service_locator.clnt_handle);
 		service_locator.clnt_handle = NULL;
 		mutex_unlock(&service_locator.service_mutex);
-		pr_err("Unable to connnect to service\n");
+		pr_err("Unable to connnect to service rc:%d\n", rc);
 		return;
 	}
 	if (!service_inited)
@@ -148,10 +148,12 @@ static void service_locator_recv_msg(struct work_struct *work)
 
 	do {
 		pr_debug("Notified about a Receive event\n");
-	} while ((ret = qmi_recv_msg(service_locator.clnt_handle)) == 0);
+		ret = qmi_recv_msg(service_locator.clnt_handle);
+		if (ret != -ENOMSG)
+			pr_err("Error receiving message rc:%d. Retrying...\n",
+								ret);
+	} while (ret == 0);
 
-	if (ret != -ENOMSG)
-		pr_err("Error receiving message\n");
 }
 
 static void store_get_domain_list_response(struct pd_qmi_client_data *pd,
@@ -255,7 +257,7 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 		rc = servreg_loc_send_msg(&req_desc, &resp_desc, req, resp,
 					pd);
 		if (rc < 0) {
-			pr_err("send msg failed! 0x%x\n", rc);
+			pr_err("send msg failed rc:%d\n", rc);
 			goto out;
 		}
 		if (!domains_read) {
@@ -325,7 +327,7 @@ static int init_service_locator(void)
 		SERVREG_LOC_SERVICE_VERS_V01, SERVREG_LOC_SERVICE_INSTANCE_ID,
 		&service_locator.notifier);
 	if (rc < 0) {
-		pr_err("Notifier register failed!\n");
+		pr_err("Notifier register failed rc:%d\n", rc);
 		goto inited;
 	}
 
@@ -397,8 +399,8 @@ static void pd_locator_work(struct work_struct *work)
 	}
 	rc = service_locator_send_msg(data);
 	if (rc) {
-		pr_err("Failed to get process domains for %s for client %s\n",
-			data->service_name, data->client_name);
+		pr_err("Failed to get process domains for %s for client %s rc:%d\n",
+			data->service_name, data->client_name, rc);
 		pdqw->notifier->notifier_call(pdqw->notifier,
 			LOCATOR_DOWN, NULL);
 		goto err;
