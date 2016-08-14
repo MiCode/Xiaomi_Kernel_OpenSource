@@ -2807,7 +2807,7 @@
 
 		qcom,qsee-ipc-irq-spss {
 			qcom,rx-irq-clr = <0x1d08008 0x4>;
-			qcom,rx-irq-clr-mask = <0x2>;
+			qcom,rx-irq-clr-mask = <0x1>;
 			qcom,dev-name = "qsee_ipc_irq_spss";
 			interrupts = <0 349 4>;
 			label = "spss";
