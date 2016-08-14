@@ -47,6 +47,7 @@ obj-$(CONFIG_FB_MSM_MDSS_DP_PANEL) += mdss_dp.o mdss_dp_util.o
 obj-$(CONFIG_FB_MSM_MDSS_DP_PANEL) += mdss_dp_aux.o
 
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_io_util.o
+obj-$(CONFIG_FB_MSM_MDSS) += msm_ext_display.o
 obj-$(CONFIG_FB_MSM_MDSS_HDMI_PANEL) += mdss_hdmi_tx.o
 obj-$(CONFIG_FB_MSM_MDSS_HDMI_PANEL) += mdss_hdmi_panel.o
 obj-$(CONFIG_FB_MSM_MDSS_HDMI_PANEL) += mdss_hdmi_hdcp.o

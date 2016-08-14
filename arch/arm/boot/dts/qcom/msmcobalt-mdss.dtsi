@@ -586,7 +586,11 @@
 					"mmss_noc_ahb_clk",
 					"mmss_smmu_ahb_clk",
 					"mmss_smmu_axi_clk";
-		};
+			      };
+	};
+
+	msm_ext_disp: qcom,msm_ext_disp {
+		compatible = "qcom,msm-ext-disp";
 	};
 
 	mdss_hdmi_tx: qcom,hdmi_tx@c9a0000 {
@@ -605,6 +609,8 @@
 		qcom,max-voltage-level = <0>;
 		qcom,enable-load = <0>;
 		qcom,disable-load = <0>;
+
+		qcom,msm_ext_disp = <&msm_ext_disp>;
 
 		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			 <&clock_mmss clk_mmss_mdss_ahb_clk>,
