@@ -490,6 +490,22 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 	}
 }
 
+static void wcd_clsh_set_flyback_vneg_ctl(struct snd_soc_codec *codec,
+					  bool enable)
+{
+	if (enable) {
+		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEG_CTRL_1, 0xE0,
+				    0x00);
+		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEGDAC_CTRL_2,
+				    0xE0, (0x07 << 5));
+	} else {
+		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEG_CTRL_1, 0xE0,
+				    (0x07 << 5));
+		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEGDAC_CTRL_2,
+				    0xE0, (0x02 << 5));
+	}
+}
+
 static void wcd_clsh_set_flyback_current(struct snd_soc_codec *codec, int mode)
 {
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
@@ -525,6 +541,7 @@ static void wcd_clsh_state_lo(struct snd_soc_codec *codec,
 
 	if (is_enable) {
 		wcd_clsh_set_buck_regulator_mode(codec, mode);
+		wcd_clsh_set_flyback_vneg_ctl(codec, true);
 		wcd_clsh_set_buck_mode(codec, mode);
 		wcd_clsh_set_flyback_mode(codec, mode);
 		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, true);
@@ -535,6 +552,7 @@ static void wcd_clsh_state_lo(struct snd_soc_codec *codec,
 		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, false);
 		wcd_clsh_set_flyback_mode(codec, CLS_H_NORMAL);
 		wcd_clsh_set_buck_mode(codec, CLS_H_NORMAL);
+		wcd_clsh_set_flyback_vneg_ctl(codec, false);
 		wcd_clsh_set_buck_regulator_mode(codec, CLS_H_NORMAL);
 	}
 }
@@ -714,6 +732,7 @@ static void wcd_clsh_state_hph_lo(struct snd_soc_codec *codec,
 						WCD9XXX_A_CDC_CLSH_K1_LSB,
 						0xFF, 0xC0);
 				wcd_clsh_set_flyback_mode(codec, mode);
+				wcd_clsh_set_flyback_vneg_ctl(codec, false);
 				wcd_clsh_set_buck_mode(codec, mode);
 				wcd_clsh_set_hph_mode(codec, mode);
 				wcd_clsh_set_gain_path(codec, mode);
@@ -749,6 +768,7 @@ static void wcd_clsh_state_hph_lo(struct snd_soc_codec *codec,
 			if ((clsh_d->state & WCD_CLSH_STATE_HPH_ST)
 				!= WCD_CLSH_STATE_HPH_ST) {
 				wcd_enable_clsh_block(codec, clsh_d, false);
+				wcd_clsh_set_flyback_vneg_ctl(codec, true);
 				wcd_clsh_set_flyback_mode(codec, CLS_H_NORMAL);
 				wcd_clsh_set_buck_mode(codec, CLS_H_NORMAL);
 			}
