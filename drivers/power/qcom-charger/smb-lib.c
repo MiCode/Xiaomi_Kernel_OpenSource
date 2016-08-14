@@ -1677,9 +1677,12 @@ static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
 	vote(chg->pl_disable_votable, TYPEC_SRC_VOTER,
 					!rising || sink_attached, 0);
 
-	/* reset taper_end voter here */
-	if (!rising || sink_attached)
+	if (!rising || sink_attached) {
+		/* icl votes to disable parallel charging */
+		vote(chg->pl_disable_votable, USBIN_ICL_VOTER, true, 0);
+		/* reset taper_end voter here */
 		vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
+	}
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: debounce-done %s; Type-C %s detected\n",
 		   rising ? "rising" : "falling",
