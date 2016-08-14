@@ -1237,6 +1237,13 @@ static void qcom_ice_debug(struct platform_device *pdev)
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_NON_SEC_IRQ_MASK),
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_NON_SEC_IRQ_CLR));
 
+	if (ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) {
+		pr_err("%s: ICE INVALID CCFG ERR STTS: 0x%08x\n",
+			ice_dev->ice_instance_type,
+			qcom_ice_readl(ice_dev,
+				QCOM_ICE_INVALID_CCFG_ERR_STTS));
+	}
+
 	if ((ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) ||
 		((ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2) &&
 		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1))) {
