@@ -12,6 +12,7 @@
 #ifndef DM_VERITY_FEC_H
 #define DM_VERITY_FEC_H
 
+#include "dm-core.h"
 #include "dm-verity.h"
 #include <linux/rslib.h>
 
@@ -26,6 +27,9 @@
 /* we need buffers for at most 1 << block size RS blocks */
 #define DM_VERITY_FEC_BUF_MAX \
 	(1 << (PAGE_SHIFT - DM_VERITY_FEC_BUF_RS_BITS))
+
+/* maximum recursion level for verity_fec_decode */
+#define DM_VERITY_FEC_MAX_RECURSION	4
 
 #define DM_VERITY_OPT_FEC_DEV		"use_fec_from_device"
 #define DM_VERITY_OPT_FEC_BLOCKS	"fec_blocks"
@@ -48,6 +52,8 @@ struct dm_verity_fec {
 	mempool_t *extra_pool;	/* mempool for extra buffers */
 	mempool_t *output_pool;	/* mempool for output */
 	struct kmem_cache *cache;	/* cache for buffers */
+	atomic_t corrected;		/* corrected errors */
+	struct dm_kobject_holder kobj_holder;	/* for sysfs attributes */
 };
 
 /* per-bio data */
@@ -58,6 +64,7 @@ struct dm_verity_fec_io {
 	unsigned nbufs;		/* number of buffers allocated */
 	u8 *output;		/* buffer for corrected output */
 	size_t output_pos;
+	unsigned level;		/* recursion level */
 };
 
 #ifdef CONFIG_DM_VERITY_FEC
