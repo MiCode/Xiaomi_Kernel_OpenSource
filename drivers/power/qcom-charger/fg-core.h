@@ -130,12 +130,13 @@ enum fg_sram_param_id {
 };
 
 struct fg_sram_param {
-	u16 address;
-	int offset;
+	u16 addr_word;
+	int addr_byte;
 	u8  len;
 	int value;
 	int numrtr;
 	int denmtr;
+	int offset;
 	void (*encode)(struct fg_sram_param *sp, enum fg_sram_param_id id,
 		int val, u8 *buf);
 	int (*decode)(struct fg_sram_param *sp, enum fg_sram_param_id id,
