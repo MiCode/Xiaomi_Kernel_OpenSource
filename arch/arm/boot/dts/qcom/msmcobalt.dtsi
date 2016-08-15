@@ -614,12 +614,25 @@
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist =	<&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,target-dev = <&memlat_cpu0>;
+		qcom,core-dev-table =
+			<  300000 1525 >,
+			<  499200 3143 >,
+			< 1113600 4173 >,
+			< 1881600 5859 >;
 	};
 
 	qcom,arm-memlat-mon-4 {
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist =	<&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,target-dev = <&memlat_cpu4>;
+		qcom,core-dev-table =
+			<  300000  1525 >,
+			<  480000  3143 >,
+			<  900000  4173 >,
+			< 1017000  7759 >,
+			< 1296000  9887 >,
+			< 1555000 11863 >,
+			< 1804000 13763 >;
 	};
 
 	devfreq_cpufreq: devfreq-cpufreq {
