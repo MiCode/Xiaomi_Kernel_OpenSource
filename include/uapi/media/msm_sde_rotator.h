@@ -61,6 +61,7 @@
 #define SDE_PIX_FMT_RGBA_1010102_UBWC	v4l2_fourcc('Q', 'R', 'B', 'A')
 #define SDE_PIX_FMT_RGBX_1010102_UBWC	v4l2_fourcc('Q', 'X', 'B', 'A')
 #define SDE_PIX_FMT_Y_CBCR_H2V2_P010	v4l2_fourcc('P', '0', '1', '0')
+#define SDE_PIX_FMT_Y_CBCR_H2V2_TP10	v4l2_fourcc('T', 'P', '1', '0')
 #define SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC	V4L2_PIX_FMT_NV12_TP10_UBWC
 
 /**

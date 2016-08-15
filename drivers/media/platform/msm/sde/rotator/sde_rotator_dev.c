@@ -52,244 +52,6 @@
 #define SDE_ROTATOR_DEGREE_270		270
 #define SDE_ROTATOR_DEGREE_180		180
 #define SDE_ROTATOR_DEGREE_90		90
-/*
- * Format description/mapping
- * @pixelformat: external format defined in msm_sde_rotator header.
- *
- * Note RGBA/8888 naming convention follows internal convention and
- * is reverse of standard V4L2 convention.  Description containing
- * prefix 'SDE/' refers to SDE specific conventions and/or features.
- */
-static const struct v4l2_fmtdesc fmtdesc[] = {
-	{
-		.description = "SDE/XRGB_8888",
-		.pixelformat = SDE_PIX_FMT_XRGB_8888,
-	},
-	{
-		.description = "SDE/ARGB_8888",
-		.pixelformat = SDE_PIX_FMT_ARGB_8888,
-	},
-	{
-		.description = "SDE/ABGR_8888",
-		.pixelformat = SDE_PIX_FMT_ABGR_8888,
-	},
-	{
-		.description = "SDE/RGBA_8888",
-		.pixelformat = SDE_PIX_FMT_RGBA_8888,
-	},
-	{
-		.description = "SDE/BGRA_8888",
-		.pixelformat = SDE_PIX_FMT_BGRA_8888,
-	},
-	{
-		.description = "SDE/RGBX_8888",
-		.pixelformat = SDE_PIX_FMT_RGBX_8888,
-	},
-	{
-		.description = "SDE/BGRX_8888",
-		.pixelformat = SDE_PIX_FMT_BGRX_8888,
-	},
-	{
-		.description = "SDE/XBGR_8888",
-		.pixelformat = SDE_PIX_FMT_XBGR_8888,
-	},
-	{
-		.description = "RGBA_5551",
-		.pixelformat = SDE_PIX_FMT_RGBA_5551,
-	},
-	{
-		.description = "ARGB_1555",
-		.pixelformat = SDE_PIX_FMT_ARGB_1555,
-	},
-	{
-		.description = "ABGR_1555",
-		.pixelformat = SDE_PIX_FMT_ABGR_1555,
-	},
-	{
-		.description = "BGRA_5551",
-		.pixelformat = SDE_PIX_FMT_BGRA_5551,
-	},
-	{
-		.description = "BGRX_5551",
-		.pixelformat = SDE_PIX_FMT_BGRX_5551,
-	},
-	{
-		.description = "RGBX_5551",
-		.pixelformat = SDE_PIX_FMT_RGBX_5551,
-	},
-	{
-		.description = "XBGR_1555",
-		.pixelformat = SDE_PIX_FMT_XBGR_1555,
-	},
-	{
-		.description = "XRGB_1555",
-		.pixelformat = SDE_PIX_FMT_XRGB_1555,
-	},
-	{
-		.description = "ARGB_4444",
-		.pixelformat = SDE_PIX_FMT_ARGB_4444,
-	},
-	{
-		.description = "RGBA_4444",
-		.pixelformat = SDE_PIX_FMT_RGBA_4444,
-	},
-	{
-		.description = "BGRA_4444",
-		.pixelformat = SDE_PIX_FMT_BGRA_4444,
-	},
-	{
-		.description = "ABGR_4444",
-		.pixelformat = SDE_PIX_FMT_ABGR_4444,
-	},
-	{
-		.description = "RGBX_4444",
-		.pixelformat = SDE_PIX_FMT_RGBX_4444,
-	},
-	{
-		.description = "XRGB_4444",
-		.pixelformat = SDE_PIX_FMT_XRGB_4444,
-	},
-	{
-		.description = "BGRX_4444",
-		.pixelformat = SDE_PIX_FMT_BGRX_4444,
-	},
-	{
-		.description = "XBGR_4444",
-		.pixelformat = SDE_PIX_FMT_XBGR_4444,
-	},
-	{
-		.description = "RGB_888",
-		.pixelformat = SDE_PIX_FMT_RGB_888,
-	},
-	{
-		.description = "BGR_888",
-		.pixelformat = SDE_PIX_FMT_BGR_888,
-	},
-	{
-		.description = "RGB_565",
-		.pixelformat = SDE_PIX_FMT_RGB_565,
-	},
-	{
-		.description = "BGR_565",
-		.pixelformat = SDE_PIX_FMT_BGR_565,
-	},
-	{
-		.description = "Y_CB_CR_H2V2",
-		.pixelformat = SDE_PIX_FMT_Y_CB_CR_H2V2,
-	},
-	{
-		.description = "Y_CR_CB_H2V2",
-		.pixelformat = SDE_PIX_FMT_Y_CR_CB_H2V2,
-	},
-	{
-		.description = "SDE/Y_CR_CB_GH2V2",
-		.pixelformat = SDE_PIX_FMT_Y_CR_CB_GH2V2,
-	},
-	{
-		.description = "Y_CBCR_H2V2",
-		.pixelformat = SDE_PIX_FMT_Y_CBCR_H2V2,
-	},
-	{
-		.description = "Y_CRCB_H2V2",
-		.pixelformat = SDE_PIX_FMT_Y_CRCB_H2V2,
-	},
-	{
-		.description = "Y_CBCR_H1V2",
-		.pixelformat = SDE_PIX_FMT_Y_CBCR_H1V2,
-	},
-	{
-		.description = "Y_CRCB_H1V2",
-		.pixelformat = SDE_PIX_FMT_Y_CRCB_H1V2,
-	},
-	{
-		.description = "Y_CBCR_H2V1",
-		.pixelformat = SDE_PIX_FMT_Y_CBCR_H2V1,
-	},
-	{
-		.description = "Y_CRCB_H2V1",
-		.pixelformat = SDE_PIX_FMT_Y_CRCB_H2V1,
-	},
-	{
-		.description = "YCBYCR_H2V1",
-		.pixelformat = SDE_PIX_FMT_YCBYCR_H2V1,
-	},
-	{
-		.description = "SDE/Y_CBCR_H2V2_VENUS",
-		.pixelformat = SDE_PIX_FMT_Y_CBCR_H2V2_VENUS,
-	},
-	{
-		.description = "SDE/Y_CRCB_H2V2_VENUS",
-		.pixelformat = SDE_PIX_FMT_Y_CRCB_H2V2_VENUS,
-	},
-	{
-		.description = "SDE/RGBA_8888_UBWC",
-		.pixelformat = SDE_PIX_FMT_RGBA_8888_UBWC,
-	},
-	{
-		.description = "SDE/RGBX_8888_UBWC",
-		.pixelformat = SDE_PIX_FMT_RGBX_8888_UBWC,
-	},
-	{
-		.description = "SDE/RGB_565_UBWC",
-		.pixelformat = SDE_PIX_FMT_RGB_565_UBWC,
-	},
-	{
-		.description = "SDE/Y_CBCR_H2V2_UBWC",
-		.pixelformat = SDE_PIX_FMT_Y_CBCR_H2V2_UBWC,
-	},
-	{
-		.description = "SDE/RGBA_1010102",
-		.pixelformat = SDE_PIX_FMT_RGBA_1010102,
-	},
-	{
-		.description = "SDE/RGBX_1010102",
-		.pixelformat = SDE_PIX_FMT_RGBX_1010102,
-	},
-	{
-		.description = "SDE/ARGB_2101010",
-		.pixelformat = SDE_PIX_FMT_ARGB_2101010,
-	},
-	{
-		.description = "SDE/XRGB_2101010",
-		.pixelformat = SDE_PIX_FMT_XRGB_2101010,
-	},
-	{
-		.description = "SDE/BGRA_1010102",
-		.pixelformat = SDE_PIX_FMT_BGRA_1010102,
-	},
-	{
-		.description = "SDE/BGRX_1010102",
-		.pixelformat = SDE_PIX_FMT_BGRX_1010102,
-	},
-	{
-		.description = "SDE/ABGR_2101010",
-		.pixelformat = SDE_PIX_FMT_ABGR_2101010,
-	},
-	{
-		.description = "SDE/XBGR_2101010",
-		.pixelformat = SDE_PIX_FMT_XBGR_2101010,
-	},
-	{
-		.description = "SDE/RGBA_1010102_UBWC",
-		.pixelformat = SDE_PIX_FMT_RGBA_1010102_UBWC,
-	},
-	{
-		.description = "SDE/RGBX_1010102_UBWC",
-		.pixelformat = SDE_PIX_FMT_RGBX_1010102_UBWC,
-	},
-	{
-		.description = "SDE/Y_CBCR_H2V2_P010",
-		.pixelformat = SDE_PIX_FMT_Y_CBCR_H2V2_P010,
-	},
-	{
-		.description = "SDE/Y_CBCR_H2V2_TP10",
-		.pixelformat = SDE_PIX_FMT_Y_CBCR_H2V2_TP10,
-	},
-	{
-		.description = "SDE/Y_CBCR_H2V2_TP10_UBWC",
-		.pixelformat = SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
-	},
-};
 
 static void sde_rotator_submit_handler(struct work_struct *work);
 static void sde_rotator_retire_handler(struct work_struct *work);
@@ -306,26 +68,6 @@ static inline struct sde_rotator_ctx *sde_rotator_ctx_from_fh(
 		struct v4l2_fh *fh)
 {
 	return container_of(fh, struct sde_rotator_ctx, fh);
-}
-
-/*
- * sde_rotator_get_format_idx - Get rotator format lookup index.
- * @ctx: Pointer to rotator ctx.
- * @f: v4l2 format.
- */
-static int sde_rotator_get_format_idx(struct sde_rotator_ctx *ctx,
-	struct v4l2_format *f)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(fmtdesc); i++)
-		if (fmtdesc[i].pixelformat == f->fmt.pix.pixelformat)
-			break;
-
-	if (i == ARRAY_SIZE(fmtdesc))
-		return -EINVAL;
-
-	return i;
 }
 
 /*
@@ -1302,12 +1044,21 @@ static int sde_rotator_querycap(struct file *file,
 static int sde_rotator_enum_fmt_vid_cap(struct file *file,
 	void *fh, struct v4l2_fmtdesc *f)
 {
-	if (f->index >= ARRAY_SIZE(fmtdesc))
+	struct sde_rotator_ctx *ctx = sde_rotator_ctx_from_fh(fh);
+	struct sde_rotator_device *rot_dev = ctx->rot_dev;
+	struct sde_mdp_format_params *fmt;
+	u32 pixfmt;
+
+	pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, f->index, false);
+	if (!pixfmt)
 		return -EINVAL;
 
-	f->pixelformat = fmtdesc[f->index].pixelformat;
-	strlcpy(f->description, fmtdesc[f->index].description,
-		sizeof(f->description));
+	fmt = sde_get_format_params(pixfmt);
+	if (!fmt)
+		return -EINVAL;
+
+	f->pixelformat = pixfmt;
+	strlcpy(f->description, fmt->description, sizeof(f->description));
 
 	return 0;
 }
@@ -1321,12 +1072,21 @@ static int sde_rotator_enum_fmt_vid_cap(struct file *file,
 static int sde_rotator_enum_fmt_vid_out(struct file *file,
 	void *fh, struct v4l2_fmtdesc *f)
 {
-	if (f->index >= ARRAY_SIZE(fmtdesc))
+	struct sde_rotator_ctx *ctx = sde_rotator_ctx_from_fh(fh);
+	struct sde_rotator_device *rot_dev = ctx->rot_dev;
+	struct sde_mdp_format_params *fmt;
+	u32 pixfmt;
+
+	pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, f->index, true);
+	if (!pixfmt)
 		return -EINVAL;
 
-	f->pixelformat = fmtdesc[f->index].pixelformat;
-	strlcpy(f->description, fmtdesc[f->index].description,
-		sizeof(f->description));
+	fmt = sde_get_format_params(pixfmt);
+	if (!fmt)
+		return -EINVAL;
+
+	f->pixelformat = pixfmt;
+	strlcpy(f->description, fmt->description, sizeof(f->description));
 
 	return 0;
 }
@@ -1375,12 +1135,7 @@ static int sde_rotator_try_fmt_vid_cap(struct file *file,
 	struct sde_rotator_ctx *ctx = sde_rotator_ctx_from_fh(fh);
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_rotation_config config;
-	int fmt_idx;
 	int ret;
-
-	fmt_idx = sde_rotator_get_format_idx(ctx, f);
-	if (fmt_idx < 0)
-		return -EINVAL;
 
 	sde_rot_mgr_lock(rot_dev->mgr);
 	sde_rotator_get_config_from_ctx(ctx, &config);
@@ -1419,12 +1174,7 @@ static int sde_rotator_try_fmt_vid_out(struct file *file,
 	struct sde_rotator_ctx *ctx = sde_rotator_ctx_from_fh(fh);
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_rotation_config config;
-	int fmt_idx;
 	int ret;
-
-	fmt_idx = sde_rotator_get_format_idx(ctx, f);
-	if (fmt_idx < 0)
-		return -EINVAL;
 
 	sde_rot_mgr_lock(rot_dev->mgr);
 	sde_rotator_get_config_from_ctx(ctx, &config);

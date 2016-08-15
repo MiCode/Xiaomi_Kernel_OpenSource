@@ -302,9 +302,31 @@ struct sde_rot_mgr {
 			struct dentry *debugfs_root);
 	int (*ops_hw_validate_entry)(struct sde_rot_mgr *mgr,
 			struct sde_rot_entry *entry);
+	u32 (*ops_hw_get_pixfmt)(struct sde_rot_mgr *mgr, int index,
+			bool input);
+	int (*ops_hw_is_valid_pixfmt)(struct sde_rot_mgr *mgr, u32 pixfmt,
+			bool input);
 
 	void *hw_data;
 };
+
+static inline int sde_rotator_is_valid_pixfmt(struct sde_rot_mgr *mgr,
+		u32 pixfmt, bool input)
+{
+	if (mgr && mgr->ops_hw_is_valid_pixfmt)
+		return mgr->ops_hw_is_valid_pixfmt(mgr, pixfmt, input);
+
+	return false;
+}
+
+static inline u32 sde_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
+		int index, bool input)
+{
+	if (mgr && mgr->ops_hw_get_pixfmt)
+		return mgr->ops_hw_get_pixfmt(mgr, index, input);
+
+	return 0;
+}
 
 static inline int __compare_session_item_rect(
 	struct sde_rotation_buf_info *s_rect,

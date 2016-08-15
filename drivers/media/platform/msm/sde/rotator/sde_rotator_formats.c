@@ -16,9 +16,10 @@
 #include "sde_rotator_formats.h"
 #include "sde_rotator_util.h"
 
-#define FMT_RGB_565(fmt, frame_fmt, flag_arg, e0, e1, e2, isubwc)	\
+#define FMT_RGB_565(fmt, desc, frame_fmt, flag_arg, e0, e1, e2, isubwc)	\
 	{							\
 		.format = (fmt),				\
+		.description = (desc),				\
 		.flag = flag_arg,				\
 		.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
@@ -37,9 +38,10 @@
 		.is_ubwc = isubwc,				\
 	}
 
-#define FMT_RGB_888(fmt, frame_fmt, flag_arg, e0, e1, e2, isubwc)	\
+#define FMT_RGB_888(fmt, desc, frame_fmt, flag_arg, e0, e1, e2, isubwc)	\
 	{							\
 		.format = (fmt),				\
+		.description = (desc),				\
 		.flag = flag_arg,				\
 		.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
@@ -58,10 +60,11 @@
 		.is_ubwc = isubwc,				\
 	}
 
-#define FMT_RGB_8888(fmt, frame_fmt, flag_arg,			\
+#define FMT_RGB_8888(fmt, desc, frame_fmt, flag_arg,			\
 		alpha_en, e0, e1, e2, e3, isubwc)		\
 	{							\
 		.format = (fmt),				\
+		.description = (desc),				\
 		.flag = flag_arg,				\
 		.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
@@ -93,10 +96,11 @@
 		.unpack_tight = 1,				\
 		.unpack_align_msb = 0
 
-#define FMT_YUV_PSEUDO(fmt, frame_fmt, samp, pixel_type,	\
+#define FMT_YUV_PSEUDO(fmt, desc, frame_fmt, samp, pixel_type,	\
 		flag_arg, e0, e1, isubwc)			\
 	{							\
 		FMT_YUV_COMMON(fmt),				\
+		.description = (desc),				\
 		.flag = flag_arg,				\
 		.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,	\
 		.chroma_sample = samp,				\
@@ -108,10 +112,11 @@
 		.is_ubwc = isubwc,				\
 	}
 
-#define FMT_YUV_PLANR(fmt, frame_fmt, samp, \
+#define FMT_YUV_PLANR(fmt, desc, frame_fmt, samp, \
 		flag_arg, e0, e1)		\
 	{							\
 		FMT_YUV_COMMON(fmt),				\
+		.description = (desc),				\
 		.flag = flag_arg,				\
 		.fetch_planes = SDE_MDP_PLANE_PLANAR,		\
 		.chroma_sample = samp,				\
@@ -123,9 +128,10 @@
 		.is_ubwc = SDE_MDP_COMPRESS_NONE,		\
 	}
 
-#define FMT_RGB_1555(fmt, alpha_en, flag_arg, e0, e1, e2, e3)	\
+#define FMT_RGB_1555(fmt, desc, alpha_en, flag_arg, e0, e1, e2, e3)	\
 	{							\
 		.format = (fmt),				\
+		.description = (desc),				\
 		.flag = flag_arg,				\
 		.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
@@ -145,9 +151,10 @@
 		.is_ubwc = SDE_MDP_COMPRESS_NONE,		\
 	}
 
-#define FMT_RGB_4444(fmt, alpha_en, flag_arg, e0, e1, e2, e3)		\
+#define FMT_RGB_4444(fmt, desc, alpha_en, flag_arg, e0, e1, e2, e3)	\
 	{							\
 		.format = (fmt),				\
+		.description = (desc),				\
 		.flag = flag_arg,				\
 		.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
@@ -167,10 +174,11 @@
 		.is_ubwc = SDE_MDP_COMPRESS_NONE,		\
 	}
 
-#define FMT_RGB_1010102(fmt, frame_fmt, flag_arg,		\
+#define FMT_RGB_1010102(fmt, desc, frame_fmt, flag_arg,		\
 			alpha_en, e0, e1, e2, e3, isubwc)	\
 	{							\
 		.format = (fmt),				\
+		.description = (desc),				\
 		.flag = flag_arg,				\
 		.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
@@ -190,7 +198,6 @@
 		.is_ubwc = isubwc,				\
 	}
 
-#define VALID_ROT_WB_ALL (VALID_ROT_WB_FORMAT | VALID_ROT_R3_WB_FORMAT)
 /*
  * UBWC formats table:
  * This table holds the UBWC formats supported.
@@ -200,7 +207,8 @@
 static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 	{
 		.mdp_format = FMT_RGB_565(SDE_PIX_FMT_RGB_565_UBWC,
-			SDE_MDP_FMT_TILE_A5X, VALID_ROT_WB_ALL,
+			"SDE/RGB_565_UBWC",
+			SDE_MDP_FMT_TILE_A5X, 0,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, SDE_MDP_COMPRESS_UBWC),
 		.micro = {
 			.tile_height = 4,
@@ -209,7 +217,8 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 	},
 	{
 		.mdp_format = FMT_RGB_8888(SDE_PIX_FMT_RGBA_8888_UBWC,
-			SDE_MDP_FMT_TILE_A5X, VALID_ROT_WB_ALL, 1,
+			"SDE/RGBA_8888_UBWC",
+			SDE_MDP_FMT_TILE_A5X, 0, 1,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
 			SDE_MDP_COMPRESS_UBWC),
 		.micro = {
@@ -219,7 +228,8 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 	},
 	{
 		.mdp_format = FMT_RGB_8888(SDE_PIX_FMT_RGBX_8888_UBWC,
-			SDE_MDP_FMT_TILE_A5X, VALID_ROT_WB_ALL, 0,
+			"SDE/RGBX_8888_UBWC",
+			SDE_MDP_FMT_TILE_A5X, 0, 0,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
 			SDE_MDP_COMPRESS_UBWC),
 		.micro = {
@@ -229,9 +239,10 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 	},
 	{
 		.mdp_format = FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H2V2_UBWC,
+			"SDE/Y_CBCR_H2V2_UBWC",
 			SDE_MDP_FMT_TILE_A5X, SDE_MDP_CHROMA_420,
 			SDE_MDP_PIXEL_NORMAL,
-			VALID_ROT_WB_ALL, C1_B_Cb, C2_R_Cr,
+			0, C1_B_Cb, C2_R_Cr,
 			SDE_MDP_COMPRESS_UBWC),
 		.micro = {
 			.tile_height = 8,
@@ -240,7 +251,8 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 	},
 	{
 		.mdp_format = FMT_RGB_1010102(SDE_PIX_FMT_RGBA_1010102_UBWC,
-			SDE_MDP_FMT_TILE_A5X, VALID_ROT_R3_WB_FORMAT, 1,
+			"SDE/RGBA_1010102_UBWC",
+			SDE_MDP_FMT_TILE_A5X, 0, 1,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
 			SDE_MDP_COMPRESS_UBWC),
 		.micro = {
@@ -250,7 +262,8 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 	},
 	{
 		.mdp_format = FMT_RGB_1010102(SDE_PIX_FMT_RGBX_1010102_UBWC,
-			SDE_MDP_FMT_TILE_A5X, VALID_ROT_R3_WB_FORMAT, 0,
+			"SDE/RGBX_1010102_UBWC",
+			SDE_MDP_FMT_TILE_A5X, 0, 0,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
 			SDE_MDP_COMPRESS_UBWC),
 		.micro = {
@@ -260,9 +273,10 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 	},
 	{
 		.mdp_format = FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
+			"SDE/Y_CBCR_H2V2_TP10_UBWC",
 			SDE_MDP_FMT_TILE_A5X, SDE_MDP_CHROMA_420,
 			SDE_MDP_PIXEL_10BIT,
-			VALID_ROT_R3_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
+			0,
 			C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_UBWC),
 		.micro = {
 			.tile_height = 4,
@@ -273,88 +287,89 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 
 static struct sde_mdp_format_params sde_mdp_format_map[] = {
 	FMT_RGB_565(
-		SDE_PIX_FMT_RGB_565, SDE_MDP_FMT_LINEAR, VALID_ROT_WB_ALL |
-		VALID_MDP_WB_INTF_FORMAT, C1_B_Cb, C0_G_Y, C2_R_Cr,
-		SDE_MDP_COMPRESS_NONE),
+		SDE_PIX_FMT_RGB_565, "RGB_565", SDE_MDP_FMT_LINEAR,
+		0, C1_B_Cb, C0_G_Y, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
 	FMT_RGB_565(
-		SDE_PIX_FMT_BGR_565, SDE_MDP_FMT_LINEAR, VALID_ROT_WB_ALL |
-		VALID_MDP_WB_INTF_FORMAT, C2_R_Cr, C0_G_Y, C1_B_Cb,
-		SDE_MDP_COMPRESS_NONE),
+		SDE_PIX_FMT_BGR_565, "BGR_565", SDE_MDP_FMT_LINEAR,
+		0, C2_R_Cr, C0_G_Y, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
 	FMT_RGB_888(
-		SDE_PIX_FMT_RGB_888, SDE_MDP_FMT_LINEAR, VALID_ROT_WB_ALL |
-		VALID_MDP_WB_INTF_FORMAT, C2_R_Cr, C0_G_Y, C1_B_Cb,
-		SDE_MDP_COMPRESS_NONE),
+		SDE_PIX_FMT_RGB_888, "RGB_888", SDE_MDP_FMT_LINEAR,
+		0, C2_R_Cr, C0_G_Y, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
 	FMT_RGB_888(
-		SDE_PIX_FMT_BGR_888, SDE_MDP_FMT_LINEAR, VALID_ROT_WB_ALL |
-		VALID_MDP_WB_INTF_FORMAT, C1_B_Cb, C0_G_Y, C2_R_Cr,
+		SDE_PIX_FMT_BGR_888, "BGR_888", SDE_MDP_FMT_LINEAR,
+		0, C1_B_Cb, C0_G_Y, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
+
+	FMT_RGB_8888(
+		SDE_PIX_FMT_ABGR_8888, "SDE/ABGR_8888", SDE_MDP_FMT_LINEAR,
+		0, 1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
 		SDE_MDP_COMPRESS_NONE),
 
 	FMT_RGB_8888(
-		SDE_PIX_FMT_ABGR_8888, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_WB_ALL, 1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
+		SDE_PIX_FMT_XRGB_8888, "SDE/XRGB_8888", SDE_MDP_FMT_LINEAR,
+		0, 0, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_8888(
+		SDE_PIX_FMT_ARGB_8888, "SDE/ARGB_8888", SDE_MDP_FMT_LINEAR,
+		0, 1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_8888(
+		SDE_PIX_FMT_RGBA_8888, "SDE/RGBA_8888", SDE_MDP_FMT_LINEAR,
+		0, 1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_8888(
+		SDE_PIX_FMT_RGBX_8888, "SDE/RGBX_8888", SDE_MDP_FMT_LINEAR,
+		0, 0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_8888(
+		SDE_PIX_FMT_BGRA_8888, "SDE/BGRA_8888", SDE_MDP_FMT_LINEAR,
+		0, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_8888(
+		SDE_PIX_FMT_BGRX_8888, "SDE/BGRX_8888", SDE_MDP_FMT_LINEAR,
+		0, 0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_8888(
+		SDE_PIX_FMT_XBGR_8888, "SDE/XBGR_8888", SDE_MDP_FMT_LINEAR,
+		0, 0, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
 		SDE_MDP_COMPRESS_NONE),
 
-	FMT_RGB_8888(
-		SDE_PIX_FMT_XRGB_8888, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_WB_ALL | VALID_MDP_WB_INTF_FORMAT,
-		0, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_8888(
-		SDE_PIX_FMT_ARGB_8888, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_WB_ALL, 1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
-		SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_8888(
-		SDE_PIX_FMT_RGBA_8888, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_WB_ALL, 1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
-		SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_8888(
-		SDE_PIX_FMT_RGBX_8888, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_WB_ALL | VALID_MDP_WB_INTF_FORMAT,
-		0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_8888(
-		SDE_PIX_FMT_BGRA_8888, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_WB_ALL, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA,
-		SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_8888(
-		SDE_PIX_FMT_BGRX_8888, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_WB_ALL | VALID_MDP_WB_INTF_FORMAT,
-		0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA, SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_8888(
-		SDE_PIX_FMT_XBGR_8888, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_WB_ALL | VALID_MDP_WB_INTF_FORMAT,
-		0, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
-
-	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CRCB_H2V1, SDE_MDP_FMT_LINEAR,
+	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CRCB_H2V1, "Y_CRCB_H2V1",
+		SDE_MDP_FMT_LINEAR,
 		SDE_MDP_CHROMA_H2V1, SDE_MDP_PIXEL_NORMAL,
-		VALID_ROT_WB_ALL, C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
-	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H2V1, SDE_MDP_FMT_LINEAR,
+		0, C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
+	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H2V1, "Y_CBCR_H2V1",
+		SDE_MDP_FMT_LINEAR,
 		SDE_MDP_CHROMA_H2V1, SDE_MDP_PIXEL_NORMAL,
-		VALID_ROT_WB_ALL, C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
-	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CRCB_H1V2, SDE_MDP_FMT_LINEAR,
+		0, C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
+	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CRCB_H1V2, "Y_CRCB_H1V2",
+		SDE_MDP_FMT_LINEAR,
 		SDE_MDP_CHROMA_H1V2, SDE_MDP_PIXEL_NORMAL,
-		VALID_ROT_WB_ALL, C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
-	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H1V2, SDE_MDP_FMT_LINEAR,
+		0, C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
+	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H1V2, "Y_CBCR_H1V2",
+		SDE_MDP_FMT_LINEAR,
 		SDE_MDP_CHROMA_H1V2, SDE_MDP_PIXEL_NORMAL,
-		VALID_ROT_WB_ALL, C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
-	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CRCB_H2V2, SDE_MDP_FMT_LINEAR,
+		0, C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
+	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CRCB_H2V2, "Y_CRCB_H2V2",
+		SDE_MDP_FMT_LINEAR,
 		SDE_MDP_CHROMA_420, SDE_MDP_PIXEL_NORMAL,
-		VALID_ROT_WB_ALL | VALID_MDP_WB_INTF_FORMAT,
-		C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
-	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H2V2, SDE_MDP_FMT_LINEAR,
+		0, C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
+	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H2V2, "Y_CBCR_H2V2",
+		SDE_MDP_FMT_LINEAR,
 		SDE_MDP_CHROMA_420, SDE_MDP_PIXEL_NORMAL,
-		VALID_ROT_WB_ALL | VALID_MDP_WB_INTF_FORMAT,
-		C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
-	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H2V2_VENUS, SDE_MDP_FMT_LINEAR,
+		0, C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
+	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H2V2_VENUS, "SDE/Y_CBCR_H2V2_VENUS",
+		SDE_MDP_FMT_LINEAR,
 		SDE_MDP_CHROMA_420, SDE_MDP_PIXEL_NORMAL,
-		VALID_ROT_WB_ALL | VALID_MDP_WB_INTF_FORMAT,
-		C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
-	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CRCB_H2V2_VENUS, SDE_MDP_FMT_LINEAR,
+		0, C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
+	FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CRCB_H2V2_VENUS, "SDE/Y_CRCB_H2V2_VENUS",
+		SDE_MDP_FMT_LINEAR,
 		SDE_MDP_CHROMA_420, SDE_MDP_PIXEL_NORMAL,
-		VALID_ROT_WB_ALL | VALID_MDP_WB_INTF_FORMAT,
-		C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
+		0, C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
 
 	{
 		FMT_YUV_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_P010),
-		.flag = VALID_ROT_R3_WB_FORMAT,
+		.description = "SDE/Y_CBCR_H2V2_P010",
+		.flag = 0,
 		.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,
 		.chroma_sample = SDE_MDP_CHROMA_420,
 		.unpack_count = 2,
@@ -368,7 +383,8 @@ static struct sde_mdp_format_params sde_mdp_format_map[] = {
 	},
 	{
 		FMT_YUV_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_TP10),
-		.flag = VALID_ROT_R3_WB_FORMAT,
+		.description = "SDE/Y_CBCR_H2V2_TP10",
+		.flag = 0,
 		.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,
 		.chroma_sample = SDE_MDP_CHROMA_420,
 		.unpack_count = 2,
@@ -381,19 +397,20 @@ static struct sde_mdp_format_params sde_mdp_format_map[] = {
 		.is_ubwc = SDE_MDP_COMPRESS_NONE,
 	},
 
-	FMT_YUV_PLANR(SDE_PIX_FMT_Y_CB_CR_H2V2, SDE_MDP_FMT_LINEAR,
-		SDE_MDP_CHROMA_420, VALID_ROT_WB_FORMAT |
-		VALID_MDP_WB_INTF_FORMAT, C2_R_Cr, C1_B_Cb),
-	FMT_YUV_PLANR(SDE_PIX_FMT_Y_CR_CB_H2V2, SDE_MDP_FMT_LINEAR,
-		SDE_MDP_CHROMA_420, VALID_ROT_WB_FORMAT |
-		VALID_MDP_WB_INTF_FORMAT, C1_B_Cb, C2_R_Cr),
-	FMT_YUV_PLANR(SDE_PIX_FMT_Y_CR_CB_GH2V2, SDE_MDP_FMT_LINEAR,
-		SDE_MDP_CHROMA_420, VALID_ROT_WB_FORMAT |
-		VALID_MDP_WB_INTF_FORMAT, C1_B_Cb, C2_R_Cr),
+	FMT_YUV_PLANR(SDE_PIX_FMT_Y_CB_CR_H2V2, "Y_CB_CR_H2V2",
+		SDE_MDP_FMT_LINEAR,
+		SDE_MDP_CHROMA_420, 0, C2_R_Cr, C1_B_Cb),
+	FMT_YUV_PLANR(SDE_PIX_FMT_Y_CR_CB_H2V2, "Y_CR_CB_H2V2",
+		SDE_MDP_FMT_LINEAR,
+		SDE_MDP_CHROMA_420, 0, C1_B_Cb, C2_R_Cr),
+	FMT_YUV_PLANR(SDE_PIX_FMT_Y_CR_CB_GH2V2, "SDE/Y_CR_CB_GH2V2",
+		SDE_MDP_FMT_LINEAR,
+		SDE_MDP_CHROMA_420, 0, C1_B_Cb, C2_R_Cr),
 
 	{
 		FMT_YUV_COMMON(SDE_PIX_FMT_YCBYCR_H2V1),
-		.flag = VALID_ROT_WB_FORMAT,
+		.description = "YCBYCR_H2V1",
+		.flag = 0,
 		.fetch_planes = SDE_MDP_PLANE_INTERLEAVED,
 		.chroma_sample = SDE_MDP_CHROMA_H2V1,
 		.unpack_count = 4,
@@ -403,61 +420,69 @@ static struct sde_mdp_format_params sde_mdp_format_map[] = {
 		.element = { C2_R_Cr, C0_G_Y, C1_B_Cb, C0_G_Y },
 		.is_ubwc = SDE_MDP_COMPRESS_NONE,
 	},
-	FMT_RGB_1555(SDE_PIX_FMT_RGBA_5551, 1, VALID_ROT_WB_ALL,
+	FMT_RGB_1555(SDE_PIX_FMT_RGBA_5551, "RGBA_5551", 1, 0,
 		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_1555(SDE_PIX_FMT_ARGB_1555, 1, VALID_ROT_WB_ALL,
+	FMT_RGB_1555(SDE_PIX_FMT_ARGB_1555, "ARGB_1555", 1, 0,
 		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
-	FMT_RGB_1555(SDE_PIX_FMT_ABGR_1555, 1, VALID_ROT_WB_ALL,
+	FMT_RGB_1555(SDE_PIX_FMT_ABGR_1555, "ABGR_1555", 1, 0,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
-	FMT_RGB_1555(SDE_PIX_FMT_BGRA_5551, 1, VALID_ROT_WB_ALL,
+	FMT_RGB_1555(SDE_PIX_FMT_BGRA_5551, "BGRA_5551", 1, 0,
 		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_1555(SDE_PIX_FMT_BGRX_5551, 0, VALID_ROT_WB_ALL,
+	FMT_RGB_1555(SDE_PIX_FMT_BGRX_5551, "BGRX_5551", 0, 0,
 		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_1555(SDE_PIX_FMT_RGBX_5551, 0, VALID_ROT_WB_ALL,
+	FMT_RGB_1555(SDE_PIX_FMT_RGBX_5551, "RGBX_5551", 0, 0,
 		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_1555(SDE_PIX_FMT_XBGR_1555, 0, VALID_ROT_WB_ALL,
+	FMT_RGB_1555(SDE_PIX_FMT_XBGR_1555, "XBGR_1555", 0, 0,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
-	FMT_RGB_1555(SDE_PIX_FMT_XRGB_1555, 0, VALID_ROT_WB_ALL,
+	FMT_RGB_1555(SDE_PIX_FMT_XRGB_1555, "XRGB_1555", 0, 0,
 		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
-	FMT_RGB_4444(SDE_PIX_FMT_RGBA_4444, 1, VALID_ROT_WB_ALL,
+	FMT_RGB_4444(SDE_PIX_FMT_RGBA_4444, "RGBA_4444", 1, 0,
 		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_4444(SDE_PIX_FMT_ARGB_4444, 1, VALID_ROT_WB_ALL,
+	FMT_RGB_4444(SDE_PIX_FMT_ARGB_4444, "ARGB_4444", 1, 0,
 		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
-	FMT_RGB_4444(SDE_PIX_FMT_BGRA_4444, 1, VALID_ROT_WB_ALL,
+	FMT_RGB_4444(SDE_PIX_FMT_BGRA_4444, "BGRA_4444", 1, 0,
 		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_4444(SDE_PIX_FMT_ABGR_4444, 1, VALID_ROT_WB_ALL,
+	FMT_RGB_4444(SDE_PIX_FMT_ABGR_4444, "ABGR_4444", 1, 0,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
-	FMT_RGB_4444(SDE_PIX_FMT_RGBX_4444, 0, VALID_ROT_WB_ALL,
+	FMT_RGB_4444(SDE_PIX_FMT_RGBX_4444, "RGBX_4444", 0, 0,
 		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_4444(SDE_PIX_FMT_XRGB_4444, 0, VALID_ROT_WB_ALL,
+	FMT_RGB_4444(SDE_PIX_FMT_XRGB_4444, "XRGB_4444", 0, 0,
 		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
-	FMT_RGB_4444(SDE_PIX_FMT_BGRX_4444, 0, VALID_ROT_WB_ALL,
+	FMT_RGB_4444(SDE_PIX_FMT_BGRX_4444, "BGRX_4444", 0, 0,
 		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_4444(SDE_PIX_FMT_XBGR_4444, 0, VALID_ROT_WB_ALL,
+	FMT_RGB_4444(SDE_PIX_FMT_XBGR_4444, "XBGR_4444", 0, 0,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
-	FMT_RGB_1010102(SDE_PIX_FMT_RGBA_1010102, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_R3_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
-		1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_1010102(SDE_PIX_FMT_RGBX_1010102, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_R3_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
-		0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_1010102(SDE_PIX_FMT_BGRA_1010102, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_R3_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
-		1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA, SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_1010102(SDE_PIX_FMT_BGRX_1010102, SDE_MDP_FMT_LINEAR,
-		VALID_ROT_R3_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
-		0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA, SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_1010102(SDE_PIX_FMT_ARGB_2101010, SDE_MDP_FMT_LINEAR,
-		INVALID_WB_FORMAT, 1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+	FMT_RGB_1010102(SDE_PIX_FMT_RGBA_1010102, "SDE/RGBA_1010102",
+		SDE_MDP_FMT_LINEAR,
+		0, 1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
 		SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_1010102(SDE_PIX_FMT_XRGB_2101010, SDE_MDP_FMT_LINEAR,
-		INVALID_WB_FORMAT, 0, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+	FMT_RGB_1010102(SDE_PIX_FMT_RGBX_1010102, "SDE/RGBX_1010102",
+		SDE_MDP_FMT_LINEAR,
+		0, 0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
 		SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_1010102(SDE_PIX_FMT_ABGR_2101010, SDE_MDP_FMT_LINEAR,
-		INVALID_WB_FORMAT, 1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
+	FMT_RGB_1010102(SDE_PIX_FMT_BGRA_1010102, "SDE/BGRA_1010102",
+		SDE_MDP_FMT_LINEAR,
+		0, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA,
 		SDE_MDP_COMPRESS_NONE),
-	FMT_RGB_1010102(SDE_PIX_FMT_XBGR_2101010, SDE_MDP_FMT_LINEAR,
-		INVALID_WB_FORMAT, 0, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
+	FMT_RGB_1010102(SDE_PIX_FMT_BGRX_1010102, "SDE/BGRX_1010102",
+		SDE_MDP_FMT_LINEAR,
+		0, 0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_1010102(SDE_PIX_FMT_ARGB_2101010, "SDE/ARGB_2101010",
+		SDE_MDP_FMT_LINEAR,
+		0, 1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_1010102(SDE_PIX_FMT_XRGB_2101010, "SDE/XRGB_2101010",
+		SDE_MDP_FMT_LINEAR,
+		0, 0, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_1010102(SDE_PIX_FMT_ABGR_2101010, "SDE/ABGR_2101010",
+		SDE_MDP_FMT_LINEAR,
+		0, 1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
+		SDE_MDP_COMPRESS_NONE),
+	FMT_RGB_1010102(SDE_PIX_FMT_XBGR_2101010, "SDE/XBGR_2101010",
+		SDE_MDP_FMT_LINEAR,
+		0, 0, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
 		SDE_MDP_COMPRESS_NONE),
 };
 
@@ -518,24 +543,3 @@ int sde_rot_get_ubwc_micro_dim(u32 format, u16 *w, u16 *h)
 
 	return 0;
 }
-
-/*
- * sde_mdp_is_wb_format - determine if the given fmt is supported by writeback
- * @fmt: Pointer to format parameter
- */
-bool sde_mdp_is_wb_format(struct sde_mdp_format_params *fmt)
-{
-	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
-
-	if (!mdata || !fmt)
-		return false;
-	else if (test_bit(SDE_CAPS_R1_WB, mdata->sde_caps_map) &&
-			(fmt->flag & VALID_ROT_WB_FORMAT))
-		return true;
-	else if (test_bit(SDE_CAPS_R3_WB, mdata->sde_caps_map) &&
-			(fmt->flag & VALID_ROT_R3_WB_FORMAT))
-		return true;
-	else
-		return false;
-}
-
