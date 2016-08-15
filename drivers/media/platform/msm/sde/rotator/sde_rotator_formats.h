@@ -17,18 +17,10 @@
 #include <linux/types.h>
 #include <media/msm_sde_rotator.h>
 
-/* internal formats */
-#define SDE_PIX_FMT_Y_CBCR_H2V2_TP10	v4l2_fourcc('T', 'P', '1', '0')
-
 #define SDE_ROT_MAX_PLANES		4
 
 #define UBWC_META_MACRO_W_H		16
 #define UBWC_META_BLOCK_SIZE		256
-
-#define INVALID_WB_FORMAT		0
-#define VALID_ROT_WB_FORMAT		BIT(0)
-#define VALID_MDP_WB_INTF_FORMAT	BIT(1)
-#define VALID_ROT_R3_WB_FORMAT		BIT(2)
 
 /*
  * Value of enum chosen to fit the number of bits
@@ -79,6 +71,7 @@ enum sde_mdp_sspp_chroma_samp_type {
 
 struct sde_mdp_format_params {
 	u32 format;
+	const char *description;
 	u32 flag;
 	u8 is_yuv;
 	u8 is_ubwc;
@@ -110,8 +103,6 @@ struct sde_mdp_format_params_ubwc {
 struct sde_mdp_format_params *sde_get_format_params(u32 format);
 
 int sde_rot_get_ubwc_micro_dim(u32 format, u16 *w, u16 *h);
-
-bool sde_mdp_is_wb_format(struct sde_mdp_format_params *fmt);
 
 static inline bool sde_mdp_is_tilea4x_format(struct sde_mdp_format_params *fmt)
 {
