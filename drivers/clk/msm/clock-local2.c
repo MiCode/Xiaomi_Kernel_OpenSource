@@ -632,7 +632,7 @@ static void __iomem *rcg_mnd_clk_list_registers(struct clk *c, int n,
 /*
  * Branch clock functions
  */
-static void branch_clk_halt_check(struct clk *c, u32 halt_check,
+static int branch_clk_halt_check(struct clk *c, u32 halt_check,
 			void __iomem *cbcr_reg, enum branch_state br_status)
 {
 	char *status_str = (br_status == BRANCH_ON) ? "off" : "on";
@@ -657,18 +657,25 @@ static void branch_clk_halt_check(struct clk *c, u32 halt_check,
 			case BRANCH_ON:
 				if (val == BRANCH_ON_VAL
 					|| val == BRANCH_NOC_FSM_ON_VAL)
-					return;
+					return 0;
 				break;
 
 			case BRANCH_OFF:
 				if (val == BRANCH_OFF_VAL)
-					return;
+					return 0;
 				break;
 			};
 			udelay(1);
 		}
 		CLK_WARN(c, count == 0, "status stuck %s", status_str);
+		if (!count)
+			return -ETIMEDOUT;
+	} else {
+		pr_err("Invalid halt_check flag - %u\n", halt_check);
+		return -EINVAL;
 	}
+
+	return 0;
 }
 
 static unsigned long branch_clk_aggregate_rate(const struct clk *parent)
@@ -735,6 +742,23 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 
 static DEFINE_MUTEX(branch_clk_lock);
 
+static void branch_clk_unprepare(struct clk *c)
+{
+	struct branch_clk *branch = to_branch_clk(c);
+	unsigned long curr_rate, new_rate;
+
+	if (!branch->aggr_sibling_rates)
+		return;
+
+	mutex_lock(&branch_clk_lock);
+	branch->is_prepared = false;
+	new_rate = branch_clk_aggregate_rate(c->parent);
+	curr_rate = max(new_rate, c->rate);
+	if (new_rate < curr_rate)
+		clk_set_rate(c->parent, new_rate);
+	mutex_unlock(&branch_clk_lock);
+}
+
 static int branch_clk_prepare(struct clk *c)
 {
 	struct branch_clk *branch = to_branch_clk(c);
@@ -758,11 +782,38 @@ exit:
 	return ret;
 }
 
+static void branch_clk_disable(struct clk *c)
+{
+	unsigned long flags;
+	struct branch_clk *branch = to_branch_clk(c);
+	u32 reg_val;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	reg_val = readl_relaxed(CBCR_REG(branch));
+	reg_val &= ~CBCR_BRANCH_ENABLE_BIT;
+	writel_relaxed(reg_val, CBCR_REG(branch));
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	/*
+	 * Wait for clock to disable before continuing. If disable times out,
+	 * it is not handled explicitly since it is considered as non-fatal.
+	 */
+	if (!branch->no_halt_check_on_disable)
+		branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
+					BRANCH_OFF);
+
+	if (branch->toggle_memory) {
+		branch_clk_set_flags(c, CLKFLAG_NORETAIN_MEM);
+		branch_clk_set_flags(c, CLKFLAG_NORETAIN_PERIPH);
+	}
+}
+
 static int branch_clk_enable(struct clk *c)
 {
 	unsigned long flags;
 	u32 cbcr_val;
 	struct branch_clk *branch = to_branch_clk(c);
+	int ret = 0;
 
 	if (branch->toggle_memory) {
 		branch_clk_set_flags(c, CLKFLAG_RETAIN_MEM);
@@ -783,50 +834,12 @@ static int branch_clk_enable(struct clk *c)
 		udelay(5);
 
 	/* Wait for clock to enable before continuing. */
-	branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
+	ret = branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
 				BRANCH_ON);
+	if (ret)
+		branch_clk_disable(c);
 
-	return 0;
-}
-
-static void branch_clk_unprepare(struct clk *c)
-{
-	struct branch_clk *branch = to_branch_clk(c);
-	unsigned long curr_rate, new_rate;
-
-	if (!branch->aggr_sibling_rates)
-		return;
-
-	mutex_lock(&branch_clk_lock);
-	branch->is_prepared = false;
-	new_rate = branch_clk_aggregate_rate(c->parent);
-	curr_rate = max(new_rate, c->rate);
-	if (new_rate < curr_rate)
-		clk_set_rate(c->parent, new_rate);
-	mutex_unlock(&branch_clk_lock);
-}
-
-static void branch_clk_disable(struct clk *c)
-{
-	unsigned long flags;
-	struct branch_clk *branch = to_branch_clk(c);
-	u32 reg_val;
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	reg_val = readl_relaxed(CBCR_REG(branch));
-	reg_val &= ~CBCR_BRANCH_ENABLE_BIT;
-	writel_relaxed(reg_val, CBCR_REG(branch));
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-
-	/* Wait for clock to disable before continuing. */
-	if (!branch->no_halt_check_on_disable)
-		branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
-					BRANCH_OFF);
-
-	if (branch->toggle_memory) {
-		branch_clk_set_flags(c, CLKFLAG_NORETAIN_MEM);
-		branch_clk_set_flags(c, CLKFLAG_NORETAIN_PERIPH);
-	}
+	return ret;
 }
 
 static int branch_cdiv_set_rate(struct branch_clk *branch, unsigned long rate)
@@ -1131,23 +1144,6 @@ static int local_vote_clk_reset(struct clk *c, enum clk_reset_action action)
 	return __branch_clk_reset(BCR_REG(vclk), action);
 }
 
-static int local_vote_clk_enable(struct clk *c)
-{
-	unsigned long flags;
-	u32 ena;
-	struct local_vote_clk *vclk = to_local_vote_clk(c);
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	ena = readl_relaxed(VOTE_REG(vclk));
-	ena |= vclk->en_mask;
-	writel_relaxed(ena, VOTE_REG(vclk));
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-
-	branch_clk_halt_check(c, vclk->halt_check, CBCR_REG(vclk), BRANCH_ON);
-
-	return 0;
-}
-
 static void local_vote_clk_disable(struct clk *c)
 {
 	unsigned long flags;
@@ -1159,6 +1155,27 @@ static void local_vote_clk_disable(struct clk *c)
 	ena &= ~vclk->en_mask;
 	writel_relaxed(ena, VOTE_REG(vclk));
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
+static int local_vote_clk_enable(struct clk *c)
+{
+	unsigned long flags;
+	u32 ena;
+	struct local_vote_clk *vclk = to_local_vote_clk(c);
+	int ret = 0;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	ena = readl_relaxed(VOTE_REG(vclk));
+	ena |= vclk->en_mask;
+	writel_relaxed(ena, VOTE_REG(vclk));
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	ret = branch_clk_halt_check(c, vclk->halt_check, CBCR_REG(vclk),
+						BRANCH_ON);
+	if (ret)
+		local_vote_clk_disable(c);
+
+	return ret;
 }
 
 static enum handoff local_vote_clk_handoff(struct clk *c)
