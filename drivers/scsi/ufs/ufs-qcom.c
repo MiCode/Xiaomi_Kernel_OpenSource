@@ -1197,18 +1197,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 				ufs_qcom_cap.hs_rx_gear = UFS_HS_G2;
 		}
 
-		/*
-		 * Platforms using QRBTCv2 phy must limit link to PWM Gear-1
-		 * and SLOW mode to successfully bring up the link.
-		 */
-		if (!strcmp(ufs_qcom_phy_name(phy), "ufs_phy_qrbtc_v2")) {
-			ufs_qcom_cap.tx_lanes = 1;
-			ufs_qcom_cap.rx_lanes = 1;
-			ufs_qcom_cap.pwm_rx_gear = UFS_PWM_G1;
-			ufs_qcom_cap.pwm_tx_gear = UFS_PWM_G1;
-			ufs_qcom_cap.desired_working_mode = SLOW;
-		}
-
 		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
 						 dev_max_params,
 						 dev_req_params);

@@ -8,10 +8,8 @@ contain a phandle reference to UFS PHY node.
 
 Required properties:
 - compatible        : compatible list, contains one of the following:
-		      "qcom,ufs-phy-qmp-20nm"
 		      "qcom,ufs-phy-qmp-14nm"
 		      "qcom,ufs-phy-qmp-v3"
-		      "qcom,ufs-phy-qrbtc-v2"
 		      "qcom,ufs-phy-qrbtc-msmskunk"
 according to the relevant phy in use.
 - reg               : should contain PHY register address space (mandatory),
@@ -38,7 +36,7 @@ Optional properties:
 Example:
 
 	ufsphy1: ufsphy@0xfc597000 {
-		compatible = "qcom,ufs-phy-qmp-20nm";
+		compatible = "qcom,ufs-phy-qmp-14nm";
 		reg = <0xfc597000 0x800>;
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
