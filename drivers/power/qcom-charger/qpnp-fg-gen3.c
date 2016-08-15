@@ -74,63 +74,113 @@
 #define LAST_MONOTONIC_SOC_WORD		119
 #define LAST_MONOTONIC_SOC_OFFSET	2
 
+/* v2 SRAM address and offset in ascending order */
+#define DELTA_SOC_THR_v2_WORD		13
+#define DELTA_SOC_THR_v2_OFFSET		0
+#define RECHARGE_SOC_THR_v2_WORD	14
+#define RECHARGE_SOC_THR_v2_OFFSET	1
+#define CHG_TERM_CURR_v2_WORD		15
+#define CHG_TERM_CURR_v2_OFFSET		1
+#define EMPTY_VOLT_v2_WORD		15
+#define EMPTY_VOLT_v2_OFFSET		2
+#define VBATT_LOW_v2_WORD		16
+#define VBATT_LOW_v2_OFFSET		0
+
 static int fg_decode_value_16b(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
 static int fg_decode_default(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
-static void fg_encode_voltage_16b(struct fg_sram_param *sp,
-	enum fg_sram_param_id id, int val, u8 *buf);
-static void fg_encode_voltage_8b(struct fg_sram_param *sp,
+static void fg_encode_voltage(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val, u8 *buf);
 static void fg_encode_current(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val, u8 *buf);
 static void fg_encode_default(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val, u8 *buf);
 
-#define PARAM(_id, _addr, _offset, _len, _num, _den, _enc, _dec)	\
+#define PARAM(_id, _addr_word, _addr_byte, _len, _num, _den, _offset,	\
+	      _enc, _dec)						\
 	[FG_SRAM_##_id] = {						\
-		.address = _addr,					\
-		.offset = _offset,					\
-		.len = _len,						\
-		.numrtr = _num,						\
-		.denmtr = _den,						\
-		.encode = _enc,						\
-		.decode = _dec,						\
+		.addr_word	= _addr_word,				\
+		.addr_byte	= _addr_byte,				\
+		.len		= _len,					\
+		.numrtr		= _num,					\
+		.denmtr		= _den,					\
+		.offset		= _offset,				\
+		.encode		= _enc,					\
+		.decode		= _dec,					\
 	}								\
 
 static struct fg_sram_param pmicobalt_v1_sram_params[] = {
-	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, NULL,
+	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_default),
 	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 244141,
-		1000, NULL, fg_decode_value_16b),
-	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 244141, 1000, NULL,
+		1000, 0, NULL, fg_decode_value_16b),
+	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 244141, 1000, 0, NULL,
 		fg_decode_value_16b),
-	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 244141, 1000, NULL,
+	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 244141, 1000, 0, NULL,
 		fg_decode_value_16b),
 	/* Entries below here are configurable during initialization */
 	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
-		244141, fg_encode_voltage_16b, NULL),
+		244141, 0, fg_encode_voltage, NULL),
 	PARAM(EMPTY_VOLT, EMPTY_VOLT_WORD, EMPTY_VOLT_OFFSET, 1, 100000, 390625,
-		fg_encode_voltage_8b, NULL),
+		-2500, fg_encode_voltage, NULL),
 	PARAM(VBATT_LOW, VBATT_LOW_WORD, VBATT_LOW_OFFSET, 1, 100000, 390625,
-		fg_encode_voltage_8b, NULL),
+		-2500, fg_encode_voltage, NULL),
 	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 3,
-		1000000, 122070, fg_encode_current, NULL),
+		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_WORD, CHG_TERM_CURR_OFFSET, 1,
-		100000, 390625, fg_encode_current, NULL),
+		100000, 390625, 0, fg_encode_current, NULL),
 	PARAM(DELTA_SOC_THR, DELTA_SOC_THR_WORD, DELTA_SOC_THR_OFFSET, 1, 256,
-		100, fg_encode_default, NULL),
+		100, 0, fg_encode_default, NULL),
 	PARAM(RECHARGE_SOC_THR, RECHARGE_SOC_THR_WORD, RECHARGE_SOC_THR_OFFSET,
-		1, 256, 100, fg_encode_default, NULL),
+		1, 256, 100, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_DISCHG_MAX, ESR_TIMER_DISCHG_MAX_WORD,
-		ESR_TIMER_DISCHG_MAX_OFFSET, 2, 1, 1, fg_encode_default, NULL),
+		ESR_TIMER_DISCHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default,
+		NULL),
 	PARAM(ESR_TIMER_DISCHG_INIT, ESR_TIMER_DISCHG_INIT_WORD,
-		ESR_TIMER_DISCHG_INIT_OFFSET, 2, 1, 1, fg_encode_default,
+		ESR_TIMER_DISCHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default,
 		NULL),
 	PARAM(ESR_TIMER_CHG_MAX, ESR_TIMER_CHG_MAX_WORD,
-		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, fg_encode_default, NULL),
+		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
-		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, fg_encode_default, NULL),
+		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
+};
+
+static struct fg_sram_param pmicobalt_v2_sram_params[] = {
+	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
+		fg_decode_default),
+	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 244141,
+		1000, 0, NULL, fg_decode_value_16b),
+	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 244141, 1000, 0, NULL,
+		fg_decode_value_16b),
+	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 244141, 1000, 0, NULL,
+		fg_decode_value_16b),
+	/* Entries below here are configurable during initialization */
+	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
+		244141, 0, fg_encode_voltage, NULL),
+	PARAM(EMPTY_VOLT, EMPTY_VOLT_v2_WORD, EMPTY_VOLT_v2_OFFSET, 1, 100000,
+		390625, -2000, fg_encode_voltage, NULL),
+	PARAM(VBATT_LOW, VBATT_LOW_v2_WORD, VBATT_LOW_v2_OFFSET, 1, 100000,
+		390625, -2000, fg_encode_voltage, NULL),
+	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 3,
+		1000000, 122070, 0, fg_encode_current, NULL),
+	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_v2_WORD, CHG_TERM_CURR_v2_OFFSET, 1,
+		100000, 390625, 0, fg_encode_current, NULL),
+	PARAM(DELTA_SOC_THR, DELTA_SOC_THR_v2_WORD, DELTA_SOC_THR_v2_OFFSET, 1,
+		256, 100, 0, fg_encode_default, NULL),
+	PARAM(RECHARGE_SOC_THR, RECHARGE_SOC_THR_v2_WORD,
+		RECHARGE_SOC_THR_v2_OFFSET, 1, 256, 100, 0, fg_encode_default,
+		NULL),
+	PARAM(ESR_TIMER_DISCHG_MAX, ESR_TIMER_DISCHG_MAX_WORD,
+		ESR_TIMER_DISCHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default,
+		NULL),
+	PARAM(ESR_TIMER_DISCHG_INIT, ESR_TIMER_DISCHG_INIT_WORD,
+		ESR_TIMER_DISCHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default,
+		NULL),
+	PARAM(ESR_TIMER_CHG_MAX, ESR_TIMER_CHG_MAX_WORD,
+		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
+		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 };
 
 static int fg_gen3_debug_mask;
@@ -336,30 +386,13 @@ static int fg_decode(struct fg_sram_param *sp, enum fg_sram_param_id id,
 	return sp[id].decode(sp, id, value);
 }
 
-static void fg_encode_voltage_16b(struct fg_sram_param *sp,
-				enum fg_sram_param_id id, int val, u8 *buf)
-{
-	int i, mask = 0xff;
-	int64_t temp;
-
-	temp = (int64_t)div_u64((u64)val * sp[id].numrtr, sp[id].denmtr);
-	pr_debug("temp: %llx id: %d, val: %d, buf: [ ", temp, id, val);
-	for (i = 0; i < sp[id].len; i++) {
-		buf[i] = temp & mask;
-		temp >>= 8;
-		pr_debug("%x ", buf[i]);
-	}
-	pr_debug("]\n");
-}
-
-static void fg_encode_voltage_8b(struct fg_sram_param *sp,
+static void fg_encode_voltage(struct fg_sram_param *sp,
 				enum fg_sram_param_id  id, int val, u8 *buf)
 {
 	int i, mask = 0xff;
 	int64_t temp;
 
-	/* Offset is 2.5V */
-	val -= 2500;
+	val += sp[id].offset;
 	temp = (int64_t)div_u64((u64)val * sp[id].numrtr, sp[id].denmtr);
 	pr_debug("temp: %llx id: %d, val: %d, buf: [ ", temp, id, val);
 	for (i = 0; i < sp[id].len; i++) {
@@ -430,11 +463,11 @@ static int fg_get_sram_prop(struct fg_chip *chip, enum fg_sram_param_id id,
 	if (id < 0 || id > FG_SRAM_MAX || chip->sp[id].len > sizeof(buf))
 		return -EINVAL;
 
-	rc = fg_sram_read(chip, chip->sp[id].address, chip->sp[id].offset,
+	rc = fg_sram_read(chip, chip->sp[id].addr_word, chip->sp[id].addr_byte,
 		buf, chip->sp[id].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error reading address 0x%04x[%d] rc=%d\n",
-			chip->sp[id].address, chip->sp[id].offset, rc);
+			chip->sp[id].addr_word, chip->sp[id].addr_byte, rc);
 		return rc;
 	}
 
@@ -740,8 +773,8 @@ static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 
 	fg_encode(chip->sp, timer_max, cycles, buf);
 	rc = fg_sram_write(chip,
-			chip->sp[timer_max].address,
-			chip->sp[timer_max].offset, buf,
+			chip->sp[timer_max].addr_word,
+			chip->sp[timer_max].addr_byte, buf,
 			chip->sp[timer_max].len, flags);
 	if (rc < 0) {
 		pr_err("Error in writing esr_timer_dischg_max, rc=%d\n",
@@ -751,8 +784,8 @@ static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 
 	fg_encode(chip->sp, timer_init, cycles, buf);
 	rc = fg_sram_write(chip,
-			chip->sp[timer_init].address,
-			chip->sp[timer_init].offset, buf,
+			chip->sp[timer_init].addr_word,
+			chip->sp[timer_init].addr_byte, buf,
 			chip->sp[timer_init].len, flags);
 	if (rc < 0) {
 		pr_err("Error in writing esr_timer_dischg_init, rc=%d\n",
@@ -882,8 +915,8 @@ static int fg_hw_init(struct fg_chip *chip)
 	u8 buf[4], val;
 
 	fg_encode(chip->sp, FG_SRAM_CUTOFF_VOLT, chip->dt.cutoff_volt_mv, buf);
-	rc = fg_sram_write(chip, chip->sp[FG_SRAM_CUTOFF_VOLT].address,
-			chip->sp[FG_SRAM_CUTOFF_VOLT].offset, buf,
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_CUTOFF_VOLT].addr_word,
+			chip->sp[FG_SRAM_CUTOFF_VOLT].addr_byte, buf,
 			chip->sp[FG_SRAM_CUTOFF_VOLT].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in writing cutoff_volt, rc=%d\n", rc);
@@ -891,8 +924,8 @@ static int fg_hw_init(struct fg_chip *chip)
 	}
 
 	fg_encode(chip->sp, FG_SRAM_EMPTY_VOLT, chip->dt.empty_volt_mv, buf);
-	rc = fg_sram_write(chip, chip->sp[FG_SRAM_EMPTY_VOLT].address,
-			chip->sp[FG_SRAM_EMPTY_VOLT].offset, buf,
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_EMPTY_VOLT].addr_word,
+			chip->sp[FG_SRAM_EMPTY_VOLT].addr_byte, buf,
 			chip->sp[FG_SRAM_EMPTY_VOLT].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in writing empty_volt, rc=%d\n", rc);
@@ -901,8 +934,8 @@ static int fg_hw_init(struct fg_chip *chip)
 
 	fg_encode(chip->sp, FG_SRAM_CHG_TERM_CURR, chip->dt.chg_term_curr_ma,
 		buf);
-	rc = fg_sram_write(chip, chip->sp[FG_SRAM_CHG_TERM_CURR].address,
-			chip->sp[FG_SRAM_CHG_TERM_CURR].offset, buf,
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_CHG_TERM_CURR].addr_word,
+			chip->sp[FG_SRAM_CHG_TERM_CURR].addr_byte, buf,
 			chip->sp[FG_SRAM_CHG_TERM_CURR].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in writing chg_term_curr, rc=%d\n", rc);
@@ -911,8 +944,8 @@ static int fg_hw_init(struct fg_chip *chip)
 
 	fg_encode(chip->sp, FG_SRAM_SYS_TERM_CURR, chip->dt.sys_term_curr_ma,
 		buf);
-	rc = fg_sram_write(chip, chip->sp[FG_SRAM_SYS_TERM_CURR].address,
-			chip->sp[FG_SRAM_SYS_TERM_CURR].offset, buf,
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_SYS_TERM_CURR].addr_word,
+			chip->sp[FG_SRAM_SYS_TERM_CURR].addr_byte, buf,
 			chip->sp[FG_SRAM_SYS_TERM_CURR].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in writing sys_term_curr, rc=%d\n", rc);
@@ -922,8 +955,8 @@ static int fg_hw_init(struct fg_chip *chip)
 	if (chip->dt.vbatt_low_thr_mv > 0) {
 		fg_encode(chip->sp, FG_SRAM_VBATT_LOW,
 			chip->dt.vbatt_low_thr_mv, buf);
-		rc = fg_sram_write(chip, chip->sp[FG_SRAM_VBATT_LOW].address,
-				chip->sp[FG_SRAM_VBATT_LOW].offset, buf,
+		rc = fg_sram_write(chip, chip->sp[FG_SRAM_VBATT_LOW].addr_word,
+				chip->sp[FG_SRAM_VBATT_LOW].addr_byte, buf,
 				chip->sp[FG_SRAM_VBATT_LOW].len,
 				FG_IMA_DEFAULT);
 		if (rc < 0) {
@@ -936,8 +969,8 @@ static int fg_hw_init(struct fg_chip *chip)
 		fg_encode(chip->sp, FG_SRAM_DELTA_SOC_THR,
 			chip->dt.delta_soc_thr, buf);
 		rc = fg_sram_write(chip,
-				chip->sp[FG_SRAM_DELTA_SOC_THR].address,
-				chip->sp[FG_SRAM_DELTA_SOC_THR].offset,
+				chip->sp[FG_SRAM_DELTA_SOC_THR].addr_word,
+				chip->sp[FG_SRAM_DELTA_SOC_THR].addr_byte,
 				buf, chip->sp[FG_SRAM_DELTA_SOC_THR].len,
 				FG_IMA_DEFAULT);
 		if (rc < 0) {
@@ -950,8 +983,8 @@ static int fg_hw_init(struct fg_chip *chip)
 		fg_encode(chip->sp, FG_SRAM_RECHARGE_SOC_THR,
 			chip->dt.recharge_soc_thr, buf);
 		rc = fg_sram_write(chip,
-				chip->sp[FG_SRAM_RECHARGE_SOC_THR].address,
-				chip->sp[FG_SRAM_RECHARGE_SOC_THR].offset,
+				chip->sp[FG_SRAM_RECHARGE_SOC_THR].addr_word,
+				chip->sp[FG_SRAM_RECHARGE_SOC_THR].addr_byte,
 				buf, chip->sp[FG_SRAM_RECHARGE_SOC_THR].len,
 				FG_IMA_DEFAULT);
 		if (rc < 0) {
@@ -1283,6 +1316,8 @@ static int fg_parse_dt(struct fg_chip *chip)
 	case PMICOBALT_SUBTYPE:
 		if (chip->pmic_rev_id->rev4 < PMICOBALT_V2P0_REV4)
 			chip->sp = pmicobalt_v1_sram_params;
+		else if (chip->pmic_rev_id->rev4 == PMICOBALT_V2P0_REV4)
+			chip->sp = pmicobalt_v2_sram_params;
 		else
 			return -EINVAL;
 		break;
