@@ -277,6 +277,8 @@ struct mdss_data_type {
 	struct regulator *fs;
 	struct regulator *venus;
 	struct regulator *vdd_cx;
+	u32 vdd_cx_min_uv;
+	u32 vdd_cx_max_uv;
 	bool batfet_required;
 	struct regulator *batfet;
 	bool en_svs_high;
