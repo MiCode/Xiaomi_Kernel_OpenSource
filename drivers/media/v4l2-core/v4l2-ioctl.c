@@ -1233,6 +1233,80 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		descr = "NV12 UBWC"; break;
 	case V4L2_PIX_FMT_RGBA8888_UBWC:
 		descr = "RGBA8888 UBWC"; break;
+	case V4L2_PIX_FMT_SDE_ABGR_8888:
+					descr = "32-bit ABGR 8-8-8-8"; break;
+	case V4L2_PIX_FMT_SDE_RGBA_8888:
+					descr = "32-bit RGBA 8-8-8-8"; break;
+	case V4L2_PIX_FMT_SDE_RGBX_8888:
+					descr = "32-bit RGBX 8-8-8-8"; break;
+	case V4L2_PIX_FMT_SDE_XBGR_8888:
+					descr = "32-bit XBGR 8-8-8-8"; break;
+	case V4L2_PIX_FMT_SDE_RGBA_5551:
+					descr = "16-bit RGBA 5-5-5-1"; break;
+	case V4L2_PIX_FMT_SDE_ABGR_1555:
+					descr = "16-bit ABGR 1-5-5-5"; break;
+	case V4L2_PIX_FMT_SDE_BGRA_5551:
+					descr = "16-bit BGRA 5-5-5-1"; break;
+	case V4L2_PIX_FMT_SDE_BGRX_5551:
+					descr = "16-bit BGRX 5-5-5-1"; break;
+	case V4L2_PIX_FMT_SDE_RGBX_5551:
+					descr = "16-bit RGBX 5-5-5-1"; break;
+	case V4L2_PIX_FMT_SDE_XBGR_1555:
+					descr = "16-bit XBGR 1-5-5-5"; break;
+	case V4L2_PIX_FMT_SDE_RGBA_4444:
+					descr = "16-bit RGBA 4-4-4-4"; break;
+	case V4L2_PIX_FMT_SDE_BGRA_4444:
+					descr = "16-bit BGRA 4-4-4-4"; break;
+	case V4L2_PIX_FMT_SDE_ABGR_4444:
+					descr = "16-bit ABGR 4-4-4-4"; break;
+	case V4L2_PIX_FMT_SDE_RGBX_4444:
+					descr = "16-bit RGBX 4-4-4-4"; break;
+	case V4L2_PIX_FMT_SDE_BGRX_4444:
+					descr = "16-bit BGRX 4-4-4-4"; break;
+	case V4L2_PIX_FMT_SDE_XBGR_4444:
+					descr = "16-bit XBGR 4-4-4-4"; break;
+	case V4L2_PIX_FMT_SDE_BGR_565:
+					descr = "16-bit BGR 5-6-5"; break;
+	case V4L2_PIX_FMT_SDE_Y_CR_CB_GH2V2:
+					descr = "Planar YVU 4:2:0 A16"; break;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H1V2:
+					descr = "Y/CbCr 4:2:2"; break;
+	case V4L2_PIX_FMT_SDE_Y_CRCB_H1V2:
+					descr = "Y/CrCb 4:2:2"; break;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_VENUS:
+					descr = "Y/CbCr 4:2:0 Venus"; break;
+	case V4L2_PIX_FMT_SDE_Y_CRCB_H2V2_VENUS:
+					descr = "Y/CrCb 4:2:0 Venus"; break;
+	case V4L2_PIX_FMT_SDE_RGBX_8888_UBWC:
+					descr = "RGBX 8:8:8:8 UBWC"; break;
+	case V4L2_PIX_FMT_SDE_RGB_565_UBWC:
+					descr = "RGB 5:6:5 UBWC"; break;
+	case V4L2_PIX_FMT_SDE_RGBA_1010102:
+					descr = "RGBA 10:10:10:2"; break;
+	case V4L2_PIX_FMT_SDE_RGBX_1010102:
+					descr = "RGBX 10:10:10:2"; break;
+	case V4L2_PIX_FMT_SDE_ARGB_2101010:
+					descr = "ARGB 2:10:10:10"; break;
+	case V4L2_PIX_FMT_SDE_XRGB_2101010:
+					descr = "XRGB 2:10:10:10"; break;
+	case V4L2_PIX_FMT_SDE_BGRA_1010102:
+					descr = "BGRA 10:10:10:2"; break;
+	case V4L2_PIX_FMT_SDE_BGRX_1010102:
+					descr = "BGRX 10:10:10:2"; break;
+	case V4L2_PIX_FMT_SDE_ABGR_2101010:
+					descr = "ABGR 2:10:10:10"; break;
+	case V4L2_PIX_FMT_SDE_XBGR_2101010:
+					descr = "XBGR 2:10:10:10"; break;
+	case V4L2_PIX_FMT_SDE_RGBA_1010102_UBWC:
+					descr = "RGBA 10:10:10:2 UBWC"; break;
+	case V4L2_PIX_FMT_SDE_RGBX_1010102_UBWC:
+					descr = "RGBX 10:10:10:2 UBWC"; break;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_TP10:
+					descr = "Y/CbCr 4:2:0 TP10"; break;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010:
+					descr = "Y/CbCr 4:2:0 P10"; break;
+	case V4L2_PIX_FMT_NV12_TP10_UBWC:
+					descr = "Y/CbCr 4:2:0 TP10 UBWC"; break;
 
 	default:
 		/* Compressed formats */
