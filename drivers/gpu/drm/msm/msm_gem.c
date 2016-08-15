@@ -307,11 +307,27 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 					DRM_ERROR("Unable to map dma buf\n");
 					return ret;
 				}
+				msm_obj->domain[id].iova =
+					sg_dma_address(msm_obj->sgt->sgl);
+			} else if (!use_pages(obj)) {
+				/* use vram */
+				dma_addr_t pa = physaddr(obj);
+
+				ret = mmu->funcs->map(mmu, pa, msm_obj->sgt,
+						obj->size,
+						IOMMU_READ | IOMMU_NOEXEC);
+				if (ret) {
+					DRM_ERROR("Unable to map phy buf=%p\n",
+						(void *)pa);
+					return ret;
+				}
+				msm_obj->domain[id].iova = pa;
+			} else {
+				msm_obj->domain[id].iova =
+					sg_dma_address(msm_obj->sgt->sgl);
 			}
-			msm_obj->domain[id].iova =
-				sg_dma_address(msm_obj->sgt->sgl);
 		} else {
-			WARN_ONCE(1, "physical address being used\n");
+			WARN(1, "physical address being used\n");
 			msm_obj->domain[id].iova = physaddr(obj);
 		}
 	}
@@ -535,6 +551,16 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 				mmu->funcs->unmap_dma_buf(mmu, msm_obj->sgt,
 						obj->import_attach->dmabuf,
 						DMA_BIDIRECTIONAL);
+			} else if (!use_pages(obj)) {
+				uint32_t offset = msm_obj->domain[id].iova;
+
+				mmu->funcs->unmap(mmu, offset, msm_obj->sgt,
+					obj->size);
+			} else {
+			/*
+				mmu->funcs->unmap_sg(mmu, msm_obj->sgt,
+						DMA_BIDIRECTIONAL);
+			*/
 			}
 		}
 	}
@@ -632,6 +658,22 @@ static int msm_gem_new_impl(struct drm_device *dev,
 
 	msm_obj->resv = &msm_obj->_resv;
 	reservation_object_init(msm_obj->resv);
+
+	if (use_vram) {
+		/* Update start page index */
+		struct msm_gem_object *pos;
+		dma_addr_t start = 0;
+
+		list_for_each_entry(pos, &priv->inactive_list, mm_list) {
+			struct drm_gem_object *gem_obj = &pos->base;
+			struct drm_mm_node *vram_node = pos->vram_node;
+
+			if (vram_node)
+				start += vram_node->start;
+			start += (gem_obj->size >> PAGE_SHIFT);
+		}
+		msm_obj->vram_node->start = start;
+	}
 
 	INIT_LIST_HEAD(&msm_obj->submit_entry);
 	list_add_tail(&msm_obj->mm_list, &priv->inactive_list);

@@ -269,6 +269,7 @@ static int msm_init_vram(struct drm_device *dev)
 	struct msm_drm_private *priv = dev->dev_private;
 	unsigned long size = 0;
 	int ret = 0;
+	dma_addr_t start;
 
 #ifdef CONFIG_OF
 	/* In the device-tree world, we could have a 'memory-region'
@@ -296,6 +297,7 @@ static int msm_init_vram(struct drm_device *dev)
 		if (ret)
 			return ret;
 		size = r.end - r.start;
+		start = (dma_addr_t)r.start;
 		DRM_INFO("using VRAM carveout: %lx@%pa\n", size, &r.start);
 	} else
 #endif
@@ -317,19 +319,11 @@ static int msm_init_vram(struct drm_device *dev)
 
 		drm_mm_init(&priv->vram.mm, 0, (size >> PAGE_SHIFT) - 1);
 
-		dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
-		dma_set_attr(DMA_ATTR_WRITE_COMBINE, &attrs);
-
-		/* note that for no-kernel-mapping, the vaddr returned
-		 * is bogus, but non-null if allocation succeeded:
+		/*
+		 * The carveout physical memory region is defined in
+		 * dtsi file. Don't need to allocate from dma.
 		 */
-		p = dma_alloc_attrs(dev->dev, size,
-				&priv->vram.paddr, GFP_KERNEL, &attrs);
-		if (!p) {
-			dev_err(dev->dev, "failed to allocate VRAM\n");
-			priv->vram.paddr = 0;
-			return -ENOMEM;
-		}
+		priv->vram.paddr = start;
 
 		dev_info(dev->dev, "VRAM: %08x->%08x\n",
 				(uint32_t)priv->vram.paddr,
