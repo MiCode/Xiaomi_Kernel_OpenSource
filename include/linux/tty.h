@@ -35,6 +35,8 @@
 #define N_TRACESINK	23	/* Trace data routing for MIPI P1149.7 */
 #define N_TRACEROUTER	24	/* Trace data routing for MIPI P1149.7 */
 #define N_PHONET   25  /* PHONET */
+#define N_TS2710	26	/* 3GPP TS 27.010 MUX */
+#define N_IP_OVER_TTY	27	/* IP over TTY network ldisc */
 
 #ifdef __KERNEL__
 #include <linux/fs.h>

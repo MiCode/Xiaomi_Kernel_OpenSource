@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,8 +34,10 @@ struct freqcap {
 };
 
 static unsigned int gpu_high_threshold = 700;
+static unsigned int gpu_high_threshold_highcore = 500;
 static unsigned int gpu_window = 80;
 static unsigned int gain_factor = 130;
+static unsigned int gain_factor_highcore = 130;
 static unsigned int core_profile = TEGRA_SYSEDP_PROFILE_NORMAL;
 static unsigned int online_cpu_count;
 static bool gpu_busy;
@@ -134,7 +137,10 @@ static void apply_caps(struct tegra_sysedp_devcap *devcap)
 	new.emc = forced_caps.emc ?: core_policy.emc;
 
 	if (new.cpu != cur_caps.cpu)
-		pm_qos_update_request(&cpufreq_qos, new.cpu);
+		if (online_cpu_count == 4)
+			pr_info("sysedp: %d %d %d\n", gpu_busy,
+					devcap->cpu_power + cpu_power_offset, new.cpu);
+	pm_qos_update_request(&cpufreq_qos, new.cpu);
 
 	if (new.emc != cur_caps.emc) {
 		r = clk_set_rate(emc_cap_clk, new.emc * 1000);
@@ -182,7 +188,9 @@ static void update_cur_corecap(void)
 	if (!core_platdata)
 		return;
 
-	power = core_edp_states[core_state] * gain_factor / 100;
+	power = core_edp_states[core_state] *
+			(core_profile == TEGRA_SYSEDP_PROFILE_HIGHCORE ?
+			gain_factor_highcore : gain_factor) / 100;
 	power += core_loan;
 	i = core_platdata->corecap_size - 1;
 
@@ -203,6 +211,9 @@ static void update_cur_corecap(void)
 
 static void state_change_cb(unsigned int new_state, void *priv_data)
 {
+	if (core_state == new_state)
+		return;
+
 	mutex_lock(&core_lock);
 	core_state = new_state;
 	update_cur_corecap();
@@ -213,6 +224,9 @@ static void state_change_cb(unsigned int new_state, void *priv_data)
 static unsigned int loan_update_cb(unsigned int new_size,
 		struct edp_client *lender, void *priv_data)
 {
+	if (core_loan == new_size)
+		return new_size;
+
 	mutex_lock(&core_lock);
 	core_loan = new_size;
 	update_cur_corecap();
@@ -237,7 +251,9 @@ void tegra_edp_notify_gpu_load(unsigned int load)
 	bool old;
 
 	old = gpu_busy;
-	gpu_busy = load >= gpu_high_threshold;
+	gpu_busy = load >=
+			(core_profile == TEGRA_SYSEDP_PROFILE_HIGHCORE ?
+			gpu_high_threshold_highcore : gpu_high_threshold);
 
 	if (gpu_busy == old || force_gpu_pri || !core_platdata)
 		return;
@@ -508,7 +524,6 @@ static __devinit int init_client(struct tegra_sysedp_platform_data *pdata)
 	if (r)
 		return r;
 
-	register_loan();
 	return 0;
 
 fail:

@@ -1,8 +1,7 @@
 /*
  * arch/arm/mach-tegra/board-ventana.c
  *
- * Copyright (c) 2010-2011 NVIDIA Corporation.
- * Copyright (c) 2012, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2013, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -635,7 +634,6 @@ static void __init tegra_ventana_init(void)
 	ventana_bt_rfkill();
 
 	ventana_setup_bluesleep();
-	tegra_release_bootloader_fb();
 }
 
 int __init tegra_ventana_protected_aperture_init(void)

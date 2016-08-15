@@ -2,6 +2,7 @@
  * drivers/misc/throughput.c
  *
  * Copyright (C) 2012-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,18 +57,21 @@ static void throughput_flip_callback(void)
 {
 	long timediff;
 	ktime_t now;
+	s64 timediff64;
 
 	now = ktime_get();
 
 	if (last_flip.tv64 != 0) {
-		timediff = (long) ktime_us_delta(now, last_flip);
+		timediff64 = ktime_us_delta(now, last_flip);
 
-		if (timediff <= 0) {
-			pr_warn("%s: flips %lld nsec apart\n",
+		if (timediff64 <= 0 || (unsigned long)timediff64 > 1000000) {
+			pr_debug("%s: flips %lld nsec apart\n",
 				__func__, now.tv64 - last_flip.tv64);
 			last_flip = now;
 			return;
 		}
+
+		timediff = (long)timediff64;
 
 		throughput_hint =
 			((int) target_frame_time * 1000) / timediff;
@@ -199,15 +203,15 @@ static ssize_t show_fps(struct kobject *kobj,
 {
 	int frame_time_avg;
 	ktime_t now;
-	long timediff;
+	s64 timediff64;
 	int fps = 0;
 
 	if (frame_time_sum_init)
 		goto DONE;
 
 	now = ktime_get();
-	timediff = (long) ktime_us_delta(now, last_flip);
-	if (timediff > 1000000)
+	timediff64 = ktime_us_delta(now, last_flip);
+	if (timediff64 <= 0 || (unsigned long)timediff64 > 1000000)
 		goto DONE;
 
 	frame_time_avg = frame_time_sum / EMA_PERIOD;

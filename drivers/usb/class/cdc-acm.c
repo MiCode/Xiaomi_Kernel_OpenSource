@@ -8,6 +8,8 @@
  * Copyright (c) 2004 Oliver Neukum	<oliver@neukum.name>
  * Copyright (c) 2005 David Kubicek	<dave@awk.cz>
  * Copyright (c) 2011 Johan Hovold	<jhovold@gmail.com>
+ * Copyright (c) 2013 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * USB Abstract Control Model driver for USB modems and ISDN adapters
  *
@@ -433,16 +435,39 @@ static int acm_submit_read_urbs(struct acm *acm, gfp_t mem_flags)
 
 static void acm_process_read_urb(struct acm *acm, struct urb *urb)
 {
+	struct acm_rb *rb = urb->context;
 	struct tty_struct *tty;
+	unsigned long flags;
 
-	if (!urb->actual_length)
+	if (!urb->actual_length) {
+		set_bit(rb->index, &acm->read_urbs_free);
 		return;
+	}
 
 	tty = tty_port_tty_get(&acm->port);
-	if (!tty)
+	if (!tty) {
+		set_bit(rb->index, &acm->read_urbs_free);
 		return;
+	}
 
-	tty_insert_flip_string(tty, urb->transfer_buffer, urb->actual_length);
+	rb->data = (unsigned char *)urb->transfer_buffer;
+	rb->alen = urb->actual_length;
+	spin_lock_irqsave(&acm->read_lock, flags);
+	if (!acm->int_throttled && !acm->throttled) {
+		int count = tty_insert_flip_string(tty,
+			rb->data, rb->alen);
+		if (count != rb->alen) {
+			acm->int_throttled = 1;
+			rb->data += count;
+			rb->alen -= count;
+		}
+	}
+	if (!acm->int_throttled && !acm->throttled)
+		set_bit(rb->index, &acm->read_urbs_free);
+	else
+		list_add_tail(&rb->rb_node, &acm->rb_head);
+	spin_unlock_irqrestore(&acm->read_lock, flags);
+
 	tty_flip_buffer_push(tty);
 
 	tty_kref_put(tty);
@@ -456,10 +481,10 @@ static void acm_read_bulk_callback(struct urb *urb)
 
 	dev_vdbg(&acm->data->dev, "%s - urb %d, len %d\n", __func__,
 					rb->index, urb->actual_length);
-	set_bit(rb->index, &acm->read_urbs_free);
 
 	if (!acm->dev) {
 		dev_dbg(&acm->data->dev, "%s - disconnected\n", __func__);
+		set_bit(rb->index, &acm->read_urbs_free);
 		return;
 	}
 	usb_mark_last_busy(acm->dev);
@@ -467,6 +492,7 @@ static void acm_read_bulk_callback(struct urb *urb)
 	if (urb->status && !urb->actual_length) {
 		dev_dbg(&acm->data->dev, "%s - non-zero urb status: %d\n",
 							__func__, urb->status);
+		set_bit(rb->index, &acm->read_urbs_free);
 		return;
 	}
 	acm_process_read_urb(acm, urb);
@@ -474,7 +500,7 @@ static void acm_read_bulk_callback(struct urb *urb)
 	/* throttle device if requested by tty */
 	spin_lock_irqsave(&acm->read_lock, flags);
 	acm->throttled = acm->throttle_req;
-	if (!acm->throttled && !acm->susp_count) {
+	if (!acm->int_throttled && !acm->throttled && !acm->susp_count) {
 		spin_unlock_irqrestore(&acm->read_lock, flags);
 		acm_submit_read_urb(acm, rb->index, GFP_ATOMIC);
 	} else {
@@ -596,8 +622,15 @@ static int acm_port_activate(struct tty_port *port, struct tty_struct *tty)
 	 * Unthrottle device in case the TTY was closed while throttled.
 	 */
 	spin_lock_irq(&acm->read_lock);
+	acm->int_throttled = 0;
 	acm->throttled = 0;
 	acm->throttle_req = 0;
+	while (!list_empty(&acm->rb_head)) {
+		struct acm_rb *rb = list_entry(acm->rb_head.next,
+			struct acm_rb, rb_node);
+		list_del(acm->rb_head.next);
+		set_bit(rb->index, &acm->read_urbs_free);
+	}
 	spin_unlock_irq(&acm->read_lock);
 
 	if (acm_submit_read_urbs(acm, GFP_KERNEL))
@@ -750,13 +783,36 @@ static void acm_tty_unthrottle(struct tty_struct *tty)
 	unsigned int was_throttled;
 
 	spin_lock_irq(&acm->read_lock);
-	was_throttled = acm->throttled;
+	was_throttled = acm->int_throttled | acm->throttled;
+	acm->int_throttled = 0;
 	acm->throttled = 0;
 	acm->throttle_req = 0;
 	spin_unlock_irq(&acm->read_lock);
 
-	if (was_throttled)
-		acm_submit_read_urbs(acm, GFP_KERNEL);
+	if (was_throttled) {
+		spin_lock_irq(&acm->read_lock);
+		while (!list_empty(&acm->rb_head)) {
+			struct acm_rb *rb = list_entry(acm->rb_head.next,
+				struct acm_rb, rb_node);
+			int count = tty_insert_flip_string(tty,
+				rb->data, rb->alen);
+			if (count != rb->alen) {
+				acm->int_throttled = 1;
+				rb->data += count;
+				rb->alen -= count;
+				break;
+			} else {
+				list_del(acm->rb_head.next);
+				set_bit(rb->index, &acm->read_urbs_free);
+			}
+		}
+		spin_unlock_irq(&acm->read_lock);
+
+		tty_flip_buffer_push(tty);
+
+		if (!acm->int_throttled)
+			acm_submit_read_urbs(acm, GFP_KERNEL);
+	}
 }
 
 static int acm_tty_break_ctl(struct tty_struct *tty, int state)
@@ -1230,6 +1286,7 @@ made_compressed_probe:
 		acm->ctrl_caps &= ~USB_CDC_CAP_LINE;
 	acm->ctrlsize = ctrlsize;
 	acm->readsize = readsize;
+	INIT_LIST_HEAD(&acm->rb_head);
 	acm->rx_buflimit = num_rx_buf;
 	INIT_WORK(&acm->work, acm_softint);
 	init_usb_anchor(&acm->deferred);
@@ -1320,6 +1377,7 @@ made_compressed_probe:
 			usb_fill_bulk_urb(snd->urb, usb_dev,
 				usb_sndbulkpipe(usb_dev, epwrite->bEndpointAddress),
 				NULL, acm->writesize, acm_write_bulk, snd);
+		snd->urb->transfer_flags |= URB_ZERO_PACKET;
 		snd->urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 		snd->instance = acm;
 	}

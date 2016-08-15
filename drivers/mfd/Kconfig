@@ -281,9 +281,10 @@ config TWL6040_CORE
 
 config AIC3XXX_CORE
 	bool "Support for AIC3XXX audio codec"
-	depends on I2C=y && GENERIC_HARDIRQS
+	depends on (I2C=y || SPI_MASTER=y)  && GENERIC_HARDIRQS
 	select MFD_CORE
 	select REGMAP_I2C
+	select REGMAP_SPI
 	default n
 	help
 	  Say yes here if you want support for Texas Instruments AIC3XXX audio
@@ -388,6 +389,13 @@ config MFD_MAX8831
 	select REGMAP_I2C
 	help
 	  Say yes here to support for Maxim LED MAX8831 with I2C.
+
+config MFD_LM3533
+	bool "Support LED LM3533 with I2C"
+	depends on I2C=y
+	select REGMAP_I2C
+	help
+	  Say yes here to support for Maxim LED LM3533 with I2C.
 
 config PMIC_DA9052
 	bool

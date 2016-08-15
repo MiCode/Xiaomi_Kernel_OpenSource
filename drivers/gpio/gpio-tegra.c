@@ -7,6 +7,7 @@
  *	Erik Gilling <konkers@google.com>
  *
  * Copyright (c) 2011-2012, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -39,6 +40,22 @@
 #include <mach/pinmux.h>
 
 #include "../../arch/arm/mach-tegra/pm-irq.h"
+
+/**
+ * Since tegra GPIO controller will be turn off during
+ * LP0, the EDGE interrupt will be missed when happened
+ * in the time window between PMC unmark wakeup source
+ * and GPIO controller restored. Provide the WAR to
+ * response the interrupt and intr_handle after GPIO
+ * restored.
+ */
+#define TEGRA_GPIO_INT_PROB
+
+#ifdef TEGRA_GPIO_INT_PROB
+#define TEGRA_PMC_BASE		0x7000E400
+#define PMC_WAKE_STATUS		0x14
+#define PMC_WAKE2_STATUS	0x168
+#endif
 
 #define GPIO_BANK(x)		((x) >> 5)
 #define GPIO_PORT(x)		(((x) >> 3) & 0x3)
@@ -77,6 +94,9 @@ struct tegra_gpio_bank {
 #ifdef CONFIG_PM_SLEEP
 	u32 cnf[4];
 	u32 out[4];
+#ifdef TEGRA_GPIO_INT_PROB
+	u32 in[4];
+#endif
 	u32 oe[4];
 	u32 int_enb[4];
 	u32 int_lvl[4];
@@ -356,6 +376,80 @@ static void tegra_gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 }
 
 #ifdef CONFIG_PM_SLEEP
+
+#ifdef TEGRA_GPIO_INT_PROB
+static bool tegra_gpio_wake_confirm(unsigned int wake,
+			unsigned int wake2, int gpio_num)
+{
+	unsigned int gpio_wake = tegra_gpio_to_wake(gpio_num);
+
+	/* check if the system wakeup by gpio_num */
+	if (gpio_wake < 32)
+		return (wake & (1 << gpio_wake));
+	else
+		return (wake2 & (1 << (gpio_wake - 32)));
+}
+
+static void tegra_gpio_interrupt_prob(unsigned int b, unsigned int p)
+{
+	void __iomem *pmc = IO_ADDRESS(TEGRA_PMC_BASE);
+	struct tegra_gpio_bank *bank = &tegra_gpio_banks[b];
+	int gpio = tegra_gpio_compose(b, p, 0);
+	unsigned int cnf = bank->cnf[p];
+	unsigned int int_enb = bank->int_enb[p];
+	unsigned int int_lvl = bank->int_lvl[p];
+	unsigned long in = bank->in[p];
+	unsigned long sta = tegra_gpio_readl(GPIO_INT_STA(gpio));
+	unsigned long int_prob = cnf & int_enb & (~sta);
+	unsigned long cur_in = tegra_gpio_readl(GPIO_IN(gpio));
+
+	unsigned int wake = readl(pmc + PMC_WAKE_STATUS);
+	unsigned int wake2 = readl(pmc + PMC_WAKE2_STATUS);
+
+	int pin;
+
+	if (cnf == 0 || int_enb == 0)
+		return;
+
+	if (0 == int_prob)
+		return;
+
+	for_each_set_bit(pin, &int_prob, 8) {
+
+		if (likely((int_enb & BIT(pin)) == 0))
+			continue;
+
+		if (likely((in & BIT(pin)) == (cur_in & BIT(pin))))
+			continue;
+
+		if (likely(tegra_gpio_wake_confirm(wake, wake2, gpio + pin)))
+			continue;
+
+		/**
+		 * WAR:
+		 *     Two special cases, we need handle interrupt manually.
+		 *     case 1: if there is a real falling edge, and also set interrupt type as falling or both
+		 *     case 2: if there is a real rising edge, and also set interrupt type as rising or both
+		 */
+		if (((in & BIT(pin)) != 0 && (cur_in & BIT(pin)) == 0)) {
+			if ((int_lvl & (GPIO_INT_LVL_EDGE_FALLING << pin))
+			    || (int_lvl & (GPIO_INT_LVL_EDGE_BOTH << pin))) {
+				pr_info("%s: there is a real falling edge\n",
+					__func__);
+				generic_handle_irq(gpio_to_irq(gpio + pin));
+			}
+		} else if ((in & BIT(pin)) == 0 && (cur_in & BIT(pin)) != 0) {
+			if ((int_lvl & (GPIO_INT_LVL_EDGE_FALLING << pin))
+			    || (int_lvl & (GPIO_INT_LVL_EDGE_BOTH << pin))) {
+				pr_info("%s: there is a real rising edge\n",
+					__func__);
+				generic_handle_irq(gpio_to_irq(gpio + pin));
+			}
+		}
+	}
+}
+#endif
+
 void tegra_gpio_resume(void)
 {
 	unsigned long flags;
@@ -368,12 +462,16 @@ void tegra_gpio_resume(void)
 		struct tegra_gpio_bank *bank = &tegra_gpio_banks[b];
 
 		for (p = 0; p < ARRAY_SIZE(bank->oe); p++) {
-			unsigned int gpio = (b<<5) | (p<<3);
+			unsigned int gpio = (b << 5) | (p << 3);
 			tegra_gpio_writel(bank->cnf[p], GPIO_CNF(gpio));
 			tegra_gpio_writel(bank->out[p], GPIO_OUT(gpio));
 			tegra_gpio_writel(bank->oe[p], GPIO_OE(gpio));
 			tegra_gpio_writel(bank->int_lvl[p], GPIO_INT_LVL(gpio));
 			tegra_gpio_writel(bank->int_enb[p], GPIO_INT_ENB(gpio));
+#ifdef TEGRA_GPIO_INT_PROB
+			if (bank->int_enb[p] != 0)
+				tegra_gpio_interrupt_prob(b, p);
+#endif
 		}
 	}
 
@@ -391,9 +489,12 @@ int tegra_gpio_suspend(void)
 		struct tegra_gpio_bank *bank = &tegra_gpio_banks[b];
 
 		for (p = 0; p < ARRAY_SIZE(bank->oe); p++) {
-			unsigned int gpio = (b<<5) | (p<<3);
+			unsigned int gpio = (b << 5) | (p << 3);
 			bank->cnf[p] = tegra_gpio_readl(GPIO_CNF(gpio));
 			bank->out[p] = tegra_gpio_readl(GPIO_OUT(gpio));
+#ifdef TEGRA_GPIO_INT_PROB
+			bank->in[p] = tegra_gpio_readl(GPIO_IN(gpio));
+#endif
 			bank->oe[p] = tegra_gpio_readl(GPIO_OE(gpio));
 			bank->int_enb[p] = tegra_gpio_readl(GPIO_INT_ENB(gpio));
 			bank->int_lvl[p] = tegra_gpio_readl(GPIO_INT_LVL(gpio));

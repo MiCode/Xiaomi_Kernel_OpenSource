@@ -4,7 +4,8 @@
  *
  * SDIO core support 1bit, 4 bit SDIO mode as well as SPI mode.
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -101,27 +102,25 @@
  * => busy signal is asserted between data blocks.
 */
 #define SBSDIO_MESBUSYCTRL_MASK		0x7f
+#define SBSDIO_MESBUSYCTRL_ENAB		0x80	/* Enable busy capability for MES access */
 
 /* SBSDIO_DEVICE_CTL */
 #define SBSDIO_DEVCTL_SETBUSY		0x01		/* 1: device will assert busy signal when
 							 * receiving CMD53
+						 */
+#define SBSDIO_DEVCTL_SPI_INTR_SYNC	0x02	/* 1: assertion of sdio interrupt is
+						 * synchronous to the sdio clock
+						 */
+#define SBSDIO_DEVCTL_CA_INT_ONLY	0x04	/* 1: mask all interrupts to host
+						 * except the chipActive (rev 8)
+						 */
+#define SBSDIO_DEVCTL_PADS_ISO		0x08	/* 1: isolate internal sdio signals, put
+						 * external pads in tri-state; requires
+						 * sdio bus power cycle to clear (rev 9)
 							 */
-#define SBSDIO_DEVCTL_SPI_INTR_SYNC	0x02		/* 1: assertion of sdio interrupt is
-							 * synchronous to the sdio clock
-							 */
-#define SBSDIO_DEVCTL_CA_INT_ONLY	0x04		/* 1: mask all interrupts to host
-							 * except the chipActive (rev 8)
-							 */
-#define SBSDIO_DEVCTL_PADS_ISO		0x08		/* 1: isolate internal sdio signals, put
-							 * external pads in tri-state; requires
-							 * sdio bus power cycle to clear (rev 9)
-							 */
-#define SBSDIO_DEVCTL_SB_RST_CTL	0x30		/* Force SD->SB reset mapping (rev 11) */
-#define SBSDIO_DEVCTL_RST_CORECTL	0x00		/*   Determined by CoreControl bit */
-#define SBSDIO_DEVCTL_RST_BPRESET	0x10		/*   Force backplane reset */
-#define SBSDIO_DEVCTL_RST_NOBPRESET	0x20		/*   Force no backplane reset */
-#define SBSDIO_DEVCTL_EN_F2_BLK_WATERMARK 0x10  /* Enable function 2 tx for each block */
-
+#define SBSDIO_DEVCTL_EN_F2_BLK_WATERMARK 0x10	/* Enable function 2 tx for each block */
+#define SBSDIO_DEVCTL_F2WM_ENAB		0x10	/* Enable F2 Watermark */
+#define SBSDIO_DEVCTL_NONDAT_PADS_ISO 	0x20	/* Isolate sdio clk and cmd (non-data) */
 
 /* SBSDIO_FUNC1_CHIPCLKCSR */
 #define SBSDIO_FORCE_ALP		0x01		/* Force ALP request to backplane */

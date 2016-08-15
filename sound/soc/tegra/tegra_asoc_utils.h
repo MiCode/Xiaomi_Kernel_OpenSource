@@ -3,6 +3,7 @@
  *
  * Author: Stephen Warren <swarren@nvidia.com>
  * Copyright (c) 2010-12, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -51,8 +52,10 @@ struct tegra_asoc_utils_data {
 	int headset_plug_state;
 };
 
-int tegra_asoc_utils_set_rate(struct tegra_asoc_utils_data *data, int srate,
-				int mclk);
+#define tegra_asoc_utils_set_rate(data, srate, mclk) \
+	tegra_asoc_utils_set_rate_(data, srate, mclk, __FUNCTION__, __LINE__);
+int tegra_asoc_utils_set_rate_(struct tegra_asoc_utils_data *data, int srate,
+				int mclk, const char *func, int line);
 void tegra_asoc_utils_lock_clk_rate(struct tegra_asoc_utils_data *data,
 					int lock);
 int tegra_asoc_utils_init(struct tegra_asoc_utils_data *data,

@@ -2,6 +2,7 @@
  * linux/sound/soc/codecs/tlv320aic326x.c
  *
  * Copyright (C) 2011 Texas Instruments Inc.,
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -102,6 +103,11 @@ static int aic3262_dai_set_pll(struct snd_soc_dai *dai, int pll_id, int source,
 static int aic3262_set_bias_level(struct snd_soc_codec *codec,
 				  enum snd_soc_bias_level level);
 
+static int aic3262_mute_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol);
+static int aic3262_mute_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol);
+
 static int aic3262_set_mode_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol);
 static int aic3262_set_mode_put(struct snd_kcontrol *kcontrol,
@@ -116,6 +122,11 @@ static int aic3262_restart_dsps_sync(struct snd_soc_codec *codec, int rs);
 
 static inline unsigned int dsp_non_sync_mode(unsigned int state)
 			{ return (!((state & 0x03) && (state & 0x30))); }
+
+static void aic3262_workaround(struct snd_soc_codec *codec);
+
+static void aic3262_save_volume(struct snd_soc_codec *codec);
+static void aic3262_update_mute(struct snd_soc_codec *codec);
 
 /**
  * snd_soc_put_volsw_2r_sx - double with tlv and variable data size
@@ -221,6 +232,10 @@ static const struct snd_kcontrol_new aic3262_snd_controls[] = {
 	SOC_DOUBLE("ADC channel mute", AIC3262_ADC_FINE_GAIN, 7, 3, 1, 0),
 
 	SOC_DOUBLE("DAC MUTE", AIC3262_DAC_MVOL_CONF, 2, 3, 1, 1),
+
+	SOC_SINGLE_BOOL_EXT("DIN1 Mute", 0, aic3262_mute_get, aic3262_mute_put),
+	SOC_SINGLE_BOOL_EXT("DIN2 Mute", 1, aic3262_mute_get, aic3262_mute_put),
+	SOC_SINGLE_BOOL_EXT("DIN3 Mute", 2, aic3262_mute_get, aic3262_mute_put),
 
 	SOC_SINGLE("RESET", AIC3262_RESET_REG, 0, 1, 0),
 
@@ -589,6 +604,9 @@ SOC_ENUM_SINGLE_DECL(adcdac_enum, 0, 2, adcdac_route_text);
 static const struct snd_kcontrol_new adcdacroute_control =
 SOC_DAPM_ENUM_VIRT("ADC DAC Route", adcdac_enum);
 
+static const struct snd_kcontrol_new dacadcroute_control =
+SOC_DAPM_ENUM_VIRT("DAC ADC Route", adcdac_enum);
+
 static const char * const dout1_text[] = {
 	"ASI1 Out",
 	"DIN1 Bypass",
@@ -707,7 +725,6 @@ static int aic326x_hp_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol, int event)
 {
 	int reg_mask = 0;
-	int mute_reg = 0;
 	int ret_wbits = 0;
 	u8 hpl_hpr;
 	struct aic3262_priv *aic3262 = snd_soc_codec_get_drvdata(w->codec);
@@ -716,18 +733,15 @@ static int aic326x_hp_event(struct snd_soc_dapm_widget *w,
 
 	if (w->shift == 1) {
 		reg_mask = AIC3262_HPL_POWER_STATUS_MASK;
-		mute_reg = AIC3262_HPL_VOL;
 	}
 	if (w->shift == 0) {
 		reg_mask = AIC3262_HPR_POWER_STATUS_MASK;
-		mute_reg = AIC3262_HPR_VOL;
 	}
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 			snd_soc_update_bits(w->codec, AIC3262_CHARGE_PUMP_CNTL,
 			AIC3262_DYNAMIC_OFFSET_CALIB_MASK,
 			AIC3262_DYNAMIC_OFFSET_CALIB);
-			snd_soc_write(w->codec, mute_reg, 0x80);
 			snd_soc_update_bits(w->codec, AIC3262_HP_CTL,
 			AIC3262_HP_STAGE_MASK ,
 			AIC3262_HP_STAGE_25 << AIC3262_HP_STAGE_SHIFT);
@@ -772,7 +786,6 @@ static int aic326x_hp_event(struct snd_soc_dapm_widget *w,
 			mutex_unlock(&aic3262->mutex);
 			return -1;
 		}
-		snd_soc_write(w->codec, mute_reg, 0xb9);
 		snd_soc_write(w->codec, AIC3262_POWER_CONF,
 				snd_soc_read(w->codec, AIC3262_POWER_CONF));
 		break;
@@ -813,6 +826,9 @@ static int aic326x_dac_event(struct snd_soc_dapm_widget *w,
 		run_state_mask = AIC3XXX_COPS_MDSP_D_R;
 	}
 	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		aic3262_workaround(w->codec);
+		break;
 	case SND_SOC_DAPM_POST_PMU:
 
 		ret_wbits = aic3xxx_wait_bits(w->codec->control_data,
@@ -907,6 +923,35 @@ static int pll_power_on_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int aic3262_mute_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct aic3262_priv *aic3262 = snd_soc_codec_get_drvdata(codec);
+	int asi = kcontrol->private_value;
+
+	ucontrol->value.integer.value[0] = !(aic3262->unmute_control & (1 << asi));
+	return 0;
+}
+
+static int aic3262_mute_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct aic3262_priv *aic3262 = snd_soc_codec_get_drvdata(codec);
+	int mute = ucontrol->value.integer.value[0];
+	int asi = kcontrol->private_value;
+
+	mutex_lock(&aic3262->mutex);
+	CHECK_AIC326x_I2C_SHUTDOWN(aic3262, codec)
+	aic3262->unmute_control &= (~(1 << asi));
+	aic3262->unmute_control |= (!mute << asi);
+
+	aic3262_update_mute(codec);
+	mutex_unlock(&aic3262->mutex);
+	return 0;
+}
+
 /**
  * aic3262_set_mode_get: To get different mode of Firmware through tinymix
  * @kcontrolr: pointer to sound control,
@@ -980,6 +1025,9 @@ static int aic326x_adc_dsp_event(struct snd_soc_dapm_widget *w,
 		run_state_mask = AIC3XXX_COPS_MDSP_A_R;
 	}
 	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		aic3262_workaround(w->codec);
+		break;
 	case SND_SOC_DAPM_POST_PMU:
 		ret_wbits = aic3xxx_wait_bits(w->codec->control_data,
 					      AIC3262_ADC_FLAG, reg_mask,
@@ -1028,10 +1076,10 @@ static const struct snd_soc_dapm_widget aic3262_dapm_widgets[] = {
 
 	SND_SOC_DAPM_DAC_E("Left DAC", NULL, AIC3262_PASI_DAC_DP_SETUP, 7, 0,
 			   aic326x_dac_event, SND_SOC_DAPM_POST_PMU |
-			   SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_PRE_PMU),
 	SND_SOC_DAPM_DAC_E("Right DAC", NULL, AIC3262_PASI_DAC_DP_SETUP, 6, 0,
 			   aic326x_dac_event, SND_SOC_DAPM_POST_PMU |
-			   SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_PRE_PMU),
 
 	/* dapm widget (path domain) for HPL Output Mixer */
 	SND_SOC_DAPM_MIXER("HP Left Mixer", SND_SOC_NOPM, 0, 0,
@@ -1130,6 +1178,8 @@ static const struct snd_soc_dapm_widget aic3262_dapm_widgets[] = {
 
 	SND_SOC_DAPM_VIRT_MUX("ADC DAC Route",
 			      SND_SOC_NOPM, 0, 0, &adcdacroute_control),
+	SND_SOC_DAPM_VIRT_MUX("DAC ADC Route",
+			      SND_SOC_NOPM, 0, 0, &dacadcroute_control),
 
 	SND_SOC_DAPM_PGA("CM", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("CM1 Left Capture", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -1171,10 +1221,10 @@ static const struct snd_soc_dapm_widget aic3262_dapm_widgets[] = {
 
 	SND_SOC_DAPM_ADC_E("Left ADC", NULL, AIC3262_ADC_CHANNEL_POW, 7, 0,
 			   aic326x_adc_dsp_event, SND_SOC_DAPM_POST_PMU |
-			   SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_PRE_PMU),
 	SND_SOC_DAPM_ADC_E("Right ADC", NULL, AIC3262_ADC_CHANNEL_POW, 6, 0,
 			   aic326x_adc_dsp_event, SND_SOC_DAPM_POST_PMU |
-			   SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_PRE_PMU),
 
 	SND_SOC_DAPM_PGA_S("Left MicPGA", 0, AIC3262_MICL_PGA, 7, 1, NULL, 0),
 	SND_SOC_DAPM_PGA_S("Right MicPGA", 0, AIC3262_MICR_PGA, 7, 1, NULL, 0),
@@ -1452,6 +1502,12 @@ static const struct snd_soc_dapm_route aic3262_dapm_routes[] = {
 	{"Left DAC", NULL, "ADC DAC Route"},
 	{"Right DAC", NULL, "ADC DAC Route"},
 
+	{"DAC ADC Route", "On", "Left DAC"},
+	{"DAC ADC Route", "On", "Right DAC"},
+
+	{"Left ADC", NULL, "DAC ADC Route"},
+	{"Right ADC", NULL, "DAC ADC Route"},
+
 	/* Capture (ADC) portions */
 	/* Left Positive PGA input */
 	{"Left Input Mixer", "IN1 Left Capture Switch", "IN1 Left Capture"},
@@ -1594,6 +1650,7 @@ static void aic3262_firmware_load(const struct firmware *fw, void *context)
 		aic3xxx_cfw_transition(private_ds->cfw_p, "INIT");
 		/* add firmware modes */
 		aic3xxx_cfw_add_modes(codec, private_ds->cfw_p);
+		aic3xxx_cfw_add_composite_modes(codec, private_ds->cfw_p);
 		/* add runtime controls */
 		aic3xxx_cfw_add_controls(codec, private_ds->cfw_p);
 		/* set the default firmware mode */
@@ -2021,6 +2078,70 @@ static int aic3262_restart_dsps_sync(struct snd_soc_codec *codec, int run_state)
 	return 0;
 }
 
+/* turn on/off adc and dac one time workaround
+ * for the sound can't be hear at first time */
+static void aic3262_workaround(struct snd_soc_codec *codec)
+{
+	struct aic3262_priv *aic3262 = snd_soc_codec_get_drvdata(codec);
+
+	if (!aic3262->workaround_done) {
+		aic3262->workaround_done = 1;
+		aic3262_dsp_pwrup(codec, AIC3XXX_COPS_MDSP_ALL);
+		msleep(100);
+		aic3262_dsp_pwrdwn_status(codec);
+	}
+}
+
+static struct {
+	unsigned int  addr;
+	unsigned char mask;
+	unsigned char mute;
+} amp_list[] = {
+	{AIC3262_HPL_VOL        , 0x3f, 0x39}, /* left headphone */
+	{AIC3262_HPR_VOL        , 0x3f, 0x39}, /* right headphone */
+	{AIC3262_REC_AMP_CNTL_R5, 0x3f, 0x39}, /* left receiver */
+	{AIC3262_RAMPR_VOL      , 0x3f, 0x39}, /* right receiver */
+	{AIC3262_SPK_AMP_CNTL_R4, 0x77, 0x00}, /* left+right speaker */
+};
+
+static void aic3262_save_volume(struct snd_soc_codec *codec)
+{
+	struct aic3262_priv *aic3262 = snd_soc_codec_get_drvdata(codec);
+	struct aic3xxx *control = codec->control_data;
+	int i, volume;
+
+	for (i = 0; i < ARRAY_SIZE(amp_list); i++) {
+		volume = aic3xxx_reg_read(control, amp_list[i].addr);
+		aic3262->volume[i] = (volume & amp_list[i].mask);
+	}
+}
+
+static void aic3262_update_mute(struct snd_soc_codec *codec)
+{
+	struct aic3262_priv *aic3262 = snd_soc_codec_get_drvdata(codec);
+	struct aic3xxx *control = codec->control_data;
+	int i, volume;
+
+	for (i = 0; i < ARRAY_SIZE(amp_list); i++) {
+		volume = aic3xxx_reg_read(control, amp_list[i].addr);
+		volume = (volume & amp_list[i].mask);
+
+		if (aic3262->unmute_digital || aic3262->unmute_control) {
+			if (volume == amp_list[i].mute) {
+				aic3xxx_set_bits(control, amp_list[i].addr,
+					amp_list[i].mask, aic3262->volume[i]);
+			} else/* Already unmute, save the volume */
+				aic3262->volume[i] = volume;
+		} else { /* Mute only when all asi's are muted */
+			if (volume != amp_list[i].mute) {
+				aic3xxx_set_bits(control, amp_list[i].addr,
+					amp_list[i].mask, amp_list[i].mute);
+				aic3262->volume[i] = volume;
+			}
+		}
+	}
+}
+
 static const struct aic3xxx_codec_ops aic3262_cfw_codec_ops = {
 	.reg_read  =	aic3262_ops_reg_read,
 	.reg_write =	aic3262_ops_reg_write,
@@ -2264,25 +2385,10 @@ static int aic3262_mute(struct snd_soc_dai *dai, int mute)
 		return -EINVAL;
 	mutex_lock(&aic3262->mutex);
 	CHECK_AIC326x_I2C_SHUTDOWN(aic3262, codec)
-	if (mute) {
-		aic3262->mute_asi &= ~((0x1) << dai->id);
-		if (aic3262->mute_asi == 0)
-			/* Mute only when all asi's are muted */
-			snd_soc_update_bits_locked(codec,
-						   AIC3262_DAC_MVOL_CONF,
-						   AIC3262_DAC_LR_MUTE_MASK,
-						   AIC3262_DAC_LR_MUTE);
+	aic3262->unmute_digital &= (~(1 << dai->id));
+	aic3262->unmute_digital |= (!mute << dai->id);
+	aic3262_update_mute(codec);
 
-	} else {	/* Unmute */
-		if (aic3262->mute_asi == 0)
-			/* Unmute for the first asi that need to unmute.
-			   rest unmute will pass */
-			snd_soc_update_bits_locked(codec,
-						   AIC3262_DAC_MVOL_CONF,
-						   AIC3262_DAC_LR_MUTE_MASK,
-						   0x0);
-		aic3262->mute_asi |= ((0x1) << dai->id);
-	}
 	dev_dbg(codec->dev, "codec : %s : ended\n", __func__);
 	mutex_unlock(&aic3262->mutex);
 	return 0;
@@ -2551,7 +2657,6 @@ static int aic3262_codec_probe(struct snd_soc_codec *codec)
 	}
 	INIT_DELAYED_WORK(&aic3262->delayed_work, aic3262_accessory_work);
 	mutex_init(&aic3262->mutex);
-	mutex_init(&codec->mutex);
 	mutex_init(&aic3262->cfw_mutex);
 	pm_runtime_enable(codec->dev);
 	pm_runtime_resume(codec->dev);
@@ -2590,8 +2695,7 @@ static int aic3262_codec_probe(struct snd_soc_codec *codec)
 				AIC3262_DYNAMIC_OFFSET_CALIB);
 
 	aic3262_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
-
-	aic3262->mute_asi = 0;
+	aic3262_save_volume(codec);
 
 	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
 				"tlv320aic3262_fw_v1.bin", codec->dev,
@@ -2609,7 +2713,7 @@ irq_err:
 	destroy_workqueue(aic3262->workqueue);
 work_err:
 	kfree(aic3262);
-	return 0;
+	return ret;
 }
 
 /*

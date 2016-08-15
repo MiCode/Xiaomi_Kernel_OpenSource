@@ -2,6 +2,7 @@
  * cgroup_freezer.c -  control group freezer subsystem
  *
  * Copyright IBM Corporation, 2007
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author : Cedric Le Goater <clg@fr.ibm.com>
  *
@@ -167,14 +168,6 @@ static int freezer_can_attach(struct cgroup *new_cgroup,
 {
 	struct freezer *freezer;
 	struct task_struct *task;
-
-	if ((current != task) && (!capable(CAP_SYS_ADMIN))) {
-		const struct cred *cred = current_cred(), *tcred;
-
-		tcred = __task_cred(task);
-		if (cred->euid != tcred->uid && cred->euid != tcred->suid)
-			return -EPERM;
-	}
 
 	/*
 	 * Anything frozen can't move or be moved to/from.

@@ -2,6 +2,7 @@
  * palmas-adc.c -- TI PALMAS GPADC.
  *
  * Copyright (c) 2013, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Pradeep Goudagunta <pgoudagunta@nvidia.com>
  *
@@ -80,6 +81,31 @@ static struct palmas_gpadc_info palmas_gpadc_info[] = {
 	PALMAS_ADC_INFO(IN15, 0, 0, INVALID, INVALID, true),
 };
 
+struct palmas_gpadc_range {
+	int x1;
+	int x2;
+	int scaler;
+};
+
+static struct palmas_gpadc_range palmas_gpadc_ranges[] = {
+	{0, 1250, 1},
+	{0, 1250, 1},
+	{0, 2500, 2},
+	{0, 1250, 1},
+	{0, 1250, 1},
+	{0, 1250, 1},
+	{0, 5000, 4},
+	{2500, 5000, 4},
+	{0, 5500, 5},
+	{0, 11250, 9},
+	{0, 6875, 55},
+	{0, 1250, 1},
+	{0, 1250, 1},
+	{0, 1250, 1},
+	{0, 6875, 55},
+	{0, 0, 5},
+};
+
 struct palmas_gpadc {
 	struct device			*dev;
 	struct palmas			*palmas;
@@ -90,6 +116,8 @@ struct palmas_gpadc {
 	struct palmas_gpadc_info	*adc_info;
 	struct completion		conv_completion;
 };
+
+static struct palmas_gpadc *the_adc;
 
 static irqreturn_t palmas_gpadc_irq(int irq, void *data)
 {
@@ -221,6 +249,10 @@ static int palmas_gpadc_start_convertion(struct palmas_gpadc *adc, int adc_chan)
 	ret = palmas_gpadc_enable(adc, adc_chan, true);
 	if (ret < 0)
 		return ret;
+
+	/* It takes some time to charge the cap as IN0 is current sourcing */
+	if (adc_chan == PALMAS_ADC_CH_IN0)
+		mdelay(30);
 
 	ret = palmas_gpadc_start_mask_interrupt(adc, 0);
 	if (ret < 0)
@@ -451,6 +483,7 @@ static int __devinit palmas_gpadc_probe(struct platform_device *pdev)
 		if (!(adc->adc_info[i].is_correct_code))
 			palmas_gpadc_calibrate(adc, i);
 	}
+	the_adc = adc;
 
 	return 0;
 
@@ -500,6 +533,42 @@ static int palmas_gpadc_resume(struct device *dev)
 };
 #endif
 
+int palmas_gpadc_read_physical(int channel)
+{
+	int ret;
+	int scaler;
+	struct iio_dev *iodev;
+
+	if (!the_adc) {
+		pr_err("%s not initialized\n", __func__);
+		return -EINVAL;
+	}
+
+	if (channel > PALMAS_ADC_CH_MAX) {
+		dev_err(the_adc->dev, "channel%d exceed\n", channel);
+		return -EINVAL;
+	}
+
+	iodev = iio_priv_to_dev(the_adc);
+	mutex_lock(&iodev->mlock);
+	ret = palmas_gpadc_get_calibrated_code(the_adc, channel);
+	if (ret < 0) {
+		dev_err(the_adc->dev, "%s failed\n", __func__);
+		mutex_unlock(&iodev->mlock);
+		return ret;
+	}
+
+	scaler = palmas_gpadc_ranges[channel].scaler;
+	if (scaler > 10)
+		ret = (125 * scaler * ret) / 4095;
+	else
+		ret = (1250 * scaler * ret) / 4095;
+
+	mutex_unlock(&iodev->mlock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(palmas_gpadc_read_physical);
+
 static const struct dev_pm_ops palmas_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(palmas_gpadc_suspend,
 				palmas_gpadc_resume)
@@ -515,7 +584,18 @@ static struct platform_driver palmas_gpadc_driver = {
 	},
 };
 
-module_platform_driver(palmas_gpadc_driver);
+static int __init palmas_gpadc_init(void)
+{
+	return platform_driver_register(&palmas_gpadc_driver);
+}
+
+static void __exit palmas_gpadc_exit(void)
+{
+	platform_driver_unregister(&palmas_gpadc_driver);
+}
+
+subsys_initcall(palmas_gpadc_init);
+module_exit(palmas_gpadc_exit);
 
 MODULE_DESCRIPTION("palmas GPADC driver");
 MODULE_AUTHOR("Pradeep Goudagunta<pgoudagunta@nvidia.com>");

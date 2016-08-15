@@ -968,18 +968,10 @@ static void tegra_suspend_check_pwr_stats(void)
 	for (partid = 0; partid < TEGRA_NUM_POWERGATE; partid++)
 		if ((1 << partid) & pwrgate_partid_mask)
 			if (tegra_powergate_is_powered(partid))
-				pr_info("partition %s is left on before suspend\n",
+				pr_warning("partition %s is left on before suspend\n",
 					tegra_powergate_get_name(partid));
 
 	return;
-}
-
-static void tegra_suspend_powergate_control(int partid, bool turn_off)
-{
-	if (turn_off)
-		tegra_powergate_partition(partid);
-	else
-		tegra_unpowergate_partition(partid);
 }
 
 int tegra_suspend_dram(enum tegra_suspend_mode mode, unsigned int flags)
@@ -987,7 +979,6 @@ int tegra_suspend_dram(enum tegra_suspend_mode mode, unsigned int flags)
 	int err = 0;
 	u32 scratch37 = 0xDEADBEEF;
 	u32 reg;
-	bool tegra_suspend_vde_powergated = false;
 
 	if (WARN_ON(mode <= TEGRA_SUSPEND_NONE ||
 		mode >= TEGRA_MAX_SUSPEND_MODE)) {
@@ -1011,15 +1002,6 @@ int tegra_suspend_dram(enum tegra_suspend_mode mode, unsigned int flags)
 
 	if ((mode == TEGRA_SUSPEND_LP0) || (mode == TEGRA_SUSPEND_LP1))
 		tegra_suspend_check_pwr_stats();
-
-	/* turn off VDE partition in LP1 */
-	if (mode == TEGRA_SUSPEND_LP1 &&
-		tegra_powergate_is_powered(TEGRA_POWERGATE_VDEC)) {
-		pr_info("turning off partition %s in LP1\n",
-			tegra_powergate_get_name(TEGRA_POWERGATE_VDEC));
-		tegra_suspend_powergate_control(TEGRA_POWERGATE_VDEC, true);
-		tegra_suspend_vde_powergated = true;
-	}
 
 	tegra_common_suspend();
 
@@ -1135,13 +1117,6 @@ int tegra_suspend_dram(enum tegra_suspend_mode mode, unsigned int flags)
 	local_fiq_enable();
 
 	tegra_common_resume();
-
-	/* turn on VDE partition in LP1 */
-	if (mode == TEGRA_SUSPEND_LP1 && tegra_suspend_vde_powergated) {
-		pr_info("turning on partition %s in LP1\n",
-			tegra_powergate_get_name(TEGRA_POWERGATE_VDEC));
-		tegra_suspend_powergate_control(TEGRA_POWERGATE_VDEC, false);
-	}
 
 fail:
 	return err;

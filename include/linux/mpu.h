@@ -378,6 +378,7 @@ struct ext_slave_descr {
  * @sec_slave_id:       id of the secondary slave device
  * @secondary_i2c_address: secondary device's i2c address
  * @secondary_orientation: secondary device's orientation matrix
+ * @key:                key for MPL library.
  * @config: the selection determines the device behavior.
  *          Select from the NVI_CONFIG_BOOT_ defines.
  *
@@ -668,5 +669,11 @@ int nvi_mpu_bypass_request(bool enable);
  *         void but for backward compatibility it returns 0.
  */
 int nvi_mpu_bypass_release(void);
+
+/**
+ * Register the sysfs node from secondary i2c to mpu so that
+ * it can be managed together
+ */
+int nvi_mpu_sysfs_register(struct kobject *target, char *name);
 
 #endif	/* __MPU_H_ */

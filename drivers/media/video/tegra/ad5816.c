@@ -2,6 +2,7 @@
  * ad5816.c - a NVC kernel driver for focuser device ad5816.
  *
  * Copyright (c) 2011-2013 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -125,6 +126,7 @@ struct ad5816_info {
 	atomic_t in_use;
 	bool reset_flag;
 	int pwr_dev;
+	int pwr_api;
 	s32 pos;
 	u16 dev_id;
 };
@@ -334,9 +336,35 @@ static int ad5816_power_get(struct ad5816_info *info)
 	return 0;
 }
 
+static int ad5816_pm_api_wr(struct ad5816_info *info, int pwr)
+{
+	int err = 0;
+
+	if (!pwr || (pwr > NVC_PWR_ON))
+		return 0;
+
+	if (pwr > info->pwr_dev)
+		err = ad5816_pm_wr(info, pwr);
+	if (!err)
+		info->pwr_api = pwr;
+	else
+		info->pwr_api = NVC_PWR_ERR;
+	if (info->pdata->cfg & NVC_CFG_NOERR)
+		return 0;
+
+	return err;
+}
+
+static int ad5816_pm_dev_wr(struct ad5816_info *info, int pwr)
+{
+	if (pwr < info->pwr_api)
+		pwr = info->pwr_api;
+	return ad5816_pm_wr(info, pwr);
+}
+
 static inline void ad5816_pm_exit(struct ad5816_info *info)
 {
-	ad5816_pm_wr(info, NVC_PWR_OFF_FORCE);
+	ad5816_pm_dev_wr(info, NVC_PWR_OFF_FORCE);
 	ad5816_power_put(&info->power);
 }
 
@@ -352,8 +380,9 @@ static int ad5816_reset(struct ad5816_info *info, u32 level)
 	if (level == NVC_RESET_SOFT)
 		err |= ad5816_i2c_wr8(info, CONTROL, 0x01); /* SW reset */
 	else
-		err = ad5816_pm_wr(info, NVC_PWR_OFF_FORCE);
+		err = ad5816_pm_dev_wr(info, NVC_PWR_OFF_FORCE);
 
+	err |= ad5816_pm_wr(info, info->pwr_api);
 	return err;
 }
 
@@ -661,10 +690,10 @@ static long ad5816_ioctl(struct file *file,
 		/* This is a Guaranteed Level of Service (GLOS) call */
 		pwr = (int)arg * 2;
 		dev_dbg(info->dev, "%s PWR_WR: %d\n", __func__, pwr);
-		err = ad5816_pm_wr(info, pwr);
+		err = ad5816_pm_api_wr(info, pwr);
 		return err;
 	case NVC_IOCTL_PWR_RD:
-		pwr = info->pwr_dev;
+		pwr = info->pwr_api / 2;
 		dev_dbg(info->dev, "%s PWR_RD: %d\n", __func__, pwr);
 		if (copy_to_user((void __user *)arg,
 			(const void *)&pwr, sizeof(pwr))) {
@@ -810,11 +839,11 @@ static int ad5816_probe(
 	list_add_rcu(&info->list, &ad5816_info_list);
 	spin_unlock(&ad5816_spinlock);
 	ad5816_pm_init(info);
-
+	info->pwr_api = NVC_PWR_OFF;
 	if (info->pdata->cfg & (NVC_CFG_NODEV | NVC_CFG_BOOT_INIT)) {
-		ad5816_pm_wr(info, NVC_PWR_COMM);
+		ad5816_pm_dev_wr(info, NVC_PWR_COMM);
 		err = ad5816_dev_id(info);
-		ad5816_pm_wr(info, NVC_PWR_OFF);
+		ad5816_pm_dev_wr(info, NVC_PWR_OFF);
 		if (err < 0) {
 			dev_err(info->dev, "%s device not found\n",
 				__func__);

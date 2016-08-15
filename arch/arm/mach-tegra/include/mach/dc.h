@@ -6,7 +6,8 @@
  * Author:
  *	Erik Gilling <konkers@google.com>
  *
- * Copyright (c) 2011-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -115,6 +116,7 @@ struct tegra_dsi_cmd {
 #define DSI_DCS_SET_TEARING_EFFECT_OFF		0x34
 #define DSI_DCS_SET_TEARING_EFFECT_ON		0x35
 #define DSI_DCS_NO_OP				0x0
+#define DSI_DCS_LWRITE				0x39	/* long write */
 
 #define DSI_CMD_SHORT(di, p0, p1)	{ \
 					.cmd_type = TEGRA_DSI_PACKET_CMD, \
@@ -285,6 +287,8 @@ struct tegra_dsi_out {
 	const u32		*pkt_seq;
 
 	struct dsi_phy_timing_ns phy_timing;
+
+	u8 *bl_name;
 };
 
 enum {
@@ -434,6 +438,8 @@ struct tegra_dc_sd_settings {
 	atomic_t *sd_brightness;
 	char *bl_device_name;
 	struct backlight_device *bl_device;
+	char *bl_device_name2;
+	struct backlight_device *bl_device2;
 };
 
 enum {

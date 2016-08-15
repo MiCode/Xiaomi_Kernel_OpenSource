@@ -5,7 +5,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (c) 2010-2012, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -71,6 +71,8 @@ struct tegra_dc_out_ops {
 	void (*enable)(struct tegra_dc *dc);
 	/* disable output.  dc clocks are on at this point */
 	void (*disable)(struct tegra_dc *dc);
+	/* dc client is disabled.  dc clocks are on at this point */
+	void (*postpoweroff) (struct tegra_dc *dc);
 	/* hold output.  keeps dc clocks on. */
 	void (*hold)(struct tegra_dc *dc);
 	/* release output.  dc clocks may turn off after this. */

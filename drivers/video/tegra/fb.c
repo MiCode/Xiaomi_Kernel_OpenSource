@@ -7,6 +7,7 @@
  *         Travis Geiselbrecht <travis@palm.com>
  *
  * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -43,6 +44,7 @@
 #include "host/dev.h"
 #include "nvmap/nvmap.h"
 #include "dc/dc_priv.h"
+#include "board.h"
 
 /* Pad pitch to 256-byte boundary. */
 #define TEGRA_LINEAR_PITCH_ALIGNMENT 256
@@ -281,10 +283,15 @@ static int tegra_fb_blank(int blank, struct fb_info *info)
 	switch (blank) {
 	case FB_BLANK_UNBLANK:
 		dev_dbg(&tegra_fb->ndev->dev, "unblank\n");
-		tegra_fb->win->flags = TEGRA_WIN_FLAG_ENABLED;
+		pr_info("panel: %s  FB_BLANK_UNBLANK   +++\n", __func__);
+		if (!(tegra_fb->win->flags & TEGRA_WIN_FLAG_ENABLED)) {
+			tegra_fb->win->flags |= TEGRA_WIN_FLAG_ENABLED;
+			tegra_fb->win->phys_addr = tegra_fb->fb_mem->start;
+		}
 		tegra_dc_enable(tegra_fb->win->dc);
 		tegra_dc_update_windows(&tegra_fb->win, 1);
 		tegra_dc_sync_windows(&tegra_fb->win, 1);
+		pr_info("panel: %s  FB_BLANK_UNBLANK   +++ return!\n", __func__);
 		return 0;
 
 	case FB_BLANK_NORMAL:
@@ -299,10 +306,12 @@ static int tegra_fb_blank(int blank, struct fb_info *info)
 	case FB_BLANK_HSYNC_SUSPEND:
 	case FB_BLANK_POWERDOWN:
 		dev_dbg(&tegra_fb->ndev->dev, "blank - powerdown\n");
+		pr_info("panel: %s  FB_BLANK_POWERDOWN ---\n", __func__);
 		/* To pan fb while switching from X */
 		if (!tegra_fb->win->dc->suspended && tegra_fb->win->dc->enabled)
 			tegra_fb->curr_xoffset = -1;
 		tegra_dc_disable(tegra_fb->win->dc);
+		pr_info("panel: %s  FB_BLANK_POWERDOWN --- return!\n", __func__);
 		return 0;
 
 	default:
@@ -310,6 +319,7 @@ static int tegra_fb_blank(int blank, struct fb_info *info)
 	}
 }
 
+extern bool emc_enable;
 static int tegra_fb_pan_display(struct fb_var_screeninfo *var,
 				struct fb_info *info)
 {
@@ -317,6 +327,12 @@ static int tegra_fb_pan_display(struct fb_var_screeninfo *var,
 	char __iomem *flush_start;
 	char __iomem *flush_end;
 	u32 addr;
+	static int flag = 1;
+
+	if (flag) {
+		flag = 0;
+		emc_enable = true;
+	}
 
 	/*
 	 * Do nothing if display parameters are same as current values.
@@ -345,9 +361,10 @@ static int tegra_fb_pan_display(struct fb_var_screeninfo *var,
 		tegra_fb->win->phys_addr = addr;
 		tegra_fb->win->flags = TEGRA_WIN_FLAG_ENABLED;
 		tegra_fb->win->virt_addr = info->screen_base;
-
-		tegra_dc_update_windows(&tegra_fb->win, 1);
-		tegra_dc_sync_windows(&tegra_fb->win, 1);
+		if (!var->isnormalmode) {
+			tegra_dc_update_windows(&tegra_fb->win, 1);
+			tegra_dc_sync_windows(&tegra_fb->win, 1);
+		}
 	}
 
 	return 0;

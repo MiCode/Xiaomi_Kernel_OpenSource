@@ -2,6 +2,7 @@
  * linux/arch/arm/mach-tegra/include/mach/tegra_fiq_debugger.h
  *
  * Copyright (C) 2010 Google, Inc.
+ * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -17,6 +18,7 @@
 #ifndef __MACH_TEGRA_FIQ_DEBUGGER_H
 #define __MACH_TEGRA_FIQ_DEBUGGER_H
 
+struct clk;
 #ifdef CONFIG_TEGRA_FIQ_DEBUGGER
 void tegra_serial_debug_init(unsigned int base, int irq,
 	struct clk *clk, int signal_irq, int wakeup_irq);

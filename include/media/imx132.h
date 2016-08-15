@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2012-2013 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software and related documentation
@@ -12,6 +13,7 @@
 #define __IMX132_H__
 
 #include <linux/ioctl.h>  /* For IOCTL macros */
+#include <linux/edp.h>
 
 #define IMX132_IOCTL_SET_MODE		_IOW('o', 1, struct imx132_mode)
 #define IMX132_IOCTL_GET_STATUS		_IOR('o', 2, __u8)
@@ -20,6 +22,7 @@
 #define IMX132_IOCTL_SET_GAIN		_IOW('o', 5, __u16)
 #define IMX132_IOCTL_GET_FUSEID		_IOR('o', 6, struct nvc_fuseid)
 #define IMX132_IOCTL_SET_GROUP_HOLD	_IOW('o', 7, struct imx132_ae)
+#define IMX132_IOCTL_GET_OTPVEND        _IOR('o', 8, struct imx132_otp)
 
 /* IMX132 registers */
 #define IMX132_GROUP_PARAM_HOLD			(0x0104)
@@ -48,6 +51,11 @@ struct imx132_ae {
 	__u8  gain_enable;
 };
 
+struct imx132_otp {
+	__u32 otp_size;
+	__u8 otp_data[1];
+};
+
 #ifdef __KERNEL__
 struct imx132_power_rail {
 	struct regulator *dvdd;
@@ -56,6 +64,7 @@ struct imx132_power_rail {
 };
 
 struct imx132_platform_data {
+	struct edp_client edpc_config;
 	int (*power_on)(struct imx132_power_rail *pw);
 	int (*power_off)(struct imx132_power_rail *pw);
 };

@@ -728,10 +728,10 @@ bcmsdh_gpioout(void *sdh, uint32 gpio, bool enab)
 
 #ifdef BCMSDIOH_TXGLOM
 void
-bcmsdh_glom_post(void *sdh, uint8 *frame, uint len)
+bcmsdh_glom_post(void *sdh, uint8 *frame, void *pkt, uint len)
 {
 	bcmsdh_info_t *bcmsdh = (bcmsdh_info_t *)sdh;
-	sdioh_glom_post(bcmsdh->sdioh, frame, len);
+	sdioh_glom_post(bcmsdh->sdioh, frame, pkt, len);
 }
 
 void

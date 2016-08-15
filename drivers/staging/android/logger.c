@@ -6,6 +6,7 @@
  * Copyright (C) 2007-2008 Google, Inc.
  *
  * Robert Love <rlove@google.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -25,6 +26,7 @@
 #include <linux/poll.h>
 #include <linux/slab.h>
 #include <linux/time.h>
+#include <linux/device.h>
 #include "logger.h"
 
 #include <asm/ioctls.h>
@@ -45,6 +47,8 @@ struct logger_log {
 	size_t			w_off;	/* current write head offset */
 	size_t			head;	/* new readers start here */
 	size_t			size;	/* size of the log */
+	long			fusion; /* enable printk */
+	unsigned char		tmpbuf[LOGGER_ENTRY_MAX_PAYLOAD];
 };
 
 /*
@@ -497,6 +501,57 @@ ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 		ret += nr;
 	}
 
+	if (log->fusion) {
+		const unsigned char *pri;
+		const unsigned char *tag;
+		const unsigned char *msg;
+		const unsigned char *buf;
+
+		/* skip the header part */
+		orig = logger_offset(log, orig + sizeof(struct logger_entry));
+
+		if (log->w_off && orig > log->w_off) {
+			memcpy(log->tmpbuf, log->buffer + orig, log->size - orig);
+			memcpy(log->tmpbuf + log->size - orig, log->buffer, log->w_off);
+			buf = log->tmpbuf;
+		} else /* easy case: ring buffer doesn't wrap */
+			buf = log->buffer + orig;
+
+		/* see __android_log_write:
+		   at system/core/liblog/logd_write.c */
+		switch (buf[0]) {
+		case 0: /* ANDROID_LOG_UNKNOWN */
+		case 1: /* ANDROID_LOG_DEFAULT */
+			pri = KERN_DEFAULT;
+			break;
+		case 2: /* ANDROID_LOG_VERBOSE */
+		case 3: /* ANDROID_LOG_DEBUG */
+			pri = KERN_DEBUG;
+			break;
+		case 4: /* ANDROID_LOG_INFO */
+			pri = KERN_INFO;
+			break;
+		case 5: /* ANDROID_LOG_WARN */
+			pri = KERN_WARNING;
+			break;
+		case 6: /* ANDROID_LOG_ERROR */
+			pri = KERN_ERR;
+			break;
+		case 7: /* ANDROID_LOG_FATAL */
+			pri = KERN_CRIT;
+			break;
+		case 8: /* ANDROID_LOG_SILENT */
+		default:
+			pri = KERN_DEFAULT;
+			break;
+		}
+
+		tag  = buf + 1;
+		msg  = tag + strlen(tag) + 1;
+
+		printk("%s%s(%d): %s", pri, tag, current->pid, msg);
+	}
+
 	mutex_unlock(&log->mutex);
 
 	/* wake up any blocked readers */
@@ -705,6 +760,38 @@ static const struct file_operations logger_fops = {
 	.release = logger_release,
 };
 
+static ssize_t logger_fusion_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct miscdevice *misc = dev_get_drvdata(dev);
+	struct logger_log *log = container_of(misc, struct logger_log, misc);
+	ssize_t status;
+
+	mutex_lock(&log->mutex);
+	status = sprintf(buf, "%ld\n", log->fusion);
+	mutex_unlock(&log->mutex);
+
+	return status;
+}
+
+static ssize_t logger_fusion_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct miscdevice *misc = dev_get_drvdata(dev);
+	struct logger_log *log = container_of(misc, struct logger_log, misc);
+	ssize_t status;
+
+	mutex_lock(&log->mutex);
+	status = strict_strtol(buf, 0, &log->fusion);
+	if (status < 0)
+		log->fusion = 0;
+	mutex_unlock(&log->mutex);
+
+	return status ? : size;
+}
+
+static DEVICE_ATTR(fusion, 0644, logger_fusion_show, logger_fusion_store);
+
 /*
  * Defines a log structure with name 'NAME' and a size of 'SIZE' bytes, which
  * must be a power of two, and greater than
@@ -728,9 +815,9 @@ static struct logger_log VAR = { \
 	.size = SIZE, \
 };
 
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 256*1024)
+DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 2048*1024)
 DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 256*1024)
+DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 2048*1024)
 DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 256*1024)
 
 static struct logger_log *get_log_from_minor(int minor)
@@ -749,6 +836,7 @@ static struct logger_log *get_log_from_minor(int minor)
 static int __init init_log(struct logger_log *log)
 {
 	int ret;
+	struct device *dev;
 
 	ret = misc_register(&log->misc);
 	if (unlikely(ret)) {
@@ -756,6 +844,9 @@ static int __init init_log(struct logger_log *log)
 		       "device for log '%s'!\n", log->misc.name);
 		return ret;
 	}
+
+	dev = log->misc.this_device;
+	device_create_file(dev, &dev_attr_fusion);
 
 	printk(KERN_INFO "logger: created %luK log '%s'\n",
 	       (unsigned long) log->size >> 10, log->misc.name);

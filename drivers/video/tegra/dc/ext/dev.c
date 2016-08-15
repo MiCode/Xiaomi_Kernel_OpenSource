@@ -792,7 +792,7 @@ static int tegra_dc_ext_set_lut(struct tegra_dc_ext_user *user,
 	return 0;
 }
 
-#if !defined(CONFIG_ARCH_TEGRA_2x_SOC) && !defined(CONFIG_ARCH_TEGRA_3x_SOC)
+#ifdef CONFIG_TEGRA_DC_CMU
 static int tegra_dc_ext_set_cmu(struct tegra_dc_ext_user *user,
 				struct tegra_dc_ext_cmu *args)
 {
@@ -863,6 +863,8 @@ static int tegra_dc_ext_get_feature(struct tegra_dc_ext_user *user,
 	return 0;
 }
 
+extern void panel_config_gamma(void);
+
 static long tegra_dc_ioctl(struct file *filp, unsigned int cmd,
 			   unsigned long arg)
 {
@@ -882,6 +884,11 @@ static long tegra_dc_ioctl(struct file *filp, unsigned int cmd,
 	{
 		struct tegra_dc_ext_flip args;
 		int ret;
+		static int count = 3;
+		if (count) {
+			panel_config_gamma();
+			count--; return 0;
+		}
 
 		if (copy_from_user(&args, user_arg, sizeof(args)))
 			return -EFAULT;
@@ -987,7 +994,7 @@ static long tegra_dc_ioctl(struct file *filp, unsigned int cmd,
 
 	case TEGRA_DC_EXT_SET_CMU:
 	{
-#if !defined(CONFIG_ARCH_TEGRA_2x_SOC) && !defined(CONFIG_ARCH_TEGRA_3x_SOC)
+#ifdef CONFIG_TEGRA_DC_CMU
 		int ret;
 		struct tegra_dc_ext_cmu *args;
 

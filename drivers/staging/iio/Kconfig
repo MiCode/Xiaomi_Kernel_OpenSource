@@ -78,6 +78,7 @@ source "drivers/staging/iio/meter/Kconfig"
 source "drivers/staging/iio/resolver/Kconfig"
 source "drivers/staging/iio/trigger/Kconfig"
 source "drivers/staging/iio/pressure/Kconfig"
+source "drivers/staging/iio/inv_test/Kconfig"
 
 config IIO_DUMMY_EVGEN
        tristate

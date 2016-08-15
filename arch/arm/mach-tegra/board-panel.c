@@ -38,7 +38,7 @@ int tegra_init_hdmi(struct platform_device *pdev,
 	/* disable HDMI if explicitly set that way in the device tree */
 	enabled = !hdmi_node || of_device_is_available(hdmi_node);
 #endif
-
+	enabled = false;
 	if (enabled) {
 		/*
 		 * If the bootloader fb2 is valid, copy it to the fb2, or else

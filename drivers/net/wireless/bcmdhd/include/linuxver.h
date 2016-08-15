@@ -2,7 +2,8 @@
  * Linux-specific abstractions to gain some independence from linux kernel versions.
  * Pave over some 2.2 versus 2.4 versus 2.6 kernel differences.
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -22,7 +23,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: linuxver.h 366812 2012-11-05 13:49:32Z $
+ * $Id: linuxver.h 387185 2013-02-24 08:43:12Z $
  */
 
 #ifndef _linuxver_h_
@@ -510,9 +511,10 @@ pci_restore_state(struct pci_dev *dev, u32 *buffer)
 
 typedef struct {
 	void 	*parent;  /* some external entity that the thread supposed to work for */
+	char *proc_name;
 	struct	task_struct *p_task;
-	pid_t 	thr_pid;
-	int 	prio; 
+	long thr_pid;
+	int prio; /* priority */
 	struct	semaphore sema;
 	int	terminated;
 	struct	completion completed;
@@ -533,32 +535,34 @@ typedef struct {
 #define SMP_RD_BARRIER_DEPENDS(x) smp_rmb(x)
 #endif
 
-
-#define PROC_START(thread_func, owner, tsk_ctl, flags) \
-{ \
-	sema_init(&((tsk_ctl)->sema), 0); \
-	init_completion(&((tsk_ctl)->completed)); \
-	(tsk_ctl)->parent = owner; \
-	(tsk_ctl)->terminated = FALSE; \
-	(tsk_ctl)->thr_pid = kernel_thread(thread_func, tsk_ctl, flags); \
-	DBG_THR(("%s thr:%lx created\n", __FUNCTION__, (tsk_ctl)->thr_pid)); \
-	if ((tsk_ctl)->thr_pid > 0) \
-		wait_for_completion(&((tsk_ctl)->completed)); \
-	DBG_THR(("%s thr:%lx started\n", __FUNCTION__, (tsk_ctl)->thr_pid)); \
-}
-
 #ifdef USE_KTHREAD_API
-#define PROC_START2(thread_func, owner, tsk_ctl, flags, name) \
+#define PROC_START(thread_func, owner, tsk_ctl, flags, name) \
 { \
 	sema_init(&((tsk_ctl)->sema), 0); \
 	init_completion(&((tsk_ctl)->completed)); \
 	(tsk_ctl)->parent = owner; \
+	(tsk_ctl)->proc_name = name;  \
 	(tsk_ctl)->terminated = FALSE; \
 	(tsk_ctl)->p_task  = kthread_run(thread_func, tsk_ctl, (char*)name); \
 	(tsk_ctl)->thr_pid = (tsk_ctl)->p_task->pid; \
-	DBG_THR(("%s thr:%d created\n", __FUNCTION__, (tsk_ctl)->thr_pid)); \
+	DBG_THR(("%s(): thread:%s:%lx started\n", __FUNCTION__, \
+		(tsk_ctl)->proc_name, (tsk_ctl)->thr_pid)); \
 }
-#endif
+#else
+#define PROC_START(thread_func, owner, tsk_ctl, flags, name) \
+{ \
+	sema_init(&((tsk_ctl)->sema), 0); \
+	init_completion(&((tsk_ctl)->completed)); \
+	(tsk_ctl)->parent = owner; \
+	(tsk_ctl)->proc_name = name;  \
+	(tsk_ctl)->terminated = FALSE; \
+	(tsk_ctl)->thr_pid = kernel_thread(thread_func, tsk_ctl, flags); \
+	if ((tsk_ctl)->thr_pid > 0) \
+		wait_for_completion(&((tsk_ctl)->completed)); \
+	DBG_THR(("%s(): thread:%s:%lx started\n", __FUNCTION__, \
+		(tsk_ctl)->proc_name, (tsk_ctl)->thr_pid)); \
+}
+#endif /* USE_KTHREAD_API */
 
 #define PROC_STOP(tsk_ctl) \
 { \
@@ -566,7 +570,8 @@ typedef struct {
 	smp_wmb(); \
 	up(&((tsk_ctl)->sema));	\
 	wait_for_completion(&((tsk_ctl)->completed)); \
-	DBG_THR(("%s thr:%lx terminated OK\n", __FUNCTION__, (tsk_ctl)->thr_pid)); \
+	DBG_THR(("%s(): thread:%s:%lx terminated OK\n", __FUNCTION__, \
+			 (tsk_ctl)->proc_name, (tsk_ctl)->thr_pid)); \
 	(tsk_ctl)->thr_pid = -1; \
 }
 

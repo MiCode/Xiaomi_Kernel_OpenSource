@@ -64,7 +64,6 @@
 #include <asm/mach/arch.h>
 #include <mach/usb_phy.h>
 #include <mach/gpio-tegra.h>
-#include <mach/tegra_fiq_debugger.h>
 #include <mach/hardware.h>
 
 #include "board-touch-raydium.h"
@@ -782,12 +781,10 @@ static void __init tegra_tegratab_late_init(void)
 	tegratab_bt_st();
 	tegratab_tegra_setup_st_host_wake();
 #endif
-	tegra_release_bootloader_fb();
 	tegratab_modem_init();
 #ifdef CONFIG_TEGRA_WDT_RECOVERY
 	tegra_wdt_recovery_init();
 #endif
-	tegra_serial_debug_init(TEGRA_UARTD_BASE, INT_WDT_CPU, NULL, -1, -1);
 	tegratab_sensors_init();
 	tegratab_soctherm_init();
 	tegra_register_fuse();

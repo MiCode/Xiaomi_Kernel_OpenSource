@@ -4,6 +4,7 @@
  * Tegra pulse-width-modulation controller driver
  *
  * Copyright (c) 2010, NVIDIA Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Based on arch/arm/plat-mxc/pwm.c by Sascha Hauer <s.hauer@pengutronix.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -102,6 +103,31 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 	return pwm_writel(pwm, val);
 }
 EXPORT_SYMBOL(pwm_config);
+
+/*
+ *  ratio = duty/256
+ */
+int pwm_duty_enable(struct pwm_device *pwm, u32 duty)
+{
+	int rc = 0;
+	u32 val = 0;
+
+	mutex_lock(&pwm_lock);
+	val = (duty << PWM_DUTY_SHIFT) | PWM_ENABLE;
+	if (!pwm->clk_enb) {
+		rc = clk_prepare_enable(pwm->clk);
+		if (!rc) {
+			writel(val, pwm->mmio_base);
+			pwm->clk_enb = 1;
+		}
+	} else /* just config duty */
+		writel(val, pwm->mmio_base);
+
+	mutex_unlock(&pwm_lock);
+
+	return rc;
+}
+EXPORT_SYMBOL(pwm_duty_enable);
 
 int pwm_enable(struct pwm_device *pwm)
 {

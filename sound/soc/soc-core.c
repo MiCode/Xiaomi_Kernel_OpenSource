@@ -5,6 +5,7 @@
  * Copyright 2005 Openedhand Ltd.
  * Copyright (C) 2010 Slimlogic Ltd.
  * Copyright (C) 2010 Texas Instruments Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
  *         with code, comments and ideas from :-
@@ -64,7 +65,7 @@ static LIST_HEAD(codec_list);
  * It can be used to eliminate pops between different playback streams, e.g.
  * between two audio tracks.
  */
-static int pmdown_time = 5000;
+static int pmdown_time = 0;
 module_param(pmdown_time, int, 0);
 MODULE_PARM_DESC(pmdown_time, "DAPM stream powerdown time (msecs)");
 
@@ -498,6 +499,17 @@ static int soc_ac97_dev_register(struct snd_soc_codec *codec)
 }
 #endif
 
+int snd_soc_flush_card(struct snd_soc_card *card)
+{
+	int i;
+
+	for (i = 0; i < card->num_rtd; i++)
+		flush_delayed_work(&card->rtd[i].delayed_work);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_soc_flush_card);
+
 #ifdef CONFIG_PM_SLEEP
 /* powers down audio subsystem for suspend */
 int snd_soc_suspend(struct device *dev)
@@ -519,8 +531,21 @@ int snd_soc_suspend(struct device *dev)
 	snd_power_wait(card->snd_card, SNDRV_CTL_POWER_D0);
 	snd_power_unlock(card->snd_card);
 
-	/* we're going to block userspace touching us until resume completes */
-	snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D3hot);
+	/* we're going to block userspace touching us until resume completes:
+	   the power state enter SNDRV_CTL_POWER_D2 if ignore_suspend is true
+	   for other case the power state change to SNDRV_CTL_POWER_D3hot
+	 */
+	for (i = 0; i < card->num_rtd; i++) {
+		struct snd_soc_dai *dai = card->rtd[i].codec_dai;
+		struct snd_soc_dai_driver *drv = dai->driver;
+
+		if (card->rtd[i].dai_link->ignore_suspend) {
+			snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D2);
+			break;
+		}
+	}
+	if (i == card->num_rtd)
+		snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D3hot);
 
 	/* mute any active DACs */
 	for (i = 0; i < card->num_rtd; i++) {
@@ -1200,7 +1225,8 @@ static int soc_probe_dai_link(struct snd_soc_card *card, int num, int order)
 	struct snd_soc_pcm_runtime *rtd = &card->rtd[num];
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_platform *platform = rtd->platform;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai, *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int ret;
 
 	dev_dbg(card->dev, "probe %s dai link %d late %d\n",
@@ -2664,7 +2690,7 @@ int snd_soc_info_volsw_2r_sx(struct snd_kcontrol *kcontrol,
 	int min = mc->min;
 
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
-	uinfo->count = 2;
+	uinfo->count = snd_soc_volsw_is_stereo(mc) ? 2 : 1;
 	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = max-min;
 
@@ -2689,10 +2715,12 @@ int snd_soc_get_volsw_2r_sx(struct snd_kcontrol *kcontrol,
 	unsigned int mask = (1<<mc->shift)-1;
 	int min = mc->min;
 	int val = snd_soc_read(codec, mc->reg) & mask;
-	int valr = snd_soc_read(codec, mc->rreg) & mask;
 
 	ucontrol->value.integer.value[0] = ((val & 0xff)-min) & mask;
-	ucontrol->value.integer.value[1] = ((valr & 0xff)-min) & mask;
+	if (snd_soc_volsw_is_stereo(mc)) {
+		int valr = snd_soc_read(codec, mc->rreg) & mask;
+		ucontrol->value.integer.value[1] = ((valr & 0xff)-min) & mask;
+	}
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_soc_get_volsw_2r_sx);
@@ -2718,11 +2746,8 @@ int snd_soc_put_volsw_2r_sx(struct snd_kcontrol *kcontrol,
 
 	val = ((ucontrol->value.integer.value[0]+min) & 0xff);
 	val &= mask;
-	valr = ((ucontrol->value.integer.value[1]+min) & 0xff);
-	valr &= mask;
 
 	oval = snd_soc_read(codec, mc->reg) & mask;
-	ovalr = snd_soc_read(codec, mc->rreg) & mask;
 
 	ret = 0;
 	if (oval != val) {
@@ -2730,10 +2755,17 @@ int snd_soc_put_volsw_2r_sx(struct snd_kcontrol *kcontrol,
 		if (ret < 0)
 			return ret;
 	}
-	if (ovalr != valr) {
-		ret = snd_soc_write(codec, mc->rreg, valr);
-		if (ret < 0)
-			return ret;
+
+	if (snd_soc_volsw_is_stereo(mc)) {
+		valr = ((ucontrol->value.integer.value[1]+min) & 0xff);
+		valr &= mask;
+
+		ovalr = snd_soc_read(codec, mc->rreg) & mask;
+		if (ovalr != valr) {
+			ret = snd_soc_write(codec, mc->rreg, valr);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	return 0;
@@ -3048,7 +3080,7 @@ int snd_soc_dai_digital_mute(struct snd_soc_dai *dai, int mute)
 	if (dai->driver && dai->driver->ops->digital_mute)
 		return dai->driver->ops->digital_mute(dai, mute);
 	else
-		return -EINVAL;
+		return -ENOTSUPP;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_digital_mute);
 

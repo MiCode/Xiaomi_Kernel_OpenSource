@@ -240,6 +240,7 @@ struct aic3xxx_pdata {
 	unsigned int audio_mclk2;
 	unsigned int gpio_irq;	/* whether AIC3262 interrupts the host AP on */
 				/* a GPIO pin of AP */
+	unsigned int high_reset;	/* is the codec being reset by high level signal */
 	unsigned int gpio_reset;/* is the codec being reset by a gpio*/
 				/* [host] pin, if yes provide the number. */
 	struct aic3262_gpio_setup *gpio;/* all gpio configuration */

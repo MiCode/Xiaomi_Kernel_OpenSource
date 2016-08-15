@@ -1,0 +1,11 @@
+#
+# Kconfig for Invensense IIO testing hooks
+#
+
+config INV_TESTING
+	boolean "Invensense IIO testing hooks"
+	depends on INV_MPU_IIO || INV_AMI306_IIO || INV_YAS530
+	default n
+	help
+	  This flag enables display of additional testing information from the
+	  Invensense IIO drivers

@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-tegra/include/mach/gic.h
  *
- * Copyright (C) 2010-2012 NVIDIA Corporation
+ * Copyright (C) 2010-2013 NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -43,6 +43,7 @@ void tegra_gic_affinity_to_cpu0(void);
 #endif
 #endif
 
+void __iomem *tegra_get_gic_cpu_base(void);
 u32 tegra_gic_version(void);
 void __init tegra_gic_init(bool is_dt);
 

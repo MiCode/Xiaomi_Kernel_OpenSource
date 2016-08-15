@@ -183,7 +183,7 @@
 	.private_value = (unsigned long)&(struct soc_mixer_control) \
 		{.reg = xreg_left, \
 		 .rreg = xreg_right, .shift = xshift, \
-		 .min = xmin, .max = xmax} }
+		 .min = xmin, .max = xmax, .rshift = xshift} }
 
 #define SND_SOC_BYTES(xname, xbase, xregs)		      \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname,   \
@@ -300,6 +300,7 @@ int snd_soc_codec_set_pll(struct snd_soc_codec *codec, int pll_id, int source,
 
 int snd_soc_register_card(struct snd_soc_card *card);
 int snd_soc_unregister_card(struct snd_soc_card *card);
+int snd_soc_flush_card(struct snd_soc_card *card);
 int snd_soc_suspend(struct device *dev);
 int snd_soc_resume(struct device *dev);
 int snd_soc_poweroff(struct device *dev);
@@ -611,6 +612,7 @@ struct snd_soc_codec {
 	/* dapm */
 	struct snd_soc_dapm_context dapm;
 	unsigned int ignore_pmdown_time:1; /* pmdown_time is ignored at stop */
+	long pmdown_time;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_codec_root;
@@ -751,6 +753,8 @@ struct snd_soc_dai_link {
 	const char *cpu_dai_name;
 	const struct device_node *cpu_dai_of_node;
 	const char *codec_dai_name;
+
+	const struct snd_soc_pcm_stream *params;
 
 	unsigned int dai_fmt;           /* format to set on init */
 

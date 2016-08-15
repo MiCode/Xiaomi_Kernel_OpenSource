@@ -6,6 +6,7 @@
  *	Colin Cross <ccross@google.com>
  *
  * Copyright (c) 2019-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -845,7 +846,7 @@ void tegra_init_max_rate(struct clk *c, unsigned long max_rate)
 
 	/* skip message if shared bus user */
 	if (!c->parent || !c->parent->ops || !c->parent->ops->shared_bus_update)
-		pr_info("Lowering %s maximum rate from %lu to %lu\n",
+		pr_debug("Lowering %s maximum rate from %lu to %lu\n",
 			c->name, c->max_rate, max_rate);
 
 	c->max_rate = max_rate;
@@ -958,9 +959,15 @@ static int __init tegra_init_disable_boot_clocks(void)
 
 			pr_warn("   %s\n", c->name);
 
-			if (!tegra_keep_boot_clocks) {
-				c->ops->disable(c);
-				c->state = OFF;
+			if (strcmp(c->name, "dsi1-fixed") \
+					&& strcmp(c->name, "dsia") \
+					&& strcmp(c->name, "pll_d") \
+					&& strcmp(c->name, "pll_d_out0") \
+					&& strcmp(c->name, "disp1")) {
+				if (!tegra_keep_boot_clocks) {
+					c->ops->disable(c);
+					c->state = OFF;
+				}
 			}
 		}
 		clk_unlock_restore(c, &flags);

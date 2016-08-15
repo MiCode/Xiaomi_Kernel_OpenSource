@@ -1,7 +1,8 @@
 /*
  * Misc useful os-independent macros and functions.
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmutils.h 354837 2012-09-04 06:58:44Z $
+ * $Id: bcmutils.h 382763 2013-02-04 10:21:08Z $
  */
 
 #ifndef	_bcmutils_h_
@@ -140,6 +141,8 @@ typedef struct {
 						        increases with use ('inverse' of max_avail)
 				          */
 	uint32 queue_capacity; /* the maximum capacity of the queue */
+	uint32 rtsfail;	/* count of rts attempts that failed to receive cts */
+	uint32 acked;	/* count of packets sent (acked) successfully */
 } pktq_counters_t;
 #endif /* PKTQ_LOG */
 
@@ -157,6 +160,8 @@ struct pktq {
 	struct pktq_prec q[PKTQ_MAX_PREC];
 #ifdef PKTQ_LOG
 	pktq_counters_t	_prec_cnt[PKTQ_MAX_PREC];		/* Counters per queue  */
+	pktq_counters_t _prec_bytes[PKTQ_MAX_PREC];	/* Byte count per queue  */
+	uint32 _logtime;	/* timestamp of last counter clear  */
 #endif
 };
 
@@ -300,6 +305,8 @@ extern void *pktq_penq(struct pktq *pq, int prec, void *p);
 extern void *pktq_penq_head(struct pktq *pq, int prec, void *p);
 extern void *pktq_pdeq(struct pktq *pq, int prec);
 extern void *pktq_pdeq_prev(struct pktq *pq, int prec, void *prev_p);
+extern void *pktq_pdeq_with_fn(struct pktq *pq, int prec, ifpkt_cb_t fn,
+			int arg);
 extern void *pktq_pdeq_tail(struct pktq *pq, int prec);
 /* Empty the queue at particular precedence level */
 extern void pktq_pflush(osl_t *osh, struct pktq *pq, int prec, bool dir,
@@ -346,7 +353,8 @@ extern uint pkttotlen(osl_t *osh, void *p);
 extern void *pktlast(osl_t *osh, void *p);
 extern uint pktsegcnt(osl_t *osh, void *p);
 extern uint pktsegcnt_war(osl_t *osh, void *p);
-extern uint8 *pktoffset(osl_t *osh, void *p,  uint offset);
+extern uint8 *pktdataoffset(osl_t * osh, void *p, uint offset);
+	extern void *pktoffset(osl_t * osh, void *p, uint offset);
 
 /* Get priority from a packet and pass it back in scb (or equiv) */
 #define	PKTPRIO_VDSCP	0x100		/* DSCP prio found after VLAN tag */
@@ -529,7 +537,11 @@ extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
 #define BCME_NODEVICE			-40 	/* Device not present */
 #define BCME_NMODE_DISABLED		-41 	/* NMODE disabled */
 #define BCME_NONRESIDENT		-42 /* access to nonresident overlay */
-#define BCME_LAST			BCME_NONRESIDENT
+#define BCME_SCANREJECT			-43	/* reject scan request */
+#define BCME_USAGE_ERROR                -44	/* WLCMD usage error */
+#define BCME_IOCTL_ERROR                -45	/* WLCMD ioctl error */
+#define BCME_SERIAL_PORT_ERR            -46	/* RWL serial port error */
+#define BCME_LAST			BCME_SERIAL_PORT_ERR
 
 /* These are collection of BCME Error strings */
 #define BCMERRSTRINGTABLE {		\
@@ -576,6 +588,10 @@ extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
 	"Device Not Present",		\
 	"NMODE Disabled",		\
 	"Nonresident overlay access", \
+	"Scan Rejected",		\
+	"WLCMD usage error",		\
+	"WLCMD ioctl error",		\
+	"RWL serial port error", 	\
 }
 
 #ifndef ABS
@@ -589,6 +605,24 @@ extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
 #ifndef MAX
 #define	MAX(a, b)		(((a) > (b)) ? (a) : (b))
 #endif /* MAX */
+
+/* limit to [min, max] */
+#ifndef LIMIT_TO_RANGE
+#define LIMIT_TO_RANGE(x, min, max) \
+	((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
+#endif				/* LIMIT_TO_RANGE */
+
+/* limit to  max */
+#ifndef LIMIT_TO_MAX
+#define LIMIT_TO_MAX(x, max) \
+	(((x) > (max) ? (max) : (x)))
+#endif				/* LIMIT_TO_MAX */
+
+/* limit to min */
+#ifndef LIMIT_TO_MIN
+#define LIMIT_TO_MIN(x, min) \
+	(((x) < (min) ? (min) : (x)))
+#endif				/* LIMIT_TO_MIN */
 
 #define CEIL(x, y)		(((x) + ((y) - 1)) / (y))
 #define	ROUNDUP(x, y)		((((x) + ((y) - 1)) / (y)) * (y))
@@ -618,6 +652,10 @@ extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
 #define ARRAYSIZE(a)		(sizeof(a) / sizeof(a[0]))
 #endif
 
+#ifndef ARRAYLAST		/* returns pointer to last array element */
+#define ARRAYLAST(a)		(&a[ARRAYSIZE(a)-1])
+#endif
+
 /* Reference a function; used to prevent a static function from being optimized out */
 extern void *_bcmutils_dummy_fn;
 #define REFERENCE_FUNCTION(f)	(_bcmutils_dummy_fn = (void *)(f))
@@ -627,11 +665,20 @@ extern void *_bcmutils_dummy_fn;
 #ifndef NBBY		      /* the BSD family defines NBBY */
 #define	NBBY	8	/* 8 bits per byte */
 #endif /* #ifndef NBBY */
+#ifdef BCMUTILS_BIT_MACROS_USE_FUNCS
+	extern void setbit(void *array, uint bit);
+	extern void clrbit(void *array, uint bit);
+	extern bool isset(const void *array, uint bit);
+	extern bool isclr(const void *array, uint bit);
+#else
 #define	setbit(a, i)	(((uint8 *)a)[(i) / NBBY] |= 1 << ((i) % NBBY))
 #define	clrbit(a, i)	(((uint8 *)a)[(i) / NBBY] &= ~(1 << ((i) % NBBY)))
 #define	isset(a, i)	(((const uint8 *)a)[(i) / NBBY] & (1 << ((i) % NBBY)))
 #define	isclr(a, i)	((((const uint8 *)a)[(i) / NBBY] & (1 << ((i) % NBBY))) == 0)
+#endif
 #endif /* setbit */
+
+#define	isbitset(a, i)	(((a) & (1 << (i))) != 0)
 
 #define	NBITS(type)	(sizeof(type) * 8)
 #define NBITVAL(nbits)	(1 << (nbits))
@@ -697,6 +744,12 @@ typedef struct bcm_bit_desc {
 	const char* name;
 } bcm_bit_desc_t;
 
+/* bcm_format_field */
+	typedef struct bcm_bit_desc_ex {
+		uint32 mask;
+		const bcm_bit_desc_t *bitfield;
+	} bcm_bit_desc_ex_t;
+
 /* tag_ID/length/value_buffer tuple */
 typedef struct bcm_tlv {
 	uint8	id;
@@ -743,7 +796,12 @@ extern uint32 hndcrc32(uint8 *p, uint nbytes, uint32 crc);
 /* format/print */
 #if defined(DHD_DEBUG) || defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || \
 	defined(WLMSG_ASSOC)
-extern int bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len);
+/* print out the value a field has: fields may have 1-32 bits and may hold any value */
+	extern int bcm_format_field(const bcm_bit_desc_ex_t * bd, uint32 field,
+				char *buf, int len);
+/* print out which bits in flags are set */
+	extern int bcm_format_flags(const bcm_bit_desc_t * bd, uint32 flags,
+				char *buf, int len);
 #endif
 
 #if defined(DHD_DEBUG) || defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || \
@@ -764,7 +822,7 @@ extern bcm_tlv_t *bcm_parse_ordered_tlvs(void *buf, int buflen, uint key);
 
 /* bcmerror */
 extern const char *bcmerrorstr(int bcmerror);
-extern bcm_tlv_t *bcm_parse_tlvs(void *buf, int buflen, uint key);
+/* extern bcm_tlv_t *bcm_parse_tlvs(void *buf, int buflen, uint key); */
 
 /* multi-bool data type: set of bools, mbool is true if any is set */
 typedef uint32 mbool;
@@ -799,7 +857,17 @@ extern uint16 bcm_qdbm_to_mw(uint8 qdbm);
 extern uint8 bcm_mw_to_qdbm(uint16 mw);
 extern uint bcm_mkiovar(char *name, char *data, uint datalen, char *buf, uint len);
 
-unsigned int process_nvram_vars(char *varbuf, unsigned int len);
+	unsigned int process_nvram_vars(char *varbuf, unsigned int len);
+	extern bcm_tlv_t *find_vendor_ie(void *tlvs, int tlvs_len,
+					const char *voui, uint8 * type,
+					int type_len);
+
+/* calculate a * b + c */
+	extern void bcm_uint64_multiple_add(uint32 * r_high, uint32 * r_low,
+					uint32 a, uint32 b, uint32 c);
+/* calculate a / b */
+	extern void bcm_uint64_divide(uint32 * r, uint32 a_high, uint32 a_low,
+					uint32 b);
 
 #ifdef __cplusplus
 	}

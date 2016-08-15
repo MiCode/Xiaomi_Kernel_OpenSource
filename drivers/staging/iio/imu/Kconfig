@@ -15,3 +15,5 @@ config ADIS16400
 	  (adis16400 series also have magnetometers).
 
 endmenu
+
+source "drivers/staging/iio/imu/inv_mpu/Kconfig"

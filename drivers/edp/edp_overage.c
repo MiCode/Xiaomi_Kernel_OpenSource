@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -51,7 +51,11 @@ static unsigned int approvable_req(struct edp_client *c,
 	if (req_index(c) >= c->e0_index)
 		return req_index(c);
 
-	tot_overage  = net_overage + cur_overage(c) + c->manager->remaining;
+	tot_overage = net_overage + c->manager->remaining;
+	if (cur_overage(c))
+		tot_overage += cur_overage(c);
+	else
+		tot_overage -= e0_level(c) - cur_level(c);
 	tot_max = net_max + c->states[0];
 	fair_level = tot_overage * c->states[0] / tot_max + e0_level(c);
 	step = max(fair_level, cur_level(c) + c->manager->remaining) -

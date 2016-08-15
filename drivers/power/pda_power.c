@@ -4,6 +4,7 @@
  * and optional builtin charger.
  *
  * Copyright © 2007 Anton Vorontsov <cbou@mail.ru>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -111,6 +112,9 @@ static void update_status(void)
 
 	if (pdata->is_usb_online)
 		new_usb_status = !!pdata->is_usb_online();
+
+	dev_info(dev, "%s ac %d usb %d\n", __func__,
+		 new_ac_status, new_usb_status);
 }
 
 static void update_charger(void)
@@ -120,13 +124,13 @@ static void update_charger(void)
 
 	if (pdata->set_charge) {
 		if (new_ac_status > 0) {
-			dev_dbg(dev, "charger on (AC)\n");
+			dev_info(dev, "charger on (AC)\n");
 			pdata->set_charge(PDA_POWER_CHARGE_AC);
 		} else if (new_usb_status > 0) {
-			dev_dbg(dev, "charger on (USB)\n");
+			dev_info(dev, "charger on (USB)\n");
 			pdata->set_charge(PDA_POWER_CHARGE_USB);
 		} else {
-			dev_dbg(dev, "charger off\n");
+			dev_info(dev, "charger off\n");
 			pdata->set_charge(0);
 		}
 	} else if (ac_draw) {
@@ -237,6 +241,8 @@ static int otg_is_ac_online(void)
 static int otg_handle_notification(struct notifier_block *nb,
 		unsigned long event, void *unused)
 {
+	dev_info(dev, "%s event %d\n", __func__, event);
+
 	switch (event) {
 	case USB_EVENT_CHARGER:
 		ac_status = PDA_PSY_TO_CHANGE;
@@ -284,9 +290,6 @@ static int pda_power_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto init_failed;
 	}
-
-	update_status();
-	update_charger();
 
 	if (!pdata->wait_for_status)
 		pdata->wait_for_status = 500;
@@ -394,6 +397,8 @@ static int pda_power_probe(struct platform_device *pdev)
 	if (ac_irq || usb_irq)
 		device_init_wakeup(&pdev->dev, 1);
 
+	update_status();
+	mod_timer(&charger_timer, jiffies + msecs_to_jiffies(1500));
 	return 0;
 
 #ifdef CONFIG_USB_OTG_UTILS

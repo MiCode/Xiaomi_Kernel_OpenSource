@@ -2,6 +2,7 @@
  * drivers/video/tegra/camera/camera_priv_defs.h
  *
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -39,7 +40,9 @@
 #endif
 
 #include <video/tegra_camera.h>
-
+#ifdef CONFIG_THERMAL
+#include <linux/thermal.h>
+#endif /* CONFIG_THERMAL */
 
 /*
  * CAMERA_*_CLK is only for internal driver use.
@@ -53,11 +56,18 @@ enum {
 	CAMERA_ISP_CLK,
 	CAMERA_CSUS_CLK,
 	CAMERA_CSI_CLK,
-#if defined(CONFIG_ARCH_TEGRA_11x_SOC) || defined(CONFIG_ARCH_TEGRA_14x_SOC)
+#if defined(CONFIG_ARCH_TEGRA_11x_SOC)
 	CAMERA_CILAB_CLK,
 	CAMERA_CILCD_CLK,
 	CAMERA_CILE_CLK,
 	CAMERA_PLL_D2_CLK,
+	/*
+	 * We need pll_p and pll_c always defined together and
+	 * in the order below for the logic that selects the
+	 * lowest clock rate based on two clock sources.
+	 */
+	CAMERA_PLL_P_CLK,
+	CAMERA_PLL_C_CLK,
 #endif
 	CAMERA_SCLK,
 	CAMERA_CLK_MAX,
@@ -68,6 +78,18 @@ struct clock {
 	bool on;
 };
 
+/*
+ * cdev: cooling device registered
+ * cur_state: cooling device current state
+ * max_state: maximum depth of cooling
+ */
+#ifdef CONFIG_THERMAL
+struct camera_throttle {
+	struct thermal_cooling_device *cdev;
+	unsigned long cur_state;
+	unsigned long max_state;
+};
+#endif
 struct tegra_camera {
 	struct device *dev;
 	struct miscdevice misc_dev;
@@ -77,6 +99,9 @@ struct tegra_camera {
 	struct mutex tegra_camera_lock;
 	atomic_t in_use;
 	int power_on;
+#ifdef CONFIG_THERMAL
+	struct camera_throttle camera_throt;
+#endif
 #ifdef CONFIG_ARCH_TEGRA_11x_SOC
 	tegra_isomgr_handle isomgr_handle;
 #endif

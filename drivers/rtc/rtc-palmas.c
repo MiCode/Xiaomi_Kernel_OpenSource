@@ -2,6 +2,7 @@
  * rtc-palmas.c -- Palmas Real Time Clock interface
  *
  * Copyright (c) 2012 - 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Kasoju Mallikarjun <mkasoju@nvidia.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -35,8 +36,10 @@ struct palmas_rtc {
 	/* To store the list of enabled interrupts */
 	unsigned int irqstat;
 	unsigned int irq;
+	unsigned long rtcalarm_time;
 };
 
+extern void tegra_rtc_set_countdown(int);
 /* Total number of RTC registers needed to set time*/
 #define NUM_TIME_REGS	(PALMAS_YEARS_REG - PALMAS_SECONDS_REG + 1)
 
@@ -231,7 +234,6 @@ static int palmas_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	struct palmas *palmas = dev_get_drvdata(dev->parent);
 	int ret;
 
-	dev_dbg(dev, "%s()\n", __func__);
 	ret = palmas_rtc_alarm_irq_enable(dev, 0);
 	if (ret)
 		return ret;
@@ -259,6 +261,32 @@ static int palmas_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 		ret = palmas_rtc_alarm_irq_enable(dev, 1);
 
 	return ret;
+}
+
+static int msmrtc_virtual_alarm_set(struct device *dev, struct rtc_wkalrm *a)
+{
+	int rc;
+	struct palmas *palmas = dev_get_drvdata(dev->parent);
+	unsigned long now;
+	struct rtc_time rtc_tm;
+
+	rtc_tm_to_time(&a->time, &(palmas->rtc->rtcalarm_time));
+
+	rc = palmas_rtc_read_time(dev, &rtc_tm);
+	if (rc < 0) {
+		dev_err(dev, "Unamble to read RTC time\n");
+		return -EINVAL;
+	}
+	rtc_tm_to_time(&rtc_tm, &now);
+
+	if (now > palmas->rtc->rtcalarm_time) {
+		dev_err(dev, "%s: Attempt to set alarm in the past\n",
+			__func__);
+		palmas->rtc->rtcalarm_time = 0;
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static irqreturn_t palmas_rtc_interrupt(int irq, void *rtc)
@@ -297,7 +325,8 @@ static struct rtc_class_ops palmas_rtc_ops = {
 	.read_time	= palmas_rtc_read_time,
 	.set_time	= palmas_rtc_set_time,
 	.read_alarm	= palmas_rtc_read_alarm,
-	.set_alarm	= palmas_rtc_set_alarm,
+	.set_alarm = msmrtc_virtual_alarm_set,
+	.set_alarm_foo = palmas_rtc_set_alarm,
 	.alarm_irq_enable = palmas_rtc_alarm_irq_enable,
 };
 
@@ -354,13 +383,6 @@ static int __devinit palmas_rtc_probe(struct platform_device *pdev)
 				ret);
 			return ret;
 		}
-	}
-
-	ret = palmas_rtc_write(palmas, PALMAS_RTC_INTERRUPTS_REG, 0);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "RTC_INTERRUPTS_REG write failed: %d\n",
-				ret);
-		return ret;
 	}
 
 	/* Clear pending interrupts */
@@ -421,10 +443,19 @@ static int __devexit palmas_rtc_remove(struct platform_device *pdev)
 	/* leave rtc running, but disable irqs */
 	struct palmas *palmas = dev_get_drvdata(pdev->dev.parent);
 
-	palmas_rtc_alarm_irq_enable(&palmas->rtc->rtc->dev, 0);
 	free_irq(palmas->irq, &pdev->dev);
 	rtc_device_unregister(palmas->rtc->rtc);
 	return 0;
+}
+
+static void
+msmrtc_alarmtimer_expired(unsigned long _data, struct palmas_rtc *rtc_pdata)
+{
+	pr_debug("%s: Generating alarm event (src %lu)\n",
+		 rtc_pdata->rtc->name, _data);
+
+	rtc_update_irq(rtc_pdata->rtc, 1, RTC_IRQF | RTC_AF);
+	rtc_pdata->rtcalarm_time = 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -432,6 +463,9 @@ static int palmas_rtc_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct palmas *palmas = dev_get_drvdata(pdev->dev.parent);
+	struct rtc_time rtc_tm;
+	unsigned long now;
+	long diff, rc;
 
 	if (device_may_wakeup(dev)) {
 		int ret;
@@ -447,6 +481,23 @@ static int palmas_rtc_suspend(struct device *dev)
 				alm.time.tm_min, alm.time.tm_sec);
 	}
 
+	if (palmas->rtc->rtcalarm_time) {
+		rc = palmas_rtc_read_time(dev, &rtc_tm);
+		if (rc < 0) {
+			dev_err(dev, "Unable to read RTC time\n");
+			return -EINVAL;
+		}
+		rtc_tm_to_time(&rtc_tm, &now);
+
+		diff = palmas->rtc->rtcalarm_time - now;
+		if (diff <= 0) {
+			msmrtc_alarmtimer_expired(1, palmas->rtc);
+			tegra_rtc_set_countdown(0);
+			return 0;
+		}
+		tegra_rtc_set_countdown(diff);
+	} else
+		tegra_rtc_set_countdown(0);
 	return 0;
 }
 
@@ -454,6 +505,9 @@ static int palmas_rtc_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct palmas *palmas = dev_get_drvdata(pdev->dev.parent);
+	struct rtc_time rtc_tm;
+	unsigned long now;
+	int rc, diff;
 
 	if (device_may_wakeup(dev)) {
 		struct rtc_time tm;
@@ -465,6 +519,21 @@ static int palmas_rtc_resume(struct device *dev)
 			dev_info(dev, "%s() %d %d %d %d %d %d\n",
 				__func__, tm.tm_year, tm.tm_mon, tm.tm_mday,
 				tm.tm_hour, tm.tm_min, tm.tm_sec);
+	}
+
+	if (palmas->rtc->rtcalarm_time) {
+		rc = palmas_rtc_read_time(dev, &rtc_tm);
+		if (rc < 0) {
+			dev_err(dev, "Unamble to read RTC time\n");
+			return -EINVAL;
+		}
+		rtc_tm_to_time(&rtc_tm, &now);
+
+		diff = palmas->rtc->rtcalarm_time - now;
+		if (diff <= 0)
+			msmrtc_alarmtimer_expired(2, palmas->rtc);
+
+		tegra_rtc_set_countdown(0);
 	}
 
 	return 0;

@@ -4,6 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  *
  * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -197,6 +198,7 @@ int tegra_dc_program_mode(struct tegra_dc *dc, struct tegra_dc_mode *mode)
 	unsigned long rate;
 	unsigned long div;
 	unsigned long pclk;
+	int current_emc_clk_rate = dc->emc_clk_rate;
 
 	print_mode(dc, mode, __func__);
 
@@ -283,6 +285,8 @@ int tegra_dc_program_mode(struct tegra_dc *dc, struct tegra_dc_mode *mode)
 	tegra_dc_writel(dc, GENERAL_ACT_REQ, DC_CMD_STATE_CONTROL);
 
 	dc->mode_dirty = false;
+	dc->new_emc_clk_rate = current_emc_clk_rate;
+	tegra_dc_program_bandwidth(dc, false);
 
 	trace_display_mode(dc, &dc->mode);
 	return 0;

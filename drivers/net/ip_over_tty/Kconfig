@@ -1,0 +1,7 @@
+config IP_OVER_TTY
+	tristate "IP Over TTY driver"
+	help
+	  Choose this option if you want a network interface which sends ip packets over tty devices.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ttynet.

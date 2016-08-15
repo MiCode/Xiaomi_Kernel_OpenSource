@@ -2,6 +2,7 @@
  * linux/kernel/irq/pm.c
  *
  * Copyright (C) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This file contains power management functions related to interrupts.
  */
@@ -103,6 +104,17 @@ void resume_device_irqs(void)
 	resume_irqs(false);
 }
 EXPORT_SYMBOL_GPL(resume_device_irqs);
+
+/* Enable the interrupt with %IRQF_EARLY_RESUME set
+ * The interrupts with %IRQF_EARLY_RESUME set still disabled if syscore_resume
+ * is bypassed due to suspend_noirq() failure. Make the new API for it.
+*/
+void resume_device_early_resume_irqs(void)
+{
+	resume_irqs(true);
+}
+
+EXPORT_SYMBOL_GPL(resume_device_early_resume_irqs);
 
 /**
  * check_wakeup_irqs - check if any wake-up interrupts are pending

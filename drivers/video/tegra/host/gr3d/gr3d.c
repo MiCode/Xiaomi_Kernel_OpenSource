@@ -217,7 +217,7 @@ static int gr3d_suspend(struct platform_device *dev, pm_message_t state)
 
 static int gr3d_resume(struct platform_device *dev)
 {
-	dev_info(&dev->dev, "resuming\n");
+	dev_dbg(&dev->dev, "resuming\n");
 	return 0;
 }
 #endif

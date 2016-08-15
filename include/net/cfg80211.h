@@ -896,15 +896,6 @@ struct cfg80211_ssid {
 };
 
 /**
- * enum cfg80211_scan_flag -  scan request control flags
- *
- * @CFG80211_SCAN__FLAG_TX_ABORT: abort scan on pending transmit
- */
-enum cfg80211_scan_flags {
-	CFG80211_SCAN_FLAG_TX_ABORT	= NL80211_SCAN_FLAG_TX_ABORT,
-};
-
-/**
  * struct cfg80211_scan_request - scan request description
  *
  * @ssids: SSIDs to scan for (active scan only)
@@ -2495,7 +2486,7 @@ unsigned int __attribute_const__ ieee80211_hdrlen(__le16 fc);
  * Returns the length of the extension header, which is always at
  * least 6 bytes and at most 18 if address 5 and 6 are present.
  */
-unsigned int ieee80211_get_mesh_hdrlen(struct ieee80211s_hdr *meshhdr);
+static int ieee80211_get_mesh_hdrlen(struct ieee80211s_hdr *meshhdr);
 
 /**
  * DOC: Data path helpers

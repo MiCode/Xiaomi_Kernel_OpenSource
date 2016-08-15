@@ -3,6 +3,7 @@
  *
  * Copyright 2011-2012 Texas Instruments Inc.
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Graeme Gregory <gg@slimlogic.co.uk>
  *
@@ -750,6 +751,36 @@ static int palmas_control_update(struct palmas *palmas, unsigned int reg,
 	return regmap_update_bits(palmas->regmap[0], addr, mask, value);
 }
 
+static int palmas_gpadc_write(struct palmas *palmas, unsigned int reg,
+	unsigned int value)
+{
+	int slave;
+	unsigned int addr = PALMAS_BASE_TO_REG(PALMAS_GPADC_BASE, reg);
+
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_GPADC_BASE);
+	return regmap_write(palmas->regmap[slave], addr, value);
+}
+
+static int palmas_gpadc_update(struct palmas *palmas, unsigned int reg,
+	unsigned int mask, unsigned int value)
+{
+	int slave;
+	unsigned int addr = PALMAS_BASE_TO_REG(PALMAS_GPADC_BASE, reg);
+
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_GPADC_BASE);
+	return regmap_update_bits(palmas->regmap[slave], addr, mask, value);
+}
+
+static int palmas_gpadc_read(struct palmas *palmas, unsigned int reg,
+	unsigned int *value)
+{
+	int slave;
+	unsigned int addr = PALMAS_BASE_TO_REG(PALMAS_GPADC_BASE, reg);
+
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_GPADC_BASE);
+	return regmap_read(palmas->regmap[slave], addr, value);
+}
+
 int palmas_ext_power_req_config(struct palmas *palmas,
 		int id, int ext_pwr_ctrl, bool enable)
 {
@@ -881,11 +912,122 @@ static void palmas_clk32k_init(struct palmas *palmas,
 	}
 }
 
+static irqreturn_t palmas_vsysmon_irq(int irq, void *data)
+{
+	struct palmas *palmas = data;
+
+	dev_info(palmas->dev, "VSYS_MON interrupt occur\n");
+	return IRQ_HANDLED;
+}
+
+static void palmas_vsys_mon_init(struct palmas *palmas,
+	struct palmas_platform_data *pdata)
+{
+	int ret;
+	int vmon = pdata->vsys_mon_threshold;
+	int val, irq = pdata->irq_base + PALMAS_VSYS_MON_IRQ;
+
+	if (vmon < 2300 || vmon > 4600)
+		return;
+
+	val = (6 + (vmon - 2300) / 50) & PALMAS_VSYS_MON_THRESHOLD_MASK;
+	ret = palmas_control_update(palmas, PALMAS_VSYS_MON,
+		PALMAS_VSYS_MON_THRESHOLD_MASK,
+		val << PALMAS_VSYS_MON_THRESHOLD_SHIFT);
+	if (ret < 0)
+		dev_err(palmas->dev, "Error in updating vsys mon reg\n");
+
+	ret = palmas_control_update(palmas, PALMAS_VSYS_MON,
+		PALMAS_VSYS_MON_ENABLE, PALMAS_VSYS_MON_ENABLE);
+	if (ret < 0)
+		dev_err(palmas->dev, "Error in updating vsys mon reg\n");
+
+	ret = request_threaded_irq(irq, NULL, palmas_vsysmon_irq,
+		IRQF_ONESHOT, "palmas_vsysmon", palmas);
+	return;
+}
+
+static void palmas_backup_battery_init(struct palmas *palmas,
+	struct palmas_platform_data *pdata)
+{
+	int ret;
+	struct palmas_backup_battery_init_data *bb_idata = pdata->bb_init_data;
+	unsigned int reg;
+
+	if (!bb_idata)
+		return;
+
+	reg = PALMAS_BACKUP_BATTERY_CTRL;
+
+	ret = palmas_control_update(palmas, reg,
+				PALMAS_BACKUP_BATTERY_CTRL_VRTC_EN_SLP,
+				bb_idata->sleep_power_mode << PALMAS_BACKUP_BATTERY_CTRL_VRTC_EN_SLP_SHIFT);
+	if (ret < 0)
+		dev_err(palmas->dev, "Error in updating backup battery ctrl reg\n");
+
+	ret = palmas_control_update(palmas, reg,
+				PALMAS_BACKUP_BATTERY_CTRL_VRTC_EN_OFF,
+				bb_idata->off_power_mode << PALMAS_BACKUP_BATTERY_CTRL_VRTC_EN_OFF_SHIFT);
+	if (ret < 0)
+		dev_err(palmas->dev, "Error in updating backup battery ctrl reg\n");
+
+	ret = palmas_control_update(palmas, reg,
+				PALMAS_BACKUP_BATTERY_CTRL_VRTC_PWEN,
+				bb_idata->power_mode << PALMAS_BACKUP_BATTERY_CTRL_VRTC_PWEN_SHIFT);
+	if (ret < 0)
+		dev_err(palmas->dev, "Error in updating backup battery ctrl reg\n");
+
+	ret = palmas_control_update(palmas, reg,
+				PALMAS_BACKUP_BATTERY_CTRL_BBS_BBC_LOW_ICHRG,
+				bb_idata->charge_current << PALMAS_BACKUP_BATTERY_CTRL_BBS_BBC_LOW_ICHRG_SHIFT);
+	if (ret < 0)
+		dev_err(palmas->dev, "Error in updating backup battery ctrl reg\n");
+
+	ret = palmas_control_update(palmas, reg,
+				PALMAS_BACKUP_BATTERY_CTRL_BB_SEL_MASK,
+				bb_idata->charge_voltage << PALMAS_BACKUP_BATTERY_CTRL_BB_SEL_SHIFT);
+	if (ret < 0)
+		dev_err(palmas->dev, "Error in updating backup battery ctrl reg\n");
+
+	ret = palmas_control_update(palmas, reg,
+				PALMAS_BACKUP_BATTERY_CTRL_BB_CHG_EN,
+				bb_idata->charge_en << PALMAS_BACKUP_BATTERY_CTRL_BB_CHG_EN_SHIFT);
+	if (ret < 0)
+		dev_err(palmas->dev, "Error in updating backup battery ctrl reg\n");
+
+	return;
+}
+
 static struct palmas *palmas_dev;
 static void palmas_power_off(void)
 {
+	unsigned int reg, addr;
+	int slave;
+
 	if (!palmas_dev)
 		return;
+
+	/* unmask VBUS interrupt to allow usb charger boot up */
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_INTERRUPT_BASE);
+	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT3_MASK);
+	regmap_read(palmas_dev->regmap[slave], addr, &reg);
+	reg &= ~PALMAS_INT3_MASK_VBUS;
+	regmap_write(palmas_dev->regmap[slave], addr, reg);
+
+	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT1_MASK);
+	regmap_read(palmas_dev->regmap[slave], addr, &reg);
+	reg &= ~PALMAS_INT1_MASK_PWRON;
+	regmap_write(palmas_dev->regmap[slave], addr, reg);
+
+	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT1_MASK);
+	regmap_read(palmas_dev->regmap[slave], addr, &reg);
+	reg &= ~PALMAS_INT2_MASK_RTC_ALARM;
+	regmap_write(palmas_dev->regmap[slave], addr, reg);
+
+	palmas_update_bits(palmas_dev, PALMAS_PMU_CONTROL_BASE,
+			PALMAS_LONG_PRESS_KEY,
+			PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_MASK,
+			PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_500MS);
 
 	palmas_control_update(palmas_dev, PALMAS_DEV_CTRL, 1, 0);
 }
@@ -944,6 +1086,11 @@ static int palmas_read_version_information(struct palmas *palmas)
 		palmas->es_major_version = 2;
 		palmas->es_minor_version = 2;
 		palmas->design_revision = 0xB2;
+		break;
+	case 4:
+		palmas->es_major_version = 2;
+		palmas->es_minor_version = 3;
+		palmas->design_revision = 0xB3;
 		break;
 	default:
 		dev_err(palmas->dev, "Invalid design revision\n");
@@ -1078,6 +1225,10 @@ static int __devinit palmas_i2c_probe(struct i2c_client *i2c,
 
 	palmas_clk32k_init(palmas, pdata);
 
+	palmas_backup_battery_init(palmas, pdata);
+
+	palmas_vsys_mon_init(palmas, pdata);
+
 	children = kmemdup(palmas_children, sizeof(palmas_children),
 			   GFP_KERNEL);
 	if (!children) {
@@ -1107,6 +1258,14 @@ static int __devinit palmas_i2c_probe(struct i2c_client *i2c,
 					PALMAS_EXT_CHRG_CTRL_AUTO_LDOUSB_EN);
 
 	palmas_dev = palmas;
+	palmas_control_update(palmas_dev, PALMAS_EXT_CHRG_CTRL,
+			PALMAS_EXT_CHRG_CTRL_AUTO_LDOUSB_EN,
+			PALMAS_EXT_CHRG_CTRL_AUTO_LDOUSB_EN);
+
+	palmas_control_update(palmas_dev, PALMAS_SWOFF_COLDRST,
+			PALMAS_SWOFF_COLDRST_PWRON_LPK,
+			PALMAS_SWOFF_COLDRST_PWRON_LPK);
+
 	return ret;
 
 err:

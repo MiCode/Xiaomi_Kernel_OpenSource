@@ -174,6 +174,7 @@ static inline struct dma_buf *nvmap_share_dmabuf(struct nvmap_client *client,
 }
 #endif	/* !CONFIG_DMA_SHARED_BUFFER */
 
+int nvmap_page_pool_get_unused_pages(void);
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_NVMAP_H */

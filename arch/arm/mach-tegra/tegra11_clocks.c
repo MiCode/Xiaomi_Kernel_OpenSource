@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra11_clocks.c
  *
  * Copyright (c) 2011-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -523,7 +524,7 @@ static unsigned long tegra11_clk_cap_shared_bus(struct clk *bus,
 static bool detach_shared_bus;
 module_param(detach_shared_bus, bool, 0644);
 
-static int use_dfll;
+static int use_dfll = DFLL_RANGE_HIGH_RATES;
 
 /**
 * Structure defining the fields for USB UTMI clocks Parameters.
@@ -3593,7 +3594,6 @@ static void __init tegra11_dfll_cpu_late_init(struct clk *c)
 		c->state = OFF;
 		c->u.dfll.cl_dvfs = platform_get_drvdata(&tegra_cl_dvfs_device);
 
-		use_dfll = CONFIG_TEGRA_USE_DFLL_RANGE;
 		tegra_dvfs_set_dfll_range(cpu->dvfs, use_dfll);
 		tegra_cl_dvfs_debug_init(c);
 		pr_info("Tegra CPU DFLL is initialized\n");
@@ -4887,7 +4887,10 @@ static long tegra11_clk_cbus_round_updown(struct clk *c, unsigned long rate,
 			c->dvfs->freqs[n-2] + CBUS_FINE_GRANULARITY_RANGE);
 		threshold -= CBUS_FINE_GRANULARITY_RANGE;
 
-		if (rate <= threshold)
+		if (rate == threshold)
+			return threshold;
+
+		if (rate < threshold)
 			return up ? threshold : c->dvfs->freqs[n-2];
 
 		rate = (up ? DIV_ROUND_UP(rate, CBUS_FINE_GRANULARITY) :
@@ -6939,6 +6942,7 @@ struct clk tegra_list_clks[] = {
 	SHARED_CLK("usb1.sclk",	"tegra-ehci.0",		"sclk",	&tegra_clk_sbus_cmplx, NULL, 0, 0),
 	SHARED_CLK("usb2.sclk",	"tegra-ehci.1",		"sclk",	&tegra_clk_sbus_cmplx, NULL, 0, 0),
 	SHARED_CLK("usb3.sclk",	"tegra-ehci.2",		"sclk",	&tegra_clk_sbus_cmplx, NULL, 0, 0),
+	SHARED_CLK("sdmmc1.sclk", "sdhci-tegra.0",      "sclk", &tegra_clk_sbus_cmplx, NULL, 0, 0),
 	SHARED_CLK("sdmmc3.sclk", "sdhci-tegra.2",      "sclk", &tegra_clk_sbus_cmplx, NULL, 0, 0),
 	SHARED_CLK("sdmmc4.sclk", "sdhci-tegra.3",      "sclk", &tegra_clk_sbus_cmplx, NULL, 0, 0),
 	SHARED_CLK("wake.sclk",	"wake_sclk",		"sclk",	&tegra_clk_sbus_cmplx, NULL, 0, 0),
@@ -6956,6 +6960,7 @@ struct clk tegra_list_clks[] = {
 	SHARED_CLK("sbc6.sclk", "tegra11-spi.5",	"sclk", &tegra_clk_sbus_cmplx, NULL, 0, 0),
 
 	SHARED_EMC_CLK("avp.emc",	"tegra-avp",	"emc",	&tegra_clk_emc, NULL, 0, 0, 0),
+	SHARED_EMC_CLK("cpu.emc",       "cpu",          "emc",  &tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("mon_cpu.emc",	"tegra_mon",		"cpu_emc",
 						&tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("disp1.emc",	"tegradc.0",	"emc",	&tegra_clk_emc, NULL, 0, SHARED_ISO_BW, BIT(EMC_USER_DC)),
@@ -6967,6 +6972,7 @@ struct clk tegra_list_clks[] = {
 	SHARED_EMC_CLK("usb3.emc",	"tegra-ehci.2",	"emc",	&tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("mon.emc",	"tegra_actmon",	"emc",	&tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("cap.emc",	"cap.emc",	NULL,	&tegra_clk_emc, NULL, 0, SHARED_CEILING, 0),
+	SHARED_EMC_CLK("usercap.emc",	"usercap.emc",	NULL,	&tegra_clk_emc, NULL, 0, SHARED_CEILING, 0),
 	SHARED_EMC_CLK("cap.throttle.emc", "cap_throttle", NULL, &tegra_clk_emc, NULL, 0, SHARED_CEILING, 0),
 	SHARED_EMC_CLK("3d.emc",	"tegra_gr3d",	"emc",	&tegra_clk_emc, NULL, 0, 0,		BIT(EMC_USER_3D)),
 	SHARED_EMC_CLK("2d.emc",	"tegra_gr2d",	"emc",	&tegra_clk_emc, NULL, 0, 0,		BIT(EMC_USER_2D)),
@@ -7610,16 +7616,12 @@ unsigned long tegra_emc_to_cpu_ratio(unsigned long cpu_rate)
 
 	/* Vote on memory bus frequency based on cpu frequency;
 	   cpu rate is in kHz, emc rate is in Hz */
-	if (cpu_rate >= 1500000)
-		return emc_max_rate;	/* cpu >= 1.5GHz, emc max */
-	else if (cpu_rate >= 975000)
-		return 400000000;	/* cpu >= 975 MHz, emc 400 MHz */
-	else if (cpu_rate >= 725000)
-		return  200000000;	/* cpu >= 725 MHz, emc 200 MHz */
-	else if (cpu_rate >= 500000)
-		return  100000000;	/* cpu >= 500 MHz, emc 100 MHz */
+	if (cpu_rate >= 1200000)
+		return 400000000;	/* cpu >= 1.2 GHz, emc 400 MHz */
+	else if (cpu_rate >= 612000)
+		return 200000000;	/* cpu >= 612 MHz, emc 200 MHz */
 	else if (cpu_rate >= 275000)
-		return  50000000;	/* cpu >= 275 MHz, emc 50 MHz */
+		return  100000000;	/* cpu >= 275 MHz, emc 100 MHz */
 	else
 		return 0;		/* emc min */
 }

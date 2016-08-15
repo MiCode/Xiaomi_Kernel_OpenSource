@@ -230,6 +230,7 @@ extern void enable_percpu_irq(unsigned int irq, unsigned int type);
 #ifdef CONFIG_GENERIC_HARDIRQS
 extern void suspend_device_irqs(void);
 extern void resume_device_irqs(void);
+extern void resume_device_early_resume_irqs(void);
 #ifdef CONFIG_PM_SLEEP
 extern int check_wakeup_irqs(void);
 #else

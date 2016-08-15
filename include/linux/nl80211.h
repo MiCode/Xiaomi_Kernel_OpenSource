@@ -10,6 +10,7 @@
  * Copyright 2008, 2009 Luis R. Rodriguez <lrodriguez@atheros.com>
  * Copyright 2008 Jouni Malinen <jouni.malinen@atheros.com>
  * Copyright 2008 Colin McCabe <colin@cozybit.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -168,8 +169,8 @@
  *	%NL80211_ATTR_DTIM_PERIOD, %NL80211_ATTR_SSID,
  *	%NL80211_ATTR_HIDDEN_SSID, %NL80211_ATTR_CIPHERS_PAIRWISE,
  *	%NL80211_ATTR_CIPHER_GROUP, %NL80211_ATTR_WPA_VERSIONS,
- *	%NL80211_ATTR_AKM_SUITES, %NL80211_ATTR_PRIVACY and
- *	%NL80211_ATTR_AUTH_TYPE.
+ *	%NL80211_ATTR_AKM_SUITES, %NL80211_ATTR_PRIVACY,
+ *	%NL80211_ATTR_AUTH_TYPE and %NL80211_ATTR_INACTIVITY_TIMEOUT.
  * @NL80211_CMD_NEW_BEACON: old alias for %NL80211_CMD_START_AP
  * @NL80211_CMD_STOP_AP: Stop AP operation on the given interface
  * @NL80211_CMD_DEL_BEACON: old alias for %NL80211_CMD_STOP_AP
@@ -1046,8 +1047,6 @@ enum nl80211_commands {
  * @NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX: Bitmap of antennas which are available
  *	for configuration as RX antennas via the above parameters.
  *
- * @NL80211_ATTR_SCAN_FLAGS: scan request control flags (u32).
- *
  * @NL80211_ATTR_MCAST_RATE: Multicast tx rate (in 100 kbps) for IBSS
  *
  * @NL80211_ATTR_OFFCHANNEL_TX_OK: For management frame TX, the frame may be
@@ -1131,6 +1130,55 @@ enum nl80211_commands {
  *	%NL80211_CMD_SET_BEACON to provide extra IEs (e.g., WPS/P2P IE) into
  *	(Re)Association Response frames when the driver (or firmware) replies to
  *	(Re)Association Request frames.
+ * @NL80211_ATTR_STA_WME: Nested attribute containing the wme configuration
+ *      of the station, see &enum nl80211_sta_wme_attr.
+ * @NL80211_ATTR_SUPPORT_AP_UAPSD: the device supports uapsd when working
+ *      as AP.
+ *
+ * @NL80211_ATTR_ROAM_SUPPORT: Indicates whether the firmware is capable of
+ *      roaming to another AP in the same ESS if the signal lever is low.
+ *
+ * @NL80211_ATTR_PMKSA_CANDIDATE: Nested attribute containing the PMKSA caching
+ *      candidate information, see &enum nl80211_pmksa_candidate_attr.
+ *
+ * @NL80211_ATTR_TX_NO_CCK_RATE: Indicates whether to use CCK rate or not
+ *      for management frames transmission. In order to avoid p2p probe/action
+ *      frames are being transmitted at CCK rate in 2GHz band, the user space
+ *      applications use this attribute.
+ *      This attribute is used with %NL80211_CMD_TRIGGER_SCAN and
+ *      %NL80211_CMD_FRAME commands.
+ *
+ * @NL80211_ATTR_TDLS_ACTION: Low level TDLS action code (e.g. link setup
+ *      request, link setup confirm, link teardown, etc.). Values are
+ *      described in the TDLS (802.11z) specification.
+ * @NL80211_ATTR_TDLS_DIALOG_TOKEN: Non-zero token for uniquely identifying a
+ *      TDLS conversation between two devices.
+ * @NL80211_ATTR_TDLS_OPERATION: High level TDLS operation; see
+ *      &enum nl80211_tdls_operation, represented as a u8.
+ * @NL80211_ATTR_TDLS_SUPPORT: A flag indicating the device can operate
+ *      as a TDLS peer sta.
+ * @NL80211_ATTR_TDLS_EXTERNAL_SETUP: The TDLS discovery/setup and teardown
+ *      procedures should be performed by sending TDLS packets via
+ *      %NL80211_CMD_TDLS_MGMT. Otherwise %NL80211_CMD_TDLS_OPER should be
+ *      used for asking the driver to perform a TDLS operation.
+ *
+ * @NL80211_ATTR_DEVICE_AP_SME: This u32 attribute may be listed for devices
+ *      that have AP support to indicate that they have the AP SME integrated
+ *      with support for the features listed in this attribute, see
+ *      &enum nl80211_ap_sme_features.
+ *
+ * @NL80211_ATTR_DONT_WAIT_FOR_ACK: Used with %NL80211_CMD_FRAME, this tells
+ *      the driver to not wait for an acknowledgement. Note that due to this,
+ *      it will also not give a status callback nor return a cookie. This is
+ *      mostly useful for probe responses to save airtime.
+ *
+ * @NL80211_ATTR_FEATURE_FLAGS: This u32 attribute contains flags from
+ *      &enum nl80211_feature_flags and is advertised in wiphy information.
+ * @NL80211_ATTR_PROBE_RESP_OFFLOAD: Indicates that the HW responds to probe
+ *
+ *      requests while operating in AP-mode.
+ *      This attribute holds a bitmap of the supported protocols for
+ *      offloading (see &enum nl80211_probe_resp_offload_support_attr).
  *
  * @NL80211_ATTR_STA_WME: Nested attribute containing the wme configuration
  *	of the station, see &enum nl80211_sta_wme_attr.
@@ -1404,10 +1452,6 @@ enum nl80211_attrs {
 	NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX,
 	NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX,
 
-#ifdef CONFIG_MAC80211_SCAN_ABORT
-	NL80211_ATTR_SCAN_FLAGS,
-#endif
-
 	NL80211_ATTR_SUPPORT_MESH_AUTH,
 	NL80211_ATTR_STA_PLINK_STATE,
 
@@ -1516,8 +1560,8 @@ enum nl80211_attrs {
 #define NL80211_TKIP_DATA_OFFSET_RX_MIC_KEY	24
 #define NL80211_HT_CAPABILITY_LEN		26
 
-#define NL80211_MAX_NR_CIPHER_SUITES		5
-#define NL80211_MAX_NR_AKM_SUITES		2
+#define NL80211_MAX_NR_CIPHER_SUITES		6
+#define NL80211_MAX_NR_AKM_SUITES		4
 
 /**
  * enum nl80211_iftype - (virtual) interface types
@@ -2381,6 +2425,7 @@ enum nl80211_mfp {
 enum nl80211_wpa_versions {
 	NL80211_WPA_VERSION_1 = 1 << 0,
 	NL80211_WPA_VERSION_2 = 1 << 1,
+	NL80211_WAPI_VERSION_1 = 1 << 2,
 };
 
 /**
@@ -2525,18 +2570,6 @@ enum nl80211_tx_power_setting {
 	NL80211_TX_POWER_AUTOMATIC,
 	NL80211_TX_POWER_LIMITED,
 	NL80211_TX_POWER_FIXED,
-};
-
-/**
- * enum nl80211_scan_flags -  scan request control flags
- *
- * Scan request control flags are used to control the handling
- * of NL80211_CMD_TRIGGER_SCAN, requests.
- *
- * @NL80211_SCAN_FLAG_TX_ABORT: abort scan if tx collides
- */
-enum nl80211_scan_flags {
-	NL80211_SCAN_FLAG_TX_ABORT	= 1<<0,
 };
 
 /**

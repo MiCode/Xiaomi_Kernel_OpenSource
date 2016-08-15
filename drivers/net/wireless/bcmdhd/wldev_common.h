@@ -109,6 +109,4 @@ int wldev_get_band(struct net_device *dev, uint *pband);
 
 int wldev_set_band(struct net_device *dev, uint band);
 
-int wldev_miracast_tuning(struct net_device *dev, char *command, int total_len);
-
 #endif /* __WLDEV_COMMON_H__ */

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,40 +18,67 @@
 #ifndef __AD5823_H__
 #define __AD5823_H__
 
-#include <linux/ioctl.h>  /* For IOCTL macros */
+#include <media/nvc_focus.h>
+#include <media/nvc.h>
 
-#define AD5823_IOCTL_GET_CONFIG   _IOR('o', 1, struct ad5823_config)
-#define AD5823_IOCTL_SET_POSITION _IOW('o', 2, u32)
-#define AD5823_IOCTL_SET_CAL_DATA _IOW('0', 2, struct ad5823_cal_data)
+typedef enum {
+	AD5823_VREG_VDD = 0,
+	AD5823_VREG_VDD_AF,
+	AD5823_VREG_VDD_I2C,
+	AD5823_VREG_VDD_CAM_MB,
+	AD5823_VREG_VDD_CAM_AF
+} ad5823_vreg;
 
-/* address */
-#define AD5823_RESET                (0x1)
-#define AD5823_MODE                 (0x2)
-#define AD5823_VCM_MOVE_TIME        (0x3)
-#define AD5823_VCM_CODE_MSB         (0x4)
-#define AD5823_VCM_CODE_LSB         (0x5)
-#define AD5823_VCM_THRESHOLD_MSB    (0x6)
-#define AD5823_VCM_THRESHOLD_LSB    (0x7)
-#define AD5823_RING_CTRL            (1 << 2)
-struct ad5823_config {
-	__u32 settle_time;
-	__u32 actuator_range;
-	__u32 pos_low;
-	__u32 pos_high;
-	float focal_length;
-	float fnumber;
-	float max_aperture;
-};
+typedef enum {
+	AD5823_GPIO_RESET = 0,
+	AD5823_GPIO_I2CMUX,
+	AD5823_GPIO_GP1,
+	AD5823_GPIO_GP2,
+	AD5823_GPIO_GP3,
+	AD5823_GPIO_CAM_AF_PWDN
+} ad5823_gpio_types;
 
-struct ad5823_cal_data {
-	__u32 pos_low;
-	__u32 pos_high;
+struct ad5823_power_rail {
+	struct regulator *vdd;
+	struct regulator *vdd_i2c;
 };
 
 struct ad5823_platform_data {
-	int gpio;
-	int (*power_on)(struct ad5823_platform_data *);
-	int (*power_off)(struct ad5823_platform_data *);
+	int cfg;
+	int num;
+	int sync;
+	const char *dev_name;
+	struct nvc_focus_nvc (*nvc);
+	struct nvc_focus_cap (*cap);
+	struct ad5823_pdata_info (*info);
+	int gpio_count;
+	struct nvc_gpio_pdata *gpio;
+	int (*power_on)(struct ad5823_power_rail *pw);
+	int (*power_off)(struct ad5823_power_rail *pw);
 };
-#endif  /* __AD5820_H__ */
 
+struct ad5823_pdata_info {
+	__u32 focal_length;
+	__u32 fnumber;
+	__u32 max_aperture;
+	__u32 settle_time;
+	__s16 pos_low;
+	__s16 pos_high;
+	__s16 limit_low;
+	__s16 limit_high;
+	int move_timeoutms;
+	__u32 focus_hyper_ratio;
+	__u32 focus_hyper_div;
+};
+
+
+#define RESET			0x01
+#define MODE			0x02
+#define VCM_MOVE_TIME		0x03
+#define VCM_CODE_MSB	0x04
+#define VCM_CODE_LSB	0x05
+#define VCM_THRESHOLD_MSB	0x06
+#define VCM_THRESHOLD_LSB	0x07
+
+#endif
+/* __AD5823_H__ */

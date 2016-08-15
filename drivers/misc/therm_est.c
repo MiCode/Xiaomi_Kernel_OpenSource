@@ -72,8 +72,12 @@ struct therm_estimator {
 #define TIMER_TRIP_STATE_UP		BIT(2)
 #define TIMER_TRIP_STATE_DOWN		BIT(3)
 
+#define HIST_UNINIT			-1
+#define DEFAULT_TEMP			25000
+
 static int __get_trip_temp(struct thermal_zone_device *thz, int trip,
 			   long *temp);
+static int therm_est_init_history(struct therm_estimator *est);
 
 static struct therm_est_timer_trip_info *
 __find_timer_trip(struct therm_estimator *est, int trip)
@@ -112,9 +116,8 @@ static int therm_est_subdev_get_temp(void *data, long *temp)
 	struct thermal_zone_device *thz;
 
 	thz = thermal_zone_device_find(data, therm_est_subdev_match);
-
 	if (!thz || thz->ops->get_temp(thz, temp))
-		*temp = 25000;
+		return -ENXIO;
 
 	return 0;
 }
@@ -247,9 +250,16 @@ static void therm_est_work_func(struct work_struct *work)
 					struct therm_estimator,
 					therm_est_work);
 
+	if ((est->ntemp == HIST_UNINIT) && therm_est_init_history(est)) {
+		est->cur_temp = DEFAULT_TEMP;
+		goto out;
+	}
+
 	for (i = 0; i < est->ndevs; i++) {
-		if (therm_est_subdev_get_temp(est->devs[i].dev_data, &temp))
-			continue;
+		if (therm_est_subdev_get_temp(est->devs[i].dev_data, &temp)) {
+			index = (est->ntemp > 0) ? (est->ntemp - 1) : 0;
+			temp = est->devs[i].hist[(index % HIST_LEN)];
+		}
 		est->devs[i].hist[(est->ntemp % HIST_LEN)] = temp;
 	}
 
@@ -264,6 +274,7 @@ static void therm_est_work_func(struct work_struct *work)
 	est->cur_temp = sum / 100 + est->toffset;
 	est->ntemp++;
 
+out:
 	if (est->thz && ((est->cur_temp < est->low_limit) ||
 			(est->cur_temp >= est->high_limit))) {
 		thermal_zone_device_update(est->thz);
@@ -653,16 +664,19 @@ static int therm_est_init_history(struct therm_estimator *est)
 	int i, j;
 	struct therm_est_subdevice *dev;
 	long temp;
+	int ret;
 
 	for (i = 0; i < est->ndevs; i++) {
 		dev = &est->devs[i];
 
-		if (therm_est_subdev_get_temp(dev->dev_data, &temp))
-			return -EINVAL;
+		ret = therm_est_subdev_get_temp(dev->dev_data, &temp);
+		if (ret < 0)
+			return ret;
 
 		for (j = 0; j < HIST_LEN; j++)
 			dev->hist[j] = temp;
 	}
+	est->ntemp = 0;
 
 	return 0;
 }
@@ -684,7 +698,7 @@ static int therm_est_pm_notify(struct notifier_block *nb,
 	case PM_POST_SUSPEND:
 		est->low_limit = 0;
 		est->high_limit = 0;
-		therm_est_init_history(est);
+		est->ntemp = HIST_UNINIT;
 		therm_est_init_timer_trips(est);
 		queue_delayed_work(est->workqueue,
 				&est->therm_est_work,
@@ -972,9 +986,8 @@ static int __devinit therm_est_probe(struct platform_device *pdev)
 	est->polling_period = data->polling_period;
 	est->tc1 = data->tc1;
 	est->tc2 = data->tc2;
-
-	/* initialize history */
-	therm_est_init_history(est);
+	est->cur_temp = DEFAULT_TEMP;
+	est->ntemp = HIST_UNINIT;
 
 	/* initialize timer trips */
 	est->num_timer_trips = data->num_timer_trips;
@@ -1065,4 +1078,4 @@ static int __init therm_est_driver_init(void)
 {
 	return platform_driver_register(&therm_est_driver);
 }
-module_init(therm_est_driver_init);
+late_initcall_sync(therm_est_driver_init);

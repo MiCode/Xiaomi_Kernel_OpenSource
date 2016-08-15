@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +22,7 @@
  *
  * Fundamental constants relating to IP Protocol
  *
- * $Id: bcmip.h 290206 2011-10-17 19:13:51Z $
+ * $Id: bcmip.h 384540 2013-02-12 04:28:58Z $
  */
 
 #ifndef _bcmip_h_
@@ -61,6 +62,7 @@
 #define IPV4_SRC_IP_OFFSET	12	/* src IP addr offset */
 #define IPV4_DEST_IP_OFFSET	16	/* dest IP addr offset */
 #define IPV4_OPTIONS_OFFSET	20	/* IP options offset */
+#define IPV4_MIN_HEADER_LEN     20	/* Minimum size for an IP header (no options) */
 
 /* IPV4 field decodes */
 #define IPV4_VER_MASK		0xf0	/* IPV4 version mask */
@@ -203,6 +205,7 @@ ipv6_exthdr_len(uint8 *h, uint8 *proto)
 	*proto = eh->nexthdr;
 	return len;
 }
+#define IPV4_ISMULTI(a) (((a) & 0xf0000000) == 0xe0000000)
 
 /* This marks the end of a packed structure section. */
 #include <packed_section_end.h>

@@ -176,6 +176,9 @@ struct i2c_driver {
 	void (*shutdown)(struct i2c_client *);
 	int (*suspend)(struct i2c_client *, pm_message_t mesg);
 	int (*resume)(struct i2c_client *);
+#ifdef CONFIG_TEGRA_I2C_RECOVERY
+	int (*reset) (struct i2c_client *);
+#endif
 
 	/* Alert callback, for example for the SMBus alert protocol.
 	 * The format and meaning of the data value depends on the protocol.

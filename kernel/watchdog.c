@@ -2,6 +2,7 @@
  * Detect hard and soft lockups on a system
  *
  * started by Don Zickus, Copyright (C) 2010 Red Hat, Inc.
+ *  Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
  *
  * Note: Most of this code is borrowed heavily from the original softlockup
  * detector, so thanks to Ingo for the initial implementation.
@@ -20,6 +21,7 @@
 #include <linux/kthread.h>
 #include <linux/lockdep.h>
 #include <linux/notifier.h>
+#include <linux/nmi.h>
 #include <linux/module.h>
 #include <linux/sysctl.h>
 
@@ -305,6 +307,7 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 			show_regs(regs);
 		else
 			dump_stack();
+		set_wdt_nmi_ack_off();
 
 		if (softlockup_panic)
 			panic("softlockup: hung tasks");

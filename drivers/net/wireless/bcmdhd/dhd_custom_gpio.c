@@ -1,6 +1,6 @@
 /*
 * Customer code to add GPIO control during WLAN start/stop
-* Copyright (C) 1999-2012, Broadcom Corporation
+* Copyright (C) 1999-2013, Broadcom Corporation
 * 
 *      Unless you and Broadcom execute a separate written software license
 * agreement governing use of this software, this software is licensed to you
@@ -20,7 +20,7 @@
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
 *
-* $Id: dhd_custom_gpio.c 353167 2012-08-24 22:11:30Z $
+* $Id: dhd_custom_gpio.c 353280 2012-08-26 04:33:17Z $
 */
 
 #include <typedefs.h>
@@ -70,6 +70,10 @@ static int dhd_oob_gpio_num = -1;
 
 module_param(dhd_oob_gpio_num, int, 0644);
 MODULE_PARM_DESC(dhd_oob_gpio_num, "DHD oob gpio number");
+
+static unsigned char mac[6];
+module_param_array(mac, byte, NULL, 0644);
+MODULE_PARM_DESC(mac, "DHD mac address");
 
 /* This function will return:
  *  1) return :  Host gpio interrupt number per customer platform
@@ -130,7 +134,7 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			bcm_wlan_power_off(2);
 #endif /* CUSTOMER_HW */
 #if defined(CUSTOMER_HW2)
-			wifi_set_power(0, 300);
+			wifi_set_power(0, 0);
 #endif
 			WL_ERROR(("=========== WLAN placed in RESET ========\n"));
 		break;
@@ -180,6 +184,10 @@ dhd_custom_get_mac_address(unsigned char *buf)
 
 	/* Customer access to MAC address stored outside of DHD driver */
 #if defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
+	if ((mac[0] != 0) || (mac[1] != 0)) {
+		bcopy((char *)&mac, buf, 6);
+		return ret;
+	}
 	ret = wifi_get_mac_addr(buf);
 #endif
 
@@ -198,6 +206,16 @@ dhd_custom_get_mac_address(unsigned char *buf)
 /* Customized Locale table : OPTIONAL feature */
 const struct cntry_locales_custom translate_custom_table[] = {
 /* Table should be filled out based on custom platform regulatory requirement */
+	{"",   "CN", 0},   /* Universal if Country code is unknown or empty */
+	{"IR", "CN", 0},   /* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
+	{"SD", "CN", 0},   /* Universal if Country code is SUDAN */
+	{"SY", "CN", 0},   /* Universal if Country code is SYRIAN ARAB REPUBLIC */
+	{"GL", "CN", 0},   /* Universal if Country code is GREENLAND */
+	{"PS", "CN", 0},   /* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
+	{"TL", "CN", 0},   /* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
+	{"MH", "CN", 0},   /* Universal if Country code is MARSHALL ISLANDS */
+	{"PK", "CN", 0},   /* Universal if Country code is PAKISTAN */
+
 #ifdef EXAMPLE_TABLE
 	{"",   "XY", 4},  /* Universal if Country code is unknown or empty */
 	{"US", "US", 69}, /* input ISO "US" to : US regrev 69 */
@@ -251,20 +269,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 */
 void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 {
-#if defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
-
 	struct cntry_locales_custom *cloc_ptr;
-
-	if (!cspec)
-		return;
-
-	cloc_ptr = wifi_get_country_code(country_iso_code);
-	if (cloc_ptr) {
-		strlcpy(cspec->ccode, cloc_ptr->custom_locale, WLC_CNTRY_BUF_SZ);
-		cspec->rev = cloc_ptr->custom_locale_rev;
-	}
-	return;
-#else
 	int size, i;
 
 	size = ARRAYSIZE(translate_custom_table);
@@ -283,6 +288,15 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 			return;
 		}
 	}
+
+#if defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
+	cloc_ptr = wifi_get_country_code(country_iso_code);
+	if (cloc_ptr) {
+		strlcpy(cspec->ccode, cloc_ptr->custom_locale, WLC_CNTRY_BUF_SZ);
+		cspec->rev = cloc_ptr->custom_locale_rev;
+	}
+	return;
+#else
 #ifdef EXAMPLE_TABLE
 	/* if no country code matched return first universal code from translate_custom_table */
 	memcpy(cspec->ccode, translate_custom_table[0].custom_locale, WLC_CNTRY_BUF_SZ);

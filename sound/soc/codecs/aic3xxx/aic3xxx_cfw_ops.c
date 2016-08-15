@@ -2,6 +2,7 @@
  * linux/sound/soc/codecs/aic3xxx/aic3xxx_cfw_ops.c
  *
  * Copyright (C) 2011 Texas Instruments Inc.,
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1032,6 +1033,182 @@ mem_err:
 
 }
 
+static int aic3xxx_get_composite_mode(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *e = (struct soc_enum *) kcontrol->private_value;
+	struct cfw_state *ps = (struct cfw_state *) e->mask;
+	struct cfw_asoc_toc *toc;
+	int i = 0, ret = -ENOENT;
+	char b[CFW_MAX_ID];
+	char *x = b, *y;
+
+	aic3xxx_cfw_lock(ps, 1);
+	toc = ps->pjt->asoc_toc;
+
+	if (ps->cur_mode_id == -1)
+		goto err;
+
+	strcpy(x, toc->entry[ps->cur_mode_id].etext);
+
+	/* move y to the right location */
+	while ((y = strsep(&x, " "))) {
+		if (*y == 0)
+			continue;
+
+		if (i++ == e->reg)
+			break;
+	}
+
+	if (y == NULL)
+		goto err;
+
+	/* find the item match with y */
+	for (i = 0; i < e->max; i++) {
+		if (strcmp(y, e->texts[i]) == 0) {
+			ucontrol->value.enumerated.item[0] = i;
+			ret = 0;
+			break;
+		}
+	}
+
+err:
+	aic3xxx_cfw_lock(ps, 0);
+	return ret;
+}
+
+static int aic3xxx_put_composite_mode(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *e = (struct soc_enum *) kcontrol->private_value;
+	struct cfw_state *ps = (struct cfw_state *) e->mask;
+	struct cfw_asoc_toc *toc;
+	int i = 0, ret = -ENOENT;
+	char m[CFW_MAX_ID] = {0};
+	char b[CFW_MAX_ID];
+	char *x = b, *y;
+
+	if (ucontrol->value.enumerated.item[0] >= e->max)
+		return -EINVAL;
+
+	aic3xxx_cfw_lock(ps, 1);
+	toc = ps->pjt->asoc_toc;
+
+	if (ps->cur_mode_id == -1)
+		goto err;
+
+	strcpy(x, toc->entry[ps->cur_mode_id].etext);
+
+	/* move y to the right location */
+	while ((y = strsep(&x, " "))) {
+		if (*y == 0)
+			continue;
+
+		if (i++ == e->reg)
+			break;
+	}
+
+	if (y == NULL)
+		goto err;
+
+	/* compose the new mode */
+	strncat(m, toc->entry[ps->cur_mode_id].etext, y - b);
+	strcat(m, e->texts[ucontrol->value.enumerated.item[0]]);
+
+	if (x != NULL) /* concatenate the tail if exist */
+		strcat(m, toc->entry[ps->cur_mode_id].etext + (--x - b));
+
+	/* change to the new mode */
+	for (i = 0; i < toc->nentries; i++) {
+		if (strcmp(m, toc->entry[i].etext) == 0) {
+			ret = aic3xxx_cfw_setmode_cfg_u(ps,
+				toc->entry[i].mode, toc->entry[i].cfg);
+			break;
+		}
+	}
+
+err:
+	aic3xxx_cfw_lock(ps, 0);
+	return ret;
+}
+
+static struct soc_enum aic3xxx_composite_enums[] = {
+	SOC_ENUM_SINGLE(0, 0, 0, NULL),
+	SOC_ENUM_SINGLE(1, 0, 0, NULL),
+	SOC_ENUM_SINGLE(2, 0, 0, NULL),
+};
+
+static const struct snd_kcontrol_new aic3xxx_composite_modes[] = {
+	SOC_ENUM_EXT("Audio Mode", aic3xxx_composite_enums[0],
+		aic3xxx_get_composite_mode, aic3xxx_put_composite_mode),
+	SOC_ENUM_EXT("Output Device", aic3xxx_composite_enums[1],
+		aic3xxx_get_composite_mode, aic3xxx_put_composite_mode),
+	SOC_ENUM_EXT("Input Device", aic3xxx_composite_enums[2],
+		aic3xxx_get_composite_mode, aic3xxx_put_composite_mode),
+};
+
+int aic3xxx_cfw_add_composite_modes(struct snd_soc_codec *codec, struct cfw_state *ps)
+{
+	struct cfw_asoc_toc *toc = ps->pjt->asoc_toc;
+	int i, j, k;
+
+	/* dynamically generate enum text */
+	for (i = 0; i < toc->nentries; i++) {
+		char b[CFW_MAX_ID];
+		char *x = b, *y;
+
+		strcpy(x, toc->entry[i].etext);
+
+		for (j = 0; (y = strsep(&x, " ")); j++) {
+			struct soc_enum *e = NULL;
+			const char **texts;
+
+			/* ignore consecutive space */
+			if (*y == 0) {
+				j--;
+				continue;
+			}
+
+			/* find the matched enum */
+			for (k = 0; k < ARRAY_SIZE(aic3xxx_composite_enums); k++) {
+				if (j == aic3xxx_composite_enums[k].reg) {
+					e = &aic3xxx_composite_enums[k];
+					break;
+				}
+			}
+
+			if (e == NULL)
+				continue;
+
+			/* don't add the duplicated text */
+			for (k = 0; k < e->max; k++) {
+				if (strcmp(y, e->texts[k]) == 0)
+					break;
+			}
+
+			if (k != e->max)
+				continue;
+
+			/* add the new text to array */
+			texts = krealloc(e->texts, (k + 1) * sizeof(char *), GFP_KERNEL);
+			if (texts != NULL) {
+				e->texts = texts;
+				texts[k] = kstrdup(y, GFP_KERNEL);
+				if (texts[k])
+					e->max++;
+			}
+		}
+	}
+
+	/* save cfw state for later use */
+	for (i = 0; i < ARRAY_SIZE(aic3xxx_composite_enums); i++) {
+		aic3xxx_composite_enums[i].mask = (unsigned int) ps;
+	}
+
+	return snd_soc_add_codec_controls(codec,
+			aic3xxx_composite_modes, ARRAY_SIZE(aic3xxx_composite_modes));
+}
+
 #if defined(CONFIG_AIC3111_CODEC) || defined(CONFIG_AIC3111_CORE)
 
 #	define AIC3XXX_CFW_DEVICE "aic3111_cfw"
@@ -1124,6 +1301,20 @@ static int aic3xxx_driver_init(struct cfw_state *ps)
 		unregister_chrdev_region(dev, 1);
 		return err;
 	}
+
+	/* export dev node to userspace directly */
+	ps->cls = class_create(THIS_MODULE, AIC3XXX_CFW_DEVICE);
+	if (IS_ERR(ps->cls)) {
+		warn("driver_init: class_create failed");
+		ps->cls = 0; /* not critical error, continue */
+	} else {
+		ps->dev = device_create(ps->cls, 0, dev, 0, "%s", AIC3XXX_CFW_DEVICE);
+		if (IS_ERR(ps->dev)) {
+			warn("driver_init: device_create failed");
+			ps->dev = 0; /* not critical error, continue */
+		}
+	}
+
 	warn("driver_init: Registered cfw driver");
 	return 0;
 }

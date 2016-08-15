@@ -2,6 +2,7 @@
  * MAX77665_F.c - MAX77665_F flash/torch kernel driver
  *
  * Copyright (c) 2012 - 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -73,6 +74,7 @@
 #include <linux/mfd/max77665.h>
 #include <media/nvc.h>
 #include <media/max77665-flash.h>
+#include <linux/leds.h>
 
 #define MAX77665_F_RW_FLASH_FLED1CURR		0x00
 #define MAX77665_F_RW_FLASH_FLED2CURR		0x01
@@ -90,9 +92,6 @@
 #define MAX77665_F_RC_FLASH_INTSTAT		0x0E
 #define MAX77665_F_RW_FLASH_INTMASK		0x0F
 #define MAX77665_F_RO_FLASH_STATUS		0x10
-
-#define MAX77665_PMIC_CHG_CNFG_01		0xB7
-#define CHG_CNFG_01_DEFAULT_MODE		0x0C
 
 #define FIELD(x, y)			((x) << (y))
 #define FMASK(x)			FIELD(0x03, (x))
@@ -235,7 +234,6 @@ struct max77665_f_reg_cache {
 	u8 m_timing;
 	u8 boost_control;
 	u8 boost_vout_flash;
-	u8 pmic_chg_cnfg01;
 };
 
 struct max77665_f_state_regs {
@@ -275,6 +273,8 @@ struct max77665_f_info {
 	u8 ttimer_mode;
 	u8 new_ftimer;
 	u8 new_ttimer;
+	/* a interface for torch mode */
+	struct led_classdev spotlight_dev;
 };
 
 static const struct max77665_f_caps_struct max77665_f_caps = {
@@ -735,7 +735,6 @@ update_end:
 	if (info->regs.boost_control == FIELD(BOOST_FLASH_MODE_BOTH, 0))
 		info->regs.boost_control |= FIELD(BOOST_MODE_TWOLED, 7);
 
-	info->regs.pmic_chg_cnfg01 = CHG_CNFG_01_DEFAULT_MODE;
 	info->regs.boost_vout_flash =
 		max77665_f_get_boost_volt(pcfg->boost_vout_flash_mV);
 
@@ -795,9 +794,6 @@ static int max77665_f_update_settings(struct max77665_f_info *info)
 	int err = 0;
 
 	info->regs.regs_stale = true;
-	err |= max77665_f_reg_wr(info, MAX77665_PMIC_CHG_CNFG_01,
-				info->regs.pmic_chg_cnfg01, false);
-
 	err |= max77665_f_reg_wr(info, MAX77665_F_RW_BOOST_MODE,
 				info->regs.boost_control, false);
 
@@ -867,6 +863,7 @@ static int max77665_f_configure(struct max77665_f_info *info, bool update)
 	pqry->led_attr = 0;
 	for (i = 0; i < pqry->flash_num; i++) {
 		pfcap = info->flash_cap[i];
+		memset(pfcap, 0, sizeof(*pfcap));
 		pfcap->version = NVC_TORCH_CAPABILITY_VER_1;
 		pfcap->led_idx = i;
 		pfcap->attribute = 0;
@@ -878,21 +875,25 @@ static int max77665_f_configure(struct max77665_f_info *info, bool update)
 		pfcap->flash_torch_ratio =
 				pcfg->led_config[i].flash_torch_ratio;
 		dev_dbg(info->dev,
-			"%s flash#%d, attr: %x, levels: %d, g: %d, ratio: %d\n",
+			"%s flash#%d, attr: %x, levels: %d, g: %d, ratio: %d, max current: %d mA\n",
 			__func__, pfcap->led_idx, pfcap->attribute,
 			pfcap->numberoflevels, pfcap->granularity,
-			pfcap->flash_torch_ratio);
+			pfcap->flash_torch_ratio, pcfg->max_peak_current_mA);
 
 		plvls = pcfg->led_config[i].lumi_levels;
 		pfcap->levels[0].guidenum = MAX77665_F_LEVEL_OFF;
 		pfcap->levels[0].luminance = 0;
 		for (j = 1; j < pfcap->numberoflevels; j++) {
+			if (plvls[j - 1].luminance > pcfg->max_peak_current_mA * 1000)
+				break;
+
 			pfcap->levels[j].guidenum = plvls[j - 1].guidenum;
 			pfcap->levels[j].luminance = plvls[j - 1].luminance;
-			dev_dbg(info->dev, "%02d - %d\n",
+			dev_dbg(info->dev, "%d: %02d - %d\n", j,
 				pfcap->levels[j].guidenum,
 				pfcap->levels[j].luminance);
 		}
+		pfcap->numberoflevels = j;
 
 		ptmcap->timeout_num = pfcap->timeout_num;
 		for (j = 0; j < ptmcap->timeout_num; j++) {
@@ -904,6 +905,7 @@ static int max77665_f_configure(struct max77665_f_info *info, bool update)
 
 	for (i = 0; i < pqry->torch_num; i++) {
 		ptcap = info->torch_cap[i];
+		memset(ptcap, 0, sizeof(*ptcap));
 		ptcap->version = NVC_TORCH_CAPABILITY_VER_1;
 		ptcap->led_idx = i;
 		ptcap->attribute = 0;
@@ -912,20 +914,24 @@ static int max77665_f_configure(struct max77665_f_info *info, bool update)
 		ptcap->timeout_num = MAX77665_F_TORCH_TIMER_NUM;
 		ptmcap = info->torch_timeouts[i];
 		ptcap->timeout_off = (void *)ptmcap - (void *)ptcap;
-		dev_dbg(info->dev, "torch#%d, attr: %x, levels: %d, g: %d\n",
+		dev_dbg(info->dev, "torch#%d, attr: %x, levels: %d, g: %d, max current: %d mA\n",
 			ptcap->led_idx, ptcap->attribute,
-			ptcap->numberoflevels, ptcap->granularity);
+			ptcap->numberoflevels, ptcap->granularity, pcfg->max_torch_current_mA);
 
 		plvls = pcfg->led_config[i].lumi_levels;
 		ptcap->levels[0].guidenum = MAX77665_F_LEVEL_OFF;
 		ptcap->levels[0].luminance = 0;
 		for (j = 1; j < ptcap->numberoflevels; j++) {
+			if (plvls[j - 1].luminance > pcfg->max_torch_current_mA * 1000)
+				break;
+
 			ptcap->levels[j].guidenum = plvls[j - 1].guidenum;
 			ptcap->levels[j].luminance = plvls[j - 1].luminance;
-			dev_dbg(info->dev, "%02d - %d\n",
+			dev_dbg(info->dev, "%d: %02d - %d\n", j,
 				ptcap->levels[j].guidenum,
 				ptcap->levels[j].luminance);
 		}
+		ptcap->numberoflevels = j;
 
 		ptmcap->timeout_num = ptcap->timeout_num;
 		for (j = 0; j < ptmcap->timeout_num; j++) {
@@ -980,7 +986,7 @@ static int max77665_f_suspend(struct platform_device *pdev, pm_message_t msg)
 {
 	struct max77665_f_info *info = dev_get_drvdata(&pdev->dev);
 
-	dev_info(&pdev->dev, "Suspending\n");
+	dev_dbg(&pdev->dev, "Suspending\n");
 	info->regs.regs_stale = true;
 
 	return 0;
@@ -990,7 +996,7 @@ static int max77665_f_resume(struct platform_device *pdev)
 {
 	struct max77665_f_info *info = dev_get_drvdata(&pdev->dev);
 
-	dev_info(&pdev->dev, "Resuming\n");
+	dev_dbg(&pdev->dev, "Resuming\n");
 	info->regs.regs_stale = true;
 
 	return 0;
@@ -1478,15 +1484,6 @@ static int max77665_f_regulator_get(struct max77665_f_info *info,
 	struct regulator *reg = NULL;
 	int err = 0;
 
-	reg = regulator_get(info->dev, vreg_name);
-	if (unlikely(IS_ERR_OR_NULL(reg))) {
-		dev_err(info->dev, "%s %s ERR: %d\n",
-			__func__, vreg_name, (int)reg);
-		err = PTR_ERR(reg);
-		reg = NULL;
-	} else
-		dev_dbg(info->dev, "%s: %s\n", __func__, vreg_name);
-
 	*vreg = reg;
 	return err;
 }
@@ -1522,11 +1519,56 @@ static int max77665_f_remove(struct platform_device *pdev)
 
 	dev_dbg(info->dev, "%s\n", __func__);
 	misc_deregister(&info->miscdev);
+	led_classdev_unregister(&info->spotlight_dev);
 	max77665_f_del(info);
 	if (info->d_max77665_f)
 		debugfs_remove_recursive(info->d_max77665_f);
 
 	return 0;
+}
+
+static void spotlight_brightness_set(struct led_classdev *led_cdev,
+			enum led_brightness value)
+{
+	int val = value;
+	struct max77665_f_info *info =
+		container_of(led_cdev, struct max77665_f_info, spotlight_dev);
+
+	dev_dbg(info->dev, "%s TORCH_LEVEL: %d\n", __func__, val);
+	if (val) {
+		info->op_mode = MAXFLASH_MODE_TORCH;
+		val >>= 5;
+		val++;
+	} else
+		info->op_mode = MAXFLASH_MODE_NONE;
+
+	max77665_f_power_user_set(info, NVC_PWR_ON);
+	max77665_f_edp_req(info, info->config.led_mask, (u8 *)&val, (u8 *)&val);
+	max77665_f_set_leds(info, info->config.led_mask, val, val);
+	/*turn pwr off if no flash && no pwr_api*/
+	if (info->op_mode == MAXFLASH_MODE_NONE)
+		max77665_f_power_user_set(info, NVC_PWR_OFF);
+
+	pr_info("%s %d brightness:%d", __func__, value, info->spotlight_dev.brightness);
+
+	return;
+}
+
+static enum led_brightness spotlight_brightness_get(struct led_classdev *led_cdev)
+{
+	int torch_curr, torch_en;
+	struct max77665_f_info *info =
+	    container_of(led_cdev, struct max77665_f_info, spotlight_dev);
+
+	regmap_read(info->regmap, MAX77665_F_RW_TORCH_FLEDCURR, &torch_curr);
+	regmap_read(info->regmap, MAX77665_F_RW_FLED_ENABLE, &torch_en);
+
+	pr_info("%s curr:%x led_en:%x", __func__, torch_curr, torch_en);
+
+	if (torch_en)
+		return torch_curr;
+	else
+		return 0;
 }
 
 static int max77665_f_debugfs_init(struct max77665_f_info *info);
@@ -1627,6 +1669,13 @@ static int max77665_f_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	info->spotlight_dev.name = "flashlight";
+	info->spotlight_dev.brightness_set = spotlight_brightness_set;
+	info->spotlight_dev.brightness_get = spotlight_brightness_get;
+	if (led_classdev_register(info->dev, &info->spotlight_dev) < 0) {
+		dev_err(&pdev->dev, "%s unable to register fll", __func__);
+	}
+
 	max77665_f_debugfs_init(info);
 	return 0;
 }
@@ -1649,6 +1698,7 @@ static int max77665_f_status_show(struct seq_file *s, void *data)
 		"    PinState Mask    = 0x%04x\n"
 		"    PinState Values  = 0x%04x\n"
 		"    Max_Peak_Current = %dmA\n"
+		"    Max_Torch_Current = %dmA\n"
 		,
 		info->pwr_state,
 		info->config.led_mask,
@@ -1661,7 +1711,8 @@ static int max77665_f_status_show(struct seq_file *s, void *data)
 		info->regs.t_timer,
 		info->pdata->pinstate.mask,
 		info->pdata->pinstate.values,
-		info->config.max_peak_current_mA
+		info->config.max_peak_current_mA,
+		info->config.max_torch_current_mA
 		);
 
 	return 0;
@@ -1725,6 +1776,8 @@ set_attr:
 	case 'k':
 		if (val & 0xffff)
 			info->config.max_peak_current_mA = val & 0xffff;
+		if (val & 0xffff0000)
+			info->config.max_torch_current_mA = (val >> 16) & 0xffff;
 		max77665_f_configure(info, true);
 		break;
 	case 'x':

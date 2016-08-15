@@ -5,6 +5,7 @@
  * Author: Erik Gilling <konkers@android.com>
  *
  * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1301,6 +1302,17 @@ static void tegra_dc_prism_update_backlight(struct tegra_dc *dc)
 		struct backlight_device *bl = dc->out->sd_settings->bl_device;
 		backlight_update_status(bl);
 	}
+
+	if (dc->out->sd_settings && !dc->out->sd_settings->bl_device2 &&
+	    dc->out->sd_settings->bl_device_name2) {
+		char *bl_device_name = dc->out->sd_settings->bl_device_name2;
+		dc->out->sd_settings->bl_device2 =
+		    get_backlight_device_by_name(bl_device_name);
+	}
+	if (dc->out->sd_settings && dc->out->sd_settings->bl_device2) {
+		struct backlight_device *bl = dc->out->sd_settings->bl_device2;
+		backlight_update_status(bl);
+	}
 }
 
 static void tegra_dc_vblank(struct work_struct *work)
@@ -1812,10 +1824,12 @@ static int tegra_dc_init(struct tegra_dc *dc)
 
 	trace_display_mode(dc, &dc->mode);
 
-	if (dc->mode.pclk) {
-		if (tegra_dc_program_mode(dc, &dc->mode)) {
-			tegra_dc_io_end(dc);
-			return -EINVAL;
+	if (!(dc->out->flags & TEGRA_DC_OUT_INITIALIZED_MODE)) {
+		if (dc->mode.pclk) {
+			if (tegra_dc_program_mode(dc, &dc->mode)) {
+				tegra_dc_io_end(dc);
+				return -EINVAL;
+			}
 		}
 	}
 
@@ -1837,8 +1851,10 @@ static bool _tegra_dc_controller_enable(struct tegra_dc *dc)
 	if (dc->out->enable)
 		dc->out->enable(&dc->ndev->dev);
 
-	tegra_dc_setup_clk(dc, dc->clk);
-	tegra_dc_clk_enable(dc);
+	if (!(dc->out->flags & TEGRA_DC_OUT_INITIALIZED_MODE)) {
+		tegra_dc_setup_clk(dc, dc->clk);
+		tegra_dc_clk_enable(dc);
+	}
 	tegra_dc_io_start(dc);
 
 	tegra_dc_power_on(dc);
@@ -2049,6 +2065,9 @@ static void _tegra_dc_controller_disable(struct tegra_dc *dc)
 		}
 	}
 	trace_display_disable(dc);
+
+	if (dc->out_ops && dc->out_ops->postpoweroff)
+		dc->out_ops->postpoweroff(dc);
 
 	tegra_dc_clk_disable(dc);
 	tegra_dc_release_dc_out(dc);
@@ -2573,7 +2592,7 @@ static int tegra_dc_suspend(struct platform_device *ndev, pm_message_t state)
 	struct tegra_dc *dc = platform_get_drvdata(ndev);
 
 	trace_display_suspend(dc);
-	dev_info(&ndev->dev, "suspend\n");
+	dev_dbg(&ndev->dev, "suspend\n");
 
 	tegra_dc_ext_disable(dc->ext);
 
@@ -2604,7 +2623,7 @@ static int tegra_dc_resume(struct platform_device *ndev)
 	struct tegra_dc *dc = platform_get_drvdata(ndev);
 
 	trace_display_resume(dc);
-	dev_info(&ndev->dev, "resume\n");
+	dev_dbg(&ndev->dev, "resume\n");
 
 	mutex_lock(&dc->lock);
 	dc->suspended = false;

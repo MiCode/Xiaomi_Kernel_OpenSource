@@ -4,6 +4,7 @@
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -186,6 +187,9 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	if (suspend_ops->wake)
 		suspend_ops->wake();
 
+	if (error) {
+		resume_device_early_resume_irqs();
+	}
 	dpm_resume_start(PMSG_RESUME);
 
  Platform_finish:

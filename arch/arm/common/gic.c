@@ -2,6 +2,8 @@
  *  linux/arch/arm/common/gic.c
  *
  *  Copyright (C) 2002 ARM Limited, All Rights Reserved.
+ *  Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -394,7 +396,16 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	for (i = 32; i < gic_irqs; i += 32)
 		writel_relaxed(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4 / 32);
 
-	writel_relaxed(1, base + GIC_DIST_CTRL);
+	if (has_fiq_gic_war()) {
+		/* Set PPI and SGI in group 1 */
+		for (i = 0; i < gic_irqs; i += 32)
+			writel_relaxed(~0UL, base + GIC_DIST_IGROUP +
+					i * 4 / 32);
+		writel_relaxed(GIC_DIST_CTRL_EN_GRP0 | GIC_DIST_CTRL_EN_GRP1,
+				base + GIC_DIST_CTRL);
+	} else {
+		writel_relaxed(GIC_DIST_CTRL_EN_GRP0, base + GIC_DIST_CTRL);
+	}
 }
 
 static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
@@ -417,7 +428,7 @@ static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
 		writel_relaxed(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4 / 4);
 
 	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
-	writel_relaxed(1, base + GIC_CPU_CTRL);
+	writel_relaxed(gic_get_cpu_ctrl_val(), base + GIC_CPU_CTRL);
 }
 
 #ifdef CONFIG_CPU_PM
@@ -495,7 +506,17 @@ static void gic_dist_restore(unsigned int gic_nr)
 		writel_relaxed(gic_data[gic_nr].saved_spi_enable[i],
 			dist_base + GIC_DIST_ENABLE_SET + i * 4);
 
-	writel_relaxed(1, dist_base + GIC_DIST_CTRL);
+	if (has_fiq_gic_war()) {
+		/* Set PPI and SGI in group 1 */
+		for (i = 0; i < gic_irqs; i += 32)
+			writel_relaxed(~0UL, dist_base +
+					GIC_DIST_IGROUP + i * 4 / 32);
+		writel_relaxed(GIC_DIST_CTRL_EN_GRP0 | GIC_DIST_CTRL_EN_GRP1,
+				dist_base + GIC_DIST_CTRL);
+	} else {
+		writel_relaxed(GIC_DIST_CTRL_EN_GRP0,
+				dist_base + GIC_DIST_CTRL);
+	}
 }
 
 static void gic_cpu_save(unsigned int gic_nr)
@@ -551,8 +572,11 @@ static void gic_cpu_restore(unsigned int gic_nr)
 	for (i = 0; i < DIV_ROUND_UP(32, 4); i++)
 		writel_relaxed(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4);
 
+	if (has_fiq_gic_war())
+		writel_relaxed(~0UL, dist_base + GIC_DIST_IGROUP);
+
 	writel_relaxed(0xf0, cpu_base + GIC_CPU_PRIMASK);
-	writel_relaxed(1, cpu_base + GIC_CPU_CTRL);
+	writel_relaxed(gic_get_cpu_ctrl_val(), cpu_base + GIC_CPU_CTRL);
 }
 
 static int gic_notifier(struct notifier_block *self, unsigned long cmd,	void *v)
@@ -736,7 +760,17 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 
 void __cpuinit gic_secondary_init(unsigned int gic_nr)
 {
+	void __iomem *dist_base;
+
 	BUG_ON(gic_nr >= MAX_GIC_NR);
+	dist_base = gic_data_dist_base(&gic_data[gic_nr]);
+
+	if (has_fiq_gic_war())
+		/*
+		 * First 32 IRQs is private per-CPU mapping, we need set it to
+		 * use GIC group1 whenever a secondary CPU come online.
+		 */
+		writel_relaxed(~0UL, dist_base + GIC_DIST_IGROUP);
 
 	gic_cpu_init(&gic_data[gic_nr]);
 }
@@ -757,8 +791,15 @@ void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	 */
 	dsb();
 
-	/* this always happens on GIC0 */
-	writel_relaxed(map << 16 | irq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
+	writel_relaxed(map << 16 | irq |
+			/*
+			 * If use GIC WAR and kernel has secure access, we use
+			 * GIC group 1 to send SGI. For kernel don't have
+			 * secure access (as under SecureOS build), SGI will
+			 * send through the GIC group 1 regardless.
+			 */
+			(has_fiq_gic_war() ? GIC_DIST_SOFTINT_NSATT : 0),
+			gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
 }
 #endif
 

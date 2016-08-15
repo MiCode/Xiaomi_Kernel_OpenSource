@@ -350,4 +350,6 @@ config MHI_NETDEV
            help
             This is the net device manadatory used by MHI stack
 
+source "drivers/net/ip_over_tty/Kconfig"
+
 endif # NETDEVICES

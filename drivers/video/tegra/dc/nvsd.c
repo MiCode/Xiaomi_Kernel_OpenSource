@@ -2,6 +2,7 @@
  * drivers/video/tegra/dc/nvsd.c
  *
  * Copyright (c) 2010-2012, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1103,6 +1104,15 @@ static ssize_t nvsd_settings_store(struct kobject *kobj,
 				 * the mutex */
 				struct backlight_device *bl =
 					sd_settings->bl_device;
+
+				if (bl)
+					backlight_update_status(bl);
+			}
+			if (!sd_settings->enable && sd_settings->bl_device2) {
+				/* Do the actual brightness update outside of
+				 * the mutex */
+				struct backlight_device *bl =
+					sd_settings->bl_device2;
 
 				if (bl)
 					backlight_update_status(bl);

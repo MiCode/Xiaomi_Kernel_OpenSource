@@ -60,11 +60,84 @@ int tegra_camera_init_clk(struct tegra_camera *camera,
 	return 0;
 }
 
+unsigned long tegra_camera_get_closest_rate(struct clk *clk,
+		struct clk *clk_parent, unsigned long requested_rate)
+{
+	unsigned long parent_rate, parent_div_rate, parent_div_rate_pre;
+
+	parent_rate = clk_get_rate(clk_parent);
+	parent_div_rate = parent_rate;
+	parent_div_rate_pre = parent_rate;
+	/*
+	 * The requested clock rate from user space should be respected.
+	 * This loop is to search the clock rate that is higher than
+	 * requested clock.
+	 * However, for camera pattern generator, since we share the
+	 * clk source with display, we would not want to change the
+	 * display clock.
+	 */
+	while (parent_div_rate >= requested_rate) {
+		parent_div_rate_pre = parent_div_rate;
+		parent_div_rate = clk_round_rate(clk,
+				parent_div_rate-1);
+	}
+
+	return parent_div_rate_pre;
+}
+
+#if defined(CONFIG_ARCH_TEGRA_11x_SOC)
+unsigned long tegra_camera_get_vi_rate(struct tegra_camera *camera,
+		struct clk *clk)
+{
+	struct clk *clk_parent;
+	struct tegra_camera_clk_info *info = &camera->info;
+	unsigned long parent_div_rate_pre[2];
+	int parent_id, i;
+
+	if (!info) {
+		dev_err(camera->dev,
+				"%s: no clock info %d\n",
+				__func__, info->id);
+		return -EINVAL;
+	}
+
+	parent_id = CAMERA_PLL_P_CLK;
+
+	for (i = 0; i < 2; i++) {
+		/*
+		 * For VI, find out which one of pll_p and pll_c
+		 * can provide us the lowest clock rate greater than
+		 * or equal to the requested clock. Need to set clock
+		 * parent first.
+		 */
+		if (parent_id + i == CAMERA_PLL_C_CLK) {
+			clk_set_rate(clk,
+					clk_round_rate(clk, parent_div_rate_pre[0]-1));
+		}
+		clk_parent = camera->clock[parent_id + i].clk;
+		clk_set_parent(clk, clk_parent);
+		parent_div_rate_pre[i] = tegra_camera_get_closest_rate(clk,
+				clk_parent, info->rate);
+	}
+
+	if (parent_div_rate_pre[1] < parent_div_rate_pre[0]) {
+		parent_div_rate_pre[0] = parent_div_rate_pre[1];
+		clk_parent = camera->clock[CAMERA_PLL_C_CLK].clk;
+		clk_set_parent(clk, clk_parent);
+	} else {
+		clk_parent = camera->clock[CAMERA_PLL_P_CLK].clk;
+		clk_set_parent(clk, clk_parent);
+	}
+
+	return parent_div_rate_pre[0];
+}
+#endif
+
 int tegra_camera_clk_set_rate(struct tegra_camera *camera)
 {
-	struct clk *clk, *clk_parent;
+	struct clk *clk;
 	struct tegra_camera_clk_info *info = &camera->info;
-	unsigned long parent_rate, parent_div_rate, parent_div_rate_pre;
+	unsigned long selected_rate;
 
 	if (!info) {
 		dev_err(camera->dev,
@@ -83,7 +156,7 @@ int tegra_camera_clk_set_rate(struct tegra_camera *camera)
 
 	switch (info->clk_id) {
 	case TEGRA_CAMERA_VI_CLK:
-#if defined(CONFIG_ARCH_TEGRA_11x_SOC) || defined(CONFIG_ARCH_TEGRA_14x_SOC)
+#if defined(CONFIG_ARCH_TEGRA_11x_SOC)
 		if (info->flag == TEGRA_CAMERA_ENABLE_PD2VI_CLK) {
 			if (camera->clock[CAMERA_PLL_D2_CLK].clk) {
 				clk_prepare_enable(
@@ -161,32 +234,28 @@ int tegra_camera_clk_set_rate(struct tegra_camera *camera)
 		return -EINVAL;
 	}
 
-	clk_parent = clk_get_parent(clk);
-	parent_rate = clk_get_rate(clk_parent);
-	dev_dbg(camera->dev, "%s: clk_id=%d, parent_rate=%lu, clk_rate=%lu\n",
-			__func__, info->clk_id, parent_rate, info->rate);
-	parent_div_rate = parent_rate;
-	parent_div_rate_pre = parent_rate;
-
+	selected_rate = info->rate;
 	if (info->flag != TEGRA_CAMERA_ENABLE_PD2VI_CLK) {
+#if defined(CONFIG_ARCH_TEGRA_11x_SOC)
+		dev_dbg(camera->dev, "%s: clk_id=%d, clk_rate=%lu\n",
+				__func__, info->clk_id, info->rate);
+		selected_rate = tegra_camera_get_vi_rate(camera, clk);
+#else
 		/*
-		 * The requested clock rate from user space should be respected.
-		 * This loop is to search the clock rate that is higher than
-		 * requested clock.
-		 * However, for camera pattern generator, since we share the
-		 * clk source with display, we would not want to change the
-		 * display clock.
+		 * For backward compatibility.
 		 */
-		while (parent_div_rate >= info->rate) {
-			parent_div_rate_pre = parent_div_rate;
-			parent_div_rate = clk_round_rate(clk,
-				parent_div_rate-1);
-		}
+		struct clk *clk_parent;
+		unsigned long parent_div_rate_pre;
+		clk_parent = clk_get_parent(clk);
+		parent_div_rate_pre = tegra_camera_get_closest_rate(clk,
+			clk_parent, info->rate);
+		selected_rate = parent_div_rate_pre;
+#endif
 	}
 	dev_dbg(camera->dev, "%s: set_rate=%lu",
-			__func__, parent_div_rate_pre);
+			__func__, selected_rate);
 
-	clk_set_rate(clk, parent_div_rate_pre);
+	clk_set_rate(clk, selected_rate);
 
 	if (info->clk_id == TEGRA_CAMERA_VI_CLK) {
 #ifdef CONFIG_ARCH_TEGRA_2x_SOC
@@ -199,7 +268,7 @@ int tegra_camera_clk_set_rate(struct tegra_camera *camera)
 		}
 #endif
 		if (info->flag == TEGRA_CAMERA_ENABLE_PD2VI_CLK) {
-#if defined(CONFIG_ARCH_TEGRA_11x_SOC) || defined(CONFIG_ARCH_TEGRA_14x_SOC)
+#if defined(CONFIG_ARCH_TEGRA_11x_SOC)
 			tegra_clk_cfg_ex(camera->clock[CAMERA_PLL_D2_CLK].clk,
 						TEGRA_CLK_PLLD_CSI_OUT_ENB, 1);
 			tegra_clk_cfg_ex(camera->clock[CAMERA_PLL_D2_CLK].clk,
@@ -212,14 +281,14 @@ int tegra_camera_clk_set_rate(struct tegra_camera *camera)
 			tegra_clk_cfg_ex(clk, TEGRA_CLK_VI_INP_SEL, 2);
 #endif
 		}
-#if defined(CONFIG_ARCH_TEGRA_11x_SOC) || defined(CONFIG_ARCH_TEGRA_14x_SOC)
+#if defined(CONFIG_ARCH_TEGRA_11x_SOC)
 		else {
 			tegra_clk_cfg_ex(camera->clock[CAMERA_PLL_D2_CLK].clk,
 						TEGRA_CLK_PLLD_CSI_OUT_ENB, 0);
 			tegra_clk_cfg_ex(camera->clock[CAMERA_PLL_D2_CLK].clk,
 						TEGRA_CLK_PLLD_DSI_OUT_ENB, 0);
 		}
-		tegra_camera_set_latency_allowance(camera, parent_div_rate_pre);
+		tegra_camera_set_latency_allowance(camera, selected_rate);
 #endif
 	}
 

@@ -30,13 +30,13 @@
 #define DEVKEY_START_OFFSET		0x2C
 #define DEVKEY_START_BIT		7
 
-/* arm_debug_dis */
-#define JTAG_START_OFFSET		0x0
-#define JTAG_START_BIT			3
-
 /* security_mode */
 #define ODM_PROD_START_OFFSET		0x0
 #define ODM_PROD_START_BIT		7
+
+/* arm_debug_dis */
+#define JTAG_START_OFFSET		0x0
+#define JTAG_START_BIT			8
 
 /* boot_device_info */
 #define SB_DEVCFG_START_OFFSET		0x2E

@@ -2,6 +2,7 @@
  * RTC subsystem, interface functions
  *
  * Copyright (C) 2005 Tower Technologies
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Alessandro Zummo <a.zummo@towertech.it>
  *
  * based on arch/arm/common/rtctime.c
@@ -355,6 +356,41 @@ static int __rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 
 	return err;
 }
+
+int rtc_set_wakealarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
+{
+	struct rtc_time tm;
+	long now, scheduled;
+	int err;
+
+	err = rtc_valid_tm(&alarm->time);
+	if (err)
+		return err;
+	rtc_tm_to_time(&alarm->time, &scheduled);
+
+	/* Make sure we're not setting alarms in the past */
+	err = __rtc_read_time(rtc, &tm);
+	rtc_tm_to_time(&tm, &now);
+	if (scheduled <= now)
+		return -ETIME;
+	/*
+	 * XXX - We just checked to make sure the alarm time is not
+	 * in the past, but there is still a race window where if
+	 * the is alarm set for the next second and the second ticks
+	 * over right here, before we set the alarm.
+	 */
+
+	if (!rtc->ops)
+		err = -ENODEV;
+	else if (!rtc->ops->set_alarm_foo)
+		err = -EINVAL;
+	else
+		err = rtc->ops->set_alarm_foo(rtc->dev.parent, alarm);
+
+	return err;
+}
+
+EXPORT_SYMBOL_GPL(rtc_set_wakealarm);
 
 int rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 {
@@ -781,14 +817,6 @@ static int rtc_timer_enqueue(struct rtc_device *rtc, struct rtc_timer *timer)
 	return 0;
 }
 
-static void rtc_alarm_disable(struct rtc_device *rtc)
-{
-	if (!rtc->ops || !rtc->ops->alarm_irq_enable)
-		return;
-
-	rtc->ops->alarm_irq_enable(rtc->dev.parent, false);
-}
-
 /**
  * rtc_timer_remove - Removes a rtc_timer from the rtc_device timerqueue
  * @rtc rtc device
@@ -810,10 +838,8 @@ static void rtc_timer_remove(struct rtc_device *rtc, struct rtc_timer *timer)
 		struct rtc_wkalrm alarm;
 		int err;
 		next = timerqueue_getnext(&rtc->timerqueue);
-		if (!next) {
-			rtc_alarm_disable(rtc);
+		if (!next)
 			return;
-		}
 		alarm.time = rtc_ktime_to_tm(next->expires);
 		alarm.enabled = 1;
 		err = __rtc_set_alarm(rtc, &alarm);
@@ -875,8 +901,7 @@ again:
 		err = __rtc_set_alarm(rtc, &alarm);
 		if (err == -ETIME)
 			goto again;
-	} else
-		rtc_alarm_disable(rtc);
+	}
 
 	mutex_unlock(&rtc->ops_lock);
 }

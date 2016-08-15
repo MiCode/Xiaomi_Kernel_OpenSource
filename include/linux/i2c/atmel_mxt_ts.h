@@ -2,6 +2,7 @@
  * Atmel maXTouch Touchscreen driver
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
  *
  * This program is free software; you can redistribute  it and/or modify it
@@ -34,12 +35,61 @@
 
 #define CFG_NAME_SIZE		64
 
+#define MXT_KEYARRAY_MAX_KEYS		32
+
+struct mxt_config_info {
+	u8 family_id;
+	u8 variant_id;
+	u8 version;
+	u8 build;
+	u8 bootldr_id;
+	int lcd_id;
+	u8 vendor_id;
+	/* Points to the firmware name to be upgraded to */
+	const char *mxt_cfg_name;
+	int *key_codes;
+	int key_num;
+	u8 selfthr_suspend;
+	u8 selfintthr_stylus;
+	u8 selfintthr_suspend;
+	u8 selfthr_sensitive;
+	u8 selfthr_not_sensitive;
+	u8 t71_tchthr_pos;
+	u8 self_no_touch_threshold;
+	u8 mult_no_touch_threshold;
+	u8 self_chgtime_min;
+	u8 self_chgtime_max;
+	u8 mult_intthr_sensitive;
+	u8 mult_intthr_not_sensitive;
+	u8 atchthr_sensitive;
+	u8 mult_tchthr_sensitive;
+	u8 mult_tchthr_not_sensitive;
+};
+
 /* The platform data for the Atmel maXTouch touchscreen driver */
 struct mxt_platform_data {
+	const struct mxt_config_info *config_array;
+	const char *mxt_fw_name;
+	size_t config_array_size;
 	unsigned long irqflags;
+	int power_gpio;
+	int reset_gpio;
+	int irq_gpio;
 	u8(*read_chg) (void);
 	const char *input_name;
-	char mxt_cfg_name[CFG_NAME_SIZE];
+	int unlock_move_threshold;
+	int moving_threshold;
+	int staying_threshold;
+	int landing_threshold;
+	int landing_edge_threshold;
+	unsigned long landing_jiffies;
+	int edge_clip;
+	unsigned int touch_info;
+	u8 gpio_mask;
+	u8 *linearity_reg_pos;
+	u8 *linearity_singlex;
+	u8 *linearity_dualx;
+	int linearity_para_num;
 };
 
 #endif /* __LINUX_ATMEL_MXT_TS_H */

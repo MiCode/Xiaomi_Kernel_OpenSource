@@ -233,6 +233,14 @@ struct device;
 {	.id = snd_soc_dapm_adc, .name = wname, .sname = stname, .reg = wreg, \
 	.shift = wshift, .invert = winvert, \
 	.event = wevent, .event_flags = wflags}
+#define SND_SOC_DAPM_DAI(stname, wreg, wshift, winvert) \
+{	.id = snd_soc_dapm_dai, .name = stname, .sname = stname, .reg = wreg, \
+	.shift = wshift, .invert = winvert}
+#define SND_SOC_DAPM_DAI_E(stname, wreg, wshift, winvert, \
+			   wevent, wflags)				\
+{	.id = snd_soc_dapm_dai, .name = stname, .sname = stname, .reg = wreg, \
+	.shift = wshift, .invert = winvert, \
+	.event = wevent, .event_flags = wflags}
 
 /* generic widgets */
 #define SND_SOC_DAPM_REG(wid, wname, wreg, wshift, wmask, won_val, woff_val) \
@@ -359,6 +367,8 @@ int snd_soc_dapm_new_controls(struct snd_soc_dapm_context *dapm,
 int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 				 struct snd_soc_dai *dai);
 int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card);
+int snd_soc_dapm_new_dai_link_widgets(struct snd_soc_dapm_context *dapm,
+				struct snd_soc_pcm_runtime *rtd);
 
 /* dapm path setup */
 int snd_soc_dapm_new_widgets(struct snd_soc_dapm_context *dapm);
@@ -429,7 +439,9 @@ enum snd_soc_dapm_type {
 	snd_soc_dapm_aif_in,		/* audio interface input */
 	snd_soc_dapm_aif_out,		/* audio interface output */
 	snd_soc_dapm_siggen,		/* signal generator */
-	snd_soc_dapm_dai,		/* link to DAI structure */
+	snd_soc_dapm_dai_in,		/* link to DAI structure */
+	snd_soc_dapm_dai_out,
+	snd_soc_dapm_dai_link,		/* link between two DAI structures */
 };
 
 enum snd_soc_dapm_subclass {
@@ -487,6 +499,7 @@ struct snd_soc_dapm_widget {
 	struct snd_soc_dapm_context *dapm;
 
 	void *priv;				/* widget specific data */
+	const struct snd_soc_pcm_stream *params; /* params for dai links */
 
 	/* dapm control */
 	short reg;						/* negative reg = no direct dapm */

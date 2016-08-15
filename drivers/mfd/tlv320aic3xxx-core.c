@@ -411,11 +411,11 @@ int aic3xxx_device_init(struct aic3xxx *aic3xxx, int irq)
 			dev_err(aic3xxx->dev, "not able to acquire gpio\n");
 			goto err_return;
 		}
-		gpio_direction_output(pdata->gpio_reset, 1);
+		gpio_direction_output(pdata->gpio_reset, !pdata->high_reset);
 		mdelay(5);
-		gpio_direction_output(pdata->gpio_reset, 0);
+		gpio_direction_output(pdata->gpio_reset, pdata->high_reset);
 		mdelay(5);
-		gpio_direction_output(pdata->gpio_reset, 1);
+		gpio_direction_output(pdata->gpio_reset, !pdata->high_reset);
 		mdelay(5);
 	}
 

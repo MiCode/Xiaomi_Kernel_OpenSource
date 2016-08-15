@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-pluto-sdhci.c
  *
  * Copyright (c) 2012-2013 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -167,6 +168,7 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 	.max_clk_limit = 82000000,
 	.uhs_mask = MMC_UHS_MASK_DDR50,
 	.edp_support = false,
+	.en_nominal_vcore_tuning = true,
 };
 
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data2 = {
@@ -181,6 +183,7 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data2 = {
 	.edp_support = true,
 	.edp_states = {966, 0},
 	.en_freq_scaling = true,
+	.en_nominal_vcore_tuning = true,
 };
 
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
@@ -199,6 +202,7 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
 	.edp_support = true,
 	.edp_states = {966, 0},
 	.en_freq_scaling = true,
+	.en_nominal_vcore_tuning = true,
 };
 
 static struct platform_device tegra_sdhci_device0 = {
@@ -326,6 +330,7 @@ int __init pluto_sdhci_init(void)
 {
 	int nominal_core_mv;
 	int min_vcore_override_mv;
+	int boot_vcore_mv;
 
 	nominal_core_mv =
 		tegra_dvfs_rail_get_boot_level(tegra_core_rail);
@@ -344,6 +349,13 @@ int __init pluto_sdhci_init(void)
 		tegra_sdhci_platform_data3.min_vcore_override_mv =
 			min_vcore_override_mv;
 	}
+	boot_vcore_mv = tegra_dvfs_rail_get_boot_level(tegra_core_rail);
+	if (boot_vcore_mv) {
+		tegra_sdhci_platform_data0.boot_vcore_mv = boot_vcore_mv;
+		tegra_sdhci_platform_data2.boot_vcore_mv = boot_vcore_mv;
+		tegra_sdhci_platform_data3.boot_vcore_mv = boot_vcore_mv;
+	}
+
 	if ((tegra_sdhci_platform_data3.uhs_mask & MMC_MASK_HS200)
 		&& (!(tegra_sdhci_platform_data3.uhs_mask &
 		MMC_UHS_MASK_DDR50)))

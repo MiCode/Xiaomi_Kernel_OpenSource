@@ -40,7 +40,7 @@
 static int tegra_gpio_wakes[] = {
 	TEGRA_GPIO_PO5,				/* wake0 */
 	TEGRA_GPIO_PV1,				/* wake1 */
-	-EINVAL,				/* wake2 */
+	TEGRA_GPIO_PX3,				/* wake2, Proximity Sensor */
 	-EINVAL,				/* wake3 */
 	-EINVAL,				/* wake4 */
 	-EINVAL,				/* wake5 */
@@ -116,7 +116,7 @@ static int tegra_wake_event_irq[] = {
 	-EINVAL, /* SDMMC1 DAT1 */		/* wake13 */
 	-EAGAIN,				/* wake14 */
 	INT_EDP,				/* wake15 */
-	-EINVAL, /* Tegra RTC */		/* wake16 */
+	INT_RTC, /* Tegra RTC */		/* wake16 */
 	INT_KBC, /* Tegra KBC */		/* wake17 */
 	INT_EXTERNAL_PMU,			/* wake18 */
 	INT_USB,				/* wake19 */
@@ -214,7 +214,7 @@ int tegra_gpio_to_wake(int gpio)
 
 	for (i = 0; i < ARRAY_SIZE(tegra_gpio_wakes); i++) {
 		if (tegra_gpio_wakes[i] == gpio) {
-			pr_info("gpio wake%d for gpio=%d\n", i, gpio);
+			pr_debug("gpio wake%d for gpio=%d\n", i, gpio);
 			last_gpio = i;
 			return i;
 		}
@@ -242,7 +242,7 @@ void tegra_irq_to_wake(int irq, int *wak_list, int *wak_size)
 	*wak_size = 0;
 	for (i = 0; i < ARRAY_SIZE(tegra_wake_event_irq); i++) {
 		if (tegra_wake_event_irq[i] == irq) {
-			pr_info("Wake%d for irq=%d\n", i, irq);
+			pr_debug("Wake%d for irq=%d\n", i, irq);
 			wak_list[*wak_size] = i;
 			*wak_size = *wak_size + 1;
 		}

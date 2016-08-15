@@ -1,7 +1,8 @@
 /*
  * BCMSDH Function Driver for the native SDIO/MMC driver in the Linux Kernel
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh_sdmmc.h 366812 2012-11-05 13:49:32Z $
+ * $Id: bcmsdh_sdmmc.h 387187 2013-02-24 09:19:34Z $
  */
 
 #ifndef __BCMSDH_SDMMC_H__
@@ -33,8 +34,6 @@
 #define sd_debug(x)
 #define sd_data(x)
 #define sd_ctrl(x)
-
-#define sd_trace_hw4	sd_trace
 
 #define sd_sync_dma(sd, read, nbytes)
 #define sd_init_dma(sd)
@@ -63,6 +62,15 @@ extern void sdioh_sdmmc_osfree(sdioh_info_t *sd);
 #define SDIOH_MODE_SD4		2
 #define CLIENT_INTR 		0x100	/* Get rid of this! */
 
+#ifdef BCMSDIOH_TXGLOM
+
+typedef struct glom_buf {
+	void *glom_pkt_head;
+	void *glom_pkt_tail;
+	uint32 count;		/* Total number of pkts queued */
+} glom_buf_t;
+#endif /* BCMSDIOH_TXGLOM */
+
 struct sdioh_info {
 	osl_t 		*osh;			/* osh handler */
 	bool		client_intr_enabled;	/* interrupt connnected flag */
@@ -88,6 +96,11 @@ struct sdioh_info {
 #define SDIOH_SDMMC_MAX_SG_ENTRIES	32
 	struct scatterlist sg_list[SDIOH_SDMMC_MAX_SG_ENTRIES];
 	bool		use_rxchain;
+
+#ifdef BCMSDIOH_TXGLOM
+	glom_buf_t glom_info;	/* pkt information used for glomming */
+	uint txglom_mode;	/* Txglom mode: 0 - copy, 1 - multi-descriptor */
+#endif
 };
 
 /************************************************************

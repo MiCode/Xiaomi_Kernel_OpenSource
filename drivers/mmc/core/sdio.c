@@ -108,7 +108,7 @@ static int sdio_read_cccr(struct mmc_card *card, u32 ocr)
 {
 	int ret;
 	int cccr_vsn;
-	int uhs = ocr & R4_18V_PRESENT;
+	int uhs = 0;
 	unsigned char data;
 	unsigned char speed;
 

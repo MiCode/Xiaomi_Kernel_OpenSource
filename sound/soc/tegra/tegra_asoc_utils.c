@@ -3,6 +3,7 @@
  *
  * Author: Stephen Warren <swarren@nvidia.com>
  * Copyright (c) 2010-12, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
@@ -202,6 +203,7 @@ struct snd_kcontrol_new tegra_avp_controls[] = {
 			0, tegra_get_dma_addr, tegra_set_dma_addr),
 };
 
+#ifdef CONFIG_SWITCH
 static int tegra_set_headset_plug_state(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
@@ -230,15 +232,17 @@ static int tegra_get_headset_plug_state(struct snd_kcontrol *kcontrol,
 struct snd_kcontrol_new tegra_switch_controls =
 	SOC_SINGLE_EXT("Headset Plug State", 0, 0, 1, \
 	0, tegra_get_headset_plug_state, tegra_set_headset_plug_state);
+#endif
 
-
-int tegra_asoc_utils_set_rate(struct tegra_asoc_utils_data *data, int srate,
-			      int mclk)
+int tegra_asoc_utils_set_rate_(struct tegra_asoc_utils_data *data, int srate,
+			      int mclk, const char *func, int line)
 {
 	int new_baseclock;
 	bool clk_change;
 	int err;
 	bool reenable_clock;
+
+	dev_info(data->dev, "%s(%d): set rate %d %d\n", func, line, srate, mclk);
 
 	switch (srate) {
 	case 11025:
@@ -277,8 +281,10 @@ int tegra_asoc_utils_set_rate(struct tegra_asoc_utils_data *data, int srate,
 		return 0;
 
 	/* Don't change rate if already one dai-link is using it */
-	if (data->lock_count)
+	if (data->lock_count) {
+		dev_err(data->dev, "Can't set rate: lock_count != 0\n");
 		return -EINVAL;
+	}
 
 	data->set_baseclock = 0;
 	data->set_mclk = 0;
@@ -315,7 +321,7 @@ int tegra_asoc_utils_set_rate(struct tegra_asoc_utils_data *data, int srate,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(tegra_asoc_utils_set_rate);
+EXPORT_SYMBOL_GPL(tegra_asoc_utils_set_rate_);
 
 void tegra_asoc_utils_lock_clk_rate(struct tegra_asoc_utils_data *data,
 				    int lock)
@@ -331,10 +337,18 @@ int tegra_asoc_utils_clk_enable(struct tegra_asoc_utils_data *data)
 {
 	int err;
 
-	err = clk_enable(data->clk_cdev1);
-	if (err) {
-		dev_err(data->dev, "Can't enable cdev1: %d\n", err);
-		return err;
+	if (!IS_ERR(data->clk_out1)) {
+		err = clk_enable(data->clk_out1);
+		if (err) {
+			dev_err(data->dev, "Can't enable clk out1: %d\n", err);
+			return err;
+		}
+	} else {
+		err = clk_enable(data->clk_cdev1);
+		if (err) {
+			dev_err(data->dev, "Can't enable cdev1: %d\n", err);
+			return err;
+		}
 	}
 
 	return 0;
@@ -343,7 +357,11 @@ EXPORT_SYMBOL_GPL(tegra_asoc_utils_clk_enable);
 
 int tegra_asoc_utils_clk_disable(struct tegra_asoc_utils_data *data)
 {
-	clk_disable(data->clk_cdev1);
+	if (!IS_ERR(data->clk_out1))
+		clk_disable(data->clk_out1);
+	else
+		clk_disable(data->clk_cdev1);
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(tegra_asoc_utils_clk_disable);
@@ -364,12 +382,14 @@ int tegra_asoc_utils_register_ctls(struct tegra_asoc_utils_data *data)
 		}
 	}
 
+#ifdef CONFIG_SWITCH
 	ret = snd_ctl_add(data->card->snd_card,
 			snd_ctl_new1(&tegra_switch_controls, data));
 	if (ret < 0) {
 		dev_err(data->dev, "Can't add switch alsa control");
 		return ret;
 	}
+#endif
 
 	return ret;
 }
@@ -408,7 +428,7 @@ int tegra_asoc_utils_init(struct tegra_asoc_utils_data *data,
 	if (IS_ERR(data->clk_m)) {
 		dev_err(data->dev, "Can't retrieve clk clk_m\n");
 		ret = PTR_ERR(data->clk_m);
-		goto err;
+		goto err_put_pll_a_out0;
 	}
 
 #if defined(CONFIG_ARCH_TEGRA_2x_SOC)
@@ -419,7 +439,7 @@ int tegra_asoc_utils_init(struct tegra_asoc_utils_data *data,
 	if (IS_ERR(data->clk_cdev1)) {
 		dev_err(data->dev, "Can't retrieve clk cdev1\n");
 		ret = PTR_ERR(data->clk_cdev1);
-		goto err_put_pll_a_out0;
+		goto err_put_m;
 	}
 
 #if defined(CONFIG_ARCH_TEGRA_2x_SOC)
@@ -431,18 +451,23 @@ int tegra_asoc_utils_init(struct tegra_asoc_utils_data *data,
 		ret = PTR_ERR(data->clk_out1);
 		goto err_put_cdev1;
 	}
-#endif
-
-	ret = clk_enable(data->clk_cdev1);
+	ret = clk_set_parent(data->clk_out1, data->clk_cdev1);
 	if (ret) {
-		dev_err(data->dev, "Can't enable clk cdev1/extern1");
+		dev_err(data->dev, "Can't set clk out1 parent");
 		goto err_put_out1;
 	}
+#endif
 
 	if (!IS_ERR(data->clk_out1)) {
 		ret = clk_enable(data->clk_out1);
 		if (ret) {
 			dev_err(data->dev, "Can't enable clk out1");
+			goto err_put_out1;
+		}
+	} else {
+		ret = clk_enable(data->clk_cdev1);
+		if (ret) {
+			dev_err(data->dev, "Can't enable clk cdev1/extern1");
 			goto err_put_out1;
 		}
 	}
@@ -460,6 +485,8 @@ err_put_out1:
 err_put_cdev1:
 #endif
 	clk_put(data->clk_cdev1);
+err_put_m:
+	clk_put(data->clk_m);
 err_put_pll_a_out0:
 	clk_put(data->clk_pll_a_out0);
 err_put_pll_a:
@@ -501,14 +528,20 @@ EXPORT_SYMBOL_GPL(tegra_asoc_utils_set_parent);
 
 void tegra_asoc_utils_fini(struct tegra_asoc_utils_data *data)
 {
-	if (!IS_ERR(data->clk_out1))
+	if (!IS_ERR(data->clk_out1)) {
+		if (tegra_is_clk_enabled(data->clk_out1))
+			clk_disable(data->clk_out1);
 		clk_put(data->clk_out1);
+	}
 
-	clk_put(data->clk_cdev1);
 	/* Just to make sure that clk_cdev1 should turn off in case if it is
 	 * switched on by some codec whose hw switch is not registered.*/
 	if (tegra_is_clk_enabled(data->clk_cdev1))
 		clk_disable(data->clk_cdev1);
+	clk_put(data->clk_cdev1);
+
+	if (!IS_ERR(data->clk_m))
+		clk_put(data->clk_m);
 
 	if (!IS_ERR(data->clk_pll_a_out0))
 		clk_put(data->clk_pll_a_out0);

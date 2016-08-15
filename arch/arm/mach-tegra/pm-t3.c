@@ -111,6 +111,8 @@
 #define CLK_RST_CONTROLLER_PLLX_MISC_0 \
 	(IO_ADDRESS(TEGRA_CLK_RESET_BASE) + 0xE4)
 
+static struct clk *cclk_lp;
+
 static int cluster_switch_prolog_clock(unsigned int flags)
 {
 	u32 reg;
@@ -563,14 +565,19 @@ void tegra_lp0_resume_mc(void)
 	tegra_mc_timing_restore();
 }
 
-void tegra_lp0_cpu_mode(bool enter)
+static int __init get_clock_cclk_lp(void)
 {
-	static struct clk *cclk_lp;
-	static bool entered_on_g = false;
-	unsigned int flags;
-
 	if (!cclk_lp)
 		cclk_lp = tegra_get_clock_by_name("cclk_lp");
+	return 0;
+}
+
+subsys_initcall(get_clock_cclk_lp);
+
+void tegra_lp0_cpu_mode(bool enter)
+{
+	static bool entered_on_g = false;
+	unsigned int flags;
 
 	if (enter)
 		entered_on_g = !is_lp_cluster();

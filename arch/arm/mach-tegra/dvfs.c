@@ -571,7 +571,8 @@ int tegra_dvfs_predict_millivolts(struct clk *c, unsigned long rate)
 	if (!rate || !c->dvfs)
 		return 0;
 
-	millivolts = dvfs_get_millivolts(c->dvfs, rate);
+	millivolts = tegra_dvfs_is_dfll_range(c->dvfs, rate) ?
+		c->dvfs->dfll_millivolts : c->dvfs->millivolts;
 	return predict_millivolts(c, millivolts, rate);
 }
 

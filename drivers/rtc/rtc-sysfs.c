@@ -2,6 +2,7 @@
  * RTC subsystem, sysfs interface
  *
  * Copyright (C) 2005 Tower Technologies
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Alessandro Zummo <a.zummo@towertech.it>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -135,18 +136,13 @@ rtc_sysfs_show_wakealarm(struct device *dev, struct device_attribute *attr,
 	unsigned long alarm;
 	struct rtc_wkalrm alm;
 
-	/* Don't show disabled alarms.  For uniformity, RTC alarms are
-	 * conceptually one-shot, even though some common RTCs (on PCs)
-	 * don't actually work that way.
-	 *
-	 * NOTE: RTC implementations where the alarm doesn't match an
-	 * exact YYYY-MM-DD HH:MM[:SS] date *must* disable their RTC
-	 * alarms after they trigger, to ensure one-shot semantics.
-	 */
-	retval = rtc_read_alarm(to_rtc_device(dev), &alm);
-	if (retval == 0 && alm.enabled) {
-		rtc_tm_to_time(&alm.time, &alarm);
-		retval = sprintf(buf, "%lu\n", alarm);
+	retval = __rtc_read_alarm(to_rtc_device(dev), &alm);
+	if (retval == 0) {
+		if (alm.enabled) {
+			rtc_tm_to_time(&alm.time, &alarm);
+			retval = sprintf(buf, "%lu\n", alarm);
+		} else
+			retval = sprintf(buf, "0\n");
 	}
 
 	return retval;
@@ -181,16 +177,6 @@ rtc_sysfs_set_wakealarm(struct device *dev, struct device_attribute *attr,
 		alarm += now;
 	}
 	if (alarm > now) {
-		/* Avoid accidentally clobbering active alarms; we can't
-		 * entirely prevent that here, without even the minimal
-		 * locking from the /dev/rtcN api.
-		 */
-		retval = rtc_read_alarm(rtc, &alm);
-		if (retval < 0)
-			return retval;
-		if (alm.enabled)
-			return -EBUSY;
-
 		alm.enabled = 1;
 	} else {
 		alm.enabled = 0;
@@ -202,7 +188,7 @@ rtc_sysfs_set_wakealarm(struct device *dev, struct device_attribute *attr,
 	}
 	rtc_time_to_tm(alarm, &alm.time);
 
-	retval = rtc_set_alarm(rtc, &alm);
+	retval = rtc_set_wakealarm(rtc, &alm);
 	return (retval < 0) ? retval : n;
 }
 static DEVICE_ATTR(wakealarm, S_IRUGO | S_IWUSR,
@@ -218,7 +204,7 @@ static inline int rtc_does_wakealarm(struct rtc_device *rtc)
 {
 	if (!device_can_wakeup(rtc->dev.parent))
 		return 0;
-	return rtc->ops->set_alarm != NULL;
+	return rtc->ops->set_alarm_foo != NULL;
 }
 
 

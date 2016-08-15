@@ -11,6 +11,7 @@
  * Copyright (C) 2008 Google, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *
+ * Copyright (C) 2016 XiaoMi, Inc.
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -675,10 +676,12 @@ int extcon_dev_register(struct extcon_dev *edev, struct device *dev)
 
 			cable->attr_name.attr.name = "name";
 			cable->attr_name.attr.mode = 0444;
+			sysfs_attr_init(&cable->attr_name.attr);
 			cable->attr_name.show = cable_name_show;
 
 			cable->attr_state.attr.name = "state";
 			cable->attr_state.attr.mode = 0644;
+			sysfs_attr_init(&cable->attr_state.attr);
 			cable->attr_state.show = cable_state_show;
 			cable->attr_state.store = cable_state_store;
 		}
@@ -713,8 +716,8 @@ int extcon_dev_register(struct extcon_dev *edev, struct device *dev)
 				       GFP_KERNEL);
 			if (!name) {
 				for (index--; index >= 0; index--) {
-					kfree(edev->d_attrs_muex[index].attr.
-					      name);
+					kfree(edev->d_attrs_muex[index].
+					      attr.name);
 				}
 				kfree(edev->d_attrs_muex);
 				kfree(edev->attrs_muex);
@@ -724,6 +727,7 @@ int extcon_dev_register(struct extcon_dev *edev, struct device *dev)
 			strcpy(name, buf);
 			edev->d_attrs_muex[index].attr.name = name;
 			edev->d_attrs_muex[index].attr.mode = 0000;
+			sysfs_attr_init(&edev->d_attrs_muex[index].attr);
 			edev->attrs_muex[index] = &edev->d_attrs_muex[index]
 							.attr;
 		}

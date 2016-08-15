@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1996-2000 Russell King - Converted to ARM.
  *  Original Copyright (C) 1995  Linus Torvalds
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -32,6 +33,9 @@
 #include <linux/hw_breakpoint.h>
 #include <linux/cpuidle.h>
 #include <linux/console.h>
+#ifdef CONFIG_MACH_PISCES
+#include <linux/power_supply.h>
+#endif
 
 #include <asm/cacheflush.h>
 #include <asm/idmap.h>
@@ -319,6 +323,10 @@ void machine_halt(void)
 
 void machine_power_off(void)
 {
+#ifdef CONFIG_MACH_PISCES
+	if (power_supply_is_system_supplied())
+		machine_restart("usb_chg");
+#endif
 	machine_shutdown();
 
 #ifdef CONFIG_SMP

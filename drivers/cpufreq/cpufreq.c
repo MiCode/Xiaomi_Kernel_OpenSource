@@ -2,8 +2,8 @@
  *  linux/drivers/cpufreq/cpufreq.c
  *
  *  Copyright (C) 2001 Russell King
+ * Copyright (C) 2016 XiaoMi, Inc.
  *            (C) 2002 - 2003 Dominik Brodowski <linux@brodo.de>
- *  Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
  *  Oct 2005 - Ashok Raj <ashok.raj@intel.com>
  *	Added handling for CPU hotplug
  *  Feb 2006 - Jacob Shin <jacob.shin@amd.com>
@@ -39,10 +39,6 @@
  * also protects the cpufreq_cpu_data array.
  */
 static struct cpufreq_driver *cpufreq_driver;
-
-/* Maintains per cpu sysfs access information */
-static struct cpufreq_cpu_sysinfo cpu_sysnode[NR_CPUS];
-
 static DEFINE_PER_CPU(struct cpufreq_policy *, cpufreq_cpu_data);
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -168,7 +164,7 @@ struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu)
 	if (!data)
 		goto err_out_put_module;
 
-	if (!kobject_get(data->kobj))
+	if (!kobject_get(&data->kobj))
 		goto err_out_put_module;
 
 	spin_unlock_irqrestore(&cpufreq_driver_lock, flags);
@@ -186,7 +182,7 @@ EXPORT_SYMBOL_GPL(cpufreq_cpu_get);
 
 void cpufreq_cpu_put(struct cpufreq_policy *data)
 {
-	kobject_put(data->kobj);
+	kobject_put(&data->kobj);
 	module_put(cpufreq_driver->owner);
 }
 EXPORT_SYMBOL_GPL(cpufreq_cpu_put);
@@ -281,10 +277,10 @@ void cpufreq_notify_transition(struct cpufreq_freqs *freqs, unsigned int state)
 			(unsigned long)freqs->cpu);
 		trace_power_frequency(POWER_PSTATE, freqs->new, freqs->cpu);
 		trace_cpu_frequency(freqs->new, freqs->cpu);
-		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
-				CPUFREQ_POSTCHANGE, freqs);
 		if (likely(policy) && likely(policy->cpu == freqs->cpu))
 			policy->cur = freqs->new;
+		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
+					 CPUFREQ_POSTCHANGE, freqs);
 		break;
 	}
 }
@@ -621,21 +617,14 @@ static struct attribute *default_attrs[] = {
 struct kobject *cpufreq_global_kobject;
 EXPORT_SYMBOL(cpufreq_global_kobject);
 
-#define to_cpu_kobj(k) container_of(k, struct cpufreq_cpu_sysinfo, cpu_kobj)
+#define to_policy(k) container_of(k, struct cpufreq_policy, kobj)
 #define to_attr(a) container_of(a, struct freq_attr, attr)
 
 static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 {
-	struct cpufreq_cpu_sysinfo *freqobj;
-	struct cpufreq_policy *policy;
+	struct cpufreq_policy *policy = to_policy(kobj);
 	struct freq_attr *fattr = to_attr(attr);
 	ssize_t ret = -EINVAL;
-
-	freqobj = to_cpu_kobj(kobj);
-	if (!freqobj->cpu_policy)
-		goto no_policy;
-
-	policy = freqobj->cpu_policy;
 	policy = cpufreq_cpu_get(policy->cpu);
 	if (!policy)
 		goto no_policy;
@@ -658,16 +647,9 @@ no_policy:
 static ssize_t store(struct kobject *kobj, struct attribute *attr,
 		     const char *buf, size_t count)
 {
-	struct cpufreq_cpu_sysinfo *freqobj;
-	struct cpufreq_policy *policy;
+	struct cpufreq_policy *policy = to_policy(kobj);
 	struct freq_attr *fattr = to_attr(attr);
 	ssize_t ret = -EINVAL;
-
-	freqobj = to_cpu_kobj(kobj);
-	if (!freqobj->cpu_policy)
-		goto no_policy;
-
-	policy = freqobj->cpu_policy;
 	policy = cpufreq_cpu_get(policy->cpu);
 	if (!policy)
 		goto no_policy;
@@ -689,8 +671,9 @@ no_policy:
 
 static void cpufreq_sysfs_release(struct kobject *kobj)
 {
-	/* instead set for complete, decrease ref count */
-	kobject_put(kobj);
+	struct cpufreq_policy *policy = to_policy(kobj);
+	pr_debug("last reference is dropped\n");
+	complete(&policy->kobj_unregister);
 }
 
 static const struct sysfs_ops sysfs_ops = {
@@ -703,55 +686,6 @@ static struct kobj_type ktype_cpufreq = {
 	.default_attrs	= default_attrs,
 	.release	= cpufreq_sysfs_release,
 };
-
-static int cpufreq_add_dev_sysfs(unsigned int cpu,
-					struct kobject *kobj,
-					struct device *dev)
-{
-	struct freq_attr **drv_attr;
-	int ret = 0;
-
-	/* prepare interface data */
-	ret = kobject_init_and_add(kobj, &ktype_cpufreq,
-				   &dev->kobj, "cpufreq");
-	if (ret)
-		return ret;
-
-	/* set up files for this cpu device */
-	drv_attr = cpufreq_driver->attr;
-	while ((drv_attr) && (*drv_attr)) {
-		ret = sysfs_create_file(kobj, &((*drv_attr)->attr));
-		if (ret)
-			goto err_out_kobj_put;
-		drv_attr++;
-	}
-	if (cpufreq_driver->get) {
-		ret = sysfs_create_file(kobj, &cpuinfo_cur_freq.attr);
-		if (ret)
-			goto err_out_kobj_put;
-	}
-	if (cpufreq_driver->target) {
-		ret = sysfs_create_file(kobj, &scaling_cur_freq.attr);
-		if (ret)
-			goto err_out_kobj_put;
-	}
-	if (cpufreq_driver->bios_limit) {
-		ret = sysfs_create_file(kobj, &bios_limit.attr);
-		if (ret)
-			goto err_out_kobj_put;
-	}
-	/* increment the kobj refcount so that no one can clean it up.
-	 * Cleaning is done at unregistration time
-	 */
-	if (!kobject_get(kobj))
-		goto err_out_kobj_put;
-
-	return ret;
-
-err_out_kobj_put:
-	kobject_put(kobj);
-	return ret;
-}
 
 /*
  * Returns:
@@ -811,7 +745,7 @@ static int cpufreq_add_dev_policy(unsigned int cpu,
 
 			pr_debug("CPU already managed, adding link\n");
 			ret = sysfs_create_link(&dev->kobj,
-						managed_policy->kobj,
+						&managed_policy->kobj,
 						"cpufreq");
 			if (ret)
 				cpufreq_cpu_put(managed_policy);
@@ -853,7 +787,7 @@ static int cpufreq_add_dev_symlink(unsigned int cpu,
 		pr_debug("CPU %u already managed, adding link\n", j);
 		managed_policy = cpufreq_cpu_get(cpu);
 		cpu_dev = get_cpu_device(j);
-		ret = sysfs_create_link(&cpu_dev->kobj, policy->kobj,
+		ret = sysfs_create_link(&cpu_dev->kobj, &policy->kobj,
 					"cpufreq");
 		if (ret) {
 			cpufreq_cpu_put(managed_policy);
@@ -868,9 +802,40 @@ static int cpufreq_add_dev_interface(unsigned int cpu,
 				     struct device *dev)
 {
 	struct cpufreq_policy new_policy;
+	struct freq_attr **drv_attr;
 	unsigned long flags;
 	int ret = 0;
 	unsigned int j;
+
+	/* prepare interface data */
+	ret = kobject_init_and_add(&policy->kobj, &ktype_cpufreq,
+				&dev->kobj, "cpufreq");
+	if (ret)
+		return ret;
+
+	/* set up files for this cpu device */
+	drv_attr = cpufreq_driver->attr;
+	while ((drv_attr) && (*drv_attr)) {
+		ret = sysfs_create_file(&policy->kobj, &((*drv_attr)->attr));
+		if (ret)
+			goto err_out_kobj_put;
+		drv_attr++;
+	}
+	if (cpufreq_driver->get) {
+		ret = sysfs_create_file(&policy->kobj, &cpuinfo_cur_freq.attr);
+		if (ret)
+			goto err_out_kobj_put;
+	}
+	if (cpufreq_driver->target) {
+		ret = sysfs_create_file(&policy->kobj, &scaling_cur_freq.attr);
+		if (ret)
+			goto err_out_kobj_put;
+	}
+	if (cpufreq_driver->bios_limit) {
+		ret = sysfs_create_file(&policy->kobj, &bios_limit.attr);
+		if (ret)
+			goto err_out_kobj_put;
+	}
 
 	spin_lock_irqsave(&cpufreq_driver_lock, flags);
 	for_each_cpu(j, policy->cpus) {
@@ -902,7 +867,8 @@ static int cpufreq_add_dev_interface(unsigned int cpu,
 	return ret;
 
 err_out_kobj_put:
-	kobject_put(policy->kobj);
+	kobject_put(&policy->kobj);
+	wait_for_completion(&policy->kobj_unregister);
 	return ret;
 }
 
@@ -997,8 +963,6 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 				     CPUFREQ_START, policy);
 
-	policy->kobj = &cpu_sysnode[cpu].cpu_kobj;
-
 	ret = cpufreq_add_dev_policy(cpu, policy, dev);
 	if (ret) {
 		if (ret > 0)
@@ -1012,10 +976,8 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 	if (ret)
 		goto err_out_unregister;
 
-	/* store per cpu policy for further accessing */
-	cpu_sysnode[cpu].cpu_policy = policy;
-
 	unlock_policy_rwsem_write(cpu);
+	kobject_uevent(&policy->kobj, KOBJ_ADD);
 	module_put(cpufreq_driver->owner);
 	pr_debug("initialization complete\n");
 
@@ -1026,7 +988,8 @@ err_out_unregister:
 	for_each_cpu(j, policy->cpus)
 		per_cpu(cpufreq_cpu_data, j) = NULL;
 	spin_unlock_irqrestore(&cpufreq_driver_lock, flags);
-	kobject_put(policy->kobj);
+	kobject_put(&policy->kobj);
+	wait_for_completion(&policy->kobj_unregister);
 err_unlock_policy:
 	unlock_policy_rwsem_write(cpu);
 	free_cpumask_var(policy->related_cpus);
@@ -1054,6 +1017,7 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 	unsigned long flags;
 	struct cpufreq_policy *data;
 	struct kobject *kobj;
+	struct completion *cmp;
 #ifdef CONFIG_SMP
 	struct device *cpu_dev;
 	unsigned int j;
@@ -1070,7 +1034,6 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 		return -EINVAL;
 	}
 	per_cpu(cpufreq_cpu_data, cpu) = NULL;
-	cpu_sysnode[cpu].cpu_policy = NULL;
 
 #ifdef CONFIG_SMP
 	/* if this isn't the CPU which is the parent of the kobj, we
@@ -1134,6 +1097,20 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 	if (cpufreq_driver->target)
 		__cpufreq_governor(data, CPUFREQ_GOV_STOP);
 
+	kobj = &data->kobj;
+	cmp = &data->kobj_unregister;
+	unlock_policy_rwsem_write(cpu);
+	kobject_put(kobj);
+
+	/* we need to make sure that the underlying kobj is actually
+	 * not referenced anymore by anybody before we proceed with
+	 * unloading.
+	 */
+	pr_debug("waiting for dropping of refcount\n");
+	wait_for_completion(cmp);
+	pr_debug("wait complete\n");
+
+	lock_policy_rwsem_write(cpu);
 	if (cpufreq_driver->exit)
 		cpufreq_driver->exit(data);
 	unlock_policy_rwsem_write(cpu);
@@ -1161,36 +1138,6 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 	return 0;
 }
 
-static void cpufreq_remove_dev_sysfs(void)
-{
-	unsigned int cpu;
-	struct device *dev;
-	struct kobject *kobj;
-	struct cpufreq_cpu_sysinfo *psysinfo;
-	struct cpufreq_policy *policy;
-
-	for_each_possible_cpu(cpu) {
-		dev = get_cpu_device(cpu);
-		if (dev) {
-			kobj = &cpu_sysnode[cpu].cpu_kobj;
-			psysinfo = to_cpu_kobj(kobj);
-			if (!kobj)
-				goto out;
-			kobject_put(kobj);
-
-			if (!psysinfo->cpu_policy)
-				continue;
-			policy = psysinfo->cpu_policy;
-			wait_for_completion(&policy->kobj_unregister);
-			policy->kobj = NULL;
-			psysinfo->cpu_policy = NULL;
-		}
-	}
-
-out:
-	return;
-}
-
 static int cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif)
 {
 	unsigned int cpu = dev->id;
@@ -1205,7 +1152,6 @@ static int cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif)
 	retval = __cpufreq_remove_dev(dev, sif);
 	return retval;
 }
-
 
 static void handle_update(struct work_struct *work)
 {
@@ -1968,8 +1914,6 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 {
 	unsigned long flags;
 	int ret;
-	unsigned int cpu;
-	struct device *dev;
 
 	if (cpufreq_disabled())
 		return -ENODEV;
@@ -1990,17 +1934,6 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 	}
 	cpufreq_driver = driver_data;
 	spin_unlock_irqrestore(&cpufreq_driver_lock, flags);
-
-	for_each_possible_cpu(cpu) {
-		dev = get_cpu_device(cpu);
-		if (dev) {
-			ret = cpufreq_add_dev_sysfs(cpu,
-					&cpu_sysnode[cpu].cpu_kobj, dev);
-			if (ret)
-				goto err_if_unreg;
-			kobject_uevent(&cpu_sysnode[cpu].cpu_kobj, KOBJ_ADD);
-		}
-	}
 
 	ret = subsys_interface_register(&cpufreq_interface);
 	if (ret)
@@ -2062,8 +1995,6 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 
 	spin_lock_irqsave(&cpufreq_driver_lock, flags);
 	cpufreq_driver = NULL;
-	/* remove percpu sysfs node */
-	cpufreq_remove_dev_sysfs();
 	spin_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
 	return 0;

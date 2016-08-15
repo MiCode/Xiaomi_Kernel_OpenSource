@@ -73,6 +73,17 @@ config INPUT_BMA150
 	  To compile this driver as a module, choose M here: the
 	  module will be called bma150.
 
+config INPUT_BMP180
+	tristate "BMP180 Pressure and Temprature sensor support"
+	depends on I2C
+	select INPUT_POLLDEV
+	help
+	  Say Y here if you have Bosch Sensortec's BMA180 Pressure
+	  and Temprature sensor hooked to an I2C bus.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called bmp180.
+
 config INPUT_PCSPKR
 	tristate "PC Speaker support"
 	depends on PCSPKR_PLATFORM
@@ -636,6 +647,27 @@ config INPUT_CAPELLA_CM3218
 	depends on I2C
 	help
 	  Say Y here to enable the CM3218 Ambient Light Sensor.
+
+config INPUT_PL_ISL29028
+	tristate "ISL29028 Light and Proximity sensor"
+	depends on I2C
+	help
+	  Say Y here to enable the ISL29028 Ambient Light and Proximity Sensor.
+
+config INPUT_PL_ISL29038
+	tristate "ISL29038 Light and Proximity sensor"
+	depends on I2C
+	help
+	  Say Y here to enable the ISL29038 Ambient Light and Proximity Sensor.
+
+config INPUT_JACK_FSA8108
+	tristate "Fairchild FSA8108 Audio Jack Detection and Keys"
+	depends on I2C
+	default n
+	help
+	   if you say yes here you get support for the fairchild fsa8108 audio
+	   jack detection and configuration switch, supports Volume up/down and
+	   send/end keys
 
 source	"drivers/input/misc/compass/Kconfig"
 source	"drivers/input/misc/mpu/Kconfig"

@@ -182,6 +182,7 @@ enum {
 	dsi_command_writ_no_param = 0x05,
 	dsi_command_long_write = 0x39,
 	dsi_command_max_return_pkt_size = 0x37,
+	dsi_command_generic_read_request_with_1_param = 0x14,
 	dsi_command_generic_read_request_with_2_param = 0x24,
 	dsi_command_dcs_read_with_no_params = 0x06,
 };

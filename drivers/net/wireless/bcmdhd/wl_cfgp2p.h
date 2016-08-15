@@ -1,7 +1,8 @@
 /*
  * Linux cfgp2p driver
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfgp2p.h 386594 2013-02-21 07:02:10Z $
+ * $Id: wl_cfgp2p.h 386595 2013-02-21 07:03:27Z $
  */
 #ifndef _wl_cfgp2p_h_
 #define _wl_cfgp2p_h_
@@ -77,7 +78,7 @@ struct p2p_info {
 	unsigned long status;
 	struct ether_addr dev_addr;
 	struct ether_addr int_addr;
-	struct p2p_bss bss_idx[P2PAPI_BSSCFG_MAX];
+	struct p2p_bss bss[P2PAPI_BSSCFG_MAX];
 	struct timer_list listen_timer;
 	wl_p2p_sched_t noa;
 	wl_p2p_ops_t ops;
@@ -115,11 +116,11 @@ enum wl_cfgp2p_status {
 };
 
 
-#define wl_to_p2p_bss_ndev(wl, type)		((wl)->p2p->bss_idx[type].dev)
-#define wl_to_p2p_bss_bssidx(wl, type)		((wl)->p2p->bss_idx[type].bssidx)
-#define wl_to_p2p_bss_saved_ie(wl, type)	((wl)->p2p->bss_idx[type].saved_ie)
-#define wl_to_p2p_bss_private(wl, type)		((wl)->p2p->bss_idx[type].private_data)
-#define wl_to_p2p_bss(wl, type)			((wl)->p2p->bss_idx[type])
+#define wl_to_p2p_bss_ndev(wl, type)		((wl)->p2p->bss[type].dev)
+#define wl_to_p2p_bss_bssidx(wl, type)		((wl)->p2p->bss[type].bssidx)
+#define wl_to_p2p_bss_saved_ie(wl, type)	((wl)->p2p->bss[type].saved_ie)
+#define wl_to_p2p_bss_private(wl, type)		((wl)->p2p->bss[type].private_data)
+#define wl_to_p2p_bss(wl, type)			((wl)->p2p->bss[type])
 #define wl_get_p2p_status(wl, stat) ((!(wl)->p2p_supported) ? 0 : test_bit(WLP2P_STATUS_ ## stat, \
 									&(wl)->p2p->status))
 #define wl_set_p2p_status(wl, stat) ((!(wl)->p2p_supported) ? 0 : set_bit(WLP2P_STATUS_ ## stat, \
@@ -240,9 +241,11 @@ extern s32
 wl_cfgp2p_clear_management_ie(struct wl_priv *wl, s32 bssidx);
 
 extern s32
-wl_cfgp2p_find_idx(struct wl_priv *wl, struct net_device *ndev);
+wl_cfgp2p_find_idx(struct wl_priv *wl, struct net_device *ndev, s32 *index);
 extern struct net_device *
 wl_cfgp2p_find_ndev(struct wl_priv *wl, s32 bssidx);
+extern s32
+wl_cfgp2p_find_type(struct wl_priv *wl, s32 bssidx, s32 *type);
 
 
 extern s32

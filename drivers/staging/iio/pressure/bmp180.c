@@ -297,13 +297,7 @@ static ssize_t bmp180_read_pressure(struct device *dev,
 		xlsb = (u8)val;
 		temp_UP = (temp_UP << chip->oss) + xlsb;
 	}
-	mutex_lock(&chip->lock);
-	chip->UT = temp_UT;
-	chip->UP = temp_UP;
-	bmp180_convert_UP(chip);
-	dev_dbg(&client->dev, "pressure value read %lu\n\n", chip->pressure);
-	ret = snprintf(buf, BMP180_MAX_DIGIT, "%lu", chip->pressure);
-	mutex_unlock(&chip->lock);
+	ret = snprintf(buf, BMP180_MAX_DIGIT, "%lu\n", temp_UP);
 	if (ret > 0)
 		return ret;
 exit:

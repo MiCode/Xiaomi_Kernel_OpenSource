@@ -3,6 +3,7 @@
  *
  * Copyright 2005 Wolfson Microelectronics PLC.
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute  it and/or modify it
  *  under  the terms of  the GNU General  Public License as published by the
@@ -52,7 +53,9 @@ static int dapm_up_seq[] = {
 	[snd_soc_dapm_supply] = 1,
 	[snd_soc_dapm_regulator_supply] = 1,
 	[snd_soc_dapm_micbias] = 2,
-	[snd_soc_dapm_dai] = 3,
+	[snd_soc_dapm_dai_link] = 2,
+	[snd_soc_dapm_dai_in] = 3,
+	[snd_soc_dapm_dai_out] = 3,
 	[snd_soc_dapm_aif_in] = 3,
 	[snd_soc_dapm_aif_out] = 3,
 	[snd_soc_dapm_mic] = 4,
@@ -89,10 +92,12 @@ static int dapm_down_seq[] = {
 	[snd_soc_dapm_value_mux] = 9,
 	[snd_soc_dapm_aif_in] = 10,
 	[snd_soc_dapm_aif_out] = 10,
-	[snd_soc_dapm_dai] = 10,
-	[snd_soc_dapm_regulator_supply] = 11,
-	[snd_soc_dapm_supply] = 11,
-	[snd_soc_dapm_post] = 12,
+	[snd_soc_dapm_dai_in] = 10,
+	[snd_soc_dapm_dai_out] = 10,
+	[snd_soc_dapm_dai_link] = 11,
+	[snd_soc_dapm_regulator_supply] = 12,
+	[snd_soc_dapm_supply] = 12,
+	[snd_soc_dapm_post] = 13,
 };
 
 static void pop_wait(u32 pop_time)
@@ -106,8 +111,10 @@ static void pop_dbg(struct device *dev, u32 pop_time, const char *fmt, ...)
 	va_list args;
 	char *buf;
 
+#ifndef CONFIG_SND_DEBUG_VERBOSE
 	if (!pop_time)
 		return;
+#endif
 
 	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
 	if (buf == NULL)
@@ -369,11 +376,13 @@ static void dapm_set_path_status(struct snd_soc_dapm_widget *w,
 	case snd_soc_dapm_regulator_supply:
 	case snd_soc_dapm_aif_in:
 	case snd_soc_dapm_aif_out:
-	case snd_soc_dapm_dai:
+	case snd_soc_dapm_dai_in:
+	case snd_soc_dapm_dai_out:
 	case snd_soc_dapm_hp:
 	case snd_soc_dapm_mic:
 	case snd_soc_dapm_spk:
 	case snd_soc_dapm_line:
+	case snd_soc_dapm_dai_link:
 		p->connect = 1;
 	break;
 	/* does affect routing - dynamically connected */
@@ -707,7 +716,7 @@ static int is_connected_output_ep(struct snd_soc_dapm_widget *widget)
 	switch (widget->id) {
 	case snd_soc_dapm_adc:
 	case snd_soc_dapm_aif_out:
-	case snd_soc_dapm_dai:
+	case snd_soc_dapm_dai_out:
 		if (widget->active) {
 			widget->outputs = snd_soc_dapm_suspend_check(widget);
 			return widget->outputs;
@@ -779,7 +788,7 @@ static int is_connected_input_ep(struct snd_soc_dapm_widget *widget)
 	switch (widget->id) {
 	case snd_soc_dapm_dac:
 	case snd_soc_dapm_aif_in:
-	case snd_soc_dapm_dai:
+	case snd_soc_dapm_dai_in:
 		if (widget->active) {
 			widget->inputs = snd_soc_dapm_suspend_check(widget);
 			return widget->inputs;
@@ -897,13 +906,6 @@ static int dapm_generic_check_power(struct snd_soc_dapm_widget *w)
 	out = is_connected_output_ep(w);
 	dapm_clear_walk(w->dapm);
 	return out != 0 && in != 0;
-}
-
-static int dapm_dai_check_power(struct snd_soc_dapm_widget *w)
-{
-	DAPM_UPDATE_STAT(w, power_checks);
-
-	return w->active;
 }
 
 /* Check to see if an ADC has power */
@@ -1926,10 +1928,24 @@ static int snd_soc_dapm_set_pin(struct snd_soc_dapm_context *dapm,
 		return -EINVAL;
 	}
 
-	if (w->connected != status)
-		dapm_mark_dirty(w, "pin configuration");
+	switch (w->id) {
+	case snd_soc_dapm_adc:
+	case snd_soc_dapm_dac:
+	case snd_soc_dapm_aif_in:
+	case snd_soc_dapm_aif_out:
+	case snd_soc_dapm_dai_in:
+	case snd_soc_dapm_dai_out:
+		if (w->active != status)
+			dapm_mark_dirty(w, "pin configuration");
+		w->active = status;
+		break;
+	default:
+		if (w->connected != status)
+			dapm_mark_dirty(w, "pin configuration");
+		w->connected = status;
+		break;
+	}
 
-	w->connected = status;
 	if (status == 0)
 		w->force = 0;
 
@@ -2067,7 +2083,9 @@ static int snd_soc_dapm_add_route(struct snd_soc_dapm_context *dapm,
 	case snd_soc_dapm_regulator_supply:
 	case snd_soc_dapm_aif_in:
 	case snd_soc_dapm_aif_out:
-	case snd_soc_dapm_dai:
+	case snd_soc_dapm_dai_in:
+	case snd_soc_dapm_dai_out:
+	case snd_soc_dapm_dai_link:
 		list_add(&path->list, &dapm->card->paths);
 		list_add(&path->list_sink, &wsink->sources);
 		list_add(&path->list_source, &wsource->sinks);
@@ -2783,10 +2801,12 @@ snd_soc_dapm_new_control(struct snd_soc_dapm_context *dapm,
 		break;
 	case snd_soc_dapm_adc:
 	case snd_soc_dapm_aif_out:
+	case snd_soc_dapm_dai_out:
 		w->power_check = dapm_adc_check_power;
 		break;
 	case snd_soc_dapm_dac:
 	case snd_soc_dapm_aif_in:
+	case snd_soc_dapm_dai_in:
 		w->power_check = dapm_dac_check_power;
 		break;
 	case snd_soc_dapm_pga:
@@ -2798,14 +2818,12 @@ snd_soc_dapm_new_control(struct snd_soc_dapm_context *dapm,
 	case snd_soc_dapm_hp:
 	case snd_soc_dapm_mic:
 	case snd_soc_dapm_line:
+	case snd_soc_dapm_dai_link:
 		w->power_check = dapm_generic_check_power;
 		break;
 	case snd_soc_dapm_supply:
 	case snd_soc_dapm_regulator_supply:
 		w->power_check = dapm_supply_check_power;
-		break;
-	case snd_soc_dapm_dai:
-		w->power_check = dapm_dai_check_power;
 		break;
 	default:
 		w->power_check = dapm_always_on_check_power;
@@ -2862,6 +2880,176 @@ int snd_soc_dapm_new_controls(struct snd_soc_dapm_context *dapm,
 }
 EXPORT_SYMBOL_GPL(snd_soc_dapm_new_controls);
 
+static int snd_soc_dai_link_event(struct snd_soc_dapm_widget *w,
+				  struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_dapm_path *source_p, *sink_p;
+	struct snd_soc_dai *source, *sink;
+	const struct snd_soc_pcm_stream *config = w->params;
+	struct snd_pcm_substream substream;
+	struct snd_pcm_hw_params *params = NULL;
+	u64 fmt;
+	int ret;
+
+	BUG_ON(!config);
+	BUG_ON(list_empty(&w->sources) || list_empty(&w->sinks));
+
+	/* We only support a single source and sink, pick the first */
+	source_p = list_first_entry(&w->sources, struct snd_soc_dapm_path,
+				list_sink);
+	sink_p = list_first_entry(&w->sinks, struct snd_soc_dapm_path,
+				list_source);
+
+	BUG_ON(!source_p || !sink_p);
+	BUG_ON(!sink_p->source || !source_p->sink);
+	BUG_ON(!source_p->source || !sink_p->sink);
+
+	source = source_p->source->priv;
+	sink = sink_p->sink->priv;
+
+	/* Be a little careful as we don't want to overflow the mask array */
+	if (config->formats)
+		fmt = ffs(config->formats) - 1;
+	else {
+		dev_warn(w->dapm->dev, "Invalid format %lx specified\n",
+				config->formats);
+		fmt = 0;
+	}
+
+	/* Currently very limited parameter selection */
+	params = kzalloc(sizeof(*params), GFP_KERNEL);
+	if (!params) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	snd_mask_set(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT), fmt);
+
+	hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE)->min =
+			config->rate_min;
+	hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE)->max =
+			config->rate_max;
+
+	hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS)->min
+			= config->channels_min;
+	hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS)->max
+			= config->channels_max;
+
+	memset(&substream, 0, sizeof(substream));
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (source->driver->ops && source->driver->ops->hw_params) {
+			substream.stream = SNDRV_PCM_STREAM_CAPTURE;
+			ret = source->driver->ops->hw_params(&substream,
+							params, source);
+			if (ret != 0) {
+				dev_err(source->dev,
+					"hw_params() failed: %d\n", ret);
+				goto out;
+			}
+		}
+
+		if (sink->driver->ops && sink->driver->ops->hw_params) {
+			substream.stream = SNDRV_PCM_STREAM_PLAYBACK;
+			ret = sink->driver->ops->hw_params(&substream, params,
+							sink);
+			if (ret != 0) {
+				dev_err(sink->dev,
+						"hw_params() failed: %d\n", ret);
+				goto out;
+			}
+		}
+		break;
+
+	case SND_SOC_DAPM_POST_PMU:
+		ret = snd_soc_dai_digital_mute(sink, 0);
+		if (ret != 0 && ret != -ENOTSUPP)
+			dev_warn(sink->dev, "Failed to unmute: %d\n", ret);
+		ret = 0;
+		break;
+
+	case SND_SOC_DAPM_PRE_PMD:
+		ret = snd_soc_dai_digital_mute(sink, 1);
+		if (ret != 0 && ret != -ENOTSUPP)
+			dev_warn(sink->dev, "Failed to mute: %d\n", ret);
+		ret = 0;
+		break;
+
+	default:
+		BUG();
+		return -EINVAL;
+	}
+
+out:
+	kfree(params);
+	return ret;
+}
+
+int snd_soc_dapm_new_dai_link_widgets(struct snd_soc_dapm_context *dapm,
+				struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dapm_route routes[2];
+	struct snd_soc_dapm_widget template;
+	struct snd_soc_dapm_widget *source;
+	struct snd_soc_dapm_widget *sink;
+	struct snd_soc_dapm_widget *w;
+	size_t len;
+	char *link_name;
+	int i, ret;
+
+	for (i = 0; i < 2; i++) {
+		if (i == 0) {
+			source = rtd->cpu_dai->capture_widget;
+			sink = rtd->codec_dai->playback_widget;
+		} else {
+			source = rtd->codec_dai->capture_widget;
+			sink = rtd->cpu_dai->playback_widget;
+		}
+
+		len = strlen(source->name) + strlen(sink->name) + 2;
+		link_name = devm_kzalloc(dapm->dev, len, GFP_KERNEL);
+		if (!link_name)
+			return -ENOMEM;
+		snprintf(link_name, len, "%s-%s", source->name, sink->name);
+
+		memset(&template, 0, sizeof(template));
+		template.reg = SND_SOC_NOPM;
+		template.id = snd_soc_dapm_dai_link;
+		template.name = link_name;
+		template.event = snd_soc_dai_link_event;
+		template.event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+				SND_SOC_DAPM_PRE_PMD;
+
+		dev_dbg(dapm->dev, "adding %s widget\n", link_name);
+
+		w = snd_soc_dapm_new_control(dapm, &template);
+		if (!w) {
+			dev_err(dapm->dev, "Failed to create %s widget\n",
+					link_name);
+			return -ENOMEM;
+		}
+
+		w->params = rtd->dai_link->params;
+
+		memset(&routes, 0, sizeof(routes));
+
+		routes[0].source = source->name;
+		routes[0].sink = link_name;
+		routes[1].source = link_name;
+		routes[1].sink = sink->name;
+
+		ret = snd_soc_dapm_add_routes(dapm, routes,
+						ARRAY_SIZE(routes));
+		if (ret < 0) {
+			dev_err(dapm->dev, "Failed to add %s route\n",
+				link_name);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 				 struct snd_soc_dai *dai)
 {
@@ -2874,7 +3062,7 @@ int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 	template.reg = SND_SOC_NOPM;
 
 	if (dai->driver->playback.stream_name) {
-		template.id = snd_soc_dapm_dai;
+		template.id = snd_soc_dapm_dai_in;
 		template.name = dai->driver->playback.stream_name;
 		template.sname = dai->driver->playback.stream_name;
 
@@ -2892,7 +3080,7 @@ int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 	}
 
 	if (dai->driver->capture.stream_name) {
-		template.id = snd_soc_dapm_dai;
+		template.id = snd_soc_dapm_dai_out;
 		template.name = dai->driver->capture.stream_name;
 		template.sname = dai->driver->capture.stream_name;
 
@@ -2922,8 +3110,13 @@ int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card)
 
 	/* For each DAI widget... */
 	list_for_each_entry(dai_w, &card->widgets, list) {
-		if (dai_w->id != snd_soc_dapm_dai)
+		switch (dai_w->id) {
+		case snd_soc_dapm_dai_in:
+		case snd_soc_dapm_dai_out:
+			break;
+		default:
 			continue;
+		}
 
 		dai = dai_w->priv;
 
@@ -2932,10 +3125,15 @@ int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card)
 			if (w->dapm != dai_w->dapm)
 				continue;
 
-			if (w->id == snd_soc_dapm_dai)
+			switch (w->id) {
+			case snd_soc_dapm_dai_in:
+			case snd_soc_dapm_dai_out:
 				continue;
+			default:
+				break;
+			}
 
-			if (!w->sname)
+			if (!w->sname || !strstr(w->sname, dai_w->name))
 				continue;
 
 			if (dai->driver->playback.stream_name &&
@@ -3117,8 +3315,19 @@ int snd_soc_dapm_get_pin_status(struct snd_soc_dapm_context *dapm,
 {
 	struct snd_soc_dapm_widget *w = dapm_find_widget(dapm, pin, true);
 
-	if (w)
-		return w->connected;
+	if (w) {
+		switch (w->id) {
+		case snd_soc_dapm_adc:
+		case snd_soc_dapm_dac:
+		case snd_soc_dapm_aif_in:
+		case snd_soc_dapm_aif_out:
+		case snd_soc_dapm_dai_in:
+		case snd_soc_dapm_dai_out:
+			return w->active;
+		default:
+			return w->connected;
+		}
+	}
 
 	return 0;
 }

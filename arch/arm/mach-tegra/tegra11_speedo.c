@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra11_speedo.c
  *
  * Copyright (C) 2012 NVIDIA Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -85,7 +86,6 @@ static void rev_sku_to_speedo_ids(int rev, int sku)
 	case 0x00: /* Eng */
 	case 0x10: /* Eng */
 	case 0x05: /* T40S */
-	case 0x06: /* AP40 */
 	case 0x20: /* T40DC */
 		if (!a01)
 			cpu_speedo_id = 1;
@@ -99,6 +99,13 @@ static void rev_sku_to_speedo_ids(int rev, int sku)
 			cpu_speedo_id = 2;
 		soc_speedo_id = 1;
 		threshold_index = 1;
+		break;
+
+	case 0x06: /* AP40 */
+		if (!a01)
+			cpu_speedo_id = 3;
+		soc_speedo_id = 0;
+		threshold_index = 0;
 		break;
 
 	case 0x08: /* AP40X */
@@ -146,8 +153,8 @@ void tegra_init_speedo_data(void)
 
 	pr_info("Tegra11: CPU Speedo ID %d, Soc Speedo ID %d",
 		cpu_speedo_id, soc_speedo_id);
-	pr_info("Tegra11: CPU Speedo Value %d, Soc Speedo Value %d",
-		cpu_speedo_value, core_speedo_value);
+	pr_info("Tegra11: CPU Speedo Value %d, Soc Speedo Value %d, CPU Iddq Value %d",
+		cpu_speedo_value, core_speedo_value, cpu_iddq_value);
 
 	for (i = 0; i < CPU_PROCESS_CORNERS_NUM; i++) {
 		if (cpu_speedo_value <
@@ -211,6 +218,8 @@ int tegra_core_speedo_mv(void)
 {
 	switch (soc_speedo_id) {
 	case 0:
+		if (tegra_sku_id == 0x6)
+			return 1390;
 		if (core_process_id == 1)
 			return 1170;
 	/* fall thru if core_process_id = 0 */

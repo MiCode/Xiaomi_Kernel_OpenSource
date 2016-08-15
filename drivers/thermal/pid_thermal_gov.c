@@ -2,6 +2,7 @@
  * drivers/thermal/pid_thermal_gov.c
  *
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,6 +34,8 @@
 #define GAIN_D_DEFAULT			0
 #define UP_COMPENSATION_DEFAULT		20
 #define DOWN_COMPENSATION_DEFAULT	20
+#define POWER_MODE                      1
+#define BALANCE_OFFSET			19
 
 struct pid_thermal_gov_attribute {
 	struct attribute attr;
@@ -57,6 +60,7 @@ struct pid_thermal_governor {
 
 	unsigned long up_compensation;
 	unsigned long down_compensation;
+	int power_mode;
 };
 
 #define tz_to_gov(t)		\
@@ -279,8 +283,38 @@ static ssize_t down_compensation_store(struct kobject *kobj,
 }
 
 static struct pid_thermal_gov_attribute down_compensation_attr =
-	__ATTR(down_compensation, 0644,
-	       down_compensation_show, down_compensation_store);
+__ATTR(down_compensation, 0644,
+       down_compensation_show, down_compensation_store);
+
+static ssize_t power_mode_show(struct kobject *kobj, struct attribute *attr,
+			char *buf)
+{
+	struct pid_thermal_governor *gov = kobj_to_gov(kobj);
+
+	if (!gov)
+		return -ENODEV;
+
+	return sprintf(buf, "%d\n", gov->power_mode);
+}
+
+static ssize_t power_mode_store(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
+{
+	struct pid_thermal_governor *gov = kobj_to_gov(kobj);
+	int val;
+
+	if (!gov)
+		return -ENODEV;
+
+	if (!sscanf(buf, "%d\n", &val))
+		return -EINVAL;
+
+	gov->power_mode = val;
+	return count;
+}
+
+static struct pid_thermal_gov_attribute power_mode_attr =
+__ATTR(power_mode, 0644, power_mode_show, power_mode_store);
 
 static struct attribute *pid_thermal_gov_default_attrs[] = {
 	&max_err_temp_attr.attr,
@@ -290,6 +324,7 @@ static struct attribute *pid_thermal_gov_default_attrs[] = {
 	&max_dout_attr.attr,
 	&up_compensation_attr.attr,
 	&down_compensation_attr.attr,
+	&power_mode_attr.attr,
 	NULL,
 };
 
@@ -353,6 +388,7 @@ static int pid_thermal_gov_start(struct thermal_zone_device *tz)
 	gov->gain_d = GAIN_D_DEFAULT;
 	gov->up_compensation = UP_COMPENSATION_DEFAULT;
 	gov->down_compensation = DOWN_COMPENSATION_DEFAULT;
+	gov->power_mode = POWER_MODE;
 	tz->governor_data = gov;
 
 	return 0;
@@ -394,13 +430,21 @@ pid_thermal_gov_get_target(struct thermal_zone_device *tz,
 	int last_temperature = tz->passive ? tz->last_temperature : trip_temp;
 	int passive_delay = tz->passive ? tz->passive_delay : MSEC_PER_SEC;
 	s64 proportional, derivative, sum_err, max_err;
-	unsigned long max_state, cur_state, target, compensation;
+	unsigned long max_state, target, compensation;
+	long cur_state;
 
 	if (cdev->ops->get_max_state(cdev, &max_state) < 0)
 		return 0;
 
 	if (cdev->ops->get_cur_state(cdev, &cur_state) < 0)
 		return 0;
+
+	if (!strncmp(cdev->type, "skin-balanced", 13) && gov->power_mode) {
+		max_state -= BALANCE_OFFSET;
+		cur_state -= BALANCE_OFFSET;
+		if (cur_state < 0)
+			cur_state = 0;
+	}
 
 	max_err = (s64)gov->max_err_temp * (s64)gov->max_err_gain;
 
@@ -426,10 +470,6 @@ pid_thermal_gov_get_target(struct thermal_zone_device *tz,
 	sum_err = sum_err * max_state + max_err - 1;
 	target = (unsigned long)div64_s64(sum_err, max_err);
 
-	/* Apply compensation */
-	if (target == cur_state)
-		return target;
-
 	if (target > cur_state) {
 		compensation = DIV_ROUND_UP(gov->up_compensation *
 					    (target - cur_state), 100);
@@ -441,6 +481,9 @@ pid_thermal_gov_get_target(struct thermal_zone_device *tz,
 			 (cur_state - compensation) : 0;
 	}
 
+	if (target && !strncmp(cdev->type, "skin-balanced", 13)
+	    && gov->power_mode)
+		return target + BALANCE_OFFSET;
 	return target;
 }
 

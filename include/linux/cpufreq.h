@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2001 Russell King
  *            (C) 2002 - 2003 Dominik Brodowski <linux@brodo.de>
- *  Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -105,14 +105,8 @@ struct cpufreq_policy {
 
 	struct cpufreq_real_policy	user_policy;
 
-	struct kobject		*kobj;
+	struct kobject		kobj;
 	struct completion	kobj_unregister;
-};
-
-/* contains per cpu sysfs info ./sys/devices/ssytem/cpu/cpu#/cpufreq */
-struct cpufreq_cpu_sysinfo {
-	struct cpufreq_policy *cpu_policy; /* policy for online cpu */
-	struct kobject cpu_kobj; /* per cpu kobject */
 };
 
 #define CPUFREQ_ADJUST		(0)

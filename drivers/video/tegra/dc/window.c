@@ -4,6 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  *
  * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -367,6 +368,7 @@ int tegra_dc_update_windows(struct tegra_dc_win *windows[], int n)
 		unsigned Bpp_bw = Bpp * (yuvp ? 2 : 1);
 		const bool filter_h = win_use_h_filter(dc, win);
 		const bool filter_v = win_use_v_filter(dc, win);
+		u32 val;
 #if defined(CONFIG_TEGRA_DC_SCAN_COLUMN)
 		scan_column = (win->flags & TEGRA_WIN_FLAG_SCAN_COLUMN);
 #endif
@@ -448,18 +450,27 @@ int tegra_dc_update_windows(struct tegra_dc_win *windows[], int n)
 
 		if (invert_h) {
 			h_offset.full = win->x.full + win->w.full;
-			h_offset.full = dfixed_floor(h_offset) * Bpp;
 			h_offset.full -= dfixed_const(1);
+			h_offset.full = dfixed_floor(h_offset) * Bpp;
 		} else {
 			h_offset.full = dfixed_floor(win->x) * Bpp;
 		}
 
 		v_offset = win->y;
+		if (yuv && dfixed_trunc(v_offset) & 1)
+			v_offset.full += dfixed_const(1); /*need to be even offset*/
+
 		if (invert_v) {
 			v_offset.full += win->h.full - dfixed_const(1);
+			if (yuv && !(dfixed_trunc(v_offset) & 1))
+			/*need odd offset on yuv planar formats*/
+				v_offset.full += dfixed_const(1);
 		}
 
-		tegra_dc_writel(dc, dfixed_trunc(h_offset),
+		val = dfixed_trunc(h_offset);
+		if (!invert_h)
+			val = (yuv) ? (val & ~1) : val;
+		tegra_dc_writel(dc, val,
 				DC_WINBUF_ADDR_H_OFFSET);
 		tegra_dc_writel(dc, dfixed_trunc(v_offset),
 				DC_WINBUF_ADDR_V_OFFSET);

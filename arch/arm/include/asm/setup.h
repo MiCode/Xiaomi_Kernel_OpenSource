@@ -2,6 +2,7 @@
  *  linux/include/asm/setup.h
  *
  *  Copyright (C) 1997-1999 Russell King
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -150,6 +151,12 @@ struct tag_memclk {
 	__u32 fmemclk;
 };
 
+#define ATAG_POWERUP_REASON 0xf1000401
+
+struct tag_powerup_reason {
+	u32 powerup_reason;
+};
+
 struct tag {
 	struct tag_header hdr;
 	union {
@@ -173,6 +180,8 @@ struct tag {
 		 * DC21285 specific
 		 */
 		struct tag_memclk	memclk;
+
+		struct tag_powerup_reason powerup_reason;
 	} u;
 };
 

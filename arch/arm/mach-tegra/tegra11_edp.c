@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra11_edp.c
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -640,6 +641,64 @@ static struct core_edp_entry core_edp_table[] = {
 			},
 		},
 	},
+	{
+		.sku		= 0x6,		/* SKU = 6 */
+		.process_id	= -1,		/* any process id */
+		.cap_mA		= 8000,		/* 8A cap */
+		.mult		= 1000000,	/* MHZ */
+		.cap_scpu_on	= {
+			/* favor emc */
+			{	/* core modules power state 0 (all ON) */
+				{{ 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				},
+			},
+			/* balanced profile */
+			{	/* core modules power state 0 (all ON) */
+				{{ 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				},
+			},
+			/* favor gpu */
+			{	/* core modules power state 0 (all ON) */
+				{{ 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				}
+			},
+		},
+		.cap_scpu_off	= {
+			/* favor emc */
+			{	/* core modules power state 0 (all ON) */
+				{{ 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				},
+			},
+			/* balanced profile */
+			{	/* core modules power state 0 (all ON) */
+				{{ 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				 { 792, 600 },
+				},
+			},
+			/* favor gpu */
+			{	/* core modules power state 0 (all ON) */
+				{{ 792, 756 },
+				 { 792, 744 },
+				 { 792, 732 },
+				 { 792, 600 },
+				}
+			},
+		},
+	},
 	/* SKU 8 */
 	{
 		.sku		= 0x8,		/* SKU = 8 */
@@ -910,10 +969,11 @@ static struct core_edp_entry *find_edp_entry(int sku, unsigned int regulator_mA)
 	int i;
 	int pid = tegra_core_process_id();
 
-	if ((sku == 0x5) || (sku == 0x6)) {
+	if ((sku == 0x5)) {
 		if (regulator_mA >= 8000)
 			return NULL;		/* no edp limits above 8A */
-	} else if ((sku == 0x3) || (sku == 0x4) || (sku == 0x8)) {
+	} else if ((sku == 0x3) || (sku == 0x4) ||
+		   (sku == 0x6) || (sku == 0x8)) {
 		if (regulator_mA >= 8000)
 			regulator_mA = 8000;	/* apply 8A table above 8A */
 	} else {

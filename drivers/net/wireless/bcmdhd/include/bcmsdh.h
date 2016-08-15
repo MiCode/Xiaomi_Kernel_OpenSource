@@ -3,7 +3,8 @@
  *     export functions to client drivers
  *     abstract OS and BUS specific details of SDIO
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -23,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh.h 347614 2012-07-27 10:24:51Z $
+ * $Id: bcmsdh.h 365575 2012-10-30 05:25:07Z $
  */
 
 /**
@@ -48,6 +49,8 @@ extern const uint bcmsdh_msglevel;
 typedef struct bcmsdh_info bcmsdh_info_t;
 typedef void (*bcmsdh_cb_fn_t)(void *);
 
+extern struct device *pm_dev;
+
 /* Attach and build an interface to the underlying SD host driver.
  *  - Allocates resources (structs, arrays, mem, OS handles, etc) needed by bcmsdh.
  *  - Returns the bcmsdh handle and virtual address base for register access.
@@ -56,12 +59,8 @@ typedef void (*bcmsdh_cb_fn_t)(void *);
  *    most recent one) to enable single-instance implementations to pass NULL.
  */
 
-#if 0 && (NDISVER >= 0x0630) && 1
-extern bcmsdh_info_t *bcmsdh_attach(osl_t *osh, void *cfghdl,
-	void **regsva, uint irq, shared_info_t *sh);
-#else
-extern bcmsdh_info_t *bcmsdh_attach(osl_t *osh, void *cfghdl, void **regsva, uint irq);
-#endif
+extern bcmsdh_info_t *bcmsdh_attach(osl_t * osh, void *cfghdl, void **regsva,
+				    uint irq);
 
 /* Detach - freeup resources allocated in attach */
 extern int bcmsdh_detach(osl_t *osh, void *sdh);
@@ -201,7 +200,7 @@ typedef struct {
 	/* attach to device */
 	void *(*attach)(uint16 vend_id, uint16 dev_id, uint16 bus, uint16 slot,
 	                uint16 func, uint bustype, void * regsva, osl_t * osh,
-	                void * param, void *dev);
+	                void * param);
 	/* detach from device */
 	void (*detach)(void *ch);
 } bcmsdh_driver_t;

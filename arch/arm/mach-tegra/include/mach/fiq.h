@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Google, Inc.
+ * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author:
  *	Iliyan Malchev <malchev@google.com>
@@ -21,5 +22,7 @@
 /* enable/disable an interrupt that is an FIQ (safe from FIQ context?) */
 void tegra_fiq_enable(int n);
 void tegra_fiq_disable(int n);
+
+#define TEGRA_FIQ_WAR_FIQ_NR INT_WDT_AVP
 
 #endif

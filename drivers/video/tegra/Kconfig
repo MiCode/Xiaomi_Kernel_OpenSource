@@ -39,7 +39,7 @@ config TEGRA_DC
 
 config TEGRA_DC_CMU
     bool
-    default n if ARCH_TEGRA_2x_SOC || ARCH_TEGRA_3x_SOC
+    default n if ARCH_TEGRA_2x_SOC || ARCH_TEGRA_3x_SOC || ARCH_TEGRA_11x_SOC
     default y
 
 config TEGRA_DC_WIN_H
@@ -156,8 +156,14 @@ config NVMAP_PAGE_POOLS_INIT_FILLUP
 	  requests. Page pools fill up during init would increase the boot time.
 	  If increase in boot time is not acceptable, keep this option disabled.
 
+config NVMAP_PAGE_POOLS_INIT_FILLUP_SIZE
+	depends on NVMAP_PAGE_POOLS_INIT_FILLUP
+	hex "Amount of memory to fill up page pools with during bootup in MB"
+	default 0x64
+
 config NVMAP_PAGE_POOL_SIZE
-	hex
+	depends on NVMAP_PAGE_POOLS
+	hex "Page pool size in pages"
 	default 0x0
 
 config NVMAP_CACHE_MAINT_BY_SET_WAYS
@@ -232,6 +238,16 @@ config TEGRA_HDMI_74MHZ_LIMIT
 	help
 	  Say Y here to make kernel report only low bandwidth modes.
 	  Useful only for boards which can't deliver 148.50 MHz.
+
+config TEGRA_HDMI_MHL
+	bool 'Support HDMI to MHL support'
+	default n
+	  ---help---
+	  Support the HDMI to MHL conversion.
+	  MHL (Mobile High-Definition Link) technology
+	  uses USB connector to output HDMI content
+
+source "drivers/video/tegra/dc/ext/mhl/Kconfig"
 
 endif
 

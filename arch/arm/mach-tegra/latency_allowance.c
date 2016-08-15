@@ -1,7 +1,8 @@
 /*
  * arch/arm/mach-tegra/latency_allowance.c
  *
- * Copyright (C) 2011-2012, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2011-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -179,6 +180,12 @@ int tegra_set_latency_allowance(enum tegra_la_id id,
 	 * we expect to see */
 	if (id >= ID(DISPLAY_0A) && id <= ID(DISPLAY_HCB))
 		fifo_size_in_atoms /= fifo_scale;
+
+/* Bug 1323454 */
+#ifdef CONFIG_ARCH_TEGRA_11x_SOC
+	if (id >= TEGRA_LA_VI_WSB && id <= TEGRA_LA_VI_WY)
+		fifo_size_in_atoms >>= 1;
+#endif
 #endif
 
 	if (bandwidth_in_mbps == 0) {

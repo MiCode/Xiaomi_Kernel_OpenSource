@@ -1,4 +1,5 @@
 # Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (C) 2016 XiaoMi, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -130,9 +131,9 @@ config ARCH_TEGRA_11x_SOC
 	select TEGRA_ERRATA_1053704
 	select TEGRA_CORE_EDP_LIMITS
 	select TEGRA_VDD_CORE_OVERRIDE if TEGRA_EMC_SCALING_ENABLE
-	select TEGRA_THERMAL_THROTTLE_EXACT_FREQ
 	select ARM_ERRATA_799270
 	select ARM_ERRATA_798181
+	select TEGRA_WDT_FIQ_WAR if !TRUSTED_FOUNDATIONS && TEGRA_FIQ_DEBUGGER
 	help
 	  Support for NVIDIA Tegra 11x family of SoCs, based upon the
 	  ARM Cortex-A15MP CPU
@@ -332,6 +333,14 @@ config MACH_TEGRA_PLUTO
        help
          Support for NVIDIA PLUTO development platform
 
+config MACH_PISCES
+	bool "Xiaomi MI3 phone"
+	depends on ARCH_TEGRA_11x_SOC
+	select MACH_HAS_SND_SOC_TEGRA_CS42L73 if SND_SOC
+	select MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X if SND_SOC
+	help
+	  Support for Xiaomi MI3 phone
+
 config MACH_ROTH
        bool "Thor board"
        depends on ARCH_TEGRA_11x_SOC
@@ -422,6 +431,25 @@ config TEGRA_FIQ_DEBUGGER
 	select FIQ_DEBUGGER
 	help
 	  Enables the FIQ serial debugger on Tegra
+
+config TEGRA_WDT_FIQ_WAR
+	bool "Enable FIQ WAR on Tegra"
+	depends on TEGRA_FIQ_DEBUGGER
+	help
+	  Tegra chip T114 and T124 don't have FIQ connected to GIC. This
+	  option configure GIC group0 generating FIQ only, and let GIC
+	  group1 handle normal IRQs. Note this option can be only enabled
+	  for system running no secure OS, because secure OS use group0
+	  specifically as monitor trap.
+
+config TEGRA_WDT_FIQ_SOFT_HANG_STACK_DUMP
+	bool "Enable Tegra system soft hang stack dump"
+	depends on TEGRA_WDT_FIQ_WAR && TEGRA_WATCHDOG
+	help
+	  This option will generate stack dump for all online CPUs upon
+	  soft hang detection by using the FIQ debugger mechanism even
+	  the IRQ is disabled on the CPU. This option is useful if we
+	  only have one watchdog generating FIQ for all CPUs.
 
 config TEGRA_PTM
 	bool "Enable PTM debugger on Tegra"
@@ -782,7 +810,6 @@ config ARCH_TEGRA_4GB_MEMORY
 config TEGRA_LP1_LOW_COREVOLTAGE
 	bool "LP1 low core voltage"
 	default n
-	depends on ARCH_TEGRA_3x_SOC || ARCH_TEGRA_11x_SOC
 	help
 		Enable support for LP1 Core voltage to set to lowest
 
@@ -868,20 +895,6 @@ config TEGRA_IO_DPD
 	  Deep Power Down (DPD) state. This is a temporary config
 	  option until a proper way is implemented to resolve this issue.
 
-config TEGRA_USE_DFLL_RANGE
-	int "Default CPU DFLL operating range"
-	depends on ARCH_TEGRA_HAS_CL_DVFS
-	range 0 2
-	default "2" if TEGRA_SILICON_PLATFORM
-	default "0"
-	help
-	  Defines default range for dynamic frequency lock loop (DFLL)
-	  to be used as CPU clock source:
-	  "0" - DFLL is not used,
-	  "1" - DFLL is used as a source for all CPU rates
-	  "2" - DFLL is used only for high rates above crossover with
-		PLL dvfs curve
-
 config TEGRA_TIMER_HZ
 	int "Kernel HZ (jiffies per second)"
 	default "100" if TEGRA_FPGA_PLATFORM
@@ -952,6 +965,12 @@ config TEGRA_ATOMICS
 	help
 	  When enabled, spin lock type of synchronzation can be done between
 	  two processors when global monitor is not available.
+
+config FACTORY_BUILD
+	bool "Enalbe Factory build only"
+	default n
+	help
+	  It only need enable for factory build, please disable it in normal release
 
 config TEGRA_USE_NCT
 	bool "Enable NCT partition access"

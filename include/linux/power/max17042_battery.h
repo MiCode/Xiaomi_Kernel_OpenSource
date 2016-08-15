@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2011 Samsung Electronics
  * Copyright (C) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * MyungJoo Ham <myungjoo.ham@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -81,7 +82,7 @@ enum max17042_register {
 	MAX17042_RelaxCFG	= 0x2A,
 	MAX17042_MiscCFG	= 0x2B,
 	MAX17042_TGAIN		= 0x2C,
-	MAx17042_TOFF		= 0x2D,
+	MAX17042_TOFF		= 0x2D,
 	MAX17042_CGAIN		= 0x2E,
 	MAX17042_COFF		= 0x2F,
 
@@ -219,7 +220,12 @@ struct max17042_platform_data {
 
 #ifdef CONFIG_BATTERY_MAX17042
 extern int maxim_get_temp(int *deci_celsius);
+extern int maxim_get_batt_voltage_avg(int *vbatt_avg);
 extern void max17042_update_status(int status);
+extern int palmas_gpadc_read_physical(int channel);
+extern struct max17042_config_data pisces_conf_data_samsung;
+extern struct max17042_config_data pisces_conf_data_sony;
+extern struct max17042_config_data pisces_conf_data_lg;
 #else
 static inline int maxim_get_temp(int *deci_celsius)
 {

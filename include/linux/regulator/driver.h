@@ -176,6 +176,7 @@ enum regulator_type {
  * @irq: Interrupt number for the regulator.
  * @type: Indicates if the regulator is a voltage or current regulator.
  * @owner: Module providing the regulator, used for refcounting.
+ * @disable_time: Time taken for regulator to off completely (in uS).
  */
 struct regulator_desc {
 	const char *name;
@@ -191,6 +192,7 @@ struct regulator_desc {
 	unsigned int vsel_mask;
 	unsigned int enable_reg;
 	unsigned int enable_mask;
+	unsigned int disable_time;
 };
 
 /*

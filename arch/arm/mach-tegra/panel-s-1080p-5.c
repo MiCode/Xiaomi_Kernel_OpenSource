@@ -557,18 +557,20 @@ static void dsi_s_1080p_5_sd_settings_init
 {
 	settings->bl_device_name = "max8831_display_bl";
 }
-
+#ifdef CONFIG_TEGRA_DC_CMU
 static void dsi_s_1080p_5_cmu_init(struct tegra_dc_platform_data *pdata)
 {
 	pdata->cmu = &dsi_s_1080p_5_cmu;
 }
-
+#endif
 struct tegra_panel __initdata dsi_s_1080p_5 = {
 	.init_sd_settings = dsi_s_1080p_5_sd_settings_init,
 	.init_dc_out = dsi_s_1080p_5_dc_out_init,
 	.init_fb_data = dsi_s_1080p_5_fb_data_init,
 	.init_resources = dsi_s_1080p_5_resources_init,
 	.register_bl_dev = dsi_s_1080p_5_register_bl_dev,
+#ifdef CONFIG_TEGRA_DC_CMU
 	.init_cmu_data = dsi_s_1080p_5_cmu_init,
+#endif
 };
 EXPORT_SYMBOL(dsi_s_1080p_5);

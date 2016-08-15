@@ -3,6 +3,7 @@
  *	    for Non-CPU Devices.
  *
  * Copyright (C) 2011 Samsung Electronics
+ * Copyright (C) 2016 XiaoMi, Inc.
  *	MyungJoo Ham <myungjoo.ham@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,6 +27,9 @@
 #include <linux/printk.h>
 #include <linux/hrtimer.h>
 #include "governor.h"
+
+#define DEVFREQ_TYPE_GR3D 0x1000
+#define GR3D_MAX_FREQ 672000000
 
 struct class *devfreq_class;
 
@@ -469,7 +473,14 @@ static ssize_t show_governor(struct device *dev,
 static ssize_t show_freq(struct device *dev,
 			 struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%lu\n", to_devfreq(dev)->previous_freq);
+	ssize_t curfreq;
+	curfreq = to_devfreq(dev)->previous_freq;
+
+	if ((to_devfreq(dev)->profile->dev_type == DEVFREQ_TYPE_GR3D)
+				&& (curfreq > GR3D_MAX_FREQ))
+		curfreq = GR3D_MAX_FREQ;
+
+	return sprintf(buf, "%lu\n", curfreq);
 }
 
 static ssize_t show_polling_interval(struct device *dev,
@@ -584,7 +595,14 @@ out:
 static ssize_t show_max_freq(struct device *dev, struct device_attribute *attr,
 			     char *buf)
 {
-	return sprintf(buf, "%lu\n", to_devfreq(dev)->max_freq);
+	ssize_t maxfreq;
+	maxfreq = to_devfreq(dev)->max_freq;
+
+	if ((to_devfreq(dev)->profile->dev_type == DEVFREQ_TYPE_GR3D)
+			&& (maxfreq > GR3D_MAX_FREQ))
+		maxfreq = GR3D_MAX_FREQ;
+
+	return sprintf(buf, "%lu\n", maxfreq);
 }
 
 static struct device_attribute devfreq_attrs[] = {

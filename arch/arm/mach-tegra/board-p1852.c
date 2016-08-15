@@ -54,7 +54,6 @@
 #include <asm/hardware/gic.h>
 #include <asm/system.h>
 #include <mach/usb_phy.h>
-#include <mach/tegra_fiq_debugger.h>
 #include <sound/wm8903.h>
 #include <mach/tsensor.h>
 #include "board.h"
@@ -648,7 +647,6 @@ static void __init tegra_p1852_init(void)
 	p1852_nor_init();
 	p1852_pcie_init();
 	p1852_suspend_init();
-	tegra_serial_debug_init(TEGRA_UARTD_BASE, INT_WDT_CPU, NULL, -1, -1);
 
 }
 

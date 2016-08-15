@@ -439,6 +439,24 @@ config SND_SOC_WM9712
 config SND_SOC_WM9713
 	tristate
 
+config SND_SOC_ES325
+	tristate
+	default n
+
+config SND_SOC_ES325_SLIM
+	tristate
+	default n
+	depends on SND_SOC_ES325
+
+config SND_SOC_ES325_I2C
+	tristate
+	default n
+	depends on SND_SOC_ES325 && I2C
+
+config SND_SOC_ES325_I2S
+	tristate
+	depends on SND_SOC_ES325
+
 # Amp
 config SND_SOC_LM4857
 	tristate

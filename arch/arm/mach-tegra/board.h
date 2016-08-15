@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2010 Google, Inc.
  * Copyright (c) 2011-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author:
  *	Colin Cross <ccross@google.com>
@@ -97,7 +98,7 @@ void __init tegra_init_irq(void);
 void __init tegra_dt_init_irq(void);
 void __init tegra_reserve(unsigned long carveout_size, unsigned long fb_size,
 	unsigned long fb2_size);
-void __init tegra_release_bootloader_fb(void);
+int __init tegra_release_bootloader_fb(void);
 void __init tegra_protected_aperture_init(unsigned long aperture);
 int  __init tegra_init_board_info(void);
 void __tegra_move_framebuffer(struct platform_device *pdev,

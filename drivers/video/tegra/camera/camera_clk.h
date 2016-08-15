@@ -26,4 +26,8 @@ int tegra_camera_init_clk(struct tegra_camera *camera,
 unsigned int tegra_camera_get_max_bw(struct tegra_camera *camera);
 int tegra_camera_set_latency_allowance(struct tegra_camera *camera,
 	unsigned long vi_freq);
+unsigned long tegra_camera_get_vi_rate(struct tegra_camera *camera,
+	struct clk *clk);
+unsigned long tegra_camera_get_closest_rate(struct clk *clk,
+	struct clk *clk_parent, unsigned long requested_rate);
 #endif

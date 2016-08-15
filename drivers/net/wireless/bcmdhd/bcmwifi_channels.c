@@ -3,7 +3,8 @@
  * Contents are wifi-specific, used by any kernel or app-level
  * software that might want wifi things as it grows.
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -355,6 +356,15 @@ static const uint8 wf_chspec_bw_mhz[] =
 #define WF_NUM_BW \
 	(sizeof(wf_chspec_bw_mhz)/sizeof(uint8))
 
+/* 20MHz channels in 5GHz band */
+static const uint8 wf_5g_20m_chans[] = {
+	36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112,
+	116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165
+};
+
+#define WF_NUM_5G_20M_CHANS \
+	(sizeof(wf_5g_20m_chans)/sizeof(uint8))
+
 /* 40MHz channels in 5GHz band */
 static const uint8 wf_5g_40m_chans[] =
 {38, 46, 54, 62, 102, 110, 118, 126, 134, 142, 151, 159};
@@ -560,7 +570,7 @@ wf_chspec_aton(const char *a)
 		return 0;
 
 	/* if we are looking at a 'g', then the first number was a band */
-	c = tolower(a[0]);
+	c = tolower((int)a[0]);
 	if (c == 'g') {
 		a ++; /* consume the char */
 
@@ -626,7 +636,7 @@ wf_chspec_aton(const char *a)
 	 * or '+80' if bw = 80, to make '80+80' bw.
 	 */
 
-	c = tolower(a[0]);
+	c = tolower((int)a[0]);
 
 	/* if we have a 2g/40 channel, we should have a l/u spec now */
 	if (chspec_band == WL_CHANSPEC_BAND_2G && bw == 40) {
@@ -884,7 +894,10 @@ wf_chspec_valid(chanspec_t chanspec)
 			const uint8 *center_ch;
 			uint num_ch, i;
 
-			if (chspec_bw == WL_CHANSPEC_BW_20 || chspec_bw == WL_CHANSPEC_BW_40) {
+			if (chspec_bw == WL_CHANSPEC_BW_20) {
+				center_ch = wf_5g_20m_chans;
+				num_ch = WF_NUM_5G_20M_CHANS;
+			} else if (chspec_bw == WL_CHANSPEC_BW_40) {
 				center_ch = wf_5g_40m_chans;
 				num_ch = WF_NUM_5G_40M_CHANS;
 			} else if (chspec_bw == WL_CHANSPEC_BW_80) {
@@ -899,32 +912,17 @@ wf_chspec_valid(chanspec_t chanspec)
 			}
 
 			/* check for a valid center channel */
-			if (chspec_bw == WL_CHANSPEC_BW_20) {
-				/* We don't have an array of legal 20MHz 5G channels, but they are
-				 * each side of the legal 40MHz channels.  Check the chanspec
-				 * channel against either side of the 40MHz channels.
-				 */
-				for (i = 0; i < num_ch; i ++) {
-					if (chspec_ch == (uint)LOWER_20_SB(center_ch[i]) ||
-					    chspec_ch == (uint)UPPER_20_SB(center_ch[i]))
-						break; /* match found */
-				}
+			/* check the chanspec channel to each legal channel */
+			for (i = 0; i < num_ch; i++) {
+				if (chspec_ch == center_ch[i])
+					break; /* match found */
+			}
 
-				if (i == num_ch) {
-					/* check for channel 165 which is not the side band of 40MHz 5G channel */
-					if (chspec_ch == 165)
-						i = 0;
-					/* check for legacy JP channels on failure */
-					if (chspec_ch == 34 || chspec_ch == 38 ||
-					    chspec_ch == 42 || chspec_ch == 46)
-						i = 0;
-				}
-			} else {
-				/* check the chanspec channel to each legal channel */
-				for (i = 0; i < num_ch; i ++) {
-					if (chspec_ch == center_ch[i])
-						break; /* match found */
-				}
+			if (chspec_bw == WL_CHANSPEC_BW_20 && i == num_ch) {
+				/* check for legacy JP channels on failure */
+				if (chspec_ch == 34 || chspec_ch == 38 ||
+				    chspec_ch == 42 || chspec_ch == 46)
+					i = 0;
 			}
 
 			if (i < num_ch) {
@@ -1179,4 +1177,105 @@ wf_channel2mhz(uint ch, uint start_factor)
 		freq = ch * 5 + start_factor / 2;
 
 	return freq;
+}
+
+/* These chan_info[] & lookup routines replicate those from wlc_phy.c because of BMAC split */
+static const struct chan_info {
+	uint16	chan;	/* channel number */
+	uint16	freq;	/* in MHz */
+} chan_info[] = {
+	/* 11b/11g */
+/* 0 */		{1,	2412},
+/* 1 */		{2,	2417},
+/* 2 */		{3,	2422},
+/* 3 */		{4,	2427},
+/* 4 */		{5,	2432},
+/* 5 */		{6,	2437},
+/* 6 */		{7,	2442},
+/* 7 */		{8,	2447},
+/* 8 */		{9,	2452},
+/* 9 */		{10,	2457},
+/* 10 */	{11,	2462},
+/* 11 */	{12,	2467},
+/* 12 */	{13,	2472},
+/* 13 */	{14,	2484},
+
+#ifdef BAND5G
+/* 11a japan high */
+/* 14 */	{34,	5170},
+/* 15 */	{38,	5190},
+/* 16 */	{42,	5210},
+/* 17 */	{46,	5230},
+
+/* 11a usa low */
+/* 18 */	{36,	5180},
+/* 19 */	{40,	5200},
+/* 20 */	{44,	5220},
+/* 21 */	{48,	5240},
+/* 22 */	{52,	5260},
+/* 23 */	{56,	5280},
+/* 24 */	{60,	5300},
+/* 25 */	{64,	5320},
+
+/* 11a Europe */
+/* 26 */	{100,	5500},
+/* 27 */	{104,	5520},
+/* 28 */	{108,	5540},
+/* 29 */	{112,	5560},
+/* 30 */	{116,	5580},
+/* 31 */	{120,	5600},
+/* 32 */	{124,	5620},
+/* 33 */	{128,	5640},
+/* 34 */	{132,	5660},
+/* 35 */	{136,	5680},
+/* 36 */	{140,	5700},
+
+/* 11a usa high, ref5 only */
+/* 37 */	{149,	5745},
+/* 38 */	{153,	5765},
+/* 39 */	{157,	5785},
+/* 40 */	{161,	5805},
+/* 41 */	{165,	5825},
+
+/* 11a japan */
+/* 42 */	{184,	4920},
+/* 43 */	{188,	4940},
+/* 44 */	{192,	4960},
+/* 45 */	{196,	4980},
+/* 46 */	{200,	5000},
+/* 47 */	{204,	5020},
+/* 48 */	{208,	5040},
+/* 49 */	{212,	5060},
+/* 50 */	{216,	5080}
+#endif /* BAND5G */
+};
+
+/*
+ * Converts channel frequency to channel number.
+ * Returns 0 if the frequency does not match any channel definition.
+ */
+uint wf_freq2channel(uint freq)
+{
+	uint i;
+
+	for (i = 0; i < ARRAYSIZE(chan_info); i++) {
+		if (chan_info[i].freq == freq)
+			return (chan_info[i].chan);
+	}
+	return (0);
+}
+
+/*
+ * Converts channel number to channel frequency.
+ * Returns 0 if the channel is out of range.
+ * Also used by some code in wlc_iw.c
+ */
+uint wf_channel2freq(uint channel)
+{
+	uint i;
+
+	for (i = 0; i < ARRAYSIZE(chan_info); i++)
+		if (chan_info[i].chan == channel)
+			return (chan_info[i].freq);
+	return (0);
 }

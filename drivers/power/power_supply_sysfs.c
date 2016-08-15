@@ -5,6 +5,7 @@
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  *  Modified: 2004, Oct     Szabolcs Gyurko
  *
@@ -101,6 +102,14 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return sprintf(buf, "%s\n", type_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_SCOPE)
 		return sprintf(buf, "%s\n", scope_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_REG)
+		return sprintf(buf, "%x\n", value.intval);
+	else if (off == POWER_SUPPLY_PROP_VAL)
+		return sprintf(buf, "%x\n", value.intval);
+	else if (off == POWER_SUPPLY_PROP_TGAIN)
+		return sprintf(buf, "%x\n", value.intval);
+	else if (off == POWER_SUPPLY_PROP_TOFF)
+		return sprintf(buf, "%x\n", value.intval);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
 
@@ -117,7 +126,7 @@ static ssize_t power_supply_store_property(struct device *dev,
 	long long_val;
 
 	/* TODO: support other types than int */
-	ret = strict_strtol(buf, 10, &long_val);
+	ret = strict_strtol(buf, 16, &long_val);
 	if (ret < 0)
 		return ret;
 
@@ -167,6 +176,10 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(energy_avg),
 	POWER_SUPPLY_ATTR(capacity),
 	POWER_SUPPLY_ATTR(capacity_level),
+	POWER_SUPPLY_ATTR(reg),
+	POWER_SUPPLY_ATTR(val),
+	POWER_SUPPLY_ATTR(tgain),
+	POWER_SUPPLY_ATTR(toff),
 	POWER_SUPPLY_ATTR(temp),
 	POWER_SUPPLY_ATTR(temp_ambient),
 	POWER_SUPPLY_ATTR(time_to_empty_now),

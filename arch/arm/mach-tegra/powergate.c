@@ -6,6 +6,7 @@
  *
  * Author:
  *	Colin Cross <ccross@google.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -649,5 +650,28 @@ static int __init powergate_debugfs_init(void)
 }
 
 late_initcall(powergate_debugfs_init);
+
+void tegra_print_hw_status()
+{
+	unsigned int reg;
+
+	reg = pmc_read(PWRGATE_STATUS);
+	printk(KERN_EMERG "power gating status %08x\n", reg);
+
+	reg = readl_relaxed(IO_ADDRESS(TEGRA_CLK_RESET_BASE+0x470));
+	printk(KERN_EMERG "cpu clk status %08x\n", reg);
+
+	reg = readl_relaxed(IO_ADDRESS(0x70050084));
+	printk(KERN_EMERG "cpu0 pcsr %08x\n", reg);
+
+	reg = readl_relaxed(IO_ADDRESS(0x70052084));
+	printk(KERN_EMERG "cpu1 pcsr %08x\n", reg);
+
+	reg = readl_relaxed(IO_ADDRESS(0x70054084));
+	printk(KERN_EMERG "cpu2 pcsr %08x\n", reg);
+
+	reg = readl_relaxed(IO_ADDRESS(0x70056084));
+	printk(KERN_EMERG "cpu3 pcsr %08x\n", reg);
+}
 
 #endif

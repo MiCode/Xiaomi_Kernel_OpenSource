@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,6 +26,8 @@
 #include <linux/workqueue.h>
 
 #define DEPL_INTERVAL	60000
+#define DEPL_OFFSET_LOW_VOLTAGE 2500
+#define DEPL_THRESHOLD_LOW_VOLTAGE 25
 
 struct depl_driver {
 	struct edp_client client;
@@ -183,10 +186,10 @@ static unsigned int depl_calc(struct depl_driver *drv)
 	s64 depl;
 
 	capacity = depl_psy_capacity(drv);
-	if (capacity >= 100)
+	ocv = drv->get_ocv(drv, capacity);
+	if (capacity >= 100 || ocv >= drv->pdata->vcharge)
 		return 0;
 
-	ocv = drv->get_ocv(drv, capacity);
 	rbat = depl_rbat(drv, capacity);
 
 	ibat_pos = depl_ibat_possible(drv, ocv, rbat);
@@ -199,18 +202,16 @@ static unsigned int depl_calc(struct depl_driver *drv)
 
 	depl = drv->manager->max - div64_s64(pbat_gain * pbat_lcm, 1000);
 
-	pr_debug("capacity : %u\n", capacity);
-	pr_debug("ocv      : %lld\n", ocv);
-	pr_debug("rbat     : %lld\n", rbat);
-	pr_debug("ibat_pos : %lld\n", ibat_pos);
-	pr_debug("ibat_tbat: %lld\n", ibat_tbat);
-	pr_debug("ibat_lcm : %lld\n", ibat_lcm);
-	pr_debug("pbat_lcm : %lld\n", pbat_lcm);
-	pr_debug("pbat_nom : %lld\n", pbat_nom);
-	pr_debug("pbat_gain: %lld\n", pbat_gain);
-	pr_debug("depletion: %lld\n", depl);
+	pr_info("edp: soc %u ocv %lld rbat %lld ibat_lcm %lld pbat_lcm %lld pbat_gain %lld depl %lld\n",
+			capacity, ocv, rbat, ibat_lcm, pbat_lcm, pbat_gain, depl);
 
 	depl = clamp_t(s64, depl, 0, depl_maximum(drv));
+
+	if (capacity <= DEPL_THRESHOLD_LOW_VOLTAGE)
+		depl += DEPL_OFFSET_LOW_VOLTAGE * (DEPL_THRESHOLD_LOW_VOLTAGE -
+				capacity) /
+				DEPL_THRESHOLD_LOW_VOLTAGE;
+
 	return depl;
 }
 
@@ -289,7 +290,25 @@ static int capacity_get(void *data, u64 *val)
 	return 0;
 }
 
+static int vsysmin_set(void *data, u64 val)
+{
+	struct depl_driver *drv = data;
+
+	drv->pdata->vsys_min = val;
+	flush_delayed_work_sync(&drv->work);
+
+	return 0;
+}
+
+static int vsysmin_get(void *data, u64 * val)
+{
+	struct depl_driver *drv = data;
+	*val = drv->pdata->vsys_min;
+	return 0;
+}
+
 DEFINE_SIMPLE_ATTRIBUTE(capacity_fops, capacity_get, capacity_set, "%lld\n");
+DEFINE_SIMPLE_ATTRIBUTE(vsysmin_fops, vsysmin_get, vsysmin_set, "%lld\n");
 
 static void init_debug(struct depl_driver *drv)
 {
@@ -299,6 +318,13 @@ static void init_debug(struct depl_driver *drv)
 		WARN_ON(1);
 		return;
 	}
+
+	d = debugfs_create_file("vsys_min", S_IRUGO | S_IWUSR,
+			drv->client.dentry, drv, &vsysmin_fops);
+	WARN_ON(IS_ERR_OR_NULL(d));
+
+	if (!drv->emulator_mode)
+		return;
 
 	d = debugfs_create_file("capacity", S_IRUGO | S_IWUSR,
 			drv->client.dentry, drv, &capacity_fops);
@@ -362,8 +388,7 @@ static __devinit int depl_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK_DEFERRABLE(&drv->work, depl_update);
 	schedule_delayed_work(&drv->work, 0);
 
-	if (drv->emulator_mode)
-		init_debug(drv);
+	init_debug(drv);
 
 	return 0;
 

@@ -47,7 +47,7 @@ config APM_POWER
 
 config CHARGER_MAX77665
 	tristate "MAX77665 battery charger support"
-	depends on MFD_MAX77665 && EXTCON
+	depends on MFD_MAX77665
 	help
 	 MAX77665 is a companion pmic for smartphones and tablets
 	 which supports battery charging feature.

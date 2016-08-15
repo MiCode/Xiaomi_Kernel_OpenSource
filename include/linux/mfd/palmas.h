@@ -3,6 +3,7 @@
  *
  * Copyright 2011 Texas Instruments Inc.
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Graeme Gregory <gg@slimlogic.co.uk>
  *
@@ -167,6 +168,15 @@ struct palmas_clk32k_init_data {
 	int sleep_control;
 };
 
+struct palmas_backup_battery_init_data {
+	bool sleep_power_mode;
+	bool off_power_mode;
+	bool power_mode;
+	int charge_current;
+	int charge_voltage;
+	bool charge_en;
+};
+
 struct palmas_dvfs_init_data {
 	bool 	en_pwm;
 	int	ext_ctrl;
@@ -249,6 +259,7 @@ struct palmas_platform_data {
 	struct palmas_clk32k_init_data  *clk32k_init_data;
 	int clk32k_init_data_size;
 	bool use_power_off;
+	struct palmas_backup_battery_init_data *bb_init_data;
 	/* LDOUSB is enabled or disabled on VBUS detection */
 	bool auto_ldousb_en;
 
@@ -262,6 +273,8 @@ struct palmas_platform_data {
 
 	/* system off type by long press key */
 	int poweron_lpk;
+
+	int vsys_mon_threshold;
 };
 
 /* Define the palmas IRQ numbers */
@@ -1255,6 +1268,12 @@ struct palmas_pmic {
 #define PALMAS_LONG_PRESS_KEY_TIME_8SECONDS	1
 #define PALMAS_LONG_PRESS_KEY_TIME_10SECONDS	2
 #define PALMAS_LONG_PRESS_KEY_TIME_12SECONDS	3
+
+/* Register bit values for power on debounce time */
+#define PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_15MS 0
+#define PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_100MS 1
+#define PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_500MS 2
+#define PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_1S 3
 
 /* Bit definitions for OSC_THERM_CTRL */
 #define PALMAS_OSC_THERM_CTRL_VANA_ON_IN_SLEEP			0x80

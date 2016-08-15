@@ -4,6 +4,7 @@
  * USB character driver to communicate with baseband modems.
  *
  * Copyright (c) 2012, NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1208,10 +1209,14 @@ static const struct file_operations baseband_usb_chr_fops = {
 };
 
 /* module init / exit functions */
+static dev_t bb_devt;
+static struct cdev download_dev;
+static struct class *bb_class;
 
 static int baseband_usb_chr_init(void)
 {
 	int err = -ENOMEM;
+	struct device *pdev = NULL;
 
 	pr_debug("baseband_usb_chr_init {\n");
 
@@ -1232,41 +1237,59 @@ static int baseband_usb_chr_init(void)
 	}
 
 	/* register character device */
-	err = register_chrdev(BASEBAND_USB_CHR_DEV_MAJOR,
-		BASEBAND_USB_CHR_DEV_NAME,
-		&baseband_usb_chr_fops);
+	err = alloc_chrdev_region(&bb_devt, 0, 1, BASEBAND_USB_CHR_DEV_NAME);
 	if (err < 0) {
 		pr_err("cannot register character device - %d\n", err);
 		goto error;
 	}
-	pr_debug("registered baseband usb character device - major %d\n",
-		BASEBAND_USB_CHR_DEV_MAJOR);
+
+	cdev_init(&download_dev, &baseband_usb_chr_fops);
+	err = cdev_add(&download_dev, bb_devt, 1);
+	if (err) {
+		pr_err("cdev add fail- %d\n", err);
+		goto error1;
+	}
+	bb_class = class_create(THIS_MODULE, "xmm_bb");
+	if (err) {
+		pr_err("xmm_bb class create fail\n");
+		goto error2;
+	}
+	pdev = device_create(bb_class, NULL, bb_devt, NULL, "ttyACMX0");
+	if (IS_ERR(pdev))	{
+		pr_err("ttyACMX0 device Create fail --%d", IS_ERR(pdev));
+		goto error3;
+	}
+
+	pr_debug("registered baseband usb character device - major %d\n", MAJOR(bb_devt));
 
 	/* create workqueue thread */
 	chr_ipc_wq = create_singlethread_workqueue("baseband_chr_wq");
 	if (chr_ipc_wq == NULL) {
 		pr_err("cannot create workqueue\n");
-		unregister_chrdev(BASEBAND_USB_CHR_DEV_MAJOR,
-			BASEBAND_USB_CHR_DEV_NAME);
 		err = -ENODEV;
-		goto error;
+		goto error3;
 	}
 
 	/* register usb driver */
 	err = usb_register(&baseband_usb_driver);
 	if (err < 0) {
 		pr_err("%s: cannot register usb driver %d\n", __func__, err);
-		goto error2;
+		goto error4;
 	}
 
 	pr_debug("baseband_usb_chr_init }\n");
 	return 0;
 
-error2:
-	unregister_chrdev(BASEBAND_USB_CHR_DEV_MAJOR,
-			BASEBAND_USB_CHR_DEV_NAME);
+error4:
 	destroy_workqueue(chr_ipc_wq);
 	chr_ipc_wq = NULL;
+error3:
+	device_destroy(bb_class, bb_devt);
+	class_destroy(bb_class);
+error2:
+	cdev_del(&download_dev);
+error1:
+	unregister_chrdev_region(bb_devt, 1);
 error:
 	kfree(usb_chr_res.ipc_rx);
 	kfree(usb_chr_res.ipc_tx);
@@ -1279,8 +1302,10 @@ static void baseband_usb_chr_exit(void)
 	pr_debug("baseband_usb_chr_exit {\n");
 
 	/* unregister character device */
-	unregister_chrdev(BASEBAND_USB_CHR_DEV_MAJOR,
-		BASEBAND_USB_CHR_DEV_NAME);
+	unregister_chrdev_region(bb_devt, 1);
+	cdev_del(&download_dev);
+	device_destroy(bb_class, bb_devt);
+	class_destroy(bb_class);
 
 	if (chr_ipc_wq) {
 		destroy_workqueue(chr_ipc_wq);

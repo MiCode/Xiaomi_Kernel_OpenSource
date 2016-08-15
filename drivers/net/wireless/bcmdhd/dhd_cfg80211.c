@@ -1,7 +1,8 @@
 /*
  * Linux cfg80211 driver - Dongle Host Driver (DHD) related
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -152,6 +153,43 @@ default_conf_out:
 
 }
 
+#ifdef CONFIG_NL80211_TESTMODE
+int dhd_cfg80211_testmode_cmd(struct wiphy *wiphy, void *data, int len)
+{
+	struct sk_buff *reply;
+	struct wl_priv *wl;
+	dhd_pub_t *dhd;
+	dhd_ioctl_t *ioc = data;
+	int err = 0;
+
+	WL_TRACE(("entry: cmd = %d\n", ioc->cmd));
+	wl = wiphy_priv(wiphy);
+	dhd = wl->pub;
+
+	DHD_OS_WAKE_LOCK(dhd);
+
+	/* send to dongle only if we are not waiting for reload already */
+	if (dhd->hang_was_sent) {
+		WL_ERR(("HANG was sent up earlier\n"));
+		DHD_OS_WAKE_LOCK_CTRL_TIMEOUT_ENABLE(dhd, DHD_EVENT_TIMEOUT_MS);
+		DHD_OS_WAKE_UNLOCK(dhd);
+		return OSL_ERROR(BCME_DONGLE_DOWN);
+	}
+
+	/* currently there is only one wiphy for ifidx 0 */
+	err = dhd_ioctl_process(dhd, 0, ioc);
+	if (err)
+		goto done;
+
+	/* response data is in ioc->buf so return ioc here */
+	reply = cfg80211_testmode_alloc_reply_skb(wiphy, sizeof(*ioc));
+	nla_put(reply, NL80211_ATTR_TESTDATA, sizeof(*ioc), ioc);
+	err = cfg80211_testmode_reply(reply);
+done:
+	DHD_OS_WAKE_UNLOCK(dhd);
+	return err;
+}
+#endif /* CONFIG_NL80211_TESTMODE */
 
 /* TODO: clean up the BT-Coex code, it still have some legacy ioctl/iovar functions */
 #define COEX_DHCP
@@ -512,7 +550,6 @@ void wl_cfg80211_btcoex_deinit(struct wl_priv *wl)
 	kfree(wl->btcoex_info);
 	wl->btcoex_info = NULL;
 }
-#endif 
 
 int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 {
@@ -601,14 +638,14 @@ int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 	else if (strnicmp((char *)&powermode_val, "2", strlen("2")) == 0) {
 
 
-#ifdef PKT_FILTER_SUPPORT
-		dhd->dhcp_in_progress = 0;
-		WL_TRACE_HW4(("DHCP is complete \n"));
-
 #if defined(DHCP_SCAN_SUPPRESS)
 		/* Since DHCP is complete, enable the scan back */
 		wl_cfg80211_scan_suppress(dev, 0);
 #endif /* OEM_ANDROID */
+
+#ifdef PKT_FILTER_SUPPORT
+		dhd->dhcp_in_progress = 0;
+		WL_TRACE_HW4(("DHCP is complete \n"));
 
 		/* Enable packet filtering */
 		if (dhd->early_suspended) {
@@ -666,3 +703,4 @@ int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 
 	return (strlen("OK"));
 }
+#endif

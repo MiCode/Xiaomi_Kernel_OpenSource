@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-pluto-pinmux-t11x.h
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -94,9 +95,9 @@ static __initdata struct tegra_pingroup_config pluto_pinmux_common[] = {
 	DEFAULT_PINMUX(GMI_AD9,       PWM1,        NORMAL,    NORMAL,   OUTPUT),
 
 	/* SOC pinmux */
-	DEFAULT_PINMUX(GMI_CS1_N,     SOC,         PULL_UP,   NORMAL, INPUT),
+	DEFAULT_PINMUX(GMI_CS1_N,     SOC,         PULL_UP,   TRISTATE, INPUT),
 	DEFAULT_PINMUX(GMI_OE_N,      SOC,         PULL_UP,   TRISTATE, INPUT),
-	DEFAULT_PINMUX(CLK_32K_OUT,   SOC,         PULL_UP,   TRISTATE, INPUT),
+	DEFAULT_PINMUX(CLK_32K_OUT,   SOC,         PULL_UP,   NORMAL, INPUT),
 
 	/* EXTPERIPH2 pinmux */
 	DEFAULT_PINMUX(CLK2_OUT,      EXTPERIPH2,  NORMAL,    NORMAL,   OUTPUT),
@@ -264,6 +265,7 @@ static struct gpio_init_pin_info init_gpio_mode_pluto_common[] = {
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PK0, true, 0),
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PK1, false, 0),
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PJ0, true, 0),
+	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PJ2, true, 0),
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PK3, false, 0),
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PK4, false, 0),
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PK2, true, 0),

@@ -4,6 +4,7 @@
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  *  Modified: 2004, Oct     Szabolcs Gyurko
  *
@@ -118,6 +119,10 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_ENERGY_AVG,
 	POWER_SUPPLY_PROP_CAPACITY, /* in percents! */
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
+	POWER_SUPPLY_PROP_REG,
+	POWER_SUPPLY_PROP_VAL,
+	POWER_SUPPLY_PROP_TGAIN,
+	POWER_SUPPLY_PROP_TOFF,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TEMP_AMBIENT,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
@@ -221,8 +226,18 @@ extern int power_supply_set_battery_charged(struct power_supply *psy);
 
 #if defined(CONFIG_POWER_SUPPLY) || defined(CONFIG_POWER_SUPPLY_MODULE)
 extern int power_supply_is_system_supplied(void);
+extern int register_power_supply_notifier(struct notifier_block *);
+extern int unregister_power_supply_notifier(struct notifier_block *);
 #else
 static inline int power_supply_is_system_supplied(void) { return -ENOSYS; }
+
+static inline int register_power_supply_notifier(struct notifier_block *)
+{
+return -ENOSYS}
+
+static inline int unregister_power_supply_notifier(struct notifier_block *)
+{
+return -ENOSYS}
 #endif
 
 extern int power_supply_register(struct device *parent,

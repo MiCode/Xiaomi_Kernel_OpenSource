@@ -35,6 +35,7 @@
 #include <mach/hardware.h>
 #include <mach/isomgr.h>
 #include <mach/mc.h>
+#include "board-pisces.h"
 
 #define ISOMGR_SYSFS_VERSION 0	/* increment on change */
 
@@ -728,7 +729,7 @@ static void isomgr_create_sysfs(void)
 static inline void isomgr_create_sysfs(void) {};
 #endif /* CONFIG_TEGRA_ISOMGR_SYSFS */
 
-static int __init isomgr_init(void)
+int __init isomgr_init(void)
 {
 	int i;
 	unsigned int max_emc_clk;
@@ -759,4 +760,3 @@ static int __init isomgr_init(void)
 	isomgr_create_sysfs();
 	return 0;
 }
-subsys_initcall(isomgr_init);

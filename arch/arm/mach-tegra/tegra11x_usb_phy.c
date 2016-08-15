@@ -929,7 +929,15 @@ static int utmi_phy_power_off(struct tegra_usb_phy *phy)
 		else
 			phy->pmc_hotplug_wakeup = false;
 
-		pmc->pmc_ops->setup_pmc_wake_detect(pmc);
+		if (phy->pdata->port_otg) {
+			bool id_present = false;
+			val = readl(base + USB_PHY_VBUS_WAKEUP_ID);
+			id_present = (val & USB_ID_STATUS) ? false : true;
+			if (id_present)
+				pmc->pmc_ops->setup_pmc_wake_detect(pmc);
+		} else
+			pmc->pmc_ops->setup_pmc_wake_detect(pmc);
+
 		val = readl(base + UTMIP_PMC_WAKEUP0);
 		val |= EVENT_INT_ENB;
 		writel(val, base + UTMIP_PMC_WAKEUP0);

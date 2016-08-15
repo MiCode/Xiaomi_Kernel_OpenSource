@@ -2,6 +2,7 @@
  * MAX77665 charger Driver
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Syed Rafiuddin <srafiuddin@nvidia.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -84,8 +85,30 @@
 #define LOW_BATTERY_PREQ_ENABLE			(0x1 << 7)
 
 #define MAX77665_CHG_CNFG_02    0xb9
+#define CHG_CC_MASK		(0x3F << 0)
+
 #define MAX77665_CHG_CNFG_03    0xba
+/* TO_ITH */
+#define TOPOFF_TO_ITH_100MA	(0x0 << 0)
+#define TOPOFF_TO_ITH_125MA	(0x1 << 0)
+#define TOPOFF_TO_ITH_150MA	(0x2 << 0)
+#define TOPOFF_TO_ITH_175MA	(0x3 << 0)
+#define TOPOFF_TO_ITH_200MA	(0x4 << 0)
+#define TOPOFF_TO_ITH_250MA	(0x5 << 0)
+#define TOPOFF_TO_ITH_300MA	(0x6 << 0)
+#define TOPOFF_TO_ITH_350MA	(0x7 << 0)
+/* TO_TIME */
+#define TOPOFF_TO_TIME_0MIN	(0x0 << 3)
+#define TOPOFF_TO_TIME_10MIN	(0x1 << 3)
+#define TOPOFF_TO_TIME_20MIN	(0x2 << 3)
+#define TOPOFF_TO_TIME_30MIN	(0x3 << 3)
+#define TOPOFF_TO_TIME_40MIN	(0x4 << 3)
+#define TOPOFF_TO_TIME_50MIN	(0x5 << 3)
+#define TOPOFF_TO_TIME_60MIN	(0x6 << 3)
+#define TOPOFF_TO_TIME_70MIN	(0x7 << 3)
+
 #define MAX77665_CHG_CNFG_04    0xbb
+#define CHG_CV_PRM_MASK		(0x1F << 0)
 #define MAX77665_CHG_CNFG_05    0xbc
 
 #define MAX77665_CHG_CNFG_06    0xbd
@@ -165,9 +188,16 @@ struct max77665_charger_plat_data {
 	uint32_t fast_chg_cc; /* fast charger current*/
 	uint32_t term_volt; /* charger termination voltage */
 	uint32_t curr_lim; /* input current limit */
+	int cool_temp;
+	int warm_temp;
+	uint32_t cool_bat_chg_current;
+	uint32_t warm_bat_chg_current;
+	uint32_t cool_bat_voltage;
+	uint32_t warm_bat_voltage;
 	uint8_t num_cables;
 	struct max77665_charger_cable *cables;
 	char *extcon_name;
+	char *pmu_extcon_name;
 	struct regulator_consumer_supply *consumer_supplies;
 	int num_consumer_supplies;
 	void (*update_status)(int);

@@ -2,7 +2,8 @@
  * Keyboard class input driver for the NVIDIA Tegra SoC internal matrix
  * keyboard controller
  *
- * Copyright (c) 2009-2011, NVIDIA Corporation.
+ * Copyright (c) 2009-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,6 +32,7 @@
 #include <linux/slab.h>
 #include <mach/clk.h>
 #include <mach/kbc.h>
+#include <linux/syscore_ops.h>
 
 #define KBC_MAX_DEBOUNCE_CNT	0x3ffu
 
@@ -50,10 +52,10 @@
 #define KBC_CONTROL_FIFO_CNT_INT_EN	(1 << 3)
 #define KBC_CONTROL_KEYPRESS_INT_EN	(1 << 1)
 #define KBC_CONTROL_KBC_EN		(1 << 0)
-#define KBC_CONTROL_KP_INT_EN		(1<<1)
 
 /* KBC Interrupt Register */
 #define KBC_INT_0	0x4
+#define KBC_INT_KBC_ST_STATUS		(1 << 3)
 #define KBC_INT_FIFO_CNT_INT_STATUS	(1 << 2)
 #define KBC_INT_KEYPRESS_INT_STATUS	(1 << 0)
 
@@ -237,6 +239,8 @@ struct matrix_keymap_data tegra_kbc_default_keymap_data __devinitdata = {
 	.keymap_size	= ARRAY_SIZE(tegra_kbc_default_keymap),
 };
 
+static bool key_pressed;
+
 static void tegra_kbc_report_released_keys(struct input_dev *input,
 					   unsigned short old_keycodes[],
 					   unsigned int old_num_keys,
@@ -263,7 +267,6 @@ static void tegra_kbc_report_pressed_keys(struct input_dev *input,
 	unsigned int i;
 
 	for (i = 0; i < num_pressed_keys; i++) {
-		input_event(input, EV_MSC, MSC_SCAN, scancodes[i]);
 		input_report_key(input, keycodes[i], 1);
 	}
 }
@@ -707,6 +710,15 @@ static inline struct tegra_kbc_platform_data *tegra_kbc_dt_parse_pdata(
 }
 #endif
 
+#ifdef CONFIG_PM_SLEEP
+static int tegra_kbc_suspend_check(void);
+#endif
+static struct syscore_ops tegra_kbc_syscore_ops = {
+#ifdef CONFIG_PM_SLEEP
+	.suspend = tegra_kbc_suspend_check,
+#endif
+};
+
 static int __devinit tegra_kbc_probe(struct platform_device *pdev)
 {
 	const struct tegra_kbc_platform_data *pdata = pdev->dev.platform_data;
@@ -861,6 +873,7 @@ static int __devinit tegra_kbc_probe(struct platform_device *pdev)
 	if (!pdev->dev.platform_data)
 		matrix_keyboard_of_free_keymap(pdata->keymap_data);
 
+	register_syscore_ops(&tegra_kbc_syscore_ops);
 	return 0;
 
 err_free_irq:
@@ -911,6 +924,14 @@ static int __devexit tegra_kbc_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+static int tegra_kbc_suspend_check()
+{
+	if (key_pressed)
+		return -EBUSY;
+
+	return 0;
+}
+
 static int tegra_kbc_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -925,22 +946,25 @@ static int tegra_kbc_suspend(struct device *dev)
 		del_timer_sync(&kbc->timer);
 		tegra_kbc_set_fifo_interrupt(kbc, false);
 
-		/* Forcefully clear the interrupt status */
-		writel(0x7, kbc->mmio + KBC_INT_0);
 		/*
 		 * Store the previous resident time of continuous polling mode.
 		 * Force the keyboard into interrupt mode.
+		 * Then restore a new resident time.
 		 */
 		kbc->cp_to_wkup_dly = readl(kbc->mmio + KBC_TO_CNT_0);
 		writel(0, kbc->mmio + KBC_TO_CNT_0);
+		msleep(30);
+		/* Forcefully clear the interrupt status */
+		writel(0x7, kbc->mmio + KBC_INT_0);
+		writel(kbc->one_scan_time, kbc->mmio + KBC_TO_CNT_0);
 
 		tegra_kbc_setup_wakekeys(kbc, true);
 		msleep(30);
 
 		kbc->keypress_caused_wake = false;
 		/* Enable keypress interrupt before going into suspend. */
+		key_pressed = false;
 		tegra_kbc_set_keypress_interrupt(kbc, true);
-		enable_irq(kbc->irq);
 		enable_irq_wake(kbc->irq);
 	} else {
 		if (kbc->idev->users)
@@ -961,28 +985,21 @@ static int tegra_kbc_resume(struct device *dev)
 
 	mutex_lock(&kbc->idev->mutex);
 	if (device_may_wakeup(&pdev->dev)) {
+		enable_irq(kbc->irq);
+		msleep(30);
 		disable_irq_wake(kbc->irq);
-		tegra_kbc_setup_wakekeys(kbc, false);
 		/* We will use fifo interrupts for key detection. */
 		tegra_kbc_set_keypress_interrupt(kbc, false);
+		tegra_kbc_setup_wakekeys(kbc, false);
 
 		/* Restore the resident time of continuous polling mode. */
+		writel(0, kbc->mmio + KBC_TO_CNT_0);
+		msleep(30);
+		writel(0x7, kbc->mmio + KBC_INT_0);
 		writel(kbc->cp_to_wkup_dly, kbc->mmio + KBC_TO_CNT_0);
 
 		tegra_kbc_set_fifo_interrupt(kbc, true);
 
-		if (kbc->keypress_caused_wake && kbc->wakeup_key) {
-			/*
-			 * We can't report events directly from the ISR
-			 * because timekeeping is stopped when processing
-			 * wakeup request and we get a nasty warning when
-			 * we try to call do_gettimeofday() in evdev
-			 * handler.
-			 */
-			input_report_key(kbc->idev, kbc->wakeup_key, 1);
-			input_report_key(kbc->idev, kbc->wakeup_key, 0);
-			input_sync(kbc->idev);
-		}
 	} else {
 		if (kbc->idev->users)
 			err = tegra_kbc_start(kbc);

@@ -3,6 +3,18 @@
  *
  * Copyright (C) 2003,2004 Hewlett-Packard Company
  *
+ * Copyright (c) 2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
 
 #include <linux/module.h>
@@ -31,6 +43,10 @@ struct backlight_device *get_backlight_device_by_name(char *name)
 {
 	struct list_head *ptr;
 	struct backlight_device *entry = NULL;
+
+	if (!name)
+		return NULL;
+
 	list_for_each(ptr, &backlight_devices) {
 		entry = list_entry(ptr, struct backlight_device, devices_list);
 		if (strcmp(dev_name(&entry->dev), name) == 0)
@@ -184,8 +200,6 @@ static ssize_t backlight_store_brightness(struct device *dev,
 		}
 	}
 	mutex_unlock(&bd->ops_lock);
-
-	backlight_generate_event(bd, BACKLIGHT_UPDATE_SYSFS);
 
 	return rc;
 }

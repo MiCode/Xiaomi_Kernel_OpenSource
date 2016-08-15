@@ -2,6 +2,7 @@
  *  linux/arch/arm/kernel/setup.c
  *
  *  Copyright (C) 1995-2001 Russell King
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -57,6 +58,7 @@
 #include <asm/traps.h>
 #include <asm/unwind.h>
 #include <asm/memblock.h>
+#include <asm/bootinfo.h>
 
 #if defined(CONFIG_DEPRECATED_PARAM_STRUCT)
 #include "compat.h"
@@ -697,6 +699,15 @@ static int __init parse_tag_mem64(const struct tag *tag)
 }
 
 __tagtable(ATAG_MEM64, parse_tag_mem64);
+
+static int __init parse_tag_powerup_reason(const struct tag *tag)
+{
+	set_powerup_reason(tag->u.powerup_reason.powerup_reason);
+	printk("%s: powerup reason=0x%x\n", __FUNCTION__, get_powerup_reason());
+	return 0;
+}
+
+__tagtable(ATAG_POWERUP_REASON, parse_tag_powerup_reason);
 
 #if defined(CONFIG_VGA_CONSOLE) || defined(CONFIG_DUMMY_CONSOLE)
 struct screen_info screen_info = {

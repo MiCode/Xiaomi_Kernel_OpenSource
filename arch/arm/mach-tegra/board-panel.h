@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-panel.h
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -34,7 +35,8 @@ struct tegra_panel {
 	void (*init_resources)(struct resource *, int n_resources);
 	int (*register_bl_dev)(void);
 	int (*register_i2c_bridge)(void);
-
+	void (*set_dispparam) (int param);
+	void (*panel_gamma_select) (void);
 };
 
 extern atomic_t sd_brightness;
@@ -46,10 +48,24 @@ extern atomic_t sd_brightness;
 extern struct tegra_panel dsi_l_720p_5;
 extern struct tegra_panel dsi_j_720p_4_7;
 extern struct tegra_panel dsi_s_1080p_5;
+extern struct tegra_panel dsi_s_1080p_5_mi3;
+extern struct tegra_panel dsi_l_1080p_5_mi3;
+extern struct tegra_panel dsi_j_1080p_5;
 extern struct tegra_panel dsi_p_wuxga_10_1;
 extern struct tegra_panel dsi_a_1080p_11_6;
 extern struct tegra_panel dsi_s_wqxga_10_1;
 extern struct tegra_panel dsi_lgd_wxga_7_0;
+
+#define panel_delay_ms(t_msec, ctrl) \
+do { \
+	if (ctrl) { \
+		if (t_msec >= 20) \
+			msleep(t_msec); \
+		else \
+			usleep_range((t_msec - 1 > 0) ? (t_msec - 1) : 1 , \
+					t_msec + 1); \
+	} \
+} while (0);
 
 int tegra_init_hdmi(struct platform_device *pdev,
 		     struct platform_device *phost1x);

@@ -17,7 +17,7 @@
 
 struct sdhci_pltfm_data {
 	struct sdhci_ops *ops;
-	u64 quirks;
+	u32 quirks;
 	u32 quirks2;
 };
 

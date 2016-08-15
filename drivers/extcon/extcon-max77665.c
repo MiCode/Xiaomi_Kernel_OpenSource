@@ -2,6 +2,7 @@
  * extcon-max77665.c - MAX77665 extcon driver to support MAX77665 MUIC
  *
  * Copyright (c) 2009-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Syed Rafiuddin <srafiuddin@nvidia.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -185,6 +186,22 @@ static int __devinit max77665_muic_probe(struct platform_device *pdev)
 			MAX77665_MUIC_REG_INTMASK3, 0);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "MUIC_INTMASK3 write failed: %d\n", ret);
+		return ret;
+	}
+
+	/* Disconnect IDB to UID */
+	ret = max77665_update_bits(muic->parent, MAX77665_I2C_SLAVE_MUIC,
+			MAX77665_MUIC_REG_CONTROL1, 0x80, 0x0);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "MUIC_CONTROL1 update failed: %d\n", ret);
+		return ret;
+	}
+
+	/* Enable ADC */
+	ret = max77665_update_bits(muic->parent, MAX77665_I2C_SLAVE_MUIC,
+			MAX77665_MUIC_REG_CONTROL2, 0x2, 0x2);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "MUIC_CONTROL2 update failed: %d\n", ret);
 		return ret;
 	}
 

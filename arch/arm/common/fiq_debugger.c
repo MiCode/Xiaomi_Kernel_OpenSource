@@ -4,6 +4,8 @@
  * Serial Debugger Interface accessed through an FIQ interrupt.
  *
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -33,6 +35,7 @@
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/wakelock.h>
+#include <linux/string.h>
 
 #include <asm/fiq_debugger.h>
 #include <asm/fiq_glue.h>
@@ -245,6 +248,7 @@ static char *mode_name(unsigned cpsr)
 	}
 }
 
+extern void ram_console_write_buf(const char *s, unsigned int count);
 static int debug_printf(void *cookie, const char *fmt, ...)
 {
 	struct fiq_debugger_state *state = cookie;
@@ -254,6 +258,7 @@ static int debug_printf(void *cookie, const char *fmt, ...)
 	va_start(ap, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
+	ram_console_write_buf(buf, strlen(buf));
 
 	debug_puts(state, buf);
 	return state->debug_abort;
@@ -650,21 +655,34 @@ static void debug_help(struct fiq_debugger_state *state)
 #endif
 }
 
-static void take_affinity(void *info)
+static void change_cpu_affinity(int fiq, int cpu)
 {
-	struct fiq_debugger_state *state = info;
 	struct cpumask cpumask;
 
 	cpumask_clear(&cpumask);
-	cpumask_set_cpu(get_cpu(), &cpumask);
+	cpumask_set_cpu(cpu, &cpumask);
+	irq_set_affinity(fiq, &cpumask);
+}
 
-	irq_set_affinity(state->uart_irq, &cpumask);
+static void take_affinity(void *info)
+{
+	struct fiq_debugger_state *state = info;
+
+	change_cpu_affinity(state->uart_irq, get_cpu());
 }
 
 static void switch_cpu(struct fiq_debugger_state *state, int cpu)
 {
 	if (!debug_have_fiq(state))
 		smp_call_function_single(cpu, take_affinity, state, false);
+	else
+		/*
+		 * If we are using the WDT to debug, we cannot rely on IPI is
+		 * still working as used in smp_call_function_single() because
+		 * kernel might already disabled the IRQ. WDT FIQ is not a local
+		 * per CPU based, so we are OK to change affinity directly here.
+		 */
+		change_cpu_affinity(state->fiq, cpu);
 	state->current_cpu = cpu;
 }
 
@@ -916,13 +934,34 @@ static void debug_fiq(struct fiq_glue_handler *h, void *regs, void *svc_sp)
 		container_of(h, struct fiq_debugger_state, handler);
 	unsigned int this_cpu = THREAD_INFO(svc_sp)->cpu;
 	bool need_irq;
+	unsigned int next_cpu;
+	static bool cpu0_again;
 
+
+	/*
+	 * 1st FIQ always goes to CPU0. We will change FIQ CPU affinity, if CPU0
+	 * enter the FIQ handler 2nd time, we know we have already done the
+	 * stack dump for all CPUs and we can enter the debug console.
+	 */
+	if (cpu0_again) {
+		need_irq = debug_handle_uart_interrupt(state, this_cpu, regs,
+				svc_sp);
+		if (need_irq)
+			debug_force_irq(state);
+		return;
+	}
 	/* Spew regs and callstack immediately after entering FIQ handler */
+	debug_printf(state, "current CPU is %d\n", this_cpu);
 	debug_fiq_exec(state, "allregs", regs, svc_sp);
 	debug_fiq_exec(state, "bt", regs, svc_sp);
-	need_irq = debug_handle_uart_interrupt(state, this_cpu, regs, svc_sp);
-	if (need_irq)
-		debug_force_irq(state);
+
+	/* let another online CPU handle the FIQ */
+	next_cpu = cpumask_next(this_cpu, cpu_online_mask);
+	if (next_cpu >= nr_cpu_ids) {
+		next_cpu = 0;
+		cpu0_again = true;
+	}
+	change_cpu_affinity(state->fiq, next_cpu);
 }
 
 /*
@@ -1375,7 +1414,9 @@ static struct platform_driver fiq_debugger_driver = {
 
 static int __init fiq_debugger_init(void)
 {
+#ifdef CONFIG_FIQ_DEBUGGER_CONSOLE
 	fiq_debugger_tty_init();
+#endif
 	return platform_driver_register(&fiq_debugger_driver);
 }
 

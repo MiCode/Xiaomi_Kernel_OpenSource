@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-pluto.h
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -43,6 +44,9 @@
 
 #define TEGRA_SOC_OC_IRQ_BASE		TEGRA_NR_IRQS
 #define TEGRA_SOC_OC_NUM_IRQ		TEGRA_SOC_OC_IRQ_MAX
+
+/* GPIO connected with the INTB of MAX77665 */
+#define MAX77665_INTB_GPIO		TEGRA_GPIO_PJ2
 
 /* External peripheral act as interrupt controller */
 /* PLUTO IRQs */

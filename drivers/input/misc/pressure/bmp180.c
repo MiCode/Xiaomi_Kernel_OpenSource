@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+/* Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1397,6 +1397,13 @@ static int bmp_sysfs_create(struct bmp_inf *inf)
 	int err;
 
 	err = sysfs_create_group(&inf->idev->dev.kobj, &bmp_attr_group);
+	if (err) {
+		dev_err(&inf->i2c->dev, "%s ERR %d\n", __func__, err);
+		return err;
+	}
+	err = nvi_mpu_sysfs_register(&inf->idev->dev.kobj, BMPX80_NAME);
+	if (err)
+		dev_err(&inf->i2c->dev, "%s ERR %d\n", __func__, err);
 	return err;
 }
 

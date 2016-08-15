@@ -5,6 +5,7 @@
  *	Colin Cross <ccross@android.com>
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -109,10 +110,10 @@ static void pmc_32kwritel(u32 val, unsigned long offs)
 
 static inline void write_pmc_wake_mask(u64 value)
 {
-	pr_info("Wake[31-0] enable=0x%x\n", (u32)(value & 0xFFFFFFFF));
+	pr_debug("Wake[31-0] enable=0x%x\n", (u32)(value & 0xFFFFFFFF));
 	writel((u32)value, pmc + PMC_WAKE_MASK);
 #ifndef CONFIG_ARCH_TEGRA_2x_SOC
-	pr_info("Tegra3 wake[63-32] enable=0x%x\n", (u32)((value >> 32) &
+	pr_debug("Tegra3 wake[63-32] enable=0x%x\n", (u32)((value >> 32) &
 		0xFFFFFFFF));
 	__raw_writel((u32)(value >> 32), pmc + PMC_WAKE2_MASK);
 #endif
@@ -133,10 +134,10 @@ static inline u64 read_pmc_wake_level(void)
 
 static inline void write_pmc_wake_level(u64 value)
 {
-	pr_info("Wake[31-0] level=0x%x\n", (u32)(value & 0xFFFFFFFF));
+	pr_debug("Wake[31-0] level=0x%x\n", (u32)(value & 0xFFFFFFFF));
 	writel((u32)value, pmc + PMC_WAKE_LEVEL);
 #ifndef CONFIG_ARCH_TEGRA_2x_SOC
-	pr_info("Tegra3 wake[63-32] level=0x%x\n", (u32)((value >> 32) &
+	pr_debug("Tegra3 wake[63-32] level=0x%x\n", (u32)((value >> 32) &
 		0xFFFFFFFF));
 	__raw_writel((u32)(value >> 32), pmc + PMC_WAKE2_LEVEL);
 #endif
@@ -200,10 +201,10 @@ int tegra_pm_irq_set_wake(int wake, int enable)
 
 	if (enable) {
 		tegra_lp0_wake_enb |= 1ull << wake;
-		pr_info("Enabling wake%d\n", wake);
+		pr_debug("Enabling wake%d\n", wake);
 	} else {
 		tegra_lp0_wake_enb &= ~(1ull << wake);
-		pr_info("Disabling wake%d\n", wake);
+		pr_debug("Disabling wake%d\n", wake);
 	}
 
 	return 0;
@@ -269,16 +270,37 @@ static void tegra_pm_irq_syscore_resume_helper(
 	}
 }
 
+#ifdef DEBUG_PMC_DUMP
+static void tegra_dump_pmc_wake_regs(const char *label, const int label_int)
+{
+	pr_info("========== +++ ==========\n");
+	pr_info("%s, line %d ---> %s\n", label, label_int, __func__);
+	pr_info("PMC_CNTRL = 0x%X\n", readl(pmc + PMC_CTRL));
+	pr_info("PMC_WAKE_MASK = 0x%X\n", readl(pmc + PMC_WAKE_MASK));
+	pr_info("PMC_WAKE2_MASK = 0x%X\n", readl(pmc + PMC_WAKE2_MASK));
+	pr_info("PMC_WAKE_LEVEL = 0x%X\n", readl(pmc + PMC_WAKE_LEVEL));
+	pr_info("PMC_WAKE2_LEVEL = 0x%X\n", readl(pmc + PMC_WAKE2_LEVEL));
+	pr_info("PMC_WAKE_STATUS = 0x%X\n", readl(pmc + PMC_WAKE_STATUS));
+	pr_info("PMC_WAKE2_STATUS = 0x%X\n", readl(pmc + PMC_WAKE2_STATUS));
+	pr_info("PMC_SW_WAKE_STATUS = 0x%X\n", readl(pmc + PMC_SW_WAKE_STATUS));
+	pr_info("PMC_SW_WAKE2_STATUS = 0x%X\n", readl(pmc + PMC_SW_WAKE2_STATUS));
+	pr_info("========== --- ==========\n");
+}
+#endif
+
 static void tegra_pm_irq_syscore_resume(void)
 {
 	unsigned long long wake_status = read_pmc_wake_status();
 
-	pr_info(" legacy wake status=0x%x\n", (u32)wake_status);
+	pr_debug(" legacy wake status=0x%x\n", (u32)wake_status);
 	tegra_pm_irq_syscore_resume_helper((unsigned long)wake_status, 0);
 #ifndef CONFIG_ARCH_TEGRA_2x_SOC
-	pr_info(" tegra3 wake status=0x%x\n", (u32)(wake_status >> 32));
+	pr_debug(" tegra3 wake status=0x%x\n", (u32)(wake_status >> 32));
 	tegra_pm_irq_syscore_resume_helper(
 		(unsigned long)(wake_status >> 32), 1);
+#endif
+#ifdef DEBUG_PMC_DUMP
+	tegra_dump_pmc_wake_regs(__func__, __LINE__);
 #endif
 }
 
@@ -397,7 +419,9 @@ static int tegra_pm_irq_syscore_suspend(void)
 	u64 wake_level;
 	u64 wake_enb;
 	int j;
-
+#ifdef DEBUG_PMC_DUMP
+	tegra_dump_pmc_wake_regs(__func__, __LINE__);
+#endif
 	clear_pmc_sw_wake_status();
 
 	temp = readl(pmc + PMC_CTRL);
@@ -507,6 +531,9 @@ skip_usb_any_wake:
 	write_pmc_wake_level(wake_level);
 
 	write_pmc_wake_mask(wake_enb);
+#ifdef DEBUG_PMC_DUMP
+	tegra_dump_pmc_wake_regs(__func__, __LINE__);
+#endif
 
 	return 0;
 }

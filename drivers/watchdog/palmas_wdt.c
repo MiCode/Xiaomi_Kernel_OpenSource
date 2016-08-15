@@ -222,7 +222,7 @@ static int __devinit palmas_wdt_probe(struct platform_device *pdev)
 		}
 	}
 
-	device_set_wakeup_capable(&pdev->dev, 1);
+	device_set_wakeup_capable(&pdev->dev, 0);
 	return 0;
 scrub:
 	free_irq(wdt->irq, wdt);

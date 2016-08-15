@@ -221,6 +221,7 @@ static bool tegra_cpu_cluster_power_down(struct cpuidle_device *dev,
 	if (multi_cpu_entry) {
 		s64 wake_time;
 		unsigned int i;
+		printk("%s: Wrong way\n", __func__);
 
 		/* Disable the distributor -- this is the only way to
 		   prevent the other CPUs from responding to interrupts
@@ -508,7 +509,6 @@ bool tegra11x_idle_power_down(struct cpuidle_device *dev,
 				power_gating_cpu_only = true;
 		}
 	}
-
 	if (clkgt_at_vmin) {
 		rate = 0;
 		status = tegra_cpu_g_idle_rate_exchange(&rate);

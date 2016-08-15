@@ -381,9 +381,6 @@ static inline int tegra_update_mselect_rate(unsigned long cpu_rate)
 #else
 int tegra_update_mselect_rate(unsigned long cpu_rate);
 #endif
-#else
-static inline unsigned long tegra_emc_to_cpu_ratio(unsigned long cpu_rate)
-{ return 0; }
 #endif
 
 #endif

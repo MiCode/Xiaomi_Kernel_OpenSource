@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  *
  * Fundamental types and constants relating to WFA P2P (aka WiFi Direct)
  *
- * $Id: p2p.h 356417 2012-09-12 16:41:24Z $
+ * $Id: p2p.h 384536 2013-02-12 04:13:09Z $
  */
 
 #ifndef _P2P_H_
@@ -70,7 +70,7 @@ typedef struct wifi_p2p_ie wifi_p2p_ie_t;
 #define P2P_SEID_DEV_ID			3	/* P2P Device ID */
 #define P2P_SEID_INTENT			4	/* Group Owner Intent */
 #define P2P_SEID_CFG_TIMEOUT		5	/* Configuration Timeout */
-#define P2P_SEID_CHANNEL		6	/* Channel */
+#define P2P_SEID_CHANNEL		6	/* Listen channel */
 #define P2P_SEID_GRP_BSSID		7	/* P2P Group BSSID */
 #define P2P_SEID_XT_TIMING		8	/* Extended Listen Timing */
 #define P2P_SEID_INTINTADDR		9	/* Intended P2P Interface Address */
@@ -407,6 +407,7 @@ typedef struct wifi_p2p_noa_se wifi_p2p_noa_se_t;
 
 #define P2P_NOA_SE_FIXED_LEN	5
 
+#define P2P_NOA_SE_MAX_DESC	2	/* max NoA descriptors in presence request */
 /* cnt_type field values */
 #define P2P_NOA_DESC_CNT_RESERVED	0	/* reserved and should not be used */
 #define P2P_NOA_DESC_CNT_REPEAT		255	/* continuous schedule */

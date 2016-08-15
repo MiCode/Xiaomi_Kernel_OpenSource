@@ -34,34 +34,24 @@ static unsigned int approvable_req(struct edp_client *c, unsigned int net)
 	return edp_promotion_point(c, step);
 }
 
-static unsigned int net_e0(struct edp_client *client)
-{
-	struct edp_client *c;
-	unsigned int net = 0;
-
-	list_for_each_entry(c, &client->manager->clients, link)
-		net += e0_level(c);
-
-	return net;
-}
-
 static struct edp_client *throttle_pledge(struct edp_client *client,
 		unsigned int required, unsigned int net,
 		unsigned int *pledged)
 {
 	struct edp_manager *m = client->manager;
-	unsigned int deficit = required - m->remaining;
 	struct edp_client *c;
 	unsigned int step;
+	unsigned int fair;
 
 	*pledged = m->remaining;
 
 	list_for_each_entry_reverse(c, &m->clients, link) {
-		if (c == client || cur_level(c) <= e0_level(c))
+		fair = c->manager->max * e0_level(c) / net;
+		if (c == client || cur_level(c) <= fair)
 			continue;
 
-		step = (deficit * e0_level(c) + net - 1) / net;
-		c->gwt = edp_throttling_point(c, step ?: 1);
+		step = min(cur_level(c) - fair, required - *pledged);
+		c->gwt = edp_throttling_point(c, step);
 		*pledged += cur_level(c) - c->states[c->gwt];
 		if (*pledged >= required)
 			break;
@@ -102,7 +92,7 @@ static void throttle(struct edp_client *client)
 	unsigned int required;
 	unsigned int net;
 
-	net = net_e0(client);
+	net = e0_current_sum(m);
 	if (!net) {
 		WARN_ON(1);
 		return;

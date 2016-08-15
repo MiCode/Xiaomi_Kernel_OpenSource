@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2005-2008 Pierre Ossman, All Rights Reserved.
  *  Copyright (c) 2013, NVIDIA CORPORATION. All Rights Reserved.
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -114,10 +115,59 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 
 	if (host->flags & SDHCI_USE_ADMA)
 		pr_debug(DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
-		       readl(host->ioaddr + SDHCI_ADMA_ERROR),
-		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
+			readl(host->ioaddr + SDHCI_ADMA_ERROR),
+			readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
 
 	pr_debug(DRIVER_NAME ": ===========================================\n");
+}
+
+static void sdhci_dumpregs_timeout(struct sdhci_host *host)
+{
+	pr_info(DRIVER_NAME ": =========== REGISTER DUMP (%s)===========\n",
+		mmc_hostname(host->mmc));
+
+	pr_info(DRIVER_NAME ": Sys addr: 0x%08x | Version:  0x%08x\n",
+		sdhci_readl(host, SDHCI_DMA_ADDRESS),
+		sdhci_readw(host, SDHCI_HOST_VERSION));
+	pr_info(DRIVER_NAME ": Blk size: 0x%08x | Blk cnt:  0x%08x\n",
+		sdhci_readw(host, SDHCI_BLOCK_SIZE),
+		sdhci_readw(host, SDHCI_BLOCK_COUNT));
+	pr_info(DRIVER_NAME ": Argument: 0x%08x | Trn mode: 0x%08x\n",
+		sdhci_readl(host, SDHCI_ARGUMENT),
+		sdhci_readw(host, SDHCI_TRANSFER_MODE));
+	pr_info(DRIVER_NAME ": Present:  0x%08x | Host ctl: 0x%08x\n",
+		sdhci_readl(host, SDHCI_PRESENT_STATE),
+		sdhci_readb(host, SDHCI_HOST_CONTROL));
+	pr_info(DRIVER_NAME ": Power:    0x%08x | Blk gap:  0x%08x\n",
+		sdhci_readb(host, SDHCI_POWER_CONTROL),
+		sdhci_readb(host, SDHCI_BLOCK_GAP_CONTROL));
+	pr_info(DRIVER_NAME ": Wake-up:  0x%08x | Clock:    0x%08x\n",
+		sdhci_readb(host, SDHCI_WAKE_UP_CONTROL),
+		sdhci_readw(host, SDHCI_CLOCK_CONTROL));
+	pr_info(DRIVER_NAME ": Timeout:  0x%08x | Int stat: 0x%08x\n",
+		sdhci_readb(host, SDHCI_TIMEOUT_CONTROL),
+		sdhci_readl(host, SDHCI_INT_STATUS));
+	pr_info(DRIVER_NAME ": Int enab: 0x%08x | Sig enab: 0x%08x\n",
+		sdhci_readl(host, SDHCI_INT_ENABLE),
+		sdhci_readl(host, SDHCI_SIGNAL_ENABLE));
+	pr_info(DRIVER_NAME ": AC12 err: 0x%08x | Slot int: 0x%08x\n",
+		sdhci_readw(host, SDHCI_ACMD12_ERR),
+		sdhci_readw(host, SDHCI_SLOT_INT_STATUS));
+	pr_info(DRIVER_NAME ": Caps:     0x%08x | Caps_1:   0x%08x\n",
+		sdhci_readl(host, SDHCI_CAPABILITIES),
+		sdhci_readl(host, SDHCI_CAPABILITIES_1));
+	pr_info(DRIVER_NAME ": Cmd:      0x%08x | Max curr: 0x%08x\n",
+		sdhci_readw(host, SDHCI_COMMAND),
+		sdhci_readl(host, SDHCI_MAX_CURRENT));
+	pr_info(DRIVER_NAME ": Host ctl2: 0x%08x\n",
+		sdhci_readw(host, SDHCI_HOST_CONTROL2));
+
+	if (host->flags & SDHCI_USE_ADMA)
+		pr_info(DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
+				readl(host->ioaddr + SDHCI_ADMA_ERROR),
+				readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
+
+	pr_info(DRIVER_NAME ": ===========================================\n");
 }
 
 /*****************************************************************************\
@@ -1076,6 +1126,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	int real_div = div, clk_mul = 1;
 	u16 clk = 0;
 	unsigned long timeout;
+	u32 caps;
 
 	if (clock && clock == host->clock)
 		return;
@@ -1085,6 +1136,16 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (host->quirks & SDHCI_QUIRK_NONSTANDARD_CLOCK)
 		return;
 
+	/*
+	 * If the entire clock control register is updated with zero, some
+	 * controllers might first update clock divisor fields and then update
+	 * the INT_CLK_EN and CARD_CLK_EN fields. Disable card clock first
+	 * to ensure there is no abnormal clock behavior.
+	 */
+	clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+	clk &= ~SDHCI_CLOCK_CARD_EN;
+	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+	clk = 0;
 	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 
 	if (clock == 0)
@@ -1156,6 +1217,20 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		<< SDHCI_DIVIDER_HI_SHIFT;
 	clk |= SDHCI_CLOCK_INT_EN;
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+
+	/*
+	 * For Tegra3 sdmmc controller, internal clock will not be stable bit
+	 * will get set only after some other register write is done. To
+	 * handle, do a dummy reg write to the caps reg if
+	 * SDHCI_QUIRK2_INT_CLK_STABLE_REQ_DUMMY_REG_WRITE is set.
+	 */
+	if (host->quirks2 & SDHCI_QUIRK2_INT_CLK_STABLE_REQ_DUMMY_REG_WRITE) {
+		udelay(5);
+
+		caps = sdhci_readl(host, SDHCI_CAPABILITIES);
+		caps |= 1;
+		sdhci_writel(host, caps, SDHCI_CAPABILITIES);
+	}
 
 	/* Wait max 20 ms */
 	timeout = 20;
@@ -1314,6 +1389,13 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 				/* Restore original mmc_request structure */
 				host->mrq = mrq;
 			}
+		}
+
+		/* For a data cmd, check for plat specific preparation */
+		if (mrq->data) {
+			spin_unlock_irqrestore(&host->lock, flags);
+			host->ops->platform_get_bus(host);
+			spin_lock_irqsave(&host->lock, flags);
 		}
 
 		if (mrq->sbc && !(host->flags & SDHCI_AUTO_CMD23))
@@ -1510,6 +1592,10 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	 */
 	if (!ios->clock && host->ops->set_clock)
 		host->ops->set_clock(host, ios->clock);
+
+	if ((ios->power_mode == MMC_POWER_OFF) && host->ops->platform_power_off)
+		host->ops->platform_power_off(host, ios->power_mode);
+
 }
 
 static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
@@ -1628,7 +1714,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 	if (host->version < SDHCI_SPEC_300)
 		return 0;
 
-	if (host->quirks & SDHCI_QUIRK_NON_STD_VOLTAGE_SWITCHING) {
+	if (host->quirks2 & SDHCI_QUIRK2_NON_STD_VOLTAGE_SWITCHING) {
 		if (host->ops->switch_signal_voltage)
 			return host->ops->switch_signal_voltage(
 				host, ios->signal_voltage);
@@ -1749,17 +1835,16 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 	sdhci_runtime_pm_get(host);
 	disable_irq(host->irq);
-	spin_lock(&host->lock);
 
-	if ((host->quirks & SDHCI_QUIRK_NON_STANDARD_TUNING) &&
+	if ((host->quirks2 & SDHCI_QUIRK2_NON_STANDARD_TUNING) &&
 		host->ops->execute_freq_tuning) {
 		err = host->ops->execute_freq_tuning(host, opcode);
-		spin_unlock(&host->lock);
 		enable_irq(host->irq);
 		sdhci_runtime_pm_put(host);
 		return err;
 	}
 
+	spin_lock(&host->lock);
 	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 
 	/*
@@ -1994,6 +2079,9 @@ int sdhci_enable(struct mmc_host *mmc)
 	unsigned int approved;
 	int ret;
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
+#ifdef CONFIG_MMC_FREQ_SCALING
+	unsigned long freq = 0;
+#endif
 
 	if (!mmc->card || mmc->card->type == MMC_TYPE_SDIO)
 		return 0;
@@ -2010,6 +2098,12 @@ int sdhci_enable(struct mmc_host *mmc)
 		if (ret)
 			dev_err(&pdev->dev, "Unable to set SD_EDP_HIGH state\n");
 	}
+#ifdef CONFIG_MMC_FREQ_SCALING
+	if (mmc->df) {
+		mmc->dev_stats->busy_time = 0;
+		schedule_delayed_work(&mmc->dfs_work, msecs_to_jiffies(10));
+	}
+#endif
 
 	return 0;
 }
@@ -2027,6 +2121,18 @@ int sdhci_disable(struct mmc_host *mmc)
 	if (host->ops->set_clock)
 		host->ops->set_clock(host, 0);
 
+	/*
+	 * Cancel any pending DFS work if clocks are turned off.
+	 */
+#ifdef CONFIG_MMC_FREQ_SCALING
+	if (mmc->df) {
+		cancel_delayed_work_sync(&mmc->dfs_work);
+		mutex_lock(&mmc->df->lock);
+		mmc->df->previous_freq = mmc->actual_clock;
+		mutex_unlock(&mmc->df->lock);
+
+	}
+#endif
 	if (host->sd_edp_client) {
 		ret = edp_update_client_request(host->sd_edp_client,
 				SD_EDP_LOW, NULL);
@@ -2202,7 +2308,8 @@ static void sdhci_timeout_timer(unsigned long data)
 	if (host->mrq) {
 		pr_err("%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
-		sdhci_dumpregs(host);
+		sdhci_dumpregs_timeout(host);
+		pr_info("command opcode = 0x%x\n", host->cmd->opcode);
 
 		if (host->data) {
 			host->data->error = -ETIMEDOUT;
@@ -2293,7 +2400,6 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		sdhci_finish_command(host);
 }
 
-#ifdef CONFIG_MMC_DEBUG
 static void sdhci_show_adma_error(struct sdhci_host *host)
 {
 	const char *name = mmc_hostname(host->mmc);
@@ -2318,9 +2424,6 @@ static void sdhci_show_adma_error(struct sdhci_host *host)
 			break;
 	}
 }
-#else
-static void sdhci_show_adma_error(struct sdhci_host *host) { }
-#endif
 
 static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 {
@@ -2948,7 +3051,7 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (host->quirks & SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK)
 		host->timeout_clk = mmc->f_max / 1000;
 
-	if (!(host->quirks & SDHCI_QUIRK_NO_CALC_MAX_DISCARD_TO))
+	if (!(host->quirks2 & SDHCI_QUIRK2_NO_CALC_MAX_DISCARD_TO))
 		mmc->max_discard_to = (1 << 27) / host->timeout_clk;
 
 	if (host->quirks & SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12)
@@ -3241,7 +3344,7 @@ int sdhci_add_host(struct sdhci_host *host)
 				dev_err(&pdev->dev,
 					"unable to register edp client\n");
 			} else {
-				pr_info("%s: edp client registration" \
+				pr_info("%s: edp client registration"
 					" successful.\n",
 					dev_name(mmc_dev(host->mmc)));
 				ret = edp_update_client_request(

@@ -380,6 +380,7 @@ void nvhost_msenc_deinit(struct platform_device *dev)
 		m->mem_r = NULL;
 	}
 	m->valid = false;
+	kfree(m);
 }
 
 void nvhost_msenc_finalize_poweron(struct platform_device *dev)
@@ -448,7 +449,7 @@ static int msenc_suspend(struct platform_device *dev, pm_message_t state)
 
 static int msenc_resume(struct platform_device *dev)
 {
-	dev_info(&dev->dev, "resuming\n");
+	dev_dbg(&dev->dev, "resuming\n");
 	return 0;
 }
 #endif

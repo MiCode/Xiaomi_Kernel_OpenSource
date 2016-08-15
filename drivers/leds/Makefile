@@ -48,7 +48,7 @@ obj-$(CONFIG_LEDS_RENESAS_TPU)		+= leds-renesas-tpu.o
 obj-$(CONFIG_LEDS_MAX8997)		+= leds-max8997.o
 
 obj-$(CONFIG_LEDS_MAX8831)		+= leds-max8831.o
-
+obj-$(CONFIG_LEDS_LM3533)		+= leds-lm3533.o
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
 

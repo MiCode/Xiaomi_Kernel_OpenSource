@@ -1,7 +1,7 @@
 /*
  * drivers/input/input-cfboost.c
  *
- * Copyright (C) 2012 NVIDIA Corporation
+ * Copyright (c) 2012-2013 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,7 +55,24 @@ static struct pm_qos_request freq_req, core_req;
 static struct work_struct boost;
 static struct delayed_work unboost;
 static unsigned int boost_freq; /* kHz */
-module_param(boost_freq, uint, 0644);
+static int boost_freq_set(const char *arg, const struct kernel_param *kp)
+{
+	unsigned int old_boost = boost_freq;
+	int ret = param_set_uint(arg, kp);
+	if (ret == 0 && old_boost && !boost_freq)
+		pm_qos_update_request(&freq_req,
+				PM_QOS_DEFAULT_VALUE);
+	return ret;
+}
+static int boost_freq_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_uint(buffer, kp);
+}
+static struct kernel_param_ops boost_freq_ops = {
+	.set = boost_freq_set,
+	.get = boost_freq_get,
+};
+module_param_cb(boost_freq, &boost_freq_ops, &boost_freq, 0644);
 static unsigned long boost_time = 500; /* ms */
 module_param(boost_time, ulong, 0644);
 static struct workqueue_struct *cfb_wq;

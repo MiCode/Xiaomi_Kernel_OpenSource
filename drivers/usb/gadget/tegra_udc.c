@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Description:
  * High-speed USB device controller driver.
@@ -106,6 +107,25 @@ static struct pm_qos_request boost_cpu_freq_req;
 static u32 ep_queue_request_count;
 static u8 boost_cpufreq_work_flag, set_cpufreq_normal_flag;
 static struct timer_list boost_timer;
+static bool boost_enable = true;
+static int boost_enable_set(const char *arg, const struct kernel_param *kp)
+{
+	bool old_boost = boost_enable;
+	int ret = param_set_bool(arg, kp);
+	if (ret == 0 && old_boost && !boost_enable)
+		pm_qos_update_request(&boost_cpu_freq_req,
+					PM_QOS_DEFAULT_VALUE);
+	return ret;
+}
+static int boost_enable_get(char *buffer, const struct kernel_param *kp)
+{
+	return param_get_bool(buffer, kp);
+}
+static struct kernel_param_ops boost_enable_ops = {
+	.set = boost_enable_set,
+	.get = boost_enable_get,
+};
+module_param_cb(boost_enable, &boost_enable_ops, &boost_enable, 0644);
 #endif
 
 static char *const tegra_udc_extcon_cable[] = {
@@ -1318,15 +1338,8 @@ static int tegra_set_selfpowered(struct usb_gadget *gadget, int is_on)
 	return 0;
 }
 
-static void tegra_udc_set_charger_type(struct tegra_udc *udc,
-		enum tegra_connect_type type)
-{
-	udc->prev_connect_type = udc->connect_type;
-	udc->connect_type = type;
-}
-
 #ifdef CONFIG_EXTCON
-static void tegra_udc_set_extcon_state(struct tegra_udc *udc)
+static void tegra_udc_set_extcon_state(struct tegra_udc *udc, int mA)
 {
 	const char **cables;
 	struct extcon_dev *edev;
@@ -1335,12 +1348,15 @@ static void tegra_udc_set_extcon_state(struct tegra_udc *udc)
 		return;
 	edev = udc->edev;
 	cables = udc->edev->supported_cable;
-	/* set previous cable type to false, then set current type to true */
-	if (udc->prev_connect_type != CONNECT_TYPE_NONE)
-		extcon_set_cable_state(edev, cables[udc->prev_connect_type],
-					false);
-	if (udc->connect_type != CONNECT_TYPE_NONE)
+
+	if (udc->connect_type != CONNECT_TYPE_NONE && mA > 2) {
 		extcon_set_cable_state(edev, cables[udc->connect_type], true);
+		udc->prev_connect_type = udc->connect_type;
+	} else if (udc->connect_type == CONNECT_TYPE_NONE &&
+			udc->prev_connect_type) {
+		extcon_set_cable_state(edev, cables[udc->prev_connect_type], false);
+		udc->prev_connect_type = CONNECT_TYPE_NONE;
+	}
 }
 #endif
 
@@ -1348,7 +1364,7 @@ static int tegra_usb_set_charging_current(struct tegra_udc *udc)
 {
 	int max_ua;
 	struct device *dev;
-	int ret;
+	int ret = 0;
 
 	dev = &udc->pdev->dev;
 	switch (udc->connect_type) {
@@ -1391,7 +1407,8 @@ static int tegra_usb_set_charging_current(struct tegra_udc *udc)
 		max_ua = 0;
 	}
 
-	ret = 0;
+	pr_info("%s TYPE %d mA %d\n", __func__, udc->connect_type, max_ua);
+
 	/*
 	 * we set charging regulator's maximum charging current 1st, then
 	 * notify the charging type.
@@ -1399,7 +1416,7 @@ static int tegra_usb_set_charging_current(struct tegra_udc *udc)
 	if (NULL != udc->vbus_reg)
 		ret = regulator_set_current_limit(udc->vbus_reg, 0, max_ua);
 #ifdef CONFIG_EXTCON
-	tegra_udc_set_extcon_state(udc);
+	tegra_udc_set_extcon_state(udc, max_ua / 1000);
 #endif
 	return ret;
 }
@@ -1431,9 +1448,9 @@ static void tegra_detect_charging_type_is_cdp_or_dcp(struct tegra_udc *udc)
 	/* use D+ and D- status to check it is CDP or DCP */
 	portsc = udc_readl(udc, PORTSCX_REG_OFFSET) & PORTSCX_LINE_STATUS_BITS;
 	if (portsc == (PORTSCX_LINE_STATUS_DP_BIT | PORTSCX_LINE_STATUS_DM_BIT))
-		tegra_udc_set_charger_type(udc, CONNECT_TYPE_DCP);
+		udc->connect_type = CONNECT_TYPE_DCP;
 	else if (portsc == PORTSCX_LINE_STATUS_DP_BIT)
-		tegra_udc_set_charger_type(udc, CONNECT_TYPE_CDP);
+		udc->connect_type = CONNECT_TYPE_CDP;
 	else
 		/*
 		 * If it take more 100mS between D+ pull high and read Line
@@ -1443,7 +1460,7 @@ static void tegra_detect_charging_type_is_cdp_or_dcp(struct tegra_udc *udc)
 		 * Bug can be raised here but it is also safe to assume
 		 * as CDP.
 		 */
-		tegra_udc_set_charger_type(udc, CONNECT_TYPE_CDP);
+		udc->connect_type = CONNECT_TYPE_CDP;
 
 	spin_unlock_irqrestore(&udc->lock, flags);
 }
@@ -1453,9 +1470,9 @@ static int tegra_detect_cable_type(struct tegra_udc *udc)
 	if (tegra_usb_phy_charger_detected(udc->phy))
 		tegra_detect_charging_type_is_cdp_or_dcp(udc);
 	else if (tegra_usb_phy_nv_charger_detected(udc->phy))
-		tegra_udc_set_charger_type(udc, CONNECT_TYPE_NV_CHARGER);
+		udc->connect_type = CONNECT_TYPE_NV_CHARGER;
 	else
-		tegra_udc_set_charger_type(udc, CONNECT_TYPE_SDP);
+		udc->connect_type = CONNECT_TYPE_SDP;
 
 	/*
 	 * If it is charger type, we start charging now. If it is connected to
@@ -1493,7 +1510,7 @@ static int tegra_vbus_session(struct usb_gadget *gadget, int is_active)
 		dr_controller_reset(udc);
 		udc->vbus_active = 0;
 		udc->usb_state = USB_STATE_DEFAULT;
-		tegra_udc_set_charger_type(udc, CONNECT_TYPE_NONE);
+		udc->connect_type = CONNECT_TYPE_NONE;
 		spin_unlock_irqrestore(&udc->lock, flags);
 		tegra_usb_phy_power_off(udc->phy);
 		tegra_usb_set_charging_current(udc);
@@ -1508,6 +1525,7 @@ static int tegra_vbus_session(struct usb_gadget *gadget, int is_active)
 		udc->ep0_state = WAIT_FOR_SETUP;
 		udc->ep0_dir = 0;
 		udc->vbus_active = 1;
+		gadget->usb_sys_state = GADGET_STATE_IDLE;
 		tegra_detect_cable_type(udc);
 		/* start the controller if USB host detected */
 		if ((udc->connect_type == CONNECT_TYPE_SDP) ||
@@ -1533,6 +1551,7 @@ static int tegra_vbus_draw(struct usb_gadget *gadget, unsigned mA)
 
 	udc = container_of(gadget, struct tegra_udc, gadget);
 
+	pr_info("%s SDP mA %d\n", __func__, mA);
 	udc->current_limit = mA;
 	schedule_work(&udc->current_work);
 
@@ -1895,6 +1914,33 @@ static void setup_received_irq(struct tegra_udc *udc,
 	u16 wValue = le16_to_cpu(setup->wValue);
 	u16 wIndex = le16_to_cpu(setup->wIndex);
 	u16 wLength = le16_to_cpu(setup->wLength);
+	u8 *sys_state = &(udc->gadget.usb_sys_state);
+
+	if (!GADGET_STATE_DONE(*sys_state)) {
+		switch (GADGET_STATE_PROCESS(*sys_state)) {
+		case GADGET_STATE_PROCESS_GET:
+			if (setup->bRequest == USB_REQ_SET_CONFIGURATION) {
+				*sys_state = GADGET_STATE_PROCESS_SET;
+			} else if (setup->bRequest == USB_REQ_CLEAR_FEATURE) {
+				pr_info("[%s]host system may be windows", __func__);
+				*sys_state = GADGET_STATE_DONE_RESET;
+			}
+			break;
+		case GADGET_STATE_PROCESS_SET:
+			if (setup->bRequest == USB_REQ_CLEAR_FEATURE) {
+				pr_info("[%s]host system may be windows", __func__);
+				*sys_state = GADGET_STATE_DONE_RESET;
+			} else {
+				pr_info("[%s]host system may be mac os or linux", __func__);
+				*sys_state = GADGET_STATE_DONE_SET;
+			}
+			break;
+		default:
+			if (setup->bRequest == USB_REQ_GET_DESCRIPTOR)
+				*sys_state = GADGET_STATE_PROCESS_GET;
+			break;
+		}
+	}
 
 	udc_reset_ep_queue(udc, 0);
 
@@ -2357,8 +2403,11 @@ static void tegra_udc_boost_cpu_frequency_work(struct work_struct *work)
 	/* If CPU frequency is not boosted earlier boost it, and modify
 	 * timer expiry time to 2sec */
 	if (boost_cpufreq_work_flag) {
-		pm_qos_update_request(&boost_cpu_freq_req,
-			(s32)CONFIG_TEGRA_GADGET_BOOST_CPU_FREQ * 1000);
+		if (boost_enable)
+			pm_qos_update_request(
+				&boost_cpu_freq_req,
+				(s32)(CONFIG_TEGRA_GADGET_BOOST_CPU_FREQ
+						* 1000));
 		boost_cpufreq_work_flag = 0;
 		DBG("%s(%d) boost CPU frequency\n", __func__, __LINE__);
 	}
@@ -2393,7 +2442,7 @@ static void tegra_udc_non_std_charger_detect_work(struct work_struct *work)
 	DBG("%s(%d) BEGIN\n", __func__, __LINE__);
 
 	dr_controller_stop(udc);
-	tegra_udc_set_charger_type(udc, CONNECT_TYPE_NON_STANDARD_CHARGER);
+	udc->connect_type = CONNECT_TYPE_NON_STANDARD_CHARGER;
 	tegra_usb_set_charging_current(udc);
 
 	DBG("%s(%d) END\n", __func__, __LINE__);
@@ -2548,6 +2597,7 @@ static int tegra_udc_start(struct usb_gadget_driver *driver,
 	spin_lock_irqsave(&udc->lock, flags);
 
 	driver->driver.bus = NULL;
+	udc->gadget.usb_sys_state = GADGET_STATE_IDLE;
 	/* hook up the driver */
 	udc->driver = driver;
 	udc->gadget.dev.driver = &driver->driver;

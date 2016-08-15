@@ -4,6 +4,7 @@
  *
  *
  * Copyright (c) 2009-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,7 +69,7 @@ rst|-   -   -  |AVG        |Vbus_CT    |Vsh_CT     |MODE
 #define INA230_RESET		(1 << 15)
 #define INA230_AVG		(1 << 9) /* 4 Averages */
 #define INA230_VBUS_CT		(0 << 6) /* Vbus 140us conversion time */
-#define INA230_VSH_CT		(3 << 3) /* Vshunt 588us conversion time */
+#define INA230_VSH_CT		(0 << 3) /* Vshunt 140us conversion time */
 
 #if MEASURE_BUS_VOLT
 #define INA230_CONT_MODE	7	/* Continuous Bus and shunt measure */
@@ -78,9 +79,15 @@ rst|-   -   -  |AVG        |Vbus_CT    |Vsh_CT     |MODE
 #define INA230_TRIG_MODE	1	/* Triggered Shunt measurement */
 #endif
 
+#define INA230_CURR_CONT_MODE	5	/* Continuous shunt measure */
+#define INA230_VBUS_CONT_MODE	6	/* Continuous Bus measure */
 #define INA230_POWER_DOWN	0
 #define INA230_CONT_CONFIG	(INA230_AVG | INA230_VBUS_CT | \
 				 INA230_VSH_CT | INA230_CONT_MODE)
+#define INA230_CURR_CONT_CONFIG	(INA230_AVG | INA230_VBUS_CT | \
+				 INA230_VSH_CT | INA230_CURR_CONT_MODE)
+#define INA230_VBUS_CONT_CONFIG	(INA230_AVG | INA230_VBUS_CT | \
+				 INA230_VSH_CT | INA230_VBUS_CONT_MODE)
 #define INA230_TRIG_CONFIG	(INA230_AVG | INA230_VBUS_CT | \
 				 INA230_VSH_CT | INA230_TRIG_MODE)
 
@@ -91,6 +98,8 @@ SOL|SUL|BOL|BUL|POL|CVR|-   -   -   -   -  |AFF|CVF|OVF|APO|LEN
 */
 #define INA230_MASK_SOL		(1 << 15)
 #define INA230_MASK_SUL		(1 << 14)
+#define INA230_MASK_BOL		(1 << 13)
+#define INA230_MASK_BUL		(1 << 12)
 #define INA230_MASK_CVF		(1 << 3)
 #define INA230_MAX_CONVERSION_TRIALS	50
 
@@ -111,7 +120,7 @@ struct ina230_data {
 #define shuntv_register_to_uv(x) (((x) * 5) >> 1)
 #define uv_to_alert_register(x) (((x) << 1) / 5)
 
-
+static struct i2c_client *ina230_client;
 
 static s32 ensure_enabled_start(struct i2c_client *client)
 {
@@ -184,49 +193,82 @@ static s32 power_down_ina230(struct i2c_client *client)
 	return retval;
 }
 
-
+/* Start current or vbus monitor */
 static s32 __locked_start_current_mon(struct i2c_client *client)
 {
 	s32 retval;
 	s32 shunt_uV;
 	s16 shunt_limit;
 	s16 alert_mask;
+	u16 config;
 	struct ina230_data *data = i2c_get_clientdata(client);
 
-	if (!data->pdata->current_threshold) {
-		dev_err(&client->dev, "no current threshold specified\n");
+	if ((!data->pdata->current_threshold && !data->pdata->vbus_threshold) ||
+	    (data->pdata->current_threshold && data->pdata->vbus_threshold)) {
+		dev_err(&client->dev, "error threshold specified %d %d\n",
+			data->pdata->vbus_threshold,
+			data->pdata->current_threshold);
 		return -EINVAL;
 	}
 
+	if (data->pdata->current_threshold)
+		config = INA230_CURR_CONT_MODE;
+	else
+		config = INA230_VBUS_CONT_MODE;
+
 	retval = i2c_smbus_write_word_data(client, INA230_CONFIG,
-				    __constant_cpu_to_be16(INA230_CONT_CONFIG));
+				__constant_cpu_to_be16(config));
 	if (retval < 0) {
 		dev_err(&client->dev, "config data write failed sts: 0x%x\n",
 			retval);
 		return retval;
 	}
 
-	shunt_uV = data->pdata->resistor * data->pdata->current_threshold;
-	if (data->pdata->shunt_polarity_inverted)
-		shunt_uV *= -1;
+	if (data->pdata->current_threshold) {
+		shunt_uV = data->pdata->resistor * data->pdata->current_threshold;
+		if (data->pdata->shunt_polarity_inverted)
+			shunt_uV *= -1;
 
-	shunt_limit = (s16) uv_to_alert_register(shunt_uV);
+		shunt_limit = (s16) uv_to_alert_register(shunt_uV);
 
-	retval = i2c_smbus_write_word_data(client, INA230_ALERT,
-					   cpu_to_be16(shunt_limit));
-	if (retval < 0) {
-		dev_err(&client->dev, "alert data write failed sts: 0x%x\n",
-			retval);
-		return retval;
-	}
+		retval = i2c_smbus_write_word_data(client, INA230_ALERT,
+					cpu_to_be16(shunt_limit));
+		if (retval < 0) {
+			dev_err(&client->dev,
+				"shunt alert write failed sts:0x%x\n", retval);
+			return retval;
+		}
 
-	alert_mask = shunt_limit >= 0 ? INA230_MASK_SOL : INA230_MASK_SUL;
-	retval = i2c_smbus_write_word_data(client, INA230_MASK,
-					   cpu_to_be16(alert_mask));
-	if (retval < 0) {
-		dev_err(&client->dev, "mask data write failed sts: 0x%x\n",
-			retval);
-		return retval;
+		alert_mask =
+		    shunt_limit >= 0 ? INA230_MASK_SOL : INA230_MASK_SUL;
+		retval =
+		    i2c_smbus_write_word_data(client, INA230_MASK,
+				cpu_to_be16(alert_mask));
+		if (retval < 0) {
+			dev_err(&client->dev,
+				"mask data write failed sts:0x%x\n", retval);
+			return retval;
+		}
+	} else {
+		u16 vbus_threshold;
+
+		vbus_threshold = (data->pdata->vbus_threshold * 100) / 125;
+		retval = i2c_smbus_write_word_data(client, INA230_ALERT,
+					cpu_to_be16(vbus_threshold));
+		if (retval < 0) {
+			dev_err(&client->dev,
+				"vbus alert write failed sts:0x%x\n", retval);
+			return retval;
+		}
+
+		retval = i2c_smbus_write_word_data(client, INA230_MASK,
+					cpu_to_be16
+					(INA230_MASK_BUL));
+		if (retval < 0) {
+			dev_err(&client->dev,
+				"mask data write failed sts:0x%x\n", retval);
+			return retval;
+		}
 	}
 
 	data->running = true;
@@ -242,11 +284,13 @@ static void __locked_evaluate_state(struct i2c_client *client)
 
 	if (data->running) {
 		if (cpus < data->pdata->min_cores_online ||
-		    !data->pdata->current_threshold)
+		    (!data->pdata->current_threshold &&
+		     !data->pdata->vbus_threshold))
 			__locked_power_down_ina230(client);
 	} else {
 		if (cpus >= data->pdata->min_cores_online &&
-		    data->pdata->current_threshold)
+		    (data->pdata->current_threshold ||
+		     data->pdata->vbus_threshold))
 			__locked_start_current_mon(client);
 	}
 }
@@ -297,7 +341,13 @@ static s32 set_current_threshold(struct device *dev,
 		goto out;
 	}
 
-	if (data->pdata->current_threshold) {
+	if (data->pdata->current_threshold || data->pdata->vbus_threshold) {
+		if (data->pdata->vbus_threshold) {
+			dev_info(dev, "%s force vbus %d to 0\n",
+				__func__, data->pdata->vbus_threshold);
+			data->pdata->vbus_threshold = 0;
+		}
+
 		if (data->running) {
 			/* force restart */
 			retval = __locked_start_current_mon(client);
@@ -316,8 +366,55 @@ out:
 	return retval;
 }
 
+int ina230_set_threshold(int mA, int vbus)
+{
+	int retval;
+	struct ina230_data *data;
 
+	if (!ina230_client || mA < 0 || vbus < 0 || (mA > 0 && vbus > 0)) {
+		pr_err("%s error data: mA %d vbus %d\n", __func__, mA, vbus);
+		return -EINVAL;
+	}
 
+	data = i2c_get_clientdata(ina230_client);
+
+	mutex_lock(&data->mutex);
+
+	if ((mA > 0 && mA == data->pdata->current_threshold) ||
+	    (vbus > 0 && vbus == data->pdata->vbus_threshold)) {
+		mutex_unlock(&data->mutex);
+		return 0;
+	}
+
+	if (mA > 0 && data->pdata->vbus_threshold > 0) {
+		dev_info(&ina230_client->dev, "mA %d %d, vbus %d %d\n",
+			 mA, data->pdata->current_threshold,
+			 vbus, data->pdata->vbus_threshold);
+		data->pdata->vbus_threshold = 0;
+	} else if (vbus > 0 && data->pdata->current_threshold > 0) {
+		dev_info(&ina230_client->dev, "mA %d %d, vbus %d %d\n",
+			 mA, data->pdata->current_threshold,
+			 vbus, data->pdata->vbus_threshold);
+		data->pdata->current_threshold = 0;
+	}
+
+	data->pdata->current_threshold = mA;
+	data->pdata->vbus_threshold = vbus;
+
+	if (data->pdata->current_threshold || data->pdata->vbus_threshold) {
+		if (data->running) {
+			/* force restart */
+			retval = __locked_start_current_mon(ina230_client);
+		} else {
+			__locked_evaluate_state(ina230_client);
+			retval = 0;
+		}
+	} else
+		retval = __locked_power_down_ina230(ina230_client);
+
+	mutex_unlock(&data->mutex);
+	return retval;
+}
 
 #if MEASURE_BUS_VOLT
 static s32 show_bus_voltage(struct device *dev,
@@ -606,6 +703,8 @@ static int __devinit ina230_probe(struct i2c_client *client,
 			err);
 		goto exit_remove;
 	}
+
+	ina230_client = client;
 
 	return 0;
 

@@ -1,7 +1,8 @@
 /*
  * arch/arm/mach-tegra/baseband-xmm-power.c
  *
- * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -23,6 +24,7 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
+#include <linux/kobject.h>
 #include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
@@ -77,8 +79,12 @@ static struct gpio tegra_baseband_gpios[] = {
 	{ -1, GPIOF_IN,            "IPC_AP_WAKE" },
 	{ -1, GPIOF_OUT_INIT_LOW,  "IPC_HSIC_ACTIVE" },
 	{ -1, GPIOF_IN,            "IPC_HSIC_SUS_REQ" },
+	{ -1, GPIOF_OUT_INIT_HIGH, "BP_POWER_ON"},
+	{ -1, GPIOF_OUT_INIT_LOW,  "USB_SWITCH"},
+	{ -1, GPIOF_IN,            "BB_CRASH" }
 };
 
+#define XMM_GPIO_PWR_OFF            TEGRA_GPIO_PY1
 static enum baseband_xmm_powerstate_t baseband_xmm_powerstate;
 static enum ipc_ap_wake_state_t ipc_ap_wake_state;
 static struct workqueue_struct *workqueue;
@@ -110,16 +116,16 @@ static struct delayed_work pm_qos_work;
 struct xmm_power_data xmm_power_drv_data;
 EXPORT_SYMBOL(xmm_power_drv_data);
 
+struct baseband_xmm_state xmm_mdm_pwr_state[] = {
+	{ MDM_PWROFF, {"XMM_MDM_STATE=PWROFF", NULL} },
+	{ MDM_PWRING, {"XMM_MDM_STATE=PWRING", NULL} },
+	{ MDM_ACTIVE, {"XMM_MDM_STATE=ACTIVE", NULL} },
+	{ MDM_CRASH, {"XMM_MDM_STATE=CRASH", NULL} },
+};
+
 static int tegra_baseband_rail_on(void)
 {
 	int ret;
-	struct board_info bi;
-	tegra_get_board_info(&bi);
-
-	/* only applicable to enterprise */
-	if (bi.board_id != BOARD_E1197)
-		return 0;
-
 	if (_hsic_reg_status == true)
 		return 0;
 
@@ -143,12 +149,6 @@ static int tegra_baseband_rail_on(void)
 static int tegra_baseband_rail_off(void)
 {
 	int ret;
-	struct board_info bi;
-	tegra_get_board_info(&bi);
-
-	/* only applicable to enterprise */
-	if (bi.board_id != BOARD_E1197)
-		return 0;
 
 	if (_hsic_reg_status == false)
 		return 0;
@@ -187,8 +187,9 @@ static int baseband_modem_power_on(struct baseband_power_platform_data *data)
 	mdelay(20);
 
 	/* reset / power on sequence */
-	mdelay(40);
 	gpio_set_value(data->modem.xmm.bb_rst, 1);
+	mdelay(40);
+	gpio_set_value(data->modem.xmm.bb_rst, 0);
 	mdelay(1);
 
 	gpio_set_value(data->modem.xmm.bb_on, 1);
@@ -210,7 +211,7 @@ static int baseband_modem_power_on_async(
 
 	/* reset / power on sequence */
 	msleep(40);
-	gpio_set_value(data->modem.xmm.bb_rst, 1);
+	gpio_set_value(data->modem.xmm.bb_rst, 0);
 	usleep_range(1000, 2000);
 
 	gpio_set_value(data->modem.xmm.bb_on, 1);
@@ -230,9 +231,9 @@ static int baseband_modem_power_on_async(
 static void xmm_power_reset_on(struct baseband_power_platform_data *pdata)
 {
 	/* reset / power on sequence */
-	gpio_set_value(pdata->modem.xmm.bb_rst, 0);
-	msleep(40);
 	gpio_set_value(pdata->modem.xmm.bb_rst, 1);
+	msleep(40);
+	gpio_set_value(pdata->modem.xmm.bb_rst, 0);
 	usleep_range(1000, 1100);
 	gpio_set_value(pdata->modem.xmm.bb_on, 1);
 	udelay(70);
@@ -246,6 +247,7 @@ static int xmm_power_on(struct platform_device *device)
 	struct xmm_power_data *data = &xmm_power_drv_data;
 	unsigned long flags;
 	int ret;
+	struct baseband_xmm_state *state;
 
 	pr_debug("%s {\n", __func__);
 
@@ -319,6 +321,14 @@ static int xmm_power_on(struct platform_device *device)
 		pr_err("%s: enable_irq_wake error\n", __func__);
 	pr_debug("%s }\n", __func__);
 
+	state = &xmm_mdm_pwr_state[MDM_PWRING];
+	if (state != data->xmm_state) {
+		data->xmm_state = state;
+		pr_info("notify:%s\n", kobject_name(&data->hsic_device->dev.kobj));
+		kobject_uevent_env(&data->hsic_device->dev.kobj,
+				KOBJ_CHANGE, state->mdm_state_env);
+	}
+
 	return 0;
 }
 
@@ -328,6 +338,7 @@ static int xmm_power_off(struct platform_device *device)
 	struct xmm_power_data *data = &xmm_power_drv_data;
 	int ret;
 	unsigned long flags;
+	struct baseband_xmm_state *state;
 
 	pr_debug("%s {\n", __func__);
 
@@ -345,6 +356,13 @@ static int xmm_power_off(struct platform_device *device)
 	if (!pdata) {
 		pr_err("%s: !pdata\n", __func__);
 		return -EINVAL;
+	}
+
+	state = &xmm_mdm_pwr_state[MDM_PWROFF];
+	if (state != data->xmm_state) {
+		data->xmm_state = state;
+		kobject_uevent_env(&data->hsic_device->dev.kobj,
+			KOBJ_CHANGE, state->mdm_state_env);
 	}
 
 	spin_lock_irqsave(&xmm_lock, flags);
@@ -368,7 +386,7 @@ static int xmm_power_off(struct platform_device *device)
 	msleep(20);
 
 	/* drive bb_rst low */
-	gpio_set_value(pdata->modem.xmm.bb_rst, 0);
+	gpio_set_value(pdata->modem.xmm.bb_rst, 1);
 	/* sleep 1ms */
 	usleep_range(1000, 2000);
 
@@ -445,6 +463,17 @@ static void pm_qos_worker(struct work_struct *work)
 
 static DEVICE_ATTR(xmm_onoff, S_IRUSR | S_IWUSR | S_IRGRP,
 		NULL, xmm_onoff);
+
+static ssize_t xmm_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	pr_debug("%s\n", __func__);
+
+	return sprintf(buf, "%d\n", xmm_power_drv_data.xmm_state->mdm_state);
+}
+
+static DEVICE_ATTR(xmm_state, S_IRUSR | S_IROTH | S_IRGRP,
+		   xmm_state_show, NULL);
 
 /* Do the work for AP/CP initiated L2->L0 */
 static void xmm_power_l2_resume(void)
@@ -656,6 +685,22 @@ irqreturn_t xmm_power_ipc_ap_wake_irq(int value)
 }
 EXPORT_SYMBOL(xmm_power_ipc_ap_wake_irq);
 
+static irqreturn_t mdm_crash_irq(int irq, void *dev_id)
+{
+	struct baseband_xmm_state * state;
+
+	pr_err("xmm mdm crash");
+	state = &xmm_mdm_pwr_state[MDM_CRASH];
+	if (state != xmm_power_drv_data.xmm_state) {
+		xmm_power_drv_data.xmm_state = state;
+		pr_info("notify:%s\n", kobject_name(&xmm_power_drv_data.hsic_device->dev.kobj));
+		kobject_uevent_env(&xmm_power_drv_data.hsic_device->dev.kobj,
+				KOBJ_CHANGE, state->mdm_state_env);
+	}
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t ipc_ap_wake_irq(int irq, void *dev_id)
 {
 	struct baseband_power_platform_data *data = xmm_power_drv_data.pdata;
@@ -815,6 +860,7 @@ static void xmm_device_add_handler(struct usb_device *udev)
 {
 	struct usb_interface *intf = usb_ifnum_to_if(udev, 0);
 	const struct usb_device_id *id;
+	struct baseband_xmm_state *state;
 
 	if (intf == NULL)
 		return;
@@ -828,6 +874,14 @@ static void xmm_device_add_handler(struct usb_device *udev)
 		usbdev = udev;
 		usb_enable_autosuspend(udev);
 		pr_info("enable autosuspend\n");
+
+		state = &xmm_mdm_pwr_state[MDM_ACTIVE];
+		if (state != xmm_power_drv_data.xmm_state) {
+			xmm_power_drv_data.xmm_state = state;
+			kobject_uevent_env(&xmm_power_drv_data.hsic_device->dev.
+					kobj, KOBJ_CHANGE,
+					state->mdm_state_env);
+		}
 	}
 }
 
@@ -941,6 +995,7 @@ static int xmm_power_driver_probe(struct platform_device *device)
 	/* init wait queue */
 	xmm_power_drv_data.hostwake = 1;
 	init_waitqueue_head(&xmm_power_drv_data.bb_wait);
+	xmm_power_drv_data.xmm_state = &xmm_mdm_pwr_state[MDM_PWROFF];
 
 	/* create device file */
 	err = device_create_file(dev, &dev_attr_xmm_onoff);
@@ -949,11 +1004,28 @@ static int xmm_power_driver_probe(struct platform_device *device)
 		return -ENODEV;
 	}
 
+	err = device_create_file(dev, &dev_attr_xmm_state);
+	if (err < 0) {
+		pr_err("%s - device_create_file failed, xmm_state\n", __func__);
+		return -ENODEV;
+	}
+
 	/* init wake lock */
 	wake_lock_init(&wakelock, WAKE_LOCK_SUSPEND, "baseband_xmm_power");
 
 	/* init spin lock */
 	spin_lock_init(&xmm_lock);
+
+	err = gpio_request(XMM_GPIO_PWR_OFF, "BB_PWR_OFF");
+	if (err < 0)
+		pr_err("%s request gpio failed\n", __func__);
+	else {
+		gpio_direction_output(XMM_GPIO_PWR_OFF, 0);
+		udelay(100);
+		gpio_set_value(XMM_GPIO_PWR_OFF, 1);
+	}
+	gpio_export(XMM_GPIO_PWR_OFF, false);
+
 	/* request baseband gpio(s) */
 	tegra_baseband_gpios[0].gpio = pdata->modem.xmm.bb_rst;
 	tegra_baseband_gpios[1].gpio = pdata->modem.xmm.bb_on;
@@ -961,12 +1033,25 @@ static int xmm_power_driver_probe(struct platform_device *device)
 	tegra_baseband_gpios[3].gpio = pdata->modem.xmm.ipc_ap_wake;
 	tegra_baseband_gpios[4].gpio = pdata->modem.xmm.ipc_hsic_active;
 	tegra_baseband_gpios[5].gpio = pdata->modem.xmm.ipc_hsic_sus_req;
+	tegra_baseband_gpios[6].gpio = TEGRA_GPIO_PB1;
+	tegra_baseband_gpios[7].gpio = TEGRA_GPIO_PR3;
+	tegra_baseband_gpios[8].gpio = TEGRA_GPIO_PR4;
+
 	err = gpio_request_array(tegra_baseband_gpios,
 				ARRAY_SIZE(tegra_baseband_gpios));
 	if (err < 0) {
 		pr_err("%s - request gpio(s) failed\n", __func__);
 		return -ENODEV;
 	}
+	gpio_export(tegra_baseband_gpios[0].gpio, false);
+	gpio_export(tegra_baseband_gpios[1].gpio, false);
+	gpio_export(tegra_baseband_gpios[2].gpio, false);
+	gpio_export(tegra_baseband_gpios[3].gpio, false);
+	gpio_export(tegra_baseband_gpios[4].gpio, false);
+	gpio_export(tegra_baseband_gpios[5].gpio, false);
+	gpio_export(tegra_baseband_gpios[6].gpio, false);
+	gpio_export(tegra_baseband_gpios[7].gpio, false);
+	gpio_export(tegra_baseband_gpios[8].gpio, false);
 
 	/* request baseband irq(s) */
 	if (modem_flash && modem_pm) {
@@ -990,6 +1075,17 @@ static int xmm_power_driver_probe(struct platform_device *device)
 		pr_debug("%s: set state IPC_AP_WAKE_IRQ_READY\n", __func__);
 		/* ver 1130 or later start in IRQ_READY state */
 		ipc_ap_wake_state = IPC_AP_WAKE_IRQ_READY;
+	}
+
+	err = request_threaded_irq(gpio_to_irq(tegra_baseband_gpios[8].gpio),
+			NULL, mdm_crash_irq,
+			IRQF_TRIGGER_RISING, "MDM_CRASH_IRQ", NULL);
+	if (err < 0)
+		pr_err("%s - request irq MDM_CRASH_IRQ failed\n", __func__);
+	else {
+		err = enable_irq_wake(gpio_to_irq(tegra_baseband_gpios[8].gpio));
+		if (err < 0)
+			pr_err("%s: MDM_CRASH_IRQ enable_irq_wake error\n", __func__);
 	}
 
 	/* init work queue */
@@ -1134,7 +1230,7 @@ static void xmm_power_driver_shutdown(struct platform_device *device)
 	disable_irq(gpio_to_irq(pdata->modem.xmm.ipc_ap_wake));
 	/* bb_on is already down, to make sure set 0 again */
 	gpio_set_value(pdata->modem.xmm.bb_on, 0);
-	gpio_set_value(pdata->modem.xmm.bb_rst, 0);
+	gpio_set_value(pdata->modem.xmm.bb_rst, 1);
 	return;
 }
 

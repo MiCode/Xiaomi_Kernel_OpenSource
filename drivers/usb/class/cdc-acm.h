@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2013 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Includes for cdc-acm.c
  *
@@ -77,6 +79,9 @@ struct acm_rb {
 	dma_addr_t		dma;
 	int			index;
 	struct acm		*instance;
+	unsigned char		*data;
+	int			alen;
+	struct list_head	rb_node;
 };
 
 struct acm {
@@ -94,6 +99,7 @@ struct acm {
 	unsigned long read_urbs_free;
 	struct urb *read_urbs[ACM_NR];
 	struct acm_rb read_buffers[ACM_NR];
+	struct list_head rb_head;
 	int rx_buflimit;
 	int rx_endpoint;
 	spinlock_t read_lock;
@@ -114,6 +120,7 @@ struct acm {
 	unsigned int susp_count;			/* number of suspended interfaces */
 	unsigned int combined_interfaces:1;		/* control and data collapsed */
 	unsigned int is_int_ep:1;			/* interrupt endpoints contrary to spec used */
+	unsigned int int_throttled:1;			/* internal throttled */
 	unsigned int throttled:1;			/* actually throttled */
 	unsigned int throttle_req:1;			/* throttle requested */
 	unsigned int no_hangup_in_reset_resume:1;	/* do not call tty_hangup in acm_reset_resume */

@@ -329,6 +329,23 @@ obj-${CONFIG_MACH_TEGRA_PLUTO}          += panel-l-720p-5.o
 obj-${CONFIG_MACH_TEGRA_PLUTO}          += panel-j-720p-4-7.o
 obj-${CONFIG_MACH_TEGRA_PLUTO}          += panel-s-1080p-5.o
 
+obj-${CONFIG_MACH_PISCES}          += board-pisces.o
+obj-${CONFIG_MACH_PISCES}          += board-pisces-memory.o
+obj-${CONFIG_MACH_PISCES}          += board-pisces-pinmux.o
+obj-${CONFIG_MACH_PISCES}          += board-pisces-power.o
+obj-${CONFIG_MACH_PISCES}          += board-pisces-sdhci.o
+obj-${CONFIG_MACH_PISCES}          += board-pisces-panel.o
+obj-${CONFIG_MACH_PISCES}          += board-pisces-kbc.o
+obj-${CONFIG_MACH_PISCES}          += board-pisces-sensors.o
+obj-${CONFIG_MACH_PISCES}          += board-pisces-powermon.o
+obj-${CONFIG_MACH_PISCES}          += panel-l-720p-5.o
+obj-${CONFIG_MACH_PISCES}          += panel-j-720p-4-7.o
+obj-${CONFIG_MACH_PISCES}          += panel-s-1080p-5.o
+obj-${CONFIG_MACH_PISCES}          += panel-j-1080p-5.o
+obj-${CONFIG_MACH_PISCES}          += panel-s-1080p-5-mi3.o
+obj-${CONFIG_MACH_PISCES}          += panel-l-1080p-5-mi3.o
+obj-${CONFIG_MACH_PISCES}          += battery-ini-model-data.o
+
 obj-${CONFIG_TEGRA_BB_XMM_POWER}        += baseband-xmm-power.o
 obj-${CONFIG_TEGRA_BB_XMM_POWER2}       += baseband-xmm-power2.o
 

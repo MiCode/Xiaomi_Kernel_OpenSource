@@ -192,6 +192,16 @@ static int __init log_buf_len_setup(char *str)
 }
 early_param("log_buf_len", log_buf_len_setup);
 
+#ifdef CONFIG_LAST_PRINTK
+unsigned int last_log_len = __LOG_BUF_LEN;
+
+void switch_log_buf(char* to, char* to_va)
+{
+	memcpy(to_va, log_buf, log_end);
+	log_buf = to;
+	log_buf_len = last_log_len;
+}
+#endif
 void __init setup_log_buf(int early)
 {
 	unsigned long flags;
@@ -1172,7 +1182,7 @@ int update_console_cmdline(char *name, int idx, char *name_new, int idx_new, cha
 	return -1;
 }
 
-bool console_suspend_enabled = 1;
+bool console_suspend_enabled = 0;
 EXPORT_SYMBOL(console_suspend_enabled);
 
 static int __init console_suspend_disable(char *str)

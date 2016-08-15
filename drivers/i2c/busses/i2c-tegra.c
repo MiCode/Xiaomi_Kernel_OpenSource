@@ -5,6 +5,7 @@
  * Author: Colin Cross <ccross@android.com>
  *
  * Copyright (C) 2010-2013 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -165,6 +166,9 @@ struct tegra_i2c_bus {
 	struct i2c_adapter adapter;
 	int scl_gpio;
 	int sda_gpio;
+#ifdef CONFIG_TEGRA_I2C_RECOVERY
+	struct device *next_dev;
+#endif
 };
 
 /**
@@ -435,6 +439,25 @@ static int tegra_i2c_fill_tx_fifo(struct tegra_i2c_dev *i2c_dev)
 	return 0;
 }
 
+#ifdef CONFIG_TEGRA_I2C_RECOVERY
+static int tegra_i2c_device_reset_fn(struct device *dev, void *data)
+{
+	struct tegra_i2c_bus *i2c_bus = (struct tegra_i2c_bus *)data;
+	struct i2c_client *client = i2c_verify_client(dev);
+	struct i2c_driver *driver;
+	if (!client || !dev->driver || client->adapter != &(i2c_bus->adapter))
+		return 0;
+	dev_info(dev, "%s: reset i2c client 0x%x\n", __func__, client->addr);
+	i2c_bus->next_dev = dev;
+	driver = to_i2c_driver(dev->driver);
+	if (driver->reset) {
+		driver->reset(client);
+		msleep(200);
+	}
+	return 1;
+}
+#endif
+
 /*
  * One of the Tegra I2C blocks is inside the DVC (Digital Voltage Controller)
  * block.  This block is identical to the rest of the I2C blocks, except that
@@ -615,8 +638,9 @@ static irqreturn_t tegra_i2c_isr(int irq, void *dev_id)
 
 		if (status & I2C_INT_ARBITRATION_LOST) {
 			i2c_dev->msg_err |= I2C_ERR_ARBITRATION_LOST;
-			dev_warn(i2c_dev->dev, "arbitration lost during "
-				" communicate to add 0x%x\n", i2c_dev->msg_add);
+			if (printk_ratelimit())
+				dev_warn(i2c_dev->dev, "arbitration lost during "
+					" communicate to add 0x%x\n", i2c_dev->msg_add);
 			dev_dbg(i2c_dev->dev, "Packet status 0x%08x\n",
 				i2c_readl(i2c_dev, I2C_PACKET_TRANSFER_STATUS));
 		}
@@ -930,7 +954,8 @@ static int tegra_i2c_xfer_msg(struct tegra_i2c_bus *i2c_bus,
 
 	/* Arbitration Lost occurs, Start recovery */
 	if (i2c_dev->msg_err == I2C_ERR_ARBITRATION_LOST) {
-		if (i2c_dev->chipdata->has_hw_arb_support) {
+		static int arb_retry = 0;
+		if (i2c_dev->chipdata->has_hw_arb_support && (arb_retry < 5)) {
 			INIT_COMPLETION(i2c_dev->msg_complete);
 			i2c_writel(i2c_dev, I2C_BC_ENABLE
 					| I2C_BC_SCLK_THRESHOLD
@@ -942,14 +967,25 @@ static int tegra_i2c_xfer_msg(struct tegra_i2c_bus *i2c_bus,
 			wait_for_completion_timeout(&i2c_dev->msg_complete,
 				TEGRA_I2C_TIMEOUT);
 
-			if (!(i2c_readl(i2c_dev, I2C_BUS_CLEAR_STATUS) & I2C_BC_STATUS))
+			if (!(i2c_readl(i2c_dev, I2C_BUS_CLEAR_STATUS) & I2C_BC_STATUS)) {
 				dev_warn(i2c_dev->dev, "Un-recovered Arbitration lost\n");
-			else
+#ifdef CONFIG_TEGRA_I2C_RECOVERY
+				if (bus_for_each_dev
+				    (&i2c_bus_type, i2c_bus->next_dev, i2c_bus,
+				     tegra_i2c_device_reset_fn) == 0)
+					i2c_bus->next_dev = NULL;
+#endif
+				arb_retry++;
+			} else {
 				dev_warn(i2c_dev->dev, "Recovered Arbitration lost\n");
+				arb_retry = 0;
+			}
 
-		} else if (i2c_dev->arb_recovery)
+		} else if (i2c_dev->arb_recovery) {
 			i2c_dev->arb_recovery(i2c_bus->scl_gpio,
 							i2c_bus->sda_gpio);
+			arb_retry = 0;
+		}
 		return -EAGAIN;
 	}
 

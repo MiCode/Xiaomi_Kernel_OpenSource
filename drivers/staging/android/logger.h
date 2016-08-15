@@ -1,6 +1,7 @@
 /* include/linux/logger.h
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Robert Love <rlove@android.com>
  *
  * This software is licensed under the terms of the GNU General Public

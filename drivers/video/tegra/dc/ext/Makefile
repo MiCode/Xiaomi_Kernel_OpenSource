@@ -5,3 +5,4 @@ obj-y += util.o
 obj-y += cursor.o
 obj-y += events.o
 obj-y += control.o
+obj-$(CONFIG_TEGRA_HDMI_MHL)     += mhl/

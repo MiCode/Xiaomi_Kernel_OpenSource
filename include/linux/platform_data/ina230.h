@@ -2,6 +2,7 @@
  * include/linux/platform_data/ina230.h
  *
  * Copyright (c) 2009-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +29,7 @@
 struct ina230_platform_data {
 	const char rail_name[INA3221_RAIL_NAME_SIZE];
 	s32 current_threshold;
+	s32 vbus_threshold;
 	s32 resistor;
 	s32 min_cores_online;
 	u32 calibration_data;

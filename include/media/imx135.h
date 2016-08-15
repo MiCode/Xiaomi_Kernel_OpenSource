@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2012-2013, NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software and related documentation
@@ -12,6 +13,7 @@
 #define __IMX135_H__
 
 #include <linux/ioctl.h>  /* For IOCTL macros */
+#include <linux/edp.h>
 #include <media/nvc.h>
 #include <media/nvc_image.h>
 
@@ -23,6 +25,8 @@
 #define IMX135_IOCTL_GET_FUSEID		_IOR('o', 6, struct nvc_fuseid)
 #define IMX135_IOCTL_SET_GROUP_HOLD	_IOW('o', 7, struct imx135_ae)
 #define IMX135_IOCTL_SET_HDR_COARSE_TIME	_IOW('o', 8, struct imx135_hdr)
+#define IMX135_IOCTL_GET_OTPDATA     _IOR('o', 9, struct imx135_otp)
+#define IMX135_IOCTL_GET_OTPVEND     _IOR('o', 10, struct imx135_otp)
 #define IMX135_IOCTL_SET_POWER		_IOW('o', 20, __u32)
 #define IMX135_IOCTL_GET_FLASH_CAP	_IOR('o', 30, __u32)
 #define IMX135_IOCTL_SET_FLASH_MODE	_IOW('o', 31, \
@@ -36,6 +40,7 @@ struct imx135_mode {
 	__u32 coarse_time_short;
 	__u16 gain;
 	__u8 hdr_en;
+	__u8 nsl_en;
 };
 
 struct imx135_hdr {
@@ -51,6 +56,11 @@ struct imx135_ae {
 	__u8  coarse_time_enable;
 	__s32 gain;
 	__u8  gain_enable;
+};
+
+struct imx135_otp {
+	__u32 otp_size;
+	__u8 otp_data[803];
 };
 
 struct imx135_flash_control {
@@ -69,6 +79,7 @@ struct imx135_power_rail {
 };
 
 struct imx135_platform_data {
+	struct edp_client edpc_config;
 	struct imx135_flash_control flash_cap;
 	int (*power_on)(struct imx135_power_rail *pw);
 	int (*power_off)(struct imx135_power_rail *pw);

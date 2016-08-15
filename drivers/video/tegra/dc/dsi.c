@@ -2,6 +2,7 @@
  * drivers/video/tegra/dc/dsi.c
  *
  * Copyright (c) 2011-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -380,6 +381,8 @@ static int dbg_dsi_show(struct seq_file *s, void *unused)
 	DUMP_REG(DSI_PAD_CONTROL_CD);
 	DUMP_REG(DSI_PAD_CD_STATUS);
 	DUMP_REG(DSI_VID_MODE_CONTROL);
+	DUMP_REG(DSI_PAD_CONTROL_3_VS1);
+	DUMP_REG(DSI_PAD_CONTROL_4_VS1);
 #undef DUMP_REG
 
 	clk_disable_unprepare(dsi->dsi_clk);
@@ -2027,8 +2030,8 @@ static void tegra_dsi_mipi_calibration_11x(struct tegra_dc_dsi_data *dsi)
 			MIPI_CAL_DSIA_MIPI_CAL_CONFIG_0);
 		val = MIPI_CAL_OVERIDEDSIA(0x0) |
 			MIPI_CAL_SELDSIA(0x1) |
-			MIPI_CAL_HSPDOSDSIA(0x0) |
-			MIPI_CAL_HSPUOSDSIA(0x4) |
+			MIPI_CAL_HSPDOSDSIA(0x3) |
+			MIPI_CAL_HSPUOSDSIA(0x3) |
 			MIPI_CAL_TERMOSDSIA(0x5);
 		tegra_mipi_cal_write(dsi->mipi_cal, val,
 			MIPI_CAL_DSIA_MIPI_CAL_CONFIG_0);
@@ -2214,6 +2217,7 @@ static int tegra_dsi_init_hw(struct tegra_dc *dc,
 		for (i = 0; i < ARRAY_SIZE(init_reg_vs1_ext); i++)
 			tegra_dsi_writel(dsi, 0, init_reg_vs1_ext[i]);
 	}
+	tegra_dsi_writel(dsi, 0x33, init_reg_vs1_ext[5]);
 
 	tegra_dsi_pad_calibration(dsi);
 
@@ -2757,7 +2761,7 @@ static int tegra_dsi_send_panel_cmd(struct tegra_dc *dc,
 			gpio_set_value(cur_cmd->sp_len_dly.gpio,
 				       cur_cmd->data_id);
 		} else if (cur_cmd->cmd_type == TEGRA_DSI_DELAY_MS) {
-			mdelay(cur_cmd->sp_len_dly.delay_ms);
+			msleep(cur_cmd->sp_len_dly.delay_ms);
 		} else if (cur_cmd->cmd_type == TEGRA_DSI_SEND_FRAME) {
 				tegra_dsi_send_dc_frames(dc,
 						dsi,
@@ -2952,6 +2956,129 @@ void tegra_dsi_stop_host_cmd_v_blank_dcs(struct tegra_dc_dsi_data * dsi)
 }
 EXPORT_SYMBOL(tegra_dsi_stop_host_cmd_v_blank_dcs);
 
+int tegra_dsi_read_data(struct tegra_dc *dc,
+		struct tegra_dc_dsi_data *dsi,
+		u32 max_ret_payload_size, u32 read_type,
+		u32 panel_reg_addr, u8 *read_data);
+
+u16 tegra_dsi_read_manufacture_id(void)
+{
+	struct tegra_dc *dc;
+	struct tegra_dc_dsi_data *dsi;
+	u8 panel_data[32] = {0};
+	u16 result = 0;
+
+	dc = tegra_dc_get_dc(0);
+	dsi = tegra_dc_get_outdata(dc);
+	tegra_dsi_read_data(dc, dsi, 6, 0x06, 0xA1, panel_data);
+
+	result = panel_data[8];
+	if (result == 0x05)
+		result = (result << 8) | panel_data[9];
+
+	pr_info("panel[4~11]: 0x%x 0x%x 0x%x 0x%x, 0x%x 0x%x 0x%x 0x%x - result: 0x%x\n",
+		panel_data[4], panel_data[5], panel_data[6], panel_data[7],
+		panel_data[8], panel_data[9], panel_data[10], panel_data[11], result
+	);
+
+	return result;
+}
+
+EXPORT_SYMBOL(tegra_dsi_read_manufacture_id);
+
+void tegra_dsi_set_dispparam(struct tegra_dsi_cmd *cmds, int cmds_cnt)
+{
+	int i = 0;
+	struct tegra_dc *dc;
+	struct tegra_dc_dsi_data *dsi;
+	struct tegra_dsi_cmd *cur_cmd;
+	struct dsi_status *init_status;
+	int err = 0;
+	dc = tegra_dc_get_dc(0);
+	dsi = tegra_dc_get_outdata(dc);
+
+	if (cmds_cnt < 1)
+		return;
+
+	if (!dsi->enabled)
+		return;
+
+	mutex_lock(&dsi->host_lock);
+	tegra_dc_io_start(dc);
+	clk_prepare_enable(dsi->dsi_fixed_clk);
+
+	init_status = tegra_dsi_prepare_host_transmission(
+			dc, dsi, DSI_LP_OP_WRITE);
+	if (IS_ERR_OR_NULL(init_status)) {
+		err = PTR_ERR(init_status);
+		dev_err(&dc->ndev->dev, "DSI host config failed\n");
+		goto fail;
+	}
+
+	for (i = 0; i < cmds_cnt; i++) {
+		cur_cmd = &cmds[i];
+		err = tegra_dsi_write_data_nosync(dc, dsi,
+						cur_cmd->pdata,
+						cur_cmd->data_id,
+						cur_cmd->sp_len_dly.data_len);
+		mdelay(1);
+		if (err < 0)
+			break;
+	}
+
+fail:
+	err = tegra_dsi_restore_state(dc, dsi, init_status);
+	if (err < 0)
+		dev_err(&dc->ndev->dev, "Failed to restore prev state\n");
+	clk_disable_unprepare(dsi->dsi_fixed_clk);
+	tegra_dc_io_end(dc);
+	mutex_unlock(&dsi->host_lock);
+
+	pr_info("panel: %s  returned +++ !\n", __func__);
+	return ;
+}
+
+EXPORT_SYMBOL(tegra_dsi_set_dispparam);
+
+void tegra_dsi_send_cmds_hs(struct tegra_dsi_cmd *cmds, int cmds_cnt)
+{
+	int i = 0;
+	struct tegra_dc *dc;
+	struct tegra_dc_dsi_data *dsi;
+	unsigned long val = 0;
+	dc = tegra_dc_get_dc(0);
+	dsi = tegra_dc_get_outdata(dc);
+
+	if (cmds_cnt < 1)
+		return;
+
+	if (!dsi->enabled)
+		return;
+
+	mutex_lock(&dsi->host_lock);
+	tegra_dc_io_start(dc);
+	val = tegra_dsi_readl(dsi, DSI_HOST_DSI_CONTROL);
+	val |= 0x2000;
+	tegra_dsi_writel(dsi, val, DSI_HOST_DSI_CONTROL);
+	msleep(20);
+	tegra_dc_io_end(dc);
+
+	for (i = 0; i < cmds_cnt; i++)
+		tegra_dsi_start_host_cmd_v_blank_dcs(dsi, &cmds[i]);
+
+	tegra_dc_io_start(dc);
+	tegra_dsi_writel(dsi, 0x2, DSI_TRIGGER);
+	msleep(20);
+	tegra_dc_io_end(dc);
+
+	mutex_unlock(&dsi->host_lock);
+
+	pr_info("panel: %s  returned +++ !\n", __func__);
+	return ;
+}
+
+EXPORT_SYMBOL(tegra_dsi_send_cmds_hs);
+
 static int tegra_dsi_bta(struct tegra_dc_dsi_data *dsi)
 {
 	u32 val;
@@ -3101,7 +3228,7 @@ fail:
 
 int tegra_dsi_read_data(struct tegra_dc *dc,
 				struct tegra_dc_dsi_data *dsi,
-				u32 max_ret_payload_size,
+				u32 max_ret_payload_size, u32 read_type,
 				u32 panel_reg_addr, u8 *read_data)
 {
 	int err = 0;
@@ -3136,7 +3263,7 @@ int tegra_dsi_read_data(struct tegra_dc *dc,
 
 	/* DCS to read given panel register */
 	err = _tegra_dsi_write_data(dsi, NULL,
-		dsi_command_dcs_read_with_no_params,
+		read_type,
 		panel_reg_addr);
 	if (err < 0) {
 		dev_err(&dc->ndev->dev,
@@ -3400,6 +3527,11 @@ static void tegra_dsi_setup_initialized_panel(struct tegra_dc_dsi_data *dsi)
 	dsi->enabled = true;
 }
 
+extern struct tegra_dsi_cmd *p_dsi_gamma_cmds_mi3;
+extern u32 gamma_cmds_cnt_mi3;
+extern struct tegra_dsi_cmd *p_dsi_ce_cmds_mi3;
+extern u32 ce_cmds_cnt_mi3;
+
 static void _tegra_dc_dsi_enable(struct tegra_dc *dc)
 {
 	struct tegra_dc_dsi_data *dsi = tegra_dc_get_outdata(dc);
@@ -3439,6 +3571,23 @@ static void _tegra_dc_dsi_enable(struct tegra_dc *dc)
 			 */
 			if (dsi->info.panel_send_dc_frames)
 				tegra_dsi_send_dc_frames(dc, dsi, 2);
+
+			if ((p_dsi_gamma_cmds_mi3 != NULL) && (gamma_cmds_cnt_mi3 != 0)) {
+				err = tegra_dsi_send_panel_cmd(dc, dsi, p_dsi_gamma_cmds_mi3, gamma_cmds_cnt_mi3);
+				if (err < 0) {
+					dev_err(&dc->ndev->dev, "dsi: error sending gamma cmd when dsi is enabled\n");
+					goto fail;
+				}
+				pr_info("panel: sending gamma cmd in %s() \n", __func__);
+			}
+			if ((p_dsi_ce_cmds_mi3 != NULL) && (ce_cmds_cnt_mi3 != 0)) {
+				err = tegra_dsi_send_panel_cmd(dc, dsi, p_dsi_ce_cmds_mi3, ce_cmds_cnt_mi3);
+				if (err < 0) {
+					dev_err(&dc->ndev->dev, "dsi: error sending ce cmd when dsi is enabled\n");
+					goto fail;
+				}
+				pr_info("panel: sending ce cmd in %s() \n", __func__);
+			}
 
 			err = tegra_dsi_send_panel_cmd(dc, dsi,
 							dsi->info.dsi_init_cmd,
@@ -3494,6 +3643,23 @@ static void _tegra_dc_dsi_enable(struct tegra_dc *dc)
 			dev_err(&dc->ndev->dev,
 				"dsi: not able to set to lp mode\n");
 			goto fail;
+		}
+
+		if ((p_dsi_gamma_cmds_mi3 != NULL) && (gamma_cmds_cnt_mi3 != 0)) {
+			err = tegra_dsi_send_panel_cmd(dc, dsi, p_dsi_gamma_cmds_mi3, gamma_cmds_cnt_mi3);
+			if (err < 0) {
+				dev_err(&dc->ndev->dev, "dsi: error sending gamma cmd when dsi is disabled\n");
+				goto fail;
+			}
+			pr_info("panel: sending gamma cmd in %s() \n", __func__);
+		}
+		if ((p_dsi_ce_cmds_mi3 != NULL) && (ce_cmds_cnt_mi3 != 0)) {
+			err = tegra_dsi_send_panel_cmd(dc, dsi, p_dsi_ce_cmds_mi3, ce_cmds_cnt_mi3);
+			if (err < 0) {
+				dev_err(&dc->ndev->dev, "dsi: error sending ce cmd when dsi is disabled\n");
+				goto fail;
+			}
+			pr_info("panel: sending ce cmd in %s() \n", __func__);
 		}
 
 		err = tegra_dsi_send_panel_cmd(dc, dsi, dsi->info.dsi_init_cmd,
@@ -4025,6 +4191,15 @@ static int tegra_dsi_host_suspend(struct tegra_dc *dc)
 	return err;
 }
 
+static void tegra_dsi_bl_off(struct backlight_device *bd)
+{
+	if (!bd)
+		return;
+
+	bd->props.brightness = 0;
+	backlight_update_status(bd);
+}
+
 static int tegra_dsi_deep_sleep(struct tegra_dc *dc,
 				struct tegra_dc_dsi_data *dsi)
 {
@@ -4034,6 +4209,7 @@ static int tegra_dsi_deep_sleep(struct tegra_dc *dc,
 	if (!dsi->enabled)
 		return 0;
 
+	tegra_dsi_bl_off(get_backlight_device_by_name(dsi->info.bl_name));
 	err = tegra_dsi_set_to_lp_mode(dc, dsi, DSI_LP_OP_WRITE);
 	if (err < 0) {
 		dev_err(&dc->ndev->dev,
@@ -4080,8 +4256,6 @@ static int tegra_dsi_deep_sleep(struct tegra_dc *dc,
 	/* Disable dsi source clock */
 	tegra_dsi_clk_disable(dsi);
 
-	regulator_disable(dsi->avdd_dsi_csi);
-
 	dsi->enabled = false;
 	dsi->host_suspended = true;
 	atomic_set(&display_ready, 0);
@@ -4089,6 +4263,14 @@ static int tegra_dsi_deep_sleep(struct tegra_dc *dc,
 	return 0;
 fail:
 	return err;
+}
+
+static void tegra_dc_dsi_postpoweroff(struct tegra_dc *dc)
+{
+	struct tegra_dc_dsi_data *dsi = tegra_dc_get_outdata(dc);
+
+	if (!dsi->enabled)
+		regulator_disable(dsi->avdd_dsi_csi);
 }
 
 static int tegra_dsi_host_resume(struct tegra_dc *dc)
@@ -4390,6 +4572,7 @@ struct tegra_dc_out_ops tegra_dc_dsi_ops = {
 	.destroy = tegra_dc_dsi_destroy,
 	.enable = tegra_dc_dsi_enable,
 	.disable = tegra_dc_dsi_disable,
+	.postpoweroff = tegra_dc_dsi_postpoweroff,
 	.hold = tegra_dc_dsi_hold_host,
 	.release = tegra_dc_dsi_release_host,
 #ifdef CONFIG_PM

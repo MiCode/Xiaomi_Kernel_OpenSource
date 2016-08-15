@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Broadcom Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +39,12 @@
 #include <linux/version.h>
 #include <linux/nfc/bcm2079x.h>
 
+#define USE_WAKE_LOCK
+
+#ifdef USE_WAKE_LOCK
+#include <linux/wakelock.h>
+#endif
+
 #define TRUE		1
 #define FALSE		0
 #define STATE_HIGH	1
@@ -70,7 +77,10 @@ struct bcm2079x_dev {
 	unsigned int count_read;
 	unsigned int count_irq;
 	int original_address;
-	bool shutdown_complete;
+#ifdef USE_WAKE_LOCK
+	struct wake_lock wake_lock;
+#endif
+
 };
 
 static void bcm2079x_init_stat(struct bcm2079x_dev *bcm2079x_dev)
@@ -88,6 +98,7 @@ static void bcm2079x_disable_irq(struct bcm2079x_dev *bcm2079x_dev)
 	if (bcm2079x_dev->irq_enabled) {
 		disable_irq_nosync(bcm2079x_dev->client->irq);
 		bcm2079x_dev->irq_enabled = false;
+		dev_info(&bcm2079x_dev->client->dev, "disable irq\n");
 	}
 	spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
 }
@@ -99,6 +110,7 @@ static void bcm2079x_enable_irq(struct bcm2079x_dev *bcm2079x_dev)
 	if (!bcm2079x_dev->irq_enabled) {
 		bcm2079x_dev->irq_enabled = true;
 		enable_irq(bcm2079x_dev->client->irq);
+		dev_info(&bcm2079x_dev->client->dev, "enable irq\n");
 	}
 	spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
 }
@@ -115,20 +127,6 @@ static void bcm2079x_enable_irq(struct bcm2079x_dev *bcm2079x_dev)
  */
 #define ALIAS_ADDRESS	  0x79
 
-static void set_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
-{
-	struct i2c_client *client = bcm2079x_dev->client;
-	client->addr = addr;
-	if (addr > 0x7F)
-		client->flags |= I2C_CLIENT_TEN;
-    else
-		client->flags &= ~I2C_CLIENT_TEN;
-
-	dev_info(&client->dev,
-		"set_client_addr changed to (0x%04X) flag = %04x\n",
-		client->addr, client->flags);
-}
-
 static void change_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 {
 	struct i2c_client *client;
@@ -136,7 +134,7 @@ static void change_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 	int i;
 	int offset = 1;
 	char addr_data[] = {
-        0xEE, 0xF2, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x00
+		0xFA, 0xF2, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x2A
 	};
 
 	client = bcm2079x_dev->client;
@@ -152,24 +150,24 @@ static void change_client_addr(struct bcm2079x_dev *bcm2079x_dev, int addr)
 		ret += addr_data[i];
 	addr_data[sizeof(addr_data) - 1] = (ret & 0xFF);
 	dev_info(&client->dev,
-		 "change_client_addr from (0x%04X) flag = "\
+		 "Change client device from (0x%04X) flag = "\
 		 "%04x, addr_data[%d] = %02x\n",
 		 client->addr, client->flags, sizeof(addr_data) - 1,
 		 addr_data[sizeof(addr_data) - 1]);
-
-	mutex_lock(&bcm2079x_dev->read_mutex);
-	if (bcm2079x_dev && (bcm2079x_dev->shutdown_complete == true)) {
-		dev_info(&client->dev, "%s: discarding as \
-		NFC in shutdown state\n", __func__);
-		mutex_unlock(&bcm2079x_dev->read_mutex);
+	ret = i2c_master_send(client, addr_data+offset, sizeof(addr_data)-offset);
+	if (ret != sizeof(addr_data)-offset) {
+		client->addr = ALIAS_ADDRESS;
+		client->flags &= ~I2C_CLIENT_TEN;
+		dev_info(&client->dev,
+			 "Change client device from (0x%04X) flag = "\
+			"%04x, addr_data[%d] = %02x\n",
+			client->addr, client->flags, sizeof(addr_data) - 1,
+			addr_data[sizeof(addr_data) - 1]);
+			ret = i2c_master_send(client, addr_data, sizeof(addr_data));
 	}
-	ret = i2c_master_send(client, addr_data+offset,
-		sizeof(addr_data)-offset);
-	mutex_unlock(&bcm2079x_dev->read_mutex);
-
 	client->addr = addr_data[5];
 	dev_info(&client->dev,
-		 "change_client_addr to (0x%04X) flag = %04x, ret = %d\n",
+		 "Change client device changed to (0x%04X) flag = %04x, ret = %d\n",
 		 client->addr, client->flags, ret);
 }
 
@@ -177,6 +175,16 @@ static irqreturn_t bcm2079x_dev_irq_handler(int irq, void *dev_id)
 {
 	struct bcm2079x_dev *bcm2079x_dev = dev_id;
 	unsigned long flags;
+
+#ifdef USE_WAKE_LOCK
+	int wakelockcnt = 0;
+	if (!(wakelockcnt =  wake_lock_active(&bcm2079x_dev->wake_lock))) {
+		printk("irq aquire wake lock\n");
+		wake_lock(&bcm2079x_dev->wake_lock);
+	} else {
+	}
+
+#endif
 
 	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
 	bcm2079x_dev->count_irq++;
@@ -192,7 +200,17 @@ static unsigned int bcm2079x_dev_poll(struct file *filp, poll_table *wait)
 	unsigned int mask = 0;
 	unsigned long flags;
 
-	poll_wait(filp, &bcm2079x_dev->read_wq, wait);
+	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
+	if (!gpio_get_value(bcm2079x_dev->irq_gpio) && (bcm2079x_dev->count_irq < 1)) {
+		spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
+		poll_wait(filp, &bcm2079x_dev->read_wq, wait);
+	} else {
+		if (bcm2079x_dev->count_irq < 1)
+			bcm2079x_dev->count_irq = 1;
+
+		spin_unlock_irqrestore(&bcm2079x_dev->irq_enabled_lock, flags);
+		return (POLLIN | POLLRDNORM);
+	}
 
 	spin_lock_irqsave(&bcm2079x_dev->irq_enabled_lock, flags);
 	if (bcm2079x_dev->count_irq > 0)
@@ -220,14 +238,6 @@ static ssize_t bcm2079x_dev_read(struct file *filp, char __user *buf,
 
 	mutex_lock(&bcm2079x_dev->read_mutex);
 
-	/*Check for shutdown condition*/
-	if (bcm2079x_dev && (bcm2079x_dev->shutdown_complete == true)) {
-		dev_info(&bcm2079x_dev->client->dev, "%s: discarding read \
-		as NFC in shutdown state\n", __func__);
-		mutex_unlock(&bcm2079x_dev->read_mutex);
-		return -ENODEV;
-	}
-
 	/** Read the first 4 bytes to include the length of
 	the NCI or HCI packet.**/
 	ret = i2c_master_recv(bcm2079x_dev->client, tmp, 4);
@@ -242,11 +252,6 @@ static ssize_t bcm2079x_dev_read(struct file *filp, char __user *buf,
 
 			case PACKET_TYPE_HCIEV:
 				len = tmp[PACKET_HEADER_SIZE_HCI-1];
-			/** Since payload is 0, decrement
-			* total size (from 4 to 3)  else
-			* First byte of payload is in
-			* tmp[3] already
-			**/
 				if (len == 0)
 					total--;				/*Since payload is 0, decrement total size (from 4 to 3) */
 				else
@@ -301,23 +306,21 @@ static ssize_t bcm2079x_dev_write(struct file *filp, const char __user *buf,
 	}
 
 	mutex_lock(&bcm2079x_dev->read_mutex);
-
-	/*Check for shutdown condition*/
-	if (bcm2079x_dev && (bcm2079x_dev->shutdown_complete == true)) {
-		dev_info(&bcm2079x_dev->client->dev, "%s: discarding write \
-			as NFC in shutdown state\n", __func__);
-		mutex_unlock(&bcm2079x_dev->read_mutex);
-		return -ENODEV;
-	}
-
 	/* Write data */
 
 	ret = i2c_master_send(bcm2079x_dev->client, tmp, count);
 	if (ret != count) {
-        dev_err(&bcm2079x_dev->client->dev,
-            "failed to write %d\n", ret);
-        ret = -EIO;
-        bcm2079x_dev->error_write++;
+		if ((bcm2079x_dev->client->flags & I2C_CLIENT_TEN) != I2C_CLIENT_TEN && bcm2079x_dev->error_write == 0) {
+			ret = i2c_master_send(bcm2079x_dev->client, tmp, count);
+			if (ret != count) {
+				bcm2079x_dev->error_write++;
+			}
+		} else {
+			dev_err(&bcm2079x_dev->client->dev,
+				"failed to write %d\n", ret);
+			ret = -EIO;
+			bcm2079x_dev->error_write++;
+		}
 	}
 	mutex_unlock(&bcm2079x_dev->read_mutex);
 
@@ -352,25 +355,20 @@ static long bcm2079x_dev_unlocked_ioctl(struct file *filp,
 	case BCMNFC_READ_MULTI_PACKETS:
 		break;
 	case BCMNFC_CHANGE_ADDR:
-		dev_info(&bcm2079x_dev->client->dev,
-			 "%s, BCMNFC_CHANGE_ADDR (%x, %lx):\n", __func__, cmd,
-			 arg);
 		change_client_addr(bcm2079x_dev, arg);
 		break;
 	case BCMNFC_POWER_CTL:
-		dev_info(&bcm2079x_dev->client->dev,
-			 "%s, BCMNFC_POWER_CTL (%x, %lx):\n",
-			 __func__, cmd, arg);
-		if (arg == 1) {
-			set_client_addr(bcm2079x_dev,
-			  bcm2079x_dev->original_address);
-		}
 		gpio_set_value(bcm2079x_dev->en_gpio, arg);
+		msleep(50);
 		break;
 	case BCMNFC_WAKE_CTL:
-		dev_info(&bcm2079x_dev->client->dev,
-			 "%s, BCMNFC_WAKE_CTL (%x, %lx):\n",
-			 __func__, cmd, arg);
+#ifdef USE_WAKE_LOCK
+		if (arg != 0) {
+			while (wake_lock_active(&bcm2079x_dev->wake_lock)) {
+				wake_unlock(&bcm2079x_dev->wake_lock);
+			}
+		}
+#endif
 		gpio_set_value(bcm2079x_dev->wake_gpio, arg);
 		break;
 	default:
@@ -402,8 +400,7 @@ static int bcm2079x_probe(struct i2c_client *client,
 
 	platform_data = client->dev.platform_data;
 
-	dev_info(&client->dev, "%s, pro bcm2079x driver flags = %x\n",
-			 __func__, client->flags);
+	dev_info(&client->dev, "%s, probing bcm2079x driver flags = %x\n", __func__, client->flags);
 	if (platform_data == NULL) {
 		dev_err(&client->dev, "nfc probe fail\n");
 		return -ENODEV;
@@ -414,15 +411,22 @@ static int bcm2079x_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	ret = gpio_request(platform_data->irq_gpio, "I2C_REQ");
+	ret = gpio_request(platform_data->irq_gpio, "nfc_int");
 	if (ret)
         return -ENODEV;
-	ret = gpio_request(platform_data->en_gpio, "REG_PU");
+	ret = gpio_request(platform_data->en_gpio, "nfc_ven");
 	if (ret)
 		goto err_en;
-	ret = gpio_request(platform_data->wake_gpio, "NFC_WAKE");
+	ret = gpio_request(platform_data->wake_gpio, "nfc_firm");
 	if (ret)
         goto err_firm;
+
+	gpio_direction_output(platform_data->en_gpio, 0);
+	gpio_direction_output(platform_data->wake_gpio, 0);
+	gpio_set_value(platform_data->en_gpio, 0);
+	gpio_set_value(platform_data->wake_gpio, 0);
+
+	gpio_direction_input(platform_data->irq_gpio);
 
 	bcm2079x_dev = kzalloc(sizeof(*bcm2079x_dev), GFP_KERNEL);
 	if (bcm2079x_dev == NULL) {
@@ -436,25 +440,6 @@ static int bcm2079x_probe(struct i2c_client *client,
 	bcm2079x_dev->irq_gpio = platform_data->irq_gpio;
 	bcm2079x_dev->en_gpio = platform_data->en_gpio;
 	bcm2079x_dev->client = client;
-
-	ret = gpio_direction_input(bcm2079x_dev->irq_gpio);
-	if (ret < 0) {
-		pr_err("%s : not able to set I2C_REQ as input\n", __func__);
-		goto err_en;
-	}
-	ret = gpio_direction_output(bcm2079x_dev->en_gpio, 0);
-	if (ret < 0) {
-		pr_err("%s : not able to set REG_PU as output\n", __func__);
-		goto err_firm;
-	}
-    ret = gpio_direction_output(bcm2079x_dev->wake_gpio, 0);
-    if (ret < 0) {
-        pr_err("%s : not able to set NFC_WAKE as output\n", __func__);
-        goto err_exit;
-    }
-
-	gpio_set_value(platform_data->en_gpio, 0);
-	gpio_set_value(platform_data->wake_gpio, 0);
 
 	/* init mutex and queues */
 	init_waitqueue_head(&bcm2079x_dev->read_wq);
@@ -471,7 +456,7 @@ static int bcm2079x_probe(struct i2c_client *client,
 		goto err_misc_register;
 	}
 	dev_info(&client->dev,
-		 "%s, saving address 0x%02x\n",
+		 "%s, saving address %d\n",
 		 __func__, client->addr);
 	bcm2079x_dev->original_address = client->addr;
 
@@ -488,11 +473,16 @@ static int bcm2079x_probe(struct i2c_client *client,
 		dev_err(&client->dev, "request_irq failed\n");
 		goto err_request_irq_failed;
 	}
+	enable_irq_wake(client->irq);
 	bcm2079x_disable_irq(bcm2079x_dev);
 	i2c_set_clientdata(client, bcm2079x_dev);
 	dev_info(&client->dev,
 		 "%s, probing bcm2079x driver exited successfully\n",
 		 __func__);
+
+#ifdef USE_WAKE_LOCK
+	wake_lock_init(&bcm2079x_dev->wake_lock, WAKE_LOCK_SUSPEND, "nfcwakelock");
+#endif
 	return 0;
 
 err_request_irq_failed:
@@ -525,19 +515,20 @@ static int bcm2079x_remove(struct i2c_client *client)
 	return 0;
 }
 
-static void bcm2079x_shutdown(struct i2c_client *client)
+#ifdef CONFIG_TEGRA_I2C_RECOVERY
+static int bcm2079x_reset(struct i2c_client *client)
 {
-	struct bcm2079x_dev *bcm2079x_data = i2c_get_clientdata(client);
+	struct bcm2079x_dev *bcm2079x_dev;
 
-	mutex_lock(&bcm2079x_data->read_mutex);
-	if (client->irq)
-		disable_irq(client->irq);
-	bcm2079x_data->shutdown_complete = true;
-	mutex_unlock(&bcm2079x_data->read_mutex);
-
-	dev_info(&bcm2079x_data->client->dev,
-	"%s: NFC shutting down\n", __func__);
+	bcm2079x_dev = i2c_get_clientdata(client);
+	if (gpio_get_value(bcm2079x_dev->en_gpio) != 0) {
+		gpio_set_value(bcm2079x_dev->en_gpio, 0);
+		msleep(50);
+		gpio_set_value(bcm2079x_dev->en_gpio, 1);
+		msleep(50);
+	}
 }
+#endif
 
 static const struct i2c_device_id bcm2079x_id[] = {
 	{"bcm2079x-i2c", 0},
@@ -548,7 +539,9 @@ static struct i2c_driver bcm2079x_driver = {
 	.id_table = bcm2079x_id,
 	.probe = bcm2079x_probe,
 	.remove = bcm2079x_remove,
-	.shutdown = bcm2079x_shutdown,
+#ifdef CONFIG_TEGRA_I2C_RECOVERY
+	.reset = bcm2079x_reset,
+#endif
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "bcm2079x-i2c",

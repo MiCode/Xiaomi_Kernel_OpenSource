@@ -161,7 +161,7 @@ config MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X
 
 config SND_SOC_TEGRA_TLV320AIC326X
 	tristate "SoC Audio support for Tegra boards using a TI AIC326x codec"
-	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	depends on SND_SOC_TEGRA && (I2C || SPI_MASTER) && TEGRA_DC
 	depends on MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X
 	select SND_SOC_TEGRA20_I2S if ARCH_TEGRA_2x_SOC
 	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
@@ -251,8 +251,12 @@ config SND_SOC_TEGRA_CS42L73
 	depends on MACH_HAS_SND_SOC_TEGRA_CS42L73
 	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
 	select SND_SOC_CS42L73
+	select SND_SOC_SPDIF
 	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
 	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_ES325
+	select SND_SOC_ES325_I2C
+	select SND_SOC_ES325_I2S
 	help
 	  Say Y or M here if you want to add support for SoC audio on Tegra
 	  boards using the CS42L73 codec. Currently, only supported board is

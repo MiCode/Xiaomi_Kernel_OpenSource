@@ -453,6 +453,7 @@ __und_usr:
 	@
 	adr	r9, BSYM(ret_from_exception)
 
+	enable_irq
 	tst	r3, #PSR_T_BIT			@ Thumb mode?
 	bne	__und_usr_thumb
 	sub	r4, r2, #4			@ ARM instr at LR - 4

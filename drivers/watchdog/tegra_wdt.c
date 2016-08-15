@@ -4,6 +4,7 @@
  * watchdog driver for NVIDIA tegra internal watchdog
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * based on drivers/watchdog/softdog.c and drivers/watchdog/omap_wdt.c
  *
@@ -36,10 +37,16 @@
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
 #include <linux/watchdog.h>
+#include <linux/export.h>
+#include <linux/nmi.h>
 #ifdef CONFIG_TEGRA_FIQ_DEBUGGER
 #include <mach/irqs.h>
+#include <mach/fiq.h>
+#include <mach/tegra_fiq_debugger.h>
 #endif
 #include <mach/iomap.h>
+#include <asm/bootinfo.h>
+#include <asm/hardware/gic.h>
 
 /* minimum and maximum watchdog trigger periods, in seconds */
 #define MIN_WDT_PERIOD	5
@@ -54,19 +61,17 @@ enum tegra_wdt_status {
 };
 
 struct tegra_wdt {
-	struct miscdevice	miscdev;
-	struct notifier_block	notifier;
-	struct resource		*res_src;
-	struct resource		*res_wdt;
-	struct resource		*res_int_base;
-	unsigned long		users;
-	void __iomem		*wdt_source;
-	void __iomem		*wdt_timer;
-	void __iomem		*int_base;
-	int			irq;
-	int			tmrsrc;
-	int			timeout;
-	int			status;
+	struct miscdevice miscdev;
+	struct notifier_block notifier;
+	unsigned long users;
+	int irq;
+	int tmrsrc;
+	int timeout;
+	int status;
+	void __iomem *wdt_source;
+	void __iomem *wdt_timer;
+	void __iomem *irq_base;
+	void __iomem *slow_irq_base;
 };
 
 /*
@@ -74,6 +79,21 @@ struct tegra_wdt {
  * for cases where the spinlock disabled irqs.
  */
 static int heartbeat = 120; /* must be greater than MIN_WDT_PERIOD and lower than MAX_WDT_PERIOD */
+
+static int wdog_fire;
+static int wdog_fire_set(const char *val, struct kernel_param *kp);
+module_param_call(wdog_fire, wdog_fire_set, param_get_int, &wdog_fire, 0644);
+
+static int wdog_fire_set(const char *val, struct kernel_param *kp)
+{
+	if (smp_processor_id() != 0) {
+		printk("disable all other cpus first\n");
+		return 0;
+	}
+
+	local_irq_disable();
+	while (1);
+}
 
 #if defined(CONFIG_ARCH_TEGRA_2x_SOC)
 
@@ -144,10 +164,18 @@ static irqreturn_t tegra_wdt_interrupt(int irq, void *dev_id)
 #define PMC_RST_STATUS			0x1b4
 
 struct tegra_wdt *tegra_wdt[MAX_NR_CPU_WDT];
+/*
+ * In order to generate the stack dump for the CPU which has IRQ off, we must
+ * use the FIQ. TEGRA WDT can generate the FIQ if we do not ACK the IRQ.
+ */
+bool wdt_nmi_ack_off;
 
 static inline void tegra_wdt_ping(struct tegra_wdt *wdt)
 {
 	writel(WDT_CMD_START_COUNTER, wdt->wdt_source + WDT_CMD);
+	if (has_fiq_gic_war() && (wdt_nmi_ack_off == false))
+		writel(WDT_CMD_START_COUNTER, wdt->slow_irq_base + WDT_CMD);
+
 }
 
 #ifdef CONFIG_TEGRA_FIQ_DEBUGGER
@@ -155,11 +183,11 @@ static void tegra_wdt_int_priority(struct tegra_wdt *wdt)
 {
 	unsigned val = 0;
 
-	if (!wdt->int_base)
+	if (!wdt->irq_base)
 		return;
-	val = readl(wdt->int_base + ICTLR_IEP_CLASS);
-	val &= ~(1 << (INT_WDT_CPU & 31));
-	writel(val, wdt->int_base + ICTLR_IEP_CLASS);
+	val = readl(wdt->irq_base + ICTLR_IEP_CLASS);
+	val &= ~(1 << (wdt->irq & 31));
+	writel(val, wdt->irq_base + ICTLR_IEP_CLASS);
 }
 #endif
 
@@ -181,16 +209,29 @@ static void tegra_wdt_enable(struct tegra_wdt *wdt)
 	val = wdt->tmrsrc | WDT_CFG_PERIOD | /*WDT_CFG_INT_EN |*/
 		/*WDT_CFG_SYS_RST_EN |*/ WDT_CFG_PMC2CAR_RST_EN;
 #ifdef CONFIG_TEGRA_FIQ_DEBUGGER
-	val |= WDT_CFG_FIQ_INT_EN;
+	if (false == has_fiq_gic_war())
+		val |= WDT_CFG_FIQ_INT_EN;
 #endif
 	writel(val, wdt->wdt_source + WDT_CFG);
 	writel(WDT_CMD_START_COUNTER, wdt->wdt_source + WDT_CMD);
+
+	if (has_fiq_gic_war()) {
+		val = wdt->tmrsrc | (WDT_CFG_PERIOD << 1) |
+		    WDT_CFG_PMC2CAR_RST_EN;
+		writel(val, wdt->slow_irq_base + WDT_CFG);
+		writel(WDT_CMD_START_COUNTER, wdt->slow_irq_base + WDT_CMD);
+	}
 }
 
 static void tegra_wdt_disable(struct tegra_wdt *wdt)
 {
 	writel(WDT_UNLOCK_PATTERN, wdt->wdt_source + WDT_UNLOCK);
 	writel(WDT_CMD_DISABLE_COUNTER, wdt->wdt_source + WDT_CMD);
+
+	if (has_fiq_gic_war()) {
+		writel(WDT_UNLOCK_PATTERN, wdt->slow_irq_base + WDT_UNLOCK);
+		writel(WDT_CMD_DISABLE_COUNTER, wdt->slow_irq_base + WDT_CMD);
+	}
 
 	writel(0, wdt->wdt_timer + TIMER_PTV);
 }
@@ -387,13 +428,30 @@ static const struct file_operations tegra_wdt_fops = {
 	.release	= tegra_wdt_release,
 };
 
+void watchdog_enable(void)
+{
+	tegra_wdt_enable(tegra_wdt[0]);
+}
+
+EXPORT_SYMBOL_GPL(watchdog_enable);
+
+void watchdog_disable(void)
+{
+	tegra_wdt_disable(tegra_wdt[0]);
+}
+
+EXPORT_SYMBOL_GPL(watchdog_disable);
+
 static int tegra_wdt_probe(struct platform_device *pdev)
 {
 	struct resource *res_src, *res_wdt, *res_irq;
-	struct resource	*res_int_base = NULL;
+	struct resource	*res_slow_base, *res_slow_irq, *res_irq_base;
 	struct tegra_wdt *wdt;
+	struct device *dev;
+	char *names[] = { "watchdog0", "watchdog1", "watchdog2", "watchdog3" };
 	int ret = 0;
 
+	dev = &pdev->dev;
 	if ((pdev->id < -1) || (pdev->id > 0)) {
 		dev_err(&pdev->dev, "Only support IDs -1 and 0\n");
 		return -ENODEV;
@@ -408,20 +466,29 @@ static int tegra_wdt_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-#ifdef CONFIG_TEGRA_FIQ_DEBUGGER
-	res_int_base = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	if (!pdev->id && !res_int_base) {
-		dev_err(&pdev->dev, "FIQ_DBG: INT base not defined\n");
-		return -ENOENT;
-	}
-#endif
-
 	if (pdev->id == -1 && !res_irq) {
 		dev_err(&pdev->dev, "incorrect irq\n");
 		return -ENOENT;
 	}
 
-	wdt = kzalloc(sizeof(*wdt), GFP_KERNEL);
+	res_slow_irq = res_slow_base = res_irq_base = NULL;
+#ifdef CONFIG_TEGRA_FIQ_DEBUGGER
+	if (!has_fiq_gic_war()) {
+		res_irq_base = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+		if (!pdev->id && !res_irq_base) {
+			dev_err(&pdev->dev, "FIQ_DBG: INT base not defined\n");
+			return -ENOENT;
+		}
+	} else {
+		res_slow_base = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+		res_slow_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
+		if (!res_slow_base || !res_slow_irq) {
+			dev_err(&pdev->dev, "FIQ_DBG: INT base not defined\n");
+			return -ENOENT;
+		}
+	}
+#endif
+	wdt = devm_kzalloc(dev, sizeof(*wdt), GFP_KERNEL);
 	if (!wdt) {
 		dev_err(&pdev->dev, "out of memory\n");
 		return -ENOMEM;
@@ -434,35 +501,41 @@ static int tegra_wdt_probe(struct platform_device *pdev)
 		wdt->miscdev.name = "watchdog";
 	} else {
 		wdt->miscdev.minor = MISC_DYNAMIC_MINOR;
-		if (pdev->id == 0)
-			wdt->miscdev.name = "watchdog0";
-		else if (pdev->id == 1)
-			wdt->miscdev.name = "watchdog1";
-		else if (pdev->id == 2)
-			wdt->miscdev.name = "watchdog2";
-		else if (pdev->id == 3)
-			wdt->miscdev.name = "watchdog3";
+		wdt->miscdev.name = names[pdev->id];
 	}
 	wdt->miscdev.fops = &tegra_wdt_fops;
 
 	wdt->notifier.notifier_call = tegra_wdt_notify;
 
-	res_src = request_mem_region(res_src->start, resource_size(res_src),
-				     pdev->name);
-	res_wdt = request_mem_region(res_wdt->start, resource_size(res_wdt),
-				     pdev->name);
+	res_src = devm_request_mem_region(dev, res_src->start,
+				resource_size(res_src), pdev->name);
+	res_wdt = devm_request_mem_region(dev, res_wdt->start,
+				resource_size(res_wdt), pdev->name);
+	if (has_fiq_gic_war())
+		res_slow_base = devm_request_mem_region(dev,
+					res_slow_base->start,
+					resource_size
+					(res_slow_base),
+					pdev->name);
 
-	if (!res_src || !res_wdt) {
+	if (!res_src || !res_wdt || (has_fiq_gic_war() && !res_slow_base)) {
 		dev_err(&pdev->dev, "unable to request memory resources\n");
 		ret = -EBUSY;
 		goto fail;
 	}
 
-	wdt->wdt_source = ioremap(res_src->start, resource_size(res_src));
-	wdt->wdt_timer = ioremap(res_wdt->start, resource_size(res_wdt));
+	wdt->wdt_source = devm_ioremap(dev, res_src->start,
+				resource_size(res_src));
+	wdt->wdt_timer = devm_ioremap(dev, res_wdt->start,
+				resource_size(res_wdt));
+	if (has_fiq_gic_war())
+		wdt->slow_irq_base = devm_ioremap(dev, res_slow_base->start,
+					resource_size(res_slow_base));
+
 	/* tmrsrc will be used to set WDT_CFG */
 	wdt->tmrsrc = (TMR_SRC_START + pdev->id) % 10;
-	if (!wdt->wdt_source || !wdt->wdt_timer) {
+	if (!wdt->wdt_source || !wdt->wdt_timer ||
+			(has_fiq_gic_war() && !wdt->slow_irq_base)) {
 		dev_err(&pdev->dev, "unable to map registers\n");
 		ret = -ENOMEM;
 		goto fail;
@@ -474,36 +547,50 @@ static int tegra_wdt_probe(struct platform_device *pdev)
 	writel(TIMER_PCR_INTR, wdt->wdt_timer + TIMER_PCR);
 
 	if (res_irq != NULL) {
-#ifdef CONFIG_TEGRA_FIQ_DEBUGGER
-		/* FIQ debugger enables FIQ priority for INT_WDT_CPU.
-		 * But that will disable IRQ on WDT expiration.
-		 * Reset the priority back to IRQ on INT_WDT_CPU so
-		 * that tegra_wdt_interrupt gets its chance to restart the
-		 * counter before expiration.
-		 */
-		res_int_base = request_mem_region(res_int_base->start,
-						  resource_size(res_int_base),
-						  pdev->name);
-		if (!res_int_base)
-			goto fail;
-		wdt->int_base = ioremap(res_int_base->start,
-					resource_size(res_int_base));
-		if (!wdt->int_base)
-			goto fail;
-		tegra_wdt_int_priority(wdt);
-#endif
-		ret = request_irq(res_irq->start, tegra_wdt_interrupt,
-				  IRQF_DISABLED, dev_name(&pdev->dev), wdt);
+		wdt->irq = res_irq->start;
+		ret = devm_request_irq(dev, wdt->irq, tegra_wdt_interrupt,
+					IRQF_DISABLED, dev_name(&pdev->dev),
+					wdt);
 		if (ret) {
 			dev_err(&pdev->dev, "unable to configure IRQ\n");
 			goto fail;
 		}
-		wdt->irq = res_irq->start;
 	}
+#ifdef CONFIG_TEGRA_FIQ_DEBUGGER
+	if (res_irq != NULL && !has_fiq_gic_war()) {
+		res_irq_base = devm_request_mem_region(dev, res_irq_base->start,
+					resource_size
+					(res_irq_base),
+					pdev->name);
+		wdt->irq_base =
+				devm_ioremap(dev, res_irq_base->start,
+				resource_size(res_irq_base));
+		if (!res_irq_base || !wdt->irq_base) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+		tegra_serial_debug_init(TEGRA_UARTD_BASE, wdt->irq,
+					NULL, -1, -1);
+		/*
+		 * FIQ debugger enables FIQ for wdt->irq. WDT is designed that
+		 * first timer firing comes in as IRQ; and only if 1st timer
+		 * firing not handled it will come as FIQ upon 2nd. The 1st
+		 * timer firing it is still required to be a IRQ in order to
+		 * get handled here, so we need set it back to IRQ class.
+		 */
+		tegra_wdt_int_priority(wdt);
+	}
+	/*
+	 * If we are using FIQ WAR, we can choose to use the WDT or UART port
+	 * IRQ as FIQ trigger. If we don't choose WDT, we don't need initialize
+	 * FIQ serial debugger here.
+	 */
+	if (res_slow_irq != NULL && has_fiq_gic_war() &&
+	    res_slow_irq->start == TEGRA_FIQ_WAR_FIQ_NR)
+		tegra_serial_debug_init(TEGRA_UARTD_BASE, res_slow_irq->start,
+					NULL, -1, -1);
+#endif
 
-	wdt->res_src = res_src;
-	wdt->res_wdt = res_wdt;
-	wdt->res_int_base = res_int_base;
 	wdt->status = WDT_DISABLED;
 
 	ret = register_reboot_notifier(&wdt->notifier);
@@ -532,30 +619,18 @@ static int tegra_wdt_probe(struct platform_device *pdev)
 		val = readl(wdt->wdt_source + WDT_CFG);
 		val |= WDT_CFG_INT_EN;
 		writel(val, wdt->wdt_source + WDT_CFG);
+		if (has_fiq_gic_war()) {
+			val = readl(wdt->slow_irq_base + WDT_CFG);
+			val |= WDT_CFG_INT_EN;
+			writel(val, wdt->slow_irq_base + WDT_CFG);
+		}
 		pr_info("WDT heartbeat enabled on probe\n");
 	}
 #endif
 	tegra_wdt[pdev->id] = wdt;
 #endif
 	pr_info("%s done\n", __func__);
-	return 0;
 fail:
-	if (wdt->irq != -1)
-		free_irq(wdt->irq, wdt);
-	if (wdt->wdt_source)
-		iounmap(wdt->wdt_source);
-	if (wdt->wdt_timer)
-		iounmap(wdt->wdt_timer);
-	if (wdt->int_base)
-		iounmap(wdt->int_base);
-	if (res_src)
-		release_mem_region(res_src->start, resource_size(res_src));
-	if (res_wdt)
-		release_mem_region(res_wdt->start, resource_size(res_wdt));
-	if (res_int_base)
-		release_mem_region(res_int_base->start,
-					resource_size(res_int_base));
-	kfree(wdt);
 	return ret;
 }
 
@@ -567,18 +642,7 @@ static int tegra_wdt_remove(struct platform_device *pdev)
 
 	unregister_reboot_notifier(&wdt->notifier);
 	misc_deregister(&wdt->miscdev);
-	if (wdt->irq != -1)
-		free_irq(wdt->irq, wdt);
-	iounmap(wdt->wdt_source);
-	iounmap(wdt->wdt_timer);
-	if (wdt->int_base)
-		iounmap(wdt->int_base);
-	release_mem_region(wdt->res_src->start, resource_size(wdt->res_src));
-	release_mem_region(wdt->res_wdt->start, resource_size(wdt->res_wdt));
-	if (wdt->res_int_base)
-		release_mem_region(wdt->res_int_base->start,
-					resource_size(wdt->res_int_base));
-	kfree(wdt);
+
 	platform_set_drvdata(pdev, NULL);
 	return 0;
 }
@@ -606,6 +670,11 @@ static int tegra_wdt_resume(struct platform_device *pdev)
 		val = readl(wdt->wdt_source + WDT_CFG);
 		val |= WDT_CFG_INT_EN;
 		writel(val, wdt->wdt_source + WDT_CFG);
+		if (has_fiq_gic_war()) {
+			val = readl(wdt->slow_irq_base + WDT_CFG);
+			val |= WDT_CFG_INT_EN;
+			writel(val, wdt->slow_irq_base + WDT_CFG);
+		}
 		pr_info("WDT heartbeat enabled on probe\n");
 	}
 #endif

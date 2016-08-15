@@ -531,7 +531,6 @@ static void __init tegra_whistler_init(void)
 	if (modem_id == 0x1)
 		whistler_baseband_init();
 	whistler_setup_bluesleep();
-	tegra_release_bootloader_fb();
 }
 
 int __init tegra_whistler_protected_aperture_init(void)

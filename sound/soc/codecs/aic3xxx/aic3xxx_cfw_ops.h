@@ -39,6 +39,8 @@ struct cfw_state {
 	int cur_ovly;
 	int cur_cfg;
 	struct cdev cdev;
+	struct class *cls;
+	struct device *dev;
 	int is_open;
 };
 
@@ -54,6 +56,7 @@ int aic3xxx_cfw_set_pll(struct cfw_state *ps, int asi);
 int aic3xxx_cfw_control(struct cfw_state *ps, char *cname, int param);
 int aic3xxx_cfw_add_controls(struct snd_soc_codec *codec, struct cfw_state *ps);
 int aic3xxx_cfw_add_modes(struct snd_soc_codec *codec, struct cfw_state *ps);
+int aic3xxx_cfw_add_composite_modes(struct snd_soc_codec *codec, struct cfw_state *ps);
 
 
 #define AIC3XXX_COPS_MDSP_D_L    (0x00000002u)

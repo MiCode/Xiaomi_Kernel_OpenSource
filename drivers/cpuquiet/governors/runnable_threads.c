@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2013 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,6 +52,7 @@ static unsigned int nr_run_last;
 static unsigned int nr_run_hysteresis = 2;		/* 1 / 2 thread */
 static unsigned int default_threshold_level = 4;	/* 1 / 4 thread */
 static unsigned int nr_run_thresholds[NR_CPUS];
+static unsigned int nr_cpu_limit = 4;
 
 DEFINE_MUTEX(runnables_lock);
 
@@ -122,10 +124,12 @@ static int get_action(unsigned int nr_run)
 	int max_cpus = pm_qos_request(PM_QOS_MAX_ONLINE_CPUS) ? : 4;
 	int min_cpus = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
 
+	max_cpus = (nr_cpu_limit < max_cpus) ? nr_cpu_limit : max_cpus;
+
 	if ((nr_cpus > max_cpus || nr_run < nr_cpus) && nr_cpus >= min_cpus)
 		return -1;
 
-	if (nr_cpus < min_cpus || nr_run > nr_cpus)
+	if ((nr_cpus < min_cpus || nr_run > nr_cpus) && nr_cpus < max_cpus)
 		return 1;
 
 	return 0;
@@ -200,10 +204,12 @@ static void runnables_work_func(struct work_struct *work)
 
 CPQ_BASIC_ATTRIBUTE(sample_rate, 0644, uint);
 CPQ_BASIC_ATTRIBUTE(nr_run_hysteresis, 0644, uint);
+CPQ_BASIC_ATTRIBUTE(nr_cpu_limit, 0644, uint);
 
 static struct attribute *runnables_attributes[] = {
 	&sample_rate_attr.attr,
 	&nr_run_hysteresis_attr.attr,
+	&nr_cpu_limit_attr.attr,
 	NULL,
 };
 

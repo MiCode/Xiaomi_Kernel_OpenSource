@@ -59,6 +59,8 @@ struct tegra_ehci_hcd {
 	bool unaligned_dma_buf_supported;
 	bool has_hostpc;
 #ifdef CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ
+	bool boost_enable;
+	bool boost_requested;
 	bool cpu_boost_in_work;
 	struct delayed_work boost_cpu_freq_work;
 	struct pm_qos_request boost_cpu_freq_req;
@@ -165,9 +167,13 @@ static void tegra_ehci_boost_cpu_frequency_work(struct work_struct *work)
 {
 	struct tegra_ehci_hcd *tegra = container_of(work,
 		struct tegra_ehci_hcd, boost_cpu_freq_work.work);
-	if (tegra->cpu_boost_in_work)
-		pm_qos_update_request(&tegra->boost_cpu_freq_req,
-		(s32)CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ * 1000);
+	if (tegra->cpu_boost_in_work) {
+		tegra->boost_requested = true;
+		if (tegra->boost_enable)
+			pm_qos_update_request(
+				&tegra->boost_cpu_freq_req,
+				(s32)CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ * 1000);
+	}
 }
 #endif
 
@@ -387,8 +393,10 @@ static int tegra_ehci_bus_suspend(struct usb_hcd *hcd)
 	EHCI_DBG("%s() BEGIN\n", __func__);
 
 #ifdef CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ
-if (pm_qos_request_active(&tegra->boost_cpu_freq_req))
-	pm_qos_update_request(&tegra->boost_cpu_freq_req,
+	tegra->boost_requested = false;
+	if (tegra->boost_enable
+			&& pm_qos_request_active(&tegra->boost_cpu_freq_req))
+			pm_qos_update_request(&tegra->boost_cpu_freq_req,
 			PM_QOS_DEFAULT_VALUE);
 	tegra->cpu_boost_in_work = false;
 #endif
@@ -413,8 +421,10 @@ static int tegra_ehci_bus_resume(struct usb_hcd *hcd)
 	EHCI_DBG("%s() BEGIN\n", __func__);
 
 #ifdef CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ
-if (pm_qos_request_active(&tegra->boost_cpu_freq_req))
-	pm_qos_update_request(&tegra->boost_cpu_freq_req,
+	tegra->boost_requested = true;
+	if (pm_qos_request_active(&tegra->boost_cpu_freq_req)
+			&& tegra->boost_enable)
+			pm_qos_update_request(&tegra->boost_cpu_freq_req,
 			(s32)CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ * 1000);
 	tegra->cpu_boost_in_work = false;
 
@@ -490,6 +500,44 @@ static int setup_vbus_gpio(struct platform_device *pdev)
 
 static u64 tegra_ehci_dma_mask = DMA_BIT_MASK(32);
 
+#ifdef CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ
+static ssize_t show_boost_enable(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct tegra_ehci_hcd *tegra = dev_get_drvdata(dev);
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+				tegra->boost_enable ? "Y" : "N");
+}
+
+
+static ssize_t store_boost_enable(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct tegra_ehci_hcd *tegra = dev_get_drvdata(dev);
+	bool new_boost;
+	bool old_boost = tegra->boost_enable;
+
+	if (strtobool(buf, &new_boost) == 0) {
+		tegra->boost_enable = new_boost;
+		if (!old_boost && new_boost
+				&& tegra->boost_requested
+				&& pm_qos_request_active(&tegra->boost_cpu_freq_req))
+			pm_qos_update_request(
+					&tegra->boost_cpu_freq_req,
+					(s32)CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ * 1000);
+		else if (old_boost && !new_boost
+					&& pm_qos_request_active(&tegra->boost_cpu_freq_req))
+			pm_qos_update_request(&tegra->boost_cpu_freq_req,
+					PM_QOS_DEFAULT_VALUE);
+	}
+	return count;
+}
+static DEVICE_ATTR(boost_enable, 0644,
+			show_boost_enable, store_boost_enable);
+#endif
+
 static int tegra_ehci_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -526,6 +574,15 @@ static int tegra_ehci_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, tegra);
+
+#ifdef CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ
+	tegra->boost_requested = false;
+	/* Add boost enable/disable knob */
+	tegra->boost_enable = true;
+	err = device_create_file(hcd->self.controller, &dev_attr_boost_enable);
+	if (err < 0)
+		goto fail_sysfs;
+#endif
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -636,6 +693,10 @@ fail_phy:
 fail_irq:
 	iounmap(hcd->regs);
 fail_io:
+#ifdef CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ
+	device_remove_file(hcd->self.controller, &dev_attr_boost_enable);
+fail_sysfs:
+#endif
 	usb_put_hcd(hcd);
 
 	return err;
@@ -724,7 +785,11 @@ static int tegra_ehci_remove(struct platform_device *pdev)
 	tegra_usb_phy_power_off(tegra->phy);
 	usb_phy_shutdown(get_usb_phy(tegra->phy));
 	iounmap(hcd->regs);
+#ifdef CONFIG_TEGRA_EHCI_BOOST_CPU_FREQ
+	device_remove_file(hcd->self.controller, &dev_attr_boost_enable);
+#endif
 	usb_put_hcd(hcd);
+	mutex_destroy(&tegra->sync_lock);
 
 	return 0;
 }
@@ -732,10 +797,13 @@ static int tegra_ehci_remove(struct platform_device *pdev)
 static void tegra_ehci_hcd_shutdown(struct platform_device *pdev)
 {
 	struct tegra_ehci_hcd *tegra = platform_get_drvdata(pdev);
-	struct usb_hcd *hcd = ehci_to_hcd(tegra->ehci);
+	struct usb_hcd *hcd;
 
-	if (hcd->driver->shutdown)
-		hcd->driver->shutdown(hcd);
+	if (tegra->ehci) {
+		hcd = ehci_to_hcd(tegra->ehci);
+		if (hcd->driver->shutdown)
+			hcd->driver->shutdown(hcd);
+	}
 }
 
 static struct of_device_id tegra_ehci_of_match[] __devinitdata = {

@@ -297,8 +297,6 @@ static void close_delayed_work(struct work_struct *work)
 			container_of(work, struct snd_soc_pcm_runtime, delayed_work.work);
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
-	mutex_lock_nested(&rtd->pcm_mutex, rtd->pcm_subclass);
-
 	pr_debug("pop wq checking: %s status: %s waiting: %s\n",
 		 codec_dai->driver->playback.stream_name,
 		 codec_dai->playback_active ? "active" : "inactive",
@@ -306,12 +304,9 @@ static void close_delayed_work(struct work_struct *work)
 
 	/* are we waiting on this codec DAI stream */
 	if (codec_dai->pop_wait == 1) {
-		codec_dai->pop_wait = 0;
 		snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_PLAYBACK,
 					  codec_dai, SND_SOC_DAPM_STREAM_STOP);
 	}
-
-	mutex_unlock(&rtd->pcm_mutex);
 }
 
 /*
@@ -368,7 +363,10 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 	cpu_dai->runtime = NULL;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (!rtd->pmdown_time || codec->ignore_pmdown_time ||
+		long pmdown_time = rtd->card->pmdown_time;
+		pmdown_time = max(pmdown_time, rtd->pmdown_time);
+		pmdown_time = max(pmdown_time, codec->pmdown_time);
+		if (!pmdown_time || codec->ignore_pmdown_time ||
 		    rtd->dai_link->ignore_pmdown_time) {
 			/* powered down playback stream now */
 			snd_soc_dapm_stream_event(rtd,
@@ -379,7 +377,7 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 			/* start delayed pop wq here for playback streams */
 			codec_dai->pop_wait = 1;
 			schedule_delayed_work(&rtd->delayed_work,
-				msecs_to_jiffies(rtd->pmdown_time));
+				msecs_to_jiffies(pmdown_time));
 		}
 	} else {
 		/* capture streams can be powered down now */
@@ -450,7 +448,7 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
 	    codec_dai->pop_wait) {
 		codec_dai->pop_wait = 0;
-		cancel_delayed_work(&rtd->delayed_work);
+		cancel_delayed_work_sync(&rtd->delayed_work);
 	}
 
 	snd_soc_dapm_stream_event(rtd, substream->stream, codec_dai,
@@ -664,8 +662,19 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		capture = 1;
 
 	dev_dbg(rtd->card->dev, "registered pcm #%d %s\n",num,new_name);
-	ret = snd_pcm_new(rtd->card->snd_card, new_name,
+	if (rtd->dai_link->params) {
+		ret = snd_soc_dapm_new_dai_link_widgets(&rtd->card->dapm, rtd);
+		if (ret < 0) {
+			dev_err(rtd->card->dev, "Can't new dai link widgets: %d\n", ret);
+			return ret;
+		}
+		/* dai with params can only be used by kernel */
+		ret = snd_pcm_new_internal(rtd->card->snd_card,
+				new_name, num, playback, capture, &pcm);
+	} else {
+		ret = snd_pcm_new(rtd->card->snd_card, new_name,
 			num, playback, capture, &pcm);
+	}
 	if (ret < 0) {
 		printk(KERN_ERR "asoc: can't create pcm for codec %s\n", codec->name);
 		return ret;

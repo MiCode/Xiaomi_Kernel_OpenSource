@@ -4,6 +4,7 @@
  * Cpuquiet driver for Tegra CPUs
  *
  * Copyright (c) 2012-2013 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,6 +66,7 @@ static wait_queue_head_t wait_cpu;
  * Settings will be enforced directly upon write to no_lp
  */
 static int no_lp;
+static unsigned long emc_max = 744000000;
 static bool enable;
 static unsigned long up_delay;
 static unsigned long down_delay;
@@ -486,11 +488,11 @@ void tegra_auto_hotplug_governor(unsigned int cpu_freq, bool suspend)
 		return;
 
 	if (suspend) {
-		/* Switch to fast cluster if suspend rate is high enough */
-		if (cpu_freq >= idle_bottom_freq) {
+		/* Switch to slow cluster if suspend rate is low enough */
+		if (cpu_freq <= idle_top_freq) {
 
 			/* Force switch now */
-			cpq_target_cluster_state = TEGRA_CPQ_G;
+			cpq_target_cluster_state = TEGRA_CPQ_LP;
 			queue_work(cpuquiet_wq, &cpuquiet_work);
 		}
 		return;
@@ -504,13 +506,13 @@ void tegra_auto_hotplug_governor(unsigned int cpu_freq, bool suspend)
 		return;
 
 	if (is_lp_cluster()) {
-		if (cpu_freq >= idle_top_freq &&
+		if (cpu_freq > idle_top_freq &&
 			cpq_target_cluster_state != TEGRA_CPQ_G) {
 
 			/* Switch to fast cluster after up_delay */
 			cpq_target_cluster_state = TEGRA_CPQ_G;
 			mod_timer(&updown_timer, jiffies + up_delay);
-		} else if (cpu_freq < idle_top_freq &&
+		} else if (cpu_freq <= idle_top_freq &&
 				cpq_target_cluster_state == TEGRA_CPQ_G) {
 
 			/*
@@ -527,7 +529,7 @@ void tegra_auto_hotplug_governor(unsigned int cpu_freq, bool suspend)
 			/* Switch to slow cluster after down_delay */
 			cpq_target_cluster_state = TEGRA_CPQ_LP;
 			mod_timer(&updown_timer, jiffies + down_delay);
-		} else if (cpu_freq > idle_bottom_freq &&
+		} else if (cpu_freq > idle_top_freq &&
 			cpq_target_cluster_state == TEGRA_CPQ_LP) {
 
 			/*
@@ -619,10 +621,27 @@ ssize_t store_no_lp(struct cpuquiet_attribute *attr,
 		return -ETIMEDOUT;
 }
 
+ssize_t store_emc_max(struct cpuquiet_attribute * attr,
+		const char *buf, size_t count)
+{
+	int rv;
+
+	rv = store_int_attribute(attr, buf, count);
+	if (rv < 0)
+		return rv;
+
+	if (emc_max > 0 && emc_max <= 744000000) {
+		clk_set_rate(tegra_get_clock_by_name("usercap.emc"), emc_max);
+		return rv;
+	} else
+		return -EINVAL;
+}
+
 CPQ_BASIC_ATTRIBUTE(idle_top_freq, 0644, uint);
 CPQ_BASIC_ATTRIBUTE(idle_bottom_freq, 0644, uint);
 CPQ_BASIC_ATTRIBUTE(mp_overhead, 0644, int);
 CPQ_ATTRIBUTE_CUSTOM(no_lp, 0644, show_int_attribute, store_no_lp);
+CPQ_ATTRIBUTE_CUSTOM(emc_max, 0644, show_int_attribute, store_emc_max);
 CPQ_ATTRIBUTE(up_delay, 0644, ulong, delay_callback);
 CPQ_ATTRIBUTE(down_delay, 0644, ulong, delay_callback);
 CPQ_ATTRIBUTE(hotplug_timeout, 0644, ulong, delay_callback);
@@ -630,6 +649,7 @@ CPQ_ATTRIBUTE(enable, 0644, bool, enable_callback);
 
 static struct attribute *tegra_auto_attributes[] = {
 	&no_lp_attr.attr,
+	&emc_max_attr.attr,
 	&up_delay_attr.attr,
 	&down_delay_attr.attr,
 	&idle_top_freq_attr.attr,

@@ -107,7 +107,11 @@
 #else
 #define IO_PCIE_PHYS	0x00000000
 #endif
+#if defined(CONFIG_TEGRA_PCI)
 #define IO_PCIE_SIZE	(SZ_16M * 3)
+#else
+#define IO_PCIE_SIZE	0
+#endif
 
 #if defined(CONFIG_MTD_NOR_TEGRA) || defined(CONFIG_MTD_NOR_M2601)
 #ifdef CONFIG_ARCH_TEGRA_2x_SOC

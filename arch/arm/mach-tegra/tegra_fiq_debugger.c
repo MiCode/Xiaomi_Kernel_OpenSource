@@ -60,59 +60,16 @@ static inline unsigned int tegra_read_lsr(struct tegra_fiq_debugger *t)
 	return lsr;
 }
 
-static int debug_port_init(struct platform_device *pdev)
-{
-	struct tegra_fiq_debugger *t;
-	t = container_of(dev_get_platdata(&pdev->dev), typeof(*t), pdata);
-
-	if (tegra_read(t, UART_LSR) & UART_LSR_DR)
-		(void)tegra_read(t, UART_RX);
-	/* enable rx and lsr interrupt */
-	tegra_write(t, UART_IER_RLSI | UART_IER_RDI, UART_IER);
-	/* interrupt on every character */
-	tegra_write(t, 0, UART_IIR);
-
-	return 0;
-}
 
 static int debug_getc(struct platform_device *pdev)
 {
-	unsigned int lsr;
-	struct tegra_fiq_debugger *t;
-	t = container_of(dev_get_platdata(&pdev->dev), typeof(*t), pdata);
-
-	lsr = tegra_read_lsr(t);
-
-	if (lsr & UART_LSR_BI || t->break_seen) {
-		t->break_seen = false;
-		return FIQ_DEBUGGER_BREAK;
-	}
-
-	if (lsr & UART_LSR_DR)
-		return tegra_read(t, UART_RX);
-
 	return FIQ_DEBUGGER_NO_CHAR;
 }
 
 static void debug_putc(struct platform_device *pdev, unsigned int c)
 {
-	struct tegra_fiq_debugger *t;
-	t = container_of(dev_get_platdata(&pdev->dev), typeof(*t), pdata);
-
-	while (!(tegra_read_lsr(t) & UART_LSR_THRE))
-		cpu_relax();
-
-	tegra_write(t, c, UART_TX);
 }
 
-static void debug_flush(struct platform_device *pdev)
-{
-	struct tegra_fiq_debugger *t;
-	t = container_of(dev_get_platdata(&pdev->dev), typeof(*t), pdata);
-
-	while (!(tegra_read_lsr(t) & UART_LSR_TEMT))
-		cpu_relax();
-}
 
 static void fiq_enable(struct platform_device *pdev, unsigned int irq, bool on)
 {
@@ -137,11 +94,9 @@ void tegra_serial_debug_init(unsigned int base, int irq,
 		pr_err("Failed to allocate for fiq debugger\n");
 		return;
 	}
-
-	t->pdata.uart_init = debug_port_init;
 	t->pdata.uart_getc = debug_getc;
 	t->pdata.uart_putc = debug_putc;
-	t->pdata.uart_flush = debug_flush;
+
 	t->pdata.fiq_enable = fiq_enable;
 
 	t->debug_port_base = ioremap(base, PAGE_SIZE);

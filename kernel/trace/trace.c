@@ -117,7 +117,7 @@ cpumask_var_t __read_mostly	tracing_buffer_mask;
  * Set 2 if you want to dump the buffer of the CPU that triggered oops
  */
 
-enum ftrace_dump_mode ftrace_dump_on_oops;
+enum ftrace_dump_mode ftrace_dump_on_oops = 1;
 
 static int tracing_set_tracer(const char *buf);
 
@@ -4904,7 +4904,6 @@ __ftrace_dump(bool disable_tracing, enum ftrace_dump_mode oops_dump_mode)
 		memset(&iter.seq, 0,
 		       sizeof(struct trace_iterator) -
 		       offsetof(struct trace_iterator, seq));
-		iter.iter_flags |= TRACE_FILE_LAT_FMT;
 		iter.pos = -1;
 
 		if (trace_find_next_entry_inc(&iter) != NULL) {

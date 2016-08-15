@@ -3,7 +3,6 @@
  *
  *  Copyright (C) 2003-2004 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>.
  *  (C) 2004 Zou Nan hai <nanhai.zou@intel.com>.
- *  Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -195,7 +194,7 @@ static void cpufreq_stats_free_sysfs(unsigned int cpu)
 {
 	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
 	if (policy && policy->cpu == cpu)
-		sysfs_remove_group(policy->kobj, &stats_attr_group);
+		sysfs_remove_group(&policy->kobj, &stats_attr_group);
 	if (policy)
 		cpufreq_cpu_put(policy);
 }
@@ -220,7 +219,7 @@ static int cpufreq_stats_create_table(struct cpufreq_policy *policy,
 		goto error_get_fail;
 	}
 
-	ret = sysfs_create_group(data->kobj, &stats_attr_group);
+	ret = sysfs_create_group(&data->kobj, &stats_attr_group);
 	if (ret)
 		goto error_out;
 

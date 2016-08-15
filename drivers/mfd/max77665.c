@@ -2,6 +2,7 @@
  * Core driver for MAXIM MAX77665
  *
  * Copyright (c) 2012, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -129,6 +130,7 @@ static int max77665_irq_init(struct max77665 *max77665, int irq,
 	if (ret < 0)
 		dev_err(max77665->dev, "regmap irq registration failed %d\n",
 			ret);
+	enable_irq_wake(irq);
 	return ret;
 }
 

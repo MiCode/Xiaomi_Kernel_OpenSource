@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/baseband-xmm-power.h
  *
  * Copyright (C) 2011-2013, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -77,6 +78,18 @@ enum baseband_xmm_power_work_state_t {
 	BBXMM_WORK_INIT_FLASHLESS_PM_STEP4,
 };
 
+enum mdm_state {
+	MDM_PWROFF = 0,
+	MDM_PWRING = 1,
+	MDM_ACTIVE = 2,
+	MDM_CRASH = 3,
+};
+
+struct baseband_xmm_state {
+	enum mdm_state mdm_state;
+	char *mdm_state_env[2];
+};
+
 struct xmm_power_data {
 	/* xmm modem state */
 	enum baseband_xmm_power_work_state_t state;
@@ -86,6 +99,7 @@ struct xmm_power_data {
 	wait_queue_head_t bb_wait;
 	/* host wakeup gpio state*/
 	unsigned int hostwake;
+	struct baseband_xmm_state *xmm_state;
 };
 
 enum baseband_xmm_powerstate_t {

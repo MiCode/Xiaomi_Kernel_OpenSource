@@ -11,6 +11,9 @@
 #include <linux/swap.h>
 #include <linux/vmstat.h>
 #include <linux/atomic.h>
+#ifdef CONFIG_NVMAP_PAGE_POOLS
+#include <linux/nvmap.h>
+#endif
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include "internal.h"
@@ -26,6 +29,9 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 	unsigned long allowed;
 	struct vmalloc_info vmi;
 	long cached;
+#ifdef CONFIG_NVMAP_PAGE_POOLS
+	long mempool_free;
+#endif
 	unsigned long pages[NR_LRU_LISTS];
 	int lru;
 
@@ -41,6 +47,9 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 
 	cached = global_page_state(NR_FILE_PAGES) -
 			total_swapcache_pages - i.bufferram;
+#ifdef CONFIG_NVMAP_PAGE_POOLS
+	mempool_free = nvmap_page_pool_get_unused_pages();
+#endif
 	if (cached < 0)
 		cached = 0;
 
@@ -57,6 +66,9 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		"MemFree:        %8lu kB\n"
 		"Buffers:        %8lu kB\n"
 		"Cached:         %8lu kB\n"
+#ifdef CONFIG_NVMAP_PAGE_POOLS
+		"PoolFree:       %8lu KB\n"
+#endif
 		"SwapCached:     %8lu kB\n"
 		"Active:         %8lu kB\n"
 		"Inactive:       %8lu kB\n"
@@ -106,9 +118,16 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 #endif
 		,
 		K(i.totalram),
+#ifdef CONFIG_NVMAP_PAGE_POOLS
+		K(i.freeram) + K(mempool_free),
+#else
 		K(i.freeram),
+#endif
 		K(i.bufferram),
 		K(cached),
+#ifdef CONFIG_NVMAP_PAGE_POOLS
+		K(mempool_free),
+#endif
 		K(total_swapcache_pages),
 		K(pages[LRU_ACTIVE_ANON]   + pages[LRU_ACTIVE_FILE]),
 		K(pages[LRU_INACTIVE_ANON] + pages[LRU_INACTIVE_FILE]),

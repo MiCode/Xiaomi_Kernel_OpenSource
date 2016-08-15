@@ -2495,7 +2495,7 @@ void zconfdump(FILE *out)
 	}
 }
 
-#include "zconf.lex.c"
+#include "zconf.lex.c_shipped"
 #include "util.c"
 #include "confdata.c"
 #include "expr.c"

@@ -24,7 +24,6 @@
 #define __BASEBAND_USB_CHR_H__
 
 #define BASEBAND_USB_CHR_DEV_NAME		"baseband_usb_chr"
-#define BASEBAND_USB_CHR_DEV_MAJOR		66
 
 #ifndef USB_CHR_RX_BUFSIZ
 #define USB_CHR_RX_BUFSIZ			(32*1024)

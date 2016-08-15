@@ -2,6 +2,7 @@
  * linux/sound/soc/codecs/tlv320aic326x.h
  *
  * Copyright (C) 2011 TI Solutions Pvt Ltd.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Based on sound/soc/codecs/tlv320aic3262.c
  *
@@ -35,8 +36,8 @@
 #define AIC3262_VERSION "1.1"
 /* Macro to enable the inclusion of tiload kernel driver */
 #define AIC3262_TiLoad
-#define AIC3262_ASI1_MASTER
 #undef AIC3262_SYNC_MODE
+#undef AIC3262_ASI1_MASTER
 #undef AIC3262_ASI2_MASTER
 #undef AIC3262_ASI3_MASTER
 /* Macro for McBsp master / slave configuration */
@@ -119,12 +120,15 @@ struct aic3262_priv {
 	struct cfw_state cfw_ps;
 	struct cfw_state *cfw_p;
 	struct aic3262_pdata *pdata;
-	int mute_asi;	/* Bit 0 -> ASI1, Bit 1-> ASI2, Bit 2 -> ASI3 */
-	int asi_fmt[2];
+	int unmute_digital;	/* Bit 0 -> ASI1, Bit 1-> ASI2, Bit 2 -> ASI3 */
+	int unmute_control;	/* Bit 0 -> ASI1, Bit 1-> ASI2, Bit 2 -> ASI3 */
+	int asi_fmt[3];
+	int volume[5];
 	int dsp_runstate;
 	struct firmware *cur_fw;
 	int isdefault_fw;
 	int *shutdown;
+	int workaround_done;
 };
 
 extern struct snd_soc_dai tlv320aic3262_dai;

@@ -2,6 +2,7 @@
  * ALSA SoC CS42L73 codec driver
  *
  * Copyright 2011 Cirrus Logic, Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Georgi Vlaev <joe@nucleusys.com>
  *	   Brian Austin <brian.austin@cirrus.com>
@@ -92,7 +93,7 @@
 #define CS42L73_XSPAXSPAA	0x3F	/* XSP Left Mixer: XSP L */
 #define CS42L73_XSPBXSPBA	0x40	/* XSP Rt. Mixer: XSP R */
 #define CS42L73_XSPAASPAA	0x41	/* XSP Left Mixer: ASP L */
-#define CS42L73_XSPAASPBA	0x42	/* XSP Rt. Mixer: ASP R */
+#define CS42L73_XSPBASPBA	0x42	/* XSP Rt. Mixer: ASP R */
 #define CS42L73_XSPAVSPMA	0x43	/* XSP Left Mixer: VSP */
 #define CS42L73_XSPBVSPMA	0x44	/* XSP Rt. Mixer: VSP */
 #define CS42L73_ASPAIPAA	0x45	/* ASP Left Mixer: Left */
@@ -219,6 +220,16 @@
 #define CS42L73_DEVID		0x00042A73
 #define CS42L73_MCLKX_MIN	5644800
 #define CS42L73_MCLKX_MAX	38400000
+
+/* Mic1_bias and Mic2_bias output voltage */
+#define CS42L73_MICBIAS_VOLTAGES_NUM 2
+#define CS42L73_MICBIAS_VMIN0 185000  /* uV */
+#define CS42L73_MICBIAS_VTYP0 200000  /* uV */
+#define CS42L73_MICBIAS_VMAX0 215000  /* uV */
+#define CS42L73_MICBIAS_VMIN1 259000  /* uV */
+#define CS42L73_MICBIAS_VTYP1 275000  /* uV */
+#define CS42L73_MICBIAS_VMAX1 289000  /* uV */
+#define MIC_BIAS_CTRL 	(1 << 4)
 
 #define CS42L73_SPC(id)		(CS42L73_XSPC + (id << 1))
 #define CS42L73_MMCC(id)	(CS42L73_XSPMMCC + (id << 1))

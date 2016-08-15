@@ -4,6 +4,7 @@
  * Tegra Graphics Host 3D clock scaling
  *
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -223,11 +224,11 @@ void nvhost_scale3d_suspend(struct platform_device *dev)
 		mutex_unlock(&df->lock);
 		return;
 	}
-
-	cancel_work_sync(&podgov->work);
 	cancel_delayed_work(&podgov->idle_timer);
 
 	mutex_unlock(&df->lock);
+
+	cancel_work_sync(&podgov->work);
 }
 
 /*******************************************************************************
@@ -269,6 +270,7 @@ static void podgov_enable(struct device *dev, int enable)
 	struct nvhost_device_data *pdata = platform_get_drvdata(d);
 	struct devfreq *df = pdata->power_manager;
 	struct podgov_info_rec *podgov;
+	bool cancel = false;
 
 	if (!df)
 		return;
@@ -281,7 +283,7 @@ static void podgov_enable(struct device *dev, int enable)
 	if (enable && df->min_freq != df->max_freq) {
 		podgov->enable = 1;
 	} else {
-		cancel_work_sync(&podgov->work);
+		cancel = true;
 		cancel_delayed_work(&podgov->idle_timer);
 		podgov->enable = 0;
 		podgov->adjustment_frequency = df->max_freq;
@@ -289,6 +291,9 @@ static void podgov_enable(struct device *dev, int enable)
 		update_devfreq(df);
 	}
 	mutex_unlock(&df->lock);
+
+	if (cancel)
+		cancel_work_sync(&podgov->work);
 }
 
 /*******************************************************************************
@@ -984,8 +989,6 @@ static int nvhost_pod_estimate_freq(struct devfreq *df,
 
 	current_event = ext_stat->busy;
 	*freq = dev_stat.current_frequency;
-	df->min_freq = ext_stat->min_freq;
-	df->max_freq = ext_stat->max_freq;
 
 	/* Sustain local variables */
 	podgov->last_event_type = current_event;

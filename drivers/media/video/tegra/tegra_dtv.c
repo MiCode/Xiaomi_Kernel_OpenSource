@@ -5,6 +5,7 @@
  * Author: Adam Jiang <chaoj@nvidia.com>
  *
  * Copyright (c) 2011-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -494,43 +495,44 @@ static long tegra_dtv_ioctl(struct file *file, unsigned int cmd,
 
 		_dtv_get_hw_params(dtv_ctx, &cfg);
 
-		if (copy_to_user((void __user  *)arg, &cfg,
-				 sizeof(cfg)))
-			ret = -EFAULT;
-		break;
-	}
+		if (copy_to_user((void __user  *)arg, &cfg, sizeof(cfg)))
+				ret = -EFAULT;
+			break;
+		}
 	case TEGRA_DTV_IOCTL_GET_PROFILE:
-	{
-		if (copy_to_user((void __user *) arg, &dtv_ctx->profile,
-				 sizeof(struct tegra_dtv_profile)))
-			ret = -EFAULT;
-		break;
-	}
+		{
+			if (copy_to_user((void __user *)arg, &dtv_ctx->profile,
+					sizeof(struct tegra_dtv_profile)))
+				ret = -EFAULT;
+			break;
+		}
 	case TEGRA_DTV_IOCTL_SET_PROFILE:
-	{
-		struct tegra_dtv_profile profile;
+		{
+			struct tegra_dtv_profile profile;
 
-		if (s->xferring) {
-			pr_err("%s: tranfering is in progress.\n", __func__);
-			ret = -EBUSY;
+			if (s->xferring) {
+				pr_err("%s: tranfering is in progress.\n",
+					__func__);
+				ret = -EBUSY;
+				break;
+			}
+
+			if (copy_from_user(&profile, (const void __user *)arg,
+					sizeof(profile))) {
+				ret = -EFAULT;
+				break;
+			}
+
+			ret = _dtv_set_profile(dtv_ctx, &profile);
+			if (ret) {
+				pr_err
+				("%s: reconfiguration failed. DTV is down\n",
+					__func__);
+				ret = -ENODEV;
+				break;
+			}
 			break;
 		}
-
-		if (copy_from_user(&profile, (const void __user *) arg,
-				   sizeof(profile))) {
-			ret = -EFAULT;
-			break;
-		}
-
-		ret = _dtv_set_profile(dtv_ctx, &profile);
-		if (ret) {
-			pr_err("%s: reconfiguration failed. DTV is down\n",
-			       __func__);
-			ret = -ENODEV;
-			break;
-		}
-		break;
-	}
 	default:
 		ret = -EINVAL;
 	}
@@ -1259,7 +1261,7 @@ static int tegra_dtv_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct tegra_dtv_context *dtv_ctx;
 
-	pr_info("%s: suspend dtv.\n", __func__);
+	pr_debug("%s: suspend dtv.\n", __func__);
 
 	dtv_ctx = platform_get_drvdata(pdev);
 
@@ -1284,7 +1286,7 @@ static int tegra_dtv_resume(struct platform_device *pdev)
 {
 	struct tegra_dtv_context *dtv_ctx;
 
-	pr_info("%s: resume dtv.\n", __func__);
+	pr_debug("%s: resume dtv.\n", __func__);
 
 	dtv_ctx = platform_get_drvdata(pdev);
 	clk_prepare_enable(dtv_ctx->clk);

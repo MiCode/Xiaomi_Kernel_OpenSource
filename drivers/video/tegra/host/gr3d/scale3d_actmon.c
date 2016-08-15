@@ -51,6 +51,7 @@
 #include "dev.h"
 #include "nvhost_acm.h"
 
+#define DEVFREQ_TYPE_GR3D 0x1000
 #define POW2(x) ((x) * (x))
 
 static int nvhost_scale3d_target(struct device *d, unsigned long *freq,
@@ -405,6 +406,7 @@ void nvhost_scale3d_actmon_init(struct platform_device *dev)
 		clk_round_rate(power_profile.clk_3d, 0);
 
 	nvhost_scale3d_devfreq_profile.initial_freq = power_profile.max_rate_3d;
+	nvhost_scale3d_devfreq_profile.dev_type = DEVFREQ_TYPE_GR3D;
 
 	if (power_profile.max_rate_3d == power_profile.min_rate_3d) {
 		pr_warn("scale3d: 3d max rate = min rate (%lu), disabling\n",

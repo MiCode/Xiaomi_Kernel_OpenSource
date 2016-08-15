@@ -70,8 +70,8 @@
 #define DEF_ACCEL_ST_SHIFT_MIN      (300)
 #define DEF_ACCEL_ST_SHIFT_MAX      (950)
 
-#define DEF_ACCEL_ST_SHIFT_DELTA    (140)
-#define DEF_GYRO_CT_SHIFT_DELTA     (140)
+#define DEF_ACCEL_ST_SHIFT_DELTA    (500)
+#define DEF_GYRO_CT_SHIFT_DELTA     (500)
 /* gyroscope Coriolis self test min and max bias shift (dps) */
 #define DEF_GYRO_CT_SHIFT_MIN       (10)
 #define DEF_GYRO_CT_SHIFT_MAX       (105)
@@ -642,7 +642,7 @@ static int inv_check_6050_gyro_self_test(struct inv_gyro_state_s *st,
 		}
 	}
 	for (i = 0; i < 3; i++) {
-		if (abs(reg_avg[i])*4 > 20*2*1000*131)
+		if (abs(reg_avg[i]) > 20*2*1000*131)
 			ret_val |= (1<<i);
 	}
 	return ret_val;

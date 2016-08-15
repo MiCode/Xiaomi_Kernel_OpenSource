@@ -5,6 +5,7 @@
  *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
  *  Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,6 +15,7 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/stat.h>
+#include <linux/hwinfo.h>
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
@@ -90,6 +92,16 @@ static int mmc_decode_cid(struct mmc_card *card)
 	case 3: /* MMC v3.1 - v3.3 */
 	case 4: /* MMC v4 */
 		card->cid.manfid	= UNSTUFF_BITS(resp, 120, 8);
+		switch (card->cid.manfid) {
+		case 0x11:
+			update_hardware_info(TYPE_EMMC, 1);
+			break;
+		case 0x45:
+			update_hardware_info(TYPE_EMMC, 2);
+			break;
+		default:
+			break;
+		}
 		card->cid.oemid		= UNSTUFF_BITS(resp, 104, 16);
 		card->cid.prod_name[0]	= UNSTUFF_BITS(resp, 96, 8);
 		card->cid.prod_name[1]	= UNSTUFF_BITS(resp, 88, 8);

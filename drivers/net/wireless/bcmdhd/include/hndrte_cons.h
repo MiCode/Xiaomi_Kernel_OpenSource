@@ -1,7 +1,8 @@
 /*
  * Console support for hndrte.
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -63,5 +64,7 @@ typedef struct {
 	uint		cbuf_idx;
 	char		cbuf[CBUF_LEN];
 } hndrte_cons_t;
+
+hndrte_cons_t *hndrte_get_active_cons_state(void);
 
 #endif /* _HNDRTE_CONS_H */

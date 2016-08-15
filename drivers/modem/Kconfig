@@ -1,0 +1,11 @@
+#
+# Modem
+#
+
+config SC8800G_MODEM
+	bool "Spreadtrum SC8800G 3G modem support"
+	default n
+	help
+	  Spreadtrum SC8800G 3G modem is a TD-SCDMA modem which use SPI interface
+	  to communicate with AP. Set this option will enable AP serial & IPC
+	  driver support at AP side.

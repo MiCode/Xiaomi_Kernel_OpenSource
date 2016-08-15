@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This file is released under the GPLv2
  *
@@ -956,9 +957,14 @@ static int dpm_suspend_noirq(pm_message_t state)
 		}
 	}
 	mutex_unlock(&dpm_list_mtx);
-	if (error)
+	if (error) {
 		dpm_resume_noirq(resume_event(state));
-	else
+		/* FIXME
+		 * irqs with IRQF_EARLY_RESUME flag still disabled if
+		 * suspend_noirq returns error. Enable it here.
+		 */
+		resume_device_early_resume_irqs();
+	} else
 		dpm_show_time(starttime, state, "noirq");
 	return error;
 }

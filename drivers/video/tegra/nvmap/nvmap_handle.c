@@ -4,6 +4,7 @@
  * Handle allocation and freeing routines for nvmap
  *
  * Copyright (c) 2009-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -171,14 +172,22 @@ static int nvmap_page_pool_free(struct nvmap_page_pool *pool, int nr_free)
 	return i;
 }
 
-static int nvmap_page_pool_get_unused_pages(void)
+int nvmap_page_pool_get_unused_pages(void)
 {
 	unsigned int i;
 	int total = 0;
-	struct nvmap_share *share = nvmap_get_share_from_dev(nvmap_dev);
+	struct nvmap_share *share;
 
-	for (i = 0; i < NVMAP_NUM_POOLS; i++)
-		total += nvmap_page_pool_get_available_count(&share->pools[i]);
+	if (nvmap_dev) {
+		share = nvmap_get_share_from_dev(nvmap_dev);
+
+		if (share) {
+			for (i = 0; i < NVMAP_NUM_POOLS; i++)
+				total +=
+						nvmap_page_pool_get_available_count(&share->
+						pools[i]);
+		}
+	}
 
 	return total;
 }
@@ -387,6 +396,7 @@ int nvmap_page_pool_init(struct nvmap_page_pool *pool, int flags)
 	int i;
 	int err;
 	struct page *page;
+	int pages_to_fill;
 	int highmem_pages = 0;
 	typedef int (*set_pages_array) (struct page **pages, int addrinarray);
 	set_pages_array s_cpa[] = {
@@ -441,8 +451,12 @@ int nvmap_page_pool_init(struct nvmap_page_pool *pool, int flags)
 	}
 
 #ifdef CONFIG_NVMAP_PAGE_POOLS_INIT_FILLUP
+	pages_to_fill = CONFIG_NVMAP_PAGE_POOLS_INIT_FILLUP_SIZE * SZ_1M /
+	    PAGE_SIZE;
+	pages_to_fill = pages_to_fill ? : pool->max_pages;
+
 	nvmap_page_pool_lock(pool);
-	for (i = 0; i < pool->max_pages; i++) {
+	for (i = 0; i < pages_to_fill; i++) {
 		page = alloc_page(GFP_NVMAP);
 		if (!page)
 			goto do_cpa;
@@ -589,10 +603,10 @@ static int handle_page_alloc(struct nvmap_client *client,
 #ifdef CONFIG_NVMAP_PAGE_POOLS
 	struct nvmap_page_pool *pool = NULL;
 	struct nvmap_share *share = nvmap_get_share_from_dev(h->dev);
+	phys_addr_t paddr;
 #endif
 	gfp_t gfp = GFP_NVMAP;
 	unsigned long kaddr;
-	phys_addr_t paddr;
 	pte_t **pte = NULL;
 
 	if (h->userflags & NVMAP_HANDLE_ZEROED_PAGES) {

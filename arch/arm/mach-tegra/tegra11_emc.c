@@ -42,9 +42,9 @@
 #include "fuse.h"
 
 #ifdef CONFIG_TEGRA_EMC_SCALING_ENABLE
-static bool emc_enable = true;
+bool emc_enable = false;
 #else
-static bool emc_enable;
+bool emc_enable;
 #endif
 module_param(emc_enable, bool, 0644);
 
@@ -78,7 +78,7 @@ static struct emc_iso_usage tegra11_lpddr3_emc_iso_usage[] = {
 	},
 	{
 		BIT(EMC_USER_DC) | BIT(EMC_USER_VI),
-		45, iso_share_calc_t114_lpddr3_default
+		35
 	},
 	{
 		BIT(EMC_USER_DC) | BIT(EMC_USER_MSENC),

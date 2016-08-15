@@ -4,6 +4,7 @@
  * System DMA driver for NVIDIA Tegra SoCs
  *
  * Copyright (c) 2008-2012, NVIDIA Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -429,6 +430,36 @@ skip_stop_dma:
 	return 0;
 }
 EXPORT_SYMBOL(tegra_dma_dequeue_req);
+
+void tegra_dma_dequeue_all(struct tegra_dma_channel *ch)
+{
+	struct tegra_dma_req *cur, *next;
+	struct tegra_dma_req *hreq = NULL;
+	unsigned int status;
+	unsigned long irq_flags;
+
+	spin_lock_irqsave(&ch->lock, irq_flags);
+
+	list_for_each_entry_safe(cur, next, &ch->list, node) {
+		list_del(&cur->node);
+		if (!hreq)
+			hreq = cur;
+	}
+	if (!hreq) {
+		spin_unlock_irqrestore(&ch->lock, irq_flags);
+		return;
+	}
+
+	status = get_channel_status(ch, hreq, true);
+	hreq->bytes_transferred = dma_active_count(ch, hreq, status);
+	hreq->status = -TEGRA_DMA_REQ_ERROR_ABORTED;
+
+	/* Callback should be called without any lock */
+	spin_unlock_irqrestore(&ch->lock, irq_flags);
+	if (hreq->complete)
+		hreq->complete(hreq);
+}
+EXPORT_SYMBOL(tegra_dma_dequeue_all);
 
 int tegra_dma_cancel(struct tegra_dma_channel *ch)
 {

@@ -105,6 +105,18 @@
 		.ioreset	= TEGRA_PIN_IO_RESET_DEFAULT,	\
 	}
 
+#define DEFAULT_PINMUX_OD_DISABLE(_pingroup, _mux, _pupd, _tri, _io)	\
+	{							\
+		.pingroup	= TEGRA_PINGROUP_##_pingroup,	\
+		.func		= TEGRA_MUX_##_mux,		\
+		.pupd		= TEGRA_PUPD_##_pupd,		\
+		.tristate	= TEGRA_TRI_##_tri,		\
+		.io		= TEGRA_PIN_##_io,		\
+		.lock		= TEGRA_PIN_LOCK_DEFAULT,	\
+		.od		= TEGRA_PIN_OD_DISABLE,		\
+		.ioreset	= TEGRA_PIN_IO_RESET_DEFAULT,	\
+	}
+
 #define I2C_PINMUX(_pingroup, _mux, _pupd, _tri, _io, _lock, _od) \
 	{							\
 		.pingroup	= TEGRA_PINGROUP_##_pingroup,	\

@@ -50,7 +50,6 @@
 #include <asm/mach/arch.h>
 #include <mach/usb_phy.h>
 #include <mach/nand.h>
-#include <mach/tegra_fiq_debugger.h>
 
 #include "board.h"
 #include "clock.h"
@@ -519,8 +518,6 @@ static void __init tegra_aruba_init(void)
 	aruba_sensors_init();
 	aruba_bt_rfkill();
 	aruba_sata_init();
-	tegra_release_bootloader_fb();
-	tegra_serial_debug_init(TEGRA_UARTD_BASE, INT_WDT_CPU, NULL, -1, -1);
 }
 
 static void __init tegra_aruba_reserve(void)

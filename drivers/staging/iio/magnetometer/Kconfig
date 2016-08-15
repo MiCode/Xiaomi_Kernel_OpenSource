@@ -25,3 +25,5 @@ config SENSORS_HMC5843
 	  will be called hmc5843
 
 endmenu
+
+source "drivers/staging/iio/magnetometer/inv_compass/Kconfig"

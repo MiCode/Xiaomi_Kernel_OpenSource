@@ -52,11 +52,16 @@ const char *palmas_excon_cable[] = {
 	NULL,
 };
 
+/* Check if otg vbus is on */
+static struct regulator *vbus_reg;
+static bool otg_vbus_on;
+
 static int palmas_extcon_vbus_cable_update(
 		struct palmas_extcon *palma_econ)
 {
 	int ret;
 	unsigned int status;
+	bool enabled;
 
 	ret = palmas_read(palma_econ->palmas, PALMAS_INTERRUPT_BASE,
 				PALMAS_INT3_LINE_STATE,	&status);
@@ -64,6 +69,16 @@ static int palmas_extcon_vbus_cable_update(
 		dev_err(palma_econ->dev,
 			"INT3_LINE_STATE read failed: %d\n", ret);
 		return ret;
+	}
+
+	if (vbus_reg) {
+		enabled = regulator_is_enabled(vbus_reg);
+		if (enabled || (otg_vbus_on && !enabled)) {
+			dev_info(palma_econ->dev, "status %x, enabled %d\n",
+					status, enabled);
+			otg_vbus_on = enabled;
+			goto out;
+		}
 	}
 
 	if (status & PALMAS_INT3_LINE_STATE_VBUS)
@@ -75,6 +90,7 @@ static int palmas_extcon_vbus_cable_update(
 		(status & PALMAS_INT3_LINE_STATE_VBUS) ? "Valid" : "Invalid",
 		status);
 
+out:
 	return 0;
 }
 
@@ -146,6 +162,12 @@ static int __devinit palmas_extcon_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	vbus_reg = regulator_get(NULL, "usb_vbus");
+	if (IS_ERR_OR_NULL(vbus_reg)) {
+		dev_err(&pdev->dev, "vbug_reg failed%ld\n", PTR_ERR(vbus_reg));
+		vbus_reg = NULL;
+	}
+
 	palma_econ->edev = edev;
 	palma_econ->edev->name = (epdata->connection_name) ?
 				epdata->connection_name : pdev->name;
@@ -175,7 +197,7 @@ static int __devinit palmas_extcon_probe(struct platform_device *pdev)
 			goto out;
 		}
 		snprintf(palma_econ->vbus_irq_name, MAX_INT_NAME,
-			"vbus-%s\n", dev_name(palma_econ->dev));
+			"vbus-%s", dev_name(palma_econ->dev));
 		ret = request_threaded_irq(palma_econ->vbus_irq, NULL,
 			palmas_extcon_irq, IRQF_ONESHOT | IRQF_EARLY_RESUME,
 			palma_econ->vbus_irq_name, palma_econ);

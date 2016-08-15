@@ -120,4 +120,10 @@ config I2C_DEBUG_BUS
 	  a problem with I2C support and want to see more of what is going
 	  on.
 
+config TEGRA_I2C_RECOVERY
+	bool "Tegra I2C Bus 0 debugging messages"
+	help
+	  Say Y here if you want to enable i2c bus recovery when arbitration
+	  lost happen.
+
 endif # I2C

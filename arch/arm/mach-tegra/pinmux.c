@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2010 Google, Inc.
  * Copyright (C) 2011-2013 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1127,6 +1128,7 @@ static int dbg_pinmux_show(struct seq_file *s, void *unused)
 	int len;
 
 	for (i = 0; i < pingroup_max; i++) {
+		unsigned long od;
 		unsigned long reg;
 		unsigned long tri;
 		unsigned long mux;
@@ -1135,9 +1137,9 @@ static int dbg_pinmux_show(struct seq_file *s, void *unused)
 		if (!pingroups[i].name)
 			continue;
 
-		seq_printf(s, "\t{TEGRA_PINGROUP_%s", pingroups[i].name);
+		seq_printf(s, "\t{TEGRA_PINGROUP_%s(%03d)", pingroups[i].name, pingroups[i].gpionr);
 		len = strlen(pingroups[i].name);
-		dbg_pad_field(s, 15 - len);
+		dbg_pad_field(s, 17 - len);
 
 		if (pingroups[i].mux_reg < 0) {
 			seq_printf(s, "TEGRA_MUX_NONE");
@@ -1183,6 +1185,18 @@ static int dbg_pinmux_show(struct seq_file *s, void *unused)
 			len = strlen(pupd_name(pupd));
 		}
 		dbg_pad_field(s, 9 - len);
+
+		if (pingroups[i].od_bit < 0) {
+			seq_printf(s, "TEGRA_%s", od_name(0));
+			len = strlen(od_name(0));
+		} else {
+			reg = pg_readl(pingroups[i].mux_bank,
+					pingroups[i].mux_reg);
+			od = (reg >> pingroups[i].od_bit) & 0x1;
+			seq_printf(s, "TEGRA_%s", od_name(od + 1));
+			len = strlen(od_name(od + 1));
+		}
+		dbg_pad_field(s, 10 - len);
 
 		if (pingroups[i].tri_reg < 0) {
 			seq_printf(s, "TEGRA_TRI_NORMAL");

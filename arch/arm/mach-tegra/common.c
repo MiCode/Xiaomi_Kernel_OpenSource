@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2010 Google, Inc.
  * Copyright (C) 2010-2013 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author:
  *	Colin Cross <ccross@android.com>
@@ -34,6 +35,7 @@
 #include <linux/persistent_ram.h>
 #include <linux/dma-mapping.h>
 #include <linux/sys_soc.h>
+#include <linux/bootmem.h>
 #include <linux/export.h>
 #include <linux/bootmem.h>
 #include <trace/events/nvsecurity.h>
@@ -79,6 +81,11 @@
 
 #define   RECOVERY_MODE	BIT(31)
 #define   BOOTLOADER_MODE	BIT(30)
+#define   KPANIC_RS_REASON   BIT(29)
+#define   NORMAL_RS_REASON  BIT(28)
+#define   OTHER_RS_REASON  BIT(27)
+#define   WDOG_RS_REASON    BIT(26)
+#define   CHARGEONLY_MODE   BIT(5)
 #define   FORCED_RECOVERY_MODE	BIT(1)
 
 #define AHB_GIZMO_USB		0x1c
@@ -170,6 +177,8 @@ u32 tegra_uart_config[3] = {
 
 #define NEVER_RESET 0
 
+static int in_panic;
+
 void tegra_assert_system_reset(char mode, const char *cmd)
 {
 #if defined(CONFIG_TEGRA_FPGA_PLATFORM) || NEVER_RESET
@@ -179,21 +188,22 @@ void tegra_assert_system_reset(char mode, const char *cmd)
 	void __iomem *reset = IO_ADDRESS(TEGRA_PMC_BASE + 0);
 	u32 reg;
 
-	reg = readl_relaxed(reset + PMC_SCRATCH0);
 	/* Writing recovery kernel or Bootloader mode in SCRATCH0 31:30:1 */
-	if (cmd) {
+	if (in_panic) {
+		reg = KPANIC_RS_REASON;
+	} else if (cmd) {
 		if (!strcmp(cmd, "recovery"))
-			reg |= RECOVERY_MODE;
+			reg = RECOVERY_MODE;
 		else if (!strcmp(cmd, "bootloader"))
-			reg |= BOOTLOADER_MODE;
+			reg = BOOTLOADER_MODE;
 		else if (!strcmp(cmd, "forced-recovery"))
-			reg |= FORCED_RECOVERY_MODE;
+			reg = FORCED_RECOVERY_MODE;
+		else if (!strcmp(cmd, "usb_chg"))
+			reg = CHARGEONLY_MODE;
 		else
-			reg &= ~(BOOTLOADER_MODE | RECOVERY_MODE | FORCED_RECOVERY_MODE);
-	}
-	else {
-		/* Clearing SCRATCH0 31:30:1 on default reboot */
-		reg &= ~(BOOTLOADER_MODE | RECOVERY_MODE | FORCED_RECOVERY_MODE);
+			reg = NORMAL_RS_REASON;
+	} else {
+		reg = NORMAL_RS_REASON;
 	}
 	writel_relaxed(reg, reset + PMC_SCRATCH0);
 	reg = readl_relaxed(reset);
@@ -587,12 +597,10 @@ static void __init tegra_perf_init(void)
 #ifdef CONFIG_ARCH_TEGRA_11x_SOC
 static void __init tegra_ramrepair_init(void)
 {
-	if (tegra_spare_fuse(10)  | tegra_spare_fuse(11)) {
-		u32 reg;
-		reg = readl(FLOW_CTRL_RAM_REPAIR);
-		reg &= ~FLOW_CTRL_RAM_REPAIR_BYPASS_EN;
-		writel(reg, FLOW_CTRL_RAM_REPAIR);
-	}
+	u32 reg;
+	reg = readl(FLOW_CTRL_RAM_REPAIR);
+	reg &= ~FLOW_CTRL_RAM_REPAIR_BYPASS_EN;
+	writel(reg, FLOW_CTRL_RAM_REPAIR);
 }
 #endif
 
@@ -751,8 +759,23 @@ void __init tegra30_init_early(void)
 }
 #endif
 #ifdef CONFIG_ARCH_TEGRA_11x_SOC
+#ifdef CONFIG_LAST_PRINTK
+#define RESERVE_BOOTMEM_LAST 0x8C000000
+extern char* backup_log_buf;
+extern unsigned int last_log_len;
+#endif
 void __init tegra11x_init_early(void)
 {
+#ifdef CONFIG_LAST_PRINTK
+	int ret;
+	ret = reserve_bootmem(RESERVE_BOOTMEM_LAST, last_log_len, BOOTMEM_EXCLUSIVE);
+	if (ret) {
+		pr_err("last_printk log_buf alloc failed\n");
+		backup_log_buf = 0;
+	} else {
+		backup_log_buf = __va(RESERVE_BOOTMEM_LAST);
+	}
+#endif
 #ifndef CONFIG_SMP
 	/* For SMP system, initializing the reset handler here is too
 	   late. For non-SMP systems, the function that calls the reset
@@ -1718,7 +1741,7 @@ int __init tegra_register_fuse(void)
 	return platform_device_register(&tegra_fuse_device);
 }
 
-void __init tegra_release_bootloader_fb(void)
+int __init tegra_release_bootloader_fb(void)
 {
 	/* Since bootloader fb is reserved in common.c, it is freed here. */
 	if (tegra_bootloader_fb_size) {
@@ -1728,6 +1751,7 @@ void __init tegra_release_bootloader_fb(void)
 		else
 			free_bootmem_late(tegra_bootloader_fb_start,
 						tegra_bootloader_fb_size);
+		tegra_bootloader_fb_size = 0;
 	}
 	if (tegra_bootloader_fb2_size) {
 		if (memblock_free(tegra_bootloader_fb2_start,
@@ -1736,8 +1760,11 @@ void __init tegra_release_bootloader_fb(void)
 		else
 			free_bootmem_late(tegra_bootloader_fb2_start,
 						tegra_bootloader_fb2_size);
+		tegra_bootloader_fb2_size = 0;
 	}
+	return 0;
 }
+late_initcall(tegra_release_bootloader_fb);
 
 static struct platform_device *pinmux_devices[] = {
 	&tegra_gpio_device,
@@ -1829,3 +1856,36 @@ struct arm_soc_desc tegra_soc_desc __initdata = {
 	soc_smp_init_ops(tegra_soc_smp_init_ops)
 	soc_smp_ops(tegra_soc_smp_ops)
 };
+
+extern void watchdog_enable(void);
+extern void watchdog_disable(void);
+static int panic_prep_restart(struct notifier_block *this,
+			unsigned long event, void *ptr)
+{
+	in_panic = 1;
+	printk(KERN_INFO "Stack trace dump:\n");
+	watchdog_disable();
+	show_state_filter(0);
+	watchdog_enable();
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block panic_blk = {
+	.notifier_call = panic_prep_restart,
+};
+
+static int __init tegra_system_reset_init(void)
+{
+	void __iomem *reset = IO_ADDRESS(TEGRA_PMC_BASE + 0);
+	u32 reg;
+
+	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
+
+	printk("reboot reason bit is 0x%x\n", readl_relaxed(reset + PMC_SCRATCH0));
+	reg = OTHER_RS_REASON;
+	writel_relaxed(reg, reset + PMC_SCRATCH0);
+
+	return 0;
+}
+early_initcall(tegra_system_reset_init);

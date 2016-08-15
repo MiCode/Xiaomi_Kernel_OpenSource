@@ -338,7 +338,7 @@ static inline int output_disable_ol_prepare(struct tegra_cl_dvfs *cld)
 	if (!(cld->p_data->flags & TEGRA_CL_DVFS_FLAGS_I2C_WAIT_QUIET)) {
 		int ret = output_disable_flush(cld);
 		if (ret)
-			pr_debug("cl_dvfs: I2C pending timeout ol_prepare\n");
+			pr_err("cl_dvfs: I2C pending timeout ol_prepare\n");
 		return ret;
 	}
 	return 0;

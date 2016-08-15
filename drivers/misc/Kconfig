@@ -405,6 +405,14 @@ config SENSORS_AK8975
 	  If you say yes here you get support for Asahi Kasei's
 	  orientation sensor AK8975.
 
+config SENSORS_AK8963
+	tristate "AK8963 compass support"
+	default n
+	depends on I2C
+	help
+	  If you say yes here you get support for Asahi Kasei's
+	  orientation sensor AK8963.
+
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
 	depends on ARCH_EP93XX
@@ -552,6 +560,13 @@ config MAX1749_VIBRATOR
 	---help---
 	Adds a timed output vibrator device node for MAX1749 vibrator motor
 
+config DRV2605_VIBRATOR
+	bool "TI DRV2605 vibrator device driver"
+	depends on ANDROID_TIMED_OUTPUT
+	default n
+	---help---
+	Adds a timed output vibrator device node for TI DRV2605 vibrator motor
+
 config APANIC
 	bool "Android kernel panic diagnostics driver"
 	default n
@@ -565,6 +580,12 @@ config APANIC_PLABEL
 	---help---
 	 If your platform uses a different flash partition label for storing
  	 crashdumps, enter it here.
+
+config LAST_PRINTK
+	bool "last printk buffer driver"
+	default n
+	---help---
+	 Driver which saves previous printk buffer.
 
 config THERM_EST
 	bool "Thermal estimator driver"
@@ -606,6 +627,12 @@ config CPULOAD_MONITOR
 	Publish cpu load measured in sysfs, to be used by user space cpu
 	frequency controllers.
 
+config VOICE_PROC_MISC
+	bool "Voice Processor misc driver support"
+	default n
+	---help---
+	 Misc driver which support Audience voice processor chip
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -617,4 +644,5 @@ source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/tegra-baseband/Kconfig"
 source "drivers/misc/tegra-cec/Kconfig"
 source "drivers/misc/tegra-profiler/Kconfig"
+source "drivers/misc/ts27010mux/Kconfig"
 endmenu

@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2010-2013, NVIDIA CORPORATION. All rights reserved.
  * Copyright (C) 2010 Google, Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -36,6 +37,13 @@
 #include <linux/extcon.h>
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
+
+#ifdef CONFIG_FACTORY_BUILD
+#include <linux/gpio.h>
+#include <mach/gpio-tegra.h>
+#include "../../../arch/arm/mach-tegra/gpio-names.h"
+#define SC8800G_GPIO_USB_SWITCH TEGRA_GPIO_PR3
+#endif
 
 #define USB_PHY_WAKEUP		0x408
 #define  USB_ID_INT_EN		(1 << 0)
@@ -356,6 +364,29 @@ static void tegra_change_otg_state(struct tegra_otg_data *tegra,
 	if (to != OTG_STATE_UNDEFINED && from != to) {
 		otg->phy->state = to;
 		pr_info("otg state changed: %s --> %s\n", tegra_state_name(from), tegra_state_name(to));
+
+#ifdef CONFIG_FACTORY_BUILD
+		pr_info("otg state from %d: to:%d", from, to);
+		if ((from == OTG_STATE_A_SUSPEND)
+		    && (to == OTG_STATE_B_PERIPHERAL)) {
+
+			pr_info
+			    ("suspend --------> peripheral, usb switch to AP");
+			gpio_direction_output(SC8800G_GPIO_USB_SWITCH, 1);
+			udelay(1000);
+			gpio_set_value(SC8800G_GPIO_USB_SWITCH, 0);
+			udelay(1000);
+			gpio_export(SC8800G_GPIO_USB_SWITCH, false);
+		} else {
+			pr_info
+			    ("peripheral -------> suspend, usb switch to MODEM");
+			gpio_direction_output(SC8800G_GPIO_USB_SWITCH, 1);
+			udelay(1000);
+			gpio_set_value(SC8800G_GPIO_USB_SWITCH, 1);
+			udelay(1000);
+			gpio_export(SC8800G_GPIO_USB_SWITCH, false);
+		}
+#endif
 
 		if (from == OTG_STATE_A_SUSPEND) {
 			if (to == OTG_STATE_B_PERIPHERAL && otg->gadget) {
@@ -681,6 +712,7 @@ static int tegra_otg_probe(struct platform_device *pdev)
 	tegra->phy.set_power = tegra_otg_set_power;
 	tegra->phy.state = OTG_STATE_A_SUSPEND;
 	tegra->phy.otg->phy = &tegra->phy;
+	ATOMIC_INIT_NOTIFIER_HEAD(&tegra->phy.notifier);
 
 	err = usb_set_transceiver(&tegra->phy);
 	if (err) {

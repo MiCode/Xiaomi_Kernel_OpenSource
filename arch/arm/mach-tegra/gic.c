@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2010-2012, NVIDIA Corporation
+ * Copyright (C) 2010-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -22,6 +23,7 @@
 
 #include <mach/iomap.h>
 #include <mach/irqs.h>
+#include <mach/fiq.h>
 
 #include "gic.h"
 #include "pm.h"
@@ -30,6 +32,7 @@
 
 void __iomem *tegra_gic_cpu_base;
 static u32 gic_version;
+static void __iomem *gic_dist_base = IO_ADDRESS(TEGRA_ARM_INT_DIST_BASE);
 
 #if defined(CONFIG_HOTPLUG_CPU) || defined(CONFIG_PM_SLEEP)
 
@@ -50,10 +53,36 @@ void tegra_gic_cpu_disable(bool disable_pass_through)
 
 void tegra_gic_cpu_enable(void)
 {
-	writel(1, tegra_gic_cpu_base + GIC_CPU_CTRL);
+	writel(gic_get_cpu_ctrl_val(), tegra_gic_cpu_base + GIC_CPU_CTRL);
 }
 
 #endif
+
+/*
+ * if we use Tegra FIQ WAR, we use this function to enable the IRQ on GIC
+ * group 0. Using the WAR, group0 will generate the FIQ only to CPUs. We also
+ * need set the group0 IRQ to highest priority  higher than GIC group1's IRQ's
+ * priority.
+ */
+static void tegra_gic_set_group0_fiq(int fiq)
+{
+	u32 val = 0;
+	int group_nr;
+	int fiq_offset;
+
+	if (!has_fiq_gic_war())
+		return;
+
+	group_nr = (fiq / 32) * 4;
+	val = readl_relaxed(gic_dist_base + GIC_DIST_IGROUP + group_nr);
+	val &= ~(1 << (fiq % 32));
+	writel_relaxed(val, gic_dist_base + GIC_DIST_IGROUP + group_nr);
+
+	fiq_offset = fiq / 4 * 4;
+	val = readl_relaxed(gic_dist_base + GIC_DIST_PRI + fiq_offset);
+	val &= ~(0xff << ((fiq % 4) * 8));
+	writel_relaxed(val, gic_dist_base + GIC_DIST_PRI + fiq_offset);
+}
 
 #if defined(CONFIG_PM_SLEEP)
 
@@ -67,7 +96,6 @@ int tegra_gic_pending_interrupt(void)
 
 #ifndef CONFIG_ARCH_TEGRA_2x_SOC
 
-static void __iomem *gic_dist_base = IO_ADDRESS(TEGRA_ARM_INT_DIST_BASE);
 static u32 gic_affinity[INT_GIC_NR/4];
 
 void tegra_gic_dist_disable(void)
@@ -77,7 +105,10 @@ void tegra_gic_dist_disable(void)
 
 void tegra_gic_dist_enable(void)
 {
-	writel(1, gic_dist_base + GIC_DIST_CTRL);
+	writel(has_fiq_gic_war() ?
+		GIC_DIST_CTRL_EN_GRP0 | GIC_DIST_CTRL_EN_GRP1 :
+		GIC_DIST_CTRL_EN_GRP0,
+		gic_dist_base + GIC_DIST_CTRL);
 }
 
 void tegra_gic_disable_affinity(void)
@@ -138,6 +169,11 @@ static int tegra_gic_notifier(struct notifier_block *self, unsigned long cmd, vo
 	case CPU_PM_ENTER:
 		writel(0x1E0, tegra_gic_cpu_base + GIC_CPU_CTRL);
 		break;
+	case CPU_CLUSTER_PM_ENTER_FAILED:
+	case CPU_CLUSTER_PM_EXIT:
+		if (has_fiq_gic_war())
+			tegra_gic_set_group0_fiq(TEGRA_FIQ_WAR_FIQ_NR);
+		break;
 	}
 
 	return NOTIFY_OK;
@@ -153,7 +189,7 @@ u32 tegra_gic_version(void)
 	return gic_version;
 }
 
-void __init tegra_gic_init(bool is_dt)
+void __iomem *tegra_get_gic_cpu_base(void)
 {
 	u32 midr;
 
@@ -162,9 +198,14 @@ void __init tegra_gic_init(bool is_dt)
 	midr = (midr & 0x0000FFF0) >> 4;
 
 	if (midr == ARM_VERSION_CORTEX_A15)
-		tegra_gic_cpu_base = IO_ADDRESS(TEGRA_ARM_PERIF_BASE + 0x2000);
+		return IO_ADDRESS(TEGRA_ARM_PERIF_BASE + 0x2000);
 	else
-		tegra_gic_cpu_base = IO_ADDRESS(TEGRA_ARM_PERIF_BASE + 0x100);
+		return IO_ADDRESS(TEGRA_ARM_PERIF_BASE + 0x100);
+}
+
+void __init tegra_gic_init(bool is_dt)
+{
+	tegra_gic_cpu_base = tegra_get_gic_cpu_base();
 
 	if (!is_dt)
 		gic_init(0, 29, IO_ADDRESS(TEGRA_ARM_INT_DIST_BASE),
@@ -177,4 +218,6 @@ void __init tegra_gic_init(bool is_dt)
 	if (gic_version == GIC_V2)
 		cpu_pm_register_notifier(&tegra_gic_notifier_block);
 #endif
+	if (has_fiq_gic_war())
+		tegra_gic_set_group0_fiq(TEGRA_FIQ_WAR_FIQ_NR);
 }

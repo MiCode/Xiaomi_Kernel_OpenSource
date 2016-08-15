@@ -372,4 +372,15 @@ typedef volatile struct _aidmp {
 #define OOB_SEL_OUTEN_B_5	15
 #define OOB_SEL_OUTEN_B_6	23
 
-#endif	/* _AIDMP_H */
+/* AI_OOBSEL for A/B/C/D, 0-7 */
+#define AI_OOBSEL_MASK		0x1F
+#define AI_OOBSEL_0_SHIFT	0
+#define AI_OOBSEL_1_SHIFT	8
+#define AI_OOBSEL_2_SHIFT	16
+#define AI_OOBSEL_3_SHIFT	24
+#define AI_OOBSEL_4_SHIFT	0
+#define AI_OOBSEL_5_SHIFT	8
+#define AI_OOBSEL_6_SHIFT	16
+#define AI_OOBSEL_7_SHIFT	24
+
+#endif /* _AIDMP_H */

@@ -568,6 +568,7 @@ int nvhost_module_set_devfreq_rate(struct platform_device *dev, int index,
 		unsigned long rate)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
+	int ret;
 
 	rate = clk_round_rate(pdata->clk[index], rate);
 	pdata->clocks[index].devfreq_rate = rate;
@@ -575,7 +576,11 @@ int nvhost_module_set_devfreq_rate(struct platform_device *dev, int index,
 	trace_nvhost_module_set_devfreq_rate(dev->name,
 			pdata->clocks[index].name, rate);
 
-	return nvhost_module_update_rate(dev, index);
+	mutex_lock(&client_list_lock);
+	ret = nvhost_module_update_rate(dev, index);
+	mutex_unlock(&client_list_lock);
+
+	return ret;
 }
 
 int nvhost_module_init(struct platform_device *dev)
@@ -717,12 +722,9 @@ static int is_module_idle(struct platform_device *dev)
 
 int nvhost_module_suspend(struct platform_device *dev)
 {
-	int ret;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 
-	ret = wait_event_timeout(pdata->idle_wq, is_module_idle(dev),
-			ACM_SUSPEND_WAIT_FOR_IDLE_TIMEOUT);
-	if (ret == 0) {
+	if (!is_module_idle(dev)) {
 		dev_info(&dev->dev, "%s prevented suspend\n",
 				dev_name(&dev->dev));
 		return -EBUSY;
