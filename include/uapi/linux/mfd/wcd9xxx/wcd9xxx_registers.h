@@ -330,6 +330,8 @@
 #define WCD9XXX_A_ANA_HPH				(0x609)
 #define WCD9XXX_A_CDC_CLSH_CRC				(0xC01)
 #define WCD9XXX_FLYBACK_EN				(0x6A4)
+#define WCD9XXX_FLYBACK_VNEG_CTRL_1			(0x6A5)
+#define WCD9XXX_FLYBACK_VNEGDAC_CTRL_2			(0x6AF)
 #define WCD9XXX_RX_BIAS_FLYB_BUFF			(0x6C7)
 #define WCD9XXX_HPH_L_EN				(0x6D3)
 #define WCD9XXX_HPH_R_EN				(0x6D6)
@@ -341,4 +343,13 @@
 #define WCD9XXX_CDC_RX2_RX_PATH_CTL			(0xB69)
 #define WCD9XXX_CDC_CLK_RST_CTRL_MCLK_CONTROL		(0xD41)
 #define WCD9XXX_CLASSH_CTRL_CCL_1                       (0x69C)
+
+/* RX Gain control registers of codecs from and above WCD9335 */
+#define WCD9XXX_CDC_RX1_RX_VOL_CTL			(0xB59)
+#define WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL			(0xB5C)
+#define WCD9XXX_CDC_RX1_RX_PATH_SEC1			(0xB5E)
+#define WCD9XXX_CDC_RX2_RX_VOL_CTL			(0xB6D)
+#define WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL			(0xB70)
+#define WCD9XXX_CDC_RX2_RX_PATH_SEC1			(0xB72)
+
 #endif

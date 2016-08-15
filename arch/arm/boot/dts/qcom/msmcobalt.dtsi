@@ -1751,7 +1751,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 					<61 512 0 0>,
-					<61 512 240000 960000>;
+					<61 512 240000 800000>;
 
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		extcon = <&pmicobalt_pdphy>;
@@ -2807,7 +2807,7 @@
 
 		qcom,qsee-ipc-irq-spss {
 			qcom,rx-irq-clr = <0x1d08008 0x4>;
-			qcom,rx-irq-clr-mask = <0x2>;
+			qcom,rx-irq-clr-mask = <0x1>;
 			qcom,dev-name = "qsee_ipc_irq_spss";
 			interrupts = <0 349 4>;
 			label = "spss";
@@ -2842,10 +2842,6 @@
 };
 
 &gdsc_ufs {
-	clock-names = "bus_clk", "ice_clk", "unipro_clk";
-	clocks = <&clock_gcc clk_gcc_ufs_axi_clk>,
-		 <&clock_gcc clk_gcc_ufs_ice_core_clk>,
-		 <&clock_gcc clk_gcc_ufs_unipro_core_clk>;
 	status = "ok";
 };
 
