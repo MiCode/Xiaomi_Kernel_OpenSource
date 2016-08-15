@@ -360,10 +360,13 @@ static int msm_ext_disp_hpd(struct platform_device *pdev,
 		ext_disp->current_disp = data->type;
 	} else if ((state == EXT_DISPLAY_CABLE_DISCONNECT) &&
 			!ext_disp->ack_enabled) {
-		ext_disp->ops->audio_info_setup = NULL;
-		ext_disp->ops->get_audio_edid_blk = NULL;
-		ext_disp->ops->cable_status = NULL;
-		ext_disp->ops->get_intf_id = NULL;
+		if (ext_disp->ops) {
+			ext_disp->ops->audio_info_setup = NULL;
+			ext_disp->ops->get_audio_edid_blk = NULL;
+			ext_disp->ops->cable_status = NULL;
+			ext_disp->ops->get_intf_id = NULL;
+		}
+
 		ext_disp->current_disp = EXT_DISPLAY_TYPE_MAX;
 	}
 
@@ -451,7 +454,7 @@ static int msm_ext_disp_notify(struct platform_device *pdev,
 	if (ret)
 		goto end;
 
-	if (new_state == EXT_DISPLAY_CABLE_CONNECT) {
+	if (new_state == EXT_DISPLAY_CABLE_CONNECT && ext_disp->ops) {
 		ext_disp->ops->audio_info_setup =
 			data->codec_ops.audio_info_setup;
 		ext_disp->ops->get_audio_edid_blk =
@@ -524,10 +527,13 @@ static int msm_ext_disp_audio_ack(struct platform_device *pdev, u32 ack)
 	 * empty.
 	 */
 	if (!ack_hpd) {
-		ext_disp->ops->audio_info_setup = NULL;
-		ext_disp->ops->get_audio_edid_blk = NULL;
-		ext_disp->ops->cable_status = NULL;
-		ext_disp->ops->get_intf_id = NULL;
+		if (ext_disp->ops) {
+			ext_disp->ops->audio_info_setup = NULL;
+			ext_disp->ops->get_audio_edid_blk = NULL;
+			ext_disp->ops->cable_status = NULL;
+			ext_disp->ops->get_intf_id = NULL;
+		}
+
 		ext_disp->current_disp = EXT_DISPLAY_TYPE_MAX;
 	}
 
