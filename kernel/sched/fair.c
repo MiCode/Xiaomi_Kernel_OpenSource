@@ -2579,6 +2579,23 @@ static u32 __compute_runnable_contrib(u64 n)
 
 #ifdef CONFIG_SCHED_HMP
 
+/* CPU selection flag */
+#define SBC_FLAG_PREV_CPU				0x1
+#define SBC_FLAG_BEST_CAP_CPU				0x2
+#define SBC_FLAG_CPU_COST				0x4
+#define SBC_FLAG_MIN_COST				0x8
+#define SBC_FLAG_IDLE_LEAST_LOADED			0x10
+#define SBC_FLAG_IDLE_CSTATE				0x20
+#define SBC_FLAG_COST_CSTATE_TIE_BREAKER		0x40
+#define SBC_FLAG_COST_CSTATE_PREV_CPU_TIE_BREAKER	0x80
+#define SBC_FLAG_CSTATE_LOAD				0x100
+#define SBC_FLAG_BEST_SIBLING				0x200
+
+/* Cluster selection flag */
+#define SBC_FLAG_COLOC_CLUSTER				0x10000
+#define SBC_FLAG_WAKER_CLUSTER				0x20000
+#define SBC_FLAG_BACKUP_CLUSTER				0x40000
+
 struct cpu_select_env {
 	struct task_struct *p;
 	struct related_thread_group *rtg;
@@ -2593,6 +2610,8 @@ struct cpu_select_env {
 	DECLARE_BITMAP(backup_list, NR_CPUS);
 	u64 task_load;
 	u64 cpu_load;
+	u32 sbc_best_flag;
+	u32 sbc_best_cluster_flag;
 };
 
 struct cluster_cpu_stats {
@@ -2687,6 +2706,7 @@ select_least_power_cluster(struct cpu_select_env *env)
 	if (env->rtg) {
 		env->task_load = scale_load_to_cpu(task_load(env->p),
 			cluster_first_cpu(env->rtg->preferred_cluster));
+		env->sbc_best_cluster_flag |= SBC_FLAG_COLOC_CLUSTER;
 		return env->rtg->preferred_cluster;
 	}
 
@@ -2765,6 +2785,7 @@ struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 			update_spare_capacity(stats, env, i, next->capacity,
 					  cpu_load_sync(i, env->sync));
 		}
+		env->sbc_best_cluster_flag = SBC_FLAG_BACKUP_CLUSTER;
 	}
 }
 
@@ -2836,6 +2857,7 @@ static void __update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 		stats->best_cpu_cstate = cpu_cstate;
 		stats->best_load = env->cpu_load;
 		stats->best_cpu = cpu;
+		env->sbc_best_flag = SBC_FLAG_CPU_COST;
 		return;
 	}
 
@@ -2848,12 +2870,14 @@ static void __update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 		stats->best_cpu_cstate = cpu_cstate;
 		stats->best_load = env->cpu_load;
 		stats->best_cpu = cpu;
+		env->sbc_best_flag = SBC_FLAG_COST_CSTATE_TIE_BREAKER;
 		return;
 	}
 
 	/* C-state is the same. Use prev CPU to break the tie */
 	if (cpu == prev_cpu) {
 		stats->best_cpu = cpu;
+		env->sbc_best_flag = SBC_FLAG_COST_CSTATE_PREV_CPU_TIE_BREAKER;
 		return;
 	}
 
@@ -2862,6 +2886,7 @@ static void __update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 	    (cpu_cstate > 0 && env->cpu_load > stats->best_load))) {
 		stats->best_load = env->cpu_load;
 		stats->best_cpu = cpu;
+		env->sbc_best_flag = SBC_FLAG_CSTATE_LOAD;
 	}
 }
 #else /* CONFIG_SCHED_HMP_CSTATE_AWARE */
@@ -2892,6 +2917,7 @@ static void __update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 			stats->min_cost = cpu_cost;
 			stats->min_load = env->cpu_load;
 			stats->best_cpu = cpu;
+			env->sbc_best_flag = SBC_FLAG_MIN_COST;
 		}
 	}
 }
@@ -3049,8 +3075,8 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 {
 	struct sched_cluster *cluster, *pref_cluster = NULL;
 	struct cluster_cpu_stats stats;
-	bool fast_path = false;
 	struct related_thread_group *grp;
+	unsigned int sbc_flag = 0;
 
 	struct cpu_select_env env = {
 		.p			= p,
@@ -3062,6 +3088,8 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		.prev_cpu		= target,
 		.ignore_prev_cpu	= 0,
 		.rtg			= NULL,
+		.sbc_best_flag		= 0,
+		.sbc_best_cluster_flag	= 0,
 	};
 
 	bitmap_copy(env.candidate_list, all_cluster_ids, NR_CPUS);
@@ -3086,8 +3114,10 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			env.need_waker_cluster = 1;
 			bitmap_zero(env.candidate_list, NR_CPUS);
 			__set_bit(cluster->id, env.candidate_list);
+			env.sbc_best_cluster_flag = SBC_FLAG_WAKER_CLUSTER;
+
 		} else if (bias_to_prev_cpu(&env, &stats)) {
-			fast_path = true;
+			sbc_flag = SBC_FLAG_PREV_CPU;
 			goto out;
 		}
 	}
@@ -3111,15 +3141,20 @@ retry:
 	} while ((cluster = next_best_cluster(cluster, &env, &stats)));
 
 	if (env.need_idle) {
-		if (stats.best_idle_cpu >= 0)
+		if (stats.best_idle_cpu >= 0) {
 			target = stats.best_idle_cpu;
-		else if (stats.least_loaded_cpu >= 0)
+			sbc_flag |= SBC_FLAG_IDLE_CSTATE;
+		} else if (stats.least_loaded_cpu >= 0) {
 			target = stats.least_loaded_cpu;
+			sbc_flag |= SBC_FLAG_IDLE_LEAST_LOADED;
+		}
 	} else if (stats.best_cpu >= 0) {
 		if (stats.best_cpu != task_cpu(p) &&
-				stats.min_cost == stats.best_sibling_cpu_cost)
+				stats.min_cost == stats.best_sibling_cpu_cost) {
 			stats.best_cpu = stats.best_sibling_cpu;
-
+			sbc_flag |= SBC_FLAG_BEST_SIBLING;
+		}
+		sbc_flag |= env.sbc_best_flag;
 		target = stats.best_cpu;
 	} else {
 		if (env.rtg) {
@@ -3128,15 +3163,17 @@ retry:
 		}
 
 		find_backup_cluster(&env, &stats);
-		if (stats.best_capacity_cpu >= 0)
+		if (stats.best_capacity_cpu >= 0) {
 			target = stats.best_capacity_cpu;
+			sbc_flag |= SBC_FLAG_BEST_CAP_CPU;
+		}
 	}
 	p->last_cpu_selected_ts = sched_ktime_clock();
-
+	sbc_flag |= env.sbc_best_cluster_flag;
 out:
 	rcu_read_unlock();
 	trace_sched_task_load(p, sched_boost(), env.reason, env.sync,
-					env.need_idle, fast_path, target);
+					env.need_idle, sbc_flag, target);
 	return target;
 }
 
