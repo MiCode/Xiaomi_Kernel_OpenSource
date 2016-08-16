@@ -278,6 +278,7 @@ static void sde_encoder_phys_wb_setup_cdp(struct sde_encoder_phys *phys_enc)
 
 	intf_cfg->intf = SDE_NONE;
 	intf_cfg->wb = hw_wb->idx;
+	intf_cfg->mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
 
 	if (phys_enc->hw_ctl && phys_enc->hw_ctl->ops.setup_intf_cfg)
 		phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl,
