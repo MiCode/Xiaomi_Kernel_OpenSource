@@ -2192,8 +2192,6 @@ static int venus_hfi_core_init(void *device)
 
 	INIT_LIST_HEAD(&dev->sess_head);
 
-	__set_registers(dev);
-
 	if (!dev->hal_client) {
 		dev->hal_client = msm_smem_new_client(
 				SMEM_ION, dev->res, MSM_VIDC_UNKNOWN);
@@ -4194,6 +4192,13 @@ static int __venus_power_on(struct venus_hfi_device *device)
 				"Failed to scale clocks, performance might be affected\n");
 		rc = 0;
 	}
+
+	/*
+	 * Re-program all of the registers that get reset as a result of
+	 * regulator_disable() and _enable()
+	 */
+	__set_registers(device);
+
 	__write_register(device, VIDC_WRAPPER_INTR_MASK,
 			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK);
 	device->intr_status = 0;
@@ -4308,11 +4313,6 @@ static inline int __resume(struct venus_hfi_device *device)
 		goto err_set_video_state;
 	}
 
-	/*
-	 * Re-program all of the registers that get reset as a result of
-	 * regulator_disable() and _enable()
-	 */
-	__set_registers(device);
 	__setup_ucregion_memory_map(device);
 	/* Wait for boot completion */
 	rc = __boot_firmware(device);
