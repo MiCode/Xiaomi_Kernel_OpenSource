@@ -1,6 +1,6 @@
 /* drivers/soc/qcom/smp2p_private_api.h
  *
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@ enum {
 	SMP2P_AUDIO_PROC      = 2,
 	SMP2P_SENSOR_PROC     = 3,
 	SMP2P_WIRELESS_PROC   = 4,
-	SMP2P_RESERVED_PROC_2 = 5,
+	SMP2P_CDSP_PROC       = 5,
 	SMP2P_POWER_PROC      = 6,
 	SMP2P_TZ_PROC         = 7,
 	/* add new processors here */
