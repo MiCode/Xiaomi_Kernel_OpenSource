@@ -28,13 +28,11 @@
  * struct sde_crtc_mixer: stores the map for each virtual pipeline in the CRTC
  * @hw_lm:	LM HW Driver context
  * @hw_ctl:	CTL Path HW driver context
- * @flush_mask:	Flush mask value for this commit
  * @encoder:	Encoder attached to this lm & ctl
  */
 struct sde_crtc_mixer {
 	struct sde_hw_mixer *hw_lm;
-	struct sde_hw_ctl   *hw_ctl;
-	u32 flush_mask;
+	struct sde_hw_ctl *hw_ctl;
 	struct drm_encoder *encoder;
 };
 
@@ -64,8 +62,8 @@ struct sde_crtc {
 	int drm_crtc_id;
 
 	/* HW Resources reserved for the crtc */
-	u32  num_ctls;
-	u32  num_mixers;
+	u32 num_ctls;
+	u32 num_mixers;
 	struct sde_crtc_mixer mixers[CRTC_DUAL_MIXERS];
 
 	/*if there is a pending flip, these will be non-null */
