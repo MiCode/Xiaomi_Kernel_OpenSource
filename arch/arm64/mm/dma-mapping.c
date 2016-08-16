@@ -2064,7 +2064,7 @@ arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size)
 		goto err2;
 
 	mapping->base = base;
-	mapping->bits = BITS_PER_BYTE * bitmap_size;
+	mapping->bits = bits;
 	spin_lock_init(&mapping->lock);
 
 	mapping->domain = iommu_domain_alloc(bus);
