@@ -996,6 +996,7 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 		_sde_rm_release_rsvp(rm, rsvp);
 		(void) msm_property_set_property(
 				sde_connector_get_propinfo(conn),
+				sde_connector_get_property_values(conn->state),
 				CONNECTOR_PROP_TOPOLOGY_NAME,
 				SDE_RM_TOPOLOGY_UNKNOWN);
 	}
@@ -1011,6 +1012,7 @@ static int _sde_rm_commit_rsvp(
 
 	ret = msm_property_set_property(
 			sde_connector_get_propinfo(conn_state->connector),
+			sde_connector_get_property_values(conn_state),
 			CONNECTOR_PROP_TOPOLOGY_NAME,
 			rsvp->topology);
 	if (ret)
