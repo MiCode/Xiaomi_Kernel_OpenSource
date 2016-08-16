@@ -131,10 +131,6 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 				<&clock_gcc clk_mmssnoc_axi_a_clk>;
-			clk-mdss-axi-no-rate-supply =
-					<&gdsc_mdss>;
-			clk-mdss-ahb-no-rate-supply =
-					<&gdsc_mdss>;
 			clk-camss-ahb-no-rate-supply =
 					<&gdsc_camss_top>;
 			clk-video-ahb-no-rate-supply =
@@ -145,8 +141,6 @@
 				clock-names =
 				"clk-noc-cfg-ahb-no-rate",
 				"clk-mnoc-ahb-no-rate",
-				"clk-mdss-ahb-no-rate",
-				"clk-mdss-axi-no-rate",
 				"clk-camss-ahb-no-rate",
 				"clk-video-ahb-no-rate",
 				"clk-video-axi-no-rate";
@@ -154,8 +148,6 @@
 				<&clock_gcc clk_mmssnoc_axi_clk>,
 				<&clock_gcc clk_gcc_mmss_noc_cfg_ahb_clk>,
 				<&clock_mmss clk_mmss_mnoc_ahb_clk>,
-				<&clock_mmss clk_mmss_mdss_ahb_clk>,
-				<&clock_mmss clk_mmss_mdss_axi_clk>,
 				<&clock_mmss clk_mmss_camss_ahb_clk>,
 				<&clock_mmss clk_mmss_video_ahb_clk>,
 				<&clock_mmss clk_mmss_video_axi_clk>;
@@ -535,6 +527,19 @@
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,vrail-comp = <25>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP0>;
+			clk-mdss-axi-no-rate-supply =
+					<&gdsc_mdss>;
+			clk-mdss-ahb-no-rate-supply =
+					<&gdsc_mdss>;
+			qcom,node-qos-clks {
+				clock-names =
+				"clk-mdss-ahb-no-rate",
+				"clk-mdss-axi-no-rate";
+				clocks =
+				<&clock_mmss clk_mmss_mdss_ahb_clk>,
+				<&clock_mmss clk_mmss_mdss_axi_clk>;
+			};
+
 		};
 
 		mas_mdp_p1: mas-mdp-p1 {
