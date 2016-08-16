@@ -2790,8 +2790,8 @@
 			     <0 424 0 /* CE10 */ >,
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
-		vdd-io-supply = <&pmcobalt_l5>;
-		qcom,vdd-io-voltage-level = <800000 800000>;
+		vdd-0.8-cx-mx-supply = <&pmcobalt_l5>;
+		qcom,vdd-0.8-cx-mx-config = <800000 800000>;
 		qcom,msm-bus,name = "msm-icnss";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;

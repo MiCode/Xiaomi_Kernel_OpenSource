@@ -18,12 +18,13 @@ Required properties:
   - qcom,wlan-smmu-iova-address: I/O virtual address range as <start length>
     format to be used for allocations associated between WLAN and SMMU
   - <supply-name>-supply: phandle to the regulator device tree node
-                          Required "supply-name" is "vdd-io".
-  - qcom,<supply>-voltage-level - specifies voltage levels for supply. Should be
-                                  specified in pairs (min, max), units uV.
+                          Required "supply-name" is "vdd-0.8-cx-mx".
+  - qcom,<supply>-config - specifies voltage levels for supply. Should be
+                           specified in pairs (min, max), units uV.  There can
+                           be optional load in uA and Regulator settle delay in
+                           uS.
 
 Optional properties:
-  - qcom,skip-qmi: Boolean property to decide whether to use QMI or not
 
 Example:
 
@@ -50,7 +51,6 @@ Example:
 		   <0 140 0 /* CE10 */ >,
 		   <0 141 0 /* CE11 */ >;
         qcom,wlan-msa-memory = <0x200000>;
-        qcom,skip-qmi;
-	vdd-io-supply = <&pmcobalt_l5>;
-	qcom,vdd-io-voltage-level = <800000 800000>;
+	vdd-0.8-cx-mx-supply = <&pmcobalt_l5>;
+	qcom,vdd-0.8-cx-mx-config = <800000 800000 2400 1000>;
     };
