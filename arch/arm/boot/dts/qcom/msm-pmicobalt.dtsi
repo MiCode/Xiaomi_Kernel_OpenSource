@@ -262,7 +262,7 @@
 			reg = <0x1700 0x100>;
 			vdd-pdphy-supply = <&pmcobalt_l24>;
 			vbus-supply = <&smb2_vbus>;
-			vcon-supply = <&smb2_vconn>;
+			vconn-supply = <&smb2_vconn>;
 			interrupts = <0x2 0x17 0x0 IRQ_TYPE_EDGE_RISING>,
 				     <0x2 0x17 0x1 IRQ_TYPE_EDGE_RISING>,
 				     <0x2 0x17 0x2 IRQ_TYPE_EDGE_RISING>,
