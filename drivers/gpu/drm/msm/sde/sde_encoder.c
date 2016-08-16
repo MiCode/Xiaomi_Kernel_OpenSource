@@ -208,24 +208,6 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 	}
 }
 
-bool sde_encoder_needs_ctl_start(struct drm_encoder *drm_enc)
-{
-	struct sde_encoder_virt *sde_enc = NULL;
-	struct sde_encoder_phys *phys;
-
-	if (!drm_enc) {
-		SDE_ERROR("invalid pointer\n");
-		return false;
-	}
-	sde_enc = to_sde_encoder_virt(drm_enc);
-	phys = sde_enc->cur_master;
-
-	if (phys && phys->ops.needs_ctl_start)
-		return phys->ops.needs_ctl_start(phys);
-
-	return false;
-}
-
 static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
@@ -550,8 +532,121 @@ static void sde_encoder_handle_phys_enc_ready_for_kickoff(
 	wake_up_all(&sde_enc->pending_kickoff_wq);
 }
 
-void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc,
-		void (*kickoff_cb)(void *), void *kickoff_data)
+/**
+ * _sde_encoder_trigger_flush - trigger flush for a physical encoder
+ * drm_enc: Pointer to drm encoder structure
+ * phys: Pointer to physical encoder structure
+ * extra_flush_bits: Additional bit mask to include in flush trigger
+ */
+static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
+		struct sde_encoder_phys *phys, uint32_t extra_flush_bits)
+{
+	struct sde_hw_ctl *ctl;
+
+	if (!drm_enc || !phys) {
+		SDE_ERROR("invalid argument(s), drm_enc %d, phys_enc %d\n",
+				drm_enc != 0, phys != 0);
+		return;
+	}
+
+	ctl = phys->hw_ctl;
+	if (!ctl || !ctl->ops.trigger_flush) {
+		SDE_ERROR("missing trigger cb\n");
+		return;
+	}
+
+	if (extra_flush_bits && ctl->ops.update_pending_flush)
+		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
+
+	ctl->ops.trigger_flush(ctl);
+	MSM_EVT(drm_enc->dev, drm_enc->base.id, ctl->idx);
+}
+
+/**
+ * _sde_encoder_trigger_start - trigger start for a physical encoder
+ * phys: Pointer to physical encoder structure
+ */
+static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
+{
+	if (!phys) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	if (phys->ops.trigger_start && phys->enable_state != SDE_ENC_DISABLED)
+		phys->ops.trigger_start(phys);
+}
+
+void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_hw_ctl *ctl;
+	int ctl_idx = -1;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	ctl = phys_enc->hw_ctl;
+	if (ctl && ctl->ops.trigger_start) {
+		ctl->ops.trigger_start(ctl);
+		ctl_idx = ctl->idx;
+	}
+
+	if (phys_enc && phys_enc->parent)
+		MSM_EVT(phys_enc->parent->dev,
+				phys_enc->parent->base.id,
+				ctl_idx);
+}
+
+/**
+ * _sde_encoder_kickoff_phys - handle physical encoder kickoff
+ *	Iterate through the physical encoders and perform consolidated flush
+ *	and/or control start triggering as needed. This is done in the virtual
+ *	encoder rather than the individual physical ones in order to handle
+ *	use cases that require visibility into multiple physical encoders at
+ *	a time.
+ * sde_enc: Pointer to virtual encoder structure
+ */
+static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
+{
+	struct sde_hw_ctl *ctl;
+	uint32_t i, pending_flush;
+
+	if (!sde_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	pending_flush = 0x0;
+
+	/* don't perform flush/start operations for slave encoders */
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		ctl = phys->hw_ctl;
+		if (!ctl || phys->enable_state == SDE_ENC_DISABLED)
+			continue;
+
+		if (!phys->ops.needs_split_flush ||
+				!phys->ops.needs_split_flush(phys))
+			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
+		else if (ctl->ops.get_pending_flush)
+			pending_flush |= ctl->ops.get_pending_flush(ctl);
+	}
+
+	/* for split flush, combine pending flush masks and send to master */
+	if (pending_flush && sde_enc->cur_master) {
+		_sde_encoder_trigger_flush(
+				&sde_enc->base,
+				sde_enc->cur_master,
+				pending_flush);
+	}
+
+	_sde_encoder_trigger_start(sde_enc->cur_master);
+}
+
+void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
@@ -607,8 +702,7 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc,
 	}
 
 	/* All phys encs are ready to go, trigger the kickoff */
-	if (kickoff_cb)
-		kickoff_cb(kickoff_data);
+	_sde_encoder_kickoff_phys(sde_enc);
 
 	/* Allow phys encs to handle any post-kickoff business */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {

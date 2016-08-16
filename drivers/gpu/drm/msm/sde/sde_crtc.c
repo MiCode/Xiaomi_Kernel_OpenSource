@@ -381,54 +381,6 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc)
 }
 
 /**
- * _sde_crtc_trigger_kickoff - Iterate through the control paths and trigger
- *	the hw_ctl object to flush any pending flush mask, and trigger
- *	control start if the interface types require it.
- *
- *	This is currently designed to be called only once per crtc, per flush.
- *	It should be called from the encoder, through the
- *	sde_encoder_schedule_kickoff callflow, after all the encoders are ready
- *	to have CTL_START triggered.
- *
- *	It is called from the commit thread context.
- * @data: crtc pointer
- */
-static void _sde_crtc_trigger_kickoff(void *data)
-{
-	struct drm_crtc *crtc = (struct drm_crtc *)data;
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_crtc_mixer *mixer;
-	struct sde_hw_ctl *ctl;
-	int i;
-
-	if (!data) {
-		SDE_ERROR("invalid argument\n");
-		return;
-	}
-
-	MSM_EVT(crtc->dev, crtc->base.id, 0);
-
-	/* Commit all pending flush masks to hardware */
-	for (i = 0; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
-		ctl = sde_crtc->mixers[i].hw_ctl;
-		if (ctl) {
-			ctl->ops.trigger_flush(ctl);
-			MSM_EVT(crtc->dev, crtc->base.id, ctl->idx);
-		}
-	}
-
-	/* Signal start to any interface types that require it */
-	for (i = 0; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
-		mixer = &sde_crtc->mixers[i];
-		ctl = mixer->hw_ctl;
-		if (ctl && sde_encoder_needs_ctl_start(mixer->encoder)) {
-			ctl->ops.trigger_start(ctl);
-			MSM_EVT(crtc->dev, crtc->base.id, ctl->idx);
-		}
-	}
-}
-
-/**
  * _sde_crtc_set_input_fence_timeout - update ns version of in fence timeout
  * @cstate: Pointer to sde crtc state
  */
@@ -725,8 +677,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		 * Encoder will flush/start now, unless it has a tx pending.
 		 * If so, it may delay and flush at an irq event (e.g. ppdone)
 		 */
-		sde_encoder_schedule_kickoff(encoder, _sde_crtc_trigger_kickoff,
-				crtc);
+		sde_encoder_schedule_kickoff(encoder);
 	}
 }
 

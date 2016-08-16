@@ -460,14 +460,6 @@ void sde_encoder_get_hw_resources(struct drm_encoder *encoder,
 		struct drm_connector_state *conn_state);
 
 /**
- * sde_encoder_needs_ctl_start - Get whether encoder type requires ctl_start
- *	CMD and WB encoders need ctl_start, video encs do not.
- * @encoder:	encoder pointer
- * @Return: true if the encoder type requires ctl_start issued
- */
-bool sde_encoder_needs_ctl_start(struct drm_encoder *encoder);
-
-/**
  * sde_encoder_register_vblank_callback - provide callback to encoder that
  *	will be called on the next vblank.
  * @encoder:	encoder pointer
@@ -485,13 +477,9 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *encoder,
  *	Delayed: Save the callback, and return. Does not block. Callback will
  *	be triggered later. E.g. cmd encoder will trigger at pp_done irq
  *	irq if it outstanding.
- *	Callback registered is expected to flush _all_ ctl paths of the crtc
  * @encoder:	encoder pointer
- * @cb:		callback pointer, provide NULL to deregister
- * @data:	user data provided to callback
  */
-void sde_encoder_schedule_kickoff(struct drm_encoder *encoder,
-		void (*cb)(void *), void *data);
+void sde_encoder_schedule_kickoff(struct drm_encoder *encoder);
 
 /**
  * sde_encoder_wait_nxt_committed - Wait for hardware to have flushed the

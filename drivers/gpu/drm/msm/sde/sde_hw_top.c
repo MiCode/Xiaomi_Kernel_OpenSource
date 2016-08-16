@@ -14,17 +14,14 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_top.h"
 
-#define SSPP_SPARE                        0x24
-#define SPLIT_DISPLAY_ENABLE              0x2F4
+#define SSPP_SPARE                        0x28
 
-#define LOWER_PIPE_CTRL                   0x2F8
 #define FLD_SPLIT_DISPLAY_CMD             BIT(1)
 #define FLD_SMART_PANEL_FREE_RUN          BIT(2)
 #define FLD_INTF_1_SW_TRG_MUX             BIT(4)
 #define FLD_INTF_2_SW_TRG_MUX             BIT(8)
 #define FLD_TE_LINE_INTER_WATERLEVEL_MASK 0xFFFF
 
-#define UPPER_PIPE_CTRL                   0x3F0
 #define TE_LINE_INTERVAL                  0x3F4
 
 #define TRAFFIC_SHAPER_EN                 BIT(31)
@@ -65,9 +62,9 @@ static void sde_hw_setup_split_pipe_control(struct sde_hw_mdp *mdp,
 	}
 
 	SDE_REG_WRITE(c, SSPP_SPARE, (cfg->split_flush_en) ? 0x1 : 0x0);
-	SDE_REG_WRITE(c, LOWER_PIPE_CTRL, lower_pipe);
-	SDE_REG_WRITE(c, UPPER_PIPE_CTRL, upper_pipe);
-	SDE_REG_WRITE(c, SPLIT_DISPLAY_ENABLE, cfg->en & 0x1);
+	SDE_REG_WRITE(c, SPLIT_DISPLAY_LOWER_PIPE_CTRL, lower_pipe);
+	SDE_REG_WRITE(c, SPLIT_DISPLAY_UPPER_PIPE_CTRL, upper_pipe);
+	SDE_REG_WRITE(c, SPLIT_DISPLAY_EN, cfg->en & 0x1);
 }
 
 static void sde_hw_setup_cdm_output(struct sde_hw_mdp *mdp,

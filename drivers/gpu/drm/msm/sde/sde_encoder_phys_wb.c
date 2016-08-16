@@ -882,17 +882,6 @@ static void sde_encoder_phys_wb_get_hw_resources(
 			hw_res->needs_cdm);
 }
 
-/**
- * sde_encoder_phys_wb_needs_ctl_start - Whether encoder needs ctl_start
- * @phys_enc:	Pointer to physical encoder
- * @Return:	Whether encoder needs ctl_start
- */
-static bool sde_encoder_phys_wb_needs_ctl_start(
-		struct sde_encoder_phys *phys_enc)
-{
-	return true;
-}
-
 #ifdef CONFIG_DEBUG_FS
 /**
  * sde_encoder_phys_wb_init_debugfs - initialize writeback encoder debugfs
@@ -994,7 +983,7 @@ static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->wait_for_commit_done = sde_encoder_phys_wb_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_wb_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_wb_handle_post_kickoff;
-	ops->needs_ctl_start = sde_encoder_phys_wb_needs_ctl_start;
+	ops->trigger_start = sde_encoder_helper_trigger_start;
 }
 
 /**
