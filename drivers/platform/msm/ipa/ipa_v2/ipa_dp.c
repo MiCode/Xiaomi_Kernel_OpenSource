@@ -3079,7 +3079,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 					sys->repl_hdlr =
 						ipa_replenish_rx_cache_recycle;
 					sys->rx_pool_sz =
-						IPA_GENERIC_RX_POOL_SZ;
+						ipa_ctx->lan_rx_ring_size;
 					in->ipa_ep_cfg.aggr.aggr_byte_limit =
 					IPA_GENERIC_AGGR_BYTE_LIMIT;
 					in->ipa_ep_cfg.aggr.aggr_pkt_limit =
