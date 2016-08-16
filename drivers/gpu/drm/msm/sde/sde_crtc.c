@@ -228,16 +228,14 @@ static void sde_crtc_blend_setup(struct drm_crtc *crtc)
 
 	int i;
 
-	DBG("");
-
-	/* ctl could be reserved already */
-	if (!sde_crtc->num_ctls)
-		return;
+	SDE_DEBUG("%s\n", sde_crtc->name);
 
 	/* initialize stage cfg */
 	memset(&sde_crtc->stage_cfg, 0, sizeof(struct sde_hw_stage_cfg));
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		uint32_t flush_mask = 0;
+
 		if ((!mixer[i].hw_lm) || (!mixer[i].hw_ctl)) {
 			sde_crtc->stage_cfg.border_enable[i] = true;
 			continue;
@@ -247,8 +245,8 @@ static void sde_crtc_blend_setup(struct drm_crtc *crtc)
 		lm = mixer[i].hw_lm;
 		memset(&alpha_out, 0, sizeof(alpha_out));
 
-		mixer[i].flush_mask = blend_config_per_mixer(crtc, sde_crtc,
-						mixer + i, &alpha_out);
+		flush_mask = blend_config_per_mixer(crtc, sde_crtc,
+				mixer + i, &alpha_out);
 
 		if (sde_crtc->stage_cfg.stage[SDE_STAGE_BASE][i] == SSPP_NONE)
 			sde_crtc->stage_cfg.border_enable[i] = true;
@@ -256,12 +254,17 @@ static void sde_crtc_blend_setup(struct drm_crtc *crtc)
 		lm->ops.setup_alpha_out(lm, &alpha_out);
 
 		/* get the flush mask for mixer */
-		ctl->ops.get_bitmask_mixer(ctl, &mixer[i].flush_mask,
+		ctl->ops.get_bitmask_mixer(ctl, &flush_mask,
 			mixer[i].hw_lm->idx);
+
+		/* stage config flush mask */
+		ctl->ops.update_pending_flush(ctl, flush_mask);
+		SDE_DEBUG("lm %d ctl %d add mask 0x%x to pending flush\n",
+				mixer->hw_lm->idx, ctl->idx, flush_mask);
 	}
 
 	/* Program ctl_paths */
-	for (i = 0; i < sde_crtc->num_ctls; i++) {
+	for (i = 0; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
 		if ((!mixer[i].hw_lm) || (!mixer[i].hw_ctl))
 			continue;
 
@@ -337,33 +340,6 @@ static void sde_crtc_vblank_cb(void *data)
 		DBG_IRQ("");
 		MSM_EVT(crtc->dev, crtc->base.id, 0);
 	}
-}
-
-static u32 _sde_crtc_update_ctl_flush_mask(struct drm_crtc *crtc)
-{
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_hw_ctl *ctl;
-	struct sde_crtc_mixer *mixer;
-	int i;
-
-	if (!crtc) {
-		SDE_ERROR("invalid argument\n");
-		return -EINVAL;
-	}
-
-	MSM_EVT(crtc->dev, crtc->base.id, 0);
-
-	DBG("");
-
-	for (i = 0; i < sde_crtc->num_ctls; i++) {
-		mixer = &sde_crtc->mixers[i];
-		ctl = mixer->hw_ctl;
-		ctl->ops.update_pending_flush(ctl, mixer->flush_mask);
-		SDE_DEBUG("added CTL_ID %d mask 0x%x to pending flush\n",
-				ctl->idx, mixer->flush_mask);
-	}
-
-	return 0;
 }
 
 void sde_crtc_complete_commit(struct drm_crtc *crtc)
@@ -492,37 +468,43 @@ static void _sde_crtc_setup_mixer_for_encoder(
 	struct sde_kms *sde_kms = get_kms(crtc);
 	struct sde_rm *rm = &sde_kms->rm;
 	struct sde_crtc_mixer *mixer;
+	struct sde_hw_ctl *last_valid_ctl = NULL;
 	int i;
 	struct sde_rm_hw_iter lm_iter, ctl_iter;
 
 	sde_rm_init_hw_iter(&lm_iter, enc->base.id, SDE_HW_BLK_LM);
 	sde_rm_init_hw_iter(&ctl_iter, enc->base.id, SDE_HW_BLK_CTL);
 
-	/* Set up the mixer for this encoder, checking all channels */
+	/* Set up all the mixers and ctls reserved by this encoder */
 	for (i = sde_crtc->num_mixers; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
 		mixer = &sde_crtc->mixers[i];
 
-		/* Add mixer if reservation exists on (encoder, chan) */
 		if (!sde_rm_get_hw(rm, &lm_iter))
 			break;
 		mixer->hw_lm = (struct sde_hw_mixer *)lm_iter.hw;
 
-		/* CTL may be null, not necessarily 1:1 with LM */
-		(void) sde_rm_get_hw(rm, &ctl_iter);
-		mixer->hw_ctl = (struct sde_hw_ctl *)ctl_iter.hw;
+		/* CTL may be <= LMs, if <, multiple LMs controlled by 1 CTL */
+		if (!sde_rm_get_hw(rm, &ctl_iter)) {
+			SDE_DEBUG("no ctl assigned to lm %d, using previous\n",
+					mixer->hw_lm->idx);
+			mixer->hw_ctl = last_valid_ctl;
+		} else {
+			mixer->hw_ctl = (struct sde_hw_ctl *)ctl_iter.hw;
+			last_valid_ctl = mixer->hw_ctl;
+		}
 
-		mixer->flush_mask = 0;
+		/* Shouldn't happen, mixers are always >= ctls */
+		if (!mixer->hw_ctl) {
+			SDE_ERROR("no valid ctls found for lm %d\n",
+					mixer->hw_lm->idx);
+			return;
+		}
+
 		mixer->encoder = enc;
 
 		sde_crtc->num_mixers++;
-		SDE_DEBUG("setup mixer %d: lm %d\n",
-				i, mixer->hw_lm->idx);
-
-		if (mixer->hw_ctl) {
-			sde_crtc->num_ctls++;
-			SDE_DEBUG("setup mixer %d: ctl %d\n",
-					i, mixer->hw_ctl->idx);
-		}
+		SDE_DEBUG("setup mixer %d: lm %d\n", i, mixer->hw_lm->idx);
+		SDE_DEBUG("setup mixer %d: ctl %d\n", i, mixer->hw_ctl->idx);
 	}
 }
 
@@ -531,7 +513,6 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct drm_encoder *enc;
 
-	sde_crtc->num_ctls = 0;
 	sde_crtc->num_mixers = 0;
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 
@@ -562,7 +543,8 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
 
-	_sde_crtc_setup_mixers(crtc);
+	if (!sde_crtc->num_mixers)
+		_sde_crtc_setup_mixers(crtc);
 
 	if (sde_crtc->event) {
 		WARN_ON(sde_crtc->event);
@@ -573,19 +555,19 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	}
 
 	/* Reset flush mask from previous commit */
-	for (i = 0; i < sde_crtc->num_ctls; i++) {
+	for (i = 0; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
 		struct sde_hw_ctl *ctl = sde_crtc->mixers[i].hw_ctl;
 
-		sde_crtc->mixers[i].flush_mask = 0;
-		ctl->ops.clear_pending_flush(ctl);
+		if (ctl)
+			ctl->ops.clear_pending_flush(ctl);
 	}
 
 	/*
-	 * If no CTL has been allocated in sde_crtc_atomic_check(),
+	 * If no mixers have been allocated in sde_crtc_atomic_check(),
 	 * it means we are trying to flush a CRTC whose state is disabled:
 	 * nothing else needs to be done.
 	 */
-	if (unlikely(!sde_crtc->num_ctls))
+	if (unlikely(!sde_crtc->num_mixers))
 		return;
 
 	sde_crtc_blend_setup(crtc);
@@ -638,11 +620,11 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	/*
-	 * If no CTL has been allocated in sde_crtc_atomic_check(),
+	 * If no mixers has been allocated in sde_crtc_atomic_check(),
 	 * it means we are trying to flush a CRTC whose state is disabled:
 	 * nothing else needs to be done.
 	 */
-	if (unlikely(!sde_crtc->num_ctls))
+	if (unlikely(!sde_crtc->num_mixers))
 		return;
 
 	/* wait for acquire fences before anything else is done */
@@ -655,10 +637,6 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	 */
 	drm_atomic_crtc_for_each_plane(plane, crtc)
 		sde_plane_flush(plane);
-
-	/* Add pending blocks to the flush mask  */
-	if (_sde_crtc_update_ctl_flush_mask(crtc))
-		return;
 
 	request_pending(crtc, PENDING_FLIP);
 
@@ -804,7 +782,18 @@ static int sde_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 
 static void sde_crtc_disable(struct drm_crtc *crtc)
 {
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc) {
+		DRM_ERROR("invalid crtc\n");
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+
 	DBG("");
+
+	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
+	sde_crtc->num_mixers = 0;
 }
 
 static void sde_crtc_enable(struct drm_crtc *crtc)
