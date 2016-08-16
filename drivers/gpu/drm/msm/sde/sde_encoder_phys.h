@@ -127,6 +127,7 @@ enum sde_enc_enable_state {
  *	tied to a specific panel / sub-panel. Abstract type, sub-classed by
  *	phys_vid or phys_cmd for video mode or command mode encs respectively.
  * @parent:		Pointer to the containing virtual encoder
+ * @connector:		If a mode is set, cached pointer to the active connector
  * @ops:		Operations exposed to the virtual encoder
  * @parent_ops:		Callbacks exposed by the parent to the phys_enc
  * @hw_mdptop:		Hardware interface to the top registers
@@ -139,12 +140,12 @@ enum sde_enc_enable_state {
  * @split_role:		Role to play in a split-panel configuration
  * @intf_mode:		Interface mode
  * @spin_lock:		Lock for IRQ purposes
- * @mode_3d:		3D mux configuration
  * @enable_state:	Enable state tracking
  * @vblank_refcount:	Reference count of vblank request
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
+	struct drm_connector *connector;
 	struct sde_encoder_phys_ops ops;
 	struct sde_encoder_virt_ops parent_ops;
 	struct sde_hw_mdp *hw_mdptop;
@@ -156,7 +157,6 @@ struct sde_encoder_phys {
 	enum sde_enc_split_role split_role;
 	enum sde_intf_mode intf_mode;
 	spinlock_t spin_lock;
-	enum sde_3d_blend_mode mode_3d;
 	enum sde_enc_enable_state enable_state;
 	atomic_t vblank_refcount;
 };
@@ -312,5 +312,19 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
  * @phys_enc: Pointer to physical encoder structure
  */
 void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc);
+
+
+static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
+		struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name topology;
+
+	topology = sde_connector_get_topology_name(phys_enc->connector);
+	if (phys_enc->split_role == ENC_ROLE_SOLO &&
+			topology == SDE_RM_TOPOLOGY_DUALPIPEMERGE)
+		return BLEND_3D_H_ROW_INT;
+
+	return BLEND_3D_NONE;
+}
 
 #endif /* __sde_encoder_phys_H__ */

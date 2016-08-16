@@ -21,7 +21,6 @@
 #define   CTL_TOP                       0x014
 #define   CTL_FLUSH                     0x018
 #define   CTL_START                     0x01C
-#define   CTL_PACK_3D                   0x020
 #define   CTL_SW_RESET                  0x030
 #define   CTL_LAYER_EXTN_OFFSET         0x40
 

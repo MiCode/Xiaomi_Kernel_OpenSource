@@ -286,10 +286,9 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	SDE_DEBUG_VIDENC(vid_enc, "fmt_fourcc 0x%X\n", fmt_fourcc);
 
 	intf_cfg.intf = vid_enc->hw_intf->idx;
-	intf_cfg.wb = SDE_NONE;
-	intf_cfg.mode_3d = phys_enc->mode_3d;
 	intf_cfg.intf_mode_sel = SDE_CTL_MODE_SEL_VID;
 	intf_cfg.stream_sel = 0; /* Don't care value for video mode */
+	intf_cfg.mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
 
 	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
 	vid_enc->hw_intf->ops.setup_timing_gen(vid_enc->hw_intf,
@@ -762,11 +761,6 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	spin_lock_init(&phys_enc->spin_lock);
 	init_completion(&vid_enc->vblank_completion);
 	atomic_set(&phys_enc->vblank_refcount, 0);
-
-	DRM_INFO_ONCE("intf %d: 3d blend modes not yet supported\n",
-			vid_enc->hw_intf->idx);
-	phys_enc->mode_3d = BLEND_3D_NONE;
-
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 
 	SDE_DEBUG_VIDENC(vid_enc, "created\n");

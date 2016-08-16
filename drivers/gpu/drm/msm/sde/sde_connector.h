@@ -239,6 +239,20 @@ struct sde_connector_state {
 	((S) ? to_sde_connector_state((S))->out_fb : 0)
 
 /**
+ * sde_connector_get_topology_name - helper accessor to retrieve topology_name
+ * @connector: pointer to drm connector
+ * Returns: value of the CONNECTOR_PROP_TOPOLOGY_NAME property or 0
+ */
+static inline uint64_t sde_connector_get_topology_name(
+		struct drm_connector *connector)
+{
+	if (!connector || !connector->state)
+		return 0;
+	return sde_connector_get_property(connector->state,
+			CONNECTOR_PROP_TOPOLOGY_NAME);
+}
+
+/**
  * sde_connector_init - create drm connector object for a given display
  * @dev: Pointer to drm device struct
  * @encoder: Pointer to associated encoder

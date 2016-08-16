@@ -327,9 +327,10 @@ static void sde_encoder_phys_cmd_pingpong_config(
 	drm_mode_debug_printmodeline(&phys_enc->cached_mode);
 
 	intf_cfg.intf = cmd_enc->intf_idx;
-	intf_cfg.mode_3d = phys_enc->mode_3d;
 	intf_cfg.intf_mode_sel = SDE_CTL_MODE_SEL_CMD;
 	intf_cfg.stream_sel = cmd_enc->stream_sel;
+	intf_cfg.mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
+
 	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
 
 	sde_encoder_phys_cmd_tearcheck_config(phys_enc);
@@ -611,7 +612,6 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	phys_enc->split_role = p->split_role;
 	phys_enc->intf_mode = INTF_MODE_CMD;
 	spin_lock_init(&phys_enc->spin_lock);
-	phys_enc->mode_3d = BLEND_3D_NONE;
 	cmd_enc->stream_sel = 0;
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 	atomic_set(&cmd_enc->pending_cnt, 0);
