@@ -228,6 +228,11 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 	return  ret;
 }
 
+int dp_aux_write(void *ep, struct edp_cmd *cmd)
+{
+	return dp_aux_write_cmds(ep, cmd);
+}
+
 static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 				struct edp_cmd *cmds)
 {
@@ -275,10 +280,18 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 	else
 		ret = ep->aux_error_num;
 
+	if (cmds->out_buf)
+		memcpy(cmds->out_buf, rp->data, cmds->len);
+
 	ep->aux_cmd_busy = 0;
 	mutex_unlock(&ep->aux_mutex);
 
 	return ret;
+}
+
+int dp_aux_read(void *ep, struct edp_cmd *cmds)
+{
+	return dp_aux_read_cmds(ep, cmds);
 }
 
 void dp_aux_native_handler(struct mdss_dp_drv_pdata *ep, u32 isr)

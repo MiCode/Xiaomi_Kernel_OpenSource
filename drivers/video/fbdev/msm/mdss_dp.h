@@ -106,15 +106,6 @@
 
 #define EDP_INTR_MASK2		(EDP_INTR_STATUS2 << 2)
 
-struct edp_cmd {
-	char read;	/* 1 == read, 0 == write */
-	char i2c;	/* 1 == i2c cmd, 0 == native cmd */
-	u32 addr;	/* 20 bits */
-	char *datap;
-	int len;	/* len to be tx OR len to be rx for read */
-	char next;	/* next command */
-};
-
 struct edp_buf {
 	char *start;	/* buffer start addr */
 	char *end;	/* buffer end addr */
