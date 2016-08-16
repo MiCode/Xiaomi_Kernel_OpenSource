@@ -5556,6 +5556,8 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 
 err_pdata:
 	devm_kfree(codec->dev, ptr);
+	control->rx_chs = NULL;
+	control->tx_chs = NULL;
 err:
 	return ret;
 }
@@ -5567,6 +5569,8 @@ static int tavil_soc_codec_remove(struct snd_soc_codec *codec)
 
 	control = dev_get_drvdata(codec->dev->parent);
 	devm_kfree(codec->dev, control->rx_chs);
+	control->rx_chs = NULL;
+	control->tx_chs = NULL;
 	tavil_cleanup_irqs(tavil);
 
 	return 0;
