@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3380,7 +3380,7 @@ int msm_ipc_router_get_curr_pkt_size(struct msm_ipc_port *port_ptr)
 
 int msm_ipc_router_bind_control_port(struct msm_ipc_port *port_ptr)
 {
-	if (!port_ptr)
+	if (unlikely(!port_ptr || port_ptr->type != CLIENT_PORT))
 		return -EINVAL;
 
 	down_write(&local_ports_lock_lhc2);
