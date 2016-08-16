@@ -117,7 +117,6 @@ struct msm_isp_bufq {
 	enum msm_isp_buf_type buf_type;
 	struct msm_isp_buffer *bufs;
 	spinlock_t bufq_lock;
-	uint8_t put_buf_mask[ISP_NUM_BUF_MASK];
 	/*Native buffer queue*/
 	struct list_head head;
 };
@@ -157,7 +156,7 @@ struct msm_isp_buf_ops {
 	int (*put_buf)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index);
 
-	int (*flush_buf)(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
+	int (*flush_buf)(struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t bufq_handle, enum msm_isp_buffer_flush_t flush_type,
 	struct timeval *tv, uint32_t frame_id);
 
@@ -174,9 +173,9 @@ struct msm_isp_buf_ops {
 		unsigned long fault_addr);
 	struct msm_isp_bufq * (*get_bufq)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle);
-	int (*update_put_buf_cnt)(struct msm_isp_buf_mgr *buf_mgr,
-	uint32_t id, uint32_t bufq_handle, int32_t buf_index,
-	struct timeval *tv, uint32_t frame_id, uint32_t pingpong_bit);
+	int (*buf_divert)(struct msm_isp_buf_mgr *buf_mgr,
+			uint32_t bufq_handle, uint32_t buf_index,
+			struct timeval *tv, uint32_t frame_id);
 };
 
 struct msm_isp_buf_mgr {

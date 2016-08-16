@@ -25,6 +25,22 @@
 static DEFINE_MUTEX(bandwidth_mgr_mutex);
 static struct msm_isp_bandwidth_mgr isp_bandwidth_mgr;
 
+#define MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev) { \
+	if (vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE0) { \
+		struct vfe_device *vfe1_dev = vfe_dev->common_data-> \
+					dual_vfe_res->vfe_dev[ISP_VFE1]; \
+		mutex_lock(&vfe1_dev->core_mutex); \
+	} \
+}
+
+#define MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev) { \
+	if (vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE0) { \
+		struct vfe_device *vfe1_dev = vfe_dev->common_data-> \
+					dual_vfe_res->vfe_dev[ISP_VFE1]; \
+		mutex_unlock(&vfe1_dev->core_mutex); \
+	} \
+}
+
 static uint64_t msm_isp_cpp_clk_rate;
 
 #define VFE40_8974V2_VERSION 0x1001001A
@@ -762,26 +778,39 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	}
 	case VIDIOC_MSM_ISP_REQUEST_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		rc = msm_isp_request_axi_stream(vfe_dev, arg);
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_RELEASE_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		rc = msm_isp_release_axi_stream(vfe_dev, arg);
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_CFG_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_AXI_HALT:
 		mutex_lock(&vfe_dev->core_mutex);
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		rc = msm_isp_axi_halt(vfe_dev, arg);
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_AXI_RESET:
 		mutex_lock(&vfe_dev->core_mutex);
+		/* For dual vfe reset both on vfe1 call */
+		if (vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE0) {
+			mutex_unlock(&vfe_dev->core_mutex);
+			return 0;
+		}
 		if (atomic_read(&vfe_dev->error_info.overflow_state)
 			!= HALT_ENFORCED) {
 			rc = msm_isp_stats_reset(vfe_dev);
@@ -796,6 +825,11 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_ISP_AXI_RESTART:
 		mutex_lock(&vfe_dev->core_mutex);
+		/* For dual vfe restart both on vfe1 call */
+		if (vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE0) {
+			mutex_unlock(&vfe_dev->core_mutex);
+			return 0;
+		}
 		if (atomic_read(&vfe_dev->error_info.overflow_state)
 			!= HALT_ENFORCED) {
 			rc = msm_isp_stats_restart(vfe_dev);
@@ -848,27 +882,37 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_ISP_REQUEST_STATS_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		rc = msm_isp_request_stats_stream(vfe_dev, arg);
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_RELEASE_STATS_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		rc = msm_isp_release_stats_stream(vfe_dev, arg);
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_CFG_STATS_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		rc = msm_isp_cfg_stats_stream(vfe_dev, arg);
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_UPDATE_STATS_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		rc = msm_isp_update_stats_stream(vfe_dev, arg);
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_UPDATE_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		rc = msm_isp_update_axi_stream(vfe_dev, arg);
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_SMMU_ATTACH:
@@ -883,10 +927,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		vfe_dev->isp_raw2_debug = 0;
 		break;
 	case MSM_SD_UNNOTIFY_FREEZE:
-		break;
 	case MSM_SD_SHUTDOWN:
-		while (vfe_dev->vfe_open_cnt != 0)
-			msm_isp_close_node(sd, NULL);
 		break;
 
 	default:
@@ -1631,8 +1672,8 @@ static int msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 {
 	int rc = vfe_dev->buf_mgr->pagefault_debug_disable;
 
-	pr_err("%s:%d] VFE%d Handle Page fault! vfe_dev %pK\n", __func__,
-		__LINE__,  vfe_dev->pdev->id, vfe_dev);
+	pr_err("%s:%d] VFE%d Handle Page fault!\n", __func__,
+		__LINE__,  vfe_dev->pdev->id);
 
 	msm_isp_halt_send_error(vfe_dev, ISP_EVENT_IOMMU_P_FAULT);
 
@@ -1899,6 +1940,7 @@ static void msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 		if (vfe_dev->vfe_open_cnt > 0) {
 			atomic_set(&vfe_dev->error_info.overflow_state,
 				HALT_ENFORCED);
+			pr_err("%s: fault address is %lx\n", __func__, iova);
 			msm_isp_process_iommu_page_fault(vfe_dev);
 		} else {
 			pr_err("%s: no handling, vfe open cnt = %d\n",
@@ -1927,9 +1969,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 			__func__);
 		return -EINVAL;
 	}
-
-	if (vfe_dev->pdev->id == ISP_VFE0)
-		vfe_dev->common_data->dual_vfe_res->epoch_sync_mask = 0;
 
 	mutex_lock(&vfe_dev->realtime_mutex);
 	mutex_lock(&vfe_dev->core_mutex);
@@ -2032,6 +2071,10 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		return 0;
 	}
+	MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
+	msm_isp_release_all_axi_stream(vfe_dev);
+	msm_isp_release_all_stats_stream(vfe_dev);
+
 	/* Unregister page fault handler */
 	cam_smmu_reg_client_page_fault_handler(
 		vfe_dev->buf_mgr->iommu_hdl,
@@ -2059,6 +2102,7 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		msm_isp_end_avtimer();
 		vfe_dev->vt_enable = 0;
 	}
+	MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 	vfe_dev->is_split = 0;
 
 	mutex_unlock(&vfe_dev->core_mutex);
@@ -2088,25 +2132,3 @@ void msm_isp_flush_tasklet(struct vfe_device *vfe_dev)
 	return;
 }
 
-void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev,
-				enum msm_vfe_input_src frame_src)
-{
-	struct msm_vfe_axi_stream *stream_info = NULL;
-	uint32_t j = 0;
-	unsigned long flags;
-
-	for (j = 0; j < VFE_AXI_SRC_MAX; j++) {
-		stream_info = &vfe_dev->axi_data.stream_info[j];
-		if (stream_info->state != ACTIVE)
-			continue;
-		if (frame_src != SRC_TO_INTF(stream_info->stream_src))
-			continue;
-
-		stream_info =
-			&vfe_dev->axi_data.stream_info[j];
-		spin_lock_irqsave(&stream_info->lock, flags);
-		stream_info->activated_framedrop_period  =
-			stream_info->requested_framedrop_period;
-		spin_unlock_irqrestore(&stream_info->lock, flags);
-	}
-}
