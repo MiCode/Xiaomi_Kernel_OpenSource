@@ -3789,6 +3789,22 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 		if (cl->has_scaling)
 			clk_set_rate(cl->clk, clk_round_rate(cl->clk, 0));
 
+		if (cl->has_mem_retention) {
+			rc = clk_set_flags(cl->clk, CLKFLAG_NORETAIN_PERIPH);
+			if (rc) {
+				dprintk(VIDC_WARN,
+					"Failed set flag NORETAIN_PERIPH %s\n",
+					cl->name);
+			}
+
+			rc = clk_set_flags(cl->clk, CLKFLAG_NORETAIN_MEM);
+			if (rc) {
+				dprintk(VIDC_WARN,
+					"Failed set flag NORETAIN_MEM %s\n",
+					cl->name);
+			}
+		}
+
 		rc = clk_prepare_enable(cl->clk);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to enable clocks\n");

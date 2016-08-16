@@ -15,6 +15,7 @@
 
 #include <linux/bitops.h>
 #include <linux/clk.h>
+#include <linux/clk/msm-clk.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -111,6 +112,7 @@ struct vmem {
 	struct {
 		const char *name;
 		struct clk *clk;
+		bool has_mem_retention;
 	} *clocks;
 	int num_clocks;
 	struct {
@@ -186,6 +188,21 @@ static inline int __power_on(struct vmem *v)
 	pr_debug("Enabled regulator vdd\n");
 
 	for (c = 0; c < v->num_clocks; ++c) {
+		if (v->clocks[c].has_mem_retention) {
+			rc = clk_set_flags(v->clocks[c].clk,
+				       CLKFLAG_NORETAIN_PERIPH);
+			if (rc) {
+				pr_warn("Failed set flag NORETAIN_PERIPH %s\n",
+					v->clocks[c].name);
+			}
+			rc = clk_set_flags(v->clocks[c].clk,
+				       CLKFLAG_NORETAIN_MEM);
+			if (rc) {
+				pr_warn("Failed set flag NORETAIN_MEM %s\n",
+					v->clocks[c].name);
+			}
+		}
+
 		rc = clk_prepare_enable(v->clocks[c].clk);
 		if (rc) {
 			pr_err("Failed to enable %s clock (%d)\n",
@@ -450,6 +467,7 @@ static inline int __init_resources(struct vmem *v,
 		struct platform_device *pdev)
 {
 	int rc = 0, c = 0;
+	int *clock_props = NULL;
 
 	v->irq = platform_get_irq(pdev, 0);
 	if (v->irq < 0) {
@@ -506,6 +524,21 @@ static inline int __init_resources(struct vmem *v,
 		goto exit;
 	}
 
+	clock_props = devm_kzalloc(&pdev->dev,
+					v->num_clocks * sizeof(*clock_props),
+					GFP_KERNEL);
+	if (!clock_props) {
+		pr_err("Failed to allocate clock config table\n");
+		goto exit;
+	}
+
+	rc = of_property_read_u32_array(pdev->dev.of_node, "clock-config",
+			clock_props, v->num_clocks);
+	if (rc) {
+		pr_err("Failed to read clock config\n");
+		goto exit;
+	}
+
 	for (c = 0; c < v->num_clocks; ++c) {
 		const char *name = NULL;
 		struct clk *temp = NULL;
@@ -521,6 +554,7 @@ static inline int __init_resources(struct vmem *v,
 
 		v->clocks[c].clk = temp;
 		v->clocks[c].name = name;
+		v->clocks[c].has_mem_retention = clock_props[c];
 	}
 
 	v->vdd = devm_regulator_get(&pdev->dev, "vdd");
