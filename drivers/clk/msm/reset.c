@@ -40,6 +40,9 @@ msm_reset_assert(struct reset_controller_dev *rcdev, unsigned long id)
 	regval |= BIT(map->bit);
 	writel_relaxed(regval, rst->base + map->reg);
 
+	/* Make sure the reset is asserted */
+	mb();
+
 	return 0;
 }
 
@@ -56,6 +59,9 @@ msm_reset_deassert(struct reset_controller_dev *rcdev, unsigned long id)
 	regval = readl_relaxed(rst->base + map->reg);
 	regval &= ~BIT(map->bit);
 	writel_relaxed(regval, rst->base + map->reg);
+
+	/* Make sure the reset is de-asserted */
+	mb();
 
 	return 0;
 }
