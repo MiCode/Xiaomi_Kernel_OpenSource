@@ -343,6 +343,10 @@
 	memory-region = <&cont_splash_mem>;
 };
 
+&dsi_dual_sharp_video_1 {
+	/delete-property/ qcom,dsi-display-active;
+};
+
 &mdss_dsi {
 	hw-config = "single_dsi";
 };

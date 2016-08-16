@@ -562,6 +562,10 @@
 	qcom,hdmi-tx-mux-lpm-gpio = <&tlmm 85 0>;
 };
 
+&dsi_dual_sharp_video_1 {
+	/delete-property/ qcom,dsi-display-active;
+};
+
 &mdss_dsi {
 	hw-config = "dual_dsi";
 };
