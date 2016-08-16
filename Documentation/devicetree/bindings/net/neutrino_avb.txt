@@ -16,6 +16,10 @@ Optional properties:
   - vdd-ntn-core-supply: Neutrino core power supply
   - ntn-supply-enable-gpio: GPIO used to control power supply to Neutrino
   - qcom,ntn-fw-load-delay-msec: Delay used after loading the firmware to SRAM
+  - qcom,ntn-pcierst-resx: PCIe reset is connected to Neutrino RESX, this
+			   means that Neutrino will stay on reset during
+			   PCIe suspend
+  - qcom,ntn-disable-phy: Use for devices that don't have a PHY chip
 
 Example:
 	qcom,ntn_avb {
@@ -36,4 +40,5 @@ Example:
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
 		qcom,ntn-fw-load-delay-msec = <200>;
+		qcom,ntn-pcierst-resx;
 	};
