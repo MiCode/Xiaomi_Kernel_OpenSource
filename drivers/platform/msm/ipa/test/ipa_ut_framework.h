@@ -75,20 +75,31 @@ struct ipa_ut_tst_fail_report {
 
 /**
  * Report on test failure
- * To be used by tests.
+ * To be used by tests to report a point were a test fail.
+ * Failures are saved in a stack manner.
+ * Dumping the failure info will dump the fail reports
+ *  from all the function in the calling stack
  */
 #define IPA_UT_TEST_FAIL_REPORT(__info) \
 	do { \
 		extern struct ipa_ut_tst_fail_report \
-			_IPA_UT_TEST_FAIL_REPORT_DATA; \
-		_IPA_UT_TEST_FAIL_REPORT_DATA.valid = true; \
-		_IPA_UT_TEST_FAIL_REPORT_DATA.file = __FILENAME__; \
-		_IPA_UT_TEST_FAIL_REPORT_DATA.line = __LINE__; \
-		_IPA_UT_TEST_FAIL_REPORT_DATA.func = __func__; \
+			_IPA_UT_TEST_FAIL_REPORT_DATA \
+			[_IPA_UT_TEST_FAIL_REPORT_SIZE]; \
+		extern u32 _IPA_UT_TEST_FAIL_REPORT_IDX; \
+		struct ipa_ut_tst_fail_report *entry; \
+		if (_IPA_UT_TEST_FAIL_REPORT_IDX >= \
+			_IPA_UT_TEST_FAIL_REPORT_SIZE) \
+			break; \
+		entry = &(_IPA_UT_TEST_FAIL_REPORT_DATA \
+			[_IPA_UT_TEST_FAIL_REPORT_IDX]); \
+		entry->file = __FILENAME__; \
+		entry->line = __LINE__; \
+		entry->func = __func__; \
 		if (__info) \
-			_IPA_UT_TEST_FAIL_REPORT_DATA.info = __info; \
+			entry->info = __info; \
 		else \
-			_IPA_UT_TEST_FAIL_REPORT_DATA.info = ""; \
+			entry->info = ""; \
+		_IPA_UT_TEST_FAIL_REPORT_IDX++; \
 	} while (0)
 
 /**
@@ -100,10 +111,17 @@ struct ipa_ut_tst_fail_report {
 	do { \
 		extern char *_IPA_UT_TEST_LOG_BUF_NAME; \
 		char __buf[512]; \
-		IPA_UT_DBG(fmt, args); \
+		IPA_UT_DBG(fmt, ## args); \
+		if (!_IPA_UT_TEST_LOG_BUF_NAME) {\
+			pr_err(IPA_UT_DRV_NAME " %s:%d " fmt, \
+				__func__, __LINE__, ## args); \
+			break; \
+		} \
 		scnprintf(__buf, sizeof(__buf), \
-		 fmt, args); \
-		strlcat(_IPA_UT_TEST_LOG_BUF_NAME, __buf, sizeof(__buf)); \
+			" %s:%d " fmt, \
+			__func__, __LINE__, ## args); \
+		strlcat(_IPA_UT_TEST_LOG_BUF_NAME, __buf, \
+			_IPA_UT_TEST_LOG_BUF_SIZE); \
 	} while (0)
 
 /**
