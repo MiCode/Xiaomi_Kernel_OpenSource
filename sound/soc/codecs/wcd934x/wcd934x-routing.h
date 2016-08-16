@@ -114,6 +114,11 @@ const struct snd_soc_dapm_route tavil_slim_audio_map[] = {
 
 const struct snd_soc_dapm_route tavil_audio_map[] = {
 
+	/* VI Feedback */
+	{"AIF4_VI Mixer", "SPKR_VI_1", "VIINPUT"},
+	{"AIF4_VI Mixer", "SPKR_VI_2", "VIINPUT"},
+	{"AIF4 VI", NULL, "AIF4_VI Mixer"},
+
 	/* CDC Tx interface with SLIMBUS */
 	{"SLIM TX0", NULL, "CDC_IF TX0 MUX"},
 	{"SLIM TX1", NULL, "CDC_IF TX1 MUX"},
