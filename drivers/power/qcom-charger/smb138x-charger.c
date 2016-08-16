@@ -22,12 +22,21 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
+#include <linux/qpnp/qpnp-revid.h>
 #include "smb-reg.h"
 #include "smb-lib.h"
 #include "pmic-voter.h"
 
 #define SMB138X_DEFAULT_FCC_UA 1000000
 #define SMB138X_DEFAULT_ICL_UA 1500000
+
+/* Registers that are not common to be mentioned in smb-reg.h */
+#define SMB2CHG_MISC_ENG_SDCDC_CFG2	(MISC_BASE + 0xC1)
+#define ENG_SDCDC_SEL_OOB_VTH_BIT		BIT(0)
+
+enum {
+	OOB_COMP_WA_BIT = BIT(0),
+};
 
 static struct smb_params v1_params = {
 	.fcc		= {
@@ -68,6 +77,7 @@ struct smb_dt_props {
 };
 
 struct smb138x {
+	u32			wa_flags;
 	struct smb_charger	chg;
 	struct smb_dt_props	dt;
 	struct power_supply	*parallel_psy;
@@ -625,7 +635,54 @@ static int smb138x_init_hw(struct smb138x *chip)
 		return rc;
 	}
 
+	if (chip->wa_flags & OOB_COMP_WA_BIT) {
+		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG2,
+					ENG_SDCDC_SEL_OOB_VTH_BIT,
+					ENG_SDCDC_SEL_OOB_VTH_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev,
+			"Couldn't configure the oob comp threh rc = %d\n", rc);
+			return rc;
+		}
+	}
+
 	return rc;
+}
+
+static int smb138x_setup_wa_flags(struct smb138x *chip)
+{
+	struct pmic_revid_data *pmic_rev_id;
+	struct device_node *revid_dev_node;
+
+	revid_dev_node = of_parse_phandle(chip->chg.dev->of_node,
+					"qcom,pmic-revid", 0);
+	if (!revid_dev_node) {
+		pr_err("Missing qcom,pmic-revid property\n");
+		return -EINVAL;
+	}
+
+	pmic_rev_id = get_revid_data(revid_dev_node);
+	if (IS_ERR_OR_NULL(pmic_rev_id)) {
+		/*
+		 * the revid peripheral must be registered, any failure
+		 * here only indicates that the rev-id module has not
+		 * probed yet.
+		 */
+		return -EPROBE_DEFER;
+	}
+
+	switch (pmic_rev_id->pmic_subtype) {
+	case SMB1381_SUBTYPE:
+		if (pmic_rev_id->rev4 < 2) /* SMB1381 rev 1.0 */
+			chip->wa_flags |= OOB_COMP_WA_BIT;
+		break;
+	default:
+		pr_err("PMIC subtype %d not supported\n",
+				pmic_rev_id->pmic_subtype);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /****************************
@@ -857,6 +914,17 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		return rc;
 	}
 
+	if (chip->wa_flags & OOB_COMP_WA_BIT) {
+		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG2,
+					ENG_SDCDC_SEL_OOB_VTH_BIT,
+					ENG_SDCDC_SEL_OOB_VTH_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev,
+			"Couldn't configure the oob comp threh rc = %d\n", rc);
+			return rc;
+		}
+	}
+
 	/* suspend usb input */
 	rc = smblib_set_usb_suspend(chg, true);
 	if (rc < 0) {
@@ -937,6 +1005,13 @@ static int smb138x_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, chip);
+
+	rc = smb138x_setup_wa_flags(chip);
+	if (rc < 0) {
+		if (rc != -EPROBE_DEFER)
+			pr_err("Couldn't setup wa flags rc = %d\n", rc);
+		return rc;
+	}
 
 	chip->chg.mode = (enum smb_mode) id->data;
 	switch (chip->chg.mode) {
