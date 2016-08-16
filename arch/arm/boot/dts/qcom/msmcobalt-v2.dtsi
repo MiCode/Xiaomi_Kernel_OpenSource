@@ -357,3 +357,14 @@
 	qcom,allow-quotient-interpolation;
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 };
+
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq =
+			/* <value reg_offset> */
+				<0x13 0x04
+				0x7c 0x18c
+				0x80 0x2c
+				0x0a 0x184
+				0x00 0x240
+				0x19 0xb4>;
+};
