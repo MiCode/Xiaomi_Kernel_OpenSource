@@ -484,10 +484,6 @@
 #define clk_gpu_pll0_pll_out_even		0xb0ed5009
 #define clk_gpu_pll0_pll_out_odd		0x08c5a8a5
 #define clk_gpu_pll0_postdiv_clk		0x76c19f3c
-#define clk_gpu_pll1_pll			0x09ac81ef
-#define clk_gpu_pll1_pll_out_even		0xa503de04
-#define clk_gpu_pll1_pll_out_odd		0x1c205dfb
-#define clk_gpu_pll1_postdiv_clk		0xdf546700
 #define clk_gpucc_mx_clk			0x1edbb879
 #define clk_gpucc_gcc_dbg_clk			0x9ae8cd3c
 #define clk_gfxcc_dbg_clk			0x3ed47625
