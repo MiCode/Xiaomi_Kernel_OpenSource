@@ -1703,6 +1703,24 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 		pr_debug("unable to get CX reg. rc=%d\n",
 					PTR_RET(mdata->vdd_cx));
 		mdata->vdd_cx = NULL;
+	} else {
+		/* Parse CX voltage settings */
+		ret = of_property_read_u32(mdata->pdev->dev.of_node,
+			"vdd-cx-min-uV", &mdata->vdd_cx_min_uv);
+		if (ret) {
+			pr_err("min uV for vdd-cx not specified. rc=%d\n", ret);
+			return ret;
+		}
+
+		ret = of_property_read_u32(mdata->pdev->dev.of_node,
+			"vdd-cx-max-uV", &mdata->vdd_cx_max_uv);
+		if (ret) {
+			pr_err("max uV for vdd-cx not specified. rc=%d\n", ret);
+			return ret;
+		}
+
+		pr_debug("vdd_cx [min_uV, max_uV] = [%d %d]\n",
+			mdata->vdd_cx_min_uv, mdata->vdd_cx_max_uv);
 	}
 
 	mdata->reg_bus_clt = mdss_reg_bus_vote_client_create("mdp\0");
@@ -4743,8 +4761,8 @@ static int mdss_mdp_cx_ctrl(struct mdss_data_type *mdata, int enable)
 	if (enable) {
 		rc = regulator_set_voltage(
 				mdata->vdd_cx,
-				RPM_REGULATOR_CORNER_SVS_SOC,
-				RPM_REGULATOR_CORNER_SUPER_TURBO);
+				mdata->vdd_cx_min_uv,
+				mdata->vdd_cx_max_uv);
 		if (rc < 0)
 			goto vreg_set_voltage_fail;
 
@@ -4763,8 +4781,8 @@ static int mdss_mdp_cx_ctrl(struct mdss_data_type *mdata, int enable)
 		}
 		rc = regulator_set_voltage(
 				mdata->vdd_cx,
-				RPM_REGULATOR_CORNER_NONE,
-				RPM_REGULATOR_CORNER_SUPER_TURBO);
+				0,
+				mdata->vdd_cx_max_uv);
 		if (rc < 0)
 			goto vreg_set_voltage_fail;
 	}
