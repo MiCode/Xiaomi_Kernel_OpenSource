@@ -166,6 +166,8 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 		struct msm_audio_wma_config_v2 *wma_config;
 		struct msm_audio_wma_config_v2_32 wma_config_32;
 
+		memset(&wma_config_32, 0, sizeof(wma_config_32));
+
 		wma_config = (struct msm_audio_wma_config_v2 *)audio->codec_cfg;
 		wma_config_32.format_tag = wma_config->format_tag;
 		wma_config_32.numchannels = wma_config->numchannels;
