@@ -368,7 +368,7 @@ static int smp2p_irq_map(struct irq_domain *domain_ptr, unsigned int virq,
 
 	chip = domain_ptr->host_data;
 	if (!chip) {
-		SMP2P_ERR("%s: invalid domain ptr %p\n", __func__, domain_ptr);
+		SMP2P_ERR("%s: invalid domain ptr\n", __func__);
 		return -ENODEV;
 	}
 
