@@ -353,11 +353,13 @@ int msm_property_set_blob(struct msm_property_info *info,
  * DRM_MODE_PROP_IMMUTABLE flag set.
  * Note: This function cannot be called on a blob.
  * @info: Pointer to property info container struct
+ * @property_values: Pointer to property values cache array
  * @property_idx: Property index
  * @val: value of the property to set
  * Returns: Zero on success
  */
 int msm_property_set_property(struct msm_property_info *info,
+		uint64_t *property_values,
 		uint32_t property_idx,
 		uint64_t val);
 
