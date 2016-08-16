@@ -116,6 +116,8 @@ struct sde_hw_rotator_ops {
 	 * @cfg:        Rotator Fetch engine configuration parameters
 	 * @danger_lut: Danger LUT setting
 	 * @safe_lut:   Safe LUT setting
+	 * @dnsc_factor_w: Downscale factor for width
+	 * @dnsc_factor_h: Downscale factor for height
 	 * @flags:      Specific config flag, see SDE_ROT_FLAG_ for details
 	 */
 	void (*setup_rotator_fetchengine)(
@@ -124,6 +126,8 @@ struct sde_hw_rotator_ops {
 			struct sde_hw_rot_sspp_cfg     *cfg,
 			u32                             danger_lut,
 			u32                             safe_lut,
+			u32                             dnsc_factor_w,
+			u32                             dnsc_factor_h,
 			u32                             flags);
 
 	/**
