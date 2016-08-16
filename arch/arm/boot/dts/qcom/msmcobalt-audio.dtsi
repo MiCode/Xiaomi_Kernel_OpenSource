@@ -104,9 +104,9 @@
 				"msm-dai-q6-dev.16396", "msm-dai-q6-dev.16398",
 				"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673";
-		asoc-codec = <&stub_codec>, <&hdmi_audio>;
+		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
 		asoc-codec-names = "msm-stub-codec.1",
-				   "msm-hdmi-audio-codec-rx";
+				   "msm-ext-disp-audio-codec-rx";
 		qcom,wsa-max-devs = <2>;
 		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
 				<&wsa881x_213>, <&wsa881x_214>;
@@ -182,8 +182,9 @@
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
 				"msm-dai-q6-dev.16396";
-		asoc-codec = <&stub_codec>;
-		asoc-codec-names = "msm-stub-codec.1";
+		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
+		asoc-codec-names = "msm-stub-codec.1",
+				   "msm-ext-disp-audio-codec-rx";
 		qcom,wsa-max-devs = <2>;
 		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
 				<&wsa881x_0213>, <&wsa881x_0214>;
