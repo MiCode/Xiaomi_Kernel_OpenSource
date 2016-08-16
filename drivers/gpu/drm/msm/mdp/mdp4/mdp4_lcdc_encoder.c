@@ -38,8 +38,9 @@ static struct mdp4_kms *get_kms(struct drm_encoder *encoder)
 	return to_mdp4_kms(to_mdp_kms(priv->kms));
 }
 
-#ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
-#include <mach/board.h>
+#ifdef CONFIG_MSM_BUS_SCALING
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 static void bs_init(struct mdp4_lcdc_encoder *mdp4_lcdc_encoder)
 {
 	struct drm_device *dev = mdp4_lcdc_encoder->base.dev;

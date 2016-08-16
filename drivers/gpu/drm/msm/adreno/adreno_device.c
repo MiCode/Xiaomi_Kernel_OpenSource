@@ -20,8 +20,8 @@
 #include <linux/of_platform.h>
 #include "adreno_gpu.h"
 
-#if defined(DOWNSTREAM_CONFIG_MSM_BUS_SCALING) && !defined(CONFIG_OF)
-#  include <mach/kgsl.h>
+#if defined(CONFIG_MSM_BUS_SCALING) && !defined(CONFIG_OF)
+#  include <linux/kgsl.h>
 #endif
 
 #define ANY_ID 0xff
@@ -398,9 +398,9 @@ static int adreno_bind(struct device *dev, struct device *master, void *data)
 			config.rev = ADRENO_REV(3, 0, 5, 0);
 
 	}
-#  ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_MSM_BUS_SCALING
 	config.bus_scale_table = pdata->bus_scale_table;
-#  endif
+#endif
 #endif
 	dev->platform_data = &config;
 	set_gpu_pdev(dev_get_drvdata(master), to_platform_device(dev));

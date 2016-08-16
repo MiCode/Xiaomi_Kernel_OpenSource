@@ -85,7 +85,7 @@ struct sde_encoder_virt {
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
 
-#ifdef CONFIG_QCOM_BUS_SCALING
+#ifdef CONFIG_MSM_BUS_SCALING
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\

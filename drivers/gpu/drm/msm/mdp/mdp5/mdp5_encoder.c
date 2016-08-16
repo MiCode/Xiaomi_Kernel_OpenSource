@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -38,10 +38,9 @@ static struct mdp5_kms *get_kms(struct drm_encoder *encoder)
 	return to_mdp5_kms(to_mdp_kms(priv->kms));
 }
 
-#ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
-#include <mach/board.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
+#ifdef CONFIG_MSM_BUS_SCALING
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 #define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
 	{						\
 		.src = MSM_BUS_MASTER_MDP_PORT0,	\
