@@ -747,10 +747,6 @@ static int __validate_pipe_priorities(struct mdss_mdp_pipe *left,
 			(left->priority >= right->priority))
 		return -EINVAL;
 
-	if ((left->multirect.num < right->multirect.num) &&
-			(left->priority > right->priority))
-		return -EINVAL;
-
 	return 0;
 }
 
