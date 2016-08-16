@@ -86,6 +86,7 @@
 #define TXn_TX_DRV_LVL				0x001C
 
 #define TCSR_USB3_DP_PHYMODE			0x48
+#define EDID_START_ADDRESS			0x50
 
 struct lane_mapping {
 	char lane0;
