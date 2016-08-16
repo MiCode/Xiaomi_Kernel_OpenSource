@@ -26,6 +26,7 @@
 #include <linux/kernel.h>
 #include <linux/gpio.h>
 #include <linux/regmap.h>
+#include <linux/spi/spi.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx-irq.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
@@ -5930,6 +5931,88 @@ static int tavil_swrm_handle_irq(void *handle,
 	return ret;
 }
 
+static void tavil_codec_add_spi_device(struct tavil_priv *tavil,
+				       struct device_node *node)
+{
+	struct spi_master *master;
+	struct spi_device *spi;
+	u32 prop_value;
+	int rc;
+
+	/* Read the master bus num from DT node */
+	rc = of_property_read_u32(node, "qcom,master-bus-num",
+				  &prop_value);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: prop %s not found in node %s",
+			__func__, "qcom,master-bus-num", node->full_name);
+		goto done;
+	}
+
+	/* Get the reference to SPI master */
+	master = spi_busnum_to_master(prop_value);
+	if (!master) {
+		dev_err(tavil->dev, "%s: Invalid spi_master for bus_num %u\n",
+			__func__, prop_value);
+		goto done;
+	}
+
+	/* Allocate the spi device */
+	spi = spi_alloc_device(master);
+	if (!spi) {
+		dev_err(tavil->dev, "%s: spi_alloc_device failed\n",
+			__func__);
+		goto err_spi_alloc_dev;
+	}
+
+	/* Initialize device properties */
+	if (of_modalias_node(node, spi->modalias,
+			     sizeof(spi->modalias)) < 0) {
+		dev_err(tavil->dev, "%s: cannot find modalias for %s\n",
+			__func__, node->full_name);
+		goto err_dt_parse;
+	}
+
+	rc = of_property_read_u32(node, "qcom,chip-select",
+				  &prop_value);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: prop %s not found in node %s",
+			__func__, "qcom,chip-select", node->full_name);
+		goto err_dt_parse;
+	}
+	spi->chip_select = prop_value;
+
+	rc = of_property_read_u32(node, "qcom,max-frequency",
+				  &prop_value);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: prop %s not found in node %s",
+			__func__, "qcom,max-frequency", node->full_name);
+		goto err_dt_parse;
+	}
+	spi->max_speed_hz = prop_value;
+
+	spi->dev.of_node = node;
+
+	rc = spi_add_device(spi);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: spi_add_device failed\n", __func__);
+		goto err_dt_parse;
+	}
+
+	/* Put the reference to SPI master */
+	put_device(&master->dev);
+
+	return;
+
+err_dt_parse:
+	spi_dev_put(spi);
+
+err_spi_alloc_dev:
+	/* Put the reference to SPI master */
+	put_device(&master->dev);
+done:
+	return;
+}
+
 static void tavil_add_child_devices(struct work_struct *work)
 {
 	struct tavil_priv *tavil;
@@ -5963,6 +6046,14 @@ static void tavil_add_child_devices(struct work_struct *work)
 	platdata = &tavil->swr.plat_data;
 
 	for_each_child_of_node(wcd9xxx->dev->of_node, node) {
+
+		/* Parse and add the SPI device node */
+		if (!strcmp(node->name, "wcd_spi")) {
+			tavil_codec_add_spi_device(tavil, node);
+			continue;
+		}
+
+		/* Parse other child device nodes and add platform device */
 		if (!strcmp(node->name, "swr_master"))
 			strlcpy(plat_dev_name, "tavil_swr_ctrl",
 				(WCD934X_STRING_LEN - 1));
