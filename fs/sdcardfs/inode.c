@@ -513,11 +513,9 @@ static int sdcardfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	}
 	/* At this point, not all dentry information has been moved, so
 	 * we pass along new_dentry for the name.*/
-	mutex_lock(&old_dentry->d_inode->i_mutex);
 	get_derived_permission_new(new_dentry->d_parent, old_dentry, new_dentry);
 	fix_derived_permission(old_dentry->d_inode);
 	get_derive_permissions_recursive(old_dentry);
-	mutex_unlock(&old_dentry->d_inode->i_mutex);
 out:
 	unlock_rename(lower_old_dir_dentry, lower_new_dir_dentry);
 	dput(lower_old_dir_dentry);
