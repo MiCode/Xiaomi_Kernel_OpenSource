@@ -53,7 +53,7 @@ static void *service_notif_register_notifier(const char *service_path,
 				int instance_id, struct notifier_block *nb,
 				int *curr_state)
 {
-	return -ENODEV;
+	return PTR_ERR(-ENODEV);
 }
 
 static int service_notif_unregister_notifier(void *service_notif_handle,

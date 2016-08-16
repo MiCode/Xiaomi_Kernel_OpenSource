@@ -80,7 +80,7 @@ int find_subsys(const char *pd_path, char *subsys);
 #else
 
 static inline int get_service_location(char *client_name,
-		char *service_name, struct notifier_block *locator_nb);
+		char *service_name, struct notifier_block *locator_nb)
 {
 	return -ENODEV;
 }
