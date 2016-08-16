@@ -3,7 +3,7 @@
 #
 
 menuconfig MSM_VIDC_V4L2
-	bool "Qualcomm MSM V4L2 based video driver"
+	tristate "Qualcomm MSM V4L2 based video driver"
 		depends on ARCH_QCOM && VIDEO_V4L2
 		select VIDEOBUF2_CORE
 

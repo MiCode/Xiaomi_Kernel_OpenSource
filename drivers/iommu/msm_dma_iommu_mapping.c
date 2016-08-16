@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -267,6 +267,7 @@ int msm_dma_map_sg_attrs(struct device *dev, struct scatterlist *sg, int nents,
 
 	return ret;
 }
+EXPORT_SYMBOL(msm_dma_map_sg_attrs);
 
 static void msm_iommu_meta_destroy(struct kref *kref)
 {
@@ -343,6 +344,7 @@ void msm_dma_unmap_sg(struct device *dev, struct scatterlist *sgl, int nents,
 out:
 	return;
 }
+EXPORT_SYMBOL(msm_dma_unmap_sg);
 
 /*
  * Only to be called by ION code when a buffer is freed

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -355,6 +355,7 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 exit:
 	return rc;
 }
+EXPORT_SYMBOL(vmem_allocate);
 
 /**
  * vmem_free: - Frees the memory allocated via vmem_allocate.  Undefined
@@ -384,6 +385,7 @@ void vmem_free(phys_addr_t to_free)
 	__power_off(vmem);
 	atomic_dec(&vmem->alloc_count);
 }
+EXPORT_SYMBOL(vmem_free);
 
 struct vmem_interrupt_cookie {
 	struct vmem *vmem;
@@ -699,3 +701,5 @@ static void __exit vmem_exit(void)
 
 module_init(vmem_init);
 module_exit(vmem_exit);
+
+MODULE_LICENSE("GPL");

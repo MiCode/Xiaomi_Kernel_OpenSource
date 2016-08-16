@@ -738,6 +738,7 @@ bool venus_hfi_is_session_supported(unsigned long sessions_supported,
 {
 	return __is_session_supported(sessions_supported, session_type);
 }
+EXPORT_SYMBOL(venus_hfi_is_session_supported);
 
 static int __devfreq_target(struct device *devfreq_dev,
 		unsigned long *freq, u32 flags)
