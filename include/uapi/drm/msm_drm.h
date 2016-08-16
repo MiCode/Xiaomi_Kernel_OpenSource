@@ -197,6 +197,14 @@ struct drm_msm_wait_fence {
 	struct drm_msm_timespec timeout;   /* in */
 };
 
+/*
+ * User space can get the last fence processed by the GPU
+ * */
+struct drm_msm_get_last_fence {
+	uint32_t fence;          /* out*/
+	uint32_t pad;
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -207,8 +215,9 @@ struct drm_msm_wait_fence {
 #define DRM_MSM_GEM_CPU_FINI           0x05
 #define DRM_MSM_GEM_SUBMIT             0x06
 #define DRM_MSM_WAIT_FENCE             0x07
-#define DRM_SDE_WB_CONFIG              0x08
-#define DRM_MSM_NUM_IOCTLS             0x09
+#define DRM_MSM_GET_LAST_FENCE         0x08
+#define DRM_SDE_WB_CONFIG              0x09
+#define DRM_MSM_NUM_IOCTLS             0x0A
 
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)
@@ -217,6 +226,9 @@ struct drm_msm_wait_fence {
 #define DRM_IOCTL_MSM_GEM_CPU_FINI     DRM_IOW (DRM_COMMAND_BASE + DRM_MSM_GEM_CPU_FINI, struct drm_msm_gem_cpu_fini)
 #define DRM_IOCTL_MSM_GEM_SUBMIT       DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_SUBMIT, struct drm_msm_gem_submit)
 #define DRM_IOCTL_MSM_WAIT_FENCE       DRM_IOW (DRM_COMMAND_BASE + DRM_MSM_WAIT_FENCE, struct drm_msm_wait_fence)
+#define DRM_IOCTL_MSM_GET_LAST_FENCE \
+	(DRM_IOR((DRM_COMMAND_BASE + DRM_MSM_GET_LAST_FENCE), \
+	struct drm_msm_get_last_fence))
 #define DRM_IOCTL_SDE_WB_CONFIG \
 	DRM_IOW((DRM_COMMAND_BASE + DRM_SDE_WB_CONFIG), struct sde_drm_wb_cfg)
 
