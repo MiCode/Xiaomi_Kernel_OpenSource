@@ -174,7 +174,6 @@ struct ion_prefetch_regions {
 struct ion_prefetch_data {
 	int heap_id;
 	unsigned long len;
-	/* Is unsigned long bad? 32bit compiler vs 64 bit compiler*/
 	struct ion_prefetch_regions __user *regions;
 	unsigned int nr_regions;
 };
