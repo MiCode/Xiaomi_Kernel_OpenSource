@@ -201,6 +201,8 @@ static struct icnss_data {
 	struct dma_iommu_mapping *smmu_mapping;
 	dma_addr_t smmu_iova_start;
 	size_t smmu_iova_len;
+	dma_addr_t smmu_iova_ipa_start;
+	size_t smmu_iova_ipa_len;
 	struct clk *smmu_clk;
 	struct qmi_handle *wlfw_clnt;
 	struct list_head event_list;
@@ -1727,6 +1729,66 @@ int icnss_get_irq(int ce_id)
 }
 EXPORT_SYMBOL(icnss_get_irq);
 
+struct dma_iommu_mapping *icnss_smmu_get_mapping(struct device *dev)
+{
+	struct icnss_data *priv = dev_get_drvdata(dev);
+
+	if (!priv) {
+		icnss_pr_err("Invalid drvdata: dev %p, data %p\n",
+			     dev, priv);
+		return NULL;
+	}
+
+	return priv->smmu_mapping;
+}
+EXPORT_SYMBOL(icnss_smmu_get_mapping);
+
+int icnss_smmu_map(struct device *dev,
+		   phys_addr_t paddr, uint32_t *iova_addr, size_t size)
+{
+	struct icnss_data *priv = dev_get_drvdata(dev);
+	unsigned long iova;
+	size_t len;
+	int ret = 0;
+
+	if (!priv) {
+		icnss_pr_err("Invalid drvdata: dev %p, data %p\n",
+			     dev, priv);
+		return -EINVAL;
+	}
+
+	if (!iova_addr) {
+		icnss_pr_err("iova_addr is NULL, paddr %pa, size %zu",
+			     &paddr, size);
+		return -EINVAL;
+	}
+
+	len = roundup(size + paddr - rounddown(paddr, PAGE_SIZE), PAGE_SIZE);
+	iova = roundup(penv->smmu_iova_ipa_start, PAGE_SIZE);
+
+	if (iova >= priv->smmu_iova_ipa_start + priv->smmu_iova_ipa_len) {
+		icnss_pr_err("No IOVA space to map, iova %lx, smmu_iova_ipa_start %pad, smmu_iova_ipa_len %zu",
+			     iova,
+			     &priv->smmu_iova_ipa_start,
+			     priv->smmu_iova_ipa_len);
+		return -ENOMEM;
+	}
+
+	ret = iommu_map(priv->smmu_mapping->domain, iova,
+			rounddown(paddr, PAGE_SIZE), len,
+			IOMMU_READ | IOMMU_WRITE);
+	if (ret) {
+		icnss_pr_err("PA to IOVA mapping failed, ret %d!", ret);
+		return ret;
+	}
+
+	priv->smmu_iova_ipa_start = iova + len;
+	*iova_addr = (uint32_t)(iova + paddr - rounddown(paddr, PAGE_SIZE));
+
+	return 0;
+}
+EXPORT_SYMBOL(icnss_smmu_map);
+
 static struct clk *icnss_clock_init(struct device *dev, const char *cname)
 {
 	struct clk *c;
@@ -2272,7 +2334,6 @@ static void icnss_debugfs_destroy(struct icnss_data *priv)
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	u32 smmu_iova_address[2];
 	struct resource *res;
 	int i;
 	struct device *dev = &pdev->dev;
@@ -2367,11 +2428,29 @@ static int icnss_probe(struct platform_device *pdev)
 		goto unmap_mpm_config;
 	}
 
-	if (of_property_read_u32_array(pdev->dev.of_node,
-				       "qcom,wlan-smmu-iova-address",
-				       smmu_iova_address, 2) == 0) {
-		penv->smmu_iova_start = smmu_iova_address[0];
-		penv->smmu_iova_len = smmu_iova_address[1];
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "smmu_iova_base");
+	if (!res) {
+		icnss_pr_err("SMMU IOVA base not found\n");
+	} else {
+		penv->smmu_iova_start = res->start;
+		penv->smmu_iova_len = resource_size(res);
+		icnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: %zu\n",
+			     &penv->smmu_iova_start,
+			     penv->smmu_iova_len);
+
+		res = platform_get_resource_byname(pdev,
+						   IORESOURCE_MEM,
+						   "smmu_iova_ipa");
+		if (!res) {
+			icnss_pr_err("SMMU IOVA IPA not found\n");
+		} else {
+			penv->smmu_iova_ipa_start = res->start;
+			penv->smmu_iova_ipa_len = resource_size(res);
+			icnss_pr_dbg("smmu_iova_ipa_start: %pa, smmu_iova_ipa_len: %zu\n",
+				     &penv->smmu_iova_ipa_start,
+				     penv->smmu_iova_ipa_len);
+		}
 
 		ret = icnss_smmu_init(&pdev->dev);
 		if (ret < 0) {
