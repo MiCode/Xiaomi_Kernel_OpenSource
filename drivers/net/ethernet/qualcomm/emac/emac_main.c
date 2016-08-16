@@ -3495,6 +3495,22 @@ static int emac_remove(struct platform_device *pdev)
 
 	pr_info("exiting %s\n", emac_drv_name);
 
+	if (!pm_runtime_enabled(&pdev->dev) ||
+	    !pm_runtime_suspended(&pdev->dev)) {
+		if (netif_running(netdev)) {
+			/* ensure no task/reset is in progress */
+			while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
+				msleep(20); /* Reset might take few 10s of ms */
+
+			emac_down(adpt, 0);
+			CLR_FLAG(adpt, ADPT_STATE_RESETTING);
+		}
+		pm_runtime_disable(netdev->dev.parent);
+		pm_runtime_set_suspended(netdev->dev.parent);
+		pm_runtime_enable(netdev->dev.parent);
+	}
+	pm_runtime_disable(netdev->dev.parent);
+
 	/* Disable EPHY WOL interrupt in suspend */
 	emac_wol_gpio_irq(adpt, false);
 	unregister_netdev(netdev);
