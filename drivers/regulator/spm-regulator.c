@@ -295,14 +295,14 @@ static int spm_regulator_write_voltage(struct spm_vreg *vreg, int uV)
 
 	if (uV > vreg->last_set_uV) {
 		/* Wait for voltage stepping to complete. */
-		slew_delay = DIV_ROUND_UP(vreg->uV - vreg->last_set_uV,
+		slew_delay = DIV_ROUND_UP(uV - vreg->last_set_uV,
 					vreg->step_rate);
 		if (vreg->regulator_type == QPNP_TYPE_FTS2p5)
 			slew_delay += FTS2P5_SETTLING_DELAY_US;
 		udelay(slew_delay);
 	} else if (vreg->regulator_type == QPNP_TYPE_FTS2p5) {
 		/* add the ramp-down delay */
-		slew_delay = DIV_ROUND_UP(vreg->last_set_uV - vreg->uV,
+		slew_delay = DIV_ROUND_UP(vreg->last_set_uV - uV,
 				vreg->step_rate) + FTS2P5_SETTLING_DELAY_US;
 		udelay(slew_delay);
 	}
