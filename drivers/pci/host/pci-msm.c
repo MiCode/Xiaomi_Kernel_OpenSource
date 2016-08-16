@@ -501,6 +501,7 @@ struct msm_pcie_clk_info_t {
 	struct clk  *hdl;
 	char	  *name;
 	u32	   freq;
+	bool	config_mem;
 	bool	  required;
 };
 
@@ -710,49 +711,49 @@ static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
 static struct msm_pcie_clk_info_t
 	msm_pcie_clk_info[MAX_RC_NUM][MSM_PCIE_MAX_CLK] = {
 	{
-	{NULL, "pcie_0_ref_clk_src", 0, false},
-	{NULL, "pcie_0_aux_clk", 1010000, true},
-	{NULL, "pcie_0_cfg_ahb_clk", 0, true},
-	{NULL, "pcie_0_mstr_axi_clk", 0, true},
-	{NULL, "pcie_0_slv_axi_clk", 0, true},
-	{NULL, "pcie_0_ldo", 0, true},
-	{NULL, "pcie_0_smmu_clk", 0, false},
-	{NULL, "pcie_phy_cfg_ahb_clk", 0, false},
-	{NULL, "pcie_phy_aux_clk", 0, false},
-	{NULL, "pcie_phy_reset", 0, false},
-	{NULL, "pcie_phy_com_reset", 0, false},
-	{NULL, "pcie_phy_nocsr_com_phy_reset", 0, false},
-	{NULL, "pcie_0_phy_reset", 0, true}
+	{NULL, "pcie_0_ref_clk_src", 0, false, false},
+	{NULL, "pcie_0_aux_clk", 1010000, false, true},
+	{NULL, "pcie_0_cfg_ahb_clk", 0, false, true},
+	{NULL, "pcie_0_mstr_axi_clk", 0, true, true},
+	{NULL, "pcie_0_slv_axi_clk", 0, true, true},
+	{NULL, "pcie_0_ldo", 0, false, true},
+	{NULL, "pcie_0_smmu_clk", 0, false, false},
+	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
+	{NULL, "pcie_phy_aux_clk", 0, false, false},
+	{NULL, "pcie_phy_reset", 0, false, false},
+	{NULL, "pcie_phy_com_reset", 0, false, false},
+	{NULL, "pcie_phy_nocsr_com_phy_reset", 0, false, false},
+	{NULL, "pcie_0_phy_reset", 0, false, true}
 	},
 	{
-	{NULL, "pcie_1_ref_clk_src", 0, false},
-	{NULL, "pcie_1_aux_clk", 1010000, true},
-	{NULL, "pcie_1_cfg_ahb_clk", 0, true},
-	{NULL, "pcie_1_mstr_axi_clk", 0, true},
-	{NULL, "pcie_1_slv_axi_clk", 0, true},
-	{NULL, "pcie_1_ldo", 0, true},
-	{NULL, "pcie_1_smmu_clk", 0, false},
-	{NULL, "pcie_phy_cfg_ahb_clk", 0, false},
-	{NULL, "pcie_phy_aux_clk", 0, false},
-	{NULL, "pcie_phy_reset", 0, false},
-	{NULL, "pcie_phy_com_reset", 0, false},
-	{NULL, "pcie_phy_nocsr_com_phy_reset", 0, false},
-	{NULL, "pcie_1_phy_reset", 0, true}
+	{NULL, "pcie_1_ref_clk_src", 0, false, false},
+	{NULL, "pcie_1_aux_clk", 1010000, false, true},
+	{NULL, "pcie_1_cfg_ahb_clk", 0, false, true},
+	{NULL, "pcie_1_mstr_axi_clk", 0, true, true},
+	{NULL, "pcie_1_slv_axi_clk", 0, true,  true},
+	{NULL, "pcie_1_ldo", 0, false, true},
+	{NULL, "pcie_1_smmu_clk", 0, false, false},
+	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
+	{NULL, "pcie_phy_aux_clk", 0, false, false},
+	{NULL, "pcie_phy_reset", 0, false, false},
+	{NULL, "pcie_phy_com_reset", 0, false, false},
+	{NULL, "pcie_phy_nocsr_com_phy_reset", 0, false, false},
+	{NULL, "pcie_1_phy_reset", 0, false, true}
 	},
 	{
-	{NULL, "pcie_2_ref_clk_src", 0, false},
-	{NULL, "pcie_2_aux_clk", 1010000, true},
-	{NULL, "pcie_2_cfg_ahb_clk", 0, true},
-	{NULL, "pcie_2_mstr_axi_clk", 0, true},
-	{NULL, "pcie_2_slv_axi_clk", 0, true},
-	{NULL, "pcie_2_ldo", 0, true},
-	{NULL, "pcie_2_smmu_clk", 0, false},
-	{NULL, "pcie_phy_cfg_ahb_clk", 0, false},
-	{NULL, "pcie_phy_aux_clk", 0, false},
-	{NULL, "pcie_phy_reset", 0, false},
-	{NULL, "pcie_phy_com_reset", 0, false},
-	{NULL, "pcie_phy_nocsr_com_phy_reset", 0, false},
-	{NULL, "pcie_2_phy_reset", 0, true}
+	{NULL, "pcie_2_ref_clk_src", 0, false, false},
+	{NULL, "pcie_2_aux_clk", 1010000, false, true},
+	{NULL, "pcie_2_cfg_ahb_clk", 0, false, true},
+	{NULL, "pcie_2_mstr_axi_clk", 0, true, true},
+	{NULL, "pcie_2_slv_axi_clk", 0, true, true},
+	{NULL, "pcie_2_ldo", 0, false, true},
+	{NULL, "pcie_2_smmu_clk", 0, false, false},
+	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
+	{NULL, "pcie_phy_aux_clk", 0, false, false},
+	{NULL, "pcie_phy_reset", 0, false, false},
+	{NULL, "pcie_phy_com_reset", 0, false, false},
+	{NULL, "pcie_phy_nocsr_com_phy_reset", 0, false, false},
+	{NULL, "pcie_2_phy_reset", 0, false, true}
 	}
 };
 
@@ -760,13 +761,13 @@ static struct msm_pcie_clk_info_t
 static struct msm_pcie_clk_info_t
 	msm_pcie_pipe_clk_info[MAX_RC_NUM][MSM_PCIE_MAX_PIPE_CLK] = {
 	{
-	{NULL, "pcie_0_pipe_clk", 125000000, true},
+	{NULL, "pcie_0_pipe_clk", 125000000, true, true},
 	},
 	{
-	{NULL, "pcie_1_pipe_clk", 125000000, true},
+	{NULL, "pcie_1_pipe_clk", 125000000, true, true},
 	},
 	{
-	{NULL, "pcie_2_pipe_clk", 125000000, true},
+	{NULL, "pcie_2_pipe_clk", 125000000, true, true},
 	}
 };
 
@@ -859,6 +860,32 @@ static inline void msm_pcie_write_reg_field(void *base, u32 offset,
 	val = tmp | (val << shift);
 	writel_relaxed(val, base + offset);
 	wmb();
+}
+
+static inline void msm_pcie_config_clock_mem(struct msm_pcie_dev_t *dev,
+	struct msm_pcie_clk_info_t *info)
+{
+	int ret;
+
+	ret = clk_set_flags(info->hdl, CLKFLAG_NORETAIN_MEM);
+	if (ret)
+		PCIE_ERR(dev,
+			"PCIe: RC%d can't configure core memory for clk %s: %d.\n",
+			dev->rc_idx, info->name, ret);
+	else
+		PCIE_DBG2(dev,
+			"PCIe: RC%d configured core memory for clk %s.\n",
+			dev->rc_idx, info->name);
+
+	ret = clk_set_flags(info->hdl, CLKFLAG_NORETAIN_PERIPH);
+	if (ret)
+		PCIE_ERR(dev,
+			"PCIe: RC%d can't configure peripheral memory for clk %s: %d.\n",
+			dev->rc_idx, info->name, ret);
+	else
+		PCIE_DBG2(dev,
+			"PCIe: RC%d configured peripheral memory for clk %s.\n",
+			dev->rc_idx, info->name);
 }
 
 #if defined(CONFIG_ARCH_FSM9010)
@@ -3450,6 +3477,9 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 		if (i >=  MSM_PCIE_MAX_CLK - (dev->common_phy ? 4 : 1))
 			clk_reset(info->hdl, CLK_RESET_DEASSERT);
 
+		if (info->config_mem)
+			msm_pcie_config_clock_mem(dev, info);
+
 		if (info->freq) {
 			rc = clk_set_rate(info->hdl, info->freq);
 			if (rc) {
@@ -3542,6 +3572,9 @@ static int msm_pcie_pipe_clk_init(struct msm_pcie_dev_t *dev)
 			continue;
 
 		clk_reset(info->hdl, CLK_RESET_DEASSERT);
+
+		if (info->config_mem)
+			msm_pcie_config_clock_mem(dev, info);
 
 		if (info->freq) {
 			rc = clk_set_rate(info->hdl, info->freq);
