@@ -380,6 +380,88 @@ end:
 
 	return ret;
 }
+static int msm_ext_disp_get_intf_data_helper(struct platform_device *pdev,
+		struct msm_ext_disp_init_data **data)
+{
+	int ret = 0;
+	struct msm_ext_disp *ext_disp = NULL;
+
+	if (!pdev) {
+		pr_err("No platform device\n");
+		ret = -ENODEV;
+		goto end;
+	}
+
+	ext_disp = platform_get_drvdata(pdev);
+	if (!ext_disp) {
+		pr_err("No drvdata found\n");
+		ret = -ENODEV;
+		goto end;
+	}
+
+	mutex_lock(&ext_disp->lock);
+
+	if (ext_disp->current_disp == EXT_DISPLAY_TYPE_MAX) {
+		ret = -EINVAL;
+		pr_err("No display connected\n");
+		goto error;
+	}
+
+	ret = msm_ext_disp_get_intf_data(ext_disp, ext_disp->current_disp,
+			data);
+	if (ret)
+		goto error;
+error:
+	mutex_unlock(&ext_disp->lock);
+end:
+	return ret;
+}
+static int msm_ext_disp_cable_status(struct platform_device *pdev, u32 vote)
+{
+	int ret = 0;
+	struct msm_ext_disp_init_data *data = NULL;
+
+	ret = msm_ext_disp_get_intf_data_helper(pdev, &data);
+	if (ret || !data)
+		goto end;
+
+	ret = data->codec_ops.cable_status(data->pdev, vote);
+
+end:
+	return ret;
+}
+
+static int msm_ext_disp_get_audio_edid_blk(struct platform_device *pdev,
+	struct msm_ext_disp_audio_edid_blk *blk)
+{
+	int ret = 0;
+	struct msm_ext_disp_init_data *data = NULL;
+
+	ret = msm_ext_disp_get_intf_data_helper(pdev, &data);
+	if (ret || !data)
+		goto end;
+
+	ret = data->codec_ops.get_audio_edid_blk(data->pdev, blk);
+
+end:
+	return ret;
+}
+
+static int msm_ext_disp_audio_info_setup(struct platform_device *pdev,
+	struct msm_ext_disp_audio_setup_params *params)
+{
+	int ret = 0;
+	struct msm_ext_disp_init_data *data = NULL;
+
+	ret = msm_ext_disp_get_intf_data_helper(pdev, &data);
+	if (ret || !data)
+		goto end;
+
+	ret = data->codec_ops.audio_info_setup(data->pdev, params);
+
+end:
+	return ret;
+}
 
 static int msm_ext_disp_get_intf_id(struct platform_device *pdev)
 {
@@ -456,11 +538,11 @@ static int msm_ext_disp_notify(struct platform_device *pdev,
 
 	if (new_state == EXT_DISPLAY_CABLE_CONNECT && ext_disp->ops) {
 		ext_disp->ops->audio_info_setup =
-			data->codec_ops.audio_info_setup;
+			msm_ext_disp_audio_info_setup;
 		ext_disp->ops->get_audio_edid_blk =
-			data->codec_ops.get_audio_edid_blk;
+			msm_ext_disp_get_audio_edid_blk;
 		ext_disp->ops->cable_status =
-			data->codec_ops.cable_status;
+			msm_ext_disp_cable_status;
 		ext_disp->ops->get_intf_id =
 			msm_ext_disp_get_intf_id;
 	}
@@ -590,6 +672,33 @@ end:
 	return ret;
 }
 
+static int msm_ext_disp_validate_intf(struct msm_ext_disp_init_data *init_data)
+{
+	if (!init_data) {
+		pr_err("Invalid init_data\n");
+		return -EINVAL;
+	}
+
+	if (!init_data->pdev) {
+		pr_err("Invalid display intf pdev\n");
+		return -EINVAL;
+	}
+
+	if (!init_data->kobj) {
+		pr_err("Invalid display intf kobj\n");
+		return -EINVAL;
+	}
+
+	if (!init_data->codec_ops.get_audio_edid_blk ||
+			!init_data->codec_ops.cable_status ||
+			!init_data->codec_ops.audio_info_setup) {
+		pr_err("Invalid codec operation pointers\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 int msm_ext_disp_register_intf(struct platform_device *pdev,
 		struct msm_ext_disp_init_data *init_data)
 {
@@ -609,6 +718,10 @@ int msm_ext_disp_register_intf(struct platform_device *pdev,
 	}
 
 	mutex_lock(&ext_disp->lock);
+
+	ret = msm_ext_disp_validate_intf(init_data);
+	if (ret)
+		goto end;
 
 	ret = msm_ext_disp_get_intf_data(ext_disp, init_data->type, &data);
 	if (!ret) {
@@ -675,6 +788,14 @@ static int msm_ext_disp_probe(struct platform_device *pdev)
 	if (ret)
 		goto switch_dev_failure;
 
+	ret = of_platform_populate(of_node, NULL, NULL, &pdev->dev);
+	if (ret) {
+		pr_err("Failed to add child devices. Error = %d\n", ret);
+		goto child_node_failure;
+	} else {
+		pr_debug("%s: Added child devices.\n", __func__);
+	}
+
 	mutex_init(&ext_disp->lock);
 
 	INIT_LIST_HEAD(&ext_disp->display_list);
@@ -682,6 +803,8 @@ static int msm_ext_disp_probe(struct platform_device *pdev)
 
 	return ret;
 
+child_node_failure:
+	msm_ext_disp_switch_dev_unregister(ext_disp);
 switch_dev_failure:
 	devm_kfree(&ext_disp->pdev->dev, ext_disp);
 end:
