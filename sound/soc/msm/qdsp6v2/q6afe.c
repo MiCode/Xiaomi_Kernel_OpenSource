@@ -3217,7 +3217,7 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 				  sizeof(struct afe_port_param_data_v2);
 
 	lb_cmd.dst_port_id = rx_port;
-	lb_cmd.routing_mode = LB_MODE_EC_REF_VOICE_AUDIO;
+	lb_cmd.routing_mode = LB_MODE_DEFAULT;
 	lb_cmd.enable = (enable ? 1 : 0);
 	lb_cmd.loopback_cfg_minor_version = AFE_API_VERSION_LOOPBACK_CONFIG;
 
