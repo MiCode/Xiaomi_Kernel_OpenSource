@@ -19,26 +19,26 @@
 # define SUPPORT_SYSRQ
 #endif
 
+#include <linux/kernel.h>
 #include <linux/atomic.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
-#include <linux/hrtimer.h>
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
-#include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/console.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/serial_core.h>
-#include <linux/serial.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/wait.h>
 
 #define UART_MR1			0x0000
 
@@ -556,10 +556,6 @@ static void msm_complete_rx_dma(void *args)
 	val = msm_read(port, UARTDM_DMEN);
 	val &= ~dma->enable_bit;
 	msm_write(port, val, UARTDM_DMEN);
-
-	/* Restore interrupts */
-	msm_port->imr |= UART_IMR_RXLEV | UART_IMR_RXSTALE;
-	msm_write(port, msm_port->imr, UART_IMR);
 
 	if (msm_read(port, UART_SR) & UART_SR_OVERRUN) {
 		port->icount.overrun++;
