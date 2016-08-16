@@ -78,6 +78,14 @@ static inline void sde_hw_ctl_update_pending_flush(struct sde_hw_ctl *ctx,
 	ctx->pending_flush_mask |= flushbits;
 }
 
+static u32 sde_hw_ctl_get_pending_flush(struct sde_hw_ctl *ctx)
+{
+	if (!ctx)
+		return 0x0;
+
+	return ctx->pending_flush_mask;
+}
+
 static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
 {
 	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->pending_flush_mask);
@@ -377,6 +385,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 {
 	ops->clear_pending_flush = sde_hw_ctl_clear_pending_flush;
 	ops->update_pending_flush = sde_hw_ctl_update_pending_flush;
+	ops->get_pending_flush = sde_hw_ctl_get_pending_flush;
 	ops->trigger_flush = sde_hw_ctl_trigger_flush;
 	ops->trigger_start = sde_hw_ctl_trigger_start;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;

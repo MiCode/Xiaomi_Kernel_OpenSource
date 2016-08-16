@@ -335,6 +335,12 @@ static void sde_encoder_phys_cmd_pingpong_config(
 	sde_encoder_phys_cmd_tearcheck_config(phys_enc);
 }
 
+static bool sde_encoder_phys_cmd_needs_split_flush(
+		struct sde_encoder_phys *phys_enc)
+{
+	return false;
+}
+
 static void sde_encoder_phys_cmd_split_config(
 		struct sde_encoder_phys *phys_enc, bool enable)
 {
@@ -352,7 +358,8 @@ static void sde_encoder_phys_cmd_split_config(
 	cfg.en = enable;
 	cfg.mode = INTF_MODE_CMD;
 	cfg.intf = cmd_enc->intf_idx;
-	cfg.split_flush_en = enable;
+	cfg.split_flush_en = enable &&
+		sde_encoder_phys_cmd_needs_split_flush(phys_enc);
 
 	if (hw_mdptop && hw_mdptop->ops.setup_split_pipe)
 		hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
@@ -539,12 +546,6 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 	MSM_EVT(DEV(phys_enc), cmd_enc->hw_pp->idx, new_pending_cnt);
 }
 
-static bool sde_encoder_phys_cmd_needs_ctl_start(
-		struct sde_encoder_phys *phys_enc)
-{
-	return true;
-}
-
 static void sde_encoder_phys_cmd_init_ops(
 		struct sde_encoder_phys_ops *ops)
 {
@@ -558,7 +559,8 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->control_vblank_irq = sde_encoder_phys_cmd_control_vblank_irq;
 	ops->wait_for_commit_done = sde_encoder_phys_cmd_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_cmd_prepare_for_kickoff;
-	ops->needs_ctl_start = sde_encoder_phys_cmd_needs_ctl_start;
+	ops->trigger_start = sde_encoder_helper_trigger_start;
+	ops->needs_split_flush = sde_encoder_phys_cmd_needs_split_flush;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(
