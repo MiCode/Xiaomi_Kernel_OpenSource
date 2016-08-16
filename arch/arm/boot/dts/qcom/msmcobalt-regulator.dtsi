@@ -555,7 +555,7 @@
 &soc {
 /* CPR controller regulators */
 	apc0_cpr: cprh-ctrl@179c8000 {
-		compatible = "qcom,cprh-msmcobalt-kbss-regulator";
+		compatible = "qcom,cprh-msmcobalt-v1-kbss-regulator";
 		reg = <0x179c8000 0x4000>, <0x00784000 0x1000>;
 		reg-names = "cpr_ctrl", "fuse_base";
 		clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
@@ -717,7 +717,7 @@
 	};
 
 	apc1_cpr: cprh-ctrl@179c4000{
-		compatible = "qcom,cprh-msmcobalt-kbss-regulator";
+		compatible = "qcom,cprh-msmcobalt-v1-kbss-regulator";
 		reg = <0x179c4000 0x4000>, <0x00784000 0x1000>;
 		reg-names = "cpr_ctrl", "fuse_base";
 		clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
