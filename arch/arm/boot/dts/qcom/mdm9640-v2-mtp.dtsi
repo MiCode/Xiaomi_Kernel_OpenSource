@@ -36,10 +36,6 @@
 	status = "ok";
 };
 
-&ipa_hw {
-	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
-};
-
 &i2c_3 {
 	smb1357_otg_supply: smb1357-charger@1c {
 		compatible = "qcom,smb1357-charger";
