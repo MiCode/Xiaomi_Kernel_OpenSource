@@ -24,6 +24,7 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/msm-bus.h>
+#include <linux/clk/msm-clk.h>
 #include "cam_soc_api.h"
 
 struct msm_cam_bus_pscale_data {
@@ -453,6 +454,17 @@ long msm_camera_clk_set_rate(struct device *dev,
 	return rate;
 }
 EXPORT_SYMBOL(msm_camera_clk_set_rate);
+
+int msm_camera_set_clk_flags(struct clk *clk, unsigned long flags)
+{
+	if (!clk)
+		return -EINVAL;
+
+	CDBG("clk : %p, flags : %ld\n", clk, flags);
+
+	return clk_set_flags(clk, flags);
+}
+EXPORT_SYMBOL(msm_camera_set_clk_flags);
 
 /* release memory allocated for clocks */
 static int msm_camera_put_clk_info_internal(struct device *dev,
