@@ -764,7 +764,7 @@ struct tasha_priv {
 	struct wcd_swr_ctrl_platform_data swr_plat_data;
 
 	/* Port values for Rx and Tx codec_dai */
-	unsigned int rx_port_value;
+	unsigned int rx_port_value[TASHA_RX_MAX];
 	unsigned int tx_port_value;
 
 	unsigned int vi_feed_value;
@@ -2377,7 +2377,8 @@ static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = widget->codec;
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 
-	ucontrol->value.enumerated.item[0] = tasha_p->rx_port_value;
+	ucontrol->value.enumerated.item[0] =
+			tasha_p->rx_port_value[widget->shift];
 	return 0;
 }
 
@@ -2396,25 +2397,27 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
+	unsigned int rx_port_value;
 	u32 port_id = widget->shift;
 
-	pr_debug("%s: wname %s cname %s value %u shift %d item %ld\n", __func__,
-		widget->name, ucontrol->id.name, tasha_p->rx_port_value,
-		widget->shift, ucontrol->value.integer.value[0]);
+	tasha_p->rx_port_value[port_id] = ucontrol->value.enumerated.item[0];
+	rx_port_value = tasha_p->rx_port_value[port_id];
 
-	tasha_p->rx_port_value = ucontrol->value.enumerated.item[0];
+	pr_debug("%s: wname %s cname %s value %u shift %d item %ld\n", __func__,
+		widget->name, ucontrol->id.name, rx_port_value,
+		widget->shift, ucontrol->value.integer.value[0]);
 
 	mutex_lock(&codec->mutex);
 
 	if (tasha_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
-		if (tasha_p->rx_port_value > 2) {
+		if (rx_port_value > 2) {
 			dev_err(codec->dev, "%s: invalid AIF for I2C mode\n",
 				__func__);
 			goto err;
 		}
 	}
 	/* value need to match the Virtual port and AIF number */
-	switch (tasha_p->rx_port_value) {
+	switch (rx_port_value) {
 	case 0:
 		list_del_init(&core->rx_chs[port_id].list);
 		break;
@@ -2474,13 +2477,13 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 			      &tasha_p->dai[AIF_MIX1_PB].wcd9xxx_ch_list);
 		break;
 	default:
-		pr_err("Unknown AIF %d\n", tasha_p->rx_port_value);
+		pr_err("Unknown AIF %d\n", rx_port_value);
 		goto err;
 	}
 rtn:
 	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_mux_update_power(widget->dapm, kcontrol,
-					tasha_p->rx_port_value, e, update);
+					rx_port_value, e, update);
 
 	return 0;
 err:
