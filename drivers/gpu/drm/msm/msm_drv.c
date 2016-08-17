@@ -1200,9 +1200,12 @@ static const struct platform_device_id msm_id[] = {
 	{ }
 };
 
+/*
+ * Since "qcom,mdss_mdp" is still being used by fb driver,
+ * we can't enable it for kms driver
+ */
 static const struct of_device_id dt_match[] = {
 	{ .compatible = "qcom,mdp" },      /* mdp4 */
-	{ .compatible = "qcom,mdss_mdp" }, /* mdp5 */
 	{ .compatible = "qcom,sde-kms" },  /* sde  */
 	{}
 };

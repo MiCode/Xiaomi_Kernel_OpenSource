@@ -280,13 +280,13 @@ static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 };
 
 static const struct of_device_id msm_smmu_dt_match[] = {
-	{ .compatible = "qcom,smmu_mdp_unsec",
+	{ .compatible = "qcom,smmu_kms_unsec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_UNSECURE] },
-	{ .compatible = "qcom,smmu_mdp_sec",
+	{ .compatible = "qcom,smmu_kms_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_SECURE] },
-	{ .compatible = "qcom,smmu_rot_unsec",
+	{ .compatible = "qcom,smmu_nrt_unsec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_UNSECURE] },
-	{ .compatible = "qcom,smmu_rot_sec",
+	{ .compatible = "qcom,smmu_nrt_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_SECURE] },
 	{ .compatible = "qcom,kgsl-smmu-v2",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_GPU] },
