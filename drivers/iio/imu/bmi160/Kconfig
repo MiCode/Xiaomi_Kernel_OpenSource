@@ -1,0 +1,26 @@
+#
+# IIO imu drivers configuration
+#
+menu "Inertial measurement units"
+source "drivers/staging/iio/imu/bmi160/Kconfig"
+
+
+#
+# Bosch BMI160 IMU drivers configuration
+#
+
+config SENSORS_BMI160_IIO
+        tristate "BMI160 IMU IIO Driver"
+        depends on I2C 
+        help
+	  If you say yes here you get support for Bosch Sensortec's
+	  IMU drivers of BMI16x.
+
+config SENSORS_BMI160_IIO_RING
+        tristate "BMI160 IIO Ring Buffer Support"
+        depends on SENSORS_BMI160_IIO
+        select IIO_TRIGGERED_BUFFER if IIO_BUFFER
+        help
+         BMI160 IMU Driver support ring buffer operations.
+
+endmenu

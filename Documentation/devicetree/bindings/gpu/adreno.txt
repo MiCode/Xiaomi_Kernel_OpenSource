@@ -157,6 +157,8 @@ GPU Quirks:
 - qcom,gpu-quirk-fault-detect-mask:
 				Mask out RB1-3 activity signals from HW hang
 				detection logic
+- qcom,gpu-quirk-dp2clockgating-disable:
+				Disable RB sampler data path clock gating optimization
 
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight

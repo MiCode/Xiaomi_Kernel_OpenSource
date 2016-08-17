@@ -392,13 +392,13 @@ void msm_dealloc_port(struct slim_controller *ctrl, u8 pn)
 	if (pn >= dev->port_nums)
 		return;
 	endpoint = &dev->pipes[pn];
-	if (dev->pipes[pn].connected)
-		msm_slim_disconn_pipe_port(dev, pn);
-	if (endpoint->sps) {
+	if (dev->pipes[pn].connected) {
 		struct sps_connect *config = &endpoint->config;
-		msm_slim_free_endpoint(endpoint);
+		msm_slim_disconn_pipe_port(dev, pn);
 		msm_slim_sps_mem_free(dev, &config->desc);
 	}
+	if (endpoint->sps)
+		msm_slim_free_endpoint(endpoint);
 }
 
 enum slim_port_err msm_slim_port_xfer_status(struct slim_controller *ctr,

@@ -586,6 +586,7 @@ struct ipa_sys_context {
 	int (*pyld_hdlr)(struct sk_buff *skb, struct ipa_sys_context *sys);
 	struct sk_buff * (*get_skb)(unsigned int len, gfp_t flags);
 	void (*free_skb)(struct sk_buff *skb);
+	void (*free_rx_wrapper)(struct ipa_rx_pkt_wrapper *rk_pkt);
 	u32 rx_buff_sz;
 	u32 rx_pool_sz;
 	struct sk_buff *prev_skb;
@@ -606,6 +607,7 @@ struct ipa_sys_context {
 	/* ordering is important - mutable fields go above */
 	struct ipa_ep_context *ep;
 	struct list_head head_desc_list;
+	struct list_head rcycl_list;
 	spinlock_t spinlock;
 	struct workqueue_struct *wq;
 	struct workqueue_struct *repl_wq;
@@ -1094,6 +1096,7 @@ struct ipa_context {
 	struct ipa_uc_wdi_ctx uc_wdi_ctx;
 	struct ipa_uc_ntn_ctx uc_ntn_ctx;
 	u32 wan_rx_ring_size;
+	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	bool smmu_present;
 	bool smmu_s1_bypass;
@@ -1163,6 +1166,7 @@ struct ipa_plat_drv_res {
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
 	u32 wan_rx_ring_size;
+	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	bool use_dma_zone;
 	bool tethered_flow_control;

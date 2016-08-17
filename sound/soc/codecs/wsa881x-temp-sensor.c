@@ -12,7 +12,6 @@
 
 #include <linux/bitops.h>
 #include <linux/kernel.h>
-#include <linux/suspend.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/thermal.h>
@@ -24,7 +23,6 @@
 #define LOW_TEMP_THRESHOLD 5
 #define HIGH_TEMP_THRESHOLD 45
 #define TEMP_INVALID	0xFFFF
-#define DEFAULT_TEMP 28
 
 /*
  * wsa881x_get_temp - get wsa temperature
@@ -61,17 +59,6 @@ int wsa881x_get_temp(struct thermal_zone_device *thermal,
 	} else {
 		pr_err("%s: pdata is NULL\n", __func__);
 		return -EINVAL;
-	}
-	if (atomic_read(&pdata->is_suspend_spk)) {
-		/*
-		 * get_temp query happens as part of POST_PM_SUSPEND
-		 * from thermal core. To avoid calls to slimbus
-		 * as part of this thermal query, return default temp
-		 * and reset the suspend flag.
-		 */
-		atomic_set(&pdata->is_suspend_spk, 0);
-		*temp = DEFAULT_TEMP;
-		return 0;
 	}
 	if (pdata->wsa_temp_reg_read) {
 		ret = pdata->wsa_temp_reg_read(codec, &reg);
@@ -127,23 +114,6 @@ static struct thermal_zone_device_ops wsa881x_thermal_ops = {
 	.get_temp = wsa881x_get_temp,
 };
 
-
-static int wsa881x_pm_notify(struct notifier_block *nb,
-				unsigned long mode, void *_unused)
-{
-	struct wsa881x_tz_priv *pdata =
-			container_of(nb, struct wsa881x_tz_priv, pm_nb);
-
-	switch (mode) {
-	case PM_SUSPEND_PREPARE:
-		atomic_set(&pdata->is_suspend_spk, 1);
-		break;
-	default:
-		break;
-	}
-	return 0;
-}
-
 int wsa881x_init_thermal(struct wsa881x_tz_priv *tz_pdata)
 {
 	struct thermal_zone_device *tz_dev;
@@ -161,23 +131,12 @@ int wsa881x_init_thermal(struct wsa881x_tz_priv *tz_pdata)
 		return -EINVAL;
 	}
 	tz_pdata->tz_dev = tz_dev;
-	tz_pdata->pm_nb.notifier_call = wsa881x_pm_notify;
-	register_pm_notifier(&tz_pdata->pm_nb);
-	atomic_set(&tz_pdata->is_suspend_spk, 0);
-
 	return 0;
 }
 EXPORT_SYMBOL(wsa881x_init_thermal);
 
 void wsa881x_deinit_thermal(struct thermal_zone_device *tz_dev)
 {
-	struct wsa881x_tz_priv *pdata;
-
-	if (tz_dev && tz_dev->devdata) {
-		pdata = tz_dev->devdata;
-		if (pdata)
-			unregister_pm_notifier(&pdata->pm_nb);
-	}
 	if (tz_dev)
 		thermal_zone_device_unregister(tz_dev);
 }

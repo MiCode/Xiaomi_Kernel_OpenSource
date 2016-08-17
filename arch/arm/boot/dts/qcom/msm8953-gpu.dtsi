@@ -120,6 +120,7 @@
 
 		/* Quirks */
 		qcom,gpu-quirk-two-pass-use-wfi;
+		qcom,gpu-quirk-dp2clockgating-disable;
 
 		/* Trace bus */
 		coresight-id = <67>;

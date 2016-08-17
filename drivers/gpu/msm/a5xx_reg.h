@@ -561,6 +561,7 @@
 
 
 /* RB registers */
+#define A5XX_RB_DBG_ECO_CNT                 0xCC4
 #define A5XX_RB_ADDR_MODE_CNTL              0xCC5
 #define A5XX_RB_MODE_CNTL                   0xCC6
 #define A5XX_RB_PERFCTR_RB_SEL_0            0xCD0

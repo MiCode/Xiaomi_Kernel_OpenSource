@@ -17,6 +17,13 @@
 	sound {
 		qcom,cdc-micbias2-headset-only;
 	};
+
+	qcom,ntn_avb {
+		compatible = "qcom,ntn_avb";
+		ntn-supply-enable-gpio = <&pmd9635_gpios 3 0>;
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <0>;
+	};
 };
 
 &blsp1_uart3 {
@@ -27,10 +34,6 @@
 
 &blsp1_uart2 {
 	status = "ok";
-};
-
-&ipa_hw {
-	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
 };
 
 &i2c_3 {
@@ -66,7 +69,14 @@
 		status = "ok";
 	};
 
-	gpio@c200 { /* GPIO 3 */
+	gpio@c200 { /* GPIO 3 - Neutrino supply enable */
+		qcom,mode = <1>;         /* Digital output*/
+		qcom,pull = <5>;         /* No Pull */
+		qcom,vin-sel = <2>;      /* VIN2 */
+		qcom,src-sel = <0>;      /* GPIO */
+		qcom,invert = <0>;       /* Invert */
+		qcom,master-en = <1>;    /* Enable GPIO */
+		status = "ok";
 	};
 
 	gpio@c300 { /* GPIO 4 */

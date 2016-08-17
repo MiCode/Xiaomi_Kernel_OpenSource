@@ -121,6 +121,8 @@
 #define ADRENO_QUIRK_CRITICAL_PACKETS BIT(2)
 /* Mask out RB1-3 activity signals from HW hang detection logic */
 #define ADRENO_QUIRK_FAULT_DETECT_MASK BIT(3)
+/* Disable RB sampler datapath clock gating optimization */
+#define ADRENO_QUIRK_DISABLE_RB_DP2CLOCKGATING BIT(4)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0

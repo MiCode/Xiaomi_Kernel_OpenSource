@@ -21,3 +21,29 @@
 	compatible = "qcom,apq8053-mtp", "qcom,apq8053", "qcom,mtp";
 	qcom,board-id= <8 2>;
 };
+
+&mdss_dsi {
+	hw-config = "dual_dsi";
+};
+
+&mdss_dsi1 {
+	status = "ok";
+	qcom,bridge-index = <0>;
+};
+
+&dsi_adv7533_1080p {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&pm8953_gpios {
+	/* GPIO 5 (ADV7533 DSI2HDMI) */
+	gpio@c400 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
+
+};

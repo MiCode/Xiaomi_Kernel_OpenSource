@@ -355,7 +355,7 @@
 		qcom,cpr-step-quot-init-min = <12>;
 		qcom,cpr-step-quot-init-max = <14>;
 		qcom,cpr-count-mode = <0>;		/* All-at-once */
-		qcom,cpr-count-repeat = <1>;
+		qcom,cpr-count-repeat = <14>;
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
 
@@ -389,7 +389,7 @@
 			qcom,cpr-consecutive-up = <0>;
 			qcom,cpr-consecutive-down = <2>;
 			qcom,cpr-up-threshold = <2>;
-			qcom,cpr-down-threshold = <2>;
+			qcom,cpr-down-threshold = <1>;
 
 			apc_vreg: regulator {
 				regulator-name = "apc_corner";

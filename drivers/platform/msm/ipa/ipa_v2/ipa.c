@@ -3698,6 +3698,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->ipa_bam_remote_mode = resource_p->ipa_bam_remote_mode;
 	ipa_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
+	ipa_ctx->lan_rx_ring_size = resource_p->lan_rx_ring_size;
 	ipa_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa_ctx->use_dma_zone = resource_p->use_dma_zone;
 	ipa_ctx->tethered_flow_control = resource_p->tethered_flow_control;
@@ -4235,6 +4236,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_bam_remote_mode = false;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
+	ipa_drv_res->lan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 
 	smmu_info.disable_htw = of_property_read_bool(pdev->dev.of_node,
 			"qcom,smmu-disable-htw");
@@ -4257,15 +4259,26 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		IPADBG(": found ipa_drv_res->ipa_hw_mode = %d",
 				ipa_drv_res->ipa_hw_mode);
 
-	/* Get IPA WAN RX pool sizee */
+	/* Get IPA WAN / LAN RX  pool sizes */
 	result = of_property_read_u32(pdev->dev.of_node,
 			"qcom,wan-rx-ring-size",
 			&ipa_drv_res->wan_rx_ring_size);
 	if (result)
-		IPADBG("using default for wan-rx-ring-size\n");
+		IPADBG("using default for wan-rx-ring-size = %u\n",
+				ipa_drv_res->wan_rx_ring_size);
 	else
 		IPADBG(": found ipa_drv_res->wan-rx-ring-size = %u",
 				ipa_drv_res->wan_rx_ring_size);
+
+	result = of_property_read_u32(pdev->dev.of_node,
+			"qcom,lan-rx-ring-size",
+			&ipa_drv_res->lan_rx_ring_size);
+	if (result)
+		IPADBG("using default for lan-rx-ring-size = %u\n",
+				ipa_drv_res->lan_rx_ring_size);
+	else
+		IPADBG(": found ipa_drv_res->lan-rx-ring-size = %u",
+				ipa_drv_res->lan_rx_ring_size);
 
 	ipa_drv_res->use_ipa_teth_bridge =
 			of_property_read_bool(pdev->dev.of_node,
@@ -4525,7 +4538,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	cb->dev = dev;
 	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
 				cb->va_start, cb->va_size);
-	if (IS_ERR(cb->mapping)) {
+	if (IS_ERR_OR_NULL(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
 		/* assume this failure is because iommu driver is not ready */
 		return -EPROBE_DEFER;
@@ -4628,7 +4641,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
 					       cb->va_start,
 					       cb->va_size);
-	if (IS_ERR(cb->mapping)) {
+	if (IS_ERR_OR_NULL(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
 		/* assume this failure is because iommu driver is not ready */
 		return -EPROBE_DEFER;

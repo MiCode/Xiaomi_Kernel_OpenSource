@@ -60,6 +60,7 @@
 static struct sk_buff *ipa_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys);
 static void ipa_replenish_rx_cache(struct ipa_sys_context *sys);
+static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys);
 static void replenish_rx_work_func(struct work_struct *work);
 static void ipa_wq_handle_rx(struct work_struct *work);
 static void ipa_wq_handle_tx(struct work_struct *work);
@@ -1196,6 +1197,7 @@ int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		}
 
 		INIT_LIST_HEAD(&ep->sys->head_desc_list);
+		INIT_LIST_HEAD(&ep->sys->rcycl_list);
 		spin_lock_init(&ep->sys->spinlock);
 	} else {
 		memset(ep->sys, 0, offsetof(struct ipa_sys_context, ep));
@@ -1334,9 +1336,7 @@ int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	*clnt_hdl = ipa_ep_idx;
 
-	if (nr_cpu_ids > 1 &&
-		(sys_in->client == IPA_CLIENT_APPS_LAN_CONS ||
-		 sys_in->client == IPA_CLIENT_APPS_WAN_CONS)) {
+	if (ep->sys->repl_hdlr == ipa_fast_replenish_rx_cache) {
 		ep->sys->repl.capacity = ep->sys->rx_pool_sz + 1;
 		ep->sys->repl.cache = kzalloc(ep->sys->repl.capacity *
 				sizeof(void *), GFP_KERNEL);
@@ -2024,6 +2024,94 @@ fail_kmem_cache_alloc:
 				msecs_to_jiffies(1));
 }
 
+static void ipa_replenish_rx_cache_recycle(struct ipa_sys_context *sys)
+{
+	void *ptr;
+	struct ipa_rx_pkt_wrapper *rx_pkt;
+	int ret;
+	int rx_len_cached = 0;
+	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN |
+		(ipa_ctx->use_dma_zone ? GFP_DMA : 0);
+
+	rx_len_cached = sys->len;
+
+	while (rx_len_cached < sys->rx_pool_sz) {
+		if (list_empty(&sys->rcycl_list)) {
+			rx_pkt = kmem_cache_zalloc(
+				ipa_ctx->rx_pkt_wrapper_cache, flag);
+			if (!rx_pkt) {
+				IPAERR("failed to alloc rx wrapper\n");
+				goto fail_kmem_cache_alloc;
+			}
+
+			INIT_LIST_HEAD(&rx_pkt->link);
+			INIT_WORK(&rx_pkt->work, ipa_wq_rx_avail);
+			rx_pkt->sys = sys;
+
+			rx_pkt->data.skb = sys->get_skb(sys->rx_buff_sz, flag);
+			if (rx_pkt->data.skb == NULL) {
+				IPAERR("failed to alloc skb\n");
+				kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache,
+					rx_pkt);
+				goto fail_kmem_cache_alloc;
+			}
+			ptr = skb_put(rx_pkt->data.skb, sys->rx_buff_sz);
+			rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev,
+				ptr, sys->rx_buff_sz, DMA_FROM_DEVICE);
+			if (rx_pkt->data.dma_addr == 0 ||
+				rx_pkt->data.dma_addr == ~0) {
+				IPAERR("dma_map_single failure %p for %p\n",
+					(void *)rx_pkt->data.dma_addr, ptr);
+				goto fail_dma_mapping;
+			}
+		} else {
+			spin_lock_bh(&sys->spinlock);
+			rx_pkt = list_first_entry(&sys->rcycl_list,
+				struct ipa_rx_pkt_wrapper, link);
+			list_del(&rx_pkt->link);
+			spin_unlock_bh(&sys->spinlock);
+			INIT_LIST_HEAD(&rx_pkt->link);
+			ptr = skb_put(rx_pkt->data.skb, sys->rx_buff_sz);
+			rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev,
+				ptr, sys->rx_buff_sz, DMA_FROM_DEVICE);
+			if (rx_pkt->data.dma_addr == 0 ||
+				rx_pkt->data.dma_addr == ~0) {
+				IPAERR("dma_map_single failure %p for %p\n",
+					(void *)rx_pkt->data.dma_addr, ptr);
+				goto fail_dma_mapping;
+			}
+		}
+
+		list_add_tail(&rx_pkt->link, &sys->head_desc_list);
+		rx_len_cached = ++sys->len;
+
+		ret = sps_transfer_one(sys->ep->ep_hdl,
+			rx_pkt->data.dma_addr, sys->rx_buff_sz, rx_pkt, 0);
+
+		if (ret) {
+			IPAERR("sps_transfer_one failed %d\n", ret);
+			goto fail_sps_transfer;
+		}
+	}
+
+	return;
+fail_sps_transfer:
+	rx_len_cached = --sys->len;
+	list_del(&rx_pkt->link);
+	INIT_LIST_HEAD(&rx_pkt->link);
+	dma_unmap_single(ipa_ctx->pdev, rx_pkt->data.dma_addr,
+		sys->rx_buff_sz, DMA_FROM_DEVICE);
+fail_dma_mapping:
+	spin_lock_bh(&sys->spinlock);
+	list_add_tail(&rx_pkt->link, &sys->rcycl_list);
+	INIT_LIST_HEAD(&rx_pkt->link);
+	spin_unlock_bh(&sys->spinlock);
+fail_kmem_cache_alloc:
+	if (rx_len_cached == 0)
+		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
+		msecs_to_jiffies(1));
+}
+
 static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
@@ -2107,6 +2195,15 @@ static void ipa_cleanup_rx(struct ipa_sys_context *sys)
 		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
 	}
 
+	list_for_each_entry_safe(rx_pkt, r,
+					&sys->rcycl_list, link) {
+		list_del(&rx_pkt->link);
+		dma_unmap_single(ipa_ctx->pdev, rx_pkt->data.dma_addr,
+			sys->rx_buff_sz, DMA_FROM_DEVICE);
+		sys->free_skb(rx_pkt->data.skb);
+		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
+	}
+
 	if (sys->repl.cache) {
 		head = atomic_read(&sys->repl.head_idx);
 		tail = atomic_read(&sys->repl.tail_idx);
@@ -2156,7 +2253,6 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 
 	if (skb->len == 0) {
 		IPAERR("ZLT\n");
-		sys->free_skb(skb);
 		return rc;
 	}
 
@@ -2216,7 +2312,6 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 				sys->prev_skb = skb2;
 			}
 			sys->len_rem -= skb->len;
-			sys->free_skb(skb);
 			return rc;
 		}
 	}
@@ -2403,7 +2498,6 @@ begin:
 		}
 	};
 
-	sys->free_skb(skb);
 	return rc;
 }
 
@@ -2737,6 +2831,17 @@ void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 	ep->client_notify(ep->priv, IPA_RECEIVE, (unsigned long)(rx_skb));
 }
 
+static void ipa_recycle_rx_wrapper(struct ipa_rx_pkt_wrapper *rx_pkt)
+{
+	rx_pkt->data.dma_addr = 0;
+	ipa_skb_recycle(rx_pkt->data.skb);
+	skb_reserve(rx_pkt->data.skb, IPA_HEADROOM);
+	INIT_LIST_HEAD(&rx_pkt->link);
+	spin_lock_bh(&rx_pkt->sys->spinlock);
+	list_add_tail(&rx_pkt->link, &rx_pkt->sys->rcycl_list);
+	spin_unlock_bh(&rx_pkt->sys->spinlock);
+}
+
 static void ipa_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt_expected;
@@ -2761,8 +2866,8 @@ static void ipa_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	*(unsigned int *)rx_skb->cb = rx_skb->len;
 	rx_skb->truesize = rx_pkt_expected->len + sizeof(struct sk_buff);
 	sys->pyld_hdlr(rx_skb, sys);
+	sys->free_rx_wrapper(rx_pkt_expected);
 	sys->repl_hdlr(sys);
-	kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt_expected);
 
 }
 
@@ -2874,6 +2979,11 @@ static int ipa_odu_rx_pyld_hdlr(struct sk_buff *rx_skb,
 	return 0;
 }
 
+static void ipa_free_rx_wrapper(struct ipa_rx_pkt_wrapper *rk_pkt)
+{
+	kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rk_pkt);
+}
+
 static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 		struct ipa_sys_context *sys)
 {
@@ -2964,8 +3074,12 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 					IPA_GENERIC_AGGR_TIME_LIMIT;
 				if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 					sys->pyld_hdlr = ipa_lan_rx_pyld_hdlr;
+					sys->free_rx_wrapper =
+						ipa_recycle_rx_wrapper;
+					sys->repl_hdlr =
+						ipa_replenish_rx_cache_recycle;
 					sys->rx_pool_sz =
-						IPA_GENERIC_RX_POOL_SZ;
+						ipa_ctx->lan_rx_ring_size;
 					in->ipa_ep_cfg.aggr.aggr_byte_limit =
 					IPA_GENERIC_AGGR_BYTE_LIMIT;
 					in->ipa_ep_cfg.aggr.aggr_pkt_limit =
@@ -2979,6 +3093,15 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						ipa_ctx->wan_rx_ring_size;
 					sys->ep->wakelock_client =
 					IPA_WAKELOCK_REF_CLIENT_WAN_RX;
+					if (nr_cpu_ids > 1) {
+						sys->repl_hdlr =
+						ipa_fast_replenish_rx_cache;
+						sys->repl_trig_thresh =
+						sys->rx_pool_sz / 8;
+					} else {
+						sys->repl_hdlr =
+							ipa_replenish_rx_cache;
+					}
 					in->ipa_ep_cfg.aggr.aggr_sw_eof_active
 						= true;
 					if (ipa_ctx->
@@ -3024,13 +3147,9 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 							aggr_pkt_limit =
 						IPA_GENERIC_AGGR_PKT_LIMIT;
 					}
+					sys->free_rx_wrapper =
+						ipa_free_rx_wrapper;
 				}
-				sys->repl_trig_thresh = sys->rx_pool_sz / 8;
-				if (nr_cpu_ids > 1)
-					sys->repl_hdlr =
-						ipa_fast_replenish_rx_cache;
-				else
-					sys->repl_hdlr = ipa_replenish_rx_cache;
 			} else if (IPA_CLIENT_IS_WLAN_CONS(in->client)) {
 				IPADBG("assigning policy to client:%d",
 					in->client);
@@ -3055,6 +3174,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->repl_hdlr = ipa_replenish_wlan_rx_cache;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
+				sys->free_rx_wrapper = ipa_free_rx_wrapper;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
 				sys->ep->wakelock_client =
 					IPA_WAKELOCK_REF_CLIENT_WLAN_RX;
@@ -3081,6 +3201,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->pyld_hdlr = ipa_odu_rx_pyld_hdlr;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
+				sys->free_rx_wrapper = ipa_free_rx_wrapper;
 				sys->repl_hdlr = ipa_replenish_rx_cache;
 				sys->ep->wakelock_client =
 					IPA_WAKELOCK_REF_CLIENT_ODU_RX;
