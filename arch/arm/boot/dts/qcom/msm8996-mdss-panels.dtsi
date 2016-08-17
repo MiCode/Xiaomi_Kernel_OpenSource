@@ -33,6 +33,8 @@
 #include "dsi-panel-toshiba-720p-video.dtsi"
 #include "dsi-panel-sharp-dsc-4k-cmd.dtsi"
 #include "dsi-panel-jdi-1080p-video.dtsi"
+#include "dsi-panel-truly-1080p-video.dtsi"
+#include "dsi-panel-truly-1080p-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -262,6 +264,22 @@
 		23 1f 07 09 05 03 04 a0
 		23 1f 07 09 05 03 04 a0
 		23 19 08 08 05 03 04 a0];
+};
+
+&dsi_truly_1080_vid {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1a 08 09 05 03 04 a0];
+};
+
+&dsi_truly_1080_cmd {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1a 08 09 05 03 04 a0];
 };
 
 &dsi_sharp_1080_cmd {
