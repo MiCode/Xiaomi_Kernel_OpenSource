@@ -1172,6 +1172,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 	inst->instant_bitrate = 0;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;
+	inst->colour_space = MSM_VIDC_BT601_6_525;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {

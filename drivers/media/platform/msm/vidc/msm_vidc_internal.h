@@ -297,6 +297,7 @@ struct msm_vidc_inst {
 	u32 buffers_held_in_driver;
 	atomic_t in_flush;
 	u32 pic_struct;
+	u32 colour_space;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
