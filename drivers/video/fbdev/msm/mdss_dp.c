@@ -1310,6 +1310,70 @@ error:
 	return rc;
 }
 
+static struct mdss_dp_drv_pdata *mdss_dp_get_drvdata(struct device *device)
+{
+	struct msm_fb_data_type *mfd;
+	struct mdss_panel_data *pd;
+	struct mdss_dp_drv_pdata *dp = NULL;
+	struct fb_info *fbi = dev_get_drvdata(device);
+
+	if (fbi) {
+		mfd = (struct msm_fb_data_type *)fbi->par;
+		pd = dev_get_platdata(&mfd->pdev->dev);
+
+		dp = container_of(pd, struct mdss_dp_drv_pdata, panel_data);
+	}
+
+	return dp;
+}
+
+static ssize_t mdss_dp_rda_connected(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp)
+		return -EINVAL;
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", dp->cable_connected);
+	pr_debug("%d\n", dp->cable_connected);
+
+	return ret;
+}
+static DEVICE_ATTR(connected, S_IRUGO, mdss_dp_rda_connected, NULL);
+
+static struct attribute *mdss_dp_fs_attrs[] = {
+	&dev_attr_connected.attr,
+	NULL,
+};
+
+static struct attribute_group mdss_dp_fs_attrs_group = {
+	.attrs = mdss_dp_fs_attrs,
+};
+
+static int mdss_dp_sysfs_create(struct mdss_dp_drv_pdata *dp,
+	struct fb_info *fbi)
+{
+	int rc;
+
+	if (!dp || !fbi) {
+		pr_err("ivalid input\n");
+		return -ENODEV;
+	}
+
+	rc = sysfs_create_group(&fbi->dev->kobj,
+		&mdss_dp_fs_attrs_group);
+	if (rc) {
+		pr_err("failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("sysfs ceated\n");
+
+	return 0;
+}
+
 static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
@@ -1354,6 +1418,7 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 
 		dp->kobj = &fbi->dev->kobj;
 		dp->fb_node = fbi->node;
+		mdss_dp_sysfs_create(dp, fbi);
 		mdss_dp_edid_init(pdata);
 		mdss_dp_hdcp_init(pdata);
 		mdss_dp_register_switch_event(dp);
