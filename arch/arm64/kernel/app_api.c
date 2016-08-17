@@ -18,6 +18,7 @@
 #include <asm/app_api.h>
 
 static spinlock_t spinlock;
+static spinlock_t spinlock_32bit_app;
 static DEFINE_PER_CPU(int, app_config_applied);
 static unsigned long app_config_set[NR_CPUS];
 static unsigned long app_config_clear[NR_CPUS];
@@ -67,9 +68,43 @@ void clear_app_setting_bit(uint32_t bit)
 }
 EXPORT_SYMBOL(clear_app_setting_bit);
 
+void set_app_setting_bit_for_32bit_apps(void)
+{
+	unsigned long flags;
+	uint64_t reg;
+
+	spin_lock_irqsave(&spinlock_32bit_app, flags);
+	asm volatile("mrs %0, S3_0_c15_c15_1 " : "=r" (reg));
+	reg = reg | BIT(18);
+	reg = reg & ~BIT(2);
+	reg = reg | 0x3;
+	isb();
+	asm volatile("msr S3_0_c15_c15_1, %0" : : "r" (reg));
+	isb();
+	spin_unlock_irqrestore(&spinlock_32bit_app, flags);
+}
+EXPORT_SYMBOL(set_app_setting_bit_for_32bit_apps);
+
+void clear_app_setting_bit_for_32bit_apps(void)
+{
+	unsigned long flags;
+	uint64_t reg;
+
+	spin_lock_irqsave(&spinlock_32bit_app, flags);
+	asm volatile("mrs %0, S3_0_c15_c15_1 " : "=r" (reg));
+	reg = reg & ~BIT(18);
+	reg = reg & ~0x3;
+	isb();
+	asm volatile("msr S3_0_c15_c15_1, %0" : : "r" (reg));
+	isb();
+	spin_unlock_irqrestore(&spinlock_32bit_app, flags);
+}
+EXPORT_SYMBOL(clear_app_setting_bit_for_32bit_apps);
+
 static int __init init_app_api(void)
 {
 	spin_lock_init(&spinlock);
+	spin_lock_init(&spinlock_32bit_app);
 	return 0;
 }
 early_initcall(init_app_api);
