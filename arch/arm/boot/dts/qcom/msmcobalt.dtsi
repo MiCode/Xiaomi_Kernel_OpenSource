@@ -2961,4 +2961,5 @@
 #include "msmcobalt-audio.dtsi"
 #include "msmcobalt-mdss.dtsi"
 #include "msmcobalt-mdss-pll.dtsi"
+#include "msm-rdbg.dtsi"
 #include "msmcobalt-blsp.dtsi"
