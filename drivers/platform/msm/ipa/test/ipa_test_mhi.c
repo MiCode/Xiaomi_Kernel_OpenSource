@@ -462,14 +462,14 @@ static int ipa_test_mhi_alloc_mmio_space(void)
 	 * In test register carries the pointer of
 	 *  virtual address for the buffer of channel context array
 	 */
-	p_mmio->crcbap = (u32)ch_ctx_array->base;
+	p_mmio->crcbap = (unsigned long)ch_ctx_array->base;
 
 	/**
 	 * Register is not accessed by HWP.
 	 * In test register carries the pointer of
 	 *  virtual address for the buffer of channel context array
 	 */
-	p_mmio->crdb = (u32)ev_ctx_array->base;
+	p_mmio->crdb = (unsigned long)ev_ctx_array->base;
 
 	/* test is running only on device. no need to translate addresses */
 	p_mmio->mhiaddr.mhicrtlbase = 0x04;
@@ -569,8 +569,10 @@ static int ipa_mhi_test_config_channel_context(
 
 	p_mmio = (struct ipa_mhi_mmio_register_set *)mmio->base;
 	p_channels =
-		(struct ipa_mhi_channel_context_array *)((u32)p_mmio->crcbap);
-	p_events = (struct ipa_mhi_event_context_array *)((u32)p_mmio->crdb);
+		(struct ipa_mhi_channel_context_array *)
+		((unsigned long)p_mmio->crcbap);
+	p_events = (struct ipa_mhi_event_context_array *)
+		((unsigned long)p_mmio->crdb);
 
 	IPA_UT_DBG("p_mmio: %pK p_channels: %pK p_events: %pK\n",
 		p_mmio, p_channels, p_events);
@@ -1314,8 +1316,9 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 
 	p_mmio = (struct ipa_mhi_mmio_register_set *)mmio->base;
 	p_channels = (struct ipa_mhi_channel_context_array *)
-		((u32)p_mmio->crcbap);
-	p_events = (struct ipa_mhi_event_context_array *)((u32)p_mmio->crdb);
+		((unsigned long)p_mmio->crcbap);
+	p_events = (struct ipa_mhi_event_context_array *)
+		((unsigned long)p_mmio->crdb);
 
 	if (ieob)
 		num_of_ed_to_queue = buf_array_size;
@@ -1361,9 +1364,9 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 		(u32)p_events[event_ring_index].rbase + next_wp_ofst;
 
 	/* write value to event ring doorbell */
-	IPA_UT_LOG("DB to event 0x%llx -> 0x%x\n",
+	IPA_UT_LOG("DB to event 0x%llx: base %pa ofst 0x%x\n",
 		p_events[event_ring_index].wp,
-		gsi_ctx->per.phys_addr + GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
+		&(gsi_ctx->per.phys_addr), GSI_EE_n_EV_CH_k_DOORBELL_0_OFFS(
 			event_ring_index + IPA_MHI_GSI_ER_START, 0));
 	iowrite32(p_events[event_ring_index].wp,
 		test_mhi_ctx->gsi_mmio +
@@ -1378,7 +1381,8 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 			p_channels[channel_idx].rbase);
 		(void)rp_ofst;
 		curr_re = (struct ipa_mhi_transfer_ring_element *)
-			((u32)xfer_ring_bufs[channel_idx].base + wp_ofst);
+			((unsigned long)xfer_ring_bufs[channel_idx].base +
+			wp_ofst);
 		if (p_channels[channel_idx].rlen & 0xFFFFFFFF00000000) {
 			IPA_UT_LOG("invalid ch rlen %llu\n",
 				p_channels[channel_idx].rlen);
@@ -1404,11 +1408,12 @@ static int ipa_mhi_test_q_transfer_re(struct ipa_mem_buffer *mmio,
 			/* last buffer */
 			curr_re->word_C.bits.chain = 0;
 			if (trigger_db) {
-				IPA_UT_LOG("DB to channel 0x%llx -> 0x%x\n",
-					p_channels[channel_idx].wp,
-					gsi_ctx->per.phys_addr +
-					GSI_EE_n_GSI_CH_k_DOORBELL_0_OFFS(
-					channel_idx, 0));
+				IPA_UT_LOG(
+					"DB to channel 0x%llx: base %pa ofst 0x%x\n"
+					, p_channels[channel_idx].wp
+					, &(gsi_ctx->per.phys_addr)
+					, GSI_EE_n_GSI_CH_k_DOORBELL_0_OFFS(
+						channel_idx, 0));
 				iowrite32(p_channels[channel_idx].wp,
 					test_mhi_ctx->gsi_mmio +
 					GSI_EE_n_GSI_CH_k_DOORBELL_0_OFFS(
