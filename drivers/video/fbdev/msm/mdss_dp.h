@@ -350,6 +350,21 @@ struct dp_pinctrl_res {
 
 irqreturn_t dp_isr(int irq, void *ptr);
 
+struct dp_hdcp {
+	void *data;
+	struct hdcp_ops *ops;
+
+	void *hdcp1;
+	void *hdcp2;
+
+	int enc_lvl;
+
+	bool auth_state;
+	bool hdcp1_present;
+	bool hdcp2_present;
+	bool feature_enabled;
+};
+
 struct mdss_dp_drv_pdata {
 	/* device driver */
 	int (*on) (struct mdss_panel_data *pdata);
@@ -358,6 +373,7 @@ struct mdss_dp_drv_pdata {
 	struct platform_device *ext_pdev;
 
 	struct usbpd *pd;
+	struct dp_hdcp hdcp;
 	struct usbpd_svid_handler svid_handler;
 	struct dp_alt_mode alt_mode;
 	bool dp_initialized;
@@ -465,8 +481,6 @@ struct mdss_dp_drv_pdata {
 	u32 new_vic;
 	int fb_node;
 
-	void *hdcp_data;
-	struct hdcp_ops *hdcp_ops;
 	struct dpcd_test_request test_data;
 	struct dpcd_sink_count sink_count;
 };
@@ -569,5 +583,7 @@ void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *ep);
 char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt);
 int mdss_dp_aux_set_sink_power_state(struct mdss_dp_drv_pdata *ep, char state);
 void mdss_dp_aux_send_test_response(struct mdss_dp_drv_pdata *ep);
+void *mdss_dp_get_hdcp_data(struct device *dev);
+int mdss_dp_hdcp2p2_init(struct mdss_dp_drv_pdata *dp_drv);
 
 #endif /* MDSS_DP_H */

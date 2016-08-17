@@ -18,7 +18,7 @@
 #include <linux/iopoll.h>
 #include <soc/qcom/scm.h>
 #include <linux/hdcp_qseecom.h>
-#include "mdss_hdcp_1x.h"
+#include "mdss_hdcp.h"
 #include "mdss_fb.h"
 #include "mdss_dp_util.h"
 #include "video/msm_hdmi_hdcp_mgr.h"

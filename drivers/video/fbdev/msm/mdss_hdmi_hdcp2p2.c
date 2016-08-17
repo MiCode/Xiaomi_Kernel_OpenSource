@@ -20,7 +20,7 @@
 #include <linux/kthread.h>
 
 #include <linux/hdcp_qseecom.h>
-#include "mdss_hdcp_1x.h"
+#include "mdss_hdcp.h"
 #include "video/msm_hdmi_hdcp_mgr.h"
 #include "mdss_hdmi_util.h"
 

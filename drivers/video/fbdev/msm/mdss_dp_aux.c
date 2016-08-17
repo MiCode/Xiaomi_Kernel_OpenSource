@@ -277,13 +277,15 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 
 	wait_for_completion(&ep->aux_comp);
 
-	if (ep->aux_error_num == EDP_AUX_ERR_NONE)
+	if (ep->aux_error_num == EDP_AUX_ERR_NONE) {
 		ret = dp_cmd_fifo_rx(rp, len, ep->base);
-	else
-		ret = ep->aux_error_num;
 
-	if (cmds->out_buf)
-		memcpy(cmds->out_buf, rp->data, cmds->len);
+		if (cmds->out_buf)
+			memcpy(cmds->out_buf, rp->data, cmds->len);
+
+	} else {
+		ret = ep->aux_error_num;
+	}
 
 	ep->aux_cmd_busy = 0;
 	mutex_unlock(&ep->aux_mutex);
@@ -1693,4 +1695,37 @@ void mdss_dp_aux_init(struct mdss_dp_drv_pdata *ep)
 
 	dp_buf_init(&ep->txp, ep->txbuf, sizeof(ep->txbuf));
 	dp_buf_init(&ep->rxp, ep->rxbuf, sizeof(ep->rxbuf));
+}
+
+int mdss_dp_aux_read_rx_status(struct mdss_dp_drv_pdata *dp, u8 *rx_status)
+{
+	bool cp_irq;
+	int rc = 0;
+
+	if (!dp) {
+		pr_err("%s Invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	*rx_status = 0;
+
+	rc = dp_aux_read_buf(dp, DP_DPCD_CP_IRQ, 1, 0);
+	if (!rc) {
+		pr_err("Error reading CP_IRQ\n");
+		return -EINVAL;
+	}
+
+	cp_irq = *dp->rxp.data & BIT(2);
+
+	if (cp_irq) {
+		rc = dp_aux_read_buf(dp, DP_DPCD_RXSTATUS, 1, 0);
+		if (!rc) {
+			pr_err("Error reading RxStatus\n");
+			return -EINVAL;
+		}
+
+		*rx_status = *dp->rxp.data;
+	}
+
+	return 0;
 }

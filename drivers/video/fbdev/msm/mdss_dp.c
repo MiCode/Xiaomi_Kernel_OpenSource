@@ -36,7 +36,7 @@
 #include "mdss_dp_util.h"
 #include "mdss_hdmi_panel.h"
 #include <linux/hdcp_qseecom.h>
-#include "mdss_hdcp_1x.h"
+#include "mdss_hdcp.h"
 #include "mdss_debug.h"
 
 #define RGB_COMPONENTS		3
@@ -1621,22 +1621,24 @@ static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
 		return;
 	}
 
-	ops = dp->hdcp_ops;
+	ops = dp->hdcp.ops;
 
 	mutex_lock(&dp->train_mutex);
 
 	switch (status) {
 	case HDCP_STATE_AUTHENTICATED:
-		pr_debug("hdcp 1.3 authenticated\n");
+		pr_debug("hdcp authenticated\n");
+		dp->hdcp.auth_state = true;
 		break;
 	case HDCP_STATE_AUTH_FAIL:
+		dp->hdcp.auth_state = false;
+
 		if (dp->power_on) {
 			pr_debug("Reauthenticating\n");
 			if (ops && ops->reauthenticate) {
-				rc = ops->reauthenticate(dp->hdcp_data);
+				rc = ops->reauthenticate(dp->hdcp.data);
 				if (rc)
-					pr_err("HDCP reauth failed. rc=%d\n",
-						rc);
+					pr_err("reauth failed rc=%d\n", rc);
 			}
 		} else {
 			pr_debug("not reauthenticating, cable disconnected\n");
@@ -1685,19 +1687,22 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
 
-	dp_drv->hdcp_data = hdcp_1x_init(&hdcp_init_data);
-	if (IS_ERR_OR_NULL(dp_drv->hdcp_data)) {
+	dp_drv->hdcp.data = hdcp_1x_init(&hdcp_init_data);
+	if (IS_ERR_OR_NULL(dp_drv->hdcp.data)) {
 		pr_err("Error hdcp init\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
-	dp_drv->panel_data.panel_info.hdcp_1x_data = dp_drv->hdcp_data;
+	dp_drv->panel_data.panel_info.hdcp_1x_data = dp_drv->hdcp.data;
 
 	pr_debug("HDCP 1.3 initialized\n");
 
-	dp_drv->hdcp_ops = hdcp_1x_start(dp_drv->hdcp_data);
+	dp_drv->hdcp.hdcp2 = dp_hdcp2p2_init(&hdcp_init_data);
+	if (!IS_ERR_OR_NULL(dp_drv->hdcp.data))
+		pr_debug("HDCP 2.2 initialized\n");
 
+	dp_drv->hdcp.feature_enabled = true;
 	return 0;
 error:
 	return rc;
@@ -1839,13 +1844,46 @@ static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata)
 	pr_debug("mainlink off done\n");
 }
 
+static void mdss_dp_update_hdcp_info(struct mdss_dp_drv_pdata *dp)
+{
+	void *fd = NULL;
+	struct hdcp_ops *ops = NULL;
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	/* check first if hdcp2p2 is supported */
+	fd = dp->hdcp.hdcp2;
+	if (fd)
+		ops = dp_hdcp2p2_start(fd);
+
+	if (ops && ops->feature_supported)
+		dp->hdcp.hdcp2_present = ops->feature_supported(fd);
+	else
+		dp->hdcp.hdcp2_present = false;
+
+	if (!dp->hdcp.hdcp2_present) {
+		dp->hdcp.hdcp1_present = hdcp1_check_if_supported_load_app();
+
+		if (dp->hdcp.hdcp1_present) {
+			fd = dp->hdcp.hdcp1;
+			ops = hdcp_1x_start(fd);
+		}
+	}
+
+	/* update internal data about hdcp */
+	dp->hdcp.data = fd;
+	dp->hdcp.ops = ops;
+}
+
 static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
 	int rc = 0;
 	struct fb_info *fbi;
 	struct mdss_dp_drv_pdata *dp = NULL;
-	struct hdcp_ops *ops;
 
 	if (!pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1857,24 +1895,23 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 	dp = container_of(pdata, struct mdss_dp_drv_pdata,
 				panel_data);
 
-	ops = dp->hdcp_ops;
-
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
 		rc = mdss_dp_on(pdata);
 		break;
 	case MDSS_EVENT_PANEL_ON:
-		if (hdcp1_check_if_supported_load_app()) {
-			if (ops && ops->authenticate)
-				rc = ops->authenticate(dp->hdcp_data);
-		}
+		mdss_dp_update_hdcp_info(dp);
+
+		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
+			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
 		break;
 	case MDSS_EVENT_PANEL_OFF:
 		rc = mdss_dp_off(pdata);
 		break;
 	case MDSS_EVENT_BLANK:
-		if (ops && ops->off)
-			ops->off(dp->hdcp_data);
+		if (dp->hdcp.ops && dp->hdcp.ops->off)
+			dp->hdcp.ops->off(dp->hdcp.data);
+
 		mdss_dp_mainlink_push_idle(pdata);
 		break;
 	case MDSS_EVENT_FB_REGISTERED:
@@ -1909,6 +1946,7 @@ static int mdss_dp_remove(struct platform_device *pdev)
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
 
 	dp_drv = platform_get_drvdata(pdev);
+	dp_hdcp2p2_deinit(dp_drv->hdcp.data);
 
 	iounmap(dp_drv->ctrl_io.base);
 	dp_drv->ctrl_io.base = NULL;
@@ -2147,11 +2185,6 @@ irqreturn_t dp_isr(int irq, void *ptr)
 			dp_aux_i2c_handler(dp, isr1);
 		else
 			dp_aux_native_handler(dp, isr1);
-	}
-
-	if (dp->hdcp_ops && dp->hdcp_ops->isr) {
-		if (dp->hdcp_ops->isr(dp->hdcp_data))
-			pr_err("dp_hdcp_isr failed\n");
 	}
 
 	return IRQ_HANDLED;
@@ -2410,6 +2443,10 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 			mdss_dp_host_init(&dp_drv->panel_data);
 		else
 			dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
+
+		if (dp_drv->alt_mode.dp_status.hpd_irq && dp_drv->power_on &&
+		    dp_drv->hdcp.ops && dp_drv->hdcp.ops->isr)
+			dp_drv->hdcp.ops->isr(dp_drv->hdcp.data);
 		break;
 	case DP_VDM_STATUS:
 		dp_drv->alt_mode.dp_status.response = *vdos;
@@ -2607,6 +2644,53 @@ probe_err:
 	}
 	return ret;
 
+}
+
+void *mdss_dp_get_hdcp_data(struct device *dev)
+{
+	struct mdss_dp_drv_pdata *dp_drv = NULL;
+
+	if (!dev) {
+		pr_err("%s:Invalid input\n", __func__);
+		return NULL;
+	}
+	dp_drv = dev_get_drvdata(dev);
+	if (!dp_drv) {
+		pr_err("%s:Invalid dp driver\n", __func__);
+		return NULL;
+	}
+	return dp_drv->hdcp.data;
+}
+
+static inline bool dp_is_hdcp_enabled(struct mdss_dp_drv_pdata *dp_drv)
+{
+	return dp_drv->hdcp.feature_enabled &&
+		(dp_drv->hdcp.hdcp1_present || dp_drv->hdcp.hdcp2_present) &&
+		dp_drv->hdcp.ops;
+}
+
+static inline bool dp_is_stream_shareable(struct mdss_dp_drv_pdata *dp_drv)
+{
+	bool ret = 0;
+
+	switch (dp_drv->hdcp.enc_lvl) {
+	case HDCP_STATE_AUTH_ENC_NONE:
+		ret = true;
+		break;
+	case HDCP_STATE_AUTH_ENC_1X:
+		ret = dp_is_hdcp_enabled(dp_drv) &&
+			dp_drv->hdcp.auth_state;
+		break;
+	case HDCP_STATE_AUTH_ENC_2P2:
+		ret = dp_drv->hdcp.feature_enabled &&
+			dp_drv->hdcp.hdcp2_present &&
+			dp_drv->hdcp.auth_state;
+		break;
+	default:
+		ret = false;
+	}
+
+	return ret;
 }
 
 static const struct of_device_id msm_mdss_dp_dt_match[] = {

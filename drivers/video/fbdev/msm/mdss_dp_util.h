@@ -37,6 +37,9 @@
 #define	DP_AUX_TRANS_CTRL			(0x00000238)
 #define	DP_AUX_STATUS				(0x00000244)
 
+#define DP_DPCD_CP_IRQ				(0x201)
+#define DP_DPCD_RXSTATUS			(0x69493)
+
 #define	DP_INTERRUPT_TRANS_NUM			(0x000002A0)
 
 #define	DP_MAINLINK_CTRL			(0x00000400)
@@ -299,5 +302,6 @@ void mdss_dp_audio_set_sample_rate(struct dss_io_data *ctrl_io,
 		char dp_link_rate, uint32_t audio_freq);
 void mdss_dp_set_safe_to_exit_level(struct dss_io_data *ctrl_io,
 		uint32_t lane_cnt);
+int mdss_dp_aux_read_rx_status(struct mdss_dp_drv_pdata *dp, u8 *rx_status);
 
 #endif /* __DP_UTIL_H__ */

@@ -29,7 +29,7 @@
 #include "mdss_fb.h"
 #include "mdss_hdmi_cec.h"
 #include "mdss_hdmi_edid.h"
-#include "mdss_hdcp_1x.h"
+#include "mdss_hdcp.h"
 #include "mdss_hdmi_tx.h"
 #include "mdss_hdmi_audio.h"
 #include "mdss.h"
