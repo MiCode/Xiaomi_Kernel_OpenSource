@@ -184,11 +184,23 @@ static const struct cpr3_fuse_param msmcobalt_kbss_speed_bin_param[] = {
 /*
  * Open loop voltage fuse reference voltages in microvolts for MSMCOBALT v1
  */
-static const int msmcobalt_kbss_fuse_ref_volt[MSMCOBALT_KBSS_FUSE_CORNERS] = {
+static const int
+msmcobalt_v1_kbss_fuse_ref_volt[MSMCOBALT_KBSS_FUSE_CORNERS] = {
 	696000,
 	768000,
 	896000,
 	1112000,
+};
+
+/*
+ * Open loop voltage fuse reference voltages in microvolts for MSMCOBALT v2
+ */
+static const int
+msmcobalt_v2_kbss_fuse_ref_volt[MSMCOBALT_KBSS_FUSE_CORNERS] = {
+	688000,
+	756000,
+	828000,
+	1056000,
 };
 
 #define MSMCOBALT_KBSS_FUSE_STEP_VOLT		10000
@@ -357,9 +369,10 @@ static int cprh_msmcobalt_kbss_calculate_open_loop_voltages(
 {
 	struct device_node *node = vreg->of_node;
 	struct cprh_msmcobalt_kbss_fuses *fuse = vreg->platform_fuses;
-	int i, j, rc = 0;
+	int i, j, soc_revision, rc = 0;
 	bool allow_interpolation;
 	u64 freq_low, volt_low, freq_high, volt_high;
+	const int *ref_volt;
 	int *fuse_volt;
 	int *fmax_corner;
 
@@ -372,9 +385,17 @@ static int cprh_msmcobalt_kbss_calculate_open_loop_voltages(
 		goto done;
 	}
 
+	soc_revision = vreg->thread->ctrl->soc_revision;
+	if (soc_revision == 1)
+		ref_volt = msmcobalt_v1_kbss_fuse_ref_volt;
+	else if (soc_revision == 2)
+		ref_volt = msmcobalt_v2_kbss_fuse_ref_volt;
+	else
+		ref_volt = msmcobalt_v2_kbss_fuse_ref_volt;
+
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(
-			msmcobalt_kbss_fuse_ref_volt[i],
+			ref_volt[i],
 			MSMCOBALT_KBSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
 			MSMCOBALT_KBSS_VOLTAGE_FUSE_SIZE);
 
@@ -1366,14 +1387,27 @@ static int cprh_kbss_regulator_resume(struct platform_device *pdev)
 	return cpr3_regulator_resume(ctrl);
 }
 
+/* Data corresponds to the SoC revision */
 static struct of_device_id cprh_regulator_match_table[] = {
-	{ .compatible = "qcom,cprh-msmcobalt-kbss-regulator", },
+	{
+		.compatible =  "qcom,cprh-msmcobalt-v1-kbss-regulator",
+		.data = (void *)(uintptr_t)1
+	},
+	{
+		.compatible = "qcom,cprh-msmcobalt-v2-kbss-regulator",
+		.data = (void *)(uintptr_t)2
+	},
+	{
+		.compatible = "qcom,cprh-msmcobalt-kbss-regulator",
+		.data = (void *)(uintptr_t)2
+	},
 	{}
 };
 
 static int cprh_kbss_regulator_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *match;
 	struct cpr3_controller *ctrl;
 	int rc;
 
@@ -1396,6 +1430,12 @@ static int cprh_kbss_regulator_probe(struct platform_device *pdev)
 			rc);
 		return rc;
 	}
+
+	match = of_match_node(cprh_regulator_match_table, dev->of_node);
+	if (match)
+		ctrl->soc_revision = (uintptr_t)match->data;
+	else
+		cpr3_err(ctrl, "could not find compatible string match\n");
 
 	rc = cpr3_map_fuse_base(ctrl, pdev);
 	if (rc) {

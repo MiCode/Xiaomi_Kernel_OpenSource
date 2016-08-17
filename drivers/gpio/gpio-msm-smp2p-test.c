@@ -1,6 +1,6 @@
 /* drivers/gpio/gpio-msm-smp2p-test.c
  *
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,6 +95,10 @@ static int smp2p_gpio_test_probe(struct platform_device *pdev)
 		gpio_info_ptr = &gpio_info[SMP2P_WIRELESS_PROC].in;
 	} else if (strcmp("qcom,smp2pgpio_test_smp2p_4_out", node->name) == 0) {
 		gpio_info_ptr = &gpio_info[SMP2P_WIRELESS_PROC].out;
+	} else if (strcmp("qcom,smp2pgpio_test_smp2p_5_in", node->name) == 0) {
+		gpio_info_ptr = &gpio_info[SMP2P_CDSP_PROC].in;
+	} else if (strcmp("qcom,smp2pgpio_test_smp2p_5_out", node->name) == 0) {
+		gpio_info_ptr = &gpio_info[SMP2P_CDSP_PROC].out;
 	} else if (strcmp("qcom,smp2pgpio_test_smp2p_7_in", node->name) == 0) {
 		gpio_info_ptr = &gpio_info[SMP2P_TZ_PROC].in;
 	} else if (strcmp("qcom,smp2pgpio_test_smp2p_7_out", node->name) == 0) {
@@ -147,6 +151,10 @@ static struct of_device_id msm_smp2p_match_table[] = {
 	/* wcnss */
 	{.compatible = "qcom,smp2pgpio_test_smp2p_4_out", },
 	{.compatible = "qcom,smp2pgpio_test_smp2p_4_in", },
+
+	/* CDSP */
+	{.compatible = "qcom,smp2pgpio_test_smp2p_5_out", },
+	{.compatible = "qcom,smp2pgpio_test_smp2p_5_in", },
 
 	/* TZ */
 	{.compatible = "qcom,smp2pgpio_test_smp2p_7_out", },

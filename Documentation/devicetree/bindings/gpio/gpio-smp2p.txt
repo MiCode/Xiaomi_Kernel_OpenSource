@@ -31,6 +31,8 @@ Unit test devices ("smp2p" entries):
 		"qcom,smp2pgpio_test_smp2p_3_in"
 		"qcom,smp2pgpio_test_smp2p_4_out"
 		"qcom,smp2pgpio_test_smp2p_4_in"
+		"qcom,smp2pgpio_test_smp2p_5_out"
+		"qcom,smp2pgpio_test_smp2p_5_in"
 		"qcom,smp2pgpio_test_smp2p_7_out"
 		"qcom,smp2pgpio_test_smp2p_7_in"
 		"qcom,smp2pgpio_test_smp2p_15_out"

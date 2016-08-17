@@ -846,9 +846,14 @@ static int32_t msm_flash_get_pmic_source_info(
 				"qcom,current",
 				&fctrl->torch_op_current[i]);
 			if (rc < 0) {
-				pr_err("current: read failed\n");
-				of_node_put(torch_src_node);
-				continue;
+				rc = of_property_read_u32(torch_src_node,
+					"qcom,current-ma",
+					&fctrl->torch_op_current[i]);
+				if (rc < 0) {
+					pr_err("current: read failed\n");
+					of_node_put(torch_src_node);
+					continue;
+				}
 			}
 
 			/* Read max-current */

@@ -30,7 +30,12 @@ KBSS specific properties:
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: "qcom,cprh-msmcobalt-kbss-regulator".
+	Definition: should be one of the following:
+		    "qcom,cprh-msmcobalt-v1-kbss-regulator",
+		    "qcom,cprh-msmcobalt-v2-kbss-regulator",
+		    "qcom,cprh-msmcobalt-kbss-regulator".
+		    If the SoC revision is not specified, then it is assumed to
+		    be the most recent revision of MSMCOBALT, i.e. v2.
 
 - qcom,cpr-controller-id
 	Usage:      required

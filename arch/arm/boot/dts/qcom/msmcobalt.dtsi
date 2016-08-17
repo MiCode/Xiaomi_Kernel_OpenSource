@@ -2757,13 +2757,15 @@
 	 qcom,icnss@18800000 {
 		compatible = "qcom,icnss";
 		reg = <0x18800000 0x800000>,
-		      <0x10AC000 0x20>;
-		reg-names = "membase", "mpm_config";
+		      <0x10AC000 0x20>,
+		      <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "membase", "mpm_config",
+			    "smmu_iova_base", "smmu_iova_ipa";
 		clocks = <&clock_gcc clk_aggre2_noc_clk>;
 		clock-names = "smmu_aggre2_noc_clk";
 		iommus = <&anoc2_smmu 0x1900>,
 			 <&anoc2_smmu 0x1901>;
-		qcom,wlan-smmu-iova-address = <0xa0000000 0x10000000>;
 		interrupts = <0 413 0 /* CE0 */ >,
 			     <0 414 0 /* CE1 */ >,
 			     <0 415 0 /* CE2 */ >,

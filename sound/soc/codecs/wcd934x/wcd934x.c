@@ -122,6 +122,8 @@ static const struct snd_kcontrol_new name##_mux = \
 #define  CF_MIN_3DB_150HZ		0x2
 
 enum {
+	VI_SENSE_1,
+	VI_SENSE_2,
 	AUDIO_NOMINAL,
 	HPH_PA_DELAY,
 };
@@ -148,6 +150,7 @@ enum {
 	AIF3_PB,
 	AIF3_CAP,
 	AIF4_PB,
+	AIF4_VIFEED,
 	NUM_CODEC_DAIS,
 };
 
@@ -474,6 +477,8 @@ struct tavil_priv {
 	struct work_struct tavil_add_child_devices_work;
 	struct hpf_work tx_hpf_work[WCD934X_NUM_DECIMATORS];
 	struct tx_mute_work tx_mute_dwork[WCD934X_NUM_DECIMATORS];
+
+	unsigned int vi_feed_value;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -699,6 +704,72 @@ void *tavil_get_afe_config(struct snd_soc_codec *codec,
 	}
 }
 EXPORT_SYMBOL(tavil_get_afe_config);
+
+static int tavil_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist =
+					dapm_kcontrol_get_wlist(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
+	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = tavil_p->vi_feed_value;
+
+	return 0;
+}
+
+static int tavil_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist =
+					dapm_kcontrol_get_wlist(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
+	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
+	struct soc_multi_mixer_control *mixer =
+		((struct soc_multi_mixer_control *)kcontrol->private_value);
+	u32 dai_id = widget->shift;
+	u32 port_id = mixer->shift;
+	u32 enable = ucontrol->value.integer.value[0];
+
+	dev_dbg(codec->dev, "%s: enable: %d, port_id:%d, dai_id: %d\n",
+		__func__, enable, port_id, dai_id);
+
+	tavil_p->vi_feed_value = ucontrol->value.integer.value[0];
+
+	mutex_lock(&tavil_p->codec_mutex);
+	if (enable) {
+		if (port_id == WCD934X_TX14 && !test_bit(VI_SENSE_1,
+						&tavil_p->status_mask)) {
+			list_add_tail(&core->tx_chs[WCD934X_TX14].list,
+					&tavil_p->dai[dai_id].wcd9xxx_ch_list);
+			set_bit(VI_SENSE_1, &tavil_p->status_mask);
+		}
+		if (port_id == WCD934X_TX15 && !test_bit(VI_SENSE_2,
+						&tavil_p->status_mask)) {
+			list_add_tail(&core->tx_chs[WCD934X_TX15].list,
+					&tavil_p->dai[dai_id].wcd9xxx_ch_list);
+			set_bit(VI_SENSE_2, &tavil_p->status_mask);
+		}
+	} else {
+		if (port_id == WCD934X_TX14 && test_bit(VI_SENSE_1,
+					&tavil_p->status_mask)) {
+			list_del_init(&core->tx_chs[WCD934X_TX14].list);
+			clear_bit(VI_SENSE_1, &tavil_p->status_mask);
+		}
+		if (port_id == WCD934X_TX15 && test_bit(VI_SENSE_2,
+					&tavil_p->status_mask)) {
+			list_del_init(&core->tx_chs[WCD934X_TX15].list);
+			clear_bit(VI_SENSE_2, &tavil_p->status_mask);
+		}
+	}
+	mutex_unlock(&tavil_p->codec_mutex);
+	snd_soc_dapm_mixer_update_power(widget->dapm, kcontrol, enable, NULL);
+
+	return 0;
+}
 
 static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
@@ -1057,6 +1128,143 @@ static int tavil_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	}
+	return ret;
+}
+
+static int tavil_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
+					      struct snd_kcontrol *kcontrol,
+					      int event)
+{
+	struct wcd9xxx *core = NULL;
+	struct snd_soc_codec *codec = NULL;
+	struct tavil_priv *tavil_p = NULL;
+	int ret = 0;
+	struct wcd9xxx_codec_dai_data *dai = NULL;
+
+	codec = snd_soc_dapm_to_codec(w->dapm);
+	tavil_p = snd_soc_codec_get_drvdata(codec);
+	core = dev_get_drvdata(codec->dev->parent);
+
+	dev_dbg(codec->dev,
+		"%s: num_dai %d stream name %s w->name %s event %d shift %d\n",
+		__func__, codec->component.num_dai, w->sname,
+		w->name, event, w->shift);
+
+	if (w->shift != AIF4_VIFEED) {
+		pr_err("%s Error in enabling the tx path\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	dai = &tavil_p->dai[w->shift];
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		if (test_bit(VI_SENSE_1, &tavil_p->status_mask)) {
+			dev_dbg(codec->dev, "%s: spkr1 enabled\n", __func__);
+			/* Enable V&I sensing */
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX9_SPKR_PROT_PATH_CTL, 0x20, 0x20);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX10_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX9_SPKR_PROT_PATH_CTL, 0x0F, 0x00);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX10_SPKR_PROT_PATH_CTL, 0x0F,
+				0x00);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX9_SPKR_PROT_PATH_CTL, 0x10, 0x10);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX10_SPKR_PROT_PATH_CTL, 0x10,
+				0x10);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX9_SPKR_PROT_PATH_CTL, 0x20, 0x00);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX10_SPKR_PROT_PATH_CTL, 0x20,
+				0x00);
+		}
+		if (test_bit(VI_SENSE_2, &tavil_p->status_mask)) {
+			pr_debug("%s: spkr2 enabled\n", __func__);
+			/* Enable V&I sensing */
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX11_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX12_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX11_SPKR_PROT_PATH_CTL, 0x0F,
+				0x00);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX12_SPKR_PROT_PATH_CTL, 0x0F,
+				0x00);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX11_SPKR_PROT_PATH_CTL, 0x10,
+				0x10);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX12_SPKR_PROT_PATH_CTL, 0x10,
+				0x10);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX11_SPKR_PROT_PATH_CTL, 0x20,
+				0x00);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX12_SPKR_PROT_PATH_CTL, 0x20,
+				0x00);
+		}
+		dai->bus_down_in_recovery = false;
+		tavil_codec_enable_slim_port_intr(dai, codec);
+		(void) tavil_codec_enable_slim_chmask(dai, true);
+		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
+					      dai->rate, dai->bit_width,
+					      &dai->grph);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
+						dai->grph);
+		if (ret)
+			dev_err(codec->dev, "%s error in close_slim_sch_tx %d\n",
+				__func__, ret);
+		if (!dai->bus_down_in_recovery)
+			ret = tavil_codec_enable_slim_chmask(dai, false);
+		if (ret < 0) {
+			ret = wcd9xxx_disconnect_port(core,
+				&dai->wcd9xxx_ch_list,
+				dai->grph);
+			dev_dbg(codec->dev, "%s: Disconnect TX port, ret = %d\n",
+				__func__, ret);
+		}
+		if (test_bit(VI_SENSE_1, &tavil_p->status_mask)) {
+			/* Disable V&I sensing */
+			dev_dbg(codec->dev, "%s: spkr1 disabled\n", __func__);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX9_SPKR_PROT_PATH_CTL, 0x20, 0x20);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX10_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX9_SPKR_PROT_PATH_CTL, 0x10, 0x00);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX10_SPKR_PROT_PATH_CTL, 0x10,
+				0x00);
+		}
+		if (test_bit(VI_SENSE_2, &tavil_p->status_mask)) {
+			/* Disable V&I sensing */
+			dev_dbg(codec->dev, "%s: spkr2 disabled\n", __func__);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX11_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX12_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX11_SPKR_PROT_PATH_CTL, 0x10,
+				0x00);
+			snd_soc_update_bits(codec,
+				WCD934X_CDC_TX12_SPKR_PROT_PATH_CTL, 0x10,
+				0x00);
+		}
+		break;
+	}
+done:
 	return ret;
 }
 
@@ -3406,6 +3614,13 @@ static const char *const cdc_if_rx7_mux_text[] = {
 	"SLIM RX7", "I2S_0 RX7"
 };
 
+static const struct snd_kcontrol_new aif4_vi_mixer[] = {
+	SOC_SINGLE_EXT("SPKR_VI_1", SND_SOC_NOPM, WCD934X_TX14, 1, 0,
+			tavil_vi_feed_mixer_get, tavil_vi_feed_mixer_put),
+	SOC_SINGLE_EXT("SPKR_VI_2", SND_SOC_NOPM, WCD934X_TX15, 1, 0,
+			tavil_vi_feed_mixer_get, tavil_vi_feed_mixer_put),
+};
+
 static const struct snd_kcontrol_new aif1_cap_mixer[] = {
 	SOC_SINGLE_EXT("SLIM TX0", SND_SOC_NOPM, WCD934X_TX0, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
@@ -4094,6 +4309,13 @@ static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("AIF3_CAP Mixer", SND_SOC_NOPM, AIF3_CAP, 0,
 		aif3_cap_mixer, ARRAY_SIZE(aif3_cap_mixer)),
 
+	SND_SOC_DAPM_AIF_OUT_E("AIF4 VI", "VIfeed", 0, SND_SOC_NOPM,
+		AIF4_VIFEED, 0, tavil_codec_enable_slimvi_feedback,
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MIXER("AIF4_VI Mixer", SND_SOC_NOPM, AIF4_VIFEED, 0,
+		aif4_vi_mixer, ARRAY_SIZE(aif4_vi_mixer)),
+	SND_SOC_DAPM_INPUT("VIINPUT"),
+
 	SND_SOC_DAPM_MIXER("SLIM TX0", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("SLIM TX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("SLIM TX2", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -4297,6 +4519,7 @@ static int tavil_get_channel_map(struct snd_soc_dai *dai,
 	case AIF1_CAP:
 	case AIF2_CAP:
 	case AIF3_CAP:
+	case AIF4_VIFEED:
 		if (!tx_slot || !tx_num) {
 			dev_err(tavil->dev, "%s: Invalid tx_slot 0x%pK or tx_num 0x%pK\n",
 				 __func__, tx_slot, tx_num);
@@ -4653,6 +4876,22 @@ static int tavil_prepare(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int tavil_vi_hw_params(struct snd_pcm_substream *substream,
+			      struct snd_pcm_hw_params *params,
+			      struct snd_soc_dai *dai)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(dai->codec);
+
+	dev_dbg(tavil->dev, "%s: dai_name = %s DAI-ID %x rate %d num_ch %d\n",
+		 __func__, dai->name, dai->id, params_rate(params),
+		 params_channels(params));
+
+	tavil->dai[dai->id].rate = params_rate(params);
+	tavil->dai[dai->id].bit_width = 32;
+
+	return 0;
+}
+
 static int tavil_hw_params(struct snd_pcm_substream *substream,
 			   struct snd_pcm_hw_params *params,
 			   struct snd_soc_dai *dai)
@@ -4722,6 +4961,12 @@ static struct snd_soc_dai_ops tavil_dai_ops = {
 	.shutdown = tavil_shutdown,
 	.hw_params = tavil_hw_params,
 	.prepare = tavil_prepare,
+	.set_channel_map = tavil_set_channel_map,
+	.get_channel_map = tavil_get_channel_map,
+};
+
+static struct snd_soc_dai_ops tavil_vi_dai_ops = {
+	.hw_params = tavil_vi_hw_params,
 	.set_channel_map = tavil_set_channel_map,
 	.get_channel_map = tavil_get_channel_map,
 };
@@ -4824,6 +5069,20 @@ static struct snd_soc_dai_driver tavil_dai[] = {
 			.channels_max = 2,
 		},
 		.ops = &tavil_dai_ops,
+	},
+	{
+		.name = "tavil_vifeedback",
+		.id = AIF4_VIFEED,
+		.capture = {
+			.stream_name = "VIfeed",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_48000,
+			.formats = WCD934X_FORMATS_S16_S24_S32_LE,
+			.rate_min = 8000,
+			.rate_max = 48000,
+			.channels_min = 1,
+			.channels_max = 4,
+		 },
+		.ops = &tavil_vi_dai_ops,
 	},
 };
 
