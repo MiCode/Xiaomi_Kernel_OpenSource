@@ -1702,7 +1702,10 @@ static int gsi_get_alt(struct usb_function *f, unsigned intf)
 {
 	struct f_gsi *gsi = func_to_gsi(f);
 
-	if (intf == gsi->ctrl_id)
+	/* RNDIS, RMNET and DPL only support alt 0*/
+	if (intf == gsi->ctrl_id || gsi->prot_id == IPA_USB_RNDIS ||
+			gsi->prot_id == IPA_USB_RMNET ||
+			gsi->prot_id == IPA_USB_DIAG)
 		return 0;
 	else if (intf == gsi->data_id)
 		return gsi->data_interface_up;
