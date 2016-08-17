@@ -895,7 +895,7 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 			panel_data);
 
 	/* wait until link training is completed */
-	mutex_lock(&dp_drv->host_mutex);
+	mutex_lock(&dp_drv->train_mutex);
 
 	pr_debug("Enter++ cont_splash=%d\n", dp_drv->cont_splash);
 	/* Default lane mapping */
@@ -908,7 +908,7 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
 		if (ret) {
 			pr_err("Unabled to start core clocks\n");
-			return ret;
+			goto exit;
 		}
 		mdss_dp_hpd_configure(&dp_drv->ctrl_io, true);
 
@@ -941,7 +941,8 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 			       dp_drv->link_rate, dp_drv->dpcd.max_link_rate);
 		if (!dp_drv->link_rate) {
 			pr_err("Unable to configure required link rate\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto exit;
 		}
 
 		pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
@@ -955,9 +956,8 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 
 		ret = mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, true);
 		if (ret) {
-			mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
 			pr_err("Unabled to start link clocks\n");
-			return ret;
+			goto exit;
 		}
 
 		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
@@ -985,17 +985,16 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		pr_debug("mainlink ready\n");
 
 	dp_drv->power_on = true;
-
-	mutex_unlock(&dp_drv->host_mutex);
 	pr_debug("End-\n");
 
+exit:
+	mutex_unlock(&dp_drv->train_mutex);
 	return ret;
 }
 
 int mdss_dp_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
-	int ret = 0;
 
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 				panel_data);
@@ -1009,34 +1008,31 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	mutex_lock(&dp_drv->train_mutex);
 
 	reinit_completion(&dp_drv->idle_comp);
-	mdss_dp_state_ctrl(&dp_drv->ctrl_io, ST_PUSH_IDLE);
-
-	ret = wait_for_completion_timeout(&dp_drv->idle_comp,
-						msecs_to_jiffies(100));
-	if (ret == 0)
-		pr_err("idle pattern timedout\n");
 
 	mdss_dp_state_ctrl(&dp_drv->ctrl_io, 0);
 
-	mdss_dp_irq_disable(dp_drv);
+	if (dp_drv->link_clks_on)
+		mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
 
-	mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
-	mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
+	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, false);
+
+	mdss_dp_irq_disable(dp_drv);
 
 	mdss_dp_config_gpios(dp_drv, false);
 	mdss_dp_pinctrl_set_state(dp_drv, false);
 
-	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, false);
+	/* Make sure DP is disabled before clk disable */
+	wmb();
 	mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, false);
 	mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
 
 	mdss_dp_regulator_ctrl(dp_drv, false);
-
-	pr_debug("End--: state_ctrl=%x\n",
-				dp_read(dp_drv->base + DP_STATE_CTRL));
+	dp_drv->dp_initialized = false;
 
 	dp_drv->power_on = false;
 	mutex_unlock(&dp_drv->train_mutex);
+	pr_debug("DP off done\n");
+
 	return 0;
 }
 
@@ -1124,6 +1120,10 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
 
+	if (dp_drv->dp_initialized) {
+		pr_err("%s: host init done already\n", __func__);
+		return 0;
+	}
 	ret = mdss_dp_regulator_ctrl(dp_drv, true);
 	if (ret) {
 		pr_err("failed to enable regulators\n");
@@ -1170,7 +1170,7 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	}
 
 	mdss_dp_send_cable_notification(dp_drv, true);
-
+	dp_drv->dp_initialized = true;
 	return ret;
 
 edid_error:
@@ -1781,8 +1781,8 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		if (cmd_type == SVDM_CMD_TYPE_INITIATOR) {
 			pr_debug("Attention. cmd_type=%d\n",
 			       cmd_type);
-			if (!dp_drv->alt_mode.current_state
-						== ENTER_MODE_DONE) {
+			if (!(dp_drv->alt_mode.current_state
+					== ENTER_MODE_DONE)) {
 				pr_debug("sending discover_mode\n");
 				dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
 				break;
@@ -1909,7 +1909,6 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	dp_drv->mask1 = EDP_INTR_MASK1;
 	dp_drv->mask2 = EDP_INTR_MASK2;
 	mutex_init(&dp_drv->emutex);
-	mutex_init(&dp_drv->host_mutex);
 	mutex_init(&dp_drv->pd_msg_mutex);
 	mutex_init(&dp_drv->hdcp_mutex);
 	spin_lock_init(&dp_drv->lock);
