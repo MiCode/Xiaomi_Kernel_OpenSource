@@ -488,6 +488,10 @@ struct tavil_priv {
 
 	/* cal info for codec */
 	struct fw_info *fw_data;
+
+	/* SVS voting related */
+	struct mutex svs_mutex;
+	int svs_ref_cnt;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -714,6 +718,36 @@ void *tavil_get_afe_config(struct snd_soc_codec *codec,
 	}
 }
 EXPORT_SYMBOL(tavil_get_afe_config);
+
+static void tavil_vote_svs(struct tavil_priv *tavil, bool vote)
+{
+	struct wcd9xxx *wcd9xxx;
+
+	wcd9xxx = tavil->wcd9xxx;
+
+	mutex_lock(&tavil->svs_mutex);
+	if (vote) {
+		tavil->svs_ref_cnt++;
+		if (tavil->svs_ref_cnt == 1)
+			regmap_update_bits(wcd9xxx->regmap,
+					   WCD934X_CPE_SS_PWR_SYS_PSTATE_CTL_0,
+					   0x01, 0x01);
+	} else {
+		/* Do not decrement ref count if it is already 0 */
+		if (tavil->svs_ref_cnt == 0)
+			goto done;
+
+		tavil->svs_ref_cnt--;
+		if (tavil->svs_ref_cnt == 0)
+			regmap_update_bits(wcd9xxx->regmap,
+					   WCD934X_CPE_SS_PWR_SYS_PSTATE_CTL_0,
+					   0x01, 0x00);
+	}
+done:
+	dev_dbg(tavil->dev, "%s: vote = %s, updated ref cnt = %u\n", __func__,
+		vote ? "vote" : "Unvote", tavil->svs_ref_cnt);
+	mutex_unlock(&tavil->svs_mutex);
+}
 
 static int tavil_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
@@ -5664,6 +5698,7 @@ static int __tavil_cdc_mclk_enable_locked(struct tavil_priv *tavil,
 	dev_dbg(tavil->dev, "%s: mclk_enable = %u\n", __func__, enable);
 
 	if (enable) {
+		tavil_vote_svs(tavil, true);
 		ret = tavil_cdc_req_mclk_enable(tavil, true);
 		if (ret)
 			goto done;
@@ -5671,6 +5706,7 @@ static int __tavil_cdc_mclk_enable_locked(struct tavil_priv *tavil,
 		set_bit(AUDIO_NOMINAL, &tavil->status_mask);
 	} else {
 		tavil_cdc_req_mclk_enable(tavil, false);
+		tavil_vote_svs(tavil, false);
 	}
 
 done:
@@ -6148,8 +6184,16 @@ static void tavil_enable_sido_buck(struct snd_soc_codec *codec)
 	tavil->resmgr->sido_input_src = SIDO_SOURCE_RCO_BG;
 }
 
+static void tavil_cdc_vote_svs(struct snd_soc_codec *codec, bool vote)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+
+	return tavil_vote_svs(tavil, vote);
+}
+
 struct wcd_dsp_cdc_cb cdc_cb = {
 	.cdc_clk_en = tavil_codec_internal_rco_ctrl,
+	.cdc_vote_svs = tavil_cdc_vote_svs,
 };
 
 static int tavil_wdsp_initialize(struct snd_soc_codec *codec)
@@ -6325,6 +6369,12 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_sync(dapm);
 
 	tavil_wdsp_initialize(codec);
+
+	/*
+	 * Once the codec initialization is completed, the svs vote
+	 * can be released allowing the codec to go to SVS2.
+	 */
+	tavil_vote_svs(tavil, false);
 
 	return ret;
 
@@ -6870,6 +6920,14 @@ static int tavil_probe(struct platform_device *pdev)
 	mutex_init(&tavil->swr.write_mutex);
 	mutex_init(&tavil->swr.clk_mutex);
 	mutex_init(&tavil->codec_mutex);
+	mutex_init(&tavil->svs_mutex);
+
+	/*
+	 * Codec hardware by default comes up in SVS mode.
+	 * Initialize the svs_ref_cnt to 1 to reflect the hardware
+	 * state in the driver.
+	 */
+	tavil->svs_ref_cnt = 1;
 
 	/*
 	 * Init resource manager so that if child nodes such as SoundWire
@@ -6932,6 +6990,7 @@ err_clk:
 	wcd_resmgr_remove(tavil->resmgr);
 err_resmgr:
 	mutex_destroy(&tavil->micb_lock);
+	mutex_destroy(&tavil->svs_mutex);
 	mutex_destroy(&tavil->codec_mutex);
 	mutex_destroy(&tavil->swr.read_mutex);
 	mutex_destroy(&tavil->swr.write_mutex);
@@ -6950,6 +7009,7 @@ static int tavil_remove(struct platform_device *pdev)
 		return -EINVAL;
 
 	mutex_destroy(&tavil->micb_lock);
+	mutex_destroy(&tavil->svs_mutex);
 	mutex_destroy(&tavil->codec_mutex);
 	mutex_destroy(&tavil->swr.read_mutex);
 	mutex_destroy(&tavil->swr.write_mutex);
