@@ -238,7 +238,7 @@ static int cnss_put_hw_resources(struct device *dev)
 
 	if (!host) {
 		pr_err("%s: MMC host is invalid\n", __func__);
-		return 0;
+		return ret;
 	}
 
 	ret = mmc_power_save_host(host);
@@ -275,6 +275,12 @@ static int cnss_get_hw_resources(struct device *dev)
 	}
 
 	host = info->host;
+
+	if (!host) {
+		pr_err("%s: MMC Host is Invalid; Enumeration Failed\n",
+		       __func__);
+		return ret;
+	}
 
 	ret = regulator_enable(cnss_pdata->regulator.wlan_vreg);
 	if (ret) {
