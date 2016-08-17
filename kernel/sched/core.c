@@ -5636,6 +5636,9 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
 #ifdef CONFIG_MSM_APP_SETTINGS
 	if (use_app_setting)
 		switch_app_setting_bit(prev, next);
+
+	if (use_32bit_app_setting)
+		switch_32bit_app_setting_bit(prev, next);
 #endif
 }
 
