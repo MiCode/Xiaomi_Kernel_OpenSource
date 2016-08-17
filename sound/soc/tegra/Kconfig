@@ -1,0 +1,259 @@
+config SND_SOC_TEGRA
+	tristate "SoC Audio for the Tegra System-on-Chip"
+	depends on ARCH_TEGRA && TEGRA_SYSTEM_DMA
+	help
+	  Say Y or M here if you want support for SoC audio on Tegra.
+
+config SND_SOC_TEGRA20_DAS
+	tristate "Tegra 20 Digital Audio Switch driver"
+	depends on SND_SOC_TEGRA && ARCH_TEGRA_2x_SOC
+
+config SND_SOC_TEGRA20_I2S
+	tristate "Tegra 20 I2S driver"
+	depends on SND_SOC_TEGRA && ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA20_DAS
+	help
+	  Say Y or M if you want to add support for codecs attached to the
+	  Tegra I2S interface. You will also need to select the individual
+	  machine drivers to support below.
+
+config SND_SOC_TEGRA30_AHUB
+	tristate "Tegra 30 Audio Hub driver"
+	depends on SND_SOC_TEGRA && !ARCH_TEGRA_2x_SOC
+
+config SND_SOC_TEGRA30_DAM
+	tristate "Tegra 30 Audio Dam driver"
+	depends on SND_SOC_TEGRA && !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_AHUB
+
+config SND_SOC_TEGRA30_I2S
+	tristate "Tegra 30 I2S driver"
+	depends on SND_SOC_TEGRA && !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_AHUB
+	help
+	  Say Y or M if you want to add support for codecs attached to the
+	  Tegra I2S interface. You will also need to select the individual
+	  machine drivers to support below.
+
+config SND_SOC_TEGRA20_SPDIF
+	tristate
+	depends on SND_SOC_TEGRA && ARCH_TEGRA_2x_SOC && TEGRA_DC
+	default m
+	help
+	  Say Y or M if you want to add support for the TEGRA20 SPDIF interface.
+	  You will also need to select the individual machine drivers to support
+	  below.
+
+config SND_SOC_TEGRA30_SPDIF
+	tristate
+	depends on SND_SOC_TEGRA && !ARCH_TEGRA_2x_SOC && TEGRA_DC
+	select SND_SOC_TEGRA30_AHUB
+	help
+	  Say Y or M if you want to add support for the TEGRA30 SPDIF interface.
+	  You will also need to select the individual machine drivers to support
+	  below.
+
+config MACH_HAS_SND_SOC_TEGRA_WM8903
+	bool
+	help
+	  Machines that use the SND_SOC_TEGRA_WM8903 driver should select
+	  this config option, in order to allow the user to enable
+	  SND_SOC_TEGRA_WM8903.
+
+config SND_SOC_TEGRA_WM8903
+	tristate "SoC Audio support for Tegra boards using a WM8903 codec"
+	depends on SND_SOC_TEGRA && I2C
+	depends on MACH_HAS_SND_SOC_TEGRA_WM8903
+	select SND_SOC_TEGRA20_I2S if ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA20_SPDIF if ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_WM8903
+	select SND_SOC_SPDIF
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the WM8093 codec. Currently, the supported boards are
+	  Harmony, Ventana, Seaboard, Kaen, and Aebl.
+
+config SND_SOC_TEGRA_TRIMSLICE
+	tristate "SoC Audio support for TrimSlice board"
+	depends on SND_SOC_TEGRA && MACH_TRIMSLICE && I2C
+	select SND_SOC_TEGRA_I2S
+	select SND_SOC_TLV320AIC23
+	help
+	  Say Y or M here if you want to add support for SoC audio on the
+	  TrimSlice platform.
+
+config SND_SOC_TEGRA_ALC5632
+       tristate "SoC Audio support for Tegra boards using an ALC5632 codec"
+       depends on SND_SOC_TEGRA && I2C
+       select SND_SOC_TEGRA_I2S
+       select SND_SOC_ALC5632
+       help
+         Say Y or M here if you want to add support for SoC audio on the
+         Toshiba AC100 netbook.
+
+config SND_SOC_TEGRA_P1852
+	tristate "SoC Audio support for P1852 SKUs"
+	depends on SND_SOC_TEGRA
+	depends on MACH_P1852
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_SPDIF
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	help
+	  Say Y or M here if you want to add support for SoC audio on the
+	  TEGRA P1852 SKUs. These are plug-n-play boards and and the codecs
+	  used by the system integrator needs to be provided while instantiating
+	  the driver.
+
+config MACH_HAS_SND_SOC_TEGRA_WM8753
+	bool
+	help
+	  Machines that use the SND_SOC_TEGRA_WM8753 driver should select
+	  this config option, in order to allow the user to enable
+	  SND_SOC_TEGRA_WM8753.
+
+config SND_SOC_TEGRA_WM8753
+	tristate "SoC Audio support for Tegra boards using a WM8753 codec"
+	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	depends on MACH_HAS_SND_SOC_TEGRA_WM8753
+	select SND_SOC_TEGRA20_I2S if ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA20_SPDIF if ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_WM8753
+	select SND_SOC_SPDIF
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the WM8753 codec. Currently, only supported board is
+	  Whistler.
+
+config MACH_HAS_SND_SOC_TEGRA_MAX98088
+	bool
+	help
+	  Machines that use the SND_SOC_TEGRA_MAX98088 driver should select
+	  this config option, in order to allow the user to enable
+	  SND_SOC_TEGRA_MAX98088.
+
+config SND_SOC_TEGRA_MAX98088
+	tristate "SoC Audio support for Tegra boards using a MAX98088 codec"
+	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	depends on MACH_HAS_SND_SOC_TEGRA_MAX98088
+	select SND_SOC_TEGRA20_I2S if ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_MAX98088
+	select SND_SOC_SPDIF
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the MAX98088 codec. Currently, only supported board is
+	  Enterprise.
+
+config MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X
+	bool
+	help
+	  Machines that use the SND_SOC_TEGRA_TLV320AIC326X driver should select
+	  this config option, in order to allow the user to enable
+	  SND_SOC_TEGRA_TLV320AIC326X.
+
+config SND_SOC_TEGRA_TLV320AIC326X
+	tristate "SoC Audio support for Tegra boards using a TI AIC326x codec"
+	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	depends on MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X
+	select SND_SOC_TEGRA20_I2S if ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TLV320AIC326X
+	select SND_SOC_SPDIF
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the TI AIC326X codec.
+
+config MACH_HAS_SND_SOC_TEGRA_RT5639
+	bool
+	help
+	  Machines that use the SND_SOC_TEGRA_RT5639 driver should select
+	  this config option, in order to allow the user to enable
+	  SND_SOC_TEGRA_RT5639.
+
+config SND_SOC_TEGRA_RT5639
+	tristate "SoC Audio support for Tegra boards using a ALC5639 codec"
+	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	depends on MACH_HAS_SND_SOC_TEGRA_RT5639
+	depends on SND_SOC_TEGRA_RT5640
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_RT5639
+	select SND_SOC_SPDIF
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the ALC5639 codec. Currently, the supported board
+	  is Kai.
+
+config MACH_HAS_SND_SOC_TEGRA_RT5640
+	bool
+	help
+	  Machines that use the SND_SOC_TEGRA_RT5640 driver should select
+	  this config option, in order to allow the user to enable
+	  SND_SOC_TEGRA_RT5640.
+
+config SND_SOC_TEGRA_RT5640
+	tristate "SoC Audio support for Tegra boards using a ALC5640 codec"
+	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	depends on MACH_HAS_SND_SOC_TEGRA_RT5640
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_RT5640
+	select SND_SOC_SPDIF
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the ALC5640 codec. Currently, the supported boards
+	  are Kai,Cardhu,Dalmore and Macallan.
+
+config MACH_HAS_SND_SOC_TEGRA_MAX98095
+	bool
+	help
+	  Machines that use the SND_SOC_TEGRA_MAX98095 driver should select
+	  this config option, in order to allow the user to enable
+	  SND_SOC_TEGRA_MAX98095.
+
+config SND_SOC_TEGRA_MAX98095
+	tristate "SoC Audio support for Tegra boards using a MAX98095 codec"
+	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	depends on MACH_HAS_SND_SOC_TEGRA_MAX98095
+	select SND_SOC_TEGRA20_I2S if ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_MAX98095
+	select SND_SOC_SPDIF
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the MAX98095 codec. Currently, only supported board is
+	  Cardhu.
+
+config MACH_HAS_SND_SOC_TEGRA_CS42L73
+	bool
+	help
+	  Machines that use the SND_SOC_TEGRA_CS42L73 driver should select
+	  this config option, in order to allow the user to enable
+	  SND_SOC_TEGRA_CS42L73.
+
+config SND_SOC_TEGRA_CS42L73
+	tristate "SoC Audio support for Tegra boards using a CS42L73 codec"
+	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	depends on MACH_HAS_SND_SOC_TEGRA_CS42L73
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_CS42L73
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the CS42L73 codec. Currently, only supported board is
+	  Pluto.

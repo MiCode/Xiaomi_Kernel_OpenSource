@@ -1,0 +1,25 @@
+* Asahi Kasei AKM89XX compass sensor
+
+Required properties:
+- compatible: should be one of the following.
+  - "ak,ak8963"
+  - "ak,ak8972"
+  - "ak,ak8975"
+- reg: the I2C address of AKM89XX
+- config: the selection determines the device behavior.
+  - "auto": auto detect connection to MPU
+  - "mpu": connected to MPU
+  - "host": connected to host
+- orientation: the orientation matricies are 3x3 rotation matricies that are
+  applied to the data to rotate from the mounting orientation to the platform
+  orientation. The values must be one of 0, 1, or -1(0xff in byte array) and
+  each row and column should have exactly 1 non-zero value.
+
+Example:
+
+akm8963@0d {
+	compatible = "ak,ak8963";
+	reg = <0x0d>;
+	orientation = [00 01 00 ff 00 00 00 00 01];
+	config = "mpu";
+};

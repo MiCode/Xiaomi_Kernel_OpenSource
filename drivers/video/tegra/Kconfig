@@ -1,0 +1,245 @@
+if ARCH_TEGRA
+
+comment "NVIDIA Tegra Display Driver options"
+
+config TEGRA_GRHOST
+	tristate "Tegra graphics host driver"
+	help
+	  Driver for the Tegra graphics host hardware.
+
+config TEGRA_GRHOST_USE_NVMAP
+	bool "Use nvmap as graphics memory manager"
+	default y if TEGRA_NVMAP
+	help
+	  Use nvmap as the graphics memory manager.
+
+config TEGRA_GRHOST_USE_DMABUF
+	bool "Support dmabuf buffers"
+	default y
+	select DMA_SHARED_BUFFER
+	help
+	  Support dmabuf buffers.
+
+config TEGRA_GRHOST_DEFAULT_TIMEOUT
+	depends on TEGRA_GRHOST
+	int "Default timeout for submits"
+	default 0 if TEGRA_SIMULATION_PLATFORM
+	default 10000
+	help
+	  Default timeout for jobs in milliseconds. Set to zero for no timeout.
+
+config TEGRA_DC
+	tristate "Tegra Display Contoller"
+	depends on ARCH_TEGRA && TEGRA_GRHOST
+	select BACKLIGHT_CLASS_DEVICE
+	select FB_MODE_HELPERS
+	select I2C
+	help
+	  Tegra display controller support.
+
+config TEGRA_DC_CMU
+    bool
+    default n if ARCH_TEGRA_2x_SOC || ARCH_TEGRA_3x_SOC
+    default y
+
+config TEGRA_DC_WIN_H
+    bool
+    default y if ARCH_TEGRA_14x_SOC
+    default n
+
+config TEGRA_MIPI_CAL
+    bool
+    default n if ARCH_TEGRA_2x_SOC || ARCH_TEGRA_3x_SOC
+    default y
+
+config TEGRA_DC_SCAN_COLUMN
+    bool
+    default y if ARCH_TEGRA_11x_SOC
+    default n
+
+config TEGRA_SD_GEN2
+    bool
+    default n if ARCH_TEGRA_2x_SOC || ARCH_TEGRA_3x_SOC
+    default y
+
+config FB_TEGRA
+	tristate "Tegra Framebuffer driver"
+	depends on TEGRA_DC && FB = y
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	default FB
+	help
+	  Framebuffer device support for the Tegra display controller.
+
+config TEGRA_DC_EXTENSIONS
+	bool "Tegra Display Controller Extensions"
+	depends on TEGRA_DC
+	default y
+	help
+	  This exposes support for extended capabilities of the Tegra display
+	  controller to userspace drivers.
+
+config TEGRA_NVMAP
+	bool "Tegra GPU memory management driver (nvmap)"
+	select ARM_DMA_USE_IOMMU if IOMMU_API
+	default y
+	help
+	  Say Y here to include the memory management driver for the Tegra
+	  GPU, multimedia and display subsystems
+
+config NVMAP_RECLAIM_UNPINNED_VM
+	bool "Virtualize IOVMM memory in nvmap"
+	depends on TEGRA_NVMAP && (TEGRA_IOVMM || IOMMU_API)
+	default y
+	help
+	  Say Y here to enable nvmap to reclaim I/O virtual memory after
+	  it has been unpinned, and re-use it for other handles. This can
+	  allow a larger virtual I/O VM space than would normally be
+	  supported by the hardware, at a slight cost in performance.
+
+config NVMAP_ALLOW_SYSMEM
+	bool "Allow physical system memory to be used by nvmap"
+	depends on TEGRA_NVMAP
+	default n
+	help
+	  Say Y here to allow nvmap to use physical system memory (i.e.,
+	  shared with the operating system but not translated through
+	  an IOVMM device) for allocations.
+
+config NVMAP_HIGHMEM_ONLY
+	bool "Use only HIGHMEM for nvmap"
+	depends on TEGRA_NVMAP && (NVMAP_ALLOW_SYSMEM || TEGRA_IOVMM || IOMMU_API) && HIGHMEM
+	default n
+	help
+	  Say Y here to restrict nvmap system memory allocations (both
+	  physical system memory and IOVMM) to just HIGHMEM pages.
+
+config NVMAP_CARVEOUT_KILLER
+	bool "Reclaim nvmap carveout by killing processes"
+	depends on TEGRA_NVMAP
+	default n
+	help
+	  Say Y here to allow the system to reclaim carveout space by killing
+	  processes. This will kill the largest consumers of lowest priority
+	  first.
+
+config NVMAP_CARVEOUT_COMPACTOR
+	bool "Compact carveout when it gets fragmented"
+	depends on TEGRA_NVMAP
+	default y
+	help
+	  When carveout allocation attempt fails, compactor defragements
+	  heap and retries the failed allocation.
+	  Say Y here to let nvmap to keep carveout fragmentation under control.
+
+config NVMAP_PAGE_POOLS
+	bool "Use page pools to reduce allocation overhead"
+	depends on TEGRA_NVMAP
+	default y
+	help
+	  say Y here to reduce the alloction overhead, which is significant
+	  for uncached, writecombine and inner cacheable memories as it
+	  involves changing page attributes during every allocation per page
+	  and flushing cache. Alloc time is reduced by allcoating the pages
+	  ahead and keeping them aside. The reserved pages would be released
+	  when system is low on memory and acquired back during release of
+	  memory.
+
+config NVMAP_PAGE_POOLS_INIT_FILLUP
+	bool "Fill up page pools during page pools init"
+	depends on NVMAP_PAGE_POOLS
+	default y
+	help
+	  Say Y here to fill up the page pools during page pool init time.
+	  This helps in faster alloctions right from the early alloction
+	  requests. Page pools fill up during init would increase the boot time.
+	  If increase in boot time is not acceptable, keep this option disabled.
+
+config NVMAP_PAGE_POOL_SIZE
+	hex
+	default 0x0
+
+config NVMAP_CACHE_MAINT_BY_SET_WAYS
+	bool "Enable cache maintenance by set/ways"
+	depends on TEGRA_NVMAP
+	help
+	 Say Y here to reduce cache maintenance overhead by MVA.
+	 This helps in reducing cache maintenance overhead in the systems,
+	 where inner cache includes only L1. For the systems, where inner cache
+	 includes L1 and L2, keep this option disabled.
+
+config NVMAP_OUTER_CACHE_MAINT_BY_SET_WAYS
+	bool "Enable outer cache maintenance by set/ways"
+	depends on TEGRA_NVMAP
+	help
+	  Say Y here if you want to optimize cache maintenance for ranges
+	  bigger than size of outer cache. This option has no effect on
+	  system without outer cache.
+
+config NVMAP_DEFERRED_CACHE_MAINT
+	bool "Enable deferred cache maintenance"
+	depends on TEGRA_NVMAP
+	help
+	  Say Y here if you want to defer flush requests for
+	  nvmap memory buffer. Cache maintenance of deferred requests
+	  is more efficient since there is a high chance that cache lines
+	  of earlier requests are already flushed. Also, if total size of
+	  deferred ranges is big enough, we flush whole inner or outer
+	  cache.
+
+config NVMAP_VPR
+	bool "Enable VPR Heap."
+	depends on TEGRA_NVMAP
+	default n
+	help
+	  Say Y here to enable Video Protection Region(VPR) heap.
+	  if unsure, say N.
+
+config NVMAP_FORCE_ZEROED_USER_PAGES
+	bool "Only alloc zeroed pages for user space"
+	depends on TEGRA_NVMAP
+	help
+	  Say Y here to force zeroing of pages allocated for user space. This
+	  avoids leaking kernel secure data to user space. This can add
+	  significant overhead to allocation operations depending on the
+	  allocation size requested.
+
+config TEGRA_DSI
+	bool "Enable DSI panel."
+	default n
+	help
+	  Say Y here to enable the DSI panel.
+
+config NVMAP_CONVERT_CARVEOUT_TO_IOVMM
+	bool "Convert carveout to IOVMM"
+	depends on TEGRA_NVMAP &&  (TEGRA_IOVMM_SMMU || IOMMU_API)
+	default y
+	help
+	  Say Y here to force to convert carveout memory requests to
+	  I/O virtual memory requests.
+
+config TEGRA_NVHDCP
+	bool "Support NVHDCP content protection on HDMI"
+	default n
+	help
+	  Say Y here to support NVHDCP upstream and downstream protocols, this
+	  requires a correctly fused chip to negotiate keys.
+
+config TEGRA_HDMI_74MHZ_LIMIT
+	bool "Support only up to 74.25 MHz HDMI pixel frequency"
+	default n
+	help
+	  Say Y here to make kernel report only low bandwidth modes.
+	  Useful only for boards which can't deliver 148.50 MHz.
+
+endif
+
+config TEGRA_CAMERA
+	bool "Enable support for tegra camera/isp hardware"
+	depends on ARCH_TEGRA
+	default y
+	help
+	  Enables support for the Tegra camera interface
+
+	  If unsure, say Y

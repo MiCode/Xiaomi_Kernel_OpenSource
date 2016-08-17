@@ -1,0 +1,9 @@
+menu "EDP Framework"
+
+config EDP_FRAMEWORK
+	bool "EDP framework"
+	default n
+	help
+	  EDP-framework implements peak current management
+
+endmenu

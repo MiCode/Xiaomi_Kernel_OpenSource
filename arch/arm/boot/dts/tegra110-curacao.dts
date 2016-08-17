@@ -1,0 +1,8 @@
+/dts-v1/;
+
+/include/ "tegra110.dtsi"
+
+/ {
+	model = "NVIDIA Tegra110 curacao evaluation board";
+	compatible = "nvidia,curacao", "nvidia,tegra110";
+};

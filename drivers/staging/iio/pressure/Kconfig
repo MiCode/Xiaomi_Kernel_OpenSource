@@ -1,0 +1,13 @@
+#
+# Pressure sensors
+#
+menu "Pressure sensors"
+config SENSORS_BMP180
+	tristate "BMP 180 pressure sensor"
+	depends on I2C
+	help
+	  If you say yes here you get support for pressure sensing
+	  from Bosch BMP180 sensor. This driver will provide the measurements
+	  of pressure intensity. You can also set the pressure measurement
+	  precision using sysfs. Data from sensor is accessible via sysfs.
+endmenu

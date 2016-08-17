@@ -1,0 +1,16 @@
+* Capella CM3217 light sensor
+
+Required properties:
+- compatible: "capella,cm3217"
+- reg : the I2C address of CM3217
+- levels : threshold ADC value array for each illuminance levels
+- golden_adc : golden ADC value. if adc raw value on step = 0.3 lux, set this to 3.
+
+Example:
+
+cm3217@10 {
+	compatible = "capella,cm3217";
+	reg = <0x10>;
+	levels = <10 160 225 320 640 1280 2600 5800 8000 10240>;
+	golden_adc = <3>;
+};

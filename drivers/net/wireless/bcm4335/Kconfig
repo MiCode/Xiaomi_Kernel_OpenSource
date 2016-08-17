@@ -1,0 +1,54 @@
+config BCM4335
+	tristate "Broadcom 4335 wireless cards support"
+	depends on MMC
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 4335 chipset.
+
+	  This driver uses the kernel's cfg80211 subsystem.
+
+	  If you choose to build a module, it'll be called dhd. Say M if
+	  unsure.
+
+config BCM4335_FW_PATH
+	depends on BCM4335
+	string "Firmware path"
+	default "/system/etc/firmware/fw_BCM4335.bin"
+	---help---
+	  Path to the firmware file.
+
+config BCM4335_NVRAM_PATH
+	depends on BCM4335
+	string "NVRAM path"
+	default "/system/etc/wifi/BCM4335.cal"
+	---help---
+	  Path to the calibration file.
+
+config DHD_USE_STATIC_BUF
+	bool "Enable memory preallocation"
+	depends on BCM4335
+	default n
+	---help---
+	  Use memory preallocated in platform
+
+config DHD_USE_SCHED_SCAN
+	bool "Use CFG80211 sched scan"
+	depends on BCM4335 && CFG80211
+	default y
+	---help---
+	  Use CFG80211 sched scan
+
+config BCM4335_WIFI_CONTROL_FUNC
+	bool "Use BCM4335_wlan device"
+	depends on BCM4335
+	default n
+	---help---
+	  Use this option to get various parameters from architecture specific
+	  BCM4335_wlan platform device. Say n if unsure.
+
+config BCM4335_HW_OOB
+	bool "Use out of band interrupt"
+	depends on BCM4335
+	default n
+	---help---
+	  Use out of band interrupt for card interrupt and wake on wireless.

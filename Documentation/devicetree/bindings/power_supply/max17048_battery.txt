@@ -1,0 +1,76 @@
+max17048_battery
+~~~~~~~~~~~~~~~~
+
+Required properties :
+ - compatible : Should contain "maxim,max17048".
+ - alert-threshold : Alert threshold. in %(percentage). 0~32.
+ - one-percent-alerts : 1% alert mode control.
+     1=enable, 0=disable.
+ - valert-max : Maximum Voltage threshold for alert. in mV.
+     This value should be multiple of 20mV. 0~5100mV.
+ - valert-min : Minimum voltage threshold for alert. in mV.
+     This value should be multiple of 20mV. 0~5100mV.
+ - vreset-threshold : Voltage threshold for reset. in mV.
+     This value should be multiple of 40mV. 0~5080mV.
+ - vreset-disable : Voltage threshold reset control.
+     1=disable, 0=enable
+ - hib-thhreshold : Threshold to enter hibernate mode. in 0.208%/hr. 0~255.
+     If the absolute value of CRATE is less than this for longer than 6min,
+     the IC enters hibernate mode.
+ - hib-active-threshold : Hibernate active threshold. in 1.25mV. 0~255.
+     If at any ADC sample is greater than this, the IC exits hibernate mode
+     and 6min timer is reset.
+ - bits : 19-bit or 18-bit model.
+     19=19-bit model, 18=18-bit model.
+     This value is depends on custom model.
+ - rcomp : Starting RCOMP value. 0~255.
+     This value is depends on custom model.
+ - rcomp-seg : RCOMPSEG register.
+     This value is depends on custom model.
+ - soccheck-a : SOC check low value. in %(percentage).
+     This value is depends on custom model.
+ - soccheck-b : SOC check high value. in %(percentage).
+     This value is depends on custom model.
+ - ocvtest : OCV test value.
+     This value is depends on custom model.
+ - data-tbl : Custom model data. This should be 64 entries(64 bytes).
+     This value is depends on custom model.
+
+Contact Maxim for details on how to configure the values involved with custom model.
+
+Optional properties :
+ - use-ac : Use AC charging.
+     If not present, AC charging will not be used.
+ - use-usb : Use USB charging.
+     If not present, USB charging will not be used.
+
+Example:
+
+	max17048@36 {
+		compatible = "maxim,max17048";
+		reg = <0x36>;
+		use-ac;
+		use-usb;
+		alert-threshold = <0>;
+		one-percent-alerts = <0>;
+		valert-max = <0>;
+		valert-min = <0>;
+		vreset-threshold = <0>;
+		vreset-disable = <0>;
+		hib-threshold = <0>;
+		hib-active-threshold = <0>;
+		bits = <0>;
+		rcomp = <0>;
+		rcomp-seg = <0x0000>;
+		soccheck-a = <0>;
+		soccheck-b = <0>;
+		ocvtest = <0>;
+		data-tbl = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+			0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+	};

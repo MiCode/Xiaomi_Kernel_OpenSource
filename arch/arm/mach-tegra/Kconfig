@@ -1,0 +1,969 @@
+# Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+if ARCH_TEGRA
+
+comment "NVIDIA Tegra options"
+
+config ARCH_TEGRA_2x_SOC
+	bool "Enable support for Tegra20 family"
+	depends on !ARCH_TEGRA_3x_SOC
+	depends on !ARCH_TEGRA_11x_SOC
+	select ARM_CPU_SUSPEND if PM
+	select ARCH_TEGRA_HAS_ARM_SCU
+	select ARCH_TEGRA_HAS_PCIE
+	select CPU_V7
+	select ARM_GIC
+	select ARM_SAVE_DEBUG_CONTEXT if PM_SLEEP
+	select ARCH_REQUIRE_GPIOLIB
+	select PINCTRL
+	select PINCTRL_TEGRA20
+	select USB_ARCH_HAS_EHCI if USB_SUPPORT
+	select USB_ULPI if USB
+	select USB_ULPI_VIEWPORT if USB_SUPPORT
+	select ARM_ERRATA_720789
+	select ARM_ERRATA_751472
+	select ARM_ERRATA_754327
+	select ARM_ERRATA_764369
+	select ARM_ERRATA_742230 if SMP
+	select PL310_ERRATA_769419 if CACHE_L2X0
+	select CPU_FREQ_TABLE if CPU_FREQ
+	select USB_ARCH_HAS_EHCI if USB_SUPPORT
+	select USB_ULPI if USB_SUPPORT
+	select USB_ULPI_VIEWPORT if USB_SUPPORT
+	select ARCH_SUPPORTS_MSI if TEGRA_PCI
+	select PCI_MSI if TEGRA_PCI
+	select CPA
+	select ARM_ERRATA_716044
+	select NVMAP_CACHE_MAINT_BY_SET_WAYS
+	select NVMAP_OUTER_CACHE_MAINT_BY_SET_WAYS
+	select NVMAP_DEFERRED_CACHE_MAINT
+	select SOC_BUS
+	help
+	  Support for NVIDIA Tegra AP20 and T20 processors, based on the
+	  ARM CortexA9MP CPU and the ARM PL310 L2 cache controller
+
+config ARCH_TEGRA_3x_SOC
+	bool "Enable support for Tegra30 family"
+	depends on !ARCH_TEGRA_11x_SOC
+	select ARM_CPU_SUSPEND if PM
+	depends on !ARCH_TEGRA_11x_SOC
+	select ARCH_TEGRA_HAS_ARM_SCU
+	select ARCH_TEGRA_HAS_PCIE
+	select ARCH_TEGRA_HAS_SATA
+	select ARCH_TEGRA_HAS_DUAL_3D
+	select ARCH_TEGRA_HAS_DUAL_CPU_CLUSTERS
+	select CPU_V7
+	select ARM_GIC
+	select ARM_SAVE_DEBUG_CONTEXT if PM_SLEEP
+	select GIC_SET_MULTIPLE_CPUS if SMP
+	select ARCH_REQUIRE_GPIOLIB
+	select PINCTRL
+	select PINCTRL_TEGRA30
+	select USB_ARCH_HAS_EHCI if USB_SUPPORT
+	select USB_ULPI if USB
+	select USB_ULPI_VIEWPORT if USB_SUPPORT
+	select REPORT_PRESENT_CPUS if TEGRA_AUTO_HOTPLUG
+	select ARCH_SUPPORTS_MSI if TEGRA_PCI
+	select PCI_MSI if TEGRA_PCI
+	select ARM_ERRATA_743622
+	select ARM_ERRATA_751472
+	select ARM_ERRATA_754322
+	select ARM_ERRATA_764369
+	select PL310_ERRATA_769419 if CACHE_L2X0
+	select CPU_FREQ_TABLE if CPU_FREQ
+	select TEGRA_LP2_CPU_TIMER if HAVE_ARM_TWD && !TEGRA_RAIL_OFF_MULTIPLE_CPUS
+	select CPA
+	select NVMAP_CACHE_MAINT_BY_SET_WAYS
+	select NVMAP_OUTER_CACHE_MAINT_BY_SET_WAYS
+	select NVMAP_DEFERRED_CACHE_MAINT
+	select PL310_ERRATA_727915
+	select TEGRA_LATENCY_ALLOWANCE if !TEGRA_FPGA_PLATFORM
+	select TEGRA_LATENCY_ALLOWANCE_SCALING if !TEGRA_FPGA_PLATFORM
+	select SOC_BUS
+	select TEGRA_ERRATA_1053704
+	help
+	  Support for NVIDIA Tegra T30 processor family, based on the
+	  ARM CortexA9MP CPU and the ARM PL310 L2 cache controller
+
+config ARCH_TEGRA_11x_SOC
+	bool "Tegra 11x family SOC"
+	select ARCH_TEGRA_HAS_DUAL_CPU_CLUSTERS
+	select CPU_V7
+	select ARM_L1_CACHE_SHIFT_6
+	select ARM_ARCH_TIMER
+	select ARCH_TEGRA_HAS_SYMMETRIC_CPU_PWR_GATE
+	select ARM_CPU_SUSPEND if PM
+	select ARM_GIC
+	select ARCH_REQUIRE_GPIOLIB
+	select ARM_SAVE_DEBUG_CONTEXT if PM_SLEEP
+	select USB_ARCH_HAS_EHCI if USB_SUPPORT
+	select USB_EHCI_TEGRA if USB_SUPPORT
+	select USB_ULPI if USB_SUPPORT
+	select USB_ULPI_VIEWPORT if USB_SUPPORT
+	select REPORT_PRESENT_CPUS if TEGRA_AUTO_HOTPLUG
+	select TEGRA_LP2_CPU_TIMER if !TEGRA_RAIL_OFF_MULTIPLE_CPUS
+	select NVMAP_CACHE_MAINT_BY_SET_WAYS
+	select NVMAP_DEFERRED_CACHE_MAINT
+	select ARCH_TEGRA_HAS_CL_DVFS
+	select TEGRA_DUAL_CBUS
+	select ARCH_TEGRA_4GB_MEMORY
+	select TEGRA_LATENCY_ALLOWANCE if !TEGRA_FPGA_PLATFORM
+	select TEGRA_MC_PTSA if !TEGRA_FPGA_PLATFORM
+	select SOC_BUS
+	select PINCTRL
+	select TEGRA_ISOMGR
+	select TEGRA_ISOMGR_SYSFS
+	select TEGRA_ISOMGR_DEBUG
+	select TEGRA_ERRATA_1157520
+	select TEGRA_ERRATA_1053704
+	select TEGRA_CORE_EDP_LIMITS
+	select TEGRA_VDD_CORE_OVERRIDE if TEGRA_EMC_SCALING_ENABLE
+	select TEGRA_THERMAL_THROTTLE_EXACT_FREQ
+	select ARM_ERRATA_799270
+	select ARM_ERRATA_798181
+	help
+	  Support for NVIDIA Tegra 11x family of SoCs, based upon the
+	  ARM Cortex-A15MP CPU
+
+config ARCH_TEGRA_HAS_ARM_SCU
+	bool
+
+config ARCH_TEGRA_HAS_DUAL_3D
+	bool
+
+config ARCH_TEGRA_HAS_DUAL_CPU_CLUSTERS
+	bool
+
+config ARCH_TEGRA_HAS_SYMMETRIC_CPU_PWR_GATE
+	bool
+
+config ARCH_TEGRA_HAS_PCIE
+	bool
+
+config ARCH_TEGRA_HAS_SATA
+	bool
+
+config ARCH_TEGRA_HAS_CL_DVFS
+	bool
+
+config TEGRA_PCI
+	bool "PCIe host controller driver"
+	select PCI
+	depends on ARCH_TEGRA_HAS_PCIE
+	help
+	  Adds PCIe Host controller driver for tegra based systems
+
+config TEGRA_IRDA
+	bool "IRDA on UARTB Port of Verbier"
+	select IRDA_CPLD
+	depends on ARCH_TEGRA_3x_SOC && MACH_CARDHU
+	help
+	  Adds support for Vishay IrDA transceiver at UARTB port
+	  of Verbier Boards(E1186 and E1198) with no ULPI rework done.
+
+comment "Tegra board type"
+
+config MACH_HARMONY
+       bool "Harmony board"
+       depends on ARCH_TEGRA_2x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_WM8903 if SND_SOC
+       help
+         Support for NVIDIA Harmony development platform
+
+config MACH_VENTANA
+       bool "Ventana board"
+       depends on ARCH_TEGRA_2x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_WM8903 if SND_SOC
+       help
+         Support for NVIDIA Ventana development platform
+
+config MACH_KAEN
+       bool "Kaen board"
+       depends on ARCH_TEGRA_2x_SOC
+       select MACH_SEABOARD
+       select MACH_HAS_SND_SOC_TEGRA_WM8903 if SND_SOC
+       help
+         Support for the Kaen version of Seaboard
+
+config MACH_PAZ00
+       bool "Paz00 board"
+       depends on ARCH_TEGRA_2x_SOC
+       help
+         Support for the Toshiba AC100/Dynabook AZ netbook
+
+config MACH_SEABOARD
+       bool "Seaboard board"
+       depends on ARCH_TEGRA_2x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_WM8903 if SND_SOC
+       help
+         Support for nVidia Seaboard development platform. It will
+	 also be included for some of the derivative boards that
+	 have large similarities with the seaboard design.
+
+config MACH_TEGRA_DT
+	bool "Generic Tegra20 board (FDT support)"
+	depends on ARCH_TEGRA_2x_SOC
+	select USE_OF
+	help
+	  Support for generic NVIDIA Tegra20 boards using Flattened Device Tree
+
+config MACH_TRIMSLICE
+       bool "TrimSlice board"
+       depends on ARCH_TEGRA_2x_SOC
+       select TEGRA_PCI
+       help
+         Support for CompuLab TrimSlice platform
+
+config MACH_WARIO
+       bool "Wario board"
+       depends on ARCH_TEGRA_2x_SOC
+       select MACH_SEABOARD
+       help
+         Support for the Wario version of Seaboard
+
+config MACH_VENTANA
+       bool "Ventana board"
+       depends on ARCH_TEGRA_2x_SOC
+       help
+         Support for the nVidia Ventana development platform
+
+config MACH_WHISTLER
+       bool "Whistler board"
+       depends on ARCH_TEGRA_2x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_WM8753 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X if SND_SOC
+       help
+         Support for NVIDIA Whistler development platform
+
+config MACH_ARUBA
+       bool "Aruba board"
+       depends on ARCH_TEGRA_3x_SOC
+       select TEGRA_FPGA_PLATFORM
+       help
+         Support for NVIDIA Aruba2 FPGA development platform
+
+config MACH_CURACAO
+       bool "Curacao board"
+       depends on ARCH_TEGRA_11x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_WM8903 if SND_SOC
+       select TEGRA_FPGA_PLATFORM
+       help
+         Support for NVIDIA Curacao FPGA development platform
+
+config MACH_CARDHU
+       bool "Cardhu board"
+       depends on ARCH_TEGRA_3x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_WM8903 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_MAX98095 if SND_SOC
+       help
+         Support for NVIDIA Cardhu development platform
+
+config MACH_P1852
+       bool "P1852 board"
+       depends on ARCH_TEGRA_3x_SOC
+       help
+         Support for NVIDIA P1852 development platform
+
+config MACH_E1853
+       bool "E1853 board"
+       depends on ARCH_TEGRA_3x_SOC
+       help
+         Support for NVIDIA E1853 development platform
+
+config MACH_TEGRA_ENTERPRISE
+       bool "Enterprise board"
+       depends on ARCH_TEGRA_3x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_MAX98088 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X if SND_SOC
+       select TEGRA_SLOW_CSITE
+       help
+         Support for NVIDIA Enterprise development platform
+
+config MACH_TAI
+       bool "Tai board"
+       depends on MACH_TEGRA_ENTERPRISE
+       help
+         Support for NVIDIA Tai development platform
+
+config MACH_KAI
+       bool "Kai board"
+       depends on ARCH_TEGRA_3x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5639 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5640 if SND_SOC
+       help
+         Support for NVIDIA KAI development platform
+
+config MACH_DALMORE
+       bool "Dalmore board"
+       depends on ARCH_TEGRA_11x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5639 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5640 if SND_SOC
+       help
+         Support for NVIDIA DALMORE development platform
+
+config MACH_MACALLAN
+       bool "Macallan board"
+       depends on ARCH_TEGRA_11x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5639 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5640 if SND_SOC
+       select EDP_FRAMEWORK
+       help
+         Support for NVIDIA MACALLAN development platform
+
+config MACH_TEGRA_PLUTO
+       bool "Pluto board"
+       depends on ARCH_TEGRA_11x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_CS42L73 if SND_SOC
+       select EDP_FRAMEWORK
+       select MACH_HAS_SND_SOC_TEGRA_TLV320AIC326X if SND_SOC
+       help
+         Support for NVIDIA PLUTO development platform
+
+config MACH_ROTH
+       bool "Thor board"
+       depends on ARCH_TEGRA_11x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5639 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5640 if SND_SOC
+       help
+         Support for NVIDIA THOR development platform
+
+config MACH_TEGRATAB
+       bool "Tegratab board"
+       depends on ARCH_TEGRA_11x_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5639 if SND_SOC
+       select MACH_HAS_SND_SOC_TEGRA_RT5640 if SND_SOC
+       help
+         Support for NVIDIA TEGRATAB development platform
+
+choice
+       prompt "Tegra platform type"
+       default TEGRA_SILICON_PLATFORM
+
+config TEGRA_SILICON_PLATFORM
+        bool "Silicon"
+        help
+          This enables support for a Tegra silicon platform.
+
+config TEGRA_SIMULATION_PLATFORM
+        bool "Simulation"
+	select LESS_GCC_OPT if DEBUG_KERNEL
+        help
+          This enables support for a Tegra simulation platform.
+          Select this only if you are an NVIDIA developer working
+          on a simulation platform.
+
+config TEGRA_FPGA_PLATFORM
+        bool "FPGA"
+        help
+          This enables support for a Tegra FPGA platform.
+          Select this only if you are an NVIDIA developer working
+          on a FPGA platform.
+endchoice
+
+source "arch/arm/mach-tegra/p852/Kconfig"
+
+choice
+        prompt "Low-level debug console UART"
+        default TEGRA_DEBUG_UART_NONE
+
+config TEGRA_DEBUG_UART_NONE
+        bool "None"
+
+config TEGRA_DEBUG_UARTA
+        bool "UART-A"
+	depends on DEBUG_LL
+
+config TEGRA_DEBUG_UARTB
+        bool "UART-B"
+	depends on DEBUG_LL
+
+config TEGRA_DEBUG_UARTC
+        bool "UART-C"
+	depends on DEBUG_LL
+
+config TEGRA_DEBUG_UARTD
+        bool "UART-D"
+	depends on DEBUG_LL
+
+config TEGRA_DEBUG_UARTE
+        bool "UART-E"
+	depends on DEBUG_LL
+endchoice
+
+config TEGRA_SYSTEM_DMA
+	bool "Enable system DMA driver for NVIDIA Tegra SoCs"
+	default y
+	help
+	  Adds system DMA functionality for NVIDIA Tegra SoCs, used by
+	  several Tegra device drivers
+
+config TEGRA_PWM
+	tristate "Enable PWM driver"
+	select HAVE_PWM
+	help
+	  Enable support for the Tegra PWM controller(s).
+
+config TEGRA_FIQ_DEBUGGER
+	bool "Enable the FIQ serial debugger on Tegra"
+	default n
+	select FIQ_DEBUGGER
+	help
+	  Enables the FIQ serial debugger on Tegra
+
+config TEGRA_PTM
+	bool "Enable PTM debugger on Tegra"
+	default n
+	help
+	  This option enables PTM debugger on Tegra. This driver is used
+	  for tracking each branch instructions executed by processor. It
+	  can save such tracking information to the ETB buffer, which can
+	  be further parsed by a user space program to re-construct the
+	  complete program flows.
+
+config TEGRA_P1852_TDM
+	bool "Enable TDM mode for P1852 SKUs"
+	default n
+	depends on MACH_P1852
+	help
+		Enables TDM mode driver for P1852 SKUs. If this
+		is not defined then I2S mode is selected by default.
+
+config TEGRA_CARDHU_DSI
+	bool "Support DSI panel on Cardhu"
+	depends on MACH_CARDHU
+	select TEGRA_DSI
+	help
+		Support for DSI Panel on Nvidia Cardhu
+
+config TEGRA_CARDHU_DUAL_DSI_PANEL
+	bool "Support Dual DSI panel on Cardhu"
+	default n
+	depends on TEGRA_CARDHU_DSI
+	help
+		Support for Dual DSI Panel on Nvidia Cardhu
+
+config TEGRA_EMC_SCALING_ENABLE
+	bool "Enable scaling the memory frequency"
+	depends on TEGRA_SILICON_PLATFORM
+	default n
+
+config TEGRA_CPU_DVFS
+	bool "Enable voltage scaling on Tegra CPU"
+	depends on TEGRA_SILICON_PLATFORM
+	default y
+
+config TEGRA_CORE_DVFS
+	bool "Enable voltage scaling on Tegra core"
+	depends on TEGRA_SILICON_PLATFORM
+	depends on TEGRA_CPU_DVFS
+	default y
+
+config TEGRA_IOVMM_GART
+	bool "Enable I/O virtual memory manager for GART"
+	depends on ARCH_TEGRA_2x_SOC && !TEGRA_IOMMU_GART
+	default y
+	select TEGRA_IOVMM
+	help
+	  Enables support for remapping discontiguous physical memory
+	  shared with the operating system into contiguous I/O virtual
+	  space through the GART (Graphics Address Relocation Table)
+	  hardware included on Tegra SoCs.
+
+config TEGRA_IOVMM_SMMU
+	bool "Enable I/O virtual memory manager for SMMU"
+	depends on !ARCH_TEGRA_2x_SOC && !TEGRA_IOMMU_SMMU
+	default y
+	select TEGRA_IOVMM
+	help
+	  Enables support for remapping discontiguous physical memory
+	  shared with the operating system into contiguous I/O virtual
+	  space through the SMMU (System Memory Management Unit)
+	  hardware included on Tegra SoCs.
+
+config TEGRA_IOVMM_SMMU_SYSFS
+	bool "Enable SMMU register access for debugging"
+	depends on TEGRA_IOVMM_SMMU
+	default n
+	help
+	  Enables SMMU register access through /sys/devices/smmu/* files.
+
+config TEGRA_IOVMM
+	depends on TEGRA_IOVMM_GART || TEGRA_IOVMM_SMMU
+	bool
+
+config TEGRA_AVP_KERNEL_ON_MMU
+	bool "Use AVP MMU to relocate AVP kernel"
+	depends on ARCH_TEGRA_2x_SOC
+	default y
+	help
+	  Use AVP MMU to relocate AVP kernel (nvrm_avp.bin).
+
+config TEGRA_AVP_KERNEL_ON_SMMU
+	bool "Use SMMU to relocate AVP kernel"
+	depends on TEGRA_IOVMM_SMMU || TEGRA_IOMMU_SMMU
+	default y
+	help
+	  Use SMMU to relocate AVP kernel (nvrm_avp.bin).
+
+config TEGRA_ARB_SEMAPHORE
+	bool
+
+config TEGRA_THERMAL_THROTTLE
+	bool "Enable throttling of CPU speed on overtemp"
+	depends on TEGRA_SILICON_PLATFORM
+	depends on CPU_FREQ
+	depends on THERMAL
+	default y
+	help
+	  Also requires enabling a temperature sensor such as NCT1008.
+
+config TEGRA_THERMAL_THROTTLE_EXACT_FREQ
+	bool "Use exact cpu frequency capping when thermal throttling"
+	depends on TEGRA_THERMAL_THROTTLE
+	default n
+	help
+	  When this option is enabled, the cpu will run at the exact
+	  frequency specified in the thermal throttle table when thermal
+	  throttling; when disabled, the cpu frequency will clip to
+	  the next lower frequency from the cpu frequency table.
+
+config TEGRA_CLOCK_DEBUG_WRITE
+	bool "Enable debugfs write access to clock tree"
+	depends on DEBUG_FS
+	default n
+
+config TEGRA_CLUSTER_CONTROL
+	bool
+	depends on ARCH_TEGRA_HAS_DUAL_CPU_CLUSTERS
+	default y if PM_SLEEP
+
+config TEGRA_CPUQUIET
+	bool
+
+config TEGRA_AUTO_HOTPLUG
+	bool "Enable automatic CPU hot-plugging"
+	depends on HOTPLUG_CPU && CPU_FREQ && !ARCH_CPU_PROBE_RELEASE && !ARCH_TEGRA_2x_SOC
+	select TEGRA_CPUQUIET
+	default y
+	help
+	  This option enables turning CPUs off/on and switching tegra
+	  high/low power CPU clusters automatically, corresponding to
+	  CPU frequency scaling.
+
+config TEGRA_MC_EARLY_ACK
+	bool "Enable early acknowledgement from mermory controller"
+	depends on ARCH_TEGRA_3x_SOC || ARCH_TEGRA_11x_SOC
+	default y
+	help
+	  This option enables early acknowledgement from memory
+	  controller. This feature is used to improve CPU memory
+	  write performance.
+
+config TEGRA_ERRATA_1157520
+	bool "Memory writes are not consistent/ordered from CPU"
+	depends on ARCH_TEGRA_11x_SOC
+	help
+	  On T11x With early ack scoreboard on, the read/writes to
+	  SO and Non-Cached meory are randomly not observed in the
+	  order they are performed. Enabling this errata disables
+	  early ack scoreboard for T11x.
+
+config TEGRA_MC_PROFILE
+	tristate "Enable profiling memory controller utilization"
+	default y
+	help
+	  When enabled, provides a mechanism to perform statistical
+	  sampling of the memory controller usage on a client-by-client
+	  basis, and report the log through sysfs.
+
+config TEGRA_EDP_LIMITS
+	bool "Enforce electrical design limits on CPU rail"
+	depends on TEGRA_SILICON_PLATFORM
+	depends on CPU_FREQ
+	depends on THERMAL
+	default y if ARCH_TEGRA_3x_SOC
+	default n
+	help
+	  Limit maximum CPU frequency based on temperature and number
+	  of on-line CPUs to keep CPU rail current within power supply
+	  capabilities.
+
+config TEGRA_CPU_EDP_FIXED_LIMITS
+	bool "Enforce fixed EDP limits on CPU rail per chip SKU"
+	depends on ARCH_TEGRA_11x_SOC
+	depends on TEGRA_EDP_LIMITS
+	default n
+	help
+	  Enforce CPU EDP frequency limits which are fixed for a given
+	  chip SKU. By default, the max frequency is determined optimally
+	  for each individual chip.
+
+config TEGRA_EMC_TO_DDR_CLOCK
+	int "EMC to DDR clocks ratio"
+	default "2" if ARCH_TEGRA_2x_SOC
+	default "1"
+
+config TEGRA_SE_ON_CBUS
+	bool "To Drive SE clock from cbus"
+	default y
+	help
+	  This option enables SE clock to be derived from cbus
+
+config TEGRA_CBUS_CLOCK_DIVIDER
+	int "CBUS clock divider"
+	default "2"
+
+config TEGRA_STAT_MON
+        bool "Enable H/W statistics monitor"
+        depends on ARCH_TEGRA_2x_SOC
+        default n
+        help
+          Enables support for hardware statistics monitor for AVP.
+
+config USB_HOTPLUG
+	bool "Enabling the USB hotplug"
+	default n
+
+config TEGRA_GADGET_BOOST_CPU_FREQ
+	int "Boost cpu frequency for tegra usb gadget"
+	range 0 1300 if ARCH_TEGRA_3x_SOC
+	range 0 1800 if ARCH_TEGRA_11x_SOC
+	default 0
+	help
+	  Devices need to boost frequency of CPU when they are connected
+	  to host pc through usb cable for better performance. This value
+	  is the amount of the frequency (in Mhz) to be boosted. If it is
+	  zero boosting frequency will not be enabled. This value will be
+	  used only by usb gadget driver.
+
+config TEGRA_EHCI_BOOST_CPU_FREQ
+        int "Boost cpu frequency(in Mhz) for tegra usb host"
+        range 0 1300 if ARCH_TEGRA_3x_SOC
+        range 0 1800 if ARCH_TEGRA_11x_SOC
+        range 0 2000 if ARCH_TEGRA_14x_SOC
+        default 0
+        help
+          This value is the amount of the cpu frequency (in Mhz)
+          to be boosted. If it is zero boosting frequency will not
+          be enabled. This value will be used only by usb ehci driver.
+
+config TEGRA_DYNAMIC_PWRDET
+	bool "Enable dynamic activation of IO level auto-detection"
+	depends on TEGRA_SILICON_PLATFORM
+	default n
+	help
+	  This option allows turning off tegra IO level auto-detection
+	  when IO power is stable. If set auto-detection cells are active
+	  only during power transitions, otherwise, the cells are active
+	  always
+
+config TEGRA_EDP_EXACT_FREQ
+	bool "Use maximum possible cpu frequency when EDP capping"
+	depends on TEGRA_EDP_LIMITS
+	default y
+	help
+	  When enabled the cpu will run at the exact frequency
+	  specified in the EDP table when EDP capping is applied; when
+	  disabled the next lower cpufreq frequency will be used.
+
+config TEGRA_WAKEUP_MONITOR
+	bool "Enable tegra wakeup monitor"
+	depends on PM_SLEEP
+	help
+	  This option enables support for the monitor of tegra wakeups, it will
+	  send out wakeup source and uevents which indicate suspend_prepare and
+	  post_suspend.
+
+config TEGRA_INTERNAL_USB_CABLE_WAKE_SUPPORT
+	bool "Enable Tegra internal USB cable wake support"
+	depends on PM_SLEEP
+	default n
+	help
+	  Enables Tegra suspend wakeup with USB cable through Tegra
+	  integrated hardware. Enabled for selected Tegra chipsets.
+
+config TEGRA_BB_XMM_POWER
+	bool "Enable power driver for XMM modem"
+	default n
+	help
+	  Enables power driver which controls gpio signals to XMM modem.
+
+config TEGRA_BB_XMM_POWER2
+	tristate "Enable power driver for XMM modem (flashless)"
+	default n
+	help
+	  Enables power driver which controls gpio signals to XMM modem
+	  (in flashless configuration).  User-mode application must
+	  insert this LKM to initiate 2nd USB enumeration power sequence
+	  - after modem software has been downloaded to flashless device.
+
+config TEGRA_PLLM_RESTRICTED
+	bool "Restrict PLLM usage as module clock source"
+	depends on !ARCH_TEGRA_2x_SOC
+	default n
+	help
+	  When enabled, PLLM usage may be restricted to modules with dividers
+	  capable of dividing maximum PLLM frequency at minimum voltage. When
+	  disabled, PLLM is used as a clock source with no restrictions (which
+	  may effectively increase lower limit for core voltage).
+
+config TEGRA_WDT_RECOVERY
+	bool "Enable suspend/resume watchdog recovery mechanism"
+	default n
+	help
+	  Enables watchdog recovery mechanism to protect against
+	  suspend/resume hangs.
+
+config TEGRA_LP2_CPU_TIMER
+	bool
+
+config TEGRA_RAIL_OFF_MULTIPLE_CPUS
+	bool
+
+config TEGRA_SLOW_CSITE
+	bool "lower csite clock to 1 Mhz to reduce its power consumption"
+	default n
+	help
+	  When enabled, csite will be running at 1 Mhz and the performance of
+	  jtag, lauterbach and other debugger will be extremely slow.
+
+config TEGRA_PREINIT_CLOCKS
+	bool "Preinitialize Tegra clocks to known states"
+	default n
+	help
+	  Preinitialize Tegra clocks to known states before actual full-
+	  scale clock initialization starts.
+
+config TEGRA_PREPOWER_WIFI
+	bool "Pre-power up WiFi "
+	default n
+	help
+	  Pre-power up the on board WiFi chip
+
+config TEGRA_DYNAMIC_CBUS
+	bool "Adjust dynamically graphics clocks cumulative dvfs table"
+
+config TEGRA_DUAL_CBUS
+	bool "Use two plls (PLLC2/PLLC3) as graphics clocks sources"
+
+config TEGRA_MIGRATE_CBUS_USERS
+	bool "Move cbus users between source plls to optimize cumulative dvfs"
+	depends on TEGRA_DYNAMIC_CBUS && TEGRA_DUAL_CBUS
+
+config TEGRA_SKIN_THROTTLE
+	bool "Skin Temperature throttling"
+	depends on TEGRA_THERMAL_THROTTLE
+	depends on THERM_EST
+	default n
+	help
+	  Enable throttling to control the temperature of the skin/case
+	  of the device.
+
+config ARCH_TEGRA_4GB_MEMORY
+	bool "Full 4GB physical memory support"
+	default n
+	help
+	  Harmless to select this even if hardware does not support full
+	  4GB physical memory.
+
+config TEGRA_LP1_LOW_COREVOLTAGE
+	bool "LP1 low core voltage"
+	default n
+	depends on ARCH_TEGRA_3x_SOC || ARCH_TEGRA_11x_SOC
+	help
+		Enable support for LP1 Core voltage to set to lowest
+
+config TEGRA_LATENCY_ALLOWANCE
+	bool "Allow memory clients to configure latency allowance"
+	help
+	  Latency allowance is a per-memory-client setting that tells the
+	  memory controller how long it can ignore a request in favor of
+	  others. In other words, It indicates how long a request from specific
+	  memory client can wait before it is served.
+	  Enabling this option allows memory clients configure the
+	  latency allowance as per their bandwidth requirement.
+
+config TEGRA_LATENCY_ALLOWANCE_SCALING
+	bool "Enable latency allowance scaling"
+	depends on TEGRA_LATENCY_ALLOWANCE
+	help
+	  Enables latency allowance scaling, which enables scaling
+	  programmed latency allowance values based on fifo threshold levels
+	  set for for display and vi hardware.
+
+config TEGRA_MC_PTSA
+	bool "Enable MC PTSA programming"
+	depends on TEGRA_LATENCY_ALLOWANCE
+	help
+	  Enables Priority Tier Snap Arbiter programming in
+	  Memory Controller. PTSA is a Memory Controller feature that
+	  allows specifying the bandwidth necessary for ISO clients.
+
+config TEGRA_DC_USE_HW_BPP
+	bool "Default Bits Per Pixel value from tegra DC hardware"
+	depends on TEGRA_DC
+	default n
+        help
+	  Programs platform data to inform DC driver to use current
+	  hardware value for bits per pixel setting.  Useful for
+          preserving and displaying framebuffer content from bootloader.
+
+config TEGRA_ISOMGR
+	bool "Isochronous Bandwidth Manager "
+	help
+	  When enabled, drivers for ISO units can obtain ISO BW.
+	  The memory controller (MC) for each Tegra platform can supply
+	  a limited amount of isochronous (real-time) bandwidth.  When
+	  enabled, isomgr will manage a pool of ISO BW.
+
+config TEGRA_ISOMGR_POOL_KB_PER_SEC
+	int "Size of isomgr pool "
+	default 0
+	help
+	  Set this maximum ISO BW (in Kbytes/sec) that platform supports.
+	  The memory controller (MC) for each Tegra platform can supply
+	  a limited amount of isochronous (real-time) bandwidth.  Each
+	  platform must specify the maximum amount of ISO BW that isomgr
+	  should manage.
+
+config TEGRA_ISOMGR_SYSFS
+	bool "Visibility into Isochronous Bandwidth Manager state "
+	depends on TEGRA_ISOMGR
+	help
+	  When enabled, sysfs can be used to query isomgr state.
+	  This is used for visibility into isomgr state.  It could
+	  be useful in debug or in understanding performance on a
+	  running system.
+
+config TEGRA_ISOMGR_DEBUG
+	bool "Inject stimulus into Isochronous Bandwidth Manager "
+	depends on TEGRA_ISOMGR && TEGRA_ISOMGR_SYSFS
+	help
+	  When enabled, sysfs can be used to inject stimulus into isomgr.
+	  This is used to generate stimulus to isomgr for debug.  It's
+	  especially useful for contriving isomgr tests.  You can write
+	  user space tests that exercise isomgr in ways that drivers
+	  couldn't easily accommodate.
+
+config TEGRA_IO_DPD
+	bool "Allow IO DPD"
+	depends on ARCH_TEGRA_3x_SOC
+	depends on PM_SLEEP
+	default y
+	help
+	  Allow devices listed in tegra_list_io_dpd[] to go into
+	  Deep Power Down (DPD) state. This is a temporary config
+	  option until a proper way is implemented to resolve this issue.
+
+config TEGRA_USE_DFLL_RANGE
+	int "Default CPU DFLL operating range"
+	depends on ARCH_TEGRA_HAS_CL_DVFS
+	range 0 2
+	default "2" if TEGRA_SILICON_PLATFORM
+	default "0"
+	help
+	  Defines default range for dynamic frequency lock loop (DFLL)
+	  to be used as CPU clock source:
+	  "0" - DFLL is not used,
+	  "1" - DFLL is used as a source for all CPU rates
+	  "2" - DFLL is used only for high rates above crossover with
+		PLL dvfs curve
+
+config TEGRA_TIMER_HZ
+	int "Kernel HZ (jiffies per second)"
+	default "100" if TEGRA_FPGA_PLATFORM
+	default "1000"
+
+config TEGRA_SOCTHERM
+	bool "Enable soctherm"
+	depends on ARCH_TEGRA_11x_SOC
+	default y
+        help
+	  Enables use of soctherm for thermal management.
+
+config TEGRA_VIRTUAL_CPUID
+	bool "virtualized CPUID"
+	depends on !TRUSTED_FOUNDATIONS
+	depends on ARCH_TEGRA_HAS_SYMMETRIC_CPU_PWR_GATE
+	default n
+	help
+	  Enables virtualized CPUID.
+
+config TEGRA_NVDUMPER
+	bool "Enable NvDumper for post-mortem debugging"
+	default n
+	help
+	  The nvdumper is a tool that saves a copy of RAM following a crash.
+	  nvdumper kernel module tracks whether the system has been rebooted
+	  cleanly. It does this by writing 'dirty' to a fixed physical memory
+	  address when the kernel starts.
+	  Then, on a planned reboot, we write 'clean' to this location.
+	  The bootloader can then examine this location and see if the reboot
+	  was dirty or clean.
+	  It will dump the contents of memory after a dirty reboot.
+	  This tool would be helpful for debugging kernel crash.
+	  In order to use this feature, you should enable debug feature in
+	  bootloader compiling option also (-DENABLE_NVDUMPER).
+	  You can dump RAM with nvflash tool in dirty boot status.
+	  usage: nvflash --dumpram [phy. RAM offset] [length] <filename>
+
+config TEGRA_ARBITRATION_EMEM_INTR
+	bool "Enable the ARBITRATION_EMEM interrupt in the MC"
+	help
+	  Enable this to allow the kernel to track arbitration conflicts
+	  in the memory controller.
+
+config TEGRA_CORE_EDP_LIMITS
+	bool "Enforce electrical design limits on core rail"
+	depends on TEGRA_SILICON_PLATFORM
+	depends on THERMAL
+	default n
+	help
+	  Limit maximum GPU and memory frequency to keep core rail current
+	  within power supply capabilities.
+
+config TEGRA_PLLM_SCALED
+	bool "Enable memory PLLM run time scaling"
+	depends on TEGRA_DUAL_CBUS
+	select TEGRA_PLLM_RESTRICTED
+	default n
+	help
+	  When enabled, memory PLLM can be scaled at run time to reduce
+	  granularity of possible memory rate steps. In this case PLLC
+	  provides a backup memory clock while PLLM is re-locking to the
+	  new rate.
+
+config TEGRA_ATOMICS
+	bool "Support atomics operation"
+	depends on SMP
+	help
+	  When enabled, spin lock type of synchronzation can be done between
+	  two processors when global monitor is not available.
+
+config TEGRA_USE_NCT
+	bool "Enable NCT partition access"
+	help
+	  When enabled, we can read non-volatile items from NCT partition.
+
+config TEGRA_VDD_CORE_OVERRIDE
+	bool "Enable core rail override support"
+	depends on TEGRA_SILICON_PLATFORM
+	default n
+	help
+	  When enabled, core rail can be fixed and locked at specified voltage
+	  within override range, and core modules clocks are capped at rates
+	  safe at override level.
+endif

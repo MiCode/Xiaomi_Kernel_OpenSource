@@ -1,0 +1,110 @@
+config MACH_P852
+	bool "P852 board"
+	depends on ARCH_TEGRA_2x_SOC
+	help
+	  Support for NVIDIA P852 platform
+
+config P852_SKU1
+	bool "P852 SKU1 board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU1 platform
+
+config P852_SKU1_B00
+	bool "P852 SKU1 rev B board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU1 B00 platform
+
+config P852_SKU1_C0x
+	bool "P852 SKU1 rev C boards"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU1 C0x platform
+
+config P852_SKU3
+	bool "P852 SKU3 board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU3 platform
+
+config P852_SKU5_B00
+	bool "P852 SKU5 rev B board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU5 B00 platform
+
+config P852_SKU5_C01
+	bool "P852 SKU5 rev C board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU5 C01 platform
+
+config P852_SKU8_B00
+	bool "P852 SKU8 rev B board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU8 B00 platform
+
+config P852_SKU8_C01
+	bool "P852 SKU8 rev C board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU8 C01 platform
+
+config P852_SKU9_B00
+	bool "P852 SKU9 rev B board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU9 B00 platform
+
+config P852_SKU9_C01
+	bool "P852 SKU9 rev C board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU9 C01 platform
+
+config P852_SKU13
+	bool "P852 SKU13 board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU13 platform
+
+config P852_SKU13_B00
+	bool "P852 SKU13 rev B board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU23 B00 platform
+
+config P852_SKU23
+	bool "P852 SKU23 board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU23 platform
+
+config P852_SKU23_B00
+	bool "P852 SKU23 rev B board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU23 B00 platform
+
+config P852_SKU23_C01
+	bool "P852 SKU23 rev C board"
+	depends on MACH_P852
+	default MACH_P852
+	help
+	  Support for NVIDIA P852 SKU23 C01 platform

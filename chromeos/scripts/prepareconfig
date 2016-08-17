@@ -1,0 +1,19 @@
+#!/bin/bash
+
+family=chromeos
+
+flavourconf=$(find ${family}/config -name $1.flavour.config)
+if [ ! -f "${flavourconf}" ]; then
+    echo "Found no flavour configuration for '$1'." 1>&2
+    exit 1
+fi
+
+outputfile="${2:-.config}"
+
+archconfdir=$(dirname ${flavourconf})
+arch=$(basename ${archconfdir})
+
+# Generate .config
+cat "${family}/config/base.config" \
+    "${archconfdir}/common.config" \
+    "${flavourconf}" > "${outputfile}"

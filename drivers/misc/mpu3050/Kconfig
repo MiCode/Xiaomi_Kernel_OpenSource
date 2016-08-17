@@ -1,0 +1,65 @@
+
+menu "Motion Sensors Support"
+
+choice
+    tristate "Motion Processing Unit"
+    depends on I2C
+    optional
+
+config MPU_SENSORS_MPU3050
+    tristate "MPU3050"
+    help
+      If you say yes here you get support for the MPU3050 Gyroscope driver
+      This driver can also be built as a module.  If so, the module
+      will be called mpu3050.
+
+config MPU_SENSORS_MPU6000
+    tristate "MPU6000"
+    help
+      If you say yes here you get support for the MPU6000 Gyroscope driver
+      This driver can also be built as a module.  If so, the module
+      will be called mpu6000.
+
+endchoice
+
+choice
+    prompt "Accelerometer Type"
+    depends on MPU_SENSORS_MPU3050
+    optional
+
+config MPU_SENSORS_KXTF9
+    bool "Kionix KXTF9"
+    help
+      This enables support for the Kionix KXFT9 accelerometer
+
+endchoice
+
+choice
+    prompt "Compass Type"
+    depends on MPU_SENSORS_MPU6000 || MPU_SENSORS_MPU3050
+    optional
+
+config MPU_SENSORS_AK8975
+    bool "AKM ak8975"
+    help
+      This enables support for the AKM ak8975 compass
+
+endchoice
+
+config MPU_SENSORS_TIMERIRQ
+    tristate "Timer IRQ"
+    help
+    If you say yes here you get access to the timerirq device handle which
+    can be used to select on. This can be used instead of IRQ's, sleeping,
+    or timer threads. Reading from this device returns the same type of
+    information as reading from the MPU and slave IRQ's.
+
+config MPU_SENSORS_DEBUG
+    bool "MPU debug"
+    depends on MPU_SENSORS_MPU3050 || MPU_SENSORS_MPU6000 || MPU_SENSORS_TIMERIRQ
+    help
+      If you say yes here you get extra debug messages from the MPU3050
+      and other slave sensors.
+
+endmenu
+

@@ -1,0 +1,36 @@
+
+DYNAMIC EDP CAPPING IN GENERAL
+
+The goal of dynamic EDP capping is to maximize performance of a system
+without violating the peak-current capacity of that system's power
+source.
+
+Dynamic EDP Capping makes sense in systems with:
+	[*] a power source of finite peak-current capacity
+	[*] one or more controllable variables which have a known
+	    effect on peak current consumption from the power source.
+	[*] One or more variables whose changes are:
+		- observable in	advance and
+		- which have a known effect on peak current consumption
+		  from the power source
+
+In a system with only one controllable variable, the control algorithm
+is extremely simple. When the observables change, the algorithm solves
+for the maximum permissible current associated with the controllable and
+then limits the controllable as necessary to keep its current under that
+limit.
+
+In a system with more than one controllables, the control algorithm
+needs to worry about a strategy which controls the sum of their current
+while maximizing performance. There may or may not be a provably correct
+algorithm for that. If not, the EDP capping needs to fall back on a
+heuristic-based policy for choosing how to spread the pain among the
+controllables.
+
+In practice, the selection of controllables and observables is
+debatable. The simpler the set, the lower the software &
+characterization overhead. However, the simpler the set, the less
+accuracy that the observables+controllables provide in estimating the
+peak current. The larger the worst-case estimation error, the more
+performance must be sacrificed from the controllables in order to avoid
+violating the power sources peak-current capacity.

@@ -1,0 +1,200 @@
+
+EDP API GUIDE
+
+1. Introduction
+
+This document explains how to setup an EDP framework for a system. It is
+assumed that you have read 'dynamic-edp-capping' and 'design' before
+getting here.
+
+2. Config flags
+
+EDP framework implementation depends on the CONFIG_EDP_FRAMEWORK flag.
+When this is disabled, all the APIs either return an error code or does
+nothing.
+
+3. Include files
+
+#include <linux/edp.h>
+
+4. EDP manager
+
+The manager represents the current source with its limited capacity that
+needs to be budgetted across various client drivers. A typical example
+is the battery. As this is the basic building block of the framework, it
+is necessary to create and register the manager object before the
+clients can make any request. Following is an example:
+
+	#include <linux/edp.h>
+
+	/* Define the battery EDP manager - imax indicates the cap */
+	struct edp_manager battery_edp_manager = {
+		.name = "battery",
+		.imax = 9800
+	};
+
+	...
+
+	/* Register the battery EDP manager */
+	static int __init board_init(void)
+	{
+		return edp_register_manager(&battery_edp_manager);
+	}
+	early_initcall(board_init);
+
+5. EDP client
+
+A client needs to be registered before it can make requests. Following
+examples show how the usual operations are performed.
+
+	Example 1:
+
+	/* E-state ids */
+	#define CPU_EDP_MAX	0
+	#define CPU_EDP_HIGH	1
+	#define CPU_EDP_NORMAL	2
+	#define CPU_EDP_LOW	3
+	#define CPU_EDP_MIN	4
+
+	/* E-state array */
+	static unsigned int cpu_edp_states[] = {
+		7500, 6000, 3000, 2000, 1000
+	};
+
+	/* throttle callback function */
+	static void throttle_cpu(unsigned int new_state)
+	{
+		/* lower the operating point */
+		...
+	}
+
+	/*
+	 * promotion call back - a previously rejected request is now
+	 * granted
+	 */
+	static void promote_cpu(unsigned int new_state)
+	{
+		/* increase the operating point */
+		...
+	}
+
+	/* loan size changed */
+	static unsigned int update_cpu_loan(unsigned int new_size,
+			struct edp_client *)
+	{
+		/* increase the operating point */
+		...
+
+		/* return the amount of loan consumed */
+		return new_size;
+	}
+
+	/* cpu client: see the include header for more info */
+	struct edp_client cpu_edp_client = {
+		.name = "cpu",
+		.states = cpu_edp_states,
+		.num_states = ARRAY_SIZE(cpu_edp_states),
+		.e0_index = CPU_EDP_NORMAL,
+		.priority = EDP_MIN_PRIO,
+		.throttle = throttle_cpu,
+		.notify_promotion = promote_cpu,
+		.notify_loan_update = update_cpu_loan
+	};
+
+	...
+
+	static int __init platform_cpu_dvfs_init(void)
+	{
+		...
+
+		/* register the EDP client */
+		if (edp_register_client(&battery_edp_manager,
+				&cpu_edp_client))
+			/* fatal error! */
+
+		/* request E0 - must succeed */
+		err = edp_update_client_request(&cpu_edp_client,
+				CPU_EDP_NORMAL, NULL);
+
+		/* get the modem client pointer */
+		modem_client = edp_get_client("modem");
+
+		/* borrow from modem */
+		err = edp_register_loan(modem, &cpu_edp_client);
+
+		...
+	}
+
+	static int cpu_target(struct cpufreq_policy *policy,
+			unsigned int target_freq,
+			unsigned int relation)
+	{
+		unsigned int req;
+		unsigned int approved;
+
+		...
+
+		/* Calculate E-state id for target_freq */
+		req = to_estateid(target_freq);
+		err = edp_update_client_request(&cpu_edp_client, req,
+				&approved);
+
+		if (approved != req)
+			/* got a lower E-state granted */
+
+		...
+	}
+
+	Example 2:
+
+	static unsigned int modem_states[] = { ... }
+
+	/* modem client */
+	struct edp_client modem_edp_client = {
+		.name = "modem",
+		.states = modem_states,
+		.num_states = ARRAY_SIZE(num_states),
+		.e0_index = MODEM_EDP_E0,
+		.priority = EDP_MAX_PRIO + 3,
+		.max_borrowers = 1,
+		...
+	};
+
+	static int __init modem_edp_init(void)
+	{
+		...
+
+		/* get the manager */
+		battery_manager = edp_get_manager("battery");
+		if (!battery)
+			/* fatal error! */
+
+		err = edp_register_client(battery_manager,
+			&modem_edp_client);
+
+		...
+	}
+
+	static void update_modem_state(int state)
+	{
+		...
+
+		if (state == MODEM_RELAX) {
+			...
+
+			/* calc loan threshold */
+			threshold = ...
+			err = edp_update_loan_threshold(
+					&modem_edp_client, threshold);
+			...
+		} else if (state == MODEM_RUNNING) {
+			err = edp_update_client_request(
+					&modem_edp_client,
+					MODEM_EDP_E2H, &approved);
+
+			/* freeze the loan */
+			err = edp_update_loan_threshold(
+					&modem_edp_client, 0);
+			...
+		}
+	}

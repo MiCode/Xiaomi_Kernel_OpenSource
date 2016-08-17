@@ -1,0 +1,9 @@
+config SD8797_BT_DEBUG
+	depends on SD8797
+	bool "Debug option"
+	default n
+	---help---
+          DEBUG LEVEL n/1/2:
+          n: NO DEBUG
+          1: Only PRINTM(MMSG,...), PRINTM(MFATAL,...), ...
+          2: All PRINTM()

@@ -1,0 +1,8 @@
+config TRUSTED_FOUNDATIONS
+	bool "Enable TF Driver"
+	default n
+	select CRYPTO_SHA1
+	help
+	  This option adds kernel support for communication with the Trusted Foundations.
+	  Default options is n
+	  If you are unsure how to answer this question, answer N.

@@ -1,0 +1,151 @@
+/*
+ * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ */
+
+/include/ "skeleton.dtsi"
+
+/ {
+	compatible = "nvidia,tegra114";
+	interrupt-parent = <&intc>;
+
+	aliases {
+		i2c0 = &i2c1;
+		i2c1 = &i2c2;
+		i2c2 = &i2c3;
+		i2c3 = &i2c4;
+		i2c4 = &i2c5;
+	};
+
+	intc: interrupt-controller@50041000 {
+		compatible = "arm,cortex-a15-gic";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0x50041000 0x1000>,
+		      <0x50042000 0x0100>;
+		status = "disabled";
+	};
+
+	pinmux: pinmux {
+		compatible = "nvidia,tegra114-pinmux";
+		reg = <0x70000868 0xd4    /* Pad control registers */
+		       0x70003000 0x3e4>; /* Mux registers */
+		status = "disabled";
+	};
+
+	timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <1 13 0xf04
+			      1 14 0xf04>;
+		clock-frequency = <12000000>;
+		status = "disabled";
+	};
+
+	gpio: gpio@6000d000 {
+		compatible = "nvidia,tegra114-gpio", "nvidia,tegra30-gpio";
+		reg = <0x6000d000 0x1000>;
+		interrupts = <0 32 0x04
+				0 33 0x04
+				0 34 0x04
+				0 35 0x04
+				0 55 0x04
+				0 87 0x04
+				0 89 0x04
+				0 125 0x04>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		status = "disabled";
+	};
+
+	i2c1: i2c@7000c000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra114-i2c";
+		reg = <0x7000c000 0x100>;
+		interrupts = <0 38 0x04>;
+		scl-gpios = <&gpio 20 0>; /* gpio PC4 */
+		sda-gpios = <&gpio 21 0>; /* gpio PC5 */
+		status = "disabled";
+	};
+
+	i2c2: i2c@7000c400 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra114-i2c";
+		reg = <0x7000c400 0x100>;
+		interrupts = <0 84 0x04>;
+		scl-gpios = <&gpio 157 0>; /* gpio PT5 */
+		sda-gpios = <&gpio 158 0>; /* gpio PT6 */
+		status = "disabled";
+	};
+
+	i2c3: i2c@7000c500 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra114-i2c";
+		reg = <0x7000c500 0x100>;
+		interrupts = <0 92 0x04>;
+		scl-gpios = <&gpio 217 0>; /* gpio PBB1 */
+		sda-gpios = <&gpio 218 0>; /* gpio PBB2 */
+		status = "disabled";
+	};
+
+	i2c4: i2c@7000c700 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra114-i2c";
+		reg = <0x7000c700 0x100>;
+		interrupts = <0 120 0x04>;
+		scl-gpios = <&gpio 172 0>; /* gpio PV4 */
+		sda-gpios = <&gpio 173 0>; /* gpio PV5 */
+		status = "disabled";
+	};
+
+	i2c5: i2c@7000d000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra114-i2c";
+		reg = <0x7000d000 0x100>;
+		interrupts = <0 53 0x04>;
+		scl-gpios = <&gpio 206 0>; /* gpio PZ6 */
+		sda-gpios = <&gpio 207 0>; /* gpio PZ7 */
+		status = "disabled";
+	};
+
+	sdhci@78000600 {
+		compatible = "nvidia,tegra114-sdhci", "nvidia,tegra20-sdhci";
+		reg = <0x78000600 0x200>;
+		interrupts = < 0 31 0x04 >;
+		status = "disabled";
+	};
+	sdhci@78000400 {
+		compatible = "nvidia,tegra114-sdhci", "nvidia,tegra20-sdhci";
+		reg = <0x78000400 0x200>;
+		interrupts = < 0 19 0x04 >;
+		status = "disabled";
+	};
+	sdhci@78000200 {
+		compatible = "nvidia,tegra114-sdhci", "nvidia,tegra20-sdhci";
+		reg = <0x78000200 0x200>;
+		interrupts = < 0 15 0x04 >;
+		status = "disabled";
+	};
+	sdhci@78000000 {
+		compatible = "nvidia,tegra114-sdhci", "nvidia,tegra20-sdhci";
+		reg = <0x78000000 0x200>;
+		interrupts = < 0 14 0x04 >;
+		status = "disabled";
+	};
+
+	camera {
+		compatible = "nvidia,tegra114-camera", "nvidia,tegra20-camera";
+		reg = <0x0 0x0>;
+		status = "disabled";
+	};
+};

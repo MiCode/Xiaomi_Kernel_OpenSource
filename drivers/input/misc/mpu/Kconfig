@@ -1,0 +1,12 @@
+#
+# inv-mpu drivers for Invensense MPU devices and combos
+#
+
+config INV_MPU
+    tristate "Invensense MPU devices"
+    depends on I2C && SYSFS && INPUT
+    default n
+    help
+      This driver supports the Invensense MPU devices.
+      This driver can be built as a module. The module will be called
+      inv-mpu.

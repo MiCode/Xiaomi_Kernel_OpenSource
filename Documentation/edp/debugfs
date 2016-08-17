@@ -1,0 +1,36 @@
+
+EDP DEBUGFS
+
+1. Introduction
+
+EDP debugfs root is at /sys/kernel/debug/edp. Manager and client objects
+appear as subfolders under the root, forming a tree structure similar to
+the EDP sysfs entries.
+
+Following sections describe the debufs attributes. Unless stated
+otherwise, all attributes have RW permissions.
+
+2. EDP manager
+
+	[1] cap: Peak current capacity - reading will return the present
+	    value and writting will set a new cap. Note that the cap can
+	    not be set lower than the sum of E0 currents of all clients.
+	    Lowering the cap might result in throttling of clients.
+
+	[2] status (read-only): Gives a snap shot of the manager and its
+	    budget distribution.
+
+3. EDP clients
+
+Following is the list of common client attributes. The client driver may
+add additional device specfic attributes under the same folder.
+
+	[1] current: Force a certain client's E-state. Write the state
+	    index to force the state. Read will return the state value.
+	    The request is processed only if it can be handled fully
+	    (that is, the client will not be assigned a lesser E-state).
+	    If the state can not be changed due to insufficient budget,
+	    the operation fails.  Note that this request may be
+	    overriden by other requests. To prevent this from happening,
+	    choose the debug policy governor (see the EDP governor
+	    documentation).

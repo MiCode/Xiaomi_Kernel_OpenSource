@@ -1,0 +1,155 @@
+
+SYSTEM EDP CAPPING DESIGN
+
+1. Introduction
+
+This document uses a glossary of terms to explain the design of System
+EDP capping.
+
+2. System EDP manager
+
+The central piece of software which dynamically allocates
+current-sourcing capacity to EDP client drivers for use by their
+devices. A system may have more than one manager. Managers are
+distinguished by their unique names.
+
+3. EDP client driver
+
+The device driver associated with one particular power consuming device.
+EDP client drivers register with the System EDP manager to monitor and
+manage the current consumption of their associated device. A client can
+be registered with only one manager at any given time.
+
+4. E-state
+
+Electrical states which are defined per EDP client and numbered {...
+E-2, E-1, E0, E1, E2...}.  Each E-state for a given driver indicates a
+particular maximum current consumption.
+
+	[*] Higher E-state: an E-state closer to E-infinity. E-1 is
+	    higher than E0, E1 is higher than E2 etc.
+	[*] Lower E-state: an E-state closer to Einfinity. E-1 is lower
+	    than E-2, E1 is lower than E0 etc.
+	[*] Positive E-states: E0, E1, E2...
+	[*] Negative E-state: ...E-3, E-2, E-1.
+	[*] E0: the system EDP manager guarantees that it can provide
+	    E0 simultaneously for all devices.
+
+In practice, E-states are defined as an array of maximum current
+consumption for each state and are identified by their offset into this
+array.  The states should be sorted in descending order (highest E-state
+appearing first).
+
+E0 for each client must be specified explicitly by providing its id
+while registering the client with a manager.  Rest of the E-states are
+determined according to their relative position to E0. For example, E-1
+is the state at e0_index - 1, E2 is the state at e0_index + 2 etc.
+
+5. EDP client registration
+
+An EDP client calls into the EDP manager (roughly once per boot) to
+register itself as a client. During registration, the EDP client
+provides its list of E-states to the System EDP manager. If a client
+attempts to register with an intolerably high E0 current (i.e. a current
+which pushes the sum of all E0 currents too high), the EDP manager will
+raise a fatal error.
+
+6. E-state request
+
+An EDP client calls into the EDP manager (issues an E-state request)
+BEFORE going to a higher E-state and AFTER going to a lower E-state. The
+EDP manager will:
+
+	[*] always approve requests to dgo to a lower E-state
+	[*] always approve requests to go to a non-negative E-state and
+	[*] either approve or reject a request to go to a higher
+	    negative E-state.
+
+When the EDP manager rejects an E-state request, it returns a lower
+E-state to the client. The client then transitions to that E-state
+without needing to make a new request.
+
+7. Throttling
+
+A client is said to being throttled when its manager demands it to
+transition to a lower E-state in order to meet requests from other
+clients. A client is never asked to transition beyond E0 which means
+that throttling is done only to those clients that are running at a
+negative E-state. The EDP manager blocks until the client finishes
+transitioning to the lower E-state.
+
+8. Callbacks
+
+An EDP client may provide the following callbacks which are invoked by
+the manager at various stages.
+
+	[*] throttle: invoked when the client is being throttled;
+	    mandatory for those clients that support negative E-states
+	[*] promotion notification (optional): to inform the client
+	    that a previously rejected request is granted now.
+	[*] loan update notification: to inform the client that a loan
+	    amount is changed; mandatory for clients that are engaged
+	    in a loan agreement.
+	[*] loan closure: to inform the client that a loan is now
+	    closed; mandatory for clients that are engaged in a loan
+	    agreement.
+
+All callbacks are synchronous which means that the total time for an
+operation is affected by client processing. Therefore, it is important
+to reschedule any non-critical time consuming steps on a different
+context.
+
+IMPORTANT: Callbacks are invoked by the EDP manager while holding its
+lock.  Thefore, clients should never call into the EDP framework from
+the callback path. Not doing so shall result in a deadlock.
+
+9. EDP lender
+
+Some current consuming devices have side-band mechanisms which lets them
+share a current consumption budget.  An EDP lender is an EDP client
+driver:
+
+	[*] whose device typically draws current less than some
+	    (dynamically varying) threshold
+	[*] whose occasionally draws more than its threshold but less
+	    than allowed by its current E-state
+	[*] which asserts (or whose device asserts) a side-band signal
+	    prior to exceeding the threshold
+
+10. EDP loan
+
+An EDP loan is a contract allowing an EDP borrower to borrow current
+consumption budget according to the difference between an EDP lender's
+E-state and its threshold when the side-band is deasserted.
+
+11. EDP borrower
+
+An EDP borrower is an EDP client driver which:
+
+	[*] gets its base current consumption budget by setting an
+	    E-state with the EDP manager
+	[*] enters into an EDP loan with an EDP lender
+	[*] borrows from the EDP lender's borrows additional current
+	    budget according to the difference between an EDP lender's
+	    E-state and its threshold when the side-band is deasserted.
+	[*] stops borrowing from the EDP lender's budget whenever the
+	    side-band is asserted
+
+12. EDP loan API
+
+An EDP lender and an EDP borrower register their loan with the EDP
+manager via the EDP loan API. Additionally the EDP lender manages its
+threshold via the EDP loan API. The EDP manager informs the borrower
+whenever the loan size changes (due to a change in the lender's E-state
+or threshold).
+
+For example, a modem's peak transmit state might require E0 but its
+typical transmit state requires only E2. The modem driver can loan the
+difference between typical and peak to the CPU as long as the CPU stops
+borrowing when it is told to do so (the loan size becomes 0).
+
+13. Policies
+
+Policies decide how to allocate the available power budget to clients.
+These are implemented by corresponding governors and is explained in a
+separate document.

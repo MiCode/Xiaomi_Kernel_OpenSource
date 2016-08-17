@@ -1,0 +1,84 @@
+
+EDP GOVERNORS
+
+1. Introduction
+
+EDP governors implements the policy for current budget allocation amoung
+clients. In general, the governor decides budget allocation in the
+following situations:
+
+	[*] When a client makes an E-state request. If the request can
+	    not be met with the remaining current, other clients may be
+	    throttled to recover extra current which can then be granted
+	    to the requester. If the request is unfarely high, a reduced
+	    E-state has to be decided according to the policy.
+
+	[*] When there is an increase in the manager's remaining cap,
+	    the governor will try to distribute the surplus amoung
+	    clients whose requests were previously rejected or who were
+	    throttled during the above step.
+
+	[] When a client has more than one borrower, the loan has to be
+	   distributed.
+
+Following sections provides a short description about available
+governors.
+
+2. Priority
+
+As the name indicates, this governor implements a priority based
+allocation in which higher priority clients are given preference. When a
+budget recovery takes place, lower priority clients are throttled before
+the higher priority ones. Similarly, during a promotion cycle or during
+a loan update, higher priority clients are served first.
+
+If the request can not be satisfied by throttling lower priority
+clients, the requested E-state may be lowered at most to E0. This
+ensures that higher priority clients are throttled only to provide
+minimum guarantee E-state.
+
+3. Overage
+
+Overage governor uses a proportional allocation based on the difference
+between the current E-state level and E0 (named the 'overage'). This
+causes all clients to increase or decrease in their E-state some what
+simultaneously. Hence this is fare allocation policy and ensures that no
+client is throttled too much.
+
+4. Fair
+
+Fair governor policy is similar to overage policy, but the proportion is
+based on E0-state level of clients.
+
+5. Best Fit
+
+This policy searches for a best-fit solution where the number of
+throttles and remaining current is minimum. If the optimal solution
+includes an E-state which is less than what is requested, then that will
+be approved (subject to the general EDP rules).
+
+Since the perfect solution would involve several passes across all
+clients, a trade-off is made to approximate the optimum so that the
+algorithm complexity remains linear.
+
+6. Least Recently Requested (LRR)
+
+An arrival-queue based policy where the least recently requested client
+is throttled first.
+
+7. Most Recently Requested (MRR)
+
+Another arrival-queue based policy where the most recently requested
+client is throttled first.
+
+8. Round Robin (RR)
+
+In this policy, clients are throttled in a round-robin fashion.
+
+9. Debug
+
+When the debug policy governor is selected, the framework stops
+processing requests from clients. Further changes to the client E-states
+can only be made manually via debugfs (see the EDP debugfs
+documentation). This allows one to do manual budget allocations and
+prevent clients from overriding them.

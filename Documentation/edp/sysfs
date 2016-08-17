@@ -1,0 +1,41 @@
+
+EDP SYSFS
+
+1. Introduction
+
+EDP sysfs root is at /sys/power/edp. Manager and client objects appear
+as subfolders under the root forming a tree structure where clients
+appear under the managers to whom they are registered.
+
+Following sections describe the sysfs attributes. Unless explicitly
+mentioned, all files are read-only.
+
+2. EDP root level attributes
+
+	[1] governors: shows the name of available EDP policy governors.
+
+3. EDP manager
+
+Manager entries appear under the EDP root folder as subfolder with the
+same name. It contains the following attributes:
+
+	[1] cap: peak current capacity
+	[2] remaining: remaining current
+	[3] governor: current policy governor - writting to this will
+	    change the governor
+
+4. EDP clients
+
+Client objects appear under their manager folders as subfolder with the
+client name. Attributes:
+
+	[1] states: E-state values
+	[2] num_states: number of E-states
+	[3] E0: E0 state value
+	[4] max_borrowers: maximum number of borrowers allowed
+	[5] priority: client's priority
+	[6] request: current request value
+	[7] current: current state's value
+	[8] threshold: loan threshold
+	[9] borrowers: number of borrowers
+	[10] number of loans.

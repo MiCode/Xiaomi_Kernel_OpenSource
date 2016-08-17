@@ -1,0 +1,108 @@
+Thermal estimator driver.
+
+Properties :
+ - compatible : Should contain "nvidia,therm-est".
+ - toffset : Temperature offset for thermal estimation, in milli-celsius.
+ - polling-period : Polling wait times for thermal estimation, in milliseconds.
+ - passive-delay : Polling wait times for passive cooling, in milliseconds.
+ - tc1 : Coefficient 1 for thermal trend calculation.
+ - tc2 : Coefficient 2 for thermal trend calculation.
+ - node for trip : Node for trip point information. Required.
+     This node can be numerous.
+ - node for subdev : Node for subdevice information. Required.
+     This node can be numerous.
+ - node for tzp : Node for thermal zone platform parameters. Optional.
+ - node for timer trip : Node for timer trip point information. Optional.
+     This node can be numerous.
+
+Properties in trips node : Required. Can be numerous.
+ - compatible : Should contain "nvidia,therm-est-trip".
+ - cdev-type : Thermal cooling device type for binding with the thermal
+     estimator thermal zone.
+ - trip-type : Type of this trip point.
+     This should be one of types in active, passive, hot, and critical.
+ - trip-temp : Temperature to fire this trip point, in milli-celsius.
+ - hysteresis : Hysteresis temperature for this trip point, in milli-celsius.
+ - upper : Upper limit of the cooling state for this trip point. Optional.
+     "-1" = THERMAL_NO_LIMIT: no upper limit.
+         If no upper property, THERMAL_NO_LIMIT will be used.
+ - lower : Lower limit of the cooling state for this trip point. Optional.
+     "-1" = THERMAL_NO_LIMIT: no lower limit.
+         If no lower property, THERMAL_NO_LIMIT will be used.
+
+Properties in subdevice node : Required. Can be numerous.
+ - compatible : Should contain "nvidia,therm-est-subdev".
+ - dev_data : Thermal zone device type for thermal estimation.
+ - coeffs : An array of coefficients, the number of entries should be twenty.
+
+Properties in tzp node : Optional
+ - compatible : Should contain "nvidia,therm-est-tzp".
+ - governor : Thermal throttling governor name.
+     The available governors could be different by Kernel build options.
+
+Properties in timer trip : Optional. Can be numerous.
+ - compatible : Should contain "nvidia,therm-est-timer-trip".
+ - trip : Trip point to apply timer trip in the thermal estimator thermal zone.
+ - node for timer : Nodes for timer trip point information. Required.
+     This node can be numerous.
+
+Properties in timer : Required if the timer trip is exist. Can be numerous.
+ - compatible : Should contain "nvidia,therm-est-timer-trip".
+ - time-after : Expiration time of the timer, in milliseconds.
+ - trip-temp : Trip temperature will be used for this trip point after timer
+     expires, in milli-celsius.
+ - hysteresis : Hysteresis temperature will be used for this trip point after
+     timer expires, in milli-celsius.
+
+Example:
+
+	therm_est {
+		compatible = "nvidia,therm-est";
+		toffset = <0>;
+		polling-period = <1100>;
+		passive-delay = <15000>;
+		tc1 = <10>;
+		tc2 = <1>;
+		trips@0 {
+			compatible = "nvidia,therm-est-trip";
+			cdev-type = "skin-balanced";
+			trip-type = "active";
+			trip-temp = <40000>;
+			hysteresis = <0>;
+			upper = "1"; // fix cooling state to 1
+			lower = "1";
+		};
+		trips@1 {
+			compatible = "nvidia,therm-est-trip";
+			cdev-type = "skin-balanced";
+			trip-type = "passive";
+			trip-temp = <45000>;
+			hysteresis = <5000>;
+			upper = "-1"; // THERMAL_NO_LIMIT
+			lower = "-1"; // THERMAL_NO_LIMIT
+		};
+		subdevs@0 {
+			compatible = "nvidia,therm-est-subdev";
+			dev-data = "nct_ext";
+			coeffs = "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0";
+		};
+		subdevs@1 {
+			compatible = "nvidia,therm-est-subdev";
+			dev-data = "nct_int";
+			coeffs = "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0";
+		};
+		tzp {
+			compatible = "nvidia,therm-est-tzp";
+			governor = "pid_thermal_gov";
+		};
+		timer-trips@0 {
+			compatible = "nvidia,therm-est-timer-trip";
+			trip = <1>; // this timer trip will be applied to trip1
+			timers@0 {
+				compatible = "nvidia,therm-est-timer";
+				time-after = <600000>;
+				trip-temp = <43000>;
+				hysteresis = <5000>;
+			};
+		};
+	};

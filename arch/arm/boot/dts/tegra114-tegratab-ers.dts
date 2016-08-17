@@ -1,0 +1,68 @@
+/*
+ * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+
+/include/ "tegra114-tegratab-common.dtsi"
+
+/ {
+	host1x {
+		status = "okay";
+		hdmi {
+			status = "okay";
+		};
+	};
+
+	/* GEN1 */
+	i2c@7000c000 {
+		status = "okay";
+		clock-frequency = <100000>;
+
+		/* ALS sensor */
+		cm3217@10 {
+			compatible = "capella,cm3217";
+			reg = <0x10>;
+			levels = <10 160 225 320 640 1280 2600 5800 8000 10240>;
+			golden_adc = <0>;
+		};
+
+		/* Compass sensor */
+		ak8963c@0d {
+			compatible = "ak,ak8963";
+			reg = <0x0d>;
+			orientation = [ff 00 00 00 ff 00 00 00 01];
+			config = "mpu";
+		};
+	};
+
+	/* CAM */
+	i2c@7000c500 {
+		status = "okay";
+		ad5823@0c {
+			compatible = "nvidia,ad5823";
+			reg = <0x0c>;
+			af-pwdn-gpios = <&gpio 223 0>; /* gpio PBB7 */
+		};
+		ov5693@10 {
+			compatible = "nvidia,ov5693";
+			reg = <0x10>;
+			nvidia,num = <5693>;
+			nvidia,dev-name = "camera";
+			nvidia,use-vcm-vdd;
+			reset-gpios = <&gpio 221 0>; /* gpio PBB5 */
+		};
+	};
+};

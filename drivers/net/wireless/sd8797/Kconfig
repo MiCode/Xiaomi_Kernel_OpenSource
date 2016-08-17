@@ -1,0 +1,49 @@
+config SD8797
+	tristate "Marvel 8797 wireless cards support"
+	depends on MMC
+	default n
+	---help---
+	  This module adds support for wireless adapters based on
+	  Marvel 8797 chipset.
+
+config STA_SUPPORT
+	depends on SD8797
+	bool "WLAN station support"
+	default y
+
+config UAP_SUPPORT
+	depends on SD8797
+	bool "Soft AP Support"
+	default y
+
+config WIFI_DIRECT_SUPPORT
+	depends on SD8797
+	bool "WiFi Direct Support"
+	default y
+
+config WIFI_DISPLAY_SUPPORT
+	depends on SD8797
+	bool "WiFi Display Support"
+	default n
+
+config STA_WEXT
+	depends on SD8797
+	depends on !CFG80211
+	bool "station wext support"
+	default n
+
+config UAP_WEXT
+	depends on SD8797
+	depends on !CFG80211
+	bool "UAP wext support"
+	default n
+
+config DEBUG
+	depends on SD8797
+	bool "Debug option"
+	default n
+	---help---
+          DEBUG LEVEL n/1/2:
+          n: NO DEBUG
+          1: Only PRINTM(MMSG,...), PRINTM(MFATAL,...), ...
+          2: All PRINTM()

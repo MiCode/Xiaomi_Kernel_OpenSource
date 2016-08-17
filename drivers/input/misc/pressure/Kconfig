@@ -1,0 +1,12 @@
+#
+# Kconfig for stand-alone pressure input device drivers
+#
+
+config INV_BMP180
+    tristate "Bosch BMP180 pressure input device driver"
+    depends on I2C && SYSFS && INPUT && INPUT_EVDEV
+    default n
+    help
+      This driver supports the Bosch BMP180 pressure sensor.
+      This driver can be built as a module. The module will be called
+      inv-bmp180.

@@ -1,0 +1,18 @@
+menuconfig ION
+	tristate "Ion Memory Manager"
+	select GENERIC_ALLOCATOR
+	select DMA_SHARED_BUFFER
+	help
+	  Chose this option to enable the ION Memory Manager.
+
+config ION_IOMMU
+       bool
+
+config ION_TEGRA
+	tristate "Ion for Tegra"
+	depends on ARCH_TEGRA && ION
+	select TEGRA_IOMMU_SMMU if !ARCH_TEGRA_2x_SOC
+	select ION_IOMMU if TEGRA_IOMMU_SMMU
+	help
+	  Choose this option if you wish to use ion on an nVidia Tegra.
+
