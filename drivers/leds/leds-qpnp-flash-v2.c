@@ -1050,6 +1050,32 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 	spin_unlock(&led->lock);
 }
 
+/* sysfs show function for flash_max_current */
+static ssize_t qpnp_flash_led_max_current_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int rc;
+	struct flash_switch_data *snode;
+	struct qpnp_flash_led *led;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	snode = container_of(led_cdev, struct flash_switch_data, cdev);
+	led = dev_get_drvdata(&snode->pdev->dev);
+
+	rc = qpnp_flash_led_get_max_avail_current(led);
+	if (rc < 0)
+		dev_err(&led->pdev->dev, "query max current failed, rc=%d\n",
+				rc);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", rc);
+}
+
+/* sysfs attributes exported by flash_led */
+static struct device_attribute qpnp_flash_led_attrs[] = {
+	__ATTR(max_current, (S_IRUGO | S_IWUSR | S_IWGRP),
+			qpnp_flash_led_max_current_show, NULL),
+};
+
 static int flash_led_psy_notifier_call(struct notifier_block *nb,
 		unsigned long ev, void *v)
 {
@@ -1785,7 +1811,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	struct device_node *node, *temp;
 	const char *temp_string;
 	unsigned int base;
-	int rc, i = 0;
+	int rc, i = 0, j = 0;
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -1946,12 +1972,36 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 		goto unreg_notifier;
 	}
 
+	for (i = 0; i < led->num_snodes; i++) {
+		for (j = 0; j < ARRAY_SIZE(qpnp_flash_led_attrs); j++) {
+			rc = sysfs_create_file(&led->snode[i].cdev.dev->kobj,
+					&qpnp_flash_led_attrs[j].attr);
+			if (rc < 0) {
+				dev_err(&pdev->dev, "sysfs creation failed, rc=%d\n",
+					rc);
+				goto sysfs_fail;
+			}
+		}
+	}
+
 	spin_lock_init(&led->lock);
 
 	dev_set_drvdata(&pdev->dev, led);
 
 	return 0;
 
+sysfs_fail:
+	for (--j; j >= 0; j--)
+		sysfs_remove_file(&led->snode[i].cdev.dev->kobj,
+				&qpnp_flash_led_attrs[j].attr);
+
+	for (--i; i >= 0; i--) {
+		for (j = 0; j < ARRAY_SIZE(qpnp_flash_led_attrs); j++)
+			sysfs_remove_file(&led->snode[i].cdev.dev->kobj,
+					&qpnp_flash_led_attrs[j].attr);
+	}
+
+	i = led->num_snodes;
 unreg_notifier:
 	power_supply_unreg_notifier(&led->nb);
 error_switch_register:
@@ -1968,9 +2018,13 @@ error_led_register:
 static int qpnp_flash_led_remove(struct platform_device *pdev)
 {
 	struct qpnp_flash_led *led = dev_get_drvdata(&pdev->dev);
-	int i;
+	int i, j;
 
 	for (i = 0; i < led->num_snodes; i++) {
+		for (j = 0; j < ARRAY_SIZE(qpnp_flash_led_attrs); j++)
+			sysfs_remove_file(&led->snode[i].cdev.dev->kobj,
+					&qpnp_flash_led_attrs[j].attr);
+
 		if (led->snode[i].num_regulators) {
 			if (led->snode[i].regulator_on)
 				qpnp_flash_led_regulator_enable(led,
@@ -1982,6 +2036,7 @@ static int qpnp_flash_led_remove(struct platform_device *pdev)
 
 	while (i > 0)
 		led_classdev_unregister(&led->snode[--i].cdev);
+
 	i = led->num_fnodes;
 	while (i > 0)
 		led_classdev_unregister(&led->fnode[--i].cdev);
