@@ -345,8 +345,8 @@ static void dsi_pll_disable_pll_bias(struct mdss_pll_resources *rsc)
 {
 	u32 data = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CTRL_0);
 
-	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_0, data & ~BIT(5));
 	MDSS_PLL_REG_W(rsc->pll_base, PLL_SYSTEM_MUXES, 0);
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_0, data & ~BIT(5));
 	ndelay(250);
 }
 
@@ -357,6 +357,22 @@ static void dsi_pll_enable_pll_bias(struct mdss_pll_resources *rsc)
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_0, data | BIT(5));
 	MDSS_PLL_REG_W(rsc->pll_base, PLL_SYSTEM_MUXES, 0xc0);
 	ndelay(250);
+}
+
+static void dsi_pll_disable_global_clk(struct mdss_pll_resources *rsc)
+{
+	u32 data;
+
+	data = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CLK_CFG1);
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CLK_CFG1, (data & ~BIT(5)));
+}
+
+static void dsi_pll_enable_global_clk(struct mdss_pll_resources *rsc)
+{
+	u32 data;
+
+	data = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CLK_CFG1);
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CLK_CFG1, (data | BIT(5)));
 }
 
 static int dsi_pll_enable(struct dsi_pll_vco_clk *vco)
@@ -385,6 +401,11 @@ static int dsi_pll_enable(struct dsi_pll_vco_clk *vco)
 	}
 
 	rsc->pll_on = true;
+
+	dsi_pll_enable_global_clk(rsc);
+	if (rsc->slave)
+		dsi_pll_enable_global_clk(rsc->slave);
+
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_RBUF_CTRL, 0x01);
 	if (rsc->slave)
 		MDSS_PLL_REG_W(rsc->slave->phy_base, PHY_CMN_RBUF_CTRL, 0x01);
@@ -395,8 +416,9 @@ error:
 
 static void dsi_pll_disable_sub(struct mdss_pll_resources *rsc)
 {
-	dsi_pll_disable_pll_bias(rsc);
+	dsi_pll_disable_global_clk(rsc);
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_RBUF_CTRL, 0);
+	dsi_pll_disable_pll_bias(rsc);
 }
 
 static void dsi_pll_disable(struct dsi_pll_vco_clk *vco)
