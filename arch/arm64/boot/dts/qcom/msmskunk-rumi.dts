@@ -22,3 +22,13 @@
 	compatible = "qcom,msmskunk-rumi", "qcom,msmskunk", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };
+
+&soc {
+	timer {
+		clock-frequency = <1000000>;
+	};
+
+	timer@0x17c90000 {
+		clock-frequency = <1000000>;
+	};
+};
