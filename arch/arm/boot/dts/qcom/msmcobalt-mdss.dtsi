@@ -387,11 +387,11 @@
 				"byte_clk_rcg", "pixel_clk_rcg",
 				"byte_intf_clk";
 
-			qcom,platform-strength-ctrl =  [ff 03
-							ff 03
-							ff 03
-							ff 03
-							ff 00];
+			qcom,platform-strength-ctrl =  [55 03
+							55 03
+							55 03
+							55 03
+							55 00];
 			qcom,platform-lane-config = [00 00 00 00
 						00 00 00 00
 						00 00 00 00
@@ -425,11 +425,11 @@
 				"byte_clk_rcg", "pixel_clk_rcg",
 				"byte_intf_clk";
 
-			qcom,platform-strength-ctrl =  [ff 03
-							ff 03
-							ff 03
-							ff 03
-							ff 00];
+			qcom,platform-strength-ctrl =  [55 03
+							55 03
+							55 03
+							55 03
+							55 00];
 			qcom,platform-lane-config = [00 00 00 00
 						00 00 00 00
 						00 00 00 00
