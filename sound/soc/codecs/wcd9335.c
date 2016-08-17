@@ -13357,8 +13357,11 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 
 err_pdata:
 	devm_kfree(codec->dev, ptr);
+	control->rx_chs = NULL;
+	control->tx_chs = NULL;
 err_hwdep:
 	devm_kfree(codec->dev, tasha->fw_data);
+	tasha->fw_data = NULL;
 err:
 	return ret;
 }
@@ -13366,6 +13369,11 @@ err:
 static int tasha_codec_remove(struct snd_soc_codec *codec)
 {
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *control;
+
+	control = dev_get_drvdata(codec->dev->parent);
+	control->rx_chs = NULL;
+	control->tx_chs = NULL;
 
 	tasha_cleanup_irqs(tasha);
 	/* Cleanup MBHC */

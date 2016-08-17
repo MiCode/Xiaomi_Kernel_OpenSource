@@ -808,6 +808,7 @@
 			 <&mdss_dsi1_pll clk_dsi1pll_byte_clk_mux>,
 			<&mdss_hdmi_pll clk_hdmi_vco_clk>;
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	clock_gpu: qcom,gpucc@8c0000 {

@@ -106,15 +106,6 @@
 
 #define EDP_INTR_MASK2		(EDP_INTR_STATUS2 << 2)
 
-struct edp_cmd {
-	char read;	/* 1 == read, 0 == write */
-	char i2c;	/* 1 == i2c cmd, 0 == native cmd */
-	u32 addr;	/* 20 bits */
-	char *datap;
-	int len;	/* len to be tx OR len to be rx for read */
-	char next;	/* next command */
-};
-
 struct edp_buf {
 	char *start;	/* buffer start addr */
 	char *end;	/* buffer end addr */
@@ -378,6 +369,8 @@ struct mdss_dp_drv_pdata {
 	char train_link_rate;	/* X 27000000 for real rate */
 	char train_lane_cnt;
 
+	u8 *edid_buf;
+	u32 edid_buf_size;
 	struct edp_edid edid;
 	struct dpcd_cap dpcd;
 
@@ -464,7 +457,7 @@ void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp);
 
 void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *dp);
-void mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp, int block);
+int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp);
 void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *dp, u32 isr);
 void dp_aux_native_handler(struct mdss_dp_drv_pdata *dp, u32 isr);

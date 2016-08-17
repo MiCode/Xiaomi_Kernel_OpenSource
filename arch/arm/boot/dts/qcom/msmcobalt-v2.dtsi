@@ -165,21 +165,21 @@
 	compatible = "qcom,gfxcc-cobalt-v2";
 	qcom,gfxfreq-speedbin0 =
 		<         0 0                           0 >,
-		< 189000000 1 RPM_SMD_REGULATOR_LEVEL_SVS >,
-		< 264000000 2 RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 180000000 1 RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 257000000 2 RPM_SMD_REGULATOR_LEVEL_SVS >,
 		< 342000000 3 RPM_SMD_REGULATOR_LEVEL_SVS >,
 		< 414000000 4 RPM_SMD_REGULATOR_LEVEL_SVS >,
-		< 520000000 5 RPM_SMD_REGULATOR_LEVEL_NOM >,
+		< 515000000 5 RPM_SMD_REGULATOR_LEVEL_NOM >,
 		< 596000000 6 RPM_SMD_REGULATOR_LEVEL_NOM >,
 		< 670000000 7 RPM_SMD_REGULATOR_LEVEL_TURBO >,
 		< 710000000 8 RPM_SMD_REGULATOR_LEVEL_TURBO >;
 	qcom,gfxfreq-mx-speedbin0 =
 		<         0                           0 >,
-		< 189000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
-		< 264000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 180000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 257000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
 		< 342000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
 		< 414000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
-		< 520000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
+		< 515000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
 		< 596000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
 		< 670000000 RPM_SMD_REGULATOR_LEVEL_TURBO >,
 		< 710000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
@@ -356,4 +356,15 @@
 	qcom,allow-voltage-interpolation;
 	qcom,allow-quotient-interpolation;
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+};
+
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq =
+			/* <value reg_offset> */
+				<0x13 0x04
+				0x7c 0x18c
+				0x80 0x2c
+				0x0a 0x184
+				0x00 0x240
+				0x19 0xb4>;
 };

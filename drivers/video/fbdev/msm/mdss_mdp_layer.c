@@ -347,10 +347,7 @@ static void __update_avr_info(struct mdss_mdp_ctl *ctl,
  */
 static bool __layer_needs_src_split(struct mdp_input_layer *layer)
 {
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	return (layer->flags & MDP_LAYER_ASYNC) ||
-		mdss_has_quirk(mdata, MDSS_QUIRK_SRC_SPLIT_ALWAYS);
+	return (layer->flags & MDP_LAYER_ASYNC);
 }
 
 static int __async_update_position_check(struct msm_fb_data_type *mfd,

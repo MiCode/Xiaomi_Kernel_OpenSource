@@ -243,6 +243,12 @@ Bus Scaling Data:
 Optional properties:
 - batfet-supply :	Phandle for battery FET regulator device node.
 - vdd-cx-supply :	Phandle for vdd CX regulator device node.
+- vdd-cx-min-uV :	The minimum voltage level in uV for the CX rail
+			whenever the display is on. If vdd-cx-supply is
+			specified, then this binding is mandatory.
+- vdd-cx-max-uV :	The maximum voltage level in uV for the CX rail
+			whenever the display is on. If vdd-cx-supply is
+			specified, then this binding is mandatory.
 - qcom,vbif-settings :	Array with key-value pairs of constant VBIF register
 			settings used to setup MDSS QoS for optimum performance.
 			The key used should be offset from "vbif_phys" register

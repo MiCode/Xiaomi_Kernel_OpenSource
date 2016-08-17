@@ -2702,7 +2702,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_HEVC);
 
 		if (is_cont_intra_supported) {
-			if (air_mbs || air_ref || cir_mbs)
+			if (ctrl->val != HAL_INTRA_REFRESH_NONE)
 				enable.enable = true;
 			else
 				enable.enable = false;

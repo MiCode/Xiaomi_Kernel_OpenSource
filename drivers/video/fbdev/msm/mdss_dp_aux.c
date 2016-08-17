@@ -228,6 +228,11 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 	return  ret;
 }
 
+int dp_aux_write(void *ep, struct edp_cmd *cmd)
+{
+	return dp_aux_write_cmds(ep, cmd);
+}
+
 static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 				struct edp_cmd *cmds)
 {
@@ -275,10 +280,18 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 	else
 		ret = ep->aux_error_num;
 
+	if (cmds->out_buf)
+		memcpy(cmds->out_buf, rp->data, cmds->len);
+
 	ep->aux_cmd_busy = 0;
 	mutex_unlock(&ep->aux_mutex);
 
 	return ret;
+}
+
+int dp_aux_read(void *ep, struct edp_cmd *cmds)
+{
+	return dp_aux_read_cmds(ep, cmds);
 }
 
 void dp_aux_native_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
@@ -665,7 +678,7 @@ static int dp_aux_chan_ready(struct mdss_dp_drv_pdata *ep)
 	char data = 0;
 
 	for (cnt = 5; cnt; cnt--) {
-		ret = dp_aux_write_buf(ep, 0x50, &data, 1, 1);
+		ret = dp_aux_write_buf(ep, EDID_START_ADDRESS, &data, 1, 1);
 		pr_debug("ret=%d\n", ret);
 		if (ret >= 0)
 			break;
@@ -680,43 +693,85 @@ static int dp_aux_chan_ready(struct mdss_dp_drv_pdata *ep)
 	return 0;
 }
 
-static int dp_sink_edid_read(struct mdss_dp_drv_pdata *ep, int block)
+int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 {
 	struct edp_buf *rp;
 	int cnt, rlen;
 	int ret = 0;
+	int blk_num = 0;
 
-	ret = dp_aux_chan_ready(ep);
+	ret = dp_aux_chan_ready(dp);
 	if (ret) {
 		pr_err("aux chan NOT ready\n");
 		return ret;
 	}
 
 	for (cnt = 5; cnt; cnt--) {
-		rlen = dp_aux_read_buf(ep, 0x50, 128, 1);
+		rlen = dp_aux_read_buf
+			(dp, EDID_START_ADDRESS, EDID_BLOCK_SIZE, 1);
 		if (rlen > 0) {
-			pr_debug("rlen=%d\n", rlen);
+			pr_debug("cnt=%d, block=%d, rlen=%d\n",
+					cnt, blk_num, rlen);
 
-			rp = &ep->rxp;
+			rp = &dp->rxp;
 			if (!dp_edid_buf_error(rp->data, rp->len))
 				break;
 		}
 	}
 
-	if (cnt <= 0) {
-		pr_err("Failed\n");
+	if ((cnt <= 0) && (rlen != EDID_BLOCK_SIZE)) {
+		pr_err("Read failed. rlen=%d\n", rlen);
 		return -EINVAL;
 	}
 
-	dp_extract_edid_manufacturer(&ep->edid, rp->data);
-	dp_extract_edid_product(&ep->edid, rp->data);
-	dp_extract_edid_version(&ep->edid, rp->data);
-	dp_extract_edid_ext_block_cnt(&ep->edid, rp->data);
-	dp_extract_edid_video_support(&ep->edid, rp->data);
-	dp_extract_edid_feature(&ep->edid, rp->data);
-	dp_extract_edid_detailed_timing_description(&ep->edid, rp->data);
+	rp = &dp->rxp;
 
-	return 128;
+	dp_extract_edid_manufacturer(&dp->edid, rp->data);
+	dp_extract_edid_product(&dp->edid, rp->data);
+	dp_extract_edid_version(&dp->edid, rp->data);
+	dp_extract_edid_ext_block_cnt(&dp->edid, rp->data);
+	dp_extract_edid_video_support(&dp->edid, rp->data);
+	dp_extract_edid_feature(&dp->edid, rp->data);
+	dp_extract_edid_detailed_timing_description(&dp->edid, rp->data);
+	/* for the first block initialize the edid buffer size */
+	dp->edid_buf_size = 0;
+
+	pr_debug("edid extension = %d\n",
+			dp->edid.ext_block_cnt);
+
+	memcpy(dp->edid_buf, rp->data, EDID_BLOCK_SIZE);
+	dp->edid_buf_size += EDID_BLOCK_SIZE;
+
+	if (!dp->edid.ext_block_cnt)
+		return 0;
+
+	for (blk_num = 1; blk_num <= dp->edid.ext_block_cnt;
+			blk_num++) {
+		for (cnt = 5; cnt; cnt--) {
+			rlen = dp_aux_read_buf
+				(dp, EDID_START_ADDRESS +
+				 (blk_num * EDID_BLOCK_SIZE),
+				 EDID_BLOCK_SIZE, 1);
+			if (rlen > 0) {
+				pr_debug("cnt=%d, blk_num=%d, rlen=%d\n",
+						cnt, blk_num, rlen);
+				rp = &dp->rxp;
+				if (!dp_edid_buf_error(rp->data, rp->len))
+					break;
+			}
+		}
+
+		if ((cnt <= 0) && (rlen != EDID_BLOCK_SIZE)) {
+			pr_err("Read failed. rlen=%d\n", rlen);
+			return -EINVAL;
+		}
+
+		memcpy(dp->edid_buf + (blk_num * EDID_BLOCK_SIZE),
+					rp->data, EDID_BLOCK_SIZE);
+		dp->edid_buf_size += EDID_BLOCK_SIZE;
+	}
+
+	return 0;
 }
 
 static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
@@ -1355,11 +1410,6 @@ void mdss_dp_fill_link_cfg(struct mdss_dp_drv_pdata *ep)
 	pr_debug("pclk=%d rate=%d lane=%d\n",
 		ep->pixel_rate, ep->link_rate, ep->lane_cnt);
 
-}
-
-void mdss_dp_edid_read(struct mdss_dp_drv_pdata *ep, int block)
-{
-	dp_sink_edid_read(ep, block);
 }
 
 int mdss_dp_link_train(struct mdss_dp_drv_pdata *ep)

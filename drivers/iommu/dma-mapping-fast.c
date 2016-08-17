@@ -14,6 +14,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
 #include <linux/io-pgtable-fast.h>
+#include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
 #include <asm/dma-iommu.h>
 
@@ -512,6 +513,33 @@ static void fast_smmu_free(struct device *dev, size_t size,
 	__fast_smmu_free_pages(pages, count);
 }
 
+static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
+				void *cpu_addr, dma_addr_t dma_addr,
+				size_t size, struct dma_attrs *attrs)
+{
+	struct vm_struct *area;
+	unsigned long uaddr = vma->vm_start;
+	struct page **pages;
+	int i, nr_pages, ret = 0;
+
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
+	area = find_vm_area(cpu_addr);
+	if (!area)
+		return -EINVAL;
+
+	pages = area->pages;
+	nr_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	for (i = vma->vm_pgoff; i < nr_pages && uaddr < vma->vm_end; i++) {
+		ret = vm_insert_page(vma, uaddr, pages[i]);
+		if (ret)
+			break;
+		uaddr += PAGE_SIZE;
+	}
+
+	return ret;
+}
+
 static int fast_smmu_dma_supported(struct device *dev, u64 mask)
 {
 	return mask <= 0xffffffff;
@@ -559,6 +587,7 @@ static int fast_smmu_notify(struct notifier_block *self,
 static const struct dma_map_ops fast_smmu_dma_ops = {
 	.alloc = fast_smmu_alloc,
 	.free = fast_smmu_free,
+	.mmap = fast_smmu_mmap_attrs,
 	.map_page = fast_smmu_map_page,
 	.unmap_page = fast_smmu_unmap_page,
 	.map_sg = fast_smmu_map_sg,

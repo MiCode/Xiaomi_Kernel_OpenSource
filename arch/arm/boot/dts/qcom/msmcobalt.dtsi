@@ -2762,8 +2762,6 @@
 		      <0xb0000000 0x10000>;
 		reg-names = "membase", "mpm_config",
 			    "smmu_iova_base", "smmu_iova_ipa";
-		clocks = <&clock_gcc clk_aggre2_noc_clk>;
-		clock-names = "smmu_aggre2_noc_clk";
 		iommus = <&anoc2_smmu 0x1900>,
 			 <&anoc2_smmu 0x1901>;
 		interrupts = <0 413 0 /* CE0 */ >,
@@ -2781,6 +2779,11 @@
 		qcom,wlan-msa-memory = <0x100000>;
 		vdd-io-supply = <&pmcobalt_l5>;
 		qcom,vdd-io-voltage-level = <800000 800000>;
+		qcom,msm-bus,name = "msm-icnss";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 10065 0 0>,
+					    <81 10065 0 16000>;
 	};
 
 	wil6210: qcom,wil6210 {

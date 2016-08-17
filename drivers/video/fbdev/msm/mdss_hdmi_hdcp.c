@@ -15,9 +15,11 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/stat.h>
+#include <linux/iopoll.h>
 #include <soc/qcom/scm.h>
 #include <linux/hdcp_qseecom.h>
 #include "mdss_hdmi_hdcp.h"
+#include "mdss_dp_util.h"
 #include "video/msm_hdmi_hdcp_mgr.h"
 
 #define HDCP_STATE_NAME (hdcp_state_name(hdcp_ctrl->hdcp_state))
@@ -36,14 +38,187 @@
 #define HDCP_REG_ENABLE 0x01
 #define HDCP_REG_DISABLE 0x00
 
-#define HDCP_INT_CLR (BIT(1) | BIT(5) | BIT(7) | BIT(9) | BIT(13))
+#define HDCP_INT_CLR (isr->auth_success_ack | isr->auth_fail_ack | \
+			isr->auth_fail_info_ack | isr->tx_req_ack | \
+			isr->encryption_ready_ack | \
+			isr->encryption_not_ready | isr->tx_req_done_ack)
+
+#define HDCP_INT_EN (isr->auth_success_mask | isr->auth_fail_mask | \
+			isr->encryption_ready_mask | \
+			isr->encryption_not_ready_mask)
+
+#define HDCP_POLL_SLEEP_US   (20 * 1000)
+#define HDCP_POLL_TIMEOUT_US (HDCP_POLL_SLEEP_US * 1000)
+
+#define reg_set_data(x) \
+	(hdcp_ctrl->init_data.sec_access ? reg_set->sec_data##x : \
+		reg_set->data##x)
+
+struct hdcp_sink_addr {
+	char *name;
+	u32 addr;
+	u32 len;
+};
 
 struct hdmi_hdcp_reg_data {
 	u32 reg_id;
-	u32 off;
-	char *name;
-	u32 reg_val;
+	struct hdcp_sink_addr *sink;
 };
+
+struct hdcp_sink_addr_map {
+	/* addresses to read from sink */
+	struct hdcp_sink_addr bcaps;
+	struct hdcp_sink_addr bksv;
+	struct hdcp_sink_addr r0;
+	struct hdcp_sink_addr bstatus;
+	struct hdcp_sink_addr ksv_fifo;
+	struct hdcp_sink_addr v_h0;
+	struct hdcp_sink_addr v_h1;
+	struct hdcp_sink_addr v_h2;
+	struct hdcp_sink_addr v_h3;
+	struct hdcp_sink_addr v_h4;
+
+	/* addresses to write to sink */
+	struct hdcp_sink_addr an;
+	struct hdcp_sink_addr aksv;
+	struct hdcp_sink_addr rep;
+};
+
+struct hdcp_int_set {
+	/* interrupt register */
+	u32 int_reg;
+
+	/* interrupt enable/disable masks */
+	u32 auth_success_mask;
+	u32 auth_fail_mask;
+	u32 encryption_ready_mask;
+	u32 encryption_not_ready_mask;
+	u32 tx_req_mask;
+	u32 tx_req_done_mask;
+
+	/* interrupt acknowledgment */
+	u32 auth_success_ack;
+	u32 auth_fail_ack;
+	u32 auth_fail_info_ack;
+	u32 encryption_ready_ack;
+	u32 encryption_not_ready_ack;
+	u32 tx_req_ack;
+	u32 tx_req_done_ack;
+
+	/* interrupt status */
+	u32 auth_success_int;
+	u32 auth_fail_int;
+	u32 encryption_ready;
+	u32 encryption_not_ready;
+	u32 tx_req_int;
+	u32 tx_req_done_int;
+};
+
+struct hdcp_reg_set {
+	u32 status;
+	u32 keys_offset;
+	u32 r0_offset;
+	u32 v_offset;
+	u32 ctrl;
+	u32 aksv_lsb;
+	u32 aksv_msb;
+	u32 entropy_ctrl0;
+	u32 entropy_ctrl1;
+	u32 sha_ctrl;
+	u32 sec_sha_ctrl;
+	u32 sha_status;
+
+	u32 data0;
+	u32 data1;
+	u32 data2_0;
+	u32 data3;
+	u32 data4;
+	u32 data5;
+	u32 data6;
+	u32 data7;
+	u32 data8;
+	u32 data9;
+	u32 data10;
+	u32 data11;
+	u32 data12;
+
+	u32 sec_data0;
+	u32 sec_data1;
+	u32 sec_data7;
+	u32 sec_data8;
+	u32 sec_data9;
+	u32 sec_data10;
+	u32 sec_data11;
+	u32 sec_data12;
+
+	u32 reset;
+};
+
+#define HDCP_REG_SET_CLIENT_HDMI \
+	{HDMI_HDCP_LINK0_STATUS, 28, 24, 20, HDMI_HDCP_CTRL, \
+	 HDMI_HDCP_SW_LOWER_AKSV, HDMI_HDCP_SW_UPPER_AKSV, \
+	 HDMI_HDCP_ENTROPY_CTRL0, HDMI_HDCP_ENTROPY_CTRL1, \
+	 HDMI_HDCP_SHA_CTRL, HDCP_SEC_TZ_HV_HLOS_HDCP_SHA_CTRL, \
+	 HDMI_HDCP_SHA_STATUS, HDMI_HDCP_RCVPORT_DATA0, \
+	 HDMI_HDCP_RCVPORT_DATA1, HDMI_HDCP_RCVPORT_DATA2_0, \
+	 HDMI_HDCP_RCVPORT_DATA3, HDMI_HDCP_RCVPORT_DATA4, \
+	 HDMI_HDCP_RCVPORT_DATA5, HDMI_HDCP_RCVPORT_DATA6, \
+	 HDMI_HDCP_RCVPORT_DATA7, HDMI_HDCP_RCVPORT_DATA8, \
+	 HDMI_HDCP_RCVPORT_DATA9, HDMI_HDCP_RCVPORT_DATA10, \
+	 HDMI_HDCP_RCVPORT_DATA11, HDMI_HDCP_RCVPORT_DATA12, \
+	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA0, \
+	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA1, \
+	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA7, \
+	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA8, \
+	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA9, \
+	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA10, \
+	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA11, \
+	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA12, \
+	 HDMI_HDCP_RESET}
+
+#define HDCP_REG_SET_CLIENT_DP \
+	{DP_HDCP_STATUS, 16, 14, 13, DP_HDCP_CTRL, \
+	 DP_HDCP_SW_LOWER_AKSV, DP_HDCP_SW_UPPER_AKSV, \
+	 DP_HDCP_ENTROPY_CTRL0, DP_HDCP_ENTROPY_CTRL1, \
+	 0, HDCP_SEC_DP_TZ_HV_HLOS_HDCP_SHA_CTRL, \
+	 DP_HDCP_SHA_STATUS, 0, 0, DP_HDCP_RCVPORT_DATA2_0, \
+	 DP_HDCP_RCVPORT_DATA3, DP_HDCP_RCVPORT_DATA4, \
+	 DP_HDCP_RCVPORT_DATA5, DP_HDCP_RCVPORT_DATA6, \
+	 0, 0, 0, 0, 0, 0, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA0, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA1, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA7, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA8, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA9, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA10, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA11, \
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA12, 0}
+
+#define HDCP_HDMI_SINK_ADDR_MAP \
+	{{"bcaps", 0x40, 1}, {"bksv", 0x00, 5}, {"r0'", 0x08, 2}, \
+	 {"bstatus", 0x41, 2}, {"ksv-fifo", 0x43, 0}, {"v_h0", 0x20, 4}, \
+	 {"v_h1", 0x24, 4}, {"v_h2", 0x28, 4}, {"v_h3", 0x2c, 4}, \
+	 {"v_h4", 0x30, 4}, {"an", 0x16, 8}, {"aksv", 0x10, 5}, \
+	 {"repater", 0x00, 0} }
+
+#define HDCP_DP_SINK_ADDR_MAP \
+	{{"bcaps", 0x68028, 1}, {"bksv", 0x68000, 5}, {"r0'", 0x68005, 2}, \
+	 {"bstatus", 0x6802A, 2}, {"ksv-fifo", 0x6802A, 0}, \
+	 {"v_h0", 0x68014, 4}, {"v_h1", 0x68018, 4}, {"v_h2", 0x6801C, 4}, \
+	 {"v_h3", 0x68020, 4}, {"v_h4", 0x68024, 4}, {"an", 0x6800C, 8}, \
+	 {"aksv", 0x68007, 5}, {"repater", 0x68028, 1} }
+
+#define HDCP_HDMI_INT_SET \
+	{HDMI_HDCP_INT_CTRL, \
+	 BIT(2), BIT(6), 0, 0, 0, 0, \
+	 BIT(1), BIT(5), BIT(7), 0, 0, 0, 0, \
+	 BIT(0), BIT(4), 0, 0, 0, 0}
+
+#define HDCP_DP_INT_SET \
+	{DP_INTERRUPT_STATUS_2, \
+	 BIT(17), BIT(20), BIT(24), BIT(27), 0, 0, \
+	 BIT(16), BIT(19), BIT(21), BIT(23), BIT(26), 0, 0, \
+	 BIT(15), BIT(18), BIT(22), BIT(25), 0, 0}
 
 struct hdmi_hdcp_ctrl {
 	u32 auth_retries;
@@ -57,7 +232,9 @@ struct hdmi_hdcp_ctrl {
 	struct completion r0_checked;
 	struct hdmi_hdcp_init_data init_data;
 	struct hdmi_hdcp_ops *ops;
-	bool hdmi_tx_ver_4;
+	struct hdcp_reg_set reg_set;
+	struct hdcp_int_set int_set;
+	struct hdcp_sink_addr_map sink_addr;
 };
 
 const char *hdcp_state_name(enum hdmi_hdcp_state hdcp_state)
@@ -256,6 +433,7 @@ static int hdmi_hdcp_load_keys(void *input)
 	struct dss_io_data *io;
 	struct dss_io_data *qfprom_io;
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = input;
+	struct hdcp_reg_set *reg_set;
 
 	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io ||
 		!hdcp_ctrl->init_data.qfprom_io) {
@@ -274,6 +452,7 @@ static int hdmi_hdcp_load_keys(void *input)
 
 	io = hdcp_ctrl->init_data.core_io;
 	qfprom_io = hdcp_ctrl->init_data.qfprom_io;
+	reg_set = &hdcp_ctrl->reg_set;
 
 	/* On compatible hardware, use SW keys */
 	reg_val = DSS_REG_R(qfprom_io, SEC_CTRL_HW_VERSION);
@@ -297,7 +476,7 @@ static int hdmi_hdcp_load_keys(void *input)
 		ksv_lsb_addr = HDCP_KSV_LSB;
 		ksv_msb_addr = HDCP_KSV_MSB;
 
-		if (hdcp_ctrl->hdmi_tx_ver_4) {
+		if (hdcp_ctrl->init_data.sec_access) {
 			ksv_lsb_addr += HDCP_KSV_VERSION_4_OFFSET;
 			ksv_msb_addr += HDCP_KSV_VERSION_4_OFFSET;
 		}
@@ -322,25 +501,119 @@ static int hdmi_hdcp_load_keys(void *input)
 		goto end;
 	}
 
-	DSS_REG_W(io, HDMI_HDCP_SW_LOWER_AKSV, aksv_lsb);
-	DSS_REG_W(io, HDMI_HDCP_SW_UPPER_AKSV, aksv_msb);
+	DSS_REG_W(io, reg_set->aksv_lsb, aksv_lsb);
+	DSS_REG_W(io, reg_set->aksv_msb, aksv_msb);
 
 	/* Setup seed values for random number An */
-	DSS_REG_W(io, HDMI_HDCP_ENTROPY_CTRL0, 0xB1FFB0FF);
-	DSS_REG_W(io, HDMI_HDCP_ENTROPY_CTRL1, 0xF00DFACE);
-
-	/* Disable the RngCipher state */
-	DSS_REG_W(io, HDMI_HDCP_DEBUG_CTRL,
-		DSS_REG_R(io, HDMI_HDCP_DEBUG_CTRL) & ~(BIT(2)));
+	DSS_REG_W(io, reg_set->entropy_ctrl0, 0xB1FFB0FF);
+	DSS_REG_W(io, reg_set->entropy_ctrl1, 0xF00DFACE);
 
 	/* make sure hw is programmed */
 	wmb();
 
-	DSS_REG_W(io, HDMI_HDCP_CTRL, BIT(0));
+	/* enable hdcp engine */
+	DSS_REG_W(io, reg_set->ctrl, 0x1);
 
 	hdcp_ctrl->hdcp_state = HDCP_STATE_AUTHENTICATING;
 end:
 	return rc;
+}
+
+static int hdmi_hdcp_read(struct hdmi_hdcp_ctrl *hdcp_ctrl,
+			  struct hdcp_sink_addr *sink,
+			  u8 *buf, bool realign)
+{
+	u32 rc = 0;
+	struct hdmi_tx_ddc_data ddc_data;
+
+	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_HDMI) {
+		reset_hdcp_ddc_failures(hdcp_ctrl);
+
+		memset(&ddc_data, 0, sizeof(ddc_data));
+		ddc_data.dev_addr = 0x74;
+		ddc_data.offset = sink->addr;
+		ddc_data.data_buf = buf;
+		ddc_data.data_len = sink->len;
+		ddc_data.request_len = sink->len;
+		ddc_data.retry = 5;
+		ddc_data.what = sink->name;
+		ddc_data.retry_align = realign;
+
+		hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+		rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
+		if (rc)
+			DEV_ERR("%s: %s: %s read failed\n", __func__,
+				HDCP_STATE_NAME, sink->name);
+	} else if (IS_ENABLED(CONFIG_FB_MSM_MDSS_DP_PANEL) &&
+		hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP) {
+		struct edp_cmd cmd = {0};
+
+		cmd.read = 1;
+		cmd.addr = sink->addr;
+		cmd.out_buf = buf;
+		cmd.len = sink->len;
+
+		rc = dp_aux_read(hdcp_ctrl->init_data.dp_data, &cmd);
+		if (rc)
+			DEV_ERR("%s: %s: %s read failed\n", __func__,
+				HDCP_STATE_NAME, sink->name);
+	}
+
+	return rc;
+}
+
+static int hdmi_hdcp_write(struct hdmi_hdcp_ctrl *hdcp_ctrl,
+			   u32 offset, u32 len, u8 *buf, char *name)
+{
+	int rc = 0;
+	struct hdmi_tx_ddc_data ddc_data;
+
+	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_HDMI) {
+		memset(&ddc_data, 0, sizeof(ddc_data));
+
+		ddc_data.dev_addr = 0x74;
+		ddc_data.offset = offset;
+		ddc_data.data_buf = buf;
+		ddc_data.data_len = len;
+		ddc_data.what = name;
+		hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+		rc = hdmi_ddc_write(hdcp_ctrl->init_data.ddc_ctrl);
+		if (rc)
+			DEV_ERR("%s: %s: %s write failed\n", __func__,
+				HDCP_STATE_NAME, name);
+	} else if (IS_ENABLED(CONFIG_FB_MSM_MDSS_DP_PANEL) &&
+		hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP) {
+		struct edp_cmd cmd = {0};
+
+		cmd.addr = offset;
+		cmd.len = len;
+		cmd.datap = buf;
+
+		rc = dp_aux_write(hdcp_ctrl->init_data.dp_data, &cmd);
+		if (rc)
+			DEV_ERR("%s: %s: %s read failed\n", __func__,
+				HDCP_STATE_NAME, name);
+	}
+
+	return rc;
+}
+
+static void hdmi_hdcp_enable_interrupts(struct hdmi_hdcp_ctrl *hdcp_ctrl)
+{
+	u32 intr_reg;
+	struct dss_io_data *io;
+	struct hdcp_int_set *isr;
+
+	io = hdcp_ctrl->init_data.core_io;
+	isr = &hdcp_ctrl->int_set;
+
+	intr_reg = DSS_REG_R(io, isr->int_reg);
+
+	intr_reg |= HDCP_INT_CLR | HDCP_INT_EN;
+
+	DSS_REG_W(io, isr->int_reg, intr_reg);
 }
 
 static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
@@ -353,13 +626,12 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	bool is_match;
 	struct dss_io_data *io;
 	struct dss_io_data *hdcp_io;
+	struct hdcp_reg_set *reg_set;
 	u8 aksv[5], *bksv = NULL;
 	u8 an[8];
 	u8 bcaps;
-	struct hdmi_tx_ddc_data ddc_data;
-	u32 link0_status, an_ready, keys_state;
+	u32 link0_status;
 	u8 buf[0xFF];
-
 	struct scm_hdcp_req scm_buf[SCM_HDCP_MAX_REG];
 	u32 phy_addr;
 	u32 ret  = 0;
@@ -376,6 +648,7 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	bksv = hdcp_ctrl->current_tp.bksv;
 	io = hdcp_ctrl->init_data.core_io;
 	hdcp_io = hdcp_ctrl->init_data.hdcp_io;
+	reg_set = &hdcp_ctrl->reg_set;
 
 	if (HDCP_STATE_AUTHENTICATING != hdcp_ctrl->hdcp_state) {
 		DEV_ERR("%s: %s: invalid state. returning\n", __func__,
@@ -384,32 +657,14 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		goto error;
 	}
 
-	/* Clear any DDC failures from previous tries */
-	reset_hdcp_ddc_failures(hdcp_ctrl);
-
-	/*
-	 * Read BCAPS
-	 * We need to first try to read an HDCP register on the sink to see if
-	 * the sink is ready for HDCP authentication
-	 */
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.dev_addr = 0x74;
-	ddc_data.offset = 0x40;
-	ddc_data.data_buf = &bcaps;
-	ddc_data.data_len = 1;
-	ddc_data.request_len = 1;
-	ddc_data.retry = 5;
-	ddc_data.what = "Bcaps";
-
-	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
-
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
-	if (rc) {
-		DEV_ERR("%s: %s: BCAPS read failed\n", __func__,
-			HDCP_STATE_NAME);
+	rc = hdmi_hdcp_read(hdcp_ctrl, &hdcp_ctrl->sink_addr.bcaps,
+		&bcaps, false);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: error reading bcaps\n", __func__);
 		goto error;
 	}
-	DEV_DBG("%s: %s: BCAPS=%02x\n", __func__, HDCP_STATE_NAME, bcaps);
+
+	hdmi_hdcp_enable_interrupts(hdcp_ctrl);
 
 	/* receiver (0), repeater (1) */
 	hdcp_ctrl->current_tp.ds_type =
@@ -419,7 +674,7 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	if (hdcp_ctrl->tz_hdcp) {
 		memset(scm_buf, 0x00, sizeof(scm_buf));
 
-		scm_buf[0].addr = phy_addr + HDMI_HDCP_RCVPORT_DATA12;
+		scm_buf[0].addr = phy_addr + reg_set->data12;
 		scm_buf[0].val  = bcaps;
 
 		ret = hdcp_scm_call(scm_buf, &resp);
@@ -429,30 +684,19 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 			rc = -EINVAL;
 			goto error;
 		}
-	} else if (hdcp_ctrl->hdmi_tx_ver_4) {
-		DSS_REG_W(hdcp_io, HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA12,
-				bcaps);
+	} else if (hdcp_ctrl->init_data.sec_access) {
+		DSS_REG_W(hdcp_io, reg_set->sec_data12, bcaps);
 	} else {
-		DSS_REG_W(io, HDMI_HDCP_RCVPORT_DATA12, bcaps);
+		DSS_REG_W(io, reg_set->data12, bcaps);
 	}
 
 	/* Wait for HDCP keys to be checked and validated */
-	timeout_count = 100;
-	keys_state = (link0_status >> 28) & 0x7;
-	while ((keys_state != HDCP_KEYS_STATE_VALID) &&
-		--timeout_count) {
-		link0_status = DSS_REG_R(io, HDMI_HDCP_LINK0_STATUS);
-		keys_state = (link0_status >> 28) & 0x7;
-		DEV_DBG("%s: %s: Keys not ready(%d). s=%d\n, l0=%0x08x",
-			__func__, HDCP_STATE_NAME, timeout_count,
-			keys_state, link0_status);
-		msleep(20);
-	}
-
-	if (!timeout_count) {
-		DEV_ERR("%s: %s: Invalid Keys State: %d\n", __func__,
-			HDCP_STATE_NAME, keys_state);
-		rc = -EINVAL;
+	rc = readl_poll_timeout(io->base + reg_set->status, link0_status,
+				((link0_status >> reg_set->keys_offset) & 0x7)
+					== HDCP_KEYS_STATE_VALID,
+				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: key not ready\n", __func__);
 		goto error;
 	}
 
@@ -460,39 +704,39 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	 * 1.1_Features turned off by default.
 	 * No need to write AInfo since 1.1_Features is disabled.
 	 */
-	DSS_REG_W(io, HDMI_HDCP_RCVPORT_DATA4, 0);
+	DSS_REG_W(io, reg_set->data4, 0);
 
 	/* Wait for An0 and An1 bit to be ready */
-	timeout_count = 100;
-	do {
-		link0_status = DSS_REG_R(io, HDMI_HDCP_LINK0_STATUS);
-		an_ready = (link0_status & BIT(8)) && (link0_status & BIT(9));
-		if (!an_ready) {
-			DEV_DBG("%s: %s: An not ready(%d). l0_status=0x%08x\n",
-				__func__, HDCP_STATE_NAME, timeout_count,
-				link0_status);
-			msleep(20);
-		}
-	} while (!an_ready && --timeout_count);
-
-	if (!timeout_count) {
-		rc = -ETIMEDOUT;
-		DEV_ERR("%s: %s: timedout, An0=%ld, An1=%ld\n", __func__,
-			HDCP_STATE_NAME, (link0_status & BIT(8)) >> 8,
-			(link0_status & BIT(9)) >> 9);
+	rc = readl_poll_timeout(io->base + reg_set->status, link0_status,
+				(link0_status & (BIT(8) | BIT(9))),
+				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: An not ready\n", __func__);
 		goto error;
 	}
 
 	/* As per hardware recommendations, wait before reading An */
 	msleep(20);
 
-	/* Read An0 and An1 */
-	link0_an_0 = DSS_REG_R(io, HDMI_HDCP_RCVPORT_DATA5);
-	link0_an_1 = DSS_REG_R(io, HDMI_HDCP_RCVPORT_DATA6);
+	/*
+	 * As per hardware recommendation, for DP, read AN0 and AN1 again
+	 * with a delay of 1 micro second each.
+	 */
+	link0_an_0 = DSS_REG_R(io, reg_set->data5);
+	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP) {
+		udelay(1);
+		link0_an_0 = DSS_REG_R(io, reg_set->data5);
+	}
+
+	link0_an_1 = DSS_REG_R(io, reg_set->data6);
+	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP) {
+		udelay(1);
+		link0_an_0 = DSS_REG_R(io, reg_set->data6);
+	}
 
 	/* Read AKSV */
-	link0_aksv_0 = DSS_REG_R(io, HDMI_HDCP_RCVPORT_DATA3);
-	link0_aksv_1 = DSS_REG_R(io, HDMI_HDCP_RCVPORT_DATA4);
+	link0_aksv_0 = DSS_REG_R(io, reg_set->data3);
+	link0_aksv_1 = DSS_REG_R(io, reg_set->data4);
 
 	/* Copy An and AKSV to byte arrays for transmission */
 	aksv[0] =  link0_aksv_0        & 0xFF;
@@ -510,55 +754,21 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	an[6] = (link0_an_1 >> 16) & 0xFF;
 	an[7] = (link0_an_1 >> 24) & 0xFF;
 
-	/* Write An to offset 0x18 */
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.dev_addr = 0x74;
-	ddc_data.offset = 0x18;
-	ddc_data.data_buf = an;
-	ddc_data.data_len = 8;
-	ddc_data.what = "An";
-	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
-
-	rc = hdmi_ddc_write(hdcp_ctrl->init_data.ddc_ctrl);
-	if (rc) {
-		DEV_ERR("%s: %s: An write failed\n", __func__, HDCP_STATE_NAME);
+	rc = hdmi_hdcp_write(hdcp_ctrl, 0x18, 8, an, "an");
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: error writing an to sink\n", __func__);
 		goto error;
 	}
 
-	/* Write AKSV to offset 0x10 */
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.dev_addr = 0x74;
-	ddc_data.offset = 0x10;
-	ddc_data.data_buf = aksv;
-	ddc_data.data_len = 5;
-	ddc_data.what = "Aksv";
-	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
-
-	rc = hdmi_ddc_write(hdcp_ctrl->init_data.ddc_ctrl);
-	if (rc) {
-		DEV_ERR("%s: %s: AKSV write failed\n", __func__,
-			HDCP_STATE_NAME);
+	rc = hdmi_hdcp_write(hdcp_ctrl, 0x10, 5, aksv, "aksv");
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: error writing aksv to sink\n", __func__);
 		goto error;
 	}
-	DEV_DBG("%s: %s: Link0-AKSV=%02x%08x\n", __func__,
-		HDCP_STATE_NAME, link0_aksv_1 & 0xFF, link0_aksv_0);
 
-	/* Read BKSV at offset 0x00 */
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.dev_addr = 0x74;
-	ddc_data.offset = 0x00;
-	ddc_data.data_buf = bksv;
-	ddc_data.data_len = 5;
-	ddc_data.request_len = 5;
-	ddc_data.retry = 5;
-	ddc_data.what = "Bksv";
-
-	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
-
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
-	if (rc) {
-		DEV_ERR("%s: %s: BKSV read failed\n", __func__,
-			HDCP_STATE_NAME);
+	rc = hdmi_hdcp_read(hdcp_ctrl, &hdcp_ctrl->sink_addr.bksv, bksv, false);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: error reading bksv from sink\n", __func__);
 		goto error;
 	}
 
@@ -584,9 +794,9 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	if (hdcp_ctrl->tz_hdcp) {
 		memset(scm_buf, 0x00, sizeof(scm_buf));
 
-		scm_buf[0].addr = phy_addr + HDMI_HDCP_RCVPORT_DATA0;
+		scm_buf[0].addr = phy_addr + reg_set->data0;
 		scm_buf[0].val  = link0_bksv_0;
-		scm_buf[1].addr = phy_addr + HDMI_HDCP_RCVPORT_DATA1;
+		scm_buf[1].addr = phy_addr + reg_set->data1;
 		scm_buf[1].val  = link0_bksv_1;
 
 		ret = hdcp_scm_call(scm_buf, &resp);
@@ -597,18 +807,13 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 			rc = -EINVAL;
 			goto error;
 		}
-	} else if (hdcp_ctrl->hdmi_tx_ver_4) {
-		DSS_REG_W(hdcp_io, HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA0,
-			link0_bksv_0);
-		DSS_REG_W(hdcp_io, HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA1,
-			link0_bksv_1);
+	} else if (hdcp_ctrl->init_data.sec_access) {
+		DSS_REG_W(hdcp_io, reg_set->sec_data0, link0_bksv_0);
+		DSS_REG_W(hdcp_io, reg_set->sec_data1, link0_bksv_1);
 	} else {
-		DSS_REG_W(io, HDMI_HDCP_RCVPORT_DATA0, link0_bksv_0);
-		DSS_REG_W(io, HDMI_HDCP_RCVPORT_DATA1, link0_bksv_1);
+		DSS_REG_W(io, reg_set->data0, link0_bksv_0);
+		DSS_REG_W(io, reg_set->data1, link0_bksv_1);
 	}
-
-	/* Enable HDCP interrupts and ack/clear any stale interrupts */
-	DSS_REG_W(io, HDMI_HDCP_INT_CTRL, 0xE6);
 
 	/*
 	 * HDCP Compliace Test case 1A-01:
@@ -616,33 +821,31 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	 */
 	msleep(125);
 
-	/* Read R0' at offset 0x08 */
-	memset(buf, 0, sizeof(buf));
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.dev_addr = 0x74;
-	ddc_data.offset = 0x08;
-	ddc_data.data_buf = buf;
-	ddc_data.data_len = 2;
-	ddc_data.request_len = 2;
-	ddc_data.retry = 5;
-	ddc_data.what = "R0'";
-
-	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
-
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
-	if (rc) {
-		DEV_ERR("%s: %s: R0' read failed\n", __func__, HDCP_STATE_NAME);
+	/* Wait for HDCP R0 computation to be completed */
+	rc = readl_poll_timeout(io->base + reg_set->status, link0_status,
+				link0_status & BIT(reg_set->r0_offset),
+				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: R0 not ready\n", __func__);
 		goto error;
 	}
+
+	memset(buf, 0, sizeof(buf));
+	rc = hdmi_hdcp_read(hdcp_ctrl, &hdcp_ctrl->sink_addr.r0, buf, false);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: error reading R0' from sink\n", __func__);
+		goto error;
+	}
+
 	DEV_DBG("%s: %s: R0'=%02x%02x\n", __func__, HDCP_STATE_NAME,
 		buf[1], buf[0]);
 
 	/* Write R0' to HDCP registers and check to see if it is a match */
 	reinit_completion(&hdcp_ctrl->r0_checked);
-	DSS_REG_W(io, HDMI_HDCP_RCVPORT_DATA2_0, (((u32)buf[1]) << 8) | buf[0]);
+	DSS_REG_W(io, reg_set->data2_0, (((u32)buf[1]) << 8) | buf[0]);
 	timeout_count = wait_for_completion_timeout(
 		&hdcp_ctrl->r0_checked, HZ*2);
-	link0_status = DSS_REG_R(io, HDMI_HDCP_LINK0_STATUS);
+	link0_status = DSS_REG_R(io, reg_set->status);
 	is_match = link0_status & BIT(12);
 	if (!is_match) {
 		DEV_DBG("%s: %s: Link0_Status=0x%08x\n", __func__,
@@ -663,166 +866,108 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	}
 
 error:
-	if (rc) {
+	if (rc)
 		DEV_ERR("%s: %s: Authentication Part I failed\n", __func__,
 			hdcp_ctrl ? HDCP_STATE_NAME : "???");
-	} else {
-		/* Enable HDCP Encryption */
-		DSS_REG_W(io, HDMI_HDCP_CTRL, BIT(0) | BIT(8));
+	else
 		DEV_INFO("%s: %s: Authentication Part I successful\n",
 			__func__, HDCP_STATE_NAME);
-	}
 	return rc;
 } /* hdmi_hdcp_authentication_part1 */
 
-#define READ_WRITE_V_H(io, off, name, reg, wr) \
-do { \
-	ddc_data.offset = (off); \
-	memset(what, 0, sizeof(what)); \
-	snprintf(what, sizeof(what), (name)); \
-	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data; \
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl); \
-	if (rc) { \
-		DEV_ERR("%s: %s: Read %s failed\n", __func__, HDCP_STATE_NAME, \
-			what); \
-		goto error; \
-	} \
-	DEV_DBG("%s: %s: %s: buf[0]=%x, buf[1]=%x, buf[2]=%x, buf[3]=%x\n", \
-			__func__, HDCP_STATE_NAME, what, buf[0], buf[1], \
-			buf[2], buf[3]); \
-	if (wr) { \
-		DSS_REG_W((io), (reg), \
-			(buf[3] << 24 | buf[2] << 16 | buf[1] << 8 | buf[0])); \
-	} \
-} while (0);
+static int hdmi_hdcp_set_v_h(struct hdmi_hdcp_ctrl *hdcp_ctrl,
+			struct hdmi_hdcp_reg_data *rd, u8 *buf)
+{
+	int rc;
+	struct dss_io_data *io;
+
+	if (!hdcp_ctrl->tz_hdcp && hdcp_ctrl->init_data.sec_access)
+		io = hdcp_ctrl->init_data.hdcp_io;
+	else
+		io = hdcp_ctrl->init_data.core_io;
+
+	rc = hdmi_hdcp_read(hdcp_ctrl, rd->sink, buf, false);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: error reading %s\n", __func__, rd->sink->name);
+		goto end;
+	}
+
+	DEV_DBG("%s: %s: %s: buf[0]=%x, buf[1]=%x, buf[2]=%x, buf[3]=%x\n",
+		__func__, HDCP_STATE_NAME, rd->sink->name, buf[0], buf[1],
+		buf[2], buf[3]);
+
+	if (!hdcp_ctrl->tz_hdcp)
+		DSS_REG_W(io, rd->reg_id,
+			(buf[3] << 24 | buf[2] << 16 | buf[1] << 8 | buf[0]));
+end:
+	return rc;
+}
 
 static int hdmi_hdcp_transfer_v_h(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
-	char what[20];
 	int rc = 0;
 	u8 buf[4];
-	struct hdmi_tx_ddc_data ddc_data;
-	struct dss_io_data *io;
-
 	struct scm_hdcp_req scm_buf[SCM_HDCP_MAX_REG];
 	u32 phy_addr;
-
+	struct hdcp_reg_set *reg_set = &hdcp_ctrl->reg_set;
 	struct hdmi_hdcp_reg_data reg_data[]  = {
-		{HDMI_HDCP_RCVPORT_DATA7,  0x20, "V' H0"},
-		{HDMI_HDCP_RCVPORT_DATA8,  0x24, "V' H1"},
-		{HDMI_HDCP_RCVPORT_DATA9,  0x28, "V' H2"},
-		{HDMI_HDCP_RCVPORT_DATA10, 0x2C, "V' H3"},
-		{HDMI_HDCP_RCVPORT_DATA11, 0x30, "V' H4"},
+		{reg_set_data(7),  &hdcp_ctrl->sink_addr.v_h0},
+		{reg_set_data(8),  &hdcp_ctrl->sink_addr.v_h1},
+		{reg_set_data(9),  &hdcp_ctrl->sink_addr.v_h2},
+		{reg_set_data(10), &hdcp_ctrl->sink_addr.v_h3},
+		{reg_set_data(11), &hdcp_ctrl->sink_addr.v_h4},
 	};
-	u32 size = sizeof(reg_data)/sizeof(reg_data[0]);
-	u32 iter = 0;
-	u32 ret  = 0;
-	u32 resp = 0;
-
-	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
-	}
+	u32 size = ARRAY_SIZE(reg_data);
+	u32 iter = 0, ret = 0, resp = 0;
 
 	phy_addr = hdcp_ctrl->init_data.phy_addr;
 
-	io = hdcp_ctrl->init_data.core_io;
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.dev_addr = 0x74;
-	ddc_data.data_buf = buf;
-	ddc_data.data_len = 4;
-	ddc_data.request_len = 4;
-	ddc_data.retry = 5;
-	ddc_data.what = what;
+	memset(scm_buf, 0x00, sizeof(scm_buf));
 
-	if (hdcp_ctrl->tz_hdcp) {
-		memset(scm_buf, 0x00, sizeof(scm_buf));
+	for (iter = 0; iter < size; iter++) {
+		struct hdmi_hdcp_reg_data *rd = reg_data + iter;
 
-		for (iter = 0; iter < size && iter < SCM_HDCP_MAX_REG; iter++) {
-			struct hdmi_hdcp_reg_data *rd = reg_data + iter;
+		memset(buf, 0, sizeof(buf));
+		hdmi_hdcp_set_v_h(hdcp_ctrl, rd, buf);
 
-			READ_WRITE_V_H(io, rd->off, rd->name, 0, false);
-
-			rd->reg_val = buf[3] << 24 | buf[2] << 16 |
+		if (hdcp_ctrl->tz_hdcp) {
+			u32 reg_val = buf[3] << 24 | buf[2] << 16 |
 				buf[1] << 8 | buf[0];
 
 			scm_buf[iter].addr = phy_addr + reg_data[iter].reg_id;
-			scm_buf[iter].val  = reg_data[iter].reg_val;
+			scm_buf[iter].val  = reg_val;
+
+			ret = hdcp_scm_call(scm_buf, &resp);
+			if (ret || resp) {
+				DEV_ERR("%s: scm err: ret=%d, resp=%d\n",
+					__func__, ret, resp);
+				rc = -EINVAL;
+				goto error;
+			}
 		}
-
-		ret = hdcp_scm_call(scm_buf, &resp);
-		if (ret || resp) {
-			DEV_ERR("%s: error: scm_call ret = %d, resp = %d\n",
-				__func__, ret, resp);
-			rc = -EINVAL;
-			goto error;
-		}
-	} else if (hdcp_ctrl->hdmi_tx_ver_4) {
-		struct dss_io_data *hdcp_io = hdcp_ctrl->init_data.hdcp_io;
-
-		/* Read V'.HO 4 Byte at offset 0x20 */
-		READ_WRITE_V_H(hdcp_io, 0x20, "V' H0",
-				HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA7, true);
-
-		/* Read V'.H1 4 Byte at offset 0x24 */
-		READ_WRITE_V_H(hdcp_io, 0x24, "V' H1",
-				HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA8, true);
-
-		/* Read V'.H2 4 Byte at offset 0x28 */
-		READ_WRITE_V_H(hdcp_io, 0x28, "V' H2",
-				HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA9, true);
-
-		/* Read V'.H3 4 Byte at offset 0x2C */
-		READ_WRITE_V_H(hdcp_io, 0x2C, "V' H3",
-				HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA10, true);
-
-		/* Read V'.H4 4 Byte at offset 0x30 */
-		READ_WRITE_V_H(hdcp_io, 0x30, "V' H4",
-				HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA11, true);
-	} else {
-		/* Read V'.HO 4 Byte at offset 0x20 */
-		READ_WRITE_V_H(io, 0x20, "V' H0", HDMI_HDCP_RCVPORT_DATA7,
-				true);
-
-		/* Read V'.H1 4 Byte at offset 0x24 */
-		READ_WRITE_V_H(io, 0x24, "V' H1", HDMI_HDCP_RCVPORT_DATA8,
-				true);
-
-		/* Read V'.H2 4 Byte at offset 0x28 */
-		READ_WRITE_V_H(io, 0x28, "V' H2", HDMI_HDCP_RCVPORT_DATA9,
-				true);
-
-		/* Read V'.H3 4 Byte at offset 0x2C */
-		READ_WRITE_V_H(io, 0x2C, "V' H3", HDMI_HDCP_RCVPORT_DATA10,
-				true);
-
-		/* Read V'.H4 4 Byte at offset 0x30 */
-		READ_WRITE_V_H(io, 0x30, "V' H4", HDMI_HDCP_RCVPORT_DATA11,
-				true);
 	}
-
 error:
 	return rc;
 }
 
 static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
-	int rc, cnt, i;
-	struct hdmi_tx_ddc_data ddc_data;
+	int rc, i;
 	u32 timeout_count, down_stream_devices = 0;
 	u32 repeater_cascade_depth = 0;
 	u8 buf[0xFF];
 	u8 *ksv_fifo = NULL;
-	u8 bcaps;
-	u16 bstatus, max_devs_exceeded = 0, max_cascade_exceeded = 0;
-	u32 link0_status;
+	u8 bcaps = 0;
+	u16 bstatus = 0, max_devs_exceeded = 0, max_cascade_exceeded = 0;
+	u32 status = 0, sha_status = 0;
 	u32 ksv_bytes;
 	struct dss_io_data *io;
-
+	struct hdcp_reg_set *reg_set;
 	struct scm_hdcp_req scm_buf[SCM_HDCP_MAX_REG];
 	u32 phy_addr;
 	u32 ret  = 0;
 	u32 resp = 0;
+	u32 ksv_read_retry = 20;
 
 	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -831,6 +976,7 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	}
 
 	phy_addr = hdcp_ctrl->init_data.phy_addr;
+	reg_set = &hdcp_ctrl->reg_set;
 
 	if (HDCP_STATE_AUTHENTICATING != hdcp_ctrl->hdcp_state) {
 		DEV_DBG("%s: %s: invalid state. returning\n", __func__,
@@ -844,8 +990,7 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	io = hdcp_ctrl->init_data.core_io;
 
 	memset(buf, 0, sizeof(buf));
-	memset(ksv_fifo, 0,
-		sizeof(hdcp_ctrl->current_tp.ksv_list));
+	memset(ksv_fifo, 0, sizeof(hdcp_ctrl->current_tp.ksv_list));
 
 	/*
 	 * Wait until READY bit is set in BCAPS, as per HDCP specifications
@@ -853,48 +998,22 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	 */
 	timeout_count = 50;
 	do {
-		timeout_count--;
-		/* Read BCAPS at offset 0x40 */
-		memset(&ddc_data, 0, sizeof(ddc_data));
-		ddc_data.dev_addr = 0x74;
-		ddc_data.offset = 0x40;
-		ddc_data.data_buf = &bcaps;
-		ddc_data.data_len = 1;
-		ddc_data.request_len = 1;
-		ddc_data.retry = 5;
-		ddc_data.what = "Bcaps";
-		ddc_data.retry_align = true;
-
-		hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
-
-		rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
-		if (rc) {
-			DEV_ERR("%s: %s: BCAPS read failed\n", __func__,
-				HDCP_STATE_NAME);
+		rc = hdmi_hdcp_read(hdcp_ctrl, &hdcp_ctrl->sink_addr.bcaps,
+				&bcaps, true);
+		if (IS_ERR_VALUE(rc)) {
+			DEV_ERR("%s: error reading bcaps\n", __func__);
 			goto error;
 		}
 		msleep(100);
-	} while (!(bcaps & BIT(5)) && timeout_count);
+	} while (!(bcaps & BIT(5)) && --timeout_count);
 
-	/* Read BSTATUS at offset 0x41 */
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.dev_addr = 0x74;
-	ddc_data.offset = 0x41;
-	ddc_data.data_buf = buf;
-	ddc_data.data_len = 2;
-	ddc_data.request_len = 2;
-	ddc_data.retry = 5;
-	ddc_data.what = "Bstatuss";
-	ddc_data.retry_align = true;
-
-	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
-
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
-	if (rc) {
-		DEV_ERR("%s: %s: BSTATUS read failed\n", __func__,
-			HDCP_STATE_NAME);
+	rc = hdmi_hdcp_read(hdcp_ctrl, &hdcp_ctrl->sink_addr.bstatus,
+			buf, true);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: error reading bstatus\n", __func__);
 		goto error;
 	}
+
 	bstatus = buf[1];
 	bstatus = (bstatus << 8) | buf[0];
 
@@ -902,7 +1021,7 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		memset(scm_buf, 0x00, sizeof(scm_buf));
 
 		/* Write BSTATUS and BCAPS to HDCP registers */
-		scm_buf[0].addr = phy_addr + HDMI_HDCP_RCVPORT_DATA12;
+		scm_buf[0].addr = phy_addr + reg_set->data12;
 		scm_buf[0].val  = bcaps | (bstatus << 8);
 
 		ret = hdcp_scm_call(scm_buf, &resp);
@@ -912,12 +1031,12 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 			rc = -EINVAL;
 			goto error;
 		}
-	} else if (hdcp_ctrl->hdmi_tx_ver_4) {
+	} else if (hdcp_ctrl->init_data.sec_access) {
 		DSS_REG_W(hdcp_ctrl->init_data.hdcp_io,
-				HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA12,
-				bcaps | (bstatus << 8));
+			  reg_set->sec_data12,
+			  bcaps | (bstatus << 8));
 	} else {
-		DSS_REG_W(io, HDMI_HDCP_RCVPORT_DATA12, bcaps | (bstatus << 8));
+		DSS_REG_W(io, reg_set->data12, bcaps | (bstatus << 8));
 	}
 
 	down_stream_devices = bstatus & 0x7F;
@@ -972,37 +1091,28 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	 * HDCP Repeaters (REPEATER == 0).
 	 */
 	ksv_bytes = 5 * down_stream_devices;
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.dev_addr = 0x74;
-	ddc_data.offset = 0x43;
-	ddc_data.data_buf = ksv_fifo;
-	ddc_data.data_len = ksv_bytes;
-	ddc_data.request_len = ksv_bytes;
-	ddc_data.retry = 5;
-	ddc_data.what = "KSV FIFO";
+	hdcp_ctrl->sink_addr.ksv_fifo.len = ksv_bytes;
 
-	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
-
-	cnt = 0;
 	do {
-		rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
-		if (rc) {
-			DEV_ERR("%s: %s: KSV FIFO read failed\n", __func__,
-				HDCP_STATE_NAME);
+		rc = hdmi_hdcp_read(hdcp_ctrl, &hdcp_ctrl->sink_addr.ksv_fifo,
+				ksv_fifo, false);
+		if (IS_ERR_VALUE(rc)) {
+			DEV_DBG("%s: could not read ksv fifo (%d)\n",
+				__func__, ksv_read_retry);
 			/*
 			 * HDCP Compliace Test case 1B-01:
 			 * Wait here until all the ksv bytes have been
 			 * read from the KSV FIFO register.
 			 */
 			msleep(25);
-		} else {
-			break;
-		}
-		cnt++;
-	} while (cnt != 20);
 
-	if (cnt == 20)
+		}
+	} while (rc && --ksv_read_retry);
+
+	if (rc) {
+		DEV_ERR("%s: error reading ksv_fifo\n", __func__);
 		goto error;
+	}
 
 	rc = hdmi_hdcp_transfer_v_h(hdcp_ctrl);
 	if (rc)
@@ -1019,9 +1129,9 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	if (hdcp_ctrl->tz_hdcp) {
 		memset(scm_buf, 0x00, sizeof(scm_buf));
 
-		scm_buf[0].addr = phy_addr + HDMI_HDCP_SHA_CTRL;
+		scm_buf[0].addr = phy_addr + reg_set->sha_ctrl;
 		scm_buf[0].val  = HDCP_REG_ENABLE;
-		scm_buf[1].addr = phy_addr + HDMI_HDCP_SHA_CTRL;
+		scm_buf[1].addr = phy_addr + reg_set->sha_ctrl;
 		scm_buf[1].val  = HDCP_REG_DISABLE;
 
 		ret = hdcp_scm_call(scm_buf, &resp);
@@ -1031,16 +1141,16 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 			rc = -EINVAL;
 			goto error;
 		}
-	} else if (hdcp_ctrl->hdmi_tx_ver_4) {
+	} else if (hdcp_ctrl->init_data.sec_access) {
 		DSS_REG_W(hdcp_ctrl->init_data.hdcp_io,
-				HDCP_SEC_TZ_HV_HLOS_HDCP_SHA_CTRL,
+				reg_set->sec_sha_ctrl,
 				HDCP_REG_ENABLE);
 		DSS_REG_W(hdcp_ctrl->init_data.hdcp_io,
-				HDCP_SEC_TZ_HV_HLOS_HDCP_SHA_CTRL,
+				reg_set->sec_sha_ctrl,
 				HDCP_REG_DISABLE);
 	} else {
-		DSS_REG_W(io, HDMI_HDCP_SHA_CTRL, HDCP_REG_ENABLE);
-		DSS_REG_W(io, HDMI_HDCP_SHA_CTRL, HDCP_REG_DISABLE);
+		DSS_REG_W(io, reg_set->sha_ctrl, HDCP_REG_ENABLE);
+		DSS_REG_W(io, reg_set->sha_ctrl, HDCP_REG_DISABLE);
 	}
 
 	for (i = 0; i < ksv_bytes - 1; i++) {
@@ -1048,7 +1158,7 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		if (hdcp_ctrl->tz_hdcp) {
 			memset(scm_buf, 0x00, sizeof(scm_buf));
 
-			scm_buf[0].addr = phy_addr + HDMI_HDCP_SHA_DATA;
+			scm_buf[0].addr = phy_addr + reg_set->sha_ctrl;
 			scm_buf[0].val  = ksv_fifo[i] << 16;
 
 			ret = hdcp_scm_call(scm_buf, &resp);
@@ -1058,12 +1168,12 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 				rc = -EINVAL;
 				goto error;
 			}
-		} else if (hdcp_ctrl->hdmi_tx_ver_4) {
+		} else if (hdcp_ctrl->init_data.sec_access) {
 			DSS_REG_W_ND(hdcp_ctrl->init_data.hdcp_io,
-					HDCP_SEC_TZ_HV_HLOS_HDCP_SHA_DATA,
+					reg_set->sec_sha_ctrl,
 					ksv_fifo[i] << 16);
 		} else {
-			DSS_REG_W_ND(io, HDMI_HDCP_SHA_DATA, ksv_fifo[i] << 16);
+			DSS_REG_W_ND(io, reg_set->sha_ctrl, ksv_fifo[i] << 16);
 		}
 
 		/*
@@ -1071,31 +1181,22 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		 * HDCP_SHA_BLOCK_DONE before writing any further
 		 */
 		if (i && !((i + 1) % 64)) {
-			timeout_count = 100;
-			while (!(DSS_REG_R(io, HDMI_HDCP_SHA_STATUS) & BIT(0))
-				&& (--timeout_count)) {
-				DEV_DBG("%s: %s: Wrote 64 bytes KSV FIFO\n",
-					__func__, HDCP_STATE_NAME);
-				DEV_DBG("%s: %s: HDCP_SHA_STATUS=%08x\n",
-					__func__, HDCP_STATE_NAME,
-					DSS_REG_R(io, HDMI_HDCP_SHA_STATUS));
-				msleep(20);
-			}
-			if (!timeout_count) {
-				rc = -ETIMEDOUT;
-				DEV_ERR("%s: %s: Write KSV FIFO timedout",
-					__func__, HDCP_STATE_NAME);
+			rc = readl_poll_timeout(io->base + reg_set->sha_status,
+						sha_status, sha_status & BIT(0),
+						HDCP_POLL_SLEEP_US,
+						HDCP_POLL_TIMEOUT_US);
+			if (IS_ERR_VALUE(rc)) {
+				DEV_ERR("%s: block not done\n", __func__);
 				goto error;
 			}
 		}
-
 	}
 
 	/* Write l to DONE bit[0] */
 	if (hdcp_ctrl->tz_hdcp) {
 		memset(scm_buf, 0x00, sizeof(scm_buf));
 
-		scm_buf[0].addr = phy_addr + HDMI_HDCP_SHA_DATA;
+		scm_buf[0].addr = phy_addr + reg_set->sha_ctrl;
 		scm_buf[0].val  = (ksv_fifo[ksv_bytes - 1] << 16) | 0x1;
 
 		ret = hdcp_scm_call(scm_buf, &resp);
@@ -1105,43 +1206,32 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 			rc = -EINVAL;
 			goto error;
 		}
-	} else if (hdcp_ctrl->hdmi_tx_ver_4) {
+	} else if (hdcp_ctrl->init_data.sec_access) {
 		DSS_REG_W_ND(hdcp_ctrl->init_data.hdcp_io,
-				HDCP_SEC_TZ_HV_HLOS_HDCP_SHA_DATA,
+				reg_set->sec_sha_ctrl,
 				(ksv_fifo[ksv_bytes - 1] << 16) | 0x1);
 	} else {
-		DSS_REG_W_ND(io, HDMI_HDCP_SHA_DATA,
+		DSS_REG_W_ND(io, reg_set->sha_ctrl,
 			(ksv_fifo[ksv_bytes - 1] << 16) | 0x1);
 	}
 
 	/* Now wait for HDCP_SHA_COMP_DONE */
-	timeout_count = 100;
-	while ((0x10 != (DSS_REG_R(io, HDMI_HDCP_SHA_STATUS)
-		& 0xFFFFFF10)) && --timeout_count)
-		msleep(20);
-	if (!timeout_count) {
-		rc = -ETIMEDOUT;
-		DEV_ERR("%s: %s: SHA computation timedout", __func__,
-			HDCP_STATE_NAME);
+	rc = readl_poll_timeout(io->base + reg_set->sha_status, sha_status,
+				sha_status & BIT(4),
+				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: comp not done\n", __func__);
 		goto error;
 	}
 
 	/* Wait for V_MATCHES */
-	timeout_count = 100;
-	link0_status = DSS_REG_R(io, HDMI_HDCP_LINK0_STATUS);
-	while (((link0_status & BIT(20)) != BIT(20)) && --timeout_count) {
-		DEV_DBG("%s: %s: Waiting for V_MATCHES(%d). l0_status=0x%08x\n",
-			__func__, HDCP_STATE_NAME, timeout_count, link0_status);
-		msleep(20);
-		link0_status = DSS_REG_R(io, HDMI_HDCP_LINK0_STATUS);
-	}
-	if (!timeout_count) {
-		rc = -ETIMEDOUT;
-		DEV_ERR("%s: %s: HDCP V Match timedout", __func__,
-			HDCP_STATE_NAME);
+	rc = readl_poll_timeout(io->base + reg_set->status, status,
+				status & BIT(reg_set->v_offset),
+				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
+	if (IS_ERR_VALUE(rc)) {
+		DEV_ERR("%s: V not ready\n", __func__);
 		goto error;
 	}
-
 error:
 	if (rc)
 		DEV_ERR("%s: %s: Authentication Part II failed\n", __func__,
@@ -1236,7 +1326,8 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 
 	io = hdcp_ctrl->init_data.core_io;
 	/* Enabling Software DDC */
-	DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION , DSS_REG_R(io,
+	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_HDMI)
+		DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION, DSS_REG_R(io,
 				HDMI_DDC_ARBITRATION) & ~(BIT(4)));
 
 	rc = hdmi_hdcp_authentication_part1(hdcp_ctrl);
@@ -1258,7 +1349,8 @@ static void hdmi_hdcp_auth_work(struct work_struct *work)
 	}
 	/* Disabling software DDC before going into part3 to make sure
 	 * there is no Arbitration between software and hardware for DDC */
-	DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION , DSS_REG_R(io,
+	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_HDMI)
+		DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION, DSS_REG_R(io,
 				HDMI_DDC_ARBITRATION) | (BIT(4)));
 
 error:
@@ -1314,12 +1406,17 @@ int hdmi_hdcp_authenticate(void *input)
 	DEV_DBG("%s: %s: Queuing work to start HDCP authentication", __func__,
 		HDCP_STATE_NAME);
 
-	if (!hdmi_hdcp_load_keys(input))
+	if (!hdmi_hdcp_load_keys(input)) {
+		flush_delayed_work(&hdcp_ctrl->hdcp_auth_work);
+
 		queue_delayed_work(hdcp_ctrl->init_data.workq,
 			&hdcp_ctrl->hdcp_auth_work, HZ/2);
-	else
+	} else {
+		flush_work(&hdcp_ctrl->hdcp_int_work);
+
 		queue_work(hdcp_ctrl->init_data.workq,
 			&hdcp_ctrl->hdcp_int_work);
+	}
 
 	return 0;
 } /* hdmi_hdcp_authenticate */
@@ -1328,6 +1425,8 @@ int hdmi_hdcp_reauthenticate(void *input)
 {
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = (struct hdmi_hdcp_ctrl *)input;
 	struct dss_io_data *io;
+	struct hdcp_reg_set *reg_set;
+	struct hdcp_int_set *isr;
 	u32 hdmi_hw_version;
 	u32 ret = 0;
 
@@ -1337,6 +1436,8 @@ int hdmi_hdcp_reauthenticate(void *input)
 	}
 
 	io = hdcp_ctrl->init_data.core_io;
+	reg_set = &hdcp_ctrl->reg_set;
+	isr = &hdcp_ctrl->int_set;
 
 	if (HDCP_STATE_AUTH_FAIL != hdcp_ctrl->hdcp_state) {
 		DEV_DBG("%s: %s: invalid state. returning\n", __func__,
@@ -1344,22 +1445,25 @@ int hdmi_hdcp_reauthenticate(void *input)
 		return 0;
 	}
 
-	hdmi_hw_version = DSS_REG_R(io, HDMI_VERSION);
-	if (hdmi_hw_version >= 0x30030000) {
-		DSS_REG_W(io, HDMI_CTRL_SW_RESET, BIT(1));
-		DSS_REG_W(io, HDMI_CTRL_SW_RESET, 0);
+	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_HDMI) {
+		hdmi_hw_version = DSS_REG_R(io, HDMI_VERSION);
+		if (hdmi_hw_version >= 0x30030000) {
+			DSS_REG_W(io, HDMI_CTRL_SW_RESET, BIT(1));
+			DSS_REG_W(io, HDMI_CTRL_SW_RESET, 0);
+		}
+
+		/* Wait to be clean on DDC HW engine */
+		hdmi_hdcp_hw_ddc_clean(hdcp_ctrl);
 	}
 
 	/* Disable HDCP interrupts */
-	DSS_REG_W(io, HDMI_HDCP_INT_CTRL, 0);
+	DSS_REG_W(io, isr->int_reg, DSS_REG_R(io, isr->int_reg) & ~HDCP_INT_EN);
 
-	DSS_REG_W(io, HDMI_HDCP_RESET, BIT(0));
-
-	/* Wait to be clean on DDC HW engine */
-	hdmi_hdcp_hw_ddc_clean(hdcp_ctrl);
+	if (reg_set->reset)
+		DSS_REG_W(io, reg_set->reset, BIT(0));
 
 	/* Disable encryption and disable the HDCP block */
-	DSS_REG_W(io, HDMI_HDCP_CTRL, 0);
+	DSS_REG_W(io, reg_set->ctrl, 0);
 
 	if (!hdmi_hdcp_load_keys(input))
 		queue_delayed_work(hdcp_ctrl->init_data.workq,
@@ -1375,6 +1479,8 @@ void hdmi_hdcp_off(void *input)
 {
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = (struct hdmi_hdcp_ctrl *)input;
 	struct dss_io_data *io;
+	struct hdcp_reg_set *reg_set;
+	struct hdcp_int_set *isr;
 	int rc = 0;
 
 	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
@@ -1383,6 +1489,8 @@ void hdmi_hdcp_off(void *input)
 	}
 
 	io = hdcp_ctrl->init_data.core_io;
+	reg_set = &hdcp_ctrl->reg_set;
+	isr = &hdcp_ctrl->int_set;
 
 	if (HDCP_STATE_INACTIVE == hdcp_ctrl->hdcp_state) {
 		DEV_DBG("%s: %s: inactive. returning\n", __func__,
@@ -1396,7 +1504,8 @@ void hdmi_hdcp_off(void *input)
 	 * reauth works will know that the HDCP session has been turned off.
 	 */
 	mutex_lock(hdcp_ctrl->init_data.mutex);
-	DSS_REG_W(io, HDMI_HDCP_INT_CTRL, 0);
+	DSS_REG_W(io, isr->int_reg,
+		DSS_REG_R(io, isr->int_reg) & ~HDCP_INT_EN);
 	hdcp_ctrl->hdcp_state = HDCP_STATE_INACTIVE;
 	mutex_unlock(hdcp_ctrl->init_data.mutex);
 
@@ -1415,10 +1524,11 @@ void hdmi_hdcp_off(void *input)
 		DEV_DBG("%s: %s: Deleted hdcp int work\n", __func__,
 			HDCP_STATE_NAME);
 
-	DSS_REG_W(io, HDMI_HDCP_RESET, BIT(0));
+	if (reg_set->reset)
+		DSS_REG_W(io, reg_set->reset, BIT(0));
 
 	/* Disable encryption and disable the HDCP block */
-	DSS_REG_W(io, HDMI_HDCP_CTRL, 0);
+	DSS_REG_W(io, reg_set->ctrl, 0);
 
 	DEV_DBG("%s: %s: HDCP: Off\n", __func__, HDCP_STATE_NAME);
 } /* hdmi_hdcp_off */
@@ -1429,6 +1539,8 @@ int hdmi_hdcp_isr(void *input)
 	int rc = 0;
 	struct dss_io_data *io;
 	u32 hdcp_int_val;
+	struct hdcp_reg_set *reg_set;
+	struct hdcp_int_set *isr;
 
 	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1437,28 +1549,33 @@ int hdmi_hdcp_isr(void *input)
 	}
 
 	io = hdcp_ctrl->init_data.core_io;
+	reg_set = &hdcp_ctrl->reg_set;
+	isr = &hdcp_ctrl->int_set;
 
-	hdcp_int_val = DSS_REG_R(io, HDMI_HDCP_INT_CTRL);
+	hdcp_int_val = DSS_REG_R(io, isr->int_reg);
 
 	/* Ignore HDCP interrupts if HDCP is disabled */
 	if (HDCP_STATE_INACTIVE == hdcp_ctrl->hdcp_state) {
-		DSS_REG_W(io, HDMI_HDCP_INT_CTRL, HDCP_INT_CLR);
+		DSS_REG_W(io, isr->int_reg, hdcp_int_val | HDCP_INT_CLR);
 		return 0;
 	}
 
-	if (hdcp_int_val & BIT(0)) {
+	if (hdcp_int_val & isr->auth_success_int) {
 		/* AUTH_SUCCESS_INT */
-		DSS_REG_W(io, HDMI_HDCP_INT_CTRL, (hdcp_int_val | BIT(1)));
+		DSS_REG_W(io, isr->int_reg,
+			(hdcp_int_val | isr->auth_success_ack));
 		DEV_INFO("%s: %s: AUTH_SUCCESS_INT received\n", __func__,
 			HDCP_STATE_NAME);
 		if (HDCP_STATE_AUTHENTICATING == hdcp_ctrl->hdcp_state)
 			complete_all(&hdcp_ctrl->r0_checked);
 	}
 
-	if (hdcp_int_val & BIT(4)) {
+	if (hdcp_int_val & isr->auth_fail_int) {
 		/* AUTH_FAIL_INT */
-		u32 link_status = DSS_REG_R(io, HDMI_HDCP_LINK0_STATUS);
-		DSS_REG_W(io, HDMI_HDCP_INT_CTRL, (hdcp_int_val | BIT(5)));
+		u32 link_status = DSS_REG_R(io, reg_set->status);
+
+		DSS_REG_W(io, isr->int_reg,
+			(hdcp_int_val | isr->auth_fail_ack));
 		DEV_INFO("%s: %s: AUTH_FAIL_INT rcvd, LINK0_STATUS=0x%08x\n",
 			__func__, HDCP_STATE_NAME, link_status);
 		if (HDCP_STATE_AUTHENTICATED == hdcp_ctrl->hdcp_state) {
@@ -1471,20 +1588,39 @@ int hdmi_hdcp_isr(void *input)
 		}
 
 		/* Clear AUTH_FAIL_INFO as well */
-		DSS_REG_W(io, HDMI_HDCP_INT_CTRL, (hdcp_int_val | BIT(7)));
+		DSS_REG_W(io, isr->int_reg,
+			(hdcp_int_val | isr->auth_fail_info_ack));
 	}
 
-	if (hdcp_int_val & BIT(8)) {
+	if (hdcp_int_val & isr->tx_req_int) {
 		/* DDC_XFER_REQ_INT */
-		DSS_REG_W(io, HDMI_HDCP_INT_CTRL, (hdcp_int_val | BIT(9)));
+		DSS_REG_W(io, isr->int_reg,
+			(hdcp_int_val | isr->tx_req_ack));
 		DEV_INFO("%s: %s: DDC_XFER_REQ_INT received\n", __func__,
 			HDCP_STATE_NAME);
 	}
 
-	if (hdcp_int_val & BIT(12)) {
+	if (hdcp_int_val & isr->tx_req_done_int) {
 		/* DDC_XFER_DONE_INT */
-		DSS_REG_W(io, HDMI_HDCP_INT_CTRL, (hdcp_int_val | BIT(13)));
+		DSS_REG_W(io, isr->int_reg,
+			(hdcp_int_val | isr->tx_req_done_ack));
 		DEV_INFO("%s: %s: DDC_XFER_DONE received\n", __func__,
+			HDCP_STATE_NAME);
+	}
+
+	if (hdcp_int_val & isr->encryption_ready) {
+		/* Encryption enabled */
+		DSS_REG_W(io, isr->int_reg,
+			(hdcp_int_val | isr->encryption_ready_ack));
+		DEV_INFO("%s: %s: encryption ready received\n", __func__,
+			HDCP_STATE_NAME);
+	}
+
+	if (hdcp_int_val & isr->encryption_not_ready) {
+		/* Encryption enabled */
+		DSS_REG_W(io, isr->int_reg,
+			(hdcp_int_val | isr->encryption_not_ready_ack));
+		DEV_INFO("%s: %s: encryption not ready received\n", __func__,
 			HDCP_STATE_NAME);
 	}
 
@@ -1605,6 +1741,27 @@ void hdmi_hdcp_deinit(void *input)
 	kfree(hdcp_ctrl);
 } /* hdmi_hdcp_deinit */
 
+static void hdmi_hdcp_update_client_reg_set(struct hdmi_hdcp_ctrl *hdcp_ctrl)
+{
+	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_HDMI) {
+		struct hdcp_reg_set reg_set = HDCP_REG_SET_CLIENT_HDMI;
+		struct hdcp_sink_addr_map sink_addr = HDCP_HDMI_SINK_ADDR_MAP;
+		struct hdcp_int_set isr = HDCP_HDMI_INT_SET;
+
+		hdcp_ctrl->reg_set = reg_set;
+		hdcp_ctrl->sink_addr = sink_addr;
+		hdcp_ctrl->int_set = isr;
+	} else if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP) {
+		struct hdcp_reg_set reg_set = HDCP_REG_SET_CLIENT_DP;
+		struct hdcp_sink_addr_map sink_addr = HDCP_DP_SINK_ADDR_MAP;
+		struct hdcp_int_set isr = HDCP_DP_INT_SET;
+
+		hdcp_ctrl->reg_set = reg_set;
+		hdcp_ctrl->sink_addr = sink_addr;
+		hdcp_ctrl->int_set = isr;
+	}
+}
+
 void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 {
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = NULL;
@@ -1624,9 +1781,8 @@ void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 		goto error;
 	}
 
-	if (init_data->hdmi_tx_ver >= HDMI_TX_VERSION_4
-			&& !init_data->hdcp_io) {
-		DEV_ERR("%s: hdcp_io required for HDMI Tx Ver 4\n", __func__);
+	if (init_data->sec_access && !init_data->hdcp_io) {
+		DEV_ERR("%s: hdcp_io required\n", __func__);
 		goto error;
 	}
 
@@ -1638,8 +1794,8 @@ void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 
 	hdcp_ctrl->init_data = *init_data;
 	hdcp_ctrl->ops = &ops;
-	hdcp_ctrl->hdmi_tx_ver_4 =
-		(init_data->hdmi_tx_ver >= HDMI_TX_VERSION_4);
+
+	hdmi_hdcp_update_client_reg_set(hdcp_ctrl);
 
 	if (sysfs_create_group(init_data->sysfs_kobj,
 				&hdmi_hdcp_fs_attr_group)) {
@@ -1653,7 +1809,7 @@ void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 	hdcp_ctrl->hdcp_state = HDCP_STATE_INACTIVE;
 	init_completion(&hdcp_ctrl->r0_checked);
 
-	if (!hdcp_ctrl->hdmi_tx_ver_4) {
+	if (!hdcp_ctrl->init_data.sec_access) {
 		ret = scm_is_call_available(SCM_SVC_HDCP, SCM_CMD_HDCP);
 		if (ret <= 0) {
 			DEV_ERR("%s: secure hdcp service unavailable, ret = %d",

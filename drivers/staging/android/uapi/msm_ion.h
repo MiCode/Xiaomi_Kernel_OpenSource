@@ -110,8 +110,6 @@ enum cp_mem_usage {
  */
 #define ION_FLAG_POOL_FORCE_ALLOC (1 << 16)
 
-#define ION_FLAG_POOL_PREFETCH (1 << 27)
-
 /**
 * Deprecated! Please use the corresponding ION_FLAG_*
 */
@@ -176,7 +174,6 @@ struct ion_prefetch_regions {
 struct ion_prefetch_data {
 	int heap_id;
 	unsigned long len;
-	/* Is unsigned long bad? 32bit compiler vs 64 bit compiler*/
 	struct ion_prefetch_regions __user *regions;
 	unsigned int nr_regions;
 };

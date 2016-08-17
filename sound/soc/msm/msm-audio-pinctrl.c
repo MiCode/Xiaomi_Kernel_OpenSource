@@ -1,4 +1,4 @@
- /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,28 +200,40 @@ int msm_gpioset_initialize(enum pinctrl_client client,
 err:
 	/* Free up memory allocated for gpio set combinations */
 	for (i = 0; i < gpioset_info[client].gpiosets_max; i++) {
-		if (NULL != gpioset_info[client].gpiosets[i])
+		if (gpioset_info[client].gpiosets[i] != NULL) {
 			devm_kfree(dev, gpioset_info[client].gpiosets[i]);
+			gpioset_info[client].gpiosets[i] = NULL;
+		}
 	}
-	if (NULL != gpioset_info[client].gpiosets)
+	if (gpioset_info[client].gpiosets != NULL) {
 		devm_kfree(dev, gpioset_info[client].gpiosets);
+		gpioset_info[client].gpiosets = NULL;
+	}
 
 	/* Free up memory allocated for gpio set combinations */
 	for (i = 0; i < gpioset_info[client].gpiosets_comb_max; i++) {
-		if (NULL != gpioset_info[client].gpiosets_comb_names[i])
+		if (gpioset_info[client].gpiosets_comb_names[i] != NULL) {
 			devm_kfree(dev,
 			gpioset_info[client].gpiosets_comb_names[i]);
+			gpioset_info[client].gpiosets_comb_names[i] = NULL;
+		}
 	}
-	if (NULL != gpioset_info[client].gpiosets_comb_names)
+	if (gpioset_info[client].gpiosets_comb_names != NULL) {
 		devm_kfree(dev, gpioset_info[client].gpiosets_comb_names);
+		gpioset_info[client].gpiosets_comb_names = NULL;
+	}
 
 	/* Free up memory allocated for handles to pinctrl states */
-	if (NULL != pinctrl_info[client].cdc_lines)
+	if (pinctrl_info[client].cdc_lines != NULL) {
 		devm_kfree(dev, pinctrl_info[client].cdc_lines);
+		pinctrl_info[client].cdc_lines = NULL;
+	}
 
 	/* Free up memory allocated for counter of gpio sets */
-	if (NULL != gpioset_info[client].gpioset_state)
+	if (gpioset_info[client].gpioset_state != NULL) {
 		devm_kfree(dev, gpioset_info[client].gpioset_state);
+		gpioset_info[client].gpioset_state = NULL;
+	}
 
 success:
 	return ret;

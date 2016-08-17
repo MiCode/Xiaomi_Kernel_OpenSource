@@ -63,6 +63,8 @@ struct ion_system_heap {
 	struct ion_page_pool **uncached_pools;
 	struct ion_page_pool **cached_pools;
 	struct ion_page_pool **secure_pools[VMID_LAST];
+	/* Prevents unnecessary page splitting */
+	struct mutex split_page_mutex;
 };
 
 struct page_info {
@@ -78,7 +80,6 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 				      bool *from_pool)
 {
 	bool cached = ion_buffer_cached(buffer);
-	bool prefetch = buffer->flags & ION_FLAG_POOL_PREFETCH;
 	struct page *page;
 	struct ion_page_pool *pool;
 	int vmid = get_secure_vmid(buffer->flags);
@@ -92,10 +93,7 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 		else
 			pool = heap->cached_pools[order_to_index(order)];
 
-		if (prefetch)
-			page = ion_page_pool_prefetch(pool, from_pool);
-		else
-			page = ion_page_pool_alloc(pool, from_pool);
+		page = ion_page_pool_alloc(pool, from_pool);
 	} else {
 		gfp_t gfp_mask = low_order_gfp_flags;
 		if (order)
@@ -119,7 +117,6 @@ static void free_buffer_page(struct ion_system_heap *heap,
 			     unsigned int order)
 {
 	bool cached = ion_buffer_cached(buffer);
-	bool prefetch = buffer->flags & ION_FLAG_POOL_PREFETCH;
 	int vmid = get_secure_vmid(buffer->flags);
 
 	if (!(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)) {
@@ -134,10 +131,63 @@ static void free_buffer_page(struct ion_system_heap *heap,
 		if (buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE)
 			ion_page_pool_free_immediate(pool, page);
 		else
-			ion_page_pool_free(pool, page, prefetch);
+			ion_page_pool_free(pool, page);
 	} else {
 		__free_pages(page, order);
 	}
+}
+
+static struct page *alloc_from_secure_pool_order(struct ion_system_heap *heap,
+						 struct ion_buffer *buffer,
+						 unsigned long order)
+{
+	int vmid = get_secure_vmid(buffer->flags);
+	struct ion_page_pool *pool;
+
+	if (!is_secure_vmid_valid(vmid))
+		return NULL;
+
+	pool = heap->secure_pools[vmid][order_to_index(order)];
+	return ion_page_pool_alloc_pool_only(pool);
+}
+
+static struct page *split_page_from_secure_pool(struct ion_system_heap *heap,
+						struct ion_buffer *buffer)
+{
+	int i, j;
+	struct page *page;
+	unsigned int order;
+
+	mutex_lock(&heap->split_page_mutex);
+
+	/*
+	 * Someone may have just split a page and returned the unused portion
+	 * back to the pool, so try allocating from the pool one more time
+	 * before splitting. We want to maintain large pages sizes when
+	 * possible.
+	 */
+	page = alloc_from_secure_pool_order(heap, buffer, 0);
+	if (page)
+		goto got_page;
+
+	for (i = num_orders - 2; i >= 0; i--) {
+		order = orders[i];
+		page = alloc_from_secure_pool_order(heap, buffer, order);
+		if (!page)
+			continue;
+
+		split_page(page, order);
+		break;
+	}
+	/* Return the remaining order-0 pages to the pool */
+	if (page)
+		for (j = 1; j < (1 << order); j++)
+			free_buffer_page(heap, buffer, page + j, 0);
+
+got_page:
+	mutex_unlock(&heap->split_page_mutex);
+
+	return page;
 }
 
 static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
@@ -174,6 +224,49 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 
 	return NULL;
 }
+
+static struct page_info *alloc_from_pool_preferred(
+		struct ion_system_heap *heap, struct ion_buffer *buffer,
+		unsigned long size, unsigned int max_order)
+{
+	struct page *page;
+	struct page_info *info;
+	int i;
+
+	info = kmalloc(sizeof(*info), GFP_KERNEL);
+	if (!info)
+		return NULL;
+
+	for (i = 0; i < num_orders; i++) {
+		if (size < order_to_size(orders[i]))
+			continue;
+		if (max_order < orders[i])
+			continue;
+
+		page = alloc_from_secure_pool_order(heap, buffer, orders[i]);
+		if (!page)
+			continue;
+
+		info->page = page;
+		info->order = orders[i];
+		info->from_pool = true;
+		INIT_LIST_HEAD(&info->list);
+		return info;
+	}
+
+	page = split_page_from_secure_pool(heap, buffer);
+	if (page) {
+		info->page = page;
+		info->order = 0;
+		info->from_pool = true;
+		INIT_LIST_HEAD(&info->list);
+		return info;
+	}
+
+	kfree(info);
+	return alloc_largest_available(heap, buffer, size, max_order);
+}
+
 static unsigned int process_info(struct page_info *info,
 				 struct scatterlist *sg,
 				 struct scatterlist *sg_sync,
@@ -236,9 +329,17 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	data.size = 0;
 	INIT_LIST_HEAD(&pages);
 	INIT_LIST_HEAD(&pages_from_pool);
+
 	while (size_remaining > 0) {
-		info = alloc_largest_available(sys_heap, buffer, size_remaining,
-						max_order);
+		if (is_secure_vmid_valid(vmid))
+			info = alloc_from_pool_preferred(
+					sys_heap, buffer, size_remaining,
+					max_order);
+		else
+			info = alloc_largest_available(
+					sys_heap, buffer, size_remaining,
+					max_order);
+
 		if (!info)
 			goto err;
 
@@ -452,7 +553,7 @@ out1:
 	/* Restore pages to secure pool */
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
 		list_del(&page->lru);
-		ion_page_pool_free(pool, page, false);
+		ion_page_pool_free(pool, page);
 	}
 	return 0;
 out2:
@@ -691,6 +792,8 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *data)
 
 	if (ion_system_heap_create_pools(dev, heap->cached_pools))
 		goto err_create_cached_pools;
+
+	mutex_init(&heap->split_page_mutex);
 
 	heap->heap.debug_show = ion_system_heap_debug_show;
 	return &heap->heap;

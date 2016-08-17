@@ -129,9 +129,12 @@ static int print_mem_entry(int id, void *ptr, void *data)
 {
 	struct seq_file *s = data;
 	struct kgsl_mem_entry *entry = ptr;
-	char flags[9];
+	char flags[10];
 	char usage[16];
 	struct kgsl_memdesc *m = &entry->memdesc;
+
+	if (m->flags & KGSL_MEMFLAGS_SPARSE_VIRT)
+		return 0;
 
 	flags[0] = kgsl_memdesc_is_global(m) ?  'g' : '-';
 	flags[1] = '-';
@@ -141,7 +144,8 @@ static int print_mem_entry(int id, void *ptr, void *data)
 	flags[5] = kgsl_memdesc_use_cpu_map(m) ? 'p' : '-';
 	flags[6] = (m->useraddr) ? 'Y' : 'N';
 	flags[7] = kgsl_memdesc_is_secured(m) ?  's' : '-';
-	flags[8] = '\0';
+	flags[8] = m->flags & KGSL_MEMFLAGS_SPARSE_PHYS ? 'P' : '-';
+	flags[9] = '\0';
 
 	kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
 
@@ -211,6 +215,70 @@ static const struct file_operations process_mem_fops = {
 	.release = process_mem_release,
 };
 
+static int print_sparse_mem_entry(int id, void *ptr, void *data)
+{
+	struct seq_file *s = data;
+	struct kgsl_mem_entry *entry = ptr;
+	struct kgsl_memdesc *m = &entry->memdesc;
+	struct rb_node *node;
+
+	if (!(m->flags & KGSL_MEMFLAGS_SPARSE_VIRT))
+		return 0;
+
+	node = rb_first(&entry->bind_tree);
+
+	while (node != NULL) {
+		struct sparse_bind_object *obj = rb_entry(node,
+				struct sparse_bind_object, node);
+		seq_printf(s, "%5d %16llx %16llx %16llx %16llx\n",
+				entry->id, entry->memdesc.gpuaddr,
+				obj->v_off, obj->size, obj->p_off);
+		node = rb_next(node);
+	}
+
+	seq_putc(s, '\n');
+
+	return 0;
+}
+
+static int process_sparse_mem_print(struct seq_file *s, void *unused)
+{
+	struct kgsl_process_private *private = s->private;
+
+	seq_printf(s, "%5s %16s %16s %16s %16s\n",
+		   "v_id", "gpuaddr", "v_offset", "v_size", "p_offset");
+
+	spin_lock(&private->mem_lock);
+	idr_for_each(&private->mem_idr, print_sparse_mem_entry, s);
+	spin_unlock(&private->mem_lock);
+
+	return 0;
+}
+
+static int process_sparse_mem_open(struct inode *inode, struct file *file)
+{
+	int ret;
+	pid_t pid = (pid_t) (unsigned long) inode->i_private;
+	struct kgsl_process_private *private = NULL;
+
+	private = kgsl_process_private_find(pid);
+
+	if (!private)
+		return -ENODEV;
+
+	ret = single_open(file, process_sparse_mem_print, private);
+	if (ret)
+		kgsl_process_private_put(private);
+
+	return ret;
+}
+
+static const struct file_operations process_sparse_mem_fops = {
+	.open = process_sparse_mem_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = process_mem_release,
+};
 
 /**
  * kgsl_process_init_debugfs() - Initialize debugfs for a process
@@ -251,6 +319,15 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 	if (IS_ERR_OR_NULL(dentry))
 		WARN((dentry == NULL),
 			"Unable to create 'mem' file for %s\n", name);
+
+	dentry = debugfs_create_file("sparse_mem", 0444, private->debug_root,
+		(void *) ((unsigned long) private->pid),
+		&process_sparse_mem_fops);
+
+	if (IS_ERR_OR_NULL(dentry))
+		WARN((dentry == NULL),
+			"Unable to create 'sparse_mem' file for %s\n", name);
+
 }
 
 void kgsl_core_debugfs_init(void)

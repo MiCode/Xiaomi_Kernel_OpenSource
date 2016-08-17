@@ -184,6 +184,7 @@ struct kgsl_memdesc_ops {
  * @attrs: dma attributes for this memory
  * @pages: An array of pointers to allocated pages
  * @page_count: Total number of pages allocated
+ * @cur_bindings: Number of sparse pages actively bound
  */
 struct kgsl_memdesc {
 	struct kgsl_pagetable *pagetable;
@@ -202,6 +203,7 @@ struct kgsl_memdesc {
 	struct dma_attrs attrs;
 	struct page **pages;
 	unsigned int page_count;
+	unsigned int cur_bindings;
 };
 
 /*
@@ -235,6 +237,8 @@ struct kgsl_memdesc {
  * @dev_priv: back pointer to the device file that created this entry.
  * @metadata: String containing user specified metadata for the entry
  * @work: Work struct used to schedule a kgsl_mem_entry_put in atomic contexts
+ * @bind_lock: Lock for sparse memory bindings
+ * @bind_tree: RB Tree for sparse memory bindings
  */
 struct kgsl_mem_entry {
 	struct kref refcount;
@@ -246,6 +250,8 @@ struct kgsl_mem_entry {
 	int pending_free;
 	char metadata[KGSL_GPUOBJ_ALLOC_METADATA_MAX + 1];
 	struct work_struct work;
+	spinlock_t bind_lock;
+	struct rb_root bind_tree;
 };
 
 struct kgsl_device_private;
@@ -315,6 +321,24 @@ struct kgsl_protected_registers {
 	int range;
 };
 
+/**
+ * struct sparse_bind_object - Bind metadata
+ * @node: Node for the rb tree
+ * @p_memdesc: Physical memdesc bound to
+ * @v_off: Offset of bind in the virtual entry
+ * @p_off: Offset of bind in the physical memdesc
+ * @size: Size of the bind
+ * @flags: Flags for the bind
+ */
+struct sparse_bind_object {
+	struct rb_node node;
+	struct kgsl_memdesc *p_memdesc;
+	uint64_t v_off;
+	uint64_t p_off;
+	uint64_t size;
+	uint64_t flags;
+};
+
 long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 					  unsigned int cmd, void *data);
 long kgsl_ioctl_device_setproperty(struct kgsl_device_private *dev_priv,
@@ -376,6 +400,19 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 				unsigned int cmd, void *data);
 long kgsl_ioctl_gpuobj_set_info(struct kgsl_device_private *dev_priv,
 				unsigned int cmd, void *data);
+
+long kgsl_ioctl_sparse_phys_alloc(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
+long kgsl_ioctl_sparse_phys_free(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
+long kgsl_ioctl_sparse_virt_alloc(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
+long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
+long kgsl_ioctl_sparse_bind(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
+long kgsl_ioctl_sparse_unbind(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
 
 void kgsl_mem_entry_destroy(struct kref *kref);
 

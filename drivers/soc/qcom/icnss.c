@@ -33,6 +33,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/qmi_encdec.h>
 #include <linux/ipc_logging.h>
+#include <linux/msm-bus.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/msm_qmi_interface.h>
@@ -43,7 +44,6 @@
 #define ICNSS_PANIC			1
 #define WLFW_TIMEOUT_MS			3000
 #define WLFW_SERVICE_INS_ID_V01		0
-#define SMMU_CLOCK_NAME			"smmu_aggre2_noc_clk"
 #define MAX_PROP_SIZE			32
 #define MAX_VOLTAGE_LEVEL		2
 #define VREG_ON				1
@@ -203,7 +203,8 @@ static struct icnss_data {
 	size_t smmu_iova_len;
 	dma_addr_t smmu_iova_ipa_start;
 	size_t smmu_iova_ipa_len;
-	struct clk *smmu_clk;
+	struct msm_bus_scale_pdata *bus_scale_table;
+	uint32_t bus_client;
 	struct qmi_handle *wlfw_clnt;
 	struct list_head event_list;
 	spinlock_t event_lock;
@@ -1789,44 +1790,60 @@ int icnss_smmu_map(struct device *dev,
 }
 EXPORT_SYMBOL(icnss_smmu_map);
 
-static struct clk *icnss_clock_init(struct device *dev, const char *cname)
-{
-	struct clk *c;
-	long rate;
-
-	if (of_property_match_string(dev->of_node, "clock-names", cname) < 0) {
-		icnss_pr_err("Clock %s not found!", cname);
-		return NULL;
-	}
-
-	c = devm_clk_get(dev, cname);
-	if (IS_ERR(c)) {
-		icnss_pr_err("Couldn't get clock %s!", cname);
-		return NULL;
-	}
-
-	if (clk_get_rate(c) == 0) {
-		rate = clk_round_rate(c, 1000);
-		clk_set_rate(c, rate);
-	}
-
-	return c;
-}
-
-static int icnss_clock_enable(struct clk *c)
+static int icnss_bw_vote(struct icnss_data *priv, int index)
 {
 	int ret = 0;
 
-	ret = clk_prepare_enable(c);
+	icnss_pr_dbg("Vote %d for msm_bus, state 0x%lx\n",
+		     index, priv->state);
+	ret = msm_bus_scale_client_update_request(priv->bus_client, index);
+	if (ret)
+		icnss_pr_err("Fail to vote %d: ret %d, state 0x%lx!\n",
+			     index, ret, priv->state);
 
-	if (ret < 0)
-		icnss_pr_err("Couldn't enable clock: %d!\n", ret);
 	return ret;
 }
 
-static void icnss_clock_disable(struct clk *c)
+static int icnss_bw_init(struct icnss_data *priv)
 {
-	clk_disable_unprepare(c);
+	int ret = 0;
+
+	priv->bus_scale_table = msm_bus_cl_get_pdata(priv->pdev);
+	if (!priv->bus_scale_table) {
+		icnss_pr_err("Missing entry for msm_bus scale table\n");
+		return -EINVAL;
+	}
+
+	priv->bus_client = msm_bus_scale_register_client(priv->bus_scale_table);
+	if (!priv->bus_client) {
+		icnss_pr_err("Fail to register with bus_scale client\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = icnss_bw_vote(priv, 1);
+	if (ret)
+		goto out;
+
+	return 0;
+
+out:
+	msm_bus_cl_clear_pdata(priv->bus_scale_table);
+	return ret;
+}
+
+static void icnss_bw_deinit(struct icnss_data *priv)
+{
+	if (!priv)
+		return;
+
+	if (priv->bus_client) {
+		icnss_bw_vote(priv, 0);
+		msm_bus_scale_unregister_client(priv->bus_client);
+	}
+
+	if (priv->bus_scale_table)
+		msm_bus_cl_clear_pdata(priv->bus_scale_table);
 }
 
 static int icnss_smmu_init(struct device *dev)
@@ -2460,12 +2477,9 @@ static int icnss_probe(struct platform_device *pdev)
 			goto err_smmu_init;
 		}
 
-		penv->smmu_clk = icnss_clock_init(&pdev->dev, SMMU_CLOCK_NAME);
-		if (penv->smmu_clk) {
-			ret = icnss_clock_enable(penv->smmu_clk);
-			if (ret < 0)
-				goto err_smmu_clock_enable;
-		}
+		ret = icnss_bw_init(penv);
+		if (ret)
+			goto err_bw_init;
 	}
 
 	penv->skip_qmi = of_property_read_bool(dev->of_node,
@@ -2478,7 +2492,7 @@ static int icnss_probe(struct platform_device *pdev)
 	if (!penv->event_wq) {
 		icnss_pr_err("Workqueue creation failed\n");
 		ret = -EFAULT;
-		goto err_smmu_clock_enable;
+		goto err_alloc_workqueue;
 	}
 
 	INIT_WORK(&penv->event_work, icnss_driver_event_work);
@@ -2503,7 +2517,9 @@ static int icnss_probe(struct platform_device *pdev)
 err_qmi:
 	if (penv->event_wq)
 		destroy_workqueue(penv->event_wq);
-err_smmu_clock_enable:
+err_alloc_workqueue:
+	icnss_bw_deinit(penv);
+err_bw_init:
 	if (penv->smmu_mapping)
 		icnss_smmu_remove(&pdev->dev);
 err_smmu_init:
@@ -2538,11 +2554,7 @@ static int icnss_remove(struct platform_device *pdev)
 	if (penv->event_wq)
 		destroy_workqueue(penv->event_wq);
 
-	if (penv->smmu_mapping) {
-		if (penv->smmu_clk)
-			icnss_clock_disable(penv->smmu_clk);
-		icnss_smmu_remove(&pdev->dev);
-	}
+	icnss_bw_deinit(penv);
 
 	if (penv->msa_va)
 		dma_free_coherent(&pdev->dev, penv->msa_mem_size,

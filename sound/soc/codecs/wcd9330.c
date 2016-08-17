@@ -8956,8 +8956,11 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 
 err_pdata:
 	kfree(ptr);
+	control->rx_chs = NULL;
+	control->tx_chs = NULL;
 err_hwdep:
 	kfree(tomtom->fw_data);
+	tomtom->fw_data = NULL;
 err_nomem_slimch:
 	devm_kfree(codec->dev, tomtom);
 	return ret;
@@ -8965,11 +8968,16 @@ err_nomem_slimch:
 static int tomtom_codec_remove(struct snd_soc_codec *codec)
 {
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *control;
 
 	WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
 	atomic_set(&kp_tomtom_priv, 0);
 
 	WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
+
+	control = dev_get_drvdata(codec->dev->parent);
+	control->rx_chs = NULL;
+	control->tx_chs = NULL;
 
 	if (tomtom->wcd_ext_clk)
 		clk_put(tomtom->wcd_ext_clk);

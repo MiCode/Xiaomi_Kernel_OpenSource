@@ -86,6 +86,33 @@
 #define TXn_TX_DRV_LVL				0x001C
 
 #define TCSR_USB3_DP_PHYMODE			0x48
+#define EDID_START_ADDRESS			0x50
+
+/* DP HDCP 1.3 registers */
+#define DP_HDCP_CTRL                                   (0x0A0)
+#define DP_HDCP_STATUS                                 (0x0A4)
+#define DP_HDCP_SW_UPPER_AKSV                          (0x298)
+#define DP_HDCP_SW_LOWER_AKSV                          (0x29C)
+#define DP_HDCP_ENTROPY_CTRL0                          (0x750)
+#define DP_HDCP_ENTROPY_CTRL1                          (0x75C)
+#define DP_HDCP_SHA_STATUS                             (0x0C8)
+#define DP_HDCP_RCVPORT_DATA2_0                        (0x0B0)
+#define DP_HDCP_RCVPORT_DATA3                          (0x2A4)
+#define DP_HDCP_RCVPORT_DATA4                          (0x2A8)
+#define DP_HDCP_RCVPORT_DATA5                          (0x0C0)
+#define DP_HDCP_RCVPORT_DATA6                          (0x0C4)
+
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_SHA_CTRL           (0x024)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA0      (0x004)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA1      (0x008)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA7      (0x00C)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA8      (0x010)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA9      (0x014)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA10     (0x018)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA11     (0x01C)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA12     (0x020)
+
+#define DP_INTERRUPT_STATUS_2                          (0x024)
 
 struct lane_mapping {
 	char lane0;
@@ -94,6 +121,18 @@ struct lane_mapping {
 	char lane3;
 };
 
+struct edp_cmd {
+	char read;	/* 1 == read, 0 == write */
+	char i2c;	/* 1 == i2c cmd, 0 == native cmd */
+	u32 addr;	/* 20 bits */
+	char *datap;
+	char *out_buf;
+	int len;	/* len to be tx OR len to be rx for read */
+	char next;	/* next command */
+};
+
+int dp_aux_read(void *ep, struct edp_cmd *cmds);
+int dp_aux_write(void *ep, struct edp_cmd *cmd);
 void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data);
 u32 mdss_dp_get_ctrl_hw_version(struct dss_io_data *ctrl_io);
 u32 mdss_dp_get_phy_hw_version(struct dss_io_data *phy_io);
