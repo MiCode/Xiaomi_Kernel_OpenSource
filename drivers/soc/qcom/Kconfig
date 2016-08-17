@@ -23,6 +23,14 @@ config QCOM_MDT_LOADER
 	tristate
 	select QCOM_SCM
 
+config QCOM_LLCC
+	tristate "Qualcomm Technologies, Inc. LLCC driver"
+	depends on ARCH_QCOM
+	help
+	  Qualcomm Technologies, Inc. platform specific LLCC driver for Last
+	  Level Cache. This provides interfaces to client's that use the LLCC.
+	  Say yes here to enable LLCC slice driver.
+
 config QCOM_PM
 	bool "Qualcomm Power Management"
 	depends on ARCH_QCOM && !ARM64
