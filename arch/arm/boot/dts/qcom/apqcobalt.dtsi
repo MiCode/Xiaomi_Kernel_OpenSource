@@ -16,3 +16,13 @@
 	model = "Qualcomm Technologies, Inc. APQ COBALT";
 	qcom,msm-id = <319 0x10000>;
 };
+
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};
