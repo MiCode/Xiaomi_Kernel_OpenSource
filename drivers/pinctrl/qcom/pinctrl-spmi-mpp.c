@@ -780,7 +780,7 @@ static int pmic_mpp_populate(struct pmic_mpp_state *state,
 	sel &= PMIC_MPP_REG_MODE_FUNCTION_MASK;
 
 	if (sel >= PMIC_MPP_SELECTOR_DTEST_FIRST)
-		pad->dtest = sel + 1;
+		pad->dtest = sel - PMIC_MPP_SELECTOR_DTEST_FIRST + 1;
 	else if (sel == PMIC_MPP_SELECTOR_PAIRED)
 		pad->paired = true;
 
