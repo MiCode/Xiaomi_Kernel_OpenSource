@@ -124,6 +124,43 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 	return ret;
 }
 
+static void process_one_prefetch(struct ion_heap *sys_heap,
+				 struct prefetch_info *info)
+{
+	struct ion_buffer buffer;
+	struct sg_table *sg_table;
+	int ret;
+
+	buffer.heap = sys_heap;
+	buffer.flags = 0;
+
+	ret = sys_heap->ops->allocate(sys_heap, &buffer, info->size,
+						PAGE_SIZE, buffer.flags);
+	if (ret) {
+		pr_debug("%s: Failed to prefetch 0x%zx, ret = %d\n",
+			 __func__, info->size, ret);
+		return;
+	}
+
+	sg_table = sys_heap->ops->map_dma(sys_heap, &buffer);
+	if (IS_ERR_OR_NULL(sg_table))
+		goto out;
+
+	ret = ion_system_secure_heap_assign_sg(sg_table,
+					       get_secure_vmid(info->vmid));
+	if (ret)
+		goto unmap;
+
+	/* Now free it to the secure heap */
+	buffer.heap = sys_heap;
+	buffer.flags = info->vmid;
+
+unmap:
+	sys_heap->ops->unmap_dma(sys_heap, &buffer);
+out:
+	sys_heap->ops->free(&buffer);
+}
+
 static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 {
 	struct ion_system_secure_heap *secure_heap = container_of(work,
@@ -131,42 +168,20 @@ static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 						prefetch_work);
 	struct ion_heap *sys_heap = secure_heap->sys_heap;
 	struct prefetch_info *info, *tmp;
-	unsigned long flags, size;
-	struct ion_buffer *buffer;
-	int ret;
-	int vmid_flags;
-
-	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
-	if (!buffer)
-		return;
+	unsigned long flags;
 
 	spin_lock_irqsave(&secure_heap->work_lock, flags);
 	list_for_each_entry_safe(info, tmp,
 				 &secure_heap->prefetch_list, list) {
 		list_del(&info->list);
 		spin_unlock_irqrestore(&secure_heap->work_lock, flags);
-		size = info->size;
-		vmid_flags = info->vmid;
+
+		process_one_prefetch(sys_heap, info);
+
 		kfree(info);
-
-		/* buffer->heap used by free() */
-		buffer->heap = &secure_heap->heap;
-		buffer->flags = vmid_flags;
-		ret = sys_heap->ops->allocate(sys_heap, buffer, size,
-						PAGE_SIZE, 0);
-		if (ret) {
-			pr_debug("%s: Failed to get %zx allocation for %s, ret = %d\n",
-				 __func__, info->size, secure_heap->heap.name,
-				 ret);
-			spin_lock_irqsave(&secure_heap->work_lock, flags);
-			continue;
-		}
-
-		ion_system_secure_heap_free(buffer);
 		spin_lock_irqsave(&secure_heap->work_lock, flags);
 	}
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
-	kfree(buffer);
 }
 
 static int alloc_prefetch_info(
