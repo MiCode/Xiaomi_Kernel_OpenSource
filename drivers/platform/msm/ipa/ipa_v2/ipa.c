@@ -4440,7 +4440,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	cb->dev = dev;
 	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
 				cb->va_start, cb->va_size);
-	if (IS_ERR(cb->mapping)) {
+	if (IS_ERR_OR_NULL(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
 		/* assume this failure is because iommu driver is not ready */
 		return -EPROBE_DEFER;
@@ -4543,7 +4543,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
 					       cb->va_start,
 					       cb->va_size);
-	if (IS_ERR(cb->mapping)) {
+	if (IS_ERR_OR_NULL(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
 		/* assume this failure is because iommu driver is not ready */
 		return -EPROBE_DEFER;
