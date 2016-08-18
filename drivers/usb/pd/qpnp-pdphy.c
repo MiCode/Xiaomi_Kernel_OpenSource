@@ -58,6 +58,12 @@
 #define USB_PDPHY_RX_ACKNOWLEDGE	0x4B
 #define RX_BUFFER_TOKEN			BIT(0)
 
+#define USB_PDPHY_BIST_MODE		0x4E
+#define BIST_MODE_MASK			0xF
+#define BIST_ENABLE			BIT(7)
+#define PD_MSG_BIST			0x3
+#define PD_BIST_TEST_DATA_MODE		0x8
+
 #define USB_PDPHY_TX_BUFFER_HDR		0x60
 #define USB_PDPHY_TX_BUFFER_DATA	0x62
 
@@ -95,6 +101,7 @@ struct usb_pdphy {
 	bool is_opened;
 	int tx_status;
 	u8 frame_filter_val;
+	bool in_test_data_mode;
 
 	enum data_role data_role;
 	enum power_role power_role;
@@ -233,7 +240,8 @@ void pdphy_enable_irq(struct usb_pdphy *pdphy, bool enable)
 		enable_irq(pdphy->sig_tx_irq);
 		enable_irq(pdphy->sig_rx_irq);
 		enable_irq(pdphy->msg_tx_irq);
-		enable_irq(pdphy->msg_rx_irq);
+		if (!pdphy->in_test_data_mode)
+			enable_irq(pdphy->msg_rx_irq);
 		enable_irq(pdphy->msg_tx_failed_irq);
 		enable_irq(pdphy->msg_tx_discarded_irq);
 		enable_irq(pdphy->msg_rx_discarded_irq);
@@ -243,7 +251,8 @@ void pdphy_enable_irq(struct usb_pdphy *pdphy, bool enable)
 	disable_irq(pdphy->sig_tx_irq);
 	disable_irq(pdphy->sig_rx_irq);
 	disable_irq(pdphy->msg_tx_irq);
-	disable_irq(pdphy->msg_rx_irq);
+	if (!pdphy->in_test_data_mode)
+		disable_irq(pdphy->msg_rx_irq);
 	disable_irq(pdphy->msg_tx_failed_irq);
 	disable_irq(pdphy->msg_tx_discarded_irq);
 	disable_irq(pdphy->msg_rx_discarded_irq);
@@ -523,6 +532,9 @@ void pd_phy_close(void)
 
 	wake_up_all(&pdphy->tx_waitq);
 
+	pdphy_reg_write(pdphy, USB_PDPHY_BIST_MODE, 0);
+	pdphy->in_test_data_mode = false;
+
 	ret = pdphy_reg_write(pdphy, USB_PDPHY_TX_CONTROL, 0);
 	if (ret)
 		return;
@@ -600,6 +612,9 @@ static irqreturn_t pdphy_sig_tx_irq_thread(int irq, void *data)
 {
 	struct usb_pdphy *pdphy = data;
 
+	/* in case of exit from BIST Carrier Mode 2, clear BIST_MODE */
+	pdphy_reg_write(pdphy, USB_PDPHY_BIST_MODE, 0);
+
 	pdphy->sig_tx_cnt++;
 	pdphy->tx_status = 0;
 	wake_up(&pdphy->tx_waitq);
@@ -607,10 +622,24 @@ static irqreturn_t pdphy_sig_tx_irq_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int pd_phy_bist_mode(u8 bist_mode)
+{
+	struct usb_pdphy *pdphy = __pdphy;
+
+	dev_dbg(pdphy->dev, "%s: enter BIST mode %d\n", __func__, bist_mode);
+
+	pdphy_reg_write(pdphy, USB_PDPHY_BIST_MODE, 0);
+
+	udelay(5);
+
+	return pdphy_masked_write(pdphy, USB_PDPHY_BIST_MODE,
+			BIST_MODE_MASK | BIST_ENABLE, bist_mode | BIST_ENABLE);
+}
+
 static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
 {
 	u8 size, rx_status, frame_type;
-	u8 *buf = NULL;
+	u8 buf[32];
 	int ret;
 	struct usb_pdphy *pdphy = data;
 
@@ -620,9 +649,8 @@ static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
 	if (ret)
 		goto done;
 
-	if (!size) {
-		dev_err(pdphy->dev, "%s: incorrect size 1byte\n",
-			__func__);
+	if (!size || size > 31) {
+		dev_err(pdphy->dev, "%s: invalid size %d\n", __func__, size);
 		goto done;
 	}
 
@@ -637,25 +665,33 @@ static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
 		goto done;
 	}
 
-	buf = kmalloc(size + 1, GFP_KERNEL);
-	if (!buf)
-		goto done;
-
 	ret = pdphy_reg_read(pdphy, buf, USB_PDPHY_RX_BUFFER, size + 1);
 	if (ret)
 		goto done;
 
-	/* ack to change ownership of rx buffer back to PDPHY RX HW */
-	pdphy_reg_write(pdphy, USB_PDPHY_RX_ACKNOWLEDGE, 0);
+	if (((buf[0] & 0xf) == PD_MSG_BIST) && size >= 5) { /* BIST */
+		u8 mode = buf[5] >> 4; /* [31:28] of 1st data object */
+
+		pd_phy_bist_mode(mode);
+		pdphy_reg_write(pdphy, USB_PDPHY_RX_ACKNOWLEDGE, 0);
+
+		if (mode == PD_BIST_TEST_DATA_MODE) {
+			pdphy->in_test_data_mode = true;
+			disable_irq_nosync(irq);
+		}
+		goto done;
+	}
 
 	if (pdphy->msg_rx_cb)
 		pdphy->msg_rx_cb(pdphy->usbpd, frame_type, buf, size + 1);
+
+	/* ack to change ownership of rx buffer back to PDPHY RX HW */
+	pdphy_reg_write(pdphy, USB_PDPHY_RX_ACKNOWLEDGE, 0);
 
 	print_hex_dump_debug("rx msg:", DUMP_PREFIX_NONE, 32, 4, buf, size + 1,
 		false);
 	pdphy->rx_bytes += size + 1;
 done:
-	kfree(buf);
 	return IRQ_HANDLED;
 }
 

@@ -11,6 +11,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/hrtimer.h>
 #include <linux/ipc_logging.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
@@ -158,14 +159,15 @@ static void *usbpd_ipc_log;
 
 /* Timeouts (in ms) */
 #define ERROR_RECOVERY_TIME	25
-#define SENDER_RESPONSE_TIME	30
+#define SENDER_RESPONSE_TIME	26
 #define SINK_WAIT_CAP_TIME	620
-#define PS_TRANSITION_TIME	550
+#define PS_TRANSITION_TIME	450
 #define SRC_CAP_TIME		120
 #define SRC_TRANSITION_TIME	25
-#define PS_HARD_RESET_TIME	35
+#define SRC_RECOVER_TIME	660
+#define PS_HARD_RESET_TIME	25
 #define PS_SOURCE_ON		400
-#define PS_SOURCE_OFF		900
+#define PS_SOURCE_OFF		750
 #define VDM_BUSY_TIME		50
 
 #define PD_CAPS_COUNT		50
@@ -255,7 +257,8 @@ struct vdm_tx {
 struct usbpd {
 	struct device		dev;
 	struct workqueue_struct	*wq;
-	struct delayed_work	sm_work;
+	struct work_struct	sm_work;
+	struct hrtimer		timer;
 
 	struct extcon_dev	*extcon;
 
@@ -483,7 +486,7 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
 	pd->hard_reset = true;
-	mod_delayed_work(pd->wq, &pd->sm_work, 0);
+	queue_work(pd->wq, &pd->sm_work);
 }
 
 static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
@@ -531,12 +534,22 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 	pd->rx_msg_len = PD_MSG_HDR_COUNT(header);
 	memcpy(&pd->rx_payload, buf, len);
 
-	mod_delayed_work(pd->wq, &pd->sm_work, 0);
+	queue_work(pd->wq, &pd->sm_work);
 }
 
 static void phy_shutdown(struct usbpd *pd)
 {
 	usbpd_dbg(&pd->dev, "shutdown");
+}
+
+static enum hrtimer_restart pd_timeout(struct hrtimer *timer)
+{
+	struct usbpd *pd = container_of(timer, struct usbpd, timer);
+
+	usbpd_dbg(&pd->dev, "timeout");
+	queue_work(pd->wq, &pd->sm_work);
+
+	return HRTIMER_NORESTART;
 }
 
 /* Enters new state and executes actions on entry */
@@ -562,8 +575,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_ERROR_RECOVERY: /* perform hard disconnect/reconnect */
 		pd->in_pr_swap = false;
 		set_power_role(pd, PR_NONE);
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(ERROR_RECOVERY_TIME));
+		hrtimer_start(&pd->timer, ms_to_ktime(ERROR_RECOVERY_TIME),
+				HRTIMER_MODE_REL);
 		break;
 
 	/* Source states */
@@ -609,7 +622,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		/* fall-through */
 
 	case PE_SRC_SEND_CAPABILITIES:
-		queue_delayed_work(pd->wq, &pd->sm_work, 0);
+		queue_work(pd->wq, &pd->sm_work);
 		break;
 
 	case PE_SRC_NEGOTIATE_CAPABILITY:
@@ -636,16 +649,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			break;
 		}
 
-		/*
-		 * we only support VSafe5V so Aceept right away as there is
-		 * nothing more to prepare from the power supply
-		 */
-		pd->current_state = PE_SRC_TRANSITION_SUPPLY;
-		usbpd_dbg(&pd->dev, "Enter %s\n",
-				usbpd_state_strings[pd->current_state]);
-		/* fall-through */
-
-	case PE_SRC_TRANSITION_SUPPLY:
+		/* PE_SRC_TRANSITION_SUPPLY pseudo-state */
 		ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 		if (ret) {
 			usbpd_err(&pd->dev, "Error sending Accept\n");
@@ -653,8 +657,23 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			break;
 		}
 
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(SRC_TRANSITION_TIME));
+		/* tSrcTransition required after ACCEPT */
+		usleep_range(SRC_TRANSITION_TIME * USEC_PER_MSEC,
+				(SRC_TRANSITION_TIME + 5) * USEC_PER_MSEC);
+
+		/*
+		 * Normally a voltage change should occur within tSrcReady
+		 * but since we only support VSafe5V there is nothing more to
+		 * prepare from the power supply so send PS_RDY right away.
+		 */
+		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
+		if (ret) {
+			usbpd_err(&pd->dev, "Error sending PS_RDY\n");
+			usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+			break;
+		}
+
+		usbpd_set_state(pd, PE_SRC_READY);
 		break;
 
 	case PE_SRC_READY:
@@ -683,7 +702,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd_phy_update_roles(pd->current_dr, pd->current_pr);
 		}
 
-		msleep(1000);	/* tSrcRecover */
+		msleep(SRC_RECOVER_TIME);
 
 		ret = regulator_enable(pd->vbus);
 		if (ret)
@@ -703,7 +722,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_SRC_HARD_RESET:
 	case PE_SNK_HARD_RESET:
 		/* hard reset may sleep; handle it in the workqueue */
-		queue_delayed_work(pd->wq, &pd->sm_work, 0);
+		queue_work(pd->wq, &pd->sm_work);
 		break;
 
 	case PE_SRC_SEND_SOFT_RESET:
@@ -721,8 +740,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		}
 
 		/* wait for ACCEPT */
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(SENDER_RESPONSE_TIME * 3));
+		hrtimer_start(&pd->timer, ms_to_ktime(SENDER_RESPONSE_TIME),
+				HRTIMER_MODE_REL);
 		break;
 
 	/* Sink states */
@@ -771,8 +790,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		if (!pd->vbus_present) {
 			/* can get here during a hard reset and we lost vbus */
 			pd->current_state = PE_SNK_DISCOVERY;
-			queue_delayed_work(pd->wq, &pd->sm_work,
-					msecs_to_jiffies(2000));
+			hrtimer_start(&pd->timer, ms_to_ktime(2000),
+					HRTIMER_MODE_REL);
 			break;
 		}
 
@@ -785,10 +804,11 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
 		if (pd->rx_msg_len && pd->rx_msg_type)
-			queue_delayed_work(pd->wq, &pd->sm_work, 0);
+			queue_work(pd->wq, &pd->sm_work);
 		else
-			queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(SINK_WAIT_CAP_TIME));
+			hrtimer_start(&pd->timer,
+					ms_to_ktime(SINK_WAIT_CAP_TIME),
+					HRTIMER_MODE_REL);
 		break;
 
 	case PE_SNK_EVALUATE_CAPABILITY:
@@ -810,14 +830,14 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			usbpd_err(&pd->dev, "Error sending Request\n");
 
 		/* wait for ACCEPT */
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(SENDER_RESPONSE_TIME * 3));
+		hrtimer_start(&pd->timer, ms_to_ktime(SENDER_RESPONSE_TIME),
+				HRTIMER_MODE_REL);
 		break;
 
 	case PE_SNK_TRANSITION_SINK:
 		/* wait for PS_RDY */
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(PS_TRANSITION_TIME));
+		hrtimer_start(&pd->timer, ms_to_ktime(PS_TRANSITION_TIME),
+				HRTIMER_MODE_REL);
 		break;
 
 	case PE_SNK_READY:
@@ -910,7 +930,7 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 
 	/* VDM will get sent in PE_SRC/SNK_READY state handling */
 	list_add_tail(&vdm_tx->entry, &pd->vdm_tx_queue);
-	queue_delayed_work(pd->wq, &pd->sm_work, 0);
+	queue_work(pd->wq, &pd->sm_work);
 
 	return 0;
 }
@@ -1092,8 +1112,8 @@ static void handle_vdm_rx(struct usbpd *pd)
 			/* wait tVDMBusy, then retry */
 			list_move(&pd->vdm_tx_retry->entry, &pd->vdm_tx_queue);
 			pd->vdm_tx_retry = NULL;
-			queue_delayed_work(pd->wq, &pd->sm_work,
-					msecs_to_jiffies(VDM_BUSY_TIME));
+			hrtimer_start(&pd->timer, ms_to_ktime(VDM_BUSY_TIME),
+					HRTIMER_MODE_REL);
 			break;
 		default:
 			break;
@@ -1195,7 +1215,7 @@ static void dr_swap(struct usbpd *pd)
 /* Handles current state and determines transitions */
 static void usbpd_sm(struct work_struct *w)
 {
-	struct usbpd *pd = container_of(w, struct usbpd, sm_work.work);
+	struct usbpd *pd = container_of(w, struct usbpd, sm_work);
 	union power_supply_propval val = {0};
 	int ret;
 	enum usbpd_control_msg_type ctrl_recvd = 0;
@@ -1203,6 +1223,8 @@ static void usbpd_sm(struct work_struct *w)
 
 	usbpd_dbg(&pd->dev, "handle state %s\n",
 			usbpd_state_strings[pd->current_state]);
+
+	hrtimer_cancel(&pd->timer);
 
 	if (pd->rx_msg_len)
 		data_recvd = pd->rx_msg_type;
@@ -1325,8 +1347,8 @@ static void usbpd_sm(struct work_struct *w)
 				break;
 			}
 
-			queue_delayed_work(pd->wq, &pd->sm_work,
-					msecs_to_jiffies(SRC_CAP_TIME));
+			hrtimer_start(&pd->timer, ms_to_ktime(SRC_CAP_TIME),
+					HRTIMER_MODE_REL);
 			break;
 		}
 
@@ -1341,8 +1363,8 @@ static void usbpd_sm(struct work_struct *w)
 
 		/* wait for REQUEST */
 		pd->current_state = PE_SRC_SEND_CAPABILITIES_WAIT;
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(SENDER_RESPONSE_TIME * 3));
+		hrtimer_start(&pd->timer, ms_to_ktime(SENDER_RESPONSE_TIME),
+				HRTIMER_MODE_REL);
 		break;
 
 	case PE_SRC_SEND_CAPABILITIES_WAIT:
@@ -1352,17 +1374,6 @@ static void usbpd_sm(struct work_struct *w)
 		} else {
 			usbpd_set_state(pd, PE_SRC_HARD_RESET);
 		}
-		break;
-
-	case PE_SRC_TRANSITION_SUPPLY:
-		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
-		if (ret) {
-			usbpd_err(&pd->dev, "Error sending PS_RDY\n");
-			usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
-			break;
-		}
-
-		usbpd_set_state(pd, PE_SRC_READY);
 		break;
 
 	case PE_SRC_READY:
@@ -1403,7 +1414,7 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			pd->current_state = PE_PRS_SRC_SNK_TRANSITION_TO_OFF;
-			queue_delayed_work(pd->wq, &pd->sm_work, 0);
+			queue_work(pd->wq, &pd->sm_work);
 			break;
 		} else {
 			if (data_recvd == MSG_VDM)
@@ -1418,7 +1429,8 @@ static void usbpd_sm(struct work_struct *w)
 		pd->in_explicit_contract = false;
 		reset_vdm_state(pd);
 
-		msleep(PS_HARD_RESET_TIME);
+		usleep_range(PS_HARD_RESET_TIME * USEC_PER_MSEC,
+				(PS_HARD_RESET_TIME + 5) * USEC_PER_MSEC);
 		usbpd_set_state(pd, PE_SRC_TRANSITION_TO_DEFAULT);
 		break;
 
@@ -1429,7 +1441,7 @@ static void usbpd_sm(struct work_struct *w)
 					POWER_SUPPLY_PROP_TYPE, &val);
 			if (val.intval == POWER_SUPPLY_TYPEC_NONE) {
 				pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
-				queue_delayed_work(pd->wq, &pd->sm_work, 0);
+				queue_work(pd->wq, &pd->sm_work);
 			}
 			break;
 		}
@@ -1557,8 +1569,8 @@ static void usbpd_sm(struct work_struct *w)
 			pd->current_pr = PR_SRC;
 			pd_phy_update_roles(pd->current_dr, pd->current_pr);
 
-			queue_delayed_work(pd->wq, &pd->sm_work,
-					msecs_to_jiffies(PS_SOURCE_OFF));
+			hrtimer_start(&pd->timer, ms_to_ktime(PS_SOURCE_OFF),
+					HRTIMER_MODE_REL);
 			break;
 		} else {
 			if (data_recvd == MSG_VDM)
@@ -1659,8 +1671,8 @@ static void usbpd_sm(struct work_struct *w)
 		}
 
 		pd->current_state = PE_PRS_SRC_SNK_WAIT_SOURCE_ON;
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(PS_SOURCE_ON));
+		hrtimer_start(&pd->timer, ms_to_ktime(PS_SOURCE_ON),
+				HRTIMER_MODE_REL);
 		break;
 
 	case PE_PRS_SRC_SNK_WAIT_SOURCE_ON:
@@ -1688,8 +1700,8 @@ static void usbpd_sm(struct work_struct *w)
 		pd->current_pr = PR_SRC;
 		pd_phy_update_roles(pd->current_dr, pd->current_pr);
 
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(PS_SOURCE_OFF));
+		hrtimer_start(&pd->timer, ms_to_ktime(PS_SOURCE_OFF),
+				HRTIMER_MODE_REL);
 		break;
 
 	case PE_PRS_SNK_SRC_TRANSITION_TO_OFF:
@@ -1819,7 +1831,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	switch (typec_mode) {
 	/* Disconnect */
 	case POWER_SUPPLY_TYPEC_NONE:
-		queue_delayed_work(pd->wq, &pd->sm_work, 0);
+		queue_work(pd->wq, &pd->sm_work);
 		break;
 
 	/* Sink states */
@@ -1829,7 +1841,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		usbpd_info(&pd->dev, "Type-C Source connected\n");
 		if (pd->current_pr != PR_SINK) {
 			pd->current_pr = PR_SINK;
-			queue_delayed_work(pd->wq, &pd->sm_work, 0);
+			queue_work(pd->wq, &pd->sm_work);
 		}
 		break;
 
@@ -1839,7 +1851,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		usbpd_info(&pd->dev, "Type-C Sink connected\n");
 		if (pd->current_pr != PR_SRC) {
 			pd->current_pr = PR_SRC;
-			queue_delayed_work(pd->wq, &pd->sm_work, 0);
+			queue_work(pd->wq, &pd->sm_work);
 		}
 		break;
 
@@ -2282,7 +2294,9 @@ struct usbpd *usbpd_create(struct device *parent)
 		ret = -ENOMEM;
 		goto del_pd;
 	}
-	INIT_DELAYED_WORK(&pd->sm_work, usbpd_sm);
+	INIT_WORK(&pd->sm_work, usbpd_sm);
+	hrtimer_init(&pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	pd->timer.function = pd_timeout;
 
 	pd->usb_psy = power_supply_get_by_name("usb");
 	if (!pd->usb_psy) {
