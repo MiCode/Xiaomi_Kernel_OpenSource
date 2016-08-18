@@ -1854,6 +1854,10 @@ static bool wcd934x_is_volatile_register(struct device *dev, unsigned int reg)
 	 */
 	switch (reg) {
 	case WCD934X_CPE_SS_SOC_SW_COLLAPSE_CTL:
+	case WCD934X_CPE_SS_PWR_SYS_PSTATE_CTL_0:
+	case WCD934X_CPE_SS_PWR_SYS_PSTATE_CTL_1:
+	case WCD934X_CPE_SS_CPAR_CTL:
+	case WCD934X_CPE_SS_STATUS:
 		return true;
 	}
 
