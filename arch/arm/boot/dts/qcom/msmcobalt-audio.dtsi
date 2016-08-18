@@ -191,6 +191,14 @@
 		compatible = "qcom,msm-cpe-lsm";
 	};
 
+	qcom,wcd-dsp-mgr {
+		compatible = "qcom,wcd-dsp-mgr";
+		qcom,wdsp-components = <&wcd934x_cdc 0>,
+				       <&wcd_spi_0 1>,
+				       <&glink_spi_xprt_wdsp 2>;
+		qcom,img-filename = "cpe_9340";
+	};
+
 	wcd_us_euro_gpio: msm_cdc_pinctrl@75 {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
@@ -296,7 +304,7 @@
 		qcom,cdc-mad-dmic-rate = <600000>;
 	};
 
-	tavil_codec {
+	wcd934x_cdc: tavil_codec {
 		compatible = "qcom,tavil-slim-pgd";
 		elemental-addr = [00 01 50 02 17 02];
 
@@ -346,6 +354,8 @@
 		qcom,cdc-slim-ifd-elemental-addr = [00 00 50 02 17 02];
 		qcom,cdc-dmic-sample-rate = <4800000>;
 		qcom,cdc-mad-dmic-rate = <600000>;
+
+		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
 
 		wcd_spi_0: wcd_spi {
 			compatible = "qcom,wcd-spi-v2";
