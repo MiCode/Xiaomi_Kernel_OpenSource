@@ -1497,7 +1497,7 @@
 		gdsc-vdd-supply = <&gdsc_pcie_0>;
 		vreg-1.8-supply = <&pmcobalt_l2>;
 		vreg-0.9-supply = <&pmcobalt_l1>;
-		vreg-cx-supply = <&pmcobalt_s1_level_ao>;
+		vreg-cx-supply = <&pmcobalt_s1_level>;
 
 		qcom,vreg-1.8-voltage-level = <1200000 1200000 24000>;
 		qcom,vreg-0.9-voltage-level = <880000 880000 24000>;
