@@ -419,6 +419,8 @@ extern int proc_dowatchdog_thresh(struct ctl_table *table, int write,
 extern unsigned int  softlockup_panic;
 extern unsigned int  hardlockup_panic;
 void lockup_detector_init(void);
+extern void watchdog_enable(unsigned int cpu);
+extern void watchdog_disable(unsigned int cpu);
 #else
 static inline void touch_softlockup_watchdog_sched(void)
 {
@@ -433,6 +435,12 @@ static inline void touch_all_softlockup_watchdogs(void)
 {
 }
 static inline void lockup_detector_init(void)
+{
+}
+static inline void watchdog_enable(unsigned int cpu)
+{
+}
+static inline void watchdog_disable(unsigned int cpu)
 {
 }
 #endif

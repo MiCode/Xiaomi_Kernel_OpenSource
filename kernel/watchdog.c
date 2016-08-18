@@ -13,6 +13,7 @@
 
 #include <linux/mm.h>
 #include <linux/cpu.h>
+#include <linux/device.h>
 #include <linux/nmi.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -95,6 +96,7 @@ static u64 __read_mostly sample_period;
 static DEFINE_PER_CPU(unsigned long, watchdog_touch_ts);
 static DEFINE_PER_CPU(struct task_struct *, softlockup_watchdog);
 static DEFINE_PER_CPU(struct hrtimer, watchdog_hrtimer);
+static DEFINE_PER_CPU(unsigned int, watchdog_en);
 static DEFINE_PER_CPU(bool, softlockup_touch_sync);
 static DEFINE_PER_CPU(bool, soft_watchdog_warn);
 static DEFINE_PER_CPU(unsigned long, hrtimer_interrupts);
@@ -584,9 +586,17 @@ static void watchdog_set_prio(unsigned int policy, unsigned int prio)
 	sched_setscheduler(current, policy, &param);
 }
 
-static void watchdog_enable(unsigned int cpu)
+/* Must be called with hotplug lock (lock_device_hotplug()) held. */
+void watchdog_enable(unsigned int cpu)
 {
 	struct hrtimer *hrtimer = raw_cpu_ptr(&watchdog_hrtimer);
+	unsigned int *enabled = raw_cpu_ptr(&watchdog_en);
+
+	lock_device_hotplug_assert();
+
+	if (*enabled)
+		return;
+	*enabled = 1;
 
 	/* kick off the timer for the hardlockup detector */
 	hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -604,9 +614,17 @@ static void watchdog_enable(unsigned int cpu)
 	__touch_watchdog();
 }
 
-static void watchdog_disable(unsigned int cpu)
+/* Must be called with hotplug lock (lock_device_hotplug()) held. */
+void watchdog_disable(unsigned int cpu)
 {
 	struct hrtimer *hrtimer = raw_cpu_ptr(&watchdog_hrtimer);
+	unsigned int *enabled = raw_cpu_ptr(&watchdog_en);
+
+	lock_device_hotplug_assert();
+
+	if (!*enabled)
+		return;
+	*enabled = 0;
 
 	watchdog_set_prio(SCHED_NORMAL, 0);
 	hrtimer_cancel(hrtimer);
