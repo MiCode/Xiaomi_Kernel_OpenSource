@@ -170,7 +170,7 @@ static int ipa3_handle_install_filter_rule_req(void *req_h, void *req)
 			resp.rule_id_len = MAX_NUM_Q6_RULE;
 			IPAWANERR("installed (%d) max Q6-UL rules ",
 			MAX_NUM_Q6_RULE);
-			IPAWANERR("but modem gives total (%d)\n",
+			IPAWANERR("but modem gives total (%u)\n",
 			rule_req->filter_spec_ex_list_len);
 		} else {
 			resp.rule_id_len =
@@ -593,7 +593,7 @@ int ipa3_qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 	if (req->filter_spec_ex_list_len == 0) {
 		IPAWANDBG("IPACM pass zero rules to Q6\n");
 	} else {
-		IPAWANDBG("IPACM pass %d rules to Q6\n",
+		IPAWANDBG("IPACM pass %u rules to Q6\n",
 		req->filter_spec_ex_list_len);
 	}
 
@@ -725,6 +725,11 @@ int ipa3_qmi_filter_notify_send(
 	if (req->rule_id_len == 0) {
 		IPAWANERR(" delete UL filter rule for pipe %d\n",
 		req->source_pipe_index);
+		return -EINVAL;
+	} else if (req->filter_index_list_len > QMI_IPA_MAX_FILTERS_V01) {
+		IPAWANERR(" UL filter rule for pipe %d exceed max (%u)\n",
+		req->source_pipe_index,
+		req->filter_index_list_len);
 		return -EINVAL;
 	}
 
