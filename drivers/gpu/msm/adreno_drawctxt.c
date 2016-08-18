@@ -499,13 +499,20 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 
 	/*
 	 * If the wait for global fails due to timeout then nothing after this
-	 * point is likely to work very well - BUG_ON() so we can take advantage
-	 * of the debug tools to figure out what the h - e - double hockey
-	 * sticks happened. If EAGAIN error is returned then recovery will kick
-	 * in and there will be no more commands in the RB pipe from this
-	 * context which is waht we are waiting for, so ignore -EAGAIN error
+	 * point is likely to work very well - Get GPU snapshot and BUG_ON()
+	 * so we can take advantage of the debug tools to figure out what the
+	 * h - e - double hockey sticks happened. If EAGAIN error is returned
+	 * then recovery will kick in and there will be no more commands in the
+	 * RB pipe from this context which is waht we are waiting for, so ignore
+	 * -EAGAIN error
 	 */
-	BUG_ON(ret && ret != -EAGAIN);
+	if (ret && ret != -EAGAIN) {
+		KGSL_DRV_ERR(device, "Wait for global ts=%d type=%d error=%d\n",
+				drawctxt->internal_timestamp,
+				drawctxt->type, ret);
+		device->force_panic = 1;
+		kgsl_device_snapshot(device, context);
+	}
 
 	kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
