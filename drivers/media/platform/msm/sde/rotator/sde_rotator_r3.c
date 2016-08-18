@@ -24,6 +24,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
+#include <linux/clk/msm-clk.h>
 
 #include "sde_rotator_core.h"
 #include "sde_rotator_util.h"
@@ -1962,6 +1963,12 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	ret = sde_rotator_hw_rev_init(rot);
 	if (ret)
 		goto error_hw_rev_init;
+
+	/* set rotator CBCR to shutoff memory/periphery on clock off.*/
+	clk_set_flags(mgr->rot_clk[mgr->core_clk_idx].clk,
+			CLKFLAG_NORETAIN_MEM);
+	clk_set_flags(mgr->rot_clk[mgr->core_clk_idx].clk,
+			CLKFLAG_NORETAIN_PERIPH);
 
 	return 0;
 error_hw_rev_init:
