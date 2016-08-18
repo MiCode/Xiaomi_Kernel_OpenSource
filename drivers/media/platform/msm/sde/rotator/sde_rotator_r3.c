@@ -338,16 +338,19 @@ static void sde_hw_rotator_setup_timestamp_packet(
  * @cfg: Fetch configuration
  * @danger_lut: real-time QoS LUT for danger setting (not used)
  * @safe_lut: real-time QoS LUT for safe setting (not used)
+ * @dnsc_factor_w: downscale factor for width
+ * @dnsc_factor_h: downscale factor for height
  * @flags: Control flag
  */
 static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 		enum sde_rot_queue_prio queue_id,
 		struct sde_hw_rot_sspp_cfg *cfg, u32 danger_lut, u32 safe_lut,
-		u32 flags)
+		u32 dnsc_factor_w, u32 dnsc_factor_h, u32 flags)
 {
 	struct sde_hw_rotator *rot = ctx->rot;
 	struct sde_mdp_format_params *fmt;
 	struct sde_mdp_data *data;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	u32 *wrptr;
 	u32 opmode = 0;
 	u32 chroma_samp = 0;
@@ -466,10 +469,19 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, opmode);
 
 	/* setup source fetch config, TP10 uses different block size */
-	if (sde_mdp_is_tp10_format(fmt))
-		fetch_blocksize = SDE_ROT_SSPP_FETCH_BLOCKSIZE_96;
-	else
-		fetch_blocksize = SDE_ROT_SSPP_FETCH_BLOCKSIZE_128;
+	if (test_bit(SDE_CAPS_R3_1P5_DOWNSCALE, mdata->sde_caps_map) &&
+			(dnsc_factor_w == 1) && (dnsc_factor_h == 1)) {
+		if (sde_mdp_is_tp10_format(fmt))
+			fetch_blocksize = SDE_ROT_SSPP_FETCH_BLOCKSIZE_144_EXT;
+		else
+			fetch_blocksize = SDE_ROT_SSPP_FETCH_BLOCKSIZE_192_EXT;
+	} else {
+		if (sde_mdp_is_tp10_format(fmt))
+			fetch_blocksize = SDE_ROT_SSPP_FETCH_BLOCKSIZE_96;
+		else
+			fetch_blocksize = SDE_ROT_SSPP_FETCH_BLOCKSIZE_128;
+	}
+
 	SDE_REGDMA_WRITE(wrptr, ROT_SSPP_FETCH_CONFIG,
 			fetch_blocksize |
 			SDE_ROT_SSPP_FETCH_CONFIG_RESET_VALUE |
@@ -1307,7 +1319,8 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 					true : false);
 
 	rot->ops.setup_rotator_fetchengine(ctx, ctx->q_id,
-			&sspp_cfg, danger_lut, safe_lut, flags);
+			&sspp_cfg, danger_lut, safe_lut,
+			entry->dnsc_factor_w, entry->dnsc_factor_h, flags);
 
 	wb_cfg.img_width = item->output.width;
 	wb_cfg.img_height = item->output.height;
@@ -1523,6 +1536,11 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 
 	set_bit(SDE_CAPS_R3_WB, mdata->sde_caps_map);
 
+	if (hw_version != SDE_ROT_TYPE_V1_0) {
+		SDEROT_DBG("Supporting 1.5 downscale for SDE Rotator\n");
+		set_bit(SDE_CAPS_R3_1P5_DOWNSCALE,  mdata->sde_caps_map);
+	}
+
 	return 0;
 }
 
@@ -1675,6 +1693,7 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 static int sde_hw_rotator_validate_entry(struct sde_rot_mgr *mgr,
 		struct sde_rot_entry *entry)
 {
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	int ret = 0;
 	u16 src_w, src_h, dst_w, dst_h;
 	struct sde_rotation_item *item = &entry->item;
@@ -1698,7 +1717,7 @@ static int sde_hw_rotator_validate_entry(struct sde_rot_mgr *mgr,
 		if ((src_w % dst_w) || (src_h % dst_h)) {
 			SDEROT_DBG("non integral scale not support\n");
 			ret = -EINVAL;
-			goto dnsc_err;
+			goto dnsc_1p5_check;
 		}
 		entry->dnsc_factor_w = src_w / dst_w;
 		if ((entry->dnsc_factor_w & (entry->dnsc_factor_w - 1)) ||
@@ -1726,6 +1745,32 @@ static int sde_hw_rotator_validate_entry(struct sde_rot_mgr *mgr,
 	if (sde_mdp_is_ubwc_format(fmt)	&& (entry->dnsc_factor_h > 2)) {
 		SDEROT_DBG("downscale with ubwc cannot be more than 2\n");
 		ret = -EINVAL;
+	}
+	goto dnsc_err;
+
+dnsc_1p5_check:
+	/* Check for 1.5 downscale that only applies to V2 HW */
+	if (test_bit(SDE_CAPS_R3_1P5_DOWNSCALE, mdata->sde_caps_map)) {
+		entry->dnsc_factor_w = src_w / dst_w;
+		if ((entry->dnsc_factor_w != 1) ||
+				((dst_w * 3) != (src_w * 2))) {
+			SDEROT_DBG(
+				"No supporting non 1.5 downscale width ratio, src_w:%d, dst_w:%d\n",
+				src_w, dst_w);
+			ret = -EINVAL;
+			goto dnsc_err;
+		}
+
+		entry->dnsc_factor_h = src_h / dst_h;
+		if ((entry->dnsc_factor_h != 1) ||
+				((dst_h * 3) != (src_h * 2))) {
+			SDEROT_DBG(
+				"Not supporting non 1.5 downscale height ratio, src_h:%d, dst_h:%d\n",
+				src_h, dst_h);
+			ret = -EINVAL;
+			goto dnsc_err;
+		}
+		ret = 0;
 	}
 
 dnsc_err:
