@@ -43,6 +43,9 @@
 #define	FLASH_LED_REG_HDRM_AUTO_MODE_CTRL(base)	(base + 0x50)
 #define	FLASH_LED_REG_WARMUP_DELAY(base)	(base + 0x51)
 #define	FLASH_LED_REG_ISC_DELAY(base)		(base + 0x52)
+#define	FLASH_LED_REG_THERMAL_THRSH1(base)	(base + 0x56)
+#define	FLASH_LED_REG_THERMAL_THRSH2(base)	(base + 0x57)
+#define	FLASH_LED_REG_THERMAL_THRSH3(base)	(base + 0x58)
 #define	FLASH_LED_REG_VPH_DROOP_THRESHOLD(base)	(base + 0x61)
 #define	FLASH_LED_REG_VPH_DROOP_DEBOUNCE(base)	(base + 0x62)
 #define	FLASH_LED_REG_MITIGATION_SEL(base)	(base + 0x6E)
@@ -63,6 +66,9 @@
 #define	FLASH_LED_LMH_LEVEL_MASK		GENMASK(1, 0)
 #define	FLASH_LED_VPH_DROOP_HYSTERESIS_MASK	GENMASK(5, 4)
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MASK	GENMASK(2, 0)
+#define	FLASH_LED_THERMAL_THRSH_MASK		GENMASK(2, 0)
+#define	FLASH_LED_THERMAL_OTST_MASK		GENMASK(2, 0)
+#define	FLASH_LED_PREPARE_OPTIONS_MASK		GENMASK(2, 0)
 #define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 #define	FLASH_LED_HW_SW_STROBE_SEL_MASK		BIT(2)
 #define	FLASH_LED_VPH_DROOP_FAULT_MASK		BIT(4)
@@ -82,6 +88,8 @@
 #define	FLASH_LED_VPH_DROOP_DEBOUNCE_MAX	3
 #define	FLASH_LED_VPH_DROOP_HYST_MAX		3
 #define	FLASH_LED_VPH_DROOP_THRESH_MAX		7
+#define	FLASH_LED_THERMAL_THRSH_MIN		3
+#define	FLASH_LED_THERMAL_OTST_LEVELS		3
 #define	FLASH_LED_VLED_MAX_DEFAULT_UV		3500000
 #define	FLASH_LED_IBATT_OCP_THRESH_DEFAULT_UA	4500000
 #define	FLASH_LED_RPARA_DEFAULT_UOHM		0
@@ -175,6 +183,7 @@ struct flash_switch_data {
  * Flash LED configuration read from device tree
  */
 struct flash_led_platform_data {
+	int	*thermal_derate_current;
 	int	all_ramp_up_done_irq;
 	int	all_ramp_down_done_irq;
 	int	led_fault_irq;
@@ -193,6 +202,7 @@ struct flash_led_platform_data {
 	u8	lmh_level;
 	u8	hw_strobe_option;
 	bool	hdrm_auto_mode_en;
+	bool	thermal_derate_en;
 };
 
 /*
@@ -229,6 +239,20 @@ qpnp_flash_led_read(struct qpnp_flash_led *led, u16 addr, u8 *data)
 			val, addr);
 
 	*data = (u8)val;
+	return rc;
+}
+
+static int
+qpnp_flash_led_masked_read(struct qpnp_flash_led *led, u16 addr, u8 mask,
+								u8 *val)
+{
+	int rc;
+
+	rc = qpnp_flash_led_read(led, addr, val);
+	if (rc < 0)
+		return rc;
+
+	*val &= mask;
 	return rc;
 }
 
@@ -428,15 +452,52 @@ static int get_property_from_fg(struct qpnp_flash_led *led,
 	return rc;
 }
 
+#define VOLTAGE_HDRM_DEFAULT_MV	350
+static int qpnp_flash_led_get_voltage_headroom(struct qpnp_flash_led *led)
+{
+	int i, voltage_hdrm_mv = 0, voltage_hdrm_max = 0;
+
+	for (i = 0; i < led->num_fnodes; i++) {
+		if (led->fnode[i].led_on) {
+			if (led->fnode[i].id < 2) {
+				if (led->fnode[i].current_ma < 750)
+					voltage_hdrm_mv = 125;
+				else if (led->fnode[i].current_ma < 1000)
+					voltage_hdrm_mv = 175;
+				else if (led->fnode[i].current_ma < 1250)
+					voltage_hdrm_mv = 250;
+				else
+					voltage_hdrm_mv = 350;
+			} else {
+				if (led->fnode[i].current_ma < 375)
+					voltage_hdrm_mv = 125;
+				else if (led->fnode[i].current_ma < 500)
+					voltage_hdrm_mv = 175;
+				else if (led->fnode[i].current_ma < 625)
+					voltage_hdrm_mv = 250;
+				else
+					voltage_hdrm_mv = 350;
+			}
+
+			voltage_hdrm_max = max(voltage_hdrm_max,
+						voltage_hdrm_mv);
+		}
+	}
+
+	if (!voltage_hdrm_max)
+		return VOLTAGE_HDRM_DEFAULT_MV;
+
+	return voltage_hdrm_max;
+}
+
 #define UCONV			1000000LL
 #define MCONV			1000LL
-#define V_HEADROOM_DEFAULT	350000LL
 #define FLASH_VDIP_MARGIN	50000
 #define BOB_EFFICIENCY		900LL
 #define VIN_FLASH_MIN_UV	3300000LL
 static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 {
-	int ocv_uv, rbatt_uohm, ibat_now, rc;
+	int ocv_uv, rbatt_uohm, ibat_now, voltage_hdrm_mv, rc;
 	int64_t ibat_flash_ua, avail_flash_ua, avail_flash_power_fw;
 	int64_t ibat_safe_ua, vin_flash_uv, vph_flash_uv, vph_flash_vdip;
 
@@ -469,6 +530,7 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 	}
 
 	rbatt_uohm += led->pdata->rpara_uohm;
+	voltage_hdrm_mv = qpnp_flash_led_get_voltage_headroom(led);
 	vph_flash_vdip =
 		VPH_DROOP_THRESH_VAL_TO_UV(led->pdata->vph_droop_threshold)
 							+ FLASH_VDIP_MARGIN;
@@ -519,8 +581,8 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 				* led->pdata->ibatt_ocp_threshold_ua, UCONV);
 	}
 	/* Calculate the input voltage of the flash module. */
-	vin_flash_uv = max((led->pdata->vled_max_uv + V_HEADROOM_DEFAULT),
-				VIN_FLASH_MIN_UV);
+	vin_flash_uv = max((led->pdata->vled_max_uv +
+				(voltage_hdrm_mv * MCONV)), VIN_FLASH_MIN_UV);
 	/* Calculate the available power for the flash module. */
 	avail_flash_power_fw = BOB_EFFICIENCY * vph_flash_uv * ibat_flash_ua;
 	/*
@@ -535,10 +597,107 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 			(int)(avail_flash_ua / MCONV));
 }
 
+static int qpnp_flash_led_calc_thermal_current_lim(struct qpnp_flash_led *led)
+{
+	int thermal_current_lim = 0;
+	int rc;
+	u8 thermal_thrsh1, thermal_thrsh2, thermal_thrsh3, otst_status;
+
+	/* Store THERMAL_THRSHx register values */
+	rc = qpnp_flash_led_masked_read(led,
+			FLASH_LED_REG_THERMAL_THRSH1(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			&thermal_thrsh1);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_read(led,
+			FLASH_LED_REG_THERMAL_THRSH2(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			&thermal_thrsh2);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_read(led,
+			FLASH_LED_REG_THERMAL_THRSH3(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			&thermal_thrsh3);
+	if (rc < 0)
+		return rc;
+
+	/* Lower THERMAL_THRSHx thresholds to minimum */
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH1(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			FLASH_LED_THERMAL_THRSH_MIN);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH2(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			FLASH_LED_THERMAL_THRSH_MIN);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH3(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			FLASH_LED_THERMAL_THRSH_MIN);
+	if (rc < 0)
+		return rc;
+
+	/* Check THERMAL_OTST status */
+	rc = qpnp_flash_led_read(led,
+			FLASH_LED_REG_LED_STATUS2(led->base),
+			&otst_status);
+	if (rc < 0)
+		return rc;
+
+	/* Look up current limit based on THERMAL_OTST status */
+	if (otst_status)
+		thermal_current_lim =
+			led->pdata->thermal_derate_current[otst_status >> 1];
+
+	/* Restore THERMAL_THRESHx registers to original values */
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH1(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			thermal_thrsh1);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH2(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			thermal_thrsh2);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_THRSH3(led->base),
+			FLASH_LED_THERMAL_THRSH_MASK,
+			thermal_thrsh3);
+	if (rc < 0)
+		return rc;
+
+	return thermal_current_lim;
+}
+
 static int qpnp_flash_led_get_max_avail_current(struct qpnp_flash_led *led)
 {
+	int max_avail_current, thermal_current_lim = 0;
+
 	led->trigger_lmh = false;
-	return qpnp_flash_led_calc_max_current(led);
+	max_avail_current = qpnp_flash_led_calc_max_current(led);
+	if (led->pdata->thermal_derate_en)
+		thermal_current_lim =
+			qpnp_flash_led_calc_thermal_current_lim(led);
+
+	if (thermal_current_lim)
+		max_avail_current = min(max_avail_current, thermal_current_lim);
+
+	return max_avail_current;
 }
 
 static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
@@ -625,7 +784,6 @@ static int qpnp_flash_led_switch_disable(struct flash_switch_data *snode)
 		}
 	}
 
-	qpnp_flash_led_regulator_enable(led, snode, false);
 	snode->enabled = false;
 	return 0;
 }
@@ -646,10 +804,6 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		rc = qpnp_flash_led_switch_disable(snode);
 		return rc;
 	}
-
-	rc = qpnp_flash_led_regulator_enable(led, snode, true);
-	if (rc < 0)
-		return rc;
 
 	/* Iterate over all leds for this switch node */
 	val = 0;
@@ -748,12 +902,13 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 	return 0;
 }
 
-int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
+int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+					int *max_current)
 {
 	struct led_classdev *led_cdev = trigger_to_lcdev(trig);
 	struct flash_switch_data *snode;
 	struct qpnp_flash_led *led;
-	int rc, val = 0;
+	int rc;
 
 	if (!led_cdev) {
 		pr_err("Invalid led_trigger provided\n");
@@ -763,7 +918,7 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
 	snode = container_of(led_cdev, struct flash_switch_data, cdev);
 	led = dev_get_drvdata(&snode->pdev->dev);
 
-	if (!(options & (ENABLE_REGULATOR | QUERY_MAX_CURRENT))) {
+	if (!(options & FLASH_LED_PREPARE_OPTIONS_MASK)) {
 		dev_err(&led->pdev->dev, "Invalid options %d\n", options);
 		return -EINVAL;
 	}
@@ -777,16 +932,26 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options)
 		}
 	}
 
-	if (options & QUERY_MAX_CURRENT) {
-		val = qpnp_flash_led_get_max_avail_current(led);
-		if (val < 0) {
+	if (options & DISABLE_REGULATOR) {
+		rc = qpnp_flash_led_regulator_enable(led, snode, false);
+		if (rc < 0) {
 			dev_err(&led->pdev->dev,
-				"query max current failed, rc=%d\n", val);
-			return val;
+				"disable regulator failed, rc=%d\n", rc);
+			return rc;
 		}
 	}
 
-	return val;
+	if (options & QUERY_MAX_CURRENT) {
+		rc = qpnp_flash_led_get_max_avail_current(led);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev,
+				"query max current failed, rc=%d\n", rc);
+			return rc;
+		}
+		*max_current = rc;
+	}
+
+	return 0;
 }
 
 static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
@@ -1337,6 +1502,28 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 	vph_droop_det = of_property_read_bool(node, "qcom,vph-droop-det");
 	led->pdata->current_derate_en_cfg = (vph_droop_det << 2) |
 				(open_circuit_det << 1) | short_circuit_det;
+
+	led->pdata->thermal_derate_en =
+		of_property_read_bool(node, "qcom,thermal-derate-en");
+
+	if (led->pdata->thermal_derate_en) {
+		led->pdata->thermal_derate_current =
+			devm_kcalloc(&led->pdev->dev,
+					FLASH_LED_THERMAL_OTST_LEVELS,
+					sizeof(int), GFP_KERNEL);
+		if (!led->pdata->thermal_derate_current)
+			return -ENOMEM;
+
+		rc = of_property_read_u32_array(node,
+					"qcom,thermal-derate-current",
+					led->pdata->thermal_derate_current,
+					FLASH_LED_THERMAL_OTST_LEVELS);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev, "Unable to read thermal current limits, rc=%d\n",
+					rc);
+			return rc;
+		}
+	}
 
 	led->pdata->vph_droop_debounce = FLASH_LED_VPH_DROOP_DEBOUNCE_DEFAULT;
 	rc = of_property_read_u32(node, "qcom,vph-droop-debounce-us", &val);
