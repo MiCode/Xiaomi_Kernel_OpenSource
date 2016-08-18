@@ -357,7 +357,7 @@ static void __init dm_setup_drive(void)
 
 	if (dm_get_md_type(md) == DM_TYPE_NONE) {
 		dm_set_md_type(md, dm_table_get_type(table));
-		if (dm_setup_md_queue(md)) {
+		if (dm_setup_md_queue(md, table)) {
 			DMWARN("unable to set up device queue for new table.");
 			goto setup_md_queue_fail;
 		}
