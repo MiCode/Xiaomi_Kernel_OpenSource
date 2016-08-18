@@ -58,6 +58,7 @@ Optional properties:
 - limit-tx-pwm-gear	: Specify the max. limit on the TX PWM gear
 			  Valid range: 1-4. 1 => PWM-G1, 2 => PWM-G2, 3 => PWM-G3, 4 => PWM-G4
 - limit-rx-pwm-gear	: Specify the max. limit on the RX PWM gear. Refer "limit-tx-pwm-gear" for expected values.
+- scsi-cmd-timeout	: Specify the command timeout (in seconds) for scsi commands
 
 Note: If above properties are not defined it can be assumed that the supply
 regulators or clocks are always on.

@@ -846,6 +846,8 @@ struct ufs_hba {
 	u32 limit_tx_pwm_gear;
 	u32 limit_rx_pwm_gear;
 
+	u32 scsi_cmd_timeout;
+
 	/* Bitmask for enabling debug prints */
 	u32 ufshcd_dbg_print;
 
