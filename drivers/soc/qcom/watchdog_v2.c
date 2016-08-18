@@ -371,7 +371,7 @@ static void ping_other_cpus(struct msm_watchdog_data *wdog_dd)
 	/* Make sure alive mask is cleared and set in order */
 	smp_mb();
 	for_each_cpu(cpu, cpu_online_mask) {
-		if (!cpu_idle_pc_state[cpu])
+		if (!cpu_idle_pc_state[cpu] && !cpu_isolated(cpu))
 			smp_call_function_single(cpu, keep_alive_response,
 						 wdog_dd, 1);
 	}
