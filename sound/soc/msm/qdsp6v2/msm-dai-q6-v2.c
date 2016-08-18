@@ -230,10 +230,11 @@ static const struct soc_enum mi2s_config_enum[] = {
 static const char *const sb_format[] = {
 	"UNPACKED",
 	"PACKED_16B",
+	"DSD_DOP",
 };
 
 static const struct soc_enum sb_config_enum[] = {
-	SOC_ENUM_SINGLE_EXT(2, sb_format),
+	SOC_ENUM_SINGLE_EXT(3, sb_format),
 };
 
 static const char *const tdm_data_format[] = {
@@ -2129,7 +2130,10 @@ static const struct snd_kcontrol_new sb_config_controls[] = {
 		     msm_dai_q6_sb_format_put),
 	SOC_ENUM_EXT("SLIM_2_RX SetCalMode", slim_2_rx_enum,
 		     msm_dai_q6_cal_info_get,
-		     msm_dai_q6_cal_info_put)
+		     msm_dai_q6_cal_info_put),
+	SOC_ENUM_EXT("SLIM_2_RX Format", sb_config_enum[0],
+		     msm_dai_q6_sb_format_get,
+		     msm_dai_q6_sb_format_put)
 };
 
 static const struct snd_kcontrol_new rt_proxy_config_controls[] = {
@@ -2184,6 +2188,9 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 	case SLIMBUS_2_RX:
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&sb_config_controls[1],
+				 dai_data));
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(&sb_config_controls[2],
 				 dai_data));
 		break;
 	case SLIMBUS_7_RX:

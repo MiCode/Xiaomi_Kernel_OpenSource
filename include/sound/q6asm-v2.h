@@ -52,6 +52,7 @@
 #define FORMAT_G711_ALAW_FS 0x001a
 #define FORMAT_G711_MLAW_FS 0x001b
 #define FORMAT_DTS          0x001c
+#define FORMAT_DSD          0x001d
 
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
@@ -470,6 +471,9 @@ int q6asm_stream_media_format_block_vorbis(struct audio_client *ac,
 
 int q6asm_media_format_block_ape(struct audio_client *ac,
 			struct asm_ape_cfg *cfg, int stream_id);
+
+int q6asm_media_format_block_dsd(struct audio_client *ac,
+			struct asm_dsd_cfg *cfg, int stream_id);
 
 int q6asm_ds1_set_endp_params(struct audio_client *ac,
 				int param_id, int param_value);
