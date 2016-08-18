@@ -210,11 +210,12 @@ static uint32_t negotiate_features_v1(struct glink_transport_if *if_ptr,
  */
 static int wdsp_suspend(struct glink_cmpnt *cmpnt)
 {
+	int rc = 0;
+
 	if (cmpnt && cmpnt->master_dev &&
 	    cmpnt->master_ops && cmpnt->master_ops->suspend)
-		return cmpnt->master_ops->suspend(cmpnt->master_dev);
-	else
-		return -EINVAL;
+		rc = cmpnt->master_ops->suspend(cmpnt->master_dev);
+	return rc;
 }
 
 /**
@@ -225,11 +226,12 @@ static int wdsp_suspend(struct glink_cmpnt *cmpnt)
  */
 static int wdsp_resume(struct glink_cmpnt *cmpnt)
 {
+	int rc = 0;
+
 	if (cmpnt && cmpnt->master_dev &&
 	    cmpnt->master_ops && cmpnt->master_ops->resume)
-		return cmpnt->master_ops->resume(cmpnt->master_dev);
-	else
-		return -EINVAL;
+		rc = cmpnt->master_ops->resume(cmpnt->master_dev);
+	return rc;
 }
 
 /**
