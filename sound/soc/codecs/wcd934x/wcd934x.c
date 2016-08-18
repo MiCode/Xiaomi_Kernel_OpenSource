@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +26,7 @@
 #include <linux/kernel.h>
 #include <linux/gpio.h>
 #include <linux/regmap.h>
+#include <linux/spi/spi.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx-irq.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
@@ -42,6 +42,7 @@
 #include <sound/info.h>
 #include "wcd934x.h"
 #include "wcd934x-routing.h"
+#include "wcd934x-dsp-cntl.h"
 #include "../wcd9xxx-common-v2.h"
 #include "../wcd9xxx-resmgr-v2.h"
 
@@ -120,6 +121,9 @@ static const struct snd_kcontrol_new name##_mux = \
 #define  CF_MIN_3DB_4HZ			0x0
 #define  CF_MIN_3DB_75HZ		0x1
 #define  CF_MIN_3DB_150HZ		0x2
+
+#define CPE_ERR_WDOG_BITE BIT(0)
+#define CPE_FATAL_IRQS CPE_ERR_WDOG_BITE
 
 enum {
 	VI_SENSE_1,
@@ -479,6 +483,9 @@ struct tavil_priv {
 	struct tx_mute_work tx_mute_dwork[WCD934X_NUM_DECIMATORS];
 
 	unsigned int vi_feed_value;
+
+	/* DSP control */
+	struct wcd_dsp_cntl *wdsp_cntl;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -611,6 +618,7 @@ int wcd934x_bringup(struct wcd9xxx *wcd9xxx)
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x3);
+	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x7);
 
 	return 0;
 }
@@ -5168,6 +5176,66 @@ int tavil_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable)
 }
 EXPORT_SYMBOL(tavil_cdc_mclk_enable);
 
+static int __tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+					   bool enable)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	if (enable) {
+		if (wcd_resmgr_get_clk_type(tavil->resmgr) ==
+		    WCD_CLK_RCO) {
+			ret = wcd_resmgr_enable_clk_block(tavil->resmgr,
+							  WCD_CLK_RCO);
+		} else {
+			ret = tavil_cdc_req_mclk_enable(tavil, true);
+			if (ret) {
+				dev_err(codec->dev,
+					"%s: mclk_enable failed, err = %d\n",
+					__func__, ret);
+				goto done;
+			}
+			ret = wcd_resmgr_enable_clk_block(tavil->resmgr,
+							   WCD_CLK_RCO);
+			ret |= tavil_cdc_req_mclk_enable(tavil, false);
+		}
+
+	} else {
+		ret = wcd_resmgr_disable_clk_block(tavil->resmgr,
+						   WCD_CLK_RCO);
+	}
+
+	if (ret) {
+		dev_err(codec->dev, "%s: Error in %s RCO\n",
+			__func__, (enable ? "enabling" : "disabling"));
+		ret = -EINVAL;
+	}
+
+done:
+	return ret;
+}
+
+/*
+ * tavil_codec_internal_rco_ctrl: Enable/Disable codec's RCO clock
+ * @codec: Handle to the codec
+ * @enable: Indicates whether clock should be enabled or disabled
+ */
+static int tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+					 bool enable)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	WCD9XXX_V2_BG_CLK_LOCK(tavil->resmgr);
+	ret = __tavil_codec_internal_rco_ctrl(codec, enable);
+	WCD9XXX_V2_BG_CLK_UNLOCK(tavil->resmgr);
+	return ret;
+}
+
+static const struct wcd_resmgr_cb tavil_resmgr_cb = {
+	.cdc_rco_ctrl = __tavil_codec_internal_rco_ctrl,
+};
+
 static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
 	{WCD934X_BIAS_VBG_FINE_ADJ, 0xFF, 0x75},
 	{WCD934X_CODEC_CPR_SVS_CX_VDD, 0xFF, 0x7C}, /* value in svs mode */
@@ -5216,6 +5284,9 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
 	{WCD934X_CDC_COMPANDER8_CTL3, 0x80, 0x80},
 	{WCD934X_CDC_COMPANDER7_CTL7, 0x01, 0x01},
 	{WCD934X_CDC_COMPANDER8_CTL7, 0x01, 0x01},
+	{WCD934X_CODEC_RPM_CLK_GATE, 0x08, 0x00},
+	{WCD934X_TLMM_DMIC3_CLK_PINCFG, 0xFF, 0x0a},
+	{WCD934X_TLMM_DMIC3_DATA_PINCFG, 0xFF, 0x0a},
 };
 
 static void tavil_codec_init_reg(struct snd_soc_codec *codec)
@@ -5457,6 +5528,37 @@ static void tavil_enable_sido_buck(struct snd_soc_codec *codec)
 	tavil->resmgr->sido_input_src = SIDO_SOURCE_RCO_BG;
 }
 
+struct wcd_dsp_cdc_cb cdc_cb = {
+	.cdc_clk_en = tavil_codec_internal_rco_ctrl,
+};
+
+static int tavil_wdsp_initialize(struct snd_soc_codec *codec)
+{
+	struct wcd9xxx *control;
+	struct tavil_priv *tavil;
+	struct wcd_dsp_params params;
+	int ret = 0;
+
+	control = dev_get_drvdata(codec->dev->parent);
+	tavil = snd_soc_codec_get_drvdata(codec);
+
+	params.cb = &cdc_cb;
+	params.irqs.cpe_ipc1_irq = WCD934X_IRQ_CPE1_INTR;
+	params.irqs.cpe_err_irq = WCD934X_IRQ_CPE_ERROR;
+	params.irqs.fatal_irqs = CPE_FATAL_IRQS;
+	params.clk_rate = control->mclk_rate;
+	params.dsp_instance = 0;
+
+	wcd_dsp_cntl_init(codec, &params, &tavil->wdsp_cntl);
+	if (!tavil->wdsp_cntl) {
+		dev_err(tavil->dev, "%s: wcd-dsp-control init failed\n",
+			__func__);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -5552,6 +5654,9 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 				  tavil_tx_mute_update_callback);
 	}
 	snd_soc_dapm_sync(dapm);
+
+	tavil_wdsp_initialize(codec);
+
 	return ret;
 
 err_pdata:
@@ -5572,6 +5677,9 @@ static int tavil_soc_codec_remove(struct snd_soc_codec *codec)
 	control->rx_chs = NULL;
 	control->tx_chs = NULL;
 	tavil_cleanup_irqs(tavil);
+
+	if (tavil->wdsp_cntl)
+		wcd_dsp_cntl_deinit(&tavil->wdsp_cntl);
 
 	return 0;
 }
@@ -5823,6 +5931,88 @@ static int tavil_swrm_handle_irq(void *handle,
 	return ret;
 }
 
+static void tavil_codec_add_spi_device(struct tavil_priv *tavil,
+				       struct device_node *node)
+{
+	struct spi_master *master;
+	struct spi_device *spi;
+	u32 prop_value;
+	int rc;
+
+	/* Read the master bus num from DT node */
+	rc = of_property_read_u32(node, "qcom,master-bus-num",
+				  &prop_value);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: prop %s not found in node %s",
+			__func__, "qcom,master-bus-num", node->full_name);
+		goto done;
+	}
+
+	/* Get the reference to SPI master */
+	master = spi_busnum_to_master(prop_value);
+	if (!master) {
+		dev_err(tavil->dev, "%s: Invalid spi_master for bus_num %u\n",
+			__func__, prop_value);
+		goto done;
+	}
+
+	/* Allocate the spi device */
+	spi = spi_alloc_device(master);
+	if (!spi) {
+		dev_err(tavil->dev, "%s: spi_alloc_device failed\n",
+			__func__);
+		goto err_spi_alloc_dev;
+	}
+
+	/* Initialize device properties */
+	if (of_modalias_node(node, spi->modalias,
+			     sizeof(spi->modalias)) < 0) {
+		dev_err(tavil->dev, "%s: cannot find modalias for %s\n",
+			__func__, node->full_name);
+		goto err_dt_parse;
+	}
+
+	rc = of_property_read_u32(node, "qcom,chip-select",
+				  &prop_value);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: prop %s not found in node %s",
+			__func__, "qcom,chip-select", node->full_name);
+		goto err_dt_parse;
+	}
+	spi->chip_select = prop_value;
+
+	rc = of_property_read_u32(node, "qcom,max-frequency",
+				  &prop_value);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: prop %s not found in node %s",
+			__func__, "qcom,max-frequency", node->full_name);
+		goto err_dt_parse;
+	}
+	spi->max_speed_hz = prop_value;
+
+	spi->dev.of_node = node;
+
+	rc = spi_add_device(spi);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: spi_add_device failed\n", __func__);
+		goto err_dt_parse;
+	}
+
+	/* Put the reference to SPI master */
+	put_device(&master->dev);
+
+	return;
+
+err_dt_parse:
+	spi_dev_put(spi);
+
+err_spi_alloc_dev:
+	/* Put the reference to SPI master */
+	put_device(&master->dev);
+done:
+	return;
+}
+
 static void tavil_add_child_devices(struct work_struct *work)
 {
 	struct tavil_priv *tavil;
@@ -5856,6 +6046,14 @@ static void tavil_add_child_devices(struct work_struct *work)
 	platdata = &tavil->swr.plat_data;
 
 	for_each_child_of_node(wcd9xxx->dev->of_node, node) {
+
+		/* Parse and add the SPI device node */
+		if (!strcmp(node->name, "wcd_spi")) {
+			tavil_codec_add_spi_device(tavil, node);
+			continue;
+		}
+
+		/* Parse other child device nodes and add platform device */
 		if (!strcmp(node->name, "swr_master"))
 			strlcpy(plat_dev_name, "tavil_swr_ctrl",
 				(WCD934X_STRING_LEN - 1));
@@ -5948,6 +6146,29 @@ static int __tavil_enable_efuse_sensing(struct tavil_priv *tavil)
 
 	return rc;
 }
+
+/*
+ * tavil_get_wcd_dsp_cntl: Get the reference to wcd_dsp_cntl
+ * @dev: Device pointer for codec device
+ *
+ * This API gets the reference to codec's struct wcd_dsp_cntl
+ */
+struct wcd_dsp_cntl *tavil_get_wcd_dsp_cntl(struct device *dev)
+{
+	struct platform_device *pdev;
+	struct tavil_priv *tavil;
+
+	if (!dev) {
+		pr_err("%s: Invalid device\n", __func__);
+		return NULL;
+	}
+
+	pdev = to_platform_device(dev);
+	tavil = platform_get_drvdata(pdev);
+
+	return tavil->wdsp_cntl;
+}
+EXPORT_SYMBOL(tavil_get_wcd_dsp_cntl);
 
 static int tavil_probe(struct platform_device *pdev)
 {
