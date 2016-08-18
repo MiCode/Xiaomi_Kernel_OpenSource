@@ -6,7 +6,7 @@
 kernel.string=Jerrica kernel by premaca
 do.devicecheck=0
 do.initd=0
-do.modules=0
+do.modules=1
 do.cleanup=1
 device.name1=
 device.name2=
