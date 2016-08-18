@@ -336,7 +336,6 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 			input_report_abs(ip_dev, ABS_MT_PRESSURE, pressure);
 		} else {
 			input_mt_report_slot_state(ip_dev, MT_TOOL_FINGER, 0);
-			input_report_abs(ip_dev, ABS_MT_PRESSURE, 0);
 		}
 	}
 
