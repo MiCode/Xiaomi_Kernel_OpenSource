@@ -286,6 +286,10 @@ config QTI_RPMH_API
 	bool "QTI RPMH (h/w accelerators) Communication API"
 	select MAILBOX
 	select QTI_RPMH_MBOX
+	select QTI_SYSTEM_PM
 	help
 	  This option enables RPMH hardware communication for making shared
 	  resource requests on Qualcomm Technologies Inc SoCs.
+
+config QTI_SYSTEM_PM
+	bool

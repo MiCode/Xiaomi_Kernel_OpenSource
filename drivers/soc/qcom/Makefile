@@ -31,3 +31,4 @@ obj-$(CONFIG_MSM_GLINK_SPI_XPRT) += glink_spi_xprt.o
 obj-$(CONFIG_TRACER_PKT) += tracer_pkt.o
 obj-$(CONFIG_QCOM_BUS_SCALING) += msm_bus/
 obj-$(CONFIG_QTI_RPMH_API) += rpmh.o
+obj-$(CONFIG_QTI_SYSTEM_PM) += system_pm.o
