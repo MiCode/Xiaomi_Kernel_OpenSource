@@ -168,7 +168,7 @@
 				<&afe_proxy_tx>, <&incall_record_rx>,
 				<&incall_record_tx>, <&incall_music_rx>,
 				<&incall_music_2_rx>, <&sb_5_rx>,
-				<&usb_audio_rx>, <&usb_audio_tx>;
+				<&usb_audio_rx>, <&usb_audio_tx>, <&sb_6_rx>;
 		asoc-cpu-names = "msm-dai-q6-hdmi.8",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
 				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
@@ -180,7 +180,8 @@
 				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
 				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
-				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673";
+				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
+				"msm-dai-q6-dev.16396";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
 		qcom,wsa-max-devs = <2>;
