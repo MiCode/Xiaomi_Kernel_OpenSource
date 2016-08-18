@@ -280,6 +280,21 @@ static void ufshcd_parse_gear_limits(struct ufs_hba *hba)
 		hba->limit_rx_pwm_gear = -1;
 }
 
+static void ufshcd_parse_cmd_timeout(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	if (!np)
+		return;
+
+	ret = of_property_read_u32(np, "scsi-cmd-timeout",
+		&hba->scsi_cmd_timeout);
+	if (ret)
+		hba->scsi_cmd_timeout = 0;
+}
+
 #ifdef CONFIG_PM
 /**
  * ufshcd_pltfrm_suspend - suspend power management function
@@ -408,6 +423,7 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 
 	ufshcd_parse_pm_levels(hba);
 	ufshcd_parse_gear_limits(hba);
+	ufshcd_parse_cmd_timeout(hba);
 
 	if (!dev->dma_mask)
 		dev->dma_mask = &dev->coherent_dma_mask;
