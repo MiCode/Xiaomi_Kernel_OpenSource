@@ -465,6 +465,9 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		else
 			msm_ssusb_qmp_enable_autonomous(phy, 1);
 
+		/* Make sure above write completed with PHY */
+		wmb();
+
 		clk_disable_unprepare(phy->cfg_ahb_clk);
 		clk_disable_unprepare(phy->aux_clk);
 		clk_disable_unprepare(phy->pipe_clk);
@@ -494,6 +497,10 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		} else  {
 			msm_ssusb_qmp_enable_autonomous(phy, 0);
 		}
+
+		/* Make sure that above write completed with PHY */
+		wmb();
+
 		phy->in_suspend = false;
 		dev_dbg(uphy->dev, "QMP PHY is resumed\n");
 	}
