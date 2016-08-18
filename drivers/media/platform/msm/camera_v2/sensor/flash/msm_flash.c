@@ -568,11 +568,6 @@ static int32_t msm_flash_release(
 	struct msm_flash_ctrl_t *flash_ctrl)
 {
 	int32_t rc = 0;
-	if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_RELEASE) {
-		pr_err("%s:%d Invalid flash state = %d",
-			__func__, __LINE__, flash_ctrl->flash_state);
-		return 0;
-	}
 
 	rc = flash_ctrl->func_tbl->camera_flash_off(flash_ctrl, NULL);
 	if (rc < 0) {
@@ -600,24 +595,49 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 		rc = msm_flash_init(flash_ctrl, flash_data);
 		break;
 	case CFG_FLASH_RELEASE:
-		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+		if (flash_ctrl->flash_state != MSM_CAMERA_FLASH_RELEASE) {
 			rc = flash_ctrl->func_tbl->camera_flash_release(
 				flash_ctrl);
+		} else {
+			CDBG(pr_fmt("Invalid state : %d\n"),
+				flash_ctrl->flash_state);
+		}
 		break;
 	case CFG_FLASH_OFF:
-		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+		if ((flash_ctrl->flash_state != MSM_CAMERA_FLASH_RELEASE) &&
+			(flash_ctrl->flash_state != MSM_CAMERA_FLASH_OFF)) {
 			rc = flash_ctrl->func_tbl->camera_flash_off(
 				flash_ctrl, flash_data);
+			if (!rc)
+				flash_ctrl->flash_state = MSM_CAMERA_FLASH_OFF;
+		} else {
+			CDBG(pr_fmt("Invalid state : %d\n"),
+				flash_ctrl->flash_state);
+		}
 		break;
 	case CFG_FLASH_LOW:
-		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+		if ((flash_ctrl->flash_state == MSM_CAMERA_FLASH_OFF) ||
+			(flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)) {
 			rc = flash_ctrl->func_tbl->camera_flash_low(
 				flash_ctrl, flash_data);
+			if (!rc)
+				flash_ctrl->flash_state = MSM_CAMERA_FLASH_LOW;
+		} else {
+			CDBG(pr_fmt("Invalid state : %d\n"),
+				flash_ctrl->flash_state);
+		}
 		break;
 	case CFG_FLASH_HIGH:
-		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+		if ((flash_ctrl->flash_state == MSM_CAMERA_FLASH_OFF) ||
+			(flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)) {
 			rc = flash_ctrl->func_tbl->camera_flash_high(
 				flash_ctrl, flash_data);
+			if (!rc)
+				flash_ctrl->flash_state = MSM_CAMERA_FLASH_HIGH;
+		} else {
+			CDBG(pr_fmt("Invalid state : %d\n"),
+				flash_ctrl->flash_state);
+		}
 		break;
 	default:
 		rc = -EFAULT;
