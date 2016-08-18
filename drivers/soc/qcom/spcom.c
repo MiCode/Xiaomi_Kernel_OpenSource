@@ -1920,10 +1920,20 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 
 	pr_debug("Close file [%s].\n", name);
 
+	if (strcmp(name, DEVICE_NAME) == 0) {
+		pr_debug("root dir skipped.\n");
+		return 0;
+	}
+
+	if (strcmp(name, "sp_ssr") == 0) {
+		pr_debug("sp_ssr dev node skipped.\n");
+		return 0;
+	}
+
 	ch = filp->private_data;
 
 	if (!ch) {
-		pr_err("ch is NULL, file name %s.\n", file_to_filename(filp));
+		pr_debug("ch is NULL, file name %s.\n", file_to_filename(filp));
 		return -ENODEV;
 	}
 
