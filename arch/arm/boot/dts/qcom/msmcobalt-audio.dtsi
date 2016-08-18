@@ -18,6 +18,10 @@
 	iommus = <&lpass_q6_smmu 1>;
 };
 
+&spi_10 {
+	status = "ok";
+};
+
 &soc {
 	qcom,avtimer@170f7000 {
 		compatible = "qcom,avtimer";
@@ -342,5 +346,13 @@
 		qcom,cdc-slim-ifd-elemental-addr = [00 00 50 02 17 02];
 		qcom,cdc-dmic-sample-rate = <4800000>;
 		qcom,cdc-mad-dmic-rate = <600000>;
+
+		wcd_spi_0: wcd_spi {
+			compatible = "qcom,wcd-spi-v2";
+			qcom,master-bus-num = <10>;
+			qcom,chip-select = <0>;
+			qcom,max-frequency = <24000000>;
+			qcom,mem-base-addr = <0x100000>;
+		};
 	};
 };
