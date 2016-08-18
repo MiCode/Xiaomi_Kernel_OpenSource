@@ -577,7 +577,7 @@ int snd_usb_enable_audio_stream(struct snd_usb_substream *subs,
 	snd_usb_autoresume(subs->stream->chip);
 	fmt = find_format(subs);
 	if (!fmt) {
-		dev_dbg(&subs->dev->dev,
+		dev_err(&subs->dev->dev,
 		"cannot set format: format = %#x, rate = %d, channels = %d\n",
 			   subs->pcm_format, subs->cur_rate, subs->channels);
 		return -EINVAL;
