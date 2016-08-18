@@ -437,8 +437,10 @@ static int a5xx_regulator_enable(struct adreno_device *adreno_dev)
 {
 	unsigned int ret;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	if (!(adreno_is_a530(adreno_dev) || adreno_is_a540(adreno_dev)))
+	if (!(adreno_is_a530(adreno_dev) || adreno_is_a540(adreno_dev))) {
+		a5xx_hwcg_set(adreno_dev, true);
 		return 0;
+	}
 
 	/*
 	 * Turn on smaller power domain first to reduce voltage droop.
@@ -459,6 +461,15 @@ static int a5xx_regulator_enable(struct adreno_device *adreno_dev)
 		KGSL_PWR_ERR(device, "SPTP GDSC enable failed\n");
 		return ret;
 	}
+
+	/* Disable SP clock */
+	kgsl_regrmw(device, A5XX_GPMU_GPMU_SP_CLOCK_CONTROL,
+		CNTL_IP_CLK_ENABLE, 0);
+	/* Enable hardware clockgating */
+	a5xx_hwcg_set(adreno_dev, true);
+	/* Enable SP clock */
+	kgsl_regrmw(device, A5XX_GPMU_GPMU_SP_CLOCK_CONTROL,
+		CNTL_IP_CLK_ENABLE, 1);
 
 	return 0;
 }
@@ -1974,8 +1985,6 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	} else {
 		/* if not in ISDB mode enable ME/PFP split notification */
 		kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL1, 0xA6FFFFFF);
-		/* enable HWCG */
-		a5xx_hwcg_set(adreno_dev, true);
 	}
 
 	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL2, 0x0000003F);
