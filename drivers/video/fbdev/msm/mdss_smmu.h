@@ -74,6 +74,38 @@ static inline bool mdss_smmu_is_valid_domain_type(struct mdss_data_type *mdata,
 	return true;
 }
 
+static inline bool mdss_smmu_is_valid_domain_condition(
+	struct mdss_data_type *mdata,
+	int domain_type,
+	bool is_attach)
+{
+	if (is_attach) {
+		if (test_bit(MDSS_CAPS_SEC_DETACH_SMMU,
+			mdata->mdss_caps_map) &&
+			(mdata->sec_disp_en ||
+			(mdata->sec_cam_en &&
+			domain_type == MDSS_IOMMU_DOMAIN_SECURE))) {
+			pr_debug("SMMU attach not attempted, sd:%d, sc:%d\n",
+					mdata->sec_disp_en, mdata->sec_cam_en);
+			return false;
+		} else {
+			return true;
+		}
+	} else {
+		if (test_bit(MDSS_CAPS_SEC_DETACH_SMMU,
+			mdata->mdss_caps_map) &&
+			(mdata->sec_disp_en ||
+			(mdata->sec_cam_en &&
+			domain_type == MDSS_IOMMU_DOMAIN_SECURE))) {
+			pr_debug("SMMU detach attempted, sd:%d, sc:%d\n",
+					mdata->sec_disp_en, mdata->sec_cam_en);
+			return true;
+		} else {
+			return false;
+		}
+	}
+}
+
 static inline struct mdss_smmu_client *mdss_smmu_get_cb(u32 domain)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -92,7 +124,7 @@ static inline int is_mdss_iommu_attached(void)
 	return mdata ? mdata->iommu_attached : false;
 }
 
-static inline int mdss_smmu_get_domain_type(u32 flags, bool rotator)
+static inline int mdss_smmu_get_domain_type(u64 flags, bool rotator)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int type;

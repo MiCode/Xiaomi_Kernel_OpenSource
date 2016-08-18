@@ -168,12 +168,15 @@ end:
 }
 
 /*
- * mdss_smmu_v2_attach()
+ * mdss_smmu_attach_v2()
  *
  * Associates each configured VA range with the corresponding smmu context
  * bank device. Enables the clks as smmu_v2 requires voting it before the usage.
  * And iommu attach is done only once during the initial attach and it is never
  * detached as smmu v2 uses a feature called 'retention'.
+ * Only detach the secure and non-secure contexts in case of secure display
+ * case and secure contexts for secure camera use cases for the platforms
+ * which have caps MDSS_CAPS_SEC_DETACH_SMMU enabled
  */
 static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 {
@@ -196,7 +199,9 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 			}
 			mdss_smmu->handoff_pending = false;
 
-			if (!mdss_smmu->domain_attached) {
+			if (!mdss_smmu->domain_attached &&
+				mdss_smmu_is_valid_domain_condition(mdata,
+					i, true)) {
 				rc = arm_iommu_attach_device(mdss_smmu->dev,
 						mdss_smmu->mmu_mapping);
 				if (rc) {
@@ -233,10 +238,11 @@ err:
 }
 
 /*
- * mdss_smmu_v2_detach()
+ * mdss_smmu_detach_v2()
  *
- * Only disables the clks as it is not required to detach the iommu mapped
- * VA range from the device in smmu_v2 as explained in the mdss_smmu_v2_attach
+ * Disables the clks only when it is not required to detach the iommu mapped
+ * VA range (as long as not in secure display use case)
+ * from the device in smmu_v2 as explained in the mdss_smmu_v2_attach
  */
 static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 {
@@ -248,8 +254,24 @@ static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 			continue;
 
 		mdss_smmu = mdss_smmu_get_cb(i);
-		if (mdss_smmu && mdss_smmu->dev && !mdss_smmu->handoff_pending)
-			mdss_smmu_enable_power(mdss_smmu, false);
+		if (mdss_smmu && mdss_smmu->dev) {
+			if (!mdss_smmu->handoff_pending &&
+				mdss_smmu->domain_attached &&
+				mdss_smmu_is_valid_domain_condition(mdata,
+					i, false)) {
+				/*
+				 * if entering in secure display or
+				 * secure camera use case(for secured contexts
+				 * leave the smmu clocks on and only detach the
+				 * smmu contexts
+				 */
+				arm_iommu_detach_device(mdss_smmu->dev);
+				mdss_smmu->domain_attached = false;
+				pr_debug("iommu v2 domain[%i] detached\n", i);
+			} else {
+				mdss_smmu_enable_power(mdss_smmu, false);
+			}
+		}
 	}
 
 	return 0;
@@ -764,6 +786,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	}
 
 	mdss_smmu = &mdata->mdss_smmu[smmu_domain.domain];
+	mdss_smmu->domain = smmu_domain.domain;
 	mp = &mdss_smmu->mp;
 	memset(mp, 0, sizeof(struct dss_module_power));
 

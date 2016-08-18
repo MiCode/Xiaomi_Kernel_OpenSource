@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -407,7 +407,7 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 }
 
 int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
-	u32 flags)
+	u64 flags)
 {
 	struct mdss_data_type *mdata = pipe->mixer_left->ctl->mdata;
 	struct mdss_mdp_perf_params perf;
@@ -1196,11 +1196,10 @@ static void __overlay_pipe_cleanup(struct msm_fb_data_type *mfd,
 		list_move(&buf->buf_list, &mdp5_data->bufs_freelist);
 
 		/*
-		 * in case of secure UI, the buffer needs to be released as
-		 * soon as session is closed.
+		 * free the buffers on the same cycle instead of waiting for
+		 * next kickoff
 		 */
-		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
-			mdss_mdp_overlay_buf_free(mfd, buf);
+		mdss_mdp_overlay_buf_free(mfd, buf);
 	}
 
 	mdss_mdp_pipe_destroy(pipe);
@@ -1504,7 +1503,7 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 		 */
 		if (mdss_get_sd_client_cnt() &&
 			!(pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)) {
-			pr_warn("Non secure pipe during secure display: %u: %08X, skip\n",
+			pr_warn("Non secure pipe during secure display: %u: %16llx, skip\n",
 					pipe->num, pipe->flags);
 			continue;
 		}
@@ -2701,42 +2700,6 @@ static void __post_frc_in_disable_state(struct mdss_mdp_frc_fsm *frc_fsm,
 	/* do nothing */
 }
 
-static int __config_secure_display(struct mdss_overlay_private *mdp5_data)
-{
-	int panel_type = mdp5_data->ctl->panel_data->panel_info.type;
-	int sd_enable = -1; /* Since 0 is a valid state, initialize with -1 */
-	int ret = 0;
-
-	if (panel_type == MIPI_CMD_PANEL)
-		mdss_mdp_display_wait4pingpong(mdp5_data->ctl, true);
-
-	/*
-	 * Start secure display session if we are transitioning from non secure
-	 * to secure display.
-	 */
-	if (mdp5_data->sd_transition_state ==
-			SD_TRANSITION_NON_SECURE_TO_SECURE)
-		sd_enable = 1;
-
-	/*
-	 * For command mode panels, if we are trasitioning from secure to
-	 * non secure session, disable the secure display, as we've already
-	 * waited for the previous frame transfer.
-	 */
-	if ((panel_type == MIPI_CMD_PANEL) &&
-			(mdp5_data->sd_transition_state ==
-			 SD_TRANSITION_SECURE_TO_NON_SECURE))
-		sd_enable = 0;
-
-	if (sd_enable != -1) {
-		ret = mdss_mdp_secure_display_ctrl(mdp5_data->mdata, sd_enable);
-		if (!ret)
-			mdp5_data->sd_enabled = sd_enable;
-	}
-
-	return ret;
-}
-
 /* predefined state table of FRC FSM */
 static struct mdss_mdp_frc_fsm_state frc_fsm_states[FRC_STATE_MAX] = {
 	{
@@ -2857,6 +2820,92 @@ static void mdss_mdp_overlay_update_frc(struct msm_fb_data_type *mfd)
 	}
 }
 
+/*
+ * Enables/disable secure (display or camera) sessions
+ */
+static int __overlay_secure_ctrl(struct msm_fb_data_type *mfd)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	struct mdss_mdp_pipe *pipe;
+	int ret = 0;
+	int sd_in_pipe = 0;
+	int sc_in_pipe = 0;
+
+	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
+		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
+			sd_in_pipe = 1;
+			pr_debug("Secure pipe: %u : %16llx\n",
+					pipe->num, pipe->flags);
+		} else if (pipe->flags & MDP_SECURE_CAMERA_OVERLAY_SESSION) {
+			sc_in_pipe = 1;
+			pr_debug("Secure camera: %u: %16llx\n",
+					pipe->num, pipe->flags);
+		}
+	}
+
+	if ((!sd_in_pipe && !mdp5_data->sd_enabled) ||
+			(sd_in_pipe && mdp5_data->sd_enabled) ||
+			(!sc_in_pipe && !mdp5_data->sc_enabled) ||
+			(sc_in_pipe && mdp5_data->sc_enabled))
+		return ret;
+
+	/* Secure Display */
+	if (!mdp5_data->sd_enabled && sd_in_pipe) {
+		if (!mdss_get_sd_client_cnt()) {
+			/*wait for ping pong done */
+			if (ctl->ops.wait_pingpong)
+				mdss_mdp_display_wait4pingpong(ctl, true);
+			ret = mdss_mdp_secure_session_ctrl(1,
+					MDP_SECURE_DISPLAY_OVERLAY_SESSION);
+			if (ret)
+				return ret;
+		}
+		mdp5_data->sd_enabled = 1;
+		mdss_update_sd_client(mdp5_data->mdata, true);
+	} else if (mdp5_data->sd_enabled && !sd_in_pipe) {
+		/* disable the secure display on last client */
+		if (mdss_get_sd_client_cnt() == 1) {
+			if (ctl->ops.wait_pingpong)
+				mdss_mdp_display_wait4pingpong(ctl, true);
+			ret = mdss_mdp_secure_session_ctrl(0,
+					MDP_SECURE_DISPLAY_OVERLAY_SESSION);
+			if (ret)
+				return ret;
+		}
+		mdss_update_sd_client(mdp5_data->mdata, false);
+		mdp5_data->sd_enabled = 0;
+	}
+
+	/* Secure Camera */
+	if (!mdp5_data->sc_enabled && sc_in_pipe) {
+		if (!mdss_get_sc_client_cnt()) {
+			if (ctl->ops.wait_pingpong)
+				mdss_mdp_display_wait4pingpong(ctl, true);
+			ret = mdss_mdp_secure_session_ctrl(1,
+					MDP_SECURE_CAMERA_OVERLAY_SESSION);
+			if (ret)
+				return ret;
+		}
+		mdp5_data->sc_enabled = 1;
+		mdss_update_sc_client(mdp5_data->mdata, true);
+	} else if (mdp5_data->sc_enabled && !sc_in_pipe) {
+		/* disable the secure camera on last client */
+		if (mdss_get_sc_client_cnt() == 1) {
+			if (ctl->ops.wait_pingpong)
+				mdss_mdp_display_wait4pingpong(ctl, true);
+			ret = mdss_mdp_secure_session_ctrl(0,
+					MDP_SECURE_CAMERA_OVERLAY_SESSION);
+			if (ret)
+				return ret;
+		}
+		mdss_update_sc_client(mdp5_data->mdata, false);
+		mdp5_data->sc_enabled = 0;
+	}
+
+	return ret;
+}
+
 int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp_display_commit *data)
 {
@@ -2865,7 +2914,6 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	int ret = 0;
 	struct mdss_mdp_commit_cb commit_cb;
-	u8 sd_transition_state = 0;
 
 	if (!ctl || !ctl->mixer_left)
 		return -ENODEV;
@@ -2895,7 +2943,14 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 			mutex_unlock(ctl->shared_lock);
 		return ret;
 	}
+
 	mutex_lock(&mdp5_data->list_lock);
+
+	ret = __overlay_secure_ctrl(mfd);
+	if (IS_ERR_VALUE((unsigned long) ret)) {
+		pr_err("secure operation failed %d\n", ret);
+		goto commit_fail;
+	}
 
 	if (!ctl->shared_lock)
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_BEGIN);
@@ -2908,21 +2963,10 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	if (ctl->ops.wait_pingpong && mdp5_data->mdata->serialize_wait4pp)
 		mdss_mdp_display_wait4pingpong(ctl, true);
 
-	mdp5_data->cache_null_commit = list_empty(&mdp5_data->pipes_used);
-	sd_transition_state = mdp5_data->sd_transition_state;
-	if (sd_transition_state != SD_TRANSITION_NONE) {
-		ret = __config_secure_display(mdp5_data);
-		if (IS_ERR_VALUE((unsigned long)ret)) {
-			pr_err("Secure session config failed\n");
-			goto commit_fail;
-		}
-	}
-
 	if (!data) {
 		atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
 		MDSS_XLOG(atomic_read(&mfd->mdp_sync_pt_data.commit_cnt));
 	}
-
 	/*
 	 * Setup pipe in solid fill before unstaging,
 	 * to ensure no fetches are happening after dettach or reattach.
@@ -3003,16 +3047,6 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	}
 
 	mutex_lock(&mdp5_data->ov_lock);
-	/*
-	 * If we are transitioning from secure to non-secure display,
-	 * disable the secure display.
-	 */
-	if (mdp5_data->sd_enabled && (sd_transition_state ==
-			SD_TRANSITION_SECURE_TO_NON_SECURE)) {
-		ret = mdss_mdp_secure_display_ctrl(mdp5_data->mdata, 0);
-		if (!ret)
-			mdp5_data->sd_enabled = 0;
-	}
 
 	mdss_fb_update_notify_update(mfd);
 commit_fail:
@@ -3164,7 +3198,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_data *src_data;
 	struct mdp_layer_buffer buffer;
 	int ret;
-	u32 flags;
+	u64 flags;
 
 	pipe = __overlay_find_pipe(mfd, req->id);
 	if (!pipe) {
@@ -3190,7 +3224,8 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 		pr_warn("Unexpected buffer queue to a solid fill pipe\n");
 
 	flags = (pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
-		MDP_SECURE_DISPLAY_OVERLAY_SESSION));
+		MDP_SECURE_DISPLAY_OVERLAY_SESSION |
+		MDP_SECURE_CAMERA_OVERLAY_SESSION));
 
 	mutex_lock(&mdp5_data->list_lock);
 	src_data = mdss_mdp_overlay_buf_alloc(mfd, pipe);
