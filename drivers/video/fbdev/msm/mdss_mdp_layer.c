@@ -936,7 +936,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 {
 	int ret = 0;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
-	u32 flags;
+	u64 flags;
 
 	struct mdss_mdp_mixer *mixer = NULL;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -978,6 +978,8 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		pipe->flags |= MDP_BWC_EN;
 	if (layer->flags & MDP_LAYER_PP)
 		pipe->flags |= MDP_OVERLAY_PP_CFG_EN;
+	if (layer->flags & MDP_LAYER_SECURE_CAMERA_SESSION)
+		pipe->flags |= MDP_SECURE_CAMERA_OVERLAY_SESSION;
 
 	pipe->scaler.enable = (layer->flags & SCALER_ENABLED);
 	pipe->is_fg = layer->flags & MDP_LAYER_FORGROUND;
@@ -1348,7 +1350,7 @@ static struct mdss_mdp_data *__map_layer_buffer(struct msm_fb_data_type *mfd,
 	struct mdp_layer_buffer *buffer;
 	struct msmfb_data image;
 	int i, ret;
-	u32 flags;
+	u64 flags;
 	struct mdss_mdp_validate_info_t *vitem;
 
 	for (i = 0; i < layer_count; i++) {
@@ -1374,7 +1376,8 @@ static struct mdss_mdp_data *__map_layer_buffer(struct msm_fb_data_type *mfd,
 	}
 
 	flags = (pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
-				MDP_SECURE_DISPLAY_OVERLAY_SESSION));
+				MDP_SECURE_DISPLAY_OVERLAY_SESSION |
+				MDP_SECURE_CAMERA_OVERLAY_SESSION));
 
 	if (buffer->planes[0].fd < 0) {
 		pr_err("invalid file descriptor for layer buffer\n");
@@ -1585,34 +1588,48 @@ end:
 }
 
 /*
- * __validate_secure_display() - validate secure display
+ * __validate_secure_session() - validate various secure sessions
  *
  * This function travers through used pipe list and checks if any pipe
- * is with secure display enabled flag. It fails if client tries to stage
- * unsecure content with secure display session.
+ * is with secure display, secure video and secure camera enabled flag.
+ * It fails if client tries to stage unsecure content with
+ * secure display session and secure camera with secure video sessions.
  *
  */
-static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
+static int __validate_secure_session(struct mdss_overlay_private *mdp5_data)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
 	uint32_t sd_pipes = 0, nonsd_pipes = 0;
+	uint32_t secure_vid_pipes = 0, secure_cam_pipes = 0;
 
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
 		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
 			sd_pipes++;
+		else if (pipe->flags & MDP_SECURE_OVERLAY_SESSION)
+			secure_vid_pipes++;
+		else if (pipe->flags & MDP_SECURE_CAMERA_OVERLAY_SESSION)
+			secure_cam_pipes++;
 		else
 			nonsd_pipes++;
 	}
 	mutex_unlock(&mdp5_data->list_lock);
 
-	pr_debug("pipe count:: secure display:%d non-secure:%d\n",
-		sd_pipes, nonsd_pipes);
+	pr_debug("pipe count:: secure display:%d non-secure:%d secure-vid:%d,secure-cam:%d\n",
+		sd_pipes, nonsd_pipes, secure_vid_pipes, secure_cam_pipes);
 
-	if ((sd_pipes || mdss_get_sd_client_cnt()) && nonsd_pipes) {
+	if ((sd_pipes || mdss_get_sd_client_cnt()) &&
+		(nonsd_pipes || secure_vid_pipes ||
+		secure_cam_pipes)) {
 		pr_err("non-secure layer validation request during secure display session\n");
-		pr_err(" secure client cnt:%d secure pipe cnt:%d non-secure pipe cnt:%d\n",
-			mdss_get_sd_client_cnt(), sd_pipes, nonsd_pipes);
+		pr_err(" secure client cnt:%d secure pipe:%d non-secure pipe:%d, secure-vid:%d, secure-cam:%d\n",
+			mdss_get_sd_client_cnt(), sd_pipes, nonsd_pipes,
+			secure_vid_pipes, secure_cam_pipes);
+		return -EINVAL;
+	} else if (secure_cam_pipes && (secure_vid_pipes || sd_pipes)) {
+		pr_err(" incompatible layers during secure camera session\n");
+		pr_err("secure-camera cnt:%d secure video:%d secure display:%d\n",
+				secure_cam_pipes, secure_vid_pipes, sd_pipes);
 		return -EINVAL;
 	} else {
 		return 0;
@@ -2388,7 +2405,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 validate_skip:
 	__handle_free_list(mdp5_data, validate_info_list, layer_count);
 
-	ret = __validate_secure_display(mdp5_data);
+	ret = __validate_secure_session(mdp5_data);
 
 validate_exit:
 	pr_debug("err=%d total_layer:%d left:%d right:%d rec0_rel_ndx=0x%x rec1_rel_ndx=0x%x rec0_destroy_ndx=0x%x rec1_destroy_ndx=0x%x processed=%d\n",
