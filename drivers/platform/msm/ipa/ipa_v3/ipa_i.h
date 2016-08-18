@@ -1202,6 +1202,7 @@ struct ipa3_context {
 	struct ipa3_uc_wdi_ctx uc_wdi_ctx;
 	struct ipa3_uc_ntn_ctx uc_ntn_ctx;
 	u32 wan_rx_ring_size;
+	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
 	unsigned long gsi_dev_hdl;
@@ -1259,6 +1260,7 @@ struct ipa3_plat_drv_res {
 	bool ipa_wdi2;
 	bool use_64_bit_dma_mask;
 	u32 wan_rx_ring_size;
+	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
 	bool apply_rg10_wa;

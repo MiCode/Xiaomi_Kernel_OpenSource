@@ -3171,7 +3171,7 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 				sys->free_rx_wrapper =
 					ipa3_recycle_rx_wrapper;
 				sys->rx_pool_sz =
-					IPA_GENERIC_RX_POOL_SZ;
+					ipa3_ctx->lan_rx_ring_size;
 				in->ipa_ep_cfg.aggr.aggr_byte_limit =
 				IPA_GENERIC_AGGR_BYTE_LIMIT;
 				in->ipa_ep_cfg.aggr.aggr_pkt_limit =
