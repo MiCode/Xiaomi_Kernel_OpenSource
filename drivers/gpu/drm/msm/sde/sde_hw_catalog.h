@@ -38,6 +38,9 @@
 #define SDE_HW_VER_172	SDE_HW_VER(1, 7, 2) /* 8996 v3.0 */
 #define SDE_HW_VER_300	SDE_HW_VER(3, 0, 0) /* cobalt v1.0 */
 
+#define MAX_IMG_WIDTH 0x3fff
+#define MAX_IMG_HEIGHT 0x3fff
+
 /**
  * MDP TOP BLOCK features
  * @SDE_MDP_PANIC_PER_PIPE Panic configuration needs to be be done per pipe
