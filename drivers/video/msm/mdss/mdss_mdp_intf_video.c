@@ -1127,20 +1127,21 @@ static int mdss_mdp_video_hfp_fps_update(struct mdss_mdp_video_ctx *ctx,
 	u32 hsync_start_x, hsync_end_x, display_v_start, display_v_end;
 	u32 display_hctl, hsync_ctl;
 	struct mdss_panel_info *pinfo = &pdata->panel_info;
+	u32 div = (ctx->ctl->cdm && pinfo->out_format == MDP_Y_CBCR_H2V2) ? 1 : 0;
 
-	hsync_period = mdss_panel_get_htotal(pinfo, true);
+	hsync_period = mdss_panel_get_htotal(pinfo, true) >> div;
 	vsync_period = mdss_panel_get_vtotal(pinfo);
 
 	display_v_start = ((pinfo->lcdc.v_pulse_width +
 			pinfo->lcdc.v_back_porch) * hsync_period) +
-					pinfo->lcdc.hsync_skew;
+					(pinfo->lcdc.hsync_skew >> div);
 	display_v_end = ((vsync_period - pinfo->lcdc.v_front_porch) *
-				hsync_period) + pinfo->lcdc.hsync_skew - 1;
+				hsync_period) + (pinfo->lcdc.hsync_skew >> div) - 1;
 
-	hsync_start_x = pinfo->lcdc.h_back_porch + pinfo->lcdc.h_pulse_width;
-	hsync_end_x = hsync_period - pinfo->lcdc.h_front_porch - 1;
+	hsync_start_x = (pinfo->lcdc.h_back_porch + pinfo->lcdc.h_pulse_width) >> div;
+	hsync_end_x = hsync_period - (pinfo->lcdc.h_front_porch >> div) - 1;
 
-	hsync_ctl = (hsync_period << 16) | pinfo->lcdc.h_pulse_width;
+	hsync_ctl = (hsync_period << 16) | (pinfo->lcdc.h_pulse_width >> div);
 	display_hctl = (hsync_end_x << 16) | hsync_start_x;
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_CTL, hsync_ctl);
