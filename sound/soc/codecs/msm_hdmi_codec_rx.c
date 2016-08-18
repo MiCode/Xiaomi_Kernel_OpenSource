@@ -38,8 +38,12 @@ static int msm_hdmi_edid_ctl_info(struct snd_kcontrol *kcontrol,
 
 	codec_data = snd_soc_codec_get_drvdata(codec);
 
-	if (!codec_data->hdmi_ops.get_audio_edid_blk)
-		return -EINVAL;
+	if (!codec_data->hdmi_ops.get_audio_edid_blk) {
+		pr_debug("%s: get_audio_edid_blk() is NULL\n", __func__);
+		uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+		uinfo->count = 0;
+		return 0;
+	}
 
 	rc = codec_data->hdmi_ops.get_audio_edid_blk(
 			codec_data->hdmi_core_pdev,
