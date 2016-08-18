@@ -5241,30 +5241,44 @@ static int cpr3_debug_closed_loop_enable_set(void *data, u64 val)
 
 	ctrl->cpr_allowed_sw = enable;
 
-	rc = cpr3_regulator_update_ctrl_state(ctrl);
-	if (rc) {
-		cpr3_err(ctrl, "could not change CPR enable state=%u, rc=%d\n",
-			enable, rc);
-		goto done;
-	}
-
-	if (ctrl->proc_clock_throttle && !ctrl->cpr_enabled) {
-		rc = cpr3_clock_enable(ctrl);
+	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
+		cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+			CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
+			ctrl->cpr_allowed_sw && ctrl->use_hw_closed_loop
+			? CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_ENABLE
+			: CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE);
+	} else {
+		rc = cpr3_regulator_update_ctrl_state(ctrl);
 		if (rc) {
-			cpr3_err(ctrl, "clock enable failed, rc=%d\n", rc);
+			cpr3_err(ctrl, "could not change CPR enable state=%u, rc=%d\n",
+				 enable, rc);
 			goto done;
 		}
-		ctrl->cpr_enabled = true;
 
-		cpr3_write(ctrl, CPR3_REG_PD_THROTTLE,
-			   CPR3_PD_THROTTLE_DISABLE);
+		if (ctrl->proc_clock_throttle && !ctrl->cpr_enabled) {
+			rc = cpr3_clock_enable(ctrl);
+			if (rc) {
+				cpr3_err(ctrl, "clock enable failed, rc=%d\n",
+					 rc);
+				goto done;
+			}
+			ctrl->cpr_enabled = true;
 
-		cpr3_clock_disable(ctrl);
-		ctrl->cpr_enabled = false;
+			cpr3_write(ctrl, CPR3_REG_PD_THROTTLE,
+				   CPR3_PD_THROTTLE_DISABLE);
+
+			cpr3_clock_disable(ctrl);
+			ctrl->cpr_enabled = false;
+		}
 	}
 
-	cpr3_debug(ctrl, "closed-loop=%s\n", enable ? "enabled" : "disabled");
-
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
+		cpr3_debug(ctrl, "closed-loop=%s\n", enable ?
+			   "enabled" : "disabled");
+	} else {
+		cpr3_debug(ctrl, "closed-loop=%s\n", enable &&
+			   ctrl->use_hw_closed_loop ? "enabled" : "disabled");
+	}
 done:
 	mutex_unlock(&ctrl->lock);
 	return 0;
@@ -5298,7 +5312,8 @@ DEFINE_SIMPLE_ATTRIBUTE(cpr3_debug_closed_loop_enable_fops,
  * cpr3_debug_hw_closed_loop_enable_set() - debugfs callback used to change the
  *		value of the CPR controller use_hw_closed_loop flag which
  *		switches between software closed-loop and hardware closed-loop
- *		operation
+ *		operation for CPR3 and CPR4 controllers and between open-loop
+ *		and full hardware closed-loop operation for CPRh controllers.
  * @data:		Pointer to private data which is equal to the CPR
  *			controller pointer
  * @val:		New value for use_hw_closed_loop
@@ -5327,7 +5342,8 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 		}
 	}
 
-	cpr3_ctrl_loop_disable(ctrl);
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH)
+		cpr3_ctrl_loop_disable(ctrl);
 
 	ctrl->use_hw_closed_loop = use_hw_closed_loop;
 
@@ -5343,13 +5359,19 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 		ctrl->cpr_enabled = true;
 	}
 
-	if (ctrl->use_hw_closed_loop)
+	if (ctrl->use_hw_closed_loop && ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH)
 		cpr3_write(ctrl, CPR3_REG_IRQ_EN, 0);
 
 	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
 		cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
 			CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
 			ctrl->use_hw_closed_loop
+			? CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_ENABLE
+			: CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE);
+	} else if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
+		cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+			CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
+			ctrl->cpr_allowed_sw && ctrl->use_hw_closed_loop
 			? CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_ENABLE
 			: CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE);
 	} else if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
@@ -5365,7 +5387,7 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 		ctrl->cpr_enabled = false;
 	}
 
-	if (ctrl->use_hw_closed_loop && ctrl->ctrl_type != CPR_CTRL_TYPE_CPR4) {
+	if (ctrl->use_hw_closed_loop && ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
 		rc = regulator_enable(ctrl->vdd_limit_regulator);
 		if (rc) {
 			cpr3_err(ctrl, "CPR limit regulator enable failed, rc=%d\n",
@@ -5379,7 +5401,7 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 			goto done;
 		}
 	} else if (!ctrl->use_hw_closed_loop
-			&& ctrl->ctrl_type != CPR_CTRL_TYPE_CPR4) {
+			&& ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
 		rc = regulator_disable(ctrl->vdd_limit_regulator);
 		if (rc) {
 			cpr3_err(ctrl, "CPR limit regulator disable failed, rc=%d\n",
@@ -5395,35 +5417,42 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 		}
 	}
 
-	/*
-	 * Due to APM and mem-acc floor restriction constraints, the closed-loop
-	 * voltage may be different when using software closed-loop vs hardware
-	 * closed-loop.  Therefore, reset the cached closed-loop voltage for all
-	 * corners to the corresponding open-loop voltage when switching between
-	 * SW and HW closed-loop mode.
-	 */
-	for (i = 0; i < ctrl->thread_count; i++) {
-		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
-			vreg = &ctrl->thread[i].vreg[j];
-			for (k = 0; k < vreg->corner_count; k++)
-				vreg->corner[k].last_volt
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
+		/*
+		 * Due to APM and mem-acc floor restriction constraints,
+		 * the closed-loop voltage may be different when using
+		 * software closed-loop vs hardware closed-loop.  Therefore,
+		 * reset the cached closed-loop voltage for all corners to the
+		 * corresponding open-loop voltage when switching between
+		 * SW and HW closed-loop mode.
+		 */
+		for (i = 0; i < ctrl->thread_count; i++) {
+			for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+				vreg = &ctrl->thread[i].vreg[j];
+				for (k = 0; k < vreg->corner_count; k++)
+					vreg->corner[k].last_volt
 					= vreg->corner[k].open_loop_volt;
+			}
 		}
+
+		/* Skip last_volt caching */
+		ctrl->last_corner_was_closed_loop = false;
+
+		rc = cpr3_regulator_update_ctrl_state(ctrl);
+		if (rc) {
+			cpr3_err(ctrl, "could not change CPR HW closed-loop enable state=%u, rc=%d\n",
+				 use_hw_closed_loop, rc);
+			goto done;
+		}
+
+		cpr3_debug(ctrl, "CPR mode=%s\n",
+			   use_hw_closed_loop ?
+			   "HW closed-loop" : "SW closed-loop");
+	} else {
+		cpr3_debug(ctrl, "CPR mode=%s\n",
+			   ctrl->cpr_allowed_sw && use_hw_closed_loop ?
+			   "full HW closed-loop" : "open-loop");
 	}
-
-	/* Skip last_volt caching */
-	ctrl->last_corner_was_closed_loop = false;
-
-	rc = cpr3_regulator_update_ctrl_state(ctrl);
-	if (rc) {
-		cpr3_err(ctrl, "could not change CPR HW closed-loop enable state=%u, rc=%d\n",
-			use_hw_closed_loop, rc);
-		goto done;
-	}
-
-	cpr3_debug(ctrl, "closed-loop mode=%s\n",
-		use_hw_closed_loop ? "HW" : "SW");
-
 done:
 	mutex_unlock(&ctrl->lock);
 	return 0;
