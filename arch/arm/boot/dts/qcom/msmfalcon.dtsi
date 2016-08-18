@@ -200,6 +200,7 @@
 };
 
 #include "msmfalcon-smp2p.dtsi"
+#include "msmfalcon-coresight.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
