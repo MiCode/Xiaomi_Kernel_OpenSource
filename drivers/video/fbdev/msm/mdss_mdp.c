@@ -47,6 +47,8 @@
 #include <linux/msm-bus-board.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/rpm-smd.h>
+#include "soc/qcom/secure_buffer.h"
+#include <asm/cacheflush.h>
 
 #include "mdss.h"
 #include "mdss_fb.h"
@@ -63,6 +65,8 @@
 #define DEFAULT_MDP_PIPE_WIDTH	2048
 #define RES_1080p		(1088*1920)
 #define RES_UHD			(3840*2160)
+
+#define MDP_DEVICE_ID		0x1A
 
 struct mdss_data_type *mdss_res;
 static u32 mem_protect_sd_ctrl_id;
@@ -87,6 +91,7 @@ struct msm_mdp_interface mdp5 = {
 
 #define MEM_PROTECT_SD_CTRL 0xF
 #define MEM_PROTECT_SD_CTRL_FLAT 0x14
+#define MEM_PROTECT_SD_CTRL_SWITCH 0x18
 
 static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_SPINLOCK(mdss_mdp_intr_lock);
@@ -1329,7 +1334,9 @@ int mdss_iommu_ctrl(int enable)
 			if (mdata->iommu_ref_cnt == 0) {
 				rc = mdss_smmu_detach(mdata);
 				if (mdss_has_quirk(mdata,
-					MDSS_QUIRK_MIN_BUS_VOTE))
+					MDSS_QUIRK_MIN_BUS_VOTE) &&
+					(!mdata->sec_disp_en ||
+					 !mdata->sec_cam_en))
 					mdss_bus_scale_set_quota(MDSS_HW_RT,
 								0, 0);
 			}
@@ -1985,6 +1992,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->pixel_ram_size = 50 * 1024;
 		mdata->rects_per_sspp[MDSS_MDP_PIPE_TYPE_DMA] = 2;
 
+		mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_SWITCH;
 		set_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_REMAPPER, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map);
@@ -2015,6 +2023,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -4939,29 +4948,115 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 	}
 }
 
-int mdss_mdp_secure_display_ctrl(unsigned int enable)
+int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct sd_ctrl_req {
 		unsigned int enable;
 	} __attribute__ ((__packed__)) request;
 	unsigned int resp = -1;
 	int ret = 0;
+	uint32_t sid_info;
 	struct scm_desc desc;
 
-	desc.args[0] = request.enable = enable;
-	desc.arginfo = SCM_ARGS(1);
+	if (test_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map)) {
+		/*
+		 * Prepare syscall to hypervisor to switch the secure_vmid
+		 * between secure and non-secure contexts
+		 */
+		/* MDP secure SID */
+		sid_info = 0x1;
+		desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
+		desc.args[0] = MDP_DEVICE_ID;
+		desc.args[1] = SCM_BUFFER_PHYS(&sid_info);
+		desc.args[2] = sizeof(uint32_t);
 
-	if (!is_scm_armv8()) {
-		ret = scm_call(SCM_SVC_MP, MEM_PROTECT_SD_CTRL,
-			&request, sizeof(request), &resp, sizeof(resp));
-	} else {
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+
+		pr_debug("Enable/Disable: %d, Flags %llx\n", enable, flags);
+		if (enable) {
+			if (flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
+				desc.args[3] = VMID_CP_SEC_DISPLAY;
+				mdata->sec_disp_en = 1;
+			} else if (flags & MDP_SECURE_CAMERA_OVERLAY_SESSION) {
+				desc.args[3] = VMID_CP_CAMERA_PREVIEW;
+				mdata->sec_cam_en = 1;
+			} else {
+				return 0;
+			}
+
+			/* detach smmu contexts */
+			ret = mdss_smmu_detach(mdata);
+			if (ret) {
+				pr_err("Error while detaching smmu contexts ret = %d\n",
+					ret);
+				return -EINVAL;
+			}
+
+			/* let the driver think smmu is still attached */
+			mdata->iommu_attached = true;
+
+			dmac_flush_range(&sid_info, &sid_info + 1);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 				mem_protect_sd_ctrl_id), &desc);
-		resp = desc.ret[0];
-	}
+			if (ret) {
+				pr_err("Error scm_call MEM_PROTECT_SD_CTRL(%u) ret=%dm resp=%x\n",
+						enable, ret, resp);
+				return -EINVAL;
+			}
+			resp = desc.ret[0];
 
-	pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x",
+			pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x\n",
+					enable, ret, resp);
+		} else {
+			desc.args[3] = VMID_CP_PIXEL;
+			if (flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
+				mdata->sec_disp_en = 0;
+			else if (flags & MDP_SECURE_CAMERA_OVERLAY_SESSION)
+				mdata->sec_cam_en = 0;
+
+			dmac_flush_range(&sid_info, &sid_info + 1);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				mem_protect_sd_ctrl_id), &desc);
+			if (ret)
+				MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
+						"dsi0_phy", "dsi1_ctrl",
+						"dsi1_phy", "vbif", "vbif_nrt",
+						"dbg_bus", "vbif_dbg_bus",
+						"panic");
+			resp = desc.ret[0];
+
+			pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x\n",
+					enable, ret, resp);
+
+			/* re-attach smmu contexts */
+			mdata->iommu_attached = false;
+			ret = mdss_smmu_attach(mdata);
+			if (ret) {
+				pr_err("Error while attaching smmu contexts ret = %d\n",
+					ret);
+				return -EINVAL;
+			}
+		}
+		MDSS_XLOG(enable);
+	} else {
+		desc.args[0] = request.enable = enable;
+		desc.arginfo = SCM_ARGS(1);
+
+		if (!is_scm_armv8()) {
+			ret = scm_call(SCM_SVC_MP, MEM_PROTECT_SD_CTRL,
+					&request,
+					sizeof(request),
+					&resp,
+					sizeof(resp));
+		} else {
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+						mem_protect_sd_ctrl_id), &desc);
+			resp = desc.ret[0];
+		}
+
+		pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x\n",
 				enable, ret, resp);
+	}
 	if (ret)
 		return ret;
 

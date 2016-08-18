@@ -963,16 +963,17 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
 				data->srcp_dma_buf = NULL;
 			}
 		}
-	} else if (data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
+	} else if ((data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) ||
+			(data->flags & MDP_SECURE_CAMERA_OVERLAY_SESSION)) {
 		/*
-		 * skip memory unmapping - secure display uses physical
-		 * address which does not require buffer unmapping
+		 * skip memory unmapping - secure display and camera uses
+		 * physical address which does not require buffer unmapping
 		 *
 		 * For LT targets in secure display usecase, srcp_dma_buf will
 		 * be filled due to map call which will be unmapped above.
 		 *
 		 */
-		pr_debug("skip memory unmapping for secure display content\n");
+		pr_debug("skip memory unmapping for secure display/camera content\n");
 	} else {
 		return -ENOMEM;
 	}
@@ -1188,7 +1189,7 @@ err_unmap:
 }
 
 static int mdss_mdp_data_get(struct mdss_mdp_data *data,
-		struct msmfb_data *planes, int num_planes, u32 flags,
+		struct msmfb_data *planes, int num_planes, u64 flags,
 		struct device *dev, bool rotator, int dir)
 {
 	int i, rc = 0;
@@ -1201,7 +1202,7 @@ static int mdss_mdp_data_get(struct mdss_mdp_data *data,
 		rc = mdss_mdp_get_img(&planes[i], &data->p[i], dev, rotator,
 				dir);
 		if (rc) {
-			pr_err("failed to get buf p=%d flags=%x\n", i, flags);
+			pr_err("failed to get buf p=%d flags=%llx\n", i, flags);
 			while (i > 0) {
 				i--;
 				mdss_mdp_put_img(&data->p[i], rotator, dir);
@@ -1251,7 +1252,7 @@ void mdss_mdp_data_free(struct mdss_mdp_data *data, bool rotator, int dir)
 }
 
 int mdss_mdp_data_get_and_validate_size(struct mdss_mdp_data *data,
-	struct msmfb_data *planes, int num_planes, u32 flags,
+	struct msmfb_data *planes, int num_planes, u64 flags,
 	struct device *dev, bool rotator, int dir,
 	struct mdp_layer_buffer *buffer)
 {
