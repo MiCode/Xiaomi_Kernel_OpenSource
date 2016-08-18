@@ -53,6 +53,13 @@
 #define PLL_FRAC_DIV_START_LOW_1		0x0d0
 #define PLL_FRAC_DIV_START_MID_1		0x0d4
 #define PLL_FRAC_DIV_START_HIGH_1		0x0d8
+#define PLL_SSC_STEPSIZE_LOW_1			0x10c
+#define PLL_SSC_STEPSIZE_HIGH_1			0x110
+#define PLL_SSC_DIV_PER_LOW_1			0x114
+#define PLL_SSC_DIV_PER_HIGH_1			0x118
+#define PLL_SSC_DIV_ADJPER_LOW_1		0x11c
+#define PLL_SSC_DIV_ADJPER_HIGH_1		0x120
+#define PLL_SSC_CONTROL				0x13c
 #define PLL_PLL_OUTDIV_RATE			0x140
 #define PLL_PLL_LOCKDET_RATE_1			0x144
 #define PLL_PLL_PROP_GAIN_RATE_1		0x14c
@@ -70,6 +77,16 @@
 #define PHY_CMN_PLL_CNTRL	0x038
 #define PHY_CMN_CTRL_0		0x024
 
+/* Bit definition of SSC control registers */
+#define SSC_CENTER		BIT(0)
+#define SSC_EN			BIT(1)
+#define SSC_FREQ_UPDATE		BIT(2)
+#define SSC_FREQ_UPDATE_MUX	BIT(3)
+#define SSC_UPDATE_SSC		BIT(4)
+#define SSC_UPDATE_SSC_MUX	BIT(5)
+#define SSC_START		BIT(6)
+#define SSC_START_MUX		BIT(7)
+
 enum {
 	DSI_PLL_0,
 	DSI_PLL_1,
@@ -84,6 +101,13 @@ struct dsi_pll_regs {
 	u32 frac_div_start_low;
 	u32 frac_div_start_mid;
 	u32 frac_div_start_high;
+	u32 ssc_stepsize_low;
+	u32 ssc_stepsize_high;
+	u32 ssc_div_per_low;
+	u32 ssc_div_per_high;
+	u32 ssc_adjper_low;
+	u32 ssc_adjper_high;
+	u32 ssc_control;
 };
 
 struct dsi_pll_config {
@@ -92,6 +116,8 @@ struct dsi_pll_config {
 	u32 output_div;
 	bool ignore_frac;
 	bool disable_prescaler;
+	bool enable_ssc;
+	bool ssc_center;
 	u32 dec_bits;
 	u32 frac_bits;
 	u32 lock_timer;
@@ -151,7 +177,7 @@ static void dsi_pll_setup_config(struct dsi_pll_cobalt *pll,
 	config->frac_bits = 18;
 	config->lock_timer = 64;
 	config->ssc_freq = 31500;
-	config->ssc_offset = 4800;
+	config->ssc_offset = 5000;
 	config->ssc_adj_per = 2;
 	config->thresh_cycles = 32;
 	config->refclk_cycles = 256;
@@ -159,6 +185,15 @@ static void dsi_pll_setup_config(struct dsi_pll_cobalt *pll,
 	config->div_override = false;
 	config->ignore_frac = false;
 	config->disable_prescaler = false;
+	config->enable_ssc = rsc->ssc_en;
+	config->ssc_center = rsc->ssc_center;
+
+	if (config->enable_ssc) {
+		if (rsc->ssc_freq)
+			config->ssc_freq = rsc->ssc_freq;
+		if (rsc->ssc_ppm)
+			config->ssc_offset = rsc->ssc_ppm;
+	}
 
 	dsi_pll_config_slave(rsc);
 }
@@ -227,6 +262,77 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_cobalt *pll,
 	regs->frac_div_start_high = (frac & 0x30000) >> 16;
 }
 
+static void dsi_pll_calc_ssc(struct dsi_pll_cobalt *pll,
+		  struct mdss_pll_resources *rsc)
+{
+	struct dsi_pll_config *config = &pll->pll_configuration;
+	struct dsi_pll_regs *regs = &pll->reg_setup;
+	u32 ssc_per;
+	u32 ssc_mod;
+	u64 ssc_step_size;
+	u64 frac;
+
+	if (!config->enable_ssc) {
+		pr_debug("SSC not enabled\n");
+		return;
+	}
+
+	ssc_per = DIV_ROUND_CLOSEST(config->ref_freq, config->ssc_freq) / 2 - 1;
+	ssc_mod = (ssc_per + 1) % (config->ssc_adj_per + 1);
+	ssc_per -= ssc_mod;
+
+	frac = regs->frac_div_start_low |
+			(regs->frac_div_start_mid << 8) |
+			(regs->frac_div_start_high << 16);
+	ssc_step_size = regs->decimal_div_start;
+	ssc_step_size *= (1 << config->frac_bits);
+	ssc_step_size += frac;
+	ssc_step_size *= config->ssc_offset;
+	ssc_step_size *= (config->ssc_adj_per + 1);
+	ssc_step_size = div_u64(ssc_step_size, (ssc_per + 1));
+	ssc_step_size = DIV_ROUND_CLOSEST_ULL(ssc_step_size, 1000000);
+
+	regs->ssc_div_per_low = ssc_per & 0xFF;
+	regs->ssc_div_per_high = (ssc_per & 0xFF00) >> 8;
+	regs->ssc_stepsize_low = (u32)(ssc_step_size & 0xFF);
+	regs->ssc_stepsize_high = (u32)((ssc_step_size & 0xFF00) >> 8);
+	regs->ssc_adjper_low = config->ssc_adj_per & 0xFF;
+	regs->ssc_adjper_high = (config->ssc_adj_per & 0xFF00) >> 8;
+
+	regs->ssc_control = config->ssc_center ? SSC_CENTER : 0;
+
+	pr_debug("SCC: Dec:%d, frac:%llu, frac_bits:%d\n",
+			regs->decimal_div_start, frac, config->frac_bits);
+	pr_debug("SSC: div_per:0x%X, stepsize:0x%X, adjper:0x%X\n",
+			ssc_per, (u32)ssc_step_size, config->ssc_adj_per);
+}
+
+static void dsi_pll_ssc_commit(struct dsi_pll_cobalt *pll,
+		struct mdss_pll_resources *rsc)
+{
+	void __iomem *pll_base = rsc->pll_base;
+	struct dsi_pll_regs *regs = &pll->reg_setup;
+
+	if (pll->pll_configuration.enable_ssc) {
+		pr_debug("SSC is enabled\n");
+
+		MDSS_PLL_REG_W(pll_base, PLL_SSC_STEPSIZE_LOW_1,
+				regs->ssc_stepsize_low);
+		MDSS_PLL_REG_W(pll_base, PLL_SSC_STEPSIZE_HIGH_1,
+				regs->ssc_stepsize_high);
+		MDSS_PLL_REG_W(pll_base, PLL_SSC_DIV_PER_LOW_1,
+				regs->ssc_div_per_low);
+		MDSS_PLL_REG_W(pll_base, PLL_SSC_DIV_PER_HIGH_1,
+				regs->ssc_div_per_high);
+		MDSS_PLL_REG_W(pll_base, PLL_SSC_DIV_ADJPER_LOW_1,
+				regs->ssc_adjper_low);
+		MDSS_PLL_REG_W(pll_base, PLL_SSC_DIV_ADJPER_HIGH_1,
+				regs->ssc_adjper_high);
+		MDSS_PLL_REG_W(pll_base, PLL_SSC_CONTROL,
+				SSC_EN | regs->ssc_control);
+	}
+}
+
 static void dsi_pll_config_hzindep_reg(struct dsi_pll_cobalt *pll,
 				  struct mdss_pll_resources *rsc)
 {
@@ -270,8 +376,6 @@ static void dsi_pll_commit(struct dsi_pll_cobalt *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_OUTDIV_RATE, reg->pll_outdiv_rate);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_DELAY, 0x0a);
 
-	/* flush, ensure all register writes are done*/
-	wmb();
 }
 
 static int vco_cobalt_set_rate(struct clk *c, unsigned long rate)
@@ -311,11 +415,16 @@ static int vco_cobalt_set_rate(struct clk *c, unsigned long rate)
 
 	dsi_pll_calc_dec_frac(pll, rsc);
 
-	dsi_pll_config_hzindep_reg(pll, rsc);
-
-	/* todo: ssc configuration */
+	dsi_pll_calc_ssc(pll, rsc);
 
 	dsi_pll_commit(pll, rsc);
+
+	dsi_pll_config_hzindep_reg(pll, rsc);
+
+	dsi_pll_ssc_commit(pll, rsc);
+
+	/* flush, ensure all register writes are done*/
+	wmb();
 
 	mdss_pll_resource_enable(rsc, false);
 
