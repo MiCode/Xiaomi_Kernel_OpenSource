@@ -448,6 +448,7 @@ void *ion_page_pool_alloc_pool_only(struct ion_page_pool *);
 void ion_page_pool_free(struct ion_page_pool *, struct page *);
 void ion_page_pool_free_immediate(struct ion_page_pool *, struct page *);
 int ion_page_pool_total(struct ion_page_pool *pool, bool high);
+size_t ion_system_heap_secure_page_pool_total(struct ion_heap *heap, int vmid);
 
 #ifdef CONFIG_ION_POOL_CACHE_POLICY
 static inline void ion_page_pool_alloc_set_cache_policy
