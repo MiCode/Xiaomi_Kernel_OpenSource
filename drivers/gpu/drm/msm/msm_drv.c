@@ -485,6 +485,14 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 
 	file->driver_priv = ctx;
 
+	if (dev && dev->dev_private) {
+		struct msm_drm_private *priv = dev->dev_private;
+		struct msm_kms *kms;
+
+		kms = priv->kms;
+		if (kms && kms->funcs && kms->funcs->postopen)
+			kms->funcs->postopen(kms, file);
+	}
 	return 0;
 }
 
