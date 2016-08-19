@@ -2152,7 +2152,7 @@ static void pp_dspp_opmode_config(struct mdss_mdp_ctl *ctl, u32 num,
 	bool pa_side_enabled = false;
 	side = pp_num_to_side(ctl, num);
 
-	if (side < 0)
+	if (side < 0 || !pp_sts)
 		return;
 
 	if (pp_driver_ops.pp_opmode_config) {
@@ -2217,7 +2217,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 {
 	u32 ad_flags, flags, dspp_num, opmode = 0, ad_bypass;
 	struct mdp_pgc_lut_data *pgc_config;
-	struct pp_sts_type *pp_sts;
+	struct pp_sts_type *pp_sts = NULL;
 	char __iomem *base, *addr = NULL;
 	int ret = 0;
 	struct mdss_data_type *mdata;
