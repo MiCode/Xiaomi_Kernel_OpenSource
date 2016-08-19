@@ -95,12 +95,12 @@ static bool mdss_dsi_phy_v3_is_pll_on(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (mdss_dsi_is_ctrl_clk_slave(ctrl))
 		return false;
 
-	data = DSI_PHY_R32(ctrl->phy_io.base, CMN_CTRL_0);
+	data = DSI_PHY_R32(ctrl->phy_io.base, CMN_PLL_CNTRL);
 
 	/* Make sure the register has been read prior to checking the status */
 	mb();
 
-	return (data & BIT(5));
+	return (data & BIT(0));
 }
 
 static void mdss_dsi_phy_v3_set_pll_source(
