@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -42,15 +42,35 @@ struct clk_branch {
 #define BRANCH_HALT_ENABLE		1 /* pol: 0 = halt */
 #define BRANCH_HALT_ENABLE_VOTED	(BRANCH_HALT_ENABLE | BRANCH_VOTED)
 #define BRANCH_HALT_DELAY		2 /* No bit to check; just delay */
+/* No halt check during clk disable for the clocks controlled by other masters
+ * via voting registers like SMMU clocks.
+ */
+#define BRANCH_HALT_NO_CHECK_ON_DISABLE	4
 
 	struct clk_regmap clkr;
 };
 
+/**
+ * struct clk_gate2 - gating clock with status bit and dynamic hardware gating
+ * @udelay: halt delay in microseconds on clock branch Enable/Disable
+ * @clkr: handle between common and hardware-specific interfaces
+ *
+ * Clock which can gate its output.
+ */
+struct clk_gate2 {
+	u32	udelay;
+	struct	clk_regmap clkr;
+};
+
 extern const struct clk_ops clk_branch_ops;
 extern const struct clk_ops clk_branch2_ops;
+extern const struct clk_ops clk_gate2_ops;
 extern const struct clk_ops clk_branch_simple_ops;
 
 #define to_clk_branch(_hw) \
 	container_of(to_clk_regmap(_hw), struct clk_branch, clkr)
+
+#define to_clk_gate2(_hw) \
+	container_of(to_clk_regmap(_hw), struct clk_gate2, clkr)
 
 #endif

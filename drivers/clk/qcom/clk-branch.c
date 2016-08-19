@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -83,6 +83,9 @@ static int clk_branch_wait(const struct clk_branch *br, bool enabling,
 
 	if (br->halt_check == BRANCH_HALT_DELAY || (!enabling && voted)) {
 		udelay(10);
+	} else if ((br->halt_check == BRANCH_HALT_NO_CHECK_ON_DISABLE) &&
+								!enabling) {
+		return 0;
 	} else if (br->halt_check == BRANCH_HALT_ENABLE ||
 		   br->halt_check == BRANCH_HALT ||
 		   (enabling && voted)) {
@@ -150,6 +153,42 @@ const struct clk_ops clk_branch2_ops = {
 	.is_enabled = clk_is_enabled_regmap,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
+
+static int clk_gate_toggle(struct clk_hw *hw, bool en)
+{
+	struct clk_gate2 *gt = to_clk_gate2(hw);
+	int ret = 0;
+
+	if (en) {
+		ret = clk_enable_regmap(hw);
+		if (ret)
+			return ret;
+	} else {
+		clk_disable_regmap(hw);
+	}
+
+	if (gt->udelay)
+		udelay(gt->udelay);
+
+	return ret;
+}
+
+static int clk_gate2_enable(struct clk_hw *hw)
+{
+	return clk_gate_toggle(hw, true);
+}
+
+static void clk_gate2_disable(struct clk_hw *hw)
+{
+	clk_gate_toggle(hw, false);
+}
+
+const struct clk_ops clk_gate2_ops = {
+	.enable = clk_gate2_enable,
+	.disable = clk_gate2_disable,
+	.is_enabled = clk_is_enabled_regmap,
+};
+EXPORT_SYMBOL_GPL(clk_gate2_ops);
 
 const struct clk_ops clk_branch_simple_ops = {
 	.enable = clk_enable_regmap,
