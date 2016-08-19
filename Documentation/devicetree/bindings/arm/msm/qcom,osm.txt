@@ -16,12 +16,14 @@ Properties:
 	Value type: <prop-encoded-array>
 	Definition: Addresses and sizes for the memory of the OSM controller,
 		    cluster PLL management, and APCS common register regions.
-
+		    Optionally, the address of the efuse registers used to
+		    determine the pwrcl or perfcl speed-bins.
 - reg-names
 	Usage:      required
 	Value type: <stringlist>
 	Definition: Address names. Must be "osm", "pwrcl_pll", "perfcl_pll",
-		    and "apcs_common".
+		    and "apcs_common". Optionally, "pwrcl_efuse" or
+		    "perfcl_efuse".
 		    Must be specified in the same order as the corresponding
 		    addresses are specified in the reg property.
 
