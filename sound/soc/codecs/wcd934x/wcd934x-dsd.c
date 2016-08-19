@@ -13,8 +13,23 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/mfd/wcd934x/registers.h>
+#include <sound/tlv.h>
 #include <sound/control.h>
 #include "wcd934x-dsd.h"
+
+#define DSD_VOLUME_MAX_0dB      0
+#define DSD_VOLUME_MIN_M110dB   -110
+
+#define DSD_VOLUME_RANGE_CHECK(x)   ((x >= DSD_VOLUME_MIN_M110dB) &&\
+				     (x <= DSD_VOLUME_MAX_0dB))
+#define DSD_VOLUME_STEPS            3
+#define DSD_VOLUME_UPDATE_DELAY_MS  30
+#define DSD_VOLUME_USLEEP_MARGIN_US 100
+#define DSD_VOLUME_STEP_DELAY_US    ((1000 * DSD_VOLUME_UPDATE_DELAY_MS) / \
+				     (2 * DSD_VOLUME_STEPS))
+
+static const DECLARE_TLV_DB_MINMAX(tavil_dsd_db_scale, DSD_VOLUME_MIN_M110dB,
+				   DSD_VOLUME_MAX_0dB);
 
 static const char *const dsd_if_text[] = {
 	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5", "RX6", "RX7",
@@ -358,6 +373,7 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	struct tavil_dsd_config *dsd_conf = tavil_get_dsd_config(codec);
 	int rc, clk_users;
 	int interp_idx;
 	u8 pcm_rate_val;
@@ -404,7 +420,7 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 					    0x01, 0x01);
 			/* Apply Gain */
 			snd_soc_write(codec, WCD934X_CDC_DSD0_CFG1,
-				snd_soc_read(codec, WCD934X_CDC_DSD0_CFG1));
+				      dsd_conf->volume[DSD0]);
 
 			if (clk_users > 1)
 				snd_soc_update_bits(codec,
@@ -419,7 +435,7 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 					    0x01, 0x01);
 			/* Apply Gain */
 			snd_soc_write(codec, WCD934X_CDC_DSD1_CFG1,
-				snd_soc_read(codec, WCD934X_CDC_DSD1_CFG1));
+				      dsd_conf->volume[DSD1]);
 
 			if (clk_users > 1)
 				snd_soc_update_bits(codec,
@@ -456,6 +472,103 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 
 	return 0;
 }
+
+static int tavil_dsd_vol_info(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 2;
+	uinfo->value.integer.min = DSD_VOLUME_MIN_M110dB;
+	uinfo->value.integer.max = DSD_VOLUME_MAX_0dB;
+
+	return 0;
+}
+
+static int tavil_dsd_vol_put(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_dsd_config *dsd_conf = tavil_get_dsd_config(codec);
+	int nv[DSD_MAX], cv[DSD_MAX];
+	int step_size, nv1;
+	int i, dsd_idx;
+
+	if (!dsd_conf)
+		return 0;
+
+	mutex_lock(&dsd_conf->vol_mutex);
+
+	for (dsd_idx = DSD0; dsd_idx < DSD_MAX; dsd_idx++) {
+		cv[dsd_idx] = dsd_conf->volume[dsd_idx];
+		nv[dsd_idx] = ucontrol->value.integer.value[dsd_idx];
+	}
+
+	if ((!DSD_VOLUME_RANGE_CHECK(nv[DSD0])) ||
+	    (!DSD_VOLUME_RANGE_CHECK(nv[DSD1])))
+		goto done;
+
+	for (dsd_idx = DSD0; dsd_idx < DSD_MAX; dsd_idx++) {
+		if (cv[dsd_idx] == nv[dsd_idx])
+			continue;
+
+		dev_dbg(codec->dev, "%s: DSD%d cur.vol: %d, new vol: %d\n",
+			__func__, dsd_idx, cv[dsd_idx], nv[dsd_idx]);
+
+		step_size =  (nv[dsd_idx] - cv[dsd_idx]) /
+			      DSD_VOLUME_STEPS;
+
+		nv1 = cv[dsd_idx];
+
+		for (i = 0; i < DSD_VOLUME_STEPS; i++) {
+			nv1 += step_size;
+			snd_soc_write(codec,
+				      WCD934X_CDC_DSD0_CFG1 + 16 * dsd_idx,
+				      nv1);
+			/* sleep required after each volume step */
+			usleep_range(DSD_VOLUME_STEP_DELAY_US,
+				     (DSD_VOLUME_STEP_DELAY_US +
+				      DSD_VOLUME_USLEEP_MARGIN_US));
+		}
+		if (nv1 != nv[dsd_idx])
+			snd_soc_write(codec,
+				      WCD934X_CDC_DSD0_CFG1 + 16 * dsd_idx,
+				      nv[dsd_idx]);
+
+		dsd_conf->volume[dsd_idx] = nv[dsd_idx];
+	}
+
+done:
+	mutex_unlock(&dsd_conf->vol_mutex);
+
+	return 0;
+}
+
+static int tavil_dsd_vol_get(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_dsd_config *dsd_conf = tavil_get_dsd_config(codec);
+
+	if (dsd_conf) {
+		ucontrol->value.integer.value[0] = dsd_conf->volume[DSD0];
+		ucontrol->value.integer.value[1] = dsd_conf->volume[DSD1];
+	}
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new tavil_dsd_vol_controls[] = {
+	{
+	   .iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	   .access = (SNDRV_CTL_ELEM_ACCESS_READWRITE |
+		      SNDRV_CTL_ELEM_ACCESS_TLV_READ),
+	   .name = "DSD Volume",
+	   .info = tavil_dsd_vol_info,
+	   .get = tavil_dsd_vol_get,
+	   .put = tavil_dsd_vol_put,
+	   .tlv = { .p = tavil_dsd_db_scale },
+	},
+};
 
 static const struct snd_soc_dapm_widget tavil_dsd_widgets[] = {
 	SND_SOC_DAPM_MUX("DSD_L IF MUX", SND_SOC_NOPM, 0, 0, &dsd_l_if_mux),
@@ -528,6 +641,13 @@ struct tavil_dsd_config *tavil_dsd_init(struct snd_soc_codec *codec)
 	snd_soc_dapm_add_routes(dapm, tavil_dsd_audio_map,
 				ARRAY_SIZE(tavil_dsd_audio_map));
 
+	mutex_init(&dsd_conf->vol_mutex);
+	dsd_conf->volume[DSD0] = DSD_VOLUME_MAX_0dB;
+	dsd_conf->volume[DSD1] = DSD_VOLUME_MAX_0dB;
+
+	snd_soc_add_codec_controls(codec, tavil_dsd_vol_controls,
+				   ARRAY_SIZE(tavil_dsd_vol_controls));
+
 	/* Enable DSD Interrupts */
 	snd_soc_update_bits(codec, WCD934X_INTR_CODEC_MISC_MASK, 0x08, 0x00);
 
@@ -548,6 +668,8 @@ void tavil_dsd_deinit(struct tavil_dsd_config *dsd_conf)
 		return;
 
 	codec = dsd_conf->codec;
+
+	mutex_destroy(&dsd_conf->vol_mutex);
 
 	/* Disable DSD Interrupts */
 	snd_soc_update_bits(codec, WCD934X_INTR_CODEC_MISC_MASK, 0x08, 0x08);

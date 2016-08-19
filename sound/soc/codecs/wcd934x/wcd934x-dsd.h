@@ -38,6 +38,8 @@ struct tavil_dsd_config {
 	struct snd_soc_codec *codec;
 	unsigned int dsd_interp_mixer[INTERP_MAX];
 	u32 base_sample_rate[DSD_MAX];
+	int volume[DSD_MAX];
+	struct mutex vol_mutex;
 };
 
 #ifdef CONFIG_SND_SOC_WCD934X_DSD
