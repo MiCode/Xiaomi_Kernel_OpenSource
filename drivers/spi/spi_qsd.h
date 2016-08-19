@@ -510,10 +510,7 @@ static inline int msm_spi_prepare_for_write(struct msm_spi *dd)
 
 static inline void msm_spi_start_write(struct msm_spi *dd, u32 read_count)
 {
-	if (read_count <= dd->input_fifo_size)
-		msm_spi_write_rmn_to_fifo(dd);
-	else
-		msm_spi_write_word_to_fifo(dd);
+	msm_spi_write_rmn_to_fifo(dd);
 }
 
 static inline void msm_spi_set_write_count(struct msm_spi *dd, int val)
