@@ -127,6 +127,8 @@ dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 dtb-$(CONFIG_ARCH_MSMFALCON) += msmfalcon-sim.dtb \
 	msmfalcon-rumi.dtb
 
+dtb-$(CONFIG_ARCH_MSMTRITON) += msmtriton-rumi.dtb
+
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)
 subdir-y        := $(dts-dirs)
