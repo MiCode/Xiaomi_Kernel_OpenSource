@@ -66,7 +66,8 @@ int fg_sram_write(struct fg_chip *chip, u16 address, u8 offset,
 	if (!fg_sram_address_valid(address, len))
 		return -EFAULT;
 
-	vote(chip->awake_votable, SRAM_WRITE, true, 0);
+	if (!(flags & FG_IMA_NO_WLOCK))
+		vote(chip->awake_votable, SRAM_WRITE, true, 0);
 	mutex_lock(&chip->sram_rw_lock);
 
 	if ((flags & FG_IMA_ATOMIC) && chip->irqs[SOC_UPDATE_IRQ].irq) {
@@ -113,7 +114,8 @@ out:
 		disable_irq_nosync(chip->irqs[SOC_UPDATE_IRQ].irq);
 
 	mutex_unlock(&chip->sram_rw_lock);
-	vote(chip->awake_votable, SRAM_WRITE, false, 0);
+	if (!(flags & FG_IMA_NO_WLOCK))
+		vote(chip->awake_votable, SRAM_WRITE, false, 0);
 	return rc;
 }
 
@@ -128,7 +130,8 @@ int fg_sram_read(struct fg_chip *chip, u16 address, u8 offset,
 	if (!fg_sram_address_valid(address, len))
 		return -EFAULT;
 
-	vote(chip->awake_votable, SRAM_READ, true, 0);
+	if (!(flags & FG_IMA_NO_WLOCK))
+		vote(chip->awake_votable, SRAM_READ, true, 0);
 	mutex_lock(&chip->sram_rw_lock);
 
 	rc = fg_interleaved_mem_read(chip, address, offset, val, len);
@@ -137,7 +140,8 @@ int fg_sram_read(struct fg_chip *chip, u16 address, u8 offset,
 			address, offset, rc);
 
 	mutex_unlock(&chip->sram_rw_lock);
-	vote(chip->awake_votable, SRAM_READ, false, 0);
+	if (!(flags & FG_IMA_NO_WLOCK))
+		vote(chip->awake_votable, SRAM_READ, false, 0);
 	return rc;
 }
 

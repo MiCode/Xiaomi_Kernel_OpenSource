@@ -45,6 +45,14 @@
 #define EMPTY_VOLT_OFFSET		0
 #define VBATT_LOW_WORD			15
 #define VBATT_LOW_OFFSET		1
+#define ESR_TIMER_DISCHG_MAX_WORD	17
+#define ESR_TIMER_DISCHG_MAX_OFFSET	0
+#define ESR_TIMER_DISCHG_INIT_WORD	17
+#define ESR_TIMER_DISCHG_INIT_OFFSET	2
+#define ESR_TIMER_CHG_MAX_WORD		18
+#define ESR_TIMER_CHG_MAX_OFFSET	0
+#define ESR_TIMER_CHG_INIT_WORD		18
+#define ESR_TIMER_CHG_INIT_OFFSET	2
 #define PROFILE_LOAD_WORD		24
 #define PROFILE_LOAD_OFFSET		0
 #define NOM_CAP_WORD			58
@@ -114,6 +122,15 @@ static struct fg_sram_param pmicobalt_v1_sram_params[] = {
 		100, fg_encode_default, NULL),
 	PARAM(RECHARGE_SOC_THR, RECHARGE_SOC_THR_WORD, RECHARGE_SOC_THR_OFFSET,
 		1, 256, 100, fg_encode_default, NULL),
+	PARAM(ESR_TIMER_DISCHG_MAX, ESR_TIMER_DISCHG_MAX_WORD,
+		ESR_TIMER_DISCHG_MAX_OFFSET, 2, 1, 1, fg_encode_default, NULL),
+	PARAM(ESR_TIMER_DISCHG_INIT, ESR_TIMER_DISCHG_INIT_WORD,
+		ESR_TIMER_DISCHG_INIT_OFFSET, 2, 1, 1, fg_encode_default,
+		NULL),
+	PARAM(ESR_TIMER_CHG_MAX, ESR_TIMER_CHG_MAX_WORD,
+		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, fg_encode_default, NULL),
+	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
+		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, fg_encode_default, NULL),
 };
 
 static int fg_gen3_debug_mask;
@@ -707,6 +724,45 @@ static inline void get_temp_setpoint(int threshold, u8 *val)
 	*val = DIV_ROUND_CLOSEST((threshold + 30) * 10, 5);
 }
 
+static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
+				int flags)
+{
+	u8 buf[2];
+	int rc, timer_max, timer_init;
+
+	if (charging) {
+		timer_max = FG_SRAM_ESR_TIMER_CHG_MAX;
+		timer_init = FG_SRAM_ESR_TIMER_CHG_INIT;
+	} else {
+		timer_max = FG_SRAM_ESR_TIMER_DISCHG_MAX;
+		timer_init = FG_SRAM_ESR_TIMER_DISCHG_INIT;
+	}
+
+	fg_encode(chip->sp, timer_max, cycles, buf);
+	rc = fg_sram_write(chip,
+			chip->sp[timer_max].address,
+			chip->sp[timer_max].offset, buf,
+			chip->sp[timer_max].len, flags);
+	if (rc < 0) {
+		pr_err("Error in writing esr_timer_dischg_max, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	fg_encode(chip->sp, timer_init, cycles, buf);
+	rc = fg_sram_write(chip,
+			chip->sp[timer_init].address,
+			chip->sp[timer_init].offset, buf,
+			chip->sp[timer_init].len, flags);
+	if (rc < 0) {
+		pr_err("Error in writing esr_timer_dischg_init, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 /* PSY CALLBACKS STAY HERE */
 
 static int fg_psy_get_property(struct power_supply *psy,
@@ -941,6 +997,24 @@ static int fg_hw_init(struct fg_chip *chip)
 	if (rc < 0) {
 		pr_err("Error in writing jeita_hot, rc=%d\n", rc);
 		return rc;
+	}
+
+	if (chip->dt.esr_timer_charging > 0) {
+		rc = fg_set_esr_timer(chip, chip->dt.esr_timer_charging, true,
+				      FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in setting ESR timer, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.esr_timer_awake > 0) {
+		rc = fg_set_esr_timer(chip, chip->dt.esr_timer_awake, false,
+				      FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in setting ESR timer, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -1327,6 +1401,25 @@ static int fg_parse_dt(struct fg_chip *chip)
 		}
 	}
 
+	rc = of_property_read_u32(node, "qcom,fg-esr-timer-charging", &temp);
+	if (rc < 0)
+		chip->dt.esr_timer_charging = -EINVAL;
+	else
+		chip->dt.esr_timer_charging = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-esr-timer-awake", &temp);
+	if (rc < 0)
+		chip->dt.esr_timer_awake = -EINVAL;
+	else
+		chip->dt.esr_timer_awake = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-esr-timer-asleep", &temp);
+	if (rc < 0)
+		chip->dt.esr_timer_asleep = -EINVAL;
+	else
+		chip->dt.esr_timer_asleep = temp;
+
+
 	return 0;
 }
 
@@ -1450,6 +1543,47 @@ exit:
 	return rc;
 }
 
+static int fg_gen3_suspend(struct device *dev)
+{
+	struct fg_chip *chip = dev_get_drvdata(dev);
+	int rc;
+
+	if (chip->dt.esr_timer_awake > 0 && chip->dt.esr_timer_asleep > 0) {
+		rc = fg_set_esr_timer(chip, chip->dt.esr_timer_asleep, false,
+				      FG_IMA_NO_WLOCK);
+		if (rc < 0) {
+			pr_err("Error in setting ESR timer during suspend, rc=%d\n",
+			       rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+static int fg_gen3_resume(struct device *dev)
+{
+	struct fg_chip *chip = dev_get_drvdata(dev);
+	int rc;
+
+	if (chip->dt.esr_timer_awake > 0 && chip->dt.esr_timer_asleep > 0) {
+		rc = fg_set_esr_timer(chip, chip->dt.esr_timer_awake, false,
+				      FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in setting ESR timer during resume, rc=%d\n",
+			       rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops fg_gen3_pm_ops = {
+	.suspend	= fg_gen3_suspend,
+	.resume		= fg_gen3_resume,
+};
+
 static int fg_gen3_remove(struct platform_device *pdev)
 {
 	struct fg_chip *chip = dev_get_drvdata(&pdev->dev);
@@ -1468,6 +1602,7 @@ static struct platform_driver fg_gen3_driver = {
 		.name = FG_GEN3_DEV_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = fg_gen3_match_table,
+		.pm		= &fg_gen3_pm_ops,
 	},
 	.probe		= fg_gen3_probe,
 	.remove		= fg_gen3_remove,

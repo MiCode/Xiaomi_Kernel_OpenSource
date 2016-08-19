@@ -68,8 +68,9 @@ enum fg_debug_flag {
 
 /* SRAM access */
 enum sram_access_flags {
-	FG_IMA_DEFAULT = 0,
-	FG_IMA_ATOMIC,
+	FG_IMA_DEFAULT	= 0,
+	FG_IMA_ATOMIC	= BIT(0),
+	FG_IMA_NO_WLOCK	= BIT(1),
 };
 
 /* JEITA */
@@ -117,6 +118,10 @@ enum fg_sram_param_id {
 	FG_SRAM_CUTOFF_VOLT,
 	FG_SRAM_EMPTY_VOLT,
 	FG_SRAM_VBATT_LOW,
+	FG_SRAM_ESR_TIMER_DISCHG_MAX,
+	FG_SRAM_ESR_TIMER_DISCHG_INIT,
+	FG_SRAM_ESR_TIMER_CHG_MAX,
+	FG_SRAM_ESR_TIMER_CHG_INIT,
 	FG_SRAM_SYS_TERM_CURR,
 	FG_SRAM_CHG_TERM_CURR,
 	FG_SRAM_DELTA_SOC_THR,
@@ -148,6 +153,9 @@ struct fg_dt_props {
 	int	recharge_soc_thr;
 	int	rsense_sel;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
+	int	esr_timer_charging;
+	int	esr_timer_awake;
+	int	esr_timer_asleep;
 };
 
 /* parameters from battery profile */
