@@ -1221,7 +1221,7 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 
 	dprintk(VIDC_DBG, "Attached %s and created mapping\n", dev_name(dev));
 	dprintk(VIDC_DBG,
-		"Context bank name:%s, buffer_type: %#x, is_secure: %d, address range start: %#x, size: %#x, dev: %p, mapping: %p",
+		"Context bank name:%s, buffer_type: %#x, is_secure: %d, address range start: %#x, size: %#x, dev: %pK, mapping: %pK",
 		cb->name, cb->buffer_type, cb->is_secure, cb->addr_range.start,
 		cb->addr_range.size, cb->dev, cb->mapping);
 
@@ -1245,7 +1245,7 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 	enum vidc_ports port;
 
 	if (!domain || !core) {
-		dprintk(VIDC_ERR, "%s - invalid param %p %p\n",
+		dprintk(VIDC_ERR, "%s - invalid param %pK %pK\n",
 			__func__, domain, core);
 		return -EINVAL;
 	}
@@ -1267,7 +1267,7 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 			!inst->bit_depth ? "8" : "10");
 
 		dprintk(VIDC_ERR,
-			"---Buffer details for inst: %p of type: %d---\n",
+			"---Buffer details for inst: %pK of type: %d---\n",
 			inst, inst->session_type);
 		mutex_lock(&inst->registeredbufs.lock);
 		dprintk(VIDC_ERR, "registered buffer list:\n");
