@@ -80,6 +80,22 @@ Charger specific properties:
 		offset of charging current in uA, from -3100000 to 3200000.
 		If the array is not present, step charging is disabled.
 
+- io-channels
+  Usage:      optional
+  Value type: List of <phandle u32>
+  Definition: List of phandle and IIO specifier pairs, one pair
+		for each IIO input to the device. Note: if the
+		IIO provider specifies '0' for #io-channel-cells,
+		then only the phandle portion of the pair will appear.
+
+- io-channel-names
+  Usage:      optional
+  Value type: List of <string>
+  Definition: List of IIO input name strings sorted in the same
+		order as the io-channels property. Consumer drivers
+		will use io-channel-names to match IIO input names
+		with IIO specifiers.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================
@@ -109,6 +125,9 @@ pmicobalt_charger: qcom,qpnp-smb2 {
 	compatible = "qcom,qpnp-smb2";
 	#address-cells = <1>;
 	#size-cells = <1>;
+
+	io-channels = <&pmic_rradc 0>;
+	io-channel-names = "rradc_batt_id";
 
 	qcom,suspend-input;
 	dpdm-supply = <&qusb_phy0>;

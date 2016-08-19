@@ -145,6 +145,15 @@
 
 			qcom,pmic-revid = <&pmicobalt_revid>;
 
+			io-channels = <&pmicobalt_rradc 8>,
+				      <&pmicobalt_rradc 10>,
+				      <&pmicobalt_rradc 3>,
+				      <&pmicobalt_rradc 4>;
+			io-channel-names = "charger_temp",
+					   "charger_temp_max",
+					   "usbin_i",
+					   "usbin_v";
+
 			dpdm-supply = <&qusb_phy0>;
 
 			qcom,thermal-mitigation

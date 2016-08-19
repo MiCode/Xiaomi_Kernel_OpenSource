@@ -88,10 +88,18 @@ struct parallel_params {
 	int			slave_fcc;
 };
 
+struct smb_iio {
+	struct iio_channel	*temp_chan;
+	struct iio_channel	*temp_max_chan;
+	struct iio_channel	*usbin_i_chan;
+	struct iio_channel	*usbin_v_chan;
+};
+
 struct smb_charger {
 	struct device		*dev;
 	struct regmap		*regmap;
 	struct smb_params	param;
+	struct smb_iio		iio;
 	int			*debug_mask;
 	enum smb_mode		mode;
 
@@ -236,6 +244,8 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_current_max(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_usb_current_now(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_typec_mode(struct smb_charger *chg,
@@ -245,6 +255,10 @@ int smblib_get_prop_typec_power_role(struct smb_charger *chg,
 int smblib_get_prop_pd_allowed(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_input_current_settled(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_charger_temp(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_charger_temp_max(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_usb_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
