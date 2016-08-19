@@ -51,3 +51,68 @@
 &clock_gcc_mdss {
 	compatible = "qcom,gcc-mdss-8920";
 };
+
+&usb_otg {
+	/delete-property/ clocks;
+	clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
+			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
+			 <&clock_gcc clk_bimc_usb_clk>,
+			 <&clock_gcc clk_snoc_usb_clk>,
+			 <&clock_gcc clk_pnoc_usb_clk>,
+			 <&clock_gcc clk_gcc_qusb2_phy_clk>,
+			 <&clock_gcc clk_gcc_usb2_hs_phy_only_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_phy_cfg_ahb_clk>,
+			 <&clock_gcc clk_xo_otg_clk>;
+
+	qcom,usbbam@78c4000 {
+		qcom,enable-hsusb-bam-on-boot;
+
+		/delete-property/ qcom,reset-bam-on-disconnect;
+		/delete-node/ qcom,pipe0;
+		qcom,pipe0 {
+			label = "hsusb-ipa-out-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-pipe-index = <1>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+		qcom,pipe1 {
+			label = "hsusb-ipa-in-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+		qcom,pipe2 {
+			label = "hsusb-qdss-in-0";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <0>;
+			qcom,peer-bam-physical-address = <0x6044000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0x0>;
+			qcom,data-fifo-size = <0xe00>;
+			qcom,descriptor-fifo-offset = <0xe00>;
+			qcom,descriptor-fifo-size = <0x200>;
+		};
+		qcom,pipe3 {
+			label = "hsusb-dpl-ipa-in-1";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <1>;
+			qcom,peer-bam = <1>;
+			qcom,dst-bam-pipe-index = <3>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+	};
+};
