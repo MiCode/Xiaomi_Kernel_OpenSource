@@ -736,4 +736,4 @@ static void __exit vmem_exit(void)
 module_init(vmem_init);
 module_exit(vmem_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
