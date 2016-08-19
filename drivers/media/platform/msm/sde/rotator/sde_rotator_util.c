@@ -586,7 +586,7 @@ void sde_rot_ubwc_data_calc_offset(struct sde_mdp_data *data, u16 x, u16 y,
 	struct sde_mdp_plane_sizes *ps, struct sde_mdp_format_params *fmt)
 {
 	u16 macro_w, micro_w, micro_h;
-	u32 offset;
+	u32 offset = 0;
 	int ret;
 
 	ret = sde_rot_get_ubwc_micro_dim(fmt->format, &micro_w, &micro_h);

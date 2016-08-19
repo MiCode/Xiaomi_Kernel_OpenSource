@@ -1566,8 +1566,8 @@ static int sde_hw_rotator_kickoff(struct sde_rot_hw_resource *hw,
 	if (!ctx) {
 		SDEROT_ERR("Cannot locate rotator ctx from sesison id:%d\n",
 				entry->item.session_id);
+		return -EINVAL;
 	}
-	WARN_ON(ctx == NULL);
 
 	ret = sde_smmu_ctrl(1);
 	if (IS_ERR_VALUE(ret)) {
@@ -1609,8 +1609,8 @@ static int sde_hw_rotator_wait4done(struct sde_rot_hw_resource *hw,
 	if (!ctx) {
 		SDEROT_ERR("Cannot locate rotator ctx from sesison id:%d\n",
 				entry->item.session_id);
+		return -EINVAL;
 	}
-	WARN_ON(ctx == NULL);
 
 	ret = rot->ops.wait_rotator_done(ctx, ctx->q_id, 0);
 
@@ -1745,8 +1745,10 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 			q_id = ROT_QUEUE_LOW_PRIORITY;
 			ts   = (ts >> SDE_REGDMA_SWTS_SHIFT) &
 				SDE_REGDMA_SWTS_MASK;
+		} else {
+			SDEROT_ERR("unknown ISR status: isr=0x%X\n", isr);
+			goto done_isr_handle;
 		}
-
 		ctx = rot->rotCtx[q_id][ts & SDE_HW_ROT_REGDMA_SEG_MASK];
 
 		/*
@@ -1766,6 +1768,7 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 				[ts & SDE_HW_ROT_REGDMA_SEG_MASK];
 		};
 
+done_isr_handle:
 		spin_unlock(&rot->rotisr_lock);
 		ret = IRQ_HANDLED;
 	} else if (isr & REGDMA_INT_ERR_MASK) {
