@@ -38,6 +38,9 @@
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/msm_qmi_interface.h>
 #include <soc/qcom/secure_buffer.h>
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/service-locator.h>
+#include <soc/qcom/service-notifier.h>
 
 #include "wlan_firmware_service_v01.h"
 
@@ -145,6 +148,9 @@
 
 #define ICNSS_HW_REG_RETRY					10
 
+#define ICNSS_SERVICE_LOCATION_CLIENT_NAME			"ICNSS-WLAN"
+#define ICNSS_WLAN_SERVICE_NAME					"wlan/fw"
+
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
 		ipc_log_string(icnss_ipc_log_context, _x);		\
@@ -197,9 +203,14 @@ enum icnss_debug_quirks {
 	HW_DEBUG_ENABLE,
 	SKIP_QMI,
 	HW_ONLY_TOP_LEVEL_RESET,
+	RECOVERY_DISABLE,
+	SSR_ONLY,
+	PDR_ONLY,
 };
 
-#define ICNSS_QUIRKS_DEFAULT 0
+#define ICNSS_QUIRKS_DEFAULT (				\
+			      BIT(SSR_ONLY)		\
+			     )
 
 unsigned long quirks = ICNSS_QUIRKS_DEFAULT;
 module_param(quirks, ulong, 0600);
@@ -212,6 +223,7 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_FW_READY_IND,
 	ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
 	ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
+	ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
@@ -231,6 +243,9 @@ enum icnss_driver_state {
 	ICNSS_DRIVER_PROBED,
 	ICNSS_FW_TEST_MODE,
 	ICNSS_SUSPEND,
+	ICNSS_SSR_ENABLED,
+	ICNSS_PDR_ENABLED,
+	ICNSS_PD_RESTART,
 };
 
 struct ce_irq_list {
@@ -348,6 +363,13 @@ static struct icnss_priv {
 	struct dentry *root_dentry;
 	spinlock_t on_off_lock;
 	struct icnss_stats stats;
+	struct work_struct service_notifier_work;
+	void **service_notifier;
+	struct notifier_block service_notifier_nb;
+	int total_domains;
+	struct notifier_block get_service_nb;
+	void *modem_notify_handler;
+	struct notifier_block modem_ssr_nb;
 } *penv;
 
 static void icnss_hw_write_reg(void *base, u32 offset, u32 val)
@@ -428,6 +450,8 @@ static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "REGISTER_DRIVER";
 	case ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER:
 		return "UNREGISTER_DRIVER";
+	case ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN:
+		return "PD_SERVICE_DOWN";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -497,7 +521,7 @@ static int icnss_qmi_pin_connect_result_ind(void *msg, unsigned int msg_len)
 
 	ret = qmi_kernel_decode(&ind_desc, &ind_msg, msg, msg_len);
 	if (ret < 0) {
-		icnss_pr_err("Failed to decode message: %d, msg_len: %u!\n",
+		icnss_pr_err("Failed to decode message: %d, msg_len: %u\n",
 			     ret, msg_len);
 		goto out;
 	}
@@ -1318,7 +1342,7 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 		     resp.mem_region_info_len);
 
 	if (resp.mem_region_info_len > 2) {
-		icnss_pr_err("Invalid memory region length received%d\n",
+		icnss_pr_err("Invalid memory region length received: %d\n",
 			     resp.mem_region_info_len);
 		ret = -EINVAL;
 		penv->stats.msa_info_err++;
@@ -1333,8 +1357,8 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 			resp.mem_region_info[i].size;
 		penv->icnss_mem_region[i].secure_flag =
 			resp.mem_region_info[i].secure_flag;
-		icnss_pr_dbg("Memory Region: %d Addr: 0x%x Size: %d Flag: %d\n",
-			 i, (unsigned int)penv->icnss_mem_region[i].reg_addr,
+		icnss_pr_dbg("Memory Region: %d Addr: 0x%llx Size: 0x%x Flag: 0x%08x\n",
+			 i, penv->icnss_mem_region[i].reg_addr,
 			 penv->icnss_mem_region[i].size,
 			 penv->icnss_mem_region[i].secure_flag);
 	}
@@ -1824,11 +1848,66 @@ static int icnss_driver_event_server_exit(void *data)
 
 	qmi_handle_destroy(penv->wlfw_clnt);
 
-	penv->state = 0;
+	clear_bit(ICNSS_WLFW_QMI_CONNECTED, &penv->state);
 	penv->wlfw_clnt = NULL;
 
 	return 0;
 }
+
+static int icnss_call_driver_probe(struct icnss_priv *priv)
+{
+	int ret;
+
+	if (!priv->ops || !priv->ops->probe)
+		return 0;
+
+	icnss_hw_power_on(priv);
+
+	ret = priv->ops->probe(&priv->pdev->dev);
+	if (ret < 0) {
+		icnss_pr_err("Driver probe failed: %d, state: 0x%lx\n",
+			     ret, priv->state);
+		goto out;
+	}
+
+	set_bit(ICNSS_DRIVER_PROBED, &priv->state);
+
+	return 0;
+
+out:
+	icnss_hw_power_off(priv);
+	return ret;
+}
+
+static int icnss_call_driver_reinit(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	if (!priv->ops || !priv->ops->reinit)
+		goto out;
+
+	icnss_hw_power_on(priv);
+
+	ret = priv->ops->reinit(&priv->pdev->dev);
+	if (ret < 0) {
+		icnss_pr_err("Driver reinit failed: %d, state: 0x%lx\n",
+			     ret, priv->state);
+		ICNSS_ASSERT(false);
+		goto out_power_off;
+	}
+
+out:
+	clear_bit(ICNSS_PD_RESTART, &priv->state);
+
+	return 0;
+
+out_power_off:
+	icnss_hw_power_off(priv);
+
+	clear_bit(ICNSS_PD_RESTART, &priv->state);
+	return ret;
+}
+
 
 static int icnss_driver_event_fw_ready_ind(void *data)
 {
@@ -1849,23 +1928,11 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 		goto out;
 	}
 
-	if (!penv->ops || !penv->ops->probe)
-		goto out;
+	if (test_bit(ICNSS_PD_RESTART, &penv->state))
+		ret = icnss_call_driver_reinit(penv);
+	else
+		ret = icnss_call_driver_probe(penv);
 
-	icnss_hw_power_on(penv);
-
-	ret = penv->ops->probe(&penv->pdev->dev);
-	if (ret < 0) {
-		icnss_pr_err("Driver probe failed: %d\n", ret);
-		goto out_power_off;
-	}
-
-	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
-
-	return 0;
-
-out_power_off:
-	icnss_hw_power_off(penv);
 out:
 	return ret;
 }
@@ -1885,7 +1952,7 @@ static int icnss_driver_event_register_driver(void *data)
 		set_bit(ICNSS_FW_READY, &penv->state);
 
 	if (!test_bit(ICNSS_FW_READY, &penv->state)) {
-		icnss_pr_dbg("FW is not ready yet, state: 0x%lx!\n",
+		icnss_pr_dbg("FW is not ready yet, state: 0x%lx\n",
 			     penv->state);
 		goto out;
 	}
@@ -1932,6 +1999,32 @@ out:
 	return 0;
 }
 
+static int icnss_qmi_pd_event_service_down(struct icnss_priv *priv, void *data)
+{
+	int ret = 0;
+
+	if (test_bit(ICNSS_PD_RESTART, &priv->state))
+		goto out;
+
+	set_bit(ICNSS_PD_RESTART, &priv->state);
+	clear_bit(ICNSS_FW_READY, &priv->state);
+
+	if (!priv->ops || !priv->ops->shutdown)
+		goto out;
+
+	priv->ops->shutdown(&priv->pdev->dev);
+
+out:
+	icnss_remove_msa_permissions(priv);
+
+	ret = icnss_hw_power_off(priv);
+
+	icnss_pr_dbg("Shutdown completed: %d, state: 0x%lx\n",
+		     ret, priv->state);
+
+	return ret;
+}
+
 static void icnss_driver_event_work(struct work_struct *work)
 {
 	struct icnss_driver_event *event;
@@ -1966,6 +2059,9 @@ static void icnss_driver_event_work(struct work_struct *work)
 			break;
 		case ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER:
 			ret = icnss_driver_event_unregister_driver(event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN:
+			icnss_qmi_pd_event_service_down(penv, event->data);
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
@@ -2017,6 +2113,239 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 static struct notifier_block wlfw_clnt_nb = {
 	.notifier_call = icnss_qmi_wlfw_clnt_svc_event_notify,
 };
+
+static int icnss_modem_notifier_nb(struct notifier_block *this,
+				  unsigned long code,
+				  void *ss_handle)
+{
+	icnss_pr_dbg("Modem-Notify: event %lu\n", code);
+
+	if (code == SUBSYS_AFTER_POWERUP) {
+		icnss_pr_dbg("Modem-Notify: Powerup\n");
+	} else if (code == SUBSYS_BEFORE_SHUTDOWN) {
+		icnss_pr_info("Modem-Notify: Before shutdown\n");
+		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+					true, NULL);
+	} else if (code == SUBSYS_AFTER_SHUTDOWN) {
+		icnss_pr_info("Modem-Notify: After Shutdown\n");
+	} else {
+		return NOTIFY_DONE;
+	}
+
+	return NOTIFY_OK;
+}
+
+static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	priv->modem_ssr_nb.notifier_call = icnss_modem_notifier_nb;
+
+	priv->modem_notify_handler =
+		subsys_notif_register_notifier("modem", &priv->modem_ssr_nb);
+
+	if (IS_ERR(priv->modem_notify_handler)) {
+		ret = PTR_ERR(priv->modem_notify_handler);
+		icnss_pr_err("Modem register notifier failed: %d\n", ret);
+	}
+
+	set_bit(ICNSS_SSR_ENABLED, &priv->state);
+
+	return ret;
+}
+
+static int icnss_modem_ssr_unregister_notifier(struct icnss_priv *priv)
+{
+	if (!test_and_clear_bit(ICNSS_SSR_ENABLED, &priv->state))
+		return 0;
+
+	subsys_notif_unregister_notifier(priv->modem_notify_handler,
+					 &priv->modem_ssr_nb);
+	priv->modem_notify_handler = NULL;
+
+	return 0;
+}
+
+static int icnss_pdr_unregister_notifier(struct icnss_priv *priv)
+{
+	int i;
+
+	if (!test_and_clear_bit(ICNSS_PDR_ENABLED, &priv->state))
+		return 0;
+
+	for (i = 0; i < priv->total_domains; i++)
+		service_notif_unregister_notifier(priv->service_notifier[i],
+						  &priv->service_notifier_nb);
+
+	kfree(priv->service_notifier);
+
+	priv->service_notifier = NULL;
+
+	return 0;
+}
+
+static int icnss_service_notifier_notify(struct notifier_block *nb,
+					 unsigned long notification, void *data)
+{
+	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
+					       service_notifier_nb);
+
+	switch (notification) {
+	case SERVREG_NOTIF_SERVICE_STATE_DOWN_V01:
+		icnss_pr_info("Service down, state: 0x%lx\n", priv->state);
+		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+					true, NULL);
+		icnss_pr_dbg("Service down completed, state: 0x%lx\n",
+			     priv->state);
+		break;
+	case SERVREG_NOTIF_SERVICE_STATE_UP_V01:
+		icnss_pr_dbg("Service up, state: 0x%lx\n", priv->state);
+		break;
+	default:
+		icnss_pr_dbg("Service state Unknown, notification: 0x%lx, state: 0x%lx\n",
+			     notification, priv->state);
+		return NOTIFY_DONE;
+	}
+
+	return NOTIFY_OK;
+}
+
+static int icnss_get_service_location_notify(struct notifier_block *nb,
+					     unsigned long opcode, void *data)
+{
+	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
+					       get_service_nb);
+	struct pd_qmi_client_data *pd = data;
+	int curr_state;
+	int ret;
+	int i;
+	void **handle;
+
+	icnss_pr_dbg("Get service notify opcode: %lu, state: 0x%lx\n", opcode,
+		     priv->state);
+
+	if (opcode != LOCATOR_UP)
+		return NOTIFY_DONE;
+
+	if (pd->total_domains == 0) {
+		icnss_pr_err("Did not find any domains\n");
+		ret = -ENOENT;
+		goto out;
+	}
+
+	handle = kcalloc(pd->total_domains, sizeof(void *), GFP_KERNEL);
+
+	if (!handle) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	priv->service_notifier_nb.notifier_call = icnss_service_notifier_notify;
+
+	for (i = 0; i < pd->total_domains; i++) {
+		icnss_pr_dbg("%d: domain_name: %s, instance_id: %d\n", i,
+			     pd->domain_list[i].name,
+			     pd->domain_list[i].instance_id);
+
+		handle[i] =
+			service_notif_register_notifier(pd->domain_list[i].name,
+				pd->domain_list[i].instance_id,
+				&priv->service_notifier_nb, &curr_state);
+
+		if (IS_ERR(handle[i])) {
+			icnss_pr_err("%d: Unable to register notifier for %s(0x%x)\n",
+				     i, pd->domain_list->name,
+				     pd->domain_list->instance_id);
+			ret = PTR_ERR(handle[i]);
+			goto free_handle;
+		}
+	}
+
+	priv->service_notifier = handle;
+	priv->total_domains = pd->total_domains;
+
+	set_bit(ICNSS_PDR_ENABLED, &priv->state);
+
+	icnss_modem_ssr_unregister_notifier(priv);
+
+	icnss_pr_dbg("PD restart enabled, state: 0x%lx\n", priv->state);
+
+	return NOTIFY_OK;
+
+free_handle:
+	for (i = 0; i < pd->total_domains; i++) {
+		if (handle[i])
+			service_notif_unregister_notifier(handle[i],
+					&priv->service_notifier_nb);
+	}
+	kfree(handle);
+
+out:
+	icnss_pr_err("PD restart not enabled: %d, state: 0x%lx\n", ret,
+		     priv->state);
+
+	return NOTIFY_OK;
+}
+
+
+static int icnss_pd_restart_enable(struct icnss_priv *priv)
+{
+	int ret;
+
+	if (test_bit(SSR_ONLY, &quirks)) {
+		icnss_pr_dbg("PDR disabled through module parameter\n");
+		return 0;
+	}
+
+	icnss_pr_dbg("Get service location, state: 0x%lx\n", priv->state);
+
+	priv->get_service_nb.notifier_call = icnss_get_service_location_notify;
+	ret = get_service_location(ICNSS_SERVICE_LOCATION_CLIENT_NAME,
+				   ICNSS_WLAN_SERVICE_NAME,
+				   &priv->get_service_nb);
+	if (ret) {
+		icnss_pr_err("Get service location failed: %d\n", ret);
+		goto out;
+	}
+
+	return 0;
+out:
+	icnss_pr_err("PD restart not enabled: %d\n", ret);
+	return ret;
+
+}
+
+
+static int icnss_enable_recovery(struct icnss_priv *priv)
+{
+	int ret;
+
+	if (test_bit(RECOVERY_DISABLE, &quirks)) {
+		icnss_pr_dbg("Recovery disabled through module parameter\n");
+		return 0;
+	}
+
+	if (test_bit(PDR_ONLY, &quirks)) {
+		icnss_pr_dbg("SSR disabled through module parameter\n");
+		goto enable_pdr;
+	}
+
+	icnss_modem_ssr_register_notifier(priv);
+	if (test_bit(SSR_ONLY, &quirks)) {
+		icnss_pr_dbg("PDR disabled through module parameter\n");
+		return 0;
+	}
+
+enable_pdr:
+	ret = icnss_pd_restart_enable(priv);
+
+	if (ret)
+		return ret;
+
+	icnss_modem_ssr_unregister_notifier(priv);
+
+	return 0;
+}
 
 int icnss_register_driver(struct icnss_driver_ops *ops)
 {
@@ -2389,7 +2718,7 @@ int icnss_smmu_map(struct device *dev,
 	}
 
 	if (!iova_addr) {
-		icnss_pr_err("iova_addr is NULL, paddr %pa, size %zu",
+		icnss_pr_err("iova_addr is NULL, paddr %pa, size %zu\n",
 			     &paddr, size);
 		return -EINVAL;
 	}
@@ -2398,7 +2727,7 @@ int icnss_smmu_map(struct device *dev,
 	iova = roundup(penv->smmu_iova_ipa_start, PAGE_SIZE);
 
 	if (iova >= priv->smmu_iova_ipa_start + priv->smmu_iova_ipa_len) {
-		icnss_pr_err("No IOVA space to map, iova %lx, smmu_iova_ipa_start %pad, smmu_iova_ipa_len %zu",
+		icnss_pr_err("No IOVA space to map, iova %lx, smmu_iova_ipa_start %pad, smmu_iova_ipa_len %zu\n",
 			     iova,
 			     &priv->smmu_iova_ipa_start,
 			     priv->smmu_iova_ipa_len);
@@ -2409,7 +2738,7 @@ int icnss_smmu_map(struct device *dev,
 			rounddown(paddr, PAGE_SIZE), len,
 			IOMMU_READ | IOMMU_WRITE);
 	if (ret) {
-		icnss_pr_err("PA to IOVA mapping failed, ret %d!", ret);
+		icnss_pr_err("PA to IOVA mapping failed, ret %d\n", ret);
 		return ret;
 	}
 
@@ -2428,7 +2757,7 @@ static int icnss_bw_vote(struct icnss_priv *priv, int index)
 		     index, priv->state);
 	ret = msm_bus_scale_client_update_request(priv->bus_client, index);
 	if (ret)
-		icnss_pr_err("Fail to vote %d: ret %d, state 0x%lx!\n",
+		icnss_pr_err("Fail to vote %d: ret %d, state 0x%lx\n",
 			     index, ret, priv->state);
 
 	return ret;
@@ -2647,7 +2976,7 @@ static int icnss_get_clk_info(struct device *dev,
 				     clk_info->name, ret);
 			goto out;
 		} else {
-			icnss_pr_dbg("Ignoring clock %s: %d!\n", clk_info->name,
+			icnss_pr_dbg("Ignoring clock %s: %d\n", clk_info->name,
 				     ret);
 			ret = 0;
 			goto out;
@@ -2872,8 +3201,14 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 		case ICNSS_FW_TEST_MODE:
 			seq_puts(s, "FW TEST MODE");
 			continue;
-		case ICNSS_SUSPEND:
-			seq_puts(s, "DRIVER SUSPENDED");
+		case ICNSS_SSR_ENABLED:
+			seq_puts(s, "SSR ENABLED");
+			continue;
+		case ICNSS_PDR_ENABLED:
+			seq_puts(s, "PDR ENABLED");
+			continue;
+		case ICNSS_PD_RESTART:
+			seq_puts(s, "PD RESTART");
 			continue;
 		}
 
@@ -3187,6 +3522,8 @@ static int icnss_probe(struct platform_device *pdev)
 		goto out_destroy_wq;
 	}
 
+	icnss_enable_recovery(priv);
+
 	icnss_debugfs_create(priv);
 
 	penv = priv;
@@ -3212,6 +3549,10 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_pr_info("Removing driver: state: 0x%lx\n", penv->state);
 
 	icnss_debugfs_destroy(penv);
+
+	icnss_modem_ssr_unregister_notifier(penv);
+
+	icnss_pdr_unregister_notifier(penv);
 
 	qmi_svc_event_notifier_unregister(WLFW_SERVICE_ID_V01,
 					  WLFW_SERVICE_VERS_V01,
