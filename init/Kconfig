@@ -890,6 +890,16 @@ config SOCK_CGROUP_DATA
 
 endif # CGROUPS
 
+config SCHED_CORE_CTL
+	bool "QTI Core Control"
+	depends on SMP
+	help
+	  This options enables the core control functionality in
+	  the scheduler. Core control automatically offline and
+	  online cores based on cpu load and utilization.
+
+	  If unsure, say N here.
+
 config CHECKPOINT_RESTORE
 	bool "Checkpoint/restore support" if EXPERT
 	select PROC_CHILDREN
