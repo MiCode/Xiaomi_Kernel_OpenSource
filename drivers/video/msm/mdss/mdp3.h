@@ -168,6 +168,7 @@ struct mdp3_hw_resource {
 	bool allow_iommu_update;
 	struct ion_handle *ion_handle;
 	struct mutex iommu_lock;
+	struct mutex fs_idle_pc_lock;
 
 	struct mdp3_dma dma[MDP3_DMA_MAX];
 	struct mdp3_intf intf[MDP3_DMA_OUTPUT_SEL_MAX];

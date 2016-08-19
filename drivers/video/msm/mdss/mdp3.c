@@ -2629,15 +2629,17 @@ int mdp3_footswitch_ctrl(int enable)
 	int rc = 0;
 	int active_cnt = 0;
 
+	mutex_lock(&mdp3_res->fs_idle_pc_lock);
 	if (!mdp3_res->fs_ena && enable) {
 		rc = regulator_enable(mdp3_res->fs);
 		if (rc) {
 			pr_err("mdp footswitch ctrl enable failed\n");
+			mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 			return -EINVAL;
 		}
-			pr_debug("mdp footswitch ctrl enable success\n");
+		pr_debug("mdp footswitch ctrl enable success\n");
 		mdp3_enable_regulator(true);
-			mdp3_res->fs_ena = true;
+		mdp3_res->fs_ena = true;
 	} else if (!enable && mdp3_res->fs_ena) {
 		active_cnt = atomic_read(&mdp3_res->active_intf_cnt);
 		if (active_cnt != 0) {
@@ -2653,13 +2655,16 @@ int mdp3_footswitch_ctrl(int enable)
 		rc = regulator_disable(mdp3_res->fs);
 		if (rc) {
 			pr_err("mdp footswitch ctrl disable failed\n");
+			mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 			return -EINVAL;
 		}
 			mdp3_res->fs_ena = false;
+		pr_debug("mdp3 footswitch ctrl disable configured\n");
 	} else {
 		pr_debug("mdp3 footswitch ctrl already configured\n");
 	}
 
+	mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 	return rc;
 }
 
@@ -2723,6 +2728,7 @@ static int mdp3_probe(struct platform_device *pdev)
 	pdev->id = 0;
 	mdp3_res->pdev = pdev;
 	mutex_init(&mdp3_res->res_mutex);
+	mutex_init(&mdp3_res->fs_idle_pc_lock);
 	spin_lock_init(&mdp3_res->irq_lock);
 	platform_set_drvdata(pdev, mdp3_res);
 	atomic_set(&mdp3_res->active_intf_cnt, 0);

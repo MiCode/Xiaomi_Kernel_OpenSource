@@ -1071,7 +1071,10 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 	panel = mdp3_session->panel;
 	mdp3_dma = mdp3_session->dma;
 	mutex_lock(&mdp3_session->lock);
-	if (mdp3_res->idle_pc) {
+	pr_debug("mdp3_ctrl_reset idle_pc %s FS_EN %s\n",
+		mdp3_res->idle_pc ? "True":"False",
+		mdp3_res->fs_ena ? "True":"False");
+	if (mdp3_res->idle_pc || mdp3_res->fs_ena) {
 		mdp3_clk_enable(1, 0);
 		mdp3_dynamic_clock_gating_ctrl(0);
 		mdp3_qos_remapper_setup(panel);
@@ -1080,7 +1083,7 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 	rc = mdp3_iommu_enable(MDP3_CLIENT_DMA_P);
 	if (rc) {
 		pr_err("fail to attach dma iommu\n");
-		if (mdp3_res->idle_pc)
+		if (mdp3_res->idle_pc || mdp3_res->fs_ena)
 			mdp3_clk_enable(0, 0);
 		goto reset_error;
 	}
@@ -1323,6 +1326,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	}
 
 	panel = mdp3_session->panel;
+	mutex_lock(&mdp3_res->fs_idle_pc_lock);
 	if (mdp3_session->in_splash_screen ||
 		mdp3_res->idle_pc) {
 		pr_debug("%s: reset- in_splash = %d, idle_pc = %d", __func__,
@@ -1330,9 +1334,11 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 		rc = mdp3_ctrl_reset(mfd);
 		if (rc) {
 			pr_err("fail to reset display\n");
+			mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 			return -EINVAL;
 		}
 	}
+	mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 
 	mutex_lock(&mdp3_session->lock);
 
@@ -1465,6 +1471,7 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 	if (!mdp3_session || !mdp3_session->dma)
 		return;
 
+	mutex_lock(&mdp3_res->fs_idle_pc_lock);
 	if (mdp3_session->in_splash_screen ||
 		mdp3_res->idle_pc) {
 		pr_debug("%s: reset- in_splash = %d, idle_pc = %d", __func__,
@@ -1472,9 +1479,11 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 		rc = mdp3_ctrl_reset(mfd);
 		if (rc) {
 			pr_err("fail to reset display\n");
+			mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 			return;
 		}
 	}
+	mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 
 	mutex_lock(&mdp3_session->lock);
 
@@ -2540,17 +2549,21 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 		}
 		break;
 	case MSMFB_ASYNC_BLIT:
+		mutex_lock(&mdp3_res->fs_idle_pc_lock);
 		if (mdp3_session->in_splash_screen || mdp3_res->idle_pc) {
 			pr_debug("%s: reset- in_splash = %d, idle_pc = %d",
 				__func__, mdp3_session->in_splash_screen,
 				mdp3_res->idle_pc);
 			mdp3_ctrl_reset(mfd);
 		}
+		mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 		rc = mdp3_ctrl_async_blit_req(mfd, argp);
 		break;
 	case MSMFB_BLIT:
+		mutex_lock(&mdp3_res->fs_idle_pc_lock);
 		if (mdp3_session->in_splash_screen)
 			mdp3_ctrl_reset(mfd);
+		mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 		rc = mdp3_ctrl_blit_req(mfd, argp);
 		break;
 	case MSMFB_METADATA_GET:
