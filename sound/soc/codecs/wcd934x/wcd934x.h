@@ -16,6 +16,8 @@
 #include <sound/apr_audio-v2.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
 #include "wcd934x-dsp-cntl.h"
+#include "../wcd9xxx-common-v2.h"
+#include "../wcd-mbhc-v2.h"
 
 #define WCD934X_REGISTER_START_OFFSET  0x800
 #define WCD934X_SB_PGD_PORT_RX_BASE   0x40
@@ -28,6 +30,13 @@
 #define WCD934X_DMIC_CLK_DIV_8  0x4
 #define WCD934X_DMIC_CLK_DIV_16  0x5
 #define WCD934X_DMIC_CLK_DRIVE_DEFAULT 0x02
+
+#define TAVIL_MAX_MICBIAS 4
+#define TAVIL_NUM_INTERPOLATORS 9
+#define MAX_ON_DEMAND_SUPPLY_NAME_LENGTH    64
+
+/* Convert from vout ctl to micbias voltage in mV */
+#define  WCD_VOUT_CTL_TO_MICB(v)  (1000 + v * 50)
 
 /* Number of input and output Slimbus port */
 enum {
@@ -146,4 +155,12 @@ extern int tavil_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable);
 extern int tavil_set_spkr_mode(struct snd_soc_codec *codec, int mode);
 extern int tavil_set_spkr_gain_offset(struct snd_soc_codec *codec, int offset);
 extern struct wcd_dsp_cntl *tavil_get_wcd_dsp_cntl(struct device *dev);
+extern int wcd934x_get_micb_vout_ctl_val(u32 micb_mv);
+extern int tavil_micbias_control(struct snd_soc_codec *codec,
+				 int micb_num,
+				 int req, bool is_dapm);
+extern int tavil_mbhc_micb_adjust_voltage(struct snd_soc_codec *codec,
+					  int req_volt,
+					  int micb_num);
+extern struct wcd934x_mbhc *tavil_soc_get_mbhc(struct snd_soc_codec *codec);
 #endif

@@ -41,6 +41,7 @@
 #include <sound/tlv.h>
 #include <sound/info.h>
 #include "wcd934x.h"
+#include "wcd934x-mbhc.h"
 #include "wcd934x-routing.h"
 #include "wcd934x-dsp-cntl.h"
 #include "../wcd9xxx-common-v2.h"
@@ -131,20 +132,6 @@ enum {
 	VI_SENSE_2,
 	AUDIO_NOMINAL,
 	HPH_PA_DELAY,
-};
-
-enum {
-	MIC_BIAS_1 = 1,
-	MIC_BIAS_2,
-	MIC_BIAS_3,
-	MIC_BIAS_4
-};
-
-enum {
-	MICB_PULLUP_ENABLE,
-	MICB_PULLUP_DISABLE,
-	MICB_ENABLE,
-	MICB_DISABLE,
 };
 
 enum {
@@ -453,6 +440,8 @@ struct tavil_priv {
 	s32 dmic_0_1_clk_cnt;
 	s32 dmic_2_3_clk_cnt;
 	s32 dmic_4_5_clk_cnt;
+	s32 micb_ref[TAVIL_MAX_MICBIAS];
+	s32 pullup_ref[TAVIL_MAX_MICBIAS];
 
 	/* compander */
 	int comp_enabled[COMPANDER_MAX];
@@ -475,8 +464,12 @@ struct tavil_priv {
 
 	struct wcd9xxx_resmgr_v2 *resmgr;
 	struct wcd934x_swr swr;
+	struct mutex micb_lock;
 
 	struct clk *wcd_ext_clk;
+
+	/* mbhc module */
+	struct wcd934x_mbhc *mbhc;
 
 	struct mutex codec_mutex;
 	struct work_struct tavil_add_child_devices_work;
@@ -2594,13 +2587,21 @@ static int tavil_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int tavil_micbias_control(struct snd_soc_codec *codec,
-				 int micb_num,
-				 int req, bool is_dapm)
+/*
+ * tavil_mbhc_micb_adjust_voltage: adjust specific micbias voltage
+ * @codec: handle to snd_soc_codec *
+ * @req_volt: micbias voltage to be set
+ * @micb_num: micbias to be set, e.g. micbias1 or micbias2
+ *
+ * return 0 if adjustment is success or error code in case of failure
+ */
+int tavil_mbhc_micb_adjust_voltage(struct snd_soc_codec *codec,
+				   int req_volt, int micb_num)
 {
-
-
-	u16 micb_reg;
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int cur_vout_ctl, req_vout_ctl;
+	int micb_reg, micb_val, micb_en;
+	int ret = 0;
 
 	switch (micb_num) {
 	case MIC_BIAS_1:
@@ -2616,21 +2617,166 @@ static int tavil_micbias_control(struct snd_soc_codec *codec,
 		micb_reg = WCD934X_ANA_MICB4;
 		break;
 	default:
+		return -EINVAL;
+	}
+	mutex_lock(&tavil->micb_lock);
+
+	/*
+	 * If requested micbias voltage is same as current micbias
+	 * voltage, then just return. Otherwise, adjust voltage as
+	 * per requested value. If micbias is already enabled, then
+	 * to avoid slow micbias ramp-up or down enable pull-up
+	 * momentarily, change the micbias value and then re-enable
+	 * micbias.
+	 */
+	micb_val = snd_soc_read(codec, micb_reg);
+	micb_en = (micb_val & 0xC0) >> 6;
+	cur_vout_ctl = micb_val & 0x3F;
+
+	req_vout_ctl = wcd934x_get_micb_vout_ctl_val(req_volt);
+	if (IS_ERR_VALUE(req_vout_ctl)) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	if (cur_vout_ctl == req_vout_ctl) {
+		ret = 0;
+		goto exit;
+	}
+
+	dev_dbg(codec->dev, "%s: micb_num: %d, cur_mv: %d, req_mv: %d, micb_en: %d\n",
+		 __func__, micb_num, WCD_VOUT_CTL_TO_MICB(cur_vout_ctl),
+		 req_volt, micb_en);
+
+	if (micb_en == 0x1)
+		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+
+	snd_soc_update_bits(codec, micb_reg, 0x3F, req_vout_ctl);
+
+	if (micb_en == 0x1) {
+		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+		/*
+		 * Add 2ms delay as per HW requirement after enabling
+		 * micbias
+		 */
+		usleep_range(2000, 2100);
+	}
+exit:
+	mutex_unlock(&tavil->micb_lock);
+	return ret;
+}
+EXPORT_SYMBOL(tavil_mbhc_micb_adjust_voltage);
+
+/*
+ * tavil_micbias_control: enable/disable micbias
+ * @codec: handle to snd_soc_codec *
+ * @micb_num: micbias to be enabled/disabled, e.g. micbias1 or micbias2
+ * @req: control requested, enable/disable or pullup enable/disable
+ * @is_dapm: triggered by dapm or not
+ *
+ * return 0 if control is success or error code in case of failure
+ */
+int tavil_micbias_control(struct snd_soc_codec *codec,
+			  int micb_num, int req, bool is_dapm)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int micb_index = micb_num - 1;
+	u16 micb_reg;
+	int pre_off_event = 0, post_off_event = 0;
+	int post_on_event = 0, post_dapm_off = 0;
+	int post_dapm_on = 0;
+
+	if ((micb_index < 0) || (micb_index > TAVIL_MAX_MICBIAS - 1)) {
+		dev_err(codec->dev, "%s: Invalid micbias index, micb_ind:%d\n",
+			__func__, micb_index);
+		return -EINVAL;
+	}
+
+	switch (micb_num) {
+	case MIC_BIAS_1:
+		micb_reg = WCD934X_ANA_MICB1;
+		break;
+	case MIC_BIAS_2:
+		micb_reg = WCD934X_ANA_MICB2;
+		pre_off_event = WCD_EVENT_PRE_MICBIAS_2_OFF;
+		post_off_event = WCD_EVENT_POST_MICBIAS_2_OFF;
+		post_on_event = WCD_EVENT_POST_MICBIAS_2_ON;
+		post_dapm_on = WCD_EVENT_POST_DAPM_MICBIAS_2_ON;
+		post_dapm_off = WCD_EVENT_POST_DAPM_MICBIAS_2_OFF;
+		break;
+	case MIC_BIAS_3:
+		micb_reg = WCD934X_ANA_MICB3;
+		break;
+	case MIC_BIAS_4:
+		micb_reg = WCD934X_ANA_MICB4;
+		break;
+	default:
 		dev_err(codec->dev, "%s: Invalid micbias number: %d\n",
 			__func__, micb_num);
 		return -EINVAL;
 	}
+	mutex_lock(&tavil->micb_lock);
 
 	switch (req) {
+	case MICB_PULLUP_ENABLE:
+		tavil->pullup_ref[micb_index]++;
+		if ((tavil->pullup_ref[micb_index] == 1) &&
+		    (tavil->micb_ref[micb_index] == 0))
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+		break;
+	case MICB_PULLUP_DISABLE:
+		tavil->pullup_ref[micb_index]--;
+		if ((tavil->pullup_ref[micb_index] == 0) &&
+		    (tavil->micb_ref[micb_index] == 0))
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
+		break;
 	case MICB_ENABLE:
-		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+		tavil->micb_ref[micb_index]++;
+		if (tavil->micb_ref[micb_index] == 1) {
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+			if (post_on_event && tavil->mbhc)
+				blocking_notifier_call_chain(
+						&tavil->mbhc->notifier,
+						post_on_event,
+						&tavil->mbhc->wcd_mbhc);
+		}
+		if (is_dapm && post_dapm_on && tavil->mbhc)
+			blocking_notifier_call_chain(&tavil->mbhc->notifier,
+					post_dapm_on, &tavil->mbhc->wcd_mbhc);
 		break;
 	case MICB_DISABLE:
-		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+		tavil->micb_ref[micb_index]--;
+		if ((tavil->micb_ref[micb_index] == 0) &&
+		    (tavil->pullup_ref[micb_index] > 0))
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+		else if ((tavil->micb_ref[micb_index] == 0) &&
+			 (tavil->pullup_ref[micb_index] == 0)) {
+			if (pre_off_event && tavil->mbhc)
+				blocking_notifier_call_chain(
+						&tavil->mbhc->notifier,
+						pre_off_event,
+						&tavil->mbhc->wcd_mbhc);
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
+			if (post_off_event && tavil->mbhc)
+				blocking_notifier_call_chain(
+						&tavil->mbhc->notifier,
+						post_off_event,
+						&tavil->mbhc->wcd_mbhc);
+		}
+		if (is_dapm && post_dapm_off && tavil->mbhc)
+			blocking_notifier_call_chain(&tavil->mbhc->notifier,
+					post_dapm_off, &tavil->mbhc->wcd_mbhc);
+		break;
 	};
+
+	dev_dbg(codec->dev, "%s: micb_num:%d, micb_ref: %d, pullup_ref: %d\n",
+		__func__, micb_num, tavil->micb_ref[micb_index],
+		tavil->pullup_ref[micb_index]);
+
+	mutex_unlock(&tavil->micb_lock);
 
 	return 0;
 }
+EXPORT_SYMBOL(tavil_micbias_control);
 
 static int __tavil_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 					int event)
@@ -5474,7 +5620,13 @@ static void tavil_cleanup_irqs(struct tavil_priv *tavil)
 	wcd9xxx_free_irq(core_res, WCD9XXX_IRQ_SLIMBUS, tavil);
 }
 
-static int wcd934x_get_micb_vout_ctl_val(u32 micb_mv)
+/*
+ * wcd934x_get_micb_vout_ctl_val: converts micbias from volts to register value
+ * @micb_mv: micbias in mv
+ *
+ * return register value converted
+ */
+int wcd934x_get_micb_vout_ctl_val(u32 micb_mv)
 {
 	/* min micbias voltage is 1V and maximum is 2.85V */
 	if (micb_mv < 1000 || micb_mv > 2850) {
@@ -5484,6 +5636,7 @@ static int wcd934x_get_micb_vout_ctl_val(u32 micb_mv)
 
 	return (micb_mv - 1000) / 50;
 }
+EXPORT_SYMBOL(wcd934x_get_micb_vout_ctl_val);
 
 static int tavil_handle_pdata(struct tavil_priv *tavil,
 			      struct wcd9xxx_pdata *pdata)
@@ -5563,6 +5716,31 @@ static int tavil_wdsp_initialize(struct snd_soc_codec *codec)
 	return ret;
 }
 
+/*
+ * tavil_soc_get_mbhc: get wcd934x_mbhc handle of corresponding codec
+ * @codec: handle to snd_soc_codec *
+ *
+ * return wcd934x_mbhc handle or error code in case of failure
+ */
+struct wcd934x_mbhc *tavil_soc_get_mbhc(struct snd_soc_codec *codec)
+{
+	struct tavil_priv *tavil;
+
+	if (!codec) {
+		pr_err("%s: Invalid params, NULL codec\n", __func__);
+		return NULL;
+	}
+	tavil = snd_soc_codec_get_drvdata(codec);
+
+	if (!tavil) {
+		pr_err("%s: Invalid params, NULL tavil\n", __func__);
+		return NULL;
+	}
+
+	return tavil->mbhc;
+}
+EXPORT_SYMBOL(tavil_soc_get_mbhc);
+
 static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -5603,6 +5781,13 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 				   WCD9XXX_CODEC_HWDEP_NODE, codec);
 	if (IS_ERR_VALUE(ret)) {
 		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
+		goto err_hwdep;
+	}
+
+	/* Initialize MBHC module */
+	ret = tavil_mbhc_init(&tavil->mbhc, codec, tavil->fw_data);
+	if (ret) {
+		pr_err("%s: mbhc initialization failed\n", __func__);
 		goto err_hwdep;
 	}
 
@@ -5686,6 +5871,7 @@ err_pdata:
 	control->tx_chs = NULL;
 err_hwdep:
 	devm_kfree(codec->dev, tavil->fw_data);
+	tavil->fw_data = NULL;
 err:
 	return ret;
 }
@@ -5703,6 +5889,10 @@ static int tavil_soc_codec_remove(struct snd_soc_codec *codec)
 
 	if (tavil->wdsp_cntl)
 		wcd_dsp_cntl_deinit(&tavil->wdsp_cntl);
+
+	/* Deinitialize MBHC module */
+	tavil_mbhc_deinit(codec);
+	tavil->mbhc = NULL;
 
 	return 0;
 }
@@ -6212,6 +6402,7 @@ static int tavil_probe(struct platform_device *pdev)
 	tavil->dev = &pdev->dev;
 	INIT_WORK(&tavil->tavil_add_child_devices_work,
 		  tavil_add_child_devices);
+	mutex_init(&tavil->micb_lock);
 	mutex_init(&tavil->swr.read_mutex);
 	mutex_init(&tavil->swr.write_mutex);
 	mutex_init(&tavil->swr.clk_mutex);
@@ -6277,6 +6468,7 @@ err_cdc_reg:
 err_clk:
 	wcd_resmgr_remove(tavil->resmgr);
 err_resmgr:
+	mutex_destroy(&tavil->micb_lock);
 	mutex_destroy(&tavil->codec_mutex);
 	mutex_destroy(&tavil->swr.read_mutex);
 	mutex_destroy(&tavil->swr.write_mutex);
@@ -6294,6 +6486,7 @@ static int tavil_remove(struct platform_device *pdev)
 	if (!tavil)
 		return -EINVAL;
 
+	mutex_destroy(&tavil->micb_lock);
 	mutex_destroy(&tavil->codec_mutex);
 	mutex_destroy(&tavil->swr.read_mutex);
 	mutex_destroy(&tavil->swr.write_mutex);
