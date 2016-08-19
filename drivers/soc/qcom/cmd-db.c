@@ -1,0 +1,284 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/module.h>
+#include <linux/types.h>
+#include <linux/platform_device.h>
+#include <linux/slab.h>
+#include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_platform.h>
+#include <linux/kernel.h>
+#include <soc/qcom/cmd-db.h>
+
+#define RESOURCE_ID_LEN 8
+#define NUM_PRIORITY  2
+#define MAX_SLV_ID 8
+#define CMD_DB_MAGIC 0x0C0330DBUL
+#define SLAVE_ID_MASK 0x7
+#define SLAVE_ID_SHIFT 16
+
+struct entry_header {
+	uint64_t res_id;
+	u32 priority[NUM_PRIORITY];
+	u32 addr;
+	u16 len;
+	u16 offset;
+};
+
+struct rsc_hdr {
+	u16  slv_id;
+	u16  header_offset;	/* Entry header offset from data  */
+	u16  data_offset;	/* Entry offset for data location */
+	u16  cnt;	/* Number of entries for HW type */
+	u16  version;	/* MSB is Major and LSB is Minor version
+			 * identifies the HW type of Aux Data
+			 */
+	u16 reserved[3];
+};
+
+struct cmd_db_header {
+	u32 version;
+	u32 magic_num;
+	struct rsc_hdr header[MAX_SLV_ID];
+	u32 check_sum;
+	u32 reserved;
+	u8 data[];
+};
+
+struct cmd_db_entry {
+	const char resource_id[RESOURCE_ID_LEN + 1]; /* Unique id per entry */
+	const u32 addr; /* TCS Addr Slave ID + Offset address */
+	const u32 priority[NUM_PRIORITY]; /* Bitmask for DRV IDs */
+	u32       len;                                 /* Aux data len */
+	u16       version;
+	u8        data[];
+};
+
+/* CMD DB QUERY TYPES */
+enum cmd_db_query_type {
+	CMD_DB_QUERY_RES_ID = 0,
+	CMD_DB_QUERY_ADDRESS,
+	CMD_DB_QUERY_INVALID,
+	CMD_DB_QUERY_MAX = 0x7ffffff,
+};
+
+static void __iomem *start_addr;
+static struct cmd_db_header *cmd_db_header;
+static int cmd_db_status = -EPROBE_DEFER;
+
+static u64 cmd_db_get_u64_id(const char *id)
+{
+	uint64_t rsc_id = 0;
+	uint8_t *ch  = (uint8_t *)&rsc_id;
+	int i;
+
+	for (i = 0; ((i < sizeof(rsc_id)) && id[i]); i++)
+		ch[i] = id[i];
+
+	return rsc_id;
+}
+
+static int cmd_db_get_header(u64 query, struct entry_header *eh,
+		struct rsc_hdr *rh, bool use_addr)
+{
+	struct rsc_hdr *rsc_hdr;
+	int i, j;
+
+	if (!cmd_db_header)
+		return -EPROBE_DEFER;
+
+	if (!eh || !rh)
+		return -EINVAL;
+
+	rsc_hdr = &cmd_db_header->header[0];
+
+	for (i = 0; i < MAX_SLV_ID ; i++, rsc_hdr++) {
+		struct entry_header *ent;
+
+		if (!rsc_hdr->slv_id)
+			break;
+
+		ent = (struct entry_header *)(start_addr
+				+ sizeof(*cmd_db_header)
+				+ rsc_hdr->header_offset);
+
+		for (j = 0; j < rsc_hdr->cnt; j++, ent++) {
+			if (use_addr) {
+				if (ent->addr == (u32)(query))
+					break;
+			} else if (ent->res_id == query)
+				break;
+		}
+
+		if (j < rsc_hdr->cnt) {
+			memcpy(eh, ent, sizeof(*ent));
+			memcpy(rh, &cmd_db_header->header[i], sizeof(*rh));
+			return 0;
+		}
+	}
+	return -ENODEV;
+}
+
+static int cmd_db_get_header_by_addr(u32 addr,
+		struct entry_header *ent_hdr,
+		struct rsc_hdr *rsc_hdr)
+{
+	return cmd_db_get_header((u64)addr, ent_hdr, rsc_hdr, true);
+}
+
+static int cmd_db_get_header_by_rsc_id(const char *resource_id,
+		struct entry_header *ent_hdr,
+		struct rsc_hdr *rsc_hdr)
+{
+	u64 rsc_id = cmd_db_get_u64_id(resource_id);
+
+	return cmd_db_get_header(rsc_id, ent_hdr, rsc_hdr, false);
+}
+
+u32 cmd_db_get_addr(const char *resource_id)
+{
+	int ret;
+	struct entry_header ent;
+	struct rsc_hdr rsc_hdr;
+
+	ret = cmd_db_get_header_by_rsc_id(resource_id, &ent, &rsc_hdr);
+
+	return ret < 0 ? 0 : ent.addr;
+}
+
+bool cmd_db_get_priority(u32 addr, u8 drv_id)
+{
+	int ret;
+	struct entry_header ent;
+	struct rsc_hdr rsc_hdr;
+
+	ret = cmd_db_get_header_by_addr(addr, &ent, &rsc_hdr);
+
+	return ret < 0 ? false : (bool)(ent.priority[0] & (1 << drv_id));
+
+}
+int cmd_db_get_aux_data(const char *resource_id, u8 *data, int len)
+{
+	int ret;
+	struct entry_header ent;
+	struct rsc_hdr rsc_hdr;
+
+	if (!data)
+		return -EINVAL;
+
+	ret = cmd_db_get_header_by_rsc_id(resource_id, &ent, &rsc_hdr);
+
+	if (ret)
+		return ret;
+
+	if (ent.len < len)
+		return -EINVAL;
+
+	len = (ent.len < len) ? ent.len : len;
+
+	memcpy_fromio(data,
+			start_addr + sizeof(*cmd_db_header)
+			+ rsc_hdr.data_offset + ent.offset,
+			len);
+	return len;
+}
+
+int cmd_db_get_aux_data_len(const char *resource_id)
+{
+	int ret;
+	struct entry_header ent;
+	struct rsc_hdr rsc_hdr;
+
+	ret = cmd_db_get_header_by_rsc_id(resource_id, &ent, &rsc_hdr);
+
+	return ret < 0 ? 0 : ent.len;
+}
+
+u16 cmd_db_get_version(const char *resource_id)
+{
+	int ret;
+	struct entry_header ent;
+	struct rsc_hdr rsc_hdr;
+
+	ret = cmd_db_get_header_by_rsc_id(resource_id, &ent, &rsc_hdr);
+	return ret < 0 ? 0 : rsc_hdr.version;
+}
+
+int cmd_db_ready(void)
+{
+	return cmd_db_status;
+}
+
+int cmd_db_get_slave_id(const char *resource_id)
+{
+	int ret;
+	struct entry_header ent;
+	struct rsc_hdr rsc_hdr;
+
+	ret = cmd_db_get_header_by_rsc_id(resource_id, &ent, &rsc_hdr);
+	return ret < 0 ? 0 : (ent.addr >> SLAVE_ID_SHIFT) & SLAVE_ID_MASK;
+}
+
+static int cmd_db_dev_probe(struct platform_device *pdev)
+{
+	struct resource *res;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		cmd_db_status = -ENOMEM;
+		goto failed;
+	}
+
+	start_addr = devm_ioremap_resource(&pdev->dev, res);
+
+	cmd_db_header = devm_kzalloc(&pdev->dev, sizeof(*cmd_db_header),
+			GFP_KERNEL);
+
+	if (!cmd_db_header) {
+		cmd_db_status = -ENOMEM;
+		goto failed;
+	}
+
+	memcpy(cmd_db_header, start_addr, sizeof(*cmd_db_header));
+
+	if (cmd_db_header->magic_num != CMD_DB_MAGIC) {
+		pr_err("%s(): Invalid Magic\n", __func__);
+		cmd_db_status = -EINVAL;
+		goto failed;
+	}
+	cmd_db_status = 0;
+	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+failed:
+	return cmd_db_status;
+}
+
+static const struct of_device_id cmd_db_match_table[] = {
+	{.compatible = "qcom,cmd-db"},
+	{},
+};
+
+static struct platform_driver cmd_db_dev_driver = {
+	.probe = cmd_db_dev_probe,
+	.driver = {
+		.name = "cmd-db",
+		.owner = THIS_MODULE,
+		.of_match_table = cmd_db_match_table,
+	},
+};
+
+int __init cmd_db_device_init(void)
+{
+	return platform_driver_register(&cmd_db_dev_driver);
+}
+arch_initcall(cmd_db_device_init);
