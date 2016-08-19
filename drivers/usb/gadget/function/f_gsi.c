@@ -1588,6 +1588,12 @@ static int gsi_ctrl_send_notification(struct f_gsi *gsi,
 		return -ENODEV;
 	}
 
+	if (atomic_inc_return(&gsi->c_port.notify_count) != 1) {
+		log_event_dbg("delay ep_queue: notify req is busy %d",
+				atomic_read(&gsi->c_port.notify_count));
+		return 0;
+	}
+
 	event = req->buf;
 
 	switch (state) {
@@ -1643,12 +1649,6 @@ static int gsi_ctrl_send_notification(struct f_gsi *gsi,
 
 	log_event_dbg("send Notify type %02x", event->bNotificationType);
 
-	if (atomic_inc_return(&gsi->c_port.notify_count) != 1) {
-		log_event_dbg("delay ep_queue: notify req is busy %d",
-			atomic_read(&gsi->c_port.notify_count));
-		return 0;
-	}
-
 	return queue_notification_request(gsi);
 }
 
@@ -1698,7 +1698,8 @@ static void gsi_rndis_response_available(void *_rndis)
 {
 	struct f_gsi *gsi = _rndis;
 
-	gsi_ctrl_send_notification(gsi, GSI_CTRL_NOTIFY_RESPONSE_AVAILABLE);
+	gsi_ctrl_send_notification(gsi,
+			GSI_CTRL_NOTIFY_RESPONSE_AVAILABLE);
 }
 
 static void gsi_rndis_command_complete(struct usb_ep *ep,
@@ -2294,6 +2295,8 @@ static void gsi_suspend(struct usb_function *f)
 		queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
 	}
 
+	log_event_dbg("%s: notify_count = %d\n",
+		__func__, atomic_read(&gsi->c_port.notify_count));
 	log_event_dbg("gsi suspended");
 }
 
@@ -2322,6 +2325,21 @@ static void gsi_resume(struct usb_function *f)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
 	else
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
+
+	if (gsi->c_port.notify && !gsi->c_port.notify->desc)
+		config_ep_by_speed(cdev->gadget, f, gsi->c_port.notify);
+
+	log_event_dbg("%s: notify_count = %d\n",
+		__func__, atomic_read(&gsi->c_port.notify_count));
+
+	/* Send notification to host for RMNET, RNDIS and MBIM Interface */
+	if ((gsi->prot_id == IPA_USB_MBIM ||
+			gsi->prot_id == IPA_USB_RNDIS ||
+			gsi->prot_id == IPA_USB_RMNET) &&
+			(atomic_read(&gsi->c_port.notify_count) >= 1)) {
+		log_event_dbg("%s: force_queue\n", __func__);
+		queue_notification_request(gsi);
+	}
 
 	if (!remote_wakeup_allowed) {
 
@@ -2353,11 +2371,6 @@ static void gsi_resume(struct usb_function *f)
 		post_event(&gsi->d_port, EVT_RESUMED);
 
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
-
-	if (gsi->c_port.notify && !gsi->c_port.notify->desc)
-		config_ep_by_speed(cdev->gadget, f, gsi->c_port.notify);
-
-	atomic_set(&gsi->c_port.notify_count, 0);
 	log_event_dbg("%s: completed", __func__);
 }
 
