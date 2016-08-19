@@ -1250,9 +1250,10 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 {
 	struct smq_msg *msg = &ctx->msg;
 	struct fastrpc_file *fl = ctx->fl;
+	struct fastrpc_channel_ctx *channel_ctx = &fl->apps->channel[fl->cid];
 	int err = 0, len;
 
-	VERIFY(err, 0 != fl->apps->channel[fl->cid].chan);
+	VERIFY(err, 0 != channel_ctx->chan);
 	if (err)
 		goto bail;
 	msg->pid = current->tgid;
@@ -1266,13 +1267,21 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	msg->invoke.page.size = buf_page_size(ctx->used);
 
 	if (fl->apps->glink) {
-		err = glink_tx(fl->apps->channel[fl->cid].chan,
+		if (fl->ssrcount != channel_ctx->ssrcount) {
+			err = -ECONNRESET;
+			goto bail;
+		}
+		VERIFY(err, channel_ctx->link.port_state ==
+				FASTRPC_LINK_CONNECTED);
+		if (err)
+			goto bail;
+		err = glink_tx(channel_ctx->chan,
 			(void *)&fl->apps->channel[fl->cid], msg, sizeof(*msg),
 			GLINK_TX_REQ_INTENT);
 	} else {
 		spin_lock(&fl->apps->hlock);
 		len = smd_write((smd_channel_t *)
-				fl->apps->channel[fl->cid].chan,
+				channel_ctx->chan,
 				msg, sizeof(*msg));
 		spin_unlock(&fl->apps->hlock);
 		VERIFY(err, len == sizeof(*msg));
@@ -1823,12 +1832,14 @@ void fastrpc_glink_notify_state(void *handle, const void *priv, unsigned event)
 		break;
 	case GLINK_LOCAL_DISCONNECTED:
 		link->port_state = FASTRPC_LINK_DISCONNECTED;
-		fastrpc_notify_drivers(me, cid);
-		if (link->link_state == FASTRPC_LINK_STATE_UP)
-			fastrpc_glink_open(cid);
 		break;
 	case GLINK_REMOTE_DISCONNECTED:
-		fastrpc_glink_close(me->channel[cid].chan, cid);
+		if (me->channel[cid].chan &&
+			link->link_state == FASTRPC_LINK_STATE_UP) {
+			fastrpc_glink_close(me->channel[cid].chan, cid);
+			me->channel[cid].chan = 0;
+			link->port_state = FASTRPC_LINK_DISCONNECTED;
+		}
 		break;
 	default:
 		break;
@@ -1962,7 +1973,9 @@ static void fastrpc_glink_close(void *chan, int cid)
 	if (err)
 		return;
 	link = &gfa.channel[cid].link;
-	if (link->port_state == FASTRPC_LINK_CONNECTED) {
+
+	if (link->port_state == FASTRPC_LINK_CONNECTED ||
+		link->port_state == FASTRPC_LINK_CONNECTING) {
 		link->port_state = FASTRPC_LINK_DISCONNECTING;
 		glink_close(chan);
 	}
@@ -1993,6 +2006,7 @@ static int fastrpc_glink_open(int cid)
 	link->port_state = FASTRPC_LINK_CONNECTING;
 	cfg->priv = (void *)(uintptr_t)cid;
 	cfg->edge = gcinfo[cid].link.link_info.edge;
+	cfg->transport = gcinfo[cid].link.link_info.transport;
 	cfg->name = FASTRPC_GLINK_GUID;
 	cfg->notify_rx = fastrpc_glink_notify_rx;
 	cfg->notify_tx_done = fastrpc_glink_notify_tx_done;
