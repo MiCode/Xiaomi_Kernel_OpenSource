@@ -1907,6 +1907,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	can_suspend_ssphy = !(mdwc->in_host_mode &&
 				dwc3_msm_is_host_superspeed(mdwc));
 
+	tasklet_kill(&dwc->bh);
 	/* Disable core irq */
 	if (dwc->irq)
 		disable_irq(dwc->irq);
