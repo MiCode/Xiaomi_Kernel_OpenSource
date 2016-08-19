@@ -808,6 +808,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+	size = 0;
 	of_get_property(dev->of_node, "qcom,phy-pll-reset-seq", &size);
 	if (size) {
 		qphy->phy_pll_reset_seq = devm_kzalloc(dev,
@@ -830,6 +831,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+	size = 0;
 	of_get_property(dev->of_node, "qcom,emu-dcm-reset-seq", &size);
 	if (size) {
 		qphy->emu_dcm_reset_seq = devm_kzalloc(dev,
@@ -852,6 +854,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+	size = 0;
 	of_get_property(dev->of_node, "qcom,qusb-phy-init-seq", &size);
 	if (size) {
 		qphy->qusb_phy_init_seq = devm_kzalloc(dev,
