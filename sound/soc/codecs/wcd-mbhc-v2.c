@@ -2053,24 +2053,6 @@ static irqreturn_t wcd_mbhc_hphr_ocp_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void wcd_mbhc_moisture_config(struct wcd_mbhc *mbhc)
-{
-	if (mbhc->mbhc_cfg->moist_cfg.m_vref_ctl == V_OFF)
-		return;
-
-	/* Donot enable moisture detection if jack type is NC */
-	if (!mbhc->hphl_swh) {
-		pr_debug("%s: disable moisture detection for NC\n", __func__);
-		return;
-	}
-
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MOISTURE_VREF,
-				 mbhc->mbhc_cfg->moist_cfg.m_vref_ctl);
-	if (mbhc->mbhc_cb->hph_pull_up_control)
-		mbhc->mbhc_cb->hph_pull_up_control(mbhc->codec,
-				mbhc->mbhc_cfg->moist_cfg.m_iref_ctl);
-}
-
 static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 {
 	int ret = 0;
@@ -2085,7 +2067,8 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	else
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HS_L_DET_PULL_UP_CTRL, 3);
 
-	wcd_mbhc_moisture_config(mbhc);
+	if (mbhc->mbhc_cfg->moisture_en && mbhc->mbhc_cb->mbhc_moisture_config)
+		mbhc->mbhc_cb->mbhc_moisture_config(mbhc);
 
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHL_PLUG_TYPE, mbhc->hphl_swh);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_GND_PLUG_TYPE, mbhc->gnd_swh);

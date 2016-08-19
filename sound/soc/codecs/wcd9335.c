@@ -116,6 +116,8 @@
 /* z value compared in milliOhm */
 #define TASHA_MBHC_IS_SECOND_RAMP_REQUIRED(z) ((z > 400000) || (z < 32000))
 #define TASHA_MBHC_ZDET_CONST  (86 * 16384)
+#define TASHA_MBHC_MOISTURE_VREF  V_45_MV
+#define TASHA_MBHC_MOISTURE_IREF  I_3P0_UA
 
 #define TASHA_VERSION_ENTRY_SIZE 17
 
@@ -671,13 +673,6 @@ static struct wcd_mbhc_register
 			  WCD9335_ANA_HPH, 0xC0, 6, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_SWCH_LEVEL_REMOVE",
 			  WCD9335_ANA_MBHC_RESULT_3, 0x10, 4, 0),
-	/*
-	 * Initialize moisture register as "0" and based on codec
-	 * version, the register, mask fields get populated.
-	 * Register "0" is not a valid register for MBHC.
-	 */
-	WCD_MBHC_REGISTER("WCD_MBHC_MOISTURE_VREF",
-			  0, 0, 0, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_PULLDOWN_CTRL",
 			  0, 0, 0, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_ANC_DET_EN",
@@ -2185,6 +2180,25 @@ static void tasha_mbhc_hph_pull_down_ctrl(struct snd_soc_codec *codec,
 	}
 }
 
+static void tasha_mbhc_moisture_config(struct wcd_mbhc *mbhc)
+{
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	if (TASHA_MBHC_MOISTURE_VREF == V_OFF)
+		return;
+
+	/* Donot enable moisture detection if jack type is NC */
+	if (!mbhc->hphl_swh) {
+		dev_dbg(codec->dev, "%s: disable moisture detection for NC\n",
+			__func__);
+		return;
+	}
+
+	snd_soc_update_bits(codec, WCD9335_MBHC_CTL_2,
+			    0x0C, TASHA_MBHC_MOISTURE_VREF << 2);
+	tasha_mbhc_hph_l_pull_up_control(codec, TASHA_MBHC_MOISTURE_IREF);
+}
+
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.request_irq = tasha_mbhc_request_irq,
 	.irq_control = tasha_mbhc_irq_control,
@@ -2206,6 +2220,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.compute_impedance = tasha_wcd_mbhc_calc_impedance,
 	.mbhc_gnd_det_ctrl = tasha_mbhc_gnd_det_ctrl,
 	.hph_pull_down_ctrl = tasha_mbhc_hph_pull_down_ctrl,
+	.mbhc_moisture_config = tasha_mbhc_moisture_config,
 };
 
 static int tasha_get_anc_slot(struct snd_kcontrol *kcontrol,
@@ -13234,12 +13249,6 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 
 	/* Initialize MBHC module */
 	if (TASHA_IS_2_0(tasha->wcd9xxx->version)) {
-		wcd_mbhc_registers[WCD_MBHC_MOISTURE_VREF].reg =
-			WCD9335_MBHC_CTL_2;
-		wcd_mbhc_registers[WCD_MBHC_MOISTURE_VREF].mask =
-			0x0C;
-		wcd_mbhc_registers[WCD_MBHC_MOISTURE_VREF].offset =
-			2;
 		wcd_mbhc_registers[WCD_MBHC_FSM_STATUS].reg =
 			WCD9335_MBHC_FSM_STATUS;
 		wcd_mbhc_registers[WCD_MBHC_FSM_STATUS].mask = 0x01;

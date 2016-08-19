@@ -48,6 +48,7 @@
 /* Z value compared in milliOhm */
 #define TAVIL_MBHC_IS_SECOND_RAMP_REQUIRED(z) ((z > 400000) || (z < 32000))
 #define TAVIL_MBHC_ZDET_CONST         (86 * 16384)
+#define TAVIL_MBHC_MOISTURE_RREF      R_24_KOHM
 
 static struct wcd_mbhc_register
 	wcd_mbhc_registers[WCD_MBHC_REG_FUNC_MAX] = {
@@ -109,8 +110,6 @@ static struct wcd_mbhc_register
 			  WCD934X_ANA_HPH, 0xC0, 6, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_SWCH_LEVEL_REMOVE",
 			  WCD934X_ANA_MBHC_RESULT_3, 0x10, 4, 0),
-	WCD_MBHC_REGISTER("WCD_MBHC_MOISTURE_VREF",
-			  WCD934X_MBHC_NEW_CTL_2, 0x0C, 2, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_PULLDOWN_CTRL",
 			  0, 0, 0, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_ANC_DET_EN",
@@ -761,6 +760,23 @@ static void tavil_mbhc_hph_pull_down_ctrl(struct snd_soc_codec *codec,
 				    0x10, 0x00);
 	}
 }
+static void tavil_mbhc_moisture_config(struct wcd_mbhc *mbhc)
+{
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	if (TAVIL_MBHC_MOISTURE_RREF == R_OFF)
+		return;
+
+	/* Donot enable moisture detection if jack type is NC */
+	if (!mbhc->hphl_swh) {
+		dev_dbg(codec->dev, "%s: disable moisture detection for NC\n",
+			__func__);
+		return;
+	}
+
+	snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_2,
+			    0x0C, TAVIL_MBHC_MOISTURE_RREF << 2);
+}
 
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.request_irq = tavil_mbhc_request_irq,
@@ -783,6 +799,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.compute_impedance = tavil_wcd_mbhc_calc_impedance,
 	.mbhc_gnd_det_ctrl = tavil_mbhc_gnd_det_ctrl,
 	.hph_pull_down_ctrl = tavil_mbhc_hph_pull_down_ctrl,
+	.mbhc_moisture_config = tavil_mbhc_moisture_config,
 };
 
 static struct regulator *tavil_codec_find_ondemand_regulator(
@@ -803,6 +820,31 @@ static struct regulator *tavil_codec_find_ondemand_regulator(
 		name);
 	return NULL;
 }
+
+static int tavil_get_hph_type(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct wcd934x_mbhc *wcd934x_mbhc = tavil_soc_get_mbhc(codec);
+	struct wcd_mbhc *mbhc;
+
+	if (!wcd934x_mbhc) {
+		dev_err(codec->dev, "%s: mbhc not initialized!\n", __func__);
+		return -EINVAL;
+	}
+
+	mbhc = &wcd934x_mbhc->wcd_mbhc;
+
+	ucontrol->value.integer.value[0] = (u32) mbhc->hph_type;
+	dev_dbg(codec->dev, "%s: hph_type = %u\n", __func__, mbhc->hph_type);
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new hph_type_detect_controls[] = {
+	SOC_SINGLE_EXT("HPH Type", 0, 0, UINT_MAX, 0,
+		       tavil_get_hph_type, NULL),
+};
 
 /*
  * tavil_mbhc_hs_detect: starts mbhc insertion/removal functionality
@@ -882,6 +924,9 @@ int tavil_mbhc_init(struct wcd934x_mbhc **mbhc, struct snd_soc_codec *codec,
 			WCD934X_ON_DEMAND_MICBIAS].ondemand_supply_count =
 				0;
 	}
+
+	snd_soc_add_codec_controls(codec, hph_type_detect_controls,
+				   ARRAY_SIZE(hph_type_detect_controls));
 
 	snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_1, 0x04, 0x04);
 	snd_soc_update_bits(codec, WCD934X_MBHC_CTL_BCS, 0x01, 0x01);

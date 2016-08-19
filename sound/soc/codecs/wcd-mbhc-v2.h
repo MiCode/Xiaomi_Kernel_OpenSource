@@ -62,7 +62,6 @@ enum wcd_mbhc_register_function {
 	WCD_MBHC_HPHL_PA_EN,
 	WCD_MBHC_HPH_PA_EN,
 	WCD_MBHC_SWCH_LEVEL_REMOVE,
-	WCD_MBHC_MOISTURE_VREF,
 	WCD_MBHC_PULLDOWN_CTRL,
 	WCD_MBHC_ANC_DET_EN,
 	WCD_MBHC_FSM_STATUS,
@@ -237,9 +236,11 @@ enum mbhc_hs_pullup_iref {
 	I_3P0_UA,
 };
 
-struct wcd_mbhc_moisture_cfg {
-	enum mbhc_moisture_vref m_vref_ctl;
-	enum mbhc_hs_pullup_iref m_iref_ctl;
+enum mbhc_moisture_rref {
+	R_OFF,
+	R_24_KOHM,
+	R_84_KOHM,
+	R_184_KOHM,
 };
 
 struct wcd_mbhc_config {
@@ -252,7 +253,7 @@ struct wcd_mbhc_config {
 	bool gnd_det_en;
 	int key_code[WCD_MBHC_KEYCODE_NUM];
 	uint32_t linein_th;
-	struct wcd_mbhc_moisture_cfg moist_cfg;
+	bool moisture_en;
 	int mbhc_micbias;
 	int anc_micbias;
 	bool enable_anc_mic_detect;
@@ -363,6 +364,7 @@ struct wcd_mbhc_cb {
 	int (*mbhc_micb_ctrl_thr_mic)(struct snd_soc_codec *, int, bool);
 	void (*mbhc_gnd_det_ctrl)(struct snd_soc_codec *, bool);
 	void (*hph_pull_down_ctrl)(struct snd_soc_codec *, bool);
+	void (*mbhc_moisture_config)(struct wcd_mbhc *);
 };
 
 struct wcd_mbhc {
