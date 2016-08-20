@@ -22,7 +22,7 @@ enum hdcp_client_id {
 	HDCP_CLIENT_DP,
 };
 
-enum hdmi_hdcp_state {
+enum hdcp_states {
 	HDCP_STATE_INACTIVE,
 	HDCP_STATE_AUTHENTICATING,
 	HDCP_STATE_AUTHENTICATED,
@@ -32,7 +32,7 @@ enum hdmi_hdcp_state {
 	HDCP_STATE_AUTH_ENC_2P2
 };
 
-struct hdmi_hdcp_init_data {
+struct hdcp_init_data {
 	struct dss_io_data *core_io;
 	struct dss_io_data *qfprom_io;
 	struct dss_io_data *hdcp_io;
@@ -40,7 +40,7 @@ struct hdmi_hdcp_init_data {
 	struct kobject *sysfs_kobj;
 	struct workqueue_struct *workq;
 	void *cb_data;
-	void (*notify_status)(void *cb_data, enum hdmi_hdcp_state status);
+	void (*notify_status)(void *cb_data, enum hdcp_states status);
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
 	void *dp_data;
 	u32 phy_addr;
@@ -51,22 +51,22 @@ struct hdmi_hdcp_init_data {
 	enum hdcp_client_id client_id;
 };
 
-struct hdmi_hdcp_ops {
-	int (*hdmi_hdcp_isr)(void *ptr);
-	int (*hdmi_hdcp_reauthenticate)(void *input);
-	int (*hdmi_hdcp_authenticate)(void *hdcp_ctrl);
+struct hdcp_ops {
+	int (*isr)(void *ptr);
+	int (*reauthenticate)(void *input);
+	int (*authenticate)(void *hdcp_ctrl);
 	bool (*feature_supported)(void *input);
-	void (*hdmi_hdcp_off)(void *hdcp_ctrl);
+	void (*off)(void *hdcp_ctrl);
 };
 
-void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data);
-void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data);
-void hdmi_hdcp_deinit(void *input);
+void *hdcp_1x_init(struct hdcp_init_data *init_data);
+void *hdmi_hdcp2p2_init(struct hdcp_init_data *init_data);
+void hdcp_1x_deinit(void *input);
 void hdmi_hdcp2p2_deinit(void *input);
 
-struct hdmi_hdcp_ops *hdmi_hdcp_start(void *input);
-struct hdmi_hdcp_ops *hdmi_hdcp2p2_start(void *input);
+struct hdcp_ops *hdcp_1x_start(void *input);
+struct hdcp_ops *hdmi_hdcp2p2_start(void *input);
 
-const char *hdcp_state_name(enum hdmi_hdcp_state hdcp_state);
+const char *hdcp_state_name(enum hdcp_states hdcp_state);
 
 #endif /* __MDSS_HDMI_HDCP_H__ */

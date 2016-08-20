@@ -33,7 +33,7 @@
 #define SDE_ROTATOR_DRV_NAME		"sde_rotator"
 
 /* Event logging constants */
-#define SDE_ROTATOR_NUM_EVENTS		256
+#define SDE_ROTATOR_NUM_EVENTS		4096
 #define SDE_ROTATOR_NUM_TIMESTAMPS	SDE_ROTATOR_TS_MAX
 
 struct sde_rotator_device;

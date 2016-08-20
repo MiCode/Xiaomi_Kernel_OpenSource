@@ -35,10 +35,14 @@ static int sde_rotator_stat_show(struct seq_file *s, void *data)
 	u64 count = stats->count;
 	int num_events;
 	s64 proc_max, proc_min, proc_avg;
+	s64 swoh_max, swoh_min, swoh_avg;
 
 	proc_max = 0;
 	proc_min = S64_MAX;
 	proc_avg = 0;
+	swoh_max = 0;
+	swoh_min = S64_MAX;
+	swoh_avg = 0;
 
 	if (count > SDE_ROTATOR_NUM_EVENTS) {
 		num_events = SDE_ROTATOR_NUM_EVENTS;
@@ -59,9 +63,12 @@ static int sde_rotator_stat_show(struct seq_file *s, void *data)
 		s64 proc_time =
 			ktime_to_us(ktime_sub(ts[SDE_ROTATOR_TS_RETIRE],
 					start_time));
+		s64 sw_overhead_time =
+			ktime_to_us(ktime_sub(ts[SDE_ROTATOR_TS_FLUSH],
+					start_time));
 
 		seq_printf(s,
-			"s:%d sq:%lld dq:%lld fe:%lld q:%lld c:%lld fl:%lld d:%lld sdq:%lld ddq:%lld t:%lld\n",
+			"s:%d sq:%lld dq:%lld fe:%lld q:%lld c:%lld fl:%lld d:%lld sdq:%lld ddq:%lld t:%lld oht:%lld\n",
 			i,
 			ktime_to_us(ktime_sub(ts[SDE_ROTATOR_TS_FENCE],
 					ts[SDE_ROTATOR_TS_SRCQB])),
@@ -81,21 +88,30 @@ static int sde_rotator_stat_show(struct seq_file *s, void *data)
 					ts[SDE_ROTATOR_TS_RETIRE])),
 			ktime_to_us(ktime_sub(ts[SDE_ROTATOR_TS_DSTDQB],
 					ts[SDE_ROTATOR_TS_RETIRE])),
-			proc_time);
+			proc_time, sw_overhead_time);
 
 		proc_max = max(proc_max, proc_time);
 		proc_min = min(proc_min, proc_time);
 		proc_avg += proc_time;
+
+		swoh_max = max(swoh_max, sw_overhead_time);
+		swoh_min = min(swoh_min, sw_overhead_time);
+		swoh_avg += sw_overhead_time;
 	}
 
 	proc_avg = (num_events) ?
 			DIV_ROUND_CLOSEST_ULL(proc_avg, num_events) : 0;
+	swoh_avg = (num_events) ?
+			DIV_ROUND_CLOSEST_ULL(swoh_avg, num_events) : 0;
 
 	seq_printf(s, "count:%llu\n", count);
 	seq_printf(s, "fai1:%llu\n", stats->fail_count);
 	seq_printf(s, "t_max:%lld\n", proc_max);
 	seq_printf(s, "t_min:%lld\n", proc_min);
 	seq_printf(s, "t_avg:%lld\n", proc_avg);
+	seq_printf(s, "swoh_max:%lld\n", swoh_max);
+	seq_printf(s, "swoh_min:%lld\n", swoh_min);
+	seq_printf(s, "swoh_avg:%lld\n", swoh_avg);
 
 	return 0;
 }

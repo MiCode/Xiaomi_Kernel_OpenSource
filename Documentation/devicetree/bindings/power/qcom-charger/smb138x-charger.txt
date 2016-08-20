@@ -24,6 +24,13 @@ Charger specific properties:
               Standalone/Parallel Master	- "qcom,smb138x-charger"
 	      Parallel Slave			- "qcom,smb138x-parallel-slave"
 
+- qcom,pmic-revid
+  Usage:      required
+  Value type: phandle
+  Definition: Should specify the phandle of SMB's
+	revid module. This is used to identify
+	the SMB subtype.
+
 - qcom,suspend-input
   Usage:      optional
   Value type: <empty>

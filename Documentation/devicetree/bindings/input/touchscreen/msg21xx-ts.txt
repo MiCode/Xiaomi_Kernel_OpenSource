@@ -32,6 +32,9 @@ Required properties:
 			config defined in pin groups of interrupt and reset gpio.
 			"pmx_ts_release" : Release configuration of pins, this should specify
 			release config defined in pin groups of interrupt and reset gpio.
+ - mstar,num-max-touches: It defines the maximum number of touch supported by the controller.
+ - mstar,hard-reset-delay-ms : hard reset delay in ms
+ - mstar,post-hard-reset-delay-ms : post hard reset delay in ms
 
 Optional properties:
 
@@ -39,6 +42,10 @@ Optional properties:
  - mstar,panel-coords : panel coords for the chip in pixels.
 				It is a four tuple consisting of min x,
 				min y, max x and max y values.
+ - mstar,ic-type : It defines the ic-type of the controller. Values are as folows:
+			1 -> msg2133.
+			2 -> msg21xxA.
+			3 -> msg26xxM.
 
 Example:
 	i2c@78b9000 { /* BLSP1 QUP5 */
@@ -55,6 +62,10 @@ Example:
 			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
 			pinctrl-0 = <&ts_int_active &ts_reset_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-			mstar,button-map= <172 139 158>;
+			mstar,button-map = <172 139 158>;
+			mstar,ic-type = <2>;
+			mstar,num_max_touches = <2>;
+			mstar,hard-reset-delay-ms = <100>;
+			mstar,post-hard-reset-delay-ms = <100>;
 		};
 	};

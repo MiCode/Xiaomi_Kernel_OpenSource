@@ -372,6 +372,28 @@ static void __ufshcd_suspend_clkscaling(struct ufs_hba *hba);
 static void ufshcd_release_all(struct ufs_hba *hba);
 static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba);
 static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba);
+static int ufshcd_devfreq_target(struct device *dev,
+				unsigned long *freq, u32 flags);
+static int ufshcd_devfreq_get_dev_status(struct device *dev,
+		struct devfreq_dev_status *stat);
+
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
+static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
+	.upthreshold = 35,
+	.downdifferential = 30,
+	.simple_scaling = 1,
+};
+
+static void *gov_data = &ufshcd_ondemand_data;
+#else
+static void *gov_data;
+#endif
+
+static struct devfreq_dev_profile ufs_devfreq_profile = {
+	.polling_ms	= 40,
+	.target		= ufshcd_devfreq_target,
+	.get_dev_status	= ufshcd_devfreq_get_dev_status,
+};
 
 static inline bool ufshcd_valid_tag(struct ufs_hba *hba, int tag)
 {
@@ -1283,7 +1305,14 @@ static void ufshcd_gate_work(struct work_struct *work)
 	unsigned long flags;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	if (hba->clk_gating.is_suspended) {
+	/*
+	 * In case you are here to cancel this work the gating state
+	 * would be marked as REQ_CLKS_ON. In this case save time by
+	 * skipping the gating work and exit after changing the clock
+	 * state to CLKS_ON.
+	 */
+	if (hba->clk_gating.is_suspended ||
+		(hba->clk_gating.state == REQ_CLKS_ON)) {
 		hba->clk_gating.state = CLKS_ON;
 		trace_ufshcd_clk_gating(dev_name(hba->dev),
 			hba->clk_gating.state);
@@ -1502,6 +1531,13 @@ static void ufshcd_init_clk_gating(struct ufs_hba *hba)
 
 	if (!ufshcd_is_clkgating_allowed(hba))
 		return;
+
+	/*
+	 * Disable hibern8 during clk gating if
+	 * auto hibern8 is supported
+	 */
+	if (ufshcd_is_auto_hibern8_supported(hba))
+		hba->caps &= ~UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 
 	INIT_DELAYED_WORK(&gating->gate_work, ufshcd_gate_work);
 	INIT_WORK(&gating->ungate_work, ufshcd_ungate_work);
@@ -6870,18 +6906,29 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		if (ufshcd_scsi_add_wlus(hba))
 			goto out;
 
+		/* Initialize devfreq after UFS device is detected */
+		if (ufshcd_is_clkscaling_supported(hba)) {
+			memcpy(&hba->clk_scaling.saved_pwr_info.info,
+			    &hba->pwr_info, sizeof(struct ufs_pa_layer_attr));
+			hba->clk_scaling.saved_pwr_info.is_valid = true;
+			hba->clk_scaling.is_scaled_up = true;
+			if (!hba->devfreq) {
+				hba->devfreq = devfreq_add_device(hba->dev,
+							&ufs_devfreq_profile,
+							"simple_ondemand",
+							gov_data);
+				if (IS_ERR(hba->devfreq)) {
+					ret = PTR_ERR(hba->devfreq);
+					dev_err(hba->dev, "Unable to register with devfreq %d\n",
+						ret);
+					goto out;
+				}
+			}
+			hba->clk_scaling.is_allowed = true;
+		}
+
 		scsi_scan_host(hba->host);
 		pm_runtime_put_sync(hba->dev);
-	}
-
-	/* Resume devfreq after UFS device is detected */
-	if (ufshcd_is_clkscaling_supported(hba)) {
-		memcpy(&hba->clk_scaling.saved_pwr_info.info, &hba->pwr_info,
-		       sizeof(struct ufs_pa_layer_attr));
-		hba->clk_scaling.saved_pwr_info.is_valid = true;
-		hba->clk_scaling.is_scaled_up = true;
-		ufshcd_resume_clkscaling(hba);
-		hba->clk_scaling.is_allowed = true;
 	}
 
 	if (!hba->is_init_prefetch)
@@ -7693,7 +7740,8 @@ static void ufshcd_hba_exit(struct ufs_hba *hba)
 		ufshcd_variant_hba_exit(hba);
 		ufshcd_setup_vreg(hba, false);
 		if (ufshcd_is_clkscaling_supported(hba)) {
-			ufshcd_suspend_clkscaling(hba);
+			if (hba->devfreq)
+				ufshcd_suspend_clkscaling(hba);
 			destroy_workqueue(hba->clk_scaling.workq);
 		}
 		ufshcd_disable_clocks(hba, false);
@@ -7977,6 +8025,13 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	hba->clk_gating.is_suspended = true;
 	hba->hibern8_on_idle.is_suspended = true;
 
+	/*
+	 * Disable auto hibern8 to prevent unnecessary hibern8 enter/exit
+	 * during suspend path
+	 */
+	if (ufshcd_is_auto_hibern8_supported(hba))
+		ufshcd_set_auto_hibern8_timer(hba, 0);
+
 	if (hba->clk_scaling.is_allowed) {
 		cancel_work_sync(&hba->clk_scaling.suspend_work);
 		cancel_work_sync(&hba->clk_scaling.resume_work);
@@ -8084,6 +8139,10 @@ enable_gating:
 		ufshcd_resume_clkscaling(hba);
 	hba->hibern8_on_idle.is_suspended = false;
 	hba->clk_gating.is_suspended = false;
+	/* Re-enable auto hibern8 in case of suspend failure */
+	if (ufshcd_is_auto_hibern8_supported(hba))
+		ufshcd_set_auto_hibern8_timer(hba,
+						hba->hibern8_on_idle.delay_ms);
 	ufshcd_release_all(hba);
 out:
 	hba->pm_op_in_progress = 0;
@@ -8177,6 +8236,13 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (hba->clk_scaling.is_allowed)
 		ufshcd_resume_clkscaling(hba);
 
+	/*
+	 * Enable auto hibern8 after successful resume to prevent
+	 * unnecessary hibern8 enter/exit during resume path
+	 */
+	if (ufshcd_is_auto_hibern8_supported(hba))
+		ufshcd_set_auto_hibern8_timer(hba,
+						hba->hibern8_on_idle.delay_ms);
 	/* Schedule clock gating in case of no access to UFS device yet */
 	ufshcd_release_all(hba);
 	goto out;
@@ -8976,23 +9042,6 @@ start_window:
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
-static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
-	.upthreshold = 35,
-	.downdifferential = 30,
-	.simple_scaling = 1,
-};
-
-static void *gov_data = &ufshcd_ondemand_data;
-#else
-static void *gov_data;
-#endif
-
-static struct devfreq_dev_profile ufs_devfreq_profile = {
-	.polling_ms	= 40,
-	.target		= ufshcd_devfreq_target,
-	.get_dev_status	= ufshcd_devfreq_get_dev_status,
-};
 static void ufshcd_clkscaling_init_sysfs(struct ufs_hba *hba)
 {
 	hba->clk_scaling.enable_attr.show = ufshcd_clkscale_enable_show;
@@ -9157,15 +9206,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	if (ufshcd_is_clkscaling_supported(hba)) {
 		char wq_name[sizeof("ufs_clkscaling_00")];
 
-		hba->devfreq = devfreq_add_device(dev, &ufs_devfreq_profile,
-						   "simple_ondemand", gov_data);
-		if (IS_ERR(hba->devfreq)) {
-			dev_err(hba->dev, "Unable to register with devfreq %ld\n",
-					PTR_ERR(hba->devfreq));
-			goto out_remove_scsi_host;
-		}
-		hba->clk_scaling.is_suspended = false;
-
 		INIT_WORK(&hba->clk_scaling.suspend_work,
 			  ufshcd_clk_scaling_suspend_work);
 		INIT_WORK(&hba->clk_scaling.resume_work,
@@ -9175,8 +9215,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 			 host->host_no);
 		hba->clk_scaling.workq = create_singlethread_workqueue(wq_name);
 
-		/* Suspend devfreq until the UFS device is detected */
-		ufshcd_suspend_clkscaling(hba);
 		ufshcd_clkscaling_init_sysfs(hba);
 	}
 

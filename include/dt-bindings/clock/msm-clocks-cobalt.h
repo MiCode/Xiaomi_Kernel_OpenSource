@@ -99,7 +99,10 @@
 #define clk_gpll0				0x1ebe3bc4
 #define clk_gpll0_out_main			0xe9374de7
 #define clk_gpll0_ao				0xa1368304
+#define clk_gcc_mmss_gpll0_clk			0x8050f008
 #define clk_gcc_mmss_gpll0_div_clk		0xdd06848d
+#define clk_gcc_gpu_gpll0_clk			0xdad7a7a4
+#define clk_gcc_gpu_gpll0_div_clk		0x07d16c6a
 #define clk_gpll4				0xb3b5d85b
 #define clk_gpll4_out_main			0xa9a0ab9d
 #define clk_hmss_ahb_clk_src			0xaec8450f

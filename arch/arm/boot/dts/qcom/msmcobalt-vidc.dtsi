@@ -66,8 +66,8 @@
 		* corresponding video core frequency.
 		*/
 		qcom,imem-ab-tbl =
-			<100000000  1500000>, /* imem @ svs2 freq 75 Mhz */
-			<186000000 1500000>, /* imem @ svs2 freq 75 Mhz */
+			<100000000 1752000>, /* imem @ svs2 freq 75 Mhz */
+			<186000000 1752000>, /* imem @ svs2 freq 75 Mhz */
 			<360000000 2500000>, /* imem @ svs freq 171 Mhz */
 			<465000000 6000000>; /* imem @ noimal freq 320 Mhz */
 

@@ -370,8 +370,14 @@
 		#interrupt-cells = <3>;
 		qcom,periph-map = <0x10 0x11 0x12 0x13 0x14 0x16 0x36>;
 
+		smb138x_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
 		smb138x_parallel_slave: qcom,smb138x-parallel-slave@1000 {
 			compatible = "qcom,smb138x-parallel-slave";
+			qcom,pmic-revid = <&smb138x_revid>;
 			reg = <0x1000 0x700>;
 		};
 	};

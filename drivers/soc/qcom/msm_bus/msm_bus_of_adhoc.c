@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -495,6 +495,7 @@ static int get_bus_node_device_data(
 {
 	bool enable_only;
 	bool setrate_only;
+	struct device_node *qos_clk_node;
 
 	node_device->node_info = get_node_info_data(dev_node, pdev);
 	if (IS_ERR_OR_NULL(node_device->node_info)) {
@@ -505,7 +506,6 @@ static int get_bus_node_device_data(
 							"qcom,ap-owned");
 
 	if (node_device->node_info->is_fab_dev) {
-		struct device_node *qos_clk_node;
 		dev_dbg(&pdev->dev, "Dev %d\n", node_device->node_info->id);
 
 		if (!node_device->node_info->virt_dev) {
@@ -648,6 +648,21 @@ static int get_bus_node_device_data(
 								setrate_only;
 			node_device->clk[ACTIVE_CTX].setrate_only_clk =
 								setrate_only;
+		}
+
+		qos_clk_node = of_get_child_by_name(dev_node,
+						"qcom,node-qos-clks");
+
+		if (qos_clk_node) {
+			if (msm_bus_of_parse_clk_array(qos_clk_node, dev_node,
+						pdev,
+						&node_device->node_qos_clks,
+						&node_device->num_node_qos_clks,
+						node_device->node_info->id)) {
+				dev_info(&pdev->dev, "Bypass QoS programming");
+				node_device->fabdev->bypass_qos_prg = true;
+			}
+			of_node_put(qos_clk_node);
 		}
 
 		node_device->clk[DUAL_CTX].clk = of_clk_get_by_name(dev_node,

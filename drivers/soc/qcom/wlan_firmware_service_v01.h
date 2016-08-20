@@ -26,9 +26,11 @@
 #define QMI_WLFW_CAL_REPORT_RESP_V01 0x0026
 #define QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01 0x0028
 #define QMI_WLFW_MSA_READY_IND_V01 0x002B
+#define QMI_WLFW_ATHDIAG_WRITE_RESP_V01 0x0031
 #define QMI_WLFW_WLAN_MODE_REQ_V01 0x0022
 #define QMI_WLFW_IND_REGISTER_REQ_V01 0x0020
 #define QMI_WLFW_WLAN_CFG_RESP_V01 0x0023
+#define QMI_WLFW_ATHDIAG_WRITE_REQ_V01 0x0031
 #define QMI_WLFW_WLAN_MODE_RESP_V01 0x0022
 #define QMI_WLFW_PIN_CONNECT_RESULT_IND_V01 0x002C
 #define QMI_WLFW_FW_READY_IND_V01 0x0021
@@ -39,8 +41,12 @@
 #define QMI_WLFW_MSA_INFO_RESP_V01 0x002D
 #define QMI_WLFW_MSA_READY_REQ_V01 0x002E
 #define QMI_WLFW_CAP_RESP_V01 0x0024
+#define QMI_WLFW_ATHDIAG_READ_RESP_V01 0x0030
+#define QMI_WLFW_VBATT_REQ_V01 0x0032
+#define QMI_WLFW_VBATT_RESP_V01 0x0032
 #define QMI_WLFW_MSA_INFO_REQ_V01 0x002D
 #define QMI_WLFW_CAL_DOWNLOAD_REQ_V01 0x0027
+#define QMI_WLFW_ATHDIAG_READ_REQ_V01 0x0030
 #define QMI_WLFW_WLAN_CFG_REQ_V01 0x0023
 #define QMI_WLFW_IND_REGISTER_RESP_V01 0x0020
 
@@ -370,5 +376,49 @@ struct wlfw_ini_resp_msg_v01 {
 };
 #define WLFW_INI_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct elem_info wlfw_ini_resp_msg_v01_ei[];
+
+struct wlfw_athdiag_read_req_msg_v01 {
+	uint32_t offset;
+	uint32_t mem_type;
+	uint32_t data_len;
+};
+#define WLFW_ATHDIAG_READ_REQ_MSG_V01_MAX_MSG_LEN 21
+extern struct elem_info wlfw_athdiag_read_req_msg_v01_ei[];
+
+struct wlfw_athdiag_read_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+	uint8_t data_valid;
+	uint32_t data_len;
+	uint8_t data[QMI_WLFW_MAX_DATA_SIZE_V01];
+};
+#define WLFW_ATHDIAG_READ_RESP_MSG_V01_MAX_MSG_LEN 6156
+extern struct elem_info wlfw_athdiag_read_resp_msg_v01_ei[];
+
+struct wlfw_athdiag_write_req_msg_v01 {
+	uint32_t offset;
+	uint32_t mem_type;
+	uint32_t data_len;
+	uint8_t data[QMI_WLFW_MAX_DATA_SIZE_V01];
+};
+#define WLFW_ATHDIAG_WRITE_REQ_MSG_V01_MAX_MSG_LEN 6163
+extern struct elem_info wlfw_athdiag_write_req_msg_v01_ei[];
+
+struct wlfw_athdiag_write_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+#define WLFW_ATHDIAG_WRITE_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct elem_info wlfw_athdiag_write_resp_msg_v01_ei[];
+
+struct wlfw_vbatt_req_msg_v01 {
+	uint64_t voltage_uv;
+};
+#define WLFW_VBATT_REQ_MSG_V01_MAX_MSG_LEN 11
+extern struct elem_info wlfw_vbatt_req_msg_v01_ei[];
+
+struct wlfw_vbatt_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+#define WLFW_VBATT_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct elem_info wlfw_vbatt_resp_msg_v01_ei[];
 
 #endif

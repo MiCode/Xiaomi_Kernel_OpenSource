@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +26,7 @@
 #include <linux/kernel.h>
 #include <linux/gpio.h>
 #include <linux/regmap.h>
+#include <linux/spi/spi.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx-irq.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
@@ -41,9 +41,12 @@
 #include <sound/tlv.h>
 #include <sound/info.h>
 #include "wcd934x.h"
+#include "wcd934x-mbhc.h"
 #include "wcd934x-routing.h"
+#include "wcd934x-dsp-cntl.h"
 #include "../wcd9xxx-common-v2.h"
 #include "../wcd9xxx-resmgr-v2.h"
+#include "../wcdcal-hwdep.h"
 
 #define WCD934X_RX_PORT_START_NUMBER  16
 
@@ -121,25 +124,14 @@ static const struct snd_kcontrol_new name##_mux = \
 #define  CF_MIN_3DB_75HZ		0x1
 #define  CF_MIN_3DB_150HZ		0x2
 
+#define CPE_ERR_WDOG_BITE BIT(0)
+#define CPE_FATAL_IRQS CPE_ERR_WDOG_BITE
+
 enum {
 	VI_SENSE_1,
 	VI_SENSE_2,
 	AUDIO_NOMINAL,
 	HPH_PA_DELAY,
-};
-
-enum {
-	MIC_BIAS_1 = 1,
-	MIC_BIAS_2,
-	MIC_BIAS_3,
-	MIC_BIAS_4
-};
-
-enum {
-	MICB_PULLUP_ENABLE,
-	MICB_PULLUP_DISABLE,
-	MICB_ENABLE,
-	MICB_DISABLE,
 };
 
 enum {
@@ -448,6 +440,8 @@ struct tavil_priv {
 	s32 dmic_0_1_clk_cnt;
 	s32 dmic_2_3_clk_cnt;
 	s32 dmic_4_5_clk_cnt;
+	s32 micb_ref[TAVIL_MAX_MICBIAS];
+	s32 pullup_ref[TAVIL_MAX_MICBIAS];
 
 	/* compander */
 	int comp_enabled[COMPANDER_MAX];
@@ -470,8 +464,12 @@ struct tavil_priv {
 
 	struct wcd9xxx_resmgr_v2 *resmgr;
 	struct wcd934x_swr swr;
+	struct mutex micb_lock;
 
 	struct clk *wcd_ext_clk;
+
+	/* mbhc module */
+	struct wcd934x_mbhc *mbhc;
 
 	struct mutex codec_mutex;
 	struct work_struct tavil_add_child_devices_work;
@@ -479,6 +477,12 @@ struct tavil_priv {
 	struct tx_mute_work tx_mute_dwork[WCD934X_NUM_DECIMATORS];
 
 	unsigned int vi_feed_value;
+
+	/* DSP control */
+	struct wcd_dsp_cntl *wdsp_cntl;
+
+	/* cal info for codec */
+	struct fw_info *fw_data;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -611,6 +615,7 @@ int wcd934x_bringup(struct wcd9xxx *wcd9xxx)
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x3);
+	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x7);
 
 	return 0;
 }
@@ -2582,13 +2587,21 @@ static int tavil_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int tavil_micbias_control(struct snd_soc_codec *codec,
-				 int micb_num,
-				 int req, bool is_dapm)
+/*
+ * tavil_mbhc_micb_adjust_voltage: adjust specific micbias voltage
+ * @codec: handle to snd_soc_codec *
+ * @req_volt: micbias voltage to be set
+ * @micb_num: micbias to be set, e.g. micbias1 or micbias2
+ *
+ * return 0 if adjustment is success or error code in case of failure
+ */
+int tavil_mbhc_micb_adjust_voltage(struct snd_soc_codec *codec,
+				   int req_volt, int micb_num)
 {
-
-
-	u16 micb_reg;
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int cur_vout_ctl, req_vout_ctl;
+	int micb_reg, micb_val, micb_en;
+	int ret = 0;
 
 	switch (micb_num) {
 	case MIC_BIAS_1:
@@ -2604,21 +2617,166 @@ static int tavil_micbias_control(struct snd_soc_codec *codec,
 		micb_reg = WCD934X_ANA_MICB4;
 		break;
 	default:
+		return -EINVAL;
+	}
+	mutex_lock(&tavil->micb_lock);
+
+	/*
+	 * If requested micbias voltage is same as current micbias
+	 * voltage, then just return. Otherwise, adjust voltage as
+	 * per requested value. If micbias is already enabled, then
+	 * to avoid slow micbias ramp-up or down enable pull-up
+	 * momentarily, change the micbias value and then re-enable
+	 * micbias.
+	 */
+	micb_val = snd_soc_read(codec, micb_reg);
+	micb_en = (micb_val & 0xC0) >> 6;
+	cur_vout_ctl = micb_val & 0x3F;
+
+	req_vout_ctl = wcd934x_get_micb_vout_ctl_val(req_volt);
+	if (IS_ERR_VALUE(req_vout_ctl)) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	if (cur_vout_ctl == req_vout_ctl) {
+		ret = 0;
+		goto exit;
+	}
+
+	dev_dbg(codec->dev, "%s: micb_num: %d, cur_mv: %d, req_mv: %d, micb_en: %d\n",
+		 __func__, micb_num, WCD_VOUT_CTL_TO_MICB(cur_vout_ctl),
+		 req_volt, micb_en);
+
+	if (micb_en == 0x1)
+		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+
+	snd_soc_update_bits(codec, micb_reg, 0x3F, req_vout_ctl);
+
+	if (micb_en == 0x1) {
+		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+		/*
+		 * Add 2ms delay as per HW requirement after enabling
+		 * micbias
+		 */
+		usleep_range(2000, 2100);
+	}
+exit:
+	mutex_unlock(&tavil->micb_lock);
+	return ret;
+}
+EXPORT_SYMBOL(tavil_mbhc_micb_adjust_voltage);
+
+/*
+ * tavil_micbias_control: enable/disable micbias
+ * @codec: handle to snd_soc_codec *
+ * @micb_num: micbias to be enabled/disabled, e.g. micbias1 or micbias2
+ * @req: control requested, enable/disable or pullup enable/disable
+ * @is_dapm: triggered by dapm or not
+ *
+ * return 0 if control is success or error code in case of failure
+ */
+int tavil_micbias_control(struct snd_soc_codec *codec,
+			  int micb_num, int req, bool is_dapm)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int micb_index = micb_num - 1;
+	u16 micb_reg;
+	int pre_off_event = 0, post_off_event = 0;
+	int post_on_event = 0, post_dapm_off = 0;
+	int post_dapm_on = 0;
+
+	if ((micb_index < 0) || (micb_index > TAVIL_MAX_MICBIAS - 1)) {
+		dev_err(codec->dev, "%s: Invalid micbias index, micb_ind:%d\n",
+			__func__, micb_index);
+		return -EINVAL;
+	}
+
+	switch (micb_num) {
+	case MIC_BIAS_1:
+		micb_reg = WCD934X_ANA_MICB1;
+		break;
+	case MIC_BIAS_2:
+		micb_reg = WCD934X_ANA_MICB2;
+		pre_off_event = WCD_EVENT_PRE_MICBIAS_2_OFF;
+		post_off_event = WCD_EVENT_POST_MICBIAS_2_OFF;
+		post_on_event = WCD_EVENT_POST_MICBIAS_2_ON;
+		post_dapm_on = WCD_EVENT_POST_DAPM_MICBIAS_2_ON;
+		post_dapm_off = WCD_EVENT_POST_DAPM_MICBIAS_2_OFF;
+		break;
+	case MIC_BIAS_3:
+		micb_reg = WCD934X_ANA_MICB3;
+		break;
+	case MIC_BIAS_4:
+		micb_reg = WCD934X_ANA_MICB4;
+		break;
+	default:
 		dev_err(codec->dev, "%s: Invalid micbias number: %d\n",
 			__func__, micb_num);
 		return -EINVAL;
 	}
+	mutex_lock(&tavil->micb_lock);
 
 	switch (req) {
+	case MICB_PULLUP_ENABLE:
+		tavil->pullup_ref[micb_index]++;
+		if ((tavil->pullup_ref[micb_index] == 1) &&
+		    (tavil->micb_ref[micb_index] == 0))
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+		break;
+	case MICB_PULLUP_DISABLE:
+		tavil->pullup_ref[micb_index]--;
+		if ((tavil->pullup_ref[micb_index] == 0) &&
+		    (tavil->micb_ref[micb_index] == 0))
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
+		break;
 	case MICB_ENABLE:
-		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+		tavil->micb_ref[micb_index]++;
+		if (tavil->micb_ref[micb_index] == 1) {
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+			if (post_on_event && tavil->mbhc)
+				blocking_notifier_call_chain(
+						&tavil->mbhc->notifier,
+						post_on_event,
+						&tavil->mbhc->wcd_mbhc);
+		}
+		if (is_dapm && post_dapm_on && tavil->mbhc)
+			blocking_notifier_call_chain(&tavil->mbhc->notifier,
+					post_dapm_on, &tavil->mbhc->wcd_mbhc);
 		break;
 	case MICB_DISABLE:
-		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+		tavil->micb_ref[micb_index]--;
+		if ((tavil->micb_ref[micb_index] == 0) &&
+		    (tavil->pullup_ref[micb_index] > 0))
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+		else if ((tavil->micb_ref[micb_index] == 0) &&
+			 (tavil->pullup_ref[micb_index] == 0)) {
+			if (pre_off_event && tavil->mbhc)
+				blocking_notifier_call_chain(
+						&tavil->mbhc->notifier,
+						pre_off_event,
+						&tavil->mbhc->wcd_mbhc);
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
+			if (post_off_event && tavil->mbhc)
+				blocking_notifier_call_chain(
+						&tavil->mbhc->notifier,
+						post_off_event,
+						&tavil->mbhc->wcd_mbhc);
+		}
+		if (is_dapm && post_dapm_off && tavil->mbhc)
+			blocking_notifier_call_chain(&tavil->mbhc->notifier,
+					post_dapm_off, &tavil->mbhc->wcd_mbhc);
+		break;
 	};
+
+	dev_dbg(codec->dev, "%s: micb_num:%d, micb_ref: %d, pullup_ref: %d\n",
+		__func__, micb_num, tavil->micb_ref[micb_index],
+		tavil->pullup_ref[micb_index]);
+
+	mutex_unlock(&tavil->micb_lock);
 
 	return 0;
 }
+EXPORT_SYMBOL(tavil_micbias_control);
 
 static int __tavil_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 					int event)
@@ -5168,6 +5326,66 @@ int tavil_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable)
 }
 EXPORT_SYMBOL(tavil_cdc_mclk_enable);
 
+static int __tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+					   bool enable)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	if (enable) {
+		if (wcd_resmgr_get_clk_type(tavil->resmgr) ==
+		    WCD_CLK_RCO) {
+			ret = wcd_resmgr_enable_clk_block(tavil->resmgr,
+							  WCD_CLK_RCO);
+		} else {
+			ret = tavil_cdc_req_mclk_enable(tavil, true);
+			if (ret) {
+				dev_err(codec->dev,
+					"%s: mclk_enable failed, err = %d\n",
+					__func__, ret);
+				goto done;
+			}
+			ret = wcd_resmgr_enable_clk_block(tavil->resmgr,
+							   WCD_CLK_RCO);
+			ret |= tavil_cdc_req_mclk_enable(tavil, false);
+		}
+
+	} else {
+		ret = wcd_resmgr_disable_clk_block(tavil->resmgr,
+						   WCD_CLK_RCO);
+	}
+
+	if (ret) {
+		dev_err(codec->dev, "%s: Error in %s RCO\n",
+			__func__, (enable ? "enabling" : "disabling"));
+		ret = -EINVAL;
+	}
+
+done:
+	return ret;
+}
+
+/*
+ * tavil_codec_internal_rco_ctrl: Enable/Disable codec's RCO clock
+ * @codec: Handle to the codec
+ * @enable: Indicates whether clock should be enabled or disabled
+ */
+static int tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+					 bool enable)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	WCD9XXX_V2_BG_CLK_LOCK(tavil->resmgr);
+	ret = __tavil_codec_internal_rco_ctrl(codec, enable);
+	WCD9XXX_V2_BG_CLK_UNLOCK(tavil->resmgr);
+	return ret;
+}
+
+static const struct wcd_resmgr_cb tavil_resmgr_cb = {
+	.cdc_rco_ctrl = __tavil_codec_internal_rco_ctrl,
+};
+
 static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
 	{WCD934X_BIAS_VBG_FINE_ADJ, 0xFF, 0x75},
 	{WCD934X_CODEC_CPR_SVS_CX_VDD, 0xFF, 0x7C}, /* value in svs mode */
@@ -5216,6 +5434,9 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
 	{WCD934X_CDC_COMPANDER8_CTL3, 0x80, 0x80},
 	{WCD934X_CDC_COMPANDER7_CTL7, 0x01, 0x01},
 	{WCD934X_CDC_COMPANDER8_CTL7, 0x01, 0x01},
+	{WCD934X_CODEC_RPM_CLK_GATE, 0x08, 0x00},
+	{WCD934X_TLMM_DMIC3_CLK_PINCFG, 0xFF, 0x0a},
+	{WCD934X_TLMM_DMIC3_DATA_PINCFG, 0xFF, 0x0a},
 };
 
 static void tavil_codec_init_reg(struct snd_soc_codec *codec)
@@ -5399,7 +5620,13 @@ static void tavil_cleanup_irqs(struct tavil_priv *tavil)
 	wcd9xxx_free_irq(core_res, WCD9XXX_IRQ_SLIMBUS, tavil);
 }
 
-static int wcd934x_get_micb_vout_ctl_val(u32 micb_mv)
+/*
+ * wcd934x_get_micb_vout_ctl_val: converts micbias from volts to register value
+ * @micb_mv: micbias in mv
+ *
+ * return register value converted
+ */
+int wcd934x_get_micb_vout_ctl_val(u32 micb_mv)
 {
 	/* min micbias voltage is 1V and maximum is 2.85V */
 	if (micb_mv < 1000 || micb_mv > 2850) {
@@ -5409,6 +5636,7 @@ static int wcd934x_get_micb_vout_ctl_val(u32 micb_mv)
 
 	return (micb_mv - 1000) / 50;
 }
+EXPORT_SYMBOL(wcd934x_get_micb_vout_ctl_val);
 
 static int tavil_handle_pdata(struct tavil_priv *tavil,
 			      struct wcd9xxx_pdata *pdata)
@@ -5457,6 +5685,62 @@ static void tavil_enable_sido_buck(struct snd_soc_codec *codec)
 	tavil->resmgr->sido_input_src = SIDO_SOURCE_RCO_BG;
 }
 
+struct wcd_dsp_cdc_cb cdc_cb = {
+	.cdc_clk_en = tavil_codec_internal_rco_ctrl,
+};
+
+static int tavil_wdsp_initialize(struct snd_soc_codec *codec)
+{
+	struct wcd9xxx *control;
+	struct tavil_priv *tavil;
+	struct wcd_dsp_params params;
+	int ret = 0;
+
+	control = dev_get_drvdata(codec->dev->parent);
+	tavil = snd_soc_codec_get_drvdata(codec);
+
+	params.cb = &cdc_cb;
+	params.irqs.cpe_ipc1_irq = WCD934X_IRQ_CPE1_INTR;
+	params.irqs.cpe_err_irq = WCD934X_IRQ_CPE_ERROR;
+	params.irqs.fatal_irqs = CPE_FATAL_IRQS;
+	params.clk_rate = control->mclk_rate;
+	params.dsp_instance = 0;
+
+	wcd_dsp_cntl_init(codec, &params, &tavil->wdsp_cntl);
+	if (!tavil->wdsp_cntl) {
+		dev_err(tavil->dev, "%s: wcd-dsp-control init failed\n",
+			__func__);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+/*
+ * tavil_soc_get_mbhc: get wcd934x_mbhc handle of corresponding codec
+ * @codec: handle to snd_soc_codec *
+ *
+ * return wcd934x_mbhc handle or error code in case of failure
+ */
+struct wcd934x_mbhc *tavil_soc_get_mbhc(struct snd_soc_codec *codec)
+{
+	struct tavil_priv *tavil;
+
+	if (!codec) {
+		pr_err("%s: Invalid params, NULL codec\n", __func__);
+		return NULL;
+	}
+	tavil = snd_soc_codec_get_drvdata(codec);
+
+	if (!tavil) {
+		pr_err("%s: Invalid params, NULL tavil\n", __func__);
+		return NULL;
+	}
+
+	return tavil->mbhc;
+}
+EXPORT_SYMBOL(tavil_soc_get_mbhc);
+
 static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -5483,6 +5767,30 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	/* Default HPH Mode to Class-H HiFi */
 	tavil->hph_mode = CLS_H_HIFI;
 
+	tavil->fw_data = devm_kzalloc(codec->dev, sizeof(*(tavil->fw_data)),
+				      GFP_KERNEL);
+	if (!tavil->fw_data)
+		goto err;
+
+	set_bit(WCD9XXX_ANC_CAL, tavil->fw_data->cal_bit);
+	set_bit(WCD9XXX_MBHC_CAL, tavil->fw_data->cal_bit);
+	set_bit(WCD9XXX_MAD_CAL, tavil->fw_data->cal_bit);
+	set_bit(WCD9XXX_VBAT_CAL, tavil->fw_data->cal_bit);
+
+	ret = wcd_cal_create_hwdep(tavil->fw_data,
+				   WCD9XXX_CODEC_HWDEP_NODE, codec);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
+		goto err_hwdep;
+	}
+
+	/* Initialize MBHC module */
+	ret = tavil_mbhc_init(&tavil->mbhc, codec, tavil->fw_data);
+	if (ret) {
+		pr_err("%s: mbhc initialization failed\n", __func__);
+		goto err_hwdep;
+	}
+
 	tavil->codec = codec;
 	for (i = 0; i < COMPANDER_MAX; i++)
 		tavil->comp_enabled[i] = 0;
@@ -5502,14 +5810,14 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	ret = tavil_handle_pdata(tavil, pdata);
 	if (IS_ERR_VALUE(ret)) {
 		dev_err(codec->dev, "%s: bad pdata\n", __func__);
-		goto err;
+		goto err_hwdep;
 	}
 
 	ptr = devm_kzalloc(codec->dev, (sizeof(tavil_rx_chs) +
 			   sizeof(tavil_tx_chs)), GFP_KERNEL);
 	if (!ptr) {
 		ret = -ENOMEM;
-		goto err;
+		goto err_hwdep;
 	}
 
 	snd_soc_dapm_add_routes(dapm, tavil_slim_audio_map,
@@ -5552,12 +5860,18 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 				  tavil_tx_mute_update_callback);
 	}
 	snd_soc_dapm_sync(dapm);
+
+	tavil_wdsp_initialize(codec);
+
 	return ret;
 
 err_pdata:
 	devm_kfree(codec->dev, ptr);
 	control->rx_chs = NULL;
 	control->tx_chs = NULL;
+err_hwdep:
+	devm_kfree(codec->dev, tavil->fw_data);
+	tavil->fw_data = NULL;
 err:
 	return ret;
 }
@@ -5572,6 +5886,13 @@ static int tavil_soc_codec_remove(struct snd_soc_codec *codec)
 	control->rx_chs = NULL;
 	control->tx_chs = NULL;
 	tavil_cleanup_irqs(tavil);
+
+	if (tavil->wdsp_cntl)
+		wcd_dsp_cntl_deinit(&tavil->wdsp_cntl);
+
+	/* Deinitialize MBHC module */
+	tavil_mbhc_deinit(codec);
+	tavil->mbhc = NULL;
 
 	return 0;
 }
@@ -5823,6 +6144,88 @@ static int tavil_swrm_handle_irq(void *handle,
 	return ret;
 }
 
+static void tavil_codec_add_spi_device(struct tavil_priv *tavil,
+				       struct device_node *node)
+{
+	struct spi_master *master;
+	struct spi_device *spi;
+	u32 prop_value;
+	int rc;
+
+	/* Read the master bus num from DT node */
+	rc = of_property_read_u32(node, "qcom,master-bus-num",
+				  &prop_value);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: prop %s not found in node %s",
+			__func__, "qcom,master-bus-num", node->full_name);
+		goto done;
+	}
+
+	/* Get the reference to SPI master */
+	master = spi_busnum_to_master(prop_value);
+	if (!master) {
+		dev_err(tavil->dev, "%s: Invalid spi_master for bus_num %u\n",
+			__func__, prop_value);
+		goto done;
+	}
+
+	/* Allocate the spi device */
+	spi = spi_alloc_device(master);
+	if (!spi) {
+		dev_err(tavil->dev, "%s: spi_alloc_device failed\n",
+			__func__);
+		goto err_spi_alloc_dev;
+	}
+
+	/* Initialize device properties */
+	if (of_modalias_node(node, spi->modalias,
+			     sizeof(spi->modalias)) < 0) {
+		dev_err(tavil->dev, "%s: cannot find modalias for %s\n",
+			__func__, node->full_name);
+		goto err_dt_parse;
+	}
+
+	rc = of_property_read_u32(node, "qcom,chip-select",
+				  &prop_value);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: prop %s not found in node %s",
+			__func__, "qcom,chip-select", node->full_name);
+		goto err_dt_parse;
+	}
+	spi->chip_select = prop_value;
+
+	rc = of_property_read_u32(node, "qcom,max-frequency",
+				  &prop_value);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: prop %s not found in node %s",
+			__func__, "qcom,max-frequency", node->full_name);
+		goto err_dt_parse;
+	}
+	spi->max_speed_hz = prop_value;
+
+	spi->dev.of_node = node;
+
+	rc = spi_add_device(spi);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(tavil->dev, "%s: spi_add_device failed\n", __func__);
+		goto err_dt_parse;
+	}
+
+	/* Put the reference to SPI master */
+	put_device(&master->dev);
+
+	return;
+
+err_dt_parse:
+	spi_dev_put(spi);
+
+err_spi_alloc_dev:
+	/* Put the reference to SPI master */
+	put_device(&master->dev);
+done:
+	return;
+}
+
 static void tavil_add_child_devices(struct work_struct *work)
 {
 	struct tavil_priv *tavil;
@@ -5856,6 +6259,14 @@ static void tavil_add_child_devices(struct work_struct *work)
 	platdata = &tavil->swr.plat_data;
 
 	for_each_child_of_node(wcd9xxx->dev->of_node, node) {
+
+		/* Parse and add the SPI device node */
+		if (!strcmp(node->name, "wcd_spi")) {
+			tavil_codec_add_spi_device(tavil, node);
+			continue;
+		}
+
+		/* Parse other child device nodes and add platform device */
 		if (!strcmp(node->name, "swr_master"))
 			strlcpy(plat_dev_name, "tavil_swr_ctrl",
 				(WCD934X_STRING_LEN - 1));
@@ -5949,6 +6360,29 @@ static int __tavil_enable_efuse_sensing(struct tavil_priv *tavil)
 	return rc;
 }
 
+/*
+ * tavil_get_wcd_dsp_cntl: Get the reference to wcd_dsp_cntl
+ * @dev: Device pointer for codec device
+ *
+ * This API gets the reference to codec's struct wcd_dsp_cntl
+ */
+struct wcd_dsp_cntl *tavil_get_wcd_dsp_cntl(struct device *dev)
+{
+	struct platform_device *pdev;
+	struct tavil_priv *tavil;
+
+	if (!dev) {
+		pr_err("%s: Invalid device\n", __func__);
+		return NULL;
+	}
+
+	pdev = to_platform_device(dev);
+	tavil = platform_get_drvdata(pdev);
+
+	return tavil->wdsp_cntl;
+}
+EXPORT_SYMBOL(tavil_get_wcd_dsp_cntl);
+
 static int tavil_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -5968,6 +6402,7 @@ static int tavil_probe(struct platform_device *pdev)
 	tavil->dev = &pdev->dev;
 	INIT_WORK(&tavil->tavil_add_child_devices_work,
 		  tavil_add_child_devices);
+	mutex_init(&tavil->micb_lock);
 	mutex_init(&tavil->swr.read_mutex);
 	mutex_init(&tavil->swr.write_mutex);
 	mutex_init(&tavil->swr.clk_mutex);
@@ -6033,6 +6468,7 @@ err_cdc_reg:
 err_clk:
 	wcd_resmgr_remove(tavil->resmgr);
 err_resmgr:
+	mutex_destroy(&tavil->micb_lock);
 	mutex_destroy(&tavil->codec_mutex);
 	mutex_destroy(&tavil->swr.read_mutex);
 	mutex_destroy(&tavil->swr.write_mutex);
@@ -6050,6 +6486,7 @@ static int tavil_remove(struct platform_device *pdev)
 	if (!tavil)
 		return -EINVAL;
 
+	mutex_destroy(&tavil->micb_lock);
 	mutex_destroy(&tavil->codec_mutex);
 	mutex_destroy(&tavil->swr.read_mutex);
 	mutex_destroy(&tavil->swr.write_mutex);

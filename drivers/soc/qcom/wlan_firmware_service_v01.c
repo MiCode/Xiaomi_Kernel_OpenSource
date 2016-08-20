@@ -1364,3 +1364,189 @@ struct elem_info wlfw_ini_resp_msg_v01_ei[] = {
 		.is_array       = QMI_COMMON_TLV_TYPE,
 	},
 };
+
+struct elem_info wlfw_athdiag_read_req_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint32_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x01,
+		.offset         = offsetof(struct wlfw_athdiag_read_req_msg_v01,
+					   offset),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint32_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         = offsetof(struct wlfw_athdiag_read_req_msg_v01,
+					   mem_type),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint32_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x03,
+		.offset         = offsetof(struct wlfw_athdiag_read_req_msg_v01,
+					   data_len),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.is_array       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info wlfw_athdiag_read_resp_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = 1,
+		.elem_size      = sizeof(struct qmi_response_type_v01),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         = offsetof(
+				   struct wlfw_athdiag_read_resp_msg_v01,
+				   resp),
+		.ei_array      = get_qmi_response_type_v01_ei(),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(
+				   struct wlfw_athdiag_read_resp_msg_v01,
+				   data_valid),
+	},
+	{
+		.data_type      = QMI_DATA_LEN,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint16_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(
+				   struct wlfw_athdiag_read_resp_msg_v01,
+				   data_len),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = QMI_WLFW_MAX_DATA_SIZE_V01,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = VAR_LEN_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(
+				   struct wlfw_athdiag_read_resp_msg_v01,
+				   data),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.is_array       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info wlfw_athdiag_write_req_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint32_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x01,
+		.offset         = offsetof(
+				   struct wlfw_athdiag_write_req_msg_v01,
+				   offset),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint32_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         = offsetof(
+				   struct wlfw_athdiag_write_req_msg_v01,
+				   mem_type),
+	},
+	{
+		.data_type      = QMI_DATA_LEN,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint16_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x03,
+		.offset         = offsetof(
+				   struct wlfw_athdiag_write_req_msg_v01,
+				   data_len),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = QMI_WLFW_MAX_DATA_SIZE_V01,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = VAR_LEN_ARRAY,
+		.tlv_type       = 0x03,
+		.offset         = offsetof(
+				   struct wlfw_athdiag_write_req_msg_v01,
+				   data),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.is_array       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info wlfw_athdiag_write_resp_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = 1,
+		.elem_size      = sizeof(struct qmi_response_type_v01),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         = offsetof(
+				   struct wlfw_athdiag_write_resp_msg_v01,
+				   resp),
+		.ei_array      = get_qmi_response_type_v01_ei(),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.is_array       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info wlfw_vbatt_req_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_UNSIGNED_8_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint64_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x01,
+		.offset         = offsetof(struct wlfw_vbatt_req_msg_v01,
+					   voltage_uv),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.is_array       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info wlfw_vbatt_resp_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = 1,
+		.elem_size      = sizeof(struct qmi_response_type_v01),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         = offsetof(struct wlfw_vbatt_resp_msg_v01,
+					   resp),
+		.ei_array      = get_qmi_response_type_v01_ei(),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.is_array       = QMI_COMMON_TLV_TYPE,
+	},
+};

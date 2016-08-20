@@ -40,6 +40,12 @@
 		qcom,latency-level = "ultra";
 	};
 
+	pcm_noirq: qcom,msm-pcm-dsp-noirq {
+		compatible = "qcom,msm-pcm-dsp-noirq";
+		qcom,msm-pcm-low-latency;
+		qcom,latency-level = "ultra";
+	};
+
 	compress: qcom,msm-compress-dsp {
 		compatible = "qcom,msm-compress-dsp";
 	};

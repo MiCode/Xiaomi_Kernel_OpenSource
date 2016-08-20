@@ -72,7 +72,7 @@ static ssize_t show_deploy(struct kobject *kobj, struct attribute *attr,
 {
 	struct irq_helper *irq = to_irq_helper(kobj);
 
-	return snprintf(buf, sizeof(irq->deploy), "%u\n", irq->deploy);
+	return snprintf(buf, PAGE_SIZE, "%u\n", irq->deploy);
 }
 IRQ_HELPER_ATTR(irq_blacklist_on, 0444, show_deploy, NULL);
 

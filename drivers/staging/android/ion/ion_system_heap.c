@@ -74,6 +74,31 @@ struct page_info {
 	struct list_head list;
 };
 
+/*
+ * Used by ion_system_secure_heap only
+ * Since no lock is held, results are approximate.
+ */
+size_t ion_system_heap_secure_page_pool_total(struct ion_heap *heap,
+					      int vmid_flags)
+{
+	struct ion_system_heap *sys_heap;
+	struct ion_page_pool *pool;
+	size_t total = 0;
+	int vmid, i;
+
+	sys_heap = container_of(heap, struct ion_system_heap, heap);
+	vmid = get_secure_vmid(vmid_flags);
+	if (!is_secure_vmid_valid(vmid))
+		return 0;
+
+	for (i = 0; i < num_orders; i++) {
+		pool = sys_heap->secure_pools[vmid][i];
+		total += ion_page_pool_total(pool, true);
+	}
+
+	return total << PAGE_SHIFT;
+}
+
 static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 				      struct ion_buffer *buffer,
 				      unsigned long order,

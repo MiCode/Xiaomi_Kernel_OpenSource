@@ -597,7 +597,7 @@
 			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <2>;
 
-			apc0_pwrcl_vreg: regulator-pwrcl {
+			apc0_pwrcl_vreg: regulator {
 				regulator-name = "apc0_pwrcl_corner";
 				regulator-min-microvolt = <1>;
 				regulator-max-microvolt = <23>;
@@ -759,7 +759,7 @@
 			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <2>;
 
-			apc1_perfcl_vreg: regulator-pwrcl {
+			apc1_perfcl_vreg: regulator {
 				regulator-name = "apc1_perfcl_corner";
 				regulator-min-microvolt = <1>;
 				regulator-max-microvolt = <26>;
@@ -899,7 +899,7 @@
 	};
 
 	gfx_cpr: cpr4-ctrl@5061000 {
-		compatible = "qcom,cpr4-msmcobalt-mmss-regulator";
+		compatible = "qcom,cpr4-msmcobalt-v1-mmss-regulator";
 		reg = <0x05061000 0x4000>, <0x00784000 0x1000>;
 		reg-names = "cpr_ctrl", "fuse_base";
 		clocks = <&clock_gpu clk_gpucc_rbcpr_clk>,

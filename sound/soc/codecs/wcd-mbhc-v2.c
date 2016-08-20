@@ -1525,14 +1525,14 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 			mbhc->mbhc_cb->trim_btn_reg(codec);
 		/* Enable external voltage source to micbias if present */
 		if (mbhc->mbhc_cb->enable_mb_source)
-			mbhc->mbhc_cb->enable_mb_source(codec, true);
+			mbhc->mbhc_cb->enable_mb_source(mbhc, true);
 		mbhc->btn_press_intr = false;
 		wcd_mbhc_detect_plug_type(mbhc);
 	} else if ((mbhc->current_plug != MBHC_PLUG_TYPE_NONE)
 			&& !detection_type) {
 		/* Disable external voltage source to micbias if present */
 		if (mbhc->mbhc_cb->enable_mb_source)
-			mbhc->mbhc_cb->enable_mb_source(codec, false);
+			mbhc->mbhc_cb->enable_mb_source(mbhc, false);
 		/* Disable HW FSM */
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 0);
@@ -1588,7 +1588,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 	} else if (!detection_type) {
 		/* Disable external voltage source to micbias if present */
 		if (mbhc->mbhc_cb->enable_mb_source)
-			mbhc->mbhc_cb->enable_mb_source(codec, false);
+			mbhc->mbhc_cb->enable_mb_source(mbhc, false);
 		/* Disable HW FSM */
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 0);
@@ -2053,24 +2053,6 @@ static irqreturn_t wcd_mbhc_hphr_ocp_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void wcd_mbhc_moisture_config(struct wcd_mbhc *mbhc)
-{
-	if (mbhc->mbhc_cfg->moist_cfg.m_vref_ctl == V_OFF)
-		return;
-
-	/* Donot enable moisture detection if jack type is NC */
-	if (!mbhc->hphl_swh) {
-		pr_debug("%s: disable moisture detection for NC\n", __func__);
-		return;
-	}
-
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MOISTURE_VREF,
-				 mbhc->mbhc_cfg->moist_cfg.m_vref_ctl);
-	if (mbhc->mbhc_cb->hph_pull_up_control)
-		mbhc->mbhc_cb->hph_pull_up_control(mbhc->codec,
-				mbhc->mbhc_cfg->moist_cfg.m_iref_ctl);
-}
-
 static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 {
 	int ret = 0;
@@ -2085,7 +2067,8 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	else
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HS_L_DET_PULL_UP_CTRL, 3);
 
-	wcd_mbhc_moisture_config(mbhc);
+	if (mbhc->mbhc_cfg->moisture_en && mbhc->mbhc_cb->mbhc_moisture_config)
+		mbhc->mbhc_cb->mbhc_moisture_config(mbhc);
 
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHL_PLUG_TYPE, mbhc->hphl_swh);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_GND_PLUG_TYPE, mbhc->gnd_swh);
@@ -2142,7 +2125,7 @@ static void wcd_mbhc_fw_read(struct work_struct *work)
 		pr_debug("%s:Attempt %d to request MBHC firmware\n",
 			__func__, retry);
 		if (mbhc->mbhc_cb->get_hwdep_fw_cal)
-			fw_data = mbhc->mbhc_cb->get_hwdep_fw_cal(codec,
+			fw_data = mbhc->mbhc_cb->get_hwdep_fw_cal(mbhc,
 					WCD9XXX_MBHC_CAL);
 		if (!fw_data)
 			ret = request_firmware(&fw, "wcd9320/wcd9320_mbhc.bin",
@@ -2427,7 +2410,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	/* Register event notifier */
 	mbhc->nblock.notifier_call = wcd_event_notify;
 	if (mbhc->mbhc_cb->register_notifier) {
-		ret = mbhc->mbhc_cb->register_notifier(codec, &mbhc->nblock,
+		ret = mbhc->mbhc_cb->register_notifier(mbhc, &mbhc->nblock,
 						       true);
 		if (ret) {
 			pr_err("%s: Failed to register notifier %d\n",
@@ -2532,7 +2515,7 @@ err_btn_press_irq:
 	mbhc->mbhc_cb->free_irq(codec, mbhc->intr_ids->mbhc_sw_intr, mbhc);
 err_mbhc_sw_irq:
 	if (mbhc->mbhc_cb->register_notifier)
-		mbhc->mbhc_cb->register_notifier(codec, &mbhc->nblock, false);
+		mbhc->mbhc_cb->register_notifier(mbhc, &mbhc->nblock, false);
 	mutex_destroy(&mbhc->codec_resource_lock);
 err:
 	pr_debug("%s: leave ret %d\n", __func__, ret);
@@ -2554,7 +2537,7 @@ void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
 	mbhc->mbhc_cb->free_irq(codec, mbhc->intr_ids->hph_left_ocp, mbhc);
 	mbhc->mbhc_cb->free_irq(codec, mbhc->intr_ids->hph_right_ocp, mbhc);
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->register_notifier)
-		mbhc->mbhc_cb->register_notifier(codec, &mbhc->nblock, false);
+		mbhc->mbhc_cb->register_notifier(mbhc, &mbhc->nblock, false);
 	mutex_destroy(&mbhc->codec_resource_lock);
 }
 EXPORT_SYMBOL(wcd_mbhc_deinit);

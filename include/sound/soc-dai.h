@@ -270,7 +270,7 @@ struct snd_soc_dai {
 
 	/* DAI runtime info */
 	unsigned int capture_active:1;		/* stream is in use */
-	unsigned int playback_active:1;		/* stream is in use */
+	unsigned int playback_active;		/* stream is in use */
 	unsigned int symmetric_rates:1;
 	unsigned int symmetric_channels:1;
 	unsigned int symmetric_samplebits:1;

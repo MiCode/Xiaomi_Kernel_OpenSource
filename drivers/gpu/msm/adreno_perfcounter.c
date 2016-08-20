@@ -665,6 +665,7 @@ static void _power_counter_enable_gpmu(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
+	unsigned int shift = counter << 3;
 
 	if (adreno_is_a530(adreno_dev)) {
 		if (countable > 43)
@@ -677,12 +678,7 @@ static void _power_counter_enable_gpmu(struct adreno_device *adreno_dev,
 		return;
 
 	reg = &counters->groups[group].regs[counter];
-
-	/* Move the countable to the correct byte offset */
-	countable = countable << ((counter % 4) * 8);
-
-	kgsl_regwrite(device, reg->select, countable);
-
+	kgsl_regrmw(device, reg->select, 0xff << shift, countable << shift);
 	kgsl_regwrite(device, A5XX_GPMU_POWER_COUNTER_ENABLE, 1);
 	reg->value = 0;
 }

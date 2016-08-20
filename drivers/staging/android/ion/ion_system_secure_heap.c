@@ -29,14 +29,23 @@ struct ion_system_secure_heap {
 	spinlock_t work_lock;
 	bool destroy_heap;
 	struct list_head prefetch_list;
-	struct work_struct prefetch_work;
+	struct delayed_work prefetch_work;
 };
 
 struct prefetch_info {
 	struct list_head list;
 	int vmid;
 	size_t size;
+	bool shrink;
 };
+
+/*
+ * The video client may not hold the last reference count on the
+ * ion_buffer(s). Delay for a short time after the video client sends
+ * the IOC_DRAIN event to increase the chance that the reference
+ * count drops to zero. Time in milliseconds.
+ */
+#define SHRINK_DELAY 1000
 
 static bool is_cp_flag_present(unsigned long flags)
 {
@@ -124,54 +133,97 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 	return ret;
 }
 
+static void process_one_prefetch(struct ion_heap *sys_heap,
+				 struct prefetch_info *info)
+{
+	struct ion_buffer buffer;
+	struct sg_table *sg_table;
+	int ret;
+
+	buffer.heap = sys_heap;
+	buffer.flags = 0;
+
+	ret = sys_heap->ops->allocate(sys_heap, &buffer, info->size,
+						PAGE_SIZE, buffer.flags);
+	if (ret) {
+		pr_debug("%s: Failed to prefetch 0x%zx, ret = %d\n",
+			 __func__, info->size, ret);
+		return;
+	}
+
+	sg_table = sys_heap->ops->map_dma(sys_heap, &buffer);
+	if (IS_ERR_OR_NULL(sg_table))
+		goto out;
+
+	ret = ion_system_secure_heap_assign_sg(sg_table,
+					       get_secure_vmid(info->vmid));
+	if (ret)
+		goto unmap;
+
+	/* Now free it to the secure heap */
+	buffer.heap = sys_heap;
+	buffer.flags = info->vmid;
+
+unmap:
+	sys_heap->ops->unmap_dma(sys_heap, &buffer);
+out:
+	sys_heap->ops->free(&buffer);
+}
+
+static void process_one_shrink(struct ion_heap *sys_heap,
+			       struct prefetch_info *info)
+{
+	struct ion_buffer buffer;
+	size_t pool_size, size;
+	int ret;
+
+	buffer.heap = sys_heap;
+	buffer.flags = info->vmid;
+
+	pool_size = ion_system_heap_secure_page_pool_total(sys_heap,
+							   info->vmid);
+	size = min(pool_size, info->size);
+	ret = sys_heap->ops->allocate(sys_heap, &buffer, size, PAGE_SIZE,
+				      buffer.flags);
+	if (ret) {
+		pr_debug("%s: Failed to shrink 0x%zx, ret = %d\n",
+			 __func__, info->size, ret);
+		return;
+	}
+
+	buffer.private_flags = ION_PRIV_FLAG_SHRINKER_FREE;
+	sys_heap->ops->free(&buffer);
+}
+
 static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 {
 	struct ion_system_secure_heap *secure_heap = container_of(work,
 						struct ion_system_secure_heap,
-						prefetch_work);
+						prefetch_work.work);
 	struct ion_heap *sys_heap = secure_heap->sys_heap;
 	struct prefetch_info *info, *tmp;
-	unsigned long flags, size;
-	struct ion_buffer *buffer;
-	int ret;
-	int vmid_flags;
-
-	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
-	if (!buffer)
-		return;
+	unsigned long flags;
 
 	spin_lock_irqsave(&secure_heap->work_lock, flags);
 	list_for_each_entry_safe(info, tmp,
 				 &secure_heap->prefetch_list, list) {
 		list_del(&info->list);
 		spin_unlock_irqrestore(&secure_heap->work_lock, flags);
-		size = info->size;
-		vmid_flags = info->vmid;
+
+		if (info->shrink)
+			process_one_shrink(sys_heap, info);
+		else
+			process_one_prefetch(sys_heap, info);
+
 		kfree(info);
-
-		/* buffer->heap used by free() */
-		buffer->heap = &secure_heap->heap;
-		buffer->flags = vmid_flags;
-		ret = sys_heap->ops->allocate(sys_heap, buffer, size,
-						PAGE_SIZE, 0);
-		if (ret) {
-			pr_debug("%s: Failed to get %zx allocation for %s, ret = %d\n",
-				 __func__, info->size, secure_heap->heap.name,
-				 ret);
-			spin_lock_irqsave(&secure_heap->work_lock, flags);
-			continue;
-		}
-
-		ion_system_secure_heap_free(buffer);
 		spin_lock_irqsave(&secure_heap->work_lock, flags);
 	}
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
-	kfree(buffer);
 }
 
 static int alloc_prefetch_info(
 			struct ion_prefetch_regions __user *user_regions,
-			struct list_head *items)
+			bool shrink, struct list_head *items)
 {
 	struct prefetch_info *info;
 	size_t __user *user_sizes;
@@ -187,6 +239,9 @@ static int alloc_prefetch_info(
 	if (!is_secure_vmid_valid(get_secure_vmid(vmid)))
 		return -EINVAL;
 
+	if (nr_sizes > 0x10)
+		return -EINVAL;
+
 	for (i = 0; i < nr_sizes; i++) {
 		info = kzalloc(sizeof(*info), GFP_KERNEL);
 		if (!info)
@@ -197,6 +252,7 @@ static int alloc_prefetch_info(
 			goto out_free;
 
 		info->vmid = vmid;
+		info->shrink = shrink;
 		INIT_LIST_HEAD(&info->list);
 		list_add_tail(&info->list, items);
 	}
@@ -206,7 +262,8 @@ out_free:
 	return err;
 }
 
-int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
+static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
+					   bool shrink)
 {
 	struct ion_system_secure_heap *secure_heap = container_of(heap,
 						struct ion_system_secure_heap,
@@ -220,8 +277,11 @@ int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
 	if ((int)heap->type != ION_HEAP_TYPE_SYSTEM_SECURE)
 		return -EINVAL;
 
+	if (data->nr_regions > 0x10)
+		return -EINVAL;
+
 	for (i = 0; i < data->nr_regions; i++) {
-		ret = alloc_prefetch_info(&data->regions[i], &items);
+		ret = alloc_prefetch_info(&data->regions[i], shrink, &items);
 		if (ret)
 			goto out_free;
 	}
@@ -232,7 +292,8 @@ int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
 		goto out_free;
 	}
 	list_splice_init(&items, &secure_heap->prefetch_list);
-	schedule_work(&secure_heap->prefetch_work);
+	schedule_delayed_work(&secure_heap->prefetch_work,
+			      shrink ? msecs_to_jiffies(SHRINK_DELAY) : 0);
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
 	return 0;
@@ -243,6 +304,16 @@ out_free:
 		kfree(info);
 	}
 	return ret;
+}
+
+int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
+{
+	return __ion_system_secure_heap_resize(heap, ptr, false);
+}
+
+int ion_system_secure_heap_drain(struct ion_heap *heap, void *ptr)
+{
+	return __ion_system_secure_heap_resize(heap, ptr, true);
 }
 
 static struct sg_table *ion_system_secure_heap_map_dma(struct ion_heap *heap,
@@ -325,7 +396,8 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	heap->destroy_heap = false;
 	heap->work_lock = __SPIN_LOCK_UNLOCKED(heap->work_lock);
 	INIT_LIST_HEAD(&heap->prefetch_list);
-	INIT_WORK(&heap->prefetch_work, ion_system_secure_heap_prefetch_work);
+	INIT_DELAYED_WORK(&heap->prefetch_work,
+			  ion_system_secure_heap_prefetch_work);
 	return &heap->heap;
 }
 
@@ -344,7 +416,7 @@ void ion_system_secure_heap_destroy(struct ion_heap *heap)
 	list_splice_init(&secure_heap->prefetch_list, &items);
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
-	cancel_work_sync(&secure_heap->prefetch_work);
+	cancel_delayed_work_sync(&secure_heap->prefetch_work);
 
 	list_for_each_entry_safe(info, tmp, &items, list) {
 		list_del(&info->list);

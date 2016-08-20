@@ -1634,7 +1634,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			cdev->desc.bcdUSB = cpu_to_le16(0x0200);
 			if (gadget_is_superspeed(gadget)) {
 				if (gadget->speed >= USB_SPEED_SUPER) {
-					cdev->desc.bcdUSB = cpu_to_le16(0x0300);
+					cdev->desc.bcdUSB = cpu_to_le16(0x0310);
 					cdev->desc.bMaxPacketSize0 = 9;
 				} else if (gadget->l1_supported ||
 						enable_l1_for_hs) {

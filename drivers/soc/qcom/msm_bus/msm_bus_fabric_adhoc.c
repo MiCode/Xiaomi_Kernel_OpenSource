@@ -514,6 +514,10 @@ static int msm_bus_disable_node_qos_clk(struct msm_bus_node_device_type *node)
 		ret = -ENXIO;
 		goto exit_disable_node_qos_clk;
 	}
+
+	for (i = 0; i < node->num_node_qos_clks; i++)
+		ret = disable_nodeclk(&node->node_qos_clks[i]);
+
 	bus_node = to_msm_bus_node(node->node_info->bus_device);
 
 	for (i = 0; i < bus_node->num_node_qos_clks; i++)
@@ -535,6 +539,28 @@ static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
 		goto exit_enable_node_qos_clk;
 	}
 	bus_node = to_msm_bus_node(node->node_info->bus_device);
+
+	for (i = 0; i < node->num_node_qos_clks; i++) {
+		if (!node->node_qos_clks[i].enable_only_clk) {
+			rounded_rate =
+				clk_round_rate(
+					node->node_qos_clks[i].clk, 1);
+			ret = setrate_nodeclk(&node->node_qos_clks[i],
+								rounded_rate);
+			if (ret)
+				MSM_BUS_DBG("%s: Failed set rate clk,node %d\n",
+					__func__, node->node_info->id);
+		}
+		ret = enable_nodeclk(&node->node_qos_clks[i],
+					node->node_info->bus_device);
+		if (ret) {
+			MSM_BUS_DBG("%s: Failed to set Qos Clks ret %d\n",
+				__func__, ret);
+			msm_bus_disable_node_qos_clk(node);
+			goto exit_enable_node_qos_clk;
+		}
+
+	}
 
 	for (i = 0; i < bus_node->num_node_qos_clks; i++) {
 		if (!bus_node->node_qos_clks[i].enable_only_clk) {

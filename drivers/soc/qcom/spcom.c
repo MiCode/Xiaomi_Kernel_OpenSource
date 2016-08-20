@@ -1773,7 +1773,7 @@ static int spcom_handle_read_req_resp(struct spcom_channel *ch,
 
 	if (ch->is_server) {
 		ch->txn_id = hdr->txn_id;
-		pr_err("request txn_id [0x%x].\n", ch->txn_id);
+		pr_debug("request txn_id [0x%x].\n", ch->txn_id);
 	}
 
 	/* copy data to user without the header */
@@ -1920,10 +1920,20 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 
 	pr_debug("Close file [%s].\n", name);
 
+	if (strcmp(name, DEVICE_NAME) == 0) {
+		pr_debug("root dir skipped.\n");
+		return 0;
+	}
+
+	if (strcmp(name, "sp_ssr") == 0) {
+		pr_debug("sp_ssr dev node skipped.\n");
+		return 0;
+	}
+
 	ch = filp->private_data;
 
 	if (!ch) {
-		pr_err("ch is NULL, file name %s.\n", file_to_filename(filp));
+		pr_debug("ch is NULL, file name %s.\n", file_to_filename(filp));
 		return -ENODEV;
 	}
 
@@ -2135,7 +2145,7 @@ static unsigned int spcom_device_poll(struct file *filp,
 	}
 
 	if (ready < 0) { /* wait was interrupted */
-		pr_err("ch [%s] poll interrupted, ret [%d].\n", name, ready);
+		pr_debug("ch [%s] poll interrupted, ret [%d].\n", name, ready);
 		ret = POLLERR | SPCOM_POLL_READY_FLAG | mask;
 	}
 	if (done)
@@ -2264,7 +2274,7 @@ static int __init spcom_register_chardev(void)
 		goto exit_destroy_device;
 	}
 
-	pr_info("char device created.\n");
+	pr_debug("char device created.\n");
 
 	return 0;
 

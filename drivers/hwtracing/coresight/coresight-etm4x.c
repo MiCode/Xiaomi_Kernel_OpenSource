@@ -42,6 +42,7 @@ module_param_named(boot_enable, boot_enable, int, S_IRUGO);
 static int etm4_count;
 static struct etmv4_drvdata *etmdrvdata[NR_CPUS];
 static struct notifier_block etm4_cpu_notifier;
+static struct notifier_block etm4_cpu_dying_notifier;
 
 static void etm4_os_unlock(void *info)
 {
@@ -2682,20 +2683,15 @@ static int etm4_cpu_callback(struct notifier_block *nfb, unsigned long action,
 			clk_disable[cpu] = false;
 		}
 		break;
-
-	case CPU_DYING:
-		spin_lock(&etmdrvdata[cpu]->spinlock);
-		if (etmdrvdata[cpu]->enable)
-			etm4_disable_hw(etmdrvdata[cpu]);
-		spin_unlock(&etmdrvdata[cpu]->spinlock);
-		break;
 	}
 out:
 	return NOTIFY_OK;
 
 err_init:
-	if (--etm4_count == 0)
+	if (--etm4_count == 0) {
 		unregister_hotcpu_notifier(&etm4_cpu_notifier);
+		unregister_hotcpu_notifier(&etm4_cpu_dying_notifier);
+	}
 
 	if (clk_disable[cpu]) {
 		pm_runtime_put(etmdrvdata[cpu]->dev);
@@ -2713,6 +2709,31 @@ err_clk_init:
 
 static struct notifier_block etm4_cpu_notifier = {
 	.notifier_call = etm4_cpu_callback,
+};
+
+static int etm4_cpu_dying_callback(struct notifier_block *nfb,
+				   unsigned long action, void *hcpu)
+{
+	unsigned int cpu = (unsigned long)hcpu;
+
+	if (!etmdrvdata[cpu])
+		goto out;
+
+	switch (action & (~CPU_TASKS_FROZEN)) {
+	case CPU_DYING:
+		spin_lock(&etmdrvdata[cpu]->spinlock);
+		if (etmdrvdata[cpu]->enable)
+			etm4_disable_hw(etmdrvdata[cpu]);
+		spin_unlock(&etmdrvdata[cpu]->spinlock);
+		break;
+	}
+out:
+	return NOTIFY_OK;
+}
+
+static struct notifier_block etm4_cpu_dying_notifier = {
+	.notifier_call = etm4_cpu_dying_callback,
+	.priority = 1,
 };
 
 static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
@@ -2773,8 +2794,10 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 
 	etmdrvdata[drvdata->cpu] = drvdata;
 
-	if (!etm4_count++)
+	if (!etm4_count++) {
 		register_hotcpu_notifier(&etm4_cpu_notifier);
+		register_hotcpu_notifier(&etm4_cpu_dying_notifier);
+	}
 
 	put_online_cpus();
 
@@ -2793,8 +2816,10 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	return 0;
 
 err_late_init:
-	if (--etm4_count == 0)
+	if (--etm4_count == 0) {
 		unregister_hotcpu_notifier(&etm4_cpu_notifier);
+		unregister_hotcpu_notifier(&etm4_cpu_dying_notifier);
+	}
 	return ret;
 }
 
@@ -2803,8 +2828,10 @@ static int etm4_remove(struct amba_device *adev)
 	struct etmv4_drvdata *drvdata = amba_get_drvdata(adev);
 
 	coresight_unregister(drvdata->csdev);
-	if (--etm4_count == 0)
+	if (--etm4_count == 0) {
 		unregister_hotcpu_notifier(&etm4_cpu_notifier);
+		unregister_hotcpu_notifier(&etm4_cpu_dying_notifier);
+	}
 
 	return 0;
 }

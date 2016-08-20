@@ -201,6 +201,9 @@
 /* PMI8937 */
 #define PMI8937_SUBTYPE		0x37
 
+/* SMB1381 */
+#define SMB1381_SUBTYPE		0x17
+
 struct pmic_revid_data {
 	u8		rev1;
 	u8		rev2;

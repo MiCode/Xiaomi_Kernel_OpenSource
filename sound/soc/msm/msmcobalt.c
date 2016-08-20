@@ -36,6 +36,7 @@
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "../codecs/wcd9335.h"
 #include "../codecs/wcd934x/wcd934x.h"
+#include "../codecs/wcd934x/wcd934x-mbhc.h"
 #include "../codecs/wsa881x.h"
 
 #define DRV_NAME "msmcobalt-asoc-snd"
@@ -107,6 +108,8 @@ struct msm_asoc_mach_data {
 	int hph_en0_gpio;
 	int us_euro_gpio; /* used by gpio driver API */
 	struct device_node *us_euro_gpio_p; /* used by pinctrl API */
+	struct device_node *hph_en1_gpio_p; /* used by pinctrl API */
+	struct device_node *hph_en0_gpio_p; /* used by pinctrl API */
 	struct snd_info_entry *codec_root;
 };
 
@@ -220,6 +223,7 @@ static struct msm_asoc_wcd93xx_codec msm_codec_fn;
 static void *adsp_state_notifier;
 
 static void *def_tasha_mbhc_cal(void);
+static void *def_tavil_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
 static int msm_wsa881x_init(struct snd_soc_component *component);
@@ -244,7 +248,7 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[6] = 0,
 	.key_code[7] = 0,
 	.linein_th = 5000,
-	.moist_cfg = { V_45_MV, I_3P0_UA },
+	.moisture_en = true,
 };
 
 static struct snd_soc_dapm_route wcd_audio_paths[] = {
@@ -1813,6 +1817,40 @@ static void *def_tasha_mbhc_cal(void)
 	return tasha_wcd_cal;
 }
 
+static void *def_tavil_mbhc_cal(void)
+{
+	void *tavil_wcd_cal;
+	struct wcd_mbhc_btn_detect_cfg *btn_cfg;
+	u16 *btn_high;
+
+	tavil_wcd_cal = kzalloc(WCD_MBHC_CAL_SIZE(WCD_MBHC_DEF_BUTTONS,
+				WCD9XXX_MBHC_DEF_RLOADS), GFP_KERNEL);
+	if (!tavil_wcd_cal)
+		return NULL;
+
+#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(tavil_wcd_cal)->X) = (Y))
+	S(v_hs_max, 1600);
+#undef S
+#define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(tavil_wcd_cal)->X) = (Y))
+	S(num_btn, WCD_MBHC_DEF_BUTTONS);
+#undef S
+
+	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(tavil_wcd_cal);
+	btn_high = ((void *)&btn_cfg->_v_btn_low) +
+		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
+
+	btn_high[0] = 75;
+	btn_high[1] = 150;
+	btn_high[2] = 237;
+	btn_high[3] = 500;
+	btn_high[4] = 500;
+	btn_high[5] = 500;
+	btn_high[6] = 500;
+	btn_high[7] = 500;
+
+	return tavil_wcd_cal;
+}
+
 static int msm_snd_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
 {
@@ -2325,10 +2363,10 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA10,
 	},
 	{
-		.name = MSM_DAILINK_NAME(Compr8),
-		.stream_name = "COMPR8",
+		.name = MSM_DAILINK_NAME(ULL_NOIRQ),
+		.stream_name = "MM_NOIRQ",
 		.cpu_dai_name = "MultiMedia8",
-		.platform_name = "msm-compr-dsp",
+		.platform_name = "msm-pcm-dsp-noirq",
 		.dynamic = 1,
 		.dpcm_playback = 1,
 		.dpcm_capture = 1,
@@ -3125,6 +3163,22 @@ static struct snd_soc_dai_link msm_tavil_be_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
+	{
+		.name = LPASS_BE_SLIMBUS_6_RX,
+		.stream_name = "Slimbus6 Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16396",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tavil_codec",
+		.codec_dai_name = "tavil_rx4",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_6_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_be_ops,
+		/* dai link has playback support */
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
 };
 
 static struct snd_soc_dai_link msm_wcn_be_dai_links[] = {
@@ -3252,6 +3306,43 @@ err_pcm_runtime:
 	return ret;
 }
 
+static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
+{
+	const char *be_dl_name = LPASS_BE_SLIMBUS_0_RX;
+	struct snd_soc_pcm_runtime *rtd;
+	int ret = 0;
+	void *mbhc_calibration;
+
+	rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
+	if (!rtd) {
+		dev_err(card->dev,
+			"%s: snd_soc_get_pcm_runtime for %s failed!\n",
+			__func__, be_dl_name);
+		ret = -EINVAL;
+		goto err_pcm_runtime;
+	}
+
+	mbhc_calibration = def_tavil_mbhc_cal();
+	if (!mbhc_calibration) {
+		ret = -ENOMEM;
+		goto err_mbhc_cal;
+	}
+	wcd_mbhc_cfg.calibration = mbhc_calibration;
+	ret = tavil_mbhc_hs_detect(rtd->codec, &wcd_mbhc_cfg);
+	if (ret) {
+		dev_err(card->dev, "%s: mbhc hs detect failed, err:%d\n",
+			__func__, ret);
+		goto err_hs_detect;
+	}
+	return 0;
+
+err_hs_detect:
+	kfree(mbhc_calibration);
+err_mbhc_cal:
+err_pcm_runtime:
+	return ret;
+}
+
 struct snd_soc_card snd_soc_card_tasha_msm = {
 	.name		= "msmcobalt-tasha-snd-card",
 	.late_probe	= msm_snd_card_late_probe,
@@ -3259,6 +3350,7 @@ struct snd_soc_card snd_soc_card_tasha_msm = {
 
 struct snd_soc_card snd_soc_card_tavil_msm = {
 	.name		= "msmcobalt-tavil-snd-card",
+	.late_probe	= msm_snd_card_tavil_late_probe,
 };
 
 static int msm_populate_dai_link_component_of_node(
@@ -3968,17 +4060,24 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	pdata->hph_en1_gpio = of_get_named_gpio(pdev->dev.of_node,
 						"qcom,hph-en1-gpio", 0);
-	if (pdata->hph_en1_gpio < 0) {
-		dev_dbg(&pdev->dev, "%s: %s property not found %d\n",
-			__func__, "qcom,hph-en1-gpio", pdata->hph_en1_gpio);
+	if (!gpio_is_valid(pdata->hph_en1_gpio))
+		pdata->hph_en1_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,hph-en1-gpio", 0);
+	if (!gpio_is_valid(pdata->hph_en1_gpio) && (!pdata->hph_en1_gpio_p)) {
+		dev_dbg(&pdev->dev, "property %s not detected in node %s",
+			"qcom,hph-en1-gpio", pdev->dev.of_node->full_name);
 	}
 
 	pdata->hph_en0_gpio = of_get_named_gpio(pdev->dev.of_node,
 						"qcom,hph-en0-gpio", 0);
-	if (pdata->hph_en0_gpio < 0) {
-		dev_dbg(&pdev->dev, "%s: %s property not found %d\n",
-			__func__, "qcom,hph-en0-gpio", pdata->hph_en0_gpio);
+	if (!gpio_is_valid(pdata->hph_en0_gpio))
+		pdata->hph_en0_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,hph-en0-gpio", 0);
+	if (!gpio_is_valid(pdata->hph_en0_gpio) && (!pdata->hph_en0_gpio_p)) {
+		dev_dbg(&pdev->dev, "property %s not detected in node %s",
+			"qcom,hph-en0-gpio", pdev->dev.of_node->full_name);
 	}
+
 	ret = msm_prepare_hifi(card);
 	if (ret)
 		dev_dbg(&pdev->dev, "msm_prepare_hifi failed (%d)\n",
@@ -4020,11 +4119,11 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	 */
 	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,us-euro-gpios", 0);
-	if (pdata->us_euro_gpio < 0)
+	if (!gpio_is_valid(pdata->us_euro_gpio))
 		pdata->us_euro_gpio_p = of_parse_phandle(pdev->dev.of_node,
 					"qcom,us-euro-gpios", 0);
-	if ((pdata->us_euro_gpio < 0) && (!pdata->us_euro_gpio_p)) {
-		dev_info(&pdev->dev, "property %s not detected in node %s",
+	if (!gpio_is_valid(pdata->us_euro_gpio) && (!pdata->us_euro_gpio_p)) {
+		dev_dbg(&pdev->dev, "property %s not detected in node %s",
 			"qcom,us-euro-gpios", pdev->dev.of_node->full_name);
 	} else {
 		dev_dbg(&pdev->dev, "%s detected",
@@ -4034,7 +4133,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	ret = msm_prepare_us_euro(card);
 	if (ret)
-		dev_info(&pdev->dev, "msm_prepare_us_euro failed (%d)\n",
+		dev_dbg(&pdev->dev, "msm_prepare_us_euro failed (%d)\n",
 			ret);
 	return 0;
 err:

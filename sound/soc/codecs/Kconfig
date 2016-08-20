@@ -729,6 +729,14 @@ config SND_SOC_WCD934X
 	depends on WCD934X_CODEC
 	select SND_SOC_WCD9XXX_V2
 	select AUDIO_EXT_CLK
+	select SND_SOC_WCD_DSP_MGR
+	select SND_SOC_WCD_SPI
+	select SND_SOC_WCD934X_MBHC
+
+config SND_SOC_WCD934X_MBHC
+        tristate
+	depends on SND_SOC_WCD934X
+	select SND_SOC_WCD_MBHC
 
 config SND_SOC_WSA881X
         tristate
