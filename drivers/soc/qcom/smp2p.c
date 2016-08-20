@@ -523,8 +523,8 @@ static void smp2p_find_entry_v1(struct smp2p_smem __iomem *item,
 	char entry_name[SMP2P_MAX_ENTRY_NAME];
 
 	if (!item || !name || !entry_ptr) {
-		SMP2P_ERR("%s: invalid arguments %p, %p, %p\n",
-				__func__, item, name, entry_ptr);
+		SMP2P_ERR("%s: invalid arguments %d %d %d\n",
+				__func__, !item, !name, !entry_ptr);
 		return;
 	}
 
