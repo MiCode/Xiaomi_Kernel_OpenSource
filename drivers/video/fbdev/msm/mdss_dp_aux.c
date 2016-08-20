@@ -355,7 +355,7 @@ static int dp_aux_write_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
 static int dp_aux_read_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
 				int len, int i2c)
 {
-	struct edp_cmd cmd;
+	struct edp_cmd cmd = {0};
 
 	cmd.read = 1;
 	cmd.i2c = i2c;

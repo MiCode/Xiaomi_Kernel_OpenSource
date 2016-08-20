@@ -34,6 +34,8 @@
 #include "mdss_dp.h"
 #include "mdss_dp_util.h"
 #include "mdss_hdmi_panel.h"
+#include <linux/hdcp_qseecom.h>
+#include "mdss_hdcp_1x.h"
 #include "mdss_debug.h"
 
 #define RGB_COMPONENTS		3
@@ -982,6 +984,8 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	if (mdss_dp_mainlink_ready(dp_drv, BIT(0)))
 		pr_debug("mainlink ready\n");
 
+	dp_drv->power_on = true;
+
 	mutex_unlock(&dp_drv->host_mutex);
 	pr_debug("End-\n");
 
@@ -1031,6 +1035,7 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	pr_debug("End--: state_ctrl=%x\n",
 				dp_read(dp_drv->base + DP_STATE_CTRL));
 
+	dp_drv->power_on = false;
 	mutex_unlock(&dp_drv->train_mutex);
 	return 0;
 }
@@ -1214,12 +1219,168 @@ end:
 	return rc;
 }
 
+static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
+{
+	struct mdss_dp_drv_pdata *dp = ptr;
+	struct hdcp_ops *ops;
+	int rc = 0;
+
+	if (!dp) {
+		pr_debug("invalid input\n");
+		return;
+	}
+
+	ops = dp->hdcp_ops;
+
+	mutex_lock(&dp->train_mutex);
+
+	switch (status) {
+	case HDCP_STATE_AUTHENTICATED:
+		pr_debug("hdcp 1.3 authenticated\n");
+		break;
+	case HDCP_STATE_AUTH_FAIL:
+		if (dp->power_on) {
+			pr_debug("Reauthenticating\n");
+			if (ops && ops->reauthenticate) {
+				rc = ops->reauthenticate(dp->hdcp_data);
+				if (rc)
+					pr_err("HDCP reauth failed. rc=%d\n",
+						rc);
+			}
+		} else {
+			pr_debug("not reauthenticating, cable disconnected\n");
+		}
+
+		break;
+	default:
+		break;
+	}
+
+	mutex_unlock(&dp->train_mutex);
+}
+
+static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
+{
+	struct hdcp_init_data hdcp_init_data = {0};
+	struct mdss_dp_drv_pdata *dp_drv = NULL;
+	struct resource *res;
+	int rc = 0;
+
+	if (!pdata) {
+		pr_err("Invalid input data\n");
+		goto error;
+	}
+
+	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
+			panel_data);
+
+	res = platform_get_resource_byname(dp_drv->pdev,
+		IORESOURCE_MEM, "dp_ctrl");
+	if (!res) {
+		pr_err("Error getting dp ctrl resource\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	hdcp_init_data.phy_addr      = res->start;
+	hdcp_init_data.core_io       = &dp_drv->ctrl_io;
+	hdcp_init_data.qfprom_io     = &dp_drv->qfprom_io;
+	hdcp_init_data.hdcp_io       = &dp_drv->hdcp_io;
+	hdcp_init_data.mutex         = &dp_drv->hdcp_mutex;
+	hdcp_init_data.sysfs_kobj    = dp_drv->kobj;
+	hdcp_init_data.workq         = dp_drv->workq;
+	hdcp_init_data.notify_status = mdss_dp_hdcp_cb;
+	hdcp_init_data.cb_data       = (void *)dp_drv;
+	hdcp_init_data.sec_access    = true;
+	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
+
+	dp_drv->hdcp_data = hdcp_1x_init(&hdcp_init_data);
+	if (IS_ERR_OR_NULL(dp_drv->hdcp_data)) {
+		pr_err("Error hdcp init\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pr_debug("HDCP 1.3 initialized\n");
+
+	dp_drv->hdcp_ops = hdcp_1x_start(dp_drv->hdcp_data);
+
+	return 0;
+error:
+	return rc;
+}
+
+static struct mdss_dp_drv_pdata *mdss_dp_get_drvdata(struct device *device)
+{
+	struct msm_fb_data_type *mfd;
+	struct mdss_panel_data *pd;
+	struct mdss_dp_drv_pdata *dp = NULL;
+	struct fb_info *fbi = dev_get_drvdata(device);
+
+	if (fbi) {
+		mfd = (struct msm_fb_data_type *)fbi->par;
+		pd = dev_get_platdata(&mfd->pdev->dev);
+
+		dp = container_of(pd, struct mdss_dp_drv_pdata, panel_data);
+	}
+
+	return dp;
+}
+
+static ssize_t mdss_dp_rda_connected(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp)
+		return -EINVAL;
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", dp->cable_connected);
+	pr_debug("%d\n", dp->cable_connected);
+
+	return ret;
+}
+static DEVICE_ATTR(connected, S_IRUGO, mdss_dp_rda_connected, NULL);
+
+static struct attribute *mdss_dp_fs_attrs[] = {
+	&dev_attr_connected.attr,
+	NULL,
+};
+
+static struct attribute_group mdss_dp_fs_attrs_group = {
+	.attrs = mdss_dp_fs_attrs,
+};
+
+static int mdss_dp_sysfs_create(struct mdss_dp_drv_pdata *dp,
+	struct fb_info *fbi)
+{
+	int rc;
+
+	if (!dp || !fbi) {
+		pr_err("ivalid input\n");
+		return -ENODEV;
+	}
+
+	rc = sysfs_create_group(&fbi->dev->kobj,
+		&mdss_dp_fs_attrs_group);
+	if (rc) {
+		pr_err("failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("sysfs ceated\n");
+
+	return 0;
+}
+
 static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
 	int rc = 0;
 	struct fb_info *fbi;
 	struct mdss_dp_drv_pdata *dp = NULL;
+	struct hdcp_ops *ops;
 
 	if (!pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1231,12 +1392,24 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 	dp = container_of(pdata, struct mdss_dp_drv_pdata,
 				panel_data);
 
+	ops = dp->hdcp_ops;
+
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
 		rc = mdss_dp_on(pdata);
 		break;
+	case MDSS_EVENT_PANEL_ON:
+		if (hdcp1_check_if_supported_load_app()) {
+			if (ops && ops->authenticate)
+				rc = ops->authenticate(dp->hdcp_data);
+		}
+		break;
 	case MDSS_EVENT_PANEL_OFF:
 		rc = mdss_dp_off(pdata);
+		break;
+	case MDSS_EVENT_BLANK:
+		if (ops && ops->off)
+			ops->off(dp->hdcp_data);
 		break;
 	case MDSS_EVENT_FB_REGISTERED:
 		fbi = (struct fb_info *)arg;
@@ -1245,7 +1418,9 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 
 		dp->kobj = &fbi->dev->kobj;
 		dp->fb_node = fbi->node;
+		mdss_dp_sysfs_create(dp, fbi);
 		mdss_dp_edid_init(pdata);
+		mdss_dp_hdcp_init(pdata);
 		mdss_dp_register_switch_event(dp);
 		break;
 	case MDSS_EVENT_CHECK_PARAMS:
@@ -1338,6 +1513,14 @@ static int mdss_retrieve_dp_ctrl_resources(struct platform_device *pdev,
 			       __LINE__);
 		return rc;
 	}
+
+	if (msm_dss_ioremap_byname(pdev, &dp_drv->qfprom_io,
+					"qfprom_physical"))
+		pr_warn("unable to remap dp qfprom resources\n");
+
+	if (msm_dss_ioremap_byname(pdev, &dp_drv->hdcp_io,
+					"hdcp_physical"))
+		pr_warn("unable to remap dp hdcp resources\n");
 
 	pr_debug("DP Driver base=%p size=%x\n",
 		dp_drv->base, dp_drv->base_size);
@@ -1499,6 +1682,11 @@ irqreturn_t dp_isr(int irq, void *ptr)
 			dp_aux_i2c_handler(dp, isr1);
 		else
 			dp_aux_native_handler(dp, isr1);
+	}
+
+	if (dp->hdcp_ops && dp->hdcp_ops->isr) {
+		if (dp->hdcp_ops->isr(dp->hdcp_data))
+			pr_err("dp_hdcp_isr failed\n");
 	}
 
 	return IRQ_HANDLED;
@@ -1723,6 +1911,7 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	mutex_init(&dp_drv->emutex);
 	mutex_init(&dp_drv->host_mutex);
 	mutex_init(&dp_drv->pd_msg_mutex);
+	mutex_init(&dp_drv->hdcp_mutex);
 	spin_lock_init(&dp_drv->lock);
 
 	if (mdss_dp_usbpd_setup(dp_drv)) {
