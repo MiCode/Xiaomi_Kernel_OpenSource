@@ -98,6 +98,13 @@ config MSM_BOOT_STATS
 	  This figures are reported in mpm sleep clock cycles and have a
 	  resolution of 31 bits as 1 bit is used as an overflow check.
 
+config MSM_CORE_HANG_DETECT
+       tristate "MSM Core Hang Detection Support"
+       help
+         This enables the core hang detection module. It causes SoC
+         reset on core hang detection and collects the core context
+         for hang.
+
 config MSM_GLADIATOR_HANG_DETECT
        tristate "MSM Gladiator Hang Detection Support"
        help
