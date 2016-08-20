@@ -22,6 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
 #include <linux/clk.h>
 #include <linux/bitmap.h>
 #include <linux/of.h>
@@ -135,7 +136,6 @@ struct stm_drvdata {
 	struct device		*dev;
 	struct coresight_device	*csdev;
 	struct miscdevice	miscdev;
-	struct clk		*clk;
 	spinlock_t		spinlock;
 	struct channel_space	chs;
 	bool			enable;
@@ -270,8 +270,8 @@ static int stm_enable(struct coresight_device *csdev)
 	int ret;
 	unsigned long flags;
 
-	ret = clk_prepare_enable(drvdata->clk);
-	if (ret)
+	ret = pm_runtime_get_sync(drvdata->dev);
+	if (ret < 0)
 		return ret;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
@@ -349,7 +349,7 @@ static void stm_disable(struct coresight_device *csdev)
 	/* Wait for 100ms so that pending data has been written to HW */
 	msleep(100);
 
-	clk_disable_unprepare(drvdata->clk);
+	pm_runtime_put(drvdata->dev);
 
 	dev_info(drvdata->dev, "STM tracing disabled\n");
 }
@@ -360,7 +360,7 @@ static int stm_trace_id(struct coresight_device *csdev)
 	unsigned long flags;
 	int trace_id = -1;
 
-	if (clk_prepare_enable(drvdata->clk))
+	if (pm_runtime_get_sync(drvdata->dev) < 0)
 		goto out;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
@@ -370,7 +370,7 @@ static int stm_trace_id(struct coresight_device *csdev)
 	CS_LOCK(drvdata->base);
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
-	clk_disable_unprepare(drvdata->clk);
+	pm_runtime_put(drvdata->dev);
 out:
 	return trace_id;
 }
@@ -806,19 +806,14 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 
 	spin_lock_init(&drvdata->spinlock);
 
-	drvdata->clk = adev->pclk;
-	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
-	if (ret)
-		return ret;
-
-	ret = clk_prepare_enable(drvdata->clk);
+	ret = clk_set_rate(adev->pclk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;
 
 	if (!coresight_authstatus_enabled(drvdata->base))
 		goto err1;
 
-	clk_disable_unprepare(drvdata->clk);
+	pm_runtime_put(&adev->dev);
 
 	bitmap_fill(drvdata->entities, OST_ENTITY_MAX);
 
@@ -856,7 +851,7 @@ err:
 	coresight_unregister(drvdata->csdev);
 	return ret;
 err1:
-	clk_disable_unprepare(drvdata->clk);
+	pm_runtime_put(&adev->dev);
 	return -EPERM;
 }
 
