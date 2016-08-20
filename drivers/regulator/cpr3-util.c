@@ -562,32 +562,41 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 		return -EINVAL;
 	}
 
-	rc = of_property_read_u32(node, "qcom,cpr-fuse-combos",
-				&max_fuse_combos);
-	if (rc) {
-		cpr3_err(vreg, "error reading property qcom,cpr-fuse-combos, rc=%d\n",
-			rc);
-		return rc;
-	}
-
 	/*
-	 * Sanity check against arbitrarily large value to avoid excessive
-	 * memory allocation.
+	 * Check if CPR3 regulator's fuse_combos_supported element is already
+	 * populated by fuse-combo-map logic. If not populated, then parse the
+	 * qcom,cpr-fuse-combos property.
 	 */
-	if (max_fuse_combos > 100 || max_fuse_combos == 0) {
-		cpr3_err(vreg, "qcom,cpr-fuse-combos is invalid: %u\n",
-			max_fuse_combos);
-		return -EINVAL;
-	}
+	if (vreg->fuse_combos_supported)
+		max_fuse_combos = vreg->fuse_combos_supported;
+	else {
+		rc = of_property_read_u32(node, "qcom,cpr-fuse-combos",
+					&max_fuse_combos);
+		if (rc) {
+			cpr3_err(vreg, "error reading property qcom,cpr-fuse-combos, rc=%d\n",
+				rc);
+			return rc;
+		}
 
-	if (vreg->fuse_combo >= max_fuse_combos) {
-		cpr3_err(vreg, "device tree config supports fuse combos 0-%u but the hardware has combo %d\n",
-			max_fuse_combos - 1, vreg->fuse_combo);
-		BUG_ON(1);
-		return -EINVAL;
-	}
+		/*
+		 * Sanity check against arbitrarily large value to avoid
+		 * excessive memory allocation.
+		 */
+		if (max_fuse_combos > 100 || max_fuse_combos == 0) {
+			cpr3_err(vreg, "qcom,cpr-fuse-combos is invalid: %u\n",
+				max_fuse_combos);
+			return -EINVAL;
+		}
 
-	vreg->fuse_combos_supported = max_fuse_combos;
+		if (vreg->fuse_combo >= max_fuse_combos) {
+			cpr3_err(vreg, "device tree config supports fuse combos 0-%u but the hardware has combo %d\n",
+				max_fuse_combos - 1, vreg->fuse_combo);
+			BUG_ON(1);
+			return -EINVAL;
+		}
+
+		vreg->fuse_combos_supported = max_fuse_combos;
+	}
 
 	of_property_read_u32(node, "qcom,cpr-speed-bins", &max_speed_bins);
 
@@ -1972,5 +1981,78 @@ done:
 	kfree(allow_core_count_adj);
 	kfree(allow_temp_adj);
 
+	return rc;
+}
+
+/**
+ * cpr3_parse_fuse_combo_map() - parse fuse combo map data for a CPR3 regulator
+ *		from device tree.
+ * @vreg:		Pointer to the CPR3 regulator
+ * @fuse_val:		Array of selection fuse parameter values
+ * @fuse_count:		Number of selection fuse parameters used in fuse combo
+ *			map
+ *
+ * This function reads the qcom,cpr-fuse-combo-map device tree property and
+ * populates the fuse_combo element of CPR3 regulator with the row number of
+ * fuse combo map data that matches with the data in fuse_val input array.
+ *
+ * Return: 0 on success, -ENODEV if qcom,cpr-fuse-combo-map property is not
+ *		specified in device node, other errno on failure
+ */
+int cpr3_parse_fuse_combo_map(struct cpr3_regulator *vreg, u64 *fuse_val,
+			int fuse_count)
+{
+	struct device_node *node = vreg->of_node;
+	int i, j, len, num_fuse_combos, row_size, rc = 0;
+	u32 *tmp;
+
+	if (!of_find_property(node, "qcom,cpr-fuse-combo-map", &len)) {
+		/* property not specified */
+		return -ENODEV;
+	}
+
+	row_size = fuse_count * 2;
+	if (len == 0 || len % (sizeof(u32) * row_size)) {
+		cpr3_err(vreg, "qcom,cpr-fuse-combo-map length=%d is invalid\n",
+			len);
+		return -EINVAL;
+	}
+
+	num_fuse_combos = len / (sizeof(u32) * row_size);
+	vreg->fuse_combos_supported = num_fuse_combos;
+
+	tmp = kzalloc(len, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(node, "qcom,cpr-fuse-combo-map",
+			tmp, num_fuse_combos * row_size);
+	if (rc) {
+		cpr3_err(vreg, "could not read qcom,cpr-fuse-combo-map, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	for (i = 0; i < num_fuse_combos; i++) {
+		for (j = 0; j < fuse_count; j++) {
+			if (tmp[i * row_size + j * 2] > fuse_val[j]
+			      || tmp[i * row_size + j * 2 + 1] < fuse_val[j])
+				break;
+		}
+		if (j == fuse_count) {
+			vreg->fuse_combo = i;
+			break;
+		}
+	}
+
+	if (i >= num_fuse_combos) {
+		cpr3_err(vreg, "No matching CPR fuse combo found!\n");
+		BUG_ON(1);
+		rc = -EINVAL;
+		goto done;
+	}
+
+done:
+	kfree(tmp);
 	return rc;
 }

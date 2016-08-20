@@ -863,6 +863,8 @@ int cpr4_parse_core_count_temp_voltage_adj(struct cpr3_regulator *vreg,
 			bool use_corner_band);
 int cpr3_apm_init(struct cpr3_controller *ctrl);
 int cpr3_mem_acc_init(struct cpr3_regulator *vreg);
+int cpr3_parse_fuse_combo_map(struct cpr3_regulator *vreg, u64 *fuse_val,
+			int fuse_count);
 
 #else
 
@@ -1033,6 +1035,12 @@ static inline int cpr3_apm_init(struct cpr3_controller *ctrl)
 static inline int cpr3_mem_acc_init(struct cpr3_regulator *vreg)
 {
 	return 0;
+}
+
+static int cpr3_parse_fuse_combo_map(struct cpr3_regulator *vreg, u64 *fuse_val,
+			int fuse_count)
+{
+	return -EPERM;
 }
 
 #endif /* CONFIG_REGULATOR_CPR3 */

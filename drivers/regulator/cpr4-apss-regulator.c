@@ -51,6 +51,8 @@
  * @speed_bin:		Application processor speed bin fuse parameter value for
  *			the given chip
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
+ * @foundry_id:		Foundry identifier fuse parameter value for the given
+ *			chip
  * @boost_cfg:		CPR boost configuration fuse parameter value
  * @boost_voltage:	CPR boost voltage fuse parameter value (raw, not
  *			converted to a voltage)
@@ -66,6 +68,7 @@ struct cpr4_msm8953_apss_fuses {
 	u64	quot_offset[MSM8953_APSS_FUSE_CORNERS];
 	u64	speed_bin;
 	u64	cpr_fusing_rev;
+	u64	foundry_id;
 	u64	boost_cfg;
 	u64	boost_voltage;
 	u64	misc;
@@ -149,6 +152,11 @@ static const struct cpr3_fuse_param msm8953_apss_speed_bin_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param msm8953_apss_foundry_id_param[] = {
+	{37, 40, 42},
+	{},
+};
+
 static const struct cpr3_fuse_param msm8953_cpr_boost_fuse_cfg_param[] = {
 	{36, 43, 45},
 	{},
@@ -169,6 +177,15 @@ static const struct cpr3_fuse_param msm8953_apss_aging_init_quot_diff_param[]
 	{72, 0, 7},
 	{},
 };
+
+/*
+ * The maximum number of fuse combinations possible for the selected fuse
+ * parameters in fuse combo map logic.
+ * Here, possible speed-bin values = 8, fuse revision values = 8, and foundry
+ * identifier values = 8. Total number of combinations = 512 (i.e., 8 * 8 * 8)
+ */
+#define CPR4_MSM8953_APSS_FUSE_COMBO_MAP_MAX_COUNT	512
+
 
 /*
  * The number of possible values for misc fuse is
@@ -259,6 +276,14 @@ static int cpr4_msm8953_apss_read_fuse_data(struct cpr3_regulator *vreg)
 		return rc;
 	}
 	cpr3_info(vreg, "CPR fusing revision = %llu\n", fuse->cpr_fusing_rev);
+
+	rc = cpr3_read_fuse_param(base, msm8953_apss_foundry_id_param,
+				&fuse->foundry_id);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read foundry id fuse, rc=%d\n", rc);
+		return rc;
+	}
+	cpr3_info(vreg, "foundry id = %llu\n", fuse->foundry_id);
 
 	rc = cpr3_read_fuse_param(base, msm8953_misc_fuse_volt_adj_param,
 				&fuse->misc);
@@ -1145,6 +1170,58 @@ done:
 	return rc;
 }
 
+/*
+ * Constants which define the selection fuse parameters used in fuse combo map
+ * logic.
+ */
+enum cpr4_msm8953_apss_fuse_combo_parameters {
+	MSM8953_APSS_SPEED_BIN = 0,
+	MSM8953_APSS_CPR_FUSE_REV,
+	MSM8953_APSS_FOUNDRY_ID,
+	MSM8953_APSS_FUSE_COMBO_PARAM_COUNT,
+};
+
+/**
+ * cpr4_parse_fuse_combo_map() - parse APSS fuse combo map data from device tree
+ *		properties of the CPR3 regulator's device node
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_parse_fuse_combo_map(struct cpr3_regulator *vreg)
+{
+	struct cpr4_msm8953_apss_fuses *fuse = vreg->platform_fuses;
+	u64 *fuse_val;
+	int rc;
+
+	fuse_val = kcalloc(MSM8953_APSS_FUSE_COMBO_PARAM_COUNT,
+			sizeof(*fuse_val), GFP_KERNEL);
+	if (!fuse_val)
+		return -ENOMEM;
+
+	fuse_val[MSM8953_APSS_SPEED_BIN] = fuse->speed_bin;
+	fuse_val[MSM8953_APSS_CPR_FUSE_REV] = fuse->cpr_fusing_rev;
+	fuse_val[MSM8953_APSS_FOUNDRY_ID] = fuse->foundry_id;
+	rc = cpr3_parse_fuse_combo_map(vreg, fuse_val,
+			MSM8953_APSS_FUSE_COMBO_PARAM_COUNT);
+	if (rc == -ENODEV) {
+		cpr3_debug(vreg, "using legacy fuse combo logic, rc=%d\n",
+			rc);
+		rc = 0;
+	} else if (rc < 0) {
+		cpr3_err(vreg, "error reading fuse combo map data, rc=%d\n",
+			rc);
+	} else if (vreg->fuse_combo >=
+			CPR4_MSM8953_APSS_FUSE_COMBO_MAP_MAX_COUNT) {
+		cpr3_err(vreg, "invalid CPR fuse combo = %d found\n",
+			vreg->fuse_combo);
+		rc = -EINVAL;
+	}
+
+	kfree(fuse_val);
+	return rc;
+}
+
 /**
  * cpr4_apss_init_regulator() - perform all steps necessary to initialize the
  *		configuration data for a CPR3 regulator
@@ -1164,6 +1241,13 @@ static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 	}
 
 	fuse = vreg->platform_fuses;
+
+	rc = cpr4_parse_fuse_combo_map(vreg);
+	if (rc) {
+		cpr3_err(vreg, "error while parsing fuse combo map, rc=%d\n",
+			rc);
+		return rc;
+	}
 
 	rc = cpr4_apss_parse_corner_data(vreg);
 	if (rc) {
