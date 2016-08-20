@@ -812,6 +812,12 @@ config MSM_REMOTEQDSS
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
 
+config QCOM_SMCINVOKE
+	bool "Secure QSEE Support"
+	help
+	  Enable SMCInvoke driver which supports capability based secure
+	  communication between QSEE and HLOS.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
