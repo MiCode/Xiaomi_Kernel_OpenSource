@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,5 +29,27 @@
 };
 
 &qnand_1 {
+	status = "ok";
+};
+
+&sdhc_1 {
+	vdd-supply = <&sd_slot_vreg>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <9000 800000>;
+
+	vdd-io-supply = <&pmd9635_l14>;
+	qcom,vdd-io-voltage-level = <1800000 2850000>;
+	qcom,vdd-io-current-level = <200 60000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&pmx_sdc1_clk_on &pmx_sdc1_cmd_on &pmx_sdc1_data_on
+							&pmx_sdc1_cd_on>;
+	pinctrl-1 = <&pmx_sdc1_clk_off &pmx_sdc1_cmd_off &pmx_sdc1_data_off
+							&pmx_sdc1_cd_off>;
+
+	cd-gpios = <&tlmm_pinmux 81 0x1>;
+
+	qcom,devfreq,freq-table = <50000000 200000000>;
+
 	status = "ok";
 };
