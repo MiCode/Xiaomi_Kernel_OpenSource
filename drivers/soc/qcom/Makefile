@@ -12,4 +12,5 @@ CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 obj-$(CONFIG_QCOM_SCM)  +=      scm.o
 obj-$(CONFIG_SOC_BUS) += socinfo.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
+obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o
 obj-$(CONFIG_MSM_GLADIATOR_HANG_DETECT) += gladiator_hang_detect.o
