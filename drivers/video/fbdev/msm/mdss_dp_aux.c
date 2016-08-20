@@ -230,7 +230,9 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 
 int dp_aux_write(void *ep, struct edp_cmd *cmd)
 {
-	return dp_aux_write_cmds(ep, cmd);
+	int rc = dp_aux_write_cmds(ep, cmd);
+
+	return rc < 0 ? -EINVAL : 0;
 }
 
 static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
@@ -291,7 +293,9 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 
 int dp_aux_read(void *ep, struct edp_cmd *cmds)
 {
-	return dp_aux_read_cmds(ep, cmds);
+	int rc = dp_aux_read_cmds(ep, cmds);
+
+	return rc  < 0 ? -EINVAL : 0;
 }
 
 void dp_aux_native_handler(struct mdss_dp_drv_pdata *ep, u32 isr)

@@ -1730,7 +1730,7 @@ irqreturn_t dp_isr(int irq, void *ptr)
 {
 	struct mdss_dp_drv_pdata *dp = (struct mdss_dp_drv_pdata *)ptr;
 	unsigned char *base = dp->base;
-	u32 isr1, isr2, mask1, mask2;
+	u32 isr1, isr2, mask1;
 	u32 ack;
 
 	spin_lock(&dp->lock);
@@ -1738,13 +1738,11 @@ irqreturn_t dp_isr(int irq, void *ptr)
 	isr2 = dp_read(base + DP_INTR_STATUS2);
 
 	mask1 = isr1 & dp->mask1;
-	mask2 = isr2 & dp->mask2;
 
 	isr1 &= ~mask1;	/* remove masks bit */
-	isr2 &= ~mask2;
 
-	pr_debug("isr=%x mask=%x isr2=%x mask2=%x\n",
-			isr1, mask1, isr2, mask2);
+	pr_debug("isr=%x mask=%x isr2=%x\n",
+			isr1, mask1, isr2);
 
 	ack = isr1 & EDP_INTR_STATUS1;
 	ack <<= 1;	/* ack bits */
@@ -1753,7 +1751,7 @@ irqreturn_t dp_isr(int irq, void *ptr)
 
 	ack = isr2 & EDP_INTR_STATUS2;
 	ack <<= 1;	/* ack bits */
-	ack |= mask2;
+	ack |= isr2;
 	dp_write(base + DP_INTR_STATUS2, ack);
 	spin_unlock(&dp->lock);
 
