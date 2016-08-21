@@ -390,6 +390,30 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return ret;
 }
 
+static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
+			 unsigned int cmd, void *arg)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct msm_audio *prtd = runtime->private_data;
+	int dir = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? 0 : 1;
+	struct audio_buffer *buf;
+
+	switch (cmd) {
+	case SNDRV_PCM_IOCTL1_RESET:
+		pr_debug("%s: %s SNDRV_PCM_IOCTL1_RESET\n", __func__,
+		       dir == 0 ? "P" : "C");
+		buf = q6asm_shared_io_buf(prtd->audio_client, dir);
+
+		if (buf && buf->data)
+			memset(buf->data, 0, buf->actual_size);
+		break;
+	default:
+		break;
+	}
+
+	return snd_pcm_lib_ioctl(substream, cmd, arg);
+}
+
 static snd_pcm_uframes_t msm_pcm_pointer(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -723,7 +747,7 @@ static struct snd_pcm_ops msm_pcm_ops = {
 	.prepare        = msm_pcm_prepare,
 	.copy           = msm_pcm_copy,
 	.hw_params	= msm_pcm_hw_params,
-	.ioctl          = snd_pcm_lib_ioctl,
+	.ioctl          = msm_pcm_ioctl,
 	.trigger        = msm_pcm_trigger,
 	.pointer        = msm_pcm_pointer,
 	.mmap           = msm_pcm_mmap,

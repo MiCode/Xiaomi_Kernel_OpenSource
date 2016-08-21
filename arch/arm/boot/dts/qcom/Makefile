@@ -58,6 +58,18 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	apq8096pro-auto-cdp.dtb \
 	apq8096pro-liquid.dtb \
 	apq8096pro-v1.1-auto-cdp.dtb \
+	apq8096pro-v1.1-pmi8994-cdp.dtb \
+	apq8096pro-v1.1-pmi8994-mtp.dtb \
+	apq8096pro-v1.1-pmi8994-pmk8001-cdp.dtb \
+	apq8096pro-v1.1-pmi8994-pmk8001-mtp.dtb \
+	apq8096pro-v1.1-pmi8994-pm8004-cdp.dtb \
+	apq8096pro-v1.1-pmi8994-pm8004-mtp.dtb \
+	apq8096pro-v1.1-pmi8994-pm8004-pmk8001-cdp.dtb \
+	apq8096pro-v1.1-pmi8994-pm8004-pmk8001-mtp.dtb \
+	apq8096pro-v1.1-pmi8996-cdp.dtb \
+	apq8096pro-v1.1-pmi8996-mtp.dtb \
+	apq8096pro-v1.1-pmi8996-pmk8001-cdp.dtb \
+	apq8096pro-v1.1-pmi8996-pmk8001-mtp.dtb \
 	msm8996-v3.0-pmi8994-cdp.dtb \
 	msm8996-v3.0-pmi8994-mtp.dtb \
 	msm8996-v3.0-pmi8994-pm8004-cdp.dtb \
@@ -175,6 +187,13 @@ dtb-$(CONFIG_ARCH_MSM8917) += msm8917-rumi.dtb \
 	msm8917-pmi8950-rcm.dtb \
 	msm8917-qgp-tmo.dtb \
 	msm8917-pmi8937-qrd-sku5.dtb
+
+dtb-$(CONFIG_ARCH_MSM8920) += msm8920-pmi8937-cdp.dtb \
+	msm8920-pmi8937-mtp.dtb \
+	msm8920-pmi8950-cdp.dtb \
+	msm8920-pmi8950-mtp.dtb \
+	msm8920-pmi8937-rcm.dtb \
+	msm8920-pmi8950-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSM8940) += msm8940-pmi8937-cdp.dtb \
 	msm8940-pmi8937-mtp.dtb \

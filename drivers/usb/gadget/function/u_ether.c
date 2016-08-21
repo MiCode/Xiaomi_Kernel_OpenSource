@@ -2131,9 +2131,11 @@ struct net_device *gether_connect(struct gether *link)
 
 	/* on error, disable any endpoints  */
 	} else {
-		(void) usb_ep_disable(link->out_ep);
+		if (link->out_ep)
+			(void) usb_ep_disable(link->out_ep);
 fail1:
-		(void) usb_ep_disable(link->in_ep);
+		if (link->in_ep)
+			(void) usb_ep_disable(link->in_ep);
 	}
 
 	/* caller is responsible for cleanup on error */

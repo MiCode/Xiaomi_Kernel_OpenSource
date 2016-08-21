@@ -50,6 +50,12 @@
 			qcom,cdc-reset-gpio = <&msm_gpio 27 0>;
 		};
 	};
+
+	qcom,smd-ts {
+		compatible = "qcom,smd-ts";
+		ts-channel-name = "vsync_ts_diff";
+		ts-channel-type = <0>; /* SMD_APPS_MODEM */
+	};
 };
 
 &msm_gpio {
