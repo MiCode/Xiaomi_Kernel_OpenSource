@@ -217,6 +217,8 @@ module_param(quirks, ulong, 0600);
 
 void *icnss_ipc_log_context;
 
+#define ICNSS_EVENT_PENDING		2989
+
 enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_SERVER_ARRIVE,
 	ICNSS_DRIVER_EVENT_SERVER_EXIT,
@@ -486,6 +488,7 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	event->type = type;
 	event->data = data;
 	init_completion(&event->complete);
+	event->ret = ICNSS_EVENT_PENDING;
 	event->sync = sync;
 
 	spin_lock_irqsave(&penv->event_lock, flags);
@@ -494,12 +497,26 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 
 	penv->stats.events[type].posted++;
 	queue_work(penv->event_wq, &penv->event_work);
-	if (sync) {
-		ret = wait_for_completion_interruptible(&event->complete);
-		if (ret == 0)
-			ret = event->ret;
-		kfree(event);
+
+	if (!sync)
+		return ret;
+
+	ret = wait_for_completion_interruptible(&event->complete);
+
+	icnss_pr_dbg("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
+		     icnss_driver_event_to_str(type), type, penv->state, ret,
+		     event->ret);
+
+	spin_lock_irqsave(&penv->event_lock, flags);
+	if (ret == -ERESTARTSYS && event->ret == ICNSS_EVENT_PENDING) {
+		event->sync = false;
+		spin_unlock_irqrestore(&penv->event_lock, flags);
+		return ret;
 	}
+	spin_unlock_irqrestore(&penv->event_lock, flags);
+
+	ret = event->ret;
+	kfree(event);
 
 	return ret;
 }
@@ -2071,11 +2088,15 @@ static void icnss_driver_event_work(struct work_struct *work)
 
 		penv->stats.events[event->type].processed++;
 
+		spin_lock_irqsave(&penv->event_lock, flags);
 		if (event->sync) {
 			event->ret = ret;
 			complete(&event->complete);
-		} else
-			kfree(event);
+			continue;
+		}
+		spin_unlock_irqrestore(&penv->event_lock, flags);
+
+		kfree(event);
 
 		spin_lock_irqsave(&penv->event_lock, flags);
 	}
@@ -2371,6 +2392,9 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 
 	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
 				      true, ops);
+
+	if (ret == -ERESTARTSYS)
+		ret = 0;
 
 out:
 	return ret;
