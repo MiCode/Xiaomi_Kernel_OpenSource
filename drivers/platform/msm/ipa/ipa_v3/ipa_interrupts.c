@@ -46,7 +46,7 @@ static int ipa3_irq_mapping[IPA_IRQ_MAX] = {
 	[IPA_UC_TX_CMD_Q_NOT_FULL_IRQ]		= -1,
 	[IPA_UC_TO_PROC_ACK_Q_NOT_FULL_IRQ]	= -1,
 	[IPA_BAD_SNOC_ACCESS_IRQ]		= 0,
-	[IPA_EOT_COAL_IRQ]			= 1,
+	[IPA_EOT_COAL_IRQ]			= -1,
 	[IPA_UC_IRQ_0]				= 2,
 	[IPA_UC_IRQ_1]				= 3,
 	[IPA_UC_IRQ_2]				= 4,
@@ -61,7 +61,7 @@ static int ipa3_irq_mapping[IPA_IRQ_MAX] = {
 	[IPA_PROC_ERR_IRQ]			= 13,
 	[IPA_TX_SUSPEND_IRQ]			= 14,
 	[IPA_TX_HOLB_DROP_IRQ]			= 15,
-	[IPA_BAM_IDLE_IRQ]			= 16,
+	[IPA_BAM_GSI_IDLE_IRQ]			= 16,
 };
 
 static void ipa3_interrupt_defer(struct work_struct *work);
