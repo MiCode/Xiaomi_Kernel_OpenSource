@@ -3350,7 +3350,7 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	}
 
 	/* move resource group configuration from HLOS to TZ */
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1) {
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_1) {
 		IPAERR("skip configuring ipa_rx_hps_clients from HLOS\n");
 		return;
 	}
@@ -3609,4 +3609,28 @@ int ipa3_load_fws(const struct firmware *firmware)
 	}
 	IPADBG("IPA FWs (GSI FW, HPS and DPS) were loaded\n");
 	return 0;
+}
+
+/**
+ * ipa3_is_msm_device() - Is the running device a MSM or MDM?
+ *  Determine according to IPA version
+ *
+ * Return value: true if MSM, false if MDM
+ *
+ */
+bool ipa3_is_msm_device(void)
+{
+	switch (ipa3_ctx->ipa_hw_type) {
+	case IPA_HW_v3_0:
+	case IPA_HW_v3_5:
+		return false;
+	case IPA_HW_v3_1:
+	case IPA_HW_v3_5_1:
+		return true;
+	default:
+		IPAERR("unknown HW type %d\n", ipa3_ctx->ipa_hw_type);
+		ipa_assert();
+	}
+
+	return false;
 }
