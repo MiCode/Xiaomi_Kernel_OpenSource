@@ -24,6 +24,7 @@
 #include "dsi-panel-jdi-dualmipi-cmd.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
 #include "dsi-panel-jdi-1080p-video.dtsi"
+#include "dsi-panel-sharp-dualmipi-1080p-120hz.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -148,4 +149,10 @@
 	qcom,mdss-dsi-panel-timings = [00 1a 06 06 0a 11 05 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x07>;
 	qcom,mdss-dsi-t-clk-pre = <0x28>;
+};
+
+&dsi_dual_sharp_1080_120hz_cmd {
+	qcom,mdss-dsi-panel-timings = [00 19 05 06 0a 0f 05 06 05 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x7>;
+	qcom,mdss-dsi-t-clk-pre = <0x26>;
 };
