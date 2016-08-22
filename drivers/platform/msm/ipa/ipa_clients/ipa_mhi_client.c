@@ -2437,6 +2437,7 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 	int res;
 	struct ipa_rm_create_params mhi_prod_params;
 	struct ipa_rm_create_params mhi_cons_params;
+	struct ipa_rm_perf_profile profile;
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -2508,6 +2509,14 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 		goto fail_create_rm_prod;
 	}
 
+	memset(&profile, 0, sizeof(profile));
+	profile.max_supported_bandwidth_mbps = 1000;
+	res = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_MHI_PROD, &profile);
+	if (res) {
+		IPA_MHI_ERR("fail to set profile to MHI_PROD\n");
+		goto fail_perf_rm_prod;
+	}
+
 	/* Create CONS in IPA RM */
 	memset(&mhi_cons_params, 0, sizeof(mhi_cons_params));
 	mhi_cons_params.name = IPA_RM_RESOURCE_MHI_CONS;
@@ -2518,6 +2527,14 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 	if (res) {
 		IPA_MHI_ERR("fail to create IPA_RM_RESOURCE_MHI_CONS\n");
 		goto fail_create_rm_cons;
+	}
+
+	memset(&profile, 0, sizeof(profile));
+	profile.max_supported_bandwidth_mbps = 1000;
+	res = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_MHI_CONS, &profile);
+	if (res) {
+		IPA_MHI_ERR("fail to set profile to MHI_CONS\n");
+		goto fail_perf_rm_cons;
 	}
 
 	/* Initialize uC interface */
@@ -2532,7 +2549,10 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 
+fail_perf_rm_cons:
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_CONS);
 fail_create_rm_cons:
+fail_perf_rm_prod:
 	ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
 fail_create_rm_prod:
 	destroy_workqueue(ipa_mhi_client_ctx->wq);
