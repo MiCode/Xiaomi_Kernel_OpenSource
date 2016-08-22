@@ -594,6 +594,21 @@
 			"smem_targ_info_reg";
 		qcom,mpu-enabled;
 	};
+
+	qcom,glink-mailbox-xprt-spss@1885008 {
+		compatible = "qcom,glink-mailbox-xprt";
+		reg = <0x1885008 0x8>,
+			<0x1885010 0x4>,
+			<0x188501c 0x4>,
+			<0x1886008 0x4>;
+		reg-names = "mbox-loc-addr", "mbox-loc-size", "irq-reg-base",
+				"irq-rx-reset";
+		qcom,irq-mask = <0x1>;
+		interrupts = <0 348 4>;
+		label = "spss";
+		qcom,tx-ring-size = <0x400>;
+		qcom,rx-ring-size = <0x400>;
+	};
 };
 
 &pcie_0_gdsc {
