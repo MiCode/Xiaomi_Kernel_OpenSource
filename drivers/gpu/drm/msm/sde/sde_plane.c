@@ -73,17 +73,6 @@ struct sde_plane {
 
 #define to_sde_plane(x) container_of(x, struct sde_plane, base)
 
-#define POPULATE_RECT(rect, a, b, c, d, Q16_flag) \
-	do {						\
-		(rect)->x = (Q16_flag) ? (a) >> 16 : (a);    \
-		(rect)->y = (Q16_flag) ? (b) >> 16 : (b);    \
-		(rect)->w = (Q16_flag) ? (c) >> 16 : (c);    \
-		(rect)->h = (Q16_flag) ? (d) >> 16 : (d);    \
-	} while (0)
-
-#define CHECK_LAYER_BOUNDS(offset, size, max_size) \
-	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
-
 static bool sde_plane_enabled(struct drm_plane_state *state)
 {
 	return state && state->fb && state->crtc;
