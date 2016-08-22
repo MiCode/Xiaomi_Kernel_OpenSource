@@ -54,6 +54,7 @@
 #define	DP_LOGICAL2PHYSCIAL_LANE_MAPPING	(0x00000438)
 
 #define	DP_MAINLINK_READY			(0x00000440)
+#define DP_MAINLINK_LEVELS			(0x00000444)
 #define	DP_TU					(0x0000044C)
 
 #define	MMSS_DP_AUDIO_TIMING_GEN		(0x00000480)
@@ -102,7 +103,8 @@
 #define	MMSS_DP_AUDIO_ISRC_4			(0x000006A0)
 #define	MMSS_DP_AUDIO_ISRC_5			(0x000006A4)
 #define	MMSS_DP_AUDIO_INFOFRAME_0		(0x000006A8)
-#define	MMSS_DP_AUDIO_INFOFRAME_1		(0x000006B0)
+#define	MMSS_DP_AUDIO_INFOFRAME_1		(0x000006AC)
+#define	MMSS_DP_AUDIO_INFOFRAME_2		(0x000006B0)
 
 #define	MMSS_DP_GENERIC0_0			(0x00000700)
 #define	MMSS_DP_GENERIC0_1			(0x00000704)
@@ -235,5 +237,10 @@ void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io,
 						char link_rate);
 void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io);
 void mdss_dp_audio_enable(struct dss_io_data *ctrl_io, bool enable);
+void mdss_dp_audio_select_core(struct dss_io_data *ctrl_io);
+void mdss_dp_audio_set_sample_rate(struct dss_io_data *ctrl_io,
+		char dp_link_rate, uint32_t audio_freq);
+void mdss_dp_set_safe_to_exit_level(struct dss_io_data *ctrl_io,
+		uint32_t lane_cnt);
 
 #endif /* __DP_UTIL_H__ */
