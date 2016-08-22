@@ -170,6 +170,11 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 	SDE_DEBUG("[fb_secure:%d]\n", wb_cfg->is_secure);
 
 	format = msm_framebuffer_format(fb);
+	if (!format) {
+		SDE_DEBUG("invalid format for fb\n");
+		return;
+	}
+
 	wb_cfg->dest.format = sde_get_sde_format_ext(
 			format->pixel_format,
 			fb->modifier,
