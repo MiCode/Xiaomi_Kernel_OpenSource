@@ -281,6 +281,34 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 }
 EXPORT_SYMBOL_GPL(mbox_send_message);
 
+/**
+ * mbox_send_controller_data-	For client to submit a message to be
+ *				sent only to the controller.
+ * @chan: Mailbox channel assigned to this client.
+ * @mssg: Client specific message typecasted.
+ *
+ * For client to submit data to the controller. There is no ACK expected
+ * from the controller. This request is not buffered in the mailbox framework.
+ *
+ * Return: Non-negative integer for successful submission (non-blocking mode)
+ *	or transmission over chan (blocking mode).
+ *	Negative value denotes failure.
+ */
+int mbox_send_controller_data(struct mbox_chan *chan, void *mssg)
+{
+	unsigned long flags;
+	int err;
+
+	if (!chan || !chan->cl)
+		return -EINVAL;
+
+	spin_lock_irqsave(&chan->lock, flags);
+	err = chan->mbox->ops->send_controller_data(chan, mssg);
+	spin_unlock_irqrestore(&chan->lock, flags);
+
+	return err;
+}
+EXPORT_SYMBOL(mbox_send_controller_data);
 
 bool mbox_controller_is_idle(struct mbox_chan *chan)
 {
