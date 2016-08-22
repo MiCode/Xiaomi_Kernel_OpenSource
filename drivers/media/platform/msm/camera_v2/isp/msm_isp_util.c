@@ -350,6 +350,56 @@ static int msm_isp_start_fetch_engine(struct vfe_device *vfe_dev,
 		start_fetch_eng(vfe_dev, arg);
 }
 
+static int msm_isp_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	struct msm_vfe_fetch_eng_multi_pass_start *fe_cfg = arg;
+	struct msm_vfe_axi_stream *stream_info = NULL;
+	int i = 0, rc;
+	uint32_t wm_reload_mask = 0;
+	/*
+	 * For Offline VFE, HAL expects same frame id
+	 * for offline output which it requested in do_reprocess.
+	 */
+	vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id =
+		fe_cfg->frame_id;
+
+	if (fe_cfg->offline_pass == OFFLINE_SECOND_PASS) {
+		for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
+			stream_info = &vfe_dev->axi_data.stream_info[i];
+			if (stream_info->stream_id == fe_cfg->output_stream_id)
+				break;
+		}
+
+		if (i == VFE_AXI_SRC_MAX) {
+			pr_err("%s: Couldn't find streamid 0x%X\n", __func__,
+				fe_cfg->output_stream_id);
+			return -EINVAL;
+		}
+
+		msm_isp_reset_framedrop(vfe_dev, stream_info);
+
+		rc = msm_isp_cfg_offline_ping_pong_address(vfe_dev, stream_info,
+			VFE_PING_FLAG, fe_cfg->output_buf_idx);
+		if (rc < 0) {
+			pr_err("%s: Fetch engine config failed\n", __func__);
+			return -EINVAL;
+		}
+		for (i = 0; i < stream_info->num_planes; i++) {
+			vfe_dev->hw_info->vfe_ops.axi_ops.
+			enable_wm(vfe_dev->vfe_base, stream_info->wm[i],
+					1);
+			wm_reload_mask |= (1 << stream_info->wm[i]);
+		}
+		vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
+			VFE_SRC_MAX);
+		vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev,
+			vfe_dev->vfe_base, wm_reload_mask);
+	}
+	return vfe_dev->hw_info->vfe_ops.core_ops.
+		start_fetch_eng_multi_pass(vfe_dev, arg);
+}
+
 void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
 	struct msm_vfe_fetch_engine_info *fetch_engine_info)
 {
@@ -831,6 +881,13 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_MAP_BUF_START_FE:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_start_fetch_engine(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+
+	case VIDIOC_MSM_ISP_FETCH_ENG_MULTI_PASS_START:
+	case VIDIOC_MSM_ISP_MAP_BUF_START_MULTI_PASS_FE:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_start_fetch_engine_multi_pass(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_REG_UPDATE_CMD:
@@ -1396,6 +1453,7 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 	case V4L2_PIX_FMT_SGRBG10DPCM8:
 	case V4L2_PIX_FMT_SRGGB10DPCM8:
 	case V4L2_PIX_FMT_Y10:
+	case V4L2_PIX_FMT_META10:
 		val = CAL_WORD(pixel_per_line, 5, 32);
 		break;
 	case V4L2_PIX_FMT_SBGGR12:
@@ -1586,6 +1644,8 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
+	case V4L2_PIX_FMT_META10:
+	case MSM_V4L2_PIX_FMT_META10:
 		return 10;
 	case V4L2_PIX_FMT_SBGGR12:
 	case V4L2_PIX_FMT_SGBRG12:
@@ -1988,6 +2048,8 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	vfe_dev->hw_info->vfe_ops.core_ops.clear_status_reg(vfe_dev);
 
+	vfe_dev->vfe_hw_version = msm_camera_io_r(vfe_dev->vfe_base);
+	ISP_DBG("%s: HW Version: 0x%x\n", __func__, vfe_dev->vfe_hw_version);
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, 1, 1);
 	if (rc <= 0) {
 		pr_err("%s: reset timeout\n", __func__);
@@ -1997,8 +2059,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		return -EINVAL;
 	}
-	vfe_dev->vfe_hw_version = msm_camera_io_r(vfe_dev->vfe_base);
-	ISP_DBG("%s: HW Version: 0x%x\n", __func__, vfe_dev->vfe_hw_version);
 
 	vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
 

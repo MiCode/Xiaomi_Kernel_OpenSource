@@ -13,6 +13,21 @@
 #ifndef __MSM_ISP47_H__
 #define __MSM_ISP47_H__
 
+#define VFE47_NUM_STATS_COMP 2
+#define VFE47_NUM_STATS_TYPE 9
+/* composite mask order */
+enum msm_vfe47_stats_comp_idx {
+	STATS_COMP_IDX_HDR_BE = 0,
+	STATS_COMP_IDX_BG,
+	STATS_COMP_IDX_BF,
+	STATS_COMP_IDX_HDR_BHIST,
+	STATS_COMP_IDX_RS,
+	STATS_COMP_IDX_CS,
+	STATS_COMP_IDX_IHIST,
+	STATS_COMP_IDX_BHIST,
+	STATS_COMP_IDX_AEC_BG,
+};
+
 extern struct msm_vfe_hardware_info vfe47_hw_info;
 
 void msm_vfe47_read_irq_status(struct vfe_device *vfe_dev,
