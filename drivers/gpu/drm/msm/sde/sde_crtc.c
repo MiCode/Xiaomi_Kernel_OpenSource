@@ -41,6 +41,16 @@ static struct sde_kms *get_kms(struct drm_crtc *crtc)
 	return to_sde_kms(priv->kms);
 }
 
+static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
+	struct drm_display_mode *mode)
+{
+	if (!sde_crtc || !mode)
+		return 0;
+
+	return  sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
+		mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay;
+}
+
 static void sde_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
@@ -65,9 +75,9 @@ static bool sde_crtc_mode_fixup(struct drm_crtc *crtc,
 	DBG("");
 
 	if (msm_is_mode_seamless(adjusted_mode)) {
-		DBG("Seamless mode set requested");
+		SDE_DEBUG("seamless mode set requested\n");
 		if (!crtc->enabled || crtc->state->active_changed) {
-			DRM_ERROR("crtc state prevents seamless transition");
+			SDE_ERROR("crtc state prevents seamless transition\n");
 			return false;
 		}
 	}
@@ -139,13 +149,13 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 		cfg->bg.const_alpha = 0x00;
 	}
 
-	DBG("format 0x%x, alpha_enable %u blend_op %u",
+	SDE_DEBUG("format 0x%x, alpha_enable %u blend_op %u\n",
 			format->base.pixel_format, format->alpha_enable,
 			blend_op);
-	DBG("fg alpha config %d %d %d %d %d",
+	SDE_DEBUG("fg alpha config %d %d %d %d %d\n",
 		cfg->fg.alpha_sel, cfg->fg.const_alpha, cfg->fg.mod_alpha,
 		cfg->fg.inv_alpha_sel, cfg->fg.inv_mode_alpha);
-	DBG("bg alpha config %d %d %d %d %d",
+	SDE_DEBUG("bg alpha config %d %d %d %d %d\n",
 		cfg->bg.alpha_sel, cfg->bg.const_alpha, cfg->bg.mod_alpha,
 		cfg->bg.inv_alpha_sel, cfg->bg.inv_mode_alpha);
 }
@@ -186,7 +196,7 @@ static void blend_setup(struct drm_crtc *crtc)
 			pstate = to_sde_plane_state(plane->state);
 			sde_crtc->stage_cfg.stage[pstate->stage][i] =
 				sde_plane_pipe(plane);
-			DBG("crtc_id %d - mixer %d pipe %d at stage %d",
+			SDE_DEBUG("crtc_id %d - mixer %d pipe %d at stage %d\n",
 					i,
 					crtc->base.id,
 					sde_plane_pipe(plane),
@@ -222,7 +232,7 @@ static void blend_setup(struct drm_crtc *crtc)
 	if ((sde_crtc->stage_cfg.stage[SDE_STAGE_BASE][0] == SSPP_NONE) &&
 			plane_cnt) {
 		sde_crtc->stage_cfg.border_enable = 1;
-		DBG("Border Color is enabled");
+		SDE_DEBUG("border color is enabled\n");
 	}
 
 	/* Program ctl_paths */
@@ -274,7 +284,8 @@ static void complete_flip(struct drm_crtc *crtc, struct drm_file *file)
 		 */
 		if (!file || (event->base.file_priv == file)) {
 			sde_crtc->event = NULL;
-			SDE_DEBUG("%s: send event: %pK", sde_crtc->name, event);
+			SDE_DEBUG("%s: send event: %pK\n",
+						sde_crtc->name, event);
 			drm_send_vblank_event(dev, sde_crtc->drm_crtc_id,
 					event);
 		}
@@ -313,7 +324,7 @@ static u32 _sde_crtc_update_ctl_flush_mask(struct drm_crtc *crtc)
 	int i;
 
 	if (!crtc) {
-		DRM_ERROR("invalid argument\n");
+		SDE_ERROR("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -325,8 +336,8 @@ static u32 _sde_crtc_update_ctl_flush_mask(struct drm_crtc *crtc)
 		mixer = &sde_crtc->mixers[i];
 		ctl = mixer->hw_ctl;
 		ctl->ops.update_pending_flush(ctl, mixer->flush_mask);
-		DBG("added CTL_ID %d mask 0x%x to pending flush", ctl->idx,
-						mixer->flush_mask);
+		SDE_DEBUG("added CTL_ID %d mask 0x%x to pending flush\n",
+				ctl->idx, mixer->flush_mask);
 	}
 
 	return 0;
@@ -365,7 +376,7 @@ static void _sde_crtc_trigger_kickoff(void *data)
 	int i;
 
 	if (!data) {
-		DRM_ERROR("invalid argument\n");
+		SDE_ERROR("invalid argument\n");
 		return;
 	}
 
@@ -398,7 +409,7 @@ static void _sde_crtc_trigger_kickoff(void *data)
 static void _sde_crtc_set_input_fence_timeout(struct sde_crtc_state *cstate)
 {
 	if (!cstate) {
-		DRM_ERROR("invalid cstate\n");
+		SDE_ERROR("invalid cstate\n");
 		return;
 	}
 	cstate->input_fence_timeout_ns =
@@ -420,7 +431,7 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 	DBG("");
 
 	if (!crtc || !crtc->state) {
-		DRM_ERROR("invalid crtc/state %pK\n", crtc);
+		SDE_ERROR("invalid crtc/state %pK\n", crtc);
 		return;
 	}
 
@@ -521,7 +532,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	DBG("");
 
 	if (!crtc) {
-		DRM_ERROR("invalid crtc\n");
+		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 
@@ -585,7 +596,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	unsigned long flags;
 
 	if (!crtc) {
-		DRM_ERROR("invalid crtc\n");
+		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 
@@ -596,7 +607,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	dev = crtc->dev;
 
 	if (sde_crtc->event) {
-		DBG("already received sde_crtc->event");
+		SDE_DEBUG("already received sde_crtc->event\n");
 	} else {
 		spin_lock_irqsave(&dev->event_lock, flags);
 		sde_crtc->event = crtc->state->event;
@@ -643,7 +654,7 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 	struct sde_crtc_state *cstate;
 
 	if (!crtc || !state) {
-		DRM_ERROR("invalid argument(s)\n");
+		SDE_ERROR("invalid argument(s)\n");
 		return;
 	}
 
@@ -665,7 +676,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	struct drm_device *dev;
 
 	if (!crtc) {
-		DRM_ERROR("invalid argument\n");
+		SDE_ERROR("invalid argument\n");
 		return;
 	}
 	dev = crtc->dev;
@@ -694,7 +705,7 @@ static struct drm_crtc_state *sde_crtc_duplicate_state(struct drm_crtc *crtc)
 	struct sde_crtc_state *cstate, *old_cstate;
 
 	if (!crtc || !crtc->state) {
-		DRM_ERROR("invalid argument(s)\n");
+		SDE_ERROR("invalid argument(s)\n");
 		return NULL;
 	}
 
@@ -702,7 +713,7 @@ static struct drm_crtc_state *sde_crtc_duplicate_state(struct drm_crtc *crtc)
 	old_cstate = to_sde_crtc_state(crtc->state);
 	cstate = msm_property_alloc_state(&sde_crtc->property_info);
 	if (!cstate) {
-		DRM_ERROR("failed to allocate state\n");
+		SDE_ERROR("failed to allocate state\n");
 		return NULL;
 	}
 
@@ -729,7 +740,7 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 	struct sde_crtc_state *cstate;
 
 	if (!crtc) {
-		DRM_ERROR("invalid crtc\n");
+		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 
@@ -742,7 +753,7 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = msm_property_alloc_state(&sde_crtc->property_info);
 	if (!cstate) {
-		DRM_ERROR("failed to allocate state\n");
+		SDE_ERROR("failed to allocate state\n");
 		return;
 	}
 
@@ -781,11 +792,10 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	unsigned long flags;
 	struct drm_display_mode *mode;
 	struct sde_hw_mixer_cfg cfg;
-	u32 mixer_width;
 	int i;
 
 	if (!crtc) {
-		DRM_ERROR("invalid crtc\n");
+		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 
@@ -801,17 +811,11 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 
 	drm_mode_debug_printmodeline(mode);
 
-	/* Update LMs for dual mode: mixer_width = half mode width */
-	if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
-		mixer_width = mode->hdisplay >> 1;
-	 else
-		mixer_width = mode->hdisplay;
-
 	spin_lock_irqsave(&sde_crtc->lm_lock, flags);
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		lm = mixer[i].hw_lm;
-		cfg.out_width = mixer_width;
+		cfg.out_width = sde_crtc_mixer_width(sde_crtc, mode);
 		cfg.out_height = mode->vdisplay;
 		cfg.right_mixer = (i == 0) ? false : true;
 		cfg.flags = 0;
@@ -822,55 +826,55 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 }
 
 struct plane_state {
-	struct drm_plane *plane;
-	struct sde_plane_state *state;
+	struct sde_plane_state *sde_pstate;
+	struct drm_plane_state *drm_pstate;
 };
 
 static int pstate_cmp(const void *a, const void *b)
 {
 	struct plane_state *pa = (struct plane_state *)a;
 	struct plane_state *pb = (struct plane_state *)b;
+	int rc = 0;
+	int pa_zpos, pb_zpos;
 
-	return (int)sde_plane_get_property(pa->state, PLANE_PROP_ZPOS) -
-		(int)sde_plane_get_property(pb->state, PLANE_PROP_ZPOS);
+	pa_zpos = sde_plane_get_property(pa->sde_pstate, PLANE_PROP_ZPOS);
+	pb_zpos = sde_plane_get_property(pb->sde_pstate, PLANE_PROP_ZPOS);
+
+	if (pa_zpos != pb_zpos)
+		rc = pa_zpos - pb_zpos;
+	else
+		rc = pa->drm_pstate->crtc_x - pb->drm_pstate->crtc_x;
+
+	return rc;
 }
 
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
 	struct sde_crtc *sde_crtc;
-	struct sde_kms *sde_kms;
+	struct plane_state pstates[SDE_STAGE_MAX * 2];
+
+	struct drm_plane_state *pstate;
 	struct drm_plane *plane;
-	struct plane_state pstates[SDE_STAGE_MAX];
-	int max_stages;
-	int cnt = 0, i;
+	struct drm_display_mode *mode;
+
+	int cnt = 0, rc = 0, mixer_width, i, z_pos;
+	int left_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
+	int right_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
 
 	if (!crtc) {
-		DRM_ERROR("invalid crtc\n");
+		SDE_ERROR("invalid crtc\n");
 		return -EINVAL;
 	}
 
 	sde_crtc = to_sde_crtc(crtc);
-	sde_kms = get_kms(crtc);
-	if (!sde_kms) {
-		DRM_ERROR("invalid kms\n");
-		return -EINVAL;
-	}
-	max_stages = CRTC_HW_MIXER_MAXSTAGES(sde_kms->catalog, 0);
+	mode = &state->adjusted_mode;
+	SDE_DEBUG("%s: check", sde_crtc->name);
 
-	DBG("%s: check", sde_crtc->name);
+	mixer_width = sde_crtc_mixer_width(sde_crtc, mode);
 
-	/* verify that there are not too many planes attached to crtc
-	 * and that we don't have conflicting mixer stages:
-	 */
+	 /* get plane state for all drm planes associated with crtc state */
 	drm_atomic_crtc_state_for_each_plane(plane, state) {
-		struct drm_plane_state *pstate;
-
-		if (cnt >= (max_stages)) {
-			DRM_ERROR("too many planes!\n");
-			return -EINVAL;
-		}
-
 		pstate = state->state->plane_states[drm_plane_index(plane)];
 
 		/* plane might not have changed, in which case take
@@ -878,25 +882,54 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		 */
 		if (!pstate)
 			pstate = plane->state;
-		pstates[cnt].plane = plane;
-		pstates[cnt].state = to_sde_plane_state(pstate);
 
+		pstates[cnt].sde_pstate = to_sde_plane_state(pstate);
+		pstates[cnt].drm_pstate = pstate;
 		cnt++;
+
+		if (CHECK_LAYER_BOUNDS(pstate->crtc_y, pstate->crtc_h,
+				mode->vdisplay) ||
+		    CHECK_LAYER_BOUNDS(pstate->crtc_x, pstate->crtc_w,
+				mode->hdisplay)) {
+			SDE_ERROR("invalid vertical/horizontal destination\n");
+			SDE_ERROR("y:%d h:%d vdisp:%d x:%d w:%d hdisp:%d\n",
+				pstate->crtc_y, pstate->crtc_h, mode->vdisplay,
+				pstate->crtc_x, pstate->crtc_w, mode->hdisplay);
+			rc = -E2BIG;
+			goto end;
+		}
 	}
 
-	/* assign a stage based on sorted zpos property */
+	/* sort planes based on sorted zpos property */
 	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
 
 	for (i = 0; i < cnt; i++) {
-		pstates[i].state->stage = SDE_STAGE_0 + i;
-		DBG("%s: assign pipe %d on stage=%d zpos %d", sde_crtc->name,
-				sde_plane_pipe(pstates[i].plane),
-				pstates[i].state->stage,
-				sde_plane_get_property32(pstates[i].state,
-						PLANE_PROP_ZPOS));
+		z_pos = sde_plane_get_property(pstates[i].sde_pstate,
+			PLANE_PROP_ZPOS);
+
+		if (pstates[i].drm_pstate->crtc_x < mixer_width) {
+			if (left_crtc_zpos_cnt[z_pos] == 2) {
+				SDE_ERROR("> 2 plane @ stage%d on left\n",
+					z_pos);
+				rc = -EINVAL;
+				goto end;
+			}
+			left_crtc_zpos_cnt[z_pos]++;
+		} else {
+			if (right_crtc_zpos_cnt[z_pos] == 2) {
+				SDE_ERROR("> 2 plane @ stage%d on right\n",
+					z_pos);
+				rc = -EINVAL;
+				goto end;
+			}
+			right_crtc_zpos_cnt[z_pos]++;
+		}
+		pstates[i].sde_pstate->stage = z_pos;
+		SDE_DEBUG("%s: zpos %d", sde_crtc->name, z_pos);
 	}
 
-	return 0;
+end:
+	return rc;
 }
 
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
@@ -905,7 +938,7 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 	struct drm_encoder *encoder;
 	struct drm_device *dev = crtc->dev;
 
-	DBG("%d", en);
+	SDE_DEBUG("%d", en);
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
@@ -946,7 +979,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc)
 	DBG("");
 
 	if (!crtc) {
-		DRM_ERROR("invalid crtc\n");
+		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 
@@ -982,7 +1015,7 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 	int idx, ret = -EINVAL;
 
 	if (!crtc || !state || !property) {
-		DRM_ERROR("invalid argument(s)\n");
+		SDE_ERROR("invalid argument(s)\n");
 	} else {
 		sde_crtc = to_sde_crtc(crtc);
 		cstate = to_sde_crtc_state(state);
@@ -1033,7 +1066,7 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 	int i, ret = -EINVAL;
 
 	if (!crtc || !state) {
-		DRM_ERROR("invalid argument(s)\n");
+		SDE_ERROR("invalid argument(s)\n");
 	} else {
 		sde_crtc = to_sde_crtc(crtc);
 		cstate = to_sde_crtc_state(state);
@@ -1185,6 +1218,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 
 	sde_crtc_install_properties(crtc);
 
-	DBG("%s: Successfully initialized crtc", sde_crtc->name);
+	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);
 	return crtc;
 }

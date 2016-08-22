@@ -52,6 +52,17 @@
 
 #define SDE_ERROR(fmt, ...) pr_err(fmt, ##__VA_ARGS__)
 
+#define POPULATE_RECT(rect, a, b, c, d, Q16_flag) \
+	do {						\
+		(rect)->x = (Q16_flag) ? (a) >> 16 : (a);    \
+		(rect)->y = (Q16_flag) ? (b) >> 16 : (b);    \
+		(rect)->w = (Q16_flag) ? (c) >> 16 : (c);    \
+		(rect)->h = (Q16_flag) ? (d) >> 16 : (d);    \
+	} while (0)
+
+#define CHECK_LAYER_BOUNDS(offset, size, max_size) \
+	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
+
 /*
  * struct sde_irq_callback - IRQ callback handlers
  * @func: intr handler
