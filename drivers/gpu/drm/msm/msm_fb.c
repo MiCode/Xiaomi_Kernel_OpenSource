@@ -133,8 +133,7 @@ struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane)
 
 const struct msm_format *msm_framebuffer_format(struct drm_framebuffer *fb)
 {
-	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
-	return msm_fb->format;
+	return fb ? (to_msm_framebuffer(fb))->format : NULL;
 }
 
 struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
