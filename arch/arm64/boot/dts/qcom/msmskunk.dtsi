@@ -577,6 +577,12 @@
 			compatible = "qcom,llcc-amon";
 		};
 	};
+
+	qcom,ipc-spinlock@1f40000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0x1f40000 0x8000>;
+		qcom,num-locks = <8>;
+	};
 };
 
 &pcie_0_gdsc {
