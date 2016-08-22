@@ -23,12 +23,26 @@ int ufs_qcom_phy_qmp_v3_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	int err;
 	int tbl_size_A, tbl_size_B;
 	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
+	u8 major = ufs_qcom_phy->host_ctrl_rev_major;
+	u16 minor = ufs_qcom_phy->host_ctrl_rev_minor;
+	u16 step = ufs_qcom_phy->host_ctrl_rev_step;
 
 	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
 	tbl_B = phy_cal_table_rate_B;
 
-	tbl_A = phy_cal_table_rate_A;
-	tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
+	if ((major == 0x3) && (minor == 0x000) && (step == 0x0000)) {
+		tbl_A = phy_cal_table_rate_A_3_0_0;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_3_0_0);
+	} else if ((major == 0x3) && (minor == 0x001) && (step == 0x0000)) {
+		tbl_A = phy_cal_table_rate_A_3_1_0;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_3_1_0);
+	} else {
+		dev_err(ufs_qcom_phy->dev,
+			"%s: Unknown UFS-PHY version (major 0x%x minor 0x%x step 0x%x), no calibration values\n",
+			__func__, major, minor, step);
+		err = -ENODEV;
+		goto out;
+	}
 
 	err = ufs_qcom_phy_calibrate(ufs_qcom_phy,
 				     tbl_A, tbl_size_A,
@@ -39,6 +53,8 @@ int ufs_qcom_phy_qmp_v3_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 		dev_err(ufs_qcom_phy->dev,
 			"%s: ufs_qcom_phy_calibrate() failed %d\n",
 			__func__, err);
+
+out:
 	return err;
 }
 
