@@ -1845,6 +1845,7 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 	u32 dst_bpp;
 	struct mdss_data_type *mdata = ctl->mdata;
 	struct dsc_desc *dsc = NULL;
+	u32 hdmi_dp_core;
 
 	ctx->ctl = ctl;
 	ctx->intf_type = ctl->intf_type;
@@ -1965,6 +1966,11 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 	mdss_mdp_disable_prefill(ctl);
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_PANEL_FORMAT, ctl->dst_format);
+
+	hdmi_dp_core = (ctx->intf_type == MDSS_INTF_EDP) ? 1 : 0;
+
+	writel_relaxed(hdmi_dp_core, mdata->mdp_base +
+			MDSS_MDP_HDMI_DP_CORE_SELECT);
 
 	return 0;
 }
