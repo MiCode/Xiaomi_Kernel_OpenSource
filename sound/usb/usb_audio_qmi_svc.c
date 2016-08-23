@@ -1006,8 +1006,8 @@ static int uaudio_qmi_plat_probe(struct platform_device *pdev)
 	}
 
 	uaudio_qdev->domain = iommu_domain_alloc(pdev->dev.bus);
-	if (!uaudio_qdev) {
-		dev_err(&pdev->dev, "failed to callocate iommu domin\n");
+	if (!uaudio_qdev->domain) {
+		dev_err(&pdev->dev, "failed to allocate iommu domain\n");
 		return -ENODEV;
 	}
 
