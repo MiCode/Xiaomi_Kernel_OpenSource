@@ -77,10 +77,10 @@ struct smb_dt_props {
 };
 
 struct smb138x {
-	u32			wa_flags;
 	struct smb_charger	chg;
 	struct smb_dt_props	dt;
 	struct power_supply	*parallel_psy;
+	u32			wa_flags;
 };
 
 static int __debug_mask;
@@ -269,7 +269,8 @@ static int smb138x_batt_get_prop(struct power_supply *psy,
 				 enum power_supply_property prop,
 				 union power_supply_propval *val)
 {
-	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
 	switch (prop) {
@@ -304,7 +305,8 @@ static int smb138x_batt_set_prop(struct power_supply *psy,
 				 enum power_supply_property prop,
 				 const union power_supply_propval *val)
 {
-	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
 	switch (prop) {
@@ -378,7 +380,8 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     union power_supply_propval *val)
 {
-	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 	u8 temp;
 
@@ -418,7 +421,8 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     const union power_supply_propval *val)
 {
-	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
 	switch (prop) {
