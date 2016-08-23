@@ -119,7 +119,7 @@ static inline bool __core_in_valid_state(struct venus_hfi_device *device)
 	return device->state != VENUS_STATE_DEINIT;
 }
 
-static void __dump_packet(u8 *packet)
+static void __dump_packet(u8 *packet, enum vidc_msg_prio log_level)
 {
 	u32 c = 0, packet_size = *(u32 *)packet;
 	const int row_size = 32;
@@ -132,7 +132,7 @@ static void __dump_packet(u8 *packet)
 			packet_size % row_size : row_size;
 		hex_dump_to_buffer(packet + c * row_size, bytes_to_read,
 				row_size, 4, row, sizeof(row), false);
-		dprintk(VIDC_PKT, "%s\n", row);
+		dprintk(log_level, "%s\n", row);
 	}
 }
 
@@ -342,7 +342,7 @@ static int __write_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
 
 	if (msm_vidc_debug & VIDC_PKT) {
 		dprintk(VIDC_PKT, "%s: %pK\n", __func__, qinfo);
-		__dump_packet(packet);
+		__dump_packet(packet, VIDC_PKT);
 	}
 
 	packet_size_in_words = (*(u32 *)packet) >> 2;
@@ -548,7 +548,7 @@ static int __read_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
 
 	if (msm_vidc_debug & VIDC_PKT) {
 		dprintk(VIDC_PKT, "%s: %pK\n", __func__, qinfo);
-		__dump_packet(packet);
+		__dump_packet(packet, VIDC_PKT);
 	}
 
 	return rc;
@@ -2517,7 +2517,6 @@ static int venus_hfi_session_clean(void *session)
 	mutex_lock(&device->lock);
 
 	__session_clean(sess_close);
-	__flush_debug_queue(device, NULL);
 
 	mutex_unlock(&device->lock);
 	return 0;
@@ -3337,6 +3336,7 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 {
 	bool local_packet = false;
 	enum vidc_msg_prio log_level = VIDC_FW;
+	unsigned int pending_packet_count = 0;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
@@ -3359,6 +3359,23 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 		 */
 
 		log_level = VIDC_ERR;
+	}
+
+	/*
+	 * In FATAL situation, print all the pending messages in msg
+	 * queue. This is useful for debugging. At this time, message
+	 * queues may be corrupted. Hence don't trust them and just print
+	 * first max_packets packets.
+	 */
+
+	if (local_packet) {
+		dprintk(VIDC_ERR,
+			"Printing all pending messages in message Queue\n");
+		while (!__iface_msgq_read(device, packet) &&
+				pending_packet_count < max_packets) {
+			__dump_packet(packet, log_level);
+			pending_packet_count++;
+		}
 	}
 
 	while (!__iface_dbgq_read(device, packet)) {
