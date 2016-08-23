@@ -900,6 +900,15 @@ static inline bool is_dsc_compression(struct mdss_panel_info *pinfo)
 	return false;
 }
 
+static inline bool is_lm_configs_dsc_compatible(struct mdss_panel_info *pinfo,
+		u32 width, u32 height)
+{
+	if ((width % pinfo->dsc.slice_width) ||
+		(height % pinfo->dsc.slice_height))
+		return false;
+	return true;
+}
+
 int mdss_register_panel(struct platform_device *pdev,
 	struct mdss_panel_data *pdata);
 
