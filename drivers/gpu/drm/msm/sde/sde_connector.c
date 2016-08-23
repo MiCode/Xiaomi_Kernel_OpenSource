@@ -64,8 +64,8 @@ static void sde_connector_destroy(struct drm_connector *connector)
 
 	c_conn = to_sde_connector(connector);
 
-	if (c_conn->blob_sde_info)
-		drm_property_unreference_blob(c_conn->blob_sde_info);
+	if (c_conn->blob_caps)
+		drm_property_unreference_blob(c_conn->blob_caps);
 	msm_property_destroy(&c_conn->property_info);
 
 	drm_connector_unregister(connector);
@@ -560,12 +560,12 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		}
 
 		msm_property_install_blob(&c_conn->property_info,
-				"sde_info",
+				"capabilities",
 				DRM_MODE_PROP_IMMUTABLE,
 				CONNECTOR_PROP_SDE_INFO);
 
 		msm_property_set_blob(&c_conn->property_info,
-				&c_conn->blob_sde_info,
+				&c_conn->blob_caps,
 				SDE_KMS_INFO_DATA(info),
 				SDE_KMS_INFO_DATALEN(info),
 				CONNECTOR_PROP_SDE_INFO);
@@ -573,7 +573,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	}
 
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
-			0x0, 0, ~0, ~0, CONNECTOR_PROP_RETIRE_FENCE);
+			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);
 
 	/* enum/bitmask properties */
 	msm_property_install_enum(&c_conn->property_info, "topology_name",
@@ -599,8 +599,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	return &c_conn->base;
 
 error_destroy_property:
-	if (c_conn->blob_sde_info)
-		drm_property_unreference_blob(c_conn->blob_sde_info);
+	if (c_conn->blob_caps)
+		drm_property_unreference_blob(c_conn->blob_caps);
 	msm_property_destroy(&c_conn->property_info);
 error_unregister_conn:
 	drm_connector_unregister(&c_conn->base);

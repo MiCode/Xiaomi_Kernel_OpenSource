@@ -62,7 +62,7 @@ struct sde_plane {
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[PLANE_PROP_COUNT];
-	struct drm_property_blob *blob_sde_info;
+	struct drm_property_blob *blob_info;
 
 	/* debugfs related stuff */
 	struct dentry *debugfs_root;
@@ -1114,7 +1114,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		{SDE_DRM_DEINTERLACE, "deinterlace"}
 	};
 	const struct sde_format_extended *format_list;
-	static struct sde_kms_info sde_info;
+	struct sde_kms_info *info;
 	struct sde_plane *psde = to_sde_plane(plane);
 
 	if (!plane || !psde || !psde->pipe_hw || !psde->pipe_sblk) {
@@ -1130,7 +1130,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 
 	/* linux default file descriptor range on each process */
 	msm_property_install_range(&psde->property_info, "input_fence",
-		0x0, 0, 1024, 0, PLANE_PROP_INPUT_FENCE);
+		0x0, 0, INR_OPEN_MAX, 0, PLANE_PROP_INPUT_FENCE);
 
 	/* standard properties */
 	msm_property_install_rotation(&psde->property_info,
@@ -1154,15 +1154,16 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		msm_property_install_blob(&psde->property_info, "csc", 0,
 			PLANE_PROP_CSC);
 
+	info = kzalloc(sizeof(struct sde_kms_info), GFP_KERNEL);
+	if (!info)
+		return;
+
+	msm_property_install_blob(&psde->property_info, "capabilities",
+		DRM_MODE_PROP_IMMUTABLE, PLANE_PROP_INFO);
+	sde_kms_info_reset(info);
+
 	format_list = psde->pipe_sblk->format_list;
 	if (format_list) {
-		/* it is called during probe - single threaded */
-		struct sde_kms_info *info = &sde_info;
-
-		msm_property_install_blob(&psde->property_info, "sde_info",
-				DRM_MODE_PROP_IMMUTABLE,
-				PLANE_PROP_SDE_INFO);
-		sde_kms_info_reset(info);
 		sde_kms_info_start(info, "pixel_formats");
 		while (format_list->fourcc_format) {
 			sde_kms_info_append_format(info,
@@ -1171,12 +1172,22 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			++format_list;
 		}
 		sde_kms_info_stop(info);
-		msm_property_set_blob(&psde->property_info,
-				&psde->blob_sde_info,
-				SDE_KMS_INFO_DATA(info),
-				SDE_KMS_INFO_DATALEN(info),
-				PLANE_PROP_SDE_INFO);
 	}
+
+	sde_kms_info_add_keyint(info, "max_linewidth",
+			psde->pipe_sblk->maxlinewidth);
+	sde_kms_info_add_keyint(info, "max_upscale",
+			psde->pipe_sblk->maxupscale);
+	sde_kms_info_add_keyint(info, "max_downscale",
+			psde->pipe_sblk->maxdwnscale);
+	sde_kms_info_add_keyint(info, "max_horizontal_deci",
+			psde->pipe_sblk->maxhdeciexp);
+	sde_kms_info_add_keyint(info, "max_vertical_deci",
+			psde->pipe_sblk->maxvdeciexp);
+	msm_property_set_blob(&psde->property_info, &psde->blob_info,
+			info->data, info->len, PLANE_PROP_INFO);
+
+	kfree(info);
 }
 
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
@@ -1255,8 +1266,8 @@ static void sde_plane_destroy(struct drm_plane *plane)
 
 		debugfs_remove_recursive(psde->debugfs_root);
 
-		if (psde->blob_sde_info)
-			drm_property_unreference_blob(psde->blob_sde_info);
+		if (psde->blob_info)
+			drm_property_unreference_blob(psde->blob_info);
 		msm_property_destroy(&psde->property_info);
 		mutex_destroy(&psde->lock);
 
