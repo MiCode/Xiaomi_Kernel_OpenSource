@@ -28,6 +28,8 @@
 #define MB_SIZE_IN_PIXEL (16 * 16)
 #define MAX_OPERATING_FRAME_RATE (300 << 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
+#define SLAVE_SIDE_CP_ALIGNMENT 0x100000
+#define MASTER_SIDE_CP_ALIGNMENT 0x1000
 
 static const char *const mpeg_video_vidc_divx_format[] = {
 	"DIVX Format 3",
@@ -650,6 +652,20 @@ static u32 get_frame_size(struct msm_vidc_inst *inst,
 	return frame_size;
 }
 
+static u32 get_output_frame_size(struct msm_vidc_inst *inst,
+					const struct msm_vidc_format *fmt,
+					u32 height, u32 width, int plane)
+{
+	u32 frame_size = fmt->get_frame_size(plane,
+					height, width);
+	if (inst->flags & VIDC_SECURE) {
+		u32 alignment = inst->core->resources.slave_side_cp ?
+			SLAVE_SIDE_CP_ALIGNMENT : MASTER_SIDE_CP_ALIGNMENT;
+		frame_size = MSM_MEDIA_ALIGN(frame_size, alignment);
+	}
+	return frame_size;
+}
+
 static int is_ctrl_valid_for_codec(struct msm_vidc_inst *inst,
 					struct v4l2_ctrl *ctrl)
 {
@@ -1156,8 +1172,8 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				inst->prop.height[CAPTURE_PORT]);
 
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			fmt->get_frame_size(0,
-			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
+			get_output_frame_size(inst, fmt,
+			f->fmt.pix_mp.height, f->fmt.pix_mp.width, 0);
 
 		extra_idx = EXTRADATA_IDX(fmt->num_planes);
 		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
@@ -1244,7 +1260,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int max_input_size = 0;
 	struct hal_buffer_requirements *bufreq;
 
-	if (!inst || !f) {
+	if (!inst || !inst->core || !f) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
@@ -1288,8 +1304,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			fmt->get_frame_size(0,
-			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
+			get_output_frame_size(inst, fmt,
+			f->fmt.pix_mp.height, f->fmt.pix_mp.width, 0);
 
 		extra_idx = EXTRADATA_IDX(fmt->num_planes);
 		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
@@ -1692,9 +1708,9 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	struct msm_vidc_format *fmt = NULL;
 
 	fmt = inst->fmts[CAPTURE_PORT];
-	buffer_size = fmt->get_frame_size(0,
+	buffer_size = get_output_frame_size(inst, fmt,
 		inst->prop.height[CAPTURE_PORT],
-		inst->prop.width[CAPTURE_PORT]);
+		inst->prop.width[CAPTURE_PORT], 0);
 	hdev = inst->core->device;
 
 	if (msm_comm_get_stream_output_mode(inst) ==
