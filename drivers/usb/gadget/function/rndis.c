@@ -690,7 +690,6 @@ static int rndis_reset_response(struct rndis_params *params,
 {
 	rndis_reset_cmplt_type *resp;
 	rndis_resp_t *r;
-
 	u32 length;
 	u8 *xbuf;
 
