@@ -98,18 +98,31 @@ config POWER_RESET_IMX
 	  say N here or disable in dts to make sure pm_power_off never be
 	  overwrote wrongly by this driver.
 
-config POWER_RESET_MSM
-	bool "Qualcomm MSM power-off driver"
-	depends on ARCH_QCOM
-	help
-	  Power off and restart support for Qualcomm boards.
-
 config POWER_RESET_LTC2952
 	bool "LTC2952 PowerPath power-off driver"
 	depends on OF_GPIO
 	help
 	  This driver supports an external powerdown trigger and board power
 	  down via the LTC2952. Bindings are made in the device tree.
+
+config POWER_RESET_QCOM
+	bool "Qualcomm Technologies, Inc. MSM power-off driver"
+	depends on ARCH_MSM || ARCH_QCOM
+	depends on POWER_RESET
+	help
+	  Power off and restart support for Qualcomm Technologies, Inc. boards.
+	  This driver supports board power down and restart using PMIC PS_HOLD.
+	  Say Y here if you have a Qualcomm Tecnologies, Inc. board and wish to
+	  enable restart driver.
+
+config QCOM_DLOAD_MODE
+	bool "Qualcomm Technologies, Inc. download mode"
+	depends on POWER_RESET_QCOM
+	help
+	  This makes the SoC enter download mode when it resets
+	  due to a kernel panic. Note that this doesn't by itself
+	  make the kernel reboot on a kernel panic - that must be
+	  enabled via another mechanism.
 
 config POWER_RESET_QNAP
 	bool "QNAP power-off driver"
