@@ -595,6 +595,7 @@
 		governor = "powersave";
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
+		status = "ok";
 		qcom,bw-tbl =
 			<   762 /*  100 MHz */ >,
 			<  1144 /*  150 MHz */ >,
