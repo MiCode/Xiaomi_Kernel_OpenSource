@@ -51,6 +51,9 @@
  * @speed_bin:		Application processor speed bin fuse parameter value for
  *			the given chip
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
+ * @force_highest_corner:	Flag indicating that all corners must operate
+ *			at the voltage of the highest corner.  This is
+ *			applicable to MSMCOBALT only.
  *
  * This struct holds the values for all of the fuses read from memory.
  */
@@ -61,6 +64,7 @@ struct cprh_msmcobalt_kbss_fuses {
 	u64	quot_offset[MSMCOBALT_KBSS_FUSE_CORNERS];
 	u64	speed_bin;
 	u64	cpr_fusing_rev;
+	u64	force_highest_corner;
 };
 
 /*
@@ -178,6 +182,12 @@ static const struct cpr3_fuse_param msmcobalt_cpr_fusing_rev_param[] = {
 
 static const struct cpr3_fuse_param msmcobalt_kbss_speed_bin_param[] = {
 	{38, 29, 31},
+	{},
+};
+
+static const struct cpr3_fuse_param
+msmcobalt_cpr_force_highest_corner_param[] = {
+	{100, 45, 45},
 	{},
 };
 
@@ -300,6 +310,18 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 
 	}
+
+	rc = cpr3_read_fuse_param(base,
+		  msmcobalt_cpr_force_highest_corner_param,
+		  &fuse->force_highest_corner);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read CPR force highest corner fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	if (fuse->force_highest_corner)
+		cpr3_info(vreg, "Fusing requires all operation at the highest corner\n");
 
 	vreg->fuse_combo = fuse->cpr_fusing_rev + 8 * fuse->speed_bin;
 	if (vreg->fuse_combo >= CPRH_MSMCOBALT_KBSS_FUSE_COMBO_COUNT) {
@@ -483,6 +505,54 @@ done:
 	kfree(fmax_corner);
 	return rc;
 }
+
+/**
+ * cprh_msmcobalt_partial_binning_override() - override the voltage and quotient
+ *		settings for low corners based upon special partial binning
+ *		fuse values
+ *
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * Some parts are not able to operate at low voltages.  The force highest
+ * corner fuse specifies if a given part must operate with voltages
+ * corresponding to the highest corner.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cprh_msmcobalt_partial_binning_override(struct cpr3_regulator *vreg)
+{
+	struct cprh_msmcobalt_kbss_fuses *fuse = vreg->platform_fuses;
+	struct cpr3_corner *corner;
+	struct cpr4_sdelta *sdelta;
+	int i;
+	u32 proc_freq;
+
+	if (fuse->force_highest_corner) {
+		cpr3_info(vreg, "overriding CPR parameters for corners 0 to %d with quotients and voltages of corner %d\n",
+			  vreg->corner_count - 2, vreg->corner_count - 1);
+		corner = &vreg->corner[vreg->corner_count - 1];
+		for (i = 0; i < vreg->corner_count - 1; i++) {
+			proc_freq = vreg->corner[i].proc_freq;
+			sdelta = vreg->corner[i].sdelta;
+			if (sdelta) {
+				if (sdelta->table)
+					devm_kfree(vreg->thread->ctrl->dev,
+						   sdelta->table);
+				if (sdelta->boost_table)
+					devm_kfree(vreg->thread->ctrl->dev,
+						   sdelta->boost_table);
+				devm_kfree(vreg->thread->ctrl->dev,
+					   sdelta);
+			}
+			vreg->corner[i] = *corner;
+			vreg->corner[i].proc_freq = proc_freq;
+		}
+
+		return 0;
+	}
+
+	return 0;
+};
 
 /**
  * cprh_kbss_parse_core_count_temp_adj_properties() - load device tree
@@ -1199,6 +1269,13 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 		cpr3_err(vreg, "qcom,max-core-count has invalid value = %d\n",
 			 vreg->max_core_count);
 		return -EINVAL;
+	}
+
+	rc = cprh_msmcobalt_partial_binning_override(vreg);
+	if (rc) {
+		cpr3_err(vreg, "unable to override CPR parameters based on partial binning fuse values, rc=%d\n",
+			 rc);
+		return rc;
 	}
 
 	rc = cprh_kbss_apm_crossover_as_corner(vreg);
