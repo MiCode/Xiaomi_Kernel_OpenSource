@@ -317,9 +317,11 @@ static int smb138x_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smblib_set_prop_input_suspend(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		rc = smblib_set_prop_batt_capacity(chg, val);
+		break;
 	default:
-		pr_err("batt power supply set prop %d not supported\n",
-			prop);
+		pr_err("batt power supply set prop %d not supported\n", prop);
 		return -EINVAL;
 	}
 
@@ -331,6 +333,7 @@ static int smb138x_batt_prop_is_writeable(struct power_supply *psy,
 {
 	switch (prop) {
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+	case POWER_SUPPLY_PROP_CAPACITY:
 		return 1;
 	default:
 		break;
