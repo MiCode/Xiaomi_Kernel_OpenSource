@@ -219,7 +219,6 @@ static struct ipa3_plat_drv_res ipa3_res = {0, };
 struct msm_bus_scale_pdata *ipa3_bus_scale_table;
 
 static struct clk *ipa3_clk;
-static struct clk *smmu_clk;
 
 struct ipa3_context *ipa3_ctx;
 static struct device *master_dev;
@@ -2887,22 +2886,6 @@ static int ipa3_get_clks(struct device *dev)
 			IPAERR("fail to get ipa clk\n");
 		return PTR_ERR(ipa3_clk);
 	}
-
-	if (smmu_info.present && smmu_info.arm_smmu) {
-		smmu_clk = clk_get(dev, "smmu_clk");
-		if (IS_ERR(smmu_clk)) {
-			if (smmu_clk != ERR_PTR(-EPROBE_DEFER))
-				IPAERR("fail to get smmu clk\n");
-			return PTR_ERR(smmu_clk);
-		}
-
-		if (clk_get_rate(smmu_clk) == 0) {
-			long rate = clk_round_rate(smmu_clk, 1000);
-
-			clk_set_rate(smmu_clk, rate);
-		}
-	}
-
 	return 0;
 }
 
@@ -2922,8 +2905,6 @@ void _ipa_enable_clks_v3_0(void)
 		WARN_ON(1);
 	}
 
-	if (smmu_clk)
-		clk_prepare_enable(smmu_clk);
 	ipa3_suspend_apps_pipes(false);
 }
 
@@ -2982,9 +2963,6 @@ void _ipa_disable_clks_v3_0(void)
 		clk_disable_unprepare(ipa3_clk);
 	else
 		WARN_ON(1);
-
-	if (smmu_clk)
-		clk_disable_unprepare(smmu_clk);
 }
 
 /**
@@ -5150,7 +5128,6 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 
 		if (!ipa3_bus_scale_table)
 			ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
-
 		/* Proceed to real initialization */
 		result = ipa3_pre_init(&ipa3_res, dev);
 		if (result) {
