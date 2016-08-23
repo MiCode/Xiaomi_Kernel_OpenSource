@@ -138,6 +138,8 @@ struct smb_charger {
 	int			system_temp_level;
 	int			thermal_levels;
 	int			*thermal_mitigation;
+
+	int			fake_capacity;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -188,6 +190,8 @@ int smblib_get_prop_system_temp_level(struct smb_charger *chg,
 				union power_supply_propval *val);
 
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 				const union power_supply_propval *val);
