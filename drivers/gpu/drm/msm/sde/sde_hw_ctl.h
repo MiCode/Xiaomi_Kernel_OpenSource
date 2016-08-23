@@ -125,6 +125,18 @@ struct sde_hw_ctl_ops {
 		u32 *flushbits,
 		enum sde_wb blk);
 
+	/**
+	 * Set all blend stages to disabled
+	 * @ctx       : ctl path ctx pointer
+	 */
+	void (*clear_all_blendstages)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * Configure layer mixer to pipe configuration
+	 * @ctx       : ctl path ctx pointer
+	 * @lm        : layer mixer enumeration
+	 * @cfg       : blend stage configuration
+	 */
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
 		enum sde_lm lm, struct sde_hw_stage_cfg *cfg, u32 index);
 };
