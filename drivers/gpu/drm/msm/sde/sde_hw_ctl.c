@@ -258,6 +258,17 @@ static int sde_hw_ctl_reset_control(struct sde_hw_ctl *ctx)
 	return -EINVAL;
 }
 
+static void sde_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	int i;
+
+	for (i = 0; i < ctx->mixer_count; i++) {
+		SDE_REG_WRITE(c, CTL_LAYER(LM_0 + i), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT(LM_0 + i), 0);
+	}
+}
+
 static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	enum sde_lm lm, struct sde_hw_stage_cfg *stage_cfg, u32 index)
 {
@@ -389,6 +400,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->trigger_start = sde_hw_ctl_trigger_start;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
+	ops->clear_all_blendstages = sde_hw_ctl_clear_all_blendstages;
 	ops->setup_blendstage = sde_hw_ctl_setup_blendstage;
 	ops->get_bitmask_sspp = sde_hw_ctl_get_bitmask_sspp;
 	ops->get_bitmask_mixer = sde_hw_ctl_get_bitmask_mixer;

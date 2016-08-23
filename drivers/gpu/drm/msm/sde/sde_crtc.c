@@ -269,6 +269,9 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		}
 		mixer[i].mixer_op_mode = 0;
 		mixer[i].flush_mask = 0;
+		if (mixer[i].hw_ctl->ops.clear_all_blendstages)
+			mixer[i].hw_ctl->ops.clear_all_blendstages(
+					mixer[i].hw_ctl);
 	}
 
 	/* initialize stage cfg */
