@@ -146,6 +146,18 @@ enum {
 };
 
 /**
+ * CTL sub-blocks
+ * @SDE_CTL_SPLIT_DISPLAY       CTL supports video mode split display
+ * @SDE_CTL_PINGPONG_SPLIT      CTL supports pingpong split
+ * @SDE_CTL_MAX
+ */
+enum {
+	SDE_CTL_SPLIT_DISPLAY = 0x1,
+	SDE_CTL_PINGPONG_SPLIT,
+	SDE_CTL_MAX
+};
+
+/**
  * WB sub-blocks and features
  * @SDE_WB_LINE_MODE        Writeback module supports line/linear mode
  * @SDE_WB_BLOCK_MODE       Writeback module supports block mode read
