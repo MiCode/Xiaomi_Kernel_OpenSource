@@ -1790,6 +1790,9 @@ static int smb1351_parallel_charger_disable_slave(
 	int rc;
 	struct power_supply *parallel_psy = smb1351_get_parallel_slave(chip);
 
+	if (!parallel_psy || !chip->parallel.slave_detected)
+		return 0;
+
 	pr_debug("Disable parallel slave!\n");
 
 	chip->parallel.total_icl_ma = 0;
