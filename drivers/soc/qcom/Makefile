@@ -11,6 +11,7 @@ obj-$(CONFIG_QCOM_WCNSS_CTRL) += wcnss_ctrl.o
 CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 obj-$(CONFIG_QCOM_SCM)  +=      scm.o scm-boot.o
 obj-$(CONFIG_SOC_BUS) += socinfo.o
+obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 obj-$(CONFIG_MSM_GLADIATOR_HANG_DETECT) += gladiator_hang_detect.o
 obj-$(CONFIG_MSM_GLADIATOR_ERP_V2) += gladiator_erp_v2.o
 obj-$(CONFIG_QCOM_WATCHDOG_V2) += watchdog_v2.o
