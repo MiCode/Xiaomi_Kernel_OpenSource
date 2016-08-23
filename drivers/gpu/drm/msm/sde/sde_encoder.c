@@ -404,6 +404,7 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 
 	bs_set(sde_enc, 1);
 
+	sde_enc->cur_master = NULL;
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
@@ -411,21 +412,20 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			atomic_set(&phys->vsync_cnt, 0);
 			atomic_set(&phys->underrun_cnt, 0);
 
-			if (phys->ops.enable)
-				phys->ops.enable(phys);
-
-			/*
-			 * Master can switch at enable time.
-			 * It is based on the current mode (CMD/VID) and
-			 * the encoder role found at panel probe time
-			 */
 			if (phys->ops.is_master && phys->ops.is_master(phys)) {
 				SDE_DEBUG_ENC(sde_enc,
 						"master is now idx %d\n", i);
 				sde_enc->cur_master = phys;
+			} else if (phys->ops.enable) {
+				phys->ops.enable(phys);
 			}
 		}
 	}
+
+	if (!sde_enc->cur_master)
+		SDE_ERROR("virt encoder has no master! num_phys %d\n", i);
+	else if (sde_enc->cur_master->ops.enable)
+		sde_enc->cur_master->ops.enable(sde_enc->cur_master);
 }
 
 static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
