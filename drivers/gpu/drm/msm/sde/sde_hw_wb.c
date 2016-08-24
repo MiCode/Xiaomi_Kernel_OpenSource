@@ -43,6 +43,8 @@
 #define WB_CSC_BASE			0x260
 #define WB_DST_ADDR_SW_STATUS		0x2B0
 #define WB_CDP_CTRL			0x2B4
+#define WB_OUT_IMAGE_SIZE		0x2C0
+#define WB_OUT_XY			0x2C4
 
 static struct sde_wb_cfg *_wb_offset(enum sde_wb wb,
 		struct sde_mdss_cfg *m,
@@ -119,7 +121,11 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 			(data->dest.plane_pitch[1] << 16);
 	ystride1 = data->dest.plane_pitch[2] |
 			(data->dest.plane_pitch[3] << 16);
-	outsize = (data->dest.height << 16) | data->dest.width;
+
+	if (data->roi.h && data->roi.w)
+		outsize = (data->roi.h << 16) | data->roi.w;
+	else
+		outsize = (data->dest.height << 16) | data->dest.width;
 
 	if (SDE_FORMAT_IS_UBWC(fmt)) {
 		opmode |= BIT(0);
@@ -164,6 +170,20 @@ static void sde_hw_wb_traffic_shaper(struct sde_hw_wb *ctx,
 				&data->ts_cfg);
 }
 
+static void sde_hw_wb_roi(struct sde_hw_wb *ctx, struct sde_hw_wb_cfg *wb)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 image_size, out_size, out_xy;
+
+	image_size = (wb->dest.height << 16) | wb->dest.width;
+	out_xy = (wb->roi.y << 16) | wb->roi.x;
+	out_size = (wb->roi.h << 16) | wb->roi.w;
+
+	SDE_REG_WRITE(c, WB_OUT_IMAGE_SIZE, image_size);
+	SDE_REG_WRITE(c, WB_OUT_XY, out_xy);
+	SDE_REG_WRITE(c, WB_OUT_SIZE, out_size);
+}
+
 static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 	unsigned long features)
 {
@@ -172,6 +192,9 @@ static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 
 	if (test_bit(SDE_WB_TRAFFIC_SHAPER, &features))
 		ops->setup_trafficshaper = sde_hw_wb_traffic_shaper;
+
+	if (test_bit(SDE_WB_XY_ROI_OFFSET, &features))
+		ops->setup_roi = sde_hw_wb_roi;
 }
 
 struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,
