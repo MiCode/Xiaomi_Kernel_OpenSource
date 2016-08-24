@@ -323,8 +323,8 @@ static int _iommu_map_sync_pc(struct kgsl_pagetable *pt,
 	_unlock_if_secure_mmu(memdesc, pt->mmu);
 
 	if (ret) {
-		KGSL_CORE_ERR("map err: %p, 0x%016llX, 0x%llx, 0x%x, %d\n",
-			iommu_pt->domain, gpuaddr, size, flags, ret);
+		KGSL_CORE_ERR("map err: 0x%016llX, 0x%llx, 0x%x, %d\n",
+			gpuaddr, size, flags, ret);
 		return -ENODEV;
 	}
 
@@ -351,8 +351,8 @@ static int _iommu_unmap_sync_pc(struct kgsl_pagetable *pt,
 	_unlock_if_secure_mmu(memdesc, pt->mmu);
 
 	if (unmapped != size) {
-		KGSL_CORE_ERR("unmap err: %p, 0x%016llx, 0x%llx, %zd\n",
-			iommu_pt->domain, addr, size, unmapped);
+		KGSL_CORE_ERR("unmap err: 0x%016llx, 0x%llx, %zd\n",
+			addr, size, unmapped);
 		return -ENODEV;
 	}
 
@@ -421,8 +421,8 @@ static int _iommu_map_sg_offset_sync_pc(struct kgsl_pagetable *pt,
 	if (size != 0) {
 		/* Cleanup on error */
 		_iommu_unmap_sync_pc(pt, memdesc, addr, mapped);
-		KGSL_CORE_ERR("map err: %p, 0x%016llX, %d, %x, %zd\n",
-			iommu_pt->domain, addr, nents, flags, mapped);
+		KGSL_CORE_ERR("map err: 0x%016llX, %d, %x, %zd\n",
+			addr, nents, flags, mapped);
 		return  -ENODEV;
 	}
 
@@ -451,8 +451,8 @@ static int _iommu_map_sg_sync_pc(struct kgsl_pagetable *pt,
 	_unlock_if_secure_mmu(memdesc, pt->mmu);
 
 	if (mapped == 0) {
-		KGSL_CORE_ERR("map err: %p, 0x%016llX, %d, %x, %zd\n",
-			iommu_pt->domain, addr, nents, flags, mapped);
+		KGSL_CORE_ERR("map err: 0x%016llX, %d, %x, %zd\n",
+			addr, nents, flags, mapped);
 		return  -ENODEV;
 	}
 
