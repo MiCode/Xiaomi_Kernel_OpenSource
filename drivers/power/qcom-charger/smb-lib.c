@@ -1818,7 +1818,7 @@ int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
 
-	chg->usb_suspend_votable = create_votable("INPUT_SUSPEND", VOTE_SET_ANY,
+	chg->usb_suspend_votable = create_votable("USB_SUSPEND", VOTE_SET_ANY,
 					smblib_usb_suspend_vote_callback,
 					chg);
 	if (IS_ERR(chg->usb_suspend_votable)) {
