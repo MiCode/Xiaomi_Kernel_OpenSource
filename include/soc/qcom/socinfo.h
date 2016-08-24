@@ -192,6 +192,8 @@ enum msm_cpu {
 	MSM_CPU_COBALT,
 	MSM_CPU_HAMSTER,
 	MSM_CPU_FALCON,
+	MSM_CPU_SKUNK,
+
 };
 
 struct msm_soc_info {
