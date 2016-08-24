@@ -22,6 +22,7 @@
 
 /* These register are offset to mixer base + stage base */
 #define LM_BLEND0_OP                     0x00
+#define LM_BLEND0_CONST_ALPHA            0x04
 #define LM_BLEND0_FG_ALPHA               0x04
 #define LM_BLEND0_BG_ALPHA               0x08
 
@@ -99,6 +100,25 @@ static void sde_hw_lm_setup_border_color(struct sde_hw_mixer *ctx,
 	}
 }
 
+static void sde_hw_lm_setup_blend_config_msmskunk(struct sde_hw_mixer *ctx,
+	u32 stage, u32 fg_alpha, u32 bg_alpha, u32 blend_op)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	int stage_off;
+	u32 const_alpha;
+
+	if (stage == SDE_STAGE_BASE)
+		return;
+
+	stage_off = _stage_offset(ctx, stage);
+	if (WARN_ON(stage_off < 0))
+		return;
+
+	const_alpha = (bg_alpha & 0xFF) | ((fg_alpha & 0xFF) << 16);
+	SDE_REG_WRITE(c, LM_BLEND0_CONST_ALPHA + stage_off, const_alpha);
+	SDE_REG_WRITE(c, LM_BLEND0_OP + stage_off, blend_op);
+}
+
 static void sde_hw_lm_setup_blend_config(struct sde_hw_mixer *ctx,
 	u32 stage, u32 fg_alpha, u32 bg_alpha, u32 blend_op)
 {
@@ -136,11 +156,15 @@ static void sde_hw_lm_gammacorrection(struct sde_hw_mixer *mixer,
 {
 }
 
-static void _setup_mixer_ops(struct sde_hw_lm_ops *ops,
+static void _setup_mixer_ops(struct sde_mdss_cfg *m,
+		struct sde_hw_lm_ops *ops,
 		unsigned long cap)
 {
 	ops->setup_mixer_out = sde_hw_lm_setup_out;
-	ops->setup_blend_config = sde_hw_lm_setup_blend_config;
+	if (IS_MSMSKUNK_TARGET(m->hwversion))
+		ops->setup_blend_config = sde_hw_lm_setup_blend_config_msmskunk;
+	else
+		ops->setup_blend_config = sde_hw_lm_setup_blend_config;
 	ops->setup_alpha_out = sde_hw_lm_setup_color3;
 	ops->setup_border_color = sde_hw_lm_setup_border_color;
 	ops->setup_gammcorrection = sde_hw_lm_gammacorrection;
@@ -166,7 +190,7 @@ struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,
 	/* Assign ops */
 	c->idx = idx;
 	c->cap = cfg;
-	_setup_mixer_ops(&c->ops, c->cap->features);
+	_setup_mixer_ops(m, &c->ops, c->cap->features);
 
 	/*
 	 * Perform any default initialization for the sspp blocks
