@@ -116,3 +116,7 @@
 		};
 	};
 };
+
+&bam_dmux {
+	status = "disabled";
+};
