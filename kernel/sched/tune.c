@@ -717,21 +717,9 @@ schedtune_css_free(struct cgroup_subsys_state *css)
 	kfree(st);
 }
 
-static void
-schedtune_exit(struct cgroup_subsys_state *css,
-		struct cgroup_subsys_state *old_css,
-		struct task_struct *tsk)
-{
-	struct schedtune *old_st = css_st(old_css);
-	int cpu = task_cpu(tsk);
-
-	schedtune_tasks_update(tsk, cpu, old_st->idx, -1);
-}
-
 struct cgroup_subsys schedtune_cgrp_subsys = {
 	.css_alloc	= schedtune_css_alloc,
 	.css_free	= schedtune_css_free,
-	.exit		= schedtune_exit,
 	.allow_attach   = schedtune_allow_attach,
 	.can_attach     = schedtune_can_attach,
 	.cancel_attach  = schedtune_cancel_attach,
@@ -753,6 +741,8 @@ schedtune_init_cgroups(void)
 
 	pr_info("schedtune: configured to support %d boost groups\n",
 		BOOSTGROUPS_COUNT);
+
+	schedtune_initialized = true;
 }
 
 #else /* CONFIG_CGROUP_SCHEDTUNE */
