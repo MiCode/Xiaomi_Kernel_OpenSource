@@ -1364,6 +1364,7 @@ static void mdss_mdp_memory_retention_enter(void)
 		}
 	}
 
+	__mdss_mdp_reg_access_clk_enable(mdata, true);
 	if (mdss_mdp_clk) {
 		clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
 		clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_SET);
@@ -1375,6 +1376,7 @@ static void mdss_mdp_memory_retention_enter(void)
 		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_PERIPH_OFF_SET);
 		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_NORETAIN_PERIPH);
 	}
+	__mdss_mdp_reg_access_clk_enable(mdata, false);
 }
 
 static void mdss_mdp_memory_retention_exit(void)
@@ -1396,7 +1398,7 @@ static void mdss_mdp_memory_retention_exit(void)
 		}
 	}
 
-
+	__mdss_mdp_reg_access_clk_enable(mdata, true);
 	if (mdss_mdp_clk) {
 		clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
 		clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_PERIPH);
@@ -1408,6 +1410,7 @@ static void mdss_mdp_memory_retention_exit(void)
 		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_RETAIN_PERIPH);
 		clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_PERIPH_OFF_CLEAR);
 	}
+	__mdss_mdp_reg_access_clk_enable(mdata, false);
 }
 
 /**
