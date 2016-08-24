@@ -26,6 +26,7 @@
 #include "include/msm_csiphy_3_4_2_hwreg.h"
 #include "include/msm_csiphy_3_5_hwreg.h"
 #include "include/msm_csiphy_5_0_hwreg.h"
+#include "include/msm_csiphy_5_0_1_hwreg.h"
 #include "cam_hw_ops.h"
 
 #define DBG_CSIPHY 0
@@ -40,7 +41,8 @@
 #define CSIPHY_VERSION_V32                        0x32
 #define CSIPHY_VERSION_V342                       0x342
 #define CSIPHY_VERSION_V35                        0x35
-#define CSIPHY_VERSION_V50                        0x50
+#define CSIPHY_VERSION_V50                        0x500
+#define CSIPHY_VERSION_V501                       0x501
 #define MSM_CSIPHY_DRV_NAME                      "msm_csiphy"
 #define CLK_LANE_OFFSET                             1
 #define NUM_LANES_OFFSET                            4
@@ -766,7 +768,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 
 	if (csiphy_dev->hw_version >= CSIPHY_VERSION_V30 &&
 		csiphy_dev->clk_mux_base != NULL &&
-		csiphy_dev->hw_version != CSIPHY_VERSION_V50) {
+		csiphy_dev->hw_version < CSIPHY_VERSION_V50) {
 		val = msm_camera_io_r(csiphy_dev->clk_mux_base);
 		if (csiphy_params->combo_mode &&
 			(csiphy_params->lane_mask & 0x18) == 0x18) {
@@ -789,7 +791,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 			rc = msm_camera_clk_enable(&csiphy_dev->pdev->dev,
 				csiphy_dev->csiphy_3p_clk_info,
 				csiphy_dev->csiphy_3p_clk, 2, true);
-			if (csiphy_dev->hw_dts_version == CSIPHY_VERSION_V50)
+			if (csiphy_dev->hw_dts_version >= CSIPHY_VERSION_V50)
 				rc = msm_csiphy_3phase_lane_config_v50(
 					csiphy_dev, csiphy_params);
 			else
@@ -797,7 +799,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 					csiphy_params);
 			csiphy_dev->num_irq_registers = 20;
 		} else {
-			if (csiphy_dev->hw_dts_version == CSIPHY_VERSION_V50)
+			if (csiphy_dev->hw_dts_version >= CSIPHY_VERSION_V50)
 				rc = msm_csiphy_2phase_lane_config_v50(
 					csiphy_dev, csiphy_params);
 			else
@@ -1247,7 +1249,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		msm_camera_io_w(0x0,
 			csiphy_dev->base + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_cmn_ctrl6.addr);
-		if (csiphy_dev->hw_dts_version == CSIPHY_VERSION_V50)
+		if (csiphy_dev->hw_dts_version >= CSIPHY_VERSION_V50)
 			msm_camera_io_w(0x0,
 				csiphy_dev->base +
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
@@ -1366,7 +1368,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		msm_camera_io_w(0x0,
 			csiphy_dev->base + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_cmn_ctrl6.addr);
-		if (csiphy_dev->hw_dts_version == CSIPHY_VERSION_V50)
+		if (csiphy_dev->hw_dts_version >= CSIPHY_VERSION_V50)
 			msm_camera_io_w(0x0,
 				csiphy_dev->base +
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
@@ -1755,6 +1757,14 @@ static int csiphy_probe(struct platform_device *pdev)
 		new_csiphy_dev->csiphy_3phase = CSI_3PHASE_HW;
 		new_csiphy_dev->ctrl_reg->csiphy_combo_mode_settings =
 			csiphy_combo_mode_v5_0;
+	} else if (of_device_is_compatible(new_csiphy_dev->pdev->dev.of_node,
+		"qcom,csiphy-v5.01")) {
+		new_csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_v5_0_1_3ph;
+		new_csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v5_0_1;
+		new_csiphy_dev->hw_dts_version = CSIPHY_VERSION_V501;
+		new_csiphy_dev->csiphy_3phase = CSI_3PHASE_HW;
+		new_csiphy_dev->ctrl_reg->csiphy_combo_mode_settings =
+			csiphy_combo_mode_v5_0_1;
 	} else {
 		pr_err("%s:%d, invalid hw version : 0x%x\n", __func__, __LINE__,
 		new_csiphy_dev->hw_dts_version);
