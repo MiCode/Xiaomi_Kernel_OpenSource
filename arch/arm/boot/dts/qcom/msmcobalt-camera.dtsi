@@ -28,7 +28,10 @@
 		reg-names = "csiphy";
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		gdscr-supply = <&gdsc_camss_top>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "gdscr", "bimc_smmu";
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -42,7 +45,7 @@
 			<&clock_mmss clk_mmss_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csiphy_clk_src>,
 			<&clock_mmss clk_mmss_camss_csiphy0_clk>;
-		clock-names = "mnoc_maxi", "mnoc_ahb",
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"csi_src_clk", "csi_clk", "cphy_csid_clk",
@@ -60,7 +63,10 @@
 		reg-names = "csiphy";
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		gdscr-supply = <&gdsc_camss_top>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "gdscr", "bimc_smmu";
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -74,7 +80,7 @@
 			<&clock_mmss clk_mmss_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csiphy_clk_src>,
 			<&clock_mmss clk_mmss_camss_csiphy1_clk>;
-		clock-names = "mnoc_maxi", "mnoc_ahb",
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"csi_src_clk", "csi_clk", "cphy_csid_clk",
@@ -92,7 +98,10 @@
 		reg-names = "csiphy";
 		interrupts = <0 80 0>;
 		interrupt-names = "csiphy";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		gdscr-supply = <&gdsc_camss_top>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "gdscr", "bimc_smmu";
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -106,7 +115,7 @@
 			<&clock_mmss clk_mmss_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csiphy_clk_src>,
 			<&clock_mmss clk_mmss_camss_csiphy2_clk>;
-		clock-names = "mnoc_maxi", "mnoc_ahb",
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"csi_src_clk", "csi_clk", "cphy_csid_clk",
@@ -128,8 +137,9 @@
 		qcom,mipi-csi-vdd-supply = <&pmcobalt_l2>;
 		gdscr-supply = <&gdsc_camss_top>;
 		vdd_sec-supply = <&pmcobalt_l1>;
-		qcom,cam-vreg-name = "vdd_sec", "gdscr";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -144,7 +154,7 @@
 			<&clock_mmss clk_mmss_camss_csi0pix_clk>,
 			<&clock_mmss clk_mmss_camss_cphy_csid0_clk>,
 			<&clock_mmss clk_csiphy_clk_src>;
-		clock-names = "mnoc_maxi", "mnoc_ahb",
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
@@ -166,8 +176,9 @@
 		qcom,mipi-csi-vdd-supply = <&pmcobalt_l2>;
 		gdscr-supply = <&gdsc_camss_top>;
 		vdd_sec-supply = <&pmcobalt_l1>;
-		qcom,cam-vreg-name = "vdd_sec", "gdscr";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -182,7 +193,7 @@
 			<&clock_mmss clk_mmss_camss_csi1pix_clk>,
 			<&clock_mmss clk_mmss_camss_cphy_csid1_clk>,
 			<&clock_mmss clk_csiphy_clk_src>;
-		clock-names = "mnoc_maxi", "mnoc_ahb",
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
@@ -204,8 +215,9 @@
 		qcom,mipi-csi-vdd-supply = <&pmcobalt_l2>;
 		gdscr-supply = <&gdsc_camss_top>;
 		vdd_sec-supply = <&pmcobalt_l1>;
-		qcom,cam-vreg-name = "vdd_sec", "gdscr";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -220,7 +232,7 @@
 			<&clock_mmss clk_mmss_camss_csi2pix_clk>,
 			<&clock_mmss clk_mmss_camss_cphy_csid2_clk>,
 			<&clock_mmss clk_csiphy_clk_src>;
-		clock-names = "mnoc_maxi", "mnoc_ahb",
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
@@ -242,8 +254,9 @@
 		qcom,mipi-csi-vdd-supply = <&pmcobalt_l2>;
 		gdscr-supply = <&gdsc_camss_top>;
 		vdd_sec-supply = <&pmcobalt_l1>;
-		qcom,cam-vreg-name = "vdd_sec", "gdscr";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -257,7 +270,7 @@
 			<&clock_mmss clk_mmss_camss_csi3pix_clk>,
 			<&clock_mmss clk_mmss_camss_cphy_csid1_clk>,
 			<&clock_mmss clk_csiphy_clk_src>;
-		clock-names = "mnoc_maxi", "mnoc_ahb",
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
@@ -687,7 +700,7 @@
 		mmagic-supply = <&gdsc_bimc_smmu>;
 		gdscr-supply = <&gdsc_camss_top>;
 		qcom,cam-vreg-name = "mmagic", "gdscr";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -696,7 +709,7 @@
 			<&clock_mmss clk_cci_clk_src>,
 			<&clock_mmss clk_mmss_camss_cci_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_cci_clk>;
-		clock-names = "mnoc_axi", "mnoc_ahb", "smmu_ahb", "smmu_axi",
+		clock-names = "mmssnoc_axi", "mnoc_ahb", "smmu_ahb", "smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"cci_src_clk", "cci_ahb_clk", "camss_cci_clk";
 		qcom,clock-rates = <0 0 0 0 0 0 19200000 0 0>,
