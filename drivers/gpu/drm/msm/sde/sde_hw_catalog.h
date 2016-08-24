@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 		(STEP & 0xFFFF))
 
 #define SDE_HW_MAJOR(rev)		((rev) >> 28)
-#define SDE_HW_MINOR(rev)		.(((rev) >> 16) & 0xFFF)
+#define SDE_HW_MINOR(rev)		(((rev) >> 16) & 0xFFF)
 #define SDE_HW_STEP(rev)		((rev) & 0xFFFF)
 #define SDE_HW_MAJOR_MINOR(rev)		((rev) >> 16)
 
@@ -37,6 +37,9 @@
 #define SDE_HW_VER_171	SDE_HW_VER(1, 7, 1) /* 8996 v2.0 */
 #define SDE_HW_VER_172	SDE_HW_VER(1, 7, 2) /* 8996 v3.0 */
 #define SDE_HW_VER_300	SDE_HW_VER(3, 0, 0) /* 8998 v1.0 */
+#define SDE_HW_VER_400	SDE_HW_VER(4, 0, 0) /* msmskunk v1.0 */
+
+#define IS_MSMSKUNK_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_400)
 
 #define MAX_IMG_WIDTH 0x3fff
 #define MAX_IMG_HEIGHT 0x3fff
