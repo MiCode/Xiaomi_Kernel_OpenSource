@@ -24,6 +24,7 @@ struct sde_hw_wb_cfg {
 	struct sde_hw_fmt_layout dest;
 	enum sde_intf_mode intf_mode;
 	struct traffic_shaper_cfg ts_cfg;
+	struct sde_rect roi;
 	bool is_secure;
 };
 
@@ -52,6 +53,9 @@ struct sde_hw_wb_ops {
 		struct sde_hw_wb_cfg *wb);
 
 	void (*setup_trafficshaper)(struct sde_hw_wb *ctx,
+		struct sde_hw_wb_cfg *wb);
+
+	void (*setup_roi)(struct sde_hw_wb *ctx,
 		struct sde_hw_wb_cfg *wb);
 };
 

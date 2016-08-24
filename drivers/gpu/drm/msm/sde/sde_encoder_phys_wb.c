@@ -217,13 +217,25 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 		SDE_ERROR("failed to get format %x\n", format->pixel_format);
 		return;
 	}
+	wb_cfg->roi = *wb_roi;
 
-	ret = sde_format_populate_layout_with_roi(mmu_id, fb, wb_roi,
+	if (hw_wb->caps->features & BIT(SDE_WB_XY_ROI_OFFSET)) {
+		ret = sde_format_populate_layout(mmu_id, fb, &wb_cfg->dest);
+		if (ret) {
+			SDE_DEBUG("failed to populate layout %d\n", ret);
+			return;
+		}
+		wb_cfg->dest.width = fb->width;
+		wb_cfg->dest.height = fb->height;
+		wb_cfg->dest.num_planes = wb_cfg->dest.format->num_planes;
+	} else {
+		ret = sde_format_populate_layout_with_roi(mmu_id, fb, wb_roi,
 			&wb_cfg->dest);
-	if (ret) {
-		/* this error should be detected during atomic_check */
-		SDE_DEBUG("failed to populate layout %d\n", ret);
-		return;
+		if (ret) {
+			/* this error should be detected during atomic_check */
+			SDE_DEBUG("failed to populate layout %d\n", ret);
+			return;
+		}
 	}
 
 	if ((wb_cfg->dest.format->fetch_planes == SDE_PLANE_PLANAR) &&
@@ -240,6 +252,9 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 			wb_cfg->dest.plane_pitch[1],
 			wb_cfg->dest.plane_pitch[2],
 			wb_cfg->dest.plane_pitch[3]);
+
+	if (hw_wb->ops.setup_roi)
+		hw_wb->ops.setup_roi(hw_wb, wb_cfg);
 
 	if (hw_wb->ops.setup_outformat)
 		hw_wb->ops.setup_outformat(hw_wb, wb_cfg);
