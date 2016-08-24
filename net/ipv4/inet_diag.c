@@ -49,6 +49,7 @@ struct inet_diag_entry {
 	struct in6_addr daddr_storage;	/* for IPv4-mapped-IPv6 addresses */
 #endif
 	u32 ifindex;
+	u32 mark;
 };
 
 static DEFINE_MUTEX(inet_diag_table_mutex);
@@ -504,6 +505,14 @@ static int inet_diag_bc_run(const struct nlattr *_bc,
 				yes = 0;
 			break;
 		}
+		case INET_DIAG_BC_MARK_COND: {
+			struct inet_diag_markcond *cond;
+
+			cond = (struct inet_diag_markcond *)(op + 1);
+			if ((entry->mark & cond->mask) != cond->mark)
+				yes = 0;
+			break;
+		}
 		}
 
 		if (yes) {
@@ -541,6 +550,7 @@ int inet_diag_bc_sk(const struct nlattr *bc, struct sock *sk)
 	entry.dport = ntohs(inet->inet_dport);
 	entry.userlocks = sk->sk_userlocks;
 	entry.ifindex = sk->sk_bound_dev_if;
+	entry.mark = sk->sk_mark;
 
 	return inet_diag_bc_run(bc, &entry);
 }
@@ -623,8 +633,17 @@ static inline bool valid_port_comparison(const struct inet_diag_bc_op *op,
 	return true;
 }
 
-static int inet_diag_bc_audit(const struct nlattr *attr)
+static bool valid_markcond(const struct inet_diag_bc_op *op, int len,
+			   int *min_len)
 {
+	*min_len += sizeof(struct inet_diag_markcond);
+	return len >= *min_len;
+}
+
+static int inet_diag_bc_audit(const struct nlattr *attr,
+			      const struct sk_buff *skb)
+{
+	bool net_admin = netlink_net_capable(skb, CAP_NET_ADMIN);
 	const void *bytecode, *bc;
 	int bytecode_len, len;
 
@@ -654,6 +673,12 @@ static int inet_diag_bc_audit(const struct nlattr *attr)
 		case INET_DIAG_BC_D_GE:
 		case INET_DIAG_BC_D_LE:
 			if (!valid_port_comparison(bc, len, &min_len))
+				return -EINVAL;
+			break;
+		case INET_DIAG_BC_MARK_COND:
+			if (!net_admin)
+				return -EPERM;
+			if (!valid_markcond(bc, len, &min_len))
 				return -EINVAL;
 			break;
 		case INET_DIAG_BC_AUTO:
@@ -720,6 +745,7 @@ static int inet_twsk_diag_dump(struct sock *sk,
 		entry.sport = tw->tw_num;
 		entry.dport = ntohs(tw->tw_dport);
 		entry.userlocks = 0;
+		entry.mark = 0;
 
 		if (!inet_diag_bc_run(bc, &entry))
 			return 0;
@@ -846,6 +872,7 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
 	if (bc != NULL) {
 		entry.sport = inet->inet_num;
 		entry.userlocks = sk->sk_userlocks;
+		entry.mark = sk->sk_mark;
 	}
 
 	for (j = s_j; j < lopt->nr_table_entries; j++) {
@@ -1116,7 +1143,7 @@ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
 
 			attr = nlmsg_find_attr(nlh, hdrlen,
 					       INET_DIAG_REQ_BYTECODE);
-			err = inet_diag_bc_audit(attr);
+			err = inet_diag_bc_audit(attr, skb);
 			if (err)
 				return err;
 		}
@@ -1147,7 +1174,7 @@ static int inet_diag_handler_cmd(struct sk_buff *skb, struct nlmsghdr *h)
 
 			attr = nlmsg_find_attr(h, hdrlen,
 					       INET_DIAG_REQ_BYTECODE);
-			err = inet_diag_bc_audit(attr);
+			err = inet_diag_bc_audit(attr, skb);
 			if (err)
 				return err;
 		}
