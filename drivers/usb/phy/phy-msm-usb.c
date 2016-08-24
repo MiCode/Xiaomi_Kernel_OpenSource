@@ -1812,9 +1812,11 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 
 	/*
 	 * This condition will be true when usb cable is disconnected
-	 * during bootup before charger detection mechanism starts.
+	 * during bootup before enumeration. Check charger type also
+	 * to avoid clearing online flag in case of valid charger.
 	 */
-	if (motg->online && motg->cur_power == 0 && mA == 0)
+	if (motg->online && motg->cur_power == 0 && mA == 0 &&
+			(motg->chg_type == USB_INVALID_CHARGER))
 		msm_otg_set_online_status(motg);
 
 	if (motg->cur_power == mA)
