@@ -26,6 +26,8 @@
 #include "adreno_perfcounter.h"
 
 #define SP_TP_PWR_ON BIT(20)
+/* A4XX_RBBM_CLOCK_CTL_IP */
+#define CNTL_IP_SW_COLLAPSE		BIT(0)
 
 /*
  * Define registers for a4xx that contain addresses used by the
@@ -201,6 +203,131 @@ static bool a4xx_is_sptp_idle(struct adreno_device *adreno_dev)
 }
 
 /*
+ * a4xx_enable_hwcg() - Program the clock control registers
+ * @device: The adreno device pointer
+ */
+static void a4xx_enable_hwcg(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP0, 0x02222202);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP1, 0x02222202);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP2, 0x02222202);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP3, 0x02222202);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_TP0, 0x00002222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_TP1, 0x00002222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_TP2, 0x00002222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_TP3, 0x00002222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TP0, 0x0E739CE7);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TP1, 0x0E739CE7);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TP2, 0x0E739CE7);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TP3, 0x0E739CE7);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TP0, 0x00111111);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TP1, 0x00111111);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TP2, 0x00111111);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TP3, 0x00111111);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP0, 0x22222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP1, 0x22222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP2, 0x22222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP3, 0x22222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP0, 0x00222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP1, 0x00222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP2, 0x00222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP3, 0x00222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_SP0, 0x00000104);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_SP1, 0x00000104);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_SP2, 0x00000104);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_SP3, 0x00000104);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_SP0, 0x00000081);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_SP1, 0x00000081);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_SP2, 0x00000081);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_SP3, 0x00000081);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_UCHE, 0x22222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_UCHE, 0x02222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL3_UCHE, 0x00000000);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL4_UCHE, 0x00000000);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_UCHE, 0x00004444);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_UCHE, 0x00001112);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB0, 0x22222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB1, 0x22222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB2, 0x22222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB3, 0x22222222);
+	/* Disable L1 clocking in A420 due to CCU issues with it */
+	if (adreno_is_a420(adreno_dev)) {
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB0, 0x00002020);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB1, 0x00002020);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB2, 0x00002020);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB3, 0x00002020);
+	} else {
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB0, 0x00022020);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB1, 0x00022020);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB2, 0x00022020);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB3, 0x00022020);
+	}
+	/* No CCU for A405 */
+	if (!adreno_is_a405(adreno_dev)) {
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_CTL_MARB_CCU0, 0x00000922);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_CTL_MARB_CCU1, 0x00000922);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_CTL_MARB_CCU2, 0x00000922);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_CTL_MARB_CCU3, 0x00000922);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU0, 0x00000000);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU1, 0x00000000);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU2, 0x00000000);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU3, 0x00000000);
+		kgsl_regwrite(device,
+				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_0,
+				0x00000001);
+		kgsl_regwrite(device,
+				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_1,
+				0x00000001);
+		kgsl_regwrite(device,
+				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_2,
+				0x00000001);
+		kgsl_regwrite(device,
+				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_3,
+				0x00000001);
+	}
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_MODE_GPC, 0x02222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_GPC, 0x04100104);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_GPC, 0x00022222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_COM_DCOM, 0x00000022);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_COM_DCOM, 0x0000010F);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_COM_DCOM, 0x00000022);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TSE_RAS_RBBM, 0x00222222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00004104);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00000222);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_HLSQ, 0x00000000);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_HLSQ, 0x00000000);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, 0x00220000);
+	/*
+	 * Due to a HW timing issue, top level HW clock gating is causing
+	 * register read/writes to be dropped in adreno a430.
+	 * This timing issue started happening because of SP/TP power collapse.
+	 * On targets that do not have SP/TP PC there is no timing issue.
+	 * The HW timing issue could be fixed by
+	 * a) disabling SP/TP power collapse
+	 * b) or disabling HW clock gating.
+	 * Disabling HW clock gating + NAP enabled combination has
+	 * minimal power impact. So this option is chosen over disabling
+	 * SP/TP power collapse.
+	 * Revisions of A430 which chipid 2 and above do not have the issue.
+	 */
+	if (adreno_is_a430(adreno_dev) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) < 2))
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0);
+	else
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0xAAAAAAAA);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
+}
+/*
  * a4xx_regulator_enable() - Enable any necessary HW regulators
  * @adreno_dev: The adreno device pointer
  *
@@ -212,8 +339,12 @@ static int a4xx_regulator_enable(struct adreno_device *adreno_dev)
 	unsigned int reg;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!(adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev)))
+	if (!(adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev))) {
+		/* Halt the sp_input_clk at HM level */
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0x00000055);
+		a4xx_enable_hwcg(device);
 		return 0;
+	}
 
 	/* Set the default register values; set SW_COLLAPSE to 0 */
 	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, 0x778000);
@@ -221,6 +352,13 @@ static int a4xx_regulator_enable(struct adreno_device *adreno_dev)
 		udelay(5);
 		kgsl_regread(device, A4XX_RBBM_POWER_STATUS, &reg);
 	} while (!(reg & SP_TP_PWR_ON));
+
+	/* Disable SP clock */
+	kgsl_regrmw(device, A4XX_RBBM_CLOCK_CTL_IP, CNTL_IP_SW_COLLAPSE, 0);
+	/* Enable hardware clockgating */
+	a4xx_enable_hwcg(device);
+	/* Enable SP clock */
+	kgsl_regrmw(device, A4XX_RBBM_CLOCK_CTL_IP, CNTL_IP_SW_COLLAPSE, 1);
 	return 0;
 }
 
@@ -326,131 +464,6 @@ static void a4xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 
 	if (post)
 		pre = 0;
-}
-
-/*
- * a4xx_enable_hwcg() - Program the clock control registers
- * @device: The adreno device pointer
- */
-static void a4xx_enable_hwcg(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP0, 0x02222202);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP1, 0x02222202);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP2, 0x02222202);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP3, 0x02222202);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_TP0, 0x00002222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_TP1, 0x00002222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_TP2, 0x00002222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_TP3, 0x00002222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TP0, 0x0E739CE7);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TP1, 0x0E739CE7);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TP2, 0x0E739CE7);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TP3, 0x0E739CE7);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TP0, 0x00111111);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TP1, 0x00111111);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TP2, 0x00111111);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TP3, 0x00111111);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP0, 0x22222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP1, 0x22222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP2, 0x22222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP3, 0x22222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP0, 0x00222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP1, 0x00222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP2, 0x00222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP3, 0x00222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_SP0, 0x00000104);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_SP1, 0x00000104);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_SP2, 0x00000104);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_SP3, 0x00000104);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_SP0, 0x00000081);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_SP1, 0x00000081);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_SP2, 0x00000081);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_SP3, 0x00000081);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_UCHE, 0x22222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_UCHE, 0x02222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL3_UCHE, 0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL4_UCHE, 0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_UCHE, 0x00004444);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_UCHE, 0x00001112);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB0, 0x22222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB1, 0x22222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB2, 0x22222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB3, 0x22222222);
-	/* Disable L1 clocking in A420 due to CCU issues with it */
-	if (adreno_is_a420(adreno_dev)) {
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB0, 0x00002020);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB1, 0x00002020);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB2, 0x00002020);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB3, 0x00002020);
-	} else {
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB0, 0x00022020);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB1, 0x00022020);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB2, 0x00022020);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB3, 0x00022020);
-	}
-	/* No CCU for A405 */
-	if (!adreno_is_a405(adreno_dev)) {
-		kgsl_regwrite(device,
-			A4XX_RBBM_CLOCK_CTL_MARB_CCU0, 0x00000922);
-		kgsl_regwrite(device,
-			A4XX_RBBM_CLOCK_CTL_MARB_CCU1, 0x00000922);
-		kgsl_regwrite(device,
-			A4XX_RBBM_CLOCK_CTL_MARB_CCU2, 0x00000922);
-		kgsl_regwrite(device,
-			A4XX_RBBM_CLOCK_CTL_MARB_CCU3, 0x00000922);
-		kgsl_regwrite(device,
-			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU0, 0x00000000);
-		kgsl_regwrite(device,
-			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU1, 0x00000000);
-		kgsl_regwrite(device,
-			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU2, 0x00000000);
-		kgsl_regwrite(device,
-			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU3, 0x00000000);
-		kgsl_regwrite(device,
-				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_0,
-				0x00000001);
-		kgsl_regwrite(device,
-				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_1,
-				0x00000001);
-		kgsl_regwrite(device,
-				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_2,
-				0x00000001);
-		kgsl_regwrite(device,
-				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_3,
-				0x00000001);
-	}
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_MODE_GPC, 0x02222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_GPC, 0x04100104);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_GPC, 0x00022222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_COM_DCOM, 0x00000022);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_COM_DCOM, 0x0000010F);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_COM_DCOM, 0x00000022);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TSE_RAS_RBBM, 0x00222222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00004104);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00000222);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_HLSQ , 0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_HLSQ, 0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, 0x00220000);
-	/*
-	 * Due to a HW timing issue, top level HW clock gating is causing
-	 * register read/writes to be dropped in adreno a430.
-	 * This timing issue started happening because of SP/TP power collapse.
-	 * On targets that do not have SP/TP PC there is no timing issue.
-	 * The HW timing issue could be fixed by
-	 * a) disabling SP/TP power collapse
-	 * b) or disabling HW clock gating.
-	 * Disabling HW clock gating + NAP enabled combination has
-	 * minimal power impact. So this option is chosen over disabling
-	 * SP/TP power collapse.
-	 * Revisions of A430 which chipid 2 and above do not have the issue.
-	 */
-	if (adreno_is_a430(adreno_dev) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) < 2))
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0);
-	else
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0xAAAAAAAA);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
 }
 
 /**
@@ -597,7 +610,6 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 				0x00000441);
 	}
 
-	a4xx_enable_hwcg(device);
 	/*
 	 * For A420 set RBBM_CLOCK_DELAY_HLSQ.CGC_HLSQ_TP_EARLY_CYC >= 2
 	 * due to timing issue with HLSQ_TP_CLK_EN
