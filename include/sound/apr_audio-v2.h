@@ -914,6 +914,34 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PORT_ID_SENARY_MI2S_RX          0x1018
 /* ID of the senary MI2S Tx port. */
 #define AFE_PORT_ID_SENARY_MI2S_TX          0x1019
+/* ID of the Internal 0 MI2S Rx port */
+#define AFE_PORT_ID_INT0_MI2S_RX                 0x102E
+/* ID of the Internal 0 MI2S Tx port */
+#define AFE_PORT_ID_INT0_MI2S_TX                 0x102F
+/* ID of the Internal 1 MI2S Rx port */
+#define AFE_PORT_ID_INT1_MI2S_RX                 0x1030
+/* ID of the Internal 1 MI2S Tx port */
+#define AFE_PORT_ID_INT1_MI2S_TX                 0x1031
+/* ID of the Internal 2 MI2S Rx port */
+#define AFE_PORT_ID_INT2_MI2S_RX                 0x1032
+/* ID of the Internal 2 MI2S Tx port */
+#define AFE_PORT_ID_INT2_MI2S_TX                 0x1033
+/* ID of the Internal 3 MI2S Rx port */
+#define AFE_PORT_ID_INT3_MI2S_RX                 0x1034
+/* ID of the Internal 3 MI2S Tx port */
+#define AFE_PORT_ID_INT3_MI2S_TX                 0x1035
+/* ID of the Internal 4 MI2S Rx port */
+#define AFE_PORT_ID_INT4_MI2S_RX                 0x1036
+/* ID of the Internal 4 MI2S Tx port */
+#define AFE_PORT_ID_INT4_MI2S_TX                 0x1037
+/* ID of the Internal 5 MI2S Rx port */
+#define AFE_PORT_ID_INT5_MI2S_RX                 0x1038
+/* ID of the Internal 5 MI2S Tx port */
+#define AFE_PORT_ID_INT5_MI2S_TX                 0x1039
+/* ID of the Internal 6 MI2S Rx port */
+#define AFE_PORT_ID_INT6_MI2S_RX                 0x103A
+/* ID of the Internal 6 MI2S Tx port */
+#define AFE_PORT_ID_INT6_MI2S_TX                 0x103B
 #define AFE_PORT_ID_SPDIF_RX                0x5000
 #define  AFE_PORT_ID_RT_PROXY_PORT_001_RX   0x2000
 #define  AFE_PORT_ID_RT_PROXY_PORT_001_TX   0x2001
@@ -8858,6 +8886,20 @@ enum afe_lpass_clk_mode {
 #define Q6AFE_LPASS_CLK_ID_SEN_MI2S_IBIT			0x10D
 /* Clock ID for SENARY  I2S EBIT */
 #define Q6AFE_LPASS_CLK_ID_SEN_MI2S_EBIT			0x10E
+/* Clock ID for INT0 I2S IBIT  */
+#define Q6AFE_LPASS_CLK_ID_INT0_MI2S_IBIT                       0x10F
+/* Clock ID for INT1 I2S IBIT  */
+#define Q6AFE_LPASS_CLK_ID_INT1_MI2S_IBIT                       0x110
+/* Clock ID for INT2 I2S IBIT  */
+#define Q6AFE_LPASS_CLK_ID_INT2_MI2S_IBIT                       0x111
+/* Clock ID for INT3 I2S IBIT  */
+#define Q6AFE_LPASS_CLK_ID_INT3_MI2S_IBIT                       0x112
+/* Clock ID for INT4 I2S IBIT  */
+#define Q6AFE_LPASS_CLK_ID_INT4_MI2S_IBIT                       0x113
+/* Clock ID for INT5 I2S IBIT  */
+#define Q6AFE_LPASS_CLK_ID_INT5_MI2S_IBIT                       0x114
+/* Clock ID for INT6 I2S IBIT  */
+#define Q6AFE_LPASS_CLK_ID_INT6_MI2S_IBIT                       0x115
 
 /* Clock ID for Primary PCM IBIT */
 #define Q6AFE_LPASS_CLK_ID_PRI_PCM_IBIT                           0x200
@@ -8899,8 +8941,19 @@ enum afe_lpass_clk_mode {
 #define Q6AFE_LPASS_CLK_ID_MCLK_2                                 0x301
 /* Clock ID for MCLK3 */
 #define Q6AFE_LPASS_CLK_ID_MCLK_3                                 0x302
+/* Clock ID for MCLK4 */
+#define Q6AFE_LPASS_CLK_ID_MCLK_4                                 0x304
 /* Clock ID for Internal Digital Codec Core */
 #define Q6AFE_LPASS_CLK_ID_INTERNAL_DIGITAL_CODEC_CORE            0x303
+/* Clock ID for INT MCLK0 */
+#define Q6AFE_LPASS_CLK_ID_INT_MCLK_0                             0x305
+/* Clock ID for INT MCLK1 */
+#define Q6AFE_LPASS_CLK_ID_INT_MCLK_1                             0x306
+/*
+ * Clock ID for soundwire NPL.
+ * This is the clock to be used to enable NPL clock for  internal Soundwire.
+ */
+#define AFE_CLOCK_SET_CLOCK_ID_SWR_NPL_CLK                         0x307
 
 /* Clock ID for AHB HDMI input */
 #define Q6AFE_LPASS_CLK_ID_AHB_HDMI_INPUT                         0x400
