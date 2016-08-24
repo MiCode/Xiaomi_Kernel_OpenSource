@@ -64,7 +64,7 @@ alpha, chroma, count, bp, flg, fm, np)                                    \
 	.num_planes = np                                                  \
 }
 
-#define PSEDUO_YUV_FMT(fmt, a, r, g, b, e0, e1, chroma, flg, fm, np)      \
+#define PSEUDO_YUV_FMT(fmt, a, r, g, b, e0, e1, chroma, flg, fm, np)      \
 {                                                                         \
 	.base.pixel_format = DRM_FORMAT_ ## fmt,                          \
 	.fetch_planes = SDE_PLANE_PSEUDO_PLANAR,                          \
@@ -268,25 +268,73 @@ static const struct sde_format sde_format_map[] = {
 		false, 2, 0,
 		SDE_FETCH_LINEAR, 1),
 
-	PSEDUO_YUV_FMT(NV12,
+	INTERLEAVED_RGB_FMT(BGRA1010102,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA, 4,
+		true, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_LINEAR, 1),
+
+	INTERLEAVED_RGB_FMT(RGBA1010102,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
+		true, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_LINEAR, 1),
+
+	INTERLEAVED_RGB_FMT(ABGR2101010,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr, 4,
+		true, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_LINEAR, 1),
+
+	INTERLEAVED_RGB_FMT(ARGB2101010,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb, 4,
+		true, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_LINEAR, 1),
+
+	INTERLEAVED_RGB_FMT(XRGB2101010,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb, 4,
+		false, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_LINEAR, 1),
+
+	INTERLEAVED_RGB_FMT(BGRX1010102,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA, 4,
+		false, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_LINEAR, 1),
+
+	INTERLEAVED_RGB_FMT(XBGR2101010,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr, 4,
+		false, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_LINEAR, 1),
+
+	INTERLEAVED_RGB_FMT(RGBX1010102,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
+		false, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_LINEAR, 1),
+
+	PSEUDO_YUV_FMT(NV12,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C2_R_Cr,
 		SDE_CHROMA_420, SDE_FORMAT_FLAG_YUV,
 		SDE_FETCH_LINEAR, 2),
 
-	PSEDUO_YUV_FMT(NV21,
+	PSEUDO_YUV_FMT(NV21,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C1_B_Cb,
 		SDE_CHROMA_420, SDE_FORMAT_FLAG_YUV,
 		SDE_FETCH_LINEAR, 2),
 
-	PSEDUO_YUV_FMT(NV16,
+	PSEUDO_YUV_FMT(NV16,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C2_R_Cr,
 		SDE_CHROMA_H2V1, SDE_FORMAT_FLAG_YUV,
 		SDE_FETCH_LINEAR, 2),
 
-	PSEDUO_YUV_FMT(NV61,
+	PSEUDO_YUV_FMT(NV61,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C1_B_Cb,
 		SDE_CHROMA_H2V1, SDE_FORMAT_FLAG_YUV,
@@ -354,7 +402,19 @@ static const struct sde_format sde_format_map_ubwc[] = {
 		false, 4, 0,
 		SDE_FETCH_UBWC, 2),
 
-	PSEDUO_YUV_FMT(NV12,
+	INTERLEAVED_RGB_FMT(RGBA1010102,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
+		true, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_UBWC, 2),
+
+	INTERLEAVED_RGB_FMT(RGBX1010102,
+		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
+		true, 4, SDE_FORMAT_FLAG_DX,
+		SDE_FETCH_UBWC, 2),
+
+	PSEUDO_YUV_FMT(NV12,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C1_B_Cb, C2_R_Cr,
 		SDE_CHROMA_420, SDE_FORMAT_FLAG_YUV,
@@ -455,6 +515,8 @@ static int _sde_format_get_plane_sizes_ubwc(
 
 	} else if (fmt->base.pixel_format == DRM_FORMAT_RGBA8888 ||
 		fmt->base.pixel_format == DRM_FORMAT_RGBX8888    ||
+		fmt->base.pixel_format == DRM_FORMAT_RGBA1010102 ||
+		fmt->base.pixel_format == DRM_FORMAT_RGBX1010102 ||
 		fmt->base.pixel_format == DRM_FORMAT_RGB565) {
 		uint32_t stride_alignment, aligned_bitstream_width;
 

@@ -39,8 +39,10 @@
 #define PIPES_PER_STAGE			2
 
 #define SDE_FORMAT_FLAG_YUV		(1 << 0)
+#define SDE_FORMAT_FLAG_DX		(1 << 1)
 
 #define SDE_FORMAT_IS_YUV(X)		((X)->flag & SDE_FORMAT_FLAG_YUV)
+#define SDE_FORMAT_IS_DX(X)		((X)->flag & SDE_FORMAT_FLAG_DX)
 #define SDE_FORMAT_IS_LINEAR(X)		((X)->fetch_mode == SDE_FETCH_LINEAR)
 #define SDE_FORMAT_IS_UBWC(X)		((X)->fetch_mode == SDE_FETCH_UBWC)
 
