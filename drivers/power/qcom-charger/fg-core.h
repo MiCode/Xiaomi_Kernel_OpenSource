@@ -54,6 +54,8 @@
 					CHARS_PER_ITEM) + 1)		\
 
 #define FG_SRAM_ADDRESS_MAX		255
+#define BUCKET_COUNT			8
+#define BUCKET_SOC_PCT			(256 / BUCKET_COUNT)
 
 /* Debug flag definitions */
 enum fg_debug_flag {
@@ -186,6 +188,15 @@ struct fg_batt_props {
 	int		batt_id_kohm;
 };
 
+struct fg_cyc_ctr_data {
+	bool		en;
+	bool		started[BUCKET_COUNT];
+	u16		count[BUCKET_COUNT];
+	u8		last_soc[BUCKET_COUNT];
+	int		id;
+	struct mutex	lock;
+};
+
 struct fg_irq_info {
 	const char		*name;
 	const irq_handler_t	handler;
@@ -209,6 +220,7 @@ struct fg_chip {
 	char			*batt_profile;
 	struct fg_dt_props	dt;
 	struct fg_batt_props	bp;
+	struct fg_cyc_ctr_data	cyc_ctr;
 	struct notifier_block	nb;
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
@@ -216,6 +228,8 @@ struct fg_chip {
 	u32			batt_info_base;
 	u32			mem_if_base;
 	int			nom_cap_uah;
+	int			status;
+	int			prev_status;
 	bool			batt_id_avail;
 	bool			profile_loaded;
 	bool			battery_missing;
@@ -223,6 +237,7 @@ struct fg_chip {
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
+	struct work_struct	cycle_count_work;
 	struct fg_alg_flag	*alg_flags;
 };
 
