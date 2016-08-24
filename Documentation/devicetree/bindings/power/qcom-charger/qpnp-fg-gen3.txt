@@ -140,6 +140,11 @@ First Level Node - FG Gen3 device
 		    asleep and the battery is discharging. This option requires
 		    qcom,fg-esr-timer-awake to be defined.
 
+- qcom,cycle-counter-en
+	Usage:      optional
+	Value type: <bool>
+	Definition: Enables the cycle counter feature.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================

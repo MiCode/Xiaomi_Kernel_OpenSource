@@ -57,6 +57,8 @@
 #define PROFILE_LOAD_OFFSET		0
 #define NOM_CAP_WORD			58
 #define NOM_CAP_OFFSET			0
+#define CYCLE_COUNT_WORD		75
+#define CYCLE_COUNT_OFFSET		0
 #define PROFILE_INTEGRITY_WORD		79
 #define PROFILE_INTEGRITY_OFFSET	3
 #define BATT_SOC_WORD			91
@@ -92,6 +94,8 @@ static int fg_decode_value_16b(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
 static int fg_decode_default(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
+static int fg_decode_batt_soc(struct fg_sram_param *sp,
+	enum fg_sram_param_id id, int val);
 static void fg_encode_voltage(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val, u8 *buf);
 static void fg_encode_current(struct fg_sram_param *sp,
@@ -114,7 +118,7 @@ static void fg_encode_default(struct fg_sram_param *sp,
 
 static struct fg_sram_param pmicobalt_v1_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
-		fg_decode_default),
+		fg_decode_batt_soc),
 	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 244141,
 		1000, 0, NULL, fg_decode_value_16b),
 	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 244141, 1000, 0, NULL,
@@ -152,7 +156,7 @@ static struct fg_sram_param pmicobalt_v1_sram_params[] = {
 
 static struct fg_sram_param pmicobalt_v2_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
-		fg_decode_default),
+		fg_decode_batt_soc),
 	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 244141,
 		1000, 0, NULL, fg_decode_value_16b),
 	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 244141, 1000, 0, NULL,
@@ -260,171 +264,6 @@ module_param_named(
 	sram_update_period_ms, fg_sram_update_period_ms, int, 0600
 );
 
-/* Other functions HERE */
-
-static int fg_awake_cb(struct votable *votable, void *data, int awake,
-			const char *client)
-{
-	struct fg_chip *chip = data;
-
-	if (awake)
-		pm_stay_awake(chip->dev);
-	else
-		pm_relax(chip->dev);
-
-	pr_debug("client: %s awake: %d\n", client, awake);
-	return 0;
-}
-
-static bool is_charger_available(struct fg_chip *chip)
-{
-	if (!chip->batt_psy)
-		chip->batt_psy = power_supply_get_by_name("battery");
-
-	if (!chip->batt_psy)
-		return false;
-
-	return true;
-}
-
-static void status_change_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work,
-			struct fg_chip, status_change_work);
-	union power_supply_propval prop = {0, };
-
-	if (!is_charger_available(chip)) {
-		fg_dbg(chip, FG_STATUS, "Charger not available?!\n");
-		return;
-	}
-
-	power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
-			&prop);
-	switch (prop.intval) {
-	case POWER_SUPPLY_STATUS_CHARGING:
-		fg_dbg(chip, FG_POWER_SUPPLY, "Charging\n");
-		break;
-	case POWER_SUPPLY_STATUS_DISCHARGING:
-		fg_dbg(chip, FG_POWER_SUPPLY, "Discharging\n");
-		break;
-	case POWER_SUPPLY_STATUS_FULL:
-		fg_dbg(chip, FG_POWER_SUPPLY, "Full\n");
-		break;
-	default:
-		break;
-	}
-}
-
-#define PROFILE_LEN			224
-#define PROFILE_COMP_LEN		32
-#define SOC_READY_WAIT_MS		2000
-static void profile_load_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work,
-				struct fg_chip,
-				profile_load_work.work);
-	int rc;
-	u8 buf[PROFILE_COMP_LEN], val;
-	bool tried_again = false, profiles_same = false;
-
-	if (!chip->batt_id_avail) {
-		pr_err("batt_id not available\n");
-		return;
-	}
-
-	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
-			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("failed to read profile integrity rc=%d\n", rc);
-		return;
-	}
-
-	vote(chip->awake_votable, PROFILE_LOAD, true, 0);
-	if (val == 0x01) {
-		fg_dbg(chip, FG_STATUS, "Battery profile integrity bit is set\n");
-		rc = fg_sram_read(chip, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
-				buf, PROFILE_COMP_LEN, FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in reading battery profile, rc:%d\n", rc);
-			goto out;
-		}
-		profiles_same = memcmp(chip->batt_profile, buf,
-					PROFILE_COMP_LEN) == 0;
-		if (profiles_same) {
-			fg_dbg(chip, FG_STATUS, "Battery profile is same\n");
-			goto done;
-		}
-		fg_dbg(chip, FG_STATUS, "profiles are different?\n");
-	}
-
-	fg_dbg(chip, FG_STATUS, "profile loading started\n");
-	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT, 0);
-	if (rc < 0) {
-		pr_err("Error in writing to %04x, rc=%d\n",
-			BATT_SOC_RESTART(chip), rc);
-		goto out;
-	}
-
-	/* load battery profile */
-	rc = fg_sram_write(chip, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
-			chip->batt_profile, PROFILE_LEN, FG_IMA_ATOMIC);
-	if (rc < 0) {
-		pr_err("Error in writing battery profile, rc:%d\n", rc);
-		goto out;
-	}
-
-	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT,
-			RESTART_GO_BIT);
-	if (rc < 0) {
-		pr_err("Error in writing to %04x, rc=%d\n",
-			BATT_SOC_RESTART(chip), rc);
-		goto out;
-	}
-
-wait:
-	rc = wait_for_completion_interruptible_timeout(&chip->soc_ready,
-		msecs_to_jiffies(SOC_READY_WAIT_MS));
-
-	/* If we were interrupted wait again one more time. */
-	if (rc == -ERESTARTSYS && !tried_again) {
-		tried_again = true;
-		goto wait;
-	} else if (rc <= 0) {
-		pr_err("wait for soc_ready timed out rc=%d\n", rc);
-		goto out;
-	}
-
-	fg_dbg(chip, FG_STATUS, "SOC is ready\n");
-
-	/* Set the profile integrity bit */
-	val = 0x1;
-	rc = fg_sram_write(chip, PROFILE_INTEGRITY_WORD,
-			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("failed to write profile integrity rc=%d\n", rc);
-		goto out;
-	}
-
-	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
-done:
-	rc = fg_sram_read(chip, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
-			FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in reading %04x[%d] rc=%d\n", NOM_CAP_WORD,
-			NOM_CAP_OFFSET, rc);
-		goto out;
-	}
-
-	chip->nom_cap_uah = (int)(buf[0] | buf[1] << 8) * 1000;
-	chip->profile_loaded = true;
-out:
-	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
-	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT, 0);
-	if (rc < 0)
-		pr_err("Error in writing to %04x, rc=%d\n",
-			BATT_SOC_RESTART(chip), rc);
-}
-
 /* All getters HERE */
 
 static int fg_decode_value_16b(struct fg_sram_param *sp,
@@ -436,8 +275,17 @@ static int fg_decode_value_16b(struct fg_sram_param *sp,
 	return sp[id].value;
 }
 
-static int fg_decode_default(struct fg_sram_param *sp,
+static int fg_decode_batt_soc(struct fg_sram_param *sp,
 				enum fg_sram_param_id id, int value)
+{
+	sp[id].value = (u32)value >> 24;
+	pr_debug("id: %d raw value: %x decoded value: %x\n", id, value,
+		sp[id].value);
+	return sp[id].value;
+}
+
+static int fg_decode_default(struct fg_sram_param *sp, enum fg_sram_param_id id,
+				int value)
 {
 	return value;
 }
@@ -752,6 +600,7 @@ static int fg_get_batt_id(struct fg_chip *chip, int *val)
 	return 0;
 }
 
+#define PROFILE_LEN			224
 static int fg_get_batt_profile(struct fg_chip *chip)
 {
 	struct device_node *node = chip->dev->of_node;
@@ -863,6 +712,316 @@ static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 	return 0;
 }
 
+/* Other functions HERE */
+
+static int fg_awake_cb(struct votable *votable, void *data, int awake,
+			const char *client)
+{
+	struct fg_chip *chip = data;
+
+	if (awake)
+		pm_stay_awake(chip->dev);
+	else
+		pm_relax(chip->dev);
+
+	pr_debug("client: %s awake: %d\n", client, awake);
+	return 0;
+}
+
+static bool is_charger_available(struct fg_chip *chip)
+{
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (!chip->batt_psy)
+		return false;
+
+	return true;
+}
+
+static void status_change_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+			struct fg_chip, status_change_work);
+	union power_supply_propval prop = {0, };
+
+	if (!is_charger_available(chip)) {
+		fg_dbg(chip, FG_STATUS, "Charger not available?!\n");
+		return;
+	}
+
+	power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
+			&prop);
+	chip->prev_status = chip->status;
+	chip->status = prop.intval;
+
+	if (chip->cyc_ctr.en && chip->prev_status != chip->status)
+		schedule_work(&chip->cycle_count_work);
+
+	switch (prop.intval) {
+	case POWER_SUPPLY_STATUS_CHARGING:
+		fg_dbg(chip, FG_POWER_SUPPLY, "Charging\n");
+		break;
+	case POWER_SUPPLY_STATUS_DISCHARGING:
+		fg_dbg(chip, FG_POWER_SUPPLY, "Discharging\n");
+		break;
+	case POWER_SUPPLY_STATUS_FULL:
+		fg_dbg(chip, FG_POWER_SUPPLY, "Full\n");
+		break;
+	default:
+		break;
+	}
+}
+
+static void restore_cycle_counter(struct fg_chip *chip)
+{
+	int rc = 0, i;
+	u8 data[2];
+
+	mutex_lock(&chip->cyc_ctr.lock);
+	for (i = 0; i < BUCKET_COUNT; i++) {
+		rc = fg_sram_read(chip, CYCLE_COUNT_WORD + (i / 2),
+				CYCLE_COUNT_OFFSET + (i % 2) * 2, data, 2,
+				FG_IMA_DEFAULT);
+		if (rc < 0)
+			pr_err("failed to read bucket %d rc=%d\n", i, rc);
+		else
+			chip->cyc_ctr.count[i] = data[0] | data[1] << 8;
+	}
+	mutex_unlock(&chip->cyc_ctr.lock);
+}
+
+static void clear_cycle_counter(struct fg_chip *chip)
+{
+	int rc = 0, i;
+
+	if (!chip->cyc_ctr.en)
+		return;
+
+	mutex_lock(&chip->cyc_ctr.lock);
+	memset(chip->cyc_ctr.count, 0, sizeof(chip->cyc_ctr.count));
+	for (i = 0; i < BUCKET_COUNT; i++) {
+		chip->cyc_ctr.started[i] = false;
+		chip->cyc_ctr.last_soc[i] = 0;
+	}
+	rc = fg_sram_write(chip, CYCLE_COUNT_WORD, CYCLE_COUNT_OFFSET,
+			(u8 *)&chip->cyc_ctr.count,
+			sizeof(chip->cyc_ctr.count) / sizeof(u8 *),
+			FG_IMA_DEFAULT);
+	if (rc < 0)
+		pr_err("failed to clear cycle counter rc=%d\n", rc);
+
+	mutex_unlock(&chip->cyc_ctr.lock);
+}
+
+static int fg_inc_store_cycle_ctr(struct fg_chip *chip, int bucket)
+{
+	int rc = 0;
+	u16 cyc_count;
+	u8 data[2];
+
+	if (bucket < 0 || (bucket > BUCKET_COUNT - 1))
+		return 0;
+
+	cyc_count = chip->cyc_ctr.count[bucket];
+	cyc_count++;
+	data[0] = cyc_count & 0xFF;
+	data[1] = cyc_count >> 8;
+
+	rc = fg_sram_write(chip, CYCLE_COUNT_WORD + (bucket / 2),
+			CYCLE_COUNT_OFFSET + (bucket % 2) * 2, data, 2,
+			FG_IMA_DEFAULT);
+	if (rc < 0)
+		pr_err("failed to write BATT_CYCLE[%d] rc=%d\n",
+			bucket, rc);
+	else
+		chip->cyc_ctr.count[bucket] = cyc_count;
+	return rc;
+}
+
+static void cycle_count_work(struct work_struct *work)
+{
+	int rc = 0, bucket, i, batt_soc;
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				cycle_count_work);
+
+	mutex_lock(&chip->cyc_ctr.lock);
+	rc = fg_get_sram_prop(chip, FG_SRAM_BATT_SOC, &batt_soc);
+	if (rc < 0) {
+		pr_err("Failed to read battery soc rc: %d\n", rc);
+		goto out;
+	}
+
+	if (chip->status == POWER_SUPPLY_STATUS_CHARGING) {
+		/* Find out which bucket the SOC falls in */
+		bucket = batt_soc / BUCKET_SOC_PCT;
+		pr_debug("batt_soc: %d bucket: %d\n", batt_soc, bucket);
+
+		/*
+		 * If we've started counting for the previous bucket,
+		 * then store the counter for that bucket if the
+		 * counter for current bucket is getting started.
+		 */
+		if (bucket > 0 && chip->cyc_ctr.started[bucket - 1] &&
+			!chip->cyc_ctr.started[bucket]) {
+			rc = fg_inc_store_cycle_ctr(chip, bucket - 1);
+			if (rc < 0) {
+				pr_err("Error in storing cycle_ctr rc: %d\n",
+					rc);
+				goto out;
+			} else {
+				chip->cyc_ctr.started[bucket - 1] = false;
+				chip->cyc_ctr.last_soc[bucket - 1] = 0;
+			}
+		}
+		if (!chip->cyc_ctr.started[bucket]) {
+			chip->cyc_ctr.started[bucket] = true;
+			chip->cyc_ctr.last_soc[bucket] = batt_soc;
+		}
+	} else {
+		for (i = 0; i < BUCKET_COUNT; i++) {
+			if (chip->cyc_ctr.started[i] &&
+				batt_soc > chip->cyc_ctr.last_soc[i]) {
+				rc = fg_inc_store_cycle_ctr(chip, i);
+				if (rc < 0)
+					pr_err("Error in storing cycle_ctr rc: %d\n",
+						rc);
+				chip->cyc_ctr.last_soc[i] = 0;
+			}
+			chip->cyc_ctr.started[i] = false;
+		}
+	}
+out:
+	mutex_unlock(&chip->cyc_ctr.lock);
+}
+
+static int fg_get_cycle_count(struct fg_chip *chip)
+{
+	int count;
+
+	if (!chip->cyc_ctr.en)
+		return 0;
+
+	if ((chip->cyc_ctr.id <= 0) || (chip->cyc_ctr.id > BUCKET_COUNT))
+		return -EINVAL;
+
+	mutex_lock(&chip->cyc_ctr.lock);
+	count = chip->cyc_ctr.count[chip->cyc_ctr.id - 1];
+	mutex_unlock(&chip->cyc_ctr.lock);
+	return count;
+}
+
+#define PROFILE_COMP_LEN		32
+#define SOC_READY_WAIT_MS		2000
+static void profile_load_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				profile_load_work.work);
+	int rc;
+	u8 buf[PROFILE_COMP_LEN], val;
+	bool tried_again = false, profiles_same = false;
+
+	if (!chip->batt_id_avail) {
+		pr_err("batt_id not available\n");
+		return;
+	}
+
+	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
+			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("failed to read profile integrity rc=%d\n", rc);
+		return;
+	}
+
+	vote(chip->awake_votable, PROFILE_LOAD, true, 0);
+	if (val == 0x01) {
+		fg_dbg(chip, FG_STATUS, "Battery profile integrity bit is set\n");
+		rc = fg_sram_read(chip, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
+				buf, PROFILE_COMP_LEN, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in reading battery profile, rc:%d\n", rc);
+			goto out;
+		}
+		profiles_same = memcmp(chip->batt_profile, buf,
+					PROFILE_COMP_LEN) == 0;
+		if (profiles_same) {
+			fg_dbg(chip, FG_STATUS, "Battery profile is same\n");
+			goto done;
+		}
+		fg_dbg(chip, FG_STATUS, "profiles are different?\n");
+	}
+
+	clear_cycle_counter(chip);
+	fg_dbg(chip, FG_STATUS, "profile loading started\n");
+	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT, 0);
+	if (rc < 0) {
+		pr_err("Error in writing to %04x, rc=%d\n",
+			BATT_SOC_RESTART(chip), rc);
+		goto out;
+	}
+
+	/* load battery profile */
+	rc = fg_sram_write(chip, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
+			chip->batt_profile, PROFILE_LEN, FG_IMA_ATOMIC);
+	if (rc < 0) {
+		pr_err("Error in writing battery profile, rc:%d\n", rc);
+		goto out;
+	}
+
+	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT,
+			RESTART_GO_BIT);
+	if (rc < 0) {
+		pr_err("Error in writing to %04x, rc=%d\n",
+			BATT_SOC_RESTART(chip), rc);
+		goto out;
+	}
+
+wait:
+	rc = wait_for_completion_interruptible_timeout(&chip->soc_ready,
+		msecs_to_jiffies(SOC_READY_WAIT_MS));
+
+	/* If we were interrupted wait again one more time. */
+	if (rc == -ERESTARTSYS && !tried_again) {
+		tried_again = true;
+		goto wait;
+	} else if (rc <= 0) {
+		pr_err("wait for soc_ready timed out rc=%d\n", rc);
+		goto out;
+	}
+
+	fg_dbg(chip, FG_STATUS, "SOC is ready\n");
+
+	/* Set the profile integrity bit */
+	val = 0x1;
+	rc = fg_sram_write(chip, PROFILE_INTEGRITY_WORD,
+			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("failed to write profile integrity rc=%d\n", rc);
+		goto out;
+	}
+
+	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
+done:
+	rc = fg_sram_read(chip, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading %04x[%d] rc=%d\n", NOM_CAP_WORD,
+			NOM_CAP_OFFSET, rc);
+		goto out;
+	}
+
+	chip->nom_cap_uah = (int)(buf[0] | buf[1] << 8) * 1000;
+	chip->profile_loaded = true;
+out:
+	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
+	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT, 0);
+	if (rc < 0)
+		pr_err("Error in writing to %04x, rc=%d\n",
+			BATT_SOC_RESTART(chip), rc);
+}
+
 /* PSY CALLBACKS STAY HERE */
 
 static int fg_psy_get_property(struct power_supply *psy,
@@ -902,6 +1061,11 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		pval->intval = chip->bp.float_volt_uv;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		pval->intval = fg_get_cycle_count(chip);
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
+		pval->intval = chip->cyc_ctr.id;
 		break;
 	default:
 		break;
@@ -914,7 +1078,18 @@ static int fg_psy_set_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *pval)
 {
+	struct fg_chip *chip = power_supply_get_drvdata(psy);
+
 	switch (psp) {
+	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
+		if ((pval->intval > 0) && (pval->intval <= BUCKET_COUNT)) {
+			chip->cyc_ctr.id = pval->intval;
+		} else {
+			pr_err("rejecting invalid cycle_count_id = %d\n",
+				pval->intval);
+			return -EINVAL;
+		}
+		break;
 	default:
 		break;
 	}
@@ -926,6 +1101,8 @@ static int fg_property_is_writeable(struct power_supply *psy,
 						enum power_supply_property psp)
 {
 	switch (psp) {
+	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
+		return 1;
 	default:
 		break;
 	}
@@ -965,6 +1142,8 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
+	POWER_SUPPLY_PROP_CYCLE_COUNT_ID,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
@@ -1121,6 +1300,9 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
+	if (chip->cyc_ctr.en)
+		restore_cycle_counter(chip);
+
 	return 0;
 }
 
@@ -1180,6 +1362,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 	if (chip->battery_missing) {
 		chip->batt_id_avail = false;
 		chip->profile_loaded = false;
+		clear_cycle_counter(chip);
 	} else {
 		rc = fg_batt_profile_init(chip);
 		if (rc < 0) {
@@ -1221,6 +1404,9 @@ static irqreturn_t fg_soc_update_irq_handler(int irq, void *data)
 static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
+
+	if (chip->cyc_ctr.en)
+		schedule_work(&chip->cycle_count_work);
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	return IRQ_HANDLED;
@@ -1528,6 +1714,9 @@ static int fg_parse_dt(struct fg_chip *chip)
 	else
 		chip->dt.esr_timer_asleep = temp;
 
+	chip->cyc_ctr.en = of_property_read_bool(node, "qcom,cycle-counter-en");
+	if (chip->cyc_ctr.en)
+		chip->cyc_ctr.id = 1;
 
 	return 0;
 }
@@ -1580,10 +1769,12 @@ static int fg_gen3_probe(struct platform_device *pdev)
 
 	mutex_init(&chip->bus_lock);
 	mutex_init(&chip->sram_rw_lock);
+	mutex_init(&chip->cyc_ctr.lock);
 	init_completion(&chip->soc_update);
 	init_completion(&chip->soc_ready);
 	INIT_DELAYED_WORK(&chip->profile_load_work, profile_load_work);
 	INIT_WORK(&chip->status_change_work, status_change_work);
+	INIT_WORK(&chip->cycle_count_work, cycle_count_work);
 
 	rc = fg_memif_init(chip);
 	if (rc < 0) {
