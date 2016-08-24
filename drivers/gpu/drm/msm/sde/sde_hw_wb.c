@@ -107,6 +107,9 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 			(ctx->caps->features & BIT(SDE_WB_YUV_CONFIG)))
 		dst_format |= BIT(15);
 
+	if (SDE_FORMAT_IS_DX(fmt))
+		dst_format |= BIT(21);
+
 	pattern = (fmt->element[3] << 24) |
 			(fmt->element[2] << 16) |
 			(fmt->element[1] << 8)  |

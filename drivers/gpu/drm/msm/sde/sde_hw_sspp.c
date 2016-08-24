@@ -230,6 +230,9 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	if (SDE_FORMAT_IS_YUV(fmt))
 		src_format |= BIT(15);
 
+	if (SDE_FORMAT_IS_DX(fmt))
+		src_format |= BIT(14);
+
 	/* update scaler opmode, if appropriate */
 	_sspp_setup_opmode(ctx,
 		VIG_OP_CSC_EN | VIG_OP_CSC_SRC_DATAFMT, SDE_FORMAT_IS_YUV(fmt));

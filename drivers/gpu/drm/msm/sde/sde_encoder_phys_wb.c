@@ -121,7 +121,8 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 	cdm_cfg->output_height = wb_roi->h;
 	cdm_cfg->output_fmt = format;
 	cdm_cfg->output_type = CDM_CDWN_OUTPUT_WB;
-	cdm_cfg->output_bit_depth = CDM_CDWN_OUTPUT_8BIT;
+	cdm_cfg->output_bit_depth = SDE_FORMAT_IS_DX(format) ?
+		CDM_CDWN_OUTPUT_10BIT : CDM_CDWN_OUTPUT_8BIT;
 
 	/* enable 10 bit logic */
 	switch (cdm_cfg->output_fmt->chroma_sample) {
