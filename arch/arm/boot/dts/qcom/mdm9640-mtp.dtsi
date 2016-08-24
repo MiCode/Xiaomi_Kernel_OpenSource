@@ -76,7 +76,7 @@
 		qcom,pull = <5>;         /* No Pull */
 		qcom,vin-sel = <2>;      /* VIN2 */
 		qcom,src-sel = <0>;      /* GPIO */
-		qcom,invert = <0>;       /* Invert */
+		qcom,invert = <1>;       /* Output high */
 		qcom,master-en = <1>;    /* Enable GPIO */
 		status = "ok";
 	};
