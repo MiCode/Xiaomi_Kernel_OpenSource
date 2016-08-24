@@ -17,6 +17,7 @@
  */
 
 #include "msmcobalt.dtsi"
+#include "msmcobalt-v2-camera.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSMCOBALT v2";
