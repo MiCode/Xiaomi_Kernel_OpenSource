@@ -453,9 +453,15 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 };
 
 static int arm_smmu_halt(struct arm_smmu_device *smmu);
+static int arm_smmu_halt_nowait(struct arm_smmu_device *smmu);
+static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu);
 static void arm_smmu_resume(struct arm_smmu_device *smmu);
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 					dma_addr_t iova);
+static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
+					      dma_addr_t iova);
+static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
+	struct iommu_domain *domain, dma_addr_t iova);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -723,6 +729,56 @@ static struct iommu_gather_ops arm_smmu_gather_ops = {
 	.tlb_sync	= arm_smmu_tlb_sync,
 };
 
+static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
+					 dma_addr_t iova, u32 fsr)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct arm_smmu_device *smmu;
+	void __iomem *cb_base;
+	u64 sctlr, sctlr_orig;
+	phys_addr_t phys;
+
+	smmu = smmu_domain->smmu;
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+
+	arm_smmu_halt_nowait(smmu);
+
+	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+
+	arm_smmu_wait_for_halt(smmu);
+
+	/* clear FSR to allow ATOS to log any faults */
+	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+
+	/* disable stall mode momentarily */
+	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr = sctlr_orig & ~SCTLR_CFCFG;
+	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+
+	phys = arm_smmu_iova_to_phys_hard_no_halt(domain, iova);
+
+	if (!phys) {
+		dev_err(smmu->dev,
+			"ATOS failed. Will issue a TLBIALL and try again...\n");
+		arm_smmu_tlb_inv_context(smmu_domain);
+		phys = arm_smmu_iova_to_phys_hard_no_halt(domain, iova);
+		if (phys)
+			dev_err(smmu->dev,
+				"ATOS succeeded this time. Maybe we missed a TLB invalidation while messing with page tables earlier??\n");
+		else
+			dev_err(smmu->dev,
+				"ATOS still failed. If the page tables look good (check the software table walk) then hardware might be misbehaving.\n");
+	}
+
+	/* restore SCTLR */
+	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+
+	arm_smmu_resume(smmu);
+
+	return phys;
+}
+
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
 	int flags, ret, tmp;
@@ -774,6 +830,9 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		ret = IRQ_HANDLED;
 		resume = RESUME_RETRY;
 	} else {
+		phys_addr_t phys_atos = arm_smmu_verify_fault(domain, iova,
+							      fsr);
+
 		dev_err(smmu->dev,
 			"Unhandled context fault: iova=0x%08lx, fsr=0x%x, fsynr=0x%x, cb=%d\n",
 			iova, fsr, fsynr, cfg->cbndx);
@@ -790,6 +849,8 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			(fsr & 0x80000000) ? "MULTI " : "");
 		dev_err(smmu->dev,
 			"soft iova-to-phys=%pa\n", &phys_soft);
+		dev_err(smmu->dev,
+			"hard iova-to-phys (ATOS)=%pa\n", &phys_atos);
 		dev_err(smmu->dev, "SID=0x%x\n", frsynra);
 		ret = IRQ_NONE;
 		resume = RESUME_TERMINATE;
@@ -1394,7 +1455,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 }
 
 static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
-					      dma_addr_t iova)
+					      dma_addr_t iova, bool do_halt)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
@@ -1408,7 +1469,7 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	unsigned long va;
 
 	spin_lock_irqsave(&smmu->atos_lock, flags);
-	if (arm_smmu_halt(smmu)) {
+	if (do_halt && arm_smmu_halt(smmu)) {
 		phys = 0;
 		goto out_unlock;
 	}
@@ -1441,7 +1502,8 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		phys = (phys & (PHYS_MASK & ~0xfffULL)) | (iova & 0xfff);
 	}
 out_resume:
-	arm_smmu_resume(smmu);
+	if (do_halt)
+		arm_smmu_resume(smmu);
 out_unlock:
 	spin_unlock_irqrestore(&smmu->atos_lock, flags);
 	return phys;
@@ -1480,11 +1542,17 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
 			smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
-		ret = __arm_smmu_iova_to_phys_hard(domain, iova);
+		ret = __arm_smmu_iova_to_phys_hard(domain, iova, true);
 
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
 	return ret;
+}
+
+static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
+				struct iommu_domain *domain, dma_addr_t iova)
+{
+	return __arm_smmu_iova_to_phys_hard(domain, iova, false);
 }
 
 static bool arm_smmu_capable(enum iommu_cap cap)
@@ -1675,14 +1743,10 @@ static struct iommu_ops arm_smmu_ops = {
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 };
 
-static int arm_smmu_halt(struct arm_smmu_device *smmu)
+static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu)
 {
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
-	u32 reg, tmp;
-
-	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
-	reg |= MICRO_MMU_CTRL_LOCAL_HALT_REQ;
-	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	u32 tmp;
 
 	if (readl_poll_timeout_atomic(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL,
 					tmp, (tmp & MICRO_MMU_CTRL_IDLE),
@@ -1692,6 +1756,28 @@ static int arm_smmu_halt(struct arm_smmu_device *smmu)
 	}
 
 	return 0;
+}
+
+static int __arm_smmu_halt(struct arm_smmu_device *smmu, bool wait)
+{
+	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
+	u32 reg;
+
+	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	reg |= MICRO_MMU_CTRL_LOCAL_HALT_REQ;
+	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+
+	return wait ? arm_smmu_wait_for_halt(smmu) : 0;
+}
+
+static int arm_smmu_halt(struct arm_smmu_device *smmu)
+{
+	return __arm_smmu_halt(smmu, true);
+}
+
+static int arm_smmu_halt_nowait(struct arm_smmu_device *smmu)
+{
+	return __arm_smmu_halt(smmu, false);
 }
 
 static void arm_smmu_resume(struct arm_smmu_device *smmu)
