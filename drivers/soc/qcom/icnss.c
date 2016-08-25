@@ -44,11 +44,11 @@
 
 #include "wlan_firmware_service_v01.h"
 
-#define ICNSS_PANIC			1
 #define WLFW_TIMEOUT_MS			3000
 #define WLFW_SERVICE_INS_ID_V01		0
 #define MAX_PROP_SIZE			32
-#define NUM_LOG_PAGES			4
+#define NUM_LOG_PAGES			10
+#define NUM_REG_LOG_PAGES		4
 
 /*
  * Registers: MPM2_PSHOLD
@@ -156,6 +156,15 @@
 		ipc_log_string(icnss_ipc_log_context, _x);		\
 	} while (0)
 
+#ifdef CONFIG_ICNSS_DEBUG
+#define icnss_ipc_log_long_string(_x...) do {				\
+	if (icnss_ipc_log_long_context)					\
+		ipc_log_string(icnss_ipc_log_long_context, _x);		\
+	} while (0)
+#else
+#define icnss_ipc_log_long_string(_x...)
+#endif
+
 #define icnss_pr_err(_fmt, ...) do {					\
 		pr_err(_fmt, ##__VA_ARGS__);				\
 		icnss_ipc_log_string("ERR: " pr_fmt(_fmt),		\
@@ -180,7 +189,13 @@
 				     ##__VA_ARGS__);			\
 	} while (0)
 
-#ifdef ICNSS_PANIC
+#define icnss_reg_dbg(_fmt, ...) do {				\
+		pr_debug(_fmt, ##__VA_ARGS__);				\
+		icnss_ipc_log_long_string("REG: " pr_fmt(_fmt),		\
+				     ##__VA_ARGS__);			\
+	} while (0)
+
+#ifdef CONFIG_ICNSS_DEBUG
 #define ICNSS_ASSERT(_condition) do {					\
 		if (!(_condition)) {					\
 			icnss_pr_err("ASSERT at line %d\n",		\
@@ -214,6 +229,10 @@ unsigned long quirks = ICNSS_QUIRKS_DEFAULT;
 module_param(quirks, ulong, 0600);
 
 void *icnss_ipc_log_context;
+
+#ifdef CONFIG_ICNSS_DEBUG
+void *icnss_ipc_log_long_context;
+#endif
 
 #define ICNSS_EVENT_PENDING		2989
 
@@ -383,7 +402,7 @@ static u32 icnss_hw_read_reg(void *base, u32 offset)
 {
 	u32 rdata = readl_relaxed(base + offset);
 
-	icnss_pr_dbg(" READ: offset: 0x%06x 0x%08x\n", offset, rdata);
+	icnss_reg_dbg(" READ: offset: 0x%06x 0x%08x\n", offset, rdata);
 
 	return rdata;
 }
@@ -395,7 +414,7 @@ static void icnss_hw_write_reg_field(void *base, u32 offset, u32 mask, u32 val)
 
 	val = (rdata & ~mask) | (val << shift);
 
-	icnss_pr_dbg("WRITE: offset: 0x%06x 0x%08x -> 0x%08x\n",
+	icnss_reg_dbg("WRITE: offset: 0x%06x 0x%08x -> 0x%08x\n",
 		     offset, rdata, val);
 
 	icnss_hw_write_reg(base, offset, val);
@@ -414,12 +433,12 @@ static int icnss_hw_poll_reg_field(void *base, u32 offset, u32 mask, u32 val,
 
 	rdata  = readl_relaxed(base + offset);
 
-	icnss_pr_dbg(" POLL: offset: 0x%06x 0x%08x == 0x%08x & 0x%08x\n",
+	icnss_reg_dbg(" POLL: offset: 0x%06x 0x%08x == 0x%08x & 0x%08x\n",
 		     offset, val, rdata, mask);
 
 	while ((rdata & mask) != val) {
 		if (retry != 0 && r >= retry) {
-			icnss_pr_err(" POLL FAILED: offset: 0x%06x 0x%08x == 0x%08x & 0x%08x\n",
+			icnss_pr_err("POLL FAILED: offset: 0x%06x 0x%08x == 0x%08x & 0x%08x\n",
 				     offset, val, rdata, mask);
 
 			return -EIO;
@@ -430,8 +449,8 @@ static int icnss_hw_poll_reg_field(void *base, u32 offset, u32 mask, u32 val,
 		rdata = readl_relaxed(base + offset);
 
 		if (retry)
-			icnss_pr_dbg(" POLL: offset: 0x%06x 0x%08x == 0x%08x & 0x%08x\n",
-				     offset, val, rdata, mask);
+			icnss_reg_dbg(" POLL: offset: 0x%06x 0x%08x == 0x%08x & 0x%08x\n",
+					 offset, val, rdata, mask);
 
 	}
 
@@ -1239,7 +1258,7 @@ int icnss_map_msa_permissions(struct icnss_priv *priv, u32 index)
 			     index, &addr, size, ret);
 		goto out;
 	}
-	icnss_pr_dbg("hypervisor map for region %u: source=%x, dest_nelems=%d, dest[0]=%x, dest[1]=%x, dest[2]=%x\n",
+	icnss_pr_dbg("Hypervisor map for region %u: source=%x, dest_nelems=%d, dest[0]=%x, dest[1]=%x, dest[2]=%x\n",
 		     index, source_vmlist[0], dest_nelems,
 		     dest_vmids[0], dest_vmids[1], dest_vmids[2]);
 out:
@@ -3416,6 +3435,8 @@ static int icnss_probe(struct platform_device *pdev)
 		return -EEXIST;
 	}
 
+	icnss_pr_dbg("Platform driver probe\n");
+
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -3515,9 +3536,8 @@ static int icnss_probe(struct platform_device *pdev)
 	} else {
 		priv->smmu_iova_start = res->start;
 		priv->smmu_iova_len = resource_size(res);
-		icnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: %zu\n",
-			     &priv->smmu_iova_start,
-			     priv->smmu_iova_len);
+		icnss_pr_dbg("SMMU IOVA start: %pa, len: %zu\n",
+			     &priv->smmu_iova_start, priv->smmu_iova_len);
 
 		res = platform_get_resource_byname(pdev,
 						   IORESOURCE_MEM,
@@ -3527,7 +3547,7 @@ static int icnss_probe(struct platform_device *pdev)
 		} else {
 			priv->smmu_iova_ipa_start = res->start;
 			priv->smmu_iova_ipa_len = resource_size(res);
-			icnss_pr_dbg("smmu_iova_ipa_start: %pa, smmu_iova_ipa_len: %zu\n",
+			icnss_pr_dbg("SMMU IOVA IPA start: %pa, len: %zu\n",
 				     &priv->smmu_iova_ipa_start,
 				     priv->smmu_iova_ipa_len);
 		}
@@ -3688,12 +3708,34 @@ static struct platform_driver icnss_driver = {
 	},
 };
 
+#ifdef CONFIG_ICNSS_DEBUG
+static void __init icnss_ipc_log_long_context_init(void)
+{
+	icnss_ipc_log_long_context = ipc_log_context_create(NUM_REG_LOG_PAGES,
+							   "icnss_long", 0);
+	if (!icnss_ipc_log_long_context)
+		icnss_pr_err("Unable to create register log context\n");
+}
+
+static void __exit icnss_ipc_log_long_context_destroy(void)
+{
+	ipc_log_context_destroy(icnss_ipc_log_long_context);
+	icnss_ipc_log_long_context = NULL;
+}
+#else
+
+static void __init icnss_ipc_log_long_context_init(void) { }
+static void __exit icnss_ipc_log_long_context_destroy(void) { }
+#endif
+
 static int __init icnss_initialize(void)
 {
 	icnss_ipc_log_context = ipc_log_context_create(NUM_LOG_PAGES,
 						       "icnss", 0);
 	if (!icnss_ipc_log_context)
 		icnss_pr_err("Unable to create log context\n");
+
+	icnss_ipc_log_long_context_init();
 
 	return platform_driver_register(&icnss_driver);
 }
@@ -3703,6 +3745,8 @@ static void __exit icnss_exit(void)
 	platform_driver_unregister(&icnss_driver);
 	ipc_log_context_destroy(icnss_ipc_log_context);
 	icnss_ipc_log_context = NULL;
+
+	icnss_ipc_log_long_context_destroy();
 }
 
 
