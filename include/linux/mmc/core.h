@@ -135,8 +135,6 @@ struct mmc_request {
 	struct completion	completion;
 	void			(*done)(struct mmc_request *);/* completion function */
 	struct mmc_host		*host;
-	ktime_t			io_start;
-	int			lat_hist_enabled;
 };
 
 struct mmc_card;
