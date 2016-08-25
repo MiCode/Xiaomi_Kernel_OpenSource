@@ -83,7 +83,7 @@ static inline bool msm_secure_v2_is_supported(void)
 {
 	return false;
 }
-const char *msm_secure_vmid_to_string(int secure_vmid)
+static inline const char *msm_secure_vmid_to_string(int secure_vmid)
 {
 	return "N/A";
 }
