@@ -543,7 +543,8 @@ static int i2c_pmic_probe(struct i2c_client *client,
 	}
 
 	rc = devm_request_threaded_irq(&client->dev, client->irq, NULL,
-				       i2c_pmic_irq_handler, IRQF_ONESHOT,
+				       i2c_pmic_irq_handler,
+				       IRQF_ONESHOT | IRQF_SHARED,
 				       "i2c_pmic_stat_irq", chip);
 	if (rc < 0) {
 		pr_err("Couldn't request irq %d rc=%d\n", client->irq, rc);
