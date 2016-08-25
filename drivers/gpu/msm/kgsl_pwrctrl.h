@@ -52,7 +52,6 @@
 
 enum kgsl_pwrctrl_timer_type {
 	KGSL_PWR_IDLE_TIMER,
-	KGSL_PWR_DEEP_NAP_TIMER,
 };
 
 /*
@@ -122,7 +121,6 @@ struct kgsl_regulator {
  * @num_pwrlevels - number of available power levels
  * @interval_timeout - timeout in jiffies to be idle before a power event
  * @clock_times - Each GPU frequency's accumulated active time in us
- * @strtstp_sleepwake - true if the device supports low latency GPU start/stop
  * @regulators - array of pointers to kgsl_regulator structs
  * @pcl - bus scale identifier
  * @ocmem - ocmem bus scale identifier
@@ -152,8 +150,6 @@ struct kgsl_regulator {
  * @limits - list head for limits
  * @limits_lock - spin lock to protect limits list
  * @sysfs_pwr_limit - pointer to the sysfs limits node
- * @deep_nap_timer - Timer struct for entering deep nap
- * @deep_nap_timeout - Timeout for entering deep nap
  * isense_clk_indx - index of isense clock, 0 if no isense
  * isense_clk_on_level - isense clock rate is XO rate below this level.
  */
@@ -177,7 +173,6 @@ struct kgsl_pwrctrl {
 	unsigned int num_pwrlevels;
 	unsigned long interval_timeout;
 	u64 clock_times[KGSL_MAX_PWRLEVELS];
-	bool strtstp_sleepwake;
 	struct kgsl_regulator regulators[KGSL_MAX_REGULATORS];
 	uint32_t pcl;
 	uint32_t ocmem_pcl;
@@ -207,8 +202,6 @@ struct kgsl_pwrctrl {
 	struct list_head limits;
 	spinlock_t limits_lock;
 	struct kgsl_pwr_limit *sysfs_pwr_limit;
-	struct timer_list deep_nap_timer;
-	uint32_t deep_nap_timeout;
 	unsigned int gpu_bimc_int_clk_freq;
 	bool gpu_bimc_interface_enabled;
 };

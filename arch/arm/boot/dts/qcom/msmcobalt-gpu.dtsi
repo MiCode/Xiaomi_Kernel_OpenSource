@@ -68,12 +68,6 @@
 
 		qcom,idle-timeout = <80>; //<HZ/12>
 		qcom,no-nap;
-		/*
-		 * Timeout to enter deeper power saving state
-		 * from NAP.
-		 */
-		qcom,deep-nap-timeout = <200>;
-		qcom,strtstp-sleepwake;
 
 		qcom,highest-bank-bit = <15>;
 
