@@ -547,7 +547,8 @@ static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 	}
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		phys = page_to_phys(sg_page(sg));
+		/* directly get sg_tbl PA from wlan-driver */
+		phys = sg->dma_address;
 		len = PAGE_ALIGN(sg->offset + sg->length);
 
 		ret = ipa3_iommu_map(cb->mapping->domain, va, phys, len, prot);
@@ -647,7 +648,8 @@ static void ipa_save_uc_smmu_mapping_sgt(int res_idx, struct sg_table *sgt,
 	wdi_res[res_idx].nents = sgt->nents;
 	wdi_res[res_idx].valid = true;
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		wdi_res[res_idx].res[i].pa = page_to_phys(sg_page(sg));
+		/* directly get sg_tbl PA from wlan */
+		wdi_res[res_idx].res[i].pa = sg->dma_address;
 		wdi_res[res_idx].res[i].iova = curr_iova;
 		wdi_res[res_idx].res[i].size = PAGE_ALIGN(sg->offset +
 				sg->length);
@@ -894,6 +896,7 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 					in->smmu_enabled,
 					in->u.dl_smmu.ce_ring_size,
 					in->u.dl.ce_ring_size);
+			/* WA: wlan passed ce_ring sg_table PA directly */
 			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
 						in->smmu_enabled,
 						in->u.dl.ce_ring_base_pa,
