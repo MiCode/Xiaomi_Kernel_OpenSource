@@ -37,6 +37,9 @@
 #endif
 
 #define PIPES_PER_STAGE			2
+#ifndef SDE_MAX_DE_CURVES
+#define SDE_MAX_DE_CURVES		3
+#endif
 
 #define SDE_FORMAT_FLAG_YUV		(1 << 0)
 #define SDE_FORMAT_FLAG_DX		(1 << 1)

@@ -4,6 +4,8 @@
 /* Total number of supported color planes */
 #define SDE_MAX_PLANES  4
 
+/* Total number of parameterized detail enhancer mapping curves */
+#define SDE_MAX_DE_CURVES 3
 /**
  * Blend operations for "blend_op" property
  *
@@ -107,6 +109,111 @@ struct sde_drm_scaler_v1 {
 	uint32_t horz_filter[SDE_MAX_PLANES];
 	uint32_t vert_filter[SDE_MAX_PLANES];
 };
+
+/**
+ * struct sde_drm_de_v1 - version 1 of detail enhancer structure
+ * @enable:         Enables/disables detail enhancer
+ * @sharpen_level1: Sharpening strength for noise
+ * @sharpen_level2: Sharpening strength for context
+ * @clip:           Clip coefficient
+ * @limit:          Detail enhancer limit factor
+ * @thr_quiet:      Quite zone threshold
+ * @thr_dieout:     Die-out zone threshold
+ * @thr_low:        Linear zone left threshold
+ * @thr_high:       Linear zone right threshold
+ * @prec_shift:     Detail enhancer precision
+ * @adjust_a:       Mapping curves A coefficients
+ * @adjust_b:       Mapping curves B coefficients
+ * @adjust_c:       Mapping curves C coefficients
+ */
+struct sde_drm_de_v1 {
+	uint32_t enable;
+	int16_t sharpen_level1;
+	int16_t sharpen_level2;
+	uint16_t clip;
+	uint16_t limit;
+	uint16_t thr_quiet;
+	uint16_t thr_dieout;
+	uint16_t thr_low;
+	uint16_t thr_high;
+	uint16_t prec_shift;
+	int16_t adjust_a[SDE_MAX_DE_CURVES];
+	int16_t adjust_b[SDE_MAX_DE_CURVES];
+	int16_t adjust_c[SDE_MAX_DE_CURVES];
+};
+
+/**
+ * struct sde_drm_scaler_v2 - version 2 of struct sde_drm_scaler
+ * @enable:        Mask of SDE_DRM_SCALER_ bits
+ * @lr:            Pixel extension settings for left/right
+ * @tb:            Pixel extension settings for top/botton
+ * @horz_decimate: Horizontal decimation factor
+ * @vert_decimate: Vertical decimation factor
+ * @init_phase_x:  Initial scaler phase values for x
+ * @phase_step_x:  Phase step values for x
+ * @init_phase_y:  Initial scaler phase values for y
+ * @phase_step_y:  Phase step values for y
+ * @horz_filter:   Horizontal filter array
+ * @vert_filter:   Vertical filter array
+*/
+struct sde_drm_scaler_v2 {
+	/*
+	 * General definitions
+	 */
+	uint32_t enable;
+	uint32_t dir_en;
+
+	/*
+	 * Pix ext settings
+	 */
+	struct sde_drm_pix_ext_v1 lr;
+	struct sde_drm_pix_ext_v1 tb;
+
+	/*
+	 * Decimation settings
+	 */
+	uint32_t horz_decimate;
+	uint32_t vert_decimate;
+
+	/*
+	 * Phase settings
+	 */
+	int32_t init_phase_x[SDE_MAX_PLANES];
+	int32_t phase_step_x[SDE_MAX_PLANES];
+	int32_t init_phase_y[SDE_MAX_PLANES];
+	int32_t phase_step_y[SDE_MAX_PLANES];
+
+	/* alpha plane can only be scaled using bilinear or pixel
+	 * repeat/drop, specify these for Y and UV planes only
+	 */
+	uint32_t preload_x[SDE_MAX_PLANES];
+	uint32_t preload_y[SDE_MAX_PLANES];
+	uint32_t src_width[SDE_MAX_PLANES];
+	uint32_t src_height[SDE_MAX_PLANES];
+
+	uint32_t dst_width;
+	uint32_t dst_height;
+
+	uint32_t y_rgb_filter_cfg;
+	uint32_t uv_filter_cfg;
+	uint32_t alpha_filter_cfg;
+	uint32_t blend_cfg;
+
+	uint32_t lut_flag;
+	uint32_t dir_lut_idx;
+
+	/* for Y(RGB) and UV planes*/
+	uint32_t y_rgb_cir_lut_idx;
+	uint32_t uv_cir_lut_idx;
+	uint32_t y_rgb_sep_lut_idx;
+	uint32_t uv_sep_lut_idx;
+
+	/*
+	 * Detail enhancer settings
+	 */
+	struct sde_drm_de_v1 de;
+};
+
 
 /*
  * Define constants for struct sde_drm_csc

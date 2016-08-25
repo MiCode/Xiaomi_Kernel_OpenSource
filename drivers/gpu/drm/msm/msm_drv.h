@@ -81,8 +81,12 @@ struct msm_file_private {
 enum msm_mdp_plane_property {
 	/* blob properties, always put these first */
 	PLANE_PROP_SCALER_V1,
+	PLANE_PROP_SCALER_V2,
 	PLANE_PROP_CSC_V1,
 	PLANE_PROP_INFO,
+	PLANE_PROP_SCALER_LUT_ED,
+	PLANE_PROP_SCALER_LUT_CIR,
+	PLANE_PROP_SCALER_LUT_SEP,
 
 	/* # of blob properties */
 	PLANE_PROP_BLOBCOUNT,

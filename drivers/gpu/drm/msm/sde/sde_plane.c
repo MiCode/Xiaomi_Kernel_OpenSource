@@ -86,7 +86,7 @@ struct sde_plane {
 	struct sde_hw_pipe *pipe_hw;
 	struct sde_hw_pipe_cfg pipe_cfg;
 	struct sde_hw_sharp_cfg sharp_cfg;
-	struct sde_hw_scaler3_cfg scaler3_cfg;
+	struct sde_hw_scaler3_cfg *scaler3_cfg;
 	struct sde_hw_pipe_qos_cfg pipe_qos_cfg;
 	uint32_t color_fill;
 	bool is_error;
@@ -547,6 +547,29 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 		psde->pipe_hw->ops.setup_sourceaddress(psde->pipe_hw, pipe_cfg);
 }
 
+static int _sde_plane_setup_scaler3_lut(struct sde_plane *psde,
+		struct sde_plane_state *pstate)
+{
+	struct sde_hw_scaler3_cfg *cfg = psde->scaler3_cfg;
+	int ret = 0;
+
+	cfg->dir_lut = msm_property_get_blob(
+			&psde->property_info,
+			pstate->property_blobs, &cfg->dir_len,
+			PLANE_PROP_SCALER_LUT_ED);
+	cfg->cir_lut = msm_property_get_blob(
+			&psde->property_info,
+			pstate->property_blobs, &cfg->cir_len,
+			PLANE_PROP_SCALER_LUT_CIR);
+	cfg->sep_lut = msm_property_get_blob(
+			&psde->property_info,
+			pstate->property_blobs, &cfg->sep_len,
+			PLANE_PROP_SCALER_LUT_SEP);
+	if (!cfg->dir_lut || !cfg->cir_lut || !cfg->sep_lut)
+		ret = -ENODATA;
+	return ret;
+}
+
 static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 		uint32_t src_w, uint32_t src_h, uint32_t dst_w, uint32_t dst_h,
 		struct sde_hw_scaler3_cfg *scale_cfg,
@@ -766,14 +789,17 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 
 	/* update scaler */
 	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
-		if (!psde->pixel_ext_usr) {
+		int error;
+
+		error = _sde_plane_setup_scaler3_lut(psde, pstate);
+		if (error || !psde->pixel_ext_usr) {
 			/* calculate default config for QSEED3 */
 			_sde_plane_setup_scaler3(psde,
 					psde->pipe_cfg.src_rect.w,
 					psde->pipe_cfg.src_rect.h,
 					psde->pipe_cfg.dst_rect.w,
 					psde->pipe_cfg.dst_rect.h,
-					&psde->scaler3_cfg, fmt,
+					psde->scaler3_cfg, fmt,
 					chroma_subsmpl_h, chroma_subsmpl_v);
 		}
 	} else if (!psde->pixel_ext_usr) {
@@ -888,7 +914,8 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 
 		if (psde->pipe_hw->ops.setup_rects)
 			psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
-					&psde->pipe_cfg, &psde->pixel_ext);
+					&psde->pipe_cfg, &psde->pixel_ext,
+					psde->scaler3_cfg);
 	}
 
 	return 0;
@@ -932,6 +959,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	while ((idx = msm_property_pop_dirty(&psde->property_info)) >= 0) {
 		switch (idx) {
 		case PLANE_PROP_SCALER_V1:
+		case PLANE_PROP_SCALER_V2:
 		case PLANE_PROP_H_DECIMATE:
 		case PLANE_PROP_V_DECIMATE:
 		case PLANE_PROP_SRC_CONFIG:
@@ -1012,7 +1040,8 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 			_sde_plane_setup_scaler(psde, fmt, pstate);
 
 			psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
-					&psde->pipe_cfg, &psde->pixel_ext);
+					&psde->pipe_cfg, &psde->pixel_ext,
+					psde->scaler3_cfg);
 		}
 	}
 
@@ -1428,7 +1457,16 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 				PLANE_PROP_V_DECIMATE);
 	}
 
-	if (psde->features & SDE_SSPP_SCALER) {
+	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
+		msm_property_install_volatile_range(&psde->property_info,
+			"scaler_v2", 0x0, 0, ~0, 0, PLANE_PROP_SCALER_V2);
+		msm_property_install_blob(&psde->property_info, "lut_ed", 0,
+			PLANE_PROP_SCALER_LUT_ED);
+		msm_property_install_blob(&psde->property_info, "lut_cir", 0,
+			PLANE_PROP_SCALER_LUT_CIR);
+		msm_property_install_blob(&psde->property_info, "lut_sep", 0,
+			PLANE_PROP_SCALER_LUT_SEP);
+	} else if (psde->features & SDE_SSPP_SCALER) {
 		msm_property_install_volatile_range(&psde->property_info,
 			"scaler_v1", 0x0, 0, ~0, 0, PLANE_PROP_SCALER_V1);
 	}
@@ -1581,6 +1619,99 @@ static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde, void *usr)
 	SDE_DEBUG_PLANE(psde, "user property data copied\n");
 }
 
+static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
+		struct sde_plane_state *pstate, void *usr)
+{
+	struct sde_drm_scaler_v2 scale_v2;
+	struct sde_hw_pixel_ext *pe;
+	int i;
+	struct sde_hw_scaler3_cfg *cfg;
+
+	if (!psde) {
+		SDE_ERROR("invalid plane\n");
+		return;
+	}
+
+	cfg = psde->scaler3_cfg;
+	psde->pixel_ext_usr = false;
+	if (!usr) {
+		SDE_DEBUG_PLANE(psde, "scale data removed\n");
+		return;
+	}
+
+	if (copy_from_user(&scale_v2, usr, sizeof(scale_v2))) {
+		SDE_ERROR_PLANE(psde, "failed to copy scale data\n");
+		return;
+	}
+
+	/* populate from user space */
+	pe = &(psde->pixel_ext);
+	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
+	cfg->enable = scale_v2.enable;
+	cfg->dir_en = scale_v2.dir_en;
+	for (i = 0; i < SDE_MAX_PLANES; i++) {
+		cfg->init_phase_x[i] = scale_v2.init_phase_x[i];
+		cfg->phase_step_x[i] = scale_v2.phase_step_x[i];
+		cfg->init_phase_y[i] = scale_v2.init_phase_y[i];
+		cfg->phase_step_y[i] = scale_v2.phase_step_y[i];
+
+		cfg->preload_x[i] = scale_v2.preload_x[i];
+		cfg->preload_y[i] = scale_v2.preload_y[i];
+		cfg->src_width[i] = scale_v2.src_width[i];
+		cfg->src_height[i] = scale_v2.src_height[i];
+	}
+	cfg->dst_width = scale_v2.dst_width;
+	cfg->dst_height = scale_v2.dst_height;
+
+	cfg->y_rgb_filter_cfg = scale_v2.y_rgb_filter_cfg;
+	cfg->uv_filter_cfg = scale_v2.uv_filter_cfg;
+	cfg->alpha_filter_cfg = scale_v2.alpha_filter_cfg;
+	cfg->blend_cfg = scale_v2.blend_cfg;
+
+	cfg->lut_flag = scale_v2.lut_flag;
+	cfg->dir_lut_idx = scale_v2.dir_lut_idx;
+	cfg->y_rgb_cir_lut_idx = scale_v2.y_rgb_cir_lut_idx;
+	cfg->uv_cir_lut_idx = scale_v2.uv_cir_lut_idx;
+	cfg->y_rgb_sep_lut_idx = scale_v2.y_rgb_sep_lut_idx;
+	cfg->uv_sep_lut_idx = scale_v2.uv_sep_lut_idx;
+
+	cfg->de.enable = scale_v2.de.enable;
+	cfg->de.sharpen_level1 = scale_v2.de.sharpen_level1;
+	cfg->de.sharpen_level2 = scale_v2.de.sharpen_level2;
+	cfg->de.clip = scale_v2.de.clip;
+	cfg->de.limit = scale_v2.de.limit;
+	cfg->de.thr_quiet = scale_v2.de.thr_quiet;
+	cfg->de.thr_dieout = scale_v2.de.thr_dieout;
+	cfg->de.thr_low = scale_v2.de.thr_low;
+	cfg->de.thr_high = scale_v2.de.thr_high;
+	cfg->de.prec_shift = scale_v2.de.prec_shift;
+	for (i = 0; i < SDE_MAX_DE_CURVES; i++) {
+		cfg->de.adjust_a[i] = scale_v2.de.adjust_a[i];
+		cfg->de.adjust_b[i] = scale_v2.de.adjust_b[i];
+		cfg->de.adjust_c[i] = scale_v2.de.adjust_c[i];
+	}
+	for (i = 0; i < SDE_MAX_PLANES; i++) {
+		pe->num_ext_pxls_left[i] = scale_v2.lr.num_pxls_start[i];
+		pe->num_ext_pxls_right[i] = scale_v2.lr.num_pxls_end[i];
+		pe->left_ftch[i] = scale_v2.lr.ftch_start[i];
+		pe->right_ftch[i] = scale_v2.lr.ftch_end[i];
+		pe->left_rpt[i] = scale_v2.lr.rpt_start[i];
+		pe->right_rpt[i] = scale_v2.lr.rpt_end[i];
+		pe->roi_w[i] = scale_v2.lr.roi[i];
+
+		pe->num_ext_pxls_top[i] = scale_v2.tb.num_pxls_start[i];
+		pe->num_ext_pxls_btm[i] = scale_v2.tb.num_pxls_end[i];
+		pe->top_ftch[i] = scale_v2.tb.ftch_start[i];
+		pe->btm_ftch[i] = scale_v2.tb.ftch_end[i];
+		pe->top_rpt[i] = scale_v2.tb.rpt_start[i];
+		pe->btm_rpt[i] = scale_v2.tb.rpt_end[i];
+		pe->roi_h[i] = scale_v2.tb.roi[i];
+	}
+	psde->pixel_ext_usr = true;
+
+	SDE_DEBUG_PLANE(psde, "user property data copied\n");
+}
+
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		struct drm_plane_state *state, struct drm_property *property,
 		uint64_t val)
@@ -1612,6 +1743,10 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				break;
 			case PLANE_PROP_SCALER_V1:
 				_sde_plane_set_scaler_v1(psde, (void *)val);
+				break;
+			case PLANE_PROP_SCALER_V2:
+				_sde_plane_set_scaler_v2(psde, pstate,
+					(void *)val);
 				break;
 			default:
 				/* nothing to do */
@@ -1930,6 +2065,17 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 		goto clean_sspp;
 	}
 
+	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
+		psde->scaler3_cfg = kzalloc(sizeof(struct sde_hw_scaler3_cfg),
+			GFP_KERNEL);
+		if (!psde->scaler3_cfg) {
+			SDE_ERROR("[%u]failed to allocate scale struct\n",
+				pipe);
+			ret = -ENOMEM;
+			goto clean_sspp;
+		}
+	}
+
 	/* add plane to DRM framework */
 	psde->nformats = sde_populate_formats(psde->pipe_sblk->format_list,
 			psde->formats,
@@ -1975,6 +2121,9 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 clean_sspp:
 	if (psde && psde->pipe_hw)
 		sde_hw_sspp_destroy(psde->pipe_hw);
+
+	if (psde && psde->scaler3_cfg)
+		kfree(psde->scaler3_cfg);
 clean_plane:
 	kfree(psde);
 exit:
