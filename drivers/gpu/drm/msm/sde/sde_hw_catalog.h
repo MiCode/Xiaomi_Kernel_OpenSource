@@ -85,6 +85,7 @@ enum {
  * @SDE_SSPP_SCALER_QSEED3,  QSEED3 alogorithm support
  * @SDE_SSPP_SCALER_RGB,     RGB Scaler, supported by RGB pipes
  * @SDE_SSPP_CSC,            Support of Color space converion
+ * @SDE_SSPP_CSC_10BIT,      Support of 10-bit Color space conversion
  * @SDE_SSPP_HSIC,           Global HSIC control
  * @SDE_SSPP_MEMCOLOR        Memory Color Support
  * @SDE_SSPP_IGC,            Inverse gamma correction
@@ -99,6 +100,7 @@ enum {
 	SDE_SSPP_SCALER_QSEED3,
 	SDE_SSPP_SCALER_RGB,
 	SDE_SSPP_CSC,
+	SDE_SSPP_CSC_10BIT,
 	SDE_SSPP_HSIC,
 	SDE_SSPP_MEMCOLOR,
 	SDE_SSPP_IGC,

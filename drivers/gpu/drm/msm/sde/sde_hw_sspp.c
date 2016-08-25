@@ -64,6 +64,7 @@
 #define SSPP_SW_PIX_EXT_C3_REQ_PIXELS      0x128
 #define SSPP_UBWC_ERROR_STATUS             0x138
 #define SSPP_VIG_OP_MODE                   0x0
+#define SSPP_VIG_CSC_10_OP_MODE            0x0
 
 /* SSPP_QOS_CTRL */
 #define SSPP_QOS_CTRL_VBLANK_EN            BIT(16)
@@ -154,6 +155,13 @@
 #define VIG_OP_PA_SAT_ZERO_EXP BIT(2)
 #define VIG_OP_MEM_PROT_BLEND  BIT(1)
 
+/*
+ * Definitions for CSC 10 op modes
+ */
+#define VIG_CSC_10_SRC_DATAFMT BIT(1)
+#define VIG_CSC_10_EN          BIT(0)
+#define CSC_10BIT_OFFSET       4
+
 static inline int _sspp_subblk_offset(struct sde_hw_pipe *ctx,
 		int s_id,
 		u32 *idx)
@@ -174,6 +182,7 @@ static inline int _sspp_subblk_offset(struct sde_hw_pipe *ctx,
 		*idx = sblk->scaler_blk.base;
 		break;
 	case SDE_SSPP_CSC:
+	case SDE_SSPP_CSC_10BIT:
 		*idx = sblk->csc_blk.base;
 		break;
 	case SDE_SSPP_HSIC:
@@ -212,6 +221,25 @@ static void _sspp_setup_opmode(struct sde_hw_pipe *ctx,
 
 	SDE_REG_WRITE(&ctx->hw, SSPP_VIG_OP_MODE + idx, opmode);
 }
+
+static void _sspp_setup_csc10_opmode(struct sde_hw_pipe *ctx,
+		u32 mask, u8 en)
+{
+	u32 idx;
+	u32 opmode;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_CSC_10BIT, &idx))
+		return;
+
+	opmode = SDE_REG_READ(&ctx->hw, SSPP_VIG_CSC_10_OP_MODE + idx);
+	if (en)
+		opmode |= mask;
+	else
+		opmode &= ~mask;
+
+	SDE_REG_WRITE(&ctx->hw, SSPP_VIG_CSC_10_OP_MODE + idx, opmode);
+}
+
 /**
  * Setup source pixel format, flip,
  */
@@ -287,8 +315,13 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		src_format |= BIT(14);
 
 	/* update scaler opmode, if appropriate */
-	_sspp_setup_opmode(ctx,
-		VIG_OP_CSC_EN | VIG_OP_CSC_SRC_DATAFMT, SDE_FORMAT_IS_YUV(fmt));
+	if (test_bit(SDE_SSPP_CSC, &ctx->cap->features))
+		_sspp_setup_opmode(ctx, VIG_OP_CSC_EN | VIG_OP_CSC_SRC_DATAFMT,
+			SDE_FORMAT_IS_YUV(fmt));
+	else if (test_bit(SDE_SSPP_CSC_10BIT, &ctx->cap->features))
+		_sspp_setup_csc10_opmode(ctx,
+			VIG_CSC_10_EN | VIG_CSC_10_SRC_DATAFMT,
+			SDE_FORMAT_IS_YUV(fmt));
 
 	SDE_REG_WRITE(c, SSPP_SRC_FORMAT + idx, src_format);
 	SDE_REG_WRITE(c, SSPP_SRC_UNPACK_PATTERN + idx, unpack);
@@ -725,6 +758,9 @@ static void sde_hw_sspp_setup_csc(struct sde_hw_pipe *ctx,
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_CSC, &idx) || !data)
 		return;
 
+	if (test_bit(SDE_SSPP_CSC_10BIT, &ctx->cap->features))
+		idx += CSC_10BIT_OFFSET;
+
 	sde_hw_csc_setup(&ctx->hw, idx, data);
 }
 
@@ -818,7 +854,8 @@ static void _setup_layer_ops(struct sde_hw_sspp_ops *ops,
 		ops->setup_creq_lut = sde_hw_sspp_setup_creq_lut;
 		ops->setup_qos_ctrl = sde_hw_sspp_setup_qos_ctrl;
 	}
-	if (test_bit(SDE_SSPP_CSC, &features))
+	if (test_bit(SDE_SSPP_CSC, &features) ||
+		test_bit(SDE_SSPP_CSC_10BIT, &features))
 		ops->setup_csc = sde_hw_sspp_setup_csc;
 
 	if (test_bit(SDE_SSPP_SCALER_QSEED2, &features))
