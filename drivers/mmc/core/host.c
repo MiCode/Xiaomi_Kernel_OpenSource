@@ -32,6 +32,8 @@
 #include "slot-gpio.h"
 #include "pwrseq.h"
 
+#define cls_dev_to_mmc_host(d)	container_of(d, struct mmc_host, class_dev)
+
 static DEFINE_IDR(mmc_host_idr);
 static DEFINE_SPINLOCK(mmc_host_lock);
 
@@ -392,8 +394,6 @@ int mmc_add_host(struct mmc_host *host)
 	mmc_add_host_debugfs(host);
 #endif
 
-	mmc_latency_hist_sysfs_init(host);
-
 	mmc_start_host(host);
 	if (!(host->pm_flags & MMC_PM_IGNORE_PM_NOTIFY))
 		register_pm_notifier(&host->pm_notify);
@@ -421,8 +421,6 @@ void mmc_remove_host(struct mmc_host *host)
 #ifdef CONFIG_DEBUG_FS
 	mmc_remove_host_debugfs(host);
 #endif
-
-	mmc_latency_hist_sysfs_exit(host);
 
 	device_del(&host->class_dev);
 
