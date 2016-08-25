@@ -1077,7 +1077,12 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 		cstate = to_sde_crtc_state(state);
 		i = msm_property_index(&sde_crtc->property_info, property);
 		if (i == CRTC_PROP_OUTPUT_FENCE) {
-			ret = sde_fence_create(&sde_crtc->output_fence, val);
+			/*
+			 * Set output fence offset to zero so that fences
+			 * returned during a commit will signal at the end
+			 * of the same commit.
+			 */
+			ret = sde_fence_create(&sde_crtc->output_fence, val, 0);
 		} else {
 			ret = msm_property_atomic_get(&sde_crtc->property_info,
 					cstate->property_values,
@@ -1205,12 +1210,8 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 	/* save user friendly CRTC name for later */
 	snprintf(sde_crtc->name, SDE_CRTC_NAME_SIZE, "crtc%u", crtc->base.id);
 
-	/*
-	 * Initialize output fence support. Set output fence offset to zero
-	 * so that fences returned during a commit will signal at the end of
-	 * the same commit.
-	 */
-	sde_fence_init(dev, &sde_crtc->output_fence, sde_crtc->name, 0);
+	/* initialize output fence support */
+	sde_fence_init(dev, &sde_crtc->output_fence, sde_crtc->name);
 
 	/* initialize debugfs support */
 	_sde_crtc_init_debugfs(sde_crtc, kms);

@@ -70,7 +70,6 @@ static inline int sde_sync_wait(void *fence, long timeout_ms)
  * @dev: Pointer to drm device structure
  * @commit_count: Number of detected commits since bootup
  * @done_count: Number of completed commits since bootup
- * @offset: Timeline offset for sync point creation
  * @fence_lock: Mutex object to protect local fence variables
  */
 struct sde_fence {
@@ -78,7 +77,6 @@ struct sde_fence {
 	void *dev;
 	int32_t commit_count;
 	int32_t done_count;
-	int32_t offset;
 	struct mutex fence_lock;
 };
 
@@ -88,13 +86,11 @@ struct sde_fence {
  * @dev: Pointer to drm device structure
  * @fence: Pointer to crtc fence object
  * @name: Timeline name
- * @offset: Fence signal commit offset, e.g., +1 to signal on next commit
  * Returns: Zero on success
  */
 int sde_fence_init(void *dev,
 		struct sde_fence *fence,
-		const char *name,
-		int offset);
+		const char *name);
 
 /**
  * sde_fence_deinit - deinit fence container
@@ -113,9 +109,10 @@ int sde_fence_prepare(struct sde_fence *fence);
  * sde_fence_create - create output fence object
  * @fence: Pointer fence container
  * @val: Pointer to output value variable, fence fd will be placed here
+ * @offset: Fence signal commit offset, e.g., +1 to signal on next commit
  * Returns: Zero on success
  */
-int sde_fence_create(struct sde_fence *fence, uint64_t *val);
+int sde_fence_create(struct sde_fence *fence, uint64_t *val, int offset);
 
 /**
  * sde_fence_signal - advance fence timeline to signal outstanding fences

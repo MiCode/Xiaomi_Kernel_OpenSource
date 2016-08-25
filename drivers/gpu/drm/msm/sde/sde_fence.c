@@ -96,8 +96,7 @@ exit:
 
 int sde_fence_init(void *dev,
 		struct sde_fence *fence,
-		const char *name,
-		int offset)
+		const char *name)
 {
 	if (!fence) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -111,16 +110,6 @@ int sde_fence_init(void *dev,
 	}
 
 	fence->dev = dev;
-
-	/*
-	 * Allow created fences to have a constant offset with respect
-	 * to the timeline. This allows us to delay the fence signalling
-	 * w.r.t. the commit completion (e.g., an offset of +1 would
-	 * cause fences returned during a particular commit to signal
-	 * after an additional delay of one commit, rather than at the
-	 * end of the current one.
-	 */
-	fence->offset = (int32_t)offset;
 	fence->commit_count = 0;
 	fence->done_count = 0;
 
@@ -158,7 +147,7 @@ int sde_fence_prepare(struct sde_fence *fence)
 	return 0;
 }
 
-int sde_fence_create(struct sde_fence *fence, uint64_t *val)
+int sde_fence_create(struct sde_fence *fence, uint64_t *val, int offset)
 {
 	uint32_t trigger_value;
 	int fd, rc = -EINVAL;
@@ -167,8 +156,16 @@ int sde_fence_create(struct sde_fence *fence, uint64_t *val)
 		SDE_ERROR("invalid argument(s), fence %pK, pval %pK\n",
 				fence, val);
 	} else  {
+		/*
+		 * Allow created fences to have a constant offset with respect
+		 * to the timeline. This allows us to delay the fence signalling
+		 * w.r.t. the commit completion (e.g., an offset of +1 would
+		 * cause fences returned during a particular commit to signal
+		 * after an additional delay of one commit, rather than at the
+		 * end of the current one.
+		 */
 		mutex_lock(&fence->fence_lock);
-		trigger_value = fence->commit_count + fence->offset;
+		trigger_value = fence->commit_count + (int32_t)offset;
 		fd = _sde_fence_create_fd(fence->timeline,
 				SDE_FENCE_TIMELINE_NAME(fence),
 				trigger_value);
