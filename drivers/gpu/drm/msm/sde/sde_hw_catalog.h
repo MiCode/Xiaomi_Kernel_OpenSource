@@ -262,9 +262,11 @@ struct sde_src_blk {
 /**
  * struct sde_scaler_blk: Scaler information
  * @info:   HW register and features supported by this sub-blk
+ * @version: qseed block revision
  */
 struct sde_scaler_blk {
 	SDE_HW_SUBBLK_INFO;
+	u32 version;
 };
 
 struct sde_csc_blk {
