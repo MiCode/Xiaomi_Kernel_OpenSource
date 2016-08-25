@@ -19,6 +19,7 @@
 
 #include <linux/of_platform.h>
 #include "adreno_gpu.h"
+#include "pwrctl.h"
 
 #if defined(CONFIG_MSM_BUS_SCALING) && !defined(CONFIG_OF)
 #  include <linux/kgsl.h>
@@ -315,15 +316,137 @@ static void set_gpu_pdev(struct drm_device *dev,
 	priv->gpu_pdev = pdev;
 }
 
-static int adreno_bind(struct device *dev, struct device *master, void *data)
+static int of_parse_legacy_clk(struct adreno_platform_config *config,
+			      struct device_node *node)
 {
-	static struct adreno_platform_config config = {};
-#ifdef CONFIG_OF
-	struct device_node *child, *node = dev->of_node;
+	struct device_node *child;
 	u32 val;
 	int ret;
 
-	ret = of_property_read_u32(node, "qcom,chipid", &val);
+	for_each_available_child_of_node(node, child) {
+		if (of_device_is_compatible(child, "qcom,gpu-pwrlevels")) {
+			struct device_node *pwrlvl;
+
+			for_each_available_child_of_node(child, pwrlvl) {
+				ret = of_property_read_u32(pwrlvl,
+					"qcom,gpu-freq", &val);
+				if (ret)
+					return ret;
+				config->fast_rate = max(config->fast_rate, val);
+				config->slow_rate = min(config->slow_rate, val);
+			}
+		}
+	}
+	return 0;
+}
+
+int efuse_read_u32(struct adreno_platform_config *config,
+			  unsigned int offset,
+			  unsigned int *val)
+{
+	if (config->efuse_base == NULL)
+		return -ENODEV;
+
+	if (offset >= config->efuse_len)
+		return -ERANGE;
+
+	if (val != NULL) {
+		*val = readl_relaxed(config->efuse_base + offset);
+		/* Make sure memory is updated before returning */
+		rmb();
+	}
+
+	return 0;
+}
+
+static int of_parse_pwrlevels(struct adreno_platform_config *config,
+			      struct device_node *node)
+{
+	struct drmgsl_pwrctl *pwrctl = config->pwrctl;
+	struct drmgsl_pwrlevel *level;
+	struct device_node *child;
+	unsigned int index;
+	int i = 0;
+
+	for_each_available_child_of_node(node, child) {
+		level = pwrctl->pwrlevels + i;
+
+		if (of_property_read_u32(child, "reg", &index))
+			return -EINVAL;
+
+		if (of_property_read_u32(child, "qcom,gpu-freq",
+			&level->gpu_freq))
+			return -EINVAL;
+
+		config->fast_rate = max(config->fast_rate, level->gpu_freq);
+		config->slow_rate = min(config->slow_rate, level->gpu_freq);
+
+		if (of_property_read_u32(child, "qcom,bus-freq",
+			&level->bus_freq))
+			return -EINVAL;
+
+		if (of_property_read_u32(child, "qcom,bus-min",
+			&level->bus_min))
+			level->bus_min = level->bus_freq;
+
+		if (of_property_read_u32(child, "qcom,bus-max",
+			&level->bus_max))
+			level->bus_max = level->bus_freq;
+	}
+
+	return 0;
+}
+
+static int of_parse_pwrlevel_bin(struct device *dev,
+				struct adreno_platform_config *config,
+				struct device_node *node)
+{
+	struct device_node *child;
+	struct drmgsl_pwrctl *pwrctl;
+	struct drmgsl_pwrlevel *pwrlevels;
+	unsigned int n;
+
+	pwrctl = devm_kzalloc(dev, sizeof(*config->pwrctl),
+				      GFP_KERNEL);
+	if (!pwrctl)
+		return -ENOMEM;
+
+	for_each_available_child_of_node(node, child) {
+		unsigned int bin;
+
+		if (of_property_read_u32(child, "qcom,speed-bin", &bin))
+			continue;
+
+		if (bin != config->speed_bin)
+			continue;
+
+		n = of_get_child_count(child);
+		if (n == 0)
+			return -EINVAL;
+
+		pwrlevels = devm_kmalloc_array(dev, n,
+					       sizeof(*pwrlevels),
+					       GFP_KERNEL);
+		if (!pwrlevels)
+			return -ENOMEM;
+
+		pwrctl->level_num = n;
+		pwrctl->pwrlevels = pwrlevels;
+		config->pwrctl = pwrctl;
+		return of_parse_pwrlevels(config, child);
+	}
+	return -EINVAL;
+}
+
+static int adreno_bind(struct device *dev, struct device *master, void *data)
+{
+	static struct adreno_platform_config config = {};
+	struct device_node *root = dev->of_node;
+	struct device_node *node;
+	u32 val;
+	int ret;
+
+	ret = of_property_read_u32(root, "qcom,chipid", &val);
 	if (ret) {
 		dev_err(dev, "could not find chipid: %d\n", ret);
 		return ret;
@@ -335,73 +458,18 @@ static int adreno_bind(struct device *dev, struct device *master, void *data)
 	/* find clock rates: */
 	config.fast_rate = 0;
 	config.slow_rate = ~0;
-	for_each_child_of_node(node, child) {
-		if (of_device_is_compatible(child, "qcom,gpu-pwrlevels")) {
-			struct device_node *pwrlvl;
-			for_each_child_of_node(child, pwrlvl) {
-				ret = of_property_read_u32(pwrlvl, "qcom,gpu-freq", &val);
-				if (ret) {
-					dev_err(dev, "could not find gpu-freq: %d\n", ret);
-					return ret;
-				}
-				config.fast_rate = max(config.fast_rate, val);
-				config.slow_rate = min(config.slow_rate, val);
-			}
-		}
-	}
 
-	if (!config.fast_rate) {
+	node = of_find_node_by_name(root, "qcom,gpu-pwrlevel-bins");
+	if (node == NULL)
+		ret = of_parse_legacy_clk(&config, root);
+	else
+		ret = of_parse_pwrlevel_bin(dev, &config, node);
+
+	if (ret || !config.fast_rate) {
 		dev_err(dev, "could not find clk rates\n");
 		return -ENXIO;
 	}
 
-#else
-	struct kgsl_device_platform_data *pdata = dev->platform_data;
-	uint32_t version = socinfo_get_version();
-	if (cpu_is_apq8064ab()) {
-		config.fast_rate = 450000000;
-		config.slow_rate = 27000000;
-		config.bus_freq  = 4;
-		config.rev = ADRENO_REV(3, 2, 1, 0);
-	} else if (cpu_is_apq8064()) {
-		config.fast_rate = 400000000;
-		config.slow_rate = 27000000;
-		config.bus_freq  = 4;
-
-		if (SOCINFO_VERSION_MAJOR(version) == 2)
-			config.rev = ADRENO_REV(3, 2, 0, 2);
-		else if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
-				(SOCINFO_VERSION_MINOR(version) == 1))
-			config.rev = ADRENO_REV(3, 2, 0, 1);
-		else
-			config.rev = ADRENO_REV(3, 2, 0, 0);
-
-	} else if (cpu_is_msm8960ab()) {
-		config.fast_rate = 400000000;
-		config.slow_rate = 320000000;
-		config.bus_freq  = 4;
-
-		if (SOCINFO_VERSION_MINOR(version) == 0)
-			config.rev = ADRENO_REV(3, 2, 1, 0);
-		else
-			config.rev = ADRENO_REV(3, 2, 1, 1);
-
-	} else if (cpu_is_msm8930()) {
-		config.fast_rate = 400000000;
-		config.slow_rate = 27000000;
-		config.bus_freq  = 3;
-
-		if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
-			(SOCINFO_VERSION_MINOR(version) == 2))
-			config.rev = ADRENO_REV(3, 0, 5, 2);
-		else
-			config.rev = ADRENO_REV(3, 0, 5, 0);
-
-	}
-#ifdef CONFIG_MSM_BUS_SCALING
-	config.bus_scale_table = pdata->bus_scale_table;
-#endif
-#endif
 	dev->platform_data = &config;
 	set_gpu_pdev(dev_get_drvdata(master), to_platform_device(dev));
 	return adreno_iommu_probe(to_platform_device(dev));

@@ -231,6 +231,7 @@ struct adreno_gpu {
 };
 #define to_adreno_gpu(x) container_of(x, struct adreno_gpu, base)
 
+struct drmgsl_pwrctl;
 /* platform config data (ie. from DT, or pdata) */
 struct adreno_platform_config {
 	struct adreno_rev rev;
@@ -239,6 +240,11 @@ struct adreno_platform_config {
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *bus_scale_table;
 #endif
+	struct drmgsl_pwrctl *pwrctl;
+	unsigned int speed_bin;
+
+	void __iomem *efuse_base;
+	size_t efuse_len;
 };
 
 #define ADRENO_UCHE_GMEM_BASE	0x100000
