@@ -29,6 +29,26 @@ static struct fg_dbgfs dbgfs_data = {
 	},
 };
 
+#define EXPONENT_SHIFT		11
+#define EXPONENT_OFFSET		-9
+#define MANTISSA_SIGN_BIT	10
+#define MICRO_UNIT		1000000
+s64 fg_float_decode(u16 val)
+{
+	s8 exponent;
+	s32 mantissa;
+
+	/* mantissa bits are shifted out during sign extension */
+	exponent = ((s16)val >> EXPONENT_SHIFT) + EXPONENT_OFFSET;
+	/* exponent bits are shifted out during sign extension */
+	mantissa = sign_extend32(val, MANTISSA_SIGN_BIT) * MICRO_UNIT;
+
+	if (exponent < 0)
+		return (s64)mantissa >> -exponent;
+
+	return (s64)mantissa << exponent;
+}
+
 void fill_string(char *str, size_t str_len, u8 *buf, int buf_len)
 {
 	int pos = 0;
