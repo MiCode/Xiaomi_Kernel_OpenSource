@@ -833,6 +833,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_BATTERY_TYPE:
 		pval->strval = fg_get_battery_type(chip);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
+		pval->intval = chip->bp.float_volt_uv;
+		break;
 	default:
 		break;
 	}
@@ -894,6 +897,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
