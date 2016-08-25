@@ -3294,6 +3294,10 @@ struct asm_alac_cfg {
 	u32 channel_layout_tag;
 };
 
+struct asm_g711_dec_cfg {
+	u32 sample_rate;
+};
+
 struct asm_vorbis_cfg {
 	u32 bit_stream_fmt;
 };
@@ -3876,6 +3880,12 @@ struct asm_alac_fmt_blk_v2 {
 	u32 sample_rate;
 	u32 channel_layout_tag;
 
+} __packed;
+
+struct asm_g711_dec_fmt_blk_v2 {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
+	u32 sample_rate;
 } __packed;
 
 struct asm_ape_fmt_blk_v2 {
