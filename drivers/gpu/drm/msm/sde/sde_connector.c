@@ -308,7 +308,13 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 
 	idx = msm_property_index(&c_conn->property_info, property);
 	if (idx == CONNECTOR_PROP_RETIRE_FENCE)
-		rc = sde_fence_create(&c_conn->retire_fence, val);
+		/*
+		 * Set a fence offset if not a virtual connector, so that the
+		 * fence signals after one additional commit rather than at the
+		 * end of the current one.
+		 */
+		rc = sde_fence_create(&c_conn->retire_fence, val,
+			c_conn->connector_type != DRM_MODE_CONNECTOR_VIRTUAL);
 	else
 		/* get cached property value */
 		rc = msm_property_atomic_get(&c_conn->property_info,
@@ -512,14 +518,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			"conn%u",
 			c_conn->base.base.id);
 
-	/*
-	 * Initialize retire fence support. Set fence offset to 0 for virtual
-	 * connectors so that the fence signals at the end of the current commit
-	 * and 1 for others so that the fence signals after one additional
-	 * commit.
-	 */
-	rc = sde_fence_init(dev, &c_conn->retire_fence, c_conn->name,
-			connector_type == DRM_MODE_CONNECTOR_VIRTUAL ? 0 : 1);
+	rc = sde_fence_init(dev, &c_conn->retire_fence, c_conn->name);
 	if (rc) {
 		SDE_ERROR("failed to init fence, %d\n", rc);
 		goto error_cleanup_conn;
