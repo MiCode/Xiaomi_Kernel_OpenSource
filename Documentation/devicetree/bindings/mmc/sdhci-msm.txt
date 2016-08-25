@@ -4,6 +4,9 @@ Secure Digital Host Controller provides standard host interface to SD/MMC/SDIO c
 
 Required properties:
   - compatible : should be "qcom,sdhci-msm"
+		For SDCC version 5.0.0, MCI registers are removed from SDCC interface
+		and some registers are moved to HC. New compatible string is added to
+		support this change - "qcom,sdhci-msm-v5".
   - reg : should contain SDHC, SD Core register map.
   - reg-names : indicates various resources passed to driver (via reg proptery) by name.
 		Required "reg-names" are "hc_mem" and "core_mem"
