@@ -759,6 +759,11 @@ int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 {
 	int rc = -EINVAL;
 
+	if (chg->fake_capacity >= 0) {
+		val->intval = chg->fake_capacity;
+		return 0;
+	}
+
 	if (chg->bms_psy)
 		rc = power_supply_get_property(chg->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, val);
@@ -911,6 +916,16 @@ int smblib_set_prop_input_suspend(struct smb_charger *chg,
 
 	power_supply_changed(chg->batt_psy);
 	return rc;
+}
+
+int smblib_set_prop_batt_capacity(struct smb_charger *chg,
+				  const union power_supply_propval *val)
+{
+	chg->fake_capacity = val->intval;
+
+	power_supply_changed(chg->batt_psy);
+
+	return 0;
 }
 
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
@@ -1917,6 +1932,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_WORK(&chg->pl_detect_work, smblib_pl_detect_work);
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 	INIT_DELAYED_WORK(&chg->pl_taper_work, smblib_pl_taper_work);
+	chg->fake_capacity = -EINVAL;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
