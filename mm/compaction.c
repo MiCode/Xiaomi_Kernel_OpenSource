@@ -61,7 +61,6 @@ static void map_pages(struct list_head *list)
 		kasan_alloc_pages(page, 0);
 		arch_alloc_page(page, 0);
 		kernel_map_pages(page, 1, 1);
-		kasan_alloc_pages(page, 0);
 	}
 }
 
