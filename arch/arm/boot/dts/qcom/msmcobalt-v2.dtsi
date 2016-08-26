@@ -222,6 +222,7 @@
 
 &apc0_cpr {
 	compatible = "qcom,cprh-msmcobalt-v2-kbss-regulator";
+	qcom,cpr-corner-switch-delay-time = <1042>;
 };
 
 &apc0_pwrcl_vreg {
@@ -367,6 +368,7 @@
 
 &apc1_cpr {
 	compatible = "qcom,cprh-msmcobalt-v2-kbss-regulator";
+	qcom,cpr-corner-switch-delay-time = <1042>;
 };
 
 &apc1_perfcl_vreg {
