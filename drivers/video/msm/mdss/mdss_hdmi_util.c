@@ -557,7 +557,7 @@ int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in,
 {
 	int i, vic = -1;
 	struct msm_hdmi_mode_timing_info supported_timing = {0};
-	u32 ret;
+	u32 ret, delta, pclk;
 
 	if (!timing_in) {
 		pr_err("invalid input\n");
@@ -567,6 +567,11 @@ int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in,
 	/* active_low_h, active_low_v and interlaced are not checked against */
 	for (i = 0; i < HDMI_VFRMT_MAX; i++) {
 		ret = hdmi_get_supported_mode(&supported_timing, ds_data, i);
+
+		pclk = supported_timing.pixel_freq;
+
+		/* as per standard, 0.5% of deviation is allowed */
+		delta = (pclk / HDMI_KHZ_TO_HZ) * 5;
 
 		if (ret || !supported_timing.supported)
 			continue;
@@ -586,7 +591,8 @@ int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in,
 			continue;
 		if (timing_in->back_porch_v != supported_timing.back_porch_v)
 			continue;
-		if (timing_in->pixel_freq != supported_timing.pixel_freq)
+		if (timing_in->pixel_freq < (pclk - delta) ||
+		    timing_in->pixel_freq > (pclk + delta))
 			continue;
 		if (timing_in->refresh_rate != supported_timing.refresh_rate)
 			continue;
