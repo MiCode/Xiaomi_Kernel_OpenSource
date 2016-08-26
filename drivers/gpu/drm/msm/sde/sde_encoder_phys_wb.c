@@ -154,14 +154,21 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 		struct drm_framebuffer *fb, struct sde_rect *wb_roi)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
-	struct sde_hw_wb_cfg *wb_cfg = &wb_enc->wb_cfg;
+	struct sde_hw_wb *hw_wb;
+	struct sde_hw_wb_cfg *wb_cfg;
 	const struct msm_format *format;
 	int ret, mmu_id;
 
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	hw_wb = wb_enc->hw_wb;
+	wb_cfg = &wb_enc->wb_cfg;
 	memset(wb_cfg, 0, sizeof(struct sde_hw_wb_cfg));
 
-	wb_cfg->intf_mode = INTF_MODE_WB_LINE;
+	wb_cfg->intf_mode = phys_enc->intf_mode;
 	wb_cfg->is_secure = (fb->flags & DRM_MODE_FB_SECURE) ? true : false;
 	mmu_id = (wb_cfg->is_secure) ?
 			wb_enc->mmu_id[SDE_IOMMU_DOMAIN_SECURE] :
@@ -806,10 +813,15 @@ static void sde_encoder_phys_wb_get_hw_resources(
 		struct drm_connector_state *conn_state)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
+	struct sde_hw_wb *hw_wb;
 
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	hw_wb = wb_enc->hw_wb;
 	SDE_DEBUG("[wb:%d]\n", hw_wb->idx - WB_0);
-	hw_res->wbs[hw_wb->idx - WB_0] = INTF_MODE_WB_LINE;
+	hw_res->wbs[hw_wb->idx - WB_0] = phys_enc->intf_mode;
 	hw_res->needs_cdm = phys_enc->needs_cdm;
 }
 
@@ -1006,6 +1018,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->parent_ops = p->parent_ops;
 	phys_enc->sde_kms = p->sde_kms;
 	phys_enc->split_role = p->split_role;
+	phys_enc->intf_mode = INTF_MODE_WB_LINE;
 	spin_lock_init(&phys_enc->spin_lock);
 
 	ret = sde_encoder_phys_wb_init_debugfs(phys_enc, p->sde_kms);
