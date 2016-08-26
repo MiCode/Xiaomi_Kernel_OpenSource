@@ -806,9 +806,10 @@
 		      <0x17916000 0x1000>,
 		      <0x17816000 0x1000>,
 		      <0x179d1000 0x1000>,
-		      <0x00784130 0x8>;
+		      <0x00784130 0x8>,
+		      <0x1791101c 0x8>;
 		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
-			    "apcs_common", "perfcl_efuse";
+			    "apcs_common", "perfcl_efuse", "debug";
 
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
 		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
@@ -941,10 +942,11 @@
 		reg = <0x162000 0x4>;
 		reg-names = "cc_base";
 		clock-names = "debug_gpu_clk", "debug_gfx_clk",
-				"debug_mmss_clk";
+				"debug_mmss_clk", "debug_cpu_clk";
 		clocks = <&clock_gpu clk_gpucc_gcc_dbg_clk>,
 			 <&clock_gfx clk_gfxcc_dbg_clk>,
-			 <&clock_mmss clk_mmss_debug_mux>;
+			 <&clock_mmss clk_mmss_debug_mux>,
+			 <&clock_cpu clk_cpu_debug_mux>;
 		#clock-cells = <1>;
 	};
 

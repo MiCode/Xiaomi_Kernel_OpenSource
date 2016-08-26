@@ -215,6 +215,7 @@ enum clk_osm_trace_packet_id {
 #define PERFCL_EFUSE_MASK	0x7
 
 static void __iomem *virt_base;
+static void __iomem *debug_base;
 
 #define lmh_lite_clk_src_source_val 1
 
@@ -531,13 +532,44 @@ static struct clk_osm perfcl_clk = {
 	},
 };
 
+static struct clk_ops clk_ops_cpu_dbg_mux;
+
+static struct mux_clk cpu_debug_mux = {
+	.offset = 0x0,
+	.mask = 0x3,
+	.shift = 8,
+	.ops = &mux_reg_ops,
+	MUX_SRC_LIST(
+		{ &pwrcl_clk.c, 0x00 },
+		{ &perfcl_clk.c, 0x01 },
+	),
+	.base = &debug_base,
+	.c = {
+		.dbg_name = "cpu_debug_mux",
+		.ops = &clk_ops_cpu_dbg_mux,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(cpu_debug_mux.c),
+	},
+};
+
 static struct clk_lookup cpu_clocks_osm[] = {
 	CLK_LIST(pwrcl_clk),
 	CLK_LIST(perfcl_clk),
 	CLK_LIST(sys_apcsaux_clk_gcc),
 	CLK_LIST(xo_ao),
 	CLK_LIST(osm_clk_src),
+	CLK_LIST(cpu_debug_mux),
 };
+
+static unsigned long cpu_dbg_mux_get_rate(struct clk *clk)
+{
+	/* Account for the divider between the clock and the debug mux */
+	if (!strcmp(clk->parent->dbg_name, "pwrcl_clk"))
+		return clk->rate/4;
+	else if (!strcmp(clk->parent->dbg_name, "perfcl_clk"))
+		return clk->rate/8;
+	return clk->rate;
+}
 
 static void clk_osm_print_osm_table(struct clk_osm *c)
 {
@@ -906,6 +938,22 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 			perfcl_clk.vbases[PLL_BASE] = vbase;
 		}
 	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "debug");
+	if (!res) {
+		dev_err(&pdev->dev, "Failed to get debug mux base\n");
+		return -EINVAL;
+	}
+
+	debug_base = devm_ioremap(&pdev->dev, res->start,
+						  resource_size(res));
+	if (!debug_base) {
+		dev_err(&pdev->dev, "Unable to map in debug mux base\n");
+		return -ENOMEM;
+	}
+
+	clk_ops_cpu_dbg_mux = clk_ops_gen_mux;
+	clk_ops_cpu_dbg_mux.get_rate = cpu_dbg_mux_get_rate;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_common");
 	if (!res) {

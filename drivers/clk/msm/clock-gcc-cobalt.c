@@ -2353,11 +2353,13 @@ static struct mux_clk gcc_debug_mux = {
 		&gpu_gcc_debug_clk.c,
 		&gfx_gcc_debug_clk.c,
 		&debug_mmss_clk.c,
+		&debug_cpu_clk.c,
 	),
 	MUX_SRC_LIST(
 		{ &gpu_gcc_debug_clk.c, 0x013d },
 		{ &gfx_gcc_debug_clk.c, 0x013d },
 		{ &debug_mmss_clk.c, 0x0022 },
+		{ &debug_cpu_clk.c, 0x00c0 },
 		{ &snoc_clk.c, 0x0000 },
 		{ &cnoc_clk.c, 0x000e },
 		{ &bimc_clk.c, 0x00a9 },
@@ -2831,6 +2833,7 @@ static struct clk_lookup msm_clocks_measure_cobalt[] = {
 	CLK_LIST(gpu_gcc_debug_clk),
 	CLK_LIST(gfx_gcc_debug_clk),
 	CLK_LIST(debug_mmss_clk),
+	CLK_LIST(debug_cpu_clk),
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
 };
 
@@ -2866,6 +2869,9 @@ static int msm_clock_debug_cobalt_probe(struct platform_device *pdev)
 
 	debug_mmss_clk.dev = &pdev->dev;
 	debug_mmss_clk.clk_id = "debug_mmss_clk";
+
+	debug_cpu_clk.dev = &pdev->dev;
+	debug_cpu_clk.clk_id = "debug_cpu_clk";
 
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				    msm_clocks_measure_cobalt,
