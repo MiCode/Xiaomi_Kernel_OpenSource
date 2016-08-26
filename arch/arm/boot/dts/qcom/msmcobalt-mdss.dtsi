@@ -445,6 +445,14 @@
 		qcom,mdss-fb-map = <&mdss_fb1>;
 	};
 
+	msm_ext_disp: qcom,msm_ext_disp {
+		compatible = "qcom,msm-ext-disp";
+
+		hdmi_audio: qcom,msm-hdmi-audio-rx {
+			compatible = "qcom,msm-hdmi-audio-codec-rx";
+		};
+	};
+
 	mdss_dp_ctrl: qcom,dp_ctrl@c990000 {
 		cell-index = <0>;
 		compatible = "qcom,mdss-dp";
@@ -476,6 +484,8 @@
 			"ctrl_pixel_clk";
 
 		qcom,dp-usbpd-detection = <&pmicobalt_pdphy>;
+
+		qcom,msm_ext_disp = <&msm_ext_disp>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -589,10 +599,6 @@
 			      };
 	};
 
-	msm_ext_disp: qcom,msm_ext_disp {
-		compatible = "qcom,msm-ext-disp";
-	};
-
 	mdss_hdmi_tx: qcom,hdmi_tx@c9a0000 {
 		cell-index = <0>;
 		compatible = "qcom,hdmi-tx";
@@ -625,10 +631,6 @@
 
 		qcom,mdss-fb-map = <&mdss_fb2>;
 		qcom,pluggable;
-
-		hdmi_audio: qcom,msm-hdmi-audio-rx {
-			compatible = "qcom,msm-hdmi-audio-codec-rx";
-		};
 	};
 };
 
