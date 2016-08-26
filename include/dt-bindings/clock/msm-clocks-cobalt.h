@@ -383,6 +383,8 @@
 #define clk_mmss_camss_gp1_clk			0xdccdd730
 #define clk_mmss_camss_ispif_ahb_clk		0xbda4f0e3
 #define clk_mmss_camss_jpeg0_clk		0x4cc73b07
+#define clk_mmss_camss_jpeg0_vote_clk		0xc9efa6ac
+#define clk_mmss_camss_jpeg0_dma_vote_clk	0x371ec109
 #define clk_mmss_camss_jpeg_ahb_clk		0xde1fece3
 #define clk_mmss_camss_jpeg_axi_clk		0x7534616b
 #define clk_mmss_camss_mclk0_clk		0x056293a7
