@@ -31,10 +31,10 @@ static void *bpf_any_get(void *raw, enum bpf_type type)
 {
 	switch (type) {
 	case BPF_TYPE_PROG:
-		raw = bpf_prog_inc(raw);
+		atomic_inc(&((struct bpf_prog *)raw)->aux->refcnt);
 		break;
 	case BPF_TYPE_MAP:
-		raw = bpf_map_inc(raw, true);
+		bpf_map_inc(raw, true);
 		break;
 	default:
 		WARN_ON_ONCE(1);
@@ -277,8 +277,7 @@ static void *bpf_obj_do_get(const struct filename *pathname,
 		goto out;
 
 	raw = bpf_any_get(inode->i_private, *type);
-	if (!IS_ERR(raw))
-		touch_atime(&path);
+	touch_atime(&path);
 
 	path_put(&path);
 	return raw;

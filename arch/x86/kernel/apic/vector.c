@@ -254,8 +254,7 @@ static void clear_irq_vector(int irq, struct apic_chip_data *data)
 	struct irq_desc *desc;
 	int cpu, vector;
 
-	if (!data->cfg.vector)
-		return;
+	BUG_ON(!data->cfg.vector);
 
 	vector = data->cfg.vector;
 	for_each_cpu_and(cpu, data->domain, cpu_online_mask)

@@ -170,8 +170,6 @@ static struct zswap_tree *zswap_trees[MAX_SWAPFILES];
 static LIST_HEAD(zswap_pools);
 /* protects zswap_pools list modification */
 static DEFINE_SPINLOCK(zswap_pools_lock);
-/* pool counter to provide unique names to zpool */
-static atomic_t zswap_pools_count = ATOMIC_INIT(0);
 
 /* used by param callback function */
 static bool zswap_init_started;
@@ -567,7 +565,6 @@ static struct zswap_pool *zswap_pool_find_get(char *type, char *compressor)
 static struct zswap_pool *zswap_pool_create(char *type, char *compressor)
 {
 	struct zswap_pool *pool;
-	char name[38]; /* 'zswap' + 32 char (max) num + \0 */
 	gfp_t gfp = __GFP_NORETRY | __GFP_NOWARN | __GFP_KSWAPD_RECLAIM;
 
 	pool = kzalloc(sizeof(*pool), GFP_KERNEL);
@@ -576,10 +573,7 @@ static struct zswap_pool *zswap_pool_create(char *type, char *compressor)
 		return NULL;
 	}
 
-	/* unique name for each pool specifically required by zsmalloc */
-	snprintf(name, 38, "zswap%x", atomic_inc_return(&zswap_pools_count));
-
-	pool->zpool = zpool_create_pool(type, name, gfp, &zswap_zpool_ops);
+	pool->zpool = zpool_create_pool(type, "zswap", gfp, &zswap_zpool_ops);
 	if (!pool->zpool) {
 		pr_err("%s zpool not available\n", type);
 		goto error;

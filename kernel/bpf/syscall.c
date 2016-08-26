@@ -181,18 +181,11 @@ struct bpf_map *__bpf_map_get(struct fd f)
 	return f.file->private_data;
 }
 
-/* prog's and map's refcnt limit */
-#define BPF_MAX_REFCNT 32768
-
-struct bpf_map *bpf_map_inc(struct bpf_map *map, bool uref)
+void bpf_map_inc(struct bpf_map *map, bool uref)
 {
-	if (atomic_inc_return(&map->refcnt) > BPF_MAX_REFCNT) {
-		atomic_dec(&map->refcnt);
-		return ERR_PTR(-EBUSY);
-	}
+	atomic_inc(&map->refcnt);
 	if (uref)
 		atomic_inc(&map->usercnt);
-	return map;
 }
 
 struct bpf_map *bpf_map_get_with_uref(u32 ufd)
@@ -204,7 +197,7 @@ struct bpf_map *bpf_map_get_with_uref(u32 ufd)
 	if (IS_ERR(map))
 		return map;
 
-	map = bpf_map_inc(map, true);
+	bpf_map_inc(map, true);
 	fdput(f);
 
 	return map;
@@ -587,15 +580,6 @@ static struct bpf_prog *__bpf_prog_get(struct fd f)
 	return f.file->private_data;
 }
 
-struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
-{
-	if (atomic_inc_return(&prog->aux->refcnt) > BPF_MAX_REFCNT) {
-		atomic_dec(&prog->aux->refcnt);
-		return ERR_PTR(-EBUSY);
-	}
-	return prog;
-}
-
 /* called by sockets/tracing/seccomp before attaching program to an event
  * pairs with bpf_prog_put()
  */
@@ -608,7 +592,7 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
 	if (IS_ERR(prog))
 		return prog;
 
-	prog = bpf_prog_inc(prog);
+	atomic_inc(&prog->aux->refcnt);
 	fdput(f);
 
 	return prog;
