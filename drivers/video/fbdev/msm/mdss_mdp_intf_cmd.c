@@ -903,6 +903,22 @@ exit:
 	return rc;
 }
 
+static bool mdss_mdp_cmd_is_autorefresh_enabled(struct mdss_mdp_ctl *mctl)
+{
+	struct mdss_mdp_cmd_ctx *ctx = mctl->intf_ctx[MASTER_CTX];
+	bool enabled = false;
+
+	/* check the ctl to make sure the lock was initialized */
+	if (!ctx || !ctx->ctl)
+		return 0;
+
+	mutex_lock(&ctx->autorefresh_lock);
+	if (ctx->autorefresh_state == MDP_AUTOREFRESH_ON)
+		enabled = true;
+	mutex_unlock(&ctx->autorefresh_lock);
+
+	return enabled;
+}
 
 static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 {
@@ -1069,7 +1085,7 @@ static void mdss_mdp_cmd_intf_callback(void *data, int event)
 	}
 }
 
-static void mdss_mdp_cmd_writeptr_done(void *arg)
+static void mdss_mdp_cmd_lineptr_done(void *arg)
 {
 	struct mdss_mdp_ctl *ctl = arg;
 	struct mdss_mdp_cmd_ctx *ctx = ctl->intf_ctx[MASTER_CTX];
@@ -1082,6 +1098,7 @@ static void mdss_mdp_cmd_writeptr_done(void *arg)
 	}
 
 	lineptr_time = ktime_get();
+	pr_debug("intr lineptr_time=%lld\n", ktime_to_ms(lineptr_time));
 
 	spin_lock(&ctx->clk_lock);
 	list_for_each_entry(tmp, &ctx->lineptr_handlers, list) {
@@ -1376,6 +1393,19 @@ static int mdss_mdp_cmd_lineptr_ctrl(struct mdss_mdp_ctl *ctl, bool enable)
 	return rc;
 }
 
+/*
+ * Interface used to update the new lineptr value set by the sysfs node.
+ * Value is instantly updated only when autorefresh is enabled, else
+ * new value would be set in the next kickoff.
+ */
+static int mdss_mdp_cmd_update_lineptr(struct mdss_mdp_ctl *ctl, bool enable)
+{
+	if (mdss_mdp_cmd_is_autorefresh_enabled(ctl))
+		return mdss_mdp_cmd_lineptr_ctrl(ctl, enable);
+
+	return 0;
+}
+
 /**
  * mdss_mdp_cmd_autorefresh_pp_done() - pp done irq callback for autorefresh
  * @arg: void pointer to the controller context.
@@ -1423,7 +1453,10 @@ static void pingpong_done_work(struct work_struct *work)
 
 		if (!ctl->is_master)
 			ctl = mdss_mdp_get_main_ctl(ctl);
-		if (mdss_mdp_is_lineptr_supported(ctl))
+
+		/* do not disable lineptr when autorefresh is enabled */
+		if (mdss_mdp_is_lineptr_supported(ctl)
+			&& !mdss_mdp_cmd_is_autorefresh_enabled(ctl))
 			mdss_mdp_cmd_lineptr_ctrl(ctl, false);
 	}
 }
@@ -3182,7 +3215,7 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 		ctx->default_pp_num, mdss_mdp_cmd_readptr_done, ctl);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_TYPE_PING_PONG_WR_PTR,
-		ctx->default_pp_num, mdss_mdp_cmd_writeptr_done, ctl);
+		ctx->default_pp_num, mdss_mdp_cmd_lineptr_done, ctl);
 
 	ret = mdss_mdp_cmd_tearcheck_setup(ctx, false);
 	if (ret)
@@ -3447,6 +3480,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	ctl->ops.early_wake_up_fnc = mdss_mdp_cmd_early_wake_up;
 	ctl->ops.reconfigure = mdss_mdp_cmd_reconfigure;
 	ctl->ops.pre_programming = mdss_mdp_cmd_pre_programming;
+	ctl->ops.update_lineptr = mdss_mdp_cmd_update_lineptr;
 	pr_debug("%s:-\n", __func__);
 
 	return 0;
