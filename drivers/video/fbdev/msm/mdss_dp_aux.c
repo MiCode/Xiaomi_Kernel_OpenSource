@@ -1312,7 +1312,7 @@ static void dp_clear_training_pattern(struct mdss_dp_drv_pdata *ep)
 	usleep_range(usleep_time, usleep_time);
 }
 
-static int dp_aux_link_train(struct mdss_dp_drv_pdata *dp)
+int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 	int usleep_time;
@@ -1410,16 +1410,6 @@ void mdss_dp_fill_link_cfg(struct mdss_dp_drv_pdata *ep)
 	pr_debug("pclk=%d rate=%d lane=%d\n",
 		ep->pixel_rate, ep->link_rate, ep->lane_cnt);
 
-}
-
-int mdss_dp_link_train(struct mdss_dp_drv_pdata *ep)
-{
-	int ret;
-
-	mutex_lock(&ep->train_mutex);
-	ret = dp_aux_link_train(ep);
-	mutex_unlock(&ep->train_mutex);
-	return ret;
 }
 
 void mdss_dp_aux_init(struct mdss_dp_drv_pdata *ep)

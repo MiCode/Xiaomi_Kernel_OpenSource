@@ -121,6 +121,7 @@ struct msm_ext_disp_init_data {
 	struct kobject *kobj;
 	struct msm_ext_disp_intf_ops intf_ops;
 	struct msm_ext_disp_audio_codec_ops codec_ops;
+	struct platform_device *pdev;
 };
 
 /*
