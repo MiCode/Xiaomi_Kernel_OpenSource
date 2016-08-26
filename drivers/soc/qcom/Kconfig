@@ -770,4 +770,10 @@ config WCD_DSP_GLINK
 	   between MSM and WCD DSP over glink transport protocol. This driver
 	   provides read and write interface via char device.
 
+config QCOM_SMCINVOKE
+	bool "Secure QSEE Support"
+	help
+	  Enable SMCInvoke driver which supports capability based secure
+	  communication between QSEE and HLOS.
+
 source "drivers/soc/qcom/memshare/Kconfig"
