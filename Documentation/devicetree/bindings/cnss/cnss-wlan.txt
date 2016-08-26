@@ -47,8 +47,6 @@ Optional properties:
   - vdd-wlan-en-supply: WLAN_EN fixed regulator specified by QCA6174 specifications.
   - qcom,wlan-en-vreg-support: Boolean property to decide the whether the WLAN_EN pin
 				is a gpio or fixed regulator.
-  - qcom,enable-bootstrap-gpio: Boolean property to decide whether wlan bootstrap
-                                 gpio should be enabled or not in this platform.
 
 Example:
 
