@@ -314,6 +314,20 @@ struct msm_format {
 
 int msm_atomic_check(struct drm_device *dev,
 		     struct drm_atomic_state *state);
+/* callback from wq once fence has passed: */
+struct msm_fence_cb {
+	struct work_struct work;
+	uint32_t fence;
+	void (*func)(struct msm_fence_cb *cb);
+};
+
+void __msm_fence_worker(struct work_struct *work);
+
+#define INIT_FENCE_CB(_cb, _func)  do {                     \
+		INIT_WORK(&(_cb)->work, __msm_fence_worker); \
+		(_cb)->func = _func;                         \
+	} while (0)
+
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool nonblock);
 
