@@ -133,58 +133,17 @@ int msm_ext_disp_register_audio_codec(struct platform_device *pdev,
 		struct msm_ext_disp_audio_codec_ops *ops);
 
 /*
+ * msm_hdmi_register_audio_codec() - wrapper for hdmi audio codec registration
+ * @pdev: platform device pointer
+ * @codec_ops: audio codec operations
+ */
+int msm_hdmi_register_audio_codec(struct platform_device *pdev,
+	struct msm_ext_disp_audio_codec_ops *ops);
+/*
  * msm_ext_disp_register_intf() - display interface registration
  * @init_data: data needed to register the display interface
  */
 int msm_ext_disp_register_intf(struct platform_device *pdev,
 		struct msm_ext_disp_init_data *init_data);
-
-/* TODO: remove all the display specific functions below */
-#ifdef CONFIG_FB_MSM_MDSS_DP_PANEL
-int msm_dp_register_audio_codec(struct platform_device *pdev,
-	struct msm_ext_disp_audio_codec_ops *ops);
-
-#else
-static inline int msm_dp_register_audio_codec(struct platform_device *pdev,
-		struct msm_ext_disp_audio_codec_ops *ops) {
-	return 0;
-}
-#endif /* CONFIG_FB_MSM_MDSS_DP_PANEL */
-#ifdef CONFIG_FB_MSM_MDSS_HDMI_PANEL
-/*
- * Register for HDMI cable connect or disconnect notification.
- * @param handler callback handler for notification
- * @return negative value as error otherwise current status of cable
- */
-int register_hdmi_cable_notification(
-		struct ext_disp_cable_notify *handler);
-
-/*
- * Un-register for HDMI cable connect or disconnect notification.
- * @param handler callback handler for notification
- * @return negative value as error
- */
-int unregister_hdmi_cable_notification(
-		struct ext_disp_cable_notify *handler);
-
-int msm_hdmi_register_audio_codec(struct platform_device *pdev,
-	struct msm_ext_disp_audio_codec_ops *ops);
-
-#else
-static inline int register_hdmi_cable_notification(
-		struct ext_disp_cable_notify *handler) {
-	return 0;
-}
-
-static inline int unregister_hdmi_cable_notification(
-		struct ext_disp_cable_notify *handler) {
-	return 0;
-}
-
-static inline int msm_hdmi_register_audio_codec(struct platform_device *pdev,
-		struct msm_ext_disp_audio_codec_ops *ops) {
-	return 0;
-}
-#endif /* CONFIG_FB_MSM_MDSS_HDMI_PANEL */
 
 #endif /*_MSM_EXT_DISPLAY_H_*/
