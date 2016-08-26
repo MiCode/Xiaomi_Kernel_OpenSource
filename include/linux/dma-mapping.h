@@ -62,6 +62,10 @@
  * No speculative access may occur in this mapping.
  */
 #define DMA_ATTR_STRONGLY_ORDERED	(1UL << 8)
+/*
+ * DMA_ATTR_SKIP_ZEROING: Do not zero mapping.
+ */
+#define DMA_ATTR_SKIP_ZEROING		(1UL << 9)
 
 /*
  * A dma_addr_t can hold any valid DMA or bus address for the platform.
