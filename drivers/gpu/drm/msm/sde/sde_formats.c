@@ -467,6 +467,14 @@ static const struct sde_format sde_format_map_p010_ubwc[] = {
 		SDE_FETCH_UBWC, 4),
 };
 
+static const struct sde_format sde_format_map_tp10_ubwc[] = {
+	PSEUDO_YUV_FMT(NV12,
+		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
+		C1_B_Cb, C2_R_Cr,
+		SDE_CHROMA_420, (SDE_FORMAT_FLAG_YUV | SDE_FORMAT_FLAG_DX),
+		SDE_FETCH_UBWC, 4),
+};
+
 /* _sde_get_v_h_subsample_rate - Get subsample rates for all formats we support
  *   Note: Not using the drm_format_*_subsampling since we have formats
  */
@@ -986,6 +994,13 @@ const struct sde_format *sde_get_sde_format_ext(
 		map = sde_format_map_p010_ubwc;
 		map_size = ARRAY_SIZE(sde_format_map_p010_ubwc);
 		DBG("found fmt 0x%X DRM_FORMAT_MOD_QCOM_COMPRESSED/DX", format);
+		break;
+	case (DRM_FORMAT_MOD_QCOM_DX | DRM_FORMAT_MOD_QCOM_COMPRESSED |
+		DRM_FORMAT_MOD_QCOM_TIGHT):
+		map = sde_format_map_tp10_ubwc;
+		map_size = ARRAY_SIZE(sde_format_map_tp10_ubwc);
+		DBG("found fmt 0x%X DRM_FORMAT_MOD_QCOM_COMPRESSED/DX/TIGHT",
+			format);
 		break;
 	default:
 		DRM_ERROR("unsupported format modifier %llX\n", mod0);
