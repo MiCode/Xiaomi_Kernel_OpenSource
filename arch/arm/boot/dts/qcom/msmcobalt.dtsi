@@ -1388,6 +1388,13 @@
 			qcom,glinkpkt-ch-name = "DATA40_CNTL";
 			qcom,glinkpkt-dev-name = "smdcntl8";
 		};
+
+		qcom,glinkpkt-data1 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA1";
+			qcom,glinkpkt-dev-name = "smd7";
+		};
 	};
 
 	pcie0: qcom,pcie@01c00000 {
