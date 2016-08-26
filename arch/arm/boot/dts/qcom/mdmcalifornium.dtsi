@@ -879,6 +879,7 @@
 
 	cnss_pcie: qcom,cnss {
 		compatible = "qcom,cnss";
+		wlan-en-gpio = <&tlmm_pinmux 95 0>;
 		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-xtal-supply = <&pmdcalifornium_l5>;
 		vdd-wlan-io-supply = <&pmdcalifornium_l6>;
