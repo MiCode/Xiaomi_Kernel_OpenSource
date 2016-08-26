@@ -465,11 +465,10 @@
 #define clk_dsi1pll_vco_clk			0x99797b50
 
 #define clk_dp_vco_clk				0xfcaaeec7
-#define clk_hsclk_divsel_clk_src		0x0a325543
 #define clk_dp_link_2x_clk_divsel_five		0xcfe3f5dd
-#define clk_dp_link_2x_clk_divsel_ten		0xfeb9924d
-#define clk_dp_link_2x_clk_mux			0xce4c4fc6
-#define clk_vco_divided_clk_src			0x3da6cb51
+#define clk_vco_divsel_four_clk_src		0xe0da19c0
+#define clk_vco_divsel_two_clk_src		0xb5cfc6a8
+#define clk_vco_divided_clk_src_mux		0x3f8197c2
 #define clk_hdmi_vco_clk			0xbb7dc20d
 
 /* clock_gpu controlled clocks*/

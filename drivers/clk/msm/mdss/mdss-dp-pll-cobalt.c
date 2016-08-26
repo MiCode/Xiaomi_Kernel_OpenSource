@@ -16,40 +16,37 @@
 ******** Display Port PLL driver block diagram for branch clocks **********
 ***************************************************************************
 
-			   +-------------------+
-			   |    dp_vco_clk     |
-			   |   (DP PLL/VCO)    |
-			   +---------+---------+
-				     |
-				     |
-				     v
-			  +----------+-----------+
-			  | hsclk_divsel_clk_src |
-			  +----------+-----------+
-				     |
+			+--------------------------+
+			|       DP_VCO_CLK         |
+			|			   |
+			|  +-------------------+   |
+			|  |   (DP PLL/VCO)    |   |
+			|  +---------+---------+   |
+			|	     v		   |
+			| +----------+-----------+ |
+			| | hsclk_divsel_clk_src | |
+			| +----------+-----------+ |
+			+--------------------------+
 				     |
 				     v
 	   +------------<------------|------------>-------------+
 	   |                         |                          |
-	   |                         |                          |
 +----------v----------+	  +----------v----------+    +----------v----------+
-|vco_divided_clk_src  |	  |    dp_link_2x_clk	|    |	 dp_link_2x_clk	   |
-|   (aux_clk_ops)     |	  |			|    |			   |
-v----------+----------v	  |	divsel_five	|    |	   divsel_ten	   |
+|   dp_link_2x_clk    |	  | vco_divided_clk_src	|    | vco_divided_clk_src |
+|     divsel_five     |	  |			|    |			   |
+v----------+----------v	  |	divsel_two	|    |	   divsel_four	   |
 	   |		  +----------+----------+    +----------+----------+
 	   |                         |                          |
 	   v			     v				v
-				     |	+--------------------+	|
-  Input to MMSSCC block		     |	|		     |	|
-   for DP pixel clock		     +--> dp_link_2x_clk_mux <--+
-					|		     |
-					+----------+---------+
+				     |	+---------------------+	|
+  Input to MMSSCC block		     |	|    (aux_clk_ops)    |	|
+  for link clk, crypto clk	     +-->   vco_divided_clk   <-+
+  and interface clock			|	_src_mux      |
+					+----------+----------+
 						   |
 						   v
 					 Input to MMSSCC block
-					 for link clk, crypto clk
-					 and interface clock
-
+					 for DP pixel clock
 
 ******************************************************************************
 */
@@ -68,14 +65,9 @@ v----------+----------v	  |	divsel_five	|    |	   divsel_ten	   |
 #include "mdss-dp-pll.h"
 #include "mdss-dp-pll-cobalt.h"
 
-static struct clk_ops clk_ops_hsclk_divsel_clk_src_c;
 static struct clk_ops clk_ops_vco_divided_clk_src_c;
 static struct clk_ops clk_ops_link_2x_clk_div_c;
-
-static struct clk_div_ops hsclk_divsel_ops = {
-	.set_div = hsclk_divsel_set_div,
-	.get_div = hsclk_divsel_get_div,
-};
+static struct clk_ops clk_ops_gen_mux_dp;
 
 static struct clk_div_ops link2xclk_divsel_ops = {
 	.set_div = link2xclk_divsel_set_div,
@@ -101,28 +93,13 @@ static struct clk_mux_ops mdss_mux_ops = {
 };
 
 static struct dp_pll_vco_clk dp_vco_clk = {
-	.min_rate = DP_VCO_RATE_8100MHz,
-	.max_rate = DP_VCO_RATE_10800MHz,
+	.min_rate = DP_VCO_HSCLK_RATE_1620MHz,
+	.max_rate = DP_VCO_HSCLK_RATE_5400MHz,
 	.c = {
 		.dbg_name = "dp_vco_clk",
 		.ops = &dp_cobalt_vco_clk_ops,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dp_vco_clk.c),
-	},
-};
-
-static struct div_clk hsclk_divsel_clk_src = {
-	.data = {
-		.min_div = 2,
-		.max_div = 3,
-	},
-	.ops = &hsclk_divsel_ops,
-	.c = {
-		.parent = &dp_vco_clk.c,
-		.dbg_name = "hsclk_divsel_clk_src",
-		.ops = &clk_ops_hsclk_divsel_clk_src_c,
-		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(hsclk_divsel_clk_src.c),
 	},
 };
 
@@ -134,7 +111,7 @@ static struct div_clk dp_link_2x_clk_divsel_five = {
 	},
 	.ops = &link2xclk_divsel_ops,
 	.c = {
-		.parent = &hsclk_divsel_clk_src.c,
+		.parent = &dp_vco_clk.c,
 		.dbg_name = "dp_link_2x_clk_divsel_five",
 		.ops = &clk_ops_link_2x_clk_div_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
@@ -142,39 +119,7 @@ static struct div_clk dp_link_2x_clk_divsel_five = {
 	},
 };
 
-static struct div_clk dp_link_2x_clk_divsel_ten = {
-	.data = {
-		.div = 10,
-		.min_div = 10,
-		.max_div = 10,
-	},
-	.ops = &link2xclk_divsel_ops,
-	.c = {
-		.parent = &hsclk_divsel_clk_src.c,
-		.dbg_name = "dp_link_2x_clk_divsel_ten",
-		.ops = &clk_ops_link_2x_clk_div_c,
-		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(dp_link_2x_clk_divsel_ten.c),
-	},
-};
-
-static struct mux_clk dp_link_2x_clk_mux = {
-	.num_parents = 2,
-	.parents = (struct clk_src[]) {
-		{&dp_link_2x_clk_divsel_five.c, 0},
-		{&dp_link_2x_clk_divsel_ten.c, 1},
-	},
-	.ops = &mdss_mux_ops,
-	.c = {
-		.parent = &dp_link_2x_clk_divsel_five.c,
-		.dbg_name = "dp_link_2x_clk_mux",
-		.ops = &clk_ops_gen_mux,
-		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(dp_link_2x_clk_mux.c),
-	}
-};
-
-static struct div_clk vco_divided_clk_src = {
+static struct div_clk vco_divsel_four_clk_src = {
 	.data = {
 		.div = 4,
 		.min_div = 4,
@@ -182,21 +127,52 @@ static struct div_clk vco_divided_clk_src = {
 	},
 	.ops = &vco_divided_clk_ops,
 	.c = {
-		.parent = &hsclk_divsel_clk_src.c,
-		.dbg_name = "vco_divided_clk",
+		.parent = &dp_vco_clk.c,
+		.dbg_name = "vco_divsel_four_clk_src",
 		.ops = &clk_ops_vco_divided_clk_src_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(vco_divided_clk_src.c),
+		CLK_INIT(vco_divsel_four_clk_src.c),
 	},
+};
+
+static struct div_clk vco_divsel_two_clk_src = {
+	.data = {
+		.div = 2,
+		.min_div = 2,
+		.max_div = 2,
+	},
+	.ops = &vco_divided_clk_ops,
+	.c = {
+		.parent = &dp_vco_clk.c,
+		.dbg_name = "vco_divsel_two_clk_src",
+		.ops = &clk_ops_vco_divided_clk_src_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(vco_divsel_two_clk_src.c),
+	},
+};
+
+static struct mux_clk vco_divided_clk_src_mux = {
+	.num_parents = 2,
+	.parents = (struct clk_src[]) {
+		{&vco_divsel_two_clk_src.c, 0},
+		{&vco_divsel_four_clk_src.c, 1},
+	},
+	.ops = &mdss_mux_ops,
+	.c = {
+		.parent = &vco_divsel_two_clk_src.c,
+		.dbg_name = "vco_divided_clk_src_mux",
+		.ops = &clk_ops_gen_mux_dp,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(vco_divided_clk_src_mux.c),
+	}
 };
 
 static struct clk_lookup dp_pllcc_cobalt[] = {
 	CLK_LIST(dp_vco_clk),
-	CLK_LIST(hsclk_divsel_clk_src),
 	CLK_LIST(dp_link_2x_clk_divsel_five),
-	CLK_LIST(dp_link_2x_clk_divsel_ten),
-	CLK_LIST(dp_link_2x_clk_mux),
-	CLK_LIST(vco_divided_clk_src),
+	CLK_LIST(vco_divsel_four_clk_src),
+	CLK_LIST(vco_divsel_two_clk_src),
+	CLK_LIST(vco_divided_clk_src_mux),
 };
 
 int dp_pll_clock_register_cobalt(struct platform_device *pdev,
@@ -211,14 +187,10 @@ int dp_pll_clock_register_cobalt(struct platform_device *pdev,
 
 	/* Set client data for vco, mux and div clocks */
 	dp_vco_clk.priv = pll_res;
-	hsclk_divsel_clk_src.priv = pll_res;
-	dp_link_2x_clk_mux.priv = pll_res;
-	vco_divided_clk_src.priv = pll_res;
+	vco_divided_clk_src_mux.priv = pll_res;
+	vco_divsel_two_clk_src.priv = pll_res;
+	vco_divsel_four_clk_src.priv = pll_res;
 	dp_link_2x_clk_divsel_five.priv = pll_res;
-	dp_link_2x_clk_divsel_ten.priv = pll_res;
-
-	clk_ops_hsclk_divsel_clk_src_c = clk_ops_div;
-	clk_ops_hsclk_divsel_clk_src_c.prepare = mdss_pll_div_prepare;
 
 	clk_ops_link_2x_clk_div_c = clk_ops_div;
 	clk_ops_link_2x_clk_div_c.prepare = mdss_pll_div_prepare;
@@ -232,6 +204,9 @@ int dp_pll_clock_register_cobalt(struct platform_device *pdev,
 	clk_ops_vco_divided_clk_src_c = clk_ops_slave_div;
 	clk_ops_vco_divided_clk_src_c.prepare = mdss_pll_div_prepare;
 	clk_ops_vco_divided_clk_src_c.handoff = vco_divided_clk_handoff;
+
+	clk_ops_gen_mux_dp = clk_ops_gen_mux;
+	clk_ops_gen_mux_dp.get_rate = parent_get_rate;
 
 	/* We can select different clock ops for future versions */
 	dp_vco_clk.c.ops = &dp_cobalt_vco_clk_ops;

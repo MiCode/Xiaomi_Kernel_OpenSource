@@ -755,8 +755,8 @@
 			 <&mdss_dsi1_pll clk_dsi1pll_pclk_mux>,
 			 <&mdss_dsi0_pll clk_dsi0pll_byteclk_mux>,
 			 <&mdss_dsi1_pll clk_dsi1pll_byteclk_mux>,
-			 <&mdss_dp_pll clk_dp_link_2x_clk_mux>,
-			 <&mdss_dp_pll clk_vco_divided_clk_src>,
+			 <&mdss_dp_pll clk_dp_link_2x_clk_divsel_five>,
+			 <&mdss_dp_pll clk_vco_divided_clk_src_mux>,
 			 <&mdss_hdmi_pll clk_hdmi_vco_clk>;
 		#clock-cells = <1>;
 	};
