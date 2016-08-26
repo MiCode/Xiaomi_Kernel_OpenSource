@@ -32,6 +32,18 @@ Optional properties:
 - qcom,vph-droop-debounce-us	: Integer property to specify VPH droop debounce time. It is only used
 				  if qcom,vph-droop-det is specified. Valid values are 0, 8, 16 and 26.
 				  Unit is uS.
+- qcom,led1n2-iclamp-low-ma	: Integer property to specify current clamp low
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,led1n2-iclamp-mid-ma	: Integer property to specify current clamp mid
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,led3-iclamp-low-ma	: Integer property to specify current clamp low
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,led3-iclamp-mid-ma	: Integer property to specify current clamp mid
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
 - qcom,vled-max-uv		: Integer property for flash current predictive mitigation.
 				  Default value is 3500000 uV.
 - qcom,ibatt-ocp-threshold-ua	: Integer property for flash current predictive mitigation.

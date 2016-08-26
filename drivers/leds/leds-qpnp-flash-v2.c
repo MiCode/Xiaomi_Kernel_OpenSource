@@ -49,6 +49,10 @@
 #define	FLASH_LED_REG_VPH_DROOP_THRESHOLD(base)	(base + 0x61)
 #define	FLASH_LED_REG_VPH_DROOP_DEBOUNCE(base)	(base + 0x62)
 #define	FLASH_LED_REG_ILED_GRT_THRSH(base)	(base + 0x67)
+#define	FLASH_LED_REG_LED1N2_ICLAMP_LOW(base)	(base + 0x68)
+#define	FLASH_LED_REG_LED1N2_ICLAMP_MID(base)	(base + 0x69)
+#define	FLASH_LED_REG_LED3_ICLAMP_LOW(base)	(base + 0x6A)
+#define	FLASH_LED_REG_LED3_ICLAMP_MID(base)	(base + 0x6B)
 #define	FLASH_LED_REG_MITIGATION_SEL(base)	(base + 0x6E)
 #define	FLASH_LED_REG_MITIGATION_SW(base)	(base + 0x6F)
 #define	FLASH_LED_REG_LMH_LEVEL(base)		(base + 0x70)
@@ -196,6 +200,10 @@ struct flash_led_platform_data {
 	int	rpara_uohm;
 	int	lmh_rbatt_threshold_uohm;
 	int	lmh_ocv_threshold_uv;
+	u32	led1n2_iclamp_low_ma;
+	u32	led1n2_iclamp_mid_ma;
+	u32	led3_iclamp_low_ma;
+	u32	led3_iclamp_mid_ma;
 	u8	isc_delay;
 	u8	warmup_delay;
 	u8	current_derate_en_cfg;
@@ -378,6 +386,46 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 			led->pdata->iled_thrsh_val);
 	if (rc < 0)
 		return rc;
+
+	if (led->pdata->led1n2_iclamp_low_ma) {
+		val = CURRENT_MA_TO_REG_VAL(led->pdata->led1n2_iclamp_low_ma,
+						led->fnode[0].ires_ua);
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_LED1N2_ICLAMP_LOW(led->base),
+				FLASH_LED_CURRENT_MASK, val);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (led->pdata->led1n2_iclamp_mid_ma) {
+		val = CURRENT_MA_TO_REG_VAL(led->pdata->led1n2_iclamp_mid_ma,
+						led->fnode[0].ires_ua);
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_LED1N2_ICLAMP_MID(led->base),
+				FLASH_LED_CURRENT_MASK, val);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (led->pdata->led3_iclamp_low_ma) {
+		val = CURRENT_MA_TO_REG_VAL(led->pdata->led3_iclamp_low_ma,
+						led->fnode[3].ires_ua);
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_LED3_ICLAMP_LOW(led->base),
+				FLASH_LED_CURRENT_MASK, val);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (led->pdata->led3_iclamp_mid_ma) {
+		val = CURRENT_MA_TO_REG_VAL(led->pdata->led3_iclamp_mid_ma,
+						led->fnode[3].ires_ua);
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_LED3_ICLAMP_MID(led->base),
+				FLASH_LED_CURRENT_MASK, val);
+		if (rc < 0)
+			return rc;
+	}
 
 	return 0;
 }
@@ -1568,6 +1616,42 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 	} else if (rc != -EINVAL) {
 		dev_err(&led->pdev->dev,
 			"Unable to parse hw strobe option, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,led1n2-iclamp-low-ma", &val);
+	if (!rc) {
+		led->pdata->led1n2_iclamp_low_ma = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read led1n2_iclamp_low current, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,led1n2-iclamp-mid-ma", &val);
+	if (!rc) {
+		led->pdata->led1n2_iclamp_mid_ma = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read led1n2_iclamp_mid current, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,led3-iclamp-low-ma", &val);
+	if (!rc) {
+		led->pdata->led3_iclamp_low_ma = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read led3_iclamp_low current, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,led3-iclamp-mid-ma", &val);
+	if (!rc) {
+		led->pdata->led3_iclamp_mid_ma = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read led3_iclamp_mid current, rc=%d\n",
+				rc);
 		return rc;
 	}
 
