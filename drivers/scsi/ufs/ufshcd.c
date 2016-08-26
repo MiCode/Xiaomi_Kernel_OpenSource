@@ -3932,8 +3932,12 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 		ret = (status != PWR_OK) ? status : -1;
 	}
 out:
-	if (ret)
+	if (ret) {
 		ufsdbg_set_err_state(hba);
+		ufshcd_print_host_state(hba);
+		ufshcd_print_pwr_info(hba);
+		ufshcd_print_host_regs(hba);
+	}
 
 	ufshcd_save_tstamp_of_last_dme_cmd(hba);
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -4644,8 +4648,12 @@ link_startup:
 
 	ret = ufshcd_make_hba_operational(hba);
 out:
-	if (ret)
+	if (ret) {
 		dev_err(hba->dev, "link startup failed %d\n", ret);
+		ufshcd_print_host_state(hba);
+		ufshcd_print_pwr_info(hba);
+		ufshcd_print_host_regs(hba);
+	}
 	return ret;
 }
 
