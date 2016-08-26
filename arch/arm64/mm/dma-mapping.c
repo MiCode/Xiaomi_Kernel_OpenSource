@@ -1366,20 +1366,38 @@ static void *__iommu_alloc_atomic(struct device *dev, size_t size,
 				  dma_addr_t *handle, gfp_t gfp)
 {
 	struct page *page;
+	struct page **pages;
+	int count = size >> PAGE_SHIFT;
+	int array_size = count * sizeof(struct page *);
+	int i;
 	void *addr;
+
+	if (array_size <= PAGE_SIZE)
+		pages = kzalloc(array_size, gfp);
+	else
+		pages = vzalloc(array_size);
+
+	if (!pages)
+		return NULL;
 
 	addr = __alloc_from_pool(size, &page, gfp);
 	if (!addr)
-		return NULL;
+		goto err_free;
 
-	*handle = __iommu_create_mapping(dev, &page, size);
+	for (i = 0; i < count ; i++)
+		pages[i] = page + i;
+
+	*handle = __iommu_create_mapping(dev, pages, size);
 	if (*handle == DMA_ERROR_CODE)
 		goto err_mapping;
 
+	kvfree(pages);
 	return addr;
 
 err_mapping:
 	__free_from_pool(addr, size);
+err_free:
+	kvfree(pages);
 	return NULL;
 }
 
