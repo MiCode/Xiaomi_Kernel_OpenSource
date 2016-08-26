@@ -37,6 +37,10 @@
 #define CHANNEL_STATUS_MASK 0x4
 #define AFE_API_VERSION_CLOCK_SET 1
 
+#define DAI_FORMATS_S16_S24_S32_LE (SNDRV_PCM_FMTBIT_S16_LE | \
+				    SNDRV_PCM_FMTBIT_S24_LE | \
+				    SNDRV_PCM_FMTBIT_S32_LE)
+
 enum {
 	ENC_FMT_NONE,
 	ENC_FMT_SBC = ASM_MEDIA_FMT_SBC,
@@ -2808,15 +2812,12 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.playback = {
 			.stream_name = "Slimbus Playback",
 			.aif_name = "SLIMBUS_0_RX",
-			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
-			SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
-			SNDRV_PCM_RATE_192000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE,
+			.rates = SNDRV_PCM_RATE_8000_384000,
+			.formats = DAI_FORMATS_S16_S24_S32_LE,
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = SLIMBUS_0_RX,
@@ -2827,15 +2828,12 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.playback = {
 			.stream_name = "Slimbus1 Playback",
 			.aif_name = "SLIMBUS_1_RX",
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
-			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			SNDRV_PCM_RATE_192000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE,
+			.rates = SNDRV_PCM_RATE_8000_384000,
+			.formats = DAI_FORMATS_S16_S24_S32_LE,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = SLIMBUS_1_RX,
@@ -2846,15 +2844,12 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.playback = {
 			.stream_name = "Slimbus2 Playback",
 			.aif_name = "SLIMBUS_2_RX",
-			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
-			SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
-			SNDRV_PCM_RATE_192000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE,
+			.rates = SNDRV_PCM_RATE_8000_384000,
+			.formats = DAI_FORMATS_S16_S24_S32_LE,
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = SLIMBUS_2_RX,
@@ -2865,15 +2860,12 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.playback = {
 			.stream_name = "Slimbus3 Playback",
 			.aif_name = "SLIMBUS_3_RX",
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
-			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			SNDRV_PCM_RATE_192000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE,
+			.rates = SNDRV_PCM_RATE_8000_384000,
+			.formats = DAI_FORMATS_S16_S24_S32_LE,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = SLIMBUS_3_RX,
@@ -2884,15 +2876,12 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.playback = {
 			.stream_name = "Slimbus4 Playback",
 			.aif_name = "SLIMBUS_4_RX",
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
-			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			SNDRV_PCM_RATE_192000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE,
+			.rates = SNDRV_PCM_RATE_8000_384000,
+			.formats = DAI_FORMATS_S16_S24_S32_LE,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = SLIMBUS_4_RX,
@@ -2903,15 +2892,12 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.playback = {
 			.stream_name = "Slimbus6 Playback",
 			.aif_name = "SLIMBUS_6_RX",
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
-			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			SNDRV_PCM_RATE_192000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-			 SNDRV_PCM_FMTBIT_S24_LE,
+			.rates = SNDRV_PCM_RATE_8000_384000,
+			.formats = DAI_FORMATS_S16_S24_S32_LE,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = SLIMBUS_6_RX,
@@ -2922,15 +2908,12 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.playback = {
 			.stream_name = "Slimbus5 Playback",
 			.aif_name = "SLIMBUS_5_RX",
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
-			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_44100,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE,
+			.rates = SNDRV_PCM_RATE_8000_384000,
+			.formats = DAI_FORMATS_S16_S24_S32_LE,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = SLIMBUS_5_RX,
@@ -2941,15 +2924,12 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.playback = {
 			.stream_name = "Slimbus7 Playback",
 			.aif_name = "SLIMBUS_7_RX",
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
-			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_44100,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE,
+			.rates = SNDRV_PCM_RATE_8000_384000,
+			.formats = DAI_FORMATS_S16_S24_S32_LE,
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = SLIMBUS_7_RX,
@@ -2960,15 +2940,12 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 		.playback = {
 			.stream_name = "Slimbus8 Playback",
 			.aif_name = "SLIMBUS_8_RX",
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
-			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_44100,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE,
+			.rates = SNDRV_PCM_RATE_8000_384000,
+			.formats = DAI_FORMATS_S16_S24_S32_LE,
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = SLIMBUS_8_RX,
