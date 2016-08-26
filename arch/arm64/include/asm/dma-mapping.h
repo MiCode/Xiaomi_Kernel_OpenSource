@@ -47,6 +47,12 @@ static inline const struct dma_map_ops *get_dma_ops(struct device *dev)
 		return __generic_dma_ops(dev);
 }
 
+static inline void set_dma_ops(struct device *dev,
+				const struct dma_map_ops *dma_ops)
+{
+	dev->archdata.dma_ops = dma_ops;
+}
+
 void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 			const struct iommu_ops *iommu, bool coherent);
 #define arch_setup_dma_ops	arch_setup_dma_ops
