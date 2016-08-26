@@ -538,6 +538,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* falcon ID */
 	[317] = {MSM_CPU_FALCON, "MSMFALCON"},
 
+	/* Skunk ID */
+	[321] = {MSM_CPU_SKUNK, "MSMSKUNK"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
