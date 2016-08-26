@@ -28,6 +28,7 @@
 #include <linux/leds-qpnp-flash.h>
 #include <linux/leds-qpnp-flash-v2.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/log2.h>
 #include "leds.h"
 
 #define	FLASH_LED_REG_LED_STATUS1(base)		(base + 0x08)
@@ -44,9 +45,12 @@
 #define	FLASH_LED_REG_HDRM_AUTO_MODE_CTRL(base)	(base + 0x50)
 #define	FLASH_LED_REG_WARMUP_DELAY(base)	(base + 0x51)
 #define	FLASH_LED_REG_ISC_DELAY(base)		(base + 0x52)
+#define	FLASH_LED_REG_THERMAL_RMP_DN_RATE(base)	(base + 0x55)
 #define	FLASH_LED_REG_THERMAL_THRSH1(base)	(base + 0x56)
 #define	FLASH_LED_REG_THERMAL_THRSH2(base)	(base + 0x57)
 #define	FLASH_LED_REG_THERMAL_THRSH3(base)	(base + 0x58)
+#define	FLASH_LED_REG_THERMAL_HYSTERESIS(base)	(base + 0x59)
+#define	FLASH_LED_REG_THERMAL_DEBOUNCE(base)	(base + 0x5A)
 #define	FLASH_LED_REG_VPH_DROOP_THRESHOLD(base)	(base + 0x61)
 #define	FLASH_LED_REG_VPH_DROOP_DEBOUNCE(base)	(base + 0x62)
 #define	FLASH_LED_REG_ILED_GRT_THRSH(base)	(base + 0x67)
@@ -59,13 +63,10 @@
 #define	FLASH_LED_REG_LMH_LEVEL(base)		(base + 0x70)
 #define	FLASH_LED_REG_CURRENT_DERATE_EN(base)	(base + 0x76)
 
-#define	FLASH_LED_HDRM_MODE_PRGM_MASK		GENMASK(7, 0)
 #define	FLASH_LED_HDRM_VOL_MASK			GENMASK(7, 4)
 #define	FLASH_LED_CURRENT_MASK			GENMASK(6, 0)
 #define	FLASH_LED_ENABLE_MASK			GENMASK(2, 0)
 #define	FLASH_HW_STROBE_MASK			GENMASK(2, 0)
-#define	FLASH_LED_SAFETY_TMR_MASK		GENMASK(7, 0)
-#define	FLASH_LED_INT_RT_STS_MASK		GENMASK(7, 0)
 #define	FLASH_LED_ISC_WARMUP_DELAY_MASK		GENMASK(1, 0)
 #define	FLASH_LED_CURRENT_DERATE_EN_MASK	GENMASK(2, 0)
 #define	FLASH_LED_VPH_DROOP_DEBOUNCE_MASK	GENMASK(1, 0)
@@ -75,13 +76,19 @@
 #define	FLASH_LED_LMH_LEVEL_MASK		GENMASK(1, 0)
 #define	FLASH_LED_VPH_DROOP_HYSTERESIS_MASK	GENMASK(5, 4)
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MASK	GENMASK(2, 0)
+#define	FLASH_LED_THERMAL_HYSTERESIS_MASK	GENMASK(1, 0)
+#define	FLASH_LED_THERMAL_DEBOUNCE_MASK		GENMASK(1, 0)
 #define	FLASH_LED_THERMAL_THRSH_MASK		GENMASK(2, 0)
-#define	FLASH_LED_THERMAL_OTST_MASK		GENMASK(2, 0)
 #define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 #define	FLASH_LED_HW_SW_STROBE_SEL_BIT		BIT(2)
 #define	FLASH_LED_VPH_DROOP_FAULT_MASK		BIT(4)
 #define	FLASH_LED_LMH_MITIGATION_EN_MASK	BIT(0)
 #define	FLASH_LED_CHGR_MITIGATION_EN_MASK	BIT(4)
+#define	THERMAL_OTST1_RAMP_CTRL_MASK		BIT(7)
+#define	THERMAL_OTST1_RAMP_CTRL_SHIFT		7
+#define	THERMAL_DERATE_SLOW_SHIFT		4
+#define	THERMAL_DERATE_SLOW_MASK		GENMASK(6, 4)
+#define	THERMAL_DERATE_FAST_MASK		GENMASK(2, 0)
 
 #define	VPH_DROOP_DEBOUNCE_US_TO_VAL(val_us)	(val_us / 8)
 #define	VPH_DROOP_HYST_MV_TO_VAL(val_mv)	(val_mv / 25)
@@ -90,16 +97,22 @@
 #define	MITIGATION_THRSH_MA_TO_VAL(val_ma)	(val_ma / 100)
 #define	CURRENT_MA_TO_REG_VAL(curr_ma, ires_ua)	((curr_ma * 1000) / ires_ua - 1)
 #define	SAFETY_TMR_TO_REG_VAL(duration_ms)	((duration_ms / 10) - 1)
+#define	THERMAL_HYST_TEMP_TO_VAL(val, divisor)	(val / divisor)
 
 #define	FLASH_LED_ISC_WARMUP_DELAY_SHIFT	6
 #define	FLASH_LED_WARMUP_DELAY_DEFAULT		2
 #define	FLASH_LED_ISC_DELAY_DEFAULT		3
 #define	FLASH_LED_VPH_DROOP_DEBOUNCE_DEFAULT	2
+#define	FLASH_LED_VPH_DROOP_HYST_SHIFT		4
 #define	FLASH_LED_VPH_DROOP_HYST_DEFAULT	2
 #define	FLASH_LED_VPH_DROOP_THRESH_DEFAULT	5
-#define	FLASH_LED_VPH_DROOP_DEBOUNCE_MAX	3
-#define	FLASH_LED_VPH_DROOP_HYST_MAX		3
+#define	FLASH_LED_DEBOUNCE_MAX			3
+#define	FLASH_LED_HYSTERESIS_MAX		3
 #define	FLASH_LED_VPH_DROOP_THRESH_MAX		7
+#define	THERMAL_DERATE_SLOW_MAX			314592
+#define	THERMAL_DERATE_FAST_MAX			512
+#define	THERMAL_DEBOUNCE_TIME_MAX		64
+#define	THERMAL_DERATE_HYSTERESIS_MAX		3
 #define	FLASH_LED_THERMAL_THRSH_MIN		3
 #define	FLASH_LED_THERMAL_OTST_LEVELS		3
 #define	FLASH_LED_VLED_MAX_DEFAULT_UV		3500000
@@ -202,6 +215,10 @@ struct flash_led_platform_data {
 	int			rpara_uohm;
 	int			lmh_rbatt_threshold_uohm;
 	int			lmh_ocv_threshold_uv;
+	int			thermal_derate_slow;
+	int			thermal_derate_fast;
+	int			thermal_hysteresis;
+	int			thermal_debounce;
 	u32			led1n2_iclamp_low_ma;
 	u32			led1n2_iclamp_mid_ma;
 	u32			led3_iclamp_low_ma;
@@ -219,6 +236,7 @@ struct flash_led_platform_data {
 	u8			hw_strobe_option;
 	bool			hdrm_auto_mode_en;
 	bool			thermal_derate_en;
+	bool			otst_ramp_bkup_en;
 };
 
 /*
@@ -241,22 +259,44 @@ struct qpnp_flash_led {
 	bool				trigger_chgr;
 };
 
-static int
-qpnp_flash_led_read(struct qpnp_flash_led *led, u16 addr, u8 *data)
+static int thermal_derate_slow_table[] = {
+	128, 256, 512, 1024, 2048, 4096, 8192, 314592,
+};
+
+static int thermal_derate_fast_table[] = {
+	32, 64, 96, 128, 256, 384, 512,
+};
+
+static int qpnp_flash_led_read(struct qpnp_flash_led *led, u16 addr, u8 *data)
 {
 	int rc;
 	uint val;
 
 	rc = regmap_read(led->regmap, addr, &val);
-	if (rc < 0)
+	if (rc < 0) {
 		dev_err(&led->pdev->dev, "Unable to read from 0x%04X rc = %d\n",
 			addr, rc);
-	else
-		dev_dbg(&led->pdev->dev, "Read 0x%02X from addr 0x%04X\n",
-			val, addr);
+		return rc;
+	}
 
+	dev_dbg(&led->pdev->dev, "Read 0x%02X from addr 0x%04X\n", val, addr);
 	*data = (u8)val;
-	return rc;
+	return 0;
+}
+
+static int qpnp_flash_led_write(struct qpnp_flash_led *led, u16 addr, u8 data)
+{
+	int rc;
+
+	rc = regmap_write(led->regmap, addr, data);
+	if (rc < 0) {
+		dev_err(&led->pdev->dev, "Unable to write to 0x%04X rc = %d\n",
+			addr, rc);
+		return rc;
+	}
+
+	dev_dbg(&led->pdev->dev, "Wrote 0x%02X to addr 0x%04X\n", data, addr);
+	return 0;
 }
 
 static int
@@ -299,13 +339,12 @@ led_brightness qpnp_flash_led_brightness_get(struct led_classdev *led_cdev)
 static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 {
 	int rc, i, addr_offset;
-	u8 val = 0;
+	u8 val = 0, mask;
 
 	for (i = 0; i < led->num_fnodes; i++) {
 		addr_offset = led->fnode[i].id;
-		rc = qpnp_flash_led_masked_write(led,
+		rc = qpnp_flash_led_write(led,
 			FLASH_LED_REG_HDRM_PRGM(led->base + addr_offset),
-			FLASH_LED_HDRM_MODE_PRGM_MASK,
 			led->fnode[i].hdrm_val);
 		if (rc < 0)
 			return rc;
@@ -313,9 +352,9 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		val |= 0x1 << led->fnode[i].id;
 	}
 
-	rc = qpnp_flash_led_masked_write(led,
+	rc = qpnp_flash_led_write(led,
 				FLASH_LED_REG_HDRM_AUTO_MODE_CTRL(led->base),
-				FLASH_LED_HDRM_MODE_PRGM_MASK, val);
+				val);
 	if (rc < 0)
 		return rc;
 
@@ -339,6 +378,43 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 			led->pdata->current_derate_en_cfg);
 	if (rc < 0)
 		return rc;
+
+	val = (led->pdata->otst_ramp_bkup_en << THERMAL_OTST1_RAMP_CTRL_SHIFT);
+	mask = THERMAL_OTST1_RAMP_CTRL_MASK;
+	if (led->pdata->thermal_derate_slow >= 0) {
+		val |= (led->pdata->thermal_derate_slow <<
+				THERMAL_DERATE_SLOW_SHIFT);
+		mask |= THERMAL_DERATE_SLOW_MASK;
+	}
+
+	if (led->pdata->thermal_derate_fast >= 0) {
+		val |= led->pdata->thermal_derate_fast;
+		mask |= THERMAL_DERATE_FAST_MASK;
+	}
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_THERMAL_RMP_DN_RATE(led->base),
+			mask, val);
+	if (rc < 0)
+		return rc;
+
+	if (led->pdata->thermal_debounce >= 0) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_THERMAL_DEBOUNCE(led->base),
+				FLASH_LED_THERMAL_DEBOUNCE_MASK,
+				led->pdata->thermal_debounce);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (led->pdata->thermal_hysteresis >= 0) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_THERMAL_HYSTERESIS(led->base),
+				FLASH_LED_THERMAL_HYSTERESIS_MASK,
+				led->pdata->thermal_hysteresis);
+		if (rc < 0)
+			return rc;
+	}
 
 	rc = qpnp_flash_led_masked_write(led,
 			FLASH_LED_REG_VPH_DROOP_DEBOUNCE(led->base),
@@ -923,9 +999,9 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		if (rc < 0)
 			return rc;
 
-		rc = qpnp_flash_led_masked_write(led,
+		rc = qpnp_flash_led_write(led,
 			FLASH_LED_REG_SAFETY_TMR(led->base + addr_offset),
-			FLASH_LED_SAFETY_TMR_MASK, led->fnode[i].duration);
+			led->fnode[i].duration);
 		if (rc < 0)
 			return rc;
 
@@ -1499,6 +1575,23 @@ static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
 	return 0;
 }
 
+static int get_code_from_table(int *table, int len, int value)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		if (value == table[i])
+			break;
+	}
+
+	if (i == len) {
+		pr_err("Couldn't find %d from table\n", value);
+		return -ENODATA;
+	}
+
+	return i;
+}
+
 static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 						struct device_node *node)
 {
@@ -1583,6 +1676,81 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		}
 	}
 
+	led->pdata->otst_ramp_bkup_en =
+		!of_property_read_bool(node, "qcom,otst-ramp-back-up-dis");
+
+	led->pdata->thermal_derate_slow = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,thermal-derate-slow", &val);
+	if (!rc) {
+		if (val < 0 || val > THERMAL_DERATE_SLOW_MAX) {
+			pr_err("Invalid thermal_derate_slow %d\n", val);
+			return -EINVAL;
+		}
+
+		led->pdata->thermal_derate_slow =
+			get_code_from_table(thermal_derate_slow_table,
+				ARRAY_SIZE(thermal_derate_slow_table), val);
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read thermal derate slow, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->thermal_derate_fast = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,thermal-derate-fast", &val);
+	if (!rc) {
+		if (val < 0 || val > THERMAL_DERATE_FAST_MAX) {
+			pr_err("Invalid thermal_derate_fast %d\n", val);
+			return -EINVAL;
+		}
+
+		led->pdata->thermal_derate_fast =
+			get_code_from_table(thermal_derate_fast_table,
+				ARRAY_SIZE(thermal_derate_fast_table), val);
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read thermal derate fast, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->thermal_debounce = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,thermal-debounce", &val);
+	if (!rc) {
+		if (val < 0 || val > THERMAL_DEBOUNCE_TIME_MAX) {
+			pr_err("Invalid thermal_debounce %d\n", val);
+			return -EINVAL;
+		}
+
+		if (val >= 0 && val < 16)
+			led->pdata->thermal_debounce = 0;
+		else
+			led->pdata->thermal_debounce = ilog2(val) - 3;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read thermal debounce, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->thermal_hysteresis = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,thermal-hysteresis", &val);
+	if (!rc) {
+		if (led->pdata->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE)
+			val = THERMAL_HYST_TEMP_TO_VAL(val, 20);
+		else
+			val = THERMAL_HYST_TEMP_TO_VAL(val, 15);
+
+		if (val < 0 || val > THERMAL_DERATE_HYSTERESIS_MAX) {
+			pr_err("Invalid thermal_derate_hysteresis %d\n", val);
+			return -EINVAL;
+		}
+
+		led->pdata->thermal_hysteresis = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read thermal hysteresis, rc=%d\n",
+				rc);
+		return rc;
+	}
+
 	led->pdata->vph_droop_debounce = FLASH_LED_VPH_DROOP_DEBOUNCE_DEFAULT;
 	rc = of_property_read_u32(node, "qcom,vph-droop-debounce-us", &val);
 	if (!rc) {
@@ -1594,9 +1762,9 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
-	if (led->pdata->vph_droop_debounce > FLASH_LED_VPH_DROOP_DEBOUNCE_MAX) {
+	if (led->pdata->vph_droop_debounce > FLASH_LED_DEBOUNCE_MAX) {
 		dev_err(&led->pdev->dev,
-				"Invalid VPH droop debounce specified");
+				"Invalid VPH droop debounce specified\n");
 		return -EINVAL;
 	}
 
@@ -1613,7 +1781,7 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 
 	if (led->pdata->vph_droop_threshold > FLASH_LED_VPH_DROOP_THRESH_MAX) {
 		dev_err(&led->pdev->dev,
-				"Invalid VPH droop threshold specified");
+				"Invalid VPH droop threshold specified\n");
 		return -EINVAL;
 	}
 
@@ -1629,11 +1797,13 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
-	if (led->pdata->vph_droop_hysteresis > FLASH_LED_VPH_DROOP_HYST_MAX) {
+	if (led->pdata->vph_droop_hysteresis > FLASH_LED_HYSTERESIS_MAX) {
 		dev_err(&led->pdev->dev,
-				"Invalid VPH droop hysteresis specified");
+				"Invalid VPH droop hysteresis specified\n");
 		return -EINVAL;
 	}
+
+	led->pdata->vph_droop_hysteresis <<= FLASH_LED_VPH_DROOP_HYST_SHIFT;
 
 	rc = of_property_read_u32(node, "qcom,hw-strobe-option", &val);
 	if (!rc) {
