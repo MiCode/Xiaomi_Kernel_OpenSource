@@ -43,11 +43,9 @@
 #define KGSL_STATE_INIT		0x00000001
 #define KGSL_STATE_ACTIVE	0x00000002
 #define KGSL_STATE_NAP		0x00000004
-#define KGSL_STATE_SLEEP	0x00000008
 #define KGSL_STATE_SUSPEND	0x00000010
 #define KGSL_STATE_AWARE	0x00000020
 #define KGSL_STATE_SLUMBER	0x00000080
-#define KGSL_STATE_DEEP_NAP	0x00000100
 
 /**
  * enum kgsl_event_results - result codes passed to an event callback when the
