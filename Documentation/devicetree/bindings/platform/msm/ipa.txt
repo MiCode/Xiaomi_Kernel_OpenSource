@@ -212,6 +212,9 @@ qcom,ipa@fd4c0000 {
 	ipa_smmu_wlan: ipa_smmu_wlan {
 		compatible = "qcom,ipa-smmu-wlan-cb";
 		iommus = <&anoc2_smmu 0x31>;
+		qcom,additional-mapping =
+		/* ipa-uc ram */
+		<0x1E60000 0x1E60000 0x80000>;
 	};
 
 	ipa_smmu_uc: ipa_smmu_uc {
