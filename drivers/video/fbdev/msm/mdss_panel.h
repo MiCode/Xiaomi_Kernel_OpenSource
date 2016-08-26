@@ -722,6 +722,9 @@ struct mdss_panel_info {
 
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
+
+	/* stores initial adaptive variable refresh vtotal value */
+	u32 saved_avr_vtotal;
 };
 
 struct mdss_panel_timing {
