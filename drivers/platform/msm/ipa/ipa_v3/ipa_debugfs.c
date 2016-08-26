@@ -1412,7 +1412,7 @@ static ssize_t ipa3_write_dbg_cnt(struct file *file, const char __user *buf,
 	memset(&dbg_cnt_ctrl, 0, sizeof(dbg_cnt_ctrl));
 	dbg_cnt_ctrl.type = DBG_CNT_TYPE_GENERAL;
 	dbg_cnt_ctrl.product = true;
-	dbg_cnt_ctrl.src_pipe = 0x1f;
+	dbg_cnt_ctrl.src_pipe = 0xff;
 	dbg_cnt_ctrl.rule_idx_pipe_rule = false;
 	dbg_cnt_ctrl.rule_idx = 0;
 	if (option == 1)
