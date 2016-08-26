@@ -115,10 +115,10 @@ static ssize_t ipa3_read_gen_reg(struct file *file, char __user *ubuf,
 	struct ipahal_reg_shared_mem_size smem_sz;
 
 	memset(&smem_sz, 0, sizeof(smem_sz));
-	ipahal_read_reg_fields(IPA_SHARED_MEM_SIZE, &smem_sz);
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
+	ipahal_read_reg_fields(IPA_SHARED_MEM_SIZE, &smem_sz);
 	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"IPA_VERSION=0x%x\n"
 			"IPA_COMP_HW_VERSION=0x%x\n"
