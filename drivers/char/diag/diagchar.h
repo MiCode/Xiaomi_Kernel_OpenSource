@@ -64,16 +64,19 @@
 #define DIAG_CON_LPASS		(0x0004)	/* Bit mask for LPASS */
 #define DIAG_CON_WCNSS		(0x0008)	/* Bit mask for WCNSS */
 #define DIAG_CON_SENSORS	(0x0010)	/* Bit mask for Sensors */
+#define DIAG_CON_WDSP (0x0020) /* Bit mask for WDSP */
+
 #define DIAG_CON_NONE		(0x0000)	/* Bit mask for No SS*/
 #define DIAG_CON_ALL		(DIAG_CON_APSS | DIAG_CON_MPSS \
 				| DIAG_CON_LPASS | DIAG_CON_WCNSS \
-				| DIAG_CON_SENSORS)
+				| DIAG_CON_SENSORS | DIAG_CON_WDSP)
 
 #define DIAG_STM_MODEM	0x01
 #define DIAG_STM_LPASS	0x02
 #define DIAG_STM_WCNSS	0x04
 #define DIAG_STM_APPS	0x08
 #define DIAG_STM_SENSORS 0x10
+#define DIAG_STM_WDSP 0x20
 
 #define INVALID_PID		-1
 #define DIAG_CMD_FOUND		1
@@ -198,7 +201,8 @@
 #define PERIPHERAL_LPASS	1
 #define PERIPHERAL_WCNSS	2
 #define PERIPHERAL_SENSORS	3
-#define NUM_PERIPHERALS		4
+#define PERIPHERAL_WDSP		4
+#define NUM_PERIPHERALS		5
 #define APPS_DATA		(NUM_PERIPHERALS)
 
 /* Number of sessions possible in Memory Device Mode. +1 for Apps data */

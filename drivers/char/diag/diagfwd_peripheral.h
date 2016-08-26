@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,19 +20,22 @@
 #define TRANSPORT_UNKNOWN		-1
 #define TRANSPORT_SMD			0
 #define TRANSPORT_SOCKET		1
-#define NUM_TRANSPORT			2
-
+#define TRANSPORT_GLINK			2
+#define NUM_TRANSPORT			3
+#define NUM_WRITE_BUFFERS		2
 #define PERIPHERAL_MASK(x)					\
 	((x == PERIPHERAL_MODEM) ? DIAG_CON_MPSS :		\
 	((x == PERIPHERAL_LPASS) ? DIAG_CON_LPASS :		\
 	((x == PERIPHERAL_WCNSS) ? DIAG_CON_WCNSS :		\
-	((x == PERIPHERAL_SENSORS) ? DIAG_CON_SENSORS : 0))))	\
+	((x == PERIPHERAL_SENSORS) ? DIAG_CON_SENSORS : \
+	((x == PERIPHERAL_WDSP) ? DIAG_CON_WDSP : 0)))))	\
 
 #define PERIPHERAL_STRING(x)					\
 	((x == PERIPHERAL_MODEM) ? "MODEM" :			\
 	((x == PERIPHERAL_LPASS) ? "LPASS" :			\
 	((x == PERIPHERAL_WCNSS) ? "WCNSS" :			\
-	((x == PERIPHERAL_SENSORS) ? "SENSORS" : "UNKNOWN"))))	\
+	((x == PERIPHERAL_SENSORS) ? "SENSORS" :		\
+	((x == PERIPHERAL_WDSP) ? "WDSP" : "UNKNOWN")))))	\
 
 struct diagfwd_buf_t {
 	unsigned char *data;
@@ -72,6 +75,7 @@ struct diagfwd_info {
 	void *ctxt;
 	struct diagfwd_buf_t *buf_1;
 	struct diagfwd_buf_t *buf_2;
+	struct diagfwd_buf_t *buf_ptr[NUM_WRITE_BUFFERS];
 	struct diag_peripheral_ops *p_ops;
 	struct diag_channel_ops *c_ops;
 };
@@ -108,5 +112,6 @@ int diagfwd_channel_close(struct diagfwd_info *fwd_info);
 void diagfwd_channel_read(struct diagfwd_info *fwd_info);
 int diagfwd_channel_read_done(struct diagfwd_info *fwd_info,
 			      unsigned char *buf, uint32_t len);
+int diagfwd_write_buffer_done(struct diagfwd_info *fwd_info, const void *ptr);
 
 #endif
