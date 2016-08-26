@@ -1390,6 +1390,9 @@ void mdss_misr_disable(struct mdss_data_type *mdata,
 	map = mdss_misr_get_map(req->block_id, ctl, mdata,
 		ctl->is_video_mode);
 
+	if (!map)
+		return;
+
 	/* clear the map data */
 	memset(map->crc_ping, 0, sizeof(map->crc_ping));
 	memset(map->crc_pong, 0, sizeof(map->crc_pong));
