@@ -742,6 +742,20 @@ static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 		{ 0x10, 0xeb, 0x10, 0xf0, 0x10, 0xf0,},
 		{ 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,},
 	};
+	static const struct sde_csc_cfg sde_csc10_YUV2RGB_601L = {
+		{
+			/* S15.16 format */
+			0x00012A00, 0x00000000, 0x00019880,
+			0x00012A00, 0xFFFF9B80, 0xFFFF3000,
+			0x00012A00, 0x00020480, 0x00000000,
+			},
+		/* signed bias */
+		{ 0xffc0, 0xfe00, 0xfe00,},
+		{ 0x0, 0x0, 0x0,},
+		/* unsigned clamp */
+		{ 0x40, 0x3ac, 0x40, 0x3c0, 0x40, 0x3c0,},
+		{ 0x00, 0x3ff, 0x00, 0x3ff, 0x00, 0x3ff,},
+	};
 
 	if (!psde) {
 		SDE_ERROR("invalid plane\n");
@@ -751,6 +765,8 @@ static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 	/* revert to kernel default if override not available */
 	if (psde->csc_usr_ptr)
 		psde->csc_ptr = psde->csc_usr_ptr;
+	else if (BIT(SDE_SSPP_CSC_10BIT) & psde->features)
+		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc10_YUV2RGB_601L;
 	else
 		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc_YUV2RGB_601L;
 
@@ -1256,7 +1272,8 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 
 	if (SDE_FORMAT_IS_YUV(fmt) &&
 		(!(psde->features & SDE_SSPP_SCALER) ||
-		 !(psde->features & BIT(SDE_SSPP_CSC)))) {
+		 !(psde->features & (BIT(SDE_SSPP_CSC)
+		 | BIT(SDE_SSPP_CSC_10BIT))))) {
 		SDE_ERROR_PLANE(psde,
 				"plane doesn't have scaler/csc for yuv\n");
 		ret = -EINVAL;
