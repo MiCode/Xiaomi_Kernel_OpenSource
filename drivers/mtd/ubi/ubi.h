@@ -871,7 +871,6 @@ ssize_t ubi_wl_scrub_all(struct ubi_device *ubi,
 void ubi_wl_update_peb_sqnum(struct ubi_device *ubi, int pnum,
 				struct ubi_vid_hdr *vid_hdr);
 unsigned long long ubi_wl_scrub_get_min_sqnum(struct ubi_device *ubi);
-int ubi_wl_erase_peb(struct ubi_device *ubi, int pnum);
 
 /* io.c */
 int ubi_io_read(const struct ubi_device *ubi, void *buf, int pnum, int offset,

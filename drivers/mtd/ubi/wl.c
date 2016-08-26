@@ -489,24 +489,6 @@ out_free:
 }
 
 /**
- * ubi_wl_erase_peb - synchronously erase a physical eraseblock.
- * @ubi: UBI device description object
- * @pnum: the the physical eraseblock number to erase
- *
- * This function returns zero in case of success and a negative error code in
- * case of failure.
- */
-int ubi_wl_erase_peb(struct ubi_device *ubi, int pnum)
-{
-	struct ubi_wl_entry *e;
-
-	spin_lock(&ubi->wl_lock);
-	e = ubi->lookuptbl[pnum];
-	spin_unlock(&ubi->wl_lock);
-	return sync_erase(ubi, e, 0);
-}
-
-/**
  * serve_prot_queue - check if it is time to stop protecting PEBs.
  * @ubi: UBI device description object
  *
