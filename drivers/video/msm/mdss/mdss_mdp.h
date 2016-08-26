@@ -366,7 +366,6 @@ struct mdss_mdp_frc_cadence_calc {
 };
 
 struct mdss_mdp_frc_info {
-	bool enable; /* FRC is enabled or not */
 	u32 cadence_id; /* patterns such as 22/23/23223 */
 	u32 display_fp1000s; /* display fps multiplied by 1000 */
 	u32 last_vsync_cnt; /* vsync when we kicked off last frame */
@@ -379,6 +378,84 @@ struct mdss_mdp_frc_info {
 	struct mdss_mdp_frc_drop_stat drop_stat;
 	struct mdss_mdp_frc_cadence_calc calc;
 	struct mdss_mdp_frc_seq_gen gen;
+};
+
+/*
+ * FSM used in deterministic frame rate control:
+ *
+ *                +----------------+                      +----------------+
+ *                | +------------+ |    too many drops    | +------------+ |
+ *       +--------> |  INIT      | +----------------------> |   DISABLE  | |
+ *       |        | +------------+ <-----------+          | +------------+ |
+ *       |        +----------------+           |          +----------------+
+ *       |           |        |                |
+ *       |           |        |                | change
+ *       |      frame|        |change          +----------------+
+ *       |           |        |                                 |
+ *       |           |        |                                 |
+ *       |        +--v--------+----+                      +-----+----------+
+ * change|        |                |      not supported   |                |
+ *       |        | CADENCE_DETECT +---------------------->    FREE_RUN    |
+ *       |        |                |                      |                |
+ *       |        +-------+--------+                      +----------------+
+ *       |                |
+ *       |                |
+ *       |                |cadence detected
+ *       |                |
+ *       |                |
+ *       |        +-------v--------+             +----------------------------+
+ *       |        |                |             |Events:                     |
+ *       +--------+  SEQ_MATCH     |             |  1. change: some changes   |
+ *       |        |                |             |  might change cadence like |
+ *       |        +-------+--------+             |  video/display fps.        |
+ *       |                |                      |  2. frame: video frame with|
+ *       |                |sequence matched      |  correct FRC info.         |
+ *       |                |                      |  3. in other states than   |
+ *       |        +-------v--------+             |  INIT frame event doesn't  |
+ *       |        |                |             |  make any state change.    |
+ *       |        |                |             +----------------------------+
+ *       +--------+   READY        |
+ *                |                |
+ *                +----------------+
+ */
+enum mdss_mdp_frc_state_type {
+	FRC_STATE_INIT = 0, /* INIT state waiting for frames */
+	FRC_STATE_CADENCE_DETECT, /* state to detect cadence ID */
+	FRC_STATE_SEQ_MATCH, /* state to find start pos in cadence sequence */
+	FRC_STATE_FREERUN, /* state has no extra repeat but might be changed */
+	FRC_STATE_READY, /* state ready to do FRC */
+	FRC_STATE_DISABLE, /* state in which FRC is disabled */
+	FRC_STATE_MAX,
+};
+
+struct mdss_mdp_frc_fsm;
+
+struct mdss_mdp_frc_fsm_ops {
+	/* preprocess incoming FRC info like checking fps changes */
+	void (*pre_frc)(struct mdss_mdp_frc_fsm *frc_fsm, void *arg);
+	/* deterministic frame rate control like delaying frame's display */
+	void (*do_frc)(struct mdss_mdp_frc_fsm *frc_fsm, void *arg);
+	/* post-operations after FRC like saving past info */
+	void (*post_frc)(struct mdss_mdp_frc_fsm *frc_fsm, void *arg);
+};
+
+struct mdss_mdp_frc_fsm_cbs {
+	/* callback used once updating FRC FSM's state */
+	void (*update_state_cb)(struct mdss_mdp_frc_fsm *frc_fsm);
+};
+
+struct mdss_mdp_frc_fsm_state {
+	char *name; /* debug name of current state */
+	enum mdss_mdp_frc_state_type state; /* current state type */
+	struct mdss_mdp_frc_fsm_ops ops; /* operations of curent state */
+};
+
+struct mdss_mdp_frc_fsm {
+	bool enable; /* whether FRC is running */
+	struct mdss_mdp_frc_fsm_state state; /* current state */
+	struct mdss_mdp_frc_fsm_state to_state; /* state to set */
+	struct mdss_mdp_frc_fsm_cbs cbs;
+	struct mdss_mdp_frc_info frc_info;
 };
 
 struct mdss_mdp_ctl {
@@ -824,7 +901,7 @@ struct mdss_overlay_private {
 
 	bool allow_kickoff;
 	/* video frame info used by deterministic frame rate control */
-	struct mdss_mdp_frc_info *frc_info;
+	struct mdss_mdp_frc_fsm *frc_fsm;
 };
 
 struct mdss_mdp_set_ot_params {
@@ -1680,6 +1757,12 @@ void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 void mdss_mdp_video_isr(void *ptr, u32 count);
 void mdss_mdp_enable_hw_irq(struct mdss_data_type *mdata);
 void mdss_mdp_disable_hw_irq(struct mdss_data_type *mdata);
+
+void mdss_mdp_frc_fsm_init_state(struct mdss_mdp_frc_fsm *frc_fsm);
+void mdss_mdp_frc_fsm_change_state(struct mdss_mdp_frc_fsm *frc_fsm,
+	enum mdss_mdp_frc_state_type state,
+	void (*cb)(struct mdss_mdp_frc_fsm *frc_fsm));
+void mdss_mdp_frc_fsm_update_state(struct mdss_mdp_frc_fsm *frc_fsm);
 
 #ifdef CONFIG_FB_MSM_MDP_NONE
 struct mdss_data_type *mdss_mdp_get_mdata(void)
