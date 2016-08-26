@@ -54,14 +54,16 @@ static struct sde_lm_cfg *_lm_offset(enum sde_lm mixer,
 static inline int _stage_offset(struct sde_hw_mixer *ctx, enum sde_stage stage)
 {
 	const struct sde_lm_sub_blks *sblk = ctx->cap->sblk;
+	int rc;
 
-	if (WARN_ON(stage == SDE_STAGE_BASE))
-		return -EINVAL;
-
-	if ((stage - SDE_STAGE_0) <= sblk->maxblendstages)
-		return sblk->blendstage_base[stage - 1];
+	if (stage == SDE_STAGE_BASE)
+		rc = -EINVAL;
+	else if (stage <= sblk->maxblendstages)
+		rc = sblk->blendstage_base[stage - 1];
 	else
-		return -EINVAL;
+		rc = -EINVAL;
+
+	return rc;
 }
 
 static void sde_hw_lm_setup_out(struct sde_hw_mixer *ctx,
@@ -105,6 +107,9 @@ static void sde_hw_lm_setup_blendcfg(struct sde_hw_mixer *ctx,
 	u32 blend_op;
 	struct sde_hw_alpha_cfg *fg, *bg;
 	int stage_off;
+
+	if (stage == SDE_STAGE_BASE)
+		return;
 
 	stage_off = _stage_offset(ctx, stage);
 	if (WARN_ON(stage_off < 0))
