@@ -223,6 +223,7 @@ static int dsp_domr_notify_cb(struct notifier_block *n, unsigned long code,
 		/* make sure autosuspend is not called until ADSP comes up*/
 		pm_runtime_get_noresume(dev->dev);
 		dev->state = MSM_CTRL_DOWN;
+		dev->qmi.deferred_resp = false;
 		msm_slim_sps_exit(dev, false);
 		ngd_dom_down(dev);
 		mutex_unlock(&dev->tx_lock);
@@ -2019,19 +2020,18 @@ static int ngd_slim_suspend(struct device *dev)
 	if (!pm_runtime_enabled(dev) ||
 		(!pm_runtime_suspended(dev) &&
 			cdev->state == MSM_CTRL_IDLE)) {
+		cdev->qmi.deferred_resp = true;
 		ret = ngd_slim_runtime_suspend(dev);
 		/*
 		 * If runtime-PM still thinks it's active, then make sure its
 		 * status is in sync with HW status.
-		 * Since this suspend calls QMI api, it results in holding a
-		 * wakelock. That results in failure of first suspend.
-		 * Subsequent suspend should not call low-power transition
-		 * again since the HW is already in suspended state.
 		 */
 		if (!ret) {
 			pm_runtime_disable(dev);
 			pm_runtime_set_suspended(dev);
 			pm_runtime_enable(dev);
+		} else {
+			cdev->qmi.deferred_resp = false;
 		}
 	}
 	if (ret == -EBUSY) {
@@ -2053,13 +2053,29 @@ static int ngd_slim_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_slim_ctrl *cdev = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	/*
+	 * If deferred response was requested for power-off and it failed,
+	 * mark runtime-pm status as active to be consistent
+	 * with HW status
+	 */
+	if (cdev->qmi.deferred_resp) {
+		ret = msm_slim_qmi_deferred_status_req(cdev);
+		if (ret) {
+			pm_runtime_disable(dev);
+			pm_runtime_set_active(dev);
+			pm_runtime_enable(dev);
+		}
+		cdev->qmi.deferred_resp = false;
+	}
 	/*
 	 * Rely on runtime-PM to call resume in case it is enabled.
 	 * Even if it's not enabled, rely on 1st client transaction to do
 	 * clock/power on
 	 */
 	SLIM_INFO(cdev, "system resume\n");
-	return 0;
+	return ret;
 }
 #endif /* CONFIG_PM_SLEEP */
 
