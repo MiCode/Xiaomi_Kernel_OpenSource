@@ -499,6 +499,7 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	phys_enc->parent_ops = p->parent_ops;
 	phys_enc->sde_kms = p->sde_kms;
 	phys_enc->split_role = p->split_role;
+	phys_enc->intf_mode = INTF_MODE_CMD;
 	spin_lock_init(&phys_enc->spin_lock);
 	phys_enc->mode_3d = BLEND_3D_NONE;
 	cmd_enc->stream_sel = 0;

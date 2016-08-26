@@ -837,6 +837,23 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_enc)
 	return ret;
 }
 
+enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+	enum sde_intf_mode intf_mode = INTF_MODE_NONE;
+
+	if (!encoder) {
+		SDE_ERROR("invalid encoder\n");
+		return INTF_MODE_NONE;
+	}
+
+	sde_enc = to_sde_encoder_virt(encoder);
+	if (sde_enc->cur_master)
+		intf_mode = sde_enc->cur_master->intf_mode;
+
+	return intf_mode;
+}
+
 /* encoders init,
  * initialize encoder based on displays
  */

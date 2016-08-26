@@ -136,6 +136,7 @@ enum sde_enc_enable_state {
  * @cached_mode:	DRM mode cached at mode_set time, acted on in enable
  * @enabled:		Whether the encoder has enabled and running a mode
  * @split_role:		Role to play in a split-panel configuration
+ * @intf_mode:		Interface mode
  * @spin_lock:		Lock for IRQ purposes
  * @mode_3d:		3D mux configuration
  * @enable_state:	Enable state tracking
@@ -152,6 +153,7 @@ struct sde_encoder_phys {
 	struct sde_kms *sde_kms;
 	struct drm_display_mode cached_mode;
 	enum sde_enc_split_role split_role;
+	enum sde_intf_mode intf_mode;
 	spinlock_t spin_lock;
 	enum sde_3d_blend_mode mode_3d;
 	enum sde_enc_enable_state enable_state;
