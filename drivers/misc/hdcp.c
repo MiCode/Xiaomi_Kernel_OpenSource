@@ -51,6 +51,8 @@
 	(MESSAGE_ID_SIZE+BITS_128_IN_BYTES+BITS_64_IN_BYTES)
 
 /* all message IDs */
+#define INVALID_MESSAGE_ID               0
+#define AKE_INIT_MESSAGE_ID              2
 #define AKE_SEND_CERT_MESSAGE_ID         3
 #define AKE_NO_STORED_KM_MESSAGE_ID      4
 #define AKE_STORED_KM_MESSAGE_ID         5
@@ -63,6 +65,8 @@
 #define REPEATER_AUTH_SEND_ACK_MESSAGE_ID      15
 #define REPEATER_AUTH_STREAM_MANAGE_MESSAGE_ID 16
 #define REPEATER_AUTH_STREAM_READY_MESSAGE_ID  17
+#define HDCP2P2_MAX_MESSAGES                   18
+
 #define HDCP1_SET_KEY_MESSAGE_ID       202
 #define HDCP1_SET_ENC_MESSAGE_ID       205
 
@@ -144,12 +148,57 @@
 #define HDCP_CLIENT_MAKE_VERSION(maj, min, patch) \
 	((((maj) & 0xFF) << 16) | (((min) & 0xFF) << 8) | ((patch) & 0xFF))
 
+#define REAUTH_REQ BIT(3)
+#define LINK_INTEGRITY_FAILURE BIT(4)
+
 #define HDCP_LIB_EXECUTE(x) {\
 	if (handle->tethered)\
 		hdcp_lib_##x(handle);\
 	else\
 		queue_kthread_work(&handle->worker, &handle->wk_##x);\
 }
+
+static const struct hdcp_msg_data hdcp_msg_lookup[HDCP2P2_MAX_MESSAGES] = {
+	[AKE_INIT_MESSAGE_ID] = { 2,
+		{ {0x69000, 8}, {0x69008, 3} },
+		0 },
+	[AKE_SEND_CERT_MESSAGE_ID] = { 3,
+		{ {0x6900B, 522}, {0x69215, 8}, {0x6921D, 3} },
+		0 },
+	[AKE_NO_STORED_KM_MESSAGE_ID] = { 1,
+		{ {0x69220, 128} },
+		0 },
+	[AKE_STORED_KM_MESSAGE_ID] = { 2,
+		{ {0x692A0, 16}, {0x692B0, 16} },
+		0 },
+	[AKE_SEND_H_PRIME_MESSAGE_ID] = { 1,
+		{ {0x692C0, 32} },
+		(1 << 1) },
+	[AKE_SEND_PAIRING_INFO_MESSAGE_ID] =  { 1,
+		{ {0x692E0, 16} },
+		(1 << 2) },
+	[LC_INIT_MESSAGE_ID] = { 1,
+		{ {0x692F0, 8} },
+		0 },
+	[LC_SEND_L_PRIME_MESSAGE_ID] = { 1,
+		{ {0x692F8, 32} },
+		0 },
+	[SKE_SEND_EKS_MESSAGE_ID] = { 2,
+		{ {0x69318, 16}, {0x69328, 8} },
+		0 },
+	[REPEATER_AUTH_SEND_RECEIVERID_LIST_MESSAGE_ID] = { 4,
+		{ {0x69330, 2}, {0x69332, 3}, {0x69335, 16}, {0x69345, 155} },
+		(1 << 0) },
+	[REPEATER_AUTH_SEND_ACK_MESSAGE_ID] = { 1,
+		{ {0x693E0, 16} },
+		0 },
+	[REPEATER_AUTH_STREAM_MANAGE_MESSAGE_ID] = { 3,
+		{ {0x693F0, 3}, {0x693F3, 2}, {0x693F5, 126} },
+		0 },
+	[REPEATER_AUTH_STREAM_READY_MESSAGE_ID] = { 1,
+		{ {0x69473, 32} },
+		0 }
+};
 
 enum hdcp_state {
 	HDCP_STATE_INIT = 0x00,
@@ -451,6 +500,7 @@ struct hdcp_lib_handle {
 	bool tethered;
 	struct qseecom_handle *qseecom_handle;
 	int last_msg_sent;
+	int last_msg;
 	char *last_msg_recvd_buf;
 	uint32_t last_msg_recvd_len;
 	atomic_t hdcp_off;
@@ -522,6 +572,50 @@ static const char *hdcp_lib_message_name(int msg_id)
 	return "UNKNOWN";
 }
 
+static int hdcp_lib_get_next_message(struct hdcp_lib_handle *handle,
+				     struct hdmi_hdcp_wakeup_data *data)
+{
+	switch (handle->last_msg) {
+	case INVALID_MESSAGE_ID:
+		return AKE_INIT_MESSAGE_ID;
+	case AKE_INIT_MESSAGE_ID:
+		return AKE_SEND_CERT_MESSAGE_ID;
+	case AKE_SEND_CERT_MESSAGE_ID:
+		if (handle->no_stored_km_flag)
+			return AKE_NO_STORED_KM_MESSAGE_ID;
+		else
+			return AKE_STORED_KM_MESSAGE_ID;
+	case AKE_STORED_KM_MESSAGE_ID:
+	case AKE_NO_STORED_KM_MESSAGE_ID:
+		return AKE_SEND_H_PRIME_MESSAGE_ID;
+	case AKE_SEND_H_PRIME_MESSAGE_ID:
+		if (handle->no_stored_km_flag)
+			return AKE_SEND_PAIRING_INFO_MESSAGE_ID;
+		else
+			return LC_INIT_MESSAGE_ID;
+	case AKE_SEND_PAIRING_INFO_MESSAGE_ID:
+		return LC_INIT_MESSAGE_ID;
+	case LC_INIT_MESSAGE_ID:
+		return LC_SEND_L_PRIME_MESSAGE_ID;
+	case LC_SEND_L_PRIME_MESSAGE_ID:
+		return SKE_SEND_EKS_MESSAGE_ID;
+	case SKE_SEND_EKS_MESSAGE_ID:
+	case REPEATER_AUTH_STREAM_READY_MESSAGE_ID:
+	case REPEATER_AUTH_SEND_ACK_MESSAGE_ID:
+		if (data->cmd == HDMI_HDCP_WKUP_CMD_SEND_MESSAGE)
+			return REPEATER_AUTH_STREAM_MANAGE_MESSAGE_ID;
+		else
+			return REPEATER_AUTH_SEND_RECEIVERID_LIST_MESSAGE_ID;
+	case REPEATER_AUTH_SEND_RECEIVERID_LIST_MESSAGE_ID:
+		return REPEATER_AUTH_SEND_ACK_MESSAGE_ID;
+	case REPEATER_AUTH_STREAM_MANAGE_MESSAGE_ID:
+		return REPEATER_AUTH_STREAM_READY_MESSAGE_ID;
+	default:
+		pr_err("Uknown message ID (%d)", handle->last_msg);
+		return -EINVAL;
+	}
+}
+
 static inline void hdcp_lib_wakeup_client(struct hdcp_lib_handle *handle,
 					  struct hdmi_hdcp_wakeup_data *data)
 {
@@ -529,6 +623,20 @@ static inline void hdcp_lib_wakeup_client(struct hdcp_lib_handle *handle,
 
 	if (handle && handle->client_ops && handle->client_ops->wakeup &&
 	    data && (data->cmd != HDMI_HDCP_WKUP_CMD_INVALID)) {
+		data->abort_mask = REAUTH_REQ | LINK_INTEGRITY_FAILURE;
+
+		if (data->cmd == HDMI_HDCP_WKUP_CMD_SEND_MESSAGE ||
+		    data->cmd == HDMI_HDCP_WKUP_CMD_RECV_MESSAGE ||
+		    data->cmd == HDMI_HDCP_WKUP_CMD_LINK_POLL) {
+			handle->last_msg =
+				hdcp_lib_get_next_message(handle, data);
+
+			if (handle->last_msg > INVALID_MESSAGE_ID &&
+			    handle->last_msg < HDCP2P2_MAX_MESSAGES)
+				data->message_data =
+					&hdcp_msg_lookup[handle->last_msg];
+		}
+
 		rc = handle->client_ops->wakeup(data);
 		if (rc)
 			pr_err("error sending %s to client\n",
@@ -1470,6 +1578,7 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 		handle->repeater_flag = false;
 		handle->update_stream = false;
 		handle->last_msg_sent = 0;
+		handle->last_msg = INVALID_MESSAGE_ID;
 		handle->hdcp_timeout = 0;
 		handle->timeout_left = 0;
 		handle->legacy_app = false;
@@ -1750,6 +1859,7 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 	struct hdcp_rcvd_msg_rsp *rsp_buf;
 	uint32_t msglen;
 	char *msg = NULL;
+	uint32_t message_id_bytes = 0;
 
 	if (!handle || !handle->qseecom_handle ||
 	    !handle->qseecom_handle->sbuf) {
@@ -1774,6 +1884,12 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 		goto exit;
 	}
 
+	/* If the client is DP then allocate extra byte for message ID. */
+	if (handle->device_type == HDCP_TXMTR_DP)
+		message_id_bytes = 1;
+
+	msglen += message_id_bytes;
+
 	msg = kzalloc(msglen, GFP_KERNEL);
 	if (!msg) {
 		mutex_unlock(&handle->msg_lock);
@@ -1781,7 +1897,13 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 		goto exit;
 	}
 
-	memcpy(msg, handle->last_msg_recvd_buf, msglen);
+	/* copy the message id if needed */
+	if (message_id_bytes)
+		memcpy(msg, &handle->last_msg, message_id_bytes);
+
+	memcpy(msg + message_id_bytes,
+		handle->last_msg_recvd_buf,
+		handle->last_msg_recvd_len);
 
 	mutex_unlock(&handle->msg_lock);
 

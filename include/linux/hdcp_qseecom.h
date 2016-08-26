@@ -14,6 +14,8 @@
 #define __HDCP_QSEECOM_H
 #include <linux/types.h>
 
+#define HDCP_MAX_MESSAGE_PARTS 4
+
 enum hdcp_lib_wakeup_cmd {
 	HDCP_LIB_WKUP_CMD_INVALID,
 	HDCP_LIB_WKUP_CMD_START,
@@ -44,12 +46,25 @@ struct hdcp_lib_wakeup_data {
 	uint32_t timeout;
 };
 
+struct hdcp_msg_part {
+	uint32_t offset;
+	uint32_t length;
+};
+
+struct hdcp_msg_data {
+	uint32_t num_messages;
+	struct hdcp_msg_part messages[HDCP_MAX_MESSAGE_PARTS];
+	uint8_t rx_status;
+};
+
 struct hdmi_hdcp_wakeup_data {
 	enum hdmi_hdcp_wakeup_cmd cmd;
 	void *context;
 	char *send_msg_buf;
 	uint32_t send_msg_len;
 	uint32_t timeout;
+	uint8_t abort_mask;
+	const struct hdcp_msg_data *message_data;
 };
 
 static inline char *hdmi_hdcp_cmd_to_str(uint32_t cmd)
