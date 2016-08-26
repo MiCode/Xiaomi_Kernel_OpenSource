@@ -1254,7 +1254,7 @@ int icnss_map_msa_permissions(struct icnss_priv *priv, u32 index)
 	ret = hyp_assign_phys(addr, size, source_vmlist, source_nelems,
 			      dest_vmids, dest_perms, dest_nelems);
 	if (ret) {
-		icnss_pr_err("region %u hyp_assign_phys failed IPA=%pa size=%u err=%d\n",
+		icnss_pr_err("Region %u hyp_assign_phys failed IPA=%pa size=%u err=%d\n",
 			     index, &addr, size, ret);
 		goto out;
 	}
@@ -1290,7 +1290,7 @@ int icnss_unmap_msa_permissions(struct icnss_priv *priv, u32 index)
 	ret = hyp_assign_phys(addr, size, source_vmlist, source_nelems,
 			      dest_vmids, dest_perms, dest_nelems);
 	if (ret) {
-		icnss_pr_err("region %u hyp_assign_phys failed IPA=%pa size=%u err=%d\n",
+		icnss_pr_err("Region %u hyp_assign_phys failed IPA=%pa size=%u err=%d\n",
 			     index, &addr, size, ret);
 		goto out;
 	}
@@ -1329,16 +1329,14 @@ static void icnss_remove_msa_permissions(struct icnss_priv *priv)
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
 {
-	int ret = 0;
+	int ret;
 	int i;
 	struct wlfw_msa_info_req_msg_v01 req;
 	struct wlfw_msa_info_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 
-	if (!penv || !penv->wlfw_clnt) {
-		ret = -ENODEV;
-		goto out;
-	}
+	if (!penv || !penv->wlfw_clnt)
+		return -ENODEV;
 
 	icnss_pr_dbg("Sending MSA mem info, state: 0x%lx\n", penv->state);
 
@@ -1361,15 +1359,14 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		icnss_pr_err("Send req failed %d\n", ret);
+		icnss_pr_err("Send MSA Mem info req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI request failed %d %d\n",
+		icnss_pr_err("QMI MSA Mem info request failed %d %d\n",
 			resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
-		penv->stats.msa_info_err++;
 		goto out;
 	}
 
@@ -1380,7 +1377,6 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 		icnss_pr_err("Invalid memory region length received: %d\n",
 			     resp.mem_region_info_len);
 		ret = -EINVAL;
-		penv->stats.msa_info_err++;
 		goto out;
 	}
 
@@ -1398,7 +1394,11 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 			 penv->icnss_mem_region[i].secure_flag);
 	}
 
+	return 0;
+
 out:
+	penv->stats.msa_info_err++;
+	ICNSS_ASSERT(false);
 	return ret;
 }
 
@@ -1409,10 +1409,8 @@ static int wlfw_msa_ready_send_sync_msg(void)
 	struct wlfw_msa_ready_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 
-	if (!penv || !penv->wlfw_clnt) {
-		ret = -ENODEV;
-		goto out;
-	}
+	if (!penv || !penv->wlfw_clnt)
+		return -ENODEV;
 
 	icnss_pr_dbg("Sending MSA ready request message, state: 0x%lx\n",
 		     penv->state);
@@ -1432,20 +1430,23 @@ static int wlfw_msa_ready_send_sync_msg(void)
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		penv->stats.msa_ready_err++;
-		icnss_pr_err("Send req failed %d\n", ret);
+		icnss_pr_err("Send MSA ready req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI request failed %d %d\n",
+		icnss_pr_err("QMI MSA ready request failed %d %d\n",
 			resp.resp.result, resp.resp.error);
-		penv->stats.msa_ready_err++;
 		ret = resp.resp.result;
 		goto out;
 	}
 	penv->stats.msa_ready_resp++;
+
+	return 0;
+
 out:
+	penv->stats.msa_ready_err++;
+	ICNSS_ASSERT(false);
 	return ret;
 }
 
@@ -1456,10 +1457,8 @@ static int wlfw_ind_register_send_sync_msg(void)
 	struct wlfw_ind_register_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 
-	if (!penv || !penv->wlfw_clnt) {
-		ret = -ENODEV;
-		goto out;
-	}
+	if (!penv || !penv->wlfw_clnt)
+		return -ENODEV;
 
 	icnss_pr_dbg("Sending indication register message, state: 0x%lx\n",
 		     penv->state);
@@ -1487,21 +1486,24 @@ static int wlfw_ind_register_send_sync_msg(void)
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
-	penv->stats.ind_register_resp++;
 	if (ret < 0) {
-		icnss_pr_err("Send req failed %d\n", ret);
-		penv->stats.ind_register_err++;
+		icnss_pr_err("Send indication register req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI request failed %d %d\n",
+		icnss_pr_err("QMI indication register request failed %d %d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
-		penv->stats.ind_register_err++;
 		goto out;
 	}
+	penv->stats.ind_register_resp++;
+
+	return 0;
+
 out:
+	penv->stats.ind_register_err++;
+	ICNSS_ASSERT(false);
 	return ret;
 }
 
@@ -1512,10 +1514,8 @@ static int wlfw_cap_send_sync_msg(void)
 	struct wlfw_cap_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 
-	if (!penv || !penv->wlfw_clnt) {
-		ret = -ENODEV;
-		goto out;
-	}
+	if (!penv || !penv->wlfw_clnt)
+		return -ENODEV;
 
 	icnss_pr_dbg("Sending capability message, state: 0x%lx\n", penv->state);
 
@@ -1534,16 +1534,14 @@ static int wlfw_cap_send_sync_msg(void)
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		icnss_pr_err("Send req failed %d\n", ret);
-		penv->stats.cap_err++;
+		icnss_pr_err("Send capability req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI request failed %d %d\n",
+		icnss_pr_err("QMI capability request failed %d %d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
-		penv->stats.cap_err++;
 		goto out;
 	}
 
@@ -1565,7 +1563,12 @@ static int wlfw_cap_send_sync_msg(void)
 		     penv->board_info.board_id, penv->soc_info.soc_id,
 		     penv->fw_version_info.fw_version,
 		     penv->fw_version_info.fw_build_timestamp);
+
+	return 0;
+
 out:
+	penv->stats.cap_err++;
+	ICNSS_ASSERT(false);
 	return ret;
 }
 
@@ -1576,10 +1579,8 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 	struct wlfw_wlan_mode_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 
-	if (!penv || !penv->wlfw_clnt) {
-		ret = -ENODEV;
-		goto out;
-	}
+	if (!penv || !penv->wlfw_clnt)
+		return -ENODEV;
 
 	/* During recovery do not send mode request for WLAN OFF as
 	 * FW not able to process it.
@@ -1611,20 +1612,24 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		icnss_pr_err("Send req failed %d\n", ret);
-		penv->stats.mode_req_err++;
+		icnss_pr_err("Send mode req failed, mode: %d ret: %d\n",
+			     mode, ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI request failed %d %d\n",
-		       resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI mode request failed mode: %d, %d %d\n",
+			     mode, resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
-		penv->stats.mode_req_err++;
 		goto out;
 	}
 	penv->stats.mode_resp++;
+
+	return 0;
+
 out:
+	penv->stats.mode_req_err++;
+	ICNSS_ASSERT(false);
 	return ret;
 }
 
@@ -1635,10 +1640,8 @@ static int wlfw_wlan_cfg_send_sync_msg(struct wlfw_wlan_cfg_req_msg_v01 *data)
 	struct wlfw_wlan_cfg_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 
-	if (!penv || !penv->wlfw_clnt) {
+	if (!penv || !penv->wlfw_clnt)
 		return -ENODEV;
-		goto out;
-	}
 
 	icnss_pr_dbg("Sending config request, state: 0x%lx\n", penv->state);
 
@@ -1660,20 +1663,23 @@ static int wlfw_wlan_cfg_send_sync_msg(struct wlfw_wlan_cfg_req_msg_v01 *data)
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		icnss_pr_err("Send req failed %d\n", ret);
-		penv->stats.cfg_req_err++;
+		icnss_pr_err("Send config req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI request failed %d %d\n",
+		icnss_pr_err("QMI config request failed %d %d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
-		penv->stats.cfg_req_err++;
 		goto out;
 	}
 	penv->stats.cfg_resp++;
+
+	return 0;
+
 out:
+	penv->stats.cfg_req_err++;
+	ICNSS_ASSERT(false);
 	return ret;
 }
 
@@ -1684,10 +1690,8 @@ static int wlfw_ini_send_sync_msg(bool enable_fw_log)
 	struct wlfw_ini_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 
-	if (!penv || !penv->wlfw_clnt) {
-		ret = -ENODEV;
-		goto out;
-	}
+	if (!penv || !penv->wlfw_clnt)
+		return -ENODEV;
 
 	icnss_pr_dbg("Sending ini sync request, state: 0x%lx, fw_log: %d\n",
 		     penv->state, enable_fw_log);
@@ -1711,20 +1715,24 @@ static int wlfw_ini_send_sync_msg(bool enable_fw_log)
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		icnss_pr_err("send req failed %d\n", ret);
-		penv->stats.ini_req_err++;
+		icnss_pr_err("Send INI req failed fw_log: %d, ret: %d\n",
+			     enable_fw_log, ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI request failed %d %d\n",
-		       resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI INI request failed fw_log: %d, %d %d\n",
+			     enable_fw_log, resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
-		penv->stats.ini_req_err++;
 		goto out;
 	}
 	penv->stats.ini_resp++;
+
+	return 0;
+
 out:
+	penv->stats.ini_req_err++;
+	ICNSS_ASSERT(false);
 	return ret;
 }
 
@@ -1808,12 +1816,11 @@ static int icnss_driver_event_server_arrive(void *data)
 		goto out;
 	}
 
-	ret = qmi_connect_to_service(penv->wlfw_clnt,
-					WLFW_SERVICE_ID_V01,
-					WLFW_SERVICE_VERS_V01,
-					WLFW_SERVICE_INS_ID_V01);
+	ret = qmi_connect_to_service(penv->wlfw_clnt, WLFW_SERVICE_ID_V01,
+				     WLFW_SERVICE_VERS_V01,
+				     WLFW_SERVICE_INS_ID_V01);
 	if (ret < 0) {
-		icnss_pr_err("Server not found : %d\n", ret);
+		icnss_pr_err("QMI WLAN Service not found : %d\n", ret);
 		goto fail;
 	}
 
@@ -1834,10 +1841,8 @@ static int icnss_driver_event_server_arrive(void *data)
 		goto fail;
 
 	ret = wlfw_ind_register_send_sync_msg();
-	if (ret < 0) {
-		icnss_pr_err("Failed to send indication message: %d\n", ret);
+	if (ret < 0)
 		goto err_power_on;
-	}
 
 	if (!penv->msa_va) {
 		icnss_pr_err("Invalid MSA address\n");
@@ -1846,27 +1851,21 @@ static int icnss_driver_event_server_arrive(void *data)
 	}
 
 	ret = wlfw_msa_mem_info_send_sync_msg();
-	if (ret < 0) {
-		icnss_pr_err("Failed to send MSA info: %d\n", ret);
+	if (ret < 0)
 		goto err_power_on;
-	}
+
 	ret = icnss_setup_msa_permissions(penv);
-	if (ret < 0) {
-		icnss_pr_err("Failed to setup msa permissions: %d\n",
-			     ret);
+	if (ret < 0)
 		goto err_power_on;
-	}
+
 	ret = wlfw_msa_ready_send_sync_msg();
-	if (ret < 0) {
-		icnss_pr_err("Failed to send MSA ready : %d\n", ret);
+	if (ret < 0)
 		goto err_setup_msa;
-	}
 
 	ret = wlfw_cap_send_sync_msg();
-	if (ret < 0) {
-		icnss_pr_err("Failed to get capability: %d\n", ret);
+	if (ret < 0)
 		goto err_setup_msa;
-	}
+
 	return ret;
 
 err_setup_msa:
@@ -2699,14 +2698,10 @@ int icnss_wlan_enable(struct icnss_wlan_enable_cfg *config,
 	       sizeof(struct wlfw_shadow_reg_cfg_s_v01) * req.shadow_reg_len);
 
 	ret = wlfw_wlan_cfg_send_sync_msg(&req);
-	if (ret) {
-		icnss_pr_err("Failed to send cfg, ret = %d\n", ret);
+	if (ret)
 		goto out;
-	}
 skip:
 	ret = wlfw_wlan_mode_send_sync_msg(mode);
-	if (ret)
-		icnss_pr_err("Failed to send mode, ret = %d\n", ret);
 out:
 	if (test_bit(SKIP_QMI, &quirks))
 		ret = 0;
