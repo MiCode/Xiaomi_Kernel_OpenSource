@@ -464,26 +464,6 @@ static void add_fb(struct msm_commit *c, struct drm_framebuffer *fb)
 	c->fence = max(c->fence, msm_gem_fence(to_msm_bo(obj), MSM_PREP_READ));
 }
 
-int msm_atomic_check(struct drm_device *dev,
-		     struct drm_atomic_state *state)
-{
-	int ret;
-
-	/*
-	 * msm ->atomic_check can update ->mode_changed for pixel format
-	 * changes, hence must be run before we check the modeset changes.
-	 */
-	ret = drm_atomic_helper_check_planes(dev, state);
-	if (ret)
-		return ret;
-
-	ret = drm_atomic_helper_check_modeset(dev, state);
-	if (ret)
-		return ret;
-
-	return ret;
-}
-
 /**
  * drm_atomic_helper_commit - commit validated state object
  * @dev: DRM device
