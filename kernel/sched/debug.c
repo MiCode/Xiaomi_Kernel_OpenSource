@@ -327,8 +327,6 @@ do {									\
 	P(cluster->cur_freq);
 	P(cluster->max_freq);
 	P(cluster->exec_scale_factor);
-#endif
-#ifdef CONFIG_SCHED_HMP
 	P(hmp_stats.nr_big_tasks);
 	SEQ_printf(m, "  .%-30s: %llu\n", "hmp_stats.cumulative_runnable_avg",
 			rq->hmp_stats.cumulative_runnable_avg);
@@ -417,10 +415,8 @@ static void sched_debug_header(struct seq_file *m)
 	P(sched_upmigrate);
 	P(sched_downmigrate);
 	P(sched_init_task_load_windows);
-	P(sched_init_task_load_pelt);
 	P(min_capacity);
 	P(max_capacity);
-	P(sched_use_pelt);
 	P(sched_ravg_window);
 #endif
 #undef PN
@@ -644,7 +640,6 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 	__P(load_avg);
 #ifdef CONFIG_SCHED_HMP
 	P(ravg.demand);
-	P(se.avg.runnable_avg_sum_scaled);
 #endif
 #endif
 
