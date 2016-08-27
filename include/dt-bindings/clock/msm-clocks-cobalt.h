@@ -244,9 +244,6 @@
 #define clk_gcc_usb30_sleep_clk			0xd0b65c92
 #define clk_gcc_usb3_phy_aux_clk		0x0d9a36e0
 #define clk_gcc_usb3_phy_pipe_clk		0xf279aff2
-#define clk_gcc_wcss_ahb_s0_clk			0x639a01c4
-#define clk_gcc_wcss_axi_m_clk			0xabc48ebd
-#define clk_gcc_wcss_ecahb_clk			0xf1815ce9
 #define clk_gcc_usb3_clkref_clk			0xb6cc8f00
 #define clk_gcc_hdmi_clkref_clk			0x4d4eec04
 #define clk_gcc_edp_clkref_clk			0xa8685c3f
@@ -260,7 +257,6 @@
 #define clk_gcc_qusb2phy_prim_reset		0x07550fa1
 #define clk_gcc_qusb2phy_sec_reset		0x3f3a87d0
 #define clk_gcc_mmss_noc_cfg_ahb_clk		0xb41a9d99
-#define clk_gcc_wcss_shdreg_ahb_clk		0x33459c85
 #define clk_gcc_dcc_ahb_clk			0xfa14a88c
 #define clk_hlos1_vote_lpass_core_smmu_clk	0x3aaa1743
 #define clk_hlos1_vote_lpass_adsp_smmu_clk	0xc76f702f
