@@ -20,6 +20,8 @@
 struct wcd_dsp_cdc_cb {
 	/* Callback to enable codec clock */
 	int (*cdc_clk_en)(struct snd_soc_codec *, bool);
+	/* Callback to vote and unvote for SVS2 mode */
+	void (*cdc_vote_svs)(struct snd_soc_codec *, bool);
 };
 
 struct wcd_dsp_irq_info {
@@ -83,6 +85,9 @@ struct wcd_dsp_cntl {
 	/* clk related */
 	struct mutex clk_mutex;
 	bool is_clk_enabled;
+
+	/* Keep track of WDSP boot status */
+	bool is_wdsp_booted;
 };
 
 void wcd_dsp_cntl_init(struct snd_soc_codec *codec,

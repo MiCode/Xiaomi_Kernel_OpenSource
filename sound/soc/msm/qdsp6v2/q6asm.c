@@ -2397,6 +2397,9 @@ int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format,
 	case FORMAT_DTS:
 		open.fmt_id = ASM_MEDIA_FMT_DTS;
 		break;
+	case FORMAT_DSD:
+		open.fmt_id = ASM_MEDIA_FMT_DSD;
+		break;
 	default:
 		pr_err("%s: Invalid format[%d]\n", __func__, format);
 		rc = -EINVAL;
@@ -2404,7 +2407,8 @@ int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format,
 	}
 	/*Below flag indicates the DSP that Compressed audio input
 	stream is not IEC 61937 or IEC 60958 packetizied*/
-	if (passthrough_flag == COMPRESSED_PASSTHROUGH) {
+	if (passthrough_flag == COMPRESSED_PASSTHROUGH ||
+		passthrough_flag == COMPRESSED_PASSTHROUGH_DSD) {
 		open.flags = 0x0;
 		pr_debug("%s: Flag 0 COMPRESSED_PASSTHROUGH\n", __func__);
 	} else if (passthrough_flag == COMPRESSED_PASSTHROUGH_CONVERT) {
@@ -2567,6 +2571,9 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 		break;
 	case FORMAT_APE:
 		open.dec_fmt_id = ASM_MEDIA_FMT_APE;
+		break;
+	case FORMAT_DSD:
+		open.dec_fmt_id = ASM_MEDIA_FMT_DSD;
 		break;
 	default:
 		pr_err("%s: Invalid format 0x%x\n", __func__, format);
@@ -2747,6 +2754,9 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 		break;
 	case FORMAT_APE:
 		open.dec_fmt_id = ASM_MEDIA_FMT_APE;
+		break;
+	case FORMAT_DSD:
+		open.dec_fmt_id = ASM_MEDIA_FMT_DSD;
 		break;
 	default:
 		pr_err("%s: Invalid format 0x%x\n",
@@ -5040,6 +5050,66 @@ int q6asm_media_format_block_ape(struct audio_client *ac,
 fail_cmd:
 	return rc;
 }
+
+/*
+ * q6asm_media_format_block_dsd- Sends DSD Decoder
+ * configuration parameters
+ *
+ * @ac: Client session handle
+ * @cfg: DSD Media Format Configuration.
+ * @stream_id: stream id of stream to be associated with this session
+ *
+ * Return 0 on success or negative error code on failure
+ */
+int q6asm_media_format_block_dsd(struct audio_client *ac,
+				struct asm_dsd_cfg *cfg, int stream_id)
+{
+	struct asm_dsd_fmt_blk_v2 fmt;
+	int rc;
+
+	pr_debug("%s: session[%d] data_rate[%d] ch[%d]\n", __func__,
+		 ac->session, cfg->dsd_data_rate, cfg->num_channels);
+
+	memset(&fmt, 0, sizeof(fmt));
+	q6asm_stream_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE, stream_id);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2;
+	fmt.fmtblk.fmt_blk_size = sizeof(fmt) - sizeof(fmt.hdr) -
+					sizeof(fmt.fmtblk);
+
+	fmt.num_version = cfg->num_version;
+	fmt.is_bitwise_big_endian = cfg->is_bitwise_big_endian;
+	fmt.dsd_channel_block_size = cfg->dsd_channel_block_size;
+	fmt.num_channels = cfg->num_channels;
+	fmt.dsd_data_rate = cfg->dsd_data_rate;
+	atomic_set(&ac->cmd_state, -1);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s: Command DSD media format update failed, err: %d\n",
+			__func__, rc);
+		goto done;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state) >= 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout. waited for DSD FORMAT_UPDATE\n", __func__);
+		rc = -ETIMEDOUT;
+		goto done;
+	}
+
+	if (atomic_read(&ac->cmd_state) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+				__func__, adsp_err_get_err_str(
+				atomic_read(&ac->cmd_state)));
+		rc = adsp_err_get_lnx_err_code(
+				atomic_read(&ac->cmd_state));
+		goto done;
+	}
+	return 0;
+done:
+	return rc;
+}
+EXPORT_SYMBOL(q6asm_media_format_block_dsd);
 
 static int __q6asm_ds1_set_endp_params(struct audio_client *ac, int param_id,
 				int param_value, int stream_id)

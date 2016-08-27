@@ -1298,6 +1298,38 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 			}
 		} else {
 			if (block_id <= DISPLAY_MISR_HDMI) {
+				/*
+				 * In Dual LM single display configuration,
+				 * the interface number (i.e. block_id)
+				 * might not be the one given from ISR.
+				 * We should always check with the actual
+				 * intf_num from ctl.
+				 */
+				struct msm_fb_data_type *mfd = NULL;
+
+				/*
+				 * ISR pass in NULL ctl, so we need to get it
+				 * from the mdata.
+				 */
+				if (!ctl && mdata->mixer_intf)
+					ctl = mdata->mixer_intf->ctl;
+				if (ctl)
+					mfd = ctl->mfd;
+				if (mfd && is_dual_lm_single_display(mfd)) {
+					switch (ctl->intf_num) {
+					case MDSS_MDP_INTF1:
+						block_id = DISPLAY_MISR_DSI0;
+						break;
+					case MDSS_MDP_INTF2:
+						block_id = DISPLAY_MISR_DSI1;
+						break;
+					default:
+						pr_err("Unmatch INTF for Dual LM single display configuration, INTF:%d\n",
+								ctl->intf_num);
+						return NULL;
+					}
+				}
+
 				intf_base = (char *)mdss_mdp_get_intf_base_addr(
 						mdata, block_id);
 
@@ -1311,11 +1343,15 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 
 					/*
 					 * extra offset required for
-					 * cmd misr in 8996
+					 * cmd misr in 8996 and mdss3.x
 					 */
 					if (IS_MDSS_MAJOR_MINOR_SAME(
 						  mdata->mdp_rev,
-						  MDSS_MDP_HW_REV_107)) {
+						  MDSS_MDP_HW_REV_107) ||
+						(mdata->mdp_rev ==
+							MDSS_MDP_HW_REV_300) ||
+						(mdata->mdp_rev ==
+							MDSS_MDP_HW_REV_301)) {
 						ctrl_reg += 0x8;
 						value_reg += 0x8;
 					}
@@ -1350,7 +1386,7 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 		return NULL;
 	}
 
-	pr_debug("MISR Module(%d) CTRL(0x%x) SIG(0x%x) intf_base(0x%p)\n",
+	pr_debug("MISR Module(%d) CTRL(0x%x) SIG(0x%x) intf_base(0x%pK)\n",
 			block_id, map->ctrl_reg, map->value_reg, intf_base);
 	return map;
 }
@@ -1390,6 +1426,9 @@ void mdss_misr_disable(struct mdss_data_type *mdata,
 	map = mdss_misr_get_map(req->block_id, ctl, mdata,
 		ctl->is_video_mode);
 
+	if (!map)
+		return;
+
 	/* clear the map data */
 	memset(map->crc_ping, 0, sizeof(map->crc_ping));
 	memset(map->crc_pong, 0, sizeof(map->crc_pong));
@@ -1420,7 +1459,7 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 	bool use_mdp_up_misr = false;
 
 	if (!mdata || !req || !ctl) {
-		pr_err("Invalid input params: mdata = %p req = %p ctl = %p",
+		pr_err("Invalid input params: mdata = %pK req = %pK ctl = %pK",
 			mdata, req, ctl);
 		return -EINVAL;
 	}
@@ -1500,7 +1539,7 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 
 		writel_relaxed(config,
 				mdata->mdp_base + map->ctrl_reg);
-		pr_debug("MISR_CTRL=0x%x [base:0x%p reg:0x%x config:0x%x]\n",
+		pr_debug("MISR_CTRL=0x%x [base:0x%pK reg:0x%x config:0x%x]\n",
 				readl_relaxed(mdata->mdp_base + map->ctrl_reg),
 				mdata->mdp_base, map->ctrl_reg, config);
 	}

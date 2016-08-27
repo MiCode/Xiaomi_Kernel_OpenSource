@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,9 +103,19 @@ static void tpiu_disable(struct coresight_device *csdev)
 	dev_info(drvdata->dev, "TPIU disabled\n");
 }
 
+static void tpiu_abort(struct coresight_device *csdev)
+{
+	struct tpiu_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+
+	tpiu_disable_hw(drvdata);
+
+	dev_info(drvdata->dev, "TPIU aborted\n");
+}
+
 static const struct coresight_ops_sink tpiu_sink_ops = {
 	.enable		= tpiu_enable,
 	.disable	= tpiu_disable,
+	.abort		= tpiu_abort,
 };
 
 static const struct coresight_ops tpiu_cs_ops = {

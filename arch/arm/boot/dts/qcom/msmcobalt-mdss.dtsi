@@ -21,6 +21,9 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		vdd-supply = <&gdsc_mdss>;
+		vdd-cx-supply = <&pmcobalt_s1_level>;
+		vdd-cx-min-uV = <RPM_SMD_REGULATOR_LEVEL_LOW_SVS>;
+		vdd-cx-max-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_mdp";
@@ -387,11 +390,11 @@
 				"byte_clk_rcg", "pixel_clk_rcg",
 				"byte_intf_clk";
 
-			qcom,platform-strength-ctrl =  [ff 03
-							ff 03
-							ff 03
-							ff 03
-							ff 00];
+			qcom,platform-strength-ctrl =  [55 03
+							55 03
+							55 03
+							55 03
+							55 00];
 			qcom,platform-lane-config = [00 00 00 00
 						00 00 00 00
 						00 00 00 00
@@ -425,11 +428,11 @@
 				"byte_clk_rcg", "pixel_clk_rcg",
 				"byte_intf_clk";
 
-			qcom,platform-strength-ctrl =  [ff 03
-							ff 03
-							ff 03
-							ff 03
-							ff 00];
+			qcom,platform-strength-ctrl =  [55 03
+							55 03
+							55 03
+							55 03
+							55 00];
 			qcom,platform-lane-config = [00 00 00 00
 						00 00 00 00
 						00 00 00 00
@@ -456,8 +459,11 @@
 
 		reg =	<0xc990000 0xa84>,
 			<0xc011000 0x910>,
-			<0x1fcb200 0x050>;
-		reg-names = "dp_ctrl", "dp_phy", "tcsr_regs";
+			<0x1fcb200 0x050>,
+			<0x780000 0x621c>,
+			<0xc9e1000 0x02c>;
+		reg-names = "dp_ctrl", "dp_phy", "tcsr_regs",
+				"qfprom_physical","hdcp_physical";
 
 		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			 <&clock_mmss clk_mmss_mdss_ahb_clk>,

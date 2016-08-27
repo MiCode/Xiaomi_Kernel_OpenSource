@@ -874,9 +874,6 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	device->pwrctrl.interval_timeout = msecs_to_jiffies(timeout);
 
-	device->pwrctrl.strtstp_sleepwake =
-		of_property_read_bool(node, "qcom,strtstp-sleepwake");
-
 	device->pwrctrl.bus_control = of_property_read_bool(node,
 		"qcom,bus-control");
 

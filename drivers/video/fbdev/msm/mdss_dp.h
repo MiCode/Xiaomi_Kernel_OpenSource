@@ -333,10 +333,13 @@ struct mdss_dp_drv_pdata {
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	struct platform_device *pdev;
+	struct platform_device *ext_pdev;
 
 	struct usbpd *pd;
 	struct usbpd_svid_handler svid_handler;
 	struct dp_alt_mode alt_mode;
+	bool dp_initialized;
+	struct msm_ext_disp_init_data ext_audio_data;
 
 	struct mutex emutex;
 	int clk_cnt;
@@ -398,7 +401,6 @@ struct mdss_dp_drv_pdata {
 	struct completion video_comp;
 	struct mutex aux_mutex;
 	struct mutex train_mutex;
-	struct mutex host_mutex;
 	struct mutex pd_msg_mutex;
 	struct mutex hdcp_mutex;
 	bool cable_connected;

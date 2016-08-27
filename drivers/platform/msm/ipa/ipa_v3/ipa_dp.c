@@ -2011,7 +2011,7 @@ static void ipa3_alloc_wlan_rx_common_cache(u32 size)
 			goto fail_skb_alloc;
 		}
 		ptr = skb_put(rx_pkt->data.skb, IPA_WLAN_RX_BUFF_SZ);
-		rx_pkt->data.dma_addr = dma_map_single(NULL, ptr,
+		rx_pkt->data.dma_addr = dma_map_single(ipa3_ctx->pdev, ptr,
 				IPA_WLAN_RX_BUFF_SZ, DMA_FROM_DEVICE);
 		if (rx_pkt->data.dma_addr == 0 ||
 				rx_pkt->data.dma_addr == ~0) {
@@ -4181,7 +4181,7 @@ static uint64_t pointer_to_tag_wa(struct ipa3_tx_pkt_wrapper *tx_pkt)
 {
 	u16 temp;
 	/* Add the check but it might have throughput issue */
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1) {
+	if (ipa3_is_msm_device()) {
 		temp = (u16) (~((unsigned long) tx_pkt &
 			0xFFFF000000000000) >> 48);
 		if (temp) {

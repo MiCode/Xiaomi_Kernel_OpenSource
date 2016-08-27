@@ -520,3 +520,4 @@ header-y += android_pmem.h
 header-y += ipa_qmi_service_v01.h
 header-y += rmnet_ipa_fd_ioctl.h
 header-y += msm_ipa.h
+header-y += smcinvoke.h

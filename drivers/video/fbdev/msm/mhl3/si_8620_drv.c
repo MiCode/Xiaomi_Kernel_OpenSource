@@ -2367,7 +2367,7 @@ int si_mhl_tx_drv_get_edid_fifo_partial_block(struct drv_hw_context *hw_context,
 	offset = EDID_BLOCK_SIZE * (hw_context->edid_fifo_block_number & 0x01);
 	offset += start;
 
-	MHL_TX_DBG_INFO("%p %p\n", hw_context, edid_buf);
+	MHL_TX_DBG_INFO("%pK %pK\n", hw_context, edid_buf);
 	if (EDID_BLOCK_SIZE == (offset + length))
 		hw_context->edid_fifo_block_number++;
 
@@ -2401,7 +2401,7 @@ int si_mhl_tx_drv_get_edid_fifo_next_block(struct drv_hw_context *hw_context,
 
 	offset = EDID_BLOCK_SIZE * (hw_context->edid_fifo_block_number & 0x01);
 
-	MHL_TX_DBG_INFO("%p %p\n", hw_context, edid_buf);
+	MHL_TX_DBG_INFO("%pK %pK\n", hw_context, edid_buf);
 	hw_context->edid_fifo_block_number++;
 
 #ifdef MANUAL_EDID_FETCH

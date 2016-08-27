@@ -939,7 +939,7 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
 		pr_debug("pmem buf=0x%pa\n", &data->addr);
 		memset(&data->srcp_f, 0, sizeof(struct fd));
 	} else if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
-		pr_debug("ion hdl=%p buf=0x%pa\n", data->srcp_dma_buf,
+		pr_debug("ion hdl=%pK buf=0x%pa\n", data->srcp_dma_buf,
 							&data->addr);
 		if (!iclient) {
 			pr_err("invalid ion client\n");
@@ -1104,8 +1104,9 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 		data->addr += data->offset;
 		data->len -= data->offset;
 
-		pr_debug("mem=%d ihdl=%p buf=0x%pa len=0x%lx\n", img->memory_id,
-			 data->srcp_dma_buf, &data->addr, data->len);
+		pr_debug("mem=%d ihdl=%pK buf=0x%pa len=0x%lx\n",
+			img->memory_id, data->srcp_dma_buf,
+			&data->addr, data->len);
 	} else {
 		mdss_mdp_put_img(data, rotator, dir);
 		return ret ? : -EOVERFLOW;
@@ -1169,7 +1170,7 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 		data->addr += data->offset;
 		data->len -= data->offset;
 
-		pr_debug("ihdl=%p buf=0x%pa len=0x%lx\n",
+		pr_debug("ihdl=%pK buf=0x%pa len=0x%lx\n",
 			 data->srcp_dma_buf, &data->addr, data->len);
 	} else {
 		mdss_mdp_put_img(data, rotator, dir);

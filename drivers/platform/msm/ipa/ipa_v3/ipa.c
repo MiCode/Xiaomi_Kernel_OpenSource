@@ -219,7 +219,6 @@ static struct ipa3_plat_drv_res ipa3_res = {0, };
 struct msm_bus_scale_pdata *ipa3_bus_scale_table;
 
 static struct clk *ipa3_clk;
-static struct clk *smmu_clk;
 
 struct ipa3_context *ipa3_ctx;
 static struct device *master_dev;
@@ -2887,22 +2886,6 @@ static int ipa3_get_clks(struct device *dev)
 			IPAERR("fail to get ipa clk\n");
 		return PTR_ERR(ipa3_clk);
 	}
-
-	if (smmu_info.present && smmu_info.arm_smmu) {
-		smmu_clk = clk_get(dev, "smmu_clk");
-		if (IS_ERR(smmu_clk)) {
-			if (smmu_clk != ERR_PTR(-EPROBE_DEFER))
-				IPAERR("fail to get smmu clk\n");
-			return PTR_ERR(smmu_clk);
-		}
-
-		if (clk_get_rate(smmu_clk) == 0) {
-			long rate = clk_round_rate(smmu_clk, 1000);
-
-			clk_set_rate(smmu_clk, rate);
-		}
-	}
-
 	return 0;
 }
 
@@ -2922,8 +2905,6 @@ void _ipa_enable_clks_v3_0(void)
 		WARN_ON(1);
 	}
 
-	if (smmu_clk)
-		clk_prepare_enable(smmu_clk);
 	ipa3_suspend_apps_pipes(false);
 }
 
@@ -2982,9 +2963,6 @@ void _ipa_disable_clks_v3_0(void)
 		clk_disable_unprepare(ipa3_clk);
 	else
 		WARN_ON(1);
-
-	if (smmu_clk)
-		clk_disable_unprepare(smmu_clk);
 }
 
 /**
@@ -3860,10 +3838,10 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_0)
-			result = ipa3_trigger_fw_loading_mdms();
-		else if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1)
+		if (ipa3_is_msm_device())
 			result = ipa3_trigger_fw_loading_msms();
+		else
+			result = ipa3_trigger_fw_loading_mdms();
 		/* No IPAv3.x chipsets that don't support FW loading */
 
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
@@ -4660,6 +4638,9 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 	int fast = 1;
 	int bypass = 1;
 	int ret;
+	u32 add_map_size;
+	const u32 *add_map;
+	int i;
 
 	IPADBG("sub pdev=%p\n", dev);
 
@@ -4720,7 +4701,35 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 		cb->valid = false;
 		return ret;
 	}
+	/* MAP ipa-uc ram */
+	add_map = of_get_property(dev->of_node,
+		"qcom,additional-mapping", &add_map_size);
+	if (add_map) {
+		/* mapping size is an array of 3-tuple of u32 */
+		if (add_map_size % (3 * sizeof(u32))) {
+			IPAERR("wrong additional mapping format\n");
+			cb->valid = false;
+			return -EFAULT;
+		}
 
+		/* iterate of each entry of the additional mapping array */
+		for (i = 0; i < add_map_size / sizeof(u32); i += 3) {
+			u32 iova = be32_to_cpu(add_map[i]);
+			u32 pa = be32_to_cpu(add_map[i + 1]);
+			u32 size = be32_to_cpu(add_map[i + 2]);
+			unsigned long iova_p;
+			phys_addr_t pa_p;
+			u32 size_p;
+
+			IPA_SMMU_ROUND_TO_PAGE(iova, pa, size,
+				iova_p, pa_p, size_p);
+			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+				iova_p, &pa_p, size_p);
+			ipa3_iommu_map(cb->iommu,
+				iova_p, pa_p, size_p,
+				IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+		}
+	}
 	return 0;
 }
 
@@ -5150,7 +5159,6 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 
 		if (!ipa3_bus_scale_table)
 			ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
-
 		/* Proceed to real initialization */
 		result = ipa3_pre_init(&ipa3_res, dev);
 		if (result) {

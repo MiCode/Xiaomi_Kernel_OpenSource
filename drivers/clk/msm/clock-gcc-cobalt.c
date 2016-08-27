@@ -2227,50 +2227,6 @@ static struct reset_clk gcc_qusb2phy_sec_reset = {
 	},
 };
 
-static struct branch_clk gcc_wcss_ahb_s0_clk = {
-	.cbcr_reg = GCC_WCSS_AHB_S0_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_wcss_ahb_s0_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_wcss_ahb_s0_clk.c),
-	},
-};
-
-static struct branch_clk gcc_wcss_axi_m_clk = {
-	.cbcr_reg = GCC_WCSS_AXI_M_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_wcss_axi_m_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_wcss_axi_m_clk.c),
-	},
-};
-
-static struct branch_clk gcc_wcss_ecahb_clk = {
-	.cbcr_reg = GCC_WCSS_ECAHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_wcss_ecahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_wcss_ecahb_clk.c),
-	},
-};
-
-static struct branch_clk gcc_wcss_shdreg_ahb_clk = {
-	.cbcr_reg = GCC_WCSS_SHDREG_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_wcss_shdreg_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_wcss_shdreg_ahb_clk.c),
-	},
-};
-
 static struct branch_clk gcc_mss_cfg_ahb_clk = {
 	.cbcr_reg = GCC_MSS_CFG_AHB_CBCR,
 	.has_sibling = 1,
@@ -2723,10 +2679,6 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_usb3_phy_pipe_clk),
 	CLK_LIST(gcc_prng_ahb_clk),
 	CLK_LIST(gcc_boot_rom_ahb_clk),
-	CLK_LIST(gcc_wcss_ahb_s0_clk),
-	CLK_LIST(gcc_wcss_axi_m_clk),
-	CLK_LIST(gcc_wcss_ecahb_clk),
-	CLK_LIST(gcc_wcss_shdreg_ahb_clk),
 	CLK_LIST(gcc_mss_cfg_ahb_clk),
 	CLK_LIST(gcc_mss_q6_bimc_axi_clk),
 	CLK_LIST(gcc_mss_mnoc_bimc_axi_clk),

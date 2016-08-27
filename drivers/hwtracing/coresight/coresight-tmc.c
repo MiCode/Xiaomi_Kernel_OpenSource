@@ -1064,9 +1064,44 @@ static void tmc_disable_link(struct coresight_device *csdev, int inport,
 	tmc_disable(drvdata, TMC_MODE_HARDWARE_FIFO);
 }
 
+static void tmc_abort(struct coresight_device *csdev)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	unsigned long flags;
+	enum tmc_mode mode;
+
+	spin_lock_irqsave(&drvdata->spinlock, flags);
+	if (drvdata->reading)
+		goto out0;
+
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
+		tmc_etb_disable_hw(drvdata);
+	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			tmc_etr_disable_hw(drvdata);
+		else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
+			__tmc_etr_disable_to_bam(drvdata);
+	} else {
+		mode = readl_relaxed(drvdata->base + TMC_MODE);
+		if (mode == TMC_MODE_CIRCULAR_BUFFER)
+			tmc_etb_disable_hw(drvdata);
+		else
+			goto out1;
+	}
+out0:
+	drvdata->enable = false;
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+	dev_info(drvdata->dev, "TMC aborted\n");
+	return;
+out1:
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+}
+
 static const struct coresight_ops_sink tmc_sink_ops = {
 	.enable		= tmc_enable_sink,
 	.disable	= tmc_disable_sink,
+	.abort		= tmc_abort,
 };
 
 static const struct coresight_ops_link tmc_link_ops = {

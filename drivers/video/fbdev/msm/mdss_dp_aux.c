@@ -1109,16 +1109,16 @@ static void dp_host_train_set(struct mdss_dp_drv_pdata *ep, int train)
 }
 
 char vm_pre_emphasis[4][4] = {
-	{0x03, 0x06, 0x09, 0x0C},	/* pe0, 0 db */
-	{0x03, 0x06, 0x09, 0xFF},	/* pe1, 3.5 db */
+	{0x00, 0x06, 0x09, 0x0C},	/* pe0, 0 db */
+	{0x00, 0x06, 0x09, 0xFF},	/* pe1, 3.5 db */
 	{0x03, 0x06, 0xFF, 0xFF},	/* pe2, 6.0 db */
 	{0x03, 0xFF, 0xFF, 0xFF}	/* pe3, 9.5 db */
 };
 
 /* voltage swing, 0.2v and 1.0v are not support */
 char vm_voltage_swing[4][4] = {
-	{0x14, 0x18, 0x1A, 0x1E}, /* sw0, 0.4v  */
-	{0x18, 0x1A, 0x1E, 0xFF}, /* sw1, 0.6 v */
+	{0x0a, 0x18, 0x1A, 0x1E}, /* sw0, 0.4v  */
+	{0x07, 0x1A, 0x1E, 0xFF}, /* sw1, 0.6 v */
 	{0x1A, 0x1E, 0xFF, 0xFF}, /* sw1, 0.8 v */
 	{0x1E, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
@@ -1312,7 +1312,7 @@ static void dp_clear_training_pattern(struct mdss_dp_drv_pdata *ep)
 	usleep_range(usleep_time, usleep_time);
 }
 
-static int dp_aux_link_train(struct mdss_dp_drv_pdata *dp)
+int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 	int usleep_time;
@@ -1410,16 +1410,6 @@ void mdss_dp_fill_link_cfg(struct mdss_dp_drv_pdata *ep)
 	pr_debug("pclk=%d rate=%d lane=%d\n",
 		ep->pixel_rate, ep->link_rate, ep->lane_cnt);
 
-}
-
-int mdss_dp_link_train(struct mdss_dp_drv_pdata *ep)
-{
-	int ret;
-
-	mutex_lock(&ep->train_mutex);
-	ret = dp_aux_link_train(ep);
-	mutex_unlock(&ep->train_mutex);
-	return ret;
 }
 
 void mdss_dp_aux_init(struct mdss_dp_drv_pdata *ep)

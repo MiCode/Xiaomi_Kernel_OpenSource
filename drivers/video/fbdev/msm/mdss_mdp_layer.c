@@ -137,8 +137,12 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 			if ((ds_data->lm_width > get_panel_xres(pinfo)) ||
 				(ds_data->lm_height >  get_panel_yres(pinfo)) ||
 				(ds_data->lm_width == 0) ||
-				(ds_data->lm_height == 0)) {
-				pr_err("Invalid LM width / height setting\n");
+				(ds_data->lm_height == 0) ||
+				(is_dsc_compression(pinfo) &&
+				   !is_lm_configs_dsc_compatible(pinfo,
+				     ds_data->lm_width, ds_data->lm_height))) {
+				pr_err("Invalid left LM {%d,%d} setting\n",
+					ds_data->lm_width, ds_data->lm_height);
 				return -EINVAL;
 			}
 
@@ -163,8 +167,12 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 			if ((ds_data->lm_width > get_panel_xres(pinfo)) ||
 				(ds_data->lm_height >  get_panel_yres(pinfo)) ||
 				(ds_data->lm_width == 0) ||
-				(ds_data->lm_height == 0)) {
-				pr_err("Invalid LM width / height setting\n");
+				(ds_data->lm_height == 0) ||
+				(is_dsc_compression(pinfo) &&
+				   !is_lm_configs_dsc_compatible(pinfo,
+				     ds_data->lm_width, ds_data->lm_height))) {
+				pr_err("Invalid right LM {%d,%d} setting\n",
+					ds_data->lm_width, ds_data->lm_height);
 				return -EINVAL;
 			}
 
@@ -174,7 +182,7 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 			 */
 			ctl->mixer_right->width  = ds_data->lm_width;
 			ctl->mixer_right->height = ds_data->lm_height;
-			pr_info("Update mixer-right width/height: %dx%d\n",
+			pr_debug("Update mixer-right width/height: %dx%d\n",
 					ds_data->lm_width, ds_data->lm_height);
 
 			if (ctl->mixer_left &&
@@ -744,10 +752,6 @@ static int __validate_pipe_priorities(struct mdss_mdp_pipe *left,
 			(left->priority >= right->priority))
 		return -EINVAL;
 
-	if ((left->multirect.num < right->multirect.num) &&
-			(left->priority > right->priority))
-		return -EINVAL;
-
 	return 0;
 }
 
@@ -768,7 +772,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	mixer = mdss_mdp_mixer_get(mdp5_data->ctl, mixer_mux);
 	pipe->src_fmt = mdss_mdp_get_format_params(layer->buffer.format);
 	if (!pipe->src_fmt || !mixer) {
-		pr_err("invalid layer format:%d or mixer:%p\n",
+		pr_err("invalid layer format:%d or mixer:%pK\n",
 				layer->buffer.format, pipe->mixer_left);
 		ret = -EINVAL;
 		goto end;
@@ -2246,7 +2250,7 @@ validate_exit:
 			}
 		} else {
 			pipe->file = file;
-			pr_debug("file pointer attached with pipe is %p\n",
+			pr_debug("file pointer attached with pipe is %pK\n",
 				file);
 		}
 	}

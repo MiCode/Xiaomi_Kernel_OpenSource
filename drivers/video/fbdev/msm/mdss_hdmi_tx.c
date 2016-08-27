@@ -1360,7 +1360,7 @@ static int hdmi_tx_sysfs_create(struct hdmi_tx_ctrl *hdmi_ctrl,
 		return rc;
 	}
 	hdmi_ctrl->kobj = &fbi->dev->kobj;
-	DEV_DBG("%s: sysfs group %p\n", __func__, hdmi_ctrl->kobj);
+	DEV_DBG("%s: sysfs group %pK\n", __func__, hdmi_ctrl->kobj);
 
 	return 0;
 } /* hdmi_tx_sysfs_create */
@@ -1915,6 +1915,7 @@ static int hdmi_tx_init_ext_disp(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->ext_audio_data.type = EXT_DISPLAY_TYPE_HDMI;
 	hdmi_ctrl->ext_audio_data.kobj = hdmi_ctrl->kobj;
+	hdmi_ctrl->ext_audio_data.pdev = hdmi_ctrl->pdev;
 	hdmi_ctrl->ext_audio_data.codec_ops.audio_info_setup =
 		hdmi_tx_audio_info_setup;
 	hdmi_ctrl->ext_audio_data.codec_ops.get_audio_edid_blk =
@@ -2978,7 +2979,7 @@ int msm_hdmi_register_audio_codec(struct platform_device *pdev,
 
 	if (!hdmi_ctrl || !ops) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		return -ENODEV;
+		return -EPROBE_DEFER;
 	}
 
 	ret = msm_ext_disp_register_audio_codec(hdmi_ctrl->ext_pdev, ops);
@@ -4030,7 +4031,7 @@ static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 			DEV_DBG("%s: '%s' remap failed or not available\n",
 				__func__, hdmi_tx_io_name(i));
 		}
-		DEV_INFO("%s: '%s': start = 0x%p, len=0x%x\n", __func__,
+		DEV_INFO("%s: '%s': start = 0x%pK, len=0x%x\n", __func__,
 			hdmi_tx_io_name(i), pdata->io[i].base,
 			pdata->io[i].len);
 	}
@@ -4581,7 +4582,7 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 
 	data = of_get_property(pdev->dev.of_node, "qcom,display-id", &len);
 	if (!data || len <= 0)
-		pr_err("%s:%d Unable to read qcom,display-id, data=%p,len=%d\n",
+		pr_err("%s:%d Unable to read qcom,display-id, data=%pK,len=%d\n",
 			__func__, __LINE__, data, len);
 	else
 		snprintf(hdmi_ctrl->panel_data.panel_info.display_id,

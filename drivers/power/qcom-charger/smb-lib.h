@@ -56,6 +56,11 @@ struct smb_chg_param {
 	int		min_u;
 	int		max_u;
 	int		step_u;
+	int		(*get_proc)(struct smb_chg_param *param,
+				    u8 val_raw);
+	int		(*set_proc)(struct smb_chg_param *param,
+				    int val_u,
+				    u8 *val_raw);
 };
 
 struct smb_params {
@@ -138,6 +143,8 @@ struct smb_charger {
 	int			system_temp_level;
 	int			thermal_levels;
 	int			*thermal_mitigation;
+
+	int			fake_capacity;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -188,6 +195,8 @@ int smblib_get_prop_system_temp_level(struct smb_charger *chg,
 				union power_supply_propval *val);
 
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 				const union power_supply_propval *val);

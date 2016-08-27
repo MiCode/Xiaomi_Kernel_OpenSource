@@ -880,8 +880,8 @@ static void adv7533_handle_cec_intr(struct adv7533 *pdata, u8 cec_status)
 {
 	u8 cec_int_clear = 0x08;
 	bool cec_rx_intr = false;
-	u8 cec_rx_ready;
-	u8 cec_rx_timestamp;
+	u8 cec_rx_ready = 0;
+	u8 cec_rx_timestamp = 0;
 
 	if (!pdata) {
 		pr_err("%s: Invalid input\n", __func__);
@@ -983,7 +983,7 @@ end:
 
 static void *adv7533_handle_hpd_intr(struct adv7533 *pdata)
 {
-	int ret;
+	int ret = 0;
 	u8 hpd_state;
 	u8 connected = 0, disconnected = 0;
 

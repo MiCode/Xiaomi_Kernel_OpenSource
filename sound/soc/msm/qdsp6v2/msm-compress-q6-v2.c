@@ -96,7 +96,7 @@ struct msm_compr_gapless_state {
 
 static unsigned int supported_sample_rates[] = {
 	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 64000,
-	88200, 96000, 176400, 192000
+	88200, 96000, 176400, 192000, 352800, 384000, 2822400, 5644800
 };
 
 struct msm_compr_pdata {
@@ -170,7 +170,8 @@ struct msm_compr_audio {
 };
 
 const u32 compr_codecs[] = {
-	SND_AUDIOCODEC_AC3, SND_AUDIOCODEC_EAC3, SND_AUDIOCODEC_DTS};
+	SND_AUDIOCODEC_AC3, SND_AUDIOCODEC_EAC3, SND_AUDIOCODEC_DTS,
+	SND_AUDIOCODEC_DSD};
 
 struct query_audio_effect {
 	uint32_t mod_id;
@@ -642,7 +643,7 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 			COMPR_PLAYBACK_MIN_NUM_FRAGMENTS;
 	prtd->compr_cap.max_fragments =
 			COMPR_PLAYBACK_MAX_NUM_FRAGMENTS;
-	prtd->compr_cap.num_codecs = 13;
+	prtd->compr_cap.num_codecs = 14;
 	prtd->compr_cap.codecs[0] = SND_AUDIOCODEC_MP3;
 	prtd->compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 	prtd->compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
@@ -656,6 +657,7 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 	prtd->compr_cap.codecs[10] = SND_AUDIOCODEC_ALAC;
 	prtd->compr_cap.codecs[11] = SND_AUDIOCODEC_APE;
 	prtd->compr_cap.codecs[12] = SND_AUDIOCODEC_DTS;
+	prtd->compr_cap.codecs[13] = SND_AUDIOCODEC_DSD;
 }
 
 static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
@@ -674,6 +676,7 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	struct asm_vorbis_cfg vorbis_cfg;
 	struct asm_alac_cfg alac_cfg;
 	struct asm_ape_cfg ape_cfg;
+	struct asm_dsd_cfg dsd_cfg;
 	union snd_codec_options *codec_options;
 
 	int ret = 0;
@@ -885,7 +888,20 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 		pr_debug("SND_AUDIOCODEC_DTS\n");
 		/* no media format block needed */
 		break;
-
+	case FORMAT_DSD:
+		pr_debug("%s: SND_AUDIOCODEC_DSD\n", __func__);
+		memset(&dsd_cfg, 0x0, sizeof(struct asm_dsd_cfg));
+		dsd_cfg.num_channels = prtd->num_channels;
+		dsd_cfg.dsd_data_rate = prtd->sample_rate;
+		dsd_cfg.num_version = 0;
+		dsd_cfg.is_bitwise_big_endian = 1;
+		dsd_cfg.dsd_channel_block_size = 1;
+		ret = q6asm_media_format_block_dsd(prtd->audio_client,
+						   &dsd_cfg, stream_id);
+		if (ret < 0)
+			pr_err("%s: CMD DSD Format block failed ret %d\n",
+				__func__, ret);
+		break;
 	default:
 		pr_debug("%s, unsupported format, skip", __func__);
 		break;
@@ -1298,8 +1314,8 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	prtd->sample_rate = prtd->codec_param.codec.sample_rate;
 	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
 
-	if (prtd->codec_param.codec.compr_passthr >= 0 &&
-		prtd->codec_param.codec.compr_passthr <= 2)
+	if (prtd->codec_param.codec.compr_passthr >= LEGACY_PCM &&
+	    prtd->codec_param.codec.compr_passthr <= COMPRESSED_PASSTHROUGH_DSD)
 		prtd->compr_passthr = prtd->codec_param.codec.compr_passthr;
 	else
 		prtd->compr_passthr = LEGACY_PCM;
@@ -1407,6 +1423,12 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_DTS: {
 		pr_debug("%s: SND_AUDIOCODEC_DTS\n", __func__);
 		prtd->codec = FORMAT_DTS;
+		break;
+	}
+
+	case SND_AUDIOCODEC_DSD: {
+		pr_debug("%s: SND_AUDIOCODEC_DSD\n", __func__);
+		prtd->codec = FORMAT_DSD;
 		break;
 	}
 
@@ -2199,6 +2221,8 @@ static int msm_compr_get_codec_caps(struct snd_compr_stream *cstream,
 		break;
 	case SND_AUDIOCODEC_DTS:
 		break;
+	case SND_AUDIOCODEC_DSD:
+		break;
 	default:
 		pr_err("%s: Unsupported audio codec %d\n",
 			__func__, codec->codec);
@@ -2675,6 +2699,7 @@ static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 	case FORMAT_ALAC:
 	case FORMAT_APE:
 	case FORMAT_DTS:
+	case FORMAT_DSD:
 		pr_debug("%s: no runtime parameters for codec: %d\n", __func__,
 			 prtd->codec);
 		break;

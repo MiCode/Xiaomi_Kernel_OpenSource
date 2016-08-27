@@ -764,6 +764,7 @@ enum ipa_irq_type {
 	IPA_TX_SUSPEND_IRQ,
 	IPA_TX_HOLB_DROP_IRQ,
 	IPA_BAM_IDLE_IRQ,
+	IPA_BAM_GSI_IDLE_IRQ = IPA_BAM_IDLE_IRQ,
 	IPA_IRQ_MAX
 };
 
@@ -948,6 +949,8 @@ struct ipa_wdi_ul_params_smmu {
 	struct sg_table rdy_comp_ring;
 	phys_addr_t rdy_comp_ring_wp_pa;
 	u32 rdy_comp_ring_size;
+	u32 *rdy_ring_rp_va;
+	u32 *rdy_comp_ring_wp_va;
 };
 
 /**

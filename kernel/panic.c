@@ -25,6 +25,9 @@
 #include <linux/nmi.h>
 #include <linux/console.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/exception.h>
+
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
@@ -79,6 +82,8 @@ void panic(const char *fmt, ...)
 	va_list args;
 	long i, i_next = 0;
 	int state = 0;
+
+	trace_kernel_panic(0);
 
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
@@ -181,6 +186,9 @@ void panic(const char *fmt, ...)
 			mdelay(PANIC_TIMER_STEP);
 		}
 	}
+
+	trace_kernel_panic_late(0);
+
 	if (panic_timeout != 0) {
 		/*
 		 * This will not be a clean reboot, with everything

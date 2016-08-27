@@ -415,7 +415,7 @@
 	rpm-regulator-ldoa25 {
 		status = "okay";
 		pmcobalt_l25: regulator-l25 {
-			regulator-min-microvolt = <3312000>;
+			regulator-min-microvolt = <3104000>;
 			regulator-max-microvolt = <3312000>;
 			status = "okay";
 		};
@@ -424,7 +424,7 @@
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pmcobalt_l25_pin_ctrl";
 			qcom,set = <3>;
-			regulator-min-microvolt = <3312000>;
+			regulator-min-microvolt = <3104000>;
 			regulator-max-microvolt = <3312000>;
 			/* Force NPM follows HW_EN2 */
 			qcom,init-pin-ctrl-mode = <4>;

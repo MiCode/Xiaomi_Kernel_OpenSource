@@ -134,7 +134,10 @@ int smblib_get_charge_param(struct smb_charger *chg,
 		return rc;
 	}
 
-	*val_u = val_raw * param->step_u + param->min_u;
+	if (param->get_proc)
+		*val_u = param->get_proc(param, val_raw);
+	else
+		*val_u = val_raw * param->step_u + param->min_u;
 	smblib_dbg(chg, PR_REGISTER, "%s = %d (0x%02x)\n",
 		   param->name, *val_u, val_raw);
 
@@ -216,13 +219,20 @@ int smblib_set_charge_param(struct smb_charger *chg,
 	int rc = 0;
 	u8 val_raw;
 
-	if (val_u > param->max_u || val_u < param->min_u) {
-		dev_err(chg->dev, "%s: %d is out of range [%d, %d]\n",
-			param->name, val_u, param->min_u, param->max_u);
-		return -EINVAL;
+	if (param->set_proc) {
+		rc = param->set_proc(param, val_u, &val_raw);
+		if (rc < 0)
+			return -EINVAL;
+	} else {
+		if (val_u > param->max_u || val_u < param->min_u) {
+			dev_err(chg->dev, "%s: %d is out of range [%d, %d]\n",
+				param->name, val_u, param->min_u, param->max_u);
+			return -EINVAL;
+		}
+
+		val_raw = (val_u - param->min_u) / param->step_u;
 	}
 
-	val_raw = (val_u - param->min_u) / param->step_u;
 	rc = smblib_write(chg, param->reg, val_raw);
 	if (rc < 0) {
 		dev_err(chg->dev, "%s: Couldn't write 0x%02x to 0x%04x rc=%d\n",
@@ -749,6 +759,11 @@ int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 {
 	int rc = -EINVAL;
 
+	if (chg->fake_capacity >= 0) {
+		val->intval = chg->fake_capacity;
+		return 0;
+	}
+
 	if (chg->bms_psy)
 		rc = power_supply_get_property(chg->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, val);
@@ -901,6 +916,16 @@ int smblib_set_prop_input_suspend(struct smb_charger *chg,
 
 	power_supply_changed(chg->batt_psy);
 	return rc;
+}
+
+int smblib_set_prop_batt_capacity(struct smb_charger *chg,
+				  const union power_supply_propval *val)
+{
+	chg->fake_capacity = val->intval;
+
+	power_supply_changed(chg->batt_psy);
+
+	return 0;
 }
 
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
@@ -1808,7 +1833,7 @@ int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
 
-	chg->usb_suspend_votable = create_votable("INPUT_SUSPEND", VOTE_SET_ANY,
+	chg->usb_suspend_votable = create_votable("USB_SUSPEND", VOTE_SET_ANY,
 					smblib_usb_suspend_vote_callback,
 					chg);
 	if (IS_ERR(chg->usb_suspend_votable)) {
@@ -1907,6 +1932,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_WORK(&chg->pl_detect_work, smblib_pl_detect_work);
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 	INIT_DELAYED_WORK(&chg->pl_taper_work, smblib_pl_taper_work);
+	chg->fake_capacity = -EINVAL;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:

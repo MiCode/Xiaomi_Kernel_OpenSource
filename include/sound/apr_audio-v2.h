@@ -3375,6 +3375,7 @@ struct afe_lpass_core_shared_clk_config_command {
 #define DEFAULT_COPP_TOPOLOGY				0x00010314
 #define DEFAULT_POPP_TOPOLOGY				0x00010BE4
 #define COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY         0x0001076B
+#define COMPRESS_PASSTHROUGH_NONE_TOPOLOGY      0x00010774
 #define VPM_TX_SM_ECNS_COPP_TOPOLOGY			0x00010F71
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
 #define VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY		0x00010F75
@@ -3588,6 +3589,15 @@ struct asm_ape_cfg {
 	u16 num_channels;
 	u32 sample_rate;
 	u32 seek_table_present;
+};
+
+struct asm_dsd_cfg {
+	u16 num_version;
+	u16 is_bitwise_big_endian;
+	u16 dsd_channel_block_size;
+	u16 num_channels;
+	u8  channel_mapping[8];
+	u32 dsd_data_rate;
 };
 
 struct asm_softpause_params {
@@ -4158,6 +4168,19 @@ struct asm_ape_fmt_blk_v2 {
 
 } __packed;
 
+struct asm_dsd_fmt_blk_v2 {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
+
+	u16 num_version;
+	u16 is_bitwise_big_endian;
+	u16 dsd_channel_block_size;
+	u16 num_channels;
+	u8  channel_mapping[8];
+	u32 dsd_data_rate;
+
+} __packed;
+
 #define ASM_MEDIA_FMT_AMRNB_FS                  0x00010BEB
 
 /* Enumeration for 4.75 kbps AMR-NB Encoding mode. */
@@ -4566,6 +4589,7 @@ struct asm_amrwbplus_fmt_blk_v2 {
 #define ASM_MEDIA_FMT_ALAC                   0x00012F31
 #define ASM_MEDIA_FMT_VORBIS                 0x00010C15
 #define ASM_MEDIA_FMT_APE                    0x00012F32
+#define ASM_MEDIA_FMT_DSD                    0x00012F3E
 
 
 /* Media format ID for adaptive transform acoustic coding. This
@@ -9565,6 +9589,7 @@ enum {
 	LEGACY_PCM = 0,
 	COMPRESSED_PASSTHROUGH,
 	COMPRESSED_PASSTHROUGH_CONVERT,
+	COMPRESSED_PASSTHROUGH_DSD,
 };
 
 #define AUDPROC_MODULE_ID_COMPRESSED_MUTE                0x00010770

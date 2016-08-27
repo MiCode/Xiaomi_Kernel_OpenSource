@@ -918,10 +918,9 @@ static void check_pbl_done(struct pil_tz_data *d)
 
 	err_value =  __raw_readl(d->err_status);
 	pr_debug("PBL_DONE received from %s!\n", d->subsys_desc.name);
-	if (!err_value)
-		__raw_writel(BIT(d->bits_arr[PBL_DONE]), d->irq_clear);
-	else
+	if (err_value)
 		pr_err("PBL error status register: 0x%08x\n", err_value);
+	__raw_writel(BIT(d->bits_arr[PBL_DONE]), d->irq_clear);
 }
 
 static void check_err_ready(struct pil_tz_data *d)
