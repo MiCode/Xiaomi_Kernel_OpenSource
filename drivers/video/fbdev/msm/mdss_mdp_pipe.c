@@ -2756,7 +2756,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	__set_pipe_multirect_opmode(pipe);
 
 	if (src_data == NULL) {
-		pr_debug("src_data=%p pipe num=%dx\n",
+		pr_debug("src_data=%pK pipe num=%dx\n",
 				src_data, pipe->num);
 		goto update_nobuf;
 	}
