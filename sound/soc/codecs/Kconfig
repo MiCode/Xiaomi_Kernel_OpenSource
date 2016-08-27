@@ -713,6 +713,9 @@ config SND_SOC_UDA134X
 config SND_SOC_UDA1380
         tristate
 
+config SND_SOC_WCD934X_DSD
+        tristate
+
 config SND_SOC_WCD9320
         tristate
 
@@ -732,6 +735,7 @@ config SND_SOC_WCD934X
 	select SND_SOC_WCD_DSP_MGR
 	select SND_SOC_WCD_SPI
 	select SND_SOC_WCD934X_MBHC
+        select SND_SOC_WCD934X_DSD
 
 config SND_SOC_WCD934X_MBHC
         tristate

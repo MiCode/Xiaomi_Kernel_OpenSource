@@ -466,6 +466,11 @@ static void wcd_cntl_do_shutdown(struct wcd_dsp_cntl *cntl)
 	/* Put WDSP in reset state */
 	snd_soc_update_bits(codec, WCD934X_CPE_SS_CPE_CTL,
 			    0x02, 0x00);
+
+	/* If DSP transitions from boot to shutdown, then vote for SVS */
+	if (cntl->is_wdsp_booted)
+		cntl->cdc_cb->cdc_vote_svs(codec, true);
+	cntl->is_wdsp_booted = false;
 }
 
 static int wcd_cntl_do_boot(struct wcd_dsp_cntl *cntl)
@@ -507,6 +512,7 @@ static int wcd_cntl_do_boot(struct wcd_dsp_cntl *cntl)
 	if (cntl->debug_mode) {
 		wait_for_completion(&cntl->boot_complete);
 		dev_dbg(codec->dev, "%s: WDSP booted in dbg mode\n", __func__);
+		cntl->is_wdsp_booted = true;
 		goto done;
 	}
 
@@ -521,11 +527,16 @@ static int wcd_cntl_do_boot(struct wcd_dsp_cntl *cntl)
 	}
 
 	dev_dbg(codec->dev, "%s: WDSP booted in normal mode\n", __func__);
+	cntl->is_wdsp_booted = true;
 
 	/* Enable WDOG */
 	snd_soc_update_bits(codec, WCD934X_CPE_SS_WDOG_CFG,
 			    0x10, 0x10);
 done:
+	/* If dsp booted up, then remove vote on SVS */
+	if (cntl->is_wdsp_booted)
+		cntl->cdc_cb->cdc_vote_svs(codec, false);
+
 	return ret;
 err_boot:
 	/* call shutdown to perform cleanup */
@@ -899,6 +910,14 @@ void wcd_dsp_cntl_init(struct snd_soc_codec *codec,
 		return;
 	}
 
+	if (!params->cb || !params->cb->cdc_clk_en ||
+	    !params->cb->cdc_vote_svs) {
+		dev_err(codec->dev,
+			"%s: clk_en and vote_svs callbacks must be provided\n",
+			__func__);
+		return;
+	}
+
 	control = kzalloc(sizeof(*control), GFP_KERNEL);
 	if (!(control))
 		return;
@@ -910,6 +929,13 @@ void wcd_dsp_cntl_init(struct snd_soc_codec *codec,
 	memcpy(&control->irqs, &params->irqs, sizeof(control->irqs));
 	init_completion(&control->boot_complete);
 	mutex_init(&control->clk_mutex);
+
+	/*
+	 * The default state of WDSP is in SVS mode.
+	 * Vote for SVS now, the vote will be removed only
+	 * after DSP is booted up.
+	 */
+	control->cdc_cb->cdc_vote_svs(codec, true);
 
 	/*
 	 * If this is the last component needed by master to be ready,
