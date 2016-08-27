@@ -113,8 +113,8 @@ static void mdss_dsi_phy_v3_set_pll_source(
 	else
 		pll_src = 0x00; /* internal PLL */
 
-	/* set the PLL src and set global clock enable */
-	reg = (pll_src << 2) | BIT(5);
+	/* set the PLL src */
+	reg = (pll_src << 2);
 	DSI_PHY_W32(ctrl->phy_io.base, CMN_CLK_CFG1, reg);
 }
 
@@ -183,7 +183,7 @@ static void mdss_dsi_phy_v3_config_lane_settings(
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	int i;
-	u32 tx_dctrl[] = {0x98, 0x99, 0x98, 0x9a, 0x98};
+	u32 tx_dctrl[] = {0x18, 0x19, 0x18, 0x02, 0x18};
 	struct mdss_dsi_phy_ctrl *pd =
 		&(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
@@ -198,8 +198,8 @@ static void mdss_dsi_phy_v3_config_lane_settings(
 		 */
 		DSI_PHY_W32(ctrl->phy_io.base, LNX_LPRX_CTRL(i), 0);
 
-		DSI_PHY_W32(ctrl->phy_io.base, LNX_HSTX_STR_CTRL(i), 0x88);
 		DSI_PHY_W32(ctrl->phy_io.base, LNX_PIN_SWAP(i), 0x0);
+		DSI_PHY_W32(ctrl->phy_io.base, LNX_HSTX_STR_CTRL(i), 0x88);
 	}
 	mdss_dsi_phy_v3_config_lpcdrx(ctrl, true);
 
@@ -383,8 +383,11 @@ int mdss_dsi_phy_v3_init(struct mdss_dsi_ctrl_pdata *ctrl,
 		return rc;
 	}
 
-	/* de-assert digital power down */
-	DSI_PHY_W32(ctrl->phy_io.base, CMN_CTRL_0, BIT(6));
+	/* de-assert digital and pll power down */
+	DSI_PHY_W32(ctrl->phy_io.base, CMN_CTRL_0, BIT(6) | BIT(5));
+
+	/* Assert PLL core reset */
+	DSI_PHY_W32(ctrl->phy_io.base, CMN_PLL_CNTRL, 0x00);
 
 	/* turn off resync FIFO */
 	DSI_PHY_W32(ctrl->phy_io.base, CMN_RBUF_CTRL, 0x00);
