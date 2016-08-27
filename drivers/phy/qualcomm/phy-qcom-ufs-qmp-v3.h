@@ -18,10 +18,18 @@
 #include "phy-qcom-ufs-i.h"
 
 /* QCOM UFS PHY control registers */
-#define COM_OFF(x)	(0x000 + x)
-#define PHY_OFF(x)	(0xC00 + x)
-#define TX_OFF(n, x)	(0x400 + (0x400 * n) + x)
-#define RX_OFF(n, x)	(0x600 + (0x400 * n) + x)
+#define COM_BASE	0x000
+#define COM_SIZE	0x18C
+#define PHY_BASE	0xC00
+#define PHY_SIZE	0x1DC
+#define TX_BASE(n)	(0x400 + (0x400 * n))
+#define TX_SIZE		0x128
+#define RX_BASE(n)	(0x600 + (0x400 * n))
+#define RX_SIZE		0x1FC
+#define COM_OFF(x)	(COM_BASE + x)
+#define PHY_OFF(x)	(PHY_BASE + x)
+#define TX_OFF(n, x)	(TX_BASE(n) + x)
+#define RX_OFF(n, x)	(RX_BASE(n) + x)
 
 /* UFS PHY QSERDES COM registers */
 #define QSERDES_COM_ATB_SEL1			COM_OFF(0x00)
