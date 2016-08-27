@@ -213,7 +213,7 @@
 		/* Cameras powered by PMIC: */
 		cam_vdig-supply = <&vph_pwr_vreg>;
 		cam_vio-supply = <&pm8994_lvs1>;
-		cam_vana-supply = <&pm8994_l29>;
+		cam_vana-supply = <&pm8994_l23>;
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
 		qcom,cam-vreg-min-voltage = <1000000 0 2800000>;
 		qcom,cam-vreg-max-voltage = <1000000 0 2800000>;
@@ -235,7 +235,7 @@
 					  "CAM_STANDBY2";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
-		qcom,cci-master = <1>;
+		qcom,cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_mmss clk_mclk2_clk_src>,
 			<&clock_mmss clk_camss_mclk2_clk>;
