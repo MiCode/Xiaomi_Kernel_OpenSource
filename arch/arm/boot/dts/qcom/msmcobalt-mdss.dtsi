@@ -21,6 +21,9 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		vdd-supply = <&gdsc_mdss>;
+		vdd-cx-supply = <&pmcobalt_s1_level>;
+		vdd-cx-min-uV = <RPM_SMD_REGULATOR_LEVEL_LOW_SVS>;
+		vdd-cx-max-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_mdp";
