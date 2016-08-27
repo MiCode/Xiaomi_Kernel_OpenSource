@@ -22,6 +22,7 @@
 #define FT5X16_ID		0x0A
 #define FT5X36_ID		0x14
 #define FT6X06_ID		0x06
+#define FT6X36_ID       0x36
 
 struct fw_upgrade_info {
 	bool auto_cal;
@@ -31,6 +32,14 @@ struct fw_upgrade_info {
 	u8 upgrade_id_2;
 	u16 delay_readid;
 	u16 delay_erase_flash;
+};
+
+struct ft5x06_psensor_platform_data {
+	struct input_dev *input_psensor_dev;
+	struct sensors_classdev ps_cdev;
+	int tp_psensor_opened;
+	char tp_psensor_data; /* 0 near, 1 far */
+	struct ft5x06_ts_data *data;
 };
 
 struct ft5x06_ts_platform_data {
@@ -59,6 +68,7 @@ struct ft5x06_ts_platform_data {
 	bool no_force_update;
 	bool i2c_pull_up;
 	bool ignore_id_check;
+	bool psensor_support;
 	int (*power_init)(bool);
 	int (*power_on)(bool);
 };

@@ -1110,6 +1110,15 @@ config TOUCHSCREEN_COLIBRI_VF50
 	  To compile this driver as a module, choose M here: the
 	  module will be called colibri_vf50_ts.
 
+config TOUCHSCREEN_FT5X06_PSENSOR
+       tristate "FocalTech proximity feature support"
+       depends on TOUCHSCREEN_FT5X06 && SENSORS
+       help
+         Say Y here if you want to support ft5x06's proximity
+         feature.
+
+         If unsure, say N.
+
 config TOUCHSCREEN_MSTAR21XX
 	tristate "Mstar touchscreens"
 	depends on I2C
