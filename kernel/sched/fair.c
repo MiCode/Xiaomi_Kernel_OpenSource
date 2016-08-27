@@ -2992,7 +2992,7 @@ static inline void init_cluster_cpu_stats(struct cluster_cpu_stats *stats)
 static inline int wake_to_idle(struct task_struct *p)
 {
 	return (current->flags & PF_WAKE_UP_IDLE) ||
-				(p->flags & PF_WAKE_UP_IDLE);
+		 (p->flags & PF_WAKE_UP_IDLE) || sysctl_sched_wake_to_idle;
 }
 
 static inline bool

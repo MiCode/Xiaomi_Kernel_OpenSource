@@ -63,6 +63,7 @@ extern unsigned int sysctl_sched_new_task_windows;
 extern unsigned int sysctl_sched_pred_alert_freq;
 extern unsigned int sysctl_sched_freq_aggregate;
 extern unsigned int sysctl_sched_enable_thread_grouping;
+extern unsigned int sysctl_sched_freq_aggregate_threshold_pct;
 
 #else /* CONFIG_SCHED_HMP */
 

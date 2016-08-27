@@ -821,6 +821,9 @@ static DEFINE_RWLOCK(related_thread_group_lock);
 static __read_mostly unsigned int sched_freq_aggregate;
 __read_mostly unsigned int sysctl_sched_freq_aggregate;
 
+unsigned int __read_mostly sysctl_sched_freq_aggregate_threshold_pct;
+static unsigned int __read_mostly sched_freq_aggregate_threshold;
+
 /* Initial task load. Newly created tasks are assigned this load. */
 unsigned int __read_mostly sched_init_task_load_windows;
 unsigned int __read_mostly sysctl_sched_init_task_load_pct = 15;
@@ -959,6 +962,9 @@ void set_hmp_defaults(void)
 	sched_big_waker_task_load =
 		div64_u64((u64)sysctl_sched_big_waker_task_load_pct *
 			  (u64)sched_ravg_window, 100);
+
+	sched_freq_aggregate_threshold =
+		pct_to_real(sysctl_sched_freq_aggregate_threshold_pct);
 }
 
 u32 sched_get_init_task_load(struct task_struct *p)
@@ -1475,7 +1481,18 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	if (write && (old_val == *data))
 		goto done;
 
-	if (data != &sysctl_sched_select_prev_cpu_us) {
+	/*
+	 * Special handling for sched_freq_aggregate_threshold_pct
+	 * which can be greater than 100. Use 1000 as an upper bound
+	 * value which works for all practical use cases.
+	 */
+	if (data == &sysctl_sched_freq_aggregate_threshold_pct) {
+		if (*data > 1000) {
+			*data = old_val;
+			ret = -EINVAL;
+			goto done;
+		}
+	} else if (data != &sysctl_sched_select_prev_cpu_us) {
 		/*
 		 * all tunables other than sched_select_prev_cpu_us are
 		 * in percentage.
@@ -2947,6 +2964,8 @@ void sched_get_cpus_busy(struct sched_load *busy,
 	u64 max_prev_sum = 0;
 	int max_busy_cpu = cpumask_first(query_cpus);
 	struct related_thread_group *grp;
+	u64 total_group_load = 0, total_ngload = 0;
+	bool aggregate_load = false;
 
 	if (unlikely(cpus == 0))
 		return;
@@ -3006,6 +3025,11 @@ void sched_get_cpus_busy(struct sched_load *busy,
 		}
 	}
 
+	group_load_in_freq_domain(
+			&cpu_rq(max_busy_cpu)->freq_domain_cpumask,
+			&total_group_load, &total_ngload);
+	aggregate_load = !!(total_group_load > sched_freq_aggregate_threshold);
+
 	i = 0;
 	for_each_cpu(cpu, query_cpus) {
 		group_load[i] = 0;
@@ -3015,11 +3039,11 @@ void sched_get_cpus_busy(struct sched_load *busy,
 			goto skip_early;
 
 		rq = cpu_rq(cpu);
-		if (!notifier_sent) {
-			if (cpu == max_busy_cpu)
-				group_load_in_freq_domain(
-					&rq->freq_domain_cpumask,
-					&group_load[i], &ngload[i]);
+		if (aggregate_load) {
+			if (cpu == max_busy_cpu) {
+				group_load[i] = total_group_load;
+				ngload[i] = total_ngload;
+			}
 		} else {
 			_group_load_in_cpu(cpu, &group_load[i], &ngload[i]);
 		}
@@ -3056,7 +3080,19 @@ skip_early:
 			goto exit_early;
 		}
 
-		if (!notifier_sent) {
+		/*
+		 * When the load aggregation is controlled by
+		 * sched_freq_aggregate_threshold, allow reporting loads
+		 * greater than 100 @ Fcur to ramp up the frequency
+		 * faster.
+		 */
+		if (notifier_sent || (aggregate_load &&
+					sched_freq_aggregate_threshold)) {
+			load[i] = scale_load_to_freq(load[i], max_freq[i],
+						    cpu_max_possible_freq(cpu));
+			nload[i] = scale_load_to_freq(nload[i], max_freq[i],
+						    cpu_max_possible_freq(cpu));
+		} else {
 			load[i] = scale_load_to_freq(load[i], max_freq[i],
 						     cur_freq[i]);
 			nload[i] = scale_load_to_freq(nload[i], max_freq[i],
@@ -3069,11 +3105,6 @@ skip_early:
 			load[i] = scale_load_to_freq(load[i], cur_freq[i],
 						    cpu_max_possible_freq(cpu));
 			nload[i] = scale_load_to_freq(nload[i], cur_freq[i],
-						    cpu_max_possible_freq(cpu));
-		} else {
-			load[i] = scale_load_to_freq(load[i], max_freq[i],
-						    cpu_max_possible_freq(cpu));
-			nload[i] = scale_load_to_freq(nload[i], max_freq[i],
 						    cpu_max_possible_freq(cpu));
 		}
 		pload[i] = scale_load_to_freq(pload[i], max_freq[i],
