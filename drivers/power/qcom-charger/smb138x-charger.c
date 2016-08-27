@@ -32,7 +32,11 @@
 
 /* Registers that are not common to be mentioned in smb-reg.h */
 #define SMB2CHG_MISC_ENG_SDCDC_CFG2	(MISC_BASE + 0xC1)
-#define ENG_SDCDC_SEL_OOB_VTH_BIT		BIT(0)
+#define ENG_SDCDC_SEL_OOB_VTH_BIT	BIT(0)
+
+#define SMB2CHG_MISC_ENG_SDCDC_CFG6	(MISC_BASE + 0xC5)
+#define DEAD_TIME_MASK			GENMASK(7, 4)
+#define HIGH_DEAD_TIME_MASK		GENMASK(7, 4)
 
 enum {
 	OOB_COMP_WA_BIT = BIT(0),
@@ -77,10 +81,10 @@ struct smb_dt_props {
 };
 
 struct smb138x {
-	u32			wa_flags;
 	struct smb_charger	chg;
 	struct smb_dt_props	dt;
 	struct power_supply	*parallel_psy;
+	u32			wa_flags;
 };
 
 static int __debug_mask;
@@ -269,7 +273,8 @@ static int smb138x_batt_get_prop(struct power_supply *psy,
 				 enum power_supply_property prop,
 				 union power_supply_propval *val)
 {
-	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
 	switch (prop) {
@@ -304,7 +309,8 @@ static int smb138x_batt_set_prop(struct power_supply *psy,
 				 enum power_supply_property prop,
 				 const union power_supply_propval *val)
 {
-	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
 	switch (prop) {
@@ -381,7 +387,8 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     union power_supply_propval *val)
 {
-	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 	u8 temp;
 
@@ -421,7 +428,8 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     const union power_supply_propval *val)
 {
-	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	struct smb138x *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
 	switch (prop) {
@@ -645,6 +653,14 @@ static int smb138x_init_hw(struct smb138x *chip)
 		if (rc < 0) {
 			dev_err(chg->dev,
 			"Couldn't configure the oob comp threh rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG6,
+				DEAD_TIME_MASK, HIGH_DEAD_TIME_MASK);
+		if (rc < 0) {
+			dev_err(chg->dev,
+			"Couldn't configure the sdcdc cfg 6 reg rc = %d\n", rc);
 			return rc;
 		}
 	}
@@ -924,6 +940,14 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		if (rc < 0) {
 			dev_err(chg->dev,
 			"Couldn't configure the oob comp threh rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG6,
+				DEAD_TIME_MASK, HIGH_DEAD_TIME_MASK);
+		if (rc < 0) {
+			dev_err(chg->dev,
+			"Couldn't configure the sdcdc cfg 6 reg rc = %d\n", rc);
 			return rc;
 		}
 	}
