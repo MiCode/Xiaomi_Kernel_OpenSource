@@ -395,7 +395,7 @@ int ipa3_add_interrupt_handler(enum ipa_irq_type interrupt,
 
 	/* register SUSPEND_IRQ_EN_EE_n_ADDR for L2 interrupt*/
 	if ((interrupt == IPA_TX_SUSPEND_IRQ) &&
-		(ipa3_ctx->ipa_hw_type == IPA_HW_v3_1)) {
+		(ipa3_ctx->ipa_hw_type >= IPA_HW_v3_1)) {
 		val = ~0;
 		for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
 			if (IPA_CLIENT_IS_Q6_CONS(client_idx) ||
@@ -448,7 +448,7 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt)
 
 	/* clean SUSPEND_IRQ_EN_EE_n_ADDR for L2 interrupt */
 	if ((interrupt == IPA_TX_SUSPEND_IRQ) &&
-		(ipa3_ctx->ipa_hw_type == IPA_HW_v3_1)) {
+		(ipa3_ctx->ipa_hw_type >= IPA_HW_v3_1)) {
 		ipahal_write_reg_n(IPA_SUSPEND_IRQ_EN_EE_n, ipa_ee, 0);
 		IPADBG("wrote IPA_SUSPEND_IRQ_EN_EE_n reg = %d\n", 0);
 	}
