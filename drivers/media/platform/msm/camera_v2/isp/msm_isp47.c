@@ -248,13 +248,31 @@ static enum cam_ahb_clk_vote msm_isp47_get_cam_clk_vote(
 	return 0;
 }
 
-static int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
+int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
 			struct msm_isp_ahb_clk_cfg *ahb_cfg)
 {
 	int rc = 0;
 	enum cam_ahb_clk_vote vote;
+	enum cam_ahb_clk_vote src_clk_vote;
+	struct msm_isp_clk_rates clk_rates;
 
-	vote = msm_isp47_get_cam_clk_vote(ahb_cfg->vote);
+	if (ahb_cfg)
+		vote = msm_isp47_get_cam_clk_vote(ahb_cfg->vote);
+	else
+		vote = CAM_AHB_SVS_VOTE;
+
+	vfe_dev->hw_info->vfe_ops.platform_ops.get_clk_rates(vfe_dev,
+							&clk_rates);
+	if (vfe_dev->msm_isp_vfe_clk_rate <= clk_rates.svs_rate)
+		src_clk_vote = CAM_AHB_SVS_VOTE;
+	else if (vfe_dev->msm_isp_vfe_clk_rate <= clk_rates.nominal_rate)
+		src_clk_vote = CAM_AHB_NOMINAL_VOTE;
+	else
+		src_clk_vote = CAM_AHB_TURBO_VOTE;
+
+	/* vote for higher of the user requested or src clock matched vote */
+	if (vote < src_clk_vote)
+		vote = src_clk_vote;
 
 	if (vote && vfe_dev->ahb_vote != vote) {
 		rc = cam_config_ahb_clk(NULL, 0,
@@ -2339,6 +2357,9 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 		return rc;
 	*rate = clk_round_rate(vfe_dev->vfe_clk[clk_idx], *rate);
 	vfe_dev->msm_isp_vfe_clk_rate = *rate;
+
+	if (vfe_dev->hw_info->vfe_ops.core_ops.ahb_clk_cfg)
+		vfe_dev->hw_info->vfe_ops.core_ops.ahb_clk_cfg(vfe_dev, NULL);
 	return 0;
 }
 
