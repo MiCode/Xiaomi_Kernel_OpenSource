@@ -22,3 +22,109 @@
 
 	soc: soc { };
 };
+
+&usb_otg {
+	/delete-property/ clocks;
+	clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
+			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
+			 <&clock_gcc clk_bimc_usb_clk>,
+			 <&clock_gcc clk_snoc_usb_clk>,
+			 <&clock_gcc clk_pnoc_usb_clk>,
+			 <&clock_gcc clk_gcc_qusb2_phy_clk>,
+			 <&clock_gcc clk_gcc_usb2_hs_phy_only_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_phy_cfg_ahb_clk>,
+			 <&clock_gcc clk_xo_otg_clk>;
+
+	qcom,usbbam@78c4000 {
+		qcom,enable-hsusb-bam-on-boot;
+
+		/delete-property/ qcom,reset-bam-on-disconnect;
+		/delete-node/ qcom,pipe0;
+		qcom,pipe0 {
+			label = "hsusb-ipa-out-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-pipe-index = <1>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+		qcom,pipe1 {
+			label = "hsusb-ipa-in-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+		qcom,pipe2 {
+			label = "hsusb-qdss-in-0";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <0>;
+			qcom,peer-bam-physical-address = <0x6044000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0x0>;
+			qcom,data-fifo-size = <0xe00>;
+			qcom,descriptor-fifo-offset = <0xe00>;
+			qcom,descriptor-fifo-size = <0x200>;
+		};
+		qcom,pipe3 {
+			label = "hsusb-dpl-ipa-in-1";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <1>;
+			qcom,peer-bam = <1>;
+			qcom,dst-bam-pipe-index = <3>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+	};
+};
+
+&soc {
+	ipa_hw: qcom,ipa@07900000 {
+		compatible = "qcom,ipa";
+		reg = <0x07900000 0x4effc>, <0x07904000 0x26934>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 228 0>,
+				<0 230 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <6>; /* IPA core version = IPAv2.6L */
+		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qcom,wan-rx-ring-size = <192>; /* IPA WAN-rx-ring-size*/
+		qcom,lan-rx-ring-size = <192>; /* IPA LAN-rx-ring-size*/
+		clock-names = "core_clk";
+		clocks = <&clock_gcc clk_ipa_clk>;
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,modem-cfg-emb-pipe-flt;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+		<90 512 0 0>, /* No BIMC vote (ab=0 Mbps, ib=0 Mbps ~ 0MHZ) */
+		<90 512 100000 800000>, /* SVS (ab=100, ib=800 ~ 50MHz) */
+		<90 512 100000 1200000>; /* PERF (ab=100, ib=1200 ~ 75MHz) */
+		qcom,bus-vector-names = "MIN", "SVS", "PERF";
+		qcom,rx-polling-sleep-ms = <3>; /* Polling sleep interval */
+		qcom,ipa-polling-iteration = <15>;	/* Polling Iteration */
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
+		qcom,ipa-advertise-sg-support;
+	};
+};
+
+&bam_dmux {
+	status = "disabled";
+};

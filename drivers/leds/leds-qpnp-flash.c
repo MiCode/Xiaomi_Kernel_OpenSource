@@ -26,9 +26,10 @@
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/qpnp/qpnp-revid.h>
-#include "leds.h"
+#include <linux/leds-qpnp-flash.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include "leds.h"
 
 #define FLASH_LED_PERIPHERAL_SUBTYPE(base)			(base + 0x05)
 #define FLASH_SAFETY_TIMER(base)				(base + 0x40)
@@ -79,6 +80,7 @@
 #define FLASH_LED_HDRM_SNS_ENABLE_MASK				0x81
 #define	FLASH_MASK_MODULE_CONTRL_MASK				0xE0
 #define FLASH_FOLLOW_OTST2_RB_MASK				0x08
+#define FLASH_PREPARE_OPTIONS_MASK				0x07
 
 #define FLASH_LED_TRIGGER_DEFAULT				"none"
 #define FLASH_LED_HEADROOM_DEFAULT_MV				500
@@ -188,6 +190,7 @@ struct flash_node_data {
 	u8				trigger;
 	u8				enable;
 	u8				num_regulators;
+	bool				regulators_on;
 	bool				flash_on;
 };
 
@@ -1148,6 +1151,9 @@ static int flash_regulator_enable(struct qpnp_flash_led *led,
 {
 	int i, rc = 0;
 
+	if (flash_node->regulators_on == on)
+		return 0;
+
 	if (on == false) {
 		i = flash_node->num_regulators;
 		goto error_regulator_enable;
@@ -1162,12 +1168,71 @@ static int flash_regulator_enable(struct qpnp_flash_led *led,
 		}
 	}
 
+	flash_node->regulators_on = true;
 	return rc;
 
 error_regulator_enable:
 	while (i--)
 		regulator_disable(flash_node->reg_data[i].regs);
 
+	flash_node->regulators_on = false;
+	return rc;
+}
+
+int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
+					int *max_current)
+{
+	struct led_classdev *led_cdev = trigger_to_lcdev(trig);
+	struct flash_node_data *flash_node;
+	struct qpnp_flash_led *led;
+	int rc;
+
+	if (!led_cdev) {
+		pr_err("Invalid led_trigger provided\n");
+		return -EINVAL;
+	}
+
+	flash_node = container_of(led_cdev, struct flash_node_data, cdev);
+	led = dev_get_drvdata(&flash_node->spmi_dev->dev);
+
+	if (!(options & FLASH_PREPARE_OPTIONS_MASK)) {
+		dev_err(&led->spmi_dev->dev, "Invalid options %d\n", options);
+		return -EINVAL;
+	}
+
+	mutex_lock(&led->flash_led_lock);
+
+	if (options & ENABLE_REGULATOR) {
+		rc = flash_regulator_enable(led, flash_node, true);
+		if (rc < 0) {
+			dev_err(&led->spmi_dev->dev,
+				"enable regulator failed, rc=%d\n", rc);
+			goto out;
+		}
+	}
+
+	if (options & DISABLE_REGULATOR) {
+		rc = flash_regulator_enable(led, flash_node, false);
+		if (rc < 0) {
+			dev_err(&led->spmi_dev->dev,
+				"disable regulator failed, rc=%d\n", rc);
+			goto out;
+		}
+	}
+
+	if (options & QUERY_MAX_CURRENT) {
+		rc = qpnp_flash_led_get_max_avail_current(flash_node, led);
+		if (rc < 0) {
+			dev_err(&led->spmi_dev->dev,
+				"query max current failed, rc=%d\n", rc);
+			goto out;
+		}
+		*max_current = rc;
+		rc = 0;
+	}
+
+out:
+	mutex_unlock(&led->flash_led_lock);
 	return rc;
 }
 

@@ -1934,7 +1934,7 @@ static int qtaguid_ctrl_proc_show(struct seq_file *m, void *v)
 			);
 		f_count = atomic_long_read(
 			&sock_tag_entry->socket->file->f_count);
-		seq_printf(m, "sock=%p tag=0x%llx (uid=%u) pid=%u "
+		seq_printf(m, "sock=%pK tag=0x%llx (uid=%u) pid=%u "
 			   "f_count=%lu\n",
 			   sock_tag_entry->sk,
 			   sock_tag_entry->tag, uid,

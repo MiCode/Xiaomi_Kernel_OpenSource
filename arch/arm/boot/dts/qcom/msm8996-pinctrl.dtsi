@@ -258,6 +258,31 @@
 			};
 		};
 
+		blsp1_uart5_active: blsp1_uart5_active {
+			mux {
+				pins = "gpio81", "gpio82";
+				function = "blsp_uart5";
+			};
+
+			config {
+				pins = "gpio81", "gpio82";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart5_sleep: blsp1_uart5_sleep {
+			mux {
+				pins = "gpio81", "gpio82";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio81", "gpio82";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 
 		blsp1_uart6_active: blsp1_uart6_active {
 			mux {
@@ -285,6 +310,82 @@
 			};
 		};
 
+		blsp2_uart1_active: blsp2_uart1_active {
+			mux {
+				pins = "gpio53", "gpio54";
+				function = "blsp_uart7";
+			};
+
+			config {
+				pins = "gpio53", "gpio54";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart1_sleep: blsp2_uart1_sleep {
+			mux {
+				pins = "gpio53", "gpio54";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio53", "gpio54";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		blsp2_uart3_active: blsp2_uart3_active {
+			mux {
+				pins = "gpio49", "gpio50", "gpio51", "gpio52";
+				function = "blsp_uart9";
+			};
+
+			config {
+				pins = "gpio49", "gpio50", "gpio51", "gpio52";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart3_sleep: blsp2_uart3_sleep {
+			mux {
+				pins = "gpio49", "gpio50", "gpio51", "gpio52";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio49", "gpio50", "gpio51", "gpio52";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart6_active: blsp2_uart6_active {
+			mux {
+				pins = "gpio85", "gpio86";
+				function = "blsp_uart12";
+			};
+
+			config {
+				pins = "gpio85", "gpio86";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart6_sleep: blsp2_uart6_sleep {
+			mux {
+				pins = "gpio85", "gpio86";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio85", "gpio86";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 
 		pmx_mdss: pmx_mdss {
 			mdss_dsi_active: mdss_dsi_active {
@@ -687,6 +788,35 @@
 				};
 			};
 		};
+
+		i2c_3 { /* BLSP1 QUP3 */
+			i2c_3_active: i2c_3_active {
+				mux {
+					pins = "gpio47", "gpio48";
+					function = "blsp_i2c3";
+				};
+
+				config {
+					pins = "gpio47", "gpio48";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			i2c_3_sleep: i2c_3_sleep {
+				mux {
+					pins = "gpio47", "gpio48";
+					function = "blsp_i2c3";
+				};
+
+				config {
+					pins = "gpio47", "gpio48";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
 		i2c_12 {
                         i2c_12_active: i2c_12_active {
 				mux {
