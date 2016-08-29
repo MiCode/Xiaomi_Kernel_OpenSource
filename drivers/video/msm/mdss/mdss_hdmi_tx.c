@@ -2318,7 +2318,7 @@ static int hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	if (pinfo->dynamic_fps) {
 		if (!hdmi_tx_check_for_video_update(hdmi_ctrl))
-			return -EINVAL;
+			return 0;
 
 		if (pinfo->dfps_update ==
 			DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
@@ -4161,12 +4161,6 @@ static int hdmi_tx_hdcp_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->hdcp_ops = NULL;
 
-	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM,
-		false);
-	if (rc)
-		DEV_ERR("%s: Failed to disable ddc power\n",
-			__func__);
-
 	return rc;
 }
 
@@ -4248,8 +4242,10 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
-	if (hdmi_tx_is_hdcp_enabled(hdmi_ctrl))
-		hdmi_tx_hdcp_off(hdmi_ctrl);
+	if (hdmi_tx_is_hdcp_enabled(hdmi_ctrl)) {
+		hdmi_ctrl->hdcp_ops->hdmi_hdcp_off(hdmi_ctrl->hdcp_data);
+		hdmi_tx_set_mode(hdmi_ctrl, false);
+	}
 
 	if (pinfo->dfps_update == DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP ||
 		pinfo->dfps_update == DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK) {
@@ -4328,7 +4324,11 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 			__func__, vic);
 	}
 
-	hdmi_tx_start_hdcp(hdmi_ctrl);
+	if (hdmi_tx_is_hdcp_enabled(hdmi_ctrl)) {
+		hdmi_tx_set_mode(hdmi_ctrl, true);
+		hdmi_ctrl->hdcp_ops->hdmi_hdcp_authenticate(
+			hdmi_ctrl->hdcp_data);
+	}
 }
 
 static void hdmi_tx_fps_work(struct work_struct *work)
