@@ -1013,15 +1013,22 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 {
 	struct flash_node_data *fnode = NULL;
 	struct flash_switch_data *snode = NULL;
-	struct qpnp_flash_led *led = dev_get_drvdata(&fnode->pdev->dev);
+	struct qpnp_flash_led *led = NULL;
 	int rc;
 
 	if (!strncmp(led_cdev->name, "led:switch", strlen("led:switch"))) {
 		snode = container_of(led_cdev, struct flash_switch_data, cdev);
 		led = dev_get_drvdata(&snode->pdev->dev);
-	} else {
+	} else if (!strncmp(led_cdev->name, "led:flash", strlen("led:flash")) ||
+			!strncmp(led_cdev->name, "led:torch",
+						strlen("led:torch"))) {
 		fnode = container_of(led_cdev, struct flash_node_data, cdev);
 		led = dev_get_drvdata(&fnode->pdev->dev);
+	}
+
+	if (!led) {
+		pr_err("Failed to get flash driver data\n");
+		return;
 	}
 
 	spin_lock(&led->lock);
