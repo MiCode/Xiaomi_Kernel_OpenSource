@@ -66,6 +66,7 @@ struct cserial {
 	struct usb_request		*notify_req;
 	struct usb_cdc_line_coding	port_line_coding;
 	u8				pending;
+	u8				q_again;
 	u8				data_id;
 	u16				serial_state;
 	u16				port_handshake_bits;
@@ -538,8 +539,6 @@ static int usb_cser_notify(struct f_cdev *port, u8 type, u16 value,
 	}
 
 	req = port->port_usb.notify_req;
-	port->port_usb.notify_req = NULL;
-	port->port_usb.pending = false;
 
 	req->length = len;
 	notify = req->buf;
@@ -559,7 +558,9 @@ static int usb_cser_notify(struct f_cdev *port, u8 type, u16 value,
 	if (status < 0) {
 		pr_err("port %s can't notify serial state, %d\n",
 				port->name, status);
-		port->port_usb.notify_req = req;
+		spin_lock_irqsave(&port->port_lock, flags);
+		port->port_usb.pending = false;
+		spin_unlock_irqrestore(&port->port_lock, flags);
 	}
 
 	return status;
@@ -569,18 +570,24 @@ static int port_notify_serial_state(struct cserial *cser)
 {
 	struct f_cdev *port = cser_to_port(cser);
 	int status;
+	unsigned long flags;
 	struct usb_composite_dev *cdev = port->port_usb.func.config->cdev;
 
-	if (port->port_usb.notify_req) {
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port->port_usb.pending) {
+		port->port_usb.pending = true;
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		dev_dbg(&cdev->gadget->dev, "port %d serial state %04x\n",
 				port->port_num, port->port_usb.serial_state);
 		status = usb_cser_notify(port, USB_CDC_NOTIFY_SERIAL_STATE,
 				0, &port->port_usb.serial_state,
 				sizeof(port->port_usb.serial_state));
+		spin_lock_irqsave(&port->port_lock, flags);
 	} else {
-		port->port_usb.pending = true;
+		port->port_usb.q_again = true;
 		status = 0;
 	}
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	return status;
 }
@@ -588,14 +595,17 @@ static int port_notify_serial_state(struct cserial *cser)
 static void usb_cser_notify_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_cdev *port = req->context;
-	u8	      doit = false;
+	unsigned long flags;
 
-	if (req->status != -ESHUTDOWN)
-		doit = port->port_usb.pending;
-	port->port_usb.notify_req = req;
-
-	if (doit && port->is_connected)
+	spin_lock_irqsave(&port->port_lock, flags);
+	port->port_usb.pending = false;
+	if (req->status != -ESHUTDOWN && port->port_usb.q_again) {
+		port->port_usb.q_again = false;
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		port_notify_serial_state(&port->port_usb);
+		spin_lock_irqsave(&port->port_lock, flags);
+	}
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 static void dun_cser_connect(struct cserial *cser)
 {
@@ -674,8 +684,11 @@ static int dun_cser_send_ctrl_bits(struct cserial *cser, int ctrl_bits)
 
 static void usb_cser_free_req(struct usb_ep *ep, struct usb_request *req)
 {
-	kfree(req->buf);
-	usb_ep_free_request(ep, req);
+	if (req) {
+		kfree(req->buf);
+		usb_ep_free_request(ep, req);
+		req = NULL;
+	}
 }
 
 static void usb_cser_free_requests(struct usb_ep *ep, struct list_head *head)
@@ -820,7 +833,6 @@ static void usb_cser_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	usb_free_all_descriptors(f);
 	usb_cser_free_req(port->port_usb.notify, port->port_usb.notify_req);
-	port->port_usb.notify_req = NULL;
 }
 
 static int usb_cser_alloc_requests(struct usb_ep *ep, struct list_head *head,
@@ -1452,6 +1464,8 @@ int usb_cser_connect(struct f_cdev *port)
 	cser->out->driver_data = port;
 
 	spin_lock_irqsave(&port->port_lock, flags);
+	cser->pending = false;
+	cser->q_again = false;
 	port->is_connected = true;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 

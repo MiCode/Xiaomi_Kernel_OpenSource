@@ -89,8 +89,7 @@ void __init paging_init(void)
 		asce_bits = _ASCE_TYPE_REGION3 | _ASCE_TABLE_LENGTH;
 		pgd_type = _REGION3_ENTRY_EMPTY;
 	}
-	init_mm.context.asce = (__pa(init_mm.pgd) & PAGE_MASK) | asce_bits;
-	S390_lowcore.kernel_asce = init_mm.context.asce;
+	S390_lowcore.kernel_asce = (__pa(init_mm.pgd) & PAGE_MASK) | asce_bits;
 	clear_table((unsigned long *) init_mm.pgd, pgd_type,
 		    sizeof(unsigned long)*2048);
 	vmem_map_init();

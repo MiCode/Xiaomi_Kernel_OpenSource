@@ -2832,7 +2832,6 @@ struct detached_freelist {
 	void *tail;
 	void *freelist;
 	int cnt;
-	struct kmem_cache *s;
 };
 
 /*
@@ -2847,9 +2846,8 @@ struct detached_freelist {
  * synchronization primitive.  Look ahead in the array is limited due
  * to performance reasons.
  */
-static inline
-int build_detached_freelist(struct kmem_cache *s, size_t size,
-			    void **p, struct detached_freelist *df)
+static int build_detached_freelist(struct kmem_cache *s, size_t size,
+				   void **p, struct detached_freelist *df)
 {
 	size_t first_skipped_index = 0;
 	int lookahead = 3;
@@ -2865,11 +2863,8 @@ int build_detached_freelist(struct kmem_cache *s, size_t size,
 	if (!object)
 		return 0;
 
-	/* Support for memcg, compiler can optimize this out */
-	df->s = cache_from_obj(s, object);
-
 	/* Start new detached freelist */
-	set_freepointer(df->s, object, NULL);
+	set_freepointer(s, object, NULL);
 	df->page = virt_to_head_page(object);
 	df->tail = object;
 	df->freelist = object;
@@ -2884,7 +2879,7 @@ int build_detached_freelist(struct kmem_cache *s, size_t size,
 		/* df->page is always set at this point */
 		if (df->page == virt_to_head_page(object)) {
 			/* Opportunity build freelist */
-			set_freepointer(df->s, object, df->freelist);
+			set_freepointer(s, object, df->freelist);
 			df->freelist = object;
 			df->cnt++;
 			p[size] = NULL; /* mark object processed */
@@ -2903,20 +2898,25 @@ int build_detached_freelist(struct kmem_cache *s, size_t size,
 	return first_skipped_index;
 }
 
+
 /* Note that interrupts must be enabled when calling this function. */
-void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
+void kmem_cache_free_bulk(struct kmem_cache *orig_s, size_t size, void **p)
 {
 	if (WARN_ON(!size))
 		return;
 
 	do {
 		struct detached_freelist df;
+		struct kmem_cache *s;
+
+		/* Support for memcg */
+		s = cache_from_obj(orig_s, p[size - 1]);
 
 		size = build_detached_freelist(s, size, p, &df);
 		if (unlikely(!df.page))
 			continue;
 
-		slab_free(df.s, df.page, df.freelist, df.tail, df.cnt,_RET_IP_);
+		slab_free(s, df.page, df.freelist, df.tail, df.cnt, _RET_IP_);
 	} while (likely(size));
 }
 EXPORT_SYMBOL(kmem_cache_free_bulk);

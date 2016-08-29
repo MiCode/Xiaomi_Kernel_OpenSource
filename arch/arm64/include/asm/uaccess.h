@@ -36,11 +36,11 @@
 #define VERIFY_WRITE 1
 
 /*
- * The exception table consists of pairs of relative offsets: the first
- * is the relative offset to an instruction that is allowed to fault,
- * and the second is the relative offset at which the program should
- * continue. No registers are modified, so it is entirely up to the
- * continuation code to figure out what to do.
+ * The exception table consists of pairs of addresses: the first is the
+ * address of an instruction that is allowed to fault, and the second is
+ * the address at which the program should continue.  No registers are
+ * modified, so it is entirely up to the continuation code to figure out
+ * what to do.
  *
  * All the routines below use bits of fixup code that are out of line
  * with the main instruction path.  This means when everything is well,
@@ -50,10 +50,8 @@
 
 struct exception_table_entry
 {
-	int insn, fixup;
+	unsigned long insn, fixup;
 };
-
-#define ARCH_HAS_RELATIVE_EXTABLE
 
 extern int fixup_exception(struct pt_regs *regs);
 
@@ -66,16 +64,6 @@ extern int fixup_exception(struct pt_regs *regs);
 static inline void set_fs(mm_segment_t fs)
 {
 	current_thread_info()->addr_limit = fs;
-
-	/*
-	 * Enable/disable UAO so that copy_to_user() etc can access
-	 * kernel memory with the unprivileged instructions.
-	 */
-	if (IS_ENABLED(CONFIG_ARM64_UAO) && fs == KERNEL_DS)
-		asm(ALTERNATIVE("nop", SET_PSTATE_UAO(1), ARM64_HAS_UAO));
-	else
-		asm(ALTERNATIVE("nop", SET_PSTATE_UAO(0), ARM64_HAS_UAO,
-				CONFIG_ARM64_UAO));
 }
 
 #define segment_eq(a, b)	((a) == (b))
@@ -117,12 +105,6 @@ static inline void set_fs(mm_segment_t fs)
 #define access_ok(type, addr, size)	__range_ok(addr, size)
 #define user_addr_max			get_fs
 
-#define _ASM_EXTABLE(from, to)						\
-	"	.pushsection	__ex_table, \"a\"\n"			\
-	"	.align		3\n"					\
-	"	.long		(" #from " - .), (" #to " - .)\n"	\
-	"	.popsection\n"
-
 /*
  * The "__xxx" versions of the user access functions do not verify the address
  * space - it must have been done previously with a separate "access_ok()"
@@ -131,10 +113,9 @@ static inline void set_fs(mm_segment_t fs)
  * The "__xxx_error" versions set the third argument to -EFAULT if an error
  * occurs, and leave it unchanged on success.
  */
-#define __get_user_asm(instr, alt_instr, reg, x, addr, err, feature)	\
+#define __get_user_asm(instr, reg, x, addr, err)			\
 	asm volatile(							\
-	"1:"ALTERNATIVE(instr "     " reg "1, [%2]\n",			\
-			alt_instr " " reg "1, [%2]\n", feature)		\
+	"1:	" instr "	" reg "1, [%2]\n"			\
 	"2:\n"								\
 	"	.section .fixup, \"ax\"\n"				\
 	"	.align	2\n"						\
@@ -142,7 +123,10 @@ static inline void set_fs(mm_segment_t fs)
 	"	mov	%1, #0\n"					\
 	"	b	2b\n"						\
 	"	.previous\n"						\
-	_ASM_EXTABLE(1b, 3b)						\
+	"	.section __ex_table,\"a\"\n"				\
+	"	.align	3\n"						\
+	"	.quad	1b, 3b\n"					\
+	"	.previous"						\
 	: "+r" (err), "=&r" (x)						\
 	: "r" (addr), "i" (-EFAULT))
 
@@ -150,30 +134,26 @@ static inline void set_fs(mm_segment_t fs)
 do {									\
 	unsigned long __gu_val;						\
 	__chk_user_ptr(ptr);						\
-	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(0), ARM64_ALT_PAN_NOT_UAO,\
+	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(0), ARM64_HAS_PAN,	\
 			CONFIG_ARM64_PAN));				\
 	switch (sizeof(*(ptr))) {					\
 	case 1:								\
-		__get_user_asm("ldrb", "ldtrb", "%w", __gu_val, (ptr),  \
-			       (err), ARM64_HAS_UAO);			\
+		__get_user_asm("ldrb", "%w", __gu_val, (ptr), (err));	\
 		break;							\
 	case 2:								\
-		__get_user_asm("ldrh", "ldtrh", "%w", __gu_val, (ptr),  \
-			       (err), ARM64_HAS_UAO);			\
+		__get_user_asm("ldrh", "%w", __gu_val, (ptr), (err));	\
 		break;							\
 	case 4:								\
-		__get_user_asm("ldr", "ldtr", "%w", __gu_val, (ptr),	\
-			       (err), ARM64_HAS_UAO);			\
+		__get_user_asm("ldr", "%w", __gu_val, (ptr), (err));	\
 		break;							\
 	case 8:								\
-		__get_user_asm("ldr", "ldtr", "%",  __gu_val, (ptr),	\
-			       (err), ARM64_HAS_UAO);			\
+		__get_user_asm("ldr", "%",  __gu_val, (ptr), (err));	\
 		break;							\
 	default:							\
 		BUILD_BUG();						\
 	}								\
 	(x) = (__force __typeof__(*(ptr)))__gu_val;			\
-	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_ALT_PAN_NOT_UAO,\
+	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_HAS_PAN,	\
 			CONFIG_ARM64_PAN));				\
 } while (0)
 
@@ -201,17 +181,19 @@ do {									\
 		((x) = 0, -EFAULT);					\
 })
 
-#define __put_user_asm(instr, alt_instr, reg, x, addr, err, feature)	\
+#define __put_user_asm(instr, reg, x, addr, err)			\
 	asm volatile(							\
-	"1:"ALTERNATIVE(instr "     " reg "1, [%2]\n",			\
-			alt_instr " " reg "1, [%2]\n", feature)		\
+	"1:	" instr "	" reg "1, [%2]\n"			\
 	"2:\n"								\
 	"	.section .fixup,\"ax\"\n"				\
 	"	.align	2\n"						\
 	"3:	mov	%w0, %3\n"					\
 	"	b	2b\n"						\
 	"	.previous\n"						\
-	_ASM_EXTABLE(1b, 3b)						\
+	"	.section __ex_table,\"a\"\n"				\
+	"	.align	3\n"						\
+	"	.quad	1b, 3b\n"					\
+	"	.previous"						\
 	: "+r" (err)							\
 	: "r" (x), "r" (addr), "i" (-EFAULT))
 
@@ -219,29 +201,25 @@ do {									\
 do {									\
 	__typeof__(*(ptr)) __pu_val = (x);				\
 	__chk_user_ptr(ptr);						\
-	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(0), ARM64_ALT_PAN_NOT_UAO,\
+	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(0), ARM64_HAS_PAN,	\
 			CONFIG_ARM64_PAN));				\
 	switch (sizeof(*(ptr))) {					\
 	case 1:								\
-		__put_user_asm("strb", "sttrb", "%w", __pu_val, (ptr),	\
-			       (err), ARM64_HAS_UAO);			\
+		__put_user_asm("strb", "%w", __pu_val, (ptr), (err));	\
 		break;							\
 	case 2:								\
-		__put_user_asm("strh", "sttrh", "%w", __pu_val, (ptr),	\
-			       (err), ARM64_HAS_UAO);			\
+		__put_user_asm("strh", "%w", __pu_val, (ptr), (err));	\
 		break;							\
 	case 4:								\
-		__put_user_asm("str", "sttr", "%w", __pu_val, (ptr),	\
-			       (err), ARM64_HAS_UAO);			\
+		__put_user_asm("str",  "%w", __pu_val, (ptr), (err));	\
 		break;							\
 	case 8:								\
-		__put_user_asm("str", "sttr", "%", __pu_val, (ptr),	\
-			       (err), ARM64_HAS_UAO);			\
+		__put_user_asm("str",  "%", __pu_val, (ptr), (err));	\
 		break;							\
 	default:							\
 		BUILD_BUG();						\
 	}								\
-	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_ALT_PAN_NOT_UAO,\
+	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_HAS_PAN,	\
 			CONFIG_ARM64_PAN));				\
 } while (0)
 

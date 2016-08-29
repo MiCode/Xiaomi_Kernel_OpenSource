@@ -346,7 +346,7 @@ static int
 sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 {
 	struct sfq_sched_data *q = qdisc_priv(sch);
-	unsigned int hash, dropped;
+	unsigned int hash;
 	sfq_index x, qlen;
 	struct sfq_slot *slot;
 	int uninitialized_var(ret);
@@ -461,7 +461,7 @@ enqueue:
 		return NET_XMIT_SUCCESS;
 
 	qlen = slot->qlen;
-	dropped = sfq_drop(sch);
+	sfq_drop(sch);
 	/* Return Congestion Notification only if we dropped a packet
 	 * from this flow.
 	 */
@@ -469,7 +469,7 @@ enqueue:
 		return NET_XMIT_CN;
 
 	/* As we dropped a packet, better let upper stack know this */
-	qdisc_tree_reduce_backlog(sch, 1, dropped);
+	qdisc_tree_decrease_qlen(sch, 1);
 	return NET_XMIT_SUCCESS;
 }
 
@@ -537,7 +537,6 @@ static void sfq_rehash(struct Qdisc *sch)
 	struct sfq_slot *slot;
 	struct sk_buff_head list;
 	int dropped = 0;
-	unsigned int drop_len = 0;
 
 	__skb_queue_head_init(&list);
 
@@ -566,7 +565,6 @@ static void sfq_rehash(struct Qdisc *sch)
 			if (x >= SFQ_MAX_FLOWS) {
 drop:
 				qdisc_qstats_backlog_dec(sch, skb);
-				drop_len += qdisc_pkt_len(skb);
 				kfree_skb(skb);
 				dropped++;
 				continue;
@@ -596,7 +594,7 @@ drop:
 		}
 	}
 	sch->q.qlen -= dropped;
-	qdisc_tree_reduce_backlog(sch, dropped, drop_len);
+	qdisc_tree_decrease_qlen(sch, dropped);
 }
 
 static void sfq_perturbation(unsigned long arg)
@@ -620,7 +618,7 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
 	struct sfq_sched_data *q = qdisc_priv(sch);
 	struct tc_sfq_qopt *ctl = nla_data(opt);
 	struct tc_sfq_qopt_v1 *ctl_v1 = NULL;
-	unsigned int qlen, dropped = 0;
+	unsigned int qlen;
 	struct red_parms *p = NULL;
 
 	if (opt->nla_len < nla_attr_size(sizeof(*ctl)))
@@ -669,8 +667,8 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
 
 	qlen = sch->q.qlen;
 	while (sch->q.qlen > q->limit)
-		dropped += sfq_drop(sch);
-	qdisc_tree_reduce_backlog(sch, qlen - sch->q.qlen, dropped);
+		sfq_drop(sch);
+	qdisc_tree_decrease_qlen(sch, qlen - sch->q.qlen);
 
 	del_timer(&q->perturb_timer);
 	if (q->perturb_period) {
