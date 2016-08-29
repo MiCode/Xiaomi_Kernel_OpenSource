@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -195,6 +195,8 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_GET_ALAC_CONFIG_32: {
 		struct msm_audio_alac_config *alac_config;
 		struct msm_audio_alac_config_32 alac_config_32;
+
+		memset(&alac_config_32, 0, sizeof(alac_config_32));
 
 		alac_config = (struct msm_audio_alac_config *)audio->codec_cfg;
 		alac_config_32.frameLength = alac_config->frameLength;
