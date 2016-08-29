@@ -761,7 +761,8 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
 
 static int dvb_net_ts_callback(const u8 *buffer1, size_t buffer1_len,
 			       const u8 *buffer2, size_t buffer2_len,
-			       struct dmx_ts_feed *feed)
+			       struct dmx_ts_feed *feed,
+			       enum dmx_success success)
 {
 	struct net_device *dev = feed->priv;
 
@@ -870,7 +871,8 @@ static void dvb_net_sec(struct net_device *dev,
 
 static int dvb_net_sec_callback(const u8 *buffer1, size_t buffer1_len,
 		 const u8 *buffer2, size_t buffer2_len,
-		 struct dmx_section_filter *filter)
+		 struct dmx_section_filter *filter,
+		 enum dmx_success success)
 {
 	struct net_device *dev = filter->priv;
 
