@@ -434,6 +434,14 @@ static void sde_hw_rotator_setup_timestamp_packet(
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, 0x03020100);
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, 0x80000000);
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, ctx->timestamp);
+	/*
+	 * Must clear secure buffer setting for SW timestamp because
+	 * SW timstamp buffer allocation is always non-secure region.
+	 */
+	if (ctx->is_secure) {
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SRC_ADDR_SW_STATUS, 0);
+		SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_ADDR_SW_STATUS, 0);
+	}
 	SDE_REGDMA_BLKWRITE_INC(wrptr, ROT_WB_DST_FORMAT, 4);
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, 0x000037FF);
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, 0);
@@ -611,6 +619,9 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	if (flags & SDE_ROT_FLAG_SECURE_OVERLAY_SESSION) {
 		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SRC_ADDR_SW_STATUS, 0xF);
 		ctx->is_secure = true;
+	} else {
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SRC_ADDR_SW_STATUS, 0);
+		ctx->is_secure = false;
 	}
 
 	/* Update command queue write ptr */
@@ -702,6 +713,11 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 			cfg->dst_rect->w | (cfg->dst_rect->h << 16));
 	SDE_REGDMA_WRITE(wrptr, ROT_WB_OUT_XY,
 			cfg->dst_rect->x | (cfg->dst_rect->y << 16));
+
+	if (flags & SDE_ROT_FLAG_SECURE_OVERLAY_SESSION)
+		SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_ADDR_SW_STATUS, 0x1);
+	else
+		SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_ADDR_SW_STATUS, 0);
 
 	/*
 	 * setup Downscale factor
