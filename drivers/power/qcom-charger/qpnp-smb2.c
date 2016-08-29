@@ -986,6 +986,8 @@ static int smb2_init_hw(struct smb2 *chip)
 		USBIN_ICL_VOTER, true, 0);
 	vote(chg->pl_disable_votable,
 		CHG_STATE_VOTER, true, 0);
+	vote(chg->pl_disable_votable,
+		PARALLEL_PSY_VOTER, true, 0);
 	vote(chg->usb_suspend_votable,
 		DEFAULT_VOTER, chip->dt.no_battery, 0);
 	vote(chg->dc_suspend_votable,

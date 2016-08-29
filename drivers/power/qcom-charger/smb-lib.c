@@ -2178,8 +2178,7 @@ static void smblib_pl_detect_work(struct work_struct *work)
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						pl_detect_work);
 
-	if (!get_effective_result_locked(chg->pl_disable_votable))
-		rerun_election(chg->pl_disable_votable);
+	vote(chg->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
 }
 
 #define MINIMUM_PARALLEL_FCC_UA		500000
@@ -2204,7 +2203,7 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	}
 
 	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
-		vote(chg->awake_votable, PL_VOTER, true, 0);
+		vote(chg->awake_votable, PL_TAPER_WORK_RUNNING_VOTER, true, 0);
 		/* Reduce the taper percent by 25 percent */
 		chg->pl.taper_percent = chg->pl.taper_percent
 					* TAPER_RESIDUAL_PERCENT / 100;
@@ -2218,7 +2217,7 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	 * Master back to Fast Charge, get out of this round of taper reduction
 	 */
 done:
-	vote(chg->awake_votable, PL_VOTER, false, 0);
+	vote(chg->awake_votable, PL_TAPER_WORK_RUNNING_VOTER, false, 0);
 }
 
 static void clear_hdc_work(struct work_struct *work)
@@ -2381,15 +2380,18 @@ int smblib_init(struct smb_charger *chg)
 			return rc;
 		}
 
-		chg->bms_psy = power_supply_get_by_name("bms");
-		chg->pl.psy = power_supply_get_by_name("parallel");
-
 		rc = smblib_register_notifier(chg);
 		if (rc < 0) {
 			dev_err(chg->dev,
 				"Couldn't register notifier rc=%d\n", rc);
 			return rc;
 		}
+
+		chg->bms_psy = power_supply_get_by_name("bms");
+		chg->pl.psy = power_supply_get_by_name("parallel");
+		if (chg->pl.psy)
+			vote(chg->pl_disable_votable, PARALLEL_PSY_VOTER,
+			     false, 0);
 
 		break;
 	case PARALLEL_SLAVE:
