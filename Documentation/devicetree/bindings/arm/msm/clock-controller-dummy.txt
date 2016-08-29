@@ -9,9 +9,14 @@ Required properties:
 - #clock_cells:		Must be <1>. This will allow the common clock device
 			tree framework to recognize _this_ device node as a
 			clock provider.
+Optional properties:
+- #reset-cells:		Must be <1>. This will allow the common reset device
+			tree framework to recognize _this_ device node as a
+			reset controller provider.
 
 Example:
 	clock_rpm: qcom,rpmcc {
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
