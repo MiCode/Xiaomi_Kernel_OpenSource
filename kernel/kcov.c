@@ -12,6 +12,7 @@
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 #include <linux/kcov.h>
+#include <linux/sched.h>
 
 /*
  * kcov descriptor (one per opened debugfs file).
