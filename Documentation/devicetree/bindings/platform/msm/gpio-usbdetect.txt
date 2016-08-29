@@ -14,6 +14,12 @@ Required Properties:
 
 Optional Properties:
  - vin-supply: phandle to a regulator that powers this circuit, if needed
+ - vdd33-supply: phandle to a regulator that supplies 3.3v to external circuit
+ - vdd12-supply: phandle to a regulator that supplies 1.2v to external circuit
+ - qcom,notify-host-mode: to notify host mode if GPIO is low otherwise notify
+	disconnect.
+- qcom,gpio-mode-sel: If present, specifies a gpio to switch to host mode if
+	value is 0 or device mode if 1.
 
 Example:
 
