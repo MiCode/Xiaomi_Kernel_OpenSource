@@ -27,6 +27,7 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_log.h"
 #include "kgsl.h"
+#include "kgsl_trace.h"
 #include "adreno_a5xx_packets.h"
 
 static int zap_ucode_loaded;
@@ -1646,6 +1647,76 @@ static void a5xx_clk_set_options(struct adreno_device *adreno_dev,
 	}
 }
 
+static void a5xx_count_throttles(struct adreno_device *adreno_dev,
+		uint64_t adj)
+{
+	if (adreno_is_a530(adreno_dev))
+		kgsl_regread(KGSL_DEVICE(adreno_dev),
+				adreno_dev->lm_threshold_count,
+				&adreno_dev->lm_threshold_cross);
+	else if (adreno_is_a540(adreno_dev))
+		adreno_dev->lm_threshold_cross = adj;
+}
+
+static int a5xx_enable_pwr_counters(struct adreno_device *adreno_dev,
+		unsigned int counter)
+{
+	/*
+	 * On 5XX we have to emulate the PWR counters which are physically
+	 * missing. Program countable 6 on RBBM_PERFCTR_RBBM_0 as a substitute
+	 * for PWR:1. Don't emulate PWR:0 as nobody uses it and we don't want
+	 * to take away too many of the generic RBBM counters.
+	 */
+
+	if (counter == 0)
+		return -EINVAL;
+
+	kgsl_regwrite(KGSL_DEVICE(adreno_dev), A5XX_RBBM_PERFCTR_RBBM_SEL_0, 6);
+
+	return 0;
+}
+
+/* FW driven idle 10% throttle */
+#define IDLE_10PCT 0
+/* number of cycles when clock is throttled by 50% (CRC) */
+#define CRC_50PCT  1
+/* number of cycles when clock is throttled by more than 50% (CRC) */
+#define CRC_MORE50PCT 2
+/* number of cycles when clock is throttle by less than 50% (CRC) */
+#define CRC_LESS50PCT 3
+
+static uint64_t a5xx_read_throttling_counters(struct adreno_device *adreno_dev)
+{
+	int i, adj;
+	uint32_t th[ADRENO_GPMU_THROTTLE_COUNTERS];
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+
+	if (!adreno_is_a540(adreno_dev))
+		return 0;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+		return 0;
+
+	if (!test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag))
+		return 0;
+
+	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {
+		if (!adreno_dev->gpmu_throttle_counters[i])
+			return 0;
+
+		th[i] = counter_delta(KGSL_DEVICE(adreno_dev),
+				adreno_dev->gpmu_throttle_counters[i],
+				&busy->throttle_cycles[i]);
+	}
+	adj = th[CRC_MORE50PCT] - th[IDLE_10PCT];
+	adj = th[CRC_50PCT] + th[CRC_LESS50PCT] / 3 + (adj < 0 ? 0 : adj) * 3;
+
+	trace_kgsl_clock_throttling(
+		th[IDLE_10PCT], th[CRC_50PCT],
+		th[CRC_MORE50PCT], th[CRC_LESS50PCT],
+		adj);
+	return adj;
+}
 
 static void a5xx_enable_64bit(struct adreno_device *adreno_dev)
 {
@@ -1712,10 +1783,42 @@ static void a5xx_gpmu_reset(struct work_struct *work)
 	/* Soft reset of the GPMU block */
 	kgsl_regwrite(device, A5XX_RBBM_BLOCK_SW_RESET_CMD, BIT(16));
 
+	/* GPU comes up in secured mode, make it unsecured by default */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
+		kgsl_regwrite(device, A5XX_RBBM_SECVID_TRUST_CNTL, 0x0);
+
+
 	a5xx_gpmu_init(adreno_dev);
 
 out:
 	mutex_unlock(&device->mutex);
+}
+
+static void _setup_throttling_counters(struct adreno_device *adreno_dev)
+{
+	int i, ret;
+
+	if (!adreno_is_a540(adreno_dev))
+		return;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+		return;
+
+	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {
+		/* reset throttled cycles ivalue */
+		adreno_dev->busy_data.throttle_cycles[i] = 0;
+
+		if (adreno_dev->gpmu_throttle_counters[i] != 0)
+			continue;
+		ret = adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_GPMU_PWR,
+			ADRENO_GPMU_THROTTLE_COUNTERS_BASE_REG + i,
+			&adreno_dev->gpmu_throttle_counters[i],
+			NULL,
+			PERFCOUNTER_FLAG_KERNEL);
+		WARN_ONCE(ret,  "Unable to get clock throttling counter %x\n",
+			ADRENO_GPMU_THROTTLE_COUNTERS_BASE_REG + i);
+	}
 }
 
 /*
@@ -1729,6 +1832,21 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int bit;
+	int ret;
+
+	if (adreno_is_a530(adreno_dev) && ADRENO_FEATURE(adreno_dev, ADRENO_LM)
+			&& adreno_dev->lm_threshold_count == 0) {
+
+		ret = adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_GPMU_PWR, 27,
+			&adreno_dev->lm_threshold_count, NULL,
+			PERFCOUNTER_FLAG_KERNEL);
+		/* Ignore noncritical ret - used for debugfs */
+		if (ret)
+			adreno_dev->lm_threshold_count = 0;
+	}
+
+	_setup_throttling_counters(adreno_dev);
 
 	adreno_vbif_start(adreno_dev, a5xx_vbif_platforms,
 			ARRAY_SIZE(a5xx_vbif_platforms));
@@ -2034,11 +2152,6 @@ static int a5xx_post_start(struct adreno_device *adreno_dev)
 static int a5xx_gpmu_init(struct adreno_device *adreno_dev)
 {
 	int ret;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	/* GPU comes up in secured mode, make it unsecured by default */
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
-		kgsl_regwrite(device, A5XX_RBBM_SECVID_TRUST_CNTL, 0x0);
 
 	/* Set up LM before initializing the GPMU */
 	a5xx_lm_init(adreno_dev);
@@ -2359,19 +2472,9 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	/* Set up LM before initializing the GPMU */
-	a5xx_lm_init(adreno_dev);
-
-	/* Enable SPTP based power collapse before enabling GPMU */
-	a5xx_enable_pc(adreno_dev);
-
-	/* Program the GPMU */
-	ret = a5xx_gpmu_start(adreno_dev);
+	ret = a5xx_gpmu_init(adreno_dev);
 	if (ret)
 		return ret;
-
-	/* Enable limits management */
-	a5xx_lm_enable(adreno_dev);
 
 	a5xx_post_start(adreno_dev);
 
@@ -3534,6 +3637,9 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.regulator_enable = a5xx_regulator_enable,
 	.regulator_disable = a5xx_regulator_disable,
 	.pwrlevel_change_settings = a5xx_pwrlevel_change_settings,
+	.read_throttling_counters = a5xx_read_throttling_counters,
+	.count_throttles = a5xx_count_throttles,
+	.enable_pwr_counters = a5xx_enable_pwr_counters,
 	.preemption_pre_ibsubmit = a5xx_preemption_pre_ibsubmit,
 	.preemption_yield_enable =
 				a5xx_preemption_yield_enable,
