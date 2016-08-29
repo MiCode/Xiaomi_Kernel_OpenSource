@@ -18,3 +18,14 @@ obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o
 obj-$(CONFIG_MSM_GLADIATOR_HANG_DETECT) += gladiator_hang_detect.o
 obj-$(CONFIG_QCOM_SECURE_BUFFER) += secure_buffer.o
 obj-$(CONFIG_ICNSS) += icnss.o wlan_firmware_service_v01.o icnss_utils.o
+obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
+obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
+obj-$(CONFIG_MSM_SYSMON_GLINK_COMM) += sysmon-glink.o sysmon-qmi.o
+obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
+obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
+
+ifdef CONFIG_MSM_SUBSYSTEM_RESTART
+       obj-y += subsystem_notif.o
+       obj-y += subsystem_restart.o
+       obj-y += ramdump.o
+endif
