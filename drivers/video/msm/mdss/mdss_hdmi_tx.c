@@ -4251,13 +4251,13 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 		pinfo->dfps_update == DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK) {
 		if (hdmi_tx_video_setup(hdmi_ctrl)) {
 			DEV_DBG("%s: no change in video timing\n", __func__);
-			return;
+			goto end;
 		}
 
 		if (hdmi_tx_update_pixel_clk(hdmi_ctrl,
 			hdmi_ctrl->dynamic_fps)) {
 			DEV_DBG("%s: no change in clk\n", __func__);
-			return;
+			goto end;
 		}
 
 		pinfo->saved_total = mdss_panel_get_htotal(pinfo, true);
@@ -4265,7 +4265,7 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 	} else if (pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
 		if (hdmi_tx_video_setup(hdmi_ctrl)) {
 			DEV_DBG("%s: no change in video timing\n", __func__);
-			return;
+			goto end;
 		}
 
 		pinfo->saved_total = mdss_panel_get_htotal(pinfo, true);
@@ -4273,7 +4273,7 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 	} else if (pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) {
 		if (hdmi_tx_video_setup(hdmi_ctrl)) {
 			DEV_DBG("%s: no change in video timing\n", __func__);
-			return;
+			goto end;
 		}
 
 		pinfo->saved_total = mdss_panel_get_vtotal(pinfo);
@@ -4282,7 +4282,7 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 		if (hdmi_tx_update_pixel_clk(hdmi_ctrl,
 			hdmi_ctrl->dynamic_fps)) {
 			DEV_DBG("%s: no change in clk\n", __func__);
-			return;
+			goto end;
 		}
 	}
 
@@ -4296,7 +4296,7 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	if (rc || !timing.supported) {
 		DEV_ERR("%s: timing details\n", __func__);
-		return;
+		goto end;
 	}
 
 	timing.back_porch_h = pinfo->lcdc.h_back_porch;
@@ -4323,7 +4323,7 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_DBG("%s: switched to new resolution id %d\n",
 			__func__, vic);
 	}
-
+end:
 	if (hdmi_tx_is_hdcp_enabled(hdmi_ctrl)) {
 		hdmi_tx_set_mode(hdmi_ctrl, true);
 		hdmi_ctrl->hdcp_ops->hdmi_hdcp_authenticate(
