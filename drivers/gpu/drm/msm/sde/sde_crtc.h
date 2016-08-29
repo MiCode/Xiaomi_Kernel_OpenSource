@@ -18,7 +18,6 @@
 #include "sde_fence.h"
 #include "sde_kms.h"
 
-#define CRTC_DUAL_MIXERS	2
 #define SDE_CRTC_NAME_SIZE	12
 #define PENDING_FLIP		2
 /* worst case one frame wait time based on 30 FPS : 33.33ms*/
@@ -46,7 +45,6 @@ struct sde_crtc_mixer {
  * @drm_crtc_id   : Id for reporting vblank. Id is relative init order into
  *                  mode_config.crtc_list and used by user space to identify
  *                  specific crtc in apis such as drm_wait_vblank
- * @lm_lock       : LM register access spinlock
  * @num_ctls      : Number of ctl paths in use
  * @num_mixers    : Number of mixers in use
  * @mixer         : List of active mixers
@@ -64,8 +62,6 @@ struct sde_crtc {
 	char name[SDE_CRTC_NAME_SIZE];
 
 	int drm_crtc_id;
-
-	spinlock_t lm_lock;	/* protect registers */
 
 	/* HW Resources reserved for the crtc */
 	u32  num_ctls;
