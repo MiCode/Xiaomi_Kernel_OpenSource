@@ -502,8 +502,13 @@ int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
 
 	ret = msm_hdmi_get_timing_info(info, mode);
 
-	if (!ret && ds_data && ds_data->ds_registered && ds_data->ds_max_clk) {
-		if (info->pixel_freq > ds_data->ds_max_clk)
+	if (!ret) {
+		if (ds_data && ds_data->ds_registered && ds_data->ds_max_clk) {
+			if (info->pixel_freq > ds_data->ds_max_clk)
+				info->supported = false;
+		}
+
+		if (info->interlaced)
 			info->supported = false;
 	}
 
