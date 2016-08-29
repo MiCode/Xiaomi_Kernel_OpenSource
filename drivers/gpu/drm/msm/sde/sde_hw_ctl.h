@@ -34,8 +34,8 @@ struct sde_hw_ctl;
  * @border_enable
  */
 struct sde_hw_stage_cfg {
-	enum sde_sspp stage[SDE_STAGE_MAX][PIPES_PER_STAGE];
-	u8 border_enable;
+	enum sde_sspp stage[SDE_STAGE_MAX][SDE_MAX_PIPES_PER_STAGE];
+	u8 border_enable[CRTC_DUAL_MIXERS];
 };
 
 /**
@@ -123,8 +123,7 @@ struct sde_hw_ctl_ops {
 		enum sde_wb blk);
 
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
-		enum sde_lm lm,
-		struct sde_hw_stage_cfg *cfg);
+		enum sde_lm lm, struct sde_hw_stage_cfg *cfg, u32 index);
 };
 
 /**
