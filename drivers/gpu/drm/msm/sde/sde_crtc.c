@@ -167,79 +167,97 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 		cfg->bg.inv_alpha_sel, cfg->bg.inv_mode_alpha);
 }
 
-static void blend_setup(struct drm_crtc *crtc)
+static u32 blend_config_per_mixer(struct drm_crtc *crtc,
+	struct sde_crtc *sde_crtc, struct sde_crtc_mixer *mixer,
+	struct sde_hw_color3_cfg *alpha_out)
+{
+	struct drm_plane *plane;
+	struct drm_display_mode *mode;
+
+	struct sde_plane_state *pstate;
+	struct sde_hw_blend_cfg blend;
+	struct sde_hw_ctl *ctl = mixer->hw_ctl;
+	struct sde_hw_mixer *lm = mixer->hw_lm;
+
+	u32 flush_mask = 0, crtc_split_width;
+	bool is_right_lm = 0;
+
+	mode = &crtc->state->adjusted_mode;
+	crtc_split_width = sde_crtc_mixer_width(sde_crtc, mode);
+
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		pstate = to_sde_plane_state(plane->state);
+		is_right_lm = plane->state->crtc_x >= crtc_split_width ?
+						true : false;
+		sde_crtc->stage_cfg.stage[pstate->stage][is_right_lm] =
+			sde_plane_pipe(plane);
+
+		/* stage layer on right lm if it crosses the boundary */
+		if (plane->state->crtc_x + plane->state->crtc_w >
+							crtc_split_width)
+			sde_crtc->stage_cfg.stage[pstate->stage][is_right_lm] =
+					sde_plane_pipe(plane);
+
+		SDE_DEBUG("crtc_id %d pipe %d at stage %d\n",
+			crtc->base.id, sde_plane_pipe(plane), pstate->stage);
+
+		/**
+		 * cache the flushmask for this layer
+		 * sourcesplit is always enabled, so this layer will
+		 * be staged on both the mixers
+		 */
+		ctl->ops.get_bitmask_sspp(ctl, &flush_mask,
+				sde_plane_pipe(plane));
+
+		/* blend config */
+		sde_crtc_get_blend_cfg(&blend, pstate);
+		lm->ops.setup_blend_config(lm, pstate->stage, &blend);
+		alpha_out->keep_fg[pstate->stage] = 1;
+	}
+
+	return flush_mask;
+}
+
+static void sde_crtc_blend_setup(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_crtc_mixer *mixer = sde_crtc->mixers;
-	struct drm_plane *plane;
-	struct sde_plane_state *pstate;
-	struct sde_hw_blend_cfg blend;
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_mixer *lm;
 	struct sde_hw_color3_cfg alpha_out;
-	u32 flush_mask = 0;
-	unsigned long flags;
-	int i, plane_cnt = 0;
+
+	int i;
 
 	DBG("");
-	spin_lock_irqsave(&sde_crtc->lm_lock, flags);
 
 	/* ctl could be reserved already */
 	if (!sde_crtc->num_ctls)
-		goto out;
+		return;
 
 	/* initialize stage cfg */
 	memset(&sde_crtc->stage_cfg, 0, sizeof(struct sde_hw_stage_cfg));
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
-		if ((!mixer[i].hw_lm) || (!mixer[i].hw_ctl))
+		if ((!mixer[i].hw_lm) || (!mixer[i].hw_ctl)) {
+			sde_crtc->stage_cfg.border_enable[i] = true;
 			continue;
+		}
 
 		ctl = mixer[i].hw_ctl;
 		lm = mixer[i].hw_lm;
 		memset(&alpha_out, 0, sizeof(alpha_out));
 
-		drm_atomic_crtc_for_each_plane(plane, crtc) {
-			pstate = to_sde_plane_state(plane->state);
-			sde_crtc->stage_cfg.stage[pstate->stage][i] =
-				sde_plane_pipe(plane);
-			SDE_DEBUG("crtc_id %d - mixer %d pipe %d at stage %d\n",
-					i,
-					crtc->base.id,
-					sde_plane_pipe(plane),
-					pstate->stage);
-			plane_cnt++;
+		mixer[i].flush_mask = blend_config_per_mixer(crtc, sde_crtc,
+						mixer + i, &alpha_out);
 
-			/* Cache the flushmask for this layer
-			 * sourcesplit is always enabled, so this layer will
-			 * be staged on both the mixers
-			 */
-			ctl = mixer[i].hw_ctl;
-			ctl->ops.get_bitmask_sspp(ctl, &flush_mask,
-					sde_plane_pipe(plane));
+		if (sde_crtc->stage_cfg.stage[SDE_STAGE_BASE][i] == SSPP_NONE)
+			sde_crtc->stage_cfg.border_enable[i] = true;
 
-			/* blend config */
-			sde_crtc_get_blend_cfg(&blend, pstate);
-			lm->ops.setup_blend_config(lm, pstate->stage, &blend);
-			alpha_out.keep_fg[pstate->stage] = 1;
-		}
 		lm->ops.setup_alpha_out(lm, &alpha_out);
 
-		/* stage config flush mask */
-		mixer[i].flush_mask = flush_mask;
 		/* get the flush mask for mixer */
 		ctl->ops.get_bitmask_mixer(ctl, &mixer[i].flush_mask,
 			mixer[i].hw_lm->idx);
-	}
-
-	/*
-	 * If there is no base layer, enable border color.
-	 * currently border color is always black
-	 */
-	if ((sde_crtc->stage_cfg.stage[SDE_STAGE_BASE][0] == SSPP_NONE) &&
-			plane_cnt) {
-		sde_crtc->stage_cfg.border_enable = 1;
-		SDE_DEBUG("border color is enabled\n");
 	}
 
 	/* Program ctl_paths */
@@ -252,10 +270,8 @@ static void blend_setup(struct drm_crtc *crtc)
 
 		/* same stage config to all mixers */
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
-			&sde_crtc->stage_cfg);
+			&sde_crtc->stage_cfg, i);
 	}
-out:
-	spin_unlock_irqrestore(&sde_crtc->lm_lock, flags);
 }
 
 void sde_crtc_prepare_fence(struct drm_crtc *crtc)
@@ -572,7 +588,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	if (unlikely(!sde_crtc->num_ctls))
 		return;
 
-	blend_setup(crtc);
+	sde_crtc_blend_setup(crtc);
 
 	/*
 	 * PP_DONE irq is only used by command mode for now.
@@ -796,7 +812,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_mixer *mixer;
 	struct sde_hw_mixer *lm;
-	unsigned long flags;
 	struct drm_display_mode *mode;
 	struct sde_hw_mixer_cfg cfg;
 	int i;
@@ -818,8 +833,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 
 	drm_mode_debug_printmodeline(mode);
 
-	spin_lock_irqsave(&sde_crtc->lm_lock, flags);
-
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		lm = mixer[i].hw_lm;
 		cfg.out_width = sde_crtc_mixer_width(sde_crtc, mode);
@@ -828,8 +841,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 		cfg.flags = 0;
 		lm->ops.setup_mixer_out(lm, &cfg);
 	}
-
-	spin_unlock_irqrestore(&sde_crtc->lm_lock, flags);
 }
 
 struct plane_state {
@@ -1109,14 +1120,16 @@ static int _sde_debugfs_mixer_read(struct seq_file *s, void *data)
 					m->hw_lm->idx - LM_0,
 					m->hw_ctl->idx - CTL_0);
 		}
+		seq_printf(s, "Border: %d\n",
+				sde_crtc->stage_cfg.border_enable[i]);
 	}
-	seq_printf(s, "Border: %d\n", sde_crtc->stage_cfg.border_enable);
 	for (i = 0; i < SDE_STAGE_MAX; ++i) {
 		if (i == SDE_STAGE_BASE)
 			seq_puts(s, "Base Stage:");
 		else
 			seq_printf(s, "Stage %d:", i - SDE_STAGE_0);
-		for (j = 0; j < PIPES_PER_STAGE; ++j)
+
+		for (j = 0; j < SDE_MAX_PIPES_PER_STAGE; ++j)
 			seq_printf(s, " % 2d", sde_crtc->stage_cfg.stage[i][j]);
 		seq_puts(s, "\n");
 	}
@@ -1194,8 +1207,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 
 	sde_crtc->drm_crtc_id = drm_crtc_id;
 	atomic_set(&sde_crtc->drm_requested_vblank, 0);
-
-	spin_lock_init(&sde_crtc->lm_lock);
 
 	drm_crtc_init_with_planes(dev, crtc, plane, NULL, &sde_crtc_funcs);
 

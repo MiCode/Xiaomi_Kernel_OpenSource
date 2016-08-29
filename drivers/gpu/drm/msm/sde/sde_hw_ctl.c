@@ -245,8 +245,7 @@ static int sde_hw_ctl_reset_control(struct sde_hw_ctl *ctx)
 }
 
 static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
-		enum sde_lm lm,
-		struct sde_hw_stage_cfg *stage_cfg)
+	enum sde_lm lm, struct sde_hw_stage_cfg *stage_cfg, u32 index)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 	u32 mixercfg, mixercfg_ext, mix, ext;
@@ -260,11 +259,11 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 
 	if (test_bit(SDE_MIXER_SOURCESPLIT,
 		&ctx->mixer_hw_caps->features))
-		pipes_per_stage = PIPES_PER_STAGE;
+		pipes_per_stage = SDE_MAX_PIPES_PER_STAGE;
 	else
 		pipes_per_stage = 1;
 
-	mixercfg = stage_cfg->border_enable << 24; /* BORDER_OUT */
+	mixercfg = stage_cfg->border_enable[index] << 24; /* BORDER_OUT */
 	mixercfg_ext = 0;
 
 	for (i = 0; i <= stages; i++) {

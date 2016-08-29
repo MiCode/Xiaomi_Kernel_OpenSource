@@ -244,15 +244,15 @@ static void sde_kms_prepare_fence(struct msm_kms *kms,
 
 static int modeset_init(struct sde_kms *sde_kms)
 {
-	struct msm_drm_private *priv = sde_kms->dev->dev_private;
-	int i;
-	int ret;
-	struct sde_mdss_cfg *catalog = sde_kms->catalog;
 	struct drm_device *dev = sde_kms->dev;
-	struct drm_plane *primary_planes[MAX_PLANES];
-	int primary_planes_idx = 0;
+	struct drm_plane *primary_planes[MAX_PLANES], *plane;
+	struct drm_crtc *crtc;
 
-	int num_private_planes = catalog->mixer_count;
+	struct msm_drm_private *priv = sde_kms->dev->dev_private;
+	struct sde_mdss_cfg *catalog = sde_kms->catalog;
+
+	int primary_planes_idx = 0, i, ret, max_crtc_count;
+	int max_private_planes = catalog->mixer_count;
 
 	ret = sde_irq_domain_init(sde_kms);
 	if (ret)
@@ -260,11 +260,10 @@ static int modeset_init(struct sde_kms *sde_kms)
 
 	/* Create the planes */
 	for (i = 0; i < catalog->sspp_count; i++) {
-		struct drm_plane *plane;
 		bool primary = true;
 
 		if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
-			|| !num_private_planes)
+			|| primary_planes_idx > max_private_planes)
 			primary = false;
 
 		plane = sde_plane_init(dev, catalog->sspp[i].id, primary);
@@ -277,24 +276,16 @@ static int modeset_init(struct sde_kms *sde_kms)
 
 		if (primary)
 			primary_planes[primary_planes_idx++] = plane;
-		if (primary && num_private_planes)
-			num_private_planes--;
 	}
 
-	/* Need enough primary planes to assign one per mixer (CRTC) */
-	if (primary_planes_idx < catalog->mixer_count) {
-		ret = -EINVAL;
-		goto fail;
-	}
+	/* Enumerate displays supported */
+	sde_encoders_init(dev);
 
-	/* Create one CRTC per layer mixer */
-	for (i = 0; i < catalog->mixer_count; i++) {
-		/*
-		 * Each CRTC receives a private plane. We start
-		 * with first RGB, and then DMA and then VIG.
-		 */
-		struct drm_crtc *crtc;
+	max_crtc_count = min(catalog->mixer_count, priv->num_encoders);
+	max_crtc_count = min(max_crtc_count, primary_planes_idx);
 
+	/* Create one CRTC per encoder */
+	for (i = 0; i < max_crtc_count; i++) {
 		crtc = sde_crtc_init(dev, primary_planes[i], i);
 		if (IS_ERR(crtc)) {
 			ret = PTR_ERR(crtc);
@@ -302,9 +293,6 @@ static int modeset_init(struct sde_kms *sde_kms)
 		}
 		priv->crtcs[priv->num_crtcs++] = crtc;
 	}
-
-	/* Enumerate displays supported */
-	sde_encoders_init(dev);
 
 	/* All CRTCs are compatible with all encoders */
 	for (i = 0; i < priv->num_encoders; i++)
