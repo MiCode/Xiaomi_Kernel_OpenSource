@@ -1879,7 +1879,7 @@ static int qpnp_parse_dt_config(struct platform_device *pdev,
 	int			rc, enable, lut_entry_size, list_size, i;
 	const char		*lable;
 	const __be32		*prop;
-	u64			size;
+	u32			size;
 	struct device_node	*node;
 	int found_pwm_subnode = 0;
 	int found_lpg_subnode = 0;
@@ -1968,11 +1968,18 @@ static int qpnp_parse_dt_config(struct platform_device *pdev,
 		return rc;
 
 	prop = of_get_address_by_name(pdev->dev.of_node, QPNP_LPG_LUT_BASE,
-			&size, 0);
+			0, 0);
 	if (!prop) {
 		chip->flags |= QPNP_PWM_LUT_NOT_SUPPORTED;
 	} else {
 		lpg_config->lut_base_addr = be32_to_cpu(*prop);
+		rc = of_property_read_u32(of_node, "qcom,lpg-lut-size", &size);
+		if (rc < 0) {
+			dev_err(&pdev->dev, "Error reading qcom,lpg-lut-size, rc=%d\n",
+					rc);
+			return rc;
+		}
+
 		/*
 		 * Each entry of LUT is of 2 bytes for generic LUT and of 1 byte
 		 * for KPDBL/GLED LUT.
