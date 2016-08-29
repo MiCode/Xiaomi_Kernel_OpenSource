@@ -217,6 +217,8 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 		struct msm_audio_wmapro_config *wmapro_config;
 		struct msm_audio_wmapro_config32 wmapro_config_32;
 
+		memset(&wmapro_config_32, 0, sizeof(wmapro_config_32));
+
 		wmapro_config =
 			(struct msm_audio_wmapro_config *)audio->codec_cfg;
 		wmapro_config_32.armdatareqthr = wmapro_config->armdatareqthr;
