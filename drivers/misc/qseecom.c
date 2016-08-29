@@ -1607,6 +1607,7 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		list_for_each_entry(ptr_svc,
 				&qseecom.registered_listener_list_head, list) {
 			if (ptr_svc->svc.listener_id == lstnr) {
+				ptr_svc->listener_in_use = true;
 				ptr_svc->rcv_req_flag = 1;
 				wake_up_interruptible(&ptr_svc->rcv_req_wq);
 				break;
@@ -1689,6 +1690,7 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 					(const void *)&send_data_rsp,
 					sizeof(send_data_rsp), resp,
 					sizeof(*resp));
+		ptr_svc->listener_in_use = false;
 		if (ret) {
 			pr_err("scm_call() failed with err: %d (app_id = %d)\n",
 				ret, data->client.app_id);
@@ -1760,10 +1762,11 @@ int __qseecom_process_reentrancy_blocked_on_listener(
 		ret = -ENODATA;
 		goto exit;
 	}
+	pr_debug("lsntr %d in_use = %d\n",
+			resp->data, list_ptr->listener_in_use);
 	ptr_app->blocked_on_listener_id = resp->data;
-	list_ptr->listener_in_use = true;
 	/* sleep until listener is available */
-	while (list_ptr->listener_in_use == true) {
+	do {
 		qseecom.app_block_ref_cnt++;
 		ptr_app->app_blocked = true;
 		sigfillset(&new_sigset);
@@ -1780,7 +1783,7 @@ int __qseecom_process_reentrancy_blocked_on_listener(
 		sigprocmask(SIG_SETMASK, &old_sigset, NULL);
 		ptr_app->app_blocked = false;
 		qseecom.app_block_ref_cnt--;
-	}
+	} while (list_ptr->listener_in_use == true);
 	ptr_app->blocked_on_listener_id = 0;
 	/* notify the blocked app that listener is available */
 	pr_warn("Lsntr %d is available, unblock app(%d) %s in TZ\n",
@@ -1819,7 +1822,7 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 	sigset_t new_sigset;
 	sigset_t old_sigset;
 
-	while (resp->result == QSEOS_RESULT_INCOMPLETE) {
+	while (ret == 0 && rc == 0 && resp->result == QSEOS_RESULT_INCOMPLETE) {
 		lstnr = resp->data;
 		/*
 		 * Wake up blocking lsitener service with the lstnr id
@@ -1936,11 +1939,10 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 			ret = -EINVAL;
 			goto exit;
 		}
-
-	}
 exit:
-	if (lstnr == RPMB_SERVICE)
-		__qseecom_disable_clk(CLK_QSEE);
+		if (lstnr == RPMB_SERVICE)
+			__qseecom_disable_clk(CLK_QSEE);
+	}
 	if (rc)
 		return rc;
 
