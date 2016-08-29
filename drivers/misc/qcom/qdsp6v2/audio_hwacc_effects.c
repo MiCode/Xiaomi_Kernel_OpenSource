@@ -619,6 +619,8 @@ static long audio_effects_compat_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_EFFECTS_GET_BUF_AVAIL32: {
 		struct msm_hwacc_buf_avail32 buf_avail;
 
+		memset(&buf_avail, 0, sizeof(buf_avail));
+
 		buf_avail.input_num_avail = atomic_read(&effects->in_count);
 		buf_avail.output_num_avail = atomic_read(&effects->out_count);
 		pr_debug("%s: write buf avail: %d, read buf avail: %d\n",

@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2014,2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -202,6 +202,10 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 			struct msm_audio_amrwbplus_config_v2 *amrwbplus_config;
 			struct msm_audio_amrwbplus_config_v2_32
 						amrwbplus_config_32;
+
+			memset(&amrwbplus_config_32, 0,
+					sizeof(amrwbplus_config_32));
+
 			amrwbplus_config =
 				(struct msm_audio_amrwbplus_config_v2 *)
 				audio->codec_cfg;
