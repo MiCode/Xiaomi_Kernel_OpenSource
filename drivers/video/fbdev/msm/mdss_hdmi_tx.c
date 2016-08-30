@@ -2971,28 +2971,6 @@ static int hdmi_tx_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hpd;
 }
 
-int msm_hdmi_register_audio_codec(struct platform_device *pdev,
-	struct msm_ext_disp_audio_codec_ops *ops)
-{
-	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
-	int ret = 0;
-
-	if (!hdmi_ctrl || !ops) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EPROBE_DEFER;
-	}
-
-	ret = msm_ext_disp_register_audio_codec(hdmi_ctrl->ext_pdev, ops);
-	if (ret) {
-		pr_err("%s: failed to register codec\n", __func__);
-		goto end;
-	}
-
-end:
-	return ret;
-} /* hdmi_tx_audio_register */
-EXPORT_SYMBOL(msm_hdmi_register_audio_codec);
-
 static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	u32 rate = 0;

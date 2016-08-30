@@ -636,6 +636,12 @@ end:
 	return ret;
 }
 
+int msm_hdmi_register_audio_codec(struct platform_device *pdev,
+	struct msm_ext_disp_audio_codec_ops *ops)
+{
+	return msm_ext_disp_register_audio_codec(pdev, ops);
+}
+
 int msm_ext_disp_register_audio_codec(struct platform_device *pdev,
 		struct msm_ext_disp_audio_codec_ops *ops)
 {
