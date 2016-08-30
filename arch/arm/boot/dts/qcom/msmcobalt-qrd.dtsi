@@ -69,3 +69,16 @@
 	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+&soc {
+	sound-tavil {
+		qcom,msm-mbhc-hphl-swh = <1>;
+		/delete-property/ qcom,us-euro-gpios;
+	};
+
+	sound-9335 {
+		qcom,msm-mbhc-hphl-swh = <1>;
+		/delete-property/ qcom,us-euro-gpios;
+	};
+};
+
