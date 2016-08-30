@@ -3180,7 +3180,7 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 					IPA_CLIENT_APPS_WAN_CONS) {
 				sys->pyld_hdlr = ipa3_wan_rx_pyld_hdlr;
 				sys->free_rx_wrapper = ipa3_free_rx_wrapper;
-				if (in->napi_enabled) {
+				if (in->recycle_enabled) {
 					sys->repl_hdlr =
 					   ipa3_replenish_rx_cache_recycle;
 					sys->rx_pool_sz =
