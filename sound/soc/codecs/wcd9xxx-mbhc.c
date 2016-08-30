@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4689,7 +4689,7 @@ int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 			schedule_delayed_work(&mbhc->mbhc_firmware_dwork,
 					     usecs_to_jiffies(FW_READ_TIMEOUT));
 		else
-			pr_debug("%s: Skipping to read mbhc fw, 0x%p %p\n",
+			pr_debug("%s: Skipping to read mbhc fw, 0x%pK %pK\n",
 				 __func__, mbhc->mbhc_fw, mbhc->mbhc_cal);
 	}
 
@@ -5087,7 +5087,7 @@ static int wcd9xxx_remeasure_z_values(struct wcd9xxx_mbhc *mbhc,
 	right = !!(r);
 
 	dev_dbg(codec->dev, "%s: Remeasuring impedance values\n", __func__);
-	dev_dbg(codec->dev, "%s: l: %p, r: %p, left=%d, right=%d\n", __func__,
+	dev_dbg(codec->dev, "%s: l: %pK, r: %pK, left=%d, right=%d\n", __func__,
 		 l, r, left, right);
 
 	/* Remeasure V2 values */
