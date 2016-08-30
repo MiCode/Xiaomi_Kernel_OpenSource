@@ -2055,12 +2055,11 @@ static u64 mdss_mdp_ctl_calc_client_vote(struct mdss_data_type *mdata,
 	return bw_sum_of_intfs;
 }
 
-static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
+/* apply any adjustments to the ib quota */
+static inline u64 __calc_bus_ib_quota(struct mdss_data_type *mdata,
 	struct mdss_mdp_perf_params *perf, bool nrt_client, u64 bw_vote)
 {
-	u64 bus_ab_quota, bus_ib_quota;
-
-	bus_ab_quota = max(bw_vote, mdata->perf_tune.min_bus_vote);
+	u64 bus_ib_quota;
 
 	if (test_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map)) {
 		if (!nrt_client)
@@ -2086,6 +2085,18 @@ static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
 			!nrt_client)
 		bus_ib_quota = apply_fudge_factor(bus_ib_quota,
 			&mdata->per_pipe_ib_factor);
+
+	return bus_ib_quota;
+}
+
+static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
+	struct mdss_mdp_perf_params *perf, bool nrt_client, u64 bw_vote)
+{
+	u64 bus_ab_quota, bus_ib_quota;
+
+	bus_ab_quota = max(bw_vote, mdata->perf_tune.min_bus_vote);
+	bus_ib_quota = __calc_bus_ib_quota(mdata, perf, nrt_client, bw_vote);
+
 
 	bus_ab_quota = apply_fudge_factor(bus_ab_quota, &mdss_res->ab_factor);
 	ATRACE_INT("bus_quota", bus_ib_quota);
@@ -2252,6 +2263,48 @@ static bool is_traffic_shaper_enabled(struct mdss_data_type *mdata)
 	return false;
 }
 
+static bool __mdss_mdp_compare_bw(
+	struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_perf_params *new_perf,
+	struct mdss_mdp_perf_params *old_perf,
+	bool params_changed,
+	bool stop_req)
+{
+	struct mdss_data_type *mdata = ctl->mdata;
+	bool is_nrt = mdss_mdp_is_nrt_ctl_path(ctl);
+	u64 new_ib =
+		__calc_bus_ib_quota(mdata, new_perf, is_nrt, new_perf->bw_ctl);
+	u64 old_ib =
+		__calc_bus_ib_quota(mdata, old_perf, is_nrt, old_perf->bw_ctl);
+	u64 new_ab = new_perf->bw_ctl;
+	u64 old_ab = old_perf->bw_ctl;
+	bool update_bw = false;
+
+	/*
+	 * three cases for bus bandwidth update.
+	 * 1. new bandwidth vote (ab or ib) or writeback output vote
+	 *		are higher than current vote for update request.
+	 * 2. new bandwidth vote or writeback output vote are
+	 *		lower than current vote at end of commit or stop.
+	 * 3. end of writeback/rotator session - last chance to
+	 *		non-realtime remove vote.
+	 */
+	if ((params_changed &&
+			(((new_ib > old_ib) || (new_ab > old_ab)) ||
+			(new_perf->bw_writeback > old_perf->bw_writeback))) ||
+			(!params_changed &&
+			(((new_ib < old_ib) || (new_ab < old_ab)) ||
+			(new_perf->bw_writeback < old_perf->bw_writeback))) ||
+			(stop_req && is_nrt))
+		update_bw = true;
+
+	trace_mdp_compare_bw(new_perf->bw_ctl, new_ib, new_perf->bw_writeback,
+		old_perf->bw_ctl, old_ib, old_perf->bw_writeback,
+		params_changed, update_bw);
+
+	return update_bw;
+}
+
 static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		int params_changed, bool stop_req)
 {
@@ -2287,20 +2340,8 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		else if (is_bw_released || params_changed)
 			mdss_mdp_perf_calc_ctl(ctl, new);
 
-		/*
-		 * three cases for bus bandwidth update.
-		 * 1. new bandwidth vote or writeback output vote
-		 *    are higher than current vote for update request.
-		 * 2. new bandwidth vote or writeback output vote are
-		 *    lower than current vote at end of commit or stop.
-		 * 3. end of writeback/rotator session - last chance to
-		 *    non-realtime remove vote.
-		 */
-		if ((params_changed && ((new->bw_ctl > old->bw_ctl) ||
-			(new->bw_writeback > old->bw_writeback))) ||
-		    (!params_changed && ((new->bw_ctl < old->bw_ctl) ||
-			(new->bw_writeback < old->bw_writeback))) ||
-			(stop_req && mdss_mdp_is_nrt_ctl_path(ctl))) {
+		if (__mdss_mdp_compare_bw(ctl, new, old, params_changed,
+				stop_req)) {
 
 			pr_debug("c=%d p=%d new_bw=%llu,old_bw=%llu\n",
 				ctl->num, params_changed, new->bw_ctl,
