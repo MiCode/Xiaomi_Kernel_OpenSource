@@ -163,6 +163,7 @@ struct fastrpc_smmu {
 	int enabled;
 	int faults;
 	int secure;
+	int coherent;
 };
 
 struct fastrpc_session_ctx {
@@ -1129,6 +1130,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
+		if (ctx->fl->sctx->smmu.coherent)
+			continue;
 		if (map && map->uncached)
 			continue;
 		if (rpra[i].buf.len && ctx->overps[oix]->mstart)
@@ -1141,7 +1144,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		rpra[inh + i].buf.len = ctx->lpra[inh + i].buf.len;
 		rpra[inh + i].h = ctx->lpra[inh + i].h;
 	}
-	dmac_flush_range((char *)rpra, (char *)rpra + ctx->used);
+	if (!ctx->fl->sctx->smmu.coherent)
+		dmac_flush_range((char *)rpra, (char *)rpra + ctx->used);
  bail:
 	return err;
 }
@@ -1372,13 +1376,15 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 			goto bail;
 	}
 
-	inv_args_pre(ctx);
-	if (FASTRPC_MODE_SERIAL == mode)
-		inv_args(ctx);
+	if (!fl->sctx->smmu.coherent) {
+		inv_args_pre(ctx);
+		if (mode == FASTRPC_MODE_SERIAL)
+			inv_args(ctx);
+	}
 	VERIFY(err, 0 == fastrpc_invoke_send(ctx, kernel, invoke->handle));
 	if (err)
 		goto bail;
-	if (FASTRPC_MODE_PARALLEL == mode)
+	if (mode == FASTRPC_MODE_PARALLEL && !fl->sctx->smmu.coherent)
 		inv_args(ctx);
  wait:
 	if (kernel)
@@ -2302,6 +2308,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	sess = &chan->session[chan->sesscount];
 	sess->smmu.cb = iommuspec.args[0];
 	sess->used = 0;
+	sess->smmu.coherent = of_property_read_bool(dev->of_node,
+						"dma-coherent");
 	sess->smmu.secure = of_property_read_bool(dev->of_node,
 						"qcom,secure-context-bank");
 	if (sess->smmu.secure)
