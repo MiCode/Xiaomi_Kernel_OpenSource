@@ -1279,7 +1279,7 @@ static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 
 static uint64_t _read_throttling_counters(struct adreno_device *adreno_dev)
 {
-	int i;
+	int i, adj;
 	uint32_t th[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
@@ -1300,8 +1300,14 @@ static uint64_t _read_throttling_counters(struct adreno_device *adreno_dev)
 			adreno_dev->gpmu_throttle_counters[i],
 			&busy->throttle_cycles[i]);
 	}
-	i = th[CRC_MORE50PCT] - th[IDLE_10PCT];
-	return th[CRC_50PCT] + th[CRC_LESS50PCT] / 3 + (i < 0 ? 0 : i) * 3;
+	adj = th[CRC_MORE50PCT] - th[IDLE_10PCT];
+	adj = th[CRC_50PCT] + th[CRC_LESS50PCT] / 3 + (adj < 0 ? 0 : adj) * 3;
+
+	trace_kgsl_clock_throttling(
+		th[IDLE_10PCT], th[CRC_50PCT],
+		th[CRC_MORE50PCT], th[CRC_LESS50PCT],
+		adj);
+	return adj;
 }
 
 static void _update_threshold_count(struct adreno_device *adreno_dev,

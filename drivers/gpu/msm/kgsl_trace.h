@@ -1192,6 +1192,41 @@ TRACE_EVENT(sparse_unbind,
 );
 
 
+TRACE_EVENT(kgsl_clock_throttling,
+	TP_PROTO(
+		int idle_10pct,
+		int crc_50pct,
+		int crc_more50pct,
+		int crc_less50pct,
+		int adj
+	),
+	TP_ARGS(
+		idle_10pct,
+		crc_50pct,
+		crc_more50pct,
+		crc_less50pct,
+		adj
+	),
+	TP_STRUCT__entry(
+		__field(int, idle_10pct)
+		__field(int, crc_50pct)
+		__field(int, crc_more50pct)
+		__field(int, crc_less50pct)
+		__field(int, adj)
+	),
+	TP_fast_assign(
+		__entry->idle_10pct = idle_10pct;
+		__entry->crc_50pct = crc_50pct;
+		__entry->crc_more50pct = crc_more50pct;
+		__entry->crc_less50pct = crc_less50pct;
+		__entry->adj = adj;
+	),
+	TP_printk("idle_10=%d crc_50=%d crc_more50=%d crc_less50=%d adj=%d",
+		__entry->idle_10pct, __entry->crc_50pct, __entry->crc_more50pct,
+		__entry->crc_less50pct, __entry->adj
+	)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */
