@@ -372,6 +372,7 @@ static struct icnss_priv {
 	struct notifier_block get_service_nb;
 	void *modem_notify_handler;
 	struct notifier_block modem_ssr_nb;
+	struct wakeup_source ws;
 } *penv;
 
 static void icnss_hw_write_reg(void *base, u32 offset, u32 val)
@@ -1940,6 +1941,8 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 	if (!penv)
 		return -ENODEV;
 
+	__pm_stay_awake(&penv->ws);
+
 	set_bit(ICNSS_FW_READY, &penv->state);
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
@@ -1957,7 +1960,10 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 	else
 		ret = icnss_call_driver_probe(penv);
 
+	__pm_relax(&penv->ws);
+
 out:
+	__pm_relax(&penv->ws);
 	return ret;
 }
 
@@ -1965,10 +1971,10 @@ static int icnss_driver_event_register_driver(void *data)
 {
 	int ret = 0;
 
-	if (penv->ops) {
-		ret = -EEXIST;
-		goto out;
-	}
+	if (penv->ops)
+		return -EEXIST;
+
+	__pm_stay_awake(&penv->ws);
 
 	penv->ops = data;
 
@@ -1995,16 +2001,21 @@ static int icnss_driver_event_register_driver(void *data)
 
 	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
 
+	__pm_relax(&penv->ws);
+
 	return 0;
 
 power_off:
 	icnss_hw_power_off(penv);
 out:
+	__pm_relax(&penv->ws);
 	return ret;
 }
 
 static int icnss_driver_event_unregister_driver(void *data)
 {
+	__pm_stay_awake(&penv->ws);
+
 	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state)) {
 		penv->ops = NULL;
 		goto out;
@@ -2020,6 +2031,7 @@ static int icnss_driver_event_unregister_driver(void *data)
 	icnss_hw_power_off(penv);
 
 out:
+	__pm_relax(&penv->ws);
 	return 0;
 }
 
@@ -3532,6 +3544,8 @@ static int icnss_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
 
+	wakeup_source_init(&penv->ws, "icnss_ws");
+
 	priv->event_wq = alloc_workqueue("icnss_driver_event", WQ_UNBOUND, 1);
 	if (!priv->event_wq) {
 		icnss_pr_err("Workqueue creation failed\n");
@@ -3592,6 +3606,8 @@ static int icnss_remove(struct platform_device *pdev)
 		destroy_workqueue(penv->event_wq);
 
 	icnss_bw_deinit(penv);
+
+	wakeup_source_trash(&penv->ws);
 
 	icnss_hw_power_off(penv);
 
