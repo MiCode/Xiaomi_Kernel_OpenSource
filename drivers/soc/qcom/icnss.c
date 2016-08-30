@@ -1056,7 +1056,7 @@ int icnss_hw_reset(struct icnss_priv *priv)
 				 MPM_WCSSAON_CONFIG_FORCE_ACTIVE, 1);
 
 	icnss_hw_poll_reg_field(priv->mem_base_va, SR_WCSSAON_SR_LSB_OFFSET,
-				SR_WCSSAON_SR_LSB_RETENTION_STATUS, 1, 10,
+				SR_WCSSAON_SR_LSB_RETENTION_STATUS, 1, 100,
 				ICNSS_HW_REG_RETRY);
 
 	for (i = 0; i < ICNSS_HW_REG_RETRY; i++) {
@@ -1562,6 +1562,13 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 		ret = -ENODEV;
 		goto out;
 	}
+
+	/* During recovery do not send mode request for WLAN OFF as
+	 * FW not able to process it.
+	 */
+	if (test_bit(ICNSS_PD_RESTART, &penv->state) &&
+	    mode == QMI_WLFW_OFF_V01)
+		return 0;
 
 	icnss_pr_dbg("Sending Mode request, state: 0x%lx, mode: %d\n",
 		     penv->state, mode);
@@ -2914,7 +2921,7 @@ static int icnss_get_vreg_info(struct device *dev,
 
 	reg = devm_regulator_get_optional(dev, vreg_info->name);
 
-	if (IS_ERR(reg) == -EPROBE_DEFER) {
+	if (PTR_ERR(reg) == -EPROBE_DEFER) {
 		icnss_pr_err("EPROBE_DEFER for regulator: %s\n",
 			     vreg_info->name);
 		ret = PTR_ERR(reg);
@@ -2934,7 +2941,6 @@ static int icnss_get_vreg_info(struct device *dev,
 				     vreg_info->name, ret);
 			goto done;
 		}
-
 	}
 
 	vreg_info->reg = reg;
