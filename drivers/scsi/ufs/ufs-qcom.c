@@ -2087,6 +2087,11 @@ static inline int ufs_qcom_configure_lpm(struct ufs_hba *hba, bool enable)
 	if (!ufs_qcom_cap_svs2(host))
 		goto out;
 
+	if (!((host->hw_ver.major == 0x3) &&
+	    (host->hw_ver.minor == 0x0) &&
+	    (host->hw_ver.step == 0x0)))
+		goto out;
+
 	/*
 	 * The link should be put in hibern8 state before
 	 * configuring the PHY to enter/exit SVS2 mode.
