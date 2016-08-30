@@ -42,9 +42,6 @@
 #define BLEND_LATENCY		3
 #define CSC_LATENCY		1
 
-#define CLK_FUDGE_NUM		12
-#define CLK_FUDGE_DEN		10
-
 #define YUV_BW_FUDGE_NUM	10
 #define YUV_BW_FUDGE_DEN	10
 
