@@ -475,7 +475,7 @@ static void diag_glink_open_work_fn(struct work_struct *work)
 	struct glink_open_config open_cfg;
 	void *handle = NULL;
 
-	if (!glink_info)
+	if (!glink_info || glink_info->hdl)
 		return;
 
 	memset(&open_cfg, 0, sizeof(struct glink_open_config));
@@ -499,11 +499,12 @@ static void diag_glink_close_work_fn(struct work_struct *work)
 	struct diag_glink_info *glink_info = container_of(work,
 							struct diag_glink_info,
 							close_work);
-	if (!glink_info->inited)
+	if (!glink_info || !glink_info->inited || !glink_info->hdl)
 		return;
 
 	glink_close(glink_info->hdl);
 	atomic_set(&glink_info->opened, 0);
+	glink_info->hdl = NULL;
 	diagfwd_channel_close(glink_info->fwd_ctxt);
 }
 
@@ -586,6 +587,7 @@ static void __diag_glink_init(struct diag_glink_info *glink_info)
 {
 	char wq_name[DIAG_GLINK_NAME_SZ + 12];
 	struct glink_link_info link_info;
+	void *link_state_handle = NULL;
 
 	if (!glink_info)
 		return;
@@ -606,23 +608,25 @@ static void __diag_glink_init(struct diag_glink_info *glink_info)
 	INIT_WORK(&(glink_info->read_work), diag_glink_read_work_fn);
 	link_info.glink_link_state_notif_cb = diag_glink_notify_cb;
 	link_info.transport = NULL;
-	strlcpy((char *)link_info.edge, glink_info->edge,
-			sizeof(link_info.edge));
-	glink_info->hdl = glink_register_link_state_cb(&link_info,
+	link_info.edge = glink_info->edge;
+	glink_info->link_state_handle = NULL;
+	link_state_handle = glink_register_link_state_cb(&link_info,
 							(void *)glink_info);
-	if (IS_ERR_OR_NULL(glink_info->hdl)) {
+	if (IS_ERR_OR_NULL(link_state_handle)) {
 		pr_err("diag: In %s, unable to register for glink channel %s\n",
 			   __func__, glink_info->name);
 		destroy_workqueue(glink_info->wq);
 		return;
 	}
+	glink_info->link_state_handle = link_state_handle;
 	glink_info->fwd_ctxt = NULL;
 	atomic_set(&glink_info->tx_intent_ready, 0);
 	atomic_set(&glink_info->opened, 0);
 	atomic_set(&glink_info->diag_state, 0);
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"%s initialized fwd_ctxt: %pK hdl: %pK\n",
-		glink_info->name, glink_info->fwd_ctxt, glink_info->hdl);
+		glink_info->name, glink_info->fwd_ctxt,
+		glink_info->link_state_handle);
 }
 
 void diag_glink_invalidate(void *ctxt, struct diagfwd_info *fwd_ctxt)
