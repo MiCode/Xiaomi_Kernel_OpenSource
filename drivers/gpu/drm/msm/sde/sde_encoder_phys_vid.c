@@ -537,8 +537,7 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 	if (!sde_encoder_phys_vid_is_master(phys_enc))
 		return 0;
 
-	/* Return EWOULDBLOCK since we know the wait isn't necessary */
-	if (WARN_ON(phys_enc->enable_state != SDE_ENC_ENABLED))
+	if (phys_enc->enable_state != SDE_ENC_ENABLED)
 		return -EWOULDBLOCK;
 
 	MSM_EVTMSG(DEV(phys_enc), "waiting", 0, 0);
