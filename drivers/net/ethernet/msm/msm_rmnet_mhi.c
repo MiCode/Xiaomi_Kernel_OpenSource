@@ -149,7 +149,7 @@ struct rmnet_mhi_private {
 	u32			      mhi_enabled;
 	struct net_device	      *dev;
 	atomic_t		      irq_masked_cntr;
-	rwlock_t		      out_chan_full_lock;
+	spinlock_t		      out_chan_full_lock; /* tx queue lock */
 	atomic_t		      pending_data;
 	struct sk_buff		      *frag_skb;
 	struct work_struct	      alloc_work;
@@ -507,10 +507,10 @@ static void rmnet_mhi_tx_cb(struct mhi_result *result)
 		    tx_cb_skb_free_burst_max[rmnet_mhi_ptr->dev_index]);
 
 	/* In case we couldn't write again, now we can! */
-	read_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock, flags);
+	spin_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	rmnet_log(MSG_VERBOSE, "Waking up queue\n");
 	netif_wake_queue(dev);
-	read_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock, flags);
+	spin_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	rmnet_log(MSG_VERBOSE, "Exited\n");
 }
 
@@ -617,7 +617,6 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 			*(struct rmnet_mhi_private **)netdev_priv(dev);
 	int res = 0;
 	unsigned long flags;
-	int retry = 0;
 	struct mhi_skb_priv *tx_priv;
 
 	rmnet_log(MSG_VERBOSE, "Entered chan %d\n", rmnet_mhi_ptr->tx_channel);
@@ -625,40 +624,31 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 	tx_priv = (struct mhi_skb_priv *)(skb->cb);
 	tx_priv->dma_size = skb->len;
 	tx_priv->dma_addr = 0;
-	do {
-		retry = 0;
-		res = mhi_queue_xfer(rmnet_mhi_ptr->tx_client_handle,
-						    skb->data,
-						    skb->len,
-						    MHI_EOT);
 
-		if (-ENOSPC == res) {
-			write_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock,
-									flags);
-			if (!mhi_get_free_desc(
-					    rmnet_mhi_ptr->tx_client_handle)) {
-				/* Stop writing until we can write again */
-				tx_ring_full_count[rmnet_mhi_ptr->dev_index]++;
-				netif_stop_queue(dev);
-				rmnet_log(MSG_VERBOSE, "Stopping Queue\n");
-				write_unlock_irqrestore(
-					    &rmnet_mhi_ptr->out_chan_full_lock,
-					    flags);
-				goto rmnet_mhi_xmit_error_cleanup;
-			} else {
-				retry = 1;
-			}
-			write_unlock_irqrestore(
-					&rmnet_mhi_ptr->out_chan_full_lock,
-					flags);
-		}
-	} while (retry);
-
-	if (0 != res) {
+	if (mhi_get_free_desc(rmnet_mhi_ptr->tx_client_handle) <= 0) {
+		rmnet_log(MSG_VERBOSE, "Stopping Queue\n");
+		spin_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock,
+				  flags);
+		tx_ring_full_count[rmnet_mhi_ptr->dev_index]++;
 		netif_stop_queue(dev);
-		rmnet_log(MSG_CRITICAL,
-			  "mhi_queue_xfer failed, error %d\n", res);
-		goto rmnet_mhi_xmit_error_cleanup;
+		spin_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock,
+				       flags);
+		return NETDEV_TX_BUSY;
+	}
+	res = mhi_queue_xfer(rmnet_mhi_ptr->tx_client_handle,
+			     skb->data,
+			     skb->len,
+			     MHI_EOT);
+
+	if (res != 0) {
+		rmnet_log(MSG_CRITICAL, "Failed to queue with reason:%d\n",
+			  res);
+		spin_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock,
+				  flags);
+		netif_stop_queue(dev);
+		spin_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock,
+				       flags);
+		return NETDEV_TX_BUSY;
 	}
 
 	skb_queue_tail(&(rmnet_mhi_ptr->tx_buffers), skb);
@@ -667,11 +657,8 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	tx_queued_packets_count[rmnet_mhi_ptr->dev_index]++;
 	rmnet_log(MSG_VERBOSE, "Exited\n");
-	return 0;
 
-rmnet_mhi_xmit_error_cleanup:
-	rmnet_log(MSG_VERBOSE, "Ring full\n");
-	return NETDEV_TX_BUSY;
+	return NETDEV_TX_OK;
 }
 
 static int rmnet_mhi_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
@@ -1012,7 +999,7 @@ static int __init rmnet_mhi_init(void)
 
 		rmnet_mhi_ptr->tx_client_handle = 0;
 		rmnet_mhi_ptr->rx_client_handle = 0;
-		rwlock_init(&rmnet_mhi_ptr->out_chan_full_lock);
+		spin_lock_init(&rmnet_mhi_ptr->out_chan_full_lock);
 
 		rmnet_mhi_ptr->mru = MHI_DEFAULT_MRU;
 		rmnet_mhi_ptr->dev_index = i;
