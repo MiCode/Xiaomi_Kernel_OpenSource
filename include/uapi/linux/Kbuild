@@ -292,6 +292,7 @@ header-y += msm_audio_wmapro.h
 header-y += msm_audio_alac.h
 header-y += msm_audio_ape.h
 header-y += msm_audio_g711.h
+header-y += msm_audio_g711_dec.h
 header-y += msm-core-interface.h
 header-y += msm_dsps.h
 header-y += msm_ion.h
