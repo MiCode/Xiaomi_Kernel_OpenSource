@@ -4616,6 +4616,9 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		IPADBG("Initialization of ipa interrupts skipped\n");
 	}
 
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)
+		ipa3_enable_dcd();
+
 	INIT_LIST_HEAD(&ipa3_ctx->ipa_ready_cb_list);
 
 	init_completion(&ipa3_ctx->init_completion_obj);

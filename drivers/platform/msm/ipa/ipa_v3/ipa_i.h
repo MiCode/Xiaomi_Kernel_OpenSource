@@ -2031,4 +2031,5 @@ int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats);
 struct dentry *ipa_debugfs_get_root(void);
 bool ipa3_is_msm_device(void);
 struct device *ipa3_get_pdev(void);
+void ipa3_enable_dcd(void);
 #endif /* _IPA3_I_H_ */

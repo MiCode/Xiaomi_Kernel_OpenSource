@@ -83,6 +83,7 @@ enum ipahal_reg_name {
 	IPA_QSB_MAX_WRITES,
 	IPA_QSB_MAX_READS,
 	IPA_TX_CFG,
+	IPA_IDLE_INDICATION_CFG,
 	IPA_REG_MAX,
 };
 
@@ -327,6 +328,16 @@ struct ipahal_reg_tx_cfg {
 	bool tx0_prefetch_disable;
 	bool tx1_prefetch_disable;
 	u16 prefetch_almost_empty_size;
+};
+
+/*
+ * struct ipahal_reg_idle_indication_cfg - IPA IDLE_INDICATION_CFG register
+ * @const_non_idle_enable: enable the asserting of the IDLE value and DCD
+ * @enter_idle_debounce_thresh:  configure the debounce threshold
+ */
+struct ipahal_reg_idle_indication_cfg {
+	u16 enter_idle_debounce_thresh;
+	bool const_non_idle_enable;
 };
 
 /*

@@ -4069,3 +4069,21 @@ struct device *ipa3_get_pdev(void)
 
 	return ipa3_ctx->pdev;
 }
+
+/**
+ * ipa3_enable_dcd() - enable dynamic clock division on IPA
+ *
+ * Return value: Non applicable
+ *
+ */
+void ipa3_enable_dcd(void)
+{
+	struct ipahal_reg_idle_indication_cfg idle_indication_cfg;
+
+	/* recommended values for IPA 3.5 according to IPA HPG */
+	idle_indication_cfg.const_non_idle_enable = 0;
+	idle_indication_cfg.enter_idle_debounce_thresh = 256;
+
+	ipahal_write_reg_fields(IPA_IDLE_INDICATION_CFG,
+			&idle_indication_cfg);
+}
