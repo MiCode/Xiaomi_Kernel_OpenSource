@@ -432,6 +432,10 @@
 			embedded devices based on command line input.
 			See Documentation/block/cmdline-partition.txt
 
+	boot_cpus=	[SMP]
+			Rather than attempting to online all possible CPUs at
+			boot time, only online the specified set of CPUs.
+
 	boot_delay=	Milliseconds to delay each printk during boot.
 			Values larger than 10 seconds (10000) are changed to
 			no delay (0).
