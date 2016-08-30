@@ -1186,41 +1186,49 @@
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 2>;
 			qcom,secure-context-bank;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 8>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb2 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 9>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb3 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 10>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb4 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 11>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb6 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 5>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb7 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 6>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb8 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&lpass_q6_smmu 7>;
+			dma-coherent;
 		};
 	};
 
