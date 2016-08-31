@@ -103,7 +103,8 @@ static int smblib_get_step_charging_adjustment(struct smb_charger *chg,
 		return rc;
 	}
 
-	step_state = (stat & STEP_CHARGING_STATUS_MASK) >> 3;
+	step_state = (stat & STEP_CHARGING_STATUS_MASK) >>
+				STEP_CHARGING_STATUS_SHIFT;
 	rc = smblib_get_charge_param(chg, &chg->param.step_cc_delta[step_state],
 				     cc_offset);
 
@@ -1051,6 +1052,30 @@ int smblib_get_prop_batt_temp(struct smb_charger *chg,
 
 	rc = power_supply_get_property(chg->bms_psy,
 				       POWER_SUPPLY_PROP_TEMP, val);
+	return rc;
+}
+
+int smblib_get_prop_step_chg_step(struct smb_charger *chg,
+				union power_supply_propval *val)
+{
+	int rc;
+	u8 stat;
+
+	if (!chg->step_chg_enabled) {
+		val->intval = -1;
+		return 0;
+	}
+
+	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read BATTERY_CHARGER_STATUS_1 rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	val->intval = (stat & STEP_CHARGING_STATUS_MASK) >>
+				STEP_CHARGING_STATUS_SHIFT;
+
 	return rc;
 }
 
