@@ -6,3 +6,12 @@ config MSM_SDE_ROTATOR
 	select SW_SYNC if SYNC
 	---help---
 	  Enable support of V4L2 rotator driver.
+
+config MSM_SDE_ROTATOR_EVTLOG_DEBUG
+	depends on MSM_SDE_ROTATOR
+	bool "Enable sde rotator debugging"
+	---help---
+	The SDE rotator debugging provides support to enable rotator debugging
+	features to: Dump rotator registers during driver errors, panic
+	driver during fatal errors and enable some rotator driver logging
+	into an internal buffer (this avoids logging overhead).

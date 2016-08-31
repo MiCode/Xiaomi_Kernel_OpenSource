@@ -34,6 +34,7 @@
 #include "sde_rotator_r3_hwio.h"
 #include "sde_rotator_r3_debug.h"
 #include "sde_rotator_trace.h"
+#include "sde_rotator_debug.h"
 
 /* XIN mapping */
 #define XIN_SSPP		0
@@ -198,6 +199,29 @@ static u32 sde_hw_rotator_output_pixfmts[] = {
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
 };
 
+static struct sde_rot_vbif_debug_bus nrt_vbif_dbg_bus_r3[] = {
+	{0x214, 0x21c, 16, 1, 0x10}, /* arb clients */
+	{0x214, 0x21c, 0, 12, 0x13}, /* xin blocks - axi side */
+	{0x21c, 0x214, 0, 12, 0xc}, /* xin blocks - clock side */
+};
+
+static struct sde_rot_regdump sde_rot_r3_regdump[] = {
+	{ "SDEROT_ROTTOP", SDE_ROT_ROTTOP_OFFSET, 0x100, SDE_ROT_REGDUMP_READ },
+	{ "SDEROT_SSPP", SDE_ROT_SSPP_OFFSET, 0x200, SDE_ROT_REGDUMP_READ },
+	{ "SDEROT_WB", SDE_ROT_WB_OFFSET, 0x300, SDE_ROT_REGDUMP_READ },
+	{ "SDEROT_REGDMA_CSR", SDE_ROT_REGDMA_OFFSET, 0x100,
+		SDE_ROT_REGDUMP_READ },
+	/*
+	 * Need to perform a SW reset to REGDMA in order to access the
+	 * REGDMA RAM especially if REGDMA is waiting for Rotator IDLE.
+	 * REGDMA RAM should be dump at last.
+	 */
+	{ "SDEROT_REGDMA_RESET", ROTTOP_SW_RESET_OVERRIDE, 1,
+		SDE_ROT_REGDUMP_WRITE },
+	{ "SDEROT_REGDMA_RAM", SDE_ROT_REGDMA_RAM_OFFSET, 0x2000,
+		SDE_ROT_REGDUMP_READ },
+};
+
 /* Invalid software timestamp value for initialization */
 #define SDE_REGDMA_SWTS_INVALID	(~0)
 
@@ -332,6 +356,8 @@ static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot)
 			REGDMA_CSR_REGDMA_INVALID_CMD_RAM_OFFSET),
 		SDE_ROTREG_READ(rot->mdss_base,
 			REGDMA_CSR_REGDMA_FSM_STATE));
+
+	SDEROT_EVTLOG_TOUT_HANDLER("rot", "vbif_dbg_bus", "panic");
 }
 
 /**
@@ -1484,6 +1510,10 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 				&entry->dst_buf);
 	}
 
+	SDEROT_EVTLOG(flags, item->input.width, item->input.height,
+			item->output.width, item->output.height,
+			entry->src_buf.p[0].addr, entry->dst_buf.p[0].addr);
+
 	if (mdata->default_ot_rd_limit) {
 		struct sde_mdp_set_ot_params ot_params;
 
@@ -1676,6 +1706,13 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 		SDEROT_DBG("Supporting 1.5 downscale for SDE Rotator\n");
 		set_bit(SDE_CAPS_R3_1P5_DOWNSCALE,  mdata->sde_caps_map);
 	}
+
+	mdata->nrt_vbif_dbg_bus = nrt_vbif_dbg_bus_r3;
+	mdata->nrt_vbif_dbg_bus_size =
+			ARRAY_SIZE(nrt_vbif_dbg_bus_r3);
+
+	mdata->regdump = sde_rot_r3_regdump;
+	mdata->regdump_size = ARRAY_SIZE(sde_rot_r3_regdump);
 
 	return 0;
 }
@@ -2202,6 +2239,7 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	clk_set_flags(mgr->rot_clk[mgr->core_clk_idx].clk,
 			CLKFLAG_NORETAIN_PERIPH);
 
+	mdata->sde_rot_hw = rot;
 	return 0;
 error_hw_rev_init:
 	if (rot->irq_num >= 0)
