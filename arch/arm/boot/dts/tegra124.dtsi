@@ -1,0 +1,155 @@
+#include <dt-bindings/gpio/tegra-gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/include/ "tegra124-soc.dtsi"
+
+#include "skeleton.dtsi"
+
+/ {
+	compatible = "nvidia,tegra124";
+	interrupt-parent = <&intc>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	intc: interrupt-controller@50041000 {
+		compatible = "arm,cortex-a15-gic";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0x50041000 0x1000>,
+		      <0x50042000 0x0100>;
+	};
+
+	lic: interrupt-controller@60004000 {
+		compatible = "nvidia,tegra-gic";
+		interrupt-controller;
+		reg = <0x60004000 0x40>,
+		      <0x60004100 0x40>,
+		      <0x60004200 0x40>,
+		      <0x60004300 0x40>,
+		      <0x60004400 0x40>;
+        };
+
+	timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <1 13 0xf04
+			      1 14 0xf04>;
+	};
+
+	xusb@70090000 {
+		compatible = "nvidia,tegra124-xhci";
+		reg = <0x70090000 0x8000
+		       0x70098000 0x1000
+		       0x70099000 0x1000
+		       0x7009F000 0x1000>;
+		interrupts = <0 39 0x04
+			      0 40 0x04
+			      0 49 0x04
+			      0 97 0x04
+			      0 21 0x04>;
+		status = "disable";
+	};
+
+	host1x {
+		compatible = "nvidia,tegra124-host1x", "simple-bus";
+		reg = <0x50000000 0x00028000>;
+		interrupts = <0 65 0x04   /* mpcore syncpt */
+			      0 67 0x04>; /* mpcore general */
+		nvidia,memory-clients = <4 6 7 17>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ranges = <0x53000000 0x53000000 0x06000000>;
+
+		vi {
+			compatible = "nvidia,tegra124-vi";
+			reg = <0x54080000 0x00040000>;
+			nvidia,memory-clients = <18>;
+		};
+
+		isp@54600000 {
+			compatible = "nvidia,tegra124-isp";
+			reg = <0x54600000 0x00040000>;
+			nvidia,memory-clients = <8 29>;
+		};
+
+		isp@54680000 {
+			compatible = "nvidia,tegra124-isp";
+			reg = <0x54680000 0x00040000>;
+			nvidia,memory-clients = <8 29>;
+		};
+
+		dc@54200000 {
+			compatible = "nvidia,tegra124-dc";
+			reg = <0x54200000 0x00040000>;
+			interrupts = <0 73 0x04>;
+			nvidia,memory-clients = <2>;
+			status = "disabled";
+
+			rgb {
+				status = "disabled";
+			};
+		};
+
+		dc@54240000 {
+			compatible = "nvidia,tegra124-dc";
+			reg = <0x54240000 0x00040000>;
+			interrupts = <0 74 0x04>;
+			nvidia,memory-clients = <3>;
+			status = "disabled";
+
+			rgb {
+				status = "disabled";
+			};
+		};
+
+		hdmi {
+			compatible = "nvidia,tegra124-hdmi";
+			reg = <0x54280000 0x00040000>;
+			interrupts = <0 75 0x04>;
+			status = "okay";
+		};
+
+		dsi {
+			compatible = "nvidia,tegra124-dsi";
+			reg = <0x54300000 0x00040000>,
+			      <0x54400000 0x00040000>;
+			status = "disabled";
+		};
+
+		vic {
+			compatible = "nvidia,tegra124-vic";
+			reg = <0x54340000 0x00040000>;
+			nvidia,memory-clients = <19>;
+		};
+
+		msenc {
+			compatible = "nvidia,tegra124-msenc";
+			reg = <0x544c0000 0x00040000>;
+			nvidia,memory-clients = <11>;
+		};
+
+		tsec {
+			compatible = "nvidia,tegra124-tsec";
+			reg = <0x54500000 0x00040000>;
+			nvidia,memory-clients = <23>;
+		};
+
+		gk20a {
+			compatible = "nvidia,tegra124-gk20a";
+			reg = <0x57000000 0x01000000>,
+			      <0x58000000 0x01000000>,
+			      <0x538F0000 0x00001000>;
+			interrupts = <0 157 0x04
+				      0 158 0x04>;
+			nvidia,memory-clients = <30 31>;
+		};
+	};
+
+	mipical {
+		compatible = "nvidia,tegra124-mipical";
+		reg = <0x700e3000 0x00000100>;
+	};
+
+};

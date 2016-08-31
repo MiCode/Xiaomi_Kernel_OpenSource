@@ -1,0 +1,15 @@
+Power off for Palmas series devices.
+
+Required Properties:
+ - compatible : Must be "ti,palmas-pm"
+
+Optional Properties:
+ - system-pmic-power-off : Use system PMIC to power off device.
+ - system-pmic-power-reset : Use system PMIC to power reset device.
+
+Example:
+palmas_power {
+	compatible = "ti,palmas-pm";
+	system-pmic-power-off;
+	system-pmic-power-reset;
+};

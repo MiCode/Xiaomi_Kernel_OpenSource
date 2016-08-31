@@ -1,0 +1,83 @@
+config BCMDHD
+	tristate "Broadcom 43xx wireless cards support"
+	depends on MMC && CFG80211
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 43xx chipset.
+
+	  This driver uses the kernel's cfg80211 subsystem.
+
+	  If you choose to build a module, it'll be called dhd. Say M if
+	  unsure.
+
+config BCM43241
+	bool "Broadcom 43241 wireless card support"
+	depends on BCMDHD
+
+config BCM43341
+	bool "Broadcom 43341/43340 wireless card support"
+	depends on BCMDHD
+
+config BCM4335
+	bool "Broadcom 4335 wireless card support"
+	depends on BCMDHD
+
+config BCM4339
+	bool "Broadcom 4339 wireless card support"
+	depends on BCMDHD
+
+config BCM4350
+	bool "Broadcom 4350 wireless card support"
+	depends on BCMDHD
+
+config BCMDHD_FW_PATH
+	depends on BCMDHD
+	string "Firmware path"
+	default "/system/etc/firmware/fw_bcmdhd.bin"
+	---help---
+	  Path to the firmware file.
+
+config BCMDHD_NVRAM_PATH
+	depends on BCMDHD
+	string "NVRAM path"
+	default "/system/etc/wifi/bcmdhd.cal"
+	---help---
+	  Path to the calibration file.
+
+config BCMDHD_HW_OOB
+	bool "Use out of band interrupt"
+	depends on BCMDHD
+	default n
+	---help---
+	  Use out of band interrupt for card interrupt and wake on wireless.
+
+config BCMDHD_INSMOD_NO_FW_LOAD
+	bool "Enable delayed firmware load"
+	depends on BCMDHD
+	default n
+	---help---
+	Enable delayes firmware
+
+config DHD_USE_STATIC_BUF
+	bool "Enable memory preallocation"
+	depends on BCMDHD
+	default n
+	---help---
+	  Use memory preallocated in platform
+
+config DHD_USE_SCHED_SCAN
+	bool "Use CFG80211 sched scan"
+	depends on BCMDHD && CFG80211
+	default n
+	---help---
+	  Use CFG80211 sched scan
+
+config BCMDHD_DISABLE_P2P_SYSFS_DEVICE_NODE
+	bool "Disable sysfs entry for P2P interfaces"
+	depends on BCMDHD
+	default n
+	---help---
+	Disable creation of sysfs device node for P2P interfaces.
+	This is a workaround to prevent management tools from
+	directly managing P2P virtual devices.
+

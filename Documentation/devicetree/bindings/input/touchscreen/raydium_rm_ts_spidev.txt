@@ -1,0 +1,28 @@
+raydium touch.
+
+Required properties:
+- compatible : should be "raydium,rm_ts_spidev".
+- reg: Should contain registers location and length.
+- interrupts: Should contain touch interrupts.
+- rx-clk-tap-delay: should contain rx_clk_tap_delay in tegra_spi_device_controller_data
+- tx-clk-tap-delay: should contain tx_clk_tap_delay in tegra_spi_device_controller_data
+- reset-gpio: gpio spec for touch reset
+- platform-id: value for spec platform_id in rm_spi_ts_platform_data
+- name-of-clock: spec clock name for name_of_clock in rm_spi_ts_platform_data
+- name-of-clock-con: spec clock name for name_of_clock_con in rm_spi_ts_platform_data
+
+Example:
+
+		spi-touch@0 {
+			compatible = "raydium,rm_ts_spidev";
+			reg = <0>; /* spi chip select 0 */
+			spi-max-frequency = <12000000>;
+			interrupt-parent = <&gpio>;
+			interrupts = <82 0x01>; /* GPIO_PK2 */
+			reset-gpio = <&gpio 84 0>; /* GPIO_PK4 */
+			config = <0>;
+			platform-id = <0x8>;
+			name-of-clock = "clk_out_2";
+			name-of-clock-con = "extern2";
+		};
+

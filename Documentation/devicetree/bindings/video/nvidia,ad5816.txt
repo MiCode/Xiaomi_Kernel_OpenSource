@@ -1,0 +1,36 @@
+NVIDIA Camera sensor ad5816 driver interface.
+
+Required properties:
+- compatible : The driver is compatible with
+	"nvidia,ad5816".
+
+- reg: Should contain I2C slave address of the driver.
+
+All other properties are based on nvc (nvidia camera interface) standard
+structures definitions, which are generic across the devices. Few of them are
+explained below:
+
+- nvidia,num: Indicates the instance of particular camera device, in this case
+it is for camera focuser device. Currently for rear camera focuser "0" is used.
+
+- nvidia,sync: Used for stereo synchronization. "0" for non-stereo usecase.
+
+- nvidia,dev_name: Camera device driver name.
+
+For more details refer nvc headers at : $TOP/kernel/include/media/
+nvc.h
+nvc_focus.h
+nvc_image.h
+nvc_torch.h
+
+Example:
+
+	ad5816@0E {
+		compatible = "nvidia,ad5816";
+		reg = <0x0E>;
+		nvidia,cfg = <0>;
+		nvidia,num = <0>;
+		nvidia,sync = <0>;
+		nvidia,dev_name = "focuser";
+		status = "okay";
+	};

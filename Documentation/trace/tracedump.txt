@@ -1,0 +1,58 @@
+			     Tracedump
+
+		Documentation written by Alon Farchy
+
+1. Overview
+============
+
+The tracedump module provides additional mechanisms to retrieve tracing data.
+It can be used to retrieve traces after a kernel panic or while the system
+is running in either binary format or plaintext. The dumped data is compressed
+with zlib to conserve space.
+
+2. Configuration Options
+========================
+
+CONFIG_TRACEDUMP - enable the tracedump module.
+CONFIG_TRACEDUMP_PANIC - dump to console on kernel panic
+CONFIG_TRACEDUMP_PROCFS - add file /proc/tracedump for userspace access.
+
+3. Module Parameters
+====================
+
+format_ascii
+
+	If 1, data will dump in human-readable format, ordered by time.
+	If 0, data will be dumped as raw pages from the ring buffer,
+	ordered by CPU, followed by the saved cmdlines so that the
+	raw data can be decoded. Default: 0
+
+panic_size
+
+	Maximum amount of compressed data to dump during a kernel panic
+	in kilobytes. This only applies if format_ascii == 1. In this case,
+	tracedump will compress the data, check the size, and if it is too big
+	toss out some data, compress again, etc, until the size is below
+	panic_size. Default: 512KB
+
+compress_level
+
+	Determines the compression level that zlib will use. Available levels
+	are 0-9, with 0 as no compression and 9 as maximum compression.
+	Default: 9.
+
+4. Usage
+========
+
+If configured with CONFIG_TRACEDUMP_PROCFS, the tracing data can be pulled
+by reading from /proc/tracedump. For example:
+
+	# cat /proc/tracedump > my_tracedump
+
+Tracedump will surround the dump with a magic word (TRACEDUMP). Between the
+magic words is the compressed data, which can be decompressed with a standard
+zlib implementation. After decompression, if format_ascii == 1, then the
+output should be readable.
+
+If format_ascii == 0, the output should be in binary form, delimited by
+CPU_END. After the last CPU should be the saved cmdlines, delimited by |.

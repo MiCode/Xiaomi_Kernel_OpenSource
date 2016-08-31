@@ -1,0 +1,36 @@
+* palmas clock IP block devicetree bindings
+
+Required properties:
+- compatible : Must be "ti,palmas-clk".
+
+Optional sub-nodes:
+ The Palmas clock node have the subnode to configure the Palmas'c clock.
+ The subnode name should match with the name of the clocks.
+
+ The valid clock names are: clk32k_kg and clk32k_kg_audio.
+
+- ti,clock-boot-enable: Enable the clock on boot time.
+- ti,external-sleep-control: Sleep control for the clock. The clock
+	is enabled/disabled through external pins.
+	The valid value for external pins are:
+			ENABLE1 then 1,
+			ENABLE2 then 2 or
+			NSLEEP then 3.
+Example:
+
+pmic {
+	compatible = "ti,twl6035-pmic", "ti,palmas-pmic";
+	...
+	clocks {
+		compatible = "ti,palmas-clk";
+		clk32k_kg {
+			ti,clock-boot-enable;
+			ti,external-sleep-control = <3>;
+		}
+
+		clk32k_kg_audio {
+			ti,clock-boot-enable;
+		};
+	};
+	...
+};

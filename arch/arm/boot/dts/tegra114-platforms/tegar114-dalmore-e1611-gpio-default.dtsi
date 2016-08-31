@@ -1,0 +1,77 @@
+#include <dt-bindings/gpio/tegra-gpio.h>
+
+/ {
+	gpio: gpio {
+		gpio-init-names = "default";
+		gpio-init-0 = <&gpio_default>;
+
+		gpio_default: default {
+			gpio-input = <TEGRA_GPIO(X, 5)
+				      TEGRA_GPIO(X, 6)
+				      TEGRA_GPIO(W, 2)
+				      TEGRA_GPIO(W, 3)
+				      TEGRA_GPIO(X, 1)
+				      TEGRA_GPIO(X, 3)
+				      TEGRA_GPIO(V, 0)
+				      TEGRA_GPIO(V, 1)
+				      TEGRA_GPIO(CC, 1)
+				      TEGRA_GPIO(CC, 2)
+				      TEGRA_GPIO(H, 4)
+				      TEGRA_GPIO(H, 7)
+				      TEGRA_GPIO(G, 2)
+				      TEGRA_GPIO(G, 3)
+				      TEGRA_GPIO(K, 0)
+				      TEGRA_GPIO(J, 0)
+				      TEGRA_GPIO(K, 3)
+				      TEGRA_GPIO(K, 2)
+				      TEGRA_GPIO(I, 6)
+				      TEGRA_GPIO(J, 3)
+				      TEGRA_GPIO(I, 4)
+				      TEGRA_GPIO(C, 7)
+				      TEGRA_GPIO(Q, 5)
+				      TEGRA_GPIO(R, 3)
+				      TEGRA_GPIO(R, 4)
+				      TEGRA_GPIO(R, 6)
+				      TEGRA_GPIO(R, 7)
+				      TEGRA_GPIO(S, 0)
+				      TEGRA_GPIO(U, 1)
+				      TEGRA_GPIO(U, 2)
+				      TEGRA_GPIO(U, 5)
+				      TEGRA_GPIO(U, 6)
+				      TEGRA_GPIO(N, 7)
+				      TEGRA_GPIO(K, 5)>;
+
+			gpio-output-low = <TEGRA_GPIO(X, 4)
+					   TEGRA_GPIO(X, 7)
+					   TEGRA_GPIO(P, 1)
+					   TEGRA_GPIO(P, 2)
+					   TEGRA_GPIO(P, 0)
+					   TEGRA_GPIO(P, 3)
+					   TEGRA_GPIO(BB, 3)
+					   TEGRA_GPIO(BB, 5)
+					   TEGRA_GPIO(BB, 6)
+					   TEGRA_GPIO(K, 4)
+					   TEGRA_GPIO(BB, 7)
+					   TEGRA_GPIO(G, 0)
+					   TEGRA_GPIO(G, 1)
+					   TEGRA_GPIO(H, 2)
+					   TEGRA_GPIO(H, 3)
+					   TEGRA_GPIO(H, 5)
+					   TEGRA_GPIO(H, 6)
+					   TEGRA_GPIO(G, 4)
+					   TEGRA_GPIO(H, 0)
+					   TEGRA_GPIO(K, 1)
+					   TEGRA_GPIO(I, 7)
+					   TEGRA_GPIO(CC, 5)
+					   TEGRA_GPIO(V, 3)
+					   TEGRA_GPIO(Q, 3)
+					   TEGRA_GPIO(Q, 6)
+					   TEGRA_GPIO(Q, 7)
+					   TEGRA_GPIO(R, 5)
+					   TEGRA_GPIO(EE, 1)
+					   TEGRA_GPIO(U, 0)
+					   TEGRA_GPIO(U, 3)
+					   TEGRA_GPIO(U, 4)>;
+		};
+	};
+};

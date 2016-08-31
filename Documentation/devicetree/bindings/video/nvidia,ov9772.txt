@@ -1,0 +1,33 @@
+NVIDIA Camera sensor ov9772 driver interface.
+
+Required properties:
+- compatible : The driver is compatible with
+	"nvidia,ov9772".
+
+- reg: Should contain I2C slave address of the driver.
+
+- nvidia,dev_name: Indicates device name.
+
+- nvidia,num: Indicates device number.
+
+- nvidia,vcm_vdd : For few platforms this driver needs extra power
+regulator (vcm_vdd) to be enabled. This bool property indicates the
+same. It must be programmed only when ov9772 driver needs extra power
+rail for a platform in context.
+
+Example:
+
+	ov9772@10 {
+		compatible = "nvidia,ov9772";
+		reg = <0x10>;
+		nvidia,num = <1>;
+
+		nvidia,vcm_vdd; /* extra regulator needed */
+
+		/* ov9772 gpios */
+		reset-gpios = <&gpio 219 0>; /* gpio PBB3 */
+		power-gpios = <&gpio 222 0>; /* gpio PBB6 */
+
+		nvidia,dev_name = "camera";
+		status = "okay";
+	};

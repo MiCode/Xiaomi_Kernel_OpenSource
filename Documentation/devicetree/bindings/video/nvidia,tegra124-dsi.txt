@@ -1,0 +1,118 @@
+NVIDIA TEGRA124 Display Serial Interface
+========================================
+
+1) The dsi node:
+ dsi node must be contained in host1x parent node. This node represents NVIDIA Tegra124 Display
+ Serial Interface.
+
+ Required properties
+ - name: dsi
+ - compatible: Should contain "nvidia,tegra124-dsi".
+ - reg: Physical base address and length of the controller's registers.
+ - nvidia,dsi-controller-vs: DSI version. Write 0, 1 for DSI_VS_0 and DSI_VS_1, respectively. For TEGRA124,
+   it should be 1.
+
+ - Child node represents dsi panel node.
+
+1.A) dsi panel node:
+ dsi panel node must be contained in dsi parent node. This node represents dsi panel node.
+
+ Required properties
+ - name: Can be arbitrary.
+ - compatible: Can be arbitrary. One panel has its own unique compatible.
+ - nvidia,dsi-panel-rst-gpio: panel reset gpio.
+ - nvidia,dsi-panel-bl-en-gpio: backlight enabling gpio.
+ - nvidia,dsi-panel-bl-pwm-gpio: gpio for backlight pwm signal.
+ - nvidia,dsi-te-gpio: gpio for panel TE(Tearing Effect) signal.
+ - nvidia,dsi-n-data-lanes: Number of DSI lanes in use. Should be one of 2, 3, 4, and 8
+ - nvidia,dsi-video-burst-mode: Video mode. Write 0, 1, 2, 3, 4, 5 and 6 for TEGRA_DSI_VIDEO_NONE_BURST_MODE,
+   TEGRA_DSI_VIDEO_NONE_BURST_MODE_WITH_SYNC_END, TEGRA_DSI_VIDEO_BURST_MODE_LOWEST_SPEED,
+   TEGRA_DSI_VIDEO_BURST_MODE_LOW_SPEED, TEGRA_DSI_VIDEO_BURST_MODE_MEDIUM_SPEED,
+   TEGRA_DSI_VIDEO_BURST_MODE_FAST_SPEED and TEGRA_DSI_VIDEO_BURST_MODE_FASTEST_SPEED,
+   respectively.
+ - nvidia,dsi-pixel-format: DSI pixel data format. Write 0, 1, 2, 3 for TEGRA_DSI_PIXEL_FORMAT_16BIT_P,
+   TEGRA_DSI_PIXEL_FORMAT_18BIT_P, TEGRA_DSI_PIXEL_FORMAT_18BIT_NP and TEGRA_DSI_PIXEL_FORMAT_24BIT_P,
+   respectively.
+ - nvidia,dsi-refresh-rate: Refresh rate.
+ - nvidia,dsi-virtual-channel: DSI virtual channel number. Write 0, 1, 2 and 3 for TEGRA_DSI_VIRTUAL_CHANNEL_0,
+   TEGRA_DSI_VIRTUAL_CHANNEL_1, TEGRA_DSI_VIRTUAL_CHANNEL_2 and TEGRA_DSI_VIRTUAL_CHANNEL_3, respectively.
+ - nvidia,dsi-instance: Should be 0 or 1: DSI controller or DSIB controller.
+ - nvidia,dsi-panel-reset: Indicate if dsi output device requires hardware reset or not.
+ - nvidia,dsi-power-saving-suspend: With enabled, set dsi controller ultra low power mode in suspend.
+ - nvidia,dsi-video-data-type: The DSI operates in two transmission modes: video and host/command.
+   Write 0, 1 for TEGRA_DSI_VIDEO_TYPE_VIDEO_MODE, TEGRA_DSI_VIDEO_TYPE_COMMAND_MODE, respectively.
+ - nvidia,dsi-video-clock-mode: Control for the hs clock lane. Continuous means hs clock on all the time.
+   Txonly means only hs clock active during hs transmissions. Write 0, 1 for TEGRA_DSI_VIDEO_CLOCK_CONTINUOUS,
+   and TEGRA_DSI_VIDEO_CLOCK_TX_ONLY, respectively.
+ - nvidia,dsi-init-cmd: panel required init command sequence.
+ - nvidia,dsi-n-init-cmd: command counts of init command sequence, including delay set.
+ - nvidia,dsi-suspend-cmd: panel required suspend command sequence.
+ - nvidia,dsi-n-suspend-cmd: command counts of suspend command sequence, including delay set.
+ - nvidia,dsi-early-suspend-cmd: panel required early suspend command sequence.
+ - nvidia,dsi-n-early-suspend-cmd: command counts of early suspend command sequence, including delay set.
+ - nvidia,dsi-late-resume-cmd: panel required late resume command sequence.
+ - nvidia,dsi-n-late-resume-cmd: command counts of late resume command sequence, including delay set.
+ - nvidia,dsi-pkt-seq: custom packet sequence since some panels need non standard packet sequence.
+ - nvidia,dsi-te-gpio: specifies a GPIO used for dsi panel TE signal.
+ - nvidia,nvidia,dsi-ganged-type: specifies dsi ganged type. 1 for TEGRA_DSI_GANGED_SYMMETRIC_LEFT_RIGHT,
+   2 for TEGRA_DSI_GANGED_SYMMETRIC_EVEN_ODD.
+ - nvidia,dsi-phy-hsdexit: dsi phy timing, t_hsdexit_ns.
+ - nvidia,dsi-phy-hstrail: dsi phy timing, t_hstrail_ns.
+ - nvidia,dsi-phy-datzero: dsi phy timing, t_datzero_ns.
+ - nvidia,dsi-phy-hsprepare: dsi phy timing, t_hsprepare_ns.
+ - nvidia,dsi-phy-clktrail: dsi phy timing, t_clktrail_ns.
+ - nvidia,dsi-phy-clkpost: dsi phy timing, t_clkpost_ns.
+ - nvidia,dsi-phy-clkzero: dsi phy timing, t_clkzero_ns.
+ - nvidia,dsi-phy-tlpx: dsi phy timing, t_tlpx_ns.
+ - nvidia,dsi-phy-clkprepare: dsi phy timing, t_clkprepare_ns.
+ - nvidia,dsi-phy-clkpre: dsi phy timing, t_clkpre_ns.
+ - nvidia,dsi-phy-wakeup: dsi phy timing, t_wakeup_ns.
+ - nvidia,dsi-phy-taget: dsi phy timing, t_taget_ns.
+ - nvidia,dsi-phy-tasure: dsi phy timing, t_tasure_ns.
+ - nvidia,dsi-phy-tago: dsi phy timing, t_tago_ns.
+
+Example
+	host1x {
+		dsi {
+			compatible = "nvidia,tegra124-dsi";
+			reg = <0x54300000 0x00040000>,
+			      <0x54400000 0x00040000>;
+			status = "okay";
+			nvidia,dsi-controller-vs = <1>;
+			panel-l-wxga-7 {
+				status = "okay";
+				compatible = "lg,wxga-7";
+				nvidia,dsi-instance = <0>;
+				nvidia,dsi-n-data-lanes = <4>;
+				nvidia,dsi-pixel-format = <3>;
+				nvidia,dsi-refresh-rate = <60>;
+				nvidia,dsi-video-data-type = <0>;
+				nvidia,dsi-video-clock-mode = <0>;
+				nvidia,dsi-video-burst-mode = <0>;
+				nvidia,dsi-virtual-channel = <0>;
+				nvidia,dsi-power-saving-suspend = <1>;
+				nvidia,dsi-phy-datzero = <270>;
+				nvidia,dsi-phy-hsprepare = <30>;
+				nvidia,dsi-phy-clkzero = <330>;
+				nvidia,dsi-phy-clkprepare = <27>;
+				nvidia,dsi-init-cmd = <0x0 0x15 0x01 0x0 0x0>,
+						      <1 20>,
+						      <0x0 0x15 0xae 0x0b 0x0>,
+						      <0x0 0x15 0xee 0xea 0x0>,
+						      <0x0 0x15 0xef 0x5f 0x0>,
+						      <0x0 0x15 0xf2 0x68 0x0>,
+						      <0x0 0x15 0xee 0x0 0x0>,
+						      <0x0 0x15 0xef 0x0 0x0>;
+				nvidia,dsi-n-init-cmd = <8>;
+				nvidia,dsi-suspend-cmd = <0x0 0x15 0x11 0x0 0x0>,
+							 <1 160>;
+				nvidia,dsi-n-suspend-cmd = <2>;
+				nvidia,dsi-late-resume-cmd = <0x0 0x15 0x10 0x0 0x0>,
+							     <1 120>;
+				nvidia,dsi-n-late-resume-cmd = <2>;
+				nvidia,dsi-early-suspend-cmd = <0x0 0x15 0x11 0x0 0x0>,
+							       <1 160>;
+				nvidia,dsi-n-early-suspend-cmd = <2>;
+			};
+		};
+	};

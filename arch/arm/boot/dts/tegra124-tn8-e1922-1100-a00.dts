@@ -1,0 +1,56 @@
+/dts-v1/;
+
+#include "tegra124-tn8.dtsi"
+#include "tegra124-platforms/tegra124-tn8-emc-e1922-1100-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-powermon-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-tn8-pmic-e1936-1000-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-fixed-e1936-1000-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-sensor-p1761-1470-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-pinmux-p1761-1470-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-gpio-p1761-1470-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-keys-e1780-1100-a02.dtsi"
+
+/ {
+	model = "NVIDIA Tegra124 TN8 ERS POP";
+	compatible = "nvidia,tn8", "nvidia,tegra124";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,boardids = "1922:1100:0";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen {
+		bootargs = "tegraid=40.0.0.00.00 vmalloc=256M video=tegrafb console=ttyS0,115200n8 earlyprintk";
+		linux,initrd-start = <0x85000000>;
+		linux,initrd-end = <0x851bc400>;
+	};
+
+	i2c@7000c400 {
+		pca9546@71 {
+			vcc-supply = <&palmas_smps9>;
+		};
+	};
+
+	i2c@7000d000 {
+		palmas: tps65913 {
+			pmic {
+				regulators {
+					palmas_smps6: smps6 {
+						regulator-min-microvolt = <1200000>;
+						regulator-max-microvolt = <1200000>;
+					};
+				};
+			};
+		};
+	};
+
+	pinmux {
+		unused_lowpower {
+			pi5 {
+				nvidia,enable-input = <TEGRA_PIN_INPUT>;
+				nvidia,pull = <TEGRA_PIN_PUPD_PULL_UP>;
+				nvidia,tristate = <TEGRA_PIN_NORMAL>;
+			};
+		};
+	};
+};
+

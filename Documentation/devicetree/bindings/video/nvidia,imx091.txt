@@ -1,0 +1,91 @@
+NVIDIA Camera sensor imx091 driver interface.
+
+Properties:
+- compatible : The driver is compatible with
+	"nvidia,imx091".
+
+- reg: Should contain I2C slave address of the driver.
+
+- nvidia,vcm_vdd : For few platforms this driver needs extra power regulator
+"vcm_vdd" to be enabled. This bool property indicates the same. It must be
+programmed only when imx091 driver needs it for a particular platform.
+
+- nvidia,i2c_vdd : For few platforms this driver needs extra power regulator
+"i2c_vdd" to be enabled. This bool property indicates the same. It must be
+programmed only when imx091 driver needs it for a particular platform.
+
+- nvidia,num: Indicates the instance of particular camera device, in this case
+it is for camera focuser device. Currently for rear camera focuser "0" is used.
+
+- nvidia,sync: Used for stereo synchronization. "0" for non-stereo usecase.
+
+- nvidia,dev_name: Camera device driver name.
+
+- imx091 caps: These properties are based on nvc (nvidia camera interface)
+standard structure definition: nvc_imager_cap , which is generic across
+the devices. For details refer nvc headers at :
+$TOP/kernel/include/media/nvc_image.h
+
+- edpc configs: standard edp paramters.
+    - states: EDP state array holding the IMAX for each state. This must be
+        sorted in descending order.
+    - num_states: length of the above array.
+    - e0_index: index of the E0 state in the above array.
+    - priority: client priority - should be between EDP_MIN_PRIO & EDP_MAX_PRIO.
+
+- flash caps: Please see below example for properties related to imx091
+flash capabilities.
+
+Example:
+
+	imx091@10 {
+		compatible = "nvidia,imx091";
+		reg = <0x10>;
+		nvidia,ext_reg; /* Extra power-regulators needed */
+
+		nvidia,num = <0>;
+		nvidia,sync = <0>;
+		nvidia,dev_name = "camera";
+
+		/* edpc config */
+		nvidia,imx091_estates = <876 656 220 0>;
+		nvidia,num_states = <4>;
+		nvidia,e0_index = <0>;
+		nvidia,priority = <1>;
+
+		/* imx091 gpios */
+		reset-gpios = <&gpio 219 0>; /* gpio PBB3 */
+		power-gpios = <&gpio 221 0>; /* gpio PBB6 */
+		gp1-gpios = <&gpio 225 0>; /* gpio PCC1 */
+
+		/* imx091 caps */
+		nvidia,identifier = "IMX091";
+		nvidia,sensor_nvc_interface = <3>;
+		nvidia,pixel_types = <0x100>;
+		nvidia,orientation = <0>;
+		nvidia,direction = <0>;
+		nvidia,initial_clock_rate_khz = <6000>;
+		nvidia,h_sync_edge = <0>;
+		nvidia,v_sync_edge = <0>;
+		nvidia,mclk_on_vgp0 = <0>;
+		nvidia,csi_port = <0>;
+		nvidia,data_lanes = <4>;
+		nvidia,virtual_channel_id = <0>;
+		nvidia,discontinuous_clk_mode = <1>;
+		nvidia,cil_threshold_settle = <0x0>;
+		nvidia,min_blank_time_width = <16>;
+		nvidia,min_blank_time_height = <16>;
+		nvidia,preferred_mode_index = <0>;
+		nvidia,external_clock_khz_0 = <24000>;
+		nvidia,clock_multiplier_0 = <850000>;
+		nvidia,external_clock_khz_1 = <0>;
+		nvidia,clock_multiplier_1 = <0>;
+
+		/* flash caps */
+		nvidia,sdo_trigger_enabled;
+		nvidia,adjustable_flash_timing;
+
+		status = "okay";
+
+	};
+

@@ -1,0 +1,16 @@
+#include "tegra124-tn8-p1761-1270-a00.dts"
+#include "tegra124-platforms/tegra124-tn8-sysedp-e1780-1100-a02.dtsi"
+
+/ {
+	i2c@7000c400 {
+		max17048@36 {
+			status = "okay";
+		};
+
+		hpa2163@6b {
+			charger {
+				status = "okay";
+			};
+		};
+	};
+};

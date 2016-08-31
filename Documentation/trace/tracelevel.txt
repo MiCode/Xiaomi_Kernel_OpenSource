@@ -1,0 +1,42 @@
+			 Tracelevel
+
+		Documentation by Alon Farchy
+
+1. Overview
+===========
+
+Tracelevel allows subsystem authors to add trace priorities to
+their tracing events. High priority traces will be enabled
+automatically at boot time.
+
+This module is configured with CONFIG_TRACELEVEL.
+
+2. Usage
+=========
+
+To give an event a priority, use the function tracelevel_register
+at any time.
+
+	tracelevel_register(my_event, level);
+
+my_event corresponds directly to the event name as defined in the
+event header file. Available levels are:
+
+	TRACELEVEL_ERR 3
+	TRACELEVEL_WARN 2
+	TRACELEVEL_INFO 1
+	TRACELEVEL_DEBUG 0
+
+Any event registered at boot time as TRACELEVEL_ERR will be enabled
+by default. The header also exposes the function tracelevel_set_level
+to change the trace level at runtime. Any trace event registered with the
+specified level or higher will be enabled with this call.
+
+A userspace handle to tracelevel_set_level is available via the module
+parameter 'level'. For example,
+
+	echo 1 > /sys/module/tracelevel/parameters/level
+
+Is logically equivalent to:
+
+	tracelevel_set_level(TRACELEVEL_INFO);

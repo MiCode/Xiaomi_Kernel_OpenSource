@@ -1,0 +1,83 @@
+The Tegra display controller (dc) driver has two frontends that implement
+different interfaces:
+1. The traditional fbdev interface, implemented in drivers/video/tegra/fb.c
+2. A new interface that exposes the unique capabilities of the controller,
+   implemented in drivers/video/tegra/dc/ext
+
+The Tegra fbdev capabilities are documented in fb/tegrafb.c [TODO].  This
+document will describe the new "extended" dc interface.
+
+The extended interface is only available when its frontend has been compiled
+in, i.e., CONFIG_TEGRA_DC_EXTENSIONS=y.  The dc_ext frontend can coexist with
+tegrafb, but takes precedence (more on that later).
+
+The dc_ext frontend's interface to userspace is exposed through a set of
+device nodes: one for each controller (generally /dev/tegra_dc_N), and one
+"control" node (generally /dev/tegra_dc_ctrl).  Communication through these
+device nodes is done with special IOCTLs.  There is also an event delivery
+mechanism; userspace can wait for and receive events with read() or poll().
+
+The tegra_dc_N interface is stateful; each fresh open() of the device node
+creates a client instance.  In order to prevent multiple processes from
+"fighting" for the hardware, only one client instance is permitted to control
+certain resources at a time, on a first-come, first-serve basis.
+
+Overview of tegra_dc_N IOCTLs:
+SET_NVMAP_FD: This is used to associate your nvmap client with this dc_ext
+              client instance.  This is necessary so that the kernel can
+              appropriately enforce permissions on nvmap buffers.
+
+GET_WINDOW: A dc_ext client must call this on each window that it wishes to
+            control.  This strictly enforces a single dc_ext client on a
+            window at a time.
+
+PUT_WINDOW: A dc_ext client may call this to release a window previously
+            reserved with GET_WINDOW.
+
+FLIP: This ioctl is used to actually display an nvmap surface using one or
+      more window.  Each time a dc_ext client performs a FLIP, the request is
+      put on a flip queue and executed asynchronously (the FLIP ioctl will
+      return immediately).  Various parameters are available in the
+      tegra_dc_ext_flip structure.
+      A dc_ext client may only use this on windows that it has previously
+      reserved with a successful GET_WINDOW call.
+
+GET_CURSOR: This is analogous to GET_WINDOW, but for the hardware cursor
+            instead of a window.
+
+PUT_CURSOR: This is analogous to PUT_WINDOW, but for the hardware cursor
+            instead of a window.
+
+SET_CURSOR_IMAGE: This is used to change the hardware cursor image.  May only
+                  be used by a client who has successfully performed a
+                  GET_CURSOR call.
+
+SET_CURSOR: This is used to actually place the hardware cursor on the screen.
+            May only be used by a client who has successfully performed a
+            GET_CURSOR call.
+
+SET_CSC: This may be used to set a color space conversion matrix on a window.
+         A dc_ext client may only use this on windows that it has previously
+         reserved with a successful GET_WINDOW call.
+
+GET_STATUS: This is used to retrieve general status about the dc.
+
+GET_VBLANK_SYNCPT: This is used to retrieve the auto-incrementing vblank
+                   syncpoint for the head associated with this dc.
+
+
+Overview of tegra_dc_ctrl IOCTLs:
+GET_NUM_OUTPUTS: This returns the number of available output devices on the
+                 system, which may exceed the number of display controllers.
+
+GET_OUTPUT_PROPERTIES: This returns data about the given output, such as what
+                       kind of output it is, whether it's currently associated
+                       with a head, etc.
+
+GET_OUTPUT_EDID: This returns the binary EDID read from the device connected
+                 to the given output, if any.
+
+SET_EVENT_MASK: A dc_ext client may call this ioctl with a bitmask of events
+                that it wishes to receive.  These events will then be
+                available to that client on a subsequent read() on the same
+                file descriptor.

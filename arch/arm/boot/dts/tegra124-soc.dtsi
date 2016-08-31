@@ -1,0 +1,404 @@
+/ {
+	aliases {
+		i2c0 = &i2c1;
+		i2c1 = &i2c2;
+		i2c2 = &i2c3;
+		i2c3 = &i2c4;
+		i2c4 = &i2c5;
+		i2c5 = &i2c6;
+		serial0 = &uarta;
+		serial1 = &uartb;
+		serial2 = &uartc;
+		serial3 = &uartd;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		spi2 = &spi2;
+		spi3 = &spi3;
+		spi4 = &spi4;
+		spi5 = &spi5;
+	};
+
+	gpio: gpio@6000d000 {
+		compatible = "nvidia,tegra124-gpio", "nvidia,tegra30-gpio";
+		reg = <0x6000d000 0x1000>;
+		interrupts = <0 32 0x04
+				0 33 0x04
+				0 34 0x04
+				0 35 0x04
+				0 55 0x04
+				0 87 0x04
+				0 89 0x04
+				0 125 0x04>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+	};
+
+	se: se@70012000 {
+		compatible = "nvidia,tegra124-se";
+		reg = <0x70012000 0x2000 /* SE base */
+			0x7000e400 0x400>; /* PMC base */
+		interrupts = <0 58 0x04>;
+	};
+
+	tegra_car: clock {
+		compatible = "nvidia,tegra124-car";
+		reg = <0x60006000 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	apbdma: dma@60020000 {
+		compatible = "nvidia,tegra124-apbdma";
+		reg = <0x60020000 0x1400>;
+		interrupts = <0 104 0x04
+			      0 105 0x04
+			      0 106 0x04
+			      0 107 0x04
+			      0 108 0x04
+			      0 109 0x04
+			      0 110 0x04
+			      0 111 0x04
+			      0 112 0x04
+			      0 113 0x04
+			      0 114 0x04
+			      0 115 0x04
+			      0 116 0x04
+			      0 117 0x04
+			      0 118 0x04
+			      0 119 0x04
+			      0 128 0x04
+			      0 129 0x04
+			      0 130 0x04
+			      0 131 0x04
+			      0 132 0x04
+			      0 133 0x04
+			      0 134 0x04
+			      0 135 0x04
+			      0 136 0x04
+			      0 137 0x04
+			      0 138 0x04
+			      0 139 0x04
+			      0 140 0x04
+			      0 141 0x04
+			      0 142 0x04
+			      0 143 0x04>;
+	};
+
+	pinmux: pinmux {
+		compatible = "nvidia,tegra124-pinmux";
+		reg = <0x70000868 0x164		/* Pad control registers */
+		       0x70003000 0x434>;	/* Mux registers */
+		status = "disable";
+	};
+
+	/*
+	 * There are two serial driver i.e. 8250 based simple serial
+	 * driver and APB DMA based serial driver for higher baudrate
+	 * and performace. To enable the 8250 based driver, the compatible
+	 * is "nvidia,tegra114-uart", "nvidia,tegra20-uart" and to enable
+	 * the APB DMA based serial driver, the comptible is
+	 * "nvidia,tegra114-hsuart", "nvidia,tegra30-hsuart".
+	 */
+	uarta: serial@70006000 {
+		compatible = "nvidia,tegra114-uart", "nvidia,tegra20-uart";
+		reg = <0x70006000 0x40>;
+		reg-shift = <2>;
+		interrupts = <0 36 0x04>;
+		nvidia,dma-request-selector = <&apbdma 8>;
+		nvidia,memory-clients = <14>;
+		status = "disabled";
+	};
+
+	uartb: serial@70006040 {
+		compatible = "nvidia,tegra114-uart", "nvidia,tegra20-uart";
+		reg = <0x70006040 0x40>;
+		reg-shift = <2>;
+		interrupts = <0 37 0x04>;
+		nvidia,dma-request-selector = <&apbdma 9>;
+		nvidia,memory-clients = <14>;
+		status = "disabled";
+	};
+
+	uartc: serial@70006200 {
+		compatible = "nvidia,tegra114-uart", "nvidia,tegra20-uart";
+		reg = <0x70006200 0x40>;
+		reg-shift = <2>;
+		interrupts = <0 46 0x04>;
+		nvidia,dma-request-selector = <&apbdma 10>;
+		nvidia,memory-clients = <14>;
+		status = "disabled";
+	};
+
+	uartd: serial@70006300 {
+		compatible = "nvidia,tegra114-uart", "nvidia,tegra20-uart";
+		reg = <0x70006300 0x40>;
+		reg-shift = <2>;
+		interrupts = <0 90 0x04>;
+		nvidia,dma-request-selector = <&apbdma 19>;
+		nvidia,memory-clients = <14>;
+		status = "disabled";
+	};
+
+	i2c1: i2c@7000c000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra124-i2c";
+		reg = <0x7000c000 0x100>;
+		interrupts = <0 38 0x04>;
+		scl-gpio = <&gpio 20 0>; /* gpio PC4 */
+		sda-gpio = <&gpio 21 0>; /* gpio PC5 */
+		nvidia,memory-clients = <14>;
+		status = "disable";
+	};
+
+	i2c2: i2c@7000c400 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra124-i2c";
+		reg = <0x7000c400 0x100>;
+		interrupts = <0 84 0x04>;
+		scl-gpio = <&gpio 157 0>; /* gpio PT5 */
+		sda-gpio = <&gpio 158 0>; /* gpio PT6 */
+		nvidia,memory-clients = <14>;
+		status = "disable";
+	};
+
+	i2c3: i2c@7000c500 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra124-i2c";
+		reg = <0x7000c500 0x100>;
+		interrupts = <0 92 0x04>;
+		scl-gpio = <&gpio 217 0>; /* gpio PBB1 */
+		sda-gpio = <&gpio 218 0>; /* gpio PBB2 */
+		nvidia,memory-clients = <14>;
+		status = "disable";
+	};
+
+	i2c4: i2c@7000c700 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra124-i2c";
+		reg = <0x7000c700 0x100>;
+		interrupts = <0 120 0x04>;
+		scl-gpio = <&gpio 172 0>; /* gpio PV4 */
+		sda-gpio = <&gpio 173 0>; /* gpio PV5 */
+		nvidia,memory-clients = <14>;
+		status = "disable";
+	};
+
+	i2c5: i2c@7000d000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra124-i2c";
+		reg = <0x7000d000 0x100>;
+		interrupts = <0 53 0x04>;
+		nvidia,require-cldvfs-clock;
+		scl-gpio = <&gpio 206 0>; /* gpio PZ6 */
+		sda-gpio = <&gpio 207 0>; /* gpio PZ7 */
+		nvidia,memory-clients = <14>;
+		status = "disable";
+	};
+
+	i2c6: i2c@7000d100 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nvidia,tegra124-i2c";
+		reg = <0x7000d100 0x100>;
+		interrupts = <0 63 0x04>;
+		nvidia,memory-clients = <14>;
+		status = "disable";
+	};
+
+	spi0: spi@7000d400 {
+		compatible = "nvidia,tegra114-spi";
+		reg = <0x7000d400 0x200>;
+		interrupts = <0 59 0x04>;
+		nvidia,dma-request-selector = <&apbdma 15>;
+		nvidia,memory-clients = <14>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
+	spi1: spi@7000d600 {
+		compatible = "nvidia,tegra114-spi";
+		reg = <0x7000d600 0x200>;
+		interrupts = <0 82 0x04>;
+		nvidia,dma-request-selector = <&apbdma 16>;
+		nvidia,memory-clients = <14>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
+	spi2: spi@7000d800 {
+		compatible = "nvidia,tegra114-spi";
+		reg = <0x7000d800 0x200>;
+		interrupts = <0 83 0x04>;
+		nvidia,dma-request-selector = <&apbdma 17>;
+		nvidia,memory-clients = <14>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
+	spi3: spi@7000da00 {
+		compatible = "nvidia,tegra114-spi";
+		reg = <0x7000da00 0x200>;
+		interrupts = <0 93 0x04>;
+		nvidia,dma-request-selector = <&apbdma 18>;
+		nvidia,memory-clients = <14>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
+	spi4: spi@7000dc00 {
+		compatible = "nvidia,tegra114-spi";
+		reg = <0x7000dc00 0x200>;
+		interrupts = <0 94 0x04>;
+		nvidia,dma-request-selector = <&apbdma 27>;
+		nvidia,memory-clients = <14>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
+	spi5: spi@7000de00 {
+		compatible = "nvidia,tegra114-spi";
+		reg = <0x7000de00 0x200>;
+		interrupts = <0 79 0x04>;
+		nvidia,dma-request-selector = <&apbdma 28>;
+		nvidia,memory-clients = <14>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
+	pmc {
+		compatible = "nvidia,tegra124-pmc";
+		reg = <0x7000e400 0x400>;
+		clocks = <&tegra_car 261>, <&clk32k_in>;
+		clock-names = "pclk", "clk32k_in";
+	};
+
+	clocks {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clk32k_in: clock {
+			compatible = "fixed-clock";
+			reg=<0>;
+			#clock-cells = <0>;
+			clock-frequency = <32768>;
+		};
+	};
+
+	timer@60005000 {
+		compatible = "nvidia,tegra-nvtimer";
+		reg = <0x60005000 0x400>;
+		interrupts = <0 0 0x04
+			      0 1 0x04
+			      0 41 0x04
+			      0 42 0x04
+			      0 121 0x04
+			      0 151 0x04
+			      0 152 0x04
+			      0 153 0x04
+			      0 154 0x04
+			      0 155 0x04
+			      0 122 0x04>;
+		clocks = <&tegra_car 5>;
+	};
+
+	rtc {
+		compatible = "nvidia,tegra-rtc";
+		reg = <0x7000e000 0x100>;
+		interrupts = <0 2 0x04>;
+		clocks = <&tegra_car 4>;
+	};
+
+	tegra_ahub_apbif: ahub {
+		compatible = "nvidia,tegra124-ahub";
+		reg = <0x70300000 0x200>,
+			<0x70300800 0x800>,
+			<0x70300200 0x200>;
+		interrupts = <0 103 0x04>;
+		nvidia,dma-request-selector = <&apbdma 1>, <&apbdma 2>,
+			<&apbdma 3>, <&apbdma 4>, <&apbdma 6>, <&apbdma 7>,
+			<&apbdma 12>, <&apbdma 13>, <&apbdma 14>, <&apbdma 29>;
+		status = "disabled";
+
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		tegra_i2s0: i2s@70301000 {
+			compatible = "nvidia,tegra124-i2s";
+			reg = <0x70301000 0x100>;
+			nvidia,ahub-cif-ids = <4 4>;
+			status = "disabled";
+		};
+
+		tegra_i2s1: i2s@70301100 {
+			compatible = "nvidia,tegra124-i2s";
+			reg = <0x70301100 0x100>;
+			nvidia,ahub-cif-ids = <5 5>;
+			status = "disabled";
+		};
+
+		tegra_i2s2: i2s@70301200 {
+			compatible = "nvidia,tegra124-i2s";
+			reg = <0x70301200 0x100>;
+			nvidia,ahub-cif-ids = <6 6>;
+			status = "disabled";
+		};
+
+		tegra_i2s3: i2s@70301300 {
+			compatible = "nvidia,tegra124-i2s";
+			reg = <0x70301300 0x100>;
+			nvidia,ahub-cif-ids = <7 7>;
+			status = "disabled";
+		};
+
+		tegra_i2s4: i2s@70301400 {
+			compatible = "nvidia,tegra124-i2s";
+			reg = <0x70301400 0x100>;
+			nvidia,ahub-cif-ids = <8 8>;
+			status = "disabled";
+		};
+
+		tegra_amx0: amx@70303000 {
+			compatible = "nvidia,tegra124-amx";
+			reg = <0x70303000 0x100>;
+			status = "disabled";
+		};
+
+		tegra_amx1: amx@70303100 {
+			compatible = "nvidia,tegra124-amx";
+			reg = <0x70303100 0x100>;
+			status = "disabled";
+		};
+
+		tegra_adx0: adx@70303800 {
+			compatible = "nvidia,tegra124-adx";
+			reg = <0x70303800 0x100>;
+			status = "disabled";
+		};
+
+		tegra_adx1: adx@70303900 {
+			compatible = "nvidia,tegra124-adx";
+			reg = <0x70303900 0x100>;
+			status = "disabled";
+		};
+
+		tegra_spdif: spdif@70306000 {
+			compatible = "nvidia,tegra124-spdif";
+			reg = <0x70306000 0x100>;
+			status = "disabled";
+		};
+	};
+};

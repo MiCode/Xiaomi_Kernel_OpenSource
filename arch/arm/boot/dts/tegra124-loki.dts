@@ -1,0 +1,191 @@
+/dts-v1/;
+
+#include "tegra124.dtsi"
+#include <dt-bindings/gpio/tegra-gpio.h>
+
+/ {
+	model = "NVIDIA Tegra124 Loki";
+	compatible = "nvidia,loki", "nvidia,tegra124";
+	nvidia,dtsfilename = __FILE__;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen {
+		bootargs = "tegraid=40.0.0.00.00 vmalloc=256M video=tegrafb console=ttyS0,115200n8 earlyprintk";
+		linux,initrd-start = <0x85000000>;
+		linux,initrd-end = <0x851bc400>;
+	};
+
+	serial@70006000 {
+		compatible = "nvidia,tegra114-hsuart";
+		status = "okay";
+	};
+
+	serial@70006040 {
+		compatible = "nvidia,tegra114-hsuart";
+		status = "okay";
+	};
+
+	serial@70006200 {
+		compatible = "nvidia,tegra114-hsuart";
+		status = "okay";
+	};
+
+	memory@0x80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x80000000>;
+	};
+
+	i2c@7000c000 {
+		status = "okay";
+		clock-frequency = <400000>;
+		bq2419x: bq2419x@6b {
+			compatible = "ti,bq2419x";
+			reg = <0x6b>;
+			interrupt-parent = <&gpio>;
+			interrupts = <72 0x0>;
+			ti,charging-term-current-mA = <100>;
+
+			vbus {
+				regulator-name = "vbus_regulator";
+				ti,otg-iusb-gpio = <&gpio TEGRA_GPIO(I, 4) 0>;
+				consumers {
+					c1 {
+						regulator-consumer-supply = "usb_vbus";
+						regulator-consumer-device = "tegra-ehci.0";
+					};
+
+					c2 {
+						regulator-consumer-supply = "usb_vbus";
+						regulator-consumer-device = "tegra-otg";
+					};
+				};
+			};
+
+			charger {
+				regulator-name = "batt_regulator";
+				regulator-max-microamp = <3000000>;
+				ti,watchdog-timeout = <40>;
+				ti,rtc-alarm-time = <3600>;
+				ti,auto-recharge-time = <1800>;
+				ti,disbale-suspend-during-charging;
+				consumers {
+					c1 {
+						regulator-consumer-supply = "usb_bat_chg";
+						regulator-consumer-device = "tegra-udc.0";
+					};
+				};
+			};
+		};
+
+		mpu6050@68 {
+			compatible = "invensense,mpu6050";
+			reg = <0x68>;
+			interrupt-parent = <&gpio>;
+			interrupts = <138 0x01>;
+			invensense,int_config = <0x10>;
+			invensense,level_shifter = <0>;
+			invensense,orientation = [ff 00 00 00 01 00 00 00 ff];
+			invensense,sec_slave_type = <0>;
+			invensense,key = [4e cc 7e eb f6 1e 35 22
+					  00 34 0d 65 32 e9 94 89];
+		};
+
+		ak8975@0c {
+			compatible = "ak,ak8975";
+			reg = <0x0c>;
+			orientation = [01 00 00 00 ff 00 00 00 ff];
+			config = "mpu";
+		};
+
+		bq27441@55 {
+			compatible = "ti,bq27441";
+			reg = <0x55>;
+			ti,design-capacity = <7800>;
+			ti,design-energy = <28314>;
+			ti,taper-rate = <167>;
+			ti,terminate-voltage = <3150>;
+			ti,v-at-chg-term = <4200>;
+			ti,tz-name = "battery-temp";
+		};
+
+		jsa1127@39 {
+			compatible = "solteam-opto,jsa1127";
+			reg = <0x39>;
+			solteam-opto,rint = <100>;
+			solteam-opto,integration-time = <200>;
+			solteam-opto,use-internal-integration-timing = <1>;
+			solteam-opto,tint-coeff = <22>;
+			solteam-opto,noisy = <1>;
+		};
+	};
+
+	i2c@7000c400 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000c500 {
+		status = "okay";
+		clock-frequency = <400000>;
+	};
+
+	i2c@7000c700 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000d000 {
+		status = "okay";
+		clock-frequency = <400000>;
+		nvidia,bit-banging-xfer-after-shutdown;
+	};
+
+	i2c@7000d100 {
+		status = "okay";
+		clock-frequency = <400000>;
+	};
+
+	spi@7000d400 {
+		status = "okay";
+		spi-max-frequency = <25000000>;
+	};
+
+	spi@7000da00 {
+		status = "okay";
+		spi-max-frequency = <25000000>;
+	};
+
+	gps {
+		compatible = "mtk,mt3332";
+		force-on-gpios = <&gpio TEGRA_GPIO(H, 5) GPIO_ACTIVE_HIGH>;
+	};
+
+	pmc {
+		status = "okay";
+		nvidia,invert-interrupt;
+		nvidia,suspend-mode = <3>;
+		nvidia,cpu-pwr-good-time = <500>;
+		nvidia,cpu-pwr-off-time = <300>;
+		nvidia,core-pwr-good-time = <3845 3845>;
+		nvidia,core-pwr-off-time = <2000>;
+		nvidia,core-power-req-active-high;
+		nvidia,sys-clock-req-active-high;
+	};
+
+	xusb@70090000 {
+		/* nvidia,uses_external_pmic;
+		nvidia,gpio_controls_muxed_ss_lanes; */
+		nvidia,gpio_ss1_sata = <0>;
+		nvidia,portmap = <0x703>; /* SSP0, SSP1 USB2P0, USB2P1, USBP2 */
+		nvidia,ss_portmap = <0x20>; /* SSP0 on USB2P0, SSP1 on USB2P2 */
+		nvidia,lane_owner = <6>; /* USB3P0 USB3P1 */
+		nvidia,ulpicap = <0>; /* No ulpi support. can we remove */
+		nvidia,supply_utmi_vbuses = "", "", "";
+		nvidia,supply_s3p3v = "hvdd_usb";
+		nvidia,supply_s1p8v = "avdd_pll_utmip";
+		nvidia,supply_vddio_hsic = "vddio_hsic";
+		nvidia,supply_s1p05v = "avddio_usb";
+		status = "okay";
+	};
+};

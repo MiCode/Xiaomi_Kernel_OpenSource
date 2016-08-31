@@ -1,0 +1,75 @@
+/*
+ * arch/arm/boot/dts/tegra124-tn8-a03-01.dts
+ *
+ * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+/dts-v1/;
+
+#include "tegra124-tn8.dtsi"
+#include "tegra124-platforms/tegra124-tn8-emc-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-tn8-powermon-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-tn8-pmic-e1769-1000-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-fixed-e1769-1000-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-gpio-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-tn8-pinmux-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-tn8-keys-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-tn8-sensor-e1845-1000-a00.dtsi"
+#include "panel-l-wxga-7.dtsi"
+#include "tegra124-platforms/tegra124-tn8-hdmi.dtsi"
+
+/ {
+	model = "NVIDIA Tegra124 TN8";
+	compatible = "nvidia,tn8", "nvidia,tegra124";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,boardids = "1780:1100:3","1845:1000:0","1769:1000:0","1549:1000:0";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen {
+		bootargs = "tegraid=40.0.0.00.00 vmalloc=256M video=tegrafb console=ttyS0,115200n8 earlyprintk";
+		linux,initrd-start = <0x85000000>;
+		linux,initrd-end = <0x851bc400>;
+	};
+
+	host1x {
+		/* tegradc.1 */
+		dc@54240000 {
+			avdd_hdmi-supply = <&palmas_ldoln>;
+			avdd_hdmi_pll-supply = <&palmas_ldo1>;
+			vdd_hdmi_5v0-supply = <&vdd_hdmi>;
+		};
+		dsi {
+			nvidia,dsi-controller-vs = <DSI_VS_1>;
+			status = "okay";
+			panel-l-wxga-7 {
+				nvidia,dsi-panel-bl-pwm-gpio = <&gpio TEGRA_GPIO(H, 1) 0>; /* PH1 */
+			};
+		};
+	};
+
+	i2c@7000c400 {
+		pca9546@71 {
+			vcc-supply = <&palmas_smps9>;
+		};
+	};
+
+	gps {
+		compatible = "mtk,mt3332";
+		force-on-gpios = <&gpio TEGRA_GPIO(H, 5) GPIO_ACTIVE_HIGH>;
+	};
+};
+

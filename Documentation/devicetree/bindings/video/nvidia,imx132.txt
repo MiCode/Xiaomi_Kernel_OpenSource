@@ -1,0 +1,24 @@
+NVIDIA Camera sensor imx132 driver interface.
+
+Required properties:
+- compatible : The driver is compatible with
+	"nvidia,imx132".
+
+- cam2_gpios : Camera GPIO.
+
+- reg: Should contain I2C slave address of the driver.
+
+- nvidia,ext_reg : For few platforms this driver needs extra power regulators
+to be enabled. This bool property indicates the same. It must be programmed
+only when imx132 driver needs extra power rails for particular platform.
+
+Example:
+
+	imx132@36 {
+		compatible = "nvidia,imx132";
+		cam2_gpios = <&gpio 222 0>; /* gpio PBB6 */
+		reg = <0x36>;
+		nvidia,ext_reg; /* Extra power-regulators needed */
+		status = "okay";
+	};
+

@@ -1,0 +1,138 @@
+#
+# Light sensors
+#
+menu "Light sensors"
+
+config SENSORS_CM3218
+	tristate "CM3218 Ambient light sensor"
+	depends on I2C
+	select REGMAP_I2C
+	default n
+	help
+	  Say Y here to enable the CM3218 Ambient Light Sensor.
+	  This driver will provide the measurements of ambient light intensity
+	  in its own units.
+	  Data from sensor is accessible via sysfs.
+
+config SENSORS_ISL29018
+	tristate "ISL 29018 light and proximity sensor"
+	depends on I2C
+	select REGMAP_I2C
+	default n
+	help
+	 If you say yes here you get support for ambient light sensing and
+	 proximity infrared sensing from Intersil ISL29018.
+	 This driver will provide the measurements of ambient light intensity
+	 in lux, proximity infrared sensing and normal infrared sensing.
+	 Data from sensor is accessible via sysfs.
+
+config SENSORS_ISL29028
+	tristate "Intersil ISL29028/ISL29028 Concurrent Light and Proximity Sensor"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	 Provides driver for the Intersil's ISL29028/ISL29029 device.
+	 This driver supports the sysfs interface to get the ALS, IR intensity,
+	 Proximity value via iio. The ISL29028 provides the concurrent sensing
+	 of ambient light and proximity.
+
+config SENSORS_JSA1127
+	tristate "JSA1127 Ambient light sensor"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable the JSA1127 Ambient Light Sensor.
+	  This driver provides measurements of ambient light intensity in
+	  its own units.
+	  Data from sensor is accessible via sysfs.
+
+config TSL2583
+	tristate "TAOS TSL2580, TSL2581 and TSL2583 light-to-digital converters"
+	depends on I2C
+	help
+	 Provides support for the TAOS tsl2580, tsl2581 and tsl2583 devices.
+	 Access ALS data via iio, sysfs.
+
+config TSL2x7x
+	tristate "TAOS TSL/TMD2x71 and TSL/TMD2x72 Family of light and proximity sensors"
+	depends on I2C
+	help
+	 Support for: tsl2571, tsl2671, tmd2671, tsl2771, tmd2771, tsl2572, tsl2672,
+	 tmd2672, tsl2772, tmd2772 devices.
+	 Provides iio_events and direct access via sysfs.
+
+config SENSORS_LTR558
+	tristate "LTR558 Ambient light and proximity sensor"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you get support for ambient light sensing and
+	  proximity ir sensing from Lite On Technology LTR558.
+
+config SENSORS_MAX44005
+	tristate "MAX44005 ALS, RGB, temperature, IR, proximity Sensor"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you get support for ambient light, RGB, IR,
+	  Proximity and temperature sensing from MAX44005.
+
+config SENSORS_STM8T143
+	tristate "STM8T143 proximity sensor"
+	default n
+	help
+	  If you say yes here you get support for ST Microelectronics
+	  STM8T143 sensor driver.
+	  The STM8T143 sensor driver provices suport for proximity sensing.
+	  Data from sensor is accessible via sysfs.
+
+config SENSORS_TCS3772
+	tristate "TCS3772 Ambient light, RGB and proximity Sensor"
+	depends on I2C
+	select REGMAP_I2C
+	default n
+	help
+	  If you say yes here you get support for ambient light, RGB and
+	  Proximity sensing from TCS3772.
+
+config SENSORS_CM3217
+	tristate "CM3217 Ambient light sensor"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable the CM3217 Ambient Light Sensor.
+
+config LS_OF
+	tristate "Device Tree parsing for Light sensor specification details"
+	depends on OF
+	default n
+	help
+	  Say Y for helpers to retrieve the sensor specification details like
+	  vendor, power consumed, max range, resolution and integration.
+	  This information is common to most Ambient light sensors as well as
+	  proximity sensors. Hence, have common callbacks to retrive this
+	  information from the respective device tree nodes.
+
+config LS_SYSFS
+	tristate "IIO registration for sensor meta data"
+	depends on LS_OF
+	default n
+	help
+	  Say Y for to share sensor specification details to user space.
+	  The information is retrieved from device platform data. If you are
+	  using helpers from this file, make sure device's platform data
+	  contains all the required information.
+
+config SENSORS_IQS253
+	tristate "IQS253 capacitive sensor"
+	depends on I2C
+	select LS_OF
+	select LS_SYFS
+	default n
+	help
+	  Say Y to enable proximity detection using IQS253 capacitive sensor.
+	  This driver exports sensor's specifications in DT node to user space.
+	  Hence, it needs LS_OF and LS_SYSFS support.
+	  This driver uses I2C to program the device.
+
+endmenu

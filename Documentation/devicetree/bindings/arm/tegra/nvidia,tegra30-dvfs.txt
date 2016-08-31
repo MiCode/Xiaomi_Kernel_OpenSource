@@ -1,0 +1,50 @@
+NVIDIA Tegra30 DVFS tables
+
+dvfs-tables node:
+All the tables must be contained in dvfs-tables parent node. This node is just
+container for all dvfs tables, it does not have any compatible property.
+
+Tables:
+Required properties for child nodes of dvfs-tables:
+
+compatible: Must be any of
+		"nvidia,tegra30-cpu-dvfs" for CPU dvfs tables or
+		"nvidia,tegra30-cpu0-dvfs" for cpu0 dvfs tables or
+		"nvidia,tegra30-core-dvfs" for core dvfs tables.
+
+voltage-table: Voltage steps for rail. Unit for voltage value is mV.
+
+#address-cells: Should be 0.
+#size-cells: Should be 1.
+
+Frequency tables:
+
+Frequency tables are grouped using the combination of speedo-id, process-id and manual-dvfs.
+
+Required properties:
+
+reg: Can be any number but same as used in node name. Should be unique within the dvfs table.
+clock-name: Clock name for which frequencies are mentioned in table.
+frequencies: Array of frequencies. Unit for frequency is KHz.
+
+Optional properties:
+speedo-id: If not present, speedo id value will be -1.
+process-id: If not present, process id value will be -1.
+manual-dvfs: If not present, dvfs for the clocks in this frequency table is auto.
+
+Example:
+
+        dvfs-tables {
+                cpudvfs {
+                        compatible = "nvidia,tegra30-cpu-dvfs";
+                        voltage-table = <800 825 850 875 900 916 950 975 1000 1007 1025 1050 1075 1100 1125 1150 1175 1200 1212 1237>;
+
+			frequency-table@1 {
+				reg = <1>;
+				speedo-id = <0>;
+				process-id = <0>;
+				clock-name = "cpu_g";
+				frequencies = <1 1 684000 684000 817000 817000 817000 1026000 1102000 1102000 1149000 1187000 1225000 1282000 1300000>;
+			};
+		};
+	};

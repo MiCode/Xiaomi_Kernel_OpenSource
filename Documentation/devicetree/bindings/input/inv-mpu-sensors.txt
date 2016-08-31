@@ -1,0 +1,42 @@
+* Invensense MPU6xxx Gyro + Accelerometer
+* Invensense MPU9xxx Gyro + Accelerometer + Compass
+
+Required properties:
+- compatible: The driver is compatible with
+  "invensense,itg3500"
+  "invensense,mpu3050"
+  "invensense,mpu6050"
+  "invensense,mpu9150"
+  "invensense,mpu6500"
+  "invensense,mpu9250"
+  "invensense,mpu6xxx"
+- reg: the I2C address
+- interrupt-parent: the interrupt controller that it is attached to.
+- interrupts: The intterrupt property of device node.
+- invensense,int_config: Bits [7:3] of the int config register.
+- invensense,level_shifter: 0: VLogic, 1: VDD
+- invensense,orientation: the orientation matricies are 3x3 rotation matricies
+  that are applied to the data to rotate from the mounting orientation to the
+  platform orientation. The values must be one of 0, 1, or -1(0xff in byte
+  array) and each row and column should have exactly 1 non-zero value.
+- invensense,sec_slave_type: secondary slave device type
+  0: SECONDARY_SLAVE_TYPE_NONE
+  1: SECONDARY_SLAVE_TYPE_ACCEL
+  2: SECONDARY_SLAVE_TYPE_COMPASS
+  3: SECONDARY_SLAVE_TYPE_PRESSURE
+- invensense,key: key for MPL library.
+
+Example:
+
+mpu9250@69 {
+	compatible = "invensense,mpu9250";
+	reg = <0x69>;
+	interrupt-parent = <&gpio>;
+	interrupts = <144 0x01>;
+	invensense,int_config = <0x10>;
+	invensense,level_shifter = <0>;
+	invensense,orientation = [01 00 00 00 01 00 00 00 01];
+	invensense,sec_slave_type = <0>;
+	invensense,key = [4e cc 7e eb f6 1e 35 22 00 34 0d 65 32 e9 94 89];
+};
+

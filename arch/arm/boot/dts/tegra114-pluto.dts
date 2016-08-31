@@ -1,0 +1,241 @@
+/dts-v1/;
+
+/include/ "tegra114.dtsi"
+/include/ "panel-l-720p-5.dts"
+#include <tegra114-platforms/tegar114-pluto-e1580-gpio-default.dtsi>
+#include <tegra114-platforms/tegar114-pluto-e1580-pinmux.dtsi>
+
+/ {
+	model = "NVIDIA Tegra114 pluto evaluation board";
+	compatible = "nvidia,pluto", "nvidia,tegra114";
+
+	host1x {
+		dsi {
+			nvidia,controller-vs = <1>;
+			status = "disabled";
+			panel-l-720p-5 {
+				nvidia,dsi-panel-rst-gpio = <&gpio 61 0>; /* PH5 */
+				nvidia,dsi-panel-bl-en-gpio = <&gpio 58 0>; /* PH2 */
+				nvidia,dsi-panel-bl-pwm-gpio = <&gpio 57 0>; /* PH1 */
+			};
+		};
+
+		hdmi {
+			status = "okay";
+		};
+	};
+
+	pinmux {
+		status = "okay";
+	};
+
+	keyboard: keyboard@7000e200 {
+		compatible = "nvidia,tegra114-kbc";
+		reg = <0x7000e200 0x100>;
+		interrupts = <0 85 0x04>;
+		nvidia,ghost-filter;
+		nvidia,wakeup-source;
+		nvidia,debounce-delay-ms = <640>;
+		nvidia,kbc-row-pins = <0 1 2>;    /* pin 0, 1, 2 as rows */
+		nvidia,kbc-col-pins = <11 12 13>; /* pin 11, 12, 13 as columns */
+		linux,keymap = <0x00000074
+				0x00010073
+				0x00020072
+				0x010000D9
+				0x010100D4
+				0x010200D2
+				0x02000066
+				0x0201009E
+				0x0202008B>;
+		status = "disable";
+	};
+
+	serial@70006000 {
+		compatible = "nvidia,tegra114-hsuart";
+		status = "okay";
+	};
+
+	serial@70006040 {
+		compatible = "nvidia,tegra114-hsuart";
+		status = "okay";
+	};
+
+	serial@70006200 {
+		compatible = "nvidia,tegra114-hsuart";
+		status = "okay";
+	};
+
+	i2c@7000c000 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000c400 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000c500 {
+		status = "okay";
+		clock-frequency = <100000>;
+
+		imx091@10 {
+			compatible = "nvidia,imx091";
+			reg = <0x10>;
+			nvidia,vcm_vdd; /* flag for vcm_vdd extra regulator */
+			nvidia,i2c_vdd; /* flag for i2c_vdd extra regulator */
+
+
+			nvidia,num = <0>;
+			nvidia,sync = <0>;
+			nvidia,dev_name = "camera";
+
+			/* edpc config */
+			nvidia,imx091_estates = <876 656 220 0>;
+			nvidia,num_states = <4>;
+			nvidia,e0_index = <0>;
+			nvidia,priority = <1>;
+
+			/* imx091 gpios */
+			reset-gpios = <&gpio 219 0>; /* gpio PBB3 */
+			power-gpios = <&gpio 221 0>; /* gpio PBB6 */
+			gp1-gpios = <&gpio 225 0>; /* gpio PCC1 */
+
+			/* imx091 caps */
+			nvidia,identifier = "IMX091";
+			nvidia,sensor_nvc_interface = <3>;
+			nvidia,pixel_types = <0x100>;
+			nvidia,orientation = <0>;
+			nvidia,direction = <0>;
+			nvidia,initial_clock_rate_khz = <6000>;
+			nvidia,h_sync_edge = <0>;
+			nvidia,v_sync_edge = <0>;
+			nvidia,mclk_on_vgp0 = <0>;
+			nvidia,csi_port = <0>;
+			nvidia,data_lanes = <4>;
+			nvidia,virtual_channel_id = <0>;
+			nvidia,discontinuous_clk_mode = <1>;
+			nvidia,cil_threshold_settle = <0x0>;
+			nvidia,min_blank_time_width = <16>;
+			nvidia,min_blank_time_height = <16>;
+			nvidia,preferred_mode_index = <0>;
+			nvidia,external_clock_khz_0 = <24000>;
+			nvidia,clock_multiplier_0 = <850000>;
+			nvidia,external_clock_khz_1 = <0>;
+			nvidia,clock_multiplier_1 = <0>;
+
+			/* flash caps */
+			nvidia,sdo_trigger_enabled;
+			nvidia,adjustable_flash_timing;
+
+			status = "okay";
+
+		};
+
+		imx132@36 {
+			compatible = "nvidia,imx132";
+			cam2_gpios = <&gpio 222 0>; /* gpio PBB6 */
+			reg = <0x36>;
+			nvidia,ext_reg; /* Extra power-regulators needed */
+			status = "okay";
+		};
+
+		ad5816@0E {
+			compatible = "nvidia,ad5816";
+			reg = <0x0E>;
+			nvidia,cfg = <0>;
+			nvidia,num = <0>;
+			nvidia,sync = <0>;
+			nvidia,dev_name = "focuser";
+			status = "okay";
+		};
+	};
+
+	i2c@7000c700 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000d000 {
+		status = "okay";
+		clock-frequency = <400000>;
+		nvidia,bit-banging-xfer-after-shutdown;
+	};
+
+	spi@7000da00 {
+		status = "okay";
+		spi-max-frequency = <25000000>;
+		nvidia,dma-request-selector = <&apbdma 0>;
+	};
+
+	pmc {
+		status = "okay";
+		nvidia,suspend-mode = <0>;
+		nvidia,cpu-pwr-good-time = <300>;
+		nvidia,cpu-pwr-off-time = <300>;
+		nvidia,core-pwr-good-time = <3845 3845>;
+		nvidia,core-pwr-off-time = <2000>;
+		nvidia,core-power-req-active-high;
+		nvidia,sys-clock-req-active-high;
+	};
+
+	sdhci@78000600 {
+		tap-delay = <5>;
+		trim-delay = <3>;
+		ddr-clk-limit = <41000000>;
+		base-clk = <104000000>;
+		mmc-ocr-mask = <0>;
+		bus-width = <8>;
+		built-in;
+		edp_support;
+		edp_states = <966 0>;
+		status = "disabled";
+	};
+	sdhci@78000400 {
+		cd-gpios = <&gpio 170 0>; /* gpio PV2 */
+		tap-delay = <3>;
+		trim-delay = <3>;
+		ddr-clk-limit = <41000000>;
+		base-clk = <208000000>;
+		edp_support;
+		edp_states = <966 0>;
+		bus-width = <4>;
+		status = "disabled";
+	};
+	sdhci@78000000 {
+		status = "disabled";
+	};
+
+	camera {
+		status = "okay";
+	};
+
+	clocks {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clk32k_in: clock {
+			compatible = "fixed-clock";
+			reg=<0>;
+			#clock-cells = <0>;
+			clock-frequency = <32768>;
+		};
+	};
+
+	xusb@70090000 {
+		nvidia,uses_external_pmic;
+		/* nvidia,gpio_controls_muxed_ss_lanes; */
+		nvidia,gpio_ss1_sata = <0>;
+		nvidia,portmap = <0x101>; /* SSP0, USB2P0 */
+		nvidia,ss_portmap = <0x0>; /* SSP0 on USB2P0 */
+		nvidia,lane_owner = <0>; /* NULL */
+		nvidia,ulpicap = <0>; /* No ulpi support. can we remove */
+		nvidia,supply_utmi_vbuses = "usb_vbus", "", "";
+		nvidia,supply_s3p3v = "hvdd_usb";
+		nvidia,supply_s1p8v = "avdd_usb_pll";
+		nvidia,supply_vddio_hsic = "vddio_hsic";
+		nvidia,supply_s1p05v = "avddio_usb";
+		status = "okay";
+	};
+};

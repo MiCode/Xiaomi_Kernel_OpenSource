@@ -1,0 +1,16 @@
+#include "tegra124-tn8-p1761-1270-a02.dts"
+
+/ {
+	i2c@7000c400 {
+		lc709203f@0b {
+			status = "okay";
+		};
+
+		hpa2163@6b {
+			charger {
+				status = "okay";
+			};
+		};
+	};
+};
+

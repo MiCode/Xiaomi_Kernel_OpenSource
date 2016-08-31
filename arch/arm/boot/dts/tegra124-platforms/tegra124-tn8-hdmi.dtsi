@@ -1,0 +1,102 @@
+/*
+ * arch/arm/boot/dts/tegra124-platforms/tegra124-tn8-hdmi.dtsi
+ *
+ * Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+/ {
+	host1x {
+		/* tegradc.1 */
+		dc@54240000 {
+			status = "okay";
+			nvidia,dc-flags = "dc_flag_en";
+			nvidia,emc-clk-rate = <300000000>;
+			dc-default-out {
+				nvidia,out-type = "hdmi";
+				nvidia,out-flags = "hotplug_high_wake_lp0";
+				nvidia,out-parent-clk = "pll_d2";
+				nvidia,out-max-pixclk = <297000>;
+				nvidia,out-align = "msb";
+				nvidia,out-order = "rtob"; /*red to blue*/
+			};
+			display-timings {
+				680x480-32 {
+					clock-frequency = <25200>;
+					hactive = <640>;
+					vactive = <480>;
+					hfront-porch = <16>;
+					hback-porch = <48>;
+					hsync-len = <96>;
+					vfront-porch = <10>;
+					vback-porch = <33>;
+					vsync-len = <2>;
+					nvidia,h-ref-to-sync = <1>;
+					nvidia,v-ref-to-sync = <1>;
+				};
+			};
+			framebuffer-data {
+				nvidia,fb-bpp = <32>; /* bits per pixel */
+				nvidia,fb-flags = "flip_on_probe";
+				nvidia,fb-xres = <1920>;
+				nvidia,fb-yres = <1080>;
+			};
+		};
+		hdmi {
+			status = "okay";
+			nvidia,ddc-i2c-bus = <&hdmi_ddc>;
+			nvidia,hpd-gpio = <&gpio TEGRA_GPIO(N, 7) 1>; /* PN7 */
+			nvidia,out-tmds-cfg {
+				tmds-cfg@0 {
+					pclk = <27000000>;
+					pll0 = <0x01003110>;
+					pll1 = <0x00300f00>;
+					pe-current = <0x08080808>;
+					drive-current = <0x2e2e2e2e>;
+					peak-current = <0x00000000>;
+				};
+				tmds-cfg@1 {
+					pclk = <74250000>;
+					pll0 = <0x01003310>;
+					pll1 = <0x10300f00>;
+					pe-current = <0x08080808>;
+					drive-current = <0x20202020>;
+					peak-current = <0x00000000>;
+				};
+				tmds-cfg@2 {
+					pclk = <148500000>;
+					pll0 = <0x01003310>;
+					pll1 = <0x10300f00>;
+					pe-current = <0x08080808>;
+					drive-current = <0x20202020>;
+					peak-current = <0x00000000>;
+				};
+				tmds-cfg@3 {
+					pclk = <0x7fffffff>;
+					pll0 = <0x01003310>;
+					pll1 = <0x10300f00>;
+					pe-current = <0x08080808>;
+					drive-current = <0x3a353536>;
+					peak-current = <0x00000000>;
+				};
+			};
+		};
+	};
+	hdmi_ddc: i2c@7000c700 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+};
+

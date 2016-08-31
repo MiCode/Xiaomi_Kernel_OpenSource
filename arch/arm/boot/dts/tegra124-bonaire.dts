@@ -1,0 +1,53 @@
+/dts-v1/;
+
+#include "tegra124.dtsi"
+
+/ {
+	model = "NVIDIA Tegra124 Bonaire";
+	compatible = "nvidia,bonaire", "nvidia,tegra124";
+	nvidia,dtsfilename = __FILE__;
+
+
+	chosen {
+		bootargs = "tegraid=40.0.0.00.00 vmalloc=256M video=tegrafb console=ttyS0,115200n8 earlyprintk";
+		linux,initrd-start = <0x85000000>;
+		linux,initrd-end = <0x851bc400>;
+	};
+
+	memory@0x80000000 {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		device_type = "memory";
+		reg = <0x80000000 0x20000000>;
+	};
+
+	i2c@7000c000 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000c400 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000c500 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000c700 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000d000 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000d100 {
+		status = "okay";
+		clock-frequency = <400000>;
+	};
+};

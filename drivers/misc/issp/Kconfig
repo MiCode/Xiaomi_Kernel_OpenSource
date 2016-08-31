@@ -1,0 +1,6 @@
+config ISSP
+	bool "Cypress in-system serial programming (ISSP) interface"
+	default n
+	---help---
+	Cypress in-system serial programming (ISSP) interface is used to
+	program Cypress micro controllers.

@@ -1,0 +1,56 @@
+menu "Tegra Baseband Modem Drivers"
+	depends on ARCH_TEGRA
+
+config TEGRA_BB_SUPPORT
+	bool "Tegra baseband support"
+	---help---
+	  Say Y here to get to see options for tegra baseband support.
+	  This option alone does not add any kernel code.
+
+	  If you say N, all options in this submenu will be skipped and disabled.
+
+if TEGRA_BB_SUPPORT
+
+config TEGRA_USB_MODEM_POWER
+        bool "Tegra USB modem power driver"
+	depends on USB
+        ---help---
+         Say Y if you want to use one of the following modems
+          i450
+          i500
+          i500 Nemo
+
+	 Disabled by default. Choose Y here if you want to build the driver.
+
+config TEGRA_BB_POWER
+	bool "Enable tegra baseband power driver"
+	---help---
+	 Adds power management driver for managing different baseband
+	 modems with tegra processor.
+
+	 This driver should work with at least the following devices:
+
+            * OEM #1
+            * ...
+
+	 Disabled by default. Choose Y here if you want to build the driver.
+
+config TEGRA_BB_OEM1
+	bool "Enable driver for oem modem #1"
+	---help---
+	 Enables driver for oem modem #1.
+	 Needs TEGRA_BB_SUPPORT to be enabled.
+	 Disabled by default.
+	 Choose Y here if you want to build the driver.
+
+config TEGRA_BB_OEM2
+	bool "Enable driver for oem modem #2"
+	---help---
+	 Enables driver for oem modem #2.
+	 Needs TEGRA_BB_SUPPORT to be enabled.
+	 Disabled by default.
+	 Choose Y here if you want to build the driver.
+
+endif # TEGRA_BB_SUPPORT
+
+endmenu

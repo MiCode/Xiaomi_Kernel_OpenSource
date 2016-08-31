@@ -1,0 +1,49 @@
+* Palmas general purpose ADC IP block devicetree bindings
+
+Required properties:
+- compatible : Must be "ti,palmas-gpadc".
+
+Optional sub-nodes:
+ti,channel0-current-microamp: Channel 0 current in uA.
+	Valid values 0uA, 5uA, 15uA, 20uA.
+ti,channel3-current-microamp: Channel 3 current in uA.
+	Valid value 0uA, 10uA, 400uA, 800uA.
+ti,enable-channel3-dual-current: Enable dual current on channel 3.
+ti,enable-extended-delay: Enable extended delay.
+
+Optional sub-node:
+The Palmas ADC node has optional subnode to define the iio mapping.
+It is the name with "iio_map". This node has again subnode to define
+the property of the channel. The sub subnode has following properties:
+- ti,adc-channel-number: ADC channel numbber.
+- ti,adc-consumer-device: Consumer device name.
+- ti,adc-consumer-channel: ADC consumer channel name.
+
+Example:
+
+pmic {
+	compatible = "ti,twl6035-pmic", "ti,palmas-pmic";
+	...
+	gpadc {
+		compatible = "ti,palmas-gpadc";
+		interrupts = <18 0
+			      16 0
+			      17 0>;
+		ti,channel0-current-microamp = <5>;
+		ti,channel3-current-microamp = <10>;
+		iio_map {
+			ch1 {
+				ti,adc-channel-number = <1>;
+				ti,adc-consumer-device = "generic-adc-thermal.0";
+				ti,adc-consumer-channel ="battery-temp-channel";
+			};
+
+			ch6 {
+				ti,adc-channel-number = <6>;
+				ti,adc-consumer-device = "palmas-battery";
+				ti,adc-consumer-channel ="vbat_channel";
+			};
+		};
+	};
+	...
+};

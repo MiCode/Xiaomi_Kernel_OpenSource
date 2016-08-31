@@ -1,0 +1,29 @@
+# Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+config TEGRA_RPC
+	bool "Enable support for Tegra RPC"
+	depends on ARCH_TEGRA
+	default y
+	help
+	  Enables support for the RPC mechanism necessary for the Tegra
+	  multimedia framework. It is both used to communicate locally on the
+	  CPU between multiple multimedia components as well as to communicate
+	  with the AVP for offloading media decode.
+
+	  Exports the local tegra RPC interface on device node
+	  /dev/tegra_rpc. Also provides tegra fd based semaphores needed by
+	  the tegra multimedia framework.
+
+	  If unsure, say Y

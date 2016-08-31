@@ -1,0 +1,212 @@
+#include <dt-bindings/gpio/tegra-gpio.h>
+
+/ {
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vdd_ac_bat_reg: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "vdd_ac_bat";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			regulator-always-on;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vdd_sys_bl";
+				};
+			};
+		};
+
+		usb0_vbus: regulator@1 {
+			compatible = "regulator-fixed-sync";
+			reg = <1>;
+			regulator-name = "usb0-vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&gpio TEGRA_GPIO(N, 4) 0>;
+			enable-active-high;
+			gpio-open-drain;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "usb_vbus0";
+					regulator-consumer-device = "tegra-xhci";
+				};
+			};
+		};
+
+		usb1_vbus: regulator@2 {
+			compatible = "regulator-fixed-sync";
+			reg = <2>;
+			regulator-name = "usb1-vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			enable-active-high;
+			gpio = <&gpio TEGRA_GPIO(N, 5) 0>;
+			gpio-open-drain;
+			vin-supply = <&palmas_smps10_out2>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "usb_vbus";
+					regulator-consumer-device = "tegra-ehci.1";
+				};
+				c2 {
+					regulator-consumer-supply = "usb_vbus1";
+					regulator-consumer-device = "tegra-xhci";
+				};
+			};
+		};
+
+		usb2_vbus: regulator@3 {
+			compatible = "regulator-fixed-sync";
+			reg = <3>;
+			regulator-name = "usb2-vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			enable-active-high;
+			gpio = <&gpio TEGRA_GPIO(FF, 1) 0>;
+			gpio-open-drain;
+			vin-supply = <&palmas_smps10_out2>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "usb_vbus";
+					regulator-consumer-device = "tegra-ehci.2";
+				};
+				c2 {
+					regulator-consumer-supply = "usb_vbus2";
+					regulator-consumer-device = "tegra-xhci";
+				};
+			};
+		};
+
+		vdd_lcd_1v8_s: regulator@4 {
+			compatible = "regulator-fixed-sync";
+			reg = <4>;
+			regulator-name = "vdd-lcd-1v8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-boot-on;
+			enable-active-high;
+			gpio = <&palmas_gpio 6 0>;
+			vin-supply = <&palmas_smps8>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vdd_lcd_1v8_s";
+				};
+				c2 {
+					regulator-consumer-supply = "dvdd_lcd";
+				};
+			};
+		};
+
+		vpp_fuse: regulator@5 {
+			compatible = "regulator-fixed-sync";
+			reg = <5>;
+			regulator-name = "vpp-fuse";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			enable-active-high;
+			gpio = <&palmas_gpio 7 0>;
+			vin-supply = <&palmas_smps8>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vpp_fuse";
+				};
+			};
+		};
+
+		en_lcd_bl: regulator@6 {
+			compatible = "regulator-fixed-sync";
+			reg = <6>;
+			regulator-name = "en-lcd-bl";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			enable-active-high;
+			gpio = <&gpio TEGRA_GPIO(H, 2) 0>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vdd_lcd_bl_en";
+				};
+			};
+		};
+
+		vdd_hdmi: regulator@7 {
+			compatible = "regulator-fixed-sync";
+			reg = <7>;
+			regulator-name = "vdd-hdmi";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			enable-active-high;
+			gpio = <&gpio TEGRA_GPIO(K, 6) 0>;
+			vin-supply = <&palmas_smps10_out1>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vdd_hdmi_5v0";
+					regulator-consumer-device = "tegradc.1";
+				};
+			};
+		};
+
+		vdd_cam_af: regulator@8 {
+			compatible = "regulator-fixed-sync";
+			reg = <8>;
+			regulator-name = "vdd-cam-af";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			enable-active-high;
+			gpio = <&palmas_gpio 4 0>; /* PMIC GPIO4  */
+			vin-supply = <&palmas_smps8>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vdd_cam1_1v8_cam";
+				};
+				c2 {
+					regulator-consumer-supply = "vdd_cam2_1v8_cam";
+				};
+				c3 {
+					regulator-consumer-supply = "vif";
+					regulator-consumer-device = "2-0010";
+				};
+				c4 {
+					regulator-consumer-supply = "dovdd";
+					regulator-consumer-device = "2-0010";
+				};
+				c5 {
+					regulator-consumer-supply = "vif2";
+					regulator-consumer-device = "2-0021";
+				};
+				c6 {
+					regulator-consumer-supply = "vif";
+					regulator-consumer-device = "2-0036";
+				};
+				c7 {
+					regulator-consumer-supply = "vdd_i2c";
+					regulator-consumer-device = "2-000c";
+				};
+				c8 {
+					regulator-consumer-supply = "vi2c";
+					regulator-consumer-device = "2-0030";
+				};
+				c9 {
+					regulator-consumer-supply = "vdd";
+					regulator-consumer-device = "2-004a";
+				};
+				c10 {
+					regulator-consumer-supply = "vif";
+					regulator-consumer-device = "2-0048";
+				};
+			};
+		};
+	};
+};

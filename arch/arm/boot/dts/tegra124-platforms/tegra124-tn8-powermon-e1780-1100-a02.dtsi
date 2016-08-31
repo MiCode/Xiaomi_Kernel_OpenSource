@@ -1,0 +1,53 @@
+/*
+ * Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+/ {
+	aliases {
+		i2c6 = &pca9546_i2c0;
+		i2c7 = &pca9546_i2c1;
+		i2c8 = &pca9546_i2c2;
+		i2c9 = &pca9546_i2c3;
+	};
+
+	i2c@7000c400 {
+		pca9546@71 {
+			compatible = "nxp,pca9546";
+			reg = <0x71>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			pca9546_i2c0: i2c@0 {
+				reg = <0>;
+				i2c-mux,deselect-on-exit;
+			};
+
+			pca9546_i2c1: i2c@1 {
+				reg = <1>;
+				i2c-mux,deselect-on-exit;
+			};
+
+			pca9546_i2c2: i2c@2 {
+				reg = <2>;
+				i2c-mux,deselect-on-exit;
+			};
+
+			pca9546_i2c3: i2c@3 {
+				reg = <3>;
+				i2c-mux,deselect-on-exit;
+			};
+		};
+	};
+};

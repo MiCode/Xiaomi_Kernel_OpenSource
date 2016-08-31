@@ -1,0 +1,12 @@
+* Capella CM3217 Ambient light sensor
+
+Required properties:
+- compatible: "capella,cm3217"
+- reg : the I2C address of CM3217
+
+Example:
+
+cm3217@10 {
+	compatible = "capella,cm3217";
+	reg = <0x10>;
+};

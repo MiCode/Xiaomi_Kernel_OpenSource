@@ -1,0 +1,61 @@
+#
+# TI's shared transport line discipline and the protocol
+# drivers (BT, FM and GPS)
+#
+menu "Texas Instruments shared transport line discipline"
+config TI_ST
+	tristate "Shared transport core driver"
+	depends on NET && GPIOLIB && TTY
+	select FW_LOADER
+	help
+	  This enables the shared transport core driver for TI
+	  BT / FM and GPS combo chips. This enables protocol drivers
+	  to register themselves with core and send data, the responses
+	  are returned to relevant protocol drivers based on their
+	  packet types.
+
+config ST_GPS
+	tristate "gps driver for ST"
+	select TI_ST
+	help
+	  This enables the GPS driver for TI WL128x BT/FM/GPS combo devices.
+	  It will provide a character device for the TI GPS host software to
+	  access the GPS core on the WL128x.
+
+config ST_HCI
+	tristate "HCI TTY emulation driver for Bluetooth"
+	depends on TI_ST
+	help
+	  This enables the TTY device like emulation for HCI used by
+	  user-space Bluetooth stacks.
+	  It will provide a character device for user space Bluetooth stack to
+	  send/receive data over shared transport.
+
+config ST_HOST_WAKE
+	tristate "Host wake up driver for protocols registered with ST"
+	depends on TI_ST
+	help
+	  This enables the host to wake up whenever a transaction is initiated
+	  by the remote side.
+
+config ST_HOST_WAKE_GPS
+	bool "Enable Host wake up driver when GPS registers with ST"
+	depends on ST_HOST_WAKE
+	help
+	  This enables the host to wake up whenever GPS transaction is initiated
+	  by the remote side.
+
+config ST_HOST_WAKE_FM
+	bool "Enable Host wake up driver when FM registers with ST"
+	depends on ST_HOST_WAKE
+	help
+	  This enables the host to wake up whenever FM transaction is initiated
+	  by the remote side.
+
+config ST_HOST_WAKE_NFC
+	bool "Enable Host wake up driver when NFC registers with ST"
+	depends on ST_HOST_WAKE
+	help
+	  This enables the host to wake up whenever NFC transaction is initiated
+	  by the remote side.
+endmenu

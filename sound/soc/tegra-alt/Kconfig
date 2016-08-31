@@ -1,0 +1,71 @@
+config SND_SOC_TEGRA_ALT
+	tristate "Alternative DAPM-based SoC audio support for the Tegra System-on-Chip"
+	depends on ARCH_TEGRA && TEGRA20_APB_DMA
+	select REGMAP_MMIO
+	select SND_SOC_DMAENGINE_PCM if TEGRA20_APB_DMA
+	help
+	  Say Y or M here if you want support for SoC audio on Tegra, using the
+	  alternative driver that exposes to user-space the full routing capabilities
+	  of the AHUB (Audio HUB) hardware module.
+
+config SND_SOC_TEGRA_ALT_30_OR_LATER
+	def_bool y
+	depends on SND_SOC_TEGRA_ALT
+	depends on ARCH_TEGRA_3x_SOC || ARCH_TEGRA_11x_SOC || ARCH_TEGRA_12x_SOC
+
+config SND_SOC_TEGRA_ALT_114_OR_LATER
+	def_bool y
+	depends on SND_SOC_TEGRA_ALT
+	depends on ARCH_TEGRA_11x_SOC || ARCH_TEGRA_12x_SOC
+
+config SND_SOC_TEGRA30_XBAR_ALT
+	tristate "Tegra30 XBAR driver"
+	depends on SND_SOC_TEGRA_ALT && SND_SOC_TEGRA_ALT_30_OR_LATER
+	help
+	  Say Y or M if you want to add support for Tegra30 XBAR module.
+
+config SND_SOC_TEGRA30_APBIF_ALT
+	tristate "Tegra30 APBIF driver"
+	depends on SND_SOC_TEGRA30_XBAR_ALT && SND_SOC_TEGRA_ALT_30_OR_LATER
+	help
+	  Say Y or M if you want to add support for Tegra30 APBIF module.
+
+config SND_SOC_TEGRA30_I2S_ALT
+	tristate "Tegra30 I2S driver"
+	depends on SND_SOC_TEGRA_ALT && SND_SOC_TEGRA_ALT_30_OR_LATER
+	help
+	  Say Y or M if you want to add support for Tegra30 I2S module.
+
+config SND_SOC_TEGRA30_SPDIF_ALT
+	tristate "Tegra30 SPDIF driver"
+	depends on SND_SOC_TEGRA_ALT && SND_SOC_TEGRA_ALT_30_OR_LATER
+	help
+	  Say Y or M if you want to add support for Tegra30 SPDIF module.
+
+config SND_SOC_TEGRA114_AMX_ALT
+	tristate "Tegra114 AMX driver"
+	depends on SND_SOC_TEGRA_ALT && SND_SOC_TEGRA_ALT_114_OR_LATER
+	help
+	  Say Y or M if you want to add support for Tegra114 AMX module.
+
+config SND_SOC_TEGRA114_ADX_ALT
+	tristate "Tegra114 ADX driver"
+	depends on SND_SOC_TEGRA_ALT && SND_SOC_TEGRA_ALT_114_OR_LATER
+	help
+	  Say Y or M if you want to add support for Tegra114 ADX module.
+
+config SND_SOC_TEGRA_VCM30T124_ALT
+	tristate "SoC Audio support for VCM30_T124"
+	depends on SND_SOC_TEGRA_ALT
+	depends on MACH_VCM30_T124
+	select SND_SOC_TEGRA30_XBAR_ALT
+	select SND_SOC_TEGRA30_APBIF_ALT
+	select SND_SOC_TEGRA30_I2S_ALT
+	select SND_SOC_TEGRA114_AMX_ALT
+	select SND_SOC_TEGRA114_ADX_ALT
+	select SND_SOC_AD193X
+	select SND_SOC_WM8731
+	select SND_SOC_SPDIF
+	help
+	  Say Y or M here if you want to add support for SoC audio on the
+	  TEGRA VCM30_T124 using wm8731 and ad1937 codecs.

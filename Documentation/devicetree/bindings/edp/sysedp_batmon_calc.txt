@@ -1,0 +1,56 @@
+System-EDP Battery Monitor
+
+Required properties:
+- compatible : "nvidia,tegra124-sysedp_batmon_calc"
+- ocv_lut: The property contains several sets of combinations of
+  capacity battery remained and battery open-circuit-voltage (in uV).
+  Take <60 7641110> for exmaple, it means the battery
+  open-circuit-voltage is 7641.11mV when battery remained capacity is
+  60%. Entries must be in descending order wrt capacity and last entry
+  must be <0 ...>.
+- update_interval: The defines the period (in ms) for system to update the
+  available power budget.
+- ibat_lut: This defines the maximum allowed current (in mA) from the
+  battery under specific temperature. The property contains several
+  sets of combinations of temperature and current with the format of
+  <C mA>. C is the temperature in Celcius, negative values reprented
+  with 2's complement. mA is the maximum current battery can supply
+  under this temperature. Take <60 6150> for example, this means that
+  battery can supply 6150mA when temperature is 60 degree
+  Celsius. Entries must be in descending order wrt temperature and
+  last entry must be <... 0>.
+- rbat_data: An array of battery impedance (in uOhm) under different temperatures
+  and capacity.
+- temp_axis: An array of different temperatures. Negative values are
+  represented with 2's complement
+- capacity_axis: An array of capacity battery remains.
+- power_supply : The name of system power supply.
+- r_const: This value describes the system impedance(in uOhm).
+- vsys_min: The minmum voltage (in uV) needed for PMIC.
+
+Example:
+	sysedp_batmon_calc {
+		compatible = "nvidia,tegra124-sysedp_batmon_calc";
+		update_interval = <30000>;
+		ocv_lut = <
+			100 8372010
+			60 7641110
+			0 5999850
+		>;
+		ibat_lut = <
+			60 6150
+			40 6150
+			0 6150
+			S32_TO_U32(-30) 0
+		>;
+		rbat_data = <
+			70000
+			70000
+			90000
+		>;
+		temp_axis = <25>;
+		capacity_axis = <100 13 0>;
+		power_supply = "battery";
+		r_const = <60000>;
+		vsys_min = <2900000>;
+	};

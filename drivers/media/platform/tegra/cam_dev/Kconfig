@@ -1,0 +1,19 @@
+#
+# devices supported by generic pcl kernel driver
+#
+
+config CAMERA_DEV_AS364X
+	bool "Enable support for AS364X flash device"
+	depends on VIDEO_CAMERA
+	default n
+	help
+
+	  If unsure, say N
+
+config CAMERA_DEV_IMX135
+	bool "Enable support for IMX135 camera device"
+	depends on VIDEO_CAMERA
+	default n
+	help
+
+	  If unsure, say N

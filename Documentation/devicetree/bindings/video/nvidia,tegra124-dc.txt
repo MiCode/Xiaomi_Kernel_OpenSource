@@ -1,0 +1,370 @@
+NVIDIA Tegra124 Display Controller
+==================================
+
+1) The dc node:
+ dc node must be contained in host1x parent node. This node represents
+ NVIDIA Tegra124 Display controller.
+
+ Required properties:
+ - name: dc
+ - compatible: Should contain "nvidia,tegra124-dc".
+ - reg: Physical base address and length of the controller's registers.
+ - interrupts: The interrupt outputs from the controller.
+ - nvidia,memory-clients: This is the "swgroup" ID in the Tegra TRM term.
+ - nvidia,dc-flags: This is to enable display controller in probe time.
+   "dc_flag_en" or remove this property (do not set this property).
+ - nvidia,emc-clk-rate: Initially required embedded memory controller clk rate.
+ - nvidia,cmu-enable: Toggle switch for color management unit.
+ - nvidia,low-v-win: If low_v_win is set, we can lower vdd_core when that windows
+   is the only one active.
+ - avdd_hdmi-supply: phandle to the regulator device tree node for HDMI supply voltage,
+   HDMI_AVDD.
+ - avdd_hdmi_pll-supply: phandle to the regulator device tree node for HDMI pll supply.
+ - vdd_hdmi_5v0-supply: phandle to the regulator device tree node for HDMI 5V source.
+
+ - Child nodes represent node of modes, output settings, framebuffer data,
+   smart dimmer settings, color management unit settings, dsi output device settings.
+
+1.A) NVIDIA Display Controller Modes
+ This must be contained in dc parent node. This contains supported modes.
+
+ Required properties:
+ - name: Should be "display-timings"
+
+ - Child nodes represent modes. Several modes can be prepared.
+
+1.A.i) NVIDIA Display Controller Mode timing
+ This must be contained in display-timings parent node. This contains mode settings, including
+ display timings. For hdmi out-type case, display-timings properties are only valid in case of
+ hdmi fb console mode.
+
+ Required properties:
+ - name: Can be arbitrary, but each sibling node should have unique name.
+ - hactive, vactive: display resolution.
+ - hfront-porch, hback-porch, hsync-len: horizontal display timing parameters
+   in pixels.
+ - vfront-porch, vback-porch, vsync-len: vertical display timing parameters in
+   lines.
+ - clock-frequency: display clock in Hz.
+ - nvidia,h-ref-to-sync: H reference to HSYNC. This specifies the start position of HSYNC
+   with respect to H reference point.
+ - nvidia,v-ref-to-sync: V reference to VSYNC. This specifies the start position of VSYNC
+   with respect to V reference point.
+
+1.B) NVIDIA Display Controller Default Output Settings
+ This must be contained in dc parent node. This is default output settings.
+
+ Required properties:
+ - name: Should be "dc-default-out".
+ - nvidia,out-type: Output type. Should be "dsi" or "hdmi".
+ - nvidia,out-width: Width in struct fb_var_screeninfo. width of picture in mm.
+ - nvidia,out-height: Height in struct fb_var_screeninfo. height of picture in mm.
+ - nvidia,out-flags: Should be "continuous" or "oneshot" or "hotplug_high" or "hotplug_low"
+   or "continuous_initialized" or "oneshot_initialized"
+ - nvidia,out-parent-clk: Parent clk for display controller.
+ - nvidia,out-max-pixclk: Maximum pixel clock in pico-seconds.
+ - nvidia,out-align: Display data alignment. Should be "msb" or "lsb".
+ - nvidia,out-order: Display data order. Should be "rtob" or "btor".
+ - nvidia,out-depth: Display base color size. 3, 6, 8, 9, 12, 15, 16, 18 and 24 for
+   BASE_COLOR_SIZE111, BASE_COLOR_SIZE222, BASE_COLOR_SIZE332, BASE_COLOR_SIZE333,
+   BASE_COLOR_SIZE444, BASE_COLOR_SIZE555, BASE_COLOR_SIZE565, BASE_COLOR_SIZE666,
+   and BASE_COLOR_SIZE888, respectively. In default, BASE_COLOR_SIZE888 is chosen.
+   For hdmi out-type case, depth selection is only valid for hdmi fb console mode,
+   otherwise, BASE_COLOR_SIZE888 is chosen as a default.
+
+1.C) NVIDIA Display Controller framebuffer data
+ This must be contained in dc parent node. This is required framebuffer data.
+
+Required properties:
+ - name: Should be "framebuffer-data".
+ - nvidia,fb-bpp: Bits per pixel of fb.
+ - nvidia,fb-flags: Window is updated in display controller device probe. Should be "flip_on_probe",
+   or remove this property (do not set this property).
+ - nvidia,fb-xres: Visible resolution for width.
+ - nvidia,fb-yres: Visible resolution for height.
+
+1.D) NVIDIA Display Controller Smart Dimmer Settings
+ This must be contained in dc parent node. This is smart dimmer settings.
+
+ Required properties:
+ - name: Should be "smartdimmer".
+ - nvidia,use-auto-pwm: With enabled, hardware adjust the backlight PWM control
+   signal directly.
+ - nvidia,hw-update-delay: It determines the delay of the update of the hardware
+   enhancement value (K) that is applied to the pixels.
+ - nvidia,bin-width: It is the width of the histogram bins, in quantisation level.
+   0xffffffff, 1, 2, 4 or 8 can be written, 0xffffffff, which means 2's compliment
+   of -1, indicates automatic based on aggressiveness.
+ - nvidia,aggressiveness: The aggressiveness level of the smart dimmer algorithm.
+ - nvidia,use-vid-luma: With enabled, it uses video luminance control of luminance.
+ - nvidia,phase-in-adjustments: Software backlight phase-in
+ - nvidia,k-limit-enable: When enabled, Max.K is taken from K_LIMIT register (nvidia,k-limit)
+   rather than computed from nvidia,aggressiveness.
+ - nvidia,k-limit: When nvidia,k-limit-enable is enabled, limits raw K independently of
+   aggressiveness.
+ - nvidia,sd-window-enable: When enabled, constrain histogram (and therefore backlight)
+   to a rectangular subset of display.
+ - nvidia,soft-clipping-enable: When enabled, enhancement gain (K) is reduced for pixels
+   above nvidia,soft-clipping-threshold level to avoid saturation.
+ - nvidia,soft-clipping-threshold: Threshold at which pixel enhancement gain is reduced.
+ - nvidia,smooth-k-enable: When enabled, max raw K change per frame is limited to
+   nvidia,smooth-k-incr.
+ - nvidia,smooth-k-incr: When nvidia,smooth-k-enable is enabled, the raw K is changed
+   at most by smooth-k-incr per frame.
+ - nvidia,coeff: Luminance calculation coefficients used to convert the red green and
+   blue color components into a luminance value. The conversion is performed according to
+   the following equation: Luminance = (R*R_COEFF + G*G_COEFF + B*B_COEFF) >> 4.
+   Need to write blue, green, red coefficient for luminance calculation in sequence.
+ - nvidia,fc: Flicker control that prevents rapid and frequent changes
+   in the enhancement value. Need to write time_limit, threshold in sequence.
+ - nvidia,blp: Defines the parameters for the backlight temporal response model. Need to
+   write time_constant for the response curve and step that determines the instantaneous
+   portion of the target value of enhancement that is applied: <time_constant, step>.
+ - nvidia,bltf: Backlight transfer function. Each points on the transfer function curve
+   defines how the backlight output changes with respect to the control input. The 17th point
+   is defined to be the maximum value.
+ - nvidia,lut: Enhancement value (K) look up table. each LUT entry contains the value of k
+   for each of the three color components (R_LUT, G_LUT, B_LUT in sequence).
+   There are nine entries in total.
+ - nvidia,use-vpulse2: With enabled, run histogram on vpulse2 rather than vsync.
+ - nvidia,bl-device-name: Backlight device name.
+
+1.E) NVIDIA Display Controller Color Management Unit Settings
+ This must be contained in dc parent node. This is color management unit settings.
+
+ Required properties:
+ - name: Should be "cmu".
+ - nvidia,cmu-csc: CMU color space conversion matrix. It is 3X3 matrix.
+ - nvidia,cmu-lut2: CMU LUT2. Should be 960 u8 arrays.
+
+Example
+	host1x {
+		/* tegradc.0 */
+		dc@54200000 {
+			compatible = "nvidia,tegra124-dc";
+			reg = <0x54200000 0x00040000>;
+			interrupts = <0 73 0x04>;
+			status = "okay";
+			nvidia,dc-flags = "dc_flag_en";
+			nvidia,emc-clk-rate = <204000000>;
+			nvidia,cmu-enable = <1>;
+			avdd_hdmi-supply = <&palmas_ldoln>;
+			avdd_hdmi_pll-supply = <&palmas_ldo1>;
+			vdd_hdmi_5v0-supply = <&vdd_hdmi>;
+			dc-default-out {
+				nvidia,out-type = "dsi";
+				nvidia,out-width = <217>;
+				nvidia,out-height = <135>;
+				nvidia,out-flags = "continuous";
+				nvidia,out-parent-clk = "pll_d_out0";
+			};
+			display-timings {
+				1920p32 {
+					clock-frequency = <154700000>;
+					hactive = <1920>;
+					vactive = <1200>;
+					hfront-porch = <120>;
+					hback-porch = <32>;
+					hsync-len = <16>;
+					vfront-porch = <17>;
+					vback-porch = <16>;
+					vsync-len = <2>;
+					nvidia,h-ref-to-sync = <4>;
+					nvidia,v-ref-to-sync = <1>;
+				};
+			};
+			framebuffer-data {
+				nvidia,fb-bpp = <32>; /* bits per pixel */
+				nvidia,fb-flags = "flip_on_probe";
+				nvidia,fb-xres = <1920>;
+				nvidia,fb-yres = <1200>;
+			};
+			smartdimmer {
+				status = "okay";
+				nvidia,use-auto-pwm = <0>;
+				nvidia,hw-update-delay = <0>;
+				nvidia,bin-width = <0xffffffff>;
+				nvidia,aggressiveness = <5>;
+				nvidia,use-vid-luma = <0>;
+				nvidia,phase-in-settings = <0>;
+				nvidia,phase-in-adjustments = <0>;
+				nvidia,k-limit-enable = <1>;
+				nvidia,k-limit = <200>;
+				nvidia,sd-window-enable = <0>;
+				nvidia,soft-clipping-enable= <1>;
+				nvidia,soft-clipping-threshold = <128>;
+				nvidia,smooth-k-enable = <1>;
+				nvidia,smooth-k-incr = <4>;
+				nvidia,coeff = <5 9 2>;
+				nvidia,fc = <0 0>;
+				nvidia,blp = <1024 255>;
+				nvidia,bltf = <57 65 73 82
+						  92 103 114 125
+						  138 150 164 178
+						  193 208 224 241>;
+				nvidia,lut = <255 255 255
+						 199 199 199
+						 153 153 153
+						 116 116 116
+						 85 85 85
+						 59 59 59
+						 36 36 36
+						 17 17 17
+						 0 0 0>;
+				nvidia,use-vpulse2 = <1>;
+				nvidia,bl-device-name = "pwm-backlight";
+			};
+			cmu {
+				status = "okay";
+				nvidia,cmu-csc = < 0x138 0x3Ba 0x00D
+						   0x3F5 0x120 0x3E6
+						   0x3FE 0x3F8 0x0E9 >;
+				nvidia,cmu-lut2 = < 0 1 2 3 4 5 6 6
+						    7 8 9 10 11 11 12 13
+						    13 14 15 15 16 17 17 18
+						    18 19 19 20 20 21 21 22
+						    22 23 23 23 24 24 24 25
+						    25 25 26 26 26 27 27 27
+						    28 28 28 28 29 29 29 29
+						    30 30 30 30 31 31 31 31
+						    32 32 32 32 33 33 33 33
+						    34 34 34 35 35 35 35 36
+						    36 36 37 37 37 37 38 38
+						    38 39 39 39 39 40 40 40
+						    41 41 41 41 42 42 42 43
+						    43 43 43 44 44 44 45 45
+						    45 45 46 46 46 46 47 47
+						    47 47 48 48 48 48 49 49
+						    49 49 50 50 50 50 50 51
+						    51 51 51 52 52 52 52 52
+						    53 53 53 53 53 53 54 54
+						    54 54 54 55 55 55 55 55
+						    55 56 56 56 56 56 56 57
+						    57 57 57 57 57 57 58 58
+						    58 58 58 58 59 59 59 59
+						    59 59 59 60 60 60 60 60
+						    60 60 61 61 61 61 61 61
+						    61 62 62 62 62 62 62 62
+						    63 63 63 63 63 63 63 64
+						    64 64 64 64 64 64 65 65
+						    65 65 65 65 66 66 66 66
+						    66 66 66 67 67 67 67 67
+						    67 68 68 68 68 68 68 69
+						    69 69 69 69 69 70 70 70
+						    70 70 70 71 71 71 71 71
+						    71 72 72 72 72 72 72 73
+						    73 73 73 73 73 74 74 74
+						    74 74 74 74 75 75 75 75
+						    75 75 76 76 76 76 76 76
+						    77 77 77 77 77 77 77 78
+						    78 78 78 78 78 79 79 79
+						    79 79 79 79 80 80 80 80
+						    80 80 80 80 81 81 81 81
+						    81 81 81 82 82 82 82 82
+						    82 82 82 83 83 83 83 83
+						    83 83 83 83 84 84 84 84
+						    84 84 84 84 85 85 85 85
+						    85 85 85 85 85 85 86 86
+						    86 86 86 86 86 86 86 86
+						    87 87 87 87 87 87 87 87
+						    87 87 88 88 88 88 88 88
+						    88 88 88 88 88 88 89 89
+						    89 89 89 89 89 89 89 89
+						    89 89 90 90 90 90 90 90
+						    90 90 90 90 90 90 91 91
+						    91 91 91 91 91 91 91 91
+						    91 91 91 92 92 92 92 92
+						    92 92 92 92 92 92 92 92
+						    93 93 93 93 93 93 93 93
+						    93 93 93 93 93 93 94 94
+						    94 94 94 94 94 94 94 94
+						    94 94 94 94 95 95 95 95
+						    95 95 95 95 95 95 95 95
+						    95 96 96 96 96 96 96 96
+						    96 96 96 96 96 96 97 97
+						    97 97 97 97 97 97 97 97
+						    98 99 99 100 101 101 102 103
+						    103 104 105 105 106 107 107 108
+						    109 110 110 111 112 112 113 114
+						    114 115 115 116 117 117 118 119
+						    119 120 120 121 121 122 123 123
+						    124 124 125 125 126 126 127 128
+						    128 129 129 130 130 131 131 132
+						    132 133 133 134 134 135 135 136
+						    136 137 138 138 139 139 140 140
+						    141 141 142 142 143 143 144 144
+						    144 145 145 146 146 147 147 148
+						    148 149 149 150 150 151 151 152
+						    152 153 153 153 154 154 155 155
+						    156 156 157 157 157 158 158 159
+						    159 160 160 160 161 161 162 162
+						    162 163 163 164 164 164 165 165
+						    165 166 166 167 167 167 168 168
+						    168 169 169 169 170 170 171 171
+						    171 172 172 172 173 173 173 174
+						    174 174 175 175 175 176 176 176
+						    177 177 177 178 178 178 179 179
+						    179 180 180 180 181 181 181 182
+						    182 182 183 183 183 184 184 184
+						    185 185 185 185 186 186 186 187
+						    187 187 188 188 188 189 189 189
+						    190 190 190 191 191 191 191 192
+						    192 192 193 193 193 194 194 194
+						    195 195 195 195 196 196 196 197
+						    197 197 198 198 198 199 199 199
+						    199 200 200 200 201 201 201 202
+						    202 202 203 203 203 203 204 204
+						    204 205 205 205 206 206 206 207
+						    207 207 208 208 208 208 209 209
+						    209 210 210 210 211 211 211 212
+						    212 212 213 213 213 214 214 214
+						    215 215 215 215 216 216 216 217
+						    217 217 218 218 218 219 219 219
+						    220 220 220 220 221 221 221 222
+						    222 222 222 223 223 223 224 224
+						    224 224 225 225 225 226 226 226
+						    226 227 227 227 227 228 228 228
+						    229 229 229 229 230 230 230 230
+						    230 231 231 231 231 232 232 232
+						    232 233 233 233 233 234 234 234
+						    234 234 235 235 235 235 236 236
+						    236 236 236 237 237 237 237 238
+						    238 238 238 238 239 239 239 239
+						    239 240 240 240 240 240 241 241
+						    241 241 241 242 242 242 242 243
+						    243 243 243 243 244 244 244 244
+						    244 245 245 245 245 245 246 246
+						    246 246 246 247 247 247 247 248
+						    248 248 248 248 249 249 249 249
+						    250 250 250 250 251 251 251 251
+						    251 252 252 252 253 253 253 253
+						    254 254 254 254 255 255 255 255 >;
+			};
+		};
+
+		/* tegradc.1 */
+		dc@54240000 {
+			compatible = "nvidia,tegra124-dc";
+			reg = <0x54240000 0x00040000>;
+			interrupts = <0 74 0x04>;
+			status = "okay";
+			nvidia,dc-flags = "dc_flag_en";
+			nvidia,emc-clk-rate = <300000000>;
+			nvidia,cmu-enable = <1>;
+			dc-default-out {
+				nvidia,out-type = "hdmi";
+				nvidia,out-flags = "hotplug_high";
+				nvidia,out-parent-clk = "pll_d2";
+				nvidia,out-max-pixclk = <297000>;
+				nvidia,out-align = "msb";
+				nvidia,out-order = "rtob"; /*red to blue*/
+			};
+			framebuffer-data {
+				nvidia,fb-bpp = <32>; /* bits per pixel */
+				nvidia,fb-flags = "flip_on_probe";
+				nvidia,fb-xres = <1280>;
+				nvidia,fb-yres = <720>;
+			};
+		};
+	};
+

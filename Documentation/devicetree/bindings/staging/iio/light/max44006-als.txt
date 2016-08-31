@@ -1,0 +1,20 @@
+* MAX44006 ambient light sensor
+
+Required properties:
+- compatible: must be "maxim,max44006"
+- reg: i2c address of the device. It should be 0x44.
+- vcc-supply: regulator supply for the chip
+
+Optional propertied:
+- maxim,gain: integer value specifying the gain factor per lsb.
+- maxim,als-resolution: conversion factor from sensor raw units to lux.
+
+Example:
+
+	max44006@44 {
+		compatible = "maxim,max44006";
+		reg = <0x44>;
+		vcc-supply = <&palmas_smps8>;
+		maxim,gain = <1>;
+		maxim,als-resolution = "0.75";
+	};

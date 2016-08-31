@@ -1,0 +1,91 @@
+#
+# MHI protocol family and drivers
+#
+
+config MHI
+	bool "Modem-Host Interface"
+	default n
+	help
+	  The Modem-Host Interface (MHI) is a packet-oriented transport protocol
+	  developed by Renesas Mobile for use with their modems.
+
+	  If unsure, say N.
+
+
+if MHI
+
+config MHI_L2MUX
+	tristate "L2 MUX Protocol Layer for MHI"
+	default y
+	help
+	  L2 MUX is a protocol layer in the MHI stack. It is required
+	  by the MHI L3 components.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called l2mux. If unsure, say Y.
+
+config MHI_L3MHI
+	tristate "L3 MHI Protocol Family (AF_MHI)"
+	select MHI_L2MUX
+	default y
+	help
+	  AF_MHI provides datagram access to L2 channels in MHI,
+	  developed by Renesas Mobile for use with their modems.
+
+	  To compile this driver as a module, choose M here: the modules
+	  will be called l3mhi and af_mhi. If unsure, say Y.
+
+config MHI_L3PHONET
+	tristate "L3 PHONET Protocol bridge (AF_PHONET)"
+	select MHI_L2MUX
+	select PHONET
+	default y
+	help
+	  L3 PHONET protocol for MHI protocol family,
+	  developed by Renesas Mobile for use with their modems.
+
+	  This driver is a bridge between MHI L3 Phonet and Phonet Protocol Family.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called l3phonet. If unsure, say Y.
+
+config MHI_L3MHDP
+	tristate "L3 MHDP IP Tunneling Protocol"
+	select MHI_L2MUX
+	select INET_TUNNEL
+	default y
+	help
+	  Tunneling means encapsulating data of one protocol type within
+	  another protocol and sending it over a channel that understands the
+	  encapsulating protocol. This particular tunneling driver implements
+	  encapsulation of IP within MHDP (Modem Host Data Protocol), which
+	  is used for communication between the APE and the Modem.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called l3mhdp. If unsure, say Y.
+
+
+config MHI_DEBUG
+	bool "MHI Debugging"
+	default n
+	help
+	  Generate lots of debugging messages in the MHI stack.
+	  This option is useful when developing MHI.
+	  Otherwise it should be off.
+
+	  If unsure, say N.
+
+config MHI_DUMP_FRAMES
+	bool "Dump MHI frames on L2 layer"
+	default n
+	help
+	  Print out every frame passed through L2MUX into kernel log.
+	  This option is useful when developing MHI. Otherwise it should be off.
+
+	  If unsure, say N.
+
+config MHDP_BONDING_SUPPORT
+	bool "use mhdp as a bonding slave"
+	default n
+endif
+

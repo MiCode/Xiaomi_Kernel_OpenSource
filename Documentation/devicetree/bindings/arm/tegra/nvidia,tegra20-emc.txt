@@ -1,0 +1,399 @@
+Embedded Memory Controller
+
+Properties:
+- name : Should be emc
+- #address-cells : Should be 1
+- #size-cells : Should be 0
+- compatible : Should contain "nvidia,tegra20-emc" or "nvidia,tegra30-emc"
+- reg : Offset and length of the register set for the device
+- nvidia,use-ram-code : If present, the sub-nodes will be addressed
+  and chosen using the ramcode board selector. If omitted, only one
+  set of tables can be present and said tables will be used
+  irrespective of ram-code configuration.
+
+Child device nodes describe the memory settings for different configurations
+and clock rates.
+
+Example:
+
+	memory-controller@7000f400 {
+		#address-cells = < 1 >;
+		#size-cells = < 0 >;
+		compatible = "nvidia,tegra20-emc";
+		reg = <0x7000f4000 0x200>;
+	}
+
+
+Embedded Memory Controller ram-code table
+
+If the emc node has the nvidia,use-ram-code property present, then the
+next level of nodes below the emc table are used to specify which settings
+apply for which ram-code settings.
+
+If the emc node lacks the nvidia,use-ram-code property, this level is omitted
+and the tables are stored directly under the emc node (see below).
+
+Properties:
+
+- name : Should be emc-tables
+- nvidia,ram-code : the binary representation of the ram-code board strappings
+  for which this node (and children) are valid.
+
+
+
+Embedded Memory Controller configuration table
+
+This is a table containing the EMC register settings for the various
+operating speeds of the memory controller. They are always located as
+subnodes of the emc controller node.
+
+There are two ways of specifying which tables to use:
+
+* The simplest is if there is just one set of tables in the device tree,
+  and they will always be used (based on which frequency is used).
+  This is the preferred method, especially when firmware can fill in
+  this information based on the specific system information and just
+  pass it on to the kernel.
+
+* The slightly more complex one is when more than one memory configuration
+  might exist on the system.  The Tegra20 platform handles this during
+  early boot by selecting one out of possible 4 memory settings based
+  on a 2-pin "ram code" bootstrap setting on the board. The values of
+  these strappings can be read through a register in the SoC, and thus
+  used to select which tables to use.
+
+Tables for Tegra20:
+
+Properties:
+- name : Should be emc-table
+- compatible : Should contain "nvidia,tegra20-emc-table".
+- reg : either an opaque enumerator to tell different tables apart, or
+  the valid frequency for which the table should be used (in kHz).
+- clock-frequency : the clock frequency for the EMC at which this
+  table should be used (in kHz).
+- nvidia,emc-registers : a 46 word array of EMC registers to be programmed
+  for operation at the 'clock-frequency' setting.
+  The order and contents of the registers are:
+    RC, RFC, RAS, RP, R2W, W2R, R2P, W2P, RD_RCD, WR_RCD, RRD, REXT,
+    WDV, QUSE, QRST, QSAFE, RDV, REFRESH, BURST_REFRESH_NUM, PDEX2WR,
+    PDEX2RD, PCHG2PDEN, ACT2PDEN, AR2PDEN, RW2PDEN, TXSR, TCKE, TFAW,
+    TRPAB, TCLKSTABLE, TCLKSTOP, TREFBW, QUSE_EXTRA, FBIO_CFG6, ODT_WRITE,
+    ODT_READ, FBIO_CFG5, CFG_DIG_DLL, DLL_XFORM_DQS, DLL_XFORM_QUSE,
+    ZCAL_REF_CNT, ZCAL_WAIT_CNT, AUTO_CAL_INTERVAL, CFG_CLKTRIM_0,
+    CFG_CLKTRIM_1, CFG_CLKTRIM_2
+
+		emc-table@166000 {
+			reg = <166000>;
+			compatible = "nvidia,tegra20-emc-table";
+			clock-frequency = < 166000 >;
+			nvidia,emc-registers = < 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 >;
+		};
+
+		emc-table@333000 {
+			reg = <333000>;
+			compatible = "nvidia,tegra20-emc-table";
+			clock-frequency = < 333000 >;
+			nvidia,emc-registers = < 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 >;
+		};
+
+Tables for Tegra30:
+
+Properties:
+- name : Should be emc-table
+- compatible : Should contain "nvidia,tegra30-emc-table".
+- reg : either an opaque enumerator to tell different tables apart, or
+  the valid frequency for which the table should be used (in kHz).
+- nvidia,revision : SDRAM revision
+- clock-frequency : the clock frequency for the EMC at which this
+  table should be used (in kHz).
+- nvidia,emc-registers : a word array of EMC registers to be programmed
+  for operation at the 'clock-frequency' setting.
+  The order and contents of the registers are:
+    RC, RFC, RAS, RP, R2W, W2R, R2P, W2P, RD_RCD, WR_RCD, RRD, REXT,
+    WEXT, WDV, QUSE, QRST, QSAFE, RDV, REFRESH,   BURST_REFRESH_NUM,
+    PRE_REFRESH_REQ_CNT, PDEX2WR, PDEX2RD, PCHG2PDEN, ACT2PDEN,
+    AR2PDEN, RW2PDEN, TXSR, TXSRDLL, TCKE, TFAW, TRPAB,TCLKSTABLE,
+    TCLKSTOP, TREFBW, QUSE_EXTRA, FBIO_CFG6, ODT_WRITE, ODT_READ,
+    FBIO_CFG5, CFG_DIG_DLL, CFG_DIG_DLL_PERIOD,
+    DLL_XFORM_DQS0, DLL_XFORM_DQS1, DLL_XFORM_DQS2, DLL_XFORM_DQS3,
+    DLL_XFORM_DQS4, DLL_XFORM_DQS5, DLL_XFORM_DQS6, DLL_XFORM_DQS7,
+    DLL_XFORM_QUSE0, DLL_XFORM_QUSE1, DLL_XFORM_QUSE2, DLL_XFORM_QUSE3,
+    DLL_XFORM_QUSE4, DLL_XFORM_QUSE5, DLL_XFORM_QUSE6, DLL_XFORM_QUSE7,
+    DLI_TRIM_TXDQS0, DLI_TRIM_TXDQS1, DLI_TRIM_TXDQS2, DLI_TRIM_TXDQS3,
+    DLI_TRIM_TXDQS4, DLI_TRIM_TXDQS5, DLI_TRIM_TXDQS6, DLI_TRIM_TXDQS7,
+    DLL_XFORM_DQ0, DLL_XFORM_DQ1, DLL_XFORM_DQ2, DLL_XFORM_DQ3,
+    DLL_XFORM_DQ1, DLL_XFORM_DQ2, DLL_XFORM_DQ3, XM2CMDPADCTRL, XM2DQSPADCTRL2,
+    XM2DQPADCTRL2, XM2CLKPADCTRL, XM2COMPPADCTRL, XM2VTTGENPADCTRL,
+    XM2VTTGENPADCTRL2, XM2QUSEPADCTRL, XM2DQSPADCTRL3, CTT_TERM_CTRL,
+    ZCAL_INTERVAL, ZCAL_WAIT_CNT, MRS_WAIT_CNT, AUTO_CAL_CONFIG, CTT,
+    CTT_DURATION, DYN_SELF_REF_CONTROL, EMEM_ARB_CFG, EMEM_ARB_OUTSTANDING_REQ,
+    EMEM_ARB_TIMING_RCD, EMEM_ARB_TIMING_RP, EMEM_ARB_TIMING_RC,
+    EMEM_ARB_TIMING_RAS, EMEM_ARB_TIMING_FAW, EMEM_ARB_TIMING_RRD,
+    EMEM_ARB_TIMING_RAP2PRE, EMEM_ARB_TIMING_WAP2PRE, EMEM_ARB_TIMING_R2R,
+    EMEM_ARB_TIMING_W2W, EMEM_ARB_TIMING_R2W, EMEM_ARB_TIMING_W2R,
+    EMEM_ARB_DA_TURNS, EMEM_ARB_DA_COVERS, EMEM_ARB_MISC0,
+    EMEM_ARB_RING1_THROTTLE, FBIO_SPARE, CFG_RSV
+
+optional properties:
+- nvidia,emc-zcal-cnt-long : EMC_ZCAL_WAIT_CNT after clock change
+- nvidia,emc-acal-interval : EMC_AUTO_CAL_INTERVAL
+- nvidia,emc-periodic-qrst : EMC_CFG.PERIODIC_QRST
+- nvidia,emc-mode-reset : Mode Register 0
+- nvidia,emc-mode-1 : Mode Register 1
+- nvidia,emc-mode-2 : Mode Register 2
+- nvidia,emc-dsr : EMC_CFG.DYN_SELF_REF
+- nvidia,emc-min-mv : Minimum voltage
+
+		emc-table@166000 {
+			reg = <166000>;
+			compatible = "nvidia,tegra30-emc-table";
+			clock-frequency = < 166000 >;
+			nvidia,revision = <0>;
+			nvidia,emc-registers = < 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0>;
+			nvidia,emc-zcal-cnt-long = <0>;
+			nvidia,emc-acal-interval = <0>;
+			nvidia,emc-periodic-qrst = <0>;
+			nvidia,emc-mode-reset = <0>;
+			nvidia,emc-mode-1 = <0>;
+			nvidia,emc-mode-2 = <0>;
+			nvidia,emc-dsr = <0>;
+			nvidia,emc-min-mv = <0>;
+		};
+
+Tables for Tegra114:
+
+Properties:
+- name : Should be emc-table
+- compatible : Should contain "nvidia,tegra11-emc-table".
+- reg : either an opaque enumerator to tell different tables apart, or
+  the valid frequency for which the table should be used (in kHz).
+- nvidia,revision : SDRAM revision.
+- clock-frequency : the clock frequency for the EMC at which this
+  table should be used (in kHz).
+- nvidia,emc-min-mv : Minimum voltage
+- nvidia,source : Source name.
+- nvidia,src-sel-reg : Source register settings
+- nvidia, burst-regs-num : Number of emc-registers
+- nvidia,emc-registers : a word array of EMC registers to be programmed
+  for operation at the 'clock-frequency' setting.
+  The order and contents of the registers are:
+    RC, RFC, RFC_SLR, RAS, RP, R2W, W2R, R2P, W2P, RD_RCD, WR_RCD,
+    RRD, REXT, WEXT, WDV, WDV_MASK, IBDLY, PUTERM_EXTRA, CDB_CNTL_2,
+    QRST, RDV_MASK, REFRESH, BURST_REFRESH_NUM, PRE_REFRESH_REQ_CNT,
+    PDEX2WR, PDEX2RD, PCHG2PDEN, ACT2PDEN, AR2PDEN, RW2PDEN, TXSR,
+    TXSRDLL, TCKE, TCKESR, TPD, TFAW, TRPAB, TCLKSTABLE, TCLKSTOP,
+    TREFBW, QUSE_EXTRA, ODT_WRITE, ODT_READ, FBIO_CFG5, CFG_DIG_DLL,
+    CFG_DIG_DLL_PERIOD, DLL_XFORM_DQS4, DLL_XFORM_DQS5, DLL_XFORM_DQS6,
+    DLL_XFORM_DQS7, DLL_XFORM_QUSE4, DLL_XFORM_QUSE5, DLL_XFORM_QUSE6,
+    DLL_XFORM_QUSE7, DLI_TRIM_TXDQS4, DLI_TRIM_TXDQS5, DLI_TRIM_TXDQS6,
+    DLI_TRIM_TXDQS7, XM2CMDPADCTRL, XM2CMDPADCTRL4, XM2DQSPADCTRL2,
+    XM2DQPADCTRL2, XM2CLKPADCTRL, XM2COMPPADCTRL, XM2VTTGENPADCTRL,
+    XM2VTTGENPADCTRL2, DSR_VTTGEN_DRV, TXDSRVTTGEN, FBIO_SPARE,
+    CTT_TERM_CTRL, ZCAL_INTERVAL, ZCAL_WAIT_CNT, MRS_WAIT_CNT,
+    MRS_WAIT_CNT2, AUTO_CAL_CONFIG2, AUTO_CAL_CONFIG3, CTT,
+    CTT_DURATION, DYN_SELF_REF_CONTROL, CA_TRAINING_TIMING_CNTL1,
+    CA_TRAINING_TIMING_CNTL2, EMEM_ARB_CFG, EMEM_ARB_OUTSTANDING_REQ,
+    EMEM_ARB_TIMING_RCD, EMEM_ARB_TIMING_RP, EMEM_ARB_TIMING_RC,
+    EMEM_ARB_TIMING_RAS, EMEM_ARB_TIMING_FAW, EMEM_ARB_TIMING_RRD,
+    EMEM_ARB_TIMING_RAP2PRE, EMEM_ARB_TIMING_WAP2PRE, EMEM_ARB_TIMING_R2R,
+    EMEM_ARB_TIMING_W2W, EMEM_ARB_TIMING_R2W, EMEM_ARB_TIMING_W2R,
+    EMEM_ARB_DA_TURNS, EMEM_ARB_DA_COVERS, EMEM_ARB_MISC0,
+    EMEM_ARB_RING1_THROTTLE
+- nvidia, emc-trimmers-num : number of trimmer registers
+- nvidia, emc-trimmer-0 : a word array of trimmer channel 0 settings
+- nvidia, emc-trimmer-1 : a word array of trimmer channel 1 settings
+  The order and contents of the registers are:
+    CDB_CNTL_1, FBIO_CFG6, QUSE, INPUT, EINPUT_DURATION, DLL_XFORM_DQS0,
+    QSAFE, DLL_XFORM_QUSE0, RDV, XM2DQSPADCTRL4, XM2DQSPADCTRL3, DLL_XFORM_DQ0
+    AUTO_CAL_CONFIG, DLL_XFORM_ADDR0, XM2CLKPADCTRL2, DLI_TRIM_TXDQS0,
+    DLL_XFORM_ADDR1, DLL_XFORM_ADDR2, DLL_XFORM_DQS1, DLL_XFORM_DQS2,
+    DLL_XFORM_DQS3, DLL_XFORM_DQ1, DLL_XFORM_DQ2, DLL_XFORM_DQ3,
+    DLI_TRIM_TXDQS1, DLI_TRIM_TXDQS2, DLI_TRIM_TXDQS3, DLL_XFORM_QUSE1,
+    DLL_XFORM_QUSE2, DLL_XFORM_QUSE3
+
+- nvidia, burst-up-down-regs-num : Number of burst up/down registers
+- nvidia, burst-up-down-regs : a word array of burst register values
+  The order and contents of the registers are:
+    PTSA_GRANT_DECREMENT, LATENCY_ALLOWANCE_G2_0, LATENCY_ALLOWANCE_G2_1,
+    LATENCY_ALLOWANCE_NV_0, LATENCY_ALLOWANCE_NV2_0, LATENCY_ALLOWANCE_NV_2,
+    LATENCY_ALLOWANCE_NV_1, LATENCY_ALLOWANCE_NV2_1, LATENCY_ALLOWANCE_NV3,
+    LATENCY_ALLOWANCE_EPP_0, LATENCY_ALLOWANCE_EPP_1
+
+- nvidia,emc-zcal-cnt-long : EMC_ZCAL_WAIT_CNT after clock change
+- nvidia,emc-acal-interval : EMC_AUTO_CAL_INTERVAL
+- nvidia,emc-mode-cfg : Mode config register
+- nvidia,emc-mode-reset : Mode Register 0
+- nvidia,emc-mode-1 : Mode Register 1
+- nvidia,emc-mode-2 : Mode Register 2
+- nvidia,emc-mode-4 : Mode Register 4
+
+optional properties:
+- nvidia,emc-clock-latency-change : latency information
+
+		emc-table@166000 {
+			reg = <166000>;
+			compatible = "nvidia,tegra11-emc-table";
+			clock-frequency = < 166000 >;
+			nvidia,revision = <0>;
+			nvidia,source = "pll_m";
+			nvidia,emc-registers = < 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+						 0 0 0 0 0 0 0 0 0 0 0 0>;
+			nvidia,emc-zcal-cnt-long = <0>;
+			nvidia,emc-acal-interval = <0>;
+			nvidia,emc-mode-reset = <0>;
+			nvidia,emc-mode-1 = <0>;
+			nvidia,emc-mode-2 = <0>;
+			nvidia,emc-mode-4 = <0>;
+			nvidia,emc-min-mv = <0>;
+		};
+
+Tables for Tegra124:
+
+Properties:
+- name : Should be emc-table
+- compatible : Should contain "nvidia,tegra12-emc-table".
+- reg : either an opaque enumerator to tell different tables apart, or
+  the valid frequency for which the table should be used (in kHz).
+- nvidia,revision : SDRAM revision.
+- nvidia,dvfs-version : DVFS table versionl.
+- clock-frequency : the clock frequency for the EMC at which this
+  table should be used (in kHz).
+- nvidia,emc-min-mv : Minimum voltage
+- nvidia,source : Source name.
+- nvidia,src-sel-reg : Source register settings.
+- nvidia, burst-regs-num : Number of emc-registers.
+- nvidia,burst-up-down-regs-num : Number of up_down_regs.
+- nvidia,emc-registers : a word array of EMC registers to be programmed.
+  for operation at the 'clock-frequency' setting.
+  The order and contents of the registers are:
+    RC, RFC, RFC_SLR, RAS, RP, R2W, W2R, R2P, W2P, RD_RCD, WR_RCD,
+    RRD, REXT, WEXT, WDV, WDV_MASK, QUSE, QUSE_WIDTH, IBDLY, EINPUT,
+    EINPUT_DURATION, PUTERM_EXTRA, PUTERM_WIDTH, PUTERM_ADJ, CDB_CNTL_1,
+    CDB_CNTL_2, CDB_CNTL_3, QRST, QSAFE, RDV, RDV_MASK, REFRESH,
+    BURST_REFRESH_NUM, PRE_REFRESH_REQ_CNT, PDEX2WR, PDEX2RD, PCHG2PDEN,
+    ACT2PDEN, AR2PDEN, RW2PDEN, TXSR, TXSRDLL, TCKE, TCKESR, TPD, TFAW,
+    TRPAB, TCLKSTABLE, TCLKSTOP, TREFBW, FBIO_CFG6, ODT_WRITE, ODT_READ,
+    FBIO_CFG5, CFG_DIG_DLL, CFG_DIG_DLL_PERIOD, DLL_XFORM_DQS0,
+    DLL_XFORM_DQS1, DLL_XFORM_DQS2, DLL_XFORM_DQS3, DLL_XFORM_DQS4,
+    DLL_XFORM_DQS5, DLL_XFORM_DQS6, DLL_XFORM_DQS7, DLL_XFORM_DQS8,
+    DLL_XFORM_DQS9, DLL_XFORM_DQS10, DLL_XFORM_DQS11, DLL_XFORM_DQS12,
+    DLL_XFORM_DQS13, DLL_XFORM_DQS14, DLL_XFORM_DQS15, DLL_XFORM_QUSE0,
+    DLL_XFORM_QUSE1, DLL_XFORM_QUSE2, DLL_XFORM_QUSE3, DLL_XFORM_QUSE4,
+    DLL_XFORM_QUSE5, DLL_XFORM_QUSE6, DLL_XFORM_QUSE7, DLL_XFORM_ADDR0,
+    DLL_XFORM_ADDR1, DLL_XFORM_ADDR2, DLL_XFORM_ADDR3, DLL_XFORM_ADDR4,
+    DLL_XFORM_ADDR5, DLL_XFORM_QUSE8, DLL_XFORM_QUSE9, DLL_XFORM_QUSE10,
+    DLL_XFORM_QUSE11, DLL_XFORM_QUSE12, DLL_XFORM_QUSE13, DLL_XFORM_QUSE14,
+    DLL_XFORM_QUSE15, DLI_TRIM_TXDQS0, DLI_TRIM_TXDQS1, DLI_TRIM_TXDQS2,
+    DLI_TRIM_TXDQS3, DLI_TRIM_TXDQS4, DLI_TRIM_TXDQS5, DLI_TRIM_TXDQS6,
+    DLI_TRIM_TXDQS7, DLI_TRIM_TXDQS8, DLI_TRIM_TXDQS9, DLI_TRIM_TXDQS10,
+    DLI_TRIM_TXDQS11, DLI_TRIM_TXDQS12, DLI_TRIM_TXDQS13, DLI_TRIM_TXDQS14,
+    DLI_TRIM_TXDQS15, DLL_XFORM_DQ0, DLL_XFORM_DQ1, DLL_XFORM_DQ2,
+    DLL_XFORM_DQ3, DLL_XFORM_DQ4, DLL_XFORM_DQ5, DLL_XFORM_DQ6,
+    DLL_XFORM_DQ7, XM2CMDPADCTRL, XM2CMDPADCTRL4, XM2CMDPADCTRL5,
+    XM2DQSPADCTRL2, XM2DQPADCTRL2, XM2DQPADCTRL3, XM2CLKPADCTRL,
+    XM2CLKPADCTRL2, XM2COMPPADCTRL, XM2VTTGENPADCTRL, XM2VTTGENPADCTRL2,
+    XM2VTTGENPADCTRL3, XM2DQSPADCTRL3, XM2DQSPADCTRL4, XM2DQSPADCTRL5,
+    XM2DQSPADCTRL6, DSR_VTTGEN_DRV, TXDSRVTTGEN, FBIO_SPARE, ZCAL_INTERVAL,
+    ZCAL_WAIT_CNT, MRS_WAIT_CNT, MRS_WAIT_CNT2, AUTO_CAL_CONFIG2,
+    AUTO_CAL_CONFIG3, AUTO_CAL_CONFIG, CTT, CTT_DURATION, CFG_PIPE,
+    DYN_SELF_REF_CONTROL, QPOP, EMEM_ARB_CFG, EMEM_ARB_OUTSTANDING_REQ,
+    EMEM_ARB_TIMING_RCD, EMEM_ARB_TIMING_RP, EMEM_ARB_TIMING_RC,
+    EMEM_ARB_TIMING_RAS, EMEM_ARB_TIMING_FAW, EMEM_ARB_TIMING_RRD,
+    EMEM_ARB_TIMING_RAP2PRE, EMEM_ARB_TIMING_WAP2PRE, EMEM_ARB_TIMING_R2R,
+    EMEM_ARB_TIMING_W2W, EMEM_ARB_TIMING_R2W, EMEM_ARB_TIMING_W2R,
+    EMEM_ARB_DA_TURNS, EMEM_ARB_DA_COVERS, EMEM_ARB_MISC0,
+    EMEM_ARB_RING1_THROTTLE
+
+- nvidia, burst-up-down-regs : a word array of burst register values
+  The order and contents of the registers are:
+    MLL_MPCORER_PTSA_RATE, PTSA_GRANT_DECREMENT, LATENCY_ALLOWANCE_XUSB_0,
+    LATENCY_ALLOWANCE_XUSB_1, LATENCY_ALLOWANCE_TSEC_0,
+    LATENCY_ALLOWANCE_SDMMCA_0,LATENCY_ALLOWANCE_SDMMCAA_0,
+    LATENCY_ALLOWANCE_SDMMC_0, LATENCY_ALLOWANCE_SDMMCAB_0,
+    LATENCY_ALLOWANCE_PPCS_0, LATENCY_ALLOWANCE_PPCS_1,
+    LATENCY_ALLOWANCE_MPCORE_0, LATENCY_ALLOWANCE_MPCORELP_0,
+    LATENCY_ALLOWANCE_HC_0, LATENCY_ALLOWANCE_HC_1,
+    LATENCY_ALLOWANCE_AVPC_0, LATENCY_ALLOWANCE_GPU_0,
+    LATENCY_ALLOWANCE_MSENC_0, LATENCY_ALLOWANCE_HDA_0,
+    LATENCY_ALLOWANCE_VIC_0, LATENCY_ALLOWANCE_VI2_0,
+    LATENCY_ALLOWANCE_ISP2_0, LATENCY_ALLOWANCE_ISP2_1,
+    LATENCY_ALLOWANCE_ISP2B_0, LATENCY_ALLOWANCE_ISP2B_1,
+    LATENCY_ALLOWANCE_VDE_0, LATENCY_ALLOWANCE_VDE_1,
+    LATENCY_ALLOWANCE_VDE_2, LATENCY_ALLOWANCE_VDE_3,
+    LATENCY_ALLOWANCE_SATA_0, LATENCY_ALLOWANCE_AFI_0
+
+- nvidia,emc-zcal-cnt-long : EMC_ZCAL_WAIT_CNT after clock change
+- nvidia,emc-acal-interval : EMC_AUTO_CAL_INTERVAL
+- nvidia,emc-ctt-term_ctrl : Configure CTT termination output drive strength
+- nvidia,emc-cfg : Configuration Register
+- nvidia,emc-cfg-2 : EMC Configuration 2
+- nvidia,emc-sel-dpd-ctrl : Configures functional SEL_DPD modes
+- nvidia,emc-cfg-dig-dll : Configure Digital DLL.
+- nvidia,emc-mode-0 : Mode Register 0
+- nvidia,emc-mode-1 : Mode Register 1
+- nvidia,emc-mode-2 : Mode Register 2
+- nvidia,emc-mode-4 : Mode Register 4
+
+optional properties:
+- nvidia,gk20a-min-mv : gpu min voltage
+
+	emc-table@40800 {
+		compatible = "nvidia,tegra12-emc-table";
+		nvidia,revision = <0>;
+		nvidia,dvfs-version = "04_40800_0_V5.0.1_V0.3";
+		clock-frequency = <40800>;
+		nvidia,emc-min-mv = <0>;
+		nvidia,gk20a-min-mv = <800>;
+		nvidia,source = "pllp_out0";
+		nvidia,src-sel-reg = <0>;
+		nvidia,burst-regs-num = <167>;
+		nvidia,burst-up-down-regs-num = <31>;
+		nvidia,emc-registers = < 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0>;
+		nvidia,emc-burst-up-down-regs = <
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			0 0 0>;
+		nvidia,emc-zcal-cnt-long = <0>;
+		nvidia,emc-acal-interval = <0>;
+		nvidia,emc-ctt-term_ctrl = <0>;
+		nvidia,emc-cfg = <0>;
+		nvidia,emc-cfg-2 = <0>;
+		nvidia,emc-sel-dpd-ctrl = <0>;
+		nvidia,emc-cfg-dig-dll = <0>;
+		nvidia,emc-mode-0 = <0>;
+		nvidia,emc-mode-1 = <0>;
+		nvidia,emc-mode-2 = <0>;
+		nvidia,emc-mode-4 = <0>;
+	};

@@ -1,0 +1,12 @@
+#
+# PCIE Host Controller Drivers
+#
+comment "PCIE Host Controller Drivers"
+
+config PCI_TEGRA
+        bool "NVIDIA Tegra PCIe controller"
+        select PCI
+        select TEGRA_USB_SHARED_PAD
+        depends on ARCH_TEGRA_HAS_PCIE
+        help
+          Adds PCIe Host controller driver for tegra based systems

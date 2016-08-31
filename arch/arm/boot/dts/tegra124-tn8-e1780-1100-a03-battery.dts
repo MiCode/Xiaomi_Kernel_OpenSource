@@ -1,0 +1,17 @@
+#include "tegra124-tn8-e1780-1100-a03.dts"
+#include "tegra124-platforms/tegra124-tn8-sysedp-e1780-1100-a02.dtsi"
+
+/ {
+	i2c@7000c000 {
+		max17048@36 {
+			status = "okay";
+		};
+
+		bq2419x@6b {
+			charger {
+				status = "okay";
+			};
+		};
+	};
+};
+

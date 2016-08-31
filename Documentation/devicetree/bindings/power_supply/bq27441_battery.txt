@@ -1,0 +1,29 @@
+bq27441 battery
+~~~~~~~~~~~~~~~~
+
+Required properties :
+ - compatible : Should contain "ti,bq27441".
+ - ti,tz-name : Thermal zone name.
+Optional properties :
+ - ti,design-capacity : The designed battery capacity used for
+   gauge's predictions. in mAh.
+ - ti,design-energy : The designed battery energy. in mWh.
+ - ti,taper-rate : The current threshold below which your charger
+   IC is set to stop charging once it considers the battery to be
+   full. in mA.
+ - ti,terminate-voltage : Should be set to the minimum operating
+   voltage of your system. This is the target where the gauge
+   typically reports 0% capacity. in mV.
+ - ti,v-at-chg-term : Voltage at charge termination. in mV.
+
+Example:
+
+	bq27441@55 {
+		compatible = "ti,bq27441";
+		ti,design-capacity = <7800>;
+		ti,design-energy = <28314>;
+		ti,taper-rate = <167>;
+		ti,terminate-voltage = <3150>;
+		ti,v-at-chg-term = <4200>;
+		ti,tz-name = "battery-temp";
+	};

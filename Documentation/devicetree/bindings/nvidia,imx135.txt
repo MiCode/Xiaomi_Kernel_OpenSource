@@ -1,0 +1,29 @@
+NVIDIA Camera sensor imx135 driver interface.
+
+Required properties:
+- compatible : The driver is compatible with
+	"nvidia,imx135".
+
+- cam1_gpios : Camera GPIO.
+
+- reset_gpios : Reset GPIO.
+
+- af_gpios : AF1 GPIO.
+
+- reg: Should contain I2C slave address of the driver.
+
+- nvidia,ext_reg : For few platforms this driver needs extra power regulators
+to be enabled. This bool property indicates the same. It must be programmed
+only when imx135 driver needs extra power rails for particular platform.
+
+Example:
+
+	imx135@10 {
+		compatible = "nvidia,imx135";
+		cam1-gpios = <&gpio 221 0>; /* gpio PBB5 */
+		reset-gpios = <&gpio 219 0>; /* gpio PBB3 */
+		af-gpios = <&gpio 225 0>; /* gpio PCC1 */
+		nvidia,ext_reg; /* Extra power-regulators needed */
+		reg = <0x10>;
+		status = "okay";
+	};

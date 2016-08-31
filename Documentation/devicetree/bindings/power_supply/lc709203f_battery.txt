@@ -1,0 +1,44 @@
+lc709203f battery
+~~~~~~~~~~~~~~~~
+
+Required properties :
+ - compatible : Should contain "onsemi,lc709203f".
+ - onsemi,initial-rsoc : INITIAL_RSOC register value to be written
+
+Optional properties:
+ - onsemi,tz-name : Thermal zone name.
+ - onsemi,thermistor-beta : THERMISTOR_B register value to be written
+ - onsemi,appli-adjustment: adjustment appli of parameter.
+ - onsemi,thermistor-adjustment: adjustment thermistor pack.
+ - onsemi,kernel-threshold-soc: Minimum SoC for kernel read from device.
+	Bootloader jumps to kernel when SoC is more than this value.
+	Driver make this SoC as 0% before reporting it to teh framework.
+ - onsemi,kernel-maximum-soc: Maximum SoC for kernel read from device.
+	Kernel read maximum SoC from device for given battery. Kernel
+	translate the SoC to 100% before reporting to framework if it
+	reads equal/more than this value.
+
+Note: The device has capabilty to read battery temp through thermistor.
+This also calulate SoC based on temperature of battery. If thermistor
+is not connected to this device on a given platform then the temp can be
+written on the the device register to consider the battery temperature
+on SoC calculation.
+
+If battery thermistor is connected to the device's Tsense pin then following
+properties are required:
+	onsemi,thermistor-beta
+
+if battery thermistor isnot connected to device and temperature is read from
+other source then following properties are required:
+	onsemi,tz-name
+
+Example:
+
+	lc709203f@0b {
+		compatible = "onsemi,lc709203f";
+		onsemi,tz-name = "battery-temp";
+		onsemi,thermistor-beta = 0x0d34;
+		onsemi,initial-rsoc = 0xAA55;
+		onsemi,kernel-threshold-soc = <5>;
+		onsemi,kernel-maximum-soc = <99>;
+	};

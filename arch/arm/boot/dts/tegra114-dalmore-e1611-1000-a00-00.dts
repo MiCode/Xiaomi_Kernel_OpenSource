@@ -1,0 +1,20 @@
+/dts-v1/;
+
+#include <tegra114-platforms/tegra114-dalmore-io-e1611.dtsi>
+#include <tegra114-platforms/tegar114-dalmore-e1611-gpio-default.dtsi>
+#include <tegra114-platforms/tegar114-dalmore-e1611-pinmux.dtsi>
+
+/ {
+	model = "NVIDIA Tegra114 dalmore evaluation board";
+	compatible = "nvidia,dalmore", "nvidia,tegra114";
+	nvidia,dtsfilename = __FILE__;
+
+	pinmux {
+		status = "okay";
+		default {
+			gmi_iordy_pi5 {
+				nvidia,pull = <TEGRA_PIN_PUPD_NORMAL>;
+			};
+		};
+	};
+};

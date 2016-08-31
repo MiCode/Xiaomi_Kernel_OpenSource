@@ -1,0 +1,36 @@
+
+	 DMA API trace BASIC USAGE
+	===========================
+
+
+Enable CONFIG_DMA_API_DEBUG
+----------------------------
+$TOP/kernel/scripts/config \
+	--file $OUT/obj/KERNEL/.config \
+	-e DMA_API_DEBUG
+make -C$TOP/kernel ARCH=arm O=$OUT/obj/KERNEL oldconfig
+grep DMA_API_DEBUG $OUT/obj/KERNEL/.config
+
+
+
+Via debugfs
+-----------
+adb shell cat /d/dma-api/dump_{mappings,allocs,allocs_detail}
+
+
+Via Ftrace
+----------
+# All ftraces from boot, add "trace_event=dmadebug:*" to kernel command line
+sed -i '/strlcpy(cmd_line, boot_command_line, /i \
+    \tstrcat(boot_command_line, " trace_event=dmadebug:*");' \
+    $TOP/kernel/arch/arm/kernel/setup.c
+
+Or
+
+adb shell "echo 'dmadebug:*' >> /d/tracing/set_event"
+
+adb shell <your_test_here>
+adb shell "echo '\!dmadebug:*' >> /d/tracing/set_event"
+adb pull /d/tracing/trace
+
+python $TOP/kernel/scripts/tracing/dma-api/trace.py trace

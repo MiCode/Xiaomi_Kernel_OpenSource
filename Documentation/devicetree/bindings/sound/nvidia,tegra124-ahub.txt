@@ -1,0 +1,38 @@
+NVIDIA Tegra124 AHUB (Audio Hub)
+
+Required properties:
+- compatible : "nvidia,tegra124-ahub"
+- reg : Should contain the register physical address and length for each of
+  the AHUB's APBIF registers, the AHUB's own registers and the AHUB's APBIF2
+  registers.
+- interrupts : Should contain AHUB interrupt
+- nvidia,dma-request-selector : The Tegra DMA controller's phandle and
+  request selector for each APBIF channels. Should have 10 of apbdma phandles.
+- ranges : The bus address mapping for the configlink register bus.
+  Can be empty since the mapping is 1:1.
+- #address-cells : For the configlink bus. Should be <1>;
+- #size-cells : For the configlink bus. Should be <1>.
+
+I2S, DAM and SPDIF in AHUB client modules need to specify the IDs of their
+CIFs (Client InterFaces).
+For RX CIFs, the numbers indicate the register number within AHUB routing
+register space (APBIF 0..3 RX, I2S 0..5 RX, DAM 0..2 RX 0..1, SPDIF RX 0..1).
+For TX CIFs, the numbers indicate the bit position within the AHUB routing
+registers (APBIF 0..3 TX, I2S 0..5 TX, DAM 0..2 TX, SPDIF TX 0..1)
+
+Example:
+
+ahub@70300000 {
+	compatible = "nvidia,tegra124-ahub";
+	reg = <0x70300000 0x200>,
+			<0x70300800 0x800>,
+			<0x70300200 0x200>;
+	interrupts = < 0 103 0x04 >;
+	nvidia,dma-request-selector = <&apbdma 1>, <&apbdma 2>,
+		<&apbdma 3>, <&apbdma 4>, <&apbdma 6>, <&apbdma 7>,
+		<&apbdma 12>, <&apbdma 13>, <&apbdma 14>, <&apbdma 29>;
+
+	ranges;
+	#address-cells = <1>;
+	#size-cells = <1>;
+};

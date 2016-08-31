@@ -1,0 +1,17 @@
+config NVSHM
+	bool "NV Tegra Baseband Shared Memory Interface"
+	depends on ARCH_TEGRA
+	depends on TEGRA_BASEBAND
+	depends on SUNRPC
+	help
+	    Say Y here to enable support for high level shared memory interface
+	    driver on NVIDIA Tegra integrated baseband
+
+config NVSHM_RPC_RSM
+	bool "RPC mechanism for the resource manager"
+	default y
+	depends on NVSHM
+	depends on TEGRA_BBC_PROXY
+	help
+	    This provides the support for RSM (resource management) via the
+	    shared memory interface's RPC (remote procedure call) channel.

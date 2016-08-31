@@ -1,0 +1,20 @@
+#include "tegra124-tn8-e1780-1100-a03-01.dts"
+#include "tegra124-platforms/tegra124-tn8-sysedp-e1780-1100-a02.dtsi"
+
+/ {
+	i2c@7000c000 {
+		status = "okay";
+		clock-frequency = <400000>;
+
+		cw201x@62 {
+			status = "okay";
+		};
+
+		bq2419x: bq2419x@6b {
+			charger {
+				status = "okay";
+			};
+		};
+	};
+};
+

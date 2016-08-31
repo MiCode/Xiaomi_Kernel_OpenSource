@@ -1,0 +1,12 @@
+NVIDIA Tegra124 ADX controller
+
+Required properties:
+- compatible : "nvidia,tegra124-adx"
+- reg : Should contain ADX registers location and length
+
+Example:
+
+amx@70303800 {
+	compatible = "nvidia,tegra124-adx";
+	reg = <0x70303800 0x100>;
+};

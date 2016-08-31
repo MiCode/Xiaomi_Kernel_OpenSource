@@ -1,0 +1,180 @@
+Theory of Operations
+====================
+
+There are three separate drivers within the V4L2 framework that are interesting
+to Tegra-based platforms.  They are as follows:
+
+Image Sensor driver
+===================
+This driver communicates only with the image sensor hardware (typically via
+I2C transactions), and is intentionally PLATFORM-AGNOSTIC.  Existing image
+sensor drivers can be found in drivers/media/video.  For example, the ov9740
+driver communicates with the Omnivision OV9740 image sensor with built-in ISP.
+
+Some of the things that this driver is responsible for are:
+
+Setting up the proper output format of the image sensor,
+
+Setting up image output extents
+
+Setting up capture and crop regions
+
+Camera Host driver
+==================
+This driver communicates only with the camera controller on a given platform,
+and is intentionally IMAGE-SENSOR-AGNOSTIC.  Existing camera host drivers
+can be found in drivers/media/video, of which tegra_v4l2_camera.c is the
+example that is interesting to us.  This camera host driver knows how to
+program the CSI/VI block on Tegra2 and Tegra3 platforms.
+
+Some of the things that this driver is responsible for are:
+
+Setting up the proper input format (image frame data flowing from the image
+sensor to the camera host),
+
+Setting up the proper output format (image frame data flowing from the
+camera host to system memory),
+
+Programming the DMA destination to receive the image frame data,
+
+Starting and stopping the reception of image frame data.
+
+Videobuf driver
+===============
+This driver is responsible for the allocation and deallocation of buffers that
+are used to hold image frame data.  Different camera hosts have different
+DMA requirements, which makes it necessary to allow for different methods of
+buffer allocation.  For example, the Tegra2 and Tegra3 camera host cannot
+DMA via a scatter-gather list, so the image frame buffers must be physically
+contiguous.  The videobuf-dma-contig.c videobuf driver can be found in
+drivers/media/video, and contains a videobuf implementation that allocates
+physically contiguous regions.  One can also have a videobuf driver that
+uses a different allocator like nvmap.
+
+The nvhost driver and Syncpts
+=============================
+
+The camera host driver (tegra_v4l2_camera) has a dependency on the nvhost
+driver/subsystem in order to make use of syncpts.  In other words, the camera
+host driver is a client of nvhost.
+
+A syncpt is essentially an incrementing hardware counter that triggers an
+interrupt when a certain number (or threshold) is reached.  The interrupt,
+however, is hidden from clients of nvhost.  Instead, asynchronous completion
+notification is done via calling an nvhost  routine that goes to sleep, and
+wakes up upon completion.
+
+Tegra has a number of syncpts that serve various purposes.  The two syncpts
+that are used by the camera host driver are the VI and CSI syncpts.  Other
+syncpts are used in display, etc.
+
+A syncpt increments when a certain hardware condition is met.
+
+The public operations available for a syncpt are:
+
+nvhost_syncpt_read_ext(syncpt_id) - Read the current syncpt counter value.
+nvhost_syncpt_wait_timeout_ext(syncpt_id, threshold, timeout) - Go to sleep
+    until the syncpt value reaches the threshold, or until the timeout
+    expires.
+nvhost_syncpt_cpu_incr_ext(syncpt_id) - Manually increment a syncpt.
+
+Syncpts are used in the camera host driver in order to signify the completion
+of an operation.  The typical usage case can be illustrated by summarizing
+the steps that the camera host driver takes in capturing a single frame
+(this is called one-shot mode, where we program up each frame transfer
+separately):
+
+0) At the very start, read the current syncpt values and remember them.  See
+   tegra_camera_activate() -> tegra_camera_save_syncpts(), where we read
+   the current values and store them in pcdev->syncpt_csi and pcdev->syncpt_vi.
+
+1) Program the camera host registers to prepare to receive frames from the
+   image sensor using the proper input format.  Note that we are at this
+   point NOT telling the camera host to DMA a frame.  That comes later.  See
+   tegra_camera_capture_setup(), where we do a whole bunch of magical
+   register writes depending on our input format, output format, image extents,
+   etc.
+
+2) Increment our remembered copies of the current syncpt values according to
+   how many syncpt increments we are expecting for the given operation we
+   want to perform.  For capturing a single frame, we are expecting a single
+   increment on the CSI syncpt when the reception of the frame is complete, and
+   a single increment on the VI syncpt when the DMA of the frame is complete.
+   See tegra_camera_capture_start(), where we increment pcdev->syncpt_csi
+   and pcdev->syncpt_vi.
+
+3) Program the DMA destination registers, and toggle the bit in
+   TEGRA_CSI_PIXEL_STREAM_PPA_COMMAND to do the DMA on the next available
+   frame.  See tegra_camera_capture_start() for this.
+
+4) Call nvhost_syncpt_wait_timeout_ext() to wait on the CSI syncpt threshold.
+   Remember that we incremented our local syncpt values in step 2.  Those
+   new values become the threshold to wait for.  See
+   tegra_camera_capture_start().
+
+5) When the frame finishes its transfer from the image sensor to the camera
+   host, the CSI syncpt hardware counter will be incremented by hardware.
+   Since the hardware syncpt value will now match the threshold, our call to
+   nvhost_syncpt_wait_timeout_ext() in step 4 wakes up.
+
+6) We now tell the camera host to get ready for the DMA to complete.  We do
+   this by writing again to TEGRA_CSI_PIXEL_STREAM_PPA_COMMAND.  See
+   tegra_camera_capture_stop().
+
+7) When the camera host finishes its DMA, we expect the hardware to increment
+   the VI syncpt.  Therefore, we call nvhost_syncpt_wait_timeout_ext() on
+   the VI syncpt with our new threshold that we got by the incrementing in
+   step 2.  See tegra_camera_capture_stop().
+
+8) When the camera host finally finishes its DMA, the VI syncpt hardware
+   counter increments.  Since our VI syncpt threshold is met, the call to
+   nvhost_syncpt_wait_timeout_ext() wakes up, and we are done.  See
+   tegra_camera_capture_stop().
+
+9) To capture the next frame, go back to step 2.  The tegra_v4l2_camera driver
+   calls tegra_camera_capture_setup at the beginning, and then a worker thread
+   repeatedly calls tegra_camera_capture_start() and
+   tegra_camera_capture_stop().  See tegra_camera_work() ->
+   tegra_camera_capture_frame().
+
+Note for VIP: Only a single syncpt is used for the VIP path.  We use the
+continuous VIP VSYNC syncpt to determine the completion of a frame transfer.
+In addition, to start and finish the capture of a frame, the
+VI_CAMERA_CONTROL register is used.  See tegra_camera_capture_start() and
+tegra_camera_capture_stop() to see how that register is used for the VIP path.
+Essentially, steps 4, 5, and 6 are eliminated, and instead of writing to
+TEGRA_CSI_PIXEL_STREAM_PPA_COMMAND or TEGRA_CSI_PIXEL_STREAM_PPB_COMMAND,
+we write to VI_CAMERA_CONTROL to achieve the same purpose for VIP.
+
+VIP versus CSI
+==============
+VI_VI_CORE_CONTROL bits 26:24 (INPUT_TO_CORE_EXT) should be set to 0
+(use INPUT_TO_CORE).
+
+VI_VI_INPUT_CONTROL bit 1 (VIP_INPUT_ENABLE) should be set to 1 (ENABLED),
+bit 26:25 (SYNC_FORMAT) should be set to 1 (ITU656), and bit 27 (FIELD_DETECT)
+should be set to 1 (ENABLED).
+
+VI_H_DOWNSCALE_CONTROL bit 0 (INPUT_H_SIZE_SEL) should be set to 0 (VIP),
+and bits 3:2 (INPUT_H_SIZE_SEL_EXT) should be set to 0 (USE INPUT_H_SIZE_SEL).
+
+Rather than placing the image width and height into VI_CSI_PPA_H_ACTIVE and
+VI_CSI_PPA_V_ACTIVE, respectively (or the CSI B counterparts), use
+VI_VIP_H_ACTIVE and VI_VIP_V_ACTIVE bits 31:16.  Bits 15:0 of VI_VIP_H_ACTIVE
+and VI_VIP_V_ACTIVE are the number of clock cycles to wait after receiving
+HSYNC or VSYNC before starting.  This can be used to adjust the vertical and
+horizontal back porches.
+
+VI_PIN_INPUT_ENABLE should be set to 0x00006fff, which enables input pins
+VHS, VVS, and VD11..VD0.
+
+VI_PIN_INVERSION bits 1 and 2 can be used to invert input pins VHS and VVS,
+respectively.
+
+VI_CONT_SYNCPT_VIP_VSYNC bit 8 (enable VIP_VSYNC) should be set to 1, and
+bits 7:0 should hold the index of the syncpt to be used.  When this syncpt
+is enabled, the syncpt specified by the index will increment by 1 every
+time a VSYNC occurs.  We use this syncpt to signal frame completion.
+
+VI_CAMERA_CONTROL bit 0 should be set to 1 to start capturing.  Writing a 0
+to this bit is ignored, so to stop capturing, write 1 to bit 2.

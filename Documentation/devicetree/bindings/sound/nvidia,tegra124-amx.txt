@@ -1,0 +1,12 @@
+NVIDIA Tegra124 AMX controller
+
+Required properties:
+- compatible : "nvidia,tegra124-amx"
+- reg : Should contain AMX registers location and length
+
+Example:
+
+amx@70303000 {
+	compatible = "nvidia,tegra124-amx";
+	reg = <0x70303000 0x100>;
+};

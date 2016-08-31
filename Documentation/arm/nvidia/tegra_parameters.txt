@@ -1,0 +1,190 @@
+This file documents NVIDIA Tegra specific sysfs and debugfs files and
+kernel module parameters.
+
+/sys/power/suspend/mode
+-----------------------
+
+Used to select the LP1 or LP0 power state during system suspend.
+# echo lp0 > /sys/kernel/debug/suspend_mode
+# echo lp1 > /sys/kernel/debug/suspend_mode
+
+/sys/module/cpuidle/parameters/power_down_in_idle
+------------------------------------------
+
+Used to enable/disable CPU power down in idle.
+# echo 1 > /sys/module/cpuidle/parameters/power_down_in_idle
+# echo 0 > /sys/module/cpuidle/parameters/power_down_in_idle
+
+/sys/kernel/debug/cpuidle/power_down_stats
+-----------------------------
+
+Contains CPU power down statistics.
+# cat /sys/kernel/debug/cpuidle/power_down_stats
+
+/sys/kernel/debug/powergate
+---------------------------
+
+Contains power gating state of different tegra blocks.
+
+# cat /sys/kernel/debug/powergate
+
+/sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/enable
+------------------------------------------------------
+
+Control hotplugging of cores.
+# echo 0 > /sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/enable
+# echo 1 > /sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/enable
+
+Cpuquiet supports the implementation of multiple policies in the form of
+governors. The balanced governor implements the exact same policy previously
+implemented as "auto hotplug". The behavior with regards to cores coming
+online/offline and switching between the LP and G cluster remain the same.
+
+/sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/no_lp
+-----------------------------------------------------
+
+Enable/disable shadow cluster.
+# echo 0 > /sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/no_lp
+# echo 1 > /sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/no_lp
+
+/sys/devices/system/cpu/cpuquiet/available_governors
+----------------------------------------------------
+
+List available governors.
+# cat /sys/devices/system/cpu/cpuquiet/available_governors
+
+/sys/devices/system/cpu/cpuquiet/current_governor
+-------------------------------------------------
+
+Set the current active cpuquiet governor.
+# echo [governor name] > /sys/devices/system/cpu/cpuquiet/current_governor
+
+/sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/idle_bottom_freq
+----------------------------------------------------------------
+
+Main cluster minimum frequency.
+
+/sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/idle_top_freq
+-------------------------------------------------------------
+
+Shadow cluster maximum frequency.
+
+/sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/down_delay
+----------------------------------------------------------
+
+Delay (in jiffies) for switching to shadow cluster.
+
+/sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/up_delay
+--------------------------------------------------------
+
+Delay for switching to main cluster.
+
+/sys/devices/system/cpu/cpuquiet/balanced/balance_level
+-------------------------------------------------------
+
+Percentage of max speed considered to be in balance. Half of balanced
+speed is considered skewed. Requires balanced governor to be set active.
+
+/sys/devices/system/cpu/cpuquiet/balanced/down_delay
+----------------------------------------------------
+
+Delay for reducing cores. Requires balanced governor to be set active.
+
+/sys/devices/system/cpu/cpuquiet/balanced/up_delay
+--------------------------------------------------
+
+Delay for bringing additional cores online in main cluster. Requires
+balanced governor to be set active.
+
+/sys/kernel/debug/tegra_hotplug/stats
+-------------------------------------
+
+Contains hotplug statistics.
+
+/sys/kernel/cluster/active
+--------------------------
+
+Controls active CPU cluster: main (G) or shadow (LP).
+For manual control disable auto hotlug, enable immediate switch and
+possibly force switch to happen always:
+# echo 0 > /sys/devices/system/cpu/cpuquiet/tegra_cpuquiet/enable
+# echo 1 > /sys/kernel/cluster/immediate
+# echo 1 > /sys/kernel/cluster/force
+
+Cluster switching can happen only when only core 0 is online.
+
+Active cluster can be set or toggled:
+# echo "G" > /sys/kernel/cluster/active
+# echo "LP" > /sys/kernel/cluster/active
+# echo "toggle" > /sys/kernel/cluster/active
+
+/sys/module/tegra*_clocks/parameters/detach_shared_bus
+------------------------------------------------------
+
+Enable/disable shared bus clock update. Module name depends on Tegra
+chip version.
+
+/sys/module/tegra*_emc/parameters/emc_enable
+--------------------------------------------
+
+Enable/disable EMC DFS. Module name depends on Tegra chip version.
+
+/sys/kernel/debug/tegra_emc/stats
+---------------------------------
+
+Contains EMC clock statistics.
+
+/sys/module/tegra*_dvfs/parameters/disable_cpu
+----------------------------------------------
+
+Enable/disable DVFS for CPU domain. Module name depends on Tegra chip
+version.
+
+/sys/module/tegra*_dvfs/parameters/disable_core
+-----------------------------------------------
+
+Enable/disable DVFS for CORE domain. Module name depends on Tegra chip
+version.
+
+/sys/kernel/debug/clock/emc/rate
+--------------------------------
+
+Get/set EMC clock rate.
+
+/sys/kernel/debug/clock/<module>/rate
+-------------------------------------
+
+/sys/kernel/debug/clock/<module>/parent
+---------------------------------------
+
+/sys/kernel/debug/clock/<module>/state
+--------------------------------------
+
+/sys/kernel/debug/clock/<module>/time_on
+----------------------------------------
+
+/sys/kernel/debug/clock/clock_tree
+----------------------------------
+
+Shows the state of the clock tree.
+
+/sys/kernel/debug/clock/dvfs
+----------------------------
+
+Contains voltage state.
+
+/sys/kernel/debug/tegra_actmon/avp/state
+----------------------------------------
+
+/sys/kernel/debug/clock/mon.avp/rate
+------------------------------------
+
+/sys/kernel/debug/clock/rails
+-----------------------------
+
+Contains the time at each voltage.
+
+/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state
+--------------------------------------------------------
+
+Contains the time at each frequency.

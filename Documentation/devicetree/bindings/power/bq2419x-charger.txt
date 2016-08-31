@@ -1,0 +1,90 @@
+* bq2419x charger devicetree bindings
+
+Required properties:
+- compatible : Should be from the list
+  ti,bq2419x
+                          to be drawn by the charger from the power source.
+
+Required nodes:
+- regulators: There must a regulator subnode each for the following purposes:
+              (1) Setting battery charging current.
+              (2) Enabling current supply to vbus (To enable otg mode)
+              Each of these regulator nodes must have atleast one consumer
+              subnode which in turn must have certain mandatory properties
+              supplied. To know about these mandatory properties and more about
+              consumer subnodes, please refer
+              Documentation/devicetree/bindings/regulator/regulator.txt
+
+Additional properties to be added to charger regulator subnode:
+
+Required properties:
+- auto-recharge-time      : Time interval in seconds after which the charging
+                            should be restarted after the charging is complete.
+
+Optional properties:
+- watchdog-timeout        : Watchdog timer expiry timeout value in seconds.
+                            When not specified, watchdog timer functionality
+                            will be disabled.
+- rtc-alarm-time          : Time setting in seconds for the rtc alarm timer
+                            which wakes the board up for charging after shutdown.
+- ti,temp-range: List of temperatures in degC for thermal profiling.
+- ti,charge-current-limit: List of fast charging current limit in mA for
+		thermal profiling.
+	The value is provided as
+	ti,temp-range = <15 60>;
+	ti,charge-current-limit = <2048 5200>;
+
+	This will set chargign current limit to
+		2048 for <= 15 degC and
+		5200 for 16 to 60 degC
+	This will result:
+		< 0 -> Charger disable. (As by HW)
+		0 to 10 -> 1048mA charging current limit (as by 50% HW)
+		11 to 15 -> 2048mA
+		16 to 60 -> 5200 mA
+		> 60 : Charging will be disabled by HW.
+
+Subnode properties:
+==================
+There is two optional subnodes, vbus and charger.
+
+vbus properties:
+================
+ti,otg-iusb-gpio: The GPIO which is connected to OTG/IUSB pin.
+
+
+Example
+bq2419x: bq2419x@6b {
+	compatible = "ti,bq2419x";
+	reg = <0x6b>;
+	ti,charging-term-current-mA = <100>;
+	charger {
+			regulator-name = "batt_regulator";
+			regulator-max-microamp = <3000>;
+			ti,watchdog-timeout = <40>;
+			ti,rtc-alarm-time = <3600>;
+			ti,auto-recharge-time = <1800>;
+			consumers {
+				c1 {
+					regulator-consumer-supply = "usb_bat_chg";
+					regulator-consumer-device = "tegra-udc.0";
+				};
+			};
+	};
+	vbus {
+		regulator-name = "vbus_regulator";
+		consumers {
+			c1 {
+				regulator-consumer-supply = "usb_vbus";
+				regulator-consumer-device = "tegra-ehci.0";
+			};
+
+			c2 {
+				regulator-consumer-supply = "usb_vbus";
+				regulator-consumer-device = "tegra-otg";
+			};
+		};
+	};
+};
+
+

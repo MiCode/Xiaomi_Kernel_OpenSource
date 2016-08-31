@@ -1,0 +1,55 @@
+NVIDIA TEGRA124 High Definition Multimedia Interface
+====================================================
+
+1) The hdmi node:
+ hdmi node must be contained in host1x parent node. This node represents NVIDIA TEGRA124
+ High Definition Multimedia Interface.
+
+ Required properties
+ - name: hdmi
+ - compatible: Should contain "nvidia,tegra124-hdmi".
+ - reg: Physical base address and length of the controller's registers.
+ - interrupts: The interrupt outputs from the controller.
+
+ Optional properties:
+ - nvidia,ddc-i2c-bus: phandle of an I2C controller used for DDC EDID probing
+ - nvidia,hpd-gpio: specifies a GPIO used for hotplug detection
+ - nvidia,edid: supplies a binary EDID blob
+ - nvidia,hotplug-report: With 1, it will have optional hotplug report callback
+   which does only set DDC_SDA and DDC_SCL pull downs to be active when hotplug
+   is detected, otherwise keep them disabled.
+
+ 1.B) NVIDIA HDMI TMDS configurations
+ This must be contained in hdmi parent node. This includes tmds configurations.
+
+ Required properties:
+ - name: Should be "nvidia,out-tmds-cfg"
+
+ - Child nodes represent tmds configurations. Several configurations can be prepared.
+
+ 1.B.i) NVIDIA HDMI TMDS configuration
+ This must be contained in nvidia,out-tmds-cfg parent node. This includes tmds configuration.
+
+ Required properties:
+ - name: Can be arbitrary, but each sibling node should have unique name.
+ - pclk: pixel clk required in tmds table for each mode.
+ - pll0: See HDMI_NV_PDISP_SOR_PLL0_0 in Tegra TRM.
+ - pll1: See HDMI_NV_PDISP_SOR_PLL1_0 in Tegra TRM.
+ - pe-current: Individual lane pre-emphasis current control (4bits per lane)
+   See HDMI_NV_PDISP_PE_CURRENT_0 in Tegra TRM.
+ - drive-current: TMDS per-lane I/O current control.
+   See HDMI_NV_PDISP_SOR_LANE_DRIVE_CURRENT_0 in Tegra TRM.
+ - peak-current: New pad controls for 28nm macro TMDS_X4_HP 8 bits per lane.
+   See HDMI_NV_PDISP_SOR_IO_PEAK_CURRENT_0 in Tegra TRM.
+
+Example
+	host1x {
+		hdmi {
+			compatible = "nvidia,tegra124-hdmi";
+			reg = <0x54280000 0x00040000>;
+			interrupts = <0 75 0x04>;
+			status = "okay";
+			nvidia,ddc-i2c-bus = <&hdmi_ddc>;
+			nvidia,hpd-gpio = <&gpio 111 1>;
+		};
+	};

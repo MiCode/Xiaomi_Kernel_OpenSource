@@ -1,0 +1,172 @@
+#include <dt-bindings/gpio/tegra-gpio.h>
+
+/ {
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vdd_ac_bat_reg: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "vdd_ac_bat";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			regulator-always-on;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vdd_sys_bl";
+				};
+				c2 {
+					regulator-consumer-supply = "vdd_wwan_mdm";
+				};
+			};
+		};
+
+		en_lcd_bl: regulator@1 {
+			compatible = "regulator-fixed-sync";
+			reg = <1>;
+			regulator-name = "en-lcd-bl";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			enable-active-high;
+			gpio = <&gpio TEGRA_GPIO(H, 2) 0>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vdd_lcd_bl_en";
+					regulator-consumer-device = "tegradc.0";
+				};
+			};
+		};
+
+		vddio_sd: regulator@2 {
+			compatible = "regulator-fixed-sync";
+			reg = <2>;
+			regulator-name = "vddio_sd";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio TEGRA_GPIO(R, 0) GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+			vin-supply = <&palmas_smps9>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vddio_sd_slot";
+					regulator-consumer-device = "sdhci-tegra.2";
+				};
+			};
+		};
+
+		vddio_dvdd_lcd: regulator@3 {
+			compatible = "regulator-fixed-sync";
+			reg = <3>;
+			regulator-name = "vddio_dvdd_lcd";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&palmas_gpio 6 0>;
+			enable-active-high;
+			vin-supply = <&palmas_smps8>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "dvdd_lcd";
+					regulator-consumer-device = "tegradc.0";
+				};
+				c2 {
+					regulator-consumer-supply = "vdd_lcd_1v8_s";
+				};
+			};
+		};
+
+		vdd_cam_af: regulator@4 {
+			compatible = "regulator-fixed-sync";
+			reg = <4>;
+			regulator-name = "vdd_cam_af";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&palmas_gpio 4 0>;
+			enable-active-high;
+			vin-supply = <&palmas_smps8>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vif";
+					regulator-consumer-device = "2-0010";
+				};
+				c2 {
+					regulator-consumer-supply = "vif";
+					regulator-consumer-device = "2-0036";
+				};
+				c3 {
+					regulator-consumer-supply = "vif";
+					regulator-consumer-device = "2-0048";
+				};
+				c4 {
+					regulator-consumer-supply = "vddio_cam";
+					regulator-consumer-device = "tegra_camera";
+				};
+				c5 {
+					regulator-consumer-supply = "vddio_cam";
+					regulator-consumer-device = "vi";
+				};
+				c6 {
+					regulator-consumer-supply = "vdd_cam_1v8_mb";
+				};
+				c7 {
+					regulator-consumer-supply = "dovdd";
+					regulator-consumer-device = "2-0010";
+				};
+				c8 {
+					regulator-consumer-supply = "vif";
+					regulator-consumer-device = "2-000c";
+				};
+				c9 {
+					regulator-consumer-supply = "vdd_i2c";
+					regulator-consumer-device = "2-000c";
+				};
+				c10 {
+					regulator-consumer-supply = "pwrdet_cam";
+				};
+			};
+		};
+		vdd_hdmi_n5: regulator@5 {
+			compatible = "regulator-fixed-sync";
+			reg = <5>;
+			regulator-name = "vdd-hdmi-n5";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			enable-active-high;
+			gpio = <&gpio TEGRA_GPIO(N, 5) 0>;
+			vin-supply = <&palmas_smps6>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "avdd_hdmi_pll";
+					regulator-consumer-device = "tegradc.1";
+				};
+			};
+		};
+
+		vddio_hdmi_5v0: regulator@6 {
+			compatible = "regulator-fixed-sync";
+			reg = <6>;
+			regulator-name = "vddio_hdmi_5v0";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&gpio TEGRA_GPIO(K, 6) 0>;
+			enable-active-high;
+			vin-supply = <&palmas_smps10_out1>;
+
+			consumers {
+							c1 {
+								regulator-consumer-supply = "vdd_hdmi_5v0";
+								regulator-consumer-device = "tegradc.1";
+							};
+			};
+		};
+
+
+	};
+};

@@ -1,0 +1,117 @@
+/dts-v1/;
+
+#include "tegra124.dtsi"
+#include "tegra124-platforms/tegra124-tn8-keys-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-pm359-gpio-default.dtsi"
+#include "tegra124-platforms/tegra124-pm359-pinmux.dtsi"
+
+/ {
+	model = "NVIDIA Tegra124 Laguna";
+	compatible = "nvidia,laguna", "nvidia,tegra124";
+	nvidia,dtsfilename = __FILE__;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen {
+		bootargs = "tegraid=40.0.0.00.00 vmalloc=256M video=tegrafb console=ttyS0,115200n8 earlyprintk";
+		linux,initrd-start = <0x85000000>;
+		linux,initrd-end = <0x851bc400>;
+	};
+
+	pinmux {
+		pinctrl-names = "default", "drive", "unused", "suspend";
+		pinctrl-3 = <&pinmux_suspend>;
+
+		/* Change the pin dap_mclk1_req to required configurations */
+		unused_lowpower {
+			dap_mclk1_req_pee2 {
+			nvidia,pins = "dap_mclk1_req_pee2";
+			nvidia,function = "sata";
+			nvidia,enable-input = <TEGRA_PIN_OUTPUT>;
+			nvidia,pull = <TEGRA_PIN_PUPD_NORMAL>;
+			nvidia,tristate = <TEGRA_PIN_NORMAL>;
+			};
+		};
+
+		/* On suspend, make dap_mclk1_req to pull up */
+		pinmux_suspend: pins_on_suspend {
+		dap_mclk1_req_pee2 {
+			nvidia,pins = "dap_mclk1_req_pee2";
+			nvidia,pull = <TEGRA_PIN_PUPD_PULL_UP>;
+			};
+		};
+	};
+
+        serial@70006000 {
+                compatible = "nvidia,tegra114-hsuart";
+                status = "okay";
+        };
+
+        serial@70006040 {
+                compatible = "nvidia,tegra114-hsuart";
+                status = "okay";
+        };
+
+        serial@70006200 {
+                compatible = "nvidia,tegra114-hsuart";
+                status = "okay";
+        };
+
+	i2c@7000c000 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000c400 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000c500 {
+		status = "okay";
+		clock-frequency = <400000>;
+	};
+
+	i2c@7000c700 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000d000 {
+		status = "okay";
+		clock-frequency = <400000>;
+		nvidia,bit-banging-xfer-after-shutdown;
+	};
+
+	i2c@7000d100 {
+		status = "okay";
+		clock-frequency = <400000>;
+	};
+
+	memory@0x80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x80000000>;
+	};
+
+	spi@7000d400 {
+		status = "okay";
+		spi-max-frequency = <25000000>;
+	};
+
+	spi@7000da00 {
+		status = "okay";
+		spi-max-frequency = <25000000>;
+	};
+
+	pmc {
+		status = "okay";
+		nvidia,invert-interrupt;
+		nvidia,suspend-mode = <0>;
+		nvidia,cpu-pwr-good-time = <2000>;
+		nvidia,cpu-pwr-off-time = <2000>;
+		nvidia,core-pwr-good-time = <3845 3845>;
+		nvidia,core-pwr-off-time = <2000>;
+		nvidia,core-power-req-active-high;
+		nvidia,sys-clock-req-active-high;
+	};
+};

@@ -1,0 +1,29 @@
+#include <dt-bindings/display/tegra-panel.h>
+
+/ {
+	host1x {
+		dsi {
+			panel-p-wuxga-10-1 {
+				compatible = "p,wuxga-10-1";
+				nvidia,dsi-n-data-lanes = <4>;
+				nvidia,dsi-pixel-format = <TEGRA_DSI_PIXEL_FORMAT_24BIT_P>;
+				nvidia,dsi-refresh-rate = <60>;
+				nvidia,dsi-video-data-type = <TEGRA_DSI_VIDEO_TYPE_VIDEO_MODE>;
+				nvidia,dsi-video-clock-mode = <TEGRA_DSI_VIDEO_CLOCK_TX_ONLY>;
+				nvidia,dsi-video-burst-mode = <TEGRA_DSI_VIDEO_NONE_BURST_MODE_WITH_SYNC_END>;
+				nvidia,dsi-controller-vs = <DSI_VS_1>;
+				nvidia,dsi-virtual-channel = <TEGRA_DSI_VIRTUAL_CHANNEL_0>;
+				nvidia,dsi-panel-reset = <TEGRA_DSI_ENABLE>;
+				nvidia,dsi-power-saving-suspend = <TEGRA_DSI_ENABLE>;
+				status = "okay";
+				nvidia,dsi-pkt-seq =
+					 <CMD_VS LEN_SHORT CMD_BLNK LEN_HSYNC CMD_HE LEN_SHORT PKT_LP LINE_STOP>,
+					 <CMD_VE LEN_SHORT CMD_BLNK LEN_HSYNC CMD_HE LEN_SHORT PKT_LP LINE_STOP>,
+					 <CMD_HS LEN_SHORT CMD_BLNK LEN_HSYNC CMD_HE LEN_SHORT PKT_LP LINE_STOP>,
+					 <CMD_HS LEN_SHORT CMD_BLNK LEN_HSYNC CMD_HE LEN_SHORT CMD_BLNK LEN_HBP CMD_RGB_24BPP LEN_HACTIVE3 CMD_BLNK LEN_HFP LINE_STOP>,
+					 <CMD_HS LEN_SHORT CMD_BLNK LEN_HSYNC CMD_HE LEN_SHORT PKT_LP LINE_STOP>,
+					 <CMD_HS LEN_SHORT CMD_BLNK LEN_HSYNC CMD_HE LEN_SHORT CMD_BLNK LEN_HBP CMD_RGB_24BPP LEN_HACTIVE3 CMD_BLNK LEN_HFP LINE_STOP>;
+			};
+		};
+	};
+};

@@ -1,0 +1,10 @@
+config TEGRA_MEDIASERVER
+bool "Tegra Media Server support"
+depends on ARCH_TEGRA && TEGRA_RPC
+default y
+help
+  Enables support for the multiple OpenMAX clients.  Exports the
+  interface on the device node /dev/tegra_mediaserver.
+
+  If unsure, say Y
+

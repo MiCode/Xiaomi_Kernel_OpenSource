@@ -1,0 +1,35 @@
+NVIDIA I2C controller driver interface.
+
+Required properties:
+- compatible : The driver is compatible with
+	"nvidia,tegra114-i2c".
+	"nvidia,tegra30-i2c".
+	"nvidia,tegra20-i2c",
+	"nvidia,tegra20-i2c-dvc".
+- reg: Should contain I2C registers location and length.
+- interrupts: Should contain I2C interrupts.
+- nvidia,dma-request-selector : The Tegra DMA controller's phandle and
+  request selector for this SLINK controller.
+
+Recommended properties:
+- clock-frequency: desired I2C bus clock frequency in Hz.
+
+Optional properties:
+- nvidia,clock-always-on: If clock should be always ON and dynamic clock management
+	need to be disable.
+- nvidia,hs-master-code: Hisgh speed master code if highspeed mode need to be enable.
+
+Example:
+
+	i2c@7000c000 {
+		compatible =  "nvidia,tegra30-i2c", "nvidia,tegra20-i2c";
+		reg = <0x7000c000 0x100>;
+		interrupts = <0 38 0x04>;
+		clock-frequency = <100000>;
+		nvidia,clock-always-on;
+		nvidia,hs-master-code = <0x1234>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	}; 
+

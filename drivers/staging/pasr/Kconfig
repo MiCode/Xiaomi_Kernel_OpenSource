@@ -1,0 +1,14 @@
+config ARCH_HAS_PASR
+	bool
+
+config PASR
+	bool "DDR Partial Array Self-Refresh"
+	depends on ARCH_HAS_PASR
+	---help---
+	  PASR consists on masking the refresh of unused segments or banks
+	  when DDR is in self-refresh state.
+
+config PASR_DEBUG
+	bool "Add PASR debug prints"
+	def_bool n
+	depends on PASR

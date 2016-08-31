@@ -1,0 +1,19 @@
+menuconfig MIPI_BIF
+	tristate "MIPI_BIF support"
+	depends on HAS_IOMEM
+	select RT_MUTEXES
+	---help---
+	 Say y here if you want MIPI_BIF support to be
+	 enabled.
+
+if MIPI_BIF
+
+
+config MIPI_BIF_TEGRA
+	tristate "NVIDIA Tegra internal MIPIBIF controller"
+	depends on ARCH_TEGRA_14x_SOC
+	help
+	 If you say yes to this option, support will be included for the
+	 Tegra MIPIBIF Controller
+
+endif

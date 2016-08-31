@@ -1,0 +1,32 @@
+NVIDIA Camera sensor ov5693 driver interface.
+
+Properties:
+- compatible : The driver is compatible with
+	"nvidia,ov5693".
+
+- reg : Should contain I2C slave address of the driver.
+
+- nvidia,num : Indicates the instance of particular camera device, in this
+case it is for camera sensor device. Currently for rear camera sensor "0"
+is used.
+
+- nvidia,dev-name : Camera device driver name.
+
+- nvidia,use-vcm-vdd : For few platforms this driver needs extra power
+regulator "ext_vcm_vdd" to be enabled. This bool property indicates the
+same. It must be programmed only when ov5693 driver needs it for a
+particular platform.
+
+- reset-gpios : ov5693 reset GPIO
+
+Example:
+
+	ov5693@10 {
+		compatible = "nvidia,ov5693";
+		reg = <0x10>;
+		nvidia,num = <0>;
+		nvidia,dev-name = "camera";
+		nvidia,use-vcm-vdd;
+		reset-gpios = <&gpio 219 0>; /* gpio PBB3 */
+		status = "okay";
+	};
