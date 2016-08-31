@@ -684,7 +684,7 @@ static int _sde_rm_reserve_intf_or_wb(
 		bool needs_cdm)
 {
 	struct sde_rm_hw_iter iter;
-	int ret;
+	int ret = 0;
 
 	/* Find the block entry in the rm, and note the reservation */
 	sde_rm_init_hw_iter(&iter, 0, type);
