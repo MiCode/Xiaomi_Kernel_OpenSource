@@ -269,11 +269,91 @@ int dsi_conn_post_init(struct drm_connector *connector,
 		void *info,
 		void *display)
 {
-	if (info)
-		sde_kms_info_add_keystr(info,
-				"DISPLAY_TYPE",
-				((struct dsi_display *)display)->display_type);
+	struct dsi_display *dsi_display = display;
+	struct dsi_panel *panel;
 
+	if (!info || !dsi_display)
+		return -EINVAL;
+
+	sde_kms_info_add_keystr(info,
+		"display type", dsi_display->display_type);
+
+	switch (dsi_display->type) {
+	case DSI_DISPLAY_SINGLE:
+		sde_kms_info_add_keystr(info, "display config",
+					"single display");
+		break;
+	case DSI_DISPLAY_EXT_BRIDGE:
+		sde_kms_info_add_keystr(info, "display config", "ext bridge");
+		break;
+	case DSI_DISPLAY_SPLIT:
+		sde_kms_info_add_keystr(info, "display config",
+					"split display");
+		break;
+	case DSI_DISPLAY_SPLIT_EXT_BRIDGE:
+		sde_kms_info_add_keystr(info, "display config",
+					"split ext bridge");
+		break;
+	default:
+		pr_debug("invalid display type:%d\n", dsi_display->type);
+		break;
+	}
+
+	if (!dsi_display->panel) {
+		pr_debug("invalid panel data\n");
+		goto end;
+	}
+
+	panel = dsi_display->panel;
+	sde_kms_info_add_keystr(info, "panel name", panel->name);
+
+	switch (panel->mode.panel_mode) {
+	case DSI_OP_VIDEO_MODE:
+		sde_kms_info_add_keystr(info, "panel mode", "video");
+		break;
+	case DSI_OP_CMD_MODE:
+		sde_kms_info_add_keystr(info, "panel mode", "command");
+		break;
+	default:
+		pr_debug("invalid panel type:%d\n", panel->mode.panel_mode);
+		break;
+	}
+	sde_kms_info_add_keystr(info, "dfps support",
+			panel->dfps_caps.dfps_support ? "true" : "false");
+
+	switch (panel->phy_props.rotation) {
+	case DSI_PANEL_ROTATE_NONE:
+		sde_kms_info_add_keystr(info, "panel orientation", "none");
+		break;
+	case DSI_PANEL_ROTATE_H_FLIP:
+		sde_kms_info_add_keystr(info, "panel orientation", "horz flip");
+		break;
+	case DSI_PANEL_ROTATE_V_FLIP:
+		sde_kms_info_add_keystr(info, "panel orientation", "vert flip");
+		break;
+	default:
+		pr_debug("invalid panel rotation:%d\n",
+						panel->phy_props.rotation);
+		break;
+	}
+
+	switch (panel->bl_config.type) {
+	case DSI_BACKLIGHT_PWM:
+		sde_kms_info_add_keystr(info, "backlight type", "pwm");
+		break;
+	case DSI_BACKLIGHT_WLED:
+		sde_kms_info_add_keystr(info, "backlight type", "wled");
+		break;
+	case DSI_BACKLIGHT_DCS:
+		sde_kms_info_add_keystr(info, "backlight type", "dcs");
+		break;
+	default:
+		pr_debug("invalid panel backlight type:%d\n",
+						panel->bl_config.type);
+		break;
+	}
+
+end:
 	return 0;
 }
 
