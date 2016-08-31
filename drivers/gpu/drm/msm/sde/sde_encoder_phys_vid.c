@@ -668,6 +668,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	phys_enc->parent_ops = p->parent_ops;
 	phys_enc->sde_kms = p->sde_kms;
 	phys_enc->split_role = p->split_role;
+	phys_enc->intf_mode = INTF_MODE_VIDEO;
 	spin_lock_init(&phys_enc->spin_lock);
 	init_completion(&vid_enc->vblank_completion);
 
