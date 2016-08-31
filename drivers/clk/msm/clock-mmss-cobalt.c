@@ -1111,16 +1111,16 @@ static struct rcg_clk dp_pixel_clk_src = {
 		.parent = &ext_dp_phy_pll_vco.c,
 		.ops = &clk_ops_rcg_dp,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		VDD_DIG_FMAX_MAP3(LOWER, 148380000, LOW, 296740000,
-					NOMINAL, 593470000),
+		VDD_DIG_FMAX_MAP3(LOWER, 148380, LOW, 296740,
+					NOMINAL, 593470),
 		CLK_INIT(dp_pixel_clk_src.c),
 	},
 };
 
 static struct clk_freq_tbl ftbl_dp_link_clk_src[] = {
-	F_SLEW( 162000000,  324000000, ext_dp_phy_pll_link,   2,   0,   0),
-	F_SLEW( 270000000,  540000000, ext_dp_phy_pll_link,   2,   0,   0),
-	F_SLEW( 540000000, 1080000000, ext_dp_phy_pll_link,   2,   0,   0),
+	F_SLEW( 162000,  324000, ext_dp_phy_pll_link,   2,   0,   0),
+	F_SLEW( 270000,  540000, ext_dp_phy_pll_link,   2,   0,   0),
+	F_SLEW( 540000, 1080000, ext_dp_phy_pll_link,   2,   0,   0),
 	F_END
 };
 
@@ -1134,8 +1134,8 @@ static struct rcg_clk dp_link_clk_src = {
 		.dbg_name = "dp_link_clk_src",
 		.ops = &clk_ops_rcg,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		VDD_DIG_FMAX_MAP3(LOWER, 162000000, LOW, 270000000,
-					NOMINAL, 540000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 162000, LOW, 270000,
+					NOMINAL, 540000),
 		CLK_INIT(dp_link_clk_src.c),
 	},
 };
@@ -1147,9 +1147,9 @@ static struct rcg_clk dp_link_clk_src = {
  * clocks.
  */
 static struct clk_freq_tbl ftbl_dp_crypto_clk_src[] = {
-	F_MM( 101250000, ext_dp_phy_pll_link,   1,   5,   16),
-	F_MM( 168750000, ext_dp_phy_pll_link,   1,   5,   16),
-	F_MM( 337500000, ext_dp_phy_pll_link,   1,   5,   16),
+	F_MM( 101250, ext_dp_phy_pll_link,   1,   5,   16),
+	F_MM( 168750, ext_dp_phy_pll_link,   1,   5,   16),
+	F_MM( 337500, ext_dp_phy_pll_link,   1,   5,   16),
 	F_END
 };
 
@@ -1162,8 +1162,8 @@ static struct rcg_clk dp_crypto_clk_src = {
 	.c = {
 		.dbg_name = "dp_crypto_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP3(LOWER, 101250000, LOW, 168750000,
-					NOMINAL, 337500000),
+		VDD_DIG_FMAX_MAP3(LOWER, 101250, LOW, 168750,
+					NOMINAL, 337500),
 		CLK_INIT(dp_crypto_clk_src.c),
 	},
 };

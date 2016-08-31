@@ -1055,11 +1055,13 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
 
 		dp_drv->power_data[DP_CTRL_PM].clk_config[0].rate =
-				dp_drv->link_rate * DP_LINK_RATE_MULTIPLIER;
+			((dp_drv->link_rate * DP_LINK_RATE_MULTIPLIER) /
+			1000); /* KHz */
 
 		dp_drv->pixel_rate = dp_drv->panel_data.panel_info.clk_rate;
 		dp_drv->power_data[DP_CTRL_PM].clk_config[3].rate =
-							dp_drv->pixel_rate;
+						(dp_drv->pixel_rate /
+						1000); /* KHz */
 
 		ret = mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, true);
 		if (ret) {
