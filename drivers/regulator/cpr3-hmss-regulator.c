@@ -32,7 +32,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
-#include <linux/regulator/kryo-regulator.h>
+#include <linux/regulator/msm-ldo-regulator.h>
 
 #include "cpr3-regulator.h"
 
