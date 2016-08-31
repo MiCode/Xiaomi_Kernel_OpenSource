@@ -1740,8 +1740,13 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	int prev_cpu = task_cpu(task);
 	u64 cpu_load, min_load = ULLONG_MAX;
 	int i;
-	int restrict_cluster = sched_boost() ? 0 :
-				sysctl_sched_restrict_cluster_spill;
+	int restrict_cluster;
+	int boost_on_big;
+
+	boost_on_big = sched_boost() == FULL_THROTTLE_BOOST &&
+			sched_boost_policy() == SCHED_BOOST_ON_BIG;
+
+	restrict_cluster = sysctl_sched_restrict_cluster_spill;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1760,6 +1765,9 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	 */
 
 	for_each_sched_cluster(cluster) {
+		if (boost_on_big && cluster->capacity != max_possible_capacity)
+			continue;
+
 		cpumask_and(&candidate_mask, &cluster->cpus, lowest_mask);
 		cpumask_andnot(&candidate_mask, &candidate_mask,
 			       cpu_isolated_mask);

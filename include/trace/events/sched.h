@@ -133,6 +133,7 @@ TRACE_EVENT(sched_task_load,
 		__field(	u32,	flags			)
 		__field(	int,	best_cpu		)
 		__field(	u64,	latency			)
+		__field(	int,	grp_id			)
 	),
 
 	TP_fast_assign(
@@ -148,12 +149,13 @@ TRACE_EVENT(sched_task_load,
 		__entry->latency	= p->state == TASK_WAKING ?
 						      sched_ktime_clock() -
 						      p->ravg.mark_start : 0;
+		__entry->grp_id		= p->grp ? p->grp->id : 0;
 	),
 
-	TP_printk("%d (%s): demand=%u boost=%d reason=%d sync=%d need_idle=%d flags=%x best_cpu=%d latency=%llu",
+	TP_printk("%d (%s): demand=%u boost=%d reason=%d sync=%d need_idle=%d flags=%x grp=%d best_cpu=%d latency=%llu",
 		__entry->pid, __entry->comm, __entry->demand,
 		__entry->boost, __entry->reason, __entry->sync,
-		__entry->need_idle, __entry->flags,
+		__entry->need_idle, __entry->flags, __entry->grp_id,
 		__entry->best_cpu, __entry->latency)
 );
 
@@ -164,9 +166,12 @@ TRACE_EVENT(sched_set_preferred_cluster,
 	TP_ARGS(grp, total_demand),
 
 	TP_STRUCT__entry(
-		__field(		int,	id			)
-		__field(		u64,	demand			)
-		__field(		int,	cluster_first_cpu	)
+		__field(	int,	id			)
+		__field(	u64,	demand			)
+		__field(	int,	cluster_first_cpu	)
+		__array(	char,	comm,	TASK_COMM_LEN	)
+		__field(	pid_t,	pid			)
+		__field(unsigned int,	task_demand			)
 	),
 
 	TP_fast_assign(
@@ -245,19 +250,19 @@ DEFINE_EVENT(sched_cpu_load, sched_cpu_load_cgroup,
 
 TRACE_EVENT(sched_set_boost,
 
-	TP_PROTO(int ref_count),
+	TP_PROTO(int type),
 
-	TP_ARGS(ref_count),
+	TP_ARGS(type),
 
 	TP_STRUCT__entry(
-		__field(unsigned int, ref_count			)
+		__field(int, type			)
 	),
 
 	TP_fast_assign(
-		__entry->ref_count = ref_count;
+		__entry->type = type;
 	),
 
-	TP_printk("ref_count=%d", __entry->ref_count)
+	TP_printk("type %d", __entry->type)
 );
 
 #if defined(CREATE_TRACE_POINTS) && defined(CONFIG_SCHED_HMP)

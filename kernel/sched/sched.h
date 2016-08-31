@@ -1116,8 +1116,6 @@ extern unsigned int max_load_scale_factor;
 extern unsigned int max_possible_capacity;
 extern unsigned int min_max_possible_capacity;
 extern unsigned int max_power_cost;
-extern unsigned int sched_upmigrate;
-extern unsigned int sched_downmigrate;
 extern unsigned int sched_init_task_load_windows;
 extern unsigned int up_down_migrate_scale_factor;
 extern unsigned int sysctl_sched_restrict_cluster_spill;
@@ -1160,17 +1158,22 @@ extern void sched_account_irqstart(int cpu, struct task_struct *curr,
 				   u64 wallclock);
 extern unsigned int cpu_temp(int cpu);
 extern unsigned int nr_eligible_big_tasks(int cpu);
-extern void update_up_down_migrate(void);
 extern int update_preferred_cluster(struct related_thread_group *grp,
 			struct task_struct *p, u32 old_load);
 extern void set_preferred_cluster(struct related_thread_group *grp);
 extern void add_new_task_to_grp(struct task_struct *new);
+extern unsigned int update_freq_aggregate_threshold(unsigned int threshold);
 
-enum sched_boost_type {
+enum sched_boost_policy {
 	SCHED_BOOST_NONE,
 	SCHED_BOOST_ON_BIG,
 	SCHED_BOOST_ON_ALL,
 };
+
+#define NO_BOOST 0
+#define FULL_THROTTLE_BOOST 1
+#define CONSERVATIVE_BOOST 2
+#define RESTRAINED_BOOST 3
 
 static inline struct sched_cluster *cpu_cluster(int cpu)
 {
@@ -1441,14 +1444,11 @@ extern void set_hmp_defaults(void);
 extern int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost);
 extern unsigned int power_cost(int cpu, u64 demand);
 extern void reset_all_window_stats(u64 window_start, unsigned int window_size);
-extern void boost_kick(int cpu);
 extern int sched_boost(void);
 extern int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu,
-					enum sched_boost_type boost_type);
-extern enum sched_boost_type sched_boost_type(void);
+					enum sched_boost_policy boost_policy);
+extern enum sched_boost_policy sched_boost_policy(void);
 extern int task_will_fit(struct task_struct *p, int cpu);
-extern int group_will_fit(struct sched_cluster *cluster,
-		 struct related_thread_group *grp, u64 demand);
 extern u64 cpu_load(int cpu);
 extern u64 cpu_load_sync(int cpu, int sync);
 extern int preferred_cluster(struct sched_cluster *cluster,
@@ -1476,9 +1476,31 @@ extern u64 cpu_upmigrate_discourage_read_u64(struct cgroup_subsys_state *css,
 					struct cftype *cft);
 extern int cpu_upmigrate_discourage_write_u64(struct cgroup_subsys_state *css,
 				struct cftype *cft, u64 upmigrate_discourage);
-extern void sched_hmp_parse_dt(void);
-extern void init_sched_hmp_boost_policy(void);
+extern void sched_boost_parse_dt(void);
 extern void clear_top_tasks_bitmap(unsigned long *bitmap);
+
+#if defined(CONFIG_SCHED_TUNE) && defined(CONFIG_CGROUP_SCHEDTUNE)
+extern bool task_sched_boost(struct task_struct *p);
+extern int sync_cgroup_colocation(struct task_struct *p, bool insert);
+extern bool same_schedtune(struct task_struct *tsk1, struct task_struct *tsk2);
+extern void update_cgroup_boost_settings(void);
+extern void restore_cgroup_boost_settings(void);
+
+#else
+static inline bool
+same_schedtune(struct task_struct *tsk1, struct task_struct *tsk2)
+{
+	return true;
+}
+
+static inline bool task_sched_boost(struct task_struct *p)
+{
+	return true;
+}
+
+static inline void update_cgroup_boost_settings(void) { }
+static inline void restore_cgroup_boost_settings(void) { }
+#endif
 
 #else	/* CONFIG_SCHED_HMP */
 
@@ -1656,8 +1678,7 @@ static inline void post_big_task_count_change(void) { }
 static inline void set_hmp_defaults(void) { }
 
 static inline void clear_reserved(int cpu) { }
-static inline void sched_hmp_parse_dt(void) {}
-static inline void init_sched_hmp_boost_policy(void) {}
+static inline void sched_boost_parse_dt(void) {}
 
 #define trace_sched_cpu_load(...)
 #define trace_sched_cpu_load_lb(...)
