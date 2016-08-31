@@ -7846,7 +7846,6 @@ void __init sched_init_smp(void)
 	hotcpu_notifier(cpuset_cpu_inactive, CPU_PRI_CPUSET_INACTIVE);
 
 	update_cluster_topology();
-	init_sched_hmp_boost_policy();
 
 	init_hrtick();
 
@@ -7895,7 +7894,7 @@ void __init sched_init(void)
 
 	BUG_ON(num_possible_cpus() > BITS_PER_LONG);
 
-	sched_hmp_parse_dt();
+	sched_boost_parse_dt();
 	init_clusters();
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
