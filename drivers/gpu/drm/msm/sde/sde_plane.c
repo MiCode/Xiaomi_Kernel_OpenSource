@@ -1890,14 +1890,14 @@ static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 			sde_debugfs_setup_regset32(&psde->debugfs_src,
 					sblk->src_blk.base + cfg->base,
 					sblk->src_blk.len,
-					kms->mmio);
+					kms);
 			sde_debugfs_create_regset32("src_blk", S_IRUGO,
 					psde->debugfs_root, &psde->debugfs_src);
 
 			sde_debugfs_setup_regset32(&psde->debugfs_scaler,
 					sblk->scaler_blk.base + cfg->base,
 					sblk->scaler_blk.len,
-					kms->mmio);
+					kms);
 			sde_debugfs_create_regset32("scaler_blk", S_IRUGO,
 					psde->debugfs_root,
 					&psde->debugfs_scaler);
@@ -1905,7 +1905,7 @@ static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 			sde_debugfs_setup_regset32(&psde->debugfs_csc,
 					sblk->csc_blk.base + cfg->base,
 					sblk->csc_blk.len,
-					kms->mmio);
+					kms);
 			sde_debugfs_create_regset32("csc_blk", S_IRUGO,
 					psde->debugfs_root, &psde->debugfs_csc);
 		}
