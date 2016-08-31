@@ -65,7 +65,8 @@ enum sde_rm_topology_control {
  * struct sde_rm - SDE dynamic hardware resource manager
  * @dev: device handle for event logging purposes
  * @rsvps: list of hardware reservations by each crtc->encoder->connector
- * @hw_blks: list of hardware resources present in the system
+ * @hw_blks: array of lists of hardware resources present in the system, one
+ *	list per type of hardware block
  * @hw_mdp: hardware object for mdp_top
  * @lm_max_width: cached layer mixer maximum width
  * @rsvp_next_seq: sequence number for next reservation for debugging purposes
@@ -73,7 +74,7 @@ enum sde_rm_topology_control {
 struct sde_rm {
 	struct drm_device *dev;
 	struct list_head rsvps;
-	struct list_head hw_blks;
+	struct list_head hw_blks[SDE_HW_BLK_MAX];
 	struct sde_hw_mdp *hw_mdp;
 	uint32_t lm_max_width;
 	uint32_t rsvp_next_seq;
