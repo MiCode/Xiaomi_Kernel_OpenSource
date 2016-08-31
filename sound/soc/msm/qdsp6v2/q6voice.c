@@ -48,6 +48,7 @@ struct cvd_version_table cvd_version_table_mapping[CVD_INT_VERSION_MAX] = {
 		{CVD_VERSION_0_0, CVD_INT_VERSION_0_0},
 		{CVD_VERSION_2_1, CVD_INT_VERSION_2_1},
 		{CVD_VERSION_2_2, CVD_INT_VERSION_2_2},
+		{CVD_VERSION_2_3, CVD_INT_VERSION_2_3},
 };
 
 static struct common_data common;
