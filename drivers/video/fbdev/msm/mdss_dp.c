@@ -1434,10 +1434,54 @@ static ssize_t mdss_dp_rda_connected(struct device *dev,
 
 	return ret;
 }
+
+static ssize_t mdss_dp_sysfs_wta_s3d_mode(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret, s3d_mode;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+	ret = kstrtoint(buf, 10, &s3d_mode);
+	if (ret) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, ret);
+		goto end;
+	}
+
+	dp->s3d_mode = s3d_mode;
+	ret = strnlen(buf, PAGE_SIZE);
+	DEV_DBG("%s: %d\n", __func__, dp->s3d_mode);
+end:
+	return ret;
+}
+
+static ssize_t mdss_dp_sysfs_rda_s3d_mode(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", dp->s3d_mode);
+	DEV_DBG("%s: '%d'\n", __func__, dp->s3d_mode);
+
+	return ret;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, mdss_dp_rda_connected, NULL);
+static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, mdss_dp_sysfs_rda_s3d_mode,
+	mdss_dp_sysfs_wta_s3d_mode);
 
 static struct attribute *mdss_dp_fs_attrs[] = {
 	&dev_attr_connected.attr,
+	&dev_attr_s3d_mode.attr,
 	NULL,
 };
 

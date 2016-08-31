@@ -404,6 +404,7 @@ struct mdss_dp_drv_pdata {
 	struct mutex pd_msg_mutex;
 	struct mutex hdcp_mutex;
 	bool cable_connected;
+	u32 s3d_mode;
 	u32 aux_cmd_busy;
 	u32 aux_cmd_i2c;
 	int aux_trans_num;
