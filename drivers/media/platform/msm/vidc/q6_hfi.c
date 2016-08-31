@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -202,7 +202,7 @@ static int q6_hfi_register_iommu_domains(struct q6_hfi_device *device)
 	struct iommu_info *iommu_map;
 
 	if (!device || !device->res) {
-		dprintk(VIDC_ERR, "Invalid parameter: %p\n", device);
+		dprintk(VIDC_ERR, "Invalid parameter: %pK\n", device);
 		return -EINVAL;
 	}
 
@@ -220,7 +220,7 @@ static int q6_hfi_register_iommu_domains(struct q6_hfi_device *device)
 		domain = iommu_group_get_iommudata(iommu_map->group);
 		if (IS_ERR_OR_NULL(domain)) {
 			dprintk(VIDC_ERR,
-					"Failed to get domain data for group %p\n",
+					"Failed to get domain data for group %pK\n",
 					iommu_map->group);
 			rc = -EINVAL;
 			goto fail_group;
@@ -228,7 +228,7 @@ static int q6_hfi_register_iommu_domains(struct q6_hfi_device *device)
 		iommu_map->domain = msm_find_domain_no(domain);
 		if (iommu_map->domain < 0) {
 			dprintk(VIDC_ERR,
-					"Failed to get domain index for domain %p\n",
+					"Failed to get domain index for domain %pK\n",
 					domain);
 			rc = -EINVAL;
 			goto fail_group;
@@ -254,7 +254,7 @@ static void q6_hfi_deregister_iommu_domains(struct q6_hfi_device *device)
 	int i = 0;
 
 	if (!device || !device->res) {
-		dprintk(VIDC_ERR, "Invalid parameter: %p\n", device);
+		dprintk(VIDC_ERR, "Invalid parameter: %pK\n", device);
 		return;
 	}
 
@@ -347,7 +347,7 @@ static void *q6_hfi_get_device(u32 device_id,
 	int rc = 0;
 
 	if (!callback) {
-		dprintk(VIDC_ERR, "%s Invalid params:  %p\n",
+		dprintk(VIDC_ERR, "%s Invalid params:  %pK\n",
 			__func__, callback);
 		return NULL;
 	}
@@ -663,7 +663,7 @@ static int q6_hfi_session_clean(void *session)
 		return -EINVAL;
 	}
 	sess_close = session;
-	dprintk(VIDC_DBG, "deleted the session: 0x%p\n",
+	dprintk(VIDC_DBG, "deleted the session: 0x%pK\n",
 			sess_close->session_id);
 	mutex_lock(&((struct q6_hfi_device *)
 			sess_close->device)->session_lock);
@@ -1207,7 +1207,7 @@ static int q6_hfi_iommu_attach(struct q6_hfi_device *device)
 	struct iommu_info *iommu_map;
 
 	if (!device || !device->res) {
-		dprintk(VIDC_ERR, "Invalid parameter: %p\n", device);
+		dprintk(VIDC_ERR, "Invalid parameter: %pK\n", device);
 		return -EINVAL;
 	}
 
@@ -1222,7 +1222,7 @@ static int q6_hfi_iommu_attach(struct q6_hfi_device *device)
 			rc = PTR_ERR(domain) ?: -EINVAL;
 			break;
 		}
-		dprintk(VIDC_DBG, "Attaching domain(id:%d) %p to group %p\n",
+		dprintk(VIDC_DBG, "Attaching domain(id:%d) %pK to group %pK\n",
 				iommu_map->domain, domain, group);
 		rc = iommu_attach_group(domain, group);
 		if (rc) {
@@ -1253,7 +1253,7 @@ static void q6_hfi_iommu_detach(struct q6_hfi_device *device)
 	int i;
 
 	if (!device || !device->res) {
-		dprintk(VIDC_ERR, "Invalid parameter: %p\n", device);
+		dprintk(VIDC_ERR, "Invalid parameter: %pK\n", device);
 		return;
 	}
 
@@ -1382,7 +1382,7 @@ int q6_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 	int rc = 0;
 
 	if (!hdev || !res || !callback) {
-		dprintk(VIDC_ERR, "Invalid params: %p %p %p\n",
+		dprintk(VIDC_ERR, "Invalid params: %pK %pK %pK\n",
 				hdev, res, callback);
 		rc = -EINVAL;
 		goto err_hfi_init;
