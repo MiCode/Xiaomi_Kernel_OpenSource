@@ -2925,6 +2925,7 @@ static u32 __dsc_get_common_mode(struct mdss_mdp_ctl *ctl, bool mux_3d)
 static void __dsc_get_pic_dim(struct mdss_mdp_mixer *mixer_l,
 	struct mdss_mdp_mixer *mixer_r, u32 *pic_w, u32 *pic_h)
 {
+	struct mdss_data_type *mdata = NULL;
 	bool valid_l = mixer_l && mixer_l->valid_roi;
 	bool valid_r = mixer_r && mixer_r->valid_roi;
 
@@ -2932,13 +2933,29 @@ static void __dsc_get_pic_dim(struct mdss_mdp_mixer *mixer_l,
 	*pic_h = 0;
 
 	if (valid_l) {
-		*pic_w = mixer_l->roi.w;
-		*pic_h = mixer_l->roi.h;
+		mdata = mixer_l->ctl->mdata;
+		if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) &&
+				mixer_l->ds &&
+				(mixer_l->ds->flags & DS_ENABLE)) {
+			*pic_w = mixer_l->ds->scaler.dst_width;
+			*pic_h = mixer_l->ds->scaler.dst_height;
+		} else {
+			*pic_w = mixer_l->roi.w;
+			*pic_h = mixer_l->roi.h;
+		}
 	}
 
 	if (valid_r) {
-		*pic_w += mixer_r->roi.w;
-		*pic_h = mixer_r->roi.h;
+		mdata = mixer_r->ctl->mdata;
+		if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) &&
+				mixer_r->ds &&
+				(mixer_r->ds->flags & DS_ENABLE)) {
+			*pic_w += mixer_r->ds->scaler.dst_width;
+			*pic_h = mixer_r->ds->scaler.dst_height;
+		} else {
+			*pic_w += mixer_r->roi.w;
+			*pic_h = mixer_r->roi.h;
+		}
 	}
 }
 
