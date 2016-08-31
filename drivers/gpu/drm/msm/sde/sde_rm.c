@@ -92,6 +92,7 @@ static void _sde_rm_print_rsvps(struct sde_rm *rm, const char *msg)
 {
 	struct sde_rm_rsvp *rsvp;
 	struct sde_rm_hw_blk *blk;
+	enum sde_hw_blk_type type;
 
 	SDE_DEBUG("%s\n", msg);
 
@@ -99,16 +100,18 @@ static void _sde_rm_print_rsvps(struct sde_rm *rm, const char *msg)
 		SDE_DEBUG("%s rsvp[s%ue%u] topology %d\n", msg, rsvp->seq,
 				rsvp->enc_id, rsvp->topology);
 
-	list_for_each_entry(blk, &rm->hw_blks, list) {
-		if (!blk->rsvp && !blk->rsvp_nxt)
-			continue;
+	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
+		list_for_each_entry(blk, &rm->hw_blks[type], list) {
+			if (!blk->rsvp && !blk->rsvp_nxt)
+				continue;
 
-		SDE_DEBUG("%s rsvp[s%ue%u->s%ue%u] %s %d\n", msg,
-			(blk->rsvp) ? blk->rsvp->seq : 0,
-			(blk->rsvp) ? blk->rsvp->enc_id : 0,
-			(blk->rsvp_nxt) ? blk->rsvp_nxt->seq : 0,
-			(blk->rsvp_nxt) ? blk->rsvp_nxt->enc_id : 0,
-			blk->type_name, blk->id);
+			SDE_DEBUG("%s rsvp[s%ue%u->s%ue%u] %s %d\n", msg,
+				(blk->rsvp) ? blk->rsvp->seq : 0,
+				(blk->rsvp) ? blk->rsvp->enc_id : 0,
+				(blk->rsvp_nxt) ? blk->rsvp_nxt->seq : 0,
+				(blk->rsvp_nxt) ? blk->rsvp_nxt->enc_id : 0,
+				blk->type_name, blk->id);
+		}
 	}
 }
 
@@ -129,25 +132,31 @@ void sde_rm_init_hw_iter(
 
 bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 {
+	struct list_head *blk_list;
+
 	if (!rm || !i || i->type >= SDE_HW_BLK_MAX) {
 		SDE_ERROR("invalid rm\n");
 		return false;
 	}
 
 	i->hw = NULL;
+	blk_list = &rm->hw_blks[i->type];
 
-	if (i->blk && (&i->blk->list == &rm->hw_blks)) {
+	if (i->blk && (&i->blk->list == blk_list)) {
 		SDE_ERROR("attempt resume iteration past last\n");
 		return false;
 	}
 
-	i->blk = list_prepare_entry(i->blk, &rm->hw_blks, list);
+	i->blk = list_prepare_entry(i->blk, blk_list, list);
 
-	list_for_each_entry_continue(i->blk, &rm->hw_blks, list) {
+	list_for_each_entry_continue(i->blk, blk_list, list) {
 		struct sde_rm_rsvp *rsvp = i->blk->rsvp;
 
-		if (i->blk->type != i->type)
-			continue;
+		if (i->blk->type != i->type) {
+			SDE_ERROR("found incorrect block type %d on %d list\n",
+					i->blk->type, i->type);
+			return false;
+		}
 
 		if ((i->enc_id == 0) || (rsvp && rsvp->enc_id == i->enc_id)) {
 			i->hw = i->blk->hw;
@@ -203,6 +212,7 @@ int sde_rm_destroy(struct sde_rm *rm)
 
 	struct sde_rm_rsvp *rsvp_cur, *rsvp_nxt;
 	struct sde_rm_hw_blk *hw_cur, *hw_nxt;
+	enum sde_hw_blk_type type;
 
 	if (!rm) {
 		SDE_ERROR("invalid rm\n");
@@ -214,10 +224,14 @@ int sde_rm_destroy(struct sde_rm *rm)
 		kfree(rsvp_cur);
 	}
 
-	list_for_each_entry_safe(hw_cur, hw_nxt, &rm->hw_blks, list) {
-		list_del(&hw_cur->list);
-		_sde_rm_hw_destroy(hw_cur->type, hw_cur->hw);
-		kfree(hw_cur);
+
+	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
+		list_for_each_entry_safe(hw_cur, hw_nxt, &rm->hw_blks[type],
+				list) {
+			list_del(&hw_cur->list);
+			_sde_rm_hw_destroy(hw_cur->type, hw_cur->hw);
+			kfree(hw_cur);
+		}
 	}
 
 	sde_hw_mdp_destroy(rm->hw_mdp);
@@ -297,7 +311,7 @@ static int _sde_rm_hw_blk_create(
 	blk->id = id;
 	blk->catalog = hw_catalog_info;
 	blk->hw = hw;
-	list_add_tail(&blk->list, &rm->hw_blks);
+	list_add_tail(&blk->list, &rm->hw_blks[type]);
 
 	return 0;
 }
@@ -308,6 +322,7 @@ int sde_rm_init(struct sde_rm *rm,
 		struct drm_device *dev)
 {
 	int rc, i;
+	enum sde_hw_blk_type type;
 
 	if (!rm || !cat || !mmio || !dev) {
 		SDE_ERROR("invalid kms\n");
@@ -317,7 +332,8 @@ int sde_rm_init(struct sde_rm *rm,
 	/* Clear, setup lists */
 	memset(rm, 0, sizeof(*rm));
 	INIT_LIST_HEAD(&rm->rsvps);
-	INIT_LIST_HEAD(&rm->hw_blks);
+	for (type = 0; type < SDE_HW_BLK_MAX; type++)
+		INIT_LIST_HEAD(&rm->hw_blks[type]);
 
 	/* Some of the sub-blocks require an mdptop to be created */
 	rm->hw_mdp = sde_hw_mdptop_init(MDP_TOP, mmio, cat);
@@ -930,6 +946,7 @@ void _sde_rm_release_rsvp(
 {
 	struct sde_rm_rsvp *rsvp_c, *rsvp_n;
 	struct sde_rm_hw_blk *blk;
+	enum sde_hw_blk_type type;
 
 	if (!rsvp)
 		return;
@@ -943,18 +960,20 @@ void _sde_rm_release_rsvp(
 		}
 	}
 
-	list_for_each_entry(blk, &rm->hw_blks, list) {
-		if (blk->rsvp == rsvp) {
-			blk->rsvp = NULL;
-			SDE_DEBUG("rel rsvp %d enc %d %s %d\n",
-					rsvp->seq, rsvp->enc_id, blk->type_name,
-					blk->id);
-		}
-		if (blk->rsvp_nxt == rsvp) {
-			blk->rsvp_nxt = NULL;
-			SDE_DEBUG("rel rsvp_nxt %d enc %d %s %d\n",
-					rsvp->seq, rsvp->enc_id, blk->type_name,
-					blk->id);
+	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
+		list_for_each_entry(blk, &rm->hw_blks[type], list) {
+			if (blk->rsvp == rsvp) {
+				blk->rsvp = NULL;
+				SDE_DEBUG("rel rsvp %d enc %d %s %d\n",
+						rsvp->seq, rsvp->enc_id,
+						blk->type_name, blk->id);
+			}
+			if (blk->rsvp_nxt == rsvp) {
+				blk->rsvp_nxt = NULL;
+				SDE_DEBUG("rel rsvp_nxt %d enc %d %s %d\n",
+						rsvp->seq, rsvp->enc_id,
+						blk->type_name, blk->id);
+			}
 		}
 	}
 
@@ -1008,6 +1027,7 @@ static int _sde_rm_commit_rsvp(
 		struct drm_connector_state *conn_state)
 {
 	struct sde_rm_hw_blk *blk;
+	enum sde_hw_blk_type type;
 	int ret = 0;
 
 	ret = msm_property_set_property(
@@ -1019,10 +1039,12 @@ static int _sde_rm_commit_rsvp(
 		_sde_rm_release_rsvp(rm, rsvp);
 
 	/* Swap next rsvp to be the active */
-	list_for_each_entry(blk, &rm->hw_blks, list) {
-		if (blk->rsvp_nxt) {
-			blk->rsvp = blk->rsvp_nxt;
-			blk->rsvp_nxt = NULL;
+	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
+		list_for_each_entry(blk, &rm->hw_blks[type], list) {
+			if (blk->rsvp_nxt) {
+				blk->rsvp = blk->rsvp_nxt;
+				blk->rsvp_nxt = NULL;
+			}
 		}
 	}
 
