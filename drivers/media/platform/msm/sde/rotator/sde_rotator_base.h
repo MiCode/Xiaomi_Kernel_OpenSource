@@ -92,6 +92,12 @@ enum sde_bus_clients {
 	SDE_MAX_BUS_CLIENTS
 };
 
+enum sde_rot_regdump_access {
+	SDE_ROT_REGDUMP_READ,
+	SDE_ROT_REGDUMP_WRITE,
+	SDE_ROT_REGDUMP_MAX
+};
+
 struct reg_bus_client {
 	char name[MAX_CLIENT_NAME_LEN];
 	short usecase_ndx;
@@ -105,6 +111,21 @@ struct sde_smmu_client {
 	struct sde_module_power mp;
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
+};
+
+struct sde_rot_vbif_debug_bus {
+	u32 disable_bus_addr;
+	u32 block_bus_addr;
+	u32 bit_offset;
+	u32 block_cnt;
+	u32 test_pnt_cnt;
+};
+
+struct sde_rot_regdump {
+	char *name;
+	u32 offset;
+	u32 len;
+	enum sde_rot_regdump_access access;
 };
 
 struct sde_rot_data_type {
@@ -140,6 +161,14 @@ struct sde_rot_data_type {
 
 	int iommu_attached;
 	int iommu_ref_cnt;
+
+	struct sde_rot_vbif_debug_bus *nrt_vbif_dbg_bus;
+	u32 nrt_vbif_dbg_bus_size;
+
+	struct sde_rot_regdump *regdump;
+	u32 regdump_size;
+
+	void *sde_rot_hw;
 };
 
 int sde_rotator_base_init(struct sde_rot_data_type **pmdata,
