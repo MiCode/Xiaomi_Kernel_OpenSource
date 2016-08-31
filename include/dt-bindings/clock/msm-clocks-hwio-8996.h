@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@
 #define RF_CLK1_ID						0x4
 #define RF_CLK2_ID						0x5
 #define LN_BB_CLK_ID						0x8
+#define LN_BB_CLK_PIN_ID					0x8
 #define DIV_CLK1_ID						0xb
 #define DIV_CLK2_ID						0xc
 #define DIV_CLK3_ID						0xd
