@@ -603,6 +603,8 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
+	POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_STEP_CHARGING_STEP,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -642,6 +644,11 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		rc = smblib_get_prop_input_current_limited(chg, val);
+	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
+		val->intval = chg->step_chg_enabled;
+		break;
+	case POWER_SUPPLY_PROP_STEP_CHARGING_STEP:
+		rc = smblib_get_prop_step_chg_step(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		rc = smblib_get_prop_batt_voltage_now(chg, val);
