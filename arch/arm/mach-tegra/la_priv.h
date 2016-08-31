@@ -1,7 +1,8 @@
 /*
  * arch/arm/mach-tegra/la_priv.h
  *
- * Copyright (C) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2012-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -230,6 +231,7 @@ struct la_chip_specific {
 					unsigned int bw_mbps,
 					int is_hiso);
 	int (*set_disp_la)(enum tegra_la_id id,
+				unsigned long emc_freq_hz,
 				unsigned int bw_mbps,
 				struct dc_to_la_params disp_params);
 	int (*set_la)(enum tegra_la_id id, unsigned int bw_mbps);

@@ -5,6 +5,7 @@
  * Copyright 2005 Openedhand Ltd.
  * Copyright (C) 2010 Slimlogic Ltd.
  * Copyright (C) 2010 Texas Instruments Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Authors: Liam Girdwood <lrg@ti.com>
  *          Mark Brown <broonie@opensource.wolfsonmicro.com>       
@@ -124,6 +125,20 @@ static void soc_pcm_apply_msb(struct snd_pcm_substream *substream,
 	}
 }
 
+static void soc_pcm_reverse_direction_for_cpu_dai(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	/* reverse the stream direction if the link has
+	   params since cpu dai actually come from codec */
+	if (rtd->dai_link->params) {
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			substream->stream = SNDRV_PCM_STREAM_CAPTURE;
+		else
+			substream->stream = SNDRV_PCM_STREAM_PLAYBACK;
+	}
+}
+
 /*
  * Called by ALSA when a PCM substream is opened, the runtime->hw record is
  * then initialized and any private data can be allocated. This also calls
@@ -148,7 +163,9 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 
 	/* startup the audio subsystem */
 	if (cpu_dai->driver->ops->startup) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		ret = cpu_dai->driver->ops->startup(substream, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		if (ret < 0) {
 			dev_err(cpu_dai->dev, "ASoC: can't open interface"
 				" %s: %d\n", cpu_dai->name, ret);
@@ -306,8 +323,11 @@ codec_dai_err:
 		platform->driver->ops->close(substream);
 
 platform_err:
-	if (cpu_dai->driver->ops->shutdown)
+	if (cpu_dai->driver->ops->shutdown) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		cpu_dai->driver->ops->shutdown(substream, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
+	}
 out:
 	mutex_unlock(&rtd->pcm_mutex);
 
@@ -384,9 +404,15 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 	 * shutdown, for example from stopping clocks.
 	 */
 	snd_soc_dai_digital_mute(codec_dai, 1, substream->stream);
+	soc_pcm_reverse_direction_for_cpu_dai(substream);
+	snd_soc_dai_digital_mute(cpu_dai, 1, substream->stream);
+	soc_pcm_reverse_direction_for_cpu_dai(substream);
 
-	if (cpu_dai->driver->ops->shutdown)
+	if (cpu_dai->driver->ops->shutdown) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		cpu_dai->driver->ops->shutdown(substream, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
+	}
 
 	if (codec_dai->driver->ops->shutdown)
 		codec_dai->driver->ops->shutdown(substream, codec_dai);
@@ -398,23 +424,26 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 		platform->driver->ops->close(substream);
 	cpu_dai->runtime = NULL;
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (!rtd->pmdown_time || codec->ignore_pmdown_time ||
-		    rtd->dai_link->ignore_pmdown_time) {
-			/* powered down playback stream now */
-			snd_soc_dapm_stream_event(rtd,
-						  SNDRV_PCM_STREAM_PLAYBACK,
-						  SND_SOC_DAPM_STREAM_STOP);
+	/* dai with params is skipped to avoid the recursive */
+	if (!rtd->dai_link->params) {
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			if (!rtd->pmdown_time || codec->ignore_pmdown_time ||
+			    rtd->dai_link->ignore_pmdown_time) {
+				/* powered down playback stream now */
+				snd_soc_dapm_stream_event(rtd,
+							  SNDRV_PCM_STREAM_PLAYBACK,
+							  SND_SOC_DAPM_STREAM_STOP);
+			} else {
+				/* start delayed pop wq here for playback streams */
+				rtd->pop_wait = 1;
+				schedule_delayed_work(&rtd->delayed_work,
+					msecs_to_jiffies(rtd->pmdown_time));
+			}
 		} else {
-			/* start delayed pop wq here for playback streams */
-			rtd->pop_wait = 1;
-			schedule_delayed_work(&rtd->delayed_work,
-				msecs_to_jiffies(rtd->pmdown_time));
+			/* capture streams can be powered down now */
+			snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_CAPTURE,
+						  SND_SOC_DAPM_STREAM_STOP);
 		}
-	} else {
-		/* capture streams can be powered down now */
-		snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_CAPTURE,
-					  SND_SOC_DAPM_STREAM_STOP);
 	}
 
 	mutex_unlock(&rtd->pcm_mutex);
@@ -469,7 +498,9 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 	}
 
 	if (cpu_dai->driver->ops->prepare) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		ret = cpu_dai->driver->ops->prepare(substream, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		if (ret < 0) {
 			dev_err(cpu_dai->dev, "ASoC: DAI prepare error: %d\n",
 				ret);
@@ -477,16 +508,22 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 		}
 	}
 
-	/* cancel any delayed stream shutdown that is pending */
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
-	    rtd->pop_wait) {
-		rtd->pop_wait = 0;
-		cancel_delayed_work(&rtd->delayed_work);
+	/* dai with params is skipped to avoid the recursive */
+	if (!rtd->dai_link->params) {
+		/* cancel any delayed stream shutdown that is pending */
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
+		    rtd->pop_wait) {
+			rtd->pop_wait = 0;
+			cancel_delayed_work(&rtd->delayed_work);
+		}
+
+		snd_soc_dapm_stream_event(rtd, substream->stream,
+				SND_SOC_DAPM_STREAM_START);
 	}
 
-	snd_soc_dapm_stream_event(rtd, substream->stream,
-			SND_SOC_DAPM_STREAM_START);
-
+	soc_pcm_reverse_direction_for_cpu_dai(substream);
+	snd_soc_dai_digital_mute(cpu_dai, 0, substream->stream);
+	soc_pcm_reverse_direction_for_cpu_dai(substream);
 	snd_soc_dai_digital_mute(codec_dai, 0, substream->stream);
 
 out:
@@ -497,7 +534,7 @@ out:
 /*
  * Called by ALSA when the hardware params are set by application. This
  * function can also be called multiple times and can allocate buffers
- * (using snd_pcm_lib_* ). It's non-atomic.
+ * (using snd_pcm_lib_*). It's non-atomic.
  */
 static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
@@ -529,7 +566,9 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (cpu_dai->driver->ops->hw_params) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		ret = cpu_dai->driver->ops->hw_params(substream, params, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		if (ret < 0) {
 			dev_err(cpu_dai->dev, "ASoC: %s hw params failed: %d\n",
 				cpu_dai->name, ret);
@@ -555,8 +594,11 @@ out:
 	return ret;
 
 platform_err:
-	if (cpu_dai->driver->ops->hw_free)
+	if (cpu_dai->driver->ops->hw_free) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		cpu_dai->driver->ops->hw_free(substream, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
+	}
 
 interface_err:
 	if (codec_dai->driver->ops->hw_free)
@@ -584,8 +626,12 @@ static int soc_pcm_hw_free(struct snd_pcm_substream *substream)
 	mutex_lock_nested(&rtd->pcm_mutex, rtd->pcm_subclass);
 
 	/* apply codec digital mute */
-	if (!codec->active)
+	if (!codec->active) {
 		snd_soc_dai_digital_mute(codec_dai, 1, substream->stream);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
+		snd_soc_dai_digital_mute(cpu_dai, 1, substream->stream);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
+	}
 
 	/* free any machine hw params */
 	if (rtd->dai_link->ops && rtd->dai_link->ops->hw_free)
@@ -599,8 +645,11 @@ static int soc_pcm_hw_free(struct snd_pcm_substream *substream)
 	if (codec_dai->driver->ops->hw_free)
 		codec_dai->driver->ops->hw_free(substream, codec_dai);
 
-	if (cpu_dai->driver->ops->hw_free)
+	if (cpu_dai->driver->ops->hw_free) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		cpu_dai->driver->ops->hw_free(substream, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
+	}
 
 	mutex_unlock(&rtd->pcm_mutex);
 	return 0;
@@ -627,7 +676,9 @@ static int soc_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	}
 
 	if (cpu_dai->driver->ops->trigger) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		ret = cpu_dai->driver->ops->trigger(substream, cmd, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		if (ret < 0)
 			return ret;
 	}
@@ -656,7 +707,9 @@ static int soc_pcm_bespoke_trigger(struct snd_pcm_substream *substream,
 	}
 
 	if (cpu_dai->driver->ops->bespoke_trigger) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		ret = cpu_dai->driver->ops->bespoke_trigger(substream, cmd, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		if (ret < 0)
 			return ret;
 	}
@@ -680,8 +733,11 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 	if (platform->driver->ops && platform->driver->ops->pointer)
 		offset = platform->driver->ops->pointer(substream);
 
-	if (cpu_dai->driver->ops->delay)
+	if (cpu_dai->driver->ops->delay) {
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
 		delay += cpu_dai->driver->ops->delay(substream, cpu_dai);
+		soc_pcm_reverse_direction_for_cpu_dai(substream);
+	}
 
 	if (codec_dai->driver->ops->delay)
 		delay += codec_dai->driver->ops->delay(substream, codec_dai);
@@ -2039,8 +2095,13 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 			snprintf(new_name, sizeof(new_name), "%s %s-%d",
 				rtd->dai_link->stream_name, codec_dai->name, num);
 
-		ret = snd_pcm_new(rtd->card->snd_card, new_name, num, playback,
-			capture, &pcm);
+		/* dai with params can only be used by kernel */
+		if (rtd->dai_link->params)
+			ret = snd_pcm_new_internal(rtd->card->snd_card, new_name, num,
+				playback, capture, &pcm);
+		else
+			ret = snd_pcm_new(rtd->card->snd_card, new_name, num, playback,
+				capture, &pcm);
 	}
 	if (ret < 0) {
 		dev_err(rtd->card->dev, "ASoC: can't create pcm for %s\n",
@@ -2109,6 +2170,16 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 	}
 
 	pcm->private_free = platform->driver->pcm_free;
+
+	if (rtd->dai_link->params) {
+		ret = snd_soc_dapm_new_dai_link_widgets(&rtd->card->dapm, rtd);
+		if (ret < 0) {
+			dev_err(rtd->card->dev, "ASoC: Can't link %s: %d\n",
+				rtd->dai_link->name, ret);
+			return ret;
+		}
+	}
+
 out:
 	dev_info(rtd->card->dev, " %s <-> %s mapping ok\n", codec_dai->name,
 		cpu_dai->name);

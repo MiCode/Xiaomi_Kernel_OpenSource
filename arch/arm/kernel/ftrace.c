@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2008 Abhishek Sagar <sagar.abhishek@gmail.com>
  * Copyright (C) 2010 Rabin Vincent <rabin@rab.in>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * For licencing details, see COPYING.
  *
@@ -180,6 +181,20 @@ int __init ftrace_dyn_arch_init(void *data)
 #endif /* CONFIG_DYNAMIC_FTRACE */
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
+/*
+ * Stack pointers should always be within the kernels view of
+ * physical memory.  If it is not there, then we can't dump
+ * out any information relating to the stack.
+ */
+static int verify_stack(unsigned long sp)
+{
+	if (sp < PAGE_OFFSET ||
+			(sp > (unsigned long)high_memory && high_memory != NULL))
+		return -EFAULT;
+
+	return 0;
+}
+
 void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
 			   unsigned long frame_pointer)
 {
@@ -190,6 +205,10 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
 
 	if (unlikely(atomic_read(&current->tracing_graph_pause)))
 		return;
+
+	if (verify_stack((unsigned long)parent))
+		return;
+
 
 	old = *parent;
 	*parent = return_hooker;

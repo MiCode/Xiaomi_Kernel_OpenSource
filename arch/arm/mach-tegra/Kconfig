@@ -1,4 +1,5 @@
 # Copyright (c) 2012, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (C) 2016 XiaoMi, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -725,6 +726,13 @@ config TEGRA_WDT_RECOVERY
 	help
 	  Enables watchdog recovery mechanism to protect against
 	  suspend/resume hangs.
+
+config TRACE_WARMBOOT
+	bool "Log the warmboot trace and dump the trace number during kernel initializing"
+	depends on TEGRA_WDT_RECOVERY
+	default n
+	help
+	  Log the warmboot trace and dump the trace number during kernel initializing.
 
 config TEGRA_LP2_CPU_TIMER
 	bool

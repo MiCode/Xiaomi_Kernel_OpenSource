@@ -6,6 +6,7 @@
  *	Erik Gilling <ccross@android.com>
  *
  * Copyright (c) 2010-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1877,6 +1878,11 @@ struct platform_device bluetooth_dit_device = {
 struct platform_device baseband_dit_device = {
 	.name = "spdif-dit",
 	.id = 2,
+};
+
+struct platform_device fm_dit_device = {
+	.name = "spdif-dit",
+	.id = 3,
 };
 
 struct platform_device tegra_pcm_device = {

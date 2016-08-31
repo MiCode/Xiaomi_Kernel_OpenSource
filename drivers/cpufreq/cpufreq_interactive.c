@@ -2,7 +2,8 @@
  * drivers/cpufreq/cpufreq_interactive.c
  *
  * Copyright (C) 2010 Google, Inc.
- * Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -42,8 +43,10 @@ struct cpufreq_interactive_cpuinfo {
 	spinlock_t load_lock; /* protects the next 4 fields */
 	u64 time_in_idle;
 	u64 time_in_idle_timestamp;
+	u64 time_in_iowait;
 	u64 cputime_speedadj;
 	u64 cputime_speedadj_timestamp;
+	unsigned int io_consecutive;
 	struct cpufreq_policy *policy;
 	struct cpufreq_frequency_table *freq_table;
 	unsigned int target_freq;
@@ -123,6 +126,9 @@ struct cpufreq_interactive_tunables {
 
 	bool io_is_busy;
 
+	/* Consider IO as busy if consecutive IOs are above this value. */
+	unsigned long io_busy_threshold;
+
 	/* Base of exponential raise to max speed; if 0 - jump to
 	 * hispeed_freq
 	 */
@@ -150,6 +156,7 @@ static void cpufreq_interactive_timer_resched(
 		get_cpu_idle_time(smp_processor_id(),
 				  &pcpu->time_in_idle_timestamp,
 				  tunables->io_is_busy);
+	pcpu->time_in_iowait = get_cpu_iowait_time_us(smp_processor_id(), NULL);
 	pcpu->cputime_speedadj = 0;
 	pcpu->cputime_speedadj_timestamp = pcpu->time_in_idle_timestamp;
 	expires = jiffies + usecs_to_jiffies(tunables->timer_rate);
@@ -189,6 +196,8 @@ static void cpufreq_interactive_timer_start(
 	pcpu->time_in_idle =
 		get_cpu_idle_time(cpu, &pcpu->time_in_idle_timestamp,
 				  tunables->io_is_busy);
+	pcpu->time_in_iowait = get_cpu_iowait_time_us(cpu, NULL);
+	pcpu->io_consecutive = 0;
 	pcpu->cputime_speedadj = 0;
 	pcpu->cputime_speedadj_timestamp = pcpu->time_in_idle_timestamp;
 	spin_unlock_irqrestore(&pcpu->load_lock, flags);
@@ -328,13 +337,32 @@ static u64 update_load(int cpu)
 		pcpu->policy->governor_data;
 	u64 now;
 	u64 now_idle;
+	u64 now_iowait;
 	unsigned int delta_idle;
+	unsigned int delta_iowait;
 	unsigned int delta_time;
+	unsigned int io_consecutive;
 	u64 active_time;
 
 	now_idle = get_cpu_idle_time(cpu, &now, tunables->io_is_busy);
+	now_iowait = get_cpu_iowait_time_us(cpu, NULL);
 	delta_idle = (unsigned int)(now_idle - pcpu->time_in_idle);
+	delta_iowait = (unsigned int)(now_iowait - pcpu->time_in_iowait);
 	delta_time = (unsigned int)(now - pcpu->time_in_idle_timestamp);
+	io_consecutive = pcpu->io_consecutive;
+
+	if (!tunables->io_is_busy) {
+		if (tunables->io_busy_threshold && delta_iowait)
+			io_consecutive =
+				(io_consecutive < tunables->io_busy_threshold) ?
+				io_consecutive + 1 : io_consecutive;
+		else if (io_consecutive)
+			io_consecutive--;
+
+		if (io_consecutive &&
+				(io_consecutive >= tunables->io_busy_threshold))
+			delta_idle -= delta_iowait;
+	}
 
 	if (delta_time <= delta_idle)
 		active_time = 0;
@@ -344,7 +372,9 @@ static u64 update_load(int cpu)
 	pcpu->cputime_speedadj += active_time * pcpu->policy->cur;
 
 	pcpu->time_in_idle = now_idle;
+	pcpu->time_in_iowait = now_iowait;
 	pcpu->time_in_idle_timestamp = now;
+	pcpu->io_consecutive = io_consecutive;
 	return now;
 }
 
@@ -383,21 +413,13 @@ static void cpufreq_interactive_timer(unsigned long data)
 	cpu_load = loadadjfreq / pcpu->target_freq;
 	boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
 
+	new_freq = choose_freq(pcpu, loadadjfreq);
 	if (cpu_load >= tunables->go_hispeed_load || boosted) {
-		if (pcpu->target_freq < tunables->hispeed_freq) {
-			if (tunables->boost_factor)
-				new_freq = min((pcpu->target_freq
+		new_freq = max(new_freq, tunables->hispeed_freq);
+		if (pcpu->target_freq < tunables->hispeed_freq &&
+				tunables->boost_factor)
+			new_freq = min((pcpu->target_freq
 					* tunables->boost_factor), tunables->hispeed_freq);
-			else
-				new_freq = tunables->hispeed_freq;
-		} else {
-			new_freq = choose_freq(pcpu, loadadjfreq);
-
-			if (new_freq < tunables->hispeed_freq)
-				new_freq = tunables->hispeed_freq;
-		}
-	} else {
-		new_freq = choose_freq(pcpu, loadadjfreq);
 	}
 
 	if (pcpu->target_freq >= tunables->hispeed_freq &&
@@ -1006,6 +1028,26 @@ static ssize_t store_io_is_busy(struct cpufreq_interactive_tunables *tunables,
 	return count;
 }
 
+static ssize_t show_io_busy_threshold(
+		struct cpufreq_interactive_tunables *tunables, char *buf)
+{
+	return sprintf(buf, "%lu\n", tunables->io_busy_threshold);
+}
+
+static ssize_t store_io_busy_threshold(
+		struct cpufreq_interactive_tunables *tunables, const char *buf,
+		size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	tunables->io_busy_threshold = val;
+	return count;
+}
+
 /*
  * Create show/store routines
  * - sys: One governor instance for complete SYSTEM
@@ -1054,6 +1096,7 @@ show_store_gov_pol_sys(boost);
 store_gov_pol_sys(boostpulse);
 show_store_gov_pol_sys(boostpulse_duration);
 show_store_gov_pol_sys(io_is_busy);
+show_store_gov_pol_sys(io_busy_threshold);
 
 gov_sys_pol_attr_rw(target_loads);
 gov_sys_pol_attr_rw(above_hispeed_delay);
@@ -1066,6 +1109,7 @@ gov_sys_pol_attr_rw(timer_slack);
 gov_sys_pol_attr_rw(boost);
 gov_sys_pol_attr_rw(boostpulse_duration);
 gov_sys_pol_attr_rw(io_is_busy);
+gov_sys_pol_attr_rw(io_busy_threshold);
 
 static struct global_attr boostpulse_gov_sys =
 	__ATTR(boostpulse, 0200, NULL, store_boostpulse_gov_sys);
@@ -1086,6 +1130,7 @@ static struct attribute *interactive_attributes_gov_sys[] = {
 	&boostpulse_gov_sys.attr,
 	&boostpulse_duration_gov_sys.attr,
 	&io_is_busy_gov_sys.attr,
+	&io_busy_threshold_gov_sys.attr,
 	&boost_factor_gov_sys.attr,
 	NULL,
 };
@@ -1108,6 +1153,7 @@ static struct attribute *interactive_attributes_gov_pol[] = {
 	&boostpulse_gov_pol.attr,
 	&boostpulse_duration_gov_pol.attr,
 	&io_is_busy_gov_pol.attr,
+	&io_busy_threshold_gov_pol.attr,
 	&boost_factor_gov_pol.attr,
 	NULL,
 };

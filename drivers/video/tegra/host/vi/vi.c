@@ -288,7 +288,7 @@ static struct platform_driver vi_driver = {
 		.owner = THIS_MODULE,
 		.name = "vi",
 #ifdef CONFIG_PM
-		.pm = &vi_pm_ops,
+		.pm = &nvhost_module_pm_ops,
 #endif
 #ifdef CONFIG_OF
 		.of_match_table = tegra_vi_of_match,

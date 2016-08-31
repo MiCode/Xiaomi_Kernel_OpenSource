@@ -156,11 +156,9 @@ dhd_qmon_getpercent(dhd_pub_t *dhdp)
 	if (queued_time_last)
 		time_cumul_adjust = now - queued_time_last;
 
-	if ((now - qmon->queued_time_last_io) > 0) {
-		percent = (uint32)((time_cumul_adjust + queued_time_cumul
+	percent = (uint32)((time_cumul_adjust + queued_time_cumul
 	                    - qmon->queued_time_cumul_last) * 100) /
 	                    (uint32)(now - qmon->queued_time_last_io);
-	}
 
 	qmon->queued_time_cumul_last = queued_time_cumul + time_cumul_adjust;
 	qmon->queued_time_last_io = now;

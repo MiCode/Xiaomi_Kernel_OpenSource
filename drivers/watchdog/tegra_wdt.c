@@ -4,6 +4,7 @@
  * watchdog driver for NVIDIA tegra internal watchdog
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * based on drivers/watchdog/softdog.c and drivers/watchdog/omap_wdt.c
  *
@@ -80,7 +81,23 @@ struct tegra_wdt {
  * For spinlock lockup detection to work, the heartbeat should be 2*lockup
  * for cases where the spinlock disabled irqs.
  */
-static int heartbeat = 120; /* must be greater than MIN_WDT_PERIOD and lower than MAX_WDT_PERIOD */
+static int heartbeat = 60; /* must be greater than MIN_WDT_PERIOD and lower than MAX_WDT_PERIOD */
+
+static int wdog_fire;
+static int wdog_fire_set(const char *val, struct kernel_param *kp);
+module_param_call(wdog_fire, wdog_fire_set, param_get_int,
+				&wdog_fire, 0644);
+
+static int wdog_fire_set(const char *val, struct kernel_param *kp)
+{
+		if (smp_processor_id() != 0) {
+			printk("disable all other cpus first\n");
+			return 0;
+		}
+
+		local_irq_disable();
+		while (1);
+}
 
 #if defined(CONFIG_ARCH_TEGRA_2x_SOC)
 
@@ -425,6 +442,18 @@ static const struct file_operations tegra_wdt_fops = {
 	.open		= tegra_wdt_open,
 	.release	= tegra_wdt_release,
 };
+
+void watchdog_enable(void)
+{
+	tegra_wdt_enable(tegra_wdt[0]);
+}
+EXPORT_SYMBOL_GPL(watchdog_enable);
+
+void watchdog_disable(void)
+{
+	tegra_wdt_disable(tegra_wdt[0]);
+}
+EXPORT_SYMBOL_GPL(watchdog_disable);
 
 static int tegra_wdt_probe(struct platform_device *pdev)
 {

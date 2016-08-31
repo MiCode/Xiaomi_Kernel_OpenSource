@@ -2,6 +2,7 @@
  * Atmel maXTouch Touchscreen driver
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
  *
  * This program is free software; you can redistribute  it and/or modify it
@@ -22,9 +23,6 @@
 #define MXT1386_I2C_ADDR3       0x5A
 #define MXT1386_I2C_ADDR4       0x5B
 
-/* For key_map array */
-#define MXT_NUM_GPIO		4
-
 /* Orient */
 #define MXT_NORMAL		0x0
 #define MXT_DIAGONAL		0x1
@@ -37,15 +35,44 @@
 
 #define CFG_NAME_SIZE		64
 
-/* The platform data for the Atmel maXTouch touchscreen driver */
-struct mxt_platform_data {
-	unsigned long irqflags;
-	bool is_tp;
-	const unsigned int key_map[MXT_NUM_GPIO];
-	u8(*read_chg) (void);
-	const char *input_name;
-	char mxt_cfg_name[CFG_NAME_SIZE];
+#define MXT_KEYARRAY_MAX_KEYS		32
+
+struct mxt_config_info {
+	u8 family_id;
+	u8 variant_id;
+	u8 version;
+	u8 build;
+	u8 bootldr_id;
+	int lcd_id;
+	u8 vendor_id;
+	u8 user_id;
+	/* Points to the firmware name to be upgraded to */
+	const char *mxt_cfg_name;
+	const char *mxt_fw_name;
+	int *key_codes;
+	int key_num;
 };
 
-#endif /* __LINUX_ATMEL_MXT_TS_H */
+/* The platform data for the Atmel maXTouch touchscreen driver */
+struct mxt_platform_data {
+	struct mxt_config_info *config_array;
+	size_t config_array_size;
+	unsigned long irqflags;
+	int power_gpio;
+	int reset_gpio;
+	int irq_gpio;
+	int dcdc_gpio;
+	u8(*read_chg) (void);
+	const char *input_name;
+	u32 reset_gpio_flags;
+	u32 irq_gpio_flags;
+	u32 power_gpio_flags;
+	u32 dcdc_gpio_flags;
+	u8 gpio_mask;
+	u16 vendor_info;
+	u16 product_info;
+	u16 version_info;
+};
+
+#endif /* __LINUX_ATMEL_MXT_TS_640T_H */
 

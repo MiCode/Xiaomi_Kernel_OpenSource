@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-vcm30_t124.c
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -492,7 +493,7 @@ static void __init tegra_vcm30_t124_late_init(void)
 
 static void __init vcm30_t124_ramconsole_reserve(unsigned long size)
 {
-	tegra_ram_console_debug_reserve(SZ_1M);
+	tegra_reserve_ramoops_memory(SZ_1M);
 }
 
 static void __init tegra_vcm30_t124_dt_init(void)

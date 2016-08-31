@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-tn8-power.c
  *
  * Copyright (c) 2013 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -123,7 +124,8 @@ int __init tn8_regulator_init(void)
 	pmc_ctrl = readl(pmc + PMC_CTRL);
 	writel(pmc_ctrl | PMC_CTRL_INTR_LOW, pmc + PMC_CTRL);
 
-	platform_device_register(&gadc_thermal_battery);
+	if (!of_machine_is_compatible("nvidia,mocha"))
+		platform_device_register(&gadc_thermal_battery);
 	platform_device_register(&power_supply_extcon_device);
 	return 0;
 }

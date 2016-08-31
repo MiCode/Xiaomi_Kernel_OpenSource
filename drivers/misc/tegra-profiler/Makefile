@@ -11,13 +11,13 @@
 # more details.
 #
 # Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (C) 2016 XiaoMi, Inc.
 #
 
-obj-$(CONFIG_TEGRA_PROFILER) += tegra-profiler.o
+obj-$(CONFIG_TEGRA_PROFILER) := tegra-profiler.o
 
-tegra-profiler-objs := \
+tegra-profiler-y := \
 	main.o \
-	armv7_pmu.o \
 	hrt.o \
 	comm.o \
 	mmap.o \
@@ -29,6 +29,8 @@ tegra-profiler-objs := \
 	quadd_proc.o \
 	eh_unwind.o
 
-ifdef CONFIG_CACHE_L2X0
-tegra-profiler-objs += pl310.o
-endif
+obj-$(CONFIG_CACHE_L2X0) += pl310.o
+
+obj-$(CONFIG_ARM) += armv7_pmu.o
+obj-$(CONFIG_ARM64) += armv8_pmu.o
+

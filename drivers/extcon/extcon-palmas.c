@@ -8,6 +8,7 @@
  * (at your option) any later version.
  *
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Graeme Gregory <gg@slimlogic.co.uk>
  * Author: Kishon Vijay Abraham I <kishon@ti.com>
@@ -34,6 +35,8 @@
 #include <linux/sched.h>
 #include <linux/workqueue.h>
 
+#define TEMPORARY_HOLD_TIME_1000MS 1000
+
 enum palmas_usb_cable_id {
 	USB_CABLE_INIT,
 	USB_CABLE_VBUS,
@@ -54,6 +57,9 @@ static char const *palmas_extcon_cable[] = {
 };
 
 static const int mutually_exclusive[] = {0x3, 0x0};
+
+/* Check if vbus is valid */
+bool vbus_is_valid;
 
 static void palmas_usb_wakeup(struct palmas *palmas, int enable)
 {
@@ -208,6 +214,8 @@ static irqreturn_t palmas_vbus_irq_handler(int irq, void *_palmas_usb)
 	struct palmas_usb *palmas_usb = _palmas_usb;
 	unsigned int vbus_line_state;
 
+	wake_lock_timeout(&palmas_usb->wakelock,
+			msecs_to_jiffies(TEMPORARY_HOLD_TIME_1000MS));
 	palmas_read(palmas_usb->palmas, PALMAS_INTERRUPT_BASE,
 		PALMAS_INT3_LINE_STATE, &vbus_line_state);
 
@@ -217,6 +225,7 @@ static irqreturn_t palmas_vbus_irq_handler(int irq, void *_palmas_usb)
 		if (palmas_usb->vbus_linkstat != PALMAS_USB_STATE_VBUS) {
 			palmas_usb->vbus_linkstat = PALMAS_USB_STATE_VBUS;
 			extcon_set_cable_state(&palmas_usb->edev, "USB", true);
+			vbus_is_valid = 1;
 			dev_info(palmas_usb->dev, "USB cable is attached\n");
 		} else {
 			dev_info(palmas_usb->dev,
@@ -226,6 +235,7 @@ static irqreturn_t palmas_vbus_irq_handler(int irq, void *_palmas_usb)
 		if (palmas_usb->vbus_linkstat == PALMAS_USB_STATE_VBUS) {
 			palmas_usb->vbus_linkstat = PALMAS_USB_STATE_DISCONNECT;
 			extcon_set_cable_state(&palmas_usb->edev, "USB", false);
+			vbus_is_valid = 0;
 			dev_info(palmas_usb->dev, "USB cable is detached\n");
 		} else {
 			dev_info(palmas_usb->dev,
@@ -241,6 +251,8 @@ static irqreturn_t palmas_id_irq_handler(int irq, void *_palmas_usb)
 	unsigned int set;
 	struct palmas_usb *palmas_usb = _palmas_usb;
 
+	wake_lock_timeout(&palmas_usb->wakelock,
+			msecs_to_jiffies(TEMPORARY_HOLD_TIME_1000MS));
 	palmas_read(palmas_usb->palmas, PALMAS_USB_OTG_BASE,
 		PALMAS_USB_ID_INT_LATCH_SET, &set);
 
@@ -389,6 +401,9 @@ static int palmas_usb_probe(struct platform_device *pdev)
 			goto fail_extcon;
 		}
 	}
+
+	wake_lock_init(&palmas_usb->wakelock, WAKE_LOCK_SUSPEND,
+						"PALMAS_USB_WAKE_LOCK");
 
 	palmas_enable_irq(palmas_usb);
 	device_set_wakeup_capable(&pdev->dev, true);

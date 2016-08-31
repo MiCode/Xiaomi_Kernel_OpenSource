@@ -4,6 +4,7 @@
  * Tegra pulse-width-modulation controller driver
  *
  * Copyright (c) 2010, NVIDIA Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Based on arch/arm/plat-mxc/pwm.c by Sascha Hauer <s.hauer@pengutronix.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -240,6 +241,7 @@ static int tegra_pwm_remove(struct platform_device *pdev)
 static const struct of_device_id tegra_pwm_of_match[] = {
 	{ .compatible = "nvidia,tegra20-pwm" },
 	{ .compatible = "nvidia,tegra30-pwm" },
+	{ .compatible = "nvidia,tegra124-pwm" },
 	{ }
 };
 

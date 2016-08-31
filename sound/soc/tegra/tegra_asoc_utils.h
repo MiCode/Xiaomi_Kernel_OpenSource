@@ -3,6 +3,7 @@
  *
  * Author: Stephen Warren <swarren@nvidia.com>
  * Copyright (c) 2010-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
@@ -45,6 +46,7 @@ struct tegra_asoc_utils_data {
 	struct device *dev;
 	struct snd_soc_card *card;
 	enum tegra_asoc_utils_soc soc;
+	struct clk *clk_audio_emc;
 	struct clk *clk_pll_a;
 	struct clk *clk_pll_a_out0;
 	struct clk *clk_cdev1;

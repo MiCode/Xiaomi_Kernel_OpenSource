@@ -1,0 +1,36 @@
+#
+# Kconfig for Invensense IIO compass drivers of 3rd party compass devices.
+#
+
+# Yamaha YAS530/YAS532/YAS533
+config INV_YAS53X_IIO
+	tristate "Invensense IIO driver for Yamaha YAS530/YAS532/YAS533 compass"
+	depends on I2C && SYSFS && IIO && IIO_KFIFO_BUF
+	default n
+	help
+	  This driver supports the Yamaha YAS530/YAS532/YAS533. It is the Invensense
+	  implementation of YAS53x series compass devices.
+	  This driver can be built as a module. The module will be called
+	  inv_yas53x_iio.
+
+# Aichi AMI306
+config INV_AMI306_IIO
+	tristate "Invensense IIO driver for Aichi AMI306 compass"
+	depends on I2C && SYSFS && IIO && IIO_KFIFO_BUF
+	default n
+	help
+	  This driver supports the Aichi AMI306 compass. It is the Invensense
+	  IIO implementation for the AMI306 compass device.
+	  This driver can be built as a module. The module will be called
+	  inv-ami306-iio.
+
+# Asahi Kasei AK8975/AK8972/AK8963
+config INV_AK89XX_IIO
+	tristate "Invensense IIO driver for Asahi Kasei AK8975/AK8972/AK8963 compass"
+	depends on I2C && SYSFS && IIO && IIO_KFIFO_BUF
+	default n
+	help
+	  This driver supports the Asahi Kasei AK8975/AK8972/AK8963 compasses. It is the Invensense
+	  IIO implementation of AK89xx series compass devices.
+	  This driver can be built as a module. The module will be called
+	  inv-ak89xx-iio.

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,18 +28,21 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
+
+#include "t124/t124.h"
 #include <media/ad5823.h>
+#include <media/camera.h>
 
 #define AD5823_ACTUATOR_RANGE	1023
 #define AD5823_POS_LOW_DEFAULT	(0)
 #define AD5823_POS_HIGH_DEFAULT	(1023)
-#define AD5823_FOCUS_MACRO	(568)
-#define AD5823_FOCUS_INFINITY	(146)
+#define AD5823_FOCUS_MACRO	(640)
+#define AD5823_FOCUS_INFINITY	(140)
 
 #define SETTLETIME_MS	(15)
-#define FOCAL_LENGTH	(4.507f)
-#define FNUMBER		(2.8f)
-#define	AD5823_MOVE_TIME_VALUE	(0x43)
+#define FOCAL_LENGTH	(0x4060A3D7)
+#define FNUMBER	(0x40000000)
+#define	AD5823_MOVE_TIME_VALUE	(0x5F)
 
 #define AD5823_MAX_RETRIES (3)
 
@@ -49,6 +53,7 @@ struct ad5823_info {
 	struct ad5823_platform_data *pdata;
 	struct miscdevice miscdev;
 	struct regmap *regmap;
+	struct camera_sync_dev *csync_dev;
 };
 
 static int ad5823_set_position(struct ad5823_info *info, u32 position)
@@ -67,6 +72,21 @@ static int ad5823_set_position(struct ad5823_info *info, u32 position)
 			position = info->config.pos_actual_high;
 	}
 
+#ifdef TEGRA_12X_OR_HIGHER_CONFIG
+	ret = camera_dev_sync_clear(info->csync_dev);
+	ret |= camera_dev_sync_wr_add(info->csync_dev,
+			AD5823_VCM_MOVE_TIME,
+			AD5823_MOVE_TIME_VALUE);
+	ret |= camera_dev_sync_wr_add(info->csync_dev,
+			AD5823_MODE,
+			0);
+	ret |= camera_dev_sync_wr_add(info->csync_dev,
+			AD5823_VCM_CODE_MSB,
+			((position >> 8) & 0x3) | (1 << 2));
+	ret |= camera_dev_sync_wr_add(info->csync_dev,
+			AD5823_VCM_CODE_LSB,
+			position & 0xFF);
+#else
 	ret |= regmap_write(info->regmap, AD5823_VCM_MOVE_TIME,
 				AD5823_MOVE_TIME_VALUE);
 	ret |= regmap_write(info->regmap, AD5823_MODE, 0);
@@ -74,6 +94,7 @@ static int ad5823_set_position(struct ad5823_info *info, u32 position)
 		((position >> 8) & 0x3) | (1 << 2));
 	ret |= regmap_write(info->regmap, AD5823_VCM_CODE_LSB,
 		position & 0xFF);
+#endif
 
 	return ret;
 }
@@ -307,6 +328,14 @@ static int ad5823_probe(struct i2c_client *client,
 			"Failed to allocate register map: %d\n", err);
 		goto ERROR_RET;
 	}
+
+#ifdef TEGRA_12X_OR_HIGHER_CONFIG
+	err = camera_dev_add_regmap(&info->csync_dev, "ad5823", info->regmap);
+	if (err < 0) {
+		dev_err(&client->dev, "%s unable i2c frame sync\n", __func__);
+		goto ERROR_RET;
+	}
+#endif
 
 	if (info->regulator)
 		regulator_disable(info->regulator);

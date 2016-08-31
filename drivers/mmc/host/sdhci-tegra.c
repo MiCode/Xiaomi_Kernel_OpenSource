@@ -2,6 +2,7 @@
  * Copyright (C) 2010 Google, Inc.
  *
  * Copyright (c) 2012-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -180,8 +181,8 @@
 #define SDHOST_HIGH_VOLT_MIN	2700000
 #define SDHOST_HIGH_VOLT_MAX	3600000
 #define SDHOST_HIGH_VOLT_2V8	2800000
-#define SDHOST_LOW_VOLT_MIN	1800000
-#define SDHOST_LOW_VOLT_MAX	1800000
+#define SDHOST_LOW_VOLT_MIN	1900000
+#define SDHOST_LOW_VOLT_MAX	1900000
 #define SDHOST_HIGH_VOLT_3V2	3200000
 #define SDHOST_HIGH_VOLT_3V3	3300000
 
@@ -1030,9 +1031,15 @@ static irqreturn_t carddetect_irq(int irq, void *data)
 	plat = pdev->dev.platform_data;
 
 	tegra_host->card_present =
-			(gpio_get_value_cansleep(plat->cd_gpio) == 0);
+			(gpio_get_value_cansleep(plat->cd_gpio) != 0);
+
+	dev_err(mmc_dev(sdhost->mmc),
+		"sd card detect card present = %d\n",
+		(int)tegra_host->card_present);
 
 	if (tegra_host->card_present) {
+		if (gpio_is_valid(plat->power_gpio))
+			gpio_set_value_cansleep(plat->power_gpio, 1);
 		err = tegra_sdhci_configure_regulators(tegra_host,
 			CONFIG_REG_EN, 0, 0);
 		if (err)
@@ -1044,6 +1051,8 @@ static irqreturn_t carddetect_irq(int irq, void *data)
 		if (err)
 			dev_err(mmc_dev(sdhost->mmc),
 				"Failed to disable card regulators %d\n", err);
+		if (gpio_is_valid(plat->power_gpio))
+			gpio_set_value_cansleep(plat->power_gpio, 0);
 		/*
 		 * Set retune request as tuning should be done next time
 		 * a card is inserted.
@@ -1287,13 +1296,12 @@ static void tegra_sdhci_clock_set_parent(struct sdhci_host *host,
 	if ((pll_c_freq > desired_rate) && (pll_p_freq > desired_rate)) {
 		if (pll_p_freq <= pll_c_freq) {
 			desired_rate = pll_p_freq;
-			parent_clk = pll_p;
+			pll_c_freq = 0;
 		} else {
 			desired_rate = pll_c_freq;
-			parent_clk = pll_c;
+			pll_p_freq = 0;
 		}
 		rc = clk_set_rate(pltfm_host->clk, desired_rate);
-		goto set_clk_parent;
 	}
 
 	if (pll_c_freq > pll_p_freq) {
@@ -1309,7 +1317,6 @@ static void tegra_sdhci_clock_set_parent(struct sdhci_host *host,
 	} else
 		return;
 
-set_clk_parent:
 	rc = clk_set_parent(pltfm_host->clk, parent_clk);
 	if (rc)
 		pr_err("%s: failed to set pll parent clock %d\n",
@@ -1931,8 +1938,10 @@ static int sdhci_tegra_calculate_best_tap(struct sdhci_host *sdhci,
 
 	curr_vmin = tegra_dvfs_predict_millivolts(pltfm_host->clk,
 		tuning_data->freq_hz);
-	vmin = curr_vmin;
+	if (!curr_vmin)
+		curr_vmin = tegra_host->boot_vcore_mv;
 
+	vmin = curr_vmin;
 	do {
 		SDHCI_TEGRA_DBG("%s: checking for win opening with vmin %d\n",
 			mmc_hostname(sdhci->mmc), vmin);
@@ -1972,11 +1981,25 @@ static int sdhci_tegra_calculate_best_tap(struct sdhci_host *sdhci,
 	tuning_data->best_tap_value = best_tap_value;
 	tuning_data->nom_best_tap_value = best_tap_value;
 
-	/* Set the new vmin if there is any change. */
-	if ((tuning_data->best_tap_value >= 0) && (curr_vmin != vmin))
+	/*
+	 * Set the new vmin if there is any change. If dvfs overrides are
+	 * disabled, then print the error message but continue execution
+	 * rather than disabling tuning altogether.
+	 */
+	if ((tuning_data->best_tap_value >= 0) && (curr_vmin != vmin)) {
 		err = tegra_dvfs_set_fmax_at_vmin(pltfm_host->clk,
 			tuning_data->freq_hz, vmin);
-
+		if ((err == -EPERM) || (err == -ENOSYS)) {
+			/*
+			 * tegra_dvfs_set_fmax_at_vmin: will return EPERM or
+			 * ENOSYS, when DVFS override is not enabled, continue
+			 * tuning with default core voltage.
+			 */
+			SDHCI_TEGRA_DBG(
+				"dvfs overrides disabled. Vmin not updated\n");
+			err = 0;
+		}
+	}
 	kfree(temp_tap_data);
 	return err;
 }
@@ -2051,8 +2074,8 @@ static int sdhci_tegra_issue_tuning_cmd(struct sdhci_host *sdhci)
 		err = 0;
 		sdhci->tuning_done = 1;
 	} else {
-		tegra_sdhci_reset(sdhci, SDHCI_RESET_CMD);
 		tegra_sdhci_reset(sdhci, SDHCI_RESET_DATA);
+		tegra_sdhci_reset(sdhci, SDHCI_RESET_CMD);
 		err = -EIO;
 	}
 
@@ -2890,8 +2913,21 @@ static int sdhci_tegra_set_tuning_voltage(struct sdhci_host *sdhci,
 
 	SDHCI_TEGRA_DBG("%s: Setting vcore override %d\n",
 		mmc_hostname(sdhci->mmc), voltage);
-	/* First clear any previous dvfs override settings */
+	/*
+	 * First clear any previous dvfs override settings. If dvfs overrides
+	 * are disabled, then print the error message but continue execution
+	 * rather than failing tuning altogether.
+	 */
 	err = tegra_dvfs_override_core_voltage(pltfm_host->clk, 0);
+	if ((err == -EPERM) || (err == -ENOSYS)) {
+		/*
+		 * tegra_dvfs_override_core_voltage will return EPERM or ENOSYS,
+		 * when DVFS override is not enabled. Continue tuning
+		 * with default core voltage
+		 */
+		SDHCI_TEGRA_DBG("dvfs overrides disabled. Nothing to clear\n");
+		err = 0;
+	}
 	if (!voltage)
 		return err;
 
@@ -2908,8 +2944,20 @@ static int sdhci_tegra_set_tuning_voltage(struct sdhci_host *sdhci,
 			nom_emc_freq_set = true;
 	}
 
+	/*
+	 * If dvfs overrides are disabled, then print the error message but
+	 * continue tuning execution rather than failing tuning altogether.
+	 */
 	err = tegra_dvfs_override_core_voltage(pltfm_host->clk, voltage);
-	if (err)
+	if ((err == -EPERM) || (err == -ENOSYS)) {
+		/*
+		 * tegra_dvfs_override_core_voltage will return EPERM or ENOSYS,
+		 * when DVFS override is not enabled. Continue tuning
+		 * with default core voltage
+		 */
+		SDHCI_TEGRA_DBG("dvfs overrides disabled. No overrides set\n");
+		err = 0;
+	} else if (err)
 		dev_err(mmc_dev(sdhci->mmc),
 			"failed to set vcore override %dmv\n", voltage);
 
@@ -3173,7 +3221,7 @@ static int tegra_sdhci_resume(struct sdhci_host *sdhci)
 
 	if (gpio_is_valid(plat->cd_gpio)) {
 		tegra_host->card_present =
-			(gpio_get_value_cansleep(plat->cd_gpio) == 0);
+			(gpio_get_value_cansleep(plat->cd_gpio) != 0);
 	}
 
 	/* Setting the min identification clock of freq 400KHz */
@@ -3571,6 +3619,16 @@ void tegra_sdhci_ios_config_exit(struct sdhci_host *sdhci, struct mmc_ios *ios)
 		tegra_sdhci_set_clock(sdhci, 0);
 }
 
+static int tegra_sdhci_get_drive_strength(struct sdhci_host *sdhci,
+		unsigned int max_dtr, int host_drv, int card_drv)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(sdhci);
+	struct sdhci_tegra *tegra_host = pltfm_host->priv;
+	const struct tegra_sdhci_platform_data *plat = tegra_host->plat;
+
+	return plat->default_drv_type;
+}
+
 static const struct sdhci_ops tegra_sdhci_ops = {
 	.get_ro     = tegra_sdhci_get_ro,
 	.get_cd     = tegra_sdhci_get_cd,
@@ -3596,6 +3654,7 @@ static const struct sdhci_ops tegra_sdhci_ops = {
 	.dfs_gov_init		= sdhci_tegra_freq_gov_init,
 	.dfs_gov_get_target_freq	= sdhci_tegra_get_target_freq,
 #endif
+	.get_drive_strength	= tegra_sdhci_get_drive_strength,
 };
 
 static struct sdhci_pltfm_data sdhci_tegra12_pdata = {
@@ -3780,7 +3839,7 @@ static int sdhci_tegra_probe(struct platform_device *pdev)
 				"failed to allocate power gpio\n");
 			goto err_power_req;
 		}
-		gpio_direction_output(plat->power_gpio, 1);
+		gpio_direction_output(plat->power_gpio, 0);
 	}
 
 	if (gpio_is_valid(plat->cd_gpio)) {
@@ -3793,8 +3852,9 @@ static int sdhci_tegra_probe(struct platform_device *pdev)
 		gpio_direction_input(plat->cd_gpio);
 
 		tegra_host->card_present =
-			(gpio_get_value_cansleep(plat->cd_gpio) == 0);
-
+			(gpio_get_value_cansleep(plat->cd_gpio) != 0);
+		if (tegra_host->card_present && gpio_is_valid(plat->power_gpio))
+			gpio_direction_output(plat->power_gpio, 1);
 	} else if (plat->mmc_data.register_status_notify) {
 		plat->mmc_data.register_status_notify(sdhci_status_notify_cb, host);
 	}

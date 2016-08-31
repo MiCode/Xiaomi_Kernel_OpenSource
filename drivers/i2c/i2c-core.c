@@ -1,6 +1,7 @@
 /* i2c-core.c - a device driver for the iic-bus interface		     */
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 1995-99 Simon G. Vogl
+ *   Copyright (C) 2016 XiaoMi, Inc.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -620,6 +621,7 @@ EXPORT_SYMBOL_GPL(i2c_shutdown_adapter);
 void i2c_shutdown_clear_adapter(struct i2c_adapter *adapter)
 {
 	adapter->cancel_xfer_on_shutdown = false;
+	adapter->atomic_xfer_only = true;
 }
 EXPORT_SYMBOL_GPL(i2c_shutdown_clear_adapter);
 

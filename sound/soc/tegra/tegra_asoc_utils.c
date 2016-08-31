@@ -3,6 +3,7 @@
  *
  * Author: Stephen Warren <swarren@nvidia.com>
  * Copyright (c) 2010-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -460,10 +461,25 @@ int tegra_asoc_utils_clk_enable(struct tegra_asoc_utils_data *data)
 {
 	int err;
 
+	err = clk_prepare_enable(data->clk_audio_emc);
+	if (err) {
+		dev_err(data->dev, "Can't enable emc: %d\n", err);
+		return err;
+	}
 	err = clk_prepare_enable(data->clk_cdev1);
 	if (err) {
 		dev_err(data->dev, "Can't enable cdev1: %d\n", err);
+		clk_disable_unprepare(data->clk_audio_emc);
 		return err;
+	}
+	if (!IS_ERR(data->clk_out1)) {
+		err = clk_prepare_enable(data->clk_out1);
+		if (err) {
+			dev_err(data->dev, "Can't enable clk out1: %d\n", err);
+			clk_disable_unprepare(data->clk_cdev1);
+			clk_disable_unprepare(data->clk_audio_emc);
+			return err;
+		}
 	}
 
 	return 0;
@@ -472,7 +488,10 @@ EXPORT_SYMBOL_GPL(tegra_asoc_utils_clk_enable);
 
 int tegra_asoc_utils_clk_disable(struct tegra_asoc_utils_data *data)
 {
+	if (!IS_ERR(data->clk_out1))
+		clk_disable_unprepare(data->clk_out1);
 	clk_disable_unprepare(data->clk_cdev1);
+	clk_disable_unprepare(data->clk_audio_emc);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(tegra_asoc_utils_clk_disable);
@@ -519,11 +538,18 @@ int tegra_asoc_utils_init(struct tegra_asoc_utils_data *data,
 	data->dev = dev;
 	data->card = card;
 
+	data->clk_audio_emc = clk_get_sys("audio", "emc");
+	if (IS_ERR(data->clk_audio_emc)) {
+		dev_err(data->dev, "Can't retrieve clk emc\n");
+		ret = PTR_ERR(data->clk_audio_emc);
+		goto err;
+	}
+
 	data->clk_pll_p_out1 = clk_get_sys(NULL, "pll_p_out1");
 	if (IS_ERR(data->clk_pll_p_out1)) {
 		dev_err(data->dev, "Can't retrieve clk pll_p_out1\n");
 		ret = PTR_ERR(data->clk_pll_p_out1);
-		goto err;
+		goto err_put_audio_emc;
 	}
 
 	if (of_machine_is_compatible("nvidia,tegra20"))
@@ -596,6 +622,12 @@ int tegra_asoc_utils_init(struct tegra_asoc_utils_data *data,
 		}
 	}
 
+	ret = clk_prepare_enable(data->clk_audio_emc);
+	if (ret) {
+		dev_err(data->dev, "Can't enable clk emc");
+		goto err_put_out1;
+	}
+
 	ret = clk_prepare_enable(data->clk_cdev1);
 	if (ret) {
 		dev_err(data->dev, "Can't enable clk cdev1/extern1");
@@ -627,6 +659,8 @@ err_put_pll_a:
 	clk_put(data->clk_pll_a);
 err_put_pll_p_out1:
 	clk_put(data->clk_pll_p_out1);
+err_put_audio_emc:
+	clk_put(data->clk_audio_emc);
 err:
 	return ret;
 }
@@ -680,6 +714,9 @@ void tegra_asoc_utils_fini(struct tegra_asoc_utils_data *data)
 
 	if (!IS_ERR(data->clk_pll_p_out1))
 		clk_put(data->clk_pll_p_out1);
+
+	if (!IS_ERR(data->clk_audio_emc))
+		clk_put(data->clk_audio_emc);
 }
 EXPORT_SYMBOL_GPL(tegra_asoc_utils_fini);
 

@@ -3080,7 +3080,7 @@ static int rt5639_probe(struct snd_soc_codec *codec)
 	ioctl_ops->index_read = rt5639_index_read;
 	ioctl_ops->index_update_bits = rt5639_index_update_bits;
 	ioctl_ops->ioctl_common = rt5639_ioctl_common;
-	realtek_ce_init_hwdep(codec);
+	rt56xx_init_hwdep(codec);
 #endif
 #endif
 

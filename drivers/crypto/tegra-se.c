@@ -5,6 +5,7 @@
  * Support for Tegra Security Engine hardware crypto algorithms.
  *
  * Copyright (c) 2011-2014, NVIDIA Corporation. All Rights Reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -856,10 +857,11 @@ static int tegra_se_setup_ablk_req(struct tegra_se_dev *se_dev,
 	total = req->nbytes;
 
 	if (total) {
-		tegra_map_sg(se_dev->dev, src_sg, 1, DMA_TO_DEVICE,
+		if (src_sg != dst_sg)
+			tegra_map_sg(se_dev->dev, dst_sg, 1, DMA_FROM_DEVICE,
+						dst_ll, total);
+		tegra_map_sg(se_dev->dev, src_sg, 1, src_sg == dst_sg ? DMA_BIDIRECTIONAL : DMA_TO_DEVICE,
 					src_ll, total);
-		tegra_map_sg(se_dev->dev, dst_sg, 1, DMA_FROM_DEVICE,
-					dst_ll, total);
 		WARN_ON(src_sg->length != dst_sg->length);
 	}
 	return ret;
@@ -875,8 +877,9 @@ static void tegra_se_dequeue_complete_req(struct tegra_se_dev *se_dev,
 		src_sg = req->src;
 		dst_sg = req->dst;
 		total = req->nbytes;
-		tegra_unmap_sg(se_dev->dev, dst_sg,  DMA_FROM_DEVICE, total);
-		tegra_unmap_sg(se_dev->dev, src_sg,  DMA_TO_DEVICE, total);
+		if (src_sg != dst_sg)
+			tegra_unmap_sg(se_dev->dev, dst_sg,  DMA_FROM_DEVICE, total);
+		tegra_unmap_sg(se_dev->dev, src_sg,  src_sg == dst_sg ? DMA_BIDIRECTIONAL : DMA_TO_DEVICE, total);
 	}
 }
 

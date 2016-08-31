@@ -145,7 +145,7 @@ static int rt56xx_hwdep_ioctl(struct snd_hwdep *hw, struct file *file,
 	return 0;
 }
 
-int realtek_ce_init_hwdep(struct snd_soc_codec *codec)
+int rt56xx_init_hwdep(struct snd_soc_codec *codec)
 {
 	struct snd_hwdep *hw;
 	struct snd_card *card = codec->card->snd_card;
@@ -165,7 +165,7 @@ int realtek_ce_init_hwdep(struct snd_soc_codec *codec)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(realtek_ce_init_hwdep);
+EXPORT_SYMBOL_GPL(rt56xx_init_hwdep);
 #endif
 
 struct rt56xx_ops *rt56xx_get_ioctl_ops(void)

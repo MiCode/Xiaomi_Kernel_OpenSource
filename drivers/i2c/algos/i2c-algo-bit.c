@@ -2,6 +2,7 @@
  * i2c-algo-bit.c i2c driver algorithms for bit-shift adapters
  * -------------------------------------------------------------------------
  *   Copyright (C) 1995-2000 Simon G. Vogl
+ *   Copyright (C) 2016 XiaoMi, Inc.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -353,7 +354,8 @@ static int try_address(struct i2c_adapter *i2c_adap,
 		bit_dbg(3, &i2c_adap->dev, "emitting stop condition\n");
 		i2c_stop(adap);
 		udelay(adap->udelay);
-		yield();
+		if (!i2c_adap->atomic_xfer_only)
+			cond_resched();
 		bit_dbg(3, &i2c_adap->dev, "emitting start condition\n");
 		i2c_start(adap);
 	}

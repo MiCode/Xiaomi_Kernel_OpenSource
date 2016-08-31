@@ -2,7 +2,8 @@
  * fbsysfs.c - framebuffer device class and attributes
  *
  * Copyright (c) 2004 James Simmons <jsimmons@infradead.org>
- * 
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *	This program is free software you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
  *	as published by the Free Software Foundation; either version
@@ -501,6 +502,16 @@ static ssize_t show_bl_curve(struct device *device,
 }
 #endif
 
+extern void fs_panel_set_param(unsigned int param);
+static ssize_t fb_set_dispparam(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int param;
+	sscanf(buf, "%u", &param);
+	fs_panel_set_param(param);
+	return size;
+}
+
 /* When cmap is added back in it should be a binary attribute
  * not a text one. Consideration should also be given to converting
  * fbdev to use configfs instead of sysfs */
@@ -520,6 +531,7 @@ static struct device_attribute device_attrs[] = {
 #ifdef CONFIG_FB_BACKLIGHT
 	__ATTR(bl_curve, S_IRUGO|S_IWUSR, show_bl_curve, store_bl_curve),
 #endif
+	__ATTR(set_dispparam,  S_IWUSR, NULL, fb_set_dispparam),
 };
 
 int fb_init_device(struct fb_info *fb_info)

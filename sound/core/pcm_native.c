@@ -852,9 +852,6 @@ static int snd_pcm_pre_start(struct snd_pcm_substream *substream, int state)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	if (runtime->status->state != SNDRV_PCM_STATE_PREPARED)
 		return -EBADFD;
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
-	    !snd_pcm_playback_data(substream))
-		return -EPIPE;
 	runtime->trigger_master = substream;
 	return 0;
 }

@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra12_dvfs.c
  *
  * Copyright (c) 2012-2014 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -97,7 +98,7 @@ static struct dvfs_rail tegra12_dvfs_rail_vdd_cpu = {
 	.stats = {
 		.bin_uV = 10000, /* 10mV */
 	},
-	.version = "P4v34",
+	.version = "P4v40",
 };
 
 static struct dvfs_rail tegra12_dvfs_rail_vdd_core = {
@@ -130,7 +131,7 @@ static struct dvfs_rail tegra12_dvfs_rail_vdd_gpu = {
 	.stats = {
 		.bin_uV = 10000, /* 10mV */
 	},
-	.version = "P4.28",
+	.version = "P4v40",
 };
 
 static struct dvfs_rail *tegra12_dvfs_rails[] = {
@@ -148,7 +149,7 @@ void __init tegra12x_vdd_cpu_align(int step_uv, int offset_uv)
 /* CPU DVFS tables */
 static unsigned long cpu_max_freq[] = {
 /* speedo_id	0	 1	  2	   3	    4	     5	     */
-		2014500, 2320500, 2116500, 2320500, 1500000, 2116500,
+		2014500, 2320500, 2116500, 2320500, 1500000, 2218500,
 };
 
 static struct cpu_cvb_dvfs cpu_cvb_dvfs_table[] = {

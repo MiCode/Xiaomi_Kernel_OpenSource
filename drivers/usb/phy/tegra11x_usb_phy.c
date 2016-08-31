@@ -2,6 +2,7 @@
  * drivers/usb/phy/tegra11x_usb_phy.c
  *
  * Copyright (c) 2012-2014 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  *
  * This software is licensed under the terms of the GNU General Public
@@ -32,6 +33,7 @@
 #include <mach/pinmux.h>
 #include <mach/tegra_usb_pmc.h>
 #include <mach/tegra_usb_pad_ctrl.h>
+#include <asm/bootinfo.h>
 
 #ifdef CONFIG_ARCH_TEGRA_14x_SOC
 #include <mach/pinmux-t14.h>
@@ -987,11 +989,16 @@ static int utmi_phy_power_on(struct tegra_usb_phy *phy)
 	val |= UTMIP_XCVR_SETUP_MSB(XCVR_SETUP_MSB_CALIB(phy->utmi_xcvr_setup));
 	val |= UTMIP_XCVR_LSFSLEW(config->xcvr_lsfslew);
 	val |= UTMIP_XCVR_LSRSLEW(config->xcvr_lsrslew);
-	if (!config->xcvr_use_lsb)
-		val |= UTMIP_XCVR_HSSLEW_MSB(0x3);
+	if (!config->xcvr_use_lsb) {
+		if (!config->xcvr_hsslew_msb)
+			val |= UTMIP_XCVR_HSSLEW_MSB(3);
+		else
+			val |= UTMIP_XCVR_HSSLEW_MSB(config->xcvr_hsslew_msb);
+	}
 	if (config->xcvr_hsslew_lsb)
 		val |= UTMIP_XCVR_HSSLEW_LSB(config->xcvr_hsslew_lsb);
 	writel(val, base + UTMIP_XCVR_CFG0);
+	pr_info("usb_phy: utmip_xcvr_cfg0_0: 0x%x\n", val);
 
 	val = readl(base + UTMIP_XCVR_CFG1);
 	val &= ~(UTMIP_FORCE_PDDISC_POWERDOWN | UTMIP_FORCE_PDCHRP_POWERDOWN |
@@ -1275,6 +1282,7 @@ static void disable_charger_detection(void __iomem *base)
 	/* Disable charger detection logic */
 	val = readl(base + UTMIP_BAT_CHRG_CFG0);
 	val &= ~(UTMIP_OP_SRC_EN | UTMIP_ON_SINK_EN);
+	val &= ~(UTMIP_ON_SRC_EN | UTMIP_OP_SINK_EN);
 	writel(val, base + UTMIP_BAT_CHRG_CFG0);
 
 	/* Delay of 40 ms before we pull the D+ as per battery charger spec */
@@ -1379,8 +1387,47 @@ static bool utmi_phy_charger_detect(struct tegra_usb_phy *phy)
 		status = false;
 		disable_charger_detection(base);
 	}
+	DBG("%s(%d) inst:[%d], UTMIP_BAT_CHRG_CFG0 = %08X\n",
+		__func__, __LINE__,
+		phy->inst, readl(base + UTMIP_BAT_CHRG_CFG0));
+	DBG("%s(%d) inst:[%d], UTMIP_MISC_CFG0 = %08X\n",
+		__func__, __LINE__,
+		phy->inst, readl(base + UTMIP_MISC_CFG0));
+
 	DBG("%s(%d) inst:[%d] DONE Status = %d\n",
 		__func__, __LINE__, phy->inst, status);
+
+	return status;
+}
+
+static bool cdp_charger_detection(struct tegra_usb_phy *phy)
+{
+	unsigned long val;
+	int status;
+	void __iomem *base = phy->regs;
+
+	/* SRC D- to D+ */
+	val = readl(base + UTMIP_BAT_CHRG_CFG0);
+	val &= ~(UTMIP_OP_SRC_EN | UTMIP_ON_SINK_EN);
+	val |= UTMIP_ON_SRC_EN | UTMIP_OP_SINK_EN;
+	writel(val, base + UTMIP_BAT_CHRG_CFG0);
+
+	DBG("%s(%d) UTMIP_BAT_CHRG_CFG0 = %08x\n",
+		__func__, __LINE__,
+		readl(base + UTMIP_BAT_CHRG_CFG0));
+
+	msleep(10);
+
+	val = readl(base + USB_PHY_VBUS_WAKEUP_ID);
+	if (val & VDAT_DET_STS) {
+		status = false;
+		DBG("%s: DCP detected\n", __func__);
+	} else {
+		status = true;
+		disable_charger_detection(base);
+		DBG("%s: No voltage from D- to D+ found\n", __func__);
+	}
+
 	return status;
 }
 
@@ -1392,6 +1439,7 @@ static bool utmi_phy_qc2_charger_detect(struct tegra_usb_phy *phy,
 	int status;
 	int qc2_timeout_ms;
 	int vbus_stat = 0;
+	unsigned long org_flags;
 #ifdef QC_MEASURE_VOLTAGES
 	int timeout;
 #endif
@@ -1400,23 +1448,42 @@ static bool utmi_phy_qc2_charger_detect(struct tegra_usb_phy *phy,
 		__func__, __LINE__, phy->inst, max_voltage);
 
 	status = false;
-
 	/* no need to detect qc2 if operating at 5V */
 	switch (max_voltage) {
+	case TEGRA_USB_QC2_5V:
 	case TEGRA_USB_QC2_9V:
 	case TEGRA_USB_QC2_12V:
 	case TEGRA_USB_QC2_20V:
 		break;
-
-	case TEGRA_USB_QC2_5V:
 	default:
 		disable_charger_detection(base);
 		return status;
 	}
 
+	/* Ensure we start from an initial state */
+	writel(0, base + UTMIP_BAT_CHRG_CFG0);
+	utmi_phy_set_dp_dm_pull_up_down(phy, 0);
+
+	if (get_powerup_reason() & PWR_ON_EVENT_USB_CHG) {
+		/* Force wall charger detection logic to reset */
+		org_flags = utmi_phy_set_dp_dm_pull_up_down(phy,
+			FORCE_PULLDN_DP | FORCE_PULLDN_DM);
+		ssleep(1);
+		msleep(500);
+		utmi_phy_set_dp_dm_pull_up_down(phy, org_flags);
+	}
+
+	/* Enable charger detection logic */
+	val = readl(base + UTMIP_BAT_CHRG_CFG0);
+	val |= UTMIP_OP_SRC_EN | UTMIP_ON_SINK_EN;
+	writel(val, base + UTMIP_BAT_CHRG_CFG0);
+
+	/* Source should be on for 100 ms as per USB charging spec */
+	msleep(TDP_SRC_ON_MS);
+
 	/* if vbus drops we are connected to quick charge 2 */
 	qc2_timeout_ms = 0;
-	while (qc2_timeout_ms < 2000) {
+	while (qc2_timeout_ms < 1500) {
 		usleep_range(1000, 1200);
 		qc2_timeout_ms += 1;
 		val = readl(base + USB_PHY_VBUS_WAKEUP_ID);
@@ -1426,13 +1493,14 @@ static bool utmi_phy_qc2_charger_detect(struct tegra_usb_phy *phy,
 		}
 	}
 
-	if (vbus_stat) {
-		unsigned long org_flags;
-
+	if (vbus_stat && qc2_timeout_ms > 100) {
 		status = true;
 
 		DBG("%s(%d) inst:[%d], QC2 DETECTED !!!",
 			__func__, __LINE__, phy->inst);
+
+		/* Wall charger needs time before setting D+/D- */
+		mdelay(25);
 
 		switch (max_voltage) {
 		case TEGRA_USB_QC2_9V:
@@ -1503,15 +1571,14 @@ static bool utmi_phy_qc2_charger_detect(struct tegra_usb_phy *phy,
 #endif
 	}
 
+	/*
+	 * If QC2 charger detected do not disable the charger
+	 * detection voltage on D- and D+. Doing this will
+	 * cause it to move to 5V
+	 */
+	if (!status)
+		disable_charger_detection(base);
 
-	DBG("%s(%d) inst:[%d], UTMIP_BAT_CHRG_CFG0 = %08X\n",
-		__func__, __LINE__,
-		phy->inst, readl(base + UTMIP_BAT_CHRG_CFG0));
-	DBG("%s(%d) inst:[%d], UTMIP_MISC_CFG0 = %08X\n",
-		__func__, __LINE__,
-		phy->inst, readl(base + UTMIP_MISC_CFG0));
-
-	disable_charger_detection(base);
 	DBG("%s(%d) inst:[%d] DONE Status = %d\n",
 		__func__, __LINE__, phy->inst, status);
 	return status;
@@ -2270,6 +2337,7 @@ static struct tegra_usb_phy_ops utmi_phy_ops = {
 	.resume	= utmi_phy_resume,
 	.charger_detect = utmi_phy_charger_detect,
 	.qc2_charger_detect = utmi_phy_qc2_charger_detect,
+	.cdp_charger_detect = cdp_charger_detection,
 	.nv_charger_detect = utmi_phy_nv_charger_detect,
 	.apple_charger_1000ma_detect = utmi_phy_apple_charger_1000ma_detect,
 	.apple_charger_2000ma_detect = utmi_phy_apple_charger_2000ma_detect,
@@ -2279,6 +2347,7 @@ static struct tegra_usb_phy_ops utmi_phy_ops = {
 
 static struct tegra_usb_phy_ops uhsic_phy_ops = {
 	.init		= _usb_phy_init,
+	.reset		= usb_phy_reset,
 	.open		= uhsic_phy_open,
 	.close		= uhsic_phy_close,
 	.irq		= uhsic_phy_irq,

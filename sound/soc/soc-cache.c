@@ -280,7 +280,7 @@ static int snd_soc_get_reg_access_index(struct snd_soc_codec *codec,
 					unsigned int reg)
 {
 	const struct snd_soc_codec_driver *codec_drv;
-	unsigned int min, max, index;
+	int min, max, index;
 
 	codec_drv = codec->driver;
 	min = 0;
@@ -292,7 +292,7 @@ static int snd_soc_get_reg_access_index(struct snd_soc_codec *codec,
 		if (codec_drv->reg_access_default[index].reg < reg)
 			min = index + 1;
 		else
-			max = index;
+			max = index - 1;
 	} while (min <= max);
 	return -1;
 }

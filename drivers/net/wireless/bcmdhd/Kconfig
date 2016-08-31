@@ -1,33 +1,22 @@
 config BCMDHD
-	tristate "Broadcom 43xx wireless cards support"
-	depends on MMC && CFG80211
+	tristate "Broadcom FullMAC wireless cards support"
 	---help---
 	  This module adds support for wireless adapters based on
-	  Broadcom 43xx chipset.
-
-	  This driver uses the kernel's cfg80211 subsystem.
+	  Broadcom FullMAC chipset.
 
 	  If you choose to build a module, it'll be called dhd. Say M if
 	  unsure.
 
-config BCM43241
-	bool "Broadcom 43241 wireless card support"
-	depends on BCMDHD
+config BCMDHD_SDIO
+	bool "SDIO bus interface support"
+	depends on BCMDHD && MMC
 
-config BCM43341
-	bool "Broadcom 43341/43340 wireless card support"
-	depends on BCMDHD
+config BCMDHD_PCIE
+	bool "PCIe bus interface support"
+	depends on BCMDHD && PCI && !BCMDHD_SDIO
 
-config BCM4335
-	bool "Broadcom 4335 wireless card support"
-	depends on BCMDHD
-
-config BCM4339
-	bool "Broadcom 4339 wireless card support"
-	depends on BCMDHD
-
-config BCM4350
-	bool "Broadcom 4350 wireless card support"
+config BCM4354
+	tristate "BCM4354 support"
 	depends on BCMDHD
 
 config BCMDHD_FW_PATH
@@ -44,19 +33,13 @@ config BCMDHD_NVRAM_PATH
 	---help---
 	  Path to the calibration file.
 
-config BCMDHD_HW_OOB
-	bool "Use out of band interrupt"
-	depends on BCMDHD
-	default n
-	---help---
-	  Use out of band interrupt for card interrupt and wake on wireless.
-
-config BCMDHD_INSMOD_NO_FW_LOAD
-	bool "Enable delayed firmware load"
-	depends on BCMDHD
-	default n
-	---help---
-	Enable delayes firmware
+config BCMDHD_WEXT
+	bool "Enable WEXT support"
+	depends on BCMDHD && CFG80211 = n
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	help
+	  Enables WEXT support
 
 config DHD_USE_STATIC_BUF
 	bool "Enable memory preallocation"
@@ -71,13 +54,3 @@ config DHD_USE_SCHED_SCAN
 	default n
 	---help---
 	  Use CFG80211 sched scan
-
-config BCMDHD_DISABLE_P2P_SYSFS_DEVICE_NODE
-	bool "Disable sysfs entry for P2P interfaces"
-	depends on BCMDHD
-	default n
-	---help---
-	Disable creation of sysfs device node for P2P interfaces.
-	This is a workaround to prevent management tools from
-	directly managing P2P virtual devices.
-

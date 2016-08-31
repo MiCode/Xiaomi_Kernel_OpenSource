@@ -4,6 +4,7 @@
  * GK20A Graphics
  *
  * Copyright (c) 2011-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -764,14 +765,6 @@ int nvhost_gk20a_prepare_poweroff(struct platform_device *dev)
 	if (!g->power_on)
 		return 0;
 
-	ret |= gk20a_channel_suspend(g);
-
-	/* disable elpg before gr or fifo suspend */
-	ret |= gk20a_pmu_destroy(g);
-	ret |= gk20a_gr_suspend(g);
-	ret |= gk20a_mm_suspend(g);
-	ret |= gk20a_fifo_suspend(g);
-
 	/*
 	 * After this point, gk20a interrupts should not get
 	 * serviced.
@@ -781,6 +774,14 @@ int nvhost_gk20a_prepare_poweroff(struct platform_device *dev)
 		free_irq(gk20a_intr.start+1, g);
 		g->irq_requested = false;
 	}
+
+	ret |= gk20a_channel_suspend(g);
+
+	/* disable elpg before gr or fifo suspend */
+	ret |= gk20a_pmu_destroy(g);
+	ret |= gk20a_gr_suspend(g);
+	ret |= gk20a_mm_suspend(g);
+	ret |= gk20a_fifo_suspend(g);
 
 	/* Disable GPCPLL */
 	ret |= gk20a_suspend_clk_support(g);
@@ -912,6 +913,13 @@ int nvhost_gk20a_finalize_poweron(struct platform_device *dev)
 	gk20a_channel_resume(g);
 	set_user_nice(current, nice_value);
 
+#ifdef CONFIG_INPUT_CFBOOST
+	if (!g->boost_added) {
+		nvhost_dbg(dbg_info, "add touch boost");
+		cfb_add_device(&dev->dev);
+		g->boost_added = true;
+	}
+#endif
 done:
 	return err;
 }
@@ -1020,6 +1028,9 @@ static int gk20a_probe(struct platform_device *dev)
 #endif
 
 	err = nvhost_client_device_init(dev);
+
+	spin_lock_init(&gk20a->mc_enable_lock);
+
 	if (err) {
 		nvhost_dbg_fn("failed to init client device for %s",
 			      dev->name);
@@ -1079,10 +1090,6 @@ static int gk20a_probe(struct platform_device *dev)
 	gk20a_pmu_debugfs_init(dev);
 #endif
 
-#ifdef CONFIG_INPUT_CFBOOST
-	cfb_add_device(&dev->dev);
-#endif
-
 	return 0;
 }
 
@@ -1092,7 +1099,8 @@ static int __exit gk20a_remove(struct platform_device *dev)
 	nvhost_dbg_fn("");
 
 #ifdef CONFIG_INPUT_CFBOOST
-	cfb_remove_device(&dev->dev);
+	if (g->boost_added)
+		cfb_remove_device(&dev->dev);
 #endif
 
 	if (g->remove_support)

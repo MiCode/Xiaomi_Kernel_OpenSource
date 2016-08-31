@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2010 Google, Inc.
  * Copyright (C) 2010-2014 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author:
  *	Colin Cross <ccross@android.com>
@@ -89,6 +90,11 @@
 
 #define   RECOVERY_MODE	BIT(31)
 #define   BOOTLOADER_MODE	BIT(30)
+#define   KPANIC_RS_REASON   BIT(29)
+#define   NORMAL_RS_REASON  BIT(28)
+#define   OTHER_RS_REASON  BIT(27)
+#define   WDOG_RS_REASON    BIT(26)
+#define   CHARGEONLY_MODE   BIT(5)
 #define   FORCED_RECOVERY_MODE	BIT(1)
 
 #define AHB_GIZMO_USB		0x1c
@@ -172,6 +178,8 @@ static u8 display_config;
 
 static int tegra_split_mem_set;
 
+static int in_panic;
+
 struct device tegra_generic_cma_dev;
 struct device tegra_vpr_cma_dev;
 
@@ -243,22 +251,23 @@ void tegra_assert_system_reset(char mode, const char *cmd)
 
 	reg = readl_relaxed(reset + PMC_SCRATCH0);
 	/* Writing recovery kernel or Bootloader mode in SCRATCH0 31:30:1 */
-	if (cmd) {
+	if (in_panic) {
+		reg = KPANIC_RS_REASON;
+	} else if (cmd) {
 		if (!strcmp(cmd, "recovery"))
-			reg |= RECOVERY_MODE;
+			reg = RECOVERY_MODE;
 		else if (!strcmp(cmd, "bootloader"))
-			reg |= BOOTLOADER_MODE;
+			reg = BOOTLOADER_MODE;
 		else if (!strcmp(cmd, "forced-recovery"))
-			reg |= FORCED_RECOVERY_MODE;
-		else {
-			reg &= ~(BOOTLOADER_MODE | RECOVERY_MODE | FORCED_RECOVERY_MODE);
-			empty_command = true;
-		}
-	}
-	else {
-		/* Clearing SCRATCH0 31:30:1 on default reboot */
-		reg &= ~(BOOTLOADER_MODE | RECOVERY_MODE | FORCED_RECOVERY_MODE);
-	}
+			reg = FORCED_RECOVERY_MODE;
+		else if (!strcmp(cmd, "usb_chg"))
+			reg = CHARGEONLY_MODE;
+		else
+			reg = NORMAL_RS_REASON;
+	} else
+		reg = NORMAL_RS_REASON;
+
+
 	writel_relaxed(reg, reset + PMC_SCRATCH0);
 	if ((!cmd || empty_command) && pm_power_reset) {
 		pm_power_reset();
@@ -883,7 +892,6 @@ void __init tegra20_init_early(void)
 	tegra_init_power();
 	tegra_init_ahb_gizmo_settings();
 	tegra_init_debug_uart_rate();
-	tegra_ram_console_debug_reserve(SZ_1M);
 }
 #endif
 #ifdef CONFIG_ARCH_TEGRA_3x_SOC
@@ -930,7 +938,6 @@ void __init tegra30_init_early(void)
 	tegra_init_power();
 	tegra_init_ahb_gizmo_settings();
 	tegra_init_debug_uart_rate();
-	tegra_ram_console_debug_reserve(SZ_1M);
 
 	init_dma_coherent_pool_size(SZ_1M);
 }
@@ -1026,7 +1033,6 @@ void __init tegra14x_init_early(void)
 	tegra_init_power();
 	tegra_init_ahb_gizmo_settings();
 	tegra_init_debug_uart_rate();
-	tegra_ram_console_debug_reserve(SZ_1M);
 }
 #endif
 static int __init tegra_lp0_vec_arg(char *options)
@@ -2145,34 +2151,30 @@ void tegra_get_fb2_resource(struct resource *fb2_res)
 }
 
 #ifdef CONFIG_PSTORE_RAM
-static struct persistent_ram_descriptor desc = {
+static struct ramoops_platform_data ramoops_data;
+
+static struct platform_device ramoops_dev  = {
 	.name = "ramoops",
+	.dev = {
+		.platform_data = &ramoops_data,
+	},
 };
 
-static struct persistent_ram ram = {
-	.descs = &desc,
-	.num_descs = 1,
-};
-
-void __init tegra_ram_console_debug_reserve(unsigned long ram_console_size)
+void __init tegra_reserve_ramoops_memory(unsigned long reserve_size)
 {
-	int ret;
-
-	ram.start = memblock_end_of_DRAM() - ram_console_size;
-	ram.size = ram_console_size;
-	ram.descs->size = ram_console_size;
-
-	INIT_LIST_HEAD(&ram.node);
-
-	ret = persistent_ram_early_init(&ram);
-	if (ret)
-		goto fail;
-
-	return;
-
-fail:
-	pr_err("Failed to reserve memory block for ram console\n");
+	ramoops_data.mem_size = reserve_size;
+	ramoops_data.mem_address = memblock_end_of_4G() - reserve_size;
+	ramoops_data.console_size = reserve_size;
+	ramoops_data.dump_oops = 1;
+	memblock_reserve(ramoops_data.mem_address, ramoops_data.mem_size);
 }
+
+static void __init tegra_register_ramoops_device()
+{
+	if (platform_device_register(&ramoops_dev))
+		pr_info("Unable to register ramoops platform device\n");
+}
+core_initcall(tegra_register_ramoops_device);
 #endif
 
 int __init tegra_register_fuse(void)
@@ -2296,7 +2298,7 @@ int __init tegra_soc_device_init(const char *machine)
 	soc_dev = soc_device_register(soc_dev_attr);
 	if (IS_ERR_OR_NULL(soc_dev)) {
 		kfree(soc_dev_attr);
-		return -1;
+		return -EPERM;
 	}
 
 	return 0;
@@ -2583,3 +2585,36 @@ static int __init tegra_get_last_reset_reason(void)
 	return 0;
 }
 late_initcall(tegra_get_last_reset_reason);
+
+extern void watchdog_enable(void);
+extern void watchdog_disable(void);
+static int panic_prep_restart(struct notifier_block *this,
+			unsigned long event, void *ptr)
+{
+	in_panic = 1;
+	printk(KERN_INFO "Stack trace dump:\n");
+	watchdog_disable();
+	show_state_filter(0);
+	watchdog_enable();
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block panic_blk = {
+	.notifier_call	= panic_prep_restart,
+};
+
+static int __init tegra_system_reset_init(void)
+{
+	void __iomem *reset = IO_ADDRESS(TEGRA_PMC_BASE + 0);
+	u32 reg;
+
+	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
+
+	printk("reboot reason bit is 0x%x\n", readl_relaxed(reset + PMC_SCRATCH0));
+	reg = OTHER_RS_REASON;
+	writel_relaxed(reg, reset + PMC_SCRATCH0);
+
+	return 0;
+}
+early_initcall(tegra_system_reset_init);

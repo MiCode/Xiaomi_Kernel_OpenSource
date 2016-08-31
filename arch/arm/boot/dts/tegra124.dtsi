@@ -152,4 +152,13 @@
 		reg = <0x700e3000 0x00000100>;
 	};
 
+	pwm: pwm {
+		compatible = "nvidia,tegra124-pwm";
+		reg = <0x7000a000 0x100>;
+		#pwm-cells = <2>;
+		clocks = <&tegra_car 17>;
+		status = "okay";
+	};
+
+
 };

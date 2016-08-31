@@ -1,7 +1,8 @@
 /*
  * palmas-poweroff.c : Power off and reset for Palma device.
  *
- * Copyright (c) 2013, NVIDIA Corporation.
+ * Copyright (c) 2013-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Laxman Dewangan <ldewangan@nvidia.com>
  *
@@ -132,7 +133,18 @@ static void palmas_power_off(void *drv_data)
 	palmas_write(palmas, PALMAS_PMU_CONTROL_BASE,
 				PALMAS_SWOFF_COLDRST, 0x0);
 
+	palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
+				PALMAS_LONG_PRESS_KEY,
+				PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_MASK,
+				PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_500MS);
+
 	dev_info(palmas_pm->dev, "Powering off the device\n");
+
+	/* Lock LONG PRESS KEY bits */
+	palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
+			PALMAS_LONG_PRESS_KEY,
+			PALMAS_LONG_PRESS_KEY_LPK_LOCK,
+			PALMAS_LONG_PRESS_KEY_LPK_LOCK);
 
 	/* Power off the device */
 	palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
@@ -205,6 +217,15 @@ static void palmas_power_reset(void *drv_data)
 		}
 
 		ret = palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
+				PALMAS_SWOFF_COLDRST, PALMAS_SWOFF_COLDRST_SW_RST,
+					PALMAS_SWOFF_COLDRST_SW_RST);
+		if (ret < 0) {
+			dev_err(palmas_pm->dev,
+				"SWOFF_COLDRST update failed: %d\n", ret);
+			goto reset_direct;
+		}
+
+		ret = palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
 				PALMAS_DEV_CTRL, PALMAS_DEV_CTRL_SW_RST,
 				PALMAS_DEV_CTRL_SW_RST);
 		if (ret < 0) {
@@ -217,6 +238,9 @@ static void palmas_power_reset(void *drv_data)
 
 reset_direct:
 	dev_info(palmas_pm->dev, "Power reset the device\n");
+	palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
+			PALMAS_SWOFF_COLDRST, PALMAS_SWOFF_COLDRST_SW_RST,
+			PALMAS_SWOFF_COLDRST_SW_RST);
 	palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
 				PALMAS_DEV_CTRL, 0x2, 0x2);
 }

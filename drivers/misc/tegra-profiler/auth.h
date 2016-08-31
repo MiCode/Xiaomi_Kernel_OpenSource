@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/auth.h
  *
- * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,7 +19,7 @@
 
 struct quadd_ctx;
 
-int quadd_auth_check_debug_flag(const char *package_name);
+int quadd_auth_is_debuggable(const char *package_name);
 int quadd_auth_is_auth_open(void);
 
 int quadd_auth_init(struct quadd_ctx *quadd_ctx);

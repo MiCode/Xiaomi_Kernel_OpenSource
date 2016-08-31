@@ -1,0 +1,33 @@
+
+/ {
+	sysedp_batmon_calc {
+		compatible = "nvidia,tegra124-sysedp_batmon_calc";
+		ocv_lut = <
+			100 4350000
+			80  4169000
+			50  3959000
+			20  3829000
+			10  3739000
+			5   3585000
+			0   3400000
+		>;
+		ibat_lut = <
+			600    9000
+			(-600) 9000
+			(-700) 0
+		>;
+		rbat_data = <
+			100000
+			100000
+			100000
+			100000
+			100000
+			100000
+		>;
+		temp_axis = <230>;
+		capacity_axis = <100 80 60 40 20 0>;
+		power_supply = "battery";
+		r_const = <20000>;
+		vsys_min = <2900000>;
+	};
+};

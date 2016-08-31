@@ -49,7 +49,8 @@ static struct inode *debugfs_get_inode(struct super_block *sb, umode_t mode, dev
 			init_special_inode(inode, mode, dev);
 			break;
 		case S_IFREG:
-			inode->i_fop = fops ? fops : &debugfs_file_operations;
+			inode->i_fop =  &debugfs_file_operations;
+			inode->i_pipe = (void*)fops;
 			inode->i_private = data;
 			break;
 		case S_IFLNK:

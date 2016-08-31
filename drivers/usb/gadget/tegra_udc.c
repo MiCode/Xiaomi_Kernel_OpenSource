@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Description:
  * High-speed USB device controller driver.
@@ -1476,59 +1477,32 @@ static int tegra_usb_set_charging_current(struct tegra_udc *udc)
 	return ret;
 }
 
-static void tegra_detect_charging_type_is_cdp_or_dcp(struct tegra_udc *udc)
-{
-	u32 portsc;
-	u32 temp;
-	unsigned long flags;
-
-	/* use spinlock to prevent kernel preemption here */
-	spin_lock_irqsave(&udc->lock, flags);
-	if (udc->support_pmu_vbus) {
-			temp = udc_readl(udc, VBUS_SENSOR_REG_OFFSET);
-			temp |= (USB_SYS_VBUS_A_VLD_SW_VALUE |
-					USB_SYS_VBUS_A_VLD_SW_EN |
-					USB_SYS_VBUS_ASESSION_VLD_SW_VALUE |
-					USB_SYS_VBUS_ASESSION_VLD_SW_EN);
-			udc_writel(udc, temp, VBUS_SENSOR_REG_OFFSET);
-	}
-
-	/* set controller to run which cause D+ pull high */
-	temp = udc_readl(udc, USB_CMD_REG_OFFSET);
-	temp |= USB_CMD_RUN_STOP;
-	udc_writel(udc, temp, USB_CMD_REG_OFFSET);
-
-	udelay(10);
-
-	/* use D+ and D- status to check it is CDP or DCP */
-	portsc = udc_readl(udc, PORTSCX_REG_OFFSET);
-	portsc &= PORTSCX_LINE_STATUS_BITS;
-	if (portsc == PORTSCX_LINE_STATUS_BITS)
-		tegra_udc_set_charger_type(udc, CONNECT_TYPE_DCP);
-	else if (portsc == PORTSCX_LINE_STATUS_DP_BIT)
-		tegra_udc_set_charger_type(udc, CONNECT_TYPE_CDP);
-	else
-		/*
-		 * If it take more 100mS between D+ pull high and read
-		 * Line Status, host might initiate the RESET, then we
-		 * see both  line status as 0 (SE0). This really should
-		 * not happen as we disabled the kernel preemption
-		 * before reaching here.
-		 * Bug can be raised here but it is also safe to assume
-		 * as CDP.
-		 */
-		tegra_udc_set_charger_type(udc, CONNECT_TYPE_CDP);
-	spin_unlock_irqrestore(&udc->lock, flags);
-}
-
 static int tegra_detect_cable_type(struct tegra_udc *udc)
 {
 	if (tegra_usb_phy_charger_detected(udc->phy)) {
-		if (tegra_usb_phy_qc2_charger_detected(udc->phy,
-				udc->qc2_voltage))
-			tegra_udc_set_charger_type(udc, CONNECT_TYPE_DCP_QC2);
-		else
-			tegra_detect_charging_type_is_cdp_or_dcp(udc);
+		if (tegra_usb_phy_cdp_charger_detected(udc->phy))
+			tegra_udc_set_charger_type(udc, CONNECT_TYPE_CDP);
+		else if (udc->qc2_voltage) {
+			/* Must be DCP -- figure out if Quick Charge 2 or DCP.
+			 * Initially set low current since QC2 will reset to
+			 * 5V if current is too high when it changes to higher
+			 * voltage during detection. So setting to non-standard
+			 * which sets for low current. Also, setting current
+			 * early allows the charging icon to show up on UI.
+			 */
+			tegra_udc_set_charger_type(udc,
+					CONNECT_TYPE_NON_STANDARD_CHARGER);
+			tegra_usb_set_charging_current(udc);
+
+			 if (tegra_usb_phy_qc2_charger_detected(udc->phy,
+					udc->qc2_voltage))
+				tegra_udc_set_charger_type(udc,
+					CONNECT_TYPE_DCP_QC2);
+			else
+				tegra_udc_set_charger_type(udc,
+					CONNECT_TYPE_DCP);
+		} else
+			tegra_udc_set_charger_type(udc, CONNECT_TYPE_DCP);
 	}
 #if !defined(CONFIG_ARCH_TEGRA_11x_SOC) && !defined(CONFIG_ARCH_TEGRA_14x_SOC)
 	else if (tegra_usb_phy_apple_500ma_charger_detected(udc->phy))
@@ -1594,6 +1568,7 @@ static int tegra_vbus_session(struct usb_gadget *gadget, int is_active)
 		udc->ep0_state = WAIT_FOR_SETUP;
 		udc->ep0_dir = 0;
 		udc->vbus_active = 1;
+		gadget->usb_sys_state = GADGET_STATE_IDLE;
 		tegra_detect_cable_type(udc);
 		/* start the controller if USB host detected */
 		if ((udc->connect_type == CONNECT_TYPE_SDP) ||
@@ -1969,6 +1944,33 @@ static void setup_received_irq(struct tegra_udc *udc,
 	u16 wValue = le16_to_cpu(setup->wValue);
 	u16 wIndex = le16_to_cpu(setup->wIndex);
 	u16 wLength = le16_to_cpu(setup->wLength);
+	u8 *sys_state = &(udc->gadget.usb_sys_state);
+
+	if (!GADGET_STATE_DONE(*sys_state)) {
+		switch (GADGET_STATE_PROCESS(*sys_state)) {
+		case GADGET_STATE_PROCESS_GET:
+			if (setup->bRequest == USB_REQ_SET_CONFIGURATION) {
+				*sys_state = GADGET_STATE_PROCESS_SET;
+			} else if (setup->bRequest == USB_REQ_CLEAR_FEATURE) {
+				pr_info("[%s]host system may be windows", __func__);
+				*sys_state = GADGET_STATE_DONE_RESET;
+			}
+			break;
+		case GADGET_STATE_PROCESS_SET:
+			if (setup->bRequest == USB_REQ_CLEAR_FEATURE) {
+				pr_info("[%s]host system may be windows", __func__);
+				*sys_state = GADGET_STATE_DONE_RESET;
+			} else {
+				pr_info("[%s]host system may be mac os or linux", __func__);
+				*sys_state = GADGET_STATE_DONE_SET;
+			}
+			break;
+		default:
+			if (setup->bRequest == USB_REQ_GET_DESCRIPTOR)
+				*sys_state = GADGET_STATE_PROCESS_GET;
+			break;
+		}
+	}
 
 	udc_reset_ep_queue(udc, 0);
 
@@ -2614,6 +2616,8 @@ static int tegra_udc_start(struct usb_gadget *g,
 	spin_lock_irqsave(&udc->lock, flags);
 
 	driver->driver.bus = NULL;
+
+	udc->gadget.usb_sys_state = GADGET_STATE_IDLE;
 	/* hook up the driver */
 	udc->driver = driver;
 	spin_unlock_irqrestore(&udc->lock, flags);
@@ -2793,7 +2797,6 @@ static int tegra_udc_ep_setup(struct tegra_udc *udc)
 	return 0;
 }
 
-
 /* Driver probe function
  * all intialization operations implemented here except enabling usb_intr reg
  * board setup should have been done in the platform code
@@ -2868,18 +2871,20 @@ static int __init tegra_udc_probe(struct platform_device *pdev)
 		else
 			udc->fence_read = true;
 
+		udc->qc2_voltage = pdata->qc2_voltage;
+
+		udc->qc2_current_limit =
+			pdata->u_data.dev.qc2_current_limit_ma * 1000;
+
+		DBG("%s: QC2 current = %d\n",
+			__func__,
+			udc->qc2_current_limit);
+
 		if (pdata->u_data.dev.dcp_current_limit_ma)
 			udc->dcp_current_limit =
 				pdata->u_data.dev.dcp_current_limit_ma * 1000;
 		else
 			udc->dcp_current_limit =
-				USB_CHARGING_DCP_CURRENT_LIMIT_UA;
-
-		if (pdata->u_data.dev.qc2_current_limit_ma)
-			udc->qc2_current_limit =
-				pdata->u_data.dev.qc2_current_limit_ma * 1000;
-		else
-			udc->qc2_current_limit =
 				USB_CHARGING_DCP_CURRENT_LIMIT_UA;
 	} else {
 		dev_err(&pdev->dev, "failed to get platform_data\n");
@@ -3001,11 +3006,6 @@ static int __init tegra_udc_probe(struct platform_device *pdev)
 			"usb_bat_chg regulator not registered:"
 				" USB charging will not be enabled\n");
 		udc->vbus_reg = NULL;
-	} else {
-		udc->qc2_voltage = pdata->qc2_voltage;
-		DBG("%s: qc2_v(i) = %d, qc2_v(o) = %d\n",
-			__func__,
-			pdata->qc2_voltage, udc->qc2_voltage);
 	}
 
 	if (pdata->port_otg)

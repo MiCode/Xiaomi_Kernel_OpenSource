@@ -1382,9 +1382,11 @@ static int tegra_dc_set_out(struct tegra_dc *dc, struct tegra_dc_out *out)
 		dc->out_ops = &tegra_dc_rgb_ops;
 		break;
 
+#ifdef DC_OUT_HDMI_SUPPORT
 	case TEGRA_DC_OUT_HDMI:
 		dc->out_ops = &tegra_dc_hdmi_ops;
 		break;
+#endif
 
 	case TEGRA_DC_OUT_DSI:
 		dc->out_ops = &tegra_dc_dsi_ops;
@@ -1447,7 +1449,7 @@ EXPORT_SYMBOL(tegra_dc_get_out_width);
 
 unsigned tegra_dc_get_out_max_pixclock(const struct tegra_dc *dc)
 {
-	if (dc->out && dc->out->max_pixclock)
+	if (dc && dc->out)
 		return dc->out->max_pixclock;
 	else
 		return 0;
@@ -2242,11 +2244,6 @@ static bool _tegra_dc_controller_enable(struct tegra_dc *dc)
 		dc->out_ops->postpoweron(dc);
 
 	tegra_log_resume_time();
-	/*
-	 * We will need to reinitialize the display the next time panel
-	 * is enabled.
-	 */
-	dc->out->flags &= ~TEGRA_DC_OUT_INITIALIZED_MODE;
 
 	tegra_dc_put(dc);
 

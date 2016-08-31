@@ -7,6 +7,7 @@
  *	Erik Gilling <konkers@google.com>
  *
  * Copyright (c) 2010-2014, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -95,11 +96,23 @@ enum {
 	TEGRA_DSI_GPIO_SET,
 	TEGRA_DSI_SEND_FRAME,
 	TEGRA_DSI_PACKET_VIDEO_VBLANK_CMD,
+	TEGRA_DSI_PACKET_VIDEO_VBLANK_C_CMD
 };
 enum {
 	TEGRA_DSI_LINK0,
 	TEGRA_DSI_LINK1,
 };
+
+enum {
+	TEGRA_DSI_LEFT_RIGHT_NORMAL,
+	TEGRA_DSI_LEFT_RIGHT_FLIPPED,
+};
+
+enum {
+	TEGRA_DSI_EVEN_ODD_NORMAL,
+	TEGRA_DSI_EVEN_ODD_FLIPPED,
+};
+
 struct tegra_dsi_cmd {
 	u8	cmd_type;
 	u8	data_id;
@@ -117,23 +130,103 @@ struct tegra_dsi_cmd {
 	u8   link_id;
 };
 
-#define DSI_GENERIC_LONG_WRITE			0x29
-#define DSI_DCS_LONG_WRITE			0x39
-#define DSI_GENERIC_SHORT_WRITE_1_PARAMS	0x13
-#define DSI_GENERIC_SHORT_WRITE_2_PARAMS	0x23
-#define DSI_DCS_WRITE_0_PARAM			0x05
-#define DSI_DCS_WRITE_1_PARAM			0x15
+/* Processor to Peripheral Direction Packet Data Types */
+/* Sync Event */
+#define DSI_V_SYNC_START			0x01	/* short */
+#define DSI_V_SYNC_END				0x11	/* short */
+#define DSI_H_SYNC_START			0x21	/* short */
+#define DSI_H_SYNC_END				0x31	/* short */
+/* End of Transmission */
+#define DSI_EOT_PACKET				0x08	/* short */
+/* Color Mode */
+#define DSI_CM_OFF_CMD				0x02	/* short */
+#define DSI_CM_ON_CMD				0x12	/* short */
+/* Peripheral Command */
+#define DSI_SHUT_DOWN_PERIPH			0x22	/* short */
+#define DSI_TURN_ON_PERIPH			0x32	/* short */
+/* Generic Read/Write */
+#define DSI_GENERIC_SHORT_WRITE_0_PARAM		0x03	/* short */
+#define DSI_GENERIC_SHORT_WRITE_1_PARAM		0x13	/* short */
+#define DSI_GENERIC_SHORT_WRITE_2_PARAMS	0x23	/* short */
+#define DSI_GENERIC_READ_0_PARAMS		0x04	/* short */
+#define DSI_GENERIC_READ_1_PARAM		0x14	/* short */
+#define DSI_GENERIC_READ_2_PARAMS		0x24	/* short */
+/* DCS Short Read/Write */
+#define DSI_DCS_WRITE_0_PARAM			0x05	/* short */
+#define DSI_DCS_WRITE_1_PARAM			0x15	/* short */
+#define DSI_DCS_READ_0_PARAM			0x06	/* short */
+/* Maximum Return */
+#define DSI_SET_MR_PACKET_SIZE			0x37	/* short */
+/* Packet No Data */
+#define DSI_NULL_PKT_NO_DATA			0x09	/* long */
+#define DSI_BLANKING_PKT_NO_DATA		0x19	/* long */
+/* Long Write */
+#define DSI_GENERIC_LONG_WRITE			0x29	/* long */
+#define DSI_DCS_LONG_WRITE			0x39	/* long */
+#define DSI_WRITE_LUT_COMMAND_PACKET		0x39	/* long */
+/* Packed Pixel Stream */
+#define DSI_LOOSELY_PPS_20_BIT_YCBCR		0x0c	/* long */
+#define DSI_PPS_24_BIT_YCBCR			0x1c	/* long */
+#define DSI_PPS_16_BIT_YCBCR			0x2c	/* long */
+#define DSI_PPS_30_BIT_RGB			0x0d	/* long */
+#define DSI_PPS_36_BIT_RGB			0x1d	/* long */
+#define DSI_PPS_12_BIT_YCBCR			0x3d	/* long */
+#define DSI_PPS_16_BIT_RGB			0x0e	/* long */
+#define DSI_PPS_18_BIT_RGB			0x1e	/* long */
+#define DSI_LOOSELY_PPS_18_BIT_RGB		0x3e	/* long */
+#define DSI_PPS_24_BIT_RGB			0x3e	/* long */
 
-#define DSI_DCS_SET_ADDR_MODE			0x36
-#define DSI_DCS_EXIT_SLEEP_MODE			0x11
-#define DSI_DCS_ENTER_SLEEP_MODE		0x10
-#define DSI_DCS_SET_DISPLAY_ON			0x29
-#define DSI_DCS_SET_DISPLAY_OFF			0x28
-#define DSI_DCS_SET_TEARING_EFFECT_OFF		0x34
-#define DSI_DCS_SET_TEARING_EFFECT_ON		0x35
-#define DSI_DCS_NO_OP				0x0
-#define DSI_NULL_PKT_NO_DATA			0x9
-#define DSI_BLANKING_PKT_NO_DATA		0x19
+
+/* Display Command Set List */
+/* Enter Modes */
+#define DSI_DCS_ENTER_IDLE_MODE			0x39	/* 0 param */
+#define DSI_DCS_ENTER_INVERT_MODE		0x21	/* 0 param */
+#define DSI_DCS_ENTER_NORMAL_MODE		0x13	/* 0 param */
+#define DSI_DCS_ENTER_PARTIAL_MODE		0x12	/* 0 param */
+#define DSI_DCS_ENTER_SLEEP_MODE		0x10	/* 0 param */
+/* Exit Modes */
+#define DSI_DCS_EXIT_IDLE_MODE			0x38	/* 0 param */
+#define DSI_DCS_EXIT_INVERT_MODE		0x20	/* 0 param */
+#define DSI_DCS_EXIT_SLEEP_MODE			0x11	/* 0 param */
+/* Get */
+#define DSI_DCS_GET_ADDR_MODE			0x0b	/* 1 param */
+#define DSI_DCS_GET_BLUE_CHANNEL		0x08	/* 1 param */
+#define DSI_DCS_GET_DIAGNOSTIC_RESULT		0x0f	/* 1 param */
+#define DSI_DCS_GET_DISPLAY_MODE		0x0d	/* 1 param */
+#define DSI_DCS_GET_GREEN_CHANNEL		0x07	/* 1 param */
+#define DSI_DCS_GET_PIXEL_FORMAT		0x0c	/* 1 param */
+#define DSI_DCS_GET_POWER_MODE			0x0a	/* 1 param */
+#define DSI_DCS_GET_RED_CHANNEL			0x06	/* 1 param */
+#define DSI_DCS_GET_SCANLINE			0x45	/* 2 params */
+#define DSI_DCS_GET_SIGNAL_MODE			0x0e	/* 1 param */
+/* No Operation */
+#define DSI_DCS_NO_OP				0x00	/* 0 param */
+/* Read */
+#define DSI_DCS_READ_DDB_CONTINUE		0xa8	/* variable */
+#define DSI_DCS_READ_DDB_START			0xa1	/* variable */
+#define DSI_DCS_READ_MEMORY_CONTINUE		0x3e	/* variable */
+#define DSI_DCS_READ_MEMORY_START		0x2e	/* variable */
+/* Set */
+#define DSI_DCS_SET_ADDR_MODE			0x36	/* 1 param */
+#define DSI_DCS_SET_COLUMN_ADDRESS		0x2a	/* 4 params */
+#define DSI_DCS_SET_DISPLAY_OFF			0x28	/* 0 param */
+#define DSI_DCS_SET_DISPLAY_ON			0x29	/* 0 param */
+#define DSI_DCS_SET_GAMMA_CURVE			0x26	/* 1 param */
+#define DSI_DCS_SET_PAGE_ADDRESS		0x2b	/* 4 params */
+#define DSI_DCS_SET_PARTIAL_COLUMN		0x31	/* 4 params */
+#define DSI_DCS_SET_PARTIAL_ROWS		0x30	/* 4 params */
+#define DSI_DCS_SET_PIXEL_FORMAT		0x3a	/* 1 param */
+#define DSI_DCS_SET_SCROLL_AREA			0x33	/* 6 params */
+#define DSI_DCS_SET_SCROLL_START		0x37	/* 2 params */
+#define DSI_DCS_SET_TEARING_EFFECT_OFF		0x34	/* 0 params */
+#define DSI_DCS_SET_TEARING_EFFECT_ON		0x35	/* 1 param */
+#define DSI_DCS_SET_TEAR_SCANLINE		0x44	/* 2 params */
+/* Soft Reset */
+#define DSI_DCS_SOFT_RESET			0x01	/* 0 param */
+/* Write */
+#define DSI_DCS_WRITE_LUT			0x2d	/* variable */
+#define DSI_DCS_WRITE_MEMORY_CONTINUE		0x3c	/* variable */
+#define DSI_DCS_WRITE_MEMORY_START		0x2c	/* variable */
 
 #define _DSI_CMD_SHORT(di, p0, p1, lnk_id, _cmd_type)	{ \
 					.cmd_type = _cmd_type, \
@@ -147,11 +240,23 @@ struct tegra_dsi_cmd {
 			_DSI_CMD_SHORT(di, p0, p1, TEGRA_DSI_LINK0,\
 				TEGRA_DSI_PACKET_VIDEO_VBLANK_CMD)
 
+#define DSI_CMD_VBLANK_SHORT_LINK(di, p0, p1, lnk_id) \
+			_DSI_CMD_SHORT(di, p0, p1, lnk_id,\
+				TEGRA_DSI_PACKET_VIDEO_VBLANK_CMD)
+
+#define DSI_CMD_VBLANK_SHORT_BOTH(di, p0, p1)	\
+		DSI_CMD_VBLANK_SHORT_LINK(di, p0, p1, TEGRA_DSI_LINK0), \
+		DSI_CMD_VBLANK_SHORT_LINK(di, p0, p1, TEGRA_DSI_LINK1)
+
 #define DSI_CMD_SHORT_LINK(di, p0, p1, lnk_id) \
 			_DSI_CMD_SHORT(di, p0, p1, lnk_id, TEGRA_DSI_PACKET_CMD)
 
 #define DSI_CMD_SHORT(di, p0, p1)	\
 			DSI_CMD_SHORT_LINK(di, p0, p1, TEGRA_DSI_LINK0)
+
+#define DSI_CMD_SHORT_BOTH(di, p0, p1)	\
+		DSI_CMD_SHORT_LINK(di, p0, p1, TEGRA_DSI_LINK0), \
+		DSI_CMD_SHORT_LINK(di, p0, p1, TEGRA_DSI_LINK1)
 
 #define DSI_DLY_MS(ms)	{ \
 			.cmd_type = TEGRA_DSI_DELAY_MS, \
@@ -181,6 +286,10 @@ struct tegra_dsi_cmd {
 
 #define DSI_CMD_LONG(di, ptr)	\
 			DSI_CMD_LONG_LINK(di, ptr, TEGRA_DSI_LINK0)
+
+#define DSI_CMD_LONG_BOTH(di, ptr)	\
+		DSI_CMD_LONG_LINK(di, ptr, TEGRA_DSI_LINK0), \
+		DSI_CMD_LONG_LINK(di, ptr, TEGRA_DSI_LINK1)
 
 #define DSI_SEND_FRAME(cnt)	{ \
 			.cmd_type = TEGRA_DSI_SEND_FRAME, \
@@ -305,6 +414,8 @@ struct tegra_dsi_out {
 	u8		video_clock_mode;
 	u8		video_burst_mode;
 	u8		ganged_type;
+	u8		left_right_align;
+	u8		even_odd_align;
 
 	u8		suspend_aggr;
 
@@ -317,6 +428,7 @@ struct tegra_dsi_out {
 	bool		no_pkt_seq_eot; /* 1st generation panel may not
 					 * support eot. Don't set it for
 					 * most panels. */
+	bool		no_pkt_seq_hbp;
 	bool		te_polarity_low;
 	bool		power_saving_suspend;
 	bool		dsi2lvds_bridge_enable;

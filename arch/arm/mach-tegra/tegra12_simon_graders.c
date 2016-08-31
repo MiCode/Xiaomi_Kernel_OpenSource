@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra_simon_graders.c
  *
  * Copyright (c) 2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -37,13 +38,13 @@
 #define FUSE_DATA			0x8
 
 #define FIXED_SCALE			14
-#define TEMP_COEFF_A			-45   /* -0.0027 * (1 << FIXED_SCALE) */
-#define TEMP_COEFF_B			17360 /* 1.0596 * (1 << FIXED_SCALE) */
+#define TEMP_COEFF_A			-49   /* -0.003 * (1 << FIXED_SCALE) */
+#define TEMP_COEFF_B			17449 /* 1.065 * (1 << FIXED_SCALE) */
 #define FUSE_SIMON_STATE		113
 #define INITIAL_SHIFT_MASK		0x1F
 #define CPU_INITIAL_SHIFT_OFFSET	5
 #define GPU_INITIAL_SHIFT_OFFSET	0
-#define TEGRA_SIMON_THRESHOLD		57344 /* 3.5% */
+#define TEGRA_SIMON_THRESHOLD		54067 /* 3.3% */
 
 DEFINE_MUTEX(tegra_simon_fuse_lock);
 
@@ -59,11 +60,11 @@ static struct volt_scale_entry volt_scale_table[] = {
 	},
 	[1] = {
 		.mv = 900,
-		.scale = 11633, /* 0.71 * (1 << FIXED_SCALE) */
+		.scale = 11469, /* 0.7 * (1 << FIXED_SCALE) */
 	},
 	[2] = {
 		.mv = 1000,
-		.scale = 8684, /* 0.53 * (1 << FIXED_SCALE) */
+		.scale = 8356, /* 0.51 * (1 << FIXED_SCALE) */
 	},
 };
 
@@ -79,8 +80,10 @@ static s64 scale_voltage(int mv, s64 num)
 
 	/* Invalid voltage */
 	WARN_ON(i == ARRAY_SIZE(volt_scale_table));
-	if (i == ARRAY_SIZE(volt_scale_table))
-		return num * volt_scale_table[i - 1].scale;
+	if (i == ARRAY_SIZE(volt_scale_table)) {
+		do_div(num, volt_scale_table[i - 1].scale);
+		return num;
+	}
 
 
 	/* Interpolate/Extrapolate for exacte scale value */
@@ -162,21 +165,11 @@ static u32 get_tegra_simon_fuse(void)
 	return reg;
 }
 
-int grade_gpu_simon_domain(int domain, int mv, int temperature)
+static s64 get_current_threshold(s64 ro29, s64 ro30, s64 initial_shift, int mv,
+					int temperature)
 {
-	u32 ro29, ro30;
-	s64 shift, cur_shift, initial_shift;
+	s64 shift = ro30;
 
-	if (domain != TEGRA_SIMON_DOMAIN_GPU)
-		return 0;
-
-	ro29 = read_gpu_ism(0, 600, 3, 29);
-	ro30 = read_gpu_ism(2, 3000, 0, 30);
-
-	if (!ro29)
-		return 0;
-
-	shift = ro30;
 	shift = (shift << FIXED_SCALE) * 100;
 	do_div(shift, ro29);
 
@@ -187,6 +180,21 @@ int grade_gpu_simon_domain(int domain, int mv, int temperature)
 	/* Normalize for temperature */
 	shift = (shift << FIXED_SCALE);
 	shift = scale_temp(temperature, shift);
+
+	initial_shift = (initial_shift << FIXED_SCALE) * 8;
+	do_div(initial_shift, 31);
+	initial_shift = initial_shift - (4 << FIXED_SCALE);
+
+	return shift - initial_shift;
+}
+
+int grade_gpu_simon_domain(int domain, int mv, int temperature)
+{
+	u32 ro29, ro30;
+	s64 cur_shift, initial_shift;
+
+	if (domain != TEGRA_SIMON_DOMAIN_GPU)
+		return 0;
 
 	initial_shift = get_tegra_simon_fuse();
 	initial_shift = (initial_shift >> GPU_INITIAL_SHIFT_OFFSET) &
@@ -195,10 +203,14 @@ int grade_gpu_simon_domain(int domain, int mv, int temperature)
 	if (!initial_shift || initial_shift == INITIAL_SHIFT_MASK)
 		return 0;
 
-	initial_shift = (initial_shift << FIXED_SCALE) * 8;
-	do_div(initial_shift, 31);
-	initial_shift = initial_shift - (4 << FIXED_SCALE);
-	cur_shift = shift - initial_shift;
+	ro29 = read_gpu_ism(0, 600, 3, 29);
+	ro30 = read_gpu_ism(2, 3000, 0, 30);
+
+	if (!ro29)
+		return 0;
+
+	cur_shift = get_current_threshold(ro29, ro30, initial_shift, mv,
+						temperature);
 
 	return cur_shift < TEGRA_SIMON_THRESHOLD;
 }
@@ -206,28 +218,10 @@ int grade_gpu_simon_domain(int domain, int mv, int temperature)
 int grade_cpu_simon_domain(int domain, int mv, int temperature)
 {
 	u32 ro29, ro30;
-	s64 shift, cur_shift, initial_shift;
+	s64 cur_shift, initial_shift;
 
 	if (domain != TEGRA_SIMON_DOMAIN_CPU)
 		return 0;
-
-	ro29 = read_cpu0_ism(0, 600, 3, 29);
-	ro30 = read_cpu0_ism(2, 3000, 0, 30);
-
-	if (!ro29)
-		return 0;
-
-	shift = ro30;
-	shift = (shift << FIXED_SCALE) * 100;
-	do_div(shift, ro29);
-
-	/* Normalize for voltage */
-	shift = (shift << FIXED_SCALE);
-	shift = scale_voltage(mv, shift);
-
-	/* Normalize for temperature */
-	shift = (shift << FIXED_SCALE);
-	shift = scale_temp(temperature, shift);
 
 	initial_shift = get_tegra_simon_fuse();
 	initial_shift = (initial_shift >> CPU_INITIAL_SHIFT_OFFSET) &
@@ -236,10 +230,14 @@ int grade_cpu_simon_domain(int domain, int mv, int temperature)
 	if (!initial_shift || initial_shift == INITIAL_SHIFT_MASK)
 		return 0;
 
-	initial_shift = (initial_shift << FIXED_SCALE) * 8;
-	do_div(initial_shift, 31);
-	initial_shift = initial_shift - (4 << FIXED_SCALE);
-	cur_shift = shift - initial_shift;
+	ro29 = read_cpu0_ism(0, 600, 3, 29);
+	ro30 = read_cpu0_ism(2, 3000, 0, 30);
+
+	if (!ro29)
+		return 0;
+
+	cur_shift = get_current_threshold(ro29, ro30, initial_shift, mv,
+						temperature);
 
 	return cur_shift < TEGRA_SIMON_THRESHOLD;
 }

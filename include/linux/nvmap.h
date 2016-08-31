@@ -4,6 +4,7 @@
  * structure declarations for nvmem and nvmap user-space ioctls
  *
  * Copyright (c) 2009-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -248,6 +249,16 @@ struct nvmap_cache_op {
 	__s32 op;		/* wb/wb_inv/inv */
 };
 
+struct nvmap_cache_op_list {
+	__u64 handles;		/* Ptr to u32 type array, holding handles */
+	__u64 offsets;		/* Ptr to u32 type array, holding offsets
+				 * into handle mem */
+	__u64 sizes;		/* Ptr to u32 type array, holindg sizes of memory
+				 * regions within each handle */
+	__u32 nr;		/* Number of handles */
+	__s32 op;		/* wb/wb_inv/inv */
+};
+
 #define NVMAP_IOC_MAGIC 'N'
 
 /* Creates a new memory handle. On input, the argument is the size of the new
@@ -298,6 +309,9 @@ struct nvmap_cache_op {
 /* Create a new memory handle from file id passed */
 #define NVMAP_IOC_FROM_FD _IOWR(NVMAP_IOC_MAGIC, 16, struct nvmap_create_handle)
 
+/* Perform cache maintenance on a list of handles. */
+#define NVMAP_IOC_CACHE_LIST _IOW(NVMAP_IOC_MAGIC, 17,	\
+				  struct nvmap_cache_op_list)
 /* START of T124 IOCTLS */
 /* Actually allocates memory for the specified handle, with kind */
 #define NVMAP_IOC_ALLOC_KIND _IOW(NVMAP_IOC_MAGIC, 100, struct nvmap_alloc_kind_handle)

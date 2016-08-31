@@ -237,7 +237,7 @@ config BATTERY_BQ27X00_I2C
 config BATTERY_BQ27X00_PLATFORM
 	bool "BQ27000 support"
 	depends on BATTERY_BQ27x00
-	default y
+	default n
 	help
 	  Say Y here to enable support for batteries with BQ27000 (HDQ) chips.
 
@@ -318,6 +318,14 @@ config BATTERY_BQ27441
 	select BATTERY_CHARGER_GAUGE_COMM
 	help
 	  BQ27441 is fuel-gauge systems for lithium-ion (Li+) batteries
+	  in handheld and portable equipment.
+
+config BATTERY_BQ27520
+	tristate "TI's BQ27520 Fuel Gauge"
+	depends on I2C
+	select BATTERY_CHARGER_GAUGE_COMM
+	help
+	  BQ27520 is fuel-gauge systems for lithium-ion (Li+) batteries
 	  in handheld and portable equipment.
 
 config BATTERY_LC709203F

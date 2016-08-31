@@ -1,0 +1,51 @@
+#
+# STMicroelectronics sensor-hub core driver
+#
+
+menuconfig IIO_ST_HUB_DRIVERS
+	tristate "STMicroelectronics sensor-hub Driver"
+	depends on I2C && SYSFS
+	select IIO_BUFFER
+	select IIO_BUFFER_CB
+	select IIO_TRIGGERED_BUFFER
+	help
+	  Say yes here to build support for STMicroelectronics sensor-hub
+	  sensors: LIS331EB, LSM6DB0.
+
+	  This driver can also be built as a module. If so, will be created
+	  these modules:
+	  - st_sensor_hub_core;
+	  - st_hub_ymodem;
+	  - st_hub_accel;
+	  - st_hub_magn;
+	  - st_hub_magn_uncalib;
+	  - st_hub_gyro;
+	  - st_hub_gyro_uncalib;
+	  - st_hub_sign_motion;
+	  - st_hub_quaternion;
+	  - st_hub_step_detector;
+	  - st_hub_step_counter;
+	  - st_hub_euler;
+	  - st_hub_linear;
+	  - st_hub_gravity;
+
+if IIO_ST_HUB_DRIVERS
+config IIO_ST_HUB_RESET_GPIO
+	bool "Reset pin control"
+	help
+	  Say yes here to use reset GPIO pin control.
+
+	  If this feature is enabled, drivers needs a GPIO to reset the sensor
+	  at boot-time.
+	  To use Ram loaded this parameter is needed.
+
+config IIO_ST_HUB_RAM_LOADER
+	bool "RAM loader"
+	select IIO_ST_HUB_RESET_GPIO
+	help
+	  Say yes here to support Ram Loader feature.
+
+	  If this feature is enabled, the firmware will be download every time
+	  at boot-time.
+
+endif

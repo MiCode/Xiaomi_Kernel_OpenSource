@@ -5,6 +5,7 @@
  * Copyright 2010, 2011 David Jander <david@protonic.nl>
  *
  * Copyright (c) 2010-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -33,17 +34,26 @@
 #include <linux/spinlock.h>
 #include <linux/system-wakeup.h>
 #include <linux/tegra-pm.h>
+#include <linux/kobject.h>
 
+#define KEY_CODE_VOL_DOWN 0x72
+#define KEY_CODE_VOL_UP   0x73
+#define KEY_CODE_POWER    0x74
+#define KEY_THREE_KEYS_PRESSED 0x7
+#define COMBO_KEY_LAST_TIME 2000
+static int combo_state;
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
 	struct input_dev *input;
 	struct timer_list timer;
 	struct work_struct work;
+	struct delayed_work combo_key_work;
 	unsigned int timer_debounce;	/* in msecs */
 	unsigned int irq;
 	spinlock_t lock;
 	bool disabled;
 	bool key_pressed;
+	bool combo_key_pressed;
 };
 
 struct gpio_keys_drvdata {
@@ -348,6 +358,23 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		if (state)
 			input_event(input, type, button->code, button->value);
 	} else {
+		if (button->code == KEY_CODE_VOL_UP ||
+			button->code == KEY_CODE_VOL_DOWN ||
+			button->code == KEY_CODE_POWER) {
+			if (state) {
+				combo_state |= 1 << (button->code - KEY_CODE_VOL_DOWN);
+			} else {
+				bdata->combo_key_pressed = 0;
+				combo_state = 0;
+			}
+
+			if (combo_state == KEY_THREE_KEYS_PRESSED) {
+				bdata->combo_key_pressed = 1;
+				cancel_delayed_work_sync(&bdata->combo_key_work);
+				schedule_delayed_work(&bdata->combo_key_work, COMBO_KEY_LAST_TIME);
+			}
+		}
+
 		input_event(input, type, button->code, !!state);
 	}
 	input_sync(input);
@@ -362,6 +389,23 @@ static void gpio_keys_gpio_work_func(struct work_struct *work)
 
 	if (bdata->button->wakeup)
 		pm_relax(bdata->input->dev.parent);
+}
+
+static void gpio_combo_key_work_func(struct work_struct *work)
+{
+	struct gpio_button_data *bdata =
+		container_of(to_delayed_work(work), struct gpio_button_data, combo_key_work);
+	char event_string[25];
+	char *gpio_event[] = { event_string, NULL };
+
+	if (bdata->combo_key_pressed) {
+		#ifdef CONFIG_KEYBOARD_COMBO_KEYS_REBOOT
+		BUG();
+		#else
+		sprintf(event_string, "EVENT=combo_key_pressed");
+		kobject_uevent_env(&bdata->input->dev.kobj, KOBJ_CHANGE, gpio_event);
+		#endif
+	}
 }
 
 static void gpio_keys_gpio_timer(unsigned long _data)
@@ -482,6 +526,7 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 		bdata->irq = irq;
 
 		INIT_WORK(&bdata->work, gpio_keys_gpio_work_func);
+		INIT_DELAYED_WORK(&bdata->combo_key_work, gpio_combo_key_work_func);
 		setup_timer(&bdata->timer,
 			    gpio_keys_gpio_timer, (unsigned long)bdata);
 
@@ -881,19 +926,13 @@ static int gpio_keys_resume_noirq(struct device *dev)
 	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
 	struct platform_device *pdev = to_platform_device(dev);
 	struct gpio_keys_platform_data *pdata = pdev->dev.platform_data;
-	int wakeup_key = KEY_RESERVED;
 	int wakeup_irq = get_wakeup_reason_irq();
 	int i;
-
-	if (pdata && pdata->wakeup_key)
-		wakeup_key = pdata->wakeup_key();
-
 	if (device_may_wakeup(dev)) {
 		for (i = 0; i < ddata->pdata->nbuttons; i++) {
 			struct gpio_button_data *bdata = &ddata->data[i];
 			if (bdata->button->wakeup &&
-				((wakeup_key == bdata->button->code) ||
-				(dev->of_node && (wakeup_irq == bdata->irq))))
+				((dev->of_node && (wakeup_irq == bdata->irq))))
 				gpio_keys_gpio_report_wake(bdata);
 		}
 	}

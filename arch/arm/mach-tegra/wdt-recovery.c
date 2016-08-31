@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/wdt-recovery.c
  *
  * Copyright (c) 2012, NVIDIA Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,7 +39,7 @@
 
 static int wdt_heartbeat = 30;
 
-#if defined(CONFIG_ARCH_TEGRA_3x_SOC)
+#if defined(CONFIG_ARCH_TEGRA_3x_SOC) || defined(CONFIG_ARCH_TEGRA_12x_SOC)
 #define TIMER_PTV			0
  #define TIMER_EN			(1 << 31)
  #define TIMER_PERIODIC			(1 << 30)
@@ -59,6 +60,40 @@ static int wdt_heartbeat = 30;
 static void __iomem *wdt_timer  = IO_ADDRESS(TEGRA_TMR10_BASE);
 static void __iomem *wdt_source = IO_ADDRESS(TEGRA_WDT3_BASE);
 
+#if defined(CONFIG_TRACE_WARMBOOT)
+#define I2C_I2C_CNFG 0x7000D000
+#define I2C_I2C_CMD_ADDR0 0x7000D004
+#define I2C_I2C_CMD_DATA1 0x7000D00C
+#define I2C_I2C_STATUS 0x7000D01C
+#define I2C_I2C_CONFIG_LOAD 0x7000D08C
+static void pwr_i2c_write(int addr, int offset, int value)
+{
+	static void __iomem *i2c_cnfg;
+	static void __iomem *i2c_addr0;
+	static void __iomem *i2c_data1;
+	static void __iomem *i2c_status;
+	static void __iomem *i2c_config_load;
+	int timeout = 0x10000;
+
+	i2c_config_load = ioremap(I2C_I2C_CONFIG_LOAD, 4);
+	i2c_cnfg = ioremap(I2C_I2C_CNFG, 4);
+	i2c_addr0 = ioremap(I2C_I2C_CMD_ADDR0, 4);
+	i2c_data1 = ioremap(I2C_I2C_CMD_DATA1, 4);
+	i2c_status = ioremap(I2C_I2C_STATUS, 4);
+	i2c_config_load = ioremap(I2C_I2C_CONFIG_LOAD, 4);
+
+	*(unsigned int *)i2c_addr0 = addr;
+	*(unsigned int *)i2c_data1 = (value<<8|offset);
+	*(unsigned int *)i2c_cnfg = 0x2;
+	*(unsigned int *)i2c_config_load = 0x1;
+	*(unsigned int *)i2c_cnfg = 0x202;
+
+	while ((*(unsigned int *)i2c_status) && timeout) {
+		timeout--;
+	};
+}
+#endif
+
 static void tegra_wdt_reset_enable(void)
 {
 	u32 val;
@@ -74,6 +109,15 @@ static void tegra_wdt_reset_enable(void)
 	writel(WDT_CMD_START_COUNTER, wdt_source + WDT_CMD);
 	pr_info("%s: WDT Recovery Enabled\n", __func__);
 }
+
+#if defined(CONFIG_TRACE_WARMBOOT)
+static void tegra_wdt_recovery_resume(void)
+{
+	tegra_wdt_reset_enable();
+	pr_info("%s: PALMAS WDT Recovery Closed\n", __func__);
+	pwr_i2c_write(0xb0, 0xa5, 0x6);
+}
+#endif
 
 static int tegra_wdt_reset_disable(void)
 {
@@ -118,14 +162,22 @@ static struct notifier_block tegra_wdt_notify = {
 
 static struct syscore_ops tegra_wdt_syscore_ops = {
 	.suspend =	tegra_wdt_reset_disable,
+#if defined(CONFIG_TRACE_WARMBOOT)
+	.resume =	tegra_wdt_recovery_resume,
+#else
 	.resume =	tegra_wdt_reset_enable,
+#endif
 };
 
-void __init tegra_wdt_recovery_init(void)
+static int __init tegra_wdt_recovery_init(void)
 {
 #ifdef CONFIG_PM
 	/* Register PM notifier. */
 	register_pm_notifier(&tegra_wdt_notify);
 #endif
 	register_syscore_ops(&tegra_wdt_syscore_ops);
+
+	return 0;
 }
+
+subsys_initcall(tegra_wdt_recovery_init);

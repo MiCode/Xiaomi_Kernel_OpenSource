@@ -4,6 +4,7 @@
  * User-space interface to nvmap
  *
  * Copyright (c) 2011-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -82,28 +83,6 @@ ulong unmarshal_user_id(u32 id)
 	return unmarshal_user_handle(id);
 }
 
-/*
- * marshal_id/unmarshal_id are for get_id/handle_from_id.
- * These are added to support using Fd's for handle.
- */
-__u32 marshal_id(ulong id)
-{
-#ifdef CONFIG_NVMAP_USE_FD_FOR_HANDLE
-	return (__u32)id;
-#else
-	return marshal_kernel_handle(id);
-#endif
-}
-
-ulong unmarshal_id(__u32 id)
-{
-#ifdef CONFIG_NVMAP_USE_FD_FOR_HANDLE
-	return (ulong)id;
-#else
-	return unmarshal_user_id(id);
-#endif
-}
-
 #else
 #define NVMAP_XOR_HASH_MASK 0xFFFFFFFC
 ulong unmarshal_user_handle(struct nvmap_handle *handle)
@@ -138,15 +117,6 @@ ulong unmarshal_user_id(ulong id)
 	return unmarshal_user_handle((struct nvmap_handle *)id);
 }
 
-ulong marshal_id(ulong id)
-{
-	return id;
-}
-
-ulong unmarshal_id(ulong id)
-{
-	return id;
-}
 #endif
 
 ulong __nvmap_ref_to_id(struct nvmap_handle_ref *ref)
@@ -163,8 +133,8 @@ int nvmap_ioctl_pinop(struct file *filp, bool is_pin, void __user *arg)
 	unsigned long on_stack[16];
 	unsigned long *refs;
 	unsigned long __user *output;
-	unsigned int i;
 	int err = 0;
+	u32 i, n_unmarshal_handles = 0;
 #ifdef CONFIG_COMPAT
 	u32 handle;
 #else
@@ -203,6 +173,7 @@ int nvmap_ioctl_pinop(struct file *filp, bool is_pin, void __user *arg)
 				err = -EINVAL;
 				goto out;
 			}
+			n_unmarshal_handles++;
 		}
 	} else {
 		refs = on_stack;
@@ -212,6 +183,7 @@ int nvmap_ioctl_pinop(struct file *filp, bool is_pin, void __user *arg)
 			err = -EINVAL;
 			goto out;
 		}
+		n_unmarshal_handles++;
 	}
 
 	trace_nvmap_ioctl_pinop(filp->private_data, is_pin, op.count, refs);
@@ -256,38 +228,13 @@ int nvmap_ioctl_pinop(struct file *filp, bool is_pin, void __user *arg)
 		nvmap_unpin_ids(filp->private_data, op.count, refs);
 
 out:
+	for (i = 0; i < n_unmarshal_handles; i++)
+		nvmap_handle_put((struct nvmap_handle *)refs[i]);
+
 	if (refs != on_stack)
 		kfree(refs);
 
 	return err;
-}
-
-int nvmap_ioctl_getid(struct file *filp, void __user *arg)
-{
-	struct nvmap_client *client = filp->private_data;
-	struct nvmap_create_handle op;
-	struct nvmap_handle *h = NULL;
-	ulong handle;
-
-	if (copy_from_user(&op, arg, sizeof(op)))
-		return -EFAULT;
-
-	handle = unmarshal_user_handle(op.handle);
-	if (!handle)
-		return -EINVAL;
-
-	h = nvmap_get_handle_id(client, handle);
-
-	if (!h)
-		return -EPERM;
-
-	op.id = marshal_id((ulong)h);
-	if (client == h->owner)
-		h->global = true;
-
-	nvmap_handle_put(h);
-
-	return copy_to_user(arg, &op, sizeof(op)) ? -EFAULT : 0;
 }
 
 static int nvmap_share_release(struct inode *inode, struct file *file)
@@ -325,6 +272,7 @@ int nvmap_ioctl_getfd(struct file *filp, void __user *arg)
 		return -EINVAL;
 
 	op.fd = nvmap_get_dmabuf_fd(client, handle);
+	nvmap_handle_put((struct nvmap_handle *)handle);
 	if (op.fd < 0)
 		return op.fd;
 
@@ -340,15 +288,16 @@ int nvmap_ioctl_alloc(struct file *filp, void __user *arg)
 	struct nvmap_alloc_handle op;
 	struct nvmap_client *client = filp->private_data;
 	ulong handle;
+	int err;
 
 	if (copy_from_user(&op, arg, sizeof(op)))
 		return -EFAULT;
 
-	handle = unmarshal_user_handle(op.handle);
-	if (!handle)
+	if (op.align & (op.align - 1))
 		return -EINVAL;
 
-	if (op.align & (op.align - 1))
+	handle = unmarshal_user_handle(op.handle);
+	if (!handle)
 		return -EINVAL;
 
 	/* user-space handles are aligned to page boundaries, to prevent
@@ -358,10 +307,12 @@ int nvmap_ioctl_alloc(struct file *filp, void __user *arg)
 	op.flags |= NVMAP_HANDLE_ZEROED_PAGES;
 #endif
 
-	return nvmap_alloc_handle_id(client, handle, op.heap_mask,
-				     op.align,
-				     0, /* no kind */
-				     op.flags & (~NVMAP_HANDLE_KIND_SPECIFIED));
+	err = nvmap_alloc_handle_id(client, handle, op.heap_mask,
+				    op.align,
+				    0, /* no kind */
+				    op.flags & (~NVMAP_HANDLE_KIND_SPECIFIED));
+	nvmap_handle_put((struct nvmap_handle *)handle);
+	return err;
 }
 
 int nvmap_ioctl_alloc_kind(struct file *filp, void __user *arg)
@@ -369,15 +320,16 @@ int nvmap_ioctl_alloc_kind(struct file *filp, void __user *arg)
 	struct nvmap_alloc_kind_handle op;
 	struct nvmap_client *client = filp->private_data;
 	ulong handle;
+	int err;
 
 	if (copy_from_user(&op, arg, sizeof(op)))
 		return -EFAULT;
 
-	handle = unmarshal_user_handle(op.handle);
-	if (!handle)
+	if (op.align & (op.align - 1))
 		return -EINVAL;
 
-	if (op.align & (op.align - 1))
+	handle = unmarshal_user_handle(op.handle);
+	if (!handle)
 		return -EINVAL;
 
 	/* user-space handles are aligned to page boundaries, to prevent
@@ -387,10 +339,12 @@ int nvmap_ioctl_alloc_kind(struct file *filp, void __user *arg)
 	op.flags |= NVMAP_HANDLE_ZEROED_PAGES;
 #endif
 
-	return nvmap_alloc_handle_id(client, handle, op.heap_mask,
-				     op.align,
-				     op.kind,
-				     op.flags);
+	err = nvmap_alloc_handle_id(client, handle, op.heap_mask,
+				    op.align,
+				    op.kind,
+				    op.flags);
+	nvmap_handle_put((struct nvmap_handle *)handle);
+	return err;
 }
 
 int nvmap_create_fd(struct nvmap_handle *h)
@@ -428,8 +382,6 @@ int nvmap_ioctl_create(struct file *filp, unsigned int cmd, void __user *arg)
 		ref = nvmap_create_handle(client, PAGE_ALIGN(op.size));
 		if (!IS_ERR(ref))
 			ref->handle->orig_size = op.size;
-	} else if (cmd == NVMAP_IOC_FROM_ID) {
-		ref = nvmap_duplicate_handle_id(client, unmarshal_id(op.id), 0);
 	} else if (cmd == NVMAP_IOC_FROM_FD) {
 		ref = nvmap_create_handle_from_fd(client, op.fd);
 	} else {
@@ -477,12 +429,9 @@ int nvmap_map_into_caller_ptr(struct file *filp, void __user *arg)
 	if (!handle)
 		return -EINVAL;
 
-	h = nvmap_get_handle_id(client, handle);
+	h = (struct nvmap_handle *)handle;
 
-	if (!h)
-		return -EPERM;
-
-	if(!h->alloc) {
+	if (!h->alloc) {
 		nvmap_handle_put(h);
 		return -EFAULT;
 	}
@@ -559,10 +508,7 @@ int nvmap_ioctl_get_param(struct file *filp, void __user* arg)
 		return -EFAULT;
 
 	handle = unmarshal_user_handle(op.handle);
-	if (!handle)
-		return -EINVAL;
-
-	h = nvmap_get_handle_id(client, handle);
+	h = (struct nvmap_handle *)handle;
 	if (!h)
 		return -EINVAL;
 
@@ -598,13 +544,14 @@ int nvmap_ioctl_rw_handle(struct file *filp, int is_read, void __user* arg)
 	if (copy_from_user(&op, arg, sizeof(op)))
 		return -EFAULT;
 
-	handle = unmarshal_user_handle(op.handle);
-	if (!handle || !op.addr || !op.count || !op.elem_size)
+	if (!op.addr || !op.count || !op.elem_size)
 		return -EINVAL;
 
-	h = nvmap_get_handle_id(client, handle);
-	if (!h)
-		return -EPERM;
+	handle = unmarshal_user_handle(op.handle);
+	if (!handle)
+		return -EINVAL;
+
+	h = (struct nvmap_handle *)handle;
 
 	trace_nvmap_ioctl_rw_handle(client, h, is_read, op.offset,
 				    op.addr, op.hmem_stride,
@@ -626,10 +573,9 @@ int nvmap_ioctl_rw_handle(struct file *filp, int is_read, void __user* arg)
 	return err;
 }
 
-int nvmap_ioctl_cache_maint(struct file *filp, void __user *arg)
+static int __nvmap_cache_maint(struct nvmap_client *client,
+			       struct nvmap_cache_op *op)
 {
-	struct nvmap_client *client = filp->private_data;
-	struct nvmap_cache_op op;
 	struct vm_area_struct *vma;
 	struct nvmap_vma_priv *vpriv;
 	unsigned long start;
@@ -637,21 +583,21 @@ int nvmap_ioctl_cache_maint(struct file *filp, void __user *arg)
 	int err = 0;
 	ulong handle;
 
-	if (copy_from_user(&op, arg, sizeof(op)))
-		return -EFAULT;
+	if (!op->addr || op->op < NVMAP_CACHE_OP_WB ||
+	    op->op > NVMAP_CACHE_OP_WB_INV)
+		return -EINVAL;
 
-	handle = unmarshal_user_handle(op.handle);
-	if (!handle || !op.addr || op.op < NVMAP_CACHE_OP_WB ||
-	    op.op > NVMAP_CACHE_OP_WB_INV)
+	handle = unmarshal_user_handle(op->handle);
+	if (!handle)
 		return -EINVAL;
 
 	down_read(&current->mm->mmap_sem);
 
-	vma = find_vma(current->active_mm, (unsigned long)op.addr);
+	vma = find_vma(current->active_mm, (unsigned long)op->addr);
 	if (!vma || !is_nvmap_vma(vma) ||
-	    (ulong)op.addr < vma->vm_start ||
-	    (ulong)op.addr >= vma->vm_end ||
-	    op.len > vma->vm_end - (ulong)op.addr) {
+	    (ulong)op->addr < vma->vm_start ||
+	    (ulong)op->addr >= vma->vm_end ||
+	    op->len > vma->vm_end - (ulong)op->addr) {
 		err = -EADDRNOTAVAIL;
 		goto out;
 	}
@@ -663,15 +609,27 @@ int nvmap_ioctl_cache_maint(struct file *filp, void __user *arg)
 		goto out;
 	}
 
-	start = (unsigned long)op.addr - vma->vm_start +
+	start = (unsigned long)op->addr - vma->vm_start +
 		(vma->vm_pgoff << PAGE_SHIFT);
-	end = start + op.len;
+	end = start + op->len;
 
-	err = __nvmap_cache_maint(client, vpriv->handle, start, end, op.op,
-				  CACHE_MAINT_ALLOW_DEFERRED);
+	err = __nvmap_do_cache_maint(client, vpriv->handle, start, end, op->op,
+				     CACHE_MAINT_ALLOW_DEFERRED);
 out:
 	up_read(&current->mm->mmap_sem);
+	nvmap_handle_put((struct nvmap_handle *)handle);
 	return err;
+}
+
+int nvmap_ioctl_cache_maint(struct file *filp, void __user *arg)
+{
+	struct nvmap_client *client = filp->private_data;
+	struct nvmap_cache_op op;
+
+	if (copy_from_user(&op, arg, sizeof(op)))
+		return -EFAULT;
+
+	return __nvmap_cache_maint(client, &op);
 }
 
 int nvmap_ioctl_free(struct file *filp, unsigned long arg)
@@ -1111,7 +1069,7 @@ void nvmap_cache_maint_ops_flush(struct nvmap_device *dev,
 	}
 }
 
-int __nvmap_cache_maint(struct nvmap_client *client,
+int __nvmap_do_cache_maint(struct nvmap_client *client,
 			struct nvmap_handle *h,
 			unsigned long start, unsigned long end,
 			unsigned int op, unsigned int allow_deferred)
@@ -1283,7 +1241,7 @@ static ssize_t rw_handle(struct nvmap_client *client, struct nvmap_handle *h,
 			break;
 		}
 		if (is_read)
-			__nvmap_cache_maint(client, h, h_offs,
+			__nvmap_do_cache_maint(client, h, h_offs,
 				h_offs + elem_size, NVMAP_CACHE_OP_INV,
 				CACHE_MAINT_IMMEDIATE);
 
@@ -1294,7 +1252,7 @@ static ssize_t rw_handle(struct nvmap_client *client, struct nvmap_handle *h,
 			break;
 
 		if (!is_read)
-			__nvmap_cache_maint(client, h, h_offs,
+			__nvmap_do_cache_maint(client, h, h_offs,
 				h_offs + elem_size, NVMAP_CACHE_OP_WB_INV,
 				CACHE_MAINT_IMMEDIATE);
 
@@ -1305,4 +1263,66 @@ static ssize_t rw_handle(struct nvmap_client *client, struct nvmap_handle *h,
 
 	nvmap_free_pte(nvmap_dev, pte);
 	return ret ?: copied;
+}
+
+int nvmap_ioctl_cache_maint_list(struct file *filp, void __user *arg)
+{
+	struct nvmap_cache_op_list op;
+	u32 *handle_ptr;
+	u32 *offset_ptr;
+	u32 *size_ptr;
+	struct nvmap_handle **refs;
+	int err = 0;
+	u32 i, n_unmarshal_handles = 0;
+
+	if (copy_from_user(&op, arg, sizeof(op)))
+		return -EFAULT;
+
+	if (!op.nr)
+		return -EINVAL;
+
+	if (!access_ok(VERIFY_READ, op.handles, op.nr * sizeof(u32)))
+		return -EFAULT;
+
+	if (!access_ok(VERIFY_READ, op.offsets, op.nr * sizeof(u32)))
+		return -EFAULT;
+
+	if (!access_ok(VERIFY_READ, op.sizes, op.nr * sizeof(u32)))
+		return -EFAULT;
+
+	if (!op.offsets || !op.sizes)
+		return -EINVAL;
+
+	refs = kcalloc(op.nr, sizeof(*refs), GFP_KERNEL);
+
+	if (!refs)
+		return -ENOMEM;
+
+	handle_ptr = (u32 *)(uintptr_t)op.handles;
+	offset_ptr = (u32 *)(uintptr_t)op.offsets;
+	size_ptr = (u32 *)(uintptr_t)op.sizes;
+
+	for (i = 0; i < op.nr; i++) {
+		u32 handle;
+
+		if (copy_from_user(&handle, &handle_ptr[i], sizeof(handle))) {
+			err = -EFAULT;
+			goto free_mem;
+		}
+
+		refs[i] = unmarshal_user_handle(handle);
+		if (!refs[i]) {
+			err = -EINVAL;
+			goto free_mem;
+		}
+		n_unmarshal_handles++;
+	}
+
+	err = nvmap_do_cache_maint_list(refs, offset_ptr, size_ptr, op.op, op.nr);
+
+free_mem:
+	for (i = 0; i < n_unmarshal_handles; i++)
+		nvmap_handle_put(refs[i]);
+	kfree(refs);
+	return err;
 }

@@ -1,0 +1,26 @@
+* STMicroelectronics sensor-hub sensor
+
+Required properties:
+
+  - compatible : should be "st,lis331eb" or "st,lsm6db0"
+  - reg : the I2C address of the sensor-hub
+  - interrupt-parent : should be the phandle for the interrupt controller
+  - interrupts : interrupt mapping for GPIO IRQ, it should by configured with
+		flags IRQ_TYPE_EDGE_RISING
+  - st,wakeup-gpio : needed to wake-up sensor hub when in sleep mode
+
+Optional properties:
+
+  - st,reset-gpio : needed to reset sensor hub @ boot time
+
+Example:
+
+lsm6db0@03 {
+	compatible = "st,lsm6db0";
+	reg = <0x03>;
+	interrupt-parent = <&gpio>;
+	interrupts = <1 IRQ_TYPE_EDGE_RISING>;
+
+	st,wakeup-gpio = <&gpio 2 0x00>;
+	st,reset-gpio = <&gpio 3 0x00>;
+};

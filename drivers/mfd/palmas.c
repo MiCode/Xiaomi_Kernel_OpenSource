@@ -2,7 +2,8 @@
  * TI Palmas MFD Driver
  *
  * Copyright 2011-2012 Texas Instruments Inc.
- * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Graeme Gregory <gg@slimlogic.co.uk>
  *
@@ -345,7 +346,9 @@ static struct palmas_irq palmas_irqs[] = {
 	/* INT2 IRQs */
 	PALMAS_IRQ(RTC_ALARM_IRQ, INT2_STATUS_RTC_ALARM, 1, 0, 0, 0),
 	PALMAS_IRQ(RTC_TIMER_IRQ, INT2_STATUS_RTC_TIMER, 1, 0, 0, 0),
+#if	!defined(CONFIG_TRACE_WARMBOOT)
 	PALMAS_IRQ(WDT_IRQ, INT2_STATUS_WDT, 1, 0, 0, 0),
+#endif
 	PALMAS_IRQ(BATREMOVAL_IRQ, INT2_STATUS_BATREMOVAL, 1, 0, 0, 0),
 	PALMAS_IRQ(RESET_IN_IRQ, INT2_STATUS_RESET_IN, 1, 0, 0, 0),
 	PALMAS_IRQ(FBI_BB_IRQ, INT2_STATUS_FBI_BB, 1, 0, 0, 0),
@@ -420,8 +423,11 @@ struct palmas_irq_chip_data {
 	int			irq_base;
 	int			irq;
 	struct mutex		irq_lock;
+	struct mutex		shutdown_irq_lock;
 	struct irq_chip		irq_chip;
 	struct irq_domain	*domain;
+
+	int			shutdown_irq;
 
 	struct palmas_irq_regs	*irq_regs;
 	struct palmas_irq	*irqs;
@@ -562,6 +568,12 @@ static irqreturn_t palmas_irq_thread(int irq, void *data)
 	int ret, i;
 	bool handled = false;
 
+	mutex_lock(&d->shutdown_irq_lock);
+	if (d->shutdown_irq) {
+		dev_err(d->palmas->dev, "IRQ %d is shutdown state\n", irq);
+		goto exit;
+	}
+
 	for (i = 0; i < d->num_mask_regs; i++) {
 		ret = palmas_read(d->palmas,
 				d->irq_regs->status_reg[i].reg_base,
@@ -571,7 +583,7 @@ static irqreturn_t palmas_irq_thread(int irq, void *data)
 		if (ret != 0) {
 			dev_err(d->palmas->dev,
 				"Failed to read IRQ status: %d\n", ret);
-			return IRQ_NONE;
+			goto exit;
 		}
 		d->status_value[i] &= ~d->mask_value[i];
 	}
@@ -584,6 +596,8 @@ static irqreturn_t palmas_irq_thread(int irq, void *data)
 		}
 	}
 
+exit:
+	mutex_unlock(&d->shutdown_irq_lock);
 	if (handled)
 		return IRQ_HANDLED;
 	else
@@ -643,6 +657,8 @@ static int palmas_add_irq_chip(struct palmas *palmas, int irq, int irq_flags,
 	d->irq = irq;
 	d->irq_base = irq_base;
 	mutex_init(&d->irq_lock);
+	mutex_init(&d->shutdown_irq_lock);
+	d->shutdown_irq = 0;
 	d->irq_chip = palmas_irq_chip;
 	d->irq_chip.name = dev_name(palmas->dev);
 	d->irq_regs = &palmas_irq_regs;
@@ -922,7 +938,7 @@ static int palmas_set_pdata_irq_flag(struct i2c_client *i2c,
 
 static int palmas_read_version_information(struct palmas *palmas)
 {
-	unsigned int sw_rev, des_rev;
+	unsigned int sw_rev, des_rev, wb0_trace;
 	int ret;
 
 	ret = palmas_read(palmas, PALMAS_PMU_CONTROL_BASE,
@@ -931,6 +947,26 @@ static int palmas_read_version_information(struct palmas *palmas)
 		dev_err(palmas->dev, "SW_REVISION read failed: %d\n", ret);
 		return ret;
 	}
+
+#if	defined(CONFIG_TRACE_WARMBOOT)
+	ret = palmas_read(palmas, PALMAS_VALIDITY_BASE,
+				PALMAS_BACKUP7, &wb0_trace);
+	if (ret < 0)
+		dev_warn(palmas->dev, "PALMAS_BACKUP7 read failed: %d\n", ret);
+
+	ret = palmas_write(palmas, PALMAS_VALIDITY_BASE,
+				PALMAS_BACKUP7, 0);
+	if (ret < 0)
+		dev_warn(palmas->dev, "PALMAS_BACKUP7 write failed: %d\n", ret);
+
+	dev_info(palmas->dev, "Warmboot trace  0x%X", wb0_trace);
+
+	ret = palmas_update_bits(palmas, PALMAS_INTERRUPT_BASE,
+			PALMAS_INT2_MASK, PALMAS_INT2_MASK_WDT,
+			0);
+	if (ret < 0)
+		dev_warn(palmas->dev, "INT2_MASK_WDT update failed: %d\n", ret);
+#endif
 
 	ret = palmas_read(palmas, PALMAS_PAGE3_BASE,
 				PALMAS_INTERNAL_DESIGNREV, &des_rev);
@@ -985,8 +1021,17 @@ static int palmas_read_version_information(struct palmas *palmas)
 static void palmas_dt_to_pdata(struct i2c_client *i2c,
 		struct palmas_platform_data *pdata)
 {
+	int ret;
+
 	if (i2c->irq)
 		palmas_set_pdata_irq_flag(i2c, pdata);
+
+	ret = of_property_read_u32(i2c->dev.of_node,
+			"ti,long_press_delay", &pdata->long_press_delay);
+	if (ret == -EINVAL) {
+		/* 12s by default */
+		pdata->long_press_delay = 3;
+	}
 }
 
 static const struct of_device_id of_palmas_match_tbl[] = {
@@ -1120,18 +1165,6 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 		goto free_irq;
 
 	/*
-	 * If we are probing with DT do this the DT way and return here
-	 * otherwise continue and add devices using mfd helpers.
-	 */
-	if (node) {
-		ret = of_platform_populate(node, NULL, NULL, &i2c->dev);
-		if (ret < 0)
-			goto free_irq;
-		else
-			return ret;
-	}
-
-	/*
 	 * Programming the Long-Press shutdown delay register.
 	 * Using "slave" from previous assignment as this register
 	 * too belongs to PALMAS_PMU_CONTROL_BASE block.
@@ -1148,6 +1181,29 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 				"(hard shutdown delay), err: %d\n", ret);
 			goto free_irq;
 		}
+		/* cold restart for long power key */
+		ret = palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
+					PALMAS_SWOFF_COLDRST,
+					PALMAS_SWOFF_COLDRST_PWRON_LPK,
+					PALMAS_SWOFF_COLDRST_PWRON_LPK);
+		if (ret) {
+			dev_err(palmas->dev,
+				"Failed to update palmas swoff coldrst"
+				"(hard shutdown delay), err: %d\n", ret);
+			goto free_irq;
+		}
+	}
+
+	/*
+	 * If we are probing with DT do this the DT way and return here
+	 * otherwise continue and add devices using mfd helpers.
+	 */
+	if (node) {
+		ret = of_platform_populate(node, NULL, NULL, &i2c->dev);
+		if (ret < 0)
+			goto free_irq;
+		else
+			return ret;
 	}
 
 	palmas_init_ext_control(palmas);
@@ -1242,6 +1298,25 @@ static int palmas_i2c_remove(struct i2c_client *i2c)
 static void palmas_i2c_shutdown(struct i2c_client *i2c)
 {
 	struct palmas *palmas = i2c_get_clientdata(i2c);
+	struct palmas_irq_chip_data *d = palmas->irq_chip_data;
+	int i, ret;
+
+	mutex_lock(&d->shutdown_irq_lock);
+	d->shutdown_irq = true;
+	disable_irq_nosync(palmas->irq);
+
+	dev_info(d->palmas->dev, "masking all palmas interrupts\n");
+	for (i = 0; i < d->num_mask_regs; i++) {
+		ret = palmas_update_bits(d->palmas,
+				d->irq_regs->mask_reg[i].reg_base,
+				d->irq_regs->mask_reg[i].reg_add,
+				d->mask_def_value[i], d->mask_def_value[i]);
+		if (ret < 0)
+			dev_err(d->palmas->dev, "Failed to update masks in %x\n",
+					d->irq_regs->mask_reg[i].reg_add);
+	}
+	mutex_unlock(&d->shutdown_irq_lock);
+	synchronize_irq(palmas->irq);
 
 	palmas->shutdown = true;
 }

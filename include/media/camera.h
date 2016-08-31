@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -189,6 +190,7 @@ struct cam_device_layout {
 
 #define NUM_OF_SEQSTACK		16
 #define SIZEOF_I2C_BUF		32
+#define CAMERA_REGCACHE_MAX (128)
 
 struct camera_device;
 
@@ -264,7 +266,23 @@ struct camera_chip {
 			struct cam_update *upd, int num);
 };
 
+struct camera_sync_dev {
+	char name[CAMERA_MAX_NAME_LENGTH];
+	struct regmap *regmap;
+	struct camera_reg reg[CAMERA_REGCACHE_MAX];
+	u32 num_used;
+	struct list_head list;
+};
+
 extern int camera_chip_add(struct camera_chip *chip);
+
+int camera_dev_sync_init(void);
+void camera_dev_sync_cb(void *stub);
+extern int camera_dev_sync_clear(struct camera_sync_dev *csyncdev);
+extern int camera_dev_sync_wr_add(
+	struct camera_sync_dev *csyncdev, u32 offset, u32 val);
+extern int camera_dev_add_regmap(
+	struct camera_sync_dev **csyncdev, u8 *name, struct regmap *regmap);
 
 #ifdef CAMERA_DEVICE_INTERNAL
 

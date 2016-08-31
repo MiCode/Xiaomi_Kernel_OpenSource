@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2014, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,7 +30,7 @@
 
 /* --- EDP consumers data --- */
 static unsigned int ov5693_states[] = { 0, 300 };
-static unsigned int mt9m114_states[] = { 0, 150 };
+static unsigned int imx179_states[] = { 0, 500 };
 static unsigned int sdhci_states[] = { 0, 966 };
 static unsigned int speaker_states[] = { 0, 1080 };
 static unsigned int wifi_states[] = { 0, 1020 };
@@ -56,13 +57,12 @@ static unsigned int as364x_states[] = {
 
 static struct sysedp_consumer_data tn8_sysedp_consumer_data[] = {
 	SYSEDP_CONSUMER_DATA("ov5693", ov5693_states),
-	SYSEDP_CONSUMER_DATA("mt9m114", mt9m114_states),
+	SYSEDP_CONSUMER_DATA("imx179", imx179_states),
 	SYSEDP_CONSUMER_DATA("speaker", speaker_states),
 	SYSEDP_CONSUMER_DATA("wifi", wifi_states),
-	SYSEDP_CONSUMER_DATA("pwm-backlight", pwm_backlight_default_states),
+	SYSEDP_CONSUMER_DATA("lcd-backlight", pwm_backlight_default_states),
 	SYSEDP_CONSUMER_DATA("sdhci-tegra.2", sdhci_states),
 	SYSEDP_CONSUMER_DATA("sdhci-tegra.3", sdhci_states),
-	SYSEDP_CONSUMER_DATA("as364x", as364x_states),
 };
 
 static struct sysedp_platform_data tn8_sysedp_platform_data = {
@@ -161,13 +161,13 @@ void __init tn8_sysedp_dynamic_capping_init(void)
 	case 0x27:
 	case 0x87:
 		break;
-	default:
-		pr_warn("%s: Unknown tn8 sku id, %x!  Assuming td570d.\n",
-				__func__, sku_id);
 	case 0xF:
 		tn8_sysedp_dynamic_capping_platdata.corecap = td570d_sysedp_corecap;
 		tn8_sysedp_dynamic_capping_platdata.corecap_size = td570d_sysedp_corecap_sz;
 		break;
+	default:
+		pr_warn("%s: Unknown tn8 sku id, %x!  Assuming td575d.\n",
+				__func__, sku_id);
 	}
 
 	tegra_get_board_info(&board);

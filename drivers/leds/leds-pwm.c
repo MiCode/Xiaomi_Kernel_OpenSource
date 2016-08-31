@@ -4,6 +4,7 @@
  * simple PWM based LED control
  *
  * Copyright 2009 Luotao Fu @ Pengutronix (l.fu@pengutronix.de)
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * based on leds-gpio.c by Raphael Assenat <raph@8d.com>
  *
@@ -33,6 +34,7 @@ struct led_pwm_data {
 	unsigned int		period;
 	int			duty;
 	bool			can_sleep;
+	int			max_duty;
 };
 
 struct led_pwm_priv {
@@ -69,6 +71,8 @@ static void led_pwm_set(struct led_classdev *led_cdev,
 	unsigned int period =  led_dat->period;
 
 	led_dat->duty = brightness * period / max;
+	if (led_dat->duty > led_dat->max_duty * period / 100)
+		led_dat->duty = led_dat->max_duty * period / 100;
 
 	if (led_dat->can_sleep)
 		schedule_work(&led_dat->work);
@@ -118,6 +122,7 @@ static struct led_pwm_priv *led_pwm_create_of(struct platform_device *pdev)
 						"linux,default-trigger", NULL);
 		of_property_read_u32(child, "max-brightness",
 				     &led_dat->cdev.max_brightness);
+		of_property_read_s32(child, "max-duty", &led_dat->max_duty);
 
 		led_dat->cdev.brightness_set = led_pwm_set;
 		led_dat->cdev.brightness = LED_OFF;

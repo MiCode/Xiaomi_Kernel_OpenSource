@@ -17,14 +17,20 @@
 #include <linux/of.h>
 #include <linux/platform_data/lp855x.h>
 #include <linux/pwm.h>
+#include <linux/delay.h>
 
 /* LP8550/1/2/3/6 Registers */
 #define LP855X_BRIGHTNESS_CTRL		0x00
 #define LP855X_DEVICE_CTRL		0x01
 #define LP855X_EEPROM_START		0xA0
 #define LP855X_EEPROM_END		0xA7
-#define LP8556_EPROM_START		0xA0
+#define LP8556_LED_EN			0x16
+#define LP8556_EPROM_START		0x90
 #define LP8556_EPROM_END		0xAF
+#define LP8556_BL_MASK			0x01
+#define LP8556_BL_ON			0x01
+#define LP8556_BL_OFF			0x00
+#define LP8556_FAST_MASK		0x80
 
 /* LP8557 Registers */
 #define LP8557_BL_CMD			0x00
@@ -57,6 +63,7 @@ struct lp855x_device_config {
 	int (*pre_init_device)(struct lp855x *);
 	u8 reg_brightness;
 	u8 reg_devicectrl;
+	u8 reg_ledenable;
 	int (*post_init_device)(struct lp855x *);
 };
 
@@ -77,6 +84,22 @@ static int lp855x_write_byte(struct lp855x *lp, u8 reg, u8 data)
 	return i2c_smbus_write_byte_data(lp->client, reg, data);
 }
 
+static int lp855x_read_byte(struct lp855x *lp, u8 reg)
+{
+	int ret;
+
+	ret = i2c_smbus_read_byte_data(lp->client, reg);
+	/*TODO: only for debug backlight issue, remove this line*/
+	dev_warn(lp->dev, "dump registers  0x%.2x -value- 0x%.2x \n", reg, ret);
+
+	if (ret < 0) {
+		dev_err(lp->dev, "failed to read register 0x%.2x\n", reg);
+		return ret;
+	}
+
+	return ret;
+}
+
 static int lp855x_update_bit(struct lp855x *lp, u8 reg, u8 mask, u8 data)
 {
 	int ret;
@@ -95,32 +118,6 @@ static int lp855x_update_bit(struct lp855x *lp, u8 reg, u8 mask, u8 data)
 	return lp855x_write_byte(lp, reg, tmp);
 }
 
-static bool lp855x_is_valid_rom_area(struct lp855x *lp, u8 addr)
-{
-	u8 start, end;
-
-	switch (lp->chip_id) {
-	case LP8550:
-	case LP8551:
-	case LP8552:
-	case LP8553:
-		start = LP855X_EEPROM_START;
-		end = LP855X_EEPROM_END;
-		break;
-	case LP8556:
-		start = LP8556_EPROM_START;
-		end = LP8556_EPROM_END;
-		break;
-	case LP8557:
-		start = LP8557_EPROM_START;
-		end = LP8557_EPROM_END;
-		break;
-	default:
-		return false;
-	}
-
-	return (addr >= start && addr <= end);
-}
 
 static int lp8557_bl_off(struct lp855x *lp)
 {
@@ -139,6 +136,7 @@ static int lp8557_bl_on(struct lp855x *lp)
 static struct lp855x_device_config lp855x_dev_cfg = {
 	.reg_brightness = LP855X_BRIGHTNESS_CTRL,
 	.reg_devicectrl = LP855X_DEVICE_CTRL,
+	.reg_ledenable  = LP8556_LED_EN
 };
 
 static struct lp855x_device_config lp8557_dev_cfg = {
@@ -160,9 +158,7 @@ static struct lp855x_device_config lp8557_dev_cfg = {
  */
 static int lp855x_configure(struct lp855x *lp)
 {
-	u8 val, addr;
-	int i, ret;
-	struct lp855x_platform_data *pd = lp->pdata;
+	int ret = 0;
 
 	switch (lp->chip_id) {
 	case LP8550 ... LP8556:
@@ -183,28 +179,6 @@ static int lp855x_configure(struct lp855x *lp)
 		}
 	}
 
-	val = pd->initial_brightness;
-	ret = lp855x_write_byte(lp, lp->cfg->reg_brightness, val);
-	if (ret)
-		goto err;
-
-	val = pd->device_control;
-	ret = lp855x_write_byte(lp, lp->cfg->reg_devicectrl, val);
-	if (ret)
-		goto err;
-
-	if (pd->size_program > 0) {
-		for (i = 0; i < pd->size_program; i++) {
-			addr = pd->rom_data[i].addr;
-			val = pd->rom_data[i].val;
-			if (!lp855x_is_valid_rom_area(lp, addr))
-				continue;
-
-			ret = lp855x_write_byte(lp, addr, val);
-			if (ret)
-				goto err;
-		}
-	}
 
 	if (lp->cfg->post_init_device) {
 		ret = lp->cfg->post_init_device(lp);
@@ -244,6 +218,8 @@ static void lp855x_pwm_ctrl(struct lp855x *lp, int br, int max_br)
 
 static int lp855x_bl_update_status(struct backlight_device *bl)
 {
+	int ret = 0;
+	static u8 last_val = 0x1f;
 	struct lp855x *lp = bl_get_data(bl);
 
 	if (bl->props.state & BL_CORE_SUSPENDED)
@@ -257,15 +233,82 @@ static int lp855x_bl_update_status(struct backlight_device *bl)
 
 	} else if (lp->mode == REGISTER_BASED) {
 		u8 val = bl->props.brightness;
-		lp855x_write_byte(lp, lp->cfg->reg_brightness, val);
+		ret = lp855x_write_byte(lp, lp->cfg->reg_brightness, val);
+		if (ret != 0) {
+			dev_err(lp->dev, "failed to write %u to reg_brightness\n", val);
+			return ret;
+		}
+	}
+	usleep_range(1000, 3000);
+
+	if (0 == bl->props.brightness) {
+		/*Turn off, clean the bit definitely*/
+		ret = lp855x_update_bit(lp, LP855X_DEVICE_CTRL, LP8556_BL_MASK,
+			LP8556_BL_OFF);
+		if (ret != 0) {
+			dev_err(lp->dev, "failed to update ctrl register with LP8556_BL_OFF\n");
+			return ret;
+		}
+	} else {
+		if (0 == last_val) {
+			/*panel from off to on*/
+			ret = lp855x_read_byte(lp, LP855X_DEVICE_CTRL);
+			if (0 == (ret & LP8556_FAST_MASK)) {
+				/*Re-programming EEPROM, since the registers config is lost*/
+				dev_warn(lp->dev, "FAST = 0 in LP855X_DEVICE_CTRL when turn panel on!\n");
+				ret = lp855x_write_byte(lp, 0x16, 0x0f);
+				ret |= lp855x_write_byte(lp, 0x98, 0x80);
+				ret |= lp855x_write_byte(lp, 0x9e, 0x21);
+				ret |= lp855x_write_byte(lp, 0xa1, 0x3f);
+				ret |= lp855x_write_byte(lp, 0xa3, 0x00);
+				ret |= lp855x_write_byte(lp, 0xa5, 0x24);
+				ret |= lp855x_write_byte(lp, 0xa7, 0xf5);
+				ret |= lp855x_write_byte(lp, 0xa9, 0xb2);
+				ret |= lp855x_write_byte(lp, 0xaa, 0x8f);
+				ret |= lp855x_write_byte(lp, 0x01, 0x82);
+				if (ret != 0) {
+					dev_err(lp->dev, "failed to re-program eeprom in LP855X\n");
+					return ret;
+				}
+				usleep_range(1000, 3000);
+			}
+			ret = lp855x_update_bit(lp, LP855X_DEVICE_CTRL, LP8556_BL_MASK,
+				LP8556_BL_ON);
+			if (ret != 0) {
+				dev_err(lp->dev, "failed to update ctrl register with LP8556_BL_ON\n");
+				return ret;
+			}
+		}
 	}
 
-	return 0;
+	last_val = bl->props.brightness;
+	return ret;
 }
 
 static int lp855x_bl_get_brightness(struct backlight_device *bl)
 {
-	return bl->props.brightness;
+	int ret;
+	struct lp855x *lp = bl_get_data(bl);
+	/*TODO: only for debug backlight issue, remove these lines*/
+	ret = lp855x_read_byte(lp, 0x16);
+	ret = lp855x_read_byte(lp, 0x98);
+	ret = lp855x_read_byte(lp, 0x9e);
+	ret = lp855x_read_byte(lp, 0xa1);
+	ret = lp855x_read_byte(lp, 0xa3);
+	ret = lp855x_read_byte(lp, 0xa5);
+	ret = lp855x_read_byte(lp, 0xa7);
+	ret = lp855x_read_byte(lp, 0xa9);
+	ret = lp855x_read_byte(lp, 0xaa);
+	ret = lp855x_read_byte(lp, 0x01);
+	/*end TODO*/
+
+	ret = lp855x_read_byte(lp, lp->cfg->reg_brightness);
+	if (ret < 0) {
+		dev_err(lp->dev, "failed to read brightness register in lp855x\n");
+		return ret;
+	}
+
+	return ret;
 }
 
 static const struct backlight_ops lp855x_bl_ops = {
@@ -357,6 +400,7 @@ static int lp855x_parse_dt(struct device *dev, struct device_node *node)
 	of_property_read_string(node, "bl-name", &pdata->name);
 	of_property_read_u8(node, "dev-ctrl", &pdata->device_control);
 	of_property_read_u8(node, "init-brt", &pdata->initial_brightness);
+	of_property_read_u8(node, "led-en", &pdata->led_enable);
 	of_property_read_u32(node, "pwm-period", &pdata->period_ns);
 
 	/* Fill ROM platform data if defined */

@@ -4,6 +4,7 @@
  * GK20A memory management
  *
  * Copyright (c) 2011-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -974,6 +975,7 @@ static u64 __locked_gmmu_map(struct vm_gk20a *vm,
 				int rw_flag)
 {
 	int err = 0, i = 0;
+	bool allocated = false;
 	u32 pde_lo, pde_hi;
 	struct device *d = dev_from_vm(vm);
 
@@ -984,8 +986,9 @@ static u64 __locked_gmmu_map(struct vm_gk20a *vm,
 		if (!map_offset) {
 			nvhost_err(d, "failed to allocate va space");
 			err = -ENOMEM;
-			goto fail;
+			goto fail_alloc;
 		}
+		allocated = true;
 	}
 
 	pde_range_from_vaddr_range(vm,
@@ -1000,7 +1003,7 @@ static u64 __locked_gmmu_map(struct vm_gk20a *vm,
 		if (err) {
 			nvhost_err(d, "failed to validate page table %d: %d",
 							   i, err);
-			goto fail;
+			goto fail_validate;
 		}
 	}
 
@@ -1014,11 +1017,14 @@ static u64 __locked_gmmu_map(struct vm_gk20a *vm,
 				      rw_flag);
 	if (err) {
 		nvhost_err(d, "failed to update ptes on map");
-		goto fail;
+		goto fail_validate;
 	}
 
 	return map_offset;
- fail:
+fail_validate:
+	if (allocated)
+		gk20a_vm_free_va(vm, map_offset, size, pgsz_idx);
+fail_alloc:
 	nvhost_err(d, "%s: failed with err=%d\n", __func__, err);
 	return 0;
 }
@@ -1727,7 +1733,7 @@ static void update_gmmu_pde_locked(struct vm_gk20a *vm, u32 i)
 		     :
 		     (gmmu_pde_aperture_small_invalid_f() |
 		      gmmu_pde_vol_small_false_f())
-		     )
+		  )
 		|
 		(big_valid ? (gmmu_pde_vol_big_true_f()) :
 		 gmmu_pde_vol_big_false_f());
@@ -1893,6 +1899,7 @@ static void gk20a_vm_remove_support(struct vm_gk20a *vm)
 	struct mapped_buffer_node *mapped_buffer;
 	struct vm_reserved_va_node *va_node, *va_node_tmp;
 	struct rb_node *node;
+	int i;
 
 	nvhost_dbg_fn("");
 	mutex_lock(&vm->update_gmmu_lock);
@@ -1915,8 +1922,25 @@ static void gk20a_vm_remove_support(struct vm_gk20a *vm)
 		kfree(va_node);
 	}
 
-	/* TBD: unmapping all buffers above may not actually free
+	/* unmapping all buffers above may not actually free
 	 * all vm ptes.  jettison them here for certain... */
+	for (i = 0; i < vm->pdes.num_pdes; i++) {
+		struct page_table_gk20a *pte =
+			&vm->pdes.ptes[gmmu_page_size_small][i];
+		if (pte->ref) {
+			free_gmmu_pages(vm, pte->ref, pte->sgt,
+				vm->mm->page_table_sizing[gmmu_page_size_small].order,
+				pte->size);
+			pte->ref = NULL;
+		}
+		pte = &vm->pdes.ptes[gmmu_page_size_big][i];
+		if (pte->ref) {
+			free_gmmu_pages(vm, pte->ref, pte->sgt,
+				vm->mm->page_table_sizing[gmmu_page_size_big].order,
+				pte->size);
+			pte->ref = NULL;
+		}
+	}
 
 	unmap_gmmu_pages(vm->pdes.ref, vm->pdes.sgt, vm->pdes.kv);
 	free_gmmu_pages(vm, vm->pdes.ref, vm->pdes.sgt, 0, vm->pdes.size);

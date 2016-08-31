@@ -43,6 +43,15 @@
 		};
 	};
 
+	pwmleds {
+		compatible = "pwm-leds";
+		button_led {
+			label = "button_led";
+			pwms = <&pwm 1 10000000>;
+			max-brightness = <255>;
+		};
+	};
+
 	pinmux {
 		unused_lowpower {
 			pi5 {

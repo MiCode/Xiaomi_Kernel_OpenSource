@@ -22,7 +22,7 @@ static unsigned long arch_timer_read_counter_long(void)
 	return arch_timer_read_counter();
 }
 
-static u32 arch_timer_read_counter_u32(void)
+static u32 notrace arch_timer_read_counter_u32(void)
 {
 	return arch_timer_read_counter();
 }

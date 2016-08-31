@@ -2890,7 +2890,7 @@ static int s_show(struct seq_file *m, void *v)
  */
 static inline int tracing_get_cpu(struct inode *inode)
 {
-	if (inode->i_cdev) /* See trace_create_cpu_file() */
+	if ((unsigned long)inode->i_cdev <= NR_CPUS) /* See trace_create_cpu_file() */
 		return (long)inode->i_cdev - 1;
 	return RING_BUFFER_ALL_CPUS;
 }
@@ -4301,8 +4301,6 @@ static void tracing_spd_release_pipe(struct splice_pipe_desc *spd,
 
 static const struct pipe_buf_operations tracing_pipe_buf_ops = {
 	.can_merge		= 0,
-	.map			= generic_pipe_buf_map,
-	.unmap			= generic_pipe_buf_unmap,
 	.confirm		= generic_pipe_buf_confirm,
 	.release		= tracing_pipe_buf_release,
 	.steal			= generic_pipe_buf_steal,
@@ -5179,8 +5177,6 @@ static void buffer_pipe_buf_get(struct pipe_inode_info *pipe,
 /* Pipe buffer operations for a buffer. */
 static const struct pipe_buf_operations buffer_pipe_buf_ops = {
 	.can_merge		= 0,
-	.map			= generic_pipe_buf_map,
-	.unmap			= generic_pipe_buf_unmap,
 	.confirm		= generic_pipe_buf_confirm,
 	.release		= buffer_pipe_buf_release,
 	.steal			= generic_pipe_buf_steal,

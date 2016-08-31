@@ -15,6 +15,7 @@
  * Copyright (C) 2005-2006 Jens Axboe <axboe@kernel.dk>
  * Copyright (C) 2005-2006 Linus Torvalds <torvalds@osdl.org>
  * Copyright (C) 2006 Ingo Molnar <mingo@elte.hu>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  */
 #include <linux/fs.h>
@@ -136,8 +137,6 @@ error:
 
 const struct pipe_buf_operations page_cache_pipe_buf_ops = {
 	.can_merge = 0,
-	.map = generic_pipe_buf_map,
-	.unmap = generic_pipe_buf_unmap,
 	.confirm = page_cache_pipe_buf_confirm,
 	.release = page_cache_pipe_buf_release,
 	.steal = page_cache_pipe_buf_steal,
@@ -156,8 +155,6 @@ static int user_page_pipe_buf_steal(struct pipe_inode_info *pipe,
 
 static const struct pipe_buf_operations user_page_pipe_buf_ops = {
 	.can_merge = 0,
-	.map = generic_pipe_buf_map,
-	.unmap = generic_pipe_buf_unmap,
 	.confirm = generic_pipe_buf_confirm,
 	.release = page_cache_pipe_buf_release,
 	.steal = user_page_pipe_buf_steal,
@@ -547,13 +544,27 @@ EXPORT_SYMBOL(generic_file_splice_read);
 
 static const struct pipe_buf_operations default_pipe_buf_ops = {
 	.can_merge = 0,
-	.map = generic_pipe_buf_map,
-	.unmap = generic_pipe_buf_unmap,
 	.confirm = generic_pipe_buf_confirm,
 	.release = generic_pipe_buf_release,
 	.steal = generic_pipe_buf_steal,
 	.get = generic_pipe_buf_get,
 };
+
+static int generic_pipe_buf_nosteal(struct pipe_inode_info *pipe,
+				    struct pipe_buffer *buf)
+{
+	return 1;
+}
+
+/* Pipe buffer operations for a socket and similar. */
+const struct pipe_buf_operations nosteal_pipe_buf_ops = {
+	.can_merge = 0,
+	.confirm = generic_pipe_buf_confirm,
+	.release = generic_pipe_buf_release,
+	.steal = generic_pipe_buf_nosteal,
+	.get = generic_pipe_buf_get,
+};
+EXPORT_SYMBOL(nosteal_pipe_buf_ops);
 
 static ssize_t kernel_readv(struct file *file, const struct iovec *vec,
 			    unsigned long vlen, loff_t offset)
@@ -749,13 +760,13 @@ int pipe_to_file(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
 		goto out;
 
 	if (buf->page != page) {
-		char *src = buf->ops->map(pipe, buf, 1);
+		char *src = kmap_atomic(buf->page);
 		char *dst = kmap_atomic(page);
 
 		memcpy(dst + offset, src + buf->offset, this_len);
 		flush_dcache_page(page);
 		kunmap_atomic(dst);
-		buf->ops->unmap(pipe, buf, src);
+		kunmap_atomic(src);
 	}
 	ret = pagecache_write_end(file, mapping, sd->pos, this_len, this_len,
 				page, fsdata);
@@ -1049,9 +1060,9 @@ static int write_pipe_buf(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
 	void *data;
 	loff_t tmp = sd->pos;
 
-	data = buf->ops->map(pipe, buf, 0);
+	data = kmap(buf->page);
 	ret = __kernel_write(sd->u.file, data + buf->offset, sd->len, &tmp);
-	buf->ops->unmap(pipe, buf, data);
+	kunmap(buf->page);
 
 	return ret;
 }
@@ -1510,10 +1521,10 @@ static int pipe_to_user(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
 	 * pages and doing an atomic copy
 	 */
 	if (!fault_in_pages_writeable(sd->u.userptr, sd->len)) {
-		src = buf->ops->map(pipe, buf, 1);
+		src = kmap_atomic(buf->page);
 		ret = __copy_to_user_inatomic(sd->u.userptr, src + buf->offset,
 							sd->len);
-		buf->ops->unmap(pipe, buf, src);
+		kunmap_atomic(src);
 		if (!ret) {
 			ret = sd->len;
 			goto out;
@@ -1523,13 +1534,13 @@ static int pipe_to_user(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
 	/*
 	 * No dice, use slow non-atomic map and copy
  	 */
-	src = buf->ops->map(pipe, buf, 0);
+	src = kmap(buf->page);
 
 	ret = sd->len;
 	if (copy_to_user(sd->u.userptr, src + buf->offset, sd->len))
 		ret = -EFAULT;
 
-	buf->ops->unmap(pipe, buf, src);
+	kunmap(buf->page);
 out:
 	if (ret > 0)
 		sd->u.userptr += ret;

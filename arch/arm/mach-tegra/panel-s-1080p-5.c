@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/panel-s-1080p-5.c
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -677,17 +678,19 @@ static void dsi_s_1080p_5_sd_settings_init
 	else
 		settings->bl_device_name = "max8831_display_bl";
 }
-
+#ifdef CONFIG_TEGRA_DC_CMU
 static void dsi_s_1080p_5_cmu_init(struct tegra_dc_platform_data *pdata)
 {
 	pdata->cmu = &dsi_s_1080p_5_cmu;
 }
-
+#endif
 struct tegra_panel __initdata dsi_s_1080p_5 = {
 	.init_sd_settings = dsi_s_1080p_5_sd_settings_init,
 	.init_dc_out = dsi_s_1080p_5_dc_out_init,
 	.init_fb_data = dsi_s_1080p_5_fb_data_init,
 	.register_bl_dev = dsi_s_1080p_5_register_bl_dev,
+#ifdef CONFIG_TEGRA_DC_CMU
 	.init_cmu_data = dsi_s_1080p_5_cmu_init,
+#endif
 };
 EXPORT_SYMBOL(dsi_s_1080p_5);

@@ -3,6 +3,7 @@
  *
  * Copyright 2011-2013 Texas Instruments Inc.
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Graeme Gregory <gg@slimlogic.co.uk>
  * Author: Ian Lartey <ian@slimlogic.co.uk>
@@ -27,6 +28,7 @@
 #include <linux/iio/machine.h>
 #include <linux/extcon.h>
 #include <linux/thermal.h>
+#include <linux/wakelock.h>
 
 #define PALMAS_NUM_CLIENTS	4
 
@@ -752,6 +754,7 @@ struct palmas_usb {
 	struct delayed_work cable_update_wq;
 	int cable_debounce_time;
 	int cur_cable_index;
+	struct wake_lock wakelock;
 };
 
 #define comparator_to_palmas(x) container_of((x), struct palmas_usb, comparator)
@@ -1895,6 +1898,12 @@ enum usb_irq_events {
 #define PALMAS_LONG_PRESS_KEY_TIME_8SECONDS	1
 #define PALMAS_LONG_PRESS_KEY_TIME_10SECONDS	2
 #define PALMAS_LONG_PRESS_KEY_TIME_12SECONDS	3
+
+/* Register bit values for power on debounce time */
+#define PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_15MS 0
+#define PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_100MS 1
+#define PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_500MS 2
+#define PALMAS_LONG_PRESS_KEY_PWRON_DEBOUNCE_TIME_1S 3
 
 /* Bit definitions for OSC_THERM_CTRL */
 #define PALMAS_OSC_THERM_CTRL_VANA_ON_IN_SLEEP			0x80

@@ -47,6 +47,7 @@ obj-$(CONFIG_BATTERY_MAX17040)	+= max17040_battery.o
 obj-$(CONFIG_BATTERY_MAX17042)	+= max17042_battery.o
 obj-$(CONFIG_BATTERY_MAX17048)	+= max17048_battery.o
 obj-$(CONFIG_BATTERY_BQ27441)	+= bq27441_battery.o
+obj-$(CONFIG_BATTERY_BQ27520)	+= bq27520_battery.o
 obj-$(CONFIG_BATTERY_PALMAS)	+= palmas_battery.o
 obj-$(CONFIG_BATTERY_Z2)	+= z2_battery.o
 obj-$(CONFIG_BATTERY_S3C_ADC)	+= s3c_adc_battery.o

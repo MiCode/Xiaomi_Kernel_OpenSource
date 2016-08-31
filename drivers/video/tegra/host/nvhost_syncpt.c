@@ -4,6 +4,7 @@
  * Tegra Graphics Host Syncpoints
  *
  * Copyright (c) 2010-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -202,7 +203,7 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 	void *ref;
 	void *waiter;
 	int err = 0, check_count = 0, low_timeout = 0;
-	u32 val;
+	u32 val, old_val, new_val;
 
 	if (value)
 		*value = 0;
@@ -233,6 +234,8 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 		err = -EAGAIN;
 		goto done;
 	}
+
+	old_val = val;
 
 	/* schedule a wakeup when the syncpoint value is reached */
 	waiter = nvhost_intr_alloc_waiter();
@@ -287,11 +290,22 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 		if (timeout != NVHOST_NO_TIMEOUT)
 			timeout -= check;
 		if (timeout && check_count <= MAX_STUCK_CHECK_COUNT) {
-			dev_warn(&syncpt_to_dev(sp)->dev->dev,
-				"%s: syncpoint id %d (%s) stuck waiting %d, timeout=%d\n",
-				 current->comm, id, syncpt_op().name(sp, id),
-				 thresh, timeout);
-			syncpt_op().debug(sp);
+			new_val = syncpt_op().update_min(sp, id);
+			if (old_val == new_val) {
+				dev_warn(&syncpt_to_dev(sp)->dev->dev,
+					"%s: syncpoint id %d (%s) stuck waiting %d, timeout=%d\n",
+					 current->comm, id,
+					 syncpt_op().name(sp, id),
+					 thresh, timeout);
+				syncpt_op().debug(sp);
+			} else {
+				old_val = new_val;
+				dev_warn(&syncpt_to_dev(sp)->dev->dev,
+					"%s: syncpoint id %d (%s) progressing slowly %d, timeout=%d\n",
+					 current->comm, id,
+					 syncpt_op().name(sp, id),
+					 thresh, timeout);
+			}
 			if (check_count == MAX_STUCK_CHECK_COUNT) {
 				if (low_timeout) {
 					dev_warn(&syncpt_to_dev(sp)->dev->dev,

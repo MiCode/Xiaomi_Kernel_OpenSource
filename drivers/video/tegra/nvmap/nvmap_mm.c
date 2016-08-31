@@ -4,6 +4,7 @@
  * Some MM related functionality specific to nvmap.
  *
  * Copyright (c) 2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -100,4 +101,45 @@ int nvmap_set_pages_array_wb(struct page **pages, int addrinarray)
 #else
 	return 0;
 #endif
+}
+
+/*
+ * Perform cache op on the list of memory regions within passed handles.
+ * A memory region within handle[i] is identified by offsets[i], sizes[i]
+ *
+ * sizes[i] == 0  is a special case which causes handle wide operation,
+ * this is done by replacing offsets[i] = 0, sizes[i] = handles[i]->size.
+ * So, the input arrays sizes, offsets  are not guaranteed to be read-only
+ *
+ * This will optimze the op if it can.
+ * In the case that all the handles together are larger than the inner cache
+ * maint threshold it is possible to just do an entire inner cache flush.
+ */
+int nvmap_do_cache_maint_list(struct nvmap_handle **handles, u32 *offsets,
+			      u32 *sizes, int op, int nr)
+{
+	int i;
+	u64 total = 0;
+
+	for (i = 0; i < nr; i++)
+		total += sizes[i] ? sizes[i] : handles[i]->size;
+
+	/* Full flush in the case the passed list is bigger than our
+	 * threshold. */
+	if (total >= cache_maint_inner_threshold) {
+		inner_flush_cache_all();
+	} else {
+		for (i = 0; i < nr; i++) {
+			u32 size = sizes[i] ? sizes[i] : handles[i]->size;
+			u32 offset = sizes[i] ? offsets[i] : 0;
+			int err = __nvmap_do_cache_maint(handles[i]->owner,
+							 handles[i], offset,
+							 offset + size,
+							 op, false);
+			if (err)
+				return err;
+		}
+	}
+
+	return 0;
 }

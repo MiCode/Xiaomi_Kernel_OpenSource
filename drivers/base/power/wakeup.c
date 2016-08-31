@@ -2,6 +2,7 @@
  * drivers/base/power/wakeup.c - System wakeup events framework
  *
  * Copyright (c) 2010 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -850,19 +851,13 @@ static int print_wakeup_source_stats(struct seq_file *m,
 		active_time = ktime_set(0, 0);
 	}
 
-#ifdef CONFIG_PM_ADVANCED_DEBUG
-	ret = seq_printf(m, "%-24s%lu\t\t%lu\t\t%lu\t\t%lu\t\t"
+	ret = seq_printf(m, "%-12s\t%lu\t\t%lu\t\t%lu\t\t%lu\t\t"
 			"%lld\t\t%lld\t\t%lld\t\t%lld\t\t%lld\n",
 			ws->name, active_count, ws->event_count,
 			ws->wakeup_count, ws->expire_count,
 			ktime_to_ms(active_time), ktime_to_ms(total_time),
 			ktime_to_ms(max_time), ktime_to_ms(ws->last_time),
 			ktime_to_ms(prevent_sleep_time));
-#else
-	ret = seq_printf(m, "\t%lu\t\t%lu\t\t%lu\t\t%lu\t\t%lld\t\t"
-			"%-24s\n", active_count, ws->event_count, ws->wakeup_count,
-			ws->expire_count, ktime_to_ms(active_time), ws->name);
-#endif
 
 	spin_unlock_irqrestore(&ws->lock, flags);
 
@@ -877,14 +872,10 @@ static int wakeup_sources_stats_show(struct seq_file *m, void *unused)
 {
 	struct wakeup_source *ws;
 
-#ifdef CONFIG_PM_ADVANCED_DEBUG
-	seq_puts(m, "name\t\t\tactive_count\tevent_count\twakeup_count\t"
+	seq_puts(m, "name\t\tactive_count\tevent_count\twakeup_count\t"
 		"expire_count\tactive_since\ttotal_time\tmax_time\t"
 		"last_change\tprevent_suspend_time\n");
-#else
-	seq_puts(m, "active_count\tevent_count\twakeup_count\t"
-		"expire_count\tactive_since\t\tname\n");
-#endif
+
 	rcu_read_lock();
 	list_for_each_entry_rcu(ws, &wakeup_sources, entry)
 		print_wakeup_source_stats(m, ws);

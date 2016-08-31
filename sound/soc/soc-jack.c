@@ -2,6 +2,7 @@
  * soc-jack.c  --  ALSA SoC jack handling
  *
  * Copyright 2008 Wolfson Microelectronics PLC.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
  *
@@ -247,7 +248,7 @@ static void snd_soc_jack_gpio_detect(struct snd_soc_jack_gpio *gpio)
 		report = 0;
 
 	if (gpio->jack_status_check)
-		report = gpio->jack_status_check();
+		report = gpio->jack_status_check(gpio);
 
 	snd_soc_jack_report(jack, report, gpio->report);
 }
@@ -339,7 +340,8 @@ int snd_soc_jack_add_gpios(struct snd_soc_jack *jack, int count,
 		gpio_export(gpios[i].gpio, false);
 
 		/* Update initial jack status */
-		snd_soc_jack_gpio_detect(&gpios[i]);
+		schedule_delayed_work(&gpios[i].work,
+				      msecs_to_jiffies(gpios[i].debounce_time));
 	}
 
 	return 0;

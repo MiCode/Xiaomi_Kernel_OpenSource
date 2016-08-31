@@ -4,6 +4,7 @@
  * GK20A PMU (aka. gPMU outside gk20a context)
  *
  * Copyright (c) 2011-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -44,6 +45,7 @@
 static void pmu_dump_falcon_stats(struct pmu_gk20a *pmu);
 static int gk20a_pmu_get_elpg_residency_gating(struct gk20a *g,
 		u32 *ingating_time, u32 *ungating_time, u32 *gating_cnt);
+static void pmu_save_zbc(struct gk20a *g, u32 entries);
 static void ap_callback_init_and_enable_ctrl(
 		struct gk20a *g, struct pmu_msg *msg,
 		void *param, u32 seq_desc, u32 status);
@@ -556,7 +558,7 @@ int pmu_mutex_acquire(struct pmu_gk20a *pmu, u32 id, u32 *token)
 	u32 data, owner, max_retry;
 
 	if (!pmu->initialized)
-		return 0;
+		return -EINVAL;
 
 	BUG_ON(!token);
 	BUG_ON(!PMU_MUTEX_ID_IS_VALID(id));
@@ -625,7 +627,7 @@ int pmu_mutex_release(struct pmu_gk20a *pmu, u32 id, u32 *token)
 	u32 owner, data;
 
 	if (!pmu->initialized)
-		return 0;
+		return -EINVAL;
 
 	BUG_ON(!token);
 	BUG_ON(!PMU_MUTEX_ID_IS_VALID(id));
@@ -669,15 +671,10 @@ static int pmu_queue_lock(struct pmu_gk20a *pmu,
 
 	if (PMU_IS_SW_COMMAND_QUEUE(queue->id)) {
 		mutex_lock(&queue->mutex);
-		queue->locked = true;
 		return 0;
 	}
 
-	err = pmu_mutex_acquire(pmu, queue->mutex_id,
-			&queue->mutex_lock);
-	if (err == 0)
-		queue->locked = true;
-
+	err = pmu_mutex_acquire(pmu, queue->mutex_id, &queue->mutex_lock);
 	return err;
 }
 
@@ -691,18 +688,11 @@ static int pmu_queue_unlock(struct pmu_gk20a *pmu,
 
 	if (PMU_IS_SW_COMMAND_QUEUE(queue->id)) {
 		mutex_unlock(&queue->mutex);
-		queue->locked = false;
 		return 0;
 	}
 
-	if (queue->locked) {
-		err = pmu_mutex_release(pmu, queue->mutex_id,
-				&queue->mutex_lock);
-		if (err == 0)
-			queue->locked = false;
-	}
-
-	return 0;
+	err = pmu_mutex_release(pmu, queue->mutex_id, &queue->mutex_lock);
+	return err;
 }
 
 /* called by pmu_read_message, no lock */
@@ -725,8 +715,6 @@ static bool pmu_queue_has_room(struct pmu_gk20a *pmu,
 {
 	u32 head, tail, free;
 	bool rewind = false;
-
-	BUG_ON(!queue->locked);
 
 	size = ALIGN(size, QUEUE_ALIGNMENT);
 
@@ -1902,7 +1890,7 @@ static void pmu_handle_zbc_msg(struct gk20a *g, struct pmu_msg *msg,
 	pmu->zbc_save_done = 1;
 }
 
-void pmu_save_zbc(struct gk20a *g, u32 entries)
+static void pmu_save_zbc(struct gk20a *g, u32 entries)
 {
 	struct pmu_gk20a *pmu = &g->pmu;
 	struct pmu_cmd cmd;
@@ -1925,6 +1913,12 @@ void pmu_save_zbc(struct gk20a *g, u32 entries)
 			      &pmu->zbc_save_done, 1);
 	if (!pmu->zbc_save_done)
 		nvhost_err(dev_from_gk20a(g), "ZBC save timeout");
+}
+
+void gk20a_pmu_save_zbc(struct gk20a *g, u32 entries)
+{
+	if (g->pmu.zbc_ready)
+		pmu_save_zbc(g, entries);
 }
 
 static int pmu_perfmon_start_sampling(struct pmu_gk20a *pmu)
@@ -2181,6 +2175,16 @@ static void pmu_dump_falcon_stats(struct pmu_gk20a *pmu)
 {
 	struct gk20a *g = pmu->g;
 	int i;
+
+	nvhost_err(dev_from_gk20a(g), "pmu->initialized=%d, "
+		    "pmu->pmu_ready=%d, pmu->elpg_ready=%d, "
+		    "pmu->perfmon_ready=%d, pmu->elpg_enable_allow=%d, "
+		    "pmu->sw_ready=%d, pmu->elpg_refcnt=%d, "
+		    "pmu->zbc_ready=%d, pmu->elpg_stat=%u",
+		    pmu->initialized, pmu->pmu_ready, pmu->elpg_ready,
+		    pmu->perfmon_ready, pmu->elpg_enable_allow,
+		    pmu->sw_ready, pmu->elpg_refcnt, pmu->zbc_ready,
+		    pmu->elpg_stat);
 
 	nvhost_err(dev_from_gk20a(g), "pwr_falcon_os_r : %d",
 		gk20a_readl(g, pwr_falcon_os_r()));

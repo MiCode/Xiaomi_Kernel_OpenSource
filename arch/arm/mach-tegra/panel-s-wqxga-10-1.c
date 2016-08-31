@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/panel-s-wqxga-10-1.c
  *
  * Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -231,6 +232,7 @@ static struct tegra_dsi_out dsi_s_wqxga_10_1_pdata = {
 	.bl_name = "pwm-backlight",
 	.lp00_pre_panel_wakeup = true,
 	.ulpm_not_supported = true,
+	.no_pkt_seq_hbp = true,
 };
 
 static int dalmore_dsi_regulator_get(struct device *dev)
@@ -772,18 +774,20 @@ dsi_s_wqxga_10_1_sd_settings_init(struct tegra_dc_sd_settings *settings)
 	*settings = dsi_s_wqxga_10_1_sd_settings;
 	settings->bl_device_name = "pwm-backlight";
 }
-
+#ifdef CONFIG_TEGRA_DC_CMU
 static void dsi_s_wqxga_10_1_cmu_init(struct tegra_dc_platform_data *pdata)
 {
 	pdata->cmu = &dsi_s_wqxga_10_1_cmu;
 }
-
+#endif
 struct tegra_panel __initdata dsi_s_wqxga_10_1 = {
 	.init_sd_settings = dsi_s_wqxga_10_1_sd_settings_init,
 	.init_dc_out = dsi_s_wqxga_10_1_dc_out_init,
 	.init_fb_data = dsi_s_wqxga_10_1_fb_data_init,
 	.register_bl_dev = dsi_s_wqxga_10_1_register_bl_dev,
+#ifdef CONFIG_TEGRA_DC_CMU
 	.init_cmu_data = dsi_s_wqxga_10_1_cmu_init,
+#endif
 	.set_disp_device = dsi_s_wqxga_10_1_set_disp_device,
 };
 EXPORT_SYMBOL(dsi_s_wqxga_10_1);

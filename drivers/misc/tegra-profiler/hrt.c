@@ -2,6 +2,7 @@
  * drivers/misc/tegra-profiler/hrt.c
  *
  * Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,13 +17,10 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/module.h>
-#include <linux/kallsyms.h>
 #include <linux/sched.h>
 #include <linux/hrtimer.h>
 #include <linux/slab.h>
 #include <linux/cpu.h>
-#include <linux/ratelimit.h>
 #include <linux/ptrace.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
@@ -75,8 +73,9 @@ static void start_hrtimer(struct quadd_cpu_context *cpu_ctx)
 {
 	u64 period = hrt.sample_period;
 
-	hrtimer_start(&cpu_ctx->hrtimer, ns_to_ktime(period),
-		      HRTIMER_MODE_REL_PINNED);
+	__hrtimer_start_range_ns(&cpu_ctx->hrtimer,
+				 ns_to_ktime(period), 0,
+				 HRTIMER_MODE_REL_PINNED, 0);
 	qm_debug_timer_start(NULL, period);
 }
 
@@ -103,7 +102,7 @@ u64 quadd_get_time(void)
 static void put_header(void)
 {
 	int nr_events = 0, max_events = QUADD_MAX_COUNTERS;
-	unsigned int events[QUADD_MAX_COUNTERS];
+	int events[QUADD_MAX_COUNTERS];
 	struct quadd_record_data record;
 	struct quadd_header_data *hdr = &record.hdr;
 	struct quadd_parameters *param = &hrt.quadd_ctx->param;
@@ -178,8 +177,6 @@ static int get_sample_data(struct quadd_sample_data *sample,
 	sample->thumb_mode = (flags & QUADD_CPUMODE_THUMB) ? 1 : 0;
 	sample->user_mode = user_mode(regs) ? 1 : 0;
 
-	sample->ip = instruction_pointer(regs);
-
 	/* For security reasons, hide IPs from the kernel space. */
 	if (!sample->user_mode && !quadd_ctx->collect_kernel_ips)
 		sample->ip = 0;
@@ -236,11 +233,11 @@ static int read_source(struct quadd_event_source_interface *source,
 static void
 read_all_sources(struct pt_regs *regs, struct task_struct *task)
 {
-	u32 state;
+	u32 state, extra_data = 0;
 	int i, vec_idx = 0, bt_size = 0;
 	int nr_events = 0, nr_positive_events = 0;
 	struct pt_regs *user_regs;
-	struct quadd_iovec vec[3];
+	struct quadd_iovec vec[4];
 	struct hrt_event_value events[QUADD_MAX_COUNTERS];
 	u32 events_extra[QUADD_MAX_COUNTERS];
 
@@ -294,20 +291,43 @@ read_all_sources(struct pt_regs *regs, struct task_struct *task)
 	if (get_sample_data(s, regs, task))
 		return;
 
+	if (cc->cs_64)
+		extra_data |= QUADD_SED_IP64;
+
+	vec[vec_idx].base = &extra_data;
+	vec[vec_idx].len = sizeof(extra_data);
+	vec_idx++;
+
 	s->reserved = 0;
 
 	if (ctx->param.backtrace) {
-		bt_size = quadd_get_user_callchain(user_regs, cc, ctx);
+		bt_size = quadd_get_user_callchain(user_regs, cc, ctx, task);
+
+		if (!bt_size && !user_mode(regs)) {
+			unsigned long pc = instruction_pointer(user_regs);
+
+			cc->nr = 0;
+#ifdef CONFIG_ARM64
+			cc->cs_64 = compat_user_mode(user_regs) ? 0 : 1;
+#else
+			cc->cs_64 = 0;
+#endif
+			bt_size += quadd_callchain_store(cc, pc);
+		}
+
 		if (bt_size > 0) {
-			vec[vec_idx].base = cc->ip;
-			vec[vec_idx].len =
-				bt_size * sizeof(cc->ip[0]);
+			int ip_size = cc->cs_64 ? sizeof(u64) : sizeof(u32);
+
+			vec[vec_idx].base = cc->cs_64 ?
+				(void *)cc->ip_64 : (void *)cc->ip_32;
+			vec[vec_idx].len = bt_size * ip_size;
 			vec_idx++;
 		}
 
-		s->reserved |= cc->unw_method << QUADD_SAMPLE_UNW_METHOD_SHIFT;
+		extra_data |= cc->unw_method << QUADD_SED_UNW_METHOD_SHIFT;
 
-		if (cc->unw_method == QUADD_UNW_METHOD_EHT)
+		if (cc->unw_method == QUADD_UNW_METHOD_EHT ||
+		    cc->unw_method == QUADD_UNW_METHOD_MIXED)
 			s->reserved |= cc->unw_rc << QUADD_SAMPLE_URC_SHIFT;
 	}
 	s->callchain_nr = bt_size;
@@ -458,7 +478,7 @@ void __quadd_task_sched_out(struct task_struct *prev,
 		n = remove_active_thread(cpu_ctx, prev->pid);
 		atomic_sub(n, &cpu_ctx->nr_active);
 
-		if (atomic_read(&cpu_ctx->nr_active) == 0) {
+		if (n && atomic_read(&cpu_ctx->nr_active) == 0) {
 			cancel_hrtimer(cpu_ctx);
 			atomic_dec(&hrt.nr_active_all_core);
 

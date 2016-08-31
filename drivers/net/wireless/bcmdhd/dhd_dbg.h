@@ -1,7 +1,7 @@
 /*
  * Debug/trace/assert driver definitions for Dongle Host Driver.
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,13 +21,13 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_dbg.h 419132 2013-08-19 21:33:05Z $
+ * $Id: dhd_dbg.h 424863 2013-09-19 20:06:14Z $
  */
 
 #ifndef _dhd_dbg_
 #define _dhd_dbg_
 
-#define USE_NET_RATELIMIT		net_ratelimit()
+#define USE_NET_RATELIMIT		1
 
 #if defined(DHD_DEBUG)
 

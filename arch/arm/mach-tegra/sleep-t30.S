@@ -1435,11 +1435,6 @@ defined(CONFIG_ARCH_TEGRA_14x_SOC) || defined(CONFIG_ARCH_TEGRA_12x_SOC)
 	add	r1, r1, #5
 	wait_until r1, r7, r2
 
-emc_wait_audo_cal:
-	ldr	r1, [r0, #EMC_AUTO_CAL_STATUS]
-	tst	r1, #(0x1<<31)		@ wait until AUTO_CAL_ACTIVE is clear
-	bne	emc_wait_audo_cal
-
 	mov	r1, #3
 	str	r1, [r0, #EMC_REQ_CTRL]		@ stall incoming DRAM requests
 

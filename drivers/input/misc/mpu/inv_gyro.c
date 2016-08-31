@@ -1,6 +1,7 @@
 /*
 * Copyright (C) 2012 Invensense, Inc.
-* Copyright (c) 2013 NVIDIA CORPORATION.  All rights reserved.
+* Copyright (c) 2013-2014 NVIDIA CORPORATION.  All rights reserved.
+* Copyright (C) 2016 XiaoMi, Inc.
 *
 * This software is licensed under the terms of the GNU General Public
 * License version 2, as published by the Free Software Foundation, and
@@ -119,6 +120,29 @@ static const struct inv_hw_s hw_info[INV_NUM_PARTS] = {
 	{128, "MPU9250"},
 	{128, "MPU9350"},
 	{128, "MPU6515"},
+};
+
+/* TEMPERATURE SENSOR from 3.4 Electrical Specifications, p.13 */
+static const int temp_offset[INV_NUM_PARTS] = {
+	-521,
+	-13200,		/* MPU3050 */
+	-521,
+	-521,
+	0,		/* MPU6500 */
+	-521,
+	-521,
+	-521,
+};
+
+static const int temp_scale[INV_NUM_PARTS] = {
+	340,
+	280,		/* MPU3050 */
+	340,
+	340,
+	334,		/* round-up from 333.87	MPU6500 */
+	340,
+	340,
+	340,
 };
 
 static unsigned long nvi_lpf_us_tbl[] = {
@@ -3106,10 +3130,7 @@ static ssize_t inv_temp_scale_show(struct device *dev,
 {
 	struct inv_gyro_state_s *st = dev_get_drvdata(dev);
 
-	if (INV_MPU3050 == st->chip_type)
-		return sprintf(buf, "280\n");
-	else
-		return sprintf(buf, "340\n");
+	return sprintf(buf, "%d\n", temp_scale[st->chip_type]);
 }
 
 /**
@@ -3120,10 +3141,7 @@ static ssize_t inv_temp_offset_show(struct device *dev,
 {
 	struct inv_gyro_state_s *st = dev_get_drvdata(dev);
 
-	if (INV_MPU3050 == st->chip_type)
-		return sprintf(buf, "-13200\n");
-	else
-		return sprintf(buf, "-521\n");
+	return sprintf(buf, "%d\n", temp_offset[st->chip_type]);
 }
 
 static ssize_t inv_temperature_show(struct device *dev,
@@ -4557,14 +4575,8 @@ static void nvi_shutdown(struct i2c_client *client)
 		}
 	}
 	inf->shutdown = true;
-	if (inf->inv_dev)
-		remove_sysfs_interfaces(inf);
 	free_irq(client->irq, inf);
 	mutex_unlock(&inf->mutex);
-	if (inf->idev)
-		input_unregister_device(inf->idev);
-	if ((INV_ITG3500 != inf->chip_type) && (inf->idev_dmp))
-		input_unregister_device(inf->idev_dmp);
 }
 
 static int nvi_remove(struct i2c_client *client)
@@ -4574,6 +4586,14 @@ static int nvi_remove(struct i2c_client *client)
 	nvi_shutdown(client);
 	inf = i2c_get_clientdata(client);
 	if (inf != NULL) {
+		mutex_lock(&inf->mutex);
+		if (inf->inv_dev)
+			remove_sysfs_interfaces(inf);
+		mutex_unlock(&inf->mutex);
+		if (inf->idev)
+			input_unregister_device(inf->idev);
+		if ((INV_ITG3500 != inf->chip_type) && (inf->idev_dmp))
+			input_unregister_device(inf->idev_dmp);
 		nvi_pm_exit(inf);
 		kfifo_free(&inf->trigger.timestamps);
 		kfree(inf);

@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra12_emc.h
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +39,8 @@ enum {
 };
 
 void tegra12_mc_holdoff_enable(void);
+
+u32 tegra12_get_dvfs_clk_change_latency_nsec(unsigned long emc_freq_khz);
 
 #define DRAM_BROADCAST(num)			\
 	(((num) > 1) ? DRAM_DEV_SEL_ALL : DRAM_DEV_SEL_0)

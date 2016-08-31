@@ -301,9 +301,8 @@ irqreturn_t actmon_dev_fn(int irq, void *dev_id)
 	freq += dev->boost_freq;
 
 	if (dev->avg_dependency_threshold &&
-		((dev->avg_count >= dev->avg_dependency_threshold)
-			|| (!static_cpu_emc_freq)))
-		freq = static_cpu_emc_freq;
+		(dev->avg_count >= dev->avg_dependency_threshold))
+			freq = static_cpu_emc_freq;
 
 	dev->target_freq = freq;
 

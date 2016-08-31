@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-ardbeg-panel.c
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -206,7 +207,7 @@ static struct tegra_dc_sd_settings sd_settings;
 
 static struct tegra_dc_out ardbeg_disp1_out = {
 	.type		= TEGRA_DC_OUT_DSI,
-	.sd_settings	= &sd_settings,
+	.sd_settings	= NULL,
 };
 #endif
 
@@ -467,7 +468,7 @@ static struct tegra_dc_platform_data ardbeg_disp1_pdata = {
 	.fb		= &ardbeg_disp1_fb_data,
 	.emc_clk_rate	= 204000000,
 #ifdef CONFIG_TEGRA_DC_CMU
-	.cmu_enable	= 1,
+	.cmu_enable	= 0,
 #endif
 	.low_v_win	= 0x02,
 };
@@ -488,7 +489,7 @@ static struct tegra_dc_platform_data ardbeg_disp2_pdata = {
 	.emc_clk_rate	= 300000000,
 };
 
-static struct platform_device ardbeg_disp2_device = {
+static struct platform_device __maybe_unused ardbeg_disp2_device = {
 	.name		= "tegradc",
 #ifndef CONFIG_TEGRA_HDMI_PRIMARY
 	.id		= 1,
@@ -570,6 +571,14 @@ static struct tegra_dp_out dp_settings = {
 	.n_lt_settings = ARRAY_SIZE(ardbeg_edp_lt_data),
 };
 
+u8 x6_panel_id = 0;
+static int __init setup_panel_id(char *str)
+{
+	x6_panel_id = simple_strtoul(str, NULL, 0);
+	return 1;
+}
+__setup("panel_id=", setup_panel_id);
+
 #ifndef CONFIG_TEGRA_HDMI_PRIMARY
 /* can be called multiple times */
 static struct tegra_panel *ardbeg_panel_configure(struct board_info *board_out,
@@ -582,7 +591,6 @@ static struct tegra_panel *ardbeg_panel_configure(struct board_info *board_out,
 	if (!board_out)
 		board_out = &boardtmp;
 	tegra_get_display_board_info(board_out);
-
 	switch (board_out->board_id) {
 	case BOARD_E1639:
 	case BOARD_E1813:
@@ -635,9 +643,21 @@ static struct tegra_panel *ardbeg_panel_configure(struct board_info *board_out,
 		tegra_io_dpd_enable(&dsid_io);
 		break;
 	default:
+#if 0
 		panel = &dsi_p_wuxga_10_1;
 		tegra_io_dpd_enable(&dsic_io);
 		tegra_io_dpd_enable(&dsid_io);
+#else
+		if ((x6_panel_id & 0xF0) == 0x20) {
+			panel = &dsi_s_wqxga_7_9_x6;
+			dsi_instance = DSI_INSTANCE_0;
+		} else if ((x6_panel_id & 0xF0) == 0x10) {
+			panel = &dsi_a_wqxga_7_9_x6;
+			dsi_instance = DSI_INSTANCE_0;
+		} else {
+			pr_err("!!! --- panel: error panel id 0x%x --- !!!", x6_panel_id);
+		}
+#endif
 		break;
 	}
 	if (dsi_instance_out)
@@ -645,9 +665,9 @@ static struct tegra_panel *ardbeg_panel_configure(struct board_info *board_out,
 	return panel;
 }
 
+static struct tegra_panel *panel;
 static void ardbeg_panel_select(void)
 {
-	struct tegra_panel *panel = NULL;
 	struct board_info board;
 	struct board_info mainboard;
 	u8 dsi_instance;
@@ -707,6 +727,20 @@ static void ardbeg_panel_select(void)
 	}
 
 }
+
+void fs_panel_set_param(unsigned int param)
+{
+	if (panel == NULL)
+		pr_err("panel: error in %s(): panel point is NULL ! \n", __func__);
+	else {
+		if (panel->set_dispparam)
+			panel->set_dispparam(param);
+		else
+			pr_err("panel: error in %s(): panel->set_dispparam() point is NULL ! \n", __func__);
+	}
+	return;
+}
+EXPORT_SYMBOL(fs_panel_set_param);
 #endif
 
 int __init ardbeg_panel_init(void)
@@ -791,21 +825,6 @@ int __init ardbeg_panel_init(void)
 		ardbeg_hdmi_out.tmds_config = ardbeg_tn8_tmds_config;
 	}
 
-	if (!of_have_populated_dt() || !dc2_node ||
-		!of_device_is_available(dc2_node)) {
-#ifndef CONFIG_TEGRA_HDMI_PRIMARY
-		res = platform_get_resource_byname(&ardbeg_disp2_device,
-					IORESOURCE_MEM, "fbmem");
-		res->start = tegra_fb2_start;
-		res->end = tegra_fb2_start + tegra_fb2_size - 1;
-#endif
-		ardbeg_disp2_device.dev.parent = &phost1x->dev;
-		err = platform_device_register(&ardbeg_disp2_device);
-		if (err) {
-			pr_err("disp2 device registration failed\n");
-			return err;
-		}
-	}
 
 #ifdef CONFIG_TEGRA_NVAVP
 	nvavp_device.dev.parent = &phost1x->dev;
@@ -825,7 +844,6 @@ int __init ardbeg_display_init(void)
 	struct tegra_panel *panel;
 	struct board_info board;
 	long disp1_rate = 0;
-	long disp2_rate = 0;
 
 	/*
 	 * TODO
@@ -862,20 +880,7 @@ int __init ardbeg_display_init(void)
 		tegra_dvfs_resolve_override(disp1_clk, disp1_rate);
 #endif
 
-	/* set up disp2 */
-	if (ardbeg_disp2_out.max_pixclock)
-		disp2_rate = PICOS2KHZ(ardbeg_disp2_out.max_pixclock) * 1000;
-	else
-		disp2_rate = 297000000; /* HDMI 4K */
-	printk(KERN_DEBUG "disp2 pclk=%ld\n", disp2_rate);
-	if (disp2_rate)
-#ifndef CONFIG_TEGRA_HDMI_PRIMARY
-		tegra_dvfs_resolve_override(disp2_clk, disp2_rate);
-#else
-		tegra_dvfs_resolve_override(disp1_clk, disp2_rate);
-#endif
 
 	clk_put(disp1_clk);
-	clk_put(disp2_clk);
 	return 0;
 }

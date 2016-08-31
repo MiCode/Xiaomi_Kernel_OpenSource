@@ -513,8 +513,8 @@
 
 					ldo8 {
 						regulator-name = "vdd-rtc";
-						regulator-min-microvolt = <900000>;
-						regulator-max-microvolt = <900000>;
+						regulator-min-microvolt = <950000>;
+						regulator-max-microvolt = <950000>;
 						regulator-always-on;
 						regulator-boot-on;
 

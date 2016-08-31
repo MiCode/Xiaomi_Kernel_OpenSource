@@ -1,7 +1,8 @@
 /*
  * arch/arm/mach-tegra/tegra12x_la.c
  *
- * Copyright (C) 2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2013-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -18,6 +19,7 @@
 #include <linux/clk.h>
 #include <asm/io.h>
 #include <mach/latency_allowance.h>
+#include "tegra_emc.h"
 #include "la_priv.h"
 #include "clock.h"
 #include "iomap.h"
@@ -219,7 +221,7 @@
 #define T12X_LA_REAL_TO_FPA(val)		((val) * \
 						T12X_LA_FP_FACTOR * \
 						T12X_LA_ADDITIONAL_FP_FACTOR)
-#define T12X_LA_STATIC_LA_MINUS_SNAP_ARB_TO_ROW_SRT_EMCCLKS_FP	70000
+#define T12X_LA_ST_LA_MINUS_SNAP_ARB_TO_ROW_SRT_EMCCLKS_FP	70000
 #define T12X_LA_DRAM_WIDTH_BITS					64
 #define T12X_LA_DISP_CATCHUP_FACTOR_FP				1100
 #define T12X_MC_PTSA_MIN_DEFAULT_MASK				0x3f
@@ -1170,20 +1172,32 @@ static int t12x_set_la(enum tegra_la_id id,
 	return 0;
 }
 
+static unsigned int t12x_min_la(struct dc_to_la_params *disp_params)
+{
+	unsigned int min_la_fp = disp_params->drain_time_usec_fp *
+				1000 /
+				cs->ns_per_tick;
+
+	/* round up */
+	if (min_la_fp % T12X_LA_FP_FACTOR != 0)
+		min_la_fp += T12X_LA_FP_FACTOR;
+
+	return T12X_LA_FP_TO_REAL(min_la_fp);
+}
+
 static int t12x_set_disp_la(enum tegra_la_id id,
+				unsigned long emc_freq_hz,
 				unsigned int bw_mbps,
 				struct dc_to_la_params disp_params)
 {
 	int idx = 0;
 	struct la_client_info *ci = NULL;
 	unsigned int la_to_set = 0;
-	struct clk *emc_clk = NULL;
-	unsigned long emc_freq_mhz = 0;
 	unsigned int dvfs_time_nsec = 0;
 	unsigned int dvfs_buffering_reqd_bytes = 0;
 	unsigned int thresh_dvfs_bytes = 0;
 	unsigned int total_buf_sz_bytes = 0;
-	unsigned int effective_mccif_buf_sz = 0;
+	int effective_mccif_buf_sz = 0;
 	unsigned int la_bw_upper_bound_nsec_fp = 0;
 	unsigned int la_bw_upper_bound_nsec = 0;
 	unsigned int la_nsec = 0;
@@ -1202,10 +1216,8 @@ static int t12x_set_disp_la(enum tegra_la_id id,
 	idx = cs->id_to_index[id];
 	ci = &cs->la_info_array[idx];
 	la_to_set = 0;
-	emc_clk = clk_get(NULL, "emc");
-	emc_freq_mhz = clk_get_rate(emc_clk) /
-			T12X_LA_HZ_TO_MHZ_FACTOR;
-	dvfs_time_nsec = tegra_get_dvfs_time_nsec(emc_freq_mhz);
+	dvfs_time_nsec =
+		tegra_get_dvfs_clk_change_latency_nsec(emc_freq_hz / 1000);
 	dvfs_buffering_reqd_bytes = bw_mbps *
 					dvfs_time_nsec /
 					T12X_LA_USEC_TO_NSEC_FACTOR;
@@ -1222,6 +1234,9 @@ static int t12x_set_disp_la(enum tegra_la_id id,
 		cs->disp_clients[DISP_CLIENT_LA_ID(id)].mccif_size_bytes :
 		total_buf_sz_bytes - thresh_dvfs_bytes;
 
+	if (effective_mccif_buf_sz < 0)
+		return -EPERM;
+
 	la_bw_upper_bound_nsec_fp = effective_mccif_buf_sz *
 					T12X_LA_FP_FACTOR /
 					bw_mbps;
@@ -1230,9 +1245,9 @@ static int t12x_set_disp_la(enum tegra_la_id id,
 					T12X_LA_DISP_CATCHUP_FACTOR_FP;
 	la_bw_upper_bound_nsec_fp =
 		la_bw_upper_bound_nsec_fp -
-		(T12X_LA_STATIC_LA_MINUS_SNAP_ARB_TO_ROW_SRT_EMCCLKS_FP +
+		(T12X_LA_ST_LA_MINUS_SNAP_ARB_TO_ROW_SRT_EMCCLKS_FP +
 		T12X_EXP_TIME_EMCCLKS_FP) /
-		emc_freq_mhz;
+		(emc_freq_hz / T12X_LA_HZ_TO_MHZ_FACTOR);
 	la_bw_upper_bound_nsec_fp *= T12X_LA_USEC_TO_NSEC_FACTOR;
 	la_bw_upper_bound_nsec = T12X_LA_FP_TO_REAL(
 						la_bw_upper_bound_nsec_fp);
@@ -1243,6 +1258,9 @@ static int t12x_set_disp_la(enum tegra_la_id id,
 
 	la_to_set = min(la_nsec / cs->ns_per_tick,
 			(unsigned int)T12X_MC_LA_MAX_VALUE);
+
+	if (la_to_set < t12x_min_la(&disp_params))
+		return -EPERM;
 
 	program_la(ci, la_to_set);
 	return 0;
@@ -1292,7 +1310,7 @@ void tegra_la_get_t12x_specific(struct la_chip_specific *cs_la)
 	cs_la->la_params.la_real_to_fp = tegra12x_la_real_to_fp;
 	cs_la->la_params.la_fp_to_real = tegra12x_la_fp_to_real;
 	cs_la->la_params.static_la_minus_snap_arb_to_row_srt_emcclks_fp =
-			T12X_LA_STATIC_LA_MINUS_SNAP_ARB_TO_ROW_SRT_EMCCLKS_FP;
+			T12X_LA_ST_LA_MINUS_SNAP_ARB_TO_ROW_SRT_EMCCLKS_FP;
 	cs_la->la_params.dram_width_bits = T12X_LA_DRAM_WIDTH_BITS;
 	cs_la->la_params.disp_catchup_factor_fp =
 						T12X_LA_DISP_CATCHUP_FACTOR_FP;

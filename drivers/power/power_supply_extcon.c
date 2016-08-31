@@ -1,7 +1,8 @@
 /*
  * power_supply_extcon: Power supply detection through extcon.
  *
- * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Laxman Dewangan <ldewangan@nvidia.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -58,6 +59,9 @@ static struct power_supply_cables psy_cables[] = {
 		.name	= "TA",
 	},
 	{
+		.name	= "QC2",
+	},
+	{
 		.name	= "Fast-charger",
 	},
 	{
@@ -67,6 +71,9 @@ static struct power_supply_cables psy_cables[] = {
 		.name	= "Charge-downstream",
 	},
 	{
+		.name	= "Apple 500mA-charger",
+	},
+	{
 		.name	= "Apple 1A-charger",
 	},
 	{
@@ -74,9 +81,29 @@ static struct power_supply_cables psy_cables[] = {
 	},
 };
 
+struct power_supply_extcon *the_psy_extcon;
+
 static enum power_supply_property power_supply_extcon_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
+
+/* Disable charging used by the charging driver */
+void power_supply_exton_set_online(bool online)
+{
+	if (the_psy_extcon == NULL)
+		return;
+
+	if (online) {
+		the_psy_extcon->usb_online = 1;
+		the_psy_extcon->ac_online = 1;
+	} else {
+		the_psy_extcon->usb_online = 0;
+		the_psy_extcon->ac_online = 0;
+	}
+
+	power_supply_changed(&the_psy_extcon->usb);
+	power_supply_changed(&the_psy_extcon->ac);
+}
 
 static int power_supply_extcon_get_property(struct power_supply *psy,
 		enum power_supply_property psp, union power_supply_propval *val)
@@ -135,12 +162,20 @@ static int power_supply_extcon_attach_cable(
 	} else if (true == extcon_get_cable_state(edev, "TA")) {
 		psy_extcon->ac_online = 1;
 		dev_info(psy_extcon->dev, "USB TA cable detected\n");
+	} else if (true == extcon_get_cable_state(edev, "QC2")) {
+		psy_extcon->ac_online = 1;
+		dev_info(psy_extcon->dev, "USB QC2-charger cable detected\n");
 	} else if (true == extcon_get_cable_state(edev, "Fast-charger")) {
 		psy_extcon->ac_online = 1;
 		dev_info(psy_extcon->dev, "USB Fast-charger cable detected\n");
 	} else if (true == extcon_get_cable_state(edev, "Slow-charger")) {
 		psy_extcon->ac_online = 1;
 		dev_info(psy_extcon->dev, "USB Slow-charger cable detected\n");
+	} else if (true == extcon_get_cable_state(edev,
+						"Apple 500mA-charger")) {
+		psy_extcon->ac_online = 1;
+		dev_info(psy_extcon->dev,
+			"USB Apple 500mA-charger cable detected\n");
 	} else if (true == extcon_get_cable_state(edev, "Apple 1A-charger")) {
 		psy_extcon->ac_online = 1;
 		dev_info(psy_extcon->dev,
@@ -256,6 +291,7 @@ static int psy_extcon_probe(struct platform_device *pdev)
 			goto econ_err;
 
 	power_supply_extcon_attach_cable(psy_extcon, psy_extcon->edev);
+	the_psy_extcon = psy_extcon;
 	dev_info(&pdev->dev, "%s() get success\n", __func__);
 	return 0;
 

@@ -4,6 +4,7 @@
  * Tegra Graphics Host Interrupt Management
  *
  * Copyright (c) 2010-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -146,8 +147,8 @@ static void action_submit_complete(struct nvhost_waitlist *waiter)
 	struct nvhost_channel *channel = waiter->data;
 	int nr_completed = waiter->count;
 
-	nvhost_module_idle_mult(channel->dev, nr_completed);
 	nvhost_cdma_update(&channel->cdma);
+	nvhost_module_idle_mult(channel->dev, nr_completed);
 
 	/*  Add nr_completed to trace */
 	trace_nvhost_channel_submit_complete(channel->dev->name,

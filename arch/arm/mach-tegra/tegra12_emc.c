@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra12_emc.c
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -55,6 +56,7 @@ module_param(emc_enable, bool, 0644);
 static int pasr_enable;
 
 u8 tegra_emc_bw_efficiency = 80;
+u32 tegra_emc_cur_rate = 924000;
 
 static u32 bw_calc_freqs[] = {
 	5, 10, 20, 30, 40, 60, 80, 100, 120, 140, 160, 180
@@ -103,6 +105,10 @@ static struct emc_iso_usage tegra12_emc_iso_usage[] = {
 	},
 	{
 		BIT(EMC_USER_DC1) | BIT(EMC_USER_DC2) | BIT(EMC_USER_VI),
+		50, iso_share_calc_t124_general
+	},
+	{
+		BIT(EMC_USER_AUDIO),
 		50, iso_share_calc_t124_general
 	},
 };
@@ -978,6 +984,46 @@ static inline void emc_get_timing(struct tegra12_emc_table *timing)
 	timing->rate = clk_get_rate_locked(emc) / 1000;
 }
 
+u32 tegra12_get_dvfs_clk_change_latency_nsec(unsigned long emc_freq_khz)
+{
+	int i;
+
+	if (!tegra_emc_table)
+		goto default_val;
+
+	if (emc_freq_khz > tegra_emc_table[tegra_emc_table_size - 1].rate) {
+		i = tegra_emc_table_size - 1;
+		if (tegra_emc_table[i].clock_change_latency != 0)
+			return tegra_emc_table[i].clock_change_latency;
+		else
+			goto default_val;
+	}
+
+	for (i = get_start_idx(emc_freq_khz); i < tegra_emc_table_size; i++) {
+		if (tegra_emc_table[i].rate == emc_freq_khz)
+			break;
+
+		if (tegra_emc_table[i].rate > emc_freq_khz) {
+			/* emc_freq_khz was not found in the emc table. Use the
+			   DVFS latency value of the EMC frequency just below
+			   emc_freq_khz. */
+			i--;
+			break;
+		}
+	}
+
+	if (tegra_emc_table[i].clock_change_latency != 0)
+		return tegra_emc_table[i].clock_change_latency;
+
+default_val:
+	/* The DVFS clock change latency value couldn't be found. Use
+	   a default value. */
+	WARN_ONCE(1, "%s: Couldn't find DVFS clock change latency "
+			"value - using default value\n",
+		__func__);
+	return 2000;
+}
+
 static const struct tegra12_emc_table *emc_get_table(
 	unsigned long over_temp_state)
 {
@@ -1048,6 +1094,7 @@ int tegra_emc_set_rate(unsigned long rate)
 	spin_unlock_irqrestore(&emc_access_lock, flags);
 
 	emc_last_stats_update(i);
+	tegra_emc_cur_rate = rate;
 
 	pr_debug("%s: rate %lu setting 0x%x\n", __func__, rate, clk_setting);
 

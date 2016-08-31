@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra11_soctherm.c
  *
  * Copyright (c) 2011-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -637,13 +638,13 @@ static const struct soctherm_sensor default_t14x_sensor_params = {
 	.pdiv_ATE  = 8,
 };
 
-/* TODO: not the final sensor data for T124 */
+/* Used for T124 and T132 */
 static const struct soctherm_sensor default_t12x_sensor_params = {
 	.tall      = 16300,
 	.tiddq     = 1,
 	.ten_count = 1,
 	.tsample   = 120,
-	.tsamp_ATE = 481,
+	.tsamp_ATE = 480,
 	.pdiv      = 8,
 	.pdiv_ATE  = 8,
 };
@@ -714,9 +715,9 @@ static inline void prog_hw_shutdown(struct thermal_trip_info *trip_state,
 	u32 r;
 	int temp;
 
+	temp = trip_state->trip_temp + LOWER_PRECISION_FOR_CONV(1000);
 
-
-	temp = enforce_temp_range(trip_state->trip_temp) / 1000;
+	temp = enforce_temp_range(temp) / 1000;
 
 	r = soctherm_readl(THERMTRIP);
 	if (therm == THERM_CPU) {

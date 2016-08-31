@@ -8,7 +8,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#define DEBUG 1
+
 #include <linux/spi/spi.h>
 #include <sound/soc.h>
 #include "rt_codec_ioctl.h"
@@ -162,7 +162,8 @@ int realtek_ce_init_hwdep(struct snd_soc_codec *codec)
 
 	dev_dbg(codec->dev, "enter %s\n", __func__);
 
-	if ((err = snd_hwdep_new(card, RT_CE_CODEC_HWDEP_NAME, 0, &hw)) < 0)
+	err = snd_hwdep_new(card, RT_CE_CODEC_HWDEP_NAME, 0, &hw);
+	if (err < 0)
 		return err;
 	
 	strcpy(hw->name, RT_CE_CODEC_HWDEP_NAME);

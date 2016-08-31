@@ -6,6 +6,7 @@
  *	Colin Cross <ccross@google.com>
  *
  * Copyright (c) 2010-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -101,6 +102,12 @@ static LIST_HEAD(clocks);
 static unsigned long osc_freq;
 
 #ifndef CONFIG_COMMON_CLK
+const char *__clk_get_name(struct clk *clk)
+{
+	return !clk ? NULL : clk->name;
+}
+EXPORT_SYMBOL_GPL(__clk_get_name);
+
 struct clk *tegra_get_clock_by_name(const char *name)
 {
 	struct clk *c;

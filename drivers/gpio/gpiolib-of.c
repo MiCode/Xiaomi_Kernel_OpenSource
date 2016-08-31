@@ -2,6 +2,7 @@
  * OF helpers for the GPIO API
  *
  * Copyright (c) 2007-2008  MontaVista Software, Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Anton Vorontsov <avorontsov@ru.mvista.com>
  *
@@ -239,8 +240,10 @@ void of_gpiochip_init(struct gpio_chip *chip)
 		/* Retrieve the gpio-init-* property */
 		propname = kasprintf(GFP_KERNEL, "gpio-init-%d", state);
 		np_config  = of_parse_phandle(np, propname, 0);
-		if (!np_config)
+		if (!np_config) {
+			kfree(propname);
 			break;
+		}
 
 		/* Determine whether gpio-init-names property names the state */
 		of_property_read_string_index(np, "gpio-init-names",

@@ -2,6 +2,7 @@
  * drivers/misc/tegra-profiler/exh_tables.c
  *
  * Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,6 +22,8 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/err.h>
+
+#include <linux/tegra_profiler.h>
 
 #include "eh_unwind.h"
 #include "backtrace.h"
@@ -61,7 +64,7 @@ struct quadd_unwind_ctx {
 	unsigned long ri_nr;
 	unsigned long ri_size;
 
-	struct task_struct *task;
+	pid_t pid;
 
 	unsigned long pinned_pages;
 	unsigned long pinned_size;
@@ -70,8 +73,8 @@ struct quadd_unwind_ctx {
 };
 
 struct unwind_idx {
-	unsigned long addr_offset;
-	unsigned long insn;
+	u32 addr_offset;
+	u32 insn;
 };
 
 struct stackframe {
@@ -84,10 +87,10 @@ struct stackframe {
 };
 
 struct unwind_ctrl_block {
-	unsigned long vrs[16];		/* virtual register set */
-	const unsigned long *insn;	/* pointer to the current instr word */
-	int entries;			/* number of entries left */
-	int byte;			/* current byte in the instr word */
+	u32 vrs[16];		/* virtual register set */
+	const u32 *insn;	/* pointer to the current instr word */
+	int entries;		/* number of entries left */
+	int byte;		/* current byte in the instr word */
 };
 
 struct pin_pages_work {
@@ -96,6 +99,23 @@ struct pin_pages_work {
 };
 
 struct quadd_unwind_ctx ctx;
+
+static inline int
+validate_stack_addr(unsigned long addr,
+		    struct vm_area_struct *vma,
+		    unsigned long nbytes)
+{
+	if (addr & 0x03)
+		return 0;
+
+	return is_vma_addr(addr, vma, nbytes);
+}
+
+static inline int
+validate_pc_addr(unsigned long addr, unsigned long nbytes)
+{
+	return addr && addr < TASK_SIZE - nbytes;
+}
 
 #define read_user_data(addr, retval)			\
 ({							\
@@ -191,8 +211,22 @@ static void pin_user_pages(struct extables *tabs)
 	long ret;
 	struct extab_info *ti;
 	unsigned long nr_pages, addr;
-	struct mm_struct *mm = ctx.task->mm;
+	struct pid *pid_s;
+	struct task_struct *task = NULL;
+	struct mm_struct *mm;
 
+	rcu_read_lock();
+
+	pid_s = find_vpid(ctx.pid);
+	if (pid_s)
+		task = pid_task(pid_s, PIDTYPE_PID);
+
+	rcu_read_unlock();
+
+	if (!task)
+		return;
+
+	mm = task->mm;
 	if (!mm)
 		return;
 
@@ -202,7 +236,7 @@ static void pin_user_pages(struct extables *tabs)
 	addr = ti->addr & PAGE_MASK;
 	nr_pages = GET_NR_PAGES(ti->addr, ti->length);
 
-	ret = get_user_pages(ctx.task, mm, addr, nr_pages, 0, 0,
+	ret = get_user_pages(task, mm, addr, nr_pages, 0, 0,
 			     NULL, NULL);
 	if (ret < 0) {
 		pr_debug("%s: warning: addr/nr_pages: %#lx/%lu\n",
@@ -220,7 +254,7 @@ static void pin_user_pages(struct extables *tabs)
 	addr = ti->addr & PAGE_MASK;
 	nr_pages = GET_NR_PAGES(ti->addr, ti->length);
 
-	ret = get_user_pages(ctx.task, mm, addr, nr_pages, 0, 0,
+	ret = get_user_pages(task, mm, addr, nr_pages, 0, 0,
 			     NULL, NULL);
 	if (ret < 0) {
 		pr_debug("%s: warning: addr/nr_pages: %#lx/%lu\n",
@@ -323,18 +357,18 @@ error_out:
 	return err;
 }
 
-static unsigned long
-prel31_to_addr(const unsigned long *ptr)
+static u32
+prel31_to_addr(const u32 *ptr)
 {
-	unsigned long value;
-	long offset;
+	u32 value;
+	s32 offset;
 
 	if (read_user_data(ptr, value))
 		return 0;
 
 	/* sign-extend to 32 bits */
-	offset = (((long)value) << 1) >> 1;
-	return (unsigned long)ptr + offset;
+	offset = (((s32)value) << 1) >> 1;
+	return (u32)(unsigned long)ptr + offset;
 }
 
 static const struct unwind_idx *
@@ -342,7 +376,7 @@ unwind_find_origin(const struct unwind_idx *start,
 		   const struct unwind_idx *stop)
 {
 	while (start < stop) {
-		unsigned long addr_offset;
+		u32 addr_offset;
 		const struct unwind_idx *mid = start + ((stop - start) >> 1);
 
 		if (read_user_data(&mid->addr_offset, addr_offset))
@@ -368,20 +402,20 @@ unwind_find_origin(const struct unwind_idx *start,
  * stop - 1 = last entry
  */
 static const struct unwind_idx *
-search_index(unsigned long addr,
+search_index(u32 addr,
 	     const struct unwind_idx *start,
 	     const struct unwind_idx *origin,
 	     const struct unwind_idx *stop)
 {
-	unsigned long addr_prel31;
+	u32 addr_prel31;
 
-	pr_debug("%08lx, %p, %p, %p\n", addr, start, origin, stop);
+	pr_debug("%#x, %p, %p, %p\n", addr, start, origin, stop);
 
 	/*
 	 * only search in the section with the matching sign. This way the
 	 * prel31 numbers can be compared as unsigned longs.
 	 */
-	if (addr < (unsigned long)start)
+	if (addr < (u32)(unsigned long)start)
 		/* negative offsets: [start; origin) */
 		stop = origin;
 	else
@@ -389,10 +423,10 @@ search_index(unsigned long addr,
 		start = origin;
 
 	/* prel31 for address relavive to start */
-	addr_prel31 = (addr - (unsigned long)start) & 0x7fffffff;
+	addr_prel31 = (addr - (u32)(unsigned long)start) & 0x7fffffff;
 
 	while (start < stop - 1) {
-		unsigned long addr_offset;
+		u32 addr_offset, d;
 
 		const struct unwind_idx *mid = start + ((stop - start) >> 1);
 
@@ -403,13 +437,14 @@ search_index(unsigned long addr,
 		if (read_user_data(&mid->addr_offset, addr_offset))
 			return ERR_PTR(-EFAULT);
 
-		if (addr_prel31 - ((unsigned long)mid - (unsigned long)start) <
-				addr_offset) {
+		d = (u32)(unsigned long)mid - (u32)(unsigned long)start;
+
+		if (addr_prel31 - d < addr_offset) {
 			stop = mid;
 		} else {
 			/* keep addr_prel31 relative to start */
-			addr_prel31 -= ((unsigned long)mid -
-					(unsigned long)start);
+			addr_prel31 -= ((u32)(unsigned long)mid -
+					(u32)(unsigned long)start);
 			start = mid;
 		}
 	}
@@ -417,12 +452,12 @@ search_index(unsigned long addr,
 	if (likely(start->addr_offset <= addr_prel31))
 		return start;
 
-	pr_debug("Unknown address %08lx\n", addr);
+	pr_debug("Unknown address %#x\n", addr);
 	return NULL;
 }
 
 static const struct unwind_idx *
-unwind_find_idx(struct extab_info *exidx, unsigned long addr)
+unwind_find_idx(struct extab_info *exidx, u32 addr)
 {
 	const struct unwind_idx *start;
 	const struct unwind_idx *origin;
@@ -438,16 +473,17 @@ unwind_find_idx(struct extab_info *exidx, unsigned long addr)
 
 	idx = search_index(addr, start, origin, stop);
 
-	pr_debug("addr: %#lx, start: %p, origin: %p, stop: %p, idx: %p\n",
+	pr_debug("addr: %#x, start: %p, origin: %p, stop: %p, idx: %p\n",
 		addr, start, origin, stop, idx);
 
 	return idx;
 }
 
 static unsigned long
-unwind_get_byte(struct unwind_ctrl_block *ctrl, int *err)
+unwind_get_byte(struct unwind_ctrl_block *ctrl, long *err)
 {
-	unsigned long ret, insn_word;
+	unsigned long ret;
+	u32 insn_word;
 
 	*err = 0;
 
@@ -476,9 +512,10 @@ unwind_get_byte(struct unwind_ctrl_block *ctrl, int *err)
 /*
  * Execute the current unwind instruction.
  */
-static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
+static long unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 {
-	int i, err;
+	long err;
+	unsigned int i;
 	unsigned long insn = unwind_get_byte(ctrl, &err);
 
 	if (err < 0)
@@ -489,16 +526,16 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 	if ((insn & 0xc0) == 0x00) {
 		ctrl->vrs[SP] += ((insn & 0x3f) << 2) + 4;
 
-		pr_debug("CMD_DATA_POP: vsp = vsp + %lu (new: %#lx)\n",
+		pr_debug("CMD_DATA_POP: vsp = vsp + %lu (new: %#x)\n",
 			((insn & 0x3f) << 2) + 4, ctrl->vrs[SP]);
 	} else if ((insn & 0xc0) == 0x40) {
 		ctrl->vrs[SP] -= ((insn & 0x3f) << 2) + 4;
 
-		pr_debug("CMD_DATA_PUSH: vsp = vsp – %lu (new: %#lx)\n",
+		pr_debug("CMD_DATA_PUSH: vsp = vsp – %lu (new: %#x)\n",
 			((insn & 0x3f) << 2) + 4, ctrl->vrs[SP]);
 	} else if ((insn & 0xf0) == 0x80) {
 		unsigned long mask;
-		unsigned long *vsp = (unsigned long *)ctrl->vrs[SP];
+		u32 *vsp = (u32 *)(unsigned long)ctrl->vrs[SP];
 		int load_sp, reg = 4;
 
 		insn = (insn << 8) | unwind_get_byte(ctrl, &err);
@@ -528,14 +565,14 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 		if (!load_sp)
 			ctrl->vrs[SP] = (unsigned long)vsp;
 
-		pr_debug("new vsp: %#lx\n", ctrl->vrs[SP]);
+		pr_debug("new vsp: %#x\n", ctrl->vrs[SP]);
 	} else if ((insn & 0xf0) == 0x90 &&
 		   (insn & 0x0d) != 0x0d) {
 		ctrl->vrs[SP] = ctrl->vrs[insn & 0x0f];
 		pr_debug("CMD_REG_TO_SP: vsp = {r%lu}\n", insn & 0x0f);
 	} else if ((insn & 0xf0) == 0xa0) {
-		unsigned long *vsp = (unsigned long *)ctrl->vrs[SP];
-		int reg;
+		u32 *vsp = (u32 *)(unsigned long)ctrl->vrs[SP];
+		unsigned int reg;
 
 		/* pop R4-R[4+bbb] */
 		for (reg = 4; reg <= 4 + (insn & 7); reg++) {
@@ -543,7 +580,7 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 			if (err < 0)
 				return err;
 
-			pr_debug("CMD_REG_POP: pop {r%d}\n", reg);
+			pr_debug("CMD_REG_POP: pop {r%u}\n", reg);
 		}
 
 		if (insn & 0x08) {
@@ -553,8 +590,8 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 
 			pr_debug("CMD_REG_POP: pop {r14}\n");
 		}
-		ctrl->vrs[SP] = (unsigned long)vsp;
-		pr_debug("new vsp: %#lx\n", ctrl->vrs[SP]);
+		ctrl->vrs[SP] = (u32)(unsigned long)vsp;
+		pr_debug("new vsp: %#x\n", ctrl->vrs[SP]);
 	} else if (insn == 0xb0) {
 		if (ctrl->vrs[PC] == 0)
 			ctrl->vrs[PC] = ctrl->vrs[LR];
@@ -564,7 +601,7 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 		pr_debug("CMD_FINISH\n");
 	} else if (insn == 0xb1) {
 		unsigned long mask = unwind_get_byte(ctrl, &err);
-		unsigned long *vsp = (unsigned long *)ctrl->vrs[SP];
+		u32 *vsp = (u32 *)(unsigned long)ctrl->vrs[SP];
 		int reg = 0;
 
 		if (err < 0)
@@ -588,8 +625,8 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 			mask >>= 1;
 			reg++;
 		}
-		ctrl->vrs[SP] = (unsigned long)vsp;
-		pr_debug("new vsp: %#lx\n", ctrl->vrs[SP]);
+		ctrl->vrs[SP] = (u32)(unsigned long)vsp;
+		pr_debug("new vsp: %#x\n", ctrl->vrs[SP]);
 	} else if (insn == 0xb2) {
 		unsigned long uleb128 = unwind_get_byte(ctrl, &err);
 		if (err < 0)
@@ -597,11 +634,11 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 
 		ctrl->vrs[SP] += 0x204 + (uleb128 << 2);
 
-		pr_debug("CMD_DATA_POP: vsp = vsp + %lu, new vsp: %#lx\n",
+		pr_debug("CMD_DATA_POP: vsp = vsp + %lu, new vsp: %#x\n",
 			 0x204 + (uleb128 << 2), ctrl->vrs[SP]);
 	} else if (insn == 0xb3 || insn == 0xc8 || insn == 0xc9) {
 		unsigned long data, reg_from, reg_to;
-		unsigned long *vsp = (unsigned long *)ctrl->vrs[SP];
+		u32 *vsp = (u32 *)(unsigned long)ctrl->vrs[SP];
 
 		data = unwind_get_byte(ctrl, &err);
 		if (err < 0)
@@ -622,14 +659,15 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 			vsp++;
 
 		ctrl->vrs[SP] = (unsigned long)vsp;
+		ctrl->vrs[SP] = (u32)(unsigned long)vsp;
 
 		pr_debug("CMD_VFP_POP (%#lx %#lx): pop {D%lu-D%lu}\n",
 			 insn, data, reg_from, reg_to);
-		pr_debug("new vsp: %#lx\n", ctrl->vrs[SP]);
+		pr_debug("new vsp: %#x\n", ctrl->vrs[SP]);
 	} else if ((insn & 0xf8) == 0xb8 || (insn & 0xf8) == 0xd0) {
 		unsigned long reg_to;
 		unsigned long data = insn & 0x07;
-		unsigned long *vsp = (unsigned long *)ctrl->vrs[SP];
+		u32 *vsp = (u32 *)(unsigned long)ctrl->vrs[SP];
 
 		reg_to = 8 + data;
 
@@ -639,17 +677,17 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
 		if ((insn & 0xf8) == 0xb8)
 			vsp++;
 
-		ctrl->vrs[SP] = (unsigned long)vsp;
+		ctrl->vrs[SP] = (u32)(unsigned long)vsp;
 
 		pr_debug("CMD_VFP_POP (%#lx): pop {D8-D%lu}\n",
 			 insn, reg_to);
-		pr_debug("new vsp: %#lx\n", ctrl->vrs[SP]);
+		pr_debug("new vsp: %#x\n", ctrl->vrs[SP]);
 	} else {
 		pr_debug("error: unhandled instruction %02lx\n", insn);
 		return -QUADD_URC_UNHANDLED_INSTRUCTION;
 	}
 
-	pr_debug("%s: fp_arm: %#lx, fp_thumb: %#lx, sp: %#lx, lr = %#lx, pc: %#lx\n",
+	pr_debug("%s: fp_arm: %#x, fp_thumb: %#x, sp: %#x, lr = %#x, pc: %#x\n",
 		 __func__,
 		 ctrl->vrs[FP_ARM], ctrl->vrs[FP_THUMB], ctrl->vrs[SP],
 		 ctrl->vrs[LR], ctrl->vrs[PC]);
@@ -661,7 +699,7 @@ static int unwind_exec_insn(struct unwind_ctrl_block *ctrl)
  * Unwind a single frame starting with *sp for the symbol at *pc. It
  * updates the *pc and *sp with the new values.
  */
-static int
+static long
 unwind_frame(struct extab_info *exidx,
 	     struct stackframe *frame,
 	     struct vm_area_struct *vma_sp)
@@ -669,7 +707,11 @@ unwind_frame(struct extab_info *exidx,
 	unsigned long high, low;
 	const struct unwind_idx *idx;
 	struct unwind_ctrl_block ctrl;
-	unsigned long val, err;
+	unsigned long err;
+	u32 val;
+
+	if (!validate_stack_addr(frame->sp, vma_sp, sizeof(u32)))
+		return -QUADD_URC_SP_INCORRECT;
 
 	/* only go to a higher address on the stack */
 	low = frame->sp;
@@ -700,14 +742,14 @@ unwind_frame(struct extab_info *exidx,
 		return -QUADD_URC_CANTUNWIND;
 	} else if ((val & 0x80000000) == 0) {
 		/* prel31 to the unwind table */
-		ctrl.insn = (unsigned long *)prel31_to_addr(&idx->insn);
+		ctrl.insn = (u32 *)(unsigned long)prel31_to_addr(&idx->insn);
 		if (!ctrl.insn)
 			return -QUADD_URC_EACCESS;
 	} else if ((val & 0xff000000) == 0x80000000) {
 		/* only personality routine 0 supported in the index */
 		ctrl.insn = &idx->insn;
 	} else {
-		pr_debug("unsupported personality routine %08lx in the index at %p\n",
+		pr_debug("unsupported personality routine %#x in the index at %p\n",
 			 val, idx);
 		return -QUADD_URC_UNSUPPORTED_PR;
 	}
@@ -724,17 +766,18 @@ unwind_frame(struct extab_info *exidx,
 		ctrl.byte = 1;
 		ctrl.entries = 1 + ((val & 0x00ff0000) >> 16);
 	} else {
-		pr_debug("unsupported personality routine %08lx at %p\n",
+		pr_debug("unsupported personality routine %#x at %p\n",
 			 val, ctrl.insn);
 		return -QUADD_URC_UNSUPPORTED_PR;
 	}
 
 	while (ctrl.entries > 0) {
-		int err = unwind_exec_insn(&ctrl);
+		err = unwind_exec_insn(&ctrl);
 		if (err < 0)
 			return err;
 
-		if (ctrl.vrs[SP] < low || ctrl.vrs[SP] >= high)
+		if (ctrl.vrs[SP] & 0x03 ||
+		    ctrl.vrs[SP] < low || ctrl.vrs[SP] >= high)
 			return -QUADD_URC_SP_INCORRECT;
 	}
 
@@ -744,6 +787,9 @@ unwind_frame(struct extab_info *exidx,
 	/* check for infinite loop */
 	if (frame->pc == ctrl.vrs[PC])
 		return -QUADD_URC_FAILURE;
+
+	if (!validate_pc_addr(ctrl.vrs[PC], sizeof(u32)))
+		return -QUADD_URC_PC_INCORRECT;
 
 	frame->fp_thumb = ctrl.vrs[FP_THUMB];
 	frame->fp_arm = ctrl.vrs[FP_ARM];
@@ -759,18 +805,23 @@ static void
 unwind_backtrace(struct quadd_callchain *cc,
 		 struct extab_info *exidx,
 		 struct pt_regs *regs,
-		 struct vm_area_struct *vma_sp)
+		 struct vm_area_struct *vma_sp,
+		 struct task_struct *task)
 {
 	struct extables tabs;
 	struct stackframe frame;
 
+#ifdef CONFIG_ARM64
+	frame.fp_thumb = regs->compat_usr(7);
+	frame.fp_arm = regs->compat_usr(11);
+#else
 	frame.fp_thumb = regs->ARM_r7;
 	frame.fp_arm = regs->ARM_fp;
+#endif
 
 	frame.pc = instruction_pointer(regs);
-	frame.sp = user_stack_pointer(regs);
-
-	frame.lr = regs->ARM_lr;
+	frame.sp = quadd_user_stack_pointer(regs);
+	frame.lr = quadd_user_link_register(regs);
 
 	cc->unw_rc = QUADD_URC_FAILURE;
 
@@ -778,22 +829,27 @@ unwind_backtrace(struct quadd_callchain *cc,
 		 frame.fp_arm, frame.fp_thumb, frame.sp, frame.lr, frame.pc);
 	pr_debug("vma_sp: %#lx - %#lx, length: %#lx\n",
 		 vma_sp->vm_start, vma_sp->vm_end,
-		 vma_sp->vm_start - vma_sp->vm_end);
+		 vma_sp->vm_end - vma_sp->vm_start);
 
 	while (1) {
-		int err;
+		long err;
 		unsigned long where = frame.pc;
 		struct vm_area_struct *vma_pc;
-		struct mm_struct *mm = current->mm;
+		struct mm_struct *mm = task->mm;
 
 		if (!mm)
 			break;
+
+		if (!validate_stack_addr(frame.sp, vma_sp, sizeof(u32))) {
+			cc->unw_rc = -QUADD_URC_SP_INCORRECT;
+			break;
+		}
 
 		vma_pc = find_vma(mm, frame.pc);
 		if (!vma_pc)
 			break;
 
-		if (!is_vma_addr(exidx->addr, vma_pc)) {
+		if (!is_vma_addr(exidx->addr, vma_pc, sizeof(u32))) {
 			struct ex_region_info *ri;
 
 			spin_lock(&ctx.lock);
@@ -809,7 +865,7 @@ unwind_backtrace(struct quadd_callchain *cc,
 
 		err = unwind_frame(exidx, &frame, vma_sp);
 		if (err < 0) {
-			pr_debug("end unwind, urc: %d\n", err);
+			pr_debug("end unwind, urc: %ld\n", err);
 			cc->unw_rc = -err;
 			break;
 		}
@@ -818,32 +874,42 @@ unwind_backtrace(struct quadd_callchain *cc,
 			 where, frame.pc);
 
 		quadd_callchain_store(cc, frame.pc);
+
+		cc->curr_sp = frame.sp;
+		cc->curr_fp = frame.fp_arm;
 	}
 }
 
 unsigned int
 quadd_get_user_callchain_ut(struct pt_regs *regs,
-			    struct quadd_callchain *cc)
+			    struct quadd_callchain *cc,
+			    struct task_struct *task)
 {
 	unsigned long ip, sp;
 	struct vm_area_struct *vma, *vma_sp;
-	struct mm_struct *mm = current->mm;
+	struct mm_struct *mm = task->mm;
 	struct ex_region_info *ri;
 	struct extables tabs;
 
 	cc->unw_method = QUADD_UNW_METHOD_EHT;
 	cc->unw_rc = QUADD_URC_FAILURE;
 
+#ifdef CONFIG_ARM64
+	if (!compat_user_mode(regs)) {
+		pr_warn_once("user_mode 64: unsupported\n");
+		return 0;
+	}
+#endif
+
 	if (!regs || !mm)
 		return 0;
 
 	ip = instruction_pointer(regs);
+	sp = quadd_user_stack_pointer(regs);
 
 	vma = find_vma(mm, ip);
 	if (!vma)
 		return 0;
-
-	sp = user_stack_pointer(regs);
 
 	vma_sp = find_vma(mm, sp);
 	if (!vma_sp)
@@ -857,7 +923,7 @@ quadd_get_user_callchain_ut(struct pt_regs *regs,
 		return 0;
 	}
 
-	unwind_backtrace(cc, &tabs.exidx, regs, vma_sp);
+	unwind_backtrace(cc, &tabs.exidx, regs, vma_sp, task);
 
 	return cc->nr;
 }
@@ -882,7 +948,7 @@ int quadd_unwind_start(struct task_struct *task)
 	}
 	ctx.ri_size = QUADD_EXTABS_SIZE;
 
-	ctx.task = task;
+	ctx.pid = task->tgid;
 
 	spin_unlock(&ctx.lock);
 
@@ -899,7 +965,7 @@ void quadd_unwind_stop(void)
 	ctx.ri_size = 0;
 	ctx.ri_nr = 0;
 
-	ctx.task = NULL;
+	ctx.pid = 0;
 
 	spin_unlock(&ctx.lock);
 
@@ -913,6 +979,7 @@ int quadd_unwind_init(void)
 	ctx.regions = NULL;
 	ctx.ri_size = 0;
 	ctx.ri_nr = 0;
+	ctx.pid = 0;
 
 	spin_lock_init(&ctx.lock);
 

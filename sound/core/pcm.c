@@ -1,6 +1,7 @@
 /*
  *  Digital Audio (PCM) abstract layer
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -903,7 +904,7 @@ int snd_pcm_attach_substream(struct snd_pcm *pcm, int stream,
 		return -EINVAL;
 	}
 
-	if (file->f_flags & O_APPEND) {
+	if (file && (file->f_flags & O_APPEND)) {
 		if (prefer_subdevice < 0) {
 			if (pstr->substream_count > 1)
 				return -EINVAL; /* must be unique */
@@ -965,7 +966,7 @@ int snd_pcm_attach_substream(struct snd_pcm *pcm, int stream,
 	substream->runtime = runtime;
 	substream->private_data = pcm->private_data;
 	substream->ref_count = 1;
-	substream->f_flags = file->f_flags;
+	substream->f_flags = file ? file->f_flags : 0;
 	substream->pid = get_pid(task_pid(current));
 	pstr->substream_opened++;
 	*rsubstream = substream;

@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 1999-2013, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -21,7 +22,7 @@
  *
  * Fundamental constants relating to IP Protocol
  *
- * $Id: bcmip.h 384540 2013-02-12 04:28:58Z $
+ * $Id: bcmip.h 457888 2014-02-25 03:34:39Z $
  */
 
 #ifndef _bcmip_h_
@@ -150,6 +151,8 @@ BWL_PRE_PACKED_STRUCT struct ipv4_hdr {
 	(IP_VER(ip_body) == IP_VER_4 ? IPV4_TOS(ip_body) : \
 	 IP_VER(ip_body) == IP_VER_6 ? IPV6_TRAFFIC_CLASS(ip_body) : 0)
 
+#define IP_DSCP46(ip_body) (IP_TOS46(ip_body) >> IPV4_TOS_DSCP_SHIFT);
+
 /* IPV6 extension headers (options) */
 #define IPV6_EXTHDR_HOP		0
 #define IPV6_EXTHDR_ROUTING	43
@@ -207,7 +210,23 @@ ipv6_exthdr_len(uint8 *h, uint8 *proto)
 
 #define IPV4_ISMULTI(a) (((a) & 0xf0000000) == 0xe0000000)
 
+#define IPV4_MCAST_TO_ETHER_MCAST(ipv4, ether) \
+{ \
+	ether[0] = 0x01; \
+	ether[1] = 0x00; \
+	ether[2] = 0x5E; \
+	ether[3] = (ipv4 & 0x7f0000) >> 16; \
+	ether[4] = (ipv4 & 0xff00) >> 8; \
+	ether[5] = (ipv4 & 0xff); \
+}
+
 /* This marks the end of a packed structure section. */
 #include <packed_section_end.h>
+
+#define IPV4_ADDR_STR "%d.%d.%d.%d"
+#define IPV4_ADDR_TO_STR(addr)	((uint32)addr & 0xff000000) >> 24, \
+								((uint32)addr & 0x00ff0000) >> 16, \
+								((uint32)addr & 0x0000ff00) >> 8, \
+								((uint32)addr & 0x000000ff)
 
 #endif	/* _bcmip_h_ */

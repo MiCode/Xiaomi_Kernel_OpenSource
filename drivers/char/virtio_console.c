@@ -2,6 +2,7 @@
  * Copyright (C) 2006, 2007, 2009 Rusty Russell, IBM Corporation
  * Copyright (C) 2009, 2010, 2011 Red Hat, Inc.
  * Copyright (C) 2009, 2010, 2011 Amit Shah <amit.shah@redhat.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -888,12 +889,10 @@ static int pipe_to_sg(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
 	} else {
 		/* Failback to copying a page */
 		struct page *page = alloc_page(GFP_KERNEL);
-		char *src = buf->ops->map(pipe, buf, 1);
-		char *dst;
+		char *src;
 
 		if (!page)
 			return -ENOMEM;
-		dst = kmap(page);
 
 		offset = sd->pos & ~PAGE_MASK;
 
@@ -901,10 +900,9 @@ static int pipe_to_sg(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
 		if (len + offset > PAGE_SIZE)
 			len = PAGE_SIZE - offset;
 
-		memcpy(dst + offset, src + buf->offset, len);
-
-		kunmap(page);
-		buf->ops->unmap(pipe, buf, src);
+		src = kmap_atomic(buf->page);
+		memcpy(page_address(page) + offset, src + buf->offset, len);
+		kunmap_atomic(src);
 
 		sg_set_page(&(sgl->sg[sgl->n]), page, len, offset);
 	}

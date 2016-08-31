@@ -2,6 +2,7 @@
  * include/linux/platform_data/ina230.h
  *
  * Copyright (c) 2009-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,6 +47,7 @@ rst|-   -   -  |AVG        |Vbus_CT    |Vsh_CT     |MODE
 
 #define INA3221_RAIL_NAME_SIZE	32
 
+#define POWER_LSB_TO_CURRENT_LSB_RATIO 25
 struct ina230_platform_data {
 	const char rail_name[INA3221_RAIL_NAME_SIZE];
 	s32 current_threshold;

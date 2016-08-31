@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-ardbeg-sdhci.c
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -49,6 +50,7 @@
 static unsigned int wifi_states[] = {ON, OFF};
 #endif
 
+#define ARDBEG_SD_PW	TEGRA_GPIO_PR0
 #define ARDBEG_SD_CD	TEGRA_GPIO_PV2
 #define ARDBEG_SD_WP	TEGRA_GPIO_PQ4
 #define FUSE_SOC_SPEEDO_0	0x134
@@ -176,7 +178,7 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 		.embedded_sdio = &embedded_sdio_data0,
 #endif
-		.built_in = 0,
+		.built_in = 1,
 		.ocr_mask = MMC_OCR_1V8_MASK,
 	},
 	.cd_gpio = -1,
@@ -193,12 +195,15 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data2 = {
 	.cd_gpio = ARDBEG_SD_CD,
 	.wp_gpio = -1,
-	.power_gpio = -1,
+	.power_gpio = ARDBEG_SD_PW,
 	.tap_delay = 0,
 	.trim_delay = 0x3,
 	.uhs_mask = MMC_UHS_MASK_DDR50,
 	.calib_3v3_offsets = 0x7676,
 	.calib_1v8_offsets = 0x7676,
+	.mmc_data = {
+		.ocr_mask = MMC_OCR_3V3_MASK,
+	},
 };
 
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
@@ -275,7 +280,6 @@ static int ardbeg_wifi_power(int on)
 	pr_err("%s: %d\n", __func__, on);
 
 	gpio_set_value(ARDBEG_WLAN_PWR, on);
-	gpio_set_value(ARDBEG_WLAN_RST, on);
 	mdelay(100);
 
 	return 0;
@@ -348,9 +352,6 @@ static int __init ardbeg_wifi_init(void)
 	rc = gpio_request(ARDBEG_WLAN_PWR, "wlan_power");
 	if (rc)
 		pr_err("WLAN_PWR gpio request failed:%d\n", rc);
-	rc = gpio_request(ARDBEG_WLAN_RST, "wlan_rst");
-	if (rc)
-		pr_err("WLAN_RST gpio request failed:%d\n", rc);
 	rc = gpio_request(ARDBEG_WLAN_WOW, "bcmsdh_sdmmc");
 	if (rc)
 		pr_err("WLAN_WOW gpio request failed:%d\n", rc);
@@ -358,10 +359,6 @@ static int __init ardbeg_wifi_init(void)
 	rc = gpio_direction_output(ARDBEG_WLAN_PWR, 0);
 	if (rc)
 		pr_err("WLAN_PWR gpio direction configuration failed:%d\n", rc);
-	rc = gpio_direction_output(ARDBEG_WLAN_RST, 0);
-	if (rc)
-		pr_err("WLAN_RST gpio direction configuration failed:%d\n", rc);
-
 	rc = gpio_direction_input(ARDBEG_WLAN_WOW);
 	if (rc)
 		pr_err("WLAN_WOW gpio direction configuration failed:%d\n", rc);
@@ -385,6 +382,7 @@ static int __init ardbeg_wifi_prepower(void)
 		!of_machine_is_compatible("nvidia,laguna") &&
 		!of_machine_is_compatible("nvidia,ardbeg_sata") &&
 		!of_machine_is_compatible("nvidia,tn8") &&
+		!of_machine_is_compatible("nvidia,mocha") &&
 		!of_machine_is_compatible("nvidia,norrin"))
 		return 0;
 	ardbeg_wifi_power(1);
@@ -433,7 +431,7 @@ int __init ardbeg_sdhci_init(void)
 	tegra_get_board_info(&board_info);
 	if (board_info.board_id == BOARD_E1780)
 		tegra_sdhci_platform_data2.max_clk_limit = 204000000;
-	tegra_sdhci_platform_data0.max_clk_limit = 136000000;
+	tegra_sdhci_platform_data0.max_clk_limit = 204000000;
 	if ((board_info.board_id == BOARD_E1781) ||
 		(board_info.board_id == BOARD_PM374) ||
 		(board_info.board_id == BOARD_PM359))

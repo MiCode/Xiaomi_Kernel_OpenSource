@@ -4,7 +4,8 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Colin Cross <ccross@android.com>
  *
- * Copyright (C) 2010-2013 NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2010-2014 NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -801,13 +802,11 @@ static irqreturn_t tegra_i2c_isr(int irq, void *dev_id)
 	if (!i2c_dev->msg_read && (status & I2C_INT_TX_FIFO_DATA_REQ)) {
 		if (i2c_dev->msg_buf_remaining) {
 
-			if (!i2c_dev->chipdata->has_xfer_complete_interrupt)
-				spin_lock_irqsave(&i2c_dev->fifo_lock, flags);
+			spin_lock_irqsave(&i2c_dev->fifo_lock, flags);
 
 			tegra_i2c_fill_tx_fifo(i2c_dev);
 
-			if (!i2c_dev->chipdata->has_xfer_complete_interrupt)
-				spin_unlock_irqrestore(&i2c_dev->fifo_lock, flags);
+			spin_unlock_irqrestore(&i2c_dev->fifo_lock, flags);
 
 		}
 		else
@@ -948,8 +947,7 @@ static int tegra_i2c_xfer_msg(struct tegra_i2c_dev *i2c_dev,
 	i2c_dev->msg_read = (msg->flags & I2C_M_RD);
 	INIT_COMPLETION(i2c_dev->msg_complete);
 
-	if (!i2c_dev->chipdata->has_xfer_complete_interrupt)
-		spin_lock_irqsave(&i2c_dev->fifo_lock, flags);
+	spin_lock_irqsave(&i2c_dev->fifo_lock, flags);
 
 	i2c_dev->msg_add = msg->addr;
 
@@ -1019,8 +1017,7 @@ static int tegra_i2c_xfer_msg(struct tegra_i2c_dev *i2c_dev,
 			i2c_dev->chipdata->has_xfer_complete_interrupt))
 		int_mask |= I2C_INT_ALL_PACKETS_XFER_COMPLETE;
 
-	if (!i2c_dev->chipdata->has_xfer_complete_interrupt)
-		spin_unlock_irqrestore(&i2c_dev->fifo_lock, flags);
+	spin_unlock_irqrestore(&i2c_dev->fifo_lock, flags);
 
 	tegra_i2c_unmask_irq(i2c_dev, int_mask);
 
@@ -1176,8 +1173,12 @@ static int tegra_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 	if (i2c_dev->is_suspended)
 		return -EBUSY;
 
-	if (i2c_dev->is_shutdown && i2c_dev->bit_banging_xfer_after_shutdown)
+	if ((i2c_dev->is_shutdown || adap->atomic_xfer_only)
+		&& i2c_dev->bit_banging_xfer_after_shutdown)
 		return tegra_i2c_gpio_xfer(adap, msgs, num);
+
+	if (adap->atomic_xfer_only)
+		return -EBUSY;
 
 	i2c_dev->msgs = msgs;
 	i2c_dev->msgs_num = num;
@@ -1513,8 +1514,7 @@ static int tegra_i2c_probe(struct platform_device *pdev)
 			pdata->bit_banging_xfer_after_shutdown;
 	init_completion(&i2c_dev->msg_complete);
 
-	if (!i2c_dev->chipdata->has_xfer_complete_interrupt)
-		spin_lock_init(&i2c_dev->fifo_lock);
+	spin_lock_init(&i2c_dev->fifo_lock);
 
 	platform_set_drvdata(pdev, i2c_dev);
 
@@ -1593,11 +1593,9 @@ static void tegra_i2c_shutdown(struct platform_device *pdev)
 {
 	struct tegra_i2c_dev *i2c_dev = platform_get_drvdata(pdev);
 
-	if (i2c_dev->bit_banging_xfer_after_shutdown) {
-		dev_info(i2c_dev->dev, "Bus is shutdown down..\n");
-		i2c_shutdown_adapter(&i2c_dev->adapter);
-		i2c_dev->is_shutdown = true;
-	}
+	dev_info(i2c_dev->dev, "Bus is shutdown down..\n");
+	i2c_shutdown_adapter(&i2c_dev->adapter);
+	i2c_dev->is_shutdown = true;
 }
 
 #ifdef CONFIG_PM_SLEEP

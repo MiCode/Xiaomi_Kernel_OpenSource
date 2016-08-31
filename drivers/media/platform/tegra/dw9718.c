@@ -2,6 +2,7 @@
  * dw9718.c - dw9718 focuser driver
  *
  * Copyright (c) 2013-2014, NVIDIA Corporation. All Rights Reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -87,11 +88,15 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/uaccess.h>
+#include <linux/regmap.h>
 #include <linux/list.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
 #include <linux/module.h>
+
+#include "t124/t124.h"
 #include <media/dw9718.h>
+#include <media/camera.h>
 
 #define ENABLE_DEBUGFS_INTERFACE
 
@@ -113,6 +118,8 @@
 
 struct dw9718_info {
 	struct i2c_client *i2c_client;
+	struct regmap *regmap;
+	struct camera_sync_dev *csync_dev;
 	struct dw9718_platform_data *pdata;
 	struct miscdevice miscdev;
 	struct list_head list;
@@ -173,6 +180,7 @@ static int dw9718_i2c_wr8(struct dw9718_info *info, u8 reg, u8 val)
 	return 0;
 }
 
+#ifndef TEGRA_12X_OR_HIGHER_CONFIG
 static int dw9718_i2c_wr16(struct dw9718_info *info, u8 reg, u16 val)
 {
 	struct i2c_msg msg;
@@ -188,6 +196,7 @@ static int dw9718_i2c_wr16(struct dw9718_info *info, u8 reg, u16 val)
 		return -EIO;
 	return 0;
 }
+#endif
 
 static int dw9718_i2c_rd8(struct dw9718_info *info, u8 reg, u8 *val)
 {
@@ -218,12 +227,19 @@ static int dw9718_position_wr(struct dw9718_info *info, s32 position)
 
 	dev_dbg(&info->i2c_client->dev, "%s %d\n", __func__, position);
 	position &= dw9718_POS_CLAMP;
+#ifdef TEGRA_12X_OR_HIGHER_CONFIG
+	err = camera_dev_sync_clear(info->csync_dev);
+	err = camera_dev_sync_wr_add(info->csync_dev,
+				DW9718_VCM_CODE_MSB, position);
+	info->cur_pos = position;
+#else
 	err = dw9718_i2c_wr16(info, DW9718_VCM_CODE_MSB, position);
 	if (!err)
 		info->cur_pos = position;
 	else
 		dev_err(&info->i2c_client->dev, "%s: ERROR set position %d",
 			__func__, position);
+#endif
 	return err;
 }
 
@@ -875,6 +891,11 @@ static int dw9718_probe(
 {
 	struct dw9718_info *info;
 	int err;
+	static struct regmap_config dw9718_regmap_config = {
+		.reg_bits = 8,
+		.val_bits = 16,
+	};
+
 	dev_dbg(&client->dev, "%s\n", __func__);
 	pr_info("dw9718: probing focuser.\n");
 
@@ -890,6 +911,15 @@ static int dw9718_probe(
 		info->pdata = &dw9718_default_pdata;
 		dev_dbg(&client->dev, "%s No platform data.  Using defaults.\n",
 			__func__);
+	}
+
+	info->regmap = devm_regmap_init_i2c(client, &dw9718_regmap_config);
+	if (IS_ERR(info->regmap)) {
+		err = PTR_ERR(info->regmap);
+		dev_err(&client->dev,
+			"Failed to allocate register map: %d\n", err);
+		dw9718_del(info);
+		return -EIO;
 	}
 
 	i2c_set_clientdata(client, info);
@@ -941,6 +971,15 @@ static int dw9718_probe(
 		dw9718_del(info);
 		return -ENODEV;
 	}
+
+#ifdef TEGRA_12X_OR_HIGHER_CONFIG
+	err = camera_dev_add_regmap(&info->csync_dev, "dw9718", info->regmap);
+	if (err < 0) {
+		dev_err(&client->dev, "%s unable i2c frame sync\n", __func__);
+		dw9718_del(info);
+		return -ENODEV;
+	}
+#endif
 
 	nvc_debugfs_init(
 		info->miscdev.this_device->kobj.name, NULL, NULL, info);

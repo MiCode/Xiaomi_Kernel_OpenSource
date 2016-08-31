@@ -1,7 +1,8 @@
 /*
  * arch/arm/mach-tegra/include/mach/latency_allowance.h
  *
- * Copyright (C) 2011-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2011-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -160,6 +161,7 @@ struct disp_client {
 struct dc_to_la_params {
 	unsigned int thresh_lwm_bytes;
 	unsigned int spool_up_buffering_adj_bytes;
+	unsigned int drain_time_usec_fp;
 	unsigned int total_dc0_bw;
 	unsigned int total_dc1_bw;
 };
@@ -174,6 +176,7 @@ struct la_to_dc_params {
 };
 
 int tegra_set_disp_latency_allowance(enum tegra_la_id id,
+					unsigned long emc_freq_hz,
 					unsigned int bandwidth_in_mbps,
 					struct dc_to_la_params disp_params);
 
@@ -194,9 +197,6 @@ int tegra_enable_latency_scaling(enum tegra_la_id id,
 void tegra_disable_latency_scaling(enum tegra_la_id id);
 
 struct la_to_dc_params tegra_get_la_to_dc_params(void);
-
-/* FIXME!!:- This function needs to be implemented properly elsewhere. */
-unsigned int tegra_get_dvfs_time_nsec(unsigned long emc_freq_mhz);
 
 extern const struct disp_client *tegra_la_disp_clients_info;
 

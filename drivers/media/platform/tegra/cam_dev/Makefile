@@ -5,6 +5,7 @@ subdir-ccflags-y := -Werror
 # Makefile for the camera devices spec.
 #
 
+ccflags-y	+= -Idrivers/video/tegra/host
 obj-$(CONFIG_VIDEO_CAMERA)		+= dev_access.o
 obj-$(CONFIG_VIDEO_CAMERA)		+= debugfs.o
 obj-$(CONFIG_VIDEO_CAMERA)		+= virtual.o

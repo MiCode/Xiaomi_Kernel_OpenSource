@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-ardbeg-powermon.c
  *
  * Copyright (c) 2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -37,6 +38,11 @@
 				INA230_VSH_CT | INA230_CONT_MODE)
 #define INA230_TRIG_CONFIG	(AVG_SAMPLES | INA230_VBUS_CT | \
 				INA230_VSH_CT | INA230_TRIG_MODE)
+
+enum {
+	PM_VDD_CELL,
+	UNUSED_RAIL,
+};
 
 /* rails on i2c2_0 */
 enum {
@@ -94,6 +100,60 @@ enum {
 	ARDBEG_A01_VDD_1V05_SD4,
 	ARDBEG_A01_VDD_1V8A_LDO2_5_7,
 	ARDBEG_A01_VDD_SYS_BL,
+};
+
+static struct ina230_platform_data mocha_power_mon_info[] = {
+	[PM_VDD_CELL] = {
+		/*
+		 * Calibration data is calculated by:
+		 * Imax = 6A (max peak current from battery)
+		 * Current_LSB = Imax / 2^15
+		 *	       = 0.000183
+		 *	      ~= 0.0002(A per bit)
+		 *
+		 * Rshunt (on Pluto) = 0.01(Ohm)
+		 * cal = 0.00512 / (Current_LSB * Rshunt)
+		 *     = 0.00512 / (0.0002 * 0.01)
+		 *     = 2560
+		 */
+		.calibration_data = 2560,
+		.rail_name = "PM_VDD_CELL",
+		.trig_conf = INA230_TRIG_CONFIG,
+		.cont_conf = INA230_CONT_CONFIG,
+		/*
+		 * Current_LSB is 0.0002A per bit (0.2mA per bit), and we use mA
+		 * as display as unit:
+		 *	current_lsb = 0.2
+		 *	power_lsb = current_lsb * POWER_LSB_TO_CURRENT_LSB_RATIO
+		 *		  = 0.2 * 25 = 5
+		 *
+		 */
+		.divisor = POWER_LSB_TO_CURRENT_LSB_RATIO,
+		.power_lsb = 5,
+		.precision_multiplier = 1,
+		/*
+		 * this value specify the battery in-serial resistor value in
+		 * the unit of mOhm.
+		 */
+		.resistor = 10,
+		.shunt_polarity_inverted = 1,
+		/*
+		 * INA230's alert pin can be used to generate the OC throttling
+		 * signal to AP. To do so set the 'current_threshold' to a
+		 * non-zero value in the unit of mA; set it to 0 will disable
+		 * the alert pin generating OC
+		 * signal.
+		 */
+		.current_threshold = 6000,
+	},
+	/* All unused HPA01112 devices use below data*/
+	[UNUSED_RAIL] = {
+		.calibration_data = 0x369c,
+		.power_lsb = 3.051979018 * PRECISION_MULTIPLIER_ARDBEG,
+		.rail_name = "unused_rail",
+		.divisor = 25,
+		.precision_multiplier = PRECISION_MULTIPLIER_ARDBEG,
+	},
 };
 
 static struct ina230_platform_data power_mon_info_0[] = {
@@ -790,6 +850,14 @@ static struct i2c_board_info ardbeg_A01_i2c2_2_ina230_board_info[] = {
 	},
 };
 
+static struct i2c_board_info mocha_i2c2_ina230_board_info[] = {
+	{
+		I2C_BOARD_INFO("ina230", 0x40),
+		.platform_data = &mocha_power_mon_info[PM_VDD_CELL],
+		.irq = -1,
+	},
+};
+
 static void __init register_devices_ardbeg_A01(void)
 {
 	i2c_register_board_info(PCA954x_I2C_BUS1,
@@ -897,6 +965,10 @@ int __init ardbeg_pmon_init(void)
 		(bi.board_id != BOARD_E1922) &&
 		(bi.board_id != BOARD_E1923))
 		register_devices_ardbeg();
+
+	i2c_register_board_info(1,
+			mocha_i2c2_ina230_board_info,
+			ARRAY_SIZE(mocha_i2c2_ina230_board_info));
 
 	return 0;
 }

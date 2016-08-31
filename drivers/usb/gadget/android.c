@@ -4,7 +4,8 @@
  * Copyright (C) 2008 Google, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Benoit Goby <benoit@android.com>
- * Copyright (c) 2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -31,6 +32,8 @@
 
 #include "gadget_chips.h"
 
+
+static int android_is_set_cdrom(void);
 #include "f_nvusb.c"
 #include "f_fs.c"
 #include "f_audio_source.c"
@@ -442,16 +445,6 @@ err_usb_add_function:
 	return ret;
 }
 
-static void acm_function_unbind_config(struct android_usb_function *f,
-				       struct usb_configuration *c)
-{
-	int i;
-	struct acm_function_config *config = f->config;
-
-	for (i = 0; i < config->instances_on; i++)
-		usb_remove_function(c, config->f_acm[i]);
-}
-
 static ssize_t acm_instances_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -486,7 +479,6 @@ static struct android_usb_function acm_function = {
 	.init		= acm_function_init,
 	.cleanup	= acm_function_cleanup,
 	.bind_config	= acm_function_bind_config,
-	.unbind_config	= acm_function_unbind_config,
 	.attributes	= acm_function_attributes,
 };
 
@@ -775,7 +767,12 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		return -ENOMEM;
 
 	config->fsg.nluns = 1;
+
+
+	config->fsg.luns[0].cdrom = 1;
+	config->fsg.luns[0].ro = 1;
 	config->fsg.luns[0].removable = 1;
+	config->fsg.luns[0].nofua = 1;
 
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
@@ -1401,6 +1398,13 @@ static int android_usb_unbind(struct usb_composite_dev *cdev)
 
 /* HACK: android needs to override setup for accessory to work */
 static int (*composite_setup_func)(struct usb_gadget *gadget, const struct usb_ctrlrequest *c);
+
+static int android_is_set_cdrom(void)
+{
+	struct android_dev *dev = _android_dev;
+	u8 sys_state = dev->cdev->gadget->usb_sys_state;
+	return sys_state == GADGET_STATE_DONE_SET ? 0 : 1;
+}
 
 static int
 android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)

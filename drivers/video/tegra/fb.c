@@ -7,6 +7,7 @@
  *         Travis Geiselbrecht <travis@palm.com>
  *
  * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -298,18 +299,23 @@ static int tegra_fb_blank(int blank, struct fb_info *info)
 	switch (blank) {
 	case FB_BLANK_UNBLANK:
 		dev_dbg(&tegra_fb->ndev->dev, "unblank\n");
-		if (tegra_fb->win->dc->enabled &&
+		pr_info("panel: %s  FB_BLANK_UNBLANK  +++\n", __func__);
+		/* Turn off seamless transistion mode after
+		   first update from android */
+		dc->out->flags &= ~TEGRA_DC_OUT_INITIALIZED_MODE;
+		if (dc->enabled &&
 			(tegra_fb->win->flags & TEGRA_WIN_FLAG_ENABLED))
 			return 0;
 		tegra_fb->win->flags |= TEGRA_WIN_FLAG_ENABLED;
-		if (tegra_fb->win->dc->win_blank_saved_flag > 0) {
-			*(tegra_fb->win) = tegra_fb->win->dc->win_blank_saved;
-			tegra_fb->win->dc->win_blank_saved_flag = 0;
+		if (dc->win_blank_saved_flag > 0) {
+			*(tegra_fb->win) = dc->win_blank_saved;
+			dc->win_blank_saved_flag = 0;
 		}
-		tegra_dc_enable(tegra_fb->win->dc);
+		tegra_dc_enable(dc);
 		tegra_dc_update_windows(&tegra_fb->win, 1);
 		tegra_dc_sync_windows(&tegra_fb->win, 1);
         tegra_dc_program_bandwidth(dc, true);
+		pr_info("panel: %s  FB_BLANK_UNBLANK  +++ return!\n", __func__);
 		return 0;
 
 	case FB_BLANK_NORMAL:
@@ -317,19 +323,25 @@ static int tegra_fb_blank(int blank, struct fb_info *info)
 		/* To pan fb at the unblank */
 		if (tegra_fb->win->dc->enabled)
 			tegra_fb->curr_xoffset = -1;
-		tegra_dc_blank(tegra_fb->win->dc);
+		tegra_dc_blank(dc);
 		return 0;
 
 	case FB_BLANK_VSYNC_SUSPEND:
 	case FB_BLANK_HSYNC_SUSPEND:
 	case FB_BLANK_POWERDOWN:
 		dev_dbg(&tegra_fb->ndev->dev, "blank - powerdown\n");
+		pr_info("panel: %s  FB_BLANK_POWERDOWN ---\n", __func__);
+		/* Skip powerdown to support seamless transistion
+		   from bootloader to android display */
+		if (dc->out->flags & TEGRA_DC_OUT_INITIALIZED_MODE)
+			return 0;
 		/* To pan fb while switching from X */
-		if (!tegra_fb->win->dc->suspended && tegra_fb->win->dc->enabled)
+		if (!dc->suspended && dc->enabled)
 			tegra_fb->curr_xoffset = -1;
-		tegra_fb->win->dc->win_blank_saved = *(tegra_fb->win);
-		tegra_fb->win->dc->win_blank_saved_flag = 1;
-		tegra_dc_disable(tegra_fb->win->dc);
+		dc->win_blank_saved = *(tegra_fb->win);
+		dc->win_blank_saved_flag = 1;
+		tegra_dc_disable(dc);
+		pr_info("panel: %s  FB_BLANK_POWERDOWN --- return!\n", __func__);
 		return 0;
 
 	default:

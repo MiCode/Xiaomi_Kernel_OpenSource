@@ -2,6 +2,7 @@
  *  linux/fs/pipe.c
  *
  *  Copyright (C) 1991, 1992, 1999  Linus Torvalds
+ *  Copyright (C) 2016 XiaoMi, Inc.
  */
 
 #include <linux/mm.h>
@@ -117,25 +118,27 @@ void pipe_wait(struct pipe_inode_info *pipe)
 }
 
 static int
-pipe_iov_copy_from_user(void *to, struct iovec *iov, unsigned long len,
-			int atomic)
+pipe_iov_copy_from_user(void *addr, int *offset, struct iovec *iov,
+			size_t *remaining, int atomic)
 {
 	unsigned long copy;
 
-	while (len > 0) {
+	while (*remaining > 0) {
 		while (!iov->iov_len)
 			iov++;
-		copy = min_t(unsigned long, len, iov->iov_len);
+		copy = min_t(unsigned long, *remaining, iov->iov_len);
 
 		if (atomic) {
-			if (__copy_from_user_inatomic(to, iov->iov_base, copy))
+			if (__copy_from_user_inatomic(addr + *offset,
+						      iov->iov_base, copy))
 				return -EFAULT;
 		} else {
-			if (copy_from_user(to, iov->iov_base, copy))
+			if (copy_from_user(addr + *offset,
+					   iov->iov_base, copy))
 				return -EFAULT;
 		}
-		to += copy;
-		len -= copy;
+		*offset += copy;
+		*remaining -= copy;
 		iov->iov_base += copy;
 		iov->iov_len -= copy;
 	}
@@ -143,25 +146,27 @@ pipe_iov_copy_from_user(void *to, struct iovec *iov, unsigned long len,
 }
 
 static int
-pipe_iov_copy_to_user(struct iovec *iov, const void *from, unsigned long len,
-		      int atomic)
+pipe_iov_copy_to_user(struct iovec *iov, void *addr, int *offset,
+		      size_t *remaining, int atomic)
 {
 	unsigned long copy;
 
-	while (len > 0) {
+	while (*remaining > 0) {
 		while (!iov->iov_len)
 			iov++;
-		copy = min_t(unsigned long, len, iov->iov_len);
+		copy = min_t(unsigned long, *remaining, iov->iov_len);
 
 		if (atomic) {
-			if (__copy_to_user_inatomic(iov->iov_base, from, copy))
+			if (__copy_to_user_inatomic(iov->iov_base,
+						    addr + *offset, copy))
 				return -EFAULT;
 		} else {
-			if (copy_to_user(iov->iov_base, from, copy))
+			if (copy_to_user(iov->iov_base,
+					 addr + *offset, copy))
 				return -EFAULT;
 		}
-		from += copy;
-		len -= copy;
+		*offset += copy;
+		*remaining -= copy;
 		iov->iov_base += copy;
 		iov->iov_len -= copy;
 	}
@@ -224,52 +229,6 @@ static void anon_pipe_buf_release(struct pipe_inode_info *pipe,
 	else
 		page_cache_release(page);
 }
-
-/**
- * generic_pipe_buf_map - virtually map a pipe buffer
- * @pipe:	the pipe that the buffer belongs to
- * @buf:	the buffer that should be mapped
- * @atomic:	whether to use an atomic map
- *
- * Description:
- *	This function returns a kernel virtual address mapping for the
- *	pipe_buffer passed in @buf. If @atomic is set, an atomic map is provided
- *	and the caller has to be careful not to fault before calling
- *	the unmap function.
- *
- *	Note that this function calls kmap_atomic() if @atomic != 0.
- */
-void *generic_pipe_buf_map(struct pipe_inode_info *pipe,
-			   struct pipe_buffer *buf, int atomic)
-{
-	if (atomic) {
-		buf->flags |= PIPE_BUF_FLAG_ATOMIC;
-		return kmap_atomic(buf->page);
-	}
-
-	return kmap(buf->page);
-}
-EXPORT_SYMBOL(generic_pipe_buf_map);
-
-/**
- * generic_pipe_buf_unmap - unmap a previously mapped pipe buffer
- * @pipe:	the pipe that the buffer belongs to
- * @buf:	the buffer that should be unmapped
- * @map_data:	the data that the mapping function returned
- *
- * Description:
- *	This function undoes the mapping that ->map() provided.
- */
-void generic_pipe_buf_unmap(struct pipe_inode_info *pipe,
-			    struct pipe_buffer *buf, void *map_data)
-{
-	if (buf->flags & PIPE_BUF_FLAG_ATOMIC) {
-		buf->flags &= ~PIPE_BUF_FLAG_ATOMIC;
-		kunmap_atomic(map_data);
-	} else
-		kunmap(buf->page);
-}
-EXPORT_SYMBOL(generic_pipe_buf_unmap);
 
 /**
  * generic_pipe_buf_steal - attempt to take ownership of a &pipe_buffer
@@ -351,8 +310,6 @@ EXPORT_SYMBOL(generic_pipe_buf_release);
 
 static const struct pipe_buf_operations anon_pipe_buf_ops = {
 	.can_merge = 1,
-	.map = generic_pipe_buf_map,
-	.unmap = generic_pipe_buf_unmap,
 	.confirm = generic_pipe_buf_confirm,
 	.release = anon_pipe_buf_release,
 	.steal = generic_pipe_buf_steal,
@@ -361,8 +318,6 @@ static const struct pipe_buf_operations anon_pipe_buf_ops = {
 
 static const struct pipe_buf_operations packet_pipe_buf_ops = {
 	.can_merge = 0,
-	.map = generic_pipe_buf_map,
-	.unmap = generic_pipe_buf_unmap,
 	.confirm = generic_pipe_buf_confirm,
 	.release = anon_pipe_buf_release,
 	.steal = generic_pipe_buf_steal,
@@ -395,7 +350,7 @@ pipe_read(struct kiocb *iocb, const struct iovec *_iov,
 			struct pipe_buffer *buf = pipe->bufs + curbuf;
 			const struct pipe_buf_operations *ops = buf->ops;
 			void *addr;
-			size_t chars = buf->len;
+			size_t chars = buf->len, remaining;
 			int error, atomic;
 
 			if (chars > total_len)
@@ -409,10 +364,17 @@ pipe_read(struct kiocb *iocb, const struct iovec *_iov,
 			}
 
 			atomic = !iov_fault_in_pages_write(iov, chars);
+			remaining = chars;
 redo:
-			addr = ops->map(pipe, buf, atomic);
-			error = pipe_iov_copy_to_user(iov, addr + buf->offset, chars, atomic);
-			ops->unmap(pipe, buf, addr);
+			if (atomic)
+				addr = kmap_atomic(buf->page);
+			else
+				addr = kmap(buf->page);
+			error = pipe_iov_copy_to_user(iov, addr, &buf->offset, &remaining, atomic);
+			if (atomic)
+				kunmap_atomic(addr);
+			else
+				kunmap(buf->page);
 			if (unlikely(error)) {
 				/*
 				 * Just retry with the slow path if we failed.
@@ -426,7 +388,6 @@ redo:
 				break;
 			}
 			ret += chars;
-			buf->offset += chars;
 			buf->len -= chars;
 
 			/* Was it a packet buffer? Clean up and exit */
@@ -531,6 +492,7 @@ pipe_write(struct kiocb *iocb, const struct iovec *_iov,
 		if (ops->can_merge && offset + chars <= PAGE_SIZE) {
 			int error, atomic = 1;
 			void *addr;
+			size_t remaining = chars;
 
 			error = ops->confirm(pipe, buf);
 			if (error)
@@ -538,10 +500,16 @@ pipe_write(struct kiocb *iocb, const struct iovec *_iov,
 
 			iov_fault_in_pages_read(iov, chars);
 redo1:
-			addr = ops->map(pipe, buf, atomic);
-			error = pipe_iov_copy_from_user(offset + addr, iov,
-							chars, atomic);
-			ops->unmap(pipe, buf, addr);
+			if (atomic)
+				addr = kmap_atomic(buf->page);
+			else
+				addr = kmap(buf->page);
+			error = pipe_iov_copy_from_user(addr, &offset, iov,
+							&remaining, atomic);
+			if (atomic)
+				kunmap_atomic(addr);
+			else
+				kunmap(buf->page);
 			ret = error;
 			do_wakeup = 1;
 			if (error) {
@@ -575,6 +543,8 @@ redo1:
 			struct page *page = pipe->tmp_page;
 			char *src;
 			int error, atomic = 1;
+			int offset = 0;
+			size_t remaining;
 
 			if (!page) {
 				page = alloc_page(GFP_HIGHUSER);
@@ -595,14 +565,15 @@ redo1:
 				chars = total_len;
 
 			iov_fault_in_pages_read(iov, chars);
+			remaining = chars;
 redo2:
 			if (atomic)
 				src = kmap_atomic(page);
 			else
 				src = kmap(page);
 
-			error = pipe_iov_copy_from_user(src, iov, chars,
-							atomic);
+			error = pipe_iov_copy_from_user(src, &offset, iov,
+							&remaining, atomic);
 			if (atomic)
 				kunmap_atomic(src);
 			else

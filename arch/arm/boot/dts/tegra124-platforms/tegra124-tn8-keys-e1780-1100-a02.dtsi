@@ -5,18 +5,6 @@
 	gpio-keys {
 		compatible = "gpio-keys";
 
-		camera_focus {
-			label = "Camera Focus";
-			gpios = <&gpio TEGRA_GPIO(Q, 2) GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_CAMERA_FOCUS>;
-		};
-
-		home {
-			label = "Home";
-			gpios = <&gpio TEGRA_GPIO(I, 5) GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_HOME>;
-		};
-
 		power {
 			label = "Power";
 			gpios = <&gpio TEGRA_GPIO(Q, 0) GPIO_ACTIVE_LOW>;
@@ -34,6 +22,22 @@
 			label = "Volume Up";
 			gpios = <&gpio TEGRA_GPIO(Q, 6) GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_VOLUMEUP>;
+		};
+
+		hall_intr1 {
+			label = "lid_back";
+			gpios = <&gpio TEGRA_GPIO(W, 3) GPIO_ACTIVE_LOW>;
+			linux,code = <18>;
+			linux,input-type = <5>;
+			gpio-key,wakeup;
+		};
+
+		hall_intr2 {
+			label = "lid_front";
+			gpios = <&gpio TEGRA_GPIO(I, 5) GPIO_ACTIVE_LOW>;
+			linux,code = <0>;
+			linux,input-type = <5>;
+			gpio-key,wakeup;
 		};
 	};
 };

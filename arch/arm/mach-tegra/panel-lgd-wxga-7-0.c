@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/panel-lgd-wxga-7-0.c
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -437,12 +438,12 @@ dsi_lgd_wxga_7_0_sd_settings_init(struct tegra_dc_sd_settings *settings)
 	*settings = dsi_lgd_wxga_7_0_sd_settings;
 	settings->bl_device_name = "pwm-backlight";
 }
-
+#ifdef CONFIG_TEGRA_DC_CMU
 static void dsi_lgd_wxga_7_0_cmu_init(struct tegra_dc_platform_data *pdata)
 {
 	pdata->cmu = NULL; /* will write CMU stuff after calibration */
 }
-
+#endif
 struct tegra_panel_ops dsi_lgd_wxga_7_0_ops = {
 	.enable = dsi_lgd_wxga_7_0_enable,
 	.disable = dsi_lgd_wxga_7_0_disable,
@@ -454,7 +455,9 @@ struct tegra_panel __initdata dsi_lgd_wxga_7_0 = {
 	.init_dc_out = dsi_lgd_wxga_7_0_dc_out_init,
 	.init_fb_data = dsi_lgd_wxga_7_0_fb_data_init,
 	.register_bl_dev = dsi_lgd_wxga_7_0_register_bl_dev,
+#ifdef CONFIG_TEGRA_DC_CMU
 	.init_cmu_data = dsi_lgd_wxga_7_0_cmu_init,
+#endif
 	.set_disp_device = dsi_lgd_wxga_7_0_set_disp_device,
 };
 EXPORT_SYMBOL(dsi_lgd_wxga_7_0);

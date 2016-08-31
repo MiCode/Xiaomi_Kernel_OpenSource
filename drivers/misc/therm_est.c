@@ -2,6 +2,7 @@
  * drivers/misc/therm_est.c
  *
  * Copyright (c) 2010-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -879,6 +880,14 @@ static int therm_est_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void therm_est_shutdown(struct platform_device *pdev)
+{
+	struct therm_estimator *est = platform_get_drvdata(pdev);
+
+	cancel_delayed_work_sync(&est->therm_est_work);
+	cancel_delayed_work_sync(&est->timer_trip_work);
+}
+
 static struct platform_driver therm_est_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
@@ -886,6 +895,7 @@ static struct platform_driver therm_est_driver = {
 	},
 	.probe  = therm_est_probe,
 	.remove = therm_est_remove,
+	.shutdown = therm_est_shutdown,
 };
 
 static int __init therm_est_driver_init(void)

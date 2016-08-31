@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra12_clocks.c
  *
  * Copyright (C) 2011-2014 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -618,6 +619,7 @@ static unsigned long tegra12_clk_shared_bus_update(struct clk *bus,
 	struct clk **bus_top, struct clk **bus_slow, unsigned long *rate_cap);
 static unsigned long tegra12_clk_cap_shared_bus(struct clk *bus,
 	unsigned long rate, unsigned long ceiling);
+static void tegra12_dfll_cpu_late_init(struct clk *c);
 
 static bool detach_shared_bus;
 module_param(detach_shared_bus, bool, 0644);
@@ -4020,34 +4022,6 @@ static void tune_cpu_trimmers(bool trim_high)
 	tegra_soctherm_adjust_cpu_zone(trim_high);
 }
 #endif
-
-static void __init tegra12_dfll_cpu_late_init(struct clk *c)
-{
-#ifdef CONFIG_ARCH_TEGRA_HAS_CL_DVFS
-	int ret;
-	struct clk *cpu = tegra_get_clock_by_name("cpu_g");
-
-	if (!cpu || !cpu->dvfs) {
-		pr_err("%s: CPU dvfs is not present\n", __func__);
-		return;
-	}
-	tegra_dvfs_set_dfll_tune_trimmers(cpu->dvfs, tune_cpu_trimmers);
-
-	/* release dfll clock source reset, init cl_dvfs control logic, and
-	   move dfll to initialized state, so it can be used as CPU source */
-	tegra_periph_reset_deassert(c);
-	ret = tegra_init_cl_dvfs();
-	if (!ret) {
-		c->state = OFF;
-		c->u.dfll.cl_dvfs = platform_get_drvdata(&tegra_cl_dvfs_device);
-		if (tegra_platform_is_silicon())
-			use_dfll = CONFIG_TEGRA_USE_DFLL_RANGE;
-		tegra_dvfs_set_dfll_range(cpu->dvfs, use_dfll);
-		tegra_cl_dvfs_debug_init(c);
-		pr_info("Tegra CPU DFLL is initialized with use_dfll = %d\n", use_dfll);
-	}
-#endif
-}
 
 static void tegra12_dfll_clk_init(struct clk *c)
 {
@@ -8023,7 +7997,7 @@ struct clk tegra_list_clks[] = {
 	PERIPH_CLK("hdmi",	"hdmi",			NULL,	51,	0x18c,	594000000, mux_pllp_pllm_plld_plla_pllc_plld2_clkm,	MUX | DIV_U71),
 	PERIPH_CLK("disp1",	"tegradc.0",		NULL,	27,	0x138,	600000000, mux_pllp_pllm_plld_plla_pllc_plld2_clkm,	MUX),
 	PERIPH_CLK("disp2",	"tegradc.1",		NULL,	26,	0x13c,	600000000, mux_pllp_pllm_plld_plla_pllc_plld2_clkm,	MUX),
-	PERIPH_CLK_EX("sor0",	"sor0",			NULL,	182,	0x414,	198000000, mux_pllp_pllm_plld_plla_pllc_plld2_clkm,	MUX | DIV_U71, &tegra_sor_clk_ops),
+	PERIPH_CLK_EX("sor0",	"sor0",			NULL,	182,	0x414,	540000000, mux_pllp_pllm_plld_plla_pllc_plld2_clkm,	MUX | DIV_U71, &tegra_sor_clk_ops),
 	PERIPH_CLK("dpaux",	"dpaux",		NULL,	181,	0,	24000000, mux_clk_m,			0),
 	PERIPH_CLK("usbd",	"tegra-udc.0",		NULL,	22,	0,	480000000, mux_clk_m,			0),
 	PERIPH_CLK("usb2",	"tegra-ehci.1",		NULL,	58,	0,	480000000, mux_clk_m,			0),
@@ -8091,10 +8065,13 @@ struct clk tegra_list_clks[] = {
 	SHARED_SCLK("sbc6.sclk", "tegra12-spi.5",	"sclk", &tegra_clk_apb,        NULL, 0, 0),
 
 	SHARED_EMC_CLK("avp.emc",	"tegra-avp",	"emc",	&tegra_clk_emc, NULL, 0, 0, 0),
+	SHARED_EMC_CLK("cpu.emc",       "cpu",          "emc",  &tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("mon_cpu.emc", "tegra_mon", "cpu_emc",
 						&tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("disp1.emc",	"tegradc.0",	"emc",	&tegra_clk_emc, NULL, 0, SHARED_ISO_BW, BIT(EMC_USER_DC1)),
 	SHARED_EMC_CLK("disp2.emc",	"tegradc.1",	"emc",	&tegra_clk_emc, NULL, 0, SHARED_ISO_BW, BIT(EMC_USER_DC2)),
+	SHARED_EMC_CLK("disp1.la.emc",	"tegradc.0",	"emc.la",	&tegra_clk_emc, NULL, 0, 0, 0),
+	SHARED_EMC_CLK("disp2.la.emc",	"tegradc.1",	"emc.la",	&tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("hdmi.emc",	"hdmi",		"emc",	&tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("usbd.emc",	"tegra-udc.0",	"emc",	&tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("usb1.emc",	"tegra-ehci.0",	"emc",	&tegra_clk_emc, NULL, 0, 0, 0),
@@ -8113,6 +8090,7 @@ struct clk tegra_list_clks[] = {
 	SHARED_EMC_CLK("vib.emc",	"tegra_vi.1",	"emc",	&tegra_clk_emc, NULL, 0, SHARED_ISO_BW,	BIT(EMC_USER_VI2)),
 	SHARED_EMC_CLK("ispa.emc",	"tegra_isp.0",	"emc",	&tegra_clk_emc, NULL, 0, SHARED_ISO_BW,	BIT(EMC_USER_ISP1)),
 	SHARED_EMC_CLK("ispb.emc",	"tegra_isp.1",	"emc",	&tegra_clk_emc, NULL, 0, SHARED_ISO_BW,	BIT(EMC_USER_ISP2)),
+	SHARED_EMC_CLK("audio.emc",	"audio",	"emc",	&tegra_clk_emc, NULL, 0, SHARED_ISO_BW, BIT(EMC_USER_AUDIO)),
 	SHARED_EMC_CLK("iso.emc",	"iso",		"emc",	&tegra_clk_emc, NULL, 0, 0, 0),
 	SHARED_EMC_CLK("override.emc", "override.emc",	NULL,	&tegra_clk_emc, NULL, 0, SHARED_OVERRIDE, 0),
 	SHARED_EMC_CLK("vic.emc",	"tegra_vic03.0",	"emc",  &tegra_clk_emc, NULL, 0, 0, 0),
@@ -8511,6 +8489,33 @@ static bool tegra12_is_dyn_ramp(
 	return false;
 }
 
+static void __init tegra12_dfll_cpu_late_init(struct clk *c)
+{
+#ifdef CONFIG_ARCH_TEGRA_HAS_CL_DVFS
+	int ret;
+	struct clk *cpu = &tegra_clk_virtual_cpu_g;
+
+	if (!cpu || !cpu->dvfs) {
+		pr_err("%s: CPU dvfs is not present\n", __func__);
+		return;
+	}
+	tegra_dvfs_set_dfll_tune_trimmers(cpu->dvfs, tune_cpu_trimmers);
+
+	tegra_periph_reset_deassert(c);
+	ret = tegra_init_cl_dvfs();
+	if (!ret) {
+		c->state = OFF;
+		c->u.dfll.cl_dvfs = platform_get_drvdata(&tegra_cl_dvfs_device);
+		if (tegra_platform_is_silicon())
+			use_dfll = CONFIG_TEGRA_USE_DFLL_RANGE;
+		tegra_dvfs_set_dfll_range(cpu->dvfs, use_dfll);
+		tegra_cl_dvfs_debug_init(c);
+		pr_info("Tegra CPU DFLL is initialized with use_dfll = %d\n",
+			use_dfll);
+	}
+#endif
+}
+
 /*
  * Backup pll is used as transitional CPU clock source while main pll is
  * relocking; in addition all CPU rates below backup level are sourced from
@@ -8832,24 +8837,14 @@ struct tegra_cpufreq_table_data *tegra_cpufreq_table_get(void)
 
 unsigned long tegra_emc_to_cpu_ratio(unsigned long cpu_rate)
 {
-	static unsigned long emc_max_rate;
-
-	if (emc_max_rate == 0)
-		emc_max_rate = clk_round_rate(
-			tegra_get_clock_by_name("emc"), ULONG_MAX);
-
 	/* Vote on memory bus frequency based on cpu frequency;
 	   cpu rate is in kHz, emc rate is in Hz */
 	if (cpu_rate >= 1300000)
-		return emc_max_rate;	/* cpu >= 1.3GHz, emc max */
-	else if (cpu_rate >= 975000)
-		return 400000000;	/* cpu >= 975 MHz, emc 400 MHz */
-	else if (cpu_rate >= 725000)
-		return  200000000;	/* cpu >= 725 MHz, emc 200 MHz */
+		return 400000000;	/* cpu >= 1.3GHz, emc 400 MHz */
 	else if (cpu_rate >= 500000)
-		return  100000000;	/* cpu >= 500 MHz, emc 100 MHz */
-	else if (cpu_rate >= 275000)
-		return  50000000;	/* cpu >= 275 MHz, emc 50 MHz */
+		return 200000000;	/* cpu >= 500 MHz, emc 200 MHz */
+	else if (cpu_rate >= 100000)
+		return 100000000;	/* cpu >= 100 MHz, emc 100 MHz */
 	else
 		return 0;		/* emc min */
 }

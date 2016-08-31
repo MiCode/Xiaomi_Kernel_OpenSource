@@ -1,6 +1,7 @@
 /* Industrial I/O event handling
  *
  * Copyright (c) 2008 Jonathan Cameron
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -211,7 +212,10 @@ static ssize_t iio_ev_state_show(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-	int val = indio_dev->info->read_event_config(indio_dev,
+	int val = -1;
+
+	if (indio_dev && indio_dev->info && indio_dev->info->read_event_config)
+		val = indio_dev->info->read_event_config(indio_dev,
 						     this_attr->address);
 
 	if (val < 0)
@@ -226,9 +230,10 @@ static ssize_t iio_ev_value_show(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-	int val, ret;
+	int val, ret = -1;
 
-	ret = indio_dev->info->read_event_value(indio_dev,
+	if (indio_dev && indio_dev->info && indio_dev->info->read_event_config)
+		ret = indio_dev->info->read_event_value(indio_dev,
 						this_attr->address, &val);
 	if (ret < 0)
 		return ret;

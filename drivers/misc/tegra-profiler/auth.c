@@ -1,7 +1,8 @@
 /*
  * drivers/misc/tegra-profiler/auth.c
  *
- * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,7 +17,6 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/fs.h>
 #include <linux/wait.h>
@@ -155,7 +155,7 @@ auth_write(struct file *file,
 	u32 magic, response_cmd, response_value, length, uid, msg_id;
 	struct quadd_auth_data *data = &auth_ctx.data;
 
-	pr_info("auth read, count: %d\n", count);
+	pr_info("auth read, count: %zu\n", count);
 
 	mutex_lock(&auth_ctx.lock);
 	data->response_value = QUADD_SECURITY_RESPONSE_ERROR;
@@ -163,7 +163,7 @@ auth_write(struct file *file,
 	mutex_unlock(&auth_ctx.lock);
 
 	if (count < 5 * sizeof(u32)) {
-		pr_err("Error count: %u\n", count);
+		pr_err("Error count: %zu\n", count);
 		response_ready();
 		return -E2BIG;
 	}
@@ -235,7 +235,7 @@ static const struct file_operations auth_fops = {
 	.release	= auth_release,
 };
 
-int quadd_auth_check_debug_flag(const char *package_name)
+int quadd_auth_is_debuggable(const char *package_name)
 {
 	int uid, response_value;
 	struct quadd_auth_data *data = &auth_ctx.data;

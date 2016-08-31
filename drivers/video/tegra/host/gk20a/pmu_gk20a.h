@@ -3,7 +3,8 @@
  *
  * GK20A PMU (aka. gPMU outside gk20a context)
  *
- * Copyright (c) 2011-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -249,7 +250,7 @@ union pmu_ap_msg {
 #define APCTRL_MINIMUM_IDLE_FILTER_DEFAULT_US                   (100)
 #define APCTRL_MINIMUM_TARGET_SAVING_DEFAULT_US                 (10000)
 #define APCTRL_POWER_BREAKEVEN_DEFAULT_US                       (2000)
-#define APCTRL_CYCLES_PER_SAMPLE_MAX_DEFAULT                    (100)
+#define APCTRL_CYCLES_PER_SAMPLE_MAX_DEFAULT                    (200)
 
 /*
  * Disable reason for Adaptive Power Controller
@@ -296,6 +297,7 @@ struct pmu_mem {
 	u32 dma_base;
 	u8  dma_offset;
 	u8  dma_idx;
+	u16 fb_size;
 };
 
 struct pmu_dmem {
@@ -309,6 +311,7 @@ struct pmu_cmdline_args {
 	u32 falc_trace_size;		/* falctrace buffer size (bytes) */
 	u32 falc_trace_dma_base;	/* 256-byte block address */
 	u32 falc_trace_dma_idx;		/* dmaIdx for DMA operations */
+	u8 secure_mode;
 	struct pmu_mem gc6_ctx;		/* dmem offset of gc6 context */
 };
 
@@ -407,8 +410,6 @@ struct pmu_hdr {
 #define PMU_QUEUE_COUNT		5
 
 struct pmu_allocation {
-	u8 pad[3];
-	u8 fb_mem_use;
 	struct {
 		struct pmu_dmem dmem;
 		struct pmu_mem fb;
@@ -422,6 +423,7 @@ enum {
 struct pmu_init_msg_pmu {
 	u8 msg_type;
 	u8 pad;
+	u16  os_debug_entry_point;
 
 	struct {
 		u16 size;
@@ -520,6 +522,8 @@ enum {
 	PMU_PG_CMD_ID_ELPG_DISALLOW,
 	PMU_PG_CMD_ID_ELPG_ALLOW,
 	PMU_PG_CMD_ID_AP,
+	RM_PMU_PG_CMD_ID_PSI,
+	RM_PMU_PG_CMD_ID_CG,
 	PMU_PG_CMD_ID_ZBC_TABLE_UPDATE,
 	PMU_PG_CMD_ID_PWR_RAIL_GATE_DISABLE = 0x20,
 	PMU_PG_CMD_ID_PWR_RAIL_GATE_ENABLE,
@@ -786,7 +790,6 @@ struct pmu_queue {
 	/* open-flag */
 	u32 oflag;
 	bool opened; /* opened implies locked */
-	bool locked; /* check free space after setting locked but before setting opened */
 };
 
 
@@ -994,7 +997,7 @@ int gk20a_pmu_cmd_post(struct gk20a *g, struct pmu_cmd *cmd, struct pmu_msg *msg
 int gk20a_pmu_enable_elpg(struct gk20a *g);
 int gk20a_pmu_disable_elpg(struct gk20a *g);
 
-void pmu_save_zbc(struct gk20a *g, u32 entries);
+void gk20a_pmu_save_zbc(struct gk20a *g, u32 entries);
 
 int gk20a_pmu_perfmon_enable(struct gk20a *g, bool enable);
 

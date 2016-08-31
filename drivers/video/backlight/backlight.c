@@ -212,7 +212,7 @@ static ssize_t backlight_show_brightness(struct device *dev,
 {
 	struct backlight_device *bd = to_backlight_device(dev);
 
-	return sprintf(buf, "%d\n", bd->props.brightness);
+	return sprintf(buf, "%d\n", bd->ops->get_brightness(bd));
 }
 
 static ssize_t backlight_store_brightness(struct device *dev,

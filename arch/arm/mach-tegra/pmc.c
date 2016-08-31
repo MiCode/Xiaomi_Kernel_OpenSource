@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012,2013 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,6 +19,7 @@
 #include <linux/kernel.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/export.h>
@@ -103,7 +105,13 @@ EXPORT_SYMBOL(tegra_pmc_clear_dpd_sample);
 void tegra_pmc_remove_dpd_req()
 {
 	tegra_pmc_writel(0x400fffff, PMC_IO_DPD_REQ);
+	tegra_pmc_readl(PMC_IO_DPD_REQ);
+
+	udelay(700);
+
 	tegra_pmc_writel(0x40001fff, PMC_IO_DPD2_REQ);
+	tegra_pmc_readl(PMC_IO_DPD2_REQ);
+	udelay(700);
 }
 EXPORT_SYMBOL(tegra_pmc_remove_dpd_req);
 

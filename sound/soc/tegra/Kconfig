@@ -300,6 +300,19 @@ config SND_SOC_TEGRA_RT5645
 	  boards using the ALC5645 codec. Currently, the supported boards
 	  are Ardbeg.
 
+config SND_SOC_TEGRA_RT5671
+	tristate "SoC Audio support for Tegra boards using a ALC5671 codec"
+	depends on SND_SOC_TEGRA && I2C && TEGRA_DC
+	select SND_SOC_TEGRA30_I2S if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TEGRA30_SPDIF if !ARCH_TEGRA_2x_SOC
+	select SND_SOC_TFA98XX
+	select SND_SOC_RT5671
+	select SND_SOC_SPDIF
+	select SND_SOC_TEGRA30_DAM if !ARCH_TEGRA_2x_SOC
+	help
+	  Say Y or M here if you want to add support for SoC audio on Tegra
+	  boards using the ALC5671 codec.
+
 config SND_SOC_TEGRA_MAX98095
 	tristate "SoC Audio support for Tegra boards using a MAX98095 codec"
 	depends on SND_SOC_TEGRA && I2C && TEGRA_DC

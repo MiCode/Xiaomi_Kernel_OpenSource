@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra_simon.c
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -161,6 +162,7 @@ u32 read_ism(u32 mode, u32 duration, u32 div, u32 sel, u32 offset,
 	if (ret < 0) {
 		pr_err("read_ism: APB2JTAG write failed.\n");
 		apb2jtag_put();
+		set_disable_ism(mode, offset, chiplet, len, instr_id, 1);
 		return 0;
 	}
 
@@ -170,6 +172,9 @@ u32 read_ism(u32 mode, u32 duration, u32 div, u32 sel, u32 offset,
 	memset(buf, 0, sizeof(buf));
 	ret = apb2jtag_read_locked(instr_id, len, chiplet, buf);
 	apb2jtag_put();
+
+	/* Disable ISM */
+	set_disable_ism(mode, offset, chiplet, len, instr_id, 1);
 
 	if (ret < 0) {
 		pr_err("read_ism: APB2JTAG read failed.\n");

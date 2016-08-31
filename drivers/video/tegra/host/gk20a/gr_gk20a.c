@@ -4,6 +4,7 @@
  * GK20A Graphics
  *
  * Copyright (c) 2011-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -329,6 +330,34 @@ static int gr_gk20a_wait_idle(struct gk20a *g, unsigned long end_jiffies,
 	return -EAGAIN;
 }
 
+static int gr_gk20a_wait_fe_idle(struct gk20a *g, unsigned long end_jiffies,
+		u32 expect_delay)
+{
+	u32 val;
+	u32 delay = expect_delay;
+
+	nvhost_dbg_fn("");
+
+	do {
+		val = gk20a_readl(g, gr_status_r());
+
+		if (!gr_status_fe_method_upper_v(val) &&
+			!gr_status_fe_method_lower_v(val) &&
+			!gr_status_fe_method_fe_gi_v(val)) {
+			nvhost_dbg_fn("done");
+			return 0;
+		}
+
+		usleep_range(delay, delay * 2);
+		delay = min_t(u32, delay << 1, GR_IDLE_CHECK_MAX);
+	} while (time_before(jiffies, end_jiffies)
+			|| !tegra_platform_is_silicon());
+
+	nvhost_err(dev_from_gk20a(g),
+		"timeout, fe busy : %x", val);
+
+	return -EAGAIN;
+}
 static int gr_gk20a_ctx_reset(struct gk20a *g, u32 rst_mask)
 {
 	u32 delay = GR_IDLE_CHECK_DEFAULT;
@@ -1086,7 +1115,7 @@ static int gr_gk20a_setup_rop_mapping(struct gk20a *g,
 	u32 map0, map1, map2, map3, map4, map5;
 
 	if (!gr->map_tiles)
-		return -1;
+		return -EPERM;
 
 	nvhost_dbg_fn("");
 
@@ -1460,6 +1489,45 @@ static int gr_gk20a_fecs_ctx_image_save(struct channel_gk20a *c, u32 save_type)
 	return ret;
 }
 
+static u32 gk20a_init_sw_bundle(struct gk20a *g)
+{
+	struct av_list_gk20a *sw_bundle_init = &g->gr.ctx_vars.sw_bundle_init;
+	u32 last_bundle_data = 0;
+	u32 err = 0;
+	int i;
+	unsigned long end_jiffies = jiffies +
+		msecs_to_jiffies(gk20a_get_gr_idle_timeout(g));
+
+	/* enable pipe mode override */
+	gk20a_writel(g, gr_pipe_bundle_config_r(),
+		gr_pipe_bundle_config_override_pipe_mode_enabled_f());
+
+	/* load bundle init */
+	for (i = 0; i < sw_bundle_init->count; i++) {
+		err |= gr_gk20a_wait_fe_idle(g, end_jiffies,
+					GR_IDLE_CHECK_DEFAULT);
+		if (i == 0 || last_bundle_data != sw_bundle_init->l[i].value) {
+			gk20a_writel(g, gr_pipe_bundle_data_r(),
+				sw_bundle_init->l[i].value);
+			last_bundle_data = sw_bundle_init->l[i].value;
+		}
+
+		gk20a_writel(g, gr_pipe_bundle_address_r(),
+			     sw_bundle_init->l[i].addr);
+
+		if (gr_pipe_bundle_address_value_v(sw_bundle_init->l[i].addr) ==
+		    GR_GO_IDLE_BUNDLE)
+			err |= gr_gk20a_wait_idle(g, end_jiffies,
+					GR_IDLE_CHECK_DEFAULT);
+	}
+
+	/* disable pipe mode override */
+	gk20a_writel(g, gr_pipe_bundle_config_r(),
+		     gr_pipe_bundle_config_override_pipe_mode_disabled_f());
+
+	return err;
+}
+
 /* init global golden image from a fresh gr_ctx in channel ctx.
    save a copy in local_golden_image in ctx_vars */
 static int gr_gk20a_init_golden_ctx_image(struct gk20a *g,
@@ -1486,6 +1554,10 @@ static int gr_gk20a_init_golden_ctx_image(struct gk20a *g,
 		goto clean_up;
 
 	err = gr_gk20a_fecs_ctx_bind_channel(g, c);
+	if (err)
+		goto clean_up;
+
+	err = gk20a_init_sw_bundle(g);
 	if (err)
 		goto clean_up;
 
@@ -3630,6 +3702,42 @@ clean_up:
 	return ret;
 }
 
+static void gr_gk20a_pmu_save_zbc(struct gk20a *g, u32 entries)
+{
+	struct fifo_gk20a *f = &g->fifo;
+	struct fifo_engine_info_gk20a *gr_info =
+		f->engine_info + ENGINE_GR_GK20A;
+	unsigned long end_jiffies = jiffies +
+		msecs_to_jiffies(gk20a_get_gr_idle_timeout(g));
+	u32 ret;
+
+	ret = gk20a_fifo_disable_engine_activity(g, gr_info, true);
+	if (ret) {
+		nvhost_err(dev_from_gk20a(g),
+			"failed to disable gr engine activity\n");
+		return;
+	}
+
+	ret = gr_gk20a_wait_idle(g, end_jiffies, GR_IDLE_CHECK_DEFAULT);
+	if (ret) {
+		nvhost_err(dev_from_gk20a(g),
+			"failed to idle graphics\n");
+		goto clean_up;
+	}
+
+	/* update zbc */
+	gk20a_pmu_save_zbc(g, entries);
+
+clean_up:
+	ret = gk20a_fifo_enable_engine_activity(g, gr_info);
+	if (ret) {
+		nvhost_err(dev_from_gk20a(g),
+			"failed to enable gr engine activity\n");
+	}
+
+	return;
+}
+
 int gr_gk20a_add_zbc(struct gk20a *g, struct gr_gk20a *gr,
 		     struct zbc_entry *zbc_val)
 {
@@ -3719,7 +3827,7 @@ int gr_gk20a_add_zbc(struct gk20a *g, struct gr_gk20a *gr,
 		/* update zbc for elpg only when new entry is added */
 		entries = max(gr->max_used_color_index,
 					gr->max_used_depth_index);
-		pmu_save_zbc(g, entries);
+		gr_gk20a_pmu_save_zbc(g, entries);
 	}
 
 	return ret;
@@ -4187,7 +4295,6 @@ static int gk20a_init_gr_setup_hw(struct gk20a *g)
 {
 	struct gr_gk20a *gr = &g->gr;
 	struct aiv_list_gk20a *sw_ctx_load = &g->gr.ctx_vars.sw_ctx_load;
-	struct av_list_gk20a *sw_bundle_init = &g->gr.ctx_vars.sw_bundle_init;
 	struct av_list_gk20a *sw_method_init = &g->gr.ctx_vars.sw_method_init;
 	u32 data;
 	u32 addr_lo, addr_hi;
@@ -4197,7 +4304,6 @@ static int gk20a_init_gr_setup_hw(struct gk20a *g)
 	unsigned long end_jiffies = jiffies +
 		msecs_to_jiffies(gk20a_get_gr_idle_timeout(g));
 	u32 fe_go_idle_timeout_save;
-	u32 last_bundle_data = 0;
 	u32 last_method_data = 0;
 	u32 i, err;
 	u32 l1c_dbg_reg_val;
@@ -4423,49 +4529,6 @@ static int gk20a_init_gr_setup_hw(struct gk20a *g)
 	err = gr_gk20a_wait_idle(g, end_jiffies, GR_IDLE_CHECK_DEFAULT);
 	if (err)
 		goto restore_fe_go_idle;
-
-	/* enable pipe mode override */
-	gk20a_writel(g, gr_pipe_bundle_config_r(),
-		gr_pipe_bundle_config_override_pipe_mode_enabled_f());
-
-	/* load bundle init */
-	err = 0;
-	for (i = 0; i < sw_bundle_init->count; i++) {
-
-		if (i == 0 || last_bundle_data != sw_bundle_init->l[i].value) {
-			gk20a_writel(g, gr_pipe_bundle_data_r(),
-				sw_bundle_init->l[i].value);
-			last_bundle_data = sw_bundle_init->l[i].value;
-		}
-
-		gk20a_writel(g, gr_pipe_bundle_address_r(),
-			     sw_bundle_init->l[i].addr);
-
-		if (gr_pipe_bundle_address_value_v(sw_bundle_init->l[i].addr) ==
-		    GR_GO_IDLE_BUNDLE)
-			err |= gr_gk20a_wait_idle(g, end_jiffies,
-					GR_IDLE_CHECK_DEFAULT);
-		else if (0) { /* IS_SILICON */
-			u32 delay = GR_IDLE_CHECK_DEFAULT;
-			do {
-				u32 gr_status = gk20a_readl(g, gr_status_r());
-
-				if (gr_status_fe_method_lower_v(gr_status) ==
-				    gr_status_fe_method_lower_idle_v())
-					break;
-
-				usleep_range(delay, delay * 2);
-				delay = min_t(u32, delay << 1,
-					GR_IDLE_CHECK_MAX);
-
-			} while (time_before(jiffies, end_jiffies) |
-					!tegra_platform_is_silicon());
-		}
-	}
-
-	/* disable pipe mode override */
-	gk20a_writel(g, gr_pipe_bundle_config_r(),
-		     gr_pipe_bundle_config_override_pipe_mode_disabled_f());
 
 restore_fe_go_idle:
 	/* restore fe_go_idle */
@@ -4970,6 +5033,22 @@ static int gk20a_gr_handle_illegal_class(struct gk20a *g,
 	return -EINVAL;
 }
 
+static int gk20a_gr_handle_fecs_error(struct gk20a *g,
+					  struct gr_isr_data *isr_data)
+{
+	struct fifo_gk20a *f = &g->fifo;
+	struct channel_gk20a *ch = &f->channel[isr_data->chid];
+	u32 gr_fecs_intr = gk20a_readl(g, gr_fecs_intr_r());
+	nvhost_dbg_fn("");
+
+	nvhost_err(dev_from_gk20a(g),
+		   "unhandled fecs error interrupt 0x%08x for channel %u",
+		   gr_fecs_intr, ch->hw_chid);
+
+	gk20a_writel(g, gr_fecs_intr_r(), gr_fecs_intr);
+	return -EINVAL;
+}
+
 static int gk20a_gr_handle_class_error(struct gk20a *g,
 					  struct gr_isr_data *isr_data)
 {
@@ -5136,6 +5215,7 @@ static int gk20a_gr_handle_notify_pending(struct gk20a *g,
 
 /* Used by sw interrupt thread to translate current ctx to chid.
  * For performance, we don't want to go through 128 channels every time.
+ * curr_ctx should be the value read from gr_fecs_current_ctx_r().
  * A small tlb is used here to cache translation */
 static int gk20a_gr_get_chid_from_ctx(struct gk20a *g, u32 curr_ctx)
 {
@@ -5143,6 +5223,13 @@ static int gk20a_gr_get_chid_from_ctx(struct gk20a *g, u32 curr_ctx)
 	struct gr_gk20a *gr = &g->gr;
 	u32 chid = -1;
 	u32 i;
+
+	/* when contexts are unloaded from GR, the valid bit is reset
+	 * but the instance pointer information remains intact. So the
+	 * valid bit must be checked to be absolutely certain that a
+	 * valid context is currently resident. */
+	if (!gr_fecs_current_ctx_valid_v(curr_ctx))
+		return -EPERM;
 
 	spin_lock(&gr->ch_tlb_lock);
 
@@ -5454,6 +5541,13 @@ int gk20a_gr_isr(struct gk20a *g)
 		gk20a_writel(g, gr_intr_r(),
 			gr_intr_illegal_class_reset_f());
 		gr_intr &= ~gr_intr_illegal_class_pending_f();
+	}
+
+	if (gr_intr & gr_intr_fecs_error_pending_f()) {
+		need_reset |= gk20a_gr_handle_fecs_error(g, &isr_data);
+		gk20a_writel(g, gr_intr_r(),
+			gr_intr_fecs_error_reset_f());
+		gr_intr &= ~gr_intr_fecs_error_pending_f();
 	}
 
 	if (gr_intr & gr_intr_class_error_pending_f()) {

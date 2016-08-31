@@ -2,6 +2,7 @@
  * Register map access API internal header
  *
  * Copyright 2011 Wolfson Microelectronics plc
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
  *
@@ -52,6 +53,7 @@ struct regmap_async {
 struct regmap {
 	struct mutex mutex;
 	spinlock_t spinlock;
+	unsigned long spinlock_flags;
 	regmap_lock lock;
 	regmap_unlock unlock;
 	void *lock_arg; /* This is passed to lock/unlock functions */

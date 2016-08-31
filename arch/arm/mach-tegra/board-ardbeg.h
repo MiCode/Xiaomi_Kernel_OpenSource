@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-ardbeg.h
  *
  * Copyright (c) 2013, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -85,6 +86,7 @@ void shield_sysedp_batmon_init(void);
 #define CAM_RSTN TEGRA_GPIO_PBB3
 #define CAM_FLASH_STROBE TEGRA_GPIO_PBB4
 #define CAM2_PWDN TEGRA_GPIO_PBB6
+#define CAM2_RSTN TEGRA_GPIO_PCC1
 #define CAM1_PWDN TEGRA_GPIO_PBB5
 #define CAM_AF_PWDN TEGRA_GPIO_PBB7
 #define CAM_BOARD_E1806
@@ -118,16 +120,9 @@ enum tegra_bb_type {
 #define TOUCH_GPIO_RST_MAXIM_STI_SPI	TEGRA_GPIO_PK4
 
 /* Audio-related GPIOs */
-/*Same GPIO's used for T114(Interposer) and T124*/
-/*Below GPIO's are same for Laguna and Ardbeg*/
-#define TEGRA_GPIO_CDC_IRQ	TEGRA_GPIO_PH4
-#define TEGRA_GPIO_HP_DET		TEGRA_GPIO_PR7
-/*LDO_EN signal is required only for RT5639 and not for RT5645,
-on Laguna the LDO_EN signal comes from a GPIO expander and
-this is exposed as a fixed regulator directly handeled from
-machine driver of rt5639 and for ardebeg we use the below tegra
-GPIO, also the GPIO is same for T114 interposer and T124*/
-#define TEGRA_GPIO_LDO_EN	TEGRA_GPIO_PR2
+#define TEGRA_GPIO_CDC_IRQ	TEGRA_GPIO_PW2
+#define TEGRA_GPIO_HP_DET		TEGRA_GPIO_PK2
+#define TEGRA_GPIO_HP_MUTE	TEGRA_GPIO_PX1
 
 /*GPIOs used by board panel file */
 #define DSI_PANEL_RST_GPIO      TEGRA_GPIO_PH3

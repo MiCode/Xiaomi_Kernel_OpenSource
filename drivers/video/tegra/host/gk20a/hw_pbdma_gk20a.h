@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -105,6 +106,22 @@ static inline u32 pbdma_gp_get_r(u32 i)
 static inline u32 pbdma_gp_put_r(u32 i)
 {
 	return 0x00040000 + i*8192;
+}
+static inline u32 pbdma_timeout_r(u32 i)
+{
+	return 0x0004012c + i*8192;
+}
+static inline u32 pbdma_timeout__size_1_v(void)
+{
+	return 0x00000001;
+}
+static inline u32 pbdma_timeout_period_m(void)
+{
+	return 0xffffffff << 0;
+}
+static inline u32 pbdma_timeout_period_max_f(void)
+{
+	return 0xffffffff;
 }
 static inline u32 pbdma_pb_fetch_r(u32 i)
 {

@@ -14,4 +14,4 @@
  *
  */
 
-void __init tegra_wdt_recovery_init(void);
+static int __init tegra_wdt_recovery_init(void);

@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/tegra_simon.c
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -85,23 +86,49 @@ static void tegra_simon_reset_grade(unsigned long data)
 	schedule_work(&grader->grade_update_work);
 }
 
-static void tegra_simon_grade_set(struct tegra_simon_grader *grader,
-				  int grade, bool restart)
+static inline void mod_grading_timer_on_grade(struct tegra_simon_grader *grader)
+{
+	if (grader->grade) {
+		/* restart timer while at high grade */
+		struct timespec ts = {grading_sec, 0};
+		mod_timer(&grader->grade_timer,
+			  jiffies + timespec_to_jiffies(&ts));
+	}
+}
+
+static void tegra_simon_restart_grader(unsigned long data)
+{
+	unsigned long flags;
+	struct tegra_simon_grader *grader = (struct tegra_simon_grader *)data;
+
+	spin_lock_irqsave(&grader->grade_lock, flags);
+	if (grader->grade) {
+		/* restart grading while at high grade */
+		grader->stop_grading = false;
+		pr_info("%s: %s grader restarted\n",
+			__func__, grader->domain_name);
+	}
+	spin_unlock_irqrestore(&grader->grade_lock, flags);
+}
+
+static void tegra_simon_grade_set(struct tegra_simon_grader *grader, int grade)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&grader->grade_lock, flags);
 
-	/* once low grade is detected, stop grading (unless restart request) */
-	grader->stop_grading = !grade && !restart;
+	/* once grading is successful, stop grading, and restart timers */
+	grader->stop_grading = true;
 
 	if (grader->grade == grade) {
 		mod_wdt_on_grade(grader);
+		mod_grading_timer_on_grade(grader);
 		spin_unlock_irqrestore(&grader->grade_lock, flags);
 		return;
 	}
 	grader->grade = grade;
 	mod_wdt_on_grade(grader);
+	mod_grading_timer_on_grade(grader);
 	spin_unlock_irqrestore(&grader->grade_lock, flags);
 
 	schedule_work(&grader->grade_update_work);
@@ -119,7 +146,6 @@ static int tegra_simon_gpu_grading_cb(
 	int mv = (int)((long)v);
 	struct tegra_simon_grader *grader = container_of(
 		nb, struct tegra_simon_grader, grading_condition_nb);
-	ktime_t now = ktime_get();
 	unsigned long t;
 	int grade = 0;
 
@@ -131,11 +157,6 @@ static int tegra_simon_gpu_grading_cb(
 
 	mv = (mv > 0) ? mv / 1000 : mv;
 	if ((mv <= 0) || (mv > grader->desc->grading_mv_max))
-		return NOTIFY_OK;
-
-	if (grader->last_grading.tv64 &&
-	    (ktime_to_ms(ktime_sub(now, grader->last_grading)) <
-	     (s64)grading_sec * 1000))
 		return NOTIFY_OK;
 
 	if (grader->tzd->ops->get_temp(grader->tzd, &t)) {
@@ -157,8 +178,8 @@ static int tegra_simon_gpu_grading_cb(
 		}
 	}
 
-	grader->last_grading = now;
-	tegra_simon_grade_set(grader, grade, false);
+	grader->last_grading = ktime_get();
+	tegra_simon_grade_set(grader, grade);
 	pr_info("%s: graded %s: v = %d, t = %lu, grade = %d\n",
 		__func__, grader->domain_name, mv, t, grade);
 	return NOTIFY_OK;
@@ -171,6 +192,8 @@ static int __init tegra_simon_init_gpu(void)
 		&simon_graders[TEGRA_SIMON_DOMAIN_GPU];
 
 	spin_lock_init(&grader->grade_lock);
+	setup_timer(&grader->grade_timer, tegra_simon_restart_grader,
+		    (unsigned long)grader);
 	setup_timer(&grader->grade_wdt, tegra_simon_reset_grade,
 		    (unsigned long)grader);
 	INIT_WORK(&grader->grade_update_work, tegra_simon_grade_notify);
@@ -213,7 +236,6 @@ static int tegra_simon_cpu_grading_cb(
 	struct tegra_simon_grader *grader = container_of(
 		nb, struct tegra_simon_grader, grading_condition_nb);
 	struct tegra_cl_dvfs *cld;
-	ktime_t now = ktime_get();
 
 	unsigned long t;
 	int mv;
@@ -224,11 +246,6 @@ static int tegra_simon_cpu_grading_cb(
 
 	if (is_lp_cluster() || (rate > grader->desc->grading_rate_max) ||
 	    !tegra_dvfs_rail_is_dfll_mode(tegra_cpu_rail))
-		return NOTIFY_OK;
-
-	if (grader->last_grading.tv64 &&
-	    (ktime_to_ms(ktime_sub(now, grader->last_grading)) <
-	     (s64)grading_sec * 1000))
 		return NOTIFY_OK;
 
 	if (grader->tzd->ops->get_temp(grader->tzd, &t)) {
@@ -268,8 +285,8 @@ static int tegra_simon_cpu_grading_cb(
 	}
 	tegra_cl_dvfs_clamp_at_vmin(cld, false);
 
-	grader->last_grading = now;
-	tegra_simon_grade_set(grader, grade, false);
+	grader->last_grading = ktime_get();
+	tegra_simon_grade_set(grader, grade);
 	pr_info("%s: graded %s: v = %d, t = %lu, grade = %d\n",
 		__func__, grader->domain_name, mv, t, grade);
 	return NOTIFY_OK;
@@ -283,6 +300,8 @@ static int __init tegra_simon_init_cpu(void)
 	int r;
 
 	spin_lock_init(&grader->grade_lock);
+	setup_timer(&grader->grade_timer, tegra_simon_restart_grader,
+		    (unsigned long)grader);
 	setup_timer(&grader->grade_wdt, tegra_simon_reset_grade,
 		    (unsigned long)grader);
 	INIT_WORK(&grader->grade_update_work, tegra_simon_grade_notify);
@@ -417,11 +436,10 @@ static int grade_set(void *data, u64 val)
 		return -EINVAL;
 
 	if (!grader->desc && (grader->grade != grade)) {
-		grader->stop_grading = false;
 		grader->grade = grade;
 		grade_notify(grader);
 	} else if (grader->desc) {
-		tegra_simon_grade_set(grader, grade, true);
+		tegra_simon_grade_set(grader, grade);
 	}
 	return 0;
 }

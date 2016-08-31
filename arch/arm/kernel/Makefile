@@ -82,6 +82,7 @@ head-y			:= head$(MMUEXT).o
 obj-$(CONFIG_DEBUG_LL)	+= debug.o
 obj-$(CONFIG_EARLY_PRINTK)	+= early_printk.o
 
+obj-$(CONFIG_BOOT_INFO) 	+= bootinfo.o
 obj-$(CONFIG_ARM_VIRT_EXT)	+= hyp-stub.o
 obj-$(CONFIG_ARM_PSCI)		+= psci.o
 

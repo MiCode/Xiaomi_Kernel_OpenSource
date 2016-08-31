@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2010 Google, Inc.
  * Copyright (c) 2010-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author:
  *	Erik Gilling <konkers@google.com>
@@ -84,7 +85,6 @@ static void print_usb_plat_data_info(struct tegra_usb_phy *phy)
 	pr_info("has_hostpc: %s\n", pdata->has_hostpc ? "yes" : "no");
 	pr_info("phy_interface: %s\n", phy_intf[pdata->phy_intf]);
 	pr_info("op_mode: %s\n", op_mode[pdata->op_mode]);
-	pr_info("qc2_voltage: %d\n", pdata->qc2_voltage);
 	if (pdata->op_mode == TEGRA_USB_OPMODE_DEVICE) {
 		pr_info("vbus_pmu_irq: %d\n", pdata->u_data.dev.vbus_pmu_irq);
 		pr_info("vbus_gpio: %d\n", pdata->u_data.dev.vbus_gpio);
@@ -604,6 +604,17 @@ bool tegra_usb_phy_charger_detected(struct tegra_usb_phy *phy)
 	DBG("%s(%d) inst:[%d]\n", __func__, __LINE__, phy->inst);
 	if (phy->ops && phy->ops->charger_detect)
 		status = phy->ops->charger_detect(phy);
+
+	return status;
+}
+
+bool tegra_usb_phy_cdp_charger_detected(struct tegra_usb_phy *phy)
+{
+	bool status = 0;
+
+	DBG("%s(%d) inst:[%d]\n", __func__, __LINE__, phy->inst);
+	if (phy->ops && phy->ops->cdp_charger_detect)
+		status = phy->ops->cdp_charger_detect(phy);
 
 	return status;
 }

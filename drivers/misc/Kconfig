@@ -646,6 +646,14 @@ config MODS
 
 	If unsure, say N here.
 
+config SENSORS_AK09911
+	tristate "AK09911 compass support"
+	default n
+	depends on I2C
+	help
+	  If you say yes here you get support for Asahi Kasei's
+	  orientation sensor AK09911.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

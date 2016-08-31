@@ -4,6 +4,7 @@
 /*
  *  Main header file for the ALSA driver
  *  Copyright (c) 1994-2001 by Jaroslav Kysela <perex@perex.cz>
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -71,7 +72,7 @@ typedef int __bitwise snd_device_state_t;
 
 typedef int __bitwise snd_device_cmd_t;
 #define	SNDRV_DEV_CMD_PRE	((__force snd_device_cmd_t) 0)
-#define	SNDRV_DEV_CMD_NORMAL	((__force snd_device_cmd_t) 1)	
+#define	SNDRV_DEV_CMD_NORMAL	((__force snd_device_cmd_t) 1)
 #define	SNDRV_DEV_CMD_POST	((__force snd_device_cmd_t) 2)
 
 struct snd_device;
@@ -140,6 +141,8 @@ struct snd_card {
 	unsigned int power_state;	/* power state */
 	struct mutex power_lock;	/* power lock */
 	wait_queue_head_t power_sleep;
+	struct task_struct *power_owner;
+	unsigned int power_count;
 #endif
 
 #if defined(CONFIG_SND_MIXER_OSS) || defined(CONFIG_SND_MIXER_OSS_MODULE)
@@ -151,12 +154,19 @@ struct snd_card {
 #ifdef CONFIG_PM
 static inline void snd_power_lock(struct snd_card *card)
 {
-	mutex_lock(&card->power_lock);
+	if (card->power_owner != current) {
+		mutex_lock(&card->power_lock);
+		card->power_owner = current;
+	}
+	card->power_count++;
 }
 
 static inline void snd_power_unlock(struct snd_card *card)
 {
-	mutex_unlock(&card->power_lock);
+	if (--card->power_count == 0) {
+		card->power_owner = NULL;
+		mutex_unlock(&card->power_lock);
+	}
 }
 
 static inline unsigned int snd_power_get_state(struct snd_card *card)

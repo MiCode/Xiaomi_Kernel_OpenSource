@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/board-ardbeg-power.c
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -40,9 +41,11 @@
 #include <linux/power/bq2419x-charger.h>
 #include <linux/power/bq2471x-charger.h>
 #include <linux/power/bq2477x-charger.h>
+#include <linux/power/bq27520_battery.h>
 #include <linux/tegra-fuse.h>
 
 #include <asm/mach-types.h>
+#include <asm/bootinfo.h>
 #include <mach/pinmux-t12.h>
 
 #include "pm.h"
@@ -84,7 +87,7 @@ static struct regulator_consumer_supply as3722_ldo1_supply[] = {
 	REGULATOR_SUPPLY("vdd_i2c", "2-000c"),
 	REGULATOR_SUPPLY("vi2c", "2-0030"),
 	REGULATOR_SUPPLY("vif2", "2-0021"),
-	REGULATOR_SUPPLY("dovdd", "2-0010"),
+	REGULATOR_SUPPLY("dovdd", "2-0036"),
 	REGULATOR_SUPPLY("vdd", "2-004a"),
 	REGULATOR_SUPPLY("vif", "2-0048"),
 };
@@ -113,7 +116,7 @@ static struct regulator_consumer_supply as3722_ldo4_supply[] = {
 	REGULATOR_SUPPLY("avdd_cam2_cam", NULL),
 	REGULATOR_SUPPLY("avdd_cam3_cam", NULL),
 	REGULATOR_SUPPLY("vana", "2-0010"),
-	REGULATOR_SUPPLY("avdd_ov5693", "2-0010"),
+	REGULATOR_SUPPLY("avdd_ov5693", "2-0036"),
 };
 
 static struct regulator_consumer_supply as3722_ldo5_supply[] = {
@@ -131,11 +134,12 @@ static struct regulator_consumer_supply as3722_ldo7_supply[] = {
 	REGULATOR_SUPPLY("vdd_cam_1v1_cam", NULL),
 	REGULATOR_SUPPLY("imx135_reg2", NULL),
 	REGULATOR_SUPPLY("vdig_lv", "2-0010"),
-	REGULATOR_SUPPLY("dvdd", "2-0010"),
+	REGULATOR_SUPPLY("dvdd", "2-0036"),
 };
 
 static struct regulator_consumer_supply as3722_ldo9_supply[] = {
 	REGULATOR_SUPPLY("avdd", "spi0.0"),
+	REGULATOR_SUPPLY("vdd_touch", "3-004a"),
 };
 
 static struct regulator_consumer_supply as3722_ldo10_supply[] = {
@@ -413,7 +417,7 @@ PALMAS_REGS_PDATA(ti913_ldo1, 1050, 1250, palmas_rails(ti913_smps7),
 		1, 1, 1, 0, 0, PALMAS_EXT_CONTROL_NSLEEP, 0, 0, 0);
 PALMAS_REGS_PDATA(ti913_ldo2, 1200, 1200, palmas_rails(ti913_smps6),
 		0, 0, 1, 0, 0, 0, 0, 0, 0);
-PALMAS_REGS_PDATA(ti913_ldo3, 3100, 3100, NULL, 0, 0, 1, 0, 0, 0, 0, 0, 0);
+PALMAS_REGS_PDATA(ti913_ldo3, 3300, 3300, NULL, 0, 0, 1, 0, 0, 0, 0, 0, 0);
 PALMAS_REGS_PDATA(ti913_ldo4, 1200, 1200, palmas_rails(ti913_smps6),
 		0, 0, 1, 0, 0, 0, 0, 0, 0);
 PALMAS_REGS_PDATA(ti913_ldo5, 2700, 2700, NULL, 0, 0, 1, 0, 0, 0, 0, 0, 0);
@@ -1209,13 +1213,6 @@ int __init ardbeg_regulator_init(void)
 			pmu_board_info.board_id);
 	}
 
-	if (get_power_supply_type() == POWER_SUPPLY_TYPE_BATTERY) {
-		i2c_register_board_info(1, bq2471x_boardinfo,
-			ARRAY_SIZE(bq2471x_boardinfo));
-		i2c_register_board_info(1, bq2477x_boardinfo,
-			ARRAY_SIZE(bq2477x_boardinfo));
-	}
-
 	platform_device_register(&power_supply_extcon_device);
 
 	ardbeg_cl_dvfs_init(&pmu_board_info);
@@ -1571,7 +1568,8 @@ int __init ardbeg_soctherm_init(void)
 	tegra_get_board_info(&board_info);
 
 	if (board_info.board_id == BOARD_E1923 ||
-			board_info.board_id == BOARD_E1922) {
+			board_info.board_id == BOARD_E1922 ||
+			board_info.board_id == BOARD_E1780) {
 		memcpy(ardbeg_soctherm_data.therm,
 				ardbeg_therm_pop, sizeof(ardbeg_therm_pop));
 	}
@@ -1603,7 +1601,8 @@ int __init ardbeg_soctherm_init(void)
 
 	if (board_info.board_id == BOARD_P1761 ||
 		board_info.board_id == BOARD_E1784 ||
-		board_info.board_id == BOARD_E1922) {
+		board_info.board_id == BOARD_E1922 ||
+		board_info.board_id == BOARD_E1780) {
 		tegra_add_cpu_vmin_trips(
 			ardbeg_soctherm_data.therm[THERM_CPU].trips,
 			&ardbeg_soctherm_data.therm[THERM_CPU].num_trips);
@@ -1631,6 +1630,10 @@ int __init ardbeg_soctherm_init(void)
 	/* Enable soc_therm OC throttling on selected platforms */
 	switch (pmu_board_info.board_id) {
 	case BOARD_P1761:
+	case BOARD_E1736:
+
+		if (get_hw_version() == 2)
+			voltmon_throttle.polarity = SOCTHERM_ACTIVE_HIGH;
 		memcpy(&ardbeg_soctherm_data.throttle[THROTTLE_OC4],
 		       &battery_oc_throttle,
 		       sizeof(battery_oc_throttle));

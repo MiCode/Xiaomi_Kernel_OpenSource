@@ -188,6 +188,12 @@ config KEYBOARD_GPIO
 	  To compile this driver as a module, choose M here: the
 	  module will be called gpio_keys.
 
+config KEYBOARD_COMBO_KEYS_REBOOT
+	tristate "Combo keys trigger reboot"
+	depends on KEYBOARD_GPIO
+	help
+	  Use combo keys trigger reboot
+
 config KEYBOARD_GPIO_POLLED
 	tristate "Polled GPIO buttons"
 	depends on GPIOLIB

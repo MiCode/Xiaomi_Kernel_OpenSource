@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2010 Google, Inc.
  * Copyright (c) 2010-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -86,6 +87,7 @@ struct tegra_utmi_config {
 	u8 xcvr_use_fuses;
 	u8 vbus_oc_map;
 	unsigned char xcvr_hsslew_lsb:2;
+	unsigned char xcvr_hsslew_msb:7;
 };
 
 /**

@@ -2,6 +2,7 @@
  * Tegra GK20A GPU Debugger/Profiler Driver
  *
  * Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -304,9 +305,8 @@ int gk20a_dbg_gpu_dev_release(struct inode *inode, struct file *filp)
 	nvhost_dbg(dbg_gpu_dbg | dbg_fn, "%s", dev_name(dbg_s->dev));
 
 	/* unbind if it was bound */
-	if (!dbg_s->ch)
-		return 0;
-	dbg_unbind_channel_gk20a(dbg_s);
+	if (dbg_s->ch)
+		dbg_unbind_channel_gk20a(dbg_s);
 
 	kfree(dbg_s);
 	return 0;
@@ -526,7 +526,7 @@ static int nvhost_ioctl_channel_reg_ops(struct dbg_session_gk20a *dbg_s,
 		err = -EFAULT;
 		goto clean_up;
 	}
-	return 0;
+
  clean_up:
 	kfree(ops);
 	return err;
@@ -563,6 +563,8 @@ static int dbg_set_powergate(struct dbg_session_gk20a *dbg_s,
 			nvhost_dbg(dbg_gpu_dbg | dbg_fn, "module busy");
 			nvhost_module_busy(dbg_s->pdev);
 
+			gk20a_pmu_disable_elpg(g);
+
 			gr_gk20a_slcg_gr_load_gating_prod(g, false);
 			gr_gk20a_slcg_perf_load_gating_prod(g, false);
 			gr_gk20a_init_blcg_mode(g, BLCG_RUN, ENGINE_GR_GK20A);
@@ -571,7 +573,6 @@ static int dbg_set_powergate(struct dbg_session_gk20a *dbg_s,
 			gr_gk20a_init_elcg_mode(g, ELCG_RUN, ENGINE_GR_GK20A);
 			gr_gk20a_init_elcg_mode(g, ELCG_RUN, ENGINE_CE2_GK20A);
 
-			gk20a_pmu_disable_elpg(g);
 		}
 
 		dbg_s->is_pg_disabled = true;

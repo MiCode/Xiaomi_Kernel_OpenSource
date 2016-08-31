@@ -85,19 +85,36 @@
 			};
 		};
 
-		avdd_lcd: regulator@4 {
+		avdd_lcd: regulator@41 {
 			compatible = "regulator-fixed-sync";
-			reg = <4>;
-			regulator-name = "avdd-lcd";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&palmas_gpio 3 0>;
+			reg = <41>;
+			regulator-name = "avdd-lcd-vsp";
+			regulator-min-microvolt = <5500000>;
+			regulator-max-microvolt = <5500000>;
+			regulator-boot-on;
+			gpio = <&gpio 68 0>;
 			enable-active-high;
-			vin-supply = <&palmas_smps9>;
 
 			consumers {
 				c1 {
 					regulator-consumer-supply = "avdd_lcd";
+				};
+			};
+		};
+
+		bvdd_lcd: regulator@42 {
+			compatible = "regulator-fixed-sync";
+			reg = <42>;
+			regulator-name = "avdd-lcd-vsn";
+			regulator-min-microvolt = <5500000>;
+			regulator-max-microvolt = <5500000>;
+			regulator-boot-on;
+			gpio = <&gpio 146 0>;
+			enable-active-high;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "bvdd_lcd";
 				};
 			};
 		};
@@ -137,23 +154,6 @@
 			};
 		};
 
-		vpp_fuse: regulator@7 {
-			compatible = "regulator-fixed-sync";
-			reg = <7>;
-			regulator-name = "vpp-fuse";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			enable-active-high;
-			gpio = <&palmas_gpio 7 0>;
-			vin-supply = <&palmas_smps8>;
-
-			consumers {
-				c1 {
-					regulator-consumer-supply = "vpp_fuse";
-				};
-			};
-		};
-
 		en_lcd_bl: regulator@8 {
 			compatible = "regulator-fixed-sync";
 			reg = <8>;
@@ -184,6 +184,38 @@
 				c1 {
 					regulator-consumer-supply = "vdd_hdmi_5v0";
 					regulator-consumer-device = "tegradc.1";
+				};
+			};
+		};
+		vdd_cam_1v8: regulator@10 {
+			compatible = "regulator-fixed-sync";
+			reg = <10>;
+			regulator-name = "vdd-cam-1v8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			enable-active-high;
+			gpio = <&palmas_gpio 1 0>;
+			vin-supply = <&palmas_smps8>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vdd_cam_1v8";
+				};
+			};
+		};
+		vdd_cam_1v2: regulator@11 {
+			compatible = "regulator-fixed-sync";
+			reg = <11>;
+			regulator-name = "vdd-cam-1v2";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			enable-active-high;
+			gpio = <&palmas_gpio 2 0>;
+			vin-supply = <&palmas_smps8>;
+
+			consumers {
+				c1 {
+					regulator-consumer-supply = "vdd_cam_1v2";
 				};
 			};
 		};

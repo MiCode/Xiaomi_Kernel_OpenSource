@@ -1,7 +1,8 @@
 /*
  * Linux OS Independent Layer
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: linux_osl.c 412994 2013-07-17 12:38:03Z $
+ * $Id: linux_osl.c 451649 2014-01-27 17:23:38Z $
  */
 
 #define LINUX_PORT
@@ -30,6 +31,11 @@
 #include <bcmendian.h>
 #include <linuxver.h>
 #include <bcmdefs.h>
+
+#ifdef __ARM_ARCH_7A__
+#include <asm/cacheflush.h>
+#endif /* __ARM_ARCH_7A__ */
+
 #include <osl.h>
 #include <bcmutils.h>
 #include <linux/delay.h>
@@ -39,13 +45,14 @@
 
 #include <linux/fs.h>
 
-#define PCI_CFG_RETRY 		10
+#define PCI_CFG_RETRY		10
 
 #define OS_HANDLE_MAGIC		0x1234abcd	/* Magic # to recognize osh */
-#define BCM_MEM_FILENAME_LEN 	24		/* Mem. filename length */
+#define BCM_MEM_FILENAME_LEN	24		/* Mem. filename length */
+#define DUMPBUFSZ 1024
 
 #ifdef CONFIG_DHD_USE_STATIC_BUF
-#define DHD_SKB_HDRSIZE 		336
+#define DHD_SKB_HDRSIZE		336
 #define DHD_SKB_1PAGE_BUFSIZE	((PAGE_SIZE*1)-DHD_SKB_HDRSIZE)
 #define DHD_SKB_2PAGE_BUFSIZE	((PAGE_SIZE*2)-DHD_SKB_HDRSIZE)
 #define DHD_SKB_4PAGE_BUFSIZE	((PAGE_SIZE*4)-DHD_SKB_HDRSIZE)
@@ -82,6 +89,8 @@ typedef struct bcm_static_pkt {
 } bcm_static_pkt_t;
 
 static bcm_static_pkt_t *bcm_static_skb = 0;
+
+void *wifi_platform_prealloc(void *adapter, int section, unsigned long size);
 #endif /* CONFIG_DHD_USE_STATIC_BUF */
 
 typedef struct bcm_mem_link {
@@ -93,6 +102,16 @@ typedef struct bcm_mem_link {
 	char	file[BCM_MEM_FILENAME_LEN];
 } bcm_mem_link_t;
 
+struct osl_cmn_info {
+	atomic_t malloced;
+	atomic_t pktalloced;    /* Number of allocated packet buffers */
+	spinlock_t dbgmem_lock;
+	bcm_mem_link_t *dbgmem_list;
+	spinlock_t pktalloc_lock;
+	atomic_t refcount; /* Number of references to this shared structure. */
+};
+typedef struct osl_cmn_info osl_cmn_t;
+
 struct osl_info {
 	osl_pubinfo_t pub;
 #ifdef CTFPOOL
@@ -100,18 +119,16 @@ struct osl_info {
 #endif /* CTFPOOL */
 	uint magic;
 	void *pdev;
-	atomic_t malloced;
-	atomic_t pktalloced; 	/* Number of allocated packet buffers */
 	uint failed;
 	uint bustype;
-	bcm_mem_link_t *dbgmem_list;
-	spinlock_t dbgmem_lock;
+	osl_cmn_t *cmn; /* Common OSL related data shred between two OSH's */
+
+	void *bus_handle;
 #ifdef BCMDBG_CTRACE
 	spinlock_t ctrace_lock;
 	struct list_head ctrace_list;
 	int ctrace_num;
 #endif /* BCMDBG_CTRACE */
-	spinlock_t pktalloc_lock;
 };
 
 #define OSL_PKTTAG_CLEAR(p) \
@@ -177,10 +194,21 @@ static int16 linuxbcmerrormap[] =
 	-EINVAL,		/* BCME_USAGE_ERROR */
 	-EIO,     		/* BCME_IOCTL_ERROR */
 	-EIO,			/* BCME_SERIAL_PORT_ERR */
+	-EOPNOTSUPP,	/* BCME_DISABLED, BCME_NOTENABLED */
+	-EIO,			/* BCME_DECERR */
+	-EIO,			/* BCME_ENCERR */
+	-EIO,			/* BCME_MICERR */
+	-ERANGE,		/* BCME_REPLAY */
+	-EINVAL,		/* BCME_IE_NOTFOUND */
 
 /* When an new error code is added to bcmutils.h, add os
  * specific error translation here as well
  */
+/* check if BCME_LAST changed since the last time this function was updated */
+#if BCME_LAST != -52
+#error "You need to add a OS error translation in the linuxbcmerrormap \
+	for new error code defined in bcmutils.h"
+#endif
 };
 
 /* translate bcmerrors into linux errors */
@@ -195,20 +223,20 @@ osl_error(int bcmerror)
 	/* Array bounds covered by ASSERT in osl_attach */
 	return linuxbcmerrormap[-bcmerror];
 }
-
-extern uint8* dhd_os_prealloc(void *osh, int section, int size);
-
+#ifdef SHARED_OSL_CMN
+osl_t *
+osl_attach(void *pdev, uint bustype, bool pkttag, void **osl_cmn)
+{
+#else
 osl_t *
 osl_attach(void *pdev, uint bustype, bool pkttag)
 {
+	void **osl_cmn = NULL;
+#endif /* SHARED_OSL_CMN */
 	osl_t *osh;
 	gfp_t flags;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
-	flags = (in_atomic() || irqs_disabled()) ? GFP_ATOMIC : GFP_KERNEL;
-#else
-	flags = GFP_ATOMIC;
-#endif
+	flags = CAN_SLEEP() ? GFP_KERNEL : GFP_ATOMIC;
 	if (!(osh = kmalloc(sizeof(osl_t), flags)))
 		return osh;
 
@@ -216,17 +244,33 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 
 	bzero(osh, sizeof(osl_t));
 
+	if (osl_cmn == NULL || *osl_cmn == NULL) {
+		if (!(osh->cmn = kmalloc(sizeof(osl_cmn_t), flags))) {
+			kfree(osh);
+			return NULL;
+		}
+		bzero(osh->cmn, sizeof(osl_cmn_t));
+		if (osl_cmn)
+			*osl_cmn = osh->cmn;
+		atomic_set(&osh->cmn->malloced, 0);
+		osh->cmn->dbgmem_list = NULL;
+		spin_lock_init(&(osh->cmn->dbgmem_lock));
+
+		spin_lock_init(&(osh->cmn->pktalloc_lock));
+
+	} else
+		osh->cmn = *osl_cmn;
+
+	atomic_add(1, &osh->cmn->refcount);
+
 	/* Check that error map has the right number of entries in it */
 	ASSERT(ABS(BCME_LAST) == (ARRAYSIZE(linuxbcmerrormap) - 1));
 
-	osh->magic = OS_HANDLE_MAGIC;
-	atomic_set(&osh->malloced, 0);
 	osh->failed = 0;
-	osh->dbgmem_list = NULL;
-	spin_lock_init(&(osh->dbgmem_lock));
 	osh->pdev = pdev;
 	osh->pub.pkttag = pkttag;
 	osh->bustype = bustype;
+	osh->magic = OS_HANDLE_MAGIC;
 
 	switch (bustype) {
 		case PCI_BUS:
@@ -246,57 +290,70 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 			break;
 	}
 
-#if defined(CONFIG_DHD_USE_STATIC_BUF)
-	if (!bcm_static_buf) {
-		if (!(bcm_static_buf = (bcm_static_buf_t *)dhd_os_prealloc(osh, 3, STATIC_BUF_SIZE+
-			STATIC_BUF_TOTAL_LEN))) {
-			printk("can not alloc static buf!\n");
-			bcm_static_skb = NULL;
-			ASSERT(osh->magic == OS_HANDLE_MAGIC);
-			kfree(osh);
-			return NULL;
-		}
-		else
-			printk("alloc static buf at %x!\n", (unsigned int)bcm_static_buf);
-
-
-		sema_init(&bcm_static_buf->static_sem, 1);
-
-		bcm_static_buf->buf_ptr = (unsigned char *)bcm_static_buf + STATIC_BUF_SIZE;
-	}
-
-	if (!bcm_static_skb) {
-		int i;
-		void *skb_buff_ptr = 0;
-		bcm_static_skb = (bcm_static_pkt_t *)((char *)bcm_static_buf + 2048);
-		skb_buff_ptr = dhd_os_prealloc(osh, 4, 0);
-		if (!skb_buff_ptr) {
-			printk("cannot alloc static buf!\n");
-			bcm_static_buf = NULL;
-			bcm_static_skb = NULL;
-			ASSERT(osh->magic == OS_HANDLE_MAGIC);
-			kfree(osh);
-			return NULL;
-		}
-
-		bcopy(skb_buff_ptr, bcm_static_skb, sizeof(struct sk_buff *) *
-			(STATIC_PKT_MAX_NUM * 2 + STATIC_PKT_4PAGE_NUM));
-		for (i = 0; i < STATIC_PKT_MAX_NUM * 2 + STATIC_PKT_4PAGE_NUM; i++)
-			bcm_static_skb->pkt_use[i] = 0;
-
-		sema_init(&bcm_static_skb->osl_pkt_sem, 1);
-	}
-#endif /* CONFIG_DHD_USE_STATIC_BUF */
-
 #ifdef BCMDBG_CTRACE
 	spin_lock_init(&osh->ctrace_lock);
 	INIT_LIST_HEAD(&osh->ctrace_list);
 	osh->ctrace_num = 0;
 #endif /* BCMDBG_CTRACE */
 
-	spin_lock_init(&(osh->pktalloc_lock));
 
 	return osh;
+}
+
+int osl_static_mem_init(osl_t *osh, void *adapter)
+{
+#if defined(CONFIG_DHD_USE_STATIC_BUF)
+		if (!bcm_static_buf && adapter) {
+			if (!(bcm_static_buf = (bcm_static_buf_t *)wifi_platform_prealloc(adapter,
+				3, STATIC_BUF_SIZE + STATIC_BUF_TOTAL_LEN))) {
+				printk("can not alloc static buf!\n");
+				bcm_static_skb = NULL;
+				ASSERT(osh->magic == OS_HANDLE_MAGIC);
+				kfree(osh);
+				return -ENOMEM;
+			} else
+				printk("alloc static buf at %x!\n", (unsigned int)bcm_static_buf);
+
+
+			sema_init(&bcm_static_buf->static_sem, 1);
+
+			bcm_static_buf->buf_ptr = (unsigned char *)bcm_static_buf + STATIC_BUF_SIZE;
+		}
+
+		if (!bcm_static_skb && adapter) {
+			int i;
+			void *skb_buff_ptr = 0;
+			bcm_static_skb = (bcm_static_pkt_t *)((char *)bcm_static_buf + 2048);
+			skb_buff_ptr = wifi_platform_prealloc(adapter, 4, 0);
+			if (!skb_buff_ptr) {
+				printk("cannot alloc static buf!\n");
+				bcm_static_buf = NULL;
+				bcm_static_skb = NULL;
+				ASSERT(osh->magic == OS_HANDLE_MAGIC);
+				kfree(osh);
+				return -ENOMEM;
+			}
+
+			bcopy(skb_buff_ptr, bcm_static_skb, sizeof(struct sk_buff *) *
+				(STATIC_PKT_MAX_NUM * 2 + STATIC_PKT_4PAGE_NUM));
+			for (i = 0; i < STATIC_PKT_MAX_NUM * 2 + STATIC_PKT_4PAGE_NUM; i++)
+				bcm_static_skb->pkt_use[i] = 0;
+
+			sema_init(&bcm_static_skb->osl_pkt_sem, 1);
+		}
+#endif /* CONFIG_DHD_USE_STATIC_BUF */
+
+	return 0;
+}
+
+void osl_set_bus_handle(osl_t *osh, void *bus_handle)
+{
+	osh->bus_handle = bus_handle;
+}
+
+void *osl_get_bus_handle(osl_t *osh)
+{
+	return osh->bus_handle;
 }
 
 void
@@ -305,17 +362,25 @@ osl_detach(osl_t *osh)
 	if (osh == NULL)
 		return;
 
-#ifdef CONFIG_DHD_USE_STATIC_BUF
-		if (bcm_static_buf) {
-			bcm_static_buf = 0;
-		}
-		if (bcm_static_skb) {
-			bcm_static_skb = 0;
-		}
-#endif
-
 	ASSERT(osh->magic == OS_HANDLE_MAGIC);
+	atomic_sub(1, &osh->cmn->refcount);
+	if (atomic_read(&osh->cmn->refcount) == 0) {
+			kfree(osh->cmn);
+	}
 	kfree(osh);
+}
+
+int osl_static_mem_deinit(osl_t *osh, void *adapter)
+{
+#ifdef CONFIG_DHD_USE_STATIC_BUF
+	if (bcm_static_buf)
+		bcm_static_buf = 0;
+
+	if (bcm_static_skb)
+		bcm_static_skb = 0;
+
+#endif
+	return 0;
 }
 
 static struct sk_buff *osl_alloc_skb(osl_t *osh, unsigned int len)
@@ -323,7 +388,9 @@ static struct sk_buff *osl_alloc_skb(osl_t *osh, unsigned int len)
 	struct sk_buff *skb;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
 	gfp_t flags = (in_atomic() || irqs_disabled()) ? GFP_ATOMIC : GFP_KERNEL;
-
+#if defined(CONFIG_SPARSEMEM) && defined(CONFIG_ZONE_DMA)
+	flags |= GFP_ATOMIC;
+#endif
 	skb = __dev_alloc_skb(len, flags);
 #else
 	skb = dev_alloc_skb(len);
@@ -413,11 +480,7 @@ osl_ctfpool_init(osl_t *osh, uint numobj, uint size)
 {
 	gfp_t flags;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
-	flags = (in_atomic() || irqs_disabled()) ? GFP_ATOMIC : GFP_KERNEL;
-#else
-	flags = GFP_ATOMIC;
-#endif
+	flags = CAN_SLEEP() ? GFP_KERNEL : GFP_ATOMIC;
 	osh->ctfpool = kzalloc(sizeof(ctfpool_t), flags);
 	ASSERT(osh->ctfpool);
 
@@ -428,7 +491,7 @@ osl_ctfpool_init(osl_t *osh, uint numobj, uint size)
 
 	while (numobj--) {
 		if (!osl_ctfpool_add(osh))
-			return -1;
+			return -EPERM;
 		osh->ctfpool->fast_frees--;
 	}
 
@@ -519,6 +582,11 @@ osl_pktfastget(osl_t *osh, uint len)
 		return NULL;
 	}
 
+	if (len > osh->ctfpool->obj_size) {
+		CTFPOOL_UNLOCK(osh->ctfpool, flags);
+		return NULL;
+	}
+
 	ASSERT(len <= osh->ctfpool->obj_size);
 
 	/* Get an object from ctfpool */
@@ -548,6 +616,7 @@ osl_pktfastget(osl_t *osh, uint len)
 
 	PKTSETCLINK(skb, NULL);
 	PKTCCLRATTR(skb);
+	PKTFAST(osh, skb) &= ~(CTFBUF | SKIPCT | CHAINED);
 
 	return skb;
 }
@@ -570,7 +639,7 @@ osl_pkt_tonative(osl_t *osh, void *pkt)
 
 	/* Decrement the packet counter */
 	for (nskb = (struct sk_buff *)pkt; nskb; nskb = nskb->next) {
-		atomic_sub(PKTISCHAINED(nskb) ? PKTCCNT(nskb) : 1, &osh->pktalloced);
+		atomic_sub(PKTISCHAINED(nskb) ? PKTCCNT(nskb) : 1, &osh->cmn->pktalloced);
 
 #ifdef BCMDBG_CTRACE
 		for (nskb1 = nskb; nskb1 != NULL; nskb1 = nskb2) {
@@ -609,7 +678,7 @@ osl_pkt_frmnative(osl_t *osh, void *pkt)
 
 	/* Increment the packet counter */
 	for (nskb = (struct sk_buff *)pkt; nskb; nskb = nskb->next) {
-		atomic_add(PKTISCHAINED(nskb) ? PKTCCNT(nskb) : 1, &osh->pktalloced);
+		atomic_add(PKTISCHAINED(nskb) ? PKTCCNT(nskb) : 1, &osh->cmn->pktalloced);
 
 #ifdef BCMDBG_CTRACE
 		for (nskb1 = nskb; nskb1 != NULL; nskb1 = nskb2) {
@@ -651,7 +720,7 @@ osl_pktget(osl_t *osh, uint len)
 #ifdef BCMDBG_CTRACE
 		ADD_CTRACE(osh, skb, file, line);
 #endif
-		atomic_inc(&osh->pktalloced);
+		atomic_inc(&osh->cmn->pktalloced);
 	}
 
 	return ((void*) skb);
@@ -709,10 +778,7 @@ osl_pktfree(osl_t *osh, void *p, bool send)
 	struct sk_buff *skb, *nskb;
 
 	if (osh == NULL)
-	{
-		printk("%s: osh == NULL \n", __FUNCTION__);
 		return;
-	}
 
 	skb = (struct sk_buff*) p;
 
@@ -755,7 +821,7 @@ osl_pktfree(osl_t *osh, void *p, bool send)
 #ifdef CTFPOOL
 next_skb:
 #endif
-		atomic_dec(&osh->pktalloced);
+		atomic_dec(&osh->cmn->pktalloced);
 		skb = nskb;
 	}
 }
@@ -864,29 +930,6 @@ osl_pktfree_static(osl_t *osh, void *p, bool send)
 	osl_pktfree(osh, p, send);
 }
 #endif /* CONFIG_DHD_USE_STATIC_BUF */
-
-int osh_pktpadtailroom(osl_t *osh, void* p, int pad)
-{
-	int err;
-	int ntail;
-	struct sk_buff* skb = (struct sk_buff*)p;
-
-	ntail = skb->data_len + pad - (skb->end - skb->tail);
-	if (likely(skb_cloned(skb) || ntail > 0)) {
-		err = pskb_expand_head(skb, 0, ntail, GFP_ATOMIC);
-		if (unlikely(err))
-			goto done;
-	}
-
-	err = skb_linearize(skb);
-	if (unlikely(err))
-		goto done;
-
-	memset(skb->data + skb->len, 0, pad);
-
-done:
-	return err;
-}
 
 uint32
 osl_pci_read_config(osl_t *osh, uint offset, uint size)
@@ -1013,7 +1056,7 @@ osl_malloc(osl_t *osh, uint size)
 
 			bzero(bcm_static_buf->buf_ptr+STATIC_BUF_SIZE*i, size);
 			if (osh)
-				atomic_add(size, &osh->malloced);
+				atomic_add(size, &osh->cmn->malloced);
 
 			return ((void *)(bcm_static_buf->buf_ptr+STATIC_BUF_SIZE*i));
 		}
@@ -1021,20 +1064,29 @@ osl_malloc(osl_t *osh, uint size)
 original:
 #endif /* CONFIG_DHD_USE_STATIC_BUF */
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
-	flags = (in_atomic() || irqs_disabled()) ? GFP_ATOMIC : GFP_KERNEL;
-#else
-	flags = GFP_ATOMIC;
-#endif
+	flags = CAN_SLEEP() ? GFP_KERNEL : GFP_ATOMIC;
 	if ((addr = kmalloc(size, flags)) == NULL) {
 		if (osh)
 			osh->failed++;
 		return (NULL);
 	}
-	if (osh)
-		atomic_add(size, &osh->malloced);
+	if (osh && osh->cmn)
+		atomic_add(size, &osh->cmn->malloced);
 
 	return (addr);
+}
+
+void *
+osl_mallocz(osl_t *osh, uint size)
+{
+	void *ptr;
+
+	ptr = osl_malloc(osh, size);
+
+	if (ptr != NULL)
+		bzero(ptr, size);
+
+	return ptr;
 }
 
 void
@@ -1054,26 +1106,39 @@ osl_mfree(osl_t *osh, void *addr, uint size)
 			bcm_static_buf->buf_use[buf_idx] = 0;
 			up(&bcm_static_buf->static_sem);
 
-			if (osh) {
+			if (osh && osh->cmn) {
 				ASSERT(osh->magic == OS_HANDLE_MAGIC);
-				atomic_sub(size, &osh->malloced);
+				atomic_sub(size, &osh->cmn->malloced);
 			}
 			return;
 		}
 	}
 #endif /* CONFIG_DHD_USE_STATIC_BUF */
-	if (osh) {
+	if (osh && osh->cmn) {
 		ASSERT(osh->magic == OS_HANDLE_MAGIC);
-		atomic_sub(size, &osh->malloced);
+
+		ASSERT(size <= osl_malloced(osh));
+
+		atomic_sub(size, &osh->cmn->malloced);
 	}
 	kfree(addr);
+}
+
+uint
+osl_check_memleak(osl_t *osh)
+{
+	ASSERT((osh && (osh->magic == OS_HANDLE_MAGIC)));
+	if (atomic_read(&osh->cmn->refcount) == 1)
+		return atomic_read(&osh->cmn->malloced);
+	else
+		return 0;
 }
 
 uint
 osl_malloced(osl_t *osh)
 {
 	ASSERT((osh && (osh->magic == OS_HANDLE_MAGIC)));
-	return (atomic_read(&osh->malloced));
+		return atomic_read(&osh->cmn->malloced);
 }
 
 uint
@@ -1091,7 +1156,7 @@ osl_dma_consistent_align(void)
 }
 
 void*
-osl_dma_alloc_consistent(osl_t *osh, uint size, uint16 align_bits, uint *alloced, ulong *pap)
+osl_dma_alloc_consistent(osl_t *osh, uint size, uint16 align_bits, uint *alloced, dmaaddr_t *pap)
 {
 	void *va;
 	uint16 align = (1 << align_bits);
@@ -1106,13 +1171,17 @@ osl_dma_alloc_consistent(osl_t *osh, uint size, uint16 align_bits, uint *alloced
 	if (va)
 		*pap = (ulong)__virt_to_phys((ulong)va);
 #else
-	va = pci_alloc_consistent(osh->pdev, size, (dma_addr_t*)pap);
+	{
+		dma_addr_t pap_lin;
+		va = pci_alloc_consistent(osh->pdev, size, &pap_lin);
+		*pap = (dmaaddr_t)pap_lin;
+	}
 #endif
 	return va;
 }
 
 void
-osl_dma_free_consistent(osl_t *osh, void *va, uint size, ulong pa)
+osl_dma_free_consistent(osl_t *osh, void *va, uint size, dmaaddr_t pa)
 {
 	ASSERT((osh && (osh->magic == OS_HANDLE_MAGIC)));
 
@@ -1123,7 +1192,7 @@ osl_dma_free_consistent(osl_t *osh, void *va, uint size, ulong pa)
 #endif
 }
 
-uint BCMFASTPATH
+dmaaddr_t BCMFASTPATH
 osl_dma_map(osl_t *osh, void *va, uint size, int direction, void *p, hnddma_seg_map_t *dmah)
 {
 	int dir;
@@ -1174,6 +1243,32 @@ osl_dma_unmap(osl_t *osh, uint pa, uint size, int direction)
 	dir = (direction == DMA_TX)? PCI_DMA_TODEVICE: PCI_DMA_FROMDEVICE;
 	pci_unmap_single(osh->pdev, (uint32)pa, size, dir);
 }
+
+
+#if defined(__ARM_ARCH_7A__)
+
+inline void BCMFASTPATH
+osl_cache_flush(void *va, uint size)
+{
+	dma_sync_single_for_device(OSH_NULL, virt_to_dma(OSH_NULL, va), size, DMA_TX);
+}
+
+inline void BCMFASTPATH
+osl_cache_inv(void *va, uint size)
+{
+	dma_sync_single_for_cpu(OSH_NULL, virt_to_dma(OSH_NULL, va), size, DMA_RX);
+}
+
+inline void osl_prefetch(const void *ptr)
+{
+	/* Borrowed from linux/linux-2.6/include/asm-arm/processor.h */
+	__asm__ __volatile__(
+		"pld\t%0"
+		:
+		: "o" (*(char *)ptr)
+		: "cc");
+}
+#endif
 
 #if defined(BCMASSERT_LOG)
 void
@@ -1281,7 +1376,7 @@ osl_pktdup(osl_t *osh, void *skb)
 		OSL_PKTTAG_CLEAR(p);
 
 	/* Increment the packet counter */
-	atomic_inc(&osh->pktalloced);
+	atomic_inc(&osh->cmn->pktalloced);
 #ifdef BCMDBG_CTRACE
 	ADD_CTRACE(osh, (struct sk_buff *)p, file, line);
 #endif
@@ -1359,7 +1454,10 @@ void osl_ctrace_dump(osl_t *osh, struct bcmstrbuf *b)
 uint
 osl_pktalloced(osl_t *osh)
 {
-	return (atomic_read(&osh->pktalloced));
+	if (atomic_read(&osh->cmn->refcount) == 1)
+		return atomic_read(&osh->cmn->pktalloced);
+	else
+		return 0;
 }
 
 /* Linux Kernel: File Operations: start */

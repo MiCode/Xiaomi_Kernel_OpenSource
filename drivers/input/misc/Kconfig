@@ -699,6 +699,13 @@ config INPUT_DRV2603_VIBRATOR
 	  for LRA & ERM haptic elements.
 	  Say Y here to enable the DRV2603 vibrator haptic driver.
 
+config INPUT_ISL29035
+	tristate "ISL29035 Driver"
+	depends on I2C
+	help
+	  ISL29035 is Ambient Light sensor driver
+	  Say Y here to enable the ISL29035 Ambient Light sensor driver.
+
 source	"drivers/input/misc/compass/Kconfig"
 source	"drivers/input/misc/mpu/Kconfig"
 source	"drivers/input/misc/pressure/Kconfig"

@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/panel-p-wuxga-10-1.c
  *
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -709,12 +710,12 @@ dsi_p_wuxga_10_1_sd_settings_init(struct tegra_dc_sd_settings *settings)
 	*settings = dsi_p_wuxga_10_1_sd_settings;
 	settings->bl_device_name = "pwm-backlight";
 }
-
+#ifdef CONFIG_TEGRA_DC_CMU
 static void dsi_p_wuxga_10_1_cmu_init(struct tegra_dc_platform_data *pdata)
 {
 	pdata->cmu = &dsi_p_wuxga_10_1_cmu;
 }
-
+#endif
 struct tegra_panel_ops dsi_p_wuxga_10_1_ops = {
 	.enable = dsi_p_wuxga_10_1_enable,
 	.disable = dsi_p_wuxga_10_1_disable,
@@ -726,7 +727,9 @@ struct tegra_panel __initdata dsi_p_wuxga_10_1 = {
 	.init_dc_out = dsi_p_wuxga_10_1_dc_out_init,
 	.init_fb_data = dsi_p_wuxga_10_1_fb_data_init,
 	.register_bl_dev = dsi_p_wuxga_10_1_register_bl_dev,
+#ifdef CONFIG_TEGRA_DC_CMU
 	.init_cmu_data = dsi_p_wuxga_10_1_cmu_init,
+#endif
 	.set_disp_device = dsi_p_wuxga_10_1_set_disp_device,
 };
 EXPORT_SYMBOL(dsi_p_wuxga_10_1);

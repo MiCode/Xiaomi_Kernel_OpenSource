@@ -4,6 +4,7 @@
  * CPU complex suspend & resume functions for Tegra SoCs
  *
  * Copyright (c) 2009-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,6 +56,8 @@
 #include <linux/irqchip/tegra.h>
 #include <linux/tegra-pm.h>
 #include <linux/tegra_sm.h>
+#include <linux/kmemleak.h>
+
 
 #include <trace/events/power.h>
 #include <trace/events/nvsecurity.h>
@@ -1068,11 +1071,17 @@ static void tegra_pm_set(enum tegra_suspend_mode mode)
 #if !defined(CONFIG_ARCH_TEGRA_3x_SOC) && !defined(CONFIG_ARCH_TEGRA_2x_SOC)
 #if defined(CONFIG_ARCH_TEGRA_11x_SOC) || defined(CONFIG_ARCH_TEGRA_12x_SOC)
 		writel(0x800fdfff, pmc + PMC_IO_DPD_REQ);
+		readl(pmc + PMC_IO_DPD_REQ); /* unblock posted write */
+
+		/* delay apb_clk * (SEL_DPD_TIM*5) */
+		udelay(700);
 		tegra_is_dpd_mode = true;
 #else
 		writel(0x800fffff, pmc + PMC_IO_DPD_REQ);
 #endif
 		writel(0x80001fff, pmc + PMC_IO_DPD2_REQ);
+		readl(pmc + PMC_IO_DPD2_REQ); /* unblock posted write */
+		udelay(700);
 #endif
 
 #ifdef CONFIG_ARCH_TEGRA_11x_SOC
@@ -1796,6 +1805,12 @@ void __init tegra_init_suspend(struct tegra_suspend_platform_data *plat)
 				__func__);
 			goto out;
 		}
+
+		/* Avoid a kmemleak false positive. The allocated memory
+		 * block is later referenced by a physical address (i.e.
+		 * tegra_lp0_vec_start) which kmemleak can't detect.
+		 */
+		kmemleak_not_leak(reloc_lp0);
 
 		orig = ioremap(tegra_lp0_vec_start, tegra_lp0_vec_size);
 		WARN_ON(!orig);

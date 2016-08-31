@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Description:
  * High-speed USB device controller driver.
@@ -451,6 +452,7 @@ struct tegra_udc {
 	enum tegra_connect_type connect_type;
 	enum tegra_connect_type prev_connect_type;
 	enum tegra_connect_type connect_type_lp0;
+	enum tegra_usb_qc2_voltage qc2_voltage;
 	void __iomem *regs;
 	size_t ep_qh_size;		/* size after alignment adjustment*/
 	dma_addr_t ep_qh_dma;		/* dma address of QH */
@@ -476,7 +478,6 @@ struct tegra_udc {
 	bool support_pmu_vbus;
 	bool fence_read;
 	bool vbus_in_lp0;
-	enum tegra_usb_qc2_voltage qc2_voltage;
 #ifdef CONFIG_EXTCON
 	struct extcon_dev *edev;
 	struct extcon_dev *vbus_extcon_dev;

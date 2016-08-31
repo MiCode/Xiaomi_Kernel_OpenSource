@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-tegra/board-loki.c
  *
- * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -781,7 +781,6 @@ static void __init tegra_loki_late_init(void)
 	loki_uart_init();
 	loki_audio_init();
 	platform_add_devices(loki_devices, ARRAY_SIZE(loki_devices));
-	//tegra_ram_console_debug_init();
 	tegra_io_dpd_init();
 	loki_sdhci_init();
 	loki_regulator_init();
@@ -793,9 +792,6 @@ static void __init tegra_loki_late_init(void)
 	loki_panel_init();
 	loki_kbc_init();
 	loki_pmon_init();
-#ifdef CONFIG_TEGRA_WDT_RECOVERY
-	tegra_wdt_recovery_init();
-#endif
 	tegra_serial_debug_init(TEGRA_UARTD_BASE, INT_WDT_CPU, NULL, -1, -1);
 
 	loki_sensors_init();
@@ -811,7 +807,7 @@ static void __init tegra_loki_late_init(void)
 
 static void __init loki_ramconsole_reserve(unsigned long size)
 {
-	tegra_ram_console_debug_reserve(SZ_1M);
+	tegra_reserve_ramoops_memory(SZ_1M);
 }
 
 static void __init tegra_loki_dt_init(void)

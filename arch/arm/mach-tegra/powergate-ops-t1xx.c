@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -76,6 +77,8 @@ int tegra1xx_unpowergate(int id, struct powergate_partition_info *pg_info)
 	ret = partition_clk_enable(pg_info);
 	if (ret)
 		goto err_clk_on;
+
+	powergate_partition_assert_reset(pg_info);
 
 	udelay(10);
 

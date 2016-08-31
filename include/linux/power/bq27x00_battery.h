@@ -1,6 +1,12 @@
 #ifndef __LINUX_BQ27X00_BATTERY_H__
 #define __LINUX_BQ27X00_BATTERY_H__
 
+enum {
+	BQ27X00_BATT_LGC,
+	BQ27X00_BATT_ATL,
+	BQ27X00_BATT_MAX,
+};
+
 /**
  * struct bq27000_plaform_data - Platform data for bq27000 devices
  * @name: Name of the battery. If NULL the driver will fallback to "bq27000".
@@ -16,4 +22,18 @@ struct bq27000_platform_data {
 	int (*read)(struct device *dev, unsigned int);
 };
 
+/*
+ * bq27x00 platform specific data:
+ * soc_int_irq (optional)
+ * bat_low_irq (optional)
+ * board rev specific thermistor translation hook (optional)
+ */
+struct bq27x00_platform_data {
+	int soc_int_irq;
+	int bat_low_irq;
+	int (*translate_temp)(int temperature);
+	char *fw_name[BQ27X00_BATT_MAX];
+};
+
+extern int palmas_gpadc_read_physical(int channel);
 #endif

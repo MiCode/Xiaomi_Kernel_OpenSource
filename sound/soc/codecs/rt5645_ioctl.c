@@ -15,7 +15,7 @@
 #include "rt5645_ioctl.h"
 #include "rt5645.h"
 
-hweq_t hweq_param[] = {
+static hweq_t hweq_param[] = {
 	{/* NORMAL */
 		{0},
 		{0},

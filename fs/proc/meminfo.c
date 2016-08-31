@@ -115,7 +115,11 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 #endif
 		,
 		K(i.totalram),
+#if defined(CONFIG_TEGRA_NVMAP)
+		K(i.freeram) + K(nvmap_page_pool_get_unused_pages()),
+#else
 		K(i.freeram),
+#endif
 		K(i.bufferram),
 		K(cached),
 		K(total_swapcache_pages()),

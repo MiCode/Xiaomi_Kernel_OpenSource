@@ -3,6 +3,7 @@
  *	battery gauge driver.
  *
  * Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Author: Laxman Dewangan <ldewangan@nvidia.com>
  *
@@ -66,6 +67,7 @@ struct battery_charger_dev {
 	bool				locked;
 	struct rtc_device		*rtc;
 	bool				enable_thermal_monitor;
+	struct alarm			restart_charging_alarm;
 };
 
 struct battery_gauge_dev {
@@ -83,6 +85,16 @@ struct battery_gauge_dev {
 };
 
 struct battery_gauge_dev *bg_temp;
+
+static enum alarmtimer_restart battery_charger_restart_charging_callback(
+		struct alarm *alarm, ktime_t now)
+{
+	struct battery_charger_dev *bc_dev = container_of(alarm,
+			struct battery_charger_dev, restart_charging_alarm);
+
+	schedule_delayed_work(&bc_dev->restart_charging_wq, 0);
+	return ALARMTIMER_NORESTART;
+}
 
 static void battery_charger_restart_charging_wq(struct work_struct *work)
 {
@@ -230,13 +242,18 @@ EXPORT_SYMBOL_GPL(battery_charger_release_wake_lock);
 
 int battery_charging_restart(struct battery_charger_dev *bc_dev, int after_sec)
 {
+	struct timespec ts;
+
 	if (!bc_dev->ops->restart_charging) {
 		dev_err(bc_dev->parent_dev,
 			"No callback for restart charging\n");
 		return -EINVAL;
 	}
-	schedule_delayed_work(&bc_dev->restart_charging_wq,
-			msecs_to_jiffies(after_sec * HZ));
+
+	getnstimeofday(&ts);
+	ts.tv_sec += after_sec;
+	alarm_start(&bc_dev->restart_charging_alarm, timespec_to_ktime(ts));
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(battery_charging_restart);
@@ -353,7 +370,7 @@ void battery_charging_restart_cancel(struct battery_charger_dev *bc_dev)
 			"No callback for restart charging\n");
 		return;
 	}
-	cancel_delayed_work(&bc_dev->restart_charging_wq);
+	alarm_cancel(&bc_dev->restart_charging_alarm);
 }
 EXPORT_SYMBOL_GPL(battery_charging_restart_cancel);
 
@@ -466,6 +483,8 @@ struct battery_charger_dev *battery_charger_register(struct device *dev,
 
 	INIT_DELAYED_WORK(&bc_dev->restart_charging_wq,
 			battery_charger_restart_charging_wq);
+	alarm_init(&bc_dev->restart_charging_alarm, ALARM_REALTIME,
+		battery_charger_restart_charging_callback);
 
 	wake_lock_init(&bc_dev->charger_wake_lock, WAKE_LOCK_SUSPEND,
 						"charger-suspend-lock");

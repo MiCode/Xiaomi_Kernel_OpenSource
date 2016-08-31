@@ -25,7 +25,8 @@ struct task_struct;
 
 unsigned int
 quadd_get_user_callchain_ut(struct pt_regs *regs,
-			    struct quadd_callchain *cc);
+			    struct quadd_callchain *cc,
+			    struct task_struct *task);
 
 int quadd_unwind_init(void);
 void quadd_unwind_deinit(void);

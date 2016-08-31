@@ -4,6 +4,7 @@
  * GK20A Graphics channel
  *
  * Copyright (c) 2011-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -276,10 +277,6 @@ static int channel_gk20a_setup_ramfc(struct channel_gk20a *c,
 		fifo_pb_timeslice_enable_true_f());
 
 	mem_wr32(inst_ptr, ram_fc_chid_w(), ram_fc_chid_id_f(c->hw_chid));
-
-	/* TBD: alwasy priv mode? */
-	mem_wr32(inst_ptr, ram_fc_hce_ctrl_w(),
-		 pbdma_hce_ctrl_hce_priv_mode_yes_f());
 
 	gk20a_mm_l2_invalidate(c->g);
 
@@ -730,6 +727,7 @@ struct nvhost_hwctx *gk20a_open_channel(struct nvhost_channel *ch,
 	ch_gk20a->timeout_gpfifo_get = 0;
 	/* set gr host default timeout */
 	ch_gk20a->hwctx->timeout_ms_max = gk20a_get_gr_idle_timeout(g);
+	ch_gk20a->obj_class = 0;
 
 	/* The channel is *not* runnable at this point. It still needs to have
 	 * an address space bound and allocate a gpfifo and grctx. */

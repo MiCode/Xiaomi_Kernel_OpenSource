@@ -1,7 +1,8 @@
 /*
  * arch/arm/mach-tegra/board-pluto.c
  *
- * Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2014, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1229,7 +1230,6 @@ static void __init tegra_pluto_late_init(void)
 	pluto_uart_init();
 	pluto_audio_init();
 	platform_add_devices(pluto_devices, ARRAY_SIZE(pluto_devices));
-	//tegra_ram_console_debug_init();
 	tegra_io_dpd_init();
 	pluto_sdhci_init();
 	pluto_regulator_init();
@@ -1260,7 +1260,7 @@ static void __init tegra_pluto_late_init(void)
 
 static void __init pluto_ramconsole_reserve(unsigned long size)
 {
-	tegra_ram_console_debug_reserve(SZ_1M);
+	tegra_reserve_ramoops_memory(SZ_1M);
 }
 
 static void __init tegra_pluto_dt_init(void)

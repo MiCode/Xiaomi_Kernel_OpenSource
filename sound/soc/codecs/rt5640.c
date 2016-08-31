@@ -1312,7 +1312,7 @@ static int spk_event(struct snd_soc_dapm_widget *w,
 }
 
 #if USE_ONEBIT_DEPOP
-void hp_amp_power(struct snd_soc_codec *codec, int on)
+static void hp_amp_power(struct snd_soc_codec *codec, int on)
 {
 	static int hp_amp_power_count;
 //	printk("one bit hp_amp_power on=%d hp_amp_power_count=%d\n",on,hp_amp_power_count);
@@ -1397,8 +1397,8 @@ static void rt5640_pmd_depop(struct snd_soc_codec *codec)
 	hp_amp_power(codec, 0);
 }
 
-#else //seq
-void hp_amp_power(struct snd_soc_codec *codec, int on)
+#else
+static void hp_amp_power(struct snd_soc_codec *codec, int on)
 {
 	static int hp_amp_power_count;
 //	printk("hp_amp_power on=%d hp_amp_power_count=%d\n",on,hp_amp_power_count);

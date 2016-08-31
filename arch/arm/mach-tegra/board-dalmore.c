@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-tegra/board-dalmore.c
  *
- * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2014, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -671,7 +671,6 @@ static void __init tegra_dalmore_late_init(void)
 	dalmore_uart_init();
 	dalmore_audio_init();
 	platform_add_devices(dalmore_devices, ARRAY_SIZE(dalmore_devices));
-	//tegra_ram_console_debug_init();
 	tegra_io_dpd_init();
 	dalmore_regulator_init();
 	dalmore_sdhci_init();
@@ -704,7 +703,7 @@ static void __init tegra_dalmore_late_init(void)
 
 static void __init dalmore_ramconsole_reserve(unsigned long size)
 {
-	tegra_ram_console_debug_reserve(SZ_1M);
+	tegra_reserve_ramoops_memory(SZ_1M);
 }
 
 static void __init tegra_dalmore_dt_init(void)

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -64,18 +65,28 @@ void _sysedp_refresh(void)
 	sysedp_set_dynamic_cap((unsigned int)limit, (unsigned int)oc_relax);
 }
 
-struct sysedp_consumer *sysedp_get_consumer(const char *name)
+static struct sysedp_consumer *_sysedp_get_consumer(const char *name)
 {
 	struct sysedp_consumer *p;
 	struct sysedp_consumer *match = NULL;
 
-	mutex_lock(&sysedp_lock);
 	list_for_each_entry(p, &registered_consumers, link) {
 		if (!strncmp(p->name, name, SYSEDP_NAME_LEN)) {
 			match = p;
 			break;
 		}
 	}
+
+	return match;
+}
+
+
+struct sysedp_consumer *sysedp_get_consumer(const char *name)
+{
+	struct sysedp_consumer *match = NULL;
+
+	mutex_lock(&sysedp_lock);
+	match = _sysedp_get_consumer(name);
 	mutex_unlock(&sysedp_lock);
 
 	return match;
@@ -173,12 +184,9 @@ struct sysedp_consumer *sysedp_create_consumer(const char *specname,
 }
 EXPORT_SYMBOL(sysedp_create_consumer);
 
-void sysedp_set_state(struct sysedp_consumer *consumer, unsigned int new_state)
+static void _sysedp_set_state(struct sysedp_consumer *consumer,
+			unsigned int new_state)
 {
-	if (!consumer)
-		return;
-
-	mutex_lock(&sysedp_lock);
 	if (consumer->state != new_state) {
 		trace_sysedp_change_state(consumer->name, consumer->state,
 					  new_state);
@@ -186,9 +194,33 @@ void sysedp_set_state(struct sysedp_consumer *consumer, unsigned int new_state)
 					  consumer->num_states-1);
 		_sysedp_refresh();
 	}
+}
+
+void sysedp_set_state(struct sysedp_consumer *consumer, unsigned int new_state)
+{
+	if (!consumer)
+		return;
+
+	mutex_lock(&sysedp_lock);
+	_sysedp_set_state(consumer, new_state);
 	mutex_unlock(&sysedp_lock);
 }
 EXPORT_SYMBOL(sysedp_set_state);
+
+void sysedp_set_state_by_name(const char *name, unsigned int new_state)
+{
+	struct sysedp_consumer *consumer = NULL;
+
+	if (!name)
+		return;
+
+	mutex_lock(&sysedp_lock);
+	consumer = _sysedp_get_consumer(name);
+	if (consumer)
+		_sysedp_set_state(consumer, new_state);
+	mutex_unlock(&sysedp_lock);
+}
+EXPORT_SYMBOL(sysedp_set_state_by_name);
 
 unsigned int sysedp_get_state(struct sysedp_consumer *consumer)
 {

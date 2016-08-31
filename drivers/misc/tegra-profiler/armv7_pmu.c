@@ -2,6 +2,7 @@
  * drivers/misc/tegra-profiler/armv7_pmu.c
  *
  * Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,11 +26,21 @@
 
 #include <linux/tegra_profiler.h>
 
+#include "arm_pmu.h"
 #include "armv7_pmu.h"
+#include "armv7_events.h"
 #include "quadd.h"
 #include "debug.h"
 
-static struct armv7_pmu_ctx pmu_ctx;
+static struct quadd_pmu_ctx pmu_ctx;
+
+enum {
+	QUADD_ARM_CPU_TYPE_UNKNOWN,
+	QUADD_ARM_CPU_TYPE_CORTEX_A5,
+	QUADD_ARM_CPU_TYPE_CORTEX_A8,
+	QUADD_ARM_CPU_TYPE_CORTEX_A9,
+	QUADD_ARM_CPU_TYPE_CORTEX_A15,
+};
 
 struct quadd_pmu_info {
 	DECLARE_BITMAP(used_cntrs, QUADD_MAX_PMU_COUNTERS);
@@ -99,6 +110,8 @@ static inline u32
 armv7_pmu_pmnc_read(void)
 {
 	u32 val;
+
+	/* Read Performance MoNitor Control (PMNC) register */
 	asm volatile("mrc p15, 0, %0, c9, c12, 0" : "=r"(val));
 	return val;
 }
@@ -106,7 +119,7 @@ armv7_pmu_pmnc_read(void)
 static inline void
 armv7_pmu_pmnc_write(u32 val)
 {
-	/* Read Performance MoNitor Control (PMNC) register */
+	/* Write Performance MoNitor Control (PMNC) register */
 	asm volatile("mcr p15, 0, %0, c9, c12, 0" : :
 		     "r"(val & QUADD_ARMV7_PMNC_MASK));
 }
@@ -365,6 +378,7 @@ static void quadd_init_pmu(void)
 
 static int pmu_enable(void)
 {
+	pr_info("pmu was reserved\n");
 	return 0;
 }
 
@@ -394,6 +408,7 @@ static void __pmu_disable(void *arg)
 static void pmu_disable(void)
 {
 	on_each_cpu(__pmu_disable, NULL, 1);
+	pr_info("pmu was released\n");
 }
 
 static void pmu_start(void)

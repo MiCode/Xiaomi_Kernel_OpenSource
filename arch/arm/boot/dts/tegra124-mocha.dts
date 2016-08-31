@@ -1,0 +1,178 @@
+/dts-v1/;
+
+#include "tegra124.dtsi"
+#include "tegra124-tn8.dtsi"
+#include "tegra124-platforms/tegra124-tn8-emc-e1922-1100-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-pmic-e1736-1000-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-fixed-e1736-1000-a00.dtsi"
+#include "tegra124-platforms/tegra124-tn8-gpio-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-tn8-pinmux-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-tn8-keys-e1780-1100-a02.dtsi"
+#include "tegra124-platforms/tegra124-mocha-sysedp.dtsi"
+
+/ {
+	model = "NVIDIA Tegra124 TN8";
+	compatible = "nvidia,mocha", "nvidia,tegra124";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,boardids = "1780:1100:3:A:7","1845:1000:0:A:7";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen {
+		bootargs = "tegraid=40.0.0.00.00 vmalloc=256M video=tegrafb console=ttyS0,115200n8 earlyprintk";
+		linux,initrd-start = <0x85000000>;
+		linux,initrd-end = <0x851bc400>;
+	};
+
+	i2c@7000c700 {
+		nvidia,clock-always-on;
+		clock-frequency = <400000>;
+	};
+
+	i2c@7000c000 {
+		backlight@2c {
+			compatible = "ti,lp8556";
+			reg = <0x2c>;
+
+			dev-ctrl = /bits/ 8 <0x83>;
+			init-brt = /bits/ 8 <0x1f>;
+			led-en   = /bits/ 8 <0x0f>;
+
+			rom_98h {
+				rom-addr = /bits/ 8 <0x98>;
+				rom-val = /bits/ 8 <0x80>;
+			};
+			rom_9eh {
+				rom-addr = /bits/ 8 <0x9e>;
+				rom-val = /bits/ 8 <0x21>;
+			};
+			rom_a0h {
+				rom-addr = /bits/ 8 <0xa0>;
+				rom-val = /bits/ 8 <0xff>;
+			};
+			rom_a1h {
+				rom-addr = /bits/ 8 <0xa1>;
+				rom-val = /bits/ 8 <0x3f>;
+			};
+			rom_a2h {
+				rom-addr = /bits/ 8 <0xa2>;
+				rom-val = /bits/ 8 <0x20>;
+			};
+			rom_a3h {
+				rom-addr = /bits/ 8 <0xa3>;
+				rom-val = /bits/ 8 <0x00>;
+			};
+			rom_a4h {
+				rom-addr = /bits/ 8 <0xa4>;
+				rom-val = /bits/ 8 <0x72>;
+			};
+			rom_a5h {
+				rom-addr = /bits/ 8 <0xa5>;
+				rom-val = /bits/ 8 <0x24>;
+			};
+			rom_a6h {
+				rom-addr = /bits/ 8 <0xa6>;
+				rom-val = /bits/ 8 <0x80>;
+			};
+			rom_a7h {
+				rom-addr = /bits/ 8 <0xa7>;
+				rom-val = /bits/ 8 <0xf5>;
+			};
+			rom_a8h {
+				rom-addr = /bits/ 8 <0xa8>;
+				rom-val = /bits/ 8 <0x24>;
+			};
+			rom_a9h {
+				rom-addr = /bits/ 8 <0xa9>;
+				rom-val = /bits/ 8 <0xb2>;
+			};
+			rom_aah {
+				rom-addr = /bits/ 8 <0xaa>;
+				rom-val = /bits/ 8 <0x8f>;
+			};
+			rom_aeh {
+				rom-addr = /bits/ 8 <0xae>;
+				rom-val = /bits/ 8 <0x0f>;
+			};
+		};
+
+		lsm6db0@08 {
+			compatible = "st,lsm6db0";
+			reg = <0x08>;
+
+			st,irq-gpio = <&gpio 139 0x00>;
+			st,reset-gpio = <&gpio 181 0x00>;
+			st,wakeup-gpio = <&gpio 144 0x00>;
+		};
+
+		bmp280@77 {
+			compatible = "bmp,bmp280";
+			reg = <0x77>;
+		};
+
+		isl29035@44 {
+			compatible = "intersil,isl29035";
+			reg = <0x44>;
+			interrupt-parent = <&gpio>;
+			interrupts = <187 0x08>;
+
+			als_factor = <16>;
+			als_highrange = <2>;
+			als_lowthres = <0x0e00>;
+			als_highthres = <0xf800>;
+			als_sensitive = <25>;
+		};
+
+		akm09911@0c {
+			compatible = "akm,akm09911";
+			reg = <0x0c>;
+
+			akm,layout = <6>;
+			akm,gpio_rst = <132>;
+		};
+
+		mpu6515@68 {
+			compatible = "inven,mpu6515";
+			reg = <0x68>;
+			interrupt-parent = <&gpio>;
+			interrupts = <139 0x01>;
+
+			regulator_config = <0>;
+
+			fs_range = <0x00>;
+			axis_map_x = <0>;
+			axis_map_y = <1>;
+			axis_map_z = <2>;
+			negate_x = <0>;
+			negate_y = <1>;
+			negate_z = <1>;
+			poll_interval = <200>;
+			min_interval = <5>;
+
+			inven,secondary_type = "none";
+			inven,secondary_reg = <0x0C>;
+			inven,secondary_name = "ak8963";
+			inven,secondary_axis_map_x = <1>;
+			inven,secondary_axis_map_y = <0>;
+			inven,secondary_axis_map_z = <2>;
+			inven,secondary_negate_x = <0>;
+			inven,secondary_negate_y = <0>;
+			inven,secondary_negate_z = <1>;
+
+			inven,aux_type = "none";
+			inven,aux_reg = <0x76>;
+			inven,aus_name = "bmp280";
+		};
+	};
+
+	pwmleds {
+		compatible = "pwm-leds";
+		button_led {
+			label = "button-backlight";
+			pwms = <&pwm 1 10000>;
+			max-brightness = <100>;
+			max-duty = <50>;
+		};
+	};
+};
+

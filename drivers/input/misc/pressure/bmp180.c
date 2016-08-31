@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1408,6 +1409,40 @@ static int bmp_sysfs_create(struct bmp_inf *inf)
 	return err;
 }
 
+static struct device_attribute *attributes[] = {
+	&dev_attr_enable,
+	&dev_attr_delay,
+	&dev_attr_resolution,
+	&dev_attr_max_range,
+	&dev_attr_divisor,
+	&dev_attr_microamp,
+	&dev_attr_data,
+	&dev_attr_mpu_fifo_en
+};
+
+static int add_sysfs_interfaces(struct device *dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(attributes); i++)
+		if (device_create_file(dev, attributes[i]))
+			goto undo;
+	return 0;
+undo:
+	for (; i >= 0 ; i--)
+		device_remove_file(dev, attributes[i]);
+	dev_err(dev, "%s: failed to create sysfs interface\n", __func__);
+	return -ENODEV;
+}
+
+static void remove_sysfs_interfaces(struct device *dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(attributes); i++)
+		device_remove_file(dev, attributes[i]);
+}
+
 static void bmp_input_close(struct input_dev *idev)
 {
 	struct bmp_inf *inf;
@@ -1467,7 +1502,7 @@ static int bmp_id_compare(struct bmp_inf *inf, u8 val,
 		dev_err(&inf->i2c->dev, "%s ERR: ID %x != %s\n",
 			__func__, val, id->name);
 	} else {
-		dev_dbg(&inf->i2c->dev, "%s using ID %x for %s\n",
+		dev_err(&inf->i2c->dev, "%s using ID %x for %s\n",
 			__func__, inf->dev_id, id->name);
 	}
 	return err;
@@ -1653,7 +1688,7 @@ static struct mpu_platform_data *bmp_parse_dt(struct i2c_client *client)
 		dev_err(&client->dev, "Cannot read config property\n");
 		return ERR_PTR(-EINVAL);
 	}
-
+	dev_dbg(&client->dev, "config=%s\n", pchar);
 	for (config = 0; config < ARRAY_SIZE(bmp_configs); config++) {
 		if (!strcasecmp(pchar, bmp_configs[config])) {
 			pdata->config = config;
@@ -1676,7 +1711,7 @@ static int bmp_probe(struct i2c_client *client,
 	struct mpu_platform_data *pd;
 	int err;
 
-	dev_info(&client->dev, "%s\n", __func__);
+	dev_info(&client->dev, "%s:id=%s\n", __func__, id->name);
 	inf = devm_kzalloc(&client->dev, sizeof(*inf), GFP_KERNEL);
 	if (!inf) {
 		dev_err(&client->dev, "%s kzalloc ERR\n", __func__);
@@ -1699,6 +1734,8 @@ static int bmp_probe(struct i2c_client *client,
 
 	bmp_pm_init(inf);
 	err = bmp_id(inf, id);
+	if (err)
+		goto bmp_probe_err;
 	bmp_pm(inf, false);
 	if (err == -EAGAIN)
 		goto bmp_probe_again;
@@ -1717,7 +1754,9 @@ static int bmp_probe(struct i2c_client *client,
 	}
 
 	INIT_DELAYED_WORK(&inf->dw, bmp_work);
-	err = bmp_sysfs_create(inf);
+
+	err = add_sysfs_interfaces(&inf->idev->dev);
+
 	if (err)
 		goto bmp_probe_err;
 

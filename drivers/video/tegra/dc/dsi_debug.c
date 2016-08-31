@@ -2,6 +2,7 @@
  * drivers/video/tegra/dc/dsi_debug.c
  *
  * Copyright (c) 2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -454,7 +455,7 @@ static const struct file_operations sanity_panel_fops = {
 /*
  * to send host dcs cmd
  * you have to give all three parameters as input
- * the test-commands are (to be used as cmd_value )
+ * the test-commands are (to be used as cmd_value)
  * DSI_DCS_SET_DISPLAY_ON			0x29
  * DSI_DCS_SET_DISPLAY_OFF			0x28
  *
@@ -594,6 +595,11 @@ static int send_write_data_cmd(struct seq_file *s, void *unused)
 	DSI_CMD_SHORT(data_id, command_value, command_value1),
 	DSI_DLY_MS(20),
 	};
+
+	if (!dsi->enabled) {
+		seq_puts(s, "DSI controller suspended\n");
+		return 0;
+	}
 
 	seq_printf(s, "data_id taken :0x%x\n", data_id);
 	seq_printf(s, "command value taken :0x%x\n", command_value);

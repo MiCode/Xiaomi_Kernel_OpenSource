@@ -3,7 +3,8 @@
  *
  * Tegra Graphics Host Automatic Clock Management
  *
- * Copyright (c) 2010-2013, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2014, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -144,6 +145,7 @@ void nvhost_module_busy_noresume(struct platform_device *dev)
 void nvhost_module_busy(struct platform_device *dev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
+	int ret = 0;
 
 	/* Explicitly turn on the host1x clocks
 	 * - This is needed as host1x driver sets ignore_children = true
@@ -162,7 +164,13 @@ void nvhost_module_busy(struct platform_device *dev)
 		nvhost_module_busy(nvhost_get_parent(dev));
 
 #ifdef CONFIG_PM_RUNTIME
-	pm_runtime_get_sync(&dev->dev);
+	ret = pm_runtime_get_sync(&dev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&dev->dev);
+		if (dev->dev.parent && (dev->dev.parent != &platform_bus))
+			nvhost_module_idle(nvhost_get_parent(dev));
+		nvhost_err(&dev->dev, "failed to power on, err %d", ret);
+	}
 #endif
 
 	if (pdata->busy)
@@ -592,11 +600,11 @@ int nvhost_module_suspend(struct device *dev)
 	if (atomic_read(&dev->power.usage_count) > 1)
 		return -EBUSY;
 
-	if (pdata->prepare_poweroff)
-		pdata->prepare_poweroff(to_platform_device(dev));
-
 	if (pdata->suspend_ndev)
 		pdata->suspend_ndev(dev);
+
+	if (pdata->prepare_poweroff)
+		pdata->prepare_poweroff(to_platform_device(dev));
 
 	return 0;
 }
@@ -745,11 +753,11 @@ int nvhost_module_disable_clk(struct device *dev)
 	if (!pdata)
 		return -EINVAL;
 
-	for (index = 0; index < pdata->num_clks; index++)
-		clk_disable_unprepare(pdata->clk[index]);
-
 	if (pdata->channel)
 		nvhost_channel_suspend(pdata->channel);
+
+	for (index = 0; index < pdata->num_clks; index++)
+		clk_disable_unprepare(pdata->clk[index]);
 
 	/* disable parent's clock if required */
 	if (dev->parent && dev->parent != &platform_bus)
@@ -802,6 +810,9 @@ int nvhost_module_prepare_poweroff(struct device *dev)
 	pdata = dev_get_drvdata(dev);
 	if (!pdata)
 		return -EINVAL;
+
+	if (pdata->suspend_ndev)
+		pdata->suspend_ndev(dev);
 
 	if (pdata->prepare_poweroff)
 		pdata->prepare_poweroff(to_platform_device(dev));

@@ -2,6 +2,7 @@
  *  linux/arch/arm/kernel/traps.c
  *
  *  Copyright (C) 1995-2009 Russell King
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *  Fragments that appear the same as linux/arch/i386/kernel/traps.c (C) Linus Torvalds
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,6 +39,7 @@
 static const char *handler[]= { "prefetch abort", "data abort", "address exception", "interrupt" };
 
 void *vectors_page;
+extern u32 tegra_emc_cur_rate;
 
 #ifdef CONFIG_DEBUG_USER
 unsigned int user_debug;
@@ -230,6 +232,7 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 	static int die_counter;
 	int ret;
 
+	printk(KERN_EMERG "emc : %d\n", tegra_emc_cur_rate);
 	printk(KERN_EMERG "Internal error: %s: %x [#%d]" S_PREEMPT S_SMP
 	       S_ISA "\n", str, err, ++die_counter);
 

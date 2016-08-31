@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2005-2008 Pierre Ossman, All Rights Reserved.
  *  Copyright (C) 2012-2014, NVIDIA CORPORATION.  All rights reserved.
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -137,6 +138,26 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 		sdhci_readl(host, SDHCI_MAX_CURRENT));
 	pr_err(DRIVER_NAME ": Host ctl2: 0x%08x\n",
 		sdhci_readw(host, SDHCI_HOST_CONTROL2));
+
+#define SDHCI_VNDR_CLK_CTRL                             0x100
+#define SDHCI_VNDR_MISC_CTRL                            0x120
+#define SDMMC_SDMEMCOMPPADCTRL  0x1E0
+#define SDMMC_AUTO_CAL_CONFIG   0x1E4
+#define SDMMC_AUTO_CAL_STATUS   0x1EC
+	pr_err(DRIVER_NAME ": nvda clkc: 0x%08x\n",
+			sdhci_readl(host, SDHCI_VNDR_CLK_CTRL));
+
+	pr_err(DRIVER_NAME ": nvda misc: 0x%08x\n",
+			sdhci_readl(host, SDHCI_VNDR_MISC_CTRL));
+
+	pr_err(DRIVER_NAME ": nvda padc: 0x%08x\n",
+			sdhci_readl(host, SDMMC_SDMEMCOMPPADCTRL));
+
+	pr_err(DRIVER_NAME ": nvda calc: 0x%08x\n",
+			sdhci_readl(host, SDMMC_AUTO_CAL_CONFIG));
+
+	pr_err(DRIVER_NAME ": nvda cals: 0x%08x\n",
+			sdhci_readl(host, SDMMC_AUTO_CAL_STATUS));
 
 	if (host->flags & SDHCI_USE_ADMA)
 		pr_err(DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
@@ -1040,8 +1061,8 @@ static void sdhci_finish_data(struct sdhci_host *host)
 		 * upon error conditions.
 		 */
 		if (data->error) {
-			sdhci_reset(host, SDHCI_RESET_CMD);
 			sdhci_reset(host, SDHCI_RESET_DATA);
+			sdhci_reset(host, SDHCI_RESET_CMD);
 		}
 
 		sdhci_send_command(host, data->stop);
@@ -1519,6 +1540,8 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	unsigned long flags;
 	int vdd_bit = -1;
 	u8 ctrl;
+
+	cancel_delayed_work_sync(&host->delayed_clk_gate_wrk);
 
 	/* Do any required preparations prior to setting ios */
 	if (host->ops->platform_ios_config_enter)
@@ -2212,8 +2235,8 @@ static void sdhci_card_event(struct mmc_host *mmc)
 		pr_err("%s: Resetting controller.\n",
 			mmc_hostname(host->mmc));
 
-		sdhci_reset(host, SDHCI_RESET_CMD);
 		sdhci_reset(host, SDHCI_RESET_DATA);
+		sdhci_reset(host, SDHCI_RESET_CMD);
 
 		host->mrq->cmd->error = -ENOMEDIUM;
 		tasklet_schedule(&host->finish_tasklet);
@@ -2229,10 +2252,8 @@ int sdhci_enable(struct mmc_host *mmc)
 	if (!mmc->card || !(mmc->caps2 & MMC_CAP2_CLOCK_GATING))
 		return 0;
 
-	if (IS_DELAYED_CLK_GATE(host)) {
-		/* cancel sdio clk gate work */
-		cancel_delayed_work_sync(&host->delayed_clk_gate_wrk);
-	}
+	/* cancel delayed clk gate work */
+	cancel_delayed_work_sync(&host->delayed_clk_gate_wrk);
 
 	sysedp_set_state(host->sysedpc, 1);
 
@@ -2333,6 +2354,30 @@ static void sdhci_gov_exit(struct mmc_host *mmc)
 		host->ops->dfs_gov_exit(host);
 }
 #endif
+
+static int sdhci_select_drive_strength(struct mmc_host *mmc,
+				       unsigned int max_dtr,
+				       int host_drv,
+				       int card_drv)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	unsigned char	drv_type;
+
+	if (!host->ops->get_drive_strength)
+		return MMC_SET_DRIVER_TYPE_B;
+
+	drv_type = host->ops->get_drive_strength(host, max_dtr,
+			host_drv, card_drv);
+
+	if (drv_type > MMC_SET_DRIVER_TYPE_D) {
+		pr_err("%s: Error on getting drive strength. Got drv_type %d\n"
+			, mmc_hostname(host->mmc), drv_type);
+		return MMC_SET_DRIVER_TYPE_B;
+	}
+
+	return drv_type;
+}
+
 static const struct mmc_host_ops sdhci_ops = {
 	.request	= sdhci_request,
 	.set_ios	= sdhci_set_ios,
@@ -2351,6 +2396,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.dfs_governor_exit		= sdhci_gov_exit,
 	.dfs_governor_get_target	= sdhci_gov_get_target,
 #endif
+	.select_drive_strength		= sdhci_select_drive_strength,
 };
 
 /*****************************************************************************\
@@ -2408,8 +2454,8 @@ static void sdhci_tasklet_finish(unsigned long param)
 
 		/* Spec says we should do both at the same time, but Ricoh
 		   controllers do not like that. */
-		sdhci_reset(host, SDHCI_RESET_CMD);
 		sdhci_reset(host, SDHCI_RESET_DATA);
+		sdhci_reset(host, SDHCI_RESET_CMD);
 	}
 
 	host->mrq = NULL;
@@ -2866,7 +2912,7 @@ int sdhci_suspend_host(struct sdhci_host *host)
 		host->card_int_set = sdhci_readl(host, SDHCI_INT_ENABLE) &
 			SDHCI_INT_CARD_INT;
 
-	/* cancel sdio clk gate work */
+	/* cancel delayed clk gate work */
 	cancel_delayed_work_sync(&host->delayed_clk_gate_wrk);
 
 	if (!device_may_wakeup(mmc_dev(host->mmc))) {

@@ -4,6 +4,7 @@
 /*									     */
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 1995-2000 Simon G. Vogl
+ *   Copyright (C) 2016 XiaoMi, Inc.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -424,6 +425,7 @@ struct i2c_adapter {
 	struct device dev;		/* the adapter device */
 
 	bool cancel_xfer_on_shutdown;
+	bool atomic_xfer_only;
 
 	int nr;
 	char name[48];

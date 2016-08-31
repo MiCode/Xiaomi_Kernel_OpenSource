@@ -23,7 +23,7 @@
 
 	i2c@7000c400 {
 		status = "okay";
-		clock-frequency = <100000>;
+		clock-frequency = <400000>;
 	};
 
 	i2c@7000c500 {
@@ -33,7 +33,7 @@
 
 	i2c@7000c700 {
 		status = "okay";
-		clock-frequency = <100000>;
+		clock-frequency = <400000>;
 	};
 
 	i2c@7000d000 {

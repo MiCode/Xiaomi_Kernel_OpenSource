@@ -2,6 +2,7 @@
  * arch/arm/mach-tegra/nvdumper.c
  *
  * Copyright (C) 2011 NVIDIA Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -25,6 +26,31 @@
 #define NVDUMPER_DIRTY 0xdeadbeefU
 
 static uint32_t *nvdumper_ptr;
+static void set_dirty_state(int dirty);
+static int ramdump_set(const char *val, struct kernel_param *kp);
+static int ramdump_mode;
+module_param_call(ramdump_mode, ramdump_set, param_get_int,
+			&ramdump_mode, 0644);
+
+static int ramdump_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+	int old_val = ramdump_mode;
+
+	ret = param_set_int(val, kp);
+
+	if (ret)
+		return ret;
+
+	/* If ramdump_mode is not zero or one, ignore. */
+	if (ramdump_mode >> 1) {
+		ramdump_mode = old_val;
+		return -EINVAL;
+	}
+
+	set_dirty_state(ramdump_mode);
+	return 0;
+}
 
 static int get_dirty_state(void)
 {
@@ -89,7 +115,7 @@ static int __init nvdumper_init(void)
 		printk(KERN_INFO "nvdumper: last reboot was unknown\n");
 		break;
 	}
-	set_dirty_state(1);
+
 	return 0;
 }
 
