@@ -54,6 +54,8 @@
 #define clk_ipa_clk			0xfa685cda
 #define clk_ln_bb_clk			0x3ab0b36d
 #define clk_ln_bb_a_clk			0xc7257ea8
+#define clk_ln_bb_clk_pin		0x1b1c476a
+#define clk_ln_bb_a_clk_pin		0x9cbb5411
 #define clk_mcd_ce1_clk			0xbb615d26
 #define clk_pnoc_keepalive_a_clk	0xf8f91f0b
 #define clk_pnoc_msmbus_clk		0x38b95c77
