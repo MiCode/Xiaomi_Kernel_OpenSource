@@ -1199,6 +1199,17 @@ static struct branch_clk gcc_aggre1_ufs_axi_clk = {
 	},
 };
 
+static struct hw_ctl_clk gcc_aggre1_ufs_axi_hw_ctl_clk = {
+	.cbcr_reg = GCC_AGGRE1_UFS_AXI_CBCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_aggre1_ufs_axi_hw_ctl_clk",
+		.parent = &gcc_aggre1_ufs_axi_clk.c,
+		.ops = &clk_ops_branch_hw_ctl,
+		CLK_INIT(gcc_aggre1_ufs_axi_hw_ctl_clk.c),
+	},
+};
+
 static struct branch_clk gcc_aggre1_usb3_axi_clk = {
 	.cbcr_reg = GCC_AGGRE1_USB3_AXI_CBCR,
 	.has_sibling = 1,
@@ -2638,6 +2649,7 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_qusb2phy_sec_reset),
 	CLK_LIST(gpll0_out_msscc),
 	CLK_LIST(gcc_aggre1_ufs_axi_clk),
+	CLK_LIST(gcc_aggre1_ufs_axi_hw_ctl_clk),
 	CLK_LIST(gcc_aggre1_usb3_axi_clk),
 	CLK_LIST(gcc_bimc_mss_q6_axi_clk),
 	CLK_LIST(gcc_blsp1_ahb_clk),
