@@ -75,6 +75,10 @@ conditions.
                   Without setting this option we will trample on their
                   configuration.
 
+- qcom,dynamic  : Allow dynamic domains to be attached. This is only
+		  useful if the upstream hardware is capable of switching
+		  between multiple domains within a single context bank.
+
 Example:
 
         smmu {
