@@ -24,6 +24,10 @@ enum io_pgtable_fmt {
  * @tlb_sync:      Ensure any queued TLB invalidation has taken effect, and
  *                 any corresponding page table updates are visible to the
  *                 IOMMU.
+ * @alloc_pages_exact: Allocate page table memory (optional, defaults to
+ *                     alloc_pages_exact)
+ * @free_pages_exact:  Free page table memory (optional, defaults to
+ *                     free_pages_exact)
  *
  * Note that these can all be called in atomic context and must therefore
  * not block.
@@ -33,6 +37,8 @@ struct iommu_gather_ops {
 	void (*tlb_add_flush)(unsigned long iova, size_t size, size_t granule,
 			      bool leaf, void *cookie);
 	void (*tlb_sync)(void *cookie);
+	void *(*alloc_pages_exact)(void *cookie, size_t size, gfp_t gfp_mask);
+	void (*free_pages_exact)(void *cookie, void *virt, size_t size);
 };
 
 /**
@@ -222,7 +228,8 @@ extern struct io_pgtable_init_fns io_pgtable_arm_v7s_init_fns;
  * Like alloc_pages_exact(), but with some additional accounting for debug
  * purposes.
  */
-void *io_pgtable_alloc_pages_exact(size_t size, gfp_t gfp_mask);
+void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
+				   size_t size, gfp_t gfp_mask);
 
 /**
  * io_pgtable_free_pages_exact:
@@ -233,6 +240,7 @@ void *io_pgtable_alloc_pages_exact(size_t size, gfp_t gfp_mask);
  * Like free_pages_exact(), but with some additional accounting for debug
  * purposes.
  */
-void io_pgtable_free_pages_exact(void *virt, size_t size);
+void io_pgtable_free_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
+				 void *virt, size_t size);
 
 #endif /* __IO_PGTABLE_H */
