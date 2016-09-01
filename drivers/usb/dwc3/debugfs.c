@@ -843,23 +843,25 @@ static void dwc3_debugfs_create_endpoint_dirs(struct dwc3 *dwc,
 	}
 }
 
-void dwc3_debugfs_init(struct dwc3 *dwc)
+int dwc3_debugfs_init(struct dwc3 *dwc)
 {
 	struct dentry		*root;
 	struct dentry           *file;
+	int			ret;
 
 	root = debugfs_create_dir(dev_name(dwc->dev), NULL);
 	if (IS_ERR_OR_NULL(root)) {
 		if (!root)
 			dev_err(dwc->dev, "Can't create debugfs root\n");
-		return;
+		ret = -ENOMEM;
+		goto err0;
 	}
 	dwc->root = root;
 
 	dwc->regset = kzalloc(sizeof(*dwc->regset), GFP_KERNEL);
 	if (!dwc->regset) {
-		debugfs_remove_recursive(root);
-		return;
+		ret = -ENOMEM;
+		goto err1;
 	}
 
 	dwc->regset->regs = dwc3_regs;
@@ -891,6 +893,13 @@ void dwc3_debugfs_init(struct dwc3 *dwc)
 
 		dwc3_debugfs_create_endpoint_dirs(dwc, root);
 	}
+
+	return 0;
+
+err1:
+	debugfs_remove_recursive(root);
+err0:
+	return ret;
 }
 
 void dwc3_debugfs_exit(struct dwc3 *dwc)
