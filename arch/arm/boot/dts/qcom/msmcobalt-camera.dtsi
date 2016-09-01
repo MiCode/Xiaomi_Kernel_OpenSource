@@ -442,7 +442,7 @@
 		qcom,vdd-names = "camss-vdd", "vfe0-vdd",
 				"vfe1-vdd";
 		qcom,clock-cntl-support;
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_top_ahb_clk>,
@@ -469,7 +469,7 @@
 			<&clock_mmss clk_mmss_camss_vfe1_clk>,
 			<&clock_mmss clk_vfe1_clk_src>,
 			<&clock_mmss clk_mmss_camss_csi_vfe1_clk>;
-		clock-names = "mnoc_maxi_clk", "mnoc_ahb_clk",
+		clock-names = "mmssnoc_axi", "mnoc_ahb_clk",
 			"camss_ahb_clk",
 			"camss_top_ahb_clk", "ispif_ahb_clk",
 			"csi0_src_clk", "csi1_src_clk",
@@ -521,7 +521,7 @@
 		camss-vdd-supply = <&gdsc_camss_top>;
 		smmu-vdd-supply = <&gdsc_bimc_smmu>;
 		qcom,vdd-names = "vdd", "camss-vdd", "smmu-vdd";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -534,7 +534,7 @@
 			<&clock_mmss clk_mmss_camss_vfe_vbif_axi_clk>,
 			<&clock_mmss clk_vfe0_clk_src>,
 			<&clock_mmss clk_mmss_camss_csi_vfe0_clk>;
-		clock-names = "mnoc_maxi_clk", "mnoc_ahb_clk",
+		clock-names = "mmssnoc_axi", "mnoc_ahb_clk",
 			"bimc_smmu_ahb_clk", "bimc_smmu_axi_clk",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"camss_vfe_clk", "camss_vfe_stream_clk",
@@ -601,7 +601,7 @@
 		camss-vdd-supply = <&gdsc_camss_top>;
 		smmu-vdd-supply = <&gdsc_bimc_smmu>;
 		qcom,vdd-names = "vdd", "camss-vdd", "smmu-vdd";
-		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
@@ -614,7 +614,7 @@
 			<&clock_mmss clk_mmss_camss_vfe_vbif_axi_clk>,
 			<&clock_mmss clk_vfe1_clk_src>,
 			<&clock_mmss clk_mmss_camss_csi_vfe1_clk>;
-		clock-names = "mnoc_maxi_clk", "mnoc_ahb_clk",
+		clock-names = "mmssnoc_axi", "mnoc_ahb_clk",
 			"bimc_smmu_ahb_clk", "bimc_smmu_axi_clk",
 			"camss_ahb_clk", "camss_top_ahb_clk",
 			"camss_vfe_clk", "camss_vfe_stream_clk",
