@@ -375,7 +375,7 @@ static int parse_options(struct super_block *sb, struct f2fs_sb_info *sbi,
 	return 0;
 }
 
-static loff_t max_file_size(unsigned bits)
+loff_t max_file_size(unsigned bits)
 {
 	loff_t result = ADDRS_PER_INODE;
 	loff_t leaf_count = ADDRS_PER_BLOCK;
