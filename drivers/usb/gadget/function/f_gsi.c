@@ -16,6 +16,7 @@
 #include <linux/usb/composite.h>
 #include <linux/debugfs.h>
 #include <linux/ipa_usb.h>
+#include <linux/timer.h>
 #include "f_gsi.h"
 #include "rndis.h"
 #include "debug.h"
@@ -341,6 +342,202 @@ static const struct file_operations fops_usb_gsi = {
 		.llseek = default_llseek,
 };
 
+static void debugfs_rw_timer_func(unsigned long arg)
+{
+	struct f_gsi *gsi;
+
+	gsi = (struct f_gsi *)arg;
+
+	if (gsi && atomic_read(&gsi->connected)) {
+		log_event_dbg("%s: calling gsi_wakeup_host\n", __func__);
+		gsi_wakeup_host(gsi);
+	} else {
+		log_event_dbg("%s: gsi not connected..del timer\n", __func__);
+		gsi->debugfs_rw_enable = 0;
+		del_timer(&gsi->debugfs_rw_timer);
+		return;
+	}
+
+	if (gsi->debugfs_rw_enable) {
+		log_event_dbg("%s: re-arm the timer\n", __func__);
+		mod_timer(&gsi->debugfs_rw_timer,
+			jiffies + msecs_to_jiffies(gsi->debugfs_rw_interval));
+	}
+}
+
+static struct f_gsi *get_connected_gsi(void)
+{
+	struct f_gsi *connected_gsi;
+	bool gsi_connected = false;
+	unsigned i;
+
+	for (i = 0; i < IPA_USB_MAX_TETH_PROT_SIZE; i++) {
+		connected_gsi = gsi_prot_ctx[i];
+		if (connected_gsi && atomic_read(&connected_gsi->connected)) {
+			gsi_connected = true;
+			break;
+		}
+	}
+
+	if (!gsi_connected)
+		connected_gsi = NULL;
+
+	return connected_gsi;
+}
+
+#define DEFAULT_RW_TIMER_INTERVAL 500 /* in ms */
+static ssize_t usb_gsi_rw_write(struct file *file,
+			const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct f_gsi *gsi;
+	u8 input;
+	int ret;
+
+	gsi = get_connected_gsi();
+	if (!gsi) {
+		log_event_dbg("%s: gsi not connected\n", __func__);
+		goto err;
+	}
+
+	if (ubuf == NULL) {
+		log_event_dbg("%s: buffer is Null.\n", __func__);
+		goto err;
+	}
+
+	ret = kstrtou8_from_user(ubuf, count, 0, &input);
+	if (ret) {
+		log_event_err("%s: Invalid value. err:%d\n", __func__, ret);
+		goto err;
+	}
+
+	if (gsi->debugfs_rw_enable == !!input) {
+		if (!!input)
+			log_event_dbg("%s: RW already enabled\n", __func__);
+		else
+			log_event_dbg("%s: RW already disabled\n", __func__);
+		goto err;
+	}
+
+	gsi->debugfs_rw_enable = !!input;
+	if (gsi->debugfs_rw_enable) {
+		init_timer(&gsi->debugfs_rw_timer);
+		gsi->debugfs_rw_timer.data = (unsigned long) gsi;
+		gsi->debugfs_rw_timer.function = debugfs_rw_timer_func;
+
+		/* Use default remote wakeup timer interval if it is not set */
+		if (!gsi->debugfs_rw_interval)
+			gsi->debugfs_rw_interval = DEFAULT_RW_TIMER_INTERVAL;
+		gsi->debugfs_rw_timer.expires = jiffies +
+				msecs_to_jiffies(gsi->debugfs_rw_interval);
+		add_timer(&gsi->debugfs_rw_timer);
+		log_event_dbg("%s: timer initialized\n", __func__);
+	} else {
+		del_timer_sync(&gsi->debugfs_rw_timer);
+		log_event_dbg("%s: timer deleted\n", __func__);
+	}
+
+err:
+	return count;
+}
+
+static int usb_gsi_rw_show(struct seq_file *s, void *unused)
+{
+
+	struct f_gsi *gsi;
+
+	gsi = get_connected_gsi();
+	if (!gsi) {
+		log_event_dbg("%s: gsi not connected\n", __func__);
+		return 0;
+	}
+
+	seq_printf(s, "%d\n", gsi->debugfs_rw_enable);
+
+	return 0;
+}
+
+static int usb_gsi_rw_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, usb_gsi_rw_show, inode->i_private);
+}
+
+static const struct file_operations fops_usb_gsi_rw = {
+	.open = usb_gsi_rw_open,
+	.read = seq_read,
+	.write = usb_gsi_rw_write,
+	.owner = THIS_MODULE,
+	.llseek = seq_lseek,
+	.release = seq_release,
+};
+
+static ssize_t usb_gsi_rw_timer_write(struct file *file,
+			const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct f_gsi *gsi;
+	u16 timer_val;
+	int ret;
+
+	gsi = get_connected_gsi();
+	if (!gsi) {
+		log_event_dbg("%s: gsi not connected\n", __func__);
+		goto err;
+	}
+
+	if (ubuf == NULL) {
+		log_event_dbg("%s: buffer is NULL.\n", __func__);
+		goto err;
+	}
+
+	ret = kstrtou16_from_user(ubuf, count, 0, &timer_val);
+	if (ret) {
+		log_event_err("%s: Invalid value. err:%d\n", __func__, ret);
+		goto err;
+	}
+
+	if (timer_val <= 0 || timer_val >  10000) {
+		log_event_err("%s: value must be > 0 and < 10000.\n", __func__);
+		goto err;
+	}
+
+	gsi->debugfs_rw_interval = timer_val;
+err:
+	return count;
+}
+
+static int usb_gsi_rw_timer_show(struct seq_file *s, void *unused)
+{
+	struct f_gsi *gsi;
+	unsigned timer_interval;
+
+	gsi = get_connected_gsi();
+	if (!gsi) {
+		log_event_dbg("%s: gsi not connected\n", __func__);
+		return 0;
+	}
+
+	timer_interval = DEFAULT_RW_TIMER_INTERVAL;
+	if (gsi->debugfs_rw_interval)
+		timer_interval = gsi->debugfs_rw_interval;
+
+	seq_printf(s, "%ums\n", timer_interval);
+
+	return 0;
+}
+
+static int usb_gsi_rw_timer_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, usb_gsi_rw_timer_show, inode->i_private);
+}
+
+static const struct file_operations fops_usb_gsi_rw_timer = {
+	.open = usb_gsi_rw_timer_open,
+	.read = seq_read,
+	.write = usb_gsi_rw_timer_write,
+	.owner = THIS_MODULE,
+	.llseek = seq_lseek,
+	.release = seq_release,
+};
+
 static int usb_gsi_debugfs_init(void)
 {
 	debugfs.debugfs_root = debugfs_create_dir("usb_gsi", 0);
@@ -349,6 +546,13 @@ static int usb_gsi_debugfs_init(void)
 
 	debugfs_create_file("info", S_IRUSR, debugfs.debugfs_root,
 					gsi_prot_ctx, &fops_usb_gsi);
+	debugfs_create_file("remote_wakeup_enable", S_IRUSR | S_IWUSR,
+					debugfs.debugfs_root,
+					gsi_prot_ctx, &fops_usb_gsi_rw);
+	debugfs_create_file("remote_wakeup_interval", S_IRUSR | S_IWUSR,
+					debugfs.debugfs_root,
+					gsi_prot_ctx,
+					&fops_usb_gsi_rw_timer);
 	return 0;
 }
 
