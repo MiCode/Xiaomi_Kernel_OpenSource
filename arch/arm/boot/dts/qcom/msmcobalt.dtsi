@@ -1697,7 +1697,7 @@
 			"rx_lane0_sync_clk";
 		clocks =
 			<&clock_gcc clk_gcc_ufs_axi_hw_ctl_clk>,
-			<&clock_gcc clk_gcc_aggre1_ufs_axi_clk>,
+			<&clock_gcc clk_gcc_aggre1_ufs_axi_hw_ctl_clk>,
 			<&clock_gcc clk_gcc_ufs_ahb_clk>,
 			<&clock_gcc clk_gcc_ufs_unipro_core_hw_ctl_clk>,
 			<&clock_gcc clk_gcc_ufs_ice_core_hw_ctl_clk>,
