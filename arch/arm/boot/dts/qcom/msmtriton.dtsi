@@ -959,6 +959,24 @@
 		qcom,irq-is-percpu;
 		interrupts = <1 6 4>;
 	};
+
+	qcom,chd_silver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x179880b0 0x179980b0
+				      0x179a80b0 0x179b80b0>;
+		qcom,config-arr = <0x179880b8 0x179980b8
+				   0x179a80b8 0x179b80b8>;
+	};
+
+	qcom,chd_gold {
+		compatible = "qcom,core-hang-detect";
+		label = "gold";
+		qcom,threshold-arr = <0x178880b0 0x178980b0
+				      0x178a80b0 0x178b80b0>;
+		qcom,config-arr = <0x178880b8  0x178980b8
+				   0x178a80b8  0x178b80b8>;
+	};
 };
 
 #include "msmtriton-ion.dtsi"
