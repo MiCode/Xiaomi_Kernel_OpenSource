@@ -91,6 +91,7 @@ static const struct snd_kcontrol_new name##_mux = \
 #define WCD934X_MCLK_CLK_12P288MHZ 12288000
 #define WCD934X_MCLK_CLK_9P6MHZ 9600000
 
+#define WCD934X_INTERP_MUX_NUM_INPUTS 3
 #define WCD934X_NUM_INTERPOLATORS 9
 #define WCD934X_NUM_DECIMATORS 9
 #define WCD934X_RX_PATH_CTL_OFFSET 20
@@ -175,6 +176,16 @@ enum {
 	INTn_2_INP_SEL_RX6,
 	INTn_2_INP_SEL_RX7,
 	INTn_2_INP_SEL_PROXIMITY,
+};
+
+enum {
+	INTERP_MAIN_PATH,
+	INTERP_MIX_PATH,
+};
+
+struct tavil_idle_detect_config {
+	u8 hph_idle_thr;
+	u8 hph_idle_detect_en;
 };
 
 static const struct intr_data wcd934x_intr_table[] = {
@@ -504,6 +515,7 @@ struct tavil_priv {
 	/* Main path clock users count */
 	int main_clk_users[WCD934X_NUM_INTERPOLATORS];
 	struct tavil_dsd_config *dsd_config;
+	struct tavil_idle_detect_config idle_det_cfg;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -730,6 +742,37 @@ void *tavil_get_afe_config(struct snd_soc_codec *codec,
 	}
 }
 EXPORT_SYMBOL(tavil_get_afe_config);
+
+static bool is_tavil_playback_dai(int dai_id)
+{
+	if ((dai_id == AIF1_PB) || (dai_id == AIF2_PB) ||
+	    (dai_id == AIF3_PB) || (dai_id == AIF4_PB))
+		return true;
+
+	return false;
+}
+
+static int tavil_find_playback_dai_id_for_port(int port_id,
+					       struct tavil_priv *tavil)
+{
+	struct wcd9xxx_codec_dai_data *dai;
+	struct wcd9xxx_ch *ch;
+	int i, slv_port_id;
+
+	for (i = AIF1_PB; i < NUM_CODEC_DAIS; i++) {
+		if (!is_tavil_playback_dai(i))
+			continue;
+
+		dai = &tavil->dai[i];
+		list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
+			slv_port_id = wcd9xxx_get_slave_port(ch->ch_num);
+			if ((slv_port_id > 0) && (slv_port_id == port_id))
+				return i;
+		}
+	}
+
+	return -EINVAL;
+}
 
 static void tavil_vote_svs(struct tavil_priv *tavil, bool vote)
 {
@@ -2276,6 +2319,36 @@ static int tavil_config_compander(struct snd_soc_codec *codec, int interp_n,
 	return 0;
 }
 
+static void tavil_codec_idle_detect_control(struct snd_soc_codec *codec,
+					    int interp, int event)
+{
+	int reg = 0, mask, val;
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+
+	if (!tavil->idle_det_cfg.hph_idle_detect_en)
+		return;
+
+	if (interp == INTERP_HPHL) {
+		reg = WCD934X_CDC_RX_IDLE_DET_PATH_CTL;
+		mask = 0x01;
+		val = 0x01;
+	}
+	if (interp == INTERP_HPHR) {
+		reg = WCD934X_CDC_RX_IDLE_DET_PATH_CTL;
+		mask = 0x02;
+		val = 0x02;
+	}
+
+	if (reg && SND_SOC_DAPM_EVENT_ON(event))
+		snd_soc_update_bits(codec, reg, mask, val);
+
+	if (reg && SND_SOC_DAPM_EVENT_OFF(event)) {
+		snd_soc_update_bits(codec, reg, mask, 0x00);
+		tavil->idle_det_cfg.hph_idle_thr = 0;
+		snd_soc_write(codec, WCD934X_CDC_RX_IDLE_DET_CFG3, 0x0);
+	}
+}
+
 /**
  * tavil_codec_enable_interp_clk - Enable main path Interpolator
  * clock.
@@ -2305,6 +2378,8 @@ int tavil_codec_enable_interp_clk(struct snd_soc_codec *codec,
 			snd_soc_update_bits(codec, main_reg, 0x10, 0x10);
 			/* Clk enable */
 			snd_soc_update_bits(codec, main_reg, 0x20, 0x20);
+			tavil_codec_idle_detect_control(codec, interp_idx,
+							event);
 			tavil_codec_hd2_control(codec, interp_idx, event);
 			tavil_config_compander(codec, interp_idx, event);
 		}
@@ -2317,6 +2392,8 @@ int tavil_codec_enable_interp_clk(struct snd_soc_codec *codec,
 			tavil->main_clk_users[interp_idx] = 0;
 			tavil_config_compander(codec, interp_idx, event);
 			tavil_codec_hd2_control(codec, interp_idx, event);
+			tavil_codec_idle_detect_control(codec, interp_idx,
+							event);
 			/* Clk Disable */
 			snd_soc_update_bits(codec, main_reg, 0x20, 0x00);
 			/* Reset enable and disable */
@@ -2333,6 +2410,110 @@ int tavil_codec_enable_interp_clk(struct snd_soc_codec *codec,
 	return tavil->main_clk_users[interp_idx];
 }
 EXPORT_SYMBOL(tavil_codec_enable_interp_clk);
+
+static int tavil_codec_set_idle_detect_thr(struct snd_soc_codec *codec,
+					   int interp, int path_type)
+{
+	int port_id[4] = { 0, 0, 0, 0 };
+	int *port_ptr, num_ports;
+	int bit_width = 0, i;
+	int mux_reg, mux_reg_val;
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int dai_id, idle_thr;
+
+	if ((interp != INTERP_HPHL) && (interp != INTERP_HPHR))
+		return 0;
+
+	if (!tavil->idle_det_cfg.hph_idle_detect_en)
+		return 0;
+
+	port_ptr = &port_id[0];
+	num_ports = 0;
+
+	/*
+	 * Read interpolator MUX input registers and find
+	 * which slimbus port is connected and store the port
+	 * numbers in port_id array.
+	 */
+	if (path_type == INTERP_MIX_PATH) {
+		mux_reg = WCD934X_CDC_RX_INP_MUX_RX_INT1_CFG1 +
+			  2 * (interp - 1);
+		mux_reg_val = snd_soc_read(codec, mux_reg) & 0x0f;
+
+		if ((mux_reg_val >= INTn_2_INP_SEL_RX0) &&
+		   (mux_reg_val < INTn_2_INP_SEL_PROXIMITY)) {
+			*port_ptr++ = mux_reg_val +
+				      WCD934X_RX_PORT_START_NUMBER - 1;
+			num_ports++;
+		}
+	}
+
+	if (path_type == INTERP_MAIN_PATH) {
+		mux_reg = WCD934X_CDC_RX_INP_MUX_RX_INT1_CFG0 +
+			  2 * (interp - 1);
+		mux_reg_val = snd_soc_read(codec, mux_reg) & 0x0f;
+		i = WCD934X_INTERP_MUX_NUM_INPUTS;
+
+		while (i) {
+			if ((mux_reg_val >= INTn_1_INP_SEL_RX0) &&
+			    (mux_reg_val <= INTn_1_INP_SEL_RX7)) {
+				*port_ptr++ = mux_reg_val +
+					WCD934X_RX_PORT_START_NUMBER -
+					INTn_1_INP_SEL_RX0;
+				num_ports++;
+			}
+			mux_reg_val = (snd_soc_read(codec, mux_reg) &
+						    0xf0) >> 4;
+			mux_reg += 1;
+			i--;
+		}
+	}
+
+	dev_dbg(codec->dev, "%s: num_ports: %d, ports[%d %d %d %d]\n",
+		__func__, num_ports, port_id[0], port_id[1],
+		port_id[2], port_id[3]);
+
+	i = 0;
+	while (num_ports) {
+		dai_id = tavil_find_playback_dai_id_for_port(port_id[i++],
+							     tavil);
+
+		if ((dai_id >= 0) && (dai_id < NUM_CODEC_DAIS)) {
+			dev_dbg(codec->dev, "%s: dai_id: %d bit_width: %d\n",
+				__func__, dai_id,
+				tavil->dai[dai_id].bit_width);
+
+			if (tavil->dai[dai_id].bit_width > bit_width)
+				bit_width = tavil->dai[dai_id].bit_width;
+		}
+
+		num_ports--;
+	}
+
+	switch (bit_width) {
+	case 16:
+		idle_thr = 0xff; /* F16 */
+		break;
+	case 24:
+	case 32:
+		idle_thr = 0x03; /* F22 */
+		break;
+	default:
+		idle_thr = 0x00;
+		break;
+	}
+
+	dev_dbg(codec->dev, "%s: (new) idle_thr: %d, (cur) idle_thr: %d\n",
+		__func__, idle_thr, tavil->idle_det_cfg.hph_idle_thr);
+
+	if ((tavil->idle_det_cfg.hph_idle_thr == 0) ||
+	    (idle_thr < tavil->idle_det_cfg.hph_idle_thr)) {
+		snd_soc_write(codec, WCD934X_CDC_RX_IDLE_DET_CFG3, idle_thr);
+		tavil->idle_det_cfg.hph_idle_thr = idle_thr;
+	}
+
+	return 0;
+}
 
 static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 				       struct snd_kcontrol *kcontrol,
@@ -2361,6 +2542,8 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		tavil_codec_set_idle_detect_thr(codec, w->shift,
+						INTERP_MIX_PATH);
 		tavil_codec_enable_interp_clk(codec, event, w->shift);
 		/* Clk enable */
 		snd_soc_update_bits(codec, mix_reg, 0x20, 0x20);
@@ -2474,6 +2657,8 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		tavil_codec_set_idle_detect_thr(codec, w->shift,
+						INTERP_MAIN_PATH);
 		tavil_codec_enable_interp_clk(codec, event, w->shift);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -3630,6 +3815,34 @@ static int tavil_compander_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int tavil_hph_idle_detect_get(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int val = 0;
+
+	if (tavil)
+		val = tavil->idle_det_cfg.hph_idle_detect_en;
+
+	ucontrol->value.integer.value[0] = val;
+
+	return 0;
+}
+
+static int tavil_hph_idle_detect_put(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+
+	if (tavil)
+		tavil->idle_det_cfg.hph_idle_detect_en =
+			ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
 static int tavil_dmic_pin_mode_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
@@ -3933,6 +4146,10 @@ static const char * const amic_pwr_lvl_text[] = {
 	"LOW_PWR", "DEFAULT", "HIGH_PERF"
 };
 
+static const char * const hph_idle_detect_text[] = {
+	"OFF", "ON"
+};
+
 static const char * const tavil_ear_pa_gain_text[] = {
 	"G_6_DB", "G_4P5_DB", "G_3_DB", "G_1P5_DB",
 	"G_0_DB", "G_M2P5_DB", "UNDEFINED", "G_M12_DB"
@@ -3940,6 +4157,7 @@ static const char * const tavil_ear_pa_gain_text[] = {
 
 static SOC_ENUM_SINGLE_EXT_DECL(tavil_ear_pa_gain_enum, tavil_ear_pa_gain_text);
 static SOC_ENUM_SINGLE_EXT_DECL(amic_pwr_lvl_enum, amic_pwr_lvl_text);
+static SOC_ENUM_SINGLE_EXT_DECL(hph_idle_detect_enum, hph_idle_detect_text);
 static SOC_ENUM_SINGLE_DECL(cf_dec0_enum, WCD934X_CDC_TX0_TX_PATH_CFG0, 5,
 							cf_text);
 static SOC_ENUM_SINGLE_DECL(cf_dec1_enum, WCD934X_CDC_TX1_TX_PATH_CFG0, 5,
@@ -4159,6 +4377,9 @@ static const struct snd_kcontrol_new tavil_snd_controls[] = {
 		tavil_compander_get, tavil_compander_put),
 	SOC_SINGLE_EXT("COMP8 Switch", SND_SOC_NOPM, COMPANDER_8, 1, 0,
 		tavil_compander_get, tavil_compander_put),
+
+	SOC_ENUM_EXT("HPH Idle Detect", hph_idle_detect_enum,
+		tavil_hph_idle_detect_get, tavil_hph_idle_detect_put),
 
 	SOC_ENUM_EXT("MAD Input", tavil_conn_mad_enum,
 		     tavil_mad_input_get, tavil_mad_input_put),
