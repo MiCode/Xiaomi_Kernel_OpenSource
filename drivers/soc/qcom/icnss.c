@@ -3544,7 +3544,7 @@ static int icnss_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
 
-	wakeup_source_init(&penv->ws, "icnss_ws");
+	wakeup_source_init(&priv->ws, "icnss_ws");
 
 	priv->event_wq = alloc_workqueue("icnss_driver_event", WQ_UNBOUND, 1);
 	if (!priv->event_wq) {
