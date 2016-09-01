@@ -3725,6 +3725,17 @@ static int cpr3_regulator_aging_adjust(struct cpr3_controller *ctrl)
 			return 0;
 	}
 
+	/*
+	 * Verify that the aging possible register (if specified) has an
+	 * acceptable value.
+	 */
+	if (ctrl->aging_possible_reg) {
+		reg = readl_relaxed(ctrl->aging_possible_reg);
+		reg &= ctrl->aging_possible_mask;
+		if (reg != ctrl->aging_possible_val)
+			return 0;
+	}
+
 	restore_current_corner = kcalloc(vreg_count,
 				sizeof(*restore_current_corner), GFP_KERNEL);
 	restore_vreg_enabled = kcalloc(vreg_count,
@@ -5994,6 +6005,21 @@ int cpr3_regulator_register(struct platform_device *pdev,
 		return -ENXIO;
 	}
 	ctrl->cpr_ctrl_base = devm_ioremap(dev, res->start, resource_size(res));
+
+	if (ctrl->aging_possible_mask) {
+		/*
+		 * Aging possible register address is required if an aging
+		 * possible mask has been specified.
+		 */
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"aging_allowed");
+		if (!res || !res->start) {
+			cpr3_err(ctrl, "CPR aging allowed address is missing\n");
+			return -ENXIO;
+		}
+		ctrl->aging_possible_reg = devm_ioremap(dev, res->start,
+							resource_size(res));
+	}
 
 	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
 		ctrl->irq = platform_get_irq_byname(pdev, "cpr");

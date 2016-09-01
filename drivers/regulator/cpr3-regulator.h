@@ -530,6 +530,9 @@ struct cpr3_panic_regs_info {
  *			that this CPR3 controller manages.
  * @cpr_ctrl_base:	Virtual address of the CPR3 controller base register
  * @fuse_base:		Virtual address of fuse row 0
+ * @aging_possible_reg:	Virtual address of an optional platform-specific
+ *			register that must be ready to determine if it is
+ *			possible to perform an aging measurement.
  * @list:		list head used in a global cpr3-regulator list so that
  *			cpr3-regulator structs can be found easily in RAM dumps
  * @thread:		Array of CPR3 threads managed by the CPR3 controller
@@ -669,6 +672,11 @@ struct cpr3_panic_regs_info {
  * @aging_sensor:	Array of CPR3 aging sensors which are used to perform
  *			aging measurements at a runtime.
  * @aging_sensor_count:	Number of elements in the aging_sensor array
+ * @aging_possible_mask: Optional bitmask used to mask off the
+ *			aging_possible_reg register.
+ * @aging_possible_val:	Optional value that the masked aging_possible_reg
+ *			register must have in order for a CPR aging measurement
+ *			to be possible.
  * @step_quot_fixed:	Fixed step quotient value used for target quotient
  *			adjustment if use_dynamic_step_quot is not set.
  *			This parameter is only relevant for CPR4 controllers
@@ -719,6 +727,7 @@ struct cpr3_controller {
 	int			ctrl_id;
 	void __iomem		*cpr_ctrl_base;
 	void __iomem		*fuse_base;
+	void __iomem		*aging_possible_reg;
 	struct list_head	list;
 	struct cpr3_thread	*thread;
 	int			thread_count;
@@ -782,6 +791,8 @@ struct cpr3_controller {
 	bool			aging_failed;
 	struct cpr3_aging_sensor_info *aging_sensor;
 	int			aging_sensor_count;
+	u32			aging_possible_mask;
+	u32			aging_possible_val;
 
 	u32			step_quot_fixed;
 	u32			initial_temp_band;

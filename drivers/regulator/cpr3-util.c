@@ -1163,6 +1163,24 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-aging-ref-voltage",
 			&ctrl->aging_ref_volt);
 
+	/* Aging possible bitmask is optional */
+	ctrl->aging_possible_mask = 0;
+	of_property_read_u32(ctrl->dev->of_node,
+			"qcom,cpr-aging-allowed-reg-mask",
+			&ctrl->aging_possible_mask);
+
+	if (ctrl->aging_possible_mask) {
+		/*
+		 * Aging possible register value required if bitmask is
+		 * specified
+		 */
+		rc = cpr3_parse_ctrl_u32(ctrl,
+				"qcom,cpr-aging-allowed-reg-value",
+				&ctrl->aging_possible_val, 0, UINT_MAX);
+		if (rc)
+			return rc;
+	}
+
 	if (of_find_property(ctrl->dev->of_node, "clock-names", NULL)) {
 		ctrl->core_clk = devm_clk_get(ctrl->dev, "core_clk");
 		if (IS_ERR(ctrl->core_clk)) {
