@@ -2950,6 +2950,7 @@ int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
 		pr_warn("Unsupported FPS. Configuring to max_fps = %d\n",
 				pdata->panel_info.max_fps);
 		dfps = pdata->panel_info.max_fps;
+		dfps_data->fps = dfps;
 	}
 
 	dfps_update_panel_params(pdata, dfps_data);
