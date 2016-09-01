@@ -183,7 +183,7 @@ static void mdss_dsi_phy_v3_config_lane_settings(
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	int i;
-	u32 tx_dctrl[] = {0x18, 0x19, 0x18, 0x02, 0x18};
+	u32 tx_dctrl[] = {0x00, 0x00, 0x00, 0x02, 0x01};
 	struct mdss_dsi_phy_ctrl *pd =
 		&(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
@@ -407,8 +407,8 @@ int mdss_dsi_phy_v3_init(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	mdss_dsi_phy_v3_lanes_enable(ctrl);
 
-	/* Select hybrid mode and use local-wordclk */
-	DSI_PHY_W32(ctrl->phy_io.base, CMN_CTRL_2, 0x08);
+	/* Select full-rate mode */
+	DSI_PHY_W32(ctrl->phy_io.base, CMN_CTRL_2, 0x40);
 
 	mdss_dsi_phy_v3_set_pll_source(ctrl);
 
