@@ -439,7 +439,7 @@ next_step:
 		struct node_info ni;
 
 		/* stop BG_GC if there is not enough free sections. */
-		if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0))
+		if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0, 0))
 			return;
 
 		if (check_valid_map(sbi, segno, off) == 0)
@@ -712,7 +712,7 @@ next_step:
 		nid_t nid = le32_to_cpu(entry->nid);
 
 		/* stop BG_GC if there is not enough free sections. */
-		if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0))
+		if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0, 0))
 			return;
 
 		if (check_valid_map(sbi, segno, off) == 0)
@@ -912,7 +912,7 @@ gc_more:
 		goto stop;
 	}
 
-	if (gc_type == BG_GC && has_not_enough_free_secs(sbi, sec_freed)) {
+	if (gc_type == BG_GC && has_not_enough_free_secs(sbi, sec_freed, 0)) {
 		gc_type = FG_GC;
 		/*
 		 * If there is no victim and no prefree segment but still not
@@ -923,7 +923,7 @@ gc_more:
 						prefree_segments(sbi)) {
 			write_checkpoint(sbi, &cpc);
 			segno = NULL_SEGNO;
-		} else if (has_not_enough_free_secs(sbi, 0)) {
+		} else if (has_not_enough_free_secs(sbi, 0, 0)) {
 			write_checkpoint(sbi, &cpc);
 		}
 	}
@@ -940,7 +940,7 @@ gc_more:
 		sbi->cur_victim_sec = NULL_SEGNO;
 
 	if (!sync) {
-		if (has_not_enough_free_secs(sbi, sec_freed))
+		if (has_not_enough_free_secs(sbi, sec_freed, 0))
 			goto gc_more;
 
 		if (gc_type == FG_GC)
