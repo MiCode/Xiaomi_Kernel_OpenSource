@@ -145,7 +145,7 @@ static void hdmi_cobalt_get_div(struct cobalt_reg_cfg *cfg, unsigned long pclk)
 	u32 const min_freq = 8000, max_freq = 12000;
 	u32 const cmp_cnt = 1024;
 	u32 const th_min = 500, th_max = 1000;
-	u64 bit_clk = pclk * HDMI_BIT_CLK_TO_PIX_CLK_RATIO;
+	u64 bit_clk = ((u64)pclk) * HDMI_BIT_CLK_TO_PIX_CLK_RATIO;
 	u32 half_rate_mode = 0;
 	u32 freq_optimal, list_elements;
 	int optimal_index;
@@ -161,7 +161,7 @@ find_optimal_index:
 
 	for (i = 0; i < sz_ratio; i++) {
 		for (j = 0; j < sz_band; j++) {
-			u64 freq = (bit_clk / (1 << half_rate_mode));
+			u64 freq = div_u64(bit_clk, (1 << half_rate_mode));
 
 			freq *= (ratio_list[i] * (1 << band_list[j]));
 			do_div(freq, (u64) HDMI_MHZ_TO_HZ);

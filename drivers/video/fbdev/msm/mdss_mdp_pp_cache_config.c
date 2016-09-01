@@ -1570,7 +1570,7 @@ static int pp_pa_dither_cache_params_v1_7(
 	res_data->strength = dither_data.strength;
 	res_data->matrix_sz = MDP_DITHER_DATA_V1_7_SZ;
 	ret = copy_from_user(res_data->matrix_data,
-			     (u8 *)dither_data.matrix_data,
+			     (u8 *)((unsigned long)dither_data.matrix_data),
 			     (MDP_DITHER_DATA_V1_7_SZ * sizeof(u32)));
 	if (ret) {
 		pr_err("failed to copy the dither matrix ret %d sz %zd", ret,
@@ -1700,8 +1700,8 @@ static int pp_igc_lut_cache_params_v3(struct mdp_igc_lut_data *config,
 		v3_cache_data->table_fmt = v3_kernel_data->table_fmt;
 	} else {
 		ret = copy_from_user(v3_cache_data->c0_c1_data,
-				     (u8 *)v3_usr_config.c0_c1_data,
-				     len * sizeof(u32));
+			     (u8 *)((unsigned long)v3_usr_config.c0_c1_data),
+			     len * sizeof(u32));
 		if (ret) {
 			pr_err("copy from user failed for c0_c1_data size %zd ret %d\n",
 				len * sizeof(u32), ret);
@@ -1709,8 +1709,8 @@ static int pp_igc_lut_cache_params_v3(struct mdp_igc_lut_data *config,
 			goto igc_config_exit;
 		}
 		ret = copy_from_user(v3_cache_data->c2_data,
-				     (u8 *)v3_usr_config.c2_data,
-				     len * sizeof(u32));
+			     (u8 *)((unsigned long)v3_usr_config.c2_data),
+			     len * sizeof(u32));
 		if (ret) {
 			pr_err("copy from user failed for c2_data size %zd ret %d\n",
 			       len * sizeof(u32), ret);
@@ -1846,7 +1846,7 @@ static int pp_igc_lut_cache_params_pipe_v3(
 		}
 	} else {
 		if (copy_from_user(v3_cache_data->c0_c1_data,
-				(u8 *)v3_usr_config.c0_c1_data,
+				(u8 *)((unsigned long)v3_usr_config.c0_c1_data),
 				IGC_LUT_ENTRIES * sizeof(u32))) {
 			pr_err("error in copying the c0_c1_data of size %zd\n",
 					IGC_LUT_ENTRIES * sizeof(u32));
@@ -1854,7 +1854,7 @@ static int pp_igc_lut_cache_params_pipe_v3(
 			goto igc_config_exit;
 		}
 		if (copy_from_user(v3_cache_data->c2_data,
-				(u8 *)v3_usr_config.c2_data,
+				(u8 *)((unsigned long)v3_usr_config.c2_data),
 				IGC_LUT_ENTRIES * sizeof(u32))) {
 			pr_err("error in copying the c2_data of size %zd\n",
 					IGC_LUT_ENTRIES * sizeof(u32));
