@@ -54,6 +54,7 @@ struct usb_gsi_debugfs {
 
 static struct usb_gsi_debugfs debugfs;
 
+static void gsi_rndis_ipa_reset_trigger(void);
 static void ipa_disconnect_handler(struct gsi_data_port *d_port);
 static int gsi_ctrl_send_notification(struct f_gsi *gsi,
 		enum gsi_ctrl_notify_state);
@@ -960,6 +961,7 @@ static void ipa_work_handler(struct work_struct *w)
 	struct device *dev;
 	struct device *gad_dev;
 	struct f_gsi *gsi;
+	bool block_db;
 
 	event = read_event(d_port);
 
@@ -1072,7 +1074,27 @@ static void ipa_work_handler(struct work_struct *w)
 		}
 		break;
 	case STATE_CONNECTED:
-		if (event == EVT_DISCONNECTED) {
+		if (event == EVT_DISCONNECTED || event == EVT_HOST_NRDY) {
+			if (peek_event(d_port) == EVT_HOST_READY) {
+				read_event(d_port);
+				log_event_dbg("%s: NO_OP NRDY_RDY", __func__);
+				break;
+			}
+
+			if (event == EVT_HOST_NRDY) {
+				log_event_dbg("%s: ST_CON_HOST_NRDY\n",
+								__func__);
+				block_db = true;
+				/* stop USB ringing doorbell to GSI(OUT_EP) */
+				usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
+						GSI_EP_OP_SET_CLR_BLOCK_DBL);
+				gsi_rndis_ipa_reset_trigger();
+				usb_gsi_ep_op(d_port->in_ep, NULL,
+						GSI_EP_OP_ENDXFER);
+				usb_gsi_ep_op(d_port->out_ep, NULL,
+						GSI_EP_OP_ENDXFER);
+			}
+
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
 			usb_gadget_autopm_put_async(d_port->gadget);
@@ -1667,7 +1689,7 @@ static void gsi_rndis_open(struct f_gsi *rndis)
 	rndis_signal_connect(rndis->config);
 }
 
-void gsi_rndis_ipa_reset_trigger(void)
+static void gsi_rndis_ipa_reset_trigger(void)
 {
 	struct f_gsi *rndis = gsi_prot_ctx[IPA_USB_RNDIS];
 	unsigned long flags;
@@ -1700,12 +1722,11 @@ void gsi_rndis_flow_ctrl_enable(bool enable)
 
 	d_port = &rndis->d_port;
 
-	if (enable)	{
-		gsi_rndis_ipa_reset_trigger();
-		usb_gsi_ep_op(d_port->in_ep, NULL, GSI_EP_OP_ENDXFER);
-		usb_gsi_ep_op(d_port->out_ep, NULL, GSI_EP_OP_ENDXFER);
-		post_event(d_port, EVT_DISCONNECTED);
+	if (enable) {
+		log_event_dbg("%s: posting HOST_NRDY\n", __func__);
+		post_event(d_port, EVT_HOST_NRDY);
 	} else {
+		log_event_dbg("%s: posting HOST_READY\n", __func__);
 		post_event(d_port, EVT_HOST_READY);
 	}
 
