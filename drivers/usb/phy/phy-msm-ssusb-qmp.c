@@ -22,9 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/phy.h>
-#include <linux/usb/msm_hsusb.h>
 #include <linux/clk.h>
-#include <linux/clk/msm-clk.h>
 
 enum core_ldo_levels {
 	CORE_LEVEL_NONE = 0,

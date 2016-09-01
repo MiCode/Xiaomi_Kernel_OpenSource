@@ -16,7 +16,6 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
-#include <linux/clk/msm-clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -26,7 +25,6 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
-#include <linux/usb/msm_hsusb.h>
 
 #define QUSB2PHY_PLL_STATUS	0x38
 #define QUSB2PHY_PLL_LOCK	BIT(5)
@@ -314,49 +312,6 @@ err_vdd:
 	if (toggle_vdd)
 		qphy->power_enabled = false;
 	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
-	return ret;
-}
-
-static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
-{
-	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-	int ret = 0;
-
-	dev_dbg(phy->dev, "%s value:%d rm_pulldown:%d\n",
-				__func__, value, qphy->rm_pulldown);
-
-	switch (value) {
-	case POWER_SUPPLY_DP_DM_DPF_DMF:
-		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DPF_DMF\n");
-		if (!qphy->rm_pulldown) {
-			ret = qusb_phy_enable_power(qphy, true, false);
-			if (ret >= 0) {
-				qphy->rm_pulldown = true;
-				dev_dbg(phy->dev, "DP_DM_F: rm_pulldown:%d\n",
-						qphy->rm_pulldown);
-			}
-		}
-
-		break;
-
-	case POWER_SUPPLY_DP_DM_DPR_DMR:
-		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DPR_DMR\n");
-		if (qphy->rm_pulldown) {
-			ret = qusb_phy_enable_power(qphy, false, false);
-			if (ret >= 0) {
-				qphy->rm_pulldown = false;
-				dev_dbg(phy->dev, "DP_DM_R: rm_pulldown:%d\n",
-						qphy->rm_pulldown);
-			}
-		}
-		break;
-
-	default:
-		ret = -EINVAL;
-		dev_err(phy->dev, "Invalid power supply property(%d)\n", value);
-		break;
-	}
-
 	return ret;
 }
 
@@ -710,18 +665,40 @@ static int qusb_phy_notify_disconnect(struct usb_phy *phy,
 
 static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 {
+	int ret = 0;
 	struct qusb_phy *qphy = rdev_get_drvdata(rdev);
 
 	dev_dbg(qphy->phy.dev, "%s\n", __func__);
-	return qusb_phy_update_dpdm(&qphy->phy, POWER_SUPPLY_DP_DM_DPF_DMF);
+
+	if (qphy->rm_pulldown) {
+		ret = qusb_phy_enable_power(qphy, true, false);
+		if (ret >= 0) {
+			qphy->rm_pulldown = true;
+			dev_dbg(qphy->phy.dev, "dpdm_enable:rm_pulldown:%d\n",
+							qphy->rm_pulldown);
+		}
+	}
+
+	return ret;
 }
 
 static int qusb_phy_dpdm_regulator_disable(struct regulator_dev *rdev)
 {
+	int ret = 0;
 	struct qusb_phy *qphy = rdev_get_drvdata(rdev);
 
 	dev_dbg(qphy->phy.dev, "%s\n", __func__);
-	return qusb_phy_update_dpdm(&qphy->phy, POWER_SUPPLY_DP_DM_DPR_DMR);
+
+	if (!qphy->rm_pulldown) {
+		ret = qusb_phy_enable_power(qphy, false, false);
+		if (ret >= 0) {
+			qphy->rm_pulldown = false;
+			dev_dbg(qphy->phy.dev, "dpdm_disable:rm_pulldown:%d\n",
+							qphy->rm_pulldown);
+		}
+	}
+
+	return ret;
 }
 
 static int qusb_phy_dpdm_regulator_is_enabled(struct regulator_dev *rdev)
