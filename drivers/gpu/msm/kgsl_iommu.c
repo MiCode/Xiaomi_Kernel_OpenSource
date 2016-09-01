@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1707,23 +1707,22 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
  */
 struct scatterlist *_create_sg_no_large_pages(struct kgsl_memdesc *memdesc)
 {
-	struct page *page;
-	struct scatterlist *s, *s_temp, *sg_temp;
-	int sglen_alloc = 0;
+	struct scatterlist *s_temp, *sg_temp;
+	int sglen, sglen_alloc = 0;
 	uint64_t offset, pg_size;
 	int i;
 
-	for_each_sg(memdesc->sg, s, memdesc->sglen, i) {
-		if (SZ_1M <= s->length) {
-			sglen_alloc += s->length >> 16;
-			sglen_alloc += ((s->length & 0xF000) >> 12);
-		} else {
+	for (i = 0; i < memdesc->page_count;) {
+		struct page *p = memdesc->pages[i];
+		unsigned int length = (1 << compound_order(p)) << PAGE_SHIFT;
+
+		if (SZ_1M <= length)
+			sglen_alloc += length >> 16;
+		else
 			sglen_alloc++;
-		}
+
+		i += length >> PAGE_SHIFT;
 	}
-	/* No large pages were detected */
-	if (sglen_alloc == memdesc->sglen)
-		return NULL;
 
 	sg_temp = kgsl_malloc(sglen_alloc * sizeof(struct scatterlist));
 	if (NULL == sg_temp)
@@ -1732,21 +1731,29 @@ struct scatterlist *_create_sg_no_large_pages(struct kgsl_memdesc *memdesc)
 	sg_init_table(sg_temp, sglen_alloc);
 	s_temp = sg_temp;
 
-	for_each_sg(memdesc->sg, s, memdesc->sglen, i) {
-		page = sg_page(s);
-		if (SZ_1M <= s->length) {
-			for (offset = 0; offset < s->length; s_temp++) {
-				pg_size = ((s->length - offset) >= SZ_64K) ?
+	for (i = 0; i < memdesc->page_count;) {
+		struct page *p = memdesc->pages[i];
+		unsigned int length = (1 << compound_order(p)) << PAGE_SHIFT;
+
+		if (SZ_1M <= length) {
+			for (offset = 0; offset < length; s_temp++) {
+				pg_size = (length - offset) >= SZ_64K ?
 						SZ_64K : SZ_4K;
-				sg_set_page(s_temp, page, pg_size, offset);
+				sg_set_page(s_temp, p, pg_size, offset);
 				offset += pg_size;
 			}
 		} else {
-			sg_set_page(s_temp, page, s->length, 0);
+			sg_set_page(s_temp, p, length, 0);
 			s_temp++;
 		}
+		i += length >> PAGE_SHIFT;
+
 	}
+	sglen = (int)(s_temp - sg_temp);
+	sg_mark_end(&sg_temp[sglen - 1]);
+
 	return sg_temp;
+
 }
 
 /**
@@ -1819,6 +1826,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 
 	BUG_ON(NULL == iommu_pt);
 
+
 	iommu_virt_addr = memdesc->gpuaddr;
 
 	/* Set up the protection for the page(s) */
@@ -1843,7 +1851,8 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 		}
 		mutex_unlock(&device->mutex);
 	} else {
-		sg_temp = _create_sg_no_large_pages(memdesc);
+		if (memdesc->pages != NULL)
+			sg_temp = _create_sg_no_large_pages(memdesc);
 
 		if (IS_ERR(sg_temp))
 			return PTR_ERR(sg_temp);

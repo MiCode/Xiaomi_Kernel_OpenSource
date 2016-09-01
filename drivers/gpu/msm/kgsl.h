@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,6 +149,8 @@ struct kgsl_memdesc {
 	unsigned int flags; /* Flags set from userspace */
 	struct device *dev;
 	struct dma_attrs attrs;
+	struct page **pages;
+	unsigned int page_count;
 };
 
 /*
