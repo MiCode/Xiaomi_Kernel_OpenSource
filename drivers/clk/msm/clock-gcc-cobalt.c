@@ -240,8 +240,8 @@ DEFINE_EXT_CLK(gpll4_out_main, &gpll4.c);
 
 static struct clk_freq_tbl ftbl_hmss_ahb_clk_src[] = {
 	F(  19200000, cxo_clk_src_ao,    1,    0,     0),
-	F(  37500000, gpll0_out_main,   16,    0,     0),
-	F(  75000000, gpll0_out_main,    8,    0,     0),
+	F(  50000000, gpll0_out_main,   12,    0,     0),
+	F( 100000000, gpll0_out_main,    6,    0,     0),
 	F_END
 };
 
