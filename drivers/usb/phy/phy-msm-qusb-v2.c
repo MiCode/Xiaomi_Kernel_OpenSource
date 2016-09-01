@@ -379,8 +379,9 @@ static int qusb_phy_init(struct usb_phy *phy)
 
 	if (qphy->emulation) {
 		if (qphy->emu_init_seq)
-			qusb_phy_write_seq(qphy->emu_phy_base,
-				qphy->emu_init_seq, qphy->emu_init_seq_len, 0);
+			qusb_phy_write_seq(qphy->emu_phy_base + 0x8000,
+				qphy->emu_init_seq,
+					qphy->emu_init_seq_len, 10000);
 
 		if (qphy->qusb_phy_init_seq)
 			qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
@@ -776,7 +777,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 			}
 
 			of_property_read_u32_array(dev->of_node,
-				"qcom,qemu-init-seq",
+				"qcom,emu-init-seq",
 				qphy->emu_init_seq,
 				qphy->emu_init_seq_len);
 		} else {
@@ -785,6 +786,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+	size = 0;
 	of_get_property(dev->of_node, "qcom,phy-pll-reset-seq", &size);
 	if (size) {
 		qphy->phy_pll_reset_seq = devm_kzalloc(dev,
@@ -807,6 +809,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+	size = 0;
 	of_get_property(dev->of_node, "qcom,emu-dcm-reset-seq", &size);
 	if (size) {
 		qphy->emu_dcm_reset_seq = devm_kzalloc(dev,
@@ -829,6 +832,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+	size = 0;
 	of_get_property(dev->of_node, "qcom,qusb-phy-init-seq", &size);
 	if (size) {
 		qphy->qusb_phy_init_seq = devm_kzalloc(dev,
