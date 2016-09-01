@@ -23,6 +23,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/usb/phy.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 
 enum core_ldo_levels {
 	CORE_LEVEL_NONE = 0,
@@ -85,8 +86,9 @@ struct msm_ssphy_qmp {
 	struct clk		*aux_clk;
 	struct clk		*cfg_ahb_clk;
 	struct clk		*pipe_clk;
-	struct clk		*phy_reset;
-	struct clk		*phy_phy_reset;
+	struct reset_control	*phy_reset;
+	struct reset_control	*phy_phy_reset;
+
 	bool			clk_enabled;
 	bool			cable_connected;
 	bool			in_suspend;
@@ -339,56 +341,39 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 	dev_dbg(uphy->dev, "Resetting QMP phy\n");
 
 	/* Assert USB3 PHY reset */
-	if (phy->phy_phy_reset) {
-		ret = clk_reset(phy->phy_phy_reset, CLK_RESET_ASSERT);
-		if (ret) {
-			dev_err(uphy->dev, "phy_phy reset assert failed\n");
-			goto exit;
-		}
-	} else {
-		ret = clk_reset(phy->pipe_clk, CLK_RESET_ASSERT);
-		if (ret) {
-			dev_err(uphy->dev, "pipe_clk reset assert failed\n");
-			goto exit;
-		}
+	ret = reset_control_assert(phy->phy_phy_reset);
+	if (ret) {
+		dev_err(uphy->dev, "phy_phy_reset assert failed\n");
+		goto exit;
 	}
 
 	/* Assert USB3 PHY CSR reset */
-	ret = clk_reset(phy->phy_reset, CLK_RESET_ASSERT);
+	ret = reset_control_assert(phy->phy_reset);
 	if (ret) {
-		dev_err(uphy->dev, "phy_reset clk assert failed\n");
+		dev_err(uphy->dev, "phy_reset assert failed\n");
 		goto deassert_phy_phy_reset;
 	}
 
 	/* Deassert USB3 PHY CSR reset */
-	ret = clk_reset(phy->phy_reset, CLK_RESET_DEASSERT);
+	ret = reset_control_deassert(phy->phy_reset);
 	if (ret) {
-		dev_err(uphy->dev, "phy_reset clk deassert failed\n");
+		dev_err(uphy->dev, "phy_reset deassert failed\n");
 		goto deassert_phy_phy_reset;
 	}
 
 	/* Deassert USB3 PHY reset */
-	if (phy->phy_phy_reset) {
-		ret = clk_reset(phy->phy_phy_reset, CLK_RESET_DEASSERT);
-		if (ret) {
-			dev_err(uphy->dev, "phy_phy reset deassert failed\n");
-			goto exit;
-		}
-	} else {
-		ret = clk_reset(phy->pipe_clk, CLK_RESET_DEASSERT);
-		if (ret) {
-			dev_err(uphy->dev, "pipe_clk reset deassert failed\n");
-			goto exit;
-		}
+	ret = reset_control_deassert(phy->phy_phy_reset);
+	if (ret) {
+		dev_err(uphy->dev, "phy_phy_reset deassert failed\n");
+		goto exit;
 	}
 
 	return 0;
 
 deassert_phy_phy_reset:
-	if (phy->phy_phy_reset)
-		clk_reset(phy->phy_phy_reset, CLK_RESET_DEASSERT);
-	else
-		clk_reset(phy->pipe_clk, CLK_RESET_DEASSERT);
+	ret = reset_control_deassert(phy->phy_phy_reset);
+	if (ret)
+		dev_err(uphy->dev, "phy_phy_reset deassert failed\n");
 exit:
 	phy->in_suspend = false;
 
@@ -566,26 +551,18 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (of_property_match_string(pdev->dev.of_node,
-				"clock-names", "phy_reset") >= 0) {
-		phy->phy_reset = clk_get(&pdev->dev, "phy_reset");
-		if (IS_ERR(phy->phy_reset)) {
-			ret = PTR_ERR(phy->phy_reset);
-			phy->phy_reset = NULL;
-			dev_dbg(dev, "failed to get phy_reset\n");
-			goto err;
-		}
+	phy->phy_reset = devm_reset_control_get(dev, "phy_reset");
+	if (IS_ERR(phy->phy_reset)) {
+		ret = PTR_ERR(phy->phy_reset);
+		dev_dbg(dev, "failed to get phy_reset\n");
+		goto err;
 	}
 
-	if (of_property_match_string(pdev->dev.of_node,
-				"clock-names", "phy_phy_reset") >= 0) {
-		phy->phy_phy_reset = clk_get(dev, "phy_phy_reset");
-		if (IS_ERR(phy->phy_phy_reset)) {
-			ret = PTR_ERR(phy->phy_phy_reset);
-			phy->phy_phy_reset = NULL;
-			dev_dbg(dev, "phy_phy_reset unavailable\n");
-			goto err;
-		}
+	phy->phy_phy_reset = devm_reset_control_get(dev, "phy_phy_reset");
+	if (IS_ERR(phy->phy_phy_reset)) {
+		ret = PTR_ERR(phy->phy_phy_reset);
+		dev_dbg(dev, "failed to get phy_phy_reset\n");
+		goto err;
 	}
 
 	of_get_property(dev->of_node, "qcom,qmp-phy-reg-offset", &size);
