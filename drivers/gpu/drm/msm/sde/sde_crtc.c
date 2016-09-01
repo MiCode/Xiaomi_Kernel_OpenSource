@@ -1000,6 +1000,10 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc)
 
 	msm_property_install_range(&sde_crtc->property_info, "output_fence",
 			0x0, 0, INR_OPEN_MAX, 0x0, CRTC_PROP_OUTPUT_FENCE);
+
+	msm_property_install_range(&sde_crtc->property_info,
+			"output_fence_offset", 0x0, 0, 1, 0,
+			CRTC_PROP_OUTPUT_FENCE_OFFSET);
 }
 
 /**
@@ -1077,12 +1081,13 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 		cstate = to_sde_crtc_state(state);
 		i = msm_property_index(&sde_crtc->property_info, property);
 		if (i == CRTC_PROP_OUTPUT_FENCE) {
-			/*
-			 * Set output fence offset to zero so that fences
-			 * returned during a commit will signal at the end
-			 * of the same commit.
-			 */
-			ret = sde_fence_create(&sde_crtc->output_fence, val, 0);
+			int offset = sde_crtc_get_property(cstate,
+					CRTC_PROP_OUTPUT_FENCE_OFFSET);
+
+			ret = sde_fence_create(
+					&sde_crtc->output_fence, val, offset);
+			if (ret)
+				SDE_ERROR("fence create failed\n");
 		} else {
 			ret = msm_property_atomic_get(&sde_crtc->property_info,
 					cstate->property_values,

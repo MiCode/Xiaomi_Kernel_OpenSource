@@ -109,6 +109,7 @@ enum msm_mdp_crtc_property {
 	/* range properties */
 	CRTC_PROP_INPUT_FENCE_TIMEOUT = CRTC_PROP_BLOBCOUNT,
 	CRTC_PROP_OUTPUT_FENCE,
+	CRTC_PROP_OUTPUT_FENCE_OFFSET,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT
