@@ -5325,6 +5325,12 @@ int afe_get_sp_th_vi_ftm_data(struct afe_sp_th_vi_get_param *th_vi)
 		goto done;
 	}
 	index = q6audio_get_port_index(port);
+	if (index < 0) {
+		pr_err("%s: invalid port 0x%x, index %d\n",
+			__func__, port, index);
+		ret = -EINVAL;
+		goto done;
+	}
 	th_vi->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 	th_vi->hdr.pkt_size = sizeof(*th_vi);
