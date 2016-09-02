@@ -206,6 +206,89 @@
 	};
 };
 
+&i2c_7 {
+	status = "okay";
+	qcom,smb138x@8 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x8>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xd1 0x0 IRQ_TYPE_LEVEL_LOW>;
+		interrupt_names = "smb138x";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		qcom,periph-map = <0x10 0x11 0x12 0x13 0x14 0x16 0x36>;
+
+		smb138x_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		smb138x_tadc: qcom,tadc@3600 {
+			compatible = "qcom,tadc";
+			reg = <0x3600 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+			interrupts = <0x36 0x0 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "eoc";
+
+			batt_temp@0 {
+				reg = <0>;
+				qcom,rbias = <68100>;
+				qcom,rtherm-at-25degc = <68000>;
+				qcom,beta-coefficient = <3450>;
+			};
+
+			skin_temp@1 {
+				reg = <1>;
+				qcom,rbias = <33000>;
+				qcom,rtherm-at-25degc = <68000>;
+				qcom,beta-coefficient = <3450>;
+			};
+
+			die_temp@2 {
+				reg = <2>;
+				qcom,scale = <(-1032)>;
+				qcom,offset = <344125>;
+			};
+
+			batt_i@3 {
+				reg = <3>;
+				qcom,channel = <3>;
+				qcom,scale = <20000000>;
+			};
+
+			batt_v@4 {
+				reg = <4>;
+				qcom,scale = <5000000>;
+			};
+
+			input_i@5 {
+				reg = <5>;
+				qcom,scale = <14285714>;
+			};
+
+			input_v@6 {
+				reg = <6>;
+				qcom,scale = <25000000>;
+			};
+
+			otg_i@7 {
+				reg = <7>;
+				qcom,scale = <5714286>;
+			};
+		};
+
+		smb138x_parallel_slave: qcom,smb138x-parallel-slave@1000 {
+			compatible = "qcom,smb138x-parallel-slave";
+			qcom,pmic-revid = <&smb138x_revid>;
+			reg = <0x1000 0x700>;
+		};
+	};
+};
+
 &mdss_hdmi_tx {
 	pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active", "hdmi_cec_active",
 				"hdmi_active", "hdmi_sleep";
@@ -354,33 +437,6 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
 	qcom,5v-boost-gpio = <&tlmm 51 0>;
-};
-
-&i2c_7 {
-	status = "okay";
-	qcom,smb138x@8 {
-		compatible = "qcom,i2c-pmic";
-		reg = <0x8>;
-		#address-cells = <2>;
-		#size-cells = <0>;
-		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x0 0xd1 0x0 IRQ_TYPE_LEVEL_LOW>;
-		interrupt_names = "smb138x";
-		interrupt-controller;
-		#interrupt-cells = <3>;
-		qcom,periph-map = <0x10 0x11 0x12 0x13 0x14 0x16 0x36>;
-
-		smb138x_revid: qcom,revid@100 {
-			compatible = "qcom,qpnp-revid";
-			reg = <0x100 0x100>;
-		};
-
-		smb138x_parallel_slave: qcom,smb138x-parallel-slave@1000 {
-			compatible = "qcom,smb138x-parallel-slave";
-			qcom,pmic-revid = <&smb138x_revid>;
-			reg = <0x1000 0x700>;
-		};
-	};
 };
 
 &pmicobalt_haptics {
