@@ -542,4 +542,19 @@ static inline void __user *to_user_ptr(uint64_t address)
 	return (void __user *)(uintptr_t)address;
 }
 
+static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
+			struct kobject *src, const char *src_name,
+			const char *dst_name)
+{
+	struct kernfs_node *old;
+
+	if (dst == NULL || src == NULL)
+		return;
+
+	old = sysfs_get_dirent(src->sd, src_name);
+	if (IS_ERR_OR_NULL(old))
+		return;
+
+	kernfs_create_link(dst->sd, dst_name, old);
+}
 #endif /* __KGSL_H */
