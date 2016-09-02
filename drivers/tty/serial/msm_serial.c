@@ -197,13 +197,13 @@ struct msm_port {
 static
 void msm_write(struct uart_port *port, unsigned int val, unsigned int off)
 {
-	writel_relaxed(val, port->membase + off);
+	writel_relaxed_no_log(val, port->membase + off);
 }
 
 static
 unsigned int msm_read(struct uart_port *port, unsigned int off)
 {
-	return readl_relaxed(port->membase + off);
+	return readl_relaxed_no_log(port->membase + off);
 }
 
 /*
