@@ -339,7 +339,30 @@ core_initcall(arm64_dmi_init);
 
 static void efi_set_pgd(struct mm_struct *mm)
 {
-	switch_mm(NULL, mm, NULL);
+	__switch_mm(mm);
+
+	if (system_uses_ttbr0_pan()) {
+		if (mm != current->active_mm) {
+			/*
+			 * Update the current thread's saved ttbr0 since it is
+			 * restored as part of a return from exception. Set
+			 * the hardware TTBR0_EL1 using cpu_switch_mm()
+			 * directly to enable potential errata workarounds.
+			 */
+			update_saved_ttbr0(current, mm);
+			cpu_switch_mm(mm->pgd, mm);
+		} else {
+			/*
+			 * Defer the switch to the current thread's TTBR0_EL1
+			 * until uaccess_enable(). Restore the current
+			 * thread's saved ttbr0 corresponding to its active_mm
+			 * (if different from init_mm).
+			 */
+			cpu_set_reserved_ttbr0();
+			if (current->active_mm != &init_mm)
+				update_saved_ttbr0(current, current->active_mm);
+		}
+	}
 }
 
 void efi_virtmap_load(void)
