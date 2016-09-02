@@ -267,17 +267,18 @@ static int _ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
 		time = wait_for_completion_timeout(
 				&((struct ipa_rm_resource_cons *)consumer)->
 				request_consumer_in_progress,
-				HZ);
+				HZ * 5);
 		result = 0;
 		if (!time) {
 			IPA_RM_ERR("TIMEOUT waiting for %s GRANT event.",
 					ipa_rm_resource_str(depends_on_name));
 			result = -ETIME;
-		}
-		IPA_RM_DBG("%s waited for %s GRANT %lu time.\n",
+		} else {
+			IPA_RM_DBG("%s waited for %s GRANT %lu time.\n",
 				ipa_rm_resource_str(resource_name),
 				ipa_rm_resource_str(depends_on_name),
 				time);
+		}
 	}
 	IPA_RM_DBG("EXIT with %d\n", result);
 
