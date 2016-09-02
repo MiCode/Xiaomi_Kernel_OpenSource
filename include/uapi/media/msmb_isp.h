@@ -2,6 +2,7 @@
 #define __UAPI_MSMB_ISP__
 
 #include <linux/videodev2.h>
+#include <media/msmb_camera.h>
 
 #define MAX_PLANES_PER_STREAM 3
 #define MAX_NUM_STREAM 7
@@ -556,6 +557,16 @@ struct msm_isp_buf_request {
 	enum msm_isp_buf_type buf_type;
 };
 
+struct msm_isp_buf_request_ver2 {
+	uint32_t session_id;
+	uint32_t stream_id;
+	uint8_t num_buf;
+	uint32_t handle;
+	enum msm_isp_buf_type buf_type;
+	enum smmu_attach_mode security_mode;
+	uint32_t reserved[4];
+};
+
 struct msm_isp_qbuf_plane {
 	uint32_t addr;
 	uint32_t offset;
@@ -884,8 +895,11 @@ enum msm_isp_ioctl_cmd_code {
 	MSM_ISP_SET_DUAL_HW_MASTER_SLAVE,
 	MSM_ISP_MAP_BUF_START_FE,
 	MSM_ISP_UNMAP_BUF,
+	MSM_ISP_AHB_CLK_CFG,
+	MSM_ISP_DUAL_HW_MASTER_SLAVE_SYNC,
 	MSM_ISP_FETCH_ENG_MULTI_PASS_START,
 	MSM_ISP_MAP_BUF_START_MULTI_PASS_FE,
+	MSM_ISP_REQUEST_BUF_VER2,
 };
 
 #define VIDIOC_MSM_VFE_REG_CFG \
@@ -989,10 +1003,10 @@ enum msm_isp_ioctl_cmd_code {
 		struct msm_isp_unmap_buf_req)
 
 #define VIDIOC_MSM_ISP_AHB_CLK_CFG \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+25, struct msm_isp_ahb_clk_cfg)
+	_IOWR('V', MSM_ISP_AHB_CLK_CFG, struct msm_isp_ahb_clk_cfg)
 
 #define VIDIOC_MSM_ISP_DUAL_HW_MASTER_SLAVE_SYNC \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+26, \
+	_IOWR('V', MSM_ISP_DUAL_HW_MASTER_SLAVE_SYNC, \
 	struct msm_isp_dual_hw_master_slave_sync)
 
 #define VIDIOC_MSM_ISP_FETCH_ENG_MULTI_PASS_START \
@@ -1002,4 +1016,8 @@ enum msm_isp_ioctl_cmd_code {
 #define VIDIOC_MSM_ISP_MAP_BUF_START_MULTI_PASS_FE \
 	_IOWR('V', MSM_ISP_MAP_BUF_START_MULTI_PASS_FE, \
 		struct msm_vfe_fetch_eng_multi_pass_start)
+
+#define VIDIOC_MSM_ISP_REQUEST_BUF_VER2 \
+	_IOWR('V', MSM_ISP_REQUEST_BUF_VER2, struct msm_isp_buf_request_ver2)
+
 #endif /* __MSMB_ISP__ */

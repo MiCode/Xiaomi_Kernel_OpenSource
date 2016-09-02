@@ -23,7 +23,7 @@ static inline void msm_isp_stats_cfg_wm_scratch(struct vfe_device *vfe_dev,
 {
 	vfe_dev->hw_info->vfe_ops.stats_ops.update_ping_pong_addr(
 		vfe_dev, stream_info,
-		pingpong_status, vfe_dev->buf_mgr->scratch_buf_addr);
+		pingpong_status, vfe_dev->buf_mgr->scratch_buf_stats_addr);
 }
 
 static inline void msm_isp_stats_cfg_stream_scratch(

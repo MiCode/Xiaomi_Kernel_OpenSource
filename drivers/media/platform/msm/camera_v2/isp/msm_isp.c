@@ -655,8 +655,6 @@ int vfe_hw_probe(struct platform_device *pdev)
 		goto probe_fail3;
 	}
 	msm_isp_enable_debugfs(vfe_dev, msm_isp_bw_request_history);
-	vfe_dev->buf_mgr->num_iommu_secure_ctx =
-		vfe_dev->hw_info->num_iommu_secure_ctx;
 	vfe_dev->buf_mgr->init_done = 1;
 	vfe_dev->vfe_open_cnt = 0;
 	return rc;
