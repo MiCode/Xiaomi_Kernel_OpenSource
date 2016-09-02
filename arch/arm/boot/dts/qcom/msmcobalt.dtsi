@@ -737,6 +737,7 @@
 		vdd_dig-supply = <&pmcobalt_s1_level>;
 		vdd_dig_ao-supply = <&pmcobalt_s1_level_ao>;
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	clock_mmss: qcom,mmsscc@c8c0000 {
@@ -760,6 +761,7 @@
 			 <&mdss_dp_pll clk_vco_divided_clk_src_mux>,
 			 <&mdss_hdmi_pll clk_hdmi_vco_clk>;
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	clock_gpu: qcom,gpucc@5065000 {
