@@ -225,6 +225,16 @@ static int dsp_domr_notify_cb(struct notifier_block *n, unsigned long code,
 		break;
 	case LOCATOR_UP:
 		reg = _cmd;
+		if (!reg || reg->total_domains != 1) {
+			SLIM_WARN(dev, "error locating audio-PD\n");
+			if (reg)
+				SLIM_WARN(dev, "audio-PDs matched:%d\n",
+						reg->total_domains);
+
+			/* Fall back to SSR */
+			ngd_reg_ssr(dev);
+			return NOTIFY_DONE;
+		}
 		dev->dsp.domr = service_notif_register_notifier(
 				reg->domain_list->name,
 				reg->domain_list->instance_id,
