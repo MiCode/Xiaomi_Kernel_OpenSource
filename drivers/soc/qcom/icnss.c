@@ -208,9 +208,7 @@ enum icnss_debug_quirks {
 	PDR_ONLY,
 };
 
-#define ICNSS_QUIRKS_DEFAULT (				\
-			      BIT(SSR_ONLY)		\
-			     )
+#define ICNSS_QUIRKS_DEFAULT		0
 
 unsigned long quirks = ICNSS_QUIRKS_DEFAULT;
 module_param(quirks, ulong, 0600);
@@ -1911,6 +1909,9 @@ static int icnss_call_driver_reinit(struct icnss_priv *priv)
 	if (!priv->ops || !priv->ops->reinit)
 		goto out;
 
+	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
+		goto out;
+
 	icnss_hw_power_on(priv);
 
 	ret = priv->ops->reinit(&priv->pdev->dev);
@@ -2046,6 +2047,9 @@ static int icnss_qmi_pd_event_service_down(struct icnss_priv *priv, void *data)
 	clear_bit(ICNSS_FW_READY, &priv->state);
 
 	if (!priv->ops || !priv->ops->shutdown)
+		goto out;
+
+	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
 		goto out;
 
 	priv->ops->shutdown(&priv->pdev->dev);
