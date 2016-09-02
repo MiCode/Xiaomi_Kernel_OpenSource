@@ -99,13 +99,10 @@ static void sde_hw_lm_setup_border_color(struct sde_hw_mixer *ctx,
 	}
 }
 
-static void sde_hw_lm_setup_blendcfg(struct sde_hw_mixer *ctx,
-			int stage,
-			struct sde_hw_blend_cfg *blend)
+static void sde_hw_lm_setup_blend_config(struct sde_hw_mixer *ctx,
+	u32 stage, u32 fg_alpha, u32 bg_alpha, u32 blend_op)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
-	u32 blend_op;
-	struct sde_hw_alpha_cfg *fg, *bg;
 	int stage_off;
 
 	if (stage == SDE_STAGE_BASE)
@@ -115,39 +112,21 @@ static void sde_hw_lm_setup_blendcfg(struct sde_hw_mixer *ctx,
 	if (WARN_ON(stage_off < 0))
 		return;
 
-	fg = &(blend->fg);
-	bg = &(blend->bg);
-
-	/* fg */
-	blend_op =  (fg->alpha_sel & 3);
-	blend_op |= (fg->inv_alpha_sel & 1) << 2;
-	blend_op |=  (fg->mod_alpha & 1) << 3;
-	blend_op |=  (fg->inv_mode_alpha & 1) << 4;
-
-	/* bg */
-	blend_op |= (bg->alpha_sel & 3) << 8;
-	blend_op |= (bg->inv_alpha_sel & 1) << 10;
-	blend_op |= (bg->mod_alpha & 1) << 11;
-	blend_op |= (bg->inv_mode_alpha & 1) << 12;
-
-	SDE_REG_WRITE(c, LM_BLEND0_FG_ALPHA + stage_off, fg->const_alpha);
-	SDE_REG_WRITE(c, LM_BLEND0_BG_ALPHA + stage_off, bg->const_alpha);
+	SDE_REG_WRITE(c, LM_BLEND0_FG_ALPHA + stage_off, fg_alpha);
+	SDE_REG_WRITE(c, LM_BLEND0_BG_ALPHA + stage_off, bg_alpha);
 	SDE_REG_WRITE(c, LM_BLEND0_OP + stage_off, blend_op);
 }
 
 static void sde_hw_lm_setup_color3(struct sde_hw_mixer *ctx,
-		struct sde_hw_color3_cfg *cfg)
+	uint32_t mixer_op_mode)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
-	int maxblendstages = ctx->cap->sblk->maxblendstages;
-	int i;
 	int op_mode;
 
 	/* read the existing op_mode configuration */
 	op_mode = SDE_REG_READ(c, LM_OP_MODE);
 
-	for (i = SDE_STAGE_0; i <= maxblendstages; i++)
-		op_mode |= (cfg->keep_fg[i]) ? (1 << i) : 0;
+	op_mode |= mixer_op_mode;
 
 	SDE_REG_WRITE(c, LM_OP_MODE, op_mode);
 }
@@ -161,7 +140,7 @@ static void _setup_mixer_ops(struct sde_hw_lm_ops *ops,
 		unsigned long cap)
 {
 	ops->setup_mixer_out = sde_hw_lm_setup_out;
-	ops->setup_blend_config = sde_hw_lm_setup_blendcfg;
+	ops->setup_blend_config = sde_hw_lm_setup_blend_config;
 	ops->setup_alpha_out = sde_hw_lm_setup_color3;
 	ops->setup_border_color = sde_hw_lm_setup_border_color;
 	ops->setup_gammcorrection = sde_hw_lm_gammacorrection;

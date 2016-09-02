@@ -46,15 +46,13 @@ struct sde_hw_lm_ops {
 	 * Alpha blending configuration
 	 * for the specified stage
 	 */
-	void (*setup_blend_config)(struct sde_hw_mixer *ctx,
-			int stage,
-			struct sde_hw_blend_cfg *blend);
+	void (*setup_blend_config)(struct sde_hw_mixer *ctx, uint32_t stage,
+		uint32_t fg_alpha, uint32_t bg_alpha, uint32_t blend_op);
 
 	/*
 	 * Alpha color component selection from either fg or bg
 	 */
-	void (*setup_alpha_out)(struct sde_hw_mixer *ctx,
-			struct sde_hw_color3_cfg *cfg);
+	void (*setup_alpha_out)(struct sde_hw_mixer *ctx, uint32_t mixer_op);
 
 	/**
 	 * setup_border_color : enable/disable border color

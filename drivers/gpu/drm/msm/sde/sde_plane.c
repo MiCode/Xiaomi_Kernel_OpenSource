@@ -22,6 +22,7 @@
 #include "sde_formats.h"
 #include "sde_hw_sspp.h"
 #include "sde_trace.h"
+#include "sde_crtc.h"
 
 #define DECIMATED_DIMENSION(dim, deci) (((dim) + ((1 << (deci)) - 1)) >> (deci))
 #define PHASE_STEP_SHIFT	21
@@ -1058,7 +1059,7 @@ static int _sde_plane_color_fill(struct drm_plane *plane,
 static int _sde_plane_mode_set(struct drm_plane *plane,
 				struct drm_plane_state *state)
 {
-	uint32_t nplanes, src_flags;
+	uint32_t nplanes, src_flags, zpos, split_width;
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	const struct sde_format *fmt;
@@ -1134,6 +1135,14 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	_sde_plane_set_scanout(plane, pstate, &psde->pipe_cfg, fb);
 
 	_sde_plane_setup_scaler(psde, fmt, pstate);
+
+	/* base layer source split needs update */
+	zpos = sde_plane_get_property(pstate, PLANE_PROP_ZPOS);
+	if (zpos == SDE_STAGE_BASE) {
+		split_width = get_crtc_split_width(crtc);
+		if (psde->pipe_cfg.dst_rect.x >= split_width)
+			psde->pipe_cfg.dst_rect.x -= split_width;
+	}
 
 	if (psde->pipe_hw->ops.setup_format)
 		psde->pipe_hw->ops.setup_format(psde->pipe_hw,
@@ -1510,7 +1519,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	}
 
 	msm_property_install_range(&psde->property_info, "zpos", 0x0, 0,
-		max_blendstages, STAGE_BASE, PLANE_PROP_ZPOS);
+		max_blendstages, SDE_STAGE_BASE, PLANE_PROP_ZPOS);
 
 	msm_property_install_range(&psde->property_info, "alpha",
 		0x0, 0, 255, 255, PLANE_PROP_ALPHA);
