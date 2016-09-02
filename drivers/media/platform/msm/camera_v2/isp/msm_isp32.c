@@ -412,10 +412,9 @@ static void msm_vfe32_process_camif_irq(struct vfe_device *vfe_dev,
 		ISP_DBG("%s: SOF IRQ\n", __func__);
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].raw_stream_count > 0
 			&& vfe_dev->axi_data.src_info[VFE_PIX_0].
-			pix_stream_count == 0) {
+			stream_count == 0) {
 			msm_isp_notify(vfe_dev, ISP_EVENT_SOF, VFE_PIX_0, ts);
-			if (vfe_dev->axi_data.stream_update[VFE_PIX_0])
-				msm_isp_axi_stream_update(vfe_dev, VFE_PIX_0);
+			msm_isp_axi_stream_update(vfe_dev, VFE_PIX_0, ts);
 			msm_isp_update_framedrop_reg(vfe_dev, VFE_PIX_0);
 		}
 	}
@@ -608,15 +607,14 @@ static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
 			if ((rdi_status & BIT(7)) && (!(irq_status0 & 0x20)))
 				return;
 		}
-		if (atomic_read(&vfe_dev->stats_data.stats_update))
-			msm_isp_stats_stream_update(vfe_dev);
+		msm_isp_process_stats_reg_upd_epoch_irq(vfe_dev,
+				MSM_ISP_COMP_IRQ_REG_UPD);
 	}
 
 	for (i = VFE_RAW_0; i <= VFE_RAW_2; i++) {
 		if (irq_status1 & BIT(26 + (i - VFE_RAW_0))) {
 			msm_isp_notify(vfe_dev, ISP_EVENT_SOF, i, ts);
-			if (vfe_dev->axi_data.stream_update[i])
-				msm_isp_axi_stream_update(vfe_dev, i);
+			msm_isp_axi_stream_update(vfe_dev, i, ts);
 			msm_isp_update_framedrop_reg(vfe_dev, i);
 
 			vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
@@ -693,8 +691,9 @@ static void msm_vfe32_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
 	uint32_t comp_mask, comp_mask_index =
-		stream_info->comp_mask_index;
+		stream_info->comp_mask_index[vfe_idx];
 	uint32_t irq_mask;
 
 	comp_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x34);
@@ -711,7 +710,9 @@ static void msm_vfe32_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 static void msm_vfe32_axi_clear_comp_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
-	uint32_t comp_mask, comp_mask_index = stream_info->comp_mask_index;
+	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
+	uint32_t comp_mask, comp_mask_index =
+			stream_info->comp_mask_index[vfe_idx];
 	uint32_t irq_mask;
 
 	comp_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x34);
@@ -727,8 +728,10 @@ static void msm_vfe32_axi_cfg_wm_irq_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
 	uint32_t irq_mask;
+	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
+
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x1C);
-	irq_mask |= BIT(stream_info->wm[0] + 6);
+	irq_mask |= BIT(stream_info->wm[vfe_idx][0] + 6);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x1C);
 }
 
@@ -736,15 +739,19 @@ static void msm_vfe32_axi_clear_wm_irq_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
 	uint32_t irq_mask;
+	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
+
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x1C);
-	irq_mask &= ~BIT(stream_info->wm[0] + 6);
+	irq_mask &= ~BIT(stream_info->wm[vfe_idx][0] + 6);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x1C);
 }
 
-static void msm_vfe32_cfg_framedrop(void __iomem *vfe_base,
+static void msm_vfe32_cfg_framedrop(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint32_t framedrop_pattern,
 	uint32_t framedrop_period)
 {
+	void __iomem *vfe_base = vfe_dev->vfe_base;
+
 	if (stream_info->stream_src == PIX_ENCODER) {
 		msm_camera_io_w(framedrop_period - 1, vfe_base + 0x504);
 		msm_camera_io_w(framedrop_period - 1, vfe_base + 0x508);
@@ -929,7 +936,7 @@ static void msm_vfe32_update_camif_state(
 			VFE_PIX_0].raw_stream_count > 0) ? 1 : 0);
 		vfe_en =
 		((vfe_dev->axi_data.src_info[
-			VFE_PIX_0].pix_stream_count > 0) ? 1 : 0);
+			VFE_PIX_0].stream_count > 0) ? 1 : 0);
 		val &= 0xFFFFFF3F;
 		val = val | bus_en << 7 | vfe_en << 6;
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x1E4);
@@ -971,16 +978,17 @@ static void msm_vfe32_axi_cfg_wm_reg(
 	uint8_t plane_idx)
 {
 	uint32_t val;
-	uint32_t wm_base = VFE32_WM_BASE(stream_info->wm[plane_idx]);
+	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
+	uint32_t wm_base = VFE32_WM_BASE(stream_info->wm[vfe_idx][plane_idx]);
 
 	if (!stream_info->frame_based) {
 		/*WR_IMAGE_SIZE*/
 		val =
 			((msm_isp_cal_word_per_line(
 			stream_info->output_format,
-			stream_info->plane_cfg[plane_idx].
+			stream_info->plane_cfg[vfe_idx][plane_idx].
 			output_width)+1)/2 - 1) << 16 |
-			(stream_info->plane_cfg[plane_idx].
+			(stream_info->plane_cfg[vfe_idx][plane_idx].
 			output_height - 1);
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x10);
 
@@ -988,9 +996,9 @@ static void msm_vfe32_axi_cfg_wm_reg(
 		val =
 			msm_isp_cal_word_per_line(
 			stream_info->output_format,
-			stream_info->plane_cfg[plane_idx].
+			stream_info->plane_cfg[vfe_idx][plane_idx].
 			output_stride) << 16 |
-			(stream_info->plane_cfg[plane_idx].
+			(stream_info->plane_cfg[vfe_idx][plane_idx].
 			output_height - 1) << 4 | VFE32_BURST_LEN;
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
 	} else {
@@ -998,9 +1006,9 @@ static void msm_vfe32_axi_cfg_wm_reg(
 		val =
 			msm_isp_cal_word_per_line(
 			stream_info->output_format,
-			stream_info->plane_cfg[plane_idx].
+			stream_info->plane_cfg[vfe_idx][plane_idx].
 			output_width) << 16 |
-			(stream_info->plane_cfg[plane_idx].
+			(stream_info->plane_cfg[vfe_idx][plane_idx].
 			output_height - 1) << 4 | VFE32_BURST_LEN;
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
 	}
@@ -1012,7 +1020,8 @@ static void msm_vfe32_axi_clear_wm_reg(
 	struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx)
 {
 	uint32_t val = 0;
-	uint32_t wm_base = VFE32_WM_BASE(stream_info->wm[plane_idx]);
+	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
+	uint32_t wm_base = VFE32_WM_BASE(stream_info->wm[vfe_idx][plane_idx]);
 	/*WR_IMAGE_SIZE*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x10);
 	/*WR_BUFFER_CFG*/
@@ -1024,9 +1033,10 @@ static void msm_vfe32_axi_cfg_wm_xbar_reg(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx)
 {
+	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
 	struct msm_vfe_axi_plane_cfg *plane_cfg =
-		&stream_info->plane_cfg[plane_idx];
-	uint8_t wm = stream_info->wm[plane_idx];
+		&stream_info->plane_cfg[vfe_idx][plane_idx];
+	uint8_t wm = stream_info->wm[vfe_idx][plane_idx];
 	uint32_t xbar_cfg = 0;
 	uint32_t xbar_reg_cfg = 0;
 
@@ -1080,7 +1090,8 @@ static void msm_vfe32_axi_clear_wm_xbar_reg(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx)
 {
-	uint8_t wm = stream_info->wm[plane_idx];
+	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
+	uint8_t wm = stream_info->wm[vfe_idx][plane_idx];
 	uint32_t xbar_reg_cfg = 0;
 
 	xbar_reg_cfg = msm_camera_io_r(vfe_dev->vfe_base + VFE32_XBAR_BASE(wm));
@@ -1098,6 +1109,7 @@ static void msm_vfe32_cfg_axi_ub_equal_default(struct vfe_device *vfe_dev)
 	uint32_t prop_size = 0;
 	uint32_t wm_ub_size;
 	uint64_t delta;
+
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 		if (axi_data->free_wm[i] > 0) {
 			num_used_wms++;
@@ -1243,9 +1255,11 @@ static void msm_vfe32_stats_cfg_comp_mask(struct vfe_device *vfe_dev,
 static void msm_vfe32_stats_cfg_wm_irq_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info)
 {
+	int vfe_idx = msm_isp_get_vfe_idx_for_stats_stream(vfe_dev,
+				stream_info);
 	uint32_t irq_mask;
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x1C);
-	irq_mask |= BIT(STATS_IDX(stream_info->stream_handle) + 13);
+	irq_mask |= BIT(STATS_IDX(stream_info->stream_handle[vfe_idx]) + 13);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x1C);
 	return;
 }
@@ -1342,12 +1356,15 @@ static void msm_vfe32_stats_enable_module(struct vfe_device *vfe_dev,
 	msm_camera_io_w(module_cfg, vfe_dev->vfe_base + 0x10);
 }
 
-static void msm_vfe32_stats_update_ping_pong_addr(void __iomem *vfe_base,
+static void msm_vfe32_stats_update_ping_pong_addr(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info, uint32_t pingpong_status,
 	dma_addr_t paddr)
 {
+	void __iomem *vfe_base = vfe_dev->vfe_base;
+	int vfe_idx = msm_isp_get_vfe_idx_for_stats_stream(vfe_dev,
+				stream_info);
 	uint32_t paddr32 = (paddr & 0xFFFFFFFF);
-	int stats_idx = STATS_IDX(stream_info->stream_handle);
+	int stats_idx = STATS_IDX(stream_info->stream_handle[vfe_idx]);
 	msm_camera_io_w(paddr32, vfe_base +
 		VFE32_STATS_PING_PONG_BASE(stats_idx, pingpong_status));
 }
