@@ -200,18 +200,6 @@ struct sde_plane_state {
 	((S) && ((X) < PLANE_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
 
 /**
- * sde_plane_get_property32 - Query 32-bit representation of plane property
- *
- * @S: Pointer to plane state
- * @X: Property index, from enum msm_mdp_plane_property
- *
- * Return: 32-bit value of requested property
- */
-#define sde_plane_get_property32(S, X) \
-	((S) && ((X) < PLANE_PROP_COUNT) ? \
-	 (uint32_t)((S)->property_values[(X)]) : 0)
-
-/**
  * Debugfs functions - extra helper functions for debugfs support
  *
  * Main debugfs documentation is located at,

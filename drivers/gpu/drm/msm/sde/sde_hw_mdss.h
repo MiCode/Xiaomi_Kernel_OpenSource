@@ -36,13 +36,30 @@
 #define SDE_MAX_PLANES			4
 #endif
 
-#define SDE_MAX_PIPES_PER_STAGE		2
+#define PIPES_PER_STAGE			2
 
 #define SDE_FORMAT_FLAG_YUV		(1 << 0)
 
 #define SDE_FORMAT_IS_YUV(X)		((X)->flag & SDE_FORMAT_FLAG_YUV)
 #define SDE_FORMAT_IS_LINEAR(X)		((X)->fetch_mode == SDE_FETCH_LINEAR)
 #define SDE_FORMAT_IS_UBWC(X)		((X)->fetch_mode == SDE_FETCH_UBWC)
+
+#define SDE_BLEND_FG_ALPHA_FG_CONST	(0 << 0)
+#define SDE_BLEND_FG_ALPHA_BG_CONST	(1 << 0)
+#define SDE_BLEND_FG_ALPHA_FG_PIXEL	(2 << 0)
+#define SDE_BLEND_FG_ALPHA_BG_PIXEL	(3 << 0)
+#define SDE_BLEND_FG_INV_ALPHA		(1 << 2)
+#define SDE_BLEND_FG_MOD_ALPHA		(1 << 3)
+#define SDE_BLEND_FG_INV_MOD_ALPHA	(1 << 4)
+#define SDE_BLEND_FG_TRANSP_EN		(1 << 5)
+#define SDE_BLEND_BG_ALPHA_FG_CONST	(0 << 8)
+#define SDE_BLEND_BG_ALPHA_BG_CONST	(1 << 8)
+#define SDE_BLEND_BG_ALPHA_FG_PIXEL	(2 << 8)
+#define SDE_BLEND_BG_ALPHA_BG_PIXEL	(3 << 8)
+#define SDE_BLEND_BG_INV_ALPHA		(1 << 10)
+#define SDE_BLEND_BG_MOD_ALPHA		(1 << 11)
+#define SDE_BLEND_BG_INV_MOD_ALPHA	(1 << 12)
+#define SDE_BLEND_BG_TRANSP_EN		(1 << 13)
 
 enum sde_hw_blk_type {
 	SDE_HW_BLK_TOP = 0,
@@ -283,14 +300,6 @@ enum {
 	COLOR_8BIT = 3, /* 8-Bit Alpha also = 3 */
 };
 
-enum sde_alpha_blend_type {
-	ALPHA_FG_CONST = 0,
-	ALPHA_BG_CONST,
-	ALPHA_FG_PIXEL,
-	ALPHA_BG_PIXEL,
-	ALPHA_MAX
-};
-
 /**
  * enum sde_3d_blend_mode
  * Desribes how the 3d data is blended
@@ -375,19 +384,6 @@ struct sde_rect {
 	u16 y;
 	u16 w;
 	u16 h;
-};
-
-struct sde_hw_alpha_cfg {
-	u32 const_alpha;
-	enum sde_alpha_blend_type alpha_sel;
-	u8 inv_alpha_sel;
-	u8 mod_alpha;
-	u8 inv_mode_alpha;
-};
-
-struct sde_hw_blend_cfg {
-	struct sde_hw_alpha_cfg fg;
-	struct sde_hw_alpha_cfg bg;
 };
 
 struct sde_csc_cfg {

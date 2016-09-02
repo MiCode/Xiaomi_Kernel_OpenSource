@@ -29,11 +29,15 @@
  * @hw_lm:	LM HW Driver context
  * @hw_ctl:	CTL Path HW driver context
  * @encoder:	Encoder attached to this lm & ctl
+ * @mixer_op_mode: mixer blending operation mode
+ * @flush_mask:	mixer flush mask for ctl, mixer and pipe
  */
 struct sde_crtc_mixer {
 	struct sde_hw_mixer *hw_lm;
 	struct sde_hw_ctl *hw_ctl;
 	struct drm_encoder *encoder;
+	u32 mixer_op_mode;
+	u32 flush_mask;
 };
 
 /**
@@ -109,5 +113,28 @@ struct sde_crtc_state {
  */
 #define sde_crtc_get_property(S, X) \
 	((S) && ((X) < CRTC_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
+
+static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
+	struct drm_display_mode *mode)
+{
+	if (!sde_crtc || !mode)
+		return 0;
+
+	return  sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
+		mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay;
+}
+
+static inline uint32_t get_crtc_split_width(struct drm_crtc *crtc)
+{
+	struct drm_display_mode *mode;
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc)
+		return 0;
+
+	sde_crtc = to_sde_crtc(crtc);
+	mode = &crtc->state->adjusted_mode;
+	return sde_crtc_mixer_width(sde_crtc, mode);
+}
 
 #endif /* _SDE_CRTC_H_ */

@@ -84,79 +84,86 @@ static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
 }
 
 
-static inline int sde_hw_ctl_get_bitmask_sspp(struct sde_hw_ctl *ctx,
-		u32 *flushbits, enum sde_sspp sspp)
+static inline uint32_t sde_hw_ctl_get_bitmask_sspp(struct sde_hw_ctl *ctx,
+	enum sde_sspp sspp)
 {
+	uint32_t flushbits = 0;
+
 	switch (sspp) {
 	case SSPP_VIG0:
-		*flushbits |=  BIT(0);
+		flushbits =  BIT(0);
 		break;
 	case SSPP_VIG1:
-		*flushbits |= BIT(1);
+		flushbits = BIT(1);
 		break;
 	case SSPP_VIG2:
-		*flushbits |= BIT(2);
+		flushbits = BIT(2);
 		break;
 	case SSPP_VIG3:
-		*flushbits |= BIT(18);
+		flushbits = BIT(18);
 		break;
 	case SSPP_RGB0:
-		*flushbits |= BIT(3);
+		flushbits = BIT(3);
 		break;
 	case SSPP_RGB1:
-		*flushbits |= BIT(4);
+		flushbits = BIT(4);
 		break;
 	case SSPP_RGB2:
-		*flushbits |= BIT(5);
+		flushbits = BIT(5);
 		break;
 	case SSPP_RGB3:
-		*flushbits |= BIT(19);
+		flushbits = BIT(19);
 		break;
 	case SSPP_DMA0:
-		*flushbits |= BIT(11);
+		flushbits = BIT(11);
 		break;
 	case SSPP_DMA1:
-		*flushbits |= BIT(12);
+		flushbits = BIT(12);
 		break;
 	case SSPP_CURSOR0:
-		*flushbits |= BIT(22);
+		flushbits = BIT(22);
 		break;
 	case SSPP_CURSOR1:
-		*flushbits |= BIT(23);
+		flushbits = BIT(23);
 		break;
 	default:
-		return -EINVAL;
+		break;
 	}
-	return 0;
+
+	return flushbits;
 }
 
-static inline int sde_hw_ctl_get_bitmask_mixer(struct sde_hw_ctl *ctx,
-		u32 *flushbits, enum sde_lm lm)
+static inline uint32_t sde_hw_ctl_get_bitmask_mixer(struct sde_hw_ctl *ctx,
+	enum sde_lm lm)
 {
+	uint32_t flushbits = 0;
+
 	switch (lm) {
 	case LM_0:
-		*flushbits |= BIT(6);
+		flushbits = BIT(6);
 		break;
 	case LM_1:
-		*flushbits |= BIT(7);
+		flushbits = BIT(7);
 		break;
 	case LM_2:
-		*flushbits |= BIT(8);
+		flushbits = BIT(8);
 		break;
 	case LM_3:
-		*flushbits |= BIT(9);
+		flushbits = BIT(9);
 		break;
 	case LM_4:
-		*flushbits |= BIT(10);
+		flushbits = BIT(10);
 		break;
 	case LM_5:
-		*flushbits |= BIT(20);
+		flushbits = BIT(20);
 		break;
 	default:
 		return -EINVAL;
 	}
-	*flushbits |= BIT(17); /* CTL */
-	return 0;
+
+	flushbits |= BIT(17); /* CTL */
+
+	return flushbits;
 }
 
 static inline int sde_hw_ctl_get_bitmask_dspp(struct sde_hw_ctl *ctx,
@@ -253,17 +260,20 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	u8 stages;
 	int pipes_per_stage;
 
+	if (index >= CRTC_DUAL_MIXERS)
+		return;
+
 	stages = _mixer_stages(ctx->mixer_hw_caps, ctx->mixer_count, lm);
 	if (stages < 0)
 		return;
 
 	if (test_bit(SDE_MIXER_SOURCESPLIT,
 		&ctx->mixer_hw_caps->features))
-		pipes_per_stage = SDE_MAX_PIPES_PER_STAGE;
+		pipes_per_stage = PIPES_PER_STAGE;
 	else
 		pipes_per_stage = 1;
 
-	mixercfg = stage_cfg->border_enable[index] << 24; /* BORDER_OUT */
+	mixercfg = BIT(24); /* always set BORDER_OUT */
 	mixercfg_ext = 0;
 
 	for (i = 0; i <= stages; i++) {
@@ -271,9 +281,8 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 		mix = (i + 1) & 0x7;
 		ext = i >= 7;
 
-		/* 0: base, 1, stage_0, etc. */
-		for (j = 0; j < pipes_per_stage; j++) {
-			switch (stage_cfg->stage[i][j]) {
+		for (j = 0 ; j < pipes_per_stage; j++) {
+			switch (stage_cfg->stage[index][i][j]) {
 			case SSPP_VIG0:
 				mixercfg |= mix << 0;
 				mixercfg_ext |= ext << 0;
