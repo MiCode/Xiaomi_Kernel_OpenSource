@@ -76,6 +76,9 @@ struct smb_params {
 	struct smb_chg_param	dc_icl_div2_mid_hv;
 	struct smb_chg_param	dc_icl_div2_hv;
 	struct smb_chg_param	jeita_cc_comp;
+	struct smb_chg_param	step_soc_threshold[4];
+	struct smb_chg_param	step_soc;
+	struct smb_chg_param	step_cc_delta[5];
 };
 
 struct parallel_params {
@@ -133,6 +136,7 @@ struct smb_charger {
 	struct delayed_work	hvdcp_detect_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	pl_taper_work;
+	struct delayed_work	step_soc_req_work;
 
 	/* cached status */
 	int			voltage_min_uv;
@@ -145,6 +149,8 @@ struct smb_charger {
 	int			*thermal_mitigation;
 
 	int			fake_capacity;
+
+	bool			step_chg_enabled;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -161,6 +167,13 @@ int smblib_set_charge_param(struct smb_charger *chg,
 int smblib_set_usb_suspend(struct smb_charger *chg, bool suspend);
 int smblib_set_dc_suspend(struct smb_charger *chg, bool suspend);
 
+int smblib_mapping_soc_from_field_value(struct smb_chg_param *param,
+					     int val_u, u8 *val_raw);
+int smblib_mapping_cc_delta_to_field_value(struct smb_chg_param *param,
+					   u8 val_raw);
+int smblib_mapping_cc_delta_from_field_value(struct smb_chg_param *param,
+					     int val_u, u8 *val_raw);
+
 int smblib_vbus_regulator_enable(struct regulator_dev *rdev);
 int smblib_vbus_regulator_disable(struct regulator_dev *rdev);
 int smblib_vbus_regulator_is_enabled(struct regulator_dev *rdev);
@@ -171,6 +184,9 @@ int smblib_vconn_regulator_is_enabled(struct regulator_dev *rdev);
 
 irqreturn_t smblib_handle_debug(int irq, void *data);
 irqreturn_t smblib_handle_chg_state_change(int irq, void *data);
+irqreturn_t smblib_handle_step_chg_state_change(int irq, void *data);
+irqreturn_t smblib_handle_step_chg_soc_update_fail(int irq, void *data);
+irqreturn_t smblib_handle_step_chg_soc_update_request(int irq, void *data);
 irqreturn_t smblib_handle_batt_temp_changed(int irq, void *data);
 irqreturn_t smblib_handle_batt_psy_changed(int irq, void *data);
 irqreturn_t smblib_handle_usb_psy_changed(int irq, void *data);

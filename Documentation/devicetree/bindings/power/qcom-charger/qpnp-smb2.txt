@@ -65,6 +65,21 @@ Charger specific properties:
 		maximum charge current in mA for each thermal
 		level.
 
+- qcom,step-soc-thresholds
+  Usage:      optional
+  Value type: Array of <u32>
+  Definition: Array of SOC threshold values, size of 4. This should be a
+		flat array that denotes the percentage ranging from 0 to 100.
+		If the array is not present, step charging is disabled.
+
+- qcom,step-current-deltas
+  Usage:      optional
+  Value type: Array of <s32>
+  Definition: Array of delta values for charging current, size of 5, with
+		FCC as base.  This should be a flat array that denotes the
+		offset of charging current in uA, from -3100000 to 3200000.
+		If the array is not present, step charging is disabled.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================
@@ -97,6 +112,9 @@ pmicobalt_charger: qcom,qpnp-smb2 {
 
 	qcom,suspend-input;
 	dpdm-supply = <&qusb_phy0>;
+
+	qcom,step-soc-thresholds = <60 70 80 90>;
+	qcom,step-current-deltas = <500000 250000 150000 0 (-150000)>;
 
 	qcom,chgr@1000 {
 		reg = <0x1000 0x100>;
