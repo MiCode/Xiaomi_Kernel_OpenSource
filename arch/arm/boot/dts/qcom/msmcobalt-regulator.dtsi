@@ -537,6 +537,28 @@
 			qcom,enable-time = <500>;
 		};
 	};
+
+	qcom,pmcobalt@1 {
+		pmcobalt_s10: regulator@2f00 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x2f00 0x100>;
+			regulator-name = "pmcobalt_s10";
+			regulator-min-microvolt = <572000>;
+			regulator-max-microvolt = <1112000>;
+			qcom,enable-time = <500>;
+			regulator-always-on;
+		};
+
+		pmcobalt_s13: regulator@3800 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x3800 0x100>;
+			regulator-name = "pmcobalt_s13";
+			regulator-min-microvolt = <572000>;
+			regulator-max-microvolt = <1112000>;
+			qcom,enable-time = <500>;
+			regulator-always-on;
+		};
+	};
 };
 
 /* Stub regulators */
