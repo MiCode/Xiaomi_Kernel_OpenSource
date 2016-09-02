@@ -285,6 +285,11 @@
 			compatible = "qcom,smb138x-parallel-slave";
 			qcom,pmic-revid = <&smb138x_revid>;
 			reg = <0x1000 0x700>;
+
+			io-channels = <&smb138x_tadc 2>,
+				      <&smb138x_tadc 12>;
+			io-channel-names = "charger_temp",
+					   "charger_temp_max";
 		};
 	};
 };
