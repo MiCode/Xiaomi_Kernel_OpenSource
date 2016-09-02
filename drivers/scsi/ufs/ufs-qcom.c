@@ -32,6 +32,7 @@
 #include "ufs_quirks.h"
 #include "ufs-qcom-ice.h"
 #include "ufs-qcom-debugfs.h"
+#include <linux/clk/qcom.h>
 
 #define MAX_PROP_SIZE		   32
 #define VDDP_REF_CLK_MIN_UV        1200000
@@ -356,6 +357,28 @@ out:
 	return err;
 }
 
+static void ufs_qcom_force_mem_config(struct ufs_hba *hba)
+{
+	struct ufs_clk_info *clki;
+
+	/*
+	 * Configure the behavior of ufs clocks core and peripheral
+	 * memory state when they are turned off.
+	 * This configuration is required to allow retaining
+	 * ICE crypto configuration (including keys) when
+	 * core_clk_ice is turned off, and powering down
+	 * non-ICE RAMs of host controller.
+	 */
+	list_for_each_entry(clki, &hba->clk_list_head, list) {
+		if (!strcmp(clki->name, "core_clk_ice"))
+			clk_set_flags(clki->clk, CLKFLAG_RETAIN_MEM);
+		else
+			clk_set_flags(clki->clk, CLKFLAG_NORETAIN_MEM);
+		clk_set_flags(clki->clk, CLKFLAG_NORETAIN_PERIPH);
+		clk_set_flags(clki->clk, CLKFLAG_PERIPH_OFF_CLEAR);
+	}
+}
+
 static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 				      enum ufs_notify_change_status status)
 {
@@ -364,6 +387,7 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 
 	switch (status) {
 	case PRE_CHANGE:
+		ufs_qcom_force_mem_config(hba);
 		ufs_qcom_power_up_sequence(hba);
 		/*
 		 * The PHY PLL output is the source of tx/rx lane symbol
