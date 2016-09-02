@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,9 @@ struct msm_flash_func_t {
 		struct msm_flash_cfg_data_t *);
 	int32_t (*camera_flash_high)(struct msm_flash_ctrl_t *,
 		struct msm_flash_cfg_data_t *);
+	int32_t (*camera_flash_query_current)(struct msm_flash_ctrl_t *,
+		struct msm_flash_query_data_t *);
+
 };
 
 struct msm_flash_table {
@@ -67,6 +70,7 @@ struct msm_flash_ctrl_t {
 	/* Switch node to trigger led */
 	const char *switch_trigger_name;
 	struct led_trigger *switch_trigger;
+	uint32_t is_regulator_enabled;
 
 	/* Flash */
 	uint32_t flash_num_sources;
