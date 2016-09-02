@@ -64,7 +64,7 @@ struct nand_flash_dev nand_flash_ids[] = {
 		  4 },
 	{"KSLCMBL2VA2M2A 2G 1.8V 8-bit",
 		{ .id = {0x98, 0xac, 0x90, 0x26, 0x76, 0x00, 0x00, 0x00} },
-		SZ_4K, SZ_512, SZ_256K, 0, 5, 128, NAND_ECC_INFO(8, SZ_512) },
+		SZ_4K, SZ_512, SZ_256K, 0, 5, 256, NAND_ECC_INFO(8, SZ_512) },
 
 	{"MT29RZ2B1DZZHGSP 2G  1.8V 4-bit",
 		{ .id = {0x2c, 0xaa, 0x90, 0x15, 0x00, 0x00, 0x00, 0x00} },
