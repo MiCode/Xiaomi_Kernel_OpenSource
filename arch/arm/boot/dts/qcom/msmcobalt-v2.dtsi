@@ -240,6 +240,7 @@
 &apc0_cpr {
 	compatible = "qcom,cprh-msmcobalt-v2-kbss-regulator";
 	qcom,cpr-corner-switch-delay-time = <1042>;
+	qcom,cpr-aging-ref-voltage = <1056000>;
 };
 
 &apc0_pwrcl_vreg {
@@ -381,11 +382,16 @@
 	qcom,allow-voltage-interpolation;
 	qcom,allow-quotient-interpolation;
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+	qcom,cpr-aging-ref-corner = <22 22>;
+	qcom,cpr-aging-ro-scaling-factor = <2950>;
+	qcom,allow-aging-voltage-adjustment = <0>;
 };
 
 &apc1_cpr {
 	compatible = "qcom,cprh-msmcobalt-v2-kbss-regulator";
 	qcom,cpr-corner-switch-delay-time = <1042>;
+	qcom,cpr-aging-ref-voltage = <1056000>;
 };
 
 &apc1_perfcl_vreg {
@@ -537,6 +543,10 @@
 	qcom,allow-voltage-interpolation;
 	qcom,allow-quotient-interpolation;
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+	qcom,cpr-aging-ref-corner = <30 26>;
+	qcom,cpr-aging-ro-scaling-factor = <2950>;
+	qcom,allow-aging-voltage-adjustment = <0>;
 };
 
 &pm8005_s1 {
