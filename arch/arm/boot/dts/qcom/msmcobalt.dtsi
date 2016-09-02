@@ -1851,15 +1851,18 @@
 
 	qusb_phy0: qusb@c012000 {
 		compatible = "qcom,qusb2phy-v2";
-		reg = <0x0c012000 0x2a8>;
-		reg-names = "qusb_phy_base";
+		reg = <0x0c012000 0x2a8>,
+		      <0x01fcb24c 0x4>;
+		reg-names = "qusb_phy_base",
+				"tcsr_clamp_dig_n_1p8";
 		vdd-supply = <&pmcobalt_l1>;
 		vdda18-supply = <&pmcobalt_l12>;
 		vdda33-supply = <&pmcobalt_l24>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,qusb-phy-init-seq =
 				/* <value reg_offset> */
-					<0x13 0x04
+					<0x80 0x0
+					0x13 0x04
 					0x7c 0x18c
 					0x80 0x2c
 					0x0a 0x184
