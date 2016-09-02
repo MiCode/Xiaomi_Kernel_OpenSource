@@ -1404,6 +1404,34 @@ static int tavil_codec_enable_slim_chmask(struct wcd9xxx_codec_dai_data *dai,
 	return ret;
 }
 
+static void tavil_codec_mute_dsd(struct snd_soc_codec *codec,
+				 struct list_head *ch_list)
+{
+	u8 dsd0_in;
+	u8 dsd1_in;
+	struct wcd9xxx_ch *ch;
+
+	/* Read DSD Input Ports */
+	dsd0_in = (snd_soc_read(codec, WCD934X_CDC_DSD0_CFG0) & 0x3C) >> 2;
+	dsd1_in = (snd_soc_read(codec, WCD934X_CDC_DSD1_CFG0) & 0x3C) >> 2;
+
+	if ((dsd0_in == 0) && (dsd1_in == 0))
+		return;
+
+	/*
+	 * Check if the ports getting disabled are connected to DSD inputs.
+	 * If connected, enable DSD mute to avoid DC entering into DSD Filter
+	 */
+	list_for_each_entry(ch, ch_list, list) {
+		if (ch->port == (dsd0_in + WCD934X_RX_PORT_START_NUMBER - 1))
+			snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2,
+					    0x04, 0x04);
+		if (ch->port == (dsd1_in + WCD934X_RX_PORT_START_NUMBER - 1))
+			snd_soc_update_bits(codec, WCD934X_CDC_DSD1_CFG2,
+					    0x04, 0x04);
+	}
+}
+
 static int tavil_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol,
 				     int event)
@@ -1413,6 +1441,7 @@ static int tavil_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 	struct wcd9xxx_codec_dai_data *dai;
+	struct tavil_dsd_config *dsd_conf = tavil_p->dsd_config;
 
 	core = dev_get_drvdata(codec->dev->parent);
 
@@ -1435,6 +1464,9 @@ static int tavil_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 					      &dai->grph);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		if (dsd_conf)
+			tavil_codec_mute_dsd(codec, &dai->wcd9xxx_ch_list);
+
 		ret = wcd9xxx_disconnect_port(core, &dai->wcd9xxx_ch_list,
 					      dai->grph);
 		dev_dbg(codec->dev, "%s: Disconnect RX port, ret = %d\n",
@@ -1771,6 +1803,12 @@ static int tavil_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, WCD934X_HPH_REFBUFF_LP_CTL,
 				    0x06, (0x03 << 1));
 		set_bit(HPH_PA_DELAY, &tavil->status_mask);
+		if (dsd_conf &&
+		    (snd_soc_read(codec, WCD934X_CDC_DSD1_PATH_CTL) & 0x01)) {
+			/* Set regulator mode to AB if DSD is enabled */
+			snd_soc_update_bits(codec, WCD934X_ANA_RX_SUPPLIES,
+					    0x02, 0x02);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/*
@@ -1797,13 +1835,9 @@ static int tavil_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 					    WCD934X_CDC_RX2_RX_PATH_MIX_CTL,
 					    0x10, 0x00);
 		if (dsd_conf &&
-		    (snd_soc_read(codec, WCD934X_CDC_DSD1_PATH_CTL) & 0x01)) {
-			/* Set regulator mode to AB if DSD is enabled */
-			snd_soc_update_bits(codec, WCD934X_ANA_RX_SUPPLIES,
-					    0x02, 0x02);
+		    (snd_soc_read(codec, WCD934X_CDC_DSD1_PATH_CTL) & 0x01))
 			snd_soc_update_bits(codec, WCD934X_CDC_DSD1_CFG2,
 					    0x04, 0x00);
-		}
 		tavil_codec_override(codec, tavil->hph_mode, event);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
@@ -1840,6 +1874,12 @@ static int tavil_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, WCD934X_HPH_REFBUFF_LP_CTL,
 				    0x06, (0x03 << 1));
 		set_bit(HPH_PA_DELAY, &tavil->status_mask);
+		if (dsd_conf &&
+		    (snd_soc_read(codec, WCD934X_CDC_DSD0_PATH_CTL) & 0x01)) {
+			/* Set regulator mode to AB if DSD is enabled */
+			snd_soc_update_bits(codec, WCD934X_ANA_RX_SUPPLIES,
+					    0x02, 0x02);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/*
@@ -1866,13 +1906,9 @@ static int tavil_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 					    WCD934X_CDC_RX1_RX_PATH_MIX_CTL,
 					    0x10, 0x00);
 		if (dsd_conf &&
-		    (snd_soc_read(codec, WCD934X_CDC_DSD0_PATH_CTL) & 0x01)) {
-			/* Set regulator mode to AB if DSD is enabled */
-			snd_soc_update_bits(codec, WCD934X_ANA_RX_SUPPLIES,
-					    0x02, 0x02);
+		    (snd_soc_read(codec, WCD934X_CDC_DSD0_PATH_CTL) & 0x01))
 			snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2,
 					    0x04, 0x00);
-		}
 		tavil_codec_override(codec, tavil->hph_mode, event);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
