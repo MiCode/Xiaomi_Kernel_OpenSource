@@ -267,6 +267,8 @@ static enum power_supply_property smb138x_batt_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CHARGER_TEMP,
+	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 };
 
 static int smb138x_batt_get_prop(struct power_supply *psy,
@@ -295,6 +297,12 @@ static int smb138x_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = smblib_get_prop_batt_capacity(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP:
+		rc = smblib_get_prop_charger_temp(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
+		rc = smblib_get_prop_charger_temp_max(chg, val);
 		break;
 	default:
 		pr_err("batt power supply get prop %d not supported\n",
@@ -381,6 +389,8 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CHARGER_TEMP,
+	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 };
 
 static int smb138x_parallel_get_prop(struct power_supply *psy,
@@ -414,6 +424,12 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fcc,
 					     &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP:
+		rc = smblib_get_prop_charger_temp(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
+		rc = smblib_get_prop_charger_temp_max(chg, val);
 		break;
 	default:
 		pr_err("parallel power supply get prop %d not supported\n",
