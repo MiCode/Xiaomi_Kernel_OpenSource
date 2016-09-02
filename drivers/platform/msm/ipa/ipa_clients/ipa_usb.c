@@ -2136,11 +2136,11 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 
 connect_fail:
 	ipa3_usb_release_xdci_channel(dl_out_params->clnt_hdl,
-		dl_chan_params->teth_prot);
+		IPA3_USB_GET_TTYPE(dl_chan_params->teth_prot));
 alloc_dl_chan_fail:
 	if (connect_params->teth_prot != IPA_USB_DIAG)
 		ipa3_usb_release_xdci_channel(ul_out_params->clnt_hdl,
-			ul_chan_params->teth_prot);
+			IPA3_USB_GET_TTYPE(ul_chan_params->teth_prot));
 bad_params:
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);
 	return result;
