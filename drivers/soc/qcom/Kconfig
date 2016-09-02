@@ -184,3 +184,11 @@ config QCOM_MEMORY_DUMP_V2
 	  subsystems to register respective dump regions. At the time
 	  of deadlocks or cpu hangs these dump regions are captured to
 	  give a snapshot of the system at the time of the crash.
+
+config QCOM_BUS_SCALING
+	bool "Bus scaling driver"
+	help
+	This option enables bus scaling on MSM devices.  Bus scaling
+	allows devices to request the clocks be set to rates sufficient
+	for the active devices needs without keeping the clocks at max
+	frequency when a slower speed is sufficient.
