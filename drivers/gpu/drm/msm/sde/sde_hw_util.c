@@ -9,7 +9,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 #include "msm_drv.h"
+#include "sde_kms.h"
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
 
@@ -23,7 +25,8 @@ void sde_reg_write(struct sde_hw_blk_reg_map *c,
 {
 	/* don't need to mutex protect this */
 	if (c->log_mask & sde_hw_util_log_mask)
-		DBG("[%s:0x%X] <= 0x%X", name, c->blk_off + reg_off, val);
+		SDE_DEBUG_DRIVER("[%s:0x%X] <= 0x%X\n",
+				name, c->blk_off + reg_off, val);
 	writel_relaxed(val, c->base_off + c->blk_off + reg_off);
 }
 
