@@ -404,8 +404,11 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 		 * buffers here and do not forward them to the mux layer.
 		 */
 		if ((atomic_read(&(mhi_info->read_ch.opened)))) {
-			diag_remote_dev_read_done(mhi_info->dev_id, buf,
+			err = diag_remote_dev_read_done(mhi_info->dev_id, buf,
 						  result.bytes_xferd);
+			if (err)
+				mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH,
+					buf, result.bytes_xferd);
 		} else {
 			mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH, buf,
 					   result.bytes_xferd);

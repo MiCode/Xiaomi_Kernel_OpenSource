@@ -20,6 +20,14 @@ Optional properties:
 			   means that Neutrino will stay on reset during
 			   PCIe suspend
   - qcom,ntn-disable-phy: Use for devices that don't have a PHY chip
+  - qcom,ntn-timestamp-valid-window: If the timestamp in the AVTP packet is
+			   between the current time and the current time plus
+			   the timestamp valid window, Neutrino will hold the
+			   packet until the timestamp elapses. Otherwise, the
+			   packet is sent immediately. Each unit is 2^24 ns,
+			   or approx 16.8 ms. For example, a value of 4 would
+			   mean a timestamp valid window of approximately 67
+			   ms.
 
 Example:
 	qcom,ntn_avb {
@@ -41,4 +49,5 @@ Example:
 		qcom,ntn-rc-num = <1>;
 		qcom,ntn-fw-load-delay-msec = <200>;
 		qcom,ntn-pcierst-resx;
+		qcom,ntn-timestamp-valid-window = <4>; /* 4 is approx 67 ms */
 	};

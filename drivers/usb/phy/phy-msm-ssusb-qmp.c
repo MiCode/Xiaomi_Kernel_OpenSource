@@ -173,8 +173,6 @@ static const struct qmp_reg_val qmp_settings_rev1[] = {
 	{0x38, 0x12}, /* QSERDES_COM_PLL_IP_SETP */
 	{0x3C, 0x0F}, /* QSERDES_COM_PLL_CP_SETP */
 	{0x24, 0x01}, /* QSERDES_COM_PLL_IP_SETI */
-	{0x0C, 0x0F}, /* QSERDES_COM_IE_TRIM */
-	{0x10, 0x0F}, /* QSERDES_COM_IP_TRIM */
 	{0x14, 0x46}, /* QSERDES_COM_PLL_CNTRL */
 
 	/* CDR Settings */
