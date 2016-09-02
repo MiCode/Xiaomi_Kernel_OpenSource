@@ -25,6 +25,7 @@
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
 #include <linux/dma-mapping.h>
+#include <linux/highmem.h>
 
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/ramdump.h>
@@ -612,6 +613,10 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 		scm_pas_disable_bw();
 		return -ENOMEM;
 	}
+
+	/* Make sure there are no mappings in PKMAP and fixmap */
+	kmap_flush_unused();
+	kmap_atomic_flush_unused();
 
 	memcpy(mdata_buf, metadata, size);
 
