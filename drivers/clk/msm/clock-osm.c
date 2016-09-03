@@ -77,6 +77,7 @@ enum clk_osm_trace_packet_id {
 #define MEM_ACC_SEQ_CONST(n) (n)
 #define MEM_ACC_INSTR_COMP(n) (0x67 + ((n) * 0x40))
 #define MEM_ACC_SEQ_REG_VAL_START(n) (SEQ_REG(60 + (n)))
+#define SEQ_REG1_MSMCOBALT_V2 0x1048
 
 #define OSM_TABLE_SIZE 40
 #define MAX_CLUSTER_CNT 2
@@ -116,7 +117,7 @@ enum clk_osm_trace_packet_id {
 #define PLL_TEST_CTL_HI		0x1C
 #define PLL_STATUS		0x2C
 #define PLL_LOCK_DET_MASK	BIT(16)
-#define PLL_WAIT_LOCK_TIME_US 5
+#define PLL_WAIT_LOCK_TIME_US	10
 #define PLL_WAIT_LOCK_TIME_NS	(PLL_WAIT_LOCK_TIME_US * 1000)
 #define PLL_MIN_LVAL 43
 
@@ -165,7 +166,8 @@ enum clk_osm_trace_packet_id {
 #define DCVS_DROOP_EN_MASK BIT(5)
 #define LMH_PS_EN_MASK BIT(6)
 #define IGNORE_PLL_LOCK_MASK BIT(15)
-#define SAFE_FREQ_WAIT_NS 1000
+#define SAFE_FREQ_WAIT_NS 5000
+#define DEXT_DECREMENT_WAIT_NS 1000
 #define DCVS_BOOST_TIMER_REG0 0x1084
 #define DCVS_BOOST_TIMER_REG1 0x1088
 #define DCVS_BOOST_TIMER_REG2 0x108C
@@ -174,7 +176,8 @@ enum clk_osm_trace_packet_id {
 #define PS_BOOST_TIMER_REG2 0x109C
 #define BOOST_PROG_SYNC_DELAY_REG 0x10A0
 #define DROOP_CTRL_REG 0x10A4
-#define DROOP_PROG_SYNC_DELAY_REG 0x10B8
+#define DROOP_RELEASE_TIMER_CTRL 0x10A8
+#define DROOP_PROG_SYNC_DELAY_REG 0x10BC
 #define DROOP_UNSTALL_TIMER_CTRL_REG 0x10AC
 #define DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG 0x10B0
 #define DROOP_WAIT_TO_RELEASE_TIMER_CTRL1_REG 0x10B4
@@ -340,6 +343,9 @@ struct clk_osm {
 	u32 trace_periodic_timer;
 	bool trace_en;
 };
+
+static bool msmcobalt_v1;
+static bool msmcobalt_v2;
 
 static inline void clk_osm_masked_write_reg(struct clk_osm *c, u32 val,
 					    u32 offset, u32 mask)
@@ -1617,6 +1623,9 @@ static void clk_osm_setup_osm_was(struct clk_osm *c)
 	u32 cc_hyst;
 	u32 val;
 
+	if (msmcobalt_v2)
+		return;
+
 	val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 	val |= IGNORE_PLL_LOCK_MASK;
 	cc_hyst = clk_osm_read_reg(c, SPM_CC_HYSTERESIS);
@@ -1708,19 +1717,19 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 	if (c->boost_fsm_en) {
 		val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 		clk_osm_write_reg(c, val | CC_BOOST_EN_MASK, PDN_FSM_CTRL_REG);
+
 		val = clk_osm_read_reg(c, CC_BOOST_TIMER_REG0);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
-		val |= BVAL(31, 16, clk_osm_count_ns(c,
-						     SAFE_FREQ_WAIT_NS));
+		val |= BVAL(31, 16, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
 		clk_osm_write_reg(c, val, CC_BOOST_TIMER_REG0);
 
 		val = clk_osm_read_reg(c, CC_BOOST_TIMER_REG1);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
-		val |= BVAL(31, 16, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
+		val |= BVAL(31, 16, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
 		clk_osm_write_reg(c, val, CC_BOOST_TIMER_REG1);
 
 		val = clk_osm_read_reg(c, CC_BOOST_TIMER_REG2);
-		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
+		val |= BVAL(15, 0, clk_osm_count_ns(c, DEXT_DECREMENT_WAIT_NS));
 		clk_osm_write_reg(c, val, CC_BOOST_TIMER_REG2);
 	}
 
@@ -1731,12 +1740,19 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 				  PDN_FSM_CTRL_REG);
 
 		val = clk_osm_read_reg(c, DCVS_BOOST_TIMER_REG0);
+		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
 		val |= BVAL(31, 16, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
 		clk_osm_write_reg(c, val, DCVS_BOOST_TIMER_REG0);
 
 		val = clk_osm_read_reg(c, DCVS_BOOST_TIMER_REG1);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
+		val |= BVAL(31, 16, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
 		clk_osm_write_reg(c, val, DCVS_BOOST_TIMER_REG1);
+
+		val = clk_osm_read_reg(c, DCVS_BOOST_TIMER_REG2);
+		val |= BVAL(15, 0, clk_osm_count_ns(c, DEXT_DECREMENT_WAIT_NS));
+		clk_osm_write_reg(c, val, DCVS_BOOST_TIMER_REG2);
+
 	}
 
 	/* PS FSM */
@@ -1744,13 +1760,19 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 		val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 		clk_osm_write_reg(c, val | PS_BOOST_EN_MASK, PDN_FSM_CTRL_REG);
 
-		val = clk_osm_read_reg(c, PS_BOOST_TIMER_REG0) |
-			BVAL(31, 16, clk_osm_count_ns(c, 1000));
+		val = clk_osm_read_reg(c, PS_BOOST_TIMER_REG0);
+		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
+		val |= BVAL(31, 16, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
 		clk_osm_write_reg(c, val, PS_BOOST_TIMER_REG0);
 
-		val = clk_osm_read_reg(c, PS_BOOST_TIMER_REG1) |
-			clk_osm_count_ns(c, 1000);
+		val = clk_osm_read_reg(c, PS_BOOST_TIMER_REG1);
+		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
+		val |= BVAL(31, 16, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
 		clk_osm_write_reg(c, val, PS_BOOST_TIMER_REG1);
+
+		val = clk_osm_read_reg(c, PS_BOOST_TIMER_REG2);
+		val |= BVAL(15, 0, clk_osm_count_ns(c, DEXT_DECREMENT_WAIT_NS));
+		clk_osm_write_reg(c, val, PS_BOOST_TIMER_REG2);
 	}
 
 	/* PLL signal timing control */
@@ -1763,15 +1785,15 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 		val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 		clk_osm_write_reg(c, val | WFX_DROOP_EN_MASK, PDN_FSM_CTRL_REG);
 
-		val = clk_osm_read_reg(c, DROOP_UNSTALL_TIMER_CTRL_REG) |
-			BVAL(31, 16, clk_osm_count_ns(c, 1000));
+		val = clk_osm_read_reg(c, DROOP_UNSTALL_TIMER_CTRL_REG);
+		val |= BVAL(31, 16, clk_osm_count_ns(c, 500));
 		clk_osm_write_reg(c, val, DROOP_UNSTALL_TIMER_CTRL_REG);
 
 		val = clk_osm_read_reg(c,
-			       DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG) |
-			BVAL(31, 16, clk_osm_count_ns(c, 1000));
+			       DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
+		val |= BVAL(31, 16, clk_osm_count_ns(c, 500));
 		clk_osm_write_reg(c, val,
-				  DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
+				DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
 	}
 
 	/* PC/RET FSM */
@@ -1780,9 +1802,15 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 		clk_osm_write_reg(c, val | PC_RET_EXIT_DROOP_EN_MASK,
 				  PDN_FSM_CTRL_REG);
 
-		val = clk_osm_read_reg(c, DROOP_UNSTALL_TIMER_CTRL_REG) |
-			BVAL(15, 0, clk_osm_count_ns(c, 5000));
+		val = clk_osm_read_reg(c, DROOP_UNSTALL_TIMER_CTRL_REG);
+		val |= BVAL(15, 0, clk_osm_count_ns(c, 500));
 		clk_osm_write_reg(c, val, DROOP_UNSTALL_TIMER_CTRL_REG);
+
+		val = clk_osm_read_reg(c,
+				DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
+		val |= BVAL(15, 0, clk_osm_count_ns(c, 500));
+		clk_osm_write_reg(c, val,
+				DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
 	}
 
 	/* DCVS droop FSM - only if RCGwRC is not used for di/dt control */
@@ -1793,14 +1821,14 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 	}
 
 	if (c->wfx_fsm_en || c->ps_fsm_en || c->droop_fsm_en) {
-		val = clk_osm_read_reg(c,
-			       DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG) |
-			BVAL(15, 0, clk_osm_count_ns(c, 1000));
-		clk_osm_write_reg(c, val,
-			  DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
 		clk_osm_write_reg(c, 0x1, DROOP_PROG_SYNC_DELAY_REG);
-		val = clk_osm_read_reg(c, DROOP_CTRL_REG) |
-			BVAL(22, 16, 0x2);
+		clk_osm_write_reg(c, clk_osm_count_ns(c, 250),
+				  DROOP_RELEASE_TIMER_CTRL);
+		clk_osm_write_reg(c, clk_osm_count_ns(c, 500),
+				  DCVS_DROOP_TIMER_CTRL);
+		val = clk_osm_read_reg(c, DROOP_CTRL_REG);
+		val |= BIT(31) | BVAL(22, 16, 0x2) |
+			BVAL(6, 0, 0x8);
 		clk_osm_write_reg(c, val, DROOP_CTRL_REG);
 	}
 }
@@ -1838,6 +1866,9 @@ static void clk_osm_do_additional_setup(struct clk_osm *c,
 	clk_osm_write_reg(c, RCG_UPDATE_SUCCESS, SEQ_REG(84));
 	clk_osm_write_reg(c, RCG_UPDATE, SEQ_REG(85));
 
+	/* ITM to OSM handoff */
+	clk_osm_setup_itm_to_osm_handoff();
+
 	pr_debug("seq_size: %lu, seqbr_size: %lu\n", ARRAY_SIZE(seq_instr),
 						ARRAY_SIZE(seq_br_instr));
 	clk_osm_setup_sequencer(&pwrcl_clk);
@@ -1870,18 +1901,22 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 		/* Ensure writes complete before returning */
 		mb();
 	} else {
-		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(1),
-			     c->apm_threshold_vc);
+		if (msmcobalt_v1) {
+			scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(1),
+				     c->apm_threshold_vc);
+			scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(73),
+				     0x3b | c->apm_threshold_vc << 6);
+		} else if (msmcobalt_v2) {
+			clk_osm_write_reg(c, c->apm_threshold_vc,
+					  SEQ_REG1_MSMCOBALT_V2);
+		}
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(72),
 			     c->apm_crossover_vc);
-		/* SEQ_REG(8) = address of SEQ_REG(1) init by TZ */
 		clk_osm_write_reg(c, c->apm_threshold_vc,
 				  SEQ_REG(15));
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(31),
 			     c->apm_threshold_vc != 0 ?
 			     c->apm_threshold_vc - 1 : 0xff);
-		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(73),
-			     0x3b | c->apm_threshold_vc << 6);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(76),
 			     0x39 | c->apm_threshold_vc << 6);
 	}
@@ -2485,6 +2520,14 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		.get_cpu_cycle_counter = clk_osm_get_cpu_cycle_counter,
 	};
 
+	if (of_find_compatible_node(NULL, NULL,
+				    "qcom,cpu-clock-osm-msmcobalt-v1")) {
+		msmcobalt_v1 = true;
+	} else if (of_find_compatible_node(NULL, NULL,
+					   "qcom,cpu-clock-osm-msmcobalt-v2")) {
+		msmcobalt_v2 = true;
+	}
+
 	rc = clk_osm_resources_init(pdev);
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
@@ -2497,6 +2540,12 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to parse device tree configurations\n");
 		return rc;
+	}
+
+	if ((pwrcl_clk.secure_init || perfcl_clk.secure_init) &&
+	    msmcobalt_v2) {
+		pr_err("unsupported configuration for msmcobalt v2\n");
+		return -EINVAL;
 	}
 
 	if (pwrcl_clk.vbases[EFUSE_BASE]) {
@@ -2570,10 +2619,6 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	clk_osm_print_osm_table(&pwrcl_clk);
 	clk_osm_print_osm_table(&perfcl_clk);
 
-	/* Program the minimum PLL frequency */
-	clk_osm_write_reg(&pwrcl_clk, PLL_MIN_LVAL, SEQ_REG(27));
-	clk_osm_write_reg(&perfcl_clk, PLL_MIN_LVAL, SEQ_REG(27));
-
 	rc = clk_osm_setup_hw_table(&pwrcl_clk);
 	if (rc) {
 		dev_err(&pdev->dev, "failed to setup power cluster hardware table\n");
@@ -2591,8 +2636,6 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "cc policy setup failed");
 		goto exit;
 	}
-
-	clk_osm_setup_itm_to_osm_handoff();
 
 	/* LLM Freq Policy Tuning */
 	rc = clk_osm_set_llm_freq_policy(pdev);
@@ -2727,7 +2770,8 @@ exit:
 }
 
 static struct of_device_id match_table[] = {
-	{ .compatible = "qcom,cpu-clock-osm" },
+	{ .compatible = "qcom,cpu-clock-osm-msmcobalt-v1" },
+	{ .compatible = "qcom,cpu-clock-osm-msmcobalt-v2" },
 	{}
 };
 
