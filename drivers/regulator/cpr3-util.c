@@ -1202,6 +1202,23 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	if (rc)
 		return rc;
 
+	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
+	if (IS_ERR(ctrl->vdd_regulator)) {
+		rc = PTR_ERR(ctrl->vdd_regulator);
+		if (rc != -EPROBE_DEFER) {
+			/* vdd-supply is optional for CPRh controllers. */
+			if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
+				cpr3_debug(ctrl, "unable to request vdd regulator, rc=%d\n",
+					rc);
+				ctrl->vdd_regulator = NULL;
+				return 0;
+			}
+			cpr3_err(ctrl, "unable to request vdd regulator, rc=%d\n",
+				 rc);
+		}
+		return rc;
+	}
+
 	/*
 	 * Regulator device handles are not necessary for CPRh controllers
 	 * since communication with the regulators is completely managed
@@ -1209,15 +1226,6 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	 */
 	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH)
 		return rc;
-
-	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
-	if (IS_ERR(ctrl->vdd_regulator)) {
-		rc = PTR_ERR(ctrl->vdd_regulator);
-		if (rc != -EPROBE_DEFER)
-			cpr3_err(ctrl, "unable request vdd regulator, rc=%d\n",
-				 rc);
-		return rc;
-	}
 
 	ctrl->system_regulator = devm_regulator_get_optional(ctrl->dev,
 								"system");
