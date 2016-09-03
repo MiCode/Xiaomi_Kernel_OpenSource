@@ -20,7 +20,7 @@
 #include <linux/sched.h>
 #include <linux/sched/rt.h>
 
-#include <trace/events/power.h>
+#include <trace/events/sched.h>
 
 #define MAX_CPUS_PER_GROUP 4
 
