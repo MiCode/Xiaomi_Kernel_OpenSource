@@ -3691,14 +3691,16 @@ static void cpr3_regulator_readjust_volt_and_quot(struct cpr3_regulator *vreg,
 static void cpr3_regulator_set_aging_ref_adjustment(
 		struct cpr3_controller *ctrl, int ref_adjust_volt)
 {
+	struct cpr3_regulator *vreg;
 	int i, j;
 
 	for (i = 0; i < ctrl->thread_count; i++) {
 		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
-			cpr3_regulator_readjust_volt_and_quot(
-				&ctrl->thread[i].vreg[j],
-				ctrl->aging_ref_adjust_volt,
-				ref_adjust_volt);
+			vreg = &ctrl->thread[i].vreg[j];
+			cpr3_regulator_readjust_volt_and_quot(vreg,
+				ctrl->aging_ref_adjust_volt, ref_adjust_volt);
+			if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH)
+				cprh_adjust_voltages_for_apm(vreg);
 		}
 	}
 
