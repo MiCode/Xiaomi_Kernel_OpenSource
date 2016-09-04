@@ -70,3 +70,7 @@
 	qcom,sensors = <7>;
 	qcom,slope = <2901 2846 3200 3200 3200 3200 3200>;
 };
+
+&slv_ebi {
+	qcom,buswidth = <4>;
+};

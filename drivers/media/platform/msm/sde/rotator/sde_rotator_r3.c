@@ -434,6 +434,14 @@ static void sde_hw_rotator_setup_timestamp_packet(
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, 0x03020100);
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, 0x80000000);
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, ctx->timestamp);
+	/*
+	 * Must clear secure buffer setting for SW timestamp because
+	 * SW timstamp buffer allocation is always non-secure region.
+	 */
+	if (ctx->is_secure) {
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SRC_ADDR_SW_STATUS, 0);
+		SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_ADDR_SW_STATUS, 0);
+	}
 	SDE_REGDMA_BLKWRITE_INC(wrptr, ROT_WB_DST_FORMAT, 4);
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, 0x000037FF);
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, 0);
@@ -611,6 +619,9 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	if (flags & SDE_ROT_FLAG_SECURE_OVERLAY_SESSION) {
 		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SRC_ADDR_SW_STATUS, 0xF);
 		ctx->is_secure = true;
+	} else {
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SRC_ADDR_SW_STATUS, 0);
+		ctx->is_secure = false;
 	}
 
 	/* Update command queue write ptr */
@@ -702,6 +713,11 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 			cfg->dst_rect->w | (cfg->dst_rect->h << 16));
 	SDE_REGDMA_WRITE(wrptr, ROT_WB_OUT_XY,
 			cfg->dst_rect->x | (cfg->dst_rect->y << 16));
+
+	if (flags & SDE_ROT_FLAG_SECURE_OVERLAY_SESSION)
+		SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_ADDR_SW_STATUS, 0x1);
+	else
+		SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_ADDR_SW_STATUS, 0);
 
 	/*
 	 * setup Downscale factor
@@ -1566,8 +1582,8 @@ static int sde_hw_rotator_kickoff(struct sde_rot_hw_resource *hw,
 	if (!ctx) {
 		SDEROT_ERR("Cannot locate rotator ctx from sesison id:%d\n",
 				entry->item.session_id);
+		return -EINVAL;
 	}
-	WARN_ON(ctx == NULL);
 
 	ret = sde_smmu_ctrl(1);
 	if (IS_ERR_VALUE(ret)) {
@@ -1609,8 +1625,8 @@ static int sde_hw_rotator_wait4done(struct sde_rot_hw_resource *hw,
 	if (!ctx) {
 		SDEROT_ERR("Cannot locate rotator ctx from sesison id:%d\n",
 				entry->item.session_id);
+		return -EINVAL;
 	}
-	WARN_ON(ctx == NULL);
 
 	ret = rot->ops.wait_rotator_done(ctx, ctx->q_id, 0);
 
@@ -1745,8 +1761,10 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 			q_id = ROT_QUEUE_LOW_PRIORITY;
 			ts   = (ts >> SDE_REGDMA_SWTS_SHIFT) &
 				SDE_REGDMA_SWTS_MASK;
+		} else {
+			SDEROT_ERR("unknown ISR status: isr=0x%X\n", isr);
+			goto done_isr_handle;
 		}
-
 		ctx = rot->rotCtx[q_id][ts & SDE_HW_ROT_REGDMA_SEG_MASK];
 
 		/*
@@ -1766,6 +1784,7 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 				[ts & SDE_HW_ROT_REGDMA_SEG_MASK];
 		};
 
+done_isr_handle:
 		spin_unlock(&rot->rotisr_lock);
 		ret = IRQ_HANDLED;
 	} else if (isr & REGDMA_INT_ERR_MASK) {

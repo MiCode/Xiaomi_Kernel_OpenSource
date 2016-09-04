@@ -445,14 +445,23 @@
 };
 
 &qusb_phy0 {
+	reg = <0x0c012000 0x2a8>,
+	      <0x01fcb24c 0x4>,
+	      <0x00784238 0x4>;
+	reg-names = "qusb_phy_base",
+			"tcsr_clamp_dig_n_1p8",
+			"efuse_addr";
+	qcom,efuse-bit-pos = <16>;
+	qcom,efuse-num-bits = <4>;
 	qcom,qusb-phy-init-seq =
 			/* <value reg_offset> */
-				<0x13 0x04
-				0x7c 0x18c
-				0x80 0x2c
-				0x0a 0x184
-				0x00 0x240
-				0x19 0xb4>;
+				<0x13 0x04 /* analog_controls_two */
+				0x7c 0x18c /* pll_clock_inverter */
+				0x80 0x2c /* pll_cmode */
+				0x0a 0x184 /* pll_lock_delay */
+				0xa5 0x23c /* tune1 */
+				0x09 0x240 /* tune2 */
+				0x19 0xb4>; /* digital_timers_two */
 };
 
 &msm_vidc {
@@ -569,4 +578,39 @@
 			qcom,bus-max = <0>;
 		};
 	};
+};
+
+&ufs1 {
+	clock-names =
+		"core_clk",
+		"bus_aggr_clk",
+		"iface_clk",
+		"core_clk_unipro",
+		"core_clk_ice",
+		"ref_clk",
+		"tx_lane0_sync_clk",
+		"rx_lane0_sync_clk",
+		"rx_lane1_sync_clk";
+	clocks =
+		<&clock_gcc clk_gcc_ufs_axi_hw_ctl_clk>,
+		<&clock_gcc clk_gcc_aggre1_ufs_axi_clk>,
+		<&clock_gcc clk_gcc_ufs_ahb_clk>,
+		<&clock_gcc clk_gcc_ufs_unipro_core_hw_ctl_clk>,
+		<&clock_gcc clk_gcc_ufs_ice_core_hw_ctl_clk>,
+		<&clock_gcc clk_ln_bb_clk1>,
+		<&clock_gcc clk_gcc_ufs_tx_symbol_0_clk>,
+		<&clock_gcc clk_gcc_ufs_rx_symbol_0_clk>,
+		<&clock_gcc clk_gcc_ufs_rx_symbol_1_clk>;
+	freq-table-hz =
+		<50000000 200000000>,
+		<0 0>,
+		<0 0>,
+		<37500000 150000000>,
+		<75000000 300000000>,
+		<0 0>,
+		<0 0>,
+		<0 0>,
+		<0 0>;
+
+	lanes-per-direction = <2>;
 };

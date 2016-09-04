@@ -32,6 +32,7 @@
 #include <dt-bindings/clock/msm-clocks-hwio-cobalt.h>
 
 #include "vdd-level-cobalt.h"
+#include "reset.h"
 
 static void __iomem *virt_base;
 static void __iomem *virt_dbgbase;
@@ -2695,6 +2696,23 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_qspi_ref_clk),
 };
 
+static const struct msm_reset_map gcc_cobalt_resets[] = {
+	[QUSB2PHY_PRIM_BCR] = { 0x12000 },
+	[QUSB2PHY_SEC_BCR] = { 0x12004 },
+	[BLSP1_BCR] = { 0x17000 },
+	[BLSP2_BCR] = { 0x25000 },
+	[BOOT_ROM_BCR] = { 0x38000 },
+	[PRNG_BCR] = { 0x34000 },
+	[UFS_BCR] = { 0x75000 },
+	[USB_30_BCR] = { 0x0f000 },
+	[USB3_PHY_BCR] = { 0x50020 },
+	[USB3PHY_PHY_BCR] = { 0x50024 },
+	[PCIE_0_PHY_BCR] = { 0x6c01c },
+	[PCIE_PHY_BCR] = { 0x6f000 },
+	[PCIE_PHY_NOCSR_COM_PHY_BCR] = { 0x6f00C },
+	[PCIE_PHY_COM_BCR] = { 0x6f014 },
+};
+
 static void msm_gcc_cobalt_v1_fixup(void)
 {
 	gcc_ufs_rx_symbol_1_clk.c.ops = &clk_ops_dummy;
@@ -2799,6 +2817,10 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 	clk_prepare_enable(&cxo_clk_src_ao.c);
 
 	clk_set_flags(&gcc_gpu_bimc_gfx_clk.c, CLKFLAG_RETAIN_MEM);
+
+	/* Register block resets */
+	msm_reset_controller_register(pdev, gcc_cobalt_resets,
+			ARRAY_SIZE(gcc_cobalt_resets), virt_base);
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 	return 0;

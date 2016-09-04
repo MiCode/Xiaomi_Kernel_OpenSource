@@ -737,6 +737,7 @@
 		vdd_dig-supply = <&pmcobalt_s1_level>;
 		vdd_dig_ao-supply = <&pmcobalt_s1_level_ao>;
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	clock_mmss: qcom,mmsscc@c8c0000 {
@@ -760,6 +761,7 @@
 			 <&mdss_dp_pll clk_vco_divided_clk_src_mux>,
 			 <&mdss_hdmi_pll clk_hdmi_vco_clk>;
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	clock_gpu: qcom,gpucc@5065000 {
@@ -1518,7 +1520,7 @@
 		gdsc-vdd-supply = <&gdsc_pcie_0>;
 		vreg-1.8-supply = <&pmcobalt_l2>;
 		vreg-0.9-supply = <&pmcobalt_l1>;
-		vreg-cx-supply = <&pmcobalt_s1_level_ao>;
+		vreg-cx-supply = <&pmcobalt_s1_level>;
 
 		qcom,vreg-1.8-voltage-level = <1200000 1200000 24000>;
 		qcom,vreg-0.9-voltage-level = <880000 880000 24000>;
@@ -1723,8 +1725,9 @@
 			<0 0>;
 
 		lanes-per-direction = <1>;
+
 		qcom,msm-bus,name = "ufs1";
-		qcom,msm-bus,num-cases = <12>;
+		qcom,msm-bus,num-cases = <22>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 		<95 512 0 0>, <1 650 0 0>,          /* No vote */
@@ -1732,17 +1735,30 @@
 		<95 512 1844 0>, <1 650 1000 0>,    /* PWM G2 */
 		<95 512 3688 0>, <1 650 1000 0>,    /* PWM G3 */
 		<95 512 7376 0>, <1 650 1000 0>,    /* PWM G4 */
+		<95 512 1844 0>, <1 650 1000 0>,    /* PWM G1 L2 */
+		<95 512 3688 0>, <1 650 1000 0>,    /* PWM G2 L2 */
+		<95 512 7376 0>, <1 650 1000 0>,    /* PWM G3 L2 */
+		<95 512 14752 0>, <1 650 1000 0>,   /* PWM G4 L2 */
 		<95 512 127796 0>, <1 650 1000 0>,  /* HS G1 RA */
 		<95 512 255591 0>, <1 650 1000 0>,  /* HS G2 RA */
 		<95 512 511181 0>, <1 650 1000 0>,  /* HS G3 RA */
+		<95 512 255591 0>, <1 650 1000 0>,  /* HS G1 RA L2 */
+		<95 512 511181 0>, <1 650 1000 0>,  /* HS G2 RA L2 */
+		<95 512 1022362 0>, <1 650 1000 0>, /* HS G3 RA L2 */
 		<95 512 149422 0>, <1 650 1000 0>,  /* HS G1 RB */
 		<95 512 298189 0>, <1 650 1000 0>,  /* HS G2 RB */
 		<95 512 596378 0>, <1 650 1000 0>,  /* HS G3 RB */
+		<95 512 298189 0>, <1 650 1000 0>,  /* HS G1 RB L2 */
+		<95 512 596378 0>, <1 650 1000 0>,  /* HS G2 RB L2 */
+		<95 512 1192756 0>, <1 650 1000 0>, /* HS G3 RB L2 */
 		<95 512 4096000 0>, <1 650 1000 0>; /* Max. bandwidth */
 		qcom,bus-vector-names = "MIN",
 		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
+		"PWM_G1_L2", "PWM_G2_L2", "PWM_G3_L2", "PWM_G4_L2",
 		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
+		"HS_RA_G1_L2", "HS_RA_G2_L2", "HS_RA_G3_L2",
 		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
+		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
 		"MAX";
 
 		/* PM QoS */
@@ -1835,15 +1851,18 @@
 
 	qusb_phy0: qusb@c012000 {
 		compatible = "qcom,qusb2phy-v2";
-		reg = <0x0c012000 0x2a8>;
-		reg-names = "qusb_phy_base";
+		reg = <0x0c012000 0x2a8>,
+		      <0x01fcb24c 0x4>;
+		reg-names = "qusb_phy_base",
+				"tcsr_clamp_dig_n_1p8";
 		vdd-supply = <&pmcobalt_l1>;
 		vdda18-supply = <&pmcobalt_l12>;
 		vdda33-supply = <&pmcobalt_l24>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,qusb-phy-init-seq =
 				/* <value reg_offset> */
-					<0x13 0x04
+					<0x80 0x0
+					0x13 0x04
 					0x7c 0x18c
 					0x80 0x2c
 					0x0a 0x184

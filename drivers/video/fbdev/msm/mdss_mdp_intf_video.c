@@ -411,22 +411,28 @@ static void mdss_mdp_video_avr_vtotal_setup(struct mdss_mdp_ctl *ctl,
 
 	if (test_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map)) {
 		struct mdss_panel_data *pdata = ctl->panel_data;
-		u32 hsync_period = p->hsync_pulse_width + p->h_back_porch +
-				p->width + p->h_front_porch;
-		u32 vsync_period = p->vsync_pulse_width + p->v_back_porch +
-				p->height + p->v_front_porch;
-		u32 min_fps = pdata->panel_info.min_fps;
-		u32 diff_fps = abs(pdata->panel_info.default_fps - min_fps);
-		u32 vtotal = mdss_panel_get_vtotal(&pdata->panel_info);
+		struct mdss_panel_info *pinfo = &pdata->panel_info;
+		u32 avr_vtotal = pinfo->saved_avr_vtotal;
 
-		int add_porches = mult_frac(vtotal, diff_fps, min_fps);
+		if (!pinfo->saved_avr_vtotal) {
+			u32 hsync_period = p->hsync_pulse_width +
+				p->h_back_porch + p->width + p->h_front_porch;
+			u32 vsync_period = p->vsync_pulse_width +
+				p->v_back_porch + p->height + p->v_front_porch;
+			u32 min_fps = pinfo->min_fps;
+			u32 default_fps = mdss_panel_get_framerate(pinfo);
+			u32 diff_fps = abs(default_fps - min_fps);
+			u32 vtotal = mdss_panel_get_vtotal(pinfo);
+			int add_porches = mult_frac(vtotal, diff_fps, min_fps);
+			u32 vsync_period_slow = vsync_period + add_porches;
 
-		u32 vsync_period_slow = vsync_period + add_porches;
-		u32 avr_vtotal = vsync_period_slow * hsync_period;
+			avr_vtotal = vsync_period_slow * hsync_period;
+			pinfo->saved_avr_vtotal = avr_vtotal;
+		}
 
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_AVR_VTOTAL, avr_vtotal);
 
-		MDSS_XLOG(min_fps, vsync_period, vsync_period_slow, avr_vtotal);
+		MDSS_XLOG(pinfo->min_fps, pinfo->default_fps, avr_vtotal);
 	}
 }
 

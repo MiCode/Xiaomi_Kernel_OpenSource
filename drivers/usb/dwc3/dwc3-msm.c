@@ -1694,7 +1694,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 		break;
 	case DWC3_CONTROLLER_RESTART_USB_SESSION:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_RESTART_USB_SESSION received\n");
-		dwc3_restart_usb_work(&mdwc->restart_usb_work);
+		schedule_work(&mdwc->restart_usb_work);
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");

@@ -208,14 +208,14 @@ enum icnss_debug_quirks {
 	PDR_ONLY,
 };
 
-#define ICNSS_QUIRKS_DEFAULT (				\
-			      BIT(SSR_ONLY)		\
-			     )
+#define ICNSS_QUIRKS_DEFAULT		0
 
 unsigned long quirks = ICNSS_QUIRKS_DEFAULT;
 module_param(quirks, ulong, 0600);
 
 void *icnss_ipc_log_context;
+
+#define ICNSS_EVENT_PENDING		2989
 
 enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_SERVER_ARRIVE,
@@ -370,6 +370,7 @@ static struct icnss_priv {
 	struct notifier_block get_service_nb;
 	void *modem_notify_handler;
 	struct notifier_block modem_ssr_nb;
+	struct wakeup_source ws;
 } *penv;
 
 static void icnss_hw_write_reg(void *base, u32 offset, u32 val)
@@ -486,6 +487,7 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	event->type = type;
 	event->data = data;
 	init_completion(&event->complete);
+	event->ret = ICNSS_EVENT_PENDING;
 	event->sync = sync;
 
 	spin_lock_irqsave(&penv->event_lock, flags);
@@ -494,12 +496,26 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 
 	penv->stats.events[type].posted++;
 	queue_work(penv->event_wq, &penv->event_work);
-	if (sync) {
-		ret = wait_for_completion_interruptible(&event->complete);
-		if (ret == 0)
-			ret = event->ret;
-		kfree(event);
+
+	if (!sync)
+		return ret;
+
+	ret = wait_for_completion_interruptible(&event->complete);
+
+	icnss_pr_dbg("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
+		     icnss_driver_event_to_str(type), type, penv->state, ret,
+		     event->ret);
+
+	spin_lock_irqsave(&penv->event_lock, flags);
+	if (ret == -ERESTARTSYS && event->ret == ICNSS_EVENT_PENDING) {
+		event->sync = false;
+		spin_unlock_irqrestore(&penv->event_lock, flags);
+		return ret;
 	}
+	spin_unlock_irqrestore(&penv->event_lock, flags);
+
+	ret = event->ret;
+	kfree(event);
 
 	return ret;
 }
@@ -1039,7 +1055,7 @@ int icnss_hw_reset(struct icnss_priv *priv)
 				 MPM_WCSSAON_CONFIG_FORCE_ACTIVE, 1);
 
 	icnss_hw_poll_reg_field(priv->mem_base_va, SR_WCSSAON_SR_LSB_OFFSET,
-				SR_WCSSAON_SR_LSB_RETENTION_STATUS, 1, 10,
+				SR_WCSSAON_SR_LSB_RETENTION_STATUS, 1, 100,
 				ICNSS_HW_REG_RETRY);
 
 	for (i = 0; i < ICNSS_HW_REG_RETRY; i++) {
@@ -1546,6 +1562,13 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 		goto out;
 	}
 
+	/* During recovery do not send mode request for WLAN OFF as
+	 * FW not able to process it.
+	 */
+	if (test_bit(ICNSS_PD_RESTART, &penv->state) &&
+	    mode == QMI_WLFW_OFF_V01)
+		return 0;
+
 	icnss_pr_dbg("Sending Mode request, state: 0x%lx, mode: %d\n",
 		     penv->state, mode);
 
@@ -1886,6 +1909,9 @@ static int icnss_call_driver_reinit(struct icnss_priv *priv)
 	if (!priv->ops || !priv->ops->reinit)
 		goto out;
 
+	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
+		goto out;
+
 	icnss_hw_power_on(priv);
 
 	ret = priv->ops->reinit(&priv->pdev->dev);
@@ -1916,6 +1942,8 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 	if (!penv)
 		return -ENODEV;
 
+	__pm_stay_awake(&penv->ws);
+
 	set_bit(ICNSS_FW_READY, &penv->state);
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
@@ -1933,7 +1961,10 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 	else
 		ret = icnss_call_driver_probe(penv);
 
+	__pm_relax(&penv->ws);
+
 out:
+	__pm_relax(&penv->ws);
 	return ret;
 }
 
@@ -1941,10 +1972,10 @@ static int icnss_driver_event_register_driver(void *data)
 {
 	int ret = 0;
 
-	if (penv->ops) {
-		ret = -EEXIST;
-		goto out;
-	}
+	if (penv->ops)
+		return -EEXIST;
+
+	__pm_stay_awake(&penv->ws);
 
 	penv->ops = data;
 
@@ -1971,16 +2002,21 @@ static int icnss_driver_event_register_driver(void *data)
 
 	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
 
+	__pm_relax(&penv->ws);
+
 	return 0;
 
 power_off:
 	icnss_hw_power_off(penv);
 out:
+	__pm_relax(&penv->ws);
 	return ret;
 }
 
 static int icnss_driver_event_unregister_driver(void *data)
 {
+	__pm_stay_awake(&penv->ws);
+
 	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state)) {
 		penv->ops = NULL;
 		goto out;
@@ -1996,6 +2032,7 @@ static int icnss_driver_event_unregister_driver(void *data)
 	icnss_hw_power_off(penv);
 
 out:
+	__pm_relax(&penv->ws);
 	return 0;
 }
 
@@ -2010,6 +2047,9 @@ static int icnss_qmi_pd_event_service_down(struct icnss_priv *priv, void *data)
 	clear_bit(ICNSS_FW_READY, &priv->state);
 
 	if (!priv->ops || !priv->ops->shutdown)
+		goto out;
+
+	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
 		goto out;
 
 	priv->ops->shutdown(&priv->pdev->dev);
@@ -2071,11 +2111,15 @@ static void icnss_driver_event_work(struct work_struct *work)
 
 		penv->stats.events[event->type].processed++;
 
+		spin_lock_irqsave(&penv->event_lock, flags);
 		if (event->sync) {
 			event->ret = ret;
 			complete(&event->complete);
-		} else
-			kfree(event);
+			continue;
+		}
+		spin_unlock_irqrestore(&penv->event_lock, flags);
+
+		kfree(event);
 
 		spin_lock_irqsave(&penv->event_lock, flags);
 	}
@@ -2371,6 +2415,9 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 
 	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
 				      true, ops);
+
+	if (ret == -ERESTARTSYS)
+		ret = 0;
 
 out:
 	return ret;
@@ -2890,7 +2937,7 @@ static int icnss_get_vreg_info(struct device *dev,
 
 	reg = devm_regulator_get_optional(dev, vreg_info->name);
 
-	if (IS_ERR(reg) == -EPROBE_DEFER) {
+	if (PTR_ERR(reg) == -EPROBE_DEFER) {
 		icnss_pr_err("EPROBE_DEFER for regulator: %s\n",
 			     vreg_info->name);
 		ret = PTR_ERR(reg);
@@ -2910,7 +2957,6 @@ static int icnss_get_vreg_info(struct device *dev,
 				     vreg_info->name, ret);
 			goto done;
 		}
-
 	}
 
 	vreg_info->reg = reg;
@@ -3502,6 +3548,8 @@ static int icnss_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
 
+	wakeup_source_init(&priv->ws, "icnss_ws");
+
 	priv->event_wq = alloc_workqueue("icnss_driver_event", WQ_UNBOUND, 1);
 	if (!priv->event_wq) {
 		icnss_pr_err("Workqueue creation failed\n");
@@ -3562,6 +3610,8 @@ static int icnss_remove(struct platform_device *pdev)
 		destroy_workqueue(penv->event_wq);
 
 	icnss_bw_deinit(penv);
+
+	wakeup_source_trash(&penv->ws);
 
 	icnss_hw_power_off(penv);
 

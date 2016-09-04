@@ -56,7 +56,7 @@ void msm_vfe47_axi_cfg_wm_irq_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info);
 void msm_vfe47_axi_clear_wm_irq_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info);
-void msm_vfe47_cfg_framedrop(void __iomem *vfe_base,
+void msm_vfe47_cfg_framedrop(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint32_t framedrop_pattern,
 	uint32_t framedrop_period);
 void msm_vfe47_clear_framedrop(struct vfe_device *vfe_dev,
@@ -107,7 +107,7 @@ void msm_vfe47_update_ping_pong_addr(
 	int32_t buf_size);
 int msm_vfe47_axi_halt(struct vfe_device *vfe_dev,
 	uint32_t blocking);
-int msm_vfe47_axi_restart(struct vfe_device *vfe_dev,
+void msm_vfe47_axi_restart(struct vfe_device *vfe_dev,
 	uint32_t blocking, uint32_t enable_camif);
 uint32_t msm_vfe47_get_wm_mask(
 	uint32_t irq_status0, uint32_t irq_status1);
@@ -141,7 +141,7 @@ bool msm_vfe47_is_module_cfg_lock_needed(
 void msm_vfe47_stats_enable_module(struct vfe_device *vfe_dev,
 	uint32_t stats_mask, uint8_t enable);
 void msm_vfe47_stats_update_ping_pong_addr(
-	void __iomem *vfe_base, struct msm_vfe_stats_stream *stream_info,
+	struct vfe_device *vfe_dev, struct msm_vfe_stats_stream *stream_info,
 	uint32_t pingpong_status, dma_addr_t paddr);
 uint32_t msm_vfe47_stats_get_wm_mask(
 	uint32_t irq_status0, uint32_t irq_status1);

@@ -6022,6 +6022,12 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 	request->no_cck =
 		nla_get_flag(info->attrs[NL80211_ATTR_TX_NO_CCK_RATE]);
 
+	if (info->attrs[NL80211_ATTR_MAC])
+		memcpy(request->bssid, nla_data(info->attrs[NL80211_ATTR_MAC]),
+		       ETH_ALEN);
+	else
+		eth_broadcast_addr(request->bssid);
+
 	request->wdev = wdev;
 	request->wiphy = &rdev->wiphy;
 	request->scan_start = jiffies;
@@ -7931,6 +7937,10 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 	} else {
 		connect.mfp = NL80211_MFP_NO;
 	}
+
+	if (info->attrs[NL80211_ATTR_PREV_BSSID])
+		connect.prev_bssid =
+			nla_data(info->attrs[NL80211_ATTR_PREV_BSSID]);
 
 	if (info->attrs[NL80211_ATTR_WIPHY_FREQ]) {
 		connect.channel = nl80211_get_valid_chan(

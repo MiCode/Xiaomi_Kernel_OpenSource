@@ -498,7 +498,12 @@ static int vfe_probe(struct platform_device *pdev)
 
 	vfe_parent_dev->common_sd->common_data = &vfe_common_data;
 	memset(&vfe_common_data, 0, sizeof(vfe_common_data));
+	mutex_init(&vfe_common_data.vfe_common_mutex);
 	spin_lock_init(&vfe_common_data.common_dev_data_lock);
+	for (i = 0; i < (VFE_AXI_SRC_MAX * MAX_VFE); i++)
+		spin_lock_init(&(vfe_common_data.streams[i].lock));
+	for (i = 0; i < (MSM_ISP_STATS_MAX * MAX_VFE); i++)
+		spin_lock_init(&(vfe_common_data.stats_streams[i].lock));
 
 	of_property_read_u32(pdev->dev.of_node,
 		"num_child", &vfe_parent_dev->num_hw_sd);

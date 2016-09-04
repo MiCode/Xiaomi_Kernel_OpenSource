@@ -25,6 +25,7 @@ struct diag_glink_info {
 	uint32_t fifo_size;
 	atomic_t tx_intent_ready;
 	void *hdl;
+	void *link_state_handle;
 	char edge[DIAG_GLINK_NAME_SZ];
 	char name[DIAG_GLINK_NAME_SZ];
 	struct mutex lock;

@@ -30,6 +30,7 @@
 #include <dt-bindings/clock/msm-clocks-hwio-cobalt.h>
 
 #include "vdd-level-cobalt.h"
+#include "reset.h"
 
 static void __iomem *virt_base;
 
@@ -2637,6 +2638,10 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(mmss_debug_mux),
 };
 
+static const struct msm_reset_map mmss_cobalt_resets[] = {
+	[CAMSS_MICRO_BCR] = { 0x3490 },
+};
+
 static void msm_mmsscc_hamster_fixup(void)
 {
 	mmpll3_pll.c.rate = 1066000000;
@@ -2837,6 +2842,10 @@ int msm_mmsscc_cobalt_probe(struct platform_device *pdev)
 				   ARRAY_SIZE(msm_clocks_mmss_cobalt));
 	if (rc)
 		return rc;
+
+	/* Register block resets */
+	msm_reset_controller_register(pdev, mmss_cobalt_resets,
+			ARRAY_SIZE(mmss_cobalt_resets), virt_base);
 
 	dev_info(&pdev->dev, "Registered MMSS clocks.\n");
 	return 0;

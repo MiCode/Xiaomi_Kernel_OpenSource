@@ -1119,6 +1119,15 @@ config TOUCHSCREEN_FT5X06_PSENSOR
 
          If unsure, say N.
 
+config TOUCHSCREEN_FT5X06_GESTURE
+       tristate "FocalTech gesture feature support"
+       depends on TOUCHSCREEN_FT5X06
+       help
+         Say Y here if you want to support ft5x06's gesture
+         feature.
+
+         If unsure, say N.
+
 config TOUCHSCREEN_MSTAR21XX
 	tristate "Mstar touchscreens"
 	depends on I2C
