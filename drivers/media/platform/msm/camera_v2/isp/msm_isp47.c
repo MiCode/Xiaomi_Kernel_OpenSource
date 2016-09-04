@@ -51,6 +51,12 @@
 
 #define VFE47_VBIF_CLK_OFFSET    0x4
 
+#ifdef CONFIG_MSM_CAMERA_AUTOMOTIVE
+#define UB_CFG_POLICY MSM_WM_UB_EQUAL_SLICING
+#else
+#define UB_CFG_POLICY MSM_WM_UB_CFG_DEFAULT
+#endif
+
 static uint32_t stats_base_addr[] = {
 	0x1D4, /* HDR_BE */
 	0x254, /* BG(AWB_BG) */
@@ -279,13 +285,6 @@ int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 	else
 		id = CAM_AHB_CLIENT_VFE1;
 
-	rc = cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SVS_VOTE);
-	if (rc < 0) {
-		pr_err("%s: failed to vote for AHB\n", __func__);
-		goto ahb_vote_fail;
-	}
-	vfe_dev->ahb_vote = CAM_AHB_SVS_VOTE;
-
 	rc = vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(
 								vfe_dev, 1);
 	if (rc)
@@ -296,8 +295,20 @@ int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 	if (rc)
 		goto clk_enable_failed;
 
+	rc = cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		goto ahb_vote_fail;
+	}
+	vfe_dev->ahb_vote = CAM_AHB_SVS_VOTE;
+
 	vfe_dev->common_data->dual_vfe_res->vfe_base[vfe_dev->pdev->id] =
 		vfe_dev->vfe_base;
+
+	rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
+					MSM_ISP_MIN_AB, MSM_ISP_MIN_IB);
+	if (rc)
+		goto bw_enable_fail;
 
 	rc = msm_camera_enable_irq(vfe_dev->vfe_irq, 1);
 	if (rc < 0)
@@ -305,15 +316,17 @@ int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 
 	return rc;
 irq_enable_fail:
+	msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id, 0, 0);
+bw_enable_fail:
 	vfe_dev->common_data->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = NULL;
-	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(vfe_dev, 0);
-clk_enable_failed:
-	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 0);
-enable_regulators_failed:
 	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 	vfe_dev->ahb_vote = CAM_AHB_SUSPEND_VOTE;
 ahb_vote_fail:
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(vfe_dev, 0);
+clk_enable_failed:
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 0);
+enable_regulators_failed:
 	return rc;
 }
 
@@ -332,9 +345,6 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 	msm_isp_flush_tasklet(vfe_dev);
 
 	vfe_dev->common_data->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = NULL;
-	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(
-							vfe_dev, 0);
-	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 0);
 
 	msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id, 0, 0);
 
@@ -345,7 +355,12 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 
 	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to vote for AHB\n", __func__);
-	 vfe_dev->ahb_vote = CAM_AHB_SUSPEND_VOTE;
+
+	vfe_dev->ahb_vote = CAM_AHB_SUSPEND_VOTE;
+
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(
+							vfe_dev, 0);
+	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 0);
 }
 
 void msm_vfe47_init_hardware_reg(struct vfe_device *vfe_dev)
@@ -1708,7 +1723,7 @@ void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev)
 {
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 
-	axi_data->wm_ub_cfg_policy = MSM_WM_UB_CFG_DEFAULT;
+	axi_data->wm_ub_cfg_policy = UB_CFG_POLICY;
 	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING)
 		msm_vfe47_cfg_axi_ub_equal_slicing(vfe_dev);
 	else
@@ -2276,21 +2291,13 @@ void msm_vfe47_deinit_bandwidth_mgr(
 int msm_vfe47_init_bandwidth_mgr(struct vfe_device *vfe_dev,
 	struct msm_isp_bandwidth_mgr *isp_bandwidth_mgr)
 {
-	int rc = 0;
-
 	isp_bandwidth_mgr->bus_client =
 		msm_bus_scale_register_client(&msm_isp_bus_client_pdata);
 	if (!isp_bandwidth_mgr->bus_client) {
 		pr_err("%s: client register failed\n", __func__);
 		return -EINVAL;
 	}
-	isp_bandwidth_mgr->bus_vector_active_idx = 1;
-	rc = msm_bus_scale_client_update_request(
-		isp_bandwidth_mgr->bus_client,
-		isp_bandwidth_mgr->bus_vector_active_idx);
-	if (rc)
-		msm_vfe47_deinit_bandwidth_mgr(isp_bandwidth_mgr);
-	return rc;
+	return 0;
 }
 
 int msm_vfe47_update_bandwidth(
@@ -2301,7 +2308,11 @@ int msm_vfe47_update_bandwidth(
 	uint64_t ib = 0;
 	struct msm_bus_paths *path;
 
-	ALT_VECTOR_IDX(isp_bandwidth_mgr->bus_vector_active_idx);
+	if (!isp_bandwidth_mgr->bus_vector_active_idx)
+		isp_bandwidth_mgr->bus_vector_active_idx = 1;
+	else
+		ALT_VECTOR_IDX(isp_bandwidth_mgr->bus_vector_active_idx);
+
 	path = &(msm_isp_bus_client_pdata.usecase[
 			isp_bandwidth_mgr->bus_vector_active_idx]);
 	path->vectors[0].ab = 0;
