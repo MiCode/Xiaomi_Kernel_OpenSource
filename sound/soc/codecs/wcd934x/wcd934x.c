@@ -6816,14 +6816,6 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	for (i = 0; i < COMPANDER_MAX; i++)
 		tavil->comp_enabled[i] = 0;
 
-	dev_dbg(codec->dev, "%s: MCLK Rate = %x\n", __func__,
-			control->mclk_rate);
-	if (control->mclk_rate == WCD934X_MCLK_CLK_12P288MHZ)
-		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-				    0x03, 0x00);
-	else if (control->mclk_rate == WCD934X_MCLK_CLK_9P6MHZ)
-		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-				    0x03, 0x01);
 	tavil_codec_init_reg(codec);
 	tavil_enable_sido_buck(codec);
 
@@ -7480,6 +7472,16 @@ static int tavil_probe(struct platform_device *pdev)
 	tavil->wcd_ext_clk = wcd_ext_clk;
 	set_bit(AUDIO_NOMINAL, &tavil->status_mask);
 	/* Update codec register default values */
+	dev_dbg(&pdev->dev, "%s: MCLK Rate = %x\n", __func__,
+		tavil->wcd9xxx->mclk_rate);
+	if (tavil->wcd9xxx->mclk_rate == WCD934X_MCLK_CLK_12P288MHZ)
+		regmap_update_bits(tavil->wcd9xxx->regmap,
+				   WCD934X_CODEC_RPM_CLK_MCLK_CFG,
+				   0x03, 0x00);
+	else if (tavil->wcd9xxx->mclk_rate == WCD934X_MCLK_CLK_9P6MHZ)
+		regmap_update_bits(tavil->wcd9xxx->regmap,
+				   WCD934X_CODEC_RPM_CLK_MCLK_CFG,
+				   0x03, 0x01);
 	tavil_update_reg_defaults(tavil);
 	__tavil_enable_efuse_sensing(tavil);
 
