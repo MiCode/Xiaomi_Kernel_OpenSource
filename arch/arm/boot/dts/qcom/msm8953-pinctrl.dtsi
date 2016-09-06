@@ -150,7 +150,7 @@
 			};
 
 			config {
-				pins = "gpio40","gpio39";
+				pins = "gpio40", "gpio39";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -159,12 +159,68 @@
 		cam_sensor_rear_sleep: cam_sensor_rear_sleep {
 			/* RESET, STANDBY */
 			mux {
-				pins = "gpio40","gpio39";
+				pins = "gpio40", "gpio39";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio40","gpio39";
+				pins = "gpio40", "gpio39";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_ir_cut_default: cam_sensor_ir_cut_default {
+			/* RESET, STANDBY */
+			mux {
+				pins = "gpio38", "gpio39";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio38","gpio39";
+				bias-pull-up; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_ir_cut_sleep: cam_sensor_ir_cut_sleep {
+			/* RESET, STANDBY */
+			mux {
+				pins = "gpio38","gpio39";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio38","gpio39";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_default1: cam_sensor_rear_default1 {
+			/* RESET*/
+			mux {
+				pins = "gpio40";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio40";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_sleep1: cam_sensor_rear_sleep1 {
+			/* RESET*/
+			mux {
+				pins = "gpio40";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio40";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -193,6 +249,34 @@
 
 			config {
 				pins = "gpio134";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_vana1: cam_sensor_rear_vdig1 {
+			/* VDIG */
+			mux {
+				pins = "gpio46";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio46";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_vana_sleep1: cam_sensor_rear_vdig_sleep1 {
+			/* VDIG */
+			mux {
+				pins = "gpio46";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio46";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};

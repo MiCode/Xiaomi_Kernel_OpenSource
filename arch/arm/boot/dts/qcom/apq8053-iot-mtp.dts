@@ -15,6 +15,7 @@
 
 #include "apq8053.dtsi"
 #include "msm8953-mtp.dtsi"
+#include "apq8053-camera-sensor-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8053 IOT MTP";
