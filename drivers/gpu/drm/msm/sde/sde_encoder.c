@@ -286,7 +286,7 @@ static int sde_encoder_virt_atomic_check(
 	sde_kms = to_sde_kms(priv->kms);
 	mode = &crtc_state->mode;
 	adj_mode = &crtc_state->adjusted_mode;
-	MSM_EVT(drm_enc->dev, 0, 0);
+	SDE_EVT32(DRMID(drm_enc));
 
 	/* perform atomic check on the first physical encoder (master) */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -317,7 +317,7 @@ static int sde_encoder_virt_atomic_check(
 		drm_mode_set_crtcinfo(adj_mode, 0);
 	}
 
-	MSM_EVT(drm_enc->dev, adj_mode->flags, adj_mode->private_flags);
+	SDE_EVT32(DRMID(drm_enc), adj_mode->flags, adj_mode->private_flags);
 
 	return ret;
 }
@@ -346,7 +346,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	sde_kms = to_sde_kms(priv->kms);
 	connector_list = &sde_kms->dev->mode_config.connector_list;
 
-	MSM_EVT(drm_enc->dev, 0, 0);
+	SDE_EVT32(DRMID(drm_enc));
 
 	list_for_each_entry(conn_iter, connector_list, head)
 		if (conn_iter->encoder == drm_enc)
@@ -417,8 +417,7 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	sde_kms = to_sde_kms(priv->kms);
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
-
-	MSM_EVT(drm_enc->dev, 0, 0);
+	SDE_EVT32(DRMID(drm_enc));
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 
@@ -472,7 +471,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
 
-	MSM_EVT(drm_enc->dev, 0, 0);
+	SDE_EVT32(DRMID(drm_enc));
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -578,7 +577,7 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 		return;
 	}
 	SDE_DEBUG_ENC(sde_enc, "\n");
-	MSM_EVT(drm_enc->dev, enable, 0);
+	SDE_EVT32(DRMID(drm_enc), enable);
 
 	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
 	sde_enc->crtc_vblank_cb = vbl_cb;
@@ -608,7 +607,7 @@ static void sde_encoder_handle_phys_enc_ready_for_kickoff(
 			sde_enc->pending_kickoff_mask &= ~(1 << i);
 			mask = sde_enc->pending_kickoff_mask;
 			spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
-			MSM_EVT(drm_enc->dev, i, mask);
+			SDE_EVT32(DRMID(drm_enc), i, mask);
 		}
 	}
 
@@ -643,7 +642,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
 
 	ctl->ops.trigger_flush(ctl);
-	MSM_EVT(drm_enc->dev, drm_enc->base.id, ctl->idx);
+	SDE_EVT32(DRMID(drm_enc), ctl->idx);
 }
 
 /**
@@ -678,9 +677,7 @@ void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 	}
 
 	if (phys_enc && phys_enc->parent)
-		MSM_EVT(phys_enc->parent->dev,
-				phys_enc->parent->base.id,
-				ctl_idx);
+		SDE_EVT32(DRMID(phys_enc->parent), ctl_idx);
 }
 
 /**
@@ -746,7 +743,7 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
-	MSM_EVT(drm_enc->dev, 0, 0);
+	SDE_EVT32(DRMID(drm_enc));
 
 	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
 	sde_enc->pending_kickoff_mask = 0;
@@ -767,7 +764,7 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
 	}
 
 	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
-	MSM_EVT(drm_enc->dev, sde_enc->pending_kickoff_mask, 0);
+	SDE_EVT32(DRMID(drm_enc), sde_enc->pending_kickoff_mask);
 	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
 
 	/* Wait for the busy phys encs to be ready */

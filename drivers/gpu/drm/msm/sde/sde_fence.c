@@ -105,14 +105,15 @@ exit:
 /**
  * SDE_FENCE_TIMELINE_NAME - macro for accessing s/w timeline's name
  * @fence: Pointer to sde fence structure
+ * @drm_id: ID number of owning DRM Object
  * Returns: Pointer to timeline name string
  */
 #define SDE_FENCE_TIMELINE_NAME(fence) \
 	(((struct sw_sync_timeline *)fence->timeline)->obj.name)
 
-int sde_fence_init(void *dev,
-		struct sde_fence *fence,
-		const char *name)
+int sde_fence_init(struct sde_fence *fence,
+		const char *name,
+		uint32_t drm_id)
 {
 	if (!fence) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -125,9 +126,9 @@ int sde_fence_init(void *dev,
 		return -ENOMEM;
 	}
 
-	fence->dev = dev;
 	fence->commit_count = 0;
 	fence->done_count = 0;
+	fence->drm_id = drm_id;
 
 	mutex_init(&fence->fence_lock);
 	return 0;
@@ -155,10 +156,7 @@ int sde_fence_prepare(struct sde_fence *fence)
 
 	mutex_lock(&fence->fence_lock);
 	++fence->commit_count;
-	MSM_EVTMSG(fence->dev,
-			SDE_FENCE_TIMELINE_NAME(fence),
-			fence->commit_count,
-			fence->done_count);
+	SDE_EVT32(fence->drm_id, fence->commit_count, fence->done_count);
 	mutex_unlock(&fence->fence_lock);
 	return 0;
 }
@@ -187,10 +185,7 @@ int sde_fence_create(struct sde_fence *fence, uint64_t *val, int offset)
 				trigger_value);
 		*val = fd;
 
-		MSM_EVTMSG(fence->dev,
-				SDE_FENCE_TIMELINE_NAME(fence),
-				trigger_value,
-				fd);
+		SDE_EVT32(fence->drm_id, trigger_value, fd);
 		mutex_unlock(&fence->fence_lock);
 
 		if (fd >= 0)
@@ -228,11 +223,10 @@ void sde_fence_signal(struct sde_fence *fence, bool is_error)
 		else
 			sw_sync_timeline_inc(fence->timeline, (int)val);
 	}
-	MSM_EVTMSG(fence->dev,
-			SDE_FENCE_TIMELINE_NAME(fence),
-			fence->done_count,
-			((struct sw_sync_timeline *)
-				fence->timeline)->value);
+
+	SDE_EVT32(fence->drm_id, fence->done_count,
+			((struct sw_sync_timeline *) fence->timeline)->value);
+
 	mutex_unlock(&fence->fence_lock);
 }
 #endif

@@ -309,7 +309,7 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
-	MSM_EVT(crtc->dev, crtc->base.id, 0);
+	SDE_EVT32(DRMID(crtc));
 
 	/* identify connectors attached to this crtc */
 	cstate->is_rt = false;
@@ -358,7 +358,7 @@ static void _sde_crtc_complete_flip(struct drm_crtc *crtc,
 			sde_crtc->event = NULL;
 			DRM_DEBUG_VBL("%s: send event: %pK\n",
 						sde_crtc->name, event);
-			MSM_EVT(crtc->dev, crtc->base.id, 0);
+			SDE_EVT32(DRMID(crtc));
 			drm_crtc_send_vblank_event(crtc, event);
 		}
 	}
@@ -378,7 +378,7 @@ static void sde_crtc_vblank_cb(void *data)
 
 	drm_crtc_handle_vblank(crtc);
 	DRM_DEBUG_VBL("crtc%d\n", crtc->base.id);
-	MSM_EVT(crtc->dev, crtc->base.id, 0);
+	SDE_EVT32_IRQ(DRMID(crtc));
 }
 
 void sde_crtc_complete_commit(struct drm_crtc *crtc,
@@ -395,7 +395,7 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
-	MSM_EVT(crtc->dev, crtc->base.id, 0);
+	SDE_EVT32(DRMID(crtc));
 
 	/* signal output fence(s) at end of commit */
 	sde_fence_signal(&sde_crtc->output_fence, 0);
@@ -994,7 +994,7 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 		if (encoder->crtc != crtc)
 			continue;
 
-		MSM_EVT(crtc->dev, crtc->base.id, en);
+		SDE_EVT32(DRMID(crtc), en);
 
 		if (en)
 			sde_encoder_register_vblank_callback(encoder,
@@ -1375,8 +1375,8 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	snprintf(sde_crtc->name, SDE_CRTC_NAME_SIZE, "crtc%u", crtc->base.id);
 
 	/* initialize output fence support */
-	sde_fence_init(dev, &sde_crtc->output_fence, sde_crtc->name);
 	mutex_init(&sde_crtc->crtc_lock);
+	sde_fence_init(&sde_crtc->output_fence, sde_crtc->name, crtc->base.id);
 
 	/* initialize debugfs support */
 	_sde_crtc_init_debugfs(sde_crtc, kms);

@@ -198,7 +198,7 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 
 	ret = _sde_vbif_wait_for_xin_halt(vbif, params->xin_id);
 	if (ret)
-		MSM_EVT(sde_kms->dev, vbif->idx, params->xin_id);
+		SDE_EVT32(vbif->idx, params->xin_id);
 
 	vbif->ops.set_halt_ctrl(vbif, params->xin_id, false);
 

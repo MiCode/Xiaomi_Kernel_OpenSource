@@ -240,6 +240,8 @@ static int msm_unload(struct drm_device *dev)
 				priv->vram.paddr, &attrs);
 	}
 
+	sde_evtlog_destroy();
+
 	component_unbind_all(dev->dev, dev);
 
 	dev->dev_private = NULL;
@@ -390,6 +392,12 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	ret = msm_init_vram(dev);
 	if (ret)
 		goto fail;
+
+	ret = sde_evtlog_init(dev->primary->debugfs_root);
+	if (ret) {
+		dev_err(dev->dev, "failed to init evtlog: %d\n", ret);
+		goto fail;
+	}
 
 	switch (get_mdp_ver(pdev)) {
 	case KMS_MDP4:

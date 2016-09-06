@@ -31,7 +31,7 @@
 #define to_sde_encoder_phys_wb(x) \
 	container_of(x, struct sde_encoder_phys_wb, base)
 
-#define DEV(phy_enc) (phy_enc->parent->dev)
+#define WBID(wb_enc) ((wb_enc) ? wb_enc->wb_dev->wb_idx : -1)
 
 /**
  * sde_encoder_phys_wb_is_master - report wb always as master encoder
@@ -676,13 +676,14 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	if (WARN_ON(phys_enc->enable_state != SDE_ENC_ENABLED))
 		return -EWOULDBLOCK;
 
-	MSM_EVT(DEV(phys_enc), wb_enc->frame_count, 0);
+	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->frame_count);
 
 	ret = wait_for_completion_timeout(&wb_enc->wbdone_complete,
 			msecs_to_jiffies(wb_enc->wbdone_timeout));
 
 	if (!ret) {
-		MSM_EVT(DEV(phys_enc), wb_enc->frame_count, 0);
+		SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc),
+				wb_enc->frame_count);
 
 		irq_status = sde_core_irq_read(phys_enc->sde_kms,
 				wb_enc->irq_idx, true);
@@ -720,7 +721,8 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 			wb_enc->wb_dev->wb_idx - WB_0, wb_time);
 	}
 
-	MSM_EVT(DEV(phys_enc), wb_enc->frame_count, wb_time);
+	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->frame_count,
+			wb_time);
 
 	return rc;
 }
@@ -760,7 +762,8 @@ static void sde_encoder_phys_wb_prepare_for_kickoff(
 	/* vote for iommu/clk/bus */
 	wb_enc->start_time = ktime_get();
 
-	MSM_EVT(DEV(phys_enc), *need_to_wait, wb_enc->kickoff_count);
+	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), *need_to_wait,
+			wb_enc->kickoff_count);
 }
 
 /**
@@ -774,7 +777,7 @@ static void sde_encoder_phys_wb_handle_post_kickoff(
 
 	SDE_DEBUG("[wb:%d]\n", wb_enc->hw_wb->idx - WB_0);
 
-	MSM_EVT(DEV(phys_enc), 0, 0);
+	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc));
 }
 
 /**

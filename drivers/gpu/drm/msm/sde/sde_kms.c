@@ -244,16 +244,16 @@ static void sde_prepare_commit(struct msm_kms *kms,
 
 static void sde_commit(struct msm_kms *kms, struct drm_atomic_state *old_state)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
 	int i;
 
-	MSM_EVT(sde_kms->dev, 0, 0);
-
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
-		if (crtc->state->active)
+	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+		if (crtc->state->active) {
+			SDE_EVT32(DRMID(crtc));
 			sde_crtc_commit_kickoff(crtc);
+		}
+	}
 }
 
 static void sde_complete_commit(struct msm_kms *kms,
@@ -270,7 +270,7 @@ static void sde_complete_commit(struct msm_kms *kms,
 		sde_crtc_complete_commit(crtc, old_crtc_state);
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
-	MSM_EVT(sde_kms->dev, 0, 0);
+	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 }
 
 static void sde_wait_for_commit_done(struct msm_kms *kms,
@@ -303,7 +303,7 @@ static void sde_wait_for_commit_done(struct msm_kms *kms,
 		 * For example, wait for vsync in case of video mode panels
 		 * This should be a no-op for command mode panels
 		 */
-		MSM_EVT(crtc->dev, crtc->base.id, 0);
+		SDE_EVT32(DRMID(crtc));
 		ret = sde_encoder_wait_for_commit_done(encoder);
 		if (ret && ret != -EWOULDBLOCK) {
 			DRM_ERROR("wait for commit done returned %d\n", ret);
@@ -906,9 +906,6 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 *       'primary' is already created.
 	 */
 	sde_debugfs_init(sde_kms);
-	msm_evtlog_init(&priv->evtlog, SDE_EVTLOG_SIZE,
-			sde_debugfs_get_root(sde_kms));
-	MSM_EVT(dev, 0, 0);
 
 	/*
 	 * modeset_init should create the DRM related objects i.e. CRTCs,

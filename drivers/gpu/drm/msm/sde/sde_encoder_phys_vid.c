@@ -36,8 +36,6 @@
 #define to_sde_encoder_phys_vid(x) \
 	container_of(x, struct sde_encoder_phys_vid, base)
 
-#define DEV(phy_enc) (phy_enc->parent->dev)
-
 #define WAIT_TIMEOUT_MSEC 100
 
 static bool sde_encoder_phys_vid_is_master(
@@ -501,7 +499,7 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 			__builtin_return_address(0),
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
-	MSM_EVTMSG(phys_enc->parent->dev, NULL, enable,
+	SDE_EVT32(DRMID(phys_enc->parent), enable,
 			atomic_read(&phys_enc->vblank_refcount));
 
 	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
@@ -686,18 +684,20 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 		return -EWOULDBLOCK;
 	}
 
-	MSM_EVTMSG(DEV(phys_enc), "waiting", 0, 0);
+	SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx,
+			SDE_EVTLOG_FUNC_ENTRY);
 
 	ret = wait_for_completion_timeout(&vid_enc->vblank_completion,
 			msecs_to_jiffies(WAIT_TIMEOUT_MSEC));
 	if (!ret) {
 		SDE_DEBUG_VIDENC(vid_enc, "wait %u ms timed out\n",
 				WAIT_TIMEOUT_MSEC);
-		MSM_EVTMSG(DEV(phys_enc), "wait_timeout", 0, 0);
+		SDE_EVT32(DRMID(phys_enc->parent), WAIT_TIMEOUT_MSEC);
 		return -ETIMEDOUT;
 	}
 
-	MSM_EVTMSG(DEV(phys_enc), "wait_done", 0, 0);
+	SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx,
+			SDE_EVTLOG_FUNC_EXIT);
 
 	return 0;
 }
@@ -735,7 +735,7 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 	 * Video encoders need to turn on their interfaces now
 	 */
 	if (phys_enc->enable_state == SDE_ENC_ENABLING) {
-		MSM_EVT(DEV(phys_enc), 0, 0);
+		SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx);
 		spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
 		vid_enc->hw_intf->ops.enable_timing(vid_enc->hw_intf, 1);
 		spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);

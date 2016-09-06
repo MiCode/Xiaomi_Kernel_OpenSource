@@ -43,7 +43,8 @@ msm_drm-y := \
 	sde/sde_connector.o \
 	sde/sde_backlight.o \
 	sde/sde_color_processing.o \
-	sde/sde_vbif.o
+	sde/sde_vbif.o \
+	sde_dbg_evtlog.o
 
 # use drm gpu driver only if qcom_kgsl driver not available
 ifneq ($(CONFIG_QCOM_KGSL),y)
@@ -124,7 +125,6 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_perf.o \
 	msm_rd.o \
 	msm_ringbuffer.o \
-	msm_evtlog.o \
 	msm_prop.o
 
 obj-$(CONFIG_DRM_MSM)	+= msm_drm.o
