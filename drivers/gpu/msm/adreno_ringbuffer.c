@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1148,7 +1148,7 @@ static bool _parse_ibs(struct kgsl_device_private *dev_priv,
 
 	level++;
 
-	KGSL_CMD_INFO(dev_priv->device, "ib: gpuaddr:0x%08x, wc:%d, hptr:%p\n",
+	KGSL_CMD_INFO(dev_priv->device, "ib: gpuaddr:0x%08x, wc:%d, hptr:%pK\n",
 		gpuaddr, sizedwords, hostaddr);
 
 	mb();
@@ -1170,7 +1170,7 @@ static bool _parse_ibs(struct kgsl_device_private *dev_priv,
 			break;
 		default:
 			KGSL_CMD_ERR(dev_priv->device, "unexpected type: "
-				"type:%d, word:0x%08x @ 0x%p, gpu:0x%08x\n",
+				"type:%d, word:0x%08x @ 0x%pK, gpu:0x%08x\n",
 				*hostaddr >> 30, *hostaddr, hostaddr,
 				gpuaddr+4*(sizedwords-dwords_left));
 			cur_ret = false;
@@ -1181,7 +1181,7 @@ static bool _parse_ibs(struct kgsl_device_private *dev_priv,
 		if (!cur_ret) {
 			KGSL_CMD_ERR(dev_priv->device,
 				"bad sub-type: #:%d/%d, v:0x%08x"
-				" @ 0x%p[gb:0x%08x], level:%d\n",
+				" @ 0x%pK[gb:0x%08x], level:%d\n",
 				sizedwords-dwords_left, sizedwords, *hostaddr,
 				hostaddr, gpuaddr+4*(sizedwords-dwords_left),
 				level);
@@ -1201,7 +1201,7 @@ static bool _parse_ibs(struct kgsl_device_private *dev_priv,
 		if (dwords_left < 0) {
 			KGSL_CMD_ERR(dev_priv->device,
 				"bad count: c:%d, #:%d/%d, "
-				"v:0x%08x @ 0x%p[gb:0x%08x], level:%d\n",
+				"v:0x%08x @ 0x%pK[gb:0x%08x], level:%d\n",
 				count, sizedwords-(dwords_left+count),
 				sizedwords, *(hostaddr-count), hostaddr-count,
 				gpuaddr+4*(sizedwords-(dwords_left+count)),
@@ -1221,7 +1221,7 @@ done:
 	if (!ret)
 		KGSL_DRV_ERR(dev_priv->device,
 			"parsing failed: gpuaddr:0x%08x, "
-			"host:0x%p, wc:%d\n", gpuaddr, hoststart, sizedwords);
+			"host:0x%pK, wc:%d\n", gpuaddr, hoststart, sizedwords);
 
 	level--;
 

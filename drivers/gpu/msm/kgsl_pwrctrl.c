@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1524,7 +1524,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 		if (!pwr->ocmem_pcl) {
 			KGSL_PWR_ERR(device,
-				"msm_bus_scale_register_client failed: id %d table %p",
+				"msm_bus_scale_register_client failed: id %d table %pK",
 				device->id, ocmem_scale_table);
 			result = -EINVAL;
 			goto done;
@@ -1556,7 +1556,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 				(pdata->bus_scale_table);
 		if (!pwr->pcl) {
 			KGSL_PWR_ERR(device,
-				"msm_bus_scale_register_client failed: id %d table %p",
+				"msm_bus_scale_register_client failed: id %d table %pK",
 				device->id, pdata->bus_scale_table);
 			result = -EINVAL;
 			goto done;
