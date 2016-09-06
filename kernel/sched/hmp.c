@@ -881,6 +881,13 @@ unsigned int __read_mostly sched_spill_load;
 unsigned int __read_mostly sysctl_sched_spill_load_pct = 100;
 
 /*
+ * Prefer the waker CPU for sync wakee task, if the CPU has only 1 runnable
+ * task. This eliminates the LPM exit latency associated with the idle
+ * CPUs in the waker cluster.
+ */
+unsigned int __read_mostly sysctl_sched_prefer_sync_wakee_to_waker;
+
+/*
  * Tasks whose bandwidth consumption on a cpu is more than
  * sched_upmigrate are considered "big" tasks. Big tasks will be
  * considered for "up" migration, i.e migrating to a cpu with better
