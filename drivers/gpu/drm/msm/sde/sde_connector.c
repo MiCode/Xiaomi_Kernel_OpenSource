@@ -519,7 +519,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			"conn%u",
 			c_conn->base.base.id);
 
-	rc = sde_fence_init(dev, &c_conn->retire_fence, c_conn->name);
+	rc = sde_fence_init(&c_conn->retire_fence, c_conn->name,
+			c_conn->base.base.id);
 	if (rc) {
 		SDE_ERROR("failed to init fence, %d\n", rc);
 		goto error_cleanup_conn;

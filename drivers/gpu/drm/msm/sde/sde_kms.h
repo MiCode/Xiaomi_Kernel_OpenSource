@@ -16,6 +16,7 @@
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_mmu.h"
+#include "sde_dbg.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
 #include "sde_hw_lm.h"
@@ -25,6 +26,8 @@
 #include "sde_rm.h"
 #include "sde_power_handle.h"
 #include "sde_irq.h"
+
+#define DRMID(x) ((x) ? (x)->base.id : -1)
 
 /**
  * SDE_DEBUG - macro for kms/plane/crtc/encoder/connector logs

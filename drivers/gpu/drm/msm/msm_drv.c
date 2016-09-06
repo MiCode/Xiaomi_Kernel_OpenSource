@@ -248,7 +248,9 @@ static int msm_drm_uninit(struct device *dev)
 			       priv->vram.paddr, attrs);
 	}
 
-	component_unbind_all(dev, ddev);
+	sde_evtlog_destroy();
+
+	component_unbind_all(dev->dev, dev);
 
 	msm_mdss_destroy(ddev);
 
@@ -431,7 +433,11 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	if (ret)
 		goto fail;
 
-	msm_gem_shrinker_init(ddev);
+	ret = sde_evtlog_init(dev->primary->debugfs_root);
+	if (ret) {
+		dev_err(dev->dev, "failed to init evtlog: %d\n", ret);
+		goto fail;
+	}
 
 	switch (get_mdp_ver(pdev)) {
 	case KMS_MDP4:

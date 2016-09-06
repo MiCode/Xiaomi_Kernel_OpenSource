@@ -34,8 +34,6 @@
 #define to_sde_encoder_phys_cmd(x) \
 	container_of(x, struct sde_encoder_phys_cmd, base)
 
-#define DEV(phy_enc) (phy_enc->parent->dev)
-
 #define WAIT_TIMEOUT_MSEC			100
 
 /*
@@ -111,7 +109,8 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 
 	phys_enc = &cmd_enc->base;
 	new_pending_cnt = atomic_dec_return(&cmd_enc->pending_cnt);
-	MSM_EVT(DEV(phys_enc), phys_enc->hw_pp->idx, new_pending_cnt);
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent), phys_enc->hw_pp->idx,
+		new_pending_cnt);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&cmd_enc->pp_tx_done_wq);
@@ -384,7 +383,7 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 			__builtin_return_address(0),
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
-	MSM_EVTMSG(phys_enc->parent->dev, NULL, enable,
+	SDE_EVT32(DRMID(phys_enc->parent), enable,
 			atomic_read(&phys_enc->vblank_refcount));
 
 	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
@@ -575,7 +574,8 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 				"pp %d needs to wait, new_pending_cnt %d",
 				phys_enc->hw_pp->idx - PINGPONG_0,
 				new_pending_cnt);
-	MSM_EVT(DEV(phys_enc), phys_enc->hw_pp->idx, new_pending_cnt);
+	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx,
+			new_pending_cnt);
 }
 
 static void sde_encoder_phys_cmd_init_ops(

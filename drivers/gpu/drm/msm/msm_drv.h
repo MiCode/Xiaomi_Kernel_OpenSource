@@ -44,7 +44,6 @@
 #include <drm/msm_drm.h>
 #include <drm/drm_gem.h>
 
-#include "msm_evtlog.h"
 #include "sde_power_handle.h"
 
 #define GET_MAJOR_REV(rev)		((rev) >> 28)
@@ -317,27 +316,9 @@ struct msm_drm_private {
 
 	struct msm_vblank_ctrl vblank_ctrl;
 
-	/* task holding struct_mutex.. currently only used in submit path
-	 * to detect and reject faults from copy_from_user() for submit
-	 * ioctl.
-	 */
-	struct task_struct *struct_mutex_task;
-
-	struct msm_evtlog evtlog;
+	/* list of clients waiting for events */
+	struct list_head client_event_list;
 };
-
-/* Helper macro for accessing msm_drm_private's event log */
-#define MSM_EVTMSG(dev, msg, x, y)  do {                                       \
-		if ((dev) && ((struct drm_device *)(dev))->dev_private)        \
-			msm_evtlog_sample(&((struct msm_drm_private *)         \
-					((struct drm_device *)                 \
-					(dev))->dev_private)->evtlog, __func__,\
-					(msg), (uint64_t)(x), (uint64_t)(y),   \
-					__LINE__);                             \
-	} while (0)
-
-/* Helper macro for accessing msm_drm_private's event log */
-#define MSM_EVT(dev, x, y) MSM_EVTMSG((dev), 0, (x), (y))
 
 struct msm_format {
 	uint32_t pixel_format;
@@ -363,6 +344,7 @@ int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool nonblock);
 
 int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu);
+void msm_unregister_all_mmu(struct drm_device *dev);
 
 void msm_gem_submit_free(struct msm_gem_submit *submit);
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,

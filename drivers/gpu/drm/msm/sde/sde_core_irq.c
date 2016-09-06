@@ -95,7 +95,7 @@ static int _sde_core_irq_enable(struct sde_kms *sde_kms, int irq_idx)
 			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
 
 	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
-	MSM_EVTMSG(sde_kms->dev, NULL, irq_idx,
+	SDE_EVT32(irq_idx,
 			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
 	if (atomic_inc_return(&sde_kms->irq_obj.enable_counts[irq_idx]) == 1) {
 		ret = sde_kms->hw_intr->ops.enable_irq(
@@ -157,7 +157,7 @@ static int _sde_core_irq_disable(struct sde_kms *sde_kms, int irq_idx)
 			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
 
 	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
-	MSM_EVTMSG(sde_kms->dev, NULL, irq_idx,
+	SDE_EVT32(irq_idx,
 			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
 	if (atomic_dec_return(&sde_kms->irq_obj.enable_counts[irq_idx]) == 0) {
 		ret = sde_kms->hw_intr->ops.disable_irq(
@@ -218,7 +218,7 @@ int sde_core_irq_register_callback(struct sde_kms *sde_kms, int irq_idx,
 	SDE_DEBUG("[%pS] irq_idx=%d\n", __builtin_return_address(0), irq_idx);
 
 	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
-	MSM_EVTMSG(sde_kms->dev, NULL, irq_idx, register_irq_cb);
+	SDE_EVT32(irq_idx, register_irq_cb);
 	list_del_init(&register_irq_cb->list);
 	list_add_tail(&register_irq_cb->list,
 			&sde_kms->irq_obj.irq_cb_tbl[irq_idx]);
@@ -246,7 +246,7 @@ int sde_core_irq_unregister_callback(struct sde_kms *sde_kms, int irq_idx,
 	SDE_DEBUG("[%pS] irq_idx=%d\n", __builtin_return_address(0), irq_idx);
 
 	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
-	MSM_EVTMSG(sde_kms->dev, NULL, irq_idx, register_irq_cb);
+	SDE_EVT32(irq_idx, register_irq_cb);
 	list_del_init(&register_irq_cb->list);
 	/* empty callback list but interrupt is still enabled */
 	if (list_empty(&sde_kms->irq_obj.irq_cb_tbl[irq_idx]) &&

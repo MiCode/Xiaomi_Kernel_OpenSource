@@ -92,29 +92,50 @@ struct sde_rm_hw_blk {
 	void *hw;
 };
 
-static void _sde_rm_print_rsvps(struct sde_rm *rm, const char *msg)
+/**
+ * sde_rm_dbg_rsvp_stage - enum of steps in making reservation for event logging
+ */
+enum sde_rm_dbg_rsvp_stage {
+	SDE_RM_STAGE_BEGIN,
+	SDE_RM_STAGE_AFTER_CLEAR,
+	SDE_RM_STAGE_AFTER_RSVPNEXT,
+	SDE_RM_STAGE_FINAL
+};
+
+static void _sde_rm_print_rsvps(
+		struct sde_rm *rm,
+		enum sde_rm_dbg_rsvp_stage stage)
 {
 	struct sde_rm_rsvp *rsvp;
 	struct sde_rm_hw_blk *blk;
 	enum sde_hw_blk_type type;
 
-	SDE_DEBUG("%s\n", msg);
+	SDE_DEBUG("%d\n", stage);
 
-	list_for_each_entry(rsvp, &rm->rsvps, list)
-		SDE_DEBUG("%s rsvp[s%ue%u] topology %d\n", msg, rsvp->seq,
+	list_for_each_entry(rsvp, &rm->rsvps, list) {
+		SDE_DEBUG("%d rsvp[s%ue%u] topology %d\n", stage, rsvp->seq,
 				rsvp->enc_id, rsvp->topology);
+		SDE_EVT32(stage, rsvp->seq, rsvp->enc_id, rsvp->topology);
+	}
 
 	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
 		list_for_each_entry(blk, &rm->hw_blks[type], list) {
 			if (!blk->rsvp && !blk->rsvp_nxt)
 				continue;
 
-			SDE_DEBUG("%s rsvp[s%ue%u->s%ue%u] %s %d\n", msg,
+			SDE_DEBUG("%d rsvp[s%ue%u->s%ue%u] %s %d\n", stage,
 				(blk->rsvp) ? blk->rsvp->seq : 0,
 				(blk->rsvp) ? blk->rsvp->enc_id : 0,
 				(blk->rsvp_nxt) ? blk->rsvp_nxt->seq : 0,
 				(blk->rsvp_nxt) ? blk->rsvp_nxt->enc_id : 0,
 				blk->type_name, blk->id);
+
+			SDE_EVT32(stage,
+				(blk->rsvp) ? blk->rsvp->seq : 0,
+				(blk->rsvp) ? blk->rsvp->enc_id : 0,
+				(blk->rsvp_nxt) ? blk->rsvp_nxt->seq : 0,
+				(blk->rsvp_nxt) ? blk->rsvp_nxt->enc_id : 0,
+				blk->type, blk->id);
 		}
 	}
 }
@@ -623,13 +644,11 @@ static int _sde_rm_reserve_lms(
 
 		lm[i]->rsvp_nxt = rsvp;
 		pp[i]->rsvp_nxt = rsvp;
-		MSM_EVTMSG(rm->dev, lm[i]->type_name, rsvp->enc_id, lm[i]->id);
-		MSM_EVTMSG(rm->dev, pp[i]->type_name, rsvp->enc_id, pp[i]->id);
-		if (dspp[i]) {
+		if (dspp[i])
 			dspp[i]->rsvp_nxt = rsvp;
-			MSM_EVTMSG(rm->dev, dspp[i]->type_name, rsvp->enc_id,
-					dspp[i]->id);
-		}
+
+		SDE_EVT32(lm[i]->type, rsvp->enc_id, lm[i]->id, pp[i]->id,
+				dspp[i] ? dspp[i]->id : 0);
 	}
 
 	return 0;
@@ -678,8 +697,7 @@ static int _sde_rm_reserve_ctls(
 
 	for (i = 0; i < ARRAY_SIZE(ctls) && i < reqs->num_ctl; i++) {
 		ctls[i]->rsvp_nxt = rsvp;
-		MSM_EVTMSG(rm->dev, ctls[i]->type_name, rsvp->enc_id,
-				ctls[i]->id);
+		SDE_EVT32(ctls[i]->type, rsvp->enc_id, ctls[i]->id);
 	}
 
 	return 0;
@@ -716,8 +734,7 @@ static int _sde_rm_reserve_cdm(
 			continue;
 
 		iter.blk->rsvp_nxt = rsvp;
-		MSM_EVTMSG(rm->dev, iter.blk->type_name, rsvp->enc_id,
-				iter.blk->id);
+		SDE_EVT32(iter.blk->type, rsvp->enc_id, iter.blk->id);
 		break;
 	}
 
@@ -751,8 +768,7 @@ static int _sde_rm_reserve_intf_or_wb(
 		}
 
 		iter.blk->rsvp_nxt = rsvp;
-		MSM_EVTMSG(rm->dev, iter.blk->type_name,
-				rsvp->enc_id, iter.blk->id);
+		SDE_EVT32(iter.blk->type, rsvp->enc_id, iter.blk->id);
 		break;
 	}
 
@@ -951,9 +967,10 @@ static int _sde_rm_populate_requirements(
 			mode->hdisplay, rm->lm_max_width);
 	SDE_DEBUG("num_lm %d num_ctl %d topology_name %d\n", reqs->num_lm,
 			reqs->num_ctl, reqs->top_name);
-	MSM_EVT(rm->dev, mode->hdisplay, rm->lm_max_width);
-	MSM_EVT(rm->dev, reqs->num_lm, reqs->top_ctrl);
-	MSM_EVT(rm->dev, reqs->top_name, 0);
+	SDE_DEBUG("num_lm %d topology_name %d\n", reqs->num_lm,
+			reqs->top_name);
+	SDE_EVT32(mode->hdisplay, rm->lm_max_width, reqs->num_lm,
+			reqs->top_ctrl, reqs->top_name, reqs->num_ctl);
 
 	return 0;
 }
@@ -1111,7 +1128,7 @@ static int _sde_rm_commit_rsvp(
 	if (!ret) {
 		SDE_DEBUG("rsrv enc %d topology %d\n", rsvp->enc_id,
 				rsvp->topology);
-		MSM_EVT(rm->dev, rsvp->enc_id, rsvp->topology);
+		SDE_EVT32(rsvp->enc_id, rsvp->topology);
 	}
 
 	return ret;
@@ -1151,9 +1168,9 @@ int sde_rm_reserve(
 	SDE_DEBUG("reserving hw for conn %d enc %d crtc %d test_only %d\n",
 			conn_state->connector->base.id, enc->base.id,
 			crtc_state->crtc->base.id, test_only);
-	MSM_EVT(rm->dev, enc->base.id, conn_state->connector->base.id);
+	SDE_EVT32(enc->base.id, conn_state->connector->base.id);
 
-	_sde_rm_print_rsvps(rm, "begin_reserve");
+	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_BEGIN);
 
 	ret = _sde_rm_populate_requirements(rm, enc, crtc_state,
 			conn_state, &reqs);
@@ -1188,14 +1205,14 @@ int sde_rm_reserve(
 				rsvp_cur->seq, rsvp_cur->enc_id);
 		_sde_rm_release_rsvp(rm, rsvp_cur, conn_state->connector);
 		rsvp_cur = NULL;
-		_sde_rm_print_rsvps(rm, "post_clear");
+		_sde_rm_print_rsvps(rm, SDE_RM_STAGE_AFTER_CLEAR);
 	}
 
 	/* Check the proposed reservation, store it in hw's "next" field */
 	ret = _sde_rm_make_next_rsvp(rm, enc, crtc_state, conn_state,
 			rsvp_nxt, &reqs);
 
-	_sde_rm_print_rsvps(rm, "new_rsvp_next");
+	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_AFTER_RSVPNEXT);
 
 	if (ret) {
 		SDE_ERROR("failed to reserve hw resources: %d\n", ret);
@@ -1219,7 +1236,7 @@ int sde_rm_reserve(
 		ret = _sde_rm_commit_rsvp(rm, rsvp_nxt, conn_state);
 	}
 
-	_sde_rm_print_rsvps(rm, "final");
+	_sde_rm_print_rsvps(rm, SDE_RM_STAGE_FINAL);
 
 	return ret;
 }

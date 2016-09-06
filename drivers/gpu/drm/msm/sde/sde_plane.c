@@ -491,10 +491,7 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 			prefix = sde_sync_get_name_prefix(input_fence);
 			ret = sde_sync_wait(input_fence, wait_ms);
 
-			MSM_EVT(plane->dev,
-				plane->base.id,
-				(uint64_t)-ret << (sizeof(uint32_t) * CHAR_BIT)
-				| prefix);
+			SDE_EVT32(DRMID(plane), -ret, prefix);
 
 			switch (ret) {
 			case 0:
