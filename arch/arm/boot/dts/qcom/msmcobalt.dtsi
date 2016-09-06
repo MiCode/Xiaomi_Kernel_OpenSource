@@ -2575,7 +2575,12 @@
 		 "iface_clk", "noc_axi_clk", "bus_clk", "maxi_clk";
 
 		qcom,pas-id = <9>;
-		qcom,proxy-timeout-ms = <10000>;
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<63 512 0 0>,
+			<63 512 0 304000>;
+		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
 		memory-region = <&pil_video_mem>;
 		status = "ok";
