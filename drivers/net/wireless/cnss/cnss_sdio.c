@@ -241,15 +241,15 @@ static int cnss_put_hw_resources(struct device *dev)
 		return ret;
 	}
 
+	if (!cnss_pdata->regulator.wlan_vreg) {
+		pr_debug("%s: wlan_vreg regulator is invalid\n", __func__);
+		return 0;
+	}
+
 	ret = mmc_power_save_host(host);
 	if (ret) {
 		pr_err("%s: Failed to Power Save Host err:%d\n", __func__,
 		       ret);
-		return ret;
-	}
-
-	if (!cnss_pdata->regulator.wlan_vreg) {
-		pr_debug("%s: wlan_vreg regulator is invalid\n", __func__);
 		return ret;
 	}
 
@@ -280,6 +280,11 @@ static int cnss_get_hw_resources(struct device *dev)
 		pr_err("%s: MMC Host is Invalid; Enumeration Failed\n",
 		       __func__);
 		return ret;
+	}
+
+	if (!cnss_pdata->regulator.wlan_vreg) {
+		pr_debug("%s: wlan_vreg regulator is invalid\n", __func__);
+		return 0;
 	}
 
 	ret = regulator_enable(cnss_pdata->regulator.wlan_vreg);
