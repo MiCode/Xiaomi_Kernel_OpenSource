@@ -4331,6 +4331,22 @@ end:
 	}
 }
 
+static void hdmi_tx_update_audio(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	struct mdss_panel_data *pdata = &hdmi_ctrl->panel_data;
+	struct mdss_panel_info *pinfo = &pdata->panel_info;
+	int dfps_update = pinfo->dfps_update;
+
+	if (dfps_update != DFPS_IMMEDIATE_CLK_UPDATE_MODE &&
+		dfps_update != DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP &&
+		dfps_update != DFPS_IMMEDIATE_MULTI_MODE_HFP_CALC_CLK)
+		return;
+
+	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
+			hdmi_tx_is_cea_format(hdmi_ctrl->vid_cfg.vic))
+		hdmi_tx_audio_setup(hdmi_ctrl);
+}
+
 static void hdmi_tx_fps_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
@@ -4342,6 +4358,7 @@ static void hdmi_tx_fps_work(struct work_struct *work)
 	}
 
 	hdmi_tx_update_fps(hdmi_ctrl);
+	hdmi_tx_update_audio(hdmi_ctrl);
 }
 
 static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
