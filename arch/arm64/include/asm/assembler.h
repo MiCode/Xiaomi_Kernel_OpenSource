@@ -108,6 +108,15 @@
 	dmb	\opt
 	.endm
 
+/*
+ * NOP sequence
+ */
+	.macro	nops, num
+	.rept	\num
+	nop
+	.endr
+	.endm
+
 #define USER(l, x...)				\
 9999:	x;					\
 	.section __ex_table,"a";		\
