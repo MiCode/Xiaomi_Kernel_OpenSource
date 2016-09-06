@@ -454,7 +454,6 @@ static int update_msg_mask_tbl_entry(struct diag_msg_mask_t *mask,
 				     struct diag_ssid_range_t *range)
 {
 	uint32_t temp_range;
-	uint32_t *temp = NULL;
 
 	if (!mask || !range)
 		return -EIO;
@@ -465,11 +464,6 @@ static int update_msg_mask_tbl_entry(struct diag_msg_mask_t *mask,
 	}
 	if (range->ssid_last >= mask->ssid_last) {
 		temp_range = range->ssid_last - mask->ssid_first + 1;
-		temp = krealloc(mask->ptr, temp_range * sizeof(uint32_t),
-				GFP_KERNEL);
-		if (!temp)
-			return -ENOMEM;
-		mask->ptr = temp;
 		mask->ssid_last = range->ssid_last;
 		mask->range = temp_range;
 	}

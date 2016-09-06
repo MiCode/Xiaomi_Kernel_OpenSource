@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +46,8 @@ enum {
  *
  * priv:	Private data passed into user callbacks
  * options:	Open option flags
+ * rx_intent_req_timeout_ms:	Timeout for requesting an RX intent, in
+ * 	milliseconds; if set to 0, timeout is infinite
  * notify_rx:	Receive notification function (required)
  * notify_tx_done: Transmit-done notification function (required)
  * notify_state: State-change notification (required)
@@ -67,6 +70,7 @@ struct glink_open_config {
 	const char *transport;
 	const char *edge;
 	const char *name;
+	unsigned int rx_intent_req_timeout_ms;
 
 	void (*notify_rx)(void *handle, const void *priv, const void *pkt_priv,
 			const void *ptr, size_t size);

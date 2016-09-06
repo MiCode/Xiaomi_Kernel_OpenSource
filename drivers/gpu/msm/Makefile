@@ -11,7 +11,8 @@ msm_kgsl_core-y = \
 	kgsl_mmu.o \
 	kgsl_iommu.o \
 	kgsl_snapshot.o \
-	kgsl_events.o
+	kgsl_events.o \
+	kgsl_heap.o
 
 msm_kgsl_core-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
 msm_kgsl_core-$(CONFIG_MSM_KGSL_CFF_DUMP) += kgsl_cffdump.o

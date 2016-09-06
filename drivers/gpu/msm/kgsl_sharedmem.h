@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -324,6 +325,10 @@ static inline void kgsl_free_global(struct kgsl_memdesc *memdesc)
 	kgsl_remove_global_pt_entry(memdesc);
 	kgsl_sharedmem_free(memdesc);
 }
+
+int kgsl_heap_init(void);
+struct page *kgsl_heap_alloc(unsigned long size);
+void kgsl_heap_free(struct page *page);
 
 void kgsl_sharedmem_set_noretry(bool val);
 bool kgsl_sharedmem_get_noretry(void);

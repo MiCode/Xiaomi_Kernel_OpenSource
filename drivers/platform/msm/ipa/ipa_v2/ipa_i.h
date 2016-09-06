@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -485,6 +486,16 @@ struct ipa_status_stats {
 	int curr;
 };
 
+enum ipa_wakelock_ref_client {
+	IPA_WAKELOCK_REF_CLIENT_TX  = 0,
+	IPA_WAKELOCK_REF_CLIENT_LAN_RX = 1,
+	IPA_WAKELOCK_REF_CLIENT_WAN_RX = 2,
+	IPA_WAKELOCK_REF_CLIENT_WLAN_RX = 3,
+	IPA_WAKELOCK_REF_CLIENT_ODU_RX = 4,
+	IPA_WAKELOCK_REF_CLIENT_SPS = 5,
+	IPA_WAKELOCK_REF_CLIENT_MAX
+};
+
 /**
  * struct ipa_ep_context - IPA end point context
  * @valid: flag indicating id EP context is valid
@@ -544,6 +555,7 @@ struct ipa_ep_context {
 	u32 rx_replenish_threshold;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
+	enum ipa_wakelock_ref_client wakelock_client;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
@@ -786,6 +798,11 @@ struct ipa_active_clients {
 	spinlock_t spinlock;
 	bool mutex_locked;
 	int cnt;
+};
+
+struct ipa_wakelock_ref_cnt {
+	spinlock_t spinlock;
+	u32 cnt;
 };
 
 struct ipa_tag_completion {
@@ -1160,6 +1177,8 @@ struct ipacm_client_info {
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
  * @ipa_client_apps_wan_cons_agg_gro: RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA
+ * @w_lock: Indicates the wakeup source.
+ * @wakelock_ref_cnt: Indicates the number of times wakelock is acquired
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -1261,6 +1280,9 @@ struct ipa_context {
 	u32 peer_bam_map_cnt;
 	u32 wdi_map_cnt;
 	bool use_dma_zone;
+	struct wakeup_source w_lock;
+	struct ipa_wakelock_ref_cnt wakelock_ref_cnt;
+
 	/* RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA */
 	bool ipa_client_apps_wan_cons_agg_gro;
 	/* M-release support to know client pipes */
@@ -1987,4 +2009,6 @@ void ipa_update_repl_threshold(enum ipa_client_type ipa_client);
 void ipa_flow_control(enum ipa_client_type ipa_client, bool enable,
 			uint32_t qmap_id);
 int ipa2_restore_suspend_handler(void);
+void ipa_inc_acquire_wakelock(enum ipa_wakelock_ref_client ref_client);
+void ipa_dec_release_wakelock(enum ipa_wakelock_ref_client ref_client);
 #endif /* _IPA_I_H_ */

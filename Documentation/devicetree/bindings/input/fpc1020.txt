@@ -1,0 +1,43 @@
+Fingerprint Cards FPC1020 Swipe Sensor (SPI)
+
+Required properties:
+- compatible        : Should be "fpc,fpc1020".
+- reg               : Offset and length of the register regions for the device
+- spi-max-frequency : Specifies maximum SPI clock frequency, Units - Hz.
+- fpc,gpio_irq      : GPIO input for sensor IRQ
+- fpc,gpio_reset    : GPIO output for sensor reset signal
+- fpc,gpio_cs       : GPIO output for sensor chip select signal
+- vcc_spi-supply    : Power supply regulator for SPI core
+- vdd_ana-supply    : Power supply regulator for sensor core and analog supply ("VDDA")
+- vdd_io-supply     : Power supply regulator sensor I/O ("VDDIO")
+
+Optional properties:
+- fpc,vddtx_mv : TxOut, external power supply voltage in millivolt.
+                 "0", or missing entry, selects internal supply (sourced from VDDA)
+
+- fpc,txout_boost_enable : If defined, enable voltage boost for internal TxOut power
+                           supply. External TxOut power overrides this setting.
+
+- fpc,force_hwid : If defined, override chip hardware identifier.
+
+- fpc,use_fpc2050 : If defined hwid/sensorid will translate to one with bezel independent imaging
+
+Example:
+	spi@f9925000 {
+		status = "ok";
+		fpc_fpc1020 {
+			compatible = "fpc,fpc1020";
+			reg = <2>;
+			spi-max-frequency = <16000000>;
+			fpc,gpio_irq	= <86>;
+			fpc,gpio_reset	= <64>;
+			fpc,gpio_cs	= <85>;
+			/* fpc,vddtx_mv	= <3300>;  */
+			/* fpc,txout_boost_enable; */
+			/* fpc,force_hwid = <0x1234> */
+			vcc_spi-supply	= <&pm8941_s3>;
+			vdd_ana-supply	= <&pm8941_lvs1>;
+			vdd_io-supply	= <&pm8941_lvs1>;
+		};
+	};
+

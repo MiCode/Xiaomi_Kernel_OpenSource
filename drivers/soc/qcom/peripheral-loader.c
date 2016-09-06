@@ -1,4 +1,5 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -558,16 +559,6 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	if (ret)
 		return ret;
 
-	if (desc->subsys_vmid > 0) {
-		ret = pil_assign_mem_to_subsys_and_linux(desc,
-				priv->region_start,
-				(priv->region_end - priv->region_start));
-		if (ret) {
-			pil_err(desc, "Failed to assign memory, ret - %d\n",
-								ret);
-			return ret;
-		}
-	}
 	pil_info(desc, "loading from %pa to %pa\n", &priv->region_start,
 							&priv->region_end);
 
@@ -750,6 +741,7 @@ int pil_boot(struct pil_desc *desc)
 	const struct firmware *fw;
 	struct pil_priv *priv = desc->priv;
 	bool mem_protect = false;
+	bool hyp_assign = false;
 
 	if (desc->shutdown_fail)
 		pil_err(desc, "Subsystem shutdown failed previously!\n");
@@ -818,6 +810,26 @@ int pil_boot(struct pil_desc *desc)
 		goto err_deinit_image;
 	}
 
+	if (desc->subsys_vmid > 0) {
+		/* Make sure the memory is actually assigned to Linux. In the
+		 * case where the shutdown sequence is not able to immediately
+		 * assign the memory back to Linux, we need to do this here. */
+		ret = pil_assign_mem_to_linux(desc, priv->region_start,
+			(priv->region_end - priv->region_start));
+		if (ret)
+			pil_err(desc, "Failed to assign to linux, ret - %d\n", ret);
+
+		ret = pil_assign_mem_to_subsys_and_linux(desc,
+			priv->region_start,
+			(priv->region_end - priv->region_start));
+
+		if (ret) {
+			pil_err(desc, "Failed to assign memory, ret - %d\n", ret);
+			goto err_deinit_image;
+		}
+		hyp_assign = true;
+	}
+
 	list_for_each_entry(seg, &desc->priv->segs, list) {
 		ret = pil_load_seg(desc, seg);
 		if (ret)
@@ -833,6 +845,7 @@ int pil_boot(struct pil_desc *desc)
 							desc->name, ret);
 			goto err_deinit_image;
 		}
+		hyp_assign = false;
 	}
 
 	ret = desc->ops->auth_and_reset(desc);
@@ -860,7 +873,8 @@ out:
 	up_read(&pil_pm_rwsem);
 	if (ret) {
 		if (priv->region) {
-			if (desc->subsys_vmid > 0 && !mem_protect) {
+			if (desc->subsys_vmid > 0 && !mem_protect &&
+					hyp_assign) {
 				pil_reclaim_mem(desc, priv->region_start,
 					(priv->region_end -
 						priv->region_start),

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2798,6 +2799,12 @@ static void __ref do_core_control(long temp)
 			if (cpu_online(i)) {
 				cpu_dev = get_cpu_device(i);
 				trace_thermal_pre_core_offline(i);
+				cpu_dev = get_cpu_device(i);
+				if (!cpu_dev) {
+					pr_err("Error in get CPU%d device\n", i);
+					mutex_unlock(&core_control_mutex);
+					return;
+				}
 				ret = device_offline(cpu_dev);
 				if (ret)
 					pr_err("Error %d offline core %d\n",
@@ -2835,6 +2842,12 @@ static void __ref do_core_control(long temp)
 			}
 			cpu_dev = get_cpu_device(i);
 			trace_thermal_pre_core_online(i);
+			cpu_dev = get_cpu_device(i);
+			if (!cpu_dev) {
+				pr_err("Error in get CPU%d device\n", i);
+				mutex_unlock(&core_control_mutex);
+				return;
+			}
 			ret = device_online(cpu_dev);
 			if (ret)
 				pr_err("Error %d online core %d\n",
@@ -2853,8 +2866,8 @@ static int __ref update_offline_cores(int val)
 	uint32_t cpu = 0;
 	int ret = 0;
 	uint32_t previous_cpus_offlined = 0;
-	bool pend_hotplug_req = false;
 	struct device *cpu_dev = NULL;
+	bool pend_hotplug_req = false;
 
 	if (!core_control_enabled)
 		return 0;
@@ -2871,6 +2884,10 @@ static int __ref update_offline_cores(int val)
 			}
 			cpu_dev = get_cpu_device(cpu);
 			trace_thermal_pre_core_offline(cpu);
+			cpu_dev = get_cpu_device(cpu);
+			if (!cpu_dev) {
+				pr_err("Error in get CPU%d device\n", cpu);
+			}
 			ret = device_offline(cpu_dev);
 			if (ret) {
 				pr_err_ratelimited(
@@ -2897,6 +2914,10 @@ static int __ref update_offline_cores(int val)
 			}
 			cpu_dev = get_cpu_device(cpu);
 			trace_thermal_pre_core_online(cpu);
+			cpu_dev = get_cpu_device(cpu);
+			if (!cpu_dev) {
+				pr_err("Error in get CPU%d device\n", cpu);
+			}
 			ret = device_online(cpu_dev);
 			if (ret && ret == notifier_to_errno(NOTIFY_BAD)) {
 				pr_debug("Onlining CPU%d is vetoed\n", cpu);

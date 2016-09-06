@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -546,6 +547,8 @@ struct mdss_panel_info {
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
 	int pwm_period;
+	int esd_err_irq_gpio;
+	int esd_err_irq;
 	bool dynamic_fps;
 	bool ulps_feature_enabled;
 	bool ulps_suspend_enabled;
@@ -621,6 +624,7 @@ struct mdss_panel_info {
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
+	uint32_t panel_paramstatus;
 
 	/*
 	 * Value of 2 only when single DSI is configured with 2 DSC

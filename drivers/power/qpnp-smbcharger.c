@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,6 +114,7 @@ struct smbchg_chip {
 	int				iterm_ma;
 	int				usb_max_current_ma;
 	int				dc_max_current_ma;
+	int				usb_target_current_ma;
 	int				dc_target_current_ma;
 	int				cfg_fastchg_current_ma;
 	int				fastchg_current_ma;
@@ -182,7 +184,6 @@ struct smbchg_chip {
 	bool				usb_ov_det;
 	bool				otg_pulse_skip_dis;
 	const char			*battery_type;
-	enum power_supply_type		usb_supply_type;
 	bool				very_weak_charger;
 	bool				parallel_charger_detected;
 	u32				wa_flags;
@@ -1483,6 +1484,8 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 							int current_ma)
 {
 	int rc = 0;
+	enum power_supply_type usb_supply_type;
+	char *usb_type_name = "null";
 
 	/*
 	 * if the battery is not present, do not allow the usb ICL to lower in
@@ -1504,7 +1507,9 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 		rc = vote(chip->usb_suspend_votable, USB_EN_VOTER, false, 0);
 	}
 
-	switch (chip->usb_supply_type) {
+	read_usb_type(chip, &usb_type_name, &usb_supply_type);
+
+	switch (usb_supply_type) {
 	case POWER_SUPPLY_TYPE_USB:
 		if ((current_ma < CURRENT_150_MA) &&
 				(chip->wa_flags & SMBCHG_USB100_WA))
@@ -1603,8 +1608,8 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 	}
 
 out:
-	pr_smb(PR_STATUS, "usb type = %d current set to %d mA\n",
-			chip->usb_supply_type, chip->usb_max_current_ma);
+	pr_smb(PR_STATUS, "usb type = %s current set to %d mA\n",
+			usb_type_name, chip->usb_max_current_ma);
 	return rc;
 }
 
@@ -1695,21 +1700,6 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 #define DCIN_ACTIVE_PWR_SRC_BIT		BIT(0)
 #define PARALLEL_REENABLE_TIMER_MS	1000
 #define PARALLEL_CHG_THRESHOLD_CURRENT	1800
-static bool smbchg_is_usbin_active_pwr_src(struct smbchg_chip *chip)
-{
-	int rc;
-	u8 reg;
-
-	rc = smbchg_read(chip, &reg,
-			chip->usb_chgpth_base + ICL_STS_2_REG, 1);
-	if (rc < 0) {
-		dev_err(chip->dev, "Could not read usb icl sts 2: %d\n", rc);
-		return false;
-	}
-
-	return !(reg & USBIN_SUSPEND_STS_BIT)
-		&& (reg & USBIN_ACTIVE_PWR_SRC_BIT);
-}
 
 static int smbchg_parallel_usb_charging_en(struct smbchg_chip *chip, bool en)
 {
@@ -2044,11 +2034,19 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 		return false;
 	}
 
+	rc = smbchg_read(chip, &reg,
+			chip->usb_chgpth_base + ICL_STS_2_REG, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Could not read usb icl sts 2: %d\n", rc);
+		return false;
+	}
+
 	/*
 	 * If USBIN is suspended or not the active power source, do not enable
 	 * parallel charging. The device may be charging off of DCIN.
 	 */
-	if (!smbchg_is_usbin_active_pwr_src(chip)) {
+	if (!!(reg & USBIN_SUSPEND_STS_BIT) ||
+				!(reg & USBIN_ACTIVE_PWR_SRC_BIT)) {
 		pr_smb(PR_STATUS, "USB not active power source: %02x\n", reg);
 		return false;
 	}
@@ -3390,8 +3388,9 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 	pr_smb(PR_MISC, "usb type = %s current_limit = %d\n",
 			usb_type_name, current_limit);
 
+	chip->usb_target_current_ma = current_limit;
 	rc = vote(chip->usb_icl_votable, PSY_ICL_VOTER, true,
-				current_limit);
+				chip->usb_target_current_ma);
 	if (rc < 0)
 		pr_err("Couldn't update USB PSY ICL vote rc=%d\n", rc);
 
@@ -4042,99 +4041,6 @@ static int smbchg_charging_status_change(struct smbchg_chip *chip)
 	return 0;
 }
 
-#define BAT_IF_TRIM7_REG	0xF7
-#define CFG_750KHZ_BIT		BIT(1)
-#define BB_CLMP_SEL		0xF8
-#define BB_CLMP_MASK		SMB_MASK(1, 0)
-#define BB_CLMP_VFIX_3338MV	0x1
-#define BB_CLMP_VFIX_3512MV	0x2
-static int smbchg_set_optimal_charging_mode(struct smbchg_chip *chip, int type)
-{
-	int rc;
-	bool hvdcp2 = (type == POWER_SUPPLY_TYPE_USB_HVDCP
-			&& smbchg_is_usbin_active_pwr_src(chip));
-
-	/*
-	 * Set the charger switching freq to 1MHZ if HVDCP 2.0,
-	 * or 750KHZ otherwise
-	 */
-	rc = smbchg_sec_masked_write(chip,
-			chip->bat_if_base + BAT_IF_TRIM7_REG,
-			CFG_750KHZ_BIT, hvdcp2 ? 0 : CFG_750KHZ_BIT);
-	if (rc) {
-		dev_err(chip->dev, "Cannot set switching freq: %d\n", rc);
-		return rc;
-	}
-
-	/*
-	 * Set the charger switch frequency clamp voltage threshold to 3.338V
-	 * if HVDCP 2.0, or 3.512V otherwise.
-	 */
-	rc = smbchg_sec_masked_write(chip, chip->bat_if_base + BB_CLMP_SEL,
-			BB_CLMP_MASK,
-			hvdcp2 ? BB_CLMP_VFIX_3338MV : BB_CLMP_VFIX_3512MV);
-	if (rc) {
-		dev_err(chip->dev, "Cannot set switching freq: %d\n", rc);
-		return rc;
-	}
-
-	return 0;
-}
-
-#define DEFAULT_HVDCP_CHG_MA	3000
-#define DEFAULT_WALL_CHG_MA	1800
-#define DEFAULT_SDP_MA		100
-#define DEFAULT_CDP_MA		1500
-static int smbchg_change_usb_supply_type(struct smbchg_chip *chip,
-						enum power_supply_type type)
-{
-	int rc, current_limit_ma;
-
-	/*
-	 * if the type is not unknown, set the type before changing ICL vote
-	 * in order to ensure that the correct current limit registers are
-	 * used
-	 */
-	if (type != POWER_SUPPLY_TYPE_UNKNOWN)
-		chip->usb_supply_type = type;
-
-	if (type == POWER_SUPPLY_TYPE_USB)
-		current_limit_ma = DEFAULT_SDP_MA;
-	else if (type == POWER_SUPPLY_TYPE_USB)
-		current_limit_ma = DEFAULT_SDP_MA;
-	else if (type == POWER_SUPPLY_TYPE_USB_CDP)
-		current_limit_ma = DEFAULT_CDP_MA;
-	else if (type == POWER_SUPPLY_TYPE_USB_HVDCP
-			|| type == POWER_SUPPLY_TYPE_USB_HVDCP_3)
-		current_limit_ma = DEFAULT_HVDCP_CHG_MA;
-	else
-		current_limit_ma = DEFAULT_WALL_CHG_MA;
-
-	pr_smb(PR_STATUS, "Type %d: setting mA = %d\n",
-		type, current_limit_ma);
-	rc = vote(chip->usb_icl_votable, PSY_ICL_VOTER, true,
-				current_limit_ma);
-	if (rc < 0) {
-		pr_err("Couldn't vote for new USB ICL rc=%d\n", rc);
-		goto out;
-	}
-
-	if (!chip->skip_usb_notification)
-		power_supply_set_supply_type(chip->usb_psy, type);
-
-	/* otherwise if it is unknown, set type after the vote */
-	if (type == POWER_SUPPLY_TYPE_UNKNOWN)
-		chip->usb_supply_type = type;
-
-	/* set the correct buck switching frequency */
-	rc = smbchg_set_optimal_charging_mode(chip, type);
-	if (rc < 0)
-		pr_err("Couldn't set charger optimal mode rc=%d\n", rc);
-
-out:
-	return rc;
-}
-
 static bool is_hvdcp_present(struct  smbchg_chip *chip)
 {
 	int rc;
@@ -4223,8 +4129,12 @@ static void smbchg_hvdcp_det_work(struct work_struct *work)
 				pr_err("could not force 9V HVDCP continuing rc=%d\n",
 						rc);
 		}
-		smbchg_change_usb_supply_type(chip,
-				POWER_SUPPLY_TYPE_USB_HVDCP);
+		if (!chip->skip_usb_notification) {
+			pr_smb(PR_MISC, "setting usb psy type = %d\n",
+					POWER_SUPPLY_TYPE_USB_HVDCP);
+			power_supply_set_supply_type(chip->usb_psy,
+					POWER_SUPPLY_TYPE_USB_HVDCP);
+		}
 		if (chip->psy_registered)
 			power_supply_changed(&chip->batt_psy);
 		smbchg_aicl_deglitch_wa_check(chip);
@@ -4340,8 +4250,11 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	/* Clear the OV detected status set before */
 	if (chip->usb_ov_det)
 		chip->usb_ov_det = false;
-	smbchg_change_usb_supply_type(chip, POWER_SUPPLY_TYPE_UNKNOWN);
 	if (!chip->skip_usb_notification) {
+		pr_smb(PR_MISC, "setting usb psy type = %d\n",
+				POWER_SUPPLY_TYPE_UNKNOWN);
+		power_supply_set_supply_type(chip->usb_psy,
+				POWER_SUPPLY_TYPE_UNKNOWN);
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
@@ -4401,6 +4314,9 @@ static bool is_usbin_uv_high(struct smbchg_chip *chip)
 }
 
 #define HVDCP_NOTIFY_MS		2500
+#define DEFAULT_WALL_CHG_MA	1800
+#define DEFAULT_SDP_MA		100
+#define DEFAULT_CDP_MA		1500
 static void handle_usb_insertion(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
@@ -4415,8 +4331,10 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		"inserted type = %d (%s)", usb_supply_type, usb_type_name);
 
 	smbchg_aicl_deglitch_wa_check(chip);
-	smbchg_change_usb_supply_type(chip, usb_supply_type);
 	if (!chip->skip_usb_notification) {
+		pr_smb(PR_MISC, "setting usb psy type = %d\n",
+				usb_supply_type);
+		power_supply_set_supply_type(chip->usb_psy, usb_supply_type);
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
@@ -4446,6 +4364,20 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	if (usb_supply_type == POWER_SUPPLY_TYPE_USB_DCP)
 		schedule_delayed_work(&chip->hvdcp_det_work,
 					msecs_to_jiffies(HVDCP_NOTIFY_MS));
+
+	if (usb_supply_type == POWER_SUPPLY_TYPE_USB)
+		chip->usb_target_current_ma = DEFAULT_SDP_MA;
+	else if (usb_supply_type == POWER_SUPPLY_TYPE_USB_CDP)
+		chip->usb_target_current_ma = DEFAULT_CDP_MA;
+	else
+		chip->usb_target_current_ma = DEFAULT_WALL_CHG_MA;
+
+	pr_smb(PR_STATUS, "%s detected setting mA = %d\n",
+		usb_type_name, chip->usb_target_current_ma);
+	rc = vote(chip->usb_icl_votable, PSY_ICL_VOTER, true,
+				chip->usb_target_current_ma);
+	if (rc < 0)
+		pr_err("Couldn't vote for new USB ICL rc=%d\n", rc);
 
 	if (parallel_psy) {
 		rc = power_supply_set_present(parallel_psy, true);
@@ -5199,8 +5131,12 @@ static int smbchg_hvdcp3_confirmed(struct smbchg_chip *chip)
 	if (rc < 0)
 		pr_err("Couldn't retract HVDCP ICL vote rc=%d\n", rc);
 
-	smbchg_change_usb_supply_type(chip, POWER_SUPPLY_TYPE_USB_HVDCP_3);
-
+	pr_smb(PR_MISC, "setting usb psy type = %d\n",
+				POWER_SUPPLY_TYPE_USB_HVDCP_3);
+	if (!chip->skip_usb_notification) {
+		power_supply_set_supply_type(chip->usb_psy,
+				POWER_SUPPLY_TYPE_USB_HVDCP_3);
+	}
 	return rc;
 }
 
@@ -5900,6 +5836,7 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 
 	if ((reg & USBIN_UV_BIT) && (reg & USBIN_SRC_DET_BIT)) {
 		pr_smb(PR_STATUS, "Very weak charger detected\n");
+
 		chip->very_weak_charger = true;
 		rc = smbchg_read(chip, &reg,
 				chip->usb_chgpth_base + ICL_STS_2_REG, 1);

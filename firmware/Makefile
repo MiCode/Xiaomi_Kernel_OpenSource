@@ -135,6 +135,12 @@ fw-shipped-$(CONFIG_USB_SERIAL_XIRCOM) += keyspan_pda/xircom_pgs.fw
 fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += mXT641T30AC.fw mXT640U10AA.fw \
+	mxt_641t_sharp_config.fw mxt_640u_lgd_config.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX) += synaptics_jdi_incell.fw \
+	synaptics_lgd_incell.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_ST_FTS) += st_fts.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_CYTTSP_BUTTON) += cyttsp_button_no_shielding.fw
 
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 

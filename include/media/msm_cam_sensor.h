@@ -269,6 +269,12 @@ struct eeprom_get_t {
 	uint32_t num_bytes;
 };
 
+struct msm_eeprom_info_t {
+	struct msm_sensor_power_setting_array *power_setting_array;
+	enum i2c_freq_mode_t i2c_freq_mode;
+	struct msm_eeprom_memory_map_array *mem_map_array;
+};
+
 struct eeprom_read_t {
 	uint8_t *dbuffer;
 	uint32_t num_bytes;
@@ -283,12 +289,6 @@ struct eeprom_get_cmm_t {
 	uint32_t cmm_support;
 	uint32_t cmm_compression;
 	uint32_t cmm_size;
-};
-
-struct msm_eeprom_info_t {
-	struct msm_sensor_power_setting_array *power_setting_array;
-	enum i2c_freq_mode_t i2c_freq_mode;
-	struct msm_eeprom_memory_map_array *mem_map_array;
 };
 
 struct msm_eeprom_cfg_data {
@@ -456,6 +456,7 @@ enum msm_ois_cfg_type_t {
 	CFG_OIS_POWERUP,
 	CFG_OIS_CONTROL,
 	CFG_OIS_I2C_WRITE_SEQ_TABLE,
+	CFG_OIS_CALIBRATION,
 };
 
 enum msm_ois_i2c_operation {

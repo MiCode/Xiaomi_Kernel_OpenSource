@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2007 Google Incorporated
  * Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -48,6 +49,7 @@
 #include <linux/file.h>
 #include <linux/kthread.h>
 #include <linux/dma-buf.h>
+#include <linux/interrupt.h>
 #include "mdss_fb.h"
 #include "mdss_mdp_splash_logo.h"
 #define CREATE_TRACE_POINTS
@@ -72,6 +74,7 @@
 
 static struct fb_info *fbi_list[MAX_FBI_LIST];
 static int fbi_list_index;
+static struct msm_fb_data_type *mfd_data;
 
 static u32 mdss_fb_pseudo_palette[16] = {
 	0x00000000, 0xffffffff, 0xffffffff, 0xffffffff,
@@ -1010,6 +1013,33 @@ static int mdss_fb_init_panel_modes(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
+static irqreturn_t esd_err_irq_handle(int irq, void *data)
+{
+	struct msm_fb_data_type *mfd = data;
+
+	pr_info("%s: ESD ERR\n", __func__);
+
+	if (mfd)
+		mdss_fb_report_panel_dead(mfd);
+	else
+		pr_err("%s: mfd is NULL\n", __func__);
+
+	return IRQ_HANDLED;
+}
+
+void mdss_fb_prim_panel_recover(void)
+{
+	pr_info("Primary panel recover...\n");
+
+	if (mfd_data)
+		mdss_fb_report_panel_dead(mfd_data);
+	else
+		pr_err("%s: Primary panel mfd is NULL\n", __func__);
+
+	pr_info("Primary panel recover done\n");
+}
+EXPORT_SYMBOL(mdss_fb_prim_panel_recover);
+
 static int mdss_fb_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = NULL;
@@ -1166,6 +1196,18 @@ static int mdss_fb_probe(struct platform_device *pdev)
 			pr_err("failed to register input handler\n");
 
 	INIT_DELAYED_WORK(&mfd->idle_notify_work, __mdss_fb_idle_notify_work);
+
+	if (mfd->panel_info->esd_err_irq > 0) {
+		rc = request_threaded_irq(mfd->panel_info->esd_err_irq, NULL,
+			esd_err_irq_handle, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+			"esd_err_irq", mfd);
+		if (rc < 0) {
+			pr_err("%s: request irq %d failed\n", __func__, mfd->panel_info->esd_err_irq);
+		}
+	}
+
+	if (mfd->panel_info->is_prim_panel)
+		mfd_data = mfd;
 
 	return rc;
 }
@@ -4367,7 +4409,7 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 			goto exit;
 		}
 
-		ret = mdss_fb_mode_switch(mfd, dsi_mode);
+		ret = mdss_fb_mode_switch (mfd, dsi_mode);
 		break;
 	case MSMFB_ATOMIC_COMMIT:
 		ret = mdss_fb_atomic_commit_ioctl(info, argp, file);
@@ -4530,6 +4572,23 @@ int mdss_fb_get_phys_info(dma_addr_t *start, unsigned long *len, int fb_num)
 	return 0;
 }
 EXPORT_SYMBOL(mdss_fb_get_phys_info);
+
+bool mdss_panel_is_prim(struct fb_info *fbi)
+{
+	struct msm_fb_data_type *mfd;
+	struct mdss_panel_info *pinfo;
+
+	if (!fbi)
+		return false;
+	mfd = fbi->par;
+	if (!mfd)
+		return false;
+	pinfo = mfd->panel_info;
+	if (!pinfo)
+		return false;
+	return pinfo->is_prim_panel;
+}
+EXPORT_SYMBOL(mdss_panel_is_prim);
 
 int __init mdss_fb_init(void)
 {

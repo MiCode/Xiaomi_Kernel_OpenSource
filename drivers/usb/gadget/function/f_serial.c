@@ -5,6 +5,7 @@
  * Copyright (C) 2008 by David Brownell
  * Copyright (C) 2008 by Nokia Corporation
  * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is distributed under the terms of the GNU General
  * Public License ("GPL") as published by the Free Software Foundation,
@@ -1306,6 +1307,13 @@ static long gser_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		}
 		smd_port_num =
 			gserial_ports[gser->port_num].client_port_num;
+
+		if (smd_write_arg.size > GSERIAL_BUF_LEN) {
+			pr_err("%s: Invalid size:%u, max: %u", __func__,
+				smd_write_arg.size, GSERIAL_BUF_LEN);
+			ret = -EINVAL;
+			break;
+		}
 
 		pr_debug("%s: Copying %d bytes from user buffer to local\n",
 			__func__, smd_write_arg.size);

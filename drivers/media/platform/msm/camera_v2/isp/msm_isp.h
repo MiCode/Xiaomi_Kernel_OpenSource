@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -361,7 +362,8 @@ struct msm_vfe_axi_stream {
 	uint32_t frame_based;
 	enum msm_vfe_frame_skip_pattern frame_skip_pattern;
 	uint32_t current_framedrop_period;
-	uint32_t prev_framedrop_period;
+	uint32_t requested_framedrop_period;
+	uint32_t activated_framedrop_period;
 	uint32_t num_burst_capture;/*number of frame to capture*/
 	uint32_t init_frame_drop;
 	spinlock_t lock;

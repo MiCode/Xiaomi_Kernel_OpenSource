@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +53,21 @@
 static struct msm_watchdog_data *wdog_data;
 
 static int cpu_idle_pc_state[NR_CPUS];
+
+#ifdef CONFIG_FIRE_WATCHDOG
+static int wdog_fire;
+static int wdog_fire_set(const char *val, struct kernel_param *kp);
+module_param_call(wdog_fire, wdog_fire_set, param_get_int,
+			&wdog_fire, 0644);
+
+static int wdog_fire_set(const char *val, struct kernel_param *kp)
+{
+	local_irq_disable();
+	while (1);
+
+	return 0;
+}
+#endif
 
 struct msm_watchdog_data {
 	unsigned int __iomem phys_base;
@@ -162,12 +178,17 @@ static int panic_wdog_handler(struct notifier_block *this,
 		__raw_writel(0, wdog_dd->base + WDT0_EN);
 		mb();
 	} else {
-		__raw_writel(WDT_HZ * (panic_timeout + 10),
+		__raw_writel(WDT_HZ * (panic_timeout + 30),
 				wdog_dd->base + WDT0_BARK_TIME);
-		__raw_writel(WDT_HZ * (panic_timeout + 10),
+		__raw_writel(WDT_HZ * (panic_timeout + 30),
 				wdog_dd->base + WDT0_BITE_TIME);
 		__raw_writel(1, wdog_dd->base + WDT0_RST);
 	}
+
+#ifdef CONFIG_DUMP_ALL_STACKS
+	printk(KERN_INFO "D Status stack trace dump:\n");
+	show_state_filter(TASK_UNINTERRUPTIBLE);
+#endif
 	return NOTIFY_DONE;
 }
 
@@ -414,6 +435,9 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	nanosec_rem = do_div(wdog_dd->last_pet, 1000000000);
 	printk(KERN_INFO "Watchdog last pet at %lu.%06lu\n", (unsigned long)
 		wdog_dd->last_pet, nanosec_rem / 1000);
+
+	show_state_filter(TASK_UNINTERRUPTIBLE);
+
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
 	msm_trigger_wdog_bite();

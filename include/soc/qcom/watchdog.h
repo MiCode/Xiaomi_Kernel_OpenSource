@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +25,10 @@
 void msm_trigger_wdog_bite(void);
 #else
 static inline void msm_trigger_wdog_bite(void) { }
+#endif
+
+#ifdef CONFIG_MSM_DLOAD_MODE
+int get_dload_mode(void);
 #endif
 
 #endif

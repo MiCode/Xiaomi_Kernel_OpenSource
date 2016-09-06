@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2008, 2009, 2010  Nitin Gupta
  *               2012, 2013 Minchan Kim
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This code is released using a dual license strategy: BSD/GPL
  * You can choose the licence that better fits your requirements.
@@ -296,6 +297,28 @@ static ssize_t comp_algorithm_store(struct device *dev,
 	strlcpy(zram->compressor, buf, sizeof(zram->compressor));
 	up_write(&zram->init_lock);
 	return len;
+}
+
+int zs_get_page_usage(unsigned long *total_pool_pages,
+			unsigned long *total_ori_pages)
+{
+	int i;
+	*total_pool_pages = *total_ori_pages = 0;
+	if (!zram_devices)
+		return 0;
+	for (i = 0; i < num_devices; i++) {
+		struct zram *zram = &zram_devices[i];
+		struct zram_meta *meta = zram->meta;
+		if (!down_read_trylock(&zram->init_lock))
+			continue;
+		if (init_done(zram)) {
+			*total_pool_pages += zs_get_total_pages(meta->mem_pool);
+			*total_ori_pages += atomic64_read(
+						&zram->stats.pages_stored);
+		}
+		up_read(&zram->init_lock);
+	}
+	return 0;
 }
 
 /* flag operations needs meta->tb_lock */

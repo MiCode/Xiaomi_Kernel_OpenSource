@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+* Copyright (C) 2016 XiaoMi, Inc.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -2324,7 +2325,7 @@ u16                  mem_pool_id;
  *
  * b0 - bit 0 indicates physical or virtual mapping 0 Shared memory
  * address provided in afe_service_shared_map_region_payloadis a
- * physical address. The shared memory needs to be mapped( hardware
+ * physical address. The shared memory needs to be mapped(hardware
  * TLB entry) and a software entry needs to be added for internal
  * book keeping.
  *
@@ -7431,6 +7432,7 @@ struct afe_param_id_clip_bank_sel {
 #define Q6AFE_LPASS_OSR_CLK_DISABLE		     0x0
 
 /* Supported Bit clock values */
+#define Q6AFE_LPASS_IBIT_CLK_12_P288_MHZ	0xBB8000
 #define Q6AFE_LPASS_IBIT_CLK_11_P2896_MHZ		0xAC4400
 #define Q6AFE_LPASS_IBIT_CLK_8_P192_MHZ		0x7D0000
 #define Q6AFE_LPASS_IBIT_CLK_6_P144_MHZ		0x5DC000

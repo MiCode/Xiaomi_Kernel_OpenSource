@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,7 @@
 #include "kgsl_cffdump.h"
 #include "kgsl_device.h"
 #include "kgsl_log.h"
+#include "kgsl_trace.h"
 
 /*
  * The user can set this from debugfs to force failed memory allocations to
@@ -459,7 +461,7 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 
 			count = 1 << compound_order(p);
 			next = nth_page(p, count);
-			__free_pages(p, compound_order(p));
+			kgsl_heap_free(p);
 			p = next;
 			j += count;
 
@@ -661,8 +663,13 @@ EXPORT_SYMBOL(kgsl_cache_range_op);
 #ifndef CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS
 static inline int get_page_size(size_t size, unsigned int align)
 {
-	return (align >= ilog2(SZ_64K) && size >= SZ_64K)
-					? SZ_64K : PAGE_SIZE;
+	if (align >= ilog2(SZ_64K) && size >= SZ_1M)
+		return SZ_1M;
+	if (align >= ilog2(SZ_64K) && size >= SZ_64K)
+		return SZ_64K;
+	if (size >= SZ_16K)
+		return SZ_16K;
+	return PAGE_SIZE;
 }
 #else
 static inline int get_page_size(size_t size, unsigned int align)
@@ -680,10 +687,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	unsigned int j, pcount = 0, page_size, len_alloc;
 	size_t len;
 	struct page **pages = NULL;
-	pgprot_t page_prot = pgprot_writecombine(PAGE_KERNEL);
-	void *ptr;
 	unsigned int align;
-	unsigned int step = ((VMALLOC_END - VMALLOC_START)/8) >> PAGE_SHIFT;
 
 	align = (memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
 
@@ -728,36 +732,19 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 
 	len = size;
 
+
+	trace_kgsl_sharedmem_page_alloc(size, page_size, align);
+
 	while (len > 0) {
 		struct page *page;
-		gfp_t gfp_mask = __GFP_HIGHMEM;
-		int j;
 
 		/* don't waste space at the end of the allocation*/
 		if (len < page_size)
 			page_size = PAGE_SIZE;
 
-		/*
-		 * Don't do some of the more aggressive memory recovery
-		 * techniques for large order allocations
-		 */
-		if (page_size != PAGE_SIZE)
-			gfp_mask |= __GFP_COMP | __GFP_NORETRY |
-				__GFP_NO_KSWAPD | __GFP_NOWARN;
-		else
-			gfp_mask |= GFP_KERNEL;
-
-		if (sharedmem_noretry_flag == true)
-			gfp_mask |= __GFP_NORETRY | __GFP_NOWARN;
-
-		page = alloc_pages(gfp_mask, get_order(page_size));
+		page = kgsl_heap_alloc(page_size);
 
 		if (page == NULL) {
-			if (page_size != PAGE_SIZE) {
-				page_size = PAGE_SIZE;
-				continue;
-			}
-
 			/*
 			 * Update sglen and memdesc size,as requested allocation
 			 * not served fully. So that they can be correctly freed
@@ -773,6 +760,11 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			ret = -ENOMEM;
 			goto done;
 		}
+		/*
+		 * We need to confirm the actual page size returned by kgsl_heap_alloc.
+		 * It is likely not the same as what we asked for.
+		 */
+		page_size = PAGE_SIZE << compound_order(page);
 
 		for (j = 0; j < page_size >> PAGE_SHIFT; j++)
 			pages[pcount++] = nth_page(page, j);
@@ -813,48 +805,6 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		goto done;
 	}
 
-	/*
-	 * All memory that goes to the user has to be zeroed out before it gets
-	 * exposed to userspace. This means that the memory has to be mapped in
-	 * the kernel, zeroed (memset) and then unmapped.  This also means that
-	 * the dcache has to be flushed to ensure coherency between the kernel
-	 * and user pages. We used to pass __GFP_ZERO to alloc_page which mapped
-	 * zeroed and unmaped each individual page, and then we had to turn
-	 * around and call flush_dcache_page() on that page to clear the caches.
-	 * This was killing us for performance. Instead, we found it is much
-	 * faster to allocate the pages without GFP_ZERO, map a chunk of the
-	 * range ('step' pages), memset it, flush it and then unmap
-	 * - this results in a factor of 4 improvement for speed for large
-	 * buffers. There is a small decrease in speed for small buffers,
-	 * but only on the order of a few microseconds at best. The 'step'
-	 * size is based on a guess at the amount of free vmalloc space, but
-	 * will scale down if there's not enough free space.
-	 */
-	for (j = 0; j < pcount; j += step) {
-		step = min(step, pcount - j);
-
-		ptr = vmap(&pages[j], step, VM_IOREMAP, page_prot);
-
-		if (ptr != NULL) {
-			memset(ptr, 0, step * PAGE_SIZE);
-			dmac_flush_range(ptr, ptr + step * PAGE_SIZE);
-			vunmap(ptr);
-		} else {
-			int k;
-			/* Very, very, very slow path */
-
-			for (k = j; k < j + step; k++) {
-				ptr = kmap_atomic(pages[k]);
-				memset(ptr, 0, PAGE_SIZE);
-				dmac_flush_range(ptr, ptr + PAGE_SIZE);
-				kunmap_atomic(ptr);
-			}
-			/* scale down the step size to avoid this path */
-			if (step > 1)
-				step >>= 1;
-		}
-	}
-
 	KGSL_STATS_ADD(memdesc->size, &kgsl_driver.stats.page_alloc,
 		&kgsl_driver.stats.page_alloc_max);
 
@@ -863,7 +813,7 @@ done:
 		unsigned int count = 1;
 		for (j = 0; j < pcount; j += count) {
 			count = 1 << compound_order(pages[j]);
-			__free_pages(pages[j], compound_order(pages[j]));
+			kgsl_heap_free(pages[j]);
 		}
 
 		kfree(memdesc->sgt);

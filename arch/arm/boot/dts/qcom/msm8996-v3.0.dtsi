@@ -121,7 +121,6 @@
 	qcom,gfx3d_clk_src_v2-opp-handle = <&msm_gpu>;
 	qcom,gfxfreq-speedbin0 =
 		<	   0  0  0 >,
-		<  133000000  3  4 >,
 		<  214000000  3  4 >,
 		<  315000000  3  4 >,
 		<  401800000  4  5 >,

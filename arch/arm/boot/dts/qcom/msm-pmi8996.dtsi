@@ -1,4 +1,5 @@
 /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +18,10 @@
 
 / {
 	qcom,pmic-id = <0x20009 0x10013 0x0 0x0>;
+};
+
+&pmi8994_charger {
+	qcom,charging-disabled;
 };
 
 &ibb_regulator {

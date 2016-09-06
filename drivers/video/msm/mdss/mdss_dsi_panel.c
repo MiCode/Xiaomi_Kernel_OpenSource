@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +23,9 @@
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
 #include <linux/string.h>
+#include <linux/fs.h>
+#include <asm/fcntl.h>
+#include <asm/uaccess.h>
 
 #include "mdss_dsi.h"
 
@@ -48,6 +52,14 @@ static char dsc_rc_range_max_qp[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11,
 			 12, 13, 13, 15};
 static char dsc_rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8,
 			-8, -10, -10, -12, -12, -12, -12};
+
+static bool mdss_panel_reset_skip;
+
+void mdss_panel_reset_skip_enable(bool enable)
+{
+	mdss_panel_reset_skip = enable;
+}
+EXPORT_SYMBOL(mdss_panel_reset_skip_enable);
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -291,6 +303,17 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo = NULL;
 	int i, rc = 0;
+
+	/* For TDDI ddic panel, LCD shares reset pin with touch.
+	 * If gesture wakeup feature is enabled, the reset pin
+	 * should be controlled by touch. In this case, reset pin
+	 * would keep high state when panel is off. Meanwhile,
+	 * reset action would be done by touch when panel is on.
+	 */
+	if (mdss_panel_reset_skip) {
+		pr_info("%s: panel reset skip\n", __func__);
+		return rc;
+	}
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -716,6 +739,175 @@ end:
 	return 0;
 }
 
+static char string_to_hex(const char *str)
+{
+	char val_l = 0;
+	char val_h = 0;
+
+	if (str[0] >= '0' && str[0] <= '9')
+		val_h = str[0] - '0';
+	else if (str[0] <= 'f' && str[0] >= 'a')
+		val_h = 10 + str[0] - 'a';
+	else if (str[0] <= 'F' && str[0] >= 'A')
+		val_h = 10 + str[0] - 'A';
+
+	if (str[1] >= '0' && str[1] <= '9')
+		val_l = str[1]-'0';
+	else if (str[1] <= 'f' && str[1] >= 'a')
+		val_l = 10 + str[1] - 'a';
+	else if (str[1] <= 'F' && str[1] >= 'A')
+		val_l = 10 + str[1] - 'A';
+
+	return (val_h << 4) | val_l;
+}
+
+static int string_merge_into_buf(const char *str, int len, char *buf)
+{
+	int buf_size = 0;
+	int i = 0;
+	const char *p = str;
+
+	while (i < len) {
+		if (((p[0] >= '0' && p[0] <= '9') ||
+			(p[0] <= 'f' && p[0] >= 'a') ||
+			(p[0] <= 'F' && p[0] >= 'A'))
+			&& ((i + 1) < len)) {
+			buf[buf_size] = string_to_hex(p);
+			buf_size++;
+			i += 2;
+			p += 2;
+		} else {
+			i++;
+			p++;
+		}
+	}
+	return buf_size;
+}
+
+static int parse_to_dcs_cmds(struct dsi_panel_cmds *pcmds)
+{
+	#define PANEL_INITIAL_CODE "/data/lcd.txt"
+
+	int blen = 0, len;
+	char *data, *buf, *bp;
+	struct dsi_ctrl_hdr *dchdr;
+	int i, cnt, file_size;
+
+	int ret = 0;
+	struct file *filp = NULL;
+	mm_segment_t old_fs;
+	const char *file_name = PANEL_INITIAL_CODE;
+
+	filp = filp_open(file_name, O_RDONLY, 0);
+	if (IS_ERR(filp)) {
+		pr_err("%s open failed\n", file_name);
+		return -EINVAL;
+	}
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	file_size = filp->f_dentry->d_inode->i_size;
+
+	data = kzalloc(file_size, GFP_KERNEL);
+	if (!data) {
+		set_fs(old_fs);
+		filp_close(filp, NULL);
+		return -ENOMEM;
+	}
+	buf = kzalloc(file_size/2, GFP_KERNEL);
+	if (!buf) {
+		kfree(data);
+		set_fs(old_fs);
+		filp_close(filp, NULL);
+		return -ENOMEM;
+	}
+
+	ret = filp->f_op->read(filp, data, file_size, &filp->f_pos);
+	if (ret < 0) {
+		pr_err("%s read failed, return %d\n", file_name, ret);
+		goto exit_free;
+	}
+
+	blen = string_merge_into_buf(data, file_size, buf);
+	printk("%s: file size is %d, buf size is %d\n", __func__, file_size, blen);
+	for (i = 0; i < blen; i++)
+		printk("0x%02x ", buf[i]);
+	pr_debug("\n");
+	if (blen <= 0)
+		goto exit_free;
+	/* free the memory alloced before */
+	if (pcmds->buf) {
+		kfree(pcmds->buf);
+		pcmds->buf = NULL;
+	}
+
+	if (pcmds->cmds) {
+		kfree(pcmds->cmds);
+		pcmds->cmds = NULL;
+	}
+
+	/* scan dcs commands */
+	bp = buf;
+	len = blen;
+	cnt = 0;
+	while (len > sizeof(*dchdr)) {
+		dchdr = (struct dsi_ctrl_hdr *)bp;
+		dchdr->dlen = ntohs(dchdr->dlen);
+		if (dchdr->dlen > len) {
+			pr_err("%s: dtsi cmd=%x error, len=%d",
+				__func__, dchdr->dtype, dchdr->dlen);
+			goto exit_free;
+		}
+		bp += sizeof(*dchdr);
+		len -= sizeof(*dchdr);
+		bp += dchdr->dlen;
+		len -= dchdr->dlen;
+		cnt++;
+	}
+
+	if (len != 0) {
+		pr_err("%s: dcs_cmd=%x len=%d error!",
+				__func__, buf[0], blen);
+		goto exit_free;
+	}
+
+	pcmds->cmds = kzalloc(cnt * sizeof(struct dsi_cmd_desc),
+						GFP_KERNEL);
+	if (!pcmds->cmds)
+		goto exit_free;
+
+	pcmds->cmd_cnt = cnt;
+	pcmds->buf = buf;
+	pcmds->blen = blen;
+
+	bp = buf;
+	len = blen;
+	for (i = 0; i < cnt; i++) {
+		dchdr = (struct dsi_ctrl_hdr *)bp;
+		len -= sizeof(*dchdr);
+		bp += sizeof(*dchdr);
+		pcmds->cmds[i].dchdr = *dchdr;
+		pcmds->cmds[i].payload = bp;
+		bp += dchdr->dlen;
+		len -= dchdr->dlen;
+	}
+
+
+	pr_debug("%s: dcs_cmd=%x len=%d, cmd_cnt=%d link_state=%d\n", __func__,
+		pcmds->buf[0], pcmds->blen, pcmds->cmd_cnt, pcmds->link_state);
+
+	set_fs(old_fs);
+	filp_close(filp, NULL);
+	return 0;
+
+exit_free:
+	set_fs(old_fs);
+	filp_close(filp, NULL);
+	kfree(buf);
+	kfree(data);
+	return -ENOMEM;
+}
+
 static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
@@ -774,6 +966,8 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 end:
 	pinfo->blank_state = MDSS_PANEL_BLANK_BLANK;
 	pr_debug("%s:-\n", __func__);
+	if (ctrl->on_cmds_tuning)
+		parse_to_dcs_cmds(&ctrl->on_cmds);
 	return 0;
 }
 
@@ -796,10 +990,11 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 		enable);
 
 	/* Any panel specific low power commands/config */
-	if (enable)
+	if (enable) {
 		pinfo->blank_state = MDSS_PANEL_BLANK_LOW_POWER;
-	else
+	} else {
 		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
+	}
 
 	pr_debug("%s:-\n", __func__);
 	return 0;
@@ -836,7 +1031,7 @@ static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 
 	data = of_get_property(np, cmd_key, &blen);
 	if (!data) {
-		pr_err("%s: failed, key=%s\n", __func__, cmd_key);
+		pr_debug("%s: failed, key=%s\n", __func__, cmd_key);
 		return -ENOMEM;
 	}
 
@@ -1755,6 +1950,20 @@ static void mdss_dsi_parse_esd_params(struct device_node *np,
 	const char *string;
 	struct mdss_panel_info *pinfo = &ctrl->panel_data.panel_info;
 
+	pinfo->esd_err_irq = 0;
+	pinfo->esd_err_irq_gpio = of_get_named_gpio_flags(np,
+			"qcom,esd-err-irq-gpio", 0, NULL);
+	if (gpio_is_valid(pinfo->esd_err_irq_gpio)) {
+		pinfo->esd_err_irq = gpio_to_irq(pinfo->esd_err_irq_gpio);
+		rc = gpio_request(pinfo->esd_err_irq_gpio, "esd_err_irq_gpio");
+		if (rc) {
+			pr_err("%s: Failed to get gpio %d (code: %d)",
+					__func__, pinfo->esd_err_irq_gpio, rc);
+		} else {
+			gpio_direction_input(pinfo->esd_err_irq_gpio);
+		}
+	}
+
 	pinfo->esd_check_enabled = of_property_read_bool(np,
 		"qcom,esd-check-enabled");
 
@@ -2580,6 +2789,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
@@ -2589,6 +2799,9 @@ int mdss_dsi_panel_init(struct device_node *node,
 	pinfo->dynamic_switch_pending = false;
 	pinfo->is_lpm_mode = false;
 	pinfo->esd_rdy = false;
+
+	ctrl_pdata->on_cmds_tuning = of_property_read_bool(node,
+					"qcom,mdss-dsi-on-command-tuning");
 
 	ctrl_pdata->on = mdss_dsi_panel_on;
 	ctrl_pdata->post_panel_on = mdss_dsi_post_panel_on;

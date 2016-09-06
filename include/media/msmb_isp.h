@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -555,7 +556,10 @@ enum msm_isp_event_mask_index {
 	ISP_EVENT_MASK_INDEX_BUF_DIVERT			= 6,
 	ISP_EVENT_MASK_INDEX_COMP_STATS_NOTIFY		= 7,
 	ISP_EVENT_MASK_INDEX_MASK_FE_READ_DONE		= 8,
-	ISP_EVENT_MASK_INDEX_BUF_DONE			= 9
+	ISP_EVENT_MASK_INDEX_BUF_DONE			= 9,
+	ISP_EVENT_MASK_INDEX_REG_UPDATE_MISSING		= 10,
+	ISP_EVENT_MASK_INDEX_PING_PONG_MISMATCH		= 11,
+	ISP_EVENT_MASK_INDEX_BUF_FATAL_ERROR		= 12,
 };
 
 
@@ -590,6 +594,15 @@ enum msm_isp_event_mask_index {
 
 #define ISP_EVENT_SUBS_MASK_BUF_DONE \
 			(1 << ISP_EVENT_MASK_INDEX_BUF_DONE)
+
+#define ISP_EVENT_SUBS_MASK_REG_UPDATE_MISSING \
+			(1 << ISP_EVENT_MASK_INDEX_REG_UPDATE_MISSING)
+
+#define ISP_EVENT_SUBS_MASK_PING_PONG_MISMATCH \
+			(1 << ISP_EVENT_MASK_INDEX_PING_PONG_MISMATCH)
+
+#define ISP_EVENT_SUBS_MASK_BUF_FATAL_ERROR \
+			(1 << ISP_EVENT_MASK_INDEX_BUF_FATAL_ERROR)
 
 enum msm_isp_event_idx {
 	ISP_REG_UPDATE        = 0,

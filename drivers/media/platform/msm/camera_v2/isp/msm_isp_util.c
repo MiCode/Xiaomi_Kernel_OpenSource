@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -309,7 +310,8 @@ int msm_isp_get_clk_info(struct vfe_device *vfe_dev,
 void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
 {
 	struct timespec ts;
-	get_monotonic_boottime(&ts);
+
+	ktime_get_ts(&ts);
 	time_stamp->buf_time.tv_sec    = ts.tv_sec;
 	time_stamp->buf_time.tv_usec   = ts.tv_nsec/1000;
 	do_gettimeofday(&(time_stamp->event_time));
@@ -349,6 +351,15 @@ static inline u32 msm_isp_evt_mask_to_isp_event(u32 evt_mask)
 		break;
 	case ISP_EVENT_MASK_INDEX_MASK_FE_READ_DONE:
 		evt_id = ISP_EVENT_FE_READ_DONE;
+		break;
+	case ISP_EVENT_MASK_INDEX_PING_PONG_MISMATCH:
+		evt_id = ISP_EVENT_PING_PONG_MISMATCH;
+		break;
+	case ISP_EVENT_MASK_INDEX_REG_UPDATE_MISSING:
+		evt_id = ISP_EVENT_REG_UPDATE_MISSING;
+		break;
+	case ISP_EVENT_MASK_INDEX_BUF_FATAL_ERROR:
+		evt_id = ISP_EVENT_BUF_FATAL_ERROR;
 		break;
 	default:
 		evt_id = ISP_EVENT_SUBS_MASK_NONE;
@@ -424,7 +435,7 @@ static inline int msm_isp_process_event_subscription(struct v4l2_fh *fh,
 	}
 
 	for (evt_mask_index = ISP_EVENT_MASK_INDEX_STATS_NOTIFY;
-		evt_mask_index <= ISP_EVENT_MASK_INDEX_MASK_FE_READ_DONE;
+		evt_mask_index <= ISP_EVENT_MASK_INDEX_BUF_FATAL_ERROR;
 		evt_mask_index++) {
 		if (evt_mask & (1<<evt_mask_index)) {
 			evt_id = msm_isp_evt_mask_to_isp_event(evt_mask_index);
@@ -730,6 +741,8 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 	vfe_dev->common_data->ms_resource.dual_hw_type = DUAL_HW_MASTER_SLAVE;
 	vfe_dev->vfe_ub_policy = MSM_WM_UB_EQUAL_SLICING;
 	if (dual_hw_ms_cmd->primary_intf < VFE_SRC_MAX) {
+		ISP_DBG("%s: vfe %d primary_intf %d\n", __func__,
+			vfe_dev->pdev->id, dual_hw_ms_cmd->primary_intf);
 		src_info = &vfe_dev->axi_data.
 			src_info[dual_hw_ms_cmd->primary_intf];
 		src_info->dual_hw_ms_info.dual_hw_ms_type =
@@ -740,7 +753,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 	if (src_info != NULL &&
 		dual_hw_ms_cmd->dual_hw_ms_type == MS_TYPE_MASTER) {
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
-		ISP_DBG("%s: Master\n", __func__);
+		ISP_DBG("%s: vfe %d Master\n", __func__, vfe_dev->pdev->id);
 
 		src_info->dual_hw_ms_info.sof_info =
 			&vfe_dev->common_data->ms_resource.master_sof_info;
@@ -749,7 +762,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 	} else if (src_info != NULL) {
 		spin_lock_irqsave(&vfe_dev->common_data->common_dev_data_lock, flags);
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
-		ISP_DBG("%s: Slave\n", __func__);
+		ISP_DBG("%s: vfe %d Slave\n", __func__, vfe_dev->pdev->id);
 
 		for (j = 0; j < MS_NUM_SLAVE_MAX; j++) {
 			if (vfe_dev->common_data->ms_resource.
@@ -774,7 +787,8 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 			return -EBUSY;
 		}
 	}
-	ISP_DBG("%s: num_src %d\n", __func__, dual_hw_ms_cmd->num_src);
+	ISP_DBG("%s: vfe %d num_src %d\n", __func__, vfe_dev->pdev->id,
+		dual_hw_ms_cmd->num_src);
 	/* This for loop is for non-primary intf to be marked with Master/Slave
 	 * in order for frame id sync. But their timestamp is not saved.
 	 * So no sof_info resource is allocated */
@@ -784,7 +798,9 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 				dual_hw_ms_cmd->input_src[i]);
 			return -EINVAL;
 		}
-		ISP_DBG("%s: src %d\n", __func__, dual_hw_ms_cmd->input_src[i]);
+		ISP_DBG("%s: vfe %d src %d type %d\n", __func__,
+			vfe_dev->pdev->id, dual_hw_ms_cmd->input_src[i],
+			dual_hw_ms_cmd->dual_hw_ms_type);
 		src_info = &vfe_dev->axi_data.
 			src_info[dual_hw_ms_cmd->input_src[i]];
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
@@ -2283,7 +2299,8 @@ void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev,
 		stream_info =
 			&vfe_dev->axi_data.stream_info[j];
 		spin_lock_irqsave(&stream_info->lock, flags);
-		stream_info->prev_framedrop_period &= ~0x80000000;
+		stream_info->activated_framedrop_period  =
+			stream_info->requested_framedrop_period;
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 	}
 }

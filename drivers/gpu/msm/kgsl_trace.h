@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1100,6 +1101,104 @@ TRACE_EVENT(kgsl_msg,
 	)
 );
 
+TRACE_EVENT(kgsl_sharedmem_page_alloc,
+	TP_PROTO(size_t size, size_t page_size, unsigned int align),
+	TP_ARGS(size, page_size, align),
+	TP_STRUCT__entry(
+		__field(size_t, size)
+		__field(size_t, page_size)
+		__field(unsigned int, align)
+	),
+	TP_fast_assign(
+		__entry->size      = size;
+		__entry->page_size = page_size;
+		__entry->align     = align;
+	),
+	TP_printk(
+		"size=%zu, page_size=%zu, align=%u", __entry->size, __entry->page_size, __entry->align
+	)
+);
+TRACE_EVENT(kgsl_page_pool_alloc_pages_begin,
+	TP_PROTO(unsigned int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(unsigned int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order
+	),
+	TP_printk(
+		"order=%u", __entry->order
+	)
+);
+TRACE_EVENT(kgsl_page_pool_alloc_pages_end,
+	TP_PROTO(unsigned int order,
+		     struct page *page),
+	TP_ARGS(order, page),
+	TP_STRUCT__entry(
+		__field(unsigned int, order)
+		__field(struct page*, page)
+	),
+	TP_fast_assign(
+		__entry->order = order;
+		__entry->page  = page;
+	),
+	TP_printk(
+		"order=%u, page=%p", __entry->order, __entry->page
+	)
+);
+TRACE_EVENT(kgsl_page_pool_zero_begin,
+	TP_PROTO(unsigned int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(unsigned int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order
+	),
+	TP_printk(
+		"order=%u", __entry->order
+	)
+);
+TRACE_EVENT(kgsl_page_pool_zero_end,
+	TP_PROTO(unsigned int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(unsigned int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order
+	),
+	TP_printk(
+		"order=%u", __entry->order
+	)
+);
+TRACE_EVENT(kgsl_page_pool_alloc_begin,
+	TP_PROTO(unsigned int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(unsigned int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order
+	),
+	TP_printk(
+		"order=%u", __entry->order
+	)
+);
+TRACE_EVENT(kgsl_page_pool_alloc_end,
+	TP_PROTO(unsigned int order),
+	TP_ARGS(order),
+	TP_STRUCT__entry(
+		__field(unsigned int, order)
+	),
+	TP_fast_assign(
+		__entry->order = order
+	),
+	TP_printk(
+		"order=%u", __entry->order
+	)
+);
 
 #endif /* _KGSL_TRACE_H */
 

@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2008 Google Inc.
  * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Modified: Nick Pelly <npelly@google.com>
  *
  * All source code in this file is licensed under the following license
@@ -2354,8 +2355,15 @@ static void msm_hs_unconfig_uart_gpios(struct uart_port *uport)
 	const struct msm_serial_hs_platform_data *pdata =
 					pdev->dev.platform_data;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	int ret;
 
-	if (pdata) {
+	if (msm_uport->use_pinctrl) {
+		ret = pinctrl_select_state(msm_uport->pinctrl,
+				msm_uport->gpio_state_suspend);
+		if (ret)
+			MSM_HS_ERR("%s(): Failed to pinctrl set_state",
+				__func__);
+	} else if (pdata) {
 		if (gpio_is_valid(pdata->uart_tx_gpio))
 			gpio_free(pdata->uart_tx_gpio);
 		if (gpio_is_valid(pdata->uart_rx_gpio))
@@ -3563,15 +3571,16 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	rc = atomic_read(&msm_uport->clk_count);
 	if (rc) {
 		atomic_set(&msm_uport->clk_count, 1);
-		MSM_HS_WARN("%s(): removing extra vote\n", __func__);
+		MSM_HS_WARN("%s(): removing extra vote (client_count also set to 0)\n", __func__);
 		msm_hs_resource_unvote(msm_uport);
 	}
 	if (atomic_read(&msm_uport->client_req_state)) {
 		MSM_HS_WARN("%s: Client clock vote imbalance\n", __func__);
 		atomic_set(&msm_uport->client_req_state, 0);
 	}
+	atomic_set(&msm_uport->client_count, 0);
 	msm_hs_unconfig_uart_gpios(uport);
-	MSM_HS_INFO("%s:UART port closed successfully\n", __func__);
+	MSM_HS_INFO("%s:UART port closed successfully (client_count set to 0)\n", __func__);
 }
 
 static void __exit msm_serial_hs_exit(void)

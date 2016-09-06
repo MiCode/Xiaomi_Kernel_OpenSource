@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +39,13 @@
 #define AFE_API_VERSION_CLOCK_SET 1
 #define AFE_CLK_VERSION_V1    1
 #define AFE_CLK_VERSION_V2    2
+
+#undef pr_debug
+#define pr_debug(fmt, ...) \
+	printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__)
+#undef dev_dbg
+#define dev_dbg(dev, format, arg...)		\
+	dev_printk(KERN_ERR, dev, format, ##arg)
 
 static const struct afe_clk_set lpass_clk_set_default = {
 	AFE_API_VERSION_CLOCK_SET,
@@ -3153,6 +3161,8 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	u32 tx_line = 0;
 	u32  rx_line = 0;
 	u32 mi2s_intf = 0;
+	u32 mi2s_slave = 0;
+	u32 mi2s_ext_mclk_rate = 0;
 	struct msm_mi2s_pdata *mi2s_pdata;
 	int rc;
 
@@ -3200,11 +3210,29 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 			"qcom,msm-mi2s-tx-lines");
 		goto free_pdata;
 	}
-	dev_dbg(&pdev->dev, "dev name %s Rx line 0x%x , Tx ine 0x%x\n",
-		dev_name(&pdev->dev), rx_line, tx_line);
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-mi2s-slave",
+				  &mi2s_slave);
+	if (rc) {
+		dev_dbg(&pdev->dev, "%s: %s Not found, defaulting to Master\n",
+			__func__, "qcom,msm-mi2s-slave");
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-mi2s-ext-mclk",
+				  &mi2s_ext_mclk_rate);
+	if (rc) {
+		dev_dbg(&pdev->dev, "%s: %s Not found\n",
+			__func__, "qcom,msm-mi2s-ext-mclk");
+	}
+
+	dev_dbg(&pdev->dev, "dev name %s Rx line 0x%x, Tx line 0x%x, slave %d, mi2s_ext_mclk_rate %u\n",
+		dev_name(&pdev->dev), rx_line, tx_line, mi2s_slave, mi2s_ext_mclk_rate);
+
 	mi2s_pdata->rx_sd_lines = rx_line;
 	mi2s_pdata->tx_sd_lines = tx_line;
 	mi2s_pdata->intf_id = mi2s_intf;
+	mi2s_pdata->slave = mi2s_slave;
+	mi2s_pdata->ext_mclk_rate = mi2s_ext_mclk_rate;
 
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_mi2s_dai_data),
 			   GFP_KERNEL);

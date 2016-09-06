@@ -27,7 +27,7 @@
 
 void msm_camera_io_w(u32 data, void __iomem *addr)
 {
-	CDBG("%s: 0x%p %08x\n", __func__,  (addr), (data));
+
 	writel_relaxed((data), (addr));
 }
 
@@ -71,7 +71,7 @@ int32_t msm_camera_io_w_reg_block(const u32 *addr, void __iomem *base,
 
 void msm_camera_io_w_mb(u32 data, void __iomem *addr)
 {
-	CDBG("%s: 0x%p %08x\n", __func__,  (addr), (data));
+
 	/* ensure write is done */
 	wmb();
 	writel_relaxed((data), (addr));
@@ -102,7 +102,6 @@ u32 msm_camera_io_r(void __iomem *addr)
 {
 	uint32_t data = readl_relaxed(addr);
 
-	CDBG("%s: 0x%p %08x\n", __func__,  (addr), (data));
 	return data;
 }
 
@@ -114,7 +113,7 @@ u32 msm_camera_io_r_mb(void __iomem *addr)
 	data = readl_relaxed(addr);
 	/* ensure read is done */
 	rmb();
-	CDBG("%s: 0x%p %08x\n", __func__,  (addr), (data));
+
 	return data;
 }
 
@@ -206,8 +205,8 @@ void msm_camera_io_dump(void __iomem *addr, int size, int enable)
 			p_str = line_str;
 		}
 	}
-	if (line_str[0] != '\0')
-		pr_err("%s\n", line_str);
+
+
 }
 
 void msm_camera_io_dump_wstring_base(void __iomem *addr,
@@ -233,7 +232,7 @@ void msm_camera_io_dump_wstring_base(void __iomem *addr,
 void msm_camera_io_memcpy(void __iomem *dest_addr,
 	void __iomem *src_addr, u32 len)
 {
-	CDBG("%s: %p %p %d\n", __func__, dest_addr, src_addr, len);
+
 	msm_camera_io_memcpy_toio(dest_addr, src_addr, len / 4);
 }
 

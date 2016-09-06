@@ -1,0 +1,546 @@
+----------------------------
+--- fpc1020 linux driver ---
+----------------------------
+*******************************************************************************
+Version: SW9
+Date:
+Tags:
+SHA1:
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+SW-669: FPC1155 settings
+
+--- Modified ---
+SW-658: Additional capture mode, "capture and wait".
+SW-660: Update "finger present" after capture.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* (Optional) Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+
+*******************************************************************************
+Version: SW8
+Date:
+Tags:
+SHA1:
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+SW-450: Dynamic "finger detect" threshold, set from sensor measurement.
+SW-462: Static/dynamic device allocation.
+SW-508: Allow 1150F HW-ID
+
+--- Modified ---
+SW-478: Bug-fix, first pixel in captured buffer void.
+SW-482: Testpattern "one" and "zero" uses adc_parameters(0)
+SW-486: Align ADC settings from algo team
+SW-515: Testpattern "one" and "zero" also set inverted bit of image setup register.
+SW-573: Fix false finger detects with CAC.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* (Optional) Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+
+*******************************************************************************
+Version: SW7
+Date:
+Tags:
+SHA1:
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+SW-409: Export last capture time to SysFS.
+
+--- Modified ---
+SW-382: Software chip select is optional.
+SW-395: Setup for checkerboard tests.
+SW-343: Allow invividual settings for capture "finger detect".
+        fpc1150 finger-down 6->7
+SW-152: Non-blocking "finger-up" for "wait and capture" modes
+SW-226: Settings for finger detect in capture mode.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+
+*******************************************************************************
+Version: SW6
+Date: 2014-06-13
+Tags: FPC7700AN-2-1-2_r1.5, FPC7710AN-2-1-2_r1.1, FPC7720AN-2-1-2_r1.0
+SHA1: c73255d66f8dc779b205abc5f59f9a4316838662
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+Device major number, from 235 to 230 (Dragonboard 2.0)
+xxx-93: Treat REBOOT IRQ status as error
+SW-242, SW-307: fpc1150 support
+SW-304: Sensor bringup tools.
+
+--- Modified ---
+SW-249: TEE remote control support (finger up/down capture modes).
+SW-265: Nav only for fpc1020 / functionality map check.
+SW-110: Capture timestamps.
+SW-306: Internal boost, usage recommendations changed.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+
+*******************************************************************************
+Version: SW5
+Date: 2014-05-26
+Tag: FPC7700AN-2-1-2_r1.4
+SHA1: b6ac8f7fee6f1c656a6a0ddad0c57b6d0e8f95d1
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+SW270, bug fix regarding finger-up.
+
+--- Modified ---
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+
+*******************************************************************************
+Version: SW5
+Date: 2014-05-14
+Tag: FPC7700AN-2-1-2_r1.3, FPC7710AN-2-1-2_r1.0
+SHA1: 8da3d4bff4ec2593bb82dee66dd2ea7885c085d1
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+SW206, fpc1021 support
+
+--- Modified ---
+SW237, recommended settings update (PA5).
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+
+*******************************************************************************
+Version: SW4
+Date: 2014-05-09
+Tag: FPC7700AN-2-1-3_r1.3
+SHA1: f8ed9a0abe9613ae672880a31793571e9f3912c7
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+"Image based" sw-navigation, experimental.
+
+--- Modified ---
+Sensor defaults for revisions A1-A4.
+SW174, Initial A3 settings
+SW203, Navigation loop timeout and command sequence.
+SW202, Navigation stuck in sleep/wake-up loop.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: SW4
+Date: 2014-04-28
+Tag: FPC7700AN-2-1-2_r1.21
+     FPC7700AN-2-1-3_r1.21
+SHA1: eb24bc0e5d674dfcf3d7a5d5dc424fdc42399c52
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+"Image based" sw-navigation, experimental.
+
+--- Modified ---
+Sensor defaults for revisions A1-A4.
+SW174, Initial A3 settings
+SW203, Navigation loop timeout and command sequence.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: SW4
+Date: 2014-04-24
+Tag: FPC7700AN-2-1-2_r1.2
+     FPC7700AN-2-1-3_r1.2
+SHA1: 4a1e1068c910c3bd712c87f2709ab8843dd450c2
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+
+--- Modified ---
+SW174, Explicit sensor settings #0 in nav/input mode.
+SW178, Wake-up handling.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: SW4-prerelease
+Date: 2014-04-11
+Tag: FPC7700AN-2-1-3_r1.1
+SHA1: 6186948176d5aeeea4d47d5ad1e24125ef3ba6d9
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+SW97-Chip detect
+SW153-External finger drive
+Touch navigation (Experimental, WP "2-1-3_r1.0")
+
+--- Modified ---
+SW164, mode switching
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: SW3-nav-WP
+Date: 2014-03-28
+Tag: FPC7700AN-2-1-3_r1.0
+SHA1:401f43b463daeb556c584f97e20537b6704aa383
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+Sensor based acceleration in navigation.
+
+--- Modified ---
+The way navigation works has been redesigned.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+********************************************************************************
+Version: SW3
+Date: 2014-03-18
+Tag: FPC7700AN-2-1-2_r1.1
+SHA1:0d5d52bf60b60c1e91cf1e89ad5fdf8a7976ecea
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+Sub-image readout, user configurable.
+Touch navigation (Experimental, "WP1")
+
+--- Modified ---
+Explicit reset in input jobs.
+Multi-image capture, settings by sysFS
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: Navigation WP1
+Date: 2014-03-22
+Tag: FPC7700AN-2-1-1_r1.3
+SHA1: 830f3fa0652101a875f1f0296f5a732b704b4abf
+
+--- Description ---
+Incremental release for touch panning navigation.
+
+--- New features ---
+
+--- Modified ---
+Updated navigation to use panning navigation.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: Navigation WP1
+Date: 2014-03-14
+Tag: FPC7700AN-2-1-1_r1.2
+SHA1: 8d1fe8c1b594c06541ce08b740f334db346d4ae3
+
+--- Description ---
+Incremental release for touch navigation.
+
+--- New features ---
+
+--- Modified ---
+Updated navigation to use touch events instead of key events.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: SW3-prerelease
+Date: 2014-03-05
+Tag: FPC7700AN-2-1-1_r1.1
+SHA1: a820231686b22ba1a5f122fbce03285bbb077428
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+Wakeup, nav/no-nav configuration
+Multi-image capture, fixed settings
+
+--- Modified ---
+* Capture "finger down" condition, refined.
+* Finger present trigger from nav driver.
+* Refined build (FPC internal)
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: SW2
+Date: 2014-02-18
+Tag: FPC7700AN-2-1-1_r1.0
+SHA1: f6d50402493994ffac54a5fef4116616736939e0
+
+--- Description ---
+Incremental developer release
+
+--- New features ---
+* Non-Blocking I/O in "wait and capture"
+
+--- Modified ---
+* "Static" navigation, second edition.
+* Sleep mode, deep sleep/sleep support.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: 1.2
+Date: 2014-01-31
+Tag: FPC7700AN_r1.2
+SHA1: 3e5dbf9df2b0f39faab1130bd9853a422fd6fffb
+
+--- Description ---
+Incremental developer release, based on v1.0
+
+--- New features ---
+* "Static" navigation, first edition.
+
+--- Modified ---
+* Split driver code into multiple source files.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: 1.0
+Date: 2014-01-20
+Tag: FPC7700AN_r1
+SHA1:74d05102bb2d2098f459893c5aea18ce65e709ee
+
+--- Description ---
+Incremental developer release, based on v0.2
+
+--- New features ---
+* Extended finger detection scheme in capture
+* poll()
+* Power management, sleep modes
+
+--- Modified ---
+* New settings "PA2+" (PA3?)
+* Automatic dummy byte padding for register access.
+* Updated selftest, includes status register check after reset
+* SPI debug for 10 byte registers.
+* Raw image, pixel values inverted.
+
+--- Deferred ---
+
+--- Not supported ---
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+*******************************************************************************
+Version: 0.2
+Date: 2013-01-18
+Tag: FPC7700AN_r0.2
+SHA1: 8da5480cb9a47fcd3158260e5da506e66452e88b
+
+--- Description ---
+First version. Tested on QC8074-Dragonboard (kernel 3.4.0).
+"Sensor" connector J9, BLSP3.
+
+--- Supported features ---
+* Driver I/O setup and initialisation, from devicetree bindings.
+* Power supply configuration, from devicetree bindings.
+* Settings, using SysFS
+* Sensor selftest.
+* Generic settings debug interface, using SysFS.
+* Image capture, single frame.
+* Wait and capture (i.e. capture with finger down detection)
+* Checkerboard test image capture, normal/inverted.
+
+--- Not supported ---
+* Power management, sleep modes
+* poll()
+* SPI debug for 10 byte registers.
+
+--- Known limitations ---
+* Using Generic GPIO for Chip select (BLSP3.CS is not working corrrectly).
+
+--- Not tested ---
+* Big endian platforms.
+* Driver init not using Devicetree (i.e. pdata init)
+
+

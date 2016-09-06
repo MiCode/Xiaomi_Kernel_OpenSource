@@ -399,8 +399,11 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 				settings[i].i2c_operation);
 			break;
 
-		if (0 != settings[i].delay)
+		if (settings[i].delay > 20)
 			msleep(settings[i].delay);
+		else if (0 != settings[i].delay)
+			usleep_range(settings[i].delay * 1000,
+				(settings[i].delay * 1000) + 1000);
 
 		if (rc < 0)
 			break;
@@ -1114,6 +1117,9 @@ static int32_t msm_actuator_set_position(
 		reg_setting.size = a_ctrl->i2c_tbl_index;
 		reg_setting.data_type = a_ctrl->i2c_data_type;
 
+#ifdef MSM8996_CCI_WORKAROUND
+		usleep_range(3000, 4000);
+#endif
 		rc = a_ctrl->i2c_client.i2c_func_tbl->
 			i2c_write_table_w_microdelay(
 			&a_ctrl->i2c_client, &reg_setting);

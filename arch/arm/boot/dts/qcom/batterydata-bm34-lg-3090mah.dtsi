@@ -1,0 +1,43 @@
+qcom,bm34_lg_3090mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3090>;
+	qcom,batt-id-kohm = <50>;
+	qcom,battery-beta = <4085>;
+	qcom,battery-type = "bm34_lg_3090mah";
+	qcom,checksum = <0x33D0>;
+	qcom,gui-version = "PMI8994GUI - 2.1.5.10";
+	qcom,fg-profile-data = [
+		 40 88 21 84
+		 C7 82 B7 7C
+		 39 83 B8 72
+		 10 7E E8 7A
+		 11 82 DB 99
+		 AE BC 63 C9
+		 BA 0E F6 83
+		 61 7D B0 81
+		 56 7C 81 83
+		 29 7D BE 90
+		 B4 97 49 82
+		 B7 98 9E B6
+		 30 C2 52 16
+		 35 0C 8B 58
+		 14 70 71 FD
+		 81 4C 0B 3F
+		 F9 48 00 00
+		 C6 47 9B 3C
+		 3E 1D 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 DE 70 31 71
+		 86 5A 03 82
+		 3E 6E 21 4A
+		 A0 6B DC 80
+		 65 6C EA 5C
+		 20 91 7F CB
+		 0D 02 60 79
+		 5D A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 00
+	];
+};

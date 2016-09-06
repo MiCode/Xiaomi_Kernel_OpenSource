@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -41,6 +42,7 @@
 #define REQ_DM_512_KB (512*1024)
 #define MAX_ENCRYPTION_BUFFERS 1
 #define MIN_IOS 16
+#define MIN_REQ_IOS 128
 #define MIN_POOL_PAGES 32
 #define KEY_SIZE_XTS 32
 #define AES_XTS_IV_LEN 16
@@ -1248,7 +1250,7 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	pfe_cursor = 0;
 	mutex_unlock(&engine_list_mutex);
 
-	req_io_pool = mempool_create_slab_pool(MIN_IOS, _req_crypt_io_pool);
+	req_io_pool = mempool_create_slab_pool(MIN_REQ_IOS, _req_crypt_io_pool);
 	BUG_ON(!req_io_pool);
 	if (!req_io_pool) {
 		DMERR("%s req_io_pool not allocated\n", __func__);

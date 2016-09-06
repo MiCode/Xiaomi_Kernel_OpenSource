@@ -19,6 +19,7 @@ obj-$(CONFIG_MSM_HVC) += hvc.o
 obj-$(CONFIG_MSM_CPU_PWR_CTL) += cpu_pwr_ctl.o
 obj-$(CONFIG_MSM_CACHE_M4M_ERP64) += cache_m4m_erp64.o
 obj-$(CONFIG_SOC_BUS)  +=      socinfo.o
+obj-$(CONFIG_SERIAL_NUM) += serial_num.o
 obj-$(CONFIG_MSM_HYP_DEBUG) += hyp-debug.o
 obj-$(CONFIG_ARCH_MSM8996) += kryo-l2-accessors.o
 obj-$(CONFIG_MSM_RPM_SMD) +=	rpm-smd.o

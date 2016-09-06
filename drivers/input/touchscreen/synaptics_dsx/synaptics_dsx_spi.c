@@ -1,10 +1,11 @@
 /*
  * Synaptics DSX touchscreen driver
  *
- * Copyright (C) 2012 Synaptics Incorporated
+ * Copyright (C) 2012-2015 Synaptics Incorporated. All rights reserved.
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +16,20 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION DOES
+ * NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES, SYNAPTICS'
+ * TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT EXCEED ONE HUNDRED U.S.
+ * DOLLARS.
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -23,12 +38,194 @@
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/types.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/input/synaptics_dsx.h>
 #include "synaptics_dsx_core.h"
 
 #define SPI_READ 0x80
 #define SPI_WRITE 0x00
+
+#ifdef CONFIG_OF
+static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
+{
+	int retval;
+	u32 value;
+	const char *name;
+	struct property *prop;
+	struct device_node *np = dev->of_node;
+
+	bdata->irq_gpio = of_get_named_gpio_flags(np,
+			"synaptics,irq-gpio", 0, NULL);
+
+	retval = of_property_read_u32(np, "synaptics,irq-on-state",
+			&value);
+	if (retval < 0)
+		bdata->irq_on_state = 0;
+	else
+		bdata->irq_on_state = value;
+
+	retval = of_property_read_u32(np, "synaptics,irq-flags", &value);
+	if (retval < 0)
+		return retval;
+	else
+		bdata->irq_flags = value;
+
+	retval = of_property_read_string(np, "synaptics,pwr-reg-name", &name);
+	if (retval == -EINVAL)
+		bdata->pwr_reg_name = NULL;
+	else if (retval < 0)
+		return retval;
+	else
+		bdata->pwr_reg_name = name;
+
+	retval = of_property_read_string(np, "synaptics,bus-reg-name", &name);
+	if (retval == -EINVAL)
+		bdata->bus_reg_name = NULL;
+	else if (retval < 0)
+		return retval;
+	else
+		bdata->bus_reg_name = name;
+
+	if (of_property_read_bool(np, "synaptics,power-gpio")) {
+		bdata->power_gpio = of_get_named_gpio_flags(np,
+				"synaptics,power-gpio", 0, NULL);
+		retval = of_property_read_u32(np, "synaptics,power-on-state",
+				&value);
+		if (retval < 0)
+			return retval;
+		else
+			bdata->power_on_state = value;
+	} else {
+		bdata->power_gpio = -1;
+	}
+
+	if (of_property_read_bool(np, "synaptics,power-delay-ms")) {
+		retval = of_property_read_u32(np, "synaptics,power-delay-ms",
+				&value);
+		if (retval < 0)
+			return retval;
+		else
+			bdata->power_delay_ms = value;
+	} else {
+		bdata->power_delay_ms = 0;
+	}
+
+	if (of_property_read_bool(np, "synaptics,reset-gpio")) {
+		bdata->reset_gpio = of_get_named_gpio_flags(np,
+				"synaptics,reset-gpio", 0, NULL);
+		retval = of_property_read_u32(np, "synaptics,reset-on-state",
+				&value);
+		if (retval < 0)
+			return retval;
+		else
+			bdata->reset_on_state = value;
+		retval = of_property_read_u32(np, "synaptics,reset-active-ms",
+				&value);
+		if (retval < 0)
+			return retval;
+		else
+			bdata->reset_active_ms = value;
+	} else {
+		bdata->reset_gpio = -1;
+	}
+
+	if (of_property_read_bool(np, "synaptics,reset-delay-ms")) {
+		retval = of_property_read_u32(np, "synaptics,reset-delay-ms",
+				&value);
+		if (retval < 0)
+			return retval;
+		else
+			bdata->reset_delay_ms = value;
+	} else {
+		bdata->reset_delay_ms = 0;
+	}
+
+	if (of_property_read_bool(np, "synaptics,byte-delay-us")) {
+		retval = of_property_read_u32(np, "synaptics,byte-delay-us",
+				&value);
+		if (retval < 0)
+			return retval;
+		else
+			bdata->byte_delay_us = value;
+	} else {
+		bdata->byte_delay_us = 0;
+	}
+
+	if (of_property_read_bool(np, "synaptics,block-delay-us")) {
+		retval = of_property_read_u32(np, "synaptics,block-delay-us",
+				&value);
+		if (retval < 0)
+			return retval;
+		else
+			bdata->block_delay_us = value;
+	} else {
+		bdata->block_delay_us = 0;
+	}
+
+	if (of_property_read_bool(np, "synaptics,max-y-for-2d")) {
+		retval = of_property_read_u32(np, "synaptics,max-y-for-2d",
+				&value);
+		if (retval < 0)
+			return retval;
+		else
+			bdata->max_y_for_2d = value;
+	} else {
+		bdata->max_y_for_2d = -1;
+	}
+
+	bdata->swap_axes = of_property_read_bool(np, "synaptics,swap-axes");
+
+	bdata->x_flip = of_property_read_bool(np, "synaptics,x-flip");
+
+	bdata->y_flip = of_property_read_bool(np, "synaptics,y-flip");
+
+	prop = of_find_property(np, "synaptics,cap-button-codes", NULL);
+	if (prop && prop->length) {
+		bdata->cap_button_map->map = devm_kzalloc(dev,
+				prop->length,
+				GFP_KERNEL);
+		if (!bdata->cap_button_map->map)
+			return -ENOMEM;
+		bdata->cap_button_map->nbuttons = prop->length / sizeof(u32);
+		retval = of_property_read_u32_array(np,
+				"synaptics,cap-button-codes",
+				bdata->cap_button_map->map,
+				bdata->cap_button_map->nbuttons);
+		if (retval < 0) {
+			bdata->cap_button_map->nbuttons = 0;
+			bdata->cap_button_map->map = NULL;
+		}
+	} else {
+		bdata->cap_button_map->nbuttons = 0;
+		bdata->cap_button_map->map = NULL;
+	}
+
+	prop = of_find_property(np, "synaptics,vir-button-codes", NULL);
+	if (prop && prop->length) {
+		bdata->vir_button_map->map = devm_kzalloc(dev,
+				prop->length,
+				GFP_KERNEL);
+		if (!bdata->vir_button_map->map)
+			return -ENOMEM;
+		bdata->vir_button_map->nbuttons = prop->length / sizeof(u32);
+		bdata->vir_button_map->nbuttons /= 5;
+		retval = of_property_read_u32_array(np,
+				"synaptics,vir-button-codes",
+				bdata->vir_button_map->map,
+				bdata->vir_button_map->nbuttons * 5);
+		if (retval < 0) {
+			bdata->vir_button_map->nbuttons = 0;
+			bdata->vir_button_map->map = NULL;
+		}
+	} else {
+		bdata->vir_button_map->nbuttons = 0;
+		bdata->vir_button_map->map = NULL;
+	}
+
+	return 0;
+}
+#endif
 
 static int synaptics_rmi4_spi_set_page(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short addr)
@@ -120,6 +317,7 @@ static int synaptics_rmi4_spi_read(struct synaptics_rmi4_data *rmi4_data,
 
 	retval = synaptics_rmi4_spi_set_page(rmi4_data, addr);
 	if (retval != PAGE_SELECT_LEN) {
+		mutex_unlock(&rmi4_data->rmi4_io_ctrl_mutex);
 		retval = -EIO;
 		goto exit;
 	}
@@ -139,8 +337,14 @@ static int synaptics_rmi4_spi_read(struct synaptics_rmi4_data *rmi4_data,
 
 	retval = spi_sync(spi, &msg);
 	if (retval == 0) {
-		retval = length;
-		memcpy(data, rxbuf, length);
+		retval = secure_memcpy(data, length, rxbuf, length, length);
+		if (retval < 0) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to copy data\n",
+					__func__);
+		} else {
+			retval = length;
+		}
 	} else {
 		dev_err(rmi4_data->pdev->dev.parent,
 				"%s: Failed to complete SPI transfer, error = %d\n",
@@ -191,12 +395,20 @@ static int synaptics_rmi4_spi_write(struct synaptics_rmi4_data *rmi4_data,
 
 	txbuf[0] = (addr >> 8) & ~SPI_READ;
 	txbuf[1] = addr & MASK_8BIT;
-	memcpy(&txbuf[ADDRESS_WORD_LEN], data, length);
+	retval = secure_memcpy(&txbuf[ADDRESS_WORD_LEN],
+			xfer_count - ADDRESS_WORD_LEN, data, length, length);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to copy data\n",
+				__func__);
+		goto exit;
+	}
 
 	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
 
 	retval = synaptics_rmi4_spi_set_page(rmi4_data, addr);
 	if (retval != PAGE_SELECT_LEN) {
+		mutex_unlock(&rmi4_data->rmi4_io_ctrl_mutex);
 		retval = -EIO;
 		goto exit;
 	}
@@ -267,6 +479,43 @@ static int synaptics_rmi4_spi_probe(struct spi_device *spi)
 		return -ENOMEM;
 	}
 
+#ifdef CONFIG_OF
+	if (spi->dev.of_node) {
+		hw_if.board_data = devm_kzalloc(&spi->dev,
+				sizeof(struct synaptics_dsx_board_data),
+				GFP_KERNEL);
+		if (!hw_if.board_data) {
+			dev_err(&spi->dev,
+					"%s: Failed to allocate memory for board data\n",
+					__func__);
+			return -ENOMEM;
+		}
+		hw_if.board_data->cap_button_map = devm_kzalloc(&spi->dev,
+				sizeof(struct synaptics_dsx_button_map),
+				GFP_KERNEL);
+		if (!hw_if.board_data->cap_button_map) {
+			dev_err(&spi->dev,
+					"%s: Failed to allocate memory for 0D button map\n",
+					__func__);
+			return -ENOMEM;
+		}
+		hw_if.board_data->vir_button_map = devm_kzalloc(&spi->dev,
+				sizeof(struct synaptics_dsx_button_map),
+				GFP_KERNEL);
+		if (!hw_if.board_data->vir_button_map) {
+			dev_err(&spi->dev,
+					"%s: Failed to allocate memory for virtual button map\n",
+					__func__);
+			return -ENOMEM;
+		}
+		parse_dt(&spi->dev, hw_if.board_data);
+	}
+#else
+	hw_if.board_data = spi->dev.platform_data;
+#endif
+
+	hw_if.bus_access = &bus_access;
+
 	spi->bits_per_word = 8;
 	spi->mode = SPI_MODE_3;
 
@@ -277,9 +526,6 @@ static int synaptics_rmi4_spi_probe(struct spi_device *spi)
 				__func__);
 		return retval;
 	}
-
-	hw_if.board_data = spi->dev.platform_data;
-	hw_if.bus_access = &bus_access;
 
 	synaptics_dsx_spi_device->name = PLATFORM_DRIVER_NAME;
 	synaptics_dsx_spi_device->id = 0;
@@ -306,13 +552,26 @@ static int synaptics_rmi4_spi_remove(struct spi_device *spi)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static struct of_device_id synaptics_rmi4_of_match_table[] = {
+	{
+		.compatible = "synaptics,dsx-spi",
+	},
+	{},
+};
+MODULE_DEVICE_TABLE(of, synaptics_rmi4_of_match_table);
+#else
+#define synaptics_rmi4_of_match_table NULL
+#endif
+
 static struct spi_driver synaptics_rmi4_spi_driver = {
 	.driver = {
 		.name = SPI_DRIVER_NAME,
 		.owner = THIS_MODULE,
+		.of_match_table = synaptics_rmi4_of_match_table,
 	},
 	.probe = synaptics_rmi4_spi_probe,
-	.remove = __devexit_p(synaptics_rmi4_spi_remove),
+	.remove = synaptics_rmi4_spi_remove,
 };
 
 

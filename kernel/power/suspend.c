@@ -4,6 +4,7 @@
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -495,12 +496,21 @@ static void pm_suspend_marker(char *annotation)
 {
 	struct timespec ts;
 	struct rtc_time tm;
+	static struct timespec old_ts;
 
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
 	pr_info("PM: suspend %s %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 		annotation, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 		tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
+	if (!strncmp(annotation, "entry", strlen("entry"))) {
+		old_ts.tv_sec = ts.tv_sec;
+		old_ts.tv_nsec = ts.tv_nsec;
+	} else {
+		pr_info("PM: suspend lasts %lu seconds\n",
+			ts.tv_sec - old_ts.tv_sec);
+	}
 }
 
 /**

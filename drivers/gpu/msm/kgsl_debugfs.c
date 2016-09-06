@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2008-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -252,6 +253,24 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 			"Unable to create 'mem' file for %s\n", name);
 }
 
+extern int kgsl_pool_info(char *buf);
+
+static ssize_t kgsl_pool_read(struct file *fp, char __user *user_buf,
+					size_t count, loff_t *ppos)
+{
+	char buf[1000];
+	unsigned int len;
+
+	memset(buf, 0, 1000);
+	len = kgsl_pool_info(buf);
+	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
+}
+
+static const struct file_operations kgsl_pool_fops = {
+	.read = kgsl_pool_read,
+};
+
+
 void kgsl_core_debugfs_init(void)
 {
 	struct dentry *debug_dir;
@@ -259,6 +278,8 @@ void kgsl_core_debugfs_init(void)
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", NULL);
 
 	debug_dir = debugfs_create_dir("debug", kgsl_debugfs_dir);
+
+	debugfs_create_file("mem_pool", 0644, kgsl_debugfs_dir, NULL, &kgsl_pool_fops);
 
 	debugfs_create_file("strict_memory", 0644, debug_dir, NULL,
 		&_strict_fops);

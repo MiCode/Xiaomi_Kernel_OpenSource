@@ -1,10 +1,11 @@
 /*
  * Synaptics DSX touchscreen driver
  *
- * Copyright (C) 2012 Synaptics Incorporated
+ * Copyright (C) 2012-2015 Synaptics Incorporated. All rights reserved.
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,18 +16,35 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION DOES
+ * NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES, SYNAPTICS'
+ * TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT EXCEED ONE HUNDRED U.S.
+ * DOLLARS.
  */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/input.h>
+#include <linux/signal.h>
+#include <linux/sched.h>
 #include <linux/gpio.h>
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx_v2.h>
+#include <linux/input/synaptics_dsx.h>
 #include "synaptics_dsx_core.h"
 
 #define CHAR_DEVICE_NAME "rmi"
@@ -52,11 +70,33 @@ static ssize_t rmidev_sysfs_release_store(struct device *dev,
 static ssize_t rmidev_sysfs_attn_state_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
+static ssize_t rmidev_sysfs_pid_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+
+static ssize_t rmidev_sysfs_pid_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t rmidev_sysfs_term_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t rmidev_sysfs_intr_mask_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+
+static ssize_t rmidev_sysfs_intr_mask_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
 struct rmidev_handle {
 	dev_t dev_no;
+	pid_t pid;
+	unsigned char intr_mask;
+	unsigned char *tmpbuf;
+	unsigned int tmpbuf_size;
 	struct device dev;
 	struct synaptics_rmi4_data *rmi4_data;
 	struct kobject *sysfs_dir;
+	struct siginfo interrupt_signal;
+	struct siginfo terminate_signal;
+	struct task_struct *task;
 	void *data;
 	bool irq_enabled;
 };
@@ -72,7 +112,7 @@ struct rmidev_data {
 static struct bin_attribute attr_data = {
 	.attr = {
 		.name = "data",
-		.mode = (S_IRUGO | S_IWUSR),
+		.mode = (S_IRUGO | S_IWUGO),
 	},
 	.size = 0,
 	.read = rmidev_sysfs_data_show,
@@ -80,15 +120,24 @@ static struct bin_attribute attr_data = {
 };
 
 static struct device_attribute attrs[] = {
-	__ATTR(open, S_IWUSR | S_IWGRP,
-			NULL,
+	__ATTR(open, S_IWUSR,
+			synaptics_rmi4_show_error,
 			rmidev_sysfs_open_store),
-	__ATTR(release, S_IWUSR | S_IWGRP,
-			NULL,
+	__ATTR(release, S_IWUSR,
+			synaptics_rmi4_show_error,
 			rmidev_sysfs_release_store),
 	__ATTR(attn_state, S_IRUGO,
 			rmidev_sysfs_attn_state_show,
 			synaptics_rmi4_store_error),
+	__ATTR(pid, S_IRUGO | S_IWUSR,
+			rmidev_sysfs_pid_show,
+			rmidev_sysfs_pid_store),
+	__ATTR(term, S_IWUSR,
+			synaptics_rmi4_show_error,
+			rmidev_sysfs_term_store),
+	__ATTR(intr_mask, S_IRUGO | S_IWUSR,
+			rmidev_sysfs_intr_mask_show,
+			rmidev_sysfs_intr_mask_store),
 };
 
 static int rmidev_major_num;
@@ -114,7 +163,8 @@ static int rmidev_sysfs_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 {
 	int retval = 0;
 	unsigned char intr_status[MAX_INTR_REGISTERS];
-	unsigned long irq_flags = IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING;
+	unsigned long irq_flags = IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING |
+			IRQF_ONESHOT;
 
 	if (enable) {
 		if (rmidev->irq_enabled)
@@ -130,7 +180,7 @@ static int rmidev_sysfs_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 
 		retval = request_threaded_irq(rmi4_data->irq, NULL,
 				rmidev_sysfs_irq, irq_flags,
-				"synaptics_dsx_rmidev", rmi4_data);
+				PLATFORM_DRIVER_NAME, rmi4_data);
 		if (retval < 0) {
 			dev_err(rmi4_data->pdev->dev.parent,
 					"%s: Failed to create irq thread\n",
@@ -230,7 +280,16 @@ static ssize_t rmidev_sysfs_open_store(struct device *dev,
 	if (input != 1)
 		return -EINVAL;
 
-	rmi4_data->irq_enable(rmi4_data, false);
+	if (rmi4_data->sensor_sleep) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Sensor sleeping\n",
+				__func__);
+		return -ENODEV;
+	}
+
+	rmi4_data->stay_awake = true;
+
+	rmi4_data->irq_enable(rmi4_data, false, false);
 	rmidev_sysfs_irq_enable(rmi4_data, true);
 
 	dev_dbg(rmi4_data->pdev->dev.parent,
@@ -252,14 +311,16 @@ static ssize_t rmidev_sysfs_release_store(struct device *dev,
 	if (input != 1)
 		return -EINVAL;
 
-	rmi4_data->reset_device(rmi4_data);
-
 	rmidev_sysfs_irq_enable(rmi4_data, false);
-	rmi4_data->irq_enable(rmi4_data, true);
+	rmi4_data->irq_enable(rmi4_data, true, false);
 
 	dev_dbg(rmi4_data->pdev->dev.parent,
 			"%s: Attention interrupt enabled\n",
 			__func__);
+
+	rmi4_data->reset_device(rmi4_data, false);
+
+	rmi4_data->stay_awake = false;
 
 	return count;
 }
@@ -277,18 +338,102 @@ static ssize_t rmidev_sysfs_attn_state_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n", attn_state);
 }
 
+static ssize_t rmidev_sysfs_pid_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", rmidev->pid);
+}
+
+static ssize_t rmidev_sysfs_pid_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	struct synaptics_rmi4_data *rmi4_data = rmidev->rmi4_data;
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	rmidev->pid = input;
+
+	if (rmidev->pid) {
+		rmidev->task = pid_task(find_vpid(rmidev->pid), PIDTYPE_PID);
+		if (!rmidev->task) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to locate PID of data logging tool\n",
+					__func__);
+			return -EINVAL;
+		}
+	}
+
+	return count;
+}
+
+static ssize_t rmidev_sysfs_term_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	if (input != 1)
+		return -EINVAL;
+
+	if (rmidev->pid)
+		send_sig_info(SIGTERM, &rmidev->terminate_signal, rmidev->task);
+
+	return count;
+}
+
+static ssize_t rmidev_sysfs_intr_mask_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "0x%02x\n", rmidev->intr_mask);
+}
+
+static ssize_t rmidev_sysfs_intr_mask_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	rmidev->intr_mask = (unsigned char)input;
+
+	return count;
+}
+
+static int rmidev_allocate_buffer(int count)
+{
+	if (count + 1 > rmidev->tmpbuf_size) {
+		if (rmidev->tmpbuf_size)
+			kfree(rmidev->tmpbuf);
+		rmidev->tmpbuf = kzalloc(count + 1, GFP_KERNEL);
+		if (!rmidev->tmpbuf) {
+			dev_err(rmidev->rmi4_data->pdev->dev.parent,
+					"%s: Failed to alloc mem for buffer\n",
+					__func__);
+			rmidev->tmpbuf_size = 0;
+			return -ENOMEM;
+		}
+		rmidev->tmpbuf_size = count + 1;
+	}
+
+	return 0;
+}
+
 /*
- * rmidev_llseek - used to set up register address
+ * rmidev_llseek - set register address to access for RMI device
  *
- * @filp: file structure for seek
- * @off: offset
- *   if whence == SEEK_SET,
- *     high 16 bits: page address
- *     low 16 bits: register address
- *   if whence == SEEK_CUR,
- *     offset from current position
- *   if whence == SEEK_END,
- *     offset from end position (0xFFFF)
+ * @filp: pointer to file structure
+ * @off:
+ *	if whence == SEEK_SET,
+ *		off: 16-bit RMI register address
+ *	if whence == SEEK_CUR,
+ *		off: offset from current position
+ *	if whence == SEEK_END,
+ *		off: offset from end position (0xFFFF)
  * @whence: SEEK_SET, SEEK_CUR, or SEEK_END
  */
 static loff_t rmidev_llseek(struct file *filp, loff_t off, int whence)
@@ -336,18 +481,17 @@ clean_up:
 }
 
 /*
- * rmidev_read: - use to read data from rmi device
+ * rmidev_read: read register data from RMI device
  *
- * @filp: file structure for read
- * @buf: user space buffer pointer
+ * @filp: pointer to file structure
+ * @buf: pointer to user space buffer
  * @count: number of bytes to read
- * @f_pos: offset (starting register address)
+ * @f_pos: starting RMI register address
  */
 static ssize_t rmidev_read(struct file *filp, char __user *buf,
 		size_t count, loff_t *f_pos)
 {
 	ssize_t retval;
-	unsigned char tmpbuf[count + 1];
 	struct rmidev_data *dev_data = filp->private_data;
 
 	if (IS_ERR(dev_data)) {
@@ -361,16 +505,18 @@ static ssize_t rmidev_read(struct file *filp, char __user *buf,
 	if (count > (REG_ADDR_LIMIT - *f_pos))
 		count = REG_ADDR_LIMIT - *f_pos;
 
+	rmidev_allocate_buffer(count);
+
 	mutex_lock(&(dev_data->file_mutex));
 
 	retval = synaptics_rmi4_reg_read(rmidev->rmi4_data,
 			*f_pos,
-			tmpbuf,
+			rmidev->tmpbuf,
 			count);
 	if (retval < 0)
 		goto clean_up;
 
-	if (copy_to_user(buf, tmpbuf, count))
+	if (copy_to_user(buf, rmidev->tmpbuf, count))
 		retval = -EFAULT;
 	else
 		*f_pos += retval;
@@ -382,18 +528,17 @@ clean_up:
 }
 
 /*
- * rmidev_write: - used to write data to rmi device
+ * rmidev_write: write register data to RMI device
  *
- * @filep: file structure for write
- * @buf: user space buffer pointer
+ * @filp: pointer to file structure
+ * @buf: pointer to user space buffer
  * @count: number of bytes to write
- * @f_pos: offset (starting register address)
+ * @f_pos: starting RMI register address
  */
 static ssize_t rmidev_write(struct file *filp, const char __user *buf,
 		size_t count, loff_t *f_pos)
 {
 	ssize_t retval;
-	unsigned char tmpbuf[count + 1];
 	struct rmidev_data *dev_data = filp->private_data;
 
 	if (IS_ERR(dev_data)) {
@@ -407,14 +552,16 @@ static ssize_t rmidev_write(struct file *filp, const char __user *buf,
 	if (count > (REG_ADDR_LIMIT - *f_pos))
 		count = REG_ADDR_LIMIT - *f_pos;
 
-	if (copy_from_user(tmpbuf, buf, count))
+	rmidev_allocate_buffer(count);
+
+	if (copy_from_user(rmidev->tmpbuf, buf, count))
 		return -EFAULT;
 
 	mutex_lock(&(dev_data->file_mutex));
 
 	retval = synaptics_rmi4_reg_write(rmidev->rmi4_data,
 			*f_pos,
-			tmpbuf,
+			rmidev->tmpbuf,
 			count);
 	if (retval >= 0)
 		*f_pos += retval;
@@ -424,11 +571,6 @@ static ssize_t rmidev_write(struct file *filp, const char __user *buf,
 	return retval;
 }
 
-/*
- * rmidev_open: enable access to rmi device
- * @inp: inode struture
- * @filp: file structure
- */
 static int rmidev_open(struct inode *inp, struct file *filp)
 {
 	int retval = 0;
@@ -439,11 +581,20 @@ static int rmidev_open(struct inode *inp, struct file *filp)
 	if (!dev_data)
 		return -EACCES;
 
+	if (rmi4_data->sensor_sleep) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Sensor sleeping\n",
+				__func__);
+		return -ENODEV;
+	}
+
+	rmi4_data->stay_awake = true;
+
 	filp->private_data = dev_data;
 
 	mutex_lock(&(dev_data->file_mutex));
 
-	rmi4_data->irq_enable(rmi4_data, false);
+	rmi4_data->irq_enable(rmi4_data, false, false);
 	dev_dbg(rmi4_data->pdev->dev.parent,
 			"%s: Attention interrupt disabled\n",
 			__func__);
@@ -458,11 +609,6 @@ static int rmidev_open(struct inode *inp, struct file *filp)
 	return retval;
 }
 
-/*
- * rmidev_release: - release access to rmi device
- * @inp: inode structure
- * @filp: file structure
- */
 static int rmidev_release(struct inode *inp, struct file *filp)
 {
 	struct synaptics_rmi4_data *rmi4_data = rmidev->rmi4_data;
@@ -472,20 +618,22 @@ static int rmidev_release(struct inode *inp, struct file *filp)
 	if (!dev_data)
 		return -EACCES;
 
-	rmi4_data->reset_device(rmi4_data);
-
 	mutex_lock(&(dev_data->file_mutex));
 
 	dev_data->ref_count--;
 	if (dev_data->ref_count < 0)
 		dev_data->ref_count = 0;
 
-	rmi4_data->irq_enable(rmi4_data, true);
+	rmi4_data->irq_enable(rmi4_data, true, false);
 	dev_dbg(rmi4_data->pdev->dev.parent,
 			"%s: Attention interrupt enabled\n",
 			__func__);
 
 	mutex_unlock(&(dev_data->file_mutex));
+
+	rmi4_data->reset_device(rmi4_data, false);
+
+	rmi4_data->stay_awake = false;
 
 	return 0;
 }
@@ -534,6 +682,9 @@ static char *rmi_char_devnode(struct device *dev, umode_t *mode)
 
 static int rmidev_create_device_class(void)
 {
+	if (rmidev_device_class != NULL)
+		return 0;
+
 	rmidev_device_class = class_create(THIS_MODULE, DEVICE_CLASS_NAME);
 
 	if (IS_ERR(rmidev_device_class)) {
@@ -547,6 +698,18 @@ static int rmidev_create_device_class(void)
 	return 0;
 }
 
+static void rmidev_attn(struct synaptics_rmi4_data *rmi4_data,
+		unsigned char intr_mask)
+{
+	if (!rmidev)
+		return;
+
+	if (rmidev->pid && (rmidev->intr_mask & intr_mask))
+		send_sig_info(SIGIO, &rmidev->interrupt_signal, rmidev->task);
+
+	return;
+}
+
 static int rmidev_init_device(struct synaptics_rmi4_data *rmi4_data)
 {
 	int retval;
@@ -556,6 +719,13 @@ static int rmidev_init_device(struct synaptics_rmi4_data *rmi4_data)
 	struct device *device_ptr;
 	const struct synaptics_dsx_board_data *bdata =
 				rmi4_data->hw_if->board_data;
+
+	if (rmidev) {
+		dev_dbg(rmi4_data->pdev->dev.parent,
+				"%s: Handle already exists\n",
+				__func__);
+		return 0;
+	}
 
 	rmidev = kzalloc(sizeof(*rmidev), GFP_KERNEL);
 	if (!rmidev) {
@@ -567,6 +737,14 @@ static int rmidev_init_device(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	rmidev->rmi4_data = rmi4_data;
+
+	memset(&rmidev->interrupt_signal, 0, sizeof(rmidev->interrupt_signal));
+	rmidev->interrupt_signal.si_signo = SIGIO;
+	rmidev->interrupt_signal.si_code = SI_USER;
+
+	memset(&rmidev->terminate_signal, 0, sizeof(rmidev->terminate_signal));
+	rmidev->terminate_signal.si_signo = SIGTERM;
+	rmidev->terminate_signal.si_code = SI_USER;
 
 	retval = rmidev_create_device_class();
 	if (retval < 0) {
@@ -700,7 +878,10 @@ err_dev_data:
 	unregister_chrdev_region(dev_no, 1);
 
 err_device_region:
-	class_destroy(rmidev_device_class);
+	if (rmidev_device_class != NULL) {
+		class_destroy(rmidev_device_class);
+		rmidev_device_class = NULL;
+	}
 
 err_device_class:
 	kfree(rmidev);
@@ -714,6 +895,8 @@ static void rmidev_remove_device(struct synaptics_rmi4_data *rmi4_data)
 {
 	unsigned char attr_count;
 	struct rmidev_data *dev_data;
+	const struct synaptics_dsx_board_data *bdata =
+			rmi4_data->hw_if->board_data;
 
 	if (!rmidev)
 		goto exit;
@@ -725,6 +908,8 @@ static void rmidev_remove_device(struct synaptics_rmi4_data *rmi4_data)
 
 	kobject_put(rmidev->sysfs_dir);
 
+	gpio_unexport(bdata->irq_gpio);
+
 	dev_data = rmidev->data;
 	if (dev_data) {
 		rmidev_device_cleanup(dev_data);
@@ -733,7 +918,12 @@ static void rmidev_remove_device(struct synaptics_rmi4_data *rmi4_data)
 
 	unregister_chrdev_region(rmidev->dev_no, 1);
 
-	class_destroy(rmidev_device_class);
+	if (rmidev_device_class != NULL) {
+		class_destroy(rmidev_device_class);
+		rmidev_device_class = NULL;
+	}
+
+	kfree(rmidev->tmpbuf);
 
 	kfree(rmidev);
 	rmidev = NULL;
@@ -754,19 +944,19 @@ static struct synaptics_rmi4_exp_fn rmidev_module = {
 	.suspend = NULL,
 	.resume = NULL,
 	.late_resume = NULL,
-	.attn = NULL,
+	.attn = rmidev_attn,
 };
 
 static int __init rmidev_module_init(void)
 {
-	synaptics_rmi4_dsx_new_function(&rmidev_module, true);
+	synaptics_rmi4_new_function(&rmidev_module, true);
 
 	return 0;
 }
 
 static void __exit rmidev_module_exit(void)
 {
-	synaptics_rmi4_dsx_new_function(&rmidev_module, false);
+	synaptics_rmi4_new_function(&rmidev_module, false);
 
 	wait_for_completion(&rmidev_remove_complete);
 

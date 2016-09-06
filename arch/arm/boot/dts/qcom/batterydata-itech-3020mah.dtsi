@@ -1,0 +1,54 @@
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,itech-3020mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <100000>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-type = "itech_3020mah";
+	qcom,fg-profile-data = [
+		 E8 83 0C 7D
+		 E9 80 B2 76
+		 20 83 40 73
+		 D7 6C 59 7E
+		 FB 81 58 93
+		 0D AE 02 B1
+		 5B 12 D7 82
+		 86 78 F3 76
+		 4A 71 0C 83
+		 1B 80 73 8D
+		 49 89 07 82
+		 D8 99 79 BC
+		 AA C8 7C 17
+		 F8 0B F4 5B
+		 CE 6E 71 FD
+		 09 2E 79 44
+		 52 43 00 00
+		 DE 3D 2A 37
+		 D3 46 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 3A 6B B7 69
+		 DD 6C 83 83
+		 42 76 CA 68
+		 78 75 EF 80
+		 D4 74 56 5B
+		 00 00 00 00
+		 0A A5 5A D2
+		 54 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 00
+	];
+};

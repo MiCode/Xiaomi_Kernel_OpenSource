@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1111,7 +1112,7 @@ static int msm_ispif_stop_frame_boundary(struct ispif_device *ispif,
 		rc = readl_poll_timeout(ispif->base + intf_addr, stop_flag,
 					(stop_flag & 0xF) == 0xF,
 					ISPIF_TIMEOUT_SLEEP_US,
-					ISPIF_TIMEOUT_ALL_US);
+					(params->reserved_param ? params->reserved_param : ISPIF_TIMEOUT_ALL_US));
 		if (rc < 0)
 			goto end;
 
@@ -1490,20 +1491,8 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 		ispif->ispif_rdi2_debug = 0;
 		return 0;
 	}
-	case MSM_SD_SHUTDOWN: {
-		struct ispif_device *ispif =
-			(struct ispif_device *)v4l2_get_subdevdata(sd);
-
-		if (ispif && ispif->base) {
-			while (ispif->open_cnt != 0)
-				ispif_close_node(sd, NULL);
-		} else {
-			pr_debug("%s:SD SHUTDOWN fail, ispif%s %p\n", __func__,
-				ispif ? "_base" : "",
-				ispif ? ispif->base : NULL);
-		}
+	case MSM_SD_SHUTDOWN:
 		return 0;
-	}
 	default:
 		pr_err_ratelimited("%s: invalid cmd 0x%x received\n",
 			__func__, cmd);

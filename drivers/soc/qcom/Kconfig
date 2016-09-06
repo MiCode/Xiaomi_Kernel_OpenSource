@@ -671,6 +671,11 @@ config MSM_PACMAN
 	  driver allows reconfiguration of the Bus Access Manager Low Speed
 	  peripheral (BLSP) ownership.
 
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	  Provide a interface for reading CPU serial number
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM

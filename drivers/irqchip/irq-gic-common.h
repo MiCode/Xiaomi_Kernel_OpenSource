@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002 ARM Limited, All Rights Reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,6 +23,7 @@
 
 extern bool from_suspend;
 extern struct irq_chip gic_arch_extn;
+extern int msm_show_resume_irq_mask;
 
 void gic_configure_irq(unsigned int irq, unsigned int type,
                        void __iomem *base, void (*sync_access)(void));

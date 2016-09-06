@@ -92,6 +92,7 @@ static unsigned long lowmem_count(struct shrinker *s,
 
 static atomic_t shift_adj = ATOMIC_INIT(0);
 static short adj_max_shift = 353;
+static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc);
 
 /* User knob to enable/disable adaptive lmk feature */
 static int enable_adaptive_lmk;
@@ -141,6 +142,10 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 	int other_free, other_file;
 	unsigned long pressure = action;
 	int array_size = ARRAY_SIZE(lowmem_adj);
+	struct shrinker s;
+	struct shrink_control sc = {
+		.gfp_mask = GFP_KERNEL,
+	};
 
 	if (!enable_adaptive_lmk)
 		return 0;
@@ -181,6 +186,9 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 		trace_almk_vmpressure(pressure, other_free, other_file);
 		atomic_set(&shift_adj, 0);
 	}
+
+	if (pressure >= 80)
+		lowmem_scan(&s, &sc);
 
 	return 0;
 }
@@ -425,7 +433,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 			sc->nr_to_scan, sc->gfp_mask, other_free,
 			other_file, min_score_adj);
 
-	if (min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
+	if ((min_score_adj == OOM_SCORE_ADJ_MAX + 1) || (ret == VMPRESSURE_ADJUST_ENCROACH)) {
 		trace_almk_shrink(0, ret, other_free, other_file, 0);
 		lowmem_print(5, "lowmem_scan %lu, %x, return 0\n",
 			     sc->nr_to_scan, sc->gfp_mask);

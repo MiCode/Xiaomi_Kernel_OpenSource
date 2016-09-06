@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -748,6 +749,9 @@ int read_platform_resources_from_dt(
 	of_property_read_u32(pdev->dev.of_node,
 			"qcom,pm-qos-latency-us", &res->pm_qos_latency_us);
 
+	of_property_read_u32(pdev->dev.of_node,
+			"qcom,max-secure-instances",
+			&res->max_secure_inst_count);
 	return rc;
 
 err_setup_legacy_cb:

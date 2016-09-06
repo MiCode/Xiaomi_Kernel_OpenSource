@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -642,6 +643,9 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 		ps, sizeof(*ps) * size);
 
 	power_info->power_down_setting_size = size;
+
+	for (i = 0; i < size; i++)
+		power_info->power_down_setting[i].config_val = 0;
 
 	if (need_reverse) {
 		int c, end = size - 1;
@@ -1298,9 +1302,9 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 			if (!ctrl->gpio_conf->gpio_num_info->valid
 				[power_setting->seq_val])
 				continue;
-			CDBG("%s:%d gpio set val %d\n", __func__, __LINE__,
+			CDBG("%s:%d gpio set %d val %d\n", __func__, __LINE__,
 				ctrl->gpio_conf->gpio_num_info->gpio_num
-				[power_setting->seq_val]);
+				[power_setting->seq_val], (int) power_setting->config_val);
 			gpio_set_value_cansleep(
 				ctrl->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val],

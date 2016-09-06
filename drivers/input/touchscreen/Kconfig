@@ -198,6 +198,17 @@ config TOUCHSCREEN_CYTTSP_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called cyttsp_spi.
 
+config TOUCHSCREEN_CYTTSP_BUTTON
+	tristate "Cypress I2C button"
+	depends on I2C
+	help
+	  Say Y here if you have Cypressseries I2C button,
+	  such as 3155 or 3175, connected to your system.
+
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here: the
+	  module will be called CYTTSP BUTTON.
+
 config TOUCHSCREEN_CYTTSP4_CORE
 	tristate "Cypress TrueTouch Gen4 Touchscreen Driver"
 	help
@@ -731,7 +742,7 @@ config TOUCHSCREEN_USB_COMPOSITE
 	  - EasyTouch USB Touch Controller from Data Modul
 	  - e2i (Mimo monitors)
 
-	  Have a look at <http://linux.chapter7.ch/touchkit/> for
+	  Have a look at <http:
 	  a usage description and the required user-space stuff.
 
 	  To compile this driver as a module, choose M here: the
@@ -1077,21 +1088,6 @@ config TOUCHSCREEN_SYNAPTICS_DSX_RMI4_DEV
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_dsx_rmi4_dev.
-
-config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
-	tristate "Synaptics I2C touchscreen firmware update"
-	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4
-	help
-	  This enables support for firmware update for Synaptics RMI4
-	  touchscreens.
-
-	  Say Y here if you have a Synaptics DSX I2C touchscreen
-	  connected to your system.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called synaptics_dsx_fw_update.
 
 config TOUCHSCREEN_GT9XX
 	bool "Goodix touchpanel GT9xx series"

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -521,10 +522,14 @@ static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 	}
 }
 
+static int override_qphy_tune = 0x386393cf;
+module_param(override_qphy_tune, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(override_qphy_tune, "Override QPHY tune");
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	int ret;
+	int t1, t2, t3, t4;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
@@ -580,6 +585,32 @@ static int qusb_phy_init(struct usb_phy *phy)
 		return 0;
 	}
 
+		if (override_qphy_tune) {
+			t1 = override_qphy_tune >> 24;
+			t2 = override_qphy_tune >> 16 & 0xFF;
+			t3 = override_qphy_tune >> 8 & 0xFF;
+			t4 = override_qphy_tune & 0xFF;
+			/*  Program tuning parameters for PHY */
+			writel_relaxed(t1, qphy->base + QUSB2PHY_PORT_TUNE1);
+			writel_relaxed(t2, qphy->base + QUSB2PHY_PORT_TUNE2);
+			writel_relaxed(t3, qphy->base + QUSB2PHY_PORT_TUNE3);
+			writel_relaxed(t4, qphy->base + QUSB2PHY_PORT_TUNE4);
+		}
+
+		/*
+		 * Check for EFUSE value only if tune2_efuse_reg is available
+		 * and try to read EFUSE value only once i.e. not every USB
+		 * cable connect case.
+		 */
+		if (qphy->tune2_efuse_reg) {
+			if (!qphy->tune2_val)
+				qusb_phy_get_tune2_param(qphy);
+
+			pr_debug("%s(): Programming TUNE2 parameter as:%x\n",
+					__func__, qphy->tune2_val);
+			writel_relaxed(qphy->tune2_val,
+					qphy->base + QUSB2PHY_PORT_TUNE2);
+		}
 	/* Disable the PHY */
 	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
 			qphy->base + QUSB2PHY_PORT_POWERDOWN);
@@ -605,6 +636,30 @@ static int qusb_phy_init(struct usb_phy *phy)
 				qphy->tune2_val);
 		writel_relaxed(qphy->tune2_val,
 				qphy->base + QUSB2PHY_PORT_TUNE2);
+		/* Enable the PHY */
+		writel_relaxed(CLAMP_N_EN | FREEZIO_N,
+			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+		/* Ensure above write is completed before turning ON ref clk */
+		wmb();
+
+		/* Require to get phy pll lock successfully */
+		usleep_range(150, 160);
+
+		if (!(readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS) &
+						QUSB2PHY_PLL_LOCK)) {
+			dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n",
+				readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS));
+			WARN_ON(1);
+		}
+
+		/* Turn on phy ref_clk */
+		if (qphy->ref_clk_base) {
+			writel_relaxed(0x1, qphy->ref_clk_base);
+			/* Make sure that above write is completed to get ref clk ON */
+			wmb();
+		}
+
 	}
 
 	/* If tune2 modparam set, override tune2 value */
