@@ -292,6 +292,10 @@ struct msm_ir_led_cfg_data_t {
 	int32_t pwm_period_ns;
 };
 
+struct msm_ir_cut_cfg_data_t {
+	enum msm_ir_cut_cfg_type_t cfg_type;
+};
+
 struct msm_eeprom_cfg_data {
 	enum eeprom_cfg_type_t cfgtype;
 	uint8_t is_supported;
@@ -594,6 +598,9 @@ struct sensor_init_cfg_data {
 
 #define VIDIOC_MSM_IR_LED_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 15, struct msm_ir_led_cfg_data_t)
+
+#define VIDIOC_MSM_IR_CUT_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 15, struct msm_ir_cut_cfg_data_t)
 
 #endif
 
