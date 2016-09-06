@@ -78,10 +78,12 @@ IRQ_HELPER_ATTR(irq_blacklist_on, 0444, show_deploy, NULL);
 
 static struct irq_helper *irq_h;
 
+/* Do not call this API in an atomic context */
 int irq_blacklist_on(void)
 {
 	bool flag = false;
 
+	might_sleep();
 	if (!irq_h) {
 		pr_err("%s: init function is not called", __func__);
 		return -EPERM;
@@ -103,10 +105,12 @@ int irq_blacklist_on(void)
 }
 EXPORT_SYMBOL(irq_blacklist_on);
 
+/* Do not call this API in an atomic context */
 int irq_blacklist_off(void)
 {
 	bool flag = false;
 
+	might_sleep();
 	if (!irq_h) {
 		pr_err("%s: init function is not called", __func__);
 		return -EPERM;
