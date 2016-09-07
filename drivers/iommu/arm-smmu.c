@@ -44,6 +44,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/msm-bus.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 
 #include <linux/amba/bus.h>
 
@@ -401,6 +403,9 @@ struct arm_smmu_device {
 	struct clk			**clocks;
 
 	struct regulator		*gdsc;
+
+	struct msm_bus_client_handle	*bus_client;
+	char				*bus_client_name;
 
 	/* Protects power_count */
 	struct mutex			power_lock;
@@ -766,6 +771,21 @@ static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
 	return regulator_disable(smmu->gdsc);
 }
 
+static int arm_smmu_request_bus(struct arm_smmu_device *smmu)
+{
+	if (!smmu->bus_client)
+		return 0;
+	return msm_bus_scale_update_bw(smmu->bus_client, 0, 1000);
+}
+
+static int arm_smmu_unrequest_bus(struct arm_smmu_device *smmu)
+{
+	if (!smmu->bus_client)
+		return 0;
+	return msm_bus_scale_update_bw(smmu->bus_client, 0, 0);
+}
+
+
 static int arm_smmu_power_on_slow(struct arm_smmu_device *smmu)
 {
 	int ret;
@@ -781,14 +801,20 @@ static int arm_smmu_power_on_slow(struct arm_smmu_device *smmu)
 	if (ret)
 		goto out_unlock;
 
-	ret = arm_smmu_prepare_clocks(smmu);
+	ret = arm_smmu_request_bus(smmu);
 	if (ret)
 		goto out_disable_regulators;
+
+	ret = arm_smmu_prepare_clocks(smmu);
+	if (ret)
+		goto out_disable_bus;
 
 	smmu->power_count += 1;
 	mutex_unlock(&smmu->power_lock);
 	return 0;
 
+out_disable_bus:
+	arm_smmu_unrequest_bus(smmu);
 out_disable_regulators:
 	arm_smmu_disable_regulators(smmu);
 out_unlock:
@@ -808,6 +834,7 @@ static void arm_smmu_power_off_slow(struct arm_smmu_device *smmu)
 	}
 
 	arm_smmu_unprepare_clocks(smmu);
+	arm_smmu_unrequest_bus(smmu);
 	arm_smmu_disable_regulators(smmu);
 
 	mutex_unlock(&smmu->power_lock);
@@ -2728,6 +2755,37 @@ static int arm_smmu_init_regulators(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static int arm_smmu_init_bus_scaling(struct platform_device *pdev,
+				     struct arm_smmu_device *smmu)
+{
+	u32 master_id;
+
+	if (of_property_read_u32(pdev->dev.of_node, "qcom,bus-master-id",
+				 &master_id)) {
+		dev_dbg(smmu->dev, "No bus scaling info\n");
+		return 0;
+	}
+
+	smmu->bus_client_name = devm_kasprintf(
+		smmu->dev, GFP_KERNEL, "smmu-bus-client-%s",
+		dev_name(smmu->dev));
+
+	if (!smmu->bus_client_name)
+		return -ENOMEM;
+
+	smmu->bus_client = msm_bus_scale_register(
+		master_id, MSM_BUS_SLAVE_EBI_CH0, smmu->bus_client_name, true);
+	if (IS_ERR(&smmu->bus_client)) {
+		int ret = PTR_ERR(smmu->bus_client);
+
+		if (ret != -EPROBE_DEFER)
+			dev_err(smmu->dev, "Bus client registration failed\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 {
 	unsigned long size;
@@ -3040,6 +3098,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
+	err = arm_smmu_init_bus_scaling(pdev, smmu);
+	if (err)
+		return err;
+
 	err = arm_smmu_power_on(smmu);
 	if (err)
 		return err;
@@ -3164,6 +3226,8 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	/* Turn the thing off */
 	writel(sCR0_CLIENTPD, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
 	arm_smmu_power_off(smmu);
+
+	msm_bus_scale_unregister(smmu->bus_client);
 
 	return 0;
 }
