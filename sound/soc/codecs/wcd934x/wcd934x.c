@@ -474,6 +474,9 @@ struct tavil_priv {
 	/* Mad switch reference count */
 	int mad_switch_cnt;
 
+	/* track tavil interface type */
+	u8 intf_type;
+
 	/* to track the status */
 	unsigned long status_mask;
 
@@ -3919,33 +3922,17 @@ static int tavil_dmic_pin_mode_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	u16 ctl_reg;
+	u16 dmic_pin;
 	u8 reg_val, pinctl_position;
 
 	pinctl_position = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->shift;
-	switch (pinctl_position >> 3) {
-	case 0:
-		ctl_reg = WCD934X_TEST_DEBUG_PIN_CTL_OE_0;
-		break;
-	case 1:
-		ctl_reg = WCD934X_TEST_DEBUG_PIN_CTL_OE_1;
-		break;
-	case 2:
-		ctl_reg = WCD934X_TEST_DEBUG_PIN_CTL_OE_2;
-		break;
-	case 3:
-		ctl_reg = WCD934X_TEST_DEBUG_PIN_CTL_OE_3;
-		break;
-	default:
-		dev_err(codec->dev, "%s: Invalid pinctl position = %d\n",
-			__func__, pinctl_position);
-		return -EINVAL;
-	}
 
-	reg_val = snd_soc_read(codec, ctl_reg);
-	reg_val = (reg_val >> (pinctl_position & 0x07)) & 0x1;
-	ucontrol->value.integer.value[0] = reg_val;
+	dmic_pin = pinctl_position & 0x07;
+	reg_val = snd_soc_read(codec,
+			WCD934X_TLMM_DMIC1_CLK_PINCFG + dmic_pin - 1);
+
+	ucontrol->value.integer.value[0] = !!reg_val;
 
 	return 0;
 }
@@ -3954,10 +3941,11 @@ static int tavil_dmic_pin_mode_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	u16 ctl_reg, cfg_reg;
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	u16 ctl_reg, cfg_reg, dmic_pin;
 	u8 ctl_val, cfg_val, pinctl_position, pinctl_mode, mask;
 
-	/* 1- high or low; 0- high Z */
+	/* 0- high or low; 1- high Z */
 	pinctl_mode = ucontrol->value.integer.value[0];
 	pinctl_position = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->shift;
@@ -3981,16 +3969,20 @@ static int tavil_dmic_pin_mode_put(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 	}
 
-	ctl_val = pinctl_mode << (pinctl_position & 0x07);
+	ctl_val = ~(pinctl_mode << (pinctl_position & 0x07));
 	mask = 1 << (pinctl_position & 0x07);
 	snd_soc_update_bits(codec, ctl_reg, mask, ctl_val);
 
-	cfg_reg = WCD934X_TLMM_BIST_MODE_PINCFG + pinctl_position;
-	if (!pinctl_mode)
-		cfg_val = 0x4;
-	else
+	dmic_pin = pinctl_position & 0x07;
+	cfg_reg = WCD934X_TLMM_DMIC1_CLK_PINCFG + dmic_pin - 1;
+	if (pinctl_mode) {
+		if (tavil->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+			cfg_val = 0x6;
+		else
+			cfg_val = 0xD;
+	} else
 		cfg_val = 0;
-	snd_soc_update_bits(codec, cfg_reg, 0x07, cfg_val);
+	snd_soc_update_bits(codec, cfg_reg, 0x1F, cfg_val);
 
 	dev_dbg(codec->dev, "%s: reg=0x%x mask=0x%x val=%d reg=0x%x val=%d\n",
 			__func__, ctl_reg, mask, ctl_val, cfg_reg, cfg_val);
@@ -7212,6 +7204,7 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 
 	dev_info(codec->dev, "%s()\n", __func__);
 	tavil = snd_soc_codec_get_drvdata(codec);
+	tavil->intf_type = wcd9xxx_get_intf_type();
 
 	/* Resource Manager post Init */
 	ret = wcd_resmgr_post_init(tavil->resmgr, NULL, codec);
