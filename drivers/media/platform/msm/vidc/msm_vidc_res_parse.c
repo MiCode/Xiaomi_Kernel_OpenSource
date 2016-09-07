@@ -1238,11 +1238,6 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 {
 	struct msm_vidc_core *core = token;
 	struct msm_vidc_inst *inst;
-	struct buffer_info *temp;
-	struct internal_buf *buf;
-	int i = 0;
-	bool is_decode = false;
-	enum vidc_ports port;
 
 	if (!domain || !core) {
 		dprintk(VIDC_ERR, "%s - invalid param %pK %pK\n",
@@ -1257,52 +1252,7 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
-		is_decode = inst->session_type == MSM_VIDC_DECODER;
-		port = is_decode ? OUTPUT_PORT : CAPTURE_PORT;
-		dprintk(VIDC_ERR,
-			"%s session, Codec type: %s HxW: %d x %d fps: %d bitrate: %d bit-depth: %s\n",
-			is_decode ? "Decode" : "Encode", inst->fmts[port]->name,
-			inst->prop.height[port], inst->prop.width[port],
-			inst->prop.fps, inst->prop.bitrate,
-			!inst->bit_depth ? "8" : "10");
-
-		dprintk(VIDC_ERR,
-			"---Buffer details for inst: %pK of type: %d---\n",
-			inst, inst->session_type);
-		mutex_lock(&inst->registeredbufs.lock);
-		dprintk(VIDC_ERR, "registered buffer list:\n");
-		list_for_each_entry(temp, &inst->registeredbufs.list, list)
-			for (i = 0; i < temp->num_planes; i++)
-				dprintk(VIDC_ERR,
-					"type: %d plane: %d addr: %pa size: %d\n",
-					temp->type, i, &temp->device_addr[i],
-					temp->size[i]);
-
-		mutex_unlock(&inst->registeredbufs.lock);
-
-		mutex_lock(&inst->scratchbufs.lock);
-		dprintk(VIDC_ERR, "scratch buffer list:\n");
-		list_for_each_entry(buf, &inst->scratchbufs.list, list)
-			dprintk(VIDC_ERR, "type: %d addr: %pa size: %zu\n",
-				buf->buffer_type, &buf->handle->device_addr,
-				buf->handle->size);
-		mutex_unlock(&inst->scratchbufs.lock);
-
-		mutex_lock(&inst->persistbufs.lock);
-		dprintk(VIDC_ERR, "persist buffer list:\n");
-		list_for_each_entry(buf, &inst->persistbufs.list, list)
-			dprintk(VIDC_ERR, "type: %d addr: %pa size: %zu\n",
-				buf->buffer_type, &buf->handle->device_addr,
-				buf->handle->size);
-		mutex_unlock(&inst->persistbufs.lock);
-
-		mutex_lock(&inst->outputbufs.lock);
-		dprintk(VIDC_ERR, "dpb buffer list:\n");
-		list_for_each_entry(buf, &inst->outputbufs.list, list)
-			dprintk(VIDC_ERR, "type: %d addr: %pa size: %zu\n",
-				buf->buffer_type, &buf->handle->device_addr,
-				buf->handle->size);
-		mutex_unlock(&inst->outputbufs.lock);
+		msm_comm_print_inst_info(inst);
 	}
 	core->smmu_fault_handled = true;
 	mutex_unlock(&core->lock);

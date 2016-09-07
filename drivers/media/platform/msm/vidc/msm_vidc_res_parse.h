@@ -16,6 +16,7 @@
 #define DT_PARSE
 #include <linux/of.h>
 #include "msm_vidc_resources.h"
+#include "msm_vidc_common.h"
 void msm_vidc_free_platform_resources(
 		struct msm_vidc_platform_resources *res);
 
