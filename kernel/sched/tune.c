@@ -221,6 +221,7 @@ struct cgroup_subsys schedtune_cgrp_subsys = {
 	.css_free	= schedtune_css_free,
 	.legacy_cftypes	= files,
 	.early_init	= 1,
+	.allow_attach	= subsys_cgroup_allow_attach,
 };
 
 #endif /* CONFIG_CGROUP_SCHEDTUNE */
