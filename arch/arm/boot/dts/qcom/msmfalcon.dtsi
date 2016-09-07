@@ -23,7 +23,7 @@
 	interrupt-parent = <&intc>;
 
 	aliases {
-		serial0 = &uartblsp2dm1;
+		serial0 = &uartblsp1dm1;
 	};
 
 	chosen {
@@ -244,6 +244,16 @@
 		qcom,sensors = <14>;
 		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200
 					3200 3200 3200 3200 3200 3200>;
+	};
+
+	uartblsp1dm1: serial@0c170000 {
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
+		reg = <0xc170000 0x1000>;
+		interrupts = <0 108 0>;
+		status = "disabled";
+		clocks = <&clock_gcc GCC_BLSP1_UART2_APPS_CLK>,
+			 <&clock_gcc GCC_BLSP1_AHB_CLK>;
+		clock-names = "core", "iface";
 	};
 
 	uartblsp2dm1: serial@0c1b0000 {
