@@ -3459,6 +3459,28 @@ static int fg_get_cc_soc(struct fg_chip *chip, int *cc_soc)
 	return 0;
 }
 
+static int fg_get_current_cc(struct fg_chip *chip)
+{
+	int cc_soc, rc;
+	int64_t current_capacity;
+
+	if (!(chip->wa_flag & USE_CC_SOC_REG))
+		return chip->learning_data.cc_uah;
+
+	if (!chip->learning_data.learned_cc_uah)
+		return -EINVAL;
+
+	rc = fg_get_cc_soc(chip, &cc_soc);
+	if (rc < 0) {
+		pr_err("Failed to get cc_soc, rc=%d\n", rc);
+		return rc;
+	}
+
+	current_capacity = cc_soc * chip->learning_data.learned_cc_uah;
+	do_div(current_capacity, FULL_PERCENT_28BIT);
+	return current_capacity;
+}
+
 #define BATT_MISSING_STS BIT(6)
 static bool is_battery_missing(struct fg_chip *chip)
 {
@@ -4434,6 +4456,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
+	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_NOW_RAW,
 	POWER_SUPPLY_PROP_CHARGE_NOW_ERROR,
@@ -4539,6 +4562,9 @@ static int fg_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
 		val->intval = get_sram_prop_now(chip, FG_DATA_CC_CHARGE);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+		val->intval = fg_get_current_cc(chip);
 		break;
 	case POWER_SUPPLY_PROP_HI_POWER:
 		val->intval = !!chip->bcl_lpm_disabled;
