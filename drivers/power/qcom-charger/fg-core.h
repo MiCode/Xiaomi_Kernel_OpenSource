@@ -74,6 +74,7 @@ enum fg_debug_flag {
 	FG_BUS_WRITE		= BIT(5), /* Show REGMAP writes */
 	FG_BUS_READ		= BIT(6), /* Show REGMAP reads */
 	FG_CAP_LEARN		= BIT(7), /* Show capacity learning */
+	FG_TTF			= BIT(8), /* Show time to full */
 };
 
 /* SRAM access */
@@ -128,6 +129,7 @@ enum {
  */
 enum fg_sram_param_id {
 	FG_SRAM_BATT_SOC = 0,
+	FG_SRAM_FULL_SOC,
 	FG_SRAM_VOLTAGE_PRED,
 	FG_SRAM_OCV,
 	FG_SRAM_RSLOW,
@@ -250,6 +252,29 @@ struct fg_irq_info {
 	int			irq;
 };
 
+struct fg_circ_buf {
+	int	arr[20];
+	int	size;
+	int	head;
+};
+
+struct fg_pt {
+	s32 x;
+	s32 y;
+};
+
+static const struct fg_pt fg_ln_table[] = {
+	{ 1000,		0 },
+	{ 2000,		693 },
+	{ 4000,		1386 },
+	{ 6000,		1792 },
+	{ 8000,		2079 },
+	{ 16000,	2773 },
+	{ 32000,	3466 },
+	{ 64000,	4159 },
+	{ 128000,	4852 },
+};
+
 struct fg_chip {
 	struct device		*dev;
 	struct pmic_revid_data	*pmic_rev_id;
@@ -275,12 +300,15 @@ struct fg_chip {
 	struct fg_cap_learning  cl;
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
+	struct mutex		batt_avg_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
 	int			batt_id_kohms;
-	int			status;
+	int			charge_status;
+	int			prev_charge_status;
 	int			charge_done;
+	int			charge_type;
 	int			last_soc;
 	int			last_batt_temp;
 	int			health;
@@ -297,6 +325,9 @@ struct fg_chip {
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct work_struct	cycle_count_work;
+	struct delayed_work	batt_avg_work;
+	struct fg_circ_buf	ibatt_circ_buf;
+	struct fg_circ_buf	vbatt_circ_buf;
 };
 
 /* Debugfs data structures are below */
@@ -348,4 +379,9 @@ extern void fill_string(char *str, size_t str_len, u8 *buf, int buf_len);
 extern int64_t twos_compliment_extend(int64_t val, int s_bit_pos);
 extern s64 fg_float_decode(u16 val);
 extern bool is_input_present(struct fg_chip *chip);
+extern void fg_circ_buf_add(struct fg_circ_buf *buf, int val);
+extern void fg_circ_buf_clr(struct fg_circ_buf *buf);
+extern int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg);
+extern int fg_lerp(const struct fg_pt *pts, size_t tablesize, s32 input,
+			s32 *output);
 #endif
