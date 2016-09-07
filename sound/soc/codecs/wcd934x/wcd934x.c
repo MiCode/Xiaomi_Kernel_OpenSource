@@ -2905,6 +2905,56 @@ out:
 	return ret;
 }
 
+static u32 tavil_get_dmic_sample_rate(struct snd_soc_codec *codec,
+				      unsigned int dmic,
+				      struct wcd9xxx_pdata *pdata)
+{
+	u8 tx_stream_fs;
+	u8 adc_mux_index = 0, adc_mux_sel = 0;
+	bool dec_found = false;
+	u16 adc_mux_ctl_reg, tx_fs_reg;
+	u32 dmic_fs;
+
+	while (dec_found == 0 && adc_mux_index < WCD934X_MAX_VALID_ADC_MUX) {
+		if (adc_mux_index < 4) {
+			adc_mux_ctl_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX0_CFG0 +
+						(adc_mux_index * 2);
+		} else if (adc_mux_index < WCD934X_INVALID_ADC_MUX) {
+			adc_mux_ctl_reg = WCD934X_CDC_TX_INP_MUX_ADC_MUX4_CFG0 +
+						adc_mux_index - 4;
+		} else if (adc_mux_index == WCD934X_INVALID_ADC_MUX) {
+			++adc_mux_index;
+			continue;
+		}
+		adc_mux_sel = ((snd_soc_read(codec, adc_mux_ctl_reg) &
+					0xF8) >> 3) - 1;
+
+		if (adc_mux_sel == dmic) {
+			dec_found = true;
+			break;
+		}
+
+		++adc_mux_index;
+	}
+
+	if (dec_found && adc_mux_index <= 8) {
+		tx_fs_reg = WCD934X_CDC_TX0_TX_PATH_CTL + (16 * adc_mux_index);
+		tx_stream_fs = snd_soc_read(codec, tx_fs_reg) & 0x0F;
+		if (tx_stream_fs <= 4)  {
+			if (pdata->dmic_sample_rate <=
+					WCD9XXX_DMIC_SAMPLE_RATE_2P4MHZ)
+				dmic_fs = pdata->dmic_sample_rate;
+			else
+				dmic_fs = WCD9XXX_DMIC_SAMPLE_RATE_2P4MHZ;
+		} else
+			dmic_fs = WCD9XXX_DMIC_SAMPLE_RATE_4P8MHZ;
+	} else {
+		dmic_fs = pdata->dmic_sample_rate;
+	}
+
+	return dmic_fs;
+}
+
 static u8 tavil_get_dmic_clk_val(struct snd_soc_codec *codec,
 				 u32 mclk_rate, u32 dmic_clk_rate)
 {
@@ -2988,6 +3038,7 @@ static int tavil_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	s32 *dmic_clk_cnt;
 	u8 dmic_rate_val, dmic_rate_shift = 1;
 	unsigned int dmic;
+	u32 dmic_sample_rate;
 	int ret;
 	char *wname;
 
@@ -3030,10 +3081,12 @@ static int tavil_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dmic_sample_rate = tavil_get_dmic_sample_rate(codec, dmic,
+							      pdata);
 		dmic_rate_val =
 			tavil_get_dmic_clk_val(codec,
 					       pdata->mclk_rate,
-					       pdata->dmic_sample_rate);
+					       dmic_sample_rate);
 
 		(*dmic_clk_cnt)++;
 		if (*dmic_clk_cnt == 1) {
@@ -6289,7 +6342,7 @@ static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
 	{WCD934X_CDC_BOOST0_BOOST_CFG2, 0x1C, 0x08},
 	{WCD934X_CDC_BOOST1_BOOST_CFG1, 0x3F, 0x12},
 	{WCD934X_CDC_BOOST1_BOOST_CFG2, 0x1C, 0x08},
-	{WCD934X_CPE_SS_CPARMAD_BUFRDY_INT_PERIOD, 0x1F, 0x03},
+	{WCD934X_CPE_SS_CPARMAD_BUFRDY_INT_PERIOD, 0x1F, 0x09},
 };
 
 static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
@@ -6816,14 +6869,6 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	for (i = 0; i < COMPANDER_MAX; i++)
 		tavil->comp_enabled[i] = 0;
 
-	dev_dbg(codec->dev, "%s: MCLK Rate = %x\n", __func__,
-			control->mclk_rate);
-	if (control->mclk_rate == WCD934X_MCLK_CLK_12P288MHZ)
-		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-				    0x03, 0x00);
-	else if (control->mclk_rate == WCD934X_MCLK_CLK_9P6MHZ)
-		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-				    0x03, 0x01);
 	tavil_codec_init_reg(codec);
 	tavil_enable_sido_buck(codec);
 
@@ -7480,6 +7525,16 @@ static int tavil_probe(struct platform_device *pdev)
 	tavil->wcd_ext_clk = wcd_ext_clk;
 	set_bit(AUDIO_NOMINAL, &tavil->status_mask);
 	/* Update codec register default values */
+	dev_dbg(&pdev->dev, "%s: MCLK Rate = %x\n", __func__,
+		tavil->wcd9xxx->mclk_rate);
+	if (tavil->wcd9xxx->mclk_rate == WCD934X_MCLK_CLK_12P288MHZ)
+		regmap_update_bits(tavil->wcd9xxx->regmap,
+				   WCD934X_CODEC_RPM_CLK_MCLK_CFG,
+				   0x03, 0x00);
+	else if (tavil->wcd9xxx->mclk_rate == WCD934X_MCLK_CLK_9P6MHZ)
+		regmap_update_bits(tavil->wcd9xxx->regmap,
+				   WCD934X_CODEC_RPM_CLK_MCLK_CFG,
+				   0x03, 0x01);
 	tavil_update_reg_defaults(tavil);
 	__tavil_enable_efuse_sensing(tavil);
 
