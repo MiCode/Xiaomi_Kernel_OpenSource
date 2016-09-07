@@ -107,13 +107,29 @@ static void msm_lmh_dcvs_get_max_freq(uint32_t cpu, uint32_t *max_freq)
 static uint32_t msm_lmh_mitigation_notify(struct msm_lmh_dcvs_hw *hw)
 {
 	uint32_t max_limit = 0, val = 0;
+	struct device *cpu_dev = NULL;
+	unsigned long freq_val;
 
 	val = readl_relaxed(hw->osm_hw_reg);
 	dcvsh_get_frequency(val, max_limit);
+	cpu_dev = get_cpu_device(cpumask_first(&hw->core_map));
+	if (!cpu_dev) {
+		pr_err("Error in get CPU%d device\n",
+			cpumask_first(&hw->core_map));
+		goto notify_exit;
+	}
+
+	freq_val = max_limit;
+	rcu_read_lock();
+	dev_pm_opp_find_freq_floor(cpu_dev, &freq_val);
+	rcu_read_unlock();
+	max_limit = freq_val;
+
 	sched_update_cpu_freq_min_max(&hw->core_map, 0, max_limit);
 	trace_lmh_dcvs_freq(cpumask_first(&hw->core_map), max_limit);
-	hw->hw_freq_limit = max_limit;
 
+notify_exit:
+	hw->hw_freq_limit = max_limit;
 	return max_limit;
 }
 
