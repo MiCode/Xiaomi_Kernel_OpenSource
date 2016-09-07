@@ -7139,8 +7139,10 @@ static int qseecom_open(struct inode *inode, struct file *file)
 	atomic_set(&data->ioctl_count, 0);
 
 	data->sglistinfo_ptr = kzalloc(SGLISTINFO_TABLE_SIZE, GFP_KERNEL);
-	if (!(data->sglistinfo_ptr))
+	if (!(data->sglistinfo_ptr)) {
+		kzfree(data);
 		return -ENOMEM;
+	}
 	return ret;
 }
 
@@ -8004,8 +8006,10 @@ static int qseecom_check_whitelist_feature(void)
 		qseecom.whitelist_support = true;
 		ret = 0;
 	} else {
-		pr_err("Failed to check whitelist: ret = %d, result = 0x%x\n",
+		pr_info("Check whitelist with ret = %d, result = 0x%x\n",
 			ret, resp.result);
+		qseecom.whitelist_support = false;
+		ret = 0;
 	}
 	kfree(buf);
 	return ret;
