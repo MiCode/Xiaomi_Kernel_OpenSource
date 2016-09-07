@@ -611,27 +611,23 @@ static const struct file_operations fg_sram_dfs_reg_fops = {
  * fg_debugfs_create: adds new fg_sram debugfs entry
  * @return zero on success
  */
-int fg_sram_debugfs_create(struct fg_chip *chip)
+static int fg_sram_debugfs_create(struct fg_chip *chip)
 {
-	struct dentry *root;
+	struct dentry *dfs_sram;
 	struct dentry *file;
 	mode_t dfs_mode = 0600;
 
 	pr_debug("Creating FG_SRAM debugfs file-system\n");
-	root = debugfs_create_dir("fg_sram", NULL);
-	if (IS_ERR_OR_NULL(root)) {
-		pr_err("Error creating top level directory err:%ld",
-			(long)root);
-		if (PTR_ERR(root) == -ENODEV)
-			pr_err("debugfs is not enabled in the kernel");
-		return -ENODEV;
+	dfs_sram = debugfs_create_dir("sram", chip->dfs_root);
+	if (!dfs_sram) {
+		pr_err("error creating fg sram dfs rc=%ld\n",
+		       (long)dfs_sram);
+		return -ENOMEM;
 	}
 
-	if (!root)
-		return -ENOENT;
-
 	dbgfs_data.help_msg.size = strlen(dbgfs_data.help_msg.data);
-	file = debugfs_create_blob("help", 0444, root, &dbgfs_data.help_msg);
+	file = debugfs_create_blob("help", 0444, dfs_sram,
+					&dbgfs_data.help_msg);
 	if (!file) {
 		pr_err("error creating help entry\n");
 		goto err_remove_fs;
@@ -639,30 +635,106 @@ int fg_sram_debugfs_create(struct fg_chip *chip)
 
 	dbgfs_data.chip = chip;
 
-	file = debugfs_create_u32("count", dfs_mode, root, &(dbgfs_data.cnt));
+	file = debugfs_create_u32("count", dfs_mode, dfs_sram,
+					&(dbgfs_data.cnt));
 	if (!file) {
 		pr_err("error creating 'count' entry\n");
 		goto err_remove_fs;
 	}
 
-	file = debugfs_create_x32("address", dfs_mode,
-			root, &(dbgfs_data.addr));
+	file = debugfs_create_x32("address", dfs_mode, dfs_sram,
+					&(dbgfs_data.addr));
 	if (!file) {
 		pr_err("error creating 'address' entry\n");
 		goto err_remove_fs;
 	}
 
-	file = debugfs_create_file("data", dfs_mode, root, &dbgfs_data,
-							&fg_sram_dfs_reg_fops);
+	file = debugfs_create_file("data", dfs_mode, dfs_sram, &dbgfs_data,
+					&fg_sram_dfs_reg_fops);
 	if (!file) {
 		pr_err("error creating 'data' entry\n");
 		goto err_remove_fs;
 	}
 
-	chip->dentry = root;
 	return 0;
 
 err_remove_fs:
-	debugfs_remove_recursive(root);
+	debugfs_remove_recursive(dfs_sram);
+	return -ENOMEM;
+}
+
+static int fg_alg_flags_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t fg_alg_flags_read(struct file *file, char __user *userbuf,
+				 size_t count, loff_t *ppos)
+{
+	struct fg_chip *chip = file->private_data;
+	char buf[512];
+	u8 alg_flags = 0;
+	int rc, i, len;
+
+	rc = fg_sram_read(chip, chip->sp[FG_SRAM_ALG_FLAGS].addr_word,
+			  chip->sp[FG_SRAM_ALG_FLAGS].addr_byte, &alg_flags, 1,
+			  FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("failed to read algorithm flags rc=%d\n", rc);
+		return -EFAULT;
+	}
+
+	len = 0;
+	for (i = 0; i < ALG_FLAG_MAX; ++i) {
+		if (len > ARRAY_SIZE(buf) - 1)
+			return -EFAULT;
+		if (chip->alg_flags[i].invalid)
+			continue;
+
+		len += snprintf(buf + len, sizeof(buf) - sizeof(*buf) * len,
+				"%s = %d\n", chip->alg_flags[i].name,
+				(bool)(alg_flags & chip->alg_flags[i].bit));
+	}
+
+	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+
+static const struct file_operations fg_alg_flags_fops = {
+	.open = fg_alg_flags_open,
+	.read = fg_alg_flags_read,
+};
+
+int fg_debugfs_create(struct fg_chip *chip)
+{
+	int rc;
+
+	pr_debug("Creating debugfs file-system\n");
+	chip->dfs_root = debugfs_create_dir("fg", NULL);
+	if (IS_ERR_OR_NULL(chip->dfs_root)) {
+		if (PTR_ERR(chip->dfs_root) == -ENODEV)
+			pr_err("debugfs is not enabled in the kernel\n");
+		else
+			pr_err("error creating fg dfs root rc=%ld\n",
+			       (long)chip->dfs_root);
+		return -ENODEV;
+	}
+
+	rc = fg_sram_debugfs_create(chip);
+	if (rc < 0) {
+		pr_err("failed to create sram dfs rc=%d\n", rc);
+		goto err_remove_fs;
+	}
+
+	if (!debugfs_create_file("alg_flags", 0400, chip->dfs_root, chip,
+				 &fg_alg_flags_fops)) {
+		pr_err("failed to create alg_flags file\n");
+		goto err_remove_fs;
+	}
+
+	return 0;
+
+err_remove_fs:
+	debugfs_remove_recursive(chip->dfs_root);
 	return -ENOMEM;
 }
