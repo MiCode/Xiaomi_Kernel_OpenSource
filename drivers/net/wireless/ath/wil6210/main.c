@@ -1049,7 +1049,7 @@ int __wil_down(struct wil6210_priv *wil)
 	}
 	wil_enable_irq(wil);
 
-	(void)wil_p2p_stop_discovery(wil);
+	wil_p2p_stop_radio_operations(wil);
 
 	if (wil->scan_request) {
 		wil_dbg_misc(wil, "Abort scan_request 0x%p\n",
