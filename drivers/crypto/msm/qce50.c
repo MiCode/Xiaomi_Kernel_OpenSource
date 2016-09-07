@@ -94,7 +94,6 @@ enum qce_owner {
 
 struct dummy_request {
 	struct qce_sha_req sreq;
-	uint8_t *in_buf;
 	struct scatterlist sg;
 	struct ahash_request areq;
 };
@@ -154,6 +153,7 @@ struct qce_device {
 	atomic_t bunch_cmd_seq;
 	atomic_t last_intr_seq;
 	bool cadence_flag;
+	uint8_t *dummyreq_in_buf;
 };
 
 static void print_notify_debug(struct sps_event_notify *notify);
@@ -4306,8 +4306,6 @@ static int qce_setup_ce_sps_data(struct qce_device *pce_dev)
 				(uintptr_t)vaddr;
 		vaddr += pce_dev->ce_bam_info.ce_burst_size * 2;
 	}
-	pce_dev->dummyreq.in_buf = (uint8_t *)vaddr;
-	vaddr += DUMMY_REQ_DATA_LEN;
 	if ((vaddr - pce_dev->coh_vmem) > pce_dev->memsize ||
 							iovec_memsize < 0)
 		panic("qce50: Not enough coherent memory. Allocate %x , need %lx\n",
@@ -5900,8 +5898,8 @@ static int setup_dummy_req(struct qce_device *pce_dev)
 	"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopqopqrpqrs";
 	int len = DUMMY_REQ_DATA_LEN;
 
-	memcpy(pce_dev->dummyreq.in_buf, input, len);
-	sg_set_buf(&pce_dev->dummyreq.sg, pce_dev->dummyreq.in_buf, len);
+	memcpy(pce_dev->dummyreq_in_buf, input, len);
+	sg_set_buf(&pce_dev->dummyreq.sg, pce_dev->dummyreq_in_buf, len);
 	sg_mark_end(&pce_dev->dummyreq.sg);
 
 	pce_dev->dummyreq.sreq.alg = QCE_HASH_SHA1;
@@ -5970,6 +5968,10 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	if (pce_dev->iovec_vmem == NULL)
 		goto err_mem;
 
+	pce_dev->dummyreq_in_buf = kzalloc(DUMMY_REQ_DATA_LEN, GFP_KERNEL);
+	if (pce_dev->dummyreq_in_buf == NULL)
+		goto err_mem;
+
 	*rc = __qce_init_clk(pce_dev);
 	if (*rc)
 		goto err_mem;
@@ -6009,6 +6011,7 @@ err_enable_clk:
 	__qce_deinit_clk(pce_dev);
 
 err_mem:
+	kfree(pce_dev->dummyreq_in_buf);
 	kfree(pce_dev->iovec_vmem);
 	if (pce_dev->coh_vmem)
 		dma_free_coherent(pce_dev->pdev, pce_dev->memsize,
@@ -6040,6 +6043,7 @@ int qce_close(void *handle)
 	if (pce_dev->coh_vmem)
 		dma_free_coherent(pce_dev->pdev, pce_dev->memsize,
 				pce_dev->coh_vmem, pce_dev->coh_pmem);
+	kfree(pce_dev->dummyreq_in_buf);
 	kfree(pce_dev->iovec_vmem);
 
 	qce_disable_clk(pce_dev);
