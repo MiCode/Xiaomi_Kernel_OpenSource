@@ -91,7 +91,7 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
 			      struct sk_buff *skb, struct inet_diag_req_v2 *req,
 			      struct user_namespace *user_ns,		      	
 			      u32 portid, u32 seq, u16 nlmsg_flags,
-			      const struct nlmsghdr *unlh)
+			      const struct nlmsghdr *unlh, bool net_admin)
 {
 	const struct inet_sock *inet = inet_sk(sk);
 	struct inet_diag_msg *r;
@@ -151,6 +151,9 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
 				goto errout;
 	}
 #endif
+
+	if (net_admin && nla_put_u32(skb, INET_DIAG_MARK, sk->sk_mark))
+		goto errout;
 
 	r->idiag_uid = from_kuid_munged(user_ns, sock_i_uid(sk));
 	r->idiag_inode = sock_i_ino(sk);
@@ -231,10 +234,12 @@ static int inet_csk_diag_fill(struct sock *sk,
 			      struct sk_buff *skb, struct inet_diag_req_v2 *req,
 			      struct user_namespace *user_ns,
 			      u32 portid, u32 seq, u16 nlmsg_flags,
-			      const struct nlmsghdr *unlh)
+			      const struct nlmsghdr *unlh,
+			      bool net_admin)
 {
 	return inet_sk_diag_fill(sk, inet_csk(sk),
-			skb, req, user_ns, portid, seq, nlmsg_flags, unlh);
+			skb, req, user_ns, portid, seq, nlmsg_flags, unlh,
+			net_admin);
 }
 
 static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
@@ -294,14 +299,14 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
 			struct inet_diag_req_v2 *r,
 			struct user_namespace *user_ns,
 			u32 portid, u32 seq, u16 nlmsg_flags,
-			const struct nlmsghdr *unlh)
+			const struct nlmsghdr *unlh, bool net_admin)
 {
 	if (sk->sk_state == TCP_TIME_WAIT)
 		return inet_twsk_diag_fill(inet_twsk(sk), skb, r, portid, seq,
 					   nlmsg_flags, unlh);
 
 	return inet_csk_diag_fill(sk, skb, r, user_ns, portid, seq,
-				  nlmsg_flags, unlh);
+				  nlmsg_flags, unlh, net_admin);
 }
 
 struct sock *inet_diag_find_one_icsk(struct net *net,
@@ -370,7 +375,8 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
 	err = sk_diag_fill(sk, rep, req,
 			   sk_user_ns(NETLINK_CB(in_skb).sk),
 			   NETLINK_CB(in_skb).portid,
-			   nlh->nlmsg_seq, 0, nlh);
+			   nlh->nlmsg_seq, 0, nlh,
+			   netlink_net_capable(in_skb, CAP_NET_ADMIN));
 	if (err < 0) {
 		WARN_ON(err == -EMSGSIZE);
 		nlmsg_free(rep);
@@ -721,7 +727,8 @@ static int inet_csk_diag_dump(struct sock *sk,
 			      struct sk_buff *skb,
 			      struct netlink_callback *cb,
 			      struct inet_diag_req_v2 *r,
-			      const struct nlattr *bc)
+			      const struct nlattr *bc,
+			      bool net_admin)
 {
 	if (!inet_diag_bc_sk(bc, sk))
 		return 0;
@@ -729,7 +736,8 @@ static int inet_csk_diag_dump(struct sock *sk,
 	return inet_csk_diag_fill(sk, skb, r,
 				  sk_user_ns(NETLINK_CB(cb->skb).sk),
 				  NETLINK_CB(cb->skb).portid,
-				  cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh);
+				  cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh,
+				  net_admin);
 }
 
 static int inet_twsk_diag_dump(struct sock *sk,
@@ -934,6 +942,7 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
 	int i, num;
 	int s_i, s_num;
 	struct net *net = sock_net(skb->sk);
+	bool net_admin = netlink_net_capable(cb->skb, CAP_NET_ADMIN);
 
 	s_i = cb->args[1];
 	s_num = num = cb->args[2];
@@ -974,7 +983,8 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
 				    cb->args[3] > 0)
 					goto syn_recv;
 
-				if (inet_csk_diag_dump(sk, skb, cb, r, bc) < 0) {
+				if (inet_csk_diag_dump(sk, skb, cb, r,
+						       bc, net_admin) < 0) {
 					spin_unlock_bh(&ilb->lock);
 					goto done;
 				}
@@ -1046,7 +1056,8 @@ skip_listen_ht:
 			if (sk->sk_state == TCP_TIME_WAIT)
 				res = inet_twsk_diag_dump(sk, skb, cb, r, bc);
 			else
-				res = inet_csk_diag_dump(sk, skb, cb, r, bc);
+				res = inet_csk_diag_dump(sk, skb, cb, r, bc,
+							 net_admin);
 			if (res < 0) {
 				spin_unlock_bh(lock);
 				goto done;
