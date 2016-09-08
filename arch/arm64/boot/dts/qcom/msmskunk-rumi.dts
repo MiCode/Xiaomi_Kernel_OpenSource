@@ -16,7 +16,7 @@
 
 #include "msmskunk.dtsi"
 #include "msmskunk-rumi.dtsi"
-
+#include "msmskunk-usb.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. MSM SKUNK RUMI";
 	compatible = "qcom,msmskunk-rumi", "qcom,msmskunk", "qcom,rumi";
@@ -31,4 +31,32 @@
 	timer@0x17c90000 {
 		clock-frequency = <1000000>;
 	};
+};
+
+&usb3 {
+	/delete-property/ qcom,usb-dbm;
+	qcom,charging-disabled;
+	dwc3@a600000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&qusb_phy0 {
+	reg = <0x088e2000 0x4>,
+	      <0x0a720000 0x9500>;
+	reg-names = "qusb_phy_base",
+		"emu_phy_base";
+	qcom,emulation;
+	qcom,emu-init-seq = <0x19 0x1404
+			     0x20 0x1414
+			     0x79 0x1410
+			     0x00 0x1418
+			     0x99 0x1404
+			     0x04 0x1408
+			     0xd9 0x1404>;
+
+	qcom,emu-dcm-reset-seq = <0x5 0x14	/* 0x1 0x14 for E1.2 */
+				  0x100000 0x20
+				  0x0 0x20
+				  0x1a0 0x20>;	/* 0x220 0x20 for E1.2 */
 };
