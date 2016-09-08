@@ -588,6 +588,7 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -624,6 +625,9 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		rc = smblib_get_prop_charger_temp_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
+		rc = smblib_get_prop_input_current_limited(chg, val);
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -1124,7 +1128,7 @@ static struct smb2_irq_info smb2_irqs[] = {
 	{ "wdog-bark",			NULL },
 	{ "aicl-fail",			smblib_handle_debug },
 	{ "aicl-done",			smblib_handle_debug },
-	{ "high-duty-cycle",		smblib_handle_debug },
+	{ "high-duty-cycle",		smblib_handle_high_duty_cycle, true },
 	{ "input-current-limiting",	smblib_handle_debug },
 	{ "temperature-change",		smblib_handle_debug },
 	{ "switcher-power-ok",		smblib_handle_debug },

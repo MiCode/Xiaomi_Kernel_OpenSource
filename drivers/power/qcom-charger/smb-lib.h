@@ -145,6 +145,7 @@ struct smb_charger {
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	pl_taper_work;
 	struct delayed_work	step_soc_req_work;
+	struct delayed_work	clear_hdc_work;
 
 	/* cached status */
 	int			voltage_min_uv;
@@ -159,6 +160,7 @@ struct smb_charger {
 	int			fake_capacity;
 
 	bool			step_chg_enabled;
+	bool			is_hdc;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -202,6 +204,7 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data);
 irqreturn_t smblib_handle_usb_source_change(int irq, void *data);
 irqreturn_t smblib_handle_icl_change(int irq, void *data);
 irqreturn_t smblib_handle_usb_typec_change(int irq, void *data);
+irqreturn_t smblib_handle_high_duty_cycle(int irq, void *data);
 
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -216,6 +219,8 @@ int smblib_get_prop_batt_charge_type(struct smb_charger *chg,
 int smblib_get_prop_batt_health(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_system_temp_level(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_input_current_limited(struct smb_charger *chg,
 				union power_supply_propval *val);
 
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
