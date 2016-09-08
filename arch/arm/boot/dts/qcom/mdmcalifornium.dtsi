@@ -578,6 +578,9 @@
 			<90 585 206000 3600000>,
 			<1 676 206000 960000>;
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+		/* ipa tz unlock registers */
+		qcom,ipa-tz-unlock-reg =
+			<0x4043583c 0x1000>; /* 32-bit reg addr and size */
 
 		/* smp2p gpio information */
 		qcom,smp2pgpio_map_ipa_1_out {
