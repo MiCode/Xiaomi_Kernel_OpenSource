@@ -567,7 +567,7 @@ static void msm_vfe32_process_error_status(struct vfe_device *vfe_dev)
 		pr_err("%s: axi error\n", __func__);
 }
 
-static void msm_vfe32_read_irq_status(struct vfe_device *vfe_dev,
+static void msm_vfe32_read_irq_status_and_clear(struct vfe_device *vfe_dev,
 	uint32_t *irq_status0, uint32_t *irq_status1)
 {
 	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x2C);
@@ -583,6 +583,13 @@ static void msm_vfe32_read_irq_status(struct vfe_device *vfe_dev,
 	if (*irq_status1 & BIT(7))
 		vfe_dev->error_info.violation_status |=
 			msm_camera_io_r(vfe_dev->vfe_base + 0x7B4);
+}
+
+static void msm_vfe32_read_irq_status(struct vfe_device *vfe_dev,
+	uint32_t *irq_status0, uint32_t *irq_status1)
+{
+	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x2C);
+	*irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x30);
 }
 
 static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
@@ -739,6 +746,11 @@ static void msm_vfe32_axi_clear_wm_irq_mask(struct vfe_device *vfe_dev,
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x1C);
 	irq_mask &= ~BIT(stream_info->wm[0] + 6);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x1C);
+}
+
+static void msm_vfe32_axi_clear_irq_mask(struct vfe_device *vfe_dev)
+{
+	msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x1C);
 }
 
 static void msm_vfe32_cfg_framedrop(void __iomem *vfe_base,
@@ -1467,6 +1479,8 @@ struct msm_vfe_hardware_info vfe32_hw_info = {
 	.vfe_ops = {
 		.irq_ops = {
 			.read_irq_status = msm_vfe32_read_irq_status,
+			.read_irq_status_and_clear =
+				msm_vfe32_read_irq_status_and_clear,
 			.process_camif_irq = msm_vfe32_process_camif_irq,
 			.process_reset_irq = msm_vfe32_process_reset_irq,
 			.process_halt_irq = msm_vfe32_process_halt_irq,
@@ -1483,6 +1497,8 @@ struct msm_vfe_hardware_info vfe32_hw_info = {
 			.clear_comp_mask = msm_vfe32_axi_clear_comp_mask,
 			.cfg_wm_irq_mask = msm_vfe32_axi_cfg_wm_irq_mask,
 			.clear_wm_irq_mask = msm_vfe32_axi_clear_wm_irq_mask,
+			.clear_irq_mask =
+				msm_vfe32_axi_clear_irq_mask,
 			.cfg_framedrop = msm_vfe32_cfg_framedrop,
 			.clear_framedrop = msm_vfe32_clear_framedrop,
 			.cfg_wm_reg = msm_vfe32_axi_cfg_wm_reg,

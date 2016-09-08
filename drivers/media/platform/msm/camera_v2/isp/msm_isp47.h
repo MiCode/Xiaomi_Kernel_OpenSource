@@ -32,6 +32,8 @@ extern struct msm_vfe_hardware_info vfe47_hw_info;
 
 void msm_vfe47_read_irq_status(struct vfe_device *vfe_dev,
 	uint32_t *irq_status0, uint32_t *irq_status1);
+void msm_vfe47_read_irq_status_and_clear(struct vfe_device *vfe_dev,
+	uint32_t *irq_status0, uint32_t *irq_status1);
 void msm_vfe47_enable_camif_error(struct vfe_device *vfe_dev,
 			int enable);
 void msm_vfe47_process_reg_update(struct vfe_device *vfe_dev,
@@ -56,6 +58,7 @@ void msm_vfe47_axi_cfg_wm_irq_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info);
 void msm_vfe47_axi_clear_wm_irq_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info);
+void msm_vfe47_axi_clear_irq_mask(struct vfe_device *vfe_dev);
 void msm_vfe47_cfg_framedrop(void __iomem *vfe_base,
 	struct msm_vfe_axi_stream *stream_info, uint32_t framedrop_pattern,
 	uint32_t framedrop_period);
