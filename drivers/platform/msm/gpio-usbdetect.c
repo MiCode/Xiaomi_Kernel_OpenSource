@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,9 @@
 #include <linux/errno.h>
 #include <linux/slab.h>
 #include <linux/of_platform.h>
+#include <linux/of.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/interrupt.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
@@ -26,22 +29,152 @@ struct gpio_usbdetect {
 	struct regulator	*vin;
 	struct power_supply	*usb_psy;
 	int			vbus_det_irq;
+	struct regulator	*vdd33;
+	struct regulator	*vdd12;
+	int			gpio_usbdetect;
+	bool			notify_host_mode;
 };
+
+static int gpio_enable_ldos(struct gpio_usbdetect *usb, int on)
+{
+	struct platform_device *pdev = usb->pdev;
+	int ret = 0;
+
+	if (!on)
+		goto disable_regulator;
+
+	if (of_get_property(pdev->dev.of_node, "vin-supply", NULL)) {
+		usb->vin = devm_regulator_get(&pdev->dev, "vin");
+		if (IS_ERR(usb->vin)) {
+			dev_err(&pdev->dev, "Failed to get VIN regulator: %ld\n",
+				PTR_ERR(usb->vin));
+			return PTR_ERR(usb->vin);
+		}
+	}
+
+	if (of_get_property(pdev->dev.of_node, "vdd33-supply", NULL)) {
+		usb->vdd33 = devm_regulator_get(&pdev->dev, "vdd33");
+		if (IS_ERR(usb->vdd33)) {
+			dev_err(&pdev->dev, "Failed to get vdd33 regulator: %ld\n",
+				PTR_ERR(usb->vdd33));
+			return PTR_ERR(usb->vdd33);
+		}
+	}
+
+	if (of_get_property(pdev->dev.of_node, "vdd12-supply", NULL)) {
+		usb->vdd12 = devm_regulator_get(&pdev->dev, "vdd12");
+		if (IS_ERR(usb->vdd12)) {
+			dev_err(&pdev->dev, "Failed to get vdd12 regulator: %ld\n",
+				PTR_ERR(usb->vdd12));
+			return PTR_ERR(usb->vdd12);
+		}
+	}
+
+	if (usb->vin) {
+		ret = regulator_enable(usb->vin);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to enable VIN regulator: %d\n",
+									ret);
+			return ret;
+		}
+	}
+
+	if (usb->vdd33) {
+		ret = regulator_set_optimum_mode(usb->vdd33, 500000);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "unable to set load for vdd33\n");
+			goto disable_vin;
+		}
+
+		ret = regulator_set_voltage(usb->vdd33, 3300000, 3300000);
+		if (ret) {
+			dev_err(&pdev->dev, "unable to set volt for vdd33\n");
+			regulator_set_optimum_mode(usb->vdd33, 0);
+			goto disable_vin;
+		}
+		ret = regulator_enable(usb->vdd33);
+		if (ret) {
+			dev_err(&pdev->dev, "unable to enable vdd33 regulator\n");
+			regulator_set_voltage(usb->vdd33, 0, 3300000);
+			regulator_set_optimum_mode(usb->vdd33, 0);
+			goto disable_vin;
+		}
+		dev_dbg(&pdev->dev, "vdd33 successful\n");
+	}
+
+	if (usb->vdd12) {
+		ret = regulator_set_optimum_mode(usb->vdd12, 500000);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "unable to set load for vdd12\n");
+			goto disable_3p3;
+		}
+
+		ret = regulator_set_voltage(usb->vdd12, 1220000, 1220000);
+		if (ret) {
+			dev_err(&pdev->dev, "unable to set volt for vddi12\n");
+			regulator_set_optimum_mode(usb->vdd12, 0);
+			goto disable_3p3;
+		}
+		ret = regulator_enable(usb->vdd12);
+		if (ret) {
+			dev_err(&pdev->dev, "unable to enable vdd12 regulator\n");
+			regulator_set_voltage(usb->vdd12, 0, 1225000);
+			regulator_set_optimum_mode(usb->vdd12, 0);
+			goto disable_3p3;
+		}
+		dev_dbg(&pdev->dev, "vdd12 successful\n");
+	}
+
+	return ret;
+
+disable_regulator:
+	if (usb->vdd12) {
+		regulator_disable(usb->vdd12);
+		regulator_set_voltage(usb->vdd12, 0, 1225000);
+		regulator_set_optimum_mode(usb->vdd12, 0);
+	}
+
+disable_3p3:
+	if (usb->vdd33) {
+		regulator_disable(usb->vdd33);
+		regulator_set_voltage(usb->vdd33, 0, 3300000);
+		regulator_set_optimum_mode(usb->vdd33, 0);
+	}
+
+disable_vin:
+	if (usb->vin)
+		regulator_disable(usb->vin);
+
+	return ret;
+}
 
 static irqreturn_t gpio_usbdetect_vbus_irq(int irq, void *data)
 {
 	struct gpio_usbdetect *usb = data;
 	int vbus;
 
-	vbus = !!irq_read_line(irq);
-	if (vbus)
-		power_supply_set_supply_type(usb->usb_psy,
-				POWER_SUPPLY_TYPE_USB);
+	if (gpio_is_valid(usb->gpio_usbdetect))
+		vbus = gpio_get_value(usb->gpio_usbdetect);
 	else
+		vbus = !!irq_read_line(irq);
+
+	if (vbus) {
+		if (usb->notify_host_mode)
+			power_supply_set_usb_otg(usb->usb_psy, 0);
+
+		power_supply_set_supply_type(usb->usb_psy,
+					POWER_SUPPLY_TYPE_USB);
+		power_supply_set_present(usb->usb_psy, vbus);
+	} else {
+		/* notify gpio_state = LOW as disconnect */
 		power_supply_set_supply_type(usb->usb_psy,
 				POWER_SUPPLY_TYPE_UNKNOWN);
+		power_supply_set_present(usb->usb_psy, vbus);
 
-	power_supply_set_present(usb->usb_psy, vbus);
+		/* Cheeck if low gpio_state be treated as HOST mode */
+		if (usb->notify_host_mode)
+			power_supply_set_usb_otg(usb->usb_psy, 1);
+	}
 	return IRQ_HANDLED;
 }
 
@@ -64,30 +197,17 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 
 	usb->pdev = pdev;
 	usb->usb_psy = usb_psy;
-
-	if (of_get_property(pdev->dev.of_node, "vin-supply", NULL)) {
-		usb->vin = devm_regulator_get(&pdev->dev, "vin");
-		if (IS_ERR(usb->vin)) {
-			dev_err(&pdev->dev, "Failed to get VIN regulator: %ld\n",
-				PTR_ERR(usb->vin));
-			return PTR_ERR(usb->vin);
-		}
-	}
-
-	if (usb->vin) {
-		rc = regulator_enable(usb->vin);
-		if (rc) {
-			dev_err(&pdev->dev, "Failed to enable VIN regulator: %d\n",
-				rc);
-			return rc;
-		}
-	}
+	usb->notify_host_mode = of_property_read_bool(pdev->dev.of_node,
+					"qcom,notify-host-mode");
+	rc = gpio_enable_ldos(usb, 1);
+	if (rc)
+		return rc;
 
 	usb->vbus_det_irq = platform_get_irq_byname(pdev, "vbus_det_irq");
 	if (usb->vbus_det_irq < 0) {
-		if (usb->vin)
-			regulator_disable(usb->vin);
-		return usb->vbus_det_irq;
+		dev_err(&pdev->dev, "vbus_det_irq failed\n");
+		rc = usb->vbus_det_irq;
+		goto disable_ldo;
 	}
 
 	rc = devm_request_irq(&pdev->dev, usb->vbus_det_irq,
@@ -97,9 +217,26 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "request for vbus_det_irq failed: %d\n",
 			rc);
-		if (usb->vin)
-			regulator_disable(usb->vin);
-		return rc;
+		goto disable_ldo;
+	}
+
+	usb->gpio_usbdetect = of_get_named_gpio(pdev->dev.of_node,
+					"qcom,gpio-mode-sel", 0);
+
+	if (gpio_is_valid(usb->gpio_usbdetect)) {
+		rc = devm_gpio_request(&pdev->dev, usb->gpio_usbdetect,
+					"GPIO_MODE_SEL");
+		if (rc) {
+			dev_err(&pdev->dev, "gpio req failed for gpio_%d\n",
+						 usb->gpio_usbdetect);
+			goto disable_ldo;
+		}
+		rc = gpio_direction_input(usb->gpio_usbdetect);
+		if (rc) {
+			dev_err(&pdev->dev, "Invalid input from GPIO_%d\n",
+					usb->gpio_usbdetect);
+			goto disable_ldo;
+		}
 	}
 
 	enable_irq_wake(usb->vbus_det_irq);
@@ -111,6 +248,11 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 	local_irq_restore(flags);
 
 	return 0;
+
+disable_ldo:
+	gpio_enable_ldos(usb, 0);
+
+	return rc;
 }
 
 static int gpio_usbdetect_remove(struct platform_device *pdev)
@@ -119,8 +261,8 @@ static int gpio_usbdetect_remove(struct platform_device *pdev)
 
 	disable_irq_wake(usb->vbus_det_irq);
 	disable_irq(usb->vbus_det_irq);
-	if (usb->vin)
-		regulator_disable(usb->vin);
+
+	gpio_enable_ldos(usb, 0);
 
 	return 0;
 }
