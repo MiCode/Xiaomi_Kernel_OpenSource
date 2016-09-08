@@ -1339,10 +1339,11 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 
 	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
 				      !(tmp & ATSR_ACTIVE), 5, 50)) {
-		dev_err(dev,
-			"iova to phys timed out on %pad. Falling back to software table walk.\n",
-			&iova);
 		phys = ops->iova_to_phys(ops, iova);
+		dev_err(dev,
+			"iova to phys timed out on %pad. software table walk result=%pa.\n",
+			&iova, &phys);
+		phys = 0;
 		goto out_resume;
 	}
 
