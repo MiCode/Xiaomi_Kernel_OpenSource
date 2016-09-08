@@ -248,6 +248,46 @@
 					  "CAM_STANDBY2";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
+		qcom,cci-master = <0>;
+		status = "ok";
+		clocks = <&clock_mmss clk_mclk2_clk_src>,
+			<&clock_mmss clk_camss_mclk2_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+	};
+
+	qcom,camera@3 {
+		cell-index = <3>;
+		compatible = "qcom,camera";
+		reg = <0x03>;
+		qcom,csiphy-sd-index = <2>;
+		qcom,csid-sd-index = <1>;
+		qcom,mount-angle = <0>;
+		/* Cameras powered by PMIC: */
+		cam_vdig-supply = <&vph_pwr_vreg>;
+		cam_vio-supply = <&pm8994_lvs1>;
+		cam_vana-supply = <&pm8994_l29>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1000000 0 2800000>;
+		qcom,cam-vreg-max-voltage = <1000000 0 2800000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk2_active &cam_csi2_sensor_active>;
+		pinctrl-1 = <&cam_sensor_mclk2_suspend
+				&cam_csi2_sensor_suspend>;
+		gpios = <&tlmm 15 0>,
+			<&tlmm 23 0>,
+			<&tlmm 133 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
+					  "CAM_RESET2",
+					  "CAM_STANDBY2";
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_mmss clk_mclk2_clk_src>,
