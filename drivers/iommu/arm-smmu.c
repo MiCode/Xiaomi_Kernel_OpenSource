@@ -1374,13 +1374,7 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 		return 0;
 
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
-			smmu_domain->stage == ARM_SMMU_DOMAIN_S1) {
-		ret = __arm_smmu_iova_to_phys_hard(domain, iova);
-	} else {
-		ret = ops->iova_to_phys(ops, iova);
-	}
-
+	ret = ops->iova_to_phys(ops, iova);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
 	return ret;
