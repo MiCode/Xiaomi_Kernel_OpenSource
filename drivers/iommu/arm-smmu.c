@@ -360,6 +360,7 @@ struct arm_smmu_device {
 	u32				features;
 
 #define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
+#define ARM_SMMU_OPT_FATAL_ASF		(1 << 1)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -444,6 +445,7 @@ static atomic_t cavium_smmu_context_count = ATOMIC_INIT(0);
 
 static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
+	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ 0, NULL},
 };
 
@@ -726,6 +728,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	void __iomem *cb_base;
+	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
@@ -737,6 +740,12 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		dev_err_ratelimited(smmu->dev,
 				    "Unexpected context fault (fsr 0x%x)\n",
 				    fsr);
+
+	if (fatal_asf && (fsr & FSR_ASF)) {
+		dev_err(smmu->dev,
+			"Took an address size fault.  Refusing to recover.\n");
+		BUG();
+	}
 
 	fsynr = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
 	flags = fsynr & FSYNR0_WNR ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
