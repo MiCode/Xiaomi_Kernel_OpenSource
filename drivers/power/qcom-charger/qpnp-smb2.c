@@ -324,6 +324,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_PD_ALLOWED,
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -382,6 +383,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
 		rc = smblib_get_prop_input_current_settled(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
+		rc = smblib_get_prop_usb_current_now(chg, val);
 		break;
 	default:
 		pr_err("get prop %d is not supported\n", psp);
@@ -582,42 +586,51 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
+	POWER_SUPPLY_PROP_CHARGER_TEMP,
+	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
+	int rc;
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		smblib_get_prop_batt_status(chg, val);
+		rc = smblib_get_prop_batt_status(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
-		smblib_get_prop_batt_health(chg, val);
+		rc = smblib_get_prop_batt_health(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		smblib_get_prop_batt_present(chg, val);
+		rc = smblib_get_prop_batt_present(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		smblib_get_prop_input_suspend(chg, val);
+		rc = smblib_get_prop_input_suspend(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
-		smblib_get_prop_batt_charge_type(chg, val);
+		rc = smblib_get_prop_batt_charge_type(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		smblib_get_prop_batt_capacity(chg, val);
+		rc = smblib_get_prop_batt_capacity(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
-		smblib_get_prop_system_temp_level(chg, val);
+		rc = smblib_get_prop_system_temp_level(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP:
+		rc = smblib_get_prop_charger_temp(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
+		rc = smblib_get_prop_charger_temp_max(chg, val);
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
 	}
 
-	return 0;
+	return rc;
 }
 
 static int smb2_batt_set_prop(struct power_supply *psy,
@@ -1219,7 +1232,11 @@ static int smb2_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	smblib_init(chg);
+	rc = smblib_init(chg);
+	if (rc < 0) {
+		pr_err("Smblib_init failed rc=%d\n", rc);
+		goto cleanup;
+	}
 
 	rc = smb2_parse_dt(chip);
 	if (rc < 0) {

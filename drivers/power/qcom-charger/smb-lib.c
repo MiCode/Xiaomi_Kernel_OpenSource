@@ -12,6 +12,7 @@
 
 #include <linux/device.h>
 #include <linux/regmap.h>
+#include <linux/iio/consumer.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/driver.h>
 #include <linux/irq.h>
@@ -1172,12 +1173,20 @@ int smblib_get_prop_usb_online(struct smb_charger *chg,
 int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
-	if (chg->vbus_present)
-		val->intval = MICRO_5V;
-	else
-		val->intval = 0;
+	int rc = 0;
 
-	return 0;
+	rc = smblib_get_prop_usb_present(chg, val);
+	if (rc < 0 || !val->intval)
+		return rc;
+
+	if (!chg->iio.usbin_v_chan ||
+		PTR_ERR(chg->iio.usbin_v_chan) == -EPROBE_DEFER)
+		chg->iio.usbin_v_chan = iio_channel_get(chg->dev, "usbin_v");
+
+	if (IS_ERR(chg->iio.usbin_v_chan))
+		return PTR_ERR(chg->iio.usbin_v_chan);
+
+	return iio_read_channel_processed(chg->iio.usbin_v_chan, &val->intval);
 }
 
 int smblib_get_prop_usb_current_max(struct smb_charger *chg,
@@ -1185,6 +1194,59 @@ int smblib_get_prop_usb_current_max(struct smb_charger *chg,
 {
 	val->intval = get_effective_result_locked(chg->usb_icl_votable);
 	return 0;
+}
+
+int smblib_get_prop_usb_current_now(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	int rc = 0;
+
+	rc = smblib_get_prop_usb_present(chg, val);
+	if (rc < 0 || !val->intval)
+		return rc;
+
+	if (!chg->iio.usbin_i_chan ||
+		PTR_ERR(chg->iio.usbin_i_chan) == -EPROBE_DEFER)
+		chg->iio.usbin_i_chan = iio_channel_get(chg->dev, "usbin_i");
+
+	if (IS_ERR(chg->iio.usbin_i_chan))
+		return PTR_ERR(chg->iio.usbin_i_chan);
+
+	return iio_read_channel_processed(chg->iio.usbin_i_chan, &val->intval);
+}
+
+int smblib_get_prop_charger_temp(struct smb_charger *chg,
+				 union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->iio.temp_chan ||
+		PTR_ERR(chg->iio.temp_chan) == -EPROBE_DEFER)
+		chg->iio.temp_chan = iio_channel_get(chg->dev, "charger_temp");
+
+	if (IS_ERR(chg->iio.temp_chan))
+		return PTR_ERR(chg->iio.temp_chan);
+
+	rc = iio_read_channel_processed(chg->iio.temp_chan, &val->intval);
+	val->intval /= 100;
+	return rc;
+}
+
+int smblib_get_prop_charger_temp_max(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->iio.temp_max_chan ||
+		PTR_ERR(chg->iio.temp_max_chan) == -EPROBE_DEFER)
+		chg->iio.temp_max_chan = iio_channel_get(chg->dev,
+							 "charger_temp_max");
+	if (IS_ERR(chg->iio.temp_max_chan))
+		return PTR_ERR(chg->iio.temp_max_chan);
+
+	rc = iio_read_channel_processed(chg->iio.temp_max_chan, &val->intval);
+	val->intval /= 100;
+	return rc;
 }
 
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
@@ -1992,7 +2054,7 @@ done:
 	vote(chg->awake_votable, PL_VOTER, false, 0);
 }
 
-int smblib_create_votables(struct smb_charger *chg)
+static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
 
@@ -2086,6 +2148,42 @@ int smblib_create_votables(struct smb_charger *chg)
 	return rc;
 }
 
+static void smblib_destroy_votables(struct smb_charger *chg)
+{
+	if (chg->usb_suspend_votable)
+		destroy_votable(chg->usb_suspend_votable);
+	if (chg->dc_suspend_votable)
+		destroy_votable(chg->dc_suspend_votable);
+	if (chg->fcc_max_votable)
+		destroy_votable(chg->fcc_max_votable);
+	if (chg->fcc_votable)
+		destroy_votable(chg->fcc_votable);
+	if (chg->fv_votable)
+		destroy_votable(chg->fv_votable);
+	if (chg->usb_icl_votable)
+		destroy_votable(chg->usb_icl_votable);
+	if (chg->dc_icl_votable)
+		destroy_votable(chg->dc_icl_votable);
+	if (chg->pd_allowed_votable)
+		destroy_votable(chg->pd_allowed_votable);
+	if (chg->awake_votable)
+		destroy_votable(chg->awake_votable);
+	if (chg->pl_disable_votable)
+		destroy_votable(chg->pl_disable_votable);
+}
+
+static void smblib_iio_deinit(struct smb_charger *chg)
+{
+	if (!IS_ERR_OR_NULL(chg->iio.temp_chan))
+		iio_channel_release(chg->iio.temp_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.temp_max_chan))
+		iio_channel_release(chg->iio.temp_max_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.usbin_i_chan))
+		iio_channel_release(chg->iio.usbin_i_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.usbin_v_chan))
+		iio_channel_release(chg->iio.usbin_v_chan);
+}
+
 int smblib_init(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -2130,18 +2228,19 @@ int smblib_init(struct smb_charger *chg)
 
 int smblib_deinit(struct smb_charger *chg)
 {
-	destroy_votable(chg->usb_suspend_votable);
-	destroy_votable(chg->dc_suspend_votable);
-	destroy_votable(chg->fcc_max_votable);
-	destroy_votable(chg->fcc_votable);
-	destroy_votable(chg->fv_votable);
-	destroy_votable(chg->usb_icl_votable);
-	destroy_votable(chg->dc_icl_votable);
-	destroy_votable(chg->pd_allowed_votable);
-	destroy_votable(chg->awake_votable);
-	destroy_votable(chg->pl_disable_votable);
+	switch (chg->mode) {
+	case PARALLEL_MASTER:
+		power_supply_unreg_notifier(&chg->nb);
+		smblib_destroy_votables(chg);
+		break;
+	case PARALLEL_SLAVE:
+		break;
+	default:
+		dev_err(chg->dev, "Unsupported mode %d\n", chg->mode);
+		return -EINVAL;
+	}
 
-	power_supply_unreg_notifier(&chg->nb);
+	smblib_iio_deinit(chg);
 
 	return 0;
 }
