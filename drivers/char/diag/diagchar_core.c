@@ -965,7 +965,7 @@ static int diag_send_raw_data_remote(int proc, void *buf, int len,
 					(void *)driver->hdlc_encode_buf);
 
 send_data:
-	err = diagfwd_bridge_write(proc, driver->hdlc_encode_buf,
+	err = diagfwd_bridge_write(bridge_index, driver->hdlc_encode_buf,
 				   driver->hdlc_encode_buf_len);
 	if (err) {
 		pr_err_ratelimited("diag: Error writing Callback packet to proc: %d, err: %d\n",
@@ -2534,7 +2534,7 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 		}
 	}
 	if (remote_proc) {
-		ret = diag_send_raw_data_remote(remote_proc - 1,
+		ret = diag_send_raw_data_remote(remote_proc,
 				(void *)(user_space_data + token_offset),
 				len, USER_SPACE_RAW_DATA);
 		if (ret) {
@@ -3388,13 +3388,13 @@ static int __init diagchar_init(void)
 	ret = diag_masks_init();
 	if (ret)
 		goto fail;
+	ret = diag_remote_init();
+	if (ret)
+		goto fail;
 	ret = diag_mux_init();
 	if (ret)
 		goto fail;
 	ret = diagfwd_init();
-	if (ret)
-		goto fail;
-	ret = diag_remote_init();
 	if (ret)
 		goto fail;
 	ret = diagfwd_bridge_init();
