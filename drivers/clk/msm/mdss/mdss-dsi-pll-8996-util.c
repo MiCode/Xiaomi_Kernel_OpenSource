@@ -503,6 +503,24 @@ static u32 pll_8996_kvco_slop(u32 vrate)
 	return slop;
 }
 
+static inline u32 pll_8996_calc_kvco_code(s64 vco_clk_rate)
+{
+	u32 kvco_code;
+
+	if ((vco_clk_rate >= 2300000000ULL) &&
+	    (vco_clk_rate <= 2600000000ULL))
+		kvco_code = 0x2f;
+	else if ((vco_clk_rate >= 1800000000ULL) &&
+		 (vco_clk_rate < 2300000000ULL))
+		kvco_code = 0x2c;
+	else
+		kvco_code = 0x28;
+
+	pr_debug("rate: %llu kvco_code: 0x%x\n",
+		vco_clk_rate, kvco_code);
+	return kvco_code;
+}
+
 static void pll_8996_calc_vco_count(struct dsi_pll_db *pdb,
 			 s64 vco_clk_rate, s64 fref)
 {
@@ -538,7 +556,7 @@ static void pll_8996_calc_vco_count(struct dsi_pll_db *pdb,
 	pout->pll_resetsm_cntrl = 48;
 	pout->pll_resetsm_cntrl2 = pin->bandgap_timer << 3;
 	pout->pll_resetsm_cntrl5 = pin->pll_wakeup_timer;
-	pout->pll_kvco_code = 0;
+	pout->pll_kvco_code = pll_8996_calc_kvco_code(vco_clk_rate);
 }
 
 static void pll_db_commit_ssc(struct mdss_pll_resources *pll,
@@ -721,6 +739,10 @@ static void pll_db_commit_8996(struct mdss_pll_resources *pll,
 
 	data = (((pout->pll_postdiv - 1) << 4) | pdb->in.pll_lpf_res1);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_PLL_LPF2_POSTDIV, data);
+
+	data = pout->pll_kvco_code;
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_KVCO_CODE, data);
+	pr_debug("kvco_code:0x%x\n", data);
 
 	data = (pout->pll_n1div | (pout->pll_n2div << 4));
 	MDSS_PLL_REG_W(pll_base, DSIPHY_CMN_CLK_CFG0, data);
