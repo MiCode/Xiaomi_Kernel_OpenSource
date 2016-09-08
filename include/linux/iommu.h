@@ -145,6 +145,7 @@ struct iommu_dm_region {
  * @map_sg: map a scatter-gather list of physically contiguous memory chunks
  * to an iommu domain
  * @iova_to_phys: translate iova to physical address
+ * @iova_to_phys_hard: translate iova to physical address using IOMMU hardware
  * @add_device: add device to iommu grouping
  * @remove_device: remove device from iommu grouping
  * @device_group: find iommu group for a particular device
@@ -176,6 +177,8 @@ struct iommu_ops {
 	size_t (*map_sg)(struct iommu_domain *domain, unsigned long iova,
 			 struct scatterlist *sg, unsigned int nents, int prot);
 	phys_addr_t (*iova_to_phys)(struct iommu_domain *domain, dma_addr_t iova);
+	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
+					 dma_addr_t iova);
 	int (*add_device)(struct device *dev);
 	void (*remove_device)(struct device *dev);
 	struct iommu_group *(*device_group)(struct device *dev);
@@ -230,6 +233,8 @@ extern size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long io
 				struct scatterlist *sg,unsigned int nents,
 				int prot);
 extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova);
+extern phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
+					   dma_addr_t iova);
 extern void iommu_set_fault_handler(struct iommu_domain *domain,
 			iommu_fault_handler_t handler, void *token);
 
@@ -408,6 +413,12 @@ static inline void iommu_domain_window_disable(struct iommu_domain *domain,
 }
 
 static inline phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova)
+{
+	return 0;
+}
+
+static inline phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
+						  dma_addr_t iova)
 {
 	return 0;
 }
