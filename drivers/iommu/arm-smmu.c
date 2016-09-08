@@ -722,7 +722,7 @@ static struct iommu_gather_ops arm_smmu_gather_ops = {
 
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
-	int flags, ret;
+	int flags, ret, tmp;
 	u32 fsr, fsynr, resume;
 	unsigned long iova;
 	struct iommu_domain *domain = dev;
@@ -747,10 +747,17 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	fsynr = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
 	flags = fsynr & FSYNR0_WNR ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
+	if (fsr & FSR_TF)
+		flags |= IOMMU_FAULT_TRANSLATION;
+	if (fsr & FSR_PF)
+		flags |= IOMMU_FAULT_PERMISSION;
+	if (fsr & FSR_SS)
+		flags |= IOMMU_FAULT_TRANSACTION_STALLED;
 
 	iova = readq_relaxed(cb_base + ARM_SMMU_CB_FAR);
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
-	if (!report_iommu_fault(domain, smmu->dev, iova, flags)) {
+	tmp = report_iommu_fault(domain, smmu->dev, iova, flags);
+	if (!tmp || (tmp == -EBUSY)) {
 		dev_dbg(smmu->dev,
 			"Context fault handled by client: iova=0x%08lx, fsr=0x%x, fsynr=0x%x, cb=%d\n",
 			iova, fsr, fsynr, cfg->cbndx);
@@ -779,12 +786,34 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		resume = RESUME_TERMINATE;
 	}
 
-	/* Clear the faulting FSR */
-	writel(fsr, cb_base + ARM_SMMU_CB_FSR);
+	/*
+	 * If the client returns -EBUSY, do not clear FSR and do not RESUME
+	 * if stalled. This is required to keep the IOMMU client stalled on
+	 * the outstanding fault. This gives the client a chance to take any
+	 * debug action and then terminate the stalled transaction.
+	 * So, the sequence in case of stall on fault should be:
+	 * 1) Do not clear FSR or write to RESUME here
+	 * 2) Client takes any debug action
+	 * 3) Client terminates the stalled transaction and resumes the IOMMU
+	 * 4) Client clears FSR. The FSR should only be cleared after 3) and
+	 *    not before so that the fault remains outstanding. This ensures
+	 *    SCTLR.HUPCF has the desired effect if subsequent transactions also
+	 *    need to be terminated.
+	 */
+	if (tmp != -EBUSY) {
+		/* Clear the faulting FSR */
+		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
 
-	/* Retry or terminate any stalled transactions */
-	if (fsr & FSR_SS)
-		writel_relaxed(resume, cb_base + ARM_SMMU_CB_RESUME);
+		/*
+		 * Barrier required to ensure that the FSR is cleared
+		 * before resuming SMMU operation
+		 */
+		wmb();
+
+		/* Retry or terminate any stalled transactions */
+		if (fsr & FSR_SS)
+			writel_relaxed(resume, cb_base + ARM_SMMU_CB_RESUME);
+	}
 
 	return ret;
 }
