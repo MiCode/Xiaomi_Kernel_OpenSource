@@ -198,15 +198,15 @@ struct hdcp_reg_set {
 	{{"bcaps", 0x40, 1}, {"bksv", 0x00, 5}, {"r0'", 0x08, 2}, \
 	 {"bstatus", 0x41, 2}, {"ksv-fifo", 0x43, 0}, {"v_h0", 0x20, 4}, \
 	 {"v_h1", 0x24, 4}, {"v_h2", 0x28, 4}, {"v_h3", 0x2c, 4}, \
-	 {"v_h4", 0x30, 4}, {"an", 0x16, 8}, {"aksv", 0x10, 5}, \
-	 {"repater", 0x00, 0} }
+	 {"v_h4", 0x30, 4}, {"an", 0x18, 8}, {"aksv", 0x10, 5}, \
+	 {"repeater", 0x00, 0} }
 
 #define HDCP_DP_SINK_ADDR_MAP \
 	{{"bcaps", 0x68028, 1}, {"bksv", 0x68000, 5}, {"r0'", 0x68005, 2}, \
 	 {"bstatus", 0x6802A, 2}, {"ksv-fifo", 0x6802A, 0}, \
 	 {"v_h0", 0x68014, 4}, {"v_h1", 0x68018, 4}, {"v_h2", 0x6801C, 4}, \
 	 {"v_h3", 0x68020, 4}, {"v_h4", 0x68024, 4}, {"an", 0x6800C, 8}, \
-	 {"aksv", 0x68007, 5}, {"repater", 0x68028, 1} }
+	 {"aksv", 0x68007, 5}, {"repeater", 0x68028, 1} }
 
 #define HDCP_HDMI_INT_SET \
 	{HDMI_HDCP_INT_CTRL, \
@@ -731,7 +731,7 @@ static int hdcp_1x_authentication_part1(struct hdcp_1x_ctrl *hdcp_ctrl)
 	link0_an_1 = DSS_REG_R(io, reg_set->data6);
 	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP) {
 		udelay(1);
-		link0_an_0 = DSS_REG_R(io, reg_set->data6);
+		link0_an_1 = DSS_REG_R(io, reg_set->data6);
 	}
 
 	/* Read AKSV */
