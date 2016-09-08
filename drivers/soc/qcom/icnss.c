@@ -57,9 +57,12 @@
 #define MPM_WCSSAON_CONFIG_OFFSET				0x18
 #define MPM_WCSSAON_CONFIG_ARES_N				BIT(0)
 #define MPM_WCSSAON_CONFIG_WLAN_DISABLE				BIT(1)
+#define MPM_WCSSAON_CONFIG_MSM_CLAMP_EN_OVRD			BIT(6)
+#define MPM_WCSSAON_CONFIG_MSM_CLAMP_EN_OVRD_VAL		BIT(7)
 #define MPM_WCSSAON_CONFIG_FORCE_ACTIVE				BIT(14)
 #define MPM_WCSSAON_CONFIG_FORCE_XO_ENABLE			BIT(19)
 #define MPM_WCSSAON_CONFIG_DISCONNECT_CLR			BIT(21)
+#define MPM_WCSSAON_CONFIG_M2W_CLAMP_EN				BIT(22)
 
 /*
  * Registers: WCSS_SR_SHADOW_REGISTERS
@@ -147,6 +150,10 @@
 #define PMM_RF_RESET_DATA_RF_RESET_DATA				GENMASK(31, 0)
 
 #define ICNSS_HW_REG_RETRY					10
+
+#define WCSS_HM_A_PMM_HW_VERSION_V10				0x40000000
+#define WCSS_HM_A_PMM_HW_VERSION_V20				0x40010000
+#define WCSS_HM_A_PMM_HW_VERSION_Q10				0x40010001
 
 #define ICNSS_SERVICE_LOCATION_CLIENT_NAME			"ICNSS-WLAN"
 #define ICNSS_WLAN_SERVICE_NAME					"wlan/fw"
@@ -777,6 +784,32 @@ static void icnss_hw_top_level_reset(struct icnss_priv *priv)
 				ICNSS_HW_REG_RETRY);
 }
 
+static void icnss_hw_io_reset(struct icnss_priv *priv, bool on)
+{
+	u32 hw_version = priv->soc_info.soc_id;
+
+	if (on && !test_bit(ICNSS_FW_READY, &priv->state))
+		return;
+
+	icnss_pr_dbg("HW io reset: %s, SoC: 0x%x, state: 0x%lx\n",
+		     on ? "ON" : "OFF", priv->soc_info.soc_id, priv->state);
+
+	if (hw_version == WCSS_HM_A_PMM_HW_VERSION_V10 ||
+	    hw_version == WCSS_HM_A_PMM_HW_VERSION_V20) {
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+				MPM_WCSSAON_CONFIG_OFFSET,
+				MPM_WCSSAON_CONFIG_MSM_CLAMP_EN_OVRD_VAL, 0);
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+				MPM_WCSSAON_CONFIG_OFFSET,
+				MPM_WCSSAON_CONFIG_MSM_CLAMP_EN_OVRD, on);
+	} else if (hw_version == WCSS_HM_A_PMM_HW_VERSION_Q10) {
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+				MPM_WCSSAON_CONFIG_OFFSET,
+				MPM_WCSSAON_CONFIG_M2W_CLAMP_EN,
+				on);
+	}
+}
+
 int icnss_hw_reset_wlan_ss_power_down(struct icnss_priv *priv)
 {
 	u32 rdata;
@@ -1142,7 +1175,7 @@ static int icnss_hw_power_on(struct icnss_priv *priv)
 	int ret = 0;
 	unsigned long flags;
 
-	icnss_pr_dbg("Power on: state: 0x%lx\n", priv->state);
+	icnss_pr_dbg("HW Power on: state: 0x%lx\n", priv->state);
 
 	spin_lock_irqsave(&priv->on_off_lock, flags);
 	if (test_bit(ICNSS_POWER_ON, &priv->state)) {
@@ -1162,6 +1195,8 @@ static int icnss_hw_power_on(struct icnss_priv *priv)
 
 	icnss_hw_top_level_release_reset(priv);
 
+	icnss_hw_io_reset(penv, 1);
+
 	return ret;
 out:
 	clear_bit(ICNSS_POWER_ON, &priv->state);
@@ -1176,7 +1211,7 @@ static int icnss_hw_power_off(struct icnss_priv *priv)
 	if (test_bit(HW_ALWAYS_ON, &quirks))
 		return 0;
 
-	icnss_pr_dbg("Power off: 0x%lx\n", priv->state);
+	icnss_pr_dbg("HW Power off: 0x%lx\n", priv->state);
 
 	spin_lock_irqsave(&priv->on_off_lock, flags);
 	if (!test_bit(ICNSS_POWER_ON, &priv->state)) {
@@ -1185,6 +1220,8 @@ static int icnss_hw_power_off(struct icnss_priv *priv)
 	}
 	clear_bit(ICNSS_POWER_ON, &priv->state);
 	spin_unlock_irqrestore(&priv->on_off_lock, flags);
+
+	icnss_hw_io_reset(penv, 0);
 
 	icnss_hw_reset(priv);
 
@@ -1210,6 +1247,8 @@ int icnss_power_on(struct device *dev)
 		return -EINVAL;
 	}
 
+	icnss_pr_dbg("Power On: 0x%lx\n", priv->state);
+
 	return icnss_hw_power_on(priv);
 }
 EXPORT_SYMBOL(icnss_power_on);
@@ -1223,6 +1262,8 @@ int icnss_power_off(struct device *dev)
 			     dev, priv);
 		return -EINVAL;
 	}
+
+	icnss_pr_dbg("Power Off: 0x%lx\n", priv->state);
 
 	return icnss_hw_power_off(priv);
 }
