@@ -40,8 +40,11 @@ struct iommu_domain;
 struct notifier_block;
 
 /* iommu fault flags */
-#define IOMMU_FAULT_READ	0x0
-#define IOMMU_FAULT_WRITE	0x1
+#define IOMMU_FAULT_READ                (1 << 0)
+#define IOMMU_FAULT_WRITE               (1 << 1)
+#define IOMMU_FAULT_TRANSLATION         (1 << 2)
+#define IOMMU_FAULT_PERMISSION          (1 << 3)
+#define IOMMU_FAULT_TRANSACTION_STALLED (1 << 4)
 
 typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
 			struct device *, unsigned long, int, void *);
@@ -306,6 +309,11 @@ extern void iommu_domain_window_disable(struct iommu_domain *domain, u32 wnd_nr)
  * Specifically, -ENOSYS is returned if a fault handler isn't installed
  * (though fault handlers can also return -ENOSYS, in case they want to
  * elicit the default behavior of the IOMMU drivers).
+
+ * Client fault handler returns -EBUSY to signal to the IOMMU driver
+ * that the client will take responsibility for any further fault
+ * handling, including clearing fault status registers or retrying
+ * the faulting transaction.
  */
 static inline int report_iommu_fault(struct iommu_domain *domain,
 		struct device *dev, unsigned long iova, int flags)
