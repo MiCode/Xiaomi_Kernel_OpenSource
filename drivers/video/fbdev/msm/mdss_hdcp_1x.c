@@ -19,6 +19,7 @@
 #include <soc/qcom/scm.h>
 #include <linux/hdcp_qseecom.h>
 #include "mdss_hdcp_1x.h"
+#include "mdss_fb.h"
 #include "mdss_dp_util.h"
 #include "video/msm_hdmi_hdcp_mgr.h"
 
@@ -1630,12 +1631,45 @@ error:
 	return rc;
 } /* hdcp_1x_isr */
 
+static struct hdcp_1x_ctrl *hdcp_1x_get_ctrl(struct device *dev)
+{
+	struct fb_info *fbi;
+	struct msm_fb_data_type *mfd;
+	struct mdss_panel_info *pinfo;
+
+	if (!dev) {
+		pr_err("invalid input\n");
+		goto error;
+	}
+
+	fbi = dev_get_drvdata(dev);
+	if (!fbi) {
+		pr_err("invalid fbi\n");
+		goto error;
+	}
+
+	mfd = fbi->par;
+	if (!mfd) {
+		pr_err("invalid mfd\n");
+		goto error;
+	}
+
+	pinfo = mfd->panel_info;
+	if (!pinfo) {
+		pr_err("invalid pinfo\n");
+		goto error;
+	}
+
+	return pinfo->hdcp_1x_data;
+
+error:
+	return NULL;
+}
 static ssize_t hdcp_1x_sysfs_rda_status(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
-	struct hdcp_1x_ctrl *hdcp_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+	struct hdcp_1x_ctrl *hdcp_ctrl = hdcp_1x_get_ctrl(dev);
 
 	if (!hdcp_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1654,8 +1688,7 @@ static ssize_t hdcp_1x_sysfs_rda_tp(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	ssize_t ret = 0;
-	struct hdcp_1x_ctrl *hdcp_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+	struct hdcp_1x_ctrl *hdcp_ctrl = hdcp_1x_get_ctrl(dev);
 
 	if (!hdcp_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1689,8 +1722,7 @@ static ssize_t hdcp_1x_sysfs_wta_tp(struct device *dev,
 {
 	int msgid = 0;
 	ssize_t ret = count;
-	struct hdcp_1x_ctrl *hdcp_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+	struct hdcp_1x_ctrl *hdcp_ctrl = hdcp_1x_get_ctrl(dev);
 
 	if (!hdcp_ctrl || !buf) {
 		DEV_ERR("%s: invalid input\n", __func__);

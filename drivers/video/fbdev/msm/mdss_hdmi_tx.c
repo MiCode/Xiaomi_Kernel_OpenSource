@@ -1814,6 +1814,8 @@ static int hdmi_tx_init_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 			goto end;
 		} else {
 			hdmi_tx_set_fd(HDMI_TX_FEAT_HDCP, hdcp_data);
+			hdmi_ctrl->panel_data.panel_info.hdcp_1x_data =
+				hdcp_data;
 			DEV_DBG("%s: HDCP 1.4 initialized\n", __func__);
 		}
 	}
@@ -3115,9 +3117,8 @@ static int hdmi_tx_power_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 	void *pdata = hdmi_tx_get_fd(HDMI_TX_FEAT_PANEL);
 	void *edata = hdmi_tx_get_fd(HDMI_TX_FEAT_EDID);
 
-	if (hdmi_ctrl->panel_ops.get_vic)
-		hdmi_ctrl->vic = hdmi_ctrl->panel_ops.get_vic(
-			&panel_data->panel_info, &hdmi_ctrl->ds_data);
+	hdmi_panel_get_vic(&panel_data->panel_info,
+				&hdmi_ctrl->ds_data);
 
 	if (hdmi_ctrl->vic <= 0) {
 		DEV_ERR("%s: invalid vic\n", __func__);
@@ -3703,9 +3704,7 @@ static int hdmi_tx_evt_handle_check_param(struct hdmi_tx_ctrl *hdmi_ctrl)
 	int new_vic = -1;
 	int rc = 0;
 
-	if (hdmi_ctrl->panel_ops.get_vic)
-		new_vic = hdmi_ctrl->panel_ops.get_vic(
-			hdmi_ctrl->evt_arg, &hdmi_ctrl->ds_data);
+	new_vic = hdmi_panel_get_vic(hdmi_ctrl->evt_arg, &hdmi_ctrl->ds_data);
 
 	if ((new_vic < 0) || (new_vic > HDMI_VFRMT_MAX)) {
 		DEV_ERR("%s: invalid or not supported vic\n", __func__);

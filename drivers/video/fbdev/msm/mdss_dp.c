@@ -1394,6 +1394,8 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 		goto error;
 	}
 
+	dp_drv->panel_data.panel_info.hdcp_1x_data = dp_drv->hdcp_data;
+
 	pr_debug("HDCP 1.3 initialized\n");
 
 	dp_drv->hdcp_ops = hdcp_1x_start(dp_drv->hdcp_data);
