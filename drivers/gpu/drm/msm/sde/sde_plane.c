@@ -550,14 +550,17 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 	}
 
 	psde = to_sde_plane(plane);
-
-	ret = sde_format_populate_layout(psde->mmu_id, fb, &pipe_cfg->layout);
-	if (ret) {
-		SDE_ERROR_PLANE(psde, "failed to get format layout, %d\n", ret);
+	if (!psde->pipe_hw) {
+		SDE_ERROR_PLANE(psde, "invalid pipe_hw\n");
 		return;
 	}
 
-	if (psde->pipe_hw && psde->pipe_hw->ops.setup_sourceaddress)
+	ret = sde_format_populate_layout(psde->mmu_id, fb, &pipe_cfg->layout);
+	if (ret == -EAGAIN)
+		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
+	else if (ret)
+		SDE_ERROR_PLANE(psde, "failed to get format layout, %d\n", ret);
+	else if (psde->pipe_hw->ops.setup_sourceaddress)
 		psde->pipe_hw->ops.setup_sourceaddress(psde->pipe_hw, pipe_cfg);
 }
 
