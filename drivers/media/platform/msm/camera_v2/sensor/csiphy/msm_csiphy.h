@@ -24,10 +24,15 @@
 
 #define MAX_CSIPHY 3
 #define CSIPHY_NUM_CLK_MAX  16
+#define MAX_CSIPHY_SETTINGS 120
 
 struct csiphy_reg_t {
 	uint32_t addr;
 	uint32_t data;
+};
+
+struct csiphy_settings_t {
+	struct csiphy_reg_t settings[MAX_CSIPHY_SETTINGS];
 };
 
 struct csiphy_reg_parms_t {
@@ -140,6 +145,7 @@ struct csiphy_reg_3ph_parms_t {
 struct csiphy_ctrl_t {
 	struct csiphy_reg_parms_t csiphy_reg;
 	struct csiphy_reg_3ph_parms_t csiphy_3ph_reg;
+	struct csiphy_settings_t csiphy_combo_mode_settings;
 };
 
 enum msm_csiphy_state_t {
