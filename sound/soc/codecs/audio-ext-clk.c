@@ -89,6 +89,15 @@ static struct afe_clk_set lpass_default2 = {
 	0,
 };
 
+static struct afe_clk_set digital_cdc_core_clk = {
+	Q6AFE_LPASS_CLK_CONFIG_API_VERSION,
+	Q6AFE_LPASS_CLK_ID_INTERNAL_DIGITAL_CODEC_CORE,
+	Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	0,
+};
+
 static inline struct audio_ext_ap_clk *to_audio_ap_clk(struct clk *clk)
 {
 	return container_of(clk, struct audio_ext_ap_clk, c);
@@ -166,7 +175,6 @@ static int audio_ext_lpass_mclk_prepare(struct clk *clk)
 	struct pinctrl_info *pnctrl_info;
 	struct afe_clk_cfg *lpass_clk = NULL;
 	int ret, val = 0;
-	struct afe_digital_clk_cfg tasha_digital_cdc_clk;
 
 	audio_lpass_mclk = container_of(clk, struct audio_ext_lpass_mclk, c);
 	pnctrl_info = &audio_lpass_mclk->pnctrl_info;
@@ -177,7 +185,7 @@ static int audio_ext_lpass_mclk_prepare(struct clk *clk)
 
 	if (pnctrl_info->pinctrl) {
 		ret = pinctrl_select_state(pnctrl_info->pinctrl,
-					   pnctrl_info->active);
+				pnctrl_info->active);
 		if (ret) {
 			pr_err("%s: active state select failed with %d\n",
 				__func__, ret);
@@ -198,12 +206,6 @@ static int audio_ext_lpass_mclk_prepare(struct clk *clk)
 			return -EINVAL;
 		}
 	} else {
-		tasha_digital_cdc_clk.i2s_cfg_minor_version =
-			AFE_API_VERSION_I2S_CONFIG;
-		tasha_digital_cdc_clk.clk_val = Q6AFE_LPASS_OSR_CLK_9_P600_MHZ;
-		tasha_digital_cdc_clk.clk_root = 5;
-		tasha_digital_cdc_clk.reserved = 0;
-
 		if (audio_lpass_mclk->lpass_csr_gpio_mux_spkrctl_vaddr) {
 			val = ioread32(audio_lpass_mclk->
 					lpass_csr_gpio_mux_spkrctl_vaddr);
@@ -211,10 +213,10 @@ static int audio_ext_lpass_mclk_prepare(struct clk *clk)
 			iowrite32(val, audio_lpass_mclk->
 					lpass_csr_gpio_mux_spkrctl_vaddr);
 		}
-		ret = afe_set_digital_codec_core_clock(
-				AFE_PORT_ID_PRIMARY_MI2S_RX ,
-				&tasha_digital_cdc_clk);
 
+		digital_cdc_core_clk.enable = 1;
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
+				&digital_cdc_core_clk);
 		if (ret < 0) {
 			pr_err("%s afe_set_digital_codec_core_clock failed\n",
 					__func__);
@@ -233,7 +235,6 @@ static void audio_ext_lpass_mclk_unprepare(struct clk *clk)
 	struct pinctrl_info *pnctrl_info;
 	struct afe_clk_cfg *lpass_clk = NULL;
 	int ret;
-	struct afe_digital_clk_cfg tasha_digital_cdc_clk;
 
 	audio_lpass_mclk = container_of(clk, struct audio_ext_lpass_mclk, c);
 	pnctrl_info = &audio_lpass_mclk->pnctrl_info;
@@ -263,12 +264,9 @@ static void audio_ext_lpass_mclk_unprepare(struct clk *clk)
 				__func__, ret);
 
 	} else {
-		tasha_digital_cdc_clk.clk_val = 0;
-
-		ret = afe_set_digital_codec_core_clock(
-				AFE_PORT_ID_PRIMARY_MI2S_RX,
-				&tasha_digital_cdc_clk);
-
+		digital_cdc_core_clk.enable = 0;
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
+				&digital_cdc_core_clk);
 		if (ret < 0)
 			pr_err("%s: afe_set_digital_codec_core_clock failed, ret = %d\n",
 					__func__, ret);
