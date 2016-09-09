@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -179,6 +179,8 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_GET_APE_CONFIG_32: {
 		struct msm_audio_ape_config *ape_config;
 		struct msm_audio_ape_config_32 ape_config_32;
+
+		memset(&ape_config_32, 0, sizeof(ape_config_32));
 
 		ape_config = (struct msm_audio_ape_config *)audio->codec_cfg;
 		ape_config_32.compatibleVersion = ape_config->compatibleVersion;
