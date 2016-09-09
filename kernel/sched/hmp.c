@@ -943,9 +943,12 @@ unsigned int __read_mostly sysctl_sched_restrict_cluster_spill;
 /*
  * Scheduler tries to avoid waking up idle CPUs for tasks running
  * in short bursts. If the task average burst is less than
- * sysctl_sched_short_burst nanoseconds, it is eligible for packing.
+ * sysctl_sched_short_burst nanoseconds and it sleeps on an average
+ * for more than sysctl_sched_short_sleep nanoseconds, then the
+ * task is eligible for packing.
  */
 unsigned int __read_mostly sysctl_sched_short_burst;
+unsigned int __read_mostly sysctl_sched_short_sleep = 1 * NSEC_PER_MSEC;
 
 static void
 _update_up_down_migrate(unsigned int *up_migrate, unsigned int *down_migrate)

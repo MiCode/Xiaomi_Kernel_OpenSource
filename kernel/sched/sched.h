@@ -1446,7 +1446,8 @@ static inline u64 cpu_cravg_sync(int cpu, int sync)
 
 static inline bool is_short_burst_task(struct task_struct *p)
 {
-	return p->ravg.avg_burst < sysctl_sched_short_burst;
+	return p->ravg.avg_burst < sysctl_sched_short_burst &&
+	       p->ravg.avg_sleep_time > sysctl_sched_short_sleep;
 }
 
 extern void check_for_migration(struct rq *rq, struct task_struct *p);
