@@ -323,6 +323,17 @@ enum arm_smmu_implementation {
 	QCOM_SMMUV2,
 };
 
+struct arm_smmu_device;
+struct arm_smmu_arch_ops {
+	int (*init)(struct arm_smmu_device *smmu);
+	void (*device_reset)(struct arm_smmu_device *smmu);
+	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
+					 dma_addr_t iova);
+	void (*iova_to_phys_fault)(struct iommu_domain *domain,
+				dma_addr_t iova, phys_addr_t *phys1,
+				phys_addr_t *phys_post_tlbiall);
+};
+
 struct arm_smmu_impl_def_reg {
 	u32 offset;
 	u32 value;
@@ -420,6 +431,9 @@ struct arm_smmu_device {
 	/* protects idr */
 	struct mutex			idr_mutex;
 	struct idr			asid_idr;
+
+	struct arm_smmu_arch_ops	*arch_ops;
+	void				*archdata;
 };
 
 enum arm_smmu_context_fmt {
@@ -518,6 +532,9 @@ static int arm_smmu_prepare_pgtable(void *addr, void *cookie);
 static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
 static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
+
+static int arm_smmu_arch_init(struct arm_smmu_device *smmu);
+static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -3020,6 +3037,9 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	/* Push the button */
 	__arm_smmu_tlb_sync(smmu);
 	writel(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
+
+	/* Manage any implementation defined features */
+	arm_smmu_arch_device_reset(smmu);
 }
 
 static int arm_smmu_id_size_to_bits(int size)
@@ -3385,20 +3405,43 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static int arm_smmu_arch_init(struct arm_smmu_device *smmu)
+{
+	if (!smmu->arch_ops)
+		return 0;
+	if (!smmu->arch_ops->init)
+		return 0;
+	return smmu->arch_ops->init(smmu);
+}
+
+static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu)
+{
+	if (!smmu->arch_ops)
+		return;
+	if (!smmu->arch_ops->device_reset)
+		return;
+	return smmu->arch_ops->device_reset(smmu);
+}
+
 struct arm_smmu_match_data {
 	enum arm_smmu_arch_version version;
 	enum arm_smmu_implementation model;
+	struct arm_smmu_arch_ops *arch_ops;
 };
 
-#define ARM_SMMU_MATCH_DATA(name, ver, imp)	\
-static struct arm_smmu_match_data name = { .version = ver, .model = imp }
+#define ARM_SMMU_MATCH_DATA(name, ver, imp, ops)	\
+static struct arm_smmu_match_data name = {		\
+.version = ver,						\
+.model = imp,						\
+.arch_ops = ops,					\
+}							\
 
-ARM_SMMU_MATCH_DATA(smmu_generic_v1, ARM_SMMU_V1, GENERIC_SMMU);
-ARM_SMMU_MATCH_DATA(smmu_generic_v2, ARM_SMMU_V2, GENERIC_SMMU);
-ARM_SMMU_MATCH_DATA(arm_mmu401, ARM_SMMU_V1_64K, GENERIC_SMMU);
-ARM_SMMU_MATCH_DATA(arm_mmu500, ARM_SMMU_V2, ARM_MMU500);
-ARM_SMMU_MATCH_DATA(cavium_smmuv2, ARM_SMMU_V2, CAVIUM_SMMUV2);
-ARM_SMMU_MATCH_DATA(qcom_smmuv2, ARM_SMMU_V2, QCOM_SMMUV2);
+ARM_SMMU_MATCH_DATA(smmu_generic_v1, ARM_SMMU_V1, GENERIC_SMMU, NULL);
+ARM_SMMU_MATCH_DATA(smmu_generic_v2, ARM_SMMU_V2, GENERIC_SMMU, NULL);
+ARM_SMMU_MATCH_DATA(arm_mmu401, ARM_SMMU_V1_64K, GENERIC_SMMU, NULL);
+ARM_SMMU_MATCH_DATA(arm_mmu500, ARM_SMMU_V2, ARM_MMU500, NULL);
+ARM_SMMU_MATCH_DATA(cavium_smmuv2, ARM_SMMU_V2, CAVIUM_SMMUV2, NULL);
+ARM_SMMU_MATCH_DATA(qcom_smmuv2, ARM_SMMU_V2, QCOM_SMMUV2, NULL);
 
 static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,smmu-v1", .data = &smmu_generic_v1 },
@@ -3438,6 +3481,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	data = of_id->data;
 	smmu->version = data->version;
 	smmu->model = data->model;
+	smmu->arch_ops = data->arch_ops;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	smmu->base = devm_ioremap_resource(dev, res);
@@ -3542,8 +3586,13 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	list_add(&smmu->list, &arm_smmu_devices);
 	spin_unlock(&arm_smmu_devices_lock);
 
+	err = arm_smmu_arch_init(smmu);
+	if (err)
+		goto out_put_masters;
+
 	arm_smmu_device_reset(smmu);
 	arm_smmu_power_off(smmu);
+
 	return 0;
 
 out_put_masters:
