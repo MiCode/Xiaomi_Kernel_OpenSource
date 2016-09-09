@@ -74,11 +74,6 @@ inline void clear_ed_task(struct task_struct *p, struct rq *rq)
 		rq->ed_task = NULL;
 }
 
-inline void set_task_last_wake(struct task_struct *p, u64 wallclock)
-{
-	p->last_wake_ts = wallclock;
-}
-
 inline void set_task_last_switch_out(struct task_struct *p, u64 wallclock)
 {
 	p->last_switch_out_ts = wallclock;
@@ -1548,6 +1543,7 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 	 * the avg_burst to go below the threshold.
 	 */
 	p->ravg.avg_burst = 2 * (u64)sysctl_sched_short_burst;
+	p->ravg.avg_sleep_time = 0;
 
 	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
 	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
@@ -4486,6 +4482,14 @@ void update_avg_burst(struct task_struct *p)
 {
 	update_avg(&p->ravg.avg_burst, p->ravg.curr_burst);
 	p->ravg.curr_burst = 0;
+}
+
+void note_task_waking(struct task_struct *p, u64 wallclock)
+{
+	u64 sleep_time = wallclock - p->last_switch_out_ts;
+
+	p->last_wake_ts = wallclock;
+	update_avg(&p->ravg.avg_sleep_time, sleep_time);
 }
 
 #ifdef CONFIG_CGROUP_SCHED

@@ -1450,7 +1450,7 @@ struct ravg {
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
 	u32 *curr_window_cpu, *prev_window_cpu;
 	u32 curr_window, prev_window;
-	u64 curr_burst, avg_burst;
+	u64 curr_burst, avg_burst, avg_sleep_time;
 	u16 active_windows;
 	u32 pred_demand;
 	u8 busy_buckets[NUM_BUSY_BUCKETS];

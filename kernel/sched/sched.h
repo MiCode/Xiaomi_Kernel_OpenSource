@@ -1147,7 +1147,7 @@ extern void mark_task_starting(struct task_struct *p);
 extern void set_window_start(struct rq *rq);
 extern void migrate_sync_cpu(int cpu, int new_cpu);
 extern void update_cluster_topology(void);
-extern void set_task_last_wake(struct task_struct *p, u64 wallclock);
+extern void note_task_waking(struct task_struct *p, u64 wallclock);
 extern void set_task_last_switch_out(struct task_struct *p, u64 wallclock);
 extern void init_clusters(void);
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
@@ -1544,7 +1544,7 @@ static inline void set_window_start(struct rq *rq) { }
 static inline void migrate_sync_cpu(int cpu, int new_cpu) {}
 static inline void init_clusters(void) {}
 static inline void update_cluster_topology(void) { }
-static inline void set_task_last_wake(struct task_struct *p, u64 wallclock) { }
+static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 static inline void set_task_last_switch_out(struct task_struct *p,
 					    u64 wallclock) { }
 
