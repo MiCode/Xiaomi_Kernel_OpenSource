@@ -207,11 +207,19 @@ msmcobalt_v1_kbss_fuse_ref_volt[MSMCOBALT_KBSS_FUSE_CORNERS] = {
  * Open loop voltage fuse reference voltages in microvolts for MSMCOBALT v2
  */
 static const int
-msmcobalt_v2_kbss_fuse_ref_volt[MSMCOBALT_KBSS_FUSE_CORNERS] = {
-	688000,
-	756000,
-	828000,
-	1056000,
+msmcobalt_v2_kbss_fuse_ref_volt[2][MSMCOBALT_KBSS_FUSE_CORNERS] = {
+	[MSMCOBALT_KBSS_POWER_CLUSTER_ID] = {
+		688000,
+		756000,
+		828000,
+		1056000,
+	},
+	[MSMCOBALT_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		756000,
+		756000,
+		828000,
+		1056000,
+	},
 };
 
 #define MSMCOBALT_KBSS_FUSE_STEP_VOLT		10000
@@ -392,7 +400,7 @@ static int cprh_msmcobalt_kbss_calculate_open_loop_voltages(
 {
 	struct device_node *node = vreg->of_node;
 	struct cprh_msmcobalt_kbss_fuses *fuse = vreg->platform_fuses;
-	int i, j, soc_revision, rc = 0;
+	int i, j, soc_revision, id, rc = 0;
 	bool allow_interpolation;
 	u64 freq_low, volt_low, freq_high, volt_high;
 	const int *ref_volt;
@@ -408,13 +416,12 @@ static int cprh_msmcobalt_kbss_calculate_open_loop_voltages(
 		goto done;
 	}
 
+	id = vreg->thread->ctrl->ctrl_id;
 	soc_revision = vreg->thread->ctrl->soc_revision;
 	if (soc_revision == 1)
 		ref_volt = msmcobalt_v1_kbss_fuse_ref_volt;
-	else if (soc_revision == 2)
-		ref_volt = msmcobalt_v2_kbss_fuse_ref_volt;
 	else
-		ref_volt = msmcobalt_v2_kbss_fuse_ref_volt;
+		ref_volt = msmcobalt_v2_kbss_fuse_ref_volt[id];
 
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(
