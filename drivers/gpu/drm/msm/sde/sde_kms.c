@@ -49,6 +49,26 @@ static const char * const iommu_ports[] = {
 #define SDE_DEBUGFS_DIR "msm_sde"
 #define SDE_DEBUGFS_HWMASKNAME "hw_log_mask"
 
+/**
+ * sdecustom - enable certain driver customizations for sde clients
+ *	Enabling this modifies the standard DRM behavior slightly and assumes
+ *	that the clients have specific knowledge about the modifications that
+ *	are involved, so don't enable this unless you know what you're doing.
+ *
+ *	Parts of the driver that are affected by this setting may be located by
+ *	searching for invocations of the 'sde_is_custom_client()' function.
+ *
+ *	This is disabled by default.
+ */
+static bool sdecustom;
+module_param(sdecustom, bool, 0400);
+MODULE_PARM_DESC(sdecustom, "Enable customizations for sde clients");
+
+bool sde_is_custom_client(void)
+{
+	return sdecustom;
+}
+
 static int sde_debugfs_show_regset32(struct seq_file *s, void *data)
 {
 	struct sde_debugfs_regset32 *regset;
@@ -312,7 +332,7 @@ static int modeset_init(struct sde_kms *sde_kms)
 	int primary_planes_idx, i, ret;
 	int max_crtc_count, max_plane_count;
 
-	if (!sde_kms || !sde_kms->dev) {
+	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev) {
 		SDE_ERROR("invalid sde_kms\n");
 		return -EINVAL;
 	}
@@ -359,6 +379,13 @@ static int modeset_init(struct sde_kms *sde_kms)
 			goto fail;
 		}
 		priv->crtcs[priv->num_crtcs++] = crtc;
+	}
+
+	if (sde_is_custom_client()) {
+		/* All CRTCs are compatible with all planes */
+		for (i = 0; i < priv->num_planes; i++)
+			priv->planes[i]->possible_crtcs =
+				(1 << priv->num_crtcs) - 1;
 	}
 
 	/* All CRTCs are compatible with all encoders */
