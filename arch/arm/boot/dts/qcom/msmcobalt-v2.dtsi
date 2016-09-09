@@ -26,6 +26,25 @@
 
 &clock_cpu {
 	compatible = "qcom,cpu-clock-osm-msmcobalt-v2";
+	reg = <0x179c0000 0x4000>,
+	      <0x17916000 0x1000>,
+	      <0x17816000 0x1000>,
+	      <0x179d1000 0x1000>,
+	      <0x17914800 0x800>,
+	      <0x17814800 0x800>,
+	      <0x00784130 0x8>,
+	      <0x1791101c 0x8>;
+	reg-names = "osm", "pwrcl_pll", "perfcl_pll",
+		    "apcs_common", "pwrcl_acd", "perfcl_acd",
+		    "perfcl_efuse", "debug";
+
+	qcom,acdtd-val = <0x00009611 0x00009611>;
+	qcom,acdcr-val = <0x002b5ffd 0x002b5ffd>;
+	qcom,acdsscr-val = <0x00000501 0x00000501>;
+	qcom,acdextint0-val = <0x2cf9ae8 0x2cf9ae8>;
+	qcom,acdextint1-val = <0x2cf9afc 0x2cf9afc>;
+	qcom,acdautoxfer-val = <0x00000015 0x00000015>;
+
 	/delete-property/ qcom,llm-sw-overr;
 	qcom,pwrcl-speedbin0-v0 =
 		<   300000000 0x0004000f 0x01200020 0x1 1 >,
