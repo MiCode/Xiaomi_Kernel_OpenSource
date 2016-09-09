@@ -451,8 +451,9 @@
 	msm_ext_disp: qcom,msm_ext_disp {
 		compatible = "qcom,msm-ext-disp";
 
-		hdmi_audio: qcom,msm-hdmi-audio-rx {
-			compatible = "qcom,msm-hdmi-audio-codec-rx";
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+			qcom,msm_ext_disp = <&msm_ext_disp>;
 		};
 	};
 
