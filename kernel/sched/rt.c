@@ -1742,6 +1742,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	int i;
 	int restrict_cluster;
 	int boost_on_big;
+	int pack_task, wakeup_latency, least_wakeup_latency = INT_MAX;
 
 	boost_on_big = sched_boost() == FULL_THROTTLE_BOOST &&
 			sched_boost_policy() == SCHED_BOOST_ON_BIG;
@@ -1757,6 +1758,8 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 
 	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask))
 		return best_cpu; /* No targets found */
+
+	pack_task = is_short_burst_task(task);
 
 	/*
 	 * At this point we have built a mask of cpus representing the
@@ -1783,6 +1786,20 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 			if (!restrict_cluster)
 				cpu_load = scale_load_to_cpu(cpu_load, i);
 
+			if (pack_task) {
+				wakeup_latency = cpu_rq(i)->wakeup_latency;
+
+				if (wakeup_latency > least_wakeup_latency)
+					continue;
+
+				if (wakeup_latency < least_wakeup_latency) {
+					least_wakeup_latency = wakeup_latency;
+					min_load = cpu_load;
+					best_cpu = i;
+					continue;
+				}
+			}
+
 			if (cpu_load < min_load ||
 				(cpu_load == min_load &&
 				(i == prev_cpu || (best_cpu != prev_cpu &&
@@ -1791,6 +1808,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 				best_cpu = i;
 			}
 		}
+
 		if (restrict_cluster && best_cpu != -1)
 			break;
 	}

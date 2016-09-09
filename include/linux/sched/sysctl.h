@@ -47,6 +47,7 @@ extern unsigned int sysctl_sched_freq_aggregate;
 extern unsigned int sysctl_sched_enable_thread_grouping;
 extern unsigned int sysctl_sched_freq_aggregate_threshold_pct;
 extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
+extern unsigned int sysctl_sched_short_burst;
 #endif /* CONFIG_SCHED_HMP */
 
 enum sched_tunable_scaling {

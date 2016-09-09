@@ -1242,6 +1242,11 @@ static inline int cpu_max_power_cost(int cpu)
 	return cpu_rq(cpu)->cluster->max_power_cost;
 }
 
+static inline int cpu_min_power_cost(int cpu)
+{
+	return cpu_rq(cpu)->cluster->min_power_cost;
+}
+
 static inline u32 cpu_cycles_to_freq(u64 cycles, u32 period)
 {
 	return div64_u64(cycles, period);
@@ -1437,6 +1442,11 @@ static inline u64 cpu_cravg_sync(int cpu, int sync)
 	}
 
 	return load;
+}
+
+static inline bool is_short_burst_task(struct task_struct *p)
+{
+	return p->ravg.avg_burst < sysctl_sched_short_burst;
 }
 
 extern void check_for_migration(struct rq *rq, struct task_struct *p);

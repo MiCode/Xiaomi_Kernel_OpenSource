@@ -2799,6 +2799,7 @@ static u32 __compute_runnable_contrib(u64 n)
 #define SBC_FLAG_CSTATE_LOAD				0x100
 #define SBC_FLAG_BEST_SIBLING				0x200
 #define SBC_FLAG_WAKER_CPU				0x400
+#define SBC_FLAG_PACK_TASK				0x800
 
 /* Cluster selection flag */
 #define SBC_FLAG_COLOC_CLUSTER				0x10000
@@ -2815,6 +2816,7 @@ struct cpu_select_env {
 	u8 sync:1;
 	u8 ignore_prev_cpu:1;
 	enum sched_boost_policy boost_policy;
+	u8 pack_task:1;
 	int prev_cpu;
 	DECLARE_BITMAP(candidate_list, NR_CPUS);
 	DECLARE_BITMAP(backup_list, NR_CPUS);
@@ -3166,8 +3168,17 @@ static void update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 {
 	int cpu_cost;
 
-	cpu_cost = power_cost(cpu, task_load(env->p) +
+	/*
+	 * We try to find the least loaded *busy* CPU irrespective
+	 * of the power cost.
+	 */
+	if (env->pack_task)
+		cpu_cost = cpu_min_power_cost(cpu);
+
+	else
+		cpu_cost = power_cost(cpu, task_load(env->p) +
 				cpu_cravg_sync(cpu, env->sync));
+
 	if (cpu_cost <= stats->min_cost)
 		__update_cluster_stats(cpu, stats, env, cpu_cost);
 }
@@ -3242,6 +3253,15 @@ static inline int wake_to_idle(struct task_struct *p)
 		 (p->flags & PF_WAKE_UP_IDLE) || sysctl_sched_wake_to_idle;
 }
 
+static inline bool env_has_special_flags(struct cpu_select_env *env)
+{
+	if (env->need_idle || env->boost_policy != SCHED_BOOST_NONE ||
+	    env->reason)
+		return true;
+
+	return false;
+}
+
 static inline bool
 bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 {
@@ -3249,9 +3269,7 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 	struct task_struct *task = env->p;
 	struct sched_cluster *cluster;
 
-	if (env->boost_policy != SCHED_BOOST_NONE || env->reason ||
-	    !task->ravg.mark_start ||
-	    env->need_idle || !sched_short_sleep_task_threshold)
+	if (!task->ravg.mark_start || !sched_short_sleep_task_threshold)
 		return false;
 
 	prev_cpu = env->prev_cpu;
@@ -3300,8 +3318,7 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 static inline bool
 wake_to_waker_cluster(struct cpu_select_env *env)
 {
-	return env->boost_policy == SCHED_BOOST_NONE &&
-	       !env->need_idle && !env->reason && env->sync &&
+	return env->sync &&
 	       task_load(current) > sched_big_waker_task_load &&
 	       task_load(env->p) < sched_small_wakee_task_load;
 }
@@ -3326,7 +3343,6 @@ cluster_allowed(struct task_struct *p, struct sched_cluster *cluster)
 	return !cpumask_empty(&tmp_mask);
 }
 
-
 /* return cheapest cpu that can fit this task */
 static int select_best_cpu(struct task_struct *p, int target, int reason,
 			   int sync)
@@ -3336,6 +3352,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	struct related_thread_group *grp;
 	unsigned int sbc_flag = 0;
 	int cpu = raw_smp_processor_id();
+	bool special;
 
 	struct cpu_select_env env = {
 		.p			= p,
@@ -3348,6 +3365,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		.rtg			= NULL,
 		.sbc_best_flag		= 0,
 		.sbc_best_cluster_flag	= 0,
+		.pack_task              = false,
 	};
 
 	env.boost_policy = task_sched_boost(p) ?
@@ -3357,6 +3375,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	bitmap_zero(env.backup_list, NR_CPUS);
 
 	init_cluster_cpu_stats(&stats);
+	special = env_has_special_flags(&env);
 
 	rcu_read_lock();
 
@@ -3368,7 +3387,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			clear_bit(pref_cluster->id, env.candidate_list);
 		else
 			env.rtg = grp;
-	} else {
+	} else if (!special) {
 		cluster = cpu_rq(cpu)->cluster;
 		if (wake_to_waker_cluster(&env)) {
 			if (bias_to_waker_cpu(p, cpu)) {
@@ -3389,6 +3408,10 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		}
 	}
 
+	if (!special && is_short_burst_task(p)) {
+		env.pack_task = true;
+		sbc_flag = SBC_FLAG_PACK_TASK;
+	}
 retry:
 	cluster = select_least_power_cluster(&env);
 

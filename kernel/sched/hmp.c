@@ -945,6 +945,13 @@ sched_long_cpu_selection_threshold = 100 * NSEC_PER_MSEC;
 
 unsigned int __read_mostly sysctl_sched_restrict_cluster_spill;
 
+/*
+ * Scheduler tries to avoid waking up idle CPUs for tasks running
+ * in short bursts. If the task average burst is less than
+ * sysctl_sched_short_burst nanoseconds, it is eligible for packing.
+ */
+unsigned int __read_mostly sysctl_sched_short_burst;
+
 static void
 _update_up_down_migrate(unsigned int *up_migrate, unsigned int *down_migrate)
 {
@@ -1534,7 +1541,13 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
 	p->ravg.curr_burst = 0;
-	p->ravg.avg_burst = 0;
+	/*
+	 * Initialize the avg_burst to twice the threshold, so that
+	 * a task would not be classified as short burst right away
+	 * after fork. It takes at least 6 sleep-wakeup cycles for
+	 * the avg_burst to go below the threshold.
+	 */
+	p->ravg.avg_burst = 2 * (u64)sysctl_sched_short_burst;
 
 	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
 	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
@@ -2964,6 +2977,8 @@ void reset_task_stats(struct task_struct *p)
 
 	p->ravg.curr_window_cpu = curr_window_ptr;
 	p->ravg.prev_window_cpu = prev_window_ptr;
+
+	p->ravg.avg_burst = 2 * (u64)sysctl_sched_short_burst;
 
 	/* Retain EXITING_TASK marker */
 	p->ravg.sum_history[0] = sum;
