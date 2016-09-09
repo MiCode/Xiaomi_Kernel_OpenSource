@@ -1457,7 +1457,8 @@ static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 
 /* initialize plane */
 struct drm_plane *sde_plane_init(struct drm_device *dev,
-		uint32_t pipe, bool primary_plane)
+		uint32_t pipe, bool primary_plane,
+		unsigned long possible_crtcs)
 {
 	struct drm_plane *plane = NULL;
 	struct sde_plane *psde;
@@ -1540,9 +1541,8 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 		type = DRM_PLANE_TYPE_PRIMARY;
 	else
 		type = DRM_PLANE_TYPE_OVERLAY;
-	ret = drm_universal_plane_init(dev, plane, 0xff, &sde_plane_funcs,
-				psde->formats, psde->nformats,
-				type);
+	ret = drm_universal_plane_init(dev, plane, possible_crtcs,
+			&sde_plane_funcs, psde->formats, psde->nformats, type);
 	if (ret)
 		goto clean_sspp;
 
