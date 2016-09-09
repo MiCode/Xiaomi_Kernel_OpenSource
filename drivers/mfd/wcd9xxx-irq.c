@@ -450,9 +450,21 @@ int wcd9xxx_irq_init(struct wcd9xxx_core_resource *wcd9xxx_res)
 {
 	int i, ret;
 	u8 irq_level[wcd9xxx_res->num_irq_regs];
+	struct irq_domain *domain;
+	struct device_node *pnode;
 
 	mutex_init(&wcd9xxx_res->irq_lock);
 	mutex_init(&wcd9xxx_res->nested_irq_lock);
+
+	pnode = of_irq_find_parent(wcd9xxx_res->dev->of_node);
+	if (unlikely(!pnode))
+		return -EINVAL;
+
+	domain = irq_find_host(pnode);
+	if (unlikely(!domain))
+		return -EINVAL;
+
+	wcd9xxx_res->domain = domain;
 
 	wcd9xxx_res->irq = wcd9xxx_irq_get_upstream_irq(wcd9xxx_res);
 	if (!wcd9xxx_res->irq) {
@@ -553,7 +565,6 @@ void wcd9xxx_irq_exit(struct wcd9xxx_core_resource *wcd9xxx_res)
 	if (wcd9xxx_res->irq) {
 		disable_irq_wake(wcd9xxx_res->irq);
 		free_irq(wcd9xxx_res->irq, wcd9xxx_res);
-		/* Release parent's of node */
 		wcd9xxx_res->irq = 0;
 		wcd9xxx_irq_put_upstream_irq(wcd9xxx_res);
 	}
@@ -626,19 +637,14 @@ wcd9xxx_irq_add_domain(struct device_node *node,
 static struct wcd9xxx_irq_drv_data *
 wcd9xxx_get_irq_drv_d(const struct wcd9xxx_core_resource *wcd9xxx_res)
 {
-	struct device_node *pnode;
 	struct irq_domain *domain;
 
-	pnode = of_irq_find_parent(wcd9xxx_res->dev->of_node);
-	/* Shouldn't happen */
-	if (unlikely(!pnode))
-		return NULL;
+	domain = wcd9xxx_res->domain;
 
-	domain = irq_find_host(pnode);
-	if (unlikely(!domain))
+	if (domain)
+		return domain->host_data;
+	else
 		return NULL;
-
-	return (struct wcd9xxx_irq_drv_data *)domain->host_data;
 }
 
 static int phyirq_to_virq(struct wcd9xxx_core_resource *wcd9xxx_res, int offset)
@@ -669,10 +675,6 @@ static unsigned int wcd9xxx_irq_get_upstream_irq(
 {
 	struct wcd9xxx_irq_drv_data *data;
 
-	/* Hold parent's of node */
-	if (!of_node_get(of_irq_find_parent(wcd9xxx_res->dev->of_node)))
-		return -EINVAL;
-
 	data = wcd9xxx_get_irq_drv_d(wcd9xxx_res);
 	if (!data) {
 		pr_err("%s: interrupt controller is not registerd\n", __func__);
@@ -686,8 +688,7 @@ static unsigned int wcd9xxx_irq_get_upstream_irq(
 static void wcd9xxx_irq_put_upstream_irq(
 			struct wcd9xxx_core_resource *wcd9xxx_res)
 {
-	/* Hold parent's of node */
-	of_node_put(of_irq_find_parent(wcd9xxx_res->dev->of_node));
+	wcd9xxx_res->domain = NULL;
 }
 
 static int wcd9xxx_map_irq(struct wcd9xxx_core_resource *wcd9xxx_res, int irq)
