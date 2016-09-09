@@ -113,6 +113,7 @@ extern int subsystem_crashed(const char *name);
 
 extern void *subsystem_get(const char *name);
 extern void *subsystem_get_with_fwname(const char *name, const char *fw_name);
+extern int subsystem_set_fwname(const char *name, const char *fw_name);
 extern void subsystem_put(void *subsystem);
 
 extern struct subsys_device *subsys_register(struct subsys_desc *desc);
@@ -155,6 +156,11 @@ static inline void *subsystem_get(const char *name)
 static inline void *subsystem_get_with_fwname(const char *name,
 				const char *fw_name) {
 	return NULL;
+}
+
+static inline int subsystem_set_fwname(const char *name,
+				const char *fw_name) {
+	return 0;
 }
 
 static inline void subsystem_put(void *subsystem) { }
