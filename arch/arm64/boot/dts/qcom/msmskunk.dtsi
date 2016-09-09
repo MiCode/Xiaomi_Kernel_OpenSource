@@ -519,6 +519,19 @@
 			reg = <0x10 8>;
 		};
 	};
+
+	kryo3xx-erp {
+		compatible = "arm,arm64-kryo3xx-cpu-erp";
+		interrupts = <1 6 4>,
+			     <1 7 4>,
+			     <0 34 4>,
+			     <0 35 4>;
+
+		interrupt-names = "l1-l2-faultirq",
+				  "l1-l2-errirq",
+				  "l3-scu-errirq",
+				  "l3-scu-faultirq";
+	};
 };
 
 &pcie_0_gdsc {
