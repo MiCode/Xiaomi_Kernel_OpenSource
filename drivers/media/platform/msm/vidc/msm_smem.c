@@ -326,6 +326,17 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 	return mem;
 }
 
+bool msm_smem_compare_buffers(void *clt, int fd, void *priv) {
+    struct smem_client *client = clt;
+    struct ion_handle *handle = NULL;
+    bool ret = false;
+    handle = ion_import_dma_buf(client->clnt, fd);
+    ret = handle == priv;
+    handle ? ion_free(client->clnt, handle) : 0;
+    return ret;
+}
+
+
 static int ion_cache_operations(struct smem_client *client,
 	struct msm_smem *mem, enum smem_cache_ops cache_op)
 {
