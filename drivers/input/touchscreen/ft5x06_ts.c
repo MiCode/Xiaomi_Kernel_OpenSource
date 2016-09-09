@@ -50,7 +50,9 @@
 #if defined(CONFIG_FT_SECURE_TOUCH)
 #include <linux/completion.h>
 #include <linux/atomic.h>
+#include <linux/clk.h>
 #include <linux/pm_runtime.h>
+static irqreturn_t ft5x06_ts_interrupt(int irq, void *data);
 #endif
 
 #define FT_DRIVER_VERSION	0x02
@@ -154,9 +156,6 @@
 #define FT_FW_FILE_MAJ_VER_FT6X36(x)	((x)->data[0x10a])
 #define FT_FW_FILE_VENDOR_ID_FT6X36(x)	((x)->data[0x108])
 
-#define FT_SYSFS_TS_INFO		"ts_info"
-
-
 /**
 * Application data verification will be run before upgrade flow.
 * Firmware image stores some flags with negative and positive value
@@ -223,8 +222,17 @@ enum {
 	FT_FT5336_FAMILY_ID_0x14 = 0x14,
 };
 
-#define FT_STORE_TS_INFO(buf, id, name, max_tch, group_id, fw_vkey_support, \
-			fw_name, fw_maj, fw_min, fw_sub_min) \
+#define FT_STORE_TS_INFO(buf, id, fw_maj, fw_min, fw_sub_min) \
+			snprintf(buf, FT_INFO_MAX_LEN, \
+				"vendor name = Focaltech\n" \
+				"model = 0x%x\n" \
+				"fw_version = %d.%d.%d\n", \
+				id, fw_maj, fw_min, fw_sub_min)
+#define FT_TS_INFO_SYSFS_DIR_NAME "ts_info"
+static char *ts_info_buff;
+
+#define FT_STORE_TS_DBG_INFO(buf, id, name, max_tch, group_id, \
+			fw_vkey_support, fw_name, fw_maj, fw_min, fw_sub_min) \
 			snprintf(buf, FT_INFO_MAX_LEN, \
 				"controller\t= focaltech\n" \
 				"model\t\t= 0x%x\n" \
@@ -260,7 +268,7 @@ struct ft5x06_ts_data {
 	u32 tch_data_len;
 	u8 fw_ver[3];
 	u8 fw_vendor_id;
-	struct kobject ts_info_kobj;
+	struct kobject *ts_info_kobj;
 #if defined(CONFIG_FB)
 	struct work_struct fb_notify_work;
 	struct notifier_block fb_notif;
@@ -276,6 +284,9 @@ struct ft5x06_ts_data {
 	atomic_t st_pending_irqs;
 	struct completion st_powerdown;
 	struct completion st_irq_processed;
+	bool st_initialized;
+	struct clk *core_clk;
+	struct clk *iface_clk;
 #endif
 };
 
@@ -285,8 +296,26 @@ static int ft5x06_ts_stop(struct device *dev);
 #if defined(CONFIG_FT_SECURE_TOUCH)
 static void ft5x06_secure_touch_init(struct ft5x06_ts_data *data)
 {
+	data->st_initialized = 0;
+
 	init_completion(&data->st_powerdown);
 	init_completion(&data->st_irq_processed);
+
+	/* Get clocks */
+	data->core_clk = devm_clk_get(&data->client->dev, "core_clk");
+	if (IS_ERR(data->core_clk)) {
+		data->core_clk = NULL;
+		dev_warn(&data->client->dev,
+			"%s: core_clk is not defined\n", __func__);
+	}
+
+	data->iface_clk = devm_clk_get(&data->client->dev, "iface_clk");
+	if (IS_ERR(data->iface_clk)) {
+		data->iface_clk = NULL;
+		dev_warn(&data->client->dev,
+			"%s: iface_clk is not defined", __func__);
+	}
+	data->st_initialized = 1;
 }
 
 static void ft5x06_secure_touch_notify(struct ft5x06_ts_data *data)
@@ -324,12 +353,43 @@ static void ft5x06_secure_touch_stop(struct ft5x06_ts_data *data, bool blocking)
 	}
 }
 
+static int ft5x06_clk_prepare_enable(struct ft5x06_ts_data *data)
+{
+	int ret;
+
+	ret = clk_prepare_enable(data->iface_clk);
+	if (ret) {
+		dev_err(&data->client->dev,
+			"error on clk_prepare_enable(iface_clk):%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(data->core_clk);
+	if (ret) {
+		clk_disable_unprepare(data->iface_clk);
+		dev_err(&data->client->dev,
+			"error clk_prepare_enable(core_clk):%d\n", ret);
+	}
+	return ret;
+}
+
+static void ft5x06_clk_disable_unprepare(struct ft5x06_ts_data *data)
+{
+	clk_disable_unprepare(data->core_clk);
+	clk_disable_unprepare(data->iface_clk);
+}
+
 static int ft5x06_bus_get(struct ft5x06_ts_data *data)
 {
 	int retval;
 
 	mutex_lock(&data->ft_clk_io_ctrl_mutex);
 	retval = pm_runtime_get_sync(data->client->adapter->dev.parent);
+	if (retval >= 0 &&  data->core_clk != NULL && data->iface_clk != NULL) {
+		retval = ft5x06_clk_prepare_enable(data);
+		if (retval)
+			pm_runtime_put_sync(data->client->adapter->dev.parent);
+	}
 	mutex_unlock(&data->ft_clk_io_ctrl_mutex);
 	return retval;
 }
@@ -337,6 +397,8 @@ static int ft5x06_bus_get(struct ft5x06_ts_data *data)
 static void ft5x06_bus_put(struct ft5x06_ts_data *data)
 {
 	mutex_lock(&data->ft_clk_io_ctrl_mutex);
+	if (data->core_clk != NULL && data->iface_clk != NULL)
+		ft5x06_clk_disable_unprepare(data);
 	pm_runtime_put_sync(data->client->adapter->dev.parent);
 	mutex_unlock(&data->ft_clk_io_ctrl_mutex);
 }
@@ -374,6 +436,9 @@ static ssize_t ft5x06_secure_touch_enable_store(struct device *dev,
 	if (err != 0)
 		return err;
 
+	if (!data->st_initialized)
+		return -EIO;
+
 	err = count;
 	switch (value) {
 	case 0:
@@ -394,8 +459,7 @@ static ssize_t ft5x06_secure_touch_enable_store(struct device *dev,
 		}
 		synchronize_irq(data->client->irq);
 		if (ft5x06_bus_get(data) < 0) {
-			dev_err(data->client->dev.parent,
-					"focalTech_bus_get failed\n");
+			dev_err(&data->client->dev, "ft5x06_bus_get failed\n");
 			err = -EIO;
 			break;
 		}
@@ -406,8 +470,7 @@ static ssize_t ft5x06_secure_touch_enable_store(struct device *dev,
 		break;
 
 	default:
-		dev_err(data->client->dev.parent,
-				"unsupported value: %lu\n", value);
+		dev_err(&data->client->dev, "unsupported value: %lu\n", value);
 		err = -EINVAL;
 		break;
 	}
@@ -1727,11 +1790,13 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 
 	ft5x06_update_fw_ver(data);
 
-	FT_STORE_TS_INFO(data->ts_info, data->family_id, data->pdata->name,
+	FT_STORE_TS_DBG_INFO(data->ts_info, data->family_id, data->pdata->name,
 			data->pdata->num_max_touches, data->pdata->group_id,
 			data->pdata->fw_vkey_support ? "yes" : "no",
 			data->pdata->fw_name, data->fw_ver[0],
 			data->fw_ver[1], data->fw_ver[2]);
+	FT_STORE_TS_INFO(ts_info_buff, data->family_id, data->fw_ver[0],
+			 data->fw_ver[1], data->fw_ver[2]);
 rel_fw:
 	release_firmware(fw);
 	return rc;
@@ -1834,22 +1899,13 @@ static ssize_t ft5x06_fw_name_store(struct device *dev,
 
 static DEVICE_ATTR(fw_name, 0664, ft5x06_fw_name_show, ft5x06_fw_name_store);
 
-
-static ssize_t ft5x06_ts_info_show(struct kobject *kobj,
+static ssize_t ts_info_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	struct ft5x06_ts_data *data = container_of(kobj,
-			struct ft5x06_ts_data, ts_info_kobj);
-	return snprintf(buf, FT_INFO_MAX_LEN,
-			"vendor name = Focaltech\n"
-			"model = 0x%x\n"
-			"fw_verion = %d.%d.%d\n",
-			data->family_id, data->fw_ver[0],
-			data->fw_ver[1], data->fw_ver[2]);
+	strlcpy(buf, ts_info_buff, FT_INFO_MAX_LEN);
+	return strnlen(buf, FT_INFO_MAX_LEN);
 }
-
-static struct kobj_attribute ts_info_attribute = __ATTR(ts_info,
-					0664, ft5x06_ts_info_show, NULL);
+static struct kobj_attribute ts_info_attr = __ATTR_RO(ts_info);
 
 static bool ft5x06_debug_addr_is_valid(int addr)
 {
@@ -2489,16 +2545,20 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	dev_dbg(&client->dev, "touch threshold = %d\n", reg_value * 4);
 
 	/*creation touch panel info kobj*/
-	data->ts_info_kobj = *(kobject_create_and_add(FT_SYSFS_TS_INFO,
-					kernel_kobj));
-	if (!&(data->ts_info_kobj)) {
-		dev_err(&client->dev, "kob creation failed .\n");
+	data->ts_info_kobj = kobject_create_and_add(FT_TS_INFO_SYSFS_DIR_NAME,
+					kernel_kobj);
+	if (!data->ts_info_kobj) {
+		dev_err(&client->dev, "kobject creation failed.\n");
 	} else {
-		err = sysfs_create_file(&(data->ts_info_kobj),
-					&ts_info_attribute.attr);
+		err = sysfs_create_file(data->ts_info_kobj, &ts_info_attr.attr);
 		if (err) {
-			kobject_put(&(data->ts_info_kobj));
-			dev_err(&client->dev, "sysfs create fail .\n");
+			kobject_put(data->ts_info_kobj);
+			dev_err(&client->dev, "sysfs creation failed.\n");
+		} else {
+			ts_info_buff = devm_kzalloc(&client->dev,
+						 FT_INFO_MAX_LEN, GFP_KERNEL);
+			if (!ts_info_buff)
+				goto free_debug_dir;
 		}
 	}
 
@@ -2522,12 +2582,13 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	ft5x06_update_fw_ver(data);
 	ft5x06_update_fw_vendor_id(data);
 
-	FT_STORE_TS_INFO(data->ts_info, data->family_id, data->pdata->name,
+	FT_STORE_TS_DBG_INFO(data->ts_info, data->family_id, data->pdata->name,
 			data->pdata->num_max_touches, data->pdata->group_id,
 			data->pdata->fw_vkey_support ? "yes" : "no",
 			data->pdata->fw_name, data->fw_ver[0],
 			data->fw_ver[1], data->fw_ver[2]);
-
+	FT_STORE_TS_INFO(ts_info_buff, data->family_id, data->fw_ver[0],
+			 data->fw_ver[1], data->fw_ver[2]);
 #if defined(CONFIG_FB)
 	INIT_WORK(&data->fb_notify_work, fb_notify_resume_work);
 	data->fb_notif.notifier_call = fb_notifier_callback;
@@ -2670,7 +2731,7 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 		ft5x06_power_init(data, false);
 
 	input_unregister_device(data->input_dev);
-	kobject_put(&(data->ts_info_kobj));
+	kobject_put(data->ts_info_kobj);
 	return 0;
 }
 
