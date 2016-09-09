@@ -912,8 +912,8 @@
 		qcom,cpr-sensor-time = <1000>;
 		qcom,cpr-loop-time = <5000000>;
 		qcom,cpr-idle-cycles = <15>;
-		qcom,cpr-step-quot-init-min = <10>;
-		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-step-quot-init-min = <8>;
+		qcom,cpr-step-quot-init-max = <12>;
 		qcom,cpr-count-mode = <0>;		/* All-at-once min */
 
 		vdd-supply = <&pm8005_s1>;
