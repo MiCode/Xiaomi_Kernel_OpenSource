@@ -1116,14 +1116,17 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	const struct sde_format_extended *format_list;
 	struct sde_kms_info *info;
 	struct sde_plane *psde = to_sde_plane(plane);
+	u32 default_blendstages;
 
 	if (!plane || !psde || !psde->pipe_hw || !psde->pipe_sblk) {
 		SDE_ERROR("Invalid argument(s)\n");
 		return;
 	}
 
+	default_blendstages = plane->type == DRM_PLANE_TYPE_PRIMARY ?
+			STAGE_BASE : STAGE0 + drm_plane_index(plane);
 	msm_property_install_range(&psde->property_info, "zpos", 0x0, 0,
-		max_blendstages, STAGE_BASE, PLANE_PROP_ZPOS);
+		max_blendstages, default_blendstages, PLANE_PROP_ZPOS);
 
 	msm_property_install_range(&psde->property_info, "alpha",
 		0x0, 0, 255, 255, PLANE_PROP_ALPHA);

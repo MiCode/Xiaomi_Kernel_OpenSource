@@ -865,7 +865,8 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct drm_plane *plane;
 	struct drm_display_mode *mode;
 
-	int cnt = 0, rc = 0, mixer_width, i, z_pos;
+	int cnt = 0, rc = 0, mixer_width, i, z_pos_cur, z_pos_prev = 0;
+	int z_pos = 0;
 	int left_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
 	int right_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
 
@@ -911,8 +912,11 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
 
 	for (i = 0; i < cnt; i++) {
-		z_pos = sde_plane_get_property(pstates[i].sde_pstate,
+		z_pos_cur = sde_plane_get_property(pstates[i].sde_pstate,
 			PLANE_PROP_ZPOS);
+		if (z_pos_cur != z_pos_prev)
+			z_pos++;
+		z_pos_prev = z_pos_cur;
 
 		if (pstates[i].drm_pstate->crtc_x < mixer_width) {
 			if (left_crtc_zpos_cnt[z_pos] == 2) {
