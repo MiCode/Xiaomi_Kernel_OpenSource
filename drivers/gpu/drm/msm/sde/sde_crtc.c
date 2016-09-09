@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 #include <linux/sort.h>
 #include <linux/debugfs.h>
 #include <linux/ktime.h>
@@ -97,7 +98,7 @@ static void sde_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	DBG("");
 }
 
-static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
+static void _sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 		struct sde_plane_state *pstate)
 {
 	struct drm_plane *plane;
@@ -167,14 +168,14 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 		cfg->bg.inv_alpha_sel, cfg->bg.inv_mode_alpha);
 }
 
-static u32 blend_config_per_mixer(struct drm_crtc *crtc,
+static u32 _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc, struct sde_crtc_mixer *mixer,
 	struct sde_hw_color3_cfg *alpha_out)
 {
 	struct drm_plane *plane;
 	struct drm_display_mode *mode;
 
-	struct sde_plane_state *pstate;
+	struct sde_plane_state *pstate = NULL;
 	struct sde_hw_blend_cfg blend;
 	struct sde_hw_ctl *ctl = mixer->hw_ctl;
 	struct sde_hw_mixer *lm = mixer->hw_lm;
@@ -182,6 +183,10 @@ static u32 blend_config_per_mixer(struct drm_crtc *crtc,
 	u32 flush_mask = 0, crtc_split_width;
 	bool is_right_lm = 0;
 
+	if (!crtc || !mixer || !alpha_out) {
+		SDE_ERROR("invalid argument(s), crtc %d, mixer %d, alpha %d\n",
+				crtc != 0, mixer != 0, alpha_out != 0);
+	}
 	mode = &crtc->state->adjusted_mode;
 	crtc_split_width = sde_crtc_mixer_width(sde_crtc, mode);
 
@@ -198,8 +203,14 @@ static u32 blend_config_per_mixer(struct drm_crtc *crtc,
 			sde_crtc->stage_cfg.stage[pstate->stage][is_right_lm] =
 					sde_plane_pipe(plane);
 
-		SDE_DEBUG("crtc_id %d pipe %d at stage %d\n",
-			crtc->base.id, sde_plane_pipe(plane), pstate->stage);
+		SDE_DEBUG("crtc %d lm %d:%d - plane %d sspp %d fb %d\n",
+				crtc->base.id,
+				lm->idx - LM_0,
+				pstate->stage,
+				plane->base.id,
+				sde_plane_pipe(plane) - SSPP_VIG0,
+				plane->state->fb ?
+				plane->state->fb->base.id : -1);
 
 		/**
 		 * cache the flushmask for this layer
@@ -210,15 +221,22 @@ static u32 blend_config_per_mixer(struct drm_crtc *crtc,
 				sde_plane_pipe(plane));
 
 		/* blend config */
-		sde_crtc_get_blend_cfg(&blend, pstate);
+		_sde_crtc_get_blend_cfg(&blend, pstate);
 		lm->ops.setup_blend_config(lm, pstate->stage, &blend);
 		alpha_out->keep_fg[pstate->stage] = 1;
 	}
 
+	if (!pstate)
+		SDE_DEBUG("crtc %d no planes added\n", crtc->base.id);
+
 	return flush_mask;
 }
 
-static void sde_crtc_blend_setup(struct drm_crtc *crtc)
+/**
+ * _sde_crtc_blend_setup - configure crtc mixers
+ * @crtc: Pointer to drm crtc structure
+ */
+static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_crtc_mixer *mixer = sde_crtc->mixers;
@@ -245,7 +263,7 @@ static void sde_crtc_blend_setup(struct drm_crtc *crtc)
 		lm = mixer[i].hw_lm;
 		memset(&alpha_out, 0, sizeof(alpha_out));
 
-		flush_mask = blend_config_per_mixer(crtc, sde_crtc,
+		flush_mask = _sde_crtc_blend_setup_mixer(crtc, sde_crtc,
 				mixer + i, &alpha_out);
 
 		if (sde_crtc->stage_cfg.stage[SDE_STAGE_BASE][i] == SSPP_NONE)
@@ -260,7 +278,7 @@ static void sde_crtc_blend_setup(struct drm_crtc *crtc)
 		/* stage config flush mask */
 		ctl->ops.update_pending_flush(ctl, flush_mask);
 		SDE_DEBUG("lm %d ctl %d add mask 0x%x to pending flush\n",
-				mixer->hw_lm->idx, ctl->idx, flush_mask);
+				lm->idx - LM_0, ctl->idx - CTL_0, flush_mask);
 	}
 
 	/* Program ctl_paths */
@@ -503,8 +521,10 @@ static void _sde_crtc_setup_mixer_for_encoder(
 		mixer->encoder = enc;
 
 		sde_crtc->num_mixers++;
-		SDE_DEBUG("setup mixer %d: lm %d\n", i, mixer->hw_lm->idx);
-		SDE_DEBUG("setup mixer %d: ctl %d\n", i, mixer->hw_ctl->idx);
+		SDE_DEBUG("setup mixer %d: lm %d\n",
+				i, mixer->hw_lm->idx - LM_0);
+		SDE_DEBUG("setup mixer %d: ctl %d\n",
+				i, mixer->hw_ctl->idx - CTL_0);
 	}
 }
 
@@ -570,7 +590,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	if (unlikely(!sde_crtc->num_mixers))
 		return;
 
-	sde_crtc_blend_setup(crtc);
+	_sde_crtc_blend_setup(crtc);
 
 	/*
 	 * PP_DONE irq is only used by command mode for now.
