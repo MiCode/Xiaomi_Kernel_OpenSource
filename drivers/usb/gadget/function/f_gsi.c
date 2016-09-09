@@ -2417,14 +2417,14 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			if (gsi->prot_id == IPA_USB_ECM)
 				gsi->d_port.cdc_filter = DEFAULT_FILTER;
 
-			post_event(&gsi->d_port, EVT_CONNECT_IN_PROGRESS);
 			/*
 			 * For RNDIS the event is posted from the flow control
 			 * handler which is invoked when the host sends the
 			 * GEN_CURRENT_PACKET_FILTER message.
 			 */
 			if (gsi->prot_id != IPA_USB_RNDIS)
-				post_event(&gsi->d_port, EVT_HOST_READY);
+				post_event(&gsi->d_port,
+						EVT_CONNECT_IN_PROGRESS);
 			queue_work(gsi->d_port.ipa_usb_wq,
 					&gsi->d_port.usb_ipa_w);
 		}
