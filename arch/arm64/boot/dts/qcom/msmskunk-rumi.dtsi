@@ -25,7 +25,6 @@
 };
 
 &ufs_mem {
-	lanes-per-direction = <1>;
 	limit-tx-hs-gear = <1>;
 	limit-rx-hs-gear = <1>;
 	scsi-cmd-timeout = <300000>;
