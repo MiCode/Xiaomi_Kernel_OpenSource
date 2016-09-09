@@ -184,8 +184,11 @@ static int smb138x_usb_get_prop(struct power_supply *psy,
 		pr_err("get prop %d is not supported\n", prop);
 		return -EINVAL;
 	}
-
-	return rc;
+	if (rc < 0) {
+		pr_debug("Couldn't get prop %d rc = %d\n", prop, rc);
+		return -ENODATA;
+	}
+	return 0;
 }
 
 static int smb138x_usb_set_prop(struct power_supply *psy,
@@ -305,12 +308,14 @@ static int smb138x_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_charger_temp_max(chg, val);
 		break;
 	default:
-		pr_err("batt power supply get prop %d not supported\n",
-			prop);
+		pr_err("batt power supply get prop %d not supported\n", prop);
 		return -EINVAL;
 	}
-
-	return rc;
+	if (rc < 0) {
+		pr_debug("Couldn't get prop %d rc = %d\n", prop, rc);
+		return -ENODATA;
+	}
+	return 0;
 }
 
 static int smb138x_batt_set_prop(struct power_supply *psy,
@@ -436,8 +441,11 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 			prop);
 		return -EINVAL;
 	}
-
-	return rc;
+	if (rc < 0) {
+		pr_debug("Couldn't get prop %d rc = %d\n", prop, rc);
+		return -ENODATA;
+	}
+	return 0;
 }
 
 static int smb138x_parallel_set_prop(struct power_supply *psy,
