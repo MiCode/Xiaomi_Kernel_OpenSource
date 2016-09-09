@@ -27,6 +27,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/reset.h>
 
 #define QUSB2PHY_PLL_STATUS	0x38
 #define QUSB2PHY_PLL_LOCK	BIT(5)
@@ -112,7 +113,7 @@ struct qusb_phy {
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*cfg_ahb_clk;
-	struct clk		*phy_reset;
+	struct reset_control	*phy_reset;
 
 	struct regulator	*vdd;
 	struct regulator	*vdda33;
@@ -443,9 +444,13 @@ static int qusb_phy_init(struct usb_phy *phy)
 	}
 
 	/* Perform phy reset */
-	clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
+	ret = reset_control_assert(qphy->phy_reset);
+	if (ret)
+		dev_err(phy->dev, "%s: phy_reset assert failed\n", __func__);
 	usleep_range(100, 150);
-	clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
+	ret = reset_control_deassert(qphy->phy_reset);
+	if (ret)
+		dev_err(phy->dev, "%s: phy_reset deassert failed\n", __func__);
 
 	if (qphy->emulation) {
 		if (qphy->emu_init_seq)
@@ -858,7 +863,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(qphy->cfg_ahb_clk))
 		return PTR_ERR(qphy->cfg_ahb_clk);
 
-	qphy->phy_reset = devm_clk_get(dev, "phy_reset");
+	qphy->phy_reset = devm_reset_control_get(dev, "phy_reset");
 	if (IS_ERR(qphy->phy_reset))
 		return PTR_ERR(qphy->phy_reset);
 
@@ -1011,8 +1016,11 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	 * not used, there is leakage current seen with QUSB PHY related voltage
 	 * rail. Hence keep QUSB PHY into reset state explicitly here.
 	 */
-	if (hold_phy_reset)
-		clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
+	if (hold_phy_reset) {
+		ret = reset_control_assert(qphy->phy_reset);
+		if (ret)
+			dev_err(dev, "%s:phy_reset assert failed\n", __func__);
+	}
 
 	ret = usb_add_phy_dev(&qphy->phy);
 	if (ret)

@@ -35,13 +35,15 @@ Platform independent properties:
 - reg
 	Usage:      required
 	Value type: <prop-encoded-array>
-	Definition: Addresses and sizes for the memory of the CPR3 controller
-		    and the first fuse row
+	Definition: Addresses and sizes for the memory of the CPR3 controller,
+		    the first fuse row, and optionally a register used to check
+		    if aging measurements are possible.
 
 - reg-names
 	Usage:      required
 	Value type: <stringlist>
-	Definition: Address names. Must be "cpr_ctrl" and "fuse_base".  Must be
+	Definition: Address names. Must include "cpr_ctrl" and "fuse_base".
+		    "aging_allowed" may also be specified.  The strings must be
 		    specified in the same order as the corresponding addresses
 		    are specified in the reg property.
 
@@ -182,6 +184,17 @@ Platform independent properties:
 	Definition: Specifies the CPR aging reference voltage in microvolts.
 		    This is the voltage that vdd-supply must be set to when
 		    performing an aging measurement.
+
+- qcom,cpr-aging-allowed-reg-mask
+	Usage:      required if "aging_allowed" register is specified
+	Value type: <u32>
+	Definition: Bitmask used to mask off the "aging_allowed" register.
+
+- qcom,cpr-aging-allowed-reg-value
+	Usage:      required if "aging_allowed" register is specified
+	Value type: <u32>
+	Definition: Value required in the masked off "aging_allowed" register
+		    bits in order for a CPR aging measurement to be possible.
 
 - qcom,cpr-panic-reg-addr-list
 	Usage:      optional

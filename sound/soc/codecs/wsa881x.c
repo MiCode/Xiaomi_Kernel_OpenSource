@@ -90,6 +90,7 @@ struct wsa881x_priv {
 	bool comp_enable;
 	bool boost_enable;
 	bool visense_enable;
+	u8 pa_gain;
 	struct swr_port port[WSA881X_MAX_SWR_PORTS];
 	int pd_gpio;
 	struct wsa881x_tz_priv tz_pdata;
@@ -133,6 +134,47 @@ static unsigned int devnum;
 
 static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
 						bool enable);
+
+static const char * const wsa_pa_gain_text[] = {
+	"G_18_DB", "G_16P5_DB", "G_15_DB", "G_13P5_DB", "G_12_DB", "G_10P5_DB",
+	"G_9_DB", "G_7P5_DB", "G_6_DB", "G_4P5_DB", "G_3_DB", "G_1P5_DB",
+	"G_0_DB"
+};
+
+static const struct soc_enum wsa_pa_gain_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(wsa_pa_gain_text), wsa_pa_gain_text);
+
+static int wsa_pa_gain_get(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = wsa881x->pa_gain;
+
+	dev_dbg(codec->dev, "%s: PA gain = 0x%x\n", __func__, wsa881x->pa_gain);
+
+	return 0;
+}
+
+static int wsa_pa_gain_put(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0]  = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	wsa881x->pa_gain =  ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new wsa_analog_gain_controls[] = {
+	SOC_ENUM_EXT("WSA PA Gain", wsa_pa_gain_enum,
+		     wsa_pa_gain_get, wsa_pa_gain_put),
+};
 
 static int codec_debug_open(struct inode *inode, struct file *file)
 {
@@ -775,6 +817,7 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+	int min_gain, max_gain;
 
 	dev_dbg(codec->dev, "%s: %s %d\n", __func__, w->name, event);
 	switch (event) {
@@ -786,15 +829,32 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 		swr_slvdev_datapath_control(wsa881x->swr_slave,
 					    wsa881x->swr_slave->dev_num,
 					    true);
+		/* Set register mode if compander is not enabled */
+		if (!wsa881x->comp_enable)
+			snd_soc_update_bits(codec, WSA881X_SPKR_DRV_GAIN,
+					    0x08, 0x08);
+		else
+			snd_soc_update_bits(codec, WSA881X_SPKR_DRV_GAIN,
+					    0x08, 0x00);
+
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		if (!wsa881x->comp_enable) {
+			max_gain = wsa881x->pa_gain;
+			/*
+			 * Gain has to set incrementally in 4 steps
+			 * as per HW sequence
+			 */
+			if (max_gain > G_4P5DB)
+				min_gain = G_0DB;
+			else
+				min_gain = max_gain + 3;
 			/*
 			 * 1ms delay is needed before change in gain
 			 * as per HW requirement.
 			 */
 			usleep_range(1000, 1010);
-			wsa881x_ramp_pa_gain(codec, G_13P5DB, G_18DB, 1000);
+			wsa881x_ramp_pa_gain(codec, min_gain, max_gain, 1000);
 		}
 		if (wsa881x->visense_enable) {
 			wsa881x_visense_txfe_ctrl(codec, ENABLE,
@@ -987,6 +1047,8 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 	wsa881x->tz_pdata.codec = codec;
 	wsa881x->tz_pdata.wsa_temp_reg_read = wsa881x_temp_reg_read;
 	wsa881x_init_thermal(&wsa881x->tz_pdata);
+	snd_soc_add_codec_controls(codec, wsa_analog_gain_controls,
+				   ARRAY_SIZE(wsa_analog_gain_controls));
 	INIT_DELAYED_WORK(&wsa881x->ocp_ctl_work, wsa881x_ocp_ctl_work);
 	return 0;
 }

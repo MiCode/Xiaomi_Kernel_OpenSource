@@ -45,6 +45,7 @@
 #include <linux/msm-bus.h>
 #include <linux/irq.h>
 #include <linux/extcon.h>
+#include <linux/reset.h>
 
 #include "power.h"
 #include "core.h"
@@ -159,6 +160,7 @@ struct dwc3_msm {
 	struct clk		*utmi_clk_src;
 	struct clk		*bus_aggr_clk;
 	struct clk		*cfg_ahb_clk;
+	struct reset_control	*core_reset;
 	struct regulator	*dwc3_gdsc;
 
 	struct usb_phy		*hs_phy, *ss_phy;
@@ -1517,19 +1519,19 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 		clk_disable_unprepare(mdwc->sleep_clk);
 		clk_disable_unprepare(mdwc->core_clk);
 		clk_disable_unprepare(mdwc->iface_clk);
-		ret = clk_reset(mdwc->core_clk, CLK_RESET_ASSERT);
+		ret = reset_control_assert(mdwc->core_reset);
 		if (ret)
-			dev_err(mdwc->dev, "dwc3 core_clk assert failed\n");
+			dev_err(mdwc->dev, "dwc3 core_reset assert failed\n");
 	} else {
 		dev_dbg(mdwc->dev, "block_reset DEASSERT\n");
-		ret = clk_reset(mdwc->core_clk, CLK_RESET_DEASSERT);
+		ret = reset_control_deassert(mdwc->core_reset);
+		if (ret)
+			dev_err(mdwc->dev, "dwc3 core_reset deassert failed\n");
 		ndelay(200);
 		clk_prepare_enable(mdwc->iface_clk);
 		clk_prepare_enable(mdwc->core_clk);
 		clk_prepare_enable(mdwc->sleep_clk);
 		clk_prepare_enable(mdwc->utmi_clk);
-		if (ret)
-			dev_err(mdwc->dev, "dwc3 core_clk deassert failed\n");
 		enable_irq(mdwc->pwr_event_irq);
 	}
 
@@ -2041,11 +2043,16 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
 		dev_dbg(mdwc->dev, "%s: exit power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 1);
-
-		clk_reset(mdwc->core_clk, CLK_RESET_ASSERT);
+		ret = reset_control_assert(mdwc->core_reset);
+		if (ret)
+			dev_err(mdwc->dev, "%s:core_reset assert failed\n",
+					__func__);
 		/* HW requires a short delay for reset to take place properly */
 		usleep_range(1000, 1200);
-		clk_reset(mdwc->core_clk, CLK_RESET_DEASSERT);
+		ret = reset_control_deassert(mdwc->core_reset);
+		if (ret)
+			dev_err(mdwc->dev, "%s:core_reset deassert failed\n",
+					__func__);
 		clk_prepare_enable(mdwc->sleep_clk);
 	}
 
@@ -2366,6 +2373,17 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 		mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk, LONG_MAX);
 	}
 
+	mdwc->core_reset = devm_reset_control_get(mdwc->dev, "core_reset");
+	if (IS_ERR(mdwc->core_reset)) {
+		dev_err(mdwc->dev, "failed to get core_reset\n");
+		return PTR_ERR(mdwc->core_reset);
+	}
+
+	/*
+	 * Get Max supported clk frequency for USB Core CLK and request
+	 * to set the same.
+	 */
+	mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk, LONG_MAX);
 	if (IS_ERR_VALUE(mdwc->core_clk_rate)) {
 		dev_err(mdwc->dev, "fail to get core clk max freq.\n");
 	} else {

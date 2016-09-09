@@ -9,9 +9,6 @@
 #include <linux/binfmts.h>
 
 struct rq;
-struct group_cpu_time;
-struct migration_sum_data;
-extern const char *task_event_names[];
 
 /*
  * Tracepoint for calling kthread_stop, performed to end a kthread:
@@ -112,6 +109,11 @@ TRACE_EVENT(sched_enq_deq_task,
 );
 
 #ifdef CONFIG_SCHED_HMP
+
+struct group_cpu_time;
+struct migration_sum_data;
+extern const char *task_event_names[];
+extern const char *migrate_type_names[];
 
 TRACE_EVENT(sched_task_load,
 

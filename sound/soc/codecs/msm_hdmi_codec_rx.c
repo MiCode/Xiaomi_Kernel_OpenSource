@@ -19,115 +19,208 @@
 #include <sound/soc.h>
 #include <linux/msm_ext_display.h>
 
-#define MSM_HDMI_PCM_RATES	SNDRV_PCM_RATE_48000
+#define MSM_EXT_DISP_PCM_RATES	SNDRV_PCM_RATE_48000
 
-static int msm_hdmi_audio_codec_return_value;
+static const char *const ext_disp_audio_type_text[] = {"None", "HDMI", "DP"};
 
-struct msm_hdmi_audio_codec_rx_data {
-	struct platform_device *hdmi_core_pdev;
-	struct msm_ext_disp_audio_codec_ops hdmi_ops;
+static SOC_ENUM_SINGLE_EXT_DECL(ext_disp_audio_type, ext_disp_audio_type_text);
+
+struct msm_ext_disp_audio_codec_rx_data {
+	struct platform_device *ext_disp_core_pdev;
+	struct msm_ext_disp_audio_codec_ops ext_disp_ops;
+	int cable_status;
 };
 
-static int msm_hdmi_edid_ctl_info(struct snd_kcontrol *kcontrol,
+static int msm_ext_disp_edid_ctl_info(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_info *uinfo)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct msm_hdmi_audio_codec_rx_data *codec_data;
+	struct msm_ext_disp_audio_codec_rx_data *codec_data;
 	struct msm_ext_disp_audio_edid_blk edid_blk;
 	int rc;
 
 	codec_data = snd_soc_codec_get_drvdata(codec);
 
-	if (!codec_data->hdmi_ops.get_audio_edid_blk) {
-		pr_debug("%s: get_audio_edid_blk() is NULL\n", __func__);
+	if (!codec_data) {
+		dev_err(codec->dev, "%s: codec_data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!codec_data->ext_disp_ops.get_audio_edid_blk) {
+		dev_dbg(codec->dev, "%s: get_audio_edid_blk() is NULL\n",
+			__func__);
 		uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
 		uinfo->count = 0;
 		return 0;
 	}
 
-	rc = codec_data->hdmi_ops.get_audio_edid_blk(
-			codec_data->hdmi_core_pdev,
-			&edid_blk);
+	rc = codec_data->ext_disp_ops.get_audio_edid_blk(
+				codec_data->ext_disp_core_pdev, &edid_blk);
+
 	if (!IS_ERR_VALUE(rc)) {
 		uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
 		uinfo->count = edid_blk.audio_data_blk_size +
 			edid_blk.spk_alloc_data_blk_size;
 	}
 
+	dev_dbg(codec->dev, "%s: count: %d\n", __func__, uinfo->count);
+
 	return rc;
 }
 
-static int msm_hdmi_edid_get(struct snd_kcontrol *kcontrol,
+static int msm_ext_disp_edid_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol) {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct msm_hdmi_audio_codec_rx_data *codec_data;
+	struct msm_ext_disp_audio_codec_rx_data *codec_data;
 	struct msm_ext_disp_audio_edid_blk edid_blk;
 	int rc;
 
 	codec_data = snd_soc_codec_get_drvdata(codec);
-
-	if (!codec_data->hdmi_ops.get_audio_edid_blk)
+	if (!codec_data || !codec_data->ext_disp_ops.get_audio_edid_blk) {
+		dev_err(codec->dev, "%s: codec_data or get_audio_edid_blk() is NULL\n",
+			__func__);
 		return -EINVAL;
+	}
 
-	rc = codec_data->hdmi_ops.get_audio_edid_blk(
-			codec_data->hdmi_core_pdev, &edid_blk);
-
+	rc = codec_data->ext_disp_ops.get_audio_edid_blk(
+			codec_data->ext_disp_core_pdev, &edid_blk);
 	if (!IS_ERR_VALUE(rc)) {
 		memcpy(ucontrol->value.bytes.data,
-				edid_blk.audio_data_blk,
-				edid_blk.audio_data_blk_size);
+		       edid_blk.audio_data_blk,
+		       edid_blk.audio_data_blk_size);
 		memcpy((ucontrol->value.bytes.data +
-					edid_blk.audio_data_blk_size),
-				edid_blk.spk_alloc_data_blk,
-				edid_blk.spk_alloc_data_blk_size);
+		       edid_blk.audio_data_blk_size),
+		       edid_blk.spk_alloc_data_blk,
+		       edid_blk.spk_alloc_data_blk_size);
+
+		dev_dbg(codec->dev, "%s: data_blk_size:%d, spk_alloc_data_blk_size:%d\n",
+			__func__, edid_blk.audio_data_blk_size,
+			edid_blk.spk_alloc_data_blk_size);
 	}
 
 	return rc;
 }
 
-static const struct snd_kcontrol_new msm_hdmi_codec_rx_controls[] = {
+static int msm_ext_disp_audio_type_get(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct msm_ext_disp_audio_codec_rx_data *codec_data;
+	enum msm_ext_disp_cable_state cable_state;
+	enum msm_ext_disp_type disp_type;
+	int rc;
+
+	codec_data = snd_soc_codec_get_drvdata(codec);
+	if (!codec_data ||
+	    !codec_data->ext_disp_ops.get_audio_edid_blk ||
+	    !codec_data->ext_disp_ops.get_intf_id) {
+		dev_err(codec->dev, "%s: codec_data, get_audio_edid_blk() or get_intf_id is NULL\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	cable_state = codec_data->ext_disp_ops.cable_status(
+				   codec_data->ext_disp_core_pdev, 1);
+	if (IS_ERR_VALUE(cable_state)) {
+		dev_err(codec->dev, "%s: Error retrieving cable state from ext_disp, err:%d\n",
+			__func__, cable_state);
+		rc = cable_state;
+		goto done;
+	}
+
+	codec_data->cable_status = cable_state;
+	if (cable_state == EXT_DISPLAY_CABLE_DISCONNECT) {
+		dev_err(codec->dev, "%s: Display cable disconnected\n",
+			__func__);
+		ucontrol->value.integer.value[0] = 0;
+		rc = 0;
+		goto done;
+	}
+
+	disp_type = codec_data->ext_disp_ops.get_intf_id(
+						codec_data->ext_disp_core_pdev);
+	if (!IS_ERR_VALUE(disp_type)) {
+		switch (disp_type) {
+		case EXT_DISPLAY_TYPE_DP:
+			ucontrol->value.integer.value[0] = 2;
+			rc = 0;
+			break;
+		case EXT_DISPLAY_TYPE_HDMI:
+			ucontrol->value.integer.value[0] = 1;
+			rc = 0;
+			break;
+		default:
+			rc = -EINVAL;
+			dev_err(codec->dev, "%s: Invalid disp_type:%d\n",
+			       __func__, disp_type);
+			goto done;
+		}
+		dev_dbg(codec->dev, "%s: Display type: %d\n",
+			__func__, disp_type);
+	} else {
+		dev_err(codec->dev, "%s: Error retrieving disp_type from ext_disp, err:%d\n",
+			__func__, disp_type);
+		rc = disp_type;
+	}
+
+done:
+	return rc;
+}
+
+static const struct snd_kcontrol_new msm_ext_disp_codec_rx_controls[] = {
 	{
 		.access = SNDRV_CTL_ELEM_ACCESS_READ |
 			  SNDRV_CTL_ELEM_ACCESS_VOLATILE,
-		.iface	= SNDRV_CTL_ELEM_IFACE_PCM,
-		.name	= "HDMI EDID",
-		.info	= msm_hdmi_edid_ctl_info,
-		.get	= msm_hdmi_edid_get,
+		.iface  = SNDRV_CTL_ELEM_IFACE_PCM,
+		.name   = "HDMI EDID",
+		.info   = msm_ext_disp_edid_ctl_info,
+		.get    = msm_ext_disp_edid_get,
 	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_VOLATILE,
+		.iface  = SNDRV_CTL_ELEM_IFACE_PCM,
+		.name   = "Display Port EDID",
+		.info   = msm_ext_disp_edid_ctl_info,
+		.get    = msm_ext_disp_edid_get,
+	},
+	SOC_ENUM_EXT("External Display Type", ext_disp_audio_type,
+		     msm_ext_disp_audio_type_get, NULL),
 };
 
-static int msm_hdmi_audio_codec_rx_dai_startup(
+static int msm_ext_disp_audio_codec_rx_dai_startup(
 		struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	int ret = 0;
-	struct msm_hdmi_audio_codec_rx_data *codec_data =
+	struct msm_ext_disp_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
-	if (!codec_data->hdmi_ops.cable_status) {
-		dev_err(dai->dev, "%s() cable_status is null\n", __func__);
+	if (!codec_data || !codec_data->ext_disp_ops.cable_status) {
+		dev_err(dai->dev, "%s() codec_data or cable_status is null\n",
+			__func__);
 		return -EINVAL;
 	}
 
-	msm_hdmi_audio_codec_return_value =
-		codec_data->hdmi_ops.cable_status(
-		codec_data->hdmi_core_pdev, 1);
-	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
+	codec_data->cable_status =
+		codec_data->ext_disp_ops.cable_status(
+		codec_data->ext_disp_core_pdev, 1);
+	if (IS_ERR_VALUE(codec_data->cable_status)) {
 		dev_err(dai->dev,
-			"%s() HDMI core is not ready (ret val = %d)\n",
-			__func__, msm_hdmi_audio_codec_return_value);
-		ret = msm_hdmi_audio_codec_return_value;
-	} else if (!msm_hdmi_audio_codec_return_value) {
+			"%s() ext disp core is not ready (ret val = %d)\n",
+			__func__, codec_data->cable_status);
+		ret = codec_data->cable_status;
+	} else if (!codec_data->cable_status) {
 		dev_err(dai->dev,
-			"%s() HDMI cable is not connected (ret val = %d)\n",
-			__func__, msm_hdmi_audio_codec_return_value);
+			"%s() ext disp cable is not connected (ret val = %d)\n",
+			__func__, codec_data->cable_status);
 		ret = -ENODEV;
 	}
 
 	return ret;
 }
 
-static int msm_hdmi_audio_codec_rx_dai_hw_params(
+static int msm_ext_disp_audio_codec_rx_dai_hw_params(
 		struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params,
 		struct snd_soc_dai *dai)
@@ -139,23 +232,24 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 	int rc = 0;
 	struct msm_ext_disp_audio_setup_params audio_setup_params = {0};
 
-	struct msm_hdmi_audio_codec_rx_data *codec_data =
+	struct msm_ext_disp_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
-	if (!codec_data->hdmi_ops.audio_info_setup) {
-		dev_err(dai->dev, "%s() audio_info_setup is null\n", __func__);
+	if (!codec_data || !codec_data->ext_disp_ops.audio_info_setup) {
+		dev_err(dai->dev, "%s: codec_data or audio_info_setup is null\n",
+			__func__);
 		return -EINVAL;
 	}
 
-	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
+	if (IS_ERR_VALUE(codec_data->cable_status)) {
 		dev_err_ratelimited(dai->dev,
-			"%s() HDMI core is not ready (ret val = %d)\n",
-			__func__, msm_hdmi_audio_codec_return_value);
-		return msm_hdmi_audio_codec_return_value;
-	} else if (!msm_hdmi_audio_codec_return_value) {
+			"%s() ext disp core is not ready (ret val = %d)\n",
+			__func__, codec_data->cable_status);
+		return codec_data->cable_status;
+	} else if (!codec_data->cable_status) {
 		dev_err_ratelimited(dai->dev,
-			"%s() HDMI cable is not connected (ret val = %d)\n",
-			__func__, msm_hdmi_audio_codec_return_value);
+			"%s() ext disp cable is not connected (ret val = %d)\n",
+			__func__, codec_data->cable_status);
 		return -ENODEV;
 	}
 
@@ -204,54 +298,49 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 	audio_setup_params.level_shift = level_shift;
 	audio_setup_params.down_mix = down_mix;
 
-	rc = codec_data->hdmi_ops.audio_info_setup(
-			codec_data->hdmi_core_pdev, &audio_setup_params);
+	rc = codec_data->ext_disp_ops.audio_info_setup(
+			codec_data->ext_disp_core_pdev, &audio_setup_params);
 	if (IS_ERR_VALUE(rc)) {
 		dev_err_ratelimited(dai->dev,
-			"%s() HDMI core is not ready, rc: %d\n",
+			"%s() ext disp core is not ready, rc: %d\n",
 			__func__, rc);
 	}
 
 	return rc;
 }
 
-static void msm_hdmi_audio_codec_rx_dai_shutdown(
+static void msm_ext_disp_audio_codec_rx_dai_shutdown(
 		struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	int rc;
 
-	struct msm_hdmi_audio_codec_rx_data *codec_data =
+	struct msm_ext_disp_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
-	if (!codec_data->hdmi_ops.cable_status) {
-		dev_err(dai->dev, "%s() cable_status is null\n", __func__);
+	if (!codec_data || !codec_data->ext_disp_ops.cable_status) {
+		dev_err(dai->dev, "%s: codec data or cable_status is null\n",
+			__func__);
 		return;
 	}
 
-	rc = codec_data->hdmi_ops.cable_status(
-			codec_data->hdmi_core_pdev, 0);
+	rc = codec_data->ext_disp_ops.cable_status(
+			codec_data->ext_disp_core_pdev, 0);
 	if (IS_ERR_VALUE(rc)) {
 		dev_err(dai->dev,
-			"%s() HDMI core had problems releasing HDMI audio flag\n",
+			"%s: ext disp core had problems releasing audio flag\n",
 			__func__);
 	}
 
 	return;
 }
 
-static struct snd_soc_dai_ops msm_hdmi_audio_codec_rx_dai_ops = {
-	.startup	= msm_hdmi_audio_codec_rx_dai_startup,
-	.hw_params	= msm_hdmi_audio_codec_rx_dai_hw_params,
-	.shutdown	= msm_hdmi_audio_codec_rx_dai_shutdown
-};
-
-static int msm_hdmi_audio_codec_rx_probe(struct snd_soc_codec *codec)
+static int msm_ext_disp_audio_codec_rx_probe(struct snd_soc_codec *codec)
 {
-	struct msm_hdmi_audio_codec_rx_data *codec_data;
+	struct msm_ext_disp_audio_codec_rx_data *codec_data;
 	struct device_node *of_node_parent = NULL;
 
-	codec_data = kzalloc(sizeof(struct msm_hdmi_audio_codec_rx_data),
+	codec_data = kzalloc(sizeof(struct msm_ext_disp_audio_codec_rx_data),
 		GFP_KERNEL);
 
 	if (!codec_data) {
@@ -268,16 +357,16 @@ static int msm_hdmi_audio_codec_rx_probe(struct snd_soc_codec *codec)
 		return -ENODEV;
 	}
 
-	codec_data->hdmi_core_pdev = of_find_device_by_node(of_node_parent);
-	if (!codec_data->hdmi_core_pdev) {
+	codec_data->ext_disp_core_pdev = of_find_device_by_node(of_node_parent);
+	if (!codec_data->ext_disp_core_pdev) {
 		dev_err(codec->dev, "%s(): can't get parent pdev\n", __func__);
 		kfree(codec_data);
 		return -ENODEV;
 	}
 
-	if (msm_hdmi_register_audio_codec(codec_data->hdmi_core_pdev,
-				&codec_data->hdmi_ops)) {
-		dev_err(codec->dev, "%s(): can't register with hdmi core",
+	if (msm_ext_disp_register_audio_codec(codec_data->ext_disp_core_pdev,
+				&codec_data->ext_disp_ops)) {
+		dev_err(codec->dev, "%s(): can't register with ext disp core",
 				__func__);
 		kfree(codec_data);
 		return -ENODEV;
@@ -285,15 +374,15 @@ static int msm_hdmi_audio_codec_rx_probe(struct snd_soc_codec *codec)
 
 	dev_set_drvdata(codec->dev, codec_data);
 
-	dev_dbg(codec->dev, "%s(): registerd %s with HDMI core\n",
+	dev_dbg(codec->dev, "%s(): registered %s with ext disp core\n",
 		__func__, codec->component.name);
 
 	return 0;
 }
 
-static int msm_hdmi_audio_codec_rx_remove(struct snd_soc_codec *codec)
+static int msm_ext_disp_audio_codec_rx_remove(struct snd_soc_codec *codec)
 {
-	struct msm_hdmi_audio_codec_rx_data *codec_data;
+	struct msm_ext_disp_audio_codec_rx_data *codec_data;
 
 	codec_data = dev_get_drvdata(codec->dev);
 	kfree(codec_data);
@@ -301,7 +390,13 @@ static int msm_hdmi_audio_codec_rx_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static struct snd_soc_dai_driver msm_hdmi_audio_codec_rx_dais[] = {
+static struct snd_soc_dai_ops msm_ext_disp_audio_codec_rx_dai_ops = {
+	.startup   = msm_ext_disp_audio_codec_rx_dai_startup,
+	.hw_params = msm_ext_disp_audio_codec_rx_dai_hw_params,
+	.shutdown  = msm_ext_disp_audio_codec_rx_dai_shutdown
+};
+
+static struct snd_soc_dai_driver msm_ext_disp_audio_codec_rx_dais[] = {
 	{
 		.name = "msm_hdmi_audio_codec_rx_dai",
 		.playback = {
@@ -310,66 +405,89 @@ static struct snd_soc_dai_driver msm_hdmi_audio_codec_rx_dais[] = {
 			.channels_max = 8,
 			.rate_min = 48000,
 			.rate_max = 48000,
-			.rates = MSM_HDMI_PCM_RATES,
+			.rates = MSM_EXT_DISP_PCM_RATES,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		},
-		.ops = &msm_hdmi_audio_codec_rx_dai_ops,
+		.ops = &msm_ext_disp_audio_codec_rx_dai_ops,
+	},
+	{
+		.name = "msm_dp_audio_codec_rx_dai",
+		.playback = {
+			.stream_name = "Display Port Playback",
+			.channels_min = 1,
+			.channels_max = 8,
+			.rate_min = 48000,
+			.rate_max = 192000,
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				 SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				   SNDRV_PCM_FMTBIT_S24_LE,
+		},
+		.ops = &msm_ext_disp_audio_codec_rx_dai_ops,
 	},
 };
 
-static struct snd_soc_codec_driver msm_hdmi_audio_codec_rx_soc_driver = {
-	.probe = msm_hdmi_audio_codec_rx_probe,
-	.remove =  msm_hdmi_audio_codec_rx_remove,
-	.controls = msm_hdmi_codec_rx_controls,
-	.num_controls = ARRAY_SIZE(msm_hdmi_codec_rx_controls),
+static struct snd_soc_codec_driver msm_ext_disp_audio_codec_rx_soc_driver = {
+	.probe = msm_ext_disp_audio_codec_rx_probe,
+	.remove =  msm_ext_disp_audio_codec_rx_remove,
+	.controls = msm_ext_disp_codec_rx_controls,
+	.num_controls = ARRAY_SIZE(msm_ext_disp_codec_rx_controls),
 };
 
-static int msm_hdmi_audio_codec_rx_plat_probe(
+static int msm_ext_disp_audio_codec_rx_plat_probe(
 		struct platform_device *pdev)
 {
 	dev_dbg(&pdev->dev, "%s(): dev name %s\n", __func__,
 		dev_name(&pdev->dev));
 
 	return snd_soc_register_codec(&pdev->dev,
-		&msm_hdmi_audio_codec_rx_soc_driver,
-		msm_hdmi_audio_codec_rx_dais,
-		ARRAY_SIZE(msm_hdmi_audio_codec_rx_dais));
+		&msm_ext_disp_audio_codec_rx_soc_driver,
+		msm_ext_disp_audio_codec_rx_dais,
+		ARRAY_SIZE(msm_ext_disp_audio_codec_rx_dais));
 }
 
-static int msm_hdmi_audio_codec_rx_plat_remove(
+static int msm_ext_disp_audio_codec_rx_plat_remove(
 		struct platform_device *pdev)
 {
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }
-static const struct of_device_id msm_hdmi_audio_codec_rx_dt_match[] = {
-	{ .compatible = "qcom,msm-hdmi-audio-codec-rx", },
+static const struct of_device_id msm_ext_disp_audio_codec_rx_dt_match[] = {
+	{ .compatible = "qcom,msm-ext-disp-audio-codec-rx", },
 	{}
 };
-MODULE_DEVICE_TABLE(of, msm_hdmi_codec_dt_match);
+MODULE_DEVICE_TABLE(of, msm_ext_disp_audio_codec_rx_dt_match);
 
-static struct platform_driver msm_hdmi_audio_codec_rx_driver = {
+static struct platform_driver msm_ext_disp_audio_codec_rx_driver = {
 	.driver = {
-		.name = "msm-hdmi-audio-codec-rx",
+		.name = "msm-ext-disp-audio-codec-rx",
 		.owner = THIS_MODULE,
-		.of_match_table = msm_hdmi_audio_codec_rx_dt_match,
+		.of_match_table = msm_ext_disp_audio_codec_rx_dt_match,
 	},
-	.probe = msm_hdmi_audio_codec_rx_plat_probe,
-	.remove = msm_hdmi_audio_codec_rx_plat_remove,
+	.probe = msm_ext_disp_audio_codec_rx_plat_probe,
+	.remove = msm_ext_disp_audio_codec_rx_plat_remove,
 };
 
-static int __init msm_hdmi_audio_codec_rx_init(void)
+static int __init msm_ext_disp_audio_codec_rx_init(void)
 {
-	return platform_driver_register(&msm_hdmi_audio_codec_rx_driver);
-}
-module_init(msm_hdmi_audio_codec_rx_init);
+	int rc;
 
-static void __exit msm_hdmi_audio_codec_rx_exit(void)
+	rc = platform_driver_register(&msm_ext_disp_audio_codec_rx_driver);
+	if (rc) {
+		pr_err("%s: failed to register ext disp codec driver err:%d\n",
+		       __func__, rc);
+	}
+
+	return rc;
+}
+module_init(msm_ext_disp_audio_codec_rx_init);
+
+static void __exit msm_ext_disp_audio_codec_rx_exit(void)
 {
-	platform_driver_unregister(&msm_hdmi_audio_codec_rx_driver);
+	platform_driver_unregister(&msm_ext_disp_audio_codec_rx_driver);
 }
-module_exit(msm_hdmi_audio_codec_rx_exit);
+module_exit(msm_ext_disp_audio_codec_rx_exit);
 
-MODULE_DESCRIPTION("MSM HDMI CODEC driver");
+MODULE_DESCRIPTION("MSM External Display Audio CODEC Driver");
 MODULE_VERSION("1.0");
 MODULE_LICENSE("GPL v2");

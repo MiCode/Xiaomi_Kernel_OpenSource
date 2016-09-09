@@ -204,6 +204,7 @@ struct wcd9xxx_core_resource {
 	void *parent;
 
 	struct device *dev;
+	struct irq_domain *domain;
 };
 
 /*

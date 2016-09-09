@@ -470,6 +470,11 @@ Example:
 		qcom,msm-dai-q6-dev-id = <8>;
 	};
 
+	dai_dp: qcom,msm-dai-q6-dp {
+		compatible = "qcom,msm-dai-q6-hdmi";
+		qcom,msm-dai-q6-dev-id = <24608>;
+	};
+
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
 		qcom,msm-dai-q6-sb-0-rx {
@@ -784,7 +789,7 @@ Example:
 				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
 				"msm-lsm-client", "msm-pcm-routing", "msm-pcm-lpa";
-		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>,
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>, <&dai_dp>,
 				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>, <&dai_mi2s3>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
@@ -793,6 +798,7 @@ Example:
 				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
 				<&incall_music_2_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
+				"msm-dai-q6-dp.24608",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
@@ -1157,7 +1163,7 @@ Example:
 				<&bt_sco_tx>,<&int_fm_rx>,<&int_fm_tx>,<&afe_pcm_rx>,
 				<&afe_pcm_tx>,<&afe_proxy_rx>,<&afe_proxy_tx>,
 				<&incall_record_rx>,<&incall_record_tx>,<&incall_music_rx>,
-				<&incall_music2_rx>;
+				<&incall_music2_rx>,<&dai_dp>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1","msm-dai-q6-auxpcm.2",
 				"msm-dai-q6-hdmi.8","msm-dai-q6-mi2s.0",
 				"msm-dai-q6-dev.16384","msm-dai-q6-dev.16385",
@@ -1171,7 +1177,7 @@ Example:
 				"msm-dai-q6-dev.225","msm-dai-q6-dev.241",
 				"msm-dai-q6-dev.240","msm-dai-q6-dev.32771",
 				"msm-dai-q6-dev.32772","msm-dai-q6-dev.32773",
-				"msm-dai-q6-dev.32770";
+				"msm-dai-q6-dev.32770","msm-dai-q6-dp.24608";
 		asoc-codec = <&stub>;
 		asoc-codec-names = "msm-stub-codec.1";
 	};

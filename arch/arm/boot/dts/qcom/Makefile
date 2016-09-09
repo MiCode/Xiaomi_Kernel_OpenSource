@@ -113,6 +113,7 @@ dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-v2-cdp.dtb \
 	msmcobalt-v2-qrd.dtb \
 	msmcobalt-qrd-skuk.dtb \
+	msmcobalt-qrd-vr1.dtb \
 	apqcobalt-mtp.dtb \
 	apqcobalt-cdp.dtb \
 	apqcobalt-v2-mtp.dtb \
@@ -120,12 +121,17 @@ dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	apqcobalt-v2-qrd.dtb \
 	msmcobalt-v2.1-mtp.dtb \
 	msmcobalt-v2.1-cdp.dtb \
-	msmcobalt-v2.1-qrd.dtb
+	msmcobalt-v2.1-qrd.dtb \
+	apqcobalt-v2.1-mtp.dtb \
+	apqcobalt-v2.1-cdp.dtb \
+	apqcobalt-v2.1-qrd.dtb
 
 dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 
 dtb-$(CONFIG_ARCH_MSMFALCON) += msmfalcon-sim.dtb \
 	msmfalcon-rumi.dtb
+
+dtb-$(CONFIG_ARCH_MSMTRITON) += msmtriton-rumi.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)

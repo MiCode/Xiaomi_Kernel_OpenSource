@@ -90,6 +90,7 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum hal_command_response cmd, void *data);
 static void msm_vidc_print_running_insts(struct msm_vidc_core *core);
+static void msm_comm_print_debug_info(struct msm_vidc_inst *inst);
 
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst)
 {
@@ -905,7 +906,7 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dprintk(VIDC_ERR,
 			"sess resp timeout can potentially crash the system\n");
-
+		msm_comm_print_debug_info(inst);
 		BUG_ON(inst->core->resources.debug_timeout);
 		rc = -EIO;
 	} else {
@@ -1601,6 +1602,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core = NULL;
 	struct hfi_device *hdev = NULL;
+	struct msm_vidc_inst *inst = NULL;
 	int rc = 0;
 
 	subsystem_crashed("venus");
@@ -1639,6 +1641,19 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 	dprintk(VIDC_ERR,
 		"SYS_ERROR can potentially crash the system\n");
+
+	/*
+	 * For SYS_ERROR, there will not be any inst pointer.
+	 * Just grab one of the inst from instances list and
+	 * use it.
+	 */
+
+	mutex_lock(&core->lock);
+	inst = list_first_entry(&core->instances,
+		struct msm_vidc_inst, list);
+	mutex_unlock(&core->lock);
+
+	msm_comm_print_debug_info(inst);
 
 	BUG_ON(core->resources.debug_timeout);
 }
@@ -2450,6 +2465,7 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dprintk(VIDC_ERR,
 			"ABORT timeout can potentially crash the system\n");
+		msm_comm_print_debug_info(inst);
 
 		BUG_ON(inst->core->resources.debug_timeout);
 		rc = -EBUSY;
@@ -2522,6 +2538,7 @@ int msm_comm_check_core_init(struct msm_vidc_core *core)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
+	struct msm_vidc_inst *inst = NULL;
 
 	mutex_lock(&core->lock);
 	if (core->state >= VIDC_CORE_INIT_DONE) {
@@ -2540,6 +2557,17 @@ int msm_comm_check_core_init(struct msm_vidc_core *core)
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dprintk(VIDC_ERR,
 			"SYS_INIT timeout can potentially crash the system\n");
+		/*
+		 * For SYS_INIT, there will not be any inst pointer.
+		 * Just grab one of the inst from instances list and
+		 * use it.
+		 */
+		inst = list_first_entry(&core->instances,
+			struct msm_vidc_inst, list);
+
+		mutex_unlock(&core->lock);
+		msm_comm_print_debug_info(inst);
+		mutex_lock(&core->lock);
 
 		BUG_ON(core->resources.debug_timeout);
 		rc = -EIO;
@@ -4017,6 +4045,8 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dprintk(VIDC_ERR,
 			"SESS_PROP timeout can potentially crash the system\n");
+		if (inst->core->resources.debug_timeout)
+			msm_comm_print_debug_info(inst);
 
 		BUG_ON(inst->core->resources.debug_timeout);
 		rc = -ETIMEDOUT;
@@ -5231,4 +5261,93 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	}
 exit:
 	return rc;
+}
+
+void msm_comm_print_inst_info(struct msm_vidc_inst *inst)
+{
+	struct buffer_info *temp;
+	struct internal_buf *buf;
+	int i = 0;
+	bool is_decode = false;
+	enum vidc_ports port;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s - invalid param %p\n",
+			__func__, inst);
+		return;
+	}
+
+	is_decode = inst->session_type == MSM_VIDC_DECODER;
+	port = is_decode ? OUTPUT_PORT : CAPTURE_PORT;
+	dprintk(VIDC_ERR,
+			"%s session, Codec type: %s HxW: %d x %d fps: %d bitrate: %d bit-depth: %s\n",
+			is_decode ? "Decode" : "Encode", inst->fmts[port]->name,
+			inst->prop.height[port], inst->prop.width[port],
+			inst->prop.fps, inst->prop.bitrate,
+			!inst->bit_depth ? "8" : "10");
+
+	dprintk(VIDC_ERR,
+			"---Buffer details for inst: %p of type: %d---\n",
+			inst, inst->session_type);
+	mutex_lock(&inst->registeredbufs.lock);
+	dprintk(VIDC_ERR, "registered buffer list:\n");
+	list_for_each_entry(temp, &inst->registeredbufs.list, list)
+		for (i = 0; i < temp->num_planes; i++)
+			dprintk(VIDC_ERR,
+					"type: %d plane: %d addr: %pa size: %d\n",
+					temp->type, i, &temp->device_addr[i],
+					temp->size[i]);
+
+	mutex_unlock(&inst->registeredbufs.lock);
+
+	mutex_lock(&inst->scratchbufs.lock);
+	dprintk(VIDC_ERR, "scratch buffer list:\n");
+	list_for_each_entry(buf, &inst->scratchbufs.list, list)
+		dprintk(VIDC_ERR, "type: %d addr: %pa size: %zu\n",
+				buf->buffer_type, &buf->handle->device_addr,
+				buf->handle->size);
+	mutex_unlock(&inst->scratchbufs.lock);
+
+	mutex_lock(&inst->persistbufs.lock);
+	dprintk(VIDC_ERR, "persist buffer list:\n");
+	list_for_each_entry(buf, &inst->persistbufs.list, list)
+		dprintk(VIDC_ERR, "type: %d addr: %pa size: %zu\n",
+				buf->buffer_type, &buf->handle->device_addr,
+				buf->handle->size);
+	mutex_unlock(&inst->persistbufs.lock);
+
+	mutex_lock(&inst->outputbufs.lock);
+	dprintk(VIDC_ERR, "dpb buffer list:\n");
+	list_for_each_entry(buf, &inst->outputbufs.list, list)
+		dprintk(VIDC_ERR, "type: %d addr: %pa size: %zu\n",
+				buf->buffer_type, &buf->handle->device_addr,
+				buf->handle->size);
+	mutex_unlock(&inst->outputbufs.lock);
+}
+
+static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
+{
+	struct msm_vidc_core *core = NULL;
+	struct msm_vidc_inst *temp = NULL;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s - invalid param %p %p\n",
+				__func__, inst, core);
+		return;
+	}
+	core = inst->core;
+
+	dprintk(VIDC_ERR, "Venus core frequency = %lu",
+		msm_comm_get_clock_rate(core));
+	dprintk(VIDC_ERR, "Printing instance info that caused Error\n");
+	msm_comm_print_inst_info(inst);
+	dprintk(VIDC_ERR, "Printing remaining instances info\n");
+	mutex_lock(&core->lock);
+	list_for_each_entry(temp, &core->instances, list) {
+		/* inst already printed above. Hence don't repeat.*/
+		if (temp == inst)
+			continue;
+		msm_comm_print_inst_info(temp);
+	}
+	mutex_unlock(&core->lock);
 }

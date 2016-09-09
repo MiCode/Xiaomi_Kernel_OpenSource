@@ -53,23 +53,29 @@ Optional properties:
 		   - "secondary"
 		   - "tertiary"
 
-[Optional child nodes]: These nodes are for devices which are
-dependent on HDMI Tx controller. If HDMI Tx controller is disabled then
-these devices will be disabled as well. Ex. HDMI Audio Codec device.
-
-- qcom,msm-hdmi-audio-rx: Node for HDMI audio codec.
-Required properties:
-- compatible : "msm-hdmi-audio-codec-rx";
-
 msm_ext_disp is a device which manages the interaction between external
 displays (HDMI and Display Port) and the audio and display frameworks.
 
 Required properties:
 - compatible:				Must be "qcom,msm-ext-disp"
 
+[Required child nodes]: These nodes are for devices which are
+dependent on msm_ext_disp. If msm_ext_disp is disabled then
+these devices will be disabled as well. Ex. Audio Codec device.
+
+- ext_disp_audio_codec: Node for Audio Codec.
+
+Required properties:
+- compatible : "qcom,msm-ext-disp-audio-codec-rx";
+
 Example:
 	msm_ext_disp: qcom,msm_ext_disp {
 		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+			qcom,msm_ext_disp = <&msm_ext_disp>;
+		};
 	};
 
 	mdss_hdmi_tx: qcom,hdmi_tx@fd922100 {
@@ -109,9 +115,6 @@ Example:
 		qcom,pluggable;
 		qcom,display-id = "secondary";
 
-		qcom,msm-hdmi-audio-rx {
-			compatible = "qcom,msm-hdmi-audio-codec-rx";
-		};
 		pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active",
 					"hdmi_cec_active", "hdmi_active",
 					"hdmi_sleep";

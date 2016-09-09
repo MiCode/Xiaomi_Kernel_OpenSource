@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,53 +32,82 @@ enum {
 	STATUS_MAX
 };
 
-struct msm_hdmi_ca {
+struct msm_ext_disp_ca {
 	bool set_ca;
 	u32 ca;
 };
-
-static struct msm_hdmi_ca hdmi_ca = { false, 0x0 };
 
 struct msm_dai_q6_hdmi_dai_data {
 	DECLARE_BITMAP(status_mask, STATUS_MAX);
 	u32 rate;
 	u32 channels;
+	struct msm_ext_disp_ca ca;
 	union afe_port_config port_config;
 };
 
-static int msm_dai_q6_hdmi_format_put(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
+static int msm_dai_q6_ext_disp_format_put(struct snd_kcontrol *kcontrol,
+					  struct snd_ctl_elem_value *ucontrol)
 {
-
 	struct msm_dai_q6_hdmi_dai_data *dai_data = kcontrol->private_data;
 	int value = ucontrol->value.integer.value[0];
+
+	if (!dai_data) {
+		pr_err("%s: dai_data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	dai_data->port_config.hdmi_multi_ch.datatype = value;
 	pr_debug("%s: value = %d\n", __func__, value);
+
 	return 0;
 }
 
-static int msm_dai_q6_hdmi_format_get(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
+static int msm_dai_q6_ext_disp_format_get(struct snd_kcontrol *kcontrol,
+					  struct snd_ctl_elem_value *ucontrol)
 {
-
 	struct msm_dai_q6_hdmi_dai_data *dai_data = kcontrol->private_data;
+
+	if (!dai_data) {
+		pr_err("%s: dai_data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	ucontrol->value.integer.value[0] =
 		dai_data->port_config.hdmi_multi_ch.datatype;
+	pr_debug("%s: value = %ld\n",
+		 __func__, ucontrol->value.integer.value[0]);
+
 	return 0;
 }
 
-static int msm_dai_q6_hdmi_ca_put(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
+static int msm_dai_q6_ext_disp_ca_put(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
 {
-	hdmi_ca.ca = ucontrol->value.integer.value[0];
-	hdmi_ca.set_ca = true;
+	struct msm_dai_q6_hdmi_dai_data *dai_data = kcontrol->private_data;
+
+	if (!dai_data) {
+		pr_err("%s: dai_data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	dai_data->ca.ca = ucontrol->value.integer.value[0];
+	dai_data->ca.set_ca = true;
+	pr_debug("%s: ca = %d\n", __func__, dai_data->ca.ca);
 	return 0;
 }
 
-static int msm_dai_q6_hdmi_ca_get(struct snd_kcontrol *kcontrol,
+static int msm_dai_q6_ext_disp_ca_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	ucontrol->value.integer.value[0] = hdmi_ca.ca;
+	struct msm_dai_q6_hdmi_dai_data *dai_data = kcontrol->private_data;
+
+	if (!dai_data) {
+		pr_err("%s: dai_data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	ucontrol->value.integer.value[0] = dai_data->ca.ca;
+	pr_debug("%s: ca = %d\n", __func__, dai_data->ca.ca);
 	return 0;
 }
 
@@ -97,12 +126,22 @@ static const struct soc_enum hdmi_config_enum[] = {
 
 static const struct snd_kcontrol_new hdmi_config_controls[] = {
 	SOC_ENUM_EXT("HDMI RX Format", hdmi_config_enum[0],
-				 msm_dai_q6_hdmi_format_get,
-				 msm_dai_q6_hdmi_format_put),
+				 msm_dai_q6_ext_disp_format_get,
+				 msm_dai_q6_ext_disp_format_put),
 	SOC_SINGLE_MULTI_EXT("HDMI RX CA", SND_SOC_NOPM, 0,
 				 HDMI_RX_CA_MAX, 0, 1,
-				 msm_dai_q6_hdmi_ca_get,
-				 msm_dai_q6_hdmi_ca_put),
+				 msm_dai_q6_ext_disp_ca_get,
+				 msm_dai_q6_ext_disp_ca_put),
+};
+
+static const struct snd_kcontrol_new display_port_config_controls[] = {
+	SOC_ENUM_EXT("Display Port RX Format", hdmi_config_enum[0],
+				 msm_dai_q6_ext_disp_format_get,
+				 msm_dai_q6_ext_disp_format_put),
+	SOC_SINGLE_MULTI_EXT("Display Port RX CA", SND_SOC_NOPM, 0,
+				 HDMI_RX_CA_MAX, 0, 1,
+				 msm_dai_q6_ext_disp_ca_get,
+				 msm_dai_q6_ext_disp_ca_put),
 };
 
 /* Current implementation assumes hw_param is called once
@@ -200,9 +239,9 @@ static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
 	struct msm_dai_q6_hdmi_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
 
-	if (hdmi_ca.set_ca)
+	if (dai_data->ca.set_ca)
 		dai_data->port_config.hdmi_multi_ch.channel_allocation =
-								 hdmi_ca.ca;
+							      dai_data->ca.ca;
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_port_start(dai->id, &dai_data->port_config,
@@ -236,8 +275,8 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 	struct snd_soc_dapm_route intercon;
 	struct snd_soc_dapm_context *dapm;
 
-	if (!dai) {
-		pr_err("%s: dai not found\n", __func__);
+	if (!dai || !dai->driver) {
+		pr_err("%s: dai or dai->driver is NULL\n", __func__);
 		return -EINVAL;
 	}
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_hdmi_dai_data),
@@ -252,19 +291,33 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 
 	msm_dai_q6_hdmi_set_dai_id(dai);
 
-	kcontrol = &hdmi_config_controls[0];
+	if (dai->driver->id == HDMI_RX) {
+		kcontrol = &hdmi_config_controls[0];
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(kcontrol, dai_data));
 
-	rc = snd_ctl_add(dai->component->card->snd_card,
-					 snd_ctl_new1(kcontrol, dai_data));
+		kcontrol = &hdmi_config_controls[1];
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(kcontrol, dai_data));
+	} else if (dai->driver->id == DISPLAY_PORT_RX) {
+		kcontrol = &display_port_config_controls[0];
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(kcontrol, dai_data));
 
-	kcontrol = &hdmi_config_controls[1];
-
-	rc = snd_ctl_add(dai->component->card->snd_card,
-					 snd_ctl_new1(kcontrol, dai_data));
+		kcontrol = &display_port_config_controls[1];
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(kcontrol, dai_data));
+	} else {
+		dev_err(dai->dev, "%s: Invalid id:%d\n",
+			__func__, dai->driver->id);
+		kfree(dai_data);
+		dev_set_drvdata(dai->dev, NULL);
+		return -EINVAL;
+	}
 
 	dapm = snd_soc_component_get_dapm(dai->component);
 	memset(&intercon, 0 , sizeof(intercon));
-	if (!rc && dai && dai->driver) {
+	if (!rc) {
 		if (dai->driver->playback.stream_name &&
 			dai->driver->playback.aif_name) {
 			dev_dbg(dai->dev, "%s add route for widget %s",
@@ -325,13 +378,34 @@ static struct snd_soc_dai_driver msm_dai_q6_hdmi_hdmi_rx_dai = {
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 		.channels_min = 2,
 		.channels_max = 8,
-		.rate_max =     192000,
-		.rate_min =	48000,
+		.rate_max = 192000,
+		.rate_min = 48000,
 	},
 	.ops = &msm_dai_q6_hdmi_ops,
 	.id = HDMI_RX,
 	.probe = msm_dai_q6_hdmi_dai_probe,
 	.remove = msm_dai_q6_hdmi_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_display_port_rx_dai[] = {
+	{
+		.playback = {
+			.stream_name = "Display Port Playback",
+			.aif_name = "DISPLAY_PORT",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+				 SNDRV_PCM_RATE_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				   SNDRV_PCM_FMTBIT_S24_LE,
+			.channels_min = 2,
+			.channels_max = 8,
+			.rate_max =     192000,
+			.rate_min =     48000,
+		},
+		.ops = &msm_dai_q6_hdmi_ops,
+		.id = DISPLAY_PORT_RX,
+		.probe = msm_dai_q6_hdmi_dai_probe,
+		.remove = msm_dai_q6_hdmi_dai_remove,
+	},
 };
 
 static const struct snd_soc_component_driver msm_dai_hdmi_q6_component = {
@@ -361,6 +435,12 @@ static int msm_dai_q6_hdmi_dev_probe(struct platform_device *pdev)
 		rc = snd_soc_register_component(&pdev->dev,
 			&msm_dai_hdmi_q6_component,
 			&msm_dai_q6_hdmi_hdmi_rx_dai, 1);
+		break;
+	case DISPLAY_PORT_RX:
+		rc = snd_soc_register_component(&pdev->dev,
+			&msm_dai_hdmi_q6_component,
+			&msm_dai_q6_display_port_rx_dai[0],
+			ARRAY_SIZE(msm_dai_q6_display_port_rx_dai));
 		break;
 	default:
 		dev_err(&pdev->dev, "invalid device ID %d\n", pdev->id);

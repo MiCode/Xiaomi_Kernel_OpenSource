@@ -1,4 +1,5 @@
-/* Copyright (c) 2010-2012, 2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2012, 2014, 2016 The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -220,6 +221,8 @@ static long amrnb_in_compat_ioctl(struct file *file,
 	case AUDIO_GET_AMRNB_ENC_CONFIG_V2_32: {
 		struct msm_audio_amrnb_enc_config_v2 *amrnb_config;
 		struct msm_audio_amrnb_enc_config_v2_32 amrnb_config_32;
+
+		memset(&amrnb_config_32, 0, sizeof(amrnb_config_32));
 
 		amrnb_config =
 		(struct msm_audio_amrnb_enc_config_v2 *)audio->enc_cfg;

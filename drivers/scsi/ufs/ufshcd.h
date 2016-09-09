@@ -309,6 +309,7 @@ struct ufs_pwr_mode_info {
  * @update_sec_cfg: called to restore host controller secure configuration
  * @get_scale_down_gear: called to get the minimum supported gear to
  *			 scale down
+ * @set_bus_vote: called to vote for the required bus bandwidth
  * @add_debugfs: used to add debugfs entries
  * @remove_debugfs: used to remove debugfs entries
  */
@@ -335,6 +336,7 @@ struct ufs_hba_variant_ops {
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	u32	(*get_scale_down_gear)(struct ufs_hba *);
+	int	(*set_bus_vote)(struct ufs_hba *, bool);
 #ifdef CONFIG_DEBUG_FS
 	void	(*add_debugfs)(struct ufs_hba *hba, struct dentry *root);
 	void	(*remove_debugfs)(struct ufs_hba *hba);
@@ -1257,6 +1259,13 @@ static inline u32 ufshcd_vops_get_scale_down_gear(struct ufs_hba *hba)
 		return hba->var->vops->get_scale_down_gear(hba);
 	/* Default to lowest high speed gear */
 	return UFS_HS_G1;
+}
+
+static inline int ufshcd_vops_set_bus_vote(struct ufs_hba *hba, bool on)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->set_bus_vote)
+		return hba->var->vops->set_bus_vote(hba, on);
+	return 0;
 }
 
 #ifdef CONFIG_DEBUG_FS

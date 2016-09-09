@@ -752,7 +752,7 @@
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
 			<&clock_mmss clk_mmss_camss_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_top_ahb_clk>,
-			<&clock_mmss clk_mmss_camss_jpeg0_clk>,
+			<&clock_mmss clk_mmss_camss_jpeg0_vote_clk>,
 			<&clock_mmss clk_mmss_camss_jpeg_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_jpeg_axi_clk>;
 		qcom,clock-rates = <0 0 0 0 0 0 480000000 0 0>;
@@ -766,7 +766,7 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
-			<62 512 666675 666675>;
+			<62 512 1920000 2880000>;
 		status = "ok";
 	};
 
@@ -796,7 +796,7 @@
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
 			<&clock_mmss clk_mmss_camss_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_top_ahb_clk>,
-			<&clock_mmss clk_mmss_camss_jpeg0_clk>,
+			<&clock_mmss clk_mmss_camss_jpeg0_dma_vote_clk>,
 			<&clock_mmss clk_mmss_camss_jpeg_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_jpeg_axi_clk>;
 		qcom,clock-rates = <0 0 0 0 0 0 480000000 0 0>;
@@ -808,7 +808,7 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
-			<62 512 666675 666675>;
+			<62 512 1920000 2880000>;
 		qcom,max-ds-factor = <128>;
 		status = "ok";
 	};
