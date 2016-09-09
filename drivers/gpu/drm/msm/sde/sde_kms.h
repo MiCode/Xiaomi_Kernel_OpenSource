@@ -63,6 +63,17 @@
 #define CHECK_LAYER_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
 
+/**
+ * ktime_compare_safe - compare two ktime structures
+ *	This macro is similar to the standard ktime_compare() function, but
+ *	attempts to also handle ktime overflows.
+ * @A: First ktime value
+ * @B: Second ktime value
+ * Returns: -1 if A < B, 0 if A == B, 1 if A > B
+ */
+#define ktime_compare_safe(A, B) \
+	ktime_compare(ktime_sub((A), (B)), ktime_set(0, 0))
+
 /*
  * struct sde_irq_callback - IRQ callback handlers
  * @func: intr handler
