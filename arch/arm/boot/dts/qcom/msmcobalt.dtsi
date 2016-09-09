@@ -1805,6 +1805,10 @@
 				"utmi_clk", "sleep_clk", "xo";
 
 		qcom,core-clk-rate = <120000000>;
+
+		resets = <&clock_gcc USB_30_BCR>;
+		reset-names = "core_reset";
+
 		dwc3@a800000 {
 			compatible = "snps,dwc3";
 			reg = <0x0a800000 0xcd00>;
@@ -1871,10 +1875,11 @@
 		phy_type= "utmi";
 
 		clocks = <&clock_gcc clk_ln_bb_clk1>,
-			 <&clock_gcc clk_gcc_rx1_usb2_clkref_clk>,
-			 <&clock_gcc clk_gcc_qusb2phy_prim_reset>;
+			 <&clock_gcc clk_gcc_rx1_usb2_clkref_clk>;
+		clock-names = "ref_clk_src", "ref_clk";
 
-		clock-names = "ref_clk_src", "ref_clk", "phy_reset";
+		resets = <&clock_gcc QUSB2PHY_PRIM_BCR>;
+		reset-names = "phy_reset";
 	};
 
 	ssphy: ssphy@c010000 {
@@ -2022,13 +2027,15 @@
 
 		clocks = <&clock_gcc clk_gcc_usb3_phy_aux_clk>,
 			 <&clock_gcc clk_gcc_usb3_phy_pipe_clk>,
-			 <&clock_gcc clk_gcc_usb3_phy_reset>,
-			 <&clock_gcc clk_gcc_usb3phy_phy_reset>,
 			 <&clock_gcc clk_ln_bb_clk1>,
 			 <&clock_gcc clk_gcc_usb3_clkref_clk>;
 
-		clock-names = "aux_clk", "pipe_clk", "phy_reset",
-			      "phy_phy_reset", "ref_clk_src", "ref_clk";
+		clock-names = "aux_clk", "pipe_clk", "ref_clk_src",
+				"ref_clk";
+
+		resets = <&clock_gcc USB3_PHY_BCR>,
+			 <&clock_gcc USB3PHY_PHY_BCR>;
+		reset-names = "phy_reset", "phy_phy_reset";
 	};
 
 	usb_audio_qmi_dev {

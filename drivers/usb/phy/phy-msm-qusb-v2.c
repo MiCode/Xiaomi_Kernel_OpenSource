@@ -27,6 +27,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/reset.h>
 
 #define QUSB2PHY_PWR_CTRL1		0x210
 #define PWR_CTRL1_POWR_DOWN		BIT(0)
@@ -76,7 +77,7 @@ struct qusb_phy {
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*cfg_ahb_clk;
-	struct clk		*phy_reset;
+	struct reset_control	*phy_reset;
 
 	struct regulator	*vdd;
 	struct regulator	*vdda33;
@@ -370,14 +371,19 @@ static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 static void qusb_phy_host_init(struct usb_phy *phy)
 {
 	u8 reg;
+	int ret;
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
 	/* Perform phy reset */
-	clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
+	ret = reset_control_assert(qphy->phy_reset);
+	if (ret)
+		dev_err(phy->dev, "%s: phy_reset assert failed\n", __func__);
 	usleep_range(100, 150);
-	clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
+	ret = reset_control_deassert(qphy->phy_reset);
+	if (ret)
+		dev_err(phy->dev, "%s: phy_reset deassert failed\n", __func__);
 
 	qusb_phy_write_seq(qphy->base, qphy->qusb_phy_host_init_seq,
 			qphy->host_init_seq_len, 0);
@@ -411,9 +417,13 @@ static int qusb_phy_init(struct usb_phy *phy)
 	qusb_phy_enable_clocks(qphy, true);
 
 	/* Perform phy reset */
-	clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
+	ret = reset_control_assert(qphy->phy_reset);
+	if (ret)
+		dev_err(phy->dev, "%s: phy_reset assert failed\n", __func__);
 	usleep_range(100, 150);
-	clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
+	ret = reset_control_deassert(qphy->phy_reset);
+	if (ret)
+		dev_err(phy->dev, "%s: phy_reset deassert failed\n", __func__);
 
 	if (qphy->emulation) {
 		if (qphy->emu_init_seq)
@@ -531,6 +541,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	u32 linestate = 0, intr_mask = 0;
+	int ret;
 
 	if (qphy->suspended && suspend) {
 		dev_dbg(phy->dev, "%s: USB PHY is already suspended\n",
@@ -578,9 +589,15 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			qusb_phy_enable_clocks(qphy, false);
 		} else { /* Cable disconnect case */
 
-			clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
+			ret = reset_control_assert(qphy->phy_reset);
+			if (ret)
+				dev_err(phy->dev, "%s: phy_reset assert failed\n",
+						__func__);
 			usleep_range(100, 150);
-			clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
+			ret = reset_control_deassert(qphy->phy_reset);
+			if (ret)
+				dev_err(phy->dev, "%s: phy_reset deassert failed\n",
+						__func__);
 
 			/* enable clock bypass */
 			writel_relaxed(0x90,
@@ -622,7 +639,10 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			 */
 			wmb();
 
-			clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
+			ret = reset_control_deassert(qphy->phy_reset);
+			if (ret)
+				dev_err(phy->dev, "%s: phy_reset deassert failed\n",
+						__func__);
 
 			qusb_phy_enable_power(qphy, true, true);
 			qusb_phy_enable_clocks(qphy, true);
@@ -802,7 +822,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
-	qphy->phy_reset = devm_clk_get(dev, "phy_reset");
+	qphy->phy_reset = devm_reset_control_get(dev, "phy_reset");
 	if (IS_ERR(qphy->phy_reset))
 		return PTR_ERR(qphy->phy_reset);
 
