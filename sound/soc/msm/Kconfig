@@ -15,6 +15,7 @@ config SND_SOC_MSM_QDSP6V2_INTF
 config SND_SOC_QDSP6V2
 	tristate "SoC ALSA audio driver for QDSP6V2"
 	select SND_SOC_MSM_QDSP6V2_INTF
+	select SND_SOC_COMPRESS
 	help
 	 To add support for MSM QDSP6V2 Soc Audio.
 	 This will enable sound soc platform specific
