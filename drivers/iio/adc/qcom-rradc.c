@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "RRADC: %s: " fmt, __func__
+
 #include <linux/iio/iio.h>
 #include <linux/kernel.h>
 #include <linux/math64.h>
