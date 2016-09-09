@@ -24,6 +24,8 @@
 };
 
 &clock_cpu {
+	compatible = "qcom,cpu-clock-osm-msmcobalt-v2";
+	/delete-property/ qcom,llm-sw-overr;
 	qcom,pwrcl-speedbin0-v0 =
 		<   300000000 0x0004000f 0x01200020 0x1 >,
 		<   364800000 0x05040013 0x01200020 0x1 >,

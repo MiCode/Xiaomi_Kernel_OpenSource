@@ -803,7 +803,7 @@
 	};
 
 	clock_cpu: qcom,cpu-clock-cobalt@179c0000 {
-		compatible = "qcom,cpu-clock-osm";
+		compatible = "qcom,cpu-clock-osm-msmcobalt-v1";
 		reg = <0x179c0000 0x4000>,
 		      <0x17916000 0x1000>,
 		      <0x17816000 0x1000>,
