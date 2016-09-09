@@ -48,6 +48,7 @@
 enum clk_osm_bases {
 	OSM_BASE,
 	PLL_BASE,
+	EFUSE_BASE,
 	NUM_BASES,
 };
 
@@ -207,6 +208,11 @@ enum clk_osm_trace_packet_id {
 #define PLL_DD_USER_CTL_LO_DISABLE	0x1f04c41f
 #define PLL_DD_D0_USER_CTL_LO		0x17916208
 #define PLL_DD_D1_USER_CTL_LO		0x17816208
+
+#define PWRCL_EFUSE_SHIFT	0
+#define PWRCL_EFUSE_MASK	0
+#define PERFCL_EFUSE_SHIFT	29
+#define PERFCL_EFUSE_MASK	0x7
 
 static void __iomem *virt_base;
 
@@ -911,6 +917,35 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 	if (!virt_base) {
 		dev_err(&pdev->dev, "Failed to map apcs common registers\n");
 		return -ENOMEM;
+	}
+
+	/* efuse speed bin fuses are optional */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "pwrcl_efuse");
+	if (res) {
+		pbase = (unsigned long)res->start;
+		vbase = devm_ioremap(&pdev->dev, res->start,
+				     resource_size(res));
+		if (!vbase) {
+			dev_err(&pdev->dev, "Unable to map in pwrcl_efuse base\n");
+			return -ENOMEM;
+		}
+		pwrcl_clk.pbases[EFUSE_BASE] = pbase;
+		pwrcl_clk.vbases[EFUSE_BASE] = vbase;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "perfcl_efuse");
+	if (res) {
+		pbase = (unsigned long)res->start;
+		vbase = devm_ioremap(&pdev->dev, res->start,
+				     resource_size(res));
+		if (!vbase) {
+			dev_err(&pdev->dev, "Unable to map in perfcl_efuse base\n");
+			return -ENOMEM;
+		}
+		perfcl_clk.pbases[EFUSE_BASE] = pbase;
+		perfcl_clk.vbases[EFUSE_BASE] = vbase;
 	}
 
 	vdd_pwrcl = devm_regulator_get(&pdev->dev, "vdd-pwrcl");
@@ -2441,9 +2476,11 @@ static unsigned long osm_clk_init_rate = 200000000;
 
 static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 {
-	char perfclspeedbinstr[] = "qcom,perfcl-speedbin0-v0";
-	char pwrclspeedbinstr[] = "qcom,pwrcl-speedbin0-v0";
 	int rc, cpu;
+	int speedbin = 0, pvs_ver = 0;
+	u32 pte_efuse;
+	char pwrclspeedbinstr[] = "qcom,pwrcl-speedbin0-v0";
+	char perfclspeedbinstr[] = "qcom,perfcl-speedbin0-v0";
 	struct cpu_cycle_counter_cb cb = {
 		.get_cpu_cycle_counter = clk_osm_get_cpu_cycle_counter,
 	};
@@ -2462,6 +2499,18 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	if (pwrcl_clk.vbases[EFUSE_BASE]) {
+		/* Multiple speed-bins are supported */
+		pte_efuse = readl_relaxed(pwrcl_clk.vbases[EFUSE_BASE]);
+		speedbin = ((pte_efuse >> PWRCL_EFUSE_SHIFT) &
+			    PWRCL_EFUSE_MASK);
+		snprintf(pwrclspeedbinstr, ARRAY_SIZE(pwrclspeedbinstr),
+			 "qcom,pwrcl-speedbin%d-v%d", speedbin, pvs_ver);
+	}
+
+	dev_info(&pdev->dev, "using pwrcl speed bin %u and pvs_ver %d\n",
+		 speedbin, pvs_ver);
+
 	rc = clk_osm_get_lut(pdev, &pwrcl_clk,
 			     pwrclspeedbinstr);
 	if (rc) {
@@ -2469,6 +2518,18 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 			rc);
 		return rc;
 	}
+
+	if (perfcl_clk.vbases[EFUSE_BASE]) {
+		/* Multiple speed-bins are supported */
+		pte_efuse = readl_relaxed(perfcl_clk.vbases[EFUSE_BASE]);
+		speedbin = ((pte_efuse >> PERFCL_EFUSE_SHIFT) &
+			    PERFCL_EFUSE_MASK);
+		snprintf(perfclspeedbinstr, ARRAY_SIZE(perfclspeedbinstr),
+			 "qcom,perfcl-speedbin%d-v%d", speedbin, pvs_ver);
+	}
+
+	dev_info(&pdev->dev, "using perfcl speed bin %u and pvs_ver %d\n",
+		 speedbin, pvs_ver);
 
 	rc = clk_osm_get_lut(pdev, &perfcl_clk, perfclspeedbinstr);
 	if (rc) {
