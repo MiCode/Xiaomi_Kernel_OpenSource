@@ -900,8 +900,10 @@
 
 	gfx_cpr: cpr4-ctrl@5061000 {
 		compatible = "qcom,cpr4-msmcobalt-v1-mmss-regulator";
-		reg = <0x05061000 0x4000>, <0x00784000 0x1000>;
-		reg-names = "cpr_ctrl", "fuse_base";
+		reg =	<0x05061000 0x4000>,
+			<0x00784000 0x1000>,
+			<0x05065204 0x4>;
+		reg-names = "cpr_ctrl", "fuse_base", "aging_allowed";
 		clocks = <&clock_gpu clk_gpucc_rbcpr_clk>,
 			 <&clock_gcc clk_cnoc_clk>;
 		clock-names = "core_clk", "bus_clk";
@@ -920,6 +922,8 @@
 		qcom,voltage-step = <4000>;
 		mem-acc-supply = <&gfx_mem_acc_vreg>;
 		qcom,cpr-aging-ref-voltage = <1032000>;
+		qcom,cpr-aging-allowed-reg-mask  = <0x00000003>;
+		qcom,cpr-aging-allowed-reg-value = <0x00000003>;
 
 		qcom,cpr-enable;
 
