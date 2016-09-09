@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014,2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,23 +13,70 @@
 #ifndef __U_DATA_IPA_H
 #define __U_DATA_IPA_H
 
-#include "usb_gadget_xport.h"
+#include <linux/usb/composite.h>
+#include <linux/rndis_ipa.h>
+#include <linux/usb/msm_hsusb.h>
+#include <linux/miscdevice.h>
+#include <linux/ipa_usb.h>
+#include <linux/usb_bam.h>
+
+enum ipa_func_type {
+	USB_IPA_FUNC_ECM,
+	USB_IPA_FUNC_MBIM,
+	USB_IPA_FUNC_RMNET,
+	USB_IPA_FUNC_RNDIS,
+	USB_IPA_FUNC_DPL,
+	USB_IPA_NUM_FUNCS,
+};
+
+/* Max Number of IPA data ports supported */
+#define IPA_N_PORTS USB_IPA_NUM_FUNCS
 
 struct gadget_ipa_port {
 	struct usb_composite_dev	*cdev;
 	struct usb_function		*func;
+	int				rx_buffer_size;
 	struct usb_ep			*in;
 	struct usb_ep			*out;
 	int				ipa_consumer_ep;
 	int				ipa_producer_ep;
+	const struct usb_endpoint_descriptor	*in_ep_desc_backup;
+	const struct usb_endpoint_descriptor	*out_ep_desc_backup;
+
 };
 
-void ipa_data_port_select(int portno, enum gadget_type gtype);
-void ipa_data_disconnect(struct gadget_ipa_port *gp, u8 port_num);
-int ipa_data_connect(struct gadget_ipa_port *gp, u8 port_num,
+void ipa_data_port_select(enum ipa_func_type func);
+void ipa_data_disconnect(struct gadget_ipa_port *gp, enum ipa_func_type func);
+int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
 			u8 src_connection_idx, u8 dst_connection_idx);
-int ipa_data_setup(unsigned int no_ipa_port);
-void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num);
-void ipa_data_suspend(struct gadget_ipa_port *gp, u8 port_num);
+int ipa_data_setup(enum ipa_func_type func);
 
+void ipa_data_flush_workqueue(void);
+void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
+		bool remote_wakeup_enabled);
+void ipa_data_suspend(struct gadget_ipa_port *gp, enum ipa_func_type func,
+		bool remote_wakeup_enabled);
+
+void ipa_data_set_ul_max_xfer_size(u32 ul_max_xfer_size);
+
+void ipa_data_set_dl_max_xfer_size(u32 dl_max_transfer_size);
+
+void ipa_data_set_ul_max_pkt_num(u8 ul_max_packets_number);
+
+void ipa_data_start_rx_tx(enum ipa_func_type func);
+
+void ipa_data_start_rndis_ipa(enum ipa_func_type func);
+
+void ipa_data_stop_rndis_ipa(enum ipa_func_type func);
+
+int
+rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+				u32 vendorID, const char *manufacturer,
+				u8 maxPktPerXfer, u8 pkt_alignment_factor);
+
+void *rndis_qc_get_ipa_priv(void);
+void *rndis_qc_get_ipa_rx_cb(void);
+bool rndis_qc_get_skip_ep_config(void);
+void *rndis_qc_get_ipa_tx_cb(void);
+void rndis_ipa_reset_trigger(void);
 #endif

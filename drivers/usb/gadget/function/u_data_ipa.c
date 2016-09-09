@@ -22,37 +22,49 @@
 #include <linux/termios.h>
 #include <linux/usb_bam.h>
 
-#include "usb_gadget_xport.h"
+#include "u_data_ipa.h"
 
-#define IPA_N_PORTS 4
 struct ipa_data_ch_info {
-	struct usb_request	*rx_req;
-	struct usb_request	*tx_req;
-	unsigned long		flags;
-	unsigned		id;
-	enum transport_type	trans;
-	enum gadget_type	gtype;
-	bool			is_connected;
-	unsigned		port_num;
-	spinlock_t		port_lock;
+	struct usb_request			*rx_req;
+	struct usb_request			*tx_req;
+	unsigned long				flags;
+	unsigned				id;
+	enum ipa_func_type			func_type;
+	bool					is_connected;
+	unsigned				port_num;
+	spinlock_t				port_lock;
 
-	struct work_struct	connect_w;
-	struct work_struct	disconnect_w;
-	struct work_struct	suspend_w;
-	struct work_struct	resume_w;
+	struct work_struct			connect_w;
+	struct work_struct			disconnect_w;
+	struct work_struct			suspend_w;
+	struct work_struct			resume_w;
 
-	u32			src_pipe_idx;
-	u32			dst_pipe_idx;
-	u8			src_connection_idx;
-	u8			dst_connection_idx;
-	enum usb_ctrl		usb_bam_type;
-	struct gadget_ipa_port	*port_usb;
+	u32					src_pipe_idx;
+	u32					dst_pipe_idx;
+	u8					src_connection_idx;
+	u8					dst_connection_idx;
+	enum usb_ctrl				usb_bam_type;
+	struct gadget_ipa_port			*port_usb;
+	struct usb_gadget			*gadget;
+	atomic_t				pipe_connect_notified;
 	struct usb_bam_connect_ipa_params	ipa_params;
 };
 
-static int n_ipa_ports;
+struct rndis_data_ch_info {
+	/* this provides downlink (device->host i.e host) side configuration*/
+	u32	dl_max_transfer_size;
+	/* this provides uplink (host->device i.e device) side configuration */
+	u32	ul_max_transfer_size;
+	u32	ul_max_packets_number;
+	bool	ul_aggregation_enable;
+	u32	prod_clnt_hdl;
+	u32	cons_clnt_hdl;
+	void	*priv;
+};
+
 static struct workqueue_struct *ipa_data_wq;
 struct ipa_data_ch_info *ipa_data_ports[IPA_N_PORTS];
+static struct rndis_data_ch_info *rndis_data;
 /**
  * ipa_data_endless_complete() - completion callback for endless TX/RX request
  * @ep: USB endpoint for which this completion happen
@@ -132,6 +144,56 @@ static void ipa_data_stop_endless_xfer(struct ipa_data_ch_info *port, bool in)
 	}
 }
 
+/*
+ * Called when IPA triggers us that the network interface is up.
+ *  Starts the transfers on bulk endpoints.
+ * (optimization reasons, the pipes and bam with IPA are already connected)
+ */
+void ipa_data_start_rx_tx(enum ipa_func_type func)
+{
+	struct ipa_data_ch_info	*port;
+	unsigned long flags;
+
+	pr_debug("%s: Triggered: starting tx, rx", __func__);
+	/* queue in & out requests */
+	port = ipa_data_ports[func];
+	if (!port) {
+		pr_err("%s: port is NULL, can't start tx, rx", __func__);
+		return;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
+	if (!port->port_usb || !port->port_usb->in ||
+		!port->port_usb->out) {
+		pr_err("%s: Can't start tx, rx, ep not enabled", __func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
+
+	if (!port->rx_req || !port->tx_req) {
+		pr_err("%s: No request d->rx_req=%p, d->tx_req=%p", __func__,
+			port->rx_req, port->tx_req);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
+	if (!port->is_connected) {
+		pr_debug("%s: pipes are disconnected", __func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
+
+	spin_unlock_irqrestore(&port->port_lock, flags);
+
+	/* queue in & out requests */
+	pr_debug("%s: Starting rx", __func__);
+	if (port->port_usb->out)
+		ipa_data_start_endless_xfer(port, false);
+
+	pr_debug("%s: Starting tx", __func__);
+	if (port->port_usb->in)
+		ipa_data_start_endless_xfer(port, true);
+}
 /**
  * ipa_data_disconnect_work() - Perform USB IPA BAM disconnect
  * @w: disconnect work
@@ -166,12 +228,35 @@ static void ipa_data_disconnect_work(struct work_struct *w)
 	if (ret)
 		pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
 
+	if (port->func_type == USB_IPA_FUNC_RNDIS) {
+		/*
+		 * NOTE: it is required to disconnect USB and IPA BAM related
+		 * pipes before calling IPA tethered function related disconnect
+		 * API. IPA tethered function related disconnect API delete
+		 * depedency graph with IPA RM which would results into IPA not
+		 * pulling data although there is pending data on USB BAM
+		 * producer pipe.
+		*/
+		if (atomic_xchg(&port->pipe_connect_notified, 0) == 1) {
+			void *priv;
+
+			priv = rndis_qc_get_ipa_priv();
+			rndis_ipa_pipe_disconnect_notify(priv);
+		}
+	}
+
 	if (port->ipa_params.prod_clnt_hdl)
 		usb_bam_free_fifos(port->usb_bam_type,
 						port->dst_connection_idx);
 	if (port->ipa_params.cons_clnt_hdl)
 		usb_bam_free_fifos(port->usb_bam_type,
 						port->src_connection_idx);
+
+	/*
+	 * Decrement usage count which was incremented
+	 * upon cable connect or cable disconnect in suspended state.
+	 */
+	usb_gadget_autopm_put_async(port->gadget);
 
 	pr_debug("%s(): disconnect work completed.\n", __func__);
 }
@@ -186,15 +271,15 @@ static void ipa_data_disconnect_work(struct work_struct *w)
  * switch is being trigger. This API performs restoring USB endpoint operation
  * and disable USB endpoint used for accelerated path.
  */
-void ipa_data_disconnect(struct gadget_ipa_port *gp, u8 port_num)
+void ipa_data_disconnect(struct gadget_ipa_port *gp, enum ipa_func_type func)
 {
 	struct ipa_data_ch_info *port;
 	unsigned long flags;
 	struct usb_gadget *gadget = NULL;
 
-	pr_debug("dev:%p port number:%d\n", gp, port_num);
-	if (port_num >= n_ipa_ports) {
-		pr_err("invalid ipa portno#%d\n", port_num);
+	pr_debug("dev:%p port number:%d\n", gp, func);
+	if (func >= USB_IPA_NUM_FUNCS) {
+		pr_err("invalid ipa portno#%d\n", func);
 		return;
 	}
 
@@ -203,9 +288,9 @@ void ipa_data_disconnect(struct gadget_ipa_port *gp, u8 port_num)
 		return;
 	}
 
-	port = ipa_data_ports[port_num];
+	port = ipa_data_ports[func];
 	if (!port) {
-		pr_err("port %u is NULL", port_num);
+		pr_err("port %u is NULL", func);
 		return;
 	}
 
@@ -223,8 +308,7 @@ void ipa_data_disconnect(struct gadget_ipa_port *gp, u8 port_num)
 			 * complete function will be called, where we try
 			 * to obtain the spinlock as well.
 			 */
-			if (gadget_is_dwc3(gadget))
-				msm_ep_unconfig(port->port_usb->in);
+			msm_ep_unconfig(port->port_usb->in);
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			usb_ep_disable(port->port_usb->in);
 			spin_lock_irqsave(&port->port_lock, flags);
@@ -232,8 +316,7 @@ void ipa_data_disconnect(struct gadget_ipa_port *gp, u8 port_num)
 		}
 
 		if (port->port_usb->out) {
-			if (gadget_is_dwc3(gadget))
-				msm_ep_unconfig(port->port_usb->out);
+			msm_ep_unconfig(port->port_usb->out);
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			usb_ep_disable(port->port_usb->out);
 			spin_lock_irqsave(&port->port_lock, flags);
@@ -257,14 +340,14 @@ void ipa_data_disconnect(struct gadget_ipa_port *gp, u8 port_num)
  */
 static void configure_fifo(enum usb_ctrl bam_type, u8 idx, struct usb_ep *ep)
 {
-	struct u_bam_data_connect_info bam_info;
 	struct sps_mem_buffer data_fifo = {0};
+	u32 usb_bam_pipe_idx;
 
 	get_bam2bam_connection_info(bam_type, idx,
-				&bam_info.usb_bam_pipe_idx,
+				&usb_bam_pipe_idx,
 				NULL, &data_fifo, NULL);
 	msm_data_fifo_config(ep, data_fifo.phys_base, data_fifo.size,
-			bam_info.usb_bam_pipe_idx);
+			usb_bam_pipe_idx);
 }
 
 /**
@@ -308,8 +391,21 @@ static void ipa_data_connect_work(struct work_struct *w)
 		return;
 	}
 
+	/*
+	 * check if connect_w got called two times during RNDIS resume as
+	 * explicit flow control is called to start data transfers after
+	 * ipa_data_connect()
+	 */
+	if (port->is_connected) {
+		pr_debug("IPA connect is already done & Transfers started\n");
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		usb_gadget_autopm_put_async(port->gadget);
+		return;
+	}
+
 	gport->ipa_consumer_ep = -1;
 	gport->ipa_producer_ep = -1;
+
 	if (gport->out) {
 		port->rx_req = usb_ep_alloc_request(gport->out, GFP_ATOMIC);
 		if (!port->rx_req) {
@@ -341,8 +437,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 
 	/* update IPA Parameteres here. */
 	port->ipa_params.usb_connection_speed = gadget->speed;
-	if (gadget_is_dwc3(gadget))
-		port->ipa_params.reset_pipe_after_lpm =
+	port->ipa_params.reset_pipe_after_lpm =
 				msm_dwc3_reset_ep_after_lpm(gadget);
 	port->ipa_params.skip_ep_cfg = true;
 	port->ipa_params.keep_ipa_awake = true;
@@ -354,49 +449,35 @@ static void ipa_data_connect_work(struct work_struct *w)
 		usb_bam_alloc_fifos(port->usb_bam_type,
 						port->src_connection_idx);
 
-		if (gadget_is_dwc3(gadget)) {
-			sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
-					| MSM_PRODUCER | port->src_pipe_idx;
-			port->rx_req->length = 32*1024;
-			port->rx_req->udc_priv = sps_params;
-			configure_fifo(port->usb_bam_type,
-					port->src_connection_idx,
-					port->port_usb->out);
-			ret = msm_ep_config(gport->out, port->rx_req,
-								GFP_ATOMIC);
-			if (ret) {
-				pr_err("msm_ep_config() failed for OUT EP\n");
-				usb_bam_free_fifos(port->usb_bam_type,
-						port->src_connection_idx);
-				goto free_rx_tx_req;
-			}
-		} else {
-			sps_params = (MSM_SPS_MODE | port->src_pipe_idx |
-				       MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
-			port->rx_req->udc_priv = sps_params;
+		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
+				| MSM_PRODUCER | port->src_pipe_idx;
+		port->rx_req->length = 32*1024;
+		port->rx_req->udc_priv = sps_params;
+		configure_fifo(port->usb_bam_type,
+				port->src_connection_idx,
+				port->port_usb->out);
+		ret = msm_ep_config(gport->out);
+		if (ret) {
+			pr_err("msm_ep_config() failed for OUT EP\n");
+			usb_bam_free_fifos(port->usb_bam_type,
+					port->src_connection_idx);
+			goto free_rx_tx_req;
 		}
 	}
 
 	if (gport->in) {
 		usb_bam_alloc_fifos(port->usb_bam_type,
 						port->dst_connection_idx);
-		if (gadget_is_dwc3(gadget)) {
-			sps_params = MSM_SPS_MODE | MSM_DISABLE_WB |
-							port->dst_pipe_idx;
-			port->tx_req->length = 32*1024;
-			port->tx_req->udc_priv = sps_params;
-			configure_fifo(port->usb_bam_type,
-					port->dst_connection_idx, gport->in);
-			ret = msm_ep_config(gport->in, port->tx_req,
-								GFP_ATOMIC);
-			if (ret) {
-				pr_err("msm_ep_config() failed for IN EP\n");
-				goto unconfig_msm_ep_out;
-			}
-		} else {
-			sps_params = (MSM_SPS_MODE | port->dst_pipe_idx |
-				       MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
-			port->tx_req->udc_priv = sps_params;
+		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB |
+						port->dst_pipe_idx;
+		port->tx_req->length = 32*1024;
+		port->tx_req->udc_priv = sps_params;
+		configure_fifo(port->usb_bam_type,
+				port->dst_connection_idx, gport->in);
+		ret = msm_ep_config(gport->in);
+		if (ret) {
+			pr_err("msm_ep_config() failed for IN EP\n");
+			goto unconfig_msm_ep_out;
 		}
 	}
 
@@ -410,13 +491,20 @@ static void ipa_data_connect_work(struct work_struct *w)
 	if (gport->out) {
 		pr_debug("configure bam ipa connect for USB OUT\n");
 		port->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
+
+		if (port->func_type == USB_IPA_FUNC_RNDIS) {
+			port->ipa_params.notify = rndis_qc_get_ipa_rx_cb();
+			port->ipa_params.priv = rndis_qc_get_ipa_priv();
+			port->ipa_params.skip_ep_cfg =
+				rndis_qc_get_skip_ep_config();
+		}
+
 		ret = usb_bam_connect_ipa(port->usb_bam_type,
 						&port->ipa_params);
 		if (ret) {
 			pr_err("usb_bam_connect_ipa out failed err:%d\n", ret);
 			goto unconfig_msm_ep_in;
 		}
-		gadget->bam2bam_func_enabled = true;
 
 		gport->ipa_consumer_ep = port->ipa_params.ipa_cons_ep_idx;
 		is_ipa_disconnected = false;
@@ -425,29 +513,70 @@ static void ipa_data_connect_work(struct work_struct *w)
 	if (gport->in) {
 		pr_debug("configure bam ipa connect for USB IN\n");
 		port->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
-		port->ipa_params.dst_client = IPA_CLIENT_USB_DPL_CONS;
+
+		if (port->func_type == USB_IPA_FUNC_RNDIS) {
+			port->ipa_params.notify = rndis_qc_get_ipa_tx_cb();
+			port->ipa_params.priv = rndis_qc_get_ipa_priv();
+			port->ipa_params.skip_ep_cfg =
+				rndis_qc_get_skip_ep_config();
+		}
+
+		if (port->func_type == USB_IPA_FUNC_DPL)
+			port->ipa_params.dst_client = IPA_CLIENT_USB_DPL_CONS;
 		ret = usb_bam_connect_ipa(port->usb_bam_type,
 						&port->ipa_params);
 		if (ret) {
 			pr_err("usb_bam_connect_ipa IN failed err:%d\n", ret);
 			goto disconnect_usb_bam_ipa_out;
 		}
-		gadget->bam2bam_func_enabled = true;
 
 		gport->ipa_producer_ep = port->ipa_params.ipa_prod_ep_idx;
 		is_ipa_disconnected = false;
+	}
+
+	/* For DPL need to update_ipa_pipes to qti */
+	if (port->func_type == USB_IPA_FUNC_RNDIS) {
+		rndis_data->prod_clnt_hdl =
+			port->ipa_params.prod_clnt_hdl;
+		rndis_data->cons_clnt_hdl =
+			port->ipa_params.cons_clnt_hdl;
+		rndis_data->priv = port->ipa_params.priv;
+
+		pr_debug("ul_max_transfer_size:%d\n",
+				rndis_data->ul_max_transfer_size);
+		pr_debug("ul_max_packets_number:%d\n",
+				rndis_data->ul_max_packets_number);
+		pr_debug("dl_max_transfer_size:%d\n",
+				rndis_data->dl_max_transfer_size);
+
+		ret = rndis_ipa_pipe_connect_notify(
+				rndis_data->cons_clnt_hdl,
+				rndis_data->prod_clnt_hdl,
+				rndis_data->ul_max_transfer_size,
+				rndis_data->ul_max_packets_number,
+				rndis_data->dl_max_transfer_size,
+				rndis_data->priv);
+		if (ret) {
+			pr_err("%s: failed to connect IPA: err:%d\n",
+				__func__, ret);
+			return;
+		}
+		atomic_set(&port->pipe_connect_notified, 1);
 	}
 
 	pr_debug("ipa_producer_ep:%d ipa_consumer_ep:%d\n",
 				gport->ipa_producer_ep,
 				gport->ipa_consumer_ep);
 
-	gqti_ctrl_update_ipa_pipes(NULL, DPL_QTI_CTRL_PORT_NO,
-				gport->ipa_producer_ep,
-				gport->ipa_consumer_ep);
-
 	pr_debug("src_bam_idx:%d dst_bam_idx:%d\n",
 			port->src_connection_idx, port->dst_connection_idx);
+
+	/* Don't queue the transfers yet, only after network stack is up */
+	if (port->func_type == USB_IPA_FUNC_RNDIS) {
+		pr_debug("%s: Not starting now, waiting for network notify",
+			__func__);
+		return;
+	}
 
 	if (gport->out)
 		ipa_data_start_endless_xfer(port, false);
@@ -496,7 +625,7 @@ free_rx_req:
  * initiate USB BAM IPA connection. This API is enabling accelerated endpoints
  * and schedule connect_work() which establishes USB IPA BAM communication.
  */
-int ipa_data_connect(struct gadget_ipa_port *gp, u8 port_num,
+int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
 		u8 src_connection_idx, u8 dst_connection_idx)
 {
 	struct ipa_data_ch_info *port;
@@ -504,10 +633,10 @@ int ipa_data_connect(struct gadget_ipa_port *gp, u8 port_num,
 	int ret;
 
 	pr_debug("dev:%p port#%d src_connection_idx:%d dst_connection_idx:%d\n",
-			gp, port_num, src_connection_idx, dst_connection_idx);
+			gp, func, src_connection_idx, dst_connection_idx);
 
-	if (port_num >= n_ipa_ports) {
-		pr_err("invalid portno#%d\n", port_num);
+	if (func >= USB_IPA_NUM_FUNCS) {
+		pr_err("invalid portno#%d\n", func);
 		ret = -ENODEV;
 		goto err;
 	}
@@ -518,10 +647,11 @@ int ipa_data_connect(struct gadget_ipa_port *gp, u8 port_num,
 		goto err;
 	}
 
-	port = ipa_data_ports[port_num];
+	port = ipa_data_ports[func];
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->port_usb = gp;
+	port->gadget = gp->cdev->gadget;
 	port->src_connection_idx = src_connection_idx;
 	port->dst_connection_idx = dst_connection_idx;
 	port->usb_bam_type = usb_bam_get_bam_type(gp->cdev->gadget->name);
@@ -564,6 +694,19 @@ int ipa_data_connect(struct gadget_ipa_port *gp, u8 port_num,
 		ret = -EINVAL;
 		goto err_usb_in;
 	}
+
+	/* Wait for host to enable flow_control */
+	if (port->func_type == USB_IPA_FUNC_RNDIS) {
+		ret = 0;
+		goto err_usb_in;
+	}
+
+	/*
+	 * Increment usage count upon cable connect. Decrement after IPA
+	 * handshake is done in disconnect work (due to cable disconnect)
+	 * or in suspend work.
+	 */
+	usb_gadget_autopm_get_noresume(port->gadget);
 
 	queue_work(ipa_data_wq, &port->connect_w);
 	spin_unlock_irqrestore(&port->port_lock, flags);
@@ -642,6 +785,12 @@ static void ipa_data_stop(void *param, enum usb_bam_pipe_dir dir)
 	}
 }
 
+void ipa_data_flush_workqueue(void)
+{
+	pr_debug("%s(): Flushing workqueue\n", __func__);
+	flush_workqueue(ipa_data_wq);
+}
+
 /**
  * ipa_data_suspend() - Initiate USB BAM IPA suspend functionality
  * @gp: Gadget IPA port
@@ -650,15 +799,14 @@ static void ipa_data_stop(void *param, enum usb_bam_pipe_dir dir)
  * It is being used to initiate USB BAM IPA suspend functionality
  * for USB bus suspend functionality.
  */
-void ipa_data_suspend(struct gadget_ipa_port *gp, u8 port_num)
+void ipa_data_suspend(struct gadget_ipa_port *gp, enum ipa_func_type func,
+			bool remote_wakeup_enabled)
 {
 	struct ipa_data_ch_info *port;
-	int ret;
+	unsigned long flags;
 
-	pr_debug("dev:%p port number:%d\n", gp, port_num);
-
-	if (port_num >= n_ipa_ports) {
-		pr_err("invalid ipa portno#%d\n", port_num);
+	if (func >= USB_IPA_NUM_FUNCS) {
+		pr_err("invalid ipa portno#%d\n", func);
 		return;
 	}
 
@@ -666,14 +814,61 @@ void ipa_data_suspend(struct gadget_ipa_port *gp, u8 port_num)
 		pr_err("data port is null\n");
 		return;
 	}
+	pr_debug("%s: suspended port %d\n", __func__, func);
 
-	port = ipa_data_ports[port_num];
+	port = ipa_data_ports[func];
 	if (!port) {
-		pr_err("port %u is NULL", port_num);
+		pr_err("%s(): Port is NULL.\n", __func__);
 		return;
 	}
 
+	/* suspend with remote wakeup disabled */
+	if (!remote_wakeup_enabled) {
+		/*
+		 * When remote wakeup is disabled, IPA BAM is disconnected
+		 * because it cannot send new data until the USB bus is resumed.
+		 * Endpoint descriptors info is saved before it gets reset by
+		 * the BAM disconnect API. This lets us restore this info when
+		 * the USB bus is resumed.
+		 */
+		gp->in_ep_desc_backup = gp->in->desc;
+		gp->out_ep_desc_backup = gp->out->desc;
+
+		pr_debug("in_ep_desc_backup = %p, out_ep_desc_backup = %p",
+			gp->in_ep_desc_backup,
+			gp->out_ep_desc_backup);
+
+		ipa_data_disconnect(gp, func);
+		return;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	queue_work(ipa_data_wq, &port->suspend_w);
+	spin_unlock_irqrestore(&port->port_lock, flags);
+}
+static void bam2bam_data_suspend_work(struct work_struct *w)
+{
+	struct ipa_data_ch_info *port = container_of(w, struct ipa_data_ch_info,
+								connect_w);
+	unsigned long flags;
+	int ret;
+
 	pr_debug("%s: suspend started\n", __func__);
+	spin_lock_irqsave(&port->port_lock, flags);
+
+	/* In case of RNDIS, host enables flow_control invoking connect_w. If it
+	 * is delayed then we may end up having suspend_w run before connect_w.
+	 * In this scenario, connect_w may or may not at all start if cable gets
+	 * disconnected or if host changes configuration e.g. RNDIS --> MBIM
+	 * For these cases don't do runtime_put as there was no _get yet, and
+	 * detect this condition on disconnect to not do extra pm_runtme_get
+	 * for SUSPEND --> DISCONNECT scenario.
+	 */
+	if (!port->is_connected) {
+		pr_err("%s: Not yet connected. SUSPEND pending.\n", __func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
 	ret = usb_bam_register_wake_cb(port->usb_bam_type,
 			port->dst_connection_idx, NULL, port);
 	if (ret) {
@@ -685,7 +880,23 @@ void ipa_data_suspend(struct gadget_ipa_port *gp, u8 port_num)
 	usb_bam_register_start_stop_cbs(port->usb_bam_type,
 			port->dst_connection_idx, ipa_data_start,
 			ipa_data_stop, port);
+	/*
+	 * release lock here because bam_data_start() or
+	 * bam_data_stop() called from usb_bam_suspend()
+	 * re-acquires port lock.
+	 */
+	spin_unlock_irqrestore(&port->port_lock, flags);
 	usb_bam_suspend(port->usb_bam_type, &port->ipa_params);
+	spin_lock_irqsave(&port->port_lock, flags);
+
+	/*
+	 * Decrement usage count after IPA handshake is done
+	 * to allow gadget parent to go to lpm. This counter was
+	 * incremented upon cable connect.
+	 */
+	usb_gadget_autopm_put_async(port->gadget);
+
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 /**
@@ -696,17 +907,20 @@ void ipa_data_suspend(struct gadget_ipa_port *gp, u8 port_num)
  * It is being used to initiate USB resume functionality
  * for USB bus resume case.
  */
-void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num)
+void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
+			bool remote_wakeup_enabled)
 {
 	struct ipa_data_ch_info *port;
 	unsigned long flags;
 	struct usb_gadget *gadget = NULL;
-	int ret;
+	u8 src_connection_idx;
+	u8 dst_connection_idx;
+	enum usb_ctrl usb_bam_type;
 
-	pr_debug("dev:%p port number:%d\n", gp, port_num);
+	pr_debug("dev:%p port number:%d\n", gp, func);
 
-	if (port_num >= n_ipa_ports) {
-		pr_err("invalid ipa portno#%d\n", port_num);
+	if (func >= USB_IPA_NUM_FUNCS) {
+		pr_err("invalid ipa portno#%d\n", func);
 		return;
 	}
 
@@ -715,10 +929,64 @@ void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num)
 		return;
 	}
 
-	port = ipa_data_ports[port_num];
+	port = ipa_data_ports[func];
 	if (!port) {
-		pr_err("port %u is NULL", port_num);
+		pr_err("port %u is NULL", func);
 		return;
+	}
+
+	gadget = gp->cdev->gadget;
+	/* resume with remote wakeup disabled */
+	if (!remote_wakeup_enabled) {
+		/* Restore endpoint descriptors info. */
+		gp->in->desc = gp->in_ep_desc_backup;
+		gp->out->desc = gp->out_ep_desc_backup;
+
+		pr_debug("in_ep_desc_backup = %p, out_ep_desc_backup = %p",
+			gp->in_ep_desc_backup,
+			gp->out_ep_desc_backup);
+		usb_bam_type = usb_bam_get_bam_type(gadget->name);
+		src_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
+			IPA_P_BAM, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
+			0);
+		dst_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
+			IPA_P_BAM, PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE,
+			0);
+		ipa_data_connect(gp, func,
+				src_connection_idx, dst_connection_idx);
+		return;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
+	/*
+	 * Increment usage count here to disallow gadget
+	 * parent suspend. This counter will decrement
+	 * after IPA handshake is done in disconnect work
+	 * (due to cable disconnect) or in bam_data_disconnect
+	 * in suspended state.
+	 */
+	usb_gadget_autopm_get_noresume(port->gadget);
+	queue_work(ipa_data_wq, &port->resume_w);
+	spin_unlock_irqrestore(&port->port_lock, flags);
+}
+
+static void bam2bam_data_resume_work(struct work_struct *w)
+{
+	struct ipa_data_ch_info *port = container_of(w, struct ipa_data_ch_info,
+								connect_w);
+	struct usb_gadget *gadget;
+	unsigned long flags;
+	int ret;
+
+	if (!port->port_usb->cdev) {
+		pr_err("!port->port_usb->cdev is NULL");
+		goto exit;
+	}
+
+	if (!port->port_usb->cdev->gadget) {
+		pr_err("!port->port_usb->cdev->gadget is NULL");
+		goto exit;
 	}
 
 	pr_debug("%s: resume started\n", __func__);
@@ -750,6 +1018,7 @@ void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num)
 		usb_bam_resume(port->usb_bam_type, &port->ipa_params);
 	}
 
+exit:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
@@ -762,12 +1031,12 @@ void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num)
  *
  * Retrun: 0 in case of success, otherwise errno.
  */
-static int ipa_data_port_alloc(int portno)
+static int ipa_data_port_alloc(enum ipa_func_type func)
 {
 	struct ipa_data_ch_info *port = NULL;
 
-	if (ipa_data_ports[portno] != NULL) {
-		pr_debug("port %d already allocated.\n", portno);
+	if (ipa_data_ports[func] != NULL) {
+		pr_debug("port %d already allocated.\n", func);
 		return 0;
 	}
 
@@ -775,29 +1044,29 @@ static int ipa_data_port_alloc(int portno)
 	if (!port)
 		return -ENOMEM;
 
-	ipa_data_ports[portno] = port;
+	ipa_data_ports[func] = port;
 
-	pr_debug("port:%p with portno:%d allocated\n", port, portno);
+	pr_debug("port:%p with portno:%d allocated\n", port, func);
 	return 0;
 }
 
 /**
  * ipa_data_port_select() - Select particular port for BAM2BAM IPA mode
  * @portno: port number to be used by particular USB function
- * @gtype: USB gadget function type
+ * @func_type: USB gadget function type
  *
  * It is being used by USB function driver to select which BAM2BAM IPA
  * port particular USB function wants to use.
  *
  */
-void ipa_data_port_select(int portno, enum gadget_type gtype)
+void ipa_data_port_select(enum ipa_func_type func)
 {
 	struct ipa_data_ch_info *port = NULL;
 
-	pr_debug("portno:%d\n", portno);
+	pr_debug("portno:%d\n", func);
 
-	port = ipa_data_ports[portno];
-	port->port_num  = portno;
+	port = ipa_data_ports[func];
+	port->port_num  = func;
 	port->is_connected = false;
 
 	spin_lock_init(&port->port_lock);
@@ -808,14 +1077,16 @@ void ipa_data_port_select(int portno, enum gadget_type gtype)
 	if (!work_pending(&port->disconnect_w))
 		INIT_WORK(&port->disconnect_w, ipa_data_disconnect_work);
 
+	INIT_WORK(&port->suspend_w, bam2bam_data_suspend_work);
+	INIT_WORK(&port->resume_w, bam2bam_data_resume_work);
+
 	port->ipa_params.src_client = IPA_CLIENT_USB_PROD;
 	port->ipa_params.dst_client = IPA_CLIENT_USB_CONS;
-	port->gtype = gtype;
+	port->func_type = func;
 };
 
 /**
  * ipa_data_setup() - setup BAM2BAM IPA port
- * @no_ipa_port: total number of BAM2BAM IPA port to support
  *
  * Each USB function who wants to use BAM2BAM IPA port would
  * be counting number of IPA port to use and initialize those
@@ -823,32 +1094,34 @@ void ipa_data_port_select(int portno, enum gadget_type gtype)
  *
  * Retrun: 0 in case of success, otherwise errno.
  */
-int ipa_data_setup(unsigned int no_ipa_port)
+int ipa_data_setup(enum ipa_func_type func)
 {
-	int i, ret;
+	int ret;
 
-	pr_debug("requested %d IPA BAM ports", no_ipa_port);
+	pr_debug("requested %d IPA BAM port", func);
 
-	if (!no_ipa_port || no_ipa_port > IPA_N_PORTS) {
-		pr_err("Invalid num of ports count:%d\n", no_ipa_port);
+	if (func >= USB_IPA_NUM_FUNCS) {
+		pr_err("Invalid num of ports count:%d\n", func);
 		return -EINVAL;
 	}
 
-	for (i = 0; i < no_ipa_port; i++) {
-		n_ipa_ports++;
-		ret = ipa_data_port_alloc(i);
-		if (ret) {
-			n_ipa_ports--;
-			pr_err("Failed to alloc port:%d\n", i);
+	ret = ipa_data_port_alloc(func);
+	if (ret) {
+		pr_err("Failed to alloc port:%d\n", func);
+		return ret;
+	}
+
+	if (func == USB_IPA_FUNC_RNDIS) {
+		rndis_data = kzalloc(sizeof(*rndis_data), GFP_KERNEL);
+		if (!rndis_data) {
+			pr_err("%s: fail allocate and initialize new instance\n",
+				__func__);
 			goto free_ipa_ports;
 		}
 	}
-
-	pr_debug("n_ipa_ports:%d\n", n_ipa_ports);
-
 	if (ipa_data_wq) {
 		pr_debug("ipa_data_wq is already setup.");
-		return 0;
+		goto free_rndis_data;
 	}
 
 	ipa_data_wq = alloc_workqueue("k_usb_ipa_data",
@@ -856,20 +1129,111 @@ int ipa_data_setup(unsigned int no_ipa_port)
 	if (!ipa_data_wq) {
 		pr_err("Failed to create workqueue\n");
 		ret = -ENOMEM;
-		goto free_ipa_ports;
+		goto free_rndis_data;
 	}
 
 	return 0;
 
+free_rndis_data:
+	if (func == USB_IPA_FUNC_RNDIS)
+		kfree(rndis_data);
 free_ipa_ports:
-	for (i = 0; i < n_ipa_ports; i++) {
-		kfree(ipa_data_ports[i]);
-		ipa_data_ports[i] = NULL;
-		if (ipa_data_wq) {
-			destroy_workqueue(ipa_data_wq);
-			ipa_data_wq = NULL;
-		}
-	}
+	kfree(ipa_data_ports[func]);
+	ipa_data_ports[func] = NULL;
 
 	return ret;
+}
+
+void ipa_data_set_ul_max_xfer_size(u32 max_transfer_size)
+{
+	if (!max_transfer_size) {
+		pr_err("%s: invalid parameters\n", __func__);
+		return;
+	}
+	rndis_data->ul_max_transfer_size = max_transfer_size;
+	pr_debug("%s(): ul_max_xfer_size:%d\n", __func__, max_transfer_size);
+}
+
+void ipa_data_set_dl_max_xfer_size(u32 max_transfer_size)
+{
+
+	if (!max_transfer_size) {
+		pr_err("%s: invalid parameters\n", __func__);
+		return;
+	}
+	rndis_data->dl_max_transfer_size = max_transfer_size;
+	pr_debug("%s(): dl_max_xfer_size:%d\n", __func__, max_transfer_size);
+}
+
+void ipa_data_set_ul_max_pkt_num(u8 max_packets_number)
+{
+	if (!max_packets_number) {
+		pr_err("%s: invalid parameters\n", __func__);
+		return;
+	}
+
+	rndis_data->ul_max_packets_number = max_packets_number;
+
+	if (max_packets_number > 1)
+		rndis_data->ul_aggregation_enable = true;
+	else
+		rndis_data->ul_aggregation_enable = false;
+
+	pr_debug("%s(): ul_aggregation enable:%d ul_max_packets_number:%d\n",
+				__func__, rndis_data->ul_aggregation_enable,
+				max_packets_number);
+}
+
+void ipa_data_start_rndis_ipa(enum ipa_func_type func)
+{
+	struct ipa_data_ch_info *port;
+
+	pr_debug("%s\n", __func__);
+
+	port = ipa_data_ports[func];
+	if (!port) {
+		pr_err("%s: port is NULL", __func__);
+		return;
+	}
+
+	if (atomic_read(&port->pipe_connect_notified)) {
+		pr_debug("%s: Transfers already started?\n", __func__);
+		return;
+	}
+	/*
+	 * Increment usage count upon cable connect. Decrement after IPA
+	 * handshake is done in disconnect work due to cable disconnect
+	 * or in suspend work.
+	 */
+	usb_gadget_autopm_get_noresume(port->gadget);
+	queue_work(ipa_data_wq, &port->connect_w);
+}
+
+void ipa_data_stop_rndis_ipa(enum ipa_func_type func)
+{
+	struct ipa_data_ch_info *port;
+	unsigned long flags;
+
+	pr_debug("%s\n", __func__);
+
+	port = ipa_data_ports[func];
+	if (!port) {
+		pr_err("%s: port is NULL", __func__);
+		return;
+	}
+
+	if (!atomic_read(&port->pipe_connect_notified))
+		return;
+
+	rndis_ipa_reset_trigger();
+	ipa_data_stop_endless_xfer(port, true);
+	ipa_data_stop_endless_xfer(port, false);
+	spin_lock_irqsave(&port->port_lock, flags);
+	/* check if USB cable is disconnected or not */
+	if (port->port_usb) {
+		msm_ep_unconfig(port->port_usb->in);
+		msm_ep_unconfig(port->port_usb->out);
+	}
+	spin_unlock_irqrestore(&port->port_lock, flags);
+	queue_work(ipa_data_wq, &port->disconnect_w);
 }
