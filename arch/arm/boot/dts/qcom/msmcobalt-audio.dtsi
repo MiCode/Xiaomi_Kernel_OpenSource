@@ -34,7 +34,7 @@
 	sound-9335 {
 		compatible = "qcom,msmcobalt-asoc-snd-tasha";
 		qcom,model = "msmcobalt-tasha-snd-card";
-		qcom,hdmi-audio-rx;
+		qcom,ext-disp-audio-rx;
 
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
@@ -80,7 +80,7 @@
 				"msm-pcm-afe", "msm-lsm-client",
 				"msm-pcm-routing", "msm-cpe-lsm",
 				"msm-compr-dsp", "msm-pcm-dsp-noirq";
-		asoc-cpu = <&dai_hdmi>,
+		asoc-cpu = <&dai_hdmi>, <&dai_dp>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
 				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>,
@@ -90,7 +90,7 @@
 				<&incall_music_2_rx>, <&sb_5_rx>, <&sb_6_rx>,
 				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
 				<&usb_audio_rx>, <&usb_audio_tx>;
-		asoc-cpu-names = "msm-dai-q6-hdmi.8",
+		asoc-cpu-names = "msm-dai-q6-hdmi.8", "msm-dai-q6-dp.24608",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
 				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
 				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
@@ -117,6 +117,7 @@
 	sound-tavil {
 		compatible = "qcom,msmcobalt-asoc-snd-tavil";
 		qcom,model = "msmcobalt-tavil-snd-card";
+		qcom,ext-disp-audio-rx;
 
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
@@ -160,7 +161,7 @@
 				"msm-pcm-afe", "msm-lsm-client",
 				"msm-pcm-routing", "msm-cpe-lsm",
 				"msm-compr-dsp", "msm-pcm-dsp-noirq";
-		asoc-cpu = <&dai_hdmi>,
+		asoc-cpu = <&dai_hdmi>, <&dai_dp>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
 				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>,
@@ -169,7 +170,7 @@
 				<&incall_record_tx>, <&incall_music_rx>,
 				<&incall_music_2_rx>, <&sb_5_rx>,
 				<&usb_audio_rx>, <&usb_audio_tx>, <&sb_6_rx>;
-		asoc-cpu-names = "msm-dai-q6-hdmi.8",
+		asoc-cpu-names = "msm-dai-q6-hdmi.8",  "msm-dai-q6-dp.24608",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
 				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
 				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
