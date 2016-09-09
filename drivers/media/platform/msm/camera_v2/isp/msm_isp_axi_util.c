@@ -1023,31 +1023,32 @@ static void msm_isp_calculate_bandwidth(
 	struct msm_vfe_axi_stream *stream_info)
 {
 	int bpp = 0;
+	struct vfe_device *vfe_dev;
 	struct msm_vfe_axi_shared_data *axi_data;
 	int i;
 
-	if (stream_info->stream_src < RDI_INTF_0) {
-		for (i = 0; i < stream_info->num_isp; i++) {
-			axi_data = &stream_info->vfe_dev[i]->axi_data;
+	for (i = 0; i < stream_info->num_isp; i++) {
+		vfe_dev = stream_info->vfe_dev[i];
+		axi_data = &vfe_dev->axi_data;
+		if (stream_info->stream_src < RDI_INTF_0) {
 			stream_info->bandwidth[i] =
-				(axi_data->src_info[VFE_PIX_0].pixel_clock /
+				(vfe_dev->msm_isp_vfe_clk_rate /
 				axi_data->src_info[VFE_PIX_0].width) *
 				stream_info->max_width[i];
 			stream_info->bandwidth[i] =
 				(unsigned long)stream_info->bandwidth[i] *
 				stream_info->format_factor / ISP_Q2;
-		}
-	} else {
-		int rdi = SRC_TO_INTF(stream_info->stream_src);
-		bpp = msm_isp_get_bit_per_pixel(stream_info->output_format);
-		if (rdi < VFE_SRC_MAX) {
-			for (i = 0; i < stream_info->num_isp; i++) {
-				axi_data = &stream_info->vfe_dev[i]->axi_data;
-				stream_info->bandwidth[i] =
-				(axi_data->src_info[rdi].pixel_clock / 8) * bpp;
-			}
 		} else {
-			pr_err("%s: Invalid rdi interface\n", __func__);
+			int rdi = SRC_TO_INTF(stream_info->stream_src);
+
+			bpp = msm_isp_get_bit_per_pixel(
+					stream_info->output_format);
+			if (rdi < VFE_SRC_MAX) {
+				stream_info->bandwidth[i] =
+				(vfe_dev->msm_isp_vfe_clk_rate / 8) * bpp;
+			} else {
+				pr_err("%s: Invalid rdi interface\n", __func__);
+			}
 		}
 	}
 }

@@ -320,6 +320,7 @@ enable_regulators_failed:
 void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 {
 	enum cam_ahb_clk_client id;
+	unsigned long rate = 0;
 
 	/* when closing node, disable all irq */
 	vfe_dev->irq0_mask = 0;
@@ -344,6 +345,8 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 		pr_err("%s: failed to vote for AHB\n", __func__);
 
 	vfe_dev->ahb_vote = CAM_AHB_SUSPEND_VOTE;
+
+	vfe_dev->hw_info->vfe_ops.platform_ops.set_clk_rate(vfe_dev, &rate);
 
 	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(
 							vfe_dev, 0);

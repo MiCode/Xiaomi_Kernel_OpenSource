@@ -483,11 +483,18 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	pixel_clock = input_cfg->input_pix_clk;
-	rc = vfe_dev->hw_info->vfe_ops.platform_ops.set_clk_rate(vfe_dev,
-		&pixel_clock);
-	if (rc < 0) {
-		pr_err("%s: clock set rate failed\n", __func__);
-		return rc;
+	/*
+	 * Only set rate to higher, do not lower higher
+	 * rate needed by another input
+	 */
+	if (pixel_clock > vfe_dev->msm_isp_vfe_clk_rate) {
+		rc = vfe_dev->hw_info->vfe_ops.platform_ops.set_clk_rate(
+			vfe_dev,
+			&pixel_clock);
+		if (rc < 0) {
+			pr_err("%s: clock set rate failed\n", __func__);
+			return rc;
+		}
 	}
 	return rc;
 }
