@@ -507,6 +507,13 @@ static struct ctl_table kern_table[] = {
 		.extra1         = &zero,
 		.extra2		= &three,
 	},
+	{
+		.procname	= "sched_short_burst_ns",
+		.data		= &sysctl_sched_short_burst,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
 #endif	/* CONFIG_SCHED_HMP */
 #ifdef CONFIG_SCHED_DEBUG
 	{
