@@ -387,6 +387,27 @@ static uint32_t diag_translate_kernel_to_user_mask(uint32_t peripheral_mask)
 	return ret;
 }
 
+void diag_clear_masks(struct diag_md_session_t *info)
+{
+	int ret;
+	char cmd_disable_log_mask[] = { 0x73, 0, 0, 0, 0, 0, 0, 0};
+	char cmd_disable_msg_mask[] = { 0x7D, 0x05, 0, 0, 0, 0, 0, 0};
+	char cmd_disable_event_mask[] = { 0x60, 0};
+
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+	"diag: %s: masks clear request upon %s\n", __func__,
+	((info) ? "ODL exit" : "USB Disconnection"));
+
+	ret = diag_process_apps_masks(cmd_disable_log_mask,
+			sizeof(cmd_disable_log_mask), info);
+	ret = diag_process_apps_masks(cmd_disable_msg_mask,
+			sizeof(cmd_disable_msg_mask), info);
+	ret = diag_process_apps_masks(cmd_disable_event_mask,
+			sizeof(cmd_disable_event_mask), info);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+	"diag:%s: masks cleared successfully\n", __func__);
+}
+
 static void diag_close_logging_process(const int pid)
 {
 	int i;
@@ -397,6 +418,12 @@ static void diag_close_logging_process(const int pid)
 	session_info = diag_md_session_get_pid(pid);
 	if (!session_info)
 		return;
+
+	diag_clear_masks(session_info);
+
+	mutex_lock(&driver->diag_maskclear_mutex);
+	driver->mask_clear = 1;
+	mutex_unlock(&driver->diag_maskclear_mutex);
 
 	session_peripheral_mask = session_info->peripheral_mask;
 	diag_md_session_close(session_info);
@@ -473,9 +500,14 @@ static int diag_remove_client_entry(struct file *file)
 }
 static int diagchar_close(struct inode *inode, struct file *file)
 {
+	int ret;
 	DIAG_LOG(DIAG_DEBUG_USERSPACE, "diag: process exit %s\n",
 		current->comm);
-	return diag_remove_client_entry(file);
+	ret = diag_remove_client_entry(file);
+	mutex_lock(&driver->diag_maskclear_mutex);
+	driver->mask_clear = 0;
+	mutex_unlock(&driver->diag_maskclear_mutex);
+	return ret;
 }
 
 void diag_record_stats(int type, int flag)
@@ -965,7 +997,7 @@ static int diag_send_raw_data_remote(int proc, void *buf, int len,
 					(void *)driver->hdlc_encode_buf);
 
 send_data:
-	err = diagfwd_bridge_write(proc, driver->hdlc_encode_buf,
+	err = diagfwd_bridge_write(bridge_index, driver->hdlc_encode_buf,
 				   driver->hdlc_encode_buf_len);
 	if (err) {
 		pr_err_ratelimited("diag: Error writing Callback packet to proc: %d, err: %d\n",
@@ -2534,7 +2566,7 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 		}
 	}
 	if (remote_proc) {
-		ret = diag_send_raw_data_remote(remote_proc - 1,
+		ret = diag_send_raw_data_remote(remote_proc,
 				(void *)(user_space_data + token_offset),
 				len, USER_SPACE_RAW_DATA);
 		if (ret) {
@@ -3354,6 +3386,7 @@ static int __init diagchar_init(void)
 	non_hdlc_data.len = 0;
 	mutex_init(&driver->hdlc_disable_mutex);
 	mutex_init(&driver->diagchar_mutex);
+	mutex_init(&driver->diag_maskclear_mutex);
 	mutex_init(&driver->diag_file_mutex);
 	mutex_init(&driver->delayed_rsp_mutex);
 	mutex_init(&apps_data_mutex);
@@ -3388,13 +3421,13 @@ static int __init diagchar_init(void)
 	ret = diag_masks_init();
 	if (ret)
 		goto fail;
+	ret = diag_remote_init();
+	if (ret)
+		goto fail;
 	ret = diag_mux_init();
 	if (ret)
 		goto fail;
 	ret = diagfwd_init();
-	if (ret)
-		goto fail;
-	ret = diag_remote_init();
 	if (ret)
 		goto fail;
 	ret = diagfwd_bridge_init();

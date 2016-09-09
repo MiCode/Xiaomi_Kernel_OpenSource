@@ -67,3 +67,18 @@
 		};
 	};
 };
+
+&soc {
+	usb_detect {
+		compatible = "qcom,gpio-usbdetect";
+		vdd33-supply = <&pm8953_l18>;
+		vdd12-supply = <&pm8953_l23>;
+		interrupt-names = "vbus_det_irq";
+		interrupt-parent = <&tlmm>;
+		interrupts = <12 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ssusb_mode_sel>;
+		qcom,notify-host-mode;
+		qcom,gpio-mode-sel = <&tlmm 12 0>;
+	};
+};

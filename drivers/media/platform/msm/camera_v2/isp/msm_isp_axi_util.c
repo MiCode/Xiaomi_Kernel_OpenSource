@@ -593,6 +593,7 @@ static int msm_isp_check_epoch_status(struct vfe_device **vfe_dev,
 				vfe_dev_cur->pdev->id,
 				vfe_dev_cur->common_data->dual_vfe_res->
 					epoch_sync_mask);
+			msm_isp_dump_ping_pong_mismatch();
 			goto fatal;
 		}
 
@@ -997,7 +998,7 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 			spin_unlock_irqrestore(&vfe_dev->common_data->
 				common_dev_data_lock, flags);
 		} else {
-			if (frame_src == VFE_PIX_0) {
+			if (frame_src <= VFE_RAW_2) {
 				msm_isp_check_for_output_error(vfe_dev, ts,
 					&event_data.u.sof_info);
 			}
@@ -1462,6 +1463,8 @@ void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,
 		}
 		num_stream++;
 		stream_info = &axi_data->stream_info[i];
+		if (stream_info->state == INACTIVE)
+			continue;
 		if ((stream_info->stream_type == BURST_STREAM &&
 			!stream_info->controllable_output) ||
 			stream_info->state == AVAILABLE)
@@ -3680,6 +3683,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			spin_unlock_irqrestore(&stream_info->lock, flags);
 			pr_err("%s: Write master ping pong mismatch. Status: 0x%x\n",
 				__func__, pingpong_status);
+			msm_isp_dump_ping_pong_mismatch();
 			msm_isp_halt_send_error(vfe_dev,
 					ISP_EVENT_PING_PONG_MISMATCH);
 			return;

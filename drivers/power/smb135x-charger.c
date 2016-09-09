@@ -112,6 +112,7 @@
 #define BATT_MISSING_THERM_BIT		BIT(1)
 
 #define CFG_1A_REG			0x1A
+#define TEMP_MONITOR_EN_BIT		BIT(6)
 #define HOT_SOFT_VFLOAT_COMP_EN_BIT	BIT(3)
 #define COLD_SOFT_VFLOAT_COMP_EN_BIT	BIT(2)
 #define HOT_SOFT_CURRENT_COMP_EN_BIT	BIT(1)
@@ -1811,6 +1812,15 @@ static int smb135x_parallel_set_chg_present(struct smb135x_chg *chip,
 			dev_err(chip->dev,
 				"Couldn't configure for volatile rc = %d\n",
 				rc);
+			return rc;
+		}
+
+		/* disable thermal monitoring for parallel-charger */
+		rc = smb135x_masked_write(chip, CFG_1A_REG,
+					TEMP_MONITOR_EN_BIT, 0);
+		if (rc < 0) {
+			dev_err(chip->dev,
+				"Couldn't disable temp-monitor rc=%d\n", rc);
 			return rc;
 		}
 
