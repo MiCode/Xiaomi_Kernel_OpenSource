@@ -150,7 +150,6 @@ static void sde_crtc_get_blend_cfg(struct sde_hw_blend_cfg *cfg,
 			break;
 		}
 	} else {
-		cfg->bg.inv_alpha_sel = 1;
 		/* force 100% alpha */
 		cfg->fg.const_alpha = 0xFF;
 		cfg->bg.const_alpha = 0x00;
