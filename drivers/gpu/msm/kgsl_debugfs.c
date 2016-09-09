@@ -280,6 +280,29 @@ static const struct file_operations process_sparse_mem_fops = {
 	.release = process_mem_release,
 };
 
+static int globals_print(struct seq_file *s, void *unused)
+{
+	kgsl_print_global_pt_entries(s);
+	return 0;
+}
+
+static int globals_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, globals_print, NULL);
+}
+
+static int globals_release(struct inode *inode, struct file *file)
+{
+	return single_release(inode, file);
+}
+
+static const struct file_operations global_fops = {
+	.open = globals_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = globals_release,
+};
+
 /**
  * kgsl_process_init_debugfs() - Initialize debugfs for a process
  * @private: Pointer to process private structure created for the process
@@ -335,6 +358,9 @@ void kgsl_core_debugfs_init(void)
 	struct dentry *debug_dir;
 
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", NULL);
+
+	debugfs_create_file("globals", 0444, kgsl_debugfs_dir, NULL,
+		&global_fops);
 
 	debug_dir = debugfs_create_dir("debug", kgsl_debugfs_dir);
 
