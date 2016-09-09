@@ -494,6 +494,7 @@
 #define clk_sys_apcsaux_clk_gcc			0xf905e862
 #define clk_xo_ao				0x428c856d
 #define clk_osm_clk_src				0xaabe68c3
+#define clk_cpu_debug_mux			0x3ae8bcb2
 
 /* Audio External Clocks */
 #define clk_audio_ap_clk			0x9b5727cb

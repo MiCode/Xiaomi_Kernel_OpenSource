@@ -22,7 +22,7 @@ Properties:
 	Usage:      required
 	Value type: <stringlist>
 	Definition: Address names. Must be "osm", "pwrcl_pll", "perfcl_pll",
-		    and "apcs_common". Optionally, "pwrcl_efuse" or
+		    "apcs_common" and "debug". Optionally, "pwrcl_efuse" or
 		    "perfcl_efuse".
 		    Must be specified in the same order as the corresponding
 		    addresses are specified in the reg property.
@@ -303,9 +303,10 @@ Example:
 		reg = <0x179C0000 0x4000>,
 		      <0x17916000 0x1000>,
 		      <0x17816000 0x1000>,
-		      <0x179D1000 0x1000>;
+		      <0x179D1000 0x1000>,
+		      <0x1791101c 0x8>;
 		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
-			    "apcs_common";
+			    "apcs_common", "debug";
 
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
 		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
