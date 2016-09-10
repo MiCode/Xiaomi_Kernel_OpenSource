@@ -28,19 +28,6 @@ extern atomic_long_t calc_load_tasks;
 
 extern void calc_global_load_tick(struct rq *this_rq);
 
-struct freq_max_load_entry {
-	/* The maximum load which has accounted governor's headroom. */
-	u64 hdemand;
-};
-
-struct freq_max_load {
-	struct rcu_head rcu;
-	int length;
-	struct freq_max_load_entry freqs[0];
-};
-
-extern DEFINE_PER_CPU(struct freq_max_load *, freq_max_load);
-
 extern long calc_load_fold_active(struct rq *this_rq);
 
 #ifdef CONFIG_SMP

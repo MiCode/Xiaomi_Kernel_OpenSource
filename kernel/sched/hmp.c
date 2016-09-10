@@ -124,7 +124,18 @@ u32 __weak get_freq_max_load(int cpu, u32 freq)
 	return 100;
 }
 
-DEFINE_PER_CPU(struct freq_max_load *, freq_max_load);
+struct freq_max_load_entry {
+	/* The maximum load which has accounted governor's headroom. */
+	u64 hdemand;
+};
+
+struct freq_max_load {
+	struct rcu_head rcu;
+	int length;
+	struct freq_max_load_entry freqs[0];
+};
+
+static DEFINE_PER_CPU(struct freq_max_load *, freq_max_load);
 static DEFINE_SPINLOCK(freq_max_load_lock);
 
 struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
