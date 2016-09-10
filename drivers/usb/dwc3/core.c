@@ -137,6 +137,7 @@ static int dwc3_init_usb_phys(struct dwc3 *dwc)
 static int dwc3_core_reset(struct dwc3 *dwc)
 {
 	int		ret;
+	u32	reg;
 
 	/* Reset PHYs */
 	usb_phy_reset(dwc->usb2_phy);
@@ -149,6 +150,10 @@ static int dwc3_core_reset(struct dwc3 *dwc)
 				__func__, ret);
 		return ret;
 	}
+
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+	reg &= ~DWC3_GUSB3PIPECTL_DELAYP1TRANS;
+	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT, 0);
 
