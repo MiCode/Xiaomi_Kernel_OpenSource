@@ -746,6 +746,28 @@ static void subsys_stop(struct subsys_device *subsys)
 	notify_each_subsys_device(&subsys, 1, SUBSYS_AFTER_SHUTDOWN, NULL);
 }
 
+int subsystem_set_fwname(const char *name, const char *fw_name)
+{
+	struct subsys_device *subsys;
+
+	if (!name)
+		return -EINVAL;
+
+	if (!fw_name)
+		return -EINVAL;
+
+	subsys = find_subsys(name);
+	if (!subsys)
+		return -EINVAL;
+
+	pr_debug("Changing subsys [%s] fw_name to [%s]\n", name, fw_name);
+	strlcpy(subsys->desc->fw_name, fw_name,
+		sizeof(subsys->desc->fw_name));
+
+	return 0;
+}
+EXPORT_SYMBOL(subsystem_set_fwname);
+
 void *__subsystem_get(const char *name, const char *fw_name)
 {
 	struct subsys_device *subsys;
