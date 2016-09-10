@@ -28,8 +28,8 @@ static struct dentry *remoteqdss_dir;
 #define REMOTEQDSS_ERR(fmt, ...) \
 	pr_debug("%s: " fmt, __func__, ## __VA_ARGS__)
 
-#define REMOTEQDSS_ERR_CALLER(fmt, ...) \
-	pr_debug("%pf: " fmt, __builtin_return_address(1), ## __VA_ARGS__)
+#define REMOTEQDSS_ERR_CALLER(fmt, caller, ...) \
+	pr_debug("%pf: " fmt, caller, ## __VA_ARGS__)
 
 struct qdss_msg_translation {
 	u64 val;
@@ -97,7 +97,7 @@ struct remoteqdss_query_swentity_fmt {
 
 /* msgs is a null terminated array */
 static void remoteqdss_err_translation(struct qdss_msg_translation *msgs,
-								u64 err)
+					u64 err, const void *caller)
 {
 	static DEFINE_RATELIMIT_STATE(rl, 5 * HZ, 2);
 	struct qdss_msg_translation *msg;
@@ -110,12 +110,13 @@ static void remoteqdss_err_translation(struct qdss_msg_translation *msgs,
 
 	for (msg = msgs; msg->msg; msg++) {
 		if (err == msg->val && __ratelimit(&rl)) {
-			REMOTEQDSS_ERR_CALLER("0x%llx: %s\n", err, msg->msg);
+			REMOTEQDSS_ERR_CALLER("0x%llx: %s\n", caller, err,
+						msg->msg);
 			return;
 		}
 	}
 
-	REMOTEQDSS_ERR_CALLER("Error 0x%llx\n", err);
+	REMOTEQDSS_ERR_CALLER("Error 0x%llx\n", caller, err);
 }
 
 /* Shared across all remoteqdss scm functions */
@@ -160,7 +161,7 @@ static void free_remoteqdss_data(struct remoteqdss_data *data)
 }
 
 static int remoteqdss_do_scm_call(struct scm_desc *desc,
-		dma_addr_t addr, size_t size)
+		dma_addr_t addr, size_t size, const void *caller)
 {
 	int ret;
 
@@ -175,7 +176,7 @@ static int remoteqdss_do_scm_call(struct scm_desc *desc,
 	if (ret)
 		return ret;
 
-	remoteqdss_err_translation(remoteqdss_scm_msgs, desc->ret[0]);
+	remoteqdss_err_translation(remoteqdss_scm_msgs, desc->ret[0], caller);
 	ret = desc->ret[0] ? -EINVAL : 0;
 	return ret;
 }
@@ -194,7 +195,8 @@ static int remoteqdss_scm_query_swtrace(void *priv, u64 *val)
 	fmt->subsys_id = data->id;
 	fmt->cmd_id = CMD_ID_QUERY_SWTRACE_STATE;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+					__builtin_return_address(0));
 	*val = desc.ret[1];
 
 	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
@@ -216,7 +218,8 @@ static int remoteqdss_scm_filter_swtrace(void *priv, u64 val)
 	fmt->h.cmd_id = CMD_ID_FILTER_SWTRACE_STATE;
 	fmt->state = (uint32_t)val;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+					__builtin_return_address(0));
 
 	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
 	return ret;
@@ -241,7 +244,8 @@ static int remoteqdss_scm_query_tag(void *priv, u64 *val)
 	fmt->subsys_id = data->id;
 	fmt->cmd_id = CMD_ID_QUERY_SWEVENT_TAG;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+					__builtin_return_address(0));
 	*val = desc.ret[1];
 
 	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
@@ -268,7 +272,8 @@ static int remoteqdss_scm_query_swevent(void *priv, u64 *val)
 	fmt->h.cmd_id = CMD_ID_QUERY_SWEVENT;
 	fmt->event_group = data->sw_event_group;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+					__builtin_return_address(0));
 	*val = desc.ret[1];
 
 	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
@@ -291,7 +296,8 @@ static int remoteqdss_scm_filter_swevent(void *priv, u64 val)
 	fmt->event_group = data->sw_event_group;
 	fmt->event_mask = (uint32_t)val;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+					__builtin_return_address(0));
 
 	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
 	return ret;
@@ -317,7 +323,8 @@ static int remoteqdss_scm_query_swentity(void *priv, u64 *val)
 	fmt->h.cmd_id = CMD_ID_QUERY_SWENTITY;
 	fmt->entity_group = data->sw_entity_group;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+					__builtin_return_address(0));
 	*val = desc.ret[1];
 
 	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
@@ -340,7 +347,8 @@ static int remoteqdss_scm_filter_swentity(void *priv, u64 val)
 	fmt->entity_group = data->sw_entity_group;
 	fmt->entity_mask = (uint32_t)val;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+					__builtin_return_address(0));
 
 	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
 	return ret;

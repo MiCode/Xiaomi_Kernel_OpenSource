@@ -1257,8 +1257,11 @@ static void usbpd_sm(struct work_struct *w)
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
 		if (pd->current_pr == PR_SRC) {
-			regulator_disable(pd->vconn);
 			regulator_disable(pd->vbus);
+			if (pd->vconn_enabled) {
+				regulator_disable(pd->vconn);
+				pd->vconn_enabled = false;
+			}
 		}
 
 		if (pd->current_dr == DR_UFP)

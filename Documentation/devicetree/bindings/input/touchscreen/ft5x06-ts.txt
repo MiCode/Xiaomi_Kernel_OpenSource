@@ -72,6 +72,9 @@ Optional properties:
  - focaltech,psensor-support	: specify whether support the proximity sensor
  - focaltech,gesture-support	: specify whether support gesture feature
  - focaltech,resume-in-workqueue : specifiy whether to defer the resume to workqueue
+ - clock-names:               : Clock names used for secure touch. They are: "iface_clk", "core_clk"
+ - clocks                        : Defined if 'clock-names' DT property is defined. These clocks
+				   are associated with the underlying I2C bus.
 
 Example:
 	i2c@f9923000{
@@ -109,5 +112,9 @@ Example:
 			focaltech,fw-auto-cal;
 			focaltech,psensor-support;
 			focaltech,gesture-support;
+			/* Underlying clocks used by secure touch */
+			clock-names = "iface_clk", "core_clk";
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
 		};
 	};

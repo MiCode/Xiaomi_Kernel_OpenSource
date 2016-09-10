@@ -15,6 +15,7 @@
 #include <dt-bindings/clock/qcom,gpu-msmfalcon.h>
 #include <dt-bindings/clock/qcom,mmcc-msmfalcon.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM FALCON";
@@ -542,3 +543,4 @@
 };
 
 #include "msmfalcon-ion.dtsi"
+#include "msmfalcon-regulator.dtsi"
