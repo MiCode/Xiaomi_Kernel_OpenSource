@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014,2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,7 +88,7 @@ static void adsp_loader_do(struct platform_device *pdev)
 		/* adsp_state always returns "0". So load modem image based on
 		apr_modem_state to prevent loading of image twice */
 		adsp_state = apr_get_modem_state();
-		if (adsp_state == APR_SUBSYS_DOWN) {
+		if (adsp_state != APR_SUBSYS_LOADED) {
 			priv = platform_get_drvdata(pdev);
 			if (!priv) {
 				dev_err(&pdev->dev,
