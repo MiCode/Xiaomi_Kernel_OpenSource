@@ -417,6 +417,15 @@ config ICNSS
 	  control messages to FW over QMI channel. It is also responsible for
 	  handling WLAN PD restart notifications.
 
+config ICNSS_DEBUG
+	bool "ICNSS debug support"
+	depends on ICNSS
+	---help---
+	  Say 'Y' here to enable ICNSS driver debug support. Debug support
+	  primarily consists of logs consisting of information related to
+	  hardware register access and enabling BUG_ON for certain cases to aid
+	  the debugging.
+
 config MSM_SECURE_BUFFER
 	bool "Helper functions for securing buffers through TZ"
 	help
