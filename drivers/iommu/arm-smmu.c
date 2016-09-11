@@ -1707,6 +1707,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	case DOMAIN_ATTR_NESTING:
 		*(int *)data = (smmu_domain->stage == ARM_SMMU_DOMAIN_NESTED);
 		return 0;
+	case DOMAIN_ATTR_PT_BASE_ADDR:
+		*((phys_addr_t *)data) =
+			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
+		return 0;
 	default:
 		return -ENODEV;
 	}
