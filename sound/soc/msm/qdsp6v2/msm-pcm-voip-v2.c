@@ -670,7 +670,7 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 	} else {
 		*((uint32_t *)voc_pkt) = 0;
 		spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
-		pr_err("DL data not available\n");
+		pr_err_ratelimited("DL data not available\n");
 	}
 	wake_up(&prtd->in_wait);
 }
@@ -910,7 +910,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 
 
 	} else if (ret == 0) {
-		pr_err("%s: No UL data available\n", __func__);
+		pr_err_ratelimited("%s: No UL data available\n", __func__);
 		ret = -ETIMEDOUT;
 	} else {
 		pr_err("%s: Read was interrupted\n", __func__);
