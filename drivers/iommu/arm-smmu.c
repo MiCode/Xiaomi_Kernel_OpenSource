@@ -465,6 +465,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 					      dma_addr_t iova);
 static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
 	struct iommu_domain *domain, dma_addr_t iova);
+static void arm_smmu_destroy_domain_context(struct iommu_domain *domain);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -1168,6 +1169,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		dev_err(smmu->dev, "failed to request context IRQ %d (%u)\n",
 			cfg->irptndx, irq);
 		cfg->irptndx = INVALID_IRPTNDX;
+		goto out_clear_smmu;
 	}
 
 	mutex_unlock(&smmu_domain->init_mutex);
@@ -1177,6 +1179,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	return 0;
 
 out_clear_smmu:
+	arm_smmu_destroy_domain_context(domain);
 	smmu_domain->smmu = NULL;
 out_unlock:
 	mutex_unlock(&smmu_domain->init_mutex);
