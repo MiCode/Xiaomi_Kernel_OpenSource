@@ -24,6 +24,11 @@ enum qmi_servreg_notif_service_state_enum_type_v01 {
 	SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01 = 0x7FFFFFFF,
 };
 
+enum pd_subsys_state {
+	CRASHED,
+	SHUTDOWN,
+	UNKNOWN,
+};
 #if defined(CONFIG_MSM_SERVICE_NOTIFIER)
 
 /* service_notif_register_notifier() - Register a notifier for a service
