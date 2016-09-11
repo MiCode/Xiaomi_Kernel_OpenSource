@@ -1313,7 +1313,8 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 {
 	struct arm_smmu_domain *smmu_domain;
 
-	if (type != IOMMU_DOMAIN_UNMANAGED && type != IOMMU_DOMAIN_DMA)
+	/* Do not support DOMAIN_DMA for now */
+	if (type != IOMMU_DOMAIN_UNMANAGED)
 		return NULL;
 	/*
 	 * Allocate the domain and initialise some of its data structures.
@@ -1483,11 +1484,25 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	arm_smmu_master_free_smrs(smmu, cfg);
 }
 
-static void arm_smmu_detach_dev(struct device *dev,
-				struct arm_smmu_master_cfg *cfg)
+static void arm_smmu_detach_dev(struct iommu_domain *domain,
+				struct device *dev)
 {
-	struct iommu_domain *domain = dev->archdata.iommu;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_master_cfg *cfg;
+	int dynamic = smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC);
+
+	if (dynamic)
+		return;
+
+	cfg = find_smmu_master_cfg(dev);
+	if (!cfg)
+		return;
+
+	if (!smmu) {
+		dev_err(dev, "Domain not attached; cannot detach!\n");
+		return;
+	}
 
 	dev->archdata.iommu = NULL;
 	arm_smmu_domain_remove_master(smmu_domain, cfg);
@@ -1533,7 +1548,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	/* Detach the dev from its current domain */
 	if (dev->archdata.iommu)
-		arm_smmu_detach_dev(dev, cfg);
+		arm_smmu_detach_dev(dev->archdata.iommu, dev);
 
 	ret = arm_smmu_domain_add_master(smmu_domain, cfg);
 	if (!ret)
@@ -1939,6 +1954,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.domain_alloc		= arm_smmu_domain_alloc,
 	.domain_free		= arm_smmu_domain_free,
 	.attach_dev		= arm_smmu_attach_dev,
+	.detach_dev		= arm_smmu_detach_dev,
 	.map			= arm_smmu_map,
 	.unmap			= arm_smmu_unmap,
 	.map_sg			= default_iommu_map_sg,
