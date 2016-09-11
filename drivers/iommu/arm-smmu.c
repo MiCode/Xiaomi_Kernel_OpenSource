@@ -220,6 +220,7 @@
 #define ARM_SMMU_CB_TTBR0		0x20
 #define ARM_SMMU_CB_TTBR1		0x28
 #define ARM_SMMU_CB_TTBCR		0x30
+#define ARM_SMMU_CB_CONTEXTIDR		0x34
 #define ARM_SMMU_CB_S1_MAIR0		0x38
 #define ARM_SMMU_CB_S1_MAIR1		0x3c
 #define ARM_SMMU_CB_PAR			0x50
@@ -408,11 +409,15 @@ struct arm_smmu_cfg {
 	u8				cbndx;
 	u8				irptndx;
 	u32				cbar;
+	u32				procid;
+	u16				asid;
 	enum arm_smmu_context_fmt	fmt;
 };
 #define INVALID_IRPTNDX			0xff
+#define INVALID_CBNDX			0xff
+#define INVALID_ASID			0xffff
 
-#define ARM_SMMU_CB_ASID(smmu, cfg) ((u16)(smmu)->cavium_id_base + (cfg)->cbndx)
+#define ARM_SMMU_CB_ASID(smmu, cfg)		((cfg)->asid)
 #define ARM_SMMU_CB_VMID(smmu, cfg) ((u16)(smmu)->cavium_id_base + (cfg)->cbndx + 1)
 
 enum arm_smmu_domain_stage {
@@ -1134,6 +1139,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	} else {
 		cfg->irptndx = cfg->cbndx;
 	}
+	cfg->asid = cfg->cbndx + 1;
 
 	smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
@@ -1236,6 +1242,9 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->pgtbl_lock);
+	smmu_domain->cfg.cbndx = INVALID_CBNDX;
+	smmu_domain->cfg.irptndx = INVALID_IRPTNDX;
+	smmu_domain->cfg.asid = INVALID_ASID;
 
 	return &smmu_domain->domain;
 }
@@ -1723,6 +1732,32 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		*((unsigned int *) data) = smmu_domain->cfg.cbndx;
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_TTBR0: {
+		u64 val;
+		struct arm_smmu_device *smmu = smmu_domain->smmu;
+		/* not valid until we are attached */
+		if (smmu == NULL)
+			return -ENODEV;
+
+		val = smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
+		if (smmu_domain->cfg.cbar != CBAR_TYPE_S2_TRANS)
+			val |= (u64)ARM_SMMU_CB_ASID(smmu, &smmu_domain->cfg)
+					<< (TTBRn_ASID_SHIFT);
+		*((u64 *)data) = val;
+		ret = 0;
+		break;
+	}
+	case DOMAIN_ATTR_CONTEXTIDR:
+		/* not valid until attached */
+		if (smmu_domain->smmu == NULL)
+			return -ENODEV;
+		*((u32 *)data) = smmu_domain->cfg.procid;
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_PROCID:
+		*((u32 *)data) = smmu_domain->cfg.procid;
+		ret = 0;
+		break;
 	default:
 		return -ENODEV;
 	}
@@ -1749,6 +1784,16 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		else
 			smmu_domain->stage = ARM_SMMU_DOMAIN_S1;
 
+		break;
+	case DOMAIN_ATTR_PROCID:
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot change procid attribute while attached\n");
+			ret = -EBUSY;
+			break;
+		}
+		smmu_domain->cfg.procid = *((u32 *)data);
+		ret = 0;
 		break;
 	default:
 		ret = -ENODEV;
