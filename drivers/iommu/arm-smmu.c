@@ -364,6 +364,7 @@ struct arm_smmu_device {
 
 #define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 1)
+#define ARM_SMMU_OPT_SKIP_INIT		(1 << 2)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -449,6 +450,7 @@ static atomic_t cavium_smmu_context_count = ATOMIC_INIT(0);
 static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
+	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ 0, NULL},
 };
 
@@ -1816,23 +1818,12 @@ static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
 	arm_smmu_resume(smmu);
 }
 
-static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
+static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 {
+	int i;
+	u32 reg, major;
 	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
 	void __iomem *cb_base;
-	int i = 0;
-	u32 reg, major;
-
-	/* clear global FSR */
-	reg = readl_relaxed(ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
-	writel(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
-
-	/* Mark all SMRn as invalid and all S2CRn as bypass unless overridden */
-	reg = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS;
-	for (i = 0; i < smmu->num_mapping_groups; ++i) {
-		writel_relaxed(0, gr0_base + ARM_SMMU_GR0_SMR(i));
-		writel_relaxed(reg, gr0_base + ARM_SMMU_GR0_S2CR(i));
-	}
 
 	/*
 	 * Before clearing ARM_MMU500_ACTLR_CPRE, need to
@@ -1868,6 +1859,31 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 			ACTLR_QCOM_NSH << ACTLR_QCOM_NSH_SHIFT;
 			writel_relaxed(reg, cb_base + ARM_SMMU_CB_ACTLR);
 		}
+	}
+}
+
+static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
+{
+	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
+	int i = 0;
+	u32 reg;
+
+	/* clear global FSR */
+	reg = readl_relaxed(ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
+	writel_relaxed(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
+
+	if (!(smmu->options & ARM_SMMU_OPT_SKIP_INIT)) {
+		/*
+		 * Mark all SMRn as invalid and all S2CRn as bypass unless
+		 * overridden
+		 */
+		reg = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS;
+		for (i = 0; i < smmu->num_mapping_groups; ++i) {
+			writel_relaxed(0, gr0_base + ARM_SMMU_GR0_SMR(i));
+			writel_relaxed(reg, gr0_base + ARM_SMMU_GR0_S2CR(i));
+		}
+
+		arm_smmu_context_bank_reset(smmu);
 	}
 
 	/* Program implementation defined registers */
