@@ -858,6 +858,10 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 				(fsr & 0x80000000) ? "MULTI " : "");
 			dev_err(smmu->dev,
 				"soft iova-to-phys=%pa\n", &phys_soft);
+			if (!phys_soft)
+				dev_err(smmu->dev,
+					"SOFTWARE TABLE WALK FAILED! Looks like %s accessed an unmapped address!\n",
+					dev_name(smmu->dev));
 			dev_err(smmu->dev,
 				"hard iova-to-phys (ATOS)=%pa\n", &phys_atos);
 			dev_err(smmu->dev, "SID=0x%x\n", frsynra);
