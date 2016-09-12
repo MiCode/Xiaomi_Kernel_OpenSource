@@ -2626,7 +2626,6 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(mmss_misc_ahb_clk),
 	CLK_LIST(mmss_misc_cxo_clk),
 	CLK_LIST(mmss_mnoc_ahb_clk),
-	CLK_LIST(mmss_mnoc_maxi_clk),
 	CLK_LIST(mmss_video_subcore0_clk),
 	CLK_LIST(mmss_video_subcore1_clk),
 	CLK_LIST(mmss_video_ahb_clk),
@@ -2635,6 +2634,7 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(mmss_video_maxi_clk),
 	CLK_LIST(mmss_vmem_ahb_clk),
 	CLK_LIST(mmss_vmem_maxi_clk),
+	CLK_LIST(mmss_mnoc_maxi_clk),
 	CLK_LIST(mmss_debug_mux),
 };
 
