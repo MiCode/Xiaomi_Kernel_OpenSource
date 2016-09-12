@@ -156,6 +156,18 @@ config PANIC_ON_GLADIATOR_ERROR_V2
 
                If unsure, say N.
 
+config QCOM_EUD
+	tristate "QTI Embedded USB Debugger (EUD)"
+	depends on ARCH_QCOM
+	select SERIAL_CORE
+	help
+	  The EUD (Embedded USB Debugger) is a mini-USB hub implemented
+	  on chip to support the USB-based debug and trace capabilities.
+	  This module enables support for Qualcomm Technologies, Inc.
+	  Embedded USB Debugger (EUD).
+
+	  If unsure, say N.
+
 config QCOM_WATCHDOG_V2
 	bool "Qualcomm Watchdog Support"
 	depends on ARCH_QCOM
