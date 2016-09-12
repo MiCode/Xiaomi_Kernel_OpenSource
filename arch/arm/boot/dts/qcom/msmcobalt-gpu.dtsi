@@ -15,7 +15,7 @@
 	pil_gpu: qcom,kgsl-hyp {
 		compatible = "qcom,pil-tz-generic";
 		qcom,pas-id = <13>;
-		qcom,firmware-name = "a530_zap";
+		qcom,firmware-name = "a540_zap";
 	};
 
 	msm_bus: qcom,kgsl-busmon{
