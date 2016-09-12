@@ -672,6 +672,7 @@ int verity_ioctl(struct dm_target *ti, unsigned cmd,
 	return r ? : __blkdev_driver_ioctl(v->data_dev->bdev, v->data_dev->mode,
 				     cmd, arg);
 }
+EXPORT_SYMBOL_GPL(verity_ioctl);
 
 int verity_merge(struct dm_target *ti, struct bvec_merge_data *bvm,
 			struct bio_vec *biovec, int max_size)
@@ -687,7 +688,7 @@ int verity_merge(struct dm_target *ti, struct bvec_merge_data *bvm,
 
 	return min(max_size, q->merge_bvec_fn(q, bvm, biovec));
 }
-EXPORT_SYMBOL_GPL(verity_prepare_ioctl);
+EXPORT_SYMBOL_GPL(verity_merge);
 
 int verity_iterate_devices(struct dm_target *ti,
 				  iterate_devices_callout_fn fn, void *data)
