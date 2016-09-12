@@ -194,6 +194,11 @@ Properties:
 - qcom,mempool-allocate:	Allocate memory from the system memory when the
 				reserved pool exhausted.
 
+GPU LLC slice info:
+- cache-slice-names:		List of LLC cache slices for GPU transactions
+				and pagetable walk.
+- cache-slices:			phandle to the system LLC driver, cache slice index.
+
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight
 properties can be found in:

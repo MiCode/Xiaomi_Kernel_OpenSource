@@ -27,6 +27,7 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_iommu.h"
 #include "kgsl_trace.h"
+#include "adreno_llc.h"
 
 #include "adreno.h"
 #include "adreno_iommu.h"
@@ -1026,6 +1027,15 @@ static int adreno_probe(struct platform_device *pdev)
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);
 
+	/* Get the system cache slice descriptor for GPU */
+	adreno_dev->gpu_llc_slice = adreno_llc_getd(&pdev->dev, "gpu");
+	if (IS_ERR(adreno_dev->gpu_llc_slice)) {
+		KGSL_DRV_WARN(device,
+			"Failed to get GPU LLC slice descriptor (%ld)\n",
+			PTR_ERR(adreno_dev->gpu_llc_slice));
+		adreno_dev->gpu_llc_slice = NULL;
+	}
+
 	adreno_input_handler.private = device;
 
 #ifdef CONFIG_INPUT
@@ -1094,6 +1104,10 @@ static int adreno_remove(struct platform_device *pdev)
 
 	adreno_coresight_remove(adreno_dev);
 	adreno_profile_close(adreno_dev);
+
+	/* Release the system cache slice descriptor */
+	if (adreno_dev->gpu_llc_slice)
+		adreno_llc_putd(adreno_dev->gpu_llc_slice);
 
 	kgsl_pwrscale_close(device);
 
@@ -1419,6 +1433,14 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Start the GPU */
 	gpudev->start(adreno_dev);
 
+	/*
+	 * The system cache control registers
+	 * live on the CX rail. Hence need
+	 * reprogramming everytime the GPU
+	 * comes out of power collapse.
+	 */
+	adreno_llc_setup(device);
+
 	/* Re-initialize the coresight registers if applicable */
 	adreno_coresight_start(adreno_dev);
 
@@ -1552,6 +1574,9 @@ static int adreno_stop(struct kgsl_device *device)
 	adreno_irqctrl(adreno_dev, 0);
 
 	adreno_ocmem_free(adreno_dev);
+
+	if (adreno_dev->gpu_llc_slice)
+		adreno_llc_deactivate_slice(adreno_dev->gpu_llc_slice);
 
 	/* Save active coresight registers if applicable */
 	adreno_coresight_stop(adreno_dev);

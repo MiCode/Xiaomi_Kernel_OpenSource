@@ -20,6 +20,7 @@
 #include "adreno_pm4types.h"
 #include "adreno_perfcounter.h"
 #include "adreno_ringbuffer.h"
+#include "adreno_llc.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_log.h"
 #include "kgsl.h"
@@ -29,6 +30,13 @@
 		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
 
 #define MIN_HBB		13
+
+#define A6XX_LLC_NUM_GPU_SCIDS		5
+#define A6XX_GPU_LLC_SCID_NUM_BITS	5
+#define A6XX_GPU_LLC_SCID_MASK \
+	((1 << (A6XX_LLC_NUM_GPU_SCIDS * A6XX_GPU_LLC_SCID_NUM_BITS)) - 1)
+#define A6XX_GPU_CX_REG_BASE		0x509E000
+#define A6XX_GPU_CX_REG_SIZE		0x1000
 
 static const struct adreno_vbif_data a630_vbif[] = {
 	{A6XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000009},
@@ -580,6 +588,68 @@ static void a6xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	}
 }
 
+/* GPU System Cache control registers */
+#define A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0   0x4
+#define A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1   0x8
+
+static inline void _reg_rmw(void __iomem *regaddr,
+	unsigned int mask, unsigned int bits)
+{
+	unsigned int val = 0;
+
+	val = __raw_readl(regaddr);
+	/* Make sure the above read completes before we proceed  */
+	rmb();
+	val &= ~mask;
+	__raw_writel(val | bits, regaddr);
+	/* Make sure the above write posts before we proceed*/
+	wmb();
+}
+
+
+/*
+ * a6xx_llc_configure_gpu_scid() - Program the sub-cache ID for all GPU blocks
+ * @adreno_dev: The adreno device pointer
+ */
+static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
+{
+	uint32_t gpu_scid;
+	uint32_t gpu_cntl1_val = 0;
+	int i;
+	void __iomem *gpu_cx_reg;
+
+	gpu_scid = adreno_llc_get_scid(adreno_dev->gpu_llc_slice);
+	for (i = 0; i < A6XX_LLC_NUM_GPU_SCIDS; i++)
+		gpu_cntl1_val = (gpu_cntl1_val << A6XX_GPU_LLC_SCID_NUM_BITS)
+			| gpu_scid;
+
+	gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE, A6XX_GPU_CX_REG_SIZE);
+	_reg_rmw(gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
+			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
+	iounmap(gpu_cx_reg);
+}
+
+/*
+ * a6xx_llc_enable_overrides() - Override the page attributes
+ * @adreno_dev: The adreno device pointer
+ */
+static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
+{
+	void __iomem *gpu_cx_reg;
+
+	/*
+	 * 0x3: readnoallocoverrideen=0
+	 *      read-no-alloc=0 - Allocate lines on read miss
+	 *      writenoallocoverrideen=1
+	 *      write-no-alloc=1 - Do not allocates lines on write miss
+	 */
+	gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE, A6XX_GPU_CX_REG_SIZE);
+	__raw_writel(0x3, gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0);
+	/* Make sure the above write posts before we proceed*/
+	wmb();
+	iounmap(gpu_cx_reg);
+}
+
 #define A6XX_INT_MASK \
 	((1 << A6XX_INT_CP_AHB_ERROR) |		\
 	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
@@ -691,4 +761,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.regulator_disable = a6xx_sptprac_disable,
 	.microcode_read = a6xx_microcode_read,
 	.enable_64bit = a6xx_enable_64bit,
+	.llc_configure_gpu_scid = a6xx_llc_configure_gpu_scid,
+	.llc_enable_overrides = a6xx_llc_enable_overrides
 };

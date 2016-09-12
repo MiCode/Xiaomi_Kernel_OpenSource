@@ -41,6 +41,14 @@
 	(((_a) >= KGSL_IOMMU_GLOBAL_MEM_BASE) && \
 	 ((_a) < (KGSL_IOMMU_GLOBAL_MEM_BASE + KGSL_IOMMU_GLOBAL_MEM_SIZE)))
 
+/*
+ * Flag to set SMMU memory attributes required to
+ * enable system cache for GPU transactions.
+ */
+#ifndef IOMMU_USE_UPSTREAM_HINT
+#define IOMMU_USE_UPSTREAM_HINT 0
+#endif
+
 static struct kgsl_mmu_pt_ops iommu_pt_ops;
 static bool need_iommu_sync;
 
@@ -1709,7 +1717,8 @@ static int _iommu_map_guard_page(struct kgsl_pagetable *pt,
 
 static unsigned int _get_protection_flags(struct kgsl_memdesc *memdesc)
 {
-	unsigned int flags = IOMMU_READ | IOMMU_WRITE | IOMMU_NOEXEC;
+	unsigned int flags = IOMMU_READ | IOMMU_WRITE |
+		IOMMU_NOEXEC | IOMMU_USE_UPSTREAM_HINT;
 
 	if (memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY)
 		flags &= ~IOMMU_WRITE;
