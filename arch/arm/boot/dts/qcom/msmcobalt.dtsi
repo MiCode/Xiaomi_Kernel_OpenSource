@@ -1401,6 +1401,27 @@
 			qcom,glinkpkt-ch-name = "DATA40_CNTL";
 			qcom,glinkpkt-dev-name = "smdcntl8";
 		};
+
+		qcom,glinkpkt-data1 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA1";
+			qcom,glinkpkt-dev-name = "smd7";
+		};
+
+		qcom,glinkpkt-data4 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA4";
+			qcom,glinkpkt-dev-name = "smd8";
+		};
+
+		qcom,glinkpkt-data11 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA11";
+			qcom,glinkpkt-dev-name = "smd11";
+		};
 	};
 
 	pcie0: qcom,pcie@01c00000 {
@@ -2585,7 +2606,12 @@
 		 "iface_clk", "noc_axi_clk", "bus_clk", "maxi_clk";
 
 		qcom,pas-id = <9>;
-		qcom,proxy-timeout-ms = <10000>;
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<63 512 0 0>,
+			<63 512 0 304000>;
+		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
 		memory-region = <&pil_video_mem>;
 		status = "ok";
