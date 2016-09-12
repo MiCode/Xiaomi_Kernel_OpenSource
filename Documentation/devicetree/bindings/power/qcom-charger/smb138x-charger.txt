@@ -52,6 +52,22 @@ Charger specific properties:
   Value type: <u32>
   Definition: Specifies the DC input current limit in micro-amps.
 
+- io-channels
+  Usage:      optional
+  Value type: List of <phandle u32>
+  Definition: List of phandle and IIO specifier pairs, one pair
+		for each IIO input to the device. Note: if the
+		IIO provider specifies '0' for #io-channel-cells,
+		then only the phandle portion of the pair will appear.
+
+- io-channel-names
+  Usage:      optional
+  Value type: List of <string>
+  Definition: List of IIO input name strings sorted in the same
+		order as the io-channels property. Consumer drivers
+		will use io-channel-names to match IIO input names
+		with IIO specifiers.
+
 ================================================
 Second Level Nodes - SMB138X Charger Peripherals
 ================================================
