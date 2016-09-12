@@ -219,6 +219,7 @@ static bool check_rule(struct rules_def *rule)
 
 		ret = do_compare_op(src_field, rule->rule_ops.thresh[i],
 						rule->rule_ops.op[i]);
+		rule->rule_ops.curr_bw = src_field;
 		if (rule->rule_ops.combo_op == OP_AND) {
 			if (!ret)
 				return ret;
@@ -708,6 +709,56 @@ void msm_rule_unregister(int num_rules, struct bus_rule_type *rule,
 	mutex_lock(&msm_bus_rules_lock);
 	__rule_unregister(num_rules, rule, nb);
 	mutex_unlock(&msm_bus_rules_lock);
+}
+
+int msm_rule_query_bandwidth(struct bus_rule_type *rule,
+			u64 *bw, struct notifier_block *nb)
+{
+	struct rule_node_info *node = NULL;
+	struct rules_def *node_rule;
+	int ret = -ENXIO;
+
+	if (!rule) {
+		pr_err("%s: invalid rule pointer", __func__);
+		return ret;
+	}
+
+	mutex_lock(&msm_bus_rules_lock);
+	if (nb) {
+		node = get_node(NB_ID, nb);
+		if (!node) {
+			pr_err("%s: Can't find node", __func__);
+			goto exit_rule_not_found;
+		}
+		list_for_each_entry(node_rule,
+					&node->node_rules, link) {
+			if (comp_rules(&node_rule->rule_ops,
+					rule) == 0) {
+				*bw = node_rule->rule_ops.curr_bw;
+				ret = 0;
+				break;
+			}
+		}
+	} else {
+		list_for_each_entry(node, &node_list, link) {
+			list_for_each_entry(node_rule,
+				&node->node_rules, link) {
+				if (comp_rules(&node_rule->rule_ops,
+					rule) == 0) {
+					*bw = node_rule->rule_ops.curr_bw;
+					ret = 0;
+					break;
+				}
+			}
+		}
+	}
+
+	if (ret)
+		pr_err("%s: can't find the rule", __func__);
+
+exit_rule_not_found:
+	mutex_unlock(&msm_bus_rules_lock);
+	return ret;
 }
 
 bool msm_rule_update(struct bus_rule_type *old_rule,

@@ -11535,6 +11535,21 @@ static struct snd_soc_dai_driver tasha_i2s_dai[] = {
 		},
 		.ops = &tasha_dai_ops,
 	},
+	{
+		.name = "tasha_mad1",
+		.id = AIF4_MAD_TX,
+		.capture = {
+			.stream_name = "AIF4 MAD TX",
+			.rates = SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000 |
+				SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_384000,
+			.formats = TASHA_FORMATS_S16_S24_S32_LE,
+			.rate_min = 16000,
+			.rate_max = 384000,
+			.channels_min = 1,
+			.channels_max = 1,
+		},
+		.ops = &tasha_dai_ops,
+	},
 };
 
 static void tasha_codec_power_gate_digital_core(struct tasha_priv *tasha)
