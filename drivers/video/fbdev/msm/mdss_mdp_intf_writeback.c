@@ -488,6 +488,10 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 				mdss_mdp_writeback_cwb_overflow, sctl);
 	}
 
+	if (test_bit(MDSS_QOS_WB2_WRITE_GATHER_EN, ctl->mdata->mdss_qos_map))
+		MDSS_VBIF_WRITE(ctl->mdata, MDSS_VBIF_WRITE_GATHER_EN,
+			BIT(6), false);
+
 	if (ctl->mdata->default_ot_wr_limit || ctl->mdata->default_ot_rd_limit)
 		mdss_mdp_set_ot_limit_wb(ctx, false);
 
@@ -906,6 +910,10 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 		pr_err("writeback data setup error ctl=%d\n", ctl->num);
 		return ret;
 	}
+
+	if (test_bit(MDSS_QOS_WB2_WRITE_GATHER_EN, ctl->mdata->mdss_qos_map))
+		MDSS_VBIF_WRITE(ctl->mdata, MDSS_VBIF_WRITE_GATHER_EN,
+			BIT(6), false);
 
 	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
 		   mdss_mdp_writeback_intr_done, ctl);
