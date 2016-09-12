@@ -90,6 +90,7 @@ struct msm_watchdog_data {
 
 	bool timer_expired;
 	bool user_pet_complete;
+	unsigned int scandump_size;
 };
 
 /*
@@ -501,6 +502,39 @@ static irqreturn_t wdog_ppi_bark(int irq, void *dev_id)
 	return wdog_bark_handler(irq, wdog_dd);
 }
 
+void register_scan_dump(struct msm_watchdog_data *wdog_dd)
+{
+	static void *dump_addr;
+	int ret;
+	struct msm_dump_entry dump_entry;
+	struct msm_dump_data *dump_data;
+
+	if (!wdog_dd->scandump_size)
+		return;
+
+	dump_data = kzalloc(sizeof(struct msm_dump_data), GFP_KERNEL);
+	if (!dump_data)
+		return;
+	dump_addr = kzalloc(wdog_dd->scandump_size, GFP_KERNEL);
+	if (!dump_addr)
+		goto err0;
+
+	dump_data->addr = virt_to_phys(dump_addr);
+	dump_data->len = wdog_dd->scandump_size;
+	dump_entry.id = MSM_DUMP_DATA_SCANDUMP;
+	dump_entry.addr = virt_to_phys(dump_data);
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (ret) {
+		pr_err("Registering scandump region failed\n");
+		goto err1;
+	}
+	return;
+err1:
+	kfree(dump_addr);
+err0:
+	kfree(dump_data);
+}
+
 static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
 {
 	int ret;
@@ -582,6 +616,8 @@ static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
 			if (ret)
 				pr_err("cpu %d reg dump setup failed\n", cpu);
 		}
+
+		register_scan_dump(wdog_dd);
 	}
 
 	return;
@@ -769,6 +805,11 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	}
 	pdata->wakeup_irq_enable = of_property_read_bool(node,
 							 "qcom,wakeup-enable");
+
+	if (of_property_read_u32(node, "qcom,scandump-size",
+				 &pdata->scandump_size))
+		dev_info(&pdev->dev,
+			 "No need to allocate memory for scandumps\n");
 
 	pdata->irq_ppi = irq_is_percpu(pdata->bark_irq);
 	dump_pdata(pdata);
