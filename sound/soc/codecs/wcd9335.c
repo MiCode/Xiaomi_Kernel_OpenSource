@@ -2835,23 +2835,19 @@ static const struct snd_kcontrol_new aif4_mad_mixer[] = {
 };
 
 static const struct snd_kcontrol_new rx_int1_spline_mix_switch[] = {
-	SOC_DAPM_SINGLE("HPHL Switch", SND_SOC_NOPM, 0, 1, 0),
-	SOC_DAPM_SINGLE("HPHL Native Switch", SND_SOC_NOPM, 0, 1, 0)
+	SOC_DAPM_SINGLE("HPHL Switch", SND_SOC_NOPM, 0, 1, 0)
 };
 
 static const struct snd_kcontrol_new rx_int2_spline_mix_switch[] = {
-	SOC_DAPM_SINGLE("HPHR Switch", SND_SOC_NOPM, 0, 1, 0),
-	SOC_DAPM_SINGLE("HPHR Native Switch", SND_SOC_NOPM, 0, 1, 0)
+	SOC_DAPM_SINGLE("HPHR Switch", SND_SOC_NOPM, 0, 1, 0)
 };
 
 static const struct snd_kcontrol_new rx_int3_spline_mix_switch[] = {
-	SOC_DAPM_SINGLE("LO1 Switch", SND_SOC_NOPM, 0, 1, 0),
-	SOC_DAPM_SINGLE("LO1 Native Switch", SND_SOC_NOPM, 0, 1, 0)
+	SOC_DAPM_SINGLE("LO1 Switch", SND_SOC_NOPM, 0, 1, 0)
 };
 
 static const struct snd_kcontrol_new rx_int4_spline_mix_switch[] = {
-	SOC_DAPM_SINGLE("LO2 Switch", SND_SOC_NOPM, 0, 1, 0),
-	SOC_DAPM_SINGLE("LO2 Native Switch", SND_SOC_NOPM, 0, 1, 0)
+	SOC_DAPM_SINGLE("LO2 Switch", SND_SOC_NOPM, 0, 1, 0)
 };
 
 static const struct snd_kcontrol_new rx_int5_spline_mix_switch[] = {
@@ -6819,7 +6815,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPL SRC0 MUX", "SRC_IN_HPHL", "RX INT1_1 MIX1"},
 	{"RX INT1 SPLINE MIX", NULL, "RX INT1_1 MIX1"},
 	{"RX INT1 SPLINE MIX", "HPHL Switch", "SPL SRC0 MUX"},
-	{"RX INT1 SPLINE MIX", "HPHL Native Switch", "RX INT1 NATIVE SUPPLY"},
+	{"RX INT1_1 NATIVE MUX", "ON", "RX INT1_1 MIX1"},
+	{"RX INT1 SPLINE MIX", NULL, "RX INT1_1 NATIVE MUX"},
+	{"RX INT1_1 NATIVE MUX", NULL, "RX INT1 NATIVE SUPPLY"},
 	{"RX INT1 SEC MIX", NULL, "RX INT1 SPLINE MIX"},
 	{"RX INT1 MIX2", NULL, "RX INT1 SEC MIX"},
 	{"RX INT1 MIX2", NULL, "RX INT1 MIX2 INP"},
@@ -6833,7 +6831,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPL SRC1 MUX", "SRC_IN_HPHR", "RX INT2_1 MIX1"},
 	{"RX INT2 SPLINE MIX", NULL, "RX INT2_1 MIX1"},
 	{"RX INT2 SPLINE MIX", "HPHR Switch", "SPL SRC1 MUX"},
-	{"RX INT2 SPLINE MIX", "HPHR Native Switch", "RX INT2 NATIVE SUPPLY"},
+	{"RX INT2_1 NATIVE MUX", "ON", "RX INT2_1 MIX1"},
+	{"RX INT2 SPLINE MIX", NULL, "RX INT2_1 NATIVE MUX"},
+	{"RX INT2_1 NATIVE MUX", NULL, "RX INT2 NATIVE SUPPLY"},
 	{"RX INT2 SEC MIX", NULL, "RX INT2 SPLINE MIX"},
 	{"RX INT2 MIX2", NULL, "RX INT2 SEC MIX"},
 	{"RX INT2 MIX2", NULL, "RX INT2 MIX2 INP"},
@@ -6847,7 +6847,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPL SRC0 MUX", "SRC_IN_LO1", "RX INT3_1 MIX1"},
 	{"RX INT3 SPLINE MIX", NULL, "RX INT3_1 MIX1"},
 	{"RX INT3 SPLINE MIX", "LO1 Switch", "SPL SRC0 MUX"},
-	{"RX INT3 SPLINE MIX", "LO1 Native Switch", "RX INT3 NATIVE SUPPLY"},
+	{"RX INT3_1 NATIVE MUX", "ON", "RX INT3_1 MIX1"},
+	{"RX INT3 SPLINE MIX", NULL, "RX INT3_1 NATIVE MUX"},
+	{"RX INT3_1 NATIVE MUX", NULL, "RX INT3 NATIVE SUPPLY"},
 	{"RX INT3 SEC MIX", NULL, "RX INT3 SPLINE MIX"},
 	{"RX INT3 MIX2", NULL, "RX INT3 SEC MIX"},
 	{"RX INT3 MIX2", NULL, "RX INT3 MIX2 INP"},
@@ -6860,7 +6862,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPL SRC1 MUX", "SRC_IN_LO2", "RX INT4_1 MIX1"},
 	{"RX INT4 SPLINE MIX", NULL, "RX INT4_1 MIX1"},
 	{"RX INT4 SPLINE MIX", "LO2 Switch", "SPL SRC1 MUX"},
-	{"RX INT4 SPLINE MIX", "LO2 Native Switch", "RX INT4 NATIVE SUPPLY"},
+	{"RX INT4_1 NATIVE MUX", "ON", "RX INT4_1 MIX1"},
+	{"RX INT4 SPLINE MIX", NULL, "RX INT4_1 NATIVE MUX"},
+	{"RX INT4_1 NATIVE MUX", NULL, "RX INT4 NATIVE SUPPLY"},
 	{"RX INT4 SEC MIX", NULL, "RX INT4 SPLINE MIX"},
 	{"RX INT4 MIX2", NULL, "RX INT4 SEC MIX"},
 	{"RX INT4 MIX2", NULL, "RX INT4 MIX2 INP"},
@@ -9056,6 +9060,10 @@ static const char * const anc1_fb_mux_text[] = {
 	"ZERO", "ANC_IN_HPHR", "ANC_IN_LO2"
 };
 
+static const char * const native_mux_text[] = {
+	"OFF", "ON",
+};
+
 static const struct soc_enum spl_src0_mux_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_SPLINE_SRC_CFG0, 0, 3,
 			spl_src0_mux_text);
@@ -9107,6 +9115,22 @@ static const struct soc_enum rx_int7_2_mux_chain_enum =
 static const struct soc_enum rx_int8_2_mux_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT8_CFG1, 0, 9,
 			rx_int_mix_mux_text);
+
+static const struct soc_enum int1_1_native_enum =
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(native_mux_text),
+			native_mux_text);
+
+static const struct soc_enum int2_1_native_enum =
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(native_mux_text),
+			native_mux_text);
+
+static const struct soc_enum int3_1_native_enum =
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(native_mux_text),
+			native_mux_text);
+
+static const struct soc_enum int4_1_native_enum =
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(native_mux_text),
+			native_mux_text);
 
 static const struct soc_enum rx_int0_1_mix_inp0_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT0_CFG0, 0, 13,
@@ -9639,6 +9663,18 @@ static const struct snd_kcontrol_new rx_int7_2_mux =
 
 static const struct snd_kcontrol_new rx_int8_2_mux =
 	SOC_DAPM_ENUM("RX INT8_2 MUX Mux", rx_int8_2_mux_chain_enum);
+
+static const struct snd_kcontrol_new int1_1_native_mux =
+	SOC_DAPM_ENUM("RX INT1_1 NATIVE MUX Mux", int1_1_native_enum);
+
+static const struct snd_kcontrol_new int2_1_native_mux =
+	SOC_DAPM_ENUM("RX INT2_1 NATIVE MUX Mux", int2_1_native_enum);
+
+static const struct snd_kcontrol_new int3_1_native_mux =
+	SOC_DAPM_ENUM("RX INT3_1 NATIVE MUX Mux", int3_1_native_enum);
+
+static const struct snd_kcontrol_new int4_1_native_mux =
+	SOC_DAPM_ENUM("RX INT4_1 NATIVE MUX Mux", int4_1_native_enum);
 
 static const struct snd_kcontrol_new rx_int0_1_mix_inp0_mux =
 	SOC_DAPM_ENUM("RX INT0_1 MIX1 INP0 Mux", rx_int0_1_mix_inp0_chain_enum);
@@ -10645,6 +10681,14 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 				tasha_codec_configure_cpe_input,
 				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_MUX("RX INT1_1 NATIVE MUX", SND_SOC_NOPM, 0, 0,
+		&int1_1_native_mux),
+	SND_SOC_DAPM_MUX("RX INT2_1 NATIVE MUX", SND_SOC_NOPM, 0, 0,
+		&int2_1_native_mux),
+	SND_SOC_DAPM_MUX("RX INT3_1 NATIVE MUX", SND_SOC_NOPM, 0, 0,
+		&int3_1_native_mux),
+	SND_SOC_DAPM_MUX("RX INT4_1 NATIVE MUX", SND_SOC_NOPM, 0, 0,
+		&int4_1_native_mux),
 	SND_SOC_DAPM_MUX("RX MIX TX0 MUX", SND_SOC_NOPM, 0, 0,
 		&rx_mix_tx0_mux),
 	SND_SOC_DAPM_MUX("RX MIX TX1 MUX", SND_SOC_NOPM, 0, 0,
