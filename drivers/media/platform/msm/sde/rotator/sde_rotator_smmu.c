@@ -33,6 +33,7 @@
 #include "sde_rotator_util.h"
 #include "sde_rotator_io_util.h"
 #include "sde_rotator_smmu.h"
+#include "sde_rotator_debug.h"
 
 #define SMMU_SDE_ROT_SEC	"qcom,smmu_sde_rot_sec"
 #define SMMU_SDE_ROT_UNSEC	"qcom,smmu_sde_rot_unsec"
@@ -332,6 +333,8 @@ int sde_smmu_ctrl(int enable)
 	int rc = 0;
 
 	mutex_lock(&sde_smmu_ref_cnt_lock);
+	SDEROT_EVTLOG(__builtin_return_address(0), enable, mdata->iommu_ref_cnt,
+		mdata->iommu_attached);
 	SDEROT_DBG("%pS: enable:%d ref_cnt:%d attach:%d\n",
 		__builtin_return_address(0), enable, mdata->iommu_ref_cnt,
 		mdata->iommu_attached);
@@ -407,9 +410,10 @@ static int sde_smmu_fault_handler(struct iommu_domain *domain,
 
 	sde_smmu = (struct sde_smmu_client *)token;
 
-	/* TODO: trigger rotator panic and dump */
-	SDEROT_ERR("TODO: trigger rotator panic and dump, iova=0x%08lx\n",
-			iova);
+	/* trigger rotator panic and dump */
+	SDEROT_ERR("trigger rotator panic and dump, iova=0x%08lx\n", iova);
+
+	sde_rot_dump_panic();
 
 	return rc;
 }

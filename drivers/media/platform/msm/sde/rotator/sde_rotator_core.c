@@ -35,6 +35,7 @@
 #include "sde_rotator_r1.h"
 #include "sde_rotator_r3.h"
 #include "sde_rotator_trace.h"
+#include "sde_rotator_debug.h"
 
 /* waiting for hw time out, 3 vsync for 30fps*/
 #define ROT_HW_ACQUIRE_TIMEOUT_IN_MS 100
@@ -127,6 +128,7 @@ static int sde_rotator_bus_scale_set_quota(struct sde_rot_bus_data_type *bus,
 	bus->curr_bw_uc_idx = new_uc_idx;
 	bus->curr_quota_val = quota;
 
+	SDEROT_EVTLOG(new_uc_idx, quota);
 	SDEROT_DBG("uc_idx=%d quota=%llu\n", new_uc_idx, quota);
 	ATRACE_BEGIN("msm_bus_scale_req_rot");
 	ret = msm_bus_scale_client_update_request(bus->bus_hdl,
@@ -274,6 +276,7 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 		return;
 	}
 
+	SDEROT_EVTLOG(on);
 	SDEROT_DBG("%s: rotator regulators", on ? "Enable" : "Disable");
 	ret = sde_rot_enable_vreg(mgr->module_power.vreg_config,
 		mgr->module_power.num_vreg, on);
@@ -307,6 +310,7 @@ static int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 	}
 
 	if (changed) {
+		SDEROT_EVTLOG(enable);
 		SDEROT_DBG("Rotator clk %s\n", enable ? "enable" : "disable");
 		for (i = 0; i < mgr->num_rot_clk; i++) {
 			clk = mgr->rot_clk[i].clk;
@@ -394,6 +398,7 @@ static bool sde_rotator_is_work_pending(struct sde_rot_mgr *mgr,
 static void sde_rotator_clear_fence(struct sde_rot_entry *entry)
 {
 	if (entry->input_fence) {
+		SDEROT_EVTLOG(entry->input_fence, 1111);
 		SDEROT_DBG("sys_fence_put i:%p\n", entry->input_fence);
 		sde_rotator_put_sync_fence(entry->input_fence);
 		entry->input_fence = NULL;
@@ -404,6 +409,7 @@ static void sde_rotator_clear_fence(struct sde_rot_entry *entry)
 		if (entry->fenceq && entry->fenceq->timeline)
 			sde_rotator_resync_timeline(entry->fenceq->timeline);
 
+		SDEROT_EVTLOG(entry->output_fence, 2222);
 		SDEROT_DBG("sys_fence_put o:%p\n", entry->output_fence);
 		sde_rotator_put_sync_fence(entry->output_fence);
 		entry->output_fence = NULL;
@@ -565,6 +571,7 @@ static struct sde_rot_perf *sde_rotator_find_session(
 
 static void sde_rotator_release_data(struct sde_rot_entry *entry)
 {
+	SDEROT_EVTLOG(entry->src_buf.p[0].addr, entry->dst_buf.p[0].addr);
 	sde_mdp_data_free(&entry->src_buf, true, DMA_TO_DEVICE);
 	sde_mdp_data_free(&entry->dst_buf, true, DMA_FROM_DEVICE);
 }
@@ -719,6 +726,10 @@ static struct sde_rot_hw_resource *sde_rotator_get_hw_resource(
 		}
 	}
 	atomic_inc(&hw->num_active);
+	SDEROT_EVTLOG(atomic_read(&hw->num_active), hw->pending_count,
+			mgr->rdot_limit, entry->perf->rdot_limit,
+			mgr->wrot_limit, entry->perf->wrot_limit,
+			entry->item.session_id, entry->item.sequence_id);
 	SDEROT_DBG("active=%d pending=%d rdot=%u/%u wrot=%u/%u s:%d.%d\n",
 			atomic_read(&hw->num_active), hw->pending_count,
 			mgr->rdot_limit, entry->perf->rdot_limit,
@@ -766,6 +777,8 @@ static void sde_rotator_put_hw_resource(struct sde_rot_queue *queue,
 		if (hw_res)
 			wake_up(&hw_res->wait_queue);
 	}
+	SDEROT_EVTLOG(atomic_read(&hw->num_active), hw->pending_count,
+			entry->item.session_id, entry->item.sequence_id);
 	SDEROT_DBG("active=%d pending=%d s:%d.%d\n",
 			atomic_read(&hw->num_active), hw->pending_count,
 			entry->item.session_id, entry->item.sequence_id);
@@ -1125,6 +1138,15 @@ static void sde_rotator_commit_handler(struct work_struct *work)
 
 	mgr = entry->private->mgr;
 
+	SDEROT_EVTLOG(
+		entry->item.session_id, entry->item.sequence_id,
+		entry->item.src_rect.x, entry->item.src_rect.y,
+		entry->item.src_rect.w, entry->item.src_rect.h,
+		entry->item.dst_rect.x, entry->item.dst_rect.y,
+		entry->item.dst_rect.w, entry->item.dst_rect.h,
+		entry->item.flags,
+		entry->dnsc_factor_w, entry->dnsc_factor_h);
+
 	SDEDEV_DBG(mgr->device,
 		"commit handler s:%d.%u src:(%d,%d,%d,%d) dst:(%d,%d,%d,%d) f:0x%x dnsc:%u/%u\n",
 		entry->item.session_id, entry->item.sequence_id,
@@ -1233,11 +1255,13 @@ static void sde_rotator_done_handler(struct work_struct *work)
 		entry->item.flags,
 		entry->dnsc_factor_w, entry->dnsc_factor_h);
 
+	SDEROT_EVTLOG(entry->item.session_id, 0);
 	ret = mgr->ops_wait_for_entry(hw, entry);
 	if (ret) {
 		SDEROT_ERR("fail to wait for completion %d\n", ret);
 		atomic_inc(&request->failed_count);
 	}
+	SDEROT_EVTLOG(entry->item.session_id, 1);
 
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_DONE] = ktime_get();
