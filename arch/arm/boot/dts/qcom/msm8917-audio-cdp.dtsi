@@ -13,7 +13,7 @@
 
 &int_codec {
 	status = "okay";
-	qcom,msm-hs-micbias-type = "internal";
+	qcom,msm-hs-micbias-type = "external";
 
 	asoc-wsa-codec-names = "wsa881x-i2c-codec.2-000f";
 	asoc-wsa-codec-prefixes = "SpkrMono";

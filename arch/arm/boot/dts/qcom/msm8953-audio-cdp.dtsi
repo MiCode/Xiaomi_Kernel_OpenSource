@@ -13,7 +13,7 @@
 
 &int_codec {
 	status = "okay";
-	qcom,msm-hs-micbias-type = "internal";
+	qcom,msm-hs-micbias-type = "external";
 };
 
 &pm8953_diangu_dig {
