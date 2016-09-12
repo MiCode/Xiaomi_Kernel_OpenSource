@@ -16,7 +16,6 @@
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_mmu.h"
-#include "mdp/mdp_kms.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
 #include "sde_hw_lm.h"
