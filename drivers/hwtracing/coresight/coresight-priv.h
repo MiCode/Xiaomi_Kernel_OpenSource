@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@
 
 #define TIMEOUT_US		100
 #define BMVAL(val, lsb, msb)	((val & GENMASK(msb, lsb)) >> lsb)
+#define BVAL(val, n)		((val & BIT(n)) >> n)
 
 #define ETM_MODE_EXCL_KERN	BIT(30)
 #define ETM_MODE_EXCL_USER	BIT(31)
@@ -106,6 +107,27 @@ static inline void CS_UNLOCK(void __iomem *addr)
 		/* Make sure everyone has seen this */
 		mb();
 	} while (0);
+}
+
+static inline bool coresight_authstatus_enabled(void __iomem *addr)
+{
+	int ret;
+	unsigned int auth_val;
+
+	if (!addr)
+		return false;
+
+	auth_val = readl_relaxed(addr + CORESIGHT_AUTHSTATUS);
+
+	if ((BMVAL(auth_val, 0, 1) == 0x2) ||
+	    (BMVAL(auth_val, 2, 3) == 0x2) ||
+	    (BMVAL(auth_val, 4, 5) == 0x2) ||
+	    (BMVAL(auth_val, 6, 7) == 0x2))
+		ret = false;
+	else
+		ret = true;
+
+	return ret;
 }
 
 void coresight_disable_path(struct list_head *path);
