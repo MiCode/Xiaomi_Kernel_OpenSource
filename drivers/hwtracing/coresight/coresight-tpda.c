@@ -94,6 +94,10 @@ static void __tpda_enable_pre_port(struct tpda_drvdata *drvdata)
 		val = val | BIT(2);
 	else
 		val = val & ~BIT(2);
+
+	/* Force ASYNC-VERSION-FREQTS sequence */
+	val = val | BIT(21);
+
 	tpda_writel(drvdata, val, TPDA_CR);
 
 	/*
