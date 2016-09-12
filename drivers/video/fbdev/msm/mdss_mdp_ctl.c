@@ -3508,7 +3508,9 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	if (is_dest_scaling_enable(ctl->mixer_left)) {
 		width = get_ds_input_width(ctl->mixer_left);
 		height = get_ds_input_height(ctl->mixer_left);
-		if (ctl->panel_data->next && is_pingpong_split(ctl->mfd))
+		if (is_dual_lm_single_display(ctl->mfd) ||
+				(ctl->panel_data->next &&
+				 is_pingpong_split(ctl->mfd)))
 			width *= 2;
 	} else {
 		width = get_panel_width(ctl);
@@ -3548,9 +3550,13 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	}
 
 	if (split_fb) {
-		width = ctl->mfd->split_fb_left;
-		width += (pinfo->lcdc.border_left +
-				pinfo->lcdc.border_right);
+		if (is_dest_scaling_enable(ctl->mixer_left)) {
+			width = get_ds_input_width(ctl->mixer_left);
+		} else {
+			width = ctl->mfd->split_fb_left;
+			width += (pinfo->lcdc.border_left +
+					pinfo->lcdc.border_right);
+		}
 	} else if (width > max_mixer_width) {
 		width /= 2;
 	}
@@ -3576,8 +3582,12 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 		return 0;
 	}
 
-	if (split_fb)
-		width = ctl->mfd->split_fb_right;
+	if (split_fb) {
+		if (is_dest_scaling_enable(ctl->mixer_left))
+			width = get_ds_input_width(ctl->mixer_left);
+		else
+			width = ctl->mfd->split_fb_right;
+	}
 
 	if (width < ctl->width) {
 		if (ctl->mixer_right == NULL) {
@@ -4038,6 +4048,7 @@ static void mdss_mdp_ctl_restore_sub(struct mdss_mdp_ctl *ctl)
 	if (ctl->mfd && ctl->panel_data) {
 		ctl->mfd->ipc_resume = true;
 		mdss_mdp_pp_resume(ctl->mfd);
+		mdss_mdp_pp_dest_scaler_resume(ctl);
 
 		if (is_dsc_compression(&ctl->panel_data->panel_info)) {
 			/*
