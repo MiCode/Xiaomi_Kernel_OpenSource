@@ -1635,6 +1635,16 @@
 		status = "ok";
 	};
 
+	spss_utils: qcom,spss_utils {
+		compatible = "qcom,spss-utils";
+		/* spss test fuse physical address */
+		qcom,spss-fuse-addr = <0x007841c4 0x4>;
+		qcom,spss-fuse-bit = <27>;
+		qcom,spss-test-firmware-name = "spss";    /* default name */
+		qcom,spss-prod-firmware-name = "spss1p";  /* 8 chars max */
+		status = "ok";
+	};
+
 	sdhc_2: sdhci@c0a4900 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0xc0a4900 0x314>, <0xc0a4000 0x800>;
