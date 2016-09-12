@@ -109,6 +109,9 @@
  *                   QSEED3 parameters needs to be updated.
  * @DS_ENHANCER_UPDATE: Setting this bit indicates current Desitnation Scaler
  *                      QSEED3 Detial enhancer parameters need to be updated.
+ * @DS_VALIDATE: Indicate destination data structure parameters are validated
+ *               and can be used for programming the HW and perform a flush.
+ * @DS_DIRTY_UPDATE: Mark for dirty update for Power resume usecase.
  */
 #define DS_ENABLE           BIT(0)
 #define DS_DUAL_MODE        BIT(1)
@@ -116,6 +119,8 @@
 #define DS_RIGHT            BIT(3)
 #define DS_SCALE_UPDATE     BIT(4)
 #define DS_ENHANCER_UPDATE  BIT(5)
+#define DS_VALIDATE         BIT(6)
+#define DS_DIRTY_UPDATE     BIT(7)
 
 /**
  * Destination Scaler DUAL mode overfetch pixel count
@@ -370,6 +375,8 @@ struct mdss_mdp_destination_scaler {
 	char __iomem *lut_base;
 	u16 src_width;
 	u16 src_height;
+	u16 last_mixer_width;
+	u16 last_mixer_height;
 	u32 flags;
 	struct mdp_scale_data_v2 scaler;
 };
@@ -1706,6 +1713,7 @@ void mdss_mdp_pp_term(struct device *dev);
 int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd);
 
 int mdss_mdp_pp_resume(struct msm_fb_data_type *mfd);
+void mdss_mdp_pp_dest_scaler_resume(struct mdss_mdp_ctl *ctl);
 
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl);
