@@ -649,12 +649,12 @@ static int _sde_format_populate_addrs_linear(
 {
 	unsigned int i;
 
-	/* Can now check the pitches given vs pitches expected */
+	/* Update layout pitches from fb */
 	for (i = 0; i < layout->num_planes; ++i) {
 		if (layout->plane_pitch[i] != fb->pitches[i]) {
-			DRM_ERROR("plane %u expected pitch %u, fb %u\n",
+			SDE_DEBUG("plane %u expected pitch %u, fb %u\n",
 				i, layout->plane_pitch[i], fb->pitches[i]);
-			return -EINVAL;
+			layout->plane_pitch[i] = fb->pitches[i];
 		}
 	}
 
