@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
 #include <linux/netdevice.h>
+#include <net/rmnet_config.h>
 #include "rmnet_data_private.h"
 #include "rmnet_data_stats.h"
 #include "rmnet_data_config.h"
@@ -73,8 +74,16 @@ void rmnet_kfree_skb(struct sk_buff *skb, unsigned int reason)
 	skb_free[reason]++;
 	spin_unlock_irqrestore(&rmnet_skb_free_lock, flags);
 
-	if (skb)
-		kfree_skb(skb);
+	if (likely(skb)) {
+		struct rmnet_phys_ep_conf_s *config;
+
+		config = (struct rmnet_phys_ep_conf_s *)rcu_dereference
+			 (skb->dev->rx_handler_data);
+		if (likely(config))
+			config->recycle(skb);
+		else
+			kfree_skb(skb);
+	}
 }
 
 void rmnet_stats_queue_xmit(int rc, unsigned int reason)
