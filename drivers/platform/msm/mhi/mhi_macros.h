@@ -96,7 +96,6 @@
 				((_mhi_dev_ctxt)->mmio_info.nr_event_rings - \
 				((_mhi_dev_ctxt)->mmio_info.nr_hw_event_rings)))
 
-
 /* MHI Transfer Ring Elements 7.4.1*/
 #define TX_TRB_LEN
 #define MHI_TX_TRB_LEN__SHIFT (0)

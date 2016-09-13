@@ -277,20 +277,22 @@ struct mhi_result *mhi_poll(struct mhi_client_handle *client_handle)
 
 void mhi_mask_irq(struct mhi_client_handle *client_handle)
 {
-	disable_irq_nosync(MSI_TO_IRQ(client_handle->mhi_dev_ctxt,
-					client_handle->msi_vec));
-	client_handle->mhi_dev_ctxt->counters.msi_disable_cntr++;
-	if (client_handle->mhi_dev_ctxt->counters.msi_disable_cntr >
-		   (client_handle->mhi_dev_ctxt->counters.msi_enable_cntr + 1))
-		mhi_log(MHI_MSG_INFO, "No nested IRQ disable Allowed\n");
+	struct mhi_device_ctxt *mhi_dev_ctxt =
+		client_handle->mhi_dev_ctxt;
+	struct mhi_ring *ev_ring = &mhi_dev_ctxt->
+		mhi_local_event_ctxt[client_handle->event_ring_index];
+
+	disable_irq_nosync(MSI_TO_IRQ(mhi_dev_ctxt, client_handle->msi_vec));
+	ev_ring->msi_disable_cntr++;
 }
 
 void mhi_unmask_irq(struct mhi_client_handle *client_handle)
 {
-	client_handle->mhi_dev_ctxt->counters.msi_enable_cntr++;
-	enable_irq(MSI_TO_IRQ(client_handle->mhi_dev_ctxt,
-			client_handle->msi_vec));
-	if (client_handle->mhi_dev_ctxt->counters.msi_enable_cntr >
-		   client_handle->mhi_dev_ctxt->counters.msi_disable_cntr)
-		mhi_log(MHI_MSG_INFO, "No nested IRQ enable Allowed\n");
+	struct mhi_device_ctxt *mhi_dev_ctxt =
+		client_handle->mhi_dev_ctxt;
+	struct mhi_ring *ev_ring = &mhi_dev_ctxt->
+		mhi_local_event_ctxt[client_handle->event_ring_index];
+
+	ev_ring->msi_enable_cntr++;
+	enable_irq(MSI_TO_IRQ(mhi_dev_ctxt, client_handle->msi_vec));
 }
