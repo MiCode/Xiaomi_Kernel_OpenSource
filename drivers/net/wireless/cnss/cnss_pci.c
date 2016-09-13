@@ -3465,6 +3465,9 @@ int cnss_pm_runtime_request(struct device *dev,
 	case CNSS_PM_REQUEST_RESUME:
 		ret = pm_request_resume(dev);
 		break;
+	case CNSS_PM_GET_NORESUME:
+		pm_runtime_get_noresume(dev);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
