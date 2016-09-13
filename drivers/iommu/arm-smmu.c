@@ -45,6 +45,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <soc/qcom/secure_buffer.h>
+#include <linux/of_platform.h>
 #include <linux/msm-bus.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
 
@@ -307,6 +308,7 @@ enum arm_smmu_implementation {
 	ARM_MMU500,
 	CAVIUM_SMMUV2,
 	QCOM_SMMUV2,
+	QCOM_SMMUV500,
 };
 
 struct arm_smmu_device;
@@ -3558,12 +3560,16 @@ static struct arm_smmu_match_data name = {		\
 .arch_ops = ops,					\
 }							\
 
+struct arm_smmu_arch_ops qsmmuv500_arch_ops;
+
 ARM_SMMU_MATCH_DATA(smmu_generic_v1, ARM_SMMU_V1, GENERIC_SMMU, NULL);
 ARM_SMMU_MATCH_DATA(smmu_generic_v2, ARM_SMMU_V2, GENERIC_SMMU, NULL);
 ARM_SMMU_MATCH_DATA(arm_mmu401, ARM_SMMU_V1_64K, GENERIC_SMMU, NULL);
 ARM_SMMU_MATCH_DATA(arm_mmu500, ARM_SMMU_V2, ARM_MMU500, NULL);
 ARM_SMMU_MATCH_DATA(cavium_smmuv2, ARM_SMMU_V2, CAVIUM_SMMUV2, NULL);
 ARM_SMMU_MATCH_DATA(qcom_smmuv2, ARM_SMMU_V2, QCOM_SMMUV2, &qsmmuv2_arch_ops);
+ARM_SMMU_MATCH_DATA(qcom_smmuv500, ARM_SMMU_V2, QCOM_SMMUV500,
+		    &qsmmuv500_arch_ops);
 
 static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,smmu-v1", .data = &smmu_generic_v1 },
@@ -3573,10 +3579,12 @@ static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,mmu-500", .data = &arm_mmu500 },
 	{ .compatible = "cavium,smmu-v2", .data = &cavium_smmuv2 },
 	{ .compatible = "qcom,smmu-v2", .data = &qcom_smmuv2 },
+	{ .compatible = "qcom,qsmmu-v500", .data = &qcom_smmuv500 },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, arm_smmu_of_match);
 
+static int qsmmuv500_tbu_register(struct device *dev, void *data);
 static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id;
@@ -3825,6 +3833,265 @@ static void __exit arm_smmu_exit(void)
 
 subsys_initcall(arm_smmu_init);
 module_exit(arm_smmu_exit);
+
+#define DEBUG_SID_HALT_REG		0x0
+#define DEBUG_SID_HALT_VAL		(0x1 << 16)
+
+#define DEBUG_SR_HALT_ACK_REG		0x20
+#define DEBUG_SR_HALT_ACK_VAL		(0x1 << 1)
+
+#define TBU_DBG_TIMEOUT_US		30000
+
+struct qsmmuv500_tbu_device {
+	struct list_head		list;
+	struct device			*dev;
+	struct arm_smmu_device		*smmu;
+	void __iomem			*base;
+	void __iomem			*status_reg;
+
+	struct arm_smmu_power_resources *pwr;
+
+	/* Protects halt count */
+	spinlock_t			halt_lock;
+	u32				halt_count;
+};
+
+static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
+{
+	struct qsmmuv500_tbu_device *tbu;
+	struct list_head *list = smmu->archdata;
+	int ret = 0;
+
+	list_for_each_entry(tbu, list, list) {
+		ret = arm_smmu_power_on(tbu->pwr);
+		if (ret)
+			break;
+	}
+	if (!ret)
+		return 0;
+
+	list_for_each_entry_continue_reverse(tbu, list, list) {
+		arm_smmu_power_off(tbu->pwr);
+	}
+	return ret;
+}
+
+static void qsmmuv500_tbu_power_off_all(struct arm_smmu_device *smmu)
+{
+	struct qsmmuv500_tbu_device *tbu;
+	struct list_head *list = smmu->archdata;
+
+	list_for_each_entry_reverse(tbu, list, list) {
+		arm_smmu_power_off(tbu->pwr);
+	}
+}
+
+static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu)
+{
+	unsigned long flags;
+	u32 val;
+	void __iomem *base;
+
+	spin_lock_irqsave(&tbu->halt_lock, flags);
+	if (tbu->halt_count) {
+		tbu->halt_count++;
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return 0;
+	}
+
+	base = tbu->base;
+	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
+	val |= DEBUG_SID_HALT_VAL;
+	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
+
+	if (readl_poll_timeout_atomic(base + DEBUG_SR_HALT_ACK_REG,
+					val, (val & DEBUG_SR_HALT_ACK_VAL),
+					0, TBU_DBG_TIMEOUT_US)) {
+		dev_err(tbu->dev, "Couldn't halt TBU!\n");
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return -ETIMEDOUT;
+	}
+
+	tbu->halt_count = 1;
+	spin_unlock_irqrestore(&tbu->halt_lock, flags);
+	return 0;
+}
+
+static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
+{
+	unsigned long flags;
+	u32 val;
+	void __iomem *base;
+
+	spin_lock_irqsave(&tbu->halt_lock, flags);
+	if (!tbu->halt_count) {
+		WARN(1, "%s: bad tbu->halt_count", dev_name(tbu->dev));
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return;
+
+	} else if (tbu->halt_count > 1) {
+		tbu->halt_count--;
+		spin_unlock_irqrestore(&tbu->halt_lock, flags);
+		return;
+	}
+
+	base = tbu->base;
+	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
+	val &= ~DEBUG_SID_HALT_VAL;
+	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
+
+	tbu->halt_count = 0;
+	spin_unlock_irqrestore(&tbu->halt_lock, flags);
+}
+
+static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
+{
+	struct qsmmuv500_tbu_device *tbu;
+	struct list_head *list = smmu->archdata;
+	int ret = 0;
+
+	list_for_each_entry(tbu, list, list) {
+		ret = qsmmuv500_tbu_halt(tbu);
+		if (ret)
+			break;
+	}
+
+	if (!ret)
+		return 0;
+
+	list_for_each_entry_continue_reverse(tbu, list, list) {
+		qsmmuv500_tbu_resume(tbu);
+	}
+	return ret;
+}
+
+static void qsmmuv500_resume_all(struct arm_smmu_device *smmu)
+{
+	struct qsmmuv500_tbu_device *tbu;
+	struct list_head *list = smmu->archdata;
+
+	list_for_each_entry(tbu, list, list) {
+		qsmmuv500_tbu_resume(tbu);
+	}
+}
+
+static void qsmmuv500_device_reset(struct arm_smmu_device *smmu)
+{
+	int i, ret;
+	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
+
+	ret = qsmmuv500_tbu_power_on_all(smmu);
+	if (ret)
+		return;
+
+	/* Program implementation defined registers */
+	qsmmuv500_halt_all(smmu);
+	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
+		writel_relaxed(regs[i].value,
+			ARM_SMMU_GR0(smmu) + regs[i].offset);
+	qsmmuv500_resume_all(smmu);
+	qsmmuv500_tbu_power_off_all(smmu);
+}
+
+static int qsmmuv500_tbu_register(struct device *dev, void *data)
+{
+	struct arm_smmu_device *smmu = data;
+	struct qsmmuv500_tbu_device *tbu;
+	struct list_head *list = smmu->archdata;
+
+	if (!dev->driver) {
+		dev_err(dev, "TBU failed probe, QSMMUV500 cannot continue!\n");
+		return -EINVAL;
+	}
+
+	tbu = dev_get_drvdata(dev);
+
+	INIT_LIST_HEAD(&tbu->list);
+	tbu->smmu = smmu;
+	list_add(&tbu->list, list);
+	return 0;
+}
+
+static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
+{
+	struct device *dev = smmu->dev;
+	struct list_head *list;
+	int ret;
+
+	list = devm_kzalloc(dev, sizeof(*list), GFP_KERNEL);
+	if (!list)
+		return -ENOMEM;
+
+	INIT_LIST_HEAD(list);
+	smmu->archdata = list;
+
+	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
+	if (ret)
+		return ret;
+
+	/* Attempt to register child devices */
+	ret = device_for_each_child(dev, smmu, qsmmuv500_tbu_register);
+	if (ret)
+		return -EINVAL;
+
+	return 0;
+}
+
+struct arm_smmu_arch_ops qsmmuv500_arch_ops = {
+	.init = qsmmuv500_arch_init,
+	.device_reset = qsmmuv500_device_reset,
+};
+
+static const struct of_device_id qsmmuv500_tbu_of_match[] = {
+	{.compatible = "qcom,qsmmuv500-tbu"},
+	{}
+};
+
+static int qsmmuv500_tbu_probe(struct platform_device *pdev)
+{
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+	struct qsmmuv500_tbu_device *tbu;
+
+	tbu = devm_kzalloc(dev, sizeof(*tbu), GFP_KERNEL);
+	if (!tbu)
+		return -ENOMEM;
+
+	INIT_LIST_HEAD(&tbu->list);
+	tbu->dev = dev;
+	spin_lock_init(&tbu->halt_lock);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
+	tbu->base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(tbu->base))
+		return PTR_ERR(tbu->base);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "status-reg");
+	tbu->status_reg = devm_ioremap_resource(dev, res);
+	if (IS_ERR(tbu->status_reg))
+		return PTR_ERR(tbu->status_reg);
+
+	tbu->pwr = arm_smmu_init_power_resources(pdev);
+	if (IS_ERR(tbu->pwr))
+		return PTR_ERR(tbu->pwr);
+
+	dev_set_drvdata(dev, tbu);
+	return 0;
+}
+
+static struct platform_driver qsmmuv500_tbu_driver = {
+	.driver	= {
+		.name		= "qsmmuv500-tbu",
+		.of_match_table	= of_match_ptr(qsmmuv500_tbu_of_match),
+	},
+	.probe	= qsmmuv500_tbu_probe,
+};
+
+static int __init qsmmuv500_tbu_init(void)
+{
+	return platform_driver_register(&qsmmuv500_tbu_driver);
+}
+subsys_initcall(qsmmuv500_tbu_init);
 
 MODULE_DESCRIPTION("IOMMU API for ARM architected SMMU implementations");
 MODULE_AUTHOR("Will Deacon <will.deacon@arm.com>");

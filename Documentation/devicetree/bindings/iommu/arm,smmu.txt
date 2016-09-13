@@ -18,6 +18,7 @@ conditions.
                         "arm,mmu-500"
                         "cavium,smmu-v2"
                         "qcom,smmu-v2"
+                        "qcom,qsmmu-v500"
 
                   depending on the particular implementation and/or the
                   version of the architecture implemented.
@@ -127,3 +128,34 @@ Example:
                     <0x128 0xa5>,
                     <0x12c 0x1>;
         };
+
+
+* Qualcomm MMU-500 TBU Device
+
+The qcom,qsmmu-v500 device implements a number of register regions containing
+debug functionality. Each register region maps to a separate tbu from the
+arm mmu-500 implementation.
+
+** TBU required properties:
+
+- compatible    : Should be one of:
+                        "qcom,qsmmuv500-tbu"
+
+- reg           : Base address and size.
+
+- reg-names	: "base" and "status-reg" are expected
+		"base" is the main TBU register region.
+		"status-reg" indicates whether hw can process a new request.
+
+
+Example:
+smmu {
+	compatible = "qcom,qsmmu-v500";
+	tbu@0x1000 {
+		compatible = "qcom,qsmmuv500-tbu";
+		regs = <0x1000 0x1000>,
+			<0x2000 0x8>;
+		reg-names = "base",
+			"status-reg";
+	};
+};
