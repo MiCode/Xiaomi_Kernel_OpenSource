@@ -988,6 +988,21 @@ int smblib_get_prop_system_temp_level(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_get_prop_input_current_limited(struct smb_charger *chg,
+				union power_supply_propval *val)
+{
+	u8 stat;
+	int rc;
+
+	rc = smblib_read(chg, AICL_STATUS_REG, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read AICL_STATUS rc=%d\n", rc);
+		return rc;
+	}
+	val->intval = (stat & SOFT_ILIMIT_BIT) || chg->is_hdc;
+	return 0;
+}
+
 /***********************
  * BATTERY PSY SETTERS *
  ***********************/
@@ -1965,6 +1980,17 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smblib_handle_high_duty_cycle(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	chg->is_hdc = true;
+	schedule_delayed_work(&chg->clear_hdc_work, msecs_to_jiffies(60));
+
+	return IRQ_HANDLED;
+}
+
 /***************
  * Work Queues *
  ***************/
@@ -2052,6 +2078,14 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	 */
 done:
 	vote(chg->awake_votable, PL_VOTER, false, 0);
+}
+
+static void clear_hdc_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						clear_hdc_work.work);
+
+	chg->is_hdc = 0;
 }
 
 static int smblib_create_votables(struct smb_charger *chg)
@@ -2194,6 +2228,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 	INIT_DELAYED_WORK(&chg->pl_taper_work, smblib_pl_taper_work);
 	INIT_DELAYED_WORK(&chg->step_soc_req_work, step_soc_req_work);
+	INIT_DELAYED_WORK(&chg->clear_hdc_work, clear_hdc_work);
 	chg->fake_capacity = -EINVAL;
 
 	switch (chg->mode) {
