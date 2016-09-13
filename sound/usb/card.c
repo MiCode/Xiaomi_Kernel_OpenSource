@@ -727,6 +727,9 @@ static void usb_audio_disconnect(struct usb_interface *intf)
 
 	card = chip->card;
 
+	if (chip->disconnect_cb)
+		chip->disconnect_cb(chip);
+
 	mutex_lock(&register_mutex);
 	if (atomic_inc_return(&chip->shutdown) == 1) {
 		struct snd_usb_stream *as;
@@ -761,8 +764,6 @@ static void usb_audio_disconnect(struct usb_interface *intf)
 	if (chip->num_interfaces <= 0) {
 		usb_chip[chip->index] = NULL;
 		mutex_unlock(&register_mutex);
-		if (chip->disconnect_cb)
-			chip->disconnect_cb(chip);
 		snd_card_free_when_closed(card);
 	} else {
 		mutex_unlock(&register_mutex);
