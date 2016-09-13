@@ -130,7 +130,7 @@ struct ecryptfs_events {
 	size_t (*get_salt_key_size_cb)(const void *ecrytpfs_data);
 };
 
-
+#ifdef CONFIG_ECRYPT_FS
 int ecryptfs_register_to_events(const struct ecryptfs_events *ops);
 
 int ecryptfs_unregister_from_events(int user_handle);
@@ -150,5 +150,56 @@ bool ecryptfs_is_page_in_metadata(const void *ecrytpfs_data, pgoff_t offset);
 
 bool ecryptfs_is_data_equal(const void *ecrytpfs_data1,
 		const void *ecrytpfs_data2);
+
+#else
+static inline int ecryptfs_register_to_events(
+	const struct ecryptfs_events *ops)
+{
+	return 1; /* dummy handle */
+}
+
+static int ecryptfs_unregister_from_events(int user_handle)
+{
+	return 0;
+}
+
+static inline const unsigned char *ecryptfs_get_key(const void *ecrytpfs_data)
+{
+	return NULL;
+}
+
+static inline size_t ecryptfs_get_key_size(const void *ecrytpfs_data)
+{
+	return 0;
+}
+
+static inline const unsigned char *ecryptfs_get_salt(const void *ecrytpfs_data)
+{
+	return NULL;
+}
+
+static inline size_t ecryptfs_get_salt_size(const void *ecrytpfs_data)
+{
+	return 0;
+}
+
+static inline bool ecryptfs_cipher_match(const void *ecrytpfs_data,
+		const unsigned char *cipher, size_t cipher_size)
+{
+	return false;
+}
+
+bool ecryptfs_is_page_in_metadata(const void *ecrytpfs_data, pgoff_t offset)
+{
+	return false;
+}
+
+bool ecryptfs_is_data_equal(const void *ecrytpfs_data1,
+		const void *ecrytpfs_data2)
+{
+	return false;
+}
+
+#endif /* CONFIG_ECRYPT_FS */
 
 #endif /* _LINUX_ECRYPTFS_H */
