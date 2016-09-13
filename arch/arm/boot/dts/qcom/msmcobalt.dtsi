@@ -2867,6 +2867,8 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <81 10065 0 0>,
 					    <81 10065 0 16000>;
+		qcom,icnss-vadc = <&pmcobalt_vadc>;
+		qcom,icnss-adc_tm = <&pmcobalt_adc_tm>;
 	};
 
 	wil6210: qcom,wil6210 {

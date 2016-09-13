@@ -34,6 +34,7 @@
 #include <linux/qmi_encdec.h>
 #include <linux/ipc_logging.h>
 #include <linux/msm-bus.h>
+#include <linux/uaccess.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/msm_qmi_interface.h>
@@ -410,6 +411,10 @@ static struct icnss_priv {
 	void *modem_notify_handler;
 	struct notifier_block modem_ssr_nb;
 	struct wakeup_source ws;
+	uint32_t diag_reg_read_addr;
+	uint32_t diag_reg_read_mem_type;
+	uint32_t diag_reg_read_len;
+	uint8_t *diag_reg_read_buf;
 } *penv;
 
 static void icnss_hw_write_reg(void *base, u32 offset, u32 val)
@@ -3650,6 +3655,207 @@ static const struct file_operations icnss_stats_fops = {
 	.llseek		= seq_lseek,
 };
 
+static int icnss_regwrite_show(struct seq_file *s, void *data)
+{
+	struct icnss_priv *priv = s->private;
+
+	seq_puts(s, "\nUsage: echo <mem_type> <offset> <reg_val> > <debugfs>/icnss/reg_write\n");
+
+	if (!test_bit(ICNSS_FW_READY, &priv->state))
+		seq_puts(s, "Firmware is not ready yet!, wait for FW READY\n");
+
+	return 0;
+}
+
+static ssize_t icnss_regwrite_write(struct file *fp,
+				    const char __user *user_buf,
+				    size_t count, loff_t *off)
+{
+	struct icnss_priv *priv =
+		((struct seq_file *)fp->private_data)->private;
+	char buf[64];
+	char *sptr, *token;
+	unsigned int len = 0;
+	uint32_t reg_offset, mem_type, reg_val;
+	const char *delim = " ";
+	int ret = 0;
+
+	if (!test_bit(ICNSS_FW_READY, &priv->state) ||
+	    !test_bit(ICNSS_POWER_ON, &priv->state))
+		return -EINVAL;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+	sptr = buf;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (!sptr)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &mem_type))
+		return -EINVAL;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (!sptr)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &reg_offset))
+		return -EINVAL;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &reg_val))
+		return -EINVAL;
+
+	ret = wlfw_athdiag_write_send_sync_msg(priv, reg_offset, mem_type,
+					       sizeof(uint32_t),
+					       (uint8_t *)&reg_val);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static int icnss_regwrite_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, icnss_regwrite_show, inode->i_private);
+}
+
+static const struct file_operations icnss_regwrite_fops = {
+	.read		= seq_read,
+	.write          = icnss_regwrite_write,
+	.open           = icnss_regwrite_open,
+	.owner          = THIS_MODULE,
+	.llseek		= seq_lseek,
+};
+
+static int icnss_regread_show(struct seq_file *s, void *data)
+{
+	struct icnss_priv *priv = s->private;
+
+	if (!priv->diag_reg_read_buf) {
+		seq_puts(s, "Usage: echo <mem_type> <offset> <data_len> > <debugfs>/icnss/reg_read\n");
+
+		if (!test_bit(ICNSS_FW_READY, &priv->state))
+			seq_puts(s, "Firmware is not ready yet!, wait for FW READY\n");
+
+		return 0;
+	}
+
+	seq_printf(s, "REGREAD: Addr 0x%x Type 0x%x Length 0x%x\n",
+		   priv->diag_reg_read_addr, priv->diag_reg_read_mem_type,
+		   priv->diag_reg_read_len);
+
+	seq_hex_dump(s, "", DUMP_PREFIX_OFFSET, 32, 4, priv->diag_reg_read_buf,
+		     priv->diag_reg_read_len, false);
+
+	priv->diag_reg_read_len = 0;
+	kfree(priv->diag_reg_read_buf);
+	priv->diag_reg_read_buf = NULL;
+
+	return 0;
+}
+
+static ssize_t icnss_regread_write(struct file *fp, const char __user *user_buf,
+				size_t count, loff_t *off)
+{
+	struct icnss_priv *priv =
+		((struct seq_file *)fp->private_data)->private;
+	char buf[64];
+	char *sptr, *token;
+	unsigned int len = 0;
+	uint32_t reg_offset, mem_type;
+	uint32_t data_len = 0;
+	uint8_t *reg_buf = NULL;
+	const char *delim = " ";
+	int ret = 0;
+
+	if (!test_bit(ICNSS_FW_READY, &priv->state) ||
+	    !test_bit(ICNSS_POWER_ON, &priv->state))
+		return -EINVAL;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+	sptr = buf;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (!sptr)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &mem_type))
+		return -EINVAL;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (!sptr)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &reg_offset))
+		return -EINVAL;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &data_len))
+		return -EINVAL;
+
+	if (data_len == 0 ||
+	    data_len > QMI_WLFW_MAX_DATA_SIZE_V01)
+		return -EINVAL;
+
+	reg_buf = kzalloc(data_len, GFP_KERNEL);
+	if (!reg_buf)
+		return -ENOMEM;
+
+	ret = wlfw_athdiag_read_send_sync_msg(priv, reg_offset,
+					      mem_type, data_len,
+					      reg_buf);
+	if (ret) {
+		kfree(reg_buf);
+		return ret;
+	}
+
+	priv->diag_reg_read_addr = reg_offset;
+	priv->diag_reg_read_mem_type = mem_type;
+	priv->diag_reg_read_len = data_len;
+	priv->diag_reg_read_buf = reg_buf;
+
+	return count;
+}
+
+static int icnss_regread_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, icnss_regread_show, inode->i_private);
+}
+
+static const struct file_operations icnss_regread_fops = {
+	.read           = seq_read,
+	.write          = icnss_regread_write,
+	.open           = icnss_regread_open,
+	.owner          = THIS_MODULE,
+	.llseek         = seq_lseek,
+};
+
 static int icnss_debugfs_create(struct icnss_priv *priv)
 {
 	int ret = 0;
@@ -3670,6 +3876,10 @@ static int icnss_debugfs_create(struct icnss_priv *priv)
 
 	debugfs_create_file("stats", 0644, root_dentry, priv,
 			    &icnss_stats_fops);
+	debugfs_create_file("reg_read", 0600, root_dentry, priv,
+			    &icnss_regread_fops);
+	debugfs_create_file("reg_write", 0644, root_dentry, priv,
+			    &icnss_regwrite_fops);
 
 out:
 	return ret;
