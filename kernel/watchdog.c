@@ -121,7 +121,7 @@ static unsigned long soft_lockup_nmi_warn;
 unsigned int __read_mostly hardlockup_panic =
 			CONFIG_BOOTPARAM_HARDLOCKUP_PANIC_VALUE;
 #ifdef CONFIG_HARDLOCKUP_DETECTOR_NMI
-static unsigned long hardlockup_allcpu_dumped;
+static unsigned long __maybe_unused hardlockup_allcpu_dumped;
 #endif
 /*
  * We may not want to enable hard lockup detection by default in all cases,
