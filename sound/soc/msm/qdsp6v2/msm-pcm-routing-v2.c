@@ -1483,6 +1483,7 @@ static void msm_pcm_routing_process_voice(u16 reg, u16 val, int set)
 {
 	u32 session_id = 0;
 	u16 path_type;
+	struct media_format_info voc_be_media_format;
 
 	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 
@@ -1515,8 +1516,22 @@ static void msm_pcm_routing_process_voice(u16 reg, u16 val, int set)
 	if (set) {
 		if (msm_bedais[reg].active) {
 			voc_set_route_flag(session_id, path_type, 1);
+
+			memset(&voc_be_media_format, 0,
+			       sizeof(struct media_format_info));
+
+			voc_be_media_format.port_id = msm_bedais[reg].port_id;
+			voc_be_media_format.num_channels =
+						msm_bedais[reg].channel;
+			voc_be_media_format.sample_rate =
+						msm_bedais[reg].sample_rate;
+			voc_be_media_format.bits_per_sample =
+						msm_bedais[reg].format;
+			/* Defaulting this to 1 for voice call usecases */
+			voc_be_media_format.channel_mapping[0] = 1;
+
 			voc_set_device_config(session_id, path_type,
-			   msm_bedais[reg].channel, msm_bedais[reg].port_id);
+					      &voc_be_media_format);
 
 			if (voc_get_route_flag(session_id, TX_PATH) &&
 				voc_get_route_flag(session_id, RX_PATH))
@@ -2391,9 +2406,9 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 	}
 
 	pr_debug("%s: val = %d ext_ec_ref_port_id = 0x%0x state = %d\n",
-		__func__, msm_route_ext_ec_ref, ext_ec_ref_port_id, state);
+		 __func__, msm_route_ext_ec_ref, ext_ec_ref_port_id, state);
 
-	if (!voc_set_ext_ec_ref(ext_ec_ref_port_id, state)) {
+	if (!voc_set_ext_ec_ref_port_id(ext_ec_ref_port_id, state)) {
 		mutex_unlock(&routing_lock);
 		snd_soc_dapm_mux_update_power(widget->dapm, kcontrol, mux, e,
 						update);
@@ -11439,6 +11454,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	uint16_t bits_per_sample = 16, voc_path_type;
 	struct msm_pcm_routing_fdai_data *fdai;
 	u32 session_id;
+	struct media_format_info voc_be_media_format;
 
 	pr_debug("%s: substream->pcm->id:%s\n",
 		 __func__, substream->pcm->id);
@@ -11552,8 +11568,8 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MAX) {
 		session_id = msm_pcm_routing_get_voc_sessionid(i);
 		if (session_id) {
-			pr_debug("%s voice session_id: 0x%x",
-				 __func__, session_id);
+			pr_debug("%s voice session_id: 0x%x\n", __func__,
+				 session_id);
 
 			if (session_type == SESSION_TYPE_TX)
 				voc_path_type = TX_PATH;
@@ -11561,13 +11577,45 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 				voc_path_type = RX_PATH;
 
 			voc_set_route_flag(session_id, voc_path_type, 1);
-			voc_set_device_config(session_id,  voc_path_type,
-					      bedai->channel, bedai->port_id);
+
+			memset(&voc_be_media_format, 0,
+			       sizeof(struct media_format_info));
+
+			voc_be_media_format.port_id = bedai->port_id;
+			voc_be_media_format.num_channels = bedai->channel;
+			voc_be_media_format.sample_rate = bedai->sample_rate;
+			voc_be_media_format.bits_per_sample = bedai->format;
+			/* Defaulting this to 1 for voice call usecases */
+			voc_be_media_format.channel_mapping[0] = 1;
+
+			voc_set_device_config(session_id, voc_path_type,
+					      &voc_be_media_format);
 
 			if (voc_get_route_flag(session_id, RX_PATH) &&
 			    voc_get_route_flag(session_id, TX_PATH))
 				voc_enable_device(session_id);
 		}
+	}
+
+	/* Check if backend is an external ec ref port and set as needed */
+	if (unlikely(bedai->port_id == voc_get_ext_ec_ref_port_id())) {
+
+		memset(&voc_be_media_format, 0,
+		       sizeof(struct media_format_info));
+
+		/* Get format info for ec ref port from msm_bedais[] */
+		voc_be_media_format.port_id = bedai->port_id;
+		voc_be_media_format.num_channels = bedai->channel;
+		voc_be_media_format.bits_per_sample = bedai->format;
+		voc_be_media_format.sample_rate = bedai->sample_rate;
+		/* Defaulting this to 1 for voice call usecases */
+		voc_be_media_format.channel_mapping[0] = 1;
+		voc_set_ext_ec_ref_media_fmt_info(&voc_be_media_format);
+		pr_debug("%s: EC Ref media format info set to port_id=%d, num_channels=%d, bits_per_sample=%d, sample_rate=%d\n",
+			 __func__, voc_be_media_format.port_id,
+			 voc_be_media_format.num_channels,
+			 voc_be_media_format.bits_per_sample,
+			 voc_be_media_format.sample_rate);
 	}
 
 done:
