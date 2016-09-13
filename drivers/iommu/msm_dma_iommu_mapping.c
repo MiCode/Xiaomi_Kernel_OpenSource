@@ -347,10 +347,12 @@ int msm_dma_unmap_all_for_dev(struct device *dev)
 	meta_node = rb_first(root);
 	while (meta_node) {
 		struct msm_iommu_map *iommu_map;
+		struct msm_iommu_map *iommu_map_next;
 
 		meta = rb_entry(meta_node, struct msm_iommu_meta, node);
 		mutex_lock(&meta->lock);
-		list_for_each_entry(iommu_map, &meta->iommu_maps, lnode)
+		list_for_each_entry_safe(iommu_map, iommu_map_next,
+						&meta->iommu_maps, lnode)
 			if (iommu_map->dev == dev)
 				if (!kref_put(&iommu_map->ref,
 						msm_iommu_map_release))
