@@ -1579,18 +1579,25 @@
 			<&clock_gcc clk_gcc_pcie_0_cfg_ahb_clk>,
 			<&clock_gcc clk_gcc_pcie_0_mstr_axi_clk>,
 			<&clock_gcc clk_gcc_pcie_0_slv_axi_clk>,
-			<&clock_gcc clk_gcc_pcie_clkref_clk>,
-			<&clock_gcc clk_gcc_pcie_phy_reset>;
+			<&clock_gcc clk_gcc_pcie_clkref_clk>;
 
 		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
 				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
-				"pcie_0_ldo", "pcie_0_phy_reset";
+				"pcie_0_ldo";
 
 		max-clock-frequency-hz = <0>, <0>, <19200000>,
 					<0>, <0>, <0>, <0>, <0>, <0>,
 					<0>, <0>, <0>, <0>, <0>, <0>,
 					<0>, <0>;
+
+		resets = <&clock_gcc PCIE_PHY_BCR>,
+			 <&clock_gcc PCIE_0_PHY_BCR>,
+			 <&clock_gcc PCIE_0_PHY_BCR>;
+
+		reset-names = "pcie_phy_reset",
+				"pcie_0_phy_reset",
+				"pcie_0_phy_pipe_reset";
 	};
 
 	qcom,ipc_router {
