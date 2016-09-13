@@ -677,3 +677,4 @@
 };
 
 #include "msmskunk-regulator.dtsi"
+#include "msmskunk-coresight.dtsi"
