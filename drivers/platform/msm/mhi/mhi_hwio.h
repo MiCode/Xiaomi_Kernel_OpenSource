@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,14 +23,14 @@
 
 
 #define MHICFG (0x10)
-#define MHICFG_RESERVED_BITS31_24_MASK 0xff000000
-#define MHICFG_RESERVED_BITS31_24_SHIFT 0x18
-#define MHICFG_NER_MASK 0xff0000
-#define MHICFG_NER_SHIFT 0x10
-#define MHICFG_RESERVED_BITS15_8_MASK 0xff00
-#define MHICFG_RESERVED_BITS15_8_SHIFT 0x8
-#define MHICFG_NCH_MASK 0xff
-#define MHICFG_NCH_SHIFT 0x0
+#define MHICFG_NHWER_MASK (0xff000000)
+#define MHICFG_NHWER_SHIFT (24)
+#define MHICFG_NER_MASK (0xff0000)
+#define MHICFG_NER_SHIFT (16)
+#define MHICFG_NHWCH_MASK (0xff00)
+#define MHICFG_NHWCH_SHIFT (8)
+#define MHICFG_NCH_MASK (0xff)
+#define MHICFG_NCH_SHIFT (0)
 
 
 #define CHDBOFF (0x18)
