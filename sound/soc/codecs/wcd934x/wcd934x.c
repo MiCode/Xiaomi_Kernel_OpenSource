@@ -489,6 +489,8 @@ struct tavil_priv {
 
 	/* compander */
 	int comp_enabled[COMPANDER_MAX];
+	int ear_spkr_gain;
+
 	/* class h specific data */
 	struct wcd_clsh_cdc_data clsh_d;
 	/* Tavil Interpolator Mode Select for EAR, HPH_L and HPH_R */
@@ -2639,6 +2641,58 @@ static void tavil_codec_hd2_control(struct snd_soc_codec *codec,
 	}
 }
 
+static int tavil_codec_config_ear_spkr_gain(struct snd_soc_codec *codec,
+					    int event, int gain_reg)
+{
+	int comp_gain_offset, val;
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+
+	switch (tavil->swr.spkr_mode) {
+	/* Compander gain in SPKR_MODE1 case is 12 dB */
+	case WCD934X_SPKR_MODE_1:
+		comp_gain_offset = -12;
+		break;
+	/* Default case compander gain is 15 dB */
+	default:
+		comp_gain_offset = -15;
+		break;
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		/* Apply ear spkr gain only if compander is enabled */
+		if (tavil->comp_enabled[COMPANDER_7] &&
+		    (gain_reg == WCD934X_CDC_RX7_RX_VOL_CTL ||
+		     gain_reg == WCD934X_CDC_RX7_RX_VOL_MIX_CTL) &&
+		    (tavil->ear_spkr_gain != 0)) {
+			/* For example, val is -8(-12+5-1) for 4dB of gain */
+			val = comp_gain_offset + tavil->ear_spkr_gain - 1;
+			snd_soc_write(codec, gain_reg, val);
+
+			dev_dbg(codec->dev, "%s: RX7 Volume %d dB\n",
+				__func__, val);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/*
+		 * Reset RX7 volume to 0 dB if compander is enabled and
+		 * ear_spkr_gain is non-zero.
+		 */
+		if (tavil->comp_enabled[COMPANDER_7] &&
+		    (gain_reg == WCD934X_CDC_RX7_RX_VOL_CTL ||
+		     gain_reg == WCD934X_CDC_RX7_RX_VOL_MIX_CTL) &&
+		    (tavil->ear_spkr_gain != 0)) {
+			snd_soc_write(codec, gain_reg, 0x0);
+
+			dev_dbg(codec->dev, "%s: Reset RX7 Volume to 0 dB\n",
+				__func__);
+		}
+		break;
+	}
+
+	return 0;
+}
+
 static int tavil_config_compander(struct snd_soc_codec *codec, int interp_n,
 				  int event)
 {
@@ -2795,6 +2849,7 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		val = snd_soc_read(codec, gain_reg);
 		val += offset_val;
 		snd_soc_write(codec, gain_reg, val);
+		tavil_codec_config_ear_spkr_gain(codec, event, gain_reg);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Clk Disable */
@@ -2825,6 +2880,7 @@ static int tavil_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 			val += offset_val;
 			snd_soc_write(codec, gain_reg, val);
 		}
+		tavil_codec_config_ear_spkr_gain(codec, event, gain_reg);
 		break;
 	};
 	dev_dbg(codec->dev, "%s event %d name %s\n", __func__, event, w->name);
@@ -2907,6 +2963,7 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 		val = snd_soc_read(codec, gain_reg);
 		val += offset_val;
 		snd_soc_write(codec, gain_reg, val);
+		tavil_codec_config_ear_spkr_gain(codec, event, gain_reg);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		tavil_codec_enable_interp_clk(codec, event, w->shift);
@@ -2932,6 +2989,7 @@ static int tavil_codec_enable_main_path(struct snd_soc_dapm_widget *w,
 			val += offset_val;
 			snd_soc_write(codec, gain_reg, val);
 		}
+		tavil_codec_config_ear_spkr_gain(codec, event, gain_reg);
 		break;
 	};
 
@@ -4327,6 +4385,33 @@ static int tavil_ear_pa_gain_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int tavil_ear_spkr_pa_gain_get(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = tavil->ear_spkr_gain;
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int tavil_ear_spkr_pa_gain_put(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+
+	tavil->ear_spkr_gain =  ucontrol->value.integer.value[0];
+
+	dev_dbg(codec->dev, "%s: gain = %d\n", __func__, tavil->ear_spkr_gain);
+
+	return 0;
+}
+
 static int tavil_rx_hph_mode_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
@@ -4389,7 +4474,14 @@ static const char * const tavil_ear_pa_gain_text[] = {
 	"G_0_DB", "G_M2P5_DB", "UNDEFINED", "G_M12_DB"
 };
 
+static const char * const tavil_ear_spkr_pa_gain_text[] = {
+	"G_DEFAULT", "G_0_DB", "G_1_DB", "G_2_DB", "G_3_DB",
+	"G_4_DB", "G_5_DB", "G_6_DB"
+};
+
 static SOC_ENUM_SINGLE_EXT_DECL(tavil_ear_pa_gain_enum, tavil_ear_pa_gain_text);
+static SOC_ENUM_SINGLE_EXT_DECL(tavil_ear_spkr_pa_gain_enum,
+				tavil_ear_spkr_pa_gain_text);
 static SOC_ENUM_SINGLE_EXT_DECL(amic_pwr_lvl_enum, amic_pwr_lvl_text);
 static SOC_ENUM_SINGLE_DECL(cf_dec0_enum, WCD934X_CDC_TX0_TX_PATH_CFG0, 5,
 							cf_text);
@@ -4441,6 +4533,8 @@ static SOC_ENUM_SINGLE_DECL(cf_int8_2_enum, WCD934X_CDC_RX8_RX_PATH_MIX_CFG, 2,
 static const struct snd_kcontrol_new tavil_snd_controls[] = {
 	SOC_ENUM_EXT("EAR PA Gain", tavil_ear_pa_gain_enum,
 		tavil_ear_pa_gain_get, tavil_ear_pa_gain_put),
+	SOC_ENUM_EXT("EAR SPKR PA Gain", tavil_ear_spkr_pa_gain_enum,
+		     tavil_ear_spkr_pa_gain_get, tavil_ear_spkr_pa_gain_put),
 	SOC_SINGLE_TLV("HPHL Volume", WCD934X_HPH_L_EN, 0, 20, 1, line_gain),
 	SOC_SINGLE_TLV("HPHR Volume", WCD934X_HPH_R_EN, 0, 20, 1, line_gain),
 	SOC_SINGLE_TLV("LINEOUT1 Volume", WCD934X_DIFF_LO_LO1_COMPANDER,
