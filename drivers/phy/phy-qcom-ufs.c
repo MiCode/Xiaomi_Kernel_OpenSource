@@ -788,3 +788,21 @@ int ufs_qcom_phy_configure_lpm(struct phy *generic_phy, bool enable)
 	return ret;
 }
 EXPORT_SYMBOL(ufs_qcom_phy_configure_lpm);
+
+void ufs_qcom_phy_dump_regs(struct ufs_qcom_phy *phy, int offset,
+				int len, char *prefix)
+{
+	print_hex_dump(KERN_ERR, prefix,
+			len > 4 ? DUMP_PREFIX_OFFSET : DUMP_PREFIX_NONE,
+			16, 4, phy->mmio + offset, len, false);
+}
+EXPORT_SYMBOL(ufs_qcom_phy_dump_regs);
+
+void ufs_qcom_phy_dbg_register_dump(struct phy *generic_phy)
+{
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+
+	if (ufs_qcom_phy->phy_spec_ops->dbg_register_dump)
+		ufs_qcom_phy->phy_spec_ops->dbg_register_dump(ufs_qcom_phy);
+}
+EXPORT_SYMBOL(ufs_qcom_phy_dbg_register_dump);

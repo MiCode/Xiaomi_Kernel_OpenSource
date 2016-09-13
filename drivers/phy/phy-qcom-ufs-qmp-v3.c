@@ -194,6 +194,22 @@ out:
 	return err;
 }
 
+static void ufs_qcom_phy_qmp_v3_dbg_register_dump(struct ufs_qcom_phy *phy)
+{
+	ufs_qcom_phy_dump_regs(phy, COM_BASE, COM_SIZE,
+					"PHY QSERDES COM Registers ");
+	ufs_qcom_phy_dump_regs(phy, PHY_BASE, PHY_SIZE,
+					"PHY Registers ");
+	ufs_qcom_phy_dump_regs(phy, RX_BASE(0), RX_SIZE,
+					"PHY RX0 Registers ");
+	ufs_qcom_phy_dump_regs(phy, TX_BASE(0), TX_SIZE,
+					"PHY TX0 Registers ");
+	ufs_qcom_phy_dump_regs(phy, RX_BASE(1), RX_SIZE,
+					"PHY RX1 Registers ");
+	ufs_qcom_phy_dump_regs(phy, TX_BASE(1), TX_SIZE,
+					"PHY TX1 Registers ");
+}
+
 struct phy_ops ufs_qcom_phy_qmp_v3_phy_ops = {
 	.init		= ufs_qcom_phy_qmp_v3_init,
 	.exit		= ufs_qcom_phy_exit,
@@ -210,6 +226,7 @@ struct ufs_qcom_phy_specific_ops phy_v3_ops = {
 	.ctrl_rx_linecfg	= ufs_qcom_phy_qmp_v3_ctrl_rx_linecfg,
 	.power_control		= ufs_qcom_phy_qmp_v3_power_control,
 	.configure_lpm		= ufs_qcom_phy_qmp_v3_configure_lpm,
+	.dbg_register_dump	= ufs_qcom_phy_qmp_v3_dbg_register_dump,
 };
 
 static int ufs_qcom_phy_qmp_v3_probe(struct platform_device *pdev)
