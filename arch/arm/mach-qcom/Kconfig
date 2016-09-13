@@ -39,6 +39,38 @@ config ARCH_MSMFALCON
 	This enables support for the MSMFALCON chipset. If you do not
 	wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_MSMTRITON
+        bool "Enable Support for Qualcomm MSMTRITON"
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
+	select SOC_BUS
+	select MSM_IRQ
+	select THERMAL_WRITABLE_TRIPS
+	select ARM_GIC_V3
+	select ARM_AMBA
+	select SPARSE_IRQ
+	select MULTI_IRQ_HANDLER
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select MSM_PM if PM
+	select QMI_ENCDEC
+	select CPU_FREQ
+	select CPU_FREQ_MSM
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_BIMC_BWMON
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+	select MSM_RPM_SMD
+	select MSM_JTAGV8 if CORESIGHT_ETMV4
+	help
+	This enables support for the MSMTRITON chipset. If you do not
+	wish to build a kernel that runs on this chipset, say 'N' here.
+
 config ARCH_MSM8X60
 	bool "Enable support for MSM8X60"
 	select ARCH_SUPPORTS_BIG_ENDIAN
