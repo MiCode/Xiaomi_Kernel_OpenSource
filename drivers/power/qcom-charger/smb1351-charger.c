@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1870,6 +1870,12 @@ static void smb1351_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 			chip->adc_param.high_temp =
 				chip->batt_hot_decidegc + HYSTERESIS_DECIDEGC;
 		}
+	}
+
+	if (!cur) {
+		pr_debug("Couldn't choose batt state, adc state=%d and temp=%d\n",
+			state, temp);
+		return;
 	}
 
 	if (cur->batt_present)
