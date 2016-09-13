@@ -32,9 +32,9 @@
 
 		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
 		qca,bt-vdd-xtal-current-level = <1>; /* LPM/PFM */
-		qca,bt-vdd-core-current-level = <0>; /* LPM/PFM */
-		qca,bt-vdd-pa-current-level = <0>; /* LPM/PFM */
-		qca,bt-vdd-ldo-current-level = <0>; /* LPM/PFM */
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
 	};
 };
 
