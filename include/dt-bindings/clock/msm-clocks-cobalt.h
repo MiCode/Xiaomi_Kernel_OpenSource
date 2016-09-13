@@ -157,6 +157,7 @@
 #define clk_gcc_usb3_phy_reset			0x03d559f1
 #define clk_gcc_usb3phy_phy_reset		0xb1a4f885
 #define clk_gcc_aggre1_ufs_axi_clk		0x873459d8
+#define clk_gcc_aggre1_ufs_axi_hw_ctl_clk	0x117a6f39
 #define clk_gcc_aggre1_usb3_axi_clk		0xc5c3fbe8
 #define clk_gcc_bimc_mss_q6_axi_clk		0x7437988f
 #define clk_gcc_blsp1_ahb_clk			0x8caa5b4f

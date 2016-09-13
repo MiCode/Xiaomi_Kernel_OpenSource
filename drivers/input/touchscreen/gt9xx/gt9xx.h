@@ -33,7 +33,11 @@
 #include <linux/regulator/consumer.h>
 #include <linux/firmware.h>
 #include <linux/debugfs.h>
-#if defined(CONFIG_HAS_EARLYSUSPEND)
+
+#if defined(CONFIG_FB)
+#include <linux/notifier.h>
+#include <linux/fb.h>
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 #define GOODIX_SUSPEND_LEVEL 1
 #endif
@@ -43,8 +47,6 @@ struct goodix_ts_platform_data {
 	u32 irq_gpio_flags;
 	int reset_gpio;
 	u32 reset_gpio_flags;
-	int ldo_en_gpio;
-	u32 ldo_en_gpio_flags;
 	u32 family_id;
 	u32 x_max;
 	u32 y_max;
@@ -56,6 +58,8 @@ struct goodix_ts_platform_data {
 	u32 panel_maxy;
 	bool no_force_update;
 	bool i2c_pull_up;
+	int gtp_cfg_len;
+	u8 *config_data;
 };
 struct goodix_ts_data {
 	spinlock_t irq_lock;
@@ -65,9 +69,6 @@ struct goodix_ts_data {
 	struct hrtimer timer;
 	struct workqueue_struct *goodix_wq;
 	struct work_struct	work;
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-	struct early_suspend early_suspend;
-#endif
 	s32 irq_is_disabled;
 	s32 use_irq;
 	u16 abs_x_max;
@@ -84,6 +85,14 @@ struct goodix_ts_data {
 	u8  fixed_cfg;
 	u8  esd_running;
 	u8  fw_error;
+	struct regulator *avdd;
+	struct regulator *vdd;
+	struct regulator *vcc_i2c;
+#if defined(CONFIG_FB)
+	struct notifier_block fb_notif;
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	struct early_suspend early_suspend;
+#endif
 };
 
 extern u16 show_len;
@@ -94,8 +103,8 @@ extern u16 total_len;
 #define GTP_CHANGE_X2Y			0
 #define GTP_DRIVER_SEND_CFG		1
 #define GTP_HAVE_TOUCH_KEY		1
-#define GTP_POWER_CTRL_SLEEP	1
-#define GTP_ICS_SLOT_REPORT	0
+#define GTP_POWER_CTRL_SLEEP	0
+#define GTP_ICS_SLOT_REPORT	1
 
 /* auto updated by .bin file as default */
 #define GTP_AUTO_UPDATE			0

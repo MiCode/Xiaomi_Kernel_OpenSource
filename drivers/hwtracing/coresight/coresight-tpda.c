@@ -94,6 +94,10 @@ static void __tpda_enable_pre_port(struct tpda_drvdata *drvdata)
 		val = val | BIT(2);
 	else
 		val = val & ~BIT(2);
+
+	/* Force ASYNC-VERSION-FREQTS sequence */
+	val = val | BIT(21);
+
 	tpda_writel(drvdata, val, TPDA_CR);
 
 	/*
@@ -154,8 +158,6 @@ static void __tpda_enable_post_port(struct tpda_drvdata *drvdata)
 
 	if (drvdata->freq_req_val)
 		tpda_writel(drvdata, drvdata->freq_req_val, TPDA_FREQREQ_VAL);
-	else
-		tpda_writel(drvdata, 0x0, TPDA_FREQREQ_VAL);
 
 	val = tpda_readl(drvdata, TPDA_CR);
 	if (drvdata->freq_req)

@@ -228,6 +228,16 @@ static int dsp_domr_notify_cb(struct notifier_block *n, unsigned long code,
 		break;
 	case LOCATOR_UP:
 		reg = _cmd;
+		if (!reg || reg->total_domains != 1) {
+			SLIM_WARN(dev, "error locating audio-PD\n");
+			if (reg)
+				SLIM_WARN(dev, "audio-PDs matched:%d\n",
+						reg->total_domains);
+
+			/* Fall back to SSR */
+			ngd_reg_ssr(dev);
+			return NOTIFY_DONE;
+		}
 		dev->dsp.domr = service_notif_register_notifier(
 				reg->domain_list->name,
 				reg->domain_list->instance_id,
@@ -1493,8 +1503,7 @@ static int ngd_slim_rx_msgq_thread(void *data)
 		int retries = 0;
 		u8 wbuf[8];
 
-		set_current_state(TASK_INTERRUPTIBLE);
-		wait_for_completion(notify);
+		wait_for_completion_interruptible(notify);
 
 		txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 		txn.ec = 0;
@@ -1555,8 +1564,7 @@ static int ngd_notify_slaves(void *data)
 	}
 
 	while (!kthread_should_stop()) {
-		set_current_state(TASK_INTERRUPTIBLE);
-		wait_for_completion(&dev->qmi.slave_notify);
+		wait_for_completion_interruptible(&dev->qmi.slave_notify);
 		/* Probe devices for first notification */
 		if (!i) {
 			i++;

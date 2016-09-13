@@ -26,6 +26,10 @@ struct icnss_driver_ops {
 	void (*crash_shutdown)(void *pdev);
 	int (*suspend)(struct device *dev, pm_message_t state);
 	int (*resume)(struct device *dev);
+	int (*pm_suspend)(struct device *dev);
+	int (*pm_resume)(struct device *dev);
+	int (*suspend_noirq)(struct device *dev);
+	int (*resume_noirq)(struct device *dev);
 };
 
 
@@ -103,6 +107,12 @@ extern int icnss_ce_request_irq(unsigned int ce_id,
 	unsigned long flags, const char *name, void *ctx);
 extern int icnss_get_ce_id(int irq);
 extern int icnss_set_fw_debug_mode(bool enable_fw_log);
+extern int icnss_athdiag_read(struct device *dev, uint32_t offset,
+			      uint32_t mem_type, uint32_t data_len,
+			      uint8_t *output);
+extern int icnss_athdiag_write(struct device *dev, uint32_t offset,
+			       uint32_t mem_type, uint32_t data_len,
+			       uint8_t *input);
 extern int icnss_get_irq(int ce_id);
 extern int icnss_power_on(struct device *dev);
 extern int icnss_power_off(struct device *dev);

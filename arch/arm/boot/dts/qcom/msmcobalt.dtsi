@@ -745,6 +745,7 @@
 		reg = <0xc8c0000 0x40000>;
 		reg-names = "cc_base";
 		vdd_dig-supply = <&pmcobalt_s1_level>;
+		vdd_mmsscc_mx-supply = <&pmcobalt_s9_level>;
 		clock-names = "xo", "gpll0", "gpll0_div",
 				"pclk0_src", "pclk1_src",
 				"byte0_src", "byte1_src",
@@ -1731,7 +1732,7 @@
 			"rx_lane0_sync_clk";
 		clocks =
 			<&clock_gcc clk_gcc_ufs_axi_hw_ctl_clk>,
-			<&clock_gcc clk_gcc_aggre1_ufs_axi_clk>,
+			<&clock_gcc clk_gcc_aggre1_ufs_axi_hw_ctl_clk>,
 			<&clock_gcc clk_gcc_ufs_ahb_clk>,
 			<&clock_gcc clk_gcc_ufs_unipro_core_hw_ctl_clk>,
 			<&clock_gcc clk_gcc_ufs_ice_core_hw_ctl_clk>,
@@ -2866,6 +2867,8 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <81 10065 0 0>,
 					    <81 10065 0 16000>;
+		qcom,icnss-vadc = <&pmcobalt_vadc>;
+		qcom,icnss-adc_tm = <&pmcobalt_adc_tm>;
 	};
 
 	wil6210: qcom,wil6210 {
