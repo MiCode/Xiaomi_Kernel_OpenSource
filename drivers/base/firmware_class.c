@@ -1555,6 +1555,7 @@ _request_firmware_nowait(
 
 	get_device(desc->device);
 	INIT_WORK(&desc->work, request_firmware_work_func);
+	schedule_work(&desc->work);
 	return 0;
 }
 
