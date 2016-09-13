@@ -81,6 +81,29 @@ show_attr(__attr)			\
 store_attr(__attr, min, max)		\
 static DEVICE_ATTR(__attr, 0644, show_##__attr, store_##__attr)
 
+static ssize_t show_map(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct memlat_node *n = df->data;
+	struct core_dev_map *map = n->hw->freq_map;
+	unsigned int cnt = 0;
+
+	cnt += snprintf(buf, PAGE_SIZE, "Core freq (MHz)\tDevice BW\n");
+
+	while (map->core_mhz && cnt < PAGE_SIZE) {
+		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, "%15u\t%9u\n",
+				map->core_mhz, map->target_freq);
+		map++;
+	}
+	if (cnt < PAGE_SIZE)
+		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, "\n");
+
+	return cnt;
+}
+
+static DEVICE_ATTR(freq_map, 0444, show_map, NULL);
+
 static unsigned long core_to_dev_freq(struct memlat_node *node,
 		unsigned long coref)
 {
@@ -246,6 +269,7 @@ gov_attr(ratio_ceil, 1U, 10000U);
 
 static struct attribute *dev_attr[] = {
 	&dev_attr_ratio_ceil.attr,
+	&dev_attr_freq_map.attr,
 	NULL,
 };
 
