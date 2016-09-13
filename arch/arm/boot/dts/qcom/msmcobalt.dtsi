@@ -745,6 +745,7 @@
 		reg = <0xc8c0000 0x40000>;
 		reg-names = "cc_base";
 		vdd_dig-supply = <&pmcobalt_s1_level>;
+		vdd_mmsscc_mx-supply = <&pmcobalt_s9_level>;
 		clock-names = "xo", "gpll0", "gpll0_div",
 				"pclk0_src", "pclk1_src",
 				"byte0_src", "byte1_src",
