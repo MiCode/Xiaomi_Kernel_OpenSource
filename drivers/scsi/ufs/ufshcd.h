@@ -940,7 +940,10 @@ struct ufs_hba {
 	int latency_hist_enabled;
 	struct io_latency_state io_lat_s;
 
-	struct rw_semaphore clk_scaling_lock;
+	/* sync b/w diff contexts */
+	struct rw_semaphore lock;
+	struct task_struct *issuing_task;
+	unsigned long shutdown_in_prog;
 
 	/* If set, don't gate device ref_clk during clock gating */
 	bool no_ref_clk_gating;
@@ -953,6 +956,16 @@ struct ufs_hba {
 
 	struct ufs_desc_size desc_size;
 };
+
+static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
+{
+	set_bit(0, &hba->shutdown_in_prog);
+}
+
+static inline bool ufshcd_is_shutdown_ongoing(struct ufs_hba *hba)
+{
+	return !!(test_bit(0, &hba->shutdown_in_prog));
+}
 
 /* Returns true if clocks can be gated. Otherwise false */
 static inline bool ufshcd_is_clkgating_allowed(struct ufs_hba *hba)
