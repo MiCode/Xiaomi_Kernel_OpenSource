@@ -107,6 +107,12 @@ extern int icnss_ce_request_irq(unsigned int ce_id,
 	unsigned long flags, const char *name, void *ctx);
 extern int icnss_get_ce_id(int irq);
 extern int icnss_set_fw_debug_mode(bool enable_fw_log);
+extern int icnss_athdiag_read(struct device *dev, uint32_t offset,
+			      uint32_t mem_type, uint32_t data_len,
+			      uint8_t *output);
+extern int icnss_athdiag_write(struct device *dev, uint32_t offset,
+			       uint32_t mem_type, uint32_t data_len,
+			       uint8_t *input);
 extern int icnss_get_irq(int ce_id);
 extern int icnss_power_on(struct device *dev);
 extern int icnss_power_off(struct device *dev);

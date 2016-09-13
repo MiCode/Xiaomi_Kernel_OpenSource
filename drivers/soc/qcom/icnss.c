@@ -1790,6 +1790,127 @@ out:
 	return ret;
 }
 
+static int wlfw_athdiag_read_send_sync_msg(struct icnss_priv *priv,
+					   uint32_t offset, uint32_t mem_type,
+					   uint32_t data_len, uint8_t *data)
+{
+	int ret;
+	struct wlfw_athdiag_read_req_msg_v01 req;
+	struct wlfw_athdiag_read_resp_msg_v01 *resp = NULL;
+	struct msg_desc req_desc, resp_desc;
+
+	if (!priv->wlfw_clnt) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	icnss_pr_dbg("Diag read: state 0x%lx, offset %x, mem_type %x, data_len %u\n",
+		     priv->state, offset, mem_type, data_len);
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	memset(&req, 0, sizeof(req));
+
+	req.offset = offset;
+	req.mem_type = mem_type;
+	req.data_len = data_len;
+
+	req_desc.max_msg_len = WLFW_ATHDIAG_READ_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_ATHDIAG_READ_REQ_V01;
+	req_desc.ei_array = wlfw_athdiag_read_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_ATHDIAG_READ_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_ATHDIAG_READ_RESP_V01;
+	resp_desc.ei_array = wlfw_athdiag_read_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
+				&resp_desc, resp, sizeof(*resp),
+				WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		icnss_pr_err("send athdiag read req failed %d\n", ret);
+		goto out;
+	}
+
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("QMI athdiag read request failed %d %d\n",
+			     resp->resp.result, resp->resp.error);
+		ret = resp->resp.result;
+		goto out;
+	}
+
+	if (!resp->data_valid || resp->data_len <= data_len) {
+		icnss_pr_err("Athdiag read data is invalid, data_valid = %u, data_len = %u\n",
+			     resp->data_valid, resp->data_len);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	memcpy(data, resp->data, resp->data_len);
+
+out:
+	kfree(resp);
+	return ret;
+}
+
+static int wlfw_athdiag_write_send_sync_msg(struct icnss_priv *priv,
+					    uint32_t offset, uint32_t mem_type,
+					    uint32_t data_len, uint8_t *data)
+{
+	int ret;
+	struct wlfw_athdiag_write_req_msg_v01 *req = NULL;
+	struct wlfw_athdiag_write_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+
+	if (!priv->wlfw_clnt) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	icnss_pr_dbg("Diag write: state 0x%lx, offset %x, mem_type %x, data_len %u, data %p\n",
+		     priv->state, offset, mem_type, data_len, data);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	memset(&resp, 0, sizeof(resp));
+
+	req->offset = offset;
+	req->mem_type = mem_type;
+	req->data_len = data_len;
+	memcpy(req->data, data, data_len);
+
+	req_desc.max_msg_len = WLFW_ATHDIAG_WRITE_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_ATHDIAG_WRITE_REQ_V01;
+	req_desc.ei_array = wlfw_athdiag_write_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_ATHDIAG_WRITE_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_ATHDIAG_WRITE_RESP_V01;
+	resp_desc.ei_array = wlfw_athdiag_write_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, req, sizeof(*req),
+				&resp_desc, &resp, sizeof(resp),
+				WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		icnss_pr_err("send athdiag write req failed %d\n", ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("QMI athdiag write request failed %d %d\n",
+			     resp.resp.result, resp.resp.error);
+		ret = resp.resp.result;
+		goto out;
+	}
+out:
+	kfree(req);
+	return ret;
+}
+
 static void icnss_qmi_wlfw_clnt_notify_work(struct work_struct *work)
 {
 	int ret;
@@ -2689,6 +2810,78 @@ int icnss_set_fw_debug_mode(bool enable_fw_log)
 	return ret;
 }
 EXPORT_SYMBOL(icnss_set_fw_debug_mode);
+
+int icnss_athdiag_read(struct device *dev, uint32_t offset,
+		       uint32_t mem_type, uint32_t data_len,
+		       uint8_t *output)
+{
+	int ret = 0;
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (priv->magic != ICNSS_MAGIC) {
+		icnss_pr_err("Invalid drvdata for diag read: dev %p, data %p, magic 0x%x\n",
+			     dev, priv, priv->magic);
+		return -EINVAL;
+	}
+
+	if (!output || data_len == 0
+	    || data_len > QMI_WLFW_MAX_DATA_SIZE_V01) {
+		icnss_pr_err("Invalid parameters for diag read: output %p, data_len %u\n",
+			     output, data_len);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!test_bit(ICNSS_FW_READY, &priv->state) ||
+	    !test_bit(ICNSS_POWER_ON, &priv->state)) {
+		icnss_pr_err("Invalid state for diag read: 0x%lx\n",
+			     priv->state);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = wlfw_athdiag_read_send_sync_msg(priv, offset, mem_type,
+					      data_len, output);
+out:
+	return ret;
+}
+EXPORT_SYMBOL(icnss_athdiag_read);
+
+int icnss_athdiag_write(struct device *dev, uint32_t offset,
+			uint32_t mem_type, uint32_t data_len,
+			uint8_t *input)
+{
+	int ret = 0;
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (priv->magic != ICNSS_MAGIC) {
+		icnss_pr_err("Invalid drvdata for diag write: dev %p, data %p, magic 0x%x\n",
+			     dev, priv, priv->magic);
+		return -EINVAL;
+	}
+
+	if (!input || data_len == 0
+	    || data_len > QMI_WLFW_MAX_DATA_SIZE_V01) {
+		icnss_pr_err("Invalid parameters for diag write: input %p, data_len %u\n",
+			     input, data_len);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!test_bit(ICNSS_FW_READY, &priv->state) ||
+	    !test_bit(ICNSS_POWER_ON, &priv->state)) {
+		icnss_pr_err("Invalid state for diag write: 0x%lx\n",
+			     priv->state);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = wlfw_athdiag_write_send_sync_msg(priv, offset, mem_type,
+					       data_len, input);
+out:
+	return ret;
+}
+EXPORT_SYMBOL(icnss_athdiag_write);
 
 int icnss_wlan_enable(struct icnss_wlan_enable_cfg *config,
 		      enum icnss_driver_mode mode,
