@@ -925,7 +925,8 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 		return -ENOMEM;
 
 	vdm_tx->data[0] = vdm_hdr;
-	memcpy(&vdm_tx->data[1], vdos, num_vdos * sizeof(u32));
+	if (vdos && num_vdos)
+		memcpy(&vdm_tx->data[1], vdos, num_vdos * sizeof(u32));
 	vdm_tx->size = num_vdos + 1; /* include the header */
 
 	/* VDM will get sent in PE_SRC/SNK_READY state handling */
