@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,9 +40,11 @@ struct rule_apply_rcm_info {
 struct bus_rule_type {
 	int num_src;
 	int *src_id;
-	int src_field;
-	int op;
-	u64 thresh;
+	int *src_field;
+	int *op;
+	int combo_op;
+	int num_thresh;
+	u64 *thresh;
 	int num_dst;
 	int *dst_node;
 	u64 dst_bw;
