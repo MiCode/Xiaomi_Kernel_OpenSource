@@ -80,7 +80,8 @@ static void conditional_chan_db_write(
 	spin_unlock_irqrestore(&mhi_dev_ctxt->db_write_lock[chan], flags);
 }
 
-static void ring_all_chan_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
+static void ring_all_chan_dbs(struct mhi_device_ctxt *mhi_dev_ctxt,
+			      bool reset_db_mode)
 {
 	u32 i = 0;
 	struct mhi_ring *local_ctxt = NULL;
@@ -89,7 +90,7 @@ static void ring_all_chan_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
 		if (VALID_CHAN_NR(i)) {
 			local_ctxt = &mhi_dev_ctxt->mhi_local_chan_ctxt[i];
-			if (IS_HARDWARE_CHANNEL(i))
+			if (IS_HARDWARE_CHANNEL(i) && reset_db_mode)
 				mhi_dev_ctxt->flags.db_mode[i] = 1;
 			if ((local_ctxt->wp != local_ctxt->rp) ||
 			   ((local_ctxt->wp != local_ctxt->rp) &&
@@ -186,7 +187,7 @@ static int process_m0_transition(
 
 	if (mhi_dev_ctxt->flags.mhi_initialized) {
 		ring_all_ev_dbs(mhi_dev_ctxt);
-		ring_all_chan_dbs(mhi_dev_ctxt);
+		ring_all_chan_dbs(mhi_dev_ctxt, true);
 		ring_all_cmd_dbs(mhi_dev_ctxt);
 	}
 	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
@@ -618,7 +619,7 @@ static int process_amss_transition(
 				"Failed to set local chan state ret %d\n", r);
 			return r;
 		}
-		ring_all_chan_dbs(mhi_dev_ctxt);
+		ring_all_chan_dbs(mhi_dev_ctxt, true);
 		mhi_log(MHI_MSG_INFO,
 			"Notifying clients that MHI is enabled\n");
 		enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
@@ -632,7 +633,7 @@ static int process_amss_transition(
 					i, r);
 				return r;
 		}
-		ring_all_chan_dbs(mhi_dev_ctxt);
+		ring_all_chan_dbs(mhi_dev_ctxt, true);
 	}
 	ring_all_ev_dbs(mhi_dev_ctxt);
 	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
@@ -1008,7 +1009,7 @@ unlock:
 	if (abort_m3) {
 		atomic_inc(&mhi_dev_ctxt->flags.data_pending);
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
-		ring_all_chan_dbs(mhi_dev_ctxt);
+		ring_all_chan_dbs(mhi_dev_ctxt, false);
 		ring_all_cmd_dbs(mhi_dev_ctxt);
 		atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 		mhi_deassert_device_wake(mhi_dev_ctxt);
