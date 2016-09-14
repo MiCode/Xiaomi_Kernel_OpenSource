@@ -68,6 +68,7 @@ enum fg_debug_flag {
 	FG_SRAM_READ		= BIT(4), /* Show SRAM reads */
 	FG_BUS_WRITE		= BIT(5), /* Show REGMAP writes */
 	FG_BUS_READ		= BIT(6), /* Show REGMAP reads */
+	FG_CAP_LEARN		= BIT(7), /* Show capacity learning */
 };
 
 /* SRAM access */
@@ -119,6 +120,9 @@ enum fg_sram_param_id {
 	FG_SRAM_OCV,
 	FG_SRAM_RSLOW,
 	FG_SRAM_ALG_FLAGS,
+	FG_SRAM_CC_SOC,
+	FG_SRAM_CC_SOC_SW,
+	FG_SRAM_ACT_BATT_CAP,
 	/* Entries below here are configurable during initialization */
 	FG_SRAM_CUTOFF_VOLT,
 	FG_SRAM_EMPTY_VOLT,
@@ -182,6 +186,13 @@ struct fg_dt_props {
 	int	esr_timer_awake;
 	int	esr_timer_asleep;
 	bool	force_load_profile;
+	int	cl_start_soc;
+	int	cl_max_temp;
+	int	cl_min_temp;
+	int	cl_max_cap_inc;
+	int	cl_max_cap_dec;
+	int	cl_max_cap_limit;
+	int	cl_min_cap_limit;
 };
 
 /* parameters from battery profile */
@@ -200,6 +211,16 @@ struct fg_cyc_ctr_data {
 	u16		count[BUCKET_COUNT];
 	u8		last_soc[BUCKET_COUNT];
 	int		id;
+	struct mutex	lock;
+};
+
+struct fg_cap_learning {
+	bool		active;
+	int		init_cc_soc_sw;
+	int64_t		nom_cap_uah;
+	int64_t		init_cc_uah;
+	int64_t		final_cc_uah;
+	int64_t		learned_cc_uah;
 	struct mutex	lock;
 };
 
@@ -222,21 +243,23 @@ struct fg_chip {
 	struct fg_irq_info	*irqs;
 	struct votable		*awake_votable;
 	struct fg_sram_param	*sp;
+	struct fg_alg_flag	*alg_flags;
 	int			*debug_mask;
 	char			batt_profile[PROFILE_LEN];
 	struct fg_dt_props	dt;
 	struct fg_batt_props	bp;
 	struct fg_cyc_ctr_data	cyc_ctr;
 	struct notifier_block	nb;
+	struct fg_cap_learning  cl;
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
 	int			batt_id;
-	int			nom_cap_uah;
 	int			status;
-	int			prev_status;
+	int			charge_done;
+	int			last_soc;
 	bool			profile_available;
 	bool			profile_loaded;
 	bool			battery_missing;
@@ -245,7 +268,6 @@ struct fg_chip {
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct work_struct	cycle_count_work;
-	struct fg_alg_flag	*alg_flags;
 };
 
 /* Debugfs data structures are below */
