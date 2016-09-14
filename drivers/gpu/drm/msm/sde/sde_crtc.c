@@ -338,8 +338,7 @@ static void complete_flip(struct drm_crtc *crtc, struct drm_file *file)
 			sde_crtc->event = NULL;
 			SDE_DEBUG("%s: send event: %pK\n",
 						sde_crtc->name, event);
-			drm_send_vblank_event(dev, sde_crtc->drm_crtc_id,
-					event);
+			drm_crtc_send_vblank_event(crtc, event);
 		}
 	}
 	spin_unlock_irqrestore(&dev->event_lock, flags);
@@ -348,11 +347,8 @@ static void complete_flip(struct drm_crtc *crtc, struct drm_file *file)
 static void sde_crtc_vblank_cb(void *data)
 {
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_kms *sde_kms = get_kms(crtc);
-	struct drm_device *dev = sde_kms->dev;
 
-	drm_handle_vblank(dev, sde_crtc->drm_crtc_id);
+	drm_crtc_handle_vblank(crtc);
 	DBG_IRQ("");
 	MSM_EVT(crtc->dev, crtc->base.id, 0);
 }
@@ -1181,9 +1177,7 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 }
 
 /* initialize crtc */
-struct drm_crtc *sde_crtc_init(struct drm_device *dev,
-		struct drm_plane *plane,
-		int drm_crtc_id)
+struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 {
 	struct drm_crtc *crtc = NULL;
 	struct sde_crtc *sde_crtc = NULL;
@@ -1199,8 +1193,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 
 	crtc = &sde_crtc->base;
 	crtc->dev = dev;
-
-	sde_crtc->drm_crtc_id = drm_crtc_id;
 
 	drm_crtc_init_with_planes(dev, crtc, plane, NULL, &sde_crtc_funcs);
 

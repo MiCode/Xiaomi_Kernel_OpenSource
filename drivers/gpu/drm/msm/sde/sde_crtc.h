@@ -46,9 +46,6 @@ struct sde_crtc_mixer {
  * struct sde_crtc - virtualized CRTC data structure
  * @base          : Base drm crtc structure
  * @name          : ASCII description of this crtc
- * @drm_crtc_id   : Id for reporting vblank. Id is relative init order into
- *                  mode_config.crtc_list and used by user space to identify
- *                  specific crtc in apis such as drm_wait_vblank
  * @num_ctls      : Number of ctl paths in use
  * @num_mixers    : Number of mixers in use
  * @mixer         : List of active mixers
@@ -67,8 +64,6 @@ struct sde_crtc_mixer {
 struct sde_crtc {
 	struct drm_crtc base;
 	char name[SDE_CRTC_NAME_SIZE];
-
-	int drm_crtc_id;
 
 	/* HW Resources reserved for the crtc */
 	u32 num_ctls;
