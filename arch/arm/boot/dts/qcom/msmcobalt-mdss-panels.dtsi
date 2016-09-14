@@ -77,17 +77,17 @@
 };
 
 &dsi_dual_nt35597_video {
-	qcom,mdss-dsi-panel-timings = [00 19 05 06 0a 0f 05 06 05 03 04 00];
-	qcom,mdss-dsi-t-clk-post = <0x07>;
-	qcom,mdss-dsi-t-clk-pre = <0x26>;
+	qcom,mdss-dsi-panel-timings = [00 1c 08 07 23 22 07 07 05 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x0d>;
+	qcom,mdss-dsi-t-clk-pre = <0x2d>;
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_dual_nt35597_cmd {
-	qcom,mdss-dsi-panel-timings = [00 19 05 06 0a 0f 05 06 05 03 04 00];
-	qcom,mdss-dsi-t-clk-post = <0x07>;
-	qcom,mdss-dsi-t-clk-pre = <0x26>;
+	qcom,mdss-dsi-panel-timings = [00 1c 08 07 23 22 07 07 05 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x0d>;
+	qcom,mdss-dsi-t-clk-pre = <0x2d>;
 };
 
 &dsi_dual_nt35597_truly_video {
