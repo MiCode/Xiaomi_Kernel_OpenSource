@@ -1383,7 +1383,7 @@ static int msm_tsens_get_temp(int sensor_client_id, int *temp)
 	}
 
 	if ((!tmdev->prev_reading_avail) && !tmdev->tsens_valid_status_check) {
-		while (!((readl_relaxed(trdy_addr)) & TSENS_TRDY_MASK))
+		while (!((readl_relaxed_no_log(trdy_addr)) & TSENS_TRDY_MASK))
 			usleep_range(TSENS_TRDY_RDY_MIN_TIME,
 				TSENS_TRDY_RDY_MAX_TIME);
 		tmdev->prev_reading_avail = true;
@@ -1394,7 +1394,7 @@ static int msm_tsens_get_temp(int sensor_client_id, int *temp)
 	else
 		last_temp_mask = TSENS_SN_STATUS_TEMP_MASK;
 
-	code = readl_relaxed(sensor_addr +
+	code = readl_relaxed_no_log(sensor_addr +
 			(sensor_hw_num << TSENS_STATUS_ADDR_OFFSET));
 	last_temp = code & last_temp_mask;
 
@@ -1406,14 +1406,14 @@ static int msm_tsens_get_temp(int sensor_client_id, int *temp)
 		if (code & valid_status_mask)
 			last_temp_valid = true;
 		else {
-			code = readl_relaxed(sensor_addr +
+			code = readl_relaxed_no_log(sensor_addr +
 				(sensor_hw_num << TSENS_STATUS_ADDR_OFFSET));
 			last_temp2 = code & last_temp_mask;
 			if (code & valid_status_mask) {
 				last_temp = last_temp2;
 				last_temp2_valid = true;
 			} else {
-				code = readl_relaxed(sensor_addr +
+				code = readl_relaxed_no_log(sensor_addr +
 					(sensor_hw_num <<
 					TSENS_STATUS_ADDR_OFFSET));
 				last_temp3 = code & last_temp_mask;
