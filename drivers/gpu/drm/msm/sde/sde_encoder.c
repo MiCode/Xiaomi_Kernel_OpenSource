@@ -41,7 +41,8 @@
 #define MAX_PHYS_ENCODERS_PER_VIRTUAL \
 	(MAX_H_TILES_PER_DISPLAY * NUM_PHYS_ENCODER_TYPES)
 
-#define WAIT_TIMEOUT_MSEC 100
+/* Wait timeout sized on worst case of 4 60fps frames ~= 67ms */
+#define WAIT_TIMEOUT_MSEC 67
 
 /**
  * struct sde_encoder_virt - virtual encoder. Container of one or more physical
