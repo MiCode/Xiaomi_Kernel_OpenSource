@@ -518,8 +518,7 @@ err:
 static void disable_unprepare_clocks(struct clk **clks, int clk_count)
 {
 	int i;
-
-	for (i = 0; i < clk_count; i++)
+	for (i = --clk_count; i >= 0; i--)
 		clk_disable_unprepare(clks[i]);
 }
 
