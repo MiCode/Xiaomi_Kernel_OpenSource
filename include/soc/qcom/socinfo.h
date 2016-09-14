@@ -96,6 +96,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmhamster")
 #define early_machine_is_msmfalcon()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmfalcon")
+#define early_machine_is_msmskunk()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmskunk")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -133,6 +135,7 @@
 #define early_machine_is_apqcobalt()	0
 #define early_machine_is_msmhamster()	0
 #define early_machine_is_msmfalcon()	0
+#define early_machine_is_msmskunk()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1

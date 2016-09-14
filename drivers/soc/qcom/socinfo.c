@@ -1218,6 +1218,10 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 319;
 		strlcpy(dummy_socinfo.build_id, "apqcobalt - ",
 			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msmskunk()) {
+		dummy_socinfo.id = 321;
+		strlcpy(dummy_socinfo.build_id, "msmskunk - ",
+			sizeof(dummy_socinfo.build_id));
 	}
 
 	strlcat(dummy_socinfo.build_id, "Dummy socinfo",
