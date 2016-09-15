@@ -172,6 +172,8 @@ struct iommu_dm_region {
  * @of_xlate: add OF master IDs to iommu grouping
  * @pgsize_bitmap: bitmap of all possible supported page sizes
  * @trigger_fault: trigger a fault on the device attached to an iommu domain
+ * @reg_read: read an IOMMU register
+ * @reg_write: write an IOMMU register
  */
 struct iommu_ops {
 	bool (*capable)(enum iommu_cap);
@@ -214,6 +216,10 @@ struct iommu_ops {
 	/* Get the number of windows per domain */
 	u32 (*domain_get_windows)(struct iommu_domain *domain);
 	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
+	unsigned long (*reg_read)(struct iommu_domain *domain,
+				  unsigned long offset);
+	void (*reg_write)(struct iommu_domain *domain, unsigned long val,
+			  unsigned long offset);
 
 	int (*of_xlate)(struct device *dev, struct of_phandle_args *args);
 
@@ -352,6 +358,10 @@ static inline size_t iommu_map_sg(struct iommu_domain *domain,
 extern void iommu_trigger_fault(struct iommu_domain *domain,
 				unsigned long flags);
 
+extern unsigned long iommu_reg_read(struct iommu_domain *domain,
+				    unsigned long offset);
+extern void iommu_reg_write(struct iommu_domain *domain, unsigned long offset,
+			    unsigned long val);
 /* PCI device grouping function */
 extern struct iommu_group *pci_device_group(struct device *dev);
 /* Generic device grouping function */
@@ -575,6 +585,17 @@ static inline void iommu_device_unlink(struct device *dev, struct device *link)
 
 static inline void iommu_trigger_fault(struct iommu_domain *domain,
 				       unsigned long flags)
+{
+}
+
+static inline unsigned long iommu_reg_read(struct iommu_domain *domain,
+					   unsigned long offset)
+{
+	return 0;
+}
+
+static inline void iommu_reg_write(struct iommu_domain *domain,
+				   unsigned long val, unsigned long offset)
 {
 }
 
