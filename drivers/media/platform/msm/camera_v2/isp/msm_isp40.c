@@ -352,13 +352,14 @@ static void msm_vfe40_process_reset_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1)
 {
 	if (irq_status0 & (1 << 31))
-		vfe_dev->reset_ack_received = 1;
+		complete(&vfe_dev->reset_complete);
 }
 
 static void msm_vfe40_process_halt_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1)
 {
 	if (irq_status1 & (1 << 8)) {
+		complete(&vfe_dev->halt_complete);
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x2C0);
 	}
 }
@@ -730,10 +731,8 @@ static long msm_vfe40_reset_hardware(struct vfe_device *vfe_dev,
 	uint32_t first_start, uint32_t blocking_call)
 {
 	long rc = 0;
-	uint32_t reset_complete_flag = false;
-	uint32_t irq_status0;
+	init_completion(&vfe_dev->reset_complete);
 
-	vfe_dev->reset_ack_received = 0;
 	if (first_start) {
 		msm_camera_io_w_mb(0x1FF, vfe_dev->vfe_base + 0xC);
 	} else {
@@ -747,35 +746,8 @@ static long msm_vfe40_reset_hardware(struct vfe_device *vfe_dev,
 
 
 	if (blocking_call) {
-		atomic_set(&vfe_dev->isp_timer.used, 1);
-		if (mod_timer(&vfe_dev->isp_timer.isp_timer_list,
-			(msecs_to_jiffies(5000))) != 0)
-			ISP_DBG("ISP Timer has not expired yet\n");
-
-		irq_status0  = msm_camera_io_r(vfe_dev->vfe_base + 0x38);
-
-		rc = 1;
-		while ((!reset_complete_flag ||
-			!vfe_dev->reset_ack_received) &&
-			!vfe_dev->isp_timer.timer_timeout_flag) {
-			if ((irq_status0 & (1 << 31)) ||
-				vfe_dev->reset_ack_received)
-				reset_complete_flag = true;
-			if (!reset_complete_flag)
-				irq_status0  =
-				msm_camera_io_r(vfe_dev->vfe_base + 0x38);
-		}
-		if (!reset_complete_flag) {
-			rc = -1;
-			pr_err("%s:VFE%d , irq_status0 0x%x reset timeout rc=%ld\n",
-			__func__, vfe_dev->pdev->id, irq_status0, rc);
-		}
-
-		if (atomic_read(&vfe_dev->isp_timer.used)) {
-			vfe_dev->isp_timer.timer_timeout_flag = 0;
-			atomic_set(&vfe_dev->isp_timer.used, 0);
-			del_timer(&vfe_dev->isp_timer.isp_timer_list);
-		}
+		rc = wait_for_completion_timeout(
+			&vfe_dev->reset_complete, msecs_to_jiffies(50));
 	}
 	return rc;
 }
@@ -1807,7 +1779,6 @@ static int msm_vfe40_axi_halt(struct vfe_device *vfe_dev,
 {
 	int rc = 0;
 	enum msm_vfe_input_src i;
-	uint32_t axi_busy_flag = true;
 
 	/* Keep only halt and restart mask */
 	msm_vfe40_set_halt_restart_mask(vfe_dev);
@@ -1842,30 +1813,14 @@ static int msm_vfe40_axi_halt(struct vfe_device *vfe_dev,
 	}
 
 	if (blocking) {
+		init_completion(&vfe_dev->halt_complete);
 		/* Halt AXI Bus Bridge */
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
-
-		atomic_set(&vfe_dev->isp_timer.used, 1);
-		if (mod_timer(&vfe_dev->isp_timer.isp_timer_list,
-			(msecs_to_jiffies(5000))) != 0)
-			ISP_DBG("ISP Timer has not expired yet\n");
-		rc = 1;
-		while (axi_busy_flag &&
-			!vfe_dev->isp_timer.timer_timeout_flag) {
-			if (msm_camera_io_r(vfe_dev->vfe_base + 0x2E4) & 0x1)
-				axi_busy_flag = false;
-		}
-		if (axi_busy_flag == true) {
-			/* No HALT ACK set in the register. */
-			rc = -1;
+		rc = wait_for_completion_interruptible_timeout(
+			&vfe_dev->halt_complete, msecs_to_jiffies(500));
+		if (rc <= 0)
 			pr_err("%s:VFE%d halt timeout rc=%d\n", __func__,
-						vfe_dev->pdev->id, rc);
-		}
-		if (atomic_read(&vfe_dev->isp_timer.used)) {
-			vfe_dev->isp_timer.timer_timeout_flag = 0;
-			atomic_set(&vfe_dev->isp_timer.used, 0);
-			del_timer(&vfe_dev->isp_timer.isp_timer_list);
-		}
+				vfe_dev->pdev->id, rc);
 	} else {
 		/* Halt AXI Bus Bridge */
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);

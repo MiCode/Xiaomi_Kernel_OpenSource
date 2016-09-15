@@ -132,12 +132,6 @@ struct msm_isp_timestamp {
 	struct timeval event_time;
 };
 
-struct msm_isp_timer_t {
-	atomic_t used;
-	uint32_t timer_timeout_flag;
-	struct timer_list isp_timer_list;
-};
-
 struct msm_vfe_irq_ops {
 	void (*read_irq_status)(struct vfe_device *vfe_dev,
 		uint32_t *irq_status0, uint32_t *irq_status1);
@@ -739,9 +733,6 @@ struct vfe_device {
 	struct msm_vfe_tasklet_queue_cmd
 		tasklet_queue_cmd[MSM_VFE_TASKLETQ_SIZE];
 
-	/* timer for ISP IRQ timeout*/
-	struct msm_isp_timer_t isp_timer;
-
 	/* Data structures */
 	struct msm_vfe_hardware_info *hw_info;
 	struct msm_vfe_axi_shared_data axi_data;
@@ -778,7 +769,6 @@ struct vfe_device {
 	/* irq info */
 	uint32_t irq0_mask;
 	uint32_t irq1_mask;
-	uint8_t  reset_ack_received;
 };
 
 struct vfe_parent_device {

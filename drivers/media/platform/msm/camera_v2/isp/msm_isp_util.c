@@ -950,9 +950,6 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case MSM_SD_UNNOTIFY_FREEZE:
 		break;
 	case MSM_SD_SHUTDOWN:
-		if (atomic_read(&vfe_dev->isp_timer.used))
-			pr_err("ISP Timer state not cleared\n");
-
 		while (vfe_dev->vfe_open_cnt != 0)
 			msm_isp_close_node(sd, NULL);
 		break;
@@ -2014,12 +2011,6 @@ end:
 	return;
 }
 
-void msm_isp_timer_callback(unsigned long data)
-{
-	struct msm_isp_timer_t *isp_timer = (struct msm_isp_timer_t *)data;
-	isp_timer->timer_timeout_flag = 1;
-}
-
 int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
@@ -2059,11 +2050,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		return -EBUSY;
 	}
-	/* install timer for isp timeout */
-	atomic_set(&vfe_dev->isp_timer.used, 0);
-	ISP_DBG("Installing isp_timer\n");
-	setup_timer(&vfe_dev->isp_timer.isp_timer_list,
-		msm_isp_timer_callback, (unsigned long)&vfe_dev->isp_timer);
 
 	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
 	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
