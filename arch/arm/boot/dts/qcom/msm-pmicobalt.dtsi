@@ -154,6 +154,7 @@
 					   "usbin_i",
 					   "usbin_v";
 
+			qcom,wipower-max-uw = <5000000>;
 			dpdm-supply = <&qusb_phy0>;
 
 			qcom,thermal-mitigation
