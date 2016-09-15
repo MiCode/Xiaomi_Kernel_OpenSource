@@ -225,6 +225,7 @@
 #define ARM_SMMU_CB_S1_MAIR1		0x3c
 #define ARM_SMMU_CB_PAR			0x50
 #define ARM_SMMU_CB_FSR			0x58
+#define ARM_SMMU_CB_FSRRESTORE		0x5c
 #define ARM_SMMU_CB_FAR			0x60
 #define ARM_SMMU_CB_FSYNR0		0x68
 #define ARM_SMMU_CB_S1_TLBIVA		0x600
@@ -1973,6 +1974,27 @@ out_unlock:
 	return ret;
 }
 
+static void arm_smmu_trigger_fault(struct iommu_domain *domain,
+					unsigned long flags)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct arm_smmu_device *smmu;
+	void __iomem *cb_base;
+
+	if (!smmu_domain->smmu) {
+		pr_err("Can't trigger faults on non-attached domains\n");
+		return;
+	}
+
+	smmu = smmu_domain->smmu;
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	dev_err(smmu->dev, "Writing 0x%lx to FSRRESTORE on cb %d\n",
+		flags, cfg->cbndx);
+	writel_relaxed(flags, cb_base + ARM_SMMU_CB_FSRRESTORE);
+}
+
 static struct iommu_ops arm_smmu_ops = {
 	.capable		= arm_smmu_capable,
 	.domain_alloc		= arm_smmu_domain_alloc,
@@ -1990,6 +2012,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.domain_get_attr	= arm_smmu_domain_get_attr,
 	.domain_set_attr	= arm_smmu_domain_set_attr,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
+	.trigger_fault		= arm_smmu_trigger_fault,
 };
 
 static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu)
