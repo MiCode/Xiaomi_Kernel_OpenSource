@@ -1868,6 +1868,17 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 				tavil_set_spkr_gain_offset(rtd->codec,
 							RX_GAIN_OFFSET_M1P5_DB);
 		}
+		card = rtd->card->snd_card;
+		entry = snd_register_module_info(card->module, "codecs",
+						 card->proc_root);
+		if (!entry) {
+			pr_debug("%s: Cannot create codecs module entry\n",
+				 __func__);
+			pdata->codec_root = NULL;
+			goto done;
+		}
+		pdata->codec_root = entry;
+		tavil_codec_info_create_codec_entry(pdata->codec_root, codec);
 	} else {
 		if (rtd_aux && rtd_aux->component)
 			if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
@@ -1888,6 +1899,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		pdata->codec_root = entry;
 		tasha_codec_info_create_codec_entry(pdata->codec_root, codec);
 	}
+done:
 	codec_reg_done = true;
 	return 0;
 

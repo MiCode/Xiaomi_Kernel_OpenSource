@@ -130,6 +130,8 @@ static const struct snd_kcontrol_new name##_mux = \
 
 #define WCD934X_MAD_AUDIO_FIRMWARE_PATH "wcd934x/wcd934x_mad_audio.bin"
 
+#define TAVIL_VERSION_ENTRY_SIZE 17
+
 enum {
 	VI_SENSE_1,
 	VI_SENSE_2,
@@ -505,6 +507,10 @@ struct tavil_priv {
 	/* cal info for codec */
 	struct fw_info *fw_data;
 
+	/* Entry for version info */
+	struct snd_info_entry *entry;
+	struct snd_info_entry *version_entry;
+
 	/* SVS voting related */
 	struct mutex svs_mutex;
 	int svs_ref_cnt;
@@ -549,7 +555,7 @@ int wcd934x_get_codec_info(struct wcd9xxx *wcd9xxx,
 {
 	u16 id_minor, id_major;
 	struct regmap *wcd_regmap;
-	int rc, version = 0;
+	int rc, version = -1;
 
 	if (!wcd9xxx || !wcd_type)
 		return -EINVAL;
@@ -573,8 +579,22 @@ int wcd934x_get_codec_info(struct wcd9xxx *wcd9xxx,
 	dev_info(wcd9xxx->dev, "%s: wcd9xxx chip id major 0x%x, minor 0x%x\n",
 		 __func__, id_major, id_minor);
 
-	/* Version detection */
-	version = 1.0;
+	if (id_major != TAVIL_MAJOR)
+		goto version_unknown;
+
+	/*
+	 * As fine version info cannot be retrieved before tavil probe.
+	 * Assign coarse versions for possible future use before tavil probe.
+	 */
+	if (id_minor == cpu_to_le16(0))
+		version = TAVIL_VERSION_1_0;
+	else if (id_minor == cpu_to_le16(0x01))
+		version = TAVIL_VERSION_1_1;
+
+version_unknown:
+	if (version < 0)
+		dev_err(wcd9xxx->dev, "%s: wcd934x version unknown\n",
+			__func__);
 
 	/* Fill codec type info */
 	wcd_type->id_major = id_major;
@@ -6495,6 +6515,104 @@ static int __tavil_cdc_mclk_enable(struct tavil_priv *tavil,
 	return ret;
 }
 
+static ssize_t tavil_codec_version_read(struct snd_info_entry *entry,
+					void *file_private_data,
+					struct file *file,
+					char __user *buf, size_t count,
+					loff_t pos)
+{
+	struct tavil_priv *tavil;
+	struct wcd9xxx *wcd9xxx;
+	char buffer[TAVIL_VERSION_ENTRY_SIZE];
+	int len = 0;
+
+	tavil = (struct tavil_priv *) entry->private_data;
+	if (!tavil) {
+		pr_err("%s: tavil priv is null\n", __func__);
+		return -EINVAL;
+	}
+
+	wcd9xxx = tavil->wcd9xxx;
+
+	switch (wcd9xxx->version) {
+	case TAVIL_VERSION_WCD9340_1_0:
+	    len = snprintf(buffer, sizeof(buffer), "WCD9340_1_0\n");
+	    break;
+	case TAVIL_VERSION_WCD9341_1_0:
+	    len = snprintf(buffer, sizeof(buffer), "WCD9341_1_0\n");
+	    break;
+	case TAVIL_VERSION_WCD9340_1_1:
+	    len = snprintf(buffer, sizeof(buffer), "WCD9340_1_1\n");
+	    break;
+	case TAVIL_VERSION_WCD9341_1_1:
+	    len = snprintf(buffer, sizeof(buffer), "WCD9341_1_1\n");
+	    break;
+	default:
+	    len = snprintf(buffer, sizeof(buffer), "VER_UNDEFINED\n");
+	}
+
+	return simple_read_from_buffer(buf, count, &pos, buffer, len);
+}
+
+static struct snd_info_entry_ops tavil_codec_info_ops = {
+	.read = tavil_codec_version_read,
+};
+
+/*
+ * tavil_codec_info_create_codec_entry - creates wcd934x module
+ * @codec_root: The parent directory
+ * @codec: Codec instance
+ *
+ * Creates wcd934x module and version entry under the given
+ * parent directory.
+ *
+ * Return: 0 on success or negative error code on failure.
+ */
+int tavil_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
+					struct snd_soc_codec *codec)
+{
+	struct snd_info_entry *version_entry;
+	struct tavil_priv *tavil;
+	struct snd_soc_card *card;
+
+	if (!codec_root || !codec)
+		return -EINVAL;
+
+	tavil = snd_soc_codec_get_drvdata(codec);
+	card = codec->component.card;
+	tavil->entry = snd_register_module_info(codec_root->module,
+						"tavil",
+						codec_root);
+	if (!tavil->entry) {
+		dev_dbg(codec->dev, "%s: failed to create wcd934x entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry = snd_info_create_card_entry(card->snd_card,
+						   "version",
+						   tavil->entry);
+	if (!version_entry) {
+		dev_dbg(codec->dev, "%s: failed to create wcd934x version entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry->private_data = tavil;
+	version_entry->size = TAVIL_VERSION_ENTRY_SIZE;
+	version_entry->content = SNDRV_INFO_CONTENT_DATA;
+	version_entry->c.ops = &tavil_codec_info_ops;
+
+	if (snd_info_register(version_entry) < 0) {
+		snd_info_free_entry(version_entry);
+		return -ENOMEM;
+	}
+	tavil->version_entry = version_entry;
+
+	return 0;
+}
+EXPORT_SYMBOL(tavil_codec_info_create_codec_entry);
+
 /**
  * tavil_cdc_mclk_enable - Enable/disable codec mclk
  *
@@ -7706,6 +7824,45 @@ static int __tavil_enable_efuse_sensing(struct tavil_priv *tavil)
 	return rc;
 }
 
+static void ___tavil_get_codec_fine_version(struct tavil_priv *tavil)
+{
+	int val1, val2, version;
+	struct regmap *regmap;
+	u16 id_minor;
+	u32 version_mask = 0;
+
+	regmap = tavil->wcd9xxx->regmap;
+	version = tavil->wcd9xxx->version;
+	id_minor = tavil->wcd9xxx->codec_type->id_minor;
+
+	regmap_read(regmap, WCD934X_CHIP_TIER_CTRL_EFUSE_VAL_OUT14, &val1);
+	regmap_read(regmap, WCD934X_CHIP_TIER_CTRL_EFUSE_VAL_OUT15, &val2);
+
+	dev_dbg(tavil->dev, "%s: chip version :0x%x 0x:%x\n",
+		__func__, val1, val2);
+
+	version_mask |= (!!((u8)val1 & 0x80)) << DSD_DISABLED_MASK;
+	version_mask |= (!!((u8)val2 & 0x01)) << SLNQ_DISABLED_MASK;
+
+	switch (version_mask) {
+	case DSD_DISABLED | SLNQ_DISABLED:
+	    if (id_minor == cpu_to_le16(0))
+		version = TAVIL_VERSION_WCD9340_1_0;
+	    else if (id_minor == cpu_to_le16(0x01))
+		version = TAVIL_VERSION_WCD9340_1_1;
+	    break;
+	case SLNQ_DISABLED:
+	    if (id_minor == cpu_to_le16(0))
+		version = TAVIL_VERSION_WCD9341_1_0;
+	    else if (id_minor == cpu_to_le16(0x01))
+		version = TAVIL_VERSION_WCD9341_1_1;
+	    break;
+	}
+
+	tavil->wcd9xxx->version = version;
+	tavil->wcd9xxx->codec_type->version = version;
+}
+
 /*
  * tavil_get_wcd_dsp_cntl: Get the reference to wcd_dsp_cntl
  * @dev: Device pointer for codec device
@@ -7735,7 +7892,6 @@ static int tavil_probe(struct platform_device *pdev)
 	struct tavil_priv *tavil;
 	struct clk *wcd_ext_clk;
 	struct wcd9xxx_resmgr_v2 *resmgr;
-	int val1, val2, val3, val4;
 
 	tavil = devm_kzalloc(&pdev->dev, sizeof(struct tavil_priv),
 			    GFP_KERNEL);
@@ -7803,17 +7959,7 @@ static int tavil_probe(struct platform_device *pdev)
 				   0x03, 0x01);
 	tavil_update_reg_defaults(tavil);
 	__tavil_enable_efuse_sensing(tavil);
-
-	regmap_read(tavil->wcd9xxx->regmap,
-				WCD934X_CHIP_TIER_CTRL_EFUSE_VAL_OUT0, &val1);
-	regmap_read(tavil->wcd9xxx->regmap,
-				WCD934X_CHIP_TIER_CTRL_EFUSE_VAL_OUT14, &val2);
-	regmap_read(tavil->wcd9xxx->regmap,
-				WCD934X_CHIP_TIER_CTRL_EFUSE_VAL_OUT15, &val3);
-	regmap_read(tavil->wcd9xxx->regmap,
-				WCD934X_CHIP_TIER_CTRL_EFUSE_VAL_OUT9, &val4);
-	dev_dbg(&pdev->dev, "%s: chip version :0x%x 0x:%x 0x:%x 0x:%x\n",
-		  __func__, val1, val2, val3, val4);
+	___tavil_get_codec_fine_version(tavil);
 
 	/* Register with soc framework */
 	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tavil,
