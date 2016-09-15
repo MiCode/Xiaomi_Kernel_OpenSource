@@ -22,6 +22,7 @@
 
 #include <linux/iommu.h>
 #include <linux/kernel.h>
+#include <linux/scatterlist.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -404,6 +405,65 @@ static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
 	return ret;
 }
 
+static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
+			   struct scatterlist *sg, unsigned int nents,
+			   int iommu_prot)
+{
+	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
+	arm_lpae_iopte *ptep = data->pgd;
+	int lvl = ARM_LPAE_START_LVL(data);
+	arm_lpae_iopte prot;
+	struct scatterlist *s;
+	size_t mapped = 0;
+	int i, ret;
+	unsigned int min_pagesz;
+
+	/* If no access, then nothing to do */
+	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE)))
+		return 0;
+
+	prot = arm_lpae_prot_to_pte(data, iommu_prot);
+
+	min_pagesz = 1 << __ffs(data->iop.cfg.pgsize_bitmap);
+
+	for_each_sg(sg, s, nents, i) {
+		phys_addr_t phys = page_to_phys(sg_page(s)) + s->offset;
+		size_t size = s->length;
+
+		/*
+		 * We are mapping on IOMMU page boundaries, so offset within
+		 * the page must be 0. However, the IOMMU may support pages
+		 * smaller than PAGE_SIZE, so s->offset may still represent
+		 * an offset of that boundary within the CPU page.
+		 */
+		if (!IS_ALIGNED(s->offset, min_pagesz))
+			goto out_err;
+
+		while (size) {
+			size_t pgsize = iommu_pgsize(
+				data->iop.cfg.pgsize_bitmap, iova | phys, size);
+			ret = __arm_lpae_map(data, iova, phys, pgsize, prot,
+					     lvl, ptep);
+			if (ret)
+				goto out_err;
+
+			iova += pgsize;
+			mapped += pgsize;
+			phys += pgsize;
+			size -= pgsize;
+		}
+	}
+
+	return mapped;
+
+out_err:
+	/* undo mappings already done */
+	if (mapped)
+		ops->unmap(ops, iova, mapped);
+
+	return 0;
+}
+
 static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
 				    arm_lpae_iopte *ptep)
 {
@@ -653,6 +713,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 
 	data->iop.ops = (struct io_pgtable_ops) {
 		.map		= arm_lpae_map,
+		.map_sg		= arm_lpae_map_sg,
 		.unmap		= arm_lpae_unmap,
 		.iova_to_phys	= arm_lpae_iova_to_phys,
 	};
