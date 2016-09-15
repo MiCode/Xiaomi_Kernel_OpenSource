@@ -1103,7 +1103,6 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	uint32_t io_format = 0;
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd = arg;
 	struct msm_vfe_axi_stream *stream_info;
-	unsigned long flags;
 
 	if (stream_cfg_cmd->stream_src >= VFE_AXI_SRC_MAX) {
 		pr_err("%s:%d invalid stream_src %d\n", __func__, __LINE__,
@@ -1113,12 +1112,9 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	stream_info = msm_isp_get_stream_common_data(vfe_dev,
 					stream_cfg_cmd->stream_src);
 
-	spin_lock_irqsave(&stream_info->lock, flags);
-
 	rc = msm_isp_axi_create_stream(vfe_dev,
 		&vfe_dev->axi_data, stream_cfg_cmd, stream_info);
 	if (rc) {
-		spin_unlock_irqrestore(&stream_info->lock, flags);
 		pr_err("%s: create stream failed\n", __func__);
 		return rc;
 	}
@@ -1127,7 +1123,6 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		vfe_dev, stream_info, stream_cfg_cmd);
 	if (rc) {
 		msm_isp_axi_destroy_stream(vfe_dev, stream_info);
-		spin_unlock_irqrestore(&stream_info->lock, flags);
 		pr_err("%s: Request validation failed\n", __func__);
 		return rc;
 	}
@@ -1235,7 +1230,6 @@ done:
 		msm_isp_axi_free_wm(vfe_dev, stream_info);
 		msm_isp_axi_destroy_stream(vfe_dev, stream_info);
 	}
-	spin_unlock_irqrestore(&stream_info->lock, flags);
 	return rc;
 }
 
@@ -1246,7 +1240,6 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_stream_cfg_cmd stream_cfg;
 	int vfe_idx;
-	unsigned long flags;
 
 	if (HANDLE_TO_IDX(stream_release_cmd->stream_handle) >=
 		VFE_AXI_SRC_MAX) {
@@ -1256,13 +1249,10 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	stream_info = msm_isp_get_stream_common_data(vfe_dev,
 		HANDLE_TO_IDX(stream_release_cmd->stream_handle));
 
-	spin_lock_irqsave(&stream_info->lock, flags);
-
 	vfe_idx = msm_isp_get_vfe_idx_for_stream_user(vfe_dev, stream_info);
 	if (vfe_idx == -ENOTTY ||
 		stream_release_cmd->stream_handle !=
 		stream_info->stream_handle[vfe_idx]) {
-		spin_unlock_irqrestore(&stream_info->lock, flags);
 		pr_err("%s: Invalid stream %p handle %x/%x vfe_idx %d vfe_dev %d num_isp %d\n",
 			__func__, stream_info,
 			stream_release_cmd->stream_handle,
@@ -1276,9 +1266,7 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		stream_cfg.cmd = STOP_STREAM;
 		stream_cfg.num_streams = 1;
 		stream_cfg.stream_handle[0] = stream_release_cmd->stream_handle;
-		spin_unlock_irqrestore(&stream_info->lock, flags);
 		msm_isp_cfg_axi_stream(vfe_dev, (void *) &stream_cfg);
-		spin_lock_irqsave(&stream_info->lock, flags);
 	}
 
 	for (i = 0; i < stream_info->num_planes; i++) {
@@ -1296,7 +1284,6 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	msm_isp_axi_free_wm(vfe_dev, stream_info);
 
 	msm_isp_axi_destroy_stream(vfe_dev, stream_info);
-	spin_unlock_irqrestore(&stream_info->lock, flags);
 
 	return rc;
 }
