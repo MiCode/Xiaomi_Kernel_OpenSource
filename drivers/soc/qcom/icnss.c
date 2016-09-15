@@ -281,6 +281,7 @@ enum icnss_driver_state {
 	ICNSS_SSR_ENABLED,
 	ICNSS_PDR_ENABLED,
 	ICNSS_PD_RESTART,
+	ICNSS_MSA0_ASSIGNED,
 };
 
 struct ce_irq_list {
@@ -1484,7 +1485,7 @@ int icnss_power_off(struct device *dev)
 }
 EXPORT_SYMBOL(icnss_power_off);
 
-int icnss_map_msa_permissions(struct icnss_priv *priv, u32 index)
+static int icnss_map_msa_permissions(struct icnss_priv *priv, u32 index)
 {
 	int ret = 0;
 	phys_addr_t addr;
@@ -1522,7 +1523,7 @@ out:
 
 }
 
-int icnss_unmap_msa_permissions(struct icnss_priv *priv, u32 index)
+static int icnss_unmap_msa_permissions(struct icnss_priv *priv, u32 index)
 {
 	int ret = 0;
 	phys_addr_t addr;
@@ -1560,7 +1561,10 @@ out:
 
 static int icnss_setup_msa_permissions(struct icnss_priv *priv)
 {
-	int ret = 0;
+	int ret;
+
+	if (test_bit(ICNSS_MSA0_ASSIGNED, &priv->state))
+		return 0;
 
 	ret = icnss_map_msa_permissions(priv, 0);
 	if (ret)
@@ -1569,6 +1573,8 @@ static int icnss_setup_msa_permissions(struct icnss_priv *priv)
 	ret = icnss_map_msa_permissions(priv, 1);
 	if (ret)
 		goto err_map_msa;
+
+	set_bit(ICNSS_MSA0_ASSIGNED, &priv->state);
 
 	return ret;
 
@@ -1579,8 +1585,13 @@ err_map_msa:
 
 static void icnss_remove_msa_permissions(struct icnss_priv *priv)
 {
+	if (!test_bit(ICNSS_MSA0_ASSIGNED, &priv->state))
+		return;
+
 	icnss_unmap_msa_permissions(priv, 0);
 	icnss_unmap_msa_permissions(priv, 1);
+
+	clear_bit(ICNSS_MSA0_ASSIGNED, &priv->state);
 }
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
@@ -2437,12 +2448,17 @@ out:
 	return 0;
 }
 
-static int icnss_qmi_pd_event_service_down(struct icnss_priv *priv, void *data)
+static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
+					      void *data)
 {
 	int ret = 0;
 
-	if (test_bit(ICNSS_PD_RESTART, &priv->state))
+	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
+		icnss_pr_err("PD Down while recovery inprogress, state: 0x%lx\n",
+			     priv->state);
+		ICNSS_ASSERT(0);
 		goto out;
+	}
 
 	set_bit(ICNSS_PD_RESTART, &priv->state);
 	clear_bit(ICNSS_FW_READY, &priv->state);
@@ -2460,7 +2476,7 @@ out:
 
 	ret = icnss_hw_power_off(priv);
 
-	icnss_pr_dbg("Shutdown completed: %d, state: 0x%lx\n",
+	icnss_pr_dbg("PD down completed: %d, state: 0x%lx\n",
 		     ret, priv->state);
 
 	return ret;
@@ -2502,7 +2518,7 @@ static void icnss_driver_event_work(struct work_struct *work)
 			ret = icnss_driver_event_unregister_driver(event->data);
 			break;
 		case ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN:
-			icnss_qmi_pd_event_service_down(penv, event->data);
+			icnss_driver_event_pd_service_down(penv, event->data);
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
@@ -3687,7 +3703,7 @@ static ssize_t icnss_stats_write(struct file *fp, const char __user *buf,
 
 static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 {
-	int i;
+	enum icnss_driver_state i;
 	int skip = 0;
 	unsigned long state;
 
@@ -3716,11 +3732,14 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 		case ICNSS_FW_TEST_MODE:
 			seq_puts(s, "FW TEST MODE");
 			continue;
+		case ICNSS_SUSPEND:
+			seq_puts(s, "SUSPEND");
+			continue;
 		case ICNSS_PM_SUSPEND:
 			seq_puts(s, "PM SUSPEND");
 			continue;
 		case ICNSS_PM_SUSPEND_NOIRQ:
-			seq_puts(s, "PM SUSPEND_NOIRQ");
+			seq_puts(s, "PM SUSPEND NOIRQ");
 			continue;
 		case ICNSS_SSR_ENABLED:
 			seq_puts(s, "SSR ENABLED");
@@ -3730,6 +3749,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_PD_RESTART:
 			seq_puts(s, "PD RESTART");
+			continue;
+		case ICNSS_MSA0_ASSIGNED:
+			seq_puts(s, "MSA0 ASSIGNED");
 			continue;
 		}
 
