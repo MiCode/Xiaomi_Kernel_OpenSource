@@ -1791,6 +1791,9 @@
 		qcom,pm-qos-cpu-group-latency-us = <70 70>;
 		qcom,pm-qos-default-cpu = <0>;
 
+		resets = <&clock_gcc UFS_BCR>;
+		reset-names = "core_reset";
+
 		status = "disabled";
 	};
 

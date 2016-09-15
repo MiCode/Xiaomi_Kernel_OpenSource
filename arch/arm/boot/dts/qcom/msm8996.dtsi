@@ -1246,6 +1246,9 @@
 		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
 		"MAX";
 
+		resets = <&clock_gcc UFS_BCR>;
+		reset-names = "core_reset";
+
 		/* PM QoS */
 		qcom,pm-qos-cpu-groups = <0x03 0x0C>;
 		qcom,pm-qos-cpu-group-latency-us = <70 70>;

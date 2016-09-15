@@ -764,21 +764,29 @@ out:
 
 static int ufs_qcom_full_reset(struct ufs_hba *hba)
 {
-	struct ufs_clk_info *clki;
 	int ret = -ENOTSUPP;
 
-	list_for_each_entry(clki, &hba->clk_list_head, list) {
-		if (!strcmp(clki->name, "core_clk")) {
-			ret = clk_reset(clki->clk, CLK_RESET_ASSERT);
-			if (ret)
-				goto out;
-			/* Very small delay, per the documented requirement */
-			usleep_range(1, 2);
-
-			ret = clk_reset(clki->clk, CLK_RESET_DEASSERT);
-			break;
-		}
+	if (!hba->core_reset) {
+		dev_err(hba->dev, "%s: failed, err = %d\n", __func__,
+				ret);
+		goto out;
 	}
+
+	ret = reset_control_assert(hba->core_reset);
+	if (ret) {
+		dev_err(hba->dev, "%s: core_reset assert failed, err = %d\n",
+				__func__, ret);
+		goto out;
+	}
+
+	/* Very small delay, per the documented requirement */
+	usleep_range(1, 2);
+
+	ret = reset_control_deassert(hba->core_reset);
+	if (ret)
+		dev_err(hba->dev, "%s: core_reset deassert failed, err = %d\n",
+				__func__, ret);
+
 out:
 	return ret;
 }
