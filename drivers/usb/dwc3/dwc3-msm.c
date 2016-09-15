@@ -1281,61 +1281,61 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 	switch (op) {
 	case GSI_EP_OP_PREPARE_TRBS:
 		request = (struct usb_gsi_request *)op_data;
-		dev_dbg(mdwc->dev, "EP_OP_PREPARE_TRBS for %s\n", ep->name);
+		dbg_print(0xFF, "PREPARE_TRB", 0, ep->name);
 		ret = gsi_prepare_trbs(ep, request);
 		break;
 	case GSI_EP_OP_FREE_TRBS:
-		dev_dbg(mdwc->dev, "EP_OP_FREE_TRBS for %s\n", ep->name);
+		dbg_print(0xFF, "FREE_TRB", 0, ep->name);
 		gsi_free_trbs(ep);
 		break;
 	case GSI_EP_OP_CONFIG:
 		request = (struct usb_gsi_request *)op_data;
-		dev_dbg(mdwc->dev, "EP_OP_CONFIG for %s\n", ep->name);
+		dbg_print(0xFF, "EP_CONFIG", 0, ep->name);
 		gsi_configure_ep(ep, request);
 		break;
 	case GSI_EP_OP_STARTXFER:
-		dev_dbg(mdwc->dev, "EP_OP_STARTXFER for %s\n", ep->name);
+		dbg_print(0xFF, "EP_STARTXFER", 0, ep->name);
 		ret = gsi_startxfer_for_ep(ep);
 		break;
 	case GSI_EP_OP_GET_XFER_IDX:
-		dev_dbg(mdwc->dev, "EP_OP_GET_XFER_IDX for %s\n", ep->name);
+		dbg_print(0xFF, "EP_GETXFERID", 0, ep->name);
 		ret = gsi_get_xfer_index(ep);
 		break;
 	case GSI_EP_OP_STORE_DBL_INFO:
-		dev_dbg(mdwc->dev, "EP_OP_STORE_DBL_INFO\n");
+		dbg_print(0xFF, "EP_STRDBL", 0, ep->name);
 		gsi_store_ringbase_dbl_info(ep, *((u32 *)op_data));
 		break;
 	case GSI_EP_OP_ENABLE_GSI:
-		dev_dbg(mdwc->dev, "EP_OP_ENABLE_GSI\n");
+		dbg_print(0xFF, "ENABLE_GSI", 0, ep->name);
 		gsi_enable(ep);
 		break;
 	case GSI_EP_OP_GET_CH_INFO:
 		ch_info = (struct gsi_channel_info *)op_data;
+		dbg_print(0xFF, "GET_CH_INFO", 0, ep->name);
 		gsi_get_channel_info(ep, ch_info);
 		break;
 	case GSI_EP_OP_RING_IN_DB:
 		request = (struct usb_gsi_request *)op_data;
-		dev_dbg(mdwc->dev, "RING IN EP DB\n");
+		dbg_print(0xFF, "RING_IN_DB", 0, ep->name);
 		gsi_ring_in_db(ep, request);
 		break;
 	case GSI_EP_OP_UPDATEXFER:
 		request = (struct usb_gsi_request *)op_data;
-		dev_dbg(mdwc->dev, "EP_OP_UPDATEXFER\n");
+		dbg_print(0xFF, "EP_UPDATEXFER", 0, ep->name);
 		ret = gsi_updatexfer_for_ep(ep, request);
 		break;
 	case GSI_EP_OP_ENDXFER:
 		request = (struct usb_gsi_request *)op_data;
-		dev_dbg(mdwc->dev, "EP_OP_ENDXFER for %s\n", ep->name);
+		dbg_print(0xFF, "EP_ENDXFER", 0, ep->name);
 		gsi_endxfer_for_ep(ep);
 		break;
 	case GSI_EP_OP_SET_CLR_BLOCK_DBL:
 		block_db = *((bool *)op_data);
-		dev_dbg(mdwc->dev, "EP_OP_SET_CLR_BLOCK_DBL %d\n",
-						block_db);
+		dbg_print(0xFF, "CLR_BLK_DBL", block_db, ep->name);
 		gsi_set_clear_dbell(ep, block_db);
 		break;
 	case GSI_EP_OP_CHECK_FOR_SUSPEND:
-		dev_dbg(mdwc->dev, "EP_OP_CHECK_FOR_SUSPEND\n");
+		dbg_print(0xFF, "CHK_SUSPEND", 0, ep->name);
 		f_suspend = *((bool *)op_data);
 		ret = gsi_check_ready_to_suspend(ep, f_suspend);
 		break;
