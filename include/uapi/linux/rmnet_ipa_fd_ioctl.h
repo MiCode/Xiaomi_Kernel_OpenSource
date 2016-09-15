@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #define WAN_IOCTL_QUERY_TETHER_STATS     6
 #define WAN_IOCTL_RESET_TETHER_STATS     7
 #define WAN_IOCTL_QUERY_DL_FILTER_STATS  8
+#define WAN_IOCTL_ADD_FLT_RULE_EX        9
 
 /* User space may not have this defined. */
 #ifndef IFNAMSIZ
@@ -149,5 +150,9 @@ struct wan_ioctl_query_dl_filter_stats {
 #define WAN_IOC_QUERY_DL_FILTER_STATS _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_QUERY_DL_FILTER_STATS, \
 		struct wan_ioctl_query_dl_filter_stats *)
+
+#define WAN_IOC_ADD_FLT_RULE_EX _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_ADD_FLT_RULE_EX, \
+		struct ipa_install_fltr_rule_req_ex_msg_v01 *)
 
 #endif /* _RMNET_IPA_FD_IOCTL_H */
