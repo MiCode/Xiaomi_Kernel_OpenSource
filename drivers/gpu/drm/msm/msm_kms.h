@@ -80,6 +80,8 @@ struct msm_kms_funcs {
 	void (*postopen)(struct msm_kms *kms, struct drm_file *file);
 	/* cleanup: */
 	void (*preclose)(struct msm_kms *kms, struct drm_file *file);
+	void (*postclose)(struct msm_kms *kms, struct drm_file *file);
+	void (*lastclose)(struct msm_kms *kms);
 	void (*destroy)(struct msm_kms *kms);
 };
 
