@@ -1993,6 +1993,8 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	dev_err(smmu->dev, "Writing 0x%lx to FSRRESTORE on cb %d\n",
 		flags, cfg->cbndx);
 	writel_relaxed(flags, cb_base + ARM_SMMU_CB_FSRRESTORE);
+	/* give the interrupt time to fire... */
+	msleep(1000);
 }
 
 static struct iommu_ops arm_smmu_ops = {
