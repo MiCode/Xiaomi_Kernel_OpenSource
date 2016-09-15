@@ -459,7 +459,7 @@ static int ssr_event_notify(struct notifier_block *this,
 					struct qmi_client_info, ssr_notifier);
 	struct notif_data *notif = data;
 	switch (code) {
-	case	SUBSYS_BEFORE_SHUTDOWN:
+	case	SUBSYS_AFTER_SHUTDOWN:
 		pr_debug("Root PD DOWN(SSR notification), crashed?%d\n",
 						notif->crashed);
 		if (notif->crashed)
