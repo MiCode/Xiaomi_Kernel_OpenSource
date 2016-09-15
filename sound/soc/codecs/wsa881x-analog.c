@@ -1313,7 +1313,6 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 			ret = -EINVAL;
 			goto err;
 		}
-		i2c_set_clientdata(client, pdata);
 		dev_set_drvdata(&client->dev, client);
 
 		pdata->regmap[WSA881X_DIGITAL_SLAVE] =
@@ -1371,7 +1370,7 @@ err:
 
 static int wsa881x_i2c_remove(struct i2c_client *client)
 {
-	struct wsa881x_pdata *wsa881x = i2c_get_clientdata(client);
+	struct wsa881x_pdata *wsa881x = client->dev.platform_data;
 
 	snd_soc_unregister_codec(&client->dev);
 	i2c_set_clientdata(client, NULL);
