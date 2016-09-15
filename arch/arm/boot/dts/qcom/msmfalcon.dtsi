@@ -554,10 +554,6 @@
 };
 
 &gdsc_ufs {
-	clock-names = "bus_clk", "ice_clk", "unipro_clk";
-	clocks = <&clock_gcc GCC_UFS_AXI_CLK>,
-		 <&clock_gcc GCC_UFS_ICE_CORE_CLK>,
-		 <&clock_gcc GCC_UFS_UNIPRO_CORE_CLK>;
 	status = "ok";
 };
 
@@ -573,50 +569,30 @@
 	status = "ok";
 };
 
-&gdsc_hlos1_vote_lpass_core {
-	status = "ok";
-};
-
 &gdsc_venus {
-	clock-names = "bus_clk", "core_clk";
-	clocks = <&clock_mmss MMSS_VIDEO_AXI_CLK>,
-		 <&clock_mmss MMSS_VIDEO_CORE_CLK>;
 	status = "ok";
 };
 
 &gdsc_venus_core0 {
-	clock-names = "core0_clk";
-	clocks = <&clock_mmss MMSS_VIDEO_SUBCORE0_CLK>;
 	qcom,support-hw-trigger;
 	status = "ok";
 };
 
 &gdsc_camss_top {
-	clock-names = "bus_clk", "vfe_axi";
-	clocks = <&clock_mmss MMSS_CAMSS_CPP_AXI_CLK>,
-		 <&clock_mmss MMSS_CAMSS_VFE_VBIF_AXI_CLK>;
 	status = "ok";
 };
 
 &gdsc_vfe0 {
-	clock-names = "core0_clk" , "core0_stream_clk";
-	clocks = <&clock_mmss MMSS_CAMSS_VFE0_CLK>,
-		 <&clock_mmss MMSS_CAMSS_VFE0_STREAM_CLK>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_vfe1 {
-	clock-names = "core1_clk" , "core1_stream_clk";
-	clocks = <&clock_mmss MMSS_CAMSS_VFE1_CLK>,
-		 <&clock_mmss MMSS_CAMSS_VFE1_STREAM_CLK>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_cpp {
-	clock-names = "core_clk";
-	clocks = <&clock_mmss MMSS_CAMSS_CPP_CLK>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
