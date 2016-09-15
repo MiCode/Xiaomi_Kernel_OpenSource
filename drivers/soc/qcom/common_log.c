@@ -20,7 +20,7 @@
 #include <soc/qcom/memory_dump.h>
 
 #define MISC_DUMP_DATA_LEN		4096
-#define PMIC_DUMP_DATA_LEN		4096
+#define PMIC_DUMP_DATA_LEN		(64 * 1024)
 #define VSENSE_DUMP_DATA_LEN		4096
 #define RPM_DUMP_DATA_LEN		(160 * 1024)
 #define SCAN_DUMP_DATA_LEN		(256 * 1024)
