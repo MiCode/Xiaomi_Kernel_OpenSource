@@ -627,10 +627,12 @@ static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 		size_t ret, size_to_unmap, remaining;
 
 		remaining = (size - unmapped);
-		size_to_unmap = remaining < SZ_2M
-			? remaining
-			: iommu_pgsize(data->iop.cfg.pgsize_bitmap, iova,
-				       remaining);
+		size_to_unmap = iommu_pgsize(data->iop.cfg.pgsize_bitmap, iova,
+						remaining);
+		size_to_unmap = size_to_unmap >= SZ_2M ?
+				size_to_unmap :
+				min_t(unsigned long, remaining,
+					(ALIGN(iova + 1, SZ_2M) - iova));
 		ret = __arm_lpae_unmap(data, iova, size_to_unmap, lvl, ptep);
 		if (ret == 0)
 			break;
