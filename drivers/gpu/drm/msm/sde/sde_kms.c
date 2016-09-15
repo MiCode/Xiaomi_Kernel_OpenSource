@@ -174,12 +174,24 @@ static void sde_debugfs_destroy(struct sde_kms *sde_kms)
 
 static int sde_kms_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
+	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+
 	return sde_crtc_vblank(crtc, true);
 }
 
 static void sde_kms_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
+	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+
 	sde_crtc_vblank(crtc, false);
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 }
 
 static void sde_prepare_commit(struct msm_kms *kms,
@@ -355,34 +367,6 @@ static long sde_round_pixclk(struct msm_kms *kms, unsigned long rate,
 	return rate;
 }
 
-static void sde_postopen(struct msm_kms *kms, struct drm_file *file)
-{
-	struct sde_kms *sde_kms;
-	struct msm_drm_private *priv;
-
-	if (!kms)
-		return;
-
-	sde_kms = to_sde_kms(kms);
-	priv = sde_kms->dev->dev_private;
-
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
-}
-
-static void sde_preclose(struct msm_kms *kms, struct drm_file *file)
-{
-	struct sde_kms *sde_kms;
-	struct msm_drm_private *priv;
-
-	if (!kms)
-		return;
-
-	sde_kms = to_sde_kms(kms);
-	priv = sde_kms->dev->dev_private;
-
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
-}
-
 static void sde_destroy(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
@@ -401,12 +385,24 @@ static void sde_destroy(struct msm_kms *kms)
 	kfree(sde_kms);
 }
 
+static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
+{
+	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev = sde_kms->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+	unsigned int i;
+
+	for (i = 0; i < priv->num_crtcs; i++)
+		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
+}
+
 static const struct msm_kms_funcs kms_funcs = {
 	.hw_init         = sde_hw_init,
 	.irq_preinstall  = sde_irq_preinstall,
 	.irq_postinstall = sde_irq_postinstall,
 	.irq_uninstall   = sde_irq_uninstall,
 	.irq             = sde_irq,
+	.preclose        = sde_kms_preclose,
 	.prepare_fence   = sde_kms_prepare_fence,
 	.prepare_commit  = sde_prepare_commit,
 	.commit          = sde_commit,
@@ -417,8 +413,6 @@ static const struct msm_kms_funcs kms_funcs = {
 	.check_modified_format = sde_format_check_modified_format,
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_round_pixclk,
-	.postopen        = sde_postopen,
-	.preclose        = sde_preclose,
 	.destroy         = sde_destroy,
 };
 
@@ -791,7 +785,9 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 		goto catalog_err;
 	}
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
+	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
+		goto catalog_err;
 
 	/*
 	 * Now we need to read the HW catalog and initialize resources such as
@@ -830,9 +826,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 */
 	dev->mode_config.allow_fb_modifiers = true;
 
-	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
-	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
-		goto clk_rate_err;
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	return &sde_kms->base;
 

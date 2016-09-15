@@ -449,6 +449,8 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
  */
 void sde_crtc_complete_commit(struct drm_crtc *crtc);
 
+void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
+
 /**
  * sde_encoder_get_hw_resources - Populate table of required hardware resources
  * @encoder:	encoder pointer
