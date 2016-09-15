@@ -56,6 +56,8 @@ its hardware characteristcs.
 	  layout using the generic DT graph presentation found in
 	  "bindings/graph.txt".
 
+	* coresight-name: unique descriptive name of the component.
+
 * Additional required properties for System Trace Macrocells (STM):
 	* reg: along with the physical base address and length of the register
 	  set as described above, another entry is required to describe the
@@ -70,8 +72,20 @@ its hardware characteristcs.
 	* compatible: Currently supported value is (note the absence of the
 	  AMBA markee):
 		- "arm,coresight-replicator"
+		- "qcom,coresight-csr"
+		- "arm,coresight-cti"
+		- "qcom,coresight-tpda"
+		- "qcom,coresight-tpdm"
+		- "qcom,coresight-remote-etm"
+		- "qcom,coresight-hwevent"
+		- "qcom,coresight-dummy"
 
 	* port or ports: same as above.
+
+	* coresight-name: unique descriptive name of the component.
+
+* Optional properties for all components:
+	* reg-names: names corresponding to each reg property value.
 
 * Optional properties for ETM/PTMs:
 
@@ -86,6 +100,48 @@ its hardware characteristcs.
 	* arm,buffer-size: size of contiguous buffer space for TMC ETR
 	 (embedded trace router)
 
+	* arm,default-sink: represents the default compile time CoreSight sink
+
+	* coresight-ctis: represents flush and reset CTIs for TMC buffer
+
+	* qcom,force-reg-dump: enables TMC reg dump support
+
+	* arm,sg-enable : indicates whether scatter gather feature is enabled
+	  by default for TMC ETR configuration.
+
+* Required property for TPDAs:
+
+	* qcom,tpda-atid: must be present. Specifies the ATID for TPDA.
+
+* Optional properties for TPDAs:
+
+	* qcom,bc-elem-size: specifies the BC element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+          in pairs (port, bc element size).
+
+	* qcom,tc-elem-size: specifies the TC element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, tc element size).
+
+	* qcom,dsb-elem-size: specifies the DSB element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, dsb element size).
+
+	* qcom,cmb-elem-size: specifies the CMB element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, cmb element size).
+
+* Optional properties for TPDM:
+
+	* qcom,clk-enable: specifies whether additional clock bit needs to be
+	  set for M4M TPDM.
+
+	* qcom,msr-fix-req: boolean, indicating if MSRs need to be programmed
+	  after enabling the subunit.
+
+* Required property for Remote ETMs:
+
+	* qcom,inst-id: must be present. QMI instance id for remote ETMs.
 
 Example:
 
@@ -202,6 +258,42 @@ Example:
 		};
 	};
 
+	tpda_mss: tpda@7043000 {
+		compatible = "qcom,coresight-tpda";
+		reg = <0x7043000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-name = "coresight-tpda-mss";
+
+		qcom,tpda-atid = <67>;
+		qcom,dsb-elem-size = <0 32>;
+		qcom,cmb-elem-size = <0 32>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_mss_out_funnel_in1: endpoint {
+					remote-endpoint =
+						<&funnel_in1_in_tpda_mss>;
+				};
+			};
+			port@1 {
+				reg = <0>;
+				tpda_mss_in_tpdm_mss: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_mss_out_tpda_mss>;
+				};
+			};
+		};
+	};
+
 3. Sources
 	ptm@2201c000 {
 		compatible = "arm,coresight-etm3x", "arm,primecell";
@@ -245,6 +337,37 @@ Example:
 				remote-endpoint = <&main_funnel_in_port2>;
 			};
 		};
+	};
+
+	tpdm_mss: tpdm@7042000 {
+		compatible = "qcom,coresight-tpdm";
+		reg = <0x7042000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-mss";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		port{
+			tpdm_mss_out_tpda_mss: endpoint {
+				remote-endpoint = <&tpda_mss_in_tpdm_mss>;
+			};
+		};
+	};
+
+4. CTIs
+	cti0: cti@6010000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6010000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti0";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
 	};
 
 [1]. There is currently two version of STM: STM32 and STM500.  Both
