@@ -1418,6 +1418,7 @@ static struct i2c_driver wsa881x_codec_driver = {
 	.driver = {
 		.name = "wsa881x-i2c-codec",
 		.owner = THIS_MODULE,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 #ifdef CONFIG_PM_SLEEP
 		.pm = &wsa881x_i2c_pm_ops,
 #endif
