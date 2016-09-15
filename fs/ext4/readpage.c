@@ -45,6 +45,7 @@
 #include <linux/cleancache.h>
 
 #include "ext4.h"
+#include "ext4_ice.h"
 
 /*
  * Call ext4_decrypt on every single page, reusing the encryption
@@ -62,12 +63,17 @@ static void completion_pages(struct work_struct *work)
 	bio_for_each_segment_all(bv, bio, i) {
 		struct page *page = bv->bv_page;
 
-		int ret = ext4_decrypt(page);
-		if (ret) {
-			WARN_ON_ONCE(1);
-			SetPageError(page);
-		} else
+		if (ext4_is_ice_enabled()) {
 			SetPageUptodate(page);
+		} else {
+			int ret = ext4_decrypt(page);
+
+			if (ret) {
+				WARN_ON_ONCE(1);
+				SetPageError(page);
+			} else
+				SetPageUptodate(page);
+		}
 		unlock_page(page);
 	}
 	ext4_release_crypto_ctx(ctx);
@@ -324,5 +330,6 @@ int ext4_mpage_readpages(struct address_space *mapping,
 	BUG_ON(pages && !list_empty(pages));
 	if (bio)
 		submit_bio(READ, bio);
+
 	return 0;
 }

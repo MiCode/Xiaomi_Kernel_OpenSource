@@ -15,7 +15,6 @@ config PFT
 config PFK
 	bool "Per-File-Key driver"
 	depends on SECURITY
-	depends on ECRYPT_FS
 	default n
 	help
 		This driver is used for storing eCryptfs information

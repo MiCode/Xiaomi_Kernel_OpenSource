@@ -39,6 +39,13 @@
 /* Convert from vout ctl to micbias voltage in mV */
 #define  WCD_VOUT_CTL_TO_MICB(v)  (1000 + v * 50)
 
+/* Feature masks to distinguish codec version */
+#define DSD_DISABLED_MASK   0
+#define SLNQ_DISABLED_MASK  1
+
+#define DSD_DISABLED   (1 << DSD_DISABLED_MASK)
+#define SLNQ_DISABLED  (1 << SLNQ_DISABLED_MASK)
+
 /* Number of input and output Slimbus port */
 enum {
 	WCD934X_RX0 = 0,
@@ -180,4 +187,6 @@ extern struct wcd934x_mbhc *tavil_soc_get_mbhc(struct snd_soc_codec *codec);
 extern int tavil_codec_enable_interp_clk(struct snd_soc_codec *codec,
 					 int event, int intp_idx);
 extern struct tavil_dsd_config *tavil_get_dsd_config(struct snd_soc_codec *);
+extern int tavil_codec_info_create_codec_entry(struct snd_info_entry *,
+					       struct snd_soc_codec *);
 #endif

@@ -3585,12 +3585,6 @@ static int selinux_file_close(struct file *file)
 	return pft_file_close(file);
 }
 
-static bool selinux_allow_merge_bio(struct bio *bio1, struct bio *bio2)
-{
-	return pft_allow_merge_bio(bio1, bio2) &&
-		pfk_allow_merge_bio(bio1, bio2);
-}
-
 /* task security operations */
 
 static int selinux_task_create(unsigned long clone_flags)
@@ -6000,7 +5994,6 @@ static struct security_hook_list selinux_hooks[] = {
 
 	LSM_HOOK_INIT(file_open, selinux_file_open),
 	LSM_HOOK_INIT(file_close, selinux_file_close),
-	LSM_HOOK_INIT(allow_merge_bio, selinux_allow_merge_bio),
 
 	LSM_HOOK_INIT(task_create, selinux_task_create),
 	LSM_HOOK_INIT(cred_alloc_blank, selinux_cred_alloc_blank),

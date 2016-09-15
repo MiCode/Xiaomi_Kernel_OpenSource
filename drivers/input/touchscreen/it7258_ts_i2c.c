@@ -1383,7 +1383,7 @@ static int it7260_ts_chip_identify(struct it7260_ts_data *ts_data)
 static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
 {
 	return (regulator_count_voltages(reg) > 0) ?
-		regulator_set_optimum_mode(reg, load_uA) : 0;
+		regulator_set_load(reg, load_uA) : 0;
 }
 
 static int it7260_regulator_configure(struct it7260_ts_data *ts_data, bool on)
@@ -1950,7 +1950,7 @@ static int it7260_ts_probe(struct i2c_client *client,
 		dev_err(&client->dev, "Unable to register fb_notifier %d\n",
 					ret);
 #endif
-	
+
 	it7260_i2c_write_no_ready_check(ts_data, BUF_COMMAND, cmd_start,
 							sizeof(cmd_start));
 	msleep(pdata->reset_delay);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,7 +55,8 @@ static inline int pft_get_key_index(struct bio *bio, u32 *key_index,
 				    bool *is_encrypted, bool *is_inplace)
 { return -ENODEV; }
 
-static inline bool pft_allow_merge_bio(struct bio *bio1, struct bio *bio2)
+static inline bool pft_allow_merge_bio(const struct bio *bio1,
+	const struct bio *bio2)
 { return true; }
 
 static inline int pft_file_permission(struct file *file, int mask)

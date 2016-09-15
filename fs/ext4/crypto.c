@@ -458,7 +458,8 @@ errout:
 
 bool ext4_valid_contents_enc_mode(uint32_t mode)
 {
-	return (mode == EXT4_ENCRYPTION_MODE_AES_256_XTS);
+	return (mode == EXT4_ENCRYPTION_MODE_AES_256_XTS ||
+		mode == EXT4_ENCRYPTION_MODE_PRIVATE);
 }
 
 /**

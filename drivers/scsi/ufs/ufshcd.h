@@ -55,6 +55,7 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
+#include <linux/reset.h>
 #include "unipro.h"
 
 #include <asm/irq.h>
@@ -893,6 +894,7 @@ struct ufs_hba {
 
 	struct rw_semaphore clk_scaling_lock;
 
+	struct reset_control *core_reset;
 	/* If set, don't gate device ref_clk during clock gating */
 	bool no_ref_clk_gating;
 

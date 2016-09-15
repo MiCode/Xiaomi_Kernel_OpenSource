@@ -60,6 +60,40 @@
 #define TASHA_IS_2_0(ver) \
 	((ver == TASHA_VERSION_2_0) ? 1 : 0)
 
+/*
+ * As fine version info cannot be retrieved before tavil probe.
+ * Define three coarse versions for possible future use before tavil probe.
+ */
+#define TAVIL_VERSION_1_0             0
+#define TAVIL_VERSION_1_1             1
+#define TAVIL_VERSION_WCD9340_1_0     2
+#define TAVIL_VERSION_WCD9341_1_0     3
+#define TAVIL_VERSION_WCD9340_1_1     4
+#define TAVIL_VERSION_WCD9341_1_1     5
+
+#define TAVIL_IS_1_0(wcd) \
+	((wcd->type == WCD934X) ? \
+	 ((wcd->version == TAVIL_VERSION_1_0 || \
+	   wcd->version == TAVIL_VERSION_WCD9340_1_0 || \
+	   wcd->version == TAVIL_VERSION_WCD9341_1_0) ? 1 : 0) : 0)
+#define TAVIL_IS_1_1(wcd) \
+	((wcd->type == WCD934X) ? \
+	 ((wcd->version == TAVIL_VERSION_1_1 || \
+	   wcd->version == TAVIL_VERSION_WCD9340_1_1 || \
+	   wcd->version == TAVIL_VERSION_WCD9341_1_1) ? 1 : 0) : 0)
+#define TAVIL_IS_WCD9340_1_0(wcd) \
+	((wcd->type == WCD934X) ? \
+	 ((wcd->version == TAVIL_VERSION_WCD9340_1_0) ? 1 : 0) : 0)
+#define TAVIL_IS_WCD9341_1_0(wcd) \
+	((wcd->type == WCD934X) ? \
+	 ((wcd->version == TAVIL_VERSION_WCD9341_1_0) ? 1 : 0) : 0)
+#define TAVIL_IS_WCD9340_1_1(wcd) \
+	((wcd->type == WCD934X) ? \
+	 ((wcd->version == TAVIL_VERSION_WCD9340_1_1) ? 1 : 0) : 0)
+#define TAVIL_IS_WCD9341_1_1(wcd) \
+	((wcd->type == WCD934X) ? \
+	 ((wcd->version == TAVIL_VERSION_WCD9341_1_1) ? 1 : 0) : 0)
+
 #define IS_CODEC_TYPE(wcd, wcdtype) \
 	((wcd->type == wcdtype) ? true : false)
 #define IS_CODEC_VERSION(wcd, wcdversion) \

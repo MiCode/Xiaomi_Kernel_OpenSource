@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -746,7 +746,7 @@ EXPORT_SYMBOL(pft_get_key_index);
  * Return: true if the BIOs allowed to be merged, false
  * otherwise.
  */
-bool pft_allow_merge_bio(struct bio *bio1, struct bio *bio2)
+bool pft_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 {
 	u32 key_index1 = 0, key_index2 = 0;
 	bool is_encrypted1 = false, is_encrypted2 = false;
