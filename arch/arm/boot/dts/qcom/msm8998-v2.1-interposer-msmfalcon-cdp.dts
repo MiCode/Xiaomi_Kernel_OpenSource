@@ -16,6 +16,7 @@
 #include "msm8998-v2.1-interposer-msmfalcon.dtsi"
 #include "msm8998-interposer-msmfalcon-cdp.dtsi"
 #include "msm8998-interposer-pmfalcon.dtsi"
+#include "msm8998-interposer-msmfalcon-audio.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8998 v2.1 MSM FALCON Interposer CDP";
