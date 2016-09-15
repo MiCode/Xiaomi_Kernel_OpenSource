@@ -516,7 +516,7 @@ struct ipa_gsi_ep_mem_info {
 
 struct ipa3_status_stats {
 	struct ipahal_pkt_status status[IPA_MAX_STATUS_STAT_NUM];
-	int curr;
+	unsigned int curr;
 };
 
 /**
