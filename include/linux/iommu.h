@@ -171,6 +171,7 @@ struct iommu_dm_region {
  * @domain_get_windows: Return the number of windows for a domain
  * @of_xlate: add OF master IDs to iommu grouping
  * @pgsize_bitmap: bitmap of all possible supported page sizes
+ * @trigger_fault: trigger a fault on the device attached to an iommu domain
  */
 struct iommu_ops {
 	bool (*capable)(enum iommu_cap);
@@ -212,6 +213,7 @@ struct iommu_ops {
 	int (*domain_set_windows)(struct iommu_domain *domain, u32 w_count);
 	/* Get the number of windows per domain */
 	u32 (*domain_get_windows)(struct iommu_domain *domain);
+	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
 
 	int (*of_xlate)(struct device *dev, struct of_phandle_args *args);
 
@@ -346,6 +348,9 @@ static inline size_t iommu_map_sg(struct iommu_domain *domain,
 {
 	return domain->ops->map_sg(domain, iova, sg, nents, prot);
 }
+
+extern void iommu_trigger_fault(struct iommu_domain *domain,
+				unsigned long flags);
 
 /* PCI device grouping function */
 extern struct iommu_group *pci_device_group(struct device *dev);
@@ -565,6 +570,11 @@ static inline int iommu_device_link(struct device *dev, struct device *link)
 }
 
 static inline void iommu_device_unlink(struct device *dev, struct device *link)
+{
+}
+
+static inline void iommu_trigger_fault(struct iommu_domain *domain,
+				       unsigned long flags)
 {
 }
 
