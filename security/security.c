@@ -857,11 +857,6 @@ int security_file_close(struct file *file)
 	return call_int_hook(file_close, 0, file);
 }
 
-bool security_allow_merge_bio(struct bio *bio1, struct bio *bio2)
-{
-	return call_int_hook(allow_merge_bio, 1, bio1, bio2);
-}
-
 int security_task_create(unsigned long clone_flags)
 {
 	return call_int_hook(task_create, 0, clone_flags);
@@ -1693,7 +1688,6 @@ struct security_hook_heads security_hook_heads = {
 	.file_receive =	LIST_HEAD_INIT(security_hook_heads.file_receive),
 	.file_open =	LIST_HEAD_INIT(security_hook_heads.file_open),
 	.file_close = LIST_HEAD_INIT(security_hook_heads.file_close),
-	.allow_merge_bio = LIST_HEAD_INIT(security_hook_heads.allow_merge_bio),
 	.task_create =	LIST_HEAD_INIT(security_hook_heads.task_create),
 	.task_free =	LIST_HEAD_INIT(security_hook_heads.task_free),
 	.cred_alloc_blank =

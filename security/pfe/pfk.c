@@ -14,24 +14,27 @@
 /*
  * Per-File-Key (PFK).
  *
- * This driver is used for storing eCryptfs information (mainly file
- * encryption key) in file node as part of eCryptfs hardware enhanced solution
- * provided by Qualcomm Technologies, Inc.
+ * This driver is responsible for overall management of various
+ * Per File Encryption variants that work on top of or as part of different
+ * file systems.
  *
- * The information is stored in node when file is first opened (eCryptfs
- * will fire a callback notifying PFK about this event) and will be later
- * accessed by Block Device Driver to actually load the key to encryption hw.
+ * The driver has the following purpose :
+ * 1) Define priorities between PFE's if more than one is enabled
+ * 2) Extract key information from inode
+ * 3) Load and manage various keys in ICE HW engine
+ * 4) It should be invoked from various layers in FS/BLOCK/STORAGE DRIVER
+ *    that need to take decision on HW encryption management of the data
+ *    Some examples:
+ *	BLOCK LAYER: when it takes decision on whether 2 chunks can be united
+ *	to one encryption / decryption request sent to the HW
  *
- * PFK exposes API's for loading and removing keys from encryption hw
- * and also API to determine whether 2 adjacent blocks can be agregated by
- * Block Layer in one request to encryption hw.
- * PFK is only supposed to be used by eCryptfs, except the below.
+ *	UFS DRIVER: when it need to configure ICE HW with a particular key slot
+ *	to be used for encryption / decryption
  *
- * Please note, the only API that uses EXPORT_SYMBOL() is pfk_remove_key,
- * this is intentionally, as it is the only API that is intended to be used
- * by any kernel module, including dynamically loaded ones. All other API's,
- * as mentioned above are only supposed to be used by eCryptfs which is
- * a static module.
+ * PFE variants can differ on particular way of storing the cryptographic info
+ * inside inode, actions to be taken upon file operations, etc., but the common
+ * properties are described above
+ *
  */
 
 
@@ -45,7 +48,6 @@
 #include <linux/printk.h>
 #include <linux/bio.h>
 #include <linux/security.h>
-#include <linux/lsm_hooks.h>
 #include <crypto/ice.h>
 
 #include <linux/pfk.h>
@@ -55,17 +57,99 @@
 #include "objsec.h"
 #include "ecryptfs_kernel.h"
 #include "pfk_ice.h"
+#include "pfk_ext4.h"
+#include "pfk_ecryptfs.h"
+#include "pfk_internal.h"
+#include "ext4.h"
 
-static DEFINE_MUTEX(pfk_lock);
 static bool pfk_ready;
-static int g_events_handle;
 
 
 /* might be replaced by a table when more than one cipher is supported */
-#define PFK_SUPPORTED_CIPHER "aes_xts"
 #define PFK_SUPPORTED_KEY_SIZE 32
 #define PFK_SUPPORTED_SALT_SIZE 32
 
+/* Various PFE types and function tables to support each one of them */
+enum pfe_type {ECRYPTFS_PFE, EXT4_CRYPT_PFE, INVALID_PFE};
+
+typedef int (*pfk_parse_inode_type)(const struct bio *bio,
+	const struct inode *inode,
+	struct pfk_key_info *key_info,
+	enum ice_cryto_algo_mode *algo,
+	bool *is_pfe);
+
+typedef bool (*pfk_allow_merge_bio_type)(const struct bio *bio1,
+	const struct bio *bio2, const struct inode *inode1,
+	const struct inode *inode2);
+
+static const pfk_parse_inode_type pfk_parse_inode_ftable[] = {
+	/* ECRYPTFS_PFE */   &pfk_ecryptfs_parse_inode,
+	/* EXT4_CRYPT_PFE */ &pfk_ext4_parse_inode,
+};
+
+static const pfk_allow_merge_bio_type pfk_allow_merge_bio_ftable[] = {
+	/* ECRYPTFS_PFE */   &pfk_ecryptfs_allow_merge_bio,
+	/* EXT4_CRYPT_PFE */ &pfk_ext4_allow_merge_bio,
+};
+
+static void __exit pfk_exit(void)
+{
+	pfk_ready = false;
+	pfk_ext4_deinit();
+	pfk_ecryptfs_deinit();
+	pfk_kc_deinit();
+}
+
+static int __init pfk_init(void)
+{
+
+	int ret = 0;
+
+	ret = pfk_ecryptfs_init();
+	if (ret != 0)
+		goto fail;
+
+	ret = pfk_ext4_init();
+	if (ret != 0) {
+		pfk_ecryptfs_deinit();
+		goto fail;
+	}
+
+	ret = pfk_kc_init();
+	if (ret != 0) {
+		pr_err("could init pfk key cache, error %d\n", ret);
+		pfk_ext4_deinit();
+		pfk_ecryptfs_deinit();
+		goto fail;
+	}
+
+	pfk_ready = true;
+	pr_info("Driver initialized successfully\n");
+
+	return 0;
+
+fail:
+	pr_err("Failed to init driver\n");
+	return -ENODEV;
+}
+
+/*
+ * If more than one type is supported simultaneously, this function will also
+ * set the priority between them
+ */
+static enum pfe_type pfk_get_pfe_type(const struct inode *inode)
+{
+	if (!inode)
+		return INVALID_PFE;
+
+	if (pfk_is_ecryptfs_type(inode))
+		return ECRYPTFS_PFE;
+
+	if (pfk_is_ext4_type(inode))
+		return EXT4_CRYPT_PFE;
+
+	return INVALID_PFE;
+}
 
 /**
  * inode_to_filename() - get the filename from inode pointer.
@@ -75,7 +159,7 @@ static int g_events_handle;
  *
  * Return: filename string or "unknown".
  */
-static char *inode_to_filename(struct inode *inode)
+char *inode_to_filename(const struct inode *inode)
 {
 	struct dentry *dentry = NULL;
 	char *filename = NULL;
@@ -89,55 +173,6 @@ static char *inode_to_filename(struct inode *inode)
 	return filename;
 }
 
-static int pfk_inode_alloc_security(struct inode *inode)
-{
-	struct inode_security_struct *i_sec = NULL;
-
-	if (inode == NULL)
-		return -EINVAL;
-
-	i_sec = kzalloc(sizeof(*i_sec), GFP_KERNEL);
-
-	if (i_sec == NULL)
-		return -ENOMEM;
-
-	inode->i_security = i_sec;
-
-	return 0;
-}
-
-static void pfk_inode_free_security(struct inode *inode)
-{
-	if (inode == NULL)
-		return;
-
-	kzfree(inode->i_security);
-}
-
-static struct security_hook_list pfk_hooks[] = {
-	LSM_HOOK_INIT(inode_alloc_security, pfk_inode_alloc_security),
-	LSM_HOOK_INIT(inode_free_security, pfk_inode_free_security),
-	LSM_HOOK_INIT(allow_merge_bio, pfk_allow_merge_bio),
-};
-
-static int __init pfk_lsm_init(void)
-{
-	/* Check if PFK is the chosen lsm via security_module_enable() */
-	if (security_module_enable("pfk")) {
-		security_add_hooks(pfk_hooks, ARRAY_SIZE(pfk_hooks));
-		pr_debug("pfk is the chosen lsm, registered successfully !\n");
-	} else {
-		pr_debug("pfk is not the chosen lsm.\n");
-		if (!selinux_is_enabled()) {
-			pr_err("se linux is not enabled.\n");
-			return -ENODEV;
-		}
-
-	}
-
-	return 0;
-}
-
 /**
  * pfk_is_ready() - driver is initialized and ready.
  *
@@ -146,37 +181,6 @@ static int __init pfk_lsm_init(void)
 static inline bool pfk_is_ready(void)
 {
 	return pfk_ready;
-}
-
-/**
- * pfk_get_page_index() - get the inode from a bio.
- * @bio: Pointer to BIO structure.
- *
- * Walk the bio struct links to get the inode.
- * Please note, that in general bio may consist of several pages from
- * several files, but in our case we always assume that all pages come
- * from the same file, since our logic ensures it. That is why we only
- * walk through the first page to look for inode.
- *
- * Return: pointer to the inode struct if successful, or NULL otherwise.
- *
- */
-static int pfk_get_page_index(const struct bio *bio, pgoff_t *page_index)
-{
-	if (!bio || !page_index)
-		return -EINVAL;
-
-	if (!bio_has_data((struct bio *)bio))
-		return -EINVAL;
-
-	if (!bio->bi_io_vec)
-		return -EINVAL;
-	if (!bio->bi_io_vec->bv_page)
-		return -EINVAL;
-
-	*page_index = bio->bi_io_vec->bv_page->index;
-
-	return 0;
 }
 
 /**
@@ -196,10 +200,8 @@ static struct inode *pfk_bio_get_inode(const struct bio *bio)
 {
 	if (!bio)
 		return NULL;
-
 	if (!bio_has_data((struct bio *)bio))
 		return NULL;
-
 	if (!bio->bi_io_vec)
 		return NULL;
 	if (!bio->bi_io_vec->bv_page)
@@ -225,96 +227,13 @@ static struct inode *pfk_bio_get_inode(const struct bio *bio)
 }
 
 /**
- * pfk_get_ecryptfs_data() - retrieves ecryptfs data stored inside node
- * @inode: inode
- *
- * Return the data or NULL if there isn't any or in case of error
- * Should be invoked under lock
- */
-static void *pfk_get_ecryptfs_data(const struct inode *inode)
-{
-	struct inode_security_struct *isec = NULL;
-
-	if (!inode)
-		return NULL;
-
-	isec = inode->i_security;
-
-	if (!isec) {
-		pr_debug("i_security is NULL, could be irrelevant file\n");
-		return NULL;
-	}
-
-	return isec->pfk_data;
-}
-
-/**
- * pfk_set_ecryptfs_data() - stores ecryptfs data inside node
- * @inode: inode to update
- * @data: data to put inside the node
- *
- * Returns 0 in case of success, error otherwise
- * Should be invoked under lock
- */
-static int pfk_set_ecryptfs_data(struct inode *inode, void *ecryptfs_data)
-{
-	struct inode_security_struct *isec = NULL;
-
-	if (!inode)
-		return -EINVAL;
-
-	isec = inode->i_security;
-
-	if (!isec) {
-		pr_err("i_security is NULL, not ready yet\n");
-		return -EINVAL;
-	}
-
-	isec->pfk_data = ecryptfs_data;
-
-	return 0;
-}
-
-
-/**
- * pfk_parse_cipher() - parse cipher from ecryptfs to enum
- * @ecryptfs_data: ecrypfs data
- * @algo: pointer to store the output enum (can be null)
- *
- * return 0 in case of success, error otherwise (i.e not supported cipher)
- */
-static int pfk_parse_cipher(const void *ecryptfs_data,
-	enum ice_cryto_algo_mode *algo)
-{
-	/*
-	 * currently only AES XTS algo is supported
-	 * in the future, table with supported ciphers might
-	 * be introduced
-	 */
-
-	if (!ecryptfs_data)
-		return -EINVAL;
-
-	if (!ecryptfs_cipher_match(ecryptfs_data,
-			PFK_SUPPORTED_CIPHER, sizeof(PFK_SUPPORTED_CIPHER))) {
-		pr_debug("ecryptfs alghoritm is not supported by pfk\n");
-		return -EINVAL;
-	}
-
-	if (algo)
-		*algo = ICE_CRYPTO_ALGO_MODE_AES_XTS;
-
-	return 0;
-}
-
-/**
  * pfk_key_size_to_key_type() - translate key size to key size enum
  * @key_size: key size in bytes
  * @key_size_type: pointer to store the output enum (can be null)
  *
  * return 0 in case of success, error otherwise (i.e not supported key size)
  */
-static int pfk_key_size_to_key_type(size_t key_size,
+int pfk_key_size_to_key_type(size_t key_size,
 	enum ice_crpto_key_size *key_size_type)
 {
 	/*
@@ -334,100 +253,38 @@ static int pfk_key_size_to_key_type(size_t key_size,
 	return 0;
 }
 
-static int pfk_bio_to_key(const struct bio *bio, unsigned char const **key,
-		size_t *key_size, unsigned char const **salt, size_t *salt_size,
-		bool *is_pfe, bool start)
+/*
+ * Retrieves filesystem type from inode's superblock
+ */
+bool pfe_is_inode_filesystem_type(const struct inode *inode,
+	const char *fs_type)
 {
-	struct inode *inode = NULL;
-	int ret = 0;
-	void *ecryptfs_data = NULL;
-	pgoff_t offset;
-	bool is_metadata = false;
+	if (!inode || !fs_type)
+		return false;
 
-	/*
-	 * only a few errors below can indicate that
-	 * this function was not invoked within PFE context,
-	 * otherwise we will consider it PFE
-	 */
-	*is_pfe = true;
+	if (!inode->i_sb)
+		return false;
 
+	if (!inode->i_sb->s_type)
+		return false;
 
-	if (!bio)
-		return -EINVAL;
-
-	if (!key || !salt || !key_size || !salt_size)
-		return -EINVAL;
-
-	inode = pfk_bio_get_inode(bio);
-	if (!inode) {
-		*is_pfe = false;
-		return -EINVAL;
-	}
-
-	ecryptfs_data = pfk_get_ecryptfs_data(inode);
-	if (!ecryptfs_data) {
-		*is_pfe = false;
-		return -EPERM;
-	}
-
-	pr_debug("loading key for file %s, start %d\n",
-			inode_to_filename(inode), start);
-
-	ret = pfk_get_page_index(bio, &offset);
-	if (ret != 0) {
-		pr_err("could not get page index from bio, probably bug %d\n",
-				ret);
-		return -EINVAL;
-	}
-
-	is_metadata = ecryptfs_is_page_in_metadata(ecryptfs_data, offset);
-	if (is_metadata == true) {
-		pr_debug("ecryptfs metadata, bypassing ICE\n");
-		*is_pfe = false;
-		return -EPERM;
-	}
-
-	*key = ecryptfs_get_key(ecryptfs_data);
-	if (!key) {
-		pr_err("could not parse key from ecryptfs\n");
-		return -EINVAL;
-	}
-
-	*key_size = ecryptfs_get_key_size(ecryptfs_data);
-	if (!(*key_size)) {
-		pr_err("could not parse key size from ecryptfs\n");
-		return -EINVAL;
-	}
-
-	*salt = ecryptfs_get_salt(ecryptfs_data);
-	if (!salt) {
-		pr_err("could not parse salt from ecryptfs\n");
-		return -EINVAL;
-	}
-
-	*salt_size = ecryptfs_get_salt_size(ecryptfs_data);
-	if (!(*salt_size)) {
-		pr_err("could not parse salt size from ecryptfs\n");
-		return -EINVAL;
-	}
-
-	return 0;
+	return (strcmp(inode->i_sb->s_type->name, fs_type) == 0);
 }
+
 
 /**
  * pfk_load_key_start() - loads PFE encryption key to the ICE
- *						  Can also be invoked from non
- *						  PFE context, than it is not
- *						  relevant and is_pfe flag is
- *						  set to true
+ *			  Can also be invoked from non
+ *			  PFE context, in this case it
+ *			  is not relevant and is_pfe
+ *			  flag is set to false
+ *
  * @bio: Pointer to the BIO structure
  * @ice_setting: Pointer to ice setting structure that will be filled with
  * ice configuration values, including the index to which the key was loaded
- * @is_pfe: Pointer to is_pfe flag, which will be true if function was invoked
- *			from PFE context
+ *  @is_pfe: will be false if inode is not relevant to PFE, in such a case
+ * it should be treated as non PFE by the block layer
  *
- * Via bio gets access to ecryptfs key stored in auxiliary structure inside
- * inode and loads it to encryption hw.
  * Returns the index where the key is stored in encryption hw and additional
  * information that will be used later for configuration of the encryption hw.
  *
@@ -439,15 +296,12 @@ int pfk_load_key_start(const struct bio *bio,
 		bool async)
 {
 	int ret = 0;
-	const unsigned char *key = NULL;
-	const unsigned char *salt = NULL;
-	size_t key_size = 0;
-	size_t salt_size = 0;
-	enum ice_cryto_algo_mode algo_mode = 0;
+	struct pfk_key_info key_info = {0};
+	enum ice_cryto_algo_mode algo_mode = ICE_CRYPTO_ALGO_MODE_AES_XTS;
 	enum ice_crpto_key_size key_size_type = 0;
-	void *ecryptfs_data = NULL;
 	u32 key_index = 0;
 	struct inode *inode = NULL;
+	enum pfe_type which_pfe = INVALID_PFE;
 
 	if (!is_pfe) {
 		pr_err("is_pfe is NULL\n");
@@ -469,35 +323,32 @@ int pfk_load_key_start(const struct bio *bio,
 		return -EINVAL;
 	}
 
-	ret = pfk_bio_to_key(bio, &key, &key_size, &salt, &salt_size, is_pfe,
-			true);
-	if (ret != 0)
-		return ret;
-
 	inode = pfk_bio_get_inode(bio);
 	if (!inode) {
 		*is_pfe = false;
 		return -EINVAL;
 	}
 
-	ecryptfs_data = pfk_get_ecryptfs_data(inode);
-	if (!ecryptfs_data) {
+	which_pfe = pfk_get_pfe_type(inode);
+	if (which_pfe == INVALID_PFE) {
 		*is_pfe = false;
 		return -EPERM;
 	}
 
-	ret = pfk_parse_cipher(ecryptfs_data, &algo_mode);
-	if (ret != 0) {
-		pr_err("not supported cipher\n");
-		return ret;
-	}
+	pr_debug("parsing file %s with PFE %d\n",
+		inode_to_filename(inode), which_pfe);
 
-	ret = pfk_key_size_to_key_type(key_size, &key_size_type);
+	ret = (*(pfk_parse_inode_ftable[which_pfe]))
+			(bio, inode, &key_info, &algo_mode, is_pfe);
 	if (ret != 0)
 		return ret;
 
-	ret = pfk_kc_load_key_start(key, key_size, salt, salt_size, &key_index,
-			async);
+	ret = pfk_key_size_to_key_type(key_info.key_size, &key_size_type);
+	if (ret != 0)
+		return ret;
+
+	ret = pfk_kc_load_key_start(key_info.key, key_info.key_size,
+			key_info.salt, key_info.salt_size, &key_index, async);
 	if (ret) {
 		if (ret != -EBUSY && ret != -EAGAIN)
 			pr_err("start: could not load key into pfk key cache, error %d\n",
@@ -512,30 +363,29 @@ int pfk_load_key_start(const struct bio *bio,
 	ice_setting->key_mode = ICE_CRYPTO_USE_LUT_SW_KEY;
 	ice_setting->key_index = key_index;
 
+	pr_debug("loaded key for file %s key_index %d\n",
+		inode_to_filename(inode), key_index);
+
 	return 0;
 }
 
 /**
  * pfk_load_key_end() - marks the PFE key as no longer used by ICE
- *						Can also be invoked from non
- *						PFE context, than it is not
- *						relevant and is_pfe flag is
- *						set to true
+ *			Can also be invoked from non
+ *			PFE context, in this case it is not
+ *			relevant and is_pfe flag is
+ *			set to false
+ *
  * @bio: Pointer to the BIO structure
  * @is_pfe: Pointer to is_pfe flag, which will be true if function was invoked
  *			from PFE context
- *
- * Via bio gets access to ecryptfs key stored in auxiliary structure inside
- * inode and loads it to encryption hw.
- *
  */
 int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
 {
 	int ret = 0;
-	const unsigned char *key = NULL;
-	const unsigned char *salt = NULL;
-	size_t key_size = 0;
-	size_t salt_size = 0;
+	struct pfk_key_info key_info = {0};
+	enum pfe_type which_pfe = INVALID_PFE;
+	struct inode *inode = NULL;
 
 	if (!is_pfe) {
 		pr_err("is_pfe is NULL\n");
@@ -551,42 +401,31 @@ int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
 	if (!pfk_is_ready())
 		return -ENODEV;
 
-	ret = pfk_bio_to_key(bio, &key, &key_size, &salt, &salt_size, is_pfe,
-		false);
+	inode = pfk_bio_get_inode(bio);
+	if (!inode) {
+		*is_pfe = false;
+		return -EINVAL;
+	}
+
+	which_pfe = pfk_get_pfe_type(inode);
+	if (which_pfe == INVALID_PFE) {
+		*is_pfe = false;
+		return -EPERM;
+	}
+
+	ret = (*(pfk_parse_inode_ftable[which_pfe]))
+			(bio, inode, &key_info, NULL, is_pfe);
 	if (ret != 0)
 		return ret;
 
-	pfk_kc_load_key_end(key, key_size, salt, salt_size);
+	pfk_kc_load_key_end(key_info.key, key_info.key_size,
+		key_info.salt, key_info.salt_size);
+
+	pr_debug("finished using key for file %s\n",
+		inode_to_filename(inode));
 
 	return 0;
 }
-
-/**
- * pfk_remove_key() - removes key from hw
- * @key: pointer to the key
- * @key_size: key size
- *
- * Will be used by external clients to remove a particular key for security
- * reasons.
- * The only API that can be used by dynamically loaded modules,
- * see explanations above at the beginning of this file.
- * The key is removed securely (by memsetting the previous value)
- */
-int pfk_remove_key(const unsigned char *key, size_t key_size)
-{
-	int ret = 0;
-
-	if (!pfk_is_ready())
-		return -ENODEV;
-
-	if (!key)
-		return -EINVAL;
-
-	ret = pfk_kc_remove_key(key, key_size);
-
-	return ret;
-}
-EXPORT_SYMBOL(pfk_remove_key);
 
 /**
  * pfk_allow_merge_bio() - Check if 2 BIOs can be merged.
@@ -603,252 +442,39 @@ EXPORT_SYMBOL(pfk_remove_key);
  * Return: true if the BIOs allowed to be merged, false
  * otherwise.
  */
-bool pfk_allow_merge_bio(struct bio *bio1, struct bio *bio2)
+bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 {
-	int ret;
-	void *ecryptfs_data1 = NULL;
-	void *ecryptfs_data2 = NULL;
-	pgoff_t offset1, offset2;
-	bool res = false;
+	struct inode *inode1 = NULL;
+	struct inode *inode2 = NULL;
+	enum pfe_type which_pfe1 = INVALID_PFE;
+	enum pfe_type which_pfe2 = INVALID_PFE;
 
-	/* if there is no pfk, don't disallow merging blocks */
 	if (!pfk_is_ready())
-		return true;
+		return false;
 
 	if (!bio1 || !bio2)
 		return false;
 
-	ecryptfs_data1 = pfk_get_ecryptfs_data(pfk_bio_get_inode(bio1));
-	ecryptfs_data2 = pfk_get_ecryptfs_data(pfk_bio_get_inode(bio2));
+	if (bio1 == bio2)
+		return true;
 
-	/*
-	 * if we have 2 different encrypted files or 1 encrypted and 1 regular,
-	 * merge is forbidden
-	 */
-	if (!ecryptfs_is_data_equal(ecryptfs_data1, ecryptfs_data2)) {
-		res = false;
-		goto end;
-	}
-
-	/*
-	 * if both are equall in their NULLINNESS, we have 2 unencrypted files,
-	 * allow merge
-	 */
-	if (!ecryptfs_data1) {
-		res = true;
-		goto end;
-	}
-
-	/*
-	 *  at this point both bio's are in the same file which is probably
-	 *  encrypted, last thing to check is header vs data
-	 *  We are assuming that we are not working in O_DIRECT mode,
-	 *  since it is not currently supported by eCryptfs
-	 */
-	ret = pfk_get_page_index(bio1, &offset1);
-	if (ret != 0) {
-		pr_err("could not get page index from bio1, probably bug %d\n",
-			 ret);
-		res = false;
-		goto end;
-	}
-
-	ret = pfk_get_page_index(bio2, &offset2);
-	if (ret != 0) {
-		pr_err("could not get page index from bio2, bug %d\n", ret);
-		res = false;
-		goto end;
-	}
-
-	res =  (ecryptfs_is_page_in_metadata(ecryptfs_data1, offset1) ==
-			ecryptfs_is_page_in_metadata(ecryptfs_data2, offset2));
-
-	/* fall through */
-
-end:
-
-	return res;
-}
-
-/**
- * pfk_open_cb() - callback function for file open event
- * @inode: file inode
- * @data: data provided by eCryptfs
- *
- * Will be invoked from eCryptfs in case of file open event
- */
-static void pfk_open_cb(struct inode *inode, void *ecryptfs_data)
-{
-	size_t key_size;
-
-	if (!pfk_is_ready())
-		return;
-
-	if (!inode) {
-		pr_err("inode is null\n");
-		return;
-	}
-
-	key_size = ecryptfs_get_key_size(ecryptfs_data);
-	if (!(key_size)) {
-		pr_err("could not parse key size from ecryptfs\n");
-		return;
-	}
-
-	if (0 != pfk_parse_cipher(ecryptfs_data, NULL)) {
-		pr_debug("open_cb: not supported cipher\n");
-		return;
-	}
+	inode1 = pfk_bio_get_inode(bio1);
+	inode2 = pfk_bio_get_inode(bio2);
 
 
-	if (0 != pfk_key_size_to_key_type(key_size, NULL))
-		return;
+	which_pfe1 = pfk_get_pfe_type(inode1);
+	which_pfe2 = pfk_get_pfe_type(inode2);
 
-	mutex_lock(&pfk_lock);
-	pfk_set_ecryptfs_data(inode, ecryptfs_data);
-	mutex_unlock(&pfk_lock);
-}
-
-/**
- * pfk_release_cb() - callback function for file release event
- * @inode: file inode
- *
- * Will be invoked from eCryptfs in case of file release event
- */
-static void pfk_release_cb(struct inode *inode)
-{
-	const unsigned char *key = NULL;
-	const unsigned char *salt = NULL;
-	size_t key_size = 0;
-	size_t salt_size = 0;
-	void *data = NULL;
-
-	if (!pfk_is_ready())
-		return;
-
-	if (!inode) {
-		pr_err("inode is null\n");
-		return;
-	}
-
-	data = pfk_get_ecryptfs_data(inode);
-	if (!data) {
-		pr_debug("could not get ecryptfs data from inode\n");
-		return;
-	}
-
-	key = ecryptfs_get_key(data);
-	if (!key) {
-		pr_err("could not parse key from ecryptfs\n");
-		return;
-	}
-
-	key_size = ecryptfs_get_key_size(data);
-	if (!(key_size)) {
-		pr_err("could not parse key size from ecryptfs\n");
-		return;
-	}
-
-	salt = ecryptfs_get_salt(data);
-	if (!salt) {
-		pr_err("could not parse salt from ecryptfs\n");
-		return;
-	}
-
-	salt_size = ecryptfs_get_salt_size(data);
-	if (!salt_size) {
-		pr_err("could not parse salt size from ecryptfs\n");
-		return;
-	}
-
-	pfk_kc_remove_key_with_salt(key, key_size, salt, salt_size);
-
-
-	mutex_lock(&pfk_lock);
-	pfk_set_ecryptfs_data(inode, NULL);
-	mutex_unlock(&pfk_lock);
-}
-
-static bool pfk_is_cipher_supported_cb(const void *ecryptfs_data)
-{
-	if (!pfk_is_ready())
+	/* nodes with different encryption, do not merge */
+	if (which_pfe1 != which_pfe2)
 		return false;
 
-	if (!ecryptfs_data)
-		return false;
+	/* both nodes do not have encryption, allow merge */
+	if (which_pfe1 == INVALID_PFE)
+		return true;
 
-	return (pfk_parse_cipher(ecryptfs_data, NULL)) == 0;
-}
-
-static bool pfk_is_hw_crypt_cb(void)
-{
-	if (!pfk_is_ready())
-		return false;
-
-	return true;
-}
-
-static size_t pfk_get_salt_key_size_cb(const void *ecryptfs_data)
-{
-	if (!pfk_is_ready())
-		return 0;
-
-	if (!pfk_is_cipher_supported_cb(ecryptfs_data))
-		return 0;
-
-	return PFK_SUPPORTED_SALT_SIZE;
-}
-
-
-static void __exit pfk_exit(void)
-{
-	pfk_ready = false;
-	ecryptfs_unregister_from_events(g_events_handle);
-	pfk_kc_deinit();
-}
-
-static int __init pfk_init(void)
-{
-
-	int ret = 0;
-	struct ecryptfs_events events = {0};
-
-	events.open_cb = pfk_open_cb;
-	events.release_cb = pfk_release_cb;
-	events.is_cipher_supported_cb = pfk_is_cipher_supported_cb;
-	events.is_hw_crypt_cb = pfk_is_hw_crypt_cb;
-	events.get_salt_key_size_cb = pfk_get_salt_key_size_cb;
-
-	g_events_handle = ecryptfs_register_to_events(&events);
-	if (0 == g_events_handle) {
-		pr_err("could not register with eCryptfs, error %d\n", ret);
-		goto fail;
-	}
-
-	ret = pfk_kc_init();
-	if (ret != 0) {
-		pr_err("could init pfk key cache, error %d\n", ret);
-		ecryptfs_unregister_from_events(g_events_handle);
-		goto fail;
-	}
-
-	ret = pfk_lsm_init();
-	if (ret != 0) {
-		pr_debug("neither pfk nor se-linux sec modules are enabled\n");
-		pr_debug("not an error, just don't enable pfk\n");
-		pfk_kc_deinit();
-		ecryptfs_unregister_from_events(g_events_handle);
-		return 0;
-	}
-
-	pfk_ready = true;
-	pr_info("Driver initialized successfully\n");
-
-	return 0;
-
-fail:
-	pr_err("Failed to init driver\n");
-	return -ENODEV;
+	return (*(pfk_allow_merge_bio_ftable[which_pfe1]))(bio1, bio2,
+		inode1, inode2);
 }
 
 module_init(pfk_init);

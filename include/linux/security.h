@@ -293,7 +293,6 @@ int security_file_send_sigiotask(struct task_struct *tsk,
 int security_file_receive(struct file *file);
 int security_file_open(struct file *file, const struct cred *cred);
 int security_file_close(struct file *file);
-bool security_allow_merge_bio(struct bio *bio1, struct bio *bio2);
 int security_task_create(unsigned long clone_flags);
 void security_task_free(struct task_struct *task);
 int security_cred_alloc_blank(struct cred *cred, gfp_t gfp);
@@ -824,11 +823,6 @@ static inline int security_file_open(struct file *file,
 static inline int security_file_close(struct file *file)
 {
 	return 0;
-}
-
-static inline int security_allow_merge_bio(struct bio *bio1, struct bio *bio2)
-{
-	return true;
 }
 
 static inline int security_task_create(unsigned long clone_flags)

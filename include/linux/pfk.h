@@ -23,7 +23,7 @@ int pfk_load_key_start(const struct bio *bio,
 		struct ice_crypto_setting *ice_setting, bool *is_pfe, bool);
 int pfk_load_key_end(const struct bio *bio, bool *is_pfe);
 int pfk_remove_key(const unsigned char *key, size_t key_size);
-bool pfk_allow_merge_bio(struct bio *bio1, struct bio *bio2);
+bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2);
 
 #else
 static inline int pfk_load_key_start(const struct bio *bio,
@@ -46,10 +46,6 @@ static inline bool pfk_allow_merge_bio(const struct bio *bio1,
 		const struct bio *bio2)
 {
 	return true;
-}
-
-static inline void pfk_remove_all_keys(void)
-{
 }
 
 #endif /* CONFIG_PFK */

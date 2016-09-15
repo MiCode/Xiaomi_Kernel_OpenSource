@@ -1443,7 +1443,6 @@ union security_list_options {
 	int (*file_receive)(struct file *file);
 	int (*file_open)(struct file *file, const struct cred *cred);
 	int (*file_close)(struct file *file);
-	bool (*allow_merge_bio)(struct bio *bio1, struct bio *bio2);
 
 	int (*task_create)(unsigned long clone_flags);
 	void (*task_free)(struct task_struct *task);
@@ -1708,7 +1707,6 @@ struct security_hook_heads {
 	struct list_head file_receive;
 	struct list_head file_open;
 	struct list_head file_close;
-	struct list_head allow_merge_bio;
 	struct list_head task_create;
 	struct list_head task_free;
 	struct list_head cred_alloc_blank;
