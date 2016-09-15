@@ -253,24 +253,10 @@
 
 #define ARM_MMU500_ACR_CACHE_LOCK	(1 << 26)
 
-/* Definitions for implementation-defined registers */
-#define ACTLR_QCOM_OSH_SHIFT		28
-#define ACTLR_QCOM_OSH			1
-
-#define ACTLR_QCOM_ISH_SHIFT		29
-#define ACTLR_QCOM_ISH			1
-
-#define ACTLR_QCOM_NSH_SHIFT		30
-#define ACTLR_QCOM_NSH			1
-
 #define ARM_SMMU_IMPL_DEF0(smmu) \
 	((smmu)->base + (2 * (1 << (smmu)->pgshift)))
 #define ARM_SMMU_IMPL_DEF1(smmu) \
 	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
-#define IMPL_DEF1_MICRO_MMU_CTRL	0
-#define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)
-#define MICRO_MMU_CTRL_IDLE		(1 << 3)
-
 #define CB_PAR_F			(1 << 0)
 
 #define ATSR_ACTIVE			(1 << 0)
@@ -516,16 +502,10 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ 0, NULL},
 };
 
-static int arm_smmu_halt(struct arm_smmu_device *smmu);
-static int arm_smmu_halt_nowait(struct arm_smmu_device *smmu);
-static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu);
-static void arm_smmu_resume(struct arm_smmu_device *smmu);
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 					dma_addr_t iova);
 static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 					      dma_addr_t iova);
-static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
-	struct iommu_domain *domain, dma_addr_t iova);
 static void arm_smmu_destroy_domain_context(struct iommu_domain *domain);
 
 static int arm_smmu_prepare_pgtable(void *addr, void *cookie);
@@ -1231,50 +1211,32 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 					 dma_addr_t iova, u32 fsr)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu;
-	void __iomem *cb_base;
-	u64 sctlr, sctlr_orig;
 	phys_addr_t phys;
+	phys_addr_t phys_post_tlbiall;
 
 	smmu = smmu_domain->smmu;
-	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 
-	arm_smmu_halt_nowait(smmu);
-
-	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
-
-	arm_smmu_wait_for_halt(smmu);
-
-	/* clear FSR to allow ATOS to log any faults */
-	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
-
-	/* disable stall mode momentarily */
-	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
-	sctlr = sctlr_orig & ~SCTLR_CFCFG;
-	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
-
-	phys = arm_smmu_iova_to_phys_hard_no_halt(domain, iova);
-
-	if (!phys) {
-		dev_err(smmu->dev,
-			"ATOS failed. Will issue a TLBIALL and try again...\n");
+	if (smmu->arch_ops && smmu->arch_ops->iova_to_phys_fault) {
+		smmu->arch_ops->iova_to_phys_fault(domain, iova, &phys,
+		&phys_post_tlbiall);
+	} else {
+		phys = arm_smmu_iova_to_phys_hard(domain, iova);
 		arm_smmu_tlb_inv_context(smmu_domain);
-		phys = arm_smmu_iova_to_phys_hard_no_halt(domain, iova);
-		if (phys)
-			dev_err(smmu->dev,
-				"ATOS succeeded this time. Maybe we missed a TLB invalidation while messing with page tables earlier??\n");
-		else
-			dev_err(smmu->dev,
-				"ATOS still failed. If the page tables look good (check the software table walk) then hardware might be misbehaving.\n");
+		phys_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova);
 	}
 
-	/* restore SCTLR */
-	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+	if (phys != phys_post_tlbiall) {
+		dev_err(smmu->dev,
+			"ATOS results differed across TLBIALL...\n"
+			"Before: %pa After: %pa\n", &phys, &phys_post_tlbiall);
+	}
+	if (!phys_post_tlbiall) {
+		dev_err(smmu->dev,
+			"ATOS still failed. If the page tables look good (check the software table walk) then hardware might be misbehaving.\n");
+	}
 
-	arm_smmu_resume(smmu);
-
-	return phys;
+	return phys_post_tlbiall;
 }
 
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
@@ -2295,7 +2257,7 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 }
 
 static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
-					      dma_addr_t iova, bool do_halt)
+					      dma_addr_t iova)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
@@ -2303,16 +2265,9 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	struct io_pgtable_ops *ops= smmu_domain->pgtbl_ops;
 	struct device *dev = smmu->dev;
 	void __iomem *cb_base;
-	unsigned long flags;
 	u32 tmp;
 	u64 phys;
 	unsigned long va;
-
-	spin_lock_irqsave(&smmu->atos_lock, flags);
-	if (do_halt && arm_smmu_halt(smmu)) {
-		phys = 0;
-		goto out_unlock;
-	}
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 
@@ -2330,7 +2285,7 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 			"iova to phys timed out on %pad. software table walk result=%pa.\n",
 			&iova, &phys);
 		phys = 0;
-		goto out_resume;
+		return phys;
 	}
 
 	phys = readq_relaxed(cb_base + ARM_SMMU_CB_PAR);
@@ -2341,11 +2296,7 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	} else {
 		phys = (phys & (PHYS_MASK & ~0xfffULL)) | (iova & 0xfff);
 	}
-out_resume:
-	if (do_halt)
-		arm_smmu_resume(smmu);
-out_unlock:
-	spin_unlock_irqrestore(&smmu->atos_lock, flags);
+
 	return phys;
 }
 
@@ -2378,27 +2329,20 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	phys_addr_t ret = 0;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int err;
 
-	err = arm_smmu_power_on(smmu_domain->smmu);
-	if (err)
-		return 0;
+	if (smmu_domain->smmu->arch_ops &&
+	    smmu_domain->smmu->arch_ops->iova_to_phys_hard)
+		return smmu_domain->smmu->arch_ops->iova_to_phys_hard(
+						domain, iova);
 
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
 			smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
-		ret = __arm_smmu_iova_to_phys_hard(domain, iova, true);
+		ret = __arm_smmu_iova_to_phys_hard(domain, iova);
 
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
-	arm_smmu_power_off(smmu_domain->smmu);
 	return ret;
-}
-
-static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
-				struct iommu_domain *domain, dma_addr_t iova)
-{
-	return __arm_smmu_iova_to_phys_hard(domain, iova, false);
 }
 
 static bool arm_smmu_capable(enum iommu_cap cap)
@@ -2876,7 +2820,21 @@ static struct iommu_ops arm_smmu_ops = {
 	.disable_config_clocks	= arm_smmu_disable_config_clocks,
 };
 
-static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu)
+#define IMPL_DEF1_MICRO_MMU_CTRL	0
+#define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)
+#define MICRO_MMU_CTRL_IDLE		(1 << 3)
+
+/* Definitions for implementation-defined registers */
+#define ACTLR_QCOM_OSH_SHIFT		28
+#define ACTLR_QCOM_OSH			1
+
+#define ACTLR_QCOM_ISH_SHIFT		29
+#define ACTLR_QCOM_ISH			1
+
+#define ACTLR_QCOM_NSH_SHIFT		30
+#define ACTLR_QCOM_NSH			1
+
+static int qsmmuv2_wait_for_halt(struct arm_smmu_device *smmu)
 {
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
 	u32 tmp;
@@ -2891,7 +2849,7 @@ static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu)
 	return 0;
 }
 
-static int __arm_smmu_halt(struct arm_smmu_device *smmu, bool wait)
+static int __qsmmuv2_halt(struct arm_smmu_device *smmu, bool wait)
 {
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
 	u32 reg;
@@ -2900,20 +2858,20 @@ static int __arm_smmu_halt(struct arm_smmu_device *smmu, bool wait)
 	reg |= MICRO_MMU_CTRL_LOCAL_HALT_REQ;
 	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 
-	return wait ? arm_smmu_wait_for_halt(smmu) : 0;
+	return wait ? qsmmuv2_wait_for_halt(smmu) : 0;
 }
 
-static int arm_smmu_halt(struct arm_smmu_device *smmu)
+static int qsmmuv2_halt(struct arm_smmu_device *smmu)
 {
-	return __arm_smmu_halt(smmu, true);
+	return __qsmmuv2_halt(smmu, true);
 }
 
-static int arm_smmu_halt_nowait(struct arm_smmu_device *smmu)
+static int qsmmuv2_halt_nowait(struct arm_smmu_device *smmu)
 {
-	return __arm_smmu_halt(smmu, false);
+	return __qsmmuv2_halt(smmu, false);
 }
 
-static void arm_smmu_resume(struct arm_smmu_device *smmu)
+static void qsmmuv2_resume(struct arm_smmu_device *smmu)
 {
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
 	u32 reg;
@@ -2923,17 +2881,117 @@ static void arm_smmu_resume(struct arm_smmu_device *smmu)
 	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 }
 
-static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
+static void qsmmuv2_device_reset(struct arm_smmu_device *smmu)
 {
 	int i;
+	u32 val;
 	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
+	void __iomem *cb_base;
 
-	arm_smmu_halt(smmu);
+	/*
+	 * SCTLR.M must be disabled here per ARM SMMUv2 spec
+	 * to prevent table walks with an inconsistent state.
+	 */
+	for (i = 0; i < smmu->num_context_banks; ++i) {
+		cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, i);
+		val = ACTLR_QCOM_ISH << ACTLR_QCOM_ISH_SHIFT |
+		ACTLR_QCOM_OSH << ACTLR_QCOM_OSH_SHIFT |
+		ACTLR_QCOM_NSH << ACTLR_QCOM_NSH_SHIFT;
+		writel_relaxed(val, cb_base + ARM_SMMU_CB_ACTLR);
+	}
+
+	/* Program implementation defined registers */
+	qsmmuv2_halt(smmu);
 	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
 		writel_relaxed(regs[i].value,
 			ARM_SMMU_GR0(smmu) + regs[i].offset);
-	arm_smmu_resume(smmu);
+	qsmmuv2_resume(smmu);
 }
+
+static phys_addr_t __qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
+					      dma_addr_t iova, bool halt)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	int ret;
+	phys_addr_t phys = 0;
+	unsigned long flags;
+
+	ret = arm_smmu_power_on(smmu_domain->smmu);
+	if (ret)
+		return 0;
+
+	if (halt) {
+		ret = qsmmuv2_halt(smmu);
+		if (ret)
+			goto out_power_off;
+	}
+
+	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+	spin_lock(&smmu->atos_lock);
+	phys = __arm_smmu_iova_to_phys_hard(domain, iova);
+	spin_unlock(&smmu->atos_lock);
+	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+	if (halt)
+		qsmmuv2_resume(smmu);
+
+out_power_off:
+	arm_smmu_power_off(smmu_domain->smmu);
+	return phys;
+}
+
+static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
+					      dma_addr_t iova)
+{
+	return __qsmmuv2_iova_to_phys_hard(domain, iova, true);
+}
+
+static void qsmmuv2_iova_to_phys_fault(
+				struct iommu_domain *domain,
+				dma_addr_t iova, phys_addr_t *phys,
+				phys_addr_t *phys_post_tlbiall)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct arm_smmu_device *smmu;
+	void __iomem *cb_base;
+	u64 sctlr, sctlr_orig;
+	u32 fsr;
+
+	smmu = smmu_domain->smmu;
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+
+	qsmmuv2_halt_nowait(smmu);
+
+	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+
+	qsmmuv2_wait_for_halt(smmu);
+
+	/* clear FSR to allow ATOS to log any faults */
+	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+
+	/* disable stall mode momentarily */
+	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr = sctlr_orig & ~SCTLR_CFCFG;
+	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+
+	*phys = __qsmmuv2_iova_to_phys_hard(domain, iova, false);
+	arm_smmu_tlb_inv_context(smmu_domain);
+	*phys_post_tlbiall = __qsmmuv2_iova_to_phys_hard(domain, iova, false);
+
+	/* restore SCTLR */
+	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+
+	qsmmuv2_resume(smmu);
+}
+
+struct arm_smmu_arch_ops qsmmuv2_arch_ops = {
+	.device_reset = qsmmuv2_device_reset,
+	.iova_to_phys_hard = qsmmuv2_iova_to_phys_hard,
+	.iova_to_phys_fault = qsmmuv2_iova_to_phys_fault,
+};
 
 static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 {
@@ -2969,13 +3027,6 @@ static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 			reg &= ~ARM_MMU500_ACTLR_CPRE;
 			writel_relaxed(reg, cb_base + ARM_SMMU_CB_ACTLR);
 		}
-
-		if (smmu->model == QCOM_SMMUV2) {
-			reg = ACTLR_QCOM_ISH << ACTLR_QCOM_ISH_SHIFT |
-			ACTLR_QCOM_OSH << ACTLR_QCOM_OSH_SHIFT |
-			ACTLR_QCOM_NSH << ACTLR_QCOM_NSH_SHIFT;
-			writel_relaxed(reg, cb_base + ARM_SMMU_CB_ACTLR);
-		}
 	}
 }
 
@@ -3002,9 +3053,6 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 		arm_smmu_context_bank_reset(smmu);
 	}
-
-	/* Program implementation defined registers */
-	arm_smmu_impl_def_programming(smmu);
 
 	/* Invalidate the TLB, just in case */
 	writel_relaxed(0, gr0_base + ARM_SMMU_GR0_TLBIALLH);
@@ -3441,7 +3489,7 @@ ARM_SMMU_MATCH_DATA(smmu_generic_v2, ARM_SMMU_V2, GENERIC_SMMU, NULL);
 ARM_SMMU_MATCH_DATA(arm_mmu401, ARM_SMMU_V1_64K, GENERIC_SMMU, NULL);
 ARM_SMMU_MATCH_DATA(arm_mmu500, ARM_SMMU_V2, ARM_MMU500, NULL);
 ARM_SMMU_MATCH_DATA(cavium_smmuv2, ARM_SMMU_V2, CAVIUM_SMMUV2, NULL);
-ARM_SMMU_MATCH_DATA(qcom_smmuv2, ARM_SMMU_V2, QCOM_SMMUV2, NULL);
+ARM_SMMU_MATCH_DATA(qcom_smmuv2, ARM_SMMU_V2, QCOM_SMMUV2, &qsmmuv2_arch_ops);
 
 static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,smmu-v1", .data = &smmu_generic_v1 },
