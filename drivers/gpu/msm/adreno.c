@@ -2728,6 +2728,14 @@ static void adreno_pwrlevel_change_settings(struct kgsl_device *device,
 					postlevel, post);
 }
 
+static void adreno_clk_set_options(struct kgsl_device *device, const char *name,
+	struct clk *clk)
+{
+	if (ADRENO_GPU_DEVICE(ADRENO_DEVICE(device))->clk_set_options)
+		ADRENO_GPU_DEVICE(ADRENO_DEVICE(device))->clk_set_options(
+			ADRENO_DEVICE(device), name, clk);
+}
+
 static void adreno_iommu_sync(struct kgsl_device *device, bool sync)
 {
 	struct scm_desc desc = {0};
@@ -2827,6 +2835,7 @@ static const struct kgsl_functable adreno_functable = {
 	.regulator_disable = adreno_regulator_disable,
 	.pwrlevel_change_settings = adreno_pwrlevel_change_settings,
 	.regulator_disable_poll = adreno_regulator_disable_poll,
+	.clk_set_options = adreno_clk_set_options
 };
 
 static struct platform_driver adreno_platform_driver = {

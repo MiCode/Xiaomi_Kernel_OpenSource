@@ -165,6 +165,8 @@ struct kgsl_functable {
 	void (*pwrlevel_change_settings)(struct kgsl_device *device,
 		unsigned int prelevel, unsigned int postlevel, bool post);
 	void (*regulator_disable_poll)(struct kgsl_device *device);
+	void (*clk_set_options)(struct kgsl_device *device,
+		const char *name, struct clk *clk);
 };
 
 struct kgsl_ioctl {

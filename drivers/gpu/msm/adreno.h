@@ -766,6 +766,8 @@ struct adreno_gpudev {
 	void (*preemption_schedule)(struct adreno_device *);
 	void (*enable_64bit)(struct adreno_device *);
 	void (*pre_reset)(struct adreno_device *);
+	void (*clk_set_options)(struct adreno_device *,
+				const char *, struct clk *);
 };
 
 /**

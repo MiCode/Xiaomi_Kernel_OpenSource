@@ -1655,6 +1655,10 @@ static int _get_clocks(struct kgsl_device *device)
 
 			if (!strcmp(name, "isense_clk"))
 				pwr->isense_clk_indx = i;
+
+			if (device->ftbl->clk_set_options)
+				device->ftbl->clk_set_options(device, name,
+					pwr->grp_clks[i]);
 			break;
 		}
 	}
