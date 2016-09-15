@@ -34,6 +34,7 @@ config ARM_GIC_V3
 	select MULTI_IRQ_HANDLER
 	select IRQ_DOMAIN_HIERARCHY
 	select PARTITION_PERCPU
+	select QCOM_SHOW_RESUME_IRQ
 
 config ARM_GIC_V3_ITS
 	bool
@@ -108,6 +109,16 @@ config BRCMSTB_L2_IRQ
 	bool
 	select GENERIC_IRQ_CHIP
 	select IRQ_DOMAIN
+
+config QCOM_SHOW_RESUME_IRQ
+	bool "Enable logging of interrupts that could have caused resume"
+	depends on ARM_GIC
+	default n
+	help
+	  This option logs wake up interrupts that have triggered just before
+	  the resume loop unrolls. It helps to debug to know any unnecessary
+	  wake up interrupts that causes system to come out of low power modes.
+	  Say Y if you want to debug why the system resumed.
 
 config DW_APB_ICTL
 	bool
