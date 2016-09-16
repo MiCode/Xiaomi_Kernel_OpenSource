@@ -69,6 +69,12 @@ int32_t msm_camera_cci_i2c_read_seq(struct msm_camera_i2c_client *client,
 		|| num_byte == 0)
 		return rc;
 
+	if (num_byte > I2C_REG_DATA_MAX) {
+			pr_err("%s: Error num_byte:0x%x exceeds 8K max supported:0x%x\n",
+			__func__, num_byte, I2C_REG_DATA_MAX);
+		return rc;
+	}
+
 	buf = kzalloc(num_byte, GFP_KERNEL);
 	if (!buf) {
 		pr_err("%s:%d no memory\n", __func__, __LINE__);
@@ -275,6 +281,12 @@ int32_t msm_camera_cci_i2c_write_seq_table(
 	reg_setting = write_setting->reg_setting;
 	client_addr_type = client->addr_type;
 	client->addr_type = write_setting->addr_type;
+
+	if (reg_setting->reg_data_size > I2C_SEQ_REG_DATA_MAX) {
+		pr_err("%s: number of bytes %u exceeding the max supported %d\n",
+		__func__, reg_setting->reg_data_size, I2C_SEQ_REG_DATA_MAX);
+		return rc;
+	}
 
 	for (i = 0; i < write_setting->size; i++) {
 		rc = msm_camera_cci_i2c_write_seq(client, reg_setting->reg_addr,
