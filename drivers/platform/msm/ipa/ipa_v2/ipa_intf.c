@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -348,6 +348,11 @@ int ipa_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
 	return result;
 }
 
+static void ipa2_send_msg_free(void *buff, u32 len, u32 type)
+{
+	kfree(buff);
+}
+
 /**
  * ipa2_send_msg() - Send "message" from kernel client to IPA driver
  * @meta: [in] message meta-data
@@ -367,6 +372,7 @@ int ipa2_send_msg(struct ipa_msg_meta *meta, void *buff,
 		  ipa_msg_free_fn callback)
 {
 	struct ipa_push_msg *msg;
+	void *data = NULL;
 
 	if (unlikely(!ipa_ctx)) {
 		IPAERR("IPA driver was not initialized\n");
@@ -392,8 +398,17 @@ int ipa2_send_msg(struct ipa_msg_meta *meta, void *buff,
 	}
 
 	msg->meta = *meta;
-	msg->buff = buff;
-	msg->callback = callback;
+	if (meta->msg_len > 0 && buff) {
+		data = kmalloc(meta->msg_len, GFP_KERNEL);
+		if (data == NULL) {
+			IPAERR("fail to alloc data container\n");
+			kfree(msg);
+			return -ENOMEM;
+		}
+		memcpy(data, buff, meta->msg_len);
+		msg->buff = data;
+		msg->callback = ipa2_send_msg_free;
+	}
 
 	mutex_lock(&ipa_ctx->msg_lock);
 	list_add_tail(&msg->link, &ipa_ctx->msg_list);
@@ -401,6 +416,8 @@ int ipa2_send_msg(struct ipa_msg_meta *meta, void *buff,
 	IPA_STATS_INC_CNT(ipa_ctx->stats.msg_w[meta->msg_type]);
 
 	wake_up(&ipa_ctx->msg_waitq);
+	if (buff)
+		callback(buff, meta->msg_len, meta->msg_type);
 
 	return 0;
 }
