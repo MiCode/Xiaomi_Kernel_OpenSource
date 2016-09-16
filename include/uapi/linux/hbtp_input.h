@@ -43,6 +43,17 @@ struct hbtp_input_key {
 	__s32 value;
 };
 
+enum hbtp_afe_signal {
+	HBTP_AFE_SIGNAL_ON_RESUME,
+	HBTP_AFE_SIGNAL_ON_SUSPEND,
+};
+
+enum hbtp_afe_power_ctrl {
+	HBTP_AFE_POWER_ENABLE_SYNC,
+	HBTP_AFE_POWER_ENABLE_SYNC_SIGNAL,
+};
+
+
 /* ioctl */
 #define HBTP_INPUT_IOCTL_BASE	'T'
 #define HBTP_SET_ABSPARAM	_IOW(HBTP_INPUT_IOCTL_BASE, 201, \
@@ -53,6 +64,10 @@ struct hbtp_input_key {
 					enum hbtp_afe_power_cmd)
 #define HBTP_SET_KEYDATA	_IOW(HBTP_INPUT_IOCTL_BASE, 204, \
 					struct hbtp_input_key)
+#define HBTP_SET_SYNCSIGNAL	_IOW(HBTP_INPUT_IOCTL_BASE, 205, \
+					enum hbtp_afe_signal)
+#define HBTP_SET_POWER_CTRL	_IOW(HBTP_INPUT_IOCTL_BASE, 206, \
+					enum hbtp_afe_power_ctrl)
 
 #endif	/* _UAPI_HBTP_INPUT_H */
 
