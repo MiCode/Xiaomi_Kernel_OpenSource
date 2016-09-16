@@ -356,8 +356,6 @@ static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot)
 			REGDMA_CSR_REGDMA_INVALID_CMD_RAM_OFFSET),
 		SDE_ROTREG_READ(rot->mdss_base,
 			REGDMA_CSR_REGDMA_FSM_STATE));
-
-	SDEROT_EVTLOG_TOUT_HANDLER("rot", "vbif_dbg_bus", "panic");
 }
 
 /**
@@ -1095,6 +1093,9 @@ static u32 sde_hw_rotator_wait_done_regdma(
 	}
 
 	sts = (status & ROT_ERROR_BIT) ? -ENODEV : 0;
+
+	if (status & ROT_ERROR_BIT)
+		SDEROT_EVTLOG_TOUT_HANDLER("rot", "vbif_dbg_bus", "panic");
 
 	return sts;
 }
