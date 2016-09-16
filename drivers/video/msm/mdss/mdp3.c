@@ -449,12 +449,16 @@ static int mdp3_clk_update(u32 clk_idx, u32 enable)
 			mdp3_res->clock_ref_count[clk_idx]--;
 			return ret;
 		}
+		if (clk_idx == MDP3_CLK_MDP_CORE)
+			MDSS_XLOG(enable);
 		ret = clk_enable(clk);
 		if (ret)
 			pr_err("%s: clock enable failed %d\n", __func__,
 					clk_idx);
 	} else if (count == 0) {
 		pr_debug("clk=%d disable\n", clk_idx);
+		if (clk_idx == MDP3_CLK_MDP_CORE)
+			MDSS_XLOG(enable);
 		clk_disable(clk);
 		clk_unprepare(clk);
 		ret = 0;
@@ -2722,6 +2726,7 @@ int mdp3_footswitch_ctrl(int enable)
 	int active_cnt = 0;
 
 	mutex_lock(&mdp3_res->fs_idle_pc_lock);
+	MDSS_XLOG(enable);
 	if (!mdp3_res->fs_ena && enable) {
 		rc = regulator_enable(mdp3_res->fs);
 		if (rc) {
@@ -2960,7 +2965,7 @@ static  int mdp3_resume_sub(void)
 static int mdp3_pm_suspend(struct device *dev)
 {
 	dev_dbg(dev, "Display pm suspend\n");
-
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	return mdp3_suspend_sub();
 }
 
@@ -2977,6 +2982,7 @@ static int mdp3_pm_resume(struct device *dev)
 	pm_runtime_set_suspended(dev);
 	pm_runtime_enable(dev);
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	return mdp3_resume_sub();
 }
 #endif
@@ -2986,6 +2992,7 @@ static int mdp3_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	pr_debug("Display suspend\n");
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	return mdp3_suspend_sub();
 }
 
@@ -2993,6 +3000,7 @@ static int mdp3_resume(struct platform_device *pdev)
 {
 	pr_debug("Display resume\n");
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	return mdp3_resume_sub();
 }
 #else
@@ -3013,6 +3021,7 @@ static int mdp3_runtime_resume(struct device *dev)
 	if (!mdp3_res->idle_pc)
 		device_for_each_child(dev, &device_on, mdss_fb_suspres_panel);
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	mdp3_footswitch_ctrl(1);
 
 	return 0;
@@ -3037,6 +3046,7 @@ static int mdp3_runtime_suspend(struct device *dev)
 		return -EBUSY;
 	}
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	mdp3_footswitch_ctrl(0);
 
 	/* do not suspend panels when going in to idle power collapse */

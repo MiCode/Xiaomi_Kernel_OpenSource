@@ -2,7 +2,7 @@
  * Core MDSS framebuffer driver.
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -2834,7 +2834,8 @@ static int __mdss_fb_wait_for_fence_sub(struct msm_sync_pt_data *sync_pt_data,
 					fences[i]->name);
 			pr_cont("Waiting %ld.%ld more seconds\n",
 				(wait_ms/MSEC_PER_SEC), (wait_ms%MSEC_PER_SEC));
-
+			MDSS_XLOG(sync_pt_data->timeline_value);
+			MDSS_XLOG_TOUT_HANDLER("mdp");
 			ret = sync_fence_wait(fences[i], wait_ms);
 
 			if (ret == -ETIME)
@@ -2880,6 +2881,7 @@ void mdss_fb_signal_timeline(struct msm_sync_pt_data *sync_pt_data)
 	if (atomic_add_unless(&sync_pt_data->commit_cnt, -1, 0) &&
 			sync_pt_data->timeline) {
 		sw_sync_timeline_inc(sync_pt_data->timeline, 1);
+		MDSS_XLOG(sync_pt_data->timeline_value);
 		sync_pt_data->timeline_value++;
 
 		pr_debug("%s: buffer signaled! timeline val=%d remaining=%d\n",
@@ -4144,6 +4146,11 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 	val = sync_pt_data->timeline_value + sync_pt_data->threshold +
 			atomic_read(&sync_pt_data->commit_cnt);
 
+	MDSS_XLOG(sync_pt_data->timeline_value, val,
+		atomic_read(&sync_pt_data->commit_cnt));
+	pr_debug("%s: fence CTL%d Commit_cnt%d\n", sync_pt_data->fence_name,
+		sync_pt_data->timeline_value,
+		atomic_read(&sync_pt_data->commit_cnt));
 	/* Set release fence */
 	rel_fence = mdss_fb_sync_get_fence(sync_pt_data->timeline,
 			sync_pt_data->fence_name, val);
