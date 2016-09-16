@@ -450,24 +450,23 @@ int
 kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc)
 {
+	int ret = 0;
+
 	if (memdesc->size == 0)
 		return -EINVAL;
 
 	if (PT_OP_VALID(pagetable, mmu_unmap)) {
-		int ret;
 		uint64_t size;
 
 		size = kgsl_memdesc_footprint(memdesc);
 
 		ret = pagetable->pt_ops->mmu_unmap(pagetable, memdesc);
-		if (ret)
-			return ret;
 
 		atomic_dec(&pagetable->stats.entries);
 		atomic_long_sub(size, &pagetable->stats.mapped);
 	}
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(kgsl_mmu_unmap);
 
