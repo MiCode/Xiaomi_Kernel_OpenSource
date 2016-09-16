@@ -714,7 +714,6 @@ static void arm64_sbe_handler(struct perf_event *event,
 	errdata.err = SBE;
 	edac_printk(KERN_CRIT, EDAC_CPU, "ARM64 CPU ERP: Single-bit error interrupt received on CPU %d!\n",
 					cpu);
-	WARN_ON(!panic_on_ce);
 	arm64_erp_local_handler(&errdata);
 }
 #endif
