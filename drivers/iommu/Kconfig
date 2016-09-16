@@ -373,6 +373,7 @@ if IOMMU_DEBUG
 
 config IOMMU_DEBUG_TRACKING
 	bool "Track key IOMMU events"
+	depends on BROKEN
 	select IOMMU_API
 	help
 	  Enables additional debug tracking in the IOMMU framework code.
