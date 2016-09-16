@@ -5237,7 +5237,7 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 	size_t txd_len = 0;
 	size_t tx_len = 0;
 	uint32_t num_pkts = 0;
-	int ret;
+	int ret = 0;
 
 	spin_lock_irqsave(&ctx->tx_lists_lock_lhc3, flags);
 	while (txd_len < xprt_ctx->mtu &&
