@@ -2733,6 +2733,7 @@ static void __msm_isp_stop_axi_streams(struct msm_vfe_axi_stream **streams,
 						&timestamp);
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PING_FLAG);
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PONG_FLAG);
+		stream_info->undelivered_request_cnt = 0;
 		for (k = 0; k < stream_info->num_isp; k++) {
 			vfe_dev = stream_info->vfe_dev[k];
 			if (stream_info->num_planes > 1)
