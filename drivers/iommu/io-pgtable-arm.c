@@ -1134,14 +1134,16 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 		ARM_64_LPAE_S2,
 	};
 
-	int i, j;
+	int i, j, k;
 	unsigned long iova;
 	size_t size;
 	struct io_pgtable_ops *ops;
-
 	selftest_running = true;
 
 	for (i = 0; i < ARRAY_SIZE(fmts); ++i) {
+		unsigned long test_sg_sizes[] = { SZ_4K, SZ_64K, SZ_2M,
+						  SZ_1M * 12, SZ_1M * 20 };
+
 		cfg_cookie = cfg;
 		ops = alloc_io_pgtable_ops(fmts[i], cfg, cfg);
 		if (!ops) {
@@ -1220,9 +1222,58 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 			if (ops->iova_to_phys(ops, iova + 42) != (iova + 42))
 				return __FAIL(ops, i);
 
+			if (ops->unmap(ops, iova, size) != size)
+				return __FAIL(ops, i);
+
 			iova += SZ_1G;
 			j++;
 			j = find_next_bit(&cfg->pgsize_bitmap, BITS_PER_LONG, j);
+		}
+
+		/* map_sg */
+		for (j = 0; j < ARRAY_SIZE(test_sg_sizes); ++j) {
+			size_t mapped;
+			size_t unused;
+			struct page *page;
+			phys_addr_t page_phys;
+			struct sg_table table;
+			struct scatterlist *sg;
+			unsigned long total_size = test_sg_sizes[j];
+			int chunk_size = 1UL << find_first_bit(
+				&cfg->pgsize_bitmap, BITS_PER_LONG);
+			int nents = total_size / chunk_size;
+
+			if (total_size < chunk_size)
+				continue;
+
+			page = alloc_pages(GFP_KERNEL, get_order(chunk_size));
+			page_phys = page_to_phys(page);
+
+			iova = 0;
+			BUG_ON(sg_alloc_table(&table, nents, GFP_KERNEL));
+			BUG_ON(!page);
+			for_each_sg(table.sgl, sg, table.nents, k)
+				sg_set_page(sg, page, chunk_size, 0);
+
+			mapped = ops->map_sg(ops, iova, table.sgl, table.nents,
+					     IOMMU_READ | IOMMU_WRITE, &unused);
+
+			if (mapped != total_size)
+				return __FAIL(ops, i);
+
+			for_each_sg(table.sgl, sg, table.nents, k) {
+				dma_addr_t newphys =
+					ops->iova_to_phys(ops, iova + 42);
+				if (newphys != (page_phys + 42))
+					return __FAIL(ops, i);
+				iova += chunk_size;
+			}
+
+			if (ops->unmap(ops, 0, total_size) != total_size)
+				return __FAIL(ops, i);
+
+			sg_free_table(&table);
+			__free_pages(page, get_order(chunk_size));
 		}
 
 		free_io_pgtable_ops(ops);
