@@ -1848,6 +1848,20 @@ static bool wcd934x_is_volatile_register(struct device *dev, unsigned int reg)
 	if (reg_tbl && reg_tbl[reg_offset] == WCD934X_READ)
 		return true;
 
+	/* IIR Coeff registers are not cacheable */
+	if ((reg >= WCD934X_CDC_SIDETONE_IIR0_IIR_COEF_B1_CTL) &&
+	    (reg <= WCD934X_CDC_SIDETONE_IIR1_IIR_COEF_B2_CTL))
+		return true;
+
+	if ((reg >= WCD934X_CDC_ANC0_IIR_COEFF_1_CTL) &&
+	    (reg <= WCD934X_CDC_ANC0_FB_GAIN_CTL))
+		return true;
+
+	if ((reg >= WCD934X_CDC_ANC1_IIR_COEFF_1_CTL) &&
+	    (reg <= WCD934X_CDC_ANC1_FB_GAIN_CTL))
+		return true;
+
+
 	/*
 	 * Need to mark volatile for registers that are writable but
 	 * only few bits are read-only

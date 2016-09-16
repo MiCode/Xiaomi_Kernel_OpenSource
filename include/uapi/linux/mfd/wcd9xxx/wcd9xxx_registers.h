@@ -352,4 +352,10 @@
 #define WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL			(0xB70)
 #define WCD9XXX_CDC_RX2_RX_PATH_SEC1			(0xB72)
 
+/* Class-H registers for codecs from and above WCD934X */
+#define WCD9XXX_HPH_CNP_WG_CTL                          (0x06cc)
+#define WCD9XXX_FLYBACK_VNEG_CTRL_4			(0x06a8)
+#define WCD9XXX_HPH_NEW_INT_PA_MISC2			(0x0738)
+#define WCD9XXX_RX_BIAS_HPH_LOWPOWER			(0x06bf)
+#define WCD9XXX_HPH_PA_CTL1				(0x06d1)
 #endif
