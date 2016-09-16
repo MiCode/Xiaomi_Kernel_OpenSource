@@ -191,27 +191,20 @@ ufs_qcom_phy_init_clks(struct phy *generic_phy,
 		       struct ufs_qcom_phy *phy_common)
 {
 	int err;
-	struct ufs_qcom_phy *phy = get_ufs_qcom_phy(generic_phy);
 
-	err = ufs_qcom_phy_clk_get(generic_phy, "tx_iface_clk",
-				   &phy_common->tx_iface_clk);
 	/*
 	 * tx_iface_clk does not exist in newer version of ufs-phy HW,
 	 * so don't return error if it is not found
 	 */
-	if (err)
-		dev_dbg(phy->dev, "%s: failed to get tx_iface_clk\n",
-			__func__);
+	__ufs_qcom_phy_clk_get(generic_phy, "tx_iface_clk",
+				   &phy_common->tx_iface_clk, false);
 
-	err = ufs_qcom_phy_clk_get(generic_phy, "rx_iface_clk",
-				   &phy_common->rx_iface_clk);
 	/*
 	 * rx_iface_clk does not exist in newer version of ufs-phy HW,
 	 * so don't return error if it is not found
 	 */
-	if (err)
-		dev_dbg(phy->dev, "%s: failed to get rx_iface_clk\n",
-			__func__);
+	__ufs_qcom_phy_clk_get(generic_phy, "rx_iface_clk",
+				   &phy_common->rx_iface_clk, false);
 
 	err = ufs_qcom_phy_clk_get(generic_phy, "ref_clk_src",
 				   &phy_common->ref_clk_src);
