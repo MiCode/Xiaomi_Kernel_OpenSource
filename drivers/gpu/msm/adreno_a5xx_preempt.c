@@ -311,6 +311,8 @@ void a5xx_preempt_callback(struct adreno_device *adreno_dev, int bit)
 		adreno_dev->cur_rb->dispatch_q.expires);
 
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
+
+	a5xx_preemption_trigger(adreno_dev);
 }
 
 void a5xx_preemption_schedule(struct adreno_device *adreno_dev)
