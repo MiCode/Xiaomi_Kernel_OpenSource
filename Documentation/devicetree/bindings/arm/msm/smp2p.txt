@@ -1,0 +1,18 @@
+Qualcomm Technologies, Inc. SMSM Point-to-Point (SMP2P)
+
+Required properties:
+-compatible : should be "qcom,smp2p"
+-reg : the location of the irq register base memory
+-qcom,remote-pid : the SMP2P remote processor ID (see smp2p_private_api.h)
+-qcom,irq-bitmask : the sending irq bitmask
+-interrupts : the receiving interrupt line
+
+Example:
+
+	qcom,smp2p-modem {
+		compatible = "qcom,smp2p";
+		reg = <0xf9011008 0x4>;
+		qcom,remote-pid = <1>;
+		qcom,irq-bitmask = <0x4000>;
+		interrupts = <0 27 1>;
+	};
