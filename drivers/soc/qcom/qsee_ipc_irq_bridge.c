@@ -115,10 +115,8 @@ static struct qiib_driver_data *qiib_info;
 static int qiib_driver_data_init(void)
 {
 	qiib_info = kzalloc(sizeof(*qiib_info), GFP_KERNEL);
-	if (!qiib_info) {
-		QIIB_ERR("Unable to allocate info pointer\n");
+	if (!qiib_info)
 		return -ENOMEM;
-	}
 
 	INIT_LIST_HEAD(&qiib_info->list);
 	mutex_init(&qiib_info->list_lock);
@@ -356,6 +354,7 @@ static int qiib_parse_node(struct device_node *node, struct qiib_dev *devp)
 	const char *dev_name;
 	uint32_t irqtype;
 	uint32_t irq_clear[2];
+	struct irq_data *irqtype_data;
 	int ret = -ENODEV;
 
 	key = "qcom,dev-name";
@@ -374,7 +373,12 @@ static int qiib_parse_node(struct device_node *node, struct qiib_dev *devp)
 	}
 	QIIB_DBG("%s: %s = %d\n", __func__, key, devp->irq_line);
 
-	irqtype = irqd_get_trigger_type(irq_get_irq_data(devp->irq_line));
+	irqtype_data = irq_get_irq_data(devp->irq_line);
+	if (!irqtype_data) {
+		QIIB_ERR("%s: get irqdata fail:%d\n", __func__, devp->irq_line);
+		goto missing_key;
+	}
+	irqtype = irqd_get_trigger_type(irqtype_data);
 	QIIB_DBG("%s: irqtype = %d\n", __func__, irqtype);
 
 	key = "label";
