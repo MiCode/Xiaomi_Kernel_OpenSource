@@ -164,23 +164,21 @@ static void *def_tasha_mbhc_cal(void)
 	return tasha_wcd_cal;
 }
 
-static struct afe_clk_cfg mi2s_rx_clk = {
+static struct afe_clk_set mi2s_tx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_CLK_ID_QUAD_MI2S_IBIT,
 	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
-	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
-	Q6AFE_LPASS_CLK_SRC_INTERNAL,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
-	Q6AFE_LPASS_MODE_CLK1_VALID,
 	0,
 };
 
-static struct afe_clk_cfg mi2s_tx_clk = {
+static struct afe_clk_set mi2s_rx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT,
 	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
-	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
-	Q6AFE_LPASS_CLK_SRC_INTERNAL,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
-	Q6AFE_LPASS_MODE_CLK1_VALID,
 	0,
 };
 
@@ -541,20 +539,88 @@ static int msm_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int ext_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable,
-							u16 port_id)
+static int apq8009_get_port_id(int be_id)
+{
+	switch (be_id) {
+	case MSM_BACKEND_DAI_PRI_MI2S_RX:
+		return AFE_PORT_ID_PRIMARY_MI2S_RX;
+	case MSM_BACKEND_DAI_SECONDARY_MI2S_RX:
+		return AFE_PORT_ID_SECONDARY_MI2S_RX;
+	case MSM_BACKEND_DAI_TERTIARY_MI2S_TX:
+		return AFE_PORT_ID_TERTIARY_MI2S_TX;
+	case MSM_BACKEND_DAI_QUATERNARY_MI2S_RX:
+		return AFE_PORT_ID_QUATERNARY_MI2S_RX;
+	case MSM_BACKEND_DAI_QUATERNARY_MI2S_TX:
+		return AFE_PORT_ID_QUATERNARY_MI2S_TX;
+	case MSM_BACKEND_DAI_QUINARY_MI2S_RX:
+		return AFE_PORT_ID_QUINARY_MI2S_RX;
+	case MSM_BACKEND_DAI_QUINARY_MI2S_TX:
+		return AFE_PORT_ID_QUINARY_MI2S_TX;
+	case MSM_BACKEND_DAI_SENARY_MI2S_TX:
+		return AFE_PORT_ID_SENARY_MI2S_TX;
+	default:
+		pr_err("%s: Invalid be_id: %d\n", __func__, be_id);
+		return -EINVAL;
+	}
+}
+
+static int apq8009_get_clk_id(int port_id)
+{
+	switch (port_id) {
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+		return Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+		return Q6AFE_LPASS_CLK_ID_SEC_MI2S_IBIT;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX:
+		return Q6AFE_LPASS_CLK_ID_TER_MI2S_IBIT;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+		return Q6AFE_LPASS_CLK_ID_QUAD_MI2S_IBIT;
+	case AFE_PORT_ID_QUINARY_MI2S_RX:
+	case AFE_PORT_ID_QUINARY_MI2S_TX:
+		return Q6AFE_LPASS_CLK_ID_QUI_MI2S_IBIT;
+	case AFE_PORT_ID_SENARY_MI2S_TX:
+		return Q6AFE_LPASS_CLK_ID_SEN_MI2S_IBIT;
+	default:
+		pr_err("%s: invalid port_id: 0x%x\n", __func__, port_id);
+		return -EINVAL;
+	}
+}
+
+static uint32_t get_mi2s_rx_clk_val(void)
+{
+	uint32_t clk_val;
+
+	clk_val = pri_rx_sample_rate * bits_per_sample * 2;
+
+	return clk_val;
+}
+
+static int ext_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 {
 	int ret = 0;
-	u32 clk_val;
+	int port_id = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	port_id = apq8009_get_port_id(rtd->dai_link->be_id);
+	if (port_id < 0) {
+		pr_err("%s: Invalid port_id\n", __func__);
+		return -EINVAL;
+	}
 
 	if (enable) {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			clk_val = pri_rx_sample_rate * bits_per_sample * 2;
-			mi2s_rx_clk.clk_val1 = clk_val;
-			ret = afe_set_lpass_clock(port_id, &mi2s_rx_clk);
+			mi2s_rx_clk.enable = enable;
+			mi2s_rx_clk.clk_id = apq8009_get_clk_id(port_id);
+			mi2s_rx_clk.clk_freq_in_hz =
+				get_mi2s_rx_clk_val();
+			ret = afe_set_lpass_clock_v2(port_id, &mi2s_rx_clk);
 		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
-			ret = afe_set_lpass_clock(port_id, &mi2s_tx_clk);
+			mi2s_tx_clk.enable = enable;
+			mi2s_tx_clk.clk_id = apq8009_get_clk_id(port_id);
+			mi2s_tx_clk.clk_freq_in_hz =
+				Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+			ret = afe_set_lpass_clock_v2(port_id, &mi2s_tx_clk);
 		} else
 			pr_err("%s:Not valid substream.\n", __func__);
 
@@ -563,11 +629,15 @@ static int ext_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable,
 					__func__, ret);
 	} else {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-			ret = afe_set_lpass_clock(port_id, &mi2s_rx_clk);
+			mi2s_rx_clk.enable = enable;
+			mi2s_rx_clk.clk_id = apq8009_get_clk_id(port_id);
+			mi2s_rx_clk.clk_freq_in_hz = 0;
+			ret = afe_set_lpass_clock_v2(port_id, &mi2s_rx_clk);
 		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-			ret = afe_set_lpass_clock(port_id, &mi2s_tx_clk);
+			mi2s_tx_clk.enable = enable;
+			mi2s_tx_clk.clk_id = apq8009_get_clk_id(port_id);
+			mi2s_tx_clk.clk_freq_in_hz = 0;
+			ret = afe_set_lpass_clock_v2(port_id, &mi2s_tx_clk);
 		} else
 			pr_err("%s:Not valid substream %d\n", __func__,
 					substream->stream);
@@ -699,12 +769,11 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	val = val|0x2020002;
 	iowrite32(val, vaddr);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		ret = ext_mi2s_clk_ctl(substream, true,
-				AFE_PORT_ID_QUATERNARY_MI2S_RX);
-	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		ret = ext_mi2s_clk_ctl(substream, true,
-				AFE_PORT_ID_QUATERNARY_MI2S_TX);
+	ret = ext_mi2s_clk_ctl(substream, true);
+	if (ret < 0) {
+		pr_err("%s: failed to enable sclk\n", __func__);
+		return ret;
+	}
 
 	ret = msm_gpioset_activate(CLIENT_WCD_EXT, "quat_i2s");
 	if (ret < 0) {
@@ -720,8 +789,7 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	}
 	return ret;
 err:
-	ret = ext_mi2s_clk_ctl(substream, false,
-			AFE_PORT_ID_QUATERNARY_MI2S_TX);
+	ret = ext_mi2s_clk_ctl(substream, false);
 	if (ret < 0)
 		pr_err("failed to disable sclk\n");
 	return ret;
@@ -734,12 +802,11 @@ static void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 			substream->name, substream->stream);
 	atomic_dec_return(&quat_mi2s_clk_ref);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		ret = ext_mi2s_clk_ctl(substream, false,
-				AFE_PORT_ID_QUATERNARY_MI2S_RX);
-	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		ret = ext_mi2s_clk_ctl(substream, false,
-				AFE_PORT_ID_QUATERNARY_MI2S_TX);
+
+	ret = ext_mi2s_clk_ctl(substream, false);
+	if (ret < 0)
+		pr_err("%s: failed to disable sclk\n", __func__);
+
 	ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "quat_i2s");
 	if (ret < 0)
 		pr_err("%s: gpio set cannot be de-activated %sd",
@@ -768,12 +835,11 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	val = val | 0x00000002;
 	iowrite32(val, vaddr);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		ret = ext_mi2s_clk_ctl(substream, true,
-				AFE_PORT_ID_PRIMARY_MI2S_RX);
-	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		ret = ext_mi2s_clk_ctl(substream, true,
-				AFE_PORT_ID_PRIMARY_MI2S_TX);
+	ret = ext_mi2s_clk_ctl(substream, true);
+	if (ret < 0) {
+		pr_err("%s: failed to enable sclk\n", __func__);
+		return ret;
+	}
 
 	ret = msm_gpioset_activate(CLIENT_WCD_EXT, "pri_i2s");
 	if (ret < 0) {
@@ -790,8 +856,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	}
 	return ret;
 err:
-	ret = ext_mi2s_clk_ctl(substream, false,
-			AFE_PORT_ID_PRIMARY_MI2S_TX);
+	ret = ext_mi2s_clk_ctl(substream, false);
 	if (ret < 0)
 		pr_err("failed to disable sclk\n");
 	return ret;
@@ -804,12 +869,11 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 			substream->name, substream->stream);
 	atomic_dec_return(&pri_mi2s_clk_ref);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		ext_mi2s_clk_ctl(substream, false,
-				AFE_PORT_ID_PRIMARY_MI2S_RX);
-	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		ext_mi2s_clk_ctl(substream, false,
-				AFE_PORT_ID_PRIMARY_MI2S_TX);
+
+	ret = ext_mi2s_clk_ctl(substream, false);
+	if (ret < 0)
+		pr_err("%s: failed to enable sclk\n", __func__);
+
 	ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "pri_i2s");
 	if (ret < 0)
 		pr_err("%s: gpio set cannot be de-activated %sd",

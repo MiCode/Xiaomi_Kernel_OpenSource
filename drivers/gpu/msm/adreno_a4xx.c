@@ -26,6 +26,8 @@
 #include "adreno_perfcounter.h"
 
 #define SP_TP_PWR_ON BIT(20)
+/* A4XX_RBBM_CLOCK_CTL_IP */
+#define CNTL_IP_SW_COLLAPSE		BIT(0)
 
 /*
  * Define registers for a4xx that contain addresses used by the
@@ -201,140 +203,13 @@ static bool a4xx_is_sptp_idle(struct adreno_device *adreno_dev)
 }
 
 /*
- * a4xx_regulator_enable() - Enable any necessary HW regulators
- * @adreno_dev: The adreno device pointer
- *
- * Some HW blocks may need their regulators explicitly enabled
- * on a restart.  Clocks must be on during this call.
- */
-static int a4xx_regulator_enable(struct adreno_device *adreno_dev)
-{
-	unsigned int reg;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (!(adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev)))
-		return 0;
-
-	/* Set the default register values; set SW_COLLAPSE to 0 */
-	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, 0x778000);
-	do {
-		udelay(5);
-		kgsl_regread(device, A4XX_RBBM_POWER_STATUS, &reg);
-	} while (!(reg & SP_TP_PWR_ON));
-	return 0;
-}
-
-/*
- * a4xx_regulator_disable() - Disable any necessary HW regulators
- * @adreno_dev: The adreno device pointer
- *
- * Some HW blocks may need their regulators explicitly disabled
- * on a power down to prevent current spikes.  Clocks must be on
- * during this call.
- */
-static void a4xx_regulator_disable(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (!(adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev)))
-		return;
-
-	/* Set the default register values; set SW_COLLAPSE to 1 */
-	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, 0x778001);
-}
-
-/*
- * a4xx_enable_pc() - Enable the SP/TP block power collapse
- * @adreno_dev: The adreno device pointer
- */
-static void a4xx_enable_pc(struct adreno_device *adreno_dev)
-{
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
-		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
-		return;
-
-	kgsl_regwrite(KGSL_DEVICE(adreno_dev), A4XX_CP_POWER_COLLAPSE_CNTL,
-		0x00400010);
-	trace_adreno_sp_tp((unsigned long) __builtin_return_address(0));
-};
-
-/*
- * a4xx_enable_ppd() - Enable the Peak power detect logic in the h/w
- * @adreno_dev: The adreno device pointer
- *
- * A430 can detect peak current conditions inside h/w and throttle
- * the workload to ALUs to mitigate it.
- */
-static void a4xx_enable_ppd(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD) ||
-		!test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag) ||
-		!adreno_is_a430v2(adreno_dev))
-		return;
-
-	/* Program thresholds */
-	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_HIGH_CLEAR_THR,
-								0x003F0101);
-	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_LOW, 0x00000101);
-	kgsl_regwrite(device, A4XX_RBBM_PPD_V2_SP_PWR_WEIGHTS, 0x00085014);
-	kgsl_regwrite(device, A4XX_RBBM_PPD_V2_SP_RB_EPOCH_TH, 0x00000B46);
-	kgsl_regwrite(device, A4XX_RBBM_PPD_V2_TP_CONFIG, 0xE4525111);
-	kgsl_regwrite(device, A4XX_RBBM_PPD_RAMP_V2_CONTROL, 0x0000000B);
-
-	/* Enable PPD*/
-	kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40C);
-};
-
-/*
- * a4xx_pwrlevel_change_settings() - Program the hardware during power level
- * transitions
- * @adreno_dev: The adreno device pointer
- * @prelevel: The previous power level
- * @postlevel: The new power level
- * @post: True if called after the clock change has taken effect
- */
-static void a4xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
-				unsigned int prelevel, unsigned int postlevel,
-				bool post)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	static int pre;
-
-	/* PPD programming only for A430v2 */
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD) ||
-		!test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag) ||
-		!adreno_is_a430v2(adreno_dev))
-		return;
-
-	/* if this is a real pre, or a post without a previous pre, set pre */
-	if ((post == 0) || (pre == 0 && post == 1))
-		pre = 1;
-	else if (post == 1)
-		pre = 0;
-
-	if ((prelevel == 0) && pre) {
-		/* Going to Non-Turbo mode - mask the throttle and reset */
-		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40E);
-		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40C);
-	} else if ((postlevel == 0) && post) {
-		/* Going to Turbo mode - unmask the throttle and reset */
-		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40A);
-		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E408);
-	}
-
-	if (post)
-		pre = 0;
-}
-
-/*
  * a4xx_enable_hwcg() - Program the clock control registers
  * @device: The adreno device pointer
  */
 static void a4xx_enable_hwcg(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP0, 0x02222202);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP1, 0x02222202);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_TP2, 0x02222202);
@@ -451,6 +326,144 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
 	else
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0xAAAAAAAA);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
+}
+/*
+ * a4xx_regulator_enable() - Enable any necessary HW regulators
+ * @adreno_dev: The adreno device pointer
+ *
+ * Some HW blocks may need their regulators explicitly enabled
+ * on a restart.  Clocks must be on during this call.
+ */
+static int a4xx_regulator_enable(struct adreno_device *adreno_dev)
+{
+	unsigned int reg;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!(adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev))) {
+		/* Halt the sp_input_clk at HM level */
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0x00000055);
+		a4xx_enable_hwcg(device);
+		return 0;
+	}
+
+	/* Set the default register values; set SW_COLLAPSE to 0 */
+	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, 0x778000);
+	do {
+		udelay(5);
+		kgsl_regread(device, A4XX_RBBM_POWER_STATUS, &reg);
+	} while (!(reg & SP_TP_PWR_ON));
+
+	/* Disable SP clock */
+	kgsl_regrmw(device, A4XX_RBBM_CLOCK_CTL_IP, CNTL_IP_SW_COLLAPSE, 0);
+	/* Enable hardware clockgating */
+	a4xx_enable_hwcg(device);
+	/* Enable SP clock */
+	kgsl_regrmw(device, A4XX_RBBM_CLOCK_CTL_IP, CNTL_IP_SW_COLLAPSE, 1);
+	return 0;
+}
+
+/*
+ * a4xx_regulator_disable() - Disable any necessary HW regulators
+ * @adreno_dev: The adreno device pointer
+ *
+ * Some HW blocks may need their regulators explicitly disabled
+ * on a power down to prevent current spikes.  Clocks must be on
+ * during this call.
+ */
+static void a4xx_regulator_disable(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!(adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev)))
+		return;
+
+	/* Set the default register values; set SW_COLLAPSE to 1 */
+	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, 0x778001);
+}
+
+/*
+ * a4xx_enable_pc() - Enable the SP/TP block power collapse
+ * @adreno_dev: The adreno device pointer
+ */
+static void a4xx_enable_pc(struct adreno_device *adreno_dev)
+{
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
+		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
+		return;
+
+	kgsl_regwrite(KGSL_DEVICE(adreno_dev), A4XX_CP_POWER_COLLAPSE_CNTL,
+		0x00400010);
+	trace_adreno_sp_tp((unsigned long) __builtin_return_address(0));
+};
+
+/*
+ * a4xx_enable_ppd() - Enable the Peak power detect logic in the h/w
+ * @adreno_dev: The adreno device pointer
+ *
+ * A430 can detect peak current conditions inside h/w and throttle
+ * the workload to ALUs to mitigate it.
+ */
+static void a4xx_enable_ppd(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD) ||
+		!test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag) ||
+		!adreno_is_a430v2(adreno_dev))
+		return;
+
+	/* Program thresholds */
+	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_HIGH_CLEAR_THR,
+								0x003F0101);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_LOW, 0x00000101);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_V2_SP_PWR_WEIGHTS, 0x00085014);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_V2_SP_RB_EPOCH_TH, 0x00000B46);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_V2_TP_CONFIG, 0xE4525111);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_RAMP_V2_CONTROL, 0x0000000B);
+
+	/* Enable PPD*/
+	kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40C);
+};
+
+/*
+ * a4xx_pwrlevel_change_settings() - Program the hardware during power level
+ * transitions
+ * @adreno_dev: The adreno device pointer
+ * @prelevel: The previous power level
+ * @postlevel: The new power level
+ * @post: True if called after the clock change has taken effect
+ */
+static void a4xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
+				unsigned int prelevel, unsigned int postlevel,
+				bool post)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	static int pre;
+
+	/* PPD programming only for A430v2 */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD) ||
+		!test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag) ||
+		!adreno_is_a430v2(adreno_dev))
+		return;
+
+	/* if this is a real pre, or a post without a previous pre, set pre */
+	if ((post == 0) || (pre == 0 && post == 1))
+		pre = 1;
+	else if (post == 1)
+		pre = 0;
+
+	if ((prelevel == 0) && pre) {
+		/* Going to Non-Turbo mode - mask the throttle and reset */
+		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40E);
+		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40C);
+	} else if ((postlevel == 0) && post) {
+		/* Going to Turbo mode - unmask the throttle and reset */
+		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40A);
+		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E408);
+	}
+
+	if (post)
+		pre = 0;
 }
 
 /**
@@ -597,7 +610,6 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 				0x00000441);
 	}
 
-	a4xx_enable_hwcg(device);
 	/*
 	 * For A420 set RBBM_CLOCK_DELAY_HLSQ.CGC_HLSQ_TP_EARLY_CYC >= 2
 	 * due to timing issue with HLSQ_TP_CLK_EN
