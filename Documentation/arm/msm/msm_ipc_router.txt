@@ -1,0 +1,404 @@
+Introduction
+============
+
+Inter Process Communication(IPC) Message Router
+
+IPC Router provides a connectionless message routing service between
+multiple processes in a MSM setup. The communicating processes can
+run either in the same processor or in a different processor within
+the MSM setup. The IPC Router has been designed to
+	1) Route messages of any types
+	2) Support a broader network of processors
+The IPC Router follows the same protocol as the existing RPC Router
+in the kernel while communicating with its peer IPC Routers.
+
+Hardware description
+====================
+
+The IPC Router doesn't implement any specific hardware driver.
+The IPC Router uses the existing hardware drivers to transport messages
+across to the peer router. IPC Router contains a XPRT interface layer to
+handle the different types of transports/links. This interface layer
+abstracts the underlying transport complexities from the router and
+provides a packet/message interface with the transports.
+
+Software description
+====================
+
+The IPC Router is designed to support a client-server model. The
+clients and servers communicate with one another by exchanging data
+units known as messages. A message is a byte string from 1 to 64K bytes
+long. The IPC Router provides a connectionless message routing service
+between the clients and servers i.e. any client/server can communicate
+with any other client/server in the network of processors.
+
+Network Topology Overview:
+--------------------------
+
+The system is organized as a network of nodes. Each processor in the
+network is the most fundamental element called node. The complete
+network is hierarchically structured i.e. the network is divided into
+tiers and each tier is fully-meshed. The following figure shows an
+example network topology.
+
+
+	---N1---	---N4---
+	|      |	|      |
+	|      |	|      |
+        N2----N3-------N5-----N6
+	       |	|
+	       |	|
+	       ---N7----
+	       |	|
+	       |	|
+	       N8------N9
+
+Each node in the complete network is identified using a unique node id
+(Nx in the example network). In the example network, nodes N1, N2 & N3
+are fully-meshed to form a tier 1 network. Similarly nodes N4, N5 & N6
+form another tier 1 network and nodes N7, N8 & N9 form third tier 1
+network. These three tier 1 networks are fully-meshed to form a tier 2
+network.
+
+Each transport/link in the network is identified using a unique name/id
+called XPRT id. This XPRT id is used by the nodes to identify the
+link to be used while sending message to a specific destination.
+In addition, each transport/link in the network is assigned a link id.
+This link id is used to identify the tier to which the link belongs to.
+This link marking is used to avoid the routing loops while forwarding
+the broadcast messages. The incoming messages are only forwarded onto an
+egress link which has a link id different from that of an ingress link.
+
+IPC Router Addressing Overview:
+-------------------------------
+
+Each client/server in the network is identified using a unique
+<Node_id:Port_id> combination. Node_id identifies the processor on which
+a client/server is running. Port_id is a unique id within a node. This
+Port_id is assigned by the IPC Router in that node when a client/server
+comes up. The Node_id & Port_id are 32 bits each.
+
+Port_id 0xFFFFFFFE is reserved for Router &
+0xFFFFFFFF is reserved for broadcast messages.
+
+Each server in the network can also be addressed using a service name.
+The service name is of the form <service(32 bits):instance(32 bits)>.
+When a server comes up, it binds itself with a service name. This name
+information along with the <Node_id:Port_id> is broadcast onto the
+entire network.
+
+Control Path:
+-------------
+
+IPC Router uses the control messages to communicate and propagate the
+system wide events to the other routers in the system. Some of the
+events include:
+	1) Node Status
+	2) Server Status
+	3) Client Status
+	4) Flow Control Request/Confirmation
+
+Message Header:
+---------------
+
+IPC Router prepends a header to every message that it communicates with
+other IPC Router. The receiving IPC Routers use the header to identify
+the source and destination of the message, size of the message, type
+of the message and handle any flow control requests. The IPC Router
+header format is as follows:
+
+	0                                              31
+	-------------------------------------------------
+	|                     Version                   |
+	-------------------------------------------------
+	|                  Message Type                 |
+	-------------------------------------------------
+	|                 Source Node ID                |
+	-------------------------------------------------
+	|                 Source Port ID                |
+	-------------------------------------------------
+	|                   Confirm RX                  |
+	-------------------------------------------------
+	|                 Payload Length                |
+	-------------------------------------------------
+	|               Destination Node ID             |
+	-------------------------------------------------
+	|               Destination Port ID             |
+	-------------------------------------------------
+
+Message Header v2(Optimized):
+-----------------------------
+
+The following optimization has been done to the IPC Router header to
+make it concise, align with the system requirement and enable future
+expansion:
+
+	0               8               16              24             31
+	-----------------------------------------------------------------
+	|    Version    | Message Type  |         Control Flag          |
+	-----------------------------------------------------------------
+	|                         Payload Length                        |
+	-----------------------------------------------------------------
+	|        Source Node ID         |        Source Port ID         |
+	-----------------------------------------------------------------
+	|     Destination Node ID       |     Destination Port ID       |
+	-----------------------------------------------------------------
+
+Control Flag:
+
+	0                                       14          15
+	------------------------------------------------------------------
+	|               Reserved                | Opt. Hdr. | Confirm RX |
+	------------------------------------------------------------------
+
+IPC Router identifies and processes the header depending on the version
+field. The Confirm RX field in message header v1 becomes part of the
+control flag. All the other fields are reduced in size to align with the
+system requirement.
+
+Optional Header:
+An optional header bit field is introduced in the control flag to handle
+any unforeseen future requirement that this header cannot handle. When
+that bit is set, an optional header follows the current header. The
+optional header format is as follows:
+
+	0               8               16                             31
+	-----------------------------------------------------------------
+	| Length(words) |      Type     |           Control Flag        |
+	-----------------------------------------------------------------
+	|                                                               |
+	|                     Optional Header Contents                  |
+	|                                                               |
+	-----------------------------------------------------------------
+
+Design
+======
+
+The IPC Router is organized into 2 layers:
+	1) Router Core layer
+	2) Router - XPRT Interface layer
+
+
+This organization allows the router to abstract the XPRT's complexities
+from that of the core router functionalities. The Router Core layer
+performs the following core functions:
+	1) Message Routing
+	2) Distributed name service
+	3) Flow control between ports
+The Router core layer contains the following important data structures
+to perform the core functions in their respective order:
+	1) Routing Table
+	2) Table of Active Servers
+	3) Table of Active Remote ports
+All these data structures get updated based on the events passed through
+the control path.
+
+
+The Router - XPRT Interface layer hides the underlying transport
+complexities and provides and abstracted packet interface to the
+Router Core layer. The Router - XPRT Interface layer registers itself
+with the Router Core layer upon complete initialization of the XPRT.
+The Router - XPRT Interface layer upon registration exports the
+following functionalities to the Router Core:
+	1) Read from the XPRT
+	2) # of bytes of data available to read
+	3) Write to the XPRT
+	4) Space available to write to the XPRT
+	5) Close the XPRT
+
+
+The user behavioral model of the IPC Router should be
+	1) Create a port
+	2) If server, register a name to the port
+	3) If remote port not known, lookup through the name
+	4) Send messages over the port to the remote port
+	5) Receive messages along with the source info from the port
+	6) Repeat steps 3, 4 & 5 as required
+	7) If server, unregister the name from the port
+	8) Close the port
+
+Power Management
+================
+
+IPC Message Router uses wakelocks to ensure that the system does not go
+into suspend mode while there are pending messages to be handled. Once all
+the messages are handled, IPC Message Router releases the wakelocks to
+allow the system to go into suspend mode and comply with the system power
+management requirement.
+
+SMP/multi-core
+==============
+
+The IPC Router uses mutexes & spinlocks to protect the shared data
+structures to be SMP/multi-core safe.
+
+Security
+========
+
+None
+
+Performance
+===========
+
+None
+
+Interface
+=========
+
+Kernel-space APIs:
+------------------
+
+/*
+ * msm_ipc_router_create_port - Create a IPC Router port
+ *
+ * @msm_ipc_port_notify: notification function which will notify events
+ *			 like READ_DATA_AVAIL, WRITE_DONE etc.
+ * @priv: caller private context pointer, passed to the notify callback.
+ *
+ * @return: a valid port pointer on success, NULL on failure
+ *
+ */
+struct msm_ipc_port * msm_ipc_router_create_port(
+	void (*msm_ipc_port_notify)(unsigned event, void *data,
+				    void *addr, void *priv),
+	void *priv)
+
+
+/*
+ * msm_ipc_router_close_port - Close down the port
+ *
+ * @port: Port to be closed
+ *
+ * @return: 0 on success, -ve value on failure
+ *
+ */
+int msm_ipc_router_close_port(struct msm_ipc_port *port)
+
+
+/*
+ * msm_ipc_router_send_to - Send data to a remote port
+ *
+ * @from_port: Source port of the message
+ * @data: Data to be sent
+ * @to_addr: Destination port name or address
+ *
+ * @return: number of bytes sent on success, -ve value on failure
+ *
+ */
+int msm_ipc_router_send_to(struct msm_ipc_port *from_port,
+			   struct sk_buff_head *data,
+			   struct msm_ipc_addr *to_addr)
+
+
+/*
+ * msm_ipc_router_recv_from - Receive data over a port
+ *
+ * @port: Port from which the data has to be read
+ * @data: Pointer to the data
+ * @src_addr: If valid, filled with the source address of the data
+ * @timeout: Time to wait for the data, if already not present
+ *
+ * @return: number of bytes received on success, -ve value on failure
+ *
+ */
+int msm_ipc_router_recv_from(struct msm_ipc_port *port,
+			     struct sk_buff_head **data,
+			     struct msm_ipc_addr *src_addr,
+			     unsigned long timeout)
+
+/*
+ * msm_ipc_router_register_server - Bind a local port with a service
+ *				    name
+ *
+ * @server_port: Port to be bound with a service name
+ * @name: Name to bind with the port
+ *
+ * @return: 0 on success, -ve value on failure
+ *
+ */
+int msm_ipc_router_register_server(struct msm_ipc_port *server_port,
+				   struct msm_ipc_addr *name)
+
+
+/*
+ * msm_ipc_router_unregister_server - Unbind the local port from its
+ *				      service name
+ *
+ * @server_port: Port to be unbound from its service name
+ *
+ * @return: 0 on success, -ve value on failure
+ *
+ */
+int msm_ipc_router_unregister_server(struct msm_ipc_port *server_port)
+
+
+/*
+ * msm_ipc_router_lookup_server - Lookup port address for the port name
+ *
+ * @name: Name to be looked up for
+ *
+ * @return: Port address corresponding to the service name on success,
+ *	    NULL on failure
+ *
+ */
+struct msm_ipc_addr * msm_ipc_router_lookup_server(
+				struct msm_ipc_addr *name)
+
+
+User-space APIs:
+----------------
+
+User-space applications/utilities can use the socket APIs to interface
+with the IPC Router. IPC Router, in order to support the socket APIs,
+will register a new socket Address/Protocol Family with the kernel
+Socket layer. The identity of the new Address/Protocol Family will be
+defined using the macro AF_MSM_IPC/PF_MSM_IPC (hardcoded to 38) in
+include/linux/socket.h file. Since IPC Router supports only message
+oriented transfer, only SOCK_DGRAM type of sockets will be supported
+by the IPC Router.
+
+Driver parameters
+=================
+
+debug_mask - This module parameter is used to enable/disable Router
+log messages in the kernel logs. This parameter can take any value
+from 0 to 255.
+
+Dependencies
+============
+
+Drivers in this project:
+-----------------------
+
+The following drivers are present in this project, listed in the
+bottom - up order of the stack.
+
+1a) Router - SMD XPRT Interface driver. This driver is used to interface
+the Router with the SMD transport.
+1b) Router - HSIC XPRT Interface driver. This driver is used to interface
+the Router with the HSIC_IPC Bridge transport for off-chip communication.
+2) Core Router driver. This driver performs the core functionalities
+3) Socket - Router Interface driver. This driver enables the socket
+interface to be used with the IPC Router.
+
+In the write/send direction, these drivers interact by invoking the
+exported APIs from the underlying drivers. In the read/receive
+directions, these drivers interact by passing messages/events.
+
+Drivers Needed:
+---------------
+
+	1) SMD
+	2) Kernel Socket Layer
+	3) Platform Driver
+	4) HSIC IPC Bridge Driver
+
+To do
+=====
+Improvements:
+-------------
+
+The IPC Router is designed to route any messages, as long as the system
+follows the network architecture and addressing schemes. But the
+implementation in progress will route only QMI messages. With few
+additional enhancements, it can route existing RPC messages too.

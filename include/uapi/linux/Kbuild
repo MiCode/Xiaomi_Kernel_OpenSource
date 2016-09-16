@@ -281,6 +281,7 @@ header-y += mroute.h
 header-y += msdos_fs.h
 header-y += msg.h
 header-y += msm_ion.h
+header-y += msm_ipc.h
 header-y += msm_rmnet.h
 header-y += mtio.h
 header-y += nbd.h
