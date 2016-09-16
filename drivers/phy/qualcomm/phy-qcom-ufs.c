@@ -180,27 +180,19 @@ int ufs_qcom_phy_init_clks(struct ufs_qcom_phy *phy_common)
 				"qcom,msm8996-ufs-phy-qmp-14nm"))
 		goto skip_txrx_clk;
 
-	err = ufs_qcom_phy_clk_get(phy_common->dev, "tx_iface_clk",
-				   &phy_common->tx_iface_clk);
-
 	/*
 	 * tx_iface_clk does not exist in newer version of ufs-phy HW,
 	 * so don't return error if it is not found
 	 */
-	if (err)
-		dev_dbg(phy_common->dev, "%s: failed to get tx_iface_clk\n",
-			__func__);
-
-	err = ufs_qcom_phy_clk_get(phy_common->dev, "rx_iface_clk",
-				   &phy_common->rx_iface_clk);
+	__ufs_qcom_phy_clk_get(phy_common->dev, "tx_iface_clk",
+				   &phy_common->tx_iface_clk, false);
 
 	/*
 	 * rx_iface_clk does not exist in newer version of ufs-phy HW,
 	 * so don't return error if it is not found
 	 */
-	if (err)
-		dev_dbg(phy_common->dev, "%s: failed to get rx_iface_clk\n",
-			__func__);
+	__ufs_qcom_phy_clk_get(phy_common->dev, "rx_iface_clk",
+				   &phy_common->rx_iface_clk, false);
 
 skip_txrx_clk:
 	err = ufs_qcom_phy_clk_get(phy_common->dev, "ref_clk_src",
