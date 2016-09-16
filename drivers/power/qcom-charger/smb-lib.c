@@ -596,7 +596,11 @@ static int smblib_usb_suspend_vote_callback(struct votable *votable, void *data,
 {
 	struct smb_charger *chg = data;
 
-	return smblib_set_usb_suspend(chg, suspend);
+	/* resume input if suspend is invalid */
+	if (suspend < 0)
+		suspend = 0;
+
+	return smblib_set_usb_suspend(chg, (bool)suspend);
 }
 
 static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
@@ -604,10 +608,11 @@ static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
 {
 	struct smb_charger *chg = data;
 
+	/* resume input if suspend is invalid */
 	if (suspend < 0)
-		suspend = false;
+		suspend = 0;
 
-	return smblib_set_dc_suspend(chg, suspend);
+	return smblib_set_dc_suspend(chg, (bool)suspend);
 }
 
 static int smblib_fcc_max_vote_callback(struct votable *votable, void *data,
@@ -2230,11 +2235,8 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 		}
 	}
 
-	if (!chg->dpdm_reg)
-		goto skip_dpdm_float;
-
 	if (chg->vbus_present) {
-		if (!regulator_is_enabled(chg->dpdm_reg)) {
+		if (chg->dpdm_reg && !regulator_is_enabled(chg->dpdm_reg)) {
 			smblib_dbg(chg, PR_MISC, "enabling DPDM regulator\n");
 			rc = regulator_enable(chg->dpdm_reg);
 			if (rc < 0)
@@ -2242,7 +2244,14 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 					rc);
 		}
 	} else {
-		if (regulator_is_enabled(chg->dpdm_reg)) {
+		if (chg->wa_flags & BOOST_BACK_WA) {
+			vote(chg->usb_suspend_votable,
+						BOOST_BACK_VOTER, false, 0);
+			vote(chg->dc_suspend_votable,
+						BOOST_BACK_VOTER, false, 0);
+		}
+
+		if (chg->dpdm_reg && regulator_is_enabled(chg->dpdm_reg)) {
 			smblib_dbg(chg, PR_MISC, "disabling DPDM regulator\n");
 			rc = regulator_disable(chg->dpdm_reg);
 			if (rc < 0)
@@ -2251,7 +2260,6 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 		}
 	}
 
-skip_dpdm_float:
 	power_supply_changed(chg->usb_psy);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s %s\n",
 		   irq_data->name, chg->vbus_present ? "attached" : "detached");
@@ -2679,6 +2687,39 @@ irqreturn_t smblib_handle_high_duty_cycle(int irq, void *data)
 
 	chg->is_hdc = true;
 	schedule_delayed_work(&chg->clear_hdc_work, msecs_to_jiffies(60));
+
+	return IRQ_HANDLED;
+}
+
+irqreturn_t smblib_handle_switcher_power_ok(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+	int rc;
+	u8 stat;
+
+	if (!(chg->wa_flags & BOOST_BACK_WA))
+		return IRQ_HANDLED;
+
+	rc = smblib_read(chg, POWER_PATH_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read POWER_PATH_STATUS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	if ((stat & USE_USBIN_BIT) &&
+				get_effective_result(chg->usb_suspend_votable))
+		return IRQ_HANDLED;
+
+	if ((stat & USE_DCIN_BIT) &&
+				get_effective_result(chg->dc_suspend_votable))
+		return IRQ_HANDLED;
+
+	if (is_storming(&irq_data->storm_data)) {
+		smblib_dbg(chg, PR_MISC, "reverse boost detected; suspending input\n");
+		vote(chg->usb_suspend_votable, BOOST_BACK_VOTER, true, 0);
+		vote(chg->dc_suspend_votable, BOOST_BACK_VOTER, true, 0);
+	}
 
 	return IRQ_HANDLED;
 }

@@ -1241,6 +1241,7 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMICOBALT_SUBTYPE:
+		chip->chg.wa_flags |= BOOST_BACK_WA;
 		if (pmic_rev_id->rev4 == PMICOBALT_V1P1_REV4) /* PMI rev 1.1 */
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
 		break;
@@ -1451,7 +1452,8 @@ static struct smb2_irq_info smb2_irqs[] = {
 	},
 	{
 		.name		= "switcher-power-ok",
-		.handler	= smblib_handle_debug,
+		.handler	= smblib_handle_switcher_power_ok,
+		.storm_data	= {true, 1000, 3},
 	},
 };
 
