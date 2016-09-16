@@ -95,6 +95,7 @@
 #define TMC_ETR_BAM_PIPE_INDEX	0
 #define TMC_ETR_BAM_NR_PIPES	2
 
+#define TMC_ETFETB_DUMP_MAGIC_V2	(0x42445953)
 #define TMC_REG_DUMP_MAGIC_V2		(0x42445953)
 #define TMC_REG_DUMP_VER		(1)
 
@@ -178,6 +179,7 @@ struct tmc_drvdata {
 	spinlock_t		spinlock;
 	int			read_count;
 	bool			reading;
+	bool			aborting;
 	char			*buf;
 	dma_addr_t		paddr;
 	void __iomem		*vaddr;
@@ -883,11 +885,15 @@ static void tmc_etb_dump_hw(struct tmc_drvdata *drvdata)
 		for (i = 0; i < memwords; i++) {
 			read_data = readl_relaxed(drvdata->base + TMC_RRD);
 			if (read_data == 0xFFFFFFFF)
-				return;
+				goto out;
 			memcpy(bufp, &read_data, 4);
 			bufp += 4;
 		}
 	}
+
+out:
+	if (drvdata->aborting)
+		drvdata->buf_data.magic = TMC_ETFETB_DUMP_MAGIC_V2;
 }
 
 static void tmc_etb_disable_hw(struct tmc_drvdata *drvdata)
@@ -1069,6 +1075,8 @@ static void tmc_abort(struct coresight_device *csdev)
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 	unsigned long flags;
 	enum tmc_mode mode;
+
+	drvdata->aborting = true;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading)
@@ -1728,7 +1736,7 @@ static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
 
 	if (!drvdata->reg_buf)
 		return;
-	else if (!drvdata->dump_reg)
+	else if (!drvdata->aborting && !drvdata->dump_reg)
 		return;
 
 	drvdata->reg_data.version = TMC_REG_DUMP_VER;
