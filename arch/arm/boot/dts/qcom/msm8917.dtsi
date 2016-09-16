@@ -1394,12 +1394,12 @@
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <13 281>;
+		qcom,pm-qos-irq-latency = <13 651>;
 
 		qcom,pm-qos-cpu-groups = <0x0f>;
-		qcom,pm-qos-cmdq-latency-us = <13 281>;
+		qcom,pm-qos-cmdq-latency-us = <13 651>;
 
-		qcom,pm-qos-legacy-latency-us = <13 281>;
+		qcom,pm-qos-legacy-latency-us = <13 651>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
@@ -1438,10 +1438,10 @@
 		qcom,large-address-bus;
 
 		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <13 281>;
+		qcom,pm-qos-irq-latency = <13 651>;
 
 		qcom,pm-qos-cpu-groups = <0x0f>;
-		qcom,pm-qos-legacy-latency-us = <13 281>;
+		qcom,pm-qos-legacy-latency-us = <13 651>;
 
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
