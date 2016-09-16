@@ -161,6 +161,9 @@ struct smb_charger {
 
 	bool			step_chg_enabled;
 	bool			is_hdc;
+
+	/* workaround flag */
+	u32			wa_flags;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
