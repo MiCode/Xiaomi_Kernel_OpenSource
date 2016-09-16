@@ -707,14 +707,6 @@ config ICNSS
 	  control messages to FW over QMI channel. It is also responsible for
 	  handling WLAN PD restart notifications.
 
-config MSM_CORE_CTL_HELPER
-	tristate "Core control helper functions for dynamically hotplug CPUs"
-	help
-	  Provide helper functions for core control driver. Core control
-	  driver dynamically hotplugs CPUs from kernel based on current
-	  system load and state. It also supports limiting min and
-	  max online CPUs from userspace.
-
 config MSM_BAM_DMUX
 	bool "BAM Data Mux Driver"
 	depends on SPS
