@@ -3572,6 +3572,9 @@ static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x00);
+		snd_soc_update_bits(codec, dec_cfg_reg,
+				    WCD934X_DEC_PWR_LVL_MASK,
+				    WCD934X_DEC_PWR_LVL_DF);
 		break;
 	};
 out:
@@ -7316,6 +7319,15 @@ static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
 	{WCD934X_CDC_BOOST1_BOOST_CFG1, 0x3F, 0x12},
 	{WCD934X_CDC_BOOST1_BOOST_CFG2, 0x1C, 0x08},
 	{WCD934X_CPE_SS_CPARMAD_BUFRDY_INT_PERIOD, 0x1F, 0x09},
+	{WCD934X_CDC_TX0_TX_PATH_CFG1, 0x01, 0x00},
+	{WCD934X_CDC_TX1_TX_PATH_CFG1, 0x01, 0x00},
+	{WCD934X_CDC_TX2_TX_PATH_CFG1, 0x01, 0x00},
+	{WCD934X_CDC_TX3_TX_PATH_CFG1, 0x01, 0x00},
+	{WCD934X_CDC_TX4_TX_PATH_CFG1, 0x01, 0x00},
+	{WCD934X_CDC_TX5_TX_PATH_CFG1, 0x01, 0x00},
+	{WCD934X_CDC_TX6_TX_PATH_CFG1, 0x01, 0x00},
+	{WCD934X_CDC_TX7_TX_PATH_CFG1, 0x01, 0x00},
+	{WCD934X_CDC_TX8_TX_PATH_CFG1, 0x01, 0x00},
 };
 
 static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
