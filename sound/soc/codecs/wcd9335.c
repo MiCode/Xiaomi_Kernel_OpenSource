@@ -2276,6 +2276,7 @@ static int tasha_put_anc_func(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_enable_pin(dapm, "ANC HPHL");
 		snd_soc_dapm_enable_pin(dapm, "ANC EAR PA");
 		snd_soc_dapm_enable_pin(dapm, "ANC EAR");
+		snd_soc_dapm_enable_pin(dapm, "ANC SPK1 PA");
 		snd_soc_dapm_disable_pin(dapm, "LINEOUT2");
 		snd_soc_dapm_disable_pin(dapm, "LINEOUT2 PA");
 		snd_soc_dapm_disable_pin(dapm, "LINEOUT1");
@@ -2297,6 +2298,7 @@ static int tasha_put_anc_func(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_disable_pin(dapm, "ANC HPHL PA");
 		snd_soc_dapm_disable_pin(dapm, "ANC EAR PA");
 		snd_soc_dapm_disable_pin(dapm, "ANC EAR");
+		snd_soc_dapm_disable_pin(dapm, "ANC SPK1 PA");
 		snd_soc_dapm_enable_pin(dapm, "LINEOUT2");
 		snd_soc_dapm_enable_pin(dapm, "LINEOUT2 PA");
 		snd_soc_dapm_enable_pin(dapm, "LINEOUT1");
@@ -3822,7 +3824,8 @@ static int tasha_codec_enable_anc(struct snd_soc_dapm_widget *w,
 		i = 0;
 		anc_cal_size = anc_writes_size;
 
-		if (!strcmp(w->name, "RX INT0 DAC"))
+		if (!strcmp(w->name, "RX INT0 DAC") ||
+		    !strcmp(w->name, "ANC SPK1 PA"))
 			tasha_realign_anc_coeff(codec,
 					WCD9335_CDC_ANC0_IIR_COEFF_1_CTL,
 					WCD9335_CDC_ANC0_IIR_COEFF_2_CTL);
@@ -3871,8 +3874,9 @@ static int tasha_codec_enable_anc(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (!strcmp(w->name, "ANC HPHL PA") ||
-			!strcmp(w->name, "ANC EAR PA") ||
-			!strcmp(w->name, "ANC LINEOUT1 PA")) {
+		    !strcmp(w->name, "ANC EAR PA") ||
+		    !strcmp(w->name, "ANC SPK1 PA") ||
+		    !strcmp(w->name, "ANC LINEOUT1 PA")) {
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_ANC0_MODE_1_CTL, 0x30, 0x00);
 			msleep(50);
@@ -3885,7 +3889,7 @@ static int tasha_codec_enable_anc(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_ANC0_CLK_RESET_CTL, 0x38, 0x00);
 		} else if (!strcmp(w->name, "ANC HPHR PA") ||
-				!strcmp(w->name, "ANC LINEOUT2 PA")) {
+			   !strcmp(w->name, "ANC LINEOUT2 PA")) {
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_ANC1_MODE_1_CTL, 0x30, 0x00);
 			msleep(50);
@@ -4260,6 +4264,35 @@ static int tasha_codec_enable_lineout_pa(struct snd_soc_dapm_widget *w,
 		break;
 	};
 
+	return ret;
+}
+
+static int tasha_codec_enable_spk_anc(struct snd_soc_dapm_widget *w,
+				      struct snd_kcontrol *kcontrol,
+				      int event)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s %s %d %d\n", __func__, w->name, event,
+		tasha->anc_func);
+
+	if (!tasha->anc_func)
+		return 0;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		ret = tasha_codec_enable_anc(w, kcontrol, event);
+		snd_soc_update_bits(codec, WCD9335_CDC_RX7_RX_PATH_CFG0,
+				    0x10, 0x10);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, WCD9335_CDC_RX7_RX_PATH_CFG0,
+				    0x10, 0x00);
+		ret = tasha_codec_enable_anc(w, kcontrol, event);
+		break;
+	}
 	return ret;
 }
 
@@ -6923,6 +6956,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT7 CHAIN", NULL, "RX_BIAS"},
 	{"SPK1 OUT", NULL, "RX INT7 CHAIN"},
 
+	{"ANC SPKR PA Enable", "Switch", "RX INT7 CHAIN"},
+	{"ANC SPK1 PA", NULL, "ANC SPKR PA Enable"},
+	{"SPK1 OUT", NULL, "ANC SPK1 PA"},
+
 	{"SPL SRC3 MUX", "SRC_IN_SPKRR", "RX INT8_1 MIX1"},
 	{"RX INT8 SPLINE MIX", NULL, "RX INT8_1 MIX1"},
 	{"RX INT8 SPLINE MIX", "SPKRR Switch", "SPL SRC3 MUX"},
@@ -6954,6 +6991,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"ANC EAR Enable", "Switch", "ADC MUX10"},
 	{"ANC EAR Enable", "Switch", "ADC MUX11"},
 	{"RX INT0 MIX2", NULL, "ANC EAR Enable"},
+
+	{"ANC OUT EAR SPKR Enable", "Switch", "ADC MUX10"},
+	{"ANC OUT EAR SPKR Enable", "Switch", "ADC MUX11"},
+	{"RX INT7 MIX2", NULL, "ANC OUT EAR SPKR Enable"},
 
 	{"ANC LINEOUT1 Enable", "Switch", "ADC MUX10"},
 	{"ANC LINEOUT1 Enable", "Switch", "ADC MUX11"},
@@ -10059,10 +10100,16 @@ static const struct snd_kcontrol_new anc_hphr_switch =
 static const struct snd_kcontrol_new anc_ear_switch =
 	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
 
+static const struct snd_kcontrol_new anc_ear_spkr_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
 static const struct snd_kcontrol_new anc_lineout1_switch =
 	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
 
 static const struct snd_kcontrol_new anc_lineout2_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new anc_spkr_pa_switch =
 	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
 
 static const struct snd_kcontrol_new adc_us_mux0_switch =
@@ -10838,6 +10885,9 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 				tasha_codec_enable_lineout_pa,
 				SND_SOC_DAPM_POST_PMU |
 				SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("ANC SPK1 PA", SND_SOC_NOPM, 0, 0, NULL, 0,
+			   tasha_codec_enable_spk_anc,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_OUTPUT("HPHL"),
 	SND_SOC_DAPM_OUTPUT("HPHR"),
@@ -10899,10 +10949,14 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			&anc_hphr_switch),
 	SND_SOC_DAPM_SWITCH("ANC EAR Enable", SND_SOC_NOPM, 0, 0,
 			&anc_ear_switch),
+	SND_SOC_DAPM_SWITCH("ANC OUT EAR SPKR Enable", SND_SOC_NOPM, 0, 0,
+			    &anc_ear_spkr_switch),
 	SND_SOC_DAPM_SWITCH("ANC LINEOUT1 Enable", SND_SOC_NOPM, 0, 0,
 			&anc_lineout1_switch),
 	SND_SOC_DAPM_SWITCH("ANC LINEOUT2 Enable", SND_SOC_NOPM, 0, 0,
 			&anc_lineout2_switch),
+	SND_SOC_DAPM_SWITCH("ANC SPKR PA Enable", SND_SOC_NOPM, 0, 0,
+			    &anc_spkr_pa_switch),
 };
 
 static int tasha_get_channel_map(struct snd_soc_dai *dai,
@@ -13409,6 +13463,7 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_disable_pin(dapm, "ANC HPHR PA");
 	snd_soc_dapm_disable_pin(dapm, "ANC EAR PA");
 	snd_soc_dapm_disable_pin(dapm, "ANC EAR");
+	snd_soc_dapm_disable_pin(dapm, "ANC SPK1 PA");
 	mutex_unlock(&tasha->codec_mutex);
 	snd_soc_dapm_sync(dapm);
 
