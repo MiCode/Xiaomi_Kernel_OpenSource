@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
+#include <linux/qpnp/qpnp-revid.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
@@ -205,6 +206,7 @@ struct smb_dt_props {
 	int	wipower_max_uw;
 	u32	step_soc_threshold[STEP_CHARGING_MAX_STEPS - 1];
 	s32	step_cc_delta[STEP_CHARGING_MAX_STEPS];
+	struct	device_node *revid_dev_node;
 };
 
 struct smb2 {
@@ -1085,6 +1087,40 @@ static int smb2_init_hw(struct smb2 *chip)
 	return rc;
 }
 
+static int smb2_setup_wa_flags(struct smb2 *chip)
+{
+	struct pmic_revid_data *pmic_rev_id;
+	struct device_node *revid_dev_node;
+
+	revid_dev_node = of_parse_phandle(chip->chg.dev->of_node,
+					  "qcom,pmic-revid", 0);
+	if (!revid_dev_node) {
+		pr_err("Missing qcom,pmic-revid property\n");
+		return -EINVAL;
+	}
+
+	pmic_rev_id = get_revid_data(revid_dev_node);
+	if (IS_ERR_OR_NULL(pmic_rev_id)) {
+		/*
+		 * the revid peripheral must be registered, any failure
+		 * here only indicates that the rev-id module has not
+		 * probed yet.
+		 */
+		return -EPROBE_DEFER;
+	}
+
+	switch (pmic_rev_id->pmic_subtype) {
+	case PMICOBALT_SUBTYPE:
+		break;
+	default:
+		pr_err("PMIC subtype %d not supported\n",
+				pmic_rev_id->pmic_subtype);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /****************************
  * DETERMINE INITIAL STATUS *
  ****************************/
@@ -1268,6 +1304,13 @@ static int smb2_probe(struct platform_device *pdev)
 	if (!chg->regmap) {
 		pr_err("parent regmap is missing\n");
 		return -EINVAL;
+	}
+
+	rc = smb2_setup_wa_flags(chip);
+	if (rc < 0) {
+		if (rc != -EPROBE_DEFER)
+			pr_err("Couldn't setup wa flags rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = smblib_init(chg);
