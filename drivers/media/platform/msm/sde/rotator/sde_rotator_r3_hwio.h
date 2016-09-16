@@ -250,9 +250,10 @@
 /* General defines */
 #define ROT_DONE_MASK                   0x1
 #define ROT_DONE_CLEAR                  0x1
-#define ROT_BUSY_BIT                    BIT(1)
+#define ROT_BUSY_BIT                    BIT(0)
 #define ROT_ERROR_BIT                   BIT(8)
 #define ROT_STATUS_MASK                 (ROT_BUSY_BIT | ROT_ERROR_BIT)
+#define REGDMA_BUSY                     BIT(0)
 #define REGDMA_EN                       0x1
 #define REGDMA_SECURE_EN                BIT(8)
 #define REGDMA_HALT                     BIT(16)
