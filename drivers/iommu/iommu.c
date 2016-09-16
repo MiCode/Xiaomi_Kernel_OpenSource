@@ -33,6 +33,8 @@
 #include <linux/bitops.h>
 #include <trace/events/iommu.h>
 
+#include "iommu-debug.h"
+
 static struct kset *iommu_group_kset;
 static DEFINE_IDA(iommu_group_ida);
 
@@ -1086,8 +1088,10 @@ static int __iommu_attach_device(struct iommu_domain *domain,
 		return -ENODEV;
 
 	ret = domain->ops->attach_dev(domain, dev);
-	if (!ret)
+	if (!ret) {
 		trace_attach_device_to_domain(dev);
+		iommu_debug_attach_device(domain, dev);
+	}
 	return ret;
 }
 
@@ -1123,6 +1127,8 @@ EXPORT_SYMBOL_GPL(iommu_attach_device);
 static void __iommu_detach_device(struct iommu_domain *domain,
 				  struct device *dev)
 {
+	iommu_debug_detach_device(domain, dev);
+
 	if (unlikely(domain->ops->detach_dev == NULL))
 		return;
 
