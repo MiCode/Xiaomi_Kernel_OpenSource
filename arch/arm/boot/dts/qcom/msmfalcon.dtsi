@@ -506,6 +506,13 @@
 		};
 	};
 
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-glink";
+		qcom,glink-edge = "rpm";
+		rpm-channel-name = "rpm_requests";
+		rpm-standalone; /* TODO: remove this after bring up */
+	};
+
 	qcom,ipc_router {
 		compatible = "qcom,ipc_router";
 		qcom,node-id = <1>;
