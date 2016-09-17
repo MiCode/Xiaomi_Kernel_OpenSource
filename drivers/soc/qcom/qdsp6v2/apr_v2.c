@@ -18,8 +18,7 @@
 #include <linux/qdsp6v2/apr.h>
 #include <linux/qdsp6v2/apr_tal.h>
 #include <linux/qdsp6v2/dsp_debug.h>
-
-static const char *lpass_subsys_name = "adsp";
+#include <linux/qdsp6v2/audio_notifier.h>
 
 enum apr_subsys_state apr_get_subsys_state(void)
 {
@@ -30,11 +29,6 @@ void apr_set_subsys_state(void)
 {
 	apr_set_q6_state(APR_SUBSYS_DOWN);
 	apr_set_modem_state(APR_SUBSYS_UP);
-}
-
-const char *apr_get_lpass_subsys_name(void)
-{
-	return lpass_subsys_name;
 }
 
 uint16_t apr_get_data_src(struct apr_hdr *hdr)
@@ -57,11 +51,15 @@ int apr_get_dest_id(char *dest)
 		return APR_DEST_MODEM;
 }
 
-void subsys_notif_register(struct notifier_block *mod_notif,
-				struct notifier_block *lp_notif)
+void subsys_notif_register(char *client_name, int domain,
+			   struct notifier_block *nb)
 {
-	subsys_notif_register_notifier("modem", mod_notif);
-	subsys_notif_register_notifier(apr_get_lpass_subsys_name(), lp_notif);
+	int ret;
+
+	ret = audio_notifier_register(client_name, domain, nb);
+	if (ret < 0)
+		pr_err("%s: Audio notifier register failed for domain %d ret = %d\n",
+			__func__, domain, ret);
 }
 
 uint16_t apr_get_reset_domain(uint16_t proc)

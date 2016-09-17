@@ -172,8 +172,8 @@ inline int apr_fill_hdr(void *handle, uint32_t *buf, uint16_t src_port,
 
 int apr_send_pkt(void *handle, uint32_t *buf);
 int apr_deregister(void *handle);
-void subsys_notif_register(struct notifier_block *mod_notif,
-				struct notifier_block *lp_notif);
+void subsys_notif_register(char *client_name, int domain,
+			   struct notifier_block *nb);
 int apr_get_dest_id(char *dest);
 uint16_t apr_get_data_src(struct apr_hdr *hdr);
 void change_q6_state(int state);
