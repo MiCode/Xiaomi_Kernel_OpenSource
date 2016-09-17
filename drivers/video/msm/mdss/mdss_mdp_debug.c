@@ -988,7 +988,7 @@ void mdss_mdp_debug_mid(u32 mid)
 			len = get_dump_range(&xlog_node->offset,
 				blk_base->max_offset);
 			addr = blk_base->base + xlog_node->offset.start;
-			pr_info("%s: mid:%d range_base=0x%p start=0x%x end=0x%x\n",
+			pr_info("%s: mid:%d range_base=0x%pK start=0x%x end=0x%x\n",
 				xlog_node->range_name, mid, addr,
 				xlog_node->offset.start, xlog_node->offset.end);
 
