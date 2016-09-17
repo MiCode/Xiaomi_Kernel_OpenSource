@@ -1320,7 +1320,7 @@ int icnss_hw_reset(struct icnss_priv *priv)
 				 MPM_WCSSAON_CONFIG_FORCE_ACTIVE, 1);
 
 	icnss_hw_poll_reg_field(priv->mem_base_va, SR_WCSSAON_SR_LSB_OFFSET,
-				SR_WCSSAON_SR_LSB_RETENTION_STATUS, 1, 100,
+				SR_WCSSAON_SR_LSB_RETENTION_STATUS, 1, 200,
 				ICNSS_HW_REG_RETRY);
 
 	for (i = 0; i < ICNSS_HW_REG_RETRY; i++) {
@@ -1348,10 +1348,12 @@ int icnss_hw_reset(struct icnss_priv *priv)
 	}
 
 	if (i >= ICNSS_HW_REG_RETRY)
-		ICNSS_ASSERT(false);
+		goto top_level_reset;
 
 	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
 				 MPM_WCSSAON_CONFIG_DISCONNECT_CLR, 0x1);
+
+	usleep_range(200, 300);
 
 	icnss_hw_reset_wlan_ss_power_down(priv);
 
