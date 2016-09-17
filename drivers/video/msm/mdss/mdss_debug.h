@@ -161,6 +161,12 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id,
 	bool is_video_mode);
 
 int mdss_create_xlog_debug(struct mdss_debug_data *mdd);
+#if defined(CONFIG_FB_MSM_MDSS_FRC_DEBUG)
+int mdss_create_frc_debug(struct mdss_debug_data *mdd);
+#else
+static inline int mdss_create_frc_debug(struct mdss_debug_data *mdd)
+	{return 0; }
+#endif
 void mdss_xlog(const char *name, int line, int flag, ...);
 void mdss_xlog_tout_handler_default(bool queue, const char *name, ...);
 u32 get_dump_range(struct dump_offset *range_node, size_t max_offset);
@@ -224,5 +230,27 @@ static inline int mdss_debug_register_io(const char *name,
 	return mdss_debug_register_base(name, io_data->base, io_data->len,
 		dbg_blk);
 }
+
+#if defined(CONFIG_DEBUG_FS) && defined(CONFIG_FB_MSM_MDSS_FRC_DEBUG)
+void mdss_debug_frc_add_vsync_sample(struct mdss_mdp_ctl *ctl,
+	ktime_t vsync_time);
+void mdss_debug_frc_add_kickoff_sample_pre(struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_frc_info *frc_info, int remaining);
+void mdss_debug_frc_add_kickoff_sample_post(struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_frc_info *frc_info, int remaining);
+int mdss_debug_frc_frame_repeat_disabled(void);
+#else
+static inline void mdss_debug_frc_add_vsync_sample(
+	struct mdss_mdp_ctl *ctl, ktime_t vsync_time) {}
+static inline void mdss_debug_frc_add_kickoff_sample_pre(
+	struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_frc_info *frc_info,
+	int remaining) {}
+static inline void mdss_debug_frc_add_kickoff_sample_post(
+	struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_frc_info *frc_info,
+	int remaining) {}
+static inline int mdss_debug_frc_frame_repeat_disabled(void) {return false; }
+#endif
 
 #endif /* MDSS_DEBUG_H */
