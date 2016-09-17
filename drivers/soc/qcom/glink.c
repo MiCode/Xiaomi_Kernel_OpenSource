@@ -5233,7 +5233,7 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 			struct glink_core_xprt_ctx *xprt_ctx)
 {
 	unsigned long flags;
-	struct glink_core_tx_pkt *tx_info;
+	struct glink_core_tx_pkt *tx_info, *temp_tx_info;
 	size_t txd_len = 0;
 	size_t tx_len = 0;
 	uint32_t num_pkts = 0;
@@ -5268,6 +5268,20 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 						ctx->lcid, tx_info);
 		}
 		spin_lock_irqsave(&ctx->tx_lists_lock_lhc3, flags);
+		if (!list_empty(&ctx->tx_active)) {
+			/*
+			 * Verify if same tx_info still exist in tx_active
+			 * list and is not removed during tx operation.
+			 * It can happen if SSR and tx done both happen
+			 * before tx_lists_lock_lhc3 is taken.
+			 */
+			temp_tx_info = list_first_entry(&ctx->tx_active,
+					struct glink_core_tx_pkt, list_node);
+			if (temp_tx_info != tx_info)
+				continue;
+		} else {
+			break;
+		}
 		if (ret == -EAGAIN) {
 			/*
 			 * transport unable to send at the moment and will call
@@ -5294,6 +5308,7 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 			 * Break out of the loop so that the scheduler can
 			 * continue with the next channel.
 			 */
+			rwref_put(&tx_info->pkt_ref);
 			break;
 		} else {
 			txd_len += tx_len;
@@ -5302,8 +5317,8 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 		if (!tx_info->size_remaining) {
 			num_pkts++;
 			list_del_init(&tx_info->list_node);
-			rwref_put(&tx_info->pkt_ref);
 		}
+		rwref_put(&tx_info->pkt_ref);
 	}
 
 	ctx->txd_len += txd_len;
@@ -5351,6 +5366,7 @@ static void tx_func(struct kthread_work *work)
 		glink_pm_qos_vote(xprt_ptr);
 		ch_ptr = list_first_entry(&xprt_ptr->prio_bin[prio].tx_ready,
 				struct channel_ctx, tx_ready_list_node);
+		rwref_get(&ch_ptr->ch_state_lhb2);
 		spin_unlock_irqrestore(&xprt_ptr->tx_ready_lock_lhb3, flags);
 
 		if (tx_ready_head == NULL || tx_ready_head_prio < prio) {
@@ -5362,6 +5378,7 @@ static void tx_func(struct kthread_work *work)
 			GLINK_ERR_XPRT(xprt_ptr,
 				"%s: Unable to send data on this transport.\n",
 				__func__);
+			rwref_put(&ch_ptr->ch_state_lhb2);
 			break;
 		}
 		transmitted_successfully = false;
@@ -5372,6 +5389,7 @@ static void tx_func(struct kthread_work *work)
 			 * transport unable to send at the moment and will call
 			 * tx_resume() when it can send again.
 			 */
+			rwref_put(&ch_ptr->ch_state_lhb2);
 			break;
 		} else if (ret < 0) {
 			/*
@@ -5384,6 +5402,7 @@ static void tx_func(struct kthread_work *work)
 			GLINK_ERR_XPRT(xprt_ptr,
 					"%s: unrecoverable xprt failure %d\n",
 					__func__, ret);
+			rwref_put(&ch_ptr->ch_state_lhb2);
 			break;
 		} else if (!ret) {
 			/*
@@ -5395,6 +5414,7 @@ static void tx_func(struct kthread_work *work)
 			list_rotate_left(&xprt_ptr->prio_bin[prio].tx_ready);
 			spin_unlock_irqrestore(&xprt_ptr->tx_ready_lock_lhb3,
 						flags);
+			rwref_put(&ch_ptr->ch_state_lhb2);
 			continue;
 		}
 
@@ -5412,6 +5432,7 @@ static void tx_func(struct kthread_work *work)
 
 		tx_ready_head = NULL;
 		transmitted_successfully = true;
+		rwref_put(&ch_ptr->ch_state_lhb2);
 	}
 	glink_pm_qos_unvote(xprt_ptr);
 	GLINK_PERF("%s: worker exiting\n", __func__);
