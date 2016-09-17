@@ -461,7 +461,7 @@ static int mhl3_send_ack(struct mhl3_hid_data *mhid, uint8_t reason)
 		return -ENODEV;
 
 	MHL3_HID_DBG_WARN("%s - HID_ACK reason code: %02X\n", __func__, reason);
-	MHL3_HID_DBG_ERR("mhid->mdev: %p\n", mhid->mdev);
+	MHL3_HID_DBG_ERR("mhid->mdev: %pK\n", mhid->mdev);
 	mhid->out_data[0] = MHL3_HID_ACK;
 	mhid->out_data[1] = reason;
 
@@ -1089,7 +1089,7 @@ mhid_cleanup:
 	mhl3_send_ack(mhid, HID_ACK_NODEV);
 
 	mhid->flags |= HID_FLAGS_WQ_CANCEL;
-	MHL3_HID_DBG_ERR("WORK QUEUE function FAIL - mhid: %p\n", mhid);
+	MHL3_HID_DBG_ERR("WORK QUEUE function FAIL - mhid: %pK\n", mhid);
 	mhl3_disconnect_and_destroy_hid_device(mhid);
 
 	/*

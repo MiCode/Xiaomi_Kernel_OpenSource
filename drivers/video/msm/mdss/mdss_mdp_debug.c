@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,7 +170,7 @@ static void __print_buf(struct seq_file *s, struct mdss_mdp_data *buf,
 		&buf->p[0].addr, buf->p[0].len);
 
 	if (buf->state != MDP_BUF_STATE_UNUSED)
-		seq_printf(s, "ihdl=0x%p ", buf->p[0].srcp_ihdl);
+		seq_printf(s, "ihdl=0x%pK ", buf->p[0].srcp_ihdl);
 
 	__print_time(tmpbuf, sizeof(tmpbuf), buf->last_alloc);
 	seq_printf(s, "alloc_time=%s ", tmpbuf);
