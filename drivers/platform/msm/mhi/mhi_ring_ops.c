@@ -114,6 +114,7 @@ int mhi_get_free_desc(struct mhi_client_handle *client_handle)
 {
 	u32 chan;
 	struct mhi_device_ctxt *ctxt;
+	int bb_ring, ch_ring;
 
 	if (!client_handle || MHI_HANDLE_MAGIC != client_handle->magic ||
 	    !client_handle->mhi_dev_ctxt)
@@ -121,7 +122,10 @@ int mhi_get_free_desc(struct mhi_client_handle *client_handle)
 	ctxt = client_handle->mhi_dev_ctxt;
 	chan = client_handle->chan_info.chan_nr;
 
-	return get_nr_avail_ring_elements(&ctxt->mhi_local_chan_ctxt[chan]);
+	bb_ring = get_nr_avail_ring_elements(&ctxt->chan_bb_list[chan]);
+	ch_ring = get_nr_avail_ring_elements(&ctxt->mhi_local_chan_ctxt[chan]);
+
+	return min(bb_ring, ch_ring);
 }
 EXPORT_SYMBOL(mhi_get_free_desc);
 
