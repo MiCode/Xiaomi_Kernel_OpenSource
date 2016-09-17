@@ -435,6 +435,35 @@ config DM_VERITY
 
 	  If unsure, say N.
 
+config DM_ANDROID_VERITY
+	bool "Android verity target support"
+	depends on DM_VERITY
+	depends on X509_CERTIFICATE_PARSER
+	depends on SYSTEM_TRUSTED_KEYRING
+	depends on PUBLIC_KEY_ALGO_RSA
+	depends on KEYS
+	depends on ASYMMETRIC_KEY_TYPE
+	depends on ASYMMETRIC_PUBLIC_KEY_SUBTYPE
+	---help---
+	  This device-mapper target is virtually a VERITY target. This
+	  target is setup by reading the metadata contents piggybacked
+	  to the actual data blocks in the block device. The signature
+	  of the metadata contents are verified against the key included
+	  in the system keyring. Upon success, the underlying verity
+	  target is setup.
+
+config DM_VERITY_FEC
+	bool "Verity forward error correction support"
+	depends on DM_VERITY
+	select REED_SOLOMON
+	select REED_SOLOMON_DEC8
+	---help---
+	  Add forward error correction support to dm-verity. This option
+	  makes it possible to use pre-generated error correction data to
+	  recover from corrupted blocks.
+
+	  If unsure, say N.
+
 config DM_SWITCH
 	tristate "Switch target support (EXPERIMENTAL)"
 	depends on BLK_DEV_DM
@@ -449,4 +478,19 @@ config DM_SWITCH
 
 	  If unsure, say N.
 
+config DM_LOG_WRITES
+	tristate "Log writes target support"
+	depends on BLK_DEV_DM
+	---help---
+	  This device-mapper target takes two devices, one device to use
+	  normally, one to log all write operations done to the first device.
+	  This is for use by file system developers wishing to verify that
+	  their fs is writing a consitent file system at all times by allowing
+	  them to replay the log in a variety of ways and to check the
+	  contents.
+
+	  To compile this code as a module, choose M here: the module will
+	  be called dm-log-writes.
+
+	  If unsure, say N.
 endif # MD
