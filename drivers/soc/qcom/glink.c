@@ -371,10 +371,10 @@ static struct channel_ctx *ch_name_to_ch_ctx_create(
 					const char *name);
 
 static void ch_push_remote_rx_intent(struct channel_ctx *ctx, size_t size,
-							uint32_t riid);
+					uint32_t riid, void *cookie);
 
 static int ch_pop_remote_rx_intent(struct channel_ctx *ctx, size_t size,
-				uint32_t *riid_ptr, size_t *intent_size);
+			uint32_t *riid_ptr, size_t *intent_size, void **cookie);
 
 static struct glink_core_rx_intent *ch_push_local_rx_intent(
 		struct channel_ctx *ctx, const void *pkt_priv, size_t size);
@@ -1138,11 +1138,12 @@ bool ch_check_duplicate_riid(struct channel_ctx *ctx, int riid)
  * @ctx:	Local channel context
  * @size:	Size of Intent
  * @riid_ptr:	Pointer to return value of remote intent ID
+ * @cookie:	Transport-specific cookie to return
  *
  * This functions searches for an RX intent that is >= to the requested size.
  */
 int ch_pop_remote_rx_intent(struct channel_ctx *ctx, size_t size,
-		uint32_t *riid_ptr, size_t *intent_size)
+	uint32_t *riid_ptr, size_t *intent_size, void **cookie)
 {
 	struct glink_core_rx_intent *intent;
 	struct glink_core_rx_intent *intent_tmp;
@@ -1186,6 +1187,7 @@ int ch_pop_remote_rx_intent(struct channel_ctx *ctx, size_t size,
 				best_intent->intent_size);
 		*riid_ptr = best_intent->id;
 		*intent_size = best_intent->intent_size;
+		*cookie = best_intent->cookie;
 		kfree(best_intent);
 		spin_unlock_irqrestore(
 			&ctx->rmt_rx_intent_lst_lock_lhc2, flags);
@@ -1200,11 +1202,12 @@ int ch_pop_remote_rx_intent(struct channel_ctx *ctx, size_t size,
  * @ctx:	Local channel context
  * @size:	Size of Intent
  * @riid:	Remote intent ID
+ * @cookie:	Transport-specific cookie to cache
  *
  * This functions adds a remote RX intent to the remote RX intent list.
  */
 void ch_push_remote_rx_intent(struct channel_ctx *ctx, size_t size,
-		uint32_t riid)
+		uint32_t riid, void *cookie)
 {
 	struct glink_core_rx_intent *intent;
 	unsigned long flags;
@@ -1233,6 +1236,7 @@ void ch_push_remote_rx_intent(struct channel_ctx *ctx, size_t size,
 	}
 	intent->id = riid;
 	intent->intent_size = size;
+	intent->cookie = cookie;
 
 	spin_lock_irqsave(&ctx->rmt_rx_intent_lst_lock_lhc2, flags);
 	list_add_tail(&intent->list, &ctx->rmt_rx_intent_list);
@@ -2802,6 +2806,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	bool is_atomic =
 		tx_flags & (GLINK_TX_SINGLE_THREADED | GLINK_TX_ATOMIC);
 	unsigned long flags;
+	void *cookie = NULL;
 
 	if (!size)
 		return -EINVAL;
@@ -2834,7 +2839,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	}
 
 	/* find matching rx intent (best-fit algorithm for now) */
-	if (ch_pop_remote_rx_intent(ctx, size, &riid, &intent_size)) {
+	if (ch_pop_remote_rx_intent(ctx, size, &riid, &intent_size, &cookie)) {
 		if (!(tx_flags & GLINK_TX_REQ_INTENT)) {
 			/* no rx intent available */
 			GLINK_ERR_CH(ctx,
@@ -2864,7 +2869,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		}
 
 		while (ch_pop_remote_rx_intent(ctx, size, &riid,
-						&intent_size)) {
+						&intent_size, &cookie)) {
 			rwref_get(&ctx->ch_state_lhb2);
 			rwref_read_put(&ctx->ch_state_lhb2);
 			if (is_atomic) {
@@ -2936,7 +2941,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 				is_atomic ? GFP_ATOMIC : GFP_KERNEL);
 	if (!tx_info) {
 		GLINK_ERR_CH(ctx, "%s: No memory for allocation\n", __func__);
-		ch_push_remote_rx_intent(ctx, intent_size, riid);
+		ch_push_remote_rx_intent(ctx, intent_size, riid, cookie);
 		rwref_read_put(&ctx->ch_state_lhb2);
 		return -ENOMEM;
 	}
@@ -2954,6 +2959,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	tx_info->vprovider = vbuf_provider;
 	tx_info->pprovider = pbuf_provider;
 	tx_info->intent_size = intent_size;
+	tx_info->cookie = cookie;
 
 	/* schedule packet for transmit */
 	if ((tx_flags & GLINK_TX_SINGLE_THREADED) &&
@@ -4873,7 +4879,35 @@ static void glink_core_remote_rx_intent_put(struct glink_transport_if *if_ptr,
 		return;
 	}
 
-	ch_push_remote_rx_intent(ctx, size, riid);
+	ch_push_remote_rx_intent(ctx, size, riid, NULL);
+	rwref_put(&ctx->ch_state_lhb2);
+}
+
+/**
+ * glink_core_remote_rx_intent_put_cookie() - Receive remove intent
+ *
+ * @if_ptr:    Pointer to transport instance
+ * @rcid:      Remote Channel ID
+ * @riid:      Remote Intent ID
+ * @size:      Size of the remote intent ID
+ * @cookie:    Transport-specific cookie to cache
+ */
+static void glink_core_remote_rx_intent_put_cookie(
+		struct glink_transport_if *if_ptr,
+		uint32_t rcid, uint32_t riid, size_t size, void *cookie)
+{
+	struct channel_ctx *ctx;
+
+	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
+	if (!ctx) {
+		/* unknown rcid received - this shouldn't happen */
+		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
+				"%s: invalid rcid received %u\n", __func__,
+				(unsigned)rcid);
+		return;
+	}
+
+	ch_push_remote_rx_intent(ctx, size, riid, cookie);
 	rwref_put(&ctx->ch_state_lhb2);
 }
 
@@ -5079,6 +5113,7 @@ void glink_core_rx_cmd_tx_done(struct glink_transport_if *if_ptr,
 	struct glink_core_tx_pkt *tx_pkt;
 	unsigned long flags;
 	size_t intent_size;
+	void *cookie;
 
 	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
@@ -5111,11 +5146,12 @@ void glink_core_rx_cmd_tx_done(struct glink_transport_if *if_ptr,
 	ctx->notify_tx_done(ctx, ctx->user_priv, tx_pkt->pkt_priv,
 			    tx_pkt->data ? tx_pkt->data : tx_pkt->iovec);
 	intent_size = tx_pkt->intent_size;
+	cookie = tx_pkt->cookie;
 	ch_remove_tx_pending_remote_done(ctx, tx_pkt);
 	spin_unlock_irqrestore(&ctx->tx_lists_lock_lhc3, flags);
 
 	if (reuse)
-		ch_push_remote_rx_intent(ctx, intent_size, riid);
+		ch_push_remote_rx_intent(ctx, intent_size, riid, cookie);
 	rwref_put(&ctx->ch_state_lhb2);
 }
 
@@ -5573,6 +5609,8 @@ static struct glink_core_if core_impl = {
 	.rx_get_pkt_ctx = glink_core_rx_get_pkt_ctx,
 	.rx_put_pkt_ctx = glink_core_rx_put_pkt_ctx,
 	.rx_cmd_remote_rx_intent_put = glink_core_remote_rx_intent_put,
+	.rx_cmd_remote_rx_intent_put_cookie =
+					glink_core_remote_rx_intent_put_cookie,
 	.rx_cmd_remote_rx_intent_req = glink_core_rx_cmd_remote_rx_intent_req,
 	.rx_cmd_rx_intent_req_ack = glink_core_rx_cmd_rx_intent_req_ack,
 	.rx_cmd_tx_done = glink_core_rx_cmd_tx_done,
