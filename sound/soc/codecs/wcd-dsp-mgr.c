@@ -479,7 +479,7 @@ static struct device *wdsp_get_dev_for_cmpnt(struct device *wdsp_dev,
 }
 
 static int wdsp_intr_handler(struct device *wdsp_dev,
-			     enum wdsp_intr intr)
+			     enum wdsp_intr intr, void *arg)
 {
 	struct wdsp_mgr_priv *wdsp;
 	int ret;

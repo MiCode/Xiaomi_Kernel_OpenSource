@@ -109,7 +109,7 @@ struct wdsp_mgr_ops {
 	struct device *(*get_dev_for_cmpnt)(struct device *wdsp_dev,
 					    enum wdsp_cmpnt_type type);
 	int (*intr_handler)(struct device *wdsp_dev,
-			      enum wdsp_intr intr);
+			      enum wdsp_intr intr, void *arg);
 	int (*vote_for_dsp)(struct device *wdsp_dev, bool vote);
 	int (*suspend)(struct device *wdsp_dev);
 	int (*resume)(struct device *wdsp_dev);

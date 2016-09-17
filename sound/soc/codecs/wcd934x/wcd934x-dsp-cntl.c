@@ -553,7 +553,8 @@ static irqreturn_t wcd_cntl_ipc_irq(int irq, void *data)
 
 	if (cntl->m_dev && cntl->m_ops &&
 	    cntl->m_ops->intr_handler)
-		ret = cntl->m_ops->intr_handler(cntl->m_dev, WDSP_IPC1_INTR);
+		ret = cntl->m_ops->intr_handler(cntl->m_dev, WDSP_IPC1_INTR,
+						NULL);
 	else
 		ret = -EINVAL;
 
