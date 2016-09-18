@@ -35,6 +35,11 @@ static void f2fs_read_end_io(struct bio *bio, int err)
 	struct bio_vec *bvec;
 	int i;
 
+#ifdef CONFIG_F2FS_FAULT_INJECTION
+	if (time_to_inject(FAULT_IO))
+		err = -EIO;
+#endif
+
 	if (f2fs_bio_encrypted(bio)) {
 		if (err) {
 			fscrypt_release_ctx(bio->bi_private);
