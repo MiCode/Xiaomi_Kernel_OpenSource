@@ -221,6 +221,7 @@ static int sde_power_parse_dt_clock(struct platform_device *pdev,
 	u32 i = 0, rc = 0;
 	const char *clock_name;
 	u32 clock_rate;
+	u32 clock_max_rate;
 
 	if (!pdev || !mp) {
 		pr_err("invalid input param pdev:%pK mp:%pK\n", pdev, mp);
@@ -256,6 +257,11 @@ static int sde_power_parse_dt_clock(struct platform_device *pdev,
 			mp->clk_config[i].type = DSS_CLK_AHB;
 		else
 			mp->clk_config[i].type = DSS_CLK_PCLK;
+
+		clock_max_rate = 0;
+		of_property_read_u32_index(pdev->dev.of_node, "clock-max-rate",
+							i, &clock_max_rate);
+		mp->clk_config[i].max_rate = clock_max_rate;
 	}
 
 clk_err:
@@ -521,6 +527,10 @@ int sde_power_clk_set_rate(struct sde_power_handle *phandle, char *clock_name,
 
 	for (i = 0; i < mp->num_clk; i++) {
 		if (!strcmp(mp->clk_config[i].clk_name, clock_name)) {
+			if (mp->clk_config[i].max_rate &&
+					(rate > mp->clk_config[i].max_rate))
+				rate = mp->clk_config[i].max_rate;
+
 			mp->clk_config[i].rate = rate;
 			rc = msm_dss_clk_set_rate(mp->clk_config, mp->num_clk);
 			break;

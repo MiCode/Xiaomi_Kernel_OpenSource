@@ -21,6 +21,7 @@ Required properties
 
 Optional properties:
 - clock-rate:		List of clock rates in Hz.
+- clock-max-rate:	List of maximum clock rate in Hz that this device supports.
 - qcom,platform-supply-entries:	A node that lists the elements of the supply. There
 				can be more than one instance of this binding,
 				in which case the entry would be appended with
@@ -80,6 +81,7 @@ Example:
       "mmagic_clk",
       "vsync_clk";
     clock-rate = <0>, <0>, <0>;
+    clock-max-rate= <0 320000000 0>;
     mmagic-supply = <&gdsc_mmagic_mdss>;
     vdd-supply = <&gdsc_mdss>;
     interrupt-parent = <&intc>;
