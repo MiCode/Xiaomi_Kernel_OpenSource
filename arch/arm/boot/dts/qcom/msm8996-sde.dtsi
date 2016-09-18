@@ -40,6 +40,7 @@
 			"mmagic_clk",
 			"vsync_clk";
 		clock-rate = <0 0 300000000 300000000 0 0 0 0>;
+		clock-max-rate = <0 0 412500000 412500000 0 0 0 0>;
 
 		interrupt-parent = <&intc>;
 		interrupts = <0 83 0>;
