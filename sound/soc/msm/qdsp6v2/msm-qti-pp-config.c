@@ -241,6 +241,7 @@ static int msm_qti_pp_put_eq_band_audio_mixer(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+#ifdef CONFIG_QTI_PP
 void msm_qti_pp_send_eq_values(int fedai_id)
 {
 	if (eq_data[fedai_id].enable)
@@ -325,6 +326,7 @@ skip_send_cmd:
 		kfree(params_value);
 		return -ENOMEM;
 }
+#endif /* CONFIG_QTI_PP */
 
 /* RMS */
 static int msm_qti_pp_get_rms_value_control(struct snd_kcontrol *kcontrol,
@@ -682,6 +684,7 @@ static int msm_qti_pp_asphere_send_params(int port_id, int copp_idx, bool force)
 	return 0;
 }
 
+#if defined(CONFIG_QTI_PP) && defined(CONFIG_QTI_PP_AUDIOSPHERE)
 int msm_qti_pp_asphere_init(int port_id, int copp_idx)
 {
 	int index = adm_validate_and_get_port_index(port_id);
@@ -719,6 +722,7 @@ void msm_qti_pp_asphere_deinit(int port_id)
 		asphere_state.copp_idx[index] = -1;
 	}
 }
+#endif
 
 static int msm_qti_pp_asphere_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
@@ -976,6 +980,7 @@ static const struct snd_kcontrol_new asphere_mixer_controls[] = {
 	0xFFFFFFFF, 0, 2, msm_qti_pp_asphere_get, msm_qti_pp_asphere_set),
 };
 
+#ifdef CONFIG_QTI_PP
 void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 {
 	snd_soc_add_platform_controls(platform, int_fm_vol_mixer_controls,
@@ -1023,3 +1028,4 @@ void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform, asphere_mixer_controls,
 			ARRAY_SIZE(asphere_mixer_controls));
 }
+#endif /* CONFIG_QTI_PP */
