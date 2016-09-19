@@ -63,6 +63,7 @@
 #define LINESTATE_DM			BIT(1)
 
 #define QUSB2PHY_PLL_ANALOG_CONTROLS_ONE	0x0
+#define QUSB2PHY_PLL_ANALOG_CONTROLS_TWO	0x4
 
 unsigned int phy_tune1;
 module_param(phy_tune1, uint, S_IRUGO | S_IWUSR);
@@ -541,6 +542,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	u32 linestate = 0, intr_mask = 0;
+	static u8 analog_ctrl_two;
 	int ret;
 
 	if (qphy->suspended && suspend) {
@@ -553,6 +555,14 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 		/* Bus suspend case */
 		if (qphy->cable_connected ||
 			(qphy->phy.flags & PHY_HOST_MODE)) {
+
+			/* store clock settings like cmos/cml */
+			analog_ctrl_two =
+				readl_relaxed(qphy->base +
+					QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
+
+			writel_relaxed(0x1b,
+				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
 
 			/* enable clock bypass */
 			writel_relaxed(0x90,
@@ -599,6 +609,9 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				dev_err(phy->dev, "%s: phy_reset deassert failed\n",
 						__func__);
 
+			writel_relaxed(0x1b,
+				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
+
 			/* enable clock bypass */
 			writel_relaxed(0x90,
 				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_ONE);
@@ -620,6 +633,10 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			(qphy->phy.flags & PHY_HOST_MODE)) {
 			qusb_phy_enable_clocks(qphy, true);
 
+			/* restore the default clock settings */
+			writel_relaxed(analog_ctrl_two,
+				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
+
 			/* disable clock bypass */
 			writel_relaxed(0x80,
 				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_ONE);
@@ -639,12 +656,17 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			 */
 			wmb();
 
+			qusb_phy_enable_power(qphy, true, true);
+			ret = reset_control_assert(qphy->phy_reset);
+			if (ret)
+				dev_err(phy->dev, "%s: phy_reset assert failed\n",
+						__func__);
+			usleep_range(100, 150);
 			ret = reset_control_deassert(qphy->phy_reset);
 			if (ret)
 				dev_err(phy->dev, "%s: phy_reset deassert failed\n",
 						__func__);
 
-			qusb_phy_enable_power(qphy, true, true);
 			qusb_phy_enable_clocks(qphy, true);
 		}
 		qphy->suspended = false;
