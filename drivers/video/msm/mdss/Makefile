@@ -31,6 +31,10 @@ ifeq ($(CONFIG_FB_MSM_MDSS),y)
 obj-$(CONFIG_DEBUG_FS) += mdss_debug.o mdss_debug_xlog.o
 endif
 
+ifeq ($(CONFIG_FB_MSM_MDSS_FRC_DEBUG),y)
+obj-$(CONFIG_DEBUG_FS) += mdss_debug_frc.o
+endif
+
 mdss-dsi-objs := mdss_dsi.o mdss_dsi_host.o mdss_dsi_cmd.o mdss_dsi_status.o
 mdss-dsi-objs += mdss_dsi_panel.o
 mdss-dsi-objs += msm_mdss_io_8974.o

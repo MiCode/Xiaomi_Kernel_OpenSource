@@ -2034,20 +2034,25 @@ static int msm_compr_pointer(struct snd_compr_stream *cstream,
 	gapless_transition = prtd->gapless_state.gapless_transition;
 	spin_unlock_irqrestore(&prtd->lock, flags);
 
+	if (gapless_transition)
+		pr_debug("%s session time in gapless transition",
+			 __func__);
+
 	/*
-	 Query timestamp from DSP if some data is with it.
-	 This prevents timeouts.
+	 - Do not query if no buffer has been given.
+	 - Do not query on a gapless transition.
+	   Playback for the 2nd stream can start (thus returning time
+	   starting from 0) before the driver knows about EOS of first stream.
 	*/
-	if (!first_buffer || gapless_transition) {
-		if (gapless_transition)
-			pr_debug("%s session time in gapless transition",
-				 __func__);
+
+	if (!first_buffer && !gapless_transition) {
 		if (pdata->use_legacy_api)
 			rc = q6asm_get_session_time_legacy(prtd->audio_client,
-							&timestamp);
+						&prtd->marker_timestamp);
 		else
 			rc = q6asm_get_session_time(prtd->audio_client,
-							&timestamp);
+						&prtd->marker_timestamp);
+
 		if (rc < 0) {
 			pr_err("%s: Get Session Time return value =%lld\n",
 				__func__, timestamp);
@@ -2056,9 +2061,8 @@ static int msm_compr_pointer(struct snd_compr_stream *cstream,
 			else
 				return -EAGAIN;
 		}
-	} else {
-		timestamp = prtd->marker_timestamp;
 	}
+	timestamp = prtd->marker_timestamp;
 
 	/* DSP returns timestamp in usec */
 	pr_debug("%s: timestamp = %lld usec\n", __func__, timestamp);

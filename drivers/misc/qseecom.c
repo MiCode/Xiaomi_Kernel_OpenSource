@@ -1815,7 +1815,7 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 {
 	int ret = 0;
 	int rc = 0;
-	uint32_t lstnr;
+	uint32_t lstnr = 0;
 	unsigned long flags;
 	struct qseecom_client_listener_data_irsp send_data_rsp;
 	struct qseecom_registered_listener_list *ptr_svc = NULL;

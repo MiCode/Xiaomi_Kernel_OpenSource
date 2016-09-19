@@ -54,6 +54,9 @@
 #define CNSS_PINCTRL_SLEEP_STATE	"sleep"
 #define CNSS_PINCTRL_ACTIVE_STATE	"active"
 
+#define CNSS_HW_SLEEP 0
+#define CNSS_HW_ACTIVE 1
+
 struct cnss_sdio_regulator {
 	struct regulator *wlan_io;
 	struct regulator *wlan_xtal;
@@ -69,6 +72,7 @@ struct cnss_sdio_info {
 	struct device *dev;
 	const struct sdio_device_id *id;
 	bool skip_wlan_en_toggle;
+	bool cnss_hw_state;
 };
 
 struct cnss_ssr_info {
@@ -236,6 +240,11 @@ static int cnss_put_hw_resources(struct device *dev)
 		return 0;
 	}
 
+	if (info->cnss_hw_state == CNSS_HW_SLEEP) {
+		pr_debug("HW resources are already released\n");
+		return 0;
+	}
+
 	host = info->host;
 
 	if (!host) {
@@ -256,6 +265,7 @@ static int cnss_put_hw_resources(struct device *dev)
 	}
 
 	regulator_disable(cnss_pdata->regulator.wlan_vreg);
+	info->cnss_hw_state = CNSS_HW_SLEEP;
 
 	return ret;
 }
@@ -273,6 +283,11 @@ static int cnss_get_hw_resources(struct device *dev)
 
 	if (info->skip_wlan_en_toggle) {
 		pr_debug("HW doesn't support wlan toggling\n");
+		return 0;
+	}
+
+	if (info->cnss_hw_state == CNSS_HW_ACTIVE) {
+		pr_debug("HW resources are already active\n");
 		return 0;
 	}
 
@@ -299,8 +314,10 @@ static int cnss_get_hw_resources(struct device *dev)
 		pr_err("Failed to restore host power ret:%d\n",
 		       ret);
 		regulator_disable(cnss_pdata->regulator.wlan_vreg);
+		return ret;
 	}
 
+	info->cnss_hw_state = CNSS_HW_ACTIVE;
 	return ret;
 }
 
@@ -853,9 +870,11 @@ int cnss_sdio_wlan_register_driver(struct cnss_sdio_wlan_driver *driver)
 	error = cnss_set_pinctrl_state(cnss_pdata, PINCTRL_ACTIVE);
 	if (error) {
 		pr_err("Fail to set pinctrl to active state\n");
+		cnss_put_hw_resources(dev);
 		goto put_hw;
 	}
 
+	/* The HW resources are released in unregister logic if probe fails */
 	error = driver->probe ? driver->probe(cnss_info->func,
 					      cnss_info->id) : error;
 	if (error) {
@@ -868,7 +887,6 @@ int cnss_sdio_wlan_register_driver(struct cnss_sdio_wlan_driver *driver)
 pinctrl_sleep:
 	cnss_set_pinctrl_state(cnss_pdata, PINCTRL_SLEEP);
 put_hw:
-	cnss_put_hw_resources(dev);
 	return error;
 }
 EXPORT_SYMBOL(cnss_sdio_wlan_register_driver);
@@ -967,7 +985,8 @@ static int cnss_sdio_wlan_init(void)
 	if (error)
 		pr_err("registered fail error=%d\n", error);
 	else
-		pr_debug("registered succ\n");
+		pr_debug("registered success\n");
+
 	return error;
 }
 
@@ -1269,6 +1288,7 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 
 	info->skip_wlan_en_toggle = of_property_read_bool(dev->of_node,
 							  "qcom,skip-wlan-en-toggle");
+	info->cnss_hw_state = CNSS_HW_ACTIVE;
 
 	error = cnss_sdio_wlan_init();
 	if (error) {
@@ -1309,6 +1329,7 @@ err_subsys_init:
 err_ramdump_create:
 	cnss_sdio_wlan_exit();
 err_wlan_dsrc_enable_regulator:
+	info->cnss_hw_state = CNSS_HW_SLEEP;
 	regulator_put(cnss_pdata->regulator.wlan_vreg_dsrc);
 err_wlan_enable_regulator:
 	regulator_put(cnss_pdata->regulator.wlan_xtal);

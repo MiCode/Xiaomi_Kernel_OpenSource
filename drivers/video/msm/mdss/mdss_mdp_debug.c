@@ -988,7 +988,7 @@ void mdss_mdp_debug_mid(u32 mid)
 			len = get_dump_range(&xlog_node->offset,
 				blk_base->max_offset);
 			addr = blk_base->base + xlog_node->offset.start;
-			pr_info("%s: mid:%d range_base=0x%p start=0x%x end=0x%x\n",
+			pr_info("%s: mid:%d range_base=0x%pK start=0x%x end=0x%x\n",
 				xlog_node->range_name, mid, addr,
 				xlog_node->offset.start, xlog_node->offset.end);
 
@@ -1160,7 +1160,7 @@ static void __dump_timings(struct seq_file *s, struct mdss_mdp_ctl *ctl)
 	pinfo = &ctl->panel_data->panel_info;
 	seq_printf(s, "Panel #%d %dx%dp%d\n",
 			pinfo->pdest, pinfo->xres, pinfo->yres,
-			mdss_panel_get_framerate(pinfo));
+			mdss_panel_get_framerate(pinfo, FPS_RESOLUTION_HZ));
 	seq_printf(s, "\tvbp=%d vfp=%d vpw=%d hbp=%d hfp=%d hpw=%d\n",
 			pinfo->lcdc.v_back_porch,
 			pinfo->lcdc.v_front_porch,

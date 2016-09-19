@@ -2042,7 +2042,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		rc = PTR_ERR(vaddr);
 		goto err_unmap;
 	}
-	pr_debug("alloc 0x%zuB vaddr = %p for fb%d\n", fb_size,
+	pr_debug("alloc 0x%zuB vaddr = %pK for fb%d\n", fb_size,
 			vaddr, mfd->index);
 
 	mfd->fbi->screen_base = (char *) vaddr;
@@ -2141,7 +2141,7 @@ static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 				vma->vm_page_prot =
 					pgprot_writecombine(vma->vm_page_prot);
 
-			pr_debug("vma=%p, addr=%x len=%ld\n",
+			pr_debug("vma=%pK, addr=%x len=%ld\n",
 					vma, (unsigned int)addr, len);
 			pr_debug("vm_start=%x vm_end=%x vm_page_prot=%ld\n",
 					(unsigned int)vma->vm_start,
@@ -2308,7 +2308,7 @@ static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
 		return -ERANGE;
 	}
 
-	pr_debug("alloc 0x%zxB @ (%pa phys) (0x%p virt) (%pa iova) for fb%d\n",
+	pr_debug("alloc 0x%zxB @ (%pa phys) (0x%pK virt) (%pa iova) for fb%d\n",
 		 size, &phys, virt, &mfd->iova, mfd->index);
 
 	mfd->fbi->screen_base = virt;
@@ -2596,7 +2596,7 @@ static int mdss_fb_open(struct fb_info *info, int user)
 	}
 
 	mfd->ref_cnt++;
-	pr_debug("mfd refcount:%d file:%p\n", mfd->ref_cnt, info->file);
+	pr_debug("mfd refcount:%d file:%pK\n", mfd->ref_cnt, info->file);
 
 	return 0;
 
@@ -2661,7 +2661,7 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 		pr_warn("file node not found or wrong ref cnt: release all:%d refcnt:%d\n",
 			release_all, mfd->ref_cnt);
 
-	pr_debug("current process=%s pid=%d mfd->ref=%d file:%p\n",
+	pr_debug("current process=%s pid=%d mfd->ref=%d file:%pK\n",
 		task->comm, current->tgid, mfd->ref_cnt, info->file);
 
 	if (!mfd->ref_cnt || release_all) {
@@ -3404,7 +3404,8 @@ void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 	var->left_margin = pinfo->lcdc.h_back_porch;
 	var->hsync_len = pinfo->lcdc.h_pulse_width;
 
-	frame_rate = mdss_panel_get_framerate(pinfo);
+	frame_rate = mdss_panel_get_framerate(pinfo,
+					FPS_RESOLUTION_HZ);
 	if (frame_rate) {
 		unsigned long clk_rate, h_total, v_total;
 
@@ -4315,6 +4316,8 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	struct mdp_input_layer __user *input_layer_list;
 	struct mdp_output_layer *output_layer = NULL;
 	struct mdp_output_layer __user *output_layer_user;
+	struct mdp_frc_info *frc_info = NULL;
+	struct mdp_frc_info __user *frc_info_user;
 
 	ret = copy_from_user(&commit, argp, sizeof(struct mdp_layer_commit));
 	if (ret) {
@@ -4392,6 +4395,26 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		}
 	}
 
+	/* Copy Deterministic Frame Rate Control info from userspace */
+	frc_info_user = commit.commit_v1.frc_info;
+	if (frc_info_user) {
+		frc_info = kzalloc(sizeof(struct mdp_frc_info), GFP_KERNEL);
+		if (!frc_info) {
+			pr_err("unable to allocate memory for frc\n");
+			ret = -ENOMEM;
+			goto err;
+		}
+
+		ret = copy_from_user(frc_info, frc_info_user,
+			sizeof(struct mdp_frc_info));
+		if (ret) {
+			pr_err("frc info copy from user failed\n");
+			goto frc_err;
+		}
+
+		commit.commit_v1.frc_info = frc_info;
+	}
+
 	ATRACE_BEGIN("ATOMIC_COMMIT");
 	ret = mdss_fb_atomic_commit(info, &commit, file);
 	if (ret)
@@ -4408,12 +4431,15 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 
 		commit.commit_v1.input_layers = input_layer_list;
 		commit.commit_v1.output_layer = output_layer_user;
+		commit.commit_v1.frc_info = frc_info_user;
 		rc = copy_to_user(argp, &commit,
 			sizeof(struct mdp_layer_commit));
 		if (rc)
 			pr_err("copy to user for release & retire fence failed\n");
 	}
 
+frc_err:
+	kfree(frc_info);
 err:
 	for (i--; i >= 0; i--) {
 		kfree(layer_list[i].scale);
