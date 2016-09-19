@@ -17,6 +17,7 @@
 #include <linux/rbtree.h>
 #include <linux/mutex.h>
 #include <linux/err.h>
+#include <asm/barrier.h>
 
 #include <linux/msm_dma_iommu_mapping.h>
 
@@ -205,10 +206,13 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		sg->dma_length = iommu_map->sgl.dma_length;
 
 		kref_get(&iommu_map->ref);
-		/*
-		 * Need to do cache operations here based on "dir" in the
-		 * future if we go with coherent mappings.
-		 */
+		if (is_device_dma_coherent(dev))
+			/*
+			 * Ensure all outstanding changes for coherent
+			 * buffers are applied to the cache before any
+			 * DMA occurs.
+			 */
+			dmb(ish);
 		ret = nents;
 	}
 	mutex_unlock(&iommu_meta->lock);
