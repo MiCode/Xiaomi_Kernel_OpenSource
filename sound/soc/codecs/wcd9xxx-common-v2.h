@@ -61,8 +61,10 @@ enum {
 	CLS_H_NORMAL = 0, /* Class-H Default */
 	CLS_H_HIFI, /* Class-H HiFi */
 	CLS_H_LP, /* Class-H Low Power */
-	CLS_AB, /* Class-AB */
+	CLS_AB, /* Class-AB Low HIFI*/
 	CLS_H_LOHIFI, /* LoHIFI */
+	CLS_H_ULP, /* Ultra Low power */
+	CLS_AB_HIFI, /* Class-AB */
 	CLS_NONE, /* None of the above modes */
 };
 

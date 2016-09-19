@@ -193,7 +193,13 @@ static int audio_get_pinctrl(struct platform_device *pdev)
 	int ret;
 
 	pnctrl_info = &audio_ap_clk2.pnctrl_info;
-	pnctrl_info->pinctrl = NULL;
+
+	if (pnctrl_info->pinctrl) {
+		dev_dbg(&pdev->dev, "%s: already requested before\n",
+			__func__);
+		return -EINVAL;
+	}
+
 	pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR_OR_NULL(pinctrl)) {
 		dev_dbg(&pdev->dev, "%s: Unable to get pinctrl handle\n",
