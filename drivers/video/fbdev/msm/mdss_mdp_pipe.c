@@ -2072,8 +2072,9 @@ static void mdss_mdp_set_pipe_cdp(struct mdss_mdp_pipe *pipe)
 	u32 cdp_settings = 0x0;
 	bool is_rotator = (pipe->mixer_left && pipe->mixer_left->rotator_mode);
 
-	/* Disable CDP for rotator pipe in v1 */
-	if (is_rotator && mdss_has_quirk(mdata, MDSS_QUIRK_ROTCDP))
+	/* Disable CDP for rotator pipe or if not requested for the target */
+	if (!mdata->enable_cdp || (is_rotator &&
+			mdss_has_quirk(mdata, MDSS_QUIRK_ROTCDP)))
 		goto exit;
 
 	cdp_settings = MDSS_MDP_CDP_ENABLE;
