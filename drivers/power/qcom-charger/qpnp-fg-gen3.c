@@ -35,6 +35,8 @@
 #define CUTOFF_VOLT_OFFSET		0
 #define SYS_TERM_CURR_WORD		6
 #define SYS_TERM_CURR_OFFSET		0
+#define VBATT_FULL_WORD			7
+#define VBATT_FULL_OFFSET		0
 #define DELTA_SOC_THR_WORD		12
 #define DELTA_SOC_THR_OFFSET		3
 #define RECHARGE_SOC_THR_WORD		14
@@ -89,6 +91,8 @@
 #define EMPTY_VOLT_v2_OFFSET		3
 #define VBATT_LOW_v2_WORD		16
 #define VBATT_LOW_v2_OFFSET		0
+#define FLOAT_VOLT_v2_WORD		16
+#define FLOAT_VOLT_v2_OFFSET		2
 
 static int fg_decode_value_16b(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
@@ -97,9 +101,9 @@ static int fg_decode_default(struct fg_sram_param *sp,
 static int fg_decode_batt_soc(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
 static void fg_encode_voltage(struct fg_sram_param *sp,
-	enum fg_sram_param_id id, int val, u8 *buf);
+	enum fg_sram_param_id id, int val_mv, u8 *buf);
 static void fg_encode_current(struct fg_sram_param *sp,
-	enum fg_sram_param_id id, int val, u8 *buf);
+	enum fg_sram_param_id id, int val_ma, u8 *buf);
 static void fg_encode_default(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val, u8 *buf);
 
@@ -134,6 +138,8 @@ static struct fg_sram_param pmicobalt_v1_sram_params[] = {
 		-2500, fg_encode_voltage, NULL),
 	PARAM(VBATT_LOW, VBATT_LOW_WORD, VBATT_LOW_OFFSET, 1, 100000, 390625,
 		-2500, fg_encode_voltage, NULL),
+	PARAM(VBATT_FULL, VBATT_FULL_WORD, VBATT_FULL_OFFSET, 2, 1000000,
+		244141, 0, fg_encode_voltage, NULL),
 	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 3,
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_WORD, CHG_TERM_CURR_OFFSET, 1,
@@ -172,6 +178,10 @@ static struct fg_sram_param pmicobalt_v2_sram_params[] = {
 		15625, -2000, fg_encode_voltage, NULL),
 	PARAM(VBATT_LOW, VBATT_LOW_v2_WORD, VBATT_LOW_v2_OFFSET, 1, 1000,
 		15625, -2000, fg_encode_voltage, NULL),
+	PARAM(FLOAT_VOLT, FLOAT_VOLT_v2_WORD, FLOAT_VOLT_v2_OFFSET, 1, 1000,
+		15625, -2000, fg_encode_voltage, NULL),
+	PARAM(VBATT_FULL, VBATT_FULL_WORD, VBATT_FULL_OFFSET, 2, 1000000,
+		244141, 0, fg_encode_voltage, NULL),
 	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 3,
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_v2_WORD, CHG_TERM_CURR_v2_OFFSET, 1,
@@ -302,14 +312,14 @@ static int fg_decode(struct fg_sram_param *sp, enum fg_sram_param_id id,
 }
 
 static void fg_encode_voltage(struct fg_sram_param *sp,
-				enum fg_sram_param_id  id, int val, u8 *buf)
+				enum fg_sram_param_id  id, int val_mv, u8 *buf)
 {
 	int i, mask = 0xff;
 	int64_t temp;
 
-	val += sp[id].offset;
-	temp = (int64_t)div_u64((u64)val * sp[id].numrtr, sp[id].denmtr);
-	pr_debug("temp: %llx id: %d, val: %d, buf: [ ", temp, id, val);
+	val_mv += sp[id].offset;
+	temp = (int64_t)div_u64((u64)val_mv * sp[id].numrtr, sp[id].denmtr);
+	pr_debug("temp: %llx id: %d, val_mv: %d, buf: [ ", temp, id, val_mv);
 	for (i = 0; i < sp[id].len; i++) {
 		buf[i] = temp & mask;
 		temp >>= 8;
@@ -319,15 +329,15 @@ static void fg_encode_voltage(struct fg_sram_param *sp,
 }
 
 static void fg_encode_current(struct fg_sram_param *sp,
-				enum fg_sram_param_id  id, int val, u8 *buf)
+				enum fg_sram_param_id  id, int val_ma, u8 *buf)
 {
 	int i, mask = 0xff;
 	int64_t temp;
 	s64 current_ma;
 
-	current_ma = val;
+	current_ma = val_ma;
 	temp = (int64_t)div_s64(current_ma * sp[id].numrtr, sp[id].denmtr);
-	pr_debug("temp: %llx id: %d, val: %d, buf: [ ", temp, id, val);
+	pr_debug("temp: %llx id: %d, val: %d, buf: [ ", temp, id, val_ma);
 	for (i = 0; i < sp[id].len; i++) {
 		buf[i] = temp & mask;
 		temp >>= 8;
@@ -593,14 +603,12 @@ static int fg_get_batt_id(struct fg_chip *chip, int *val)
 		return rc;
 	}
 
-	chip->batt_id_avail = true;
 	fg_dbg(chip, FG_STATUS, "batt_id: %d\n", batt_id);
 
 	*val = batt_id;
 	return 0;
 }
 
-#define PROFILE_LEN			224
 static int fg_get_batt_profile(struct fg_chip *chip)
 {
 	struct device_node *node = chip->dev->of_node;
@@ -614,13 +622,14 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		return rc;
 	}
 
+	batt_id /= 1000;
+	chip->batt_id = batt_id;
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
 		pr_err("Batterydata not available\n");
 		return -ENXIO;
 	}
 
-	batt_id /= 1000;
 	profile_node = of_batterydata_get_best_profile(batt_node, batt_id,
 				NULL);
 	if (IS_ERR(profile_node))
@@ -652,6 +661,13 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		chip->bp.fastchg_curr_ma = -EINVAL;
 	}
 
+	rc = of_property_read_u32(profile_node, "qcom,fg-cc-cv-threshold-mv",
+			&chip->bp.vbatt_full_mv);
+	if (rc < 0) {
+		pr_err("battery cc_cv threshold unavailable, rc:%d\n", rc);
+		chip->bp.vbatt_full_mv = -EINVAL;
+	}
+
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
 		pr_err("No profile data available\n");
@@ -663,6 +679,7 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		return -EINVAL;
 	}
 
+	chip->profile_available = true;
 	memcpy(chip->batt_profile, data, len);
 	return 0;
 }
@@ -912,7 +929,6 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 	return count;
 }
 
-#define PROFILE_COMP_LEN		32
 #define SOC_READY_WAIT_MS		2000
 static void profile_load_work(struct work_struct *work)
 {
@@ -922,11 +938,6 @@ static void profile_load_work(struct work_struct *work)
 	int rc;
 	u8 buf[PROFILE_COMP_LEN], val;
 	bool tried_again = false, profiles_same = false;
-
-	if (!chip->batt_id_avail) {
-		pr_err("batt_id not available\n");
-		return;
-	}
 
 	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
 			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
@@ -1182,6 +1193,32 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	/* This SRAM register is only present in v2.0 */
+	if (chip->pmic_rev_id->rev4 == PMICOBALT_V2P0_REV4 &&
+		chip->bp.float_volt_uv > 0) {
+		fg_encode(chip->sp, FG_SRAM_FLOAT_VOLT,
+			chip->bp.float_volt_uv / 1000, buf);
+		rc = fg_sram_write(chip, chip->sp[FG_SRAM_FLOAT_VOLT].addr_word,
+			chip->sp[FG_SRAM_FLOAT_VOLT].addr_byte, buf,
+			chip->sp[FG_SRAM_FLOAT_VOLT].len, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing float_volt, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (chip->bp.vbatt_full_mv > 0) {
+		fg_encode(chip->sp, FG_SRAM_VBATT_FULL, chip->bp.vbatt_full_mv,
+			buf);
+		rc = fg_sram_write(chip, chip->sp[FG_SRAM_VBATT_FULL].addr_word,
+			chip->sp[FG_SRAM_VBATT_FULL].addr_byte, buf,
+			chip->sp[FG_SRAM_VBATT_FULL].len, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing vbatt_full, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	fg_encode(chip->sp, FG_SRAM_CHG_TERM_CURR, chip->dt.chg_term_curr_ma,
 		buf);
 	rc = fg_sram_write(chip, chip->sp[FG_SRAM_CHG_TERM_CURR].addr_word,
@@ -1311,28 +1348,6 @@ static int fg_memif_init(struct fg_chip *chip)
 	return fg_ima_init(chip);
 }
 
-static int fg_batt_profile_init(struct fg_chip *chip)
-{
-	int rc;
-
-	if (!chip->batt_profile) {
-		chip->batt_profile = devm_kcalloc(chip->dev, PROFILE_LEN,
-						sizeof(*chip->batt_profile),
-						GFP_KERNEL);
-		if (!chip->batt_profile)
-			return -ENOMEM;
-	}
-
-	rc = fg_get_batt_profile(chip);
-	if (rc < 0) {
-		pr_err("Error in getting battery profile, rc:%d\n", rc);
-		return rc;
-	}
-
-	schedule_delayed_work(&chip->profile_load_work, msecs_to_jiffies(0));
-	return 0;
-}
-
 /* INTERRUPT HANDLERS STAY HERE */
 
 static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
@@ -1360,16 +1375,16 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 	chip->battery_missing = (status & BT_MISS_BIT);
 
 	if (chip->battery_missing) {
-		chip->batt_id_avail = false;
+		chip->profile_available = false;
 		chip->profile_loaded = false;
 		clear_cycle_counter(chip);
 	} else {
-		rc = fg_batt_profile_init(chip);
+		rc = fg_get_batt_profile(chip);
 		if (rc < 0) {
-			pr_err("Error in initializing battery profile, rc=%d\n",
-				rc);
+			pr_err("Error in getting battery profile, rc:%d\n", rc);
 			return IRQ_HANDLED;
 		}
+		schedule_delayed_work(&chip->profile_load_work, 0);
 	}
 
 	return IRQ_HANDLED;
@@ -1638,6 +1653,11 @@ static int fg_parse_dt(struct fg_chip *chip)
 		}
 	}
 
+	rc = fg_get_batt_profile(chip);
+	if (rc < 0)
+		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
+			chip->batt_id, rc);
+
 	/* Read all the optional properties below */
 	rc = of_property_read_u32(node, "qcom,fg-cutoff-voltage", &temp);
 	if (rc < 0)
@@ -1836,10 +1856,8 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	rc = fg_batt_profile_init(chip);
-	if (rc < 0)
-		dev_warn(chip->dev, "Error in initializing battery profile, rc:%d\n",
-			rc);
+	if (chip->profile_available)
+		schedule_delayed_work(&chip->profile_load_work, 0);
 
 	device_init_wakeup(chip->dev, true);
 	pr_debug("FG GEN3 driver successfully probed\n");
