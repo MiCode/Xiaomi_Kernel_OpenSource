@@ -685,6 +685,49 @@
 		interrupts = <GIC_SPI 574 IRQ_TYPE_EDGE_RISING>;
 		label = "cdsp";
 	};
+
+	glink_mpss: qcom,glink-ssr-modem {
+		compatible = "qcom,glink_ssr";
+		label = "modem";
+		qcom,edge = "mpss";
+		qcom,notify-edges = <&glink_lpass>, <&glink_dsps>,
+				    <&glink_cdsp>, <&glink_spss>;
+		qcom,xprt = "smem";
+	};
+
+	glink_lpass: qcom,glink-ssr-adsp {
+		compatible = "qcom,glink_ssr";
+		label = "adsp";
+		qcom,edge = "lpass";
+		qcom,notify-edges = <&glink_mpss>, <&glink_dsps>, <&glink_cdsp>;
+		qcom,xprt = "smem";
+	};
+
+	glink_dsps: qcom,glink-ssr-dsps {
+		compatible = "qcom,glink_ssr";
+		label = "slpi";
+		qcom,edge = "dsps";
+		qcom,notify-edges = <&glink_mpss>, <&glink_lpass>,
+				    <&glink_cdsp>;
+		qcom,xprt = "smem";
+	};
+
+	glink_cdsp: qcom,glink-ssr-cdsp {
+		compatible = "qcom,glink_ssr";
+		label = "cdsp";
+		qcom,edge = "cdsp";
+		qcom,notify-edges = <&glink_mpss>, <&glink_lpass>,
+				    <&glink_dsps>;
+		qcom,xprt = "smem";
+	};
+
+	glink_spss: qcom,glink-ssr-spss {
+		compatible = "qcom,glink_ssr";
+		label = "spss";
+		qcom,edge = "spss";
+		qcom,notify-edges = <&glink_mpss>;
+		qcom,xprt = "mailbox";
+	};
 };
 
 &pcie_0_gdsc {
