@@ -84,7 +84,7 @@
 #define CHG_TERM_CURR_v2_WORD		15
 #define CHG_TERM_CURR_v2_OFFSET		1
 #define EMPTY_VOLT_v2_WORD		15
-#define EMPTY_VOLT_v2_OFFSET		2
+#define EMPTY_VOLT_v2_OFFSET		3
 #define VBATT_LOW_v2_WORD		16
 #define VBATT_LOW_v2_OFFSET		0
 
@@ -164,10 +164,10 @@ static struct fg_sram_param pmicobalt_v2_sram_params[] = {
 	/* Entries below here are configurable during initialization */
 	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
 		244141, 0, fg_encode_voltage, NULL),
-	PARAM(EMPTY_VOLT, EMPTY_VOLT_v2_WORD, EMPTY_VOLT_v2_OFFSET, 1, 100000,
-		390625, -2000, fg_encode_voltage, NULL),
-	PARAM(VBATT_LOW, VBATT_LOW_v2_WORD, VBATT_LOW_v2_OFFSET, 1, 100000,
-		390625, -2000, fg_encode_voltage, NULL),
+	PARAM(EMPTY_VOLT, EMPTY_VOLT_v2_WORD, EMPTY_VOLT_v2_OFFSET, 1, 1000,
+		15625, -2000, fg_encode_voltage, NULL),
+	PARAM(VBATT_LOW, VBATT_LOW_v2_WORD, VBATT_LOW_v2_OFFSET, 1, 1000,
+		15625, -2000, fg_encode_voltage, NULL),
 	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 3,
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_v2_WORD, CHG_TERM_CURR_v2_OFFSET, 1,
@@ -477,7 +477,7 @@ static void fg_encode_current(struct fg_sram_param *sp,
 	int64_t temp;
 	s64 current_ma;
 
-	current_ma = -val;
+	current_ma = val;
 	temp = (int64_t)div_s64(current_ma * sp[id].numrtr, sp[id].denmtr);
 	pr_debug("temp: %llx id: %d, val: %d, buf: [ ", temp, id, val);
 	for (i = 0; i < sp[id].len; i++) {
@@ -1343,7 +1343,7 @@ static int fg_register_interrupts(struct fg_chip *chip)
 #define DEFAULT_CUTOFF_VOLT_MV		3200
 #define DEFAULT_EMPTY_VOLT_MV		3100
 #define DEFAULT_CHG_TERM_CURR_MA	100
-#define DEFAULT_SYS_TERM_CURR_MA	125
+#define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_DELTA_SOC_THR		1
 #define DEFAULT_RECHARGE_SOC_THR	95
 #define DEFAULT_BATT_TEMP_COLD		0
