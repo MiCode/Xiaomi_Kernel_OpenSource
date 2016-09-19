@@ -4018,6 +4018,14 @@
 
 		qcom,save-reg;
 	};
+
+	pps {
+		compatible = "pps-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pps>;
+		gpios = <&tlmm 128 0>;
+		status = "okay";
+	};
 };
 
 &gdsc_venus {
