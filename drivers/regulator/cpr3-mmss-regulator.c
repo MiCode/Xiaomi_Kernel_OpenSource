@@ -217,6 +217,14 @@ msmcobalt_v1_rev0_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
 };
 
 static const int msmcobalt_v2_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
+	516000,
+	628000,
+	752000,
+	924000,
+};
+
+static const int
+msmcobalt_v2_rev0_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
 	616000,
 	740000,
 	828000,
@@ -759,7 +767,10 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 		goto done;
 	}
 
-	if (vreg->thread->ctrl->soc_revision == MSMCOBALT_V2_SOC_ID)
+	if (vreg->thread->ctrl->soc_revision == MSMCOBALT_V2_SOC_ID
+	    && fuse->cpr_fusing_rev == 0)
+		ref_volt = msmcobalt_v2_rev0_mmss_fuse_ref_volt;
+	else if (vreg->thread->ctrl->soc_revision == MSMCOBALT_V2_SOC_ID)
 		ref_volt = msmcobalt_v2_mmss_fuse_ref_volt;
 	else if (vreg->thread->ctrl->soc_revision == MSMCOBALT_V1_SOC_ID
 	    && fuse->cpr_fusing_rev == 0)
