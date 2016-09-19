@@ -17,6 +17,7 @@
 #include <linux/bug.h>
 #include <linux/bitmap.h>
 #include <linux/err.h>
+#include <drm/drmP.h>
 
 #define MAX_BLOCKS    8
 #define MAX_LAYERS    12
@@ -346,10 +347,12 @@ struct sde_ctl_cfg {
  * @id:                index identifying this block
  * @base               register offset of this block
  * @features           bit mask identifying sub-blocks/features
+ * @name               source pipe name
  * @sblk:              SSPP sub-blocks information
  */
 struct sde_sspp_cfg {
 	SDE_HW_BLK_INFO;
+	const char *name;
 	const struct sde_sspp_sub_blks *sblk;
 };
 
@@ -451,6 +454,31 @@ struct sde_ad_cfg {
 };
 
 /**
+ * struct sde_vp_sub_blks - Virtual Plane sub-blocks
+ * @list                    list for virtual plane tracking items
+ * @sspp_id                 SSPP ID, refer to enum sde_sspp.
+ */
+struct sde_vp_sub_blks {
+	struct list_head list;
+	u32 sspp_id;
+};
+
+/**
+ * struct sde_vp_cfg - information of Virtual Plane SW blocks
+ * @id                 enum identifying this block
+ * @sub_blks           list head for virtual plane sub blocks
+ * @plane_type         plane type, such as primary, overlay or cursor
+ * @display_type       which display the plane bound to, such as primary,
+ *                     secondary or tertiary
+ */
+struct sde_vp_cfg {
+	u32 id;
+	struct list_head sub_blks;
+	const char *plane_type;
+	const char *display_type;
+};
+
+/**
  * struct sde_mdss_cfg - information of MDSS HW
  * This is the main catalog data structure representing
  * this HW version. Contains number of instances,
@@ -491,6 +519,9 @@ struct sde_mdss_cfg {
 
 	u32 ad_count;
 	struct sde_ad_cfg ad[MAX_BLOCKS];
+
+	u32 vp_count;
+	struct sde_vp_cfg vp[MAX_LAYERS];
 	/* Add additional block data structures here */
 };
 
@@ -518,6 +549,8 @@ struct sde_mdss_hw_cfg_handler {
 #define BLK_AD(s) ((s)->ad)
 
 struct sde_mdss_cfg *sde_mdss_cfg_170_init(u32 step);
-struct sde_mdss_cfg *sde_hw_catalog_init(u32 major, u32 minor, u32 step);
+struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 major,
+	u32 minor, u32 step);
+void sde_hw_catalog_deinit(struct sde_mdss_cfg *cfg);
 
 #endif /* _SDE_HW_CATALOG_H */

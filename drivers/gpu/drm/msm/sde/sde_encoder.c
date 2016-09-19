@@ -703,7 +703,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 
 	sde_enc->display_num_of_h_tiles = disp_info->num_of_h_tiles;
 
-	DBG("dsi_info->num_of_h_tiles %d", disp_info->num_of_h_tiles);
+	DBG("disp_info->num_of_h_tiles %d", disp_info->num_of_h_tiles);
 
 	for (i = 0; i < disp_info->num_of_h_tiles && !ret; i++) {
 		/*
@@ -743,7 +743,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 					controller_id);
 			if (phys_params.intf_idx == INTF_MAX) {
 				DRM_ERROR(
-					"Error: could not get writeback: type %d, id %d\n",
+					"Error: could not get physical: type %d, id %d\n",
 					intf_type, controller_id);
 				ret = -EINVAL;
 			}

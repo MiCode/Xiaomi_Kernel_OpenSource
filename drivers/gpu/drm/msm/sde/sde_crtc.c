@@ -186,27 +186,39 @@ static u32 blend_config_per_mixer(struct drm_crtc *crtc,
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		pstate = to_sde_plane_state(plane->state);
+		/*
+		 * Always program right lm first if in dual mixer mode,
+		 * it could be overwrote later.
+		 */
+		if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
+			sde_crtc->stage_cfg.stage[pstate->stage][1] =
+				sde_plane_pipe(plane, 1);
 		is_right_lm = plane->state->crtc_x >= crtc_split_width ?
 						true : false;
 		sde_crtc->stage_cfg.stage[pstate->stage][is_right_lm] =
-			sde_plane_pipe(plane);
+			sde_plane_pipe(plane, is_right_lm ? 1 : 0);
 
 		/* stage layer on right lm if it crosses the boundary */
 		if (plane->state->crtc_x + plane->state->crtc_w >
 							crtc_split_width)
 			sde_crtc->stage_cfg.stage[pstate->stage][is_right_lm] =
-					sde_plane_pipe(plane);
+				sde_plane_pipe(plane, is_right_lm ? 1 : 0);
 
 		SDE_DEBUG("crtc_id %d pipe %d at stage %d\n",
-			crtc->base.id, sde_plane_pipe(plane), pstate->stage);
+			crtc->base.id,
+			sde_plane_pipe(plane, is_right_lm ? 1 : 0),
+			pstate->stage);
 
 		/**
 		 * cache the flushmask for this layer
 		 * sourcesplit is always enabled, so this layer will
 		 * be staged on both the mixers
 		 */
+		if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
+			ctl->ops.get_bitmask_sspp(ctl, &flush_mask,
+					sde_plane_pipe(plane, 1));
 		ctl->ops.get_bitmask_sspp(ctl, &flush_mask,
-				sde_plane_pipe(plane));
+				sde_plane_pipe(plane, is_right_lm ? 1 : 0));
 
 		/* blend config */
 		sde_crtc_get_blend_cfg(&blend, pstate);
@@ -471,6 +483,7 @@ static void _sde_crtc_setup_mixer_for_encoder(
 	int i;
 	struct sde_rm_hw_iter lm_iter, ctl_iter;
 
+	DBG("");
 	sde_rm_init_hw_iter(&lm_iter, enc->base.id, SDE_HW_BLK_LM);
 	sde_rm_init_hw_iter(&ctl_iter, enc->base.id, SDE_HW_BLK_CTL);
 
@@ -542,6 +555,8 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
 
+	DBG("crtc:%d num_mixers=%d\n", sde_crtc->drm_crtc_id,
+		sde_crtc->num_mixers);
 	if (!sde_crtc->num_mixers)
 		_sde_crtc_setup_mixers(crtc);
 
@@ -1226,6 +1241,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 
 	sde_crtc_install_properties(crtc);
 
-	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);
+	SDE_DEBUG("%s: successfully initialized crtc=%p\n",
+			sde_crtc->name, crtc);
 	return crtc;
 }

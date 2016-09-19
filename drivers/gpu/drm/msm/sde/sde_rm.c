@@ -21,6 +21,7 @@
 #include "sde_hw_pingpong.h"
 #include "sde_hw_intf.h"
 #include "sde_hw_wb.h"
+#include "sde_hw_sspp.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
@@ -174,6 +175,34 @@ bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 	return false;
 }
 
+void *sde_rm_get_hw_by_id(struct sde_rm *rm, enum sde_hw_blk_type type, int id)
+{
+	struct list_head *blk_list;
+	struct sde_rm_hw_blk *blk;
+	void *hw = NULL;
+
+	if (!rm || type >= SDE_HW_BLK_MAX) {
+		SDE_ERROR("invalid rm\n");
+		return hw;
+	}
+
+	blk_list = &rm->hw_blks[type];
+
+	list_for_each_entry(blk, blk_list, list) {
+		if (blk->id == id) {
+			hw = blk->hw;
+			SDE_DEBUG("found type %d %s id %d\n",
+					type, blk->type_name, blk->id);
+			return hw;
+		}
+	}
+
+	SDE_DEBUG("no match, type %d id=%d\n", type, id);
+
+	return hw;
+}
+
+
 static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 {
 	switch (type) {
@@ -199,7 +228,8 @@ static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 		sde_hw_wb_destroy(hw);
 		break;
 	case SDE_HW_BLK_SSPP:
-		/* SSPPs are not managed by the resource manager */
+		sde_hw_sspp_destroy(hw);
+		break;
 	case SDE_HW_BLK_TOP:
 		/* Top is a singleton, not managed in hw_blks list */
 	case SDE_HW_BLK_MAX:
@@ -287,7 +317,9 @@ static int _sde_rm_hw_blk_create(
 		name = "wb";
 		break;
 	case SDE_HW_BLK_SSPP:
-		/* SSPPs are not managed by the resource manager */
+		hw = sde_hw_sspp_init(id, mmio, cat);
+		name = "sspp";
+		break;
 	case SDE_HW_BLK_TOP:
 		/* Top is a singleton, not managed in hw_blks list */
 	case SDE_HW_BLK_MAX:
@@ -343,6 +375,13 @@ int sde_rm_init(struct sde_rm *rm,
 		rc = PTR_ERR(rm->hw_mdp);
 		rm->hw_mdp = NULL;
 		goto fail;
+	}
+
+	for (i = 0; i < cat->sspp_count; i++) {
+		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_SSPP,
+				cat->sspp[i].id, &cat->sspp[i]);
+		if (rc)
+			goto fail;
 	}
 
 	/* Interrogate HW catalog and create tracking items for hw blocks */
@@ -626,6 +665,7 @@ static int _sde_rm_reserve_ctls(
 {
 	struct sde_rm_hw_blk *ctls[MAX_BLOCKS];
 	struct sde_rm_hw_iter iter;
+	struct sde_hw_ctl *ctl;
 	int i = 0;
 
 	memset(&ctls, 0, sizeof(ctls));
@@ -651,6 +691,13 @@ static int _sde_rm_reserve_ctls(
 			continue;
 
 		ctls[i] = iter.blk;
+		ctl = (struct sde_hw_ctl *)iter.blk->hw;
+		if (ctl) {
+			if (reqs->top_name == SDE_RM_TOPOLOGY_DUALPIPEMERGE)
+				ctl->mode_3d = BLEND_3D_H_ROW_INT;
+			else
+				ctl->mode_3d = BLEND_3D_NONE;
+		}
 		SDE_DEBUG("ctl %d match\n", iter.blk->id);
 
 		if (++i == reqs->num_ctl)

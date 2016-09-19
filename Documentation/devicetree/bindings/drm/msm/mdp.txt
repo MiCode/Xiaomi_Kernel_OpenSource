@@ -18,6 +18,15 @@ Required properties:
 
 Optional properties:
 - gpus: phandle for gpu device
+- qcom,sde-plane-id-map: plane id mapping for virtual plane.
+- qcom,sde-plane-id: each virtual plane mapping node.
+- qcom,display-type: display type this plane is mapped to. It could be
+ "primary", "secondary" and "tertiary".
+- qcom,plane-name: plane name array for this virtual plane. It could be
+ "rgb0", "rgb1", "rgb2", "rgb3", "vig0", "vig1", "vig2", "vig3", "dma0", "dma1",
+ "dma2", "dma3", "cursor0", "cursor1".
+- qcom,plane-type: virtual plane type. It could be "primary", "overlay",
+ "cursor".
 
 Example:
 
@@ -44,5 +53,22 @@ Example:
 		    <&mmcc TV_SRC>,
 		    <&mmcc HDMI_TV_CLK>,
 		    <&mmcc MDP_TV_CLK>;
+		qcom,sde-plane-id-map {
+			qcom,sde-plane-id@0 {
+				qcom,display-type = "primary";
+				qcom,plane-name = "rgb0", "rgb1";
+				qcom,plane-type = "primary";
+			};
+			qcom,sde-plane-id@1 {
+				qcom,display-type = "primary";
+				qcom,plane-name = "vig0", "vig1";
+				qcom,plane-type = "overlay";
+			};
+			qcom,sde-plane-id@2 {
+				qcom,display-type = "primary";
+				qcom,plane-name = "cursor0", "cursor1";
+				qcom,plane-type = "cursor";
+			};
+		};
 	};
 };

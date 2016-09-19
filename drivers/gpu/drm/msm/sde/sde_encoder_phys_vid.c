@@ -262,7 +262,7 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 
 	intf_cfg.intf = vid_enc->hw_intf->idx;
 	intf_cfg.wb = SDE_NONE;
-	intf_cfg.mode_3d = phys_enc->mode_3d;
+	intf_cfg.mode_3d = phys_enc->hw_ctl->mode_3d;
 	intf_cfg.intf_mode_sel = SDE_CTL_MODE_SEL_VID;
 	intf_cfg.stream_sel = 0; /* Don't care value for video mode */
 
@@ -671,9 +671,9 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	spin_lock_init(&phys_enc->spin_lock);
 	init_completion(&vid_enc->vblank_completion);
 
-	DRM_INFO_ONCE("intf %d: 3d blend modes not yet supported\n",
-			vid_enc->hw_intf->idx);
-	phys_enc->mode_3d = BLEND_3D_NONE;
+	DRM_INFO_ONCE("intf %d: 3d blend modes:%d\n",
+			vid_enc->hw_intf->idx, p->mode_3d);
+	phys_enc->mode_3d = p->mode_3d;
 
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 

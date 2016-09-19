@@ -256,6 +256,7 @@ struct sde_encoder_phys_wb {
  * @split_role:		Role to play in a split-panel configuration
  * @intf_idx:		Interface index this phys_enc will control
  * @wb_idx:		Writeback index this phys_enc will control
+ * @mode_3d:		3D mux mode for this phys_enc
  */
 struct sde_enc_phys_init_params {
 	struct sde_kms *sde_kms;
@@ -264,6 +265,7 @@ struct sde_enc_phys_init_params {
 	enum sde_enc_split_role split_role;
 	enum sde_intf intf_idx;
 	enum sde_wb wb_idx;
+	enum sde_3d_blend_mode mode_3d;
 };
 
 /**

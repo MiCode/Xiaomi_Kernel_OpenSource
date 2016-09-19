@@ -242,6 +242,16 @@ static void sde_kms_prepare_fence(struct msm_kms *kms,
 		sde_connector_prepare_fence(connector);
 }
 
+static inline int sde_get_crtc_id(const char *display_type)
+{
+	if (!strcmp(display_type, "primary"))
+		return 0;
+	else if (!strcmp(display_type, "secondary"))
+		return 1;
+	else
+		return 2;
+}
+
 static int modeset_init(struct sde_kms *sde_kms)
 {
 	struct drm_device *dev;
@@ -271,28 +281,56 @@ static int modeset_init(struct sde_kms *sde_kms)
 	sde_encoders_init(dev);
 
 	max_crtc_count = min(catalog->mixer_count, priv->num_encoders);
-	max_plane_count = min_t(u32, catalog->sspp_count, MAX_PLANES);
-
 	/* Create the planes */
 	primary_planes_idx = 0;
-	for (i = 0; i < max_plane_count; i++) {
-		bool primary = true;
+	if (catalog->vp_count) {
+		max_plane_count = min_t(u32, catalog->vp_count, MAX_PLANES);
 
-		if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
-			|| primary_planes_idx >= max_crtc_count)
-			primary = false;
+		for (i = 0; i < max_plane_count; i++) {
+			bool primary = true;
+			int crtc_id =
+				sde_get_crtc_id(catalog->vp[i].display_type);
 
-		plane = sde_plane_init(dev, catalog->sspp[i].id, primary,
-				(1UL << max_crtc_count) - 1);
-		if (IS_ERR(plane)) {
-			SDE_ERROR("sde_plane_init failed\n");
-			ret = PTR_ERR(plane);
-			goto fail_irq;
+			if (strcmp(catalog->vp[i].plane_type, "primary"))
+				primary = false;
+
+			plane = sde_plane_init(dev, catalog->vp[i].id,
+					primary, 1UL << crtc_id, true);
+			if (IS_ERR(plane)) {
+				SDE_ERROR("sde_plane_init failed\n");
+				ret = PTR_ERR(plane);
+				goto fail_irq;
+			}
+			priv->planes[priv->num_planes++] = plane;
+
+			if (primary) {
+				primary_planes[crtc_id] = plane;
+				primary_planes_idx++;
+			}
 		}
-		priv->planes[priv->num_planes++] = plane;
+	} else {
+		max_plane_count = min_t(u32, catalog->sspp_count, MAX_PLANES);
 
-		if (primary)
-			primary_planes[primary_planes_idx++] = plane;
+		for (i = 0; i < max_plane_count; i++) {
+			bool primary = true;
+
+			if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
+				|| primary_planes_idx >= max_crtc_count)
+				primary = false;
+
+			plane = sde_plane_init(dev, catalog->sspp[i].id,
+					primary, (1UL << max_crtc_count) - 1,
+					false);
+			if (IS_ERR(plane)) {
+				SDE_ERROR("sde_plane_init failed\n");
+				ret = PTR_ERR(plane);
+				goto fail_irq;
+			}
+			priv->planes[priv->num_planes++] = plane;
+
+			if (primary)
+				primary_planes[primary_planes_idx++] = plane;
+		}
 	}
 
 	max_crtc_count = min(max_crtc_count, primary_planes_idx);
@@ -349,6 +387,7 @@ static void sde_destroy(struct msm_kms *kms)
 	sde_irq_domain_fini(sde_kms);
 	sde_hw_intr_destroy(sde_kms->hw_intr);
 	sde_rm_destroy(&sde_kms->rm);
+	sde_hw_catalog_deinit(sde_kms->catalog);
 	kfree(sde_kms);
 }
 
@@ -682,7 +721,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	/*
 	 * Currently hardcoding to MDSS version 1.7.0 (8996)
 	 */
-	catalog = sde_hw_catalog_init(1, 7, 0);
+	catalog = sde_hw_catalog_init(dev, 1, 7, 0);
 	if (!catalog)
 		goto fail;
 

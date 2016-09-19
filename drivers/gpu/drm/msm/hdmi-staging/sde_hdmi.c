@@ -475,6 +475,7 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 		return -EINVAL;
 	}
 
+	DBG("");
 	mutex_lock(&hdmi_display->display_lock);
 
 	info->intf_type = DRM_MODE_CONNECTOR_HDMIA;
@@ -483,8 +484,8 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 	info->is_connected = true;
 	info->capabilities = MSM_DISPLAY_CAP_HOT_PLUG | MSM_DISPLAY_CAP_EDID |
 				MSM_DISPLAY_CAP_VID_MODE;
-	info->max_width = 1920;
-	info->max_height = 1080;
+	info->max_width = 4096;
+	info->max_height = 2160;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
 
 	mutex_unlock(&hdmi_display->display_lock);

@@ -134,6 +134,7 @@ struct sde_hw_ctl_ops {
  * @mixer_count: number of mixers
  * @mixer_hw_caps: mixer hardware capabilities
  * @pending_flush_mask: storage for pending ctl_flush managed via ops
+ * @mode_3d: 3d mux configuration
  * @ops: operation list
  */
 struct sde_hw_ctl {
@@ -146,6 +147,7 @@ struct sde_hw_ctl {
 	int mixer_count;
 	const struct sde_lm_cfg *mixer_hw_caps;
 	u32 pending_flush_mask;
+	enum sde_3d_blend_mode mode_3d;
 
 	/* ops */
 	struct sde_hw_ctl_ops ops;
