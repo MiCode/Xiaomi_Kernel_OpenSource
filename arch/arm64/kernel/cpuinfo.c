@@ -316,7 +316,8 @@ static void cpuinfo_detect_icache_policy(struct cpuinfo_arm64 *info)
 		set_bit(ICACHEF_ALIASING, &__icache_flags);
 	}
 
-	pr_info("Detected %s I-cache on CPU%d\n", icache_policy_str[l1ip], cpu);
+	pr_debug("Detected %s I-cache on CPU%d\n", icache_policy_str[l1ip],
+			cpu);
 }
 
 static void __cpuinfo_store_cpu(struct cpuinfo_arm64 *info)
