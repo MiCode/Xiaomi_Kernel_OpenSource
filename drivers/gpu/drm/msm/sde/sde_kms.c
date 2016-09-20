@@ -21,6 +21,9 @@
 #include "sde_hw_util.h"
 #include "sde_hw_intf.h"
 
+#define CREATE_TRACE_POINTS
+#include "sde_trace.h"
+
 static const char * const iommu_ports[] = {
 		"mdp_0",
 };
