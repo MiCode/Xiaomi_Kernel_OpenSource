@@ -197,7 +197,7 @@ static struct smb_params v1_params = {
 
 #define STEP_CHARGING_MAX_STEPS	5
 struct smb_dt_props {
-	bool	suspend_input;
+	bool	no_battery;
 	int	fcc_ua;
 	int	usb_icl_ua;
 	int	dc_icl_ua;
@@ -256,8 +256,8 @@ static int smb2_parse_dt(struct smb2 *chip)
 	if (rc < 0)
 		chg->step_chg_enabled = false;
 
-	chip->dt.suspend_input = of_property_read_bool(node,
-				"qcom,suspend-input");
+	chip->dt.no_battery = of_property_read_bool(node,
+						"qcom,batteryless-platform");
 
 	rc = of_property_read_u32(node,
 				"qcom,fcc-max-ua", &chip->dt.fcc_ua);
@@ -602,8 +602,9 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
-	int rc;
-	struct smb_charger *chg = power_supply_get_drvdata(psy);
+	struct smb2 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -929,6 +930,9 @@ static int smb2_init_hw(struct smb2 *chip)
 	struct smb_charger *chg = &chip->chg;
 	int rc;
 
+	if (chip->dt.no_battery)
+		chg->fake_capacity = 50;
+
 	if (chip->dt.fcc_ua < 0)
 		smblib_get_charge_param(chg, &chg->param.fcc, &chip->dt.fcc_ua);
 
@@ -949,9 +953,9 @@ static int smb2_init_hw(struct smb2 *chip)
 	vote(chg->pl_disable_votable,
 		CHG_STATE_VOTER, true, 0);
 	vote(chg->usb_suspend_votable,
-		DEFAULT_VOTER, chip->dt.suspend_input, 0);
+		DEFAULT_VOTER, chip->dt.no_battery, 0);
 	vote(chg->dc_suspend_votable,
-		DEFAULT_VOTER, chip->dt.suspend_input, 0);
+		DEFAULT_VOTER, chip->dt.no_battery, 0);
 	vote(chg->fcc_max_votable,
 		DEFAULT_VOTER, true, chip->dt.fcc_ua);
 	vote(chg->fv_votable,

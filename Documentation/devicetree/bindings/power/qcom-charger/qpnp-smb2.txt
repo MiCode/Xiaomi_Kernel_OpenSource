@@ -21,11 +21,13 @@ Charger specific properties:
   Value type: <string>
   Definition: "qcom,qpnp-smb2".
 
-- qcom,suspend-input
+- qcom,batteryless-platform
   Usage:      optional
   Value type: <empty>
-  Definition: Boolean flag which indicates that the charger should not draw
-	      current from any of its input sources (USB, DC).
+  Definition: Boolean flag which indicates that the platform does not have a
+		battery, and therefore charging should be disabled. In
+		addition battery properties will be faked such that the device
+		assumes normal operation.
 
 - qcom,fcc-max-ua
   Usage:      optional
