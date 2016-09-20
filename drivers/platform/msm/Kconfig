@@ -3,7 +3,8 @@ menu "Qualcomm MSM specific device drivers"
 
 config MSM_AVTIMER
 	tristate "Avtimer Driver"
-	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3 || \
+		MSM_QDSP6_APRV2_VM
 	help
 		This driver gets the Q6 out of power collapsed state and
 		exposes ioctl control to read avtimer tick.

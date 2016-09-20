@@ -1211,6 +1211,26 @@ qcom,msm-audio-ion {
 	memory-region = <&audio_mem>;
 };
 
+* msm-audio-ion-vm
+
+Required properties:
+ - compatible : "qcom,msm-audio-ion-vm"
+
+Optional properties:
+ - qcom,smmu-enabled:
+	It is possible that some MSM have SMMU in ADSP.  While other
+	MSM use no SMMU. Audio lib introduce wrapper for ION APIs.
+	The wrapper needs presence of SMMU in ADSP to handle ION
+	APIs differently. Presence of this property means ADSP has
+	SMMU in it.
+
+Example:
+
+qcom,msm-audio-ion-vm {
+	compatible = "qcom,msm-audio-ion-vm;
+	qcom,smmu-enabled;
+};
+
 * MSM8994 ASoC Machine driver
 
 Required properties:
