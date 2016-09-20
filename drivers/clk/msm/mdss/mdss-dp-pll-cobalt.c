@@ -93,8 +93,8 @@ static struct clk_mux_ops mdss_mux_ops = {
 };
 
 static struct dp_pll_vco_clk dp_vco_clk = {
-	.min_rate = DP_VCO_HSCLK_RATE_1620MHz,
-	.max_rate = DP_VCO_HSCLK_RATE_5400MHz,
+	.min_rate = DP_VCO_HSCLK_RATE_1620MHZDIV1000,
+	.max_rate = DP_VCO_HSCLK_RATE_5400MHZDIV1000,
 	.c = {
 		.dbg_name = "dp_vco_clk",
 		.ops = &dp_cobalt_vco_clk_ops,

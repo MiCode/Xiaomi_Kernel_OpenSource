@@ -190,9 +190,9 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 			QSERDES_COM_CLK_SEL, 0x30);
 
 	/* Different for each clock rates */
-	if (rate == DP_VCO_HSCLK_RATE_1620MHz) {
-		pr_debug("%s: VCO rate: %lld\n", __func__,
-				DP_VCO_RATE_8100MHz);
+	if (rate == DP_VCO_HSCLK_RATE_1620MHZDIV1000) {
+		pr_debug("%s: VCO rate: %ld\n", __func__,
+				DP_VCO_RATE_8100MHZDIV1000);
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_SYS_CLK_CTRL, 0x02);
 		MDSS_PLL_REG_W(dp_res->pll_base,
@@ -215,9 +215,9 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 			QSERDES_COM_LOCK_CMP2_MODE0, 0x21);
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_LOCK_CMP3_MODE0, 0x00);
-	} else if (rate == DP_VCO_HSCLK_RATE_2700MHz) {
-		pr_debug("%s: VCO rate: %lld\n", __func__,
-				DP_VCO_RATE_8100MHz);
+	} else if (rate == DP_VCO_HSCLK_RATE_2700MHZDIV1000) {
+		pr_debug("%s: VCO rate: %ld\n", __func__,
+				DP_VCO_RATE_8100MHZDIV1000);
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_SYS_CLK_CTRL, 0x06);
 		MDSS_PLL_REG_W(dp_res->pll_base,
@@ -240,9 +240,9 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 			QSERDES_COM_LOCK_CMP2_MODE0, 0x38);
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_LOCK_CMP3_MODE0, 0x00);
-	} else if (rate == DP_VCO_HSCLK_RATE_5400MHz) {
-		pr_debug("%s: VCO rate: %lld\n", __func__,
-				DP_VCO_RATE_10800MHz);
+	} else if (rate == DP_VCO_HSCLK_RATE_5400MHZDIV1000) {
+		pr_debug("%s: VCO rate: %ld\n", __func__,
+				DP_VCO_RATE_10800MHZDIV1000);
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_SYS_CLK_CTRL, 0x06);
 		MDSS_PLL_REG_W(dp_res->pll_base,
@@ -272,8 +272,8 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 	/* Make sure the PLL register writes are done */
 	wmb();
 
-	if ((rate == DP_VCO_HSCLK_RATE_1620MHz)
-	    || (rate == DP_VCO_HSCLK_RATE_2700MHz)) {
+	if ((rate == DP_VCO_HSCLK_RATE_1620MHZDIV1000)
+	    || (rate == DP_VCO_HSCLK_RATE_2700MHZDIV1000)) {
 		MDSS_PLL_REG_W(dp_res->phy_base,
 				DP_PHY_VCO_DIV, 0x1);
 	} else {
@@ -713,14 +713,14 @@ unsigned long dp_vco_get_rate(struct clk *c)
 		pr_err("%s: unsupported div. Phy_mode: %d\n", __func__, div);
 
 	if (link2xclk_div == 10) {
-		vco_rate = DP_VCO_HSCLK_RATE_2700MHz;
+		vco_rate = DP_VCO_HSCLK_RATE_2700MHZDIV1000;
 	} else {
 		if (hsclk_div == 5)
-			vco_rate = DP_VCO_HSCLK_RATE_1620MHz;
+			vco_rate = DP_VCO_HSCLK_RATE_1620MHZDIV1000;
 		else if (hsclk_div == 3)
-			vco_rate = DP_VCO_HSCLK_RATE_2700MHz;
+			vco_rate = DP_VCO_HSCLK_RATE_2700MHZDIV1000;
 		else
-			vco_rate = DP_VCO_HSCLK_RATE_5400MHz;
+			vco_rate = DP_VCO_HSCLK_RATE_5400MHZDIV1000;
 	}
 
 	pr_debug("returning vco rate = %lu\n", (unsigned long)vco_rate);
@@ -737,8 +737,8 @@ long dp_vco_round_rate(struct clk *c, unsigned long rate)
 
 	if (rate <= vco->min_rate)
 		rrate = vco->min_rate;
-	else if (rate <= DP_VCO_HSCLK_RATE_2700MHz)
-		rrate = DP_VCO_HSCLK_RATE_2700MHz;
+	else if (rate <= DP_VCO_HSCLK_RATE_2700MHZDIV1000)
+		rrate = DP_VCO_HSCLK_RATE_2700MHZDIV1000;
 	else
 		rrate = vco->max_rate;
 

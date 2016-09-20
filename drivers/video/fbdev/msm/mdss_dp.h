@@ -368,7 +368,7 @@ struct mdss_dp_drv_pdata {
 	int dp_on_cnt;
 	int dp_off_cnt;
 
-	u32 pixel_rate;
+	u32 pixel_rate; /* KHz */
 	u32 aux_rate;
 	char link_rate;	/* X 27000000 for real rate */
 	char lane_cnt;
