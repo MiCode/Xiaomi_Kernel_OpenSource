@@ -597,6 +597,9 @@ out:
 		set_ckpt_flags(sbi->ckpt, CP_ERROR_FLAG);
 	mutex_unlock(&sbi->cp_mutex);
 
+	/* let's drop all the directory inodes for clean checkpoint */
+	destroy_fsync_dnodes(&dir_list);
+
 	if (!err && need_writecp) {
 		struct cp_control cpc = {
 			.reason = CP_RECOVERY,
@@ -604,7 +607,6 @@ out:
 		write_checkpoint(sbi, &cpc);
 	}
 
-	destroy_fsync_dnodes(&dir_list);
 	kmem_cache_destroy(fsync_entry_slab);
 	return ret ? ret: err;
 }
