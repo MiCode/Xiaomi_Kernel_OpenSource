@@ -119,6 +119,7 @@ extern int icnss_power_off(struct device *dev);
 extern struct dma_iommu_mapping *icnss_smmu_get_mapping(struct device *dev);
 extern int icnss_smmu_map(struct device *dev, phys_addr_t paddr,
 			  uint32_t *iova_addr, size_t size);
+extern unsigned int icnss_socinfo_get_serial_number(struct device *dev);
 extern int icnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count);
 extern int icnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 *ch_count,
 					 u16 buf_len);

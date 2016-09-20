@@ -43,6 +43,7 @@
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
+#include <soc/qcom/socinfo.h>
 
 #include "wlan_firmware_service_v01.h"
 
@@ -3283,6 +3284,12 @@ int icnss_smmu_map(struct device *dev,
 	return 0;
 }
 EXPORT_SYMBOL(icnss_smmu_map);
+
+unsigned int icnss_socinfo_get_serial_number(struct device *dev)
+{
+	return socinfo_get_serial_number();
+}
+EXPORT_SYMBOL(icnss_socinfo_get_serial_number);
 
 static int icnss_bw_vote(struct icnss_priv *priv, int index)
 {
