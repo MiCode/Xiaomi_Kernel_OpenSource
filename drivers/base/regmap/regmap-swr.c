@@ -25,11 +25,16 @@ static int regmap_swr_gather_write(void *context,
 	struct device *dev = context;
 	struct swr_device *swr = to_swr_device(dev);
 	struct regmap *map = dev_get_regmap(dev, NULL);
-	size_t addr_bytes = map->format.reg_bytes;
+	size_t addr_bytes;
 	size_t val_bytes;
 	int i, ret = 0;
 	u16 reg_addr = 0;
 
+	if (map == NULL) {
+		dev_err(dev, "%s: regmap is NULL\n", __func__);
+		return -EINVAL;
+	}
+	addr_bytes = map->format.reg_bytes;
 	if (swr == NULL) {
 		dev_err(dev, "%s: swr device is NULL\n", __func__);
 		return -EINVAL;
@@ -75,10 +80,15 @@ static int regmap_swr_read(void *context,
 	struct device *dev = context;
 	struct swr_device *swr = to_swr_device(dev);
 	struct regmap *map = dev_get_regmap(dev, NULL);
-	size_t addr_bytes = map->format.reg_bytes;
+	size_t addr_bytes;
 	int ret = 0;
 	u16 reg_addr = 0;
 
+	if (map == NULL) {
+		dev_err(dev, "%s: regmap is NULL\n", __func__);
+		return -EINVAL;
+	}
+	addr_bytes = map->format.reg_bytes;
 	if (swr == NULL) {
 		dev_err(dev, "%s: swr is NULL\n", __func__);
 		return -EINVAL;
