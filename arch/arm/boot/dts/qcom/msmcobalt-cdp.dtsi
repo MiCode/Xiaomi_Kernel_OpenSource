@@ -420,7 +420,7 @@
 };
 
 &pmicobalt_charger {
-	qcom,suspend-input;
+	qcom,batteryless-platform;
 };
 
 &pmicobalt_haptics {
