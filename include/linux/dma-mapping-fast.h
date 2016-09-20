@@ -16,6 +16,8 @@
 #include <linux/iommu.h>
 #include <linux/io-pgtable-fast.h>
 
+struct dma_iommu_mapping;
+
 struct dma_fast_smmu_mapping {
 	struct device		*dev;
 	struct iommu_domain	*domain;

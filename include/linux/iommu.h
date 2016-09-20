@@ -650,8 +650,8 @@ static inline void iommu_device_unlink(struct device *dev, struct device *link)
 {
 }
 
-static int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
-			       u64 mask)
+static inline int iommu_dma_supported(struct iommu_domain *domain,
+				      struct device *dev, u64 mask)
 {
 	return -EINVAL;
 }
