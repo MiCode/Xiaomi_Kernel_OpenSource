@@ -58,6 +58,15 @@ config ARM_GIC_V3_ITS_FSL_MC
 	depends on FSL_MC_BUS
 	default ARM_GIC_V3_ITS
 
+config ARM_GIC_V3_ACL
+	bool "GICv3 Access control"
+	depends on ARM_GIC_V3
+	help
+	  Access to GIC ITS address space is controlled by EL2.
+	  Kernel has no permission to access GIC ITS address space.
+	  If you wish to enforce the Acces control then set this
+	  option to Y, if you are unsure please say N.
+
 config ARM_NVIC
 	bool
 	select IRQ_DOMAIN
