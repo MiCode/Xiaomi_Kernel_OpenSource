@@ -51,6 +51,31 @@ static enum sde_intr_type sde_encoder_phys_wb_get_intr_type(
 }
 
 /**
+ * sde_encoder_phys_wb_set_ot_limit - set OT limit for writeback interface
+ * @phys_enc:	Pointer to physical encoder
+ */
+static void sde_encoder_phys_wb_set_ot_limit(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
+	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
+	struct sde_vbif_set_ot_params ot_params;
+
+	memset(&ot_params, 0, sizeof(ot_params));
+	ot_params.xin_id = hw_wb->caps->xin_id;
+	ot_params.num = hw_wb->idx - WB_0;
+	ot_params.width = wb_enc->wb_roi.w;
+	ot_params.height = wb_enc->wb_roi.h;
+	ot_params.is_wfd = true;
+	ot_params.frame_rate = phys_enc->cached_mode.vrefresh;
+	ot_params.vbif_idx = hw_wb->caps->vbif_idx;
+	ot_params.clk_ctrl = hw_wb->caps->clk_ctrl;
+	ot_params.rd = false;
+
+	sde_vbif_set_ot_limit(phys_enc->sde_kms, &ot_params);
+}
+
+/**
  * sde_encoder_phys_wb_set_traffic_shaper - set traffic shaper for writeback
  * @phys_enc:	Pointer to physical encoder
  */
@@ -437,6 +462,8 @@ static void sde_encoder_phys_wb_setup(
 
 	SDE_DEBUG("[fb_fmt:%x,%llx]\n", fb->pixel_format,
 			fb->modifier[0]);
+
+	sde_encoder_phys_wb_set_ot_limit(phys_enc);
 
 	sde_encoder_phys_wb_set_traffic_shaper(phys_enc);
 

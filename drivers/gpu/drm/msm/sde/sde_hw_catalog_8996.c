@@ -62,6 +62,9 @@
 #define DECIMATION_17X_MAX_H	4
 #define DECIMATION_17X_MAX_V	4
 
+#define RES_1080p		((u64)(1088*1920))
+#define RES_UHD			((u64)(3840*2160))
+
 static const struct sde_format_extended plane_formats[] = {
 	{DRM_FORMAT_ARGB8888, 0},
 	{DRM_FORMAT_ABGR8888, 0},
@@ -372,6 +375,12 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.maxlinewidth = 4096,
 	};
 
+	static const struct sde_vbif_dynamic_ot_cfg dynamic_ot_cfg[] = {
+		{RES_1080p * 30, 2},
+		{RES_1080p * 60, 4},
+		{RES_UHD * 30, 16},
+	};
+
 	/* Setup Register maps and defaults */
 	*cfg = (struct sde_mdss_cfg){
 		.mdss_count = 1,
@@ -381,7 +390,38 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.mdp_count = 1,
 		.mdp = {
 			{.id = MDP_TOP, .base = 0x00001000, .features = 0,
-				.highest_bank_bit = 0x2},
+				.highest_bank_bit = 0x2,
+				.clk_ctrls[SDE_CLK_CTRL_VIG0] = {
+					.reg_off = 0x2AC, .bit_off = 0},
+				.clk_ctrls[SDE_CLK_CTRL_VIG1] = {
+					.reg_off = 0x2B4, .bit_off = 0},
+				.clk_ctrls[SDE_CLK_CTRL_VIG2] = {
+					.reg_off = 0x2BC, .bit_off = 0},
+				.clk_ctrls[SDE_CLK_CTRL_VIG3] = {
+					.reg_off = 0x2C4, .bit_off = 0},
+				.clk_ctrls[SDE_CLK_CTRL_RGB0] = {
+					.reg_off = 0x2AC, .bit_off = 4},
+				.clk_ctrls[SDE_CLK_CTRL_RGB1] = {
+					.reg_off = 0x2B4, .bit_off = 4},
+				.clk_ctrls[SDE_CLK_CTRL_RGB2] = {
+					.reg_off = 0x2BC, .bit_off = 4},
+				.clk_ctrls[SDE_CLK_CTRL_RGB3] = {
+					.reg_off = 0x2C4, .bit_off = 4},
+				.clk_ctrls[SDE_CLK_CTRL_DMA0] = {
+					.reg_off = 0x2AC, .bit_off = 8},
+				.clk_ctrls[SDE_CLK_CTRL_DMA1] = {
+					.reg_off = 0x2B4, .bit_off = 8},
+				.clk_ctrls[SDE_CLK_CTRL_CURSOR0] = {
+					.reg_off = 0x3A8, .bit_off = 16},
+				.clk_ctrls[SDE_CLK_CTRL_CURSOR1] = {
+					.reg_off = 0x3B0, .bit_off = 16},
+				.clk_ctrls[SDE_CLK_CTRL_WB0] = {
+					.reg_off = 0x2BC, .bit_off = 8},
+				.clk_ctrls[SDE_CLK_CTRL_WB1] = {
+					.reg_off = 0x2BC, .bit_off = 12},
+				.clk_ctrls[SDE_CLK_CTRL_WB2] = {
+					.reg_off = 0x2BC, .bit_off = 16},
+			},
 		},
 		.ctl_count = 5,
 		.ctl = {
@@ -403,32 +443,56 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.sspp_count = 12,
 		.sspp = {
 			{.id = SSPP_VIG0, .base = 0x00005000,
-			.features = VIG_17X_MASK, .sblk = &vig_layer},
+			.features = VIG_17X_MASK, .sblk = &vig_layer,
+			.xin_id = 0,
+			.clk_ctrl = SDE_CLK_CTRL_VIG0},
 			{.id = SSPP_VIG1, .base = 0x00007000,
-			.features = VIG_17X_MASK, .sblk = &vig_layer},
+			.features = VIG_17X_MASK, .sblk = &vig_layer,
+			.xin_id = 4,
+			.clk_ctrl = SDE_CLK_CTRL_VIG1},
 			{.id = SSPP_VIG2, .base = 0x00009000,
-			.features = VIG_17X_MASK, .sblk = &vig_layer},
+			.features = VIG_17X_MASK, .sblk = &vig_layer,
+			.xin_id = 8,
+			.clk_ctrl = SDE_CLK_CTRL_VIG2},
 			{.id = SSPP_VIG3, .base = 0x0000b000,
-			.features = VIG_17X_MASK, .sblk = &vig_layer},
+			.features = VIG_17X_MASK, .sblk = &vig_layer,
+			.xin_id = 12,
+			.clk_ctrl = SDE_CLK_CTRL_VIG3},
 
 			{.id = SSPP_RGB0, .base = 0x00015000,
-			.features = RGB_17X_MASK, .sblk = &layer},
+			.features = RGB_17X_MASK, .sblk = &layer,
+			.xin_id = 1,
+			.clk_ctrl = SDE_CLK_CTRL_RGB0},
 			{.id = SSPP_RGB1, .base = 0x00017000,
-			.features = RGB_17X_MASK, .sblk = &layer},
+			.features = RGB_17X_MASK, .sblk = &layer,
+			.xin_id = 5,
+			.clk_ctrl = SDE_CLK_CTRL_RGB1},
 			{.id = SSPP_RGB2, .base = 0x00019000,
-			.features = RGB_17X_MASK, .sblk = &layer},
+			.features = RGB_17X_MASK, .sblk = &layer,
+			.xin_id = 9,
+			.clk_ctrl = SDE_CLK_CTRL_RGB2},
 			{.id = SSPP_RGB3, .base = 0x0001B000,
-			.features = RGB_17X_MASK, .sblk = &layer},
+			.features = RGB_17X_MASK, .sblk = &layer,
+			.xin_id = 13,
+			.clk_ctrl = SDE_CLK_CTRL_RGB3},
 
 			{.id = SSPP_DMA0, .base = 0x00025000,
-			.features = DMA_17X_MASK, .sblk = &dma},
+			.features = DMA_17X_MASK, .sblk = &dma,
+			.xin_id = 2,
+			.clk_ctrl = SDE_CLK_CTRL_DMA0},
 			{.id = SSPP_DMA1, .base = 0x00027000,
-			.features = DMA_17X_MASK, .sblk = &dma},
+			.features = DMA_17X_MASK, .sblk = &dma,
+			.xin_id = 10,
+			.clk_ctrl = SDE_CLK_CTRL_DMA1},
 
 			{.id = SSPP_CURSOR0, .base = 0x00035000,
-			.features = CURSOR_17X_MASK, .sblk = &cursor},
+			.features = CURSOR_17X_MASK, .sblk = &cursor,
+			.xin_id = 7,
+			.clk_ctrl = SDE_CLK_CTRL_CURSOR0},
 			{.id = SSPP_CURSOR1, .base = 0x00037000,
-			.features = CURSOR_17X_MASK, .sblk = &cursor},
+			.features = CURSOR_17X_MASK, .sblk = &cursor,
+			.xin_id = 7,
+			.clk_ctrl = SDE_CLK_CTRL_CURSOR1},
 		},
 		.mixer_count = 6,
 		.mixer = {
@@ -517,20 +581,58 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 			{.id = WB_0, .base = 0x00065000,
 				.features = WB01_17X_MASK,
 				.sblk = &wb0,
-				.format_list = wb0_formats},
+				.format_list = wb0_formats,
+				.vbif_idx = VBIF_NRT,
+				.xin_id = 3,
+				.clk_ctrl = SDE_CLK_CTRL_WB0},
 			{.id = WB_1, .base = 0x00065800,
 				.features = WB01_17X_MASK,
 				.sblk = &wb0,
-				.format_list = wb0_formats},
+				.format_list = wb0_formats,
+				.vbif_idx = VBIF_NRT,
+				.xin_id = 11,
+				.clk_ctrl = SDE_CLK_CTRL_WB1},
 			{.id = WB_2, .base = 0x00066000,
 				.features = WB2_17X_MASK,
 				.sblk = &wb2,
-				.format_list = wb2_formats},
+				.format_list = wb2_formats,
+				.vbif_idx = VBIF_NRT,
+				.xin_id = 6,
+				.clk_ctrl = SDE_CLK_CTRL_WB2},
 		},
 		.ad_count = 2,
 		.ad = {
 			{.id = AD_0, .base = 0x00079000},
 			{.id = AD_1, .base = 0x00079800},
+		},
+		.vbif_count = 2,
+		.vbif = {
+			{.id = VBIF_0,
+				.base = 0, /* 0x000B0000 */
+				.features = BIT(SDE_VBIF_QOS_OTLIM),
+				.default_ot_rd_limit = 32,
+				.default_ot_wr_limit = 16,
+				.xin_halt_timeout = 0x4000,
+				.dynamic_ot_rd_tbl = {
+					.count = ARRAY_SIZE(dynamic_ot_cfg),
+					.cfg = dynamic_ot_cfg},
+				.dynamic_ot_wr_tbl = {
+					.count = ARRAY_SIZE(dynamic_ot_cfg),
+					.cfg = dynamic_ot_cfg},
+			},
+			{.id = VBIF_1,
+				.base = 0, /* 0x000B8000 */
+				.features = BIT(SDE_VBIF_QOS_OTLIM),
+				.default_ot_rd_limit = 32,
+				.default_ot_wr_limit = 16,
+				.xin_halt_timeout = 0x4000,
+				.dynamic_ot_rd_tbl = {
+					.count = ARRAY_SIZE(dynamic_ot_cfg),
+					.cfg = dynamic_ot_cfg},
+				.dynamic_ot_wr_tbl = {
+					.count = ARRAY_SIZE(dynamic_ot_cfg),
+					.cfg = dynamic_ot_cfg},
+			},
 		},
 	};
 	return 0;
