@@ -97,6 +97,9 @@ enum wlfw_pipedir_enum_v01 {
 #define QMI_WLFW_CE_ATTR_DISABLE_INTR_V01 ((uint32_t)0x08)
 #define QMI_WLFW_CE_ATTR_ENABLE_POLL_V01 ((uint32_t)0x10)
 
+#define QMI_WLFW_ALREADY_REGISTERED_V01 ((uint64_t)0x01ULL)
+#define QMI_WLFW_FW_READY_V01 ((uint64_t)0x02ULL)
+
 struct wlfw_ce_tgt_pipe_cfg_s_v01 {
 	uint32_t pipe_num;
 	enum wlfw_pipedir_enum_v01 pipe_dir;
@@ -151,14 +154,18 @@ struct wlfw_ind_register_req_msg_v01 {
 	uint8_t msa_ready_enable;
 	uint8_t pin_connect_result_enable_valid;
 	uint8_t pin_connect_result_enable;
+	uint8_t client_id_valid;
+	uint32_t client_id;
 };
-#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 20
+#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 27
 extern struct elem_info wlfw_ind_register_req_msg_v01_ei[];
 
 struct wlfw_ind_register_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
+	uint8_t fw_status_valid;
+	uint64_t fw_status;
 };
-#define WLFW_IND_REGISTER_RESP_MSG_V01_MAX_MSG_LEN 7
+#define WLFW_IND_REGISTER_RESP_MSG_V01_MAX_MSG_LEN 18
 extern struct elem_info wlfw_ind_register_resp_msg_v01_ei[];
 
 struct wlfw_fw_ready_ind_msg_v01 {

@@ -48,6 +48,7 @@
 
 #define WLFW_TIMEOUT_MS			3000
 #define WLFW_SERVICE_INS_ID_V01		0
+#define WLFW_CLIENT_ID			0x4b4e454c
 #define MAX_PROP_SIZE			32
 #define NUM_LOG_PAGES			10
 #define NUM_REG_LOG_PAGES		4
@@ -1733,6 +1734,8 @@ static int wlfw_ind_register_send_sync_msg(void)
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
+	req.client_id_valid = 1;
+	req.client_id = WLFW_CLIENT_ID;
 	req.fw_ready_enable_valid = 1;
 	req.fw_ready_enable = 1;
 	req.msa_ready_enable_valid = 1;

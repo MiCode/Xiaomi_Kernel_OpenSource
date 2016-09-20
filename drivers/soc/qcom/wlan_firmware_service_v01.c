@@ -343,6 +343,24 @@ struct elem_info wlfw_ind_register_req_msg_v01_ei[] = {
 					   pin_connect_result_enable),
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x15,
+		.offset         = offsetof(struct wlfw_ind_register_req_msg_v01,
+					   client_id_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint32_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x15,
+		.offset         = offsetof(struct wlfw_ind_register_req_msg_v01,
+					   client_id),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.is_array       = NO_ARRAY,
 		.is_array       = QMI_COMMON_TLV_TYPE,
@@ -359,6 +377,26 @@ struct elem_info wlfw_ind_register_resp_msg_v01_ei[] = {
 		.offset         = offsetof(struct wlfw_ind_register_resp_msg_v01,
 					   resp),
 		.ei_array      = get_qmi_response_type_v01_ei(),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(
+				   struct wlfw_ind_register_resp_msg_v01,
+				   fw_status_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_8_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint64_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(
+				   struct wlfw_ind_register_resp_msg_v01,
+				   fw_status),
 	},
 	{
 		.data_type      = QMI_EOTI,
