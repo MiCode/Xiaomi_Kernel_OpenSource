@@ -1043,7 +1043,6 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 		"%s.%x", "wsatz", (u8)dev->addr);
 	wsa881x->bg_cnt = 0;
 	wsa881x->clk_cnt = 0;
-	wsa881x->state = WSA881X_DEV_UP;
 	wsa881x->tz_pdata.codec = codec;
 	wsa881x->tz_pdata.wsa_temp_reg_read = wsa881x_temp_reg_read;
 	wsa881x_init_thermal(&wsa881x->tz_pdata);
@@ -1229,6 +1228,7 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 			goto err;
 	}
 	wsa881x_gpio_ctrl(wsa881x, true);
+	wsa881x->state = WSA881X_DEV_UP;
 
 	if (!debugfs_wsa881x_dent) {
 		dbgwsa881x = wsa881x;
