@@ -16,6 +16,7 @@
 #include <linux/memblock.h>
 #include <linux/start_kernel.h>
 
+#include <asm/mmu_context.h>
 #include <asm/page.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
@@ -96,6 +97,21 @@ asmlinkage void __init kasan_early_init(void)
 	kasan_map_early_shadow();
 }
 
+/*
+ * Copy the current shadow region into a new pgdir.
+ */
+void __init kasan_copy_shadow(pgd_t *pgdir)
+{
+	pgd_t *pgd, *pgd_new, *pgd_end;
+
+	pgd = pgd_offset_k(KASAN_SHADOW_START);
+	pgd_end = pgd_offset_k(KASAN_SHADOW_END);
+	pgd_new = pgd_offset_raw(pgdir, KASAN_SHADOW_START);
+	do {
+		set_pgd(pgd_new, *pgd);
+	} while (pgd++, pgd_new++, pgd != pgd_end);
+}
+
 static void __init clear_pgds(unsigned long start,
 			unsigned long end)
 {
@@ -108,18 +124,10 @@ static void __init clear_pgds(unsigned long start,
 		set_pgd(pgd_offset_k(start), __pgd(0));
 }
 
-static void __init cpu_set_ttbr1(unsigned long ttbr1)
-{
-	asm(
-	"	msr	ttbr1_el1, %0\n"
-	"	isb"
-	:
-	: "r" (ttbr1));
-}
-
 void __init kasan_init(void)
 {
 	struct memblock_region *reg;
+	int i;
 
 	/*
 	 * We are going to perform proper setup of shadow memory.
@@ -129,8 +137,8 @@ void __init kasan_init(void)
 	 * setup will be finished.
 	 */
 	memcpy(tmp_pg_dir, swapper_pg_dir, sizeof(tmp_pg_dir));
-	cpu_set_ttbr1(__pa(tmp_pg_dir));
-	flush_tlb_all();
+	dsb(ishst);
+	cpu_replace_ttbr1(tmp_pg_dir);
 
 	clear_pgds(KASAN_SHADOW_START, KASAN_SHADOW_END);
 
@@ -155,9 +163,16 @@ void __init kasan_init(void)
 				pfn_to_nid(virt_to_pfn(start)));
 	}
 
+	/*
+	 * KAsan may reuse the contents of kasan_zero_pte directly, so we
+	 * should make sure that it maps the zero page read-only.
+	 */
+	for (i = 0; i < PTRS_PER_PTE; i++)
+		set_pte(&kasan_zero_pte[i],
+			pfn_pte(virt_to_pfn(kasan_zero_page), PAGE_KERNEL_RO));
+
 	memset(kasan_zero_page, 0, PAGE_SIZE);
-	cpu_set_ttbr1(__pa(swapper_pg_dir));
-	flush_tlb_all();
+	cpu_replace_ttbr1(swapper_pg_dir);
 
 	/* At this point kasan is fully initialized. Enable error messages */
 	init_task.kasan_depth = 0;
