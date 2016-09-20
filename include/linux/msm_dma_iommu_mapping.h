@@ -89,7 +89,7 @@ static inline void msm_dma_unmap_sg(struct device *dev,
 {
 }
 
-int msm_dma_unmap_all_for_dev(struct device *dev)
+static inline int msm_dma_unmap_all_for_dev(struct device *dev)
 {
 	return 0;
 }

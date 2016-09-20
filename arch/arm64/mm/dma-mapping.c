@@ -52,19 +52,6 @@ static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 	return prot;
 }
 
-static int __get_iommu_pgprot(unsigned long attrs, int prot,
-			      bool coherent)
-{
-	if (!(attrs & DMA_ATTR_EXEC_MAPPING))
-		prot |= IOMMU_NOEXEC;
-	if (attrs & DMA_ATTR_IOMMU_USE_UPSTREAM_HINT)
-		prot |= IOMMU_USE_UPSTREAM_HINT;
-	if (coherent)
-		prot |= IOMMU_CACHE;
-
-	return prot;
-}
-
 static struct gen_pool *atomic_pool;
 #define NO_KERNEL_MAPPING_DUMMY 0x2222
 #define DEFAULT_DMA_COHERENT_POOL_SIZE  SZ_256K
@@ -1109,6 +1096,19 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 EXPORT_SYMBOL(arch_setup_dma_ops);
 
 #ifdef CONFIG_ARM64_DMA_USE_IOMMU
+
+static int __get_iommu_pgprot(unsigned long attrs, int prot,
+			      bool coherent)
+{
+	if (!(attrs & DMA_ATTR_EXEC_MAPPING))
+		prot |= IOMMU_NOEXEC;
+	if (attrs & DMA_ATTR_IOMMU_USE_UPSTREAM_HINT)
+		prot |= IOMMU_USE_UPSTREAM_HINT;
+	if (coherent)
+		prot |= IOMMU_CACHE;
+
+	return prot;
+}
 
 /*
  * Make an area consistent for devices.
