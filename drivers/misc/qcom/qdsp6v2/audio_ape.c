@@ -180,6 +180,8 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 		struct msm_audio_ape_config *ape_config;
 		struct msm_audio_ape_config_32 ape_config_32;
 
+		memset(&ape_config_32, 0, sizeof(ape_config_32));
+
 		ape_config = (struct msm_audio_ape_config *)audio->codec_cfg;
 		ape_config_32.compatibleVersion = ape_config->compatibleVersion;
 		ape_config_32.compressionLevel =

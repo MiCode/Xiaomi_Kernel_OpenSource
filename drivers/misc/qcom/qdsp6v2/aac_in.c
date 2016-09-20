@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -420,6 +420,8 @@ static long aac_in_compat_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_GET_AAC_ENC_CONFIG_32: {
 		struct msm_audio_aac_enc_config cfg;
 		struct msm_audio_aac_enc_config32 cfg_32;
+
+		memset(&cfg_32, 0, sizeof(cfg_32));
 
 		cmd = AUDIO_GET_AAC_ENC_CONFIG;
 		rc = aac_in_ioctl_shared(file, cmd, &cfg);
