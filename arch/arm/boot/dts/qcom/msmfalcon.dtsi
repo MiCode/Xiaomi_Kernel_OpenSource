@@ -544,6 +544,7 @@
 };
 
 #include "msmfalcon-ion.dtsi"
+#include "msmfalcon-bus.dtsi"
 #include "msmfalcon-regulator.dtsi"
 #include "msm-gdsc-cobalt.dtsi"
 
