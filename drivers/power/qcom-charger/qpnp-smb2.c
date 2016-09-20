@@ -596,14 +596,17 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_TECHNOLOGY,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
 {
-	struct smb2 *chip = power_supply_get_drvdata(psy);
-	struct smb_charger *chg = &chip->chg;
+	struct smb_charger *chg = power_supply_get_drvdata(psy);
 	int rc = 0;
 
 	switch (psp) {
@@ -637,14 +640,28 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		rc = smblib_get_prop_input_current_limited(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		rc = smblib_get_prop_batt_voltage_now(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		rc = smblib_get_prop_batt_current_now(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		rc = smblib_get_prop_batt_temp(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_TECHNOLOGY:
+		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
 	}
+
 	if (rc < 0) {
 		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
 		return -ENODATA;
 	}
+
 	return 0;
 }
 
