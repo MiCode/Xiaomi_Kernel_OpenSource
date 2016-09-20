@@ -259,7 +259,7 @@ void __show_regs(struct pt_regs *regs)
 			printk("\n");
 	}
 	if (!user_mode(regs))
-		show_extra_register_data(regs, 256);
+		show_extra_register_data(regs, 64);
 	printk("\n");
 }
 
