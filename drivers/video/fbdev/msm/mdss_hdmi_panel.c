@@ -150,74 +150,6 @@ enum hdmi_scaling_info {
 	HDMI_SCALING_HORZ_VERT,
 };
 
-int hdmi_panel_get_vic(struct mdss_panel_info *pinfo,
-		struct hdmi_util_ds_data *ds_data)
-{
-	int new_vic = -1;
-	u32 h_total, v_total;
-	struct msm_hdmi_mode_timing_info timing;
-
-	if (!pinfo) {
-		pr_err("invalid panel data\n");
-		return -EINVAL;
-	}
-
-	if (pinfo->vic) {
-		struct msm_hdmi_mode_timing_info info = {0};
-		u32 ret = hdmi_get_supported_mode(&info, ds_data, pinfo->vic);
-		u32 supported = info.supported;
-
-		if (!ret && supported) {
-			new_vic = pinfo->vic;
-		} else {
-			pr_err("invalid or not supported vic %d\n",
-				pinfo->vic);
-			return -EPERM;
-		}
-	} else {
-		timing.active_h      = pinfo->xres;
-		timing.back_porch_h  = pinfo->lcdc.h_back_porch;
-		timing.front_porch_h = pinfo->lcdc.h_front_porch;
-		timing.pulse_width_h = pinfo->lcdc.h_pulse_width;
-
-		h_total = timing.active_h + timing.back_porch_h +
-			timing.front_porch_h + timing.pulse_width_h;
-
-		pr_debug("ah=%d bph=%d fph=%d pwh=%d ht=%d\n",
-			timing.active_h, timing.back_porch_h,
-			timing.front_porch_h, timing.pulse_width_h,
-			h_total);
-
-		timing.active_v      = pinfo->yres;
-		timing.back_porch_v  = pinfo->lcdc.v_back_porch;
-		timing.front_porch_v = pinfo->lcdc.v_front_porch;
-		timing.pulse_width_v = pinfo->lcdc.v_pulse_width;
-
-		v_total = timing.active_v + timing.back_porch_v +
-			timing.front_porch_v + timing.pulse_width_v;
-
-		pr_debug("av=%d bpv=%d fpv=%d pwv=%d vt=%d\n",
-			timing.active_v, timing.back_porch_v,
-			timing.front_porch_v, timing.pulse_width_v, v_total);
-
-		timing.pixel_freq = ((unsigned long int)pinfo->clk_rate / 1000);
-		if (h_total && v_total) {
-			timing.refresh_rate = ((timing.pixel_freq * 1000) /
-				(h_total * v_total)) * 1000;
-		} else {
-			pr_err("cannot cal refresh rate\n");
-			return -EPERM;
-		}
-
-		pr_debug("pixel_freq=%d refresh_rate=%d\n",
-			timing.pixel_freq, timing.refresh_rate);
-
-		new_vic = hdmi_get_video_id_code(&timing, ds_data);
-	}
-
-	return new_vic;
-}
-
 static void hdmi_panel_update_dfps_data(struct hdmi_panel *panel)
 {
 	struct mdss_panel_info *pinfo = panel->data->pinfo;
@@ -916,7 +848,6 @@ void *hdmi_panel_init(struct hdmi_panel_init_data *data)
 	if (data->ops) {
 		data->ops->on = hdmi_panel_power_on;
 		data->ops->off = hdmi_panel_power_off;
-		data->ops->get_vic = hdmi_panel_get_vic;
 		data->ops->vendor = hdmi_panel_set_vendor_specific_infoframe;
 		data->ops->update_fps = hdmi_panel_update_fps;
 	}

@@ -19,6 +19,7 @@
 #include <soc/qcom/scm.h>
 #include <linux/hdcp_qseecom.h>
 #include "mdss_hdcp_1x.h"
+#include "mdss_fb.h"
 #include "mdss_dp_util.h"
 #include "video/msm_hdmi_hdcp_mgr.h"
 
@@ -41,14 +42,14 @@
 #define HDCP_INT_CLR (isr->auth_success_ack | isr->auth_fail_ack | \
 			isr->auth_fail_info_ack | isr->tx_req_ack | \
 			isr->encryption_ready_ack | \
-			isr->encryption_not_ready | isr->tx_req_done_ack)
+			isr->encryption_not_ready_ack | isr->tx_req_done_ack)
 
 #define HDCP_INT_EN (isr->auth_success_mask | isr->auth_fail_mask | \
 			isr->encryption_ready_mask | \
 			isr->encryption_not_ready_mask)
 
 #define HDCP_POLL_SLEEP_US   (20 * 1000)
-#define HDCP_POLL_TIMEOUT_US (HDCP_POLL_SLEEP_US * 1000)
+#define HDCP_POLL_TIMEOUT_US (HDCP_POLL_SLEEP_US * 100)
 
 #define reg_set_data(x) \
 	(hdcp_ctrl->init_data.sec_access ? reg_set->sec_data##x : \
@@ -198,15 +199,15 @@ struct hdcp_reg_set {
 	{{"bcaps", 0x40, 1}, {"bksv", 0x00, 5}, {"r0'", 0x08, 2}, \
 	 {"bstatus", 0x41, 2}, {"ksv-fifo", 0x43, 0}, {"v_h0", 0x20, 4}, \
 	 {"v_h1", 0x24, 4}, {"v_h2", 0x28, 4}, {"v_h3", 0x2c, 4}, \
-	 {"v_h4", 0x30, 4}, {"an", 0x16, 8}, {"aksv", 0x10, 5}, \
-	 {"repater", 0x00, 0} }
+	 {"v_h4", 0x30, 4}, {"an", 0x18, 8}, {"aksv", 0x10, 5}, \
+	 {"repeater", 0x00, 0} }
 
 #define HDCP_DP_SINK_ADDR_MAP \
 	{{"bcaps", 0x68028, 1}, {"bksv", 0x68000, 5}, {"r0'", 0x68005, 2}, \
 	 {"bstatus", 0x6802A, 2}, {"ksv-fifo", 0x6802A, 0}, \
 	 {"v_h0", 0x68014, 4}, {"v_h1", 0x68018, 4}, {"v_h2", 0x6801C, 4}, \
 	 {"v_h3", 0x68020, 4}, {"v_h4", 0x68024, 4}, {"an", 0x6800C, 8}, \
-	 {"aksv", 0x68007, 5}, {"repater", 0x68028, 1} }
+	 {"aksv", 0x68007, 5}, {"repeater", 0x68028, 1} }
 
 #define HDCP_HDMI_INT_SET \
 	{HDMI_HDCP_INT_CTRL, \
@@ -215,7 +216,7 @@ struct hdcp_reg_set {
 	 BIT(0), BIT(4), 0, 0, 0, 0}
 
 #define HDCP_DP_INT_SET \
-	{DP_INTERRUPT_STATUS_2, \
+	{DP_INTR_STATUS2, \
 	 BIT(17), BIT(20), BIT(24), BIT(27), 0, 0, \
 	 BIT(16), BIT(19), BIT(21), BIT(23), BIT(26), 0, 0, \
 	 BIT(15), BIT(18), BIT(22), BIT(25), 0, 0}
@@ -554,7 +555,7 @@ static int hdcp_1x_read(struct hdcp_1x_ctrl *hdcp_ctrl,
 		cmd.out_buf = buf;
 		cmd.len = sink->len;
 
-		rc = dp_aux_read(hdcp_ctrl->init_data.dp_data, &cmd);
+		rc = dp_aux_read(hdcp_ctrl->init_data.cb_data, &cmd);
 		if (rc)
 			DEV_ERR("%s: %s: %s read failed\n", __func__,
 				HDCP_STATE_NAME, sink->name);
@@ -564,7 +565,7 @@ static int hdcp_1x_read(struct hdcp_1x_ctrl *hdcp_ctrl,
 }
 
 static int hdcp_1x_write(struct hdcp_1x_ctrl *hdcp_ctrl,
-			   u32 offset, u32 len, u8 *buf, char *name)
+			   struct hdcp_sink_addr *sink, u8 *buf)
 {
 	int rc = 0;
 	struct hdmi_tx_ddc_data ddc_data;
@@ -573,28 +574,28 @@ static int hdcp_1x_write(struct hdcp_1x_ctrl *hdcp_ctrl,
 		memset(&ddc_data, 0, sizeof(ddc_data));
 
 		ddc_data.dev_addr = 0x74;
-		ddc_data.offset = offset;
+		ddc_data.offset = sink->addr;
 		ddc_data.data_buf = buf;
-		ddc_data.data_len = len;
-		ddc_data.what = name;
+		ddc_data.data_len = sink->len;
+		ddc_data.what = sink->name;
 		hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
 
 		rc = hdmi_ddc_write(hdcp_ctrl->init_data.ddc_ctrl);
 		if (rc)
 			DEV_ERR("%s: %s: %s write failed\n", __func__,
-				HDCP_STATE_NAME, name);
+				HDCP_STATE_NAME, sink->name);
 	} else if (IS_ENABLED(CONFIG_FB_MSM_MDSS_DP_PANEL) &&
 		hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP) {
 		struct edp_cmd cmd = {0};
 
-		cmd.addr = offset;
-		cmd.len = len;
+		cmd.addr = sink->addr;
+		cmd.len = sink->len;
 		cmd.datap = buf;
 
-		rc = dp_aux_write(hdcp_ctrl->init_data.dp_data, &cmd);
+		rc = dp_aux_write(hdcp_ctrl->init_data.cb_data, &cmd);
 		if (rc)
 			DEV_ERR("%s: %s: %s read failed\n", __func__,
-				HDCP_STATE_NAME, name);
+				HDCP_STATE_NAME, sink->name);
 	}
 
 	return rc;
@@ -731,7 +732,7 @@ static int hdcp_1x_authentication_part1(struct hdcp_1x_ctrl *hdcp_ctrl)
 	link0_an_1 = DSS_REG_R(io, reg_set->data6);
 	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP) {
 		udelay(1);
-		link0_an_0 = DSS_REG_R(io, reg_set->data6);
+		link0_an_1 = DSS_REG_R(io, reg_set->data6);
 	}
 
 	/* Read AKSV */
@@ -754,13 +755,13 @@ static int hdcp_1x_authentication_part1(struct hdcp_1x_ctrl *hdcp_ctrl)
 	an[6] = (link0_an_1 >> 16) & 0xFF;
 	an[7] = (link0_an_1 >> 24) & 0xFF;
 
-	rc = hdcp_1x_write(hdcp_ctrl, 0x18, 8, an, "an");
+	rc = hdcp_1x_write(hdcp_ctrl, &hdcp_ctrl->sink_addr.an, an);
 	if (IS_ERR_VALUE(rc)) {
 		DEV_ERR("%s: error writing an to sink\n", __func__);
 		goto error;
 	}
 
-	rc = hdcp_1x_write(hdcp_ctrl, 0x10, 5, aksv, "aksv");
+	rc = hdcp_1x_write(hdcp_ctrl, &hdcp_ctrl->sink_addr.aksv, aksv);
 	if (IS_ERR_VALUE(rc)) {
 		DEV_ERR("%s: error writing aksv to sink\n", __func__);
 		goto error;
@@ -1325,10 +1326,12 @@ static void hdcp_1x_auth_work(struct work_struct *work)
 	}
 
 	io = hdcp_ctrl->init_data.core_io;
-	/* Enabling Software DDC */
+	/* Enabling Software DDC for HDMI and REF timer for DP */
 	if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_HDMI)
 		DSS_REG_W_ND(io, HDMI_DDC_ARBITRATION, DSS_REG_R(io,
 				HDMI_DDC_ARBITRATION) & ~(BIT(4)));
+	else if (hdcp_ctrl->init_data.client_id == HDCP_CLIENT_DP)
+		DSS_REG_W(io, DP_DP_HPD_REFTIMER, 0x10013);
 
 	rc = hdcp_1x_authentication_part1(hdcp_ctrl);
 	if (rc) {
@@ -1628,12 +1631,45 @@ error:
 	return rc;
 } /* hdcp_1x_isr */
 
+static struct hdcp_1x_ctrl *hdcp_1x_get_ctrl(struct device *dev)
+{
+	struct fb_info *fbi;
+	struct msm_fb_data_type *mfd;
+	struct mdss_panel_info *pinfo;
+
+	if (!dev) {
+		pr_err("invalid input\n");
+		goto error;
+	}
+
+	fbi = dev_get_drvdata(dev);
+	if (!fbi) {
+		pr_err("invalid fbi\n");
+		goto error;
+	}
+
+	mfd = fbi->par;
+	if (!mfd) {
+		pr_err("invalid mfd\n");
+		goto error;
+	}
+
+	pinfo = mfd->panel_info;
+	if (!pinfo) {
+		pr_err("invalid pinfo\n");
+		goto error;
+	}
+
+	return pinfo->hdcp_1x_data;
+
+error:
+	return NULL;
+}
 static ssize_t hdcp_1x_sysfs_rda_status(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
-	struct hdcp_1x_ctrl *hdcp_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+	struct hdcp_1x_ctrl *hdcp_ctrl = hdcp_1x_get_ctrl(dev);
 
 	if (!hdcp_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1652,8 +1688,7 @@ static ssize_t hdcp_1x_sysfs_rda_tp(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	ssize_t ret = 0;
-	struct hdcp_1x_ctrl *hdcp_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+	struct hdcp_1x_ctrl *hdcp_ctrl = hdcp_1x_get_ctrl(dev);
 
 	if (!hdcp_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1687,8 +1722,7 @@ static ssize_t hdcp_1x_sysfs_wta_tp(struct device *dev,
 {
 	int msgid = 0;
 	ssize_t ret = count;
-	struct hdcp_1x_ctrl *hdcp_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP);
+	struct hdcp_1x_ctrl *hdcp_ctrl = hdcp_1x_get_ctrl(dev);
 
 	if (!hdcp_ctrl || !buf) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1774,9 +1808,8 @@ void *hdcp_1x_init(struct hdcp_init_data *init_data)
 	};
 
 	if (!init_data || !init_data->core_io || !init_data->qfprom_io ||
-		!init_data->mutex || !init_data->ddc_ctrl ||
-		!init_data->notify_status || !init_data->workq ||
-		!init_data->cb_data) {
+		!init_data->mutex || !init_data->notify_status ||
+		!init_data->workq || !init_data->cb_data) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		goto error;
 	}
