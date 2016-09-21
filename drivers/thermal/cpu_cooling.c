@@ -73,6 +73,10 @@ struct power_table {
  *	cooling	devices.
  * @clipped_freq: integer value representing the absolute value of the clipped
  *	frequency.
+ * @cpufreq_floor_state: integer value representing the frequency floor state
+ *	of cpufreq cooling devices.
+ * @floor_freq: integer value representing the absolute value of the floor
+ *	frequency.
  * @max_level: maximum cooling level. [0..max_level-1: <freq>
  *	max_level: Core unavailable]
  * @allowed_cpus: all the cpus involved for this cpufreq_cooling_device.
@@ -95,6 +99,8 @@ struct cpufreq_cooling_device {
 	struct thermal_cooling_device *cool_dev;
 	unsigned int cpufreq_state;
 	unsigned int clipped_freq;
+	unsigned int cpufreq_floor_state;
+	unsigned int floor_freq;
 	unsigned int max_level;
 	unsigned int *freq_table;	/* In descending order */
 	struct cpumask allowed_cpus;
@@ -222,7 +228,7 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 				    unsigned long event, void *data)
 {
 	struct cpufreq_policy *policy = data;
-	unsigned long clipped_freq;
+	unsigned long clipped_freq, floor_freq;
 	struct cpufreq_cooling_device *cpufreq_dev;
 
 	if (event != CPUFREQ_ADJUST)
@@ -243,11 +249,16 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 		 *
 		 * But, if clipped_freq is greater than policy->max, we don't
 		 * need to do anything.
+		 *
+		 * Similarly, if policy minimum set by the user is less than
+		 * the floor_frequency, then adjust the policy->min.
 		 */
 		clipped_freq = cpufreq_dev->clipped_freq;
+		floor_freq = cpufreq_dev->floor_freq;
 
-		if (policy->max > clipped_freq)
-			cpufreq_verify_within_limits(policy, 0, clipped_freq);
+		if (policy->max > clipped_freq || policy->min < floor_freq)
+			cpufreq_verify_within_limits(policy, floor_freq,
+						     clipped_freq);
 		break;
 	}
 	mutex_unlock(&cooling_list_lock);
@@ -491,6 +502,58 @@ static int cpufreq_get_max_state(struct thermal_cooling_device *cdev,
 	struct cpufreq_cooling_device *cpufreq_device = cdev->devdata;
 
 	*state = cpufreq_device->max_level;
+	return 0;
+}
+
+/**
+ * cpufreq_get_min_state - callback function to get the device floor state.
+ * @cdev: thermal cooling device pointer.
+ * @state: fill this variable with the cooling device floor.
+ *
+ * Callback for the thermal cooling device to return the cpufreq
+ * floor state.
+ *
+ * Return: 0 on success, an error code otherwise.
+ */
+static int cpufreq_get_min_state(struct thermal_cooling_device *cdev,
+				 unsigned long *state)
+{
+	struct cpufreq_cooling_device *cpufreq_device = cdev->devdata;
+
+	*state = cpufreq_device->cpufreq_floor_state;
+
+	return 0;
+}
+
+/**
+ * cpufreq_set_min_state - callback function to set the device floor state.
+ * @cdev: thermal cooling device pointer.
+ * @state: set this variable to the current cooling state.
+ *
+ * Callback for the thermal cooling device to change the cpufreq
+ * floor state.
+ *
+ * Return: 0 on success, an error code otherwise.
+ */
+static int cpufreq_set_min_state(struct thermal_cooling_device *cdev,
+				 unsigned long state)
+{
+	struct cpufreq_cooling_device *cpufreq_device = cdev->devdata;
+	unsigned int cpu = cpumask_any(&cpufreq_device->allowed_cpus);
+	unsigned int floor_freq;
+
+	if (state > cpufreq_device->max_level)
+		state = cpufreq_device->max_level;
+
+	if (cpufreq_device->cpufreq_floor_state == state)
+		return 0;
+
+	floor_freq = cpufreq_device->freq_table[state];
+	cpufreq_device->cpufreq_floor_state = state;
+	cpufreq_device->floor_freq = floor_freq;
+
+	cpufreq_update_policy(cpu);
+
 	return 0;
 }
 
@@ -765,6 +828,8 @@ static struct thermal_cooling_device_ops cpufreq_cooling_ops = {
 	.get_max_state = cpufreq_get_max_state,
 	.get_cur_state = cpufreq_get_cur_state,
 	.set_cur_state = cpufreq_set_cur_state,
+	.set_min_state = cpufreq_set_min_state,
+	.get_min_state = cpufreq_get_min_state,
 };
 
 static struct thermal_cooling_device_ops cpufreq_power_cooling_ops = {
@@ -929,6 +994,9 @@ __cpufreq_cooling_register(struct device_node *np,
 		goto remove_idr;
 
 	cpufreq_dev->clipped_freq = cpufreq_dev->freq_table[0];
+	cpufreq_dev->floor_freq =
+		cpufreq_dev->freq_table[cpufreq_dev->max_level];
+	cpufreq_dev->cpufreq_floor_state = cpufreq_dev->max_level;
 	cpufreq_dev->cool_dev = cool_dev;
 
 	mutex_lock(&cooling_cpufreq_lock);
