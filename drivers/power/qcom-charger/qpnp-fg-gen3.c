@@ -274,6 +274,12 @@ module_param_named(
 	sram_update_period_ms, fg_sram_update_period_ms, int, 0600
 );
 
+static bool fg_sram_dump;
+module_param_named(
+	sram_dump, fg_sram_dump, bool, 0600
+);
+
+
 /* All getters HERE */
 
 static int fg_decode_value_16b(struct fg_sram_param *sp,
@@ -929,40 +935,82 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 	return count;
 }
 
-#define SOC_READY_WAIT_MS		2000
-static void profile_load_work(struct work_struct *work)
+static void dump_sram(u8 *buf, int len)
 {
-	struct fg_chip *chip = container_of(work,
-				struct fg_chip,
-				profile_load_work.work);
-	int rc;
+	int i;
+	char str[16];
+
+	for (i = 0; i < len; i += 4) {
+		str[0] = '\0';
+		fill_string(str, sizeof(str), buf + i, 4);
+		pr_info("%03d %s\n", PROFILE_LOAD_WORD + (i / 4), str);
+	}
+}
+
+static bool is_profile_load_required(struct fg_chip *chip)
+{
 	u8 buf[PROFILE_COMP_LEN], val;
-	bool tried_again = false, profiles_same = false;
+	bool profiles_same = false;
+	int rc;
 
 	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
 			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("failed to read profile integrity rc=%d\n", rc);
-		return;
+		return false;
 	}
 
-	vote(chip->awake_votable, PROFILE_LOAD, true, 0);
+	/* Check if integrity bit is set */
 	if (val == 0x01) {
 		fg_dbg(chip, FG_STATUS, "Battery profile integrity bit is set\n");
 		rc = fg_sram_read(chip, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
 				buf, PROFILE_COMP_LEN, FG_IMA_DEFAULT);
 		if (rc < 0) {
 			pr_err("Error in reading battery profile, rc:%d\n", rc);
-			goto out;
+			return false;
 		}
 		profiles_same = memcmp(chip->batt_profile, buf,
 					PROFILE_COMP_LEN) == 0;
 		if (profiles_same) {
-			fg_dbg(chip, FG_STATUS, "Battery profile is same\n");
-			goto done;
+			fg_dbg(chip, FG_STATUS, "Battery profile is same, not loading it\n");
+			return false;
 		}
-		fg_dbg(chip, FG_STATUS, "profiles are different?\n");
+
+		if (!chip->dt.force_load_profile) {
+			pr_warn("Profiles doesn't match, skipping loading it since force_load_profile is disabled\n");
+			if (fg_sram_dump) {
+				pr_info("FG: loaded profile:\n");
+				dump_sram(buf, PROFILE_COMP_LEN);
+				pr_info("FG: available profile:\n");
+				dump_sram(chip->batt_profile, PROFILE_LEN);
+			}
+			return false;
+		}
+
+		fg_dbg(chip, FG_STATUS, "Profiles are different, loading the correct one\n");
+	} else {
+		fg_dbg(chip, FG_STATUS, "Profile integrity bit is not set\n");
+		if (fg_sram_dump) {
+			pr_info("FG: profile to be loaded:\n");
+			dump_sram(chip->batt_profile, PROFILE_LEN);
+		}
 	}
+	return true;
+}
+
+#define SOC_READY_WAIT_MS		2000
+static void profile_load_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				profile_load_work.work);
+	bool tried_again = false;
+	u8 buf[2], val;
+	int rc;
+
+	vote(chip->awake_votable, PROFILE_LOAD, true, 0);
+	if (!is_profile_load_required(chip))
+		goto done;
 
 	clear_cycle_counter(chip);
 	fg_dbg(chip, FG_STATUS, "profile loading started\n");
@@ -1782,6 +1830,9 @@ static int fg_parse_dt(struct fg_chip *chip)
 	chip->cyc_ctr.en = of_property_read_bool(node, "qcom,cycle-counter-en");
 	if (chip->cyc_ctr.en)
 		chip->cyc_ctr.id = 1;
+
+	chip->dt.force_load_profile = of_property_read_bool(node,
+					"qcom,fg-force-load-profile");
 
 	return 0;
 }

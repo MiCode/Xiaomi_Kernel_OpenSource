@@ -146,6 +146,13 @@ First Level Node - FG Gen3 device
 	Value type: <bool>
 	Definition: Enables the cycle counter feature.
 
+- qcom,fg-force-load-profile
+	Usage:      optional
+	Value type: <bool>
+	Definition: If set, battery profile will be force loaded if the profile
+		    loaded earlier by bootloader doesn't match with the profile
+		    available in the device tree.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================
