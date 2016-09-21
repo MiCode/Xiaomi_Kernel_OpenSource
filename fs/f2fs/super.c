@@ -1880,6 +1880,7 @@ free_root_inode:
 	sb->s_root = NULL;
 free_node_inode:
 	mutex_lock(&sbi->umount_mutex);
+	release_ino_entry(sbi, true);
 	f2fs_leave_shrinker(sbi);
 	iput(sbi->node_inode);
 	mutex_unlock(&sbi->umount_mutex);
