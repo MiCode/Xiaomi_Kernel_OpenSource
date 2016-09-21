@@ -2943,7 +2943,7 @@ struct asm_aac_enc_cfg_v2_t {
 	 * number of channels at the input.
 	 * The number of channels must not change during encoding.
 	 */
-	uint32_t     channel_cfg;
+	uint16_t     channel_cfg;
 
 	/*
 	 * Number of samples per second.
