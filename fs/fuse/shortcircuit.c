@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,10 +58,12 @@ static ssize_t fuse_shortcircuit_read_write_iter(struct kiocb *iocb,
 	struct fuse_file *ff;
 	struct file *fuse_file, *lower_file;
 	struct inode *fuse_inode, *lower_inode;
+	struct fuse_conn *fc;
 
 	ff = iocb->ki_filp->private_data;
 	fuse_file = iocb->ki_filp;
 	lower_file = ff->rw_lower_file;
+	fc = ff->fc;
 
 	/* lock lower file to prevent it from being released */
 	get_file(lower_file);
@@ -75,7 +77,9 @@ static ssize_t fuse_shortcircuit_read_write_iter(struct kiocb *iocb,
 		ret_val = lower_file->f_op->write_iter(iocb, iter);
 
 		if (ret_val >= 0 || ret_val == -EIOCBQUEUED) {
+			spin_lock(&fc->lock);
 			fsstack_copy_inode_size(fuse_inode, lower_inode);
+			spin_unlock(&fc->lock);
 			fsstack_copy_attr_times(fuse_inode, lower_inode);
 		}
 	} else {
