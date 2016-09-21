@@ -779,13 +779,24 @@ int smblib_vbus_regulator_is_enabled(struct regulator_dev *rdev)
 int smblib_vconn_regulator_enable(struct regulator_dev *rdev)
 {
 	struct smb_charger *chg = rdev_get_drvdata(rdev);
+	u8 stat;
 	int rc = 0;
 
+	/*
+	 * VCONN_EN_ORIENTATION is overloaded with overriding the CC pin used
+	 * for Vconn, and it should be set with reverse polarity of CC_OUT.
+	 */
+	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
+		return rc;
+	}
+	stat = stat & CC_ORIENTATION_BIT ? 0 : VCONN_EN_ORIENTATION_BIT;
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-				 VCONN_EN_VALUE_BIT, VCONN_EN_VALUE_BIT);
+				 VCONN_EN_VALUE_BIT | VCONN_EN_ORIENTATION_BIT,
+				 VCONN_EN_VALUE_BIT | stat);
 	if (rc < 0)
-		dev_err(chg->dev, "Couldn't enable vconn regulator rc=%d\n",
-			rc);
+		dev_err(chg->dev, "Couldn't enable vconn setting rc=%d\n", rc);
 
 	return rc;
 }
@@ -1565,6 +1576,7 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			      const union power_supply_propval *val)
 {
 	int rc;
+	u8 stat;
 
 	if (!get_effective_result(chg->pd_allowed_votable)) {
 		dev_err(chg->dev, "PD is not allowed\n");
@@ -1581,6 +1593,40 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	}
 
 	vote(chg->pd_allowed_votable, PD_VOTER, val->intval, 0);
+
+	/*
+	 * VCONN_EN_ORIENTATION_BIT controls whether to use CC1 or CC2 line
+	 * when TYPEC_SPARE_CFG_BIT (CC pin selection s/w override) is set
+	 * or when VCONN_EN_VALUE_BIT is set.
+	 */
+	if (val->intval) {
+		rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
+			if (rc < 0) {
+				dev_err(chg->dev,
+					"Couldn't read TYPE_C_STATUS_4 rc=%d\n",
+					rc);
+				return rc;
+		}
+
+		stat &= CC_ORIENTATION_BIT;
+		rc = smblib_masked_write(chg,
+					TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+					VCONN_EN_ORIENTATION_BIT,
+					stat ? 0 : VCONN_EN_ORIENTATION_BIT);
+		if (rc < 0)
+			dev_err(chg->dev,
+				"Couldn't enable vconn on CC line rc=%d\n", rc);
+	}
+
+	/* CC pin selection s/w override in PD session; h/w otherwise. */
+	rc = smblib_masked_write(chg, TAPER_TIMER_SEL_CFG_REG,
+				 TYPEC_SPARE_CFG_BIT,
+				 val->intval ? TYPEC_SPARE_CFG_BIT : 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't change cc_out ctrl to %s rc=%d\n",
+			val->intval ? "SW" : "HW", rc);
+		return rc;
+	}
 
 	chg->pd_active = (bool)val->intval;
 	smblib_update_usb_type(chg);
