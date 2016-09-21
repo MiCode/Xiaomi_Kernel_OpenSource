@@ -181,6 +181,7 @@ struct fg_dt_props {
 	int	esr_timer_charging;
 	int	esr_timer_awake;
 	int	esr_timer_asleep;
+	bool	force_load_profile;
 };
 
 /* parameters from battery profile */
