@@ -1076,6 +1076,9 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 			goto exit;
 		}
 
+		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
+				orientation, dp_drv->dpcd.max_lane_count);
+
 		pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
 
 		dp_drv->power_data[DP_CTRL_PM].clk_config[0].rate =
@@ -1293,6 +1296,9 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	pr_debug("Ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
 	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
 	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
+
+	pr_debug("plug Orientation = %d\n",
+			usbpd_get_plug_orientation(dp_drv->pd));
 
 	mdss_dp_phy_aux_setup(&dp_drv->phy_io);
 
