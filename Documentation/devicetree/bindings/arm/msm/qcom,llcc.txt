@@ -65,6 +65,12 @@ Optional Properties:
 	Value type: <string>
 	Definition: Property to enable or disable the driver
 
+== llcc amon device ==
+
+Optional Properties:
+-qcom,fg-cnt : The value of fine grained counter of activity monitor
+	        block.
+
 Example:
 
 	qcom,llcc@01300000 {
@@ -85,6 +91,7 @@ Example:
 
 		qcom,llcc-amon {
 			compatible = "qcom,llcc-amon";
+			qcom,fg-cnt = <0x7>;
 		};
 	};
 
