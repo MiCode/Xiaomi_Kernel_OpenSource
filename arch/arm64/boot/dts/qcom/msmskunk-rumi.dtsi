@@ -62,3 +62,34 @@
 		qcom,wlan-msa-memory = <0x100000>;
 	};
 };
+
+&ufsphy_card {
+	compatible = "qcom,ufs-phy-qrbtc-msmskunk";
+
+	vdda-phy-supply = <&pmcobalt_l1>; /* 0.88v */
+	vdda-pll-supply = <&pmcobalt_l26>; /* 1.2v */
+	vddp-ref-clk-supply = <&pmcobalt_l2>;
+	vdda-phy-max-microamp = <62900>;
+	vdda-pll-max-microamp = <18300>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
+
+	status = "ok";
+};
+
+&ufs_card {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+
+	vdd-hba-supply = <&ufs_card_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pmcobalt_l21>;
+	vccq2-supply = <&pmcobalt_s4>;
+	vcc-max-microamp = <300000>;
+	vccq2-max-microamp = <300000>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+	status = "ok";
+};
