@@ -236,7 +236,7 @@ struct boost_groups {
 };
 
 /* Boost groups affecting each CPU in the system */
-DEFINE_PER_CPU(struct boost_groups, cpu_boost_groups);
+static DEFINE_PER_CPU(struct boost_groups, cpu_boost_groups);
 
 static void
 schedtune_cpu_update(int cpu)
