@@ -813,6 +813,27 @@ static int wdsp_spi_dload_section(struct spi_device *spi,
 	return ret;
 }
 
+static int wdsp_spi_read_section(struct spi_device *spi, void *data)
+{
+	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
+	struct wdsp_img_section *sec = data;
+	struct wcd_spi_msg msg;
+	int ret;
+
+	msg.remote_addr = sec->addr + wcd_spi->mem_base_addr;
+	msg.data = sec->data;
+	msg.len = sec->size;
+
+	dev_dbg(&spi->dev, "%s: addr = 0x%x, size = 0x%zx\n",
+		__func__, msg.remote_addr, msg.len);
+
+	ret = wcd_spi_data_xfer(spi, &msg, WCD_SPI_XFER_READ);
+	if (IS_ERR_VALUE(ret))
+		dev_err(&spi->dev, "%s: fail addr (0x%x) size (0x%zx)\n",
+			__func__, msg.remote_addr, msg.len);
+	return ret;
+}
+
 static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 				  enum wdsp_event_type event,
 				  void *data)
@@ -846,6 +867,11 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 	case WDSP_EVENT_DLOAD_SECTION:
 		ret = wdsp_spi_dload_section(spi, data);
 		break;
+
+	case WDSP_EVENT_READ_SECTION:
+		ret = wdsp_spi_read_section(spi, data);
+		break;
+
 	default:
 		dev_dbg(&spi->dev, "%s: Unhandled event %d\n",
 			__func__, event);
