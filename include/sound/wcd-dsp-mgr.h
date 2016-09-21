@@ -44,6 +44,8 @@ enum wdsp_event_type {
 	WDSP_EVENT_POST_DLOAD_DATA,
 	WDSP_EVENT_DLOAD_FAILED,
 
+	WDSP_EVENT_READ_SECTION,
+
 	/* DSP boot related */
 	WDSP_EVENT_PRE_BOOTUP,
 	WDSP_EVENT_DO_BOOT,
@@ -62,6 +64,7 @@ enum wdsp_event_type {
 
 enum wdsp_intr {
 	WDSP_IPC1_INTR,
+	WDSP_ERR_INTR,
 };
 
 /*
@@ -84,6 +87,12 @@ struct wdsp_img_section {
 	u32 addr;
 	size_t size;
 	u8 *data;
+};
+
+struct wdsp_err_intr_arg {
+	bool mem_dumps_enabled;
+	u32 remote_start_addr;
+	size_t dump_size;
 };
 
 /*

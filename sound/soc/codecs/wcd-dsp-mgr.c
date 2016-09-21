@@ -16,6 +16,8 @@
 #include <linux/stringify.h>
 #include <linux/of.h>
 #include <linux/component.h>
+#include <linux/dma-mapping.h>
+#include <soc/qcom/ramdump.h>
 #include <sound/wcd-dsp-mgr.h>
 #include "wcd-dsp-utils.h"
 
@@ -96,6 +98,18 @@ struct wdsp_cmpnt {
 	struct wdsp_cmpnt_ops *ops;
 };
 
+struct wdsp_ramdump_data {
+
+	/* Ramdump device */
+	void *rd_dev;
+
+	/* DMA address of the dump */
+	dma_addr_t rd_addr;
+
+	/* Virtual address of the dump */
+	void *rd_v_addr;
+};
+
 struct wdsp_mgr_priv {
 
 	/* Manager driver's struct device pointer */
@@ -130,6 +144,8 @@ struct wdsp_mgr_priv {
 
 	/* Lock for serializing ops called by components */
 	struct mutex api_mutex;
+
+	struct wdsp_ramdump_data dump_data;
 };
 
 static char *wdsp_get_cmpnt_type_string(enum wdsp_cmpnt_type type)
@@ -478,6 +494,78 @@ static struct device *wdsp_get_dev_for_cmpnt(struct device *wdsp_dev,
 	return cmpnt->cdev;
 }
 
+static int wdsp_collect_ramdumps(struct wdsp_mgr_priv *wdsp,
+				 struct wdsp_err_intr_arg *data)
+{
+	struct wdsp_img_section img_section;
+	struct ramdump_segment rd_seg;
+	int ret = 0;
+
+	if (!data) {
+		WDSP_ERR(wdsp, "Invalid data argument");
+		return -EINVAL;
+	}
+
+	if (!data->mem_dumps_enabled) {
+		WDSP_DBG(wdsp, "mem dumps are disabled");
+		return 0;
+	}
+
+	if (data->dump_size == 0 ||
+	    data->remote_start_addr < wdsp->base_addr) {
+		WDSP_ERR(wdsp, "Invalid start addr 0x%x or dump_size 0x%zx",
+			 data->remote_start_addr, data->dump_size);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (!wdsp->dump_data.rd_dev) {
+		WDSP_ERR(wdsp, "Ramdump device is not setup");
+		ret = -ENODEV;
+		goto done;
+	}
+
+	WDSP_DBG(wdsp, "base_addr 0x%x, dump_start_addr 0x%x, dump_size 0x%zx",
+		 wdsp->base_addr, data->remote_start_addr, data->dump_size);
+
+	/* Allocate memory for dumps */
+	wdsp->dump_data.rd_v_addr = dma_alloc_coherent(wdsp->mdev,
+						       data->dump_size,
+						       &wdsp->dump_data.rd_addr,
+						       GFP_KERNEL);
+	if (!wdsp->dump_data.rd_v_addr) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	img_section.addr = data->remote_start_addr - wdsp->base_addr;
+	img_section.size = data->dump_size;
+	img_section.data = wdsp->dump_data.rd_v_addr;
+
+	ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_TRANSPORT,
+				 WDSP_EVENT_READ_SECTION,
+				 &img_section);
+	if (IS_ERR_VALUE(ret)) {
+		WDSP_ERR(wdsp, "Failed to read dumps, size 0x%zx at addr 0x%x",
+			 img_section.size, img_section.addr);
+		goto err_read_dumps;
+	}
+
+	rd_seg.address = (unsigned long) wdsp->dump_data.rd_v_addr;
+	rd_seg.size = img_section.size;
+	rd_seg.v_address = wdsp->dump_data.rd_v_addr;
+
+	ret = do_ramdump(wdsp->dump_data.rd_dev, &rd_seg, 1);
+	if (IS_ERR_VALUE(ret))
+		WDSP_ERR(wdsp, "do_ramdump failed with error %d", ret);
+
+err_read_dumps:
+	dma_free_coherent(wdsp->mdev, data->dump_size,
+			  wdsp->dump_data.rd_v_addr, wdsp->dump_data.rd_addr);
+done:
+	return ret;
+}
+
 static int wdsp_intr_handler(struct device *wdsp_dev,
 			     enum wdsp_intr intr, void *arg)
 {
@@ -494,6 +582,9 @@ static int wdsp_intr_handler(struct device *wdsp_dev,
 	case WDSP_IPC1_INTR:
 		ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_IPC,
 					 WDSP_EVENT_IPC1_INTR, NULL);
+		break;
+	case WDSP_ERR_INTR:
+		ret = wdsp_collect_ramdumps(wdsp, arg);
 		break;
 	default:
 		ret = -EINVAL;
@@ -585,6 +676,11 @@ static int wdsp_mgr_bind(struct device *dev)
 
 	wdsp->ops = &wdsp_ops;
 
+	/* Setup ramdump device */
+	wdsp->dump_data.rd_dev = create_ramdump_device("wdsp", dev);
+	if (!wdsp->dump_data.rd_dev)
+		dev_info(dev, "%s: create_ramdump_device failed\n", __func__);
+
 	ret = component_bind_all(dev, wdsp->ops);
 	if (IS_ERR_VALUE(ret))
 		WDSP_ERR(wdsp, "component_bind_all failed %d\n", ret);
@@ -615,6 +711,11 @@ static void wdsp_mgr_unbind(struct device *dev)
 	int idx;
 
 	component_unbind_all(dev, wdsp->ops);
+
+	if (wdsp->dump_data.rd_dev) {
+		destroy_ramdump_device(wdsp->dump_data.rd_dev);
+		wdsp->dump_data.rd_dev = NULL;
+	}
 
 	/* Clear all status bits */
 	wdsp->status = 0x00;
@@ -746,6 +847,7 @@ static int wdsp_mgr_probe(struct platform_device *pdev)
 	INIT_WORK(&wdsp->load_fw_work, wdsp_load_fw_image);
 	INIT_LIST_HEAD(wdsp->seg_list);
 	mutex_init(&wdsp->api_mutex);
+	arch_setup_dma_ops(wdsp->mdev, 0, 0, NULL, 0);
 	dev_set_drvdata(mdev, wdsp);
 
 	ret = component_master_add_with_match(mdev, &wdsp_master_ops,
