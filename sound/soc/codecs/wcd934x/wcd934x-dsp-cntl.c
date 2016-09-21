@@ -28,6 +28,8 @@
 #define WCD_MEM_ENABLE_MAX_RETRIES 20
 #define WCD_DSP_BOOT_TIMEOUT_MS 3000
 #define WCD_SYSFS_ENTRY_MAX_LEN 8
+#define WCD_934X_RAMDUMP_START_ADDR 0x20100000
+#define WCD_934X_RAMDUMP_SIZE ((1024 * 1024) - 128)
 
 #define WCD_CNTL_MUTEX_LOCK(codec, lock)         \
 {                                                \
@@ -569,8 +571,10 @@ static irqreturn_t wcd_cntl_err_irq(int irq, void *data)
 {
 	struct wcd_dsp_cntl *cntl = data;
 	struct snd_soc_codec *codec = cntl->codec;
+	struct wdsp_err_intr_arg arg;
 	u16 status = 0;
 	u8 reg_val;
+	int ret = 0;
 
 	reg_val = snd_soc_read(codec, WCD934X_CPE_SS_SS_ERROR_INT_STATUS_0A);
 	status = status | reg_val;
@@ -580,6 +584,22 @@ static irqreturn_t wcd_cntl_err_irq(int irq, void *data)
 
 	dev_info(codec->dev, "%s: error interrupt status = 0x%x\n",
 		__func__, status);
+
+	if ((status & cntl->irqs.fatal_irqs) &&
+	    (cntl->m_dev && cntl->m_ops && cntl->m_ops->intr_handler)) {
+		arg.mem_dumps_enabled = cntl->ramdump_enable;
+		arg.remote_start_addr = WCD_934X_RAMDUMP_START_ADDR;
+		arg.dump_size = WCD_934X_RAMDUMP_SIZE;
+		ret = cntl->m_ops->intr_handler(cntl->m_dev, WDSP_ERR_INTR,
+						&arg);
+		if (IS_ERR_VALUE(ret))
+			dev_err(cntl->codec->dev,
+				"%s: Failed to handle fatal irq 0x%x\n",
+				__func__, status & cntl->irqs.fatal_irqs);
+	} else {
+		dev_err(cntl->codec->dev, "%s: Invalid intr_handler\n",
+			__func__);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -698,6 +718,8 @@ static void wcd_cntl_debugfs_init(char *dir, struct wcd_dsp_cntl *cntl)
 
 	debugfs_create_u32("debug_mode", S_IRUGO | S_IWUSR,
 			   cntl->entry, &cntl->debug_mode);
+	debugfs_create_bool("ramdump_enable", S_IRUGO | S_IWUSR,
+			    cntl->entry, &cntl->ramdump_enable);
 done:
 	return;
 }
