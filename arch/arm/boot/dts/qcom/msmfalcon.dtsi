@@ -401,7 +401,7 @@
 		label = "cdsp";
 	};
 
-	qcom,glink-smem-native-xprt-rpm@68000 {
+	qcom,glink-smem-native-xprt-rpm@778000 {
 		compatible = "qcom,glink-rpm-native-xprt";
 		reg = <0x778000 0x7000>,
 			<0x17911008 0x4>;
