@@ -3233,6 +3233,11 @@ static int tasha_codec_get_mad_port_id(struct snd_soc_codec *codec,
 	if (!tasha_p)
 		return -EINVAL;
 
+	if (tasha_p->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
+		*port_id = WCD_CPE_AFE_OUT_PORT_4;
+		return 0;
+	}
+
 	dai = &tasha_p->dai[AIF4_MAD_TX];
 	list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
 		if (ch->port == TASHA_TX12)
