@@ -30,11 +30,11 @@ union smcinvoke_arg {
  * @args - args is pointer to buffer having all arguments
  */
 struct smcinvoke_cmd_req {
-	uint32_t	op;
-	uint32_t	counts;
-	int32_t		result;
-	uint32_t	argsize;
-	uint64_t __user args;
+	uint32_t op;
+	uint32_t counts;
+	int32_t	result;
+	uint32_t argsize;
+	uint64_t args;
 };
 
 #define SMCINVOKE_IOC_MAGIC    0x98

@@ -383,23 +383,27 @@ long smcinvoke_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 		nr_args = object_counts_num_buffers(req.counts) +
 				object_counts_num_objects(req.counts);
 
-		if (!nr_args || req.argsize != sizeof(union smcinvoke_arg)) {
+		if (req.argsize != sizeof(union smcinvoke_arg)) {
 			ret = -EINVAL;
 			goto out;
 		}
 
-		args_buf = kzalloc(nr_args * req.argsize, GFP_KERNEL);
-		if (!args_buf) {
-			ret = -ENOMEM;
-			goto out;
-		}
+		if (nr_args) {
 
-		ret = copy_from_user(args_buf, (void __user *)(req.args),
+			args_buf = kzalloc(nr_args * req.argsize, GFP_KERNEL);
+			if (!args_buf) {
+				ret = -ENOMEM;
+				goto out;
+			}
+
+			ret = copy_from_user(args_buf,
+						(void __user *)(req.args),
 						nr_args * req.argsize);
 
-		if (ret) {
-			ret = -EFAULT;
-			goto out;
+			if (ret) {
+				ret = -EFAULT;
+				goto out;
+			}
 		}
 
 		inmsg_size = compute_in_msg_size(&req, args_buf);
