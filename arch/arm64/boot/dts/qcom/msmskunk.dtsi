@@ -17,6 +17,7 @@
 #include <dt-bindings/clock/qcom,gpucc-skunk.h>
 #include <dt-bindings/clock/qcom,videocc-skunk.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM SKUNK";
@@ -509,6 +510,15 @@
 		"MAX";
 
 		status = "disabled";
+	};
+
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x88e0000 0x4000>;
+		reg-names = "eud_base";
+		status = "ok";
 	};
 
 	wdog: qcom,wdt@17980000{
