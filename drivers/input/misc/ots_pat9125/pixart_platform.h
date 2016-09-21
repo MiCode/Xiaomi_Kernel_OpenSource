@@ -4,22 +4,14 @@
  *
  */
 
-#ifndef _PIXART_PLATFORM_
-#define _PIXART_PLATFORM_
+#ifndef __PIXART_PLATFORM_H_
+#define __PIXART_PLATFORM_H_
 
-#include <linux/input.h>
-#include <linux/pm.h>
-#include <linux/spi/spi.h>
-#include <linux/module.h>
-#include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/gpio.h>
-#include <linux/of_gpio.h>
+#include <linux/i2c.h>
 #include <linux/delay.h>
-#include <linux/types.h>
 
 /* extern functions */
-extern unsigned char ReadData(unsigned char addr);
-extern void WriteData(unsigned char addr, unsigned char data);
+extern unsigned char read_data(struct i2c_client *, u8 addr);
+extern void write_data(struct i2c_client *, u8 addr, u8 data);
 
 #endif

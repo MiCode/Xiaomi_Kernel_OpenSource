@@ -4,378 +4,268 @@
  *
  */
 
-#include <linux/kernel.h>
 #include <linux/input.h>
 #include <linux/pm.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
-#include <linux/gpio.h>
 #include <linux/of_gpio.h>
-#include <linux/delay.h>
-#include <linux/dma-mapping.h>
-#include <linux/miscdevice.h>
-
 #include "pixart_ots.h"
-#include "pixart_platform.h"
 
-static int pat9125_init_input_data(void);
+struct pixart_pat9125_data {
+	struct i2c_client *client;
+	struct input_dev *input;
+	int irq_gpio;
+	u32 irq_flags;
+};
 
-#define pat9125_name "pixart_pat9125"
-
-#define pat9125_DEV_NAME     pat9125_name
-
-static struct pat9125_linux_data_t pat9125data;
-
-static int pat9125_i2c_write(u8 reg, u8 *data, int len);
-static int pat9125_i2c_read(u8 reg, u8 *data);
-
-extern unsigned char ReadData(unsigned char addr)
+static int pat9125_i2c_write(struct i2c_client *client, u8 reg, u8 *data,
+		int len)
 {
-	u8 data = 0xff;
-
-	pat9125_i2c_read(addr, &data);
-	return data;
-}
-extern void WriteData(unsigned char addr, unsigned char data)
-{
-	pat9125_i2c_write(addr, &data, 1);
-}
-extern void delay_ms(int ms)
-{
-	msleep(ms);
-}
-static int pat9125_i2c_write(u8 reg, u8 *data, int len)
-{
-	u8  buf[20];
-	int rc;
-	int ret = 0;
-	int i;
+	u8 buf[MAX_BUF_SIZE];
+	int ret = 0, i;
+	struct device *dev = &client->dev;
 
 	buf[0] = reg;
-	if (len >= 20) {
-		pr_debug(
-			"%s (%d) : FAILED: buffer size is limitted(20) %d\n",
-			__func__, __LINE__, len);
-		dev_err(&pat9125data.client->dev, "pat9125_i2c_write FAILED: buffer size is limitted(20)\n");
+	if (len >= MAX_BUF_SIZE) {
+		dev_err(dev, "%s Failed: buffer size is %d [Max Limit is %d]\n",
+			__func__, len, MAX_BUF_SIZE);
 		return -ENODEV;
 	}
-
 	for (i = 0 ; i < len; i++)
 		buf[i+1] = data[i];
-
 	/* Returns negative errno, or else the number of bytes written. */
-	rc = i2c_master_send(pat9125data.client, buf, len+1);
-
-	if (rc != len+1) {
-		pr_debug(
-			"%s (%d) : FAILED: writing to reg 0x%x\n",
-			__func__, __LINE__, reg);
-
-		ret = -ENODEV;
-	}
+	ret = i2c_master_send(client, buf, len+1);
+	if (ret != len+1)
+		dev_err(dev, "%s Failed: writing to reg 0x%x\n", __func__, reg);
 
 	return ret;
 }
 
-static int pat9125_i2c_read(u8 reg, u8 *data)
+static int pat9125_i2c_read(struct i2c_client *client, u8 reg, u8 *data)
 {
-
-	u8  buf[20];
-	int rc;
+	u8 buf[MAX_BUF_SIZE];
+	int ret;
+	struct device *dev = &client->dev;
 
 	buf[0] = reg;
-
 	/*
-	 * If everything went ok (i.e. 1 msg transmitted),
-	 *return #bytes  transmitted, else error code.
-	 * thus if transmit is ok  return value 1
+	 * If everything went ok (1 msg transmitted), return #bytes transmitted,
+	 * else error code. thus if transmit is ok return value 1
 	 */
-	rc = i2c_master_send(pat9125data.client, buf, 1);
-	if (rc != 1) {
-		pr_debug(
-			"%s (%d) : FAILED: writing to address 0x%x\n",
-			__func__, __LINE__, reg);
-		return -ENODEV;
+	ret = i2c_master_send(client, buf, 1);
+	if (ret != 1) {
+		dev_err(dev, "%s Failed: writing to reg 0x%x\n", __func__, reg);
+		return ret;
 	}
-
 	/* returns negative errno, or else the number of bytes read */
-	rc = i2c_master_recv(pat9125data.client, buf, 1);
-	if (rc != 1) {
-		pr_debug(
-			"%s (%d) : FAILED: reading data\n",
-			__func__, __LINE__);
-		return -ENODEV;
+	ret = i2c_master_recv(client, buf, 1);
+	if (ret != 1) {
+		dev_err(dev, "%s Failed: reading reg 0x%x\n", __func__, reg);
+		return ret;
 	}
-
 	*data = buf[0];
-	return 0;
+
+	return ret;
 }
 
-void pixart_pat9125_ist(void)
+unsigned char read_data(struct i2c_client *client, u8 addr)
 {
+	u8 data = 0xff;
 
+	pat9125_i2c_read(client, addr, &data);
+	return data;
 }
 
-static irqreturn_t pixart_pat9125_irq(int irq, void *handle)
+void write_data(struct i2c_client *client, u8 addr, u8 data)
 {
-	pixart_pat9125_ist();
+	pat9125_i2c_write(client, addr, &data, 1);
+}
+
+static irqreturn_t pixart_pat9125_irq(int irq, void *data)
+{
 	return IRQ_HANDLED;
 }
 
-static int pat9125_start(void)
-{
-	int err = (-1);
-	 pr_debug(">>> %s (%d)\n", __func__, __LINE__);
-
-	err = request_threaded_irq(pat9125data.irq, NULL, pixart_pat9125_irq,
-				   pat9125data.irq_flags,
-				   "pixart_pat9125_irq",
-				   &pat9125data);
-	if (err)
-		pr_debug("irq %d busy?\n", pat9125data.irq);
-
-	pat9125data.last_jiffies = jiffies_64;
-
-	return err;
-}
-
-static void pat9125_stop(void)
-{
-	free_irq(pat9125data.irq, &pat9125data);
-}
-
-static ssize_t pat9125_fops_read(struct file *filp,
-	char *buf, size_t count, loff_t *l)
-{
-	return 0;
-}
-
-static ssize_t pat9125_fops_write(struct file *filp,
-	const char *buf, size_t count, loff_t *f_ops)
-{
-	return 0;
-}
-
-static long pat9125_fops_ioctl(struct file *file,
-	unsigned int cmd, unsigned long arg)
-{
-	return 0;
-}
-
-static int pat9125_fops_open(struct inode *inode, struct file *filp)
-{
-	return 0;
-}
-
-static int pat9125_fops_release(struct inode *inode, struct file *filp)
-{
-	 pr_debug(">>> %s (%d)\n", __func__, __LINE__);
-	return 0;
-}
-static const struct file_operations pat9125_fops = {
-owner:	THIS_MODULE,
-	read :	pat9125_fops_read,
-	write : pat9125_fops_write,
-	/* ioctl	:	pat9125_fops_ioctl, */
-	unlocked_ioctl	:	pat9125_fops_ioctl,
-	open	:	pat9125_fops_open,
-	release	:	pat9125_fops_release,
-};
-
-/*----------------------------------------------------------------------------*/
-struct miscdevice pat9125_device = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = pat9125_name,
-	.fops = &pat9125_fops,
-};
 static ssize_t pat9125_test_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	char s[256];
-	char *p = s;
+	char s[256], *p = s;
+	int reg_data = 0, i;
+	long rd_addr, wr_addr, wr_data;
+	struct pixart_pat9125_data *data =
+		(struct pixart_pat9125_data *)dev->driver_data;
+	struct i2c_client *client = data->client;
 
-	pr_debug("%s (%d) : write_reg_store\n", __func__, __LINE__);
-
-	memcpy(s, buf, sizeof(s));
-
+	for (i = 0; i < sizeof(s); i++)
+		s[i] = buf[i];
 	*(s+1) = '\0';
 	*(s+4) = '\0';
 	*(s+7) = '\0';
 	/* example(in console): echo w 12 34 > rw_reg */
 	if (*p == 'w') {
-		long write_addr, write_data;
-
 		p += 2;
-		if (!kstrtol(p, 16, &write_addr)) {
+		if (!kstrtol(p, 16, &wr_addr)) {
 			p += 3;
-			if (!kstrtol(p, 16, &write_data)) {
-				pr_debug(
-					"w 0x%x 0x%x\n",
-					(u8)write_addr, (u8)write_data);
-				WriteData((u8)write_addr, (u8)write_data);
+			if (!kstrtol(p, 16, &wr_data)) {
+				dev_dbg(dev, "w 0x%x 0x%x\n",
+					(u8)wr_addr, (u8)wr_data);
+				write_data(client, (u8)wr_addr, (u8)wr_data);
 			}
 		}
-		/* example(in console): echo r 12 > rw_reg */
-	}	else if (*p == 'r')	{
-		long read_addr;
-
+	}
+	/* example(in console): echo r 12 > rw_reg */
+	else if (*p == 'r') {
 		p += 2;
 
-		if (!kstrtol(p, 16, &read_addr)) {
-			int data = 0;
-
-			data = ReadData((u8)read_addr);
-			pr_debug(
-				"r 0x%x 0x%x\n",
-				(unsigned int)read_addr, data);
+		if (!kstrtol(p, 16, &rd_addr)) {
+			reg_data = read_data(client, (u8)rd_addr);
+			dev_dbg(dev, "r 0x%x 0x%x\n",
+				(unsigned int)rd_addr, reg_data);
 		}
 	}
 	return count;
 }
 
-static ssize_t pat9125_test_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t pat9125_test_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
 {
-
-	/* cat */
-	pr_debug("%s (%d) :\n", __func__, __LINE__);
-
 	return 0;
 }
-static DEVICE_ATTR(
-	test,
-	S_IRUGO | S_IWUSR | S_IWGRP, pat9125_test_show, pat9125_test_store);
-static struct device_attribute *pat9125_attr_list[] = {
-	&dev_attr_test,
+static DEVICE_ATTR(test, S_IRUGO | S_IWUSR | S_IWGRP,
+		pat9125_test_show, pat9125_test_store);
+
+static struct attribute *pat9125_attr_list[] = {
+	&dev_attr_test.attr,
+	NULL,
 };
 
-static int pat9125_create_attr(struct device *dev)
-{
-	int idx, err = 0;
-	int num = ARRAY_SIZE(pat9125_attr_list);
+static struct attribute_group pat9125_attr_grp = {
+	.attrs = pat9125_attr_list,
+};
 
-	if (!dev)
-		return -EINVAL;
-	for (idx = 0; idx < num; idx++) {
-		err = device_create_file(dev, pat9125_attr_list[idx]);
-		if (err) {
-			pr_debug(
-				"device_create_file (%s) = %d\n",
-				pat9125_attr_list[idx]->attr.name, err);
-			break;
-		}
-	}
-	return err;
-}
-
-static int pat9125_i2c_probe(
-	struct i2c_client *client,
-	const struct i2c_device_id *id)
+static int pat9125_i2c_probe(struct i2c_client *client,
+		const struct i2c_device_id *id)
 {
 	int err = 0;
+	struct pixart_pat9125_data *data;
+	struct input_dev *input;
 	struct device_node *np;
+	struct device *dev = &client->dev;
 
-	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
-
-	pr_debug("%s (%d) : probe module....\n", __func__, __LINE__);
-
-	memset(&pat9125data, 0, sizeof(pat9125data));
-	err = i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE);
-	if (err < 0)
-		goto error_return;
-
-	pat9125data.client = client;
-	err = misc_register(&pat9125_device);
-	if (err)	{
-		pr_debug("pat9125_device register failed\n");
-		goto error_return;
+	err = i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE);
+	if (err < 0) {
+		dev_err(dev, "I2C not supported\n");
+		return -ENXIO;
 	}
 
-	pat9125data.pat9125_device = pat9125_device.this_device;
-	err = pat9125_create_attr(pat9125data.pat9125_device);
+	if (client->dev.of_node) {
+		data = devm_kzalloc(dev, sizeof(struct pixart_pat9125_data),
+				GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
+	} else {
+		data = client->dev.platform_data;
+		if (!data) {
+			dev_err(dev, "Invalid pat9125 data\n");
+			return -EINVAL;
+		}
+	}
+	data->client = client;
+
+	input = devm_input_allocate_device(dev);
+	if (!input) {
+		dev_err(dev, "Failed to alloc input device\n");
+		return -ENOMEM;
+	}
+
+	i2c_set_clientdata(client, data);
+	input_set_drvdata(input, data);
+	input->name = PAT9125_DEV_NAME;
+
+	data->input = input;
+	err = input_register_device(data->input);
+	if (err < 0) {
+		dev_err(dev, "Failed to register input device\n");
+		goto err_register_input_device;
+	}
+
+	if (!gpio_is_valid(data->irq_gpio)) {
+		dev_err(dev, "invalid irq_gpio: %d\n", data->irq_gpio);
+		return -EINVAL;
+	}
+
+	err = gpio_request(data->irq_gpio, "pixart_pat9125_irq_gpio");
 	if (err) {
-		pr_debug("create attribute err = %d\n", err);
-		goto error_return;
+		dev_err(dev, "unable to request gpio %d\n", data->irq_gpio);
+		return err;
 	}
 
-	if (pat9125_init_input_data() < 0)
-		goto error_return;
-
-	/* interrupt initialization */
-	pat9125data.i2c_dev = &client->dev;
-
-	np = pat9125data.i2c_dev->of_node;
-	pat9125data.irq_gpio = of_get_named_gpio_flags(np,
-			"pixart_pat9125,irq-gpio", 0, &pat9125data.irq_flags);
-
-	pr_debug(
-		"irq_gpio: %d, irq_flags: 0x%x\n",
-		pat9125data.irq_gpio, pat9125data.irq_flags);
-
-	if (!gpio_is_valid(pat9125data.irq_gpio)) {
-		err = (-1);
-		pr_debug(
-			"invalid irq_gpio: %d\n",
-			pat9125data.irq_gpio);
-		goto error_return;
-	}
-
-	err = gpio_request(pat9125data.irq_gpio, "pixart_pat9125_irq_gpio");
+	err = gpio_direction_input(data->irq_gpio);
 	if (err) {
-		pr_debug(
-			"unable to request gpio [%d], [%d]\n",
-			pat9125data.irq_gpio, err);
-		goto error_return;
+		dev_err(dev, "unable to set dir for gpio %d\n", data->irq_gpio);
+		goto free_gpio;
 	}
 
-	err = gpio_direction_input(pat9125data.irq_gpio);
-	if (err)	{
-		pr_debug("unable to set dir for gpio[%d], [%d]\n",
-		pat9125data.irq_gpio, err);
-		goto error_return;
+	if (!ots_sensor_init(client)) {
+		err = -ENODEV;
+		goto err_sensor_init;
 	}
 
-	pat9125data.irq = gpio_to_irq(pat9125data.irq_gpio);
+	err = devm_request_threaded_irq(dev, client->irq, NULL,
+			pixart_pat9125_irq, (unsigned long)data->irq_flags,
+			"pixart_pat9125_irq", data);
+	if (err) {
+		dev_err(dev, "Req irq %d failed, errno:%d\n", client->irq, err);
+		goto err_request_threaded_irq;
+	}
 
-	if (!OTS_Sensor_Init())
-		goto error_return;
-
-	if (!pat9125_start())
-		goto error_return;
+	err = sysfs_create_group(&(input->dev.kobj), &pat9125_attr_grp);
+	if (err) {
+		dev_err(dev, "Failed to create sysfs group, errno:%d\n", err);
+		goto err_sysfs_create;
+	}
 
 	return 0;
 
-error_return:
-
+err_sysfs_create:
+err_request_threaded_irq:
+err_sensor_init:
+free_gpio:
+	gpio_free(data->irq_gpio);
+err_register_input_device:
+	input_free_device(data->input);
 	return err;
-
 }
-
 
 static int pat9125_i2c_remove(struct i2c_client *client)
 {
+	struct pixart_pat9125_data *data = i2c_get_clientdata(client);
 
+	devm_free_irq(&client->dev, client->irq, data);
+	if (gpio_is_valid(data->irq_gpio))
+		gpio_free(data->irq_gpio);
+	input_unregister_device(data->input);
+	devm_kfree(&client->dev, data);
+	data = NULL;
 	return 0;
 }
 
 static int pat9125_suspend(struct device *dev)
-{    pr_debug("%s (%d) : pat9125 suspend\n", __func__, __LINE__);
+{
 	return 0;
 }
 
 static int pat9125_resume(struct device *dev)
 {
-	 pr_debug("%s (%d) : pat9125 resume\n", __func__, __LINE__);
 	return 0;
 }
 
 static const struct i2c_device_id pat9125_device_id[] = {
-	{pat9125_DEV_NAME, 0},
+	{PAT9125_DEV_NAME, 0},
 	{}
 };
-
 MODULE_DEVICE_TABLE(i2c, pat9125_device_id);
 
 static const struct dev_pm_ops pat9125_pm_ops = {
@@ -390,7 +280,7 @@ static const struct of_device_id pixart_pat9125_match_table[] = {
 
 static struct i2c_driver pat9125_i2c_driver = {
 	.driver = {
-		   .name = pat9125_DEV_NAME,
+		   .name = PAT9125_DEV_NAME,
 		   .owner = THIS_MODULE,
 		   .pm = &pat9125_pm_ops,
 		   .of_match_table = pixart_pat9125_match_table,
@@ -399,72 +289,8 @@ static struct i2c_driver pat9125_i2c_driver = {
 	.remove = pat9125_i2c_remove,
 	.id_table = pat9125_device_id,
 };
-static int pat9125_open(struct input_dev *dev)
-{
-	 pr_debug(">>> %s (%d)\n", __func__, __LINE__);
-	return 0;
-}
+module_i2c_driver(pat9125_i2c_driver);
 
-static void pat9125_close(struct input_dev *dev)
-{
-	 pr_debug(">>> %s (%d)\n", __func__, __LINE__);
-}
-
-static int pat9125_init_input_data(void)
-{
-	int ret = 0;
-
-	 pr_debug("%s (%d) : initialize data\n", __func__, __LINE__);
-
-	pat9125data.pat9125_input_dev = input_allocate_device();
-
-	if (!pat9125data.pat9125_input_dev) {
-		pr_debug(
-			"%s (%d) : could not allocate mouse input device\n",
-			__func__, __LINE__);
-		return -ENOMEM;
-	}
-
-	input_set_drvdata(pat9125data.pat9125_input_dev, &pat9125data);
-	pat9125data.pat9125_input_dev->name = "Pixart pat9125";
-
-	pat9125data.pat9125_input_dev->open = pat9125_open;
-	pat9125data.pat9125_input_dev->close = pat9125_close;
-
-	ret = input_register_device(pat9125data.pat9125_input_dev);
-	if (ret < 0) {
-		input_free_device(pat9125data.pat9125_input_dev);
-		 pr_debug(
-			"%s (%d) : could not register input device\n",
-			__func__, __LINE__);
-		return ret;
-	}
-
-	return 0;
-}
-
-static int __init pat9125_linux_init(void)
-{
-	return i2c_add_driver(&pat9125_i2c_driver);
-}
-
-
-
-
-static void __exit pat9125_linux_exit(void)
-{
-	 pr_debug("%s (%d) : exit module\n", __func__, __LINE__);
-	pat9125_stop();
-	misc_register(&pat9125_device);
-	i2c_del_driver(&pat9125_i2c_driver);
-}
-
-
-module_init(pat9125_linux_init);
-module_exit(pat9125_linux_exit);
 MODULE_AUTHOR("pixart");
 MODULE_DESCRIPTION("pixart pat9125 driver");
 MODULE_LICENSE("GPL");
-
-
-
