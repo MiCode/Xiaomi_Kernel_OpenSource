@@ -63,11 +63,6 @@ static struct sde_wb_cfg *_wb_offset(enum sde_wb wb,
 	return ERR_PTR(-EINVAL);
 }
 
-static void sde_hw_wb_setup_csc_8bit(struct sde_hw_wb *ctx,
-		struct sde_csc_cfg *data)
-{
-}
-
 static void sde_hw_wb_setup_outaddress(struct sde_hw_wb *ctx,
 		struct sde_hw_wb_cfg *data)
 {
@@ -160,21 +155,6 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 	SDE_REG_WRITE(c, WB_CDP_CTRL, cdp_settings);
 }
 
-static void sde_hw_wb_setup_rotator(struct sde_hw_wb *ctx,
-		struct sde_hw_wb_cfg *data)
-{
-}
-
-static void sde_hw_setup_dither(struct sde_hw_wb *ctx,
-		struct sde_hw_wb_cfg *data)
-{
-}
-
-static void sde_hw_wb_setup_cdwn(struct sde_hw_wb *ctx,
-		struct sde_hw_wb_cfg *data)
-{
-}
-
 static void sde_hw_wb_traffic_shaper(struct sde_hw_wb *ctx,
 		struct sde_hw_wb_cfg *data)
 {
@@ -186,20 +166,8 @@ static void sde_hw_wb_traffic_shaper(struct sde_hw_wb *ctx,
 static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 	unsigned long features)
 {
-	if (test_bit(SDE_WB_CSC, &features))
-		ops->setup_csc_data = sde_hw_wb_setup_csc_8bit;
-
 	ops->setup_outaddress = sde_hw_wb_setup_outaddress;
 	ops->setup_outformat = sde_hw_wb_setup_format;
-
-	if (test_bit(SDE_WB_BLOCK_MODE, &features))
-		ops->setup_rotator = sde_hw_wb_setup_rotator;
-
-	if (test_bit(SDE_WB_DITHER, &features))
-		ops->setup_dither = sde_hw_setup_dither;
-
-	if (test_bit(SDE_WB_CHROMA_DOWN, &features))
-		ops->setup_cdwn = sde_hw_wb_setup_cdwn;
 
 	if (test_bit(SDE_WB_TRAFFIC_SHAPER, &features))
 		ops->setup_trafficshaper = sde_hw_wb_traffic_shaper;
