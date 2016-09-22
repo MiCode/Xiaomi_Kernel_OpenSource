@@ -26,6 +26,7 @@ enum rpmh_state {
 	RPMH_SLEEP_STATE,	/* Sleep */
 	RPMH_WAKE_ONLY_STATE,	/* Wake only */
 	RPMH_ACTIVE_ONLY_STATE,	/* Active only (= AMC) */
+	RPMH_AWAKE_STATE,	/* Use Wake TCS for Wake & Active (AMC = 0) */
 };
 
 struct tcs_mbox_msg {

@@ -282,6 +282,16 @@ static inline struct tcs_mbox *get_tcs_for_msg(struct tcs_drv *drv,
 	case RPMH_ACTIVE_ONLY_STATE:
 		type = ACTIVE_TCS;
 		break;
+	case RPMH_AWAKE_STATE:
+		/*
+		 * Awake state is only used when the DRV has no separate
+		 * TCS for ACTIVE requests. Switch to WAKE TCS to send
+		 * active votes. Otherwise, the caller should be explicit
+		 * about the state.
+		 */
+		if (IS_ERR(get_tcs_of_type(drv, ACTIVE_TCS)))
+			type = WAKE_TCS;
+		break;
 	}
 
 	if (msg->is_read)
@@ -319,6 +329,7 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 	void __iomem *base = drv->reg_base;
 	int m, i;
 	u32 irq_status, sts;
+	struct tcs_mbox *tcs;
 	struct tcs_response *resp;
 	u32 irq_clear = 0;
 	u32 data;
@@ -339,8 +350,20 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 
 		cancel_delayed_work(&resp->dwork);
 
-		/* Clear the enable bit for the commands */
-		write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, 0);
+		/* Clear the AMC mode for non-ACTIVE TCSes */
+		tcs = get_tcs_from_index(drv, m);
+		if (!tcs) {
+			pr_err("TCS-%d doesn't exist in DRV\n", m);
+			continue;
+		}
+		if (tcs->type != ACTIVE_TCS) {
+			data = read_tcs_reg(base, TCS_DRV_CONTROL, m, 0);
+			data &= ~TCS_AMC_MODE_ENABLE;
+			write_tcs_reg(base, TCS_DRV_CONTROL, m, 0, data);
+		} else {
+			/* Clear the enable bit for the commands */
+			write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, 0);
+		}
 
 		/* Check if all commands were completed */
 		resp->err = 0;
@@ -498,8 +521,9 @@ static bool tcs_drv_is_idle(struct mbox_controller *mbox)
 	struct tcs_drv *drv = container_of(mbox, struct tcs_drv, mbox);
 	struct tcs_mbox *tcs = get_tcs_of_type(drv, ACTIVE_TCS);
 
+	/* Check for WAKE TCS if there are no ACTIVE TCS */
 	if (IS_ERR(tcs))
-		return true;
+		tcs = get_tcs_of_type(drv, WAKE_TCS);
 
 	for (m = tcs->tcs_offset; m < tcs->tcs_offset + tcs->num_tcs; m++)
 		if (!tcs_is_free(drv->reg_base, m))
@@ -728,7 +752,8 @@ static int chan_tcs_write(struct mbox_chan *chan, void *data)
 		goto tx_fail;
 	}
 
-	if (msg->state != RPMH_ACTIVE_ONLY_STATE) {
+	if (msg->state != RPMH_ACTIVE_ONLY_STATE &&
+			msg->state != RPMH_AWAKE_STATE) {
 		dev_err(dev, "Incorrect API.\n");
 		goto tx_fail;
 	}
