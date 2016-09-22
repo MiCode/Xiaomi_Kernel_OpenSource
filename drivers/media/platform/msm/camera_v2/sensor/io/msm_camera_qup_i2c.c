@@ -73,13 +73,24 @@ int32_t msm_camera_qup_i2c_read(struct msm_camera_i2c_client *client,
 	enum msm_camera_i2c_data_type data_type)
 {
 	int32_t rc = -EFAULT;
-	unsigned char buf[client->addr_type+data_type];
+	unsigned char *buf = NULL;
 
 	if ((client->addr_type != MSM_CAMERA_I2C_BYTE_ADDR
 		&& client->addr_type != MSM_CAMERA_I2C_WORD_ADDR)
 		|| (data_type != MSM_CAMERA_I2C_BYTE_DATA
 		&& data_type != MSM_CAMERA_I2C_WORD_DATA))
 		return rc;
+
+	if (client->addr_type > UINT_MAX - data_type) {
+		S_I2C_DBG("%s: integer overflow prevented\n", __func__);
+		return rc;
+	}
+
+	buf = kzalloc(client->addr_type+data_type, GFP_KERNEL);
+	if (!buf) {
+		S_I2C_DBG("%s:%d no memory\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
 
 	if (client->addr_type == MSM_CAMERA_I2C_BYTE_ADDR) {
 		buf[0] = addr;
@@ -90,6 +101,8 @@ int32_t msm_camera_qup_i2c_read(struct msm_camera_i2c_client *client,
 	rc = msm_camera_qup_i2c_rxdata(client, buf, data_type);
 	if (rc < 0) {
 		S_I2C_DBG("%s fail\n", __func__);
+		kfree(buf);
+		buf = NULL;
 		return rc;
 	}
 
@@ -99,6 +112,8 @@ int32_t msm_camera_qup_i2c_read(struct msm_camera_i2c_client *client,
 		*data = buf[0] << 8 | buf[1];
 
 	S_I2C_DBG("%s addr = 0x%x data: 0x%x\n", __func__, addr, *data);
+	kfree(buf);
+	buf = NULL;
 	return rc;
 }
 
@@ -106,13 +121,29 @@ int32_t msm_camera_qup_i2c_read_seq(struct msm_camera_i2c_client *client,
 	uint32_t addr, uint8_t *data, uint32_t num_byte)
 {
 	int32_t rc = -EFAULT;
-	unsigned char buf[client->addr_type+num_byte];
+	unsigned char *buf = NULL;
 	int i;
 
 	if ((client->addr_type != MSM_CAMERA_I2C_BYTE_ADDR
 		&& client->addr_type != MSM_CAMERA_I2C_WORD_ADDR)
 		|| num_byte == 0)
 		return rc;
+
+	if (num_byte > I2C_REG_DATA_MAX) {
+		S_I2C_DBG("%s: Error num_byte:0x%x exceeds max:0x%x\n",
+				__func__, num_byte, I2C_REG_DATA_MAX);
+		return rc;
+	}
+	if (client->addr_type > UINT_MAX - num_byte) {
+		S_I2C_DBG("%s: integer overflow prevented\n", __func__);
+		return rc;
+	}
+
+	buf = kzalloc(client->addr_type+num_byte, GFP_KERNEL);
+	if (!buf) {
+		S_I2C_DBG("%s:%d no memory\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
 
 	if (client->addr_type == MSM_CAMERA_I2C_BYTE_ADDR) {
 		buf[0] = addr;
@@ -123,6 +154,8 @@ int32_t msm_camera_qup_i2c_read_seq(struct msm_camera_i2c_client *client,
 	rc = msm_camera_qup_i2c_rxdata(client, buf, num_byte);
 	if (rc < 0) {
 		S_I2C_DBG("%s fail\n", __func__);
+		kfree(buf);
+		buf = NULL;
 		return rc;
 	}
 
@@ -132,6 +165,8 @@ int32_t msm_camera_qup_i2c_read_seq(struct msm_camera_i2c_client *client,
 		S_I2C_DBG("Byte %d: 0x%x\n", i, buf[i]);
 		S_I2C_DBG("Data: 0x%x\n", data[i]);
 	}
+	kfree(buf);
+	buf = NULL;
 	return rc;
 }
 
