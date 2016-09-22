@@ -2275,7 +2275,7 @@ static int __ffs_do_os_desc_header(enum ffs_os_desc_type *next_type,
 		return -EINVAL;
 	}
 
-	ffs_log("exit: size of desc %lu", sizeof(*desc));
+	ffs_log("exit: size of desc %zu", sizeof(*desc));
 
 	return sizeof(*desc);
 }
