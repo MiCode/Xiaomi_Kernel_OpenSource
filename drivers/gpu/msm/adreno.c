@@ -2053,7 +2053,7 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 							KGSL_STATE_ACTIVE);
 				device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
 				adreno_fault_detect_stop(adreno_dev);
-				kgsl_pwrscale_disable(device);
+				kgsl_pwrscale_disable(device, true);
 			}
 
 			mutex_unlock(&device->mutex);
