@@ -246,6 +246,7 @@ config SND_SOC_MSM8909
 	select SND_SOC_WCD9335
         select SND_SOC_CPE
 	select SND_HWDEP
+	select QTI_PP
 	help
 	 To add support for SoC audio on MSM8909 boards.
 	 This will enable sound soc drivers which
