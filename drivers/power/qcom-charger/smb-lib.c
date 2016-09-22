@@ -1633,8 +1633,10 @@ irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 		dev_err(chg->dev, "Couldn't get batt status type rc=%d\n", rc);
 		return IRQ_HANDLED;
 	}
-	if (pval.intval == POWER_SUPPLY_STATUS_FULL)
+	if (pval.intval == POWER_SUPPLY_STATUS_FULL) {
+		power_supply_changed(chg->batt_psy);
 		vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
+	}
 
 	return IRQ_HANDLED;
 }
