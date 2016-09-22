@@ -5,7 +5,7 @@ ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 ccflags-y += -Idrivers/gpu/drm/msm/sde
 
-msm-y := \
+msm_drm-y := \
 	hdmi/hdmi.o \
 	hdmi/hdmi_audio.o \
 	hdmi/hdmi_bridge.o \
@@ -65,13 +65,13 @@ msm-y := \
 
 # use drm gpu driver only if qcom_kgsl driver not available
 ifneq ($(CONFIG_QCOM_KGSL),y)
-msm-y += adreno/adreno_device.o \
+msm_drm-y += adreno/adreno_device.o \
 	adreno/adreno_gpu.o \
 	adreno/a3xx_gpu.o \
 	adreno/a4xx_gpu.o
 endif
 
-msm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \
+msm_drm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \
 	mdp/mdp4/mdp4_dtv_encoder.o \
 	mdp/mdp4/mdp4_lcdc_encoder.o \
 	mdp/mdp4/mdp4_lvds_connector.o \
@@ -79,15 +79,15 @@ msm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \
 	mdp/mdp4/mdp4_kms.o \
 	mdp/mdp4/mdp4_plane.o
 
-msm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
-msm-$(CONFIG_SYNC) += sde/sde_fence.o
-msm-$(CONFIG_COMMON_CLK) += mdp/mdp4/mdp4_lvds_pll.o
-msm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_pll_8960.o
-msm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_phy_8996.o
+msm_drm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
+msm_drm-$(CONFIG_SYNC) += sde/sde_fence.o
+msm_drm-$(CONFIG_COMMON_CLK) += mdp/mdp4/mdp4_lvds_pll.o
+msm_drm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_pll_8960.o
+msm_drm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_phy_8996.o
 
-msm-$(CONFIG_DRM_MSM_HDMI_HDCP) += hdmi/hdmi_hdcp.o
+msm_drm-$(CONFIG_DRM_MSM_HDMI_HDCP) += hdmi/hdmi_hdcp.o
 
-msm-$(CONFIG_DRM_MSM_DSI) += dsi/dsi.o \
+msm_drm-$(CONFIG_DRM_MSM_DSI) += dsi/dsi.o \
 			mdp/mdp4/mdp4_dsi_encoder.o \
 			dsi/dsi_cfg.o \
 			dsi/dsi_host.o \
@@ -96,16 +96,16 @@ msm-$(CONFIG_DRM_MSM_DSI) += dsi/dsi.o \
 			dsi/dsi_manager.o \
 			mdp/mdp5/mdp5_cmd_encoder.o
 
-msm-$(CONFIG_DRM_MSM_DSI_28NM_PHY) += dsi/phy/dsi_phy_28nm.o
-msm-$(CONFIG_DRM_MSM_DSI_20NM_PHY) += dsi/phy/dsi_phy_20nm.o
-msm-$(CONFIG_DRM_MSM_DSI_28NM_8960_PHY) += dsi/phy/dsi_phy_28nm_8960.o
+msm_drm-$(CONFIG_DRM_MSM_DSI_28NM_PHY) += dsi/phy/dsi_phy_28nm.o
+msm_drm-$(CONFIG_DRM_MSM_DSI_20NM_PHY) += dsi/phy/dsi_phy_20nm.o
+msm_drm-$(CONFIG_DRM_MSM_DSI_28NM_8960_PHY) += dsi/phy/dsi_phy_28nm_8960.o
 
 ifeq ($(CONFIG_DRM_MSM_DSI_PLL),y)
-msm-y += dsi/pll/dsi_pll.o
-msm-$(CONFIG_DRM_MSM_DSI_28NM_PHY) += dsi/pll/dsi_pll_28nm.o
-msm-$(CONFIG_DRM_MSM_DSI_28NM_8960_PHY) += dsi/pll/dsi_pll_28nm_8960.o
+msm_drm-y += dsi/pll/dsi_pll.o
+msm_drm-$(CONFIG_DRM_MSM_DSI_28NM_PHY) += dsi/pll/dsi_pll_28nm.o
+msm_drm-$(CONFIG_DRM_MSM_DSI_28NM_8960_PHY) += dsi/pll/dsi_pll_28nm_8960.o
 endif
-msm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
+msm_drm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_clk_pwr.o \
 				dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_phy_hw_v4_0.o \
@@ -117,7 +117,7 @@ msm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_panel.o \
 				dsi-staging/dsi_display_test.o
 
-obj-$(CONFIG_DRM_MSM)	+= msm.o
+obj-$(CONFIG_DRM_MSM)	+= msm_drm.o
 
 obj-$(CONFIG_DRM_MSM) += sde/sde_hw_catalog.o \
 	sde/sde_hw_cdm.o \
