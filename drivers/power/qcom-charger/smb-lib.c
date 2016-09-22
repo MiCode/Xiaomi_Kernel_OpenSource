@@ -1768,6 +1768,7 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 	}
 
 skip_dpdm_float:
+	power_supply_changed(chg->usb_psy);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s %s\n",
 		   irq_data->name, chg->vbus_present ? "attached" : "detached");
 	return IRQ_HANDLED;
