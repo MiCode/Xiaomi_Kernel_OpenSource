@@ -69,6 +69,12 @@ int32_t msm_camera_cci_i2c_read_seq(struct msm_camera_i2c_client *client,
 		|| num_byte == 0)
 		return rc;
 
+	if (num_byte > I2C_REG_DATA_MAX) {
+		S_I2C_DBG("%s: Error num_byte:0x%x exceeds max:0x%x\n",
+		__func__, num_byte, I2C_REG_DATA_MAX);
+		return rc;
+	}
+
 	buf = kzalloc(num_byte, GFP_KERNEL);
 	if (!buf) {
 		pr_err("%s:%d no memory\n", __func__, __LINE__);
