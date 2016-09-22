@@ -34,6 +34,7 @@
 #include <linux/qmi_encdec.h>
 #include <linux/ipc_logging.h>
 #include <linux/msm-bus.h>
+#include <linux/thread_info.h>
 #include <linux/uaccess.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <soc/qcom/memory_dump.h>
@@ -41,6 +42,7 @@
 #include <soc/qcom/msm_qmi_interface.h>
 #include <soc/qcom/secure_buffer.h>
 #include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
 #include <soc/qcom/socinfo.h>
@@ -267,6 +269,10 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 	ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 	ICNSS_DRIVER_EVENT_MAX,
+};
+
+struct icnss_event_pd_service_down_data {
+	bool crashed;
 };
 
 struct icnss_driver_event {
@@ -534,9 +540,9 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	int gfp = GFP_KERNEL;
 	int ret = 0;
 
-	icnss_pr_dbg("Posting event: %s(%d)%s, state: 0x%lx\n",
-		     icnss_driver_event_to_str(type), type,
-		     sync ? "-sync" : "", penv->state);
+	icnss_pr_dbg("Posting event: %s: %s%s(%d), state: 0x%lx\n",
+		     current->comm, icnss_driver_event_to_str(type),
+		     sync ? "-sync" : "", type, penv->state);
 
 	if (type >= ICNSS_DRIVER_EVENT_MAX) {
 		icnss_pr_err("Invalid Event type: %d, can't post", type);
@@ -2307,6 +2313,8 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 	if (!priv->ops || !priv->ops->probe)
 		return 0;
 
+	icnss_pr_dbg("Calling driver probe state: 0x%lx\n", priv->state);
+
 	icnss_hw_power_on(priv);
 
 	ret = priv->ops->probe(&priv->pdev->dev);
@@ -2334,6 +2342,8 @@ static int icnss_call_driver_reinit(struct icnss_priv *priv)
 
 	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
 		goto out;
+
+	icnss_pr_dbg("Calling driver reinit state: 0x%lx\n", priv->state);
 
 	icnss_hw_power_on(priv);
 
@@ -2459,36 +2469,67 @@ out:
 	return 0;
 }
 
-static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
-					      void *data)
+static int icnss_call_driver_remove(struct icnss_priv *priv)
 {
-	int ret = 0;
+	icnss_pr_dbg("Calling driver remove state: 0x%lx\n", priv->state);
 
-	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
-		icnss_pr_err("PD Down while recovery inprogress, state: 0x%lx\n",
-			     priv->state);
-		ICNSS_ASSERT(0);
-		goto out;
-	}
+	clear_bit(ICNSS_FW_READY, &priv->state);
+
+	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
+		return 0;
+
+	if (!priv->ops || !priv->ops->remove)
+		return 0;
+
+	penv->ops->remove(&priv->pdev->dev);
+
+	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
+
+	return 0;
+}
+
+static int icnss_call_driver_shutdown(struct icnss_priv *priv)
+{
+	icnss_pr_dbg("Calling driver shutdown state: 0x%lx\n", priv->state);
 
 	set_bit(ICNSS_PD_RESTART, &priv->state);
 	clear_bit(ICNSS_FW_READY, &priv->state);
 
-	if (!priv->ops || !priv->ops->shutdown)
-		goto out;
-
 	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
-		goto out;
+		return 0;
+
+	if (!priv->ops || !priv->ops->shutdown)
+		return 0;
 
 	priv->ops->shutdown(&priv->pdev->dev);
+
+	return 0;
+}
+
+static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
+					      void *data)
+{
+	int ret = 0;
+	struct icnss_event_pd_service_down_data *event_data = data;
+
+	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
+		icnss_pr_err("PD Down while recovery inprogress, crashed: %d, state: 0x%lx\n",
+			     event_data->crashed, priv->state);
+		ICNSS_ASSERT(0);
+		goto out;
+	}
+
+	if (event_data->crashed)
+		icnss_call_driver_shutdown(priv);
+	else
+		icnss_call_driver_remove(priv);
 
 out:
 	icnss_remove_msa_permissions(priv);
 
 	ret = icnss_hw_power_off(priv);
 
-	icnss_pr_dbg("PD down completed: %d, state: 0x%lx\n",
-		     ret, priv->state);
+	kfree(data);
 
 	return ret;
 }
@@ -2529,7 +2570,8 @@ static void icnss_driver_event_work(struct work_struct *work)
 			ret = icnss_driver_event_unregister_driver(event->data);
 			break;
 		case ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN:
-			icnss_driver_event_pd_service_down(penv, event->data);
+			ret = icnss_driver_event_pd_service_down(penv,
+								 event->data);
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
@@ -2538,6 +2580,11 @@ static void icnss_driver_event_work(struct work_struct *work)
 		}
 
 		penv->stats.events[event->type].processed++;
+
+		icnss_pr_dbg("Event Processed: %s%s(%d), ret: %d, state: 0x%lx\n",
+			     icnss_driver_event_to_str(event->type),
+			     event->sync ? "-sync" : "", event->type, ret,
+			     penv->state);
 
 		spin_lock_irqsave(&penv->event_lock, flags);
 		if (event->sync) {
@@ -2586,23 +2633,31 @@ static struct notifier_block wlfw_clnt_nb = {
 	.notifier_call = icnss_qmi_wlfw_clnt_svc_event_notify,
 };
 
-static int icnss_modem_notifier_nb(struct notifier_block *this,
+static int icnss_modem_notifier_nb(struct notifier_block *nb,
 				  unsigned long code,
-				  void *ss_handle)
+				  void *data)
 {
+	struct icnss_event_pd_service_down_data *event_data;
+	struct notif_data *notif = data;
+	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
+					       modem_ssr_nb);
+
 	icnss_pr_dbg("Modem-Notify: event %lu\n", code);
 
-	if (code == SUBSYS_AFTER_POWERUP) {
-		icnss_pr_dbg("Modem-Notify: Powerup\n");
-	} else if (code == SUBSYS_BEFORE_SHUTDOWN) {
-		icnss_pr_info("Modem-Notify: Before shutdown\n");
-		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
-					true, NULL);
-	} else if (code == SUBSYS_AFTER_SHUTDOWN) {
-		icnss_pr_info("Modem-Notify: After Shutdown\n");
-	} else {
-		return NOTIFY_DONE;
-	}
+	if (code != SUBSYS_BEFORE_SHUTDOWN)
+		return NOTIFY_OK;
+
+	icnss_pr_info("Modem went down, state: %lx\n", priv->state);
+
+	event_data = kzalloc(sizeof(*data), GFP_KERNEL);
+
+	if (event_data == NULL)
+		return notifier_from_errno(-ENOMEM);
+
+	event_data->crashed = notif->crashed;
+
+	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+				true, event_data);
 
 	return NOTIFY_OK;
 }
@@ -2661,14 +2716,23 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 {
 	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
 					       service_notifier_nb);
+	enum pd_subsys_state *state = data;
+	struct icnss_event_pd_service_down_data *event_data;
 
 	switch (notification) {
 	case SERVREG_NOTIF_SERVICE_STATE_DOWN_V01:
-		icnss_pr_info("Service down, state: 0x%lx\n", priv->state);
+		icnss_pr_info("Service down, data: 0x%p, state: 0x%lx\n", data,
+			      priv->state);
+		event_data = kzalloc(sizeof(*data), GFP_KERNEL);
+
+		if (event_data == NULL)
+			return notifier_from_errno(-ENOMEM);
+
+		if (state == NULL || *state != SHUTDOWN)
+			event_data->crashed = true;
+
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
-					true, NULL);
-		icnss_pr_dbg("Service down completed, state: 0x%lx\n",
-			     priv->state);
+					true, event_data);
 		break;
 	case SERVREG_NOTIF_SERVICE_STATE_UP_V01:
 		icnss_pr_dbg("Service up, state: 0x%lx\n", priv->state);
@@ -2813,8 +2877,6 @@ enable_pdr:
 
 	if (ret)
 		return ret;
-
-	icnss_modem_ssr_unregister_notifier(priv);
 
 	return 0;
 }
