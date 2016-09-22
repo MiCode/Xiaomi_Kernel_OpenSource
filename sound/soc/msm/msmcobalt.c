@@ -2486,17 +2486,18 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		goto err_afe_cfg;
 	}
 
-	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
-		config_data = msm_codec_fn.get_afe_config_fn(codec,
-							AFE_AANC_VERSION);
-		if (config_data) {
-			ret = afe_set_config(AFE_AANC_VERSION, config_data, 0);
-			if (ret) {
-				pr_err("%s: Failed to set aanc version %d\n",
-					__func__, ret);
-				goto err_afe_cfg;
-			}
+	config_data = msm_codec_fn.get_afe_config_fn(codec,
+						     AFE_AANC_VERSION);
+	if (config_data) {
+		ret = afe_set_config(AFE_AANC_VERSION, config_data, 0);
+		if (ret) {
+			pr_err("%s: Failed to set aanc version %d\n",
+				__func__, ret);
+			goto err_afe_cfg;
 		}
+	}
+
+	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
 		config_data = msm_codec_fn.get_afe_config_fn(codec,
 						AFE_CDC_CLIP_REGISTERS_CONFIG);
 		if (config_data) {
