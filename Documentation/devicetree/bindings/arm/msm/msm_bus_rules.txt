@@ -16,17 +16,18 @@ conditions to be monitored. The mandatory properties for the rules are
 
 - qcom,src-nodes:		An array of phandles denoting the source nodes
 				whose bandwidth votes need to be monitored.
-- qcom,src-field:		This field represents the voted field of the
-				source node to be monitored. Possible values
-				are FLD_IB/FLD_AB/FLD_CLK
-- qcom,src-op:			The operand to be used when evaluating a node's
-				bandwidth vote with a threshold.Possible values
-				are OP_LE/OP_LT/OP_GT/OP_GE.
-- qcom,thresh:			The threshold in Kbytes/s to be used in vote
-				evaluation.
+- qcom,src-field:		An array of fields represents the voted field
+				of the source node to be monitored. Possible
+				values are FLD_IB/FLD_AB/FLD_CLK.
+- qcom,src-op:			An array of operands to be used when evaluating
+				a node's bandwidth vote with a threshold.
+				Possible values are OP_LE/OP_LT/OP_GT/OP_GE.
+- qcom,thresh:			An array of thresholds in Kbytes/s
+				(in FLD_IB/FLD_AB case) or KHz (in FLD_CLK case)
+				to be used in vote evaluation.
 - qcom,mode:			The QoS mode to be applied when this rule's
 				criterion are satisfied. Possible values are
-				THROTTLE_ON/THROTTLE_OFF
+				THROTTLE_ON/THROTTLE_OFF.
 - qcom,dest-node:		An array of phandles representing the nodes to
 				which the QoS mode is to be applied.
 
@@ -34,6 +35,9 @@ The optional properties for the rule node are:
 - qcom,dest-bw:			The destination bandwidth value in Kbytes/s to
 				be used toward the QoS mode for the destination
 				node.
+- qcom,combo-op:		A property that is only required when there
+				are multiple comparison operands to multiple
+				thresholds, can be OP_AND or OP_OR.
 
 Example:
 	static-rules {
@@ -42,13 +46,14 @@ Example:
 		#size-cells = <0>;
 
 		rule@0 {
-			qcom,src-nodes = <&mas_apss>;
-			qcom,src-field = <FLD_IB>;
-			qcom,src-op = <OP_LE>;
-			qcom,thresh = <1599078>;
+			qcom,src-nodes = <&mas_apss &mas_mdp>;
+			qcom,src-field = <FLD_IB FLD_AB>;
+			qcom,src-op = <OP_LE OP_GT>;
+			qcom,thresh = <1599078 0>;
 			qcom,mode = <THROTTLE_ON>;
 			qcom,dest-node = <&mas_apss>;
 			qcom,dest-bw = <1599078>;
+			qcom,combo-op = <OP_AND>;
 		};
 
 		rule@1 {

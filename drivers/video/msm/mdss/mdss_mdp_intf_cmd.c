@@ -1886,7 +1886,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctl->roi_bkup.w,
 			ctl->roi_bkup.h);
 
-	pr_debug("%s: intf_num=%d ctx=%p koff_cnt=%d\n", __func__,
+	pr_debug("%s: intf_num=%d ctx=%pK koff_cnt=%d\n", __func__,
 			ctl->intf_num, ctx, atomic_read(&ctx->koff_cnt));
 
 	rc = wait_event_timeout(ctx->pp_waitq,
@@ -2122,7 +2122,7 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *mctl, int frame_cnt)
 	struct mdss_panel_info *pinfo;
 
 	if (!mctl || !mctl->is_master || !mctl->panel_data) {
-		pr_err("invalid ctl mctl:%p pdata:%p\n",
+		pr_err("invalid ctl mctl:%pK pdata:%pK\n",
 			mctl, mctl ? mctl->panel_data : 0);
 		return -ENODEV;
 	}
@@ -3189,7 +3189,7 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 
 	ctx->intf_stopped = 0;
 
-	pr_debug("%s: ctx=%p num=%d aux=%d\n", __func__, ctx,
+	pr_debug("%s: ctx=%pK num=%d aux=%d\n", __func__, ctx,
 		default_pp_num, aux_pp_num);
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
 

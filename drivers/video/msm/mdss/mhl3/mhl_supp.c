@@ -185,7 +185,7 @@ static struct cbus_req *get_free_cbus_queue_entry_impl(
 	req->function = function;
 	req->line = line;
 	req->sequence = dev_context->sequence++;
-	/*MHL_TX_DBG_ERR(,"q %d get:0x%p %s:%d\n",
+	/*MHL_TX_DBG_ERR(,"q %d get:0x%pK %s:%d\n",
 		req->sequence,req,function,line); */
 	return req;
 }
@@ -197,7 +197,7 @@ static void return_cbus_queue_entry_impl(struct mhl_dev_context *dev_context,
 					 struct cbus_req *pReq,
 					 const char *function, int line)
 {
-	/* MHL_TX_DBG_ERR(,"q ret:0x%p %s:%d\n",pReq,function,line); */
+	/* MHL_TX_DBG_ERR(,"q ret:0x%pK %s:%d\n",pReq,function,line); */
 	list_add(&pReq->link, &dev_context->cbus_free_list);
 
 }
@@ -372,7 +372,7 @@ static struct block_req *start_new_block_marshalling_req_impl(
 	    sizeof(payload->as_bytes) -
 	    sizeof(struct SI_PACK_THIS_STRUCT standard_transport_header_t);
 	dev_context->block_protocol.marshalling_req = req;
-	MHL_TX_DBG_WARN("q %d get:0x%p %s:%d\n", req->sequence, req, function,
+	MHL_TX_DBG_WARN("q %d get:0x%pK %s:%d\n", req->sequence, req, function,
 			line);
 	return req;
 }
@@ -384,7 +384,7 @@ static void return_block_queue_entry_impl(struct mhl_dev_context *dev_context,
 					  struct block_req *pReq,
 					  const char *function, int line)
 {
-	/* MHL_TX_DBG_ERR(,"q ret:0x%p %s:%d\n",pReq,function,line); */
+	/* MHL_TX_DBG_ERR(,"q ret:0x%pK %s:%d\n",pReq,function,line); */
 	list_add(&pReq->link, &dev_context->block_protocol.free_list);
 
 }
@@ -1283,7 +1283,7 @@ void si_mhl_tx_drive_states(struct mhl_dev_context *dev_context)
 	if (req == NULL)
 		return;
 
-	MHL_TX_DBG_INFO("req: %p\n", req);
+	MHL_TX_DBG_INFO("req: %pK\n", req);
 	/* coordinate write burst requests and grants. */
 	if (MHL_MSC_MSG == req->command) {
 		dev_context->msc_msg_last_data = req->msg_data[1];
@@ -1298,7 +1298,7 @@ void si_mhl_tx_drive_states(struct mhl_dev_context *dev_context)
 		}
 	}
 
-	MHL_TX_DBG_INFO("req: %p\n", req);
+	MHL_TX_DBG_INFO("req: %pK\n", req);
 	if (req) {
 		uint8_t ret_val;
 		dev_context->current_cbus_req = req;

@@ -1125,7 +1125,7 @@ static int mdp3_res_init(void)
 
 	mdp3_res->ion_client = msm_ion_client_create(mdp3_res->pdev->name);
 	if (IS_ERR_OR_NULL(mdp3_res->ion_client)) {
-		pr_err("msm_ion_client_create() return error (%p)\n",
+		pr_err("msm_ion_client_create() return error (%pK)\n",
 				mdp3_res->ion_client);
 		mdp3_res->ion_client = NULL;
 		return -EINVAL;
@@ -1555,7 +1555,7 @@ void mdp3_unmap_iommu(struct ion_client *client, struct ion_handle *handle)
 	mutex_lock(&mdp3_res->iommu_lock);
 	meta = mdp3_iommu_meta_lookup(table);
 	if (!meta) {
-		WARN(1, "%s: buffer was never mapped for %p\n", __func__,
+		WARN(1, "%s: buffer was never mapped for %pK\n", __func__,
 				handle);
 		mutex_unlock(&mdp3_res->iommu_lock);
 		return;
@@ -1581,7 +1581,7 @@ static void mdp3_iommu_meta_add(struct mdp3_iommu_meta *meta)
 		} else if (meta->table > entry->table) {
 			p = &(*p)->rb_right;
 		} else {
-			pr_err("%s: handle %p already exists\n", __func__,
+			pr_err("%s: handle %pK already exists\n", __func__,
 				entry->handle);
 			BUG();
 		}
@@ -1644,7 +1644,7 @@ static int mdp3_iommu_map_iommu(struct mdp3_iommu_meta *meta,
 	ret = iommu_map_range(domain, meta->iova_addr + padding,
 			table->sgl, size, prot);
 	if (ret) {
-		pr_err("%s: could not map %pa in domain %p\n",
+		pr_err("%s: could not map %pa in domain %pK\n",
 			__func__, &meta->iova_addr, domain);
 			unmap_size = padding;
 		goto out2;
@@ -1767,12 +1767,12 @@ int mdp3_self_map_iommu(struct ion_client *client, struct ion_handle *handle,
 		}
 	} else {
 		if (iommu_meta->flags != iommu_flags) {
-			pr_err("%s: hndl %p already mapped with diff flag\n",
+			pr_err("%s: hndl %pK already mapped with diff flag\n",
 				__func__, handle);
 			ret = -EINVAL;
 			goto out_unlock;
 		} else if (iommu_meta->mapped_size != iova_length) {
-			pr_err("%s: hndl %p already mapped with diff len\n",
+			pr_err("%s: hndl %pK already mapped with diff len\n",
 				__func__, handle);
 			ret = -EINVAL;
 			goto out_unlock;
@@ -1806,7 +1806,7 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 		fdput(data->srcp_f);
 		memset(&data->srcp_f, 0, sizeof(struct fd));
 	} else if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
-		pr_debug("ion hdl = %p buf=0x%pa\n", data->srcp_dma_buf,
+		pr_debug("ion hdl = %pK buf=0x%pa\n", data->srcp_dma_buf,
 							&data->addr);
 		if (!iclient) {
 			pr_err("invalid ion client\n");
@@ -1909,7 +1909,7 @@ done:
 		data->addr += img->offset;
 		data->len -= img->offset;
 
-		pr_debug("mem=%d ihdl=%p buf=0x%pa len=0x%lx\n",
+		pr_debug("mem=%d ihdl=%pK buf=0x%pa len=0x%lx\n",
 			img->memory_id, data->srcp_dma_buf,
 			&data->addr, data->len);
 
