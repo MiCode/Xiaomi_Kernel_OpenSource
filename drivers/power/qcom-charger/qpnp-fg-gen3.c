@@ -1408,6 +1408,9 @@ static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
 	if (chip->cyc_ctr.en)
 		schedule_work(&chip->cycle_count_work);
 
+	if (is_charger_available(chip))
+		power_supply_changed(chip->batt_psy);
+
 	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	return IRQ_HANDLED;
 }
@@ -1415,6 +1418,9 @@ static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
 static irqreturn_t fg_empty_soc_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
+
+	if (is_charger_available(chip))
+		power_supply_changed(chip->batt_psy);
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	return IRQ_HANDLED;
