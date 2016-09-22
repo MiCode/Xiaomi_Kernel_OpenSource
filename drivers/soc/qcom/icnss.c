@@ -244,9 +244,10 @@ enum icnss_debug_quirks {
 	RECOVERY_DISABLE,
 	SSR_ONLY,
 	PDR_ONLY,
+	VBATT_DISABLE,
 };
 
-#define ICNSS_QUIRKS_DEFAULT		0
+#define ICNSS_QUIRKS_DEFAULT		BIT(VBATT_DISABLE)
 
 unsigned long quirks = ICNSS_QUIRKS_DEFAULT;
 module_param(quirks, ulong, 0600);
@@ -754,6 +755,9 @@ out:
 static int icnss_init_vph_monitor(struct icnss_priv *priv)
 {
 	int ret = 0;
+
+	if (test_bit(VBATT_DISABLE, &quirks))
+		goto out;
 
 	ret = icnss_get_phone_power(priv, &priv->vph_pwr);
 	if (ret)
@@ -2288,7 +2292,7 @@ static int icnss_driver_event_server_exit(void *data)
 
 	icnss_pr_info("QMI Service Disconnected: 0x%lx\n", penv->state);
 
-	if (penv->adc_tm_dev)
+	if (!test_bit(VBATT_DISABLE, &quirks) && penv->adc_tm_dev)
 		qpnp_adc_tm_disable_chan_meas(penv->adc_tm_dev,
 					      &penv->vph_monitor_params);
 
