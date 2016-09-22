@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -219,9 +220,10 @@ struct smb_dt_props {
 };
 
 struct smb2 {
-	struct smb_charger chg;
-	struct smb_dt_props dt;
-	bool bad_part;
+	struct smb_charger	chg;
+	struct dentry		*dfs_root;
+	struct smb_dt_props	dt;
+	bool			bad_part;
 };
 
 static int __debug_mask;
@@ -1438,9 +1440,74 @@ static int smb2_request_interrupts(struct smb2 *chip)
 	return rc;
 }
 
-/*********
- * PROBE *
- *********/
+#if defined(CONFIG_DEBUG_FS)
+
+static int force_batt_psy_update_write(void *data, u64 val)
+{
+	struct smb_charger *chg = data;
+
+	power_supply_changed(chg->batt_psy);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(force_batt_psy_update_ops, NULL,
+			force_batt_psy_update_write, "0x%02llx\n");
+
+static int force_usb_psy_update_write(void *data, u64 val)
+{
+	struct smb_charger *chg = data;
+
+	power_supply_changed(chg->usb_psy);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(force_usb_psy_update_ops, NULL,
+			force_usb_psy_update_write, "0x%02llx\n");
+
+static int force_dc_psy_update_write(void *data, u64 val)
+{
+	struct smb_charger *chg = data;
+
+	power_supply_changed(chg->dc_psy);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(force_dc_psy_update_ops, NULL,
+			force_dc_psy_update_write, "0x%02llx\n");
+
+static void smb2_create_debugfs(struct smb2 *chip)
+{
+	struct dentry *file;
+
+	chip->dfs_root = debugfs_create_dir("charger", NULL);
+	if (IS_ERR_OR_NULL(chip->dfs_root)) {
+		pr_err("Couldn't create charger debugfs rc=%ld\n",
+			(long)chip->dfs_root);
+		return;
+	}
+
+	file = debugfs_create_file("force_batt_psy_update", 0600,
+			    chip->dfs_root, chip, &force_batt_psy_update_ops);
+	if (IS_ERR_OR_NULL(file))
+		pr_err("Couldn't create force_batt_psy_update file rc=%ld\n",
+			(long)file);
+
+	file = debugfs_create_file("force_usb_psy_update", 0600,
+			    chip->dfs_root, chip, &force_usb_psy_update_ops);
+	if (IS_ERR_OR_NULL(file))
+		pr_err("Couldn't create force_usb_psy_update file rc=%ld\n",
+			(long)file);
+
+	file = debugfs_create_file("force_dc_psy_update", 0600,
+			    chip->dfs_root, chip, &force_dc_psy_update_ops);
+	if (IS_ERR_OR_NULL(file))
+		pr_err("Couldn't create force_dc_psy_update file rc=%ld\n",
+			(long)file);
+}
+
+#else
+
+static void smb2_create_debugfs(struct smb2 *chip)
+{}
+
+#endif
 
 static int smb2_probe(struct platform_device *pdev)
 {
@@ -1551,6 +1618,8 @@ static int smb2_probe(struct platform_device *pdev)
 		pr_err("Couldn't request interrupts rc=%d\n", rc);
 		goto cleanup;
 	}
+
+	smb2_create_debugfs(chip);
 
 	pr_info("QPNP SMB2 probed successfully\n");
 	return rc;
