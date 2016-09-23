@@ -143,6 +143,18 @@ void mdss_dp_aux_reset(struct dss_io_data *ctrl_io)
 	writel_relaxed(aux_ctrl, ctrl_io->base + DP_AUX_CTRL);
 }
 
+/* reset DP controller */
+void mdss_dp_ctrl_reset(struct dss_io_data *ctrl_io)
+{
+	u32 sw_reset = readl_relaxed(ctrl_io->base + DP_SW_RESET);
+
+	sw_reset |= BIT(0);
+	writel_relaxed(sw_reset, ctrl_io->base + DP_SW_RESET);
+	udelay(1000);
+	sw_reset &= ~BIT(0);
+	writel_relaxed(sw_reset, ctrl_io->base + DP_SW_RESET);
+}
+
 /* reset DP Mainlink */
 void mdss_dp_mainlink_reset(struct dss_io_data *ctrl_io)
 {
