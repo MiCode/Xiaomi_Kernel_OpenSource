@@ -904,6 +904,10 @@ int msm_isp_stats_reset(struct vfe_device *vfe_dev)
 					ISP_EVENT_BUF_FATAL_ERROR);
 				return rc;
 			}
+			vfe_dev->hw_info->vfe_ops.stats_ops.cfg_wm_irq_mask(
+					vfe_dev, stream_info);
+			vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
+				vfe_dev, BIT(i), 1);
 		}
 	}
 
