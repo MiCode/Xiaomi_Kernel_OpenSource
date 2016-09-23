@@ -461,24 +461,6 @@ static void sde_hw_sspp_setup_solidfill(struct sde_hw_pipe *ctx, u32 color)
 	SDE_REG_WRITE(&ctx->hw, SSPP_SRC_CONSTANT_COLOR + idx, color);
 }
 
-static void sde_hw_sspp_setup_histogram_v1(struct sde_hw_pipe *ctx,
-		void *cfg)
-{
-}
-
-static void sde_hw_sspp_setup_memcolor(struct sde_hw_pipe *ctx,
-		u32 memcolortype, u8 en)
-{
-}
-
-static void sde_hw_sspp_setup_igc(struct sde_hw_pipe *ctx)
-{
-}
-
-void sde_sspp_setup_pa(struct sde_hw_pipe *c)
-{
-}
-
 static void sde_hw_sspp_setup_danger_safe_lut(struct sde_hw_pipe *ctx,
 		struct sde_hw_pipe_qos_cfg *cfg)
 {
@@ -527,10 +509,6 @@ static void sde_hw_sspp_setup_qos_ctrl(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(&ctx->hw, SSPP_QOS_CTRL + idx, qos_ctrl);
 }
 
-static void sde_hw_sspp_qseed2_coeff(void *ctx)
-{
-}
-
 static void _setup_layer_ops(struct sde_hw_sspp_ops *ops,
 		unsigned long features)
 {
@@ -550,13 +528,7 @@ static void _setup_layer_ops(struct sde_hw_sspp_ops *ops,
 
 	if (test_bit(SDE_SSPP_PA_V1, &features)) {
 		ops->setup_sharpening = sde_hw_sspp_setup_sharpening;
-		ops->setup_pa_memcolor = sde_hw_sspp_setup_memcolor;
 	}
-	if (test_bit(SDE_SSPP_HIST_V1, &features))
-		ops->setup_histogram = sde_hw_sspp_setup_histogram_v1;
-
-	if (test_bit(SDE_SSPP_IGC, &features))
-		ops->setup_igc = sde_hw_sspp_setup_igc;
 }
 
 static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,
@@ -603,12 +575,6 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	ctx->cap = cfg;
 	_setup_layer_ops(&ctx->ops, ctx->cap->features);
 	ctx->highest_bank_bit = catalog->mdp[0].highest_bank_bit;
-
-	/*
-	 * Perform any default initialization for the sspp blocks
-	 */
-	if (test_bit(SDE_SSPP_SCALER_QSEED2, &cfg->features))
-		sde_hw_sspp_qseed2_coeff(ctx);
 
 	return ctx;
 }

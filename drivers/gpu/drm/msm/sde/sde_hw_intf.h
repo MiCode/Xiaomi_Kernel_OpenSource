@@ -57,7 +57,6 @@ struct intf_status {
  * @ setup_timing_gen : programs the timing engine
  * @ setup_prog_fetch : enables/disables the programmable fetch logic
  * @ enable_timing: enable/disable timing engine
- * @ get_timing_gen: get timing generator programmed configuration
  * @ get_status: returns if timing engine is enabled or not
  */
 struct sde_hw_intf_ops {
@@ -70,9 +69,6 @@ struct sde_hw_intf_ops {
 
 	void (*enable_timing)(struct sde_hw_intf *intf,
 			u8 enable);
-
-	void (*get_timing_gen)(struct sde_hw_intf *intf,
-			struct intf_timing_params *cfg);
 
 	void (*get_status)(struct sde_hw_intf *intf,
 			struct intf_status *status);

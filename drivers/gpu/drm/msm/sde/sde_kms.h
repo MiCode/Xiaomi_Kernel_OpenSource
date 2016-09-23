@@ -426,7 +426,6 @@ int sde_plane_color_fill(struct drm_plane *plane,
  * CRTC functions
  */
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
-void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
 
 /**
