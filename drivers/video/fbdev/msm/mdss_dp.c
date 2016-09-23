@@ -1162,8 +1162,7 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	mutex_lock(&dp_drv->train_mutex);
 
 	reinit_completion(&dp_drv->idle_comp);
-
-	mdss_dp_state_ctrl(&dp_drv->ctrl_io, 0);
+	mdss_dp_state_ctrl(&dp_drv->ctrl_io, ST_PUSH_IDLE);
 
 	if (dp_drv->link_clks_on)
 		mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
@@ -1305,9 +1304,10 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 
 	mdss_dp_aux_init(dp_drv);
 
+	mdss_dp_phy_initialize(dp_drv);
+	mdss_dp_ctrl_reset(&dp_drv->ctrl_io);
 	mdss_dp_phy_reset(&dp_drv->ctrl_io);
 	mdss_dp_aux_reset(&dp_drv->ctrl_io);
-	mdss_dp_phy_initialize(dp_drv);
 	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
 
 	pr_debug("Ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
