@@ -883,25 +883,29 @@ int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 int smblib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
-	int rc;
-	u8 stat;
 	union power_supply_propval pval = {0, };
+	bool usb_online, dc_online;
+	u8 stat;
+	int rc;
 
-	smblib_get_prop_input_suspend(chg, &pval);
-	if (pval.intval) {
-		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-		return rc;
-	}
 
-	rc = smblib_read(chg, POWER_PATH_STATUS_REG, &stat);
+	rc = smblib_get_prop_usb_online(chg, &pval);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't read POWER_PATH_STATUS rc=%d\n",
+		dev_err(chg->dev, "Couldn't get usb online property rc=%d\n",
 			rc);
 		return rc;
 	}
+	usb_online = (bool)pval.intval;
 
-	if (!(stat & (USE_USBIN_BIT | USE_DCIN_BIT)) ||
-				!(stat & VALID_INPUT_POWER_SOURCE_BIT)) {
+	rc = smblib_get_prop_dc_online(chg, &pval);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't get dc online property rc=%d\n",
+			rc);
+		return rc;
+	}
+	dc_online = (bool)pval.intval;
+
+	if (!usb_online && !dc_online) {
 		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		return rc;
 	}
@@ -912,16 +916,29 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 			rc);
 		return rc;
 	}
-	smblib_dbg(chg, PR_REGISTER, "BATTERY_CHARGER_STATUS_1 = 0x%02x\n",
-		 stat);
 
 	stat = stat & BATTERY_CHARGER_STATUS_MASK;
-	if (stat >= COMPLETED_CHARGE)
-		val->intval = POWER_SUPPLY_STATUS_FULL;
-	else
+	switch (stat) {
+	case TRICKLE_CHARGE:
+	case PRE_CHARGE:
+	case FAST_CHARGE:
+	case FULLON_CHARGE:
+	case TAPER_CHARGE:
 		val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		break;
+	case TERMINATE_CHARGE:
+	case INHIBIT_CHARGE:
+		val->intval = POWER_SUPPLY_STATUS_FULL;
+		break;
+	case DISABLE_CHARGE:
+		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		break;
+	default:
+		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+		break;
+	}
 
-	return rc;
+	return 0;
 }
 
 int smblib_get_prop_batt_charge_type(struct smb_charger *chg,
@@ -936,8 +953,6 @@ int smblib_get_prop_batt_charge_type(struct smb_charger *chg,
 			rc);
 		return rc;
 	}
-	smblib_dbg(chg, PR_REGISTER, "BATTERY_CHARGER_STATUS_1 = 0x%02x\n",
-		   stat);
 
 	switch (stat & BATTERY_CHARGER_STATUS_MASK) {
 	case TRICKLE_CHARGE:
@@ -1257,7 +1272,6 @@ int smblib_get_prop_usb_online(struct smb_charger *chg,
 
 	val->intval = (stat & USE_USBIN_BIT) &&
 		      (stat & VALID_INPUT_POWER_SOURCE_BIT);
-
 	return rc;
 }
 
@@ -1672,43 +1686,54 @@ irqreturn_t smblib_handle_debug(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void smblib_pl_handle_chg_state_change(struct smb_charger *chg, u8 stat)
+{
+	bool pl_enabled;
+
+	if (chg->mode != PARALLEL_MASTER)
+		return;
+
+	pl_enabled = !get_effective_result_locked(chg->pl_disable_votable);
+	switch (stat) {
+	case FAST_CHARGE:
+	case FULLON_CHARGE:
+		vote(chg->pl_disable_votable, CHG_STATE_VOTER, false, 0);
+		break;
+	case TAPER_CHARGE:
+		if (pl_enabled) {
+			cancel_delayed_work_sync(&chg->pl_taper_work);
+			schedule_delayed_work(&chg->pl_taper_work, 0);
+		}
+		break;
+	case TERMINATE_CHARGE:
+	case INHIBIT_CHARGE:
+	case DISABLE_CHARGE:
+		vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
+		break;
+	default:
+		break;
+	}
+}
+
 irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
-	union power_supply_propval pval = {0, };
+	u8 stat;
 	int rc;
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
-	if (chg->mode != PARALLEL_MASTER)
-		return IRQ_HANDLED;
-
-	rc = smblib_get_prop_batt_charge_type(chg, &pval);
+	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't get batt charge type rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't read BATTERY_CHARGER_STATUS_1 rc=%d\n",
+			rc);
 		return IRQ_HANDLED;
 	}
 
-	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_FAST)
-		vote(chg->pl_disable_votable, CHG_STATE_VOTER, false, 0);
-
-	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER
-		&& !get_effective_result_locked(chg->pl_disable_votable)) {
-		cancel_delayed_work_sync(&chg->pl_taper_work);
-		schedule_delayed_work(&chg->pl_taper_work, 0);
-	}
-
-	rc = smblib_get_prop_batt_status(chg, &pval);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't get batt status type rc=%d\n", rc);
-		return IRQ_HANDLED;
-	}
-	if (pval.intval == POWER_SUPPLY_STATUS_FULL) {
-		power_supply_changed(chg->batt_psy);
-		vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
-	}
-
+	stat = stat & BATTERY_CHARGER_STATUS_MASK;
+	smblib_pl_handle_chg_state_change(chg, stat);
+	power_supply_changed(chg->batt_psy);
 	return IRQ_HANDLED;
 }
 
