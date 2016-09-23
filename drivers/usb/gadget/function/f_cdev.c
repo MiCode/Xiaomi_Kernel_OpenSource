@@ -1770,6 +1770,10 @@ static int cser_set_inst_name(struct usb_function_instance *f, const char *name)
 
 	/* get port number */
 	str = strrchr(name, '.');
+	if (!str) {
+		pr_err("err: port number not found\n");
+		return -EINVAL;
+	}
 	pr_debug("str:%s\n", str);
 
 	*str = '\0';
