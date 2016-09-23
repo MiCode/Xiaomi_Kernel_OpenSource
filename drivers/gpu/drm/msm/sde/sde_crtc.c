@@ -795,18 +795,6 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 	crtc->state = &cstate->base;
 }
 
-static int sde_crtc_cursor_set(struct drm_crtc *crtc,
-		struct drm_file *file, uint32_t handle,
-		uint32_t width, uint32_t height)
-{
-	return 0;
-}
-
-static int sde_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
-{
-	return 0;
-}
-
 static void sde_crtc_disable(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
@@ -974,10 +962,6 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 	}
 
 	return 0;
-}
-
-void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
-{
 }
 
 /**
@@ -1159,8 +1143,6 @@ static const struct drm_crtc_funcs sde_crtc_funcs = {
 	.reset = sde_crtc_reset,
 	.atomic_duplicate_state = sde_crtc_duplicate_state,
 	.atomic_destroy_state = sde_crtc_destroy_state,
-	.cursor_set = sde_crtc_cursor_set,
-	.cursor_move = sde_crtc_cursor_move,
 };
 
 static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
