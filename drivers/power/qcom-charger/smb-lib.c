@@ -601,38 +601,64 @@ static int smblib_fv_vote_callback(struct votable *votable, void *data,
 	return 0;
 }
 
-#define USBIN_25MA 25000
-#define USBIN_100MA 100000
+#define USBIN_25MA	25000
+#define USBIN_100MA	100000
+#define USBIN_150MA	150000
+#define USBIN_500MA	500000
+#define USBIN_900MA	900000
 static int smblib_usb_icl_vote_callback(struct votable *votable, void *data,
 			int icl_ua, const char *client)
 {
 	struct smb_charger *chg = data;
 	int rc = 0;
-	bool suspend;
+	bool suspend = (icl_ua < USBIN_25MA);
+	u8 icl_options = 0;
 
-	if (icl_ua < 0) {
-		smblib_dbg(chg, PR_MISC, "No Voter hence suspending\n");
-		icl_ua = 0;
+	if (suspend)
+		goto out;
+
+	if (chg->usb_psy_desc.type != POWER_SUPPLY_TYPE_USB) {
+		rc = smblib_set_charge_param(chg, &chg->param.usb_icl, icl_ua);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't set HC ICL rc=%d\n", rc);
+			return rc;
+		}
+
+		goto out;
 	}
 
-	suspend = (icl_ua < USBIN_25MA);
-	if (suspend)
-		goto suspend;
+	/* power source is SDP */
+	switch (icl_ua) {
+	case USBIN_100MA:
+		/* USB 2.0 100mA */
+		icl_options = 0;
+		break;
+	case USBIN_150MA:
+		/* USB 3.0 150mA */
+		icl_options = CFG_USB3P0_SEL_BIT;
+		break;
+	case USBIN_500MA:
+		/* USB 2.0 500mA */
+		icl_options = USB51_MODE_BIT;
+		break;
+	case USBIN_900MA:
+		/* USB 3.0 900mA */
+		icl_options = CFG_USB3P0_SEL_BIT | USB51_MODE_BIT;
+		break;
+	default:
+		dev_err(chg->dev, "ICL %duA isn't supported for SDP\n", icl_ua);
+		icl_options = 0;
+		break;
+	}
 
-	if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB)
-		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-				USB51_MODE_BIT,
-				(icl_ua > USBIN_100MA) ? USB51_MODE_BIT : 0);
-	else
-		rc = smblib_set_charge_param(chg, &chg->param.usb_icl, icl_ua);
-
+out:
+	rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
+			CFG_USB3P0_SEL_BIT | USB51_MODE_BIT, icl_options);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't set USB input current limit rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't set ICL opetions rc=%d\n", rc);
 		return rc;
 	}
 
-suspend:
 	rc = vote(chg->usb_suspend_votable, PD_VOTER, suspend, 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't %s input rc=%d\n",
