@@ -2269,13 +2269,14 @@ int msm_isp_axi_halt(struct vfe_device *vfe_dev,
 int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_reset_cmd *reset_cmd)
 {
-	int rc = 0, i, k;
+	int rc = 0, i, k, j;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	uint32_t bufq_handle = 0, bufq_id = 0;
 	struct msm_isp_timestamp timestamp;
 	unsigned long flags;
 	struct vfe_device *update_vfes[MAX_VFE] = {0, 0};
+	int vfe_idx;
 
 	if (!reset_cmd) {
 		pr_err("%s: NULL pointer reset cmd %pK\n", __func__, reset_cmd);
@@ -2346,6 +2347,20 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 						ISP_EVENT_BUF_FATAL_ERROR);
 					return rc;
 				}
+				if (stream_info->num_planes > 1) {
+					vfe_dev->hw_info->vfe_ops.axi_ops.
+					cfg_comp_mask(vfe_dev, stream_info);
+				} else {
+					vfe_dev->hw_info->vfe_ops.axi_ops.
+					cfg_wm_irq_mask(vfe_dev, stream_info);
+				}
+				vfe_idx = msm_isp_get_vfe_idx_for_stream(
+							vfe_dev, stream_info);
+				for (j = 0; j < stream_info->num_planes; j++)
+					vfe_dev->hw_info->vfe_ops.axi_ops.
+						enable_wm(
+						vfe_dev->vfe_base,
+						stream_info->wm[vfe_idx][j], 1);
 
 				axi_data->src_info[SRC_TO_INTF(stream_info->
 					stream_src)].frame_id =
