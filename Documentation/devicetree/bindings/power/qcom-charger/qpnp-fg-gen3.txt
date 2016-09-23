@@ -87,7 +87,8 @@ First Level Node - FG Gen3 device
 	Value type: <u32>
 	Definition: Percentage of monotonic SOC increase upon which the delta
 		    SOC interrupt will be triggered. If this property is not
-		    specified, then the default value will be 1.
+		    specified, then the default value will be 1. Possible
+		    values are in the range of 0 to 12.
 
 - qcom,fg-recharge-soc-thr
 	Usage:      optional
