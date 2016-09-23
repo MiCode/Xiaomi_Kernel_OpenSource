@@ -13,339 +13,346 @@
 /* Stub regulators */
 
 / {
-	/* PM660A S1 - VDD_APC0 supply */
-	pm660_s1a: regulator-pm660-s1a {
+	/* PMFALCON S1 - VDD_APC0 supply */
+	pmfalcon_s1a: regulator-pmfalcon-s1a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s1a";
+		regulator-name = "pmfalcon_s1a";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <565000>;
 		regulator-max-microvolt = <1170000>;
 	};
 
-	/* PM660A S2 + S3 = VDD_APC1 supply */
-	pm660_s2a: regulator-pm660-s2a {
+	/* PMFALCON S2 + S3 = VDD_APC1 supply */
+	pmfalcon_s2a: regulator-pmfalcon-s2a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s2a";
+		regulator-name = "pmfalcon_s2a";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <565000>;
 		regulator-max-microvolt = <1170000>;
 	};
 
-	pm660_s4a: regulator-pm660-s4a {
+	pmfalcon_s4a: regulator-pmfalcon-s4a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s4a";
+		regulator-name = "pmfalcon_s4a";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <1805000>;
 		regulator-max-microvolt = <2040000>;
 	};
 
-	pm660_s5a: regulator-pm660-s5a {
+	pmfalcon_s5a: regulator-pmfalcon-s5a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s5a";
+		regulator-name = "pmfalcon_s5a";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <1350000>;
 		regulator-max-microvolt = <1350000>;
 	};
 
-	pm660_s6a: regulator-pm660-s6a {
+	pmfalcon_s6a: regulator-pmfalcon-s6a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s6a";
+		regulator-name = "pmfalcon_s6a";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <504000>;
 		regulator-max-microvolt = <992000>;
 	};
 
-	pm660_s1b: regulator-pm660-s1b {
+	pmfalcon_s1b: regulator-pmfalcon-s1b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s1b";
+		regulator-name = "pmfalcon_s1b";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <1125000>;
 		regulator-max-microvolt = <1125000>;
 	};
 
-	pm660_s2b: regulator-pm660-s2b {
+	pmfalcon_s2b: regulator-pmfalcon-s2b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s2b";
+		regulator-name = "pmfalcon_s2b";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <1050000>;
 		regulator-max-microvolt = <1050000>;
 	};
 
-	/* PM660B S3 + S4 - VDD_CX supply */
-	pm660_s3b_level: regulator-pm660-s3b-level {
+	/* PMFALCON S3 + S4 - VDD_CX supply */
+	pmfalcon_s3b_level: regulator-pmfalcon-s3b-level {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s3b_level";
+		regulator-name = "pmfalcon_s3b_level";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
-	pm660_s3b_floor_level: regulator-pm660-s3b-floor-level {
+	pmfalcon_s3b_floor_level: regulator-pmfalcon-s3b-floor-level {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s3b_floor_level";
+		regulator-name = "pmfalcon_s3b_floor_level";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
-	pm660_s3b_level_ao: regulator-pm660-s3b-level-ao {
+	pmfalcon_s3b_level_ao: regulator-pmfalcon-s3b-level-ao {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s3b_level_ao";
+		regulator-name = "pmfalcon_s3b_level_ao";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
-	/* PM660B S5 - VDD_MX supply */
-	pm660_s5b_level: regulator-pm660-s5b-level {
+	/* PMFALCON S5 - VDD_MX supply */
+	pmfalcon_s5b_level: regulator-pmfalcon-s5b-level {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s5b_level";
+		regulator-name = "pmfalcon_s5b_level";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
-	pm660_s5b_floor_level: regulator-pm660-s5b-floor-level {
+	pmfalcon_s5b_floor_level: regulator-pmfalcon-s5b-floor-level {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s5b_floor_level";
+		regulator-name = "pmfalcon_s5b_floor_level";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
-	pm660_s5b_level_ao: regulator-pm660-s5b-level-ao {
+	pmfalcon_s5b_level_ao: regulator-pmfalcon-s5b-level-ao {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_s5b_level_ao";
+		regulator-name = "pmfalcon_s5b_level_ao";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
-	pm660_l1a: regulator-pm660-l1a {
+	pmfalcon_l1a: regulator-pmfalcon-l1a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l1a";
+		regulator-name = "pmfalcon_l1a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1150000>;
 		regulator-max-microvolt = <1250000>;
 	};
 
-	pm660_l2a: regulator-pm660-l2a {
+	pmfalcon_l2a: regulator-pmfalcon-l2a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l2a";
+		regulator-name = "pmfalcon_l2a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <950000>;
 		regulator-max-microvolt = <1010000>;
 	};
 
-	pm660_l3a: regulator-pm660-l3a {
+	pmfalcon_l3a: regulator-pmfalcon-l3a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l3a";
+		regulator-name = "pmfalcon_l3a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <950000>;
 		regulator-max-microvolt = <1010000>;
 	};
 
 	/* TODO: remove if ADRASTEA CX/MX not voted from APPS */
-	pm660_l5a: regulator-pm660-l5a {
+	pmfalcon_l5a: regulator-pmfalcon-l5a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l5a";
+		regulator-name = "pmfalcon_l5a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <525000>;
 		regulator-max-microvolt = <950000>;
 	};
 
-	pm660_l6a: regulator-pm660-l6a {
+	pmfalcon_l6a: regulator-pmfalcon-l6a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l6a";
+		regulator-name = "pmfalcon_l6a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1200000>;
 		regulator-max-microvolt = <1370000>;
 	};
 
-	pm660_l7a: regulator-pm660-l7a {
+	pmfalcon_l7a: regulator-pmfalcon-l7a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l7a";
+		regulator-name = "pmfalcon_l7a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1200000>;
 		regulator-max-microvolt = <1200000>;
 	};
 
-	pm660_l8a: regulator-pm660-l8a {
+	pmfalcon_l8a: regulator-pmfalcon-l8a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l8a";
+		regulator-name = "pmfalcon_l8a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1750000>;
 		regulator-max-microvolt = <1900000>;
 	};
 
-	pm660_l9a: regulator-pm660-l9a {
+	pmfalcon_l9a: regulator-pmfalcon-l9a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l9a";
+		regulator-name = "pmfalcon_l9a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1750000>;
 		regulator-max-microvolt = <1900000>;
 	};
 
-	pm660_l10a: regulator-pm660-l10a {
+	pmfalcon_l10a: regulator-pmfalcon-l10a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l10a";
+		regulator-name = "pmfalcon_l10a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1780000>;
 		regulator-max-microvolt = <1950000>;
 	};
 
-	pm660_l11a: regulator-pm660-l11a {
+	pmfalcon_l11a: regulator-pmfalcon-l11a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l11a";
+		regulator-name = "pmfalcon_l11a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1780000>;
 		regulator-max-microvolt = <1950000>;
 	};
 
-	pm660_l12a: regulator-pm660-l12a {
+	pmfalcon_l12a: regulator-pmfalcon-l12a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l12a";
+		regulator-name = "pmfalcon_l12a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1780000>;
 		regulator-max-microvolt = <1950000>;
 	};
 
-	pm660_l13a: regulator-pm660-l13a {
+	pmfalcon_l13a: regulator-pmfalcon-l13a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l13a";
+		regulator-name = "pmfalcon_l13a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1750000>;
 		regulator-max-microvolt = <1950000>;
 	};
 
-	pm660_l14a: regulator-pm660-l14a {
+	pmfalcon_l14a: regulator-pmfalcon-l14a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l14a";
+		regulator-name = "pmfalcon_l14a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1710000>;
 		regulator-max-microvolt = <1900000>;
 	};
 
-	pm660_l15a: regulator-pm660-l15a {
+	pmfalcon_l15a: regulator-pmfalcon-l15a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l15a";
+		regulator-name = "pmfalcon_l15a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1650000>;
 		regulator-max-microvolt = <2950000>;
 	};
 
-	pm660_l17a: regulator-pm660-l17a {
+	pmfalcon_l17a: regulator-pmfalcon-l17a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l17a";
+		regulator-name = "pmfalcon_l17a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1650000>;
 		regulator-max-microvolt = <2950000>;
 	};
 
-	pm660_l19a: regulator-pm660-l19a {
+	pmfalcon_l19a: regulator-pmfalcon-l19a {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l19a";
+		regulator-name = "pmfalcon_l19a";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <3200000>;
 		regulator-max-microvolt = <3400000>;
 	};
 
-	pm660_l1b: regulator-pm660-l1b {
+	pmfalcon_l1b: regulator-pmfalcon-l1b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l1b";
+		regulator-name = "pmfalcon_l1b";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <800000>;
 		regulator-max-microvolt = <925000>;
 	};
 
-	pm660_l2b: regulator-pm660-l2b {
+	pmfalcon_l2b: regulator-pmfalcon-l2b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l2b";
+		regulator-name = "pmfalcon_l2b";
 		qcom,hpm-min-load = <5000>;
 		regulator-min-microvolt = <350000>;
 		regulator-max-microvolt = <3100000>;
 	};
 
-	pm660_l3b: regulator-pm660-l3b {
+	pmfalcon_l3b: regulator-pmfalcon-l3b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l3b";
+		regulator-name = "pmfalcon_l3b";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1710000>;
 		regulator-max-microvolt = <3600000>;
 	};
 
-	pm660_l4b: regulator-pm660-l4b {
+	pmfalcon_l4b: regulator-pmfalcon-l4b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l4b";
+		regulator-name = "pmfalcon_l4b";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1700000>;
 		regulator-max-microvolt = <2950000>;
 	};
 
-	pm660_l5b: regulator-pm660-l5b {
+	pmfalcon_l5b: regulator-pmfalcon-l5b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l5b";
+		regulator-name = "pmfalcon_l5b";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1721000>;
 		regulator-max-microvolt = <3600000>;
 	};
 
-	pm660_l6b: regulator-pm660-l6b {
+	pmfalcon_l6b: regulator-pmfalcon-l6b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l6b";
+		regulator-name = "pmfalcon_l6b";
 		qcom,hpm-min-load = <5000>;
 		regulator-min-microvolt = <1700000>;
 		regulator-max-microvolt = <3300000>;
 	};
 
-	pm660_l7b: regulator-pm660-l7b {
+	pmfalcon_l7b: regulator-pmfalcon-l7b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l7b";
+		regulator-name = "pmfalcon_l7b";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <2700000>;
 		regulator-max-microvolt = <3125000>;
 	};
 
-	pm660_l8b: regulator-pm660-l8b {
+	pmfalcon_l8b: regulator-pmfalcon-l8b {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l8b";
+		regulator-name = "pmfalcon_l8b";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <3200000>;
 		regulator-max-microvolt = <3400000>;
 	};
 
-	/* PM660B L9 = VDD_SSC_CX supply */
-	pm660_l9b_level: regulator-pm660-l9b-level {
+	/* PMFALCON L9 = VDD_SSC_CX supply */
+	pmfalcon_l9b_level: regulator-pmfalcon-l9b-level {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l9b_level";
+		regulator-name = "pmfalcon_l9b_level";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
-	pm660_l9b_floor_level: regulator-pm660-l9b-floor-level {
+	pmfalcon_l9b_floor_level: regulator-pmfalcon-l9b-floor-level {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l9b_floor_level";
+		regulator-name = "pmfalcon_l9b_floor_level";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
-	/* PM660B L10 = VDD_SSC_MX supply */
-	pm660_l10b_level: regulator-pm660-l10b-level {
+	/* PMFALCON L10 = VDD_SSC_MX supply */
+	pmfalcon_l10b_level: regulator-pmfalcon-l10b-level {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l10b_level";
+		regulator-name = "pmfalcon_l10b_level";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
-	pm660_l10b_floor_level: regulator-pm660-l10b-floor-level {
+	pmfalcon_l10b_floor_level: regulator-pmfalcon-l10b-floor-level {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm660_l10b_floor_level";
+		regulator-name = "pmfalcon_l10b_floor_level";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmfalcon_bob: regulator-pmfalcon-bob {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_bob";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
 	};
 
 	/* GFX Supply */
