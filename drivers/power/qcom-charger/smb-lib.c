@@ -1876,7 +1876,7 @@ skip_dpdm_float:
 }
 
 #define MICRO_5P5V		5500000
-#define USB_WEAK_INPUT_MA	1500000
+#define USB_WEAK_INPUT_MA	1400000
 static bool is_icl_pl_ready(struct smb_charger *chg)
 {
 	union power_supply_propval pval = {0, };
@@ -1886,7 +1886,8 @@ static bool is_icl_pl_ready(struct smb_charger *chg)
 	rc = smblib_get_prop_usb_voltage_now(chg, &pval);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't get prop usb voltage rc=%d\n", rc);
-		return false;
+		/* proceed with a convervative value */
+		pval.intval = MICRO_5P5V;
 	}
 
 	if (pval.intval <= MICRO_5P5V) {
@@ -2105,11 +2106,6 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 	}
 	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_4 = 0x%02x\n", stat);
 
-	if (stat & TYPEC_VBUS_ERROR_STATUS_BIT) {
-		dev_err(chg->dev, "IRQ: vbus-error rising\n");
-		return IRQ_HANDLED;
-	}
-
 	smblib_handle_typec_cc(chg,
 			(bool)(stat & CC_ATTACHED_BIT));
 	smblib_handle_typec_debounce_done(chg,
@@ -2117,6 +2113,10 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 			(bool)(stat & UFP_DFP_MODE_STATUS_BIT));
 
 	power_supply_changed(chg->usb_psy);
+
+	if (stat & TYPEC_VBUS_ERROR_STATUS_BIT)
+		smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s vbus-error\n",
+			   irq_data->name);
 
 	return IRQ_HANDLED;
 }
