@@ -24,6 +24,8 @@
 
 #include <trace/events/sched.h>
 
+#define CSTATE_LATENCY_GRANULARITY_SHIFT (6)
+
 const char *task_event_names[] = {"PUT_PREV_TASK", "PICK_NEXT_TASK",
 		"TASK_WAKE", "TASK_MIGRATE", "TASK_UPDATE", "IRQ_UPDATE"};
 
@@ -99,7 +101,10 @@ sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
 
 	rq->cstate = cstate; /* C1, C2 etc */
 	rq->wakeup_energy = wakeup_energy;
-	rq->wakeup_latency = wakeup_latency;
+	/* disregard small latency delta (64 us). */
+	rq->wakeup_latency = ((wakeup_latency >>
+			       CSTATE_LATENCY_GRANULARITY_SHIFT) <<
+			      CSTATE_LATENCY_GRANULARITY_SHIFT);
 }
 
 /*
