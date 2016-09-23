@@ -205,8 +205,8 @@ struct fg_cyc_ctr_data {
 struct fg_irq_info {
 	const char		*name;
 	const irq_handler_t	handler;
-	int			irq;
 	bool			wakeable;
+	int			irq;
 };
 
 struct fg_chip {
