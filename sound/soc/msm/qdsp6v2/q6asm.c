@@ -1988,6 +1988,40 @@ void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac, uint32_t *size,
 	return NULL;
 }
 
+int q6asm_cpu_buf_release(int dir, struct audio_client *ac)
+{
+	struct audio_port_data *port;
+	int ret = 0;
+	int idx;
+
+	if (!ac || ((dir != IN) && (dir != OUT))) {
+		pr_err("%s: ac %pK dir %d\n", __func__, ac, dir);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (ac->io_mode & SYNC_IO_MODE) {
+		port = &ac->port[dir];
+		mutex_lock(&port->lock);
+		idx = port->cpu_buf;
+		if (port->cpu_buf == 0) {
+			port->cpu_buf = port->max_buf_cnt - 1;
+		} else if (port->cpu_buf < port->max_buf_cnt) {
+			port->cpu_buf = port->cpu_buf - 1;
+		} else {
+			pr_err("%s: buffer index(%d) out of range\n",
+			       __func__, port->cpu_buf);
+			ret = -EINVAL;
+			mutex_unlock(&port->lock);
+			goto exit;
+		}
+		port->buf[port->cpu_buf].used = dir ^ 1;
+		mutex_unlock(&port->lock);
+	}
+exit:
+	return ret;
+}
+
 void *q6asm_is_cpu_buf_avail_nolock(int dir, struct audio_client *ac,
 					uint32_t *size, uint32_t *index)
 {
