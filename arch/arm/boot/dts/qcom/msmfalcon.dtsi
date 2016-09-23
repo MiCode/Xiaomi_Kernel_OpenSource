@@ -677,3 +677,5 @@
 &gdsc_gpu_cx {
 	status = "ok";
 };
+#include "msm-pmfalcon.dtsi"
+#include "msm-pm2falcon.dtsi"
