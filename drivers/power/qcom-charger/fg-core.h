@@ -263,6 +263,7 @@ struct fg_chip {
 	bool			profile_available;
 	bool			profile_loaded;
 	bool			battery_missing;
+	bool			fg_restarting;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;

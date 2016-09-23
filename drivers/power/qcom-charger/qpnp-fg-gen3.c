@@ -299,6 +299,7 @@ module_param_named(
 	sram_dump, fg_sram_dump, bool, 0600
 );
 
+static int fg_restart;
 
 /* All getters HERE */
 
@@ -1332,12 +1333,57 @@ static bool is_profile_load_required(struct fg_chip *chip)
 }
 
 #define SOC_READY_WAIT_MS		2000
+static int __fg_restart(struct fg_chip *chip)
+{
+	int rc, msoc;
+	bool tried_again = false;
+
+	rc = fg_get_prop_capacity(chip, &msoc);
+	if (rc < 0) {
+		pr_err("Error in getting capacity, rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->last_soc = msoc;
+	chip->fg_restarting = true;
+	reinit_completion(&chip->soc_ready);
+	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT,
+			RESTART_GO_BIT);
+	if (rc < 0) {
+		pr_err("Error in writing to %04x, rc=%d\n",
+			BATT_SOC_RESTART(chip), rc);
+		goto out;
+	}
+
+wait:
+	rc = wait_for_completion_interruptible_timeout(&chip->soc_ready,
+		msecs_to_jiffies(SOC_READY_WAIT_MS));
+
+	/* If we were interrupted wait again one more time. */
+	if (rc == -ERESTARTSYS && !tried_again) {
+		tried_again = true;
+		goto wait;
+	} else if (rc <= 0) {
+		pr_err("wait for soc_ready timed out rc=%d\n", rc);
+		goto out;
+	}
+
+	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT, 0);
+	if (rc < 0) {
+		pr_err("Error in writing to %04x, rc=%d\n",
+			BATT_SOC_RESTART(chip), rc);
+		goto out;
+	}
+out:
+	chip->fg_restarting = false;
+	return rc;
+}
+
 static void profile_load_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				profile_load_work.work);
-	bool tried_again = false;
 	u8 buf[2], val;
 	int rc;
 
@@ -1367,24 +1413,9 @@ static void profile_load_work(struct work_struct *work)
 		goto out;
 	}
 
-	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT,
-			RESTART_GO_BIT);
+	rc = __fg_restart(chip);
 	if (rc < 0) {
-		pr_err("Error in writing to %04x, rc=%d\n",
-			BATT_SOC_RESTART(chip), rc);
-		goto out;
-	}
-
-wait:
-	rc = wait_for_completion_interruptible_timeout(&chip->soc_ready,
-		msecs_to_jiffies(SOC_READY_WAIT_MS));
-
-	/* If we were interrupted wait again one more time. */
-	if (rc == -ERESTARTSYS && !tried_again) {
-		tried_again = true;
-		goto wait;
-	} else if (rc <= 0) {
-		pr_err("wait for soc_ready timed out rc=%d\n", rc);
+		pr_err("Error in restarting FG, rc=%d\n", rc);
 		goto out;
 	}
 
@@ -1399,7 +1430,6 @@ wait:
 		goto out;
 	}
 
-	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
 done:
 	rc = fg_sram_read(chip, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
 			FG_IMA_DEFAULT);
@@ -1415,13 +1445,51 @@ done:
 	}
 
 	chip->profile_loaded = true;
+	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
 out:
 	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
-	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT, 0);
-	if (rc < 0)
-		pr_err("Error in writing to %04x, rc=%d\n",
-			BATT_SOC_RESTART(chip), rc);
 }
+
+static int fg_restart_sysfs(const char *val, const struct kernel_param *kp)
+{
+	int rc;
+	struct power_supply *bms_psy;
+	struct fg_chip *chip;
+
+	rc = param_set_int(val, kp);
+	if (rc) {
+		pr_err("Unable to set fg_restart: %d\n", rc);
+		return rc;
+	}
+
+	if (fg_restart != 1) {
+		pr_err("Bad value %d\n", fg_restart);
+		return -EINVAL;
+	}
+
+	bms_psy = power_supply_get_by_name("bms");
+	if (!bms_psy) {
+		pr_err("bms psy not found\n");
+		return 0;
+	}
+
+	chip = power_supply_get_drvdata(bms_psy);
+	rc = __fg_restart(chip);
+	if (rc < 0) {
+		pr_err("Error in restarting FG, rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_info("FG restart done\n");
+	return rc;
+}
+
+static struct kernel_param_ops fg_restart_ops = {
+	.set = fg_restart_sysfs,
+	.get = param_get_int,
+};
+
+module_param_cb(restart, &fg_restart_ops, &fg_restart, 0644);
 
 /* PSY CALLBACKS STAY HERE */
 
@@ -1434,7 +1502,10 @@ static int fg_psy_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CAPACITY:
-		rc = fg_get_prop_capacity(chip, &pval->intval);
+		if (chip->fg_restarting)
+			pval->intval = chip->last_soc;
+		else
+			rc = fg_get_prop_capacity(chip, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		rc = fg_get_battery_voltage(chip, &pval->intval);
