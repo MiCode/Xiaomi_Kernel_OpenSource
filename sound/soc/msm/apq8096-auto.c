@@ -103,6 +103,9 @@ static int msm_ec_ref_ch = 4;
 static int msm_ec_ref_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_ec_ref_sampling_rate = SAMPLING_RATE_48KHZ;
 
+static void *adsp_state_notifier;
+static bool dummy_device_registered;
+
 enum {
 	QUATERNARY_TDM_RX_0,
 	QUATERNARY_TDM_RX_1,
@@ -3779,6 +3782,55 @@ static struct platform_driver apq8096_asoc_machine_driver = {
 	.probe = apq8096_asoc_machine_probe,
 	.remove = apq8096_asoc_machine_remove,
 };
+
+static int dummy_machine_probe(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static int dummy_machine_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static struct platform_device dummy_machine_device = {
+	.name = "apq8096-auto-asoc-dummy",
+};
+
+static struct platform_driver apq8096_asoc_machine_dummy_driver = {
+	.driver = {
+		.name = "apq8096-auto-asoc-dummy",
+		.owner = THIS_MODULE,
+	},
+	.probe = dummy_machine_probe,
+	.remove = dummy_machine_remove,
+};
+
+static int  apq8096_adsp_state_callback(struct notifier_block *nb,
+					unsigned long value, void *priv)
+{
+	if (!dummy_device_registered && SUBSYS_AFTER_POWERUP == value) {
+		platform_driver_register(&apq8096_asoc_machine_dummy_driver);
+		platform_device_register(&dummy_machine_device);
+		dummy_device_registered = true;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block adsp_state_notifier_block = {
+	.notifier_call = apq8096_adsp_state_callback,
+	.priority = -INT_MAX,
+};
+
+static int __init apq8096_soc_platform_init(void)
+{
+	adsp_state_notifier = subsys_notif_register_notifier("adsp",
+						&adsp_state_notifier_block);
+	return 0;
+}
+
+module_init(apq8096_soc_platform_init);
 module_platform_driver(apq8096_asoc_machine_driver);
 
 MODULE_DESCRIPTION("ALSA SoC msm");
