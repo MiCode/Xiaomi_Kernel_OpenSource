@@ -302,27 +302,44 @@ static void sde_kms_prepare_fence(struct msm_kms *kms,
 
 static int modeset_init(struct sde_kms *sde_kms)
 {
-	struct drm_device *dev = sde_kms->dev;
+	struct drm_device *dev;
 	struct drm_plane *primary_planes[MAX_PLANES], *plane;
 	struct drm_crtc *crtc;
 
-	struct msm_drm_private *priv = sde_kms->dev->dev_private;
-	struct sde_mdss_cfg *catalog = sde_kms->catalog;
+	struct msm_drm_private *priv;
+	struct sde_mdss_cfg *catalog;
 
-	int primary_planes_idx = 0, i, ret, max_crtc_count;
-	int max_private_planes = catalog->mixer_count;
+	int primary_planes_idx, i, ret;
+	int max_crtc_count, max_plane_count;
+
+	if (!sde_kms || !sde_kms->dev) {
+		SDE_ERROR("invalid sde_kms\n");
+		return -EINVAL;
+	}
+
+	dev = sde_kms->dev;
+	priv = dev->dev_private;
+	catalog = sde_kms->catalog;
+
+	/* Enumerate displays supported */
+	sde_encoders_init(dev);
+
+	max_crtc_count = min(catalog->mixer_count, priv->num_encoders);
+	max_plane_count = min_t(u32, catalog->sspp_count, MAX_PLANES);
 
 	/* Create the planes */
-	for (i = 0; i < catalog->sspp_count; i++) {
+	primary_planes_idx = 0;
+	for (i = 0; i < max_plane_count; i++) {
 		bool primary = true;
 
 		if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
-			|| primary_planes_idx > max_private_planes)
+			|| primary_planes_idx >= max_crtc_count)
 			primary = false;
 
-		plane = sde_plane_init(dev, catalog->sspp[i].id, primary);
+		plane = sde_plane_init(dev, catalog->sspp[i].id, primary,
+				(1UL << max_crtc_count) - 1);
 		if (IS_ERR(plane)) {
-			DRM_ERROR("sde_plane_init failed\n");
+			SDE_ERROR("sde_plane_init failed\n");
 			ret = PTR_ERR(plane);
 			goto fail;
 		}
@@ -332,10 +349,6 @@ static int modeset_init(struct sde_kms *sde_kms)
 			primary_planes[primary_planes_idx++] = plane;
 	}
 
-	/* Enumerate displays supported */
-	sde_encoders_init(dev);
-
-	max_crtc_count = min(catalog->mixer_count, priv->num_encoders);
 	max_crtc_count = min(max_crtc_count, primary_planes_idx);
 
 	/* Create one CRTC per encoder */
