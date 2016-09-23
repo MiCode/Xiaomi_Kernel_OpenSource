@@ -104,7 +104,8 @@ msm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_display_test.o
 
 msm-$(CONFIG_DRM_SDE_HDMI) += \
-	hdmi-staging/sde_hdmi.o
+	hdmi-staging/sde_hdmi.o \
+	hdmi-staging/sde_hdmi_bridge.o
 
 msm-$(CONFIG_DRM_MSM_DSI_PLL) += dsi/pll/dsi_pll.o \
 				dsi/pll/dsi_pll_28nm.o

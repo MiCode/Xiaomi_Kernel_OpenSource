@@ -97,6 +97,36 @@ struct sde_hdmi {
 	struct dentry *root;
 };
 
+/**
+ * hdmi_tx_scdc_access_type() - hdmi 2.0 DDC functionalities.
+ */
+enum hdmi_tx_scdc_access_type {
+	HDMI_TX_SCDC_SCRAMBLING_STATUS,
+	HDMI_TX_SCDC_SCRAMBLING_ENABLE,
+	HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE,
+	HDMI_TX_SCDC_CLOCK_DET_STATUS,
+	HDMI_TX_SCDC_CH0_LOCK_STATUS,
+	HDMI_TX_SCDC_CH1_LOCK_STATUS,
+	HDMI_TX_SCDC_CH2_LOCK_STATUS,
+	HDMI_TX_SCDC_CH0_ERROR_COUNT,
+	HDMI_TX_SCDC_CH1_ERROR_COUNT,
+	HDMI_TX_SCDC_CH2_ERROR_COUNT,
+	HDMI_TX_SCDC_READ_ENABLE,
+	HDMI_TX_SCDC_MAX,
+};
+
+/**
+ * hdmi_tx_ddc_timer_type() - hdmi DDC timer functionalities.
+ */
+enum hdmi_tx_ddc_timer_type {
+	HDMI_TX_DDC_TIMER_HDCP2P2_RD_MSG,
+	HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS,
+	HDMI_TX_DDC_TIMER_UPDATE_FLAGS,
+	HDMI_TX_DDC_TIMER_STATUS_FLAGS,
+	HDMI_TX_DDC_TIMER_CED,
+	HDMI_TX_DDC_TIMER_MAX,
+};
+
 #ifdef CONFIG_DRM_SDE_HDMI
 /**
  * sde_hdmi_register() - register hdmi display platform driver
@@ -248,6 +278,69 @@ int sde_hdmi_drm_deinit(struct sde_hdmi *display);
  */
 int sde_hdmi_get_info(struct msm_display_info *info,
 				void *display);
+
+/**
+ * sde_hdmi_bridge_init() - init sde hdmi bridge
+ * @hdmi:          Handle to the hdmi.
+ *
+ * Return: struct drm_bridge *.
+ */
+struct drm_bridge *sde_hdmi_bridge_init(struct hdmi *hdmi);
+
+/**
+ * sde_hdmi_set_mode() - Set HDMI mode API.
+ * @hdmi:          Handle to the hdmi.
+ * @power_on:      Power on/off request.
+ *
+ * Return: void.
+ */
+void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on);
+
+/**
+ * sde_hdmi_ddc_read() - common hdmi ddc read API.
+ * @hdmi:          Handle to the hdmi.
+ * @addr:          Command address.
+ * @offset:        Command offset.
+ * @data:          Data buffer for read back.
+ * @data_len:      Data buffer length.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_ddc_read(struct hdmi *hdmi, u16 addr, u8 offset,
+	u8 *data, u16 data_len);
+
+/**
+ * sde_hdmi_ddc_write() - common hdmi ddc write API.
+ * @hdmi:          Handle to the hdmi.
+ * @addr:          Command address.
+ * @offset:        Command offset.
+ * @data:          Data buffer for write.
+ * @data_len:      Data buffer length.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_ddc_write(struct hdmi *hdmi, u16 addr, u8 offset,
+	u8 *data, u16 data_len);
+
+/**
+ * sde_hdmi_scdc_read() - hdmi 2.0 ddc read API.
+ * @hdmi:          Handle to the hdmi.
+ * @data_type:     DDC data type, refer to enum hdmi_tx_scdc_access_type.
+ * @val:           Read back value.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_scdc_read(struct hdmi *hdmi, u32 data_type, u32 *val);
+
+/**
+ * sde_hdmi_scdc_write() - hdmi 2.0 ddc write API.
+ * @hdmi:          Handle to the hdmi.
+ * @data_type:     DDC data type, refer to enum hdmi_tx_scdc_access_type.
+ * @val:           Value write through DDC.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_scdc_write(struct hdmi *hdmi, u32 data_type, u32 val);
 
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 static inline void sde_hdmi_register(void)
