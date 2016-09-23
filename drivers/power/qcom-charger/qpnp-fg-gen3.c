@@ -1460,39 +1460,78 @@ static irqreturn_t fg_dummy_irq_handler(int irq, void *data)
 static struct fg_irq_info fg_irqs[FG_IRQ_MAX] = {
 	/* BATT_SOC irqs */
 	[MSOC_FULL_IRQ] = {
-		"msoc-full", fg_soc_irq_handler, true },
+		.name		= "msoc-full",
+		.handler	= fg_soc_irq_handler,
+	},
 	[MSOC_HIGH_IRQ] = {
-		"msoc-high", fg_soc_irq_handler, true },
+		.name		= "msoc-high",
+		.handler	= fg_soc_irq_handler,
+		.wakeable	= true,
+	},
 	[MSOC_EMPTY_IRQ] = {
-		"msoc-empty", fg_empty_soc_irq_handler, true },
+		.name		= "msoc-empty",
+		.handler	= fg_empty_soc_irq_handler,
+		.wakeable	= true,
+	},
 	[MSOC_LOW_IRQ] = {
-		"msoc-low", fg_soc_irq_handler },
+		.name		= "msoc-low",
+		.handler	= fg_soc_irq_handler,
+		.wakeable	= true,
+	},
 	[MSOC_DELTA_IRQ] = {
-		"msoc-delta", fg_delta_soc_irq_handler, true },
+		.name		= "msoc-delta",
+		.handler	= fg_delta_soc_irq_handler,
+		.wakeable	= true,
+	},
 	[BSOC_DELTA_IRQ] = {
-		"bsoc-delta", fg_delta_soc_irq_handler, true },
+		.name		= "bsoc-delta",
+		.handler	= fg_dummy_irq_handler,
+	},
 	[SOC_READY_IRQ] = {
-		"soc-ready", fg_first_est_irq_handler, true },
+		.name		= "soc-ready",
+		.handler	= fg_first_est_irq_handler,
+		.wakeable	= true,
+	},
 	[SOC_UPDATE_IRQ] = {
-		"soc-update", fg_soc_update_irq_handler },
+		.name		= "soc-update",
+		.handler	= fg_soc_update_irq_handler,
+	},
 	/* BATT_INFO irqs */
 	[BATT_TEMP_DELTA_IRQ] = {
-		"batt-temp-delta", fg_delta_batt_temp_irq_handler },
+		.name		= "batt-temp-delta",
+		.handler	= fg_delta_batt_temp_irq_handler,
+	},
 	[BATT_MISSING_IRQ] = {
-		"batt-missing", fg_batt_missing_irq_handler, true },
+		.name		= "batt-missing",
+		.handler	= fg_batt_missing_irq_handler,
+		.wakeable	= true,
+	},
 	[ESR_DELTA_IRQ] = {
-		"esr-delta", fg_dummy_irq_handler },
+		.name		= "esr-delta",
+		.handler	= fg_dummy_irq_handler,
+	},
 	[VBATT_LOW_IRQ] = {
-		"vbatt-low", fg_vbatt_low_irq_handler, true },
+		.name		= "vbatt-low",
+		.handler	= fg_vbatt_low_irq_handler,
+		.wakeable	= true,
+	},
 	[VBATT_PRED_DELTA_IRQ] = {
-		"vbatt-pred-delta", fg_dummy_irq_handler },
+		.name		= "vbatt-pred-delta",
+		.handler	= fg_dummy_irq_handler,
+	},
 	/* MEM_IF irqs */
 	[DMA_GRANT_IRQ] = {
-		"dma-grant", fg_dummy_irq_handler },
+		.name		= "dma-grant",
+		.handler	= fg_dummy_irq_handler,
+	},
 	[MEM_XCP_IRQ] = {
-		"mem-xcp", fg_dummy_irq_handler },
+		.name		= "mem-xcp",
+		.handler	= fg_dummy_irq_handler,
+	},
 	[IMA_RDY_IRQ] = {
-		"ima-rdy", fg_dummy_irq_handler },
+		.name		= "ima-rdy",
+		.handler	= fg_dummy_irq_handler,
+	},
 };
 
 static int fg_get_irq_index_byname(const char *name)
