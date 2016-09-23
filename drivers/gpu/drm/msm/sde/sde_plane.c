@@ -58,6 +58,12 @@ enum sde_plane_qos {
 	SDE_PLANE_QOS_PANIC_CTRL = BIT(2),
 };
 
+/*
+ * struct sde_plane - local sde plane structure
+ * @csc_cfg: Decoded user configuration for csc
+ * @csc_usr_ptr: Points to csc_cfg if valid user config available
+ * @csc_ptr: Points to sde_csc_cfg structure to use for current
+ */
 struct sde_plane {
 	struct drm_plane base;
 
@@ -81,6 +87,7 @@ struct sde_plane {
 	bool is_rt_pipe;
 
 	struct sde_csc_cfg csc_cfg;
+	struct sde_csc_cfg *csc_usr_ptr;
 	struct sde_csc_cfg *csc_ptr;
 
 	const struct sde_sspp_sub_blks *pipe_sblk;
@@ -736,9 +743,7 @@ static int _sde_plane_verify_blob(void *blob_ptr,
 	return -EINVAL;
 }
 
-static void _sde_plane_setup_csc(struct sde_plane *psde,
-		struct sde_plane_state *pstate,
-		const struct sde_format *fmt)
+static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 {
 	static const struct sde_csc_cfg sde_csc_YUV2RGB_601L = {
 		{
@@ -754,78 +759,22 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 		{ 0x10, 0xeb, 0x10, 0xf0, 0x10, 0xf0,},
 		{ 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,},
 	};
-	static const struct sde_csc_cfg sde_csc_NOP = {
-		{
-			/* identity matrix, S15.16 format */
-			0x10000, 0x00000, 0x00000,
-			0x00000, 0x10000, 0x00000,
-			0x00000, 0x00000, 0x10000,
-		},
-		/* signed bias */
-		{ 0x0, 0x0, 0x0,},
-		{ 0x0, 0x0, 0x0,},
-		/* unsigned clamp */
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
-	};
-	struct sde_drm_csc *csc = NULL;
-	size_t csc_size = 0;
-	int i;
 
-	if (!psde || !pstate || !fmt) {
-		SDE_ERROR("invalid arguments\n");
+	if (!psde) {
+		SDE_ERROR("invalid plane\n");
 		return;
-	}
-	if (!psde->pipe_hw || !psde->pipe_hw->ops.setup_csc)
-		return;
-
-	/* check for user space override */
-	psde->csc_ptr = NULL;
-	csc = msm_property_get_blob(&psde->property_info,
-			pstate->property_blobs,
-			&csc_size,
-			PLANE_PROP_CSC);
-	if (csc) {
-		/* user space override */
-		memcpy(&psde->csc_cfg,
-				&sde_csc_NOP,
-				sizeof(struct sde_csc_cfg));
-		switch (csc->version) {
-		case SDE_DRM_CSC_V1:
-			if (!_sde_plane_verify_blob(csc,
-					csc_size,
-					&csc->v1,
-					sizeof(struct sde_drm_csc_v1))) {
-				for (i = 0; i < SDE_CSC_MATRIX_COEFF_SIZE; ++i)
-					psde->csc_cfg.csc_mv[i] =
-						csc->v1.ctm_coeff[i] >> 16;
-				for (i = 0; i < SDE_CSC_BIAS_SIZE; ++i) {
-					psde->csc_cfg.csc_pre_bv[i] =
-						csc->v1.pre_bias[i];
-					psde->csc_cfg.csc_post_bv[i] =
-						csc->v1.post_bias[i];
-				}
-				for (i = 0; i < SDE_CSC_CLAMP_SIZE; ++i) {
-					psde->csc_cfg.csc_pre_lv[i] =
-						csc->v1.pre_clamp[i];
-					psde->csc_cfg.csc_post_lv[i] =
-						csc->v1.post_clamp[i];
-				}
-				psde->csc_ptr = &psde->csc_cfg;
-			}
-			break;
-		default:
-			break;
-		}
-		if (!psde->csc_ptr)
-			SDE_ERROR("invalid csc blob, v%lld\n", csc->version);
 	}
 
 	/* revert to kernel default if override not available */
-	if (psde->csc_ptr)
-		SDE_DEBUG("user blob override for csc\n");
-	else if (SDE_FORMAT_IS_YUV(fmt))
+	if (psde->csc_usr_ptr)
+		psde->csc_ptr = psde->csc_usr_ptr;
+	else
 		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc_YUV2RGB_601L;
+
+	SDE_DEBUG("using 0x%X 0x%X 0x%X...\n",
+			psde->csc_ptr->csc_mv[0],
+			psde->csc_ptr->csc_mv[1],
+			psde->csc_ptr->csc_mv[2]);
 }
 
 static void _sde_plane_setup_scaler(struct sde_plane *psde,
@@ -1096,7 +1045,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		case PLANE_PROP_SCALER:
 			pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 			break;
-		case PLANE_PROP_CSC:
+		case PLANE_PROP_CSC_V1:
 			pstate->dirty |= SDE_PLANE_DIRTY_FORMAT;
 			break;
 		case PLANE_PROP_COLOR_FILL:
@@ -1203,7 +1152,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 
 		/* update csc */
 		if (SDE_FORMAT_IS_YUV(fmt))
-			_sde_plane_setup_csc(psde, pstate, fmt);
+			_sde_plane_setup_csc(psde);
 		else
 			psde->csc_ptr = 0;
 	}
@@ -1587,6 +1536,11 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	msm_property_install_range(&psde->property_info, "input_fence",
 		0x0, 0, INR_OPEN_MAX, 0, PLANE_PROP_INPUT_FENCE);
 
+	if (psde->features & BIT(SDE_SSPP_CSC)) {
+		msm_property_install_volatile_range(&psde->property_info,
+			"csc_v1", 0x0, 0, ~0, 0, PLANE_PROP_CSC_V1);
+	}
+
 	/* standard properties */
 	msm_property_install_rotation(&psde->property_info,
 		BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y), PLANE_PROP_ROTATION);
@@ -1604,10 +1558,6 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	if (psde->features & SDE_SSPP_SCALER)
 		msm_property_install_blob(&psde->property_info, "scaler", 0,
 			PLANE_PROP_SCALER);
-
-	if (psde->features & BIT(SDE_SSPP_CSC))
-		msm_property_install_blob(&psde->property_info, "csc", 0,
-			PLANE_PROP_CSC);
 
 	info = kzalloc(sizeof(struct sde_kms_info), GFP_KERNEL);
 	if (!info)
@@ -1645,6 +1595,40 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	kfree(info);
 }
 
+static inline void _sde_plane_set_csc_v1(struct sde_plane *psde, void *usr_ptr)
+{
+	struct sde_drm_csc_v1 csc_v1;
+	int i;
+
+	if (!psde) {
+		SDE_ERROR("invalid plane\n");
+		return;
+	}
+
+	psde->csc_usr_ptr = NULL;
+	if (!usr_ptr) {
+		SDE_DEBUG("csc data removed\n");
+		return;
+	}
+
+	if (copy_from_user(&csc_v1, usr_ptr, sizeof(csc_v1))) {
+		SDE_ERROR("failed to copy csc data\n");
+		return;
+	}
+
+	for (i = 0; i < SDE_CSC_MATRIX_COEFF_SIZE; ++i)
+		psde->csc_cfg.csc_mv[i] = csc_v1.ctm_coeff[i] >> 16;
+	for (i = 0; i < SDE_CSC_BIAS_SIZE; ++i) {
+		psde->csc_cfg.csc_pre_bv[i] = csc_v1.pre_bias[i];
+		psde->csc_cfg.csc_post_bv[i] = csc_v1.post_bias[i];
+	}
+	for (i = 0; i < SDE_CSC_CLAMP_SIZE; ++i) {
+		psde->csc_cfg.csc_pre_lv[i] = csc_v1.pre_clamp[i];
+		psde->csc_cfg.csc_post_lv[i] = csc_v1.post_clamp[i];
+	}
+	psde->csc_usr_ptr = &psde->csc_cfg;
+}
+
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		struct drm_plane_state *state, struct drm_property *property,
 		uint64_t val)
@@ -1668,8 +1652,17 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		if (!ret) {
 			idx = msm_property_index(&psde->property_info,
 					property);
-			if (idx == PLANE_PROP_INPUT_FENCE)
+			switch (idx) {
+			case PLANE_PROP_INPUT_FENCE:
 				_sde_plane_set_input_fence(plane, pstate, val);
+				break;
+			case PLANE_PROP_CSC_V1:
+				_sde_plane_set_csc_v1(psde, (void *)val);
+				break;
+			default:
+				/* nothing to do */
+				break;
+			}
 		}
 	}
 
