@@ -651,8 +651,8 @@ static void process_build_mask_report(uint8_t *buf, uint32_t len,
 void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 				 int len)
 {
-	int read_len = 0;
-	int header_len = sizeof(struct diag_ctrl_pkt_header_t);
+	uint32_t read_len = 0;
+	uint32_t header_len = sizeof(struct diag_ctrl_pkt_header_t);
 	uint8_t *ptr = buf;
 	struct diag_ctrl_pkt_header_t *ctrl_pkt = NULL;
 
