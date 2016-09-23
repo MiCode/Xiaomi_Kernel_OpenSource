@@ -172,6 +172,15 @@
 		qcom,pipe-attr-ee;
 	};
 
+	tsens: tsens@10ad000 {
+		compatible = "qcom,msmtriton-tsens";
+		reg = <0x10ad000 0x2000>;
+		reg-names = "tsens_physical";
+		interrupts = <0 184 0>, <0 430 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		qcom,sensors = <12>;
+	};
+
 	uartblsp1dm1: serial@0c170000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0xc170000 0x1000>;
