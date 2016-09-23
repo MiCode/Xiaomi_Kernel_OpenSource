@@ -109,6 +109,7 @@ enum cnss_runtime_request {
 	CNSS_PM_RUNTIME_PUT_NOIDLE,
 	CNSS_PM_REQUEST_RESUME,
 	CNSS_PM_RUNTIME_PUT_AUTO,
+	CNSS_PM_GET_NORESUME,
 };
 
 extern int cnss_get_fw_image(struct image_desc_info *image_desc_info);
