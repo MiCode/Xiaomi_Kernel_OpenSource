@@ -1847,8 +1847,8 @@ int msm_vfe47_axi_restart(struct vfe_device *vfe_dev,
 	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
 
 	/* reset the irq masks without camif violation and errors */
-	msm_vfe47_config_irq(vfe_dev, vfe_dev->irq0_mask,
-		vfe_dev->irq1_mask, MSM_ISP_IRQ_SET);
+	msm_vfe47_config_irq(vfe_dev, vfe_dev->recovery_irq0_mask,
+		vfe_dev->recovery_irq1_mask, MSM_ISP_IRQ_SET);
 
 	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev, VFE_SRC_MAX);
 
