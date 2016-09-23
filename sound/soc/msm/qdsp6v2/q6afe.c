@@ -120,7 +120,12 @@ struct afe_ctl {
 	int set_custom_topology;
 };
 
-static atomic_t afe_ports_mad_type[SLIMBUS_PORT_LAST - SLIMBUS_0_RX];
+#define MAD_SLIMBUS_PORT_COUNT ((SLIMBUS_PORT_LAST - SLIMBUS_0_RX) + 1)
+#define MAD_MI2S_PORT_COUNT ((MI2S_PORT_LAST - AFE_PORT_ID_PRIMARY_MI2S_TX) \
+				+ 1)
+
+static atomic_t afe_ports_mad_type[MAD_SLIMBUS_PORT_COUNT +
+				MAD_MI2S_PORT_COUNT];
 static unsigned long afe_configured_cmd;
 
 static struct afe_ctl this_afe;
@@ -1892,8 +1897,11 @@ int afe_port_set_mad_type(u16 port_id, enum afe_mad_type mad_type)
 		mad_type = MAD_SW_AUDIO;
 		return 0;
 	}
-
-	i = port_id - SLIMBUS_0_RX;
+	if (port_id == AFE_PORT_ID_QUATERNARY_MI2S_TX)
+		i = MAD_SLIMBUS_PORT_COUNT + (port_id -
+				AFE_PORT_ID_PRIMARY_MI2S_TX) - 1;
+	else
+		i = port_id - SLIMBUS_0_RX;
 	if (i < 0 || i >= ARRAY_SIZE(afe_ports_mad_type)) {
 		pr_err("%s: Invalid port_id 0x%x\n", __func__, port_id);
 		return -EINVAL;
@@ -1908,8 +1916,11 @@ enum afe_mad_type afe_port_get_mad_type(u16 port_id)
 
 	if (port_id == AFE_PORT_ID_TERTIARY_MI2S_TX)
 		return MAD_SW_AUDIO;
-
-	i = port_id - SLIMBUS_0_RX;
+	if (port_id == AFE_PORT_ID_QUATERNARY_MI2S_TX)
+		i = MAD_SLIMBUS_PORT_COUNT + (port_id -
+			AFE_PORT_ID_PRIMARY_MI2S_TX) - 1;
+	else
+		i = port_id - SLIMBUS_0_RX;
 	if (i < 0 || i >= ARRAY_SIZE(afe_ports_mad_type)) {
 		pr_debug("%s: Non Slimbus port_id 0x%x\n", __func__, port_id);
 		return MAD_HW_NONE;
