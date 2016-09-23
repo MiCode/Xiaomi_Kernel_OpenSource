@@ -285,6 +285,35 @@ Optional properties:
 					60 = 60 frames per second (default)
 - qcom,mdss-dsi-panel-clockrate:	A 64 bit value specifies the panel clock speed in Hz.
 					0 = default value.
+- qcom,mdss-mdp-kickoff-threshold:	This property can be used to define a region
+					(in terms of scanlines) where the
+hardware is allowed
+					to trigger a data transfer from MDP to DSI.
+					If this property is used, the region must be defined setting
+					two values, the low and the high thresholds:
+					<low_threshold high_threshold>
+					Where following condition must be met:
+					low_threshold < high_threshold
+					These values will be used by the driver in such way that if
+					the Driver receives a request to kickoff a transfer (MDP to DSI),
+					the transfer will be triggered only if the following condition
+					is satisfied:
+					low_threshold < scanline < high_threshold
+					If the condition is not met, then the driver will delay the
+					transfer by the time defined in the following property:
+					"qcom,mdss-mdp-kickoff-delay".
+					So in order to use this property, the delay property must
+					be defined as well and greater than 0.
+- qcom,mdss-mdp-kickoff-delay:	This property defines the delay in microseconds that
+					the driver will delay before triggering an MDP transfer if the
+					thresholds defined by the following property are not met:
+					"qcom,mdss-mdp-kickoff-threshold".
+					So in order to use this property, the threshold property must
+					be defined as well. Note that this delay cannot be zero
+					and also should not be greater than
+the fps window.
+					i.e. For 60fps value should not exceed
+16666 uS.
 - qcom,mdss-mdp-transfer-time-us:	Specifies the dsi transfer time for command mode
 					panels in microseconds. Driver uses this number to adjust
 					the clock rate according to the expected transfer time.
@@ -634,6 +663,8 @@ Example:
 		qcom,mdss-dsi-dma-trigger = <0>;
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-panel-clockrate = <424000000>;
+		qcom,mdss-mdp-kickoff-threshold = <11 2430>;
+		qcom,mdss-mdp-kickoff-delay = <1000>;
 		qcom,mdss-mdp-transfer-time-us = <12500>;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
 					22 27 1e 03 04 00];

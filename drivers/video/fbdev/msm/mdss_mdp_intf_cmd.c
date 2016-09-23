@@ -76,6 +76,7 @@ struct mdss_mdp_cmd_ctx {
 	struct mutex clk_mtx;
 	spinlock_t clk_lock;
 	spinlock_t koff_lock;
+	spinlock_t ctlstart_lock;
 	struct work_struct gate_clk_work;
 	struct delayed_work delayed_off_clk_work;
 	struct work_struct pp_done_work;
@@ -147,15 +148,11 @@ static inline u32 mdss_mdp_cmd_line_count(struct mdss_mdp_ctl *ctl)
 	u32 init;
 	u32 height;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 	if (!mixer) {
 		mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
-		if (!mixer) {
-			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+		if (!mixer)
 			goto exit;
-		}
 	}
 
 	init = mdss_mdp_pingpong_read(mixer->pingpong_base,
@@ -163,10 +160,8 @@ static inline u32 mdss_mdp_cmd_line_count(struct mdss_mdp_ctl *ctl)
 	height = mdss_mdp_pingpong_read(mixer->pingpong_base,
 		MDSS_MDP_REG_PP_SYNC_CONFIG_HEIGHT) & 0xffff;
 
-	if (height < init) {
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+	if (height < init)
 		goto exit;
-	}
 
 	cnt = mdss_mdp_pingpong_read(mixer->pingpong_base,
 		MDSS_MDP_REG_PP_INT_COUNT_VAL) & 0xffff;
@@ -176,11 +171,19 @@ static inline u32 mdss_mdp_cmd_line_count(struct mdss_mdp_ctl *ctl)
 	else
 		cnt -= init;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-
 	pr_debug("cnt=%d init=%d height=%d\n", cnt, init, height);
 exit:
 	return cnt;
+}
+
+static inline u32 mdss_mdp_cmd_line_count_wrapper(struct mdss_mdp_ctl *ctl)
+{
+	u32 ret;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	ret = mdss_mdp_cmd_line_count(ctl);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+	return ret;
 }
 
 static int mdss_mdp_tearcheck_enable(struct mdss_mdp_ctl *ctl, bool enable)
@@ -2643,12 +2646,42 @@ static int mdss_mdp_disable_autorefresh(struct mdss_mdp_ctl *ctl,
 	return 0;
 }
 
+static bool wait_for_read_ptr_if_late(struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_ctl *sctl, struct mdss_panel_info *pinfo)
+{
+	u32 line_count;
+	u32 sline_count = 0;
+	bool ret = true;
+	u32 low_threshold = pinfo->mdp_koff_thshold_low;
+	u32 high_threshold = pinfo->mdp_koff_thshold_high;
+
+	/* read the line count */
+	line_count = mdss_mdp_cmd_line_count(ctl);
+	if (sctl)
+		sline_count = mdss_mdp_cmd_line_count(sctl);
+
+	/* if line count is between the range, return to trigger transfer */
+	if (((line_count > low_threshold) && (line_count < high_threshold)) &&
+	     (!sctl || ((sline_count > low_threshold) &&
+			(sline_count < high_threshold))))
+		ret = false;
+
+	pr_debug("threshold:[%d, %d]\n", low_threshold, high_threshold);
+	pr_debug("line:%d sline:%d ret:%d\n", line_count, sline_count, ret);
+	MDSS_XLOG(line_count, sline_count, ret);
+
+	return ret;
+}
 
 static void __mdss_mdp_kickoff(struct mdss_mdp_ctl *ctl,
-	struct mdss_mdp_cmd_ctx *ctx)
+	struct mdss_mdp_ctl *sctl, struct mdss_mdp_cmd_ctx *ctx)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool is_pp_split = is_pingpong_split(ctl->mfd);
+	struct mdss_panel_info *pinfo = NULL;
+
+	if (ctl->panel_data)
+		pinfo = &ctl->panel_data->panel_info;
 
 	MDSS_XLOG(ctx->autorefresh_state);
 
@@ -2673,9 +2706,33 @@ static void __mdss_mdp_kickoff(struct mdss_mdp_ctl *ctl,
 		ctx->autorefresh_state = MDP_AUTOREFRESH_ON;
 
 	} else {
+
+		/*
+		 * Some panels can require that mdp is within some range
+		 * of the scanlines in order to trigger the tansfer.
+		 * If that is the case, make  sure the panel scanline
+		 * is within the limit to start.
+		 * Acquire an spinlock for this operation to raise the
+		 * priority of this thread and make sure the context
+		 * is maintained, so we can have the less time possible
+		 * between the check of the scanline and the kickoff.
+		 */
+		if (pinfo && pinfo->mdp_koff_thshold) {
+			spin_lock(&ctx->ctlstart_lock);
+			if (wait_for_read_ptr_if_late(ctl, sctl, pinfo)) {
+				spin_unlock(&ctx->ctlstart_lock);
+				usleep_range(pinfo->mdp_koff_delay,
+						pinfo->mdp_koff_delay + 10);
+				spin_lock(&ctx->ctlstart_lock);
+			}
+		}
+
 		/* SW Kickoff */
 		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
 		MDSS_XLOG(0x11, ctx->autorefresh_state);
+
+		if (pinfo && pinfo->mdp_koff_thshold)
+			spin_unlock(&ctx->ctlstart_lock);
 	}
 }
 
@@ -2807,7 +2864,7 @@ static int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	/* Kickoff */
-	__mdss_mdp_kickoff(ctl, ctx);
+	__mdss_mdp_kickoff(ctl, sctl, ctx);
 
 	mdss_mdp_cmd_post_programming(ctl);
 
@@ -3241,6 +3298,7 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 	init_completion(&ctx->autorefresh_done);
 	spin_lock_init(&ctx->clk_lock);
 	spin_lock_init(&ctx->koff_lock);
+	spin_lock_init(&ctx->ctlstart_lock);
 	mutex_init(&ctx->clk_mtx);
 	mutex_init(&ctx->mdp_rdptr_lock);
 	mutex_init(&ctx->mdp_wrptr_lock);
@@ -3529,7 +3587,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	ctl->ops.wait_pingpong = mdss_mdp_cmd_wait4pingpong;
 	ctl->ops.add_vsync_handler = mdss_mdp_cmd_add_vsync_handler;
 	ctl->ops.remove_vsync_handler = mdss_mdp_cmd_remove_vsync_handler;
-	ctl->ops.read_line_cnt_fnc = mdss_mdp_cmd_line_count;
+	ctl->ops.read_line_cnt_fnc = mdss_mdp_cmd_line_count_wrapper;
 	ctl->ops.restore_fnc = mdss_mdp_cmd_restore;
 	ctl->ops.early_wake_up_fnc = mdss_mdp_cmd_early_wake_up;
 	ctl->ops.reconfigure = mdss_mdp_cmd_reconfigure;
