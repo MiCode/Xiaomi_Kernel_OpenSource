@@ -2804,6 +2804,7 @@ static u32 __compute_runnable_contrib(u64 n)
 #define SBC_FLAG_COLOC_CLUSTER				0x10000
 #define SBC_FLAG_WAKER_CLUSTER				0x20000
 #define SBC_FLAG_BACKUP_CLUSTER				0x40000
+#define SBC_FLAG_BOOST_CLUSTER				0x80000
 
 struct cpu_select_env {
 	struct task_struct *p;
@@ -2916,6 +2917,18 @@ select_least_power_cluster(struct cpu_select_env *env)
 		env->task_load = scale_load_to_cpu(task_load(env->p),
 			cluster_first_cpu(env->rtg->preferred_cluster));
 		env->sbc_best_cluster_flag |= SBC_FLAG_COLOC_CLUSTER;
+
+		if (env->boost_type != SCHED_BOOST_NONE) {
+			for_each_sched_cluster(cluster) {
+				if (cluster != env->rtg->preferred_cluster) {
+					__set_bit(cluster->id,
+						env->backup_list);
+					__clear_bit(cluster->id,
+						env->candidate_list);
+				}
+			}
+		}
+
 		return env->rtg->preferred_cluster;
 	}
 
@@ -3169,7 +3182,13 @@ static void find_best_cpu_in_cluster(struct sched_cluster *c,
 		update_spare_capacity(stats, env, i, c->capacity,
 				      env->cpu_load);
 
-		if (env->boost_type == SCHED_BOOST_ON_ALL ||
+		/*
+		 * need_idle takes precedence over sched boost but when both
+		 * are set, idlest CPU with in all the clusters is selected
+		 * when boost_type = BOOST_ON_ALL whereas idlest CPU in the
+		 * big cluster is selected within boost_type = BOOST_ON_BIG.
+		 */
+		if ((!env->need_idle && env->boost_type != SCHED_BOOST_NONE) ||
 		    env->need_waker_cluster ||
 		    sched_cpu_high_irqload(i) ||
 		    spill_threshold_crossed(env, cpu_rq(i)))
@@ -3386,12 +3405,23 @@ retry:
 		sbc_flag |= env.sbc_best_flag;
 		target = stats.best_cpu;
 	} else {
-		if (env.rtg) {
+		if (env.rtg && env.boost_type == SCHED_BOOST_NONE) {
 			env.rtg = NULL;
 			goto retry;
 		}
 
-		find_backup_cluster(&env, &stats);
+		/*
+		 * With boost_type == SCHED_BOOST_ON_BIG, we reach here with
+		 * backup_list = little cluster, candidate_list = none and
+		 * stats->best_capacity_cpu points the best spare capacity
+		 * CPU among the CPUs in the big cluster.
+		 */
+		if (env.boost_type == SCHED_BOOST_ON_BIG &&
+		    stats.best_capacity_cpu >= 0)
+			sbc_flag |= SBC_FLAG_BOOST_CLUSTER;
+		else
+			find_backup_cluster(&env, &stats);
+
 		if (stats.best_capacity_cpu >= 0) {
 			target = stats.best_capacity_cpu;
 			sbc_flag |= SBC_FLAG_BEST_CAP_CPU;
