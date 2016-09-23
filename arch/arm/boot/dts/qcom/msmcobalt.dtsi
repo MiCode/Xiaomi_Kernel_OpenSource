@@ -2621,6 +2621,7 @@
 		 "iface_clk", "noc_axi_clk", "bus_clk", "maxi_clk";
 
 		qcom,pas-id = <9>;
+		qcom,msm-bus,name = "pil-venus";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
