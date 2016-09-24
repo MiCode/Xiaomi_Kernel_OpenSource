@@ -199,7 +199,7 @@ static void gic_poke_irq(struct irq_data *d, u32 offset)
 		rwp_wait = gic_dist_wait_for_rwp;
 	}
 
-	writel_relaxed(mask, base + offset + (gic_irq(d) / 32) * 4);
+	writel_relaxed_no_log(mask, base + offset + (gic_irq(d) / 32) * 4);
 	rwp_wait();
 }
 
