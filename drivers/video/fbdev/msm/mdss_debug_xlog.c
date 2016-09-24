@@ -312,7 +312,7 @@ static void __vbif_debug_bus(struct vbif_debug_bus *head,
 				vbif_base + head->block_bus_addr);
 		/* make sure that current bus blcok enable */
 		wmb();
-		for (j = 0; j < head->test_pnt_cnt; j++) {
+		for (j = head->test_pnt_start; j < head->test_pnt_cnt; j++) {
 			writel_relaxed(j, vbif_base + head->block_bus_addr + 4);
 			/* make sure that test point is enabled */
 			wmb();
