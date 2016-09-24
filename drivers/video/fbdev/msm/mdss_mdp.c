@@ -1831,6 +1831,20 @@ static u32 mdss_get_props(void)
 	return props;
 }
 
+static void mdss_rpm_set_msg_ram(bool enable)
+{
+	u32 read_reg = 0;
+	void __iomem *rpm_msg_ram = ioremap(0x7781FC, 4);
+
+	if (rpm_msg_ram) {
+		writel_relaxed(enable, rpm_msg_ram);
+		read_reg = readl_relaxed(rpm_msg_ram);
+		pr_debug("%s enable=%d read_val=%x\n", __func__, enable,
+				read_reg);
+		iounmap(rpm_msg_ram);
+	}
+}
+
 void mdss_mdp_init_default_prefill_factors(struct mdss_data_type *mdata)
 {
 	mdata->prefill_data.prefill_factors.fmt_mt_nv12_factor = 8;
@@ -2000,6 +2014,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
+		mdss_set_quirk(mdata, MDSS_QUIRK_MMSS_GDSC_COLLAPSE);
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map);
@@ -4885,6 +4900,13 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 			active_cnt = atomic_read(&mdata->active_intf_cnt);
 			if (active_cnt != 0) {
 				/*
+				 * Advise RPM to not turn MMSS GDSC off during
+				 * idle case.
+				 */
+				if (mdss_has_quirk(mdata,
+						MDSS_QUIRK_MMSS_GDSC_COLLAPSE))
+					mdss_rpm_set_msg_ram(true);
+				/*
 				 * Turning off GDSC while overlays are still
 				 * active.
 				 */
@@ -4893,6 +4915,14 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 					active_cnt);
 				mdss_mdp_memory_retention_enter();
 			} else {
+				/*
+				 * Advise RPM to turn MMSS GDSC off during
+				 * suspend case
+				 */
+				if (mdss_has_quirk(mdata,
+						MDSS_QUIRK_MMSS_GDSC_COLLAPSE))
+					mdss_rpm_set_msg_ram(false);
+
 				mdss_mdp_cx_ctrl(mdata, false);
 				mdss_mdp_batfet_ctrl(mdata, false);
 			}
