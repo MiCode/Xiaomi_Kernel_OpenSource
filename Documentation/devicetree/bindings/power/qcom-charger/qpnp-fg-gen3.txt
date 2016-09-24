@@ -202,6 +202,14 @@ First Level Node - FG Gen3 device
 		    capacity learning cycle. If this is not specified, then
 		    the default value is 0. Unit is in decipercentage.
 
+- qcom,fg-jeita-hyst-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Hysteresis applied to Jeita temperature comparison.
+		    Possible values are:
+			0 - No hysteresis
+			1,2,3 - Value in Celsius.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================
