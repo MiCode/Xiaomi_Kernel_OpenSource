@@ -137,10 +137,7 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 			if ((ds_data->lm_width > get_panel_xres(pinfo)) ||
 				(ds_data->lm_height >  get_panel_yres(pinfo)) ||
 				(ds_data->lm_width == 0) ||
-				(ds_data->lm_height == 0) ||
-				(is_dsc_compression(pinfo) &&
-				   !is_lm_configs_dsc_compatible(pinfo,
-				     ds_data->lm_width, ds_data->lm_height))) {
+				(ds_data->lm_height == 0)) {
 				pr_err("Invalid left LM {%d,%d} setting\n",
 					ds_data->lm_width, ds_data->lm_height);
 				return -EINVAL;
@@ -167,10 +164,7 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 			if ((ds_data->lm_width > get_panel_xres(pinfo)) ||
 				(ds_data->lm_height >  get_panel_yres(pinfo)) ||
 				(ds_data->lm_width == 0) ||
-				(ds_data->lm_height == 0) ||
-				(is_dsc_compression(pinfo) &&
-				   !is_lm_configs_dsc_compatible(pinfo,
-				     ds_data->lm_width, ds_data->lm_height))) {
+				(ds_data->lm_height == 0)) {
 				pr_err("Invalid right LM {%d,%d} setting\n",
 					ds_data->lm_width, ds_data->lm_height);
 				return -EINVAL;
@@ -217,6 +211,8 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_destination_scaler *ds_left  = NULL;
 	struct mdss_mdp_destination_scaler *ds_right = NULL;
+	struct mdss_panel_info *pinfo;
+	u32 scaler_width, scaler_height;
 
 	if (ds_data) {
 		mdata = mfd_to_mdata(mfd);
@@ -292,6 +288,31 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 		pr_debug("DS_LEFT: flags=0x%X\n", ds_left->flags);
 	if (ds_right)
 		pr_debug("DS_RIGHT: flags=0x%X\n", ds_right->flags);
+
+	/*
+	 * When DSC is enabled, make sure the scaler output dimension is
+	 * correctly setup.
+	 */
+	pinfo = &ctl->panel_data->panel_info;
+	scaler_width = 0;
+	scaler_height = 0;
+	if (ds_left && ds_left->flags) {
+		scaler_width += ds_left->scaler.dst_width;
+		scaler_height = ds_left->scaler.dst_height;
+	}
+	if (ds_right && ds_right->flags) {
+		scaler_width += ds_right->scaler.dst_width;
+		scaler_height = ds_right->scaler.dst_height;
+	}
+	pr_debug("DS output dimension: %dx%d\n", scaler_width, scaler_height);
+
+	if (ds_data[0].flags && (is_dsc_compression(pinfo) &&
+				!is_lm_configs_dsc_compatible(pinfo,
+					scaler_width, scaler_height))) {
+		pr_err("Invalid Dest-scaler output width/height: %d/%d\n",
+			scaler_width, scaler_height);
+		ret = -EINVAL;
+	}
 
 	return ret;
 }
