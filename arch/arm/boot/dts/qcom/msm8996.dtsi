@@ -1394,18 +1394,20 @@
 			<&clock_gcc clk_gcc_pcie_clkref_clk>,
 			<&clock_gcc clk_gcc_smmu_aggre0_axi_clk>,
 			<&clock_gcc clk_gcc_pcie_phy_cfg_ahb_clk>,
-			<&clock_gcc clk_gcc_pcie_phy_aux_clk>,
-			<&clock_gcc clk_gcc_pcie_phy_reset>,
-			<&clock_gcc clk_gcc_pcie_phy_com_reset>,
-			<&clock_gcc clk_gcc_pcie_phy_nocsr_com_phy_reset>,
-			<&clock_gcc clk_gcc_pcie_0_phy_reset>;
+			<&clock_gcc clk_gcc_pcie_phy_aux_clk>;
 
 		clock-names =  "pcie_0_pipe_clk", "pcie_0_ref_clk_src", "pcie_0_aux_clk",
 			"pcie_0_cfg_ahb_clk", "pcie_0_mstr_axi_clk",
 			"pcie_0_slv_axi_clk", "pcie_0_ldo", "pcie_0_smmu_clk",
-			"pcie_phy_cfg_ahb_clk", "pcie_phy_aux_clk", "pcie_phy_reset",
-			"pcie_phy_com_reset", "pcie_phy_nocsr_com_phy_reset",
-			"pcie_0_phy_reset";
+			"pcie_phy_cfg_ahb_clk", "pcie_phy_aux_clk";
+
+		resets = <&clock_gcc PCIE_PHY_BCR>,
+			<&clock_gcc PCIE_PHY_COM_BCR>,
+			<&clock_gcc PCIE_PHY_NOCSR_COM_PHY_BCR>,
+			<&clock_gcc PCIE_0_PHY_BCR>;
+
+		reset-names = "pcie_phy_reset", "pcie_phy_com_reset",
+			"pcie_phy_nocsr_com_phy_reset","pcie_0_phy_reset";
 
 		max-clock-frequency-hz = <0>, <0>, <1010526>, <0>, <0>, <0>, <0>,
 					 <0>, <0>, <0>, <0>, <0>, <0>, <0>;
@@ -1544,18 +1546,20 @@
 			<&clock_gcc clk_gcc_pcie_clkref_clk>,
 			<&clock_gcc clk_gcc_smmu_aggre0_axi_clk>,
 			<&clock_gcc clk_gcc_pcie_phy_cfg_ahb_clk>,
-			<&clock_gcc clk_gcc_pcie_phy_aux_clk>,
-			<&clock_gcc clk_gcc_pcie_phy_reset>,
-			<&clock_gcc clk_gcc_pcie_phy_com_reset>,
-			<&clock_gcc clk_gcc_pcie_phy_nocsr_com_phy_reset>,
-			<&clock_gcc clk_gcc_pcie_1_phy_reset>;
+			<&clock_gcc clk_gcc_pcie_phy_aux_clk>;
 
 		clock-names =  "pcie_1_pipe_clk", "pcie_1_ref_clk_src", "pcie_1_aux_clk",
 			"pcie_1_cfg_ahb_clk", "pcie_1_mstr_axi_clk",
 			"pcie_1_slv_axi_clk", "pcie_1_ldo", "pcie_1_smmu_clk",
-			"pcie_phy_cfg_ahb_clk", "pcie_phy_aux_clk", "pcie_phy_reset",
-			"pcie_phy_com_reset", "pcie_phy_nocsr_com_phy_reset",
-			"pcie_1_phy_reset";
+			"pcie_phy_cfg_ahb_clk", "pcie_phy_aux_clk";
+
+		resets = <&clock_gcc PCIE_PHY_BCR>,
+			<&clock_gcc PCIE_PHY_COM_BCR>,
+			<&clock_gcc PCIE_PHY_NOCSR_COM_PHY_BCR>,
+			<&clock_gcc PCIE_1_PHY_BCR>;
+
+		reset-names = "pcie_phy_reset", "pcie_phy_com_reset",
+			"pcie_phy_nocsr_com_phy_reset","pcie_1_phy_reset";
 
 		max-clock-frequency-hz = <0>, <0>, <1010526>, <0>, <0>, <0>, <0>,
 					 <0>, <0>, <0>, <0>, <0>, <0>, <0>;
@@ -1698,18 +1702,20 @@
 			<&clock_gcc clk_gcc_pcie_clkref_clk>,
 			<&clock_gcc clk_gcc_smmu_aggre0_axi_clk>,
 			<&clock_gcc clk_gcc_pcie_phy_cfg_ahb_clk>,
-			<&clock_gcc clk_gcc_pcie_phy_aux_clk>,
-			<&clock_gcc clk_gcc_pcie_phy_reset>,
-			<&clock_gcc clk_gcc_pcie_phy_com_reset>,
-			<&clock_gcc clk_gcc_pcie_phy_nocsr_com_phy_reset>,
-			<&clock_gcc clk_gcc_pcie_2_phy_reset>;
+			<&clock_gcc clk_gcc_pcie_phy_aux_clk>;
 
 		clock-names =  "pcie_2_pipe_clk", "pcie_2_ref_clk_src", "pcie_2_aux_clk",
 			"pcie_2_cfg_ahb_clk", "pcie_2_mstr_axi_clk",
 			"pcie_2_slv_axi_clk", "pcie_2_ldo", "pcie_2_smmu_clk",
-			"pcie_phy_cfg_ahb_clk", "pcie_phy_aux_clk", "pcie_phy_reset",
-			"pcie_phy_com_reset", "pcie_phy_nocsr_com_phy_reset",
-			"pcie_2_phy_reset";
+			"pcie_phy_cfg_ahb_clk", "pcie_phy_aux_clk";
+
+		resets = <&clock_gcc PCIE_PHY_BCR>,
+			<&clock_gcc PCIE_PHY_COM_BCR>,
+			<&clock_gcc PCIE_PHY_NOCSR_COM_PHY_BCR>,
+			<&clock_gcc PCIE_2_PHY_BCR>;
+
+		reset-names = "pcie_phy_reset", "pcie_phy_com_reset",
+			"pcie_phy_nocsr_com_phy_reset","pcie_2_phy_reset";
 
 		max-clock-frequency-hz = <0>, <0>, <1010526>, <0>, <0>, <0>, <0>,
 					 <0>, <0>, <0>, <0>, <0>, <0>, <0>;

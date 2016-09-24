@@ -110,6 +110,10 @@ Optional Properties:
 	manager(scm) driver. scm driver uses this device id to restore PCIe
 	controller related security configuration after coming out of the controller
 	power collapse.
+  - resets: reset specifier pair consists of phandle for the reset controller
+    and reset lines used by this controller.
+  - reset-names: reset signal name strings sorted in the same order as the resets
+    property.
 
 Example:
 
@@ -230,13 +234,21 @@ Example:
 			<&clock_gcc clk_gcc_pcie_0_cfg_ahb_clk>,
 			<&clock_gcc clk_gcc_pcie_0_mstr_axi_clk>,
 			<&clock_gcc clk_gcc_pcie_0_slv_axi_clk>,
-			<&clock_gcc clk_pcie_0_phy_ldo>,
-			<&clock_gcc clk_gcc_pcie_phy_0_reset>;
+			<&clock_gcc clk_pcie_0_phy_ldo>;
 
 		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
 				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
 				"pcie_0_ldo";
+
+		resets = <&clock_gcc GCC_PCIE_PHY_BCR>,
+			<&clock_gcc GCC_PCIE_PHY_COM_BCR>,
+			<&clock_gcc GCC_PCIE_PHY_NOCSR_COM_PHY_BCR>,
+			<&clock_gcc GCC_PCIE_0_PHY_BCR>;
+
+		reset-names = "pcie_phy_reset", "pcie_phy_com_reset",
+				"pcie_phy_nocsr_com_phy_reset","pcie_0_phy_reset";
+
 		max-clock-frequency-hz = <125000000>, <0>, <1000000>,
 						<0>, <0>, <0>, <0>;
 		qcom,l0s-supported;
