@@ -594,7 +594,7 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 			avail_flash_ua, ocv_uv, ibat_now, rbatt_uohm,
 			led->trigger_lmh);
 	return min(FLASH_LED_MAX_TOTAL_CURRENT_MA,
-			(int)(avail_flash_ua / MCONV));
+			(int)(div64_s64(avail_flash_ua, MCONV)));
 }
 
 static int qpnp_flash_led_calc_thermal_current_lim(struct qpnp_flash_led *led)
