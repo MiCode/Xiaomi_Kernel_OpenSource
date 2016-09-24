@@ -683,7 +683,7 @@ int armv8pmu_probe_num_events(struct arm_pmu *arm_pmu)
 	ret = smp_call_function_any(&arm_pmu->supported_cpus,
 				    armv8pmu_read_num_pmnc_events,
 				    &arm_pmu->num_events, 1);
-	if (!ret)
+	if (ret)
 		idle_notifier_unregister(&pmu_idle_nb->perf_cpu_idle_nb);
 	return ret;
 
