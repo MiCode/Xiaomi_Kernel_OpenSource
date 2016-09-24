@@ -173,6 +173,16 @@ config MSM_GPUCC_FALCON
 	  Say Y if you want to support graphics controller devices which will
 	  be required to enable those device.
 
+config MSM_MMCC_FALCON
+	tristate "MSMFALCON Multimedia Clock Controller"
+	select MSM_GCC_FALCON
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the multimedia clock controller on Qualcomm Technologies, Inc
+	  MSMfalcon devices.
+	  Say Y if you want to support multimedia devices such as display,
+	  video encode/decode, camera, etc.
+
 config QCOM_HFPLL
 	tristate "High-Frequency PLL (HFPLL) Clock Controller"
 	depends on COMMON_CLK_QCOM

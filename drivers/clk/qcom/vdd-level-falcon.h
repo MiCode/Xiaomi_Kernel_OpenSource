@@ -116,6 +116,21 @@
 	},						\
 	.num_rate_max = VDD_DIG_NUM
 
+#define VDD_MMSS_PLL_DIG_FMAX_MAP1(l1, f1) \
+	.vdd_class = &vdd_mx,			\
+	.rate_max = (unsigned long[VDD_DIG_NUM]) {	\
+		[VDD_DIG_##l1] = (f1),		\
+	},					\
+	.num_rate_max = VDD_DIG_NUM
+
+#define VDD_MMSS_PLL_DIG_FMAX_MAP2(l1, f1, l2, f2) \
+	.vdd_class = &vdd_mx,			\
+	.rate_max = (unsigned long[VDD_DIG_NUM]) {	\
+		[VDD_DIG_##l1] = (f1),		\
+		[VDD_DIG_##l2] = (f2),		\
+	},					\
+	.num_rate_max = VDD_DIG_NUM
+
 enum vdd_dig_levels {
 	VDD_DIG_NONE,
 	VDD_DIG_MIN,		/* MIN SVS */
