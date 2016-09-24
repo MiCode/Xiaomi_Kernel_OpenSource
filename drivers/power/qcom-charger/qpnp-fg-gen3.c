@@ -1839,6 +1839,16 @@ static int fg_hw_init(struct fg_chip *chip)
 	if (chip->cyc_ctr.en)
 		restore_cycle_counter(chip);
 
+	if (chip->dt.jeita_hyst_temp >= 0) {
+		val = chip->dt.jeita_hyst_temp << JEITA_TEMP_HYST_SHIFT;
+		rc = fg_masked_write(chip, BATT_INFO_BATT_TEMP_CFG(chip),
+			JEITA_TEMP_HYST_MASK, val);
+		if (rc < 0) {
+			pr_err("Error in writing batt_temp_cfg, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -2111,7 +2121,7 @@ static int fg_parse_dt(struct fg_chip *chip)
 	struct device_node *child, *revid_node, *node = chip->dev->of_node;
 	u32 base, temp;
 	u8 subtype;
-	int rc, len;
+	int rc;
 
 	if (!node)  {
 		dev_err(chip->dev, "device tree node missing\n");
@@ -2260,15 +2270,14 @@ static int fg_parse_dt(struct fg_chip *chip)
 	chip->dt.jeita_thresholds[JEITA_COOL] = DEFAULT_BATT_TEMP_COOL;
 	chip->dt.jeita_thresholds[JEITA_WARM] = DEFAULT_BATT_TEMP_WARM;
 	chip->dt.jeita_thresholds[JEITA_HOT] = DEFAULT_BATT_TEMP_HOT;
-	if (of_find_property(node, "qcom,fg-jeita-thresholds", &len)) {
-		if (len == NUM_JEITA_LEVELS) {
-			rc = of_property_read_u32_array(node,
-					"qcom,fg-jeita-thresholds",
-					chip->dt.jeita_thresholds, len);
-			if (rc < 0)
-				pr_warn("Error reading Jeita thresholds, default values will be used rc:%d\n",
-					rc);
-		}
+	if (of_property_count_elems_of_size(node, "qcom,fg-jeita-thresholds",
+		sizeof(u32)) == NUM_JEITA_LEVELS) {
+		rc = of_property_read_u32_array(node,
+				"qcom,fg-jeita-thresholds",
+				chip->dt.jeita_thresholds, NUM_JEITA_LEVELS);
+		if (rc < 0)
+			pr_warn("Error reading Jeita thresholds, default values will be used rc:%d\n",
+				rc);
 	}
 
 	rc = of_property_read_u32(node, "qcom,fg-esr-timer-charging", &temp);
@@ -2337,6 +2346,12 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->dt.cl_max_cap_limit = DEFAULT_CL_MAX_LIM_DECIPERC;
 	else
 		chip->dt.cl_max_cap_limit = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-jeita-hyst-temp", &temp);
+	if (rc < 0)
+		chip->dt.jeita_hyst_temp = -EINVAL;
+	else
+		chip->dt.jeita_hyst_temp = temp;
 
 	return 0;
 }

@@ -193,6 +193,7 @@ struct fg_dt_props {
 	int	cl_max_cap_dec;
 	int	cl_max_cap_limit;
 	int	cl_min_cap_limit;
+	int	jeita_hyst_temp;
 };
 
 /* parameters from battery profile */
