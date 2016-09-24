@@ -4009,6 +4009,14 @@ int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz)
 		}
 		rtac_set_afe_handle(this_afe.apr);
 	}
+	if (dma_buf_sz % SZ_4K != 0) {
+		/*
+		 * The memory allocated by msm_audio_ion_alloc is always 4kB
+		 * aligned, ADSP expects the size to be 4kB aligned as well
+		 * so re-adjusts the  buffer size before passing to ADSP.
+		 */
+		dma_buf_sz = PAGE_ALIGN(dma_buf_sz);
+	}
 
 	cmd_size = sizeof(struct afe_service_cmd_shared_mem_map_regions) \
 		+ sizeof(struct afe_service_shared_map_region_payload);
