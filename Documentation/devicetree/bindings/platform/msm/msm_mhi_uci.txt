@@ -1,0 +1,55 @@
+MSM MHI UCI interface device
+
+MHI userpace control interface (UCI) enables userspace software clients to
+communicate with device using MHI protocol.
+
+==============
+Node Structure
+==============
+
+Main node properties:
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: "qcom,mhi-uci"
+
+- qcom,mhi-uci-channels
+  Usage: required
+  Value type: Array of <u32>
+  Definition: Array tuples which define the channel configuration
+	parameters.  Each tuple is of length 2, 1st value
+	represent channel, and 2nd value represent maximum
+	payload supported.  Maximum payload supported is 64
+	bytes.  Number of tuples must be even value.  Max # of
+	tuples is 46.
+
+- qcom,mhi-uci-ctrlchan
+  Usage: optional
+  Value type: <u32>
+  Definition: Channel that will be handling flow control (DTR/RTS) signals.
+
+=======
+Example
+=======
+qcom,mhi-uci@0 {
+	compatible = "qcom,mhi-uci";
+	qcom,mhi-uci-channels = <0 0x1000>,
+				<1 0x1000>,
+				<2 0x1000>,
+				<3 0xffff>,
+				<10 0x1000>,
+				<11 0x1000>,
+				<14 0x1000>,
+				<15 0x1000>,
+				<16 0x1000>,
+				<17 0x1000>,
+				<18 0x1000>,
+				<19 0x1000>,
+				<24 0x1000>,
+				<25 0x1000>,
+				<32 0x1000>,
+				<33 0x1000>;
+	qcom,mhi-uci-ctrlchan = <18>;
+	status = "ok";
+};
