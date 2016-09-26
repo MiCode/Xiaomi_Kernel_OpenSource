@@ -71,7 +71,7 @@
 
 #define IPA_AGGR_MAX_STR_LENGTH (10)
 
-#define CLEANUP_TAG_PROCESS_TIMEOUT 150
+#define CLEANUP_TAG_PROCESS_TIMEOUT 500
 
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
@@ -2243,7 +2243,7 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 		}
 	}
 
-	/* Will wait 150msecs for IPA tag process completion */
+	/* Will wait 500msecs for IPA tag process completion */
 	retval = ipa3_tag_process(desc, num_descs,
 		msecs_to_jiffies(CLEANUP_TAG_PROCESS_TIMEOUT));
 	if (retval) {
