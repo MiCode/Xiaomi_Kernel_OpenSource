@@ -154,6 +154,9 @@ GPU Quirks:
 				detection logic
 - qcom,gpu-quirk-dp2clockgating-disable:
 				Disable RB sampler data path clock gating optimization
+- qcom,gpu-quirk-lmloadkill-disable:
+				Use register setting to disable local memory(LM) feature
+				to avoid corner case error
 
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight

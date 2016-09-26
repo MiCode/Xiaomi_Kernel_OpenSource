@@ -843,6 +843,8 @@ static struct {
 	 { ADRENO_QUIRK_FAULT_DETECT_MASK, "qcom,gpu-quirk-fault-detect-mask" },
 	 { ADRENO_QUIRK_DISABLE_RB_DP2CLOCKGATING,
 			"qcom,gpu-quirk-dp2clockgating-disable" },
+	 { ADRENO_QUIRK_DISABLE_LMLOADKILL,
+			"qcom,gpu-quirk-lmloadkill-disable" },
 };
 
 static int adreno_of_get_power(struct adreno_device *adreno_dev,
