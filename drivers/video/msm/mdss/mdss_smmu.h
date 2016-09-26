@@ -119,18 +119,26 @@ static inline int mdss_smmu_attach(struct mdss_data_type *mdata)
 {
 	int rc;
 
+	mdata->mdss_util->iommu_lock();
 	MDSS_XLOG(mdata->iommu_attached);
+
 	if (mdata->iommu_attached) {
 		pr_debug("mdp iommu already attached\n");
-		return 0;
+		rc = 0;
+		goto end;
 	}
 
-	if (!mdata->smmu_ops.smmu_attach)
-		return -ENOSYS;
+	if (!mdata->smmu_ops.smmu_attach) {
+		rc = -ENOSYS;
+		goto end;
+	}
 
 	rc =  mdata->smmu_ops.smmu_attach(mdata);
 	if (!rc)
 		mdata->iommu_attached = true;
+
+end:
+	mdata->mdss_util->iommu_unlock();
 	return rc;
 }
 
@@ -138,19 +146,26 @@ static inline int mdss_smmu_detach(struct mdss_data_type *mdata)
 {
 	int rc;
 
+	mdata->mdss_util->iommu_lock();
 	MDSS_XLOG(mdata->iommu_attached);
 
 	if (!mdata->iommu_attached) {
 		pr_debug("mdp iommu already dettached\n");
-		return 0;
+		rc = 0;
+		goto end;
 	}
 
-	if (!mdata->smmu_ops.smmu_detach)
-		return -ENOSYS;
+	if (!mdata->smmu_ops.smmu_detach) {
+		rc = -ENOSYS;
+		goto end;
+	}
 
 	rc = mdata->smmu_ops.smmu_detach(mdata);
 	if (!rc)
 		mdata->iommu_attached = false;
+
+end:
+	mdata->mdss_util->iommu_unlock();
 	return rc;
 }
 
