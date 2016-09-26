@@ -718,13 +718,22 @@ static int arm_smmu_parse_iommus_properties(struct arm_smmu_device *smmu,
 				entry->node = master;
 				list_add(&entry->list, &iommus);
 			}
-			if (iommuspec.args_count != 1) {
+			switch (iommuspec.args_count) {
+			case 0:
+				/*
+				 * For pci-e devices the SIDs are provided
+				 * at device attach time.
+				 */
+				break;
+			case 1:
+				entry->num_sids++;
+				entry->streamids[entry->num_sids - 1]
+					= iommuspec.args[0];
+				break;
+			default:
 				dev_err(smmu->dev, "iommus property has wrong #iommu-cells");
 				return -EINVAL;
 			}
-			entry->num_sids++;
-			entry->streamids[entry->num_sids - 1]
-				= iommuspec.args[0];
 			arg_ind++;
 		}
 
