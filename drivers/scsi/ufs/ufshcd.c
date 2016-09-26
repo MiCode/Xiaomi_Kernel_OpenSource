@@ -1346,7 +1346,12 @@ static void ufshcd_gate_work(struct work_struct *work)
 		ufshcd_set_link_hibern8(hba);
 	}
 
-	if (!ufshcd_is_link_active(hba) && !hba->no_ref_clk_gating)
+	/*
+	 * If auto hibern8 is supported then the link will already
+	 * be in hibern8 state and the ref clock can be gated.
+	 */
+	if ((ufshcd_is_auto_hibern8_supported(hba) ||
+	     !ufshcd_is_link_active(hba)) && !hba->no_ref_clk_gating)
 		ufshcd_disable_clocks(hba, true);
 	else
 		/* If link is active, device ref_clk can't be switched off */
