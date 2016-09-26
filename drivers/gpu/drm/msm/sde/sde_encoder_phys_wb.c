@@ -12,7 +12,7 @@
  *
  */
 
-#define pr_fmt(fmt)	"sde-wb:[%s] " fmt, __func__
+#define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 
 #include <linux/jiffies.h>
 #include <linux/debugfs.h>
@@ -292,6 +292,16 @@ static int sde_encoder_phys_wb_atomic_check(
 			hw_wb->idx - WB_0, mode->base.id, mode->name,
 			mode->hdisplay, mode->vdisplay);
 
+	if (!conn_state || !conn_state->connector) {
+		SDE_ERROR("invalid connector state\n");
+		return -EINVAL;
+	} else if (conn_state->connector->status !=
+			connector_status_connected) {
+		SDE_ERROR("connector not connected %d\n",
+				conn_state->connector->status);
+		return -EINVAL;
+	}
+
 	memset(&wb_roi, 0, sizeof(struct sde_rect));
 
 	rc = sde_wb_connector_state_get_output_roi(conn_state, &wb_roi);
@@ -315,7 +325,7 @@ static int sde_encoder_phys_wb_atomic_check(
 	fmt = sde_get_sde_format_ext(fb->pixel_format, fb->modifier,
 			drm_format_num_planes(fb->pixel_format));
 	if (!fmt) {
-		SDE_ERROR("unsupported output pixel format:%d\n",
+		SDE_ERROR("unsupported output pixel format:%x\n",
 				fb->pixel_format);
 		return -EINVAL;
 	}
@@ -335,7 +345,8 @@ static int sde_encoder_phys_wb_atomic_check(
 		return -EINVAL;
 	}
 
-	phys_enc->needs_cdm = SDE_FORMAT_IS_YUV(fmt);
+	if (SDE_FORMAT_IS_YUV(fmt) != !!phys_enc->hw_cdm)
+		crtc_state->mode_changed = true;
 
 	if (wb_roi.w && wb_roi.h) {
 		if (wb_roi.w != mode->hdisplay) {
@@ -597,6 +608,9 @@ static void sde_encoder_phys_wb_mode_set(
 			hw_wb->idx - WB_0, mode->base.id,
 			mode->name, mode->hdisplay, mode->vdisplay);
 
+	phys_enc->hw_ctl = NULL;
+	phys_enc->hw_cdm = NULL;
+
 	/* Retrieve previously allocated HW Resources. CTL shouldn't fail */
 	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_CTL);
 	for (i = 0; i <= instance; i++) {
@@ -619,13 +633,10 @@ static void sde_encoder_phys_wb_mode_set(
 			phys_enc->hw_cdm = (struct sde_hw_cdm *) iter.hw;
 	}
 
-	if (IS_ERR_OR_NULL(phys_enc->hw_cdm)) {
-		if (phys_enc->needs_cdm) {
-			SDE_ERROR("CDM required but not allocated: %ld\n",
-					PTR_ERR(phys_enc->hw_cdm));
-			phys_enc->hw_ctl = NULL;
-		}
-		phys_enc->hw_cdm = NULL;
+	if (IS_ERR(phys_enc->hw_cdm)) {
+		SDE_ERROR("CDM required but not allocated: %ld\n",
+				PTR_ERR(phys_enc->hw_cdm));
+		phys_enc->hw_ctl = NULL;
 	}
 }
 
@@ -816,15 +827,34 @@ static void sde_encoder_phys_wb_get_hw_resources(
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	struct sde_hw_wb *hw_wb;
+	struct drm_framebuffer *fb;
+	const struct sde_format *fmt;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+
+	fb = sde_wb_connector_state_get_output_fb(conn_state);
+	if (!fb) {
+		SDE_ERROR("no output framebuffer\n");
+		return;
+	}
+
+	fmt = sde_get_sde_format_ext(fb->pixel_format, fb->modifier,
+			drm_format_num_planes(fb->pixel_format));
+	if (!fmt) {
+		SDE_ERROR("unsupported output pixel format:%d\n",
+				fb->pixel_format);
+		return;
+	}
+
 	hw_wb = wb_enc->hw_wb;
-	SDE_DEBUG("[wb:%d]\n", hw_wb->idx - WB_0);
 	hw_res->wbs[hw_wb->idx - WB_0] = phys_enc->intf_mode;
-	hw_res->needs_cdm = phys_enc->needs_cdm;
+	hw_res->needs_cdm = SDE_FORMAT_IS_YUV(fmt);
+	SDE_DEBUG("[wb:%d] intf_mode=%d needs_cdm=%d\n", hw_wb->idx - WB_0,
+			hw_res->wbs[hw_wb->idx - WB_0],
+			hw_res->needs_cdm);
 }
 
 /**
