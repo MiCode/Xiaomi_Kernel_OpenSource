@@ -953,27 +953,14 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 {
 	s32 ret = 0;
 	u8 *fw_dsp_isp = NULL;
-	u8  retry = 0;
 
 	pr_debug("Begin burn dsp isp.");
 
 	/* step1:alloc memory */
 	pr_debug("step1:alloc memory");
-	while (retry++ < 5) {
-		fw_dsp_isp = devm_kzalloc(&client->dev, FW_DSP_ISP_LENGTH,
-								GFP_KERNEL);
-		if (fw_dsp_isp == NULL) {
-			continue;
-		} else {
-			pr_info("Alloc %dk byte memory success.",
-					(FW_DSP_ISP_LENGTH/1024));
-			break;
-		}
-	}
-	if (retry == 5) {
-		pr_err("Alloc memory fail,exit.");
+	fw_dsp_isp = devm_kzalloc(&client->dev, FW_DSP_ISP_LENGTH, GFP_KERNEL);
+	if (fw_dsp_isp == NULL)
 		return FAIL;
-	}
 
 	/* step2:load dsp isp file data */
 	pr_debug("step2:load dsp isp file data");
@@ -1059,28 +1046,15 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 static u8 gup_burn_fw_ss51(struct i2c_client *client)
 {
 	u8 *fw_ss51 = NULL;
-	u8  retry = 0;
 	s32 ret = 0;
 
 	pr_debug("Begin burn ss51 firmware.");
 
 	/* step1:alloc memory */
 	pr_debug("step1:alloc memory");
-	while (retry++ < 5) {
-		fw_ss51 = devm_kzalloc(&client->dev, FW_SECTION_LENGTH,
-							GFP_KERNEL);
-		if (fw_ss51 == NULL) {
-			continue;
-		} else {
-			pr_info("Alloc %dk byte memory success.",
-						(FW_SECTION_LENGTH/1024));
-			break;
-		}
-	}
-	if (retry == 5) {
-		pr_err("Alloc memory fail,exit.");
+	fw_ss51 = devm_kzalloc(&client->dev, FW_SECTION_LENGTH, GFP_KERNEL);
+	if (fw_ss51 == NULL)
 		return FAIL;
-	}
 
 	/* step2:load ss51 firmware section 1 file data */
 	pr_debug("step2:load ss51 firmware section 1 file data");
@@ -1164,27 +1138,14 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
 {
 	s32 ret = 0;
 	u8 *fw_dsp = NULL;
-	u8  retry = 0;
 	u8  rd_buf[5];
 
 	pr_debug("Begin burn dsp firmware.");
 	/* step1:alloc memory */
 	pr_debug("step1:alloc memory");
-	while (retry++ < 5) {
-		fw_dsp = devm_kzalloc(&client->dev, FW_DSP_LENGTH,
-							GFP_KERNEL);
-		if (fw_dsp == NULL) {
-			continue;
-		} else  {
-			pr_info("Alloc %dk byte memory success.",
-					(FW_SECTION_LENGTH/1024));
-			break;
-		}
-	}
-	if (retry == 5) {
-		pr_err("Alloc memory fail,exit.");
+	fw_dsp = devm_kzalloc(&client->dev, FW_DSP_LENGTH, GFP_KERNEL);
+	if (fw_dsp == NULL)
 		return FAIL;
-	}
 
 	/* step2:load firmware dsp */
 	pr_debug("step2:load firmware dsp");
@@ -1268,28 +1229,15 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 {
 	s32 ret = 0;
 	u8 *fw_boot = NULL;
-	u8  retry = 0;
 	u8  rd_buf[5];
 
 	pr_debug("Begin burn bootloader firmware.");
 
 	/* step1:Alloc memory */
 	pr_debug("step1:Alloc memory");
-	while (retry++ < 5) {
-		fw_boot = devm_kzalloc(&client->dev, FW_BOOT_LENGTH,
-							GFP_KERNEL);
-		if (fw_boot == NULL) {
-			continue;
-		} else {
-			pr_info("Alloc %dk byte memory success.",
-						(FW_BOOT_LENGTH/1024));
-			break;
-		}
-	}
-	if (retry == 5) {
-		pr_err("Alloc memory fail,exit.");
+	fw_boot = devm_kzalloc(&client->dev, FW_BOOT_LENGTH, GFP_KERNEL);
+	if (fw_boot == NULL)
 		return FAIL;
-	}
 
 	/* step2:load firmware bootloader */
 	pr_debug("step2:load firmware bootloader");
