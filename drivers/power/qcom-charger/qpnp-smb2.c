@@ -58,6 +58,13 @@ static struct smb_params v1_params = {
 		.max_u	= 4800000,
 		.step_u	= 25000,
 	},
+	.otg_cl			= {
+		.name	= "usb otg current limit",
+		.reg	= OTG_CURRENT_LIMIT_CFG_REG,
+		.min_u	= 250000,
+		.max_u	= 2000000,
+		.step_u	= 250000,
+	},
 	.dc_icl			= {
 		.name	= "dc input current limit",
 		.reg	= DCIN_CURRENT_LIMIT_CFG_REG,
@@ -202,6 +209,7 @@ struct smb_dt_props {
 	bool	no_battery;
 	int	fcc_ua;
 	int	usb_icl_ua;
+	int	otg_cl_ua;
 	int	dc_icl_ua;
 	int	fv_uv;
 	int	wipower_max_uw;
@@ -226,6 +234,7 @@ module_param_named(
 	pl_master_percent, __pl_master_percent, int, 0600
 );
 
+#define MICRO_1P5A	1500000
 static int smb2_parse_dt(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -276,6 +285,11 @@ static int smb2_parse_dt(struct smb2 *chip)
 				"qcom,usb-icl-ua", &chip->dt.usb_icl_ua);
 	if (rc < 0)
 		chip->dt.usb_icl_ua = -EINVAL;
+
+	rc = of_property_read_u32(node,
+				"qcom,otg-cl-ua", &chip->dt.otg_cl_ua);
+	if (rc < 0)
+		chip->dt.otg_cl_ua = MICRO_1P5A;
 
 	rc = of_property_read_u32(node,
 				"qcom,dc-icl-ua", &chip->dt.dc_icl_ua);
@@ -980,6 +994,8 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (chip->dt.dc_icl_ua < 0)
 		smblib_get_charge_param(chg, &chg->param.dc_icl,
 					&chip->dt.dc_icl_ua);
+
+	chg->otg_cl_ua = chip->dt.otg_cl_ua;
 
 	/* votes must be cast before configuring software control */
 	vote(chg->pl_disable_votable,

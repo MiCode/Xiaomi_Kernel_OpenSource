@@ -77,6 +77,7 @@ struct smb_params {
 	struct smb_chg_param	fv;
 	struct smb_chg_param	usb_icl;
 	struct smb_chg_param	icl_stat;
+	struct smb_chg_param	otg_cl;
 	struct smb_chg_param	dc_icl;
 	struct smb_chg_param	dc_icl_pt_lv;
 	struct smb_chg_param	dc_icl_pt_hv;
@@ -166,6 +167,8 @@ struct smb_charger {
 	int			system_temp_level;
 	int			thermal_levels;
 	int			*thermal_mitigation;
+
+	int			otg_cl_ua;
 
 	int			fake_capacity;
 
