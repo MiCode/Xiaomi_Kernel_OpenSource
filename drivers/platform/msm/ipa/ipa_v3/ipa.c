@@ -38,6 +38,16 @@
 #include <linux/hash.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/smem.h>
+#include <soc/qcom/scm.h>
+
+#ifdef CONFIG_ARM64
+
+/* Outer caches unsupported on ARM64 platforms */
+#define outer_flush_range(x, y)
+#define __cpuc_flush_dcache_area __flush_dcache_area
+
+#endif
+
 #define IPA_SUBSYSTEM_NAME "ipa_fws"
 #include "ipa_i.h"
 #include "../ipa_rm_i.h"
@@ -197,6 +207,21 @@ struct ipa3_ioc_nat_alloc_mem32 {
 	compat_off_t offset;
 };
 #endif
+
+#define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
+#define TZ_MEM_PROTECT_REGION_ID 0x10
+
+struct tz_smmu_ipa_protect_region_iovec_s {
+	u64 input_addr;
+	u64 output_addr;
+	u64 size;
+	u32 attr;
+} __packed;
+
+struct tz_smmu_ipa_protect_region_s {
+	phys_addr_t iovec_buf;
+	u32 size_bytes;
+} __packed;
 
 static void ipa3_start_tag_process(struct work_struct *work);
 static DECLARE_WORK(ipa3_tag_work, ipa3_start_tag_process);
@@ -4148,6 +4173,53 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	return count;
 }
 
+static int ipa3_tz_unlock_reg(struct ipa3_context *ipa3_ctx)
+{
+	int i, size, ret, resp;
+	struct tz_smmu_ipa_protect_region_iovec_s *ipa_tz_unlock_vec;
+	struct tz_smmu_ipa_protect_region_s cmd_buf;
+
+	if (ipa3_ctx && ipa3_ctx->ipa_tz_unlock_reg_num > 0) {
+		size = ipa3_ctx->ipa_tz_unlock_reg_num *
+			sizeof(struct tz_smmu_ipa_protect_region_iovec_s);
+		ipa_tz_unlock_vec = kzalloc(PAGE_ALIGN(size), GFP_KERNEL);
+		if (ipa_tz_unlock_vec == NULL)
+			return -ENOMEM;
+
+		for (i = 0; i < ipa3_ctx->ipa_tz_unlock_reg_num; i++) {
+			ipa_tz_unlock_vec[i].input_addr =
+				ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr ^
+				(ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr &
+				0xFFF);
+			ipa_tz_unlock_vec[i].output_addr =
+				ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr ^
+				(ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr &
+				0xFFF);
+			ipa_tz_unlock_vec[i].size =
+				ipa3_ctx->ipa_tz_unlock_reg[i].size;
+			ipa_tz_unlock_vec[i].attr = IPA_TZ_UNLOCK_ATTRIBUTE;
+		}
+
+		/* pass physical address of command buffer */
+		cmd_buf.iovec_buf = virt_to_phys((void *)ipa_tz_unlock_vec);
+		cmd_buf.size_bytes = size;
+
+		/* flush cache to DDR */
+		__cpuc_flush_dcache_area((void *)ipa_tz_unlock_vec, size);
+		outer_flush_range(cmd_buf.iovec_buf, cmd_buf.iovec_buf + size);
+
+		ret = scm_call(SCM_SVC_MP, TZ_MEM_PROTECT_REGION_ID, &cmd_buf,
+				sizeof(cmd_buf), &resp, sizeof(resp));
+		if (ret) {
+			IPAERR("scm call SCM_SVC_MP failed: %d\n", ret);
+			kfree(ipa_tz_unlock_vec);
+			return -EFAULT;
+		}
+		kfree(ipa_tz_unlock_vec);
+	}
+	return 0;
+}
+
 /**
 * ipa3_pre_init() - Initialize the IPA Driver.
 * This part contains all initialization which doesn't require IPA HW, such
@@ -4232,6 +4304,27 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->apply_rg10_wa = resource_p->apply_rg10_wa;
 	ipa3_ctx->gsi_ch20_wa = resource_p->gsi_ch20_wa;
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = false;
+	if (resource_p->ipa_tz_unlock_reg) {
+		ipa3_ctx->ipa_tz_unlock_reg_num =
+			resource_p->ipa_tz_unlock_reg_num;
+		ipa3_ctx->ipa_tz_unlock_reg = kcalloc(
+			ipa3_ctx->ipa_tz_unlock_reg_num,
+			sizeof(*ipa3_ctx->ipa_tz_unlock_reg),
+			GFP_KERNEL);
+		if (ipa3_ctx->ipa_tz_unlock_reg == NULL) {
+			result = -ENOMEM;
+			goto fail_tz_unlock_reg;
+		}
+		for (i = 0; i < ipa3_ctx->ipa_tz_unlock_reg_num; i++) {
+			ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr =
+				resource_p->ipa_tz_unlock_reg[i].reg_addr;
+			ipa3_ctx->ipa_tz_unlock_reg[i].size =
+				resource_p->ipa_tz_unlock_reg[i].size;
+		}
+	}
+
+	/* unlock registers for uc */
+	ipa3_tz_unlock_reg(ipa3_ctx);
 
 	/* default aggregation parameters */
 	ipa3_ctx->aggregation_type = IPA_MBIM_16;
@@ -4707,6 +4800,8 @@ fail_bus_reg:
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
 fail_mem_ctrl:
+	kfree(ipa3_ctx->ipa_tz_unlock_reg);
+fail_tz_unlock_reg:
 	ipc_log_context_destroy(ipa3_ctx->logbuf);
 fail_logbuf:
 	kfree(ipa3_ctx);
@@ -4718,8 +4813,10 @@ fail_mem_ctx:
 static int get_ipa_dts_configuration(struct platform_device *pdev,
 		struct ipa3_plat_drv_res *ipa_drv_res)
 {
-	int result;
+	int i, result, pos;
 	struct resource *resource;
+	u32 *ipa_tz_unlock_reg;
+	int elem_num;
 
 	/* initialize ipa3_res */
 	ipa_drv_res->ipa_pipe_mem_start_ofst = IPA_PIPE_MEM_START_OFST;
@@ -4734,6 +4831,8 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->lan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 	ipa_drv_res->apply_rg10_wa = false;
 	ipa_drv_res->gsi_ch20_wa = false;
+	ipa_drv_res->ipa_tz_unlock_reg_num = 0;
+	ipa_drv_res->ipa_tz_unlock_reg = NULL;
 
 	smmu_info.disable_htw = of_property_read_bool(pdev->dev.of_node,
 			"qcom,smmu-disable-htw");
@@ -4947,6 +5046,46 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		ipa_drv_res->apply_rg10_wa
 		? "Needed" : "Not needed");
 
+	elem_num = of_property_count_elems_of_size(pdev->dev.of_node,
+		"qcom,ipa-tz-unlock-reg", sizeof(u32));
+
+	if (elem_num > 0 && elem_num % 2 == 0) {
+		ipa_drv_res->ipa_tz_unlock_reg_num = elem_num / 2;
+
+		ipa_tz_unlock_reg = kcalloc(elem_num, sizeof(u32), GFP_KERNEL);
+		if (ipa_tz_unlock_reg == NULL)
+			return -ENOMEM;
+
+		ipa_drv_res->ipa_tz_unlock_reg = kcalloc(
+			ipa_drv_res->ipa_tz_unlock_reg_num,
+			sizeof(*ipa_drv_res->ipa_tz_unlock_reg),
+			GFP_KERNEL);
+		if (ipa_drv_res->ipa_tz_unlock_reg == NULL) {
+			kfree(ipa_tz_unlock_reg);
+			return -ENOMEM;
+		}
+
+		if (of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,ipa-tz-unlock-reg", ipa_tz_unlock_reg,
+			elem_num)) {
+			IPAERR("failed to read register addresses\n");
+			kfree(ipa_tz_unlock_reg);
+			kfree(ipa_drv_res->ipa_tz_unlock_reg);
+			return -EFAULT;
+		}
+
+		pos = 0;
+		for (i = 0; i < ipa_drv_res->ipa_tz_unlock_reg_num; i++) {
+			ipa_drv_res->ipa_tz_unlock_reg[i].reg_addr =
+				ipa_tz_unlock_reg[pos++];
+			ipa_drv_res->ipa_tz_unlock_reg[i].size =
+				ipa_tz_unlock_reg[pos++];
+			IPADBG("tz unlock reg %d: addr 0x%pa size %d\n", i,
+				&ipa_drv_res->ipa_tz_unlock_reg[i].reg_addr,
+				ipa_drv_res->ipa_tz_unlock_reg[i].size);
+		}
+		kfree(ipa_tz_unlock_reg);
+	}
 	return 0;
 }
 

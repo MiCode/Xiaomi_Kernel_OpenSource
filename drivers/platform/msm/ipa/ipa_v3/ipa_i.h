@@ -1066,6 +1066,11 @@ struct ipa3_ready_cb_info {
 	void *user_data;
 };
 
+struct ipa_tz_unlock_reg_info {
+	u64 reg_addr;
+	u32 size;
+};
+
 /**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
@@ -1284,6 +1289,8 @@ struct ipa3_context {
 	struct list_head ipa_ready_cb_list;
 	struct completion init_completion_obj;
 	struct ipa3_smp2p_info smp2p_info;
+	u32 ipa_tz_unlock_reg_num;
+	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 };
 
 /**
@@ -1322,6 +1329,8 @@ struct ipa3_plat_drv_res {
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool tethered_flow_control;
+	u32 ipa_tz_unlock_reg_num;
+	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 };
 
 struct ipa3_mem_partition {
