@@ -205,6 +205,10 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 			struct msm_audio_amrwbplus_config_v2 *amrwbplus_config;
 			struct msm_audio_amrwbplus_config_v2_32
 						amrwbplus_config_32;
+
+			memset(&amrwbplus_config_32, 0,
+					sizeof(amrwbplus_config_32));
+
 			amrwbplus_config =
 				(struct msm_audio_amrwbplus_config_v2 *)
 				audio->codec_cfg;
