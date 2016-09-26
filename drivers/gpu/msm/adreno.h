@@ -123,6 +123,8 @@
 #define ADRENO_QUIRK_FAULT_DETECT_MASK BIT(3)
 /* Disable RB sampler datapath clock gating optimization */
 #define ADRENO_QUIRK_DISABLE_RB_DP2CLOCKGATING BIT(4)
+/* Disable local memory(LM) feature to avoid corner case error */
+#define ADRENO_QUIRK_DISABLE_LMLOADKILL BIT(5)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
