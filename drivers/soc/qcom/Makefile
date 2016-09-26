@@ -29,3 +29,4 @@ obj-$(CONFIG_MSM_GLINK_LOOPBACK_SERVER) += glink_loopback_server.o
 obj-$(CONFIG_MSM_GLINK_SMEM_NATIVE_XPRT) += glink_smem_native_xprt.o
 obj-$(CONFIG_MSM_GLINK_SPI_XPRT) += glink_spi_xprt.o
 obj-$(CONFIG_TRACER_PKT) += tracer_pkt.o
+obj-$(CONFIG_QCOM_BUS_SCALING) += msm_bus/
