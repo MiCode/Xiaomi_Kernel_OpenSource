@@ -366,6 +366,9 @@ enum {
 #define OTG_EN_SRC_CFG_BIT		BIT(1)
 #define CONCURRENT_MODE_CFG_BIT		BIT(0)
 
+#define OTG_ENG_OTG_CFG_REG		(OTG_BASE + 0xC0)
+#define ENG_BUCKBOOST_HALT1_8_MODE_BIT	BIT(0)
+
 /* BATIF Peripheral Registers */
 /* BATIF Interrupt Bits */
 #define BAT_7_RT_STS_BIT			BIT(7)
@@ -765,6 +768,13 @@ enum {
 	ZIN_ICL_MID_HV_MAX_MV = 8000,
 	ZIN_ICL_HV_MAX_MV = 11000,
 };
+
+#define DC_ENG_SSUPPLY_CFG3_REG			(DCIN_BASE + 0xC2)
+#define ENG_SSUPPLY_HI_CAP_BIT			BIT(6)
+#define ENG_SSUPPLY_HI_RES_BIT			BIT(5)
+#define ENG_SSUPPLY_CFG_SKIP_TH_V0P2_BIT	BIT(3)
+#define ENG_SSUPPLY_CFG_SYSOV_TH_4P8_BIT	BIT(2)
+#define ENG_SSUPPLY_5V_OV_OPT_BIT		BIT(0)
 
 /* MISC Peripheral Registers */
 #define REVISION1_REG				(MISC_BASE + 0x00)
