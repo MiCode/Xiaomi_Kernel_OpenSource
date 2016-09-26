@@ -210,6 +210,12 @@ First Level Node - FG Gen3 device
 			0 - No hysteresis
 			1,2,3 - Value in Celsius.
 
+- qcom,fg-batt-temp-delta
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature delta interrupt threshold. Possible
+		    values are: 2, 4, 6 and 10. Unit is in Kelvin.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================
