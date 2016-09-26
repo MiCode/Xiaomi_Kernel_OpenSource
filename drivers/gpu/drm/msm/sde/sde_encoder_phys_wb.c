@@ -23,6 +23,7 @@
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
 #include "sde_wb.h"
+#include "sde_vbif.h"
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
 #define WAIT_TIMEOUT_MSEC			84
