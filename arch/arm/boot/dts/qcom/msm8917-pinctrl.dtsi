@@ -687,6 +687,25 @@
 			 };
 		};
 
+		sdc2_wlan_gpio {
+			sdc2_wlan_gpio_active: sdc2_wlan_gpio_active {
+				config {
+					pins = "gpio99";
+					output-high;
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+			sdc2_wlan_gpio_sleep: sdc2_wlan_gpio_sleep {
+				config {
+					pins = "gpio99";
+					output-low;
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
 		wcd9xxx_intr {
 			wcd_intr_default: wcd_intr_default{
 				mux {
