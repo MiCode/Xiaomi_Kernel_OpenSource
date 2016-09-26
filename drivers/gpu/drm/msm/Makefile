@@ -44,6 +44,7 @@ msm_drm-y := \
 	sde/sde_plane.o \
 	sde/sde_connector.o \
 	sde/sde_color_processing.o \
+	sde/sde_vbif.o \
 	msm_atomic.o \
 	msm_debugfs.o \
 	msm_drv.o \
@@ -132,7 +133,7 @@ obj-$(CONFIG_DRM_MSM) += sde/sde_hw_catalog.o \
 	sde/sde_hw_top.o \
 	sde/sde_hw_interrupts.o \
 	sde/sde_hw_vbif.o \
-	sde/sde_formats.o
+	sde/sde_formats.o \
 
 obj-$(CONFIG_DRM_MSM) += display-manager/display_manager.o
 

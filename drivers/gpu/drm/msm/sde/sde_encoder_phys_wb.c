@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
 #include "sde_wb.h"
+#include "sde_vbif.h"
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
 #define WAIT_TIMEOUT_MSEC			84
