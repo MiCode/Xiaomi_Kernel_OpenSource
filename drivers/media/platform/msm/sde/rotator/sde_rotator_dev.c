@@ -546,22 +546,8 @@ static struct vb2_mem_ops sde_rotator_vb2_mem_ops = {
 static int sde_rotator_s_ctx_ctrl(struct sde_rotator_ctx *ctx,
 		s32 *ctx_ctrl, struct v4l2_ctrl *ctrl)
 {
-	struct sde_rotator_device *rot_dev = ctx->rot_dev;
-	struct sde_rotation_config config;
-	s32 prev_val;
-	int ret;
-
-	prev_val = *ctx_ctrl;
 	*ctx_ctrl = ctrl->val;
-	sde_rotator_get_config_from_ctx(ctx, &config);
-	ret = sde_rotator_session_config(rot_dev->mgr, ctx->private, &config);
-	if (ret) {
-		SDEDEV_WARN(rot_dev->dev, "fail %s:%d s:%d\n",
-				ctrl->name, ctrl->val, ctx->session_id);
-		*ctx_ctrl = prev_val;
-	}
-
-	return ret;
+	return 0;
 }
 
 /*
@@ -1213,7 +1199,6 @@ static int sde_rotator_s_fmt_vid_cap(struct file *file,
 {
 	struct sde_rotator_ctx *ctx = sde_rotator_ctx_from_fh(fh);
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
-	struct sde_rotation_config config;
 	int ret;
 
 	ret = sde_rotator_try_fmt_vid_cap(file, fh, f);
@@ -1234,12 +1219,6 @@ static int sde_rotator_s_fmt_vid_cap(struct file *file,
 		f->fmt.pix.pixelformat,
 		f->fmt.pix.field,
 		f->fmt.pix.width, f->fmt.pix.height);
-
-	/* configure hal to current input/output setting */
-	sde_rot_mgr_lock(rot_dev->mgr);
-	sde_rotator_get_config_from_ctx(ctx, &config);
-	sde_rotator_session_config(rot_dev->mgr, ctx->private, &config);
-	sde_rot_mgr_unlock(rot_dev->mgr);
 
 	return 0;
 }
@@ -1524,7 +1503,6 @@ static int sde_rotator_s_crop(struct file *file, void *fh,
 {
 	struct sde_rotator_ctx *ctx = sde_rotator_ctx_from_fh(fh);
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
-	struct sde_rotation_config config;
 	struct sde_rotation_item item;
 	struct v4l2_rect rect;
 
@@ -1596,12 +1574,6 @@ static int sde_rotator_s_crop(struct file *file, void *fh,
 	} else {
 		return -EINVAL;
 	}
-
-	/* configure hal to current input/output setting */
-	sde_rot_mgr_lock(rot_dev->mgr);
-	sde_rotator_get_config_from_ctx(ctx, &config);
-	sde_rotator_session_config(rot_dev->mgr, ctx->private, &config);
-	sde_rot_mgr_unlock(rot_dev->mgr);
 
 	return 0;
 }
@@ -2336,6 +2308,9 @@ static int sde_rotator_probe(struct platform_device *pdev)
 	rot_dev->early_submit = SDE_ROTATOR_EARLY_SUBMIT;
 	rot_dev->fence_timeout = SDE_ROTATOR_FENCE_TIMEOUT;
 	rot_dev->streamoff_timeout = SDE_ROTATOR_STREAM_OFF_TIMEOUT;
+	rot_dev->min_rot_clk = 0;
+	rot_dev->min_bw = 0;
+	rot_dev->min_overhead_us = 0;
 	rot_dev->drvdata = sde_rotator_get_drv_data(&pdev->dev);
 
 	rot_dev->pdev = pdev;
