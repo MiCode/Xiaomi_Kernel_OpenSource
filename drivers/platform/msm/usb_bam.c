@@ -958,7 +958,7 @@ static int usb_bam_disconnect_ipa_cons(
 	struct usb_bam_ctx_type *ctx = &msm_usb_bam[cur_bam];
 	struct usb_bam_pipe_connect *pipe_connect;
 	struct sps_pipe *pipe;
-	u32 timeout = 10, pipe_empty;
+	u32 timeout = 50, pipe_empty;
 	struct usb_bam_sps_type usb_bam_sps = ctx->usb_bam_sps;
 	struct sps_connect *sps_connection;
 	bool inject_zlt = true;
