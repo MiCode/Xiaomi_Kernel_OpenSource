@@ -1320,6 +1320,7 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	if (channel > 5) {
 		dev_err(&pdev->dev, "invalid channel (%u) specified.\n",
 			channel);
+		err = -EINVAL;
 		goto err_put_ctrl;
 	}
 
