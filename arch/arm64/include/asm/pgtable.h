@@ -36,24 +36,17 @@
  *
  * VMEMAP_SIZE: allows the whole linear region to be covered by a struct page array
  *	(rounded up to PUD_SIZE).
- * VMALLOC_START: beginning of the kernel VA space
+ * VMALLOC_START: beginning of the kernel vmalloc space
  * VMALLOC_END: extends to the available space below vmmemmap, PCI I/O space,
  *	fixed mappings and modules
  */
-#define VMEMMAP_SIZE		ALIGN((1UL << (VA_BITS - PAGE_SHIFT)) * sizeof(struct page), PUD_SIZE)
+#define VMEMMAP_SIZE		ALIGN((1UL << (VA_BITS - PAGE_SHIFT - 1)) * sizeof(struct page), PUD_SIZE)
 
-#ifndef CONFIG_KASAN
-#define VMALLOC_START		(VA_START)
-#else
-#include <asm/kasan.h>
-#define VMALLOC_START		(KASAN_SHADOW_END + SZ_64K)
-#endif
-
+#define VMALLOC_START		(MODULES_END)
 #define VMALLOC_END		(PAGE_OFFSET - PUD_SIZE - VMEMMAP_SIZE - SZ_64K)
 
 #define VMEMMAP_START		(VMALLOC_END + SZ_64K)
-#define vmemmap			((struct page *)VMEMMAP_START - \
-				 SECTION_ALIGN_DOWN(memstart_addr >> PAGE_SHIFT))
+#define vmemmap			((struct page *)VMEMMAP_START - (memstart_addr >> PAGE_SHIFT))
 
 #define FIRST_USER_ADDRESS	0UL
 
@@ -454,6 +447,9 @@ static inline phys_addr_t pmd_page_paddr(pmd_t pmd)
 
 #define pmd_page(pmd)		pfn_to_page(__phys_to_pfn(pmd_val(pmd) & PHYS_MASK))
 
+/* use ONLY for statically allocated translation tables */
+#define pte_offset_kimg(dir,addr)	((pte_t *)__phys_to_kimg(pte_offset_phys((dir), (addr))))
+
 /*
  * Conversion functions: convert a page and protection to a page entry,
  * and a page entry and page directory to the page they refer to.
@@ -497,6 +493,9 @@ static inline phys_addr_t pud_page_paddr(pud_t pud)
 
 #define pud_page(pud)		pfn_to_page(__phys_to_pfn(pud_val(pud) & PHYS_MASK))
 
+/* use ONLY for statically allocated translation tables */
+#define pmd_offset_kimg(dir,addr)	((pmd_t *)__phys_to_kimg(pmd_offset_phys((dir), (addr))))
+
 #else
 
 #define pud_page_paddr(pud)	({ BUILD_BUG(); 0; })
@@ -505,6 +504,8 @@ static inline phys_addr_t pud_page_paddr(pud_t pud)
 #define pmd_set_fixmap(addr)		NULL
 #define pmd_set_fixmap_offset(pudp, addr)	((pmd_t *)pudp)
 #define pmd_clear_fixmap()
+
+#define pmd_offset_kimg(dir,addr)	((pmd_t *)dir)
 
 #endif	/* CONFIG_PGTABLE_LEVELS > 2 */
 
@@ -544,6 +545,9 @@ static inline phys_addr_t pgd_page_paddr(pgd_t pgd)
 
 #define pgd_page(pgd)		pfn_to_page(__phys_to_pfn(pgd_val(pgd) & PHYS_MASK))
 
+/* use ONLY for statically allocated translation tables */
+#define pud_offset_kimg(dir,addr)	((pud_t *)__phys_to_kimg(pud_offset_phys((dir), (addr))))
+
 #else
 
 #define pgd_page_paddr(pgd)	({ BUILD_BUG(); 0;})
@@ -552,6 +556,8 @@ static inline phys_addr_t pgd_page_paddr(pgd_t pgd)
 #define pud_set_fixmap(addr)		NULL
 #define pud_set_fixmap_offset(pgdp, addr)	((pud_t *)pgdp)
 #define pud_clear_fixmap()
+
+#define pud_offset_kimg(dir,addr)	((pud_t *)dir)
 
 #endif  /* CONFIG_PGTABLE_LEVELS > 3 */
 
