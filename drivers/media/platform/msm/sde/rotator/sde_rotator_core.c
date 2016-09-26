@@ -41,8 +41,12 @@
 #define ROT_HW_ACQUIRE_TIMEOUT_IN_MS 100
 
 /* default pixel per clock ratio */
-#define ROT_PIXEL_PER_CLK_NUMERATOR	4
-#define ROT_PIXEL_PER_CLK_DENOMINATOR	1
+#define ROT_PIXEL_PER_CLK_NUMERATOR	36
+#define ROT_PIXEL_PER_CLK_DENOMINATOR	10
+#define ROT_FUDGE_FACTOR_NUMERATOR	105
+#define ROT_FUDGE_FACTOR_DENOMINATOR	100
+#define ROT_OVERHEAD_NUMERATOR		27
+#define ROT_OVERHEAD_DENOMINATOR	10000
 
 /*
  * Max rotator hw blocks possible. Used for upper array limits instead of
@@ -998,12 +1002,33 @@ static u32 sde_rotator_calc_buf_bw(struct sde_mdp_format_params *fmt,
 	return bw;
 }
 
+static int sde_rotator_find_max_fps(struct sde_rot_mgr *mgr)
+{
+	struct sde_rot_file_private *priv;
+	struct sde_rot_perf *perf;
+	int max_fps = 0;
+
+	list_for_each_entry(priv, &mgr->file_list, list) {
+		list_for_each_entry(perf, &priv->perf_list, list) {
+			if (perf->config.frame_rate > max_fps)
+				max_fps = perf->config.frame_rate;
+		}
+	}
+
+	SDEROT_DBG("Max fps:%d\n", max_fps);
+	return max_fps;
+}
+
 static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 		struct sde_rot_perf *perf)
 {
 	struct sde_rotation_config *config = &perf->config;
 	u32 read_bw, write_bw;
 	struct sde_mdp_format_params *in_fmt, *out_fmt;
+	struct sde_rotator_device *rot_dev;
+	int max_fps;
+
+	rot_dev = platform_get_drvdata(mgr->pdev);
 
 	in_fmt = sde_get_format_params(config->input.format);
 	if (!in_fmt) {
@@ -1016,17 +1041,44 @@ static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 		return -EINVAL;
 	}
 
+	/*
+	 * rotator processes 4 pixels per clock, but the actual throughtput
+	 * is 3.6. We also need to take into account for overhead time. Final
+	 * equation is:
+	 *        W x H / throughput / (1/fps - overhead) * fudge_factor
+	 */
+	max_fps = sde_rotator_find_max_fps(mgr);
 	perf->clk_rate = config->input.width * config->input.height;
-	perf->clk_rate *= config->frame_rate;
-	/* rotator processes 4 pixels per clock */
 	perf->clk_rate = (perf->clk_rate * mgr->pixel_per_clk.denom) /
 			mgr->pixel_per_clk.numer;
+	perf->clk_rate *= max_fps;
+	perf->clk_rate = (perf->clk_rate * mgr->fudge_factor.numer) /
+			mgr->fudge_factor.denom;
+	perf->clk_rate *= mgr->overhead.denom;
+
+	/*
+	 * check for override overhead default value
+	 */
+	if (rot_dev->min_overhead_us > (mgr->overhead.numer * 100))
+		perf->clk_rate = DIV_ROUND_UP_ULL(perf->clk_rate,
+				(mgr->overhead.denom - max_fps *
+				(rot_dev->min_overhead_us / 100)));
+	else
+		perf->clk_rate = DIV_ROUND_UP_ULL(perf->clk_rate,
+				(mgr->overhead.denom - max_fps *
+				mgr->overhead.numer));
+
+	/*
+	 * check for Override clock calcualtion
+	 */
+	if (rot_dev->min_rot_clk > perf->clk_rate)
+		perf->clk_rate = rot_dev->min_rot_clk;
 
 	read_bw =  sde_rotator_calc_buf_bw(in_fmt, config->input.width,
-				config->input.height, config->frame_rate);
+				config->input.height, max_fps);
 
 	write_bw = sde_rotator_calc_buf_bw(out_fmt, config->output.width,
-				config->output.height, config->frame_rate);
+				config->output.height, max_fps);
 
 	read_bw = sde_apply_comp_ratio_factor(read_bw, in_fmt,
 			&config->input.comp_ratio);
@@ -1035,13 +1087,22 @@ static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 
 	perf->bw = read_bw + write_bw;
 
+	/*
+	 * check for override bw calculation
+	 */
+	if (rot_dev->min_bw > perf->bw)
+		perf->bw = rot_dev->min_bw;
+
 	perf->rdot_limit = sde_mdp_get_ot_limit(
 			config->input.width, config->input.height,
-			config->input.format, config->frame_rate, true);
+			config->input.format, max_fps, true);
 	perf->wrot_limit = sde_mdp_get_ot_limit(
 			config->input.width, config->input.height,
-			config->input.format, config->frame_rate, false);
+			config->input.format, max_fps, false);
 
+	SDEROT_DBG("clk:%lu, rdBW:%d, wrBW:%d, rdOT:%d, wrOT:%d\n",
+			perf->clk_rate, read_bw, write_bw, perf->rdot_limit,
+			perf->wrot_limit);
 	return 0;
 }
 
@@ -1747,16 +1808,9 @@ static int sde_rotator_open_session(struct sde_rot_mgr *mgr,
 
 	config.session_id = session_id;
 	perf->config = config;
-	perf->last_wb_idx = -1;
+	perf->last_wb_idx = 0;
 
 	INIT_LIST_HEAD(&perf->list);
-
-	ret = sde_rotator_calc_perf(mgr, perf);
-	if (ret) {
-		SDEROT_ERR("error setting the session %d\n", ret);
-		goto copy_user_err;
-	}
-
 	list_add(&perf->list, &private->perf_list);
 
 	ret = sde_rotator_resource_ctrl(mgr, true);
@@ -1777,25 +1831,17 @@ static int sde_rotator_open_session(struct sde_rot_mgr *mgr,
 		goto enable_clk_err;
 	}
 
-	ret = sde_rotator_update_perf(mgr);
-	if (ret) {
-		SDEROT_ERR("fail to open session, not enough clk/bw\n");
-		goto perf_err;
-	}
 	SDEROT_DBG("open session id=%u in{%u,%u}f:%u out{%u,%u}f:%u\n",
 		config.session_id, config.input.width, config.input.height,
 		config.input.format, config.output.width, config.output.height,
 		config.output.format);
 
 	goto done;
-perf_err:
-	sde_rotator_clk_ctrl(mgr, false);
 enable_clk_err:
 update_clk_err:
 	sde_rotator_resource_ctrl(mgr, false);
 resource_err:
 	list_del_init(&perf->list);
-copy_user_err:
 	devm_kfree(&mgr->pdev->dev, perf->work_distribution);
 alloc_err:
 	devm_kfree(&mgr->pdev->dev, perf);
@@ -1867,11 +1913,23 @@ static int sde_rotator_config_session(struct sde_rot_mgr *mgr,
 	}
 
 	ret = sde_rotator_update_perf(mgr);
+	if (ret) {
+		SDEROT_ERR("error in updating perf: %d\n", ret);
+		goto done;
+	}
 
-	SDEROT_DBG("reconfig session id=%u in{%u,%u}f:%u out{%u,%u}f:%u\n",
+	ret = sde_rotator_update_clk(mgr);
+	if (ret) {
+		SDEROT_ERR("error in updating the rotator clk: %d\n", ret);
+		goto done;
+	}
+
+	SDEROT_DBG(
+		"reconfig session id=%u in{%u,%u}f:%u out{%u,%u}f:%u fps:%d clk:%lu, bw:%llu\n",
 		config->session_id, config->input.width, config->input.height,
 		config->input.format, config->output.width,
-		config->output.height, config->output.format);
+		config->output.height, config->output.format,
+		config->frame_rate, perf->clk_rate, perf->bw);
 done:
 	return ret;
 }
@@ -2386,6 +2444,10 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 	mgr->queue_count = 1;
 	mgr->pixel_per_clk.numer = ROT_PIXEL_PER_CLK_NUMERATOR;
 	mgr->pixel_per_clk.denom = ROT_PIXEL_PER_CLK_DENOMINATOR;
+	mgr->fudge_factor.numer = ROT_FUDGE_FACTOR_NUMERATOR;
+	mgr->fudge_factor.denom = ROT_FUDGE_FACTOR_DENOMINATOR;
+	mgr->overhead.numer = ROT_OVERHEAD_NUMERATOR;
+	mgr->overhead.denom = ROT_OVERHEAD_DENOMINATOR;
 
 	mutex_init(&mgr->lock);
 	atomic_set(&mgr->device_suspended, 0);

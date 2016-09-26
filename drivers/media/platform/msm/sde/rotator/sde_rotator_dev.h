@@ -160,6 +160,9 @@ struct sde_rotator_statistics {
  * @session_id: Next context session identifier
  * @fence_timeout: Timeout value in msec for fence wait
  * @streamoff_timeout: Timeout value in msec for stream off
+ * @min_rot_clk: Override the minimum rotator clock from perf calculation
+ * @min_bw: Override the minimum bandwidth from perf calculation
+ * @min_overhead_us: Override the minimum overhead in us from perf calculation
  * @debugfs_root: Pointer to debugfs directory entry.
  * @stats: placeholder for rotator statistics
  */
@@ -177,8 +180,12 @@ struct sde_rotator_device {
 	u32 session_id;
 	u32 fence_timeout;
 	u32 streamoff_timeout;
+	u32 min_rot_clk;
+	u32 min_bw;
+	u32 min_overhead_us;
 	struct sde_rotator_statistics stats;
 	struct dentry *debugfs_root;
+	struct dentry *perf_root;
 };
 
 static inline
