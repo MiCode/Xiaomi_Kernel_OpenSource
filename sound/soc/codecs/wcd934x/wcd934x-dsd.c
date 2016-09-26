@@ -378,6 +378,11 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 	int interp_idx;
 	u8 pcm_rate_val;
 
+	if (!dsd_conf) {
+		dev_err(codec->dev, "%s: null dsd_config pointer\n", __func__);
+		return -EINVAL;
+	}
+
 	if (w->shift == DSD0) {
 		/* Read out select */
 		if (snd_soc_read(codec, WCD934X_CDC_DSD0_CFG0) & 0x02)
