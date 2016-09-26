@@ -25,9 +25,6 @@
 #include "sde_kms.h"
 #include "sde_core_irq.h"
 #include "sde_formats.h"
-#include "sde_hw_mdss.h"
-#include "sde_hw_util.h"
-#include "sde_hw_intf.h"
 #include "sde_hw_vbif.h"
 #include "sde_vbif.h"
 #include "sde_encoder.h"
@@ -78,7 +75,7 @@ bool sde_is_custom_client(void)
 	return sdecustom;
 }
 
-static int sde_debugfs_show_regset32(struct seq_file *s, void *data)
+static int _sde_debugfs_show_regset32(struct seq_file *s, void *data)
 {
 	struct sde_debugfs_regset32 *regset;
 	struct sde_kms *sde_kms;
@@ -132,9 +129,10 @@ static int sde_debugfs_show_regset32(struct seq_file *s, void *data)
 	return 0;
 }
 
-static int sde_debugfs_open_regset32(struct inode *inode, struct file *file)
+static int sde_debugfs_open_regset32(struct inode *inode,
+		struct file *file)
 {
-	return single_open(file, sde_debugfs_show_regset32, inode->i_private);
+	return single_open(file, _sde_debugfs_show_regset32, inode->i_private);
 }
 
 static const struct file_operations sde_fops_regset32 = {
@@ -172,7 +170,7 @@ void *sde_debugfs_get_root(struct sde_kms *sde_kms)
 	return sde_kms ? sde_kms->debugfs_root : 0;
 }
 
-static int sde_debugfs_init(struct sde_kms *sde_kms)
+static int _sde_debugfs_init(struct sde_kms *sde_kms)
 {
 	void *p;
 
@@ -199,7 +197,7 @@ static int sde_debugfs_init(struct sde_kms *sde_kms)
 	return 0;
 }
 
-static void sde_debugfs_destroy(struct sde_kms *sde_kms)
+static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 {
 	/* don't need to NULL check debugfs_root */
 	if (sde_kms) {
@@ -232,7 +230,7 @@ static void sde_kms_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 }
 
-static void sde_prepare_commit(struct msm_kms *kms,
+static void sde_kms_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
@@ -242,7 +240,8 @@ static void sde_prepare_commit(struct msm_kms *kms,
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 }
 
-static void sde_commit(struct msm_kms *kms, struct drm_atomic_state *old_state)
+static void sde_kms_commit(struct msm_kms *kms,
+		struct drm_atomic_state *old_state)
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
@@ -256,7 +255,7 @@ static void sde_commit(struct msm_kms *kms, struct drm_atomic_state *old_state)
 	}
 }
 
-static void sde_complete_commit(struct msm_kms *kms,
+static void sde_kms_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *old_state)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
@@ -273,7 +272,7 @@ static void sde_complete_commit(struct msm_kms *kms,
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 }
 
-static void sde_wait_for_commit_done(struct msm_kms *kms,
+static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		struct drm_crtc *crtc)
 {
 	struct drm_encoder *encoder;
@@ -549,7 +548,37 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 	return 0;
 }
 
-static int modeset_init(struct sde_kms *sde_kms)
+static void _sde_kms_drm_obj_destroy(struct sde_kms *sde_kms)
+{
+	struct msm_drm_private *priv;
+	int i;
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	} else if (!sde_kms->dev) {
+		SDE_ERROR("invalid dev\n");
+		return;
+	} else if (!sde_kms->dev->dev_private) {
+		SDE_ERROR("invalid dev_private\n");
+		return;
+	}
+	priv = sde_kms->dev->dev_private;
+
+	for (i = 0; i < priv->num_crtcs; i++)
+		priv->crtcs[i]->funcs->destroy(priv->crtcs[i]);
+
+	for (i = 0; i < priv->num_planes; i++)
+		priv->planes[i]->funcs->destroy(priv->planes[i]);
+
+	for (i = 0; i < priv->num_connectors; i++)
+		priv->connectors[i]->funcs->destroy(priv->connectors[i]);
+
+	for (i = 0; i < priv->num_encoders; i++)
+		priv->encoders[i]->funcs->destroy(priv->encoders[i]);
+}
+
+static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 {
 	struct drm_device *dev;
 	struct drm_plane *primary_planes[MAX_PLANES], *plane;
@@ -627,10 +656,11 @@ static int modeset_init(struct sde_kms *sde_kms)
 
 	return 0;
 fail:
+	_sde_kms_drm_obj_destroy(sde_kms);
 	return ret;
 }
 
-static int sde_hw_init(struct msm_kms *kms)
+static int sde_kms_hw_init(struct msm_kms *kms)
 {
 	return 0;
 }
@@ -655,13 +685,13 @@ static int sde_kms_postinit(struct msm_kms *kms)
 	return 0;
 }
 
-static long sde_round_pixclk(struct msm_kms *kms, unsigned long rate,
+static long sde_kms_round_pixclk(struct msm_kms *kms, unsigned long rate,
 		struct drm_encoder *encoder)
 {
 	return rate;
 }
 
-static void sde_destroy(struct msm_kms *kms)
+static void sde_kms_destroy(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	int i;
@@ -674,7 +704,7 @@ static void sde_destroy(struct msm_kms *kms)
 	}
 
 	_sde_kms_release_displays(sde_kms);
-	sde_debugfs_destroy(sde_kms);
+	_sde_debugfs_destroy(sde_kms);
 	sde_hw_intr_destroy(sde_kms->hw_intr);
 	sde_rm_destroy(&sde_kms->rm);
 	kfree(sde_kms);
@@ -692,7 +722,7 @@ static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 }
 
 static const struct msm_kms_funcs kms_funcs = {
-	.hw_init         = sde_hw_init,
+	.hw_init         = sde_kms_hw_init,
 	.postinit        = sde_kms_postinit,
 	.irq_preinstall  = sde_irq_preinstall,
 	.irq_postinstall = sde_irq_postinstall,
@@ -700,25 +730,46 @@ static const struct msm_kms_funcs kms_funcs = {
 	.irq             = sde_irq,
 	.preclose        = sde_kms_preclose,
 	.prepare_fence   = sde_kms_prepare_fence,
-	.prepare_commit  = sde_prepare_commit,
-	.commit          = sde_commit,
-	.complete_commit = sde_complete_commit,
-	.wait_for_crtc_commit_done = sde_wait_for_commit_done,
+	.prepare_commit  = sde_kms_prepare_commit,
+	.commit          = sde_kms_commit,
+	.complete_commit = sde_kms_complete_commit,
+	.wait_for_crtc_commit_done = sde_kms_wait_for_commit_done,
 	.enable_vblank   = sde_kms_enable_vblank,
 	.disable_vblank  = sde_kms_disable_vblank,
 	.check_modified_format = sde_format_check_modified_format,
 	.get_format      = sde_get_msm_format,
-	.round_pixclk    = sde_round_pixclk,
-	.destroy         = sde_destroy,
+	.round_pixclk    = sde_kms_round_pixclk,
+	.destroy         = sde_kms_destroy,
 };
 
 /* the caller api needs to turn on clock before calling it */
-static void core_hw_rev_init(struct sde_kms *sde_kms)
+static void _sde_kms_core_hw_rev_init(struct sde_kms *sde_kms)
 {
 	sde_kms->core_rev = readl_relaxed(sde_kms->mmio + 0x0);
 }
 
-int sde_mmu_init(struct sde_kms *sde_kms)
+static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
+{
+	struct msm_mmu *mmu;
+	int i;
+
+	for (i = ARRAY_SIZE(sde_kms->mmu_id) - 1; i >= 0; i--) {
+		if (sde_kms->mmu_id[i] <= 0 || !sde_kms->mmu[i])
+			continue;
+
+		mmu = sde_kms->mmu[i];
+		msm_unregister_mmu(sde_kms->dev, mmu);
+		mmu->funcs->detach(mmu, (const char **)iommu_ports,
+				ARRAY_SIZE(iommu_ports));
+		mmu->funcs->destroy(mmu);
+		sde_kms->mmu[i] = 0;
+		sde_kms->mmu_id[i] = 0;
+	}
+
+	return 0;
+}
+
+static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 {
 	struct msm_mmu *mmu;
 	int i, ret;
@@ -753,11 +804,12 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 
 	return 0;
 fail:
-	return ret;
+	_sde_kms_mmu_destroy(sde_kms);
 
+	return ret;
 }
 
-struct sde_kms *sde_hw_setup(struct platform_device *pdev)
+static struct sde_kms *_sde_kms_hw_setup(struct platform_device *pdev)
 {
 	struct sde_kms *sde_kms;
 	int ret = 0;
@@ -809,7 +861,7 @@ err:
 	return ERR_PTR(ret);
 }
 
-static void sde_hw_destroy(struct sde_kms *sde_kms)
+static void _sde_kms_hw_destroy(struct sde_kms *sde_kms)
 {
 	if (sde_kms->vbif[VBIF_NRT])
 		iounmap(sde_kms->vbif[VBIF_NRT]);
@@ -832,7 +884,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	}
 
 	priv = dev->dev_private;
-	sde_kms = sde_hw_setup(dev->platformdev);
+	sde_kms = _sde_kms_hw_setup(dev->platformdev);
 	if (IS_ERR_OR_NULL(sde_kms)) {
 		SDE_ERROR("sde hw setup failed\n");
 		rc = PTR_ERR(sde_kms);
@@ -856,7 +908,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 		goto clk_rate_err;
 	}
 
-	core_hw_rev_init(sde_kms);
+	_sde_kms_core_hw_rev_init(sde_kms);
 
 	pr_info("sde hardware revision:0x%x\n", sde_kms->core_rev);
 
@@ -899,19 +951,31 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 * Now we need to read the HW catalog and initialize resources such as
 	 * clocks, regulators, GDSC/MMAGIC, ioremap the register ranges etc
 	 */
-	sde_mmu_init(sde_kms);
+	rc = _sde_kms_mmu_init(sde_kms);
+	if (rc) {
+		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
+		goto mmu_init_err;
+	}
 
 	/*
 	 * NOTE: Calling sde_debugfs_init here so that the drm_minor device for
 	 *       'primary' is already created.
 	 */
-	sde_debugfs_init(sde_kms);
+	rc = _sde_debugfs_init(sde_kms);
+	if (rc) {
+		SDE_ERROR("sde_debugfs init failed: %d\n", rc);
+		goto debugfs_init_err;
+	}
 
 	/*
-	 * modeset_init should create the DRM related objects i.e. CRTCs,
-	 * planes, encoders, connectors and so forth
+	 * _sde_kms_drm_obj_init should create the DRM related objects
+	 * i.e. CRTCs, planes, encoders, connectors and so forth
 	 */
-	modeset_init(sde_kms);
+	rc = _sde_kms_drm_obj_init(sde_kms);
+	if (rc) {
+		SDE_ERROR("modeset init failed: %d\n", rc);
+		goto drm_obj_init_err;
+	}
 
 	dev->mode_config.min_width = 0;
 	dev->mode_config.min_height = 0;
@@ -928,16 +992,28 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 */
 	dev->mode_config.allow_fb_modifiers = true;
 
+	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
+	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
+		goto hw_intr_init_err;
+
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	return &sde_kms->base;
 
+hw_intr_init_err:
+	_sde_kms_drm_obj_destroy(sde_kms);
+drm_obj_init_err:
+	_sde_debugfs_destroy(sde_kms);
+debugfs_init_err:
+	_sde_kms_mmu_destroy(sde_kms);
+mmu_init_err:
+	sde_rm_destroy(&sde_kms->rm);
 catalog_err:
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 clk_rate_err:
 	sde_power_client_destroy(&priv->phandle, sde_kms->core_client);
 kms_destroy:
-	sde_hw_destroy(sde_kms);
+	_sde_kms_hw_destroy(sde_kms);
 end:
 	return ERR_PTR(rc);
 }
