@@ -2016,6 +2016,7 @@ static long audio_aio_compat_ioctl(struct file *file, unsigned int cmd,
 			audio->buf_cfg.frames_per_buf);
 
 		mutex_lock(&audio->lock);
+		memset(&cfg_32, 0, sizeof(cfg_32));
 		cfg_32.meta_info_enable = audio->buf_cfg.meta_info_enable;
 		cfg_32.frames_per_buf = audio->buf_cfg.frames_per_buf;
 		if (copy_to_user((void *)arg, &cfg_32,
