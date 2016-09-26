@@ -23,6 +23,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/string_helpers.h>
@@ -38,6 +39,7 @@
 			pr_debug(fmt, ##__VA_ARGS__);	\
 	} while (0)
 
+/* Awake votable reasons */
 #define SRAM_READ	"fg_sram_read"
 #define SRAM_WRITE	"fg_sram_write"
 #define PROFILE_LOAD	"fg_profile_load"
@@ -173,6 +175,8 @@ struct fg_alg_flag {
 
 /* DT parameters for FG device */
 struct fg_dt_props {
+	bool	force_load_profile;
+	bool	hold_soc_while_full;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
@@ -185,7 +189,6 @@ struct fg_dt_props {
 	int	esr_timer_charging;
 	int	esr_timer_awake;
 	int	esr_timer_asleep;
-	bool	force_load_profile;
 	int	cl_start_soc;
 	int	cl_max_temp;
 	int	cl_min_temp;
@@ -240,6 +243,8 @@ struct fg_chip {
 	struct dentry		*dfs_root;
 	struct power_supply	*fg_psy;
 	struct power_supply	*batt_psy;
+	struct power_supply	*usb_psy;
+	struct power_supply	*dc_psy;
 	struct iio_channel	*batt_id_chan;
 	struct fg_memif		*sram;
 	struct fg_irq_info	*irqs;
@@ -268,6 +273,8 @@ struct fg_chip {
 	bool			profile_loaded;
 	bool			battery_missing;
 	bool			fg_restarting;
+	bool			charge_full;
+	bool			recharge_soc_adjusted;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
@@ -321,4 +328,5 @@ extern int fg_debugfs_create(struct fg_chip *chip);
 extern void fill_string(char *str, size_t str_len, u8 *buf, int buf_len);
 extern int64_t twos_compliment_extend(int64_t val, int s_bit_pos);
 extern s64 fg_float_decode(u16 val);
+extern bool is_input_present(struct fg_chip *chip);
 #endif

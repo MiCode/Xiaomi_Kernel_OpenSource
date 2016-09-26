@@ -29,6 +29,43 @@ static struct fg_dbgfs dbgfs_data = {
 	},
 };
 
+static bool is_usb_present(struct fg_chip *chip)
+{
+	union power_supply_propval pval = {0, };
+
+	if (!chip->usb_psy)
+		chip->usb_psy = power_supply_get_by_name("usb");
+
+	if (chip->usb_psy)
+		power_supply_get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT, &pval);
+	else
+		return false;
+
+	return pval.intval != 0;
+}
+
+static bool is_dc_present(struct fg_chip *chip)
+{
+	union power_supply_propval pval = {0, };
+
+	if (!chip->dc_psy)
+		chip->dc_psy = power_supply_get_by_name("dc");
+
+	if (chip->dc_psy)
+		power_supply_get_property(chip->dc_psy,
+				POWER_SUPPLY_PROP_PRESENT, &pval);
+	else
+		return false;
+
+	return pval.intval != 0;
+}
+
+bool is_input_present(struct fg_chip *chip)
+{
+	return is_usb_present(chip) || is_dc_present(chip);
+}
+
 #define EXPONENT_SHIFT		11
 #define EXPONENT_OFFSET		-9
 #define MANTISSA_SIGN_BIT	10
@@ -98,6 +135,7 @@ int fg_sram_write(struct fg_chip *chip, u16 address, u8 offset,
 		 * This interrupt need to be enabled only when it is
 		 * required. It will be kept disabled other times.
 		 */
+		reinit_completion(&chip->soc_update);
 		enable_irq(chip->irqs[SOC_UPDATE_IRQ].irq);
 		atomic_access = true;
 	} else {
