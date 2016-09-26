@@ -62,6 +62,29 @@ int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu)
 	return idx;
 }
 
+void msm_unregister_mmu(struct drm_device *dev, struct msm_mmu *mmu)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	int idx;
+
+	if (priv->num_mmus <= 0) {
+		dev_err(dev->dev, "invalid num mmus %d\n", priv->num_mmus);
+		return;
+	}
+
+	idx = priv->num_mmus - 1;
+
+	/* only support reverse-order deallocation */
+	if (priv->mmus[idx] != mmu) {
+		dev_err(dev->dev, "unexpected mmu at idx %d\n", idx);
+		return;
+	}
+
+	--priv->num_mmus;
+	priv->mmus[idx] = 0;
+}
+
+
 #ifdef CONFIG_DRM_MSM_REGISTER_LOGGING
 static bool reglog = false;
 MODULE_PARM_DESC(reglog, "Enable register read/write logging");
@@ -461,7 +484,8 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		 * and (for example) use dmabuf/prime to share buffers with
 		 * imx drm driver on iMX5
 		 */
-		dev_err(dev, "failed to load kms\n");
+		priv->kms = NULL;
+		dev_err(dev->dev, "failed to load kms\n");
 		ret = PTR_ERR(kms);
 		goto fail;
 	}

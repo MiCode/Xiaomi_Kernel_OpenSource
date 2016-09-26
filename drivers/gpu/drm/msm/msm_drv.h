@@ -344,7 +344,7 @@ int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool nonblock);
 
 int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu);
-void msm_unregister_all_mmu(struct drm_device *dev);
+void msm_unregister_mmu(struct drm_device *dev, struct msm_mmu *mmu);
 
 void msm_gem_submit_free(struct msm_gem_submit *submit);
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
