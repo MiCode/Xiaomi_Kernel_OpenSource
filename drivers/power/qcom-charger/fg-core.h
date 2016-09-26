@@ -194,6 +194,7 @@ struct fg_dt_props {
 	int	cl_max_cap_limit;
 	int	cl_min_cap_limit;
 	int	jeita_hyst_temp;
+	int	batt_temp_delta;
 };
 
 /* parameters from battery profile */
@@ -261,6 +262,8 @@ struct fg_chip {
 	int			status;
 	int			charge_done;
 	int			last_soc;
+	int			last_batt_temp;
+	int			health;
 	bool			profile_available;
 	bool			profile_loaded;
 	bool			battery_missing;

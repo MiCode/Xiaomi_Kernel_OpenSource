@@ -771,6 +771,27 @@ static inline void get_temp_setpoint(int threshold, u8 *val)
 	*val = DIV_ROUND_CLOSEST((threshold + 30) * 10, 5);
 }
 
+static inline void get_batt_temp_delta(int delta, u8 *val)
+{
+	switch (delta) {
+	case 2:
+		*val = BTEMP_DELTA_2K;
+		break;
+	case 4:
+		*val = BTEMP_DELTA_4K;
+		break;
+	case 6:
+		*val = BTEMP_DELTA_6K;
+		break;
+	case 10:
+		*val = BTEMP_DELTA_10K;
+		break;
+	default:
+		*val = BTEMP_DELTA_2K;
+		break;
+	};
+}
+
 static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 				int flags)
 {
@@ -1849,6 +1870,14 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
+	get_batt_temp_delta(chip->dt.batt_temp_delta, &val);
+	rc = fg_masked_write(chip, BATT_INFO_BATT_TMPR_INTR(chip),
+			CHANGE_THOLD_MASK, val);
+	if (rc < 0) {
+		pr_err("Error in writing batt_temp_delta, rc=%d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -1902,8 +1931,33 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
+	union power_supply_propval prop = {0, };
+	int rc, batt_temp;
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
+	rc = fg_get_battery_temp(chip, &batt_temp);
+	if (rc < 0) {
+		pr_err("Error in getting batt_temp\n");
+		return IRQ_HANDLED;
+	}
+
+	if (!is_charger_available(chip)) {
+		chip->last_batt_temp = batt_temp;
+		return IRQ_HANDLED;
+	}
+
+	power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_HEALTH,
+		&prop);
+	chip->health = prop.intval;
+
+	if (chip->last_batt_temp != batt_temp) {
+		chip->last_batt_temp = batt_temp;
+		power_supply_changed(chip->batt_psy);
+	}
+
+	if (abs(chip->last_batt_temp - batt_temp) > 30)
+		pr_warn("Battery temperature last:%d current: %d\n",
+			chip->last_batt_temp, batt_temp);
 	return IRQ_HANDLED;
 }
 
@@ -2013,6 +2067,7 @@ static struct fg_irq_info fg_irqs[FG_IRQ_MAX] = {
 	[BATT_TEMP_DELTA_IRQ] = {
 		.name		= "batt-temp-delta",
 		.handler	= fg_delta_batt_temp_irq_handler,
+		.wakeable	= true,
 	},
 	[BATT_MISSING_IRQ] = {
 		.name		= "batt-missing",
@@ -2116,6 +2171,8 @@ static int fg_register_interrupts(struct fg_chip *chip)
 #define DEFAULT_CL_MAX_DEC_DECIPERC	100
 #define DEFAULT_CL_MIN_LIM_DECIPERC	0
 #define DEFAULT_CL_MAX_LIM_DECIPERC	0
+#define BTEMP_DELTA_LOW			2
+#define BTEMP_DELTA_HIGH		10
 static int fg_parse_dt(struct fg_chip *chip)
 {
 	struct device_node *child, *revid_node, *node = chip->dev->of_node;
@@ -2352,6 +2409,12 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->dt.jeita_hyst_temp = -EINVAL;
 	else
 		chip->dt.jeita_hyst_temp = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-batt-temp-delta", &temp);
+	if (rc < 0)
+		chip->dt.batt_temp_delta = -EINVAL;
+	else if (temp > BTEMP_DELTA_LOW && temp <= BTEMP_DELTA_HIGH)
+		chip->dt.batt_temp_delta = temp;
 
 	return 0;
 }
