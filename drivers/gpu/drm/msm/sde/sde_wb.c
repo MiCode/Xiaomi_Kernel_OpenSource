@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt)	"sde-wb:[%s] " fmt, __func__
+#define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 
 #include "msm_kms.h"
 #include "sde_kms.h"
