@@ -36,6 +36,9 @@ enum wdsp_cmpnt_type {
 };
 
 enum wdsp_event_type {
+	/* Initialization related */
+	WDSP_EVENT_POST_INIT,
+
 	/* Image download related */
 	WDSP_EVENT_PRE_DLOAD_CODE,
 	WDSP_EVENT_DLOAD_SECTION,
