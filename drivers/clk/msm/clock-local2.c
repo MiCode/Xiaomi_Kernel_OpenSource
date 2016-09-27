@@ -1000,9 +1000,10 @@ static enum handoff branch_clk_handoff(struct clk *c)
 		return HANDOFF_DISABLED_CLK;
 
 	if (!(cbcr_regval & CBCR_BRANCH_ENABLE_BIT)) {
-		WARN(!branch->check_enable_bit,
-			"%s clock is enabled in HW even though ENABLE_BIT is not set\n",
-			c->dbg_name);
+		if (!branch->check_enable_bit) {
+			pr_warn("%s clock is enabled in HW", c->dbg_name);
+			pr_warn("even though ENABLE_BIT is not set\n");
+		}
 		return HANDOFF_DISABLED_CLK;
 	}
 
