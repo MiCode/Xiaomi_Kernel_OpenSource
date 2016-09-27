@@ -96,7 +96,8 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 
 	if (fmt->bits[C3_ALPHA] || fmt->alpha_enable) {
 		dst_format |= BIT(8); /* DSTC3_EN */
-		if (!fmt->alpha_enable)
+		if (!fmt->alpha_enable ||
+				!(ctx->caps->features & BIT(SDE_WB_PIPE_ALPHA)))
 			dst_format |= BIT(14); /* DST_ALPHA_X */
 	}
 
