@@ -51,6 +51,30 @@ static inline bool sde_smmu_is_valid_domain_type(
 	return true;
 }
 
+static inline bool sde_smmu_is_valid_domain_condition(
+		struct sde_rot_data_type *mdata,
+		int domain_type,
+		bool is_attach)
+{
+	if (is_attach) {
+		if (test_bit(SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
+			mdata->sde_caps_map) &&
+			(mdata->sec_cam_en &&
+			 domain_type == SDE_IOMMU_DOMAIN_ROT_SECURE))
+			return false;
+		else
+			return true;
+	} else {
+		if (test_bit(SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
+			mdata->sde_caps_map) &&
+			(mdata->sec_cam_en &&
+			 domain_type == SDE_IOMMU_DOMAIN_ROT_SECURE))
+			return true;
+		else
+			return false;
+	}
+}
+
 struct sde_smmu_client *sde_smmu_get_cb(u32 domain)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
@@ -180,7 +204,7 @@ end:
  * And iommu attach is done only once during the initial attach and it is never
  * detached as smmu v2 uses a feature called 'retention'.
  */
-static int sde_smmu_attach(struct sde_rot_data_type *mdata)
+int sde_smmu_attach(struct sde_rot_data_type *mdata)
 {
 	struct sde_smmu_client *sde_smmu;
 	int i, rc = 0;
@@ -199,7 +223,10 @@ static int sde_smmu_attach(struct sde_rot_data_type *mdata)
 				goto err;
 			}
 
-			if (!sde_smmu->domain_attached) {
+			if (!sde_smmu->domain_attached &&
+				sde_smmu_is_valid_domain_condition(mdata,
+						i,
+						true)) {
 				rc = arm_iommu_attach_device(sde_smmu->dev,
 						sde_smmu->mmu_mapping);
 				if (rc) {
@@ -239,7 +266,7 @@ err:
  * Only disables the clks as it is not required to detach the iommu mapped
  * VA range from the device in smmu as explained in the sde_smmu_attach
  */
-static int sde_smmu_detach(struct sde_rot_data_type *mdata)
+int sde_smmu_detach(struct sde_rot_data_type *mdata)
 {
 	struct sde_smmu_client *sde_smmu;
 	int i;
@@ -249,8 +276,18 @@ static int sde_smmu_detach(struct sde_rot_data_type *mdata)
 			continue;
 
 		sde_smmu = sde_smmu_get_cb(i);
-		if (sde_smmu && sde_smmu->dev)
-			sde_smmu_enable_power(sde_smmu, false);
+		if (sde_smmu && sde_smmu->dev) {
+			if (sde_smmu->domain_attached &&
+				sde_smmu_is_valid_domain_condition(mdata,
+					i, false)) {
+				arm_iommu_detach_device(sde_smmu->dev);
+				SDEROT_DBG("iommu domain[%i] detached\n", i);
+				sde_smmu->domain_attached = false;
+				}
+			else {
+				sde_smmu_enable_power(sde_smmu, false);
+			}
+		}
 	}
 	return 0;
 }
@@ -366,6 +403,33 @@ int sde_smmu_ctrl(int enable)
 		return mdata->iommu_ref_cnt;
 }
 
+int sde_smmu_secure_ctrl(int enable)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	int rc = 0;
+
+	mutex_lock(&sde_smmu_ref_cnt_lock);
+	/*
+	 * Attach/detach secure context irrespective of ref count,
+	 * We come here only when secure camera is disabled
+	 */
+	if (enable) {
+		rc = sde_smmu_attach(mdata);
+		if (!rc)
+			mdata->iommu_attached = true;
+	} else {
+		rc = sde_smmu_detach(mdata);
+		/*
+		 * keep iommu_attached equal to true,
+		 * so that driver does not attemp to attach
+		 * while in secure state
+		 */
+	}
+
+	mutex_unlock(&sde_smmu_ref_cnt_lock);
+	return rc;
+}
+
 /*
  * sde_smmu_device_create()
  * @dev: sde_mdp device
@@ -476,6 +540,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 	}
 
 	sde_smmu = &mdata->sde_smmu[smmu_domain.domain];
+	sde_smmu->domain = smmu_domain.domain;
 	mp = &sde_smmu->mp;
 	memset(mp, 0, sizeof(struct sde_module_power));
 

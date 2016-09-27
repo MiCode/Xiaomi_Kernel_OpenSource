@@ -641,7 +641,8 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 			((rot->highest_bank & 0x3) << 18));
 
 	/* setup source buffer plane security status */
-	if (flags & SDE_ROT_FLAG_SECURE_OVERLAY_SESSION) {
+	if (flags & (SDE_ROT_FLAG_SECURE_OVERLAY_SESSION |
+			SDE_ROT_FLAG_SECURE_CAMERA_SESSION)) {
 		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SRC_ADDR_SW_STATUS, 0xF);
 		ctx->is_secure = true;
 	} else {
@@ -739,7 +740,8 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 	SDE_REGDMA_WRITE(wrptr, ROT_WB_OUT_XY,
 			cfg->dst_rect->x | (cfg->dst_rect->y << 16));
 
-	if (flags & SDE_ROT_FLAG_SECURE_OVERLAY_SESSION)
+	if (flags & (SDE_ROT_FLAG_SECURE_OVERLAY_SESSION |
+			SDE_ROT_FLAG_SECURE_CAMERA_SESSION))
 		SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_ADDR_SW_STATUS, 0x1);
 	else
 		SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_ADDR_SW_STATUS, 0);
@@ -1131,14 +1133,10 @@ static int sde_hw_rotator_swts_create(struct sde_hw_rotator *rot)
 	int rc = 0;
 	struct ion_handle *handle;
 	struct sde_mdp_img_data *data;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	u32 bufsize = sizeof(int) * SDE_HW_ROT_REGDMA_TOTAL_CTX * 2;
 
-	rot->iclient = msm_ion_client_create(rot->pdev->name);
-	if (IS_ERR_OR_NULL(rot->iclient)) {
-		SDEROT_ERR("msm_ion_client_create() return error (%p)\n",
-				rot->iclient);
-		return -EINVAL;
-	}
+	rot->iclient = mdata->iclient;
 
 	handle = ion_alloc(rot->iclient, bufsize, SZ_4K,
 			ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
@@ -1564,6 +1562,9 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 			SDE_ROT_FLAG_DEINTERLACE : 0;
 	flags |= (item->flags & SDE_ROTATION_SECURE) ?
 			SDE_ROT_FLAG_SECURE_OVERLAY_SESSION : 0;
+	flags |= (item->flags & SDE_ROTATION_SECURE_CAMERA) ?
+			SDE_ROT_FLAG_SECURE_CAMERA_SESSION : 0;
+
 
 	sspp_cfg.img_width = item->input.width;
 	sspp_cfg.img_height = item->input.height;
@@ -1808,13 +1809,14 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 		set_bit(SDE_CAPS_R3_1P5_DOWNSCALE,  mdata->sde_caps_map);
 	}
 
+	set_bit(SDE_CAPS_SEC_ATTACH_DETACH_SMMU, mdata->sde_caps_map);
+
 	mdata->nrt_vbif_dbg_bus = nrt_vbif_dbg_bus_r3;
 	mdata->nrt_vbif_dbg_bus_size =
 			ARRAY_SIZE(nrt_vbif_dbg_bus_r3);
 
 	mdata->regdump = sde_rot_r3_regdump;
 	mdata->regdump_size = ARRAY_SIZE(sde_rot_r3_regdump);
-
 	SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG, 0);
 	return 0;
 }
