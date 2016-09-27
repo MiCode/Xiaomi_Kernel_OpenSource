@@ -403,6 +403,9 @@ struct arm_smmu_device {
 	/* Protects power_count */
 	struct mutex			power_lock;
 	int				power_count;
+	/* Protects clock_refs_count */
+	spinlock_t			clock_refs_lock;
+	int				clock_refs_count;
 
 	spinlock_t			atos_lock;
 
@@ -670,32 +673,82 @@ static void __arm_smmu_free_bitmap(unsigned long *map, int idx)
 	clear_bit(idx, map);
 }
 
-static int arm_smmu_enable_clocks(struct arm_smmu_device *smmu)
+static int arm_smmu_prepare_clocks(struct arm_smmu_device *smmu)
 {
 	int i, ret = 0;
 
 	for (i = 0; i < smmu->num_clocks; ++i) {
-		ret = clk_prepare_enable(smmu->clocks[i]);
+		ret = clk_prepare(smmu->clocks[i]);
 		if (ret) {
-			dev_err(smmu->dev, "Couldn't enable clock #%d\n", i);
+			dev_err(smmu->dev, "Couldn't prepare clock #%d\n", i);
 			while (i--)
-				clk_disable_unprepare(smmu->clocks[i]);
+				clk_unprepare(smmu->clocks[i]);
 			break;
 		}
 	}
-
 	return ret;
 }
 
-static void arm_smmu_disable_clocks(struct arm_smmu_device *smmu)
+static void arm_smmu_unprepare_clocks(struct arm_smmu_device *smmu)
 {
 	int i;
 
 	for (i = 0; i < smmu->num_clocks; ++i)
-		clk_disable_unprepare(smmu->clocks[i]);
+		clk_unprepare(smmu->clocks[i]);
 }
 
-static int arm_smmu_power_on(struct arm_smmu_device *smmu)
+/* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
+static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu)
+{
+	int i, ret = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&smmu->clock_refs_lock, flags);
+	if (smmu->clock_refs_count > 0) {
+		smmu->clock_refs_count++;
+		spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
+		return 0;
+	}
+
+	for (i = 0; i < smmu->num_clocks; ++i) {
+		ret = clk_enable(smmu->clocks[i]);
+		if (ret) {
+			dev_err(smmu->dev, "Couldn't enable clock #%d\n", i);
+			while (i--)
+				clk_disable(smmu->clocks[i]);
+			break;
+		}
+	}
+
+	if (!ret)
+		smmu->clock_refs_count++;
+
+	spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
+	return ret;
+}
+
+/* Clocks should be unprepared after this (arm_smmu_unprepare_clocks) */
+static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu)
+{
+	int i;
+	unsigned long flags;
+
+	spin_lock_irqsave(&smmu->clock_refs_lock, flags);
+	WARN_ON(smmu->clock_refs_count == 0);
+	if (smmu->clock_refs_count > 1) {
+		smmu->clock_refs_count--;
+		spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
+		return;
+	}
+
+	for (i = 0; i < smmu->num_clocks; ++i)
+		clk_disable(smmu->clocks[i]);
+
+	smmu->clock_refs_count--;
+	spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
+}
+
+static int arm_smmu_power_on_slow(struct arm_smmu_device *smmu)
 {
 	int ret;
 
@@ -706,7 +759,7 @@ static int arm_smmu_power_on(struct arm_smmu_device *smmu)
 		return 0;
 	}
 
-	ret = arm_smmu_enable_clocks(smmu);
+	ret = arm_smmu_prepare_clocks(smmu);
 	if (!ret)
 		smmu->power_count += 1;
 
@@ -715,7 +768,7 @@ static int arm_smmu_power_on(struct arm_smmu_device *smmu)
 	return ret;
 }
 
-static void arm_smmu_power_off(struct arm_smmu_device *smmu)
+static void arm_smmu_power_off_slow(struct arm_smmu_device *smmu)
 {
 	mutex_lock(&smmu->power_lock);
 	smmu->power_count--;
@@ -726,9 +779,68 @@ static void arm_smmu_power_off(struct arm_smmu_device *smmu)
 		return;
 	}
 
-	arm_smmu_disable_clocks(smmu);
+	arm_smmu_unprepare_clocks(smmu);
 
 	mutex_unlock(&smmu->power_lock);
+}
+
+static int arm_smmu_power_on(struct arm_smmu_device *smmu)
+{
+	int ret;
+
+	ret = arm_smmu_power_on_slow(smmu);
+	if (ret)
+		return ret;
+
+	ret = arm_smmu_enable_clocks_atomic(smmu);
+	if (ret)
+		goto out_disable;
+
+	return 0;
+
+out_disable:
+	arm_smmu_power_off_slow(smmu);
+	return ret;
+}
+
+static void arm_smmu_power_off(struct arm_smmu_device *smmu)
+{
+	arm_smmu_disable_clocks_atomic(smmu);
+	arm_smmu_power_off_slow(smmu);
+}
+
+/*
+ * Must be used instead of arm_smmu_power_on if it may be called from
+ * atomic context
+ */
+static int arm_smmu_domain_power_on(struct iommu_domain *domain,
+				struct arm_smmu_device *smmu)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
+
+	if (atomic_domain)
+		return arm_smmu_enable_clocks_atomic(smmu);
+
+	return arm_smmu_power_on(smmu);
+}
+
+/*
+ * Must be used instead of arm_smmu_power_on if it may be called from
+ * atomic context
+ */
+static void arm_smmu_domain_power_off(struct iommu_domain *domain,
+				struct arm_smmu_device *smmu)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
+
+	if (atomic_domain) {
+		arm_smmu_disable_clocks_atomic(smmu);
+		return;
+	}
+
+	arm_smmu_power_off(smmu);
 }
 
 /* Wait for any pending TLB invalidations to complete */
@@ -769,6 +881,7 @@ static void arm_smmu_tlb_sync(void *cookie)
 	arm_smmu_tlb_sync_cb(smmu_domain->smmu, smmu_domain->cfg.cbndx);
 }
 
+/* Must be called with clocks/regulators enabled */
 static void arm_smmu_tlb_inv_context(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
@@ -1607,6 +1720,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_master_cfg *cfg;
 	int dynamic = smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC);
+	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	if (dynamic)
 		return;
@@ -1622,6 +1736,12 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 
 	dev->archdata.iommu = NULL;
 	arm_smmu_domain_remove_master(smmu_domain, cfg);
+
+	/* Remove additional vote for atomic power */
+	if (atomic_domain) {
+		WARN_ON(arm_smmu_enable_clocks_atomic(smmu));
+		arm_smmu_power_off(smmu);
+	}
 }
 
 static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
@@ -1630,6 +1750,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_master_cfg *cfg;
+	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	smmu = find_smmu_for_device(dev);
 	if (!smmu) {
@@ -1641,6 +1762,18 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	ret = arm_smmu_power_on(smmu);
 	if (ret)
 		return ret;
+
+	/*
+	 * Keep an additional vote for non-atomic power until domain is
+	 * detached
+	 */
+	if (atomic_domain) {
+		ret = arm_smmu_power_on(smmu);
+		if (ret)
+			goto out_power_off;
+
+		arm_smmu_disable_clocks_atomic(smmu);
+	}
 
 	/* Ensure that the domain is finalised */
 	ret = arm_smmu_init_domain_context(domain, smmu);
@@ -1714,7 +1847,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return 0;
 
-	ret = arm_smmu_power_on(smmu_domain->smmu);
+	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
 	if (ret)
 		return ret;
 
@@ -1722,7 +1855,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	ret = ops->unmap(ops, iova, size);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
-	arm_smmu_power_off(smmu_domain->smmu);
+	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	return ret;
 }
 
@@ -1738,7 +1871,7 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
-	ret = arm_smmu_power_on(smmu_domain->smmu);
+	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
 	if (ret)
 		return ret;
 
@@ -1749,7 +1882,7 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (!ret)
 		arm_smmu_unmap(domain, iova, size);
 
-	arm_smmu_power_off(smmu_domain->smmu);
+	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	return ret;
 }
 
@@ -2146,6 +2279,21 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 					~(1 << DOMAIN_ATTR_S1_BYPASS);
 
 		ret = 0;
+		break;
+	}
+	case DOMAIN_ATTR_ATOMIC:
+	{
+		int atomic_ctx = *((int *)data);
+
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+			break;
+		}
+		if (atomic_ctx)
+			smmu_domain->attributes |= (1 << DOMAIN_ATTR_ATOMIC);
+		else
+			smmu_domain->attributes &= ~(1 << DOMAIN_ATTR_ATOMIC);
 		break;
 	}
 	default:
@@ -2788,6 +2936,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	smmu->dev = dev;
 	spin_lock_init(&smmu->atos_lock);
 	mutex_init(&smmu->power_lock);
+	spin_lock_init(&smmu->clock_refs_lock);
 	idr_init(&smmu->asid_idr);
 	mutex_init(&smmu->idr_mutex);
 
