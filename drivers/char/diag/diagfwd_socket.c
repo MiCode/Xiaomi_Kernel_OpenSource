@@ -34,6 +34,9 @@
 #include "diagfwd_socket.h"
 #include "diag_ipc_logging.h"
 
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/subsystem_restart.h>
+
 #define DIAG_SVC_ID		0x1001
 
 #define MODEM_INST_BASE		0
@@ -48,6 +51,7 @@
 #define INST_ID_DCI		4
 
 struct diag_cntl_socket_info *cntl_socket;
+static uint64_t bootup_req[NUM_SOCKET_SUBSYSTEMS];
 
 struct diag_socket_info socket_data[NUM_PERIPHERALS] = {
 	{
@@ -363,7 +367,7 @@ static void socket_open_client(struct diag_socket_info *info)
 		return;
 	}
 	__socket_open_channel(info);
-	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s exiting\n", info->name);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s opened client\n", info->name);
 }
 
 static void socket_open_server(struct diag_socket_info *info)
@@ -438,6 +442,13 @@ static void __socket_close_channel(struct diag_socket_info *info)
 
 	if (!atomic_read(&info->opened))
 		return;
+
+	if (bootup_req[info->peripheral] == PEPIPHERAL_SSR_UP) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Modem is powered up, stopping cleanup: bootup_req[%s] = %d\n",
+		info->name, (int)bootup_req[info->peripheral]);
+		return;
+	}
 
 	memset(&info->remote_addr, 0, sizeof(struct sockaddr_msm_ipc));
 	diagfwd_channel_close(info->fwd_ctxt);
@@ -557,7 +568,9 @@ static int cntl_socket_process_msg_client(uint32_t cmd, uint32_t node_id,
 	case CNTL_CMD_REMOVE_CLIENT:
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s received remove client\n",
 			 info->name);
+		mutex_lock(&driver->diag_notifier_mutex);
 		socket_close_channel(info);
+		mutex_unlock(&driver->diag_notifier_mutex);
 		break;
 	default:
 		return -EINVAL;
@@ -566,13 +579,30 @@ static int cntl_socket_process_msg_client(uint32_t cmd, uint32_t node_id,
 	return 0;
 }
 
+static int restart_notifier_cb(struct notifier_block *this,
+				  unsigned long code,
+				  void *data);
+
+struct restart_notifier_block {
+	unsigned processor;
+	char *name;
+	struct notifier_block nb;
+};
+
+static struct restart_notifier_block restart_notifiers[] = {
+	{SOCKET_MODEM, "modem", .nb.notifier_call = restart_notifier_cb},
+	{SOCKET_ADSP, "adsp", .nb.notifier_call = restart_notifier_cb},
+	{SOCKET_WCNSS, "wcnss", .nb.notifier_call = restart_notifier_cb},
+	{SOCKET_SLPI, "slpi", .nb.notifier_call = restart_notifier_cb},
+};
+
+
 static void cntl_socket_read_work_fn(struct work_struct *work)
 {
 	union cntl_port_msg msg;
 	int ret = 0;
 	struct kvec iov = { 0 };
 	struct msghdr read_msg = { 0 };
-
 
 	if (!cntl_socket)
 		return;
@@ -786,8 +816,11 @@ static int __diag_cntl_socket_init(void)
 int diag_socket_init(void)
 {
 	int err = 0;
+	int i;
 	int peripheral = 0;
+	void *handle;
 	struct diag_socket_info *info = NULL;
+	struct restart_notifier_block *nb;
 
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		info = &socket_cntl[peripheral];
@@ -806,6 +839,14 @@ int diag_socket_init(void)
 	if (err) {
 		pr_err("diag: Unable to open control sockets, err: %d\n", err);
 		goto fail;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(restart_notifiers); i++) {
+		nb = &restart_notifiers[i];
+		handle = subsys_notif_register_notifier(nb->name, &nb->nb);
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"%s: registering notifier for '%s', handle=%p\n",
+		__func__, nb->name, handle);
 	}
 
 	register_ipcrtr_af_init_notifier(&socket_notify);
@@ -841,6 +882,60 @@ static int socket_ready_notify(struct notifier_block *nb,
 	queue_work(cntl_socket->wq, &(cntl_socket->init_work));
 
 	return 0;
+}
+
+static int restart_notifier_cb(struct notifier_block *this, unsigned long code,
+	void *_cmd)
+{
+	struct restart_notifier_block *notifier;
+
+	notifier = container_of(this,
+			struct restart_notifier_block, nb);
+
+	mutex_lock(&driver->diag_notifier_mutex);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+	"%s: ssr for processor %d ('%s')\n",
+	__func__, notifier->processor, notifier->name);
+
+	switch (code) {
+
+	case SUBSYS_BEFORE_SHUTDOWN:
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag: %s: SUBSYS_BEFORE_SHUTDOWN\n", __func__);
+		bootup_req[notifier->processor] = PEPIPHERAL_SSR_DOWN;
+		break;
+
+	case SUBSYS_AFTER_SHUTDOWN:
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag: %s: SUBSYS_AFTER_SHUTDOWN\n", __func__);
+		break;
+
+	case SUBSYS_BEFORE_POWERUP:
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag: %s: SUBSYS_BEFORE_POWERUP\n", __func__);
+		break;
+
+	case SUBSYS_AFTER_POWERUP:
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag: %s: SUBSYS_AFTER_POWERUP\n", __func__);
+		if (!bootup_req[notifier->processor]) {
+			bootup_req[notifier->processor] = PEPIPHERAL_SSR_DOWN;
+			break;
+		}
+		bootup_req[notifier->processor] = PEPIPHERAL_SSR_UP;
+		break;
+
+	default:
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag: code: %lu\n", code);
+		break;
+	}
+	mutex_unlock(&driver->diag_notifier_mutex);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+	"diag: bootup_req[%s] = %d\n",
+	notifier->name, (int)bootup_req[notifier->processor]);
+
+	return NOTIFY_DONE;
 }
 
 int diag_socket_init_peripheral(uint8_t peripheral)
