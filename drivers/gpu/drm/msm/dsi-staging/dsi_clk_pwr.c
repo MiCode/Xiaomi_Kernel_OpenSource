@@ -12,7 +12,6 @@
  *
  */
 
-#include <linux/clk/msm-clk.h>
 #include <linux/of.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
