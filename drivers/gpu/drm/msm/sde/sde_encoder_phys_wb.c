@@ -517,8 +517,8 @@ static int sde_encoder_phys_wb_unregister_irq(
 		return 0;
 
 	sde_core_irq_disable(phys_enc->sde_kms, &wb_enc->irq_idx, 1);
-	sde_core_irq_register_callback(phys_enc->sde_kms, wb_enc->irq_idx,
-			NULL);
+	sde_core_irq_unregister_callback(phys_enc->sde_kms, wb_enc->irq_idx,
+			&wb_enc->irq_cb);
 
 	SDE_DEBUG("un-register IRQ for wb %d, irq_idx=%d\n",
 			hw_wb->idx - WB_0,
@@ -555,7 +555,7 @@ static int sde_encoder_phys_wb_register_irq(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
-	struct sde_irq_callback irq_cb;
+	struct sde_irq_callback *irq_cb = &wb_enc->irq_cb;
 	enum sde_intr_type intr_type;
 	int ret = 0;
 
@@ -572,10 +572,10 @@ static int sde_encoder_phys_wb_register_irq(struct sde_encoder_phys *phys_enc)
 		return -EINVAL;
 	}
 
-	irq_cb.func = sde_encoder_phys_wb_done_irq;
-	irq_cb.arg = wb_enc;
+	irq_cb->func = sde_encoder_phys_wb_done_irq;
+	irq_cb->arg = wb_enc;
 	ret = sde_core_irq_register_callback(phys_enc->sde_kms,
-			wb_enc->irq_idx, &irq_cb);
+			wb_enc->irq_idx, irq_cb);
 	if (ret) {
 		SDE_ERROR("failed to register IRQ callback WB_DONE\n");
 		return ret;
@@ -590,8 +590,8 @@ static int sde_encoder_phys_wb_register_irq(struct sde_encoder_phys *phys_enc)
 		wb_enc->irq_idx = -EINVAL;
 
 		/* Unregister callback on IRQ enable failure */
-		sde_core_irq_register_callback(phys_enc->sde_kms,
-				wb_enc->irq_idx, NULL);
+		sde_core_irq_unregister_callback(phys_enc->sde_kms,
+				wb_enc->irq_idx, irq_cb);
 		return ret;
 	}
 
@@ -1070,6 +1070,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->intf_mode = INTF_MODE_WB_LINE;
 	phys_enc->intf_idx = p->intf_idx;
 	spin_lock_init(&phys_enc->spin_lock);
+	INIT_LIST_HEAD(&wb_enc->irq_cb.list);
 
 	ret = sde_encoder_phys_wb_init_debugfs(phys_enc, p->sde_kms);
 	if (ret) {

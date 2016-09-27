@@ -63,6 +63,9 @@ int sde_core_irq_idx_lookup(
  * @irq_idxs:		Array of irq index
  * @irq_count:		Number of irq_idx provided in the array
  * @return:		0 for success enabling IRQ, otherwise failure
+ *
+ * This function increments count on each enable and decrements on each
+ * disable.  Interrupts is enabled if count is 0 before increment.
  */
 int sde_core_irq_enable(
 		struct sde_kms *sde_kms,
@@ -75,6 +78,9 @@ int sde_core_irq_enable(
  * @irq_idxs:		Array of irq index
  * @irq_count:		Number of irq_idx provided in the array
  * @return:		0 for success disabling IRQ, otherwise failure
+ *
+ * This function increments count on each enable and decrements on each
+ * disable.  Interrupts is disabled if count is 0 after decrement.
  */
 int sde_core_irq_disable(
 		struct sde_kms *sde_kms,
@@ -101,9 +107,30 @@ u32 sde_core_irq_read(
  * @irq_cb:		IRQ callback structure, containing callback function
  *			and argument. Passing NULL for irq_cb will unregister
  *			the callback for the given irq_idx
+ *			This must exist until un-registration.
  * @return:		0 for success registering callback, otherwise failure
+ *
+ * This function supports registration of multiple callbacks for each interrupt.
  */
 int sde_core_irq_register_callback(
+		struct sde_kms *sde_kms,
+		int irq_idx,
+		struct sde_irq_callback *irq_cb);
+
+/**
+ * sde_core_irq_unregister_callback - For unregistering callback function on IRQ
+ *                             interrupt
+ * @sde_kms:		SDE handle
+ * @irq_idx:		irq index
+ * @irq_cb:		IRQ callback structure, containing callback function
+ *			and argument. Passing NULL for irq_cb will unregister
+ *			the callback for the given irq_idx
+ *			This must match with registration.
+ * @return:		0 for success registering callback, otherwise failure
+ *
+ * This function supports registration of multiple callbacks for each interrupt.
+ */
+int sde_core_irq_unregister_callback(
 		struct sde_kms *sde_kms,
 		int irq_idx,
 		struct sde_irq_callback *irq_cb);
