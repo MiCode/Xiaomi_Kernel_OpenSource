@@ -369,8 +369,9 @@ static inline void wcd_clsh_gm3_boost_disable(struct snd_soc_codec *codec,
 
 	if (mode == CLS_H_HIFI || mode == CLS_H_LOHIFI ||
 	    mode == CLS_AB_HIFI || mode == CLS_AB) {
-		snd_soc_update_bits(codec, WCD9XXX_HPH_CNP_WG_CTL,
-				    0x80, 0x0); /* disable GM3 Boost */
+		if (TAVIL_IS_1_0(wcd9xxx))
+			snd_soc_update_bits(codec, WCD9XXX_HPH_CNP_WG_CTL,
+					    0x80, 0x0); /* disable GM3 Boost */
 		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEG_CTRL_4,
 				    0xF0, 0x80);
 	} else {
