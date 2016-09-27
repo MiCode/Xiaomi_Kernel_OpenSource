@@ -82,7 +82,7 @@ TRACE_EVENT(cpu_idle_exit,
 		__entry->success)
 );
 
-TRACE_EVENT(cpu_idle_enter_cpu_freq,
+DECLARE_EVENT_CLASS(cpu_freq,
 
 	TP_PROTO(int cpu, unsigned long cpu_clk, unsigned long l2_clk),
 
@@ -104,29 +104,17 @@ TRACE_EVENT(cpu_idle_enter_cpu_freq,
 		__entry->cpu, __entry->cpu_clk, __entry->l2_clk)
 );
 
-TRACE_EVENT(cpu_idle_exit_cpu_freq,
-
+DEFINE_EVENT(cpu_freq, cpu_idle_enter_cpu_freq,
 	TP_PROTO(int cpu, unsigned long cpu_clk, unsigned long l2_clk),
-
-	TP_ARGS(cpu, cpu_clk, l2_clk),
-
-	TP_STRUCT__entry(
-		__field(int, cpu)
-		__field(unsigned long, cpu_clk)
-		__field(unsigned long, l2_clk)
-	),
-
-	TP_fast_assign(
-		__entry->cpu = cpu;
-		__entry->cpu_clk = cpu_clk;
-		__entry->l2_clk = l2_clk;
-	),
-
-	TP_printk("cpu:%d cpu_clk:%luHZ l2_clk:%luHZ",
-		__entry->cpu, __entry->cpu_clk, __entry->l2_clk)
+	TP_ARGS(cpu, cpu_clk, l2_clk)
 );
 
-TRACE_EVENT(cluster_enter,
+DEFINE_EVENT(cpu_freq, cpu_idle_exit_cpu_freq,
+	TP_PROTO(int cpu, unsigned long cpu_clk, unsigned long l2_clk),
+	TP_ARGS(cpu, cpu_clk, l2_clk)
+);
+
+DECLARE_EVENT_CLASS(cluster,
 
 	TP_PROTO(const char *name, int index, unsigned long sync_cpus,
 		unsigned long child_cpus, bool from_idle),
@@ -156,36 +144,16 @@ TRACE_EVENT(cluster_enter,
 		__entry->child_cpus,
 		__entry->from_idle)
 );
-
-TRACE_EVENT(cluster_exit,
-
+DEFINE_EVENT(cluster, cluster_enter,
 	TP_PROTO(const char *name, int index, unsigned long sync_cpus,
 		unsigned long child_cpus, bool from_idle),
+	TP_ARGS(name, index, sync_cpus, child_cpus, from_idle)
+);
 
-	TP_ARGS(name, index, sync_cpus, child_cpus, from_idle),
-
-	TP_STRUCT__entry(
-		__field(const char *, name)
-		__field(int, index)
-		__field(unsigned long, sync_cpus)
-		__field(unsigned long, child_cpus)
-		__field(bool, from_idle)
-	),
-
-	TP_fast_assign(
-		__entry->name = name;
-		__entry->index = index;
-		__entry->sync_cpus = sync_cpus;
-		__entry->child_cpus = child_cpus;
-		__entry->from_idle = from_idle;
-	),
-
-	TP_printk("cluster_name:%s idx:%d sync:0x%lx child:0x%lx idle:%d",
-		__entry->name,
-		__entry->index,
-		__entry->sync_cpus,
-		__entry->child_cpus,
-		__entry->from_idle)
+DEFINE_EVENT(cluster, cluster_exit,
+	TP_PROTO(const char *name, int index, unsigned long sync_cpus,
+		unsigned long child_cpus, bool from_idle),
+	TP_ARGS(name, index, sync_cpus, child_cpus, from_idle)
 );
 
 TRACE_EVENT(pre_pc_cb,

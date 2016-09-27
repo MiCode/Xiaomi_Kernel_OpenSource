@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/kallsyms.h>
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
+#include <linux/async.h>
 #include <soc/qcom/memory_dump.h>
 
 #define MISC_DUMP_DATA_LEN		4096
@@ -235,13 +236,19 @@ static void __init common_log_register_log_buf(void)
 	}
 }
 
-static int __init msm_common_log_init(void)
+static void __init async_common_log_init(void *data, async_cookie_t cookie)
 {
 	common_log_register_log_buf();
 	register_misc_dump();
 	register_pmic_dump();
 	register_vsense_dump();
 	register_rpm_dump();
+}
+
+static int __init msm_common_log_init(void)
+{
+	/* Initialize asynchronously to reduce boot time */
+	async_schedule(async_common_log_init, NULL);
 	return 0;
 }
 late_initcall(msm_common_log_init);

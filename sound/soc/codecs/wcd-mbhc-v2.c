@@ -886,6 +886,11 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 		return -EINVAL;
 	}
 
+	/* If PA is enabled, dont check for cross-connection */
+	if (mbhc->mbhc_cb->hph_pa_on_status)
+		if (mbhc->mbhc_cb->hph_pa_on_status(mbhc->codec))
+			return false;
+
 	WCD_MBHC_REG_READ(WCD_MBHC_ELECT_SCHMT_ISRC, reg1);
 	/*
 	 * Check if there is any cross connection,

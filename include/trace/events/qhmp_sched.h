@@ -1045,6 +1045,50 @@ TRACE_EVENT(sched_get_nr_running_avg,
 	TP_printk("avg=%d big_avg=%d iowait_avg=%d",
 		__entry->avg, __entry->big_avg, __entry->iowait_avg)
 );
+
+TRACE_EVENT(core_ctl_eval_need,
+
+	TP_PROTO(unsigned int cpu, unsigned int old_need,
+		 unsigned int new_need, unsigned int updated),
+	TP_ARGS(cpu, old_need, new_need, updated),
+	TP_STRUCT__entry(
+		__field(u32, cpu)
+		__field(u32, old_need)
+		__field(u32, new_need)
+		__field(u32, updated)
+	),
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->old_need = old_need;
+		__entry->new_need = new_need;
+		__entry->updated = updated;
+	),
+	TP_printk("cpu=%u, old_need=%u, new_need=%u, updated=%u", __entry->cpu,
+		  __entry->old_need, __entry->new_need, __entry->updated)
+);
+
+TRACE_EVENT(core_ctl_set_busy,
+
+	TP_PROTO(unsigned int cpu, unsigned int busy,
+		 unsigned int old_is_busy, unsigned int is_busy),
+	TP_ARGS(cpu, busy, old_is_busy, is_busy),
+	TP_STRUCT__entry(
+		__field(u32, cpu)
+		__field(u32, busy)
+		__field(u32, old_is_busy)
+		__field(u32, is_busy)
+	),
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->busy = busy;
+		__entry->old_is_busy = old_is_busy;
+		__entry->is_busy = is_busy;
+	),
+	TP_printk("cpu=%u, busy=%u, old_is_busy=%u, new_is_busy=%u",
+		  __entry->cpu, __entry->busy, __entry->old_is_busy,
+		  __entry->is_busy)
+);
+
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */

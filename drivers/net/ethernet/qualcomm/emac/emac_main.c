@@ -3188,6 +3188,11 @@ static int emac_pm_resume(struct device *device)
 	emac_hw_reset_mac(hw);
 	emac_phy_reset_external(adpt);
 
+	retval = emac_phy_setup_link(adpt, phy->autoneg_advertised, true,
+				     !phy->disable_fc_autoneg);
+	if (retval)
+		goto error;
+
 	/* Disable EPHY Link UP interrupt */
 	retval = emac_phy_write(adpt, phy->addr, MII_INT_ENABLE, 0);
 	if (retval)
