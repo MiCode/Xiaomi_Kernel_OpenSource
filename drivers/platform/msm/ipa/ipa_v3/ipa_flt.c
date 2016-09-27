@@ -136,7 +136,7 @@ static int ipa_prep_flt_tbl_for_cmt(enum ipa_ip_type ip,
 			IPAERR("failed to calculate HW FLT rule size\n");
 			return -EPERM;
 		}
-		IPADBG("pipe %d rule_id (handle) %u hw_len %d priority %u\n",
+		IPADBG_LOW("pipe %d rule_id(handle) %u hw_len %d priority %u\n",
 			pipe_idx, entry->rule_id, entry->hw_len, entry->prio);
 
 		if (entry->rule.hashable)
