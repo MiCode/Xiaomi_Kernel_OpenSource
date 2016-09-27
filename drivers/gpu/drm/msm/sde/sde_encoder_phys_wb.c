@@ -923,9 +923,10 @@ static void sde_encoder_phys_wb_destroy_debugfs(
 	debugfs_remove_recursive(wb_enc->debugfs_root);
 }
 #else
-static void sde_encoder_phys_wb_init_debugfs(
+static int sde_encoder_phys_wb_init_debugfs(
 		struct sde_encoder_phys *phys_enc, struct sde_kms *kms)
 {
+	return 0;
 }
 static void sde_encoder_phys_wb_destroy_debugfs(
 		struct sde_encoder_phys *phys_enc)
