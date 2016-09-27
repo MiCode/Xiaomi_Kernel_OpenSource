@@ -97,8 +97,7 @@ err_rmdir:
 	return -EIO;
 }
 
-void iommu_debug_attach_device(struct iommu_domain *domain,
-			       struct device *dev)
+void iommu_debug_domain_add(struct iommu_domain *domain)
 {
 	struct iommu_debug_attachment *attach;
 
@@ -109,20 +108,61 @@ void iommu_debug_attach_device(struct iommu_domain *domain,
 		goto out_unlock;
 
 	attach->domain = domain;
-	attach->dev = dev;
-
-	/*
-	 * we might not init until after other drivers start calling
-	 * iommu_attach_device. Only set up the debugfs nodes if we've
-	 * already init'd to avoid polluting the top-level debugfs
-	 * directory (by calling debugfs_create_dir with a NULL
-	 * parent). These will be flushed out later once we init.
-	 */
-	if (debugfs_attachments_dir)
-		iommu_debug_attach_add_debugfs(attach);
-
+	attach->dev = NULL;
 	list_add(&attach->list, &iommu_debug_attachments);
+
 out_unlock:
+	mutex_unlock(&iommu_debug_attachments_lock);
+}
+
+void iommu_debug_domain_remove(struct iommu_domain *domain)
+{
+	struct iommu_debug_attachment *it;
+
+	mutex_lock(&iommu_debug_attachments_lock);
+	list_for_each_entry(it, &iommu_debug_attachments, list)
+		if (it->domain == domain && it->dev == NULL)
+			break;
+
+	if (&it->list == &iommu_debug_attachments) {
+		WARN(1, "Couldn't find debug attachment for domain=0x%p",
+				domain);
+	} else {
+		list_del(&it->list);
+		kfree(it);
+	}
+	mutex_unlock(&iommu_debug_attachments_lock);
+}
+
+void iommu_debug_attach_device(struct iommu_domain *domain,
+			       struct device *dev)
+{
+	struct iommu_debug_attachment *attach;
+
+	mutex_lock(&iommu_debug_attachments_lock);
+
+	list_for_each_entry(attach, &iommu_debug_attachments, list)
+		if (attach->domain == domain && attach->dev == NULL)
+			break;
+
+	if (&attach->list == &iommu_debug_attachments) {
+		WARN(1, "Couldn't find debug attachment for domain=0x%p dev=%s",
+		     domain, dev_name(dev));
+	} else {
+		attach->dev = dev;
+
+		/*
+		 * we might not init until after other drivers start calling
+		 * iommu_attach_device. Only set up the debugfs nodes if we've
+		 * already init'd to avoid polluting the top-level debugfs
+		 * directory (by calling debugfs_create_dir with a NULL
+		 * parent). These will be flushed out later once we init.
+		 */
+
+		if (debugfs_attachments_dir)
+			iommu_debug_attach_add_debugfs(attach);
+	}
+
 	mutex_unlock(&iommu_debug_attachments_lock);
 }
 
@@ -140,9 +180,15 @@ void iommu_debug_detach_device(struct iommu_domain *domain,
 		WARN(1, "Couldn't find debug attachment for domain=0x%p dev=%s",
 		     domain, dev_name(dev));
 	} else {
-		list_del(&it->list);
+		/*
+		 * Just remove debugfs entry and mark dev as NULL on
+		 * iommu_detach call. We would remove the actual
+		 * attachment entry from the list only on domain_free call.
+		 * This is to ensure we keep track of unattached domains too.
+		 */
+
 		debugfs_remove_recursive(it->dentry);
-		kfree(it);
+		it->dev = NULL;
 	}
 	mutex_unlock(&iommu_debug_attachments_lock);
 }
@@ -163,7 +209,8 @@ static int iommu_debug_init_tracking(void)
 
 	/* set up debugfs entries for attachments made during early boot */
 	list_for_each_entry(attach, &iommu_debug_attachments, list)
-		iommu_debug_attach_add_debugfs(attach);
+		if (attach->dev)
+			iommu_debug_attach_add_debugfs(attach);
 
 out_unlock:
 	mutex_unlock(&iommu_debug_attachments_lock);
