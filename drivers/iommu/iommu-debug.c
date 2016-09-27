@@ -62,25 +62,38 @@ static const struct file_operations iommu_debug_attachment_info_fops = {
 static int iommu_debug_attach_add_debugfs(
 	struct iommu_debug_attachment *attach)
 {
-	uuid_le uuid;
-	char *attach_name;
+	const char *attach_name;
 	struct device *dev = attach->dev;
 	struct iommu_domain *domain = attach->domain;
+	int is_dynamic;
 
-	uuid_le_gen(&uuid);
-	attach_name = kasprintf(GFP_KERNEL, "%s-%pUl", dev_name(dev), uuid.b);
-	if (!attach_name)
-		return -ENOMEM;
+	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_DYNAMIC, &is_dynamic))
+		is_dynamic = 0;
+
+	if (is_dynamic) {
+		uuid_le uuid;
+
+		uuid_le_gen(&uuid);
+		attach_name = kasprintf(GFP_KERNEL, "%s-%pUl", dev_name(dev),
+					uuid.b);
+		if (!attach_name)
+			return -ENOMEM;
+	} else {
+		attach_name = dev_name(dev);
+	}
 
 	attach->dentry = debugfs_create_dir(attach_name,
 					    debugfs_attachments_dir);
 	if (!attach->dentry) {
 		pr_err("Couldn't create iommu/attachments/%s debugfs directory for domain 0x%p\n",
 		       attach_name, domain);
-		kfree(attach_name);
+		if (is_dynamic)
+			kfree(attach_name);
 		return -EIO;
 	}
-	kfree(attach_name);
+
+	if (is_dynamic)
+		kfree(attach_name);
 
 	if (!debugfs_create_file(
 		    "info", S_IRUSR, attach->dentry, attach,
