@@ -60,9 +60,7 @@ struct sde_power_handle {
 	struct list_head power_client_clist;
 	struct mutex phandle_lock;
 	u32 current_usecase_ndx;
-#ifdef CONFIG_QCOM_BUS_SCALING
 	u32 reg_bus_hdl;
-#endif
 };
 
 /**
