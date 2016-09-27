@@ -159,7 +159,7 @@
 #define ARM_SMMU_GR0_sTLBGSYNC		0x70
 #define ARM_SMMU_GR0_sTLBGSTATUS	0x74
 #define sTLBGSTATUS_GSACTIVE		(1 << 0)
-#define TLB_LOOP_TIMEOUT		1000000	/* 1s! */
+#define TLB_LOOP_TIMEOUT		500000	/* 500ms */
 
 /* Stream mapping registers */
 #define ARM_SMMU_GR0_SMR(n)		(0x800 + ((n) << 2))
