@@ -650,7 +650,7 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 	if (!of_find_property(dev->of_node, "iommus", NULL))
 		return 0;
 
-	ddev = kmalloc(sizeof(*ddev), GFP_KERNEL);
+	ddev = kzalloc(sizeof(*ddev), GFP_KERNEL);
 	if (!ddev)
 		return -ENODEV;
 	ddev->dev = dev;
