@@ -38,6 +38,12 @@
 
 #define SDE_PLANE_COLOR_FILL_FLAG	BIT(31)
 
+/* dirty bits for update function */
+#define SDE_PLANE_DIRTY_RECTS	0x1
+#define SDE_PLANE_DIRTY_FORMAT	0x2
+#define SDE_PLANE_DIRTY_SHARPEN	0x4
+#define SDE_PLANE_DIRTY_ALL	0xFFFFFFFF
+
 /**
  * enum sde_plane_qos - Different qos configurations for each pipe
  *
@@ -511,13 +517,13 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 	return ret;
 }
 
-static void _sde_plane_set_scanout(struct drm_plane *plane,
+static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 		struct sde_plane_state *pstate,
 		struct sde_hw_pipe_cfg *pipe_cfg,
 		struct drm_framebuffer *fb)
 {
 	struct sde_plane *psde;
-	int ret, i;
+	int ret;
 
 	if (!plane || !pstate || !pipe_cfg || !fb)
 		return;
@@ -529,11 +535,6 @@ static void _sde_plane_set_scanout(struct drm_plane *plane,
 		SDE_ERROR("failed to get format layout, error: %d\n", ret);
 		return;
 	}
-
-	if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
-			BIT(SDE_DRM_DEINTERLACE))
-		for (i = 0; i < SDE_MAX_PLANES; ++i)
-			pipe_cfg->layout.plane_pitch[i] <<= 1;
 
 	if (psde->pipe_hw && psde->pipe_hw->ops.setup_sourceaddress)
 		psde->pipe_hw->ops.setup_sourceaddress(psde->pipe_hw, pipe_cfg);
@@ -1059,7 +1060,7 @@ static int _sde_plane_color_fill(struct drm_plane *plane,
 static int _sde_plane_mode_set(struct drm_plane *plane,
 				struct drm_plane_state *state)
 {
-	uint32_t nplanes, src_flags, zpos, split_width;
+	uint32_t nplanes, src_flags, zpos, split_w;
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	const struct sde_format *fmt;
@@ -1067,9 +1068,13 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	struct drm_framebuffer *fb;
 	struct sde_rect src, dst;
 	bool q16_data = true;
+	int idx;
 
 	if (!plane || !plane->state) {
-		SDE_ERROR("invalid plane/state\n");
+		SDE_ERROR("invalid plane\n");
+		return -EINVAL;
+	} else if (!plane->state) {
+		SDE_ERROR("invalid plane state\n");
 		return -EINVAL;
 	}
 
@@ -1085,87 +1090,135 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	fmt = to_sde_format(msm_framebuffer_format(fb));
 	nplanes = fmt->num_planes;
 
-	psde->is_rt_pipe = _sde_plane_is_rt_pipe(plane, crtc);
-
-	_sde_plane_set_qos_ctrl(plane, false, SDE_PLANE_QOS_PANIC_CTRL);
-
-	POPULATE_RECT(&src, state->src_x, state->src_y,
-		state->src_w, state->src_h, q16_data);
-	POPULATE_RECT(&dst, state->crtc_x, state->crtc_y,
-		state->crtc_w, state->crtc_h, !q16_data);
-
-	SDE_DEBUG("%s:FB[%u] %u,%u,%u,%u -> CRTC[%u] %d,%d,%u,%u, %s ubwc %d\n",
-			psde->pipe_name,
-			fb->base.id, src.x, src.y, src.w, src.h,
-			crtc->base.id, dst.x, dst.y, dst.w, dst.h,
-			drm_get_format_name(fmt->base.pixel_format),
-			SDE_FORMAT_IS_UBWC(fmt));
-
-	/* update format configuration */
-	memset(&(psde->pipe_cfg), 0, sizeof(struct sde_hw_pipe_cfg));
-	src_flags = 0;
-
-	/* flags */
-	SDE_DEBUG("flags 0x%llX, rotation 0x%llX\n",
-			sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG),
-			sde_plane_get_property(pstate, PLANE_PROP_ROTATION));
-	if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
-		BIT(DRM_REFLECT_X))
-		src_flags |= SDE_SSPP_FLIP_LR;
-	if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
-		BIT(DRM_REFLECT_Y))
-		src_flags |= SDE_SSPP_FLIP_UD;
-	if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
-		BIT(SDE_DRM_DEINTERLACE)) {
-		src.h /= 2;
-		src.y  = DIV_ROUND_UP(src.y, 2);
-		src.y &= ~0x1;
+	/* determine what needs to be refreshed */
+	while ((idx = msm_property_pop_dirty(&psde->property_info)) >= 0) {
+		switch (idx) {
+		case PLANE_PROP_SCALER:
+			pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
+			break;
+		case PLANE_PROP_CSC:
+			pstate->dirty |= SDE_PLANE_DIRTY_FORMAT;
+			break;
+		case PLANE_PROP_COLOR_FILL:
+			/* potentially need to refresh everything */
+			pstate->dirty = SDE_PLANE_DIRTY_ALL;
+			break;
+		case PLANE_PROP_ROTATION:
+			pstate->dirty |= SDE_PLANE_DIRTY_FORMAT;
+			break;
+		case PLANE_PROP_SRC_CONFIG:
+		case PLANE_PROP_ZPOS:
+			pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
+			break;
+		case PLANE_PROP_INFO:
+		case PLANE_PROP_ALPHA:
+		case PLANE_PROP_INPUT_FENCE:
+		case PLANE_PROP_BLEND_OP:
+			/* no special action required */
+			break;
+		default:
+			/* unknown property, refresh everything */
+			pstate->dirty |= SDE_PLANE_DIRTY_ALL;
+			SDE_ERROR("executing full mode set, prp_idx %d\n", idx);
+			break;
+		}
 	}
 
-	psde->pipe_cfg.src_rect = src;
-	psde->pipe_cfg.dst_rect = dst;
-
-	/* check for color fill */
-	psde->color_fill = (uint32_t)sde_plane_get_property(pstate,
-			PLANE_PROP_COLOR_FILL);
-	if (psde->color_fill & SDE_PLANE_COLOR_FILL_FLAG)
-		/* skip remaining processing on color fill */
-		return 0;
+	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS)
+		memset(&(psde->pipe_cfg), 0, sizeof(struct sde_hw_pipe_cfg));
 
 	_sde_plane_set_scanout(plane, pstate, &psde->pipe_cfg, fb);
 
-	_sde_plane_setup_scaler(psde, fmt, pstate);
+	/* early out if nothing dirty */
+	if (!pstate->dirty)
+		return 0;
+	pstate->pending = true;
 
-	/* base layer source split needs update */
-	zpos = sde_plane_get_property(pstate, PLANE_PROP_ZPOS);
-	if (zpos == SDE_STAGE_BASE) {
-		split_width = get_crtc_split_width(crtc);
-		if (psde->pipe_cfg.dst_rect.x >= split_width)
-			psde->pipe_cfg.dst_rect.x -= split_width;
+	psde->is_rt_pipe = _sde_plane_is_rt_pipe(plane, crtc);
+	_sde_plane_set_qos_ctrl(plane, false, SDE_PLANE_QOS_PANIC_CTRL);
+
+	/* update roi config */
+	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS) {
+		POPULATE_RECT(&src, state->src_x, state->src_y,
+			state->src_w, state->src_h, q16_data);
+		POPULATE_RECT(&dst, state->crtc_x, state->crtc_y,
+			state->crtc_w, state->crtc_h, !q16_data);
+
+		SDE_DEBUG(
+			"%s:FB[%u] %u,%u,%u,%u -> crtc%u %d,%d,%u,%u, %s ubwc %d\n",
+				psde->pipe_name,
+				fb->base.id, src.x, src.y, src.w, src.h,
+				crtc->base.id, dst.x, dst.y, dst.w, dst.h,
+				drm_get_format_name(fmt->base.pixel_format),
+				SDE_FORMAT_IS_UBWC(fmt));
+
+		if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
+			BIT(SDE_DRM_DEINTERLACE)) {
+			SDE_DEBUG("deinterlace\n");
+			for (idx = 0; idx < SDE_MAX_PLANES; ++idx)
+				psde->pipe_cfg.layout.plane_pitch[idx] <<= 1;
+			src.h /= 2;
+			src.y  = DIV_ROUND_UP(src.y, 2);
+			src.y &= ~0x1;
+		}
+
+		psde->pipe_cfg.src_rect = src;
+		psde->pipe_cfg.dst_rect = dst;
+
+		/* check for color fill */
+		psde->color_fill = (uint32_t)sde_plane_get_property(pstate,
+				PLANE_PROP_COLOR_FILL);
+		if (psde->color_fill & SDE_PLANE_COLOR_FILL_FLAG) {
+			/* skip remaining processing on color fill */
+			pstate->dirty = 0x0;
+		} else if (psde->pipe_hw->ops.setup_rects) {
+			_sde_plane_setup_scaler(psde, fmt, pstate);
+
+			/* base layer source split needs update */
+			zpos = sde_plane_get_property(pstate, PLANE_PROP_ZPOS);
+			if (zpos == SDE_STAGE_BASE) {
+				split_w = get_crtc_split_width(crtc);
+				if (psde->pipe_cfg.dst_rect.x >= split_w)
+					psde->pipe_cfg.dst_rect.x -= split_w;
+			}
+			psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
+					&psde->pipe_cfg, &psde->pixel_ext);
+		}
 	}
 
-	if (psde->pipe_hw->ops.setup_format)
-		psde->pipe_hw->ops.setup_format(psde->pipe_hw,
-				fmt, src_flags);
-	if (psde->pipe_hw->ops.setup_rects)
-		psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
-				&psde->pipe_cfg, &psde->pixel_ext);
+	if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) &&
+			psde->pipe_hw->ops.setup_format) {
+		src_flags = 0x0;
+		SDE_DEBUG("rotation 0x%llX\n",
+			sde_plane_get_property(pstate, PLANE_PROP_ROTATION));
+		if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
+			BIT(DRM_REFLECT_X))
+			src_flags |= SDE_SSPP_FLIP_LR;
+		if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
+			BIT(DRM_REFLECT_Y))
+			src_flags |= SDE_SSPP_FLIP_UD;
+
+		/* update format */
+		psde->pipe_hw->ops.setup_format(psde->pipe_hw, fmt, src_flags);
+
+		/* update csc */
+		if (SDE_FORMAT_IS_YUV(fmt))
+			_sde_plane_setup_csc(psde, pstate, fmt);
+		else
+			psde->csc_ptr = 0;
+	}
 
 	/* update sharpening */
-	psde->sharp_cfg.strength = SHARP_STRENGTH_DEFAULT;
-	psde->sharp_cfg.edge_thr = SHARP_EDGE_THR_DEFAULT;
-	psde->sharp_cfg.smooth_thr = SHARP_SMOOTH_THR_DEFAULT;
-	psde->sharp_cfg.noise_thr = SHARP_NOISE_THR_DEFAULT;
+	if ((pstate->dirty & SDE_PLANE_DIRTY_SHARPEN) &&
+		psde->pipe_hw->ops.setup_sharpening) {
+		psde->sharp_cfg.strength = SHARP_STRENGTH_DEFAULT;
+		psde->sharp_cfg.edge_thr = SHARP_EDGE_THR_DEFAULT;
+		psde->sharp_cfg.smooth_thr = SHARP_SMOOTH_THR_DEFAULT;
+		psde->sharp_cfg.noise_thr = SHARP_NOISE_THR_DEFAULT;
 
-	if (psde->pipe_hw->ops.setup_sharpening)
 		psde->pipe_hw->ops.setup_sharpening(psde->pipe_hw,
-			&psde->sharp_cfg);
-
-	/* update csc */
-	if (SDE_FORMAT_IS_YUV(fmt))
-		_sde_plane_setup_csc(psde, pstate, fmt);
-	else
-		psde->csc_ptr = 0;
+				&psde->sharp_cfg);
+	}
 
 	_sde_plane_set_qos_lut(plane, fb);
 	_sde_plane_set_danger_lut(plane, fb);
@@ -1174,6 +1227,9 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		_sde_plane_set_qos_ctrl(plane, true, SDE_PLANE_QOS_PANIC_CTRL);
 		_sde_plane_set_ot_limit(plane, crtc);
 	}
+
+	/* clear dirty */
+	pstate->dirty = 0x0;
 
 	return 0;
 }
@@ -1211,31 +1267,36 @@ static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
 	struct sde_plane_state *pstate = to_sde_plane_state(state);
 
 	/* no need to check it again */
-	if (pstate->mode_changed)
+	if (pstate->dirty == SDE_PLANE_DIRTY_ALL)
 		return;
 
-	if (!(sde_plane_enabled(state) && sde_plane_enabled(old_state))) {
+	if (!sde_plane_enabled(state) || !sde_plane_enabled(old_state)
+			|| psde->is_error) {
 		SDE_DEBUG("%s: pipe enabling/disabling full modeset required\n",
 			psde->pipe_name);
-		pstate->mode_changed = true;
+		pstate->dirty |= SDE_PLANE_DIRTY_ALL;
 	} else if (to_sde_plane_state(old_state)->pending) {
 		SDE_DEBUG("%s: still pending\n", psde->pipe_name);
-		pstate->mode_changed = true;
+		pstate->dirty |= SDE_PLANE_DIRTY_ALL;
 	} else if (state->src_w != old_state->src_w ||
 		   state->src_h != old_state->src_h ||
 		   state->src_x != old_state->src_x ||
 		   state->src_y != old_state->src_y) {
 		SDE_DEBUG("%s: src rect updated\n", psde->pipe_name);
-		pstate->mode_changed = true;
+		pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 	} else if (state->crtc_w != old_state->crtc_w ||
 		   state->crtc_h != old_state->crtc_h ||
 		   state->crtc_x != old_state->crtc_x ||
 		   state->crtc_y != old_state->crtc_y) {
 		SDE_DEBUG("%s: crtc rect updated\n", psde->pipe_name);
-		pstate->mode_changed = true;
+		pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
+	}
+
+	if (!state->fb || !old_state->fb) {
+		SDE_DEBUG("%s: can't compare fb handles\n", psde->pipe_name);
 	} else if (state->fb->pixel_format != old_state->fb->pixel_format) {
 		SDE_DEBUG("%s: format change!\n", psde->pipe_name);
-		pstate->mode_changed = true;
+		pstate->dirty |= SDE_PLANE_DIRTY_FORMAT | SDE_PLANE_DIRTY_RECTS;
 	} else {
 		uint64_t *new_mods = state->fb->modifier;
 		uint64_t *old_mods = old_state->fb->modifier;
@@ -1251,7 +1312,8 @@ static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
 					plane:%d new_mode:%llu old_mode:%llu\n",
 					psde->pipe_name, i, new_mods[i],
 					old_mods[i]);
-				pstate->mode_changed = true;
+				pstate->dirty |= SDE_PLANE_DIRTY_FORMAT |
+					SDE_PLANE_DIRTY_RECTS;
 				break;
 			}
 		}
@@ -1261,7 +1323,7 @@ static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
 					old_pitches:%u new_pitches:%u\n",
 					psde->pipe_name, i, old_pitches[i],
 					new_pitches[i]);
-				pstate->mode_changed = true;
+				pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 				break;
 			}
 		}
@@ -1271,7 +1333,8 @@ static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
 					old_offset:%u new_offset:%u\n",
 					psde->pipe_name, i, old_offset[i],
 					new_offset[i]);
-				pstate->mode_changed = true;
+				pstate->dirty |= SDE_PLANE_DIRTY_FORMAT |
+					SDE_PLANE_DIRTY_RECTS;
 				break;
 			}
 		}
@@ -1482,16 +1545,12 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 
 	if (!sde_plane_enabled(state)) {
 		pstate->pending = true;
-	} else if (pstate->mode_changed) {
+	} else {
 		int ret;
 
-		pstate->pending = true;
 		ret = _sde_plane_mode_set(plane, state);
 		/* atomic_check should have ensured that this doesn't fail */
 		WARN_ON(ret < 0);
-	} else {
-		_sde_plane_set_scanout(plane, pstate,
-				&sde_plane->pipe_cfg, state->fb);
 	}
 }
 
@@ -1743,7 +1802,7 @@ sde_plane_duplicate_state(struct drm_plane *plane)
 				property_values[PLANE_PROP_INPUT_FENCE]);
 	}
 
-	pstate->mode_changed = false;
+	pstate->dirty = 0x0;
 	pstate->pending = false;
 
 	return &pstate->base;
