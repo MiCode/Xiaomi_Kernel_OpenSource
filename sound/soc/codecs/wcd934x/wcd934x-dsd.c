@@ -619,6 +619,53 @@ static const struct snd_soc_dapm_widget tavil_dsd_widgets[] = {
 };
 
 /**
+ * tavil_dsd_post_ssr_init - DSD intialization after subsystem restart
+ *
+ * @codec: pointer to snd_soc_codec
+ *
+ * Returns 0 on success or error on failure
+ */
+int tavil_dsd_post_ssr_init(struct tavil_dsd_config *dsd_conf)
+{
+	struct snd_soc_codec *codec;
+
+	if (!dsd_conf || !dsd_conf->codec)
+		return -EINVAL;
+
+	codec = dsd_conf->codec;
+	/* Disable DSD Interrupts */
+	snd_soc_update_bits(codec, WCD934X_INTR_CODEC_MISC_MASK, 0x08, 0x08);
+
+	/* DSD registers init */
+	if (dsd_conf->version == TAVIL_VERSION_1_0) {
+		snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2, 0x02, 0x00);
+		snd_soc_update_bits(codec, WCD934X_CDC_DSD1_CFG2, 0x02, 0x00);
+	}
+	/* DSD0: Mute EN */
+	snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2, 0x04, 0x04);
+	/* DSD1: Mute EN */
+	snd_soc_update_bits(codec, WCD934X_CDC_DSD1_CFG2, 0x04, 0x04);
+	snd_soc_update_bits(codec, WCD934X_CDC_DEBUG_DSD0_DEBUG_CFG3, 0x10,
+			    0x10);
+	snd_soc_update_bits(codec, WCD934X_CDC_DEBUG_DSD1_DEBUG_CFG3, 0x10,
+			    0x10);
+	snd_soc_update_bits(codec, WCD934X_CDC_DEBUG_DSD0_DEBUG_CFG0, 0x0E,
+			    0x0A);
+	snd_soc_update_bits(codec, WCD934X_CDC_DEBUG_DSD1_DEBUG_CFG0, 0x0E,
+			    0x0A);
+	snd_soc_update_bits(codec, WCD934X_CDC_DEBUG_DSD0_DEBUG_CFG1, 0x07,
+			    0x04);
+	snd_soc_update_bits(codec, WCD934X_CDC_DEBUG_DSD1_DEBUG_CFG1, 0x07,
+			    0x04);
+
+	/* Enable DSD Interrupts */
+	snd_soc_update_bits(codec, WCD934X_INTR_CODEC_MISC_MASK, 0x08, 0x00);
+
+	return 0;
+}
+EXPORT_SYMBOL(tavil_dsd_post_ssr_init);
+
+/**
  * tavil_dsd_init - DSD intialization
  *
  * @codec: pointer to snd_soc_codec
