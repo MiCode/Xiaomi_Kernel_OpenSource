@@ -286,7 +286,7 @@ static void *__arm_lpae_alloc_pages(size_t size, gfp_t gfp,
 {
 	struct device *dev = cfg->iommu_dev;
 	dma_addr_t dma;
-	void *pages = alloc_pages_exact(size, gfp | __GFP_ZERO);
+	void *pages = io_pgtable_alloc_pages_exact(size, gfp | __GFP_ZERO);
 
 	if (!pages)
 		return NULL;
@@ -310,7 +310,7 @@ out_unmap:
 	dev_err(dev, "Cannot accommodate DMA translation for IOMMU page tables\n");
 	dma_unmap_single(dev, dma, size, DMA_TO_DEVICE);
 out_free:
-	free_pages_exact(pages, size);
+	io_pgtable_free_pages_exact(pages, size);
 	return NULL;
 }
 
@@ -320,7 +320,7 @@ static void __arm_lpae_free_pages(void *pages, size_t size,
 	if (!selftest_running)
 		dma_unmap_single(cfg->iommu_dev, __arm_lpae_dma_addr(pages),
 				 size, DMA_TO_DEVICE);
-	free_pages_exact(pages, size);
+	io_pgtable_free_pages_exact(pages, size);
 }
 
 static void __arm_lpae_set_pte(arm_lpae_iopte *ptep, arm_lpae_iopte pte,
