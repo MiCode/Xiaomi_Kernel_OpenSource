@@ -1102,6 +1102,7 @@ static int smb2_init_hw(struct smb2 *chip)
 
 static int smb2_setup_wa_flags(struct smb2 *chip)
 {
+	struct smb_charger *chg = &chip->chg;
 	struct pmic_revid_data *pmic_rev_id;
 	struct device_node *revid_dev_node;
 
@@ -1124,6 +1125,8 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMICOBALT_SUBTYPE:
+		if (pmic_rev_id->rev4 == PMICOBALT_V1P1_REV4) /* PMI rev 1.1 */
+			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported\n",
