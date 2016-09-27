@@ -1648,6 +1648,7 @@
 		qcom,ep-wakeirq;
 
 		qcom,ep-latency = <10>;
+		qcom,wr-halt-size = <0xa>;
 
 		linux,pci-domain = <2>;
 
