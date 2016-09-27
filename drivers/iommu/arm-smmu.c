@@ -230,6 +230,9 @@
 #define ARM_SMMU_CB_S1_TLBIVAL		0x620
 #define ARM_SMMU_CB_S2_TLBIIPAS2	0x630
 #define ARM_SMMU_CB_S2_TLBIIPAS2L	0x638
+#define ARM_SMMU_CB_TLBSYNC		0x7f0
+#define ARM_SMMU_CB_TLBSTATUS		0x7f4
+#define TLBSTATUS_SACTIVE		(1 << 0)
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_CB_ATSR		0x8f0
 
@@ -661,6 +664,19 @@ static void __arm_smmu_free_bitmap(unsigned long *map, int idx)
 }
 
 /* Wait for any pending TLB invalidations to complete */
+static void arm_smmu_tlb_sync_cb(struct arm_smmu_device *smmu,
+				int cbndx)
+{
+	void __iomem *base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cbndx);
+	u32 val;
+
+	writel_relaxed(0, base + ARM_SMMU_CB_TLBSYNC);
+	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
+				      !(val & TLBSTATUS_SACTIVE),
+				      10, TLB_LOOP_TIMEOUT))
+		dev_err(smmu->dev, "TLBSYNC timeout!\n");
+}
+
 static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu)
 {
 	int count = 0;
@@ -682,7 +698,7 @@ static void __arm_smmu_tlb_sync(struct arm_smmu_device *smmu)
 static void arm_smmu_tlb_sync(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
-	__arm_smmu_tlb_sync(smmu_domain->smmu);
+	arm_smmu_tlb_sync_cb(smmu_domain->smmu, smmu_domain->cfg.cbndx);
 }
 
 static void arm_smmu_tlb_inv_context(void *cookie)
@@ -697,13 +713,13 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		writel_relaxed(ARM_SMMU_CB_ASID(smmu, cfg),
 			       base + ARM_SMMU_CB_S1_TLBIASID);
+		arm_smmu_tlb_sync_cb(smmu, cfg->cbndx);
 	} else {
 		base = ARM_SMMU_GR0(smmu);
 		writel_relaxed(ARM_SMMU_CB_VMID(smmu, cfg),
 			       base + ARM_SMMU_GR0_TLBIVMID);
+		__arm_smmu_tlb_sync(smmu);
 	}
-
-	__arm_smmu_tlb_sync(smmu);
 }
 
 static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
