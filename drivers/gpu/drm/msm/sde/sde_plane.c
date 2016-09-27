@@ -1199,7 +1199,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 }
 
 static int sde_plane_prepare_fb(struct drm_plane *plane,
-		const struct drm_plane_state *new_state)
+		struct drm_plane_state *new_state)
 {
 	struct drm_framebuffer *fb = new_state->fb;
 	struct sde_plane *psde = to_sde_plane(plane);
@@ -1212,7 +1212,7 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 }
 
 static void sde_plane_cleanup_fb(struct drm_plane *plane,
-		const struct drm_plane_state *old_state)
+		struct drm_plane_state *old_state)
 {
 	struct drm_framebuffer *fb = old_state ? old_state->fb : NULL;
 	struct sde_plane *psde = plane ? to_sde_plane(plane) : NULL;
@@ -1616,7 +1616,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 
 	/* standard properties */
 	msm_property_install_rotation(&psde->property_info,
-		BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y), PLANE_PROP_ROTATION);
+		(unsigned int) (BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y)),
+		PLANE_PROP_ROTATION);
 
 	msm_property_install_enum(&psde->property_info, "blend_op", 0x0, 0,
 		e_blend_op, ARRAY_SIZE(e_blend_op), PLANE_PROP_BLEND_OP);
@@ -2356,8 +2357,9 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 		type = DRM_PLANE_TYPE_PRIMARY;
 	else
 		type = DRM_PLANE_TYPE_OVERLAY;
-	ret = drm_universal_plane_init(dev, plane, possible_crtcs,
-			&sde_plane_funcs, psde->formats, psde->nformats, type);
+	ret = drm_universal_plane_init(dev, plane, 0xff, &sde_plane_funcs,
+				psde->formats, psde->nformats,
+				type, NULL);
 	if (ret)
 		goto clean_sspp;
 

@@ -14,6 +14,7 @@
 
 #include <drm/drm_crtc.h>
 #include <linux/debugfs.h>
+#include <linux/of_irq.h>
 
 #include "msm_drv.h"
 #include "msm_mmu.h"
@@ -792,11 +793,6 @@ static int sde_kms_postinit(struct msm_kms *kms)
 	}
 
 	dev = sde_kms->dev;
-
-	/*
-	 * Allow vblank interrupt to be disabled by drm vblank timer.
-	 */
-	dev->vblank_disable_allowed = true;
 
 	return 0;
 }

@@ -682,7 +682,7 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
-	__drm_atomic_helper_crtc_destroy_state(crtc, state);
+	__drm_atomic_helper_crtc_destroy_state(state);
 
 	/* destroy value helper */
 	msm_property_destroy_state(&sde_crtc->property_info, cstate,
@@ -855,7 +855,7 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 
 struct plane_state {
 	struct sde_plane_state *sde_pstate;
-	struct drm_plane_state *drm_pstate;
+	const struct drm_plane_state *drm_pstate;
 
 	int stage;
 };
@@ -884,7 +884,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct plane_state pstates[SDE_STAGE_MAX * 2];
 
-	struct drm_plane_state *pstate;
+	const struct drm_plane_state *pstate;
 	struct drm_plane *plane;
 	struct drm_display_mode *mode;
 
@@ -910,8 +910,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	mixer_width = sde_crtc_mixer_width(sde_crtc, mode);
 
 	 /* get plane state for all drm planes associated with crtc state */
-	drm_atomic_crtc_state_for_each_plane(plane, state) {
-		pstate = drm_atomic_get_plane_state(state->state, plane);
+	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
 		if (IS_ERR_OR_NULL(pstate)) {
 			rc = PTR_ERR(pstate);
 			SDE_ERROR("%s: failed to get plane%d state, %d\n",
@@ -1312,16 +1311,6 @@ static int _sde_debugfs_status_open(struct inode *inode, struct file *file)
 	return single_open(file, _sde_debugfs_status_show, inode->i_private);
 }
 
-static void sde_crtc_suspend(struct drm_crtc *crtc)
-{
-	sde_cp_crtc_suspend(crtc);
-}
-
-static void sde_crtc_resume(struct drm_crtc *crtc)
-{
-	sde_cp_crtc_resume(crtc);
-}
-
 static const struct drm_crtc_funcs sde_crtc_funcs = {
 	.set_config = drm_atomic_helper_set_config,
 	.destroy = sde_crtc_destroy,
@@ -1332,8 +1321,6 @@ static const struct drm_crtc_funcs sde_crtc_funcs = {
 	.reset = sde_crtc_reset,
 	.atomic_duplicate_state = sde_crtc_duplicate_state,
 	.atomic_destroy_state = sde_crtc_destroy_state,
-	.save = sde_crtc_suspend,
-	.restore = sde_crtc_resume,
 };
 
 static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
@@ -1385,7 +1372,8 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	crtc->dev = dev;
 	atomic_set(&sde_crtc->vblank_refcount, 0);
 
-	drm_crtc_init_with_planes(dev, crtc, plane, NULL, &sde_crtc_funcs);
+	drm_crtc_init_with_planes(dev, crtc, plane, NULL, &sde_crtc_funcs,
+				NULL);
 
 	drm_crtc_helper_add(crtc, &sde_crtc_helper_funcs);
 	plane->crtc = crtc;

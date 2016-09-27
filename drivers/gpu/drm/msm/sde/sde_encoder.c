@@ -1215,7 +1215,7 @@ struct drm_encoder *sde_encoder_init(
 	sde_enc->cur_master = NULL;
 	spin_lock_init(&sde_enc->enc_spinlock);
 	drm_enc = &sde_enc->base;
-	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode);
+	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode, NULL);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
 	bs_init(sde_enc);
 

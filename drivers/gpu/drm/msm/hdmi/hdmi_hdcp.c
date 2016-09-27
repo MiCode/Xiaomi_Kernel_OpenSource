@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1438,24 +1438,24 @@ void msm_hdmi_hdcp_destroy(struct hdmi *hdmi)
 }
 
 #else
-struct hdmi_hdcp_ctrl *hdmi_hdcp_ctrl_init(struct hdmi *hdmi)
+struct hdmi_hdcp_ctrl *msm_hdmi_hdcp_init(struct hdmi *hdmi)
 {
 	return NULL;
 }
 
-void hdmi_hdcp_ctrl_destroy(struct hdmi *hdmi)
+void msm_hdmi_hdcp_destroy(struct hdmi *hdmi)
 {
 }
 
-void hdmi_hdcp_ctrl_on(struct hdmi_hdcp_ctrl *hdcp_ctrl)
+void msm_hdmi_hdcp_on(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
 }
 
-void hdmi_hdcp_ctrl_off(struct hdmi_hdcp_ctrl *hdcp_ctrl)
+void msm_hdmi_hdcp_off(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
 }
 
-void hdmi_hdcp_ctrl_irq(struct hdmi_hdcp_ctrl *hdcp_ctrl)
+void msm_hdmi_hdcp_irq(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
 }
 #endif
