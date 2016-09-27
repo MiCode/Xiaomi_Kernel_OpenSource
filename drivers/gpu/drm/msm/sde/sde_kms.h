@@ -176,11 +176,10 @@ struct sde_plane_state {
 	/* assigned by crtc blender */
 	enum sde_stage stage;
 
-	/* some additional transactional status to help us know in the
-	 * apply path whether we need to update SMP allocation, and
-	 * whether current update is still pending:
-	 */
-	bool mode_changed : 1;
+	/* bitmask for which pipe h/w config functions need to be updated */
+	uint32_t dirty;
+
+	/* whether the current update is still pending */
 	bool pending : 1;
 };
 
