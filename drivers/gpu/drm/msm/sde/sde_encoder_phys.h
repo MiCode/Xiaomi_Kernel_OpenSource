@@ -192,12 +192,14 @@ struct sde_encoder_phys {
  *	mode specific operations
  * @base:	Baseclass physical encoder structure
  * @irq_idx:	IRQ interface lookup index
+ * @irq_cb:	interrupt callback
  * @hw_intf:	Hardware interface to the intf registers
  * @vblank_completion:	Completion event signaled on reception of the vsync irq
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
 	int irq_idx[INTR_IDX_MAX];
+	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
 	struct sde_hw_intf *hw_intf;
 	struct completion vblank_completion;
 };
@@ -212,6 +214,7 @@ struct sde_encoder_phys_vid {
  * @pp_rd_ptr_irq_idx:	IRQ signifying panel's frame read pointer
  *			For CMD encoders, VBLANK is driven by the PP RD Done IRQ
  * @pp_tx_done_irq_idx:	IRQ signifying frame transmission to panel complete
+ * @irq_cb:	interrupt callback
  * @pp_tx_done_wq:	Wait queue that tracks when a commit is flushed
  *			to hardware after the reception of pp_done
  *			Used to prevent back to back commits
@@ -226,6 +229,7 @@ struct sde_encoder_phys_cmd {
 	int stream_sel;
 	struct sde_hw_pingpong *hw_pp;
 	int irq_idx[INTR_IDX_MAX];
+	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
 	wait_queue_head_t pp_tx_done_wq;
 	atomic_t pending_cnt;
 };
@@ -256,6 +260,7 @@ struct sde_encoder_phys_wb {
 	struct sde_encoder_phys base;
 	struct sde_hw_wb *hw_wb;
 	int irq_idx;
+	struct sde_irq_callback irq_cb;
 	u32 wbdone_timeout;
 	u32 bypass_irqreg;
 	struct completion wbdone_complete;

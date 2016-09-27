@@ -11,6 +11,7 @@
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+
 #include <linux/jiffies.h>
 
 #include "sde_encoder_phys.h"
@@ -368,11 +369,10 @@ static void _sde_encoder_phys_vid_split_config(
 }
 
 static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc,
-	enum sde_intr_type intr_type, int *irq_idx,
+	enum sde_intr_type intr_type, int idx,
 	void (*irq_func)(void *, int), const char *irq_name)
 {
 	struct sde_encoder_phys_vid *vid_enc;
-	struct sde_irq_callback irq_cb;
 	int ret = 0;
 
 	if (!phys_enc) {
@@ -381,46 +381,46 @@ static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc,
 	}
 
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
-	*irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms, intr_type,
-			vid_enc->hw_intf->idx);
-	if (*irq_idx < 0) {
+	vid_enc->irq_idx[idx] = sde_core_irq_idx_lookup(phys_enc->sde_kms,
+			intr_type, vid_enc->hw_intf->idx);
+	if (vid_enc->irq_idx[idx] < 0) {
 		SDE_ERROR_VIDENC(vid_enc,
 			"failed to lookup IRQ index for %s type:%d\n", irq_name,
 			intr_type);
 		return -EINVAL;
 	}
 
-	irq_cb.func = irq_func;
-	irq_cb.arg = vid_enc;
-	ret = sde_core_irq_register_callback(phys_enc->sde_kms, *irq_idx,
-			&irq_cb);
+	vid_enc->irq_cb[idx].func = irq_func;
+	vid_enc->irq_cb[idx].arg = vid_enc;
+	ret = sde_core_irq_register_callback(phys_enc->sde_kms,
+			vid_enc->irq_idx[idx], &vid_enc->irq_cb[idx]);
 	if (ret) {
 		SDE_ERROR_VIDENC(vid_enc,
 			"failed to register IRQ callback for %s\n", irq_name);
 		return ret;
 	}
 
-	ret = sde_core_irq_enable(phys_enc->sde_kms, irq_idx, true);
+	ret = sde_core_irq_enable(phys_enc->sde_kms, &vid_enc->irq_idx[idx], 1);
 	if (ret) {
 		SDE_ERROR_VIDENC(vid_enc,
 			"enable IRQ for intr:%s failed, irq_idx %d\n",
-			irq_name, *irq_idx);
-		*irq_idx = -EINVAL;
+			irq_name, vid_enc->irq_idx[idx]);
+		vid_enc->irq_idx[idx] = -EINVAL;
 
 		/* unregister callback on IRQ enable failure */
-		sde_core_irq_register_callback(phys_enc->sde_kms,
-						*irq_idx, NULL);
+		sde_core_irq_unregister_callback(phys_enc->sde_kms,
+				vid_enc->irq_idx[idx], &vid_enc->irq_cb[idx]);
 		return ret;
 	}
 
 	SDE_DEBUG_VIDENC(vid_enc, "registered irq %s idx: %d\n",
-						irq_name, *irq_idx);
+			irq_name, vid_enc->irq_idx[idx]);
 
 	return ret;
 }
 
 static int sde_encoder_phys_vid_unregister_irq(
-	struct sde_encoder_phys *phys_enc, int irq_idx)
+	struct sde_encoder_phys *phys_enc, int idx)
 {
 	struct sde_encoder_phys_vid *vid_enc;
 
@@ -430,11 +430,12 @@ static int sde_encoder_phys_vid_unregister_irq(
 	}
 
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
-	sde_core_irq_disable(phys_enc->sde_kms, &irq_idx, 1);
+	sde_core_irq_disable(phys_enc->sde_kms, &vid_enc->irq_idx[idx], 1);
 
-	sde_core_irq_register_callback(phys_enc->sde_kms, irq_idx, NULL);
+	sde_core_irq_unregister_callback(phys_enc->sde_kms,
+			vid_enc->irq_idx[idx], &vid_enc->irq_cb[idx]);
 
-	SDE_DEBUG_VIDENC(vid_enc, "unregistered %d\n", irq_idx);
+	SDE_DEBUG_VIDENC(vid_enc, "unregistered %d\n", vid_enc->irq_idx[idx]);
 
 end:
 	return 0;
@@ -506,11 +507,11 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
 		ret = sde_encoder_phys_vid_register_irq(phys_enc,
 			SDE_IRQ_TYPE_INTF_VSYNC,
-			&vid_enc->irq_idx[INTR_IDX_VSYNC],
+			INTR_IDX_VSYNC,
 			sde_encoder_phys_vid_vblank_irq, "vsync_irq");
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
 		ret = sde_encoder_phys_vid_unregister_irq(phys_enc,
-			vid_enc->irq_idx[INTR_IDX_VSYNC]);
+			INTR_IDX_VSYNC);
 
 	if (ret)
 		SDE_ERROR_VIDENC(vid_enc,
@@ -559,7 +560,7 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 
 	ret = sde_encoder_phys_vid_register_irq(phys_enc,
 		SDE_IRQ_TYPE_INTF_UNDER_RUN,
-		&vid_enc->irq_idx[INTR_IDX_UNDERRUN],
+		INTR_IDX_UNDERRUN,
 		sde_encoder_phys_vid_underrun_irq, "underrun");
 	if (ret) {
 		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
@@ -765,7 +766,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	struct sde_encoder_phys_vid *vid_enc = NULL;
 	struct sde_rm_hw_iter iter;
 	struct sde_hw_mdp *hw_mdp;
-	int ret = 0;
+	int i, ret = 0;
 
 	if (!p) {
 		ret = -EINVAL;
@@ -820,6 +821,8 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	phys_enc->intf_mode = INTF_MODE_VIDEO;
 	spin_lock_init(&phys_enc->spin_lock);
 	init_completion(&vid_enc->vblank_completion);
+	for (i = 0; i < INTR_IDX_MAX; i++)
+		INIT_LIST_HEAD(&vid_enc->irq_cb[i].list);
 	atomic_set(&phys_enc->vblank_refcount, 0);
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 

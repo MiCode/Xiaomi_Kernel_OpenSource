@@ -80,10 +80,12 @@
 
 /*
  * struct sde_irq_callback - IRQ callback handlers
+ * @list: list to callback
  * @func: intr handler
  * @arg: argument for the handler
  */
 struct sde_irq_callback {
+	struct list_head list;
 	void (*func)(void *arg, int irq_idx);
 	void *arg;
 };
@@ -92,12 +94,17 @@ struct sde_irq_callback {
  * struct sde_irq: IRQ structure contains callback registration info
  * @total_irq:    total number of irq_idx obtained from HW interrupts mapping
  * @irq_cb_tbl:   array of IRQ callbacks setting
+ * @enable_counts array of IRQ enable counts
  * @cb_lock:      callback lock
+ * @debugfs_file: debugfs file for irq statistics
  */
 struct sde_irq {
 	u32 total_irqs;
-	struct sde_irq_callback *irq_cb_tbl;
+	struct list_head *irq_cb_tbl;
+	atomic_t *enable_counts;
+	atomic_t *irq_counts;
 	spinlock_t cb_lock;
+	struct dentry *debugfs_file;
 };
 
 /**
