@@ -639,12 +639,10 @@ static int wcd_spi_init(struct spi_device *spi)
 			   WCD_SPI_SLAVE_TRNS_LEN,
 			   0xFFFF0000,
 			   (WCD_SPI_RW_MULTI_MAX_LEN / 4) << 16);
-done:
-	return ret;
-
 err_wr_en:
 	wcd_spi_clk_ctrl(spi, WCD_SPI_CLK_DISABLE,
 			 WCD_SPI_CLK_FLAG_IMMEDIATE);
+done:
 	return ret;
 }
 
@@ -845,6 +843,7 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 		__func__, event);
 
 	switch (event) {
+	case WDSP_EVENT_PRE_DLOAD_CODE:
 	case WDSP_EVENT_PRE_DLOAD_DATA:
 		ret = wcd_spi_clk_ctrl(spi, WCD_SPI_CLK_ENABLE,
 				       WCD_SPI_CLK_FLAG_IMMEDIATE);
