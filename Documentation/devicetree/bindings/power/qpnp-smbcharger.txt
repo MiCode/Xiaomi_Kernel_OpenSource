@@ -304,6 +304,8 @@ Optional Properties:
 				parallel slave to detect adapter's ICL capacity. Ideally
 				to be used if the required FCC is greater then 3A and if
 				the parallel slave supports AICL.
+- qcom,parallel-min-main-icl-ma	Minimum ICL allotted to main charger in parallel
+				configuration.
 
 Example:
 	qcom,qpnp-smbcharger {
