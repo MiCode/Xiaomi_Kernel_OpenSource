@@ -44,6 +44,10 @@ enum smb_mode {
 	NUM_MODES,
 };
 
+enum {
+	QC_CHARGER_DETECTION_WA_BIT = BIT(0),
+};
+
 struct smb_regulator {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;

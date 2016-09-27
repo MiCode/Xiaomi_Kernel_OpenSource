@@ -1953,6 +1953,18 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 		   apsd_result->name);
 }
 
+static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
+					      bool rising, bool qc_charger)
+{
+	if (rising && !qc_charger) {
+		vote(chg->pd_allowed_votable, DEFAULT_VOTER, true, 0);
+		power_supply_changed(chg->usb_psy);
+	}
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: smblib_handle_hvdcp_check_timeout %s\n",
+		   rising ? "rising" : "falling");
+}
+
 /* triggers when HVDCP is detected */
 static void smblib_handle_hvdcp_detect_done(struct smb_charger *chg,
 					    bool rising)
@@ -1984,8 +1996,9 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		vote(chg->pd_allowed_votable, DEFAULT_VOTER, true, 0);
 		break;
 	case DCP_CHARGER_BIT:
-		schedule_delayed_work(&chg->hvdcp_detect_work,
-				      msecs_to_jiffies(HVDCP_DET_MS));
+		if (chg->wa_flags & QC_CHARGER_DETECTION_WA_BIT)
+			schedule_delayed_work(&chg->hvdcp_detect_work,
+					      msecs_to_jiffies(HVDCP_DET_MS));
 		break;
 	default:
 		break;
@@ -2017,6 +2030,10 @@ irqreturn_t smblib_handle_usb_source_change(int irq, void *data)
 		(bool)(stat & APSD_DTC_STATUS_DONE_BIT));
 
 	smblib_handle_hvdcp_detect_done(chg,
+		(bool)(stat & QC_CHARGER_BIT));
+
+	smblib_handle_hvdcp_check_timeout(chg,
+		(bool)(stat & HVDCP_CHECK_TIMEOUT_BIT),
 		(bool)(stat & QC_CHARGER_BIT));
 
 	smblib_handle_hvdcp_3p0_auth_done(chg,
