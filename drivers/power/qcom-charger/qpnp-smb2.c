@@ -983,7 +983,7 @@ static int smb2_init_hw(struct smb2 *chip)
 
 	/* votes must be cast before configuring software control */
 	vote(chg->pl_disable_votable,
-		USBIN_ICL_VOTER, true, 0);
+		PL_INDIRECT_VOTER, true, 0);
 	vote(chg->pl_disable_votable,
 		CHG_STATE_VOTER, true, 0);
 	vote(chg->pl_disable_votable,

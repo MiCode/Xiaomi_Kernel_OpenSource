@@ -521,7 +521,7 @@ static int smblib_fcc_max_vote_callback(struct votable *votable, void *data,
 {
 	struct smb_charger *chg = data;
 
-	return vote(chg->fcc_votable, FCC_MAX_RESULT, true, fcc_ua);
+	return vote(chg->fcc_votable, FCC_MAX_RESULT_VOTER, true, fcc_ua);
 }
 
 static int smblib_fcc_vote_callback(struct votable *votable, void *data,
@@ -731,6 +731,17 @@ static int smblib_chg_disable_vote_callback(struct votable *votable, void *data,
 
 	return 0;
 }
+
+static int smblib_pl_enable_indirect_vote_callback(struct votable *votable,
+			void *data, int chg_enable, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, !chg_enable, 0);
+
+	return 0;
+}
+
 /*****************
  * OTG REGULATOR *
  *****************/
@@ -1144,13 +1155,14 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 
 	chg->system_temp_level = val->intval;
 	if (chg->system_temp_level == chg->thermal_levels)
-		return vote(chg->chg_disable_votable, THERMAL_DAEMON, true, 0);
+		return vote(chg->chg_disable_votable,
+			THERMAL_DAEMON_VOTER, true, 0);
 
-	vote(chg->chg_disable_votable, THERMAL_DAEMON, false, 0);
+	vote(chg->chg_disable_votable, THERMAL_DAEMON_VOTER, false, 0);
 	if (chg->system_temp_level == 0)
-		return vote(chg->fcc_votable, THERMAL_DAEMON, false, 0);
+		return vote(chg->fcc_votable, THERMAL_DAEMON_VOTER, false, 0);
 
-	vote(chg->fcc_votable, THERMAL_DAEMON, true,
+	vote(chg->fcc_votable, THERMAL_DAEMON_VOTER, true,
 			chg->thermal_mitigation[chg->system_temp_level]);
 	return 0;
 }
@@ -1589,7 +1601,11 @@ int smblib_set_prop_usb_voltage_min(struct smb_charger *chg,
 		return rc;
 	}
 
-	chg->voltage_min_uv = val->intval;
+	if (chg->mode == PARALLEL_MASTER)
+		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER,
+		     min_uv > MICRO_5V, 0);
+
+	chg->voltage_min_uv = min_uv;
 	return rc;
 }
 
@@ -1607,7 +1623,7 @@ int smblib_set_prop_usb_voltage_max(struct smb_charger *chg,
 		return rc;
 	}
 
-	chg->voltage_max_uv = val->intval;
+	chg->voltage_max_uv = max_uv;
 	return rc;
 }
 
@@ -1875,50 +1891,23 @@ skip_dpdm_float:
 	return IRQ_HANDLED;
 }
 
-#define MICRO_5P5V		5500000
-#define USB_WEAK_INPUT_MA	1400000
-static bool is_icl_pl_ready(struct smb_charger *chg)
-{
-	union power_supply_propval pval = {0, };
-	int icl_ma;
-	int rc;
-
-	rc = smblib_get_prop_usb_voltage_now(chg, &pval);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't get prop usb voltage rc=%d\n", rc);
-		/* proceed with a convervative value */
-		pval.intval = MICRO_5P5V;
-	}
-
-	if (pval.intval <= MICRO_5P5V) {
-		rc = smblib_get_charge_param(chg,
-					&chg->param.icl_stat, &icl_ma);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't get ICL status rc=%d\n",
-				rc);
-			return false;
-		}
-
-		if (icl_ma < USB_WEAK_INPUT_MA)
-			return false;
-	}
-
-	/*
-	 * Always enable parallel charging when USB INPUT is higher than 5V
-	 * regardless of the AICL results. Assume chargers above 5V are strong
-	 */
-
-	return true;
-}
-
+#define USB_WEAK_INPUT_MA      1400000
 irqreturn_t smblib_handle_icl_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
+	int icl_ma;
+	int rc;
+
+	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &icl_ma);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't get ICL status rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
 
 	if (chg->mode == PARALLEL_MASTER)
-		vote(chg->pl_disable_votable, USBIN_ICL_VOTER,
-					!is_icl_pl_ready(chg), 0);
+		vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
+		     icl_ma >= USB_WEAK_INPUT_MA, 0);
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
@@ -1954,6 +1943,9 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 
 	if (!rising)
 		return;
+
+	if (chg->mode == PARALLEL_MASTER)
+		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, true, 0);
 
 	/* the APSD done handler will set the USB supply type */
 	apsd_result = smblib_get_apsd_result(chg);
@@ -2080,8 +2072,9 @@ static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
 					!rising || sink_attached, 0);
 
 	if (!rising || sink_attached) {
-		/* icl votes to disable parallel charging */
-		vote(chg->pl_disable_votable, USBIN_ICL_VOTER, true, 0);
+		/* reset both usbin current and voltage votes */
+		vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
+		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 		/* reset taper_end voter here */
 		vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
 	}
@@ -2319,6 +2312,15 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->pl_enable_votable_indirect = create_votable("PL_ENABLE_INDIRECT",
+					VOTE_SET_ANY,
+					smblib_pl_enable_indirect_vote_callback,
+					chg);
+	if (IS_ERR(chg->pl_enable_votable_indirect)) {
+		rc = PTR_ERR(chg->pl_enable_votable_indirect);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -2344,6 +2346,10 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->awake_votable);
 	if (chg->pl_disable_votable)
 		destroy_votable(chg->pl_disable_votable);
+	if (chg->chg_disable_votable)
+		destroy_votable(chg->chg_disable_votable);
+	if (chg->pl_enable_votable_indirect)
+		destroy_votable(chg->pl_enable_votable_indirect);
 }
 
 static void smblib_iio_deinit(struct smb_charger *chg)
