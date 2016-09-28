@@ -400,6 +400,8 @@ struct arm_smmu_device {
 	int				num_clocks;
 	struct clk			**clocks;
 
+	struct regulator		*gdsc;
+
 	/* Protects power_count */
 	struct mutex			power_lock;
 	int				power_count;
@@ -748,6 +750,22 @@ static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu)
 	spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
 }
 
+static int arm_smmu_enable_regulators(struct arm_smmu_device *smmu)
+{
+	if (!smmu->gdsc)
+		return 0;
+
+	return regulator_enable(smmu->gdsc);
+}
+
+static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
+{
+	if (!smmu->gdsc)
+		return 0;
+
+	return regulator_disable(smmu->gdsc);
+}
+
 static int arm_smmu_power_on_slow(struct arm_smmu_device *smmu)
 {
 	int ret;
@@ -759,12 +777,22 @@ static int arm_smmu_power_on_slow(struct arm_smmu_device *smmu)
 		return 0;
 	}
 
+	ret = arm_smmu_enable_regulators(smmu);
+	if (ret)
+		goto out_unlock;
+
 	ret = arm_smmu_prepare_clocks(smmu);
-	if (!ret)
-		smmu->power_count += 1;
+	if (ret)
+		goto out_disable_regulators;
 
+	smmu->power_count += 1;
 	mutex_unlock(&smmu->power_lock);
+	return 0;
 
+out_disable_regulators:
+	arm_smmu_disable_regulators(smmu);
+out_unlock:
+	mutex_unlock(&smmu->power_lock);
 	return ret;
 }
 
@@ -780,6 +808,7 @@ static void arm_smmu_power_off_slow(struct arm_smmu_device *smmu)
 	}
 
 	arm_smmu_unprepare_clocks(smmu);
+	arm_smmu_disable_regulators(smmu);
 
 	mutex_unlock(&smmu->power_lock);
 }
@@ -2685,6 +2714,20 @@ static int arm_smmu_init_clocks(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static int arm_smmu_init_regulators(struct arm_smmu_device *smmu)
+{
+	struct device *dev = smmu->dev;
+
+	if (!of_get_property(dev->of_node, "vdd-supply", NULL))
+		return 0;
+
+	smmu->gdsc = devm_regulator_get(dev, "vdd");
+	if (IS_ERR(smmu->gdsc))
+		return PTR_ERR(smmu->gdsc);
+
+	return 0;
+}
+
 static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 {
 	unsigned long size;
@@ -2990,6 +3033,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	parse_driver_options(smmu);
 
 	err = arm_smmu_init_clocks(smmu);
+	if (err)
+		return err;
+
+	err = arm_smmu_init_regulators(smmu);
 	if (err)
 		return err;
 
