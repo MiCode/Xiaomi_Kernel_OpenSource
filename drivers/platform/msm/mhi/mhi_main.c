@@ -212,7 +212,9 @@ int mhi_release_chan_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 			ring->len, ring->base,
 			 cc_list->mhi_trb_ring_base_addr);
 	mhi_init_chan_ctxt(cc_list, 0, 0, 0, 0, 0, ring,
-			   MHI_CHAN_STATE_DISABLED, false);
+			   MHI_CHAN_STATE_DISABLED,
+			   false,
+			   MHI_BRSTMODE_DEFAULT);
 	return 0;
 }
 
@@ -261,7 +263,9 @@ static int populate_tre_ring(struct mhi_client_handle *client_handle)
 			   &mhi_dev_ctxt->mhi_local_chan_ctxt[chan],
 			   MHI_CHAN_STATE_ENABLED,
 			   GET_CHAN_PROPS(PRESERVE_DB_STATE,
-				client_handle->chan_info.flags));
+					  client_handle->chan_info.flags),
+			   GET_CHAN_PROPS(BRSTMODE,
+					  client_handle->chan_info.flags));
 	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return 0;
 }
@@ -442,9 +446,10 @@ void mhi_update_chan_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 	db_value = mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_XFER_RING, chan,
 						(uintptr_t) chan_ctxt->wp);
 	mhi_dev_ctxt->mhi_chan_db_order[chan]++;
-		mhi_process_db(mhi_dev_ctxt,
-				mhi_dev_ctxt->mmio_info.chan_db_addr,
-				chan, db_value);
+	chan_ctxt->db_mode.process_db(mhi_dev_ctxt,
+				      mhi_dev_ctxt->mmio_info.chan_db_addr,
+				      chan,
+				      db_value);
 }
 
 int mhi_check_m2_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -490,7 +495,7 @@ static inline int mhi_queue_tre(struct mhi_device_ctxt
 	if (likely(((ret_val == 0) &&
 	    (((mhi_dev_ctxt->mhi_state == MHI_STATE_M0) ||
 	      (mhi_dev_ctxt->mhi_state == MHI_STATE_M1))) &&
-	    (chan_ctxt->mhi_chan_state != MHI_CHAN_STATE_ERROR)) &&
+	    (chan_ctxt->chstate != MHI_CHAN_STATE_ERROR)) &&
 	    (!mhi_dev_ctxt->flags.pending_M3))) {
 		if (likely(type == MHI_RING_TYPE_XFER_RING)) {
 			spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan],
@@ -506,15 +511,18 @@ static inline int mhi_queue_tre(struct mhi_device_ctxt
 			spin_unlock_irqrestore(
 			   &mhi_dev_ctxt->db_write_lock[chan], flags);
 		} else if (type == MHI_RING_TYPE_CMD_RING) {
+			struct mhi_ring *cmd_ring = &mhi_dev_ctxt->
+				mhi_local_cmd_ctxt[PRIMARY_CMD_RING];
 			db_value = mhi_v2p_addr(mhi_dev_ctxt,
 						MHI_RING_TYPE_CMD_RING,
 						PRIMARY_CMD_RING,
 						(uintptr_t)
-			mhi_dev_ctxt->mhi_local_cmd_ctxt[PRIMARY_CMD_RING].wp);
+			cmd_ring->wp);
 			mhi_dev_ctxt->cmd_ring_order++;
-			mhi_process_db(mhi_dev_ctxt,
+			cmd_ring->db_mode.process_db(mhi_dev_ctxt,
 				mhi_dev_ctxt->mmio_info.cmd_db_addr,
-				0, db_value);
+				0,
+				db_value);
 		} else {
 			mhi_log(MHI_MSG_VERBOSE,
 			"Wrong type of packet = %d\n", type);
@@ -524,7 +532,7 @@ static inline int mhi_queue_tre(struct mhi_device_ctxt
 		mhi_log(MHI_MSG_VERBOSE,
 			"Wakeup, pending data state %s chan state %d\n",
 			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
-			chan_ctxt->mhi_chan_state);
+			chan_ctxt->chstate);
 			ret_val = 0;
 	}
 	return ret_val;
@@ -787,7 +795,7 @@ int mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
 	from_state =
-	    mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[chan].mhi_chan_state;
+	    mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[chan].chstate;
 
 	switch (cmd) {
 		break;
@@ -1170,7 +1178,6 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 		u64 db_value = 0;
 		unsigned long flags;
 
-		mhi_dev_ctxt->flags.uldl_enabled = 1;
 		chan = MHI_EV_READ_CHID(EV_CHID, event);
 		chan_ctxt =
 			&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
@@ -1183,7 +1190,7 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 			db_value = mhi_v2p_addr(mhi_dev_ctxt,
 						MHI_RING_TYPE_XFER_RING, chan,
 						(uintptr_t) chan_ctxt->wp);
-			mhi_process_db(mhi_dev_ctxt,
+			chan_ctxt->db_mode.process_db(mhi_dev_ctxt,
 				     mhi_dev_ctxt->mmio_info.chan_db_addr, chan,
 				     db_value);
 		}
@@ -1274,13 +1281,14 @@ int recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 		case MHI_RING_TYPE_CMD_RING:
 		{
 			struct mutex *cmd_mutex = NULL;
-
+			struct mhi_ring *mhi_ring = &mhi_dev_ctxt->
+				mhi_local_cmd_ctxt[PRIMARY_CMD_RING];
 			cmd_mutex =
 				&mhi_dev_ctxt->
 				mhi_cmd_mutex_list[PRIMARY_CMD_RING];
 			mutex_lock(cmd_mutex);
 			mhi_dev_ctxt->cmd_ring_order = 1;
-			mhi_process_db(mhi_dev_ctxt,
+			mhi_ring->db_mode.process_db(mhi_dev_ctxt,
 				mhi_dev_ctxt->mmio_info.cmd_db_addr,
 				ring_index, db_value);
 			mutex_unlock(cmd_mutex);
@@ -1290,7 +1298,8 @@ int recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 		{
 			spinlock_t *lock = NULL;
 			unsigned long flags = 0;
-
+			struct mhi_ring *mhi_ring = &mhi_dev_ctxt->
+				mhi_local_event_ctxt[ring_index];
 			lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[ring_index];
 			spin_lock_irqsave(lock, flags);
 			mhi_dev_ctxt->mhi_ev_db_order[ring_index] = 1;
@@ -1299,7 +1308,7 @@ int recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 				db_value = mhi_v2p_addr(mhi_dev_ctxt, ring_type,
 							ring_index,
 							(uintptr_t) ring->wp);
-				mhi_process_db(mhi_dev_ctxt,
+				mhi_ring->db_mode.process_db(mhi_dev_ctxt,
 					mhi_dev_ctxt->mmio_info.event_db_addr,
 					ring_index, db_value);
 			}
@@ -1309,12 +1318,13 @@ int recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 		case MHI_RING_TYPE_XFER_RING:
 		{
 			unsigned long flags = 0;
-
+			struct mhi_ring *mhi_ring = &mhi_dev_ctxt->
+				mhi_local_chan_ctxt[ring_index];
 			spin_lock_irqsave(
 				&mhi_dev_ctxt->db_write_lock[ring_index],
 				flags);
 			mhi_dev_ctxt->mhi_chan_db_order[ring_index] = 1;
-			mhi_process_db(mhi_dev_ctxt,
+			mhi_ring->db_mode.process_db(mhi_dev_ctxt,
 					mhi_dev_ctxt->mmio_info.chan_db_addr,
 					ring_index, db_value);
 			spin_unlock_irqrestore(
@@ -1380,7 +1390,7 @@ static int reset_chan_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	local_chan_ctxt->ack_rp = local_chan_ctxt->base;
 
 	/* Reset the mhi channel context */
-	chan_ctxt->mhi_chan_state = MHI_CHAN_STATE_DISABLED;
+	chan_ctxt->chstate = MHI_CHAN_STATE_DISABLED;
 	chan_ctxt->mhi_trb_read_ptr = chan_ctxt->mhi_trb_ring_base_addr;
 	chan_ctxt->mhi_trb_write_ptr = chan_ctxt->mhi_trb_ring_base_addr;
 
@@ -1658,11 +1668,56 @@ int mhi_deregister_channel(struct mhi_client_handle
 }
 EXPORT_SYMBOL(mhi_deregister_channel);
 
+void mhi_process_db_brstmode(struct mhi_device_ctxt *mhi_dev_ctxt,
+			     void __iomem *io_addr,
+			     uintptr_t chan,
+			     u32 val)
+{
+	struct mhi_ring *ring_ctxt =
+		&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
+
+	if (io_addr == mhi_dev_ctxt->mmio_info.chan_db_addr)
+		ring_ctxt = &mhi_dev_ctxt->
+			mhi_local_chan_ctxt[chan];
+	else
+		ring_ctxt = &mhi_dev_ctxt->
+			mhi_local_event_ctxt[chan];
+
+	mhi_log(MHI_MSG_VERBOSE,
+			"db.set addr: %p io_offset 0x%lx val:0x%x\n",
+			io_addr, chan, val);
+
+	mhi_update_ctxt(mhi_dev_ctxt, io_addr, chan, val);
+
+	if (ring_ctxt->db_mode.db_mode) {
+		mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
+		ring_ctxt->db_mode.db_mode = 0;
+	} else {
+		mhi_log(MHI_MSG_INFO,
+			"Not ringing xfer db, chan %ld, brstmode %d db_mode %d\n",
+			chan,
+			ring_ctxt->db_mode.brstmode,
+			ring_ctxt->db_mode.db_mode);
+	}
+}
+
+void mhi_process_db_brstmode_disable(struct mhi_device_ctxt *mhi_dev_ctxt,
+			     void __iomem *io_addr,
+			     uintptr_t chan,
+			     u32 val)
+{
+	mhi_log(MHI_MSG_VERBOSE,
+			"db.set addr: %p io_offset 0x%lx val:0x%x\n",
+			io_addr, chan, val);
+
+	mhi_update_ctxt(mhi_dev_ctxt, io_addr, chan, val);
+	mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
+}
+
 void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 		  void __iomem *io_addr,
 		  uintptr_t chan, u32 val)
 {
-	struct mhi_ring *chan_ctxt = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 
 	mhi_log(MHI_MSG_VERBOSE,
 			"db.set addr: %p io_offset 0x%lx val:0x%x\n",
@@ -1672,22 +1727,25 @@ void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 	/* Channel Doorbell and Polling Mode Disabled or Software Channel*/
 	if (io_addr == mhi_dev_ctxt->mmio_info.chan_db_addr) {
+		struct mhi_ring *chan_ctxt =
+			&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 		if (!(IS_HARDWARE_CHANNEL(chan) &&
-		    mhi_dev_ctxt->flags.uldl_enabled &&
 		    !chan_ctxt->db_mode.db_mode)) {
 			mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
 			chan_ctxt->db_mode.db_mode = 0;
 		} else {
 			mhi_log(MHI_MSG_INFO,
-				"Not ringing xfer db, chan %ld, ul_dl %d db_mode %d\n",
-				chan, mhi_dev_ctxt->flags.uldl_enabled,
+				"Not ringing xfer db, chan %ld, brstmode %d db_mode %d\n",
+				chan, chan_ctxt->db_mode.brstmode,
 				chan_ctxt->db_mode.db_mode);
 		}
 	/* Event Doorbell and Polling mode Disabled */
 	} else if (io_addr == mhi_dev_ctxt->mmio_info.event_db_addr) {
-		/* Only ring for software channel */
-		if (IS_SW_EV_RING(mhi_dev_ctxt, chan) ||
-		    !mhi_dev_ctxt->flags.uldl_enabled) {
+		struct mhi_ring *ev_ctxt =
+			&mhi_dev_ctxt->mhi_local_event_ctxt[chan];
+		/* Only ring for software channel or db mode*/
+		if (!(IS_HW_EV_RING(mhi_dev_ctxt, chan) &&
+		    !ev_ctxt->db_mode.db_mode)) {
 			mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
 		}
 	} else {

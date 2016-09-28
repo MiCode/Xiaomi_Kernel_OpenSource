@@ -115,7 +115,7 @@ void init_dev_chan_ctxt(struct mhi_chan_ctxt *chan_ctxt,
 	chan_ctxt->mhi_trb_write_ptr = p_base_addr;
 	chan_ctxt->mhi_trb_ring_len = len;
 	/* Prepulate the channel ctxt */
-	chan_ctxt->mhi_chan_state = MHI_CHAN_STATE_ENABLED;
+	chan_ctxt->chstate = MHI_CHAN_STATE_ENABLED;
 	chan_ctxt->mhi_event_ring_index = ev_index;
 }
 
@@ -173,6 +173,8 @@ static int mhi_cmd_ring_init(struct mhi_cmd_ctxt *cmd_ctxt,
 	ring[PRIMARY_CMD_RING].len = ring_size;
 	ring[PRIMARY_CMD_RING].el_size = sizeof(union mhi_cmd_pkt);
 	ring[PRIMARY_CMD_RING].overwrite_en = 0;
+	ring[PRIMARY_CMD_RING].db_mode.process_db =
+		mhi_process_db_brstmode_disable;
 	return 0;
 }
 
@@ -601,10 +603,12 @@ int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 		       u64 el_per_ring, enum MHI_CHAN_DIR chan_type,
 		       u32 event_ring, struct mhi_ring *ring,
 		       enum MHI_CHAN_STATE chan_state,
-		       bool preserve_db_state)
+		       bool preserve_db_state,
+		       enum MHI_BRSTMODE brstmode)
 {
-	cc_list->mhi_chan_state = chan_state;
-	cc_list->mhi_chan_type = chan_type;
+	cc_list->brstmode = brstmode;
+	cc_list->chstate = chan_state;
+	cc_list->chtype = chan_type;
 	cc_list->mhi_event_ring_index = event_ring;
 	cc_list->mhi_trb_ring_base_addr = trb_list_phy;
 	cc_list->mhi_trb_ring_len =
@@ -621,6 +625,19 @@ int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 	ring->dir = chan_type;
 	ring->db_mode.db_mode = 1;
 	ring->db_mode.preserve_db_state = (preserve_db_state) ? 1 : 0;
+	ring->db_mode.brstmode = brstmode;
+
+	switch (ring->db_mode.brstmode) {
+	case MHI_BRSTMODE_ENABLE:
+		ring->db_mode.process_db = mhi_process_db_brstmode;
+		break;
+	case MHI_BRSTMODE_DISABLE:
+		ring->db_mode.process_db = mhi_process_db_brstmode_disable;
+		break;
+	default:
+		ring->db_mode.process_db = mhi_process_db;
+	}
+
 	/* Flush writes to MMIO */
 	wmb();
 	return 0;

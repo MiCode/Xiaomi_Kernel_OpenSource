@@ -247,8 +247,16 @@
 #define MHI_PRESERVE_DB_STATE__MASK (1)
 #define MHI_PRESERVE_DB_STATE__SHIFT (8)
 
+#define BRSTMODE
+#define MHI_BRSTMODE__MASK (3)
+#define MHI_BRSTMODE__SHIFT (9)
+
 #define GET_CHAN_PROPS(_FIELD, _VAL) \
 	(((_VAL) >> MHI_##_FIELD ## __SHIFT) & MHI_##_FIELD ## __MASK)
+
+#define EV_BRSTMODE
+#define MHI_EV_BRSTMODE__MASK (3)
+#define MHI_EV_BRSTMODE__SHIFT (5)
 
 #define EV_TYPE
 #define MHI_EV_TYPE__MASK (3)
