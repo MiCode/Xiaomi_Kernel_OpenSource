@@ -1190,7 +1190,7 @@
 		qcom,vin-sel = <2>; /* 1.8 */
 		qcom,out-strength = <1>;
 		qcom,src-sel = <0>; /* GPIO */
-		qcom,master-en = <1>; /* Enable GPIO */
+		qcom,master-en = <0>; /* Disable GPIO */
 		status = "okay";
 	};
 
