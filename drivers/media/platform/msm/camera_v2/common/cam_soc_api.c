@@ -542,6 +542,28 @@ int msm_camera_put_clk_info_and_rates(struct platform_device *pdev,
 }
 EXPORT_SYMBOL(msm_camera_put_clk_info_and_rates);
 
+/* Get reset info from DT */
+int msm_camera_get_reset_info(struct platform_device *pdev,
+		struct reset_control **micro_iface_reset)
+{
+	if (!pdev || !micro_iface_reset)
+		return -EINVAL;
+
+	if (of_property_match_string(pdev->dev.of_node, "reset-names",
+				"micro_iface_reset")) {
+		pr_err("err: Reset property not found\n");
+		return -EINVAL;
+	}
+
+	*micro_iface_reset = devm_reset_control_get
+				(&pdev->dev, "micro_iface_reset");
+	if (IS_ERR(*micro_iface_reset))
+		return PTR_ERR(*micro_iface_reset);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_camera_get_reset_info);
+
 /* Get regulators from DT */
 int msm_camera_get_regulator_info(struct platform_device *pdev,
 				struct msm_cam_regulator **vdd_info,

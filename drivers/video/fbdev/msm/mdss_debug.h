@@ -57,6 +57,7 @@ struct vbif_debug_bus {
 	u32 block_bus_addr;
 	u32 bit_offset;
 	u32 block_cnt;
+	u32 test_pnt_start;
 	u32 test_pnt_cnt;
 };
 

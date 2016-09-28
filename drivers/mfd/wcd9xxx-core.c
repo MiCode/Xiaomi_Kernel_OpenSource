@@ -1219,6 +1219,11 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 
 	intf_type = wcd9xxx_get_intf_type();
 
+	if (!slim) {
+		ret = -EINVAL;
+		goto err;
+	}
+
 	if (intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
 		dev_dbg(&slim->dev, "%s:Codec is detected in I2C mode\n",
 			__func__);

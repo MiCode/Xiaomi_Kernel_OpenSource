@@ -499,8 +499,10 @@ out:
 		return rc;
 	}
 
-	if (retry_once)
+	if (retry_once) {
+		retry_once = false;
 		goto retry;
+	}
 
 	return rc;
 }

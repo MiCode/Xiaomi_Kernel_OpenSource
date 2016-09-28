@@ -392,7 +392,11 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		rc = -EINVAL;
 		break;
 	}
-	return rc;
+	if (rc < 0) {
+		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		return -ENODATA;
+	}
+	return 0;
 }
 
 static int smb2_usb_set_prop(struct power_supply *psy,
@@ -506,8 +510,11 @@ static int smb2_dc_get_prop(struct power_supply *psy,
 	default:
 		return -EINVAL;
 	}
-
-	return rc;
+	if (rc < 0) {
+		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		return -ENODATA;
+	}
+	return 0;
 }
 
 static int smb2_dc_set_prop(struct power_supply *psy,
@@ -633,8 +640,11 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
 	}
-
-	return rc;
+	if (rc < 0) {
+		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		return -ENODATA;
+	}
+	return 0;
 }
 
 static int smb2_batt_set_prop(struct power_supply *psy,

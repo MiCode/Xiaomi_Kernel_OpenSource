@@ -42,7 +42,6 @@ struct hdcp_init_data {
 	void *cb_data;
 	void (*notify_status)(void *cb_data, enum hdcp_states status);
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
-	void *dp_data;
 	u32 phy_addr;
 	u32 hdmi_tx_ver;
 	struct msm_hdmi_mode_timing_info *timing;

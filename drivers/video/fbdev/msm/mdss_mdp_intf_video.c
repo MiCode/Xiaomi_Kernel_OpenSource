@@ -316,7 +316,8 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 	struct mdss_mdp_ctl *ctl = data;
 	struct mdss_panel_info *pinfo;
 	u32 line_cnt, min_ln_cnt, active_lns_cnt;
-	u32 clk_rate, clk_period, time_of_line;
+	u64 clk_rate;
+	u32 clk_period, time_of_line;
 	u32 delay;
 
 	if (!data) {
@@ -344,7 +345,7 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 			pinfo->mipi.dsi_pclk_rate :
 			pinfo->clk_rate);
 
-	clk_rate /= 1000;	/* in kHz */
+	clk_rate = DIV_ROUND_UP_ULL(clk_rate, 1000); /* in kHz */
 	if (!clk_rate) {
 		pr_err("Unable to get proper clk_rate\n");
 		return;
@@ -354,7 +355,7 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 	 * accuracy with high pclk rate and this number is in 17 bit
 	 * range.
 	 */
-	clk_period = 1000000000 / clk_rate;
+	clk_period = DIV_ROUND_UP_ULL(1000000000, clk_rate);
 	if (!clk_period) {
 		pr_err("Unable to calculate clock period\n");
 		return;
@@ -1851,6 +1852,7 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 	u32 dst_bpp;
 	struct mdss_data_type *mdata = ctl->mdata;
 	struct dsc_desc *dsc = NULL;
+	u32 hdmi_dp_core;
 
 	ctx->ctl = ctl;
 	ctx->intf_type = ctl->intf_type;
@@ -1971,6 +1973,11 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 	mdss_mdp_disable_prefill(ctl);
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_PANEL_FORMAT, ctl->dst_format);
+
+	hdmi_dp_core = (ctx->intf_type == MDSS_INTF_EDP) ? 1 : 0;
+
+	writel_relaxed(hdmi_dp_core, mdata->mdp_base +
+			MDSS_MDP_HDMI_DP_CORE_SELECT);
 
 	return 0;
 }

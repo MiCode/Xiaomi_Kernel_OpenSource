@@ -97,9 +97,9 @@ static ssize_t test_fuse_state_show(struct device *dev,
 	}
 
 	if (is_test_fuse_set)
-		ret = snprintf(buf, PAGE_SIZE, "%s\n", "test");
+		ret = snprintf(buf, PAGE_SIZE, "%s", "test");
 	else
-		ret = snprintf(buf, PAGE_SIZE, "%s\n", "prod");
+		ret = snprintf(buf, PAGE_SIZE, "%s", "prod");
 
 	return ret;
 }
@@ -280,7 +280,7 @@ static int __init spss_init(void)
 {
 	int ret = 0;
 
-	pr_info("spss-utils driver Ver 1.0 12-Sep-2016.\n");
+	pr_info("spss-utils driver Ver 1.1 18-Sep-2016.\n");
 
 	ret = platform_driver_register(&spss_driver);
 	if (ret)

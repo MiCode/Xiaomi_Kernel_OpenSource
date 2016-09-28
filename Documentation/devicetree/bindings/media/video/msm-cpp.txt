@@ -22,6 +22,10 @@ Required properties:
   case dynamic clock scaling based on prevalent streams need lower clock rate.
 - qcom,cpp-fw-payload-info: Child node for cpp node having infomration on
   cpp firmware payload offsets. This is mandatory node.
+- resets: reset specifier pair consists of phandle for the reset controller
+  and reset lines used by this controller.
+- reset-names: reset signal name strings sorted in the same order as the resets
+  property.
 
 Required properties of the child node:
 - qcom,stripe-base = Base offset of stripes in cpp payload.
@@ -120,6 +124,7 @@ Example:
 			qcom,ref-we-mmu-pf-ptr-off = <22>;
 			qcom,set-group-buffer-len = <135>;
 			qcom,dup-frame-indicator-off = <70>;
-
+		resets = <&clock_mmss MMSS_CAMSS_MICRO_BCR>;
+		reset-names = "micro_iface_reset";
 		};
 	};

@@ -33,6 +33,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/firmware.h>
 #include <linux/debugfs.h>
+#include <linux/mutex.h>
 
 #if defined(CONFIG_FB)
 #include <linux/notifier.h>
@@ -42,13 +43,17 @@
 #define GOODIX_SUSPEND_LEVEL 1
 #endif
 
+#define MAX_BUTTONS 4
 #define GOODIX_MAX_CFG_GROUP	6
+#define GTP_FW_NAME_MAXSIZE	50
+
 struct goodix_ts_platform_data {
 	int irq_gpio;
 	u32 irq_gpio_flags;
 	int reset_gpio;
 	u32 reset_gpio_flags;
 	const char *product_id;
+	const char *fw_name;
 	u32 x_max;
 	u32 y_max;
 	u32 x_min;
@@ -59,8 +64,11 @@ struct goodix_ts_platform_data {
 	u32 panel_maxy;
 	bool no_force_update;
 	bool i2c_pull_up;
+	bool enable_power_off;
 	size_t config_data_len[GOODIX_MAX_CFG_GROUP];
 	u8 *config_data[GOODIX_MAX_CFG_GROUP];
+	u32 button_map[MAX_BUTTONS];
+	u8 num_button;
 };
 struct goodix_ts_data {
 	spinlock_t irq_lock;
@@ -70,6 +78,7 @@ struct goodix_ts_data {
 	struct hrtimer timer;
 	struct workqueue_struct *goodix_wq;
 	struct work_struct	work;
+	struct delayed_work goodix_update_work;
 	s32 irq_is_disabled;
 	s32 use_irq;
 	u16 abs_x_max;
@@ -86,6 +95,8 @@ struct goodix_ts_data {
 	u8  fixed_cfg;
 	u8  esd_running;
 	u8  fw_error;
+	bool power_on;
+	struct mutex lock;
 	struct regulator *avdd;
 	struct regulator *vdd;
 	struct regulator *vcc_i2c;
@@ -104,7 +115,6 @@ extern u16 total_len;
 #define GTP_CHANGE_X2Y			0
 #define GTP_DRIVER_SEND_CFG		1
 #define GTP_HAVE_TOUCH_KEY		1
-#define GTP_POWER_CTRL_SLEEP	0
 
 /* auto updated by .bin file as default */
 #define GTP_AUTO_UPDATE			0
@@ -117,13 +127,10 @@ extern u16 total_len;
 #define GTP_ESD_PROTECT			0
 #define GTP_WITH_PEN			0
 
+/* This cannot work when enable-power-off is on */
 #define GTP_SLIDE_WAKEUP		0
 /* double-click wakeup, function together with GTP_SLIDE_WAKEUP */
 #define GTP_DBL_CLK_WAKEUP		0
-
-#define GTP_DEBUG_ON			0
-#define GTP_DEBUG_ARRAY_ON		0
-#define GTP_DEBUG_FUNC_ON		0
 
 /*************************** PART2:TODO define *******************************/
 /* STEP_1(REQUIRED): Define Configuration Information Group(s) */
@@ -190,39 +197,6 @@ extern u16 total_len;
 #define RESOLUTION_LOC		3
 #define TRIGGER_LOC		8
 
-/* Log define */
-#define GTP_DEBUG(fmt, arg...)	do {\
-		if (GTP_DEBUG_ON) {\
-			pr_debug("<<-GTP-DEBUG->> [%d]"fmt"\n",\
-				__LINE__, ##arg); } \
-		} while (0)
-
-#define GTP_DEBUG_ARRAY(array, num)    do {\
-		s32 i; \
-		u8 *a = array; \
-		if (GTP_DEBUG_ARRAY_ON) {\
-			pr_debug("<<-GTP-DEBUG-ARRAY->>\n");\
-			for (i = 0; i < (num); i++) { \
-				pr_debug("%02x   ", (a)[i]);\
-				if ((i + 1) % 10 == 0) { \
-					pr_debug("\n");\
-				} \
-			} \
-			pr_debug("\n");\
-		} \
-	} while (0)
-
-#define GTP_DEBUG_FUNC()	do {\
-	if (GTP_DEBUG_FUNC_ON)\
-		pr_debug("<<-GTP-FUNC->> Func:%s@Line:%d\n",\
-					__func__, __LINE__);\
-	} while (0)
-
-#define GTP_SWAP(x, y)		do {\
-					typeof(x) z = x;\
-					x = y;\
-					y = z;\
-				} while (0)
 /*****************************End of Part III********************************/
 
 void gtp_esd_switch(struct i2c_client *client, int on);

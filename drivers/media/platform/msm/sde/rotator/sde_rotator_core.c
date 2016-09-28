@@ -278,6 +278,10 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 
 	SDEROT_EVTLOG(on);
 	SDEROT_DBG("%s: rotator regulators", on ? "Enable" : "Disable");
+
+	if (mgr->ops_hw_pre_pmevent)
+		mgr->ops_hw_pre_pmevent(mgr, on);
+
 	ret = sde_rot_enable_vreg(mgr->module_power.vreg_config,
 		mgr->module_power.num_vreg, on);
 	if (ret) {
@@ -286,10 +290,13 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 		return;
 	}
 
+	if (mgr->ops_hw_post_pmevent)
+		mgr->ops_hw_post_pmevent(mgr, on);
+
 	mgr->regulator_enable = on;
 }
 
-static int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
+int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 {
 	struct clk *clk;
 	int ret = 0;

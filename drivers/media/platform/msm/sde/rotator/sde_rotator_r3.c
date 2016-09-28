@@ -271,6 +271,7 @@ static int sde_hw_rotator_pending_swts(struct sde_hw_rotator *rot,
 
 	SDEROT_DBG("ts:0x%x, queue_id:%d, swts:0x%x, pending:%d\n",
 		ctx->timestamp, ctx->q_id, swts, pending);
+	SDEROT_EVTLOG(ctx->timestamp, swts, ctx->q_id, ts_diff);
 	return pending;
 }
 
@@ -1240,6 +1241,94 @@ static void sde_hw_rotator_swtc_destroy(struct sde_hw_rotator *rot)
 }
 
 /*
+ * sde_hw_rotator_pre_pmevent - SDE rotator core will call this before a
+ *                              PM event occurs
+ * @mgr: Pointer to rotator manager
+ * @pmon: Boolean indicate an on/off power event
+ */
+void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
+{
+	struct sde_hw_rotator *rot;
+	u32 l_ts, h_ts, swts, hwts;
+	u32 rotsts, regdmasts;
+
+	/*
+	 * Check last HW timestamp with SW timestamp before power off event.
+	 * If there is a mismatch, that will be quite possible the rotator HW
+	 * is either hang or not finishing last submitted job. In that case,
+	 * it is best to do a timeout eventlog to capture some good events
+	 * log data for analysis.
+	 */
+	if (!pmon && mgr && mgr->hw_data) {
+		rot = mgr->hw_data;
+		h_ts = atomic_read(&rot->timestamp[ROT_QUEUE_HIGH_PRIORITY]);
+		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]);
+
+		/* contruct the combined timstamp */
+		swts = (h_ts & SDE_REGDMA_SWTS_MASK) |
+			((l_ts & SDE_REGDMA_SWTS_MASK) <<
+			 SDE_REGDMA_SWTS_SHIFT);
+
+		/* Need to turn on clock to access rotator register */
+		sde_rotator_clk_ctrl(mgr, true);
+		hwts = SDE_ROTREG_READ(rot->mdss_base, REGDMA_TIMESTAMP_REG);
+		regdmasts = SDE_ROTREG_READ(rot->mdss_base,
+				REGDMA_CSR_REGDMA_BLOCK_STATUS);
+		rotsts = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_STATUS);
+
+		SDEROT_DBG(
+			"swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
+				swts, hwts, regdmasts, rotsts);
+		SDEROT_EVTLOG(swts, hwts, regdmasts, rotsts);
+
+		if ((swts != hwts) && ((regdmasts & REGDMA_BUSY) ||
+					(rotsts & ROT_STATUS_MASK))) {
+			SDEROT_ERR(
+				"Mismatch SWTS with HWTS: swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
+				swts, hwts, regdmasts, rotsts);
+			SDEROT_EVTLOG_TOUT_HANDLER("rot", "vbif_dbg_bus",
+					"panic");
+		}
+
+		/* Turn off rotator clock after checking rotator registers */
+		sde_rotator_clk_ctrl(mgr, false);
+	}
+}
+
+/*
+ * sde_hw_rotator_post_pmevent - SDE rotator core will call this after a
+ *                               PM event occurs
+ * @mgr: Pointer to rotator manager
+ * @pmon: Boolean indicate an on/off power event
+ */
+void sde_hw_rotator_post_pmevent(struct sde_rot_mgr *mgr, bool pmon)
+{
+	struct sde_hw_rotator *rot;
+	u32 l_ts, h_ts, swts;
+
+	/*
+	 * After a power on event, the rotator HW is reset to default setting.
+	 * It is necessary to synchronize the SW timestamp with the HW.
+	 */
+	if (pmon && mgr && mgr->hw_data) {
+		rot = mgr->hw_data;
+		h_ts = atomic_read(&rot->timestamp[ROT_QUEUE_HIGH_PRIORITY]);
+		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]);
+
+		/* contruct the combined timstamp */
+		swts = (h_ts & SDE_REGDMA_SWTS_MASK) |
+			((l_ts & SDE_REGDMA_SWTS_MASK) <<
+			 SDE_REGDMA_SWTS_SHIFT);
+
+		SDEROT_DBG("swts:0x%x, h_ts:0x%x, l_ts;0x%x\n",
+				swts, h_ts, l_ts);
+		SDEROT_EVTLOG(swts, h_ts, l_ts);
+		rot->reset_hw_ts = true;
+		rot->last_hw_ts = swts;
+	}
+}
+
+/*
  * sde_hw_rotator_destroy - Destroy hw rotator and free allocated resources
  * @mgr: Pointer to rotator manager
  */
@@ -1455,6 +1544,15 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		return -EINVAL;
 	}
 
+	if (rot->reset_hw_ts) {
+		SDEROT_EVTLOG(rot->last_hw_ts);
+		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG,
+				rot->last_hw_ts);
+		/* ensure write is issued to the rotator HW */
+		wmb();
+		rot->reset_hw_ts = false;
+	}
+
 	flags = (item->flags & SDE_ROTATION_FLIP_LR) ?
 			SDE_ROT_FLAG_FLIP_LR : 0;
 	flags |= (item->flags & SDE_ROTATION_FLIP_UD) ?
@@ -1511,7 +1609,8 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 				&entry->dst_buf);
 	}
 
-	SDEROT_EVTLOG(flags, item->input.width, item->input.height,
+	SDEROT_EVTLOG(ctx->timestamp, flags,
+			item->input.width, item->input.height,
 			item->output.width, item->output.height,
 			entry->src_buf.p[0].addr, entry->dst_buf.p[0].addr);
 
@@ -1715,6 +1814,7 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 	mdata->regdump = sde_rot_r3_regdump;
 	mdata->regdump_size = ARRAY_SIZE(sde_rot_r3_regdump);
 
+	SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG, 0);
 	return 0;
 }
 
@@ -2174,6 +2274,8 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	mgr->ops_hw_create_debugfs = sde_rotator_r3_create_debugfs;
 	mgr->ops_hw_get_pixfmt = sde_hw_rotator_get_pixfmt;
 	mgr->ops_hw_is_valid_pixfmt = sde_hw_rotator_is_valid_pixfmt;
+	mgr->ops_hw_pre_pmevent = sde_hw_rotator_pre_pmevent;
+	mgr->ops_hw_post_pmevent = sde_hw_rotator_post_pmevent;
 
 	ret = sde_hw_rotator_parse_dt(mgr->hw_data, mgr->pdev);
 	if (ret)

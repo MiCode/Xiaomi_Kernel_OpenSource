@@ -430,7 +430,7 @@ int mdss_mdp_cwb_validate(struct msm_fb_data_type *mfd,
 		return rc;
 
 	fmt = mdss_mdp_get_format_params(layer->buffer.format);
-	if (!(fmt->flag & VALID_MDP_WB_INTF_FORMAT)) {
+	if (!fmt || (fmt && !(fmt->flag & VALID_MDP_WB_INTF_FORMAT))) {
 		pr_err("wb does not support dst fmt:%d\n",
 				layer->buffer.format);
 		return -EINVAL;

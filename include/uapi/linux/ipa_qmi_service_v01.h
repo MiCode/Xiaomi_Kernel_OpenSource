@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,7 @@
 #define QMI_IPA_IPFLTR_NUM_IHL_MEQ_32_EQNS_V01 2
 #define QMI_IPA_IPFLTR_NUM_MEQ_128_EQNS_V01 2
 #define QMI_IPA_MAX_FILTERS_V01 64
+#define QMI_IPA_MAX_FILTERS_EX_V01 128
 #define QMI_IPA_MAX_PIPES_V01 20
 #define QMI_IPA_MAX_APN_V01 8
 
@@ -1543,6 +1544,84 @@ struct ipa_stop_data_usage_quota_resp_msg_v01 {
 	/**<   Standard response type.*/
 };  /* Message */
 
+/* Request Message; Request from Modem IPA driver to set DPL peripheral pipe */
+struct ipa_install_fltr_rule_req_ex_msg_v01 {
+
+	/* Optional */
+	/*  Extended Filter Specification  */
+	uint8_t filter_spec_ex_list_valid;
+	uint32_t filter_spec_ex_list_len;
+	struct ipa_filter_spec_ex_type_v01
+		filter_spec_ex_list[QMI_IPA_MAX_FILTERS_EX_V01];
+	/* List of filter specifications of filters that must be installed in
+	the IPAv3.x hardware.
+	The driver installing these rules must do so in the same order as
+	specified in this list.
+	*/
+
+	/* Optional */
+	/* Pipe Index to Install Rule */
+	uint8_t source_pipe_index_valid;
+	uint32_t source_pipe_index;
+	/* Pipe index to install the filter rule.
+	The requester may not always know the pipe indices. If not specified,
+	the receiver must install this rule on all pipes that it controls,
+	through which data may be fed into the IPA.
+	*/
+
+	/* Optional */
+	/* Total Number of IPv4 Filters in the Filter Spec List */
+	uint8_t num_ipv4_filters_valid;
+	uint32_t num_ipv4_filters;
+	/* Number of IPv4 rules included in the filter specification list.
+	*/
+
+	/* Optional */
+	/* Total Number of IPv6 Filters in the Filter Spec List */
+	uint8_t num_ipv6_filters_valid;
+	uint32_t num_ipv6_filters;
+	/* Number of IPv6 rules included in the filter specification list.
+	*/
+
+	/* Optional */
+	/* List of XLAT Filter Indices in the Filter Spec List */
+	uint8_t xlat_filter_indices_list_valid;
+	uint32_t xlat_filter_indices_list_len;
+	uint32_t xlat_filter_indices_list[QMI_IPA_MAX_FILTERS_EX_V01];
+	/* List of XLAT filter indices.
+	Filter rules at specified indices must be modified by the
+	receiver if the PDN is XLAT before installing them on the associated
+	IPA consumer pipe.
+	*/
+};  /* Message */
+
+/* Response Message; Requests installation of filtering rules in the hardware
+ * block on the remote side.
+ */
+struct ipa_install_fltr_rule_resp_ex_msg_v01 {
+	/* Mandatory */
+	/* Result Code */
+	struct ipa_qmi_response_type_v01 resp;
+	/* Standard response type.
+	Standard response type. Contains the following data members:
+	- qmi_result_type -- QMI_RESULT_SUCCESS or QMI_RESULT_FAILURE
+	- qmi_error_type  -- Error code. Possible error code values are
+						 described in the error codes
+						 section of each message
+						 definition.
+	*/
+
+	/* Optional */
+	/* Rule ID List */
+	uint8_t rule_id_valid;
+	uint32_t rule_id_len;
+	uint32_t rule_id[QMI_IPA_MAX_FILTERS_EX_V01];
+	/* List of rule IDs returned to the control point.
+	Any further reference to the rule is done using the filter rule ID
+	specified in this list.
+	*/
+};  /* Message */
+
 /*Service Message Definition*/
 #define QMI_IPA_INDICATION_REGISTER_REQ_V01 0x0020
 #define QMI_IPA_INDICATION_REGISTER_RESP_V01 0x0020
@@ -1574,6 +1653,8 @@ struct ipa_stop_data_usage_quota_resp_msg_v01 {
 #define QMI_IPA_STOP_DATA_USAGE_QUOTA_RESP_V01 0x0034
 #define QMI_IPA_INIT_MODEM_DRIVER_CMPLT_REQ_V01 0x0035
 #define QMI_IPA_INIT_MODEM_DRIVER_CMPLT_RESP_V01 0x0035
+#define QMI_IPA_INSTALL_FILTER_RULE_EX_REQ_V01 0x0037
+#define QMI_IPA_INSTALL_FILTER_RULE_EX_RESP_V01 0x0037
 
 /* add for max length*/
 #define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 134
@@ -1611,6 +1692,9 @@ struct ipa_stop_data_usage_quota_resp_msg_v01 {
 
 #define QMI_IPA_INIT_MODEM_DRIVER_CMPLT_REQ_MAX_MSG_LEN_V01 4
 #define QMI_IPA_INIT_MODEM_DRIVER_CMPLT_RESP_MAX_MSG_LEN_V01 7
+
+#define QMI_IPA_INSTALL_FILTER_RULE_EX_REQ_MAX_MSG_LEN_V01 22685
+#define QMI_IPA_INSTALL_FILTER_RULE_EX_RESP_MAX_MSG_LEN_V01 523
 
 /* Service Object Accessor */
 

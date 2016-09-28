@@ -812,6 +812,11 @@ static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
 	case KGSL_PERFCOUNTER_GROUP_ALWAYSON_PWR:
 		_power_counter_enable_alwayson(adreno_dev, counters);
 		break;
+	case KGSL_PERFCOUNTER_GROUP_RBBM:
+		/* The following rbbm countable is not reliable on a540 */
+		if (adreno_is_a540(adreno_dev))
+			if (countable == A5XX_RBBM_ALWAYS_COUNT)
+				return -EINVAL;
 	default:
 		return _perfcounter_enable_default(adreno_dev, counters, group,
 				counter, countable);

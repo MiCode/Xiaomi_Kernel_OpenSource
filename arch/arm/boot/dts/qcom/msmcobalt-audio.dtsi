@@ -81,6 +81,10 @@
 				"msm-pcm-routing", "msm-cpe-lsm",
 				"msm-compr-dsp", "msm-pcm-dsp-noirq";
 		asoc-cpu = <&dai_hdmi>, <&dai_dp>,
+				<&dai_mi2s0>, <&dai_mi2s1>,
+				<&dai_mi2s2>, <&dai_mi2s3>,
+				<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
+				<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
 				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>,
@@ -91,6 +95,10 @@
 				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
 				<&usb_audio_rx>, <&usb_audio_tx>;
 		asoc-cpu-names = "msm-dai-q6-hdmi.8", "msm-dai-q6-dp.24608",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
 				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
 				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
@@ -162,6 +170,10 @@
 				"msm-pcm-routing", "msm-cpe-lsm",
 				"msm-compr-dsp", "msm-pcm-dsp-noirq";
 		asoc-cpu = <&dai_hdmi>, <&dai_dp>,
+				<&dai_mi2s0>, <&dai_mi2s1>,
+				<&dai_mi2s2>, <&dai_mi2s3>,
+				<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
+				<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
 				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>,
@@ -171,6 +183,10 @@
 				<&incall_music_2_rx>, <&sb_5_rx>,
 				<&usb_audio_rx>, <&usb_audio_tx>, <&sb_6_rx>;
 		asoc-cpu-names = "msm-dai-q6-hdmi.8",  "msm-dai-q6-dp.24608",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
 				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
 				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",

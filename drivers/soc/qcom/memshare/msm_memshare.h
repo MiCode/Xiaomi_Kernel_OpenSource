@@ -51,6 +51,9 @@ struct mem_blocks {
 	uint8_t free_memory;
 	/* Need Hypervisor mapping*/
 	uint8_t hyp_mapping;
+	/* Status flag which checks if ramdump file is created*/
+	int file_created;
+
 };
 
 int memshare_alloc(struct device *dev,

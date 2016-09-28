@@ -15,6 +15,8 @@
 #include <linux/mdss_io_util.h>
 #include "video/msm_hdmi_modes.h"
 
+#include "mdss_panel.h"
+
 /* HDMI_TX Registers */
 #define HDMI_CTRL                        (0x00000000)
 #define HDMI_TEST_PATTERN                (0x00000010)
@@ -489,6 +491,8 @@ const char *msm_hdmi_mode_2string(u32 mode);
 int hdmi_set_resv_timing_info(struct msm_hdmi_mode_timing_info *mode);
 bool hdmi_is_valid_resv_timing(int mode);
 void hdmi_reset_resv_timing_info(void);
+int hdmi_panel_get_vic(struct mdss_panel_info *pinfo,
+		struct hdmi_util_ds_data *ds_data);
 
 /* todo: Fix this. Right now this is defined in mdss_hdmi_tx.c */
 void *hdmi_get_featuredata_from_sysfs_dev(struct device *device, u32 type);

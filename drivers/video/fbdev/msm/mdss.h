@@ -163,6 +163,7 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_FMT_PACK_PATTERN,
 	MDSS_QUIRK_NEED_SECURE_MAP,
 	MDSS_QUIRK_SRC_SPLIT_ALWAYS,
+	MDSS_QUIRK_MMSS_GDSC_COLLAPSE,
 	MDSS_QUIRK_MAX,
 };
 
@@ -405,6 +406,7 @@ struct mdss_data_type {
 	u32 enable_gate;
 	u32 enable_bw_release;
 	u32 enable_rotator_bw_release;
+	u32 enable_cdp;
 	u32 serialize_wait4pp;
 	u32 wait4autorefresh;
 	u32 lines_before_active;

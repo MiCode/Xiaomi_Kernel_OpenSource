@@ -856,10 +856,12 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	mdss_dp_audio_enable(&dp_ctrl->ctrl_io, true);
-	mdss_dp_config_audio_acr_ctrl(&dp_ctrl->ctrl_io,
-					dp_ctrl->link_rate);
 	mdss_dp_audio_setup_sdps(&dp_ctrl->ctrl_io);
+	mdss_dp_audio_set_sample_rate(&dp_ctrl->ctrl_io,
+			dp_ctrl->link_rate, params->sample_rate_hz);
+	mdss_dp_config_audio_acr_ctrl(&dp_ctrl->ctrl_io, dp_ctrl->link_rate);
+	mdss_dp_set_safe_to_exit_level(&dp_ctrl->ctrl_io, dp_ctrl->lane_cnt);
+	mdss_dp_audio_enable(&dp_ctrl->ctrl_io, true);
 
 	return rc;
 } /* dp_audio_info_setup */
@@ -1055,11 +1057,13 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
 
 		dp_drv->power_data[DP_CTRL_PM].clk_config[0].rate =
-				dp_drv->link_rate * DP_LINK_RATE_MULTIPLIER;
+			((dp_drv->link_rate * DP_LINK_RATE_MULTIPLIER) /
+			1000); /* KHz */
 
 		dp_drv->pixel_rate = dp_drv->panel_data.panel_info.clk_rate;
 		dp_drv->power_data[DP_CTRL_PM].clk_config[3].rate =
-							dp_drv->pixel_rate;
+						(dp_drv->pixel_rate /
+						1000); /* KHz */
 
 		ret = mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, true);
 		if (ret) {
@@ -1393,6 +1397,8 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 		rc = -EINVAL;
 		goto error;
 	}
+
+	dp_drv->panel_data.panel_info.hdcp_1x_data = dp_drv->hdcp_data;
 
 	pr_debug("HDCP 1.3 initialized\n");
 
@@ -1774,7 +1780,7 @@ irqreturn_t dp_isr(int irq, void *ptr)
 {
 	struct mdss_dp_drv_pdata *dp = (struct mdss_dp_drv_pdata *)ptr;
 	unsigned char *base = dp->base;
-	u32 isr1, isr2, mask1, mask2;
+	u32 isr1, isr2, mask1;
 	u32 ack;
 
 	spin_lock(&dp->lock);
@@ -1782,13 +1788,11 @@ irqreturn_t dp_isr(int irq, void *ptr)
 	isr2 = dp_read(base + DP_INTR_STATUS2);
 
 	mask1 = isr1 & dp->mask1;
-	mask2 = isr2 & dp->mask2;
 
 	isr1 &= ~mask1;	/* remove masks bit */
-	isr2 &= ~mask2;
 
-	pr_debug("isr=%x mask=%x isr2=%x mask2=%x\n",
-			isr1, mask1, isr2, mask2);
+	pr_debug("isr=%x mask=%x isr2=%x\n",
+			isr1, mask1, isr2);
 
 	ack = isr1 & EDP_INTR_STATUS1;
 	ack <<= 1;	/* ack bits */
@@ -1797,7 +1801,7 @@ irqreturn_t dp_isr(int irq, void *ptr)
 
 	ack = isr2 & EDP_INTR_STATUS2;
 	ack <<= 1;	/* ack bits */
-	ack |= mask2;
+	ack |= isr2;
 	dp_write(base + DP_INTR_STATUS2, ack);
 	spin_unlock(&dp->lock);
 

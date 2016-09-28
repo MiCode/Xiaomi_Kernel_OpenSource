@@ -91,7 +91,7 @@ static inline u64 apply_inverse_fudge_factor(u64 val,
 
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
-static inline u32 mdss_mdp_get_pclk_rate(struct mdss_mdp_ctl *ctl)
+static inline u64 mdss_mdp_get_pclk_rate(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
 
@@ -1564,9 +1564,9 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 			perf->prefill_bytes += tmp.prefill_bytes;
 
 		if (ctl->intf_type) {
-			u32 clk_rate = mdss_mdp_get_pclk_rate(ctl);
+			u64 clk_rate = mdss_mdp_get_pclk_rate(ctl);
 			/* minimum clock rate due to inefficiency in 3dmux */
-			clk_rate = mult_frac(clk_rate >> 1, 9, 8);
+			clk_rate = DIV_ROUND_UP_ULL((clk_rate >> 1) * 9, 8);
 			if (clk_rate > perf->mdp_clk_rate)
 				perf->mdp_clk_rate = clk_rate;
 		}
@@ -2040,12 +2040,11 @@ static u64 mdss_mdp_ctl_calc_client_vote(struct mdss_data_type *mdata,
 	return bw_sum_of_intfs;
 }
 
-static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
+/* apply any adjustments to the ib quota */
+static inline u64 __calc_bus_ib_quota(struct mdss_data_type *mdata,
 	struct mdss_mdp_perf_params *perf, bool nrt_client, u64 bw_vote)
 {
-	u64 bus_ab_quota, bus_ib_quota;
-
-	bus_ab_quota = max(bw_vote, mdata->perf_tune.min_bus_vote);
+	u64 bus_ib_quota;
 
 	if (test_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map)) {
 		if (!nrt_client)
@@ -2070,6 +2069,18 @@ static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
 			!nrt_client)
 		bus_ib_quota = apply_fudge_factor(bus_ib_quota,
 			&mdata->per_pipe_ib_factor);
+
+	return bus_ib_quota;
+}
+
+static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
+	struct mdss_mdp_perf_params *perf, bool nrt_client, u64 bw_vote)
+{
+	u64 bus_ab_quota, bus_ib_quota;
+
+	bus_ab_quota = max(bw_vote, mdata->perf_tune.min_bus_vote);
+	bus_ib_quota = __calc_bus_ib_quota(mdata, perf, nrt_client, bw_vote);
+
 
 	bus_ab_quota = apply_fudge_factor(bus_ab_quota, &mdss_res->ab_factor);
 	ATRACE_INT("bus_quota", bus_ib_quota);
@@ -2232,6 +2243,46 @@ static bool is_traffic_shaper_enabled(struct mdss_data_type *mdata)
 	return false;
 }
 
+static bool __mdss_mdp_compare_bw(
+	struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_perf_params *new_perf,
+	struct mdss_mdp_perf_params *old_perf,
+	bool params_changed,
+	bool stop_req)
+{
+	struct mdss_data_type *mdata = ctl->mdata;
+	bool is_nrt = mdss_mdp_is_nrt_ctl_path(ctl);
+	u64 new_ib =
+		__calc_bus_ib_quota(mdata, new_perf, is_nrt, new_perf->bw_ctl);
+	u64 old_ib =
+		__calc_bus_ib_quota(mdata, old_perf, is_nrt, old_perf->bw_ctl);
+	u64 max_new_bw = max(new_perf->bw_ctl, new_ib);
+	u64 max_old_bw = max(old_perf->bw_ctl, old_ib);
+	bool update_bw = false;
+
+	/*
+	 * three cases for bus bandwidth update.
+	 * 1. new bandwidth vote (ab or ib) or writeback output vote
+	 *		are higher than current vote for update request.
+	 * 2. new bandwidth vote or writeback output vote are
+	 *		lower than current vote at end of commit or stop.
+	 * 3. end of writeback/rotator session - last chance to
+	 *		non-realtime remove vote.
+	 */
+	if ((params_changed && ((max_new_bw > max_old_bw) || /* ab and ib bw */
+			(new_perf->bw_writeback > old_perf->bw_writeback))) ||
+			(!params_changed && ((max_new_bw < max_old_bw) ||
+			(new_perf->bw_writeback < old_perf->bw_writeback))) ||
+			(stop_req && is_nrt))
+		update_bw = true;
+
+	trace_mdp_compare_bw(new_perf->bw_ctl, new_ib, new_perf->bw_writeback,
+		max_new_bw, old_perf->bw_ctl, old_ib, old_perf->bw_writeback,
+		max_old_bw, params_changed, update_bw);
+
+	return update_bw;
+}
+
 static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		int params_changed, bool stop_req)
 {
@@ -2267,20 +2318,8 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		else if (is_bw_released || params_changed)
 			mdss_mdp_perf_calc_ctl(ctl, new);
 
-		/*
-		 * three cases for bus bandwidth update.
-		 * 1. new bandwidth vote or writeback output vote
-		 *    are higher than current vote for update request.
-		 * 2. new bandwidth vote or writeback output vote are
-		 *    lower than current vote at end of commit or stop.
-		 * 3. end of writeback/rotator session - last chance to
-		 *    non-realtime remove vote.
-		 */
-		if ((params_changed && ((new->bw_ctl > old->bw_ctl) ||
-			(new->bw_writeback > old->bw_writeback))) ||
-		    (!params_changed && ((new->bw_ctl < old->bw_ctl) ||
-			(new->bw_writeback < old->bw_writeback))) ||
-			(stop_req && mdss_mdp_is_nrt_ctl_path(ctl))) {
+		if (__mdss_mdp_compare_bw(ctl, new, old, params_changed,
+				stop_req)) {
 
 			pr_debug("c=%d p=%d new_bw=%llu,old_bw=%llu\n",
 				ctl->num, params_changed, new->bw_ctl,
@@ -2925,6 +2964,7 @@ static u32 __dsc_get_common_mode(struct mdss_mdp_ctl *ctl, bool mux_3d)
 static void __dsc_get_pic_dim(struct mdss_mdp_mixer *mixer_l,
 	struct mdss_mdp_mixer *mixer_r, u32 *pic_w, u32 *pic_h)
 {
+	struct mdss_data_type *mdata = NULL;
 	bool valid_l = mixer_l && mixer_l->valid_roi;
 	bool valid_r = mixer_r && mixer_r->valid_roi;
 
@@ -2932,13 +2972,29 @@ static void __dsc_get_pic_dim(struct mdss_mdp_mixer *mixer_l,
 	*pic_h = 0;
 
 	if (valid_l) {
-		*pic_w = mixer_l->roi.w;
-		*pic_h = mixer_l->roi.h;
+		mdata = mixer_l->ctl->mdata;
+		if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) &&
+				mixer_l->ds &&
+				(mixer_l->ds->flags & DS_ENABLE)) {
+			*pic_w = mixer_l->ds->scaler.dst_width;
+			*pic_h = mixer_l->ds->scaler.dst_height;
+		} else {
+			*pic_w = mixer_l->roi.w;
+			*pic_h = mixer_l->roi.h;
+		}
 	}
 
 	if (valid_r) {
-		*pic_w += mixer_r->roi.w;
-		*pic_h = mixer_r->roi.h;
+		mdata = mixer_r->ctl->mdata;
+		if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) &&
+				mixer_r->ds &&
+				(mixer_r->ds->flags & DS_ENABLE)) {
+			*pic_w += mixer_r->ds->scaler.dst_width;
+			*pic_h = mixer_r->ds->scaler.dst_height;
+		} else {
+			*pic_w += mixer_r->roi.w;
+			*pic_h = mixer_r->roi.h;
+		}
 	}
 }
 
@@ -5302,7 +5358,8 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 				 ktime_t *wakeup_time)
 {
 	struct mdss_panel_info *pinfo;
-	u32 clk_rate, clk_period;
+	u64 clk_rate;
+	u32 clk_period;
 	u32 current_line, total_line;
 	u32 time_of_line, time_to_vsync, adjust_line_ns;
 
@@ -5317,7 +5374,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 
 	clk_rate = mdss_mdp_get_pclk_rate(ctl);
 
-	clk_rate /= 1000;	/* in kHz */
+	clk_rate = DIV_ROUND_UP_ULL(clk_rate, 1000); /* in kHz */
 	if (!clk_rate)
 		return -EINVAL;
 
@@ -5326,7 +5383,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 	 * accuracy with high pclk rate and this number is in 17 bit
 	 * range.
 	 */
-	clk_period = 1000000000 / clk_rate;
+	clk_period = DIV_ROUND_UP_ULL(1000000000, clk_rate);
 	if (!clk_period)
 		return -EINVAL;
 
@@ -5365,7 +5422,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 
 	*wakeup_time = ktime_add_ns(current_time, time_to_vsync);
 
-	pr_debug("clk_rate=%dkHz clk_period=%d cur_line=%d tot_line=%d\n",
+	pr_debug("clk_rate=%lldkHz clk_period=%d cur_line=%d tot_line=%d\n",
 		clk_rate, clk_period, current_line, total_line);
 	pr_debug("time_to_vsync=%d current_time=%d wakeup_time=%d\n",
 		time_to_vsync, (int)ktime_to_ms(current_time),

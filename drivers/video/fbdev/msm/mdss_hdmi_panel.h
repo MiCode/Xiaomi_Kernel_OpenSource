@@ -48,15 +48,12 @@ struct hdmi_panel_data {
  * @off: pointer to a function which powers off the panel
  * @vendor: pointer to a function which programs vendor specific infoframe
  * @update_fps: pointer to a function which updates fps
- * @get_vic: pointer to a function which get the vic from panel information.
  */
 struct hdmi_panel_ops {
 	int (*on)(void *input);
 	int (*off)(void *input);
 	void (*vendor)(void *input);
 	int (*update_fps)(void *input, u32 fps);
-	int (*get_vic)(struct mdss_panel_info *pinfo,
-		struct hdmi_util_ds_data *ds_data);
 };
 
 /**

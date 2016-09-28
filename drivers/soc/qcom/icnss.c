@@ -43,11 +43,20 @@
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
+#include <soc/qcom/socinfo.h>
 
 #include "wlan_firmware_service_v01.h"
 
+#ifdef CONFIG_ICNSS_DEBUG
+unsigned long qmi_timeout = 3000;
+module_param(qmi_timeout, ulong, 0600);
+
+#define WLFW_TIMEOUT_MS			qmi_timeout
+#else
 #define WLFW_TIMEOUT_MS			3000
+#endif
 #define WLFW_SERVICE_INS_ID_V01		0
+#define WLFW_CLIENT_ID			0x4b4e454c
 #define MAX_PROP_SIZE			32
 #define NUM_LOG_PAGES			10
 #define NUM_REG_LOG_PAGES		4
@@ -1733,6 +1742,8 @@ static int wlfw_ind_register_send_sync_msg(void)
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
+	req.client_id_valid = 1;
+	req.client_id = WLFW_CLIENT_ID;
 	req.fw_ready_enable_valid = 1;
 	req.fw_ready_enable = 1;
 	req.msa_ready_enable_valid = 1;
@@ -3280,6 +3291,12 @@ int icnss_smmu_map(struct device *dev,
 	return 0;
 }
 EXPORT_SYMBOL(icnss_smmu_map);
+
+unsigned int icnss_socinfo_get_serial_number(struct device *dev)
+{
+	return socinfo_get_serial_number();
+}
+EXPORT_SYMBOL(icnss_socinfo_get_serial_number);
 
 static int icnss_bw_vote(struct icnss_priv *priv, int index)
 {

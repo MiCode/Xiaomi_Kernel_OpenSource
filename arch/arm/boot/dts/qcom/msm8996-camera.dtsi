@@ -623,6 +623,10 @@
 			"camss_cpp_axi_clk", "camss_cpp_clk",
 			"micro_iface_clk", "camss_ahb_clk",
 			"smmu_cpp_axi_clk", "cpp_vbif_ahb_clk";
+
+		resets = <&clock_mmss CAMSS_MICRO_BCR>;
+		reset-names = "micro_iface_reset";
+
 		qcom,clock-rates = <0 0 0 480000000 0 0 480000000 0 0 0 0>;
 		qcom,min-clock-rate = <200000000>;
 		qcom,bus-master = <1>;

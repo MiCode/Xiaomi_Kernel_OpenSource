@@ -445,8 +445,10 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 
 	dev_dbg(pdphy->dev, "%s: hdr %x frame type %d timeout %u\n",
 			__func__, hdr, type, timeout_ms);
-	print_hex_dump_debug("tx data obj:", DUMP_PREFIX_NONE, 32, 4,
-		data, data_len, false);
+
+	if (data && data_len)
+		print_hex_dump_debug("tx data obj:", DUMP_PREFIX_NONE, 32, 4,
+				data, data_len, false);
 
 	if (!pdphy) {
 		pr_err("%s: pdphy not found\n", __func__);
@@ -472,7 +474,7 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 	if (ret)
 		return ret;
 
-	if (data_len) {
+	if (data && data_len) {
 		/* write data objects of SOP message */
 		ret = pdphy_bulk_reg_write(pdphy, USB_PDPHY_TX_BUFFER_DATA,
 				data, data_len);

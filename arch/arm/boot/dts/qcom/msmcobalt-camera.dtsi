@@ -405,6 +405,8 @@
 			<106 512 0 0>,
 			<106 512 0 0>;
 		qcom,msm-bus-vector-dyn-vote;
+		resets = <&clock_mmss CAMSS_MICRO_BCR>;
+		reset-names = "micro_iface_reset";
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <790>;
 			qcom,plane-base = <715>;

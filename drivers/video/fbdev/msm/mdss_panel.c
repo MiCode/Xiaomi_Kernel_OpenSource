@@ -426,8 +426,8 @@ int mdss_panel_debugfs_panel_setup(struct mdss_panel_debugfs_info *debugfs_info,
 		(u32 *)&debugfs_info->panel_info.min_fps);
 	debugfs_create_u32("max_refresh_rate", 0644, debugfs_info->root,
 		(u32 *)&debugfs_info->panel_info.max_fps);
-	debugfs_create_u32("clk_rate", 0644, debugfs_info->root,
-		(u32 *)&debugfs_info->panel_info.clk_rate);
+	debugfs_create_u64("clk_rate", 0644, debugfs_info->root,
+		(u64 *)&debugfs_info->panel_info.clk_rate);
 	debugfs_create_u32("bl_min", 0644, debugfs_info->root,
 		(u32 *)&debugfs_info->panel_info.bl_min);
 	debugfs_create_u32("bl_max", 0644, debugfs_info->root,
