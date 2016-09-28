@@ -114,9 +114,9 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 			struct mhi_chan_ctxt *chan_ctxt =
 				&mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[i];
 		if (VALID_CHAN_NR(i))
-			chan_ctxt->mhi_chan_state = MHI_CHAN_STATE_ENABLED;
+			chan_ctxt->chstate = MHI_CHAN_STATE_ENABLED;
 		else
-			chan_ctxt->mhi_chan_state = MHI_CHAN_STATE_DISABLED;
+			chan_ctxt->chstate = MHI_CHAN_STATE_DISABLED;
 	}
 	mhi_log(MHI_MSG_INFO,
 			"Read back MMIO Ready bit successfully. Moving on..\n");

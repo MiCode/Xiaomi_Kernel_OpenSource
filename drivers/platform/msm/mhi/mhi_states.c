@@ -64,7 +64,7 @@ static void conditional_chan_db_write(
 {
 	u64 db_value;
 	unsigned long flags;
-
+	struct mhi_ring *mhi_ring = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 	mhi_dev_ctxt->mhi_chan_db_order[chan] = 0;
 	spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan], flags);
 	if (0 == mhi_dev_ctxt->mhi_chan_db_order[chan]) {
@@ -72,9 +72,9 @@ static void conditional_chan_db_write(
 		mhi_v2p_addr(mhi_dev_ctxt,
 			MHI_RING_TYPE_XFER_RING, chan,
 			(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
-		mhi_process_db(mhi_dev_ctxt,
-			       mhi_dev_ctxt->mmio_info.chan_db_addr,
-			       chan, db_value);
+		mhi_ring->db_mode.process_db(mhi_dev_ctxt,
+				mhi_dev_ctxt->mmio_info.chan_db_addr,
+				chan, db_value);
 	}
 	mhi_dev_ctxt->mhi_chan_db_order[chan] = 0;
 	spin_unlock_irqrestore(&mhi_dev_ctxt->db_write_lock[chan], flags);
@@ -121,9 +121,10 @@ static void ring_all_cmd_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 			PRIMARY_CMD_RING,
 			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[0].wp);
 	if (0 == mhi_dev_ctxt->cmd_ring_order && rp != db_value)
-		mhi_process_db(mhi_dev_ctxt,
-			       mhi_dev_ctxt->mmio_info.cmd_db_addr,
-							0, db_value);
+		local_ctxt->db_mode.process_db(mhi_dev_ctxt,
+				mhi_dev_ctxt->mmio_info.cmd_db_addr,
+				0,
+				db_value);
 	mhi_dev_ctxt->cmd_ring_order = 0;
 	mutex_unlock(cmd_mutex);
 }
@@ -133,11 +134,13 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 	u32 i;
 	u64 db_value = 0;
 	struct mhi_event_ctxt *event_ctxt = NULL;
+	struct mhi_ring *mhi_ring;
 	spinlock_t *lock = NULL;
 	unsigned long flags;
 
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
 		lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[i];
+		mhi_ring = &mhi_dev_ctxt->mhi_local_event_ctxt[i];
 		mhi_dev_ctxt->mhi_ev_db_order[i] = 0;
 		spin_lock_irqsave(lock, flags);
 		event_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i];
@@ -146,9 +149,10 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 			i,
 			(uintptr_t)mhi_dev_ctxt->mhi_local_event_ctxt[i].wp);
 		if (0 == mhi_dev_ctxt->mhi_ev_db_order[i]) {
-			mhi_process_db(mhi_dev_ctxt,
-				       mhi_dev_ctxt->mmio_info.event_db_addr,
-				       i, db_value);
+			mhi_ring->db_mode.process_db(mhi_dev_ctxt,
+				mhi_dev_ctxt->mmio_info.event_db_addr,
+				i,
+				db_value);
 		}
 		mhi_dev_ctxt->mhi_ev_db_order[i] = 0;
 		spin_unlock_irqrestore(lock, flags);

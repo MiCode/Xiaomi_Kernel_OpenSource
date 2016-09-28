@@ -29,6 +29,7 @@
 #include <linux/dma-mapping.h>
 
 extern struct mhi_pcie_devices mhi_devices;
+struct mhi_device_ctxt;
 
 enum MHI_DEBUG_LEVEL {
 	MHI_MSG_RAW = 0x1,
@@ -125,6 +126,14 @@ enum MHI_STATE {
 	MHI_STATE_reserved = 0x80000000
 };
 
+enum MHI_BRSTMODE {
+	/* BRST Mode Enable for HW Channels, SW Channel Disabled */
+	MHI_BRSTMODE_DEFAULT = 0x0,
+	MHI_BRSTMODE_RESERVED = 0x1,
+	MHI_BRSTMODE_DISABLE = 0x2,
+	MHI_BRSTMODE_ENABLE = 0x3
+};
+
 struct __packed mhi_event_ctxt {
 	u32 mhi_intmodt;
 	u32 mhi_event_er_type;
@@ -136,8 +145,11 @@ struct __packed mhi_event_ctxt {
 };
 
 struct __packed mhi_chan_ctxt {
-	enum MHI_CHAN_STATE mhi_chan_state;
-	enum MHI_CHAN_DIR mhi_chan_type;
+	u32 chstate : 8;
+	u32 brstmode : 2;
+	u32 pollcfg : 6;
+	u32 reserved : 16;
+	u32 chtype;
 	u32 mhi_event_ring_index;
 	u64 mhi_trb_ring_base_addr;
 	u64 mhi_trb_ring_len;
@@ -265,6 +277,11 @@ struct db_mode {
 	/* if set do not reset DB_Mode during M0 resume */
 	u32 preserve_db_state : 1;
 	u32 db_mode : 1;
+	enum MHI_BRSTMODE brstmode;
+	void (*process_db)(struct mhi_device_ctxt *mhi_dev_ctxt,
+			   void __iomem *io_addr,
+			   uintptr_t chan,
+			   u32 val);
 };
 
 struct mhi_ring {
@@ -414,7 +431,6 @@ struct mhi_flags {
 	u32 ssr;
 	u32 ev_thread_stopped;
 	u32 st_thread_stopped;
-	u32 uldl_enabled;
 };
 
 struct mhi_wait_queues {
@@ -578,7 +594,8 @@ int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 				   u32 event_ring,
 				   struct mhi_ring *ring,
 				   enum MHI_CHAN_STATE chan_state,
-				   bool preserve_db_state);
+				   bool preserve_db_state,
+				   enum MHI_BRSTMODE brstmode);
 int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_get_event_ring_for_channel(struct mhi_device_ctxt *mhi_dev_ctxt,
 					      u32 chan);
@@ -636,6 +653,14 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_set_bus_request(struct mhi_device_ctxt *mhi_dev_ctxt,
 					int index);
 int start_chan_sync(struct mhi_client_handle *client_handle);
+void mhi_process_db_brstmode(struct mhi_device_ctxt *mhi_dev_ctxt,
+			     void __iomem *io_addr,
+			     uintptr_t chan,
+			     u32 val);
+void mhi_process_db_brstmode_disable(struct mhi_device_ctxt *mhi_dev_ctxt,
+				     void __iomem *io_addr,
+				     uintptr_t chan,
+				     u32 val);
 void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt, void __iomem *io_addr,
 		  uintptr_t io_offset, u32 val);
 void mhi_reg_write_field(struct mhi_device_ctxt *mhi_dev_ctxt,

@@ -129,13 +129,18 @@ void ring_ev_db(struct mhi_device_ctxt *mhi_dev_ctxt, u32 event_ring_index)
 	db_value = mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_EVENT_RING,
 						event_ring_index,
 						(uintptr_t) event_ctxt->wp);
-	mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->mmio_info.event_db_addr,
-					event_ring_index, db_value);
+	event_ctxt->db_mode.process_db(mhi_dev_ctxt,
+				    mhi_dev_ctxt->mmio_info.event_db_addr,
+				    event_ring_index,
+				    db_value);
 }
 
 static int mhi_event_ring_init(struct mhi_event_ctxt *ev_list,
-				struct mhi_ring *ring, u32 el_per_ring,
-				u32 intmodt_val, u32 msi_vec)
+			       struct mhi_ring *ring,
+			       u32 el_per_ring,
+			       u32 intmodt_val,
+			       u32 msi_vec,
+			       enum MHI_BRSTMODE brstmode)
 {
 	ev_list->mhi_event_er_type  = MHI_EVENT_RING_TYPE_VALID;
 	ev_list->mhi_msi_vector     = msi_vec;
@@ -144,6 +149,20 @@ static int mhi_event_ring_init(struct mhi_event_ctxt *ev_list,
 	ring->len = ((size_t)(el_per_ring)*sizeof(union mhi_event_pkt));
 	ring->el_size = sizeof(union mhi_event_pkt);
 	ring->overwrite_en = 0;
+
+	ring->db_mode.db_mode = 1;
+	ring->db_mode.brstmode = brstmode;
+	switch (ring->db_mode.brstmode) {
+	case MHI_BRSTMODE_ENABLE:
+		ring->db_mode.process_db = mhi_process_db_brstmode;
+		break;
+	case MHI_BRSTMODE_DISABLE:
+		ring->db_mode.process_db = mhi_process_db_brstmode_disable;
+		break;
+	default:
+		ring->db_mode.process_db = mhi_process_db;
+	}
+
 	/* Flush writes to MMIO */
 	wmb();
 	return 0;
@@ -159,9 +178,12 @@ void init_event_ctxt_array(struct mhi_device_ctxt *mhi_dev_ctxt)
 		event_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i];
 		mhi_local_event_ctxt = &mhi_dev_ctxt->mhi_local_event_ctxt[i];
 		mhi_event_ring_init(event_ctxt, mhi_local_event_ctxt,
-			mhi_dev_ctxt->ev_ring_props[i].nr_desc,
-			mhi_dev_ctxt->ev_ring_props[i].intmod,
-			mhi_dev_ctxt->ev_ring_props[i].msi_vec);
+				    mhi_dev_ctxt->ev_ring_props[i].nr_desc,
+				    mhi_dev_ctxt->ev_ring_props[i].intmod,
+				    mhi_dev_ctxt->ev_ring_props[i].msi_vec,
+				    GET_EV_PROPS(EV_BRSTMODE,
+						 mhi_dev_ctxt->
+						 ev_ring_props[i].flags));
 	}
 }
 
