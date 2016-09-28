@@ -82,3 +82,60 @@
 		qcom,gpio-mode-sel = <&tlmm 12 0>;
 	};
 };
+
+&int_codec {
+	status = "disabled";
+};
+
+&pm8953_diangu_dig {
+	status = "disabled";
+};
+
+&pm8953_diangu_analog {
+	status = "disabled";
+};
+
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wsa881x_i2c_f {
+	status = "disabled";
+};
+
+&wsa881x_i2c_45 {
+	status = "disabled";
+};
+
+&slim_msm {
+	status = "okay";
+};
+
+&dai_slim {
+	status = "okay";
+};
+
+&wcd9xxx_intc {
+	status = "okay";
+};
+
+&clock_audio {
+	status = "okay";
+};
+
+&wcd9335 {
+	status = "okay";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
+};
+
+&ext_codec {
+	qcom,model = "msm8953-tasha-snd-card";
+	status = "okay";
+};
