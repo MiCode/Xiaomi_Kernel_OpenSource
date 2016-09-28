@@ -18,7 +18,6 @@
 #include <linux/of.h>
 #include <linux/string.h>
 #include <linux/of_address.h>
-#include <linux/clk/msm-clk.h>
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/of_platform.h>
