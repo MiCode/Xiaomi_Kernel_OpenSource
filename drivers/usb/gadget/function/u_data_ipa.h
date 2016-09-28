@@ -45,11 +45,24 @@ struct gadget_ipa_port {
 
 };
 
+/* for configfs support */
+#define MAX_INST_NAME_LEN      40
+
+struct f_rndis_qc_opts {
+	struct usb_function_instance	func_inst;
+	struct f_rndis_qc		*rndis;
+	u32				vendor_id;
+	const char			*manufacturer;
+	struct net_device		*net;
+	int				refcnt;
+};
+
 void ipa_data_port_select(enum ipa_func_type func);
 void ipa_data_disconnect(struct gadget_ipa_port *gp, enum ipa_func_type func);
 int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
 			u8 src_connection_idx, u8 dst_connection_idx);
 int ipa_data_setup(enum ipa_func_type func);
+void ipa_data_free(enum ipa_func_type func);
 
 void ipa_data_flush_workqueue(void);
 void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
@@ -68,11 +81,6 @@ void ipa_data_start_rx_tx(enum ipa_func_type func);
 void ipa_data_start_rndis_ipa(enum ipa_func_type func);
 
 void ipa_data_stop_rndis_ipa(enum ipa_func_type func);
-
-int
-rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
-				u32 vendorID, const char *manufacturer,
-				u8 maxPktPerXfer, u8 pkt_alignment_factor);
 
 void *rndis_qc_get_ipa_priv(void);
 void *rndis_qc_get_ipa_rx_cb(void);
