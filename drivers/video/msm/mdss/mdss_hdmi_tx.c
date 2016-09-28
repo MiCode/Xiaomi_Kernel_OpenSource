@@ -1443,6 +1443,8 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 		return;
 	}
 
+	mutex_lock(&hdmi_ctrl->tx_lock);
+
 	switch (hdmi_ctrl->hdcp_status) {
 	case HDCP_STATE_AUTHENTICATED:
 		hdmi_ctrl->auth_state = true;
@@ -1464,14 +1466,15 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 
 		hdmi_ctrl->auth_state = false;
 
-		if (hdmi_tx_is_encryption_set(hdmi_ctrl) ||
-			!hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
-			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
-			rc = hdmi_tx_config_avmute(hdmi_ctrl, true);
-		}
-
 		if (hdmi_tx_is_panel_on(hdmi_ctrl)) {
 			DEV_DBG("%s: Reauthenticating\n", __func__);
+
+			if (hdmi_tx_is_encryption_set(hdmi_ctrl) ||
+				!hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
+				hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
+				rc = hdmi_tx_config_avmute(hdmi_ctrl, true);
+			}
+
 			rc = hdmi_ctrl->hdcp_ops->hdmi_hdcp_reauthenticate(
 				hdmi_ctrl->hdcp_data);
 			if (rc)
@@ -1508,6 +1511,8 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 		break;
 		/* do nothing */
 	}
+
+	mutex_unlock(&hdmi_ctrl->tx_lock);
 }
 
 static u32 hdmi_tx_ddc_read(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
@@ -3409,8 +3414,6 @@ static int hdmi_tx_hdcp_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	DEV_DBG("%s: Turning off HDCP\n", __func__);
 	hdmi_ctrl->hdcp_ops->hdmi_hdcp_off(
 		hdmi_ctrl->hdcp_data);
-
-	flush_delayed_work(&hdmi_ctrl->hdcp_cb_work);
 
 	hdmi_ctrl->hdcp_ops = NULL;
 
