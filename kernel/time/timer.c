@@ -1620,54 +1620,84 @@ signed long __sched schedule_timeout_uninterruptible(signed long timeout)
 }
 EXPORT_SYMBOL(schedule_timeout_uninterruptible);
 
-#ifdef CONFIG_HOTPLUG_CPU
-static void migrate_timer_list(struct tvec_base *new_base, struct hlist_head *head)
+#if defined(CONFIG_HOTPLUG_CPU)
+static void migrate_timer_list(struct tvec_base *new_base,
+			       struct hlist_head *head, bool remove_pinned)
 {
 	struct timer_list *timer;
 	int cpu = new_base->cpu;
+	struct hlist_node *n;
+	int is_pinned;
 
-	while (!hlist_empty(head)) {
-		timer = hlist_entry(head->first, struct timer_list, entry);
-		/* We ignore the accounting on the dying cpu */
-		detach_timer(timer, false);
+	hlist_for_each_entry_safe(timer, n, head, entry) {
+		is_pinned = timer->flags & TIMER_PINNED_ON_CPU;
+		if (!remove_pinned && is_pinned)
+			continue;
+
+		detach_if_pending(timer, get_timer_base(timer->flags), false);
 		timer->flags = (timer->flags & ~TIMER_BASEMASK) | cpu;
 		internal_add_timer(new_base, timer);
 	}
 }
 
-static void migrate_timers(int cpu)
+static void __migrate_timers(int cpu, bool wait, bool remove_pinned)
 {
 	struct tvec_base *old_base;
 	struct tvec_base *new_base;
+	unsigned long flags;
 	int i;
 
-	BUG_ON(cpu_online(cpu));
 	old_base = per_cpu_ptr(&tvec_bases, cpu);
 	new_base = get_cpu_ptr(&tvec_bases);
 	/*
 	 * The caller is globally serialized and nobody else
 	 * takes two locks at once, deadlock is not possible.
 	 */
-	spin_lock_irq(&new_base->lock);
+	spin_lock_irqsave(&new_base->lock, flags);
 	spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
 
-	BUG_ON(old_base->running_timer);
-
-	for (i = 0; i < TVR_SIZE; i++)
-		migrate_timer_list(new_base, old_base->tv1.vec + i);
-	for (i = 0; i < TVN_SIZE; i++) {
-		migrate_timer_list(new_base, old_base->tv2.vec + i);
-		migrate_timer_list(new_base, old_base->tv3.vec + i);
-		migrate_timer_list(new_base, old_base->tv4.vec + i);
-		migrate_timer_list(new_base, old_base->tv5.vec + i);
+	if (wait) {
+		/* Ensure timers are done running before continuing */
+		while (old_base->running_timer) {
+			spin_unlock(&old_base->lock);
+			spin_unlock_irqrestore(&new_base->lock, flags);
+			cpu_relax();
+			spin_lock_irqsave(&new_base->lock, flags);
+			spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
+		}
+	} else {
+		BUG_ON(old_base->running_timer);
 	}
 
-	old_base->active_timers = 0;
-	old_base->all_timers = 0;
+	for (i = 0; i < TVR_SIZE; i++)
+		migrate_timer_list(new_base, old_base->tv1.vec + i,
+				   remove_pinned);
+	for (i = 0; i < TVN_SIZE; i++) {
+		migrate_timer_list(new_base, old_base->tv2.vec + i,
+				remove_pinned);
+		migrate_timer_list(new_base, old_base->tv3.vec + i,
+				remove_pinned);
+		migrate_timer_list(new_base, old_base->tv4.vec + i,
+				remove_pinned);
+		migrate_timer_list(new_base, old_base->tv5.vec + i,
+				remove_pinned);
+	}
 
 	spin_unlock(&old_base->lock);
-	spin_unlock_irq(&new_base->lock);
+	spin_unlock_irqrestore(&new_base->lock, flags);
 	put_cpu_ptr(&tvec_bases);
+}
+
+/* Migrate timers from 'cpu' to this_cpu */
+static void migrate_timers(int cpu)
+{
+	BUG_ON(cpu_online(cpu));
+	__migrate_timers(cpu, false, true);
+}
+
+void timer_quiesce_cpu(void *cpup)
+{
+	__migrate_timers(*(int *)cpup, true, false);
 }
 
 static int timer_cpu_notify(struct notifier_block *self,
