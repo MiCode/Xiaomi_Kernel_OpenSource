@@ -525,6 +525,11 @@
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 };
 
+&pm8005_s1 {
+	regulator-min-microvolt = <516000>;
+	regulator-max-microvolt = <1088000>;
+};
+
 &gfx_cpr {
 	compatible = "qcom,cpr4-msmcobalt-v2-mmss-regulator";
 };
