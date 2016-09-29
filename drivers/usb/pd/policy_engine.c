@@ -223,9 +223,10 @@ static void *usbpd_ipc_log;
 
 /* VDM header is the first 32-bit object following the 16-bit PD header */
 #define VDM_HDR_SVID(hdr)	((hdr) >> 16)
-#define VDM_HDR_TYPE(hdr)	((hdr) & 0x8000)
-#define VDM_HDR_CMD_TYPE(hdr)	(((hdr) >> 6) & 0x3)
-#define VDM_HDR_CMD(hdr)	((hdr) & 0x1f)
+#define VDM_IS_SVDM(hdr)	((hdr) & 0x8000)
+#define SVDM_HDR_OBJ_POS(hdr)	(((hdr) >> 8) & 0x7)
+#define SVDM_HDR_CMD_TYPE(hdr)	(((hdr) >> 6) & 0x3)
+#define SVDM_HDR_CMD(hdr)	((hdr) & 0x1f)
 
 #define SVDM_HDR(svid, ver, obj, cmd_type, cmd) \
 	(((svid) << 16) | (1 << 15) | ((ver) << 13) \
@@ -312,6 +313,7 @@ struct usbpd {
 
 	enum vdm_state		vdm_state;
 	u16			*discovered_svids;
+	int			num_svids;
 	struct vdm_tx		*vdm_tx_retry;
 	struct list_head	vdm_tx_queue;
 	struct list_head	svid_handlers;
@@ -948,10 +950,10 @@ int usbpd_register_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
 
 	/* already connected with this SVID discovered? */
 	if (pd->vdm_state >= DISCOVERED_SVIDS) {
-		u16 *psvid;
+		int i;
 
-		for (psvid = pd->discovered_svids; *psvid; psvid++) {
-			if (*psvid == hdlr->svid) {
+		for (i = 0; i < pd->num_svids; i++) {
+			if (pd->discovered_svids[i] == hdlr->svid) {
 				if (hdlr->connect)
 					hdlr->connect(hdlr);
 				break;
@@ -1013,8 +1015,8 @@ static void handle_vdm_rx(struct usbpd *pd)
 	u16 svid = VDM_HDR_SVID(vdm_hdr);
 	u16 *psvid;
 	u8 i, num_vdos = pd->rx_msg_len - 1;	/* num objects minus header */
-	u8 cmd = VDM_HDR_CMD(vdm_hdr);
-	u8 cmd_type = VDM_HDR_CMD_TYPE(vdm_hdr);
+	u8 cmd = SVDM_HDR_CMD(vdm_hdr);
+	u8 cmd_type = SVDM_HDR_CMD_TYPE(vdm_hdr);
 	struct usbpd_svid_handler *handler;
 
 	usbpd_dbg(&pd->dev, "VDM rx: svid:%x cmd:%x cmd_type:%x vdm_hdr:%x\n",
@@ -1024,7 +1026,7 @@ static void handle_vdm_rx(struct usbpd *pd)
 	handler = find_svid_handler(pd, svid);
 
 	/* Unstructured VDM */
-	if (!VDM_HDR_TYPE(vdm_hdr)) {
+	if (!VDM_IS_SVDM(vdm_hdr)) {
 		if (handler && handler->vdm_received)
 			handler->vdm_received(handler, vdm_hdr, vdos, num_vdos);
 		return;
@@ -1035,7 +1037,7 @@ static void handle_vdm_rx(struct usbpd *pd)
 
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
-		if (cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
+		if (svid == USBPD_SID && cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
 			u32 tx_vdos[3] = {
 				ID_HDR_USB_HOST | ID_HDR_USB_DEVICE |
 					ID_HDR_PRODUCT_PER_MASK | ID_HDR_VID,
@@ -1046,9 +1048,9 @@ static void handle_vdm_rx(struct usbpd *pd)
 
 			usbpd_send_svdm(pd, USBPD_SID, cmd,
 					SVDM_CMD_TYPE_RESP_ACK, 0, tx_vdos, 3);
-		} else {
-			usbpd_send_svdm(pd, USBPD_SID, cmd,
-					SVDM_CMD_TYPE_RESP_NAK, 0, NULL, 0);
+		} else if (cmd != USBPD_SVDM_ATTENTION) {
+			usbpd_send_svdm(pd, svid, cmd, SVDM_CMD_TYPE_RESP_NAK,
+					SVDM_HDR_OBJ_POS(vdm_hdr), NULL, 0);
 		}
 		break;
 
@@ -1080,19 +1082,37 @@ static void handle_vdm_rx(struct usbpd *pd)
 			kfree(pd->vdm_tx_retry);
 			pd->vdm_tx_retry = NULL;
 
-			kfree(pd->discovered_svids);
-
-			/* TODO: handle > 12 SVIDs */
-			pd->discovered_svids = kzalloc((2 * num_vdos + 1) *
-							sizeof(u16),
-							GFP_KERNEL);
 			if (!pd->discovered_svids) {
-				usbpd_err(&pd->dev, "unable to allocate SVIDs\n");
-				break;
+				pd->num_svids = 2 * num_vdos;
+				pd->discovered_svids = kcalloc(pd->num_svids,
+								sizeof(u16),
+								GFP_KERNEL);
+				if (!pd->discovered_svids) {
+					usbpd_err(&pd->dev, "unable to allocate SVIDs\n");
+					break;
+				}
+
+				psvid = pd->discovered_svids;
+			} else { /* handle > 12 SVIDs */
+				void *ptr;
+				size_t oldsize = pd->num_svids * sizeof(u16);
+				size_t newsize = oldsize +
+						(2 * num_vdos * sizeof(u16));
+
+				ptr = krealloc(pd->discovered_svids, newsize,
+						GFP_KERNEL);
+				if (!ptr) {
+					usbpd_err(&pd->dev, "unable to realloc SVIDs\n");
+					break;
+				}
+
+				pd->discovered_svids = ptr;
+				psvid = pd->discovered_svids + pd->num_svids;
+				memset(psvid, 0, (2 * num_vdos));
+				pd->num_svids += 2 * num_vdos;
 			}
 
 			/* convert 32-bit VDOs to list of 16-bit SVIDs */
-			psvid = pd->discovered_svids;
 			for (i = 0; i < num_vdos * 2; i++) {
 				/*
 				 * Within each 32-bit VDO,
@@ -1116,8 +1136,22 @@ static void handle_vdm_rx(struct usbpd *pd)
 					usbpd_dbg(&pd->dev, "Discovered SVID: 0x%04x\n",
 							svid);
 					*psvid++ = svid;
+				}
+			}
 
-					/* if SVID supported notify handler */
+			/* if more than 12 SVIDs, resend the request */
+			if (num_vdos == 6 && vdos[5] != 0) {
+				usbpd_send_svdm(pd, USBPD_SID,
+						USBPD_SVDM_DISCOVER_SVIDS,
+						SVDM_CMD_TYPE_INITIATOR, 0,
+						NULL, 0);
+				break;
+			}
+
+			/* now that all SVIDs are discovered, notify handlers */
+			for (i = 0; i < pd->num_svids; i++) {
+				svid = pd->discovered_svids[i];
+				if (svid) {
 					handler = find_svid_handler(pd, svid);
 					if (handler && handler->connect)
 						handler->connect(handler);
@@ -1193,7 +1227,7 @@ static void handle_vdm_tx(struct usbpd *pd)
 				SOP_MSG);
 		if (ret) {
 			usbpd_err(&pd->dev, "Error sending VDM command %d\n",
-					VDM_HDR_CMD(vdm_tx->data[0]));
+					SVDM_HDR_CMD(vdm_tx->data[0]));
 			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_SEND_SOFT_RESET :
 					PE_SNK_SEND_SOFT_RESET);
@@ -1208,12 +1242,13 @@ static void handle_vdm_tx(struct usbpd *pd)
 		 * special case: keep initiated Discover ID/SVIDs
 		 * around in case we need to re-try when receiving BUSY
 		 */
-		if (VDM_HDR_TYPE(vdm_hdr) &&
-			VDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR &&
-			VDM_HDR_CMD(vdm_hdr) <= USBPD_SVDM_DISCOVER_SVIDS) {
+		if (VDM_IS_SVDM(vdm_hdr) &&
+			SVDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR &&
+			SVDM_HDR_CMD(vdm_hdr) <= USBPD_SVDM_DISCOVER_SVIDS) {
 			if (pd->vdm_tx_retry) {
 				usbpd_err(&pd->dev, "Previous Discover VDM command %d not ACKed/NAKed\n",
-					VDM_HDR_CMD(pd->vdm_tx_retry->data[0]));
+					SVDM_HDR_CMD(
+						pd->vdm_tx_retry->data[0]));
 				kfree(pd->vdm_tx_retry);
 			}
 			pd->vdm_tx_retry = vdm_tx;
@@ -1235,6 +1270,7 @@ static void reset_vdm_state(struct usbpd *pd)
 	pd->vdm_tx_retry = NULL;
 	kfree(pd->discovered_svids);
 	pd->discovered_svids = NULL;
+	pd->num_svids = 0;
 	while (!list_empty(&pd->vdm_tx_queue)) {
 		struct vdm_tx *vdm_tx =
 			list_first_entry(&pd->vdm_tx_queue,
