@@ -625,7 +625,7 @@ static int wlfw_vbatt_send_sync_msg(struct icnss_priv *priv,
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI vbatt request failed %d %d\n",
+		icnss_pr_err("QMI vbatt request rejected, result:%d error:%d\n",
 			resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
@@ -1640,7 +1640,7 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI MSA Mem info request failed %d %d\n",
+		icnss_pr_err("QMI MSA Mem info request rejected, result:%d error:%d\n",
 			resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
@@ -1711,7 +1711,7 @@ static int wlfw_msa_ready_send_sync_msg(void)
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI MSA ready request failed %d %d\n",
+		icnss_pr_err("QMI MSA ready request rejected: result:%d error:%d\n",
 			resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
@@ -1770,7 +1770,7 @@ static int wlfw_ind_register_send_sync_msg(void)
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI indication register request failed %d %d\n",
+		icnss_pr_err("QMI indication register request rejected, resut:%d error:%d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
@@ -1817,7 +1817,7 @@ static int wlfw_cap_send_sync_msg(void)
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI capability request failed %d %d\n",
+		icnss_pr_err("QMI capability request rejected, result:%d error:%d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
@@ -1896,7 +1896,7 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI mode request failed mode: %d, %d %d\n",
+		icnss_pr_err("QMI mode request rejected, mode:%d result:%d error:%d\n",
 			     mode, resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
@@ -1946,7 +1946,7 @@ static int wlfw_wlan_cfg_send_sync_msg(struct wlfw_wlan_cfg_req_msg_v01 *data)
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI config request failed %d %d\n",
+		icnss_pr_err("QMI config request rejected, result:%d error:%d\n",
 		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
@@ -1999,7 +1999,7 @@ static int wlfw_ini_send_sync_msg(bool enable_fw_log)
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI INI request failed fw_log: %d, %d %d\n",
+		icnss_pr_err("QMI INI request rejected, fw_log:%d result:%d error:%d\n",
 			     enable_fw_log, resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
@@ -2059,7 +2059,7 @@ static int wlfw_athdiag_read_send_sync_msg(struct icnss_priv *priv,
 	}
 
 	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI athdiag read request failed %d %d\n",
+		icnss_pr_err("QMI athdiag read request rejected, result:%d error:%d\n",
 			     resp->resp.result, resp->resp.error);
 		ret = resp->resp.result;
 		goto out;
@@ -2125,7 +2125,7 @@ static int wlfw_athdiag_write_send_sync_msg(struct icnss_priv *priv,
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI athdiag write request failed %d %d\n",
+		icnss_pr_err("QMI athdiag write request rejected, result:%d error:%d\n",
 			     resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
