@@ -2365,34 +2365,19 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 				(u32 *)&mdwc->core_clk_rate)) {
 		mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk,
 							mdwc->core_clk_rate);
-	} else {
-		/*
-		 * Get Max supported clk frequency for USB Core CLK and request
-		 * to set the same.
-		 */
-		mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk, LONG_MAX);
 	}
+
+	dev_dbg(mdwc->dev, "USB core frequency = %ld\n",
+						mdwc->core_clk_rate);
+	ret = clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
+	if (ret)
+		dev_err(mdwc->dev, "fail to set core_clk freq:%d\n", ret);
+
 
 	mdwc->core_reset = devm_reset_control_get(mdwc->dev, "core_reset");
 	if (IS_ERR(mdwc->core_reset)) {
 		dev_err(mdwc->dev, "failed to get core_reset\n");
 		return PTR_ERR(mdwc->core_reset);
-	}
-
-	/*
-	 * Get Max supported clk frequency for USB Core CLK and request
-	 * to set the same.
-	 */
-	mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk, LONG_MAX);
-	if (IS_ERR_VALUE(mdwc->core_clk_rate)) {
-		dev_err(mdwc->dev, "fail to get core clk max freq.\n");
-	} else {
-		dev_dbg(mdwc->dev, "USB core frequency = %ld\n",
-							mdwc->core_clk_rate);
-		ret = clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
-		if (ret)
-			dev_err(mdwc->dev, "fail to set core_clk freq:%d\n",
-									ret);
 	}
 
 	mdwc->sleep_clk = devm_clk_get(mdwc->dev, "sleep_clk");
