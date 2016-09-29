@@ -315,7 +315,7 @@
 		#redistributor-regions = <1>;
 		redistributor-stride = <0x0 0x20000>;
 		reg = <0x17a00000 0x10000>,     /* GICD */
-		      <0x17b00000 0x100000>;    /* GICR * 8 */
+		      <0x17a60000 0x100000>;    /* GICR * 8 */
 		interrupts = <1 9 4>;
 	};
 
