@@ -64,6 +64,7 @@ struct clk_gate2 {
 
 extern const struct clk_ops clk_branch_ops;
 extern const struct clk_ops clk_branch2_ops;
+extern const struct clk_ops clk_branch2_hw_ctl_ops;
 extern const struct clk_ops clk_gate2_ops;
 extern const struct clk_ops clk_branch_simple_ops;
 
