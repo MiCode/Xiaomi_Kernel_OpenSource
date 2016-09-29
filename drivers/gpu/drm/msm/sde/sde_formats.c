@@ -330,19 +330,19 @@ static const struct sde_format sde_format_map[] = {
  * the data will be passed by user-space.
  */
 static const struct sde_format sde_format_map_ubwc[] = {
-	INTERLEAVED_RGB_FMT(RGB565,
+	INTERLEAVED_RGB_FMT(BGR565,
 		0, COLOR_5BIT, COLOR_6BIT, COLOR_5BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, 0, 3,
 		false, 2, 0,
 		SDE_FETCH_UBWC, 2),
 
-	INTERLEAVED_RGB_FMT(RGBA8888,
+	INTERLEAVED_RGB_FMT(ABGR8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		true, 4, 0,
 		SDE_FETCH_UBWC, 2),
 
-	INTERLEAVED_RGB_FMT(RGBX8888,
+	INTERLEAVED_RGB_FMT(XBGR8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		false, 4, 0,
@@ -447,12 +447,12 @@ static int _sde_format_get_plane_sizes_ubwc(
 			ALIGN(DIV_ROUND_UP(height / 2, uv_tile_height), 16),
 			4096);
 
-	} else if (fmt->base.pixel_format == DRM_FORMAT_RGBA8888 ||
-		fmt->base.pixel_format == DRM_FORMAT_RGBX8888    ||
-		fmt->base.pixel_format == DRM_FORMAT_RGB565) {
+	} else if (fmt->base.pixel_format == DRM_FORMAT_ABGR8888 ||
+		fmt->base.pixel_format == DRM_FORMAT_XBGR8888    ||
+		fmt->base.pixel_format == DRM_FORMAT_BGR565) {
 		uint32_t stride_alignment, aligned_bitstream_width;
 
-		if (fmt->base.pixel_format == DRM_FORMAT_RGB565)
+		if (fmt->base.pixel_format == DRM_FORMAT_BGR565)
 			stride_alignment = 128;
 		else
 			stride_alignment = 64;
