@@ -1411,6 +1411,7 @@ static void __msm_isp_axi_stream_update(
 	switch (stream_info->state) {
 	case UPDATING:
 		stream_info->state = ACTIVE;
+		complete_all(&stream_info->active_comp);
 		break;
 	case STOP_PENDING:
 		msm_isp_axi_stream_enable_cfg(stream_info);
@@ -3387,8 +3388,10 @@ static void msm_isp_remove_buf_queue(struct vfe_device *vfe_dev,
 
 	if (stream_info->bufq_handle[bufq_id]) {
 		stream_info->bufq_handle[bufq_id] = 0;
-		if (stream_info->state == ACTIVE)
+		if (stream_info->state == ACTIVE) {
+			init_completion(&stream_info->active_comp);
 			stream_info->state = UPDATING;
+		}
 	}
 	spin_unlock_irqrestore(&stream_info->lock, flags);
 	if (stream_info->state == UPDATING)
