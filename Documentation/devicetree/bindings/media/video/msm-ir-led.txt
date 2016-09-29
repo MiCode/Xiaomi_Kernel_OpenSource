@@ -1,0 +1,26 @@
+* QTI MSM IR LED
+
+Required properties:
+- cell-index : ir led hardware core index
+- compatible :
+    - "qcom,ir-led"
+
+Optional properties:
+- gpios : should specify the gpios to be used for the ir led.
+- qcom,gpio-req-tbl-num : should contain index to gpios specific to ir led
+- qcom,gpio-req-tbl-flags : should contain direction of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- qcom,gpio-req-tbl-label : should contain name of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- label : should contain unique ir led name
+Example:
+
+qcom,ir-led {
+		cell-index = <0>;
+		compatible = "qcom,ir-led";
+		label = "led-ir-label";
+		gpios = <&tlmm 60 0>;
+		qcom,gpio-req-tbl-num = <0>;
+		qcom,gpio-req-tbl-flags = <0>;
+		qcom,gpio-req-tbl-label = "LED_IR_EN";
+	};
