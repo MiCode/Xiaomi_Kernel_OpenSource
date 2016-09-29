@@ -2880,6 +2880,8 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev_ioctl,
 	msm_isp_get_timestamp(&timestamp);
 
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		if (stream_cfg_cmd->stream_handle[i] == 0)
+			continue;
 		stream_info = msm_isp_get_stream_common_data(vfe_dev_ioctl,
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i]));
 		if (SRC_TO_INTF(stream_info->stream_src) < VFE_SRC_MAX)
@@ -3019,6 +3021,8 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev_ioctl,
 		return -EINVAL;
 
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		if (stream_cfg_cmd->stream_handle[i] == 0)
+			continue;
 		stream_info = msm_isp_get_stream_common_data(vfe_dev_ioctl,
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i]));
 
@@ -3045,12 +3049,37 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0, ret;
 	struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd = arg;
+	uint32_t stream_idx[MAX_NUM_STREAM];
 	int i;
+	int vfe_idx;
+	struct msm_vfe_axi_stream *stream_info;
+
+	memset(stream_idx, 0, sizeof(stream_idx));
 
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		if (HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i]) >=
 			VFE_AXI_SRC_MAX)
 			return -EINVAL;
+		stream_info = msm_isp_get_stream_common_data(vfe_dev,
+			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i]));
+		vfe_idx = msm_isp_get_vfe_idx_for_stream_user(vfe_dev,
+								stream_info);
+		if (vfe_idx == -ENOTTY || stream_info->stream_handle[vfe_idx] !=
+					stream_cfg_cmd->stream_handle[i]) {
+			pr_err("%s: Invalid stream handle %x vfe_idx %d expected %x\n",
+				__func__, stream_cfg_cmd->stream_handle[i],
+				vfe_idx,
+				(vfe_idx != -ENOTTY) ?
+				stream_info->stream_handle[vfe_idx] : 0);
+			return -EINVAL;
+		}
+		/* check for duplicate stream handle */
+		if (stream_idx[stream_info->stream_src] ==
+			stream_cfg_cmd->stream_handle[i])
+			stream_cfg_cmd->stream_handle[i] = 0;
+		else
+			stream_idx[stream_info->stream_src] =
+				stream_cfg_cmd->stream_handle[i];
 	}
 	if (stream_cfg_cmd->cmd == START_STREAM) {
 		msm_isp_axi_update_cgc_override(vfe_dev, stream_cfg_cmd, 1);
