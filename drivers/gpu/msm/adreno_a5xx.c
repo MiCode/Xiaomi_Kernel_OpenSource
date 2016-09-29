@@ -14,6 +14,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/scm.h>
 #include <linux/pm_opp.h>
+#include <linux/clk/msm-clk.h>
 
 #include "adreno.h"
 #include "a5xx_reg.h"
@@ -1626,6 +1627,21 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 				"GPMU post powerlevel did not stabilize\n");
 	}
 }
+
+static void a5xx_clk_set_options(struct adreno_device *adreno_dev,
+	const char *name, struct clk *clk)
+{
+	if (adreno_is_a540(adreno_dev)) {
+		if (!strcmp(name, "mem_iface_clk"))
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		}
+	}
+}
+
 
 static void a5xx_enable_64bit(struct adreno_device *adreno_dev)
 {
@@ -3516,4 +3532,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_schedule = a5xx_preemption_schedule,
 	.enable_64bit = a5xx_enable_64bit,
 	.pre_reset =  a5xx_pre_reset,
+	.clk_set_options = a5xx_clk_set_options,
 };
