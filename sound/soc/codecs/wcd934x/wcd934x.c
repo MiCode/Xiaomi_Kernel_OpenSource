@@ -1033,17 +1033,15 @@ static int tavil_codec_enable_anc(struct snd_soc_dapm_widget *w,
 			snd_soc_write(codec, reg, (val & mask));
 		}
 
+		/* Rate converter clk enable and set bypass mode */
+		snd_soc_update_bits(codec, WCD934X_CDC_ANC0_RC_COMMON_CTL,
+				    0x05, 0x05);
 		if (!hwdep_cal)
 			release_firmware(fw);
 		break;
-	case SND_SOC_DAPM_POST_PMU:
-		/* Remove ANC Rx from reset */
-		snd_soc_update_bits(codec, WCD934X_CDC_ANC0_CLK_RESET_CTL,
-				    0x08, 0x00);
-		snd_soc_update_bits(codec, WCD934X_CDC_ANC1_CLK_RESET_CTL,
-				    0x08, 0x00);
-		break;
 	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, WCD934X_CDC_ANC0_RC_COMMON_CTL,
+				    0x05, 0x00);
 		if (!strcmp(w->name, "ANC EAR PA") ||
 		    !strcmp(w->name, "ANC SPK1 PA")) {
 			snd_soc_update_bits(codec, WCD934X_CDC_ANC0_MODE_1_CTL,
