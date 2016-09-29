@@ -1042,6 +1042,16 @@ static int armv7_a15_pmu_init(struct arm_pmu *cpu_pmu)
 	return 0;
 }
 
+static int armv8_pmuv3_pmu_init(struct arm_pmu *cpu_pmu)
+{
+	armv7pmu_init(cpu_pmu);
+	cpu_pmu->name		= "ARMv8 Cortex-A53";
+	cpu_pmu->map_event	= armv7_a7_map_event;
+	cpu_pmu->num_events	= armv7_read_num_pmnc_events();
+	cpu_pmu->set_event_filter = armv7pmu_set_event_filter;
+	return 0;
+}
+
 static int armv7_a7_pmu_init(struct arm_pmu *cpu_pmu)
 {
 	armv7pmu_init(cpu_pmu);
