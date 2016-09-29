@@ -15,5 +15,3 @@
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(suspend_resume);
 EXPORT_TRACEPOINT_SYMBOL_GPL(cpu_idle);
-EXPORT_TRACEPOINT_SYMBOL(core_ctl_set_busy);
-EXPORT_TRACEPOINT_SYMBOL(core_ctl_eval_need);
