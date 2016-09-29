@@ -162,14 +162,6 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 	SDE_REG_WRITE(c, WB_CDP_CTRL, cdp_settings);
 }
 
-static void sde_hw_wb_traffic_shaper(struct sde_hw_wb *ctx,
-		struct sde_hw_wb_cfg *data)
-{
-	if (ctx->hw_mdp && ctx->hw_mdp->ops.setup_traffic_shaper)
-		ctx->hw_mdp->ops.setup_traffic_shaper(ctx->hw_mdp,
-				&data->ts_cfg);
-}
-
 static void sde_hw_wb_roi(struct sde_hw_wb *ctx, struct sde_hw_wb_cfg *wb)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
@@ -189,9 +181,6 @@ static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 {
 	ops->setup_outaddress = sde_hw_wb_setup_outaddress;
 	ops->setup_outformat = sde_hw_wb_setup_format;
-
-	if (test_bit(SDE_WB_TRAFFIC_SHAPER, &features))
-		ops->setup_trafficshaper = sde_hw_wb_traffic_shaper;
 
 	if (test_bit(SDE_WB_XY_ROI_OFFSET, &features))
 		ops->setup_roi = sde_hw_wb_roi;
