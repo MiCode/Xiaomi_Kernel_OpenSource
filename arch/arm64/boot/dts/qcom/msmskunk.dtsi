@@ -516,7 +516,7 @@
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
 		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x88e0000 0x4000>;
+		reg = <0x88e0000 0x2000>;
 		reg-names = "eud_base";
 		status = "ok";
 	};
