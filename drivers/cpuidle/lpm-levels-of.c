@@ -884,7 +884,7 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 			continue;
 		key = "qcom,pm-cluster-level";
 		if (!of_node_cmp(n->name, key)) {
-			WARN_ON(!use_psci && c->no_saw_devices);
+			WARN_ON(use_psci && c->no_saw_devices);
 			if (parse_cluster_level(n, c))
 				goto failed_parse_cluster;
 			continue;
@@ -894,7 +894,7 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 		if (!of_node_cmp(n->name, key)) {
 			struct lpm_cluster *child;
 
-			WARN_ON(!use_psci && c->no_saw_devices);
+			WARN_ON(use_psci && c->no_saw_devices);
 			child = parse_cluster(n, c);
 			if (!child)
 				goto failed_parse_cluster;
