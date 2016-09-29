@@ -18,6 +18,7 @@
 #include <linux/qdsp6v2/apr.h>
 #include <linux/qdsp6v2/apr_tal.h>
 #include <linux/qdsp6v2/dsp_debug.h>
+#include <linux/qdsp6v2/audio_notifier.h>
 
 #define DEST_ID APR_DEST_MODEM
 
@@ -41,10 +42,21 @@ int apr_get_dest_id(char *dest)
 	return DEST_ID;
 }
 
-void subsys_notif_register(struct notifier_block *mod_notif,
-				struct notifier_block *lp_notif)
+void subsys_notif_register(char *client_name, int domain,
+			   struct notifier_block *nb)
 {
-	subsys_notif_register_notifier("modem", mod_notif);
+	int ret;
+
+	if (domain != AUDIO_NOTIFIER_MODEM_DOMAIN) {
+		pr_debug("%s: Unused domain %d not registering with notifier\n",
+			 __func__, domain);
+		return;
+	}
+
+	ret = audio_notifier_register(client_name, domain, nb);
+	if (ret < 0)
+		pr_err("%s: Audio notifier register failed for domain %d ret = %d\n",
+			__func__, domain, ret);
 }
 
 uint16_t apr_get_reset_domain(uint16_t proc)
