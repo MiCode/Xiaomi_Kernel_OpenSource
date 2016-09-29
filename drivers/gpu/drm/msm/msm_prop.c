@@ -376,11 +376,14 @@ int msm_property_atomic_set(struct msm_property_info *info,
 		}
 
 		/* update value and flag as dirty */
-		property_values[property_idx] = val;
-		_msm_property_set_dirty_no_lock(info, property_idx);
-		mutex_unlock(&info->property_lock);
+		if (property_values[property_idx] != val ||
+				property_idx < info->blob_count) {
+			property_values[property_idx] = val;
+			_msm_property_set_dirty_no_lock(info, property_idx);
 
-		DBG("%s - %lld", property->name, val);
+			DBG("%s - %lld", property->name, val);
+		}
+		mutex_unlock(&info->property_lock);
 		rc = 0;
 	}
 
