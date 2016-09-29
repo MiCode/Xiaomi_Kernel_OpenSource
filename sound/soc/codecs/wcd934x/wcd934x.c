@@ -7784,7 +7784,11 @@ static const struct wcd_resmgr_cb tavil_resmgr_cb = {
 	.cdc_rco_ctrl = __tavil_codec_internal_rco_ctrl,
 };
 
-static const struct tavil_reg_mask_val tavil_codec_mclk2_defaults[] = {
+static const struct tavil_reg_mask_val tavil_codec_mclk2_1_1_defaults[] = {
+	{WCD934X_CLK_SYS_MCLK2_PRG1, 0x60, 0x20},
+};
+
+static const struct tavil_reg_mask_val tavil_codec_mclk2_1_0_defaults[] = {
 	/*
 	 * PLL Settings:
 	 * Clock Root: MCLK2,
@@ -8330,11 +8334,22 @@ static void tavil_mclk2_reg_defaults(struct tavil_priv *tavil)
 	int i;
 	struct snd_soc_codec *codec = tavil->codec;
 
-	/* MCLK2 configuration */
-	for (i = 0; i < ARRAY_SIZE(tavil_codec_mclk2_defaults); i++)
-		snd_soc_update_bits(codec, tavil_codec_mclk2_defaults[i].reg,
-				    tavil_codec_mclk2_defaults[i].mask,
-				    tavil_codec_mclk2_defaults[i].val);
+	if (TAVIL_IS_1_0(tavil->wcd9xxx)) {
+		/* MCLK2 configuration */
+		for (i = 0; i < ARRAY_SIZE(tavil_codec_mclk2_1_0_defaults); i++)
+			snd_soc_update_bits(codec,
+					tavil_codec_mclk2_1_0_defaults[i].reg,
+					tavil_codec_mclk2_1_0_defaults[i].mask,
+					tavil_codec_mclk2_1_0_defaults[i].val);
+	}
+	if (TAVIL_IS_1_1(tavil->wcd9xxx)) {
+		/* MCLK2 configuration */
+		for (i = 0; i < ARRAY_SIZE(tavil_codec_mclk2_1_1_defaults); i++)
+			snd_soc_update_bits(codec,
+					tavil_codec_mclk2_1_1_defaults[i].reg,
+					tavil_codec_mclk2_1_1_defaults[i].mask,
+					tavil_codec_mclk2_1_1_defaults[i].val);
+	}
 }
 
 static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
