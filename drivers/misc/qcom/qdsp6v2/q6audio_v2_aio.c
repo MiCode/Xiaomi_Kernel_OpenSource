@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,8 +107,9 @@ void audio_aio_cb(uint32_t opcode, uint32_t token,
 		audio_aio_post_event(audio, AUDIO_EVENT_STREAM_INFO, e_payload);
 		break;
 	case RESET_EVENTS:
-		pr_debug("%s: Received opcode:0x%x\n", __func__, opcode);
+		pr_err("%s: Received opcode:0x%x\n", __func__, opcode);
 		audio->stopped = 1;
+		audio->reset_event = true;
 		wake_up(&audio->event_wait);
 		break;
 	default:
