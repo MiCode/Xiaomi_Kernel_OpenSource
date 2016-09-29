@@ -170,6 +170,9 @@ static void *usbpd_ipc_log;
 #define PS_SOURCE_OFF		750
 #define VDM_BUSY_TIME		50
 
+/* tPSHardReset + tSafe0V + tSrcRecover + tSrcTurnOn */
+#define SNK_HARD_RESET_RECOVER_TIME	(35 + 650 + 1000 + 275)
+
 #define PD_CAPS_COUNT		50
 
 #define PD_MAX_MSG_ID		7
@@ -800,18 +803,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		pd->in_pr_swap = false;
 		pd->current_voltage = 5000000;
 
-		if (!pd->vbus_present) {
-			/* can get here during a hard reset and we lost vbus */
-			pd->current_state = PE_SNK_DISCOVERY;
-			hrtimer_start(&pd->timer, ms_to_ktime(2000),
-					HRTIMER_MODE_REL);
-			break;
-		}
-
-		/*
-		 * If VBUS is already present go and skip ahead to
-		 * PE_SNK_WAIT_FOR_CAPABILITIES.
-		 */
 		pd->current_state = PE_SNK_WAIT_FOR_CAPABILITIES;
 		/* fall-through */
 
@@ -882,8 +873,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 				POWER_SUPPLY_PROP_VOLTAGE_MAX, &val);
 		pd->current_voltage = pd->requested_voltage;
 
-		/* recursive call; go back to beginning state */
-		usbpd_set_state(pd, PE_SNK_STARTUP);
+		/* max time for hard reset to toggle vbus off/on */
+		hrtimer_start(&pd->timer,
+				ms_to_ktime(SNK_HARD_RESET_RECOVER_TIME),
+				HRTIMER_MODE_REL);
 		break;
 
 	default:
@@ -1465,21 +1458,6 @@ static void usbpd_sm(struct work_struct *w)
 		usbpd_set_state(pd, PE_SRC_TRANSITION_TO_DEFAULT);
 		break;
 
-	case PE_SNK_DISCOVERY:
-		if (!pd->vbus_present) {
-			/* Hard reset and VBUS didn't come back? */
-			power_supply_get_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_TYPE, &val);
-			if (val.intval == POWER_SUPPLY_TYPEC_NONE) {
-				pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
-				queue_work(pd->wq, &pd->sm_work);
-			}
-			break;
-		}
-
-		usbpd_set_state(pd, PE_SNK_WAIT_FOR_CAPABILITIES);
-		break;
-
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
 		if (data_recvd == MSG_SOURCE_CAPABILITIES) {
 			val.intval = 1;
@@ -1608,6 +1586,20 @@ static void usbpd_sm(struct work_struct *w)
 				handle_vdm_rx(pd);
 			else
 				handle_vdm_tx(pd);
+		}
+		break;
+
+	case PE_SNK_TRANSITION_TO_DEFAULT:
+		if (pd->vbus_present) {
+			usbpd_set_state(pd, PE_SNK_STARTUP);
+		} else {
+			/* Hard reset and VBUS didn't come back? */
+			power_supply_get_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_TYPEC_MODE, &val);
+			if (val.intval == POWER_SUPPLY_TYPEC_NONE) {
+				pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
+				queue_work(pd->wq, &pd->sm_work);
+			}
 		}
 		break;
 
@@ -1846,11 +1838,12 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	 * until the HW bug is fixed: in which disconnection won't be reported
 	 * on VBUS loss alone unless pullup is also removed from CC.
 	 */
-	if ((pd->hard_reset || pd->in_pr_swap) &&
+	if ((pd->current_state == PE_SNK_TRANSITION_TO_DEFAULT ||
+				pd->in_pr_swap) &&
 			typec_mode == POWER_SUPPLY_TYPEC_NONE &&
 			pd->psy_type != POWER_SUPPLY_TYPE_USB) {
 		usbpd_dbg(&pd->dev, "Ignoring disconnect due to %s\n",
-				pd->hard_reset ? "hard reset" : "PR swap");
+				pd->in_pr_swap ? "PR swap" : "hard reset");
 		return 0;
 	}
 
@@ -1885,7 +1878,8 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
 		usbpd_info(&pd->dev, "Type-C Source (%s) connected\n",
 				src_current(typec_mode));
-		if (pd->current_pr != PR_SINK) {
+		if (pd->current_pr != PR_SINK ||
+			pd->current_state == PE_SNK_TRANSITION_TO_DEFAULT) {
 			pd->current_pr = PR_SINK;
 			queue_work(pd->wq, &pd->sm_work);
 		}
