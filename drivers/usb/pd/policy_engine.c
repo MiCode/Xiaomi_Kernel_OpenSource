@@ -259,7 +259,6 @@ static const u32 default_snk_caps[] = { 0x2601905A };	/* 5V @ 900mA */
 struct vdm_tx {
 	u32			data[7];
 	int			size;
-	struct list_head	entry;
 };
 
 struct usbpd {
@@ -314,8 +313,8 @@ struct usbpd {
 	enum vdm_state		vdm_state;
 	u16			*discovered_svids;
 	int			num_svids;
+	struct vdm_tx		*vdm_tx;
 	struct vdm_tx		*vdm_tx_retry;
-	struct list_head	vdm_tx_queue;
 	struct list_head	svid_handlers;
 
 	struct list_head	instance;
@@ -975,7 +974,7 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 {
 	struct vdm_tx *vdm_tx;
 
-	if (!pd->in_explicit_contract)
+	if (!pd->in_explicit_contract || pd->vdm_tx)
 		return -EBUSY;
 
 	vdm_tx = kzalloc(sizeof(*vdm_tx), GFP_KERNEL);
@@ -988,8 +987,10 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 	vdm_tx->size = num_vdos + 1; /* include the header */
 
 	/* VDM will get sent in PE_SRC/SNK_READY state handling */
-	list_add_tail(&vdm_tx->entry, &pd->vdm_tx_queue);
-	queue_work(pd->wq, &pd->sm_work);
+	pd->vdm_tx = vdm_tx;
+
+	/* slight delay before queuing to prioritize handling of incoming VDM */
+	hrtimer_start(&pd->timer, ms_to_ktime(5), HRTIMER_MODE_REL);
 
 	return 0;
 }
@@ -1037,6 +1038,18 @@ static void handle_vdm_rx(struct usbpd *pd)
 
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
+		/*
+		 * if this interrupts a previous exchange, abort the previous
+		 * outgoing response
+		 */
+		if (pd->vdm_tx) {
+			usbpd_dbg(&pd->dev, "Discarding previously queued SVDM tx (SVID:0x%04x)\n",
+					VDM_HDR_SVID(pd->vdm_tx->data[0]));
+
+			kfree(pd->vdm_tx);
+			pd->vdm_tx = NULL;
+		}
+
 		if (svid == USBPD_SID && cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
 			u32 tx_vdos[3] = {
 				ID_HDR_USB_HOST | ID_HDR_USB_DEVICE |
@@ -1201,7 +1214,7 @@ static void handle_vdm_rx(struct usbpd *pd)
 			}
 
 			/* wait tVDMBusy, then retry */
-			list_move(&pd->vdm_tx_retry->entry, &pd->vdm_tx_queue);
+			pd->vdm_tx = pd->vdm_tx_retry;
 			pd->vdm_tx_retry = NULL;
 			hrtimer_start(&pd->timer, ms_to_ktime(VDM_BUSY_TIME),
 					HRTIMER_MODE_REL);
@@ -1218,16 +1231,14 @@ static void handle_vdm_tx(struct usbpd *pd)
 	int ret;
 
 	/* only send one VDM at a time */
-	if (!list_empty(&pd->vdm_tx_queue)) {
-		struct vdm_tx *vdm_tx = list_first_entry(&pd->vdm_tx_queue,
-				struct vdm_tx, entry);
-		u32 vdm_hdr = vdm_tx->data[0];
+	if (pd->vdm_tx) {
+		u32 vdm_hdr = pd->vdm_tx->data[0];
 
-		ret = pd_send_msg(pd, MSG_VDM, vdm_tx->data, vdm_tx->size,
-				SOP_MSG);
+		ret = pd_send_msg(pd, MSG_VDM, pd->vdm_tx->data,
+				pd->vdm_tx->size, SOP_MSG);
 		if (ret) {
 			usbpd_err(&pd->dev, "Error sending VDM command %d\n",
-					SVDM_HDR_CMD(vdm_tx->data[0]));
+					SVDM_HDR_CMD(pd->vdm_tx->data[0]));
 			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_SEND_SOFT_RESET :
 					PE_SNK_SEND_SOFT_RESET);
@@ -1235,8 +1246,6 @@ static void handle_vdm_tx(struct usbpd *pd)
 			/* retry when hitting PE_SRC/SNK_Ready again */
 			return;
 		}
-
-		list_del(&vdm_tx->entry);
 
 		/*
 		 * special case: keep initiated Discover ID/SVIDs
@@ -1251,10 +1260,12 @@ static void handle_vdm_tx(struct usbpd *pd)
 						pd->vdm_tx_retry->data[0]));
 				kfree(pd->vdm_tx_retry);
 			}
-			pd->vdm_tx_retry = vdm_tx;
+			pd->vdm_tx_retry = pd->vdm_tx;
 		} else {
-			kfree(vdm_tx);
+			kfree(pd->vdm_tx);
 		}
+
+		pd->vdm_tx = NULL;
 	}
 }
 
@@ -1271,13 +1282,8 @@ static void reset_vdm_state(struct usbpd *pd)
 	kfree(pd->discovered_svids);
 	pd->discovered_svids = NULL;
 	pd->num_svids = 0;
-	while (!list_empty(&pd->vdm_tx_queue)) {
-		struct vdm_tx *vdm_tx =
-			list_first_entry(&pd->vdm_tx_queue,
-				struct vdm_tx, entry);
-		list_del(&vdm_tx->entry);
-		kfree(vdm_tx);
-	}
+	kfree(pd->vdm_tx);
+	pd->vdm_tx = NULL;
 }
 
 static void dr_swap(struct usbpd *pd)
@@ -2497,7 +2503,6 @@ struct usbpd *usbpd_create(struct device *parent)
 	pd->current_dr = DR_NONE;
 	list_add_tail(&pd->instance, &_usbpd);
 
-	INIT_LIST_HEAD(&pd->vdm_tx_queue);
 	INIT_LIST_HEAD(&pd->svid_handlers);
 
 	/* force read initial power_supply values */
