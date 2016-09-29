@@ -89,30 +89,6 @@ static int clk_rcg_set_force_enable(struct clk_hw *hw)
 	return ret;
 }
 
-static int clk_rcg2_enable(struct clk_hw *hw)
-{
-	int ret = 0;
-	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-
-	if (rcg->flags & FORCE_ENABLE_RCGR)
-		ret = clk_rcg_set_force_enable(hw);
-
-	return ret;
-}
-
-static void clk_rcg2_disable(struct clk_hw *hw)
-{
-	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-
-	if (rcg->flags & FORCE_ENABLE_RCGR) {
-		/* force disable RCG - clear CMD_ROOT_EN bit */
-		regmap_update_bits(rcg->clkr.regmap,
-			rcg->cmd_rcgr + CMD_REG, CMD_ROOT_EN, 0);
-		/* Add a delay to disable the RCG */
-		udelay(100);
-	}
-}
-
 static u8 clk_rcg2_get_parent(struct clk_hw *hw)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
@@ -381,16 +357,178 @@ static long clk_rcg2_list_rate(struct clk_hw *hw, unsigned n,
 	return (rcg->freq_tbl + n)->freq;
 }
 
+static int prepare_enable_rcg_srcs(struct clk_hw *hw, struct clk *curr,
+					struct clk *new)
+{
+	int rc = 0;
+
+	rc = clk_prepare(curr);
+	if (rc)
+		return rc;
+
+	if (clk_hw_is_prepared(hw)) {
+		rc = clk_prepare(new);
+		if (rc)
+			goto err_new_src_prepare;
+	}
+
+	rc = clk_prepare(new);
+	if (rc)
+		goto err_new_src_prepare2;
+
+	rc = clk_enable(curr);
+	if (rc)
+		goto err_curr_src_enable;
+
+	if (__clk_get_enable_count(hw->clk)) {
+		rc = clk_enable(new);
+		if (rc)
+			goto err_new_src_enable;
+	}
+
+	rc = clk_enable(new);
+	if (rc)
+		goto err_new_src_enable2;
+
+	return rc;
+
+err_new_src_enable2:
+	if (__clk_get_enable_count(hw->clk))
+		clk_disable(new);
+err_new_src_enable:
+	clk_disable(curr);
+err_curr_src_enable:
+	clk_unprepare(new);
+err_new_src_prepare2:
+	if (clk_hw_is_prepared(hw))
+		clk_unprepare(new);
+err_new_src_prepare:
+	clk_unprepare(curr);
+
+	return rc;
+}
+
+static void disable_unprepare_rcg_srcs(struct clk_hw *hw, struct clk *curr,
+					struct clk *new)
+{
+	clk_disable(new);
+
+	clk_disable(curr);
+
+	if (__clk_get_enable_count(hw->clk))
+		clk_disable(new);
+
+	clk_unprepare(new);
+	clk_unprepare(curr);
+
+	if (clk_hw_is_prepared(hw))
+		clk_unprepare(new);
+}
+
+static struct freq_tbl cxo_f = {
+	.freq = 19200000,
+	.src = 0,
+	.pre_div = 1,
+	.m = 0,
+	.n = 0,
+};
+
+static int clk_enable_disable_prepare_unprepare(struct clk_hw *hw, int cindex,
+			int nindex, bool enable)
+{
+	struct clk_hw *new_p, *curr_p;
+
+	curr_p = clk_hw_get_parent_by_index(hw, cindex);
+	new_p = clk_hw_get_parent_by_index(hw, nindex);
+
+	if (enable)
+		return prepare_enable_rcg_srcs(hw, curr_p->clk, new_p->clk);
+
+	disable_unprepare_rcg_srcs(hw, curr_p->clk, new_p->clk);
+	return 0;
+}
+
+static int clk_rcg2_enable(struct clk_hw *hw)
+{
+	int ret = 0;
+	const struct freq_tbl *f;
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	if (rcg->flags & FORCE_ENABLE_RCGR) {
+		if (!rcg->current_freq)
+			rcg->current_freq = cxo_f.freq;
+
+		if (rcg->current_freq == cxo_f.freq)
+			rcg->curr_index = 0;
+		else {
+			f = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
+			rcg->curr_index = qcom_find_src_index(hw,
+						rcg->parent_map, f->src);
+		}
+
+		ret = clk_enable_disable_prepare_unprepare(hw, rcg->curr_index,
+					rcg->new_index, true);
+		if (ret) {
+			pr_err("Failed to prepare_enable new and current sources\n");
+			return ret;
+		}
+
+		clk_rcg_set_force_enable(hw);
+
+		clk_enable_disable_prepare_unprepare(hw, rcg->curr_index,
+					rcg->new_index, false);
+	}
+
+	return ret;
+}
+
+static void clk_rcg2_disable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	if (rcg->flags & FORCE_ENABLE_RCGR) {
+		/* force disable RCG - clear CMD_ROOT_EN bit */
+		regmap_update_bits(rcg->clkr.regmap,
+			rcg->cmd_rcgr + CMD_REG, CMD_ROOT_EN, 0);
+		/* Add a delay to disable the RCG */
+		udelay(100);
+	}
+}
+
+
 static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	const struct freq_tbl *f;
+	int ret = 0;
+
+	/* Current frequency */
+	if (rcg->flags & FORCE_ENABLE_RCGR)
+		rcg->current_freq = clk_get_rate(hw->clk);
 
 	f = qcom_find_freq(rcg->freq_tbl, rate);
 	if (!f)
 		return -EINVAL;
 
-	return clk_rcg2_configure(rcg, f);
+	/* New parent index */
+	if (rcg->flags & FORCE_ENABLE_RCGR) {
+		rcg->new_index = qcom_find_src_index(hw,
+					rcg->parent_map, f->src);
+		ret = clk_rcg2_enable(hw);
+		if (ret) {
+			pr_err("Failed to enable rcg\n");
+			return ret;
+		}
+	}
+
+	ret = clk_rcg2_configure(rcg, f);
+	if (ret)
+		return ret;
+
+	if (rcg->flags & FORCE_ENABLE_RCGR)
+		clk_rcg2_disable(hw);
+
+	return ret;
 }
 
 static int clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate,
