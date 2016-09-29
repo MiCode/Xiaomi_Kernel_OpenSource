@@ -231,6 +231,7 @@ static bool _sde_plane_is_rt_pipe(struct drm_plane *plane,
 	bool is_rt = false;
 
 	/* check if this plane has a physical connector interface */
+	mutex_lock(&plane->dev->mode_config.mutex);
 	drm_for_each_connector(connector, plane->dev)
 		if (connector->state &&
 				(connector->state->crtc == crtc) &&
@@ -239,6 +240,7 @@ static bool _sde_plane_is_rt_pipe(struct drm_plane *plane,
 			is_rt = true;
 			break;
 		}
+	mutex_unlock(&plane->dev->mode_config.mutex);
 
 	SDE_DEBUG("plane%u: pnum:%d rt:%d\n",
 			plane->base.id, psde->pipe - SSPP_VIG0, is_rt);
