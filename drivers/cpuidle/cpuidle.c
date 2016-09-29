@@ -625,12 +625,15 @@ static void smp_callback(void *v)
 static int cpuidle_latency_notify(struct notifier_block *b,
 		unsigned long l, void *v)
 {
-	const struct cpumask *cpus;
+	struct cpumask cpus;
 
-	cpus = v ?: cpu_online_mask;
+	if (v)
+		cpumask_andnot(&cpus, v, cpu_isolated_mask);
+	else
+		cpumask_andnot(&cpus, cpu_online_mask, cpu_isolated_mask);
 
 	preempt_disable();
-	smp_call_function_many(cpus, smp_callback, NULL, 1);
+	smp_call_function_many(&cpus, smp_callback, NULL, 1);
 	preempt_enable();
 
 	return NOTIFY_OK;
