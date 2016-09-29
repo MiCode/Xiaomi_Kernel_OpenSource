@@ -35,6 +35,7 @@
 		compatible = "qcom,msmcobalt-asoc-snd-tasha";
 		qcom,model = "msmcobalt-tasha-snd-card";
 		qcom,ext-disp-audio-rx;
+		qcom,wcn-btfm;
 
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
@@ -126,6 +127,7 @@
 		compatible = "qcom,msmcobalt-asoc-snd-tavil";
 		qcom,model = "msmcobalt-tavil-snd-card";
 		qcom,ext-disp-audio-rx;
+		qcom,wcn-btfm;
 
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
@@ -180,8 +182,9 @@
 				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
 				<&afe_proxy_tx>, <&incall_record_rx>,
 				<&incall_record_tx>, <&incall_music_rx>,
-				<&incall_music_2_rx>, <&sb_5_rx>,
-				<&usb_audio_rx>, <&usb_audio_tx>, <&sb_6_rx>;
+				<&incall_music_2_rx>, <&sb_5_rx>, <&sb_6_rx>,
+				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
+				<&usb_audio_rx>, <&usb_audio_tx>;
 		asoc-cpu-names = "msm-dai-q6-hdmi.8",  "msm-dai-q6-dp.24608",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -197,8 +200,9 @@
 				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
 				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
-				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
-				"msm-dai-q6-dev.16396";
+				"msm-dai-q6-dev.16396", "msm-dai-q6-dev.16398",
+				"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
+				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673";
 		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
 		asoc-codec-names = "msm-stub-codec.1",
 				   "msm-ext-disp-audio-codec-rx";
