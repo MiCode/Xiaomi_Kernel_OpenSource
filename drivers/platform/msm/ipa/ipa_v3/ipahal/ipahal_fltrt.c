@@ -115,7 +115,7 @@ static u64 ipa_fltrt_create_tbl_addr(bool is_sys, u64 addr)
 
 static void ipa_fltrt_parse_tbl_addr(u64 hwaddr, u64 *addr, bool *is_sys)
 {
-	IPAHAL_DBG("Parsing hwaddr 0x%llx\n", hwaddr);
+	IPAHAL_DBG_LOW("Parsing hwaddr 0x%llx\n", hwaddr);
 
 	*is_sys = !(hwaddr & 0x1);
 	hwaddr &= (~0ULL - 1);
@@ -254,7 +254,7 @@ static int ipa_rt_gen_hw_rule(struct ipahal_rt_rule_gen_params *params,
 	}
 	rule_hdr->u.hdr.en_rule = en_rule;
 
-	IPAHAL_DBG("en_rule 0x%x\n", en_rule);
+	IPAHAL_DBG_LOW("en_rule 0x%x\n", en_rule);
 	ipa_write_64(rule_hdr->u.word, (u8 *)rule_hdr);
 
 	if (*hw_len == 0) {
@@ -327,12 +327,12 @@ static int ipa_flt_gen_hw_rule(struct ipahal_flt_rule_gen_params *params,
 	}
 	rule_hdr->u.hdr.en_rule = en_rule;
 
-	IPAHAL_DBG("en_rule=0x%x, action=%d, rt_idx=%d, retain_hdr=%d\n",
+	IPAHAL_DBG_LOW("en_rule=0x%x, action=%d, rt_idx=%d, retain_hdr=%d\n",
 		en_rule,
 		rule_hdr->u.hdr.action,
 		rule_hdr->u.hdr.rt_tbl_idx,
 		rule_hdr->u.hdr.retain_hdr);
-	IPAHAL_DBG("priority=%d, rule_id=%d\n",
+	IPAHAL_DBG_LOW("priority=%d, rule_id=%d\n",
 		rule_hdr->u.hdr.priority,
 		rule_hdr->u.hdr.rule_id);
 
@@ -1152,25 +1152,25 @@ static int ipa_fltrt_generate_hw_rule_bdy(enum ipa_ip_type ipt,
 	 * OFFSET_MEQ32_0 with mask of 0 and val of 0 and offset 0
 	 */
 	if (attrib->attrib_mask == 0) {
-		IPAHAL_DBG("building default rule\n");
+		IPAHAL_DBG_LOW("building default rule\n");
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(ipa3_0_ofst_meq32[0]);
 		extra_wrd_i = ipa_write_8(0, extra_wrd_i);  /* offset */
 		rest_wrd_i = ipa_write_32(0, rest_wrd_i);   /* mask */
 		rest_wrd_i = ipa_write_32(0, rest_wrd_i);   /* val */
 	}
 
-	IPAHAL_DBG("extra_word_1 0x%llx\n", *(u64 *)extra_wrd_start);
-	IPAHAL_DBG("extra_word_2 0x%llx\n",
+	IPAHAL_DBG_LOW("extra_word_1 0x%llx\n", *(u64 *)extra_wrd_start);
+	IPAHAL_DBG_LOW("extra_word_2 0x%llx\n",
 		*(u64 *)(extra_wrd_start + IPA3_0_HW_TBL_WIDTH));
 
 	extra_wrd_i = ipa_pad_to_64(extra_wrd_i);
 	sz = extra_wrd_i - extra_wrd_start;
-	IPAHAL_DBG("extra words params sz %d\n", sz);
+	IPAHAL_DBG_LOW("extra words params sz %d\n", sz);
 	*buf = ipa_fltrt_copy_mem(extra_wrd_start, *buf, sz);
 
 	rest_wrd_i = ipa_pad_to_64(rest_wrd_i);
 	sz = rest_wrd_i - rest_wrd_start;
-	IPAHAL_DBG("non extra words params sz %d\n", sz);
+	IPAHAL_DBG_LOW("non extra words params sz %d\n", sz);
 	*buf = ipa_fltrt_copy_mem(rest_wrd_start, *buf, sz);
 
 fail_err_check:
@@ -1208,7 +1208,7 @@ static int ipa_fltrt_calc_extra_wrd_bytes(
 	if (attrib->ihl_offset_eq_16_present)
 		num++;
 
-	IPAHAL_DBG("extra bytes number %d\n", num);
+	IPAHAL_DBG_LOW("extra bytes number %d\n", num);
 
 	return num;
 }
@@ -2024,7 +2024,7 @@ static int ipa_fltrt_parse_hw_rule_eq(u8 *addr, u32 hdr_sz,
 
 	eq_bitmap = atrb->rule_eq_bitmap;
 
-	IPAHAL_DBG("eq_bitmap=0x%x\n", eq_bitmap);
+	IPAHAL_DBG_LOW("eq_bitmap=0x%x\n", eq_bitmap);
 
 	if (eq_bitmap & IPA_GET_RULE_EQ_BIT_PTRN(IPA_TOS_EQ))
 		atrb->tos_eq_present = true;
@@ -2080,7 +2080,7 @@ static int ipa_fltrt_parse_hw_rule_eq(u8 *addr, u32 hdr_sz,
 		extra = &dummy_extra_wrd;
 		rest = addr + hdr_sz;
 	}
-	IPAHAL_DBG("addr=0x%p extra=0x%p rest=0x%p\n", addr, extra, rest);
+	IPAHAL_DBG_LOW("addr=0x%p extra=0x%p rest=0x%p\n", addr, extra, rest);
 
 	if (atrb->tos_eq_present)
 		atrb->tos_eq = *extra++;
@@ -2182,13 +2182,13 @@ static int ipa_fltrt_parse_hw_rule_eq(u8 *addr, u32 hdr_sz,
 		rest += 4;
 	}
 
-	IPAHAL_DBG("before rule alignment rest=0x%p\n", rest);
+	IPAHAL_DBG_LOW("before rule alignment rest=0x%p\n", rest);
 	rest = (u8 *)(((unsigned long)rest + IPA3_0_HW_RULE_START_ALIGNMENT) &
 		~IPA3_0_HW_RULE_START_ALIGNMENT);
-	IPAHAL_DBG("after rule alignment  rest=0x%p\n", rest);
+	IPAHAL_DBG_LOW("after rule alignment  rest=0x%p\n", rest);
 
 	*rule_size = rest - addr;
-	IPAHAL_DBG("rule_size=0x%x\n", *rule_size);
+	IPAHAL_DBG_LOW("rule_size=0x%x\n", *rule_size);
 
 	return 0;
 }
@@ -2198,12 +2198,12 @@ static int ipa_rt_parse_hw_rule(u8 *addr, struct ipahal_rt_rule_entry *rule)
 	struct ipa3_0_rt_rule_hw_hdr *rule_hdr;
 	struct ipa_ipfltri_rule_eq *atrb;
 
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	rule_hdr = (struct ipa3_0_rt_rule_hw_hdr *)addr;
 	atrb = &rule->eq_attrib;
 
-	IPAHAL_DBG("read hdr 0x%llx\n", rule_hdr->u.word);
+	IPAHAL_DBG_LOW("read hdr 0x%llx\n", rule_hdr->u.word);
 
 	if (rule_hdr->u.word == 0) {
 		/* table termintator - empty table */
@@ -2235,7 +2235,7 @@ static int ipa_flt_parse_hw_rule(u8 *addr, struct ipahal_flt_rule_entry *rule)
 	struct ipa3_0_flt_rule_hw_hdr *rule_hdr;
 	struct ipa_ipfltri_rule_eq *atrb;
 
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	rule_hdr = (struct ipa3_0_flt_rule_hw_hdr *)addr;
 	atrb = &rule->rule.eq_attrib;
@@ -2775,11 +2775,11 @@ static int ipa_fltrt_alloc_lcl_bdy(
 	/* The HAL allocates larger sizes than the given effective ones
 	 * for alignments and border indications
 	 */
-	IPAHAL_DBG("lcl tbl bdy total effective sizes: hash=%u nhash=%u\n",
+	IPAHAL_DBG_LOW("lcl tbl bdy total effective sizes: hash=%u nhash=%u\n",
 		params->total_sz_lcl_hash_tbls,
 		params->total_sz_lcl_nhash_tbls);
 
-	IPAHAL_DBG("lcl tbl bdy count: hash=%u nhash=%u\n",
+	IPAHAL_DBG_LOW("lcl tbl bdy count: hash=%u nhash=%u\n",
 		params->num_lcl_hash_tbls,
 		params->num_lcl_nhash_tbls);
 
@@ -2798,7 +2798,7 @@ static int ipa_fltrt_alloc_lcl_bdy(
 		params->nhash_bdy.size += obj->blk_sz_alignment;
 		params->nhash_bdy.size &= ~(obj->blk_sz_alignment);
 
-		IPAHAL_DBG("nhash lcl tbl bdy total h/w size = %u\n",
+		IPAHAL_DBG_LOW("nhash lcl tbl bdy total h/w size = %u\n",
 			params->nhash_bdy.size);
 
 		params->nhash_bdy.base = dma_alloc_coherent(
@@ -2829,7 +2829,7 @@ static int ipa_fltrt_alloc_lcl_bdy(
 		params->hash_bdy.size += obj->blk_sz_alignment;
 		params->hash_bdy.size &= ~(obj->blk_sz_alignment);
 
-		IPAHAL_DBG("hash lcl tbl bdy total h/w size = %u\n",
+		IPAHAL_DBG_LOW("hash lcl tbl bdy total h/w size = %u\n",
 			params->hash_bdy.size);
 
 		params->hash_bdy.base = dma_alloc_coherent(
@@ -2862,7 +2862,7 @@ hash_bdy_fail:
 int ipahal_fltrt_allocate_hw_tbl_imgs(
 	struct ipahal_fltrt_alloc_imgs_params *params)
 {
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	/* Input validation */
 	if (!params) {
@@ -2904,7 +2904,7 @@ int ipahal_fltrt_allocate_hw_sys_tbl(struct ipa_mem_buffer *tbl_mem)
 {
 	struct ipahal_fltrt_obj *obj;
 
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	if (!tbl_mem) {
 		IPAHAL_ERR("Input err\n");
@@ -2958,7 +2958,7 @@ int ipahal_fltrt_write_addr_to_hdr(u64 addr, void *hdr_base, u32 hdr_idx,
 	u64 hwaddr;
 	u8 *hdr;
 
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	obj = &ipahal_fltrt_objs[ipahal_ctx->hw_type];
 
@@ -2991,7 +2991,7 @@ int ipahal_fltrt_read_addr_from_hdr(void *hdr_base, u32 hdr_idx, u64 *addr,
 	u64 hwaddr;
 	u8 *hdr;
 
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	obj = &ipahal_fltrt_objs[ipahal_ctx->hw_type];
 
@@ -3023,7 +3023,7 @@ int ipahal_rt_generate_hw_rule(struct ipahal_rt_rule_gen_params *params,
 	u8 *tmp = NULL;
 	int rc;
 
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	if (!params || !hw_len) {
 		IPAHAL_ERR("Input err: params=%p hw_len=%p\n", params, hw_len);
@@ -3081,7 +3081,7 @@ int ipahal_flt_generate_hw_rule(struct ipahal_flt_rule_gen_params *params,
 	u8 *tmp = NULL;
 	int rc;
 
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	if (!params || !hw_len) {
 		IPAHAL_ERR("Input err: params=%p hw_len=%p\n", params, hw_len);
@@ -3138,7 +3138,7 @@ int ipahal_flt_generate_equation(enum ipa_ip_type ipt,
 		const struct ipa_rule_attrib *attrib,
 		struct ipa_ipfltri_rule_eq *eq_atrb)
 {
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	if (ipt >= IPA_IP_MAX) {
 		IPAHAL_ERR("Input err: Invalid ip type %d\n", ipt);
@@ -3165,7 +3165,7 @@ int ipahal_flt_generate_equation(enum ipa_ip_type ipt,
 int ipahal_rt_parse_hw_rule(u8 *rule_addr,
 	struct ipahal_rt_rule_entry *rule)
 {
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	if (!rule_addr || !rule) {
 		IPAHAL_ERR("Input err: rule_addr=%p rule=%p\n",
@@ -3186,7 +3186,7 @@ int ipahal_rt_parse_hw_rule(u8 *rule_addr,
 int ipahal_flt_parse_hw_rule(u8 *rule_addr,
 	struct ipahal_flt_rule_entry *rule)
 {
-	IPAHAL_DBG("Entry\n");
+	IPAHAL_DBG_LOW("Entry\n");
 
 	if (!rule_addr || !rule) {
 		IPAHAL_ERR("Input err: rule_addr=%p rule=%p\n",
