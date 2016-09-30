@@ -12,6 +12,7 @@
 #include <linux/irq.h>
 #include <linux/of_gpio.h>
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
 #include "pixart_ots.h"
 
 struct pixart_pat9125_data {
@@ -22,6 +23,8 @@ struct pixart_pat9125_data {
 	bool press_en;
 	bool inverse_x;
 	bool inverse_y;
+	struct regulator *vdd;
+	struct regulator *vld;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pinctrl_state_active;
 	struct pinctrl_state *pinctrl_state_suspend;
@@ -150,7 +153,7 @@ static ssize_t pat9125_test_store(struct device *dev,
 	int reg_data = 0, i;
 	long rd_addr, wr_addr, wr_data;
 	struct pixart_pat9125_data *data =
-		(struct pixart_pat9125_data *)dev->driver_data;
+		(struct pixart_pat9125_data *) dev_get_drvdata(dev);
 	struct i2c_client *client = data->client;
 
 	for (i = 0; i < sizeof(s); i++)
@@ -235,6 +238,98 @@ static int pixart_pinctrl_init(struct pixart_pat9125_data *data)
 		dev_err(dev, "Can not lookup release pinctrl state %d\n", err);
 		return err;
 	}
+	return 0;
+}
+
+static int pat9125_regulator_init(struct pixart_pat9125_data *data)
+{
+	int err = 0;
+	struct device *dev = &data->client->dev;
+
+	data->vdd = devm_regulator_get(dev, "vdd");
+	if (IS_ERR(data->vdd)) {
+		dev_err(dev, "Failed to get regulator vdd %ld\n",
+					PTR_ERR(data->vdd));
+		return PTR_ERR(data->vdd);
+	}
+
+	data->vld = devm_regulator_get(dev, "vld");
+	if (IS_ERR(data->vld)) {
+		dev_err(dev, "Failed to get regulator vld %ld\n",
+					PTR_ERR(data->vld));
+		return PTR_ERR(data->vld);
+	}
+
+	err = regulator_set_voltage(data->vdd, VDD_VTG_MIN_UV, VDD_VTG_MAX_UV);
+	if (err) {
+		dev_err(dev, "Failed to set voltage for vdd reg %d\n", err);
+		return err;
+	}
+
+	err = regulator_set_optimum_mode(data->vdd, VDD_ACTIVE_LOAD_UA);
+	if (err < 0) {
+		dev_err(dev, "Failed to set opt mode for vdd reg %d\n", err);
+		return err;
+	}
+
+	err = regulator_set_voltage(data->vld, VLD_VTG_MIN_UV, VLD_VTG_MAX_UV);
+	if (err) {
+		dev_err(dev, "Failed to set voltage for vld reg %d\n", err);
+		return err;
+	}
+
+	err = regulator_set_optimum_mode(data->vld, VLD_ACTIVE_LOAD_UA);
+	if (err < 0) {
+		dev_err(dev, "Failed to set opt mode for vld reg %d\n", err);
+		return err;
+	}
+
+	return 0;
+}
+
+static int pat9125_power_on(struct pixart_pat9125_data *data, bool on)
+{
+	int err = 0;
+	struct device *dev = &data->client->dev;
+
+	if (on) {
+		err = regulator_enable(data->vdd);
+		if (err) {
+			dev_err(dev, "Failed to enable vdd reg %d\n", err);
+			return err;
+		}
+
+		usleep_range(DELAY_BETWEEN_REG_US, DELAY_BETWEEN_REG_US + 1);
+
+		/*
+		 * Initialize pixart sensor after some delay, when vdd
+		 * regulator is enabled
+		 */
+		if (!ots_sensor_init(data->client)) {
+			err = -ENODEV;
+			dev_err(dev, "Failed to initialize sensor %d\n", err);
+			return err;
+		}
+
+		err = regulator_enable(data->vld);
+		if (err) {
+			dev_err(dev, "Failed to enable vld reg %d\n", err);
+			return err;
+		}
+	} else {
+		err = regulator_disable(data->vld);
+		if (err) {
+			dev_err(dev, "Failed to disable vld reg %d\n", err);
+			return err;
+		}
+
+		err = regulator_disable(data->vdd);
+		if (err) {
+			dev_err(dev, "Failed to disable vdd reg %d\n", err);
+			return err;
+		}
+	}
+
 	return 0;
 }
 
@@ -351,9 +446,16 @@ static int pat9125_i2c_probe(struct i2c_client *client,
 		}
 	}
 
-	if (!ots_sensor_init(client)) {
-		err = -ENODEV;
-		goto err_sensor_init;
+	err = pat9125_regulator_init(data);
+	if (err) {
+		dev_err(dev, "Failed to init regulator, %d\n", err);
+		return err;
+	}
+
+	err = pat9125_power_on(data, true);
+	if (err) {
+		dev_err(dev, "Failed to power-on the sensor %d\n", err);
+		goto err_power_on;
 	}
 
 	err = devm_request_threaded_irq(dev, client->irq, NULL, pat9125_irq,
@@ -374,7 +476,11 @@ static int pat9125_i2c_probe(struct i2c_client *client,
 
 err_sysfs_create:
 err_request_threaded_irq:
-err_sensor_init:
+err_power_on:
+	regulator_set_optimum_mode(data->vdd, 0);
+	regulator_set_optimum_mode(data->vld, 0);
+	if (pat9125_power_on(data, false) < 0)
+		dev_err(dev, "Failed to disable regulators\n");
 	if (data->pinctrl)
 		if (pinctrl_select_state(data->pinctrl,
 				data->pinctrl_state_release) < 0)
@@ -388,10 +494,14 @@ static int pat9125_i2c_remove(struct i2c_client *client)
 	struct pixart_pat9125_data *data = i2c_get_clientdata(client);
 	struct device *dev = &data->client->dev;
 
+	sysfs_remove_group(&(data->input->dev.kobj), &pat9125_attr_grp);
 	if (data->pinctrl)
 		if (pinctrl_select_state(data->pinctrl,
 				data->pinctrl_state_release) < 0)
 			dev_err(dev, "Couldn't set pin to release state\n");
+	regulator_set_optimum_mode(data->vdd, 0);
+	regulator_set_optimum_mode(data->vld, 0);
+	pat9125_power_on(data, false);
 	return 0;
 }
 
@@ -399,7 +509,7 @@ static int pat9125_suspend(struct device *dev)
 {
 	int rc;
 	struct pixart_pat9125_data *data =
-		(struct pixart_pat9125_data *)dev->driver_data;
+		(struct pixart_pat9125_data *) dev_get_drvdata(dev);
 
 	disable_irq(data->client->irq);
 	if (data->pinctrl) {
@@ -410,6 +520,12 @@ static int pat9125_suspend(struct device *dev)
 									rc);
 	}
 
+	rc = pat9125_power_on(data, false);
+	if (rc) {
+		dev_err(dev, "Failed to disable regulators %d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -417,7 +533,7 @@ static int pat9125_resume(struct device *dev)
 {
 	int rc;
 	struct pixart_pat9125_data *data =
-		(struct pixart_pat9125_data *)dev->driver_data;
+		(struct pixart_pat9125_data *) dev_get_drvdata(dev);
 
 	if (data->pinctrl) {
 		rc = pinctrl_select_state(data->pinctrl,
@@ -426,9 +542,26 @@ static int pat9125_resume(struct device *dev)
 			dev_err(dev, "Could not set pin to active state %d\n",
 									rc);
 	}
+
+	rc = pat9125_power_on(data, true);
+	if (rc) {
+		dev_err(dev, "Failed to power-on the sensor %d\n", rc);
+		goto err_sensor_init;
+	}
+
 	enable_irq(data->client->irq);
 
 	return 0;
+
+err_sensor_init:
+	if (data->pinctrl)
+		if (pinctrl_select_state(data->pinctrl,
+				data->pinctrl_state_suspend) < 0)
+			dev_err(dev, "Couldn't set pin to suspend state\n");
+	if (pat9125_power_on(data, false) < 0)
+		dev_err(dev, "Failed to disable regulators\n");
+
+	return rc;
 }
 
 static const struct i2c_device_id pat9125_device_id[] = {
