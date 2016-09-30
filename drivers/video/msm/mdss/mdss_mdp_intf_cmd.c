@@ -2177,6 +2177,7 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *mctl, int frame_cnt)
 		 */
 		ctx->autorefresh_state = MDP_AUTOREFRESH_ON_REQUESTED;
 		ctx->autorefresh_frame_cnt = frame_cnt;
+		mctl->mdata->serialize_wait4pp = true;
 
 		/* Cancel GATE Work Item */
 		if (cancel_work_sync(&ctx->gate_clk_work))
@@ -2190,8 +2191,10 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *mctl, int frame_cnt)
 		if (frame_cnt == 0) {
 			ctx->autorefresh_state = MDP_AUTOREFRESH_OFF;
 			ctx->autorefresh_frame_cnt = 0;
+			mctl->mdata->serialize_wait4pp = false;
 		} else {
 			ctx->autorefresh_frame_cnt = frame_cnt;
+			mctl->mdata->serialize_wait4pp = true;
 		}
 		break;
 	case MDP_AUTOREFRESH_ON:
@@ -2203,6 +2206,7 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *mctl, int frame_cnt)
 			ctx->autorefresh_state = MDP_AUTOREFRESH_OFF_REQUESTED;
 		} else {
 			ctx->autorefresh_frame_cnt = frame_cnt;
+			mctl->mdata->serialize_wait4pp = true;
 		}
 		break;
 	case MDP_AUTOREFRESH_OFF_REQUESTED:
@@ -2212,6 +2216,7 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *mctl, int frame_cnt)
 			pr_debug("cancelling autorefresh off request\n");
 			ctx->autorefresh_state = MDP_AUTOREFRESH_ON;
 			ctx->autorefresh_frame_cnt = frame_cnt;
+			mctl->mdata->serialize_wait4pp = true;
 		}
 		break;
 	default:
@@ -2322,7 +2327,7 @@ static void mdss_mdp_cmd_wait4_autorefresh_pp(struct mdss_mdp_ctl *ctl)
 
 	MDSS_XLOG(ctl->num, line_out, ctl->mixer_left->roi.h);
 
-	if (line_out < ctl->mixer_left->roi.h) {
+	if ((line_out < ctl->mixer_left->roi.h) && line_out) {
 		reinit_completion(&ctx->autorefresh_ppdone);
 
 		/* enable ping pong done */
@@ -2574,6 +2579,7 @@ static int mdss_mdp_disable_autorefresh(struct mdss_mdp_ctl *ctl,
 	mdss_mdp_pingpong_write(pp_base,
 				MDSS_MDP_REG_PP_SYNC_CONFIG_VSYNC, cfg);
 
+	ctl->mdata->serialize_wait4pp = false;
 	return 0;
 }
 
@@ -2866,6 +2872,8 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 		ctx->default_pp_num, NULL, NULL);
 
 	memset(ctx, 0, sizeof(*ctx));
+	/* intf stopped,  no more kickoff */
+	ctx->intf_stopped = 1;
 
 	return 0;
 }
@@ -3008,7 +3016,11 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 			ctx->intf_stopped = 0;
 			if (sctx)
 				sctx->intf_stopped = 0;
-
+			/*
+			 * Tearcheck was disabled while entering LP2 state.
+			 * Enable it back to allow updates in LP1 state.
+			 */
+			mdss_mdp_tearcheck_enable(ctl, true);
 			goto end;
 		}
 	}
