@@ -45,7 +45,7 @@ enum bm_threshold_id {
 
 struct bm_thresh_state {
 	enum thermal_trip_activation_mode state;
-	int                               trip_bw;
+	u64                               trip_bw;
 };
 
 struct bm_tz_sensor {
@@ -81,17 +81,17 @@ struct bm_sensors_drv_data {
 static struct bm_sensors_drv_data *bmdev;
 
 static void notify_bw_threshold_event(struct bm_tz_sensor *sensor,
-		struct bus_rule_type *rule, uint32_t action)
+		struct bus_rule_type *rule, uint32_t action,
+		enum bm_threshold_id thresh_id)
 {
-	enum bm_threshold_id thresh_id;
 	u64 bw = 0;
 	int ret = 0;
 
-	if (!sensor || !rule) {
+	if (!sensor || !rule || thresh_id < 0 ||
+		thresh_id >= MAX_BM_THRESHOLD) {
 		pr_err("Invalid input parameters\n");
 		return;
 	}
-	thresh_id = *(int *)(rule->client_data);
 
 	if (action == RULE_STATE_APPLIED) {
 		sensor->thresh_state[thresh_id].state
@@ -112,8 +112,26 @@ static void notify_bw_threshold_event(struct bm_tz_sensor *sensor,
 	}
 }
 
+static void cleanup_bus_rule(struct bus_rule_type *rule)
+{
+	if (!rule) {
+		pr_err("input is NULL\n");
+		return;
+	}
+
+	if (rule->src_id)
+		devm_kfree(&bmdev->pdev->dev, rule->src_id);
+	if (rule->src_field)
+		devm_kfree(&bmdev->pdev->dev, rule->src_field);
+	if (rule->op)
+		devm_kfree(&bmdev->pdev->dev, rule->op);
+	if (rule->thresh)
+		devm_kfree(&bmdev->pdev->dev, rule->thresh);
+}
+
 static int create_bus_rule(struct bus_rule_type *rule, int src_cnt,
-		int *src_ids, int src_field, int op, u64 val, int thresh_id)
+		int *src_ids, int src_field, int op, u64 val,
+		unsigned int *thresh_action)
 {
 	int i = 0, ret = 0;
 
@@ -141,12 +159,6 @@ static int create_bus_rule(struct bus_rule_type *rule, int src_cnt,
 		if (ret)
 			goto rule_exit;
 	}
-	if (!rule->client_data) {
-		ALLOC_KMEM(&bmdev->pdev->dev, rule->client_data,
-			int, 1, ret);
-		if (ret)
-			goto rule_exit;
-	}
 
 	rule->num_src = src_cnt;
 	for (; i < src_cnt; i++)
@@ -158,23 +170,13 @@ static int create_bus_rule(struct bus_rule_type *rule, int src_cnt,
 	rule->num_dst = 0;
 	rule->dst_node = NULL;
 	rule->mode = THROTTLE_OFF;
-	*(int *)(rule->client_data) = thresh_id;
+	rule->client_data = (void *)thresh_action;
 	rule->dst_bw = 0;
 	rule->combo_op = 0;
 
 rule_exit:
-	if (ret) {
-		if (rule->src_id)
-			devm_kfree(&bmdev->pdev->dev, rule->src_id);
-		if (rule->src_field)
-			devm_kfree(&bmdev->pdev->dev, rule->src_field);
-		if (rule->op)
-			devm_kfree(&bmdev->pdev->dev, rule->op);
-		if (rule->thresh)
-			devm_kfree(&bmdev->pdev->dev, rule->thresh);
-		if (rule->client_data)
-			devm_kfree(&bmdev->pdev->dev, rule->client_data);
-	}
+	if (ret)
+		cleanup_bus_rule(rule);
 
 	return ret;
 }
@@ -195,7 +197,7 @@ static void bm_tz_notify_wq(struct work_struct *work)
 			MAX_BM_THRESHOLD) {
 			notify_bw_threshold_event(&bmdev->bm_tz_sensors[i],
 				&bmdev->bm_tz_sensors[i].thresh_bus_rule[j],
-				bmdev->bm_tz_sensors[i].bus_rule_action[j]);
+				bmdev->bm_tz_sensors[i].bus_rule_action[j], j);
 			clear_bit(j, bmdev->bm_tz_sensors[i].triggered);
 		}
 	}
@@ -205,11 +207,20 @@ static void bm_tz_notify_wq(struct work_struct *work)
 static int bm_threshold_cb(struct notifier_block *nb, unsigned long action,
 		void *data)
 {
+	int thresh_id = 0;
 	struct bm_tz_sensor *bm_sensor =
 		container_of(nb, struct bm_tz_sensor, bm_nb);
 	struct bus_rule_type *rule = data;
-	enum bm_threshold_id thresh_id = *(int *)(rule->client_data);
+	unsigned int *bus_rule_action = (unsigned int *)(rule->client_data);
 
+	for (; thresh_id < MAX_BM_THRESHOLD; thresh_id++)
+		if (&bm_sensor->bus_rule_action[thresh_id] == bus_rule_action)
+			break;
+
+	if (thresh_id >= MAX_BM_THRESHOLD) {
+		pr_err("No matching client data. id:%d\n", thresh_id);
+		return 0;
+	}
 	pr_debug(
 	"srcid:%d, srcfld:%d op:%d thresh:%llu threshid:%d action:%lu curr_bw:%llu\n",
 	*(rule->src_id), *(rule->src_field), *(rule->op), *(rule->thresh),
@@ -284,7 +295,8 @@ static int bm_tz_activate_trip_type(struct thermal_zone_device *bm,
 	struct bm_tz_sensor *bm_sensor = bm->devdata;
 	struct bus_rule_type new_rule = {0};
 	int op = -1;
-	int thresh, ret = 0;
+	int ret = 0;
+	u64 thresh = 0;
 
 	if (!bm_sensor || trip < 0)
 		return -EINVAL;
@@ -296,7 +308,7 @@ static int bm_tz_activate_trip_type(struct thermal_zone_device *bm,
 			thresh =
 			bm_sensor->thresh_state[BM_HIGH_THRESHOLD].trip_bw;
 		else
-			thresh = UINT_MAX;
+			thresh = ULLONG_MAX;
 		op =  OP_GT;
 		break;
 	case BM_LOW_THRESHOLD:
@@ -315,24 +327,26 @@ static int bm_tz_activate_trip_type(struct thermal_zone_device *bm,
 
 	ret = create_bus_rule(&new_rule,
 		bm_sensor->src_cnt, bm_sensor->src_id,
-		bm_sensor->src_field, op, thresh, trip);
+		bm_sensor->src_field, op, thresh,
+		&bm_sensor->bus_rule_action[trip]);
 	if (ret)
 		goto exit;
 
 	bm_sensor->bm_nb.notifier_call = bm_threshold_cb;
+	mutex_lock(&bmdev->rule_lock);
 	msm_rule_update(&bm_sensor->thresh_bus_rule[trip],
 		&new_rule, &bm_sensor->bm_nb);
-	memcpy(&bm_sensor->thresh_bus_rule[trip], &new_rule,
-		sizeof(struct bus_rule_type));
+	*(bm_sensor->thresh_bus_rule[trip].thresh) = thresh;
 	msm_rule_evaluate_rules(bm_sensor->thresh_bus_rule[trip].src_id[0]);
+	cleanup_bus_rule(&new_rule);
+	mutex_unlock(&bmdev->rule_lock);
 
 	pr_debug(
 	"srcid:%d, srcfld:%d op:%d thresh:%llu threshid:%d\n",
 	*(bm_sensor->thresh_bus_rule[trip].src_id),
 	*(bm_sensor->thresh_bus_rule[trip].src_field),
 	*(bm_sensor->thresh_bus_rule[trip].op),
-	*(bm_sensor->thresh_bus_rule[trip].thresh),
-	*(int *)(bm_sensor->thresh_bus_rule[trip].client_data));
+	*(bm_sensor->thresh_bus_rule[trip].thresh), trip);
 
 exit:
 	return 0;
@@ -525,7 +539,7 @@ static int init_bm_default_rules(void)
 			&bm_sens->thresh_bus_rule[BM_HIGH_THRESHOLD],
 			bm_sens->src_cnt, bm_sens->src_id,
 			bm_sens->src_field, OP_GT, ULLONG_MAX,
-			BM_HIGH_THRESHOLD);
+			&bm_sens->bus_rule_action[BM_HIGH_THRESHOLD]);
 		if (ret) {
 			pr_err("Creating bus rule is failed. ret:%d\n", ret);
 			goto exit;
@@ -535,7 +549,7 @@ static int init_bm_default_rules(void)
 			&bm_sens->thresh_bus_rule[BM_LOW_THRESHOLD],
 			bm_sens->src_cnt, bm_sens->src_id,
 			bm_sens->src_field, OP_LT, 0,
-			BM_LOW_THRESHOLD);
+			&bm_sens->bus_rule_action[BM_LOW_THRESHOLD]);
 		if (ret) {
 			pr_err("Creating bus rule is failed. ret:%d\n", ret);
 			goto exit;
