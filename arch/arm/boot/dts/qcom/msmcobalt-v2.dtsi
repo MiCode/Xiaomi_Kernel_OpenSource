@@ -686,6 +686,18 @@
 		<533000000 8490000>;/* imem @ turbo freq 406 Mhz */
 };
 
+&soc {
+	/* Gold L2 SAW */
+	qcom,spm@178120000 {
+		qcom,saw2-avs-limit = <0x4200420>;
+	};
+
+	/* Silver L2 SAW */
+	qcom,spm@179120000 {
+		qcom,saw2-avs-limit = <0x4200420>;
+	};
+};
+
 /* GPU overrides */
 &msm_gpu {
 	/* Updated chip ID */
