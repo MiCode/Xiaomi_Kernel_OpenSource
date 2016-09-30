@@ -216,7 +216,7 @@ static inline void mdss_smmu_dma_free_coherent(struct device *dev, size_t size,
 		void *cpu_addr, dma_addr_t phys, dma_addr_t iova, int domain)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	if (mdata->smmu_ops.smmu_dma_free_coherent)
+	if (mdata && mdata->smmu_ops.smmu_dma_free_coherent)
 		mdata->smmu_ops.smmu_dma_free_coherent(dev, size, cpu_addr,
 			phys, iova, domain);
 }

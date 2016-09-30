@@ -212,7 +212,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		 * use mult as 3 for GSI IN endpoint always irrespective
 		 * USB speed.
 		 */
-		if (dep->endpoint.ep_type == EP_TYPE_GSI)
+		if (dep->endpoint.ep_type == EP_TYPE_GSI ||
+				dep->endpoint.endless)
 			mult = 3;
 
 		if (!(dep->flags & DWC3_EP_ENABLED)) {

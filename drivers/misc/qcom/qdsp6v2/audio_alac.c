@@ -196,6 +196,8 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 		struct msm_audio_alac_config *alac_config;
 		struct msm_audio_alac_config_32 alac_config_32;
 
+		memset(&alac_config_32, 0, sizeof(alac_config_32));
+
 		alac_config = (struct msm_audio_alac_config *)audio->codec_cfg;
 		alac_config_32.frameLength = alac_config->frameLength;
 		alac_config_32.compatVersion =

@@ -492,33 +492,25 @@ static int synaptics_i2c_change_pipe_owner(
 
 static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
 {
-	int ret = 0;
 	data->st_initialized = 0;
 	init_completion(&data->st_powerdown);
 	init_completion(&data->st_irq_processed);
 	/* Get clocks */
 	data->core_clk = clk_get(data->pdev->dev.parent, "core_clk");
 	if (IS_ERR(data->core_clk)) {
-		ret = PTR_ERR(data->core_clk);
-		dev_err(data->pdev->dev.parent,
-			"%s: error on clk_get(core_clk):%d\n", __func__, ret);
-		return;
+		data->core_clk = NULL;
+		dev_warn(data->pdev->dev.parent,
+			"%s: core_clk is not defined\n", __func__);
 	}
 
 	data->iface_clk = clk_get(data->pdev->dev.parent, "iface_clk");
 	if (IS_ERR(data->iface_clk)) {
-		ret = PTR_ERR(data->iface_clk);
-		dev_err(data->pdev->dev.parent,
-			"%s: error on clk_get(iface_clk):%d\n", __func__, ret);
-		goto err_iface_clk;
+		data->iface_clk = NULL;
+		dev_warn(data->pdev->dev.parent,
+			"%s: iface_clk is not defined\n", __func__);
 	}
 
 	data->st_initialized = 1;
-	return;
-
-err_iface_clk:
-		clk_put(data->core_clk);
-		data->core_clk = NULL;
 }
 static void synaptics_secure_touch_notify(struct synaptics_rmi4_data *rmi4_data)
 {
