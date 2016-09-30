@@ -2376,7 +2376,8 @@ static int smb23x_suspend(struct device *dev)
 		pr_err("Save irq config failed, rc=%d\n", rc);
 
 	/* enable only important IRQs */
-	rc = smb23x_write(chip, IRQ_CFG_REG_9, BATT_MISSING_IRQ_EN_BIT);
+	rc = smb23x_write(chip, IRQ_CFG_REG_9,
+			BATT_MISSING_IRQ_EN_BIT | INOK_IRQ_EN_BIT);
 	if (rc < 0)
 		pr_err("Set irq_cfg failed, rc = %d\n", rc);
 
