@@ -2665,7 +2665,8 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
 {
-	if (!rq->window_start || sched_disable_window_stats)
+	if (!rq->window_start || sched_disable_window_stats ||
+	    p->ravg.mark_start == wallclock)
 		return;
 
 	lockdep_assert_held(&rq->lock);

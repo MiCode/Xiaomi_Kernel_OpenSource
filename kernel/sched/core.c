@@ -3593,15 +3593,15 @@ static void __sched notrace __schedule(bool preempt)
 
 	next = pick_next_task(rq, prev, cookie);
 
-	wallclock = sched_ktime_clock();
-	update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
-	update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
-
 	clear_tsk_need_resched(prev);
 	clear_preempt_need_resched();
 	rq->clock_skip_update = 0;
 
+	wallclock = sched_ktime_clock();
 	if (likely(prev != next)) {
+		update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
+		update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
+
 		rq->nr_switches++;
 		rq->curr = next;
 		++*switch_count;
@@ -3611,6 +3611,7 @@ static void __sched notrace __schedule(bool preempt)
 		trace_sched_switch(preempt, prev, next);
 		rq = context_switch(rq, prev, next, cookie); /* unlocks the rq */
 	} else {
+		update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
 		lockdep_unpin_lock(&rq->lock, cookie);
 		raw_spin_unlock_irq(&rq->lock);
 	}
