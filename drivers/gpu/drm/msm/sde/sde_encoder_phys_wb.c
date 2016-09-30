@@ -781,15 +781,25 @@ static void sde_encoder_phys_wb_enable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
+	struct drm_device *dev;
 	struct drm_connector *connector;
 
 	SDE_DEBUG("[wb:%d]\n", hw_wb->idx - WB_0);
 
+	if (!wb_enc->base.parent || !wb_enc->base.parent->dev) {
+		SDE_ERROR("invalid drm device\n");
+		return;
+	}
+	dev = wb_enc->base.parent->dev;
+
 	/* find associated writeback connector */
+	mutex_lock(&dev->mode_config.mutex);
 	drm_for_each_connector(connector, phys_enc->parent->dev) {
 		if (connector->encoder == phys_enc->parent)
 			break;
 	}
+	mutex_unlock(&dev->mode_config.mutex);
+
 	if (!connector || connector->encoder != phys_enc->parent) {
 		SDE_ERROR("failed to find writeback connector\n");
 		return;
