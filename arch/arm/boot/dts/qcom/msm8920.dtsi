@@ -135,6 +135,14 @@
 		qcom,ipa-loaduC;
 		qcom,ipa-advertise-sg-support;
 	};
+
+	qcom,sensor-information {
+		sensor_information16: qcom,sensor-information-16 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "bw_mm";
+			qcom,scaling-factor = <1000>;
+		};
+	};
 };
 
 &bam_dmux {
