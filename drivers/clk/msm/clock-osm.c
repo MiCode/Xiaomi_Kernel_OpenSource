@@ -460,7 +460,7 @@ static int clk_osm_set_rate(struct clk *c, unsigned long rate)
 	}
 	pr_debug("rate: %lu --> index %d\n", rate, index);
 
-	if (cpuclk->llm_sw_overr) {
+	if (cpuclk->llm_sw_overr[0]) {
 		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[0],
 				  LLM_SW_OVERRIDE_REG);
 		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[1],
@@ -471,7 +471,7 @@ static int clk_osm_set_rate(struct clk *c, unsigned long rate)
 	/* Choose index and send request to OSM hardware */
 	clk_osm_write_reg(cpuclk, index, DCVS_PERF_STATE_DESIRED_REG);
 
-	if (cpuclk->llm_sw_overr) {
+	if (cpuclk->llm_sw_overr[0]) {
 		udelay(1);
 		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[2],
 				  LLM_SW_OVERRIDE_REG);
