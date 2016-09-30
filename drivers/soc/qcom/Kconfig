@@ -192,3 +192,12 @@ config QCOM_BUS_SCALING
 	allows devices to request the clocks be set to rates sufficient
 	for the active devices needs without keeping the clocks at max
 	frequency when a slower speed is sufficient.
+
+config MSM_SMEM
+	depends on ARCH_QCOM
+	depends on REMOTE_SPINLOCK_MSM
+	bool "MSM Shared Memory (SMEM)"
+	help
+	  Support for the shared memory interface between the various
+	  processors in the System on a Chip (SoC) which allows basic
+	  inter-processor communication.
