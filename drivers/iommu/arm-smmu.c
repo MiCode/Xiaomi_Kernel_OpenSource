@@ -700,8 +700,8 @@ static void arm_smmu_unprepare_clocks(struct arm_smmu_device *smmu)
 {
 	int i;
 
-	for (i = 0; i < smmu->num_clocks; ++i)
-		clk_unprepare(smmu->clocks[i]);
+	for (i = smmu->num_clocks; i; --i)
+		clk_unprepare(smmu->clocks[i - 1]);
 }
 
 /* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
@@ -748,8 +748,8 @@ static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu)
 		return;
 	}
 
-	for (i = 0; i < smmu->num_clocks; ++i)
-		clk_disable(smmu->clocks[i]);
+	for (i = smmu->num_clocks; i; --i)
+		clk_disable(smmu->clocks[i - 1]);
 
 	smmu->clock_refs_count--;
 	spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
