@@ -148,6 +148,13 @@ enum dwc3_id_state {
 	DWC3_ID_FLOAT,
 };
 
+enum dwc3_perf_mode {
+	DWC3_PERF_NOM,
+	DWC3_PERF_SVS,
+	DWC3_PERF_OFF,
+	DWC3_PERF_INVALID,
+};
+
 /* Input bits to state machine (mdwc->inputs) */
 
 #define ID			0
@@ -185,6 +192,7 @@ struct dwc3_msm {
 	struct clk		*xo_clk;
 	struct clk		*core_clk;
 	long			core_clk_rate;
+	long                    core_clk_svs_rate;
 	struct clk		*iface_clk;
 	struct clk		*sleep_clk;
 	struct clk		*utmi_clk;
@@ -218,7 +226,7 @@ struct dwc3_msm {
 	enum usb_otg_state	otg_state;
 	enum usb_chg_state	chg_state;
 	int			pmic_id_irq;
-	struct work_struct	bus_vote_w;
+	enum dwc3_perf_mode     mode;
 	unsigned int		bus_vote;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
@@ -249,6 +257,10 @@ struct dwc3_msm {
 	atomic_t                in_p3;
 	unsigned int		lpm_to_suspend_delay;
 	bool			init;
+
+	u32                     pm_qos_latency;
+	struct pm_qos_request   pm_qos_req_dma;
+	struct delayed_work     perf_vote_work;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -265,6 +277,8 @@ struct dwc3_msm {
 
 #define DSTS_CONNECTSPD_SS		0x4
 
+#define PM_QOS_SAMPLE_SEC		2
+#define PM_QOS_THRESHOLD_NOM		400
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA);
@@ -1948,16 +1962,8 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 	return 0;
 }
 
-static void dwc3_msm_bus_vote_w(struct work_struct *w)
-{
-	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, bus_vote_w);
-	int ret;
-
-	ret = msm_bus_scale_client_update_request(mdwc->bus_perf_client,
-			mdwc->bus_vote);
-	if (ret)
-		dev_err(mdwc->dev, "Failed to reset bus bw vote %d\n", ret);
-}
+static void dwc3_msm_perf_vote_update(struct dwc3_msm *mdwc,
+					enum dwc3_perf_mode mode);
 
 static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 {
@@ -2105,11 +2111,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		clk_disable_unprepare(mdwc->sleep_clk);
 	}
 
-	/* Remove bus voting */
-	if (mdwc->bus_perf_client) {
-		mdwc->bus_vote = 0;
-		schedule_work(&mdwc->bus_vote_w);
-	}
+	cancel_delayed_work_sync(&mdwc->perf_vote_work);
+	dwc3_msm_perf_vote_update(mdwc, DWC3_PERF_OFF);
 
 	/*
 	 * release wakeup source with timeout to defer system suspend to
@@ -2162,12 +2165,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 	pm_stay_awake(mdwc->dev);
-
-	/* Enable bus voting */
-	if (mdwc->bus_perf_client) {
-		mdwc->bus_vote = 1;
-		schedule_work(&mdwc->bus_vote_w);
-	}
 
 	/* Vote for TCXO while waking up USB HSPHY */
 	ret = clk_prepare_enable(mdwc->xo_clk);
@@ -2249,6 +2246,12 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	/* Enable core irq */
 	if (dwc->irq)
 		enable_irq(dwc->irq);
+
+	dwc3_msm_perf_vote_update(mdwc, DWC3_PERF_NOM);
+	if (mdwc->in_host_mode) {
+		schedule_delayed_work(&mdwc->perf_vote_work,
+			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+	}
 
 	/*
 	 * Handle other power events that could not have been handled during
@@ -2681,7 +2684,8 @@ static int dwc3_cpu_notifier_cb(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-static void dwc3_otg_sm_work(struct work_struct *w);
+static void dwc3_msm_otg_sm_work(struct work_struct *w);
+static void dwc3_msm_otg_perf_vote_work(struct work_struct *w);
 
 static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 {
@@ -2740,6 +2744,14 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 		if (ret)
 			dev_err(mdwc->dev, "fail to set core_clk freq:%d\n",
 									ret);
+	}
+
+	if (!of_property_read_u32(mdwc->dev->of_node, "qcom,core-clk-svs-rate",
+				(u32 *)&mdwc->core_clk_svs_rate)) {
+		mdwc->core_clk_svs_rate = clk_round_rate(mdwc->core_clk,
+						mdwc->core_clk_svs_rate);
+	} else {
+		mdwc->core_clk_svs_rate = mdwc->core_clk_rate;
 	}
 
 	mdwc->sleep_clk = devm_clk_get(mdwc->dev, "sleep_clk");
@@ -2805,8 +2817,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mdwc->req_complete_list);
 	INIT_DELAYED_WORK(&mdwc->resume_work, dwc3_resume_work);
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
-	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
-	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
+	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_msm_otg_sm_work);
+	INIT_DELAYED_WORK(&mdwc->perf_vote_work, dwc3_msm_otg_perf_vote_work);
 
 	mdwc->dwc3_wq = alloc_ordered_workqueue("dwc3_wq", 0);
 	if (!mdwc->dwc3_wq) {
@@ -3022,6 +3034,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		gpio_direction_output(ext_hub_reset_gpio, 0);
 	}
 
+	if (of_property_read_u32(node, "qcom,pm-qos-latency",
+				&mdwc->pm_qos_latency))
+		dev_dbg(&pdev->dev, "Unable to read qcom,pm-qos-latency");
+
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-tx-fifo-size",
 				 &mdwc->tx_fifo_size))
 		dev_err(&pdev->dev,
@@ -3234,6 +3250,117 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 #define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
 
+static void dwc3_pm_qos_update_latency(struct dwc3_msm *mdwc, s32 latency)
+{
+	static s32 last_vote;
+#ifdef CONFIG_SMP
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+#endif
+
+	if (latency == last_vote || latency == 0)
+		return;
+
+	pr_debug("%s: latency updated to: %d\n", __func__, latency);
+	if (latency == PM_QOS_DEFAULT_VALUE) {
+		pm_qos_update_request(&mdwc->pm_qos_req_dma,
+					PM_QOS_DEFAULT_VALUE);
+		last_vote = latency;
+		pm_qos_remove_request(&mdwc->pm_qos_req_dma);
+	} else {
+		if (!pm_qos_request_active(&mdwc->pm_qos_req_dma)) {
+			/*
+			 * The default request type PM_QOS_REQ_ALL_CORES is
+			 * applicable to all CPU cores that are online and
+			 * would have a power impact when there are more
+			 * number of CPUs. PM_QOS_REQ_AFFINE_IRQ request
+			 * type shall update/apply the vote only to that CPU to
+			 * which IRQ's affinity is set to.
+			 */
+#ifdef CONFIG_SMP
+			mdwc->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
+			mdwc->pm_qos_req_dma.irq = dwc->irq;
+#endif
+			pm_qos_add_request(&mdwc->pm_qos_req_dma,
+				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		}
+		pm_qos_update_request(&mdwc->pm_qos_req_dma, latency);
+		last_vote = latency;
+	}
+}
+
+static void dwc3_msm_perf_vote_update(struct dwc3_msm *mdwc,
+					enum dwc3_perf_mode mode)
+{
+	static enum dwc3_perf_mode curr_mode = DWC3_PERF_INVALID;
+	int latency = mdwc->pm_qos_latency, ret;
+	long core_clk_rate = mdwc->core_clk_rate;
+
+	if (curr_mode == mode)
+		return;
+
+	curr_mode = mode;
+	switch (mode) {
+	case DWC3_PERF_NOM:
+		latency = mdwc->pm_qos_latency;
+		mdwc->bus_vote = 2;
+		core_clk_rate = mdwc->core_clk_rate;
+		break;
+	case DWC3_PERF_SVS:
+		latency = PM_QOS_DEFAULT_VALUE;
+		mdwc->bus_vote = 1;
+		core_clk_rate = mdwc->core_clk_svs_rate;
+		break;
+	case DWC3_PERF_OFF:
+		latency = PM_QOS_DEFAULT_VALUE;
+		mdwc->bus_vote = 0;
+		break;
+	default:
+		dev_dbg(mdwc->dev, "perf mode incorrect hit!\n");
+		break;
+	}
+
+	/* update dma latency */
+	dwc3_pm_qos_update_latency(mdwc, latency);
+
+	 /* Vote for bus bandwidth */
+	dev_dbg(mdwc->dev, "bus vote for index %d\n", mdwc->bus_vote);
+	ret = msm_bus_scale_client_update_request(mdwc->bus_perf_client,
+							mdwc->bus_vote);
+	if (ret)
+		dev_err(mdwc->dev, "Fail to vote for bus. error code: %d\n",
+			ret);
+
+	/* Set USB clock */
+	if (mode != DWC3_PERF_OFF)
+		clk_set_rate(mdwc->core_clk, core_clk_rate);
+}
+
+/*
+ * Execute this work periodically, check USB interrupt load to set NOM/SVS mode,
+ * set pm_qos latency, clockrate and bus bandwidth accordingly.
+ */
+static void dwc3_msm_otg_perf_vote_work(struct work_struct *w)
+{
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
+					perf_vote_work.work);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	static unsigned long last_irq_count;
+	enum dwc3_perf_mode mode = DWC3_PERF_INVALID;
+
+	if (dwc->irq_cnt - last_irq_count >= PM_QOS_THRESHOLD_NOM)
+		mode = DWC3_PERF_NOM;
+	else
+		mode = DWC3_PERF_SVS;
+
+	dev_dbg(mdwc->dev, "irq_cnt: %lu, last_irq_count: %lu, mode: %d\n",
+		dwc->irq_cnt, last_irq_count, (int) mode);
+	last_irq_count = dwc->irq_cnt;
+
+	dwc3_msm_perf_vote_update(mdwc, mode);
+	schedule_delayed_work(&mdwc->perf_vote_work,
+				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+}
+
 /**
  * dwc3_otg_start_host -  helper function for starting/stoping the host controller driver.
  *
@@ -3331,6 +3458,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			atomic_read(&mdwc->dev->power.usage_count));
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
+		dwc3_msm_perf_vote_update(mdwc, DWC3_PERF_NOM);
+		schedule_delayed_work(&mdwc->perf_vote_work,
+			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off host\n", __func__);
 
@@ -3342,6 +3472,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			return ret;
 		}
 
+		cancel_delayed_work_sync(&mdwc->perf_vote_work);
+		dwc3_msm_perf_vote_update(mdwc, DWC3_PERF_OFF);
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&mdwc->dev->power.usage_count));
@@ -3422,6 +3554,8 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		usb_gadget_vbus_connect(&dwc->gadget);
+
+		dwc3_msm_perf_vote_update(mdwc, DWC3_PERF_NOM);
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off gadget %s\n",
 					__func__, dwc->gadget.name);
@@ -3430,6 +3564,8 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
 		dwc3_override_vbus_status(mdwc, false);
 		dwc3_gadget_usb3_phy_suspend(dwc, false);
+		cancel_delayed_work_sync(&mdwc->perf_vote_work);
+		dwc3_msm_perf_vote_update(mdwc, DWC3_PERF_OFF);
 	}
 
 	pm_runtime_put_sync(mdwc->dev);
@@ -3545,11 +3681,6 @@ static void dwc3_initialize(struct dwc3_msm *mdwc)
 	dbg_event(0xFF, "Initialized Start",
 			atomic_read(&mdwc->dev->power.usage_count));
 
-	if (mdwc->bus_perf_client) {
-		mdwc->bus_vote = 1;
-		schedule_work(&mdwc->bus_vote_w);
-	}
-
 	/* enable USB GDSC */
 	dwc3_msm_config_gdsc(mdwc, 1);
 
@@ -3583,13 +3714,13 @@ static void dwc3_initialize(struct dwc3_msm *mdwc)
 }
 
 /**
- * dwc3_otg_sm_work - workqueue function.
+ * dwc3_msm_otg_sm_work - workqueue function.
  *
  * @w: Pointer to the dwc3 otg workqueue
  *
  * NOTE: After any change in otg_state, we must reschdule the state machine.
  */
-static void dwc3_otg_sm_work(struct work_struct *w)
+static void dwc3_msm_otg_sm_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, sm_work.work);
 	struct dwc3 *dwc = NULL;
