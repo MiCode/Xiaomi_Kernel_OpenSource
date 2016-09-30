@@ -959,6 +959,48 @@ static void print_cap(const char *type,
 		type, cap->min, cap->max, cap->step_size);
 }
 
+
+static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
+{
+	struct v4l2_ctrl *ctrl = NULL;
+
+	ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
+		V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE);
+	if (ctrl) {
+		v4l2_ctrl_modify_range(ctrl, inst->capability.hier_p_hybrid.min,
+			inst->capability.hier_p_hybrid.max, ctrl->step,
+			inst->capability.hier_p_hybrid.min);
+		dprintk(VIDC_DBG,
+			"%s: Updated Range = %lld --> %lld Def value = %lld\n",
+			ctrl->name, ctrl->minimum, ctrl->maximum,
+			ctrl->default_value);
+	}
+
+	ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
+		V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS);
+	if (ctrl) {
+		v4l2_ctrl_modify_range(ctrl, inst->capability.hier_b.min,
+			inst->capability.hier_b.max, ctrl->step,
+			inst->capability.hier_b.min);
+		dprintk(VIDC_DBG,
+			"%s: Updated Range = %lld --> %lld Def value = %lld\n",
+			ctrl->name, ctrl->minimum, ctrl->maximum,
+			ctrl->default_value);
+	}
+
+	ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
+		V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS);
+	if (ctrl) {
+		v4l2_ctrl_modify_range(ctrl, inst->capability.hier_p.min,
+			inst->capability.hier_p.max, ctrl->step,
+			inst->capability.hier_p.min);
+		dprintk(VIDC_DBG,
+			"%s: Updated Range = %lld --> %lld Def value = %lld\n",
+			ctrl->name, ctrl->minimum, ctrl->maximum,
+			ctrl->default_value);
+	}
+}
+
 static void handle_session_init_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
@@ -1052,8 +1094,16 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("ltr_count", &inst->capability.ltr_count);
 	print_cap("mbs_per_sec_low_power",
 		&inst->capability.mbs_per_sec_power_save);
+	print_cap("hybrid-hp", &inst->capability.hier_p_hybrid);
 
 	signal_session_msg_receipt(cmd, inst);
+
+	/*
+	 * Update controls after informing session_init_done to avoid
+	 * timeouts.
+	 */
+
+	msm_vidc_comm_update_ctrl_limits(inst);
 	put_inst(inst);
 }
 
