@@ -18,11 +18,14 @@ struct pixart_pat9125_data {
 	struct i2c_client *client;
 	struct input_dev *input;
 	int irq_gpio;
-	u32 irq_flags;
 	u32 press_keycode;
 	bool press_en;
 	bool inverse_x;
 	bool inverse_y;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+	struct pinctrl_state *pinctrl_state_release;
 };
 
 static int pat9125_i2c_write(struct i2c_client *client, u8 reg, u8 *data,
@@ -197,6 +200,44 @@ static struct attribute_group pat9125_attr_grp = {
 	.attrs = pat9125_attr_list,
 };
 
+static int pixart_pinctrl_init(struct pixart_pat9125_data *data)
+{
+	int err;
+	struct device *dev = &data->client->dev;
+
+	data->pinctrl = devm_pinctrl_get(&(data->client->dev));
+	if (IS_ERR_OR_NULL(data->pinctrl)) {
+		err = PTR_ERR(data->pinctrl);
+		dev_err(dev, "Target does not use pinctrl %d\n", err);
+		return err;
+	}
+
+	data->pinctrl_state_active = pinctrl_lookup_state(data->pinctrl,
+			PINCTRL_STATE_ACTIVE);
+	if (IS_ERR_OR_NULL(data->pinctrl_state_active)) {
+		err = PTR_ERR(data->pinctrl_state_active);
+		dev_err(dev, "Can not lookup active pinctrl state %d\n", err);
+		return err;
+	}
+
+	data->pinctrl_state_suspend = pinctrl_lookup_state(data->pinctrl,
+			PINCTRL_STATE_SUSPEND);
+	if (IS_ERR_OR_NULL(data->pinctrl_state_suspend)) {
+		err = PTR_ERR(data->pinctrl_state_suspend);
+		dev_err(dev, "Can not lookup suspend pinctrl state %d\n", err);
+		return err;
+	}
+
+	data->pinctrl_state_release = pinctrl_lookup_state(data->pinctrl,
+			PINCTRL_STATE_RELEASE);
+	if (IS_ERR_OR_NULL(data->pinctrl_state_release)) {
+		err = PTR_ERR(data->pinctrl_state_release);
+		dev_err(dev, "Can not lookup release pinctrl state %d\n", err);
+		return err;
+	}
+	return 0;
+}
+
 static int pat9125_parse_dt(struct device *dev,
 		struct pixart_pat9125_data *data)
 {
@@ -217,6 +258,9 @@ static int pat9125_parse_dt(struct device *dev,
 			return ret;
 		}
 	}
+
+	data->irq_gpio = of_get_named_gpio_flags(np, "pixart,irq-gpio",
+						0, NULL);
 
 	return 0;
 }
@@ -272,24 +316,39 @@ static int pat9125_i2c_probe(struct i2c_client *client,
 	err = input_register_device(data->input);
 	if (err < 0) {
 		dev_err(dev, "Failed to register input device\n");
-		goto err_register_input_device;
-	}
-
-	if (!gpio_is_valid(data->irq_gpio)) {
-		dev_err(dev, "invalid irq_gpio: %d\n", data->irq_gpio);
-		return -EINVAL;
-	}
-
-	err = gpio_request(data->irq_gpio, "pixart_pat9125_irq_gpio");
-	if (err) {
-		dev_err(dev, "unable to request gpio %d\n", data->irq_gpio);
 		return err;
 	}
 
-	err = gpio_direction_input(data->irq_gpio);
-	if (err) {
-		dev_err(dev, "unable to set dir for gpio %d\n", data->irq_gpio);
-		goto free_gpio;
+	err = pixart_pinctrl_init(data);
+	if (!err && data->pinctrl) {
+		/*
+		 * Pinctrl handle is optional. If pinctrl handle is found
+		 * let pins to be configured in active state. If not
+		 * found continue further without error.
+		 */
+		err = pinctrl_select_state(data->pinctrl,
+				data->pinctrl_state_active);
+		if (err < 0)
+			dev_err(dev, "Could not set pin to active state %d\n",
+									err);
+	} else {
+		if (gpio_is_valid(data->irq_gpio)) {
+			err = devm_gpio_request(dev, data->irq_gpio,
+						"pixart_pat9125_irq_gpio");
+			if (err) {
+				dev_err(dev, "Couldn't request gpio %d\n", err);
+				return err;
+			}
+			err = gpio_direction_input(data->irq_gpio);
+			if (err) {
+				dev_err(dev, "Couldn't set dir for gpio %d\n",
+									err);
+				return err;
+			}
+		} else {
+			dev_err(dev, "Invalid gpio %d\n", data->irq_gpio);
+			return -EINVAL;
+		}
 	}
 
 	if (!ots_sensor_init(client)) {
@@ -316,33 +375,59 @@ static int pat9125_i2c_probe(struct i2c_client *client,
 err_sysfs_create:
 err_request_threaded_irq:
 err_sensor_init:
-free_gpio:
-	gpio_free(data->irq_gpio);
-err_register_input_device:
-	input_free_device(data->input);
+	if (data->pinctrl)
+		if (pinctrl_select_state(data->pinctrl,
+				data->pinctrl_state_release) < 0)
+			dev_err(dev, "Couldn't set pin to release state\n");
+
 	return err;
 }
 
 static int pat9125_i2c_remove(struct i2c_client *client)
 {
 	struct pixart_pat9125_data *data = i2c_get_clientdata(client);
+	struct device *dev = &data->client->dev;
 
-	devm_free_irq(&client->dev, client->irq, data);
-	if (gpio_is_valid(data->irq_gpio))
-		gpio_free(data->irq_gpio);
-	input_unregister_device(data->input);
-	devm_kfree(&client->dev, data);
-	data = NULL;
+	if (data->pinctrl)
+		if (pinctrl_select_state(data->pinctrl,
+				data->pinctrl_state_release) < 0)
+			dev_err(dev, "Couldn't set pin to release state\n");
 	return 0;
 }
 
 static int pat9125_suspend(struct device *dev)
 {
+	int rc;
+	struct pixart_pat9125_data *data =
+		(struct pixart_pat9125_data *)dev->driver_data;
+
+	disable_irq(data->client->irq);
+	if (data->pinctrl) {
+		rc = pinctrl_select_state(data->pinctrl,
+				data->pinctrl_state_suspend);
+		if (rc < 0)
+			dev_err(dev, "Could not set pin to suspend state %d\n",
+									rc);
+	}
+
 	return 0;
 }
 
 static int pat9125_resume(struct device *dev)
 {
+	int rc;
+	struct pixart_pat9125_data *data =
+		(struct pixart_pat9125_data *)dev->driver_data;
+
+	if (data->pinctrl) {
+		rc = pinctrl_select_state(data->pinctrl,
+				data->pinctrl_state_active);
+		if (rc < 0)
+			dev_err(dev, "Could not set pin to active state %d\n",
+									rc);
+	}
+	enable_irq(data->client->irq);
+
 	return 0;
 }
 
