@@ -59,6 +59,7 @@ enum usbpd_state {
 	PE_PRS_SRC_SNK_SEND_SWAP,
 	PE_PRS_SRC_SNK_TRANSITION_TO_OFF,
 	PE_PRS_SRC_SNK_WAIT_SOURCE_ON,
+	PE_VCS_WAIT_FOR_VCONN,
 };
 
 static const char * const usbpd_state_strings[] = {
@@ -94,6 +95,7 @@ static const char * const usbpd_state_strings[] = {
 	"PRS_SRC_SNK_Send_Swap",
 	"PRS_SRC_SNK_Transition_to_off",
 	"PRS_SRC_SNK_Wait_Source_on",
+	"VCS_Wait_for_VCONN",
 };
 
 enum usbpd_control_msg_type {
@@ -170,6 +172,7 @@ static void *usbpd_ipc_log;
 #define PS_SOURCE_OFF		750
 #define SWAP_SOURCE_START_TIME	20
 #define VDM_BUSY_TIME		50
+#define VCONN_ON_TIME		100
 
 /* tPSHardReset + tSafe0V + tSrcRecover + tSrcTurnOn */
 #define SNK_HARD_RESET_RECOVER_TIME	(35 + 650 + 1000 + 275)
@@ -305,6 +308,7 @@ struct usbpd {
 	struct regulator	*vbus;
 	struct regulator	*vconn;
 	bool			vconn_enabled;
+	bool			vconn_is_external;
 
 	u8			tx_msgid;
 	u8			rx_msgid;
@@ -439,6 +443,12 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos)
 	}
 
 	pd->requested_voltage = PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50 * 1000;
+
+	/* Can't sink more than 5V if VCONN is sourced from the VBUS input */
+	if (pd->vconn_enabled && !pd->vconn_is_external &&
+			pd->requested_voltage > 5000000)
+		return -ENOTSUPP;
+
 	pd->requested_current = curr;
 	pd->requested_pdo = pdo_pos;
 	pd->rdo = PD_RDO_FIXED(pdo_pos, 0, mismatch, 1, 1, curr / 10,
@@ -1314,6 +1324,34 @@ static void dr_swap(struct usbpd *pd)
 	pd_phy_update_roles(pd->current_dr, pd->current_pr);
 }
 
+
+static void vconn_swap(struct usbpd *pd)
+{
+	int ret;
+
+	if (pd->vconn_enabled) {
+		pd->current_state = PE_VCS_WAIT_FOR_VCONN;
+		kick_sm(pd, VCONN_ON_TIME);
+	} else {
+		ret = regulator_enable(pd->vconn);
+		if (ret) {
+			usbpd_err(&pd->dev, "Unable to enable vconn\n");
+			return;
+		}
+
+		pd->vconn_enabled = true;
+
+		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
+		if (ret) {
+			usbpd_err(&pd->dev, "Error sending PS_RDY\n");
+			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
+					PE_SRC_SEND_SOFT_RESET :
+					PE_SNK_SEND_SOFT_RESET);
+			return;
+		}
+	}
+}
+
 /* Handles current state and determines transitions */
 static void usbpd_sm(struct work_struct *w)
 {
@@ -1545,6 +1583,15 @@ static void usbpd_sm(struct work_struct *w)
 			pd->current_state = PE_PRS_SRC_SNK_TRANSITION_TO_OFF;
 			kick_sm(pd, SRC_TRANSITION_TIME);
 			break;
+		} else if (ctrl_recvd == MSG_VCONN_SWAP) {
+			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
+			if (ret) {
+				usbpd_err(&pd->dev, "Error sending Accept\n");
+				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				break;
+			}
+
+			vconn_swap(pd);
 		} else {
 			if (data_recvd == MSG_VDM)
 				handle_vdm_rx(pd);
@@ -1689,6 +1736,32 @@ static void usbpd_sm(struct work_struct *w)
 			pd->in_pr_swap = true;
 			usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 			break;
+		} else if (ctrl_recvd == MSG_VCONN_SWAP) {
+			/*
+			 * if VCONN is connected to VBUS, make sure we are
+			 * not in high voltage contract, otherwise reject.
+			 */
+			if (!pd->vconn_is_external &&
+					(pd->requested_voltage > 5000000)) {
+				ret = pd_send_msg(pd, MSG_REJECT, NULL, 0,
+						SOP_MSG);
+				if (ret) {
+					usbpd_err(&pd->dev, "Error sending Reject\n");
+					usbpd_set_state(pd,
+							PE_SNK_SEND_SOFT_RESET);
+				}
+
+				break;
+			}
+
+			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
+			if (ret) {
+				usbpd_err(&pd->dev, "Error sending Accept\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
+			}
+
+			vconn_swap(pd);
 		} else {
 			if (data_recvd == MSG_VDM)
 				handle_vdm_rx(pd);
@@ -1857,6 +1930,26 @@ static void usbpd_sm(struct work_struct *w)
 		}
 
 		usbpd_set_state(pd, PE_SRC_STARTUP);
+		break;
+
+	case PE_VCS_WAIT_FOR_VCONN:
+		if (ctrl_recvd == MSG_PS_RDY) {
+			/*
+			 * hopefully redundant check but in case not enabled
+			 * avoids unbalanced regulator disable count
+			 */
+			if (pd->vconn_enabled)
+				regulator_disable(pd->vconn);
+			pd->vconn_enabled = false;
+
+			pd->current_state = pd->current_pr == PR_SRC ?
+				PE_SRC_READY : PE_SNK_READY;
+		} else {
+			/* timed out; go to hard reset */
+			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
+					PE_SRC_HARD_RESET : PE_SNK_HARD_RESET);
+		}
+
 		break;
 
 	default:
@@ -2502,6 +2595,9 @@ struct usbpd *usbpd_create(struct device *parent)
 		ret = PTR_ERR(pd->vconn);
 		goto unreg_psy;
 	}
+
+	pd->vconn_is_external = device_property_present(parent,
+					"qcom,vconn-uses-external-source");
 
 	pd->current_pr = PR_NONE;
 	pd->current_dr = DR_NONE;
