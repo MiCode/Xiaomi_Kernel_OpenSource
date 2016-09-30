@@ -297,6 +297,7 @@ enum icnss_driver_state {
 	ICNSS_PDR_ENABLED,
 	ICNSS_PD_RESTART,
 	ICNSS_MSA0_ASSIGNED,
+	ICNSS_WLFW_EXISTS,
 };
 
 struct ce_irq_list {
@@ -2214,6 +2215,8 @@ static int icnss_driver_event_server_arrive(void *data)
 	if (!penv)
 		return -ENODEV;
 
+	set_bit(ICNSS_WLFW_EXISTS, &penv->state);
+
 	penv->wlfw_clnt = qmi_handle_create(icnss_qmi_wlfw_clnt_notify, penv);
 	if (!penv->wlfw_clnt) {
 		icnss_pr_err("QMI client handle create failed\n");
@@ -2511,6 +2514,9 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 {
 	int ret = 0;
 	struct icnss_event_pd_service_down_data *event_data = data;
+
+	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
+		return 0;
 
 	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
 		icnss_pr_err("PD Down while recovery inprogress, crashed: %d, state: 0x%lx\n",
@@ -3831,6 +3837,8 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_MSA0_ASSIGNED:
 			seq_puts(s, "MSA0 ASSIGNED");
+			continue;
+		case ICNSS_WLFW_EXISTS:
 			continue;
 		}
 
