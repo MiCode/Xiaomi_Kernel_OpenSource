@@ -1807,6 +1807,9 @@ static int tavil_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 		tavil_codec_override(codec, tavil->hph_mode, event);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+		blocking_notifier_call_chain(&tavil->mbhc->notifier,
+					     WCD_EVENT_PRE_HPHR_PA_OFF,
+					     &tavil->mbhc->wcd_mbhc);
 		/* Enable DSD Mute before PA disable */
 		if (dsd_conf &&
 		    (snd_soc_read(codec, WCD934X_CDC_DSD1_PATH_CTL) & 0x01))
@@ -1814,11 +1817,14 @@ static int tavil_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 					    0x04, 0x04);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		tavil_codec_override(codec, tavil->hph_mode, event);
-		snd_soc_update_bits(codec, WCD934X_HPH_REFBUFF_LP_CTL,
-				    0x06, 0x0);
 		/* 5ms sleep is required after PA disable */
 		usleep_range(5000, 5100);
+		tavil_codec_override(codec, tavil->hph_mode, event);
+		blocking_notifier_call_chain(&tavil->mbhc->notifier,
+					     WCD_EVENT_POST_HPHR_PA_OFF,
+					     &tavil->mbhc->wcd_mbhc);
+		snd_soc_update_bits(codec, WCD934X_HPH_REFBUFF_LP_CTL,
+				    0x06, 0x0);
 		break;
 	};
 
@@ -1876,6 +1882,9 @@ static int tavil_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 		tavil_codec_override(codec, tavil->hph_mode, event);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+		blocking_notifier_call_chain(&tavil->mbhc->notifier,
+					     WCD_EVENT_PRE_HPHL_PA_OFF,
+					     &tavil->mbhc->wcd_mbhc);
 		/* Enable DSD Mute before PA disable */
 		if (dsd_conf &&
 		    (snd_soc_read(codec, WCD934X_CDC_DSD0_PATH_CTL) & 0x01))
@@ -1883,11 +1892,14 @@ static int tavil_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 					    0x04, 0x04);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		tavil_codec_override(codec, tavil->hph_mode, event);
-		snd_soc_update_bits(codec, WCD934X_HPH_REFBUFF_LP_CTL,
-				    0x06, 0x0);
 		/* 5ms sleep is required after PA disable */
 		usleep_range(5000, 5100);
+		tavil_codec_override(codec, tavil->hph_mode, event);
+		blocking_notifier_call_chain(&tavil->mbhc->notifier,
+					     WCD_EVENT_POST_HPHL_PA_OFF,
+					     &tavil->mbhc->wcd_mbhc);
+		snd_soc_update_bits(codec, WCD934X_HPH_REFBUFF_LP_CTL,
+				    0x06, 0x0);
 		break;
 	};
 
