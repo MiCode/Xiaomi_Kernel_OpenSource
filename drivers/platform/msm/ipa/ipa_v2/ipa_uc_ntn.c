@@ -153,10 +153,16 @@ int ipa2_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data)
 {
 	int ret;
 
+	if (!ipa_ctx) {
+		IPAERR("IPA ctx is null\n");
+		return -ENXIO;
+	}
+
 	ret = ipa2_uc_state_check();
 	if (ret) {
 		ipa_ctx->uc_ntn_ctx.uc_ready_cb = ipa_ready_cb;
 		ipa_ctx->uc_ntn_ctx.priv = user_data;
+		return 0;
 	}
 
 	return -EEXIST;
