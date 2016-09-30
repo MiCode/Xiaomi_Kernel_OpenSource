@@ -97,6 +97,10 @@
 	mhi-dev-address-win-size = <0x10 0x00000000>;
 };
 
+&mhi_rmnet_0 {
+	status = "okay";
+};
+
 &pm8994_mpps {
 	mpp@a100 { /* MPP 2*/
 		/* MDM PON conrol*/
