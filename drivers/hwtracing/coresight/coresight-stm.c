@@ -22,9 +22,7 @@
  * generic STM API by Chunyan Zhang
  * (C) 2015-2016 Chunyan Zhang <zhang.chunyan@linaro.org>
  */
-#include <asm/local.h>
 #include <linux/amba/bus.h>
-#include <linux/bitmap.h>
 #include <linux/clk.h>
 #include <linux/coresight.h>
 #include <linux/coresight-stm.h>
@@ -36,6 +34,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/stm.h>
 
+#include "coresight-ost.h"
 #include "coresight-priv.h"
 
 #define STMDMASTARTR			0xc04
@@ -73,24 +72,12 @@
 #define STMITATBCTR0			0xef8
 
 #define STM_32_CHANNEL			32
-#define BYTES_PER_CHANNEL		256
-#define STM_TRACE_BUF_SIZE		4096
 #define STM_SW_MASTER_END		127
 
 /* Register bit definition */
 #define STMTCSR_BUSY_BIT		23
 /* Reserve the first 10 channels for kernel usage */
 #define STM_CHANNEL_OFFSET		0
-
-enum stm_pkt_type {
-	STM_PKT_TYPE_DATA	= 0x98,
-	STM_PKT_TYPE_FLAG	= 0xE8,
-	STM_PKT_TYPE_TRIG	= 0xF8,
-};
-
-#define stm_channel_addr(drvdata, ch)	(drvdata->chs.base +	\
-					(ch * BYTES_PER_CHANNEL))
-#define stm_channel_off(type, opts)	(type & ~opts)
 
 static int boot_nr_channel;
 
@@ -101,54 +88,6 @@ static int boot_nr_channel;
 module_param_named(
 	boot_nr_channel, boot_nr_channel, int, S_IRUGO
 );
-
-/**
- * struct channel_space - central management entity for extended ports
- * @base:		memory mapped base address where channels start.
- * @guaraneed:		is the channel delivery guaranteed.
- */
-struct channel_space {
-	void __iomem		*base;
-	unsigned long		*guaranteed;
-};
-
-/**
- * struct stm_drvdata - specifics associated to an STM component
- * @base:		memory mapped base address for this component.
- * @dev:		the device entity associated to this component.
- * @atclk:		optional clock for the core parts of the STM.
- * @csdev:		component vitals needed by the framework.
- * @spinlock:		only one at a time pls.
- * @chs:		the channels accociated to this STM.
- * @stm:		structure associated to the generic STM interface.
- * @mode:		this tracer's mode, i.e sysFS, or disabled.
- * @traceid:		value of the current ID for this component.
- * @write_bytes:	Maximus bytes this STM can write at a time.
- * @stmsper:		settings for register STMSPER.
- * @stmspscr:		settings for register STMSPSCR.
- * @numsp:		the total number of stimulus port support by this STM.
- * @stmheer:		settings for register STMHEER.
- * @stmheter:		settings for register STMHETER.
- * @stmhebsr:		settings for register STMHEBSR.
- */
-struct stm_drvdata {
-	void __iomem		*base;
-	struct device		*dev;
-	struct clk		*atclk;
-	struct coresight_device	*csdev;
-	spinlock_t		spinlock;
-	struct channel_space	chs;
-	struct stm_data		stm;
-	local_t			mode;
-	u8			traceid;
-	u32			write_bytes;
-	u32			stmsper;
-	u32			stmspscr;
-	u32			numsp;
-	u32			stmheer;
-	u32			stmheter;
-	u32			stmhebsr;
-};
 
 static void stm_hwevent_enable_hw(struct stm_drvdata *drvdata)
 {
@@ -214,6 +153,7 @@ static int stm_enable(struct coresight_device *csdev,
 
 	spin_lock(&drvdata->spinlock);
 	stm_enable_hw(drvdata);
+	drvdata->enable = true;
 	spin_unlock(&drvdata->spinlock);
 
 	dev_info(drvdata->dev, "STM tracing enabled\n");
@@ -304,7 +244,7 @@ static inline bool stm_addr_unaligned(const void *addr, u8 write_bytes)
 	return ((unsigned long)addr & (write_bytes - 1));
 }
 
-static void stm_send(void *addr, const void *data, u32 size, u8 write_bytes)
+void stm_send(void *addr, const void *data, u32 size, u8 write_bytes)
 {
 	u8 paload[8];
 
@@ -333,6 +273,7 @@ static void stm_send(void *addr, const void *data, u32 size, u8 write_bytes)
 		break;
 	}
 }
+EXPORT_SYMBOL(stm_send);
 
 static int stm_generic_link(struct stm_data *stm_data,
 			    unsigned int master,  unsigned int channel)
@@ -351,6 +292,10 @@ static void stm_generic_unlink(struct stm_data *stm_data,
 	struct stm_drvdata *drvdata = container_of(stm_data,
 						   struct stm_drvdata, stm);
 	if (!drvdata || !drvdata->csdev)
+		return;
+
+	/* If any OST entity is enabled do not disable the device */
+	if (drvdata->entities)
 		return;
 
 	stm_disable(drvdata->csdev);
@@ -615,6 +560,48 @@ static ssize_t traceid_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(traceid);
 
+static ssize_t entities_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct stm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	ssize_t len;
+
+	len = scnprintf(buf, PAGE_SIZE, "%*pb\n",
+			OST_ENTITY_MAX, drvdata->entities);
+
+	if (PAGE_SIZE - len < 2)
+		len = -EINVAL;
+	else
+		len += scnprintf(buf + len, 2, "\n");
+
+	return len;
+}
+
+static ssize_t entities_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct stm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val1, val2;
+
+	if (sscanf(buf, "%lx %lx", &val1, &val2) != 2)
+		return -EINVAL;
+
+	if (val1 >= OST_ENTITY_MAX)
+		return -EINVAL;
+
+	if (!stm_ost_configured())
+		return -EPERM;
+
+	if (val2)
+		__set_bit(val1, drvdata->entities);
+	else
+		__clear_bit(val1, drvdata->entities);
+
+	return size;
+}
+static DEVICE_ATTR_RW(entities);
+
 #define coresight_stm_simple_func(name, offset)	\
 	coresight_simple_func(struct stm_drvdata, name, offset)
 
@@ -637,6 +624,7 @@ static struct attribute *coresight_stm_attrs[] = {
 	&dev_attr_port_enable.attr,
 	&dev_attr_port_select.attr,
 	&dev_attr_traceid.attr,
+	&dev_attr_entities.attr,
 	NULL,
 };
 
@@ -738,12 +726,12 @@ static void stm_init_default_data(struct stm_drvdata *drvdata)
 	drvdata->stmsper = ~0x0;
 
 	/*
-	 * The trace ID value for *ETM* tracers start at CPU_ID * 2 + 0x10 and
-	 * anything equal to or higher than 0x70 is reserved.  Since 0x00 is
-	 * also reserved the STM trace ID needs to be higher than 0x00 and
-	 * lowner than 0x10.
+	 * The trace ID value for *ETM* tracers start at CPU_ID + 0x1 and
+	 * anything equal to or higher than 0x70 is reserved. Since 0x00 is
+	 * also reserved the STM trace ID needs to be higher than number
+	 * of cpu i.e 0x8 in our case and lower than 0x70.
 	 */
-	drvdata->traceid = 0x1;
+	drvdata->traceid = 0x10;
 
 	/* Set invariant transaction timing on all channels */
 	bitmap_clear(drvdata->chs.guaranteed, 0, drvdata->numsp);
@@ -761,6 +749,8 @@ static void stm_init_generic_data(struct stm_drvdata *drvdata)
 	drvdata->stm.sw_end = 1;
 	drvdata->stm.hw_override = true;
 	drvdata->stm.sw_nchannels = drvdata->numsp;
+	drvdata->stm.ost_configured = stm_ost_configured;
+	drvdata->stm.ost_packet = stm_ost_packet;
 	drvdata->stm.packet = stm_generic_packet;
 	drvdata->stm.link = stm_generic_link;
 	drvdata->stm.unlink = stm_generic_unlink;
@@ -826,6 +816,11 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 				 BYTES_PER_CHANNEL), resource_size(res));
 	}
 	bitmap_size = BITS_TO_LONGS(drvdata->numsp) * sizeof(long);
+
+	/* Store the driver data pointer for use in exported functions */
+	ret = stm_set_ost_params(drvdata, bitmap_size);
+	if (ret)
+		return ret;
 
 	guaranteed = devm_kzalloc(dev, bitmap_size, GFP_KERNEL);
 	if (!guaranteed)

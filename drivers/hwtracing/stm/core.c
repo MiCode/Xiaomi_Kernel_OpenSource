@@ -433,17 +433,23 @@ static ssize_t stm_write(struct stm_data *data, unsigned int master,
 	size_t pos;
 	ssize_t sz;
 
-	for (pos = 0, p = buf; count > pos; pos += sz, p += sz) {
-		sz = min_t(unsigned int, count - pos, 8);
-		sz = data->packet(data, master, channel, STP_PACKET_DATA, flags,
-				  sz, p);
-		flags = 0;
+	if (data->ost_configured()) {
+		pos = data->ost_packet(data, count, buf);
+	} else {
+		for (pos = 0, p = buf; count > pos; pos += sz, p += sz) {
+			sz = min_t(unsigned int, count - pos, 8);
+			sz = data->packet(data, master, channel,
+					  STP_PACKET_DATA, flags,
+					  sz, p);
+			flags = 0;
 
-		if (sz < 0)
-			break;
+			if (sz < 0)
+				break;
+		}
+
+		data->packet(data, master, channel, STP_PACKET_FLAG, 0,
+			     0, &nil);
 	}
-
-	data->packet(data, master, channel, STP_PACKET_FLAG, 0, 0, &nil);
 
 	return pos;
 }
