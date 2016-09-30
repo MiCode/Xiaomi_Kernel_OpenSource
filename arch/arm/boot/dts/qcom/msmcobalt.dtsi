@@ -2191,7 +2191,9 @@
 		reg-names = "tsens_physical";
 		interrupts = <0 458 0>, <0 445 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
-		qcom,sensors = <14>;
+		qcom,client-id = <0 1 2 3 4 7 8 9 10 11 12 13>;
+		qcom,sensor-id = <0 1 2 3 4 7 8 9 10 11 12 13>;
+		qcom,sensors = <12>;
 	};
 
 	tsens1: tsens@10ad000 {
@@ -2230,16 +2232,6 @@
 		sensor_information4: qcom,sensor-information-4 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor4";
-			qcom,scaling-factor = <10>;
-		};
-		sensor_information5: qcom,sensor-information-5 {
-			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor5";
-			qcom,scaling-factor = <10>;
-		};
-		sensor_information6: qcom,sensor-information-6 {
-			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor6";
 			qcom,scaling-factor = <10>;
 		};
 		sensor_information7: qcom,sensor-information-7 {
@@ -2628,6 +2620,7 @@
 		 "iface_clk", "noc_axi_clk", "bus_clk", "maxi_clk";
 
 		qcom,pas-id = <9>;
+		qcom,msm-bus,name = "pil-venus";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =

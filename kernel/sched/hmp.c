@@ -19,6 +19,7 @@
 #include <linux/syscore_ops.h>
 
 #include "sched.h"
+#include "core_ctl.h"
 
 #include <trace/events/sched.h>
 
@@ -1090,6 +1091,8 @@ int sched_set_boost(int enable)
 	if (!old_refcount && boost_refcount)
 		boost_kick_cpus();
 
+	if (boost_refcount <= 1)
+		core_ctl_set_boost(boost_refcount == 1);
 	trace_sched_set_boost(boost_refcount);
 	spin_unlock_irqrestore(&boost_lock, flags);
 
@@ -1499,28 +1502,10 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	if (write && (old_val == *data))
 		goto done;
 
-	/*
-	 * Special handling for sched_freq_aggregate_threshold_pct
-	 * which can be greater than 100. Use 1000 as an upper bound
-	 * value which works for all practical use cases.
-	 */
-	if (data == &sysctl_sched_freq_aggregate_threshold_pct) {
-		if (*data > 1000) {
-			*data = old_val;
-			ret = -EINVAL;
-			goto done;
-		}
-	} else if (data != &sysctl_sched_select_prev_cpu_us) {
-		/*
-		 * all tunables other than sched_select_prev_cpu_us are
-		 * in percentage.
-		 */
-		if (sysctl_sched_downmigrate_pct >
-		    sysctl_sched_upmigrate_pct || *data > 100) {
-			*data = old_val;
-			ret = -EINVAL;
-			goto done;
-		}
+	if (sysctl_sched_downmigrate_pct > sysctl_sched_upmigrate_pct) {
+		*data = old_val;
+		ret = -EINVAL;
+		goto done;
 	}
 
 	/*
@@ -2828,10 +2813,10 @@ void set_window_start(struct rq *rq)
 	rq->curr->ravg.mark_start = rq->window_start;
 }
 
-void migrate_sync_cpu(int cpu)
+void migrate_sync_cpu(int cpu, int new_cpu)
 {
 	if (cpu == sync_cpu)
-		sync_cpu = smp_processor_id();
+		sync_cpu = new_cpu;
 }
 
 static void reset_all_task_stats(void)

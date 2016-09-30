@@ -33,6 +33,7 @@
 #include <sound/pcm_params.h>
 #include <sound/info.h>
 #include <device_event.h>
+#include <linux/qdsp6v2/audio_notifier.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "../codecs/wcd9335.h"
 #include "../codecs/wcd934x/wcd934x.h"
@@ -334,11 +335,11 @@ static SOC_ENUM_SINGLE_EXT_DECL(quat_mi2s_tx_chs, mi2s_ch_text);
 
 static struct platform_device *spdev;
 
+static bool is_initial_boot;
 static bool codec_reg_done;
 static struct snd_soc_aux_dev *msm_aux_dev;
 static struct snd_soc_codec_conf *msm_codec_conf;
 static struct msm_asoc_wcd93xx_codec msm_codec_fn;
-static void *adsp_state_notifier;
 
 static void *def_tasha_mbhc_cal(void);
 static void *def_tavil_mbhc_cal(void);
@@ -2326,49 +2327,65 @@ err_fail:
 	return ret;
 }
 
-static int  msm_adsp_state_callback(struct notifier_block *nb,
-				    unsigned long value, void *priv)
+static int msmcobalt_notifier_service_cb(struct notifier_block *this,
+					 unsigned long opcode, void *ptr)
 {
-	int ret = NOTIFY_OK;
+	int ret;
 	struct snd_soc_card *card = NULL;
 	const char *be_dl_name = LPASS_BE_SLIMBUS_0_RX;
 	struct snd_soc_pcm_runtime *rtd;
 	struct snd_soc_codec *codec;
 
-	if (!spdev)
-		return -EINVAL;
+	pr_debug("%s: Service opcode 0x%lx\n", __func__, opcode);
 
-	card = platform_get_drvdata(spdev);
-	rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
-	if (!rtd) {
-		dev_err(card->dev,
-			"%s: snd_soc_get_pcm_runtime for %s failed!\n",
-			__func__, be_dl_name);
-		ret = -EINVAL;
-		goto err_pcm_runtime;
-	}
-
-	codec = rtd->codec;
-	if (value == SUBSYS_BEFORE_SHUTDOWN) {
-		pr_debug("%s: ADSP is about to shutdown. Clearing AFE config\n",
-			 __func__);
+	switch (opcode) {
+	case AUDIO_NOTIFIER_SERVICE_DOWN:
+		/*
+		 * Use flag to ignore initial boot notifications
+		 * On initial boot msm_adsp_power_up_config is
+		 * called on init. There is no need to clear
+		 * and set the config again on initial boot.
+		 */
+		if (is_initial_boot)
+			break;
 		msm_afe_clear_config();
-	} else if (value == SUBSYS_AFTER_POWERUP) {
-		ret =  msm_adsp_power_up_config(codec);
-		if (ret) {
-			ret = -EINVAL;
-		} else {
-			pr_debug("%s: ADSP is up\n", __func__);
-			ret = NOTIFY_OK;
+		break;
+	case AUDIO_NOTIFIER_SERVICE_UP:
+		if (is_initial_boot) {
+			is_initial_boot = false;
+			break;
 		}
-	}
+		if (!spdev)
+			return -EINVAL;
 
-err_pcm_runtime:
-	return ret;
+		card = platform_get_drvdata(spdev);
+		rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
+		if (!rtd) {
+			dev_err(card->dev,
+				"%s: snd_soc_get_pcm_runtime for %s failed!\n",
+				__func__, be_dl_name);
+			ret = -EINVAL;
+			goto done;
+		}
+		codec = rtd->codec;
+
+		ret = msm_adsp_power_up_config(codec);
+		if (ret < 0) {
+			dev_err(card->dev,
+				"%s: msm_adsp_power_up_config failed ret = %d!\n",
+				__func__, ret);
+			goto done;
+		}
+		break;
+	default:
+		break;
+	}
+done:
+	return NOTIFY_OK;
 }
 
-static struct notifier_block adsp_state_notifier_block = {
-	.notifier_call = msm_adsp_state_callback,
+static struct notifier_block service_nb = {
+	.notifier_call  = msmcobalt_notifier_service_cb,
 	.priority = -INT_MAX,
 };
 
@@ -2486,17 +2503,18 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		goto err_afe_cfg;
 	}
 
-	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
-		config_data = msm_codec_fn.get_afe_config_fn(codec,
-							AFE_AANC_VERSION);
-		if (config_data) {
-			ret = afe_set_config(AFE_AANC_VERSION, config_data, 0);
-			if (ret) {
-				pr_err("%s: Failed to set aanc version %d\n",
-					__func__, ret);
-				goto err_afe_cfg;
-			}
+	config_data = msm_codec_fn.get_afe_config_fn(codec,
+						     AFE_AANC_VERSION);
+	if (config_data) {
+		ret = afe_set_config(AFE_AANC_VERSION, config_data, 0);
+		if (ret) {
+			pr_err("%s: Failed to set aanc version %d\n",
+				__func__, ret);
+			goto err_afe_cfg;
 		}
+	}
+
+	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
 		config_data = msm_codec_fn.get_afe_config_fn(codec,
 						AFE_CDC_CLIP_REGISTERS_CONFIG);
 		if (config_data) {
@@ -2519,14 +2537,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			}
 		}
 	}
-	adsp_state_notifier = subsys_notif_register_notifier("adsp",
-						&adsp_state_notifier_block);
-	if (!adsp_state_notifier) {
-		pr_err("%s: Failed to register adsp state notifier\n",
-		       __func__);
-		ret = -EFAULT;
-		goto err_adsp_notify;
-	}
+
 	/*
 	 * Send speaker configuration only for WSA8810.
 	 * Defalut configuration is for WSA8815.
@@ -2575,7 +2586,6 @@ done:
 	return 0;
 
 err_snd_module:
-err_adsp_notify:
 err_afe_cfg:
 	return ret;
 }
@@ -5610,6 +5620,14 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 
 	i2s_auxpcm_init(pdev);
+
+	is_initial_boot = true;
+	ret = audio_notifier_register("msmcobalt", AUDIO_NOTIFIER_ADSP_DOMAIN,
+				      &service_nb);
+	if (ret < 0)
+		pr_err("%s: Audio notifier register failed ret = %d\n",
+			__func__, ret);
+
 	return 0;
 err:
 	if (pdata->us_euro_gpio > 0) {

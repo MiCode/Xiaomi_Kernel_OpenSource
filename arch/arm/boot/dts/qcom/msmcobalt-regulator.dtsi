@@ -533,7 +533,7 @@
 			regulator-name = "pm8005_s1";
 			status = "okay";
 			regulator-min-microvolt = <524000>;
-			regulator-max-microvolt = <1032000>;
+			regulator-max-microvolt = <1100000>;
 			qcom,enable-time = <500>;
 		};
 	};

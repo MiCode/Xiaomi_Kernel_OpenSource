@@ -622,6 +622,8 @@ struct msm_pcie_dev_t {
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	short				current_short_bdf;
+	uint32_t			perst_delay_us_min;
+	uint32_t			perst_delay_us_max;
 	uint32_t			tlp_rd_size;
 	bool				linkdown_panic;
 	bool				 ep_wakeirq;
@@ -1758,7 +1760,8 @@ static inline int msm_pcie_check_align(struct msm_pcie_dev_t *dev,
 
 static bool msm_pcie_confirm_linkup(struct msm_pcie_dev_t *dev,
 						bool check_sw_stts,
-						bool check_ep)
+						bool check_ep,
+						void __iomem *ep_conf)
 {
 	u32 val;
 
@@ -1785,7 +1788,7 @@ static bool msm_pcie_confirm_linkup(struct msm_pcie_dev_t *dev,
 	}
 
 	if (check_ep) {
-		val = readl_relaxed(dev->conf);
+		val = readl_relaxed(ep_conf);
 		PCIE_DBG(dev,
 			"PCIe: device ID and vender ID of EP of RC %d are 0x%x.\n",
 			dev->rc_idx, val);
@@ -1814,6 +1817,10 @@ static void msm_pcie_cfg_recover(struct msm_pcie_dev_t *dev, bool rc)
 			cfg = dev->dm_core;
 			shadow = dev->rc_shadow;
 		} else {
+			if (!msm_pcie_confirm_linkup(dev, false, true,
+				dev->pcidev_table[i].conf_base))
+				continue;
+
 			shadow = dev->ep_shadow[i];
 			PCIE_DBG(dev,
 				"PCIe Device: %02x:%02x.%01x\n",
@@ -1973,6 +1980,10 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
 		dev->current_bdf);
+	PCIE_DBG_FS(dev, "perst_delay_us_min: %dus\n",
+		dev->perst_delay_us_min);
+	PCIE_DBG_FS(dev, "perst_delay_us_max: %dus\n",
+		dev->perst_delay_us_max);
 	PCIE_DBG_FS(dev, "tlp_rd_size: 0x%x\n",
 		dev->tlp_rd_size);
 	PCIE_DBG_FS(dev, "rc_corr_counter: %lu\n",
@@ -4544,8 +4555,7 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		dev->rc_idx);
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_PERST].on);
-	usleep_range(PERST_PROPAGATION_DELAY_US_MIN,
-				 PERST_PROPAGATION_DELAY_US_MAX);
+	usleep_range(dev->perst_delay_us_min, dev->perst_delay_us_max);
 
 	/* set max tlp read size */
 	msm_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CONTROL_STATUS,
@@ -4561,11 +4571,11 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		usleep_range(LINK_UP_TIMEOUT_US_MIN, LINK_UP_TIMEOUT_US_MAX);
 		val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
 	} while ((!(val & XMLH_LINK_UP) ||
-		!msm_pcie_confirm_linkup(dev, false, false))
+		!msm_pcie_confirm_linkup(dev, false, false, NULL))
 		&& (link_check_count++ < LINK_UP_CHECK_MAX_COUNT));
 
 	if ((val & XMLH_LINK_UP) &&
-		msm_pcie_confirm_linkup(dev, false, false)) {
+		msm_pcie_confirm_linkup(dev, false, false, NULL)) {
 		PCIE_DBG(dev, "Link is up after %d checkings\n",
 			link_check_count);
 		PCIE_INFO(dev, "PCIe RC%d link initialized\n", dev->rc_idx);
@@ -6073,6 +6083,34 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: cpl-timeout: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].cpl_timeout);
 
+	msm_pcie_dev[rc_idx].perst_delay_us_min =
+		PERST_PROPAGATION_DELAY_US_MIN;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,perst-delay-us-min",
+				&msm_pcie_dev[rc_idx].perst_delay_us_min);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-min does not exist. Use default value %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_min);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-min: %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_min);
+
+	msm_pcie_dev[rc_idx].perst_delay_us_max =
+		PERST_PROPAGATION_DELAY_US_MAX;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,perst-delay-us-max",
+				&msm_pcie_dev[rc_idx].perst_delay_us_max);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-max does not exist. Use default value %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_max);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-max: %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_max);
+
 	msm_pcie_dev[rc_idx].tlp_rd_size = PCIE_TLP_RD_SIZE;
 	ret = of_property_read_u32(pdev->dev.of_node,
 				"qcom,tlp-rd-size",
@@ -6451,7 +6489,8 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	}
 
 	if (dev && !(options & MSM_PCIE_CONFIG_NO_CFG_RESTORE)
-		&& msm_pcie_confirm_linkup(pcie_dev, true, true)) {
+		&& msm_pcie_confirm_linkup(pcie_dev, true, true,
+			pcie_dev->conf)) {
 		ret = pci_save_state(dev);
 		pcie_dev->saved_state =	pci_store_saved_state(dev);
 	}
@@ -6960,7 +6999,7 @@ int msm_pcie_recover_config(struct pci_dev *dev)
 		return -ENODEV;
 	}
 
-	if (msm_pcie_confirm_linkup(pcie_dev, true, true)) {
+	if (msm_pcie_confirm_linkup(pcie_dev, true, true, pcie_dev->conf)) {
 		PCIE_DBG(pcie_dev,
 			"Recover config space of RC%d and its EP\n",
 			pcie_dev->rc_idx);

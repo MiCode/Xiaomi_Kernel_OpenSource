@@ -252,4 +252,5 @@ extern int fg_ima_init(struct fg_chip *chip);
 extern int fg_sram_debugfs_create(struct fg_chip *chip);
 extern void fill_string(char *str, size_t str_len, u8 *buf, int buf_len);
 extern int64_t twos_compliment_extend(int64_t val, int s_bit_pos);
+extern s64 fg_float_decode(u16 val);
 #endif

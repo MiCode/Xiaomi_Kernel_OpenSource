@@ -1066,67 +1066,67 @@ static int tsens_get_sw_id_mapping_for_controller(
 	return 0;
 }
 
-int tsens_get_hw_id_mapping(int sensor_sw_id, int *sensor_client_id)
+int tsens_get_hw_id_mapping(int thermal_sensor_num, int *sensor_client_id)
 {
-	int i = 0;
-	bool id_found = false;
 	struct tsens_tm_device *tmdev = NULL;
 	struct device_node *of_node = NULL;
 	const struct of_device_id *id;
+	uint32_t tsens_max_sensors = 0, idx = 0, i = 0;
 
-	tmdev = get_tsens_controller_for_client_id(sensor_sw_id);
-	if (tmdev == NULL) {
-		pr_debug("TSENS early init not done\n");
+	if (list_empty(&tsens_device_list)) {
+		pr_err("%s: TSENS controller not available\n", __func__);
 		return -EPROBE_DEFER;
 	}
 
-	of_node = tmdev->pdev->dev.of_node;
-	if (of_node == NULL) {
-		pr_err("Invalid of_node??\n");
+	list_for_each_entry(tmdev, &tsens_device_list, list)
+		tsens_max_sensors += tmdev->tsens_num_sensor;
+
+	if (tsens_max_sensors != thermal_sensor_num) {
+		pr_err("TSENS total sensors is %d, thermal expects:%d\n",
+			tsens_max_sensors, thermal_sensor_num);
 		return -EINVAL;
 	}
 
-	if (!of_match_node(tsens_match, of_node)) {
-		pr_err("Need to read SoC specific fuse map\n");
-		return -ENODEV;
-	}
+	list_for_each_entry(tmdev, &tsens_device_list, list) {
+		of_node = tmdev->pdev->dev.of_node;
+		if (of_node == NULL) {
+			pr_err("Invalid of_node??\n");
+			return -EINVAL;
+		}
 
-	id = of_match_node(tsens_match, of_node);
-	if (id == NULL) {
-		pr_err("can not find tsens_match of_node\n");
-		return -ENODEV;
-	}
+		if (!of_match_node(tsens_match, of_node)) {
+			pr_err("Need to read SoC specific fuse map\n");
+			return -ENODEV;
+		}
 
-	if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
-		(!strcmp(id->compatible, "qcom,msmcobalt-tsens")) ||
-		(!strcmp(id->compatible, "qcom,msmhamster-tsens"))) {
-		/* Assign a client id which will be used to get the
-		 * controller and hw_sensor details
-		 */
-		while (i < tmdev->tsens_num_sensor && !id_found) {
-			if (sensor_sw_id == tmdev->sensor[i].sensor_client_id) {
-				*sensor_client_id =
+		id = of_match_node(tsens_match, of_node);
+		if (id == NULL) {
+			pr_err("can not find tsens_match of_node\n");
+			return -ENODEV;
+		}
+
+		if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
+			(!strcmp(id->compatible, "qcom,msmcobalt-tsens")) ||
+			(!strcmp(id->compatible, "qcom,msmhamster-tsens"))) {
+			/* Assign client id's that is used to get the
+			 * controller and hw_sensor details
+			 */
+			for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+				sensor_client_id[idx] =
 					tmdev->sensor[i].sensor_client_id;
-				id_found = true;
+				idx++;
 			}
-			i++;
-		}
-	} else {
-		/* Assign the corresponding hw sensor number which is done
-		 * prior to support for multiple controllres
-		 */
-		while (i < tmdev->tsens_num_sensor && !id_found) {
-			if (sensor_sw_id == tmdev->sensor[i].sensor_client_id) {
-				*sensor_client_id =
+		} else {
+			/* Assign the corresponding hw sensor number
+			 * prior to support for multiple controllres
+			 */
+			for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+				sensor_client_id[idx] =
 					tmdev->sensor[i].sensor_hw_num;
-				id_found = true;
+				idx++;
 			}
-			i++;
 		}
 	}
-
-	if (!id_found)
-		return -EINVAL;
 
 	return 0;
 }
@@ -1383,7 +1383,7 @@ static int msm_tsens_get_temp(int sensor_client_id, int *temp)
 	}
 
 	if ((!tmdev->prev_reading_avail) && !tmdev->tsens_valid_status_check) {
-		while (!((readl_relaxed(trdy_addr)) & TSENS_TRDY_MASK))
+		while (!((readl_relaxed_no_log(trdy_addr)) & TSENS_TRDY_MASK))
 			usleep_range(TSENS_TRDY_RDY_MIN_TIME,
 				TSENS_TRDY_RDY_MAX_TIME);
 		tmdev->prev_reading_avail = true;
@@ -1394,7 +1394,7 @@ static int msm_tsens_get_temp(int sensor_client_id, int *temp)
 	else
 		last_temp_mask = TSENS_SN_STATUS_TEMP_MASK;
 
-	code = readl_relaxed(sensor_addr +
+	code = readl_relaxed_no_log(sensor_addr +
 			(sensor_hw_num << TSENS_STATUS_ADDR_OFFSET));
 	last_temp = code & last_temp_mask;
 
@@ -1406,14 +1406,14 @@ static int msm_tsens_get_temp(int sensor_client_id, int *temp)
 		if (code & valid_status_mask)
 			last_temp_valid = true;
 		else {
-			code = readl_relaxed(sensor_addr +
+			code = readl_relaxed_no_log(sensor_addr +
 				(sensor_hw_num << TSENS_STATUS_ADDR_OFFSET));
 			last_temp2 = code & last_temp_mask;
 			if (code & valid_status_mask) {
 				last_temp = last_temp2;
 				last_temp2_valid = true;
 			} else {
-				code = readl_relaxed(sensor_addr +
+				code = readl_relaxed_no_log(sensor_addr +
 					(sensor_hw_num <<
 					TSENS_STATUS_ADDR_OFFSET));
 				last_temp3 = code & last_temp_mask;
@@ -5700,8 +5700,6 @@ static void tsens_debugfs_init(void)
 	}
 }
 
-int tsens_sensor_sw_idx = 0;
-
 static int tsens_thermal_zone_register(struct tsens_tm_device *tmdev)
 {
 	int rc = 0, i = 0;
@@ -5715,7 +5713,7 @@ static int tsens_thermal_zone_register(struct tsens_tm_device *tmdev)
 		char name[18];
 
 		snprintf(name, sizeof(name), "tsens_tz_sensor%d",
-					tsens_sensor_sw_idx);
+			tmdev->sensor[i].sensor_client_id);
 		tmdev->sensor[i].mode = THERMAL_DEVICE_ENABLED;
 		tmdev->sensor[i].tm = tmdev;
 		if (tmdev->tsens_type == TSENS_TYPE3) {
@@ -5741,7 +5739,6 @@ static int tsens_thermal_zone_register(struct tsens_tm_device *tmdev)
 				goto fail;
 			}
 		}
-		tsens_sensor_sw_idx++;
 	}
 
 	if (tmdev->tsens_type == TSENS_TYPE3) {

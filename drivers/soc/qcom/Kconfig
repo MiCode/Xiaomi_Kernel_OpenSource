@@ -571,6 +571,39 @@ config MSM_QDSP6_APRV3_GLINK
 	  QDSP6. APR is used by audio driver to
 	  configure QDSP6v2's ASM, ADM and AFE.
 
+config MSM_QDSP6_SSR
+	bool "Audio QDSP6 SSR support"
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3 || \
+		MSM_QDSP6_APRV2_GLINK || MSM_QDSP6_APRV3_GLINK
+	help
+	  Enable Subsystem Restart. Reset audio
+	  clients when the ADSP subsystem is
+	  restarted. Subsystem Restart for audio
+	  is only used for processes on the ADSP
+	  and signals audio drivers through APR.
+
+
+config MSM_QDSP6_PDR
+	bool "Audio QDSP6 PDR support"
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3 || \
+		MSM_QDSP6_APRV2_GLINK || MSM_QDSP6_APRV3_GLINK
+	help
+	  Enable Protection Domain Restart. Reset
+          audio clients when a process on the ADSP
+          is restarted. PDR for audio is only used
+          for processes on the ADSP and signals
+          audio drivers through APR.
+
+config MSM_QDSP6_NOTIFIER
+	bool "Audio QDSP6 PDR support"
+	depends on MSM_QDSP6_SSR || MSM_QDSP6_PDR
+	help
+	  Enable notifier which decides whether
+	  to use SSR or PDR and notifies all
+	  audio clients of the event. Both SSR
+	  and PDR are recovery methods when
+	  there is a crash on ADSP. Audio drivers
+	  are contacted by ADSP through APR.
 
 config MSM_ADSP_LOADER
 	tristate "ADSP loader support"
@@ -715,14 +748,6 @@ config MSM_KERNEL_PROTECT_TEST
           Attempts to write to the kernel text after making the kernel text
           read-only.  This test is FATAL whether it passes or fails!
           Success is signaled by a stage-2 fault.
-
-config MSM_CORE_CTL_HELPER
-	tristate "Core control helper functions for dynamically hotplug CPUs"
-	help
-	  Provide helper functions for core control driver. Core control
-	  driver dynamically hotplugs CPUs from kernel based on current
-	  system load and state. It also supports limiting min and
-	  max online CPUs from userspace.
 
 config QCOM_REMOTEQDSS
 	bool "Allow debug tools to enable events on other processors"

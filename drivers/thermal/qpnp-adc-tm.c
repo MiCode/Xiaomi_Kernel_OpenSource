@@ -492,7 +492,7 @@ static int32_t qpnp_adc_tm_rc_check_channel_en(struct qpnp_adc_tm_chip *chip)
 {
 	u8 adc_tm_ctl = 0, status_low = 0, status_high = 0;
 	int rc = 0, i = 0;
-	bool ldo_en;
+	bool ldo_en = false;
 
 	for (i = 0; i < chip->max_channels_available; i++) {
 		rc = qpnp_adc_tm_read_reg(chip, QPNP_BTM_Mn_CTL(i),

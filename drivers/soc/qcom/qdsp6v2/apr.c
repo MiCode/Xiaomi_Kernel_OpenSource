@@ -27,16 +27,15 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <soc/qcom/subsystem_restart.h>
-#include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/scm.h>
 #include <sound/apr_audio-v2.h>
 #include <soc/qcom/smd.h>
 #include <linux/qdsp6v2/apr.h>
 #include <linux/qdsp6v2/apr_tal.h>
 #include <linux/qdsp6v2/dsp_debug.h>
+#include <linux/qdsp6v2/audio_notifier.h>
 #include <linux/ipc_logging.h>
 
-#define SCM_Q6_NMI_CMD 0x1
 #define APR_PKT_IPC_LOG_PAGE_CNT 2
 
 static struct apr_q6 q6;
@@ -45,9 +44,11 @@ static void *apr_pkt_ctx;
 static wait_queue_head_t dsp_wait;
 static wait_queue_head_t modem_wait;
 static bool is_modem_up;
+static bool is_initial_boot;
 /* Subsystem restart: QDSP6 data, functions */
 static struct workqueue_struct *apr_reset_workqueue;
 static void apr_reset_deregister(struct work_struct *work);
+static void dispatch_event(unsigned long code, uint16_t proc);
 struct apr_reset_work {
 	void *handle;
 	struct work_struct work;
@@ -202,6 +203,20 @@ enum apr_subsys_state apr_cmpxchg_modem_state(enum apr_subsys_state prev,
 	return atomic_cmpxchg(&q6.modem_state, prev, new);
 }
 
+static void apr_modem_down(unsigned long opcode)
+{
+	apr_set_modem_state(APR_SUBSYS_DOWN);
+	dispatch_event(opcode, APR_DEST_MODEM);
+}
+
+static void apr_modem_up(void)
+{
+	if (apr_cmpxchg_modem_state(APR_SUBSYS_DOWN, APR_SUBSYS_UP) ==
+							APR_SUBSYS_DOWN)
+		wake_up(&modem_wait);
+	is_modem_up = 1;
+}
+
 enum apr_subsys_state apr_get_q6_state(void)
 {
 	return atomic_read(&q6.q6_state);
@@ -222,6 +237,19 @@ enum apr_subsys_state apr_cmpxchg_q6_state(enum apr_subsys_state prev,
 					   enum apr_subsys_state new)
 {
 	return atomic_cmpxchg(&q6.q6_state, prev, new);
+}
+
+static void apr_adsp_down(unsigned long opcode)
+{
+	apr_set_q6_state(APR_SUBSYS_DOWN);
+	dispatch_event(opcode, APR_DEST_QDSP6);
+}
+
+static void apr_adsp_up(void)
+{
+	if (apr_cmpxchg_q6_state(APR_SUBSYS_DOWN, APR_SUBSYS_LOADED) ==
+							APR_SUBSYS_DOWN)
+		wake_up(&dsp_wait);
 }
 
 int apr_wait_for_device_up(int dest_id)
@@ -730,7 +758,7 @@ void apr_reset(void *handle)
 }
 
 /* Dispatch the Reset events to Modem and audio clients */
-void dispatch_event(unsigned long code, uint16_t proc)
+static void dispatch_event(unsigned long code, uint16_t proc)
 {
 	struct apr_client *apr_client;
 	struct apr_client_data data;
@@ -783,128 +811,51 @@ void dispatch_event(unsigned long code, uint16_t proc)
 	}
 }
 
-static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
-			     void *_cmd)
+static int apr_notifier_service_cb(struct notifier_block *this,
+				   unsigned long opcode, void *data)
 {
-	static int boot_count = 2;
+	struct audio_notifier_cb_data *cb_data = data;
 
-	if (boot_count) {
-		boot_count--;
-		return NOTIFY_OK;
+	if (cb_data == NULL) {
+		pr_err("%s: Callback data is NULL!\n", __func__);
+		goto done;
 	}
 
-	switch (code) {
-	case SUBSYS_BEFORE_SHUTDOWN:
-		pr_debug("M-Notify: Shutdown started\n");
-		apr_set_modem_state(APR_SUBSYS_DOWN);
-		dispatch_event(code, APR_DEST_MODEM);
+	pr_debug("%s: Service opcode 0x%lx, domain %d\n",
+		__func__, opcode, cb_data->domain);
+
+	switch (opcode) {
+	case AUDIO_NOTIFIER_SERVICE_DOWN:
+		/*
+		 * Use flag to ignore down notifications during
+		 * initial boot. There is no benefit from error
+		 * recovery notifications during initial boot
+		 * up since everything is expected to be down.
+		 */
+		if (is_initial_boot)
+			break;
+		if (cb_data->domain == AUDIO_NOTIFIER_MODEM_DOMAIN)
+			apr_modem_down(opcode);
+		else
+			apr_adsp_down(opcode);
 		break;
-	case SUBSYS_AFTER_SHUTDOWN:
-		pr_debug("M-Notify: Shutdown Completed\n");
-		break;
-	case SUBSYS_BEFORE_POWERUP:
-		pr_debug("M-notify: Bootup started\n");
-		break;
-	case SUBSYS_AFTER_POWERUP:
-		if (apr_cmpxchg_modem_state(APR_SUBSYS_DOWN, APR_SUBSYS_UP) ==
-						APR_SUBSYS_DOWN)
-			wake_up(&modem_wait);
-		is_modem_up = 1;
-		pr_debug("M-Notify: Bootup Completed\n");
+	case AUDIO_NOTIFIER_SERVICE_UP:
+		is_initial_boot = false;
+		if (cb_data->domain == AUDIO_NOTIFIER_MODEM_DOMAIN)
+			apr_modem_up();
+		else
+			apr_adsp_up();
 		break;
 	default:
-		pr_err("M-Notify: General: %lu\n", code);
 		break;
 	}
-	return NOTIFY_DONE;
+done:
+	return NOTIFY_OK;
 }
 
-static struct notifier_block mnb = {
-	.notifier_call = modem_notifier_cb,
-};
-
-static bool powered_on;
-
-static int lpass_notifier_cb(struct notifier_block *this, unsigned long code,
-			     void *_cmd)
-{
-	static int boot_count = 2;
-	struct notif_data *data = (struct notif_data *)_cmd;
-	struct scm_desc desc;
-
-	if (boot_count) {
-		boot_count--;
-		return NOTIFY_OK;
-	}
-
-	switch (code) {
-	case SUBSYS_BEFORE_SHUTDOWN:
-		pr_debug("L-Notify: Shutdown started\n");
-		apr_set_q6_state(APR_SUBSYS_DOWN);
-		dispatch_event(code, APR_DEST_QDSP6);
-		if (data && data->crashed) {
-			/* Send NMI to QDSP6 via an SCM call. */
-			if (!is_scm_armv8()) {
-				scm_call_atomic1(SCM_SVC_UTIL,
-						 SCM_Q6_NMI_CMD, 0x1);
-			} else {
-				desc.args[0] = 0x1;
-				desc.arginfo = SCM_ARGS(1);
-				scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_UTIL,
-						 SCM_Q6_NMI_CMD), &desc);
-			}
-			/* The write should go through before q6 is shutdown */
-			mb();
-			pr_debug("L-Notify: Q6 NMI was sent.\n");
-		}
-		break;
-	case SUBSYS_AFTER_SHUTDOWN:
-		powered_on = false;
-		pr_debug("L-Notify: Shutdown Completed\n");
-		break;
-	case SUBSYS_BEFORE_POWERUP:
-		pr_debug("L-notify: Bootup started\n");
-		break;
-	case SUBSYS_AFTER_POWERUP:
-		if (apr_cmpxchg_q6_state(APR_SUBSYS_DOWN,
-				APR_SUBSYS_LOADED) == APR_SUBSYS_DOWN)
-			wake_up(&dsp_wait);
-		powered_on = true;
-		pr_debug("L-Notify: Bootup Completed\n");
-		break;
-	default:
-		pr_err("L-Notify: Generel: %lu\n", code);
-		break;
-	}
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block lnb = {
+static struct notifier_block service_nb = {
+	.notifier_call  = apr_notifier_service_cb,
 	.priority = 0,
-	.notifier_call = lpass_notifier_cb,
-};
-
-static int panic_handler(struct notifier_block *this,
-				unsigned long event, void *ptr)
-{
-	struct scm_desc desc;
-
-	if (powered_on) {
-		/* Send NMI to QDSP6 via an SCM call. */
-		if (!is_scm_armv8()) {
-			scm_call_atomic1(SCM_SVC_UTIL, SCM_Q6_NMI_CMD, 0x1);
-		} else {
-			desc.args[0] = 0x1;
-			desc.arginfo = SCM_ARGS(1);
-			scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_UTIL,
-					 SCM_Q6_NMI_CMD), &desc);
-		}
-	}
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block panic_nb = {
-	.notifier_call  = panic_handler,
 };
 
 static int __init apr_init(void)
@@ -924,12 +875,17 @@ static int __init apr_init(void)
 	apr_reset_workqueue = create_singlethread_workqueue("apr_driver");
 	if (!apr_reset_workqueue)
 		return -ENOMEM;
-	atomic_notifier_chain_register(&panic_notifier_list, &panic_nb);
 
 	apr_pkt_ctx = ipc_log_context_create(APR_PKT_IPC_LOG_PAGE_CNT,
 						"apr", 0);
 	if (!apr_pkt_ctx)
 		pr_err("%s: Unable to create ipc log context\n", __func__);
+
+	is_initial_boot = true;
+	subsys_notif_register("apr_adsp", AUDIO_NOTIFIER_ADSP_DOMAIN,
+			      &service_nb);
+	subsys_notif_register("apr_modem", AUDIO_NOTIFIER_MODEM_DOMAIN,
+			      &service_nb);
 
 	return 0;
 }
@@ -940,7 +896,7 @@ static int __init apr_late_init(void)
 	int ret = 0;
 	init_waitqueue_head(&dsp_wait);
 	init_waitqueue_head(&modem_wait);
-	subsys_notif_register(&mnb, &lnb);
+
 	return ret;
 }
 late_initcall(apr_late_init);

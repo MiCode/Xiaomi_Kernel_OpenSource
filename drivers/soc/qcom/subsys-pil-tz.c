@@ -917,8 +917,24 @@ static void check_pbl_done(struct pil_tz_data *d)
 
 	err_value =  __raw_readl(d->err_status);
 	pr_debug("PBL_DONE received from %s!\n", d->subsys_desc.name);
-	if (err_value)
+	if (err_value) {
+		uint32_t rmb_err_spare0;
+		uint32_t rmb_err_spare1;
+		uint32_t rmb_err_spare2;
+
+		rmb_err_spare2 =  __raw_readl(d->err_status_spare);
+		rmb_err_spare1 =  __raw_readl(d->err_status_spare-4);
+		rmb_err_spare0 =  __raw_readl(d->err_status_spare-8);
+
 		pr_err("PBL error status register: 0x%08x\n", err_value);
+
+		pr_err("PBL error status spare0 register: 0x%08x\n",
+			rmb_err_spare0);
+		pr_err("PBL error status spare1 register: 0x%08x\n",
+			rmb_err_spare1);
+		pr_err("PBL error status spare2 register: 0x%08x\n",
+			rmb_err_spare2);
+	}
 	__raw_writel(BIT(d->bits_arr[PBL_DONE]), d->irq_clear);
 }
 

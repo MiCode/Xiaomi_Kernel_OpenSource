@@ -378,6 +378,14 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 	int interp_idx;
 	u8 pcm_rate_val;
 
+	if (!dsd_conf) {
+		dev_err(codec->dev, "%s: null dsd_config pointer\n", __func__);
+		return -EINVAL;
+	}
+
+	dev_dbg(codec->dev, "%s: DSD%d, event: %d\n", __func__,
+		w->shift, event);
+
 	if (w->shift == DSD0) {
 		/* Read out select */
 		if (snd_soc_read(codec, WCD934X_CDC_DSD0_CFG0) & 0x02)
@@ -422,10 +430,6 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 			snd_soc_write(codec, WCD934X_CDC_DSD0_CFG1,
 				      dsd_conf->volume[DSD0]);
 
-			if (clk_users > 1)
-				snd_soc_update_bits(codec,
-						    WCD934X_CDC_DSD0_CFG2,
-						    0x04, 0x00);
 		} else if (w->shift == DSD1) {
 			snd_soc_update_bits(codec, WCD934X_CDC_DSD1_PATH_CTL,
 					    0x02, 0x02);
@@ -436,26 +440,35 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 			/* Apply Gain */
 			snd_soc_write(codec, WCD934X_CDC_DSD1_CFG1,
 				      dsd_conf->volume[DSD1]);
-
-			if (clk_users > 1)
-				snd_soc_update_bits(codec,
-						    WCD934X_CDC_DSD1_CFG2,
-						    0x04, 0x00);
 		}
 		/* 10msec sleep required after DSD clock is set */
 		usleep_range(10000, 10100);
+
+		if (clk_users > 1) {
+			snd_soc_update_bits(codec, WCD934X_ANA_RX_SUPPLIES,
+					    0x02, 0x02);
+			if (w->shift == DSD0)
+				snd_soc_update_bits(codec,
+						    WCD934X_CDC_DSD0_CFG2,
+						    0x04, 0x00);
+			if (w->shift == DSD1)
+				snd_soc_update_bits(codec,
+						    WCD934X_CDC_DSD1_CFG2,
+						    0x04, 0x00);
+
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (w->shift == DSD0) {
-			snd_soc_update_bits(codec, WCD934X_CDC_DSD0_PATH_CTL,
-					    0x01, 0x00);
 			snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2,
 					    0x04, 0x04);
-		} else if (w->shift == DSD1) {
-			snd_soc_update_bits(codec, WCD934X_CDC_DSD1_PATH_CTL,
+			snd_soc_update_bits(codec, WCD934X_CDC_DSD0_PATH_CTL,
 					    0x01, 0x00);
+		} else if (w->shift == DSD1) {
 			snd_soc_update_bits(codec, WCD934X_CDC_DSD1_CFG2,
 					    0x04, 0x04);
+			snd_soc_update_bits(codec, WCD934X_CDC_DSD1_PATH_CTL,
+					    0x01, 0x00);
 		}
 
 		tavil_codec_enable_interp_clk(codec, event, interp_idx);
@@ -466,6 +479,7 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 					WCD934X_CDC_CLK_RST_CTRL_DSD_CONTROL,
 					0x01, 0x00);
 			tavil_dsd_data_pull(codec, 0x03, 0x04, false);
+			tavil_dsd_reset(dsd_conf);
 		}
 		break;
 	}

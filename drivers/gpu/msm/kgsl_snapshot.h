@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,12 +63,9 @@ struct kgsl_snapshot_section_header {
 
 /* OS sub-section header */
 #define KGSL_SNAPSHOT_OS_LINUX             0x0001
+#define KGSL_SNAPSHOT_OS_LINUX_V3          0x00000202
 
 /* Linux OS specific information */
-
-#define SNAPSHOT_STATE_HUNG 0
-#define SNAPSHOT_STATE_RUNNING 1
-
 struct kgsl_snapshot_linux {
 	int osid;                   /* subsection OS identifier */
 	int state;		    /* 1 if the thread is running, 0 for hung */
@@ -79,6 +76,23 @@ struct kgsl_snapshot_linux {
 	__u32 grpclk;                 /* Current GP clock value */
 	__u32 busclk;		    /* Current busclk value */
 	__u32 ptbase;		    /* Current ptbase */
+	__u32 pid;		    /* PID of the process that owns the PT */
+	__u32 current_context;	    /* ID of the current context */
+	__u32 ctxtcount;	    /* Number of contexts appended to section */
+	unsigned char release[32];  /* kernel release */
+	unsigned char version[32];  /* kernel version */
+	unsigned char comm[16];	    /* Name of the process that owns the PT */
+} __packed;
+
+struct kgsl_snapshot_linux_v2 {
+	int osid;                   /* subsection OS identifier */
+	__u32 seconds;		    /* Unix timestamp for the snapshot */
+	__u32 power_flags;            /* Current power flags */
+	__u32 power_level;            /* Current power level */
+	__u32 power_interval_timeout; /* Power interval timeout */
+	__u32 grpclk;                 /* Current GP clock value */
+	__u32 busclk;		    /* Current busclk value */
+	__u64 ptbase;		    /* Current ptbase */
 	__u32 pid;		    /* PID of the process that owns the PT */
 	__u32 current_context;	    /* ID of the current context */
 	__u32 ctxtcount;	    /* Number of contexts appended to section */
@@ -99,6 +113,12 @@ struct kgsl_snapshot_linux_context {
 	__u32 timestamp_retired;	/* The last timestamp retired by HW */
 };
 
+struct kgsl_snapshot_linux_context_v2 {
+	__u32 id;			/* The context ID */
+	__u32 timestamp_queued;		/* The last queued timestamp */
+	__u32 timestamp_consumed;	/* The last timestamp consumed by HW */
+	__u32 timestamp_retired;	/* The last timestamp retired by HW */
+};
 /* Ringbuffer sub-section header */
 struct kgsl_snapshot_rb {
 	int start;  /* dword at the start of the dump */

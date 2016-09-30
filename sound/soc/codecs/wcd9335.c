@@ -832,6 +832,7 @@ struct tasha_priv {
 				      enum wcd9335_codec_event);
 	int spkr_gain_offset;
 	int spkr_mode;
+	int ear_spkr_gain;
 	struct hpf_work tx_hpf_work[TASHA_NUM_DECIMATORS];
 	struct tx_mute_work tx_mute_dwork[TASHA_NUM_DECIMATORS];
 	struct mutex codec_mutex;
@@ -5112,6 +5113,58 @@ static int tasha_codec_enable_swr(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int tasha_codec_config_ear_spkr_gain(struct snd_soc_codec *codec,
+					    int event, int gain_reg)
+{
+	int comp_gain_offset, val;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	switch (tasha->spkr_mode) {
+	/* Compander gain in SPKR_MODE1 case is 12 dB */
+	case SPKR_MODE_1:
+		comp_gain_offset = -12;
+		break;
+	/* Default case compander gain is 15 dB */
+	default:
+		comp_gain_offset = -15;
+		break;
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		/* Apply ear spkr gain only if compander is enabled */
+		if (tasha->comp_enabled[COMPANDER_7] &&
+		    (gain_reg == WCD9335_CDC_RX7_RX_VOL_CTL ||
+		     gain_reg == WCD9335_CDC_RX7_RX_VOL_MIX_CTL) &&
+		    (tasha->ear_spkr_gain != 0)) {
+			/* For example, val is -8(-12+5-1) for 4dB of gain */
+			val = comp_gain_offset + tasha->ear_spkr_gain - 1;
+			snd_soc_write(codec, gain_reg, val);
+
+			dev_dbg(codec->dev, "%s: RX7 Volume %d dB\n",
+				__func__, val);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/*
+		 * Reset RX7 volume to 0 dB if compander is enabled and
+		 * ear_spkr_gain is non-zero.
+		 */
+		if (tasha->comp_enabled[COMPANDER_7] &&
+		    (gain_reg == WCD9335_CDC_RX7_RX_VOL_CTL ||
+		     gain_reg == WCD9335_CDC_RX7_RX_VOL_MIX_CTL) &&
+		    (tasha->ear_spkr_gain != 0)) {
+			snd_soc_write(codec, gain_reg, 0x0);
+
+			dev_dbg(codec->dev, "%s: Reset RX7 Volume to 0 dB\n",
+				__func__);
+		}
+		break;
+	}
+
+	return 0;
+}
+
 static int tasha_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
@@ -5179,6 +5232,7 @@ static int tasha_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		val = snd_soc_read(codec, gain_reg);
 		val += offset_val;
 		snd_soc_write(codec, gain_reg, val);
+		tasha_codec_config_ear_spkr_gain(codec, event, gain_reg);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if ((tasha->spkr_gain_offset == RX_GAIN_OFFSET_M1P5_DB) &&
@@ -5201,6 +5255,7 @@ static int tasha_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 			val += offset_val;
 			snd_soc_write(codec, gain_reg, val);
 		}
+		tasha_codec_config_ear_spkr_gain(codec, event, gain_reg);
 		break;
 	};
 
@@ -5408,6 +5463,7 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 		val = snd_soc_read(codec, gain_reg);
 		val += offset_val;
 		snd_soc_write(codec, gain_reg, val);
+		tasha_codec_config_ear_spkr_gain(codec, event, gain_reg);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		tasha_config_compander(codec, w->shift, event);
@@ -5432,6 +5488,7 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 			val += offset_val;
 			snd_soc_write(codec, gain_reg, val);
 		}
+		tasha_codec_config_ear_spkr_gain(codec, event, gain_reg);
 		break;
 	};
 
@@ -8605,6 +8662,34 @@ static int tasha_ear_pa_gain_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int tasha_ear_spkr_pa_gain_get(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = tasha->ear_spkr_gain;
+
+	dev_dbg(codec->dev, "%s: ear_spkr_gain = %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int tasha_ear_spkr_pa_gain_put(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0]  = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	tasha->ear_spkr_gain =  ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
 static int tasha_config_compander(struct snd_soc_codec *codec, int interp_n,
 				  int event)
 {
@@ -8896,13 +8981,25 @@ static const char * const tasha_ear_pa_gain_text[] = {
 	"G_0_DB", "G_M2P5_DB", "UNDEFINED", "G_M12_DB"
 };
 
+static const char * const tasha_ear_spkr_pa_gain_text[] = {
+	"G_DEFAULT", "G_0_DB", "G_1_DB", "G_2_DB", "G_3_DB", "G_4_DB",
+	"G_5_DB", "G_6_DB"
+};
+
 static const struct soc_enum tasha_ear_pa_gain_enum =
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tasha_ear_pa_gain_text),
 			tasha_ear_pa_gain_text);
 
+static const struct soc_enum tasha_ear_spkr_pa_gain_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tasha_ear_spkr_pa_gain_text),
+			    tasha_ear_spkr_pa_gain_text);
+
 static const struct snd_kcontrol_new tasha_analog_gain_controls[] = {
 	SOC_ENUM_EXT("EAR PA Gain", tasha_ear_pa_gain_enum,
 		tasha_ear_pa_gain_get, tasha_ear_pa_gain_put),
+
+	SOC_ENUM_EXT("EAR SPKR PA Gain", tasha_ear_spkr_pa_gain_enum,
+		     tasha_ear_spkr_pa_gain_get, tasha_ear_spkr_pa_gain_put),
 
 	SOC_SINGLE_TLV("HPHL Volume", WCD9335_HPH_L_EN, 0, 20, 1,
 		line_gain),
