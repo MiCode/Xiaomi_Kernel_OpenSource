@@ -34,6 +34,8 @@
 #include <linux/rmnet_ipa_fd_ioctl.h>
 #include <linux/ipa.h>
 #include <uapi/linux/net_map.h>
+#include <uapi/linux/msm_rmnet.h>
+#include <net/rmnet_config.h>
 
 #include "ipa_trace.h"
 
@@ -1241,6 +1243,83 @@ static void apps_ipa_packet_receive_notify(void *priv,
 		IPAWANERR("Invalid evt %d received in wan_ipa_receive\n", evt);
 }
 
+static int handle3_ingress_format(struct net_device *dev,
+			struct rmnet_ioctl_extended_s *in)
+{
+	int ret = 0;
+	struct ipa_sys_connect_params *ipa_wan_ep_cfg;
+	struct rmnet_phys_ep_conf_s *ep_cfg;
+
+	IPAWANDBG("Get RMNET_IOCTL_SET_INGRESS_DATA_FORMAT\n");
+	ipa_wan_ep_cfg = &rmnet_ipa3_ctx->ipa_to_apps_ep_cfg;
+	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
+		ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
+		   IPA_ENABLE_CS_OFFLOAD_DL;
+
+	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA) {
+		IPAWANERR("get AGG size %d count %d\n",
+				  in->u.ingress_format.agg_size,
+				  in->u.ingress_format.agg_count);
+
+		ret = ipa_disable_apps_wan_cons_deaggr(
+			  in->u.ingress_format.agg_size,
+			  in->u.ingress_format.agg_count);
+
+		if (!ret) {
+			ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr_byte_limit =
+			   in->u.ingress_format.agg_size;
+			ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr_pkt_limit =
+			   in->u.ingress_format.agg_count;
+
+			ipa_wan_ep_cfg->recycle_enabled = true;
+			ep_cfg = (struct rmnet_phys_ep_conf_s *)
+			   rcu_dereference(dev->rx_handler_data);
+			ep_cfg->recycle = ipa_recycle_wan_skb;
+			pr_info("Wan Recycle Enabled\n");
+		}
+	}
+
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 4;
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata_valid = 1;
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata = 1;
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_pkt_size_valid = 1;
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_pkt_size = 2;
+
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_valid = true;
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad = 0;
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_payload_len_inc_padding = true;
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_offset = 0;
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_little_endian = 0;
+	ipa_wan_ep_cfg->ipa_ep_cfg.metadata_mask.metadata_mask = 0xFF000000;
+
+	ipa_wan_ep_cfg->client = IPA_CLIENT_APPS_WAN_CONS;
+	ipa_wan_ep_cfg->notify = apps_ipa_packet_receive_notify;
+	ipa_wan_ep_cfg->priv = dev;
+
+	ipa_wan_ep_cfg->napi_enabled = ipa3_rmnet_res.ipa_napi_enable;
+	if (ipa_wan_ep_cfg->napi_enabled)
+		ipa_wan_ep_cfg->desc_fifo_sz = IPA_WAN_CONS_DESC_FIFO_SZ;
+	else
+		ipa_wan_ep_cfg->desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
+
+	mutex_lock(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+
+	if (atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
+		IPAWANDBG("In SSR sequence/recovery\n");
+		mutex_unlock(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+		return -EFAULT;
+	}
+	ret = ipa3_setup_sys_pipe(&rmnet_ipa3_ctx->ipa_to_apps_ep_cfg,
+	   &rmnet_ipa3_ctx->ipa3_to_apps_hdl);
+
+	mutex_unlock(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+
+	if (ret)
+		IPAWANERR("failed to configure ingress\n");
+
+	return ret;
+}
+
 /**
  * ipa3_wwan_ioctl() - I/O control for wwan network driver.
  *
@@ -1556,91 +1635,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			}
 			break;
 		case RMNET_IOCTL_SET_INGRESS_DATA_FORMAT:/*  Set IDF  */
-			IPAWANDBG("get RMNET_IOCTL_SET_INGRESS_DATA_FORMAT\n");
-			if ((extend_ioctl_data.u.data) &
-					RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
-				rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
-					ipa_ep_cfg.cfg.cs_offload_en =
-					IPA_ENABLE_CS_OFFLOAD_DL;
-
-			if ((extend_ioctl_data.u.data) &
-					RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA) {
-				IPAWANERR("get AGG size %d count %d\n",
-					extend_ioctl_data.u.
-					ingress_format.agg_size,
-					extend_ioctl_data.u.
-					ingress_format.agg_count);
-				if (!ipa_disable_apps_wan_cons_deaggr(
-					extend_ioctl_data.u.
-					ingress_format.agg_size,
-					extend_ioctl_data.
-					u.ingress_format.agg_count)) {
-					rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
-					ipa_ep_cfg.aggr.aggr_byte_limit =
-					extend_ioctl_data.u.ingress_format.
-					agg_size;
-					rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
-					ipa_ep_cfg.aggr.aggr_pkt_limit =
-					extend_ioctl_data.u.ingress_format.
-					agg_count;
-				}
-			}
-
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.
-				hdr_len = 4;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.
-				hdr_ofst_metadata_valid = 1;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.
-				hdr.hdr_ofst_metadata = 1;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.
-				hdr_ofst_pkt_size_valid = 1;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.
-				hdr_ofst_pkt_size = 2;
-
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr_ext.
-				hdr_total_len_or_pad_valid = true;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr_ext.
-				hdr_total_len_or_pad = 0;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr_ext.
-				hdr_payload_len_inc_padding = true;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr_ext.
-				hdr_total_len_or_pad_offset = 0;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr_ext.
-				hdr_little_endian = 0;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.
-				metadata_mask.metadata_mask = 0xFF000000;
-
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.client =
-				IPA_CLIENT_APPS_WAN_CONS;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.notify =
-				apps_ipa_packet_receive_notify;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.priv = dev;
-
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.napi_enabled =
-				ipa3_rmnet_res.ipa_napi_enable;
-			if (rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.napi_enabled)
-				rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
-				desc_fifo_sz = IPA_WAN_CONS_DESC_FIFO_SZ;
-			else
-				rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
-				desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
-
-			mutex_lock(
-				&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
-			if (atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
-				IPAWANDBG("In SSR sequence/recovery\n");
-				mutex_unlock(&rmnet_ipa3_ctx->
-					ipa_to_apps_pipe_handle_guard);
-				rc = -EFAULT;
-				break;
-			}
-			rc = ipa3_setup_sys_pipe(
-				&rmnet_ipa3_ctx->ipa_to_apps_ep_cfg,
-				&rmnet_ipa3_ctx->ipa3_to_apps_hdl);
-			mutex_unlock(&rmnet_ipa3_ctx->
-				ipa_to_apps_pipe_handle_guard);
-			if (rc)
-				IPAWANERR("failed to configure ingress\n");
+			rc = handle3_ingress_format(dev, &extend_ioctl_data);
 			break;
 		case RMNET_IOCTL_SET_XLAT_DEV_INFO:
 			wan_msg = kzalloc(sizeof(struct ipa_wan_msg),
@@ -1972,6 +1967,12 @@ static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 		"qcom,ipa-advertise-sg-support");
 	pr_info("IPA SG support = %s\n",
 		ipa_rmnet_drv_res->ipa_advertise_sg_support ? "True" : "False");
+
+	ipa_rmnet_drv_res->ipa_napi_enable =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,napi");
+	pr_info("IPA napi = %s\n",
+		ipa_rmnet_drv_res->ipa_napi_enable ? "True" : "False");
 	return 0;
 }
 
