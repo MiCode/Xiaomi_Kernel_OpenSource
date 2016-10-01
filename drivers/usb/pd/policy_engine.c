@@ -1769,6 +1769,20 @@ static void usbpd_sm(struct work_struct *w)
 	pd->rx_msg_type = pd->rx_msg_len = 0;
 }
 
+static inline const char *src_current(enum power_supply_typec_mode typec_mode)
+{
+	switch (typec_mode) {
+	case POWER_SUPPLY_TYPEC_SOURCE_DEFAULT:
+		return "default";
+	case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
+		return "medium - 1.5A";
+	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
+		return "high - 3.0A";
+	default:
+		return "";
+	}
+}
+
 static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 {
 	struct usbpd *pd = container_of(nb, struct usbpd, psy_nb);
@@ -1869,7 +1883,8 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	case POWER_SUPPLY_TYPEC_SOURCE_DEFAULT:
 	case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
 	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
-		usbpd_info(&pd->dev, "Type-C Source connected\n");
+		usbpd_info(&pd->dev, "Type-C Source (%s) connected\n",
+				src_current(typec_mode));
 		if (pd->current_pr != PR_SINK) {
 			pd->current_pr = PR_SINK;
 			queue_work(pd->wq, &pd->sm_work);
@@ -1879,7 +1894,9 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	/* Source states */
 	case POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE:
 	case POWER_SUPPLY_TYPEC_SINK:
-		usbpd_info(&pd->dev, "Type-C Sink connected\n");
+		usbpd_info(&pd->dev, "Type-C Sink%s connected\n",
+				typec_mode == POWER_SUPPLY_TYPEC_SINK ?
+					"" : " (powered)");
 		if (pd->current_pr != PR_SRC) {
 			pd->current_pr = PR_SRC;
 			queue_work(pd->wq, &pd->sm_work);
