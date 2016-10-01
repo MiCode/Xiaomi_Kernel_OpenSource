@@ -8002,8 +8002,8 @@ void __init sched_init(void)
 
 #ifdef CONFIG_SCHED_HMP
 	pr_info("HMP scheduling enabled.\n");
-	init_clusters();
 #endif
+	init_clusters();
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);

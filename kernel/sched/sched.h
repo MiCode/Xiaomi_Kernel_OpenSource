@@ -1480,6 +1480,7 @@ static inline void clear_hmp_request(int cpu) { }
 static inline void mark_task_starting(struct task_struct *p) { }
 static inline void set_window_start(struct rq *rq) { }
 static inline void migrate_sync_cpu(int cpu, int new_cpu) {}
+static inline void init_clusters(void) {}
 static inline void update_cluster_topology(void) { }
 static inline void set_task_last_wake(struct task_struct *p, u64 wallclock) { }
 static inline void set_task_last_switch_out(struct task_struct *p,
