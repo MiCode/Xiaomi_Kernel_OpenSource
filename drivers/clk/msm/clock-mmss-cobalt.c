@@ -2733,17 +2733,10 @@ static void msm_mmsscc_hamster_fixup(void)
 
 static void msm_mmsscc_v2_fixup(void)
 {
-	cpp_clk_src.c.fmax[VDD_DIG_LOW] = 200000000;
-	cpp_clk_src.c.fmax[VDD_DIG_LOW_L1] = 480000000;
-	csi0_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
-	csi0_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
-	csi1_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
-	csi1_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
-	csi2_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
-	csi2_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
-	csi3_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
-	csi3_clk_src.c.fmax[VDD_DIG_LOW_L1] = 300000000;
-	csiphy_clk_src.c.fmax[VDD_DIG_LOW] = 256000000;
+	csi0_clk_src.c.fmax[VDD_DIG_NOMINAL] = 480000000;
+	csi1_clk_src.c.fmax[VDD_DIG_NOMINAL] = 480000000;
+	csi2_clk_src.c.fmax[VDD_DIG_NOMINAL] = 480000000;
+	csi3_clk_src.c.fmax[VDD_DIG_NOMINAL] = 480000000;
 
 	dp_pixel_clk_src.c.fmax[VDD_DIG_LOWER] = 148380000;
 }
