@@ -1277,6 +1277,7 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 	struct usb_gsi_request *request;
 	struct gsi_channel_info *ch_info;
 	bool block_db, f_suspend;
+	unsigned long flags;
 
 	switch (op) {
 	case GSI_EP_OP_PREPARE_TRBS:
@@ -1291,11 +1292,15 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 	case GSI_EP_OP_CONFIG:
 		request = (struct usb_gsi_request *)op_data;
 		dbg_print(0xFF, "EP_CONFIG", 0, ep->name);
+		spin_lock_irqsave(&dwc->lock, flags);
 		gsi_configure_ep(ep, request);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_STARTXFER:
 		dbg_print(0xFF, "EP_STARTXFER", 0, ep->name);
+		spin_lock_irqsave(&dwc->lock, flags);
 		ret = gsi_startxfer_for_ep(ep);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_GET_XFER_IDX:
 		dbg_print(0xFF, "EP_GETXFERID", 0, ep->name);
@@ -1322,12 +1327,16 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 	case GSI_EP_OP_UPDATEXFER:
 		request = (struct usb_gsi_request *)op_data;
 		dbg_print(0xFF, "EP_UPDATEXFER", 0, ep->name);
+		spin_lock_irqsave(&dwc->lock, flags);
 		ret = gsi_updatexfer_for_ep(ep, request);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_ENDXFER:
 		request = (struct usb_gsi_request *)op_data;
 		dbg_print(0xFF, "EP_ENDXFER", 0, ep->name);
+		spin_lock_irqsave(&dwc->lock, flags);
 		gsi_endxfer_for_ep(ep);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_SET_CLR_BLOCK_DBL:
 		block_db = *((bool *)op_data);
