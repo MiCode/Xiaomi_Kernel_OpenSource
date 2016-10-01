@@ -242,6 +242,12 @@ static void *usbpd_ipc_log;
 static int min_sink_current = 900;
 module_param(min_sink_current, int, S_IRUSR | S_IWUSR);
 
+static bool ss_host;
+module_param(ss_host, bool, S_IRUSR | S_IWUSR);
+
+static bool ss_dev = true;
+module_param(ss_dev, bool, S_IRUSR | S_IWUSR);
+
 static const u32 default_src_caps[] = { 0x36019096 };	/* VSafe5V @ 1.5A */
 
 static const u32 default_snk_caps[] = { 0x2601905A,	/* 5V @ 900mA */
@@ -318,6 +324,7 @@ static const unsigned int usbpd_extcon_cable[] = {
 	EXTCON_USB,
 	EXTCON_USB_HOST,
 	EXTCON_USB_CC,
+	EXTCON_USB_SPEED,
 	EXTCON_NONE,
 };
 
@@ -685,6 +692,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 						SVDM_CMD_TYPE_INITIATOR, 0,
 						NULL, 0);
 
+			extcon_set_cable_state_(pd->extcon, EXTCON_USB_CC,
+					is_cable_flipped(pd));
+			extcon_set_cable_state_(pd->extcon, EXTCON_USB_SPEED,
+					ss_host);
 			extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 1);
 		}
 
@@ -754,6 +765,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB_CC,
 						is_cable_flipped(pd));
+				extcon_set_cable_state_(pd->extcon,
+						EXTCON_USB_SPEED, ss_dev);
 				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB, 1);
 			}
@@ -852,6 +865,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->current_dr = DR_UFP;
 			extcon_set_cable_state_(pd->extcon, EXTCON_USB_CC,
 					is_cable_flipped(pd));
+			extcon_set_cable_state_(pd->extcon, EXTCON_USB_SPEED,
+					ss_dev);
 			extcon_set_cable_state_(pd->extcon, EXTCON_USB, 1);
 			pd_phy_update_roles(pd->current_dr, pd->current_pr);
 		}
@@ -1194,12 +1209,14 @@ static void dr_swap(struct usbpd *pd)
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 0);
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB_CC,
 				is_cable_flipped(pd));
+		extcon_set_cable_state_(pd->extcon, EXTCON_USB_SPEED, ss_dev);
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB, 1);
 		pd->current_dr = DR_UFP;
 	} else if (pd->current_dr == DR_UFP) {
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB, 0);
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB_CC,
 				is_cable_flipped(pd));
+		extcon_set_cable_state_(pd->extcon, EXTCON_USB_SPEED, ss_host);
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 1);
 		pd->current_dr = DR_DFP;
 
@@ -1344,6 +1361,8 @@ static void usbpd_sm(struct work_struct *w)
 				/* Likely not PD-capable, start host now */
 				extcon_set_cable_state_(pd->extcon,
 					EXTCON_USB_CC, is_cable_flipped(pd));
+				extcon_set_cable_state_(pd->extcon,
+						EXTCON_USB_SPEED, ss_host);
 				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB_HOST, 1);
 			} else if (pd->caps_count >= PD_CAPS_COUNT) {

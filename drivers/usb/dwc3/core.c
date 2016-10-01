@@ -123,6 +123,9 @@ static int dwc3_init_usb_phys(struct dwc3 *dwc)
 		return ret;
 	}
 
+	if (dwc->maximum_speed == USB_SPEED_HIGH)
+		goto generic_phy_init;
+
 	ret = usb_phy_init(dwc->usb3_phy);
 	if (ret == -EBUSY) {
 		/*
@@ -135,6 +138,8 @@ static int dwc3_init_usb_phys(struct dwc3 *dwc)
 				__func__, ret);
 		return ret;
 	}
+
+generic_phy_init:
 	ret = phy_init(dwc->usb2_generic_phy);
 	if (ret < 0)
 		return ret;
@@ -159,7 +164,9 @@ static int dwc3_core_reset(struct dwc3 *dwc)
 
 	/* Reset PHYs */
 	usb_phy_reset(dwc->usb2_phy);
-	usb_phy_reset(dwc->usb3_phy);
+
+	if (dwc->maximum_speed == USB_SPEED_SUPER)
+		usb_phy_reset(dwc->usb3_phy);
 
 	/* Initialize PHYs */
 	ret = dwc3_init_usb_phys(dwc);
