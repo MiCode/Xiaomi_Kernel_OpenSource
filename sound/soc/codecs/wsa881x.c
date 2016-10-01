@@ -1305,7 +1305,8 @@ static int wsa881x_swr_down(struct swr_device *pdev)
 		dev_err(&pdev->dev, "%s: wsa881x is NULL\n", __func__);
 		return -EINVAL;
 	}
-	cancel_delayed_work_sync(&wsa881x->ocp_ctl_work);
+	if (delayed_work_pending(&wsa881x->ocp_ctl_work))
+		cancel_delayed_work_sync(&wsa881x->ocp_ctl_work);
 	ret = wsa881x_gpio_ctrl(wsa881x, false);
 	if (ret)
 		dev_err(&pdev->dev, "%s: Failed to disable gpio\n", __func__);
