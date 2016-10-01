@@ -4144,13 +4144,12 @@ int tavil_codec_enable_standalone_micbias(struct snd_soc_codec *codec,
 	}
 
 	if (enable)
-		rc = snd_soc_dapm_force_enable_pin_unlocked(
+		rc = snd_soc_dapm_force_enable_pin(
 						snd_soc_codec_get_dapm(codec),
 						micb_names[micb_index]);
 	else
-		rc = snd_soc_dapm_disable_pin_unlocked(
-						snd_soc_codec_get_dapm(codec),
-						micb_names[micb_index]);
+		rc = snd_soc_dapm_disable_pin(snd_soc_codec_get_dapm(codec),
+					      micb_names[micb_index]);
 
 	if (!rc)
 		snd_soc_dapm_sync(snd_soc_codec_get_dapm(codec));
