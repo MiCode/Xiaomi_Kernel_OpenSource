@@ -32,6 +32,7 @@ struct wcd934x_mbhc {
 	struct wcd9xxx *wcd9xxx;
 	struct fw_info *fw_data;
 	bool mbhc_started;
+	bool is_hph_recover;
 };
 
 extern int tavil_mbhc_init(struct wcd934x_mbhc **mbhc,
