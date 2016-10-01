@@ -177,7 +177,10 @@ static void msm_pcm_routing_cfg_pp(int port_id, int copp_idx, int topology,
 		break;
 	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_AUDIOSPHERE:
 		pr_debug("%s: TOPOLOGY_ID_AUDIOSPHERE\n", __func__);
-		msm_qti_pp_asphere_init(port_id, copp_idx);
+		rc = msm_qti_pp_asphere_init(port_id, copp_idx);
+		if (rc < 0)
+			pr_err("%s: topo_id 0x%x, port %d, copp %d, rc %d\n",
+				__func__, topology, port_id, copp_idx, rc);
 		break;
 	default:
 		/* custom topology specific feature param handlers */
@@ -223,22 +226,27 @@ static void msm_pcm_routing_deinit_pp(int port_id, int topology)
 static void msm_pcm_routng_cfg_matrix_map_pp(struct route_payload payload,
 					     int path_type, int perf_mode)
 {
-	int itr = 0;
+	int itr = 0, rc = 0;
 	if ((path_type == ADM_PATH_PLAYBACK) &&
 	    (perf_mode == LEGACY_PCM_MODE) &&
 	    is_custom_stereo_on) {
 		for (itr = 0; itr < payload.num_copps; itr++) {
-			if ((payload.port_id[itr] == SLIMBUS_0_RX) ||
-			    (payload.port_id[itr] == RT_PROXY_PORT_001_RX)) {
-				msm_qti_pp_send_stereo_to_custom_stereo_cmd(
-						payload.port_id[itr],
-						payload.copp_idx[itr],
-						payload.session_id,
-						Q14_GAIN_ZERO_POINT_FIVE,
-						Q14_GAIN_ZERO_POINT_FIVE,
-						Q14_GAIN_ZERO_POINT_FIVE,
-						Q14_GAIN_ZERO_POINT_FIVE);
+			if ((payload.port_id[itr] != SLIMBUS_0_RX) &&
+			    (payload.port_id[itr] != RT_PROXY_PORT_001_RX)) {
+				continue;
 			}
+
+			rc = msm_qti_pp_send_stereo_to_custom_stereo_cmd(
+				payload.port_id[itr],
+				payload.copp_idx[itr],
+				payload.session_id,
+				Q14_GAIN_ZERO_POINT_FIVE,
+				Q14_GAIN_ZERO_POINT_FIVE,
+				Q14_GAIN_ZERO_POINT_FIVE,
+				Q14_GAIN_ZERO_POINT_FIVE);
+			if (rc < 0)
+				pr_err("%s: err setting custom stereo\n",
+					__func__);
 		}
 	}
 }
