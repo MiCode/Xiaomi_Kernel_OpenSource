@@ -57,6 +57,7 @@ enum clk_osm_lut_data {
 	FREQ_DATA,
 	PLL_OVERRIDES,
 	SPARE_DATA,
+	VIRTUAL_CORNER,
 	NUM_FIELDS,
 };
 
@@ -406,12 +407,24 @@ static long clk_osm_list_rate(struct clk *c, unsigned n)
 static long clk_osm_round_rate(struct clk *c, unsigned long rate)
 {
 	int i;
+	unsigned long rrate = 0;
 
-	for (i = 0; i < c->num_fmax; i++)
-		if (rate <= c->fmax[i])
-			return c->fmax[i];
+	/*
+	 * If the rate passed in is 0, return the first frequency in
+	 * the FMAX table.
+	 */
+	if (!rate)
+		return c->fmax[0];
 
-	return c->fmax[i-1];
+	for (i = 0; i < c->num_fmax; i++) {
+		if (is_better_rate(rate, rrate, c->fmax[i])) {
+			rrate = c->fmax[i];
+			if (rrate == rate)
+				break;
+		}
+	}
+
+	return rrate;
 }
 
 static int clk_osm_search_table(struct osm_entry *table, int entries, long rate)
@@ -581,19 +594,21 @@ static void clk_osm_print_osm_table(struct clk_osm *c)
 {
 	int i;
 	struct osm_entry *table = c->osm_table;
-	u32 pll_src, pll_div, lval;
+	u32 pll_src, pll_div, lval, core_count;
 
-	pr_debug("Index, Frequency, VC, OLV (mv), PLL Src, PLL Div, L-Val, ACC Level\n");
+	pr_debug("Index, Frequency, VC, OLV (mv), Core Count, PLL Src, PLL Div, L-Val, ACC Level\n");
 	for (i = 0; i < c->num_entries; i++) {
 		pll_src = (table[i].freq_data & GENMASK(27, 26)) >> 26;
 		pll_div = (table[i].freq_data & GENMASK(25, 24)) >> 24;
 		lval = table[i].freq_data & GENMASK(7, 0);
+		core_count = (table[i].freq_data & GENMASK(18, 16)) >> 16;
 
-		pr_debug("%3d, %11lu, %2u, %5u, %6u, %8u, %7u, %5u\n",
+		pr_debug("%3d, %11lu, %2u, %5u, %2u, %6u, %8u, %7u, %5u\n",
 			i,
 			table[i].frequency,
 			table[i].virtual_corner,
 			table[i].open_loop_volt,
+			core_count,
 			pll_src,
 			pll_div,
 			lval,
@@ -655,14 +670,17 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 		c->osm_table[j].freq_data = array[i + FREQ_DATA];
 		c->osm_table[j].override_data = array[i + PLL_OVERRIDES];
 		c->osm_table[j].spare_data = array[i + SPARE_DATA];
-		pr_debug("index=%d freq=%ld freq_data=0x%x override_data=0x%x spare_data=0x%x\n",
+		/* Voltage corners are 0 based in the OSM LUT */
+		c->osm_table[j].virtual_corner = array[i + VIRTUAL_CORNER] - 1;
+		pr_debug("index=%d freq=%ld virtual_corner=%d freq_data=0x%x override_data=0x%x spare_data=0x%x\n",
 			 j, c->osm_table[j].frequency,
+			 c->osm_table[j].virtual_corner,
 			 c->osm_table[j].freq_data,
 			 c->osm_table[j].override_data,
 			 c->osm_table[j].spare_data);
 
 		data = (array[i + FREQ_DATA] & GENMASK(18, 16)) >> 16;
-		if (!last_entry && data == MAX_CONFIG) {
+		if (!last_entry) {
 			clk->fmax[k] = array[i];
 			k++;
 		}
@@ -1143,77 +1161,25 @@ static int clk_osm_setup_hw_table(struct clk_osm *c)
 static int clk_osm_resolve_open_loop_voltages(struct clk_osm *c)
 {
 	struct regulator *regulator = c->vdd_reg;
-	struct dev_pm_opp *opp;
-	unsigned long freq;
-	u32 vc, mv, data;
-	int i, rc = 0;
+	u32 vc, mv;
+	int i;
 
-	/*
-	 * Determine frequency -> virtual corner -> open-loop voltage
-	 * mapping from the OPP table.
-	 */
 	for (i = 0; i < OSM_TABLE_SIZE; i++) {
-		freq = c->osm_table[i].frequency;
-		/*
-		 * Only frequencies that are supported across all configurations
-		 * are present in the OPP table associated with the regulator
-		 * device.
-		 */
-		data = (c->osm_table[i].freq_data & GENMASK(18, 16)) >> 16;
-		if (data != MAX_CONFIG) {
-			if (i < 1) {
-				pr_err("Invalid LUT entry at index 0\n");
-				return -EINVAL;
-			}
-			c->osm_table[i].open_loop_volt =
-				c->osm_table[i-1].open_loop_volt;
-			c->osm_table[i].virtual_corner =
-				c->osm_table[i-1].virtual_corner;
-			continue;
-		}
-
-		rcu_read_lock();
-		opp = dev_pm_opp_find_freq_exact(&c->vdd_dev->dev, freq, true);
-		if (IS_ERR(opp)) {
-			rc = PTR_ERR(opp);
-			if (rc == -ERANGE)
-				pr_err("Frequency %lu not found\n", freq);
-			goto exit;
-		}
-
-		vc = dev_pm_opp_get_voltage(opp);
-		if (!vc) {
-			pr_err("No virtual corner found for frequency %lu\n",
-			       freq);
-			rc = -ERANGE;
-			goto exit;
-		}
-
-		rcu_read_unlock();
-
+		vc = c->osm_table[i].virtual_corner + 1;
 		/* Voltage is in uv. Convert to mv */
 		mv = regulator_list_corner_voltage(regulator, vc) / 1000;
-
-		/* CPR virtual corners are zero-based numbered */
-		vc--;
 		c->osm_table[i].open_loop_volt = mv;
-		c->osm_table[i].virtual_corner = vc;
 	}
 
 	return 0;
-exit:
-	rcu_read_unlock();
-	return rc;
 }
 
 static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 				     struct platform_device *pdev)
 {
 	struct regulator *regulator = c->vdd_reg;
-	struct dev_pm_opp *opp;
-	unsigned long freq = 0;
-	int vc, i, threshold, rc = 0;
-	u32 corner_volt, data;
+	int count, vc, i, threshold, rc = 0;
+	u32 corner_volt;
 
 	rc = of_property_read_u32(pdev->dev.of_node,
 				  "qcom,apm-threshold-voltage",
@@ -1224,70 +1190,26 @@ static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 	}
 
 	/* Determine crossover virtual corner */
-	rcu_read_lock();
-	opp = dev_pm_opp_find_freq_exact(&c->vdd_dev->dev, freq, true);
-	if (IS_ERR(opp)) {
-		rc = PTR_ERR(opp);
-		if (rc == -ERANGE)
-			pr_debug("APM placeholder frequency entry not found\n");
-		goto exit;
+	count = regulator_count_voltages(regulator);
+	if (count < 0) {
+		pr_err("Failed to get the number of virtual corners supported\n");
+		return count;
 	}
-	vc = dev_pm_opp_get_voltage(opp);
-	if (!vc) {
-		pr_debug("APM crossover corner not found\n");
-		rc = -ERANGE;
-		goto exit;
-	}
-	rcu_read_unlock();
-	vc--;
-	c->apm_crossover_vc = vc;
+
+	c->apm_crossover_vc = count - 1;
 
 	/* Determine threshold virtual corner */
 	for (i = 0; i < OSM_TABLE_SIZE; i++) {
-		freq = c->osm_table[i].frequency;
-		/*
-		 * Only frequencies that are supported across all configurations
-		 * are present in the OPP table associated with the regulator
-		 * device.
-		 */
-		data = (c->osm_table[i].freq_data & GENMASK(18, 16)) >> 16;
-		if (data != MAX_CONFIG)
-			continue;
-
-		rcu_read_lock();
-		opp = dev_pm_opp_find_freq_exact(&c->vdd_dev->dev, freq, true);
-		if (IS_ERR(opp)) {
-			rc = PTR_ERR(opp);
-			if (rc == -ERANGE)
-				pr_err("Frequency %lu not found\n", freq);
-			goto exit;
-		}
-
-		vc = dev_pm_opp_get_voltage(opp);
-		if (!vc) {
-			pr_err("No virtual corner found for frequency %lu\n",
-			       freq);
-			rc = -ERANGE;
-			goto exit;
-		}
-
-		rcu_read_unlock();
-
+		vc = c->osm_table[i].virtual_corner + 1;
 		corner_volt = regulator_list_corner_voltage(regulator, vc);
 
-		/* CPR virtual corners are zero-based numbered */
-		vc--;
-
 		if (corner_volt >= threshold) {
-			c->apm_threshold_vc = vc;
+			c->apm_threshold_vc = c->osm_table[i].virtual_corner;
 			break;
 		}
 	}
 
 	return 0;
-exit:
-	rcu_read_unlock();
-	return rc;
 }
 
 static int clk_osm_set_cc_policy(struct platform_device *pdev)
