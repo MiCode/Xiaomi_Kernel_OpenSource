@@ -17,6 +17,7 @@
 #include <linux/cpufreq.h>
 #include <linux/list_sort.h>
 #include <linux/syscore_ops.h>
+#include <linux/of.h>
 
 #include "sched.h"
 #include "core_ctl.h"
@@ -223,6 +224,49 @@ fail:
 
 	spin_unlock_irqrestore(&freq_max_load_lock, flags);
 	return ret;
+}
+
+/*
+ * It is possible that CPUs of the same micro architecture can have slight
+ * difference in the efficiency due to other factors like cache size. The
+ * BOOST_ON_BIG policy may not be optimial for such systems. The required
+ * boost policy can be specified via device tree to handle this.
+ */
+static int __read_mostly sched_boost_policy = SCHED_BOOST_NONE;
+
+/*
+ * This should be called after clusters are populated and
+ * the respective efficiency values are initialized.
+ */
+void init_sched_hmp_boost_policy(void)
+{
+	/*
+	 * Initialize the boost type here if it is not passed from
+	 * device tree.
+	 */
+	if (sched_boost_policy == SCHED_BOOST_NONE) {
+		if (max_possible_efficiency != min_possible_efficiency)
+			sched_boost_policy = SCHED_BOOST_ON_BIG;
+		else
+			sched_boost_policy = SCHED_BOOST_ON_ALL;
+	}
+}
+
+void sched_hmp_parse_dt(void)
+{
+	struct device_node *sn;
+	const char *boost_policy;
+
+	sn = of_find_node_by_path("/sched-hmp");
+	if (!sn)
+		return;
+
+	if (!of_property_read_string(sn, "boost-policy", &boost_policy)) {
+		if (!strcmp(boost_policy, "boost-on-big"))
+			sched_boost_policy = SCHED_BOOST_ON_BIG;
+		else if (!strcmp(boost_policy, "boost-on-all"))
+			sched_boost_policy = SCHED_BOOST_ON_ALL;
+	}
 }
 
 unsigned int max_possible_efficiency = 1;
@@ -1150,12 +1194,9 @@ int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu,
 
 enum sched_boost_type sched_boost_type(void)
 {
-	if (sched_boost()) {
-		if (min_possible_efficiency != max_possible_efficiency)
-			return SCHED_BOOST_ON_BIG;
-		else
-			return SCHED_BOOST_ON_ALL;
-	}
+	if (sched_boost())
+		return sched_boost_policy;
+
 	return SCHED_BOOST_NONE;
 }
 

@@ -7928,6 +7928,7 @@ void __init sched_init_smp(void)
 	mutex_unlock(&sched_domains_mutex);
 
 	update_cluster_topology();
+	init_sched_hmp_boost_policy();
 
 	/* Move init over to a non-isolated CPU */
 	if (set_cpus_allowed_ptr(current, non_isolated_cpus) < 0)
@@ -8003,6 +8004,7 @@ void __init sched_init(void)
 #ifdef CONFIG_SCHED_HMP
 	pr_info("HMP scheduling enabled.\n");
 #endif
+	sched_hmp_parse_dt();
 	init_clusters();
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

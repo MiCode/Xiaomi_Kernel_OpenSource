@@ -1453,6 +1453,8 @@ extern u64 cpu_upmigrate_discourage_read_u64(struct cgroup_subsys_state *css,
 					struct cftype *cft);
 extern int cpu_upmigrate_discourage_write_u64(struct cgroup_subsys_state *css,
 				struct cftype *cft, u64 upmigrate_discourage);
+extern void sched_hmp_parse_dt(void);
+extern void init_sched_hmp_boost_policy(void);
 
 #else	/* CONFIG_SCHED_HMP */
 
@@ -1630,6 +1632,8 @@ static inline void post_big_task_count_change(void) { }
 static inline void set_hmp_defaults(void) { }
 
 static inline void clear_reserved(int cpu) { }
+static inline void sched_hmp_parse_dt(void) {}
+static inline void init_sched_hmp_boost_policy(void) {}
 
 #define trace_sched_cpu_load(...)
 #define trace_sched_cpu_load_lb(...)

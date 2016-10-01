@@ -43,6 +43,7 @@ CONTENTS
    8.8 sched_get_busy
    8.9 sched_freq_alert
    8.10 sched_set_boost
+9. Device Tree bindings
 
 ===============
 1. INTRODUCTION
@@ -1447,3 +1448,10 @@ Logged when boost settings are being changed
 <task>-0     [004] d.h4 12700.711489: sched_set_boost: ref_count=1
 
 - ref_count: A non-zero value indicates boost is in effect
+
+========================
+9. Device Tree bindings
+========================
+
+The device tree bindings for the HMP scheduler are defined in
+Documentation/devicetree/bindings/sched/sched_hmp.txt
