@@ -1872,6 +1872,10 @@ static bool wcd934x_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD934X_CPE_SS_PWR_SYS_PSTATE_CTL_1:
 	case WCD934X_CPE_SS_CPAR_CTL:
 	case WCD934X_CPE_SS_STATUS:
+	case WCD934X_CODEC_RPM_RST_CTL:
+	case WCD934X_SIDO_NEW_VOUT_A_STARTUP:
+	case WCD934X_SIDO_NEW_VOUT_D_STARTUP:
+	case WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL:
 		return true;
 	}
 

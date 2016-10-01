@@ -123,6 +123,9 @@ static const struct snd_kcontrol_new name##_mux = \
 #define WCD934X_DEC_PWR_LVL_DF 0x00
 #define WCD934X_STRING_LEN 100
 
+#define WCD934X_DIG_CORE_REG_MIN  WCD934X_CDC_ANC0_CLK_RESET_CTL
+#define WCD934X_DIG_CORE_REG_MAX  0xFFF
+
 #define WCD934X_MAX_MICBIAS 4
 #define DAPM_MICBIAS1_STANDALONE "MIC BIAS1 Standalone"
 #define DAPM_MICBIAS2_STANDALONE "MIC BIAS2 Standalone"
@@ -140,6 +143,24 @@ static const struct snd_kcontrol_new name##_mux = \
 #define WCD934X_MAD_AUDIO_FIRMWARE_PATH "wcd934x/wcd934x_mad_audio.bin"
 
 #define TAVIL_VERSION_ENTRY_SIZE 17
+
+#define WCD934X_DIG_CORE_COLLAPSE_TIMER_MS  (5 * 1000)
+
+enum {
+	POWER_COLLAPSE,
+	POWER_RESUME,
+};
+
+static int dig_core_collapse_enable = 1;
+module_param(dig_core_collapse_enable, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(dig_core_collapse_enable, "enable/disable power gating");
+
+/* dig_core_collapse timer in seconds */
+static int dig_core_collapse_timer = (WCD934X_DIG_CORE_COLLAPSE_TIMER_MS/1000);
+module_param(dig_core_collapse_timer, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(dig_core_collapse_timer, "timer for power gating");
 
 enum {
 	VI_SENSE_1,
@@ -530,6 +551,9 @@ struct tavil_priv {
 	struct wcd934x_swr swr;
 	struct mutex micb_lock;
 
+	struct delayed_work power_gate_work;
+	struct mutex power_lock;
+
 	struct clk *wcd_ext_clk;
 
 	/* mbhc module */
@@ -563,6 +587,8 @@ struct tavil_priv {
 	int main_clk_users[WCD934X_NUM_INTERPOLATORS];
 	struct tavil_dsd_config *dsd_config;
 	struct tavil_idle_detect_config idle_det_cfg;
+
+	int power_active_ref;
 };
 
 static const struct tavil_reg_mask_val tavil_spkr_default[] = {
@@ -7067,6 +7093,136 @@ static struct snd_soc_dai_driver tavil_dai[] = {
 	},
 };
 
+static void tavil_codec_power_gate_digital_core(struct tavil_priv *tavil)
+{
+	struct snd_soc_codec *codec = tavil->codec;
+
+	if (!codec)
+		return;
+
+	mutex_lock(&tavil->power_lock);
+	dev_dbg(codec->dev, "%s: Entering power gating function, %d\n",
+		__func__, tavil->power_active_ref);
+
+	if (tavil->power_active_ref > 0)
+		goto exit;
+
+	wcd9xxx_set_power_state(tavil->wcd9xxx,
+			WCD_REGION_POWER_COLLAPSE_BEGIN,
+			WCD9XXX_DIG_CORE_REGION_1);
+	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			0x04, 0x04);
+	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			0x01, 0x00);
+	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			0x02, 0x00);
+	wcd9xxx_set_power_state(tavil->wcd9xxx, WCD_REGION_POWER_DOWN,
+				WCD9XXX_DIG_CORE_REGION_1);
+exit:
+	dev_dbg(codec->dev, "%s: Exiting power gating function, %d\n",
+		__func__, tavil->power_active_ref);
+	mutex_unlock(&tavil->power_lock);
+}
+
+static void tavil_codec_power_gate_work(struct work_struct *work)
+{
+	struct tavil_priv *tavil;
+	struct delayed_work *dwork;
+	struct snd_soc_codec *codec;
+
+	dwork = to_delayed_work(work);
+	tavil = container_of(dwork, struct tavil_priv, power_gate_work);
+	codec = tavil->codec;
+
+	if (!codec)
+		return;
+
+	tavil_codec_power_gate_digital_core(tavil);
+}
+
+/* called under power_lock acquisition */
+static int tavil_dig_core_remove_power_collapse(struct snd_soc_codec *codec)
+{
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+
+	snd_soc_write(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
+	snd_soc_write(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
+	snd_soc_write(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
+	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_RST_CTL, 0x02, 0x00);
+	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_RST_CTL, 0x02, 0x02);
+
+	wcd9xxx_set_power_state(tavil->wcd9xxx,
+			WCD_REGION_POWER_COLLAPSE_REMOVE,
+			WCD9XXX_DIG_CORE_REGION_1);
+	regcache_mark_dirty(codec->component.regmap);
+	regcache_sync_region(codec->component.regmap,
+			     WCD934X_DIG_CORE_REG_MIN,
+			     WCD934X_DIG_CORE_REG_MAX);
+
+	return 0;
+}
+
+static int tavil_dig_core_power_collapse(struct tavil_priv *tavil,
+					 int req_state)
+{
+	struct snd_soc_codec *codec;
+	int cur_state;
+
+	/* Exit if feature is disabled */
+	if (!dig_core_collapse_enable)
+		return 0;
+
+	mutex_lock(&tavil->power_lock);
+	if (req_state == POWER_COLLAPSE)
+		tavil->power_active_ref--;
+	else if (req_state == POWER_RESUME)
+		tavil->power_active_ref++;
+	else
+		goto unlock_mutex;
+
+	if (tavil->power_active_ref < 0) {
+		dev_dbg(tavil->dev, "%s: power_active_ref is negative\n",
+			__func__);
+		goto unlock_mutex;
+	}
+
+	codec = tavil->codec;
+	if (!codec)
+		goto unlock_mutex;
+
+	if (req_state == POWER_COLLAPSE) {
+		if (tavil->power_active_ref == 0) {
+			schedule_delayed_work(&tavil->power_gate_work,
+			msecs_to_jiffies(dig_core_collapse_timer * 1000));
+		}
+	} else if (req_state == POWER_RESUME) {
+		if (tavil->power_active_ref == 1) {
+			/*
+			 * At this point, there can be two cases:
+			 * 1. Core already in power collapse state
+			 * 2. Timer kicked in and still did not expire or
+			 * waiting for the power_lock
+			 */
+			cur_state = wcd9xxx_get_current_power_state(
+						tavil->wcd9xxx,
+						WCD9XXX_DIG_CORE_REGION_1);
+			if (cur_state == WCD_REGION_POWER_DOWN) {
+				tavil_dig_core_remove_power_collapse(codec);
+			} else {
+				mutex_unlock(&tavil->power_lock);
+				cancel_delayed_work_sync(
+						&tavil->power_gate_work);
+				mutex_lock(&tavil->power_lock);
+			}
+		}
+	}
+
+unlock_mutex:
+	mutex_unlock(&tavil->power_lock);
+
+	return 0;
+}
+
 static int tavil_cdc_req_mclk_enable(struct tavil_priv *tavil,
 				     bool enable)
 {
@@ -7108,15 +7264,15 @@ static int __tavil_cdc_mclk_enable_locked(struct tavil_priv *tavil,
 	dev_dbg(tavil->dev, "%s: mclk_enable = %u\n", __func__, enable);
 
 	if (enable) {
+		tavil_dig_core_power_collapse(tavil, POWER_RESUME);
 		tavil_vote_svs(tavil, true);
 		ret = tavil_cdc_req_mclk_enable(tavil, true);
 		if (ret)
 			goto done;
-
-		set_bit(AUDIO_NOMINAL, &tavil->status_mask);
 	} else {
 		tavil_cdc_req_mclk_enable(tavil, false);
 		tavil_vote_svs(tavil, false);
+		tavil_dig_core_power_collapse(tavil, POWER_COLLAPSE);
 	}
 
 done:
@@ -8050,6 +8206,9 @@ static int tavil_suspend(struct device *dev)
 		return -EINVAL;
 	}
 	dev_dbg(dev, "%s: system suspend\n", __func__);
+	if (delayed_work_pending(&tavil->power_gate_work) &&
+	    cancel_delayed_work_sync(&tavil->power_gate_work))
+		tavil_codec_power_gate_digital_core(tavil);
 	return 0;
 }
 
@@ -8551,6 +8710,7 @@ static int tavil_probe(struct platform_device *pdev)
 	struct tavil_priv *tavil;
 	struct clk *wcd_ext_clk;
 	struct wcd9xxx_resmgr_v2 *resmgr;
+	struct wcd9xxx_power_region *cdc_pwr;
 
 	tavil = devm_kzalloc(&pdev->dev, sizeof(struct tavil_priv),
 			    GFP_KERNEL);
@@ -8561,6 +8721,8 @@ static int tavil_probe(struct platform_device *pdev)
 
 	tavil->wcd9xxx = dev_get_drvdata(pdev->dev.parent);
 	tavil->dev = &pdev->dev;
+	INIT_DELAYED_WORK(&tavil->power_gate_work, tavil_codec_power_gate_work);
+	mutex_init(&tavil->power_lock);
 	INIT_WORK(&tavil->tavil_add_child_devices_work,
 		  tavil_add_child_devices);
 	mutex_init(&tavil->micb_lock);
@@ -8577,6 +8739,18 @@ static int tavil_probe(struct platform_device *pdev)
 	 */
 	tavil->svs_ref_cnt = 1;
 
+	cdc_pwr = devm_kzalloc(&pdev->dev, sizeof(struct wcd9xxx_power_region),
+				GFP_KERNEL);
+	if (!cdc_pwr) {
+		ret = -ENOMEM;
+		goto err_resmgr;
+	}
+	tavil->wcd9xxx->wcd9xxx_pwr[WCD9XXX_DIG_CORE_REGION_1] = cdc_pwr;
+	cdc_pwr->pwr_collapse_reg_min = WCD934X_DIG_CORE_REG_MIN;
+	cdc_pwr->pwr_collapse_reg_max = WCD934X_DIG_CORE_REG_MAX;
+	wcd9xxx_set_power_state(tavil->wcd9xxx,
+				WCD_REGION_POWER_COLLAPSE_REMOVE,
+				WCD9XXX_DIG_CORE_REGION_1);
 	/*
 	 * Init resource manager so that if child nodes such as SoundWire
 	 * requests for clock, resource manager can honor the request
