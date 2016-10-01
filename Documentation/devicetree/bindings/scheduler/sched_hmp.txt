@@ -1,0 +1,35 @@
+* HMP scheduler
+
+This file describes the bindings for an optional HMP scheduler
+node (/sched-hmp).
+
+Required properties:
+
+Optional properties:
+
+- boost-policy: The HMP scheduler has two types of task placement boost
+policies.
+
+(1) boost-on-big policy make use of all big CPUs up to their full capacity
+before using the little CPUs. This improves performance on true b.L systems
+where the big CPUs have higher efficiency compared to the little CPUs.
+
+(2) boost-on-all policy place the tasks on the CPU having the highest
+spare capacity. This policy is optimal for SMP like systems.
+
+The scheduler sets the boost policy to boost-on-big on systems which has
+CPUs of different efficiencies. However it is possible that CPUs of the
+same micro architecture to have slight difference in efficiency due to
+other factors like cache size. Selecting the boost-on-big policy based
+on relative difference in efficiency is not optimal on such systems.
+The boost-policy device tree property is introduced to specify the
+required boost type and it overrides the default selection of boost
+type in the scheduler.
+
+The possible values for this property are "boost-on-big" and "boost-on-all".
+
+Example:
+
+sched-hmp {
+	boost-policy = "boost-on-all"
+}
