@@ -7229,9 +7229,7 @@ bail_inter_cluster_balance(struct lb_env *env, struct sd_lb_stats *sds)
 	local_pwr_cost = cpu_max_power_cost(local_cpu);
 	busiest_pwr_cost = cpu_max_power_cost(busiest_cpu);
 
-	if (local_capacity < busiest_capacity ||
-			(local_capacity == busiest_capacity &&
-			local_pwr_cost <= busiest_pwr_cost))
+	if (local_pwr_cost <= busiest_pwr_cost)
 		return 0;
 
 	if (local_capacity > busiest_capacity &&
@@ -8868,9 +8866,6 @@ static inline int find_new_hmp_ilb(int type)
 		for_each_cpu_and(ilb, nohz.idle_cpus_mask,
 						sched_domain_span(sd)) {
 			if (idle_cpu(ilb) && (type != NOHZ_KICK_RESTRICT ||
-					(hmp_capable() &&
-					 cpu_max_possible_capacity(ilb) <=
-					cpu_max_possible_capacity(call_cpu)) ||
 					cpu_max_power_cost(ilb) <=
 					cpu_max_power_cost(call_cpu))) {
 				rcu_read_unlock();
@@ -9224,8 +9219,7 @@ static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
 	if (!sysctl_sched_restrict_cluster_spill || sched_boost())
 		return 1;
 
-	if (hmp_capable() && cpu_max_possible_capacity(cpu) ==
-			max_possible_capacity)
+	if (cpu_max_power_cost(cpu) == max_power_cost)
 		return 1;
 
 	rcu_read_lock();
