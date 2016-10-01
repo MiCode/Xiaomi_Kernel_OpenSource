@@ -951,8 +951,10 @@ static int rh850_netdev_do_ioctl(struct net_device *netdev,
 
 	switch (cmd) {
 	case IOCTL_RELEASE_CAN_BUFFER:
-		mode = ifr->ifr_data;
-		priv_data->driver_mode = *mode;
+		if (ifr->ifr_data > (void *)0x100) {
+			mode = ifr->ifr_data;
+			priv_data->driver_mode = *mode;
+		}
 		LOGDE("rh850_driver_mode  %d\n", priv_data->driver_mode);
 		rh850_send_release_can_buffer_cmd(netdev);
 		ret = 0;
