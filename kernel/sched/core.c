@@ -1550,7 +1550,7 @@ static int select_fallback_rq(int cpu, struct task_struct *p, bool allow_iso)
 {
 	int nid = cpu_to_node(cpu);
 	const struct cpumask *nodemask = NULL;
-	enum { cpuset, possible, fail } state = cpuset;
+	enum { cpuset, possible, fail, bug } state = cpuset;
 	int dest_cpu;
 	int isolated_candidate = -1;
 
@@ -1608,6 +1608,11 @@ static int select_fallback_rq(int cpu, struct task_struct *p, bool allow_iso)
 			break;
 
 		case fail:
+			allow_iso = true;
+			state = bug;
+			break;
+
+		case bug:
 			BUG();
 			break;
 		}
