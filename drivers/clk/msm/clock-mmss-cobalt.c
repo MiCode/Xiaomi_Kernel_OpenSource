@@ -482,10 +482,9 @@ static struct clk_freq_tbl ftbl_video_core_clk_src[] = {
 };
 
 static struct clk_freq_tbl ftbl_video_core_clk_src_vq[] = {
-	F_MM( 100000000,   mmsscc_gpll0,    6,    0,     0),
 	F_MM( 200000000,   mmsscc_gpll0,    3,    0,     0),
 	F_MM( 269330000, mmpll0_pll_out,    3,    0,     0),
-	F_MM( 404000000, mmpll0_pll_out,    2,    0,     0),
+	F_MM( 355200000, mmpll6_pll_out,  2.5,    0,     0),
 	F_MM( 444000000, mmpll6_pll_out,    2,    0,     0),
 	F_MM( 533000000, mmpll3_pll_out,    2,    0,     0),
 	F_END
@@ -736,10 +735,9 @@ static struct clk_freq_tbl ftbl_video_subcore_clk_src[] = {
 };
 
 static struct clk_freq_tbl ftbl_video_subcore_clk_src_vq[] = {
-	F_MM( 100000000,   mmsscc_gpll0,    6,    0,     0),
 	F_MM( 200000000,   mmsscc_gpll0,    3,    0,     0),
 	F_MM( 269330000, mmpll0_pll_out,    3,    0,     0),
-	F_MM( 404000000, mmpll0_pll_out,    2,    0,     0),
+	F_MM( 355200000, mmpll6_pll_out,  2.5,    0,     0),
 	F_MM( 444000000, mmpll6_pll_out,    2,    0,     0),
 	F_MM( 533000000, mmpll3_pll_out,    2,    0,     0),
 	F_END
