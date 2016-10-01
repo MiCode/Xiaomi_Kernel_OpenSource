@@ -73,6 +73,8 @@
 #define LAST_BATT_SOC_OFFSET		0
 #define LAST_MONOTONIC_SOC_WORD		119
 #define LAST_MONOTONIC_SOC_OFFSET	2
+#define ALG_FLAGS_WORD			120
+#define ALG_FLAGS_OFFSET		1
 
 /* v2 SRAM address and offset in ascending order */
 #define DELTA_SOC_THR_v2_WORD		13
@@ -119,6 +121,8 @@ static struct fg_sram_param pmicobalt_v1_sram_params[] = {
 		fg_decode_value_16b),
 	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 244141, 1000, 0, NULL,
 		fg_decode_value_16b),
+	PARAM(ALG_FLAGS, ALG_FLAGS_WORD, ALG_FLAGS_OFFSET, 1, 1, 1, 0, NULL,
+		fg_decode_default),
 	/* Entries below here are configurable during initialization */
 	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
 		244141, 0, fg_encode_voltage, NULL),
@@ -155,6 +159,8 @@ static struct fg_sram_param pmicobalt_v2_sram_params[] = {
 		fg_decode_value_16b),
 	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 244141, 1000, 0, NULL,
 		fg_decode_value_16b),
+	PARAM(ALG_FLAGS, ALG_FLAGS_WORD, ALG_FLAGS_OFFSET, 1, 1, 1, 0, NULL,
+		fg_decode_default),
 	/* Entries below here are configurable during initialization */
 	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
 		244141, 0, fg_encode_voltage, NULL),
@@ -181,6 +187,67 @@ static struct fg_sram_param pmicobalt_v2_sram_params[] = {
 		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
 		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
+};
+
+static struct fg_alg_flag pmicobalt_v1_alg_flags[] = {
+	[ALG_FLAG_SOC_LT_OTG_MIN]	= {
+		.name	= "SOC_LT_OTG_MIN",
+		.bit	= BIT(0),
+	},
+	[ALG_FLAG_SOC_LT_RECHARGE]	= {
+		.name	= "SOC_LT_RECHARGE",
+		.bit	= BIT(1),
+	},
+	[ALG_FLAG_IBATT_LT_ITERM]	= {
+		.name	= "IBATT_LT_ITERM",
+		.bit	= BIT(2),
+	},
+	[ALG_FLAG_IBATT_GT_HPM]		= {
+		.name	= "IBATT_GT_HPM",
+		.bit	= BIT(3),
+	},
+	[ALG_FLAG_IBATT_GT_UPM]		= {
+		.name	= "IBATT_GT_UPM",
+		.bit	= BIT(4),
+	},
+	[ALG_FLAG_VBATT_LT_RECHARGE]	= {
+		.name	= "VBATT_LT_RECHARGE",
+		.bit	= BIT(5),
+	},
+	[ALG_FLAG_VBATT_GT_VFLOAT]	= {
+		.invalid = true,
+	},
+};
+
+static struct fg_alg_flag pmicobalt_v2_alg_flags[] = {
+	[ALG_FLAG_SOC_LT_OTG_MIN]	= {
+		.name	= "SOC_LT_OTG_MIN",
+		.bit	= BIT(0),
+	},
+	[ALG_FLAG_SOC_LT_RECHARGE]	= {
+		.name	= "SOC_LT_RECHARGE",
+		.bit	= BIT(1),
+	},
+	[ALG_FLAG_IBATT_LT_ITERM]	= {
+		.name	= "IBATT_LT_ITERM",
+		.bit	= BIT(2),
+	},
+	[ALG_FLAG_IBATT_GT_HPM]		= {
+		.name	= "IBATT_GT_HPM",
+		.bit	= BIT(4),
+	},
+	[ALG_FLAG_IBATT_GT_UPM]		= {
+		.name	= "IBATT_GT_UPM",
+		.bit	= BIT(5),
+	},
+	[ALG_FLAG_VBATT_LT_RECHARGE]	= {
+		.name	= "VBATT_LT_RECHARGE",
+		.bit	= BIT(6),
+	},
+	[ALG_FLAG_VBATT_GT_VFLOAT]	= {
+		.name	= "VBATT_GT_VFLOAT",
+		.bit	= BIT(7),
+	},
 };
 
 static int fg_gen3_debug_mask;
@@ -1318,12 +1385,15 @@ static int fg_parse_dt(struct fg_chip *chip)
 
 	switch (chip->pmic_rev_id->pmic_subtype) {
 	case PMICOBALT_SUBTYPE:
-		if (chip->pmic_rev_id->rev4 < PMICOBALT_V2P0_REV4)
+		if (chip->pmic_rev_id->rev4 < PMICOBALT_V2P0_REV4) {
 			chip->sp = pmicobalt_v1_sram_params;
-		else if (chip->pmic_rev_id->rev4 == PMICOBALT_V2P0_REV4)
+			chip->alg_flags = pmicobalt_v1_alg_flags;
+		} else if (chip->pmic_rev_id->rev4 == PMICOBALT_V2P0_REV4) {
 			chip->sp = pmicobalt_v2_sram_params;
-		else
+			chip->alg_flags = pmicobalt_v2_alg_flags;
+		} else {
 			return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -1465,7 +1535,7 @@ static int fg_parse_dt(struct fg_chip *chip)
 static void fg_cleanup(struct fg_chip *chip)
 {
 	power_supply_unreg_notifier(&chip->nb);
-	debugfs_remove_recursive(chip->dentry);
+	debugfs_remove_recursive(chip->dfs_root);
 	if (chip->awake_votable)
 		destroy_votable(chip->awake_votable);
 
@@ -1562,7 +1632,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	if (fg_irqs[SOC_UPDATE_IRQ].irq)
 		disable_irq_nosync(fg_irqs[SOC_UPDATE_IRQ].irq);
 
-	rc = fg_sram_debugfs_create(chip);
+	rc = fg_debugfs_create(chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Error in creating debugfs entries, rc:%d\n",
 			rc);
