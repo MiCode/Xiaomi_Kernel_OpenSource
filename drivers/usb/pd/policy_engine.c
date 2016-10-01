@@ -658,10 +658,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->pd_phy_opened = true;
 		}
 
-		val.intval = 1;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
-
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
 		if (pd->in_pr_swap) {
 			pd->in_pr_swap = false;
@@ -775,6 +771,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 				pd->vconn_enabled = false;
 			}
 		}
+
+		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
 		usbpd_set_state(pd, PE_SRC_STARTUP);
 		break;
@@ -1397,6 +1397,9 @@ static void usbpd_sm(struct work_struct *w)
 
 		val.intval = 0;
 		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
+		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
 		if (pd->current_pr == PR_SRC)
@@ -1434,6 +1437,10 @@ static void usbpd_sm(struct work_struct *w)
 
 	/* Hard reset? */
 	if (pd->hard_reset) {
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 		reset_vdm_state(pd);
 
 		if (pd->current_pr == PR_SINK)
@@ -1506,14 +1513,14 @@ static void usbpd_sm(struct work_struct *w)
 			break;
 		}
 
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
 		/* transmit was successful if GoodCRC was received */
 		pd->caps_count = 0;
 		pd->hard_reset_count = 0;
 		pd->pd_connected = true; /* we know peer is PD capable */
-
-		val.intval = pd->psy_type = POWER_SUPPLY_TYPE_USB_PD;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_TYPE, &val);
 
 		/* wait for REQUEST */
 		pd->current_state = PE_SRC_SEND_CAPABILITIES_WAIT;
@@ -1601,6 +1608,10 @@ static void usbpd_sm(struct work_struct *w)
 		break;
 
 	case PE_SRC_HARD_RESET:
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;
 		reset_vdm_state(pd);
@@ -1612,22 +1623,35 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
 		if (data_recvd == MSG_SOURCE_CAPABILITIES) {
+			val.intval = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
+					&val);
+
 			val.intval = 1;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
-
-			val.intval = pd->psy_type = POWER_SUPPLY_TYPE_USB_PD;
-			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_TYPE, &val);
 
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
 		} else if (pd->hard_reset_count < 3) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
 		} else if (pd->pd_connected) {
 			usbpd_info(&pd->dev, "Sink hard reset count exceeded, forcing reconnect\n");
+
+			val.intval = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
+					&val);
+
 			usbpd_set_state(pd, PE_ERROR_RECOVERY);
 		} else {
 			usbpd_dbg(&pd->dev, "Sink hard reset count exceeded, disabling PD\n");
+
+			val.intval = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
+					&val);
+
 			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
@@ -1822,7 +1846,7 @@ static void usbpd_sm(struct work_struct *w)
 		/* prepare charger for VBUS change */
 		val.intval = 1;
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
 		pd->requested_voltage = 5000000;
 
