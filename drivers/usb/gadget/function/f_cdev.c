@@ -826,6 +826,7 @@ static void cser_free_inst(struct usb_function_instance *fi)
 	device_destroy(fcdev_classp, MKDEV(major, opts->port->minor));
 	cdev_del(&opts->port->fcdev_cdev);
 	usb_cser_chardev_deinit();
+	kfree(opts->func_name);
 	kfree(opts->port);
 	kfree(opts);
 }
