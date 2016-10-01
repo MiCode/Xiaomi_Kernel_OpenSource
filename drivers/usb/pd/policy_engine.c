@@ -1268,6 +1268,8 @@ static void usbpd_sm(struct work_struct *w)
 		pd->caps_count = 0;
 		pd->hard_reset_count = 0;
 		pd->src_cap_id = 0;
+		pd->requested_voltage = 0;
+		pd->requested_current = 0;
 		memset(&pd->received_pdos, 0, sizeof(pd->received_pdos));
 
 		val.intval = 0;
