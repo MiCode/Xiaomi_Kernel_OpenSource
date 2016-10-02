@@ -1384,8 +1384,9 @@ int __ipa3_del_rt_rule(u32 rule_hdl)
 		__ipa3_release_hdr_proc_ctx(entry->proc_ctx->id);
 	list_del(&entry->link);
 	entry->tbl->rule_cnt--;
-	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d rule_id=%d\n",
-		entry->tbl->idx, entry->tbl->rule_cnt, entry->rule_id);
+	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d rule_id=%d\n ref_cnt=%u",
+		entry->tbl->idx, entry->tbl->rule_cnt,
+		entry->rule_id, entry->tbl->ref_cnt);
 	idr_remove(&entry->tbl->rule_ids, entry->rule_id);
 	if (entry->tbl->rule_cnt == 0 && entry->tbl->ref_cnt == 0) {
 		if (__ipa_del_rt_tbl(entry->tbl))
@@ -1662,6 +1663,8 @@ int ipa3_put_rt_tbl(u32 rt_tbl_hdl)
 
 	entry->ref_cnt--;
 	if (entry->ref_cnt == 0 && entry->rule_cnt == 0) {
+		IPADBG("zero ref_cnt, delete rt tbl (idx=%u)\n",
+			entry->idx);
 		if (__ipa_del_rt_tbl(entry))
 			IPAERR("fail to del RT tbl\n");
 		/* commit for put */
