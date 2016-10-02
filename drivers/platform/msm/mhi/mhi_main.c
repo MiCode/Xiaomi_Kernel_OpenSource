@@ -873,7 +873,6 @@ static void parse_inbound_bb(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 	result->buf_addr = bb->client_buf;
 	result->bytes_xferd = bb->filled_size;
-	result->transaction_status = 0;
 
 	/* At this point the bounce buffer is no longer necessary
 	 * Whatever was received from the device was copied back to the
