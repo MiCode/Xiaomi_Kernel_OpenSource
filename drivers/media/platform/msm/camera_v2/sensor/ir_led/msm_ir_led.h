@@ -24,6 +24,10 @@
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
+/* Default frequency is taken as 15KHz*/
+#define DEFAULT_PWM_TIME_PERIOD_NS 66667
+#define DEFAULT_PWM_DUTY_CYCLE_NS 0
+
 enum msm_camera_ir_led_state_t {
 	MSM_CAMERA_IR_LED_INIT,
 	MSM_CAMERA_IR_LED_RELEASE,
@@ -39,7 +43,8 @@ struct msm_ir_led_ctrl_t;
 struct msm_ir_led_func_t {
 	int32_t (*camera_ir_led_init)(struct msm_ir_led_ctrl_t *,
 		struct msm_ir_led_cfg_data_t *);
-	int32_t (*camera_ir_led_release)(struct msm_ir_led_ctrl_t *);
+	int32_t (*camera_ir_led_release)(struct msm_ir_led_ctrl_t *,
+		struct msm_ir_led_cfg_data_t *);
 	int32_t (*camera_ir_led_off)(struct msm_ir_led_ctrl_t *,
 		struct msm_ir_led_cfg_data_t *);
 	int32_t (*camera_ir_led_on)(struct msm_ir_led_ctrl_t *,
