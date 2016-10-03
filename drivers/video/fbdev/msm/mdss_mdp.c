@@ -1382,10 +1382,17 @@ int mdss_iommu_ctrl(int enable)
 		return mdata->iommu_ref_cnt;
 }
 
-static void mdss_mdp_memory_retention_enter(void)
+#define MEM_RETAIN_ON 1
+#define MEM_RETAIN_OFF 0
+#define PERIPH_RETAIN_ON 1
+#define PERIPH_RETAIN_OFF 0
+
+static void mdss_mdp_memory_retention_ctrl(bool mem_ctrl, bool periph_ctrl)
 {
 	struct clk *mdss_mdp_clk = NULL;
 	struct clk *mdp_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct clk *mdss_mdp_lut_clk = NULL;
 
 	if (mdp_vote_clk) {
 		mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
@@ -1395,21 +1402,40 @@ static void mdss_mdp_memory_retention_enter(void)
 			clk_set_flags(mdss_mdp_clk, CLKFLAG_NORETAIN_PERIPH);
 		}
 	}
-}
 
-static void mdss_mdp_memory_retention_exit(void)
-{
-	struct clk *mdss_mdp_clk = NULL;
-	struct clk *mdp_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
-
-	if (mdp_vote_clk) {
-		mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
-		if (mdss_mdp_clk) {
+	__mdss_mdp_reg_access_clk_enable(mdata, true);
+	if (mdss_mdp_clk) {
+		if (mem_ctrl)
 			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
+		else
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_NORETAIN_MEM);
+
+		if (periph_ctrl) {
 			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_PERIPH);
 			clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_CLEAR);
+		} else {
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_SET);
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_NORETAIN_PERIPH);
 		}
 	}
+
+	if (mdss_mdp_lut_clk) {
+		if (mem_ctrl)
+			clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_RETAIN_MEM);
+		else
+			clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_NORETAIN_MEM);
+
+		if (periph_ctrl) {
+			clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_RETAIN_PERIPH);
+			clk_set_flags(mdss_mdp_lut_clk,
+				CLKFLAG_PERIPH_OFF_CLEAR);
+		} else {
+			clk_set_flags(mdss_mdp_lut_clk, CLKFLAG_PERIPH_OFF_SET);
+			clk_set_flags(mdss_mdp_lut_clk,
+				CLKFLAG_NORETAIN_PERIPH);
+		}
+	}
+	__mdss_mdp_reg_access_clk_enable(mdata, false);
 }
 
 /**
@@ -1440,17 +1466,21 @@ static int mdss_mdp_idle_pc_restore(void)
 	mdss_hw_init(mdata);
 	mdss_iommu_ctrl(0);
 
-	/**
-	 * sleep 10 microseconds to make sure AD auto-reinitialization
-	 * is done
-	 */
-	udelay(10);
-	mdss_mdp_memory_retention_exit();
-
 	mdss_mdp_ctl_restore(true);
 	mdata->idle_pc = false;
 
 end:
+	if (mdata->mem_retain) {
+		/**
+		 * sleep 10 microseconds to make sure AD auto-reinitialization
+		 * is done
+		 */
+		udelay(10);
+		mdss_mdp_memory_retention_ctrl(MEM_RETAIN_ON,
+			PERIPH_RETAIN_ON);
+		mdata->mem_retain = false;
+	}
+
 	mutex_unlock(&mdp_fs_idle_pc_lock);
 	return rc;
 }
@@ -4872,14 +4902,20 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 				 * Turning off GDSC while overlays are still
 				 * active.
 				 */
+
+				mdss_mdp_memory_retention_ctrl(MEM_RETAIN_ON,
+					PERIPH_RETAIN_OFF);
 				mdata->idle_pc = true;
 				pr_debug("idle pc. active overlays=%d\n",
 					active_cnt);
-				mdss_mdp_memory_retention_enter();
 			} else {
 				mdss_mdp_cx_ctrl(mdata, false);
 				mdss_mdp_batfet_ctrl(mdata, false);
+				mdss_mdp_memory_retention_ctrl(
+					MEM_RETAIN_OFF,
+					PERIPH_RETAIN_OFF);
 			}
+			mdata->mem_retain = true;
 			if (mdata->en_svs_high)
 				mdss_mdp_config_cx_voltage(mdata, false);
 			regulator_disable(mdata->fs);

@@ -467,6 +467,7 @@ struct mdss_data_type {
 	u32 nmax_concurrent_ad_hw;
 	struct workqueue_struct *ad_calc_wq;
 	u32 ad_debugen;
+	bool mem_retain;
 
 	struct mdss_intr hist_intr;
 
