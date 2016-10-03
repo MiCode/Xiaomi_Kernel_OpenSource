@@ -1535,9 +1535,6 @@ static void msm_ispif_release(struct ispif_device *ispif)
 {
 	BUG_ON(!ispif);
 
-	msm_ispif_reset(ispif);
-	msm_ispif_reset_hw(ispif);
-
 	msm_camera_enable_irq(ispif->irq, 0);
 
 	ispif->ispif_state = ISPIF_POWER_DOWN;
