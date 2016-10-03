@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -58,6 +58,57 @@ static int clk_rcg2_is_enabled(struct clk_hw *hw)
 		return ret;
 
 	return (cmd & CMD_ROOT_OFF) == 0;
+}
+
+static int clk_rcg_set_force_enable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	const char *name = clk_hw_get_name(hw);
+	int ret = 0, count;
+
+	/* force enable RCG */
+	ret = regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CMD_REG,
+				 CMD_ROOT_EN, CMD_ROOT_EN);
+	if (ret)
+		return ret;
+
+	/* wait for RCG to turn ON */
+	for (count = 500; count > 0; count--) {
+		ret = clk_rcg2_is_enabled(hw);
+		if (ret) {
+			ret = 0;
+			break;
+		}
+		udelay(1);
+	}
+	if (!count)
+		pr_err("%s: RCG did not turn on after force enable\n", name);
+
+	return ret;
+}
+
+static int clk_rcg2_enable(struct clk_hw *hw)
+{
+	int ret = 0;
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	if (rcg->flags & FORCE_ENABLE_RCGR)
+		ret = clk_rcg_set_force_enable(hw);
+
+	return ret;
+}
+
+static void clk_rcg2_disable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	if (rcg->flags & FORCE_ENABLE_RCGR) {
+		/* force disable RCG - clear CMD_ROOT_EN bit */
+		regmap_update_bits(rcg->clkr.regmap,
+			rcg->cmd_rcgr + CMD_REG, CMD_ROOT_EN, 0);
+		/* Add a delay to disable the RCG */
+		udelay(100);
+	}
 }
 
 static u8 clk_rcg2_get_parent(struct clk_hw *hw)
@@ -290,6 +341,8 @@ static int clk_rcg2_set_rate_and_parent(struct clk_hw *hw,
 }
 
 const struct clk_ops clk_rcg2_ops = {
+	.enable = clk_rcg2_enable,
+	.disable = clk_rcg2_disable,
 	.is_enabled = clk_rcg2_is_enabled,
 	.get_parent = clk_rcg2_get_parent,
 	.set_parent = clk_rcg2_set_parent,
@@ -801,6 +854,8 @@ static int clk_gfx3d_set_rate(struct clk_hw *hw, unsigned long rate,
 }
 
 const struct clk_ops clk_gfx3d_ops = {
+	.enable = clk_rcg2_enable,
+	.disable = clk_rcg2_disable,
 	.is_enabled = clk_rcg2_is_enabled,
 	.get_parent = clk_rcg2_get_parent,
 	.set_parent = clk_rcg2_set_parent,
