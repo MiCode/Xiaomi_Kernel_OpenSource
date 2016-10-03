@@ -404,7 +404,7 @@ struct mdss_mdp_ctl_intfs_ops {
 
 	/* to update lineptr, [1..yres] - enable, 0 - disable */
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
-	int (*avr_ctrl_fnc)(struct mdss_mdp_ctl *);
+	int (*avr_ctrl_fnc)(struct mdss_mdp_ctl *, bool enable);
 };
 
 struct mdss_mdp_cwb {
