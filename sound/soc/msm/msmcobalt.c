@@ -254,7 +254,8 @@ static const char *const slim_tx_ch_text[] = {"One", "Two", "Three", "Four",
 						"Five", "Six", "Seven",
 						"Eight"};
 static const char *const vi_feed_ch_text[] = {"One", "Two"};
-static char const *bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE"};
+static char const *bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE",
+					  "S32_LE"};
 static char const *ext_disp_bit_format_text[] = {"S16_LE", "S24_LE"};
 static char const *slim_sample_rate_text[] = {"KHZ_8", "KHZ_16",
 					"KHZ_32", "KHZ_44P1", "KHZ_48",
@@ -269,7 +270,7 @@ static char const *ch_text[] = {"Two", "Three", "Four", "Five",
 static char const *usb_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
 					"KHZ_16", "KHZ_22P05",
 					"KHZ_32", "KHZ_44P1", "KHZ_48",
-					"KHZ_96", "KHZ_192"};
+					"KHZ_96", "KHZ_192", "KHZ_384"};
 static char const *ext_disp_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 						  "KHZ_192"};
 static const char *const auxpcm_rate_text[] = {"KHZ_8", "KHZ_16"};
@@ -511,6 +512,9 @@ static int slim_get_bit_format_val(int bit_format)
 	int val = 0;
 
 	switch (bit_format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		val = 3;
+		break;
 	case SNDRV_PCM_FORMAT_S24_3LE:
 		val = 2;
 		break;
@@ -538,6 +542,9 @@ static int slim_get_bit_format(int val)
 		break;
 	case 2:
 		bit_fmt = SNDRV_PCM_FORMAT_S24_3LE;
+		break;
+	case 3:
+		bit_fmt = SNDRV_PCM_FORMAT_S32_LE;
 		break;
 	default:
 		bit_fmt = SNDRV_PCM_FORMAT_S16_LE;
@@ -876,6 +883,9 @@ static int usb_audio_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
 	int sample_rate_val;
 
 	switch (usb_rx_cfg.sample_rate) {
+	case SAMPLING_RATE_384KHZ:
+		sample_rate_val = 9;
+		break;
 	case SAMPLING_RATE_192KHZ:
 		sample_rate_val = 8;
 		break;
@@ -916,6 +926,9 @@ static int usb_audio_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
+	case 9:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_384KHZ;
+		break;
 	case 8:
 		usb_rx_cfg.sample_rate = SAMPLING_RATE_192KHZ;
 		break;
@@ -958,6 +971,9 @@ static int usb_audio_rx_format_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	switch (usb_rx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		ucontrol->value.integer.value[0] = 3;
+		break;
 	case SNDRV_PCM_FORMAT_S24_3LE:
 		ucontrol->value.integer.value[0] = 2;
 		break;
@@ -982,6 +998,9 @@ static int usb_audio_rx_format_put(struct snd_kcontrol *kcontrol,
 	int rc = 0;
 
 	switch (ucontrol->value.integer.value[0]) {
+	case 3:
+		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S32_LE;
+		break;
 	case 2:
 		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_3LE;
 		break;
@@ -1024,6 +1043,9 @@ static int usb_audio_tx_sample_rate_get(struct snd_kcontrol *kcontrol,
 	int sample_rate_val;
 
 	switch (usb_tx_cfg.sample_rate) {
+	case SAMPLING_RATE_384KHZ:
+		sample_rate_val = 9;
+		break;
 	case SAMPLING_RATE_192KHZ:
 		sample_rate_val = 8;
 		break;
@@ -1066,6 +1088,9 @@ static int usb_audio_tx_sample_rate_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
+	case 9:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_384KHZ;
+		break;
 	case 8:
 		usb_tx_cfg.sample_rate = SAMPLING_RATE_192KHZ;
 		break;
@@ -1108,6 +1133,9 @@ static int usb_audio_tx_format_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	switch (usb_tx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		ucontrol->value.integer.value[0] = 3;
+		break;
 	case SNDRV_PCM_FORMAT_S24_3LE:
 		ucontrol->value.integer.value[0] = 2;
 		break;
@@ -1132,6 +1160,9 @@ static int usb_audio_tx_format_put(struct snd_kcontrol *kcontrol,
 	int rc = 0;
 
 	switch (ucontrol->value.integer.value[0]) {
+	case 3:
+		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S32_LE;
+		break;
 	case 2:
 		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_3LE;
 		break;
