@@ -1607,8 +1607,13 @@ static int msm_dai_q6_usb_audio_hw_params(struct snd_pcm_hw_params *params,
 		dai_data->port_config.usb_audio.bit_width = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->port_config.usb_audio.bit_width = 24;
 		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
+		dai_data->port_config.usb_audio.bit_width = 32;
+		break;
+
 	default:
 		dev_err(dai->dev, "%s: invalid format %d\n",
 			__func__, params_format(params));
@@ -2570,11 +2575,12 @@ static struct snd_soc_dai_driver msm_dai_q6_usb_rx_dai = {
 			 SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
 			 SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
 			 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			 SNDRV_PCM_RATE_192000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+			 SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_384000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			   SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S32_LE,
 		.channels_min = 1,
 		.channels_max = 8,
-		.rate_max = 192000,
+		.rate_max = 384000,
 		.rate_min = 8000,
 	},
 	.ops = &msm_dai_q6_ops,
@@ -2591,11 +2597,12 @@ static struct snd_soc_dai_driver msm_dai_q6_usb_tx_dai = {
 			 SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
 			 SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
 			 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			 SNDRV_PCM_RATE_192000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+			 SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_384000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			   SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S32_LE,
 		.channels_min = 1,
 		.channels_max = 8,
-		.rate_max = 192000,
+		.rate_max = 384000,
 		.rate_min = 8000,
 	},
 	.ops = &msm_dai_q6_ops,
