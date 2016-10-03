@@ -78,7 +78,9 @@ First Level Node - FG Gen3 device
 	Definition: Battery current (in mA) at which the fuel gauge will try to
 		    scale towards 100%. When the charge current goes above this
 		    the SOC should be at 100%. If this property is not
-		    specified, then the default value used will be 125mA.
+		    specified, then the default value used will be -125mA.
+		    This value has to be specified in negative values for
+		    the charging current.
 
 - qcom,fg-delta-soc-thr
 	Usage:      optional

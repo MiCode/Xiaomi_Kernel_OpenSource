@@ -1479,8 +1479,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	char root_name[sizeof("ufshcd00")];
 
 	if (!hba) {
-		dev_err(hba->dev, "%s: NULL hba, exiting", __func__);
-		goto err_no_root;
+		pr_err("%s: NULL hba, exiting", __func__);
+		return;
 	}
 
 	snprintf(root_name, ARRAY_SIZE(root_name), "%s%d", UFSHCD,

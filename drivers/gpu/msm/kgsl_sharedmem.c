@@ -807,8 +807,16 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 		return;
 
 	if (memdesc->gpuaddr) {
-		kgsl_mmu_unmap(memdesc->pagetable, memdesc);
-		kgsl_mmu_put_gpuaddr(memdesc->pagetable, memdesc);
+		int ret = 0;
+
+		ret = kgsl_mmu_unmap(memdesc->pagetable, memdesc);
+		/*
+		 * Do not free the gpuaddr/size if unmap fails. Because if we
+		 * try to map this range in future, the iommu driver will throw
+		 * a BUG_ON() because it feels we are overwriting a mapping.
+		 */
+		if (ret == 0)
+			kgsl_mmu_put_gpuaddr(memdesc->pagetable, memdesc);
 	}
 
 	if (memdesc->ops && memdesc->ops->free)

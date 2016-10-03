@@ -43,8 +43,6 @@
 #define MTU_BYTE 1500
 
 #define IPA3_MAX_NUM_PIPES 31
-#define IPA_WAN_CONS_DESC_FIFO_SZ 0x5E80
-#define IPA_WAN_NAPI_CONS_RX_POOL_SZ 3000
 #define IPA_SYS_DESC_FIFO_SZ 0x800
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
 #define IPA_LAN_RX_HEADER_LENGTH (2)
@@ -55,6 +53,8 @@
 #define IPA_UC_FINISH_MAX 6
 #define IPA_UC_WAIT_MIN_SLEEP 1000
 #define IPA_UC_WAII_MAX_SLEEP 1200
+#define IPA_WAN_NAPI_CONS_RX_POOL_SZ (IPA_GENERIC_RX_POOL_SZ*3)
+#define IPA_WAN_CONS_DESC_FIFO_SZ (IPA_SYS_DESC_FIFO_SZ*3)
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 
@@ -1012,6 +1012,11 @@ struct ipa3_ready_cb_info {
 	void *user_data;
 };
 
+struct ipa_tz_unlock_reg_info {
+	u64 reg_addr;
+	u32 size;
+};
+
 /**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
@@ -1228,6 +1233,8 @@ struct ipa3_context {
 	struct list_head ipa_ready_cb_list;
 	struct completion init_completion_obj;
 	struct ipa3_smp2p_info smp2p_info;
+	u32 ipa_tz_unlock_reg_num;
+	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 };
 
 /**
@@ -1266,6 +1273,8 @@ struct ipa3_plat_drv_res {
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool tethered_flow_control;
+	u32 ipa_tz_unlock_reg_num;
+	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 };
 
 /**

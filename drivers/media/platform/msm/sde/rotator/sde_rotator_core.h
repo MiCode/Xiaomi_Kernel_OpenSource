@@ -281,6 +281,8 @@ struct sde_rot_mgr {
 
 	u32 hwacquire_timeout;
 	struct sde_mult_factor pixel_per_clk;
+	struct sde_mult_factor fudge_factor;
+	struct sde_mult_factor overhead;
 
 	int (*ops_config_hw)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);

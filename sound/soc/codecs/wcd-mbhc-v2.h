@@ -66,6 +66,10 @@ enum wcd_mbhc_register_function {
 	WCD_MBHC_ANC_DET_EN,
 	WCD_MBHC_FSM_STATUS,
 	WCD_MBHC_MUX_CTL,
+	WCD_MBHC_HPHL_OCP_DET_EN,
+	WCD_MBHC_HPHR_OCP_DET_EN,
+	WCD_MBHC_HPHL_OCP_STATUS,
+	WCD_MBHC_HPHR_OCP_STATUS,
 	WCD_MBHC_REG_FUNC_MAX,
 };
 
@@ -127,6 +131,8 @@ enum wcd_notify_event {
 	WCD_EVENT_POST_HPHR_PA_OFF,
 	WCD_EVENT_PRE_HPHL_PA_OFF,
 	WCD_EVENT_PRE_HPHR_PA_OFF,
+	WCD_EVENT_OCP_OFF,
+	WCD_EVENT_OCP_ON,
 	WCD_EVENT_LAST,
 };
 
@@ -322,7 +328,9 @@ do {                                                    \
 		mbhc->wcd_mbhc_regs[function].reg)) &	\
 		(mbhc->wcd_mbhc_regs[function].mask)) >> \
 		(mbhc->wcd_mbhc_regs[function].offset)); \
-	}                                               \
+	} else {                                         \
+		val = -EINVAL;                           \
+	}                                                \
 } while (0)
 
 struct wcd_mbhc_cb {
@@ -365,6 +373,7 @@ struct wcd_mbhc_cb {
 	void (*mbhc_gnd_det_ctrl)(struct snd_soc_codec *, bool);
 	void (*hph_pull_down_ctrl)(struct snd_soc_codec *, bool);
 	void (*mbhc_moisture_config)(struct wcd_mbhc *);
+	bool (*hph_register_recovery)(struct wcd_mbhc *);
 };
 
 struct wcd_mbhc {
@@ -430,6 +439,7 @@ struct wcd_mbhc {
 	struct mutex hphr_pa_lock;
 
 	unsigned long intr_status;
+	bool is_hph_ocp_pending;
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \

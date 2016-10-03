@@ -50,6 +50,9 @@
 #define MODULE_NAME "msm_usb_bridge"
 #define NUM_INSTANCE 2
 
+#define MAX_CDEV_INST_NAME	15
+#define MAX_CDEV_FUNC_NAME	5
+
 #define BRIDGE_RX_QUEUE_SIZE	8
 #define BRIDGE_RX_BUF_SIZE	2048
 #define BRIDGE_TX_QUEUE_SIZE	8
@@ -823,6 +826,7 @@ static void cser_free_inst(struct usb_function_instance *fi)
 	device_destroy(fcdev_classp, MKDEV(major, opts->port->minor));
 	cdev_del(&opts->port->fcdev_cdev);
 	usb_cser_chardev_deinit();
+	kfree(opts->func_name);
 	kfree(opts->port);
 	kfree(opts);
 }
@@ -1647,16 +1651,6 @@ static struct configfs_item_operations cserial_item_ops = {
 	.release	= cserial_attr_release,
 };
 
-static ssize_t usb_cser_port_num_show(struct config_item *item, char *page)
-{
-	return sprintf(page, "%u\n", to_f_cdev_opts(item)->port_num);
-}
-
-static ssize_t usb_cser_func_name_show(struct config_item *item, char *page)
-{
-	return sprintf(page, "%s\n", to_f_cdev_opts(item)->func_name);
-}
-
 static ssize_t usb_cser_status_show(struct config_item *item, char *page)
 {
 	struct f_cdev *port = to_f_cdev_opts(item)->port;
@@ -1722,12 +1716,8 @@ static ssize_t usb_cser_status_store(struct config_item *item,
 	return len;
 }
 
-CONFIGFS_ATTR_RO(usb_cser_, port_num);
-CONFIGFS_ATTR_RO(usb_cser_, func_name);
 CONFIGFS_ATTR(usb_cser_, status);
 static struct configfs_attribute *cserial_attrs[] = {
-	&usb_cser_attr_port_num,
-	&usb_cser_attr_func_name,
 	&usb_cser_attr_status,
 	NULL,
 };
@@ -1748,7 +1738,7 @@ static int cser_set_inst_name(struct usb_function_instance *f, const char *name)
 	struct f_cdev *port;
 
 	name_len = strlen(name) + 1;
-	if (name_len > 15)
+	if (name_len > MAX_CDEV_INST_NAME)
 		return -ENAMETOOLONG;
 
 	/* expect name as cdev.<func>.<port_num> */
@@ -1760,6 +1750,9 @@ static int cser_set_inst_name(struct usb_function_instance *f, const char *name)
 
 	/* get function name */
 	str_size = name_len - strlen(str);
+	if (str_size > MAX_CDEV_FUNC_NAME)
+		return -ENAMETOOLONG;
+
 	ptr = kstrndup(name, str_size - 1, GFP_KERNEL);
 	if (!ptr) {
 		pr_err("error:%ld\n", PTR_ERR(ptr));

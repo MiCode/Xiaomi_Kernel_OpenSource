@@ -3152,7 +3152,7 @@ static int ipa_assign_policy_v2(struct ipa_sys_connect_params *in,
 		} else if (in->client ==
 					  IPA_CLIENT_APPS_WAN_CONS) {
 			sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
-			if (in->napi_enabled) {
+			if (in->recycle_enabled) {
 				sys->repl_hdlr =
 				   ipa_replenish_rx_cache_recycle;
 				sys->rx_pool_sz =

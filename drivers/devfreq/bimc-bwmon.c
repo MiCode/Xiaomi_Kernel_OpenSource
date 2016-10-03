@@ -377,7 +377,7 @@ static unsigned long mon_get_zone_stats(struct bwmon *m)
 
 	zone = get_zone(m);
 
-	count = readl_relaxed(MON2_ZONE_MAX(m, zone));
+	count = readl_relaxed(MON2_ZONE_MAX(m, zone)) + 1;
 	count *= SZ_1M;
 
 	dev_dbg(m->dev, "Zone%d Max byte count: %08lx\n", zone, count);

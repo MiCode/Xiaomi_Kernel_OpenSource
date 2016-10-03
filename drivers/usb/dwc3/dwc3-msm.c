@@ -1923,7 +1923,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
 
 	/* Suspend SS PHY */
-	if (can_suspend_ssphy) {
+	if (dwc->maximum_speed == USB_SPEED_SUPER && can_suspend_ssphy) {
 		/* indicate phy about SS mode */
 		if (dwc3_msm_is_superspeed(mdwc))
 			mdwc->ss_phy->flags |= DEVICE_IN_SS_MODE;
@@ -2068,7 +2068,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		clk_prepare_enable(mdwc->bus_aggr_clk);
 
 	/* Resume SS PHY */
-	if (mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
+	if (dwc->maximum_speed == USB_SPEED_SUPER &&
+			mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
 		mdwc->ss_phy->flags &= ~(PHY_LANE_A | PHY_LANE_B);
 		if (mdwc->typec_orientation == ORIENTATION_CC1)
 			mdwc->ss_phy->flags |= PHY_LANE_A;
@@ -2422,9 +2423,11 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 	unsigned long event, void *ptr)
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, id_nb);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	struct extcon_dev *edev = ptr;
 	enum dwc3_id_state id;
 	int cc_state;
+	int speed;
 
 	if (!edev) {
 		dev_err(mdwc->dev, "%s: edev null\n", __func__);
@@ -2444,6 +2447,9 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 
 	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 
+	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
+	dwc->maximum_speed = (speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
+
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
 		dbg_event(0xFF, "id_state", mdwc->id_state);
@@ -2461,6 +2467,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	struct extcon_dev *edev = ptr;
 	int cc_state;
+	int speed;
 
 	if (!edev) {
 		dev_err(mdwc->dev, "%s: edev null\n", __func__);
@@ -2480,6 +2487,9 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 			cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
 
 	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
+
+	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
+	dwc->maximum_speed = (speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
 
 	mdwc->vbus_active = event;
 	if (dwc->is_drd && !mdwc->in_restart) {
@@ -3026,11 +3036,13 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	if (on) {
 		dev_dbg(mdwc->dev, "%s: turn on host\n", __func__);
 
+		mdwc->hs_phy->flags |= PHY_HOST_MODE;
+		if (dwc->maximum_speed == USB_SPEED_SUPER)
+			mdwc->ss_phy->flags |= PHY_HOST_MODE;
+
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StrtHost gync",
 			atomic_read(&mdwc->dev->power.usage_count));
-		mdwc->hs_phy->flags |= PHY_HOST_MODE;
-		mdwc->ss_phy->flags |= PHY_HOST_MODE;
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
 		if (!IS_ERR(mdwc->vbus_reg))
 			ret = regulator_enable(mdwc->vbus_reg);

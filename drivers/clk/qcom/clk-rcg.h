@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -158,6 +158,8 @@ extern const struct clk_ops clk_dyn_rcg_ops;
  * @freq_tbl: frequency table
  * @current_freq: last cached frequency when using branches with shared RCGs
  * @clkr: regmap clock handle
+ * @flags: set if RCG needs to be force enabled/disabled during
+ * power sequence.
  *
  */
 struct clk_rcg2 {
@@ -168,6 +170,9 @@ struct clk_rcg2 {
 	const struct freq_tbl	*freq_tbl;
 	unsigned long		current_freq;
 	struct clk_regmap	clkr;
+
+#define FORCE_ENABLE_RCGR	BIT(0)
+	u8 flags;
 };
 
 #define to_clk_rcg2(_hw) container_of(to_clk_regmap(_hw), struct clk_rcg2, clkr)

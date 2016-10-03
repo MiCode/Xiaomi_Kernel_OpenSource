@@ -38,7 +38,7 @@
 #define WCD_MBHC_JACK_BUTTON_MASK (SND_JACK_BTN_0 | SND_JACK_BTN_1 | \
 				  SND_JACK_BTN_2 | SND_JACK_BTN_3 | \
 				  SND_JACK_BTN_4 | SND_JACK_BTN_5 )
-#define OCP_ATTEMPT 1
+#define OCP_ATTEMPT 20
 #define HS_DETECT_PLUG_TIME_MS (3 * 1000)
 #define SPECIAL_HS_DETECT_TIME_MS (2 * 1000)
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
@@ -226,6 +226,10 @@ static const char *wcd_mbhc_get_event_string(int event)
 		return WCD_MBHC_STRINGIFY(WCD_EVENT_POST_DAPM_MICBIAS_2_OFF);
 	case WCD_EVENT_PRE_DAPM_MICBIAS_2_OFF:
 		return WCD_MBHC_STRINGIFY(WCD_EVENT_PRE_DAPM_MICBIAS_2_OFF);
+	case WCD_EVENT_OCP_OFF:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_OCP_OFF);
+	case WCD_EVENT_OCP_ON:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_OCP_ON);
 	case WCD_EVENT_INVALID:
 	default:
 		return WCD_MBHC_STRINGIFY(WCD_EVENT_INVALID);
@@ -394,6 +398,16 @@ out_micb_en:
 			/* Disable micbias, enable pullup & cs */
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_PULLUP);
 		break;
+	case WCD_EVENT_OCP_OFF:
+		mbhc->mbhc_cb->irq_control(mbhc->codec,
+					   mbhc->intr_ids->hph_left_ocp,
+					   false);
+		break;
+	case WCD_EVENT_OCP_ON:
+		mbhc->mbhc_cb->irq_control(mbhc->codec,
+					   mbhc->intr_ids->hph_left_ocp,
+					   true);
+		break;
 	default:
 		break;
 	}
@@ -461,6 +475,7 @@ static void wcd_mbhc_clr_and_turnon_hph_padac(struct wcd_mbhc *mbhc)
 			       &mbhc->hph_pa_dac_state)) {
 		pr_debug("%s: HPHR clear flag and enable PA\n", __func__);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHR_PA_EN, 1);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHR_OCP_DET_EN, 1);
 		pa_turned_on = true;
 	}
 	mutex_unlock(&mbhc->hphr_pa_lock);
@@ -469,6 +484,7 @@ static void wcd_mbhc_clr_and_turnon_hph_padac(struct wcd_mbhc *mbhc)
 			       &mbhc->hph_pa_dac_state)) {
 		pr_debug("%s: HPHL clear flag and enable PA\n", __func__);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHL_PA_EN, 1);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHL_OCP_DET_EN, 1);
 		pa_turned_on = true;
 	}
 	mutex_unlock(&mbhc->hphl_pa_lock);
@@ -502,6 +518,8 @@ static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 		pr_debug("%s PA is on, setting PA_OFF_ACK\n", __func__);
 		set_bit(WCD_MBHC_HPHL_PA_OFF_ACK, &mbhc->hph_pa_dac_state);
 		set_bit(WCD_MBHC_HPHR_PA_OFF_ACK, &mbhc->hph_pa_dac_state);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHL_OCP_DET_EN, 0);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHR_OCP_DET_EN, 0);
 	} else {
 		pr_debug("%s PA is off\n", __func__);
 	}
@@ -2014,13 +2032,24 @@ exit:
 static irqreturn_t wcd_mbhc_hphl_ocp_irq(int irq, void *data)
 {
 	struct wcd_mbhc *mbhc = data;
+	int val;
 
 	pr_debug("%s: received HPHL OCP irq\n", __func__);
 	if (mbhc) {
-		if ((mbhc->hphlocp_cnt < OCP_ATTEMPT) &&
-		    (!mbhc->hphrocp_cnt)) {
-			pr_debug("%s: retry\n", __func__);
+		if (mbhc->mbhc_cb->hph_register_recovery) {
+			if (mbhc->mbhc_cb->hph_register_recovery(mbhc)) {
+				WCD_MBHC_REG_READ(WCD_MBHC_HPHR_OCP_STATUS,
+						  val);
+				if ((val != -EINVAL) && val)
+					mbhc->is_hph_ocp_pending = true;
+				goto done;
+			}
+		}
+
+		if (mbhc->hphlocp_cnt < OCP_ATTEMPT) {
 			mbhc->hphlocp_cnt++;
+			pr_debug("%s: retry, hphlocp_cnt: %d\n", __func__,
+				 mbhc->hphlocp_cnt);
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_OCP_FSM_EN, 0);
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_OCP_FSM_EN, 1);
 		} else {
@@ -2035,6 +2064,7 @@ static irqreturn_t wcd_mbhc_hphl_ocp_irq(int irq, void *data)
 	} else {
 		pr_err("%s: Bad wcd9xxx_spmi private data\n", __func__);
 	}
+done:
 	return IRQ_HANDLED;
 }
 
@@ -2043,10 +2073,26 @@ static irqreturn_t wcd_mbhc_hphr_ocp_irq(int irq, void *data)
 	struct wcd_mbhc *mbhc = data;
 
 	pr_debug("%s: received HPHR OCP irq\n", __func__);
-	if ((mbhc->hphrocp_cnt < OCP_ATTEMPT) &&
-	    (!mbhc->hphlocp_cnt)) {
-		pr_debug("%s: retry\n", __func__);
+
+	if (!mbhc) {
+		pr_err("%s: Bad mbhc private data\n", __func__);
+		goto done;
+	}
+
+	if (mbhc->is_hph_ocp_pending) {
+		mbhc->is_hph_ocp_pending = false;
+		goto done;
+	}
+
+	if (mbhc->mbhc_cb->hph_register_recovery) {
+		if (mbhc->mbhc_cb->hph_register_recovery(mbhc))
+			/* register corruption, hence reset registers */
+			goto done;
+	}
+	if (mbhc->hphrocp_cnt < OCP_ATTEMPT) {
 		mbhc->hphrocp_cnt++;
+		pr_debug("%s: retry, hphrocp_cnt: %d\n", __func__,
+			 mbhc->hphrocp_cnt);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_OCP_FSM_EN, 0);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_OCP_FSM_EN, 1);
 	} else {
@@ -2057,6 +2103,7 @@ static irqreturn_t wcd_mbhc_hphr_ocp_irq(int irq, void *data)
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    mbhc->hph_status, WCD_MBHC_JACK_MASK);
 	}
+done:
 	return IRQ_HANDLED;
 }
 
