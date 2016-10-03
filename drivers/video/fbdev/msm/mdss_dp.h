@@ -322,8 +322,19 @@ struct dp_statistic {
 	u32 aux_native_rx;
 };
 
-#define DPCD_LINK_VOLTAGE_MAX	4
-#define DPCD_LINK_PRE_EMPHASIS_MAX	4
+enum dpcd_link_voltage_level {
+	DPCD_LINK_VOLTAGE_LEVEL_0	= 0,
+	DPCD_LINK_VOLTAGE_LEVEL_1	= 1,
+	DPCD_LINK_VOLTAGE_LEVEL_2	= 2,
+	DPCD_LINK_VOLTAGE_MAX		= DPCD_LINK_VOLTAGE_LEVEL_2,
+};
+
+enum dpcd_link_preemaphasis_level {
+	DPCD_LINK_PRE_EMPHASIS_LEVEL_0	= 0,
+	DPCD_LINK_PRE_EMPHASIS_LEVEL_1	= 1,
+	DPCD_LINK_PRE_EMPHASIS_LEVEL_2	= 2,
+	DPCD_LINK_PRE_EMPHASIS_MAX	= DPCD_LINK_PRE_EMPHASIS_LEVEL_2,
+};
 
 struct dp_pinctrl_res {
 	struct pinctrl *pinctrl;

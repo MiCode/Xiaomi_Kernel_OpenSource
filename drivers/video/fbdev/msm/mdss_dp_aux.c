@@ -1166,17 +1166,26 @@ static int dp_lane_set_write(struct mdss_dp_drv_pdata *ep, int voltage_level,
 {
 	int i;
 	char buf[4];
+	u32 max_level_reached = 0;
 
-	if (voltage_level >= DPCD_LINK_VOLTAGE_MAX)
-		voltage_level |= 0x04;
+	if (voltage_level == DPCD_LINK_VOLTAGE_MAX) {
+		pr_debug("max. voltage swing level reached %d\n",
+				voltage_level);
+		max_level_reached |= BIT(2);
+	}
 
-	if (pre_emphasis_level >= DPCD_LINK_PRE_EMPHASIS_MAX)
-		pre_emphasis_level |= 0x04;
+	if (pre_emphasis_level == DPCD_LINK_PRE_EMPHASIS_MAX) {
+		pr_debug("max. pre-emphasis level reached %d\n",
+				pre_emphasis_level);
+		max_level_reached  |= BIT(5);
+	}
+
+	pr_debug("max_level_reached = 0x%x\n", max_level_reached);
 
 	pre_emphasis_level <<= 3;
 
 	for (i = 0; i < 4; i++)
-		buf[i] = voltage_level | pre_emphasis_level;
+		buf[i] = voltage_level | pre_emphasis_level | max_level_reached;
 
 	pr_debug("p|v=0x%x", voltage_level | pre_emphasis_level);
 	return dp_aux_write_buf(ep, 0x103, buf, 4, 0);
@@ -1278,6 +1287,30 @@ void dp_sink_train_set_adjust(struct mdss_dp_drv_pdata *ep)
 	}
 
 	ep->p_level = max;
+
+	/**
+	 * Adjust the voltage swing and pre-emphasis level combination to within
+	 * the allowable range.
+	 */
+	if (ep->v_level > DPCD_LINK_VOLTAGE_MAX) {
+		pr_debug("Requested vSwingLevel=%d, change to %d\n",
+				ep->v_level, DPCD_LINK_VOLTAGE_MAX);
+		ep->v_level = DPCD_LINK_VOLTAGE_MAX;
+	}
+
+	if (ep->p_level > DPCD_LINK_PRE_EMPHASIS_MAX) {
+		pr_debug("Requested preEmphasisLevel=%d, change to %d\n",
+				ep->p_level, DPCD_LINK_PRE_EMPHASIS_MAX);
+		ep->p_level = DPCD_LINK_PRE_EMPHASIS_MAX;
+	}
+
+	if ((ep->p_level > DPCD_LINK_PRE_EMPHASIS_LEVEL_1)
+			&& (ep->v_level == DPCD_LINK_VOLTAGE_LEVEL_2)) {
+		pr_debug("Requested preEmphasisLevel=%d, change to %d\n",
+				ep->p_level, DPCD_LINK_PRE_EMPHASIS_LEVEL_1);
+		ep->p_level = DPCD_LINK_PRE_EMPHASIS_LEVEL_1;
+	}
+
 	pr_debug("v_level=%d, p_level=%d",
 					ep->v_level, ep->p_level);
 }
