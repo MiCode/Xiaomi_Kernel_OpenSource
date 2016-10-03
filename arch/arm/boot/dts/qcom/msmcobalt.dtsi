@@ -2984,16 +2984,10 @@
 };
 
 &gdsc_usb30 {
-	clock-names = "core_clk";
-	clocks = <&clock_gcc clk_gcc_usb30_master_clk>;
 	status = "ok";
 };
 
 &gdsc_pcie_0 {
-	clock-names = "master_bus_clk", "slave_bus_clk", "core_clk";
-	clocks = <&clock_gcc clk_gcc_pcie_0_mstr_axi_clk>,
-		 <&clock_gcc clk_gcc_pcie_0_slv_axi_clk>,
-		 <&clock_gcc clk_gcc_pcie_0_pipe_clk>;
 	status = "ok";
 };
 
@@ -3051,19 +3045,14 @@
 };
 
 &gdsc_mdss {
-	clock-names = "bus_clk", "rot_clk";
-	clocks = <&clock_mmss clk_mmss_mdss_axi_clk>,
-		 <&clock_mmss clk_mmss_mdss_rot_clk>;
 	proxy-supply = <&gdsc_mdss>;
 	qcom,proxy-consumer-enable;
 	status = "ok";
 };
 
 &gdsc_gpu_gx {
-	clock-names = "bimc_core_clk", "core_clk", "core_root_clk";
-	clocks = <&clock_gcc clk_gcc_gpu_bimc_gfx_clk>,
-		 <&clock_gfx clk_gpucc_gfx3d_clk>,
-		 <&clock_gfx clk_gfx3d_clk_src>;
+	clock-names = "core_root_clk";
+	clocks = <&clock_gfx clk_gfx3d_clk_src>;
 	qcom,force-enable-root-clk;
 	parent-supply = <&gfx_vreg>;
 	status = "ok";
