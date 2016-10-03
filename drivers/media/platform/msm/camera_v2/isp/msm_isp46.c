@@ -96,6 +96,9 @@ static void msm_vfe46_config_irq(struct vfe_device *vfe_dev,
 	case MSM_ISP_IRQ_ENABLE:
 		vfe_dev->irq0_mask |= irq0_mask;
 		vfe_dev->irq1_mask |= irq1_mask;
+		msm_camera_io_w(irq0_mask, vfe_dev->vfe_base + 0x64);
+		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x58);
 		break;
 	case MSM_ISP_IRQ_DISABLE:
 		vfe_dev->irq0_mask &= ~irq0_mask;
@@ -104,6 +107,9 @@ static void msm_vfe46_config_irq(struct vfe_device *vfe_dev,
 	case MSM_ISP_IRQ_SET:
 		vfe_dev->irq0_mask = irq0_mask;
 		vfe_dev->irq1_mask = irq1_mask;
+		msm_camera_io_w(irq1_mask, vfe_dev->vfe_base + 0x64);
+		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x58);
 		break;
 	}
 	msm_camera_io_w_mb(vfe_dev->irq0_mask,
@@ -204,9 +210,6 @@ static void msm_vfe46_init_hardware_reg(struct vfe_device *vfe_dev)
 	/* IRQ_MASK/CLEAR */
 	msm_vfe46_config_irq(vfe_dev, 0x810000E0, 0xFFFFFF7E,
 			MSM_ISP_IRQ_ENABLE);
-	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x64);
-	msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x68);
-	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x58);
 }
 
 static void msm_vfe46_clear_status_reg(struct vfe_device *vfe_dev)
@@ -1159,11 +1162,6 @@ static void msm_vfe46_update_camif_state(struct vfe_device *vfe_dev,
 		/* testgen OFF*/
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
 			msm_camera_io_w(1 << 1, vfe_dev->vfe_base + 0xAF4);
-		msm_camera_io_w(0, vfe_dev->vfe_base + 0x64);
-		msm_camera_io_w((1 << 0), vfe_dev->vfe_base + 0x68);
-		msm_camera_io_w_mb(1, vfe_dev->vfe_base + 0x58);
-		msm_vfe46_config_irq(vfe_dev, vfe_dev->irq0_mask,
-				vfe_dev->irq1_mask, MSM_ISP_IRQ_SET);
 	}
 }
 
@@ -1436,15 +1434,6 @@ static int msm_vfe46_axi_halt(struct vfe_device *vfe_dev,
 	msm_vfe46_config_irq(vfe_dev, (1 << 31), (1 << 8),
 			MSM_ISP_IRQ_SET);
 
-	/*Clear IRQ Status0, only leave reset irq mask*/
-	msm_camera_io_w(0x7FFFFFFF, vfe_dev->vfe_base + 0x64);
-
-	/*Clear IRQ Status1, only leave halt irq mask*/
-	msm_camera_io_w(0xFFFFFEFF, vfe_dev->vfe_base + 0x68);
-
-	/*push clear cmd*/
-	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x58);
-
 	if (atomic_read(&vfe_dev->error_info.overflow_state)
 		== OVERFLOW_DETECTED)
 		pr_err_ratelimited("%s: VFE%d halt for recovery, blocking %d\n",
@@ -1479,11 +1468,8 @@ static int msm_vfe46_axi_halt(struct vfe_device *vfe_dev,
 static void msm_vfe46_axi_restart(struct vfe_device *vfe_dev,
 	uint32_t blocking, uint32_t enable_camif)
 {
-	msm_vfe46_config_irq(vfe_dev, vfe_dev->irq0_mask, vfe_dev->irq1_mask,
-			MSM_ISP_IRQ_SET);
-	msm_camera_io_w(0x7FFFFFFF, vfe_dev->vfe_base + 0x64);
-	msm_camera_io_w(0xFFFFFEFF, vfe_dev->vfe_base + 0x68);
-	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x58);
+	msm_vfe46_config_irq(vfe_dev, 0x810000E0, 0xFFFFFF7E,
+			MSM_ISP_IRQ_ENABLE);
 	msm_camera_io_w_mb(0x20000, vfe_dev->vfe_base + 0x3CC);
 
 	/* Start AXI */
