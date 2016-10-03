@@ -76,7 +76,7 @@ static void mpage_end_io(struct bio *bio)
 
 static struct bio *mpage_bio_submit(int op, int op_flags, struct bio *bio)
 {
-	if (trace_android_fs_dataread_start_enabled() && (rw == READ)) {
+	if (trace_android_fs_dataread_start_enabled() && (op == REQ_OP_READ)) {
 		struct page *first_page = bio->bi_io_vec[0].bv_page;
 
 		if (first_page != NULL) {
