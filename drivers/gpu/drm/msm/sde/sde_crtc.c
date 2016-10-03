@@ -297,7 +297,7 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		ctl->ops.update_pending_flush(ctl, mixer[i].flush_mask);
 
 		SDE_DEBUG("lm %d ctl %d add mask 0x%x to pending flush\n",
-			mixer->hw_lm->idx, ctl->idx, mixer[i].flush_mask);
+			mixer[i].hw_lm->idx, ctl->idx, mixer[i].flush_mask);
 
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
 			&sde_crtc->stage_cfg, i);
@@ -887,13 +887,14 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	 /* get plane state for all drm planes associated with crtc state */
 	drm_atomic_crtc_state_for_each_plane(plane, state) {
-		pstate = state->state->plane_states[drm_plane_index(plane)];
-
-		/* plane might not have changed, in which case take
-		 * current state:
-		 */
-		if (!pstate)
-			pstate = plane->state;
+		pstate = drm_atomic_get_plane_state(state->state, plane);
+		if (IS_ERR(pstate)) {
+			SDE_ERROR("%s: failed to get plane:%d state\n",
+					sde_crtc->name,
+					plane->base.id);
+			rc = -EINVAL;
+			goto end;
+		}
 
 		pstates[cnt].sde_pstate = to_sde_plane_state(pstate);
 		pstates[cnt].drm_pstate = pstate;
