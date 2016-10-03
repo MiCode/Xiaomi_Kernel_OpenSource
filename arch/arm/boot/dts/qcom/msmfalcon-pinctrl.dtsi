@@ -32,5 +32,21 @@
 				bias-disable;
 			};
 		};
+
+		led_enable: led_enable {
+			mux {
+				pins = "gpio40";
+				drive_strength = <16>;
+				output-high;
+			};
+		};
+
+		led_disable: led_disable {
+			mux {
+				pins = "gpio40";
+				drive_strength = <2>;
+				output-low;
+			};
+		};
 	};
 };

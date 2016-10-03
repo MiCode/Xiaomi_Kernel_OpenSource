@@ -231,6 +231,27 @@
 		clock-frequency = <19200000>;
 	};
 
+	spmi_bus: qcom,spmi@800f000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0x800f000 0x1000>,
+			<0x8400000 0x1000000>,
+			<0x9400000 0x1000000>,
+			<0xa400000 0x220000>,
+			<0x800a000 0x3000>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupt-names = "periph_irq";
+		interrupts = <GIC_SPI 326 IRQ_TYPE_NONE>;
+		qcom,ee = <0>;
+		qcom,channel = <0>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		cell-index = <0>;
+		qcom,not-wakeup; /* Needed until Full-boot-chain enabled */
+		status = "ok";
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm_sps_4k";
 		qcom,pipe-attr-ee;
@@ -656,3 +677,5 @@
 &gdsc_gpu_cx {
 	status = "ok";
 };
+#include "msm-pmfalcon.dtsi"
+#include "msm-pm2falcon.dtsi"
