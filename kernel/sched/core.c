@@ -7855,9 +7855,7 @@ void __init sched_init(void)
 
 	BUG_ON(num_possible_cpus() > BITS_PER_LONG);
 
-#ifdef CONFIG_SCHED_HMP
 	init_clusters();
-#endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);
