@@ -144,7 +144,9 @@ struct mmc_request {
 	bool			cap_cmd_during_tfr;
 
 	ktime_t			io_start;
+#ifdef CONFIG_BLOCK
 	int			lat_hist_enabled;
+#endif
 };
 
 struct mmc_card;
