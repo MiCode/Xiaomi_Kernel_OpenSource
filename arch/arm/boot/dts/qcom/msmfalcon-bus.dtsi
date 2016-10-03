@@ -39,8 +39,8 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <16384>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_gcc RPM_AGGRE2_NOC_CLK>,
-				<&clock_gcc RPM_AGGRE2_NOC_A_CLK>;
+			clocks = <&clock_rpmcc RPM_AGGR2_NOC_CLK>,
+				<&clock_rpmcc RPM_AGGR2_NOC_A_CLK>;
 		};
 
 		fab_bimc: fab-bimc {
@@ -52,8 +52,8 @@
 			qcom,bypass-qos-prg;
 			qcom,util-fact = <153>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_gcc RPM_BIMC_MSMBUS_CLK>,
-				<&clock_gcc RPM_BIMC_MSMBUS_A_CLK>;
+			clocks = <&clock_rpmcc BIMC_MSMBUS_CLK>,
+				<&clock_rpmcc BIMC_MSMBUS_A_CLK>;
 		};
 
 		fab_cnoc: fab-cnoc {
@@ -64,8 +64,8 @@
 			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_gcc RPM_CNOC_MSMBUS_CLK>,
-				<&clock_gcc RPM_CNOC_MSMBUS_A_CLK>;
+			clocks = <&clock_rpmcc CNOC_MSMBUS_CLK>,
+				<&clock_rpmcc CNOC_MSMBUS_A_CLK>;
 		};
 
 		fab_gnoc: fab-gnoc {
@@ -87,8 +87,8 @@
 			qcom,base-offset = <20480>;
 			qcom,util-fact = <154>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_gcc RPM_MMSSNOC_AXI_CLK>,
-				<&clock_gcc RPM_MMSSNOC_AXI_A_CLK>;
+			clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+				<&clock_rpmcc MMSSNOC_AXI_A_CLK>;
 		};
 
 		fab_snoc: fab-snoc {
@@ -101,8 +101,8 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <24576>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_gcc RPM_SNOC_MSMBUS_CLK>,
-				<&clock_gcc RPM_SNOC_MSMBUS_A_CLK>;
+			clocks = <&clock_rpmcc SNOC_MSMBUS_CLK>,
+				<&clock_rpmcc SNOC_MSMBUS_A_CLK>;
 		};
 
 		fab_mnoc_ahb: fab-mnoc-ahb {

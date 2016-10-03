@@ -14,6 +14,7 @@
 #include <dt-bindings/clock/qcom,gcc-msmfalcon.h>
 #include <dt-bindings/clock/qcom,gpu-msmfalcon.h>
 #include <dt-bindings/clock/qcom,mmcc-msmfalcon.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
@@ -131,6 +132,22 @@
 					cpu = <&CPU3>;
 				};
 			};
+		};
+	};
+
+	clocks {
+		xo_board {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <19200000>;
+			clock-output-names = "xo_board";
+		};
+
+		sleep_clk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <32764>;
+			clock-output-names = "sleep_clk";
 		};
 	};
 
@@ -308,19 +325,31 @@
 		};
 	};
 
-	clock_gcc: qcom,dummycc {
+	clock_rpmcc: qcom,dummycc {
 		compatible = "qcom,dummycc";
+		clock-output-names = "rpmcc_clocks";
 		#clock-cells = <1>;
 	};
 
-	clock_mmss: qcom,dummycc {
+	clock_gcc: clock-controller@100000 {
 		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
-	clock_gfx: qcom,dummycc {
+	clock_mmss: clock-controller@c8c0000 {
 		compatible = "qcom,dummycc";
+		clock-output-names = "mmss_clocks";
 		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gfx: clock-controller@5065000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gfx_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	qcom,ipc-spinlock@1f40000 {
