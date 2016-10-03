@@ -208,6 +208,21 @@ struct msm_display_info {
 
 struct display_manager;
 
+/**
+ * struct msm_drm_event - defines custom event notification struct
+ * @base: base object required for event notification by DRM framework.
+ * @event: event object required for event notification by DRM framework.
+ * @info: contains information of DRM object for which events has been
+ *        requested.
+ * @data: memory location which contains response payload for event.
+ */
+struct msm_drm_event {
+	struct drm_pending_event base;
+	struct drm_event event;
+	struct drm_msm_event_req info;
+	u8 data[];
+};
+
 struct msm_drm_private {
 
 	struct msm_kms *kms;
@@ -296,6 +311,9 @@ struct msm_drm_private {
 	struct msm_vblank_ctrl vblank_ctrl;
 
 	struct msm_evtlog evtlog;
+
+	/* list of clients waiting for events */
+	struct list_head client_event_list;
 };
 
 /* Helper macro for accessing msm_drm_private's event log */
@@ -415,6 +433,15 @@ enum msm_dsi_encoder_id {
 	MSM_DSI_CMD_ENCODER_ID = 1,
 	MSM_DSI_ENCODER_NUM = 2
 };
+
+/* *
+ * msm_send_crtc_notification - notify user-space clients of crtc events.
+ * @crtc: crtc that is generating the event.
+ * @event: event that needs to be notified.
+ * @payload: payload for the event.
+ */
+void msm_send_crtc_notification(struct drm_crtc *crtc,
+		struct drm_event *event, u8 *payload);
 #ifdef CONFIG_DRM_MSM_DSI
 void __init msm_dsi_register(void);
 void __exit msm_dsi_unregister(void);
