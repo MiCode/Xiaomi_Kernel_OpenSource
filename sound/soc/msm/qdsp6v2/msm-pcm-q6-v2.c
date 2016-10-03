@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,10 +68,11 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
 				SNDRV_PCM_FMTBIT_S24_LE |
-				SNDRV_PCM_FMTBIT_S24_3LE),
-	.rates =                SNDRV_PCM_RATE_8000_48000,
+				SNDRV_PCM_FMTBIT_S24_3LE |
+				SNDRV_PCM_FMTBIT_S32_LE),
+	.rates =                SNDRV_PCM_RATE_8000_384000,
 	.rate_min =             8000,
-	.rate_max =             48000,
+	.rate_max =             384000,
 	.channels_min =         1,
 	.channels_max =         4,
 	.buffer_bytes_max =     CAPTURE_MAX_NUM_PERIODS *
@@ -91,10 +92,11 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
 				SNDRV_PCM_FMTBIT_S24_LE |
-				SNDRV_PCM_FMTBIT_S24_3LE),
-	.rates =                SNDRV_PCM_RATE_8000_192000,
+				SNDRV_PCM_FMTBIT_S24_3LE |
+				SNDRV_PCM_FMTBIT_S32_LE),
+	.rates =                SNDRV_PCM_RATE_8000_384000,
 	.rate_min =             8000,
-	.rate_max =             192000,
+	.rate_max =             384000,
 	.channels_min =         1,
 	.channels_max =         8,
 	.buffer_bytes_max =     PLAYBACK_MAX_NUM_PERIODS *
@@ -109,7 +111,7 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 /* Conventional and unconventional sample rate supported */
 static unsigned int supported_sample_rates[] = {
 	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000,
-	88200, 96000, 176400, 192000
+	88200, 96000, 176400, 192000, 384000
 };
 
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
@@ -321,6 +323,10 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	pr_debug("%s: perf: %x\n", __func__, prtd->audio_client->perf_mode);
 
 	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		bits_per_sample = 32;
+		sample_word_size = 32;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		bits_per_sample = 24;
 		sample_word_size = 32;
@@ -336,7 +342,7 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		break;
 	}
 
-	ret = q6asm_open_write_v3(prtd->audio_client,
+	ret = q6asm_open_write_v4(prtd->audio_client,
 				  FORMAT_LINEAR_PCM, bits_per_sample);
 
 	if (ret < 0) {
@@ -361,11 +367,12 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		return ret;
 	}
 
-	ret = q6asm_media_format_block_multi_ch_pcm_v3(
+	ret = q6asm_media_format_block_multi_ch_pcm_v4(
 				prtd->audio_client, runtime->rate,
 				runtime->channels, !prtd->set_channel_map,
 				prtd->channel_map, bits_per_sample,
-				sample_word_size);
+				sample_word_size, ASM_LITTLE_ENDIAN,
+				DEFAULT_QF);
 	if (ret < 0)
 		pr_info("%s: CMD Format block failed\n", __func__);
 
@@ -410,6 +417,8 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		if ((params_format(params) == SNDRV_PCM_FORMAT_S24_LE) ||
 			(params_format(params) == SNDRV_PCM_FORMAT_S24_3LE))
 			bits_per_sample = 24;
+		else if (params_format(params) == SNDRV_PCM_FORMAT_S32_LE)
+			bits_per_sample = 32;
 
 		/* ULL mode is not supported in capture path */
 		if (pdata->perf_mode_set == LEGACY_PCM_MODE)
@@ -421,7 +430,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 				__func__, params_channels(params),
 				prtd->audio_client->perf_mode);
 
-		ret = q6asm_open_read_v3(prtd->audio_client, FORMAT_LINEAR_PCM,
+		ret = q6asm_open_read_v4(prtd->audio_client, FORMAT_LINEAR_PCM,
 				bits_per_sample);
 		if (ret < 0) {
 			pr_err("%s: q6asm_open_read failed\n", __func__);
@@ -467,6 +476,10 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		return 0;
 
 	switch (runtime->format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		bits_per_sample = 32;
+		sample_word_size = 32;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		bits_per_sample = 24;
 		sample_word_size = 32;
@@ -485,11 +498,13 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	pr_debug("%s: Samp_rate = %d Channel = %d bit width = %d, word size = %d\n",
 			__func__, prtd->samp_rate, prtd->channel_mode,
 			bits_per_sample, sample_word_size);
-	ret = q6asm_enc_cfg_blk_pcm_format_support_v3(prtd->audio_client,
+	ret = q6asm_enc_cfg_blk_pcm_format_support_v4(prtd->audio_client,
 						      prtd->samp_rate,
 						      prtd->channel_mode,
 						      bits_per_sample,
-						      sample_word_size);
+						      sample_word_size,
+						      ASM_LITTLE_ENDIAN,
+						      DEFAULT_QF);
 	if (ret < 0)
 		pr_debug("%s: cmd cfg pcm was block failed", __func__);
 
