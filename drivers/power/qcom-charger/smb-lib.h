@@ -236,6 +236,7 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data);
 irqreturn_t smblib_handle_usb_source_change(int irq, void *data);
 irqreturn_t smblib_handle_icl_change(int irq, void *data);
 irqreturn_t smblib_handle_usb_typec_change(int irq, void *data);
+irqreturn_t smblib_handle_dc_plugin(int irq, void *data);
 irqreturn_t smblib_handle_high_duty_cycle(int irq, void *data);
 
 int smblib_get_prop_input_suspend(struct smb_charger *chg,

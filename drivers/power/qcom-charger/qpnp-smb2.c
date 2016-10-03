@@ -1370,7 +1370,8 @@ static struct smb2_irq_info smb2_irqs[] = {
 	},
 	{
 		.name		= "dcin-plugin",
-		.handler	= smblib_handle_debug,
+		.handler	= smblib_handle_dc_plugin,
+		.wake		= true,
 	},
 	{
 		.name		= "div2-en-dg",
