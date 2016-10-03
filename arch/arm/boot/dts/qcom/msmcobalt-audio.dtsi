@@ -36,6 +36,18 @@
 		qcom,model = "msmcobalt-tasha-snd-card";
 		qcom,ext-disp-audio-rx;
 		qcom,wcn-btfm;
+		qcom,mi2s-audio-intf;
+		qcom,auxpcm-audio-intf;
+		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+
+		reg = <0x1711a000 0x4>,
+		      <0x1711b000 0x4>,
+		      <0x1711c000 0x4>,
+		      <0x1711d000 0x4>;
+		reg-names = "lpaif_pri_mode_muxsel",
+			    "lpaif_sec_mode_muxsel",
+			    "lpaif_tert_mode_muxsel",
+			    "lpaif_quat_mode_muxsel";
 
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
@@ -130,6 +142,18 @@
 		qcom,model = "msmcobalt-tavil-snd-card";
 		qcom,ext-disp-audio-rx;
 		qcom,wcn-btfm;
+		qcom,mi2s-audio-intf;
+		qcom,auxpcm-audio-intf;
+		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+
+		reg = <0x1711a000 0x4>,
+		      <0x1711b000 0x4>,
+		      <0x1711c000 0x4>,
+		      <0x1711d000 0x4>;
+		reg-names = "lpaif_pri_mode_muxsel",
+			    "lpaif_sec_mode_muxsel",
+			    "lpaif_tert_mode_muxsel",
+			    "lpaif_quat_mode_muxsel";
 
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
