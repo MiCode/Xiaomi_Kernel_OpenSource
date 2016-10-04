@@ -193,6 +193,14 @@ config QCOM_BUS_SCALING
 	for the active devices needs without keeping the clocks at max
 	frequency when a slower speed is sufficient.
 
+config QCOM_SECURE_BUFFER
+	bool "Helper functions for securing buffers through TZ"
+	help
+	 Say 'Y' here for targets that need to call into TZ to secure
+	 memory buffers. This ensures that only the correct clients can
+	 use this memory and no unauthorized access is made to the
+	 buffer
+
 config MSM_SMEM
 	depends on ARCH_QCOM
 	depends on REMOTE_SPINLOCK_MSM
