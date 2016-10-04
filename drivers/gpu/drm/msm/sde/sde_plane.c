@@ -1775,6 +1775,7 @@ sde_plane_duplicate_state(struct drm_plane *plane)
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	struct sde_plane_state *old_state;
+	uint64_t input_fence_default;
 
 	if (!plane || !plane->state)
 		return NULL;
@@ -1795,12 +1796,12 @@ sde_plane_duplicate_state(struct drm_plane *plane)
 	if (pstate->base.fb)
 		drm_framebuffer_reference(pstate->base.fb);
 
-	/* add ref count for fence */
-	if (pstate->input_fence) {
-		pstate->input_fence = 0;
-		_sde_plane_set_input_fence(plane, pstate, pstate->
-				property_values[PLANE_PROP_INPUT_FENCE]);
-	}
+	/* clear out any input fence */
+	pstate->input_fence = 0;
+	input_fence_default = msm_property_get_default(
+			&psde->property_info, PLANE_PROP_INPUT_FENCE);
+	msm_property_set_property(&psde->property_info, pstate->property_values,
+			PLANE_PROP_INPUT_FENCE, input_fence_default);
 
 	pstate->dirty = 0x0;
 	pstate->pending = false;
