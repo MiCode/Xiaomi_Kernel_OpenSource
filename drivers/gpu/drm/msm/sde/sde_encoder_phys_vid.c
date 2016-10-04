@@ -466,15 +466,21 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 		return -EINVAL;
 	}
 
-	SDE_DEBUG_VIDENC(vid_enc, "enable %d\n", enable);
-
 	/* Slave encoders don't report vblank */
-	if (sde_encoder_phys_vid_is_master(phys_enc)) {
-		if (enable)
-			ret = sde_encoder_phys_vid_register_irq(phys_enc);
-		else
-			ret = sde_encoder_phys_vid_unregister_irq(phys_enc);
-	}
+	if (!sde_encoder_phys_vid_is_master(phys_enc))
+		return 0;
+
+	SDE_DEBUG_VIDENC(vid_enc, "[%pS] enable=%d/%d\n",
+			__builtin_return_address(0),
+			enable, atomic_read(&phys_enc->vblank_refcount));
+
+	MSM_EVTMSG(phys_enc->parent->dev, NULL, enable,
+			atomic_read(&phys_enc->vblank_refcount));
+
+	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
+		ret = sde_encoder_phys_vid_register_irq(phys_enc);
+	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
+		ret = sde_encoder_phys_vid_unregister_irq(phys_enc);
 
 	if (ret)
 		SDE_ERROR_VIDENC(vid_enc,
@@ -568,6 +574,12 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 		sde_encoder_phys_vid_wait_for_vblank(vid_enc);
 		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
 	}
+
+	if (atomic_read(&phys_enc->vblank_refcount))
+		SDE_ERROR("enc:%d role:%d invalid vblank refcount %d\n",
+				phys_enc->parent->base.id,
+				phys_enc->split_role,
+				atomic_read(&phys_enc->vblank_refcount));
 }
 
 static void sde_encoder_phys_vid_destroy(struct sde_encoder_phys *phys_enc)
@@ -749,6 +761,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	phys_enc->intf_mode = INTF_MODE_VIDEO;
 	spin_lock_init(&phys_enc->spin_lock);
 	init_completion(&vid_enc->vblank_completion);
+	atomic_set(&phys_enc->vblank_refcount, 0);
 
 	DRM_INFO_ONCE("intf %d: 3d blend modes not yet supported\n",
 			vid_enc->hw_intf->idx);

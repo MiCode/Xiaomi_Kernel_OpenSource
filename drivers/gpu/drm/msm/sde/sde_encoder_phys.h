@@ -141,6 +141,7 @@ enum sde_enc_enable_state {
  * @spin_lock:		Lock for IRQ purposes
  * @mode_3d:		3D mux configuration
  * @enable_state:	Enable state tracking
+ * @vblank_refcount:	Reference count of vblank request
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -157,6 +158,7 @@ struct sde_encoder_phys {
 	spinlock_t spin_lock;
 	enum sde_3d_blend_mode mode_3d;
 	enum sde_enc_enable_state enable_state;
+	atomic_t vblank_refcount;
 };
 
 /**

@@ -377,20 +377,27 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 		SDE_ERROR("invalid encoder\n");
 		return -EINVAL;
 	}
-	SDE_DEBUG_CMDENC(cmd_enc, "enable %d\n", enable);
 
 	/* Slave encoders don't report vblank */
-	if (sde_encoder_phys_cmd_is_master(phys_enc)) {
-		if (enable)
-			ret = sde_encoder_phys_cmd_register_pp_irq(phys_enc,
-					SDE_IRQ_TYPE_PING_PONG_RD_PTR,
-					&cmd_enc->pp_rd_ptr_irq_idx,
-					sde_encoder_phys_cmd_pp_rd_ptr_irq,
-					"pp_rd_ptr");
-		else
-			ret = sde_encoder_phys_cmd_unregister_pp_irq(phys_enc,
-					cmd_enc->pp_rd_ptr_irq_idx);
-	}
+	if (!sde_encoder_phys_cmd_is_master(phys_enc))
+		return 0;
+
+	SDE_DEBUG_CMDENC(cmd_enc, "[%pS] enable=%d/%d\n",
+			__builtin_return_address(0),
+			enable, atomic_read(&phys_enc->vblank_refcount));
+
+	MSM_EVTMSG(phys_enc->parent->dev, NULL, enable,
+			atomic_read(&phys_enc->vblank_refcount));
+
+	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
+		ret = sde_encoder_phys_cmd_register_pp_irq(phys_enc,
+				SDE_IRQ_TYPE_PING_PONG_RD_PTR,
+				&cmd_enc->pp_rd_ptr_irq_idx,
+				sde_encoder_phys_cmd_pp_rd_ptr_irq,
+				"pp_rd_ptr");
+	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
+		ret = sde_encoder_phys_cmd_unregister_pp_irq(phys_enc,
+				cmd_enc->pp_rd_ptr_irq_idx);
 
 	if (ret)
 		SDE_ERROR_CMDENC(cmd_enc,
@@ -475,6 +482,12 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 	atomic_set(&cmd_enc->pending_cnt, 0);
 	wake_up_all(&cmd_enc->pp_tx_done_wq);
 	phys_enc->enable_state = SDE_ENC_DISABLED;
+
+	if (atomic_read(&phys_enc->vblank_refcount))
+		SDE_ERROR("enc:%d role:%d invalid vblank refcount %d\n",
+				phys_enc->parent->base.id,
+				phys_enc->split_role,
+				atomic_read(&phys_enc->vblank_refcount));
 }
 
 static void sde_encoder_phys_cmd_destroy(struct sde_encoder_phys *phys_enc)
@@ -602,6 +615,7 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	cmd_enc->stream_sel = 0;
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 	atomic_set(&cmd_enc->pending_cnt, 0);
+	atomic_set(&phys_enc->vblank_refcount, 0);
 
 	init_waitqueue_head(&cmd_enc->pp_tx_done_wq);
 
