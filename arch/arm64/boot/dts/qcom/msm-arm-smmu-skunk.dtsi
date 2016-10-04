@@ -1,0 +1,45 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+&soc {
+	kgsl_smmu: arm,smmu-kgsl@5040000 {
+		status = "ok";
+		compatible = "qcom,smmu-v2";
+		reg = <0x5040000 0x10000>;
+		#iommu-cells = <1>;
+		qcom,dynamic;
+		#global-interrupts = <2>;
+		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 364 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 365 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 366 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 367 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 368 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 369 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 370 IRQ_TYPE_EDGE_RISING>,
+				<GIC_SPI 371 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	iommu_test_device {
+		compatible = "iommu-debug-test";
+		/*
+		 * 42 shouldn't be used by anyone on the mmss_smmu.  We just
+		 * need _something_ here to get this node recognized by the
+		 * SMMU driver. Our test uses ATOS, which doesn't use SIDs
+		 * anyways, so using a dummy value is ok.
+		 */
+		iommus = <&kgsl_smmu 42>;
+	};
+};

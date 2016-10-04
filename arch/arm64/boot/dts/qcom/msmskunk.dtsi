@@ -714,3 +714,4 @@
 
 #include "msmskunk-regulator.dtsi"
 #include "msmskunk-coresight.dtsi"
+#include "msm-arm-smmu-skunk.dtsi"
