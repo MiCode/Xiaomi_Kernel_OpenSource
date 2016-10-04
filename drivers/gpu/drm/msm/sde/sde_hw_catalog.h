@@ -46,6 +46,11 @@
 
 #define CRTC_DUAL_MIXERS	2
 
+#define SDE_COLOR_PROCESS_VER(MAJOR, MINOR) \
+		((((MAJOR) & 0xFFFF) << 16) | (((MINOR) & 0xFFFF)))
+#define SDE_COLOR_PROCESS_MAJOR(version) (((version) & 0xFFFF0000) >> 16)
+#define SDE_COLOR_PROCESS_MINOR(version) ((version) & 0xFFFF)
+
 /**
  * MDP TOP BLOCK features
  * @SDE_MDP_PANIC_PER_PIPE Panic configuration needs to be be done per pipe
@@ -75,8 +80,8 @@ enum {
  * @SDE_SSPP_SCALER_QSEED3,  QSEED3 alogorithm support
  * @SDE_SSPP_SCALER_RGB,     RGB Scaler, supported by RGB pipes
  * @SDE_SSPP_CSC,            Support of Color space converion
- * @SDE_SSPP_PA_V1,          Common op-mode register for PA blocks
- * @SDE_SSPP_HIST_V1         Histogram programming method V1
+ * @SDE_SSPP_HSIC,           Global HSIC control
+ * @SDE_SSPP_MEMCOLOR        Memory Color Support
  * @SDE_SSPP_IGC,            Inverse gamma correction
  * @SDE_SSPP_PCC,            Color correction support
  * @SDE_SSPP_CURSOR,         SSPP can be used as a cursor layer
@@ -89,8 +94,8 @@ enum {
 	SDE_SSPP_SCALER_QSEED3,
 	SDE_SSPP_SCALER_RGB,
 	SDE_SSPP_CSC,
-	SDE_SSPP_PA_V1, /* Common op-mode register for PA blocks */
-	SDE_SSPP_HIST_V1,
+	SDE_SSPP_HSIC,
+	SDE_SSPP_MEMCOLOR,
 	SDE_SSPP_IGC,
 	SDE_SSPP_PCC,
 	SDE_SSPP_CURSOR,
@@ -117,7 +122,9 @@ enum {
  * @SDE_DSPP_IGC             DSPP Inverse gamma correction block
  * @SDE_DSPP_PCC             Panel color correction block
  * @SDE_DSPP_GC              Gamma correction block
- * @SDE_DSPP_PA              Picture adjustment block
+ * @SDE_DSPP_HSIC            Global HSIC block
+ * @SDE_DSPP_MEMCOLOR        Memory Color block
+ * @SDE_DSPP_SIXZONE         Six zone block
  * @SDE_DSPP_GAMUT           Gamut bloc
  * @SDE_DSPP_DITHER          Dither block
  * @SDE_DSPP_HIST            Histogram bloc
@@ -127,7 +134,9 @@ enum {
 	SDE_DSPP_IGC = 0x1,
 	SDE_DSPP_PCC,
 	SDE_DSPP_GC,
-	SDE_DSPP_PA,
+	SDE_DSPP_HSIC,
+	SDE_DSPP_MEMCOLOR,
+	SDE_DSPP_SIXZONE,
 	SDE_DSPP_GAMUT,
 	SDE_DSPP_DITHER,
 	SDE_DSPP_HIST,
@@ -290,9 +299,10 @@ struct sde_format_extended {
  * @src_blk:
  * @scaler_blk:
  * @csc_blk:
- * @pa_blk:
- * @hist_lut:
+ * @hsic:
+ * @memcolor:
  * @pcc_blk:
+ * @igc_blk:
  * @format_list: Pointer to list of supported formats
  */
 struct sde_sspp_sub_blks {
@@ -314,9 +324,10 @@ struct sde_sspp_sub_blks {
 	struct sde_src_blk src_blk;
 	struct sde_scaler_blk scaler_blk;
 	struct sde_pp_blk csc_blk;
-	struct sde_pp_blk pa_blk;
-	struct sde_pp_blk hist_lut;
+	struct sde_pp_blk hsic;
+	struct sde_pp_blk memcolor;
 	struct sde_pp_blk pcc_blk;
+	struct sde_pp_blk igc_blk;
 
 	const struct sde_format_extended *format_list;
 };
@@ -326,18 +337,22 @@ struct sde_sspp_sub_blks {
  * @maxwidth:               Max pixel width supported by this mixer
  * @maxblendstages:         Max number of blend-stages supported
  * @blendstage_base:        Blend-stage register base offset
+ * @gc: gamma correction block
  */
 struct sde_lm_sub_blks {
 	u32 maxwidth;
 	u32 maxblendstages;
 	u32 blendstage_base[MAX_BLOCKS];
+	struct sde_pp_blk gc;
 };
 
 struct sde_dspp_sub_blks {
 	struct sde_pp_blk igc;
 	struct sde_pp_blk pcc;
 	struct sde_pp_blk gc;
-	struct sde_pp_blk pa;
+	struct sde_pp_blk hsic;
+	struct sde_pp_blk memcolor;
+	struct sde_pp_blk sixzone;
 	struct sde_pp_blk gamut;
 	struct sde_pp_blk dither;
 	struct sde_pp_blk hist;
