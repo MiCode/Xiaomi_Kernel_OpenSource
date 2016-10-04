@@ -45,7 +45,7 @@ bp, flg, fm, np)                                                          \
 	.unpack_count = uc,                                               \
 	.bpp = bp,                                                        \
 	.fetch_mode = fm,                                                 \
-	.flag = flg,                                                      \
+	.flag = {(flg)},                                                  \
 	.num_planes = np                                                  \
 }
 
@@ -63,7 +63,7 @@ alpha, chroma, count, bp, flg, fm, np)                                    \
 	.unpack_count = count,                                            \
 	.bpp = bp,                                                        \
 	.fetch_mode = fm,                                                 \
-	.flag = flg,                                                      \
+	.flag = {(flg)},                                                  \
 	.num_planes = np                                                  \
 }
 
@@ -80,7 +80,7 @@ alpha, chroma, count, bp, flg, fm, np)                                    \
 	.unpack_count = 2,                                                \
 	.bpp = 2,                                                         \
 	.fetch_mode = fm,                                                 \
-	.flag = flg,                                                      \
+	.flag = {(flg)},                                                  \
 	.num_planes = np                                                  \
 }
 
@@ -97,7 +97,7 @@ alpha, chroma, count, bp, flg, fm, np)                                    \
 	.unpack_count = 2,                                                \
 	.bpp = 2,                                                         \
 	.fetch_mode = fm,                                                 \
-	.flag = flg,                                                      \
+	.flag = {(flg)},                                                  \
 	.num_planes = np                                                  \
 }
 
@@ -115,7 +115,7 @@ flg, fm, np)                                                      \
 	.unpack_count = 1,                                                \
 	.bpp = bp,                                                        \
 	.fetch_mode = fm,                                                 \
-	.flag = flg,                                                      \
+	.flag = {(flg)},                                                  \
 	.num_planes = np                                                  \
 }
 

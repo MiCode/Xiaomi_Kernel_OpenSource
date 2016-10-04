@@ -41,11 +41,18 @@
 #define SDE_MAX_DE_CURVES		3
 #endif
 
-#define SDE_FORMAT_FLAG_YUV		(1 << 0)
-#define SDE_FORMAT_FLAG_DX		(1 << 1)
+enum sde_format_flags {
+	SDE_FORMAT_FLAG_YUV_BIT,
+	SDE_FORMAT_FLAG_DX_BIT,
+	SDE_FORMAT_FLAG_BIT_MAX,
+};
 
-#define SDE_FORMAT_IS_YUV(X)		((X)->flag & SDE_FORMAT_FLAG_YUV)
-#define SDE_FORMAT_IS_DX(X)		((X)->flag & SDE_FORMAT_FLAG_DX)
+#define SDE_FORMAT_FLAG_YUV		BIT(SDE_FORMAT_FLAG_YUV_BIT)
+#define SDE_FORMAT_FLAG_DX		BIT(SDE_FORMAT_FLAG_DX_BIT)
+#define SDE_FORMAT_IS_YUV(X)		\
+	(test_bit(SDE_FORMAT_FLAG_YUV_BIT, (X)->flag))
+#define SDE_FORMAT_IS_DX(X)		\
+	(test_bit(SDE_FORMAT_FLAG_DX_BIT, (X)->flag))
 #define SDE_FORMAT_IS_LINEAR(X)		((X)->fetch_mode == SDE_FETCH_LINEAR)
 #define SDE_FORMAT_IS_UBWC(X)		((X)->fetch_mode == SDE_FETCH_UBWC)
 
@@ -361,7 +368,7 @@ struct sde_format {
 	u8 alpha_enable;
 	u8 num_planes;
 	enum sde_fetch_type fetch_mode;
-	u32 flag;
+	DECLARE_BITMAP(flag, SDE_FORMAT_FLAG_BIT_MAX);
 	u16 tile_width;
 	u16 tile_height;
 };
