@@ -28,6 +28,8 @@
 #define VMID_MSS_NONMSA 0x10
 #define VMID_CP_SEC_DISPLAY 0x11
 #define VMID_CP_APP 0x12
+#define VMID_WLAN 0x18
+#define VMID_WLAN_CE 0x19
 #define VMID_INVAL -1
 /*
  * if you add a secure VMID here make sure you update
