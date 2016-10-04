@@ -38,6 +38,7 @@
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
+
 	if (priv->fbdev)
 		drm_fb_helper_hotplug_event(priv->fbdev);
 }
@@ -153,6 +154,7 @@ void msm_writel(u32 data, void __iomem *addr)
 u32 msm_readl(const void __iomem *addr)
 {
 	u32 val = readl(addr);
+
 	if (reglog)
 		printk(KERN_ERR "IO:R %p %08x\n", addr, val);
 	return val;
@@ -219,9 +221,8 @@ static int vblank_ctrl_queue_work(struct msm_drm_private *priv,
 
 static int msm_drm_uninit(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct drm_device *ddev = platform_get_drvdata(pdev);
-	struct msm_drm_private *priv = ddev->dev_private;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct platform_device *pdev = dev->platformdev;
 	struct msm_kms *kms = priv->kms;
 	struct msm_gpu *gpu = priv->gpu;
 	struct msm_vblank_ctrl *vbl_ctrl = &priv->vblank_ctrl;
@@ -271,12 +272,16 @@ static int msm_drm_uninit(struct device *dev)
 
 	if (priv->vram.paddr) {
 		unsigned long attrs = DMA_ATTR_NO_KERNEL_MAPPING;
+
 		drm_mm_takedown(&priv->vram.mm);
 		dma_free_attrs(dev, priv->vram.size, NULL,
 			       priv->vram.paddr, attrs);
 	}
 
 	sde_evtlog_destroy();
+
+	sde_power_client_destroy(&priv->phandle, priv->pclient);
+	sde_power_resource_deinit(pdev, &priv->phandle);
 
 	component_unbind_all(dev->dev, dev);
 
@@ -343,7 +348,9 @@ static int msm_init_vram(struct drm_device *dev)
 	node = of_parse_phandle(dev->dev->of_node, "memory-region", 0);
 	if (node) {
 		struct resource r;
+
 		ret = of_address_to_resource(node, 0, &r);
+
 		of_node_put(node);
 		if (ret)
 			return ret;
@@ -393,7 +400,13 @@ static int msm_init_vram(struct drm_device *dev)
 static int msm_component_bind_all(struct device *dev,
 				struct drm_device *drm_dev)
 {
-	return component_bind_all(dev, drm_dev);
+	int ret;
+
+	ret = component_bind_all(dev, drm_dev);
+	if (ret)
+		DRM_ERROR("component_bind_all failed: %d\n", ret);
+
+	return ret;
 }
 #else
 static int msm_component_bind_all(struct device *dev,
@@ -411,15 +424,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	struct msm_kms *kms;
 	int ret;
 
-	ddev = drm_dev_alloc(drv, dev);
-	if (IS_ERR(ddev)) {
-		dev_err(dev, "failed to allocate drm_device\n");
-		return PTR_ERR(ddev);
-	}
-
-	platform_set_drvdata(pdev, ddev);
-	ddev->platformdev = pdev;
-
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
 		drm_dev_unref(ddev);
@@ -429,31 +433,40 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ddev->dev_private = priv;
 	priv->dev = ddev;
 
-	ret = msm_mdss_init(ddev);
-	if (ret) {
-		kfree(priv);
-		drm_dev_unref(ddev);
-		return ret;
-	}
+	priv->wq = alloc_ordered_workqueue("msm_drm", 0);
+	init_waitqueue_head(&priv->fence_event);
+	init_waitqueue_head(&priv->pending_crtcs_event);
+
+	INIT_LIST_HEAD(&priv->client_event_list);
+	INIT_LIST_HEAD(&priv->inactive_list);
+	INIT_LIST_HEAD(&priv->fence_cbs);
+	INIT_LIST_HEAD(&priv->vblank_ctrl.event_list);
+	init_kthread_work(&priv->vblank_ctrl.work, vblank_ctrl_worker);
+	spin_lock_init(&priv->vblank_ctrl.lock);
+
+	drm_mode_config_init(dev);
 
 	priv->wq = alloc_ordered_workqueue("msm", 0);
 	priv->atomic_wq = alloc_ordered_workqueue("msm:atomic", 0);
 	init_waitqueue_head(&priv->fence_event);
 	init_waitqueue_head(&priv->pending_crtcs_event);
 
-	INIT_LIST_HEAD(&priv->inactive_list);
-	INIT_LIST_HEAD(&priv->vblank_ctrl.event_list);
-	INIT_WORK(&priv->vblank_ctrl.work, vblank_ctrl_worker);
-	spin_lock_init(&priv->vblank_ctrl.lock);
+	ret = sde_power_resource_init(pdev, &priv->phandle);
+	if (ret) {
+		pr_err("sde power resource init failed\n");
+		goto fail;
+	}
 
-	drm_mode_config_init(ddev);
+	priv->pclient = sde_power_client_create(&priv->phandle, "sde");
+	if (IS_ERR_OR_NULL(priv->pclient)) {
+		pr_err("sde power client create failed\n");
+		ret = -EINVAL;
+		goto fail;
+	}
 
 	/* Bind all our sub-components: */
-	ret = component_bind_all(dev, ddev);
-	if (ret) {
-		msm_mdss_destroy(ddev);
-		kfree(priv);
-		drm_dev_unref(ddev);
+	ret = msm_component_bind_all(dev->dev, dev);
+	if (ret)
 		return ret;
 	}
 
@@ -756,6 +769,7 @@ static irqreturn_t msm_irq(int irq, void *arg)
 	struct drm_device *dev = arg;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+
 	BUG_ON(!kms);
 	return kms->funcs->irq(kms);
 }
@@ -764,6 +778,7 @@ static void msm_irq_preinstall(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+
 	BUG_ON(!kms);
 	kms->funcs->irq_preinstall(kms);
 }
@@ -772,6 +787,7 @@ static int msm_irq_postinstall(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+
 	BUG_ON(!kms);
 	return kms->funcs->irq_postinstall(kms);
 }
@@ -780,6 +796,7 @@ static void msm_irq_uninstall(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+
 	BUG_ON(!kms);
 	kms->funcs->irq_uninstall(kms);
 }
@@ -788,6 +805,7 @@ static int msm_enable_vblank(struct drm_device *dev, unsigned int pipe)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+
 	if (!kms)
 		return -ENXIO;
 	DBG("dev=%p, crtc=%u", dev, pipe);
@@ -798,6 +816,7 @@ static void msm_disable_vblank(struct drm_device *dev, unsigned int pipe)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+
 	if (!kms)
 		return;
 	DBG("dev=%p, crtc=%u", dev, pipe);
@@ -1074,7 +1093,13 @@ static const struct dev_pm_ops msm_pm_ops = {
 
 static int msm_drm_bind(struct device *dev)
 {
-	return drm_platform_init(&msm_driver, to_platform_device(dev));
+	int ret;
+
+	ret = drm_platform_init(&msm_driver, to_platform_device(dev));
+	if (ret)
+		DRM_ERROR("drm_platform_init failed: %d\n", ret);
+
+	return ret;
 }
 
 static void msm_drm_unbind(struct device *dev)
@@ -1170,48 +1195,11 @@ static int add_components_mdp(struct device *mdp_dev,
 
 static int compare_name_mdp(struct device *dev, void *data)
 {
-	return (strstr(dev_name(dev), "mdp") != NULL);
-}
-
-static int add_display_components(struct device *dev,
-				  struct component_match **matchptr)
-{
-	struct device *mdp_dev;
 	int ret;
 
-	/*
-	 * MDP5 based devices don't have a flat hierarchy. There is a top level
-	 * parent: MDSS, and children: MDP5, DSI, HDMI, eDP etc. Populate the
-	 * children devices, find the MDP5 node, and then add the interfaces
-	 * to our components list.
-	 */
-	if (of_device_is_compatible(dev->of_node, "qcom,mdss")) {
-		ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
-		if (ret) {
-			dev_err(dev, "failed to populate children devices\n");
-			return ret;
-		}
-
-		mdp_dev = device_find_child(dev, NULL, compare_name_mdp);
-		if (!mdp_dev) {
-			dev_err(dev, "failed to find MDSS MDP node\n");
-			of_platform_depopulate(dev);
-			return -ENODEV;
-		}
-
-		put_device(mdp_dev);
-
-		/* add the MDP component itself */
-		component_match_add(dev, matchptr, compare_of,
-				    mdp_dev->of_node);
-	} else {
-		/* MDP4 */
-		mdp_dev = dev;
-	}
-
-	ret = add_components_mdp(mdp_dev, matchptr);
+	ret = component_master_add_with_match(dev, &msm_drm_ops, match);
 	if (ret)
-		of_platform_depopulate(dev);
+		DRM_ERROR("component add match failed: %d\n", ret);
 
 	return ret;
 }
@@ -1264,67 +1252,43 @@ static int msm_pdev_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct component_match *match = NULL;
-	int ret;
+
+#ifdef CONFIG_OF
+	add_components(&pdev->dev, &match, "connectors");
+	add_components(&pdev->dev, &match, "gpus");
+#else
+	/* For non-DT case, it kinda sucks.  We don't actually have a way
+	 * to know whether or not we are waiting for certain devices (or if
+	 * they are simply not present).  But for non-DT we only need to
+	 * care about apq8064/apq8060/etc (all mdp4/a3xx):
+	 */
+	static const char * const devnames[] = {
+			"hdmi_msm.0", "kgsl-3d0.0",
+	};
+	int i;
+
+	DBG("Adding components..");
+
+	for (i = 0; i < ARRAY_SIZE(devnames); i++) {
+		struct device *dev;
 
 	ret = add_display_components(&pdev->dev, &match);
 	if (ret)
 		return ret;
 
-	ret = add_gpu_components(&pdev->dev, &match);
-	if (ret)
-		return ret;
-
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
-
-	priv->wq = alloc_ordered_workqueue("msm_drm", 0);
-	init_waitqueue_head(&priv->fence_event);
-	init_waitqueue_head(&priv->pending_crtcs_event);
-
-	INIT_LIST_HEAD(&priv->inactive_list);
-	INIT_LIST_HEAD(&priv->fence_cbs);
-	INIT_LIST_HEAD(&priv->vblank_ctrl.event_list);
-	INIT_WORK(&priv->vblank_ctrl.work, vblank_ctrl_worker);
-	spin_lock_init(&priv->vblank_ctrl.lock);
-
-	platform_set_drvdata(pdev, priv);
-
-	ret = sde_power_resource_init(pdev, &priv->phandle);
-	if (ret) {
-		pr_err("sde power resource init failed\n");
-		goto hw_setup_failure;
+		component_match_add(&pdev->dev, &match, compare_dev, dev);
 	}
-
-	priv->pclient = sde_power_client_create(&priv->phandle, "sde");
-	if (IS_ERR_OR_NULL(priv->pclient)) {
-		pr_err("sde power client create failed\n");
-		ret = -EINVAL;
-		goto client_create_err;
-	}
-
+#endif
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-
-	return msm_add_master_component(&pdev->dev, match);
-
-client_create_err:
-	sde_power_resource_deinit(pdev, &priv->phandle);
-hw_setup_failure:
-	kfree(priv);
+	ret = msm_add_master_component(&pdev->dev, match);
 
 	return ret;
 }
 
 static int msm_pdev_remove(struct platform_device *pdev)
 {
-	struct drm_device *drm_dev = platform_get_drvdata(pdev);
-	struct msm_drm_private *priv = drm_dev->dev_private;
-
-	component_master_del(&pdev->dev, &msm_drm_ops);
-	of_platform_depopulate(&pdev->dev);
-
 	msm_drm_unbind(&pdev->dev);
-	sde_power_resource_deinit(pdev, &priv->phandle);
+	component_master_del(&pdev->dev, &msm_drm_ops);
 	return 0;
 }
 
