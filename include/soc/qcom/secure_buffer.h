@@ -15,6 +15,7 @@
 #ifndef __QCOM_SECURE_BUFFER_H__
 #define __QCOM_SECURE_BUFFER_H__
 
+#include <linux/scatterlist.h>
 
 #define VMID_HLOS 0x3
 #define VMID_CP_TOUCH 0x8
