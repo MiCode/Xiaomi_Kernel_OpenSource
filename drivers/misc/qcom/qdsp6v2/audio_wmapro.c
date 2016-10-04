@@ -47,7 +47,8 @@ static long audio_ioctl_shared(struct file *file, unsigned int cmd,
 			/* Configure PCM output block */
 			rc = q6asm_enc_cfg_blk_pcm(audio->ac,
 					audio->pcm_cfg.sample_rate,
-					audio->pcm_cfg.channel_count);
+					audio->pcm_cfg.channel_count,
+					true);
 			if (rc < 0) {
 				pr_err("pcm output block config failed\n");
 				break;
@@ -66,8 +67,7 @@ static long audio_ioctl_shared(struct file *file, unsigned int cmd,
 			rc = -EINVAL;
 			break;
 		}
-		if ((wmapro_config->numchannels == 1) ||
-		(wmapro_config->numchannels == 2)) {
+		if (wmapro_config->numchannels > 0) {
 			wmapro_cfg.ch_cfg = wmapro_config->numchannels;
 		} else {
 			pr_err("%s:AUDIO_START failed: channels = %d\n",
@@ -75,8 +75,7 @@ static long audio_ioctl_shared(struct file *file, unsigned int cmd,
 			rc = -EINVAL;
 			break;
 		}
-		if ((wmapro_config->samplingrate <= 48000) ||
-		(wmapro_config->samplingrate > 0)) {
+		if (wmapro_config->samplingrate > 0) {
 			wmapro_cfg.sample_rate =
 				wmapro_config->samplingrate;
 		} else {
@@ -107,15 +106,7 @@ static long audio_ioctl_shared(struct file *file, unsigned int cmd,
 			rc = -EINVAL;
 			break;
 		}
-		if ((wmapro_config->channelmask  == 4) ||
-		(wmapro_config->channelmask == 3)) {
-			wmapro_cfg.ch_mask =  wmapro_config->channelmask;
-		} else {
-			pr_err("%s:AUDIO_START failed: channel_mask = %d\n",
-				__func__, wmapro_config->channelmask);
-			rc = -EINVAL;
-			break;
-		}
+		wmapro_cfg.ch_mask =  wmapro_config->channelmask;
 		wmapro_cfg.encode_opt = wmapro_config->encodeopt;
 		wmapro_cfg.adv_encode_opt =
 				wmapro_config->advancedencodeopt;
@@ -197,10 +188,10 @@ struct msm_audio_wmapro_config32 {
 	u8  validbitspersample;
 	u8  numchannels;
 	u16 formattag;
-	u16 samplingrate;
-	u16 avgbytespersecond;
+	u32 samplingrate;
+	u32 avgbytespersecond;
 	u16 asfpacketlength;
-	u16 channelmask;
+	u32 channelmask;
 	u16 encodeopt;
 	u16 advancedencodeopt;
 	u32 advancedencodeopt2;

@@ -1303,6 +1303,9 @@ int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 		dprintk(VIDC_DBG, "%s: invalid ref_cnt: %d\n", __func__, cnt);
 		cnt = -EINVAL;
 	}
+	if (cnt == 2)
+		inst->buffers_held_in_driver++;
+
 	dprintk(VIDC_DBG, "REF_GET[%d] fd[0] = %d\n", cnt, binfo->fd[0]);
 
 	return cnt;
@@ -1350,6 +1353,7 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 			binfo->fd[0]);
 		binfo->pending_deletion = true;
 	} else if (qbuf_again) {
+		inst->buffers_held_in_driver--;
 		rc = qbuf_dynamic_buf(inst, binfo);
 		if (!rc)
 			return rc;

@@ -13,6 +13,8 @@
 	(((long) dst | (long) src) & (sizeof(long) - 1))
 #endif
 
+#define CHECK_ALIGN(v, a) ((((unsigned long)(v)) & ((a) - 1)) == 0)
+
 /*
  * Do a strncpy, return length of string without final '\0'.
  * 'count' is the user-supplied count (return 'count' if we
@@ -33,6 +35,21 @@ static inline long do_strncpy_from_user(char *dst, const char __user *src, long 
 
 	if (IS_UNALIGNED(src, dst))
 		goto byte_at_a_time;
+
+	/* Copy a byte at a time until we align to 8 bytes */
+	while (max && (!CHECK_ALIGN(src + res, 8))) {
+		char c;
+		int ret;
+
+		ret = __get_user(c, src + res);
+		if (ret)
+			return -EFAULT;
+		dst[res] = c;
+		if (!c)
+			return res;
+		res++;
+		max--;
+	}
 
 	while (max >= sizeof(unsigned long)) {
 		unsigned long c, data;
