@@ -474,6 +474,7 @@ struct arm_smmu_domain {
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
 	struct mutex			assign_lock;
+	struct list_head		secure_pool_list;
 	struct iommu_domain		domain;
 };
 
@@ -1035,13 +1036,74 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 	}
 }
 
+struct arm_smmu_secure_pool_chunk {
+	void *addr;
+	size_t size;
+	struct list_head list;
+};
+
+static void *arm_smmu_secure_pool_remove(struct arm_smmu_domain *smmu_domain,
+					size_t size)
+{
+	struct arm_smmu_secure_pool_chunk *it;
+
+	list_for_each_entry(it, &smmu_domain->secure_pool_list, list) {
+		if (it->size == size) {
+			void *addr = it->addr;
+
+			list_del(&it->list);
+			kfree(it);
+			return addr;
+		}
+	}
+
+	return NULL;
+}
+
+static int arm_smmu_secure_pool_add(struct arm_smmu_domain *smmu_domain,
+				     void *addr, size_t size)
+{
+	struct arm_smmu_secure_pool_chunk *chunk;
+
+	chunk = kmalloc(sizeof(*chunk), GFP_ATOMIC);
+	if (!chunk)
+		return -ENOMEM;
+
+	chunk->addr = addr;
+	chunk->size = size;
+	memset(addr, 0, size);
+	list_add(&chunk->list, &smmu_domain->secure_pool_list);
+
+	return 0;
+}
+
+static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
+{
+	struct arm_smmu_secure_pool_chunk *it, *i;
+
+	list_for_each_entry_safe(it, i, &smmu_domain->secure_pool_list, list) {
+		arm_smmu_unprepare_pgtable(smmu_domain, it->addr, it->size);
+		/* pages will be freed later (after being unassigned) */
+		kfree(it);
+	}
+}
+
 static void *arm_smmu_alloc_pages_exact(void *cookie,
 					size_t size, gfp_t gfp_mask)
 {
 	int ret;
-	void *page = alloc_pages_exact(size, gfp_mask);
+	void *page;
+	struct arm_smmu_domain *smmu_domain = cookie;
 
-	if (likely(page)) {
+	if (!arm_smmu_is_domain_secure(smmu_domain))
+		return alloc_pages_exact(size, gfp_mask);
+
+	page = arm_smmu_secure_pool_remove(smmu_domain, size);
+	if (page)
+		return page;
+
+	page = alloc_pages_exact(size, gfp_mask);
+	if (page) {
 		ret = arm_smmu_prepare_pgtable(page, cookie);
 		if (ret) {
 			free_pages_exact(page, size);
@@ -1054,8 +1116,15 @@ static void *arm_smmu_alloc_pages_exact(void *cookie,
 
 static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
 {
-	arm_smmu_unprepare_pgtable(cookie, virt, size);
-	/* unprepare also frees (possibly later), no need to free here */
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	if (!arm_smmu_is_domain_secure(smmu_domain)) {
+		free_pages_exact(virt, size);
+		return;
+	}
+
+	if (arm_smmu_secure_pool_add(smmu_domain, virt, size))
+		arm_smmu_unprepare_pgtable(smmu_domain, virt, size);
 }
 
 static struct iommu_gather_ops arm_smmu_gather_ops = {
@@ -1643,6 +1712,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
 		arm_smmu_power_off(smmu);
 		arm_smmu_secure_domain_lock(smmu_domain);
+		arm_smmu_secure_pool_destroy(smmu_domain);
 		arm_smmu_unassign_table(smmu_domain);
 		arm_smmu_secure_domain_unlock(smmu_domain);
 		return;
@@ -1662,6 +1732,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 
 	free_io_pgtable_ops(smmu_domain->pgtbl_ops);
 	arm_smmu_secure_domain_lock(smmu_domain);
+	arm_smmu_secure_pool_destroy(smmu_domain);
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
@@ -1698,6 +1769,7 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
 	INIT_LIST_HEAD(&smmu_domain->unassign_list);
 	mutex_init(&smmu_domain->assign_lock);
+	INIT_LIST_HEAD(&smmu_domain->secure_pool_list);
 
 	return &smmu_domain->domain;
 }
@@ -1938,10 +2010,7 @@ static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	if (!arm_smmu_is_domain_secure(smmu_domain)) {
-		free_pages_exact(addr, size);
-		return;
-	}
+	BUG_ON(!arm_smmu_is_domain_secure(smmu_domain));
 
 	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
 	if (!pte_info)
@@ -1957,8 +2026,7 @@ static int arm_smmu_prepare_pgtable(void *addr, void *cookie)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	if (!arm_smmu_is_domain_secure(smmu_domain))
-		return -EINVAL;
+	BUG_ON(!arm_smmu_is_domain_secure(smmu_domain));
 
 	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
 	if (!pte_info)
