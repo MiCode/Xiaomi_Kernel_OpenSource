@@ -899,3 +899,4 @@
 #include "msm-pm2falcon.dtsi"
 #include "msm-arm-smmu-falcon.dtsi"
 #include "msm-arm-smmu-impl-defs-falcon.dtsi"
+#include "msmfalcon-blsp.dtsi"
