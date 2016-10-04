@@ -82,7 +82,20 @@ static int msm_smmu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 
 static void msm_smmu_detach(struct msm_mmu *mmu, const char **names, int cnt)
 {
-	DBG("detaching");
+	struct msm_smmu *smmu = to_msm_smmu(mmu);
+	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
+
+	if (!client) {
+		pr_err("undefined smmu client\n");
+		return;
+	}
+
+	if (!client->domain_attached)
+		return;
+
+	arm_iommu_detach_device(client->dev);
+	client->domain_attached = false;
+	dev_dbg(client->dev, "iommu domain detached\n");
 }
 
 static int msm_smmu_map(struct msm_mmu *mmu, uint32_t iova,
@@ -193,7 +206,8 @@ static void msm_smmu_destroy(struct msm_mmu *mmu)
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct platform_device *pdev = to_platform_device(smmu->client_dev);
 
-	platform_device_unregister(pdev);
+	if (smmu->client_dev)
+		platform_device_unregister(pdev);
 	kfree(smmu);
 }
 
