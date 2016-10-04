@@ -35,6 +35,22 @@ int sde_sync_wait(void *fence, long timeout_ms)
 	return sync_fence_wait(fence, timeout_ms);
 }
 
+uint32_t sde_sync_get_name_prefix(void *fence)
+{
+	char *name;
+	uint32_t i, prefix;
+
+	if (!fence)
+		return 0x0;
+
+	name = ((struct sync_fence *)fence)->name;
+	prefix = 0x0;
+	for (i = 0; i < sizeof(uint32_t) && name[i]; ++i)
+		prefix = (prefix << CHAR_BIT) | name[i];
+
+	return prefix;
+}
+
 #if IS_ENABLED(CONFIG_SW_SYNC)
 /**
  * _sde_fence_create_fd - create fence object and return an fd for it
@@ -197,10 +213,6 @@ void sde_fence_signal(struct sde_fence *fence, bool is_error)
 	else
 		SDE_ERROR("detected extra signal attempt!\n");
 
-	MSM_EVTMSG(fence->dev,
-			SDE_FENCE_TIMELINE_NAME(fence),
-			fence->done_count,
-			is_error);
 	/*
 	 * Always advance 'done' counter,
 	 * but only advance timeline if !error
@@ -216,6 +228,11 @@ void sde_fence_signal(struct sde_fence *fence, bool is_error)
 		else
 			sw_sync_timeline_inc(fence->timeline, (int)val);
 	}
+	MSM_EVTMSG(fence->dev,
+			SDE_FENCE_TIMELINE_NAME(fence),
+			fence->done_count,
+			((struct sw_sync_timeline *)
+				fence->timeline)->value);
 	mutex_unlock(&fence->fence_lock);
 }
 #endif
