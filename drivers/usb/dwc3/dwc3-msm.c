@@ -2225,6 +2225,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
  */
 static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 {
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dbg_event(0xFF, "ext_event", 0);
+
 	/*
 	 * Flush processing any pending events before handling new ones except
 	 * for initial notification during bootup.
@@ -2233,26 +2237,26 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 		flush_delayed_work(&mdwc->sm_work);
 
 	if (mdwc->id_state == DWC3_ID_FLOAT) {
-		dev_dbg(mdwc->dev, "XCVR: ID set\n");
+		dbg_event(0xFF, "ID set", 0);
 		set_bit(ID, &mdwc->inputs);
 	} else {
-		dev_dbg(mdwc->dev, "XCVR: ID clear\n");
+		dbg_event(0xFF, "ID clear", 0);
 		clear_bit(ID, &mdwc->inputs);
 	}
 
 	if (mdwc->vbus_active && !mdwc->in_restart) {
-		dev_dbg(mdwc->dev, "XCVR: BSV set\n");
+		dbg_event(0xFF, "BSV set", 0);
 		set_bit(B_SESS_VLD, &mdwc->inputs);
 	} else {
-		dev_dbg(mdwc->dev, "XCVR: BSV clear\n");
+		dbg_event(0xFF, "BSV clear", 0);
 		clear_bit(B_SESS_VLD, &mdwc->inputs);
 	}
 
 	if (mdwc->suspend) {
-		dev_dbg(mdwc->dev, "XCVR: SUSP set\n");
+		dbg_event(0xFF, "SUSP set", 0);
 		set_bit(B_SUSPEND, &mdwc->inputs);
 	} else {
-		dev_dbg(mdwc->dev, "XCVR: SUSP clear\n");
+		dbg_event(0xFF, "SUSP clear", 0);
 		clear_bit(B_SUSPEND, &mdwc->inputs);
 	}
 
@@ -2491,13 +2495,9 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 
 		mdwc->vbus_active = val->intval;
 		if (dwc->is_drd && !mdwc->in_restart) {
-			/*
-			 * Set debouncing delay to 120ms. Otherwise battery
-			 * charging CDP complaince test fails if delay > 120ms.
-			 */
 			dbg_event(0xFF, "Q RW (vbus)", val->intval);
 			queue_delayed_work(mdwc->dwc3_wq,
-					&mdwc->resume_work, 12);
+					&mdwc->resume_work, 0);
 		}
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
