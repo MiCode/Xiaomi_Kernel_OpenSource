@@ -438,6 +438,9 @@ static int fg_get_sram_prop(struct fg_chip *chip, enum fg_sram_param_id id,
 	if (id < 0 || id > FG_SRAM_MAX || chip->sp[id].len > sizeof(buf))
 		return -EINVAL;
 
+	if (chip->battery_missing)
+		return -ENODATA;
+
 	rc = fg_sram_read(chip, chip->sp[id].addr_word, chip->sp[id].addr_byte,
 		buf, chip->sp[id].len, FG_IMA_DEFAULT);
 	if (rc < 0) {

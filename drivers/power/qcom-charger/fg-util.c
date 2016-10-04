@@ -83,6 +83,9 @@ int fg_sram_write(struct fg_chip *chip, u16 address, u8 offset,
 	if (!chip)
 		return -ENXIO;
 
+	if (chip->battery_missing)
+		return -ENODATA;
+
 	if (!fg_sram_address_valid(address, len))
 		return -EFAULT;
 
@@ -146,6 +149,9 @@ int fg_sram_read(struct fg_chip *chip, u16 address, u8 offset,
 
 	if (!chip)
 		return -ENXIO;
+
+	if (chip->battery_missing)
+		return -ENODATA;
 
 	if (!fg_sram_address_valid(address, len))
 		return -EFAULT;
