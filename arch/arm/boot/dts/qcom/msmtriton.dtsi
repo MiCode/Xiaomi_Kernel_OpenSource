@@ -16,6 +16,7 @@
 #include <dt-bindings/clock/qcom,mmcc-msmfalcon.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSMTRITON";
@@ -543,3 +544,78 @@
 };
 
 #include "msmtriton-ion.dtsi"
+#include "msmfalcon-regulator.dtsi"
+#include "msm-gdsc-falcon.dtsi"
+
+&gdsc_usb30 {
+	clock-names = "core_clk";
+	clocks = <&clock_gcc GCC_USB30_MASTER_CLK>;
+	status = "ok";
+};
+
+&gdsc_ufs {
+	status = "ok";
+};
+
+&gdsc_bimc_smmu {
+	clock-names = "bus_clk";
+	clocks = <&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>;
+	proxy-supply = <&gdsc_bimc_smmu>;
+	qcom,proxy-consumer-enable;
+	status = "ok";
+};
+
+&gdsc_hlos1_vote_lpass_adsp {
+	status = "ok";
+};
+
+&gdsc_venus {
+	status = "ok";
+};
+
+&gdsc_venus_core0 {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gdsc_camss_top {
+	status = "ok";
+};
+
+&gdsc_vfe0 {
+	parent-supply = <&gdsc_camss_top>;
+	status = "ok";
+};
+
+&gdsc_vfe1 {
+	parent-supply = <&gdsc_camss_top>;
+	status = "ok";
+};
+
+&gdsc_cpp {
+	parent-supply = <&gdsc_camss_top>;
+	status = "ok";
+};
+
+&gdsc_mdss {
+	clock-names = "bus_clk", "rot_clk";
+	clocks = <&clock_mmss MMSS_MDSS_AXI_CLK>,
+		 <&clock_mmss MMSS_MDSS_ROT_CLK>;
+	proxy-supply = <&gdsc_mdss>;
+	qcom,proxy-consumer-enable;
+	status = "ok";
+};
+
+&gdsc_gpu_gx {
+	clock-names = "bimc_core_clk", "core_clk", "core_root_clk";
+	clocks = <&clock_gcc GCC_GPU_BIMC_GFX_CLK>,
+		 <&clock_gfx GPUCC_GFX3D_CLK>,
+		 <&clock_gfx GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
+	parent-supply = <&gfx_vreg_corner>;
+	status = "ok";
+};
+
+&gdsc_gpu_cx {
+	status = "ok";
+};

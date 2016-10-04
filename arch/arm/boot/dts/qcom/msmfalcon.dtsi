@@ -675,7 +675,7 @@
 #include "msmfalcon-ion.dtsi"
 #include "msmfalcon-bus.dtsi"
 #include "msmfalcon-regulator.dtsi"
-#include "msm-gdsc-cobalt.dtsi"
+#include "msm-gdsc-falcon.dtsi"
 
 &gdsc_usb30 {
 	clock-names = "core_clk";
@@ -696,6 +696,14 @@
 };
 
 &gdsc_hlos1_vote_lpass_adsp {
+	status = "ok";
+};
+
+&gdsc_hlos1_vote_turing_adsp {
+	status = "ok";
+};
+
+&gdsc_hlos2_vote_turing_adsp {
 	status = "ok";
 };
 
@@ -749,5 +757,6 @@
 &gdsc_gpu_cx {
 	status = "ok";
 };
+
 #include "msm-pmfalcon.dtsi"
 #include "msm-pm2falcon.dtsi"
