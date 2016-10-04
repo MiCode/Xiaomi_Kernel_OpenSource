@@ -8326,7 +8326,7 @@ int q6asm_send_cal(struct audio_client *ac)
 	q6asm_add_hdr_async(ac, &hdr, (sizeof(struct apr_hdr) +
 		sizeof(struct asm_stream_cmd_set_pp_params_v2)), TRUE);
 
-	atomic_set(&ac->cmd_state, 1);
+	atomic_set(&ac->cmd_state, -1);
 	hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
 	payload_params.data_payload_addr_lsw =
 			lower_32_bits(cal_block->cal_data.paddr);
@@ -8352,13 +8352,13 @@ int q6asm_send_cal(struct audio_client *ac)
 		goto free;
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
-				(atomic_read(&ac->cmd_state) <= 0), 5 * HZ);
+				(atomic_read(&ac->cmd_state) >= 0), 5 * HZ);
 	if (!rc) {
 		pr_err("%s: timeout, audio audstrm cal send\n", __func__);
 		rc = -ETIMEDOUT;
 		goto free;
 	}
-	if (atomic_read(&ac->cmd_state) < 0) {
+	if (atomic_read(&ac->cmd_state) > 0) {
 		pr_err("%s: DSP returned error[%d] audio audstrm cal send\n",
 				__func__, atomic_read(&ac->cmd_state));
 		rc = -EINVAL;
