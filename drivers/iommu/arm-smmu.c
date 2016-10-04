@@ -473,6 +473,7 @@ struct arm_smmu_domain {
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
+	struct mutex			assign_lock;
 	struct iommu_domain		domain;
 };
 
@@ -514,7 +515,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain);
 
 static int arm_smmu_prepare_pgtable(void *addr, void *cookie);
 static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
-static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
+static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
 static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
@@ -541,6 +542,23 @@ static bool is_dynamic_domain(struct iommu_domain *domain)
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
 	return !!(smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC));
+}
+
+static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain)
+{
+	return (smmu_domain->secure_vmid != VMID_INVAL);
+}
+
+static void arm_smmu_secure_domain_lock(struct arm_smmu_domain *smmu_domain)
+{
+	if (arm_smmu_is_domain_secure(smmu_domain))
+		mutex_lock(&smmu_domain->assign_lock);
+}
+
+static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
+{
+	if (arm_smmu_is_domain_secure(smmu_domain))
+		mutex_unlock(&smmu_domain->assign_lock);
 }
 
 static struct device_node *dev_get_dev_node(struct device *dev)
@@ -1551,7 +1569,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	 * assign any page table memory that might have been allocated
 	 * during alloc_io_pgtable_ops
 	 */
+	arm_smmu_secure_domain_lock(smmu_domain);
 	arm_smmu_assign_table(smmu_domain);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 
 	/* Update the domain's page sizes to reflect the page table format */
 	domain->pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
@@ -1622,7 +1642,9 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 		arm_smmu_free_asid(domain);
 		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
 		arm_smmu_power_off(smmu);
+		arm_smmu_secure_domain_lock(smmu_domain);
 		arm_smmu_unassign_table(smmu_domain);
+		arm_smmu_secure_domain_unlock(smmu_domain);
 		return;
 	}
 
@@ -1639,7 +1661,9 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	}
 
 	free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+	arm_smmu_secure_domain_lock(smmu_domain);
 	arm_smmu_unassign_table(smmu_domain);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
 
 	arm_smmu_power_off(smmu);
@@ -1673,6 +1697,7 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 	smmu_domain->secure_vmid = VMID_INVAL;
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
 	INIT_LIST_HEAD(&smmu_domain->unassign_list);
+	mutex_init(&smmu_domain->assign_lock);
 
 	return &smmu_domain->domain;
 }
@@ -1854,19 +1879,18 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 	}
 }
 
-static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
+static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 {
-	int ret;
+	int ret = 0;
 	int dest_vmids[2] = {VMID_HLOS, smmu_domain->secure_vmid};
 	int dest_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ};
 	int source_vmid = VMID_HLOS;
 	struct arm_smmu_pte_info *pte_info, *temp;
 
-	if (smmu_domain->secure_vmid == VMID_INVAL)
-		return;
+	if (!arm_smmu_is_domain_secure(smmu_domain))
+		return ret;
 
-	list_for_each_entry(pte_info, &smmu_domain->pte_info_list,
-								entry) {
+	list_for_each_entry(pte_info, &smmu_domain->pte_info_list, entry) {
 		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
 				      PAGE_SIZE, &source_vmid, 1,
 				      dest_vmids, dest_perms, 2);
@@ -1879,6 +1903,7 @@ static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 		list_del(&pte_info->entry);
 		kfree(pte_info);
 	}
+	return ret;
 }
 
 static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
@@ -1889,7 +1914,7 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 	int source_vmlist[2] = {VMID_HLOS, smmu_domain->secure_vmid};
 	struct arm_smmu_pte_info *pte_info, *temp;
 
-	if (smmu_domain->secure_vmid == VMID_INVAL)
+	if (!arm_smmu_is_domain_secure(smmu_domain))
 		return;
 
 	list_for_each_entry(pte_info, &smmu_domain->unassign_list, entry) {
@@ -1913,7 +1938,7 @@ static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	if (smmu_domain->secure_vmid == VMID_INVAL) {
+	if (!arm_smmu_is_domain_secure(smmu_domain)) {
 		free_pages_exact(addr, size);
 		return;
 	}
@@ -1932,7 +1957,7 @@ static int arm_smmu_prepare_pgtable(void *addr, void *cookie)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	if (smmu_domain->secure_vmid == VMID_INVAL)
+	if (!arm_smmu_is_domain_secure(smmu_domain))
 		return -EINVAL;
 
 	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
@@ -2029,11 +2054,14 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
+	arm_smmu_secure_domain_lock(smmu_domain);
+
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->map(ops, iova, paddr, size, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
 	arm_smmu_assign_table(smmu_domain);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 
 	return ret;
 }
@@ -2053,6 +2081,8 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	if (ret)
 		return ret;
 
+	arm_smmu_secure_domain_lock(smmu_domain);
+
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->unmap(ops, iova, size);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
@@ -2066,6 +2096,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	arm_smmu_assign_table(smmu_domain);
 	/* Also unassign any pages that were free'd during unmap */
 	arm_smmu_unassign_table(smmu_domain);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 	return ret;
 }
 
