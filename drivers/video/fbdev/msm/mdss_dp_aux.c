@@ -1220,7 +1220,7 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 
 static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 {
-	int tries;
+	int tries = 0;
 	int ret = 0;
 	int usleep_time;
 	char pattern;
@@ -1232,12 +1232,12 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 	else
 		pattern = 0x02;
 
-	dp_host_train_set(ep, pattern); /* train_2 */
-	dp_voltage_pre_emphasise_set(ep);
 	dp_train_pattern_set_write(ep, pattern | 0x20);/* train_2 */
 
-	tries = 0;
-	while (1) {
+	do  {
+		dp_voltage_pre_emphasise_set(ep);
+		dp_host_train_set(ep, pattern);
+
 		usleep_time = ep->dpcd.training_read_interval;
 		usleep_range(usleep_time, usleep_time);
 
@@ -1249,14 +1249,13 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 		}
 
 		tries++;
-		if (tries > 5) {
+		if (tries > 4) {
 			ret = -1;
 			break;
 		}
 
 		dp_sink_train_set_adjust(ep);
-		dp_voltage_pre_emphasise_set(ep);
-	}
+	} while (1);
 
 	return ret;
 }
@@ -1328,7 +1327,6 @@ static void dp_clear_training_pattern(struct mdss_dp_drv_pdata *ep)
 int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
-	int usleep_time;
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
@@ -1349,8 +1347,6 @@ train_start:
 
 	mdss_dp_state_ctrl(&dp->ctrl_io, 0);
 	dp_clear_training_pattern(dp);
-	usleep_time = dp->dpcd.training_read_interval;
-	usleep_range(usleep_time, usleep_time);
 
 	ret = dp_start_link_train_1(dp);
 	if (ret < 0) {
@@ -1365,8 +1361,6 @@ train_start:
 
 	pr_debug("Training 1 completed successfully\n");
 
-	mdss_dp_state_ctrl(&dp->ctrl_io, 0);
-	dp_clear_training_pattern(dp);
 	ret = dp_start_link_train_2(dp);
 	if (ret < 0) {
 		if (dp_link_rate_down_shift(dp) == 0) {
