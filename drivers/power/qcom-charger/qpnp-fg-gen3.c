@@ -100,6 +100,8 @@
 #define FLOAT_VOLT_v2_WORD		16
 #define FLOAT_VOLT_v2_OFFSET		2
 
+static int fg_decode_voltage_15b(struct fg_sram_param *sp,
+	enum fg_sram_param_id id, int val);
 static int fg_decode_value_16b(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
 static int fg_decode_default(struct fg_sram_param *sp,
@@ -132,9 +134,9 @@ static struct fg_sram_param pmicobalt_v1_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_batt_soc),
 	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 244141,
-		1000, 0, NULL, fg_decode_value_16b),
+		1000, 0, NULL, fg_decode_voltage_15b),
 	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 244141, 1000, 0, NULL,
-		fg_decode_value_16b),
+		fg_decode_voltage_15b),
 	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 244141, 1000, 0, NULL,
 		fg_decode_value_16b),
 	PARAM(ALG_FLAGS, ALG_FLAGS_WORD, ALG_FLAGS_OFFSET, 1, 1, 1, 0, NULL,
@@ -178,9 +180,9 @@ static struct fg_sram_param pmicobalt_v2_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_batt_soc),
 	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 244141,
-		1000, 0, NULL, fg_decode_value_16b),
+		1000, 0, NULL, fg_decode_voltage_15b),
 	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 244141, 1000, 0, NULL,
-		fg_decode_value_16b),
+		fg_decode_voltage_15b),
 	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 244141, 1000, 0, NULL,
 		fg_decode_value_16b),
 	PARAM(ALG_FLAGS, ALG_FLAGS_WORD, ALG_FLAGS_OFFSET, 1, 1, 1, 0, NULL,
@@ -302,6 +304,17 @@ module_param_named(
 static int fg_restart;
 
 /* All getters HERE */
+
+#define VOLTAGE_15BIT_MASK	GENMASK(14, 0)
+static int fg_decode_voltage_15b(struct fg_sram_param *sp,
+				enum fg_sram_param_id id, int value)
+{
+	value &= VOLTAGE_15BIT_MASK;
+	sp[id].value = div_u64((u64)value * sp[id].numrtr, sp[id].denmtr);
+	pr_debug("id: %d raw value: %x decoded value: %x\n", id, value,
+		sp[id].value);
+	return sp[id].value;
+}
 
 static int fg_decode_cc_soc(struct fg_sram_param *sp,
 				enum fg_sram_param_id id, int value)
