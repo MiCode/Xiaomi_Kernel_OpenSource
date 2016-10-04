@@ -501,6 +501,7 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 {
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
+	uint32_t prefix;
 	void *input_fence;
 	int ret = -EINVAL;
 
@@ -514,18 +515,26 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 		input_fence = pstate->input_fence;
 
 		if (input_fence) {
+			prefix = sde_sync_get_name_prefix(input_fence);
 			ret = sde_sync_wait(input_fence, wait_ms);
+
+			MSM_EVT(plane->dev,
+				plane->base.id,
+				(uint64_t)-ret << (sizeof(uint32_t) * CHAR_BIT)
+				| prefix);
+
 			switch (ret) {
 			case 0:
 				SDE_DEBUG_PLANE(psde, "signaled\n");
 				break;
 			case -ETIME:
-				SDE_ERROR_PLANE(psde, "timeout, %ums\n",
-						wait_ms);
+				SDE_ERROR_PLANE(psde, "%ums timeout on %08X\n",
+						wait_ms, prefix);
 				psde->is_error = true;
 				break;
 			default:
-				SDE_ERROR_PLANE(psde, "error, %d\n", ret);
+				SDE_ERROR_PLANE(psde, "error %d on %08X\n",
+						ret, prefix);
 				psde->is_error = true;
 				break;
 			}
