@@ -138,6 +138,11 @@ void __iomem *msm_ioremap(struct platform_device *pdev, const char *name,
 	return ptr;
 }
 
+void msm_iounmap(struct platform_device *pdev, void __iomem *addr)
+{
+	devm_iounmap(&pdev->dev, addr);
+}
+
 void msm_writel(u32 data, void __iomem *addr)
 {
 	if (reglog)

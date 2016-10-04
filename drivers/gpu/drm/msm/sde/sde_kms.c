@@ -305,7 +305,7 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		SDE_EVT32(DRMID(crtc));
 		ret = sde_encoder_wait_for_commit_done(encoder);
 		if (ret && ret != -EWOULDBLOCK) {
-			DRM_ERROR("wait for commit done returned %d\n", ret);
+			SDE_ERROR("wait for commit done returned %d\n", ret);
 			break;
 		}
 	}
@@ -754,7 +754,7 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 	int i;
 
 	for (i = ARRAY_SIZE(sde_kms->mmu_id) - 1; i >= 0; i--) {
-		if (sde_kms->mmu_id[i] <= 0 || !sde_kms->mmu[i])
+		if (!sde_kms->mmu[i])
 			continue;
 
 		mmu = sde_kms->mmu[i];
@@ -778,14 +778,15 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 		mmu = msm_smmu_new(sde_kms->dev->dev, i);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
-			DRM_ERROR("failed to init iommu: %d\n", ret);
+			SDE_ERROR("failed to init iommu id %d: rc: %d\n", i,
+					ret);
 			goto fail;
 		}
 
 		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
-			DRM_ERROR("failed to attach iommu: %d\n", ret);
+			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
 			mmu->funcs->destroy(mmu);
 			goto fail;
 		}
@@ -793,7 +794,8 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 		sde_kms->mmu_id[i] = msm_register_mmu(sde_kms->dev, mmu);
 		if (sde_kms->mmu_id[i] < 0) {
 			ret = sde_kms->mmu_id[i];
-			DRM_ERROR("failed to register sde iommu: %d\n", ret);
+			SDE_ERROR("failed to register sde iommu %d: %d\n",
+					i, ret);
 			mmu->funcs->detach(mmu, (const char **)iommu_ports,
 					ARRAY_SIZE(iommu_ports));
 			goto fail;
@@ -820,16 +822,18 @@ static struct sde_kms *_sde_kms_hw_setup(struct platform_device *pdev)
 
 	sde_kms->mmio = msm_ioremap(pdev, "mdp_phys", "SDE");
 	if (IS_ERR(sde_kms->mmio)) {
-		SDE_ERROR("mdp register memory map failed\n");
 		ret = PTR_ERR(sde_kms->mmio);
+		SDE_ERROR("mdp register memory map failed: %d\n", ret);
+		sde_kms->mmio = NULL;
 		goto err;
 	}
 	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
 
 	sde_kms->vbif[VBIF_RT] = msm_ioremap(pdev, "vbif_phys", "VBIF");
 	if (IS_ERR(sde_kms->vbif[VBIF_RT])) {
-		SDE_ERROR("vbif register memory map failed\n");
 		ret = PTR_ERR(sde_kms->vbif[VBIF_RT]);
+		SDE_ERROR("vbif register memory map failed: %d\n", ret);
+		sde_kms->vbif[VBIF_RT] = NULL;
 		goto vbif_map_err;
 	}
 
@@ -848,25 +852,31 @@ static struct sde_kms *_sde_kms_hw_setup(struct platform_device *pdev)
 	}
 
 	SDE_DEBUG("sde hw setup successful\n");
+
 	return sde_kms;
 
 kms_init_err:
 	if (sde_kms->vbif[VBIF_NRT])
-		iounmap(sde_kms->vbif[VBIF_NRT]);
-	iounmap(sde_kms->vbif[VBIF_RT]);
+		msm_iounmap(pdev, sde_kms->vbif[VBIF_NRT]);
+	if (sde_kms->vbif[VBIF_RT])
+		msm_iounmap(pdev, sde_kms->vbif[VBIF_RT]);
 vbif_map_err:
-	iounmap(sde_kms->mmio);
+	if (sde_kms->mmio)
+		msm_iounmap(pdev, sde_kms->mmio);
 err:
 	kfree(sde_kms);
 	return ERR_PTR(ret);
 }
 
-static void _sde_kms_hw_destroy(struct sde_kms *sde_kms)
+static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
+		struct platform_device *pdev)
 {
 	if (sde_kms->vbif[VBIF_NRT])
-		iounmap(sde_kms->vbif[VBIF_NRT]);
-	iounmap(sde_kms->vbif[VBIF_RT]);
-	iounmap(sde_kms->mmio);
+		msm_iounmap(pdev, sde_kms->vbif[VBIF_NRT]);
+	if (sde_kms->vbif[VBIF_RT])
+		msm_iounmap(pdev, sde_kms->vbif[VBIF_RT]);
+	if (sde_kms->mmio)
+		msm_iounmap(pdev, sde_kms->mmio);
 	kfree(sde_kms);
 }
 
@@ -886,8 +896,8 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	priv = dev->dev_private;
 	sde_kms = _sde_kms_hw_setup(dev->platformdev);
 	if (IS_ERR_OR_NULL(sde_kms)) {
-		SDE_ERROR("sde hw setup failed\n");
 		rc = PTR_ERR(sde_kms);
+		SDE_ERROR("sde hw setup failed: %d\n", rc);
 		goto end;
 	}
 
@@ -896,16 +906,17 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 
 	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
 	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
-		SDE_ERROR("sde power client create failed\n");
-		rc = -EINVAL;
+		rc = PTR_ERR(sde_kms->core_client);
+		SDE_ERROR("sde power client create failed: %d\n", rc);
+		sde_kms->core_client = NULL;
 		goto kms_destroy;
 	}
 
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 		true);
 	if (rc) {
-		SDE_ERROR("resource enable failed\n");
-		goto clk_rate_err;
+		SDE_ERROR("resource enable failed: %d\n", rc);
+		goto clk_enable_err;
 	}
 
 	_sde_kms_core_hw_rev_init(sde_kms);
@@ -914,15 +925,24 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 
 	sde_kms->catalog = sde_hw_catalog_init(dev, sde_kms->core_rev);
 	if (IS_ERR_OR_NULL(sde_kms->catalog)) {
-		SDE_ERROR("catalog init failed\n");
 		rc = PTR_ERR(sde_kms->catalog);
+		SDE_ERROR("catalog init failed: %d\n", rc);
+		sde_kms->catalog = NULL;
 		goto catalog_err;
 	}
 
 	rc = sde_rm_init(&sde_kms->rm, sde_kms->catalog, sde_kms->mmio,
 			sde_kms->dev);
 	if (rc)
-		goto catalog_err;
+		goto rm_init_err;
+
+	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
+	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
+		rc = PTR_ERR(sde_kms->hw_mdp);
+		SDE_ERROR("failed to get hw_mdp: %d\n", rc);
+		sde_kms->hw_mdp = NULL;
+		goto mdp_top_init_err;
+	}
 
 	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
 		u32 vbif_idx = sde_kms->catalog->vbif[i].id;
@@ -930,22 +950,12 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 		sde_kms->hw_vbif[i] = sde_hw_vbif_init(vbif_idx,
 				sde_kms->vbif[vbif_idx], sde_kms->catalog);
 		if (IS_ERR_OR_NULL(sde_kms->hw_vbif[vbif_idx])) {
-			SDE_ERROR("failed to init vbif %d\n", vbif_idx);
+			rc = PTR_ERR(sde_kms->hw_vbif[vbif_idx]);
+			SDE_ERROR("failed to init vbif %d: %d\n", vbif_idx, rc);
 			sde_kms->hw_vbif[vbif_idx] = NULL;
-			goto catalog_err;
+			goto vbif_init_err;
 		}
 	}
-
-	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
-	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
-		SDE_ERROR("failed to get hw_mdp\n");
-		sde_kms->hw_mdp = NULL;
-		goto catalog_err;
-	}
-
-	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
-	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
-		goto catalog_err;
 
 	/*
 	 * Now we need to read the HW catalog and initialize resources such as
@@ -993,8 +1003,12 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	dev->mode_config.allow_fb_modifiers = true;
 
 	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
-	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
+	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
+		rc = PTR_ERR(sde_kms->hw_intr);
+		SDE_ERROR("hw_intr init failed: %d\n", rc);
+		sde_kms->hw_intr = NULL;
 		goto hw_intr_init_err;
+	}
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
@@ -1005,15 +1019,24 @@ hw_intr_init_err:
 drm_obj_init_err:
 	_sde_debugfs_destroy(sde_kms);
 debugfs_init_err:
-	_sde_kms_mmu_destroy(sde_kms);
 mmu_init_err:
+	_sde_kms_mmu_destroy(sde_kms);
+vbif_init_err:
+	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
+		u32 vbif_idx = sde_kms->catalog->vbif[i].id;
+
+		if ((vbif_idx < VBIF_MAX) && sde_kms->hw_vbif[vbif_idx])
+			sde_hw_vbif_destroy(sde_kms->hw_vbif[vbif_idx]);
+	}
+mdp_top_init_err:
 	sde_rm_destroy(&sde_kms->rm);
+rm_init_err:
 catalog_err:
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
-clk_rate_err:
+clk_enable_err:
 	sde_power_client_destroy(&priv->phandle, sde_kms->core_client);
 kms_destroy:
-	_sde_kms_hw_destroy(sde_kms);
+	_sde_kms_hw_destroy(sde_kms, dev->platformdev);
 end:
 	return ERR_PTR(rc);
 }

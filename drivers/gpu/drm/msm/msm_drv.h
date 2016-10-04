@@ -470,6 +470,7 @@ static inline void msm_rd_dump_submit(struct msm_gem_submit *submit) {}
 
 void __iomem *msm_ioremap(struct platform_device *pdev, const char *name,
 		const char *dbgname);
+void msm_iounmap(struct platform_device *dev, void __iomem *addr);
 void msm_writel(u32 data, void __iomem *addr);
 u32 msm_readl(const void __iomem *addr);
 
