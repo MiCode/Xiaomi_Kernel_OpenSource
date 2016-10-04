@@ -21,6 +21,8 @@
 #define SDE_EVTLOG_FUNC_ENTRY	0x1111
 #define SDE_EVTLOG_FUNC_EXIT	0x2222
 
+#define SDE_DBG_DUMP_DATA_LIMITER (NULL)
+
 enum sde_dbg_evtlog_flag {
 	SDE_EVTLOG_DEFAULT = BIT(0),
 	SDE_EVTLOG_IRQ = BIT(1),
@@ -36,20 +38,25 @@ enum sde_dbg_evtlog_flag {
 #define SDE_EVT32_IRQ(...) sde_evtlog(__func__, __LINE__, SDE_EVTLOG_IRQ, \
 		##__VA_ARGS__, SDE_EVTLOG_DATA_LIMITER)
 
+#define SDE_DBG_DUMP(...)	\
+	sde_dbg_dump(false, __func__, ##__VA_ARGS__, \
+		SDE_DBG_DUMP_DATA_LIMITER)
+
+#define SDE_DBG_DUMP_WQ(...)	\
+	sde_dbg_dump(true, __func__, ##__VA_ARGS__, \
+		SDE_DBG_DUMP_DATA_LIMITER)
 
 #if defined(CONFIG_DEBUG_FS)
 
 int sde_evtlog_init(struct dentry *debugfs_root);
 void sde_evtlog_destroy(void);
 void sde_evtlog(const char *name, int line, int flag, ...);
+void sde_dbg_dump(bool queue, const char *name, ...);
 #else
-
-static inline int sde_evtlog_init(struct dentry *debugfs_root)
-{
-	return 0;
-}
-static inline void sde_evtlog(const char *name, int line,  flag, ...) { }
-void sde_evtlog_destroy(void) { }
+static inline int sde_evtlog_init(struct dentry *debugfs_root) { return 0; }
+static inline void sde_evtlog(const char *name, int line,  flag, ...) {}
+static inline void sde_evtlog_destroy(void) { }
+static inline void sde_dbg_dump(bool queue, const char *name, ...) {}
 #endif
 
 #endif /* SDE_DBG_H_ */

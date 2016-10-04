@@ -61,8 +61,10 @@ static void sde_encoder_phys_vid_wait_for_vblank(
 	SDE_DEBUG_VIDENC(vid_enc, "\n");
 	rc = wait_for_completion_timeout(&vid_enc->vblank_completion,
 			VBLANK_TIMEOUT);
-	if (rc == 0)
+	if (rc == 0) {
 		SDE_ERROR_VIDENC(vid_enc, "timed out waiting for vblank irq\n");
+		SDE_DBG_DUMP("panic");
+	}
 }
 
 static void drm_mode_to_intf_timing_params(

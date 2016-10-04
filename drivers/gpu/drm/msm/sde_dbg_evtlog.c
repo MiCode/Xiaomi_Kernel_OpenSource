@@ -23,12 +23,12 @@
 #include "sde_trace.h"
 
 #ifdef CONFIG_DRM_SDE_EVTLOG_DEBUG
-#define EVTLOG_DEFAULT_ENABLE 1
+#define SDE_EVTLOG_DEFAULT_ENABLE 1
 #else
-#define EVTLOG_DEFAULT_ENABLE 0
+#define SDE_EVTLOG_DEFAULT_ENABLE 0
 #endif
 
-#define EVTLOG_DEFAULT_PANIC 1
+#define SDE_DBG_DEFAULT_PANIC		1
 
 /*
  * evtlog will print this number of entries when it is called through
@@ -67,6 +67,8 @@ static struct sde_dbg_evtlog {
 	struct dentry *evtlog;
 	u32 evtlog_enable;
 	u32 panic_on_err;
+	struct work_struct evtlog_dump_work;
+	bool work_panic;
 } sde_dbg_evtlog;
 
 static inline bool sde_evtlog_is_enabled(u32 flag)
@@ -114,7 +116,7 @@ void sde_evtlog(const char *name, int line, int flag, ...)
 }
 
 /* always dump the last entries which are not dumped yet */
-static bool __sde_evtlog_dump_calc_range(void)
+static bool _sde_evtlog_dump_calc_range(void)
 {
 	static u32 next;
 	bool need_dump = true;
@@ -187,13 +189,59 @@ static ssize_t sde_evtlog_dump_entry(char *evtlog_buf, ssize_t evtlog_buf_size)
 	return off;
 }
 
-static void sde_evtlog_dump_all(void)
+static void _sde_evtlog_dump_all(void)
 {
 	char evtlog_buf[SDE_EVTLOG_BUF_MAX];
 
-	while (__sde_evtlog_dump_calc_range()) {
+	while (_sde_evtlog_dump_calc_range()) {
 		sde_evtlog_dump_entry(evtlog_buf, SDE_EVTLOG_BUF_MAX);
 		pr_info("%s", evtlog_buf);
+	}
+}
+
+static void _sde_dump_array(bool dead, const char *name)
+{
+	_sde_evtlog_dump_all();
+
+	if (dead && sde_dbg_evtlog.panic_on_err)
+		panic(name);
+}
+
+static void _sde_dump_work(struct work_struct *work)
+{
+	_sde_dump_array(sde_dbg_evtlog.work_panic, "evtlog_workitem");
+}
+
+void sde_dbg_dump(bool queue, const char *name, ...)
+{
+	int i;
+	bool dead = false;
+	va_list args;
+	char *blk_name = NULL;
+
+	if (!sde_evtlog_is_enabled(SDE_EVTLOG_DEFAULT))
+		return;
+
+	if (queue && work_pending(&sde_dbg_evtlog.evtlog_dump_work))
+		return;
+
+	va_start(args, name);
+	for (i = 0; i < SDE_EVTLOG_MAX_DATA; i++) {
+		blk_name = va_arg(args, char*);
+		if (IS_ERR_OR_NULL(blk_name))
+			break;
+
+		if (!strcmp(blk_name, "panic"))
+			dead = true;
+	}
+	va_end(args);
+
+	if (queue) {
+		/* schedule work to dump later */
+		sde_dbg_evtlog.work_panic = dead;
+		schedule_work(&sde_dbg_evtlog.evtlog_dump_work);
+	} else {
+		_sde_dump_array(dead, name);
 	}
 }
 
@@ -211,7 +259,7 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 	ssize_t len = 0;
 	char evtlog_buf[SDE_EVTLOG_BUF_MAX];
 
-	if (__sde_evtlog_dump_calc_range()) {
+	if (_sde_evtlog_dump_calc_range()) {
 		len = sde_evtlog_dump_entry(evtlog_buf, SDE_EVTLOG_BUF_MAX);
 		if (copy_to_user(buff, evtlog_buf, len))
 			return -EFAULT;
@@ -224,7 +272,7 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 static ssize_t sde_evtlog_dump_write(struct file *file,
 	const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	sde_evtlog_dump_all();
+	_sde_evtlog_dump_all();
 
 	if (sde_dbg_evtlog.panic_on_err)
 		panic("sde");
@@ -250,6 +298,9 @@ int sde_evtlog_init(struct dentry *debugfs_root)
 		return -ENODEV;
 	}
 
+	INIT_WORK(&sde_dbg_evtlog.evtlog_dump_work, _sde_dump_work);
+	sde_dbg_evtlog.work_panic = false;
+
 	for (i = 0; i < SDE_EVTLOG_ENTRY; i++)
 		sde_dbg_evtlog.logs[i].counter = i;
 
@@ -260,8 +311,8 @@ int sde_evtlog_init(struct dentry *debugfs_root)
 	debugfs_create_u32("panic", 0644, sde_dbg_evtlog.evtlog,
 			    &sde_dbg_evtlog.panic_on_err);
 
-	sde_dbg_evtlog.evtlog_enable = EVTLOG_DEFAULT_ENABLE;
-	sde_dbg_evtlog.panic_on_err = EVTLOG_DEFAULT_PANIC;
+	sde_dbg_evtlog.evtlog_enable = SDE_EVTLOG_DEFAULT_ENABLE;
+	sde_dbg_evtlog.panic_on_err = SDE_DBG_DEFAULT_PANIC;
 
 	pr_info("evtlog_status: enable:%d, panic:%d\n",
 		sde_dbg_evtlog.evtlog_enable, sde_dbg_evtlog.panic_on_err);

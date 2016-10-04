@@ -777,9 +777,11 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
 				sde_enc->spin_lock,
 				msecs_to_jiffies(WAIT_TIMEOUT_MSEC));
 		spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
-		if (!ret)
-			SDE_DEBUG_ENC(sde_enc, "wait %ums timed out\n",
+		if (!ret) {
+			SDE_ERROR_ENC(sde_enc, "wait %ums timed out\n",
 					WAIT_TIMEOUT_MSEC);
+			SDE_DBG_DUMP("panic");
+		}
 	}
 
 	/* All phys encs are ready to go, trigger the kickoff */
