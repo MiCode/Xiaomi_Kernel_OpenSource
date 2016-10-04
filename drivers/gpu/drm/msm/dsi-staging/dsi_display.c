@@ -128,7 +128,7 @@ error:
 
 static int dsi_dipslay_debugfs_deinit(struct dsi_display *display)
 {
-	debugfs_remove(display->root);
+	debugfs_remove_recursive(display->root);
 
 	return 0;
 }
@@ -999,6 +999,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	src->byte_clk = devm_clk_get(&display->pdev->dev, "src_byte_clk");
 	if (IS_ERR_OR_NULL(src->byte_clk)) {
 		rc = PTR_ERR(src->byte_clk);
+		src->byte_clk = NULL;
 		pr_err("failed to get src_byte_clk, rc=%d\n", rc);
 		goto error;
 	}
@@ -1006,6 +1007,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	src->pixel_clk = devm_clk_get(&display->pdev->dev, "src_pixel_clk");
 	if (IS_ERR_OR_NULL(src->pixel_clk)) {
 		rc = PTR_ERR(src->pixel_clk);
+		src->pixel_clk = NULL;
 		pr_err("failed to get src_pixel_clk, rc=%d\n", rc);
 		goto error;
 	}
@@ -1014,6 +1016,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	if (IS_ERR_OR_NULL(mux->byte_clk)) {
 		rc = PTR_ERR(mux->byte_clk);
 		pr_err("failed to get mux_byte_clk, rc=%d\n", rc);
+		mux->byte_clk = NULL;
 		/*
 		 * Skip getting rest of clocks since one failed. This is a
 		 * non-critical failure since these clocks are requied only for
@@ -1026,6 +1029,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	mux->pixel_clk = devm_clk_get(&display->pdev->dev, "mux_pixel_clk");
 	if (IS_ERR_OR_NULL(mux->pixel_clk)) {
 		rc = PTR_ERR(mux->pixel_clk);
+		mux->pixel_clk = NULL;
 		pr_err("failed to get mux_pixel_clk, rc=%d\n", rc);
 		/*
 		 * Skip getting rest of clocks since one failed. This is a
@@ -1039,6 +1043,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	shadow->byte_clk = devm_clk_get(&display->pdev->dev, "shadow_byte_clk");
 	if (IS_ERR_OR_NULL(shadow->byte_clk)) {
 		rc = PTR_ERR(shadow->byte_clk);
+		shadow->byte_clk = NULL;
 		pr_err("failed to get shadow_byte_clk, rc=%d\n", rc);
 		/*
 		 * Skip getting rest of clocks since one failed. This is a
@@ -1053,6 +1058,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 					 "shadow_pixel_clk");
 	if (IS_ERR_OR_NULL(shadow->pixel_clk)) {
 		rc = PTR_ERR(shadow->pixel_clk);
+		shadow->pixel_clk = NULL;
 		pr_err("failed to get shadow_pixel_clk, rc=%d\n", rc);
 		/*
 		 * Skip getting rest of clocks since one failed. This is a
@@ -1887,6 +1893,8 @@ int dsi_display_unbind(struct dsi_display *display)
 			pr_err("[%s] failed to deinit ctrl%d driver, rc=%d\n",
 			       display->name, i, rc);
 	}
+
+	(void)dsi_dipslay_debugfs_deinit(display);
 
 	mutex_unlock(&display->display_lock);
 	return rc;
