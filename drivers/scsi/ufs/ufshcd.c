@@ -2442,6 +2442,7 @@ static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 		return;
 
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		hba->hibern8_on_idle.delay_ms = 1;
 		hba->hibern8_on_idle.state = AUTO_HIBERN8;
 		/*
 		 * Disable SW hibern8 enter on idle in case
@@ -2449,13 +2450,13 @@ static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 		 */
 		hba->caps &= ~UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
 	} else {
+		hba->hibern8_on_idle.delay_ms = 10;
 		INIT_DELAYED_WORK(&hba->hibern8_on_idle.enter_work,
 				  ufshcd_hibern8_enter_work);
 		INIT_WORK(&hba->hibern8_on_idle.exit_work,
 			  ufshcd_hibern8_exit_work);
 	}
 
-	hba->hibern8_on_idle.delay_ms = 10;
 	hba->hibern8_on_idle.is_enabled = true;
 
 	hba->hibern8_on_idle.delay_attr.show =
