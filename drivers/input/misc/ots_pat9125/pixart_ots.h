@@ -1,3 +1,9 @@
+/* drivers/input/misc/ots_pat9125/pixart_ots.h
+ *
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ */
+
 #ifndef _PIXART_OTS_H_
 #define _PIXART_OTS_H_
 
