@@ -992,14 +992,10 @@ static int smb2_init_hw(struct smb2 *chip)
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 
-	/*
-	 * Configure charge enable for software control; active high, and end
-	 * the charge cycle while the battery is OV.
-	 */
+	/* Configure charge enable for software control; active high */
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
 				 CHG_EN_POLARITY_BIT |
-				 CHG_EN_SRC_BIT |
-				 BAT_OV_ECC_BIT, BAT_OV_ECC_BIT);
+				 CHG_EN_SRC_BIT, 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure charger rc=%d\n", rc);
 		return rc;
