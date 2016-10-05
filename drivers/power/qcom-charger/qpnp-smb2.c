@@ -203,6 +203,13 @@ static struct smb_params v1_params = {
 		.get_proc	= smblib_mapping_cc_delta_to_field_value,
 		.set_proc	= smblib_mapping_cc_delta_from_field_value,
 	},
+	.freq_buck		= {
+		.name	= "buck switching frequency",
+		.reg	= CFG_BUCKBOOST_FREQ_SELECT_BUCK_REG,
+		.min_u	= 600,
+		.max_u	= 2000,
+		.step_u	= 200,
+	},
 };
 
 #define STEP_CHARGING_MAX_STEPS	5
