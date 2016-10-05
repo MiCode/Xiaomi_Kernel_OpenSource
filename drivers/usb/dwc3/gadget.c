@@ -386,7 +386,16 @@ static void dwc3_free_trb_pool(struct dwc3_ep *dep)
 	if (dep->endpoint.ep_type == EP_TYPE_GSI)
 		return;
 
-	if (dep->trb_pool && dep->trb_pool_dma) {
+	/*
+	 * Clean up ep ring to avoid getting xferInProgress due to stale trbs
+	 * with HWO bit set from previous composition when update transfer cmd
+	 * is issued.
+	 */
+	if (dep->number > 1 && dep->trb_pool && dep->trb_pool_dma) {
+		memset(&dep->trb_pool[0], 0,
+			sizeof(struct dwc3_trb) * dep->num_trbs);
+		dev_dbg(dwc->dev, "Clr_TRB ring of %s\n", dep->name);
+
 		dma_free_coherent(dwc->dev,
 				sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
 				dep->trb_pool, dep->trb_pool_dma);
@@ -670,15 +679,6 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 			dep->number >> 1,
 			(dep->number & 1) ? "in" : "out");
 	}
-
-	/*
-	 * Clean up ep ring of non-control endpoint to avoid getting
-	 * xferInProgress due to stale trbs with HWO bit set from previous
-	 * composition when update transfer cmd is issued.
-	 */
-	if (dep->number > 1 && dep->trb_pool)
-		memset(&dep->trb_pool[0], 0,
-			sizeof(struct dwc3_trb) * dep->num_trbs);
 
 	return 0;
 }
