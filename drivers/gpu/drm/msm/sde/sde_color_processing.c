@@ -22,7 +22,7 @@
 #include "sde_hw_dspp.h"
 #include "sde_hw_lm.h"
 
-struct sde_color_process_node {
+struct sde_cp_node {
 	u32 property_id;
 	u32 prop_flags;
 	u32 feature;
@@ -39,7 +39,7 @@ struct sde_color_process_node {
 struct sde_cp_prop_attach {
 	struct drm_crtc *crtc;
 	struct drm_property *prop;
-	struct sde_color_process_node *prop_node;
+	struct sde_cp_node *prop_node;
 	const struct sde_pp_blk *pp_blk;
 	u32 feature;
 	void *ops;
@@ -62,6 +62,7 @@ enum {
 	SDE_CP_CRTC_DSPP_DITHER,
 	SDE_CP_CRTC_DSPP_HIST,
 	SDE_CP_CRTC_DSPP_AD,
+	SDE_CP_CRTC_DSPP_VLUT,
 	SDE_CP_CRTC_DSPP_MAX,
 	/* DSPP features end */
 
@@ -84,8 +85,43 @@ enum {
 		(p)->val = val; \
 	} while (0)
 
-static int sde_cp_disable_crtc_blob_property(
-				struct sde_color_process_node *prop_node)
+static void sde_cp_get_hw_payload(struct sde_cp_node *prop_node,
+				  struct sde_hw_cp_cfg *hw_cfg,
+				  bool *feature_enabled)
+{
+
+	struct drm_property_blob *blob = NULL;
+
+	memset(hw_cfg, 0, sizeof(*hw_cfg));
+	*feature_enabled = false;
+
+	blob = prop_node->blob_ptr;
+	if (prop_node->prop_flags & DRM_MODE_PROP_BLOB) {
+		if (blob) {
+			hw_cfg->len = blob->length;
+			hw_cfg->payload = blob->data;
+			*feature_enabled = true;
+		}
+	} else if (prop_node->prop_flags & DRM_MODE_PROP_RANGE) {
+		/* Check if local blob is Set */
+		if (!blob) {
+			hw_cfg->len = sizeof(prop_node->prop_val);
+			if (prop_node->prop_val)
+				hw_cfg->payload = &prop_node->prop_val;
+		} else {
+			hw_cfg->len = (prop_node->prop_val) ? blob->length :
+					0;
+			hw_cfg->payload = (prop_node->prop_val) ? blob->data
+						: NULL;
+		}
+		if (prop_node->prop_val)
+			*feature_enabled = true;
+	} else {
+		DRM_ERROR("property type is not supported\n");
+	}
+}
+
+static int sde_cp_disable_crtc_blob_property(struct sde_cp_node *prop_node)
 {
 	struct drm_property_blob *blob = prop_node->blob_ptr;
 
@@ -96,24 +132,85 @@ static int sde_cp_disable_crtc_blob_property(
 	return 0;
 }
 
-static int sde_cp_disable_crtc_property(struct drm_crtc *crtc,
-				 struct drm_property *property,
-				 struct sde_color_process_node *prop_node)
+static int sde_cp_create_local_blob(struct drm_crtc *crtc, u32 feature, int len)
+{
+	int ret = -EINVAL;
+	bool found = false;
+	struct sde_cp_node *prop_node = NULL;
+	struct drm_property_blob *blob_ptr;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
+	list_for_each_entry(prop_node, &sde_crtc->feature_list, feature_list) {
+		if (prop_node->feature == feature) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found || prop_node->prop_flags & DRM_MODE_PROP_BLOB) {
+		DRM_ERROR("local blob create failed prop found %d flags %d\n",
+		       found, prop_node->prop_flags);
+		return ret;
+	}
+
+	blob_ptr = drm_property_create_blob(crtc->dev, len, NULL);
+	ret = (IS_ERR_OR_NULL(blob_ptr)) ? PTR_ERR(blob_ptr) : 0;
+	if (!ret)
+		prop_node->blob_ptr = blob_ptr;
+
+	return ret;
+}
+
+static void sde_cp_destroy_local_blob(struct sde_cp_node *prop_node)
+{
+	if (!(prop_node->prop_flags & DRM_MODE_PROP_BLOB) &&
+		prop_node->blob_ptr)
+		drm_property_unreference_blob(prop_node->blob_ptr);
+}
+
+static int sde_cp_handle_range_property(struct sde_cp_node *prop_node,
+					uint64_t val)
 {
 	int ret = 0;
+	struct drm_property_blob *blob_ptr = prop_node->blob_ptr;
 
-	if (property->flags & DRM_MODE_PROP_BLOB) {
-		ret = sde_cp_disable_crtc_blob_property(prop_node);
-	} else if (property->flags & DRM_MODE_PROP_RANGE) {
-		prop_node->prop_val = 0;
-		ret = 0;
+	if (!blob_ptr) {
+		prop_node->prop_val = val;
+		return 0;
 	}
+
+	if (!val) {
+		prop_node->prop_val = 0;
+		return 0;
+	}
+
+	ret = copy_from_user(blob_ptr->data, (void *)val, blob_ptr->length);
+	if (ret) {
+		DRM_ERROR("failed to get the property info ret %d", ret);
+		ret = -EFAULT;
+	} else {
+		prop_node->prop_val = val;
+	}
+
+	return ret;
+}
+
+static int sde_cp_disable_crtc_property(struct drm_crtc *crtc,
+					 struct drm_property *property,
+					 struct sde_cp_node *prop_node)
+{
+	int ret = -EINVAL;
+
+	if (property->flags & DRM_MODE_PROP_BLOB)
+		ret = sde_cp_disable_crtc_blob_property(prop_node);
+	else if (property->flags & DRM_MODE_PROP_RANGE)
+		ret = sde_cp_handle_range_property(prop_node, 0);
 	return ret;
 }
 
 static int sde_cp_enable_crtc_blob_property(struct drm_crtc *crtc,
-				       struct sde_color_process_node *prop_node,
-				       uint64_t val)
+					       struct sde_cp_node *prop_node,
+					       uint64_t val)
 {
 	struct drm_property_blob *blob = NULL;
 
@@ -136,17 +233,15 @@ static int sde_cp_enable_crtc_blob_property(struct drm_crtc *crtc,
 
 static int sde_cp_enable_crtc_property(struct drm_crtc *crtc,
 				       struct drm_property *property,
-				       struct sde_color_process_node *prop_node,
+				       struct sde_cp_node *prop_node,
 				       uint64_t val)
 {
 	int ret = -EINVAL;
 
 	if (property->flags & DRM_MODE_PROP_BLOB)
 		ret = sde_cp_enable_crtc_blob_property(crtc, prop_node, val);
-	else if (property->flags & DRM_MODE_PROP_RANGE) {
-		ret = 0;
-		prop_node->prop_val = val;
-	}
+	else if (property->flags & DRM_MODE_PROP_RANGE)
+		ret = sde_cp_handle_range_property(prop_node, val);
 	return ret;
 }
 
@@ -215,7 +310,7 @@ static void sde_cp_crtc_install_immutable_property(struct drm_crtc *crtc,
 						   u32 feature)
 {
 	struct drm_property *prop;
-	struct sde_color_process_node *prop_node = NULL;
+	struct sde_cp_node *prop_node = NULL;
 	struct msm_drm_private *priv;
 	struct sde_cp_prop_attach prop_attach;
 	uint64_t val = 0;
@@ -257,7 +352,7 @@ static void sde_cp_crtc_install_range_property(struct drm_crtc *crtc,
 					     uint64_t val)
 {
 	struct drm_property *prop;
-	struct sde_color_process_node *prop_node = NULL;
+	struct sde_cp_node *prop_node = NULL;
 	struct msm_drm_private *priv;
 	struct sde_cp_prop_attach prop_attach;
 
@@ -295,7 +390,7 @@ static void sde_cp_crtc_create_blob_property(struct drm_crtc *crtc, char *name,
 					     u32 feature, void *ops)
 {
 	struct drm_property *prop;
-	struct sde_color_process_node *prop_node = NULL;
+	struct sde_cp_node *prop_node = NULL;
 	struct msm_drm_private *priv;
 	uint64_t val = 0;
 	struct sde_cp_prop_attach prop_attach;
@@ -331,15 +426,14 @@ static void sde_cp_crtc_create_blob_property(struct drm_crtc *crtc, char *name,
 }
 
 
-static void sde_cp_crtc_setfeature(struct sde_color_process_node *prop_node,
+static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 				   struct sde_crtc *sde_crtc)
 {
-	u32 num_mixers = sde_crtc->num_mixers;
-	uint64_t val = 0;
-	struct drm_property_blob *blob = NULL;
 	struct sde_hw_cp_cfg hw_cfg;
+	u32 num_mixers = sde_crtc->num_mixers;
 	int i = 0;
 	bool is_dspp = true;
+	bool feature_enabled = false;
 
 	if (!prop_node->dspp_feature_op && !prop_node->lm_feature_op) {
 		DRM_ERROR("ops not set for dspp/lm\n");
@@ -347,21 +441,7 @@ static void sde_cp_crtc_setfeature(struct sde_color_process_node *prop_node,
 	}
 
 	is_dspp = !prop_node->lm_feature_op;
-	memset(&hw_cfg, 0, sizeof(hw_cfg));
-	if (prop_node->prop_flags & DRM_MODE_PROP_BLOB) {
-		blob = prop_node->blob_ptr;
-		if (blob) {
-			hw_cfg.len = blob->length;
-			hw_cfg.payload = blob->data;
-		}
-	} else if (prop_node->prop_flags & DRM_MODE_PROP_RANGE) {
-		val = prop_node->prop_val;
-		hw_cfg.len = sizeof(prop_node->prop_val);
-		hw_cfg.payload = &prop_node->prop_val;
-	} else {
-		DRM_ERROR("property type is not supported\n");
-		return;
-	}
+	sde_cp_get_hw_payload(prop_node, &hw_cfg, &feature_enabled);
 
 	for (i = 0; i < num_mixers; i++) {
 		if (is_dspp) {
@@ -377,7 +457,7 @@ static void sde_cp_crtc_setfeature(struct sde_color_process_node *prop_node,
 		}
 	}
 
-	if (blob || val) {
+	if (feature_enabled) {
 		DRM_DEBUG_DRIVER("Add feature to active list %d\n",
 				 prop_node->property_id);
 		list_add_tail(&prop_node->active_list, &sde_crtc->active_list);
@@ -394,7 +474,7 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = NULL;
 	bool set_dspp_flush = false, set_lm_flush = false;
-	struct sde_color_process_node *prop_node = NULL, *n = NULL;
+	struct sde_cp_node *prop_node = NULL, *n = NULL;
 	struct sde_hw_ctl *ctl;
 	uint32_t flush_mask = 0;
 	u32 num_mixers = 0, i = 0;
@@ -549,6 +629,19 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 			sde_cp_crtc_install_immutable_property(crtc,
 					feature_name, SDE_CP_CRTC_DSPP_AD);
 			break;
+		case SDE_DSPP_VLUT:
+			snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+				"SDE_DSPP_VLUT_V",
+				(hw_dspp->cap->sblk->vlut.version >> 16));
+			sde_cp_crtc_install_range_property(crtc, feature_name,
+				&hw_dspp->cap->sblk->vlut,
+				SDE_CP_CRTC_DSPP_VLUT, hw_dspp->ops.setup_vlut,
+				0, U64_MAX, 0);
+			/* TODO: if blob creation fails destroy the property */
+			sde_cp_create_local_blob(crtc,
+					SDE_CP_CRTC_DSPP_VLUT,
+				sizeof(struct drm_msm_pa_vlut));
+			break;
 		default:
 			break;
 		}
@@ -585,7 +678,7 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 				struct drm_property *property,
 				uint64_t val)
 {
-	struct sde_color_process_node *prop_node = NULL;
+	struct sde_cp_node *prop_node = NULL;
 	struct sde_crtc *sde_crtc = NULL;
 	int ret = 0;
 	u8 found = 0;
@@ -632,7 +725,7 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 int sde_cp_crtc_get_property(struct drm_crtc *crtc,
 			     struct drm_property *property, uint64_t *val)
 {
-	struct sde_color_process_node *prop_node = NULL;
+	struct sde_cp_node *prop_node = NULL;
 	struct sde_crtc *sde_crtc = NULL;
 	int ret = -EINVAL;
 
@@ -661,7 +754,7 @@ int sde_cp_crtc_get_property(struct drm_crtc *crtc,
 void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = NULL;
-	struct sde_color_process_node *prop_node = NULL, *n = NULL;
+	struct sde_cp_node *prop_node = NULL, *n = NULL;
 
 	if (!crtc) {
 		DRM_ERROR("invalid crtc %pK\n", crtc);
@@ -683,6 +776,7 @@ void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
 		list_del_init(&prop_node->active_list);
 		list_del_init(&prop_node->dirty_list);
 		list_del_init(&prop_node->feature_list);
+		sde_cp_destroy_local_blob(prop_node);
 		kfree(prop_node);
 	}
 
@@ -694,7 +788,7 @@ void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
 void sde_cp_crtc_suspend(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = NULL;
-	struct sde_color_process_node *prop_node = NULL, *n = NULL;
+	struct sde_cp_node *prop_node = NULL, *n = NULL;
 
 	if (!crtc) {
 		DRM_ERROR("crtc %pK\n", crtc);

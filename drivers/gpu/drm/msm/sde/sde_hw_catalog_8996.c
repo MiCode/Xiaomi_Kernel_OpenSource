@@ -41,7 +41,7 @@
 	(BIT(SDE_DSPP_IGC) | BIT(SDE_DSPP_PCC) |\
 	BIT(SDE_DSPP_GC) | BIT(SDE_DSPP_HSIC) | BIT(SDE_DSPP_GAMUT) |\
 	BIT(SDE_DSPP_DITHER) | BIT(SDE_DSPP_HIST) | BIT(SDE_DSPP_MEMCOLOR) |\
-	BIT(SDE_DSPP_SIXZONE) | BIT(SDE_DSPP_AD))
+	BIT(SDE_DSPP_SIXZONE) | BIT(SDE_DSPP_AD) | BIT(SDE_DSPP_VLUT))
 
 #define PINGPONG_17X_MASK \
 	(BIT(SDE_PINGPONG_TE) | BIT(SDE_PINGPONG_DSC))
@@ -362,6 +362,8 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 		.ad = {.id = SDE_DSPP_AD, .base = 0x00, .len = 0x0,
 			.version = SDE_COLOR_PROCESS_VER(0x3, 0x0)},
+		.vlut = {.id = SDE_DSPP_VLUT, .base = 0x1400, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 	};
 
 	/* PINGPONG capability */

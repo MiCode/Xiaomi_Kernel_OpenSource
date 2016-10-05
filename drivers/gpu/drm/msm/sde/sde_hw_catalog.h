@@ -127,7 +127,9 @@ enum {
  * @SDE_DSPP_SIXZONE         Six zone block
  * @SDE_DSPP_GAMUT           Gamut bloc
  * @SDE_DSPP_DITHER          Dither block
- * @SDE_DSPP_HIST            Histogram bloc
+ * @SDE_DSPP_HIST            Histogram block
+ * @SDE_DSPP_VLUT            PA VLUT block
+ * @SDE_DSPP_AD              AD block
  * @SDE_DSPP_MAX             maximum value
  */
 enum {
@@ -140,6 +142,7 @@ enum {
 	SDE_DSPP_GAMUT,
 	SDE_DSPP_DITHER,
 	SDE_DSPP_HIST,
+	SDE_DSPP_VLUT,
 	SDE_DSPP_AD,
 	SDE_DSPP_MAX
 };
@@ -358,6 +361,7 @@ struct sde_dspp_sub_blks {
 	struct sde_pp_blk dither;
 	struct sde_pp_blk hist;
 	struct sde_pp_blk ad;
+	struct sde_pp_blk vlut;
 };
 
 struct sde_pingpong_sub_blks {
