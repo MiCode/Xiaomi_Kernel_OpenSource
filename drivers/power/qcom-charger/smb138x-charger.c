@@ -1125,6 +1125,15 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		return rc;
 	}
 
+	/* enable parallel current sensing */
+	rc = smblib_masked_write(chg, CFG_REG,
+				 VCHG_EN_CFG_BIT, VCHG_EN_CFG_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't enable parallel current sensing rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	/* keep at the end of probe, ready to serve before notifying others */
 	rc = smb138x_init_parallel_psy(chip);
 	if (rc < 0) {
