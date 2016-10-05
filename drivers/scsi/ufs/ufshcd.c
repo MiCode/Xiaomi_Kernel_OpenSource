@@ -566,7 +566,7 @@ static void ufshcd_print_uic_err_hist(struct ufs_hba *hba,
 	}
 }
 
-static void ufshcd_print_host_regs(struct ufs_hba *hba)
+static inline void __ufshcd_print_host_regs(struct ufs_hba *hba, bool no_sleep)
 {
 	if (!(hba->ufshcd_dbg_print & UFSHCD_DBG_PRINT_HOST_REGS_EN))
 		return;
@@ -599,7 +599,12 @@ static void ufshcd_print_host_regs(struct ufs_hba *hba)
 
 	ufshcd_print_clk_freqs(hba);
 
-	ufshcd_vops_dbg_register_dump(hba);
+	ufshcd_vops_dbg_register_dump(hba, no_sleep);
+}
+
+static void ufshcd_print_host_regs(struct ufs_hba *hba)
+{
+	__ufshcd_print_host_regs(hba, false);
 }
 
 static
@@ -5646,7 +5651,12 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		dev_err(hba->dev,
 				"OCS error from controller = %x for tag %d\n",
 				ocs, lrbp->task_tag);
-		ufshcd_print_host_regs(hba);
+		/*
+		 * This is called in interrupt context, hence avoid sleep
+		 * while printing debug registers. Also print only the minimum
+		 * debug registers needed to debug OCS failure.
+		 */
+		__ufshcd_print_host_regs(hba, true);
 		ufshcd_print_host_state(hba);
 		break;
 	} /* end of switch */

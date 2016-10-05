@@ -353,7 +353,7 @@ struct ufs_hba_variant_ops {
 	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*full_reset)(struct ufs_hba *);
-	void	(*dbg_register_dump)(struct ufs_hba *hba);
+	void	(*dbg_register_dump)(struct ufs_hba *hba, bool no_sleep);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	u32	(*get_scale_down_gear)(struct ufs_hba *);
 	int	(*set_bus_vote)(struct ufs_hba *, bool);
@@ -1323,10 +1323,11 @@ static inline int ufshcd_vops_full_reset(struct ufs_hba *hba)
 	return 0;
 }
 
-static inline void ufshcd_vops_dbg_register_dump(struct ufs_hba *hba)
+static inline void ufshcd_vops_dbg_register_dump(struct ufs_hba *hba,
+						 bool no_sleep)
 {
 	if (hba->var && hba->var->vops && hba->var->vops->dbg_register_dump)
-		hba->var->vops->dbg_register_dump(hba);
+		hba->var->vops->dbg_register_dump(hba, no_sleep);
 }
 
 static inline int ufshcd_vops_update_sec_cfg(struct ufs_hba *hba,
