@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -343,7 +343,7 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,partial-update-enabled;
+	qcom,partial-update-enabled = "single_roi";
 	qcom,panel-roi-alignment = <720 128 720 64 720 64>;
 };
 
@@ -387,7 +387,7 @@
 	qcom,5v-boost-gpio = <&pmi8994_gpios 8 0>;
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,partial-update-enabled;
+	qcom,partial-update-enabled = "single_roi";
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 };
 

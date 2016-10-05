@@ -382,7 +382,7 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,5v-boost-gpio = <&tlmm 51 0>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,partial-update-enabled;
+	qcom,partial-update-enabled = "single_roi";
 	qcom,panel-roi-alignment = <4 2 4 2 20 20>;
 };
 
