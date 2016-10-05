@@ -163,6 +163,7 @@ struct smb_charger {
 
 	bool			step_chg_enabled;
 	bool			is_hdc;
+	bool			chg_done;
 
 	/* workaround flag */
 	u32			wa_flags;

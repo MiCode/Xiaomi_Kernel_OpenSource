@@ -888,7 +888,6 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	u8 stat;
 	int rc;
 
-
 	rc = smblib_get_prop_usb_online(chg, &pval);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't get usb online property rc=%d\n",
@@ -1717,6 +1716,7 @@ static void smblib_pl_handle_chg_state_change(struct smb_charger *chg, u8 stat)
 
 irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 {
+	union power_supply_propval pval = {0, };
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 	u8 stat;
@@ -1733,6 +1733,9 @@ irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 
 	stat = stat & BATTERY_CHARGER_STATUS_MASK;
 	smblib_pl_handle_chg_state_change(chg, stat);
+	pval.intval = (stat == TERMINATE_CHARGE);
+	power_supply_set_property(chg->batt_psy, POWER_SUPPLY_PROP_CHARGE_DONE,
+		&pval);
 	power_supply_changed(chg->batt_psy);
 	return IRQ_HANDLED;
 }
