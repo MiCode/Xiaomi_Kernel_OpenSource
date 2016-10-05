@@ -1788,16 +1788,15 @@ static void mdss_dp_do_link_train(struct mdss_dp_drv_pdata *dp)
 static void mdss_dp_event_work(struct work_struct *work)
 {
 	struct mdss_dp_drv_pdata *dp = NULL;
-	struct delayed_work *dw = to_delayed_work(work);
 	unsigned long flag;
 	u32 todo = 0, config;
 
-	if (!dw) {
+	if (!work) {
 		pr_err("invalid work structure\n");
 		return;
 	}
 
-	dp = container_of(dw, struct mdss_dp_drv_pdata, dwork);
+	dp = container_of(work, struct mdss_dp_drv_pdata, work);
 
 	spin_lock_irqsave(&dp->event_lock, flag);
 	todo = dp->current_event;
@@ -1855,7 +1854,7 @@ static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events)
 {
 	spin_lock(&dp->event_lock);
 	dp->current_event = events;
-	queue_delayed_work(dp->workq, &dp->dwork, HZ / 100);
+	queue_work(dp->workq, &dp->work);
 	spin_unlock(&dp->event_lock);
 }
 
@@ -1931,7 +1930,7 @@ static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 		return -EPERM;
 	}
 
-	INIT_DELAYED_WORK(&dp->dwork, mdss_dp_event_work);
+	INIT_WORK(&dp->work, mdss_dp_event_work);
 	return 0;
 }
 

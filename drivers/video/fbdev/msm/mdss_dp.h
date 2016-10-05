@@ -428,7 +428,7 @@ struct mdss_dp_drv_pdata {
 
 	/* event */
 	struct workqueue_struct *workq;
-	struct delayed_work dwork;
+	struct work_struct work;
 	u32 current_event;
 	spinlock_t event_lock;
 	spinlock_t lock;
