@@ -212,6 +212,7 @@ struct pmic_revid_data {
 	u8		pmic_type;
 	u8		pmic_subtype;
 	const char	*pmic_name;
+	int		fab_id;
 };
 
 #ifdef CONFIG_QPNP_REVID
