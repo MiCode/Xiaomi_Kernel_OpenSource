@@ -369,5 +369,110 @@
 				};
 			};
 		};
+
+		/* HS UART CONFIGURATION */
+		blsp1_uart1_active: blsp1_uart1_active {
+			mux {
+				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				function = "blsp_uart1";
+			};
+
+			config {
+				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart1_sleep: blsp1_uart1_sleep {
+			mux {
+				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio0", "gpio1", "gpio2", "gpio3";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart2_active: blsp1_uart2_active {
+			mux {
+				pins = "gpio4", "gpio5", "gpio6", "gpio7";
+				function = "blsp_uart2 ";
+			};
+
+			config {
+				pins = "gpio4", "gpio5", "gpio6", "gpio7";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart2_sleep: blsp1_uart2_sleep {
+			mux {
+				pins = "gpio4", "gpio5", "gpio6", "gpio7";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio4", "gpio5", "gpio6", "gpio7";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart1_active: blsp2_uart1_active {
+			mux {
+				pins = "gpio16", "gpio17", "gpio18", "gpio19";
+				function = "blsp_uart5";
+			};
+
+			config {
+				pins = "gpio16", "gpio17", "gpio18", "gpio19";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart1_sleep: blsp2_uart1_sleep {
+			mux {
+				pins = "gpio16", "gpio17", "gpio18", "gpio19";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio16", "gpio17", "gpio18", "gpio19";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart2_active: blsp2_uart2_active {
+			mux {
+				pins = "gpio24", "gpio25", "gpio26", "gpio27";
+				function = "blsp_uart6_a";
+			};
+
+			config {
+				pins = "gpio24", "gpio25", "gpio26", "gpio27";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart2_sleep: blsp2_uart2_sleep {
+			mux {
+				pins = "gpio24", "gpio25", "gpio26", "gpio27";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio24", "gpio25", "gpio26", "gpio27";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 	};
 };
