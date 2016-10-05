@@ -97,7 +97,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 
 	/* keep this for memory release */
 	buffer->priv_virt = info;
-	dev_dbg(dev, "Allocate buffer %p\n", buffer);
+	dev_dbg(dev, "Allocate buffer %pK\n", buffer);
 	return 0;
 
 err:
@@ -110,7 +110,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	struct device *dev = buffer->heap->priv;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
-	dev_dbg(dev, "Release buffer %p\n", buffer);
+	dev_dbg(dev, "Release buffer %pK\n", buffer);
 	/* release memory */
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
 	sg_free_table(info->table);
@@ -126,7 +126,7 @@ static int ion_cma_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct device *dev = heap->priv;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
-	dev_dbg(dev, "Return buffer %p physical address 0x%pa\n", buffer,
+	dev_dbg(dev, "Return buffer %pK physical address 0x%pa\n", buffer,
 		&info->handle);
 
 	*addr = info->handle;

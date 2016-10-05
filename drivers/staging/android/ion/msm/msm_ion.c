@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014,2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -714,7 +714,7 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 		} else {
 			handle = ion_import_dma_buf(client, data.flush_data.fd);
 			if (IS_ERR(handle)) {
-				pr_info("%s: Could not import handle: %p\n",
+				pr_info("%s: Could not import handle: %pK\n",
 					__func__, handle);
 				return -EINVAL;
 			}
@@ -727,8 +727,8 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 			+ data.flush_data.length;
 
 		if (start && check_vaddr_bounds(start, end)) {
-			pr_err("%s: virtual address %p is out of bounds\n",
-				__func__, data.flush_data.vaddr);
+			pr_err("%s: virtual address %pK is out of bounds\n",
+			       __func__, data.flush_data.vaddr);
 			ret = -EINVAL;
 		} else {
 			ret = ion_do_cache_op(
