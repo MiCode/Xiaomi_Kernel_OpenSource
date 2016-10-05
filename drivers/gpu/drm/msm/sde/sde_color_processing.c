@@ -713,7 +713,6 @@ int sde_cp_crtc_get_property(struct drm_crtc *crtc,
 {
 	struct sde_cp_node *prop_node = NULL;
 	struct sde_crtc *sde_crtc = NULL;
-	int ret = -EINVAL;
 
 	if (!crtc || !property || !val) {
 		DRM_ERROR("invalid crtc %pK property %pK val %pK\n",
@@ -726,15 +725,15 @@ int sde_cp_crtc_get_property(struct drm_crtc *crtc,
 		DRM_ERROR("invalid sde_crtc %pK\n", sde_crtc);
 		return -EINVAL;
 	}
-
+	/* Return 0 if property is not supported */
+	*val = 0;
 	list_for_each_entry(prop_node, &sde_crtc->feature_list, feature_list) {
 		if (property->base.id == prop_node->property_id) {
 			*val = prop_node->prop_val;
-			ret = 0;
 			break;
 		}
 	}
-	return ret;
+	return 0;
 }
 
 void sde_cp_crtc_destroy_properties(struct drm_crtc *crtc)
