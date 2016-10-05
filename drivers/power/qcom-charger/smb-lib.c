@@ -442,7 +442,7 @@ static int smblib_update_usb_type(struct smb_charger *chg)
 	return rc;
 }
 
-static int smblib_detach_usb(struct smb_charger *chg)
+static int smblib_detach_typec(struct smb_charger *chg)
 {
 	int rc;
 
@@ -469,7 +469,9 @@ static int smblib_detach_usb(struct smb_charger *chg)
 		return rc;
 	}
 
-	vote(chg->pd_allowed_votable, DEFAULT_VOTER, false, 0);
+	/* cc removed, disable pd_allowed */
+	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
+	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
 
 	return rc;
 }
@@ -774,6 +776,18 @@ suspend:
 			suspend ? "suspend" : "resume", rc);
 		return rc;
 	}
+	return rc;
+}
+
+static int smblib_pd_disallowed_votable_indirect_callback(
+	struct votable *votable, void *data, int disallowed, const char *client)
+{
+	struct smb_charger *chg = data;
+	int rc;
+
+	rc = vote(chg->pd_allowed_votable, PD_DISALLOWED_INDIRECT_VOTER,
+		!disallowed, 0);
+
 	return rc;
 }
 
@@ -2154,10 +2168,10 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 					      bool rising, bool qc_charger)
 {
-	if (rising && !qc_charger) {
-		vote(chg->pd_allowed_votable, DEFAULT_VOTER, true, 0);
-		power_supply_changed(chg->usb_psy);
-	}
+	/* Hold off PD only until hvdcp 2.0 detection timeout */
+	if (rising)
+		vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
+				false, 0);
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: smblib_handle_hvdcp_check_timeout %s\n",
 		   rising ? "rising" : "falling");
@@ -2191,7 +2205,9 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	case CDP_CHARGER_BIT:
 	case OCP_CHARGER_BIT:
 	case FLOAT_CHARGER_BIT:
-		vote(chg->pd_allowed_votable, DEFAULT_VOTER, true, 0);
+		/* if not DCP then no hvdcp timeout happens. Enable pd here */
+		vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
+				false, 0);
 		break;
 	case DCP_CHARGER_BIT:
 		if (chg->wa_flags & QC_CHARGER_DETECTION_WA_BIT)
@@ -2256,7 +2272,7 @@ static void smblib_handle_typec_cc(struct smb_charger *chg, bool attached)
 	int rc;
 
 	if (!attached) {
-		rc = smblib_detach_usb(chg);
+		rc = smblib_detach_typec(chg);
 		if (rc < 0)
 			dev_err(chg->dev, "Couldn't detach USB rc=%d\n", rc);
 	}
@@ -2266,14 +2282,15 @@ static void smblib_handle_typec_cc(struct smb_charger *chg, bool attached)
 }
 
 static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
-					      bool rising, bool sink_attached)
+				bool attached, bool rising, bool sink_attached)
 {
 	int rc;
 	union power_supply_propval pval = {0, };
 
-	/* allow PD for attached sinks */
-	if (rising && sink_attached)
-		vote(chg->pd_allowed_votable, DEFAULT_VOTER, true, 0);
+	/* allow PD when cc is attached and debounced */
+	if (attached && rising)
+		vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER,
+				false, 0);
 
 	rc = smblib_get_prop_typec_mode(chg, &pval);
 	if (rc < 0)
@@ -2317,6 +2334,7 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 	smblib_handle_typec_cc(chg,
 			(bool)(stat & CC_ATTACHED_BIT));
 	smblib_handle_typec_debounce_done(chg,
+			(bool)(stat & CC_ATTACHED_BIT),
 			(bool)(stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT),
 			(bool)(stat & UFP_DFP_MODE_STATUS_BIT));
 
@@ -2348,14 +2366,10 @@ static void smblib_hvdcp_detect_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 					       hvdcp_detect_work.work);
-	const struct apsd_result *apsd_result;
 
-	apsd_result = smblib_get_apsd_result(chg);
-	if (apsd_result->bit &&
-			!(apsd_result->bit & (QC_2P0_BIT | QC_3P0_BIT))) {
-		vote(chg->pd_allowed_votable, DEFAULT_VOTER, true, 0);
-		power_supply_changed(chg->usb_psy);
-	}
+	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
+				false, 0);
+	power_supply_changed(chg->usb_psy);
 }
 
 static void bms_update_work(struct work_struct *work)
@@ -2496,8 +2510,16 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
-	chg->pd_allowed_votable = create_votable("PD_ALLOWED", VOTE_SET_ANY,
-					NULL, NULL);
+	chg->pd_disallowed_votable_indirect
+		= create_votable("PD_DISALLOWED_INDIRECT", VOTE_SET_ANY,
+			smblib_pd_disallowed_votable_indirect_callback, chg);
+	if (IS_ERR(chg->pd_disallowed_votable_indirect)) {
+		rc = PTR_ERR(chg->pd_disallowed_votable_indirect);
+		return rc;
+	}
+
+	chg->pd_allowed_votable = create_votable("PD_ALLOWED",
+					VOTE_SET_ANY, NULL, NULL);
 	if (IS_ERR(chg->pd_allowed_votable)) {
 		rc = PTR_ERR(chg->pd_allowed_votable);
 		return rc;
@@ -2563,6 +2585,8 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->usb_icl_votable);
 	if (chg->dc_icl_votable)
 		destroy_votable(chg->dc_icl_votable);
+	if (chg->pd_disallowed_votable_indirect)
+		destroy_votable(chg->pd_disallowed_votable_indirect);
 	if (chg->pd_allowed_votable)
 		destroy_votable(chg->pd_allowed_votable);
 	if (chg->awake_votable)
