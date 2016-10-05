@@ -61,6 +61,7 @@ enum {
 	SDE_CP_CRTC_DSPP_GAMUT,
 	SDE_CP_CRTC_DSPP_DITHER,
 	SDE_CP_CRTC_DSPP_HIST,
+	SDE_CP_CRTC_DSPP_AD,
 	SDE_CP_CRTC_DSPP_MAX,
 	/* DSPP features end */
 
@@ -72,14 +73,14 @@ enum {
 	SDE_CP_CRTC_MAX_FEATURES,
 };
 
-#define INIT_PROP_ATTACH(p, crtc, prop, node, blk, feature, ops, val) \
+#define INIT_PROP_ATTACH(p, crtc, prop, node, blk, feature, func, val) \
 	do { \
 		(p)->crtc = crtc; \
 		(p)->prop = prop; \
 		(p)->prop_node = node; \
 		(p)->pp_blk = blk; \
 		(p)->feature = feature; \
-		(p)->ops = ops; \
+		(p)->ops = func; \
 		(p)->val = val; \
 	} while (0)
 
@@ -207,6 +208,45 @@ void sde_cp_crtc_init(struct drm_crtc *crtc)
 	INIT_LIST_HEAD(&sde_crtc->active_list);
 	INIT_LIST_HEAD(&sde_crtc->dirty_list);
 	INIT_LIST_HEAD(&sde_crtc->feature_list);
+}
+
+static void sde_cp_crtc_install_immutable_property(struct drm_crtc *crtc,
+						   char *name,
+						   u32 feature)
+{
+	struct drm_property *prop;
+	struct sde_color_process_node *prop_node = NULL;
+	struct msm_drm_private *priv;
+	struct sde_cp_prop_attach prop_attach;
+	uint64_t val = 0;
+
+	if (feature >=  SDE_CP_CRTC_MAX_FEATURES) {
+		DRM_ERROR("invalid feature %d max %d\n", feature,
+		       SDE_CP_CRTC_MAX_FEATURES);
+		return;
+	}
+
+	prop_node = kzalloc(sizeof(*prop_node), GFP_KERNEL);
+	if (!prop_node)
+		return;
+
+	priv = crtc->dev->dev_private;
+	prop = priv->cp_property[feature];
+
+	if (!prop) {
+		prop = drm_property_create(crtc->dev, DRM_MODE_PROP_IMMUTABLE,
+					   name, 0);
+		if (!prop) {
+			DRM_ERROR("property create failed: %s\n", name);
+			kfree(prop_node);
+			return;
+		}
+		priv->cp_property[feature] = prop;
+	}
+
+	INIT_PROP_ATTACH(&prop_attach, crtc, prop, prop_node, NULL,
+				feature, NULL, val);
+	sde_cp_crtc_prop_attach(&prop_attach);
 }
 
 static void sde_cp_crtc_install_range_property(struct drm_crtc *crtc,
@@ -501,6 +541,13 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 				&hw_dspp->cap->sblk->hsic,
 				SDE_CP_CRTC_DSPP_HUE, hw_dspp->ops.setup_hue,
 				0, U32_MAX, 0);
+			break;
+		case SDE_DSPP_AD:
+			snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+				"SDE_DSPP_AD_V",
+				(hw_dspp->cap->sblk->ad.version >> 16));
+			sde_cp_crtc_install_immutable_property(crtc,
+					feature_name, SDE_CP_CRTC_DSPP_AD);
 			break;
 		default:
 			break;
