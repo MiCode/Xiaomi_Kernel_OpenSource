@@ -103,6 +103,7 @@ struct smb_iio {
 	struct iio_channel	*temp_max_chan;
 	struct iio_channel	*usbin_i_chan;
 	struct iio_channel	*usbin_v_chan;
+	struct iio_channel	*batt_i_chan;
 };
 
 struct smb_charger {
@@ -300,6 +301,9 @@ int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_pd_active(struct smb_charger *chg,
 				const union power_supply_propval *val);
+
+int smblib_get_prop_slave_current_now(struct smb_charger *chg,
+				union power_supply_propval *val);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
