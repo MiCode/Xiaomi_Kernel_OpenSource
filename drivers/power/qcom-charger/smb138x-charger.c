@@ -395,6 +395,7 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 };
@@ -430,6 +431,9 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fcc,
 					     &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		rc = smblib_get_prop_slave_current_now(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP:
 		rc = smblib_get_prop_charger_temp(chg, val);

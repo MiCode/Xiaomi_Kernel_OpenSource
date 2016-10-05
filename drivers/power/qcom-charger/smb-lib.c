@@ -1749,6 +1749,22 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	return rc;
 }
 
+/************************
+ * PARALLEL PSY GETTERS *
+ ************************/
+
+int smblib_get_prop_slave_current_now(struct smb_charger *chg,
+				      union power_supply_propval *pval)
+{
+	if (IS_ERR_OR_NULL(chg->iio.batt_i_chan))
+		chg->iio.batt_i_chan = iio_channel_get(chg->dev, "batt_i");
+
+	if (IS_ERR(chg->iio.batt_i_chan))
+		return PTR_ERR(chg->iio.batt_i_chan);
+
+	return iio_read_channel_processed(chg->iio.batt_i_chan, &pval->intval);
+}
+
 /**********************
  * INTERRUPT HANDLERS *
  **********************/
@@ -2440,6 +2456,8 @@ static void smblib_iio_deinit(struct smb_charger *chg)
 		iio_channel_release(chg->iio.usbin_i_chan);
 	if (!IS_ERR_OR_NULL(chg->iio.usbin_v_chan))
 		iio_channel_release(chg->iio.usbin_v_chan);
+	if (!IS_ERR_OR_NULL(chg->iio.batt_i_chan))
+		iio_channel_release(chg->iio.batt_i_chan);
 }
 
 int smblib_init(struct smb_charger *chg)
