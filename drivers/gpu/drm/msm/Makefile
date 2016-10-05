@@ -42,6 +42,7 @@ msm-y := \
 	sde/sde_kms.o \
 	sde/sde_plane.o \
 	sde/sde_connector.o \
+	sde/sde_color_processing.o \
 	msm_atomic.o \
 	msm_drv.o \
 	msm_fb.o \
@@ -56,7 +57,7 @@ msm-y := \
 	msm_ringbuffer.o \
 	msm_evtlog.o \
 	sde_power_handle.o \
-	msm_prop.o \
+	msm_prop.o
 
 # use drm gpu driver only if qcom_kgsl driver not available
 ifneq ($(CONFIG_QCOM_KGSL),y)
