@@ -41,6 +41,10 @@ The channel list supported by the RRADC driver is available in the enum rradc_ch
 located at at drivers/iio/adc/qcom-rradc.c. Clients can use this index from the enum
 as the channel number while requesting ADC reads.
 
+Optional property:
+- qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
+		    PMIC fabrication ID for applying the appropriate temperature
+		    compensation parameters.
 Example:
 
 	/* RRADC node */
