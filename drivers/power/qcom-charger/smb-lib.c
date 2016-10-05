@@ -220,6 +220,34 @@ int smblib_get_usb_suspend(struct smb_charger *chg, int *suspend)
 	return rc;
 }
 
+#define FSW_600HZ_FOR_5V	600
+#define FSW_800HZ_FOR_6V_8V	800
+#define FSW_1MHZ_FOR_REMOVAL	1000
+#define FSW_1MHZ_FOR_9V		1000
+#define FSW_1P2MHZ_FOR_12V	1200
+static int smblib_set_opt_freq_buck(struct smb_charger *chg, int fsw_khz)
+{
+	union power_supply_propval pval = {0, };
+	int rc = 0;
+
+	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, fsw_khz);
+	if (rc < 0)
+		dev_err(chg->dev, "Error in setting freq_buck rc=%d\n", rc);
+
+	if (chg->mode == PARALLEL_MASTER && chg->pl.psy) {
+		pval.intval = fsw_khz;
+		rc = power_supply_set_property(chg->pl.psy,
+				POWER_SUPPLY_PROP_BUCK_FREQ, &pval);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Could not set parallel buck_freq rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 struct apsd_result {
 	const char * const name;
 	const u8 bit;
@@ -416,10 +444,13 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 
 	if (min_allowed_uv == MICRO_5V && max_allowed_uv == MICRO_5V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_5V;
+		smblib_set_opt_freq_buck(chg, FSW_600HZ_FOR_5V);
 	} else if (min_allowed_uv == MICRO_9V && max_allowed_uv == MICRO_9V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
+		smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_9V);
 	} else if (min_allowed_uv == MICRO_12V && max_allowed_uv == MICRO_12V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_12V;
+		smblib_set_opt_freq_buck(chg, FSW_1P2MHZ_FOR_12V);
 	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_9V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
 	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_12V) {
@@ -2167,6 +2198,16 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 	int rc;
 	u8 stat;
 
+	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read USB_INT_RT_STS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	chg->vbus_present = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
+	smblib_set_opt_freq_buck(chg,
+		chg->vbus_present ? FSW_600HZ_FOR_5V : FSW_1MHZ_FOR_REMOVAL);
+
 	/* fetch the DPDM regulator */
 	if (!chg->dpdm_reg && of_get_property(chg->dev->of_node,
 					      "dpdm-supply", NULL)) {
@@ -2180,14 +2221,6 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 
 	if (!chg->dpdm_reg)
 		goto skip_dpdm_float;
-
-	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read USB_INT_RT_STS rc=%d\n", rc);
-		return IRQ_HANDLED;
-	}
-
-	chg->vbus_present = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
 
 	if (chg->vbus_present) {
 		if (!regulator_is_enabled(chg->dpdm_reg)) {
@@ -2260,6 +2293,60 @@ static void smblib_handle_sdp_enumeration_done(struct smb_charger *chg,
 		   rising ? "rising" : "falling");
 }
 
+#define QC3_PULSES_FOR_6V	5
+#define QC3_PULSES_FOR_9V	20
+#define QC3_PULSES_FOR_12V	35
+static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
+{
+	int rc;
+	u8 stat;
+	int pulses;
+
+	if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_HVDCP) {
+		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't read QC_CHANGE_STATUS rc=%d\n", rc);
+			return;
+		}
+
+		switch (stat & QC_2P0_STATUS_MASK) {
+		case QC_5V_BIT:
+			smblib_set_opt_freq_buck(chg, FSW_600HZ_FOR_5V);
+			break;
+		case QC_9V_BIT:
+			smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_9V);
+			break;
+		case QC_12V_BIT:
+			smblib_set_opt_freq_buck(chg, FSW_1P2MHZ_FOR_12V);
+			break;
+		default:
+			smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_REMOVAL);
+			break;
+		}
+	}
+
+	if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_HVDCP_3) {
+		rc = smblib_read(chg, QC_PULSE_COUNT_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't read QC_PULSE_COUNT rc=%d\n", rc);
+			return;
+		}
+		pulses = (stat & QC_PULSE_COUNT_MASK);
+
+		if (pulses < QC3_PULSES_FOR_6V)
+			smblib_set_opt_freq_buck(chg, FSW_600HZ_FOR_5V);
+		else if (pulses < QC3_PULSES_FOR_9V)
+			smblib_set_opt_freq_buck(chg, FSW_800HZ_FOR_6V_8V);
+		else if (pulses < QC3_PULSES_FOR_12V)
+			smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_9V);
+		else
+			smblib_set_opt_freq_buck(chg, FSW_1P2MHZ_FOR_12V);
+
+	}
+}
+
 static void smblib_handle_adaptive_voltage_done(struct smb_charger *chg,
 						bool rising)
 {
@@ -2272,9 +2359,19 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 					      bool rising)
 {
 	const struct apsd_result *apsd_result;
+	int rc;
 
 	if (!rising)
 		return;
+
+	/*
+	 * Disable AUTH_IRQ_EN_CFG_BIT to receive adapter voltage
+	 * change interrupt.
+	 */
+	rc = smblib_masked_write(chg, USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
+				 AUTH_IRQ_EN_CFG_BIT, 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't enable QC auth setting rc=%d\n", rc);
 
 	if (chg->mode == PARALLEL_MASTER)
 		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, true, 0);
@@ -2381,6 +2478,8 @@ irqreturn_t smblib_handle_usb_source_change(int irq, void *data)
 	smblib_handle_slow_plugin_timeout(chg,
 		(bool)(stat & SLOW_PLUGIN_TIMEOUT_BIT));
 
+	smblib_hvdcp_adaptive_voltage_change(chg);
+
 	power_supply_changed(chg->usb_psy);
 
 	return IRQ_HANDLED;
@@ -2398,6 +2497,12 @@ static void typec_source_removal(struct smb_charger *chg)
 	vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
+
+	/* reset AUTH_IRQ_EN_CFG_BIT */
+	rc = smblib_masked_write(chg, USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
+				 AUTH_IRQ_EN_CFG_BIT, AUTH_IRQ_EN_CFG_BIT);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't enable QC auth setting rc=%d\n", rc);
 
 	/* reconfigure allowed voltage for HVDCP */
 	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG,
