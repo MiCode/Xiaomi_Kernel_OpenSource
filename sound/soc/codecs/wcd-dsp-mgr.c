@@ -376,6 +376,7 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 	struct wdsp_cmpnt *ctl;
 	struct wdsp_img_segment *seg = NULL;
 	enum wdsp_event_type pre, post;
+	long status;
 	int ret;
 
 	ctl = WDSP_GET_COMPONENT(wdsp, WDSP_CMPNT_CONTROL);
@@ -383,9 +384,11 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 	if (type == WDSP_ELF_FLAG_RE) {
 		pre = WDSP_EVENT_PRE_DLOAD_CODE;
 		post = WDSP_EVENT_POST_DLOAD_CODE;
+		status = WDSP_STATUS_CODE_DLOADED;
 	} else if (type == WDSP_ELF_FLAG_WRITE) {
 		pre = WDSP_EVENT_PRE_DLOAD_DATA;
 		post = WDSP_EVENT_POST_DLOAD_DATA;
+		status = WDSP_STATUS_DATA_DLOADED;
 	} else {
 		WDSP_ERR(wdsp, "Invalid type %u", type);
 		return -EINVAL;
@@ -415,6 +418,8 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 			goto dload_error;
 		}
 	}
+
+	WDSP_SET_STATUS(wdsp, status);
 
 	/* Notify all components that image is downloaded */
 	wdsp_broadcast_event_downseq(wdsp, post, NULL);
@@ -448,8 +453,6 @@ static int wdsp_init_and_dload_code_sections(struct wdsp_mgr_priv *wdsp)
 		WDSP_ERR(wdsp, "Error %d to download code sections", ret);
 		goto done;
 	}
-
-	WDSP_SET_STATUS(wdsp, WDSP_STATUS_CODE_DLOADED);
 done:
 	return ret;
 }
@@ -487,8 +490,6 @@ static int wdsp_enable_dsp(struct wdsp_mgr_priv *wdsp)
 		WDSP_ERR(wdsp, "Data section download failed, err = %d", ret);
 		goto done;
 	}
-
-	WDSP_SET_STATUS(wdsp, WDSP_STATUS_DATA_DLOADED);
 
 	wdsp_broadcast_event_upseq(wdsp, WDSP_EVENT_PRE_BOOTUP, NULL);
 
