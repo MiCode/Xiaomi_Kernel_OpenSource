@@ -374,7 +374,19 @@ static int dp_aux_read_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
 /*
  * edid standard header bytes
  */
-static char edid_hdr[8] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
+static u8 edid_hdr[8] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
+
+static bool dp_edid_is_valid_header(u8 *buf)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(edid_hdr); i++) {
+		if (buf[i] != edid_hdr[i])
+			return false;
+	}
+
+	return true;
+}
 
 int dp_edid_buf_error(char *buf, int len)
 {
@@ -393,11 +405,6 @@ int dp_edid_buf_error(char *buf, int len)
 
 	if (csum != 0) {
 		pr_err("Error: csum=%x\n", csum);
-		return -EINVAL;
-	}
-
-	if (strncmp(buf, edid_hdr, strlen(edid_hdr))) {
-		pr_err("Error: header\n");
 		return -EINVAL;
 	}
 
@@ -708,10 +715,11 @@ static int dp_aux_chan_ready(struct mdss_dp_drv_pdata *ep)
 
 int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 {
-	struct edp_buf *rp;
-	int cnt, rlen;
-	int ret = 0;
-	int blk_num = 0;
+	struct edp_buf *rp = &dp->rxp;
+	int rlen, ret = 0;
+	int edid_blk = 0, blk_num = 0, retries = 10;
+	bool edid_parsing_done = false;
+	const u8 cea_tag = 0x02;
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
@@ -719,70 +727,56 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		return ret;
 	}
 
-	for (cnt = 5; cnt; cnt--) {
-		rlen = dp_aux_read_buf
-			(dp, EDID_START_ADDRESS, EDID_BLOCK_SIZE, 1);
-		if (rlen > 0) {
-			pr_debug("cnt=%d, block=%d, rlen=%d\n",
-					cnt, blk_num, rlen);
-
-			rp = &dp->rxp;
-			if (!dp_edid_buf_error(rp->data, rp->len))
-				break;
+	do {
+		rlen = dp_aux_read_buf(dp, EDID_START_ADDRESS +
+				(blk_num * EDID_BLOCK_SIZE),
+				EDID_BLOCK_SIZE, 1);
+		if (rlen != EDID_BLOCK_SIZE) {
+			pr_err("Read failed. rlen=%d\n", rlen);
+			continue;
 		}
-	}
 
-	if ((cnt <= 0) && (rlen != EDID_BLOCK_SIZE)) {
-		pr_err("Read failed. rlen=%d\n", rlen);
-		return -EINVAL;
-	}
+		pr_debug("blk_num=%d, rlen=%d\n", blk_num, rlen);
 
-	rp = &dp->rxp;
+		if (dp_edid_is_valid_header(rp->data)) {
+			if (dp_edid_buf_error(rp->data, rp->len))
+				continue;
 
-	dp_extract_edid_manufacturer(&dp->edid, rp->data);
-	dp_extract_edid_product(&dp->edid, rp->data);
-	dp_extract_edid_version(&dp->edid, rp->data);
-	dp_extract_edid_ext_block_cnt(&dp->edid, rp->data);
-	dp_extract_edid_video_support(&dp->edid, rp->data);
-	dp_extract_edid_feature(&dp->edid, rp->data);
-	dp_extract_edid_detailed_timing_description(&dp->edid, rp->data);
-	/* for the first block initialize the edid buffer size */
-	dp->edid_buf_size = 0;
+			if (edid_parsing_done) {
+				blk_num++;
+				continue;
+			}
 
-	pr_debug("edid extension = %d\n",
-			dp->edid.ext_block_cnt);
+			dp_extract_edid_manufacturer(&dp->edid, rp->data);
+			dp_extract_edid_product(&dp->edid, rp->data);
+			dp_extract_edid_version(&dp->edid, rp->data);
+			dp_extract_edid_ext_block_cnt(&dp->edid, rp->data);
+			dp_extract_edid_video_support(&dp->edid, rp->data);
+			dp_extract_edid_feature(&dp->edid, rp->data);
+			dp_extract_edid_detailed_timing_description(&dp->edid,
+				rp->data);
 
-	memcpy(dp->edid_buf, rp->data, EDID_BLOCK_SIZE);
-	dp->edid_buf_size += EDID_BLOCK_SIZE;
+			edid_parsing_done = true;
+		} else {
+			edid_blk++;
+			blk_num++;
 
-	if (!dp->edid.ext_block_cnt)
-		return 0;
+			/* fix dongle byte shift issue */
+			if (edid_blk == 1 && rp->data[0] != cea_tag) {
+				u8 tmp[EDID_BLOCK_SIZE - 1];
 
-	for (blk_num = 1; blk_num <= dp->edid.ext_block_cnt;
-			blk_num++) {
-		for (cnt = 5; cnt; cnt--) {
-			rlen = dp_aux_read_buf
-				(dp, EDID_START_ADDRESS +
-				 (blk_num * EDID_BLOCK_SIZE),
-				 EDID_BLOCK_SIZE, 1);
-			if (rlen > 0) {
-				pr_debug("cnt=%d, blk_num=%d, rlen=%d\n",
-						cnt, blk_num, rlen);
-				rp = &dp->rxp;
-				if (!dp_edid_buf_error(rp->data, rp->len))
-					break;
+				memcpy(tmp, rp->data, EDID_BLOCK_SIZE - 1);
+				rp->data[0] = cea_tag;
+				memcpy(rp->data + 1, tmp, EDID_BLOCK_SIZE - 1);
 			}
 		}
 
-		if ((cnt <= 0) && (rlen != EDID_BLOCK_SIZE)) {
-			pr_err("Read failed. rlen=%d\n", rlen);
-			return -EINVAL;
-		}
+		memcpy(dp->edid_buf + (edid_blk * EDID_BLOCK_SIZE),
+			rp->data, EDID_BLOCK_SIZE);
 
-		memcpy(dp->edid_buf + (blk_num * EDID_BLOCK_SIZE),
-					rp->data, EDID_BLOCK_SIZE);
-		dp->edid_buf_size += EDID_BLOCK_SIZE;
-	}
+		if (edid_blk == dp->edid.ext_block_cnt)
+			return 0;
+	} while (retries--);
 
 	return 0;
 }
