@@ -61,7 +61,7 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 	     !ipa3_should_pipe_be_suspended(ep->client))) {
 		memset(&ep_cfg_ctrl, 0 , sizeof(ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_suspend = false;
-		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		res = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 
 	/* Assign the resource group for pipe */
@@ -101,7 +101,7 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_suspend = true;
-		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		res = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 
 	udelay(IPA_PKT_FLUSH_TO_US);
@@ -1311,7 +1311,46 @@ int ipa3_set_usb_max_packet_size(
 	return 0;
 }
 
-int ipa3_xdci_connect(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid)
+int ipa3_xdci_connect(u32 clnt_hdl)
+{
+	int result;
+	struct ipa3_ep_context *ep;
+
+	IPADBG("entry\n");
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("Bad parameter.\n");
+		return -EINVAL;
+	}
+
+	ep = &ipa3_ctx->ep[clnt_hdl];
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+
+	result = ipa3_start_gsi_channel(clnt_hdl);
+	if (result) {
+		IPAERR("failed to start gsi channel clnt_hdl=%u\n", clnt_hdl);
+		goto exit;
+	}
+
+	result = ipa3_enable_data_path(clnt_hdl);
+	if (result) {
+		IPAERR("enable data path failed res=%d clnt_hdl=%d.\n", result,
+			clnt_hdl);
+		goto stop_ch;
+	}
+
+	IPADBG("exit\n");
+	goto exit;
+
+stop_ch:
+	(void)ipa3_stop_gsi_channel(clnt_hdl);
+exit:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+	return result;
+}
+
+int ipa3_xdci_start(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid)
 {
 	struct ipa3_ep_context *ep;
 	int result = -EFAULT;
