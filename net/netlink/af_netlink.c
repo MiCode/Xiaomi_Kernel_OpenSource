@@ -2398,7 +2398,7 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
 	/* Record the max length of recvmsg() calls for future allocations */
 	nlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);
 	nlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,
-				     16384);
+				     SKB_WITH_OVERHEAD(32768));
 
 	copied = data_skb->len;
 	if (len < copied) {
@@ -2656,9 +2656,8 @@ static int netlink_dump(struct sock *sk)
 		skb = netlink_alloc_skb(sk,
 					nlk->max_recvmsg_len,
 					nlk->portid,
-					GFP_KERNEL |
-					__GFP_NOWARN |
-					__GFP_NORETRY);
+					(GFP_KERNEL & ~__GFP_WAIT) |
+					__GFP_NOWARN | __GFP_NORETRY);
 		/* available room should be exact amount to avoid MSG_TRUNC */
 		if (skb)
 			skb_reserve(skb, skb_tailroom(skb) -
@@ -2666,7 +2665,7 @@ static int netlink_dump(struct sock *sk)
 	}
 	if (!skb)
 		skb = netlink_alloc_skb(sk, alloc_size, nlk->portid,
-					GFP_KERNEL);
+					(GFP_KERNEL & ~__GFP_WAIT));
 	if (!skb)
 		goto errout_skb;
 	netlink_skb_set_owner_r(skb, sk);
