@@ -1133,7 +1133,7 @@ static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
 	mdss_dp_fill_link_cfg(dp);
 	mdss_dp_mainlink_ctrl(&dp->ctrl_io, true);
 	mdss_dp_config_ctrl(dp);
-	mdss_dp_sw_mvid_nvid(&dp->ctrl_io);
+	mdss_dp_sw_config_msa(&dp->ctrl_io, dp->link_rate, &dp->dp_cc_io);
 	mdss_dp_timing_cfg(&dp->ctrl_io, &dp->panel_data.panel_info);
 }
 
@@ -2038,6 +2038,12 @@ static int mdss_retrieve_dp_ctrl_resources(struct platform_device *pdev,
 	if (rc) {
 		pr_err("%d unable to remap dp tcsr_reg resources\n",
 			       __LINE__);
+		return rc;
+	}
+
+	if (msm_dss_ioremap_byname(pdev, &dp_drv->dp_cc_io, "dp_mmss_cc")) {
+		pr_err("%d unable to remap dp MMSS_CC resources\n",
+				__LINE__);
 		return rc;
 	}
 

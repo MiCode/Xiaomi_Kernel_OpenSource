@@ -468,9 +468,10 @@
 		reg =	<0xc990000 0xa84>,
 			<0xc011000 0x910>,
 			<0x1fcb200 0x050>,
+			<0xc8c2200 0x1a0>,
 			<0x780000 0x621c>,
 			<0xc9e1000 0x02c>;
-		reg-names = "dp_ctrl", "dp_phy", "tcsr_regs",
+		reg-names = "dp_ctrl", "dp_phy", "tcsr_regs", "dp_mmss_cc",
 				"qfprom_physical","hdcp_physical";
 
 		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,

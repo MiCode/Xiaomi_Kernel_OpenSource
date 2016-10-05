@@ -406,6 +406,7 @@ struct mdss_dp_drv_pdata {
 	struct dss_io_data ctrl_io;
 	struct dss_io_data phy_io;
 	struct dss_io_data tcsr_reg_io;
+	struct dss_io_data dp_cc_io;
 	struct dss_io_data qfprom_io;
 	struct dss_io_data hdcp_io;
 	int base_size;
