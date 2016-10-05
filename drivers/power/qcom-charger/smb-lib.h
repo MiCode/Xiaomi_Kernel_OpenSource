@@ -37,6 +37,9 @@ enum print_reason {
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
 #define FCC_MAX_RESULT_VOTER		"FCC_MAX_RESULT_VOTER"
 #define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
+#define CC_DETACHED_VOTER		"CC_DETACHED_VOTER"
+#define HVDCP_TIMEOUT_VOTER		"HVDCP_TIMEOUT_VOTER"
+#define PD_DISALLOWED_INDIRECT_VOTER	"PD_DISALLOWED_INDIRECT_VOTER"
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -144,6 +147,7 @@ struct smb_charger {
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
 	struct votable		*dc_icl_votable;
+	struct votable		*pd_disallowed_votable_indirect;
 	struct votable		*pd_allowed_votable;
 	struct votable		*awake_votable;
 	struct votable		*pl_disable_votable;

@@ -1037,6 +1037,10 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 	vote(chg->hvdcp_disable_votable, DEFAULT_VOTER,
 		chip->dt.hvdcp_disable, 0);
+	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER,
+			true, 0);
+	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
+			true, 0);
 
 	/* Configure charge enable for software control; active high */
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
