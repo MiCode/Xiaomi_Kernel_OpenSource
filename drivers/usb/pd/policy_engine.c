@@ -460,6 +460,7 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos)
 
 static int pd_eval_src_caps(struct usbpd *pd, const u32 *src_caps)
 {
+	union power_supply_propval val;
 	u32 first_pdo = src_caps[0];
 
 	/* save the PDOs so userspace can further evaluate */
@@ -474,6 +475,10 @@ static int pd_eval_src_caps(struct usbpd *pd, const u32 *src_caps)
 	pd->peer_usb_comm = PD_SRC_PDO_FIXED_USB_COMM(first_pdo);
 	pd->peer_pr_swap = PD_SRC_PDO_FIXED_PR_SWAP(first_pdo);
 	pd->peer_dr_swap = PD_SRC_PDO_FIXED_DR_SWAP(first_pdo);
+
+	val.intval = PD_SRC_PDO_FIXED_USB_SUSP(first_pdo);
+	power_supply_set_property(pd->usb_psy,
+			POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED, &val);
 
 	/* Select the first PDO (vSafe5V) immediately. */
 	pd_select_pdo(pd, 1);
@@ -1405,6 +1410,10 @@ static void usbpd_sm(struct work_struct *w)
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
 		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED,
+				&val);
+
+		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
 		if (pd->current_pr == PR_SRC)
@@ -1681,9 +1690,14 @@ static void usbpd_sm(struct work_struct *w)
 					POWER_SUPPLY_PROP_VOLTAGE_MIN,
 					&val);
 
-			val.intval = 0; /* suspend charging */
+			/*
+			 * disable charging; technically we are allowed to
+			 * charge up to pSnkStdby (2.5 W) during this
+			 * transition, but disable it just for simplicity.
+			 */
+			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
 
 			pd->selected_pdo = pd->requested_pdo;
 			usbpd_set_state(pd, PE_SNK_TRANSITION_SINK);
@@ -1714,7 +1728,7 @@ static void usbpd_sm(struct work_struct *w)
 			/* resume charging */
 			val.intval = pd->requested_current * 1000; /* mA->uA */
 			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
 
 			usbpd_set_state(pd, PE_SNK_READY);
 		} else {
@@ -1866,7 +1880,7 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->requested_current) {
 			val.intval = pd->requested_current = 0;
 			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
 		}
 
 		val.intval = pd->requested_voltage;
