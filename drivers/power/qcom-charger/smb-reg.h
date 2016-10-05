@@ -995,4 +995,6 @@ enum {
 #define SYSOK_POL_BIT				BIT(3)
 #define SYSOK_OPTIONS_MASK			GENMASK(2, 0)
 
+#define CFG_BUCKBOOST_FREQ_SELECT_BUCK_REG	(MISC_BASE + 0xA0)
+
 #endif /* __SMB2_CHARGER_REG_H */

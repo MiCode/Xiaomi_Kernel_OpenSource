@@ -97,6 +97,7 @@ struct smb_params {
 	struct smb_chg_param	step_soc_threshold[4];
 	struct smb_chg_param	step_soc;
 	struct smb_chg_param	step_cc_delta[5];
+	struct smb_chg_param	freq_buck;
 };
 
 struct parallel_params {
