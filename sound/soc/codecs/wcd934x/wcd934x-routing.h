@@ -21,6 +21,7 @@ const struct snd_soc_dapm_route tavil_slim_audio_map[] = {
 	{"AIF1 CAP", NULL, "AIF1_CAP Mixer"},
 	{"AIF2 CAP", NULL, "AIF2_CAP Mixer"},
 	{"AIF3 CAP", NULL, "AIF3_CAP Mixer"},
+	{"AIF4 MAD", NULL, "AIF4_MAD Mixer"},
 
 	/* Virtual input widget Mixer */
 	{"AIF1_CAP Mixer", "SLIM TX0", "SLIM TX0"},
@@ -64,6 +65,8 @@ const struct snd_soc_dapm_route tavil_slim_audio_map[] = {
 	{"AIF3_CAP Mixer", "SLIM TX10", "SLIM TX10"},
 	{"AIF3_CAP Mixer", "SLIM TX11", "SLIM TX11"},
 	{"AIF3_CAP Mixer", "SLIM TX13", "SLIM TX13"},
+
+	{"AIF4_MAD Mixer", "SLIM TX13", "SLIM TX13"},
 
 	{"SLIM RX0 MUX", "AIF1_PB", "AIF1 PB"},
 	{"SLIM RX1 MUX", "AIF1_PB", "AIF1 PB"},
@@ -121,6 +124,7 @@ const struct snd_soc_dapm_route tavil_audio_map[] = {
 	{"MAD_INP MUX", "MAD", "MAD_SEL MUX"},
 	{"MAD_INP MUX", "DEC1", "ADC MUX1"},
 
+	{"MAD_BROADCAST", "Switch", "MAD_INP MUX"},
 	{"MAD_CPE1", "Switch", "MAD_INP MUX"},
 	{"MAD_CPE2", "Switch", "MAD_INP MUX"},
 

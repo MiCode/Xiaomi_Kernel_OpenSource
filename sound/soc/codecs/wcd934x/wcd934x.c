@@ -186,6 +186,7 @@ enum {
 	AIF3_CAP,
 	AIF4_PB,
 	AIF4_VIFEED,
+	AIF4_MAD_TX,
 	NUM_CODEC_DAIS,
 };
 
@@ -301,13 +302,13 @@ static const struct wcd9xxx_ch tavil_tx_chs[WCD934X_TX_MAX] = {
 };
 
 static const u32 vport_slim_check_table[NUM_CODEC_DAIS] = {
-	0,				/* AIF1_PB */
-	BIT(AIF2_CAP) | BIT(AIF3_CAP),	/* AIF1_CAP */
-	0,				/* AIF2_PB */
-	BIT(AIF1_CAP) | BIT(AIF3_CAP),	/* AIF2_CAP */
-	0,				/* AIF3_PB */
-	BIT(AIF1_CAP) | BIT(AIF2_CAP),	/* AIF3_CAP */
-	0,				/* AIF4_PB */
+	0,							/* AIF1_PB */
+	BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX),	/* AIF1_CAP */
+	0,							/* AIF2_PB */
+	BIT(AIF1_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX),	/* AIF2_CAP */
+	0,							/* AIF3_PB */
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF4_MAD_TX),	/* AIF3_CAP */
+	0,							/* AIF4_PB */
 };
 
 /* Codec supports 2 IIR filters */
@@ -1270,6 +1271,8 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			mutex_unlock(&tavil_p->codec_mutex);
 			return 0;
 		}
+		break;
+	case AIF4_MAD_TX:
 		break;
 	default:
 		dev_err(codec->dev, "Unknown AIF %d\n", dai_id);
@@ -2474,7 +2477,7 @@ done:
 	return ret;
 }
 
-static int tavil_codec_enable_mad(struct snd_soc_codec *codec, bool enable)
+static int __tavil_codec_enable_mad(struct snd_soc_codec *codec, bool enable)
 {
 	int rc = 0;
 
@@ -2519,6 +2522,29 @@ done:
 	return rc;
 }
 
+static int tavil_codec_ape_enable_mad(struct snd_soc_dapm_widget *w,
+				      struct snd_kcontrol *kcontrol,
+				      int event)
+{
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int rc = 0;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_SVA_CFG, 0x40, 0x40);
+		rc = __tavil_codec_enable_mad(codec, true);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_SVA_CFG, 0x40, 0x00);
+		__tavil_codec_enable_mad(codec, false);
+		break;
+	}
+
+	dev_dbg(tavil->dev, "%s: event = %d\n", __func__, event);
+	return rc;
+}
+
 static int tavil_codec_cpe_mad_ctl(struct snd_soc_dapm_widget *w,
 				   struct snd_kcontrol *kcontrol, int event)
 {
@@ -2533,7 +2559,7 @@ static int tavil_codec_cpe_mad_ctl(struct snd_soc_dapm_widget *w,
 			goto done;
 
 		snd_soc_update_bits(codec, WCD934X_CPE_SS_SVA_CFG, 0x20, 0x20);
-		rc = tavil_codec_enable_mad(codec, true);
+		rc = __tavil_codec_enable_mad(codec, true);
 		if (IS_ERR_VALUE(rc)) {
 			tavil->mad_switch_cnt--;
 			goto done;
@@ -2546,7 +2572,7 @@ static int tavil_codec_cpe_mad_ctl(struct snd_soc_dapm_widget *w,
 			goto done;
 
 		snd_soc_update_bits(codec, WCD934X_CPE_SS_SVA_CFG, 0x20, 0x00);
-		tavil_codec_enable_mad(codec, false);
+		__tavil_codec_enable_mad(codec, false);
 		break;
 	}
 done:
@@ -5789,6 +5815,11 @@ static const struct snd_kcontrol_new aif3_cap_mixer[] = {
 			slim_tx_mixer_get, slim_tx_mixer_put),
 };
 
+static const struct snd_kcontrol_new aif4_mad_mixer[] = {
+	SOC_SINGLE_EXT("SLIM TX13", SND_SOC_NOPM, WCD934X_TX13, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+};
+
 WCD_DAPM_ENUM_EXT(slim_rx0, SND_SOC_NOPM, 0, slim_rx_mux_text,
 	slim_rx_mux_get, slim_rx_mux_put);
 WCD_DAPM_ENUM_EXT(slim_rx1, SND_SOC_NOPM, 0, slim_rx_mux_text,
@@ -6108,6 +6139,9 @@ static const struct snd_kcontrol_new mad_cpe1_switch =
 	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
 
 static const struct snd_kcontrol_new mad_cpe2_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new mad_brdcst_switch =
 	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
 
 static const struct snd_kcontrol_new adc_us_mux0_switch =
@@ -6532,10 +6566,16 @@ static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 		aif2_cap_mixer, ARRAY_SIZE(aif2_cap_mixer)),
 	SND_SOC_DAPM_MIXER("AIF3_CAP Mixer", SND_SOC_NOPM, AIF3_CAP, 0,
 		aif3_cap_mixer, ARRAY_SIZE(aif3_cap_mixer)),
+	SND_SOC_DAPM_MIXER("AIF4_MAD Mixer", SND_SOC_NOPM, AIF4_MAD_TX, 0,
+		aif4_mad_mixer, ARRAY_SIZE(aif4_mad_mixer)),
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF4 VI", "VIfeed", 0, SND_SOC_NOPM,
 		AIF4_VIFEED, 0, tavil_codec_enable_slimvi_feedback,
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_AIF_OUT("AIF4 MAD", "AIF4 MAD TX", 0,
+		SND_SOC_NOPM, 0, 0),
+
 	SND_SOC_DAPM_MIXER("AIF4_VI Mixer", SND_SOC_NOPM, AIF4_VIFEED, 0,
 		aif4_vi_mixer, ARRAY_SIZE(aif4_vi_mixer)),
 	SND_SOC_DAPM_INPUT("VIINPUT"),
@@ -6669,6 +6709,10 @@ static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 
 	WCD_DAPM_MUX("MAD_SEL MUX", 0, mad_sel),
 	WCD_DAPM_MUX("MAD_INP MUX", 0, mad_inp_mux),
+
+	SND_SOC_DAPM_SWITCH_E("MAD_BROADCAST", SND_SOC_NOPM, 0, 0,
+			      &mad_brdcst_switch, tavil_codec_ape_enable_mad,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_SWITCH_E("MAD_CPE1", SND_SOC_NOPM, 0, 0,
 			      &mad_cpe1_switch, tavil_codec_cpe_mad_ctl,
@@ -6826,6 +6870,7 @@ static int tavil_get_channel_map(struct snd_soc_dai *dai,
 	case AIF1_CAP:
 	case AIF2_CAP:
 	case AIF3_CAP:
+	case AIF4_MAD_TX:
 	case AIF4_VIFEED:
 		if (!tx_slot || !tx_num) {
 			dev_err(tavil->dev, "%s: Invalid tx_slot 0x%pK or tx_num 0x%pK\n",
@@ -6864,6 +6909,7 @@ static int tavil_set_channel_map(struct snd_soc_dai *dai,
 {
 	struct tavil_priv *tavil;
 	struct wcd9xxx *core;
+	struct wcd9xxx_codec_dai_data *dai_data = NULL;
 
 	tavil = snd_soc_codec_get_drvdata(dai->codec);
 	core = dev_get_drvdata(dai->codec->dev->parent);
@@ -6878,6 +6924,12 @@ static int tavil_set_channel_map(struct snd_soc_dai *dai,
 
 	wcd9xxx_init_slimslave(core, core->slim->laddr,
 				tx_num, tx_slot, rx_num, rx_slot);
+	/* Reserve TX13 for MAD data channel */
+	dai_data = &tavil->dai[AIF4_MAD_TX];
+	if (dai_data)
+		list_add_tail(&core->tx_chs[WCD934X_TX13].list,
+			      &dai_data->wcd9xxx_ch_list);
+
 	return 0;
 }
 
@@ -7208,7 +7260,7 @@ static int tavil_hw_params(struct snd_pcm_substream *substream,
 			   struct snd_soc_dai *dai)
 {
 	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(dai->codec);
-	int ret;
+	int ret = 0;
 
 	dev_dbg(tavil->dev, "%s: dai_name = %s DAI-ID %x rate %d num_ch %d\n",
 		 __func__, dai->name, dai->id, params_rate(params),
@@ -7238,7 +7290,9 @@ static int tavil_hw_params(struct snd_pcm_substream *substream,
 		tavil->dai[dai->id].rate = params_rate(params);
 		break;
 	case SNDRV_PCM_STREAM_CAPTURE:
-		ret = tavil_set_decimator_rate(dai, params_rate(params));
+		if (dai->id != AIF4_MAD_TX)
+			ret = tavil_set_decimator_rate(dai,
+						       params_rate(params));
 		if (ret) {
 			dev_err(tavil->dev, "%s: cannot set TX Decimator rate: %d\n",
 				__func__, ret);
@@ -7394,6 +7448,20 @@ static struct snd_soc_dai_driver tavil_dai[] = {
 			.channels_max = 4,
 		 },
 		.ops = &tavil_vi_dai_ops,
+	},
+	{
+		.name = "tavil_mad1",
+		.id = AIF4_MAD_TX,
+		.capture = {
+			.stream_name = "AIF4 MAD TX",
+			.rates = SNDRV_PCM_RATE_16000,
+			.formats = WCD934X_FORMATS_S16_LE,
+			.rate_min = 16000,
+			.rate_max = 16000,
+			.channels_min = 1,
+			.channels_max = 1,
+		},
+		.ops = &tavil_dai_ops,
 	},
 };
 
