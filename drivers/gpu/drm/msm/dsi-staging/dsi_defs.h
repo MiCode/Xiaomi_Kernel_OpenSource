@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -259,6 +259,7 @@ struct dsi_lane_mapping {
  * @ignore_rx_eot:       Ignore Rx EOT packets if set to true.
  * @append_tx_eot:       Append EOT packets for forward transmissions if set to
  *                       true.
+ * @force_clk_lane_hs:   Force clock lane in high speed mode.
  */
 struct dsi_host_common_cfg {
 	enum dsi_pixel_format dst_format;
@@ -277,6 +278,7 @@ struct dsi_host_common_cfg {
 	u32 t_clk_pre;
 	bool ignore_rx_eot;
 	bool append_tx_eot;
+	bool force_clk_lane_hs;
 };
 
 /**
