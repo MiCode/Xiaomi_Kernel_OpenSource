@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,7 +123,7 @@ int msm_dba_helper_i2c_write_byte(struct i2c_client *client,
 		return -EINVAL;
 	}
 
-	pr_debug("%s: [%s:0x02%x] : W[0x%02x, 0x%02x]\n", __func__,
+	pr_debug("%s: [%s:0x%02x] : W[0x%02x, 0x%02x]\n", __func__,
 		 client->name, addr, reg, val);
 	client->addr = addr;
 
