@@ -69,12 +69,12 @@ config ARCH_MSM8996
 	This enables support for the MSM8996 chipset. If you do not
 	wish to build a kernel that runs on this chipset, say 'N' here.
 
-config ARCH_MSMCOBALT
-        bool "Enable Support for Qualcomm MSMCOBALT"
+config ARCH_MSM8998
+        bool "Enable Support for Qualcomm MSM8998"
 	depends on ARCH_QCOM
 	select COMMON_CLK_MSM
 	help
-	This enables support for the MSMCOBALT chipset. If you do not
+	This enables support for the MSM8998 chipset. If you do not
 	wish to build a kernel that runs on this chipset, say 'N' here.
 
 config ARCH_MSMHAMSTER

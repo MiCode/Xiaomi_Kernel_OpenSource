@@ -15,7 +15,7 @@
 /memreserve/ 0x90000000 0x00000100;
 
 #include "msmhamster.dtsi"
-#include "msmcobalt-rumi.dtsi"
+#include "msm8998-rumi.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM HAMSTER RUMI";

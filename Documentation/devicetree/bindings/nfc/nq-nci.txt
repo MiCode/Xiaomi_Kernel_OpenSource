@@ -34,7 +34,7 @@ Example:
 		qcom,nq-irq = <&tlmm 29 0x00>;
 		qcom,nq-ven = <&tlmm 30 0x00>;
 		qcom,nq-firm = <&tlmm 93 0x00>;
-		qcom,nq-clkreq = <&pmcobalt_gpios 21 0x00>;
+		qcom,nq-clkreq = <&pm8998_gpios 21 0x00>;
 		qcom,nq-esepwr = <&tlmm 116 0x00>;
 		qcom,clk-src = "BBCLK2";
 		interrupt-parent = <&tlmm>;

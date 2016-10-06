@@ -190,8 +190,8 @@ config SND_SOC_MSM8996
 	 the machine driver and the corresponding
 	 DAI-links
 
-config SND_SOC_MSMCOBALT
-	tristate "SoC Machine driver for MSMCOBALT boards"
+config SND_SOC_MSM8998
+	tristate "SoC Machine driver for MSM8998 boards"
 	depends on ARCH_QCOM
 	select SND_SOC_COMPRESS
 	select SND_SOC_QDSP6V2
@@ -215,7 +215,7 @@ config SND_SOC_MSMCOBALT
 	select SND_HWDEP
         select DTS_EAGLE
 	help
-	 To add support for SoC audio on MSMCOBALT.
+	 To add support for SoC audio on MSM8998.
 	 This will enable sound soc drivers which
 	 interfaces with DSP, also it will enable
 	 the machine driver and the corresponding

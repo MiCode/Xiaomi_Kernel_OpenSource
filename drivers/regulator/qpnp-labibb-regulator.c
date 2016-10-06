@@ -714,10 +714,10 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 	u32 tmp;
 
 	/*
-	 * Do not configure LCD_AMOLED_SEL for pmicobalt as it will be done by
+	 * Do not configure LCD_AMOLED_SEL for pmi8998 as it will be done by
 	 * GPIO selector.
 	 */
-	if (labibb->pmic_rev_id->pmic_subtype != PMICOBALT_SUBTYPE) {
+	if (labibb->pmic_rev_id->pmic_subtype != PMI8998_SUBTYPE) {
 		if (labibb->mode == QPNP_LABIBB_LCD_MODE)
 			val = REG_LAB_IBB_LCD_MODE;
 		else
@@ -1529,7 +1529,7 @@ static int qpnp_labibb_regulator_disable(struct qpnp_labibb *labibb)
 		return -EINVAL;
 	}
 
-	if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE &&
+	if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE &&
 		labibb->mode == QPNP_LABIBB_LCD_MODE) {
 		rc = qpnp_lab_pfm_disable(labibb);
 		if (rc < 0) {
@@ -1752,7 +1752,7 @@ static irqreturn_t lab_vreg_ok_handler(int irq, void *_labibb)
 		if (rc < 0)
 			pr_err("Failed in 'qpnp_skip_swire_command' rc=%d\n",
 				rc);
-	} else if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE &&
+	} else if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE &&
 		labibb->mode == QPNP_LABIBB_LCD_MODE) {
 		rc = qpnp_lab_pfm_enable(labibb);
 		if (rc < 0)
@@ -1776,13 +1776,13 @@ static bool is_lab_vreg_ok_irq_available(struct qpnp_labibb *labibb)
 {
 	/*
 	 * LAB VREG_OK interrupt is used only to skip 2nd SWIRE command in
-	 * dig_major < 2 targets. For pmicobalt, it is used to enable PFM in
+	 * dig_major < 2 targets. For pmi8998, it is used to enable PFM in
 	 * LCD mode.
 	 */
 	if (labibb->skip_2nd_swire_cmd && labibb->lab_dig_major < 2)
 		return true;
 
-	if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE &&
+	if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE &&
 		labibb->mode == QPNP_LABIBB_LCD_MODE)
 		return true;
 
@@ -2092,11 +2092,11 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 	u8 val;
 
 	/*
-	 * Do not configure LCD_AMOLED_SEL for pmicobalt as it will be done by
+	 * Do not configure LCD_AMOLED_SEL for pmi8998 as it will be done by
 	 * GPIO selector. Override the labibb->mode with what was configured
 	 * by the bootloader.
 	 */
-	if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE) {
+	if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE) {
 		rc = qpnp_labibb_read(labibb, &val,
 			labibb->ibb_base + REG_IBB_LCD_AMOLED_SEL, 1);
 		if (rc) {
@@ -2627,10 +2627,10 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	}
 
 	/*
-	 * For pmicobalt, override swire_control with what was configured
+	 * For pmi8998, override swire_control with what was configured
 	 * before by the bootloader.
 	 */
-	if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE)
+	if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE)
 		labibb->swire_control = val & IBB_ENABLE_CTL_SWIRE_RDY;
 
 	if (ibb_enable_ctl &

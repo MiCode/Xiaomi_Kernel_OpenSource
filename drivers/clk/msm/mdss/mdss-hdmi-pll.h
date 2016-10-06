@@ -56,6 +56,6 @@ int hdmi_8996_v3_pll_clock_register(struct platform_device *pdev,
 int hdmi_8996_v3_1p8_pll_clock_register(struct platform_device *pdev,
 				 struct mdss_pll_resources *pll_res);
 
-int hdmi_cobalt_pll_clock_register(struct platform_device *pdev,
+int hdmi_8998_pll_clock_register(struct platform_device *pdev,
 				   struct mdss_pll_resources *pll_res);
 #endif

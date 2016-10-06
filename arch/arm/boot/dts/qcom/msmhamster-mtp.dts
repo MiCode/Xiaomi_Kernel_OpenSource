@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "msmhamster.dtsi"
-#include "msmcobalt-mtp.dtsi"
+#include "msm8998-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM HAMSTER";

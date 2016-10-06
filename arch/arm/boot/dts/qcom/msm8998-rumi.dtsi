@@ -1,0 +1,287 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8998-pinctrl.dtsi"
+&uartblsp2dm1 {
+	status = "ok";
+};
+
+&ufsphy1 {
+	compatible = "qcom,ufs-phy-qrbtc-v2";
+	reg = <0x1da7000 0xda8>, /* PHY regs */
+		<0x1db8000 0x100>; /* U11 user regs */
+	reg-names = "phy_mem", "u11_user";
+	vdda-phy-supply = <&pm8998_l1>;
+	vdda-pll-supply = <&pm8998_l2>;
+	vddp-ref-clk-supply = <&pm8998_l26>;
+	vdda-phy-max-microamp = <51400>;
+	vdda-pll-max-microamp = <14600>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
+	status = "ok";
+};
+
+&usb3 {
+	qcom,disable-dev-mode-pm;
+	dwc3@a800000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&qusb_phy0 {
+	reg = <0x0a928000 0x8000>,
+	    <0x0a8f8800 0x400>,
+	    <0x0a920000 0x100>;
+	reg-names = "qusb_phy_base",
+		"qscratch_base",
+		"emu_phy_base";
+	qcom,emulation;
+	qcom,emu-init-seq = <0x7f 0x4
+			0x0 0x4
+			0x3ff 0x28
+			0x1f 0x2c>;
+	qcom,qusb-phy-init-seq = <0x19 0x1404
+				0x20 0x1414
+				0x79 0x1410
+				0x00 0x1418
+				0x99 0x1404
+				0x04 0x1408
+				0xd9 0x1404>;
+	qcom,phy-pll-reset-seq = <0x80000000 0x7500
+				0x0 0x7500
+				0x201e0 0x7500
+				0x0 0x7500>;
+	qcom,emu-dcm-reset-seq = <0x100000 0x20
+				0x0 0x20
+				0x1e0 0x20
+				0x5 0x14>;
+};
+
+&ssphy {
+	compatible =  "usb-nop-xceiv";
+};
+
+&ufs1 {
+	vdd-hba-supply = <&gdsc_ufs>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8998_l20>;
+	vccq-supply = <&pm8998_l26>;
+	vccq2-supply = <&pm8998_s4>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <560000>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+	status = "ok";
+};
+
+&ufs_ice {
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8998_l21>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8998_l13>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	cd-gpios = <&tlmm 95 0x1>;
+
+	status = "ok";
+};
+
+&gfx_stub_vreg {
+	status = "okay";
+};
+
+&clock_gfx {
+	vdd_gpucc-supply = <&gfx_stub_vreg>;
+};
+
+&gdsc_gpu_gx {
+	parent-supply = <&gfx_stub_vreg>;
+};
+
+&clock_cpu {
+	qcom,cc-factor = <10>;
+	qcom,osm-clk-rate = <2000000>;
+	qcom,xo-clk-rate = <333333>;
+
+	qcom,pwrcl-speedbin0-v0 =
+		< 300000000  0x0004000f 0x031e001e 0x1>,
+		< 345600000  0x05040012 0x04200020 0x1>,
+		< 422400000  0x05040016 0x04200020 0x1>,
+		< 499200000  0x0504001a 0x05200020 0x1>,
+		< 576000000  0x0504001e 0x06200020 0x1>,
+		< 633600000  0x04040021 0x07200020 0x1>,
+		< 710400000  0x04040025 0x07200020 0x1>,
+		< 748800000  0x04030027 0x07200020 0x1>,
+		< 768000000  0x04020028 0x07200020 0x1>,
+		< 787200000  0x04010029 0x07200020 0x1>,
+		< 806400000  0x0404002a 0x08220022 0x2>,
+		< 883200000  0x0404002e 0x09250025 0x2>,
+		< 960000000  0x04040032 0x0a280028 0x2>,
+		< 1036800000 0x04040036 0x0b2b002b 0x3>,
+		< 1113600000 0x0404003a 0x0c2e002e 0x3>,
+		< 1190400000 0x0404003e 0x0c320032 0x3>,
+		< 1248000000 0x04040041 0x0d340034 0x3>,
+		< 1324800000 0x04040045 0x0e370037 0x3>,
+		< 1401600000 0x04040049 0x0f3a003a 0x3>,
+		< 1478400000 0x0404004d 0x103e003e 0x3>,
+		< 1574400000 0x04040052 0x10420042 0x4>,
+		< 1651200000 0x04040056 0x11450045 0x4>,
+		< 1728000000 0x0404005a 0x12480048 0x4>,
+		< 1804800000 0x0404005e 0x134b004b 0x4>,
+		< 1881600000 0x04040062 0x144e004e 0x4>;
+
+	qcom,perfcl-speedbin0-v0 =
+		< 300000000  0x0004000f 0x03200020 0x1>,
+		< 345600000  0x05040012 0x04200020 0x1>,
+		< 422400000  0x05040016 0x04200020 0x1>,
+		< 480000000  0x05040019 0x05200020 0x1>,
+		< 556800000  0x0504001d 0x06200020 0x1>,
+		< 633600000  0x04040021 0x07200020 0x1>,
+		< 652800000  0x04030022 0x07200020 0x1>,
+		< 672000000  0x04020023 0x07200020 0x1>,
+		< 691200000  0x04010024 0x07200020 0x1>,
+		< 710400000  0x04040025 0x07200020 0x1>,
+		< 787200000  0x04040029 0x08210021 0x1>,
+		< 844800000  0x0404002c 0x09240024 0x2>,
+		< 902400000  0x0404002f 0x09260026 0x2>,
+		< 979200000  0x04040033 0x0a290029 0x2>,
+		< 1056000000 0x04040037 0x0b2c002c 0x2>,
+		< 1171200000 0x0404003d 0x0c300030 0x3>,
+		< 1248000000 0x04040041 0x0d340034 0x3>,
+		< 1324800000 0x04040045 0x0e370037 0x3>,
+		< 1401600000 0x04040049 0x0f3b003b 0x3>,
+		< 1478400000 0x0404004d 0x0f3e003e 0x3>,
+		< 1536000000 0x04040050 0x10400040 0x3>,
+		< 1632000000 0x04040055 0x11440044 0x4>,
+		< 1708800000 0x04040059 0x12480048 0x4>,
+		< 1785600000 0x0404005d 0x134a004a 0x4>,
+		< 1862400000 0x04040061 0x134e004e 0x4>,
+		< 1939200000 0x04040065 0x14510051 0x4>,
+		< 2016000000 0x04040069 0x15540054 0x4>,
+		< 2092800000 0x0404006d 0x16570057 0x4>;
+};
+
+&soc {
+	qcom,icnss@18800000 {
+		compatible = "qcom,icnss";
+		reg = <0x18800000 0x800000>;
+		reg-names = "membase";
+		interrupts = <0 413 0 /* CE0 */ >,
+			     <0 414 0 /* CE1 */ >,
+			     <0 415 0 /* CE2 */ >,
+			     <0 416 0 /* CE3 */ >,
+			     <0 417 0 /* CE4 */ >,
+			     <0 418 0 /* CE5 */ >,
+			     <0 420 0 /* CE6 */ >,
+			     <0 421 0 /* CE7 */ >,
+			     <0 422 0 /* CE8 */ >,
+			     <0 423 0 /* CE9 */ >,
+			     <0 424 0 /* CE10 */ >,
+			     <0 425 0 /* CE11 */ >;
+		qcom,wlan-msa-memory = <0x100000>;
+	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu clk_pwrcl_clk>,
+			 <&clock_cpu clk_pwrcl_clk>,
+			 <&clock_cpu clk_pwrcl_clk>,
+			 <&clock_cpu clk_pwrcl_clk>,
+			 <&clock_cpu clk_perfcl_clk>,
+			 <&clock_cpu clk_perfcl_clk>,
+			 <&clock_cpu clk_perfcl_clk>,
+			 <&clock_cpu clk_perfcl_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			<  300000 >,
+			<  345600 >,
+			<  422400 >,
+			<  499200 >,
+			<  576000 >,
+			<  633600 >,
+			<  710400 >,
+			<  806400 >,
+			<  883200 >,
+			<  960000 >,
+			< 1036800 >,
+			< 1113600 >;
+
+		qcom,cpufreq-table-4 =
+			<  300000 >,
+			<  345600 >,
+			<  422400 >,
+			<  480000 >,
+			<  556800 >,
+			<  633600 >,
+			<  710400 >,
+			<  787200 >,
+			<  844800 >,
+			<  902400 >,
+			<  979200 >,
+			< 1056000 >,
+			< 1171200 >;
+	};
+
+	qcom,lmh {
+		status = "disabled";
+	};
+};
+
+&gdsc_ufs {
+	compatible = "regulator-fixed";
+};
+
+&spmi_bus {
+	qcom,pmi8998@3 {
+		flash_led: qcom,leds@d300 {
+			status = "disabled";
+		};
+	};
+};
+
+&pmi8998_charger {
+	qcom,suspend-input;
+};
+
+&tsens0 {
+	status = "disabled";
+};
+
+&tsens1 {
+	status = "disabled";
+};

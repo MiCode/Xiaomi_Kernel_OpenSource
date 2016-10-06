@@ -2289,11 +2289,11 @@ Example:
 					  "SpkrRight", "SpkrLeft";
 	};
 
-* MSMCOBALT ASoC Machine driver
+* MSM8998 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,msmcobalt-asoc-snd-tasha" for tasha codec,
-		"qcom,msmcobalt-asoc-snd-tavil" for tavil codec.
+- compatible : "qcom,msm8998-asoc-snd-tasha" for tasha codec,
+		"qcom,msm8998-asoc-snd-tavil" for tavil codec.
 - qcom,model : The user-visible name of this sound card.
 - qcom,tasha-mclk-clk-freq : MCLK frequency value for tasha codec
 - qcom,tavil-mclk-clk-freq : MCLK frequency value for tavil codec
@@ -2333,8 +2333,8 @@ Optional properties:
 Example:
 
 	sound-9335 {
-	compatible = "qcom,msmcobalt-asoc-snd";
-	qcom,model = "msmcobalt-tasha-snd-card";
+	compatible = "qcom,msm8998-asoc-snd";
+	qcom,model = "msm8998-tasha-snd-card";
 
 	qcom,audio-routing =
 		"RX_BIAS", "MCLK",
@@ -2407,7 +2407,7 @@ Example:
 * MSMSTUB ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,msmcobalt-asoc-snd-stub"
+- compatible : "qcom,msm8998-asoc-snd-stub"
 - qcom,model : The user-visible name of this sound card.
 - qcom,tasha-mclk-clk-freq : MCLK frequency value for tasha codec
 - asoc-platform: This is phandle list containing the references to platform device
@@ -2433,8 +2433,8 @@ Optional properties:
 Example:
 
 	sound_msm:sound-9335 {
-		compatible = "qcom,msmcobalt-asoc-snd";
-		qcom,model = "msmcobalt-stub-snd-card";
+		compatible = "qcom,msm8998-asoc-snd";
+		qcom,model = "msm8998-stub-snd-card";
 
 		qcom,tasha-mclk-clk-freq = <9600000>;
 		asoc-platform = <&pcm0>;

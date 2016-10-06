@@ -47,8 +47,8 @@ SoCs:
 - APQTITANIUM
   compatible = "qcom,apqtitanium"
 
-- APQCOBALT
-  compatible = "qcom,apqcobalt"
+- APQ8998
+  compatible = "qcom,apq8998"
 
 - MDM9630
   compatible = "qcom,mdm9630"
@@ -83,8 +83,8 @@ SoCs:
 - MSM8996
   compatible = "qcom,msm8996"
 
-- MSMCOBALT
-  compatible = "qcom,msmcobalt"
+- MSM8998
+  compatible = "qcom,msm8998"
 
 - MSMHAMSTER
   compatible = "qcom,msmhamster"
@@ -183,9 +183,9 @@ compatible = "qcom,apq8037-cdp"
 compatible = "qcom,apq8037-mtp"
 compatible = "qcom,apqtitanium-cdp"
 compatible = "qcom,apqtitanium-mtp"
-compatible = "qcom,apqcobalt-cdp"
-compatible = "qcom,apqcobalt-mtp"
-compatible = "qcom,apqcobalt-qrd"
+compatible = "qcom,apq8998-cdp"
+compatible = "qcom,apq8998-mtp"
+compatible = "qcom,apq8998-qrd"
 compatible = "qcom,mdm9630-cdp"
 compatible = "qcom,mdm9630-mtp"
 compatible = "qcom,mdm9630-sim"
@@ -252,11 +252,11 @@ compatible = "qcom,msm8996-fluid"
 compatible = "qcom,msm8996-liquid"
 compatible = "qcom,msm8996-mtp"
 compatible = "qcom,msm8996-adp"
-compatible = "qcom,msmcobalt-sim"
-compatible = "qcom,msmcobalt-rumi"
-compatible = "qcom,msmcobalt-cdp"
-compatible = "qcom,msmcobalt-mtp"
-compatible = "qcom,msmcobalt-qrd"
+compatible = "qcom,msm8998-sim"
+compatible = "qcom,msm8998-rumi"
+compatible = "qcom,msm8998-cdp"
+compatible = "qcom,msm8998-mtp"
+compatible = "qcom,msm8998-qrd"
 compatible = "qcom,msmhamster-rumi"
 compatible = "qcom,msmhamster-cdp"
 compatible = "qcom,msmhamster-mtp"

@@ -9,8 +9,8 @@ Properties:
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: must be "qcom,cpu-clock-osm-msmcobalt-v1" or
-		    "qcom,cpu-clock-osm-msmcobalt-v2".
+	Definition: must be "qcom,cpu-clock-osm-msm8998-v1" or
+		    "qcom,cpu-clock-osm-msm8998-v2".
 
 - reg
 	Usage:      required
@@ -342,8 +342,8 @@ Properties:
 
 Example:
 
-	clock_cpu: qcom,cpu-clock-cobalt@179c0000 {
-		compatible = "qcom,cpu-clock-osm-msmcobalt-v1";
+	clock_cpu: qcom,cpu-clock-8998@179c0000 {
+		compatible = "qcom,cpu-clock-osm-msm8998-v1";
 		reg = <0x179C0000 0x4000>,
 		      <0x17916000 0x1000>,
 		      <0x17816000 0x1000>,

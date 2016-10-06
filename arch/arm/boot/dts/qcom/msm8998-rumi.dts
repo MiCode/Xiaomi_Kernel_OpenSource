@@ -1,0 +1,108 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+/memreserve/ 0x90000000 0x00000100;
+
+#include "msm8998.dtsi"
+#include "msm8998-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8998 RUMI";
+	compatible = "qcom,msm8998-rumi", "qcom,msm8998", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};
+
+&wdog {
+	status = "disabled";
+};
+
+&apc0_cpr {
+	qcom,cpr-initial-temp-band = <3>;
+	qcom,cpr-temp-point-map = <0 25 85>;
+};
+
+&apc0_pwrcl_vreg {
+	qcom,cpr-corner-bands = <4>;
+	qcom,corner-band-allow-core-count-adjustment = <1 1 1 1>;
+	qcom,corner-band-allow-temp-adjustment = <1 0 0 0>;
+	qcom,cpr-corner-band-map = <7 14 18 20>;
+	qcom,max-core-count = <4>;
+	qcom,cpr-corner-band1-temp-core-voltage-adjustment =
+		<(-24000) (-20000) (-20000) (-16000)>,
+		<(-16000) (-16000) (-12000) (-8000)>,
+		<(-8000)  (-8000)  (-4000)  (-4000)>,
+		<0     0     0     0>;
+	qcom,cpr-corner-band2-temp-core-voltage-adjustment =
+		<(-36000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<(-24000) 0 0 0>,
+		<    0 0 0 0>;
+	qcom,cpr-corner-band3-temp-core-voltage-adjustment =
+		<(-40000) 0 0 0>,
+		<(-36000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<    0 0 0 0>;
+	qcom,cpr-corner-band4-temp-core-voltage-adjustment =
+		<(-44000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<(-24000) 0 0 0>,
+		<    0 0 0 0>;
+};
+
+&apc1_cpr {
+	qcom,cpr-initial-temp-band = <3>;
+	qcom,cpr-temp-point-map = <0 25 85>;
+};
+
+&apc1_perfcl_vreg {
+	qcom,cpr-corner-bands = <4>;
+	qcom,corner-band-allow-core-count-adjustment = <1 1 1 1>;
+	qcom,corner-band-allow-temp-adjustment = <1 0 0 0>;
+	qcom,cpr-corner-band-map = <6 12 15 20>;
+	qcom,max-core-count = <4>;
+	qcom,cpr-corner-band1-temp-core-voltage-adjustment =
+		<(-24000) (-20000) (-20000) (-16000)>,
+		<(-16000) (-16000) (-12000) (-8000)>,
+		<(-8000)  (-8000)  (-4000)  (-4000)>,
+		<0     0     0     0>;
+	qcom,cpr-corner-band2-temp-core-voltage-adjustment =
+		<(-36000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<(-24000) 0 0 0>,
+		<    0 0 0 0>;
+	qcom,cpr-corner-band3-temp-core-voltage-adjustment =
+		<(-40000) 0 0 0>,
+		<(-36000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<    0 0 0 0>;
+	qcom,cpr-corner-band4-temp-core-voltage-adjustment =
+		<(-44000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<(-24000) 0 0 0>,
+		<    0 0 0 0>;
+};
+
+&rpm_bus {
+	rpm-standalone;
+};
+
+&soc {
+	qcom,rmnet-ipa {
+	status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};

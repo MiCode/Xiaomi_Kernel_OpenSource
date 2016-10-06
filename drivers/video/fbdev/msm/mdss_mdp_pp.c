@@ -2190,7 +2190,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix,
 	if (hist_info->col_en)
 		mdss_mdp_hist_irq_set_mask(intr_mask << hist_info->intr_shift);
 	/*
-	 * Starting from msmcobalt, the histogram enable bit has been moved
+	 * Starting from msm8998, the histogram enable bit has been moved
 	 * from DSPP opmode register to PA_HIST opmode register, hence we need
 	 * to update the histogram enable bit differently based on mdss version.
 	 * If HIST pp_set_config is defined, we will enable or disable the

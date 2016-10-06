@@ -19,12 +19,12 @@ ifeq ($(CONFIG_COMMON_CLK_MSM), y)
 	obj-$(CONFIG_ARCH_MSM8996) += clock-cpu-8996.o
 endif
 
-# MSM COBALT
+# MSM 8998
 ifeq ($(CONFIG_COMMON_CLK_MSM), y)
-	obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-gcc-cobalt.o
-	obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-gpu-cobalt.o
-	obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-mmss-cobalt.o
-	obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-osm.o
+	obj-$(CONFIG_ARCH_MSM8998)	+= clock-gcc-8998.o
+	obj-$(CONFIG_ARCH_MSM8998)	+= clock-gpu-8998.o
+	obj-$(CONFIG_ARCH_MSM8998)	+= clock-mmss-8998.o
+	obj-$(CONFIG_ARCH_MSM8998)	+= clock-osm.o
 endif
 
 obj-$(CONFIG_COMMON_CLK_MSM)	+= gdsc.o

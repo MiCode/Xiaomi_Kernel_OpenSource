@@ -35,10 +35,10 @@
 
 #include "cpr3-regulator.h"
 
-#define MSMCOBALT_KBSS_FUSE_CORNERS	4
+#define MSM8998_KBSS_FUSE_CORNERS	4
 
 /**
- * struct cprh_msmcobalt_kbss_fuses - KBSS specific fuse data for MSMCOBALT
+ * struct cprh_msm8998_kbss_fuses - KBSS specific fuse data for MSM8998
  * @ro_sel:		Ring oscillator select fuse parameter value for each
  *			fuse corner
  * @init_voltage:	Initial (i.e. open-loop) voltage fuse parameter value
@@ -53,17 +53,17 @@
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
  * @force_highest_corner:	Flag indicating that all corners must operate
  *			at the voltage of the highest corner.  This is
- *			applicable to MSMCOBALT only.
+ *			applicable to MSM8998 only.
  * @aging_init_quot_diff:	Initial quotient difference between CPR aging
  *			min and max sensors measured at time of manufacturing
  *
  * This struct holds the values for all of the fuses read from memory.
  */
-struct cprh_msmcobalt_kbss_fuses {
-	u64	ro_sel[MSMCOBALT_KBSS_FUSE_CORNERS];
-	u64	init_voltage[MSMCOBALT_KBSS_FUSE_CORNERS];
-	u64	target_quot[MSMCOBALT_KBSS_FUSE_CORNERS];
-	u64	quot_offset[MSMCOBALT_KBSS_FUSE_CORNERS];
+struct cprh_msm8998_kbss_fuses {
+	u64	ro_sel[MSM8998_KBSS_FUSE_CORNERS];
+	u64	init_voltage[MSM8998_KBSS_FUSE_CORNERS];
+	u64	target_quot[MSM8998_KBSS_FUSE_CORNERS];
+	u64	quot_offset[MSM8998_KBSS_FUSE_CORNERS];
 	u64	speed_bin;
 	u64	cpr_fusing_rev;
 	u64	force_highest_corner;
@@ -74,35 +74,35 @@ struct cprh_msmcobalt_kbss_fuses {
  * Fuse combos 0 - 7 map to CPR fusing revision 0 - 7 with speed bin fuse = 0.
  * Fuse combos 8 - 15 map to CPR fusing revision 0 - 7 with speed bin fuse = 1.
  */
-#define CPRH_MSMCOBALT_KBSS_FUSE_COMBO_COUNT 16
+#define CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT 16
 
 /*
  * Constants which define the name of each fuse corner.
  */
-enum cprh_msmcobalt_kbss_fuse_corner {
-	CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS		= 0,
-	CPRH_MSMCOBALT_KBSS_FUSE_CORNER_SVS		= 1,
-	CPRH_MSMCOBALT_KBSS_FUSE_CORNER_NOM		= 2,
-	CPRH_MSMCOBALT_KBSS_FUSE_CORNER_TURBO_L1	= 3,
+enum cprh_msm8998_kbss_fuse_corner {
+	CPRH_MSM8998_KBSS_FUSE_CORNER_LOWSVS		= 0,
+	CPRH_MSM8998_KBSS_FUSE_CORNER_SVS		= 1,
+	CPRH_MSM8998_KBSS_FUSE_CORNER_NOM		= 2,
+	CPRH_MSM8998_KBSS_FUSE_CORNER_TURBO_L1	= 3,
 };
 
-static const char * const cprh_msmcobalt_kbss_fuse_corner_name[] = {
-	[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
-	[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_SVS]		= "SVS",
-	[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_NOM]		= "NOM",
-	[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
+static const char * const cprh_msm8998_kbss_fuse_corner_name[] = {
+	[CPRH_MSM8998_KBSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
+	[CPRH_MSM8998_KBSS_FUSE_CORNER_SVS]		= "SVS",
+	[CPRH_MSM8998_KBSS_FUSE_CORNER_NOM]		= "NOM",
+	[CPRH_MSM8998_KBSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
 };
 
 /* KBSS cluster IDs */
-#define MSMCOBALT_KBSS_POWER_CLUSTER_ID 0
-#define MSMCOBALT_KBSS_PERFORMANCE_CLUSTER_ID 1
+#define MSM8998_KBSS_POWER_CLUSTER_ID 0
+#define MSM8998_KBSS_PERFORMANCE_CLUSTER_ID 1
 
 /* KBSS controller IDs */
-#define MSMCOBALT_KBSS_MIN_CONTROLLER_ID 0
-#define MSMCOBALT_KBSS_MAX_CONTROLLER_ID 1
+#define MSM8998_KBSS_MIN_CONTROLLER_ID 0
+#define MSM8998_KBSS_MAX_CONTROLLER_ID 1
 
 /*
- * MSMCOBALT KBSS fuse parameter locations:
+ * MSM8998 KBSS fuse parameter locations:
  *
  * Structs are organized with the following dimensions:
  *	Outer:  0 or 1 for power or performance cluster
@@ -116,14 +116,14 @@ static const char * const cprh_msmcobalt_kbss_fuse_corner_name[] = {
  *
  */
 static const struct cpr3_fuse_param
-msmcobalt_kbss_ro_sel_param[2][MSMCOBALT_KBSS_FUSE_CORNERS][2] = {
-	[MSMCOBALT_KBSS_POWER_CLUSTER_ID] = {
+msm8998_kbss_ro_sel_param[2][MSM8998_KBSS_FUSE_CORNERS][2] = {
+	[MSM8998_KBSS_POWER_CLUSTER_ID] = {
 		{{67, 12, 15}, {} },
 		{{67,  8, 11}, {} },
 		{{67,  4,  7}, {} },
 		{{67,  0,  3}, {} },
 	},
-	[MSMCOBALT_KBSS_PERFORMANCE_CLUSTER_ID] = {
+	[MSM8998_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{{69, 26, 29}, {} },
 		{{69, 22, 25}, {} },
 		{{69, 18, 21}, {} },
@@ -132,14 +132,14 @@ msmcobalt_kbss_ro_sel_param[2][MSMCOBALT_KBSS_FUSE_CORNERS][2] = {
 };
 
 static const struct cpr3_fuse_param
-msmcobalt_kbss_init_voltage_param[2][MSMCOBALT_KBSS_FUSE_CORNERS][2] = {
-	[MSMCOBALT_KBSS_POWER_CLUSTER_ID] = {
+msm8998_kbss_init_voltage_param[2][MSM8998_KBSS_FUSE_CORNERS][2] = {
+	[MSM8998_KBSS_POWER_CLUSTER_ID] = {
 		{{67, 34, 39}, {} },
 		{{67, 28, 33}, {} },
 		{{67, 22, 27}, {} },
 		{{67, 16, 21}, {} },
 	},
-	[MSMCOBALT_KBSS_PERFORMANCE_CLUSTER_ID] = {
+	[MSM8998_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{{69, 48, 53}, {} },
 		{{69, 42, 47}, {} },
 		{{69, 36, 41}, {} },
@@ -148,14 +148,14 @@ msmcobalt_kbss_init_voltage_param[2][MSMCOBALT_KBSS_FUSE_CORNERS][2] = {
 };
 
 static const struct cpr3_fuse_param
-msmcobalt_kbss_target_quot_param[2][MSMCOBALT_KBSS_FUSE_CORNERS][3] = {
-	[MSMCOBALT_KBSS_POWER_CLUSTER_ID] = {
+msm8998_kbss_target_quot_param[2][MSM8998_KBSS_FUSE_CORNERS][3] = {
+	[MSM8998_KBSS_POWER_CLUSTER_ID] = {
 		{{68, 18, 29}, {} },
 		{{68,  6, 17}, {} },
 		{{67, 58, 63}, {68,  0,  5} },
 		{{67, 46, 57}, {} },
 	},
-	[MSMCOBALT_KBSS_PERFORMANCE_CLUSTER_ID] = {
+	[MSM8998_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{{70, 32, 43}, {} },
 		{{70, 20, 31}, {} },
 		{{70,  8, 19}, {} },
@@ -164,14 +164,14 @@ msmcobalt_kbss_target_quot_param[2][MSMCOBALT_KBSS_FUSE_CORNERS][3] = {
 };
 
 static const struct cpr3_fuse_param
-msmcobalt_kbss_quot_offset_param[2][MSMCOBALT_KBSS_FUSE_CORNERS][3] = {
-	[MSMCOBALT_KBSS_POWER_CLUSTER_ID] = {
+msm8998_kbss_quot_offset_param[2][MSM8998_KBSS_FUSE_CORNERS][3] = {
+	[MSM8998_KBSS_POWER_CLUSTER_ID] = {
 		{{} },
 		{{68, 63, 63}, {69, 0, 5}, {} },
 		{{68, 56, 62}, {} },
 		{{68, 49, 55}, {} },
 	},
-	[MSMCOBALT_KBSS_PERFORMANCE_CLUSTER_ID] = {
+	[MSM8998_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{{} },
 		{{71, 13, 15}, {71, 21, 24}, {} },
 		{{71,  6, 12}, {} },
@@ -179,39 +179,39 @@ msmcobalt_kbss_quot_offset_param[2][MSMCOBALT_KBSS_FUSE_CORNERS][3] = {
 	},
 };
 
-static const struct cpr3_fuse_param msmcobalt_cpr_fusing_rev_param[] = {
+static const struct cpr3_fuse_param msm8998_cpr_fusing_rev_param[] = {
 	{39, 51, 53},
 	{},
 };
 
-static const struct cpr3_fuse_param msmcobalt_kbss_speed_bin_param[] = {
+static const struct cpr3_fuse_param msm8998_kbss_speed_bin_param[] = {
 	{38, 29, 31},
 	{},
 };
 
 static const struct cpr3_fuse_param
-msmcobalt_cpr_force_highest_corner_param[] = {
+msm8998_cpr_force_highest_corner_param[] = {
 	{100, 45, 45},
 	{},
 };
 
 static const struct cpr3_fuse_param
-msmcobalt_kbss_aging_init_quot_diff_param[2][2] = {
-	[MSMCOBALT_KBSS_POWER_CLUSTER_ID] = {
+msm8998_kbss_aging_init_quot_diff_param[2][2] = {
+	[MSM8998_KBSS_POWER_CLUSTER_ID] = {
 		{69, 6, 13},
 		{},
 	},
-	[MSMCOBALT_KBSS_PERFORMANCE_CLUSTER_ID] = {
+	[MSM8998_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{71, 25, 32},
 		{},
 	},
 };
 
 /*
- * Open loop voltage fuse reference voltages in microvolts for MSMCOBALT v1
+ * Open loop voltage fuse reference voltages in microvolts for MSM8998 v1
  */
 static const int
-msmcobalt_v1_kbss_fuse_ref_volt[MSMCOBALT_KBSS_FUSE_CORNERS] = {
+msm8998_v1_kbss_fuse_ref_volt[MSM8998_KBSS_FUSE_CORNERS] = {
 	696000,
 	768000,
 	896000,
@@ -219,17 +219,17 @@ msmcobalt_v1_kbss_fuse_ref_volt[MSMCOBALT_KBSS_FUSE_CORNERS] = {
 };
 
 /*
- * Open loop voltage fuse reference voltages in microvolts for MSMCOBALT v2
+ * Open loop voltage fuse reference voltages in microvolts for MSM8998 v2
  */
 static const int
-msmcobalt_v2_kbss_fuse_ref_volt[2][MSMCOBALT_KBSS_FUSE_CORNERS] = {
-	[MSMCOBALT_KBSS_POWER_CLUSTER_ID] = {
+msm8998_v2_kbss_fuse_ref_volt[2][MSM8998_KBSS_FUSE_CORNERS] = {
+	[MSM8998_KBSS_POWER_CLUSTER_ID] = {
 		688000,
 		756000,
 		828000,
 		1056000,
 	},
-	[MSMCOBALT_KBSS_PERFORMANCE_CLUSTER_ID] = {
+	[MSM8998_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		756000,
 		756000,
 		828000,
@@ -237,55 +237,55 @@ msmcobalt_v2_kbss_fuse_ref_volt[2][MSMCOBALT_KBSS_FUSE_CORNERS] = {
 	},
 };
 
-#define MSMCOBALT_KBSS_FUSE_STEP_VOLT		10000
-#define MSMCOBALT_KBSS_VOLTAGE_FUSE_SIZE	6
-#define MSMCOBALT_KBSS_QUOT_OFFSET_SCALE	5
-#define MSMCOBALT_KBSS_AGING_INIT_QUOT_DIFF_SIZE	8
-#define MSMCOBALT_KBSS_AGING_INIT_QUOT_DIFF_SCALE	1
+#define MSM8998_KBSS_FUSE_STEP_VOLT		10000
+#define MSM8998_KBSS_VOLTAGE_FUSE_SIZE	6
+#define MSM8998_KBSS_QUOT_OFFSET_SCALE	5
+#define MSM8998_KBSS_AGING_INIT_QUOT_DIFF_SIZE	8
+#define MSM8998_KBSS_AGING_INIT_QUOT_DIFF_SCALE	1
 
-#define MSMCOBALT_KBSS_POWER_CPR_SENSOR_COUNT	6
-#define MSMCOBALT_KBSS_PERFORMANCE_CPR_SENSOR_COUNT	9
+#define MSM8998_KBSS_POWER_CPR_SENSOR_COUNT	6
+#define MSM8998_KBSS_PERFORMANCE_CPR_SENSOR_COUNT	9
 
-#define MSMCOBALT_KBSS_CPR_CLOCK_RATE		19200000
+#define MSM8998_KBSS_CPR_CLOCK_RATE		19200000
 
-#define MSMCOBALT_KBSS_MAX_CORNER_BAND_COUNT	4
-#define MSMCOBALT_KBSS_MAX_CORNER_COUNT		40
+#define MSM8998_KBSS_MAX_CORNER_BAND_COUNT	4
+#define MSM8998_KBSS_MAX_CORNER_COUNT		40
 
-#define MSMCOBALT_KBSS_CPR_SDELTA_CORE_COUNT	4
+#define MSM8998_KBSS_CPR_SDELTA_CORE_COUNT	4
 
-#define MSMCOBALT_KBSS_MAX_TEMP_POINTS		3
-#define MSMCOBALT_KBSS_POWER_TEMP_SENSOR_ID_START	1
-#define MSMCOBALT_KBSS_POWER_TEMP_SENSOR_ID_END		5
-#define MSMCOBALT_KBSS_PERFORMANCE_TEMP_SENSOR_ID_START	6
-#define MSMCOBALT_KBSS_PERFORMANCE_TEMP_SENSOR_ID_END	10
+#define MSM8998_KBSS_MAX_TEMP_POINTS		3
+#define MSM8998_KBSS_POWER_TEMP_SENSOR_ID_START	1
+#define MSM8998_KBSS_POWER_TEMP_SENSOR_ID_END		5
+#define MSM8998_KBSS_PERFORMANCE_TEMP_SENSOR_ID_START	6
+#define MSM8998_KBSS_PERFORMANCE_TEMP_SENSOR_ID_END	10
 
-#define MSMCOBALT_KBSS_POWER_AGING_SENSOR_ID		0
-#define MSMCOBALT_KBSS_POWER_AGING_BYPASS_MASK0		0
+#define MSM8998_KBSS_POWER_AGING_SENSOR_ID		0
+#define MSM8998_KBSS_POWER_AGING_BYPASS_MASK0		0
 
-#define MSMCOBALT_KBSS_PERFORMANCE_AGING_SENSOR_ID	0
-#define MSMCOBALT_KBSS_PERFORMANCE_AGING_BYPASS_MASK0	0
+#define MSM8998_KBSS_PERFORMANCE_AGING_SENSOR_ID	0
+#define MSM8998_KBSS_PERFORMANCE_AGING_BYPASS_MASK0	0
 
 /**
- * cprh_msmcobalt_kbss_read_fuse_data() - load KBSS specific fuse parameter values
+ * cprh_msm8998_kbss_read_fuse_data() - load KBSS specific fuse parameter values
  * @vreg:		Pointer to the CPR3 regulator
  *
- * This function allocates a cprh_msmcobalt_kbss_fuses struct, fills it with
+ * This function allocates a cprh_msm8998_kbss_fuses struct, fills it with
  * values read out of hardware fuses, and finally copies common fuse values
  * into the CPR3 regulator struct.
  *
  * Return: 0 on success, errno on failure
  */
-static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
+static int cprh_msm8998_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 {
 	void __iomem *base = vreg->thread->ctrl->fuse_base;
-	struct cprh_msmcobalt_kbss_fuses *fuse;
+	struct cprh_msm8998_kbss_fuses *fuse;
 	int i, id, rc;
 
 	fuse = devm_kzalloc(vreg->thread->ctrl->dev, sizeof(*fuse), GFP_KERNEL);
 	if (!fuse)
 		return -ENOMEM;
 
-	rc = cpr3_read_fuse_param(base, msmcobalt_kbss_speed_bin_param,
+	rc = cpr3_read_fuse_param(base, msm8998_kbss_speed_bin_param,
 				&fuse->speed_bin);
 	if (rc) {
 		cpr3_err(vreg, "Unable to read speed bin fuse, rc=%d\n", rc);
@@ -293,7 +293,7 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 	}
 	cpr3_info(vreg, "speed bin = %llu\n", fuse->speed_bin);
 
-	rc = cpr3_read_fuse_param(base, msmcobalt_cpr_fusing_rev_param,
+	rc = cpr3_read_fuse_param(base, msm8998_cpr_fusing_rev_param,
 				&fuse->cpr_fusing_rev);
 	if (rc) {
 		cpr3_err(vreg, "Unable to read CPR fusing revision fuse, rc=%d\n",
@@ -304,9 +304,9 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 
 	id = vreg->thread->ctrl->ctrl_id;
 
-	for (i = 0; i < MSMCOBALT_KBSS_FUSE_CORNERS; i++) {
+	for (i = 0; i < MSM8998_KBSS_FUSE_CORNERS; i++) {
 		rc = cpr3_read_fuse_param(base,
-				msmcobalt_kbss_init_voltage_param[id][i],
+				msm8998_kbss_init_voltage_param[id][i],
 				&fuse->init_voltage[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d initial voltage fuse, rc=%d\n",
@@ -315,7 +315,7 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 
 		rc = cpr3_read_fuse_param(base,
-				msmcobalt_kbss_target_quot_param[id][i],
+				msm8998_kbss_target_quot_param[id][i],
 				&fuse->target_quot[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d target quotient fuse, rc=%d\n",
@@ -324,7 +324,7 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 
 		rc = cpr3_read_fuse_param(base,
-				msmcobalt_kbss_ro_sel_param[id][i],
+				msm8998_kbss_ro_sel_param[id][i],
 				&fuse->ro_sel[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d RO select fuse, rc=%d\n",
@@ -333,7 +333,7 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 
 		rc = cpr3_read_fuse_param(base,
-				msmcobalt_kbss_quot_offset_param[id][i],
+				msm8998_kbss_quot_offset_param[id][i],
 				&fuse->quot_offset[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d quotient offset fuse, rc=%d\n",
@@ -344,7 +344,7 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 	}
 
 	rc = cpr3_read_fuse_param(base,
-				msmcobalt_kbss_aging_init_quot_diff_param[id],
+				msm8998_kbss_aging_init_quot_diff_param[id],
 				&fuse->aging_init_quot_diff);
 	if (rc) {
 		cpr3_err(vreg, "Unable to read aging initial quotient difference fuse, rc=%d\n",
@@ -353,7 +353,7 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 	}
 
 	rc = cpr3_read_fuse_param(base,
-		  msmcobalt_cpr_force_highest_corner_param,
+		  msm8998_cpr_force_highest_corner_param,
 		  &fuse->force_highest_corner);
 	if (rc) {
 		cpr3_err(vreg, "Unable to read CPR force highest corner fuse, rc=%d\n",
@@ -365,7 +365,7 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		cpr3_info(vreg, "Fusing requires all operation at the highest corner\n");
 
 	vreg->fuse_combo = fuse->cpr_fusing_rev + 8 * fuse->speed_bin;
-	if (vreg->fuse_combo >= CPRH_MSMCOBALT_KBSS_FUSE_COMBO_COUNT) {
+	if (vreg->fuse_combo >= CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT) {
 		cpr3_err(vreg, "invalid CPR fuse combo = %d found\n",
 			vreg->fuse_combo);
 		return -EINVAL;
@@ -373,7 +373,7 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 
 	vreg->speed_bin_fuse	= fuse->speed_bin;
 	vreg->cpr_rev_fuse	= fuse->cpr_fusing_rev;
-	vreg->fuse_corner_count	= MSMCOBALT_KBSS_FUSE_CORNERS;
+	vreg->fuse_corner_count	= MSM8998_KBSS_FUSE_CORNERS;
 	vreg->platform_fuses	= fuse;
 
 	return 0;
@@ -397,13 +397,13 @@ static int cprh_kbss_parse_corner_data(struct cpr3_regulator *vreg)
 	}
 
 	/*
-	 * A total of MSMCOBALT_KBSS_MAX_CORNER_COUNT - 1 corners
+	 * A total of MSM8998_KBSS_MAX_CORNER_COUNT - 1 corners
 	 * may be specified in device tree as an additional corner
 	 * must be allocated to correspond to the APM crossover voltage.
 	 */
-	if (vreg->corner_count > MSMCOBALT_KBSS_MAX_CORNER_COUNT - 1) {
+	if (vreg->corner_count > MSM8998_KBSS_MAX_CORNER_COUNT - 1) {
 		cpr3_err(vreg, "corner count %d exceeds supported maximum %d\n",
-		 vreg->corner_count, MSMCOBALT_KBSS_MAX_CORNER_COUNT - 1);
+		 vreg->corner_count, MSM8998_KBSS_MAX_CORNER_COUNT - 1);
 		return -EINVAL;
 	}
 
@@ -411,7 +411,7 @@ static int cprh_kbss_parse_corner_data(struct cpr3_regulator *vreg)
 }
 
 /**
- * cprh_msmcobalt_kbss_calculate_open_loop_voltages() - calculate the open-loop
+ * cprh_msm8998_kbss_calculate_open_loop_voltages() - calculate the open-loop
  *		voltage for each corner of a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
  *
@@ -427,11 +427,11 @@ static int cprh_kbss_parse_corner_data(struct cpr3_regulator *vreg)
  *
  * Return: 0 on success, errno on failure
  */
-static int cprh_msmcobalt_kbss_calculate_open_loop_voltages(
+static int cprh_msm8998_kbss_calculate_open_loop_voltages(
 			struct cpr3_regulator *vreg)
 {
 	struct device_node *node = vreg->of_node;
-	struct cprh_msmcobalt_kbss_fuses *fuse = vreg->platform_fuses;
+	struct cprh_msm8998_kbss_fuses *fuse = vreg->platform_fuses;
 	int i, j, soc_revision, id, rc = 0;
 	bool allow_interpolation;
 	u64 freq_low, volt_low, freq_high, volt_high;
@@ -451,19 +451,19 @@ static int cprh_msmcobalt_kbss_calculate_open_loop_voltages(
 	id = vreg->thread->ctrl->ctrl_id;
 	soc_revision = vreg->thread->ctrl->soc_revision;
 	if (soc_revision == 1)
-		ref_volt = msmcobalt_v1_kbss_fuse_ref_volt;
+		ref_volt = msm8998_v1_kbss_fuse_ref_volt;
 	else
-		ref_volt = msmcobalt_v2_kbss_fuse_ref_volt[id];
+		ref_volt = msm8998_v2_kbss_fuse_ref_volt[id];
 
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(
 			ref_volt[i],
-			MSMCOBALT_KBSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
-			MSMCOBALT_KBSS_VOLTAGE_FUSE_SIZE);
+			MSM8998_KBSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
+			MSM8998_KBSS_VOLTAGE_FUSE_SIZE);
 
 		/* Log fused open-loop voltage values for debugging purposes. */
 		cpr3_info(vreg, "fused %8s: open-loop=%7d uV\n",
-			  cprh_msmcobalt_kbss_fuse_corner_name[i],
+			  cprh_msm8998_kbss_fuse_corner_name[i],
 			  fuse_volt[i]);
 	}
 
@@ -547,7 +547,7 @@ done:
 }
 
 /**
- * cprh_msmcobalt_partial_binning_override() - override the voltage and quotient
+ * cprh_msm8998_partial_binning_override() - override the voltage and quotient
  *		settings for low corners based upon special partial binning
  *		fuse values
  *
@@ -559,9 +559,9 @@ done:
  *
  * Return: 0 on success, errno on failure
  */
-static int cprh_msmcobalt_partial_binning_override(struct cpr3_regulator *vreg)
+static int cprh_msm8998_partial_binning_override(struct cpr3_regulator *vreg)
 {
-	struct cprh_msmcobalt_kbss_fuses *fuse = vreg->platform_fuses;
+	struct cprh_msm8998_kbss_fuses *fuse = vreg->platform_fuses;
 	struct cpr3_corner *corner;
 	struct cpr4_sdelta *sdelta;
 	int i;
@@ -657,11 +657,11 @@ static int cprh_kbss_parse_core_count_temp_adj_properties(
 	kfree(combo_corner_bands);
 
 	if (vreg->corner_band_count <= 0 ||
-	    vreg->corner_band_count > MSMCOBALT_KBSS_MAX_CORNER_BAND_COUNT ||
+	    vreg->corner_band_count > MSM8998_KBSS_MAX_CORNER_BAND_COUNT ||
 	    vreg->corner_band_count > vreg->corner_count) {
 		cpr3_err(vreg, "invalid corner band count %d > %d (max) for %d corners\n",
 			 vreg->corner_band_count,
-			 MSMCOBALT_KBSS_MAX_CORNER_BAND_COUNT,
+			 MSM8998_KBSS_MAX_CORNER_BAND_COUNT,
 			 vreg->corner_count);
 		return -EINVAL;
 	}
@@ -759,9 +759,9 @@ static int cprh_kbss_parse_core_count_temp_adj_properties(
 
 	temp_point_count = len / sizeof(u32);
 	if (temp_point_count <= 0 || temp_point_count >
-	    MSMCOBALT_KBSS_MAX_TEMP_POINTS) {
+	    MSM8998_KBSS_MAX_TEMP_POINTS) {
 		cpr3_err(ctrl, "invalid number of temperature points %d > %d (max)\n",
-			 temp_point_count, MSMCOBALT_KBSS_MAX_TEMP_POINTS);
+			 temp_point_count, MSM8998_KBSS_MAX_TEMP_POINTS);
 		rc = -EINVAL;
 		goto free_temp;
 	}
@@ -810,13 +810,13 @@ static int cprh_kbss_parse_core_count_temp_adj_properties(
 	}
 
 	ctrl->temp_sensor_id_start = ctrl->ctrl_id ==
-		MSMCOBALT_KBSS_POWER_CLUSTER_ID
-		? MSMCOBALT_KBSS_POWER_TEMP_SENSOR_ID_START :
-		MSMCOBALT_KBSS_PERFORMANCE_TEMP_SENSOR_ID_START;
+		MSM8998_KBSS_POWER_CLUSTER_ID
+		? MSM8998_KBSS_POWER_TEMP_SENSOR_ID_START :
+		MSM8998_KBSS_PERFORMANCE_TEMP_SENSOR_ID_START;
 	ctrl->temp_sensor_id_end = ctrl->ctrl_id ==
-		MSMCOBALT_KBSS_POWER_CLUSTER_ID
-		? MSMCOBALT_KBSS_PERFORMANCE_TEMP_SENSOR_ID_START :
-		MSMCOBALT_KBSS_PERFORMANCE_TEMP_SENSOR_ID_END;
+		MSM8998_KBSS_POWER_CLUSTER_ID
+		? MSM8998_KBSS_PERFORMANCE_TEMP_SENSOR_ID_START :
+		MSM8998_KBSS_PERFORMANCE_TEMP_SENSOR_ID_END;
 	ctrl->allow_temp_adj = true;
 
 	return 0;
@@ -866,7 +866,7 @@ static int cprh_kbss_apm_crossover_as_corner(struct cpr3_regulator *vreg)
 }
 
 /**
- * cprh_msmcobalt_kbss_set_no_interpolation_quotients() - use the fused target
+ * cprh_msm8998_kbss_set_no_interpolation_quotients() - use the fused target
  *		quotient values for lower frequencies.
  * @vreg:		Pointer to the CPR3 regulator
  * @volt_adjust:	Pointer to array of per-corner closed-loop adjustment
@@ -878,11 +878,11 @@ static int cprh_kbss_apm_crossover_as_corner(struct cpr3_regulator *vreg)
  *
  * Return: 0 on success, errno on failure
  */
-static int cprh_msmcobalt_kbss_set_no_interpolation_quotients(
+static int cprh_msm8998_kbss_set_no_interpolation_quotients(
 			struct cpr3_regulator *vreg, int *volt_adjust,
 			int *volt_adjust_fuse, int *ro_scale)
 {
-	struct cprh_msmcobalt_kbss_fuses *fuse = vreg->platform_fuses;
+	struct cprh_msm8998_kbss_fuses *fuse = vreg->platform_fuses;
 	u32 quot, ro;
 	int quot_adjust;
 	int i, fuse_corner;
@@ -909,7 +909,7 @@ static int cprh_msmcobalt_kbss_set_no_interpolation_quotients(
 }
 
 /**
- * cprh_msmcobalt_kbss_calculate_target_quotients() - calculate the CPR target
+ * cprh_msm8998_kbss_calculate_target_quotients() - calculate the CPR target
  *		quotient for each corner of a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
  *
@@ -925,10 +925,10 @@ static int cprh_msmcobalt_kbss_set_no_interpolation_quotients(
  *
  * Return: 0 on success, errno on failure
  */
-static int cprh_msmcobalt_kbss_calculate_target_quotients(
+static int cprh_msm8998_kbss_calculate_target_quotients(
 			struct cpr3_regulator *vreg)
 {
-	struct cprh_msmcobalt_kbss_fuses *fuse = vreg->platform_fuses;
+	struct cprh_msm8998_kbss_fuses *fuse = vreg->platform_fuses;
 	int rc;
 	bool allow_interpolation;
 	u64 freq_low, freq_high, prev_quot;
@@ -941,15 +941,15 @@ static int cprh_msmcobalt_kbss_calculate_target_quotients(
 
 	/* Log fused quotient values for debugging purposes. */
 	cpr3_info(vreg, "fused   LowSVS: quot[%2llu]=%4llu\n",
-		fuse->ro_sel[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS],
-		fuse->target_quot[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS]);
-	for (i = CPRH_MSMCOBALT_KBSS_FUSE_CORNER_SVS;
-		i <= CPRH_MSMCOBALT_KBSS_FUSE_CORNER_TURBO_L1; i++)
+		fuse->ro_sel[CPRH_MSM8998_KBSS_FUSE_CORNER_LOWSVS],
+		fuse->target_quot[CPRH_MSM8998_KBSS_FUSE_CORNER_LOWSVS]);
+	for (i = CPRH_MSM8998_KBSS_FUSE_CORNER_SVS;
+		i <= CPRH_MSM8998_KBSS_FUSE_CORNER_TURBO_L1; i++)
 		cpr3_info(vreg, "fused %8s: quot[%2llu]=%4llu, quot_offset[%2llu]=%4llu\n",
-			cprh_msmcobalt_kbss_fuse_corner_name[i],
+			cprh_msm8998_kbss_fuse_corner_name[i],
 			fuse->ro_sel[i], fuse->target_quot[i],
 			fuse->ro_sel[i], fuse->quot_offset[i] *
-			MSMCOBALT_KBSS_QUOT_OFFSET_SCALE);
+			MSM8998_KBSS_QUOT_OFFSET_SCALE);
 
 	allow_interpolation = of_property_read_bool(vreg->of_node,
 					"qcom,allow-quotient-interpolation");
@@ -982,7 +982,7 @@ static int cprh_msmcobalt_kbss_calculate_target_quotients(
 
 	if (!allow_interpolation) {
 		/* Use fused target quotients for lower frequencies. */
-		return cprh_msmcobalt_kbss_set_no_interpolation_quotients(
+		return cprh_msm8998_kbss_set_no_interpolation_quotients(
 				vreg, volt_adjust, volt_adjust_fuse, ro_scale);
 	}
 
@@ -1004,7 +1004,7 @@ static int cprh_msmcobalt_kbss_calculate_target_quotients(
 	 * Interpolation is not possible for corners mapped to the lowest fuse
 	 * corner so use the fuse corner value directly.
 	 */
-	i = CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS;
+	i = CPRH_MSM8998_KBSS_FUSE_CORNER_LOWSVS;
 	quot_adjust = cpr3_quot_adjustment(ro_scale[i], volt_adjust_fuse[i]);
 	quot = fuse->target_quot[i] + quot_adjust;
 	quot_high[i] = quot_low[i] = quot;
@@ -1013,11 +1013,11 @@ static int cprh_msmcobalt_kbss_calculate_target_quotients(
 		cpr3_debug(vreg, "adjusted fuse corner %d RO%u target quot: %llu --> %u (%d uV)\n",
 			i, ro, fuse->target_quot[i], quot, volt_adjust_fuse[i]);
 
-	for (i = 0; i <= fmax_corner[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS];
+	for (i = 0; i <= fmax_corner[CPRH_MSM8998_KBSS_FUSE_CORNER_LOWSVS];
 		i++)
 		vreg->corner[i].target_quot[ro] = quot;
 
-	for (i = CPRH_MSMCOBALT_KBSS_FUSE_CORNER_SVS;
+	for (i = CPRH_MSM8998_KBSS_FUSE_CORNER_SVS;
 	     i < vreg->fuse_corner_count; i++) {
 		quot_high[i] = fuse->target_quot[i];
 		if (fuse->ro_sel[i] == fuse->ro_sel[i - 1])
@@ -1025,7 +1025,7 @@ static int cprh_msmcobalt_kbss_calculate_target_quotients(
 		else
 			quot_low[i] = quot_high[i]
 					- fuse->quot_offset[i]
-					  * MSMCOBALT_KBSS_QUOT_OFFSET_SCALE;
+					  * MSM8998_KBSS_QUOT_OFFSET_SCALE;
 		if (quot_high[i] < quot_low[i]) {
 			cpr3_debug(vreg, "quot_high[%d]=%llu < quot_low[%d]=%llu; overriding: quot_high[%d]=%llu\n",
 				i, quot_high[i], i, quot_low[i],
@@ -1163,10 +1163,10 @@ static int cprh_kbss_init_thread(struct cpr3_thread *thread)
  */
 static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 {
-	struct cprh_msmcobalt_kbss_fuses *fuse;
+	struct cprh_msm8998_kbss_fuses *fuse;
 	int rc;
 
-	rc = cprh_msmcobalt_kbss_read_fuse_data(vreg);
+	rc = cprh_msm8998_kbss_read_fuse_data(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to read CPR fuse data, rc=%d\n", rc);
 		return rc;
@@ -1181,7 +1181,7 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
-	rc = cprh_msmcobalt_kbss_calculate_open_loop_voltages(vreg);
+	rc = cprh_msm8998_kbss_calculate_open_loop_voltages(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate open-loop voltages, rc=%d\n",
 			rc);
@@ -1205,7 +1205,7 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
-	rc = cprh_msmcobalt_kbss_calculate_target_quotients(vreg);
+	rc = cprh_msm8998_kbss_calculate_target_quotients(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate target quotients, rc=%d\n",
 			rc);
@@ -1228,13 +1228,13 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 
 	if (vreg->allow_core_count_adj && (vreg->max_core_count <= 0
 				   || vreg->max_core_count >
-				   MSMCOBALT_KBSS_CPR_SDELTA_CORE_COUNT)) {
+				   MSM8998_KBSS_CPR_SDELTA_CORE_COUNT)) {
 		cpr3_err(vreg, "qcom,max-core-count has invalid value = %d\n",
 			 vreg->max_core_count);
 		return -EINVAL;
 	}
 
-	rc = cprh_msmcobalt_partial_binning_override(vreg);
+	rc = cprh_msm8998_partial_binning_override(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to override CPR parameters based on partial binning fuse values, rc=%d\n",
 			 rc);
@@ -1262,7 +1262,7 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
  */
 static int cprh_kbss_init_aging(struct cpr3_controller *ctrl)
 {
-	struct cprh_msmcobalt_kbss_fuses *fuse = NULL;
+	struct cprh_msm8998_kbss_fuses *fuse = NULL;
 	struct cpr3_regulator *vreg;
 	u32 aging_ro_scale;
 	int i, j, rc;
@@ -1300,24 +1300,24 @@ static int cprh_kbss_init_aging(struct cpr3_controller *ctrl)
 	if (!ctrl->aging_sensor)
 		return -ENOMEM;
 
-	if (ctrl->ctrl_id == MSMCOBALT_KBSS_POWER_CLUSTER_ID) {
+	if (ctrl->ctrl_id == MSM8998_KBSS_POWER_CLUSTER_ID) {
 		ctrl->aging_sensor->sensor_id
-			= MSMCOBALT_KBSS_POWER_AGING_SENSOR_ID;
+			= MSM8998_KBSS_POWER_AGING_SENSOR_ID;
 		ctrl->aging_sensor->bypass_mask[0]
-			= MSMCOBALT_KBSS_POWER_AGING_BYPASS_MASK0;
+			= MSM8998_KBSS_POWER_AGING_BYPASS_MASK0;
 	} else  {
 		ctrl->aging_sensor->sensor_id
-			= MSMCOBALT_KBSS_PERFORMANCE_AGING_SENSOR_ID;
+			= MSM8998_KBSS_PERFORMANCE_AGING_SENSOR_ID;
 		ctrl->aging_sensor->bypass_mask[0]
-			= MSMCOBALT_KBSS_PERFORMANCE_AGING_BYPASS_MASK0;
+			= MSM8998_KBSS_PERFORMANCE_AGING_BYPASS_MASK0;
 	}
 	ctrl->aging_sensor->ro_scale = aging_ro_scale;
 
 	ctrl->aging_sensor->init_quot_diff
 		= cpr3_convert_open_loop_voltage_fuse(0,
-			MSMCOBALT_KBSS_AGING_INIT_QUOT_DIFF_SCALE,
+			MSM8998_KBSS_AGING_INIT_QUOT_DIFF_SCALE,
 			fuse->aging_init_quot_diff,
-			MSMCOBALT_KBSS_AGING_INIT_QUOT_DIFF_SIZE);
+			MSM8998_KBSS_AGING_INIT_QUOT_DIFF_SIZE);
 
 	cpr3_debug(ctrl, "sensor %u aging init quotient diff = %d, aging RO scale = %u QUOT/V\n",
 		ctrl->aging_sensor->sensor_id,
@@ -1355,8 +1355,8 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
-	if (ctrl->ctrl_id < MSMCOBALT_KBSS_MIN_CONTROLLER_ID ||
-	    ctrl->ctrl_id > MSMCOBALT_KBSS_MAX_CONTROLLER_ID) {
+	if (ctrl->ctrl_id < MSM8998_KBSS_MIN_CONTROLLER_ID ||
+	    ctrl->ctrl_id > MSM8998_KBSS_MAX_CONTROLLER_ID) {
 		cpr3_err(ctrl, "invalid qcom,cpr-controller-id specified\n");
 		return -EINVAL;
 	}
@@ -1436,9 +1436,9 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 			     "qcom,cpr-corner-switch-delay-time",
 			     &ctrl->corner_switch_delay_time);
 
-	ctrl->sensor_count = ctrl->ctrl_id == MSMCOBALT_KBSS_POWER_CLUSTER_ID ?
-		MSMCOBALT_KBSS_POWER_CPR_SENSOR_COUNT :
-		MSMCOBALT_KBSS_PERFORMANCE_CPR_SENSOR_COUNT;
+	ctrl->sensor_count = ctrl->ctrl_id == MSM8998_KBSS_POWER_CLUSTER_ID ?
+		MSM8998_KBSS_POWER_CPR_SENSOR_COUNT :
+		MSM8998_KBSS_PERFORMANCE_CPR_SENSOR_COUNT;
 
 	/*
 	 * KBSS only has one thread (0) per controller so the zeroed
@@ -1449,7 +1449,7 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 	if (!ctrl->sensor_owner)
 		return -ENOMEM;
 
-	ctrl->cpr_clock_rate = MSMCOBALT_KBSS_CPR_CLOCK_RATE;
+	ctrl->cpr_clock_rate = MSM8998_KBSS_CPR_CLOCK_RATE;
 	ctrl->supports_hw_closed_loop = true;
 	ctrl->use_hw_closed_loop = of_property_read_bool(ctrl->dev->of_node,
 						 "qcom,cpr-hw-closed-loop");
@@ -1504,15 +1504,15 @@ static int cprh_kbss_regulator_resume(struct platform_device *pdev)
 /* Data corresponds to the SoC revision */
 static struct of_device_id cprh_regulator_match_table[] = {
 	{
-		.compatible =  "qcom,cprh-msmcobalt-v1-kbss-regulator",
+		.compatible =  "qcom,cprh-msm8998-v1-kbss-regulator",
 		.data = (void *)(uintptr_t)1
 	},
 	{
-		.compatible = "qcom,cprh-msmcobalt-v2-kbss-regulator",
+		.compatible = "qcom,cprh-msm8998-v2-kbss-regulator",
 		.data = (void *)(uintptr_t)2
 	},
 	{
-		.compatible = "qcom,cprh-msmcobalt-kbss-regulator",
+		.compatible = "qcom,cprh-msm8998-kbss-regulator",
 		.data = (void *)(uintptr_t)2
 	},
 	{}

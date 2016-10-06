@@ -88,10 +88,10 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996-cdp")
 #define early_machine_is_msm8929()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8929")
-#define early_machine_is_msmcobalt()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmcobalt")
-#define early_machine_is_apqcobalt()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apqcobalt")
+#define early_machine_is_msm8998()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8998")
+#define early_machine_is_apq8998()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apq8998")
 #define early_machine_is_msmhamster()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmhamster")
 #define early_machine_is_msmfalcon()	\
@@ -131,8 +131,8 @@
 #define early_machine_is_msm8996()	0
 #define early_machine_is_msm8976() 0
 #define early_machine_is_msm8929()	0
-#define early_machine_is_msmcobalt()	0
-#define early_machine_is_apqcobalt()	0
+#define early_machine_is_msm8998()	0
+#define early_machine_is_apq8998()	0
 #define early_machine_is_msmhamster()	0
 #define early_machine_is_msmfalcon()	0
 #define early_machine_is_msmtriton()	0
@@ -192,7 +192,7 @@ enum msm_cpu {
 	MSM_CPU_8996,
 	MSM_CPU_8976,
 	MSM_CPU_8929,
-	MSM_CPU_COBALT,
+	MSM_CPU_8998,
 	MSM_CPU_HAMSTER,
 	MSM_CPU_FALCON,
 	MSM_CPU_TRITON,

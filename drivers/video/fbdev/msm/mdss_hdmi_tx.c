@@ -78,7 +78,7 @@
 #define HDMI_TX_MIN_FPS 20000
 #define HDMI_TX_MAX_FPS 120000
 
-#define HDMI_TX_VERSION_403	0x40000003	/* msmcobalt */
+#define HDMI_TX_VERSION_403	0x40000003	/* msm8998 */
 #define HDMI_GET_MSB(x)		(x >> 8)
 #define HDMI_GET_LSB(x)		(x & 0xff)
 

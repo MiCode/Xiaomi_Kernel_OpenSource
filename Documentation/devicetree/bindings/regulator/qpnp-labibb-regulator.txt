@@ -98,7 +98,7 @@ LAB subnode required properties:
 - interrupts:				Specify the interrupts as per the interrupt
 					encoding.
 					Currently "lab-vreg-ok" is required for
-					LCD mode in pmicobalt. For AMOLED mode,
+					LCD mode in pmi8998. For AMOLED mode,
 					"lab-vreg-ok" is required only when SWIRE
 					control is enabled and skipping 2nd SWIRE
 					pulse is required in pmi8952/8996.

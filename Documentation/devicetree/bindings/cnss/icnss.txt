@@ -53,6 +53,6 @@ Example:
 		   <0 140 0 /* CE10 */ >,
 		   <0 141 0 /* CE11 */ >;
         qcom,wlan-msa-memory = <0x200000>;
-	vdd-0.8-cx-mx-supply = <&pmcobalt_l5>;
+	vdd-0.8-cx-mx-supply = <&pm8998_l5>;
 	qcom,vdd-0.8-cx-mx-config = <800000 800000 2400 1000>;
     };

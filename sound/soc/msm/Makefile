@@ -16,9 +16,9 @@ obj-$(CONFIG_SND_SOC_CPE) += snd-soc-cpe.o
 snd-soc-msm8996-objs := msm8996.o
 obj-$(CONFIG_SND_SOC_MSM8996) += snd-soc-msm8996.o
 
-# for MSMCOBALT sound card driver
-snd-soc-msmcobalt-objs := msmcobalt.o
-obj-$(CONFIG_SND_SOC_MSMCOBALT) += snd-soc-msmcobalt.o
+# for MSM8998 sound card driver
+snd-soc-msm8998-objs := msm8998.o
+obj-$(CONFIG_SND_SOC_MSM8998) += snd-soc-msm8998.o
 
 # for MSMFALCON sound card driver
 snd-soc-msmfalcon-common-objs := msm-audio-pinctrl.o msmfalcon-common.o
@@ -33,4 +33,3 @@ obj-$(CONFIG_SND_SOC_INT_CODEC) += snd-soc-int-codec.o
 snd-soc-ext-codec-objs := msmfalcon-external.o msmfalcon-ext-dai-links.o
 obj-$(CONFIG_SND_SOC_EXT_CODEC) += snd-soc-msmfalcon-common.o
 obj-$(CONFIG_SND_SOC_EXT_CODEC) += snd-soc-ext-codec.o
-

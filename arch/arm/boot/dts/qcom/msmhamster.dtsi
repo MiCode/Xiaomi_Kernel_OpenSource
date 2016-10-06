@@ -13,10 +13,10 @@
 /*
  * As a general rule, only version-specific property overrides should be placed
  * inside this file. Common device definitions should be placed inside the
- * msmcobalt.dtsi file.
+ * msm8998.dtsi file.
  */
 
-#include "msmcobalt-v2.dtsi"
+#include "msm8998-v2.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM HAMSTER";

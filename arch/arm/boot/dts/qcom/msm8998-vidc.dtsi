@@ -1,0 +1,249 @@
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/clock/msm-clocks-8998.h>
+
+&soc {
+	msm_vidc: qcom,vidc@cc00000 {
+		compatible = "qcom,msm-vidc";
+		status = "ok";
+		reg = <0xcc00000 0x100000>;
+		interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,hfi = "venus";
+		qcom,hfi-version = "3xx";
+		qcom,firmware-name = "venus";
+		qcom,never-unload-fw;
+		qcom,sw-power-collapse;
+		qcom,max-secure-instances = <5>;
+		qcom,debug-timeout;
+		qcom,reg-presets =
+			<0x80124 0x00000003>,
+			<0x80550 0x01111111>,
+			<0x80560 0x01111111>,
+			<0x80568 0x01111111>,
+			<0x80570 0x01111111>,
+			<0x80580 0x01111111>,
+			<0x80588 0x01111111>,
+			<0xe2010 0x00000000>;
+
+		qcom,imem-size = <524288>; /* 512 kB */
+		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
+		qcom,load-freq-tbl =
+			/* Encoders */
+			<972000 465000000 0x55555555>, /* 4k UHD @ 30 */
+			<489600 360000000 0x55555555>, /* 1080p @ 60 */
+			<244800 186000000 0x55555555>, /* 1080p @ 30 */
+			<108000 100000000 0x55555555>, /* 720p @ 30 */
+
+			/* Decoders */
+			<1944000 465000000 0xffffffff>, /* 4k UHD @ 60 */
+			< 972000 360000000 0xffffffff>, /* 4k UHD @ 30 */
+			< 489600 186000000 0xffffffff>, /* 1080p @ 60 */
+			< 244800 100000000 0xffffffff>; /* 1080p @ 30 */
+
+		qcom,dcvs-tbl =
+			<972000 972000 19944000 0x3f00000c>, /* UHD 30 */
+			<489600 489600   972000 0x3f00000c>, /* 1080p 60 */
+			<244800 244800   489600 0x3f00000c>, /* 1080p 30 */
+			<829440 489600   972000 0x04000004>; /* DCI 24 */
+
+		qcom,dcvs-limit =
+			<32400 30>, /* Encoder UHD */
+			<14400 30>; /* Decoder WQHD */
+
+		/* Table lists <video_core_freq imem_ab> pairs.
+		* imem_ab value determines the imem clock frequency for the
+		* corresponding video core frequency.
+		*/
+		qcom,imem-ab-tbl =
+			<100000000 1560000>, /* imem @ svs2 freq 75 Mhz */
+			<186000000 3570000>, /* imem @ svs freq 171 Mhz */
+			<360000000 6750000>, /* imem @ nom freq 323 Mhz */
+			<465000000 8490000>; /* imem @ turbo freq 406 Mhz */
+
+		/* Regulators */
+		smmu-vdd-supply = <&gdsc_bimc_smmu>;
+		venus-supply = <&gdsc_venus>;
+		venus-core0-supply = <&gdsc_venus_core0>;
+		venus-core1-supply = <&gdsc_venus_core1>;
+
+		/* Clocks */
+		clock-names = "sys_noc_axi_clk",
+			"noc_axi_clk", "mnoc_ahb_clk",
+			"smmu_ahb_clk", "smmu_axi_clk",
+			"mnoc_maxi_clk",
+			"core_clk", "iface_clk", "bus_clk",
+			"maxi_clk", "core0_clk", "core1_clk";
+		clocks = <&clock_gcc clk_gcc_mmss_sys_noc_axi_clk>,
+			<&clock_gcc clk_mmssnoc_axi_clk>,
+			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
+			<&clock_mmss clk_mmss_mnoc_maxi_clk>,
+			<&clock_mmss clk_mmss_video_core_clk>,
+			<&clock_mmss clk_mmss_video_ahb_clk>,
+			<&clock_mmss clk_mmss_video_axi_clk>,
+			<&clock_mmss clk_mmss_video_maxi_clk>,
+			<&clock_mmss clk_mmss_video_subcore0_clk>,
+			<&clock_mmss clk_mmss_video_subcore1_clk>;
+		qcom,clock-configs = <0x0 0x0 0x0 0x0 0x0 0x0
+				0x3 0x0 0x2 0x2 0x3 0x3>;
+
+		/* Buses */
+		bus_cnoc {
+			compatible = "qcom,msm-vidc,bus";
+			label = "cnoc";
+			qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+
+		venus_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "msm-vidc-ddr";
+			qcom,bus-range-kbps = <1000 3388000>;
+		};
+
+		venus_bus_vmem {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-vmem";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0_OCMEM>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_VMEM>;
+			qcom,bus-governor = "msm-vidc-vmem+";
+			qcom,bus-range-kbps = <1000 8490000>;
+		};
+
+		arm9_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-arm9-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+
+
+		/* MMUs */
+		non_secure_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_ns";
+			iommus =
+				<&mmss_smmu 0x400>,
+				<&mmss_smmu 0x401>,
+				<&mmss_smmu 0x40a>,
+				<&mmss_smmu 0x407>,
+				<&mmss_smmu 0x40e>,
+				<&mmss_smmu 0x40f>,
+				<&mmss_smmu 0x408>,
+				<&mmss_smmu 0x409>,
+				<&mmss_smmu 0x40b>,
+				<&mmss_smmu 0x40c>,
+				<&mmss_smmu 0x40d>,
+				<&mmss_smmu 0x410>,
+				<&mmss_smmu 0x421>,
+				<&mmss_smmu 0x428>,
+				<&mmss_smmu 0x429>,
+				<&mmss_smmu 0x42b>,
+				<&mmss_smmu 0x42c>,
+				<&mmss_smmu 0x42d>,
+				<&mmss_smmu 0x411>,
+				<&mmss_smmu 0x431>;
+			buffer-types = <0xfff>;
+			virtual-addr-pool = <0x70800000 0x8f800000>;
+		};
+
+		firmware_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			qcom,fw-context-bank;
+			iommus = <&mmss_smmu 0x580>,
+				<&mmss_smmu 0x586>;
+		};
+		secure_bitstream_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_bitstream";
+			iommus = <&mmss_smmu 0x500>,
+				<&mmss_smmu 0x502>,
+				<&mmss_smmu 0x509>,
+				<&mmss_smmu 0x50a>,
+				<&mmss_smmu 0x50b>,
+				<&mmss_smmu 0x50e>,
+				<&mmss_smmu 0x526>,
+				<&mmss_smmu 0x529>,
+				<&mmss_smmu 0x52b>;
+			buffer-types = <0x241>;
+			virtual-addr-pool = <0x4b000000 0x25800000>;
+			qcom,secure-context-bank;
+		};
+
+		venus_secure_pixel_cb: secure_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_pixel";
+			iommus = <&mmss_smmu 0x504>,
+				<&mmss_smmu 0x50c>,
+				<&mmss_smmu 0x510>,
+				<&mmss_smmu 0x52c>;
+			buffer-types = <0x106>;
+			virtual-addr-pool = <0x25800000 0x25800000>;
+			qcom,secure-context-bank;
+		};
+
+		venus_secure_non_pixel_cb: secure_non_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_non_pixel";
+			iommus = <&mmss_smmu 0x505>,
+				<&mmss_smmu 0x507>,
+				<&mmss_smmu 0x508>,
+				<&mmss_smmu 0x50d>,
+				<&mmss_smmu 0x50f>,
+				<&mmss_smmu 0x525>,
+				<&mmss_smmu 0x528>,
+				<&mmss_smmu 0x52d>,
+				<&mmss_smmu 0x540>;
+			buffer-types = <0x480>;
+			virtual-addr-pool = <0x1000000 0x24800000>;
+			qcom,secure-context-bank;
+		};
+	};
+
+	qcom,vmem@c880000 {
+		compatible = "qcom,msm-vmem";
+		status = "ok";
+		interrupts = <GIC_SPI 429 IRQ_TYPE_LEVEL_HIGH>;
+
+		reg = <0xc880000 0x6b>,
+		    <0x14800000 0x80000>;
+		reg-names = "reg-base", "mem-base";
+
+		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			<&clock_mmss clk_mmss_mnoc_maxi_clk>,
+			<&clock_mmss clk_mmss_vmem_ahb_clk>,
+			<&clock_mmss clk_mmss_vmem_maxi_clk>;
+		clock-names = "mnoc_ahb","mnoc_maxi",
+			"ahb", "maxi";
+		clock-config = <0x0 0x0 0x0 0x1>;
+
+		qcom,msm-bus,name = "vmem";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG   0   0>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG 500 800>;
+
+		qcom,bank-size = <131072>; /* 128 kB */
+	};
+};

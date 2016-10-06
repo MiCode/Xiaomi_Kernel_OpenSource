@@ -25,9 +25,9 @@
 #define FG_GEN3_DEV_NAME	"qcom,fg-gen3"
 
 #define PERPH_SUBTYPE_REG		0x05
-#define FG_BATT_SOC_PMICOBALT		0x10
-#define FG_BATT_INFO_PMICOBALT		0x11
-#define FG_MEM_INFO_PMICOBALT		0x0D
+#define FG_BATT_SOC_PMI8998		0x10
+#define FG_BATT_INFO_PMI8998		0x11
+#define FG_MEM_INFO_PMI8998		0x0D
 
 /* SRAM address and offset in ascending order */
 #define CUTOFF_VOLT_WORD		5
@@ -143,7 +143,7 @@ static void fg_encode_default(struct fg_sram_param *sp,
 		.decode		= _dec,					\
 	}								\
 
-static struct fg_sram_param pmicobalt_v1_sram_params[] = {
+static struct fg_sram_param pmi8998_v1_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_default),
 	PARAM(FULL_SOC, FULL_SOC_WORD, FULL_SOC_OFFSET, 2, 1, 1, 0, NULL,
@@ -197,7 +197,7 @@ static struct fg_sram_param pmicobalt_v1_sram_params[] = {
 		fg_encode_default, NULL),
 };
 
-static struct fg_sram_param pmicobalt_v2_sram_params[] = {
+static struct fg_sram_param pmi8998_v2_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_default),
 	PARAM(FULL_SOC, FULL_SOC_WORD, FULL_SOC_OFFSET, 2, 1, 1, 0, NULL,
@@ -254,7 +254,7 @@ static struct fg_sram_param pmicobalt_v2_sram_params[] = {
 		fg_encode_default, NULL),
 };
 
-static struct fg_alg_flag pmicobalt_v1_alg_flags[] = {
+static struct fg_alg_flag pmi8998_v1_alg_flags[] = {
 	[ALG_FLAG_SOC_LT_OTG_MIN]	= {
 		.name	= "SOC_LT_OTG_MIN",
 		.bit	= BIT(0),
@@ -284,7 +284,7 @@ static struct fg_alg_flag pmicobalt_v1_alg_flags[] = {
 	},
 };
 
-static struct fg_alg_flag pmicobalt_v2_alg_flags[] = {
+static struct fg_alg_flag pmi8998_v2_alg_flags[] = {
 	[ALG_FLAG_SOC_LT_OTG_MIN]	= {
 		.name	= "SOC_LT_OTG_MIN",
 		.bit	= BIT(0),
@@ -545,7 +545,7 @@ static int fg_get_battery_esr(struct fg_chip *chip, int *val)
 		return rc;
 	}
 
-	if (chip->pmic_rev_id->rev4 < PMICOBALT_V2P0_REV4)
+	if (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)
 		temp = ((buf[0] & ESR_MSB_MASK) << 8) |
 			(buf[1] & ESR_LSB_MASK);
 	else
@@ -592,7 +592,7 @@ static int fg_get_battery_current(struct fg_chip *chip, int *val)
 		return rc;
 	}
 
-	if (chip->pmic_rev_id->rev4 < PMICOBALT_V2P0_REV4)
+	if (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)
 		temp = buf[0] << 8 | buf[1];
 	else
 		temp = buf[1] << 8 | buf[0];
@@ -619,7 +619,7 @@ static int fg_get_battery_voltage(struct fg_chip *chip, int *val)
 		return rc;
 	}
 
-	if (chip->pmic_rev_id->rev4 < PMICOBALT_V2P0_REV4)
+	if (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)
 		temp = buf[0] << 8 | buf[1];
 	else
 		temp = buf[1] << 8 | buf[0];
@@ -2396,7 +2396,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	}
 
 	/* This SRAM register is only present in v2.0 */
-	if (chip->pmic_rev_id->rev4 == PMICOBALT_V2P0_REV4 &&
+	if (chip->pmic_rev_id->rev4 == PMI8998_V2P0_REV4 &&
 		chip->bp.float_volt_uv > 0) {
 		fg_encode(chip->sp, FG_SRAM_FLOAT_VOLT,
 			chip->bp.float_volt_uv / 1000, buf);
@@ -2986,13 +2986,13 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->pmic_rev_id->pmic_subtype, chip->pmic_rev_id->rev4);
 
 	switch (chip->pmic_rev_id->pmic_subtype) {
-	case PMICOBALT_SUBTYPE:
-		if (chip->pmic_rev_id->rev4 < PMICOBALT_V2P0_REV4) {
-			chip->sp = pmicobalt_v1_sram_params;
-			chip->alg_flags = pmicobalt_v1_alg_flags;
-		} else if (chip->pmic_rev_id->rev4 == PMICOBALT_V2P0_REV4) {
-			chip->sp = pmicobalt_v2_sram_params;
-			chip->alg_flags = pmicobalt_v2_alg_flags;
+	case PMI8998_SUBTYPE:
+		if (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4) {
+			chip->sp = pmi8998_v1_sram_params;
+			chip->alg_flags = pmi8998_v1_alg_flags;
+		} else if (chip->pmic_rev_id->rev4 == PMI8998_V2P0_REV4) {
+			chip->sp = pmi8998_v2_sram_params;
+			chip->alg_flags = pmi8998_v2_alg_flags;
 		} else {
 			return -EINVAL;
 		}
@@ -3032,13 +3032,13 @@ static int fg_parse_dt(struct fg_chip *chip)
 		}
 
 		switch (subtype) {
-		case FG_BATT_SOC_PMICOBALT:
+		case FG_BATT_SOC_PMI8998:
 			chip->batt_soc_base = base;
 			break;
-		case FG_BATT_INFO_PMICOBALT:
+		case FG_BATT_INFO_PMI8998:
 			chip->batt_info_base = base;
 			break;
-		case FG_MEM_INFO_PMICOBALT:
+		case FG_MEM_INFO_PMI8998:
 			chip->mem_if_base = base;
 			break;
 		default:

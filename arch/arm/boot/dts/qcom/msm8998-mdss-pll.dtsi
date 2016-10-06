@@ -1,0 +1,173 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdss_dsi0_pll: qcom,mdss_dsi_pll@c994400 {
+		compatible = "qcom,mdss_dsi_pll_8998";
+		status = "ok";
+		label = "MDSS DSI 0 PLL";
+		cell-index = <0>;
+		#clock-cells = <1>;
+
+		reg = <0xc994a00 0x1c0>,
+		      <0xc994400 0x7c0>,
+		      <0x0c8c2300 0x8>;
+		reg-names = "pll_base", "phy_base", "gdsc_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+
+		clocks = <&clock_mmss clk_mmss_mdss_ahb_clk>;
+		clock-names = "iface_clk";
+		clock-rate = <0>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+
+		};
+	};
+
+	mdss_dsi1_pll: qcom,mdss_dsi_pll@c996400 {
+		compatible = "qcom,mdss_dsi_pll_8998";
+		status = "ok";
+		label = "MDSS DSI 1 PLL";
+		cell-index = <1>;
+		#clock-cells = <1>;
+
+		reg = <0x0c996a00 0x1c0>,
+		      <0x0c996400 0x7c0>,
+		      <0x008c2300 0x8>;
+		reg-names = "pll_base", "phy_base", "gdsc_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+
+		clocks = <&clock_mmss clk_mmss_mdss_ahb_clk>;
+		clock-names = "iface_clk";
+		clock-rate = <0>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+	};
+
+	mdss_dp_pll: qcom,mdss_dp_pll@c011000 {
+		compatible = "qcom,mdss_dp_pll_8998";
+		status = "ok";
+		label = "MDSS DP PLL";
+		cell-index = <0>;
+		#clock-cells = <1>;
+
+		reg = <0xc011c00 0x190>,
+		      <0xc011000 0x910>,
+		      <0x0c8c2300 0x8>;
+		reg-names = "pll_base", "phy_base", "gdsc_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+
+		clocks = <&clock_mmss clk_mmss_mdss_ahb_clk>,
+			 <&clock_gcc clk_ln_bb_clk1>,
+			 <&clock_gcc clk_gcc_usb3_clkref_clk>;
+		clock-names = "iface_clk", "ref_clk_src", "ref_clk";
+		clock-rate = <0>;
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+
+		};
+	};
+
+	mdss_hdmi_pll: qcom,mdss_hdmi_pll@0xc9a0600 {
+		compatible = "qcom,mdss_hdmi_pll_8998";
+		label = "MDSS HDMI PLL";
+		cell-index = <2>;
+		#clock-cells = <1>;
+
+		reg = <0xc9a0600 0xb10>,
+		      <0xc9a1200 0x0e4>,
+		      <0xc8c2300 0x8>;
+		reg-names = "pll_base", "phy_base", "gdsc_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+		vdda-pll-supply = <&pm8998_l2>;
+		vdda-phy-supply = <&pm8998_l12>;
+
+		clocks = <&clock_mmss clk_mmss_mdss_ahb_clk>,
+			 <&clock_gcc clk_gcc_hdmi_clkref_clk>,
+			 <&clock_gcc clk_ln_bb_clk1>;
+		clock-names = "iface_clk", "ref_clk", "ref_clk_src";
+		clock-rate = <0>;
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+			qcom,platform-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vdda-pll";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <14200>;
+				qcom,supply-disable-load = <1>;
+			};
+
+			qcom,platform-supply-entry@2 {
+				reg = <2>;
+				qcom,supply-name = "vdda-phy";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <13100>;
+				qcom,supply-disable-load = <4>;
+			};
+		};
+	};
+};

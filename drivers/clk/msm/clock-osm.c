@@ -40,8 +40,8 @@
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-alpha-pll.h>
 
-#include <dt-bindings/clock/msm-clocks-hwio-cobalt.h>
-#include <dt-bindings/clock/msm-clocks-cobalt.h>
+#include <dt-bindings/clock/msm-clocks-hwio-8998.h>
+#include <dt-bindings/clock/msm-clocks-8998.h>
 
 #include "clock.h"
 
@@ -79,7 +79,7 @@ enum clk_osm_trace_packet_id {
 #define MEM_ACC_SEQ_CONST(n) (n)
 #define MEM_ACC_INSTR_COMP(n) (0x67 + ((n) * 0x40))
 #define MEM_ACC_SEQ_REG_VAL_START(n) (SEQ_REG(60 + (n)))
-#define SEQ_REG1_MSMCOBALT_V2 0x1048
+#define SEQ_REG1_MSM8998_V2 0x1048
 #define VERSION_REG 0x0
 #define VERSION_1P1 0x00010100
 
@@ -224,10 +224,10 @@ enum clk_osm_trace_packet_id {
 #define PERFCL_EFUSE_SHIFT	29
 #define PERFCL_EFUSE_MASK	0x7
 
-#define MSMCOBALTV1_PWRCL_BOOT_RATE	1478400000
-#define MSMCOBALTV1_PERFCL_BOOT_RATE	1536000000
-#define MSMCOBALTV2_PWRCL_BOOT_RATE	1555200000
-#define MSMCOBALTV2_PERFCL_BOOT_RATE	1728000000
+#define MSM8998V1_PWRCL_BOOT_RATE	1478400000
+#define MSM8998V1_PERFCL_BOOT_RATE	1536000000
+#define MSM8998V2_PWRCL_BOOT_RATE	1555200000
+#define MSM8998V2_PERFCL_BOOT_RATE	1728000000
 
 /* ACD registers */
 #define ACD_HW_VERSION		0x0
@@ -399,8 +399,8 @@ struct clk_osm {
 	bool wdog_trace_en;
 };
 
-static bool msmcobalt_v1;
-static bool msmcobalt_v2;
+static bool msm8998_v1;
+static bool msm8998_v2;
 
 static inline void clk_osm_masked_write_reg(struct clk_osm *c, u32 val,
 					    u32 offset, u32 mask)
@@ -1908,7 +1908,7 @@ static void clk_osm_setup_osm_was(struct clk_osm *c)
 	u32 cc_hyst;
 	u32 val;
 
-	if (msmcobalt_v2)
+	if (msm8998_v2)
 		return;
 
 	val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
@@ -2191,14 +2191,14 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 		/* Ensure writes complete before returning */
 		clk_osm_mb(c, OSM_BASE);
 	} else {
-		if (msmcobalt_v1) {
+		if (msm8998_v1) {
 			scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(1),
 				     c->apm_threshold_vc);
 			scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(73),
 				     0x3b | c->apm_threshold_vc << 6);
-		} else if (msmcobalt_v2) {
+		} else if (msm8998_v2) {
 			clk_osm_write_reg(c, c->apm_threshold_vc,
-					  SEQ_REG1_MSMCOBALT_V2);
+					  SEQ_REG1_MSM8998_V2);
 		}
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(72),
 			     c->apm_crossover_vc);
@@ -2992,11 +2992,11 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	};
 
 	if (of_find_compatible_node(NULL, NULL,
-				    "qcom,cpu-clock-osm-msmcobalt-v1")) {
-		msmcobalt_v1 = true;
+				    "qcom,cpu-clock-osm-msm8998-v1")) {
+		msm8998_v1 = true;
 	} else if (of_find_compatible_node(NULL, NULL,
-					   "qcom,cpu-clock-osm-msmcobalt-v2")) {
-		msmcobalt_v2 = true;
+					   "qcom,cpu-clock-osm-msm8998-v2")) {
+		msm8998_v2 = true;
 	}
 
 	rc = clk_osm_resources_init(pdev);
@@ -3014,8 +3014,8 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	}
 
 	if ((pwrcl_clk.secure_init || perfcl_clk.secure_init) &&
-	    msmcobalt_v2) {
-		pr_err("unsupported configuration for msmcobalt v2\n");
+	    msm8998_v2) {
+		pr_err("unsupported configuration for msm8998 v2\n");
 		return -EINVAL;
 	}
 
@@ -3230,18 +3230,18 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	}
 
 	/* Set final boot rate */
-	rc = clk_set_rate(&pwrcl_clk.c, msmcobalt_v1 ?
-			  MSMCOBALTV1_PWRCL_BOOT_RATE :
-			  MSMCOBALTV2_PWRCL_BOOT_RATE);
+	rc = clk_set_rate(&pwrcl_clk.c, msm8998_v1 ?
+			  MSM8998V1_PWRCL_BOOT_RATE :
+			  MSM8998V2_PWRCL_BOOT_RATE);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set boot rate on pwr cluster, rc=%d\n",
 			rc);
 		goto exit2;
 	}
 
-	rc = clk_set_rate(&perfcl_clk.c, msmcobalt_v1 ?
-			  MSMCOBALTV1_PERFCL_BOOT_RATE :
-			  MSMCOBALTV2_PERFCL_BOOT_RATE);
+	rc = clk_set_rate(&perfcl_clk.c, msm8998_v1 ?
+			  MSM8998V1_PERFCL_BOOT_RATE :
+			  MSM8998V2_PERFCL_BOOT_RATE);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set boot rate on perf cluster, rc=%d\n",
 			rc);
@@ -3273,8 +3273,8 @@ exit:
 }
 
 static struct of_device_id match_table[] = {
-	{ .compatible = "qcom,cpu-clock-osm-msmcobalt-v1" },
-	{ .compatible = "qcom,cpu-clock-osm-msmcobalt-v2" },
+	{ .compatible = "qcom,cpu-clock-osm-msm8998-v1" },
+	{ .compatible = "qcom,cpu-clock-osm-msm8998-v2" },
 	{}
 };
 
