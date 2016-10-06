@@ -36,6 +36,12 @@
 #define SYS_TERM_CURR_OFFSET		0
 #define VBATT_FULL_WORD			7
 #define VBATT_FULL_OFFSET		0
+#define KI_COEFF_MED_DISCHG_WORD	9
+#define KI_COEFF_MED_DISCHG_OFFSET	3
+#define KI_COEFF_HI_DISCHG_WORD		10
+#define KI_COEFF_HI_DISCHG_OFFSET	0
+#define KI_COEFF_LOW_DISCHG_WORD	10
+#define KI_COEFF_LOW_DISCHG_OFFSET	2
 #define DELTA_SOC_THR_WORD		12
 #define DELTA_SOC_THR_OFFSET		3
 #define RECHARGE_SOC_THR_WORD		14
@@ -88,6 +94,12 @@
 #define ALG_FLAGS_OFFSET		1
 
 /* v2 SRAM address and offset in ascending order */
+#define KI_COEFF_LOW_DISCHG_v2_WORD	9
+#define KI_COEFF_LOW_DISCHG_v2_OFFSET	3
+#define KI_COEFF_MED_DISCHG_v2_WORD	10
+#define KI_COEFF_MED_DISCHG_v2_OFFSET	0
+#define KI_COEFF_HI_DISCHG_v2_WORD	10
+#define KI_COEFF_HI_DISCHG_v2_OFFSET	1
 #define DELTA_SOC_THR_v2_WORD		13
 #define DELTA_SOC_THR_v2_OFFSET		0
 #define RECHARGE_SOC_THR_v2_WORD	14
@@ -173,6 +185,12 @@ static struct fg_sram_param pmicobalt_v1_sram_params[] = {
 		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
 		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(KI_COEFF_MED_DISCHG, KI_COEFF_MED_DISCHG_WORD,
+		KI_COEFF_MED_DISCHG_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_WORD,
+		KI_COEFF_HI_DISCHG_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
 };
 
 static struct fg_sram_param pmicobalt_v2_sram_params[] = {
@@ -222,6 +240,12 @@ static struct fg_sram_param pmicobalt_v2_sram_params[] = {
 		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
 		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(KI_COEFF_MED_DISCHG, KI_COEFF_MED_DISCHG_v2_WORD,
+		KI_COEFF_MED_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_v2_WORD,
+		KI_COEFF_HI_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
 };
 
 static struct fg_alg_flag pmicobalt_v1_alg_flags[] = {
@@ -1124,6 +1148,60 @@ out:
 	mutex_unlock(&chip->cl.lock);
 }
 
+#define KI_COEFF_MED_DISCHG_DEFAULT	1500
+#define KI_COEFF_HI_DISCHG_DEFAULT	2200
+static int fg_adjust_ki_coeff_dischg(struct fg_chip *chip)
+{
+	int rc, i, msoc;
+	int ki_coeff_med = KI_COEFF_MED_DISCHG_DEFAULT;
+	int ki_coeff_hi = KI_COEFF_HI_DISCHG_DEFAULT;
+	u8 val;
+
+	if (!chip->ki_coeff_dischg_en)
+		return 0;
+
+	rc = fg_get_prop_capacity(chip, &msoc);
+	if (rc < 0) {
+		pr_err("Error in getting capacity, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
+		for (i = KI_COEFF_SOC_LEVELS - 1; i >= 0; i--) {
+			if (msoc < chip->dt.ki_coeff_soc[i]) {
+				ki_coeff_med = chip->dt.ki_coeff_med_dischg[i];
+				ki_coeff_hi = chip->dt.ki_coeff_hi_dischg[i];
+			}
+		}
+	}
+
+	fg_encode(chip->sp, FG_SRAM_KI_COEFF_MED_DISCHG, ki_coeff_med, &val);
+	rc = fg_sram_write(chip,
+			chip->sp[FG_SRAM_KI_COEFF_MED_DISCHG].addr_word,
+			chip->sp[FG_SRAM_KI_COEFF_MED_DISCHG].addr_byte, &val,
+			chip->sp[FG_SRAM_KI_COEFF_MED_DISCHG].len,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ki_coeff_med, rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_encode(chip->sp, FG_SRAM_KI_COEFF_HI_DISCHG, ki_coeff_hi, &val);
+	rc = fg_sram_write(chip,
+			chip->sp[FG_SRAM_KI_COEFF_HI_DISCHG].addr_word,
+			chip->sp[FG_SRAM_KI_COEFF_HI_DISCHG].addr_byte, &val,
+			chip->sp[FG_SRAM_KI_COEFF_HI_DISCHG].len,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ki_coeff_hi, rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_dbg(chip, FG_STATUS, "Wrote ki_coeff_med %d ki_coeff_hi %d\n",
+		ki_coeff_med, ki_coeff_hi);
+	return 0;
+}
+
 static int fg_charge_full_update(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0, };
@@ -1298,6 +1376,7 @@ static void status_change_work(struct work_struct *work)
 		schedule_work(&chip->cycle_count_work);
 
 	fg_cap_learning_update(chip);
+
 	rc = fg_charge_full_update(chip);
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
@@ -1306,6 +1385,9 @@ static void status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Error in adjusting recharge_soc, rc=%d\n", rc);
 
+	rc = fg_adjust_ki_coeff_dischg(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
 out:
 	pm_relax(chip->dev);
 }
@@ -2138,6 +2220,10 @@ static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in charge_full_update, rc=%d\n", rc);
 
+	rc = fg_adjust_ki_coeff_dischg(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
+
 	return IRQ_HANDLED;
 }
 
@@ -2295,6 +2381,73 @@ static int fg_register_interrupts(struct fg_chip *chip)
 		}
 	}
 
+	return 0;
+}
+
+static int fg_parse_ki_coefficients(struct fg_chip *chip)
+{
+	struct device_node *node = chip->dev->of_node;
+	int rc, i;
+
+	rc = of_property_count_elems_of_size(node, "qcom,ki-coeff-soc-dischg",
+		sizeof(u32));
+	if (rc != KI_COEFF_SOC_LEVELS)
+		return 0;
+
+	rc = of_property_read_u32_array(node, "qcom,ki-coeff-soc-dischg",
+			chip->dt.ki_coeff_soc, KI_COEFF_SOC_LEVELS);
+	if (rc < 0) {
+		pr_err("Error in reading ki-coeff-soc-dischg, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = of_property_count_elems_of_size(node, "qcom,ki-coeff-med-dischg",
+		sizeof(u32));
+	if (rc != KI_COEFF_SOC_LEVELS)
+		return 0;
+
+	rc = of_property_read_u32_array(node, "qcom,ki-coeff-med-dischg",
+			chip->dt.ki_coeff_med_dischg, KI_COEFF_SOC_LEVELS);
+	if (rc < 0) {
+		pr_err("Error in reading ki-coeff-med-dischg, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = of_property_count_elems_of_size(node, "qcom,ki-coeff-hi-dischg",
+		sizeof(u32));
+	if (rc != KI_COEFF_SOC_LEVELS)
+		return 0;
+
+	rc = of_property_read_u32_array(node, "qcom,ki-coeff-hi-dischg",
+			chip->dt.ki_coeff_hi_dischg, KI_COEFF_SOC_LEVELS);
+	if (rc < 0) {
+		pr_err("Error in reading ki-coeff-hi-dischg, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	for (i = 0; i < KI_COEFF_SOC_LEVELS; i++) {
+		if (chip->dt.ki_coeff_soc[i] < 0 ||
+			chip->dt.ki_coeff_soc[i] > FULL_CAPACITY) {
+			pr_err("Error in ki_coeff_soc_dischg values\n");
+			return -EINVAL;
+		}
+
+		if (chip->dt.ki_coeff_med_dischg[i] < 0 ||
+			chip->dt.ki_coeff_med_dischg[i] > KI_COEFF_MAX) {
+			pr_err("Error in ki_coeff_med_dischg values\n");
+			return -EINVAL;
+		}
+
+		if (chip->dt.ki_coeff_med_dischg[i] < 0 ||
+			chip->dt.ki_coeff_med_dischg[i] > KI_COEFF_MAX) {
+			pr_err("Error in ki_coeff_med_dischg values\n");
+			return -EINVAL;
+		}
+	}
+	chip->ki_coeff_dischg_en = true;
 	return 0;
 }
 
@@ -2562,6 +2715,11 @@ static int fg_parse_dt(struct fg_chip *chip)
 
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
 					"qcom,hold-soc-while-full");
+
+	rc = fg_parse_ki_coefficients(chip);
+	if (rc < 0)
+		pr_err("Error in parsing Ki coefficients, rc=%d\n", rc);
+
 	return 0;
 }
 
