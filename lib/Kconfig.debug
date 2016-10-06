@@ -1020,7 +1020,7 @@ choice
 
 	config DEBUG_SPINLOCK_BITE_ON_BUG
 		bool "Cause a Watchdog Bite on Spinlock bug"
-		depends on MSM_WATCHDOG_V2
+		depends on QCOM_WATCHDOG_V2
 		help
 		  On a spinlock bug, cause a watchdog bite so that we can get the precise
 		  state of the system captured at the time of spin dump. This is mutually
