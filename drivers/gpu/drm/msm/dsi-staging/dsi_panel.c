@@ -17,6 +17,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 
+#include "sde_kms.h"
 #include "dsi_panel.h"
 #include "dsi_ctrl_hw.h"
 
@@ -351,6 +352,9 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 		}
 
 		break;
+	case DSI_BACKLIGHT_UNKNOWN:
+		DRM_INFO("backlight type is unknown\n");
+		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
 		rc = -ENOTSUPP;
@@ -669,6 +673,8 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 	host->append_tx_eot = of_property_read_bool(of_node,
 						"qcom,mdss-dsi-tx-eot-append");
 
+	host->force_clk_lane_hs = of_property_read_bool(of_node,
+					"qcom,mdss-dsi-force-clock-lane-hs");
 	return 0;
 }
 
@@ -1305,6 +1311,8 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel,
 {
 	int rc = 0;
 
+	/* Need to set GPIO default value to -1, since 0 is a valid value */
+	panel->reset_config.disp_en_gpio = -1;
 	panel->reset_config.reset_gpio = of_get_named_gpio(of_node,
 					      "qcom,platform-reset-gpio",
 					      0);
@@ -1443,6 +1451,33 @@ error:
 	return rc;
 }
 
+static int dsi_panel_parse_dba_config(struct dsi_panel *panel,
+					struct device_node *of_node)
+{
+	int rc = 0, len = 0;
+
+	panel->dba_config.dba_panel = of_property_read_bool(of_node,
+		"qcom,dba-panel");
+
+	if (panel->dba_config.dba_panel) {
+		panel->dba_config.hdmi_mode = of_property_read_bool(of_node,
+			"qcom,hdmi-mode");
+
+		panel->dba_config.bridge_name = of_get_property(of_node,
+			"qcom,bridge-name", &len);
+		if (!panel->dba_config.bridge_name || len <= 0) {
+			SDE_ERROR(
+			"%s:%d Unable to read bridge_name, data=%p,len=%d\n",
+			__func__, __LINE__, panel->dba_config.bridge_name, len);
+			rc = -EINVAL;
+			goto error;
+		}
+	}
+
+error:
+	return rc;
+}
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node)
 {
@@ -1507,6 +1542,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (rc)
 		pr_err("failed to parse backlight config, rc=%d\n", rc);
 
+	rc = dsi_panel_parse_dba_config(panel, of_node);
+	if (rc)
+		pr_err("failed to parse dba config, rc=%d\n", rc);
+
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
 	mutex_init(&panel->panel_lock);
@@ -1520,6 +1559,9 @@ error:
 void dsi_panel_put(struct dsi_panel *panel)
 {
 	u32 i;
+
+	if (!panel)
+		return;
 
 	for (i = 0; i < DSI_CMD_SET_MAX; i++)
 		dsi_panel_destroy_cmd_packets(&panel->cmd_sets[i]);

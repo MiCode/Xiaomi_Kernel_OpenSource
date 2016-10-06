@@ -128,6 +128,18 @@ struct dsi_panel_reset_config {
 	int disp_en_gpio;
 };
 
+/**
+ * struct dsi_panel_dba - DSI DBA panel information
+ * @dba_panel:          Indicate if it's DBA panel
+ * @bridge_name:        Bridge chip name
+ * @hdmi_mode:          If bridge chip is in hdmi mode.
+ */
+struct dsi_panel_dba {
+	bool dba_panel;
+	const char *bridge_name;
+	bool hdmi_mode;
+};
+
 struct dsi_panel {
 	const char *name;
 	struct device_node *panel_of_node;
@@ -153,6 +165,8 @@ struct dsi_panel {
 	struct dsi_backlight_config bl_config;
 	struct dsi_panel_reset_config reset_config;
 	struct dsi_pinctrl_info pinctrl;
+
+	struct dsi_panel_dba dba_config;
 
 	bool lp11_init;
 };

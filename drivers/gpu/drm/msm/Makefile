@@ -58,6 +58,7 @@ msm-y := \
 	msm_ringbuffer.o \
 	msm_evtlog.o \
 	msm_prop.o \
+	dba_bridge.o \
 
 # use drm gpu driver only if qcom_kgsl driver not available
 ifneq ($(CONFIG_QCOM_KGSL),y)

@@ -102,8 +102,11 @@ struct dsi_display_clk_info {
  * @display_lock:     Mutex for dsi_display interface.
  * @ctrl_count:       Number of DSI interfaces required by panel.
  * @ctrl:             Controller information for DSI display.
+ * @panel_count:      Number of DSI panel.
  * @panel:            Handle to DSI panel.
- * @panel_of:         pHandle to DSI panel.
+ * @panel_of:         pHandle to DSI panel, it's an array with panel_count
+ *		      of struct device_node pointers.
+ * @bridge_idx:       Bridge chip index for each panel_of.
  * @type:             DSI display type.
  * @clk_master_idx:   The master controller for controlling clocks. This is an
  *		      index into the ctrl[MAX_DSI_CTRLS_PER_DISPLAY] array.
@@ -133,8 +136,10 @@ struct dsi_display {
 	struct dsi_display_ctrl ctrl[MAX_DSI_CTRLS_PER_DISPLAY];
 
 	/* panel info */
-	struct dsi_panel *panel;
-	struct device_node *panel_of;
+	u32 panel_count;
+	struct dsi_panel **panel;
+	struct device_node **panel_of;
+	u32 *bridge_idx;
 
 	enum dsi_display_type type;
 	u32 clk_master_idx;
