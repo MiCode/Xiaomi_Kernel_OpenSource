@@ -188,7 +188,7 @@ static int llcc_update_act_ctrl(struct llcc_drv_data *drv, u32 sid,
 
 	timeout = jiffies + usecs_to_jiffies(LLCC_STATUS_READ_DELAY);
 	while (time_before(jiffies, timeout)) {
-		regmap_write(drv->llcc_map, status_reg, slice_status);
+		regmap_read(drv->llcc_map, status_reg, &slice_status);
 		if (slice_status & status)
 			return 0;
 	}
