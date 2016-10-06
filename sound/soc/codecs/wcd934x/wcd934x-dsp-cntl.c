@@ -833,8 +833,7 @@ static int wcd_control_init(struct device *dev, void *priv_data)
 	struct snd_soc_codec *codec = cntl->codec;
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
-	char wcd_cntl_dir_name[WCD_CNTL_DIR_NAME_LEN_MAX];
-	int ret, ret1;
+	int ret;
 	bool err_irq_requested = false;
 
 	ret = wcd9xxx_request_irq(core_res,
@@ -876,25 +875,8 @@ static int wcd_control_init(struct device *dev, void *priv_data)
 	}
 	wcd_cntl_cpar_ctrl(cntl, true);
 
-	snprintf(wcd_cntl_dir_name, WCD_CNTL_DIR_NAME_LEN_MAX,
-		 "%s%d", "wdsp", cntl->dsp_instance);
-	wcd_cntl_debugfs_init(wcd_cntl_dir_name, cntl);
-	ret = wcd_cntl_sysfs_init(wcd_cntl_dir_name, cntl);
-	if (IS_ERR_VALUE(ret)) {
-		dev_err(codec->dev,
-			"%s: Failed to init sysfs %d\n",
-			__func__, ret);
-		goto err_sysfs_init;
-	}
-
 	return 0;
 
-err_sysfs_init:
-	wcd_cntl_cpar_ctrl(cntl, false);
-	ret1 = wcd_cntl_clocks_disable(cntl);
-	if (IS_ERR_VALUE(ret1))
-		dev_err(codec->dev, "%s: Failed to disable clocks, err = %d\n",
-			__func__, ret1);
 err_clk_enable:
 	/* Mask all error interrupts */
 	snd_soc_write(codec, WCD934X_CPE_SS_SS_ERROR_INT_MASK_0A, 0xFF);
@@ -915,12 +897,6 @@ static int wcd_control_deinit(struct device *dev, void *priv_data)
 	struct snd_soc_codec *codec = cntl->codec;
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
-
-	/* Remove the sysfs entries */
-	wcd_cntl_sysfs_remove(cntl);
-
-	/* Remove the debugfs entries */
-	wcd_cntl_debugfs_remove(cntl);
 
 	wcd_cntl_clocks_disable(cntl);
 	wcd_cntl_cpar_ctrl(cntl, false);
@@ -951,6 +927,7 @@ static int wcd_ctrl_component_bind(struct device *dev,
 	struct snd_card *card;
 	struct snd_info_entry *entry;
 	char proc_name[WCD_PROCFS_ENTRY_MAX_LEN];
+	char wcd_cntl_dir_name[WCD_CNTL_DIR_NAME_LEN_MAX];
 	int ret = 0;
 
 	if (!dev || !master || !data) {
@@ -981,6 +958,17 @@ static int wcd_ctrl_component_bind(struct device *dev,
 			__func__, ret);
 		goto done;
 	}
+
+	snprintf(wcd_cntl_dir_name, WCD_CNTL_DIR_NAME_LEN_MAX,
+		 "%s%d", "wdsp", cntl->dsp_instance);
+	ret = wcd_cntl_sysfs_init(wcd_cntl_dir_name, cntl);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(dev, "%s: sysfs_init failed, err = %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	wcd_cntl_debugfs_init(wcd_cntl_dir_name, cntl);
 
 	codec = cntl->codec;
 	card = codec->component.card->snd_card;
@@ -1032,12 +1020,73 @@ static void wcd_ctrl_component_unbind(struct device *dev,
 
 	cntl->m_dev = NULL;
 	cntl->m_ops = NULL;
+
+	/* Remove the sysfs entries */
+	wcd_cntl_sysfs_remove(cntl);
+
+	/* Remove the debugfs entries */
+	wcd_cntl_debugfs_remove(cntl);
+
 }
 
 static const struct component_ops wcd_ctrl_component_ops = {
 	.bind = wcd_ctrl_component_bind,
 	.unbind = wcd_ctrl_component_unbind,
 };
+
+/*
+ * wcd_dsp_ssr_event: handle the SSR event raised by caller.
+ * @cntl: Handle to the wcd_dsp_cntl structure
+ * @event: The SSR event to be handled
+ *
+ * Notifies the manager driver about the SSR event.
+ * Returns 0 on success and negative error code on error.
+ */
+int wcd_dsp_ssr_event(struct wcd_dsp_cntl *cntl, enum cdc_ssr_event event)
+{
+	int ret = 0;
+
+	if (!cntl) {
+		pr_err("%s: Invalid handle to control\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!cntl->m_dev || !cntl->m_ops || !cntl->m_ops->signal_handler) {
+		dev_err(cntl->codec->dev,
+			"%s: Invalid signal_handler callback\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (event) {
+	case WCD_CDC_DOWN_EVENT:
+		ret = cntl->m_ops->signal_handler(cntl->m_dev,
+						  WDSP_CDC_DOWN_SIGNAL,
+						  NULL);
+		if (IS_ERR_VALUE(ret))
+			dev_err(cntl->codec->dev,
+				"%s: WDSP_CDC_DOWN_SIGNAL failed, err = %d\n",
+				__func__, ret);
+		wcd_cntl_change_online_state(cntl, 0);
+		break;
+	case WCD_CDC_UP_EVENT:
+		ret = cntl->m_ops->signal_handler(cntl->m_dev,
+						  WDSP_CDC_UP_SIGNAL,
+						  NULL);
+		if (IS_ERR_VALUE(ret))
+			dev_err(cntl->codec->dev,
+				"%s: WDSP_CDC_UP_SIGNAL failed, err = %d\n",
+				__func__, ret);
+		break;
+	default:
+		dev_err(cntl->codec->dev, "%s: Invalid event %d\n",
+			__func__, event);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(wcd_dsp_ssr_event);
 
 /*
  * wcd_dsp_cntl_init: Initialize the wcd-dsp control
