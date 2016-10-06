@@ -171,6 +171,11 @@
 		<  2496000 >;
 };
 
+&bwmon {
+	compatible = "qcom,bimc-bwmon4";
+	qcom,hw-timer-hz = <19200000>;
+};
+
 &devfreq_cpufreq {
 	mincpubw-cpufreq {
 		cpu-to-dev-map-0 =
