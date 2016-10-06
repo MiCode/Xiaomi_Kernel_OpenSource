@@ -77,6 +77,7 @@ struct wcd_dsp_cntl {
 	/* Debugfs related */
 	struct dentry *entry;
 	u32 debug_mode;
+	bool ramdump_enable;
 
 	/* WDSP manager drivers data */
 	struct device *m_dev;

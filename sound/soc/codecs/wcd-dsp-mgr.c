@@ -16,6 +16,8 @@
 #include <linux/stringify.h>
 #include <linux/of.h>
 #include <linux/component.h>
+#include <linux/dma-mapping.h>
+#include <soc/qcom/ramdump.h>
 #include <sound/wcd-dsp-mgr.h>
 #include "wcd-dsp-utils.h"
 
@@ -75,6 +77,32 @@ static char *wdsp_get_cmpnt_type_string(enum wdsp_cmpnt_type);
 
 #define WDSP_STATUS_IS_SET(wdsp, state) (wdsp->status & state)
 
+/* SSR relate status macros */
+#define WDSP_SSR_STATUS_WDSP_READY    BIT(0)
+#define WDSP_SSR_STATUS_CDC_READY     BIT(1)
+#define WDSP_SSR_STATUS_READY         \
+	(WDSP_SSR_STATUS_WDSP_READY | WDSP_SSR_STATUS_CDC_READY)
+#define WDSP_SSR_READY_WAIT_TIMEOUT   (10 * HZ)
+
+enum wdsp_ssr_type {
+
+	/* Init value, indicates there is no SSR in progress */
+	WDSP_SSR_TYPE_NO_SSR = 0,
+
+	/*
+	 * Indicates WDSP crashed. The manager driver internally
+	 * decides when to perform WDSP restart based on the
+	 * users of wdsp. Hence there is no explicit WDSP_UP.
+	 */
+	WDSP_SSR_TYPE_WDSP_DOWN,
+
+	/* Indicates codec hardware is down */
+	WDSP_SSR_TYPE_CDC_DOWN,
+
+	/* Indicates codec hardware is up, trigger to restart WDSP */
+	WDSP_SSR_TYPE_CDC_UP,
+};
+
 struct wdsp_cmpnt {
 
 	/* OF node of the phandle */
@@ -94,6 +122,21 @@ struct wdsp_cmpnt {
 
 	/* Child ops */
 	struct wdsp_cmpnt_ops *ops;
+};
+
+struct wdsp_ramdump_data {
+
+	/* Ramdump device */
+	void *rd_dev;
+
+	/* DMA address of the dump */
+	dma_addr_t rd_addr;
+
+	/* Virtual address of the dump */
+	void *rd_v_addr;
+
+	/* Data provided through error interrupt */
+	struct wdsp_err_intr_arg err_data;
 };
 
 struct wdsp_mgr_priv {
@@ -130,7 +173,34 @@ struct wdsp_mgr_priv {
 
 	/* Lock for serializing ops called by components */
 	struct mutex api_mutex;
+
+	struct wdsp_ramdump_data dump_data;
+
+	/* SSR related */
+	enum wdsp_ssr_type ssr_type;
+	struct mutex ssr_mutex;
+	struct work_struct ssr_work;
+	u16 ready_status;
+	struct completion ready_compl;
 };
+
+static char *wdsp_get_ssr_type_string(enum wdsp_ssr_type type)
+{
+	switch (type) {
+	case WDSP_SSR_TYPE_NO_SSR:
+		return "NO_SSR";
+	case WDSP_SSR_TYPE_WDSP_DOWN:
+		return "WDSP_DOWN";
+	case WDSP_SSR_TYPE_CDC_DOWN:
+		return "CDC_DOWN";
+	case WDSP_SSR_TYPE_CDC_UP:
+		return "CDC_UP";
+	default:
+		pr_err("%s: Invalid ssr_type %d\n",
+			__func__, type);
+		return "Invalid";
+	}
+}
 
 static char *wdsp_get_cmpnt_type_string(enum wdsp_cmpnt_type type)
 {
@@ -145,6 +215,26 @@ static char *wdsp_get_cmpnt_type_string(enum wdsp_cmpnt_type type)
 		pr_err("%s: Invalid component type %d\n",
 			__func__, type);
 		return "Invalid";
+	}
+}
+
+static void __wdsp_clr_ready_locked(struct wdsp_mgr_priv *wdsp,
+				    u16 value)
+{
+	wdsp->ready_status &= ~(value);
+	WDSP_DBG(wdsp, "ready_status = 0x%x", wdsp->ready_status);
+}
+
+static void __wdsp_set_ready_locked(struct wdsp_mgr_priv *wdsp,
+				    u16 value, bool mark_complete)
+{
+	wdsp->ready_status |= value;
+	WDSP_DBG(wdsp, "ready_status = 0x%x", wdsp->ready_status);
+
+	if (mark_complete &&
+	    wdsp->ready_status == WDSP_SSR_STATUS_READY) {
+		WDSP_DBG(wdsp, "marking ready completion");
+		complete(&wdsp->ready_compl);
 	}
 }
 
@@ -199,6 +289,18 @@ static int wdsp_unicast_event(struct wdsp_mgr_priv *wdsp,
 	return ret;
 }
 
+static void wdsp_deinit_components(struct wdsp_mgr_priv *wdsp)
+{
+	struct wdsp_cmpnt *cmpnt;
+	int i;
+
+	for (i = WDSP_CMPNT_TYPE_MAX - 1; i >= 0; i--) {
+		cmpnt = WDSP_GET_COMPONENT(wdsp, i);
+		if (cmpnt && cmpnt->ops && cmpnt->ops->deinit)
+			cmpnt->ops->deinit(cmpnt->cdev, cmpnt->priv_data);
+	}
+}
+
 static int wdsp_init_components(struct wdsp_mgr_priv *wdsp)
 {
 	struct wdsp_cmpnt *cmpnt;
@@ -230,6 +332,8 @@ static int wdsp_init_components(struct wdsp_mgr_priv *wdsp)
 				cmpnt->ops->deinit(cmpnt->cdev,
 						   cmpnt->priv_data);
 		}
+	} else {
+		wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_POST_INIT, NULL);
 	}
 
 	return ret;
@@ -272,6 +376,7 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 	struct wdsp_cmpnt *ctl;
 	struct wdsp_img_segment *seg = NULL;
 	enum wdsp_event_type pre, post;
+	long status;
 	int ret;
 
 	ctl = WDSP_GET_COMPONENT(wdsp, WDSP_CMPNT_CONTROL);
@@ -279,9 +384,11 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 	if (type == WDSP_ELF_FLAG_RE) {
 		pre = WDSP_EVENT_PRE_DLOAD_CODE;
 		post = WDSP_EVENT_POST_DLOAD_CODE;
+		status = WDSP_STATUS_CODE_DLOADED;
 	} else if (type == WDSP_ELF_FLAG_WRITE) {
 		pre = WDSP_EVENT_PRE_DLOAD_DATA;
 		post = WDSP_EVENT_POST_DLOAD_DATA;
+		status = WDSP_STATUS_DATA_DLOADED;
 	} else {
 		WDSP_ERR(wdsp, "Invalid type %u", type);
 		return -EINVAL;
@@ -312,6 +419,8 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 		}
 	}
 
+	WDSP_SET_STATUS(wdsp, status);
+
 	/* Notify all components that image is downloaded */
 	wdsp_broadcast_event_downseq(wdsp, post, NULL);
 
@@ -321,42 +430,47 @@ done:
 	return ret;
 }
 
-static void wdsp_load_fw_image(struct work_struct *work)
+static int wdsp_init_and_dload_code_sections(struct wdsp_mgr_priv *wdsp)
 {
-	struct wdsp_mgr_priv *wdsp;
-	struct wdsp_cmpnt *cmpnt;
-	int ret, idx;
+	int ret;
+	bool is_initialized;
 
-	wdsp = container_of(work, struct wdsp_mgr_priv, load_fw_work);
-	if (!wdsp) {
-		pr_err("%s: Invalid private_data\n", __func__);
-		goto done;
+	is_initialized = WDSP_STATUS_IS_SET(wdsp, WDSP_STATUS_INITIALIZED);
+
+	if (!is_initialized) {
+		/* Components are not initialized yet, initialize them */
+		ret = wdsp_init_components(wdsp);
+		if (IS_ERR_VALUE(ret)) {
+			WDSP_ERR(wdsp, "INIT failed, err = %d", ret);
+			goto done;
+		}
+		WDSP_SET_STATUS(wdsp, WDSP_STATUS_INITIALIZED);
 	}
-
-	/* Initialize the components first */
-	ret = wdsp_init_components(wdsp);
-	if (IS_ERR_VALUE(ret))
-		goto done;
-
-	/* Set init done status */
-	WDSP_SET_STATUS(wdsp, WDSP_STATUS_INITIALIZED);
 
 	/* Download the read-execute sections of image */
 	ret = wdsp_download_segments(wdsp, WDSP_ELF_FLAG_RE);
 	if (IS_ERR_VALUE(ret)) {
 		WDSP_ERR(wdsp, "Error %d to download code sections", ret);
-		for (idx = 0; idx < WDSP_CMPNT_TYPE_MAX; idx++) {
-			cmpnt = WDSP_GET_COMPONENT(wdsp, idx);
-			if (cmpnt->ops && cmpnt->ops->deinit)
-				cmpnt->ops->deinit(cmpnt->cdev,
-						   cmpnt->priv_data);
-		}
-		WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_INITIALIZED);
+		goto done;
+	}
+done:
+	return ret;
+}
+
+static void wdsp_load_fw_image(struct work_struct *work)
+{
+	struct wdsp_mgr_priv *wdsp;
+	int ret;
+
+	wdsp = container_of(work, struct wdsp_mgr_priv, load_fw_work);
+	if (!wdsp) {
+		pr_err("%s: Invalid private_data\n", __func__);
+		return;
 	}
 
-	WDSP_SET_STATUS(wdsp, WDSP_STATUS_CODE_DLOADED);
-done:
-	return;
+	ret = wdsp_init_and_dload_code_sections(wdsp);
+	if (IS_ERR_VALUE(ret))
+		WDSP_ERR(wdsp, "dload code sections failed, err = %d", ret);
 }
 
 static int wdsp_enable_dsp(struct wdsp_mgr_priv *wdsp)
@@ -377,8 +491,6 @@ static int wdsp_enable_dsp(struct wdsp_mgr_priv *wdsp)
 		goto done;
 	}
 
-	WDSP_SET_STATUS(wdsp, WDSP_STATUS_DATA_DLOADED);
-
 	wdsp_broadcast_event_upseq(wdsp, WDSP_EVENT_PRE_BOOTUP, NULL);
 
 	ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_CONTROL,
@@ -398,6 +510,21 @@ done:
 static int wdsp_disable_dsp(struct wdsp_mgr_priv *wdsp)
 {
 	int ret;
+
+	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
+
+	/*
+	 * If Disable happened while SSR is in progress, then set the SSR
+	 * ready status indicating WDSP is now ready. Ignore the disable
+	 * event here and let the SSR handler go through shutdown.
+	 */
+	if (wdsp->ssr_type != WDSP_SSR_TYPE_NO_SSR) {
+		__wdsp_set_ready_locked(wdsp, WDSP_SSR_STATUS_WDSP_READY, true);
+		WDSP_MGR_MUTEX_UNLOCK(wdsp, wdsp->ssr_mutex);
+		return 0;
+	}
+
+	WDSP_MGR_MUTEX_UNLOCK(wdsp, wdsp->ssr_mutex);
 
 	/* Make sure wdsp is in good state */
 	if (!WDSP_STATUS_IS_SET(wdsp, WDSP_STATUS_BOOTED)) {
@@ -478,8 +605,190 @@ static struct device *wdsp_get_dev_for_cmpnt(struct device *wdsp_dev,
 	return cmpnt->cdev;
 }
 
+static void wdsp_collect_ramdumps(struct wdsp_mgr_priv *wdsp)
+{
+	struct wdsp_img_section img_section;
+	struct wdsp_err_intr_arg *data = &wdsp->dump_data.err_data;
+	struct ramdump_segment rd_seg;
+	int ret = 0;
+
+	if (wdsp->ssr_type != WDSP_SSR_TYPE_WDSP_DOWN ||
+	    !data->mem_dumps_enabled) {
+		WDSP_DBG(wdsp, "cannot dump memory, ssr_type %s, dumps %s",
+			 wdsp_get_ssr_type_string(wdsp->ssr_type),
+			 !(data->mem_dumps_enabled) ? "disabled" : "enabled");
+		goto done;
+	}
+
+	if (data->dump_size == 0 ||
+	    data->remote_start_addr < wdsp->base_addr) {
+		WDSP_ERR(wdsp, "Invalid start addr 0x%x or dump_size 0x%zx",
+			 data->remote_start_addr, data->dump_size);
+		goto done;
+	}
+
+	if (!wdsp->dump_data.rd_dev) {
+		WDSP_ERR(wdsp, "Ramdump device is not setup");
+		goto done;
+	}
+
+	WDSP_DBG(wdsp, "base_addr 0x%x, dump_start_addr 0x%x, dump_size 0x%zx",
+		 wdsp->base_addr, data->remote_start_addr, data->dump_size);
+
+	/* Allocate memory for dumps */
+	wdsp->dump_data.rd_v_addr = dma_alloc_coherent(wdsp->mdev,
+						       data->dump_size,
+						       &wdsp->dump_data.rd_addr,
+						       GFP_KERNEL);
+	if (!wdsp->dump_data.rd_v_addr)
+		goto done;
+
+	img_section.addr = data->remote_start_addr - wdsp->base_addr;
+	img_section.size = data->dump_size;
+	img_section.data = wdsp->dump_data.rd_v_addr;
+
+	ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_TRANSPORT,
+				 WDSP_EVENT_READ_SECTION,
+				 &img_section);
+	if (IS_ERR_VALUE(ret)) {
+		WDSP_ERR(wdsp, "Failed to read dumps, size 0x%zx at addr 0x%x",
+			 img_section.size, img_section.addr);
+		goto err_read_dumps;
+	}
+
+	rd_seg.address = (unsigned long) wdsp->dump_data.rd_v_addr;
+	rd_seg.size = img_section.size;
+	rd_seg.v_address = wdsp->dump_data.rd_v_addr;
+
+	ret = do_ramdump(wdsp->dump_data.rd_dev, &rd_seg, 1);
+	if (IS_ERR_VALUE(ret))
+		WDSP_ERR(wdsp, "do_ramdump failed with error %d", ret);
+
+err_read_dumps:
+	dma_free_coherent(wdsp->mdev, data->dump_size,
+			  wdsp->dump_data.rd_v_addr, wdsp->dump_data.rd_addr);
+done:
+	return;
+}
+
+static void wdsp_ssr_work_fn(struct work_struct *work)
+{
+	struct wdsp_mgr_priv *wdsp;
+	int ret;
+
+	wdsp = container_of(work, struct wdsp_mgr_priv, ssr_work);
+	if (!wdsp) {
+		pr_err("%s: Invalid private_data\n", __func__);
+		return;
+	}
+
+	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
+
+	wdsp_collect_ramdumps(wdsp);
+
+	/* In case of CDC_DOWN event, the DSP is already shutdown */
+	if (wdsp->ssr_type != WDSP_SSR_TYPE_CDC_DOWN) {
+		ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_CONTROL,
+					 WDSP_EVENT_DO_SHUTDOWN, NULL);
+		if (IS_ERR_VALUE(ret))
+			WDSP_ERR(wdsp, "Failed WDSP shutdown, err = %d", ret);
+	}
+	wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_POST_SHUTDOWN, NULL);
+	WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_BOOTED);
+
+	WDSP_MGR_MUTEX_UNLOCK(wdsp, wdsp->ssr_mutex);
+	ret = wait_for_completion_timeout(&wdsp->ready_compl,
+					  WDSP_SSR_READY_WAIT_TIMEOUT);
+	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
+	if (ret == 0) {
+		WDSP_ERR(wdsp, "wait_for_ready timed out, status = 0x%x",
+			 wdsp->ready_status);
+		goto done;
+	}
+
+	/* Data sections are to downloaded per WDSP boot */
+	WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_DATA_DLOADED);
+
+	/*
+	 * Even though code section could possible be retained on DSP
+	 * crash, go ahead and still re-download just to avoid any
+	 * memory corruption from previous crash.
+	 */
+	WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_CODE_DLOADED);
+
+	/* If codec went down, then all components must be re-initialized */
+	if (wdsp->ssr_type == WDSP_SSR_TYPE_CDC_DOWN) {
+		wdsp_deinit_components(wdsp);
+		WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_INITIALIZED);
+	}
+
+	ret = wdsp_init_and_dload_code_sections(wdsp);
+	if (IS_ERR_VALUE(ret)) {
+		WDSP_ERR(wdsp, "Failed to dload code sections err = %d",
+			 ret);
+		goto done;
+	}
+
+	/* SSR handling is finished, mark SSR type as NO_SSR */
+	wdsp->ssr_type = WDSP_SSR_TYPE_NO_SSR;
+done:
+	WDSP_MGR_MUTEX_UNLOCK(wdsp, wdsp->ssr_mutex);
+}
+
+static int wdsp_ssr_handler(struct wdsp_mgr_priv *wdsp, void *arg,
+			    enum wdsp_ssr_type ssr_type)
+{
+	enum wdsp_ssr_type current_ssr_type;
+	struct wdsp_err_intr_arg *err_data;
+
+	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
+
+	current_ssr_type = wdsp->ssr_type;
+	WDSP_DBG(wdsp, "Current ssr_type %s, handling ssr_type %s",
+		 wdsp_get_ssr_type_string(current_ssr_type),
+		 wdsp_get_ssr_type_string(ssr_type));
+	wdsp->ssr_type = ssr_type;
+
+	if (arg) {
+		err_data = (struct wdsp_err_intr_arg *) arg;
+		memcpy(&wdsp->dump_data.err_data, err_data,
+		       sizeof(*err_data));
+	} else {
+		memset(&wdsp->dump_data.err_data, 0,
+		       sizeof(wdsp->dump_data.err_data));
+	}
+
+	switch (ssr_type) {
+
+	case WDSP_SSR_TYPE_WDSP_DOWN:
+	case WDSP_SSR_TYPE_CDC_DOWN:
+		__wdsp_clr_ready_locked(wdsp, WDSP_SSR_STATUS_WDSP_READY);
+		if (ssr_type == WDSP_SSR_TYPE_CDC_DOWN)
+			__wdsp_clr_ready_locked(wdsp,
+						WDSP_SSR_STATUS_CDC_READY);
+		wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_PRE_SHUTDOWN,
+					     NULL);
+		schedule_work(&wdsp->ssr_work);
+		break;
+
+	case WDSP_SSR_TYPE_CDC_UP:
+		__wdsp_set_ready_locked(wdsp, WDSP_SSR_STATUS_CDC_READY, true);
+		break;
+
+	default:
+		WDSP_ERR(wdsp, "undefined ssr_type %d\n", ssr_type);
+		/* Revert back the ssr_type for undefined events */
+		wdsp->ssr_type = current_ssr_type;
+		break;
+	}
+
+	WDSP_MGR_MUTEX_UNLOCK(wdsp, wdsp->ssr_mutex);
+
+	return 0;
+}
+
 static int wdsp_intr_handler(struct device *wdsp_dev,
-			     enum wdsp_intr intr)
+			     enum wdsp_intr intr, void *arg)
 {
 	struct wdsp_mgr_priv *wdsp;
 	int ret;
@@ -494,6 +803,9 @@ static int wdsp_intr_handler(struct device *wdsp_dev,
 	case WDSP_IPC1_INTR:
 		ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_IPC,
 					 WDSP_EVENT_IPC1_INTR, NULL);
+		break;
+	case WDSP_ERR_INTR:
+		ret = wdsp_ssr_handler(wdsp, arg, WDSP_SSR_TYPE_WDSP_DOWN);
 		break;
 	default:
 		ret = -EINVAL;
@@ -585,6 +897,11 @@ static int wdsp_mgr_bind(struct device *dev)
 
 	wdsp->ops = &wdsp_ops;
 
+	/* Setup ramdump device */
+	wdsp->dump_data.rd_dev = create_ramdump_device("wdsp", dev);
+	if (!wdsp->dump_data.rd_dev)
+		dev_info(dev, "%s: create_ramdump_device failed\n", __func__);
+
 	ret = component_bind_all(dev, wdsp->ops);
 	if (IS_ERR_VALUE(ret))
 		WDSP_ERR(wdsp, "component_bind_all failed %d\n", ret);
@@ -615,6 +932,11 @@ static void wdsp_mgr_unbind(struct device *dev)
 	int idx;
 
 	component_unbind_all(dev, wdsp->ops);
+
+	if (wdsp->dump_data.rd_dev) {
+		destroy_ramdump_device(wdsp->dump_data.rd_dev);
+		wdsp->dump_data.rd_dev = NULL;
+	}
 
 	/* Clear all status bits */
 	wdsp->status = 0x00;
@@ -746,6 +1068,12 @@ static int wdsp_mgr_probe(struct platform_device *pdev)
 	INIT_WORK(&wdsp->load_fw_work, wdsp_load_fw_image);
 	INIT_LIST_HEAD(wdsp->seg_list);
 	mutex_init(&wdsp->api_mutex);
+	mutex_init(&wdsp->ssr_mutex);
+	wdsp->ssr_type = WDSP_SSR_TYPE_NO_SSR;
+	wdsp->ready_status = WDSP_SSR_STATUS_READY;
+	INIT_WORK(&wdsp->ssr_work, wdsp_ssr_work_fn);
+	init_completion(&wdsp->ready_compl);
+	arch_setup_dma_ops(wdsp->mdev, 0, 0, NULL, 0);
 	dev_set_drvdata(mdev, wdsp);
 
 	ret = component_master_add_with_match(mdev, &wdsp_master_ops,
@@ -759,6 +1087,7 @@ static int wdsp_mgr_probe(struct platform_device *pdev)
 
 err_master_add:
 	mutex_destroy(&wdsp->api_mutex);
+	mutex_destroy(&wdsp->ssr_mutex);
 err_dt_parse:
 	devm_kfree(mdev, wdsp->seg_list);
 	devm_kfree(mdev, wdsp);
@@ -775,6 +1104,7 @@ static int wdsp_mgr_remove(struct platform_device *pdev)
 	component_master_del(mdev, &wdsp_master_ops);
 
 	mutex_destroy(&wdsp->api_mutex);
+	mutex_destroy(&wdsp->ssr_mutex);
 	devm_kfree(mdev, wdsp->seg_list);
 	devm_kfree(mdev, wdsp);
 	dev_set_drvdata(mdev, NULL);

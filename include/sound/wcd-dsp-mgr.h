@@ -36,6 +36,9 @@ enum wdsp_cmpnt_type {
 };
 
 enum wdsp_event_type {
+	/* Initialization related */
+	WDSP_EVENT_POST_INIT,
+
 	/* Image download related */
 	WDSP_EVENT_PRE_DLOAD_CODE,
 	WDSP_EVENT_DLOAD_SECTION,
@@ -43,6 +46,8 @@ enum wdsp_event_type {
 	WDSP_EVENT_PRE_DLOAD_DATA,
 	WDSP_EVENT_POST_DLOAD_DATA,
 	WDSP_EVENT_DLOAD_FAILED,
+
+	WDSP_EVENT_READ_SECTION,
 
 	/* DSP boot related */
 	WDSP_EVENT_PRE_BOOTUP,
@@ -62,6 +67,7 @@ enum wdsp_event_type {
 
 enum wdsp_intr {
 	WDSP_IPC1_INTR,
+	WDSP_ERR_INTR,
 };
 
 /*
@@ -84,6 +90,12 @@ struct wdsp_img_section {
 	u32 addr;
 	size_t size;
 	u8 *data;
+};
+
+struct wdsp_err_intr_arg {
+	bool mem_dumps_enabled;
+	u32 remote_start_addr;
+	size_t dump_size;
 };
 
 /*
@@ -109,7 +121,7 @@ struct wdsp_mgr_ops {
 	struct device *(*get_dev_for_cmpnt)(struct device *wdsp_dev,
 					    enum wdsp_cmpnt_type type);
 	int (*intr_handler)(struct device *wdsp_dev,
-			      enum wdsp_intr intr);
+			      enum wdsp_intr intr, void *arg);
 	int (*vote_for_dsp)(struct device *wdsp_dev, bool vote);
 	int (*suspend)(struct device *wdsp_dev);
 	int (*resume)(struct device *wdsp_dev);
