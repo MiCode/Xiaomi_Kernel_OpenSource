@@ -136,7 +136,9 @@ snd-soc-wcd9335-objs := wcd9335.o
 snd-soc-wcd934x-objs := wcd934x.o
 snd-soc-wcd9xxx-objs := wcd9xxx-resmgr.o wcd9xxx-mbhc.o wcd9xxx-common.o wcdcal-hwdep.o
 snd-soc-wcd9xxx-v2-objs := wcd9xxx-common-v2.o wcd9xxx-resmgr-v2.o
-audio-ext-clock-objs := audio-ext-clk.o
+ifeq ($(CONFIG_COMMON_CLK_MSM), y)
+	audio-ext-clock-objs := audio-ext-clk.o
+endif
 snd-soc-wcd-cpe-objs := wcd_cpe_services.o wcd_cpe_core.o
 snd-soc-wsa881x-objs := wsa881x.o wsa881x-tables.o wsa881x-regmap.o wsa881x-temp-sensor.o
 snd-soc-wcd-mbhc-objs := wcd-mbhc-v2.o
@@ -344,7 +346,9 @@ obj-$(CONFIG_SND_SOC_WCD9320)	+= snd-soc-wcd9320.o
 obj-$(CONFIG_SND_SOC_WCD9330)	+= snd-soc-wcd9330.o
 obj-$(CONFIG_SND_SOC_WCD9335)	+= snd-soc-wcd9335.o
 obj-$(CONFIG_SND_SOC_WCD934X)	+= wcd934x/
-obj-$(CONFIG_AUDIO_EXT_CLK)	+= audio-ext-clock.o
+ifeq ($(CONFIG_COMMON_CLK_MSM), y)
+	obj-$(CONFIG_AUDIO_EXT_CLK)	+= audio-ext-clock.o
+endif
 obj-$(CONFIG_SND_SOC_WCD9XXX)   += snd-soc-wcd9xxx.o
 obj-$(CONFIG_SND_SOC_WCD9XXX_V2) += snd-soc-wcd9xxx-v2.o
 obj-$(CONFIG_SND_SOC_WCD_CPE)   += snd-soc-wcd-cpe.o
