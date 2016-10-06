@@ -71,10 +71,12 @@ static ssize_t fuse_passthrough_read_write_iter(struct kiocb *iocb,
 	struct fuse_file *ff;
 	struct file *fuse_file, *passthrough_filp;
 	struct inode *fuse_inode, *passthrough_inode;
+	struct fuse_conn *fc;
 
 	ff = iocb->ki_filp->private_data;
 	fuse_file = iocb->ki_filp;
 	passthrough_filp = ff->passthrough_filp;
+	fc = ff->fc;
 
 	/* lock passthrough file to prevent it from being released */
 	get_file(passthrough_filp);
@@ -88,7 +90,9 @@ static ssize_t fuse_passthrough_read_write_iter(struct kiocb *iocb,
 		ret_val = passthrough_filp->f_op->write_iter(iocb, iter);
 
 		if (ret_val >= 0 || ret_val == -EIOCBQUEUED) {
+			spin_lock(&fc->lock);
 			fsstack_copy_inode_size(fuse_inode, passthrough_inode);
+			spin_unlock(&fc->lock);
 			fsstack_copy_attr_times(fuse_inode, passthrough_inode);
 		}
 	} else {
