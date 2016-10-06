@@ -2177,69 +2177,74 @@ int adm_arrange_mch_map(struct adm_cmd_device_open_v5 *open, int path,
 			 int channel_mode)
 {
 	int rc = 0, idx;
-
-	memset(open->dev_channel_mapping, 0,
-	       PCM_FORMAT_MAX_NUM_CHANNEL);
-
-	if (channel_mode == 1)	{
-		open->dev_channel_mapping[0] = PCM_CHANNEL_FC;
-	} else if (channel_mode == 2) {
-		open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
-		open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
-	} else if (channel_mode == 3)	{
-		open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
-		open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
-		open->dev_channel_mapping[2] = PCM_CHANNEL_FC;
-	} else if (channel_mode == 4) {
-		open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
-		open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
-		open->dev_channel_mapping[2] = PCM_CHANNEL_LS;
-		open->dev_channel_mapping[3] = PCM_CHANNEL_RS;
-	} else if (channel_mode == 5) {
-		open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
-		open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
-		open->dev_channel_mapping[2] = PCM_CHANNEL_FC;
-		open->dev_channel_mapping[3] = PCM_CHANNEL_LS;
-		open->dev_channel_mapping[4] = PCM_CHANNEL_RS;
-	} else if (channel_mode == 6) {
-		open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
-		open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
-		open->dev_channel_mapping[2] = PCM_CHANNEL_LFE;
-		open->dev_channel_mapping[3] = PCM_CHANNEL_FC;
-		open->dev_channel_mapping[4] = PCM_CHANNEL_LS;
-		open->dev_channel_mapping[5] = PCM_CHANNEL_RS;
-	} else if (channel_mode == 8) {
-		open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
-		open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
-		open->dev_channel_mapping[2] = PCM_CHANNEL_LFE;
-		open->dev_channel_mapping[3] = PCM_CHANNEL_FC;
-		open->dev_channel_mapping[4] = PCM_CHANNEL_LS;
-		open->dev_channel_mapping[5] = PCM_CHANNEL_RS;
-		open->dev_channel_mapping[6] = PCM_CHANNEL_LB;
-		open->dev_channel_mapping[7] = PCM_CHANNEL_RB;
-	} else {
-		pr_err("%s: invalid num_chan %d\n", __func__,
-			channel_mode);
-		rc = -EINVAL;
-		goto inval_ch_mod;
-	}
-
+	memset(open->dev_channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
 	switch (path) {
 	case ADM_PATH_PLAYBACK:
 		idx = ADM_MCH_MAP_IDX_PLAYBACK;
 		break;
 	case ADM_PATH_LIVE_REC:
+	case ADM_PATH_NONLIVE_REC:
 		idx = ADM_MCH_MAP_IDX_REC;
 		break;
 	default:
 		goto non_mch_path;
-		break;
 	};
-
-	if ((open->dev_num_channel > 2) && multi_ch_maps[idx].set_channel_map)
+	if ((open->dev_num_channel > 2) && multi_ch_maps[idx].set_channel_map) {
 		memcpy(open->dev_channel_mapping,
-		       multi_ch_maps[idx].channel_mapping,
-		       PCM_FORMAT_MAX_NUM_CHANNEL);
+			multi_ch_maps[idx].channel_mapping,
+			PCM_FORMAT_MAX_NUM_CHANNEL);
+	} else {
+		if (channel_mode == 1) {
+			open->dev_channel_mapping[0] = PCM_CHANNEL_FC;
+		} else if (channel_mode == 2) {
+			open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
+		} else if (channel_mode == 3) {
+			open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open->dev_channel_mapping[2] = PCM_CHANNEL_FC;
+		} else if (channel_mode == 4) {
+			open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open->dev_channel_mapping[2] = PCM_CHANNEL_LS;
+			open->dev_channel_mapping[3] = PCM_CHANNEL_RS;
+		} else if (channel_mode == 5) {
+			open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open->dev_channel_mapping[2] = PCM_CHANNEL_FC;
+			open->dev_channel_mapping[3] = PCM_CHANNEL_LS;
+			open->dev_channel_mapping[4] = PCM_CHANNEL_RS;
+		} else if (channel_mode == 6) {
+			open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open->dev_channel_mapping[2] = PCM_CHANNEL_LFE;
+			open->dev_channel_mapping[3] = PCM_CHANNEL_FC;
+			open->dev_channel_mapping[4] = PCM_CHANNEL_LS;
+			open->dev_channel_mapping[5] = PCM_CHANNEL_RS;
+		} else if (channel_mode == 7) {
+			open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open->dev_channel_mapping[2] = PCM_CHANNEL_FC;
+			open->dev_channel_mapping[3] = PCM_CHANNEL_LFE;
+			open->dev_channel_mapping[4] = PCM_CHANNEL_LB;
+			open->dev_channel_mapping[5] = PCM_CHANNEL_RB;
+			open->dev_channel_mapping[6] = PCM_CHANNEL_CS;
+		} else if (channel_mode == 8) {
+			open->dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open->dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open->dev_channel_mapping[2] = PCM_CHANNEL_LFE;
+			open->dev_channel_mapping[3] = PCM_CHANNEL_FC;
+			open->dev_channel_mapping[4] = PCM_CHANNEL_LS;
+			open->dev_channel_mapping[5] = PCM_CHANNEL_RS;
+			open->dev_channel_mapping[6] = PCM_CHANNEL_LB;
+			open->dev_channel_mapping[7] = PCM_CHANNEL_RB;
+		} else {
+			pr_err("%s: invalid num_chan %d\n", __func__,
+				channel_mode);
+			rc = -EINVAL;
+			goto inval_ch_mod;
+		}
+	}
 
 non_mch_path:
 inval_ch_mod:
@@ -2281,6 +2286,14 @@ int adm_arrange_mch_ep2_map(struct adm_cmd_device_open_v6 *open_v6,
 		open_v6->dev_channel_mapping_eid2[3] = PCM_CHANNEL_FC;
 		open_v6->dev_channel_mapping_eid2[4] = PCM_CHANNEL_LS;
 		open_v6->dev_channel_mapping_eid2[5] = PCM_CHANNEL_RS;
+	} else if (channel_mode == 7) {
+		open_v6->dev_channel_mapping_eid2[0] = PCM_CHANNEL_FL;
+		open_v6->dev_channel_mapping_eid2[1] = PCM_CHANNEL_FR;
+		open_v6->dev_channel_mapping_eid2[2] = PCM_CHANNEL_FC;
+		open_v6->dev_channel_mapping_eid2[3] = PCM_CHANNEL_LFE;
+		open_v6->dev_channel_mapping_eid2[4] = PCM_CHANNEL_LB;
+		open_v6->dev_channel_mapping_eid2[5] = PCM_CHANNEL_RB;
+		open_v6->dev_channel_mapping_eid2[6] = PCM_CHANNEL_CS;
 	} else if (channel_mode == 8) {
 		open_v6->dev_channel_mapping_eid2[0] = PCM_CHANNEL_FL;
 		open_v6->dev_channel_mapping_eid2[1] = PCM_CHANNEL_FR;
