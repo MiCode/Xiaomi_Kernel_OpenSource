@@ -474,6 +474,11 @@ static int smblib_detach_typec(struct smb_charger *chg)
 	/* cc removed, disable pd_allowed */
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
+	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER, true, 0);
+	vote(chg->pd_disallowed_votable_indirect, VBUS_CC_SHORT_VOTER, true, 0);
+
+	/* reset votes from vbus_cc_short */
+	vote(chg->hvdcp_disable_votable, VBUS_CC_SHORT_VOTER, true, 0);
 
 	vote(chg->apsd_disable_votable, PD_VOTER, false, 0);
 
@@ -2361,6 +2366,43 @@ static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
 		   smblib_typec_mode_name[pval.intval]);
 }
 
+static void smblib_handle_legacy_cable(struct smb_charger *chg,
+					bool typec_debounced)
+{
+	int rc, rp;
+	u8 stat;
+	bool legacy_cable;
+	bool vbus_cc_short = false;
+
+	if (!typec_debounced)
+		return;
+
+	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read TYPE_C_STATUS_5 rc=%d\n",
+			rc);
+		return;
+	}
+
+	legacy_cable = stat & TYPEC_LEGACY_CABLE_STATUS_BIT;
+	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER,
+			legacy_cable, 0);
+
+	if (legacy_cable) {
+		rp = smblib_get_prop_ufp_mode(chg);
+		if (rp == POWER_SUPPLY_TYPEC_SOURCE_HIGH
+				|| rp == POWER_SUPPLY_TYPEC_NON_COMPLIANT) {
+			vbus_cc_short = true;
+			pr_err("Disabling PD and HVDCP, VBUS-CC shorted, rp = %d found\n",
+					rp);
+		}
+	}
+
+	vote(chg->hvdcp_disable_votable, VBUS_CC_SHORT_VOTER, vbus_cc_short, 0);
+	vote(chg->pd_disallowed_votable_indirect, VBUS_CC_SHORT_VOTER,
+			vbus_cc_short, 0);
+}
+
 irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -2382,6 +2424,8 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 			(bool)(stat & CC_ATTACHED_BIT),
 			(bool)(stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT),
 			(bool)(stat & UFP_DFP_MODE_STATUS_BIT));
+	smblib_handle_legacy_cable(chg,
+			(bool)(stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT));
 
 	power_supply_changed(chg->usb_psy);
 
