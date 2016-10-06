@@ -342,6 +342,7 @@ int sde_rm_init(struct sde_rm *rm,
 	if (IS_ERR_OR_NULL(rm->hw_mdp)) {
 		rc = PTR_ERR(rm->hw_mdp);
 		rm->hw_mdp = NULL;
+		SDE_ERROR("failed: mdp hw not available\n");
 		goto fail;
 	}
 
@@ -356,8 +357,10 @@ int sde_rm_init(struct sde_rm *rm,
 
 		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_LM,
 				cat->mixer[i].id, &cat->mixer[i]);
-		if (rc)
+		if (rc) {
+			SDE_ERROR("failed: lm hw not available\n");
 			goto fail;
+		}
 
 		if (!rm->lm_max_width) {
 			rm->lm_max_width = lm->sblk->maxwidth;
@@ -375,15 +378,19 @@ int sde_rm_init(struct sde_rm *rm,
 	for (i = 0; i < cat->dspp_count; i++) {
 		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_DSPP,
 				cat->dspp[i].id, &cat->dspp[i]);
-		if (rc)
+		if (rc) {
+			SDE_ERROR("failed: dspp hw not available\n");
 			goto fail;
+		}
 	}
 
 	for (i = 0; i < cat->pingpong_count; i++) {
 		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_PINGPONG,
 				cat->pingpong[i].id, &cat->pingpong[i]);
-		if (rc)
+		if (rc) {
+			SDE_ERROR("failed: pp hw not available\n");
 			goto fail;
+		}
 	}
 
 	for (i = 0; i < cat->intf_count; i++) {
@@ -394,35 +401,42 @@ int sde_rm_init(struct sde_rm *rm,
 
 		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_INTF,
 				cat->intf[i].id, &cat->intf[i]);
-		if (rc)
+		if (rc) {
+			SDE_ERROR("failed: intf hw not available\n");
 			goto fail;
+		}
 	}
 
 	for (i = 0; i < cat->wb_count; i++) {
 		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_WB,
 				cat->wb[i].id, &cat->wb[i]);
-		if (rc)
+		if (rc) {
+			SDE_ERROR("failed: wb hw not available\n");
 			goto fail;
+		}
 	}
 
 	for (i = 0; i < cat->ctl_count; i++) {
 		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_CTL,
 				cat->ctl[i].id, &cat->ctl[i]);
-		if (rc)
+		if (rc) {
+			SDE_ERROR("failed: ctl hw not available\n");
 			goto fail;
+		}
 	}
 
 	for (i = 0; i < cat->cdm_count; i++) {
 		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_CDM,
 				cat->cdm[i].id, &cat->cdm[i]);
-		if (rc)
+		if (rc) {
+			SDE_ERROR("failed: cdm hw not available\n");
 			goto fail;
+		}
 	}
 
 	return 0;
 
 fail:
-	SDE_ERROR("failed to init sde kms resources\n");
 	sde_rm_destroy(rm);
 
 	return rc;
