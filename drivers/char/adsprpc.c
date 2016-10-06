@@ -264,6 +264,12 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.edge = "dsps",
 		.vmid = VMID_SSC_Q6,
 	},
+	{
+		.name = "mdsprpc-smd",
+		.subsys = "mdsp",
+		.channel = SMD_APPS_MODEM,
+		.edge = "mdsp",
+	},
 };
 
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
