@@ -147,21 +147,20 @@
 			<&clock_mmss clk_mmss_camss_top_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi0_clk_src>,
+			<&clock_mmss clk_csiphy_clk_src>,
 			<&clock_mmss clk_mmss_camss_csi0_clk>,
-			<&clock_mmss clk_mmss_camss_csiphy0_clk>,
 			<&clock_mmss clk_mmss_camss_csi0_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_csi0rdi_clk>,
 			<&clock_mmss clk_mmss_camss_csi0pix_clk>,
-			<&clock_mmss clk_mmss_camss_cphy_csid0_clk>,
-			<&clock_mmss clk_csiphy_clk_src>;
+			<&clock_mmss clk_mmss_camss_cphy_csid0_clk>;
 		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
-			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
-			"csi_phy_clk", "csi_ahb_clk", "csi_rdi_clk",
-			"csi_pix_clk", "cphy_csid_clk", "cphy_clk_src";
-		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 0 0 0 0 0 0
-			256000000>;
+			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
+			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
+			"csi_pix_clk", "cphy_csid_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+			0 0 0 0 0>;
 		status = "ok";
 	};
 
@@ -186,21 +185,20 @@
 			<&clock_mmss clk_mmss_camss_top_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi1_clk_src>,
+			<&clock_mmss clk_csiphy_clk_src>,
 			<&clock_mmss clk_mmss_camss_csi1_clk>,
-			<&clock_mmss clk_mmss_camss_csiphy1_clk>,
 			<&clock_mmss clk_mmss_camss_csi1_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_csi1rdi_clk>,
 			<&clock_mmss clk_mmss_camss_csi1pix_clk>,
-			<&clock_mmss clk_mmss_camss_cphy_csid1_clk>,
-			<&clock_mmss clk_csiphy_clk_src>;
+			<&clock_mmss clk_mmss_camss_cphy_csid1_clk>;
 		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
-			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
-			"csi_phy_clk", "csi_ahb_clk", "csi_rdi_clk",
-			"csi_pix_clk", "cphy_csid_clk", "cphy_clk_src";
-		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 0 0 0 0 0 0
-			256000000>;
+			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
+			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
+			"csi_pix_clk", "cphy_csid_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+			 0 0 0 0 0>;
 		status = "ok";
 	};
 
@@ -225,21 +223,20 @@
 			<&clock_mmss clk_mmss_camss_top_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi2_clk_src>,
+			<&clock_mmss clk_csiphy_clk_src>,
 			<&clock_mmss clk_mmss_camss_csi2_clk>,
-			<&clock_mmss clk_mmss_camss_csiphy2_clk>,
 			<&clock_mmss clk_mmss_camss_csi2_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_csi2rdi_clk>,
 			<&clock_mmss clk_mmss_camss_csi2pix_clk>,
-			<&clock_mmss clk_mmss_camss_cphy_csid2_clk>,
-			<&clock_mmss clk_csiphy_clk_src>;
+			<&clock_mmss clk_mmss_camss_cphy_csid2_clk>;
 		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
-			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
-			"csi_phy_clk", "csi_ahb_clk", "csi_rdi_clk",
-			"csi_pix_clk", "cphy_csid_clk", "cphy_clk_src";
-		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 0 0 0 0 0 0
-			256000000>;
+			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
+			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
+			"csi_pix_clk", "cphy_csid_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+			 0 0 0 0 0>;
 		status = "ok";
 	};
 
@@ -264,20 +261,20 @@
 			<&clock_mmss clk_mmss_camss_top_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi3_clk_src>,
+			<&clock_mmss clk_csiphy_clk_src>,
 			<&clock_mmss clk_mmss_camss_csi3_clk>,
 			<&clock_mmss clk_mmss_camss_csi3_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_csi3rdi_clk>,
 			<&clock_mmss clk_mmss_camss_csi3pix_clk>,
-			<&clock_mmss clk_mmss_camss_cphy_csid1_clk>,
-			<&clock_mmss clk_csiphy_clk_src>;
+			<&clock_mmss clk_mmss_camss_cphy_csid3_clk>;
 		clock-names = "mmssnoc_axi", "mnoc_ahb",
 			"bmic_smmu_ahb", "bmic_smmu_axi",
 			"camss_ahb_clk", "camss_top_ahb_clk",
-			"ispif_ahb_clk", "csi_src_clk", "csi_clk",
-			"csi_ahb_clk", "csi_rdi_clk",
-			"csi_pix_clk", "cphy_csid_clk", "cphy_clk_src";
-		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 0 0 0 0 0
-			256000000>;
+			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
+			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
+			"csi_pix_clk", "cphy_csid_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+			 0 0 0 0 0>;
 		status = "ok";
 	};
 
