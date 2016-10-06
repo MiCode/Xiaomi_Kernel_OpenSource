@@ -1123,6 +1123,13 @@ static int sde_rotator_try_fmt_vid_cap(struct file *file,
 	struct sde_rotation_config config;
 	int ret;
 
+	if ((f->fmt.pix.width == 0) || (f->fmt.pix.height == 0)) {
+		SDEDEV_WARN(ctx->rot_dev->dev,
+				"Not supporting 0 width/height: %dx%d\n",
+				f->fmt.pix.width, f->fmt.pix.height);
+		return -EINVAL;
+	}
+
 	sde_rot_mgr_lock(rot_dev->mgr);
 	sde_rotator_get_config_from_ctx(ctx, &config);
 	config.output.format = f->fmt.pix.pixelformat;
@@ -1161,6 +1168,13 @@ static int sde_rotator_try_fmt_vid_out(struct file *file,
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_rotation_config config;
 	int ret;
+
+	if ((f->fmt.pix.width == 0) || (f->fmt.pix.height == 0)) {
+		SDEDEV_WARN(ctx->rot_dev->dev,
+				"Not supporting 0 width/height: %dx%d\n",
+				f->fmt.pix.width, f->fmt.pix.height);
+		return -EINVAL;
+	}
 
 	sde_rot_mgr_lock(rot_dev->mgr);
 	sde_rotator_get_config_from_ctx(ctx, &config);
