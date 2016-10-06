@@ -16,6 +16,7 @@
 #include <linux/irqreturn.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
+#include "storm-watch.h"
 
 enum print_reason {
 	PR_INTERRUPT	= BIT(0),
@@ -46,8 +47,9 @@ struct smb_regulator {
 };
 
 struct smb_irq_data {
-	void		*parent_data;
-	const char	*name;
+	void			*parent_data;
+	const char		*name;
+	struct storm_watch	storm_data;
 };
 
 struct smb_chg_param {
@@ -161,6 +163,9 @@ struct smb_charger {
 
 	bool			step_chg_enabled;
 	bool			is_hdc;
+
+	/* workaround flag */
+	u32			wa_flags;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -227,6 +232,8 @@ int smblib_get_prop_batt_voltage_now(struct smb_charger *chg,
 int smblib_get_prop_batt_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_temp(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_step_chg_step(struct smb_charger *chg,
 				union power_supply_propval *val);
 
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
