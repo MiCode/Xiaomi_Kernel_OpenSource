@@ -87,7 +87,7 @@
 		cam_vdig-supply = <&pmcobalt_s3>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
 		qcom,cam-vreg-min-voltage = <0 3312000 1352000>;
-		qcom,cam-vreg-max-voltage = <0 3312000 1352000>;
+		qcom,cam-vreg-max-voltage = <0 3600000 1352000>;
 		qcom,cam-vreg-op-mode = <0 80000 105000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -132,7 +132,7 @@
 		cam_vana-supply = <&pmicobalt_bob>;
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
 		qcom,cam-vreg-min-voltage = <0 0 3312000>;
-		qcom,cam-vreg-max-voltage = <0 0 3312000>;
+		qcom,cam-vreg-max-voltage = <0 0 3600000>;
 		qcom,cam-vreg-op-mode = <0 0 80000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -215,7 +215,7 @@
 		cam_vdig-supply = <&pmcobalt_s3>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
 		qcom,cam-vreg-min-voltage = <0 3312000 1352000>;
-		qcom,cam-vreg-max-voltage = <0 3312000 1352000>;
+		qcom,cam-vreg-max-voltage = <0 3600000 1352000>;
 		qcom,cam-vreg-op-mode = <0 80000 105000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
@@ -259,7 +259,7 @@
 		cam_vana-supply = <&pmicobalt_bob>;
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
 		qcom,cam-vreg-min-voltage = <0 0 3312000>;
-		qcom,cam-vreg-max-voltage = <0 0 3312000>;
+		qcom,cam-vreg-max-voltage = <0 0 3600000>;
 		qcom,cam-vreg-op-mode = <0 0 80000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
