@@ -175,6 +175,9 @@ config USB_F_SUBSET
 config USB_F_RNDIS
 	tristate
 
+config USB_F_QCRNDIS
+	tristate
+
 config USB_F_MASS_STORAGE
 	tristate
 
@@ -317,6 +320,14 @@ config USB_CONFIGFS_ECM_SUBSET
 	help
 	  On hardware that can't implement the full protocol,
 	  a simple CDC subset is used, placing fewer demands on USB.
+
+config USB_CONFIGFS_QCRNDIS
+	bool "RNDIS"
+	depends on USB_CONFIGFS
+	depends on RNDIS_IPA
+	depends on NET
+	select USB_U_ETHER
+	select USB_F_QCRNDIS
 
 config USB_CONFIGFS_RNDIS
 	bool "RNDIS"

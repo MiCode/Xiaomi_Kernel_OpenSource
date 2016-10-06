@@ -25,6 +25,7 @@
 
 #include <linux/slab.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/device.h>
 #include <linux/etherdevice.h>
 
@@ -34,6 +35,7 @@
 #include "rndis.h"
 #include "u_data_ipa.h"
 #include <linux/rndis_ipa.h>
+#include "configfs.h"
 
 unsigned int rndis_dl_max_xfer_size = 9216;
 module_param(rndis_dl_max_xfer_size, uint, S_IRUGO | S_IWUSR);
@@ -644,6 +646,7 @@ struct net_device *rndis_qc_get_net(const char *netname)
 static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_rndis_qc	 *rndis = func_to_rndis_qc(f);
+	struct f_rndis_qc_opts *opts;
 	struct usb_composite_dev *cdev = f->config->cdev;
 	u8 src_connection_idx;
 	u8 dst_connection_idx;
@@ -730,6 +733,7 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		net = rndis_qc_get_net("rndis0");
 		if (IS_ERR(net))
 			return PTR_ERR(net);
+		opts->net = net;
 
 		rndis_set_param_dev(rndis->params, net,
 				&rndis->cdc_filter);
@@ -865,6 +869,31 @@ rndis_qc_bind(struct usb_configuration *c, struct usb_function *f)
 	struct rndis_params		*params;
 	int			status;
 	struct usb_ep		*ep;
+
+	/* maybe allocate device-global string IDs */
+	if (rndis_qc_string_defs[0].id == 0) {
+
+		/* control interface label */
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+		return status;
+		rndis_qc_string_defs[0].id = status;
+		rndis_qc_control_intf.iInterface = status;
+
+		/* data interface label */
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+			return status;
+		rndis_qc_string_defs[1].id = status;
+		rndis_qc_data_intf.iInterface = status;
+
+		/* IAD iFunction label */
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+			return status;
+		rndis_qc_string_defs[2].id = status;
+		rndis_qc_iad_descriptor.iFunction = status;
+	}
 
 	/* allocate instance-specific interface IDs */
 	status = usb_interface_id(c, f);
@@ -1024,11 +1053,18 @@ fail:
 	return status;
 }
 
+static void rndis_qc_free(struct usb_function *f)
+{
+	struct f_rndis_qc_opts *opts;
+
+	opts = container_of(f->fi, struct f_rndis_qc_opts, func_inst);
+	opts->refcnt--;
+}
+
 static void
 rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_rndis_qc		*rndis = func_to_rndis_qc(f);
-	unsigned long flags;
 
 	pr_debug("rndis_qc_unbind: free\n");
 	rndis_deregister(rndis->params);
@@ -1051,10 +1087,6 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	rndis_ipa_cleanup(rndis_ipa_params.private);
 	rndis_ipa_supported = false;
 
-	spin_lock_irqsave(&rndis_lock, flags);
-	kfree(rndis);
-	_rndis_qc = NULL;
-	spin_unlock_irqrestore(&rndis_lock, flags);
 }
 
 void rndis_ipa_reset_trigger(void)
@@ -1102,13 +1134,6 @@ void rndis_net_ready_notify(void)
 	ipa_data_start_rx_tx(USB_IPA_FUNC_RNDIS);
 }
 
-/* Some controllers can't support RNDIS ... */
-static inline bool can_support_rndis_qc(struct usb_configuration *c)
-{
-	/* everything else is *presumably* fine */
-	return true;
-}
-
 /**
  * rndis_qc_bind_config - add RNDIS network link to a configuration
  * @c: the configuration to support the network link
@@ -1121,62 +1146,27 @@ static inline bool can_support_rndis_qc(struct usb_configuration *c)
  * Caller must have called @gether_setup().  Caller is also responsible
  * for calling @gether_cleanup() before module unload.
  */
-int
-rndis_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
-{
-	return rndis_qc_bind_config_vendor(c, ethaddr, 0, NULL, 1, 0);
-}
 
-int
-rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
-					u32 vendorID, const char *manufacturer,
-					u8 max_pkt_per_xfer,
-					u8 pkt_alignment_factor)
+static struct
+usb_function *rndis_qc_bind_config_vendor(struct usb_function_instance *fi,
+				u32 vendorID, const char *manufacturer,
+				u8 max_pkt_per_xfer, u8 pkt_alignment_factor)
 {
+	struct f_rndis_qc_opts *opts = container_of(fi,
+				struct f_rndis_qc_opts, func_inst);
 	struct f_rndis_qc	*rndis;
 	int		status;
 
-	if (!can_support_rndis_qc(c) || !ethaddr) {
-		pr_debug("%s: invalid argument\n", __func__);
-		return -EINVAL;
-	}
-
-	/* maybe allocate device-global string IDs */
-	if (rndis_qc_string_defs[0].id == 0) {
-
-		/* control interface label */
-		status = usb_string_id(c->cdev);
-		if (status < 0)
-			return status;
-		rndis_qc_string_defs[0].id = status;
-		rndis_qc_control_intf.iInterface = status;
-
-		/* data interface label */
-		status = usb_string_id(c->cdev);
-		if (status < 0)
-			return status;
-		rndis_qc_string_defs[1].id = status;
-		rndis_qc_data_intf.iInterface = status;
-
-		/* IAD iFunction label */
-		status = usb_string_id(c->cdev);
-		if (status < 0)
-			return status;
-		rnis_qc_string_defs[2].id = status;
-		rndis_qc_iad_descriptor.iFunction = status;
-	}
-
 	/* allocate and initialize one new instance */
 	status = -ENOMEM;
-	rndis = kzalloc(sizeof(*rndis), GFP_KERNEL);
-	if (!rndis) {
-		pr_err("%s: fail allocate and initialize new instance\n",
-			   __func__);
-		goto fail;
-	}
 
-	rndis->vendorID = vendorID;
-	rndis->manufacturer = manufacturer;
+	opts = container_of(fi, struct f_rndis_qc_opts, func_inst);
+
+	opts->refcnt++;
+	rndis = opts->rndis;
+
+	rndis->vendorID = opts->vendor_id;
+	rndis->manufacturer = opts->manufacturer;
 	/* export host's Ethernet address in CDC format */
 	random_ether_addr(rndis_ipa_params.host_ethaddr);
 	random_ether_addr(rndis_ipa_params.device_ethaddr);
@@ -1223,27 +1213,23 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	rndis->func.disable = rndis_qc_disable;
 	rndis->func.suspend = rndis_qc_suspend;
 	rndis->func.resume = rndis_qc_resume;
+	rndis->func.free_func = rndis_qc_free;
 
 	_rndis_qc = rndis;
 
 	status = rndis_ipa_init(&rndis_ipa_params);
 	if (status) {
 		pr_err("%s: failed to init rndis_ipa\n", __func__);
-		goto fail;
+		kfree(rndis);
+		return ERR_PTR(status);
 	}
 
-	status = usb_add_function(c, &rndis->func);
-	if (status) {
-		ndis_ipa_cleanup(rndis_ipa_params.private);
-		goto fail;
-	}
+	return &rndis->func;
+}
 
-	return 0;
-
-fail:
-	kfree(rndis);
-	_rndis_qc = NULL;
-	return status;
+static struct usb_function *qcrndis_alloc(struct usb_function_instance *fi)
+{
+	return rndis_qc_bind_config_vendor(fi, 0, NULL, 1, 0);
 }
 
 static int rndis_qc_open_dev(struct inode *ip, struct file *fp)
@@ -1332,12 +1318,47 @@ static struct miscdevice rndis_qc_device = {
 	.fops = &rndis_qc_fops,
 };
 
-static int rndis_qc_init(void)
+static void qcrndis_free_inst(struct usb_function_instance *f)
 {
+	struct f_rndis_qc	*rndis;
+	struct f_rndis_qc_opts	*opts = container_of(f,
+				struct f_rndis_qc_opts, func_inst);
+	unsigned long flags;
+
+	rndis = opts->rndis;
+	misc_deregister(&rndis_qc_device);
+
+	ipa_data_free(USB_IPA_FUNC_RNDIS);
+	spin_lock_irqsave(&rndis_lock, flags);
+	kfree(rndis);
+	_rndis_qc = NULL;
+	kfree(opts->rndis);
+	kfree(opts);
+	spin_unlock_irqrestore(&rndis_lock, flags);
+}
+
+static int qcrndis_set_inst_name(struct usb_function_instance *fi,
+	const char *name)
+{
+	struct f_rndis_qc_opts	*opts = container_of(fi,
+				struct f_rndis_qc_opts, func_inst);
+	struct f_rndis_qc	*rndis;
+	int name_len;
 	int ret;
 
-	pr_info("initialize rndis QC instance\n");
+	name_len = strlen(name) + 1;
+	if (name_len > MAX_INST_NAME_LEN)
+		return -ENAMETOOLONG;
 
+	pr_debug("initialize rndis QC instance\n");
+	rndis = kzalloc(sizeof(*rndis), GFP_KERNEL);
+	if (!rndis) {
+		pr_err("%s: fail allocate and initialize new instance\n",
+			   __func__);
+		return -ENOMEM;
+	}
+
+	opts->rndis = rndis;
 	ret = misc_register(&rndis_qc_device);
 	if (ret)
 		pr_err("rndis QC driver failed to register\n");
@@ -1346,10 +1367,51 @@ static int rndis_qc_init(void)
 	ret = ipa_data_setup(USB_IPA_FUNC_RNDIS);
 	if (ret) {
 		pr_err("bam_data_setup failed err: %d\n", ret);
+		kfree(rndis);
 		return ret;
 	}
 
-	return ret;
+	return 0;
+}
+
+static inline
+struct f_rndis_qc_opts *to_f_qc_rndis_opts(struct config_item *item)
+{
+	return container_of(to_config_group(item), struct f_rndis_qc_opts,
+				func_inst.group);
+}
+
+static void qcrndis_attr_release(struct config_item *item)
+{
+	struct f_rndis_qc_opts *opts = to_f_qc_rndis_opts(item);
+
+	usb_put_function_instance(&opts->func_inst);
+}
+
+static struct configfs_item_operations qcrndis_item_ops = {
+	.release        = qcrndis_attr_release,
+};
+
+static struct config_item_type qcrndis_func_type = {
+	.ct_item_ops    = &qcrndis_item_ops,
+	.ct_owner       = THIS_MODULE,
+};
+
+static struct usb_function_instance *qcrndis_alloc_inst(void)
+{
+	struct f_rndis_qc_opts *opts;
+
+	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
+	if (!opts)
+		return ERR_PTR(-ENOMEM);
+
+	opts->func_inst.set_inst_name = qcrndis_set_inst_name;
+	opts->func_inst.free_func_inst = qcrndis_free_inst;
+
+	config_group_init_type_name(&opts->func_inst.group, "",
+				&qcrndis_func_type);
+
+	return &opts->func_inst;
 }
 
 static void rndis_qc_cleanup(void)
@@ -1378,3 +1440,27 @@ bool rndis_qc_get_skip_ep_config(void)
 {
 	return rndis_ipa_params.skip_ep_cfg;
 }
+
+DECLARE_USB_FUNCTION_INIT(qcrndis, qcrndis_alloc_inst, qcrndis_alloc);
+
+static int __init usb_qcrndis_init(void)
+{
+	int ret;
+
+	ret = usb_function_register(&qcrndisusb_func);
+	if (ret) {
+		pr_err("%s: failed to register diag %d\n", __func__, ret);
+		return ret;
+	}
+	return ret;
+}
+
+static void __exit usb_qcrndis_exit(void)
+{
+	usb_function_unregister(&qcrndisusb_func);
+	rndis_qc_cleanup();
+}
+
+module_init(usb_qcrndis_init);
+module_exit(usb_qcrndis_exit);
+MODULE_DESCRIPTION("USB RMNET Function Driver");

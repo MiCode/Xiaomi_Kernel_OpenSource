@@ -1085,6 +1085,20 @@ void ipa_data_port_select(enum ipa_func_type func)
 	port->func_type = func;
 };
 
+void ipa_data_free(enum ipa_func_type func)
+{
+	pr_debug("freeing %d IPA BAM port", func);
+
+	kfree(ipa_data_ports[func]);
+	ipa_data_ports[func] = NULL;
+	if (func == USB_IPA_FUNC_RNDIS)
+		kfree(rndis_data);
+	if (ipa_data_wq) {
+		destroy_workqueue(ipa_data_wq);
+		ipa_data_wq = NULL;
+	}
+}
+
 /**
  * ipa_data_setup() - setup BAM2BAM IPA port
  *
