@@ -191,8 +191,6 @@ static int csr_probe(struct platform_device *pdev)
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
 		return -ENOMEM;
-	/* Store the driver data pointer for use in exported functions */
-	csrdrvdata = drvdata;
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
@@ -220,6 +218,8 @@ static int csr_probe(struct platform_device *pdev)
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
 
+	/* Store the driver data pointer for use in exported functions */
+	csrdrvdata = drvdata;
 	dev_info(dev, "CSR initialized\n");
 	return 0;
 }
