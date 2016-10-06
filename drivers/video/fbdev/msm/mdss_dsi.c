@@ -357,7 +357,7 @@ static int mdss_dsi_panel_power_lp(struct mdss_panel_data *pdata, int enable)
 static int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 	int power_state)
 {
-	int ret;
+	int ret = 0;
 	struct mdss_panel_info *pinfo;
 
 	if (pdata == NULL) {
@@ -383,7 +383,11 @@ static int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 
 	switch (power_state) {
 	case MDSS_PANEL_POWER_OFF:
-		ret = mdss_dsi_panel_power_off(pdata);
+	case MDSS_PANEL_POWER_LCD_DISABLED:
+		/* if LCD has not been disabled, then disable it now */
+		if ((pinfo->panel_power_state != MDSS_PANEL_POWER_LCD_DISABLED)
+		     && (pinfo->panel_power_state != MDSS_PANEL_POWER_OFF))
+			ret = mdss_dsi_panel_power_off(pdata);
 		break;
 	case MDSS_PANEL_POWER_ON:
 		if (mdss_dsi_is_panel_on_lp(pdata))
@@ -2469,6 +2473,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	int power_state;
 	u32 mode;
 	struct mdss_panel_info *pinfo;
+	int ret;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -2528,6 +2533,20 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_blank(pdata, power_state);
 		rc = mdss_dsi_off(pdata, power_state);
+		break;
+	case MDSS_EVENT_DISABLE_PANEL:
+		/* disable esd thread */
+		disable_esd_thread();
+
+		/* disable backlight */
+		ctrl_pdata->panel_data.set_backlight(pdata, 0);
+
+		/* send the off commands */
+		ctrl_pdata->off(pdata);
+
+		/* disable panel power */
+		ret = mdss_dsi_panel_power_ctrl(pdata,
+			MDSS_PANEL_POWER_LCD_DISABLED);
 		break;
 	case MDSS_EVENT_CONT_SPLASH_FINISH:
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)

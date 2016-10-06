@@ -104,6 +104,7 @@ enum {
 	MDSS_PANEL_POWER_ON,
 	MDSS_PANEL_POWER_LP1,
 	MDSS_PANEL_POWER_LP2,
+	MDSS_PANEL_POWER_LCD_DISABLED,
 };
 
 enum {
@@ -265,6 +266,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_RESET_WRITE_PTR,
 	MDSS_EVENT_PANEL_TIMING_SWITCH,
 	MDSS_EVENT_DEEP_COLOR,
+	MDSS_EVENT_DISABLE_PANEL,
 	MDSS_EVENT_MAX,
 };
 
@@ -692,6 +694,7 @@ struct mdss_panel_info {
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
+	struct mdss_mdp_pp_tear_check te_cached;
 
 	/*
 	 * Value of 2 only when single DSI is configured with 2 DSC
@@ -789,6 +792,12 @@ struct mdss_panel_data {
 	/* To store dsc cfg name passed by bootloader */
 	char dsc_cfg_np_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_panel_data *next;
+
+	/*
+	 * Set when the power of the panel is disabled while dsi/mdp
+	 * are still on; panel will recover after unblank
+	 */
+	bool panel_disable_mode;
 };
 
 struct mdss_panel_debugfs_info {

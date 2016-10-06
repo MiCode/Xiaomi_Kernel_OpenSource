@@ -394,6 +394,8 @@ struct mdss_mdp_ctl_intfs_ops {
 			enum dynamic_switch_modes mode, bool pre);
 	/* called before do any register programming  from commit thread */
 	void (*pre_programming)(struct mdss_mdp_ctl *ctl);
+	/* called to do any interface programming for the panel disable mode  */
+	void (*panel_disable_cfg)(struct mdss_mdp_ctl *ctl, bool disable);
 
 	/* to update lineptr, [1..yres] - enable, 0 - disable */
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
@@ -1863,6 +1865,8 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl, int frame_cnt);
 int mdss_mdp_cmd_get_autorefresh_mode(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_cmd_set_autorefresh(struct mdss_mdp_ctl *ctl, int frame_cnt);
 int mdss_mdp_ctl_cmd_get_autorefresh(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_enable_panel_disable_mode(struct msm_fb_data_type *mfd,
+	bool disable_panel);
 int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version);
 int mdss_mdp_layer_pre_commit_cwb(struct msm_fb_data_type *mfd,
 		struct mdp_layer_commit_v1 *commit);

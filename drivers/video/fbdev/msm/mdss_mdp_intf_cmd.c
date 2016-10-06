@@ -295,9 +295,9 @@ static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
 		__func__, pinfo->yres, vclks_line, te->sync_cfg_height,
 		te->vsync_init_val, te->rd_ptr_irq, te->start_pos,
 		te->wr_ptr_irq);
-	pr_debug("thrd_start =%d thrd_cont=%d pp_split=%d\n",
+	pr_debug("thrd_start =%d thrd_cont=%d pp_split=%d hw_vsync_mode:%d\n",
 		te->sync_threshold_start, te->sync_threshold_continue,
-		ctx->pingpong_split_slave);
+		ctx->pingpong_split_slave, pinfo->mipi.hw_vsync_mode);
 
 	pingpong_base = mixer->pingpong_base;
 
@@ -2130,6 +2130,88 @@ static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl,
 }
 
 /*
+ * This function will be called from the sysfs node to tear down or restore
+ * any dependencies of the interface to disable the panel
+ */
+void mdss_mdp_cmd_panel_disable_cfg(struct mdss_mdp_ctl *ctl,
+	bool disable)
+{
+	struct mdss_panel_info *pinfo, *spinfo = NULL;
+	struct mdss_mdp_cmd_ctx *ctx, *sctx = NULL;
+
+	pinfo = &ctl->panel_data->panel_info;
+	mutex_lock(&ctl->offlock);
+
+	if ((pinfo->sim_panel_mode == SIM_MODE) ||
+		((!ctl->panel_data->panel_disable_mode) &&
+		(pinfo->mipi.hw_vsync_mode == 0))) {
+		pr_err("te already in simulaiton mode\n");
+		goto exit;
+	}
+
+	ctx = (struct mdss_mdp_cmd_ctx *)ctl->intf_ctx[MASTER_CTX];
+	if (is_pingpong_split(ctl->mfd)) {
+		sctx = (struct mdss_mdp_cmd_ctx *)ctl->intf_ctx[SLAVE_CTX];
+	} else if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
+		struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+
+		if (sctl) {
+			sctx = (struct mdss_mdp_cmd_ctx *)
+					sctl->intf_ctx[MASTER_CTX];
+			spinfo = &sctl->panel_data->panel_info;
+		}
+	}
+
+	if (disable) {
+		/* cache the te params */
+		memcpy(&pinfo->te_cached, &pinfo->te,
+			sizeof(struct mdss_mdp_pp_tear_check));
+		pinfo->mipi.hw_vsync_mode = 0;
+
+		if (spinfo) {
+			spinfo->mipi.hw_vsync_mode = 0;
+			memcpy(&spinfo->te_cached, &spinfo->te,
+				sizeof(struct mdss_mdp_pp_tear_check));
+		}
+
+		pr_debug("%s: update info\n", __func__);
+		/* update the te information to use sim mode */
+		mdss_panel_override_te_params(pinfo);
+		if (spinfo)
+			mdss_panel_override_te_params(spinfo);
+
+		pr_debug("%s: reconfig tear check\n", __func__);
+		/* reconfigure tear check, remove dependency to external te */
+		if (mdss_mdp_cmd_tearcheck_setup(ctx, false)) {
+			pr_warn("%s: ctx%d tearcheck setup failed\n", __func__,
+				ctx->current_pp_num);
+		} else {
+			if (sctx && mdss_mdp_cmd_tearcheck_setup(sctx, false))
+				pr_warn("%s: ctx%d tearcheck setup failed\n",
+					__func__, sctx->current_pp_num);
+		}
+	} else {
+		/*
+		 * restore the information in the panel information,
+		 * the actual programming will happen during restore
+		 */
+		pr_debug("%s: reset tear check\n", __func__);
+		memcpy(&pinfo->te, &pinfo->te_cached,
+			sizeof(struct mdss_mdp_pp_tear_check));
+		pinfo->mipi.hw_vsync_mode = 1;
+
+		if (spinfo) {
+			spinfo->mipi.hw_vsync_mode = 1;
+			memcpy(&spinfo->te, &spinfo->te_cached,
+				sizeof(struct mdss_mdp_pp_tear_check));
+		}
+	}
+
+exit:
+	mutex_unlock(&ctl->offlock);
+}
+
+/*
  * This function will be called from the sysfs node to enable and disable the
  * feature with master ctl only.
  */
@@ -3481,6 +3563,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	ctl->ops.reconfigure = mdss_mdp_cmd_reconfigure;
 	ctl->ops.pre_programming = mdss_mdp_cmd_pre_programming;
 	ctl->ops.update_lineptr = mdss_mdp_cmd_update_lineptr;
+	ctl->ops.panel_disable_cfg = mdss_mdp_cmd_panel_disable_cfg;
 	pr_debug("%s:-\n", __func__);
 
 	return 0;
