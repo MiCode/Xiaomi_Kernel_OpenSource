@@ -216,7 +216,7 @@
 
 		sde_wb: qcom,wb-display@0 {
 			compatible = "qcom,wb-display";
-			cell-index = <2>;
+			cell-index = <0>;
 			label = "wb_display";
 		};
 

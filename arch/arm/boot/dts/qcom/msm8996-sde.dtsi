@@ -58,8 +58,10 @@
 		qcom,sde-mixer-off = <0x45000 0x46000 0x47000
 				      0x48000 0x49000 0x4a000>;
 		qcom,sde-dspp-off = <0x55000 0x57000>;
-		qcom,sde-wb-off = <0x65000 0x65800 0x66000>;
-		qcom,sde-wb-xin-id = <3 11 6>;
+		qcom,sde-wb-off = <0x66000>;
+		qcom,sde-wb-id = <2>;
+		qcom,sde-wb-xin-id = <6>;
+		qcom,sde-wb-clk-ctrl = <0x2bc 16>;
 		qcom,sde-intf-off = <0x6b000 0x6b800
 					0x6c000 0x6c800>;
 		qcom,sde-intf-type = "none", "dsi", "dsi", "hdmi";
@@ -100,6 +102,19 @@
 		qcom,sde-panic-per-pipe;
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
+
+		qcom,sde-sspp-danger-lut = <0x000f 0xffff 0x0000>;
+		qcom,sde-sspp-safe-lut = <0xfffc 0xff00 0xffff>;
+
+		qcom,sde-vbif-off = <0 0>;
+		qcom,sde-vbif-size = <0x1040>;
+		qcom,sde-vbif-id = <0 1>;
+		qcom,sde-vbif-default-ot-rd-limit = <32>;
+		qcom,sde-vbif-default-ot-wr-limit = <16>;
+		qcom,sde-vbif-dynamic-ot-rd-limit = <62208000 2>,
+			<124416000 4>, <248832000 16>;
+		qcom,sde-vbif-dynamic-ot-wr-limit = <62208000 2>,
+			<124416000 4>, <248832000 16>;
 
 		mmagic-supply = <&gdsc_mmagic_mdss>;
 		vdd-supply = <&gdsc_mdss>;
