@@ -61,6 +61,9 @@
 #define BUCKET_COUNT			8
 #define BUCKET_SOC_PCT			(256 / BUCKET_COUNT)
 
+#define KI_COEFF_MAX			62200
+#define KI_COEFF_SOC_LEVELS		3
+
 /* Debug flag definitions */
 enum fg_debug_flag {
 	FG_IRQ			= BIT(0), /* Show interrupts */
@@ -139,6 +142,8 @@ enum fg_sram_param_id {
 	FG_SRAM_CHG_TERM_CURR,
 	FG_SRAM_DELTA_SOC_THR,
 	FG_SRAM_RECHARGE_SOC_THR,
+	FG_SRAM_KI_COEFF_MED_DISCHG,
+	FG_SRAM_KI_COEFF_HI_DISCHG,
 	FG_SRAM_MAX,
 };
 
@@ -198,6 +203,9 @@ struct fg_dt_props {
 	int	cl_min_cap_limit;
 	int	jeita_hyst_temp;
 	int	batt_temp_delta;
+	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
+	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
+	int	ki_coeff_hi_dischg[KI_COEFF_SOC_LEVELS];
 };
 
 /* parameters from battery profile */
@@ -275,6 +283,7 @@ struct fg_chip {
 	bool			fg_restarting;
 	bool			charge_full;
 	bool			recharge_soc_adjusted;
+	bool			ki_coeff_dischg_en;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
