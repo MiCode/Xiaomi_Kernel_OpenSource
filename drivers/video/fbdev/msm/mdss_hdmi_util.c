@@ -560,7 +560,7 @@ int msm_hdmi_get_timing_info(
 int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
 	struct hdmi_util_ds_data *ds_data, u32 mode)
 {
-	int ret;
+	int ret, i = 0;
 
 	if (!info)
 		return -EINVAL;
@@ -570,9 +570,23 @@ int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
 
 	ret = msm_hdmi_get_timing_info(info, mode);
 
-	if (!ret && ds_data && ds_data->ds_registered && ds_data->ds_max_clk) {
-		if (info->pixel_freq > ds_data->ds_max_clk)
-			info->supported = false;
+	if (!ret && ds_data && ds_data->ds_registered) {
+		if (ds_data->ds_max_clk) {
+			if (info->pixel_freq > ds_data->ds_max_clk)
+				info->supported = false;
+		}
+
+		if (ds_data->modes_num) {
+			u32 *modes = ds_data->modes;
+
+			for (i = 0; i < ds_data->modes_num; i++) {
+				if (info->video_format == *modes++)
+					break;
+			}
+
+			if (i == ds_data->modes_num)
+				info->supported = false;
+		}
 	}
 
 	return ret;
