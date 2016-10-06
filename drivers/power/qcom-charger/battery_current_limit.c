@@ -174,6 +174,9 @@ struct bcl_context {
 	struct qpnp_adc_tm_btm_param btm_vph_adc_param;
 	/* Low temp min freq limit requested by thermal */
 	uint32_t thermal_freq_limit;
+	/* state of charge notifier */
+	struct notifier_block psy_nb;
+	struct work_struct soc_mitig_work;
 
 	/* BCL Peripheral monitor parameters */
 	struct bcl_threshold ibat_high_thresh;
@@ -204,8 +207,6 @@ static DEFINE_MUTEX(bcl_hotplug_mutex);
 static bool bcl_hotplug_enabled;
 static uint32_t battery_soc_val = 100;
 static uint32_t soc_low_threshold;
-static struct power_supply *bcl_psy;
-static struct power_supply_desc bcl_psy_des;
 static const char bcl_psy_name[] = "bcl";
 
 static void bcl_handle_hotplug(struct work_struct *work)
@@ -277,22 +278,34 @@ static void update_cpu_freq(void)
 	trace_bcl_sw_mitigation_event("End Frequency Mitigation");
 }
 
-static void power_supply_callback(struct power_supply *psy)
+static void soc_mitigate(struct work_struct *work)
 {
-	static struct power_supply *bms_psy;
+	if (bcl_hotplug_enabled)
+		queue_work(gbcl->bcl_hotplug_wq, &bcl_hotplug_work);
+	update_cpu_freq();
+}
+
+static int power_supply_callback(struct notifier_block *nb,
+				  unsigned long event, void *data)
+{
+	struct power_supply *psy = data;
+	static struct power_supply *batt_psy;
 	union power_supply_propval ret = {0,};
 	int battery_percentage;
 	enum bcl_threshold_state prev_soc_state;
 
 	if (gbcl->bcl_mode != BCL_DEVICE_ENABLED) {
 		pr_debug("BCL is not enabled\n");
-		return;
+		return NOTIFY_OK;
 	}
 
-	if (!bms_psy)
-		bms_psy = power_supply_get_by_name("bms");
-	if (bms_psy) {
-		battery_percentage = power_supply_get_property(bms_psy,
+	if (strcmp(psy->desc->name, "battery"))
+		return NOTIFY_OK;
+
+	if (!batt_psy)
+		batt_psy = power_supply_get_by_name("battery");
+	if (batt_psy) {
+		battery_percentage = power_supply_get_property(batt_psy,
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
 		battery_percentage = ret.intval;
 		battery_soc_val = battery_percentage;
@@ -302,15 +315,14 @@ static void power_supply_callback(struct power_supply *psy)
 		bcl_soc_state = (battery_soc_val <= soc_low_threshold) ?
 					BCL_LOW_THRESHOLD : BCL_HIGH_THRESHOLD;
 		if (bcl_soc_state == prev_soc_state)
-			return;
+			return NOTIFY_OK;
 		trace_bcl_sw_mitigation_event(
 			(bcl_soc_state == BCL_LOW_THRESHOLD)
 			? "trigger SoC mitigation"
 			: "clear SoC mitigation");
-		if (bcl_hotplug_enabled)
-			queue_work(gbcl->bcl_hotplug_wq, &bcl_hotplug_work);
-		update_cpu_freq();
+		schedule_work(&gbcl->soc_mitig_work);
 	}
+	return NOTIFY_OK;
 }
 
 static int bcl_get_battery_voltage(int *vbatt_mv)
@@ -624,7 +636,6 @@ static void bcl_periph_vbat_notify(enum bcl_trip_type type, int trip_temp,
 static void bcl_periph_mode_set(enum bcl_device_mode mode)
 {
 	int ret = 0;
-	struct power_supply_config bcl_psy_cfg = {};
 
 	if (mode == BCL_DEVICE_ENABLED) {
 		/*
@@ -632,15 +643,11 @@ static void bcl_periph_mode_set(enum bcl_device_mode mode)
 		 * power state changes. Make sure we read the current SoC
 		 * and mitigate.
 		 */
-		power_supply_callback(bcl_psy);
-		bcl_psy_cfg.num_supplicants = 0;
-		bcl_psy_cfg.drv_data = gbcl;
-
-		bcl_psy = power_supply_register(gbcl->dev, &bcl_psy_des,
-				&bcl_psy_cfg);
-		if (IS_ERR(bcl_psy)) {
-			pr_err("Unable to register bcl_psy rc = %ld\n",
-				PTR_ERR(bcl_psy));
+		power_supply_callback(&gbcl->psy_nb, 1, gbcl);
+		ret = power_supply_reg_notifier(&gbcl->psy_nb);
+		if (ret < 0) {
+			pr_err("Unable to register soc notifier rc = %d\n",
+				ret);
 			return;
 		}
 		ret = msm_bcl_set_threshold(BCL_PARAM_CURRENT, BCL_HIGH_TRIP,
@@ -678,7 +685,7 @@ static void bcl_periph_mode_set(enum bcl_device_mode mode)
 		}
 		gbcl->btm_mode = BCL_VPH_MONITOR_MODE;
 	} else {
-		power_supply_unregister(bcl_psy);
+		power_supply_unreg_notifier(&gbcl->psy_nb);
 		ret = msm_bcl_disable();
 		if (ret) {
 			pr_err("Error disabling BCL\n");
@@ -1627,19 +1634,6 @@ btm_probe_exit:
 	return ret;
 }
 
-static int bcl_battery_get_property(struct power_supply *psy,
-				enum power_supply_property prop,
-				union power_supply_propval *val)
-{
-	return 0;
-}
-static int bcl_battery_set_property(struct power_supply *psy,
-				enum power_supply_property prop,
-				const union power_supply_propval *val)
-{
-	return 0;
-}
-
 static uint32_t get_mask_from_core_handle(struct platform_device *pdev,
 						const char *key)
 {
@@ -1725,12 +1719,8 @@ static int bcl_probe(struct platform_device *pdev)
 		pr_err("Cannot create bcl sysfs\n");
 		return ret;
 	}
-	bcl_psy_des.name = bcl_psy_name;
-	bcl_psy_des.type = POWER_SUPPLY_TYPE_BMS;
-	bcl_psy_des.get_property     = bcl_battery_get_property;
-	bcl_psy_des.set_property     = bcl_battery_set_property;
-	bcl_psy_des.num_properties = 0;
-	bcl_psy_des.external_power_changed = power_supply_callback;
+	INIT_WORK(&bcl->soc_mitig_work, soc_mitigate);
+	bcl->psy_nb.notifier_call = power_supply_callback;
 	bcl->bcl_hotplug_wq = alloc_workqueue("bcl_hotplug_wq",  WQ_HIGHPRI, 0);
 	if (!bcl->bcl_hotplug_wq) {
 		pr_err("Workqueue alloc failed\n");
@@ -1773,6 +1763,7 @@ static int bcl_remove(struct platform_device *pdev)
 	int cpu;
 
 	/* De-register KTM handle */
+	power_supply_unreg_notifier(&gbcl->psy_nb);
 	if (gbcl->hotplug_handle)
 		devmgr_unregister_mitigation_client(&pdev->dev,
 			gbcl->hotplug_handle);
