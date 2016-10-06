@@ -355,6 +355,7 @@ enum {
 #define ADM_PP_PARAM_MUTE_BIT			1
 #define ADM_PP_PARAM_LATENCY_ID			1
 #define ADM_PP_PARAM_LATENCY_BIT		2
+#define BE_DAI_PORT_SESSIONS_IDX_MAX		4
 
 struct msm_pcm_routing_evt {
 	void (*event_func)(enum msm_pcm_routing_event, void *);
@@ -365,10 +366,15 @@ struct msm_pcm_routing_bdai_data {
 	u16 port_id; /* AFE port ID */
 	u8 active; /* track if this backend is enabled */
 	unsigned long fe_sessions; /* Front-end sessions */
-	u64 port_sessions; /* track Tx BE ports -> Rx BE
-			    * number of BE should not exceed
-			    * the size of this field
-			    */
+	/*
+	 * Track Tx BE ports -> Rx BE ports.
+	 * port_sessions[0] used to track BE 0 to BE 63.
+	 * port_sessions[1] used to track BE 64 to BE 127.
+	 * port_sessions[2] used to track BE 128 to BE 191.
+	 * port_sessions[3] used to track BE 192 to BE 255.
+	 */
+	u64 port_sessions[BE_DAI_PORT_SESSIONS_IDX_MAX];
+
 	unsigned int  sample_rate;
 	unsigned int  channel;
 	unsigned int  format;
