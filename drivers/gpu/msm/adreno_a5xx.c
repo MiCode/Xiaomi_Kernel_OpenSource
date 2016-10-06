@@ -1406,105 +1406,10 @@ static void a530_lm_enable(struct adreno_device *adreno_dev)
 			adreno_is_a530v2(adreno_dev) ? 0x00060011 : 0x00000011);
 }
 
-static bool llm_is_enabled(struct adreno_device *adreno_dev)
-{
-	unsigned int r;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	kgsl_regread(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, &r);
-	return r & (GPMU_BCL_ENABLED | GPMU_LLM_ENABLED);
-}
-
-
-static void sleep_llm(struct adreno_device *adreno_dev)
-{
-	unsigned int r, retry;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (!llm_is_enabled(adreno_dev))
-		return;
-
-	kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL, &r);
-
-	if ((r & STATE_OF_CHILD) == 0) {
-		/* If both children are on, sleep CHILD_O1 first */
-		kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-			STATE_OF_CHILD, STATE_OF_CHILD_01 | IDLE_FULL_LM_SLEEP);
-		/* Wait for IDLE_FULL_ACK before continuing */
-		for (retry = 0; retry < 5; retry++) {
-			udelay(1);
-			kgsl_regread(device,
-				A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
-			if (r & IDLE_FULL_ACK)
-				break;
-		}
-
-		if (retry == 5)
-			KGSL_CORE_ERR("GPMU: LLM failed to idle: 0x%X\n", r);
-	}
-
-	/* Now turn off both children */
-	kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-		0, STATE_OF_CHILD | IDLE_FULL_LM_SLEEP);
-
-	/* wait for WAKEUP_ACK to be zero */
-	for (retry = 0; retry < 5; retry++) {
-		udelay(1);
-		kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
-		if ((r & WAKEUP_ACK) == 0)
-			break;
-	}
-
-	if (retry == 5)
-		KGSL_CORE_ERR("GPMU: LLM failed to sleep: 0x%X\n", r);
-}
-
-static void wake_llm(struct adreno_device *adreno_dev)
-{
-	unsigned int r, retry;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (!llm_is_enabled(adreno_dev))
-		return;
-
-	kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-		STATE_OF_CHILD, STATE_OF_CHILD_01);
-
-	if (((device->pwrctrl.num_pwrlevels - 2) -
-		device->pwrctrl.active_pwrlevel) <= LM_DCVS_LIMIT)
-		return;
-
-	udelay(1);
-
-	/* Turn on all children */
-	kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-		STATE_OF_CHILD | IDLE_FULL_LM_SLEEP, 0);
-
-	/* Wait for IDLE_FULL_ACK to be zero and WAKEUP_ACK to be set */
-	for (retry = 0; retry < 5; retry++) {
-		udelay(1);
-		kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
-		if ((r & (WAKEUP_ACK | IDLE_FULL_ACK)) == WAKEUP_ACK)
-			break;
-	}
-
-	if (retry == 5)
-		KGSL_CORE_ERR("GPMU: LLM failed to wake: 0x%X\n", r);
-}
-
-static bool llm_is_awake(struct adreno_device *adreno_dev)
-{
-	unsigned int r;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
-	return r & WAKEUP_ACK;
-}
-
 static void a540_lm_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	uint32_t agc_lm_config =
+	uint32_t agc_lm_config = AGC_BCL_DISABLED |
 		((ADRENO_CHIPID_PATCH(adreno_dev->chipid) & 0x3)
 		<< AGC_GPU_VERSION_SHIFT);
 	unsigned int r;
@@ -1518,11 +1423,6 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 			AGC_LM_CONFIG_ISENSE_ENABLE;
 
 		kgsl_regread(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, &r);
-		if (!(r & GPMU_BCL_ENABLED))
-			agc_lm_config |= AGC_BCL_DISABLED;
-
-		if (r & GPMU_LLM_ENABLED)
-			agc_lm_config |= AGC_LLM_ENABLED;
 
 		if ((r & GPMU_ISENSE_STATUS) == GPMU_ISENSE_END_POINT_CAL_ERR) {
 			KGSL_CORE_ERR(
@@ -1551,9 +1451,6 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 
 	kgsl_regwrite(device, A5XX_GPMU_GPMU_VOLTAGE_INTR_EN_MASK,
 		VOLTAGE_INTR_EN);
-
-	if (lm_on(adreno_dev))
-		wake_llm(adreno_dev);
 }
 
 
@@ -1665,14 +1562,6 @@ static void a5xx_enable_64bit(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL, 0x1);
 }
 
-static void a5xx_pre_reset(struct adreno_device *adreno_dev)
-{
-	if (adreno_is_a540(adreno_dev) && lm_on(adreno_dev)) {
-		if (llm_is_awake(adreno_dev))
-			sleep_llm(adreno_dev);
-	}
-}
-
 /*
  * a5xx_gpmu_reset() - Re-enable GPMU based power features and restart GPMU
  * @work: Pointer to the work struct for gpmu reset
@@ -1706,8 +1595,6 @@ static void a5xx_gpmu_reset(struct work_struct *work)
 
 	if (a5xx_regulator_enable(adreno_dev))
 		goto out;
-
-	a5xx_pre_reset(adreno_dev);
 
 	/* Soft reset of the GPMU block */
 	kgsl_regwrite(device, A5XX_RBBM_BLOCK_SW_RESET_CMD, BIT(16));
@@ -3537,6 +3424,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_init = a5xx_preemption_init,
 	.preemption_schedule = a5xx_preemption_schedule,
 	.enable_64bit = a5xx_enable_64bit,
-	.pre_reset =  a5xx_pre_reset,
 	.clk_set_options = a5xx_clk_set_options,
 };
