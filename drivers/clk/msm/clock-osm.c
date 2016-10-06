@@ -1882,8 +1882,8 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 		}
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(72),
 			     c->apm_crossover_vc);
-		clk_osm_write_reg(c, c->apm_threshold_vc,
-				  SEQ_REG(15));
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(15),
+			     c->apm_threshold_vc);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(31),
 			     c->apm_threshold_vc != 0 ?
 			     c->apm_threshold_vc - 1 : 0xff);
