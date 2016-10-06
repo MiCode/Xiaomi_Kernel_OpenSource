@@ -510,8 +510,8 @@ char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
 
 	pr_debug("clk_rate=%llu, bpp= %d, lane_cnt=%d\n",
 	       pinfo->clk_rate, pinfo->bpp, lane_cnt);
-	min_link_rate = (pinfo->clk_rate * 10) /
-		(lane_cnt * encoding_factx10);
+	min_link_rate = (u32)div_u64((pinfo->clk_rate * 10),
+		(lane_cnt * encoding_factx10));
 	min_link_rate = (min_link_rate * pinfo->bpp)
 				/ (DP_LINK_RATE_MULTIPLIER);
 	min_link_rate /= ln_to_link_ratio;
