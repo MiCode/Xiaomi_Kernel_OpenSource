@@ -69,6 +69,10 @@ enum wdsp_signal {
 	/* Hardware generated interrupts signalled to manager */
 	WDSP_IPC1_INTR,
 	WDSP_ERR_INTR,
+
+	/* Other signals */
+	WDSP_CDC_DOWN_SIGNAL,
+	WDSP_CDC_UP_SIGNAL,
 };
 
 /*
