@@ -28,21 +28,22 @@
 #define WCD_MEM_ENABLE_MAX_RETRIES 20
 #define WCD_DSP_BOOT_TIMEOUT_MS 3000
 #define WCD_SYSFS_ENTRY_MAX_LEN 8
+#define WCD_PROCFS_ENTRY_MAX_LEN 16
 #define WCD_934X_RAMDUMP_START_ADDR 0x20100000
 #define WCD_934X_RAMDUMP_SIZE ((1024 * 1024) - 128)
 
-#define WCD_CNTL_MUTEX_LOCK(codec, lock)         \
-{                                                \
-	dev_dbg(codec->dev, "mutex_lock(%s)\n",  \
-		__func__);                       \
-	mutex_lock(&lock);                       \
+#define WCD_CNTL_MUTEX_LOCK(codec, lock)             \
+{                                                    \
+	dev_dbg(codec->dev, "%s: mutex_lock(%s)\n",  \
+		__func__, __stringify_1(lock));      \
+	mutex_lock(&lock);                           \
 }
 
-#define WCD_CNTL_MUTEX_UNLOCK(codec, lock)       \
-{                                                \
-	dev_dbg(codec->dev, "mutex_unlock(%s)\n",\
-		__func__);                       \
-	mutex_unlock(&lock);                     \
+#define WCD_CNTL_MUTEX_UNLOCK(codec, lock)            \
+{                                                     \
+	dev_dbg(codec->dev, "%s: mutex_unlock(%s)\n", \
+		__func__, __stringify_1(lock));       \
+	mutex_unlock(&lock);                          \
 }
 
 struct wcd_cntl_attribute {
@@ -147,6 +148,97 @@ static const struct sysfs_ops wcd_cntl_sysfs_ops = {
 
 static struct kobj_type wcd_cntl_ktype = {
 	.sysfs_ops = &wcd_cntl_sysfs_ops,
+};
+
+static void wcd_cntl_change_online_state(struct wcd_dsp_cntl *cntl,
+					 u8 online)
+{
+	struct wdsp_ssr_entry *ssr_entry = &cntl->ssr_entry;
+	unsigned long ret;
+
+	WCD_CNTL_MUTEX_LOCK(cntl->codec, cntl->ssr_mutex);
+	ssr_entry->offline = !online;
+	/* Make sure the write is complete */
+	wmb();
+	ret = xchg(&ssr_entry->offline_change, 1);
+	wake_up_interruptible(&ssr_entry->offline_poll_wait);
+	dev_dbg(cntl->codec->dev,
+		"%s: requested %u, offline %u offline_change %u, ret = %ldn",
+		__func__, online, ssr_entry->offline,
+		ssr_entry->offline_change, ret);
+	WCD_CNTL_MUTEX_UNLOCK(cntl->codec, cntl->ssr_mutex);
+}
+
+static ssize_t wdsp_ssr_entry_read(struct snd_info_entry *entry,
+				   void *file_priv_data, struct file *file,
+				   char __user *buf, size_t count, loff_t pos)
+{
+	int len = 0;
+	char buffer[WCD_PROCFS_ENTRY_MAX_LEN];
+	struct wcd_dsp_cntl *cntl;
+	struct wdsp_ssr_entry *ssr_entry;
+	ssize_t ret;
+	u8 offline;
+
+	cntl = (struct wcd_dsp_cntl *) entry->private_data;
+	if (!cntl) {
+		pr_err("%s: Invalid private data for SSR procfs entry\n",
+		       __func__);
+		return -EINVAL;
+	}
+
+	ssr_entry = &cntl->ssr_entry;
+
+	WCD_CNTL_MUTEX_LOCK(cntl->codec, cntl->ssr_mutex);
+	offline = ssr_entry->offline;
+	/* Make sure the read is complete */
+	rmb();
+	dev_dbg(cntl->codec->dev, "%s: offline = %s\n", __func__,
+		offline ? "true" : "false");
+	len = snprintf(buffer, sizeof(buffer), "%s\n",
+		       offline ? "OFFLINE" : "ONLINE");
+	ret = simple_read_from_buffer(buf, count, &pos, buffer, len);
+	WCD_CNTL_MUTEX_UNLOCK(cntl->codec, cntl->ssr_mutex);
+
+	return ret;
+}
+
+static unsigned int wdsp_ssr_entry_poll(struct snd_info_entry *entry,
+					void *private_data, struct file *file,
+					poll_table *wait)
+{
+	struct wcd_dsp_cntl *cntl;
+	struct wdsp_ssr_entry *ssr_entry;
+	unsigned int ret = 0;
+
+	if (!entry || !entry->private_data) {
+		pr_err("%s: %s is NULL\n", __func__,
+		       (!entry) ? "entry" : "private_data");
+		return -EINVAL;
+	}
+
+	cntl = (struct wcd_dsp_cntl *) entry->private_data;
+	ssr_entry = &cntl->ssr_entry;
+
+	dev_dbg(cntl->codec->dev, "%s: Poll wait, offline = %u\n",
+		__func__, ssr_entry->offline);
+	poll_wait(file, &ssr_entry->offline_poll_wait, wait);
+	dev_dbg(cntl->codec->dev, "%s: Woken up Poll wait, offline = %u\n",
+		__func__, ssr_entry->offline);
+
+	WCD_CNTL_MUTEX_LOCK(cntl->codec, cntl->ssr_mutex);
+	if (xchg(&ssr_entry->offline_change, 0))
+		ret = POLLIN | POLLPRI | POLLRDNORM;
+	dev_dbg(cntl->codec->dev, "%s: ret (%d) from poll_wait\n",
+		__func__, ret);
+	WCD_CNTL_MUTEX_UNLOCK(cntl->codec, cntl->ssr_mutex);
+
+	return ret;
+}
+
+static struct snd_info_entry_ops wdsp_ssr_entry_ops = {
+	.read = wdsp_ssr_entry_read,
+	.poll = wdsp_ssr_entry_poll,
 };
 
 static int wcd_cntl_cpe_fll_calibrate(struct wcd_dsp_cntl *cntl)
@@ -596,6 +688,7 @@ static irqreturn_t wcd_cntl_err_irq(int irq, void *data)
 			dev_err(cntl->codec->dev,
 				"%s: Failed to handle fatal irq 0x%x\n",
 				__func__, status & cntl->irqs.fatal_irqs);
+		wcd_cntl_change_online_state(cntl, 0);
 	} else {
 		dev_err(cntl->codec->dev, "%s: Invalid intr_handler\n",
 			__func__);
@@ -612,9 +705,14 @@ static int wcd_control_handler(struct device *dev, void *priv_data,
 	int ret = 0;
 
 	switch (event) {
+	case WDSP_EVENT_POST_INIT:
 	case WDSP_EVENT_POST_DLOAD_CODE:
 	case WDSP_EVENT_DLOAD_FAILED:
 	case WDSP_EVENT_POST_SHUTDOWN:
+
+		if (event == WDSP_EVENT_POST_DLOAD_CODE)
+			/* Mark DSP online since code download is complete */
+			wcd_cntl_change_online_state(cntl, 1);
 
 		/* Disable CPAR */
 		wcd_cntl_cpar_ctrl(cntl, false);
@@ -626,12 +724,8 @@ static int wcd_control_handler(struct device *dev, void *priv_data,
 				__func__, ret);
 		break;
 
-	case WDSP_EVENT_PRE_DLOAD_CODE:
-
-		wcd_cntl_enable_memory(cntl);
-		break;
-
 	case WDSP_EVENT_PRE_DLOAD_DATA:
+	case WDSP_EVENT_PRE_DLOAD_CODE:
 
 		/* Enable all the clocks */
 		ret = wcd_cntl_clocks_enable(cntl);
@@ -644,6 +738,9 @@ static int wcd_control_handler(struct device *dev, void *priv_data,
 
 		/* Enable CPAR */
 		wcd_cntl_cpar_ctrl(cntl, true);
+
+		if (event == WDSP_EVENT_PRE_DLOAD_CODE)
+			wcd_cntl_enable_memory(cntl);
 		break;
 
 	case WDSP_EVENT_DO_BOOT:
@@ -850,6 +947,10 @@ static int wcd_ctrl_component_bind(struct device *dev,
 				   void *data)
 {
 	struct wcd_dsp_cntl *cntl;
+	struct snd_soc_codec *codec;
+	struct snd_card *card;
+	struct snd_info_entry *entry;
+	char proc_name[WCD_PROCFS_ENTRY_MAX_LEN];
 	int ret = 0;
 
 	if (!dev || !master || !data) {
@@ -867,13 +968,47 @@ static int wcd_ctrl_component_bind(struct device *dev,
 	cntl->m_dev = master;
 	cntl->m_ops = data;
 
-	if (cntl->m_ops->register_cmpnt_ops)
-		ret = cntl->m_ops->register_cmpnt_ops(master, dev, cntl,
-						      &control_ops);
+	if (!cntl->m_ops->register_cmpnt_ops) {
+		dev_err(dev, "%s: invalid master callback register_cmpnt_ops\n",
+			__func__);
+		ret = -EINVAL;
+		goto done;
+	}
 
-	if (ret)
+	ret = cntl->m_ops->register_cmpnt_ops(master, dev, cntl, &control_ops);
+	if (ret) {
 		dev_err(dev, "%s: register_cmpnt_ops failed, err = %d\n",
 			__func__, ret);
+		goto done;
+	}
+
+	codec = cntl->codec;
+	card = codec->component.card->snd_card;
+	snprintf(proc_name, WCD_PROCFS_ENTRY_MAX_LEN, "%s%d%s", "cpe",
+		 cntl->dsp_instance, "_state");
+	entry = snd_info_create_card_entry(card, proc_name, card->proc_root);
+	if (!entry) {
+		/* Do not treat this as Fatal error */
+		dev_err(dev, "%s: Failed to create procfs entry %s\n",
+			__func__, proc_name);
+		goto done;
+	}
+
+	cntl->ssr_entry.entry = entry;
+	cntl->ssr_entry.offline = 1;
+	entry->size = WCD_PROCFS_ENTRY_MAX_LEN;
+	entry->content = SNDRV_INFO_CONTENT_DATA;
+	entry->c.ops = &wdsp_ssr_entry_ops;
+	entry->private_data = cntl;
+	ret = snd_info_register(entry);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(dev, "%s: Failed to register entry %s, err = %d\n",
+			__func__, proc_name, ret);
+		snd_info_free_entry(entry);
+		/* Let bind still happen even if creating the entry failed */
+		ret = 0;
+	}
+done:
 	return ret;
 }
 
@@ -952,6 +1087,8 @@ void wcd_dsp_cntl_init(struct snd_soc_codec *codec,
 	memcpy(&control->irqs, &params->irqs, sizeof(control->irqs));
 	init_completion(&control->boot_complete);
 	mutex_init(&control->clk_mutex);
+	mutex_init(&control->ssr_mutex);
+	init_waitqueue_head(&control->ssr_entry.offline_poll_wait);
 
 	/*
 	 * The default state of WDSP is in SVS mode.
@@ -1004,6 +1141,7 @@ void wcd_dsp_cntl_deinit(struct wcd_dsp_cntl **cntl)
 	component_del(codec->dev, &wcd_ctrl_component_ops);
 
 	mutex_destroy(&control->clk_mutex);
+	mutex_destroy(&control->ssr_mutex);
 	kfree(*cntl);
 	*cntl = NULL;
 }
