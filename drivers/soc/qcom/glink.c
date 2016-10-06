@@ -2672,7 +2672,7 @@ int glink_close(void *handle)
 {
 	struct glink_core_xprt_ctx *xprt_ctx = NULL;
 	struct channel_ctx *ctx = (struct channel_ctx *)handle;
-	int ret;
+	int ret = 0;
 	unsigned long flags;
 	bool is_empty = false;
 
