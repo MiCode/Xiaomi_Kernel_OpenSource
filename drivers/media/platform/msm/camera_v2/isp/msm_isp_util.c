@@ -20,6 +20,7 @@
 #include "msm_isp_stats_util.h"
 #include "msm_camera_io_util.h"
 #include "cam_smmu_api.h"
+#include "msm_isp48.h"
 
 #define MAX_ISP_V4l2_EVENTS 100
 static DEFINE_MUTEX(bandwidth_mgr_mutex);
@@ -482,11 +483,18 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	pixel_clock = input_cfg->input_pix_clk;
-	rc = vfe_dev->hw_info->vfe_ops.platform_ops.set_clk_rate(vfe_dev,
-		&pixel_clock);
-	if (rc < 0) {
-		pr_err("%s: clock set rate failed\n", __func__);
-		return rc;
+	/*
+	 * Only set rate to higher, do not lower higher
+	 * rate needed by another input
+	 */
+	if (pixel_clock > vfe_dev->msm_isp_vfe_clk_rate) {
+		rc = vfe_dev->hw_info->vfe_ops.platform_ops.set_clk_rate(
+			vfe_dev,
+			&pixel_clock);
+		if (rc < 0) {
+			pr_err("%s: clock set rate failed\n", __func__);
+			return rc;
+		}
 	}
 	return rc;
 }
@@ -1739,6 +1747,9 @@ static void msm_isp_process_overflow_irq(
 	if (overflow_mask) {
 		struct msm_isp_event_data error_event;
 		struct msm_vfe_axi_halt_cmd halt_cmd;
+		uint32_t val = 0;
+		int i;
+		struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 
 		if (vfe_dev->reset_pending == 1) {
 			pr_err("%s:%d failed: overflow %x during reset\n",
@@ -1746,6 +1757,16 @@ static void msm_isp_process_overflow_irq(
 			/* Clear overflow bits since reset is pending */
 			*irq_status1 &= ~overflow_mask;
 			return;
+		}
+		if (msm_vfe_is_vfe48(vfe_dev))
+			val = msm_camera_io_r(vfe_dev->vfe_base + 0xC94);
+		pr_err("%s: vfe %d overflow mask %x, bus_error %x\n",
+			__func__, vfe_dev->pdev->id, overflow_mask, val);
+		for (i = 0; i < axi_data->hw_info->num_wm; i++) {
+			if (!axi_data->free_wm[i])
+				continue;
+			pr_err("%s: wm %d assigned to stream handle %x\n",
+				__func__, i, axi_data->free_wm[i]);
 		}
 
 		halt_cmd.overflow_detected = 1;

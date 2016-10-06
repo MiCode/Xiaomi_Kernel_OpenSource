@@ -246,6 +246,8 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 	.num_iommu_secure_ctx = 0,
 	.vfe_clk_idx = VFE48_SRC_CLK_DTSI_IDX,
 	.runtime_axi_update = 1,
+	.min_ib = 100000000,
+	.min_ab = 100000000,
 	.vfe_ops = {
 		.irq_ops = {
 			.read_irq_status = msm_vfe47_read_irq_status,
@@ -306,6 +308,7 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 			.process_error_status = msm_vfe47_process_error_status,
 			.is_module_cfg_lock_needed =
 				msm_vfe47_is_module_cfg_lock_needed,
+			.ahb_clk_cfg = msm_isp47_ahb_clk_cfg,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe47_get_stats_idx,
