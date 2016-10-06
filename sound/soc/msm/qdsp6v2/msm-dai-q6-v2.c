@@ -5825,11 +5825,6 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 	pr_debug("%s: dev_name: %s\n",
 		__func__, dev_name(dai->dev));
 
-	if (params_rate(params) != 48000) {
-		dev_err(dai->dev, "%s: invalid param rate %d\n",
-			__func__, params_rate(params));
-		return -EINVAL;
-	}
 	if ((params_channels(params) == 0) ||
 		(params_channels(params) > 8)) {
 		dev_err(dai->dev, "%s: invalid param channels %d\n",
