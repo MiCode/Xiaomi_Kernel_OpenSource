@@ -2147,9 +2147,11 @@ static int _me_init_ucode_workarounds(struct adreno_device *adreno_dev)
 	case ADRENO_REV_A540:
 		/*
 		 * WFI after every direct-render 3D mode draw and
-		 * WFI after every 2D Mode 3 draw.
+		 * WFI after every 2D Mode 3 draw. This is needed
+		 * only on a540v1.
 		 */
-		return 0x0000000A;
+		if (adreno_is_a540v1(adreno_dev))
+			return 0x0000000A;
 	default:
 		return 0x00000000; /* No ucode workarounds enabled */
 	}
