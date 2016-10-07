@@ -54,6 +54,8 @@
  * @force_highest_corner:	Flag indicating that all corners must operate
  *			at the voltage of the highest corner.  This is
  *			applicable to MSMCOBALT only.
+ * @aging_init_quot_diff:	Initial quotient difference between CPR aging
+ *			min and max sensors measured at time of manufacturing
  *
  * This struct holds the values for all of the fuses read from memory.
  */
@@ -65,6 +67,7 @@ struct cprh_msmcobalt_kbss_fuses {
 	u64	speed_bin;
 	u64	cpr_fusing_rev;
 	u64	force_highest_corner;
+	u64	aging_init_quot_diff;
 };
 
 /*
@@ -192,6 +195,18 @@ msmcobalt_cpr_force_highest_corner_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param
+msmcobalt_kbss_aging_init_quot_diff_param[2][2] = {
+	[MSMCOBALT_KBSS_POWER_CLUSTER_ID] = {
+		{69, 6, 13},
+		{},
+	},
+	[MSMCOBALT_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		{71, 25, 32},
+		{},
+	},
+};
+
 /*
  * Open loop voltage fuse reference voltages in microvolts for MSMCOBALT v1
  */
@@ -225,6 +240,8 @@ msmcobalt_v2_kbss_fuse_ref_volt[2][MSMCOBALT_KBSS_FUSE_CORNERS] = {
 #define MSMCOBALT_KBSS_FUSE_STEP_VOLT		10000
 #define MSMCOBALT_KBSS_VOLTAGE_FUSE_SIZE	6
 #define MSMCOBALT_KBSS_QUOT_OFFSET_SCALE	5
+#define MSMCOBALT_KBSS_AGING_INIT_QUOT_DIFF_SIZE	8
+#define MSMCOBALT_KBSS_AGING_INIT_QUOT_DIFF_SCALE	1
 
 #define MSMCOBALT_KBSS_POWER_CPR_SENSOR_COUNT	6
 #define MSMCOBALT_KBSS_PERFORMANCE_CPR_SENSOR_COUNT	9
@@ -241,6 +258,12 @@ msmcobalt_v2_kbss_fuse_ref_volt[2][MSMCOBALT_KBSS_FUSE_CORNERS] = {
 #define MSMCOBALT_KBSS_POWER_TEMP_SENSOR_ID_END		5
 #define MSMCOBALT_KBSS_PERFORMANCE_TEMP_SENSOR_ID_START	6
 #define MSMCOBALT_KBSS_PERFORMANCE_TEMP_SENSOR_ID_END	11
+
+#define MSMCOBALT_KBSS_POWER_AGING_SENSOR_ID		0
+#define MSMCOBALT_KBSS_POWER_AGING_BYPASS_MASK0		0
+
+#define MSMCOBALT_KBSS_PERFORMANCE_AGING_SENSOR_ID	0
+#define MSMCOBALT_KBSS_PERFORMANCE_AGING_BYPASS_MASK0	0
 
 /**
  * cprh_msmcobalt_kbss_read_fuse_data() - load KBSS specific fuse parameter values
@@ -318,6 +341,15 @@ static int cprh_msmcobalt_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 			return rc;
 		}
 
+	}
+
+	rc = cpr3_read_fuse_param(base,
+				msmcobalt_kbss_aging_init_quot_diff_param[id],
+				&fuse->aging_init_quot_diff);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read aging initial quotient difference fuse, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	rc = cpr3_read_fuse_param(base,
@@ -826,81 +858,9 @@ static int cprh_kbss_apm_crossover_as_corner(struct cpr3_regulator *vreg)
 	corner->floor_volt = ctrl->apm_crossover_volt;
 	corner->ceiling_volt = ctrl->apm_crossover_volt;
 	corner->open_loop_volt = ctrl->apm_crossover_volt;
+	corner->abs_ceiling_volt = ctrl->apm_crossover_volt;
 	corner->use_open_loop = true;
 	vreg->corner_count++;
-
-	return 0;
-}
-
-/**
- * cprh_kbss_adjust_voltages_for_apm() - adjust per-corner floor and ceiling
- *		voltages so that they do not overlap the APM threshold voltage.
- * @vreg:		Pointer to the CPR3 regulator
- *
- * The KBSS memory array power mux (APM) must be configured for a specific
- * supply based upon where the VDD voltage lies with respect to the APM
- * threshold voltage.  When using CPR hardware closed-loop, the voltage may vary
- * anywhere between the floor and ceiling voltage without software notification.
- * Therefore, it is required that the floor to ceiling range for every corner
- * not intersect the APM threshold voltage.  This function adjusts the floor to
- * ceiling range for each corner which violates this requirement.
- *
- * The following algorithm is applied in the case that
- * floor < threshold <= ceiling:
- *	if open_loop >= threshold, then floor = threshold - adj
- *	else ceiling = threshold - step
- * where adj = APM hysteresis voltage established to minimize number
- * of corners with artificially increased floor voltages
- * and step = voltage in microvolts of a single step of the VDD supply
- *
- * The open-loop voltage is also bounded by the new floor or ceiling value as
- * needed.
- *
- * Return: 0 on success, errno on failure
- */
-static int cprh_kbss_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
-{
-	struct cpr3_controller *ctrl = vreg->thread->ctrl;
-	struct cpr3_corner *corner;
-	int i, adj, threshold, prev_ceiling, prev_floor, prev_open_loop;
-
-	if (!ctrl->apm_threshold_volt) {
-		/* APM not being used. */
-		return 0;
-	}
-
-	ctrl->apm_threshold_volt = CPR3_ROUND(ctrl->apm_threshold_volt,
-						ctrl->step_volt);
-	ctrl->apm_adj_volt = CPR3_ROUND(ctrl->apm_adj_volt, ctrl->step_volt);
-
-	threshold = ctrl->apm_threshold_volt;
-	adj = ctrl->apm_adj_volt;
-
-	for (i = 0; i < vreg->corner_count; i++) {
-		corner = &vreg->corner[i];
-
-		if (threshold <= corner->floor_volt
-		    || threshold > corner->ceiling_volt)
-			continue;
-
-		prev_floor = corner->floor_volt;
-		prev_ceiling = corner->ceiling_volt;
-		prev_open_loop = corner->open_loop_volt;
-
-		if (corner->open_loop_volt >= threshold) {
-			corner->floor_volt = max(corner->floor_volt,
-						 threshold - adj);
-			if (corner->open_loop_volt < corner->floor_volt)
-				corner->open_loop_volt = corner->floor_volt;
-		} else {
-			corner->ceiling_volt = threshold - ctrl->step_volt;
-		}
-
-		cpr3_debug(vreg, "APM threshold=%d, APM adj=%d changed corner %d voltages; prev: floor=%d, ceiling=%d, open-loop=%d; new: floor=%d, ceiling=%d, open-loop=%d\n",
-			threshold, adj, i, prev_floor, prev_ceiling,
-			prev_open_loop, corner->floor_volt,
-			corner->ceiling_volt, corner->open_loop_volt);
-	}
 
 	return 0;
 }
@@ -1235,12 +1195,7 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
-	rc = cprh_kbss_adjust_voltages_for_apm(vreg);
-	if (rc) {
-		cpr3_err(vreg, "unable to adjust voltages for APM\n, rc=%d\n",
-			rc);
-		return rc;
-	}
+	cprh_adjust_voltages_for_apm(vreg);
 
 	cpr3_open_loop_voltage_as_ceiling(vreg);
 
@@ -1294,6 +1249,80 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 	}
 
 	cprh_kbss_print_settings(vreg);
+
+	return 0;
+}
+
+/**
+ * cprh_kbss_init_aging() - perform KBSS CPRh controller specific aging
+ *		initializations
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cprh_kbss_init_aging(struct cpr3_controller *ctrl)
+{
+	struct cprh_msmcobalt_kbss_fuses *fuse = NULL;
+	struct cpr3_regulator *vreg;
+	u32 aging_ro_scale;
+	int i, j, rc;
+
+	for (i = 0; i < ctrl->thread_count; i++) {
+		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+			if (ctrl->thread[i].vreg[j].aging_allowed) {
+				ctrl->aging_required = true;
+				vreg = &ctrl->thread[i].vreg[j];
+				fuse = vreg->platform_fuses;
+				break;
+			}
+		}
+	}
+
+	if (!ctrl->aging_required || !fuse || !vreg)
+		return 0;
+
+	rc = cpr3_parse_array_property(vreg, "qcom,cpr-aging-ro-scaling-factor",
+					1, &aging_ro_scale);
+	if (rc)
+		return rc;
+
+	if (aging_ro_scale == 0) {
+		cpr3_err(ctrl, "aging RO scaling factor is invalid: %u\n",
+			aging_ro_scale);
+		return -EINVAL;
+	}
+
+	ctrl->aging_vdd_mode = REGULATOR_MODE_NORMAL;
+	ctrl->aging_complete_vdd_mode = REGULATOR_MODE_IDLE;
+
+	ctrl->aging_sensor_count = 1;
+	ctrl->aging_sensor = kzalloc(sizeof(*ctrl->aging_sensor), GFP_KERNEL);
+	if (!ctrl->aging_sensor)
+		return -ENOMEM;
+
+	if (ctrl->ctrl_id == MSMCOBALT_KBSS_POWER_CLUSTER_ID) {
+		ctrl->aging_sensor->sensor_id
+			= MSMCOBALT_KBSS_POWER_AGING_SENSOR_ID;
+		ctrl->aging_sensor->bypass_mask[0]
+			= MSMCOBALT_KBSS_POWER_AGING_BYPASS_MASK0;
+	} else  {
+		ctrl->aging_sensor->sensor_id
+			= MSMCOBALT_KBSS_PERFORMANCE_AGING_SENSOR_ID;
+		ctrl->aging_sensor->bypass_mask[0]
+			= MSMCOBALT_KBSS_PERFORMANCE_AGING_BYPASS_MASK0;
+	}
+	ctrl->aging_sensor->ro_scale = aging_ro_scale;
+
+	ctrl->aging_sensor->init_quot_diff
+		= cpr3_convert_open_loop_voltage_fuse(0,
+			MSMCOBALT_KBSS_AGING_INIT_QUOT_DIFF_SCALE,
+			fuse->aging_init_quot_diff,
+			MSMCOBALT_KBSS_AGING_INIT_QUOT_DIFF_SIZE);
+
+	cpr3_debug(ctrl, "sensor %u aging init quotient diff = %d, aging RO scale = %u QUOT/V\n",
+		ctrl->aging_sensor->sensor_id,
+		ctrl->aging_sensor->init_quot_diff,
+		ctrl->aging_sensor->ro_scale);
 
 	return 0;
 }
@@ -1563,6 +1592,13 @@ static int cprh_kbss_regulator_probe(struct platform_device *pdev)
 	if (rc) {
 		cpr3_err(&ctrl->thread[0].vreg[0], "regulator initialization failed, rc=%d\n",
 			 rc);
+		return rc;
+	}
+
+	rc = cprh_kbss_init_aging(ctrl);
+	if (rc) {
+		cpr3_err(ctrl, "failed to initialize aging configurations, rc=%d\n",
+			rc);
 		return rc;
 	}
 
