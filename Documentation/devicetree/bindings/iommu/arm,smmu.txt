@@ -93,8 +93,11 @@ conditions.
 - vdd-supply    : Phandle of the regulator that should be powered on during
                   SMMU register access.
 
-- qcom,bus-master-id : The master ID of the bus, if a bus vote is needed.
-                       See include/dt-bindings/msm/msm-bus-ids.h.
+- qcom,msm-bus,name
+- qcom,msm-bus,num-cases
+- qcom,msm-bus,num-paths
+- qcom,msm-bus,vectors-KBps
+		: Refer to devicetree/bindings/arm/msm/msm_bus.txt
 
 Example:
 
