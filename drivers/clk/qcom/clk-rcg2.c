@@ -870,6 +870,7 @@ EXPORT_SYMBOL_GPL(clk_gfx3d_ops);
 static int clk_gfx3d_src_determine_rate(struct clk_hw *hw,
 				    struct clk_rate_request *req)
 {
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	struct clk_rate_request parent_req = { };
 	struct clk_hw *p1, *p3, *xo, *curr_p;
 	const struct freq_tbl *f;
