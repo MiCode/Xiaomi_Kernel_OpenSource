@@ -2583,6 +2583,7 @@ void *glink_open(const struct glink_open_config *cfg)
 	ctx->notify_tx_abort = cfg->notify_tx_abort;
 	ctx->notify_rx_tracer_pkt = cfg->notify_rx_tracer_pkt;
 	ctx->notify_remote_rx_intent = cfg->notify_remote_rx_intent;
+	ctx->magic_number = GLINK_CTX_CANARY;
 
 	if (!ctx->notify_rx_intent_req)
 		ctx->notify_rx_intent_req = glink_dummy_notify_rx_intent_req;
@@ -2618,7 +2619,6 @@ void *glink_open(const struct glink_open_config *cfg)
 
 	GLINK_INFO_CH(ctx, "%s: Created channel, sent OPEN command. ctx %p\n",
 			__func__, ctx);
-	ctx->magic_number = GLINK_CTX_CANARY;
 	return ctx;
 }
 EXPORT_SYMBOL(glink_open);
