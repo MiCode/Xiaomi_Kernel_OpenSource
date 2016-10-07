@@ -736,8 +736,10 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_uart3_apps_clk>,
 		    <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		pinctrl-names = "sleep", "default";
-		pinctrl-0 = <&blsp1_uart3_sleep>;
-		pinctrl-1 = <&blsp1_uart3_active>;
+		pinctrl-0 = <&blsp1_uart3_tx_sleep>, <&blsp1_uart3_rxcts_sleep>,
+					<&blsp1_uart3_rfr_sleep>;
+		pinctrl-1 = <&blsp1_uart3_tx_active>,
+			<&blsp1_uart3_rxcts_active>, <&blsp1_uart3_rfr_active>;
 
 		qcom,msm-bus,name = "buart3";
 		qcom,msm-bus,num-cases = <2>;
