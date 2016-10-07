@@ -4223,7 +4223,7 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 	debugfs_create_file("consumers", 0444, rdev->debugfs, rdev,
 			    &reg_consumers_fops);
 
-	reg = regulator_get(NULL, rdev->desc->name);
+	reg = regulator_get(NULL, rdev_get_name(rdev));
 	if (IS_ERR(reg) || reg == NULL) {
 		pr_err("Error-Bad Function Input\n");
 		goto error;
