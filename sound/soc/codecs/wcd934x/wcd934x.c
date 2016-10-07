@@ -8681,6 +8681,9 @@ static int tavil_swrm_clock(void *handle, bool enable)
 	if (enable) {
 		tavil->swr.clk_users++;
 		if (tavil->swr.clk_users == 1) {
+			regmap_update_bits(tavil->wcd9xxx->regmap,
+					WCD934X_TEST_DEBUG_NPL_DLY_TEST_1,
+					0x10, 0x00);
 			__tavil_cdc_mclk_enable(tavil, true);
 			regmap_update_bits(tavil->wcd9xxx->regmap,
 				WCD934X_CDC_CLK_RST_CTRL_SWR_CONTROL,
@@ -8693,6 +8696,9 @@ static int tavil_swrm_clock(void *handle, bool enable)
 				WCD934X_CDC_CLK_RST_CTRL_SWR_CONTROL,
 				0x01, 0x00);
 			__tavil_cdc_mclk_enable(tavil, false);
+			regmap_update_bits(tavil->wcd9xxx->regmap,
+					WCD934X_TEST_DEBUG_NPL_DLY_TEST_1,
+					0x10, 0x10);
 		}
 	}
 	dev_dbg(tavil->dev, "%s: swrm clock users %d\n",
