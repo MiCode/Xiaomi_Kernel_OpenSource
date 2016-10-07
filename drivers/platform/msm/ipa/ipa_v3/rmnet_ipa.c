@@ -1271,11 +1271,13 @@ static int handle3_ingress_format(struct net_device *dev,
 			ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr_pkt_limit =
 			   in->u.ingress_format.agg_count;
 
-			ipa_wan_ep_cfg->recycle_enabled = true;
-			ep_cfg = (struct rmnet_phys_ep_conf_s *)
-			   rcu_dereference(dev->rx_handler_data);
-			ep_cfg->recycle = ipa_recycle_wan_skb;
-			pr_info("Wan Recycle Enabled\n");
+			if (ipa_wan_ep_cfg->napi_enabled) {
+				ipa_wan_ep_cfg->recycle_enabled = true;
+				ep_cfg = (struct rmnet_phys_ep_conf_s *)
+				   rcu_dereference(dev->rx_handler_data);
+				ep_cfg->recycle = ipa_recycle_wan_skb;
+				pr_info("Wan Recycle Enabled\n");
+			}
 		}
 	}
 
@@ -1969,9 +1971,9 @@ static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 		ipa_rmnet_drv_res->ipa_advertise_sg_support ? "True" : "False");
 
 	ipa_rmnet_drv_res->ipa_napi_enable =
-			of_property_read_bool(pdev->dev.of_node,
-			"qcom,napi");
-	pr_info("IPA napi = %s\n",
+		of_property_read_bool(pdev->dev.of_node,
+			"qcom,ipa-napi-enable");
+	pr_info("IPA Napi Enable = %s\n",
 		ipa_rmnet_drv_res->ipa_napi_enable ? "True" : "False");
 	return 0;
 }
