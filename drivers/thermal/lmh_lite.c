@@ -640,7 +640,7 @@ sens_exit:
 
 static int lmh_get_sensor_list(void)
 {
-	int ret = 0;
+	int ret = 0, buf_size = 0;
 	uint32_t size = 0, next = 0, idx = 0, count = 0;
 	struct scm_desc desc_arg;
 	struct lmh_sensor_packet *payload = NULL;
@@ -649,12 +649,13 @@ static int lmh_get_sensor_list(void)
 		uint32_t size;
 	} cmd_buf;
 
-	payload = kzalloc(sizeof(*payload), GFP_KERNEL);
+	buf_size = PAGE_ALIGN(sizeof(*payload));
+	payload = kzalloc(buf_size, GFP_KERNEL);
 	if (!payload)
 		return -ENOMEM;
 
 	do {
-		memset(payload, 0, sizeof(*payload));
+		memset(payload, 0, buf_size);
 		payload->count = next;
 		cmd_buf.addr = SCM_BUFFER_PHYS(payload);
 		/* payload_phys may be a physical address > 4 GB */
@@ -663,7 +664,7 @@ static int lmh_get_sensor_list(void)
 				lmh_sensor_packet);
 		desc_arg.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 		trace_lmh_event_call("GET_SENSORS enter");
-		dmac_flush_range(payload, payload + sizeof(*payload));
+		dmac_flush_range(payload, payload + buf_size);
 		if (!is_scm_armv8())
 			ret = scm_call(SCM_SVC_LMH, LMH_GET_SENSORS,
 				(void *) &cmd_buf,
@@ -881,7 +882,8 @@ static int lmh_debug_read(struct lmh_debug_ops *ops, uint32_t **buf)
 	if (curr_size != size) {
 		if (payload)
 			devm_kfree(lmh_data->dev, payload);
-		payload = devm_kzalloc(lmh_data->dev, size, GFP_KERNEL);
+		payload = devm_kzalloc(lmh_data->dev, PAGE_ALIGN(size),
+				       GFP_KERNEL);
 		if (!payload) {
 			pr_err("payload buffer alloc failed\n");
 			ret = -ENOMEM;
@@ -948,7 +950,8 @@ static int lmh_debug_config_write(uint32_t cmd_id, uint32_t *buf, int size)
 
 	trace_lmh_debug_data("Config LMH", buf, size);
 	size_bytes = (size - 3) * sizeof(uint32_t);
-	payload = devm_kzalloc(lmh_data->dev, size_bytes, GFP_KERNEL);
+	payload = devm_kzalloc(lmh_data->dev, PAGE_ALIGN(size_bytes),
+			       GFP_KERNEL);
 	if (!payload) {
 		ret = -ENOMEM;
 		goto set_cfg_exit;

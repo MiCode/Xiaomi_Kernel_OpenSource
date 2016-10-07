@@ -1202,6 +1202,23 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	if (rc)
 		return rc;
 
+	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
+	if (IS_ERR(ctrl->vdd_regulator)) {
+		rc = PTR_ERR(ctrl->vdd_regulator);
+		if (rc != -EPROBE_DEFER) {
+			/* vdd-supply is optional for CPRh controllers. */
+			if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
+				cpr3_debug(ctrl, "unable to request vdd regulator, rc=%d\n",
+					rc);
+				ctrl->vdd_regulator = NULL;
+				return 0;
+			}
+			cpr3_err(ctrl, "unable to request vdd regulator, rc=%d\n",
+				 rc);
+		}
+		return rc;
+	}
+
 	/*
 	 * Regulator device handles are not necessary for CPRh controllers
 	 * since communication with the regulators is completely managed
@@ -1209,15 +1226,6 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	 */
 	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH)
 		return rc;
-
-	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
-	if (IS_ERR(ctrl->vdd_regulator)) {
-		rc = PTR_ERR(ctrl->vdd_regulator);
-		if (rc != -EPROBE_DEFER)
-			cpr3_err(ctrl, "unable request vdd regulator, rc=%d\n",
-				 rc);
-		return rc;
-	}
 
 	ctrl->system_regulator = devm_regulator_get_optional(ctrl->dev,
 								"system");
@@ -1999,4 +2007,79 @@ done:
 	kfree(allow_temp_adj);
 
 	return rc;
+}
+
+/**
+ * cprh_adjust_voltages_for_apm() - adjust per-corner floor and ceiling voltages
+ *		so that they do not overlap the APM threshold voltage.
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * The memory array power mux (APM) must be configured for a specific supply
+ * based upon where the VDD voltage lies with respect to the APM threshold
+ * voltage.  When using CPR hardware closed-loop, the voltage may vary anywhere
+ * between the floor and ceiling voltage without software notification.
+ * Therefore, it is required that the floor to ceiling range for every corner
+ * not intersect the APM threshold voltage.  This function adjusts the floor to
+ * ceiling range for each corner which violates this requirement.
+ *
+ * The following algorithm is applied:
+ *	if floor < threshold <= ceiling:
+ *		if open_loop >= threshold, then floor = threshold - adj
+ *		else ceiling = threshold - step
+ * where:
+ *	adj = APM hysteresis voltage established to minimize the number of
+ *	      corners with artificially increased floor voltages
+ *	step = voltage in microvolts of a single step of the VDD supply
+ *
+ * The open-loop voltage is also bounded by the new floor or ceiling value as
+ * needed.
+ *
+ * Return: none
+ */
+void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct cpr3_corner *corner;
+	int i, adj, threshold, prev_ceiling, prev_floor, prev_open_loop;
+
+	if (!ctrl->apm_threshold_volt) {
+		/* APM not being used. */
+		return;
+	}
+
+	ctrl->apm_threshold_volt = CPR3_ROUND(ctrl->apm_threshold_volt,
+						ctrl->step_volt);
+	ctrl->apm_adj_volt = CPR3_ROUND(ctrl->apm_adj_volt, ctrl->step_volt);
+
+	threshold = ctrl->apm_threshold_volt;
+	adj = ctrl->apm_adj_volt;
+
+	for (i = 0; i < vreg->corner_count; i++) {
+		corner = &vreg->corner[i];
+
+		if (threshold <= corner->floor_volt
+		    || threshold > corner->ceiling_volt)
+			continue;
+
+		prev_floor = corner->floor_volt;
+		prev_ceiling = corner->ceiling_volt;
+		prev_open_loop = corner->open_loop_volt;
+
+		if (corner->open_loop_volt >= threshold) {
+			corner->floor_volt = max(corner->floor_volt,
+						 threshold - adj);
+			if (corner->open_loop_volt < corner->floor_volt)
+				corner->open_loop_volt = corner->floor_volt;
+		} else {
+			corner->ceiling_volt = threshold - ctrl->step_volt;
+		}
+
+		if (corner->floor_volt != prev_floor
+		    || corner->ceiling_volt != prev_ceiling
+		    || corner->open_loop_volt != prev_open_loop)
+			cpr3_debug(vreg, "APM threshold=%d, APM adj=%d changed corner %d voltages; prev: floor=%d, ceiling=%d, open-loop=%d; new: floor=%d, ceiling=%d, open-loop=%d\n",
+				threshold, adj, i, prev_floor, prev_ceiling,
+				prev_open_loop, corner->floor_volt,
+				corner->ceiling_volt, corner->open_loop_volt);
+	}
 }

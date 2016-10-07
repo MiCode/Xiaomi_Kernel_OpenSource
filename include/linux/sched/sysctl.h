@@ -64,6 +64,7 @@ extern unsigned int sysctl_sched_pred_alert_freq;
 extern unsigned int sysctl_sched_freq_aggregate;
 extern unsigned int sysctl_sched_enable_thread_grouping;
 extern unsigned int sysctl_sched_freq_aggregate_threshold_pct;
+extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
 
 #else /* CONFIG_SCHED_HMP */
 
@@ -118,6 +119,22 @@ extern int sysctl_sched_rt_runtime;
 
 #ifdef CONFIG_CFS_BANDWIDTH
 extern unsigned int sysctl_sched_cfs_bandwidth_slice;
+#endif
+
+#ifdef CONFIG_SCHED_TUNE
+extern unsigned int sysctl_sched_cfs_boost;
+int sysctl_sched_cfs_boost_handler(struct ctl_table *table, int write,
+				   void __user *buffer, size_t *length,
+				   loff_t *ppos);
+static inline unsigned int get_sysctl_sched_cfs_boost(void)
+{
+	return sysctl_sched_cfs_boost;
+}
+#else
+static inline unsigned int get_sysctl_sched_cfs_boost(void)
+{
+	return 0;
+}
 #endif
 
 #ifdef CONFIG_SCHED_AUTOGROUP

@@ -89,7 +89,9 @@ config ARCH_MSMHAMSTER
 config ARCH_MSMFALCON
 	bool "Enable Support for Qualcomm Technologies Inc MSMFALCON"
 	depends on ARCH_QCOM
-	select COMMON_CLK_MSM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
 	help
 	  This enables support for the MSMFALCON chipset.
 	  If you do not wish to build a kernel that runs
@@ -98,7 +100,9 @@ config ARCH_MSMFALCON
 config ARCH_MSMTRITON
 	bool "Enable Support for Qualcomm Technologies Inc MSMTRITON"
 	depends on ARCH_QCOM
-	select COMMON_CLK_MSM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
 	help
 	  This enables support for the MSMTRITON chipset.
 	  If you do not wish to build a kernel that runs

@@ -460,7 +460,6 @@ int msm_isp_request_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	struct msm_vfe_stats_stream_request_cmd *stream_req_cmd = arg;
 	struct msm_vfe_stats_stream *stream_info = NULL;
 	uint32_t stats_idx;
-	unsigned long flags;
 
 	stats_idx = vfe_dev->hw_info->vfe_ops.stats_ops.
 		get_stats_idx(stream_req_cmd->stats_type);
@@ -472,11 +471,8 @@ int msm_isp_request_stats_stream(struct vfe_device *vfe_dev, void *arg)
 
 	stream_info = msm_isp_get_stats_stream_common_data(vfe_dev, stats_idx);
 
-	spin_lock_irqsave(&stream_info->lock, flags);
-
 	rc = msm_isp_stats_create_stream(vfe_dev, stream_req_cmd, stream_info);
 	if (rc < 0) {
-		spin_unlock_irqrestore(&stream_info->lock, flags);
 		pr_err("%s: create stream failed\n", __func__);
 		return rc;
 	}
@@ -491,7 +487,6 @@ int msm_isp_request_stats_stream(struct vfe_device *vfe_dev, void *arg)
 		msm_isp_stats_cfg_stream_scratch(stream_info,
 					VFE_PONG_FLAG);
 	}
-	spin_unlock_irqrestore(&stream_info->lock, flags);
 	return rc;
 }
 
@@ -505,7 +500,6 @@ int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	int vfe_idx;
 	int i;
 	int k;
-	unsigned long flags;
 
 	if (stats_idx >= vfe_dev->hw_info->stats_hw_info->num_stats_type) {
 		pr_err("%s Invalid stats index %d", __func__, stats_idx);
@@ -513,12 +507,10 @@ int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	stream_info = msm_isp_get_stats_stream_common_data(vfe_dev, stats_idx);
-	spin_lock_irqsave(&stream_info->lock, flags);
 	vfe_idx = msm_isp_get_vfe_idx_for_stats_stream_user(
 					vfe_dev, stream_info);
 	if (vfe_idx == -ENOTTY || stream_info->stream_handle[vfe_idx] !=
 			stream_release_cmd->stream_handle) {
-		spin_unlock_irqrestore(&stream_info->lock, flags);
 		pr_err("%s: Invalid stream handle %x, expected %x\n",
 			__func__, stream_release_cmd->stream_handle,
 			vfe_idx != -ENOTTY ?
@@ -526,7 +518,6 @@ int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg)
 		return -EINVAL;
 	}
 	if (stream_info->state == STATS_AVAILABLE) {
-		spin_unlock_irqrestore(&stream_info->lock, flags);
 		pr_err("%s: stream already release\n", __func__);
 		return rc;
 	}
@@ -537,9 +528,7 @@ int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg)
 		stream_cfg_cmd.num_streams = 1;
 		stream_cfg_cmd.stream_handle[0] =
 			stream_release_cmd->stream_handle;
-		spin_unlock_irqrestore(&stream_info->lock, flags);
 		msm_isp_cfg_stats_stream(vfe_dev, &stream_cfg_cmd);
-		spin_lock_irqsave(&stream_info->lock, flags);
 	}
 
 	for (i = vfe_idx, k = vfe_idx + 1; k < stream_info->num_isp; k++, i++) {
@@ -556,7 +545,6 @@ int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	if (stream_info->num_isp == 0)
 		stream_info->state = STATS_AVAILABLE;
 
-	spin_unlock_irqrestore(&stream_info->lock, flags);
 	return 0;
 }
 
@@ -904,6 +892,10 @@ int msm_isp_stats_reset(struct vfe_device *vfe_dev)
 					ISP_EVENT_BUF_FATAL_ERROR);
 				return rc;
 			}
+			vfe_dev->hw_info->vfe_ops.stats_ops.cfg_wm_irq_mask(
+					vfe_dev, stream_info);
+			vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
+				vfe_dev, BIT(i), 1);
 		}
 	}
 
@@ -960,7 +952,9 @@ static int msm_isp_check_stream_cfg_cmd(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info;
 	uint32_t idx;
 	int vfe_idx;
+	uint32_t stats_idx[MSM_ISP_STATS_MAX];
 
+	memset(stats_idx, 0, sizeof(stats_idx));
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		idx = STATS_IDX(stream_cfg_cmd->stream_handle[i]);
 
@@ -980,6 +974,11 @@ static int msm_isp_check_stream_cfg_cmd(struct vfe_device *vfe_dev,
 				stream_info->stream_handle[vfe_idx]);
 			return -EINVAL;
 		}
+		/* remove duplicate handles */
+		if (stats_idx[idx] == stream_cfg_cmd->stream_handle[i])
+			stream_cfg_cmd->stream_handle[i] = 0;
+		else
+			stats_idx[idx] = stream_cfg_cmd->stream_handle[i];
 	}
 	return 0;
 }
@@ -1083,6 +1082,8 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev_ioctl,
 	num_stats_comp_mask =
 		vfe_dev_ioctl->hw_info->stats_hw_info->num_stats_comp_mask;
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		if (stream_cfg_cmd->stream_handle[i] == 0)
+			continue;
 		idx = STATS_IDX(stream_cfg_cmd->stream_handle[i]);
 		stream_info = msm_isp_get_stats_stream_common_data(
 						vfe_dev_ioctl, idx);
@@ -1169,7 +1170,8 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
 
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
-
+		if (stream_cfg_cmd->stream_handle[i] == 0)
+			continue;
 		idx = STATS_IDX(stream_cfg_cmd->stream_handle[i]);
 
 		stream_info = msm_isp_get_stats_stream_common_data(

@@ -244,6 +244,28 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.core = 5,
 		.major = 4,
 		.minor = 0,
+		.patchid = 0,
+		.features = ADRENO_PREEMPTION | ADRENO_64BIT |
+			ADRENO_CONTENT_PROTECTION |
+			ADRENO_GPMU | ADRENO_SPTP_PC,
+		.pm4fw_name = "a530_pm4.fw",
+		.pfpfw_name = "a530_pfp.fw",
+		.zap_name = "a540_zap",
+		.gpudev = &adreno_a5xx_gpudev,
+		.gmem_size = SZ_1M,
+		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
+		.gpmufw_name = "a540_gpmu.fw2",
+		.gpmu_major = 3,
+		.gpmu_minor = 0,
+		.gpmu_tsens = 0x000C000D,
+		.max_power = 5448,
+	},
+	{
+		.gpurev = ADRENO_REV_A540,
+		.core = 5,
+		.major = 4,
+		.minor = 0,
 		.patchid = ANY_ID,
 		.features = ADRENO_PREEMPTION | ADRENO_64BIT |
 			ADRENO_CONTENT_PROTECTION |

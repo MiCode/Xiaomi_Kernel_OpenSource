@@ -413,19 +413,16 @@ static int  diag_glink_write(void *ctxt, unsigned char *buf, int len)
 		return -ENODEV;
 	}
 
-	err = wait_event_interruptible(glink_info->wait_q,
-				   atomic_read(&glink_info->tx_intent_ready));
-	if (err) {
-		diagfwd_write_buffer_done(glink_info->fwd_ctxt, buf);
-		return -ERESTARTSYS;
-	}
-
-	atomic_dec(&glink_info->tx_intent_ready);
-	err = glink_tx(glink_info->hdl, glink_info, buf, len, tx_flags);
-	if (!err) {
-		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s wrote to glink, len: %d\n",
-				 glink_info->name, len);
-	}
+	if (atomic_read(&glink_info->tx_intent_ready)) {
+		atomic_dec(&glink_info->tx_intent_ready);
+		err = glink_tx(glink_info->hdl, glink_info, buf, len, tx_flags);
+		if (!err) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+				"%s wrote to glink, len: %d\n",
+				glink_info->name, len);
+		}
+	} else
+		err = -ENOMEM;
 
 	return err;
 

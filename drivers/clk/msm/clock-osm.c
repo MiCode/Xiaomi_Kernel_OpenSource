@@ -79,6 +79,7 @@ enum clk_osm_trace_packet_id {
 #define MEM_ACC_INSTR_COMP(n) (0x67 + ((n) * 0x40))
 #define MEM_ACC_SEQ_REG_VAL_START(n) (SEQ_REG(60 + (n)))
 #define SEQ_REG1_MSMCOBALT_V2 0x1048
+#define VERSION_REG 0x0
 
 #define OSM_TABLE_SIZE 40
 #define MAX_CLUSTER_CNT 2
@@ -377,6 +378,11 @@ static inline int clk_osm_read_reg_no_log(struct clk_osm *c, u32 offset)
 	return readl_relaxed_no_log((char *)c->vbases[OSM_BASE] + offset);
 }
 
+static inline int clk_osm_mb(struct clk_osm *c, int base)
+{
+	return readl_relaxed_no_log((char *)c->vbases[base] + VERSION_REG);
+}
+
 static inline int clk_osm_count_ns(struct clk_osm *c, u64 nsec)
 {
 	u64 temp;
@@ -460,7 +466,7 @@ static int clk_osm_set_rate(struct clk *c, unsigned long rate)
 	}
 	pr_debug("rate: %lu --> index %d\n", rate, index);
 
-	if (cpuclk->llm_sw_overr) {
+	if (cpuclk->llm_sw_overr[0]) {
 		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[0],
 				  LLM_SW_OVERRIDE_REG);
 		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[1],
@@ -471,14 +477,14 @@ static int clk_osm_set_rate(struct clk *c, unsigned long rate)
 	/* Choose index and send request to OSM hardware */
 	clk_osm_write_reg(cpuclk, index, DCVS_PERF_STATE_DESIRED_REG);
 
-	if (cpuclk->llm_sw_overr) {
+	if (cpuclk->llm_sw_overr[0]) {
 		udelay(1);
 		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[2],
 				  LLM_SW_OVERRIDE_REG);
 	}
 
 	/* Make sure the write goes through before proceeding */
-	mb();
+	clk_osm_mb(cpuclk, OSM_BASE);
 
 	return 0;
 }
@@ -490,7 +496,7 @@ static int clk_osm_enable(struct clk *c)
 	clk_osm_write_reg(cpuclk, 1, ENABLE_REG);
 
 	/* Make sure the write goes through before proceeding */
-	mb();
+	clk_osm_mb(cpuclk, OSM_BASE);
 
 	/* Wait for 5us for OSM hardware to enable */
 	udelay(5);
@@ -1101,14 +1107,14 @@ static void clk_osm_setup_cluster_pll(struct clk_osm *c)
 		       PLL_MODE);
 
 	/* Ensure writes complete before delaying */
-	mb();
+	clk_osm_mb(c, PLL_BASE);
 
 	udelay(PLL_WAIT_LOCK_TIME_US);
 
 	writel_relaxed(0x6, c->vbases[PLL_BASE] + PLL_MODE);
 
 	/* Ensure write completes before delaying */
-	mb();
+	clk_osm_mb(c, PLL_BASE);
 
 	usleep_range(50, 75);
 
@@ -1153,7 +1159,7 @@ static int clk_osm_setup_hw_table(struct clk_osm *c)
 	}
 
 	/* Make sure all writes go through */
-	mb();
+	clk_osm_mb(c, OSM_BASE);
 
 	return 0;
 }
@@ -1272,7 +1278,7 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 	}
 
 	/* Wait for the writes to complete */
-	mb();
+	clk_osm_mb(&perfcl_clk, OSM_BASE);
 
 	rc = of_property_read_bool(pdev->dev.of_node, "qcom,set-ret-inactive");
 	if (rc) {
@@ -1297,7 +1303,7 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 	clk_osm_write_reg(&perfcl_clk, val, SPM_CC_DCVS_DISABLE);
 
 	/* Wait for the writes to complete */
-	mb();
+	clk_osm_mb(&perfcl_clk, OSM_BASE);
 
 	devm_kfree(&pdev->dev, array);
 	return 0;
@@ -1392,7 +1398,7 @@ static int clk_osm_set_llm_freq_policy(struct platform_device *pdev)
 	clk_osm_write_reg(&perfcl_clk, regval, LLM_INTF_DCVS_DISABLE);
 
 	/* Wait for the write to complete */
-	mb();
+	clk_osm_mb(&perfcl_clk, OSM_BASE);
 
 	devm_kfree(&pdev->dev, array);
 	return 0;
@@ -1467,7 +1473,7 @@ static int clk_osm_set_llm_volt_policy(struct platform_device *pdev)
 	clk_osm_write_reg(&perfcl_clk, val, LLM_INTF_DCVS_DISABLE);
 
 	/* Wait for the writes to complete */
-	mb();
+	clk_osm_mb(&perfcl_clk, OSM_BASE);
 
 	devm_kfree(&pdev->dev, array);
 	return 0;
@@ -1668,7 +1674,7 @@ static void clk_osm_setup_osm_was(struct clk_osm *c)
 	}
 
 	/* Ensure writes complete before returning */
-	mb();
+	clk_osm_mb(c, OSM_BASE);
 }
 
 static void clk_osm_setup_fsms(struct clk_osm *c)
@@ -1869,7 +1875,7 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 				  SEQ_REG(76));
 
 		/* Ensure writes complete before returning */
-		mb();
+		clk_osm_mb(c, OSM_BASE);
 	} else {
 		if (msmcobalt_v1) {
 			scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(1),
@@ -1882,8 +1888,8 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 		}
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(72),
 			     c->apm_crossover_vc);
-		clk_osm_write_reg(c, c->apm_threshold_vc,
-				  SEQ_REG(15));
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(15),
+			     c->apm_threshold_vc);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(31),
 			     c->apm_threshold_vc != 0 ?
 			     c->apm_threshold_vc - 1 : 0xff);

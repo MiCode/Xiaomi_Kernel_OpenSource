@@ -152,6 +152,7 @@ struct kgsl_regulator {
  * @sysfs_pwr_limit - pointer to the sysfs limits node
  * isense_clk_indx - index of isense clock, 0 if no isense
  * isense_clk_on_level - isense clock rate is XO rate below this level.
+ * tsens_name - pointer to temperature sensor name of GPU temperature sensor
  */
 
 struct kgsl_pwrctrl {
@@ -204,6 +205,7 @@ struct kgsl_pwrctrl {
 	struct kgsl_pwr_limit *sysfs_pwr_limit;
 	unsigned int gpu_bimc_int_clk_freq;
 	bool gpu_bimc_interface_enabled;
+	const char *tsens_name;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);

@@ -193,4 +193,6 @@ int msm_vfe47_update_bandwidth(
 void msm_vfe47_config_irq(struct vfe_device *vfe_dev,
 		uint32_t irq0_mask, uint32_t irq1_mask,
 		enum msm_isp_irq_operation oper);
+int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
+			struct msm_isp_ahb_clk_cfg *ahb_cfg);
 #endif /* __MSM_ISP47_H__ */

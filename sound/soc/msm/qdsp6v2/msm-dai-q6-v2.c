@@ -173,6 +173,7 @@ struct msm_dai_q6_dai_data {
 	u32 bitwidth;
 	u32 cal_mode;
 	u32 afe_in_channels;
+	u16 afe_in_bitformat;
 	struct afe_enc_config enc_config;
 	union afe_port_config port_config;
 };
@@ -1417,11 +1418,20 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		if (dai_data->enc_config.format != ENC_FMT_NONE) {
+			int bitwidth = 0;
+
+			if (dai_data->afe_in_bitformat ==
+			    SNDRV_PCM_FORMAT_S24_LE)
+				bitwidth = 24;
+			else if (dai_data->afe_in_bitformat ==
+				 SNDRV_PCM_FORMAT_S16_LE)
+				bitwidth = 16;
 			pr_debug("%s: calling AFE_PORT_START_V2 with enc_format: %d\n",
 				 __func__, dai_data->enc_config.format);
 			rc = afe_port_start_v2(dai->id, &dai_data->port_config,
 					       dai_data->rate,
 					       dai_data->afe_in_channels,
+					       bitwidth,
 					       &dai_data->enc_config);
 			if (rc < 0)
 				pr_err("%s: afe_port_start_v2 failed error: %d\n",
@@ -1607,8 +1617,13 @@ static int msm_dai_q6_usb_audio_hw_params(struct snd_pcm_hw_params *params,
 		dai_data->port_config.usb_audio.bit_width = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->port_config.usb_audio.bit_width = 24;
 		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
+		dai_data->port_config.usb_audio.bit_width = 32;
+		break;
+
 	default:
 		dev_err(dai->dev, "%s: invalid format %d\n",
 			__func__, params_format(params));
@@ -2140,6 +2155,12 @@ static const struct soc_enum afe_input_chs_enum[] = {
 	SOC_ENUM_SINGLE_EXT(3, afe_input_chs_text),
 };
 
+static const char *const afe_input_bit_format_text[] = {"S16_LE", "S24_LE"};
+
+static const struct soc_enum afe_input_bit_format_enum[] = {
+	SOC_ENUM_SINGLE_EXT(2, afe_input_bit_format_text),
+};
+
 static int msm_dai_q6_afe_input_channel_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
@@ -2168,6 +2189,58 @@ static int msm_dai_q6_afe_input_channel_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_dai_q6_afe_input_bit_format_get(
+			struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (!dai_data) {
+		pr_err("%s: Invalid dai data\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (dai_data->afe_in_bitformat) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+	pr_debug("%s: afe input bit format : %ld\n",
+		  __func__, ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int msm_dai_q6_afe_input_bit_format_put(
+			struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (!dai_data) {
+		pr_err("%s: Invalid dai data\n", __func__);
+		return -EINVAL;
+	}
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		dai_data->afe_in_bitformat = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		dai_data->afe_in_bitformat = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: updating afe input bit format : %d\n",
+		__func__, dai_data->afe_in_bitformat);
+
+	return 0;
+}
+
+
 static const struct snd_kcontrol_new afe_enc_config_controls[] = {
 	{
 		.access = (SNDRV_CTL_ELEM_ACCESS_READWRITE |
@@ -2181,6 +2254,9 @@ static const struct snd_kcontrol_new afe_enc_config_controls[] = {
 	SOC_ENUM_EXT("AFE Input Channels", afe_input_chs_enum[0],
 		     msm_dai_q6_afe_input_channel_get,
 		     msm_dai_q6_afe_input_channel_put),
+	SOC_ENUM_EXT("AFE Input Bit Format", afe_input_bit_format_enum[0],
+		     msm_dai_q6_afe_input_bit_format_get,
+		     msm_dai_q6_afe_input_bit_format_put),
 };
 
 static const char * const afe_cal_mode_text[] = {
@@ -2570,11 +2646,12 @@ static struct snd_soc_dai_driver msm_dai_q6_usb_rx_dai = {
 			 SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
 			 SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
 			 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			 SNDRV_PCM_RATE_192000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+			 SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_384000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			   SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S32_LE,
 		.channels_min = 1,
 		.channels_max = 8,
-		.rate_max = 192000,
+		.rate_max = 384000,
 		.rate_min = 8000,
 	},
 	.ops = &msm_dai_q6_ops,
@@ -2591,11 +2668,12 @@ static struct snd_soc_dai_driver msm_dai_q6_usb_tx_dai = {
 			 SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
 			 SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
 			 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
-			 SNDRV_PCM_RATE_192000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+			 SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_384000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			   SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S32_LE,
 		.channels_min = 1,
 		.channels_max = 8,
-		.rate_max = 192000,
+		.rate_max = 384000,
 		.rate_min = 8000,
 	},
 	.ops = &msm_dai_q6_ops,
@@ -5825,11 +5903,6 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 	pr_debug("%s: dev_name: %s\n",
 		__func__, dev_name(dai->dev));
 
-	if (params_rate(params) != 48000) {
-		dev_err(dai->dev, "%s: invalid param rate %d\n",
-			__func__, params_rate(params));
-		return -EINVAL;
-	}
 	if ((params_channels(params) == 0) ||
 		(params_channels(params) > 8)) {
 		dev_err(dai->dev, "%s: invalid param channels %d\n",

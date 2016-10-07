@@ -2267,12 +2267,15 @@ struct usbpd *devm_usbpd_get_by_phandle(struct device *dev, const char *phandle)
 	struct platform_device *pdev;
 	struct device *pd_dev;
 
+	if (!usbpd_class.p) /* usbpd_init() not yet called */
+		return ERR_PTR(-EAGAIN);
+
 	if (!dev->of_node)
-		return ERR_PTR(-ENODEV);
+		return ERR_PTR(-EINVAL);
 
 	pd_np = of_parse_phandle(dev->of_node, phandle, 0);
 	if (!pd_np)
-		return ERR_PTR(-ENODEV);
+		return ERR_PTR(-ENXIO);
 
 	pdev = of_find_device_by_node(pd_np);
 	if (!pdev)
@@ -2282,7 +2285,8 @@ struct usbpd *devm_usbpd_get_by_phandle(struct device *dev, const char *phandle)
 			match_usbpd_device);
 	if (!pd_dev) {
 		platform_device_put(pdev);
-		return ERR_PTR(-ENODEV);
+		/* device was found but maybe hadn't probed yet, so defer */
+		return ERR_PTR(-EPROBE_DEFER);
 	}
 
 	ptr = devres_alloc(devm_usbpd_put, sizeof(*ptr), GFP_KERNEL);
@@ -2294,7 +2298,7 @@ struct usbpd *devm_usbpd_get_by_phandle(struct device *dev, const char *phandle)
 
 	pd = dev_get_drvdata(pd_dev);
 	if (!pd)
-		return ERR_PTR(-ENODEV);
+		return ERR_PTR(-EPROBE_DEFER);
 
 	*ptr = pd;
 	devres_add(dev, ptr);

@@ -2645,8 +2645,9 @@ exit:
 }
 
 static int q6afe_send_enc_config(u16 port_id,
-			union afe_enc_config_data *cfg, u32 format,
-			union afe_port_config afe_config, u16 afe_in_channels)
+				 union afe_enc_config_data *cfg, u32 format,
+				 union afe_port_config afe_config,
+				 u16 afe_in_channels, u16 afe_in_bit_width)
 {
 	struct afe_audioif_config_command config;
 	int index;
@@ -2728,8 +2729,13 @@ static int q6afe_send_enc_config(u16 port_id,
 	config.pdata.param_id = AFE_PARAM_ID_PORT_MEDIA_TYPE;
 	config.port.media_type.minor_version = AFE_API_VERSION_PORT_MEDIA_TYPE;
 	config.port.media_type.sample_rate = afe_config.slim_sch.sample_rate;
-	config.port.media_type.bit_width = afe_config.slim_sch.bit_width;
-	if (afe_in_channels != 0)
+	if (afe_in_bit_width)
+		config.port.media_type.bit_width = afe_in_bit_width;
+	else
+		config.port.media_type.bit_width =
+					afe_config.slim_sch.bit_width;
+
+	if (afe_in_channels)
 		config.port.media_type.num_channels = afe_in_channels;
 	else
 		config.port.media_type.num_channels =
@@ -2749,8 +2755,8 @@ exit:
 }
 
 static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
-			   u32 rate,  u16 afe_in_channels,
-			   union afe_enc_config_data *cfg, u32 enc_format)
+			    u32 rate, u16 afe_in_channels, u16 afe_in_bit_width,
+			    union afe_enc_config_data *cfg, u32 enc_format)
 {
 	struct afe_audioif_config_command config;
 	int ret = 0;
@@ -2989,7 +2995,8 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		pr_debug("%s: Found AFE encoder support for SLIMBUS enc_format = %d\n",
 					__func__, enc_format);
 		ret = q6afe_send_enc_config(port_id, cfg, enc_format,
-					*afe_config, afe_in_channels);
+					    *afe_config, afe_in_channels,
+					    afe_in_bit_width);
 		if (ret) {
 			pr_err("%s: AFE encoder config for port 0x%x failed %d\n",
 				__func__, port_id, ret);
@@ -3043,7 +3050,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		   u32 rate)
 {
 	return __afe_port_start(port_id, afe_config, rate,
-				0, NULL, ASM_MEDIA_FMT_NONE);
+				0, 0, NULL, ASM_MEDIA_FMT_NONE);
 }
 EXPORT_SYMBOL(afe_port_start);
 
@@ -3061,12 +3068,12 @@ EXPORT_SYMBOL(afe_port_start);
  * Returns 0 on success or error value on port start failure.
  */
 int afe_port_start_v2(u16 port_id, union afe_port_config *afe_config,
-		      u32 rate, u16 afe_in_channels,
+		      u32 rate, u16 afe_in_channels, u16 afe_in_bit_width,
 		      struct afe_enc_config *enc_cfg)
 {
 	return __afe_port_start(port_id, afe_config, rate,
-				afe_in_channels, &enc_cfg->data,
-				enc_cfg->format);
+				afe_in_channels, afe_in_bit_width,
+				&enc_cfg->data, enc_cfg->format);
 }
 EXPORT_SYMBOL(afe_port_start_v2);
 

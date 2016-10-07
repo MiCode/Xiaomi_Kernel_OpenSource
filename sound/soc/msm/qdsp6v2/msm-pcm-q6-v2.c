@@ -57,6 +57,7 @@ struct snd_msm {
 
 #define CMD_EOS_MIN_TIMEOUT_LENGTH  50
 #define CMD_EOS_TIMEOUT_MULTIPLIER  (HZ * 50)
+#define MAX_PB_COPY_RETRIES         3
 
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
@@ -66,10 +67,11 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
 				SNDRV_PCM_FMTBIT_S24_LE |
-				SNDRV_PCM_FMTBIT_S24_3LE),
-	.rates =                SNDRV_PCM_RATE_8000_48000,
+				SNDRV_PCM_FMTBIT_S24_3LE |
+				SNDRV_PCM_FMTBIT_S32_LE),
+	.rates =                SNDRV_PCM_RATE_8000_384000,
 	.rate_min =             8000,
-	.rate_max =             48000,
+	.rate_max =             384000,
 	.channels_min =         1,
 	.channels_max =         4,
 	.buffer_bytes_max =     CAPTURE_MAX_NUM_PERIODS *
@@ -89,10 +91,11 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
 				SNDRV_PCM_FMTBIT_S24_LE |
-				SNDRV_PCM_FMTBIT_S24_3LE),
-	.rates =                SNDRV_PCM_RATE_8000_192000,
+				SNDRV_PCM_FMTBIT_S24_3LE |
+				SNDRV_PCM_FMTBIT_S32_LE),
+	.rates =                SNDRV_PCM_RATE_8000_384000,
 	.rate_min =             8000,
-	.rate_max =             192000,
+	.rate_max =             384000,
 	.channels_min =         1,
 	.channels_max =         8,
 	.buffer_bytes_max =     PLAYBACK_MAX_NUM_PERIODS *
@@ -107,7 +110,7 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 /* Conventional and unconventional sample rate supported */
 static unsigned int supported_sample_rates[] = {
 	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000,
-	88200, 96000, 176400, 192000
+	88200, 96000, 176400, 192000, 384000
 };
 
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
@@ -312,6 +315,10 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	pr_debug("%s: perf: %x\n", __func__, pdata->perf_mode);
 
 	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		bits_per_sample = 32;
+		sample_word_size = 32;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		bits_per_sample = 24;
 		sample_word_size = 32;
@@ -327,7 +334,7 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		break;
 	}
 
-	ret = q6asm_open_write_v3(prtd->audio_client,
+	ret = q6asm_open_write_v4(prtd->audio_client,
 				  FORMAT_LINEAR_PCM, bits_per_sample);
 
 	if (ret < 0) {
@@ -352,11 +359,12 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		return ret;
 	}
 
-	ret = q6asm_media_format_block_multi_ch_pcm_v3(
+	ret = q6asm_media_format_block_multi_ch_pcm_v4(
 				prtd->audio_client, runtime->rate,
 				runtime->channels, !prtd->set_channel_map,
 				prtd->channel_map, bits_per_sample,
-				sample_word_size);
+				sample_word_size, ASM_LITTLE_ENDIAN,
+				DEFAULT_QF);
 	if (ret < 0)
 		pr_info("%s: CMD Format block failed\n", __func__);
 
@@ -401,6 +409,8 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		if ((params_format(params) == SNDRV_PCM_FORMAT_S24_LE) ||
 			(params_format(params) == SNDRV_PCM_FORMAT_S24_3LE))
 			bits_per_sample = 24;
+		else if (params_format(params) == SNDRV_PCM_FORMAT_S32_LE)
+			bits_per_sample = 32;
 
 		/* ULL mode is not supported in capture path */
 		if (pdata->perf_mode == LEGACY_PCM_MODE)
@@ -412,7 +422,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 				__func__, params_channels(params),
 				prtd->audio_client->perf_mode);
 
-		ret = q6asm_open_read_v3(prtd->audio_client, FORMAT_LINEAR_PCM,
+		ret = q6asm_open_read_v4(prtd->audio_client, FORMAT_LINEAR_PCM,
 				bits_per_sample);
 		if (ret < 0) {
 			pr_err("%s: q6asm_open_read failed\n", __func__);
@@ -458,6 +468,10 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		return 0;
 
 	switch (runtime->format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		bits_per_sample = 32;
+		sample_word_size = 32;
+		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		bits_per_sample = 24;
 		sample_word_size = 32;
@@ -476,11 +490,13 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	pr_debug("%s: Samp_rate = %d Channel = %d bit width = %d, word size = %d\n",
 			__func__, prtd->samp_rate, prtd->channel_mode,
 			bits_per_sample, sample_word_size);
-	ret = q6asm_enc_cfg_blk_pcm_format_support_v3(prtd->audio_client,
+	ret = q6asm_enc_cfg_blk_pcm_format_support_v4(prtd->audio_client,
 						      prtd->samp_rate,
 						      prtd->channel_mode,
 						      bits_per_sample,
-						      sample_word_size);
+						      sample_word_size,
+						      ASM_LITTLE_ENDIAN,
+						      DEFAULT_QF);
 	if (ret < 0)
 		pr_debug("%s: cmd cfg pcm was block failed", __func__);
 
@@ -629,6 +645,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	void *data = NULL;
 	uint32_t idx = 0;
 	uint32_t size = 0;
+	uint32_t retries = 0;
 
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
@@ -637,7 +654,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	pr_debug("%s: prtd->out_count = %d\n",
 				__func__, atomic_read(&prtd->out_count));
 
-	while (fbytes > 0) {
+	while ((fbytes > 0) && (retries < MAX_PB_COPY_RETRIES)) {
 		if (prtd->reset_event) {
 			pr_err("%s: In SSR return ENETRESET before wait\n",
 				__func__);
@@ -666,6 +683,13 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 
 		data = q6asm_is_cpu_buf_avail(IN, prtd->audio_client, &size,
 			&idx);
+		if (data == NULL) {
+			retries++;
+			continue;
+		} else {
+			retries = 0;
+		}
+
 		if (fbytes > size)
 			xfer = size;
 		else
@@ -677,6 +701,9 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 						__func__, fbytes, xfer, size);
 			if (copy_from_user(bufptr, buf, xfer)) {
 				ret = -EFAULT;
+				pr_err("%s: copy_from_user failed\n",
+					__func__);
+				q6asm_cpu_buf_release(IN, prtd->audio_client);
 				goto fail;
 			}
 			buf += xfer;
@@ -690,6 +717,8 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 							0, 0, NO_TIMESTAMP);
 				if (ret < 0) {
 					ret = -EFAULT;
+					q6asm_cpu_buf_release(IN,
+						prtd->audio_client);
 					goto fail;
 				}
 			} else
@@ -698,6 +727,9 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 		}
 	}
 fail:
+	if (retries >= MAX_PB_COPY_RETRIES)
+		ret = -ENOMEM;
+
 	return  ret;
 }
 
@@ -802,6 +834,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 		if (copy_to_user(buf, bufptr+offset, xfer)) {
 			pr_err("Failed to copy buf to user\n");
 			ret = -EFAULT;
+			q6asm_cpu_buf_release(OUT, prtd->audio_client);
 			goto fail;
 		}
 		fbytes -= xfer;
@@ -817,6 +850,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 		if (ret < 0) {
 			pr_err("q6asm read failed\n");
 			ret = -EFAULT;
+			q6asm_cpu_buf_release(OUT, prtd->audio_client);
 			goto fail;
 		}
 	} else

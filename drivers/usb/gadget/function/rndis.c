@@ -596,6 +596,7 @@ static int rndis_init_response(struct rndis_params *params,
 	resp->AFListOffset = cpu_to_le32(0);
 	resp->AFListSize = cpu_to_le32(0);
 
+	params->ul_max_xfer_size = le32_to_cpu(resp->MaxTransferSize);
 	params->resp_avail(params->v);
 	return 0;
 }
@@ -799,7 +800,7 @@ EXPORT_SYMBOL_GPL(rndis_set_host_mac);
  */
 int rndis_msg_parser(struct rndis_params *params, u8 *buf)
 {
-	u32 MsgType, MsgLength;
+	u32 MsgType, MsgLength, major, minor, max_transfer_size;
 	__le32 *tmp;
 
 	if (!buf)
@@ -822,6 +823,19 @@ int rndis_msg_parser(struct rndis_params *params, u8 *buf)
 	case RNDIS_MSG_INIT:
 		pr_debug("%s: RNDIS_MSG_INIT\n",
 			__func__);
+		major = get_unaligned_le32(tmp++);
+		minor = get_unaligned_le32(tmp++);
+		max_transfer_size = get_unaligned_le32(tmp++);
+
+		params->host_rndis_major_ver = major;
+		params->host_rndis_minor_ver = minor;
+		params->dl_max_xfer_size = max_transfer_size;
+
+		pr_debug("%s(): RNDIS Host Major:%d Minor:%d version\n",
+				__func__, major, minor);
+		pr_debug("%s(): UL Max Transfer size:%x\n", __func__,
+				max_transfer_size);
+
 		params->state = RNDIS_INITIALIZED;
 		return rndis_init_response(params, (rndis_init_msg_type *)buf);
 
@@ -1012,6 +1026,18 @@ int rndis_set_param_medium(struct rndis_params *params, u32 medium, u32 speed)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(rndis_set_param_medium);
+
+u32 rndis_get_dl_max_xfer_size(struct rndis_params *params)
+{
+	pr_debug("%s:\n", __func__);
+	return params->dl_max_xfer_size;
+}
+
+u32 rndis_get_ul_max_xfer_size(struct rndis_params *params)
+{
+	pr_debug("%s:\n", __func__);
+	return params->ul_max_xfer_size;
+}
 
 void rndis_set_max_pkt_xfer(struct rndis_params *params, u8 max_pkt_per_xfer)
 {

@@ -875,6 +875,7 @@ int cpr4_parse_core_count_temp_voltage_adj(struct cpr3_regulator *vreg,
 			bool use_corner_band);
 int cpr3_apm_init(struct cpr3_controller *ctrl);
 int cpr3_mem_acc_init(struct cpr3_regulator *vreg);
+void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg);
 
 #else
 
@@ -1045,6 +1046,10 @@ static inline int cpr3_apm_init(struct cpr3_controller *ctrl)
 static inline int cpr3_mem_acc_init(struct cpr3_regulator *vreg)
 {
 	return 0;
+}
+
+static inline void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
+{
 }
 
 #endif /* CONFIG_REGULATOR_CPR3 */

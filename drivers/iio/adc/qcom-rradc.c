@@ -418,9 +418,9 @@ static int rradc_post_process_gpio(struct rradc_chip *chip,
 		.sts = _sts,						\
 	},								\
 
-#define RR_ADC_CHAN_TEMP(_dname, _scale, _lsb, _msb, _sts)		\
+#define RR_ADC_CHAN_TEMP(_dname, _scale, mask, _lsb, _msb, _sts)	\
 	RR_ADC_CHAN(_dname, IIO_TEMP,					\
-		BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),	\
+		mask,							\
 		_scale, _lsb, _msb, _sts)				\
 
 #define RR_ADC_CHAN_VOLT(_dname, _scale, _lsb, _msb, _sts)		\
@@ -443,9 +443,11 @@ static const struct rradc_channels rradc_chans[] = {
 			FG_ADC_RR_BATT_ID_5_LSB, FG_ADC_RR_BATT_ID_5_MSB,
 			FG_ADC_RR_BATT_ID_STS)
 	RR_ADC_CHAN_TEMP("batt_therm", &rradc_post_process_therm,
+			BIT(IIO_CHAN_INFO_RAW),
 			FG_ADC_RR_BATT_THERM_LSB, FG_ADC_RR_BATT_THERM_MSB,
 			FG_ADC_RR_BATT_THERM_STS)
 	RR_ADC_CHAN_TEMP("skin_temp", &rradc_post_process_therm,
+			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),
 			FG_ADC_RR_SKIN_TEMP_LSB, FG_ADC_RR_SKIN_TEMP_MSB,
 			FG_ADC_RR_AUX_THERM_STS)
 	RR_ADC_CHAN_CURRENT("usbin_i", &rradc_post_process_curr,
@@ -461,24 +463,30 @@ static const struct rradc_channels rradc_chans[] = {
 			FG_ADC_RR_DC_IN_V_LSB, FG_ADC_RR_DC_IN_V_MSB,
 			FG_ADC_RR_DC_IN_V_STS)
 	RR_ADC_CHAN_TEMP("die_temp", &rradc_post_process_die_temp,
+			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),
 			FG_ADC_RR_PMI_DIE_TEMP_LSB, FG_ADC_RR_PMI_DIE_TEMP_MSB,
 			FG_ADC_RR_PMI_DIE_TEMP_STS)
 	RR_ADC_CHAN_TEMP("chg_temp", &rradc_post_process_chg_temp,
+			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),
 			FG_ADC_RR_CHARGER_TEMP_LSB, FG_ADC_RR_CHARGER_TEMP_MSB,
 			FG_ADC_RR_CHARGER_TEMP_STS)
 	RR_ADC_CHAN_VOLT("gpio", &rradc_post_process_gpio,
 			FG_ADC_RR_GPIO_LSB, FG_ADC_RR_GPIO_MSB,
 			FG_ADC_RR_GPIO_STS)
 	RR_ADC_CHAN_TEMP("chg_temp_hot", &rradc_post_process_chg_temp_hot,
+			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),
 			FG_ADC_RR_CHARGER_HOT, FG_ADC_RR_CHARGER_HOT,
 			FG_ADC_RR_CHARGER_TEMP_STS)
 	RR_ADC_CHAN_TEMP("chg_temp_too_hot", &rradc_post_process_chg_temp_hot,
+			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),
 			FG_ADC_RR_CHARGER_TOO_HOT, FG_ADC_RR_CHARGER_TOO_HOT,
 			FG_ADC_RR_CHARGER_TEMP_STS)
 	RR_ADC_CHAN_TEMP("skin_temp_hot", &rradc_post_process_skin_temp_hot,
+			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),
 			FG_ADC_RR_SKIN_HOT, FG_ADC_RR_SKIN_HOT,
 			FG_ADC_RR_AUX_THERM_STS)
 	RR_ADC_CHAN_TEMP("skin_temp_too_hot", &rradc_post_process_skin_temp_hot,
+			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED),
 			FG_ADC_RR_SKIN_TOO_HOT, FG_ADC_RR_SKIN_TOO_HOT,
 			FG_ADC_RR_AUX_THERM_STS)
 };

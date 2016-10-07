@@ -1162,7 +1162,7 @@ void bam_output_register_content(void *base, u32 ee)
 
 	print_bam_test_bus_reg(base, 0);
 
-	print_bam_selected_reg(dev->base, BAM_MAX_EES);
+	print_bam_selected_reg(base, BAM_MAX_EES);
 
 	num_pipes = bam_read_reg_field(base, NUM_PIPES, 0,
 					BAM_NUM_PIPES);
@@ -1174,11 +1174,11 @@ void bam_output_register_content(void *base, u32 ee)
 
 	if (!enhd_pipe || !pipe_attr)
 		for (i = 0; i < num_pipes; i++)
-			print_bam_pipe_selected_reg(dev->base, i);
+			print_bam_pipe_selected_reg(base, i);
 	else {
 		for (i = 0; i < num_pipes; i++) {
 			if (pipe_attr & (1UL << i))
-				print_bam_pipe_selected_reg(dev->base, i);
+				print_bam_pipe_selected_reg(base, i);
 		}
 	}
 }

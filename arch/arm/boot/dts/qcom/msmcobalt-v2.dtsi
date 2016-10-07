@@ -171,12 +171,17 @@
 		<  2496000 >;
 };
 
+&bwmon {
+	compatible = "qcom,bimc-bwmon4";
+	qcom,hw-timer-hz = <19200000>;
+};
+
 &devfreq_cpufreq {
 	mincpubw-cpufreq {
 		cpu-to-dev-map-0 =
 			< 1900800 1525 >;
 		cpu-to-dev-map-4 =
-			< 2419200 1525 >,
+			< 2112000 1525 >,
 			< 2496000 5195 >;
 		};
 };
@@ -203,8 +208,7 @@
 		< 414000000 4 RPM_SMD_REGULATOR_LEVEL_SVS >,
 		< 515000000 5 RPM_SMD_REGULATOR_LEVEL_NOM >,
 		< 596000000 6 RPM_SMD_REGULATOR_LEVEL_NOM >,
-		< 670000000 7 RPM_SMD_REGULATOR_LEVEL_TURBO >,
-		< 710000000 8 RPM_SMD_REGULATOR_LEVEL_TURBO >;
+		< 670000000 7 RPM_SMD_REGULATOR_LEVEL_TURBO >;
 	qcom,gfxfreq-mx-speedbin0 =
 		<         0                           0 >,
 		< 180000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
@@ -213,8 +217,7 @@
 		< 414000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
 		< 515000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
 		< 596000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
-		< 670000000 RPM_SMD_REGULATOR_LEVEL_TURBO >,
-		< 710000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
+		< 670000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
 };
 
 &mdss_mdp {
@@ -666,11 +669,11 @@
 						/* SVS2 */
 
 	qcom,imem-ab-tbl =
-		<200000000 1752000>,
-		<269330000 1752000>,
-		<355200000 2500000>,
-		<444000000 6000000>,
-		<533000000 6000000>;
+		<200000000 1560000>,/* imem @ svs2 freq 75 Mhz */
+		<269330000 3570000>,/* imem @ svs freq 171 Mhz */
+		<355200000 3570000>,/* imem @ svs freq 171 Mhz */
+		<444000000 6750000>,/* imem @ nom freq 323 Mhz */
+		<533000000 8490000>;/* imem @ turbo freq 406 Mhz */
 };
 
 /* GPU overrides */

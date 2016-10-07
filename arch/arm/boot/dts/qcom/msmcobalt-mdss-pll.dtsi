@@ -96,8 +96,10 @@
 
 		gdsc-supply = <&gdsc_mdss>;
 
-		clocks = <&clock_mmss clk_mmss_mdss_ahb_clk>;
-		clock-names = "iface_clk";
+		clocks = <&clock_mmss clk_mmss_mdss_ahb_clk>,
+			 <&clock_gcc clk_ln_bb_clk1>,
+			 <&clock_gcc clk_gcc_usb3_clkref_clk>;
+		clock-names = "iface_clk", "ref_clk_src", "ref_clk";
 		clock-rate = <0>;
 
 		qcom,platform-supply-entries {

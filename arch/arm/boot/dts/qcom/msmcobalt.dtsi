@@ -541,14 +541,13 @@
 			< 13763 /* 1804 MHz */ >;
 	};
 
-	qcom,cpu-bwmon {
-		compatible = "qcom,bimc-bwmon4";
+	bwmon: qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon3";
 		reg = <0x01008000 0x300>, <0x01001000 0x200>;
 		reg-names = "base", "global_base";
 		interrupts = <0 183 4>;
 		qcom,mport = <0>;
 		qcom,target-dev = <&cpubw>;
-		qcom,hw-timer-hz = <19200000>;
 	};
 
 	mincpubw: qcom,mincpubw {
@@ -2886,6 +2885,57 @@
 		qcom,icnss-adc_tm = <&pmcobalt_adc_tm>;
 	};
 
+	tspp: msm_tspp@0c1e7000 {
+		compatible = "qcom,msm_tspp";
+		reg = <0x0c1e7000 0x200>, /* MSM_TSIF0_PHYS */
+		      <0x0c1e8000 0x200>, /* MSM_TSIF1_PHYS */
+		      <0x0c1e9000 0x1000>, /* MSM_TSPP_PHYS  */
+		      <0x0c1c4000 0x23000>; /* MSM_TSPP_BAM_PHYS */
+		reg-names = "MSM_TSIF0_PHYS",
+			"MSM_TSIF1_PHYS",
+			"MSM_TSPP_PHYS",
+			"MSM_TSPP_BAM_PHYS";
+		interrupts = <0 121 0>, /* TSIF_TSPP_IRQ */
+			<0 119 0>, /* TSIF0_IRQ */
+			<0 120 0>, /* TSIF1_IRQ */
+			<0 122 0>; /* TSIF_BAM_IRQ */
+		interrupt-names = "TSIF_TSPP_IRQ",
+			"TSIF0_IRQ",
+			"TSIF1_IRQ",
+			"TSIF_BAM_IRQ";
+
+		clock-names = "iface_clk", "ref_clk";
+		clocks = <&clock_gcc clk_gcc_tsif_ahb_clk>,
+			<&clock_gcc clk_gcc_tsif_ref_clk>;
+
+		qcom,msm-bus,name = "tsif";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<82 512 0 0>, /* No vote */
+				<82 512 12288 24576>;
+				/* Max. bandwidth, 2xTSIF, each max of 96Mbps */
+
+		pinctrl-names = "disabled",
+			"tsif0-mode1", "tsif0-mode2",
+			"tsif1-mode1", "tsif1-mode2",
+			"dual-tsif-mode1", "dual-tsif-mode2";
+
+		pinctrl-0 = <>;				/* disabled */
+		pinctrl-1 = <&tsif0_signals_active>;	/* tsif0-mode1 */
+		pinctrl-2 = <&tsif0_signals_active
+			&tsif0_sync_active>;		/* tsif0-mode2 */
+		pinctrl-3 = <&tsif1_signals_active>;	/* tsif1-mode1 */
+		pinctrl-4 = <&tsif1_signals_active
+			&tsif1_sync_active>;		/* tsif1-mode2 */
+		pinctrl-5 = <&tsif0_signals_active
+			&tsif1_signals_active>;		/* dual-tsif-mode1 */
+		pinctrl-6 = <&tsif0_signals_active
+			&tsif0_sync_active
+			&tsif1_signals_active
+			&tsif1_sync_active>;		/* dual-tsif-mode2 */
+	};
+
 	wil6210: qcom,wil6210 {
 		compatible = "qcom,wil6210";
 		qcom,pcie-parent = <&pcie0>;
@@ -2933,16 +2983,10 @@
 };
 
 &gdsc_usb30 {
-	clock-names = "core_clk";
-	clocks = <&clock_gcc clk_gcc_usb30_master_clk>;
 	status = "ok";
 };
 
 &gdsc_pcie_0 {
-	clock-names = "master_bus_clk", "slave_bus_clk", "core_clk";
-	clocks = <&clock_gcc clk_gcc_pcie_0_mstr_axi_clk>,
-		 <&clock_gcc clk_gcc_pcie_0_slv_axi_clk>,
-		 <&clock_gcc clk_gcc_pcie_0_pipe_clk>;
 	status = "ok";
 };
 
@@ -3000,19 +3044,14 @@
 };
 
 &gdsc_mdss {
-	clock-names = "bus_clk", "rot_clk";
-	clocks = <&clock_mmss clk_mmss_mdss_axi_clk>,
-		 <&clock_mmss clk_mmss_mdss_rot_clk>;
 	proxy-supply = <&gdsc_mdss>;
 	qcom,proxy-consumer-enable;
 	status = "ok";
 };
 
 &gdsc_gpu_gx {
-	clock-names = "bimc_core_clk", "core_clk", "core_root_clk";
-	clocks = <&clock_gcc clk_gcc_gpu_bimc_gfx_clk>,
-		 <&clock_gfx clk_gpucc_gfx3d_clk>,
-		 <&clock_gfx clk_gfx3d_clk_src>;
+	clock-names = "core_root_clk";
+	clocks = <&clock_gfx clk_gfx3d_clk_src>;
 	qcom,force-enable-root-clk;
 	parent-supply = <&gfx_vreg>;
 	status = "ok";

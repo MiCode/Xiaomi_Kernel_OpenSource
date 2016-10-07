@@ -60,3 +60,5 @@ usb_f_cdev-y			:= f_cdev.o
 obj-$(CONFIG_USB_F_CDEV)         += usb_f_cdev.o
 usb_f_qdss-y			:= f_qdss.o u_qdss.o
 obj-$(CONFIG_USB_F_QDSS)	+= usb_f_qdss.o
+usb_f_qcrndis-y			:= f_qc_rndis.o u_data_ipa.o
+obj-$(CONFIG_USB_F_QCRNDIS)	+= usb_f_qcrndis.o

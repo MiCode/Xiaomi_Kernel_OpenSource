@@ -370,4 +370,42 @@
 		compatible = "qcom,adsp-loader";
 		qcom,adsp-state = <0>;
 	};
+
+	qcom,msm-dai-tdm-tert-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37152>;
+		qcom,msm-cpudai-tdm-group-num-ports = <1>;
+		qcom,msm-cpudai-tdm-group-port-id = <36896>;
+		qcom,msm-cpudai-tdm-clk-rate = <1536000>;
+		pinctrl-names = "default", "sleep";
+		dai_tert_tdm_rx_0: qcom,msm-dai-q6-tdm-tert-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36896>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <1>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	qcom,msm-dai-tdm-tert-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37153>;
+		qcom,msm-cpudai-tdm-group-num-ports = <1>;
+		qcom,msm-cpudai-tdm-group-port-id = <36897 >;
+		qcom,msm-cpudai-tdm-clk-rate = <1536000>;
+		pinctrl-names = "default", "sleep";
+		dai_tert_tdm_tx_0: qcom,msm-dai-q6-tdm-tert-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36897 >;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <1>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <1>;
+			qcom,msm-cpudai-tdm-data-delay = <1>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
 };

@@ -25,6 +25,7 @@
 #include <linux/qpnp/qpnp-revid.h>
 #include "smb-reg.h"
 #include "smb-lib.h"
+#include "storm-watch.h"
 #include "pmic-voter.h"
 
 #define SMB138X_DEFAULT_FCC_UA 1000000
@@ -748,55 +749,170 @@ static int smb138x_determine_initial_status(struct smb138x *chip)
  **************************/
 
 struct smb138x_irq_info {
-	const char *name;
-	const irq_handler_t handler;
+	const char			*name;
+	const irq_handler_t		handler;
+	const struct storm_watch	storm_data;
 };
 
 static const struct smb138x_irq_info smb138x_irqs[] = {
 /* CHARGER IRQs */
-	{ "chg-error",			smblib_handle_debug },
-	{ "chg-state-change",		smblib_handle_debug },
-	{ "step-chg-state-change",	smblib_handle_debug },
-	{ "step-chg-soc-update-fail",	smblib_handle_debug },
-	{ "step-chg-soc-update-request", smblib_handle_debug },
+	{
+		.name		= "chg-error",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "chg-state-change",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "step-chg-state-change",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "step-chg-soc-update-fail",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "step-chg-soc-update-request",
+		.handler	= smblib_handle_debug,
+	},
 /* OTG IRQs */
-	{ "otg-fail",			smblib_handle_debug },
-	{ "otg-overcurrent",		smblib_handle_debug },
-	{ "otg-oc-dis-sw-sts",		smblib_handle_debug },
-	{ "testmode-change-detect",	smblib_handle_debug },
+	{
+		.name		= "otg-fail",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "otg-overcurrent",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "otg-oc-dis-sw-sts",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "testmode-change-detect",
+		.handler	= smblib_handle_debug,
+	},
 /* BATTERY IRQs */
-	{ "bat-temp",			smblib_handle_batt_psy_changed },
-	{ "bat-ocp",			smblib_handle_batt_psy_changed },
-	{ "bat-ov",			smblib_handle_batt_psy_changed },
-	{ "bat-low",			smblib_handle_batt_psy_changed },
-	{ "bat-therm-or-id-missing",	smblib_handle_batt_psy_changed },
-	{ "bat-terminal-missing",	smblib_handle_batt_psy_changed },
+	{
+		.name		= "bat-temp",
+		.handler	= smblib_handle_batt_psy_changed,
+	},
+	{
+		.name		= "bat-ocp",
+		.handler	= smblib_handle_batt_psy_changed,
+	},
+	{
+		.name		= "bat-ov",
+		.handler	= smblib_handle_batt_psy_changed,
+	},
+	{
+		.name		= "bat-low",
+		.handler	= smblib_handle_batt_psy_changed,
+	},
+	{
+		.name		= "bat-therm-or-id-missing",
+		.handler	= smblib_handle_batt_psy_changed,
+	},
+	{
+		.name		= "bat-terminal-missing",
+		.handler	= smblib_handle_batt_psy_changed,
+	},
 /* USB INPUT IRQs */
-	{ "usbin-collapse",		smblib_handle_debug },
-	{ "usbin-lt-3p6v",		smblib_handle_debug },
-	{ "usbin-uv",			smblib_handle_debug },
-	{ "usbin-ov",			smblib_handle_debug },
-	{ "usbin-plugin",		smblib_handle_usb_plugin },
-	{ "usbin-src-change",		smblib_handle_usb_source_change },
-	{ "usbin-icl-change",		smblib_handle_debug },
-	{ "type-c-change",		smblib_handle_usb_typec_change },
+	{
+		.name		= "usbin-collapse",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "usbin-lt-3p6v",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "usbin-uv",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "usbin-ov",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "usbin-plugin",
+		.handler	= smblib_handle_usb_plugin,
+	},
+	{
+		.name		= "usbin-src-change",
+		.handler	= smblib_handle_usb_source_change,
+	},
+	{
+		.name		= "usbin-icl-change",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "type-c-change",
+		.handler	= smblib_handle_usb_typec_change,
+	},
 /* DC INPUT IRQs */
-	{ "dcin-collapse",		smblib_handle_debug },
-	{ "dcin-lt-3p6v",		smblib_handle_debug },
-	{ "dcin-uv",			smblib_handle_debug },
-	{ "dcin-ov",			smblib_handle_debug },
-	{ "dcin-plugin",		smblib_handle_debug },
-	{ "div2-en-dg",			smblib_handle_debug },
-	{ "dcin-icl-change",		smblib_handle_debug },
+	{
+		.name		= "dcin-collapse",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "dcin-lt-3p6v",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "dcin-uv",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "dcin-ov",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "dcin-plugin",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "div2-en-dg",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "dcin-icl-change",
+		.handler	= smblib_handle_debug,
+	},
 /* MISCELLANEOUS IRQs */
-	{ "wdog-snarl",			smblib_handle_debug },
-	{ "wdog-bark",			smblib_handle_debug },
-	{ "aicl-fail",			smblib_handle_debug },
-	{ "aicl-done",			smblib_handle_debug },
-	{ "high-duty-cycle",		smblib_handle_debug },
-	{ "input-current-limiting",	smblib_handle_debug },
-	{ "temperature-change",		smblib_handle_debug },
-	{ "switcher-power-ok",		smblib_handle_debug },
+	{
+		.name		= "wdog-snarl",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "wdog-bark",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "aicl-fail",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "aicl-done",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "high-duty-cycle",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "input-current-limiting",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "temperature-change",
+		.handler	= smblib_handle_debug,
+	},
+	{
+		.name		= "switcher-power-ok",
+		.handler	= smblib_handle_debug,
+	},
 };
 
 static int smb138x_get_irq_index_byname(const char *irq_name)
@@ -837,6 +953,7 @@ static int smb138x_request_interrupt(struct smb138x *chip,
 
 	irq_data->parent_data = chip;
 	irq_data->name = irq_name;
+	irq_data->storm_data = smb138x_irqs[irq_index].storm_data;
 
 	rc = devm_request_threaded_irq(chg->dev, irq, NULL,
 					smb138x_irqs[irq_index].handler,

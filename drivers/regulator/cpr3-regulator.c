@@ -1264,6 +1264,8 @@ static void cprh_controller_program_sdelta(
 	mb();
 }
 
+static int cprh_regulator_aging_adjust(struct cpr3_controller *ctrl);
+
 /**
  * cpr3_regulator_init_cprh() - performs hardware initialization at the
  *		controller and thread level required for CPRh operation.
@@ -1288,6 +1290,16 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 		cpr3_err(ctrl, "expected 1 regulator but found %d\n",
 			ctrl->thread[0].vreg_count);
 		return -EINVAL;
+	}
+
+	rc = cprh_regulator_aging_adjust(ctrl);
+	if (rc && rc != -ETIMEDOUT) {
+		/*
+		 * Don't fail initialization if the CPR aging measurement
+		 * timed out due to sensors not being available.
+		 */
+		cpr3_err(ctrl, "CPR aging adjustment failed, rc=%d\n", rc);
+		return rc;
 	}
 
 	cprh_controller_program_sdelta(ctrl);
@@ -3346,7 +3358,7 @@ static int cpr3_regulator_measure_aging(struct cpr3_controller *ctrl,
 	u32 mask, reg, result, quot_min, quot_max, sel_min, sel_max;
 	u32 quot_min_scaled, quot_max_scaled;
 	u32 gcnt, gcnt_ref, gcnt0_restore, gcnt1_restore, irq_restore;
-	u32 cont_dly_restore, up_down_dly_restore = 0;
+	u32 ro_mask_restore, cont_dly_restore, up_down_dly_restore = 0;
 	int quot_delta, quot_delta_scaled, quot_delta_scaled_sum;
 	int *quot_delta_results;
 	int rc, rc2, i, aging_measurement_count, filtered_count;
@@ -3379,7 +3391,8 @@ static int cpr3_regulator_measure_aging(struct cpr3_controller *ctrl,
 
 	/* Switch from HW to SW closed-loop if necessary */
 	if (ctrl->supports_hw_closed_loop) {
-		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4 ||
+		    ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
 			cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
 				CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
 				CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE);
@@ -3396,6 +3409,10 @@ static int cpr3_regulator_measure_aging(struct cpr3_controller *ctrl,
 	gcnt = gcnt_ref * 3 / 2;
 	cpr3_write(ctrl, CPR3_REG_GCNT(0), gcnt);
 	cpr3_write(ctrl, CPR3_REG_GCNT(1), gcnt);
+
+	/* Unmask all RO's */
+	ro_mask_restore = cpr3_read(ctrl, CPR3_REG_RO_MASK(0));
+	cpr3_write(ctrl, CPR3_REG_RO_MASK(0), 0);
 
 	/*
 	 * Mask all sensors except for the one to measure and bypass all
@@ -3535,6 +3552,8 @@ cleanup:
 
 	cpr3_write(ctrl, CPR3_REG_IRQ_EN, irq_restore);
 
+	cpr3_write(ctrl, CPR3_REG_RO_MASK(0), ro_mask_restore);
+
 	cpr3_write(ctrl, CPR3_REG_GCNT(0), gcnt0_restore);
 	cpr3_write(ctrl, CPR3_REG_GCNT(1), gcnt1_restore);
 
@@ -3565,7 +3584,8 @@ cleanup:
 			CPR3_IRQ_UP | CPR3_IRQ_DOWN | CPR3_IRQ_MID);
 
 	if (ctrl->supports_hw_closed_loop) {
-		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4 ||
+		    ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
 			cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
 				CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
 				ctrl->use_hw_closed_loop
@@ -3671,14 +3691,16 @@ static void cpr3_regulator_readjust_volt_and_quot(struct cpr3_regulator *vreg,
 static void cpr3_regulator_set_aging_ref_adjustment(
 		struct cpr3_controller *ctrl, int ref_adjust_volt)
 {
+	struct cpr3_regulator *vreg;
 	int i, j;
 
 	for (i = 0; i < ctrl->thread_count; i++) {
 		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
-			cpr3_regulator_readjust_volt_and_quot(
-				&ctrl->thread[i].vreg[j],
-				ctrl->aging_ref_adjust_volt,
-				ref_adjust_volt);
+			vreg = &ctrl->thread[i].vreg[j];
+			cpr3_regulator_readjust_volt_and_quot(vreg,
+				ctrl->aging_ref_adjust_volt, ref_adjust_volt);
+			if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH)
+				cprh_adjust_voltages_for_apm(vreg);
 		}
 	}
 
@@ -3864,6 +3886,126 @@ cleanup:
 	ctrl->last_corner_was_closed_loop = false;
 
 	return rc ? rc : rc2;
+}
+
+/**
+ * cprh_regulator_aging_adjust() - adjust the target quotients and open-loop
+ *		voltages for CPRh regulators based on the output of CPR aging
+ *		sensors
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cprh_regulator_aging_adjust(struct cpr3_controller *ctrl)
+{
+	int i, j, id, rc, rc2, aging_volt, init_volt;
+	int max_aging_volt = 0;
+	u32 reg;
+
+	if (!ctrl->aging_required || !ctrl->cpr_enabled)
+		return 0;
+
+	if (!ctrl->vdd_regulator) {
+		cpr3_err(ctrl, "vdd-supply regulator missing\n");
+		return -ENODEV;
+	}
+
+	init_volt = regulator_get_voltage(ctrl->vdd_regulator);
+	if (init_volt < 0) {
+		cpr3_err(ctrl, "could not get vdd-supply voltage, rc=%d\n",
+			init_volt);
+		return init_volt;
+	}
+
+	if (init_volt > ctrl->aging_ref_volt) {
+		cpr3_info(ctrl, "unable to perform CPR aging measurement as vdd=%d uV > aging voltage=%d uV\n",
+			init_volt, ctrl->aging_ref_volt);
+		return 0;
+	}
+
+	/* Verify that none of the aging sensors are currently masked. */
+	for (i = 0; i < ctrl->aging_sensor_count; i++) {
+		id = ctrl->aging_sensor[i].sensor_id;
+		reg = cpr3_read(ctrl, CPR3_REG_SENSOR_MASK_READ(id));
+		if (reg & BIT(id % 32)) {
+			cpr3_info(ctrl, "unable to perform CPR aging measurement as CPR sensor %d is masked\n",
+				id);
+			return 0;
+		}
+	}
+
+	rc = regulator_set_voltage(ctrl->vdd_regulator, ctrl->aging_ref_volt,
+				INT_MAX);
+	if (rc) {
+		cpr3_err(ctrl, "unable to set vdd-supply to aging voltage=%d uV, rc=%d\n",
+			ctrl->aging_ref_volt, rc);
+		return rc;
+	}
+
+	if (ctrl->aging_vdd_mode) {
+		rc = regulator_set_mode(ctrl->vdd_regulator,
+					ctrl->aging_vdd_mode);
+		if (rc) {
+			cpr3_err(ctrl, "unable to configure vdd-supply for mode=%u, rc=%d\n",
+				ctrl->aging_vdd_mode, rc);
+			goto cleanup;
+		}
+	}
+
+	/* Perform aging measurement on all aging sensors */
+	for (i = 0; i < ctrl->aging_sensor_count; i++) {
+		for (j = 0; j < CPR3_AGING_RETRY_COUNT; j++) {
+			rc = cpr3_regulator_measure_aging(ctrl,
+					&ctrl->aging_sensor[i]);
+			if (!rc)
+				break;
+		}
+
+		if (!rc) {
+			aging_volt =
+				cpr3_voltage_adjustment(
+					ctrl->aging_sensor[i].ro_scale,
+					ctrl->aging_sensor[i].measured_quot_diff
+					- ctrl->aging_sensor[i].init_quot_diff);
+			max_aging_volt = max(max_aging_volt, aging_volt);
+		} else {
+			cpr3_err(ctrl, "CPR aging measurement failed after %d tries, rc=%d\n",
+				j, rc);
+			ctrl->aging_failed = true;
+			ctrl->aging_required = false;
+			goto cleanup;
+		}
+	}
+
+cleanup:
+	/* Adjust the CPR target quotients according to the aging measurement */
+	if (!rc) {
+		cpr3_regulator_set_aging_ref_adjustment(ctrl, max_aging_volt);
+
+		cpr3_info(ctrl, "aging measurement successful; aging reference adjustment voltage=%d uV\n",
+			ctrl->aging_ref_adjust_volt);
+		ctrl->aging_succeeded = true;
+		ctrl->aging_required = false;
+	}
+
+	rc2 = regulator_set_voltage(ctrl->vdd_regulator, init_volt, INT_MAX);
+	if (rc2) {
+		cpr3_err(ctrl, "unable to reset vdd-supply to initial voltage=%d uV, rc=%d\n",
+			init_volt, rc2);
+		return rc2;
+	}
+
+	if (ctrl->aging_complete_vdd_mode) {
+		rc2 = regulator_set_mode(ctrl->vdd_regulator,
+					ctrl->aging_complete_vdd_mode);
+		if (rc2)  {
+			cpr3_err(ctrl, "unable to configure vdd-supply for mode=%u, rc=%d\n",
+				ctrl->aging_complete_vdd_mode, rc2);
+			return rc2;
+		}
+	}
+
+	return rc;
 }
 
 /**

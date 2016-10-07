@@ -751,7 +751,9 @@ int diagfwd_write(uint8_t peripheral, uint8_t type, void *buf, int len)
 
 	if (!err)
 		fwd_info->write_bytes += len;
-
+	else
+		if (fwd_info->transport == TRANSPORT_GLINK)
+			diagfwd_write_buffer_done(fwd_info, buf_ptr);
 	return err;
 }
 

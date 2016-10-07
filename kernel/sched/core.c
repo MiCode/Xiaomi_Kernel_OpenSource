@@ -1590,7 +1590,7 @@ static int select_fallback_rq(int cpu, struct task_struct *p, bool allow_iso)
 {
 	int nid = cpu_to_node(cpu);
 	const struct cpumask *nodemask = NULL;
-	enum { cpuset, possible, fail } state = cpuset;
+	enum { cpuset, possible, fail, bug } state = cpuset;
 	int dest_cpu;
 	int isolated_candidate = -1;
 
@@ -1650,6 +1650,11 @@ static int select_fallback_rq(int cpu, struct task_struct *p, bool allow_iso)
 			break;
 
 		case fail:
+			allow_iso = true;
+			state = bug;
+			break;
+
+		case bug:
 			BUG();
 			break;
 		}
@@ -3385,16 +3390,17 @@ static void __sched notrace __schedule(bool preempt)
 		update_rq_clock(rq);
 
 	next = pick_next_task(rq, prev);
-	wallclock = sched_ktime_clock();
-	update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
-	update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 	clear_tsk_need_resched(prev);
 	clear_preempt_need_resched();
 	rq->clock_skip_update = 0;
 
 	BUG_ON(task_cpu(next) != cpu_of(rq));
 
+	wallclock = sched_ktime_clock();
 	if (likely(prev != next)) {
+		update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
+		update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
+
 		rq->nr_switches++;
 		rq->curr = next;
 		++*switch_count;
@@ -3405,6 +3411,7 @@ static void __sched notrace __schedule(bool preempt)
 		rq = context_switch(rq, prev, next); /* unlocks the rq */
 		cpu = cpu_of(rq);
 	} else {
+		update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
 		lockdep_unpin_lock(&rq->lock);
 		raw_spin_unlock_irq(&rq->lock);
 	}
@@ -7807,6 +7814,7 @@ void __init sched_init_smp(void)
 	hotcpu_notifier(cpuset_cpu_inactive, CPU_PRI_CPUSET_INACTIVE);
 
 	update_cluster_topology();
+	init_sched_hmp_boost_policy();
 
 	init_hrtick();
 
@@ -7855,9 +7863,8 @@ void __init sched_init(void)
 
 	BUG_ON(num_possible_cpus() > BITS_PER_LONG);
 
-#ifdef CONFIG_SCHED_HMP
+	sched_hmp_parse_dt();
 	init_clusters();
-#endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);

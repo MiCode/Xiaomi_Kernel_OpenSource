@@ -461,7 +461,7 @@ static struct usb_gadget_strings *rmnet_gsi_strings[] = {
 
 /* rndis device descriptors */
 
-/* interface descriptor: */
+/* interface descriptor: Supports "Wireless" RNDIS; auto-detected by Windows*/
 static struct usb_interface_descriptor rndis_gsi_control_intf = {
 	.bLength =		sizeof(rndis_gsi_control_intf),
 	.bDescriptorType =	USB_DT_INTERFACE,
@@ -469,9 +469,9 @@ static struct usb_interface_descriptor rndis_gsi_control_intf = {
 	/* .bInterfaceNumber = DYNAMIC */
 	/* status endpoint is optional; this could be patched later */
 	.bNumEndpoints =	1,
-	.bInterfaceClass =	USB_CLASS_COMM,
-	.bInterfaceSubClass =   USB_CDC_SUBCLASS_ACM,
-	.bInterfaceProtocol =   USB_CDC_ACM_PROTO_VENDOR,
+	.bInterfaceClass =	USB_CLASS_WIRELESS_CONTROLLER,
+	.bInterfaceSubClass =   0x01,
+	.bInterfaceProtocol =   0x03,
 	/* .iInterface = DYNAMIC */
 };
 
@@ -522,15 +522,16 @@ static struct usb_interface_descriptor rndis_gsi_data_intf = {
 	/* .iInterface = DYNAMIC */
 };
 
+/*  Supports "Wireless" RNDIS; auto-detected by Windows */
 static struct usb_interface_assoc_descriptor
 rndis_gsi_iad_descriptor = {
 	.bLength =		sizeof(rndis_gsi_iad_descriptor),
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 	.bFirstInterface =	0, /* XXX, hardcoded */
 	.bInterfaceCount =	2, /* control + data */
-	.bFunctionClass =	USB_CLASS_COMM,
-	.bFunctionSubClass =	USB_CDC_SUBCLASS_ETHERNET,
-	.bFunctionProtocol =	USB_CDC_PROTO_NONE,
+	.bFunctionClass =	USB_CLASS_WIRELESS_CONTROLLER,
+	.bFunctionSubClass =	0x01,
+	.bFunctionProtocol =	0x03,
 	/* .iFunction = DYNAMIC */
 };
 

@@ -54,6 +54,13 @@ struct wcd_dsp_params {
 	u32 dsp_instance;
 };
 
+struct wdsp_ssr_entry {
+	u8 offline;
+	u8 offline_change;
+	wait_queue_head_t offline_poll_wait;
+	struct snd_info_entry *entry;
+};
+
 struct wcd_dsp_cntl {
 	/* Handle to codec */
 	struct snd_soc_codec *codec;
@@ -77,6 +84,7 @@ struct wcd_dsp_cntl {
 	/* Debugfs related */
 	struct dentry *entry;
 	u32 debug_mode;
+	bool ramdump_enable;
 
 	/* WDSP manager drivers data */
 	struct device *m_dev;
@@ -88,6 +96,10 @@ struct wcd_dsp_cntl {
 
 	/* Keep track of WDSP boot status */
 	bool is_wdsp_booted;
+
+	/* SSR related */
+	struct wdsp_ssr_entry ssr_entry;
+	struct mutex ssr_mutex;
 };
 
 void wcd_dsp_cntl_init(struct snd_soc_codec *codec,

@@ -21,6 +21,12 @@ Charger specific properties:
   Value type: <string>
   Definition: "qcom,qpnp-smb2".
 
+- qcom,pmic-revid
+  Usage:      required
+  Value type: phandle
+  Definition: Should specify the phandle of PMI's revid module. This is used to
+		identify the PMI subtype.
+
 - qcom,batteryless-platform
   Usage:      optional
   Value type: <empty>
