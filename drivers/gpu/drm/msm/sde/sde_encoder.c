@@ -295,11 +295,8 @@ static int sde_encoder_virt_atomic_check(
 		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
 				conn_state, true);
 
-	if (!ret) {
-		sde_cp_crtc_install_properties(drm_enc->crtc);
-		/* populate mode->crtc* information required by framework */
+	if (!ret)
 		drm_mode_set_crtcinfo(adj_mode, 0);
-	}
 
 	SDE_EVT32(DRMID(drm_enc), adj_mode->flags, adj_mode->private_flags);
 
@@ -474,8 +471,6 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	SDE_DEBUG_ENC(sde_enc, "cleared master\n");
 
 	bs_set(sde_enc, 0);
-	sde_cp_crtc_destroy_properties(drm_enc->crtc);
-
 	sde_rm_release(&sde_kms->rm, drm_enc);
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);

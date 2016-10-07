@@ -1389,7 +1389,10 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 			sizeof(struct sde_crtc_state));
 
 	sde_crtc_install_properties(crtc, kms->catalog);
+
+	/* Install color processing properties */
 	sde_cp_crtc_init(crtc);
+	sde_cp_crtc_install_properties(crtc);
 
 	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);
 	return crtc;
