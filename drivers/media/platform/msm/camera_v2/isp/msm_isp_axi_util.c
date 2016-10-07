@@ -452,6 +452,8 @@ int msm_isp_axi_check_stream_state(
 		}
 		stream_info = &axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
+		if (stream_info->state == AVAILABLE)
+			continue;
 		spin_lock_irqsave(&stream_info->lock, flags);
 		if (stream_info->state != valid_state) {
 			if ((stream_info->state == PAUSING ||
