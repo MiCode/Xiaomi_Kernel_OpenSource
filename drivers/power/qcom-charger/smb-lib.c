@@ -434,8 +434,10 @@ static int smblib_update_usb_type(struct smb_charger *chg)
 	const struct apsd_result *apsd_result;
 
 	/* if PD is active, APSD is disabled so won't have a valid result */
-	if (chg->pd_active)
-		return rc;
+	if (chg->pd_active) {
+		chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_USB_PD;
+		return 0;
+	}
 
 	apsd_result = smblib_get_apsd_result(chg);
 	chg->usb_psy_desc.type = apsd_result->pst;
@@ -1884,11 +1886,10 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	 */
 	if (val->intval) {
 		rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
-			if (rc < 0) {
-				dev_err(chg->dev,
-					"Couldn't read TYPE_C_STATUS_4 rc=%d\n",
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't read TYPE_C_STATUS_4 rc=%d\n",
 					rc);
-				return rc;
+			return rc;
 		}
 
 		stat &= CC_ORIENTATION_BIT;
@@ -1913,6 +1914,8 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 
 	chg->pd_active = (bool)val->intval;
 	smblib_update_usb_type(chg);
+	power_supply_changed(chg->usb_psy);
+
 	return rc;
 }
 
