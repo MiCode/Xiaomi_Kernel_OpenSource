@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,36 @@ struct mdss_mdp_validate_info_t {
 static inline void *u64_to_ptr(uint64_t address)
 {
 	return (void *)(uintptr_t)address;
+}
+
+static inline struct mdp_destination_scaler_data *__dest_scaler_next(
+		struct mdp_destination_scaler_data *ds_data, int ds_count)
+{
+	struct mdp_destination_scaler_data *ds_data_r = ds_data;
+	size_t offset;
+
+	/*
+	 * Advanced to next ds_data structure from commit if
+	 * there is more than 1 for source split usecase.
+	 */
+	if (ds_count > 1) {
+		ds_data_r = ds_data + 1;
+
+		/*
+		 * To check for binary compatibility with old user mode
+		 * driver which does not have ROI support in destination
+		 * scalar.
+		 */
+		if ((ds_data_r->dest_scaler_ndx != 1) &&
+				(ds_data_r->lm_height != ds_data->lm_height)) {
+			offset = offsetof(struct mdp_destination_scaler_data,
+					panel_roi);
+			ds_data_r = (struct mdp_destination_scaler_data *)(
+					(void *)ds_data + offset);
+		}
+	}
+
+	return ds_data_r;
 }
 
 static void mdss_mdp_disable_destination_scaler_setup(struct mdss_mdp_ctl *ctl)
@@ -235,13 +265,7 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 		}
 
 		if (ctl->mixer_right && ctl->mixer_right->ds) {
-			/*
-			 * Advanced to next ds_data structure from commit if
-			 * there is more than 1 for split display usecase.
-			 */
-			if (ds_count > 1)
-				ds_data++;
-
+			ds_data = __dest_scaler_next(ds_data, ds_count);
 			pinfo = &ctl->panel_data->panel_info;
 			if ((ds_data->lm_width > get_panel_xres(pinfo)) ||
 				(ds_data->lm_height >  get_panel_yres(pinfo)) ||
@@ -321,6 +345,7 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_destination_scaler *ds_right = NULL;
 	struct mdss_panel_info *pinfo;
 	u32 scaler_width, scaler_height;
+	struct mdp_destination_scaler_data *ds_data_r = NULL;
 
 	if (ds_data) {
 		mdata = mfd_to_mdata(mfd);
@@ -346,7 +371,8 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 			if (ret)
 				goto reset_mixer;
 
-			ret = __dest_scaler_data_setup(&ds_data[1], ds_right,
+			ds_data_r = __dest_scaler_next(ds_data, 2);
+			ret = __dest_scaler_data_setup(ds_data_r, ds_right,
 					mdata->max_dest_scaler_input_width -
 					MDSS_MDP_DS_OVERFETCH_SIZE,
 					mdata->max_dest_scaler_output_width);
