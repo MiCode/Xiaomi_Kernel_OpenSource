@@ -186,3 +186,10 @@
 &clock_gcc_mdss {
 	compatible = "qcom,gcc-mdss-8920";
 };
+
+&apc_vreg_corner {
+	/delete-property/ qcom,cpr-fuse-version-map;
+	/delete-property/ qcom,cpr-quotient-adjustment;
+	/delete-property/ qcom,cpr-init-voltage-adjustment;
+	/delete-property/ qcom,cpr-enable;
+};
