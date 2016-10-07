@@ -569,7 +569,7 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 	}
 
 	if (!vbif || !mdp) {
-		SDE_ERROR("invalid arguments vbif %d mdp %d\n",
+		SDE_DEBUG("invalid arguments vbif %d mdp %d\n",
 				vbif != 0, mdp != 0);
 		return;
 	}
