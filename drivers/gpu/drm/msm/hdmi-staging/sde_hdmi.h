@@ -68,7 +68,9 @@ struct sde_hdmi_ctrl {
  * @list:             List pointer.
  * @display_lock:     Mutex for sde_hdmi interface.
  * @ctrl:             Controller information for HDMI display.
- * @num_of_modes:     Number of modes supported by display.
+ * @non_pluggable:    If HDMI display is non pluggable
+ * @num_of_modes:     Number of modes supported by display if non pluggable.
+ * @mode_list:        Mode list if non pluggable.
  * @is_tpg_enabled:   TPG state.
  * @hpd_work:         HPD work structure.
  * @root:             Debug fs root entry.
@@ -84,7 +86,9 @@ struct sde_hdmi {
 
 	struct sde_hdmi_ctrl ctrl;
 
+	bool non_pluggable;
 	u32 num_of_modes;
+	struct list_head mode_list;
 	bool is_tpg_enabled;
 
 	struct work_struct hpd_work;
