@@ -24,8 +24,6 @@ struct icnss_driver_ops {
 	void (*shutdown)(struct device *dev);
 	int (*reinit)(struct device *dev);
 	void (*crash_shutdown)(void *pdev);
-	int (*suspend)(struct device *dev, pm_message_t state);
-	int (*resume)(struct device *dev);
 	int (*pm_suspend)(struct device *dev);
 	int (*pm_resume)(struct device *dev);
 	int (*suspend_noirq)(struct device *dev);

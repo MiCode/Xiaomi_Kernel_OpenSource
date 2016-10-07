@@ -291,7 +291,6 @@ enum icnss_driver_state {
 	ICNSS_FW_READY,
 	ICNSS_DRIVER_PROBED,
 	ICNSS_FW_TEST_MODE,
-	ICNSS_SUSPEND,
 	ICNSS_PM_SUSPEND,
 	ICNSS_PM_SUSPEND_NOIRQ,
 	ICNSS_SSR_ENABLED,
@@ -3821,9 +3820,6 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 		case ICNSS_FW_TEST_MODE:
 			seq_puts(s, "FW TEST MODE");
 			continue;
-		case ICNSS_SUSPEND:
-			seq_puts(s, "SUSPEND");
-			continue;
 		case ICNSS_PM_SUSPEND:
 			seq_puts(s, "PM SUSPEND");
 			continue;
@@ -4470,55 +4466,6 @@ static int icnss_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int icnss_suspend(struct platform_device *pdev,
-			 pm_message_t state)
-{
-	int ret = 0;
-
-	if (!penv) {
-		ret = -ENODEV;
-		goto out;
-	}
-
-	icnss_pr_dbg("Driver suspending, state: 0x%lx\n",
-		     penv->state);
-
-	if (!penv->ops || !penv->ops->suspend ||
-	    !test_bit(ICNSS_DRIVER_PROBED, &penv->state))
-		goto out;
-
-	ret = penv->ops->suspend(&pdev->dev, state);
-
-out:
-	if (ret == 0)
-		set_bit(ICNSS_SUSPEND, &penv->state);
-	return ret;
-}
-
-static int icnss_resume(struct platform_device *pdev)
-{
-	int ret = 0;
-
-	if (!penv) {
-		ret = -ENODEV;
-		goto out;
-	}
-
-	icnss_pr_dbg("Driver resuming, state: 0x%lx\n",
-		     penv->state);
-
-	if (!penv->ops || !penv->ops->resume ||
-	    !test_bit(ICNSS_DRIVER_PROBED, &penv->state))
-		goto out;
-
-	ret = penv->ops->resume(&pdev->dev);
-
-out:
-	if (ret == 0)
-		clear_bit(ICNSS_SUSPEND, &penv->state);
-	return ret;
-}
-
 #ifdef CONFIG_PM_SLEEP
 static int icnss_pm_suspend(struct device *dev)
 {
@@ -4654,8 +4601,6 @@ MODULE_DEVICE_TABLE(of, icnss_dt_match);
 static struct platform_driver icnss_driver = {
 	.probe  = icnss_probe,
 	.remove = icnss_remove,
-	.suspend = icnss_suspend,
-	.resume = icnss_resume,
 	.driver = {
 		.name = "icnss",
 		.pm = &icnss_pm_ops,
