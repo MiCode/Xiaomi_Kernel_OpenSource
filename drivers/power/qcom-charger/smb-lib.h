@@ -169,7 +169,7 @@ struct smb_charger {
 	/* cached status */
 	int			voltage_min_uv;
 	int			voltage_max_uv;
-	bool			pd_active;
+	int			pd_active;
 	bool			vbus_present;
 
 	int			system_temp_level;
