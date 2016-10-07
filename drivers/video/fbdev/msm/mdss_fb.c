@@ -2863,7 +2863,9 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 		 * enabling ahead of unblank. for some special cases like
 		 * adb shell stop/start.
 		 */
+		mutex_lock(&mfd->bl_lock);
 		mdss_fb_set_backlight(mfd, 0);
+		mutex_unlock(&mfd->bl_lock);
 
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 			mfd->op_enable);
