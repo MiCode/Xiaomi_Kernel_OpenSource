@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016  The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,13 +14,13 @@
 /dts-v1/;
 
 #include "apq8009w-swoctp.dtsi"
-#include "apq8009w-nowgr-memory.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8009W-PM8916 1GB SWOCTP NOWGR";
+	model = "Qualcomm Technologies, Inc. APQ8009W-PM8916 \
+						SWOC CIRC PANEL NOWGR MTP";
 	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
 	qcom,msm-id = <265 0>,
 		      <301 0>;
-	qcom,board-id= <8 0xa>; /* CX, APC split with PM8916+SMB231, STC3117 */
-				/* NO WGR */
+	qcom,board-id= <8 0x10d>; /* SWOC P4 with Circular display */
+				  /* NO WGR */
 };

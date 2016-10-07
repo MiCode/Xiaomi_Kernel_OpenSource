@@ -11,16 +11,14 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+&external_image_mem {
+	reg = <0x0 0x87b00000 0x0 0x0500000>;
+};
 
-#include "apq8009w-swoctp.dtsi"
-#include "apq8009w-nowgr-memory.dtsi"
+&modem_adsp_mem {
+	reg = <0x0 0x88000000 0x0 0x01700000>;
+};
 
-/ {
-	model = "Qualcomm Technologies, Inc. APQ8009W-PM8916 1GB SWOCTP NOWGR";
-	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
-	qcom,msm-id = <265 0>,
-		      <301 0>;
-	qcom,board-id= <8 0xa>; /* CX, APC split with PM8916+SMB231, STC3117 */
-				/* NO WGR */
+&peripheral_mem {
+	reg = <0x0 0x89700000 0x0 0x0500000>;
 };
