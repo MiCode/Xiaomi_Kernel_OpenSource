@@ -36,11 +36,11 @@ struct sde_hw_dspp_ops {
 	void (*read_histogram)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
-	 * update_igc - update dspp igc
+	 * setup_igc - update dspp igc
 	 * @ctx: Pointer to dspp context
 	 * @cfg: Pointer to configuration
 	 */
-	void (*update_igc)(struct sde_hw_dspp *ctx, void *cfg);
+	void (*setup_igc)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
 	 * setup_pa - setup dspp pa
@@ -75,7 +75,7 @@ struct sde_hw_dspp_ops {
 	 * @ctx: Pointer to dspp context
 	 * @cfg: Pointer to configuration
 	 */
-	void (*setup_sixzone)(struct sde_hw_dspp *dspp);
+	void (*setup_sixzone)(struct sde_hw_dspp *dspp, void *cfg);
 
 	/**
 	 * setup_danger_safe - setup danger safe LUTS
@@ -125,6 +125,20 @@ struct sde_hw_dspp_ops {
 	 * @cfg: Pointer to configuration
 	 */
 	void (*setup_vlut)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_gc - update dspp gc
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_gc)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_gamut - update dspp gamut
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_gamut)(struct sde_hw_dspp *ctx, void *cfg);
 };
 
 /**

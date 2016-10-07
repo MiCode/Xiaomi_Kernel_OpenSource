@@ -32,34 +32,26 @@ struct sde_cp_node {
 	struct list_head feature_list;
 	struct list_head active_list;
 	struct list_head dirty_list;
-	void (*dspp_feature_op)(struct sde_hw_dspp *ctx, void *cfg);
-	void (*lm_feature_op)(struct sde_hw_mixer *mixer, void *cfg);
+	bool is_dspp_feature;
 };
 
 struct sde_cp_prop_attach {
 	struct drm_crtc *crtc;
 	struct drm_property *prop;
 	struct sde_cp_node *prop_node;
-	const struct sde_pp_blk *pp_blk;
 	u32 feature;
-	void *ops;
 	uint64_t val;
 };
 
-static void dspp_pcc_install_property(struct drm_crtc *crtc,
-					struct sde_hw_dspp *hw_dspp);
+static void dspp_pcc_install_property(struct drm_crtc *crtc);
 
-static void dspp_hsic_install_property(struct drm_crtc *crtc,
-					struct sde_hw_dspp *hw_dspp);
+static void dspp_hsic_install_property(struct drm_crtc *crtc);
 
-static void dspp_ad_install_property(struct drm_crtc *crtc,
-					struct sde_hw_dspp *hw_dspp);
+static void dspp_ad_install_property(struct drm_crtc *crtc);
 
-static void dspp_vlut_install_property(struct drm_crtc *crtc,
-					struct sde_hw_dspp *hw_dspp);
+static void dspp_vlut_install_property(struct drm_crtc *crtc);
 
-typedef void (*dspp_prop_install_func_t)(struct drm_crtc *crtc,
-					struct sde_hw_dspp *hw_dspp);
+typedef void (*dspp_prop_install_func_t)(struct drm_crtc *crtc);
 
 static dspp_prop_install_func_t dspp_prop_install_func[SDE_DSPP_MAX];
 
@@ -71,13 +63,11 @@ do { \
 	func[SDE_DSPP_VLUT] = dspp_vlut_install_property; \
 } while (0)
 
-typedef void (*lm_prop_install_func_t)(struct drm_crtc *crtc,
-					struct sde_hw_mixer *hw_mixer);
+typedef void (*lm_prop_install_func_t)(struct drm_crtc *crtc);
 
 static lm_prop_install_func_t lm_prop_install_func[SDE_MIXER_MAX];
 
-static void lm_gc_install_property(struct drm_crtc *crtc,
-				     struct sde_hw_mixer *hw_mixer);
+static void lm_gc_install_property(struct drm_crtc *crtc);
 
 #define setup_lm_prop_install_funcs(func) \
 	(func[SDE_MIXER_GC] = lm_gc_install_property)
@@ -110,14 +100,12 @@ enum {
 	SDE_CP_CRTC_MAX_FEATURES,
 };
 
-#define INIT_PROP_ATTACH(p, crtc, prop, node, blk, feature, func, val) \
+#define INIT_PROP_ATTACH(p, crtc, prop, node, feature, val) \
 	do { \
 		(p)->crtc = crtc; \
 		(p)->prop = prop; \
 		(p)->prop_node = node; \
-		(p)->pp_blk = blk; \
 		(p)->feature = feature; \
-		(p)->ops = func; \
 		(p)->val = val; \
 	} while (0)
 
@@ -281,14 +269,6 @@ static int sde_cp_enable_crtc_property(struct drm_crtc *crtc,
 	return ret;
 }
 
-static int sde_cp_crtc_get_mixer_idx(struct sde_crtc *sde_crtc)
-{
-	if (sde_crtc->num_mixers)
-		return sde_crtc->mixers[0].hw_lm->idx;
-	else
-		return -EINVAL;
-}
-
 static struct sde_kms *get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv = crtc->dev->dev_private;
@@ -310,12 +290,11 @@ static void sde_cp_crtc_prop_attach(struct sde_cp_prop_attach *prop_attach)
 	prop_attach->prop_node->property_id = prop_attach->prop->base.id;
 	prop_attach->prop_node->prop_flags = prop_attach->prop->flags;
 	prop_attach->prop_node->feature = prop_attach->feature;
-	prop_attach->prop_node->pp_blk = prop_attach->pp_blk;
 
 	if (prop_attach->feature < SDE_CP_CRTC_DSPP_MAX)
-		prop_attach->prop_node->dspp_feature_op = prop_attach->ops;
+		prop_attach->prop_node->is_dspp_feature = true;
 	else
-		prop_attach->prop_node->lm_feature_op = prop_attach->ops;
+		prop_attach->prop_node->is_dspp_feature = false;
 
 	list_add(&prop_attach->prop_node->feature_list,
 		 &sde_crtc->feature_list);
@@ -375,15 +354,14 @@ static void sde_cp_crtc_install_immutable_property(struct drm_crtc *crtc,
 		priv->cp_property[feature] = prop;
 	}
 
-	INIT_PROP_ATTACH(&prop_attach, crtc, prop, prop_node, NULL,
-				feature, NULL, val);
+	INIT_PROP_ATTACH(&prop_attach, crtc, prop, prop_node,
+				feature, val);
 	sde_cp_crtc_prop_attach(&prop_attach);
 }
 
 static void sde_cp_crtc_install_range_property(struct drm_crtc *crtc,
 					     char *name,
-					     const struct sde_pp_blk *pp_blk,
-					     u32 feature, void *ops,
+					     u32 feature,
 					     uint64_t min, uint64_t max,
 					     uint64_t val)
 {
@@ -415,15 +393,14 @@ static void sde_cp_crtc_install_range_property(struct drm_crtc *crtc,
 		priv->cp_property[feature] = prop;
 	}
 
-	INIT_PROP_ATTACH(&prop_attach, crtc, prop, prop_node, pp_blk,
-				feature, ops, val);
+	INIT_PROP_ATTACH(&prop_attach, crtc, prop, prop_node,
+				feature, val);
 
 	sde_cp_crtc_prop_attach(&prop_attach);
 }
 
 static void sde_cp_crtc_create_blob_property(struct drm_crtc *crtc, char *name,
-					     const struct sde_pp_blk *pp_blk,
-					     u32 feature, void *ops)
+					     u32 feature)
 {
 	struct drm_property *prop;
 	struct sde_cp_node *prop_node = NULL;
@@ -455,42 +432,124 @@ static void sde_cp_crtc_create_blob_property(struct drm_crtc *crtc, char *name,
 		priv->cp_property[feature] = prop;
 	}
 
-	INIT_PROP_ATTACH(&prop_attach, crtc, prop, prop_node, pp_blk,
-				feature, ops, val);
+	INIT_PROP_ATTACH(&prop_attach, crtc, prop, prop_node,
+				feature, val);
 
 	sde_cp_crtc_prop_attach(&prop_attach);
 }
-
 
 static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 				   struct sde_crtc *sde_crtc)
 {
 	struct sde_hw_cp_cfg hw_cfg;
+	struct sde_hw_mixer *hw_lm;
+	struct sde_hw_dspp *hw_dspp;
 	u32 num_mixers = sde_crtc->num_mixers;
 	int i = 0;
-	bool is_dspp = true;
 	bool feature_enabled = false;
+	int ret = 0;
 
-	if (!prop_node->dspp_feature_op && !prop_node->lm_feature_op) {
-		DRM_ERROR("ops not set for dspp/lm\n");
-		return;
-	}
-
-	is_dspp = !prop_node->lm_feature_op;
 	sde_cp_get_hw_payload(prop_node, &hw_cfg, &feature_enabled);
 
-	for (i = 0; i < num_mixers; i++) {
-		if (is_dspp) {
-			if (!sde_crtc->mixers[i].hw_dspp)
+	for (i = 0; i < num_mixers && !ret; i++) {
+		hw_lm = sde_crtc->mixers[i].hw_lm;
+		hw_dspp = sde_crtc->mixers[i].hw_dspp;
+
+		switch (prop_node->feature) {
+		case SDE_CP_CRTC_DSPP_VLUT:
+			if (!hw_dspp || !hw_dspp->ops.setup_vlut) {
+				ret = -EINVAL;
 				continue;
-			prop_node->dspp_feature_op(sde_crtc->mixers[i].hw_dspp,
-						   &hw_cfg);
-		} else {
-			if (!sde_crtc->mixers[i].hw_lm)
+			}
+			hw_dspp->ops.setup_vlut(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_PCC:
+			if (!hw_dspp || !hw_dspp->ops.setup_pcc) {
+				ret = -EINVAL;
 				continue;
-			prop_node->lm_feature_op(sde_crtc->mixers[i].hw_lm,
-						 &hw_cfg);
+			}
+			hw_dspp->ops.setup_pcc(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_IGC:
+			if (!hw_dspp || !hw_dspp->ops.setup_igc) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_igc(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_GC:
+			if (!hw_dspp || !hw_dspp->ops.setup_gc) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_gc(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_HUE:
+			if (!hw_dspp || !hw_dspp->ops.setup_hue) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_hue(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_SAT:
+			if (!hw_dspp || !hw_dspp->ops.setup_sat) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_sat(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_VAL:
+			if (!hw_dspp || !hw_dspp->ops.setup_val) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_val(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_CONT:
+			if (!hw_dspp || !hw_dspp->ops.setup_cont) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_cont(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_MEMCOLOR:
+			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcolor)
+				ret = -EINVAL;
+				continue;
+			hw_dspp->ops.setup_pa_memcolor(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_SIXZONE:
+			if (!hw_dspp || !hw_dspp->ops.setup_sixzone) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_sixzone(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_GAMUT:
+			if (!hw_dspp || !hw_dspp->ops.setup_gamut) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_gamut(hw_dspp, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_LM_GC:
+			if (!hw_lm || !hw_lm->ops.setup_gc) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_lm->ops.setup_gc(hw_lm, &hw_cfg);
+			break;
+		default:
+			ret = -EINVAL;
+			break;
 		}
+	}
+
+	if (ret) {
+		DRM_ERROR("failed to %s feature %d\n",
+			((feature_enabled) ? "enable" : "disable"),
+			prop_node->feature);
+		return;
 	}
 
 	if (feature_enabled) {
@@ -543,7 +602,7 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 							dirty_list) {
 		sde_cp_crtc_setfeature(prop_node, sde_crtc);
 		/* Set the flush flag to true */
-		if (prop_node->dspp_feature_op)
+		if (prop_node->is_dspp_feature)
 			set_dspp_flush = true;
 		else
 			set_lm_flush = true;
@@ -573,10 +632,8 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc = NULL;
 	struct sde_mdss_cfg *catalog = NULL;
 	unsigned long features = 0;
-	int idx = 0, i = 0;
+	int i = 0;
 	struct msm_drm_private *priv;
-	struct sde_hw_dspp *hw_dspp = NULL;
-	struct sde_hw_mixer *hw_mixer = NULL;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		DRM_ERROR("invalid crtc %pK dev %pK\n",
@@ -591,7 +648,7 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 	}
 
 	kms = get_kms(crtc);
-	if (!kms || !kms->catalog || !sde_crtc) {
+	if (!kms || !kms->catalog) {
 		DRM_ERROR("invalid sde kms %pK catalog %pK sde_crtc %pK\n",
 		 kms, ((kms) ? kms->catalog : NULL), sde_crtc);
 		return;
@@ -606,12 +663,6 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 		return;
 
 	catalog = kms->catalog;
-	idx = sde_cp_crtc_get_mixer_idx(sde_crtc);
-	if (idx < 0 || idx >= catalog->mixer_count) {
-		DRM_ERROR("invalid idx %d\n", idx);
-		return;
-	}
-
 	priv = crtc->dev->dev_private;
 	/**
 	 * DSPP/LM properties are global to all the CRTCS.
@@ -627,36 +678,29 @@ void sde_cp_crtc_install_properties(struct drm_crtc *crtc)
 	if (!priv->cp_property)
 		return;
 
-	if (idx >= catalog->dspp_count)
+	if (!catalog->dspp_count)
 		goto lm_property;
 
 	/* Check for all the DSPP properties and attach it to CRTC */
-	hw_dspp = sde_crtc->mixers[0].hw_dspp;
-	features = (hw_dspp) ? hw_dspp->cap->features : 0;
-
-	if (!hw_dspp || !hw_dspp->cap->sblk || !features)
-		goto lm_property;
-
+	features = catalog->dspp[0].features;
 	for (i = 0; i < SDE_DSPP_MAX; i++) {
 		if (!test_bit(i, &features))
 			continue;
 		if (dspp_prop_install_func[i])
-			dspp_prop_install_func[i](crtc, hw_dspp);
+			dspp_prop_install_func[i](crtc);
 	}
 
 lm_property:
-	/* Check for all the LM properties and attach it to CRTC */
-	hw_mixer = sde_crtc->mixers[0].hw_lm;
-	features = (hw_mixer) ? hw_mixer->cap->features : 0;
-
-	if (!hw_mixer || !hw_mixer->cap->sblk || !features)
+	if (!catalog->mixer_count)
 		return;
 
+	/* Check for all the LM properties and attach it to CRTC */
+	features = catalog->mixer[0].features;
 	for (i = 0; i < SDE_MIXER_MAX; i++) {
 		if (!test_bit(i, &features))
 			continue;
 		if (lm_prop_install_func[i])
-			lm_prop_install_func[i](crtc, hw_mixer);
+			lm_prop_install_func[i](crtc);
 	}
 }
 
@@ -666,7 +710,7 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 {
 	struct sde_cp_node *prop_node = NULL;
 	struct sde_crtc *sde_crtc = NULL;
-	int ret = 0;
+	int ret = 0, i = 0, dspp_cnt, lm_cnt;
 	u8 found = 0;
 
 	if (!crtc || !property) {
@@ -689,7 +733,36 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 
 	if (!found)
 		return 0;
+	/**
+	 * sde_crtc is virtual ensure that hardware has been attached to the
+	 * crtc. Check LM and dspp counts based on whether feature is a
+	 * dspp/lm feature.
+	 */
+	if (!sde_crtc->num_mixers ||
+	    sde_crtc->num_mixers > ARRAY_SIZE(sde_crtc->mixers)) {
+		DRM_ERROR("Invalid mixer config act cnt %d max cnt %ld\n",
+			sde_crtc->num_mixers, ARRAY_SIZE(sde_crtc->mixers));
+		return -EINVAL;
+	}
 
+	dspp_cnt = 0;
+	lm_cnt = 0;
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		if (sde_crtc->mixers[i].hw_dspp)
+			dspp_cnt++;
+		if (sde_crtc->mixers[i].hw_lm)
+			lm_cnt++;
+	}
+
+	if (prop_node->is_dspp_feature && dspp_cnt < sde_crtc->num_mixers) {
+		DRM_ERROR("invalid dspp cnt %d mixer cnt %d\n", dspp_cnt,
+			sde_crtc->num_mixers);
+		return -EINVAL;
+	} else if (lm_cnt < sde_crtc->num_mixers) {
+		DRM_ERROR("invalid lm cnt %d mixer cnt %d\n", lm_cnt,
+			sde_crtc->num_mixers);
+		return -EINVAL;
+	}
 	/* remove the property from dirty list */
 	list_del_init(&prop_node->dirty_list);
 
@@ -797,21 +870,23 @@ void sde_cp_crtc_resume(struct drm_crtc *crtc)
 	/* placeholder for operations needed during resume */
 }
 
-static void dspp_pcc_install_property(struct drm_crtc *crtc,
-					struct sde_hw_dspp *hw_dspp)
+static void dspp_pcc_install_property(struct drm_crtc *crtc)
 {
 	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
 	u32 version;
 
-	version = hw_dspp->cap->sblk->pcc.version >> 16;
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+
+	version = catalog->dspp[0].sblk->pcc.version >> 16;
 	snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
 		"SDE_DSPP_PCC_V", version);
 	switch (version) {
 	case 1:
 		sde_cp_crtc_create_blob_property(crtc, feature_name,
-					&hw_dspp->cap->sblk->pcc,
-					SDE_CP_CRTC_DSPP_PCC,
-					hw_dspp->ops.setup_pcc);
+					SDE_CP_CRTC_DSPP_PCC);
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
@@ -819,21 +894,22 @@ static void dspp_pcc_install_property(struct drm_crtc *crtc,
 	}
 }
 
-static void dspp_hsic_install_property(struct drm_crtc *crtc,
-					struct sde_hw_dspp *hw_dspp)
+static void dspp_hsic_install_property(struct drm_crtc *crtc)
 {
 	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
 	u32 version;
 
-	version = hw_dspp->cap->sblk->hsic.version >> 16;
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+	version = catalog->dspp[0].sblk->hsic.version >> 16;
 	switch (version) {
 	case 1:
 		snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
 			"SDE_DSPP_HUE_V", version);
 		sde_cp_crtc_install_range_property(crtc, feature_name,
-			&hw_dspp->cap->sblk->hsic,
-			SDE_CP_CRTC_DSPP_HUE, hw_dspp->ops.setup_hue,
-			0, U32_MAX, 0);
+			SDE_CP_CRTC_DSPP_HUE, 0, U32_MAX, 0);
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
@@ -841,21 +917,22 @@ static void dspp_hsic_install_property(struct drm_crtc *crtc,
 	}
 }
 
-static void dspp_vlut_install_property(struct drm_crtc *crtc,
-					struct sde_hw_dspp *hw_dspp)
+static void dspp_vlut_install_property(struct drm_crtc *crtc)
 {
 	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
 	u32 version;
 
-	version = hw_dspp->cap->sblk->vlut.version >> 16;
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+	version = catalog->dspp[0].sblk->vlut.version >> 16;
 	snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
 		"SDE_DSPP_VLUT_V", version);
 	switch (version) {
 	case 1:
 		sde_cp_crtc_install_range_property(crtc, feature_name,
-			&hw_dspp->cap->sblk->vlut,
-			SDE_CP_CRTC_DSPP_VLUT, hw_dspp->ops.setup_vlut,
-			0, U64_MAX, 0);
+			SDE_CP_CRTC_DSPP_VLUT, 0, U64_MAX, 0);
 		sde_cp_create_local_blob(crtc,
 			SDE_CP_CRTC_DSPP_VLUT,
 			sizeof(struct drm_msm_pa_vlut));
@@ -866,13 +943,16 @@ static void dspp_vlut_install_property(struct drm_crtc *crtc,
 	}
 }
 
-static void dspp_ad_install_property(struct drm_crtc *crtc,
-					struct sde_hw_dspp *hw_dspp)
+static void dspp_ad_install_property(struct drm_crtc *crtc)
 {
 	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
 	u32 version;
 
-	version = hw_dspp->cap->sblk->ad.version >> 16;
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+	version = catalog->dspp[0].sblk->ad.version >> 16;
 	snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
 		"SDE_DSPP_AD_V", version);
 	switch (version) {
@@ -886,21 +966,22 @@ static void dspp_ad_install_property(struct drm_crtc *crtc,
 	}
 }
 
-static void lm_gc_install_property(struct drm_crtc *crtc,
-				     struct sde_hw_mixer *hw_mixer)
+static void lm_gc_install_property(struct drm_crtc *crtc)
 {
 	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
 	u32 version;
 
-	version = hw_mixer->cap->sblk->gc.version >> 16;
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+	version = catalog->mixer[0].sblk->gc.version >> 16;
 	snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
 		 "SDE_LM_GC_V", version);
 	switch (version) {
 	case 1:
 		sde_cp_crtc_create_blob_property(crtc, feature_name,
-			&hw_mixer->cap->sblk->gc,
-			SDE_CP_CRTC_LM_GC,
-			hw_mixer->ops.setup_gc);
+			SDE_CP_CRTC_LM_GC);
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
