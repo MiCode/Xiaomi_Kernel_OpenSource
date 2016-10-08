@@ -346,6 +346,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_PD_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_TYPEC_MODE,
@@ -384,6 +385,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		rc = smblib_get_prop_usb_voltage_now(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_PD_CURRENT_MAX:
+		rc = smblib_get_prop_pd_current_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_get_prop_usb_current_max(chg, val);
@@ -425,6 +429,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PD_IN_HARD_RESET:
 		rc = smblib_get_prop_pd_in_hard_reset(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED:
+		val->intval = chg->system_suspend_supported;
+		break;
 	default:
 		pr_err("get prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -452,6 +459,9 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_set_prop_usb_voltage_max(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_PD_CURRENT_MAX:
+		rc = smblib_set_prop_pd_current_max(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_set_prop_usb_current_max(chg, val);
 		break;
@@ -466,6 +476,9 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PD_IN_HARD_RESET:
 		rc = smblib_set_prop_pd_in_hard_reset(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED:
+		chg->system_suspend_supported = val->intval;
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
