@@ -358,6 +358,8 @@ struct icnss_stats {
 	uint32_t pm_suspend_noirq_err;
 	uint32_t pm_resume_noirq;
 	uint32_t pm_resume_noirq_err;
+	uint32_t pm_stay_awake;
+	uint32_t pm_relax;
 
 	uint32_t ind_register_req;
 	uint32_t ind_register_resp;
@@ -435,7 +437,6 @@ static struct icnss_priv {
 	struct notifier_block get_service_nb;
 	void *modem_notify_handler;
 	struct notifier_block modem_ssr_nb;
-	struct wakeup_source ws;
 	uint32_t diag_reg_read_addr;
 	uint32_t diag_reg_read_mem_type;
 	uint32_t diag_reg_read_len;
@@ -444,6 +445,7 @@ static struct icnss_priv {
 	struct qpnp_adc_tm_chip *adc_tm_dev;
 	struct qpnp_vadc_chip *vadc_dev;
 	uint64_t vph_pwr;
+	atomic_t pm_count;
 } *penv;
 
 static void icnss_hw_write_reg(void *base, u32 offset, u32 val)
@@ -511,6 +513,35 @@ static int icnss_hw_poll_reg_field(void *base, u32 offset, u32 mask, u32 val,
 	return 0;
 }
 
+static void icnss_pm_stay_awake(struct icnss_priv *priv)
+{
+	if (atomic_inc_return(&priv->pm_count) != 1)
+		return;
+
+	icnss_pr_dbg("PM stay awake, state: 0x%lx, count: %d\n", priv->state,
+		     atomic_read(&priv->pm_count));
+
+	pm_stay_awake(&priv->pdev->dev);
+
+	priv->stats.pm_stay_awake++;
+}
+
+static void icnss_pm_relax(struct icnss_priv *priv)
+{
+	int r = atomic_dec_return(&priv->pm_count);
+
+	WARN_ON(r < 0);
+
+	if (r != 0)
+		return;
+
+	icnss_pr_dbg("PM relax, state: 0x%lx, count: %d\n", priv->state,
+		     atomic_read(&priv->pm_count));
+
+	pm_relax(&priv->pdev->dev);
+	priv->stats.pm_relax++;
+}
+
 static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 {
 	switch (type) {
@@ -557,6 +588,8 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	if (event == NULL)
 		return -ENOMEM;
 
+	icnss_pm_stay_awake(penv);
+
 	event->type = type;
 	event->data = data;
 	init_completion(&event->complete);
@@ -571,7 +604,7 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	queue_work(penv->event_wq, &penv->event_work);
 
 	if (!sync)
-		return ret;
+		goto out;
 
 	ret = wait_for_completion_interruptible(&event->complete);
 
@@ -583,13 +616,15 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	if (ret == -ERESTARTSYS && event->ret == ICNSS_EVENT_PENDING) {
 		event->sync = false;
 		spin_unlock_irqrestore(&penv->event_lock, flags);
-		return ret;
+		goto out;
 	}
 	spin_unlock_irqrestore(&penv->event_lock, flags);
 
 	ret = event->ret;
 	kfree(event);
 
+out:
+	icnss_pm_relax(penv);
 	return ret;
 }
 
@@ -2381,8 +2416,6 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 	if (!penv)
 		return -ENODEV;
 
-	__pm_stay_awake(&penv->ws);
-
 	set_bit(ICNSS_FW_READY, &penv->state);
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
@@ -2400,10 +2433,7 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 	else
 		ret = icnss_call_driver_probe(penv);
 
-	__pm_relax(&penv->ws);
-
 out:
-	__pm_relax(&penv->ws);
 	return ret;
 }
 
@@ -2413,8 +2443,6 @@ static int icnss_driver_event_register_driver(void *data)
 
 	if (penv->ops)
 		return -EEXIST;
-
-	__pm_stay_awake(&penv->ws);
 
 	penv->ops = data;
 
@@ -2441,21 +2469,16 @@ static int icnss_driver_event_register_driver(void *data)
 
 	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
 
-	__pm_relax(&penv->ws);
-
 	return 0;
 
 power_off:
 	icnss_hw_power_off(penv);
 out:
-	__pm_relax(&penv->ws);
 	return ret;
 }
 
 static int icnss_driver_event_unregister_driver(void *data)
 {
-	__pm_stay_awake(&penv->ws);
-
 	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state)) {
 		penv->ops = NULL;
 		goto out;
@@ -2471,7 +2494,6 @@ static int icnss_driver_event_unregister_driver(void *data)
 	icnss_hw_power_off(penv);
 
 out:
-	__pm_relax(&penv->ws);
 	return 0;
 }
 
@@ -2549,6 +2571,8 @@ static void icnss_driver_event_work(struct work_struct *work)
 	unsigned long flags;
 	int ret;
 
+	icnss_pm_stay_awake(penv);
+
 	spin_lock_irqsave(&penv->event_lock, flags);
 
 	while (!list_empty(&penv->event_list)) {
@@ -2608,6 +2632,8 @@ static void icnss_driver_event_work(struct work_struct *work)
 		spin_lock_irqsave(&penv->event_lock, flags);
 	}
 	spin_unlock_irqrestore(&penv->event_lock, flags);
+
+	icnss_pm_relax(penv);
 }
 
 static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
@@ -3949,6 +3975,8 @@ static int icnss_stats_show(struct seq_file *s, void *data)
 	ICNSS_STATS_DUMP(s, priv, pm_suspend_noirq_err);
 	ICNSS_STATS_DUMP(s, priv, pm_resume_noirq);
 	ICNSS_STATS_DUMP(s, priv, pm_resume_noirq_err);
+	ICNSS_STATS_DUMP(s, priv, pm_stay_awake);
+	ICNSS_STATS_DUMP(s, priv, pm_relax);
 
 	icnss_stats_show_irqs(s, priv);
 
@@ -4400,8 +4428,6 @@ static int icnss_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
 
-	wakeup_source_init(&priv->ws, "icnss_ws");
-
 	priv->event_wq = alloc_workqueue("icnss_driver_event", WQ_UNBOUND, 1);
 	if (!priv->event_wq) {
 		icnss_pr_err("Workqueue creation failed\n");
@@ -4462,8 +4488,6 @@ static int icnss_remove(struct platform_device *pdev)
 		destroy_workqueue(penv->event_wq);
 
 	icnss_bw_deinit(penv);
-
-	wakeup_source_trash(&penv->ws);
 
 	icnss_hw_power_off(penv);
 
