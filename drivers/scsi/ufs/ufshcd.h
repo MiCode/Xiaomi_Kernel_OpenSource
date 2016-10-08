@@ -39,6 +39,7 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -405,8 +406,9 @@ enum clk_gating_state {
 
 /**
  * struct ufs_clk_gating - UFS clock gating related info
- * @gate_work: worker to turn off clocks after some delay as specified in
- * delay_ms
+ * @gate_hrtimer: hrtimer to invoke @gate_work after some delay as
+ * specified in @delay_ms
+ * @gate_work: worker to turn off clocks
  * @ungate_work: worker to turn on clocks that will be used in case of
  * interrupt context
  * @state: the current clocks state
@@ -424,7 +426,8 @@ enum clk_gating_state {
  * completion before gating clocks.
  */
 struct ufs_clk_gating {
-	struct delayed_work gate_work;
+	struct hrtimer gate_hrtimer;
+	struct work_struct gate_work;
 	struct work_struct ungate_work;
 	enum clk_gating_state state;
 	unsigned long delay_ms;
