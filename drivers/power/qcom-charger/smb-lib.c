@@ -473,6 +473,8 @@ static int smblib_detach_typec(struct smb_charger *chg)
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
 
+	vote(chg->apsd_disable_votable, PD_VOTER, false, 0);
+
 	return rc;
 }
 
@@ -889,6 +891,24 @@ static int smblib_hvdcp_disable_vote_callback(struct votable *votable,
 	return 0;
 }
 
+static int smblib_apsd_disable_vote_callback(struct votable *votable,
+			void *data,
+			int apsd_disable, const char *client)
+{
+	struct smb_charger *chg = data;
+	int rc;
+
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+				 AUTO_SRC_DETECT_BIT,
+				 apsd_disable ? 0 : AUTO_SRC_DETECT_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't %s APSD rc=%d\n",
+			apsd_disable ? "disable" : "enable", rc);
+		return rc;
+	}
+
+	return 0;
+}
 /*****************
  * OTG REGULATOR *
  *****************/
@@ -1739,6 +1759,22 @@ int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 	return smblib_get_charge_param(chg, &chg->param.icl_stat, &val->intval);
 }
 
+int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
+			       union power_supply_propval *val)
+{
+	int rc;
+	u8 ctrl;
+
+	rc = smblib_read(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG, &ctrl);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG rc=%d\n",
+			rc);
+		return rc;
+	}
+	val->intval = ctrl & EXIT_SNK_BASED_ON_CC_BIT;
+	return 0;
+}
+
 /*******************
  * USB PSY SETTERS *
  * *****************/
@@ -1838,15 +1874,7 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		return -EINVAL;
 	}
 
-	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-				 AUTO_SRC_DETECT_BIT,
-				 val->intval ? 0 : AUTO_SRC_DETECT_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't %s APSD rc=%d\n",
-			val->intval ? "disable" : "enable", rc);
-		return rc;
-	}
-
+	vote(chg->apsd_disable_votable, PD_VOTER, val->intval, 0);
 	vote(chg->pd_allowed_votable, PD_VOTER, val->intval, 0);
 
 	/*
@@ -1885,6 +1913,20 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 
 	chg->pd_active = (bool)val->intval;
 	smblib_update_usb_type(chg);
+	return rc;
+}
+
+int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
+				const union power_supply_propval *val)
+{
+	int rc;
+
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				 EXIT_SNK_BASED_ON_CC_BIT,
+				 (val->intval) ? EXIT_SNK_BASED_ON_CC_BIT : 0);
+
+	vote(chg->apsd_disable_votable, PD_HARD_RESET_VOTER, val->intval, 0);
+
 	return rc;
 }
 
@@ -2566,6 +2608,16 @@ static int smblib_create_votables(struct smb_charger *chg)
 		rc = PTR_ERR(chg->hvdcp_disable_votable);
 		return rc;
 	}
+
+	chg->apsd_disable_votable = create_votable("APSD_DISABLE",
+					VOTE_SET_ANY,
+					smblib_apsd_disable_vote_callback,
+					chg);
+	if (IS_ERR(chg->apsd_disable_votable)) {
+		rc = PTR_ERR(chg->apsd_disable_votable);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -2597,6 +2649,8 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->chg_disable_votable);
 	if (chg->pl_enable_votable_indirect)
 		destroy_votable(chg->pl_enable_votable_indirect);
+	if (chg->apsd_disable_votable)
+		destroy_votable(chg->apsd_disable_votable);
 }
 
 static void smblib_iio_deinit(struct smb_charger *chg)
