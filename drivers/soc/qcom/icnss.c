@@ -260,7 +260,12 @@ void *icnss_ipc_log_context;
 void *icnss_ipc_log_long_context;
 #endif
 
-#define ICNSS_EVENT_PENDING		2989
+#define ICNSS_EVENT_PENDING			2989
+
+#define ICNSS_EVENT_SYNC			BIT(0)
+#define ICNSS_EVENT_UNINTERRUPTIBLE		BIT(1)
+#define ICNSS_EVENT_SYNC_UNINTERRUPTIBLE	(ICNSS_EVENT_UNINTERRUPTIBLE | \
+						 ICNSS_EVENT_SYNC)
 
 enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_SERVER_ARRIVE,
@@ -565,16 +570,16 @@ static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 };
 
 static int icnss_driver_event_post(enum icnss_driver_event_type type,
-				   bool sync, void *data)
+				   u32 flags, void *data)
 {
 	struct icnss_driver_event *event;
-	unsigned long flags;
+	unsigned long irq_flags;
 	int gfp = GFP_KERNEL;
 	int ret = 0;
 
-	icnss_pr_dbg("Posting event: %s: %s%s(%d), state: 0x%lx\n",
-		     current->comm, icnss_driver_event_to_str(type),
-		     sync ? "-sync" : "", type, penv->state);
+	icnss_pr_dbg("Posting event: %s(%d), %s, flags: 0x%x, state: 0x%lx\n",
+		     icnss_driver_event_to_str(type), type, current->comm,
+		     flags, penv->state);
 
 	if (type >= ICNSS_DRIVER_EVENT_MAX) {
 		icnss_pr_err("Invalid Event type: %d, can't post", type);
@@ -594,31 +599,35 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	event->data = data;
 	init_completion(&event->complete);
 	event->ret = ICNSS_EVENT_PENDING;
-	event->sync = sync;
+	event->sync = !!(flags & ICNSS_EVENT_SYNC);
 
-	spin_lock_irqsave(&penv->event_lock, flags);
+	spin_lock_irqsave(&penv->event_lock, irq_flags);
 	list_add_tail(&event->list, &penv->event_list);
-	spin_unlock_irqrestore(&penv->event_lock, flags);
+	spin_unlock_irqrestore(&penv->event_lock, irq_flags);
 
 	penv->stats.events[type].posted++;
 	queue_work(penv->event_wq, &penv->event_work);
 
-	if (!sync)
+	if (!(flags & ICNSS_EVENT_SYNC))
 		goto out;
 
-	ret = wait_for_completion_interruptible(&event->complete);
+	if (flags & ICNSS_EVENT_UNINTERRUPTIBLE)
+		wait_for_completion(&event->complete);
+	else
+		ret = wait_for_completion_interruptible(&event->complete);
 
 	icnss_pr_dbg("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
 		     icnss_driver_event_to_str(type), type, penv->state, ret,
 		     event->ret);
 
-	spin_lock_irqsave(&penv->event_lock, flags);
+	spin_lock_irqsave(&penv->event_lock, irq_flags);
 	if (ret == -ERESTARTSYS && event->ret == ICNSS_EVENT_PENDING) {
 		event->sync = false;
-		spin_unlock_irqrestore(&penv->event_lock, flags);
+		spin_unlock_irqrestore(&penv->event_lock, irq_flags);
+		ret = -EINTR;
 		goto out;
 	}
-	spin_unlock_irqrestore(&penv->event_lock, flags);
+	spin_unlock_irqrestore(&penv->event_lock, irq_flags);
 
 	ret = event->ret;
 	kfree(event);
@@ -2228,7 +2237,7 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 	switch (msg_id) {
 	case QMI_WLFW_FW_READY_IND_V01:
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_READY_IND,
-					false, NULL);
+					0, NULL);
 		break;
 	case QMI_WLFW_MSA_READY_IND_V01:
 		icnss_pr_dbg("Received MSA Ready Indication msg_id 0x%x\n",
@@ -2650,12 +2659,12 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 	switch (code) {
 	case QMI_SERVER_ARRIVE:
 		ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_ARRIVE,
-					      false, NULL);
+					      0, NULL);
 		break;
 
 	case QMI_SERVER_EXIT:
 		ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_EXIT,
-					      false, NULL);
+					      0, NULL);
 		break;
 	default:
 		icnss_pr_dbg("Invalid code: %ld", code);
@@ -2692,7 +2701,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	event_data->crashed = notif->crashed;
 
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
-				true, event_data);
+				ICNSS_EVENT_SYNC, event_data);
 
 	return NOTIFY_OK;
 }
@@ -2767,7 +2776,7 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 			event_data->crashed = true;
 
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
-					true, event_data);
+					ICNSS_EVENT_SYNC, event_data);
 		break;
 	case SERVREG_NOTIF_SERVICE_STATE_UP_V01:
 		icnss_pr_dbg("Service up, state: 0x%lx\n", priv->state);
@@ -2939,7 +2948,7 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 	}
 
 	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
-				      true, ops);
+				      ICNSS_EVENT_SYNC, ops);
 
 	if (ret == -ERESTARTSYS)
 		ret = 0;
@@ -2967,7 +2976,7 @@ int icnss_unregister_driver(struct icnss_driver_ops *ops)
 	}
 
 	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
-				      true, NULL);
+				      ICNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
 out:
 	return ret;
 }
@@ -3871,6 +3880,7 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			seq_puts(s, "MSA0 ASSIGNED");
 			continue;
 		case ICNSS_WLFW_EXISTS:
+			seq_puts(s, "WLAN FW EXISTS");
 			continue;
 		}
 
