@@ -3269,6 +3269,12 @@ int icnss_wlan_disable(enum icnss_driver_mode mode)
 }
 EXPORT_SYMBOL(icnss_wlan_disable);
 
+bool icnss_is_qmi_disable(void)
+{
+	return test_bit(SKIP_QMI, &quirks) ? true : false;
+}
+EXPORT_SYMBOL(icnss_is_qmi_disable);
+
 int icnss_get_ce_id(int irq)
 {
 	int i;

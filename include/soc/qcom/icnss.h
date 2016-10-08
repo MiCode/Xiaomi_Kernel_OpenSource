@@ -123,5 +123,6 @@ extern int icnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 *ch_count,
 					 u16 buf_len);
 extern int icnss_wlan_set_dfs_nol(const void *info, u16 info_len);
 extern int icnss_wlan_get_dfs_nol(void *info, u16 info_len);
+extern bool icnss_is_qmi_disable(void);
 
 #endif /* _ICNSS_WLAN_H_ */
