@@ -27,6 +27,7 @@
 #define REVID_SUBTYPE	0x5
 #define REVID_STATUS1	0x8
 #define REVID_SPARE_0	0x60
+#define REVID_FAB_ID	0xf2
 
 #define QPNP_REVID_DEV_NAME "qcom,qpnp-revid"
 
@@ -154,7 +155,7 @@ static size_t build_pmic_string(char *buf, size_t n, int sid,
 static int qpnp_revid_probe(struct platform_device *pdev)
 {
 	u8 rev1, rev2, rev3, rev4, pmic_type, pmic_subtype, pmic_status;
-	u8 option1, option2, option3, option4, spare0;
+	u8 option1, option2, option3, option4, spare0, fab_id;
 	unsigned int base;
 	int rc;
 	char pmic_string[PMIC_STRING_MAXLENGTH] = {'\0'};
@@ -199,6 +200,11 @@ static int qpnp_revid_probe(struct platform_device *pdev)
 			pmic_subtype = PMI8937_PERIPHERAL_SUBTYPE;
 	}
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,fab-id-valid"))
+		fab_id = qpnp_read_byte(regmap, base + REVID_FAB_ID);
+	else
+		fab_id = -EINVAL;
+
 	revid_chip = devm_kzalloc(&pdev->dev, sizeof(struct revid_chip),
 						GFP_KERNEL);
 	if (!revid_chip)
@@ -211,6 +217,7 @@ static int qpnp_revid_probe(struct platform_device *pdev)
 	revid_chip->data.rev4 = rev4;
 	revid_chip->data.pmic_subtype = pmic_subtype;
 	revid_chip->data.pmic_type = pmic_type;
+	revid_chip->data.fab_id = fab_id;
 
 	if (pmic_subtype < ARRAY_SIZE(pmic_names))
 		revid_chip->data.pmic_name = pmic_names[pmic_subtype];
