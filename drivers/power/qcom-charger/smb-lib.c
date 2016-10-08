@@ -1491,10 +1491,18 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 	return iio_read_channel_processed(chg->iio.usbin_v_chan, &val->intval);
 }
 
+int smblib_get_prop_pd_current_max(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	val->intval = get_client_vote_locked(chg->usb_icl_votable, PD_VOTER);
+	return 0;
+}
+
 int smblib_get_prop_usb_current_max(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
-	val->intval = get_effective_result_locked(chg->usb_icl_votable);
+	val->intval = get_client_vote_locked(chg->usb_icl_votable,
+			USB_PSY_VOTER);
 	return 0;
 }
 
@@ -1745,12 +1753,35 @@ int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
  * USB PSY SETTERS *
  * *****************/
 
+int smblib_set_prop_pd_current_max(struct smb_charger *chg,
+				    const union power_supply_propval *val)
+{
+	int rc;
+
+	if (chg->pd_active)
+		rc = vote(chg->usb_icl_votable, PD_VOTER, true, val->intval);
+	else
+		rc = -EPERM;
+
+	return rc;
+}
+
 int smblib_set_prop_usb_current_max(struct smb_charger *chg,
 				    const union power_supply_propval *val)
 {
 	int rc;
 
-	rc = vote(chg->usb_icl_votable, PD_VOTER, true, val->intval);
+	if (!chg->pd_active) {
+		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
+				true, val->intval);
+	} else if (chg->system_suspend_supported) {
+		if (val->intval <= USBIN_25MA)
+			rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
+					true, val->intval);
+		else
+			rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
+					false, 0);
+	}
 	return rc;
 }
 
@@ -2302,7 +2333,12 @@ static void typec_source_removal(struct smb_charger *chg)
 	/* clear USB ICL vote for PD_VOTER */
 	rc = vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 	if (rc < 0)
-		dev_err(chg->dev, "Couldn't vote for USB ICL rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't un-vote for USB ICL rc=%d\n", rc);
+
+	/* clear USB ICL vote for USB_PSY_VOTER */
+	rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't un-vote for USB ICL rc=%d\n", rc);
 }
 
 static void typec_source_insertion(struct smb_charger *chg)
