@@ -91,6 +91,8 @@ Optional Properties:
   - qcom,smmu-exist: PCIe uses a SMMU.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
+  - qcom,wr-halt-size: With base 2, this exponent determines the size of the
+    data that PCIe core will halt on for each write transaction.
   - qcom,cpl-timeout: Completion timeout value. This value specifies the time range
     which the root complex will send out a completion packet if there is no response
     from the endpoint.
@@ -255,6 +257,7 @@ Example:
 		qcom,common-phy;
 		qcom,smmu-exist;
 		qcom,ep-latency = <100>;
+		qcom,wr-halt-size = <0xa>; /* 1KB */
 		qcom,cpl-timeout = <0x2>;
 
 		iommus = <&anoc0_smmu>;
