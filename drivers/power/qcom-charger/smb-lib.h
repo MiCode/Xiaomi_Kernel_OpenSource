@@ -40,6 +40,7 @@ enum print_reason {
 #define CC_DETACHED_VOTER		"CC_DETACHED_VOTER"
 #define HVDCP_TIMEOUT_VOTER		"HVDCP_TIMEOUT_VOTER"
 #define PD_DISALLOWED_INDIRECT_VOTER	"PD_DISALLOWED_INDIRECT_VOTER"
+#define PD_HARD_RESET_VOTER		"PD_HARD_RESET_VOTER"
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -154,6 +155,7 @@ struct smb_charger {
 	struct votable		*chg_disable_votable;
 	struct votable		*pl_enable_votable_indirect;
 	struct votable		*hvdcp_disable_votable;
+	struct votable		*apsd_disable_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
@@ -294,6 +296,8 @@ int smblib_get_prop_pd_allowed(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
+			       union power_supply_propval *val);
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_charger_temp_max(struct smb_charger *chg,
@@ -308,6 +312,8 @@ int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_pd_active(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
+				const union power_supply_propval *val);
 
 int smblib_get_prop_slave_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -315,4 +321,3 @@ int smblib_get_prop_slave_current_now(struct smb_charger *chg,
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
 #endif /* __SMB2_CHARGER_H */
-

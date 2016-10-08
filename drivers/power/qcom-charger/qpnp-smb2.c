@@ -422,6 +422,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->pl_disable_votable,
 					      USER_VOTER);
 		break;
+	case POWER_SUPPLY_PROP_PD_IN_HARD_RESET:
+		rc = smblib_get_prop_pd_in_hard_reset(chg, val);
+		break;
 	default:
 		pr_err("get prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -468,6 +471,9 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 		vote(chg->pl_disable_votable, USER_VOTER, (bool)val->intval, 0);
+		break;
+	case POWER_SUPPLY_PROP_PD_IN_HARD_RESET:
+		rc = smblib_set_prop_pd_in_hard_reset(chg, val);
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
