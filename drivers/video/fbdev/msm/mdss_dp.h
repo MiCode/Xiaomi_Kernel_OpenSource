@@ -170,12 +170,12 @@ struct usbpd_dp_status {
 };
 
 enum dp_alt_mode_state {
-	ALT_MODE_INIT_STATE = 0,
-	DISCOVER_MODES_DONE,
-	ENTER_MODE_DONE,
-	DP_STATUS_DONE,
-	DP_CONFIGURE_DONE,
-	UNKNOWN_STATE,
+	UNKNOWN_STATE       = 0,
+	ALT_MODE_INIT_STATE = BIT(0),
+	DISCOVER_MODES_DONE = BIT(1),
+	ENTER_MODE_DONE     = BIT(2),
+	DP_STATUS_DONE      = BIT(3),
+	DP_CONFIGURE_DONE   = BIT(4),
 };
 
 struct dp_alt_mode {
