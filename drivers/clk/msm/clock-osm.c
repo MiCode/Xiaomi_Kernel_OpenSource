@@ -183,7 +183,9 @@ enum clk_osm_trace_packet_id {
 #define DROOP_UNSTALL_TIMER_CTRL_REG 0x10AC
 #define DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG 0x10B0
 #define DROOP_WAIT_TO_RELEASE_TIMER_CTRL1_REG 0x10B4
+#define OSM_PLL_SW_OVERRIDE_EN 0x10C0
 
+#define PLL_SW_OVERRIDE_DROOP_EN BIT(0)
 #define DCVS_DROOP_TIMER_CTRL 0x10B8
 #define SEQ_MEM_ADDR 0x500
 #define SEQ_CFG_BR_ADDR 0x170
@@ -1784,7 +1786,7 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 
 		val = clk_osm_read_reg(c,
 				DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
-		val |= BVAL(15, 0, clk_osm_count_ns(c, 500));
+		val |= BVAL(15, 0, clk_osm_count_ns(c, 15000));
 		clk_osm_write_reg(c, val,
 				DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
 	}
@@ -1798,7 +1800,7 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 
 	if (c->wfx_fsm_en || c->ps_fsm_en || c->droop_fsm_en) {
 		clk_osm_write_reg(c, 0x1, DROOP_PROG_SYNC_DELAY_REG);
-		clk_osm_write_reg(c, clk_osm_count_ns(c, 250),
+		clk_osm_write_reg(c, clk_osm_count_ns(c, 500),
 				  DROOP_RELEASE_TIMER_CTRL);
 		clk_osm_write_reg(c, clk_osm_count_ns(c, 500),
 				  DCVS_DROOP_TIMER_CTRL);
@@ -1807,6 +1809,11 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 			BVAL(6, 0, 0x8);
 		clk_osm_write_reg(c, val, DROOP_CTRL_REG);
 	}
+
+	/* Enable the PLL Droop Override */
+	val = clk_osm_read_reg(c, OSM_PLL_SW_OVERRIDE_EN);
+	val |= PLL_SW_OVERRIDE_DROOP_EN;
+	clk_osm_write_reg(c, val, OSM_PLL_SW_OVERRIDE_EN);
 }
 
 static void clk_osm_do_additional_setup(struct clk_osm *c,

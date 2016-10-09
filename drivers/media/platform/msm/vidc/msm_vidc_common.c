@@ -4792,9 +4792,20 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 		return -EINVAL;
 	}
 	hdev = core->device;
-	if (core->state == VIDC_CORE_INIT_DONE)
+	if (core->state == VIDC_CORE_INIT_DONE) {
+		/*
+		 * In current implementation user-initiated SSR triggers
+		 * a fatal error from hardware. However, there is no way
+		 * to know if fatal error is due to SSR or not. Handle
+		 * user SSR as non-fatal.
+		 */
+		mutex_lock(&core->lock);
+		core->resources.debug_timeout = false;
+		mutex_unlock(&core->lock);
 		rc = call_hfi_op(hdev, core_trigger_ssr,
 				hdev->hfi_device_data, type);
+	}
+
 	return rc;
 }
 
