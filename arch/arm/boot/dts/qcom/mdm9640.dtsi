@@ -301,8 +301,8 @@
 				"int_link_down", "int_bridge_flush_n";
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie0_clkreq_default
-			     &pcie0_perst_default &pcie0_wake_default>;
+		pinctrl-0 = <&pcie_ep0_clkreq_default
+			     &pcie_ep0_perst_default &pcie_ep0_wake_default>;
 
 		perst-gpio = <&tlmm_pinmux 65 0>;
 		wake-gpio = <&tlmm_pinmux 61 0>;
@@ -325,7 +325,7 @@
 				"pcie_0_aux_clk", "pcie_0_ldo",
 				"pcie_0_phy_reset";
 		max-clock-frequency-hz = <125000000>, <0>,
-					<0>, <0>, <1000000>, <0>, <0>;
+					<0>, <0>, <1010000>, <0>, <0>;
 
 		qcom,msm-bus,name = "pcie-ep";
 		qcom,msm-bus,num-cases = <2>;
