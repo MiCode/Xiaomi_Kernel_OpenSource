@@ -1,0 +1,54 @@
+Qualcomm Technologies, Inc. QBT1000 Specific Bindings
+
+QBT is a fingerprint sensor ASIC capable of performing fingerprint image scans
+and detecting finger presence on the sensor using programmable firmware.
+
+=======================
+Required Node Structure
+=======================
+
+- compatible
+  Usage:      required
+  Value type: <string>
+  Definition: "qcom,qbt1000".
+
+- clock-names
+  Usage:      required
+  Value type: <stringlist>
+  Definition: List of clock names that need to be voted on/off.
+
+- clocks
+  Usage:      required
+  Value type: <prop_encoded-array>
+  Definition: Property pair that represents the clock controller and the clock
+		id. This in combination with the clock-name is used to obtain
+		the handle for the clock that needs to be voted on/off.
+
+- clock-frequency
+  Usage:      required
+  Value type: <u32>
+  Definition: Frequency of clock in Hz.
+
+- qcom,ipc-gpio
+  Usage:      required
+  Value type: <phandle>
+  Definition: phandle for GPIO to be used for IPC.
+
+- qcom,finger-detect-gpio
+  Usage:      required
+  Value type: <phandle>
+  Definition: phandle for GPIO to be used for finger detect.
+
+=======
+Example
+=======
+
+qcom,qbt1000 {
+	compatible = "qcom,qbt1000";
+	clock-names = "core", "iface";
+	clocks = <&clock_gcc clk_gcc_blsp2_qup6_spi_apps_clk>,
+		<&clock_gcc clk_gcc_blsp2_ahb_clk>;
+	clock-frequency = <15000000>;
+	qcom,ipc-gpio = <&tlmm 121 0>;
+	qcom,finger-detect-gpio = <&pmcobalt_gpios 2 0>;
+};
