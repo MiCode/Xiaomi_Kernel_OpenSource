@@ -43,6 +43,7 @@
 #define LLCC_STATUS_READ_DELAY 100
 
 #define CACHE_LINE_SIZE_SHIFT 6
+#define SIZE_PER_LLCC_SHIFT   2
 #define MAX_CAP_TO_BYTES(n) (n * 1024)
 #define LLCC_TRP_ACT_CTRLn(n) (n * 0x1000)
 #define LLCC_TRP_STATUSn(n)   (4 + n * 0x1000)
@@ -339,7 +340,12 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 
 		max_cap_cacheline = MAX_CAP_TO_BYTES(llcc_table[i].max_cap);
 		max_cap_cacheline >>= CACHE_LINE_SIZE_SHIFT;
-
+		/* There are four llcc instances llcc0..llcc3. The SW writes to
+		 * to broadcast register which gets propagated to each llcc.
+		 * Since the size of the memory is divided equally amongst the
+		 * four llcc, we need to divide the max cap by 4
+		 */
+		max_cap_cacheline >>= SIZE_PER_LLCC_SHIFT;
 		attr1_val |= (max_cap_cacheline << ATTR1_MAX_CAP_SHIFT);
 
 		attr0_val = llcc_table[i].res_ways & ATTR0_RES_WAYS_MASK;
