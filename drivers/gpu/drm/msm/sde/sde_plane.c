@@ -78,13 +78,15 @@ struct sde_plane {
 
 	struct sde_hw_pipe *pipe_hw;
 	struct sde_hw_pipe_cfg pipe_cfg;
-	struct sde_hw_pixel_ext pixel_ext;
 	struct sde_hw_sharp_cfg sharp_cfg;
 	struct sde_hw_scaler3_cfg scaler3_cfg;
 	struct sde_hw_pipe_qos_cfg pipe_qos_cfg;
 	uint32_t color_fill;
 	bool is_error;
 	bool is_rt_pipe;
+
+	struct sde_hw_pixel_ext pixel_ext;
+	bool pixel_ext_usr;
 
 	struct sde_csc_cfg csc_cfg;
 	struct sde_csc_cfg *csc_usr_ptr;
@@ -601,7 +603,6 @@ static int _sde_plane_setup_scaler2(struct sde_plane *psde,
 		}
 	} else {
 		/* disable scaler */
-		SDE_DEBUG("disable scaler\n");
 		filter[SDE_SSPP_COMP_0] = SDE_SCALE_FILTER_MAX;
 		filter[SDE_SSPP_COMP_1_2] = SDE_SCALE_FILTER_MAX;
 		filter[SDE_SSPP_COMP_3] = SDE_SCALE_FILTER_MAX;
@@ -702,47 +703,6 @@ static void _sde_plane_setup_pixel_ext(struct sde_plane *psde,
 	}
 }
 
-/**
- * _sde_plane_verify_blob - verify incoming blob is big enough to contain
- *                          sub-structure
- * @blob_ptr: Pointer to start of incoming blob data
- * @blob_size: Size of incoming blob data, in bytes
- * @sub_ptr: Pointer to start of desired sub-structure
- * @sub_size: Required size of sub-structure, in bytes
- */
-static int _sde_plane_verify_blob(void *blob_ptr,
-		size_t blob_size,
-		void *sub_ptr,
-		size_t sub_size)
-{
-	/*
-	 * Use the blob size provided by drm to check if there are enough
-	 * bytes from the start of versioned sub-structures to the end of
-	 * blob data:
-	 *
-	 * e.g.,
-	 * blob_ptr             --> struct blob_data {
-	 *                                  uint32_t version;
-	 * sub_ptr              -->         struct blob_data_v1 v1;
-	 * sub_ptr + sub_size   -->         struct blob_stuff more_stuff;
-	 * blob_ptr + blob_size --> };
-	 *
-	 * It's important to check the actual number of bytes from the start
-	 * of the sub-structure to the end of the blob data, and not just rely
-	 * on something like,
-	 *
-	 * sizeof(blob) - sizeof(blob->version) >= sizeof(sub-struct)
-	 *
-	 * This is because the start of the sub-structure can vary based on
-	 * how the compiler pads the overall structure.
-	 */
-	if (blob_ptr && sub_ptr)
-		/* return zero if end of blob >= end of sub-struct */
-		return ((unsigned char *)blob_ptr + blob_size) <
-			((unsigned char *)sub_ptr + sub_size);
-	return -EINVAL;
-}
-
 static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 {
 	static const struct sde_csc_cfg sde_csc_YUV2RGB_601L = {
@@ -781,41 +741,17 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		const struct sde_format *fmt,
 		struct sde_plane_state *pstate)
 {
-	struct sde_hw_pixel_ext *pe = NULL;
-	struct sde_drm_scaler *sc_u = NULL;
-	struct sde_drm_scaler_v1 *sc_u1 = NULL;
-	size_t sc_u_size = 0;
+	struct sde_hw_pixel_ext *pe;
 	uint32_t chroma_subsmpl_h, chroma_subsmpl_v;
-	uint32_t tmp;
-	int i;
+	uint32_t tmp, i;
 
-	if (!psde || !fmt)
+	if (!psde || !fmt) {
+		SDE_ERROR("invalid arg(s), plane %d fmt %d state %d\n",
+				psde != 0, fmt != 0, pstate != 0);
 		return;
+	}
 
 	pe = &(psde->pixel_ext);
-	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
-
-	/* get scaler config from user space */
-	if (pstate)
-		sc_u = msm_property_get_blob(&psde->property_info,
-				pstate->property_blobs,
-				&sc_u_size,
-				PLANE_PROP_SCALER);
-	if (sc_u) {
-		switch (sc_u->version) {
-		case SDE_DRM_SCALER_V1:
-			if (!_sde_plane_verify_blob(sc_u,
-						sc_u_size,
-						&sc_u->v1,
-						sizeof(*sc_u1)))
-				sc_u1 = &sc_u->v1;
-			break;
-		default:
-			SDE_DEBUG("unrecognized scaler blob v%lld\n",
-							sc_u->version);
-			break;
-		}
-	}
 
 	psde->pipe_cfg.horz_decimation =
 		sde_plane_get_property(pstate, PLANE_PROP_H_DECIMATE);
@@ -830,9 +766,8 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 
 	/* update scaler */
 	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
-		if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_SCALER_3))
-			SDE_DEBUG("SCALER3 blob detected\n");
-		else
+		if (!psde->pixel_ext_usr) {
+			/* calculate default config for QSEED3 */
 			_sde_plane_setup_scaler3(psde,
 					psde->pipe_cfg.src_rect.w,
 					psde->pipe_cfg.src_rect.h,
@@ -840,56 +775,23 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 					psde->pipe_cfg.dst_rect.h,
 					&psde->scaler3_cfg, fmt,
 					chroma_subsmpl_h, chroma_subsmpl_v);
-	} else {
-		/* always calculate basic scaler config */
-		if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_SCALER_2)) {
-			/* populate from user space */
-			for (i = 0; i < SDE_MAX_PLANES; i++) {
-				pe->init_phase_x[i] = sc_u1->init_phase_x[i];
-				pe->phase_step_x[i] = sc_u1->phase_step_x[i];
-				pe->init_phase_y[i] = sc_u1->init_phase_y[i];
-				pe->phase_step_y[i] = sc_u1->phase_step_y[i];
-
-				pe->horz_filter[i] = sc_u1->horz_filter[i];
-				pe->vert_filter[i] = sc_u1->vert_filter[i];
-			}
-		} else {
-			/* calculate phase steps */
-			_sde_plane_setup_scaler2(psde,
-					psde->pipe_cfg.src_rect.w,
-					psde->pipe_cfg.dst_rect.w,
-					pe->phase_step_x,
-					pe->horz_filter, fmt, chroma_subsmpl_h);
-			_sde_plane_setup_scaler2(psde,
-					psde->pipe_cfg.src_rect.h,
-					psde->pipe_cfg.dst_rect.h,
-					pe->phase_step_y,
-					pe->vert_filter, fmt, chroma_subsmpl_v);
 		}
-	}
+	} else if (!psde->pixel_ext_usr) {
+		/* calculate default configuration for QSEED2 */
+		memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
 
-	/* update pixel extensions */
-	if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_PIX_EXT)) {
-		/* populate from user space */
-		SDE_DEBUG("pixel ext blob detected\n");
-		for (i = 0; i < SDE_MAX_PLANES; i++) {
-			pe->num_ext_pxls_left[i] = sc_u1->lr.num_pxls_start[i];
-			pe->num_ext_pxls_right[i] = sc_u1->lr.num_pxls_end[i];
-			pe->left_ftch[i] = sc_u1->lr.ftch_start[i];
-			pe->right_ftch[i] = sc_u1->lr.ftch_end[i];
-			pe->left_rpt[i] = sc_u1->lr.rpt_start[i];
-			pe->right_rpt[i] = sc_u1->lr.rpt_end[i];
-			pe->roi_w[i] = sc_u1->lr.roi[i];
+		SDE_DEBUG("default config\n");
+		_sde_plane_setup_scaler2(psde,
+				psde->pipe_cfg.src_rect.w,
+				psde->pipe_cfg.dst_rect.w,
+				pe->phase_step_x,
+				pe->horz_filter, fmt, chroma_subsmpl_h);
+		_sde_plane_setup_scaler2(psde,
+				psde->pipe_cfg.src_rect.h,
+				psde->pipe_cfg.dst_rect.h,
+				pe->phase_step_y,
+				pe->vert_filter, fmt, chroma_subsmpl_v);
 
-			pe->num_ext_pxls_top[i] = sc_u1->tb.num_pxls_start[i];
-			pe->num_ext_pxls_btm[i] = sc_u1->tb.num_pxls_end[i];
-			pe->top_ftch[i] = sc_u1->tb.ftch_start[i];
-			pe->btm_ftch[i] = sc_u1->tb.ftch_end[i];
-			pe->top_rpt[i] = sc_u1->tb.rpt_start[i];
-			pe->btm_rpt[i] = sc_u1->tb.rpt_end[i];
-			pe->roi_h[i] = sc_u1->tb.roi[i];
-		}
-	} else {
 		/* calculate left/right/top/bottom pixel extensions */
 		tmp = DECIMATED_DIMENSION(psde->pipe_cfg.src_rect.w,
 				psde->pipe_cfg.horz_decimation);
@@ -915,32 +817,24 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 
 		for (i = 0; i < SDE_MAX_PLANES; i++) {
 			if (pe->num_ext_pxls_left[i] >= 0)
-				pe->left_rpt[i] =
-					pe->num_ext_pxls_left[i];
+				pe->left_rpt[i] = pe->num_ext_pxls_left[i];
 			else
-				pe->left_ftch[i] =
-					pe->num_ext_pxls_left[i];
+				pe->left_ftch[i] = pe->num_ext_pxls_left[i];
 
 			if (pe->num_ext_pxls_right[i] >= 0)
-				pe->right_rpt[i] =
-					pe->num_ext_pxls_right[i];
+				pe->right_rpt[i] = pe->num_ext_pxls_right[i];
 			else
-				pe->right_ftch[i] =
-					pe->num_ext_pxls_right[i];
+				pe->right_ftch[i] = pe->num_ext_pxls_right[i];
 
 			if (pe->num_ext_pxls_top[i] >= 0)
-				pe->top_rpt[i] =
-					pe->num_ext_pxls_top[i];
+				pe->top_rpt[i] = pe->num_ext_pxls_top[i];
 			else
-				pe->top_ftch[i] =
-					pe->num_ext_pxls_top[i];
+				pe->top_ftch[i] = pe->num_ext_pxls_top[i];
 
 			if (pe->num_ext_pxls_btm[i] >= 0)
-				pe->btm_rpt[i] =
-					pe->num_ext_pxls_btm[i];
+				pe->btm_rpt[i] = pe->num_ext_pxls_btm[i];
 			else
-				pe->btm_ftch[i] =
-					pe->num_ext_pxls_btm[i];
+				pe->btm_ftch[i] = pe->num_ext_pxls_btm[i];
 		}
 	}
 }
@@ -1038,7 +932,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	/* determine what needs to be refreshed */
 	while ((idx = msm_property_pop_dirty(&psde->property_info)) >= 0) {
 		switch (idx) {
-		case PLANE_PROP_SCALER:
+		case PLANE_PROP_SCALER_V1:
 		case PLANE_PROP_H_DECIMATE:
 		case PLANE_PROP_V_DECIMATE:
 		case PLANE_PROP_SRC_CONFIG:
@@ -1514,6 +1408,11 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 				PLANE_PROP_V_DECIMATE);
 	}
 
+	if (psde->features & SDE_SSPP_SCALER) {
+		msm_property_install_volatile_range(&psde->property_info,
+			"scaler_v1", 0x0, 0, ~0, 0, PLANE_PROP_SCALER_V1);
+	}
+
 	if (psde->features & BIT(SDE_SSPP_CSC)) {
 		msm_property_install_volatile_range(&psde->property_info,
 			"csc_v1", 0x0, 0, ~0, 0, PLANE_PROP_CSC_V1);
@@ -1532,10 +1431,6 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	if (psde->pipe_hw->ops.setup_solidfill)
 		msm_property_install_range(&psde->property_info, "color_fill",
 				0, 0, 0xFFFFFFFF, 0, PLANE_PROP_COLOR_FILL);
-
-	if (psde->features & SDE_SSPP_SCALER)
-		msm_property_install_blob(&psde->property_info, "scaler", 0,
-			PLANE_PROP_SCALER);
 
 	info = kzalloc(sizeof(struct sde_kms_info), GFP_KERNEL);
 	if (!info)
@@ -1594,6 +1489,7 @@ static inline void _sde_plane_set_csc_v1(struct sde_plane *psde, void *usr_ptr)
 		return;
 	}
 
+	/* populate from user space */
 	for (i = 0; i < SDE_CSC_MATRIX_COEFF_SIZE; ++i)
 		psde->csc_cfg.csc_mv[i] = csc_v1.ctm_coeff[i] >> 16;
 	for (i = 0; i < SDE_CSC_BIAS_SIZE; ++i) {
@@ -1605,6 +1501,62 @@ static inline void _sde_plane_set_csc_v1(struct sde_plane *psde, void *usr_ptr)
 		psde->csc_cfg.csc_post_lv[i] = csc_v1.post_clamp[i];
 	}
 	psde->csc_usr_ptr = &psde->csc_cfg;
+}
+
+static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde, void *usr)
+{
+	struct sde_drm_scaler_v1 scale_v1;
+	struct sde_hw_pixel_ext *pe;
+	int i;
+
+	if (!psde) {
+		SDE_ERROR("invalid plane\n");
+		return;
+	}
+
+	psde->pixel_ext_usr = false;
+	if (!usr) {
+		SDE_DEBUG("scale data removed\n");
+		return;
+	}
+
+	if (copy_from_user(&scale_v1, usr, sizeof(scale_v1))) {
+		SDE_ERROR("failed to copy scale data\n");
+		return;
+	}
+
+	/* populate from user space */
+	pe = &(psde->pixel_ext);
+	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
+	for (i = 0; i < SDE_MAX_PLANES; i++) {
+		pe->init_phase_x[i] = scale_v1.init_phase_x[i];
+		pe->phase_step_x[i] = scale_v1.phase_step_x[i];
+		pe->init_phase_y[i] = scale_v1.init_phase_y[i];
+		pe->phase_step_y[i] = scale_v1.phase_step_y[i];
+
+		pe->horz_filter[i] = scale_v1.horz_filter[i];
+		pe->vert_filter[i] = scale_v1.vert_filter[i];
+	}
+	for (i = 0; i < SDE_MAX_PLANES; i++) {
+		pe->num_ext_pxls_left[i] = scale_v1.lr.num_pxls_start[i];
+		pe->num_ext_pxls_right[i] = scale_v1.lr.num_pxls_end[i];
+		pe->left_ftch[i] = scale_v1.lr.ftch_start[i];
+		pe->right_ftch[i] = scale_v1.lr.ftch_end[i];
+		pe->left_rpt[i] = scale_v1.lr.rpt_start[i];
+		pe->right_rpt[i] = scale_v1.lr.rpt_end[i];
+		pe->roi_w[i] = scale_v1.lr.roi[i];
+
+		pe->num_ext_pxls_top[i] = scale_v1.tb.num_pxls_start[i];
+		pe->num_ext_pxls_btm[i] = scale_v1.tb.num_pxls_end[i];
+		pe->top_ftch[i] = scale_v1.tb.ftch_start[i];
+		pe->btm_ftch[i] = scale_v1.tb.ftch_end[i];
+		pe->top_rpt[i] = scale_v1.tb.rpt_start[i];
+		pe->btm_rpt[i] = scale_v1.tb.rpt_end[i];
+		pe->roi_h[i] = scale_v1.tb.roi[i];
+	}
+	psde->pixel_ext_usr = true;
+
+	SDE_DEBUG("user property data copied\n");
 }
 
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
@@ -1636,6 +1588,9 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				break;
 			case PLANE_PROP_CSC_V1:
 				_sde_plane_set_csc_v1(psde, (void *)val);
+				break;
+			case PLANE_PROP_SCALER_V1:
+				_sde_plane_set_scaler_v1(psde, (void *)val);
 				break;
 			default:
 				/* nothing to do */
