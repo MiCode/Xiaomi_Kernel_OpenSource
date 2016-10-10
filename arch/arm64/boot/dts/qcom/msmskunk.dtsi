@@ -372,6 +372,8 @@
 };
 
 #include "msm-gdsc-skunk.dtsi"
+#include "msmskunk-sde.dtsi"
+#include "msmskunk-sde-display.dtsi"
 
 &soc {
 	#address-cells = <1>;
