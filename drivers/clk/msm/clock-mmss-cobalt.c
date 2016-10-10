@@ -1112,8 +1112,8 @@ static struct rcg_clk dp_pixel_clk_src = {
 		.parent = &ext_dp_phy_pll_vco.c,
 		.ops = &clk_ops_rcg_dp,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		VDD_DIG_FMAX_MAP3(LOWER, 148380, LOW, 296740,
-					NOMINAL, 593470),
+		VDD_DIG_FMAX_MAP3(LOWER, 154000000, LOW, 337500000,
+					NOMINAL, 675000000),
 		CLK_INIT(dp_pixel_clk_src.c),
 	},
 };
@@ -2703,7 +2703,6 @@ static void msm_mmsscc_hamster_fixup(void)
 	csi2phytimer_clk_src.c.fmax[VDD_DIG_LOW_L1] = 269333333;
 
 	mdp_clk_src.c.fmax[VDD_DIG_LOW_L1] = 330000000;
-	dp_pixel_clk_src.c.fmax[VDD_DIG_LOWER] = 154000000;
 	extpclk_clk_src.c.fmax[VDD_DIG_LOW] = 312500000;
 	extpclk_clk_src.c.fmax[VDD_DIG_LOW_L1] = 375000000;
 	rot_clk_src.c.fmax[VDD_DIG_LOW_L1] = 330000000;
@@ -2736,8 +2735,6 @@ static void msm_mmsscc_v2_fixup(void)
 	csi1_clk_src.c.fmax[VDD_DIG_NOMINAL] = 480000000;
 	csi2_clk_src.c.fmax[VDD_DIG_NOMINAL] = 480000000;
 	csi3_clk_src.c.fmax[VDD_DIG_NOMINAL] = 480000000;
-
-	dp_pixel_clk_src.c.fmax[VDD_DIG_LOWER] = 148380000;
 }
 
 int msm_mmsscc_cobalt_probe(struct platform_device *pdev)
