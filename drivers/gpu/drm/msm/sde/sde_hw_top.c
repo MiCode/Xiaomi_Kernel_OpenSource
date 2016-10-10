@@ -84,30 +84,6 @@ static void sde_hw_setup_cdm_output(struct sde_hw_mdp *mdp,
 	SDE_REG_WRITE(c, MDP_OUT_CTL_0, out_ctl);
 }
 
-static void sde_hw_setup_traffic_shaper(struct sde_hw_mdp *mdp,
-		struct traffic_shaper_cfg *cfg)
-{
-	struct sde_hw_blk_reg_map *c = &mdp->hw;
-	u32 ts_control = 0;
-	u32 offset;
-	u64 bpc;
-
-	if (cfg->rd_client)
-		offset = TRAFFIC_SHAPER_RD_CLIENT(cfg->client_id);
-	else
-		offset = TRAFFIC_SHAPER_WR_CLIENT(cfg->client_id);
-
-	if (cfg->en) {
-		bpc = cfg->bpc_numer;
-		do_div(bpc, (cfg->bpc_denom >>
-					TRAFFIC_SHAPER_FIXPOINT_FACTOR));
-		ts_control = lower_32_bits(bpc) + 1;
-		ts_control |= TRAFFIC_SHAPER_EN;
-	}
-
-	SDE_REG_WRITE(c, offset, ts_control);
-}
-
 static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
 		enum sde_clk_ctrl_type clk_ctrl, bool enable)
 {
@@ -141,7 +117,6 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 {
 	ops->setup_split_pipe = sde_hw_setup_split_pipe_control;
 	ops->setup_cdm_output = sde_hw_setup_cdm_output;
-	ops->setup_traffic_shaper = sde_hw_setup_traffic_shaper;
 	ops->setup_clk_force_ctrl = sde_hw_setup_clk_force_ctrl;
 }
 
