@@ -21,13 +21,14 @@
 
 /* Config registers offsets*/
 #define COMMON_CFG0		0x00030004
-#define DRP_ECC_ERROR_CFG	0x00040040
-#define TRP_MISC_CFG		0x00022320
+#define DRP_ECC_ERROR_CFG	0x00040000
+#define TRP_MISC_CFG		0x00022300
 
 /* TRP, DRP interrupt register offsets */
 #define CMN_INTERRUPT_0_ENABLE		0x0003001C
-#define TRP_INTERRUPT_0_ENABLE		0x00024388
-#define DRP_INTERRUPT_ENABLE		0x0004005C
+#define CMN_INTERRUPT_2_ENABLE		0x0003003C
+#define TRP_INTERRUPT_0_ENABLE		0x00020488
+#define DRP_INTERRUPT_ENABLE		0x0004100C
 
 #define DATA_RAM_ECC_ENABLE	0x1
 #define SB_ERROR_THRESHOLD	0x1
@@ -36,6 +37,7 @@
 #define TAG_RAM_ECC_DISABLE_SHIFT	0x1
 #define SB_DB_TRP_INTERRUPT_ENABLE	0x3
 #define TRP0_INTERRUPT_ENABLE	0x1
+#define DRP0_INTERRUPT_ENABLE	BIT(6)
 #define COMMON_INTERRUPT_0_AMON BIT(8)
 #define SB_DB_DRP_INTERRUPT_ENABLE	0x3
 
@@ -44,32 +46,38 @@ static void qcom_llcc_core_setup(struct regmap *llcc_regmap)
 	u32 trp_misc_val;
 	u32 sb_err_threshold;
 
+	/* Enable Tag RAM ECC */
+	trp_misc_val = (TAG_RAM_ECC_DISABLE << TAG_RAM_ECC_DISABLE_SHIFT);
+	regmap_update_bits(llcc_regmap, TRP_MISC_CFG,
+			   ~trp_misc_val, trp_misc_val);
+
+	/* Enable TRP in instance 2 of common interrupt enable register */
+	regmap_update_bits(llcc_regmap, CMN_INTERRUPT_2_ENABLE,
+			   TRP0_INTERRUPT_ENABLE, TRP0_INTERRUPT_ENABLE);
+
+	/* Enable ECC interrupts on Tag Ram */
+	regmap_update_bits(llcc_regmap, TRP_INTERRUPT_0_ENABLE,
+		SB_DB_TRP_INTERRUPT_ENABLE, SB_DB_TRP_INTERRUPT_ENABLE);
+
 	/* Enable ECC for for data ram */
-	regmap_write(llcc_regmap, COMMON_CFG0, DATA_RAM_ECC_ENABLE);
+	regmap_update_bits(llcc_regmap, COMMON_CFG0,
+				DATA_RAM_ECC_ENABLE, DATA_RAM_ECC_ENABLE);
 
 	/* Enable SB error for Data RAM */
 	sb_err_threshold = (SB_ERROR_THRESHOLD << SB_ERROR_THRESHOLD_SHIFT);
 	regmap_write(llcc_regmap, DRP_ECC_ERROR_CFG, sb_err_threshold);
 
-	/* Enable Tag RAM ECC */
-	trp_misc_val = (TAG_RAM_ECC_DISABLE << TAG_RAM_ECC_DISABLE_SHIFT);
-	regmap_update_bits(llcc_regmap, trp_misc_val,
-			   ~trp_misc_val, TRP_MISC_CFG);
-
-	/* Enable instance 0 of common interrupt enable TRP register */
-	regmap_update_bits(llcc_regmap, TRP0_INTERRUPT_ENABLE,
-			   TRP0_INTERRUPT_ENABLE, CMN_INTERRUPT_0_ENABLE);
-
-	/* Enable ECC interrupts on Tag Ram */
-	regmap_update_bits(llcc_regmap, SB_DB_TRP_INTERRUPT_ENABLE,
-			   SB_DB_TRP_INTERRUPT_ENABLE, TRP_INTERRUPT_0_ENABLE);
+	/* Enable DRP in instance 2 of common interrupt enable register */
+	regmap_update_bits(llcc_regmap, CMN_INTERRUPT_2_ENABLE,
+			   DRP0_INTERRUPT_ENABLE, DRP0_INTERRUPT_ENABLE);
 
 	/* Enable ECC interrupts on Data Ram */
 	regmap_write(llcc_regmap, DRP_INTERRUPT_ENABLE,
 		     SB_DB_DRP_INTERRUPT_ENABLE);
+
 	/* Enable AMON interrupt in the common interrupt register */
-	regmap_update_bits(llcc_regmap, COMMON_INTERRUPT_0_AMON,
-			   COMMON_INTERRUPT_0_AMON, CMN_INTERRUPT_0_ENABLE);
+	regmap_update_bits(llcc_regmap, CMN_INTERRUPT_0_ENABLE,
+			COMMON_INTERRUPT_0_AMON, COMMON_INTERRUPT_0_AMON);
 }
 
 static int qcom_llcc_core_probe(struct platform_device *pdev)
