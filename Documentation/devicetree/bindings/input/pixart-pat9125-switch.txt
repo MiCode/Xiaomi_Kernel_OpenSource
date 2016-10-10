@@ -1,0 +1,10 @@
+PixArt pat9125 rotating switch
+
+The Pixart's PAT9125 controller is connected to the host processor via I2C.
+It detects the rotation when user rotates the switch and generates interrupt
+to the Host processor. The host processor reads the direction and number of
+steps over I2C and passes the data to the rest of the system.
+
+Required properties:
+
+ - compatible		: should be "pixart,pat9125".
