@@ -520,3 +520,5 @@
 		qcom,fragmented-data;
 	};
 };
+
+#include "msmtriton-ion.dtsi"
