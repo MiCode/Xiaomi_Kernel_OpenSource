@@ -1851,19 +1851,21 @@ static int dwc_gadget_func_wakeup(struct usb_gadget *g, int interface_id)
 		return -EAGAIN;
 	}
 
-	if (dwc->revision < DWC3_REVISION_220A) {
-		ret = dwc3_send_gadget_generic_command(dwc,
-			DWC3_DGCMD_XMIT_FUNCTION, interface_id);
-	} else {
-		ret = dwc3_send_gadget_generic_command(dwc,
-			DWC3_DGCMD_XMIT_DEV, 0x1 | (interface_id << 4));
+	/*
+	 * Return -EAGAIN on sending function wakeup command successfully
+	 * as function driver needs to wait for bus resume before queueing
+	 * any USB request. USB function driver which supports function
+	 * wakeup functionality should check return value and handle it.
+	 */
+	ret = dwc3_send_gadget_generic_command(dwc, DWC3_DGCMD_XMIT_DEV,
+			0x1 | (interface_id << 4));
+	if (!ret) {
+		pr_debug("Function wakeup HW command succeeded.\n");
+		ret = -EAGAIN;
+		return ret;
 	}
 
-	if (ret)
-		pr_err("Function wakeup HW command failed.\n");
-	else
-		pr_debug("Function wakeup HW command succeeded.\n");
-
+	pr_err("Function wakeup HW command failed.\n");
 	return ret;
 }
 
