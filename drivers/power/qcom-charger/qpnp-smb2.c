@@ -983,9 +983,11 @@ static int smb2_init_hw(struct smb2 *chip)
 
 	/* votes must be cast before configuring software control */
 	vote(chg->pl_disable_votable,
-		USBIN_ICL_VOTER, true, 0);
+		PL_INDIRECT_VOTER, true, 0);
 	vote(chg->pl_disable_votable,
 		CHG_STATE_VOTER, true, 0);
+	vote(chg->pl_disable_votable,
+		PARALLEL_PSY_VOTER, true, 0);
 	vote(chg->usb_suspend_votable,
 		DEFAULT_VOTER, chip->dt.no_battery, 0);
 	vote(chg->dc_suspend_votable,
@@ -1100,6 +1102,7 @@ static int smb2_init_hw(struct smb2 *chip)
 
 static int smb2_setup_wa_flags(struct smb2 *chip)
 {
+	struct smb_charger *chg = &chip->chg;
 	struct pmic_revid_data *pmic_rev_id;
 	struct device_node *revid_dev_node;
 
@@ -1122,6 +1125,8 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMICOBALT_SUBTYPE:
+		if (pmic_rev_id->rev4 == PMICOBALT_V1P1_REV4) /* PMI rev 1.1 */
+			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported\n",

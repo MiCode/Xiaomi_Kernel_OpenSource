@@ -24,21 +24,28 @@ enum print_reason {
 	PR_MISC		= BIT(2),
 };
 
-#define DEFAULT_VOTER	"DEFAULT_VOTER"
-#define USER_VOTER	"USER_VOTER"
-#define PD_VOTER	"PD_VOTER"
-#define PL_VOTER	"PL_VOTER"
-#define USBIN_ICL_VOTER	"USBIN_ICL_VOTER"
-#define CHG_STATE_VOTER	"CHG_STATE_VOTER"
-#define TYPEC_SRC_VOTER	"TYPEC_SRC_VOTER"
-#define TAPER_END_VOTER	"TAPER_END_VOTER"
-#define FCC_MAX_RESULT	"FCC_MAX_RESULT"
-#define THERMAL_DAEMON	"THERMAL_DAEMON"
+#define DEFAULT_VOTER			"DEFAULT_VOTER"
+#define USER_VOTER			"USER_VOTER"
+#define PD_VOTER			"PD_VOTER"
+#define PL_TAPER_WORK_RUNNING_VOTER	"PL_TAPER_WORK_RUNNING_VOTER"
+#define PARALLEL_PSY_VOTER		"PARALLEL_PSY_VOTER"
+#define PL_INDIRECT_VOTER		"PL_INDIRECT_VOTER"
+#define USBIN_I_VOTER			"USBIN_I_VOTER"
+#define USBIN_V_VOTER			"USBIN_V_VOTER"
+#define CHG_STATE_VOTER			"CHG_STATE_VOTER"
+#define TYPEC_SRC_VOTER			"TYPEC_SRC_VOTER"
+#define TAPER_END_VOTER			"TAPER_END_VOTER"
+#define FCC_MAX_RESULT_VOTER		"FCC_MAX_RESULT_VOTER"
+#define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
 	PARALLEL_SLAVE,
 	NUM_MODES,
+};
+
+enum {
+	QC_CHARGER_DETECTION_WA_BIT = BIT(0),
 };
 
 struct smb_regulator {
@@ -139,6 +146,7 @@ struct smb_charger {
 	struct votable		*awake_votable;
 	struct votable		*pl_disable_votable;
 	struct votable		*chg_disable_votable;
+	struct votable		*pl_enable_votable_indirect;
 
 	/* work */
 	struct work_struct	bms_update_work;
