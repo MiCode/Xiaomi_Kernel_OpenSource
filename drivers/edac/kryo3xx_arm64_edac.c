@@ -53,8 +53,6 @@ module_param(poll_msec, int, 0444);
 #define KRYO3XX_ERRXMISC_LVL(a)		((a >> 1) & 0x7)
 #define KRYO3XX_ERRXMISC_WAY(a)		((a >> 28) & 0xF)
 
-#define ERRXSTATUS_VALID_FLAG		(1 << 30)
-
 static inline void set_errxctlr_el1(void)
 {
 	u64 val = 0x8f;
@@ -85,9 +83,7 @@ static inline u64 read_errxmisc_el1(void)
 
 static inline void clear_errxstatus_valid(u64 val)
 {
-	u64 reset_val = val & ~ERRXSTATUS_VALID_FLAG;
-
-	asm volatile("msr s3_0_c5_c4_2, %0" : : "r" (reset_val));
+	asm volatile("msr s3_0_c5_c4_2, %0" : : "r" (val));
 }
 
 struct errors_edac {
