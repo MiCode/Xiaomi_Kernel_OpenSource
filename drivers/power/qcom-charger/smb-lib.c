@@ -208,47 +208,97 @@ struct apsd_result {
 	const enum power_supply_type pst;
 };
 
+enum {
+	UNKNOWN,
+	SDP,
+	CDP,
+	DCP,
+	OCP,
+	FLOAT,
+	HVDCP2,
+	HVDCP3,
+	MAX_TYPES
+};
+
 static const struct apsd_result const smblib_apsd_results[] = {
-	{"UNKNOWN", 0, POWER_SUPPLY_TYPE_UNKNOWN},
-	{"SDP", SDP_CHARGER_BIT, POWER_SUPPLY_TYPE_USB},
-	{"CDP", CDP_CHARGER_BIT, POWER_SUPPLY_TYPE_USB_CDP},
-	{"DCP", DCP_CHARGER_BIT, POWER_SUPPLY_TYPE_USB_DCP},
-	{"OCP", OCP_CHARGER_BIT, POWER_SUPPLY_TYPE_USB_DCP},
-	{"FLOAT", FLOAT_CHARGER_BIT, POWER_SUPPLY_TYPE_USB_DCP},
-	{"HVDCP2", DCP_CHARGER_BIT | QC_2P0_BIT, POWER_SUPPLY_TYPE_USB_HVDCP},
-	{"HVDCP3", DCP_CHARGER_BIT | QC_3P0_BIT, POWER_SUPPLY_TYPE_USB_HVDCP_3},
+	[UNKNOWN] = {
+		.name	= "UNKNOWN",
+		.bit	= 0,
+		.pst	= POWER_SUPPLY_TYPE_UNKNOWN
+	},
+	[SDP] = {
+		.name	= "SDP",
+		.bit	= SDP_CHARGER_BIT,
+		.pst	= POWER_SUPPLY_TYPE_USB
+	},
+	[CDP] = {
+		.name	= "CDP",
+		.bit	= CDP_CHARGER_BIT,
+		.pst	= POWER_SUPPLY_TYPE_USB_CDP
+	},
+	[DCP] = {
+		.name	= "DCP",
+		.bit	= DCP_CHARGER_BIT,
+		.pst	= POWER_SUPPLY_TYPE_USB_DCP
+	},
+	[OCP] = {
+		.name	= "OCP",
+		.bit	= OCP_CHARGER_BIT,
+		.pst	= POWER_SUPPLY_TYPE_USB_DCP
+	},
+	[FLOAT] = {
+		.name	= "FLOAT",
+		.bit	= FLOAT_CHARGER_BIT,
+		.pst	= POWER_SUPPLY_TYPE_USB_DCP
+	},
+	[HVDCP2] = {
+		.name	= "HVDCP2",
+		.bit	= DCP_CHARGER_BIT | QC_2P0_BIT,
+		.pst	= POWER_SUPPLY_TYPE_USB_HVDCP
+	},
+	[HVDCP3] = {
+		.name	= "HVDCP3",
+		.bit	= DCP_CHARGER_BIT | QC_3P0_BIT,
+		.pst	= POWER_SUPPLY_TYPE_USB_HVDCP_3,
+	},
 };
 
 static const struct apsd_result *smblib_get_apsd_result(struct smb_charger *chg)
 {
 	int rc, i;
-	u8 stat;
+	u8 apsd_stat, stat;
+	const struct apsd_result *result = &smblib_apsd_results[UNKNOWN];
 
-	rc = smblib_read(chg, APSD_STATUS_REG, &stat);
+	rc = smblib_read(chg, APSD_STATUS_REG, &apsd_stat);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't read APSD_STATUS rc=%d\n", rc);
-		return &smblib_apsd_results[0];
+		return result;
 	}
-	smblib_dbg(chg, PR_REGISTER, "APSD_STATUS = 0x%02x\n", stat);
+	smblib_dbg(chg, PR_REGISTER, "APSD_STATUS = 0x%02x\n", apsd_stat);
 
-	if (!(stat & APSD_DTC_STATUS_DONE_BIT))
-		return &smblib_apsd_results[0];
+	if (!(apsd_stat & APSD_DTC_STATUS_DONE_BIT))
+		return result;
 
 	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't read APSD_RESULT_STATUS rc=%d\n",
 			rc);
-		return &smblib_apsd_results[0];
+		return result;
 	}
 	stat &= APSD_RESULT_STATUS_MASK;
 
 	for (i = 0; i < ARRAY_SIZE(smblib_apsd_results); i++) {
 		if (smblib_apsd_results[i].bit == stat)
-			return &smblib_apsd_results[i];
+			result = &smblib_apsd_results[i];
 	}
 
-	dev_err(chg->dev, "Couldn't find an APSD result for 0x%02x\n", stat);
-	return &smblib_apsd_results[0];
+	if (apsd_stat & QC_CHARGER_BIT) {
+		/* since its a qc_charger, either return HVDCP3 or HVDCP2 */
+		if (result != &smblib_apsd_results[HVDCP3])
+			result = &smblib_apsd_results[HVDCP2];
+	}
+
+	return result;
 }
 
 
@@ -790,6 +840,37 @@ static int smblib_pl_enable_indirect_vote_callback(struct votable *votable,
 	struct smb_charger *chg = data;
 
 	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, !chg_enable, 0);
+
+	return 0;
+}
+
+static int smblib_hvdcp_disable_vote_callback(struct votable *votable,
+			void *data,
+			int hvdcp_disable, const char *client)
+{
+	struct smb_charger *chg = data;
+	int rc;
+	u8 val = HVDCP_AUTH_ALG_EN_CFG_BIT
+		| HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT | HVDCP_EN_BIT;
+
+	/*
+	 * Disable the autonomous bit and auth bit for disabling hvdcp.
+	 * This ensures only qc 2.0 detection runs but no vbus
+	 * negotiation happens.
+	 */
+	if (hvdcp_disable)
+		val = HVDCP_EN_BIT;
+
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+				 HVDCP_EN_BIT
+				 | HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT
+				 | HVDCP_AUTH_ALG_EN_CFG_BIT,
+				 val);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't %s hvdcp rc=%d\n",
+			hvdcp_disable ? "disable" : "enable", rc);
+		return rc;
+	}
 
 	return 0;
 }
@@ -2455,6 +2536,14 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->hvdcp_disable_votable = create_votable("HVDCP_DISABLE",
+					VOTE_SET_ANY,
+					smblib_hvdcp_disable_vote_callback,
+					chg);
+	if (IS_ERR(chg->hvdcp_disable_votable)) {
+		rc = PTR_ERR(chg->hvdcp_disable_votable);
+		return rc;
+	}
 	return rc;
 }
 
