@@ -322,8 +322,8 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 	static const struct sde_sspp_sub_blks cursor = {
 		.maxlinewidth = 128,
 		.maxdwnscale = 1, .maxupscale = 1,
-		.maxhdeciexp = DECIMATION_17X_MAX_H,
-		.maxvdeciexp = DECIMATION_17X_MAX_V,
+		.maxhdeciexp = 0,
+		.maxvdeciexp = 0,
 		.src_blk = {.id = SDE_SSPP_SRC, .base = 0x00, .len = 0x150,},
 		.scaler_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.csc_blk = {.id = 0, .base = 0x00, .len = 0x0,},

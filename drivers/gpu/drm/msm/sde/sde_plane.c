@@ -817,14 +817,10 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		}
 	}
 
-	/* decimation */
-	if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_DECIMATE)) {
-		psde->pipe_cfg.horz_decimation = sc_u1->horz_decimate;
-		psde->pipe_cfg.vert_decimation = sc_u1->vert_decimate;
-	} else {
-		psde->pipe_cfg.horz_decimation = 0;
-		psde->pipe_cfg.vert_decimation = 0;
-	}
+	psde->pipe_cfg.horz_decimation =
+		sde_plane_get_property(pstate, PLANE_PROP_H_DECIMATE);
+	psde->pipe_cfg.vert_decimation =
+		sde_plane_get_property(pstate, PLANE_PROP_V_DECIMATE);
 
 	/* don't chroma subsample if decimating */
 	chroma_subsmpl_h = psde->pipe_cfg.horz_decimation ? 1 :
@@ -1043,6 +1039,10 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	while ((idx = msm_property_pop_dirty(&psde->property_info)) >= 0) {
 		switch (idx) {
 		case PLANE_PROP_SCALER:
+		case PLANE_PROP_H_DECIMATE:
+		case PLANE_PROP_V_DECIMATE:
+		case PLANE_PROP_SRC_CONFIG:
+		case PLANE_PROP_ZPOS:
 			pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 			break;
 		case PLANE_PROP_CSC_V1:
@@ -1054,10 +1054,6 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 			break;
 		case PLANE_PROP_ROTATION:
 			pstate->dirty |= SDE_PLANE_DIRTY_FORMAT;
-			break;
-		case PLANE_PROP_SRC_CONFIG:
-		case PLANE_PROP_ZPOS:
-			pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 			break;
 		case PLANE_PROP_INFO:
 		case PLANE_PROP_ALPHA:
@@ -1290,42 +1286,13 @@ static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
 	}
 }
 
-static bool __get_scale_data(struct sde_plane *psde,
-	struct sde_plane_state *pstate, struct sde_drm_scaler *sc_u,
-	size_t *sc_u_size)
-{
-	bool valid_flag = false;
-
-	sc_u = msm_property_get_blob(&psde->property_info,
-			pstate->property_blobs,
-			sc_u_size,
-			PLANE_PROP_SCALER);
-	if (sc_u) {
-		switch (sc_u->version) {
-		case SDE_DRM_SCALER_V1:
-			if (!_sde_plane_verify_blob(sc_u, *sc_u_size,
-				&sc_u->v1, sizeof(struct sde_drm_scaler_v1)))
-				valid_flag = true;
-			break;
-		default:
-			SDE_DEBUG("unrecognized scaler blob v%lld\n",
-							sc_u->version);
-			break;
-		}
-	}
-
-	return valid_flag;
-}
-
 static int sde_plane_atomic_check(struct drm_plane *plane,
 		struct drm_plane_state *state)
 {
-	int ret = 0, valid_scale_data;
+	int ret = 0;
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	const struct sde_format *fmt;
-	size_t sc_u_size = 0;
-	struct sde_drm_scaler *sc_u = NULL;
 	struct sde_rect src, dst;
 	uint32_t deci_w, deci_h, src_deci_w, src_deci_h;
 	uint32_t max_upscale, max_downscale, min_src_size, max_linewidth;
@@ -1346,9 +1313,8 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 		goto exit;
 	}
 
-	valid_scale_data = __get_scale_data(psde, pstate, sc_u, &sc_u_size);
-	deci_w = valid_scale_data && sc_u ? sc_u->v1.horz_decimate : 0;
-	deci_h = valid_scale_data && sc_u ? sc_u->v1.vert_decimate : 0;
+	deci_w = sde_plane_get_property(pstate, PLANE_PROP_H_DECIMATE);
+	deci_h = sde_plane_get_property(pstate, PLANE_PROP_V_DECIMATE);
 
 	/* src values are in Q16 fixed point, convert to integer */
 	POPULATE_RECT(&src, state->src_x, state->src_y, state->src_w,
@@ -1535,6 +1501,18 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	/* linux default file descriptor range on each process */
 	msm_property_install_range(&psde->property_info, "input_fence",
 		0x0, 0, INR_OPEN_MAX, 0, PLANE_PROP_INPUT_FENCE);
+
+	if (psde->pipe_sblk->maxhdeciexp) {
+		msm_property_install_range(&psde->property_info, "h_decimate",
+			0x0, 0, psde->pipe_sblk->maxhdeciexp, 0,
+			PLANE_PROP_H_DECIMATE);
+	}
+
+	if (psde->pipe_sblk->maxvdeciexp) {
+		msm_property_install_range(&psde->property_info, "v_decimate",
+				0x0, 0, psde->pipe_sblk->maxvdeciexp, 0,
+				PLANE_PROP_V_DECIMATE);
+	}
 
 	if (psde->features & BIT(SDE_SSPP_CSC)) {
 		msm_property_install_volatile_range(&psde->property_info,
