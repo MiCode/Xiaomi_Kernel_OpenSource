@@ -114,14 +114,14 @@ SECTIONS
 		*(.got)			/* Global offset table		*/
 	}
 
+	ALIGN_DEBUG_RO_MIN(PAGE_SIZE)
 	_etext = .;			/* End of text section */
 
-	RO_DATA(PAGE_SIZE)
-	EXCEPTION_TABLE(8)
+	RO_DATA(PAGE_SIZE)		/* everything from this point to     */
+	EXCEPTION_TABLE(8)		/* __init_begin will be marked RO NX */
 	NOTES
 
 	ALIGN_DEBUG_RO_MIN(PAGE_SIZE)
-	_etext = .;			/* End of text and rodata section */
 	__init_begin = .;
 
 	INIT_TEXT_SECTION(8)
@@ -184,6 +184,11 @@ SECTIONS
 	. += IDMAP_DIR_SIZE;
 	swapper_pg_dir = .;
 	. += SWAPPER_DIR_SIZE;
+
+#ifdef CONFIG_ARM64_SW_TTBR0_PAN
+	reserved_ttbr0 = .;
+	. += RESERVED_TTBR0_SIZE;
+#endif
 
 	_end = .;
 

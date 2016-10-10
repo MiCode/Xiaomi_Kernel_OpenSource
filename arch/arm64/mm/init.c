@@ -131,7 +131,7 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 
 int pfn_valid(unsigned long pfn)
 {
-	return (pfn & PFN_MASK) == pfn && memblock_is_memory(pfn << PAGE_SHIFT);
+	return (pfn & PFN_MASK) == pfn && memblock_is_map_memory(pfn << PAGE_SHIFT);
 }
 EXPORT_SYMBOL(pfn_valid);
 #endif
@@ -192,8 +192,12 @@ void __init arm64_memblock_init(void)
 	 */
 	memblock_remove(max_t(u64, memstart_addr + linear_region_size, __pa(_end)),
 			ULLONG_MAX);
-	if (memblock_end_of_DRAM() > linear_region_size)
-		memblock_remove(0, memblock_end_of_DRAM() - linear_region_size);
+	if (memstart_addr + linear_region_size < memblock_end_of_DRAM()) {
+		/* ensure that memstart_addr remains sufficiently aligned */
+		memstart_addr = round_up(memblock_end_of_DRAM() - linear_region_size,
+					 ARM64_MEMSTART_ALIGN);
+		memblock_remove(0, memstart_addr);
+	}
 
 	/*
 	 * Apply the memory limit if it was set. Since the kernel may be loaded
@@ -372,6 +376,7 @@ void __init mem_init(void)
 		  "    vmalloc : 0x%16lx - 0x%16lx   (%6ld GB)\n"
 		  "      .init : 0x%p" " - 0x%p" "   (%6ld KB)\n"
 		  "      .text : 0x%p" " - 0x%p" "   (%6ld KB)\n"
+		  "    .rodata : 0x%p" " - 0x%p" "   (%6ld KB)\n"
 		  "      .data : 0x%p" " - 0x%p" "   (%6ld KB)\n"
 #ifdef CONFIG_SPARSEMEM_VMEMMAP
 		  "    vmemmap : 0x%16lx - 0x%16lx   (%6ld GB maximum)\n"
@@ -387,6 +392,7 @@ void __init mem_init(void)
 		  MLG(VMALLOC_START, VMALLOC_END),
 		  MLK_ROUNDUP(__init_begin, __init_end),
 		  MLK_ROUNDUP(_text, _etext),
+		  MLK_ROUNDUP(__start_rodata, __init_begin),
 		  MLK_ROUNDUP(_sdata, _edata),
 #ifdef CONFIG_SPARSEMEM_VMEMMAP
 		  MLG(VMEMMAP_START,

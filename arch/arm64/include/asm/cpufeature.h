@@ -33,9 +33,10 @@
 #define ARM64_HAS_NO_HW_PREFETCH		8
 #define ARM64_HAS_UAO				9
 #define ARM64_ALT_PAN_NOT_UAO			10
-#define ARM64_WORKAROUND_CAVIUM_27456		11
+#define ARM64_HAS_VIRT_HOST_EXTN		11
+#define ARM64_WORKAROUND_CAVIUM_27456		12
 
-#define ARM64_NCAPS				12
+#define ARM64_NCAPS				13
 
 #ifndef __ASSEMBLY__
 
@@ -186,6 +187,12 @@ static inline bool cpu_supports_mixed_endian_el0(void)
 static inline bool system_supports_mixed_endian_el0(void)
 {
 	return id_aa64mmfr0_mixed_endian_el0(read_system_reg(SYS_ID_AA64MMFR0_EL1));
+}
+
+static inline bool system_uses_ttbr0_pan(void)
+{
+	return IS_ENABLED(CONFIG_ARM64_SW_TTBR0_PAN) &&
+		!cpus_have_cap(ARM64_HAS_PAN);
 }
 
 #endif /* __ASSEMBLY__ */

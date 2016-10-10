@@ -386,14 +386,14 @@ static void create_mapping_late(phys_addr_t phys, unsigned long virt,
 static void __init __map_memblock(pgd_t *pgd, phys_addr_t start, phys_addr_t end)
 {
 	unsigned long kernel_start = __pa(_stext);
-	unsigned long kernel_end = __pa(_etext);
+	unsigned long kernel_end = __pa(__init_begin);
 
 	/*
 	 * Take care not to create a writable alias for the
 	 * read-only text and rodata sections of the kernel image.
 	 */
 
-	/* No overlap with the kernel text */
+	/* No overlap with the kernel text/rodata */
 	if (end < kernel_start || start >= kernel_end) {
 		__create_pgd_mapping(pgd, start, __phys_to_virt(start),
 				     end - start, PAGE_KERNEL,
@@ -402,7 +402,7 @@ static void __init __map_memblock(pgd_t *pgd, phys_addr_t start, phys_addr_t end
 	}
 
 	/*
-	 * This block overlaps the kernel text mapping.
+	 * This block overlaps the kernel text/rodata mapping.
 	 * Map the portion(s) which don't overlap.
 	 */
 	if (start < kernel_start)
@@ -417,7 +417,7 @@ static void __init __map_memblock(pgd_t *pgd, phys_addr_t start, phys_addr_t end
 				     early_pgtable_alloc);
 
 	/*
-	 * Map the linear alias of the [_stext, _etext) interval as
+	 * Map the linear alias of the [_stext, __init_begin) interval as
 	 * read-only/non-executable. This makes the contents of the
 	 * region accessible to subsystems such as hibernate, but
 	 * protects it from inadvertent modification or execution.
@@ -438,6 +438,8 @@ static void __init map_mem(pgd_t *pgd)
 
 		if (start >= end)
 			break;
+		if (memblock_is_nomap(reg))
+			continue;
 
 		__map_memblock(pgd, start, end);
 	}
@@ -445,12 +447,18 @@ static void __init map_mem(pgd_t *pgd)
 
 void mark_rodata_ro(void)
 {
-	if (!IS_ENABLED(CONFIG_DEBUG_RODATA))
-		return;
+	unsigned long section_size;
 
+	section_size = (unsigned long)_etext - (unsigned long)_stext;
 	create_mapping_late(__pa(_stext), (unsigned long)_stext,
-				(unsigned long)__init_begin - (unsigned long)_stext,
-				PAGE_KERNEL_ROX);
+			    section_size, PAGE_KERNEL_ROX);
+	/*
+	 * mark .rodata as read only. Use __init_begin rather than __end_rodata
+	 * to cover NOTES and EXCEPTION_TABLE.
+	 */
+	section_size = (unsigned long)__init_begin - (unsigned long)__start_rodata;
+	create_mapping_late(__pa(__start_rodata), (unsigned long)__start_rodata,
+			    section_size, PAGE_KERNEL_RO);
 }
 
 void fixup_init(void)
@@ -489,9 +497,10 @@ static void __init map_kernel_chunk(pgd_t *pgd, void *va_start, void *va_end,
  */
 static void __init map_kernel(pgd_t *pgd)
 {
-	static struct vm_struct vmlinux_text, vmlinux_init, vmlinux_data;
+	static struct vm_struct vmlinux_text, vmlinux_rodata, vmlinux_init, vmlinux_data;
 
 	map_kernel_chunk(pgd, _stext, _etext, PAGE_KERNEL_EXEC, &vmlinux_text);
+	map_kernel_chunk(pgd, __start_rodata, __init_begin, PAGE_KERNEL, &vmlinux_rodata);
 	map_kernel_chunk(pgd, __init_begin, __init_end, PAGE_KERNEL_EXEC,
 			 &vmlinux_init);
 	map_kernel_chunk(pgd, _data, _end, PAGE_KERNEL, &vmlinux_data);
