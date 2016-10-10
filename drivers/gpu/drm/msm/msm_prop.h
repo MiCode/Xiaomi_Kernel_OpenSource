@@ -23,10 +23,13 @@
  *                            drm-object per property stuff
  * @default_value: Default property value for this drm object
  * @dirty_node: Linked list node to track if property is dirty or not
+ * @force_dirty: Always dirty property on incoming sets, rather than checking
+ *               for modified values
  */
 struct msm_property_data {
 	uint64_t default_value;
 	struct list_head dirty_node;
+	bool force_dirty;
 };
 
 /**
@@ -172,10 +175,31 @@ void msm_property_destroy(struct msm_property_info *info);
  * @flags: Other property type flags, e.g. DRM_MODE_PROP_IMMUTABLE
  * @min: Min property value
  * @max: Max property value
- * @init: Default property value
+ * @init: Default Property value
  * @property_idx: Property index
  */
 void msm_property_install_range(struct msm_property_info *info,
+		const char *name,
+		int flags,
+		uint64_t min,
+		uint64_t max,
+		uint64_t init,
+		uint32_t property_idx);
+
+/**
+ * msm_property_install_volatile_range - install drm range property
+ *	This function is similar to msm_property_install_range, but assumes
+ *	that the property is meant for holding user pointers or descriptors
+ *	that may reference volatile data without having an updated value.
+ * @info: Pointer to property info container struct
+ * @name: Property name
+ * @flags: Other property type flags, e.g. DRM_MODE_PROP_IMMUTABLE
+ * @min: Min property value
+ * @max: Max property value
+ * @init: Default Property value
+ * @property_idx: Property index
+ */
+void msm_property_install_volatile_range(struct msm_property_info *info,
 		const char *name,
 		int flags,
 		uint64_t min,

@@ -188,10 +188,6 @@ struct sde_drm_scaler {
 #define SDE_CSC_CLAMP_SIZE          6
 #define SDE_CSC_BIAS_SIZE           3
 
-/* CSC version definition, see top of file for guidelines */
-#define SDE_DRM_CSC_V1              0x1
-#define SDE_DRM_CSC_VERSION         SDE_DRM_CSC_V1
-
 /**
  * struct sde_drm_csc_v1 - version 1 of struct sde_drm_csc
  * @ctm_coeff:          Matrix coefficients, in S31.32 format
@@ -206,18 +202,6 @@ struct sde_drm_csc_v1 {
 	uint32_t post_bias[SDE_CSC_BIAS_SIZE];
 	uint32_t pre_clamp[SDE_CSC_CLAMP_SIZE];
 	uint32_t post_clamp[SDE_CSC_CLAMP_SIZE];
-};
-
-/**
- * struct sde_drm_csc - CSC configuration structure
- * @version: Structure version, set to SDE_DRM_CSC_VERSION
- * @v1:      Version 1 of csc structure
- */
-struct sde_drm_csc {
-	uint64_t version;
-	union {
-		struct sde_drm_csc_v1   v1;
-	};
 };
 
 /* Writeback Config version definition */

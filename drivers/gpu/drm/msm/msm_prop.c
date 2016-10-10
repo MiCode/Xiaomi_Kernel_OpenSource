@@ -134,9 +134,20 @@ static void _msm_property_set_dirty_no_lock(
 			&info->dirty_list);
 }
 
-void msm_property_install_range(struct msm_property_info *info,
+/**
+ * _msm_property_install_integer - install standard drm range property
+ * @info: Pointer to property info container struct
+ * @name: Property name
+ * @flags: Other property type flags, e.g. DRM_MODE_PROP_IMMUTABLE
+ * @min: Min property value
+ * @max: Max property value
+ * @init: Default Property value
+ * @property_idx: Property index
+ * @force_dirty: Whether or not to filter 'dirty' status on unchanged values
+ */
+static void _msm_property_install_integer(struct msm_property_info *info,
 		const char *name, int flags, uint64_t min, uint64_t max,
-		uint64_t init, uint32_t property_idx)
+		uint64_t init, uint32_t property_idx, bool force_dirty)
 {
 	struct drm_property **prop;
 
@@ -162,6 +173,7 @@ void msm_property_install_range(struct msm_property_info *info,
 
 		/* save init value for later */
 		info->property_data[property_idx].default_value = init;
+		info->property_data[property_idx].force_dirty = force_dirty;
 
 		/* always attach property, if created */
 		if (*prop) {
@@ -169,6 +181,22 @@ void msm_property_install_range(struct msm_property_info *info,
 			++info->install_count;
 		}
 	}
+}
+
+void msm_property_install_range(struct msm_property_info *info,
+		const char *name, int flags, uint64_t min, uint64_t max,
+		uint64_t init, uint32_t property_idx)
+{
+	_msm_property_install_integer(info, name, flags,
+			min, max, init, property_idx, false);
+}
+
+void msm_property_install_volatile_range(struct msm_property_info *info,
+		const char *name, int flags, uint64_t min, uint64_t max,
+		uint64_t init, uint32_t property_idx)
+{
+	_msm_property_install_integer(info, name, flags,
+			min, max, init, property_idx, true);
 }
 
 void msm_property_install_rotation(struct msm_property_info *info,
@@ -198,6 +226,7 @@ void msm_property_install_rotation(struct msm_property_info *info,
 
 		/* save init value for later */
 		info->property_data[property_idx].default_value = 0;
+		info->property_data[property_idx].force_dirty = false;
 
 		/* always attach property, if created */
 		if (*prop) {
@@ -244,6 +273,7 @@ void msm_property_install_enum(struct msm_property_info *info,
 
 		/* save init value for later */
 		info->property_data[property_idx].default_value = 0;
+		info->property_data[property_idx].force_dirty = false;
 
 		/* always attach property, if created */
 		if (*prop) {
@@ -281,6 +311,7 @@ void msm_property_install_blob(struct msm_property_info *info,
 
 		/* save init value for later */
 		info->property_data[property_idx].default_value = 0;
+		info->property_data[property_idx].force_dirty = true;
 
 		/* always attach property, if created */
 		if (*prop) {
@@ -377,7 +408,7 @@ int msm_property_atomic_set(struct msm_property_info *info,
 
 		/* update value and flag as dirty */
 		if (property_values[property_idx] != val ||
-				property_idx < info->blob_count) {
+				info->property_data[property_idx].force_dirty) {
 			property_values[property_idx] = val;
 			_msm_property_set_dirty_no_lock(info, property_idx);
 
