@@ -57,7 +57,7 @@
 
 #define QPNP_TYPEC_DEV_NAME	"qcom,qpnp-typec"
 #define TYPEC_PSY_NAME		"typec"
-#define DUAL_ROLE_DESC_NAME	"dual_role"
+#define DUAL_ROLE_DESC_NAME	"otg_default"
 
 enum cc_line_state {
 	CC_1,
@@ -385,6 +385,9 @@ static int qpnp_typec_handle_detach(struct qpnp_typec_chip *chip)
 			pr_err("Failed to set DRP mode rc=%d\n", rc);
 	}
 
+	if (chip->dr_inst)
+		dual_role_instance_changed(chip->dr_inst);
+
 	return rc;
 }
 
@@ -460,6 +463,9 @@ static irqreturn_t ufp_detect_handler(int irq, void *_chip)
 	if (rc)
 		pr_err("failed to set TYPEC MODE on battery psy rc=%d\n", rc);
 
+	if (chip->dr_inst)
+		dual_role_instance_changed(chip->dr_inst);
+
 	pr_debug("UFP status reg = 0x%x current = %dma\n",
 			reg, chip->current_ma);
 
@@ -516,6 +522,9 @@ static irqreturn_t dfp_detect_handler(int irq, void *_chip)
 			pr_err("failed to set TYPEC MODE on battery psy rc=%d\n",
 					rc);
 	}
+
+	if (chip->dr_inst)
+		dual_role_instance_changed(chip->dr_inst);
 
 	pr_debug("UFP status reg = 0x%x DFP status reg = 0x%x\n",
 			reg[0], reg[1]);
@@ -733,6 +742,8 @@ static void qpnp_typec_role_check_work(struct work_struct *work)
 enum dual_role_property qpnp_typec_dr_properties[] = {
 	DUAL_ROLE_PROP_SUPPORTED_MODES,
 	DUAL_ROLE_PROP_MODE,
+	DUAL_ROLE_PROP_PR,
+	DUAL_ROLE_PROP_DR,
 };
 
 static int qpnp_typec_dr_is_writeable(struct dual_role_phy_instance *dual_role,
@@ -816,19 +827,40 @@ static int qpnp_typec_dr_get_property(struct dual_role_phy_instance *dual_role,
 					unsigned int *val)
 {
 	struct qpnp_typec_chip *chip = dual_role_get_drvdata(dual_role);
+	unsigned int mode, power_role, data_role;
 
 	if (!chip)
 		return -EINVAL;
+
+	switch (chip->typec_state) {
+	case POWER_SUPPLY_TYPE_UFP:
+		mode = DUAL_ROLE_PROP_MODE_UFP;
+		power_role = DUAL_ROLE_PROP_PR_SNK;
+		data_role = DUAL_ROLE_PROP_DR_DEVICE;
+		break;
+	case POWER_SUPPLY_TYPE_DFP:
+		mode = DUAL_ROLE_PROP_MODE_DFP;
+		power_role = DUAL_ROLE_PROP_PR_SRC;
+		data_role = DUAL_ROLE_PROP_DR_HOST;
+		break;
+	default:
+		mode = DUAL_ROLE_PROP_MODE_NONE;
+		power_role = DUAL_ROLE_PROP_PR_NONE;
+		data_role = DUAL_ROLE_PROP_DR_NONE;
+	};
 
 	switch (prop) {
 	case DUAL_ROLE_PROP_SUPPORTED_MODES:
 		*val = chip->dr_desc.supported_modes;
 		break;
 	case DUAL_ROLE_PROP_MODE:
-		*val = (chip->typec_state == POWER_SUPPLY_TYPE_UFP)
-			? DUAL_ROLE_PROP_MODE_UFP
-			: (chip->typec_state == POWER_SUPPLY_TYPE_DFP)
-			? DUAL_ROLE_PROP_MODE_DFP : DUAL_ROLE_PROP_MODE_NONE;
+		*val = mode;
+		break;
+	case DUAL_ROLE_PROP_PR:
+		*val = power_role;
+		break;
+	case DUAL_ROLE_PROP_DR:
+		*val = data_role;
 		break;
 	default:
 		return -EINVAL;

@@ -23,6 +23,18 @@
 	soc: soc { };
 };
 
+&modem_mem {
+	reg = <0x0 0x86800000 0x0 0x6a00000>;
+};
+
+&adsp_fw_mem {
+	reg = <0x0 0x8d200000 0x0 0x1100000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x8e300000 0x0 0x700000>;
+};
+
 &ad_hoc_bus {
 	mas_ipa: mas-ipa {
 		cell-id = <MSM_BUS_MASTER_IPA>;
@@ -37,6 +49,15 @@
 		qcom,prio0 = <0>;
 		qcom,bus-dev = <&fab_snoc>;
 		qcom,mas-rpm-id = <ICBID_MASTER_IPA>;
+	};
+
+	qcom,bm-sensors {
+		compatible = "qcom,bm-sensors";
+
+		bw_mm {
+			qcom,bm-sensor = <&slv_snoc_bimc_2 &mas_vfe0 &mas_vfe1>;
+			qcom,bm-sensor-field = "ab";
+		};
 	};
 };
 
@@ -155,5 +176,13 @@
 		qcom,rmnet-ipa-ssr;
 		qcom,ipa-loaduC;
 		qcom,ipa-advertise-sg-support;
+	};
+
+	qcom,sensor-information {
+		sensor_information16: qcom,sensor-information-16 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "bw_mm";
+			qcom,scaling-factor = <1000>;
+		};
 	};
 };

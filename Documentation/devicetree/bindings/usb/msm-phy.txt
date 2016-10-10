@@ -163,6 +163,7 @@ Optional properties:
    "emu_phy_base" : phy base address used for programming emulation target phy.
    "ref_clk_addr" : ref_clk bcr address used for on/off ref_clk before reset.
    "tcsr_phy_clk_scheme_sel": address used to determine QUSB PHY clk source.
+   "tcsr_phy_level_shift_keeper": address used to clamp QUSB PHY level shifter.
  - reg-names: Should be "qscratch_base". The qscratch register bank
    allows us to manipulate QUSB PHY bits eg. to enable D+ pull-up using s/w
    control in device mode. The reg-names property is required if the

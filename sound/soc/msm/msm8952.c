@@ -550,7 +550,7 @@ static bool is_mi2s_rx_port(int port_id)
 
 static uint32_t get_mi2s_rx_clk_val(int port_id)
 {
-	uint32_t clk_val;
+	uint32_t clk_val = 0;
 
 	/*
 	 *  Derive clock value based on sample rate, bits per sample and

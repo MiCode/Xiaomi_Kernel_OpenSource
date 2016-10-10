@@ -1107,6 +1107,7 @@ static int32_t msm_sensor_driver_parse(struct msm_sensor_ctrl_t *s_ctrl)
 	if (!s_ctrl->msm_sensor_mutex) {
 		pr_err("failed: no memory msm_sensor_mutex %pK",
 			s_ctrl->msm_sensor_mutex);
+		rc = -ENOMEM;
 		goto FREE_SENSOR_I2C_CLIENT;
 	}
 

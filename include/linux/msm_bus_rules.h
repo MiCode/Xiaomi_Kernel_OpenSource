@@ -39,18 +39,18 @@ struct rule_apply_rcm_info {
 
 struct bus_rule_type {
 	int num_src;
+	int combo_op;
+	int num_thresh;
+	int num_dst;
+	u64 dst_bw;
+	int mode;
+	u64 curr_bw;
+	void *client_data;
 	int *src_id;
 	int *src_field;
 	int *op;
-	int combo_op;
-	int num_thresh;
 	u64 *thresh;
-	int num_dst;
 	int *dst_node;
-	u64 dst_bw;
-	int mode;
-	void *client_data;
-	u64 curr_bw;
 };
 
 #if (defined(CONFIG_BUS_TOPOLOGY_ADHOC))
