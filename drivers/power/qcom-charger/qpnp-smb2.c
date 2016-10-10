@@ -218,6 +218,7 @@ struct smb_dt_props {
 	s32	step_cc_delta[STEP_CHARGING_MAX_STEPS];
 	struct	device_node *revid_dev_node;
 	int	float_option;
+	bool	hvdcp_disable;
 };
 
 struct smb2 {
@@ -328,6 +329,9 @@ static int smb2_parse_dt(struct smb2 *chip)
 		pr_err("qcom,float-option is out of range [0, 4]\n");
 		return -EINVAL;
 	}
+
+	chip->dt.hvdcp_disable = of_property_read_bool(node,
+						"qcom,hvdcp-disable");
 
 	return 0;
 }
@@ -1031,6 +1035,8 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, true, chip->dt.usb_icl_ua);
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
+	vote(chg->hvdcp_disable_votable, DEFAULT_VOTER,
+		chip->dt.hvdcp_disable, 0);
 
 	/* Configure charge enable for software control; active high */
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG,

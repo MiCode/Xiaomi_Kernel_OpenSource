@@ -120,6 +120,15 @@ Charger specific properties:
 	        3 - Disable charging
                 4 - Suspend USB input
 
+- qcom,hvdcp-disable
+  Usage:      optional
+  Value type: <empty>
+  Definition: Specifies if hvdcp charging is to be enabled or not.
+		If this property is not specified hvdcp will be enabled.
+		If this property is specified, hvdcp 2.0 detection will still
+		happen but the adapter won't be asked to switch to a higher
+		voltage point.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================
@@ -153,7 +162,6 @@ pmicobalt_charger: qcom,qpnp-smb2 {
 	io-channels = <&pmic_rradc 0>;
 	io-channel-names = "rradc_batt_id";
 
-	qcom,suspend-input;
 	dpdm-supply = <&qusb_phy0>;
 
 	qcom,step-soc-thresholds = <60 70 80 90>;

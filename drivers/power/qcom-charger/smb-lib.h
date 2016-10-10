@@ -149,6 +149,7 @@ struct smb_charger {
 	struct votable		*pl_disable_votable;
 	struct votable		*chg_disable_votable;
 	struct votable		*pl_enable_votable_indirect;
+	struct votable		*hvdcp_disable_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
