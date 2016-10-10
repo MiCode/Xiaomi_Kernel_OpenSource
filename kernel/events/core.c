@@ -9785,6 +9785,7 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	if (!group_leader)
 		group_leader = event;
 
+	mutex_init(&event->group_leader_mutex);
 	mutex_init(&event->child_mutex);
 	INIT_LIST_HEAD(&event->child_list);
 
@@ -10338,6 +10339,16 @@ SYSCALL_DEFINE5(perf_event_open,
 			group_leader = NULL;
 	}
 
+	/*
+	 * Take the group_leader's group_leader_mutex before observing
+	 * anything in the group leader that leads to changes in ctx,
+	 * many of which may be changing on another thread.
+	 * In particular, we want to take this lock before deciding
+	 * whether we need to move_group.
+	 */
+	if (group_leader)
+		mutex_lock(&group_leader->group_leader_mutex);
+
 	if (pid != -1 && !(flags & PERF_FLAG_PID_CGROUP)) {
 		task = find_lively_task_by_vpid(pid);
 		if (IS_ERR(task)) {
@@ -10636,6 +10647,8 @@ SYSCALL_DEFINE5(perf_event_open,
 	if (move_group)
 		perf_event_ctx_unlock(group_leader, gctx);
 	mutex_unlock(&ctx->mutex);
+	if (group_leader)
+		mutex_unlock(&group_leader->group_leader_mutex);
 
 	if (task) {
 		mutex_unlock(&task->signal->cred_guard_mutex);
@@ -10689,6 +10702,8 @@ err_task:
 	if (task)
 		put_task_struct(task);
 err_group_fd:
+	if (group_leader)
+		mutex_unlock(&group_leader->group_leader_mutex);
 	fdput(group);
 err_fd:
 	put_unused_fd(event_fd);
