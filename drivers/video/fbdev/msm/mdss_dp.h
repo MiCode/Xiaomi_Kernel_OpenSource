@@ -70,8 +70,6 @@
 #define EDP_INTR_ACK_SHIFT	1
 #define EDP_INTR_MASK_SHIFT	2
 
-#define EDP_MAX_LANE		4
-
 /* isr */
 #define EDP_INTR_HPD		BIT(0)
 #define EDP_INTR_AUX_I2C_DONE	BIT(3)
@@ -105,7 +103,7 @@
 	EDP_INTR_FRAME_END | EDP_INTR_CRC_UPDATED)
 
 #define EDP_INTR_MASK2		(EDP_INTR_STATUS2 << 2)
-#define EV_EVENT_STR(x)		#x
+#define DP_ENUM_STR(x)		#x
 
 struct edp_buf {
 	char *start;	/* buffer start addr */
@@ -256,6 +254,13 @@ struct dpcd_link_status {
 	char req_pre_emphasis[4];
 };
 
+struct dpcd_test_request {
+	u32 test_requested;
+	u32 test_link_rate;
+	u32 test_lane_count;
+	u32 response;
+};
+
 struct display_timing_desc {
 	u32 pclk;
 	u32 h_addressable; /* addressable + boder = active */
@@ -401,6 +406,7 @@ struct mdss_dp_drv_pdata {
 	struct completion idle_comp;
 	struct completion video_comp;
 	struct completion audio_comp;
+	struct completion irq_comp;
 	struct mutex aux_mutex;
 	struct mutex train_mutex;
 	struct mutex pd_msg_mutex;
@@ -426,6 +432,8 @@ struct mdss_dp_drv_pdata {
 	u32 bpp;
 	struct dp_statistic dp_stat;
 	bool wait_for_audio_comp;
+	bool hpd_irq_on;
+	bool hpd_irq_toggled;
 
 	/* event */
 	struct workqueue_struct *workq;
@@ -443,7 +451,45 @@ struct mdss_dp_drv_pdata {
 
 	void *hdcp_data;
 	struct hdcp_ops *hdcp_ops;
+	struct dpcd_test_request test_data;
 };
+
+enum dp_lane_count {
+	DP_LANE_COUNT_1	= 1,
+	DP_LANE_COUNT_2	= 2,
+	DP_LANE_COUNT_4	= 4,
+};
+
+enum test_response {
+	TEST_NACK	= 0x0,
+	TEST_ACK	= 0x1,
+};
+
+static inline char *mdss_dp_get_test_response(u32 test_response)
+{
+	switch (test_response) {
+	case TEST_NACK:		return DP_ENUM_STR(TEST_NACK);
+	case TEST_ACK:		return DP_ENUM_STR(TEST_ACK);
+	default:		return "unknown";
+	}
+}
+
+enum test_type {
+	UNKNOWN_TEST		= 0,
+	TEST_LINK_TRAINING	= BIT(0),
+	TEST_PATTERN		= BIT(1),
+	TEST_EDID_READ		= BIT(2),
+};
+
+static inline char *mdss_dp_get_test_name(u32 test_requested)
+{
+	switch (test_requested) {
+	case TEST_LINK_TRAINING:	return DP_ENUM_STR(TEST_LINK_TRAINING);
+	case TEST_PATTERN:		return DP_ENUM_STR(TEST_PATTERN);
+	case TEST_EDID_READ:		return DP_ENUM_STR(TEST_EDID_READ);
+	default:			return "unknown";
+	}
+}
 
 static inline const char *__mdss_dp_pm_name(enum dp_pm_type module)
 {
@@ -470,19 +516,19 @@ static inline char *mdss_dp_ev_event_to_string(int event)
 {
 	switch (event) {
 	case EV_EDP_AUX_SETUP:
-		return EV_EVENT_STR(EV_EDP_AUX_SETUP);
+		return DP_ENUM_STR(EV_EDP_AUX_SETUP);
 	case EV_EDID_READ:
-		return EV_EVENT_STR(EV_EDID_READ);
+		return DP_ENUM_STR(EV_EDID_READ);
 	case EV_DPCD_CAP_READ:
-		return EV_EVENT_STR(EV_DPCD_CAP_READ);
+		return DP_ENUM_STR(EV_DPCD_CAP_READ);
 	case EV_DPCD_STATUS_READ:
-		return EV_EVENT_STR(EV_DPCD_STATUS_READ);
+		return DP_ENUM_STR(EV_DPCD_STATUS_READ);
 	case EV_LINK_TRAIN:
-		return EV_EVENT_STR(EV_LINK_TRAIN);
+		return DP_ENUM_STR(EV_LINK_TRAIN);
 	case EV_IDLE_PATTERNS_SENT:
-		return EV_EVENT_STR(EV_IDLE_PATTERNS_SENT);
+		return DP_ENUM_STR(EV_IDLE_PATTERNS_SENT);
 	case EV_VIDEO_READY:
-		return EV_EVENT_STR(EV_VIDEO_READY);
+		return DP_ENUM_STR(EV_VIDEO_READY);
 	default:
 		return "unknown";
 	}
@@ -492,6 +538,7 @@ void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp);
 
 void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *dp);
+void mdss_dp_aux_parse_test_request(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp);
 void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *dp, u32 isr);
@@ -503,5 +550,7 @@ void mdss_dp_sink_power_down(struct mdss_dp_drv_pdata *ep);
 void mdss_dp_lane_power_ctrl(struct mdss_dp_drv_pdata *ep, int up);
 void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *ep);
 char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt);
+int mdss_dp_aux_set_sink_power_state(struct mdss_dp_drv_pdata *ep, char state);
+void mdss_dp_aux_send_test_response(struct mdss_dp_drv_pdata *ep);
 
 #endif /* MDSS_DP_H */

@@ -952,6 +952,197 @@ static int dp_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
 	return len;
 }
 
+/**
+ * dp_sink_send_test_response() - sends a test response to the sink
+ * @dp: Display Port Driver data
+ */
+static void dp_sink_send_test_response(struct mdss_dp_drv_pdata *dp)
+{
+	char test_response[4];
+
+	test_response[0] = dp->test_data.response;
+
+	pr_debug("sending test response %s",
+			mdss_dp_get_test_response(test_response[0]));
+	dp_aux_write_buf(dp, 0x260, test_response, 1, 0);
+}
+
+/**
+ * dp_is_link_rate_valid() - validates the link rate
+ * @lane_rate: link rate requested by the sink
+ *
+ * Returns true if the requested link rate is supported.
+ */
+static bool dp_is_link_rate_valid(u32 link_rate)
+{
+	return (link_rate == DP_LINK_RATE_162) ||
+		(link_rate == DP_LINK_RATE_270) ||
+		(link_rate == DP_LINK_RATE_540);
+}
+
+/**
+ * dp_is_lane_count_valid() - validates the lane count
+ * @lane_count: lane count requested by the sink
+ *
+ * Returns true if the requested lane count is supported.
+ */
+static bool dp_is_lane_count_valid(u32 lane_count)
+{
+	return (lane_count == DP_LANE_COUNT_1) ||
+		(lane_count == DP_LANE_COUNT_2) ||
+		(lane_count == DP_LANE_COUNT_4);
+}
+
+/**
+ * dp_parse_link_training_params() - parses link training parameters from DPCD
+ * @ep: Display Port Driver data
+ *
+ * Returns 0 if it successfully parses the link rate (Byte 0x219) and lane
+ * count (Byte 0x220), and if these values parse are valid.
+ */
+static int dp_parse_link_training_params(struct mdss_dp_drv_pdata *ep)
+{
+	int ret = 0;
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const test_parameter_len = 0x1;
+	int const test_link_rate_addr = 0x219;
+	int const test_lane_count_addr = 0x220;
+
+	/* Read the requested link rate (Byte 0x219). */
+	rlen = dp_aux_read_buf(ep, test_link_rate_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read link rate\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	if (!dp_is_link_rate_valid(data)) {
+		pr_err("invalid link rate = 0x%x\n", data);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ep->test_data.test_link_rate = data;
+	pr_debug("link rate = 0x%x\n", ep->test_data.test_link_rate);
+
+	/* Read the requested lane count (Byte 0x220). */
+	rlen = dp_aux_read_buf(ep, test_lane_count_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read lane count\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+	data &= 0x1F;
+
+	if (!dp_is_lane_count_valid(data)) {
+		pr_err("invalid lane count = 0x%x\n", data);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ep->test_data.test_lane_count = data;
+	pr_debug("lane count = 0x%x\n", ep->test_data.test_lane_count);
+
+exit:
+	return ret;
+}
+
+/**
+ * dp_is_test_supported() - checks if test requested by sink is supported
+ * @test_requested: test requested by the sink
+ *
+ * Returns true if the requested test is supported.
+ */
+static bool dp_is_test_supported(u32 test_requested)
+{
+	return test_requested == TEST_LINK_TRAINING;
+}
+
+/**
+ * dp_sink_parse_test_request() - parses test request parameters from sink
+ * @ep: Display Port Driver data
+ *
+ * Parses the DPCD to check if an automated test is requested (Byte 0x201),
+ * and what type of test automation is being requested (Byte 0x218).
+ */
+static void dp_sink_parse_test_request(struct mdss_dp_drv_pdata *ep)
+{
+	int ret = 0;
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const test_parameter_len = 0x1;
+	int const device_service_irq_addr = 0x201;
+	int const test_request_addr = 0x218;
+
+	/**
+	 * Read the device service IRQ vector (Byte 0x201) to determine
+	 * whether an automated test has been requested by the sink.
+	 */
+	rlen = dp_aux_read_buf(ep, device_service_irq_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read device service IRQ vector\n");
+		return;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	pr_debug("device service irq vector = 0x%x\n", data);
+
+	if (!(data & BIT(1))) {
+		pr_debug("no test requested\n");
+		return;
+	}
+
+	/**
+	 * Read the test request byte (Byte 0x218) to determine what type
+	 * of automated test has been requested by the sink.
+	 */
+	rlen = dp_aux_read_buf(ep, test_request_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read test_requested\n");
+		return;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	if (!dp_is_test_supported(data)) {
+		pr_debug("test 0x%x not supported\n", data);
+		return;
+	}
+
+	pr_debug("%s requested\n", mdss_dp_get_test_name(data));
+	ep->test_data.test_requested = data;
+
+	if (ep->test_data.test_requested == TEST_LINK_TRAINING)
+		ret = dp_parse_link_training_params(ep);
+
+	/**
+	 * Send a TEST_ACK if all test parameters are valid, otherwise send
+	 * a TEST_NACK.
+	 */
+	if (ret)
+		ep->test_data.response = TEST_NACK;
+	else
+		ep->test_data.response = TEST_ACK;
+}
+
 static int dp_cap_lane_rate_set(struct mdss_dp_drv_pdata *ep)
 {
 	char buf[4];
@@ -1300,7 +1491,7 @@ static int dp_link_rate_down_shift(struct mdss_dp_drv_pdata *ep)
 	return -EINVAL;
 }
 
-static int mdss_dp_sink_power_state(struct mdss_dp_drv_pdata *ep, char state)
+int mdss_dp_aux_set_sink_power_state(struct mdss_dp_drv_pdata *ep, char state)
 {
 	int ret;
 
@@ -1332,7 +1523,7 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 
 	dp_write(dp->base + DP_MAINLINK_CTRL, 0x1);
 
-	mdss_dp_sink_power_state(dp, SINK_POWER_ON);
+	mdss_dp_aux_set_sink_power_state(dp, SINK_POWER_ON);
 
 train_start:
 	dp->v_level = 0; /* start from default level */
@@ -1385,6 +1576,16 @@ clear:
 void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 {
 	dp_sink_capability_read(ep, 16);
+}
+
+void mdss_dp_aux_parse_test_request(struct mdss_dp_drv_pdata *ep)
+{
+	dp_sink_parse_test_request(ep);
+}
+
+void mdss_dp_aux_send_test_response(struct mdss_dp_drv_pdata *ep)
+{
+	dp_sink_send_test_response(ep);
 }
 
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *ep)
