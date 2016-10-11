@@ -1165,6 +1165,24 @@ int smblib_get_prop_step_chg_step(struct smb_charger *chg,
 	return rc;
 }
 
+int smblib_get_prop_batt_charge_done(struct smb_charger *chg,
+					union power_supply_propval *val)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read BATTERY_CHARGER_STATUS_1 rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	stat = stat & BATTERY_CHARGER_STATUS_MASK;
+	val->intval = (stat == TERMINATE_CHARGE);
+	return 0;
+}
+
 /***********************
  * BATTERY PSY SETTERS *
  ***********************/
@@ -1809,7 +1827,6 @@ static void smblib_pl_handle_chg_state_change(struct smb_charger *chg, u8 stat)
 
 irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 {
-	union power_supply_propval pval = {0, };
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 	u8 stat;
@@ -1826,9 +1843,6 @@ irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 
 	stat = stat & BATTERY_CHARGER_STATUS_MASK;
 	smblib_pl_handle_chg_state_change(chg, stat);
-	pval.intval = (stat == TERMINATE_CHARGE);
-	power_supply_set_property(chg->batt_psy, POWER_SUPPLY_PROP_CHARGE_DONE,
-		&pval);
 	power_supply_changed(chg->batt_psy);
 	return IRQ_HANDLED;
 }

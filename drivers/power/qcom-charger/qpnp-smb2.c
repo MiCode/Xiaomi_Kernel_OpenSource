@@ -687,7 +687,7 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
-		val->intval = chg->chg_done;
+		rc = smblib_get_prop_batt_charge_done(chg, val);
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -718,9 +718,6 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = smblib_set_prop_batt_capacity(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_DONE:
-		chg->chg_done = val->intval;
 		break;
 	default:
 		rc = -EINVAL;
