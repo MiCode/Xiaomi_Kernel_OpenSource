@@ -307,7 +307,7 @@ static int wcd_resmgr_disable_clk_mclk(struct wcd9xxx_resmgr_v2 *resmgr)
 					WCD9335_ANA_CLK_TOP,
 					0x04, 0x00);
 			wcd_resmgr_codec_reg_update_bits(resmgr,
-					WCD934X_CLK_SYS_MCLK_PRG, 0x01, 0x0);
+					WCD934X_CLK_SYS_MCLK_PRG, 0x81, 0x00);
 			resmgr->clk_type = WCD_CLK_OFF;
 		}
 
