@@ -637,11 +637,11 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	inode = d_inode(dentry);
 
 	/*
-	 * Check if user has permission to change inode.  We don't check if
+	 * Check if user has permission to change dentry.  We don't check if
 	 * this user can change the lower inode: that should happen when
 	 * calling notify_change on the lower inode.
 	 */
-	err = inode_change_ok(inode, ia);
+	err = setattr_prepare(dentry, ia);
 
 	/* no vfs_XXX operations required, cred overriding will be skipped. wj*/
 	if (!err) {
