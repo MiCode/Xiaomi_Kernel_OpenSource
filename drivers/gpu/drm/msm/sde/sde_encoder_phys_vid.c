@@ -315,6 +315,12 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	complete_all(&vid_enc->vblank_completion);
 }
 
+static bool sde_encoder_phys_vid_needs_split_flush(
+		struct sde_encoder_phys *phys_enc)
+{
+	return phys_enc && phys_enc->split_role != ENC_ROLE_SOLO;
+}
+
 static void _sde_encoder_phys_vid_split_config(
 		struct sde_encoder_phys *phys_enc, bool enable)
 {
@@ -328,7 +334,8 @@ static void _sde_encoder_phys_vid_split_config(
 	cfg.en = enable;
 	cfg.mode = INTF_MODE_VIDEO;
 	cfg.intf = vid_enc->hw_intf->idx;
-	cfg.split_flush_en = enable;
+	cfg.split_flush_en = enable &&
+		sde_encoder_phys_vid_needs_split_flush(phys_enc);
 
 	/* Configure split pipe control to handle master/slave triggering */
 	if (hw_mdptop && hw_mdptop->ops.setup_split_pipe) {
@@ -664,12 +671,6 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 	}
 }
 
-static bool sde_encoder_phys_vid_needs_ctl_start(
-		struct sde_encoder_phys *phys_enc)
-{
-	return false;
-}
-
 static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 {
 	ops->is_master = sde_encoder_phys_vid_is_master;
@@ -683,7 +684,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
-	ops->needs_ctl_start = sde_encoder_phys_vid_needs_ctl_start;
+	ops->needs_split_flush = sde_encoder_phys_vid_needs_split_flush;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(

@@ -72,6 +72,13 @@ struct sde_hw_ctl_ops {
 	void (*clear_pending_flush)(struct sde_hw_ctl *ctx);
 
 	/**
+	 * Query the value of the cached pending_flush_mask
+	 * No effect on hardware
+	 * @ctx       : ctl path ctx pointer
+	 */
+	u32 (*get_pending_flush)(struct sde_hw_ctl *ctx);
+
+	/**
 	 * OR in the given flushbits to the cached pending_flush_mask
 	 * No effect on hardware
 	 * @ctx       : ctl path ctx pointer
