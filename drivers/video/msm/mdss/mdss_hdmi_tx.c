@@ -105,6 +105,7 @@ static int hdmi_tx_set_mhl_hpd(struct platform_device *pdev, uint8_t on);
 static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on);
 static irqreturn_t hdmi_tx_isr(int irq, void *data);
 static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl);
+static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl);
 static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable);
 static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl);
@@ -2941,7 +2942,8 @@ static int hdmi_tx_power_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->panel_power_on = false;
 
-	if (hdmi_ctrl->hpd_off_pending || hdmi_ctrl->panel_suspend)
+	if (hdmi_ctrl->hpd_off_pending || hdmi_ctrl->panel_suspend ||
+		!hdmi_ctrl->pdata.pluggable)
 		hdmi_tx_hpd_off(hdmi_ctrl);
 
 	if (hdmi_ctrl->hdmi_tx_hpd_done)
@@ -2959,6 +2961,9 @@ static int hdmi_tx_power_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 	struct mdss_panel_data *panel_data = &hdmi_ctrl->panel_data;
 	void *pdata = hdmi_tx_get_fd(HDMI_TX_FEAT_PANEL);
 	void *edata = hdmi_tx_get_fd(HDMI_TX_FEAT_EDID);
+
+	if (!hdmi_ctrl->pdata.pluggable)
+		hdmi_tx_hpd_on(hdmi_ctrl);
 
 	ret = hdmi_tx_check_clk_state(hdmi_ctrl, HDMI_TX_HPD_PM);
 	if (ret) {
@@ -3052,8 +3057,9 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	/* Turn off HPD interrupts */
 	DSS_REG_W(io, HDMI_HPD_INT_CTRL, 0);
 
-
-	if (hdmi_tx_is_cec_wakeup_en(hdmi_ctrl)) {
+	/* non pluggable display should not enable wakeup interrupt */
+	if ((hdmi_tx_is_cec_wakeup_en(hdmi_ctrl) &&
+			hdmi_ctrl->pdata.pluggable)) {
 		hdmi_ctrl->mdss_util->enable_wake_irq(&hdmi_tx_hw);
 	} else {
 		hdmi_ctrl->mdss_util->disable_irq(&hdmi_tx_hw);
@@ -3148,7 +3154,6 @@ static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 	DEV_DBG("%s: %d\n", __func__, on);
 	if (on) {
 		hdmi_ctrl->hpd_off_pending = false;
-
 		rc = hdmi_tx_hpd_on(hdmi_ctrl);
 	} else {
 		if (!hdmi_ctrl->panel_power_on)
@@ -3697,10 +3702,11 @@ static int hdmi_tx_evt_handle_panel_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static int hdmi_tx_evt_handle_suspend(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	if (!hdmi_ctrl->hpd_feature_on)
+	if ((!hdmi_ctrl->hpd_feature_on) || (hdmi_ctrl->panel_suspend == true))
 		goto end;
 
-	if (!hdmi_ctrl->hpd_state && !hdmi_ctrl->panel_power_on)
+	if ((!hdmi_ctrl->hpd_state && !hdmi_ctrl->panel_power_on) ||
+			(hdmi_ctrl->hpd_state && !hdmi_ctrl->pdata.pluggable))
 		hdmi_tx_hpd_off(hdmi_ctrl);
 
 	hdmi_ctrl->panel_suspend = true;
@@ -3745,7 +3751,7 @@ end:
 static int hdmi_tx_evt_handle_close(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	if (hdmi_ctrl->hpd_feature_on && hdmi_ctrl->hpd_initialized &&
-	    !hdmi_ctrl->hpd_state)
+		!hdmi_ctrl->hpd_state)
 		hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_CONNECT_POLARITY);
 
 	return 0;
