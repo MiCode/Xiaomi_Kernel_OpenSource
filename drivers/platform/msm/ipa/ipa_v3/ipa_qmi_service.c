@@ -582,6 +582,8 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 	resp_desc.ei_array = ipa3_init_modem_driver_resp_msg_data_v01_ei;
 
 	pr_info("Sending QMI_IPA_INIT_MODEM_DRIVER_REQ_V01\n");
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp),
 			QMI_SEND_REQ_TIMEOUT_MS);
@@ -623,6 +625,8 @@ int ipa3_qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 	resp_desc.msg_id = QMI_IPA_INSTALL_FILTER_RULE_RESP_V01;
 	resp_desc.ei_array = ipa3_install_fltr_rule_resp_msg_data_v01_ei;
 
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc,
 			req,
 			sizeof(struct ipa_install_fltr_rule_req_msg_v01),
@@ -703,6 +707,8 @@ int ipa3_qmi_enable_force_clear_datapath_send(
 	resp_desc.ei_array =
 		ipa3_enable_force_clear_datapath_resp_msg_data_v01_ei;
 
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt,
 			&req_desc,
 			req,
@@ -746,7 +752,8 @@ int ipa3_qmi_disable_force_clear_datapath_send(
 	resp_desc.msg_id = QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_RESP_V01;
 	resp_desc.ei_array =
 		ipa3_disable_force_clear_datapath_resp_msg_data_v01_ei;
-
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt,
 			&req_desc,
 			req,
@@ -803,6 +810,8 @@ int ipa3_qmi_filter_notify_send(
 	resp_desc.msg_id = QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_V01;
 	resp_desc.ei_array = ipa3_fltr_installed_notif_resp_msg_data_v01_ei;
 
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt,
 			&req_desc,
 			req,
@@ -1213,6 +1222,8 @@ int ipa3_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 
 	IPAWANDBG_LOW("Sending QMI_IPA_GET_DATA_STATS_REQ_V01\n");
 
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, req,
 			sizeof(struct ipa_get_data_stats_req_msg_v01),
 			&resp_desc, resp,
@@ -1242,6 +1253,8 @@ int ipa3_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
 
 	IPAWANDBG_LOW("Sending QMI_IPA_GET_APN_DATA_STATS_REQ_V01\n");
 
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, req,
 			sizeof(struct ipa_get_apn_data_stats_req_msg_v01),
 			&resp_desc, resp,
@@ -1273,7 +1286,8 @@ int ipa3_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req)
 	resp_desc.ei_array = ipa3_set_data_usage_quota_resp_msg_data_v01_ei;
 
 	IPAWANDBG_LOW("Sending QMI_IPA_SET_DATA_USAGE_QUOTA_REQ_V01\n");
-
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, req,
 			sizeof(struct ipa_set_data_usage_quota_req_msg_v01),
 			&resp_desc, &resp, sizeof(resp),
@@ -1307,7 +1321,8 @@ int ipa3_qmi_stop_data_qouta(void)
 	resp_desc.ei_array = ipa3_stop_data_usage_quota_resp_msg_data_v01_ei;
 
 	IPAWANDBG_LOW("Sending QMI_IPA_STOP_DATA_USAGE_QUOTA_REQ_V01\n");
-
+	if (unlikely(!ipa_q6_clnt))
+		return -ETIMEDOUT;
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, &req, sizeof(req),
 		&resp_desc, &resp, sizeof(resp),
 		QMI_SEND_STATS_REQ_TIMEOUT_MS);

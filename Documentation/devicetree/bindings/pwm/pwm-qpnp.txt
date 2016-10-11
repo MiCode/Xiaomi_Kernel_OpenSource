@@ -15,6 +15,7 @@ Required device bindings:
 - reg-names:		Name for the above register.
 			"qpnp-lpg-channel-base" = physical base address of the
 			controller's LPG channel register.
+- qcom,lpg-lut-size:	LPG LUT size.
 - qcom,channel-id:	channel Id for the PWM.
 - qcom,supported-sizes:	Supported PWM sizes.
 			Following three pwm sizes lists are supported by PWM/LPG controllers.

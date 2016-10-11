@@ -573,7 +573,6 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	struct mdss_smmu_domain smmu_domain;
 	const struct of_device_id *match;
 	struct dss_module_power *mp;
-	int disable_htw = 1;
 	char name[MAX_CLIENT_NAME_LEN];
 	const __be32 *address = NULL, *size = NULL;
 
@@ -665,13 +664,6 @@ int mdss_smmu_probe(struct platform_device *pdev)
 			smmu_domain.domain);
 		rc = PTR_ERR(mdss_smmu->mmu_mapping);
 		goto disable_power;
-	}
-
-	rc = iommu_domain_set_attr(mdss_smmu->mmu_mapping->domain,
-		DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
-	if (rc) {
-		pr_err("couldn't disable coherent HTW\n");
-		goto release_mapping;
 	}
 
 	if (smmu_domain.domain == MDSS_IOMMU_DOMAIN_SECURE ||

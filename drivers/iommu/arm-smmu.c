@@ -1888,8 +1888,6 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 		return NULL;
 
 	smmu_domain->secure_vmid = VMID_INVAL;
-	/* disable coherent htw by default */
-	smmu_domain->attributes = (1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
 	INIT_LIST_HEAD(&smmu_domain->unassign_list);
 	INIT_LIST_HEAD(&smmu_domain->secure_pool_list);
@@ -2259,15 +2257,6 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		dev_err(dev,
 			"cannot attach to SMMU %s whilst already attached to domain on SMMU %s\n",
 			dev_name(smmu_domain->smmu->dev), dev_name(smmu->dev));
-		ret = -EINVAL;
-		goto err_destroy_domain_context;
-	}
-
-	if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE))
-		&& !(smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)) {
-		dev_err(dev,
-			"Can't attach: this domain wants coherent htw but %s doesn't support it\n",
-			dev_name(smmu_domain->smmu->dev));
 		ret = -EINVAL;
 		goto err_destroy_domain_context;
 	}
@@ -2977,11 +2966,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		*(int *)data = (smmu_domain->stage == ARM_SMMU_DOMAIN_NESTED);
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
-		*((int *)data) = !!(smmu_domain->attributes &
-				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE));
-		ret = 0;
-		break;
 	case DOMAIN_ATTR_SECURE_VMID:
 		*((int *)data) = smmu_domain->secure_vmid;
 		ret = 0;
@@ -3083,29 +3067,6 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		else
 			smmu_domain->stage = ARM_SMMU_DOMAIN_S1;
 		break;
-	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
-	{
-		struct arm_smmu_device *smmu;
-		int htw_disable = *((int *)data);
-
-		smmu = smmu_domain->smmu;
-
-		if (smmu && !(smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
-			&& !htw_disable) {
-			dev_err(smmu->dev,
-				"Can't enable coherent htw on this domain: this SMMU doesn't support it\n");
-			ret = -EINVAL;
-			goto out_unlock;
-		}
-
-		if (htw_disable)
-			smmu_domain->attributes |=
-				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
-		else
-			smmu_domain->attributes &=
-				~(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
-		break;
-	}
 	case DOMAIN_ATTR_SECURE_VMID:
 		BUG_ON(smmu_domain->secure_vmid != VMID_INVAL);
 		smmu_domain->secure_vmid = *((int *)data);

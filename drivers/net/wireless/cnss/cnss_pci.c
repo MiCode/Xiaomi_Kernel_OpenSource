@@ -1404,7 +1404,6 @@ static int cnss_wlan_is_codeswap_supported(u16 revision)
 static int cnss_smmu_init(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
-	int disable_htw = 1;
 	int atomic_ctx = 1;
 	int ret;
 
@@ -1415,15 +1414,6 @@ static int cnss_smmu_init(struct device *dev)
 		pr_err("%s: create mapping failed, err = %d\n", __func__, ret);
 		ret = PTR_ERR(mapping);
 		goto map_fail;
-	}
-
-	ret = iommu_domain_set_attr(mapping->domain,
-			      DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-			      &disable_htw);
-	if (ret) {
-		pr_err("%s: set disable_htw attribute failed, err = %d\n",
-			__func__, ret);
-		goto set_attr_fail;
 	}
 
 	ret = iommu_domain_set_attr(mapping->domain,

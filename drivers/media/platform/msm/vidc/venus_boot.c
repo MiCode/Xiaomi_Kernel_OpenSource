@@ -190,8 +190,6 @@ static int pil_venus_auth_and_reset(void)
 {
 	int rc;
 
-	/* Need to enable this for new SMMU to set the device attribute */
-	bool disable_htw = true;
 	phys_addr_t fw_bias = venus_data->resources->firmware_base;
 	void __iomem *reg_base = venus_data->reg_base;
 	u32 ver;
@@ -277,17 +275,6 @@ static int pil_venus_auth_and_reset(void)
 
 	if (iommu_present) {
 		phys_addr_t pa = fw_bias;
-
-		/* Enable this for new SMMU to set the device attribute */
-		rc = iommu_domain_set_attr(venus_data->mapping->domain,
-				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				&disable_htw);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"%s: Failed to disable COHERENT_HTW: %s\n",
-				__func__, dev_name(dev));
-			goto release_mapping;
-		}
 
 		rc = arm_iommu_attach_device(dev, venus_data->mapping);
 		if (rc) {
