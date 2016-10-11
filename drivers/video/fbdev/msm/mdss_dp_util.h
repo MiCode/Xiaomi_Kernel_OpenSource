@@ -150,6 +150,8 @@
 #define DP_PHY_AUX_INTERRUPT_MASK               (0x00000044)
 #define DP_PHY_AUX_INTERRUPT_CLEAR              (0x00000048)
 
+#define DP_PHY_SPARE0				0x00A8
+
 #define QSERDES_TX0_OFFSET			0x0400
 #define QSERDES_TX1_OFFSET			0x0800
 
@@ -200,17 +202,72 @@ struct edp_cmd {
 	char next;	/* next command */
 };
 
+struct dp_vc_tu_mapping_table {
+	u32 vic;
+	u8 lanes;
+	u8 lrate; /* DP_LINK_RATE -> 162(6), 270(10), 540(20) */
+	u8 bpp;
+	u8 valid_boundary_link;
+	u16 delay_start_link;
+	bool boundary_moderation_en;
+	u8 valid_lower_boundary_link;
+	u8 upper_boundary_count;
+	u8 lower_boundary_count;
+	u8 tu_size_minus1;
+};
+
+static const struct dp_vc_tu_mapping_table tu_table[] = {
+	{HDMI_VFRMT_640x480p60_4_3, 4, 06, 24,
+			0x07, 0x0056, false, 0x00, 0x00, 0x00, 0x3b},
+	{HDMI_VFRMT_640x480p60_4_3, 2, 06, 24,
+			0x0e, 0x004f, false, 0x00, 0x00, 0x00, 0x3b},
+	{HDMI_VFRMT_640x480p60_4_3, 1, 06, 24,
+			0x15, 0x0039, false, 0x00, 0x00, 0x00, 0x2c},
+	{HDMI_VFRMT_720x480p60_4_3, 1, 06, 24,
+			0x13, 0x0038, true, 0x12, 0x0c, 0x0b, 0x24},
+	{HDMI_VFRMT_720x480p60_16_9, 1, 06, 24,
+			0x13, 0x0038, true, 0x12, 0x0c, 0x0b, 0x24},
+	{HDMI_VFRMT_1280x720p60_16_9, 4, 06, 24,
+			0x0c, 0x0020, false, 0x00, 0x00, 0x00, 0x1f},
+	{HDMI_VFRMT_1280x720p60_16_9, 2, 06, 24,
+			0x16, 0x0015, false, 0x00, 0x00, 0x00, 0x1f},
+	{HDMI_VFRMT_1280x720p60_16_9, 1, 10, 24,
+			0x21, 0x001a, false, 0x00, 0x00, 0x00, 0x27},
+	{HDMI_VFRMT_1920x1080p60_16_9, 4, 06, 24,
+			0x16, 0x000f, false, 0x00, 0x00, 0x00, 0x1f},
+	{HDMI_VFRMT_1920x1080p60_16_9, 2, 10, 24,
+			0x21, 0x0011, false, 0x00, 0x00, 0x00, 0x27},
+	{HDMI_VFRMT_1920x1080p60_16_9, 1, 20, 24,
+			0x21, 0x001a, false, 0x00, 0x00, 0x00, 0x27},
+	{HDMI_VFRMT_3840x2160p24_16_9, 4, 10, 24,
+			0x21, 0x000c, false, 0x00, 0x00, 0x00, 0x27},
+	{HDMI_VFRMT_3840x2160p30_16_9, 4, 10, 24,
+			0x21, 0x000c, false, 0x00, 0x00, 0x00, 0x27},
+	{HDMI_VFRMT_3840x2160p60_16_9, 4, 20, 24,
+			0x21, 0x000c, false, 0x00, 0x00, 0x00, 0x27},
+	{HDMI_VFRMT_4096x2160p24_256_135, 4, 10, 24,
+			0x21, 0x000c, false, 0x00, 0x00, 0x00, 0x27},
+	{HDMI_VFRMT_4096x2160p30_256_135, 4, 10, 24,
+			0x21, 0x000c, false, 0x00, 0x00, 0x00, 0x27},
+	{HDMI_VFRMT_4096x2160p60_256_135, 4, 20, 24,
+			0x21, 0x000c, false, 0x00, 0x00, 0x00, 0x27},
+	{HDMI_EVFRMT_4096x2160p24_16_9, 4, 10, 24,
+			0x21, 0x000c, false, 0x00, 0x00, 0x00, 0x27},
+};
+
 int dp_aux_read(void *ep, struct edp_cmd *cmds);
 int dp_aux_write(void *ep, struct edp_cmd *cmd);
 void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data);
 u32 mdss_dp_get_ctrl_hw_version(struct dss_io_data *ctrl_io);
 u32 mdss_dp_get_phy_hw_version(struct dss_io_data *phy_io);
+void mdss_dp_ctrl_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_aux_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_mainlink_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_phy_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_switch_usb3_phy_to_dp_mode(struct dss_io_data *tcsr_reg_io);
 void mdss_dp_assert_phy_reset(struct dss_io_data *ctrl_io, bool assert);
-void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io);
+void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
+				u8 ln_cnt, u32 res);
 void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io);
 void mdss_dp_hpd_configure(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_aux_ctrl(struct dss_io_data *ctrl_io, bool enable);
@@ -231,6 +288,8 @@ void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status);
 u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp);
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
 					struct lane_mapping l_map);
+void mdss_dp_phy_share_lane_config(struct dss_io_data *phy_io,
+					u8 orientation, u8 ln_cnt);
 void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io,
 						char link_rate);
 void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io);

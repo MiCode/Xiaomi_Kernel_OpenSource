@@ -28,6 +28,25 @@
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
 
+/*
+ * --- kgsl drawobj flags ---
+ * These flags are same as --- drawobj flags ---
+ * but renamed to reflect that cmdbatch is renamed to drawobj.
+ */
+#define KGSL_DRAWOBJ_MEMLIST           KGSL_CMDBATCH_MEMLIST
+#define KGSL_DRAWOBJ_MARKER            KGSL_CMDBATCH_MARKER
+#define KGSL_DRAWOBJ_SUBMIT_IB_LIST    KGSL_CMDBATCH_SUBMIT_IB_LIST
+#define KGSL_DRAWOBJ_CTX_SWITCH        KGSL_CMDBATCH_CTX_SWITCH
+#define KGSL_DRAWOBJ_PROFILING         KGSL_CMDBATCH_PROFILING
+#define KGSL_DRAWOBJ_PROFILING_KTIME   KGSL_CMDBATCH_PROFILING_KTIME
+#define KGSL_DRAWOBJ_END_OF_FRAME      KGSL_CMDBATCH_END_OF_FRAME
+#define KGSL_DRAWOBJ_SYNC              KGSL_CMDBATCH_SYNC
+#define KGSL_DRAWOBJ_PWR_CONSTRAINT    KGSL_CMDBATCH_PWR_CONSTRAINT
+#define KGSL_DRAWOBJ_SPARSE            KGSL_CMDBATCH_SPARSE
+
+#define kgsl_drawobj_profiling_buffer kgsl_cmdbatch_profiling_buffer
+
+
 /* The number of memstore arrays limits the number of contexts allowed.
  * If more contexts are needed, update multiple for MEMSTORE_SIZE
  */

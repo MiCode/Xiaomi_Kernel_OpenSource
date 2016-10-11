@@ -227,9 +227,20 @@
 	qcom,max-bandwidth-per-pipe-kbps = <4700000>;
 };
 
+&pmcobalt_s10 {
+	regulator-min-microvolt = <568000>;
+	regulator-max-microvolt = <1056000>;
+};
+
+&pmcobalt_s13 {
+	regulator-min-microvolt = <568000>;
+	regulator-max-microvolt = <1056000>;
+};
+
 &apc0_cpr {
 	compatible = "qcom,cprh-msmcobalt-v2-kbss-regulator";
 	qcom,cpr-corner-switch-delay-time = <1042>;
+	qcom,cpr-aging-ref-voltage = <1056000>;
 };
 
 &apc0_pwrcl_vreg {
@@ -371,11 +382,16 @@
 	qcom,allow-voltage-interpolation;
 	qcom,allow-quotient-interpolation;
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+	qcom,cpr-aging-ref-corner = <22 22>;
+	qcom,cpr-aging-ro-scaling-factor = <2950>;
+	qcom,allow-aging-voltage-adjustment = <0>;
 };
 
 &apc1_cpr {
 	compatible = "qcom,cprh-msmcobalt-v2-kbss-regulator";
 	qcom,cpr-corner-switch-delay-time = <1042>;
+	qcom,cpr-aging-ref-voltage = <1056000>;
 };
 
 &apc1_perfcl_vreg {
@@ -527,6 +543,10 @@
 	qcom,allow-voltage-interpolation;
 	qcom,allow-quotient-interpolation;
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+	qcom,cpr-aging-ref-corner = <30 26>;
+	qcom,cpr-aging-ro-scaling-factor = <2950>;
+	qcom,allow-aging-voltage-adjustment = <0>;
 };
 
 &pm8005_s1 {
@@ -674,6 +694,35 @@
 		<355200000 3570000>,/* imem @ svs freq 171 Mhz */
 		<444000000 6750000>,/* imem @ nom freq 323 Mhz */
 		<533000000 8490000>;/* imem @ turbo freq 406 Mhz */
+
+	qcom,dcvs-tbl = /* minLoad LoadLow LoadHigh CodecCheck */
+		/* Decode */
+		/* Load > Nominal, Nominal <-> Turbo Eg.3840x2160@60 */
+		<1728000 1728000 2211840 0x3f00000c>,
+		/* Encoder */
+		/* Load > Nominal, Nominal <-> Turbo Eg. 4kx2304@30 */
+		<972000 972000 1105920 0x04000004>,
+		/* Load > SVSL1, SVSL1<-> Nominal Eg. 3840x2160@30 */
+		<939700 939700  972000 0x04000004>,
+		/* Load > SVS , SVS <-> SVSL1 Eg. 4kx2304@24 */
+		<489600  489600  939700 0x04000004>;
+
+	qcom,dcvs-limit = /* Min Frame size, Min MBs/sec */
+		<32400 30>, /* Encoder 3840x2160@30 */
+		<32400 60>; /* Decoder 3840x2160@60 */
+
+};
+
+&soc {
+	/* Gold L2 SAW */
+	qcom,spm@178120000 {
+		qcom,saw2-avs-limit = <0x4200420>;
+	};
+
+	/* Silver L2 SAW */
+	qcom,spm@179120000 {
+		qcom,saw2-avs-limit = <0x4200420>;
+	};
 };
 
 /* GPU overrides */

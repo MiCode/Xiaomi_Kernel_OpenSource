@@ -29,30 +29,30 @@
 		qcom,mdss-dsi-bpp = <24>;
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
-		qcom,mdss-dsi-on-command = [15 01 00 00 10 00 02 ff 10
-			15 01 00 00 10 00 02 fb 01
-			15 01 00 00 10 00 02 ba 03
-			15 01 00 00 10 00 02 e5 01
-			15 01 00 00 10 00 02 35 00
-			15 01 00 00 10 00 02 bb 03
-			15 01 00 00 10 00 02 b0 03
-			39 01 00 00 10 00 06 3b 03 08 08 64 9a
-			15 01 00 00 10 00 02 ff e0
-			15 01 00 00 10 00 02 fb 01
-			15 01 00 00 10 00 02 6b 3d
-			15 01 00 00 10 00 02 6c 3d
-			15 01 00 00 10 00 02 6d 3d
-			15 01 00 00 10 00 02 6e 3d
-			15 01 00 00 10 00 02 6f 3d
-			15 01 00 00 10 00 02 35 02
-			15 01 00 00 10 00 02 36 72
-			15 01 00 00 10 00 02 37 10
-			15 01 00 00 10 00 02 08 c0
-			15 01 00 00 10 00 02 ff 10
-			05 01 00 00 a0 00 02 11 00
-			05 01 00 00 a0 00 02 29 00];
-		qcom,mdss-dsi-off-command = [05 01 00 00 78 00 02 28 00
-				 05 01 00 00 78 00 02 10 00];
+		qcom,mdss-dsi-on-command = [15 01 00 00 00 00 02 ff 10
+			15 01 00 00 00 00 02 fb 01
+			15 01 00 00 00 00 02 ba 03
+			15 01 00 00 00 00 02 e5 01
+			15 01 00 00 00 00 02 35 00
+			15 01 00 00 00 00 02 bb 03
+			15 01 00 00 00 00 02 b0 03
+			39 01 00 00 00 00 06 3b 03 08 08 64 9a
+			15 01 00 00 00 00 02 ff e0
+			15 01 00 00 00 00 02 fb 01
+			15 01 00 00 00 00 02 6b 3d
+			15 01 00 00 00 00 02 6c 3d
+			15 01 00 00 00 00 02 6d 3d
+			15 01 00 00 00 00 02 6e 3d
+			15 01 00 00 00 00 02 6f 3d
+			15 01 00 00 00 00 02 35 02
+			15 01 00 00 00 00 02 36 72
+			15 01 00 00 00 00 02 37 10
+			15 01 00 00 00 00 02 08 c0
+			15 01 00 00 00 00 02 ff 10
+			05 01 00 00 78 00 02 11 00
+			05 01 00 00 32 00 02 29 00];
+		qcom,mdss-dsi-off-command = [05 01 00 00 0a 00 02 28 00
+				 05 01 00 00 3c 00 02 10 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-h-sync-pulse = <0>;
@@ -69,7 +69,7 @@
 		qcom,mdss-dsi-t-clk-pre = <0x2d>;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
-		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 50>;
+		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
 		qcom,mdss-dsi-min-refresh-rate = <55>;
 		qcom,mdss-dsi-max-refresh-rate = <60>;
 		qcom,mdss-dsi-pan-enable-dynamic-fps;

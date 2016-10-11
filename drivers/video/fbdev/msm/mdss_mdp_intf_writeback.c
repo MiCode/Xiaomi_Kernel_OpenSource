@@ -124,6 +124,30 @@ static inline void mdp_wb_write(struct mdss_mdp_writeback_ctx *ctx,
 	writel_relaxed(val, ctx->base + reg);
 }
 
+static void mdss_mdp_set_qos_wb(struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_writeback_ctx *ctx)
+{
+	u32 wb_qos_setup = QOS_LUT_NRT_READ;
+	struct mdss_mdp_cwb *cwb = NULL;
+	struct mdss_overlay_private *mdp5_data;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (false == test_bit(MDSS_QOS_WB_QOS, mdata->mdss_qos_map))
+		return;
+
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	cwb = &mdp5_data->cwb;
+
+	if (cwb->valid)
+		wb_qos_setup = QOS_LUT_CWB_READ;
+	else
+		wb_qos_setup = QOS_LUT_NRT_READ;
+
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DANGER_LUT, PANIC_LUT_NRT_READ);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_SAFE_LUT, ROBUST_LUT_NRT_READ);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_CREQ_LUT, wb_qos_setup);
+}
+
 static void mdss_mdp_set_ot_limit_wb(struct mdss_mdp_writeback_ctx *ctx,
 					int is_wfd)
 {
@@ -447,7 +471,7 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 	cwb = &mdp5_data->cwb;
 	ctx = (struct mdss_mdp_writeback_ctx *)cwb->priv_data;
 
-	buffer = &cwb->layer->buffer;
+	buffer = &cwb->layer.buffer;
 
 	ctx->opmode = 0;
 	ctx->img_width = buffer->width;
@@ -494,6 +518,8 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 
 	if (ctl->mdata->default_ot_wr_limit || ctl->mdata->default_ot_rd_limit)
 		mdss_mdp_set_ot_limit_wb(ctx, false);
+
+	mdss_mdp_set_qos_wb(ctl, ctx);
 
 	return ret;
 }
@@ -896,6 +922,8 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	if (ctl->mdata->default_ot_wr_limit ||
 			ctl->mdata->default_ot_rd_limit)
 		mdss_mdp_set_ot_limit_wb(ctx, true);
+
+	mdss_mdp_set_qos_wb(ctl, ctx);
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
 	if (!wb_args)

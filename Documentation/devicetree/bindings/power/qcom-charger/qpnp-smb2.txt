@@ -53,6 +53,12 @@ Charger specific properties:
   Definition: Specifies the USB input current limit in micro-amps.
 		 If the value is not present, 1.5Amps is used as default.
 
+- qcom,usb-ocl-ua
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the OTG output current limit in micro-amps.
+		If the value is not present, 1.5Amps is used as default
+
 - qcom,dc-icl-ua
   Usage:      optional
   Value type: <u32>

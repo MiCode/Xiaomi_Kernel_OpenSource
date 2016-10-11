@@ -59,14 +59,14 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED, &retire);
 
 	/*
-	 * We may have cmdbatch timer running, which also uses same
+	 * We may have kgsl sync obj timer running, which also uses same
 	 * lock, take a lock with software interrupt disabled (bh)
 	 * to avoid spin lock recursion.
 	 *
 	 * Use Spin trylock because dispatcher can acquire drawctxt->lock
 	 * if context is pending and the fence it is waiting on just got
 	 * signalled. Dispatcher acquires drawctxt->lock and tries to
-	 * delete the cmdbatch timer using del_timer_sync().
+	 * delete the sync obj timer using del_timer_sync().
 	 * del_timer_sync() waits till timer and its pending handlers
 	 * are deleted. But if the timer expires at the same time,
 	 * timer handler could be waiting on drawctxt->lock leading to a
@@ -83,23 +83,27 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 		context->id, queue, drawctxt->submitted_timestamp,
 		start, retire);
 
-	if (drawctxt->cmdqueue_head != drawctxt->cmdqueue_tail) {
-		struct kgsl_cmdbatch *cmdbatch =
-			drawctxt->cmdqueue[drawctxt->cmdqueue_head];
+	if (drawctxt->drawqueue_head != drawctxt->drawqueue_tail) {
+		struct kgsl_drawobj *drawobj =
+			drawctxt->drawqueue[drawctxt->drawqueue_head];
 
-		if (test_bit(CMDBATCH_FLAG_FENCE_LOG, &cmdbatch->priv)) {
+		if (test_bit(ADRENO_CONTEXT_FENCE_LOG, &context->priv)) {
 			dev_err(device->dev,
 				"  possible deadlock. Context %d might be blocked for itself\n",
 				context->id);
 			goto stats;
 		}
 
-		if (kgsl_cmdbatch_events_pending(cmdbatch)) {
-			dev_err(device->dev,
-				"  context[%d] (ts=%d) Active sync points:\n",
-				context->id, cmdbatch->timestamp);
+		if (drawobj->type == SYNCOBJ_TYPE) {
+			struct kgsl_drawobj_sync *syncobj = SYNCOBJ(drawobj);
 
-			kgsl_dump_syncpoints(device, cmdbatch);
+			if (kgsl_drawobj_events_pending(syncobj)) {
+				dev_err(device->dev,
+					"  context[%d] (ts=%d) Active sync points:\n",
+					context->id, drawobj->timestamp);
+
+				kgsl_dump_syncpoints(device, syncobj);
+			}
 		}
 	}
 
@@ -229,19 +233,19 @@ done:
 	return ret;
 }
 
-static int drawctxt_detach_cmdbatches(struct adreno_context *drawctxt,
-		struct kgsl_cmdbatch **list)
+static int drawctxt_detach_drawobjs(struct adreno_context *drawctxt,
+		struct kgsl_drawobj **list)
 {
 	int count = 0;
 
-	while (drawctxt->cmdqueue_head != drawctxt->cmdqueue_tail) {
-		struct kgsl_cmdbatch *cmdbatch =
-			drawctxt->cmdqueue[drawctxt->cmdqueue_head];
+	while (drawctxt->drawqueue_head != drawctxt->drawqueue_tail) {
+		struct kgsl_drawobj *drawobj =
+			drawctxt->drawqueue[drawctxt->drawqueue_head];
 
-		drawctxt->cmdqueue_head = (drawctxt->cmdqueue_head + 1) %
-			ADRENO_CONTEXT_CMDQUEUE_SIZE;
+		drawctxt->drawqueue_head = (drawctxt->drawqueue_head + 1) %
+			ADRENO_CONTEXT_DRAWQUEUE_SIZE;
 
-		list[count++] = cmdbatch;
+		list[count++] = drawobj;
 	}
 
 	return count;
@@ -259,7 +263,7 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
-	struct kgsl_cmdbatch *list[ADRENO_CONTEXT_CMDQUEUE_SIZE];
+	struct kgsl_drawobj *list[ADRENO_CONTEXT_DRAWQUEUE_SIZE];
 	int i, count;
 
 	trace_adreno_drawctxt_invalidate(drawctxt);
@@ -280,13 +284,13 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 			drawctxt->timestamp);
 
 	/* Get rid of commands still waiting in the queue */
-	count = drawctxt_detach_cmdbatches(drawctxt, list);
+	count = drawctxt_detach_drawobjs(drawctxt, list);
 	spin_unlock(&drawctxt->lock);
 
 	for (i = 0; i < count; i++) {
 		kgsl_cancel_events_timestamp(device, &context->events,
 			list[i]->timestamp);
-		kgsl_cmdbatch_destroy(list[i]);
+		kgsl_drawobj_destroy(list[i]);
 	}
 
 	/* Make sure all pending events are processed or cancelled */
@@ -453,7 +457,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	struct adreno_context *drawctxt;
 	struct adreno_ringbuffer *rb;
 	int ret, count, i;
-	struct kgsl_cmdbatch *list[ADRENO_CONTEXT_CMDQUEUE_SIZE];
+	struct kgsl_drawobj *list[ADRENO_CONTEXT_DRAWQUEUE_SIZE];
 
 	if (context == NULL)
 		return;
@@ -468,7 +472,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	spin_unlock(&adreno_dev->active_list_lock);
 
 	spin_lock(&drawctxt->lock);
-	count = drawctxt_detach_cmdbatches(drawctxt, list);
+	count = drawctxt_detach_drawobjs(drawctxt, list);
 	spin_unlock(&drawctxt->lock);
 
 	for (i = 0; i < count; i++) {
@@ -478,7 +482,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 		 * detached status here.
 		 */
 		adreno_fault_skipcmd_detached(adreno_dev, drawctxt, list[i]);
-		kgsl_cmdbatch_destroy(list[i]);
+		kgsl_drawobj_destroy(list[i]);
 	}
 
 	/*

@@ -87,7 +87,8 @@ First Level Node - FG Gen3 device
 	Value type: <u32>
 	Definition: Percentage of monotonic SOC increase upon which the delta
 		    SOC interrupt will be triggered. If this property is not
-		    specified, then the default value will be 1.
+		    specified, then the default value will be 1. Possible
+		    values are in the range of 0 to 12.
 
 - qcom,fg-recharge-soc-thr
 	Usage:      optional
@@ -144,6 +145,13 @@ First Level Node - FG Gen3 device
 	Usage:      optional
 	Value type: <bool>
 	Definition: Enables the cycle counter feature.
+
+- qcom,fg-force-load-profile
+	Usage:      optional
+	Value type: <bool>
+	Definition: If set, battery profile will be force loaded if the profile
+		    loaded earlier by bootloader doesn't match with the profile
+		    available in the device tree.
 
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver

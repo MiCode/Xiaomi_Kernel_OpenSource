@@ -3,7 +3,7 @@ ccflags-y := -Idrivers/staging/android
 msm_kgsl_core-y = \
 	kgsl.o \
 	kgsl_trace.o \
-	kgsl_cmdbatch.o \
+	kgsl_drawobj.o \
 	kgsl_ioctl.o \
 	kgsl_sharedmem.o \
 	kgsl_pwrctrl.o \

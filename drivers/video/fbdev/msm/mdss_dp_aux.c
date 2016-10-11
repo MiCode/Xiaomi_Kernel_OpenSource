@@ -510,11 +510,20 @@ char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
 
 	pr_debug("clk_rate=%llu, bpp= %d, lane_cnt=%d\n",
 	       pinfo->clk_rate, pinfo->bpp, lane_cnt);
-	min_link_rate = (u32)div_u64((pinfo->clk_rate * 10),
-		(lane_cnt * encoding_factx10));
-	min_link_rate = (min_link_rate * pinfo->bpp)
-				/ (DP_LINK_RATE_MULTIPLIER);
+
+	/*
+	 * The max pixel clock supported is 675Mhz. The
+	 * current calculations below will make sure
+	 * the min_link_rate is within 32 bit limits.
+	 * Any changes in the section of code should
+	 * consider this limitation.
+	 */
+	min_link_rate = pinfo->clk_rate
+			/ (lane_cnt * encoding_factx10);
 	min_link_rate /= ln_to_link_ratio;
+	min_link_rate = (min_link_rate * pinfo->bpp);
+	min_link_rate = (u32)div_u64(min_link_rate * 10,
+					DP_LINK_RATE_MULTIPLIER);
 
 	pr_debug("min_link_rate = %d\n", min_link_rate);
 
@@ -1113,17 +1122,17 @@ static void dp_host_train_set(struct mdss_dp_drv_pdata *ep, int train)
 }
 
 char vm_pre_emphasis[4][4] = {
-	{0x00, 0x06, 0x09, 0x0C},	/* pe0, 0 db */
-	{0x00, 0x06, 0x09, 0xFF},	/* pe1, 3.5 db */
-	{0x03, 0x06, 0xFF, 0xFF},	/* pe2, 6.0 db */
-	{0x03, 0xFF, 0xFF, 0xFF}	/* pe3, 9.5 db */
+	{0x00, 0x09, 0x11, 0x0C},	/* pe0, 0 db */
+	{0x00, 0x0A, 0x10, 0xFF},	/* pe1, 3.5 db */
+	{0x00, 0x0C, 0xFF, 0xFF},	/* pe2, 6.0 db */
+	{0x00, 0xFF, 0xFF, 0xFF}	/* pe3, 9.5 db */
 };
 
 /* voltage swing, 0.2v and 1.0v are not support */
 char vm_voltage_swing[4][4] = {
-	{0x0a, 0x18, 0x1A, 0x1E}, /* sw0, 0.4v  */
-	{0x07, 0x1A, 0x1E, 0xFF}, /* sw1, 0.6 v */
-	{0x1A, 0x1E, 0xFF, 0xFF}, /* sw1, 0.8 v */
+	{0x07, 0x0f, 0x12, 0x1E}, /* sw0, 0.4v  */
+	{0x11, 0x1D, 0x1F, 0xFF}, /* sw1, 0.6 v */
+	{0x18, 0x1F, 0xFF, 0xFF}, /* sw1, 0.8 v */
 	{0x1E, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
@@ -1375,7 +1384,8 @@ train_start:
 clear:
 	dp_clear_training_pattern(dp);
 	if (ret != -1) {
-		mdss_dp_setup_tr_unit(&dp->ctrl_io);
+		mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate,
+					dp->lane_cnt, dp->vic);
 		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
 		pr_debug("State_ctrl set to SEND_VIDEO\n");
 	}

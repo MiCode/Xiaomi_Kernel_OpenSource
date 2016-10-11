@@ -45,6 +45,18 @@
 #define VDDA_UA_ON_LOAD		100000	/* uA units */
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
+#define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
+static u32 supported_modes[] = {
+	HDMI_VFRMT_640x480p60_4_3,
+	HDMI_VFRMT_720x480p60_4_3, HDMI_VFRMT_720x480p60_16_9,
+	HDMI_VFRMT_1280x720p60_16_9,
+	HDMI_VFRMT_1920x1080p60_16_9,
+	HDMI_VFRMT_3840x2160p24_16_9, HDMI_VFRMT_3840x2160p30_16_9,
+	HDMI_VFRMT_3840x2160p60_16_9,
+	HDMI_VFRMT_4096x2160p24_256_135, HDMI_VFRMT_4096x2160p30_256_135,
+	HDMI_VFRMT_4096x2160p60_256_135, HDMI_EVFRMT_4096x2160p24_16_9
+};
+
 static void mdss_dp_put_dt_clk_data(struct device *dev,
 	struct dss_module_power *module_power)
 {
@@ -789,16 +801,33 @@ void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *dp)
 
 	cap = &dp->dpcd;
 
-	data = dp->lane_cnt - 1;
-	data <<= 4;
+	data |= (2 << 13); /* Default-> LSCLK DIV: 1/4 LCLK  */
+
+	/* Color Format */
+	switch (dp->panel_data.panel_info.out_format) {
+	case MDP_Y_CBCR_H2V2:
+		data |= (1 << 11); /* YUV420 */
+		break;
+	case MDP_Y_CBCR_H2V1:
+		data |= (2 << 11); /* YUV422 */
+		break;
+	default:
+		data |= (0 << 11); /* RGB */
+		break;
+	}
+
+	/* Scrambler reset enable */
+	if (cap->scrambler_reset)
+		data |= (1 << 10);
+
+	if (dp->edid.color_depth != 6)
+		data |= 0x100;	/* Default: 8 bits */
+
+	/* Num of Lanes */
+	data |= ((dp->lane_cnt - 1) << 4);
 
 	if (cap->enhanced_frame)
 		data |= 0x40;
-
-	if (dp->edid.color_depth == 8) {
-		/* 0 == 6 bits, 1 == 8 bits */
-		data |= 0x100;	/* bit 8 */
-	}
 
 	if (!timing->interlaced)	/* progressive */
 		data |= 0x04;
@@ -863,6 +892,8 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	mdss_dp_set_safe_to_exit_level(&dp_ctrl->ctrl_io, dp_ctrl->lane_cnt);
 	mdss_dp_audio_enable(&dp_ctrl->ctrl_io, true);
 
+	dp_ctrl->wait_for_audio_comp = true;
+
 	return rc;
 } /* dp_audio_info_setup */
 
@@ -885,6 +916,17 @@ static int dp_get_audio_edid_blk(struct platform_device *pdev,
 	return rc;
 } /* dp_get_audio_edid_blk */
 
+static void dp_audio_codec_teardown_done(struct platform_device *pdev)
+{
+	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
+
+	if (!dp)
+		pr_err("invalid input\n");
+
+	pr_debug("audio codec teardown done\n");
+	complete_all(&dp->audio_comp);
+}
+
 static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
@@ -906,6 +948,8 @@ static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 		dp_get_audio_edid_blk;
 	dp->ext_audio_data.codec_ops.cable_status =
 		dp_get_cable_status;
+	dp->ext_audio_data.codec_ops.teardown_done =
+		dp_audio_codec_teardown_done;
 
 	if (!dp->pdev->dev.of_node) {
 		pr_err("%s cannot find dp dev.of_node\n", __func__);
@@ -936,8 +980,6 @@ end:
 	return ret;
 }
 
-#define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
-
 static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 {
 	struct mdss_panel_info *pinfo;
@@ -949,7 +991,6 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 		return -EINVAL;
 	}
 
-	dp_drv->ds_data.ds_registered = false;
 	ret = hdmi_get_supported_mode(&timing, &dp_drv->ds_data, vic);
 	pinfo = &dp_drv->panel_data.panel_info;
 
@@ -987,6 +1028,13 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 	return 0;
 } /* dp_init_panel_info */
 
+static inline void mdss_dp_set_audio_switch_node(
+	struct mdss_dp_drv_pdata *dp, int val)
+{
+	if (dp && dp->ext_audio_data.intf_ops.notify)
+		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev,
+				val);
+}
 
 int mdss_dp_on(struct mdss_panel_data *pdata)
 {
@@ -1054,6 +1102,9 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 			goto exit;
 		}
 
+		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
+				orientation, dp_drv->dpcd.max_lane_count);
+
 		pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
 
 		dp_drv->power_data[DP_CTRL_PM].clk_config[0].rate =
@@ -1096,6 +1147,7 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		pr_debug("mainlink ready\n");
 
 	dp_drv->power_on = true;
+	mdss_dp_set_audio_switch_node(dp_drv, true);
 	pr_debug("End-\n");
 
 exit:
@@ -1119,13 +1171,14 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	mutex_lock(&dp_drv->train_mutex);
 
 	reinit_completion(&dp_drv->idle_comp);
-
-	mdss_dp_state_ctrl(&dp_drv->ctrl_io, 0);
+	mdss_dp_state_ctrl(&dp_drv->ctrl_io, ST_PUSH_IDLE);
 
 	if (dp_drv->link_clks_on)
 		mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
 
 	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, false);
+
+	mdss_dp_audio_enable(&dp_drv->ctrl_io, false);
 
 	mdss_dp_irq_disable(dp_drv);
 
@@ -1147,14 +1200,6 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	return 0;
 }
 
-static inline void mdss_dp_set_audio_switch_node(
-	struct mdss_dp_drv_pdata *dp, int val)
-{
-	if (dp && dp->ext_audio_data.intf_ops.notify)
-		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev,
-				val);
-}
-
 static void mdss_dp_send_cable_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
@@ -1169,6 +1214,38 @@ static void mdss_dp_send_cable_notification(
 				dp->ext_audio_data.type, val);
 }
 
+static void mdss_dp_audio_codec_wait(struct mdss_dp_drv_pdata *dp)
+{
+	const int audio_completion_timeout_ms = HZ * 3;
+	int ret = 0;
+
+	if (!dp->wait_for_audio_comp)
+		return;
+
+	reinit_completion(&dp->audio_comp);
+	ret = wait_for_completion_timeout(&dp->audio_comp,
+			audio_completion_timeout_ms);
+	if (ret <= 0)
+		pr_warn("audio codec teardown timed out\n");
+
+	dp->wait_for_audio_comp = false;
+}
+
+static void mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	if (enable) {
+		mdss_dp_send_cable_notification(dp, enable);
+	} else {
+		mdss_dp_set_audio_switch_node(dp, enable);
+		mdss_dp_audio_codec_wait(dp);
+		mdss_dp_send_cable_notification(dp, enable);
+	}
+
+	pr_debug("notify state %s done\n",
+			enable ? "ENABLE" : "DISABLE");
+}
+
+
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
@@ -1182,6 +1259,10 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
+
+	dp_drv->ds_data.ds_registered = true;
+	dp_drv->ds_data.modes_num = ARRAY_SIZE(supported_modes);
+	dp_drv->ds_data.modes = supported_modes;
 
 	dp_drv->max_pclk_khz = DP_MAX_PIXEL_CLK_KHZ;
 	edid_init_data.kobj = dp_drv->kobj;
@@ -1236,14 +1317,18 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 
 	mdss_dp_aux_init(dp_drv);
 
+	mdss_dp_phy_initialize(dp_drv);
+	mdss_dp_ctrl_reset(&dp_drv->ctrl_io);
 	mdss_dp_phy_reset(&dp_drv->ctrl_io);
 	mdss_dp_aux_reset(&dp_drv->ctrl_io);
-	mdss_dp_phy_initialize(dp_drv);
 	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
 
 	pr_debug("Ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
 	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
 	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
+
+	pr_debug("plug Orientation = %d\n",
+			usbpd_get_plug_orientation(dp_drv->pd));
 
 	mdss_dp_phy_aux_setup(&dp_drv->phy_io);
 
@@ -1264,8 +1349,7 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		goto edid_error;
 	}
 
-	mdss_dp_send_cable_notification(dp_drv, true);
-	mdss_dp_set_audio_switch_node(dp_drv, true);
+	mdss_dp_notify_clients(dp_drv, true);
 	dp_drv->dp_initialized = true;
 
 	return ret;
@@ -1771,8 +1855,7 @@ static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events)
 {
 	spin_lock(&dp->event_lock);
 	dp->current_event = events;
-	queue_delayed_work(dp->workq,
-				&dp->dwork, HZ);
+	queue_delayed_work(dp->workq, &dp->dwork, HZ / 100);
 	spin_unlock(&dp->event_lock);
 }
 
@@ -1883,8 +1966,7 @@ static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
 	mutex_lock(&dp_drv->pd_msg_mutex);
 	dp_drv->cable_connected = false;
 	mutex_unlock(&dp_drv->pd_msg_mutex);
-	mdss_dp_send_cable_notification(dp_drv, false);
-	mdss_dp_set_audio_switch_node(dp_drv, false);
+	mdss_dp_notify_clients(dp_drv, false);
 }
 
 static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
@@ -2135,6 +2217,8 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	mdss_dp_device_register(dp_drv);
 
 	dp_drv->inited = true;
+	dp_drv->wait_for_audio_comp = false;
+	init_completion(&dp_drv->audio_comp);
 
 	pr_debug("done\n");
 

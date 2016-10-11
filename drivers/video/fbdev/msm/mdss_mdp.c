@@ -1992,6 +1992,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 
 		set_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_REMAPPER, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_WB_QOS, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map); /* cdp supported */
 		mdata->enable_cdp = false; /* disable cdp */

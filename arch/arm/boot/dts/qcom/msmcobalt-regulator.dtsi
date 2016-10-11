@@ -537,6 +537,28 @@
 			qcom,enable-time = <500>;
 		};
 	};
+
+	qcom,pmcobalt@1 {
+		pmcobalt_s10: regulator@2f00 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x2f00 0x100>;
+			regulator-name = "pmcobalt_s10";
+			regulator-min-microvolt = <572000>;
+			regulator-max-microvolt = <1112000>;
+			qcom,enable-time = <500>;
+			regulator-always-on;
+		};
+
+		pmcobalt_s13: regulator@3800 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x3800 0x100>;
+			regulator-name = "pmcobalt_s13";
+			regulator-min-microvolt = <572000>;
+			regulator-max-microvolt = <1112000>;
+			qcom,enable-time = <500>;
+			regulator-always-on;
+		};
+	};
 };
 
 /* Stub regulators */
@@ -589,6 +611,9 @@
 			<0x179cbaa4 0x17912c18>;
 		qcom,cpr-panic-reg-name-list =
 			"PWR_CPRH_STATUS", "APCLUS0_L2_SAW4_PMIC_STS";
+
+		qcom,cpr-aging-ref-voltage = <1112000>;
+		vdd-supply = <&pmcobalt_s10>;
 
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
@@ -712,6 +737,13 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <15000>;
+				qcom,cpr-aging-ref-corner = <22>;
+				qcom,cpr-aging-ro-scaling-factor = <2950>;
+				qcom,allow-aging-voltage-adjustment = <0>;
+				qcom,allow-aging-open-loop-voltage-adjustment =
+					<1>;
 			};
 		};
 	};
@@ -751,6 +783,9 @@
 			<0x179c7aa4 0x17812c18>;
 		qcom,cpr-panic-reg-name-list =
 			"PERF_CPRH_STATUS", "APCLUS1_L2_SAW4_PMIC_STS";
+
+		qcom,cpr-aging-ref-voltage = <1112000>;
+		vdd-supply = <&pmcobalt_s13>;
 
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
@@ -894,6 +929,13 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <15000>;
+				qcom,cpr-aging-ref-corner = <25>;
+				qcom,cpr-aging-ro-scaling-factor = <2950>;
+				qcom,allow-aging-voltage-adjustment = <0>;
+				qcom,allow-aging-open-loop-voltage-adjustment =
+					<1>;
 			};
 		};
 	};

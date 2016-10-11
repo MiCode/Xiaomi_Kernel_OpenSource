@@ -311,6 +311,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#io-channel-cells = <1>;
+			qcom,pmic-revid = <&pmicobalt_revid>;
 		};
 
 		pmicobalt_fg: qpnp,fg {

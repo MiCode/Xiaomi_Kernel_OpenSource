@@ -37,7 +37,7 @@ static void _update_wptr(struct adreno_device *adreno_dev)
 			rb->wptr);
 
 		rb->dispatch_q.expires = jiffies +
-			msecs_to_jiffies(adreno_cmdbatch_timeout);
+			msecs_to_jiffies(adreno_drawobj_timeout);
 	}
 
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
