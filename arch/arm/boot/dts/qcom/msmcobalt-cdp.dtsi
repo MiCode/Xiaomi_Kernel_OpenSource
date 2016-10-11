@@ -21,6 +21,8 @@
 		qca,bt-vdd-pa-supply = <&pmcobalt_l17_pin_ctrl>;
 		qca,bt-vdd-ldo-supply = <&pmcobalt_l25_pin_ctrl>;
 		qca,bt-chip-pwd-supply = <&pmicobalt_bob_pin1>;
+		clocks = <&clock_gcc clk_rf_clk2>;
+		clock-names = "rf_clk2";
 
 		qca,bt-vdd-io-voltage-level = <1352000 1352000>;
 		qca,bt-vdd-xtal-voltage-level = <2040000 2040000>;
