@@ -129,7 +129,7 @@ typedef void (*reg_read_fill_t)(struct kgsl_device *device, int i,
 
 
 static void sync_event_print(struct seq_file *s,
-		struct kgsl_cmdbatch_sync_event *sync_event)
+		struct kgsl_drawobj_sync_event *sync_event)
 {
 	switch (sync_event->type) {
 	case KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP: {
@@ -153,12 +153,12 @@ struct flag_entry {
 	const char *str;
 };
 
-static const struct flag_entry cmdbatch_flags[] = {KGSL_CMDBATCH_FLAGS};
+static const struct flag_entry drawobj_flags[] = {KGSL_DRAWOBJ_FLAGS};
 
-static const struct flag_entry cmdbatch_priv[] = {
-	{ CMDBATCH_FLAG_SKIP, "skip"},
-	{ CMDBATCH_FLAG_FORCE_PREAMBLE, "force_preamble"},
-	{ CMDBATCH_FLAG_WFI, "wait_for_idle" },
+static const struct flag_entry cmdobj_priv[] = {
+	{ CMDOBJ_SKIP, "skip"},
+	{ CMDOBJ_FORCE_PREAMBLE, "force_preamble"},
+	{ CMDOBJ_WFI, "wait_for_idle" },
 };
 
 static const struct flag_entry context_flags[] = {KGSL_CONTEXT_FLAGS};
@@ -199,42 +199,54 @@ static void print_flags(struct seq_file *s, const struct flag_entry *table,
 		seq_puts(s, "None");
 }
 
-static void cmdbatch_print(struct seq_file *s, struct kgsl_cmdbatch *cmdbatch)
+static void syncobj_print(struct seq_file *s,
+			struct kgsl_drawobj_sync *syncobj)
 {
-	struct kgsl_cmdbatch_sync_event *event;
+	struct kgsl_drawobj_sync_event *event;
 	unsigned int i;
 
-	/* print fences first, since they block this cmdbatch */
+	seq_puts(s, " syncobj ");
 
-	for (i = 0; i < cmdbatch->numsyncs; i++) {
-		event = &cmdbatch->synclist[i];
+	for (i = 0; i < syncobj->numsyncs; i++) {
+		event = &syncobj->synclist[i];
 
-		if (!kgsl_cmdbatch_event_pending(cmdbatch, i))
+		if (!kgsl_drawobj_event_pending(syncobj, i))
 			continue;
 
-		/*
-		 * Timestamp is 0 for KGSL_CONTEXT_SYNC, but print it anyways
-		 * so that it is clear if the fence was a separate submit
-		 * or part of an IB submit.
-		 */
-		seq_printf(s, "\t%d ", cmdbatch->timestamp);
 		sync_event_print(s, event);
 		seq_puts(s, "\n");
 	}
+}
 
-	/* if this flag is set, there won't be an IB */
-	if (cmdbatch->flags & KGSL_CONTEXT_SYNC)
-		return;
+static void cmdobj_print(struct seq_file *s,
+			struct kgsl_drawobj_cmd *cmdobj)
+{
+	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 
-	seq_printf(s, "\t%d: ", cmdbatch->timestamp);
+	if (drawobj->type == CMDOBJ_TYPE)
+		seq_puts(s, " cmdobj ");
+	else
+		seq_puts(s, " markerobj ");
 
-	seq_puts(s, " flags: ");
-	print_flags(s, cmdbatch_flags, ARRAY_SIZE(cmdbatch_flags),
-		    cmdbatch->flags);
+	seq_printf(s, "\t %d ", drawobj->timestamp);
 
 	seq_puts(s, " priv: ");
-	print_flags(s, cmdbatch_priv, ARRAY_SIZE(cmdbatch_priv),
-		    cmdbatch->priv);
+	print_flags(s, cmdobj_priv, ARRAY_SIZE(cmdobj_priv),
+				cmdobj->priv);
+}
+
+static void drawobj_print(struct seq_file *s,
+			struct kgsl_drawobj *drawobj)
+{
+	if (drawobj->type == SYNCOBJ_TYPE)
+		syncobj_print(s, SYNCOBJ(drawobj));
+	else if ((drawobj->type == CMDOBJ_TYPE) ||
+			(drawobj->type == MARKEROBJ_TYPE))
+		cmdobj_print(s, CMDOBJ(drawobj));
+
+	seq_puts(s, " flags: ");
+	print_flags(s, drawobj_flags, ARRAY_SIZE(drawobj_flags),
+		    drawobj->flags);
 
 	seq_puts(s, "\n");
 }
@@ -285,13 +297,13 @@ static int ctx_print(struct seq_file *s, void *unused)
 		   queued, consumed, retired,
 		   drawctxt->internal_timestamp);
 
-	seq_puts(s, "cmdqueue:\n");
+	seq_puts(s, "drawqueue:\n");
 
 	spin_lock(&drawctxt->lock);
-	for (i = drawctxt->cmdqueue_head;
-		i != drawctxt->cmdqueue_tail;
-		i = CMDQUEUE_NEXT(i, ADRENO_CONTEXT_CMDQUEUE_SIZE))
-		cmdbatch_print(s, drawctxt->cmdqueue[i]);
+	for (i = drawctxt->drawqueue_head;
+		i != drawctxt->drawqueue_tail;
+		i = DRAWQUEUE_NEXT(i, ADRENO_CONTEXT_DRAWQUEUE_SIZE))
+		drawobj_print(s, drawctxt->drawqueue[i]);
 	spin_unlock(&drawctxt->lock);
 
 	seq_puts(s, "events:\n");

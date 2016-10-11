@@ -18,7 +18,7 @@ struct adreno_context_type {
 	const char *str;
 };
 
-#define ADRENO_CONTEXT_CMDQUEUE_SIZE 128
+#define ADRENO_CONTEXT_DRAWQUEUE_SIZE 128
 #define SUBMIT_RETIRE_TICKS_SIZE 7
 
 struct kgsl_device;
@@ -32,20 +32,21 @@ struct kgsl_context;
  * @internal_timestamp: Global timestamp of the last issued command
  *			NOTE: guarded by device->mutex, not drawctxt->mutex!
  * @type: Context type (GL, CL, RS)
- * @mutex: Mutex to protect the cmdqueue
- * @cmdqueue: Queue of command batches waiting to be dispatched for this context
- * @cmdqueue_head: Head of the cmdqueue queue
- * @cmdqueue_tail: Tail of the cmdqueue queue
+ * @mutex: Mutex to protect the drawqueue
+ * @drawqueue: Queue of drawobjs waiting to be dispatched for this
+ *			context
+ * @drawqueue_head: Head of the drawqueue queue
+ * @drawqueue_tail: Tail of the drawqueue queue
  * @pending: Priority list node for the dispatcher list of pending contexts
  * @wq: Workqueue structure for contexts to sleep pending room in the queue
  * @waiting: Workqueue structure for contexts waiting for a timestamp or event
- * @queued: Number of commands queued in the cmdqueue
- * @fault_policy: GFT fault policy set in cmdbatch_skip_cmd();
+ * @queued: Number of commands queued in the drawqueue
+ * @fault_policy: GFT fault policy set in _skip_cmd();
  * @debug_root: debugfs entry for this context.
  * @queued_timestamp: The last timestamp that was queued on this context
  * @rb: The ringbuffer in which this context submits commands.
  * @submitted_timestamp: The last timestamp that was submitted for this context
- * @submit_retire_ticks: Array to hold cmdbatch execution times from submit
+ * @submit_retire_ticks: Array to hold command obj execution times from submit
  *                       to retire
  * @ticks_index: The index into submit_retire_ticks[] where the new delta will
  *		 be written.
@@ -60,9 +61,9 @@ struct adreno_context {
 	spinlock_t lock;
 
 	/* Dispatcher */
-	struct kgsl_cmdbatch *cmdqueue[ADRENO_CONTEXT_CMDQUEUE_SIZE];
-	unsigned int cmdqueue_head;
-	unsigned int cmdqueue_tail;
+	struct kgsl_drawobj *drawqueue[ADRENO_CONTEXT_DRAWQUEUE_SIZE];
+	unsigned int drawqueue_head;
+	unsigned int drawqueue_tail;
 
 	struct plist_node pending;
 	wait_queue_head_t wq;
@@ -92,8 +93,9 @@ struct adreno_context {
  * @ADRENO_CONTEXT_SKIP_EOF - Context skip IBs until the next end of frame
  *      marker.
  * @ADRENO_CONTEXT_FORCE_PREAMBLE - Force the preamble for the next submission.
- * @ADRENO_CONTEXT_SKIP_CMD - Context's command batch is skipped during
+ * @ADRENO_CONTEXT_SKIP_CMD - Context's drawobj's skipped during
 	fault tolerance.
+ * @ADRENO_CONTEXT_FENCE_LOG - Dump fences on this context.
  */
 enum adreno_context_priv {
 	ADRENO_CONTEXT_FAULT = KGSL_CONTEXT_PRIV_DEVICE_SPECIFIC,
@@ -102,6 +104,7 @@ enum adreno_context_priv {
 	ADRENO_CONTEXT_SKIP_EOF,
 	ADRENO_CONTEXT_FORCE_PREAMBLE,
 	ADRENO_CONTEXT_SKIP_CMD,
+	ADRENO_CONTEXT_FENCE_LOG,
 };
 
 /* Flags for adreno_drawctxt_switch() */
