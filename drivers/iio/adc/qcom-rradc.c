@@ -20,6 +20,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 #define FG_ADC_RR_EN_CTL			0x46
 #define FG_ADC_RR_SKIN_TEMP_LSB			0x50
@@ -150,13 +151,18 @@
 
 #define FG_ADC_RR_TEMP_FS_VOLTAGE_NUM		5000000
 #define FG_ADC_RR_TEMP_FS_VOLTAGE_DEN		3
-#define FG_ADC_RR_DIE_TEMP_OFFSET		600000
+#define FG_ADC_RR_DIE_TEMP_OFFSET		601400
 #define FG_ADC_RR_DIE_TEMP_SLOPE		2
 #define FG_ADC_RR_DIE_TEMP_OFFSET_MILLI_DEGC	25000
 
-#define FG_ADC_RR_CHG_TEMP_OFFSET		1288000
-#define FG_ADC_RR_CHG_TEMP_SLOPE		4
-#define FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC	27000
+#define FAB_ID_GF				0x30
+#define FAB_ID_SMIC				0x11
+#define FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV		1296794
+#define FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C	3858
+#define FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV	1339518
+#define FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C	3598
+#define FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC	25000
+#define FG_ADC_RR_CHG_THRESHOLD_SCALE		4
 
 #define FG_ADC_RR_VOLT_INPUT_FACTOR		8
 #define FG_ADC_RR_CURR_INPUT_FACTOR		2
@@ -201,6 +207,8 @@ struct rradc_chip {
 	struct iio_chan_spec		*iio_chans;
 	unsigned int			nchannels;
 	struct rradc_chan_prop		*chan_props;
+	struct device_node		*revid_dev_node;
+	struct pmic_revid_data		*pmic_fab_id;
 };
 
 struct rradc_channels {
@@ -347,16 +355,34 @@ static int rradc_post_process_chg_temp_hot(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 adc_code,
 			int *result_millidegc)
 {
-	int64_t temp = 0;
+	int64_t uv = 0, offset = 0, slope = 0;
 
-	temp = (int64_t) adc_code * 4;
-	temp = temp * FG_ADC_RR_TEMP_FS_VOLTAGE_NUM;
-	temp = div64_s64(temp, (FG_ADC_RR_TEMP_FS_VOLTAGE_DEN *
+	if (chip->revid_dev_node) {
+		switch (chip->pmic_fab_id->fab_id) {
+		case FAB_ID_GF:
+			offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
+			slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
+			break;
+		case FAB_ID_SMIC:
+			offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
+			slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
+			break;
+		default:
+			return -EINVAL;
+		}
+	} else {
+		pr_err("No temperature scaling coefficients\n");
+		return -EINVAL;
+	}
+
+	uv = (int64_t) adc_code * FG_ADC_RR_CHG_THRESHOLD_SCALE;
+	uv = uv * FG_ADC_RR_TEMP_FS_VOLTAGE_NUM;
+	uv = div64_s64(uv, (FG_ADC_RR_TEMP_FS_VOLTAGE_DEN *
 					FG_MAX_ADC_READINGS));
-	temp = FG_ADC_RR_CHG_TEMP_OFFSET - temp;
-	temp = div64_s64(temp, FG_ADC_RR_CHG_TEMP_SLOPE);
-	temp = temp + FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC;
-	*result_millidegc = temp;
+	uv = offset - uv;
+	uv = div64_s64((uv * FG_ADC_SCALE_MILLI_FACTOR), slope);
+	uv = uv + FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC;
+	*result_millidegc = uv;
 
 	return 0;
 }
@@ -380,15 +406,33 @@ static int rradc_post_process_chg_temp(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 adc_code,
 			int *result_millidegc)
 {
-	int64_t temp = 0;
+	int64_t uv = 0, offset = 0, slope = 0;
 
-	temp = ((int64_t) adc_code * FG_ADC_RR_TEMP_FS_VOLTAGE_NUM);
-	temp = div64_s64(temp, (FG_ADC_RR_TEMP_FS_VOLTAGE_DEN *
+	if (chip->revid_dev_node) {
+		switch (chip->pmic_fab_id->fab_id) {
+		case FAB_ID_GF:
+			offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
+			slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
+			break;
+		case FAB_ID_SMIC:
+			offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
+			slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
+			break;
+		default:
+			return -EINVAL;
+		}
+	} else {
+		pr_err("No temperature scaling coefficients\n");
+		return -EINVAL;
+	}
+
+	uv = ((int64_t) adc_code * FG_ADC_RR_TEMP_FS_VOLTAGE_NUM);
+	uv = div64_s64(uv, (FG_ADC_RR_TEMP_FS_VOLTAGE_DEN *
 					FG_MAX_ADC_READINGS));
-	temp = FG_ADC_RR_CHG_TEMP_OFFSET - temp;
-	temp = div64_s64(temp, FG_ADC_RR_CHG_TEMP_SLOPE);
-	temp = temp + FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC;
-	*result_millidegc = temp;
+	uv = offset - uv;
+	uv = div64_s64((uv * FG_ADC_SCALE_MILLI_FACTOR), slope);
+	uv += FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC;
+	*result_millidegc = uv;
 
 	return 0;
 }
@@ -516,7 +560,7 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 
 		buf[0] &= FG_RR_ADC_STS_CHANNEL_READING_MASK;
 		if (buf[0] != FG_RR_ADC_STS_CHANNEL_READING_MASK) {
-			pr_warn("%s is not ready; nothing to read\n",
+			pr_debug("%s is not ready; nothing to read\n",
 				rradc_chans[prop->channel].datasheet_name);
 			rc = -ENODATA;
 			goto fail;
@@ -653,6 +697,22 @@ static int rradc_get_dt_data(struct rradc_chip *chip, struct device_node *node)
 	}
 
 	chip->base = base;
+	chip->revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
+	if (chip->revid_dev_node) {
+		chip->pmic_fab_id = get_revid_data(chip->revid_dev_node);
+		if (IS_ERR(chip->pmic_fab_id)) {
+			rc = PTR_ERR(chip->pmic_fab_id);
+			if (rc != -EPROBE_DEFER)
+				pr_err("Unable to get pmic_revid rc=%d\n", rc);
+			return rc;
+		}
+
+		if (chip->pmic_fab_id->fab_id == -EINVAL) {
+			rc = chip->pmic_fab_id->fab_id;
+			pr_debug("Unable to read fabid rc=%d\n", rc);
+		}
+	}
+
 	iio_chan = chip->iio_chans;
 
 	for (i = 0; i < RR_ADC_MAX; i++) {
