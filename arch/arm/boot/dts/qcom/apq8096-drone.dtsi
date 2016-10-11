@@ -354,12 +354,6 @@
 
 
 &rpm_bus {
-	rpm-regulator-bstb {
-		status = "disabled";
-		regulator-bst {
-			status = "disabled";
-		};
-	};
 	rpm-regulator-ldoa1 {
 		status = "disabled";
 		pm8994_l1: regulator-l1 {
@@ -371,7 +365,7 @@
 		status = "okay";
 		pm8994_l3: regulator-l3 {
 			regulator-min-microvolt = <1100000>;
-			regulator-max-microvolt = <1100000>;
+			regulator-max-microvolt = <1300000>;
 			qcom,init-voltage = <1100000>;
 			status = "okay";
 		};
@@ -455,9 +449,9 @@
 	rpm-regulator-ldoa22 {
 		status = "okay";
 		pm8994_l22: regulator-l22 {
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			qcom,init-voltage = <2800000>;
+			regulator-min-microvolt = <2500000>;
+			regulator-max-microvolt = <2500000>;
+			qcom,init-voltage = <2500000>;
 			status = "okay";
 		};
 	};
@@ -500,23 +494,25 @@
 };
 
 &pmi8994_charger {
-	/delete-property/ otg-parent-supply;
 	qcom,charging-disabled;
-	smbcharger_charger_otg {
-		parent-supply = <&pmi8994_boost_5v>;
-	};
 };
 
 &usb_otg_switch {
-	/delete-property/ vin-supply;
 	gpio = <&pm8994_gpios 11 0>;
-	enable-active-high;
 	status = "ok";
 };
 
 &usb3 {
 	qcom,charging-disabled;
 	vbus_dwc3-supply = <&usb_otg_switch>;
+};
+
+&usb2s {
+	status = "ok";
+	vbus_dwc3-supply = <&usb_vbus_vreg>;
+	dwc3@7600000 {
+		dr_mode = "host";
+	};
 };
 
 &usb_nop_phy {
@@ -662,6 +658,13 @@
 		regulator-always-on;
 	};
 
+	usb_vbus_vreg: usb_vbus_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_vbus_vreg";
+		gpio = <&pmi8994_gpios 3 0>;
+		enable-active-high;
+	};
+
 	sound {
 		status = "disabled";
 	};
@@ -718,10 +721,10 @@
 
 	gpio@ca00 { /* GPIO 11 - USB enb1 (otg switch) */
 		qcom,mode = <1>;	/* DIGITAL OUT */
-		qcom,pull = <1>;	/* PULL DOWN */
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* GPIO */
 		qcom,master-en = <1>;	/* Enable GPIO */
+		qcom,invert = <0>;	/* Invert */
 		status = "okay";
 	};
 
