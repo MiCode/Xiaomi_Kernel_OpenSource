@@ -18,6 +18,7 @@
 #include <dt-bindings/clock/qcom,videocc-skunk.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/soc/qcom,tcs-mbox.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM SKUNK";
@@ -608,6 +609,18 @@
 		label = "spss";
 		qcom,tx-ring-size = <0x400>;
 		qcom,rx-ring-size = <0x400>;
+	};
+
+	apps_rsc: mailbox@179e0000 {
+		compatible = "qcom,tcs-drv";
+		reg = <0x179e0000 0x100>, <0x179e0d00 0x3000>;
+		interrupts = <0 5 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <2>;
+		qcom,tcs-config = <SLEEP_TCS 3>,
+				<WAKE_TCS    3>,
+				<ACTIVE_TCS  2>,
+				<CONTROL_TCS 1>;
 	};
 };
 
