@@ -916,7 +916,7 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 static int _sde_plane_mode_set(struct drm_plane *plane,
 				struct drm_plane_state *state)
 {
-	uint32_t nplanes, src_flags, zpos, split_w;
+	uint32_t nplanes, src_flags;
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	const struct sde_format *fmt;
@@ -1030,13 +1030,6 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		} else if (psde->pipe_hw->ops.setup_rects) {
 			_sde_plane_setup_scaler(psde, fmt, pstate);
 
-			/* base layer source split needs update */
-			zpos = sde_plane_get_property(pstate, PLANE_PROP_ZPOS);
-			if (zpos == SDE_STAGE_BASE) {
-				split_w = get_crtc_split_width(crtc);
-				if (psde->pipe_cfg.dst_rect.x >= split_w)
-					psde->pipe_cfg.dst_rect.x -= split_w;
-			}
 			psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
 					&psde->pipe_cfg, &psde->pixel_ext);
 		}
@@ -1395,7 +1388,7 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 
 /* helper to install properties which are common to planes and crtcs */
 static void _sde_plane_install_properties(struct drm_plane *plane,
-	u32 max_blendstages)
+	struct sde_mdss_cfg *catalog)
 {
 	static const struct drm_prop_enum_list e_blend_op[] = {
 		{SDE_DRM_BLEND_OP_NOT_DEFINED,    "not_defined"},
@@ -1409,6 +1402,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	const struct sde_format_extended *format_list;
 	struct sde_kms_info *info;
 	struct sde_plane *psde = to_sde_plane(plane);
+	int zpos_max = 255;
+	int zpos_def = 0;
 
 	if (!plane || !psde) {
 		SDE_ERROR("invalid plane\n");
@@ -1417,10 +1412,21 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		SDE_ERROR("invalid plane, pipe_hw %d pipe_sblk %d\n",
 				psde->pipe_hw != 0, psde->pipe_sblk != 0);
 		return;
+	} else if (!catalog) {
+		SDE_ERROR("invalid catalog\n");
+		return;
 	}
 
-	msm_property_install_range(&psde->property_info, "zpos", 0x0, 0,
-		max_blendstages, SDE_STAGE_BASE, PLANE_PROP_ZPOS);
+	if (sde_is_custom_client()) {
+		if (catalog->mixer_count && catalog->mixer)
+			zpos_max = catalog->mixer[0].sblk->maxblendstages;
+	} else if (plane->type != DRM_PLANE_TYPE_PRIMARY) {
+		/* reserve zpos == 0 for primary planes */
+		zpos_def = drm_plane_index(plane) + 1;
+	}
+
+	msm_property_install_range(&psde->property_info, "zpos",
+		0x0, 0, zpos_max, zpos_def, PLANE_PROP_ZPOS);
 
 	msm_property_install_range(&psde->property_info, "alpha",
 		0x0, 0, 255, 255, PLANE_PROP_ALPHA);
@@ -1887,7 +1893,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	struct msm_drm_private *priv;
 	struct sde_kms *kms;
 	enum drm_plane_type type;
-	int ret = -EINVAL, max_blendstages = 255;
+	int ret = -EINVAL;
 
 	if (!dev) {
 		SDE_ERROR("[%u]device is NULL\n", pipe);
@@ -1943,9 +1949,6 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 		goto clean_sspp;
 	}
 
-	if (kms->catalog && kms->catalog->mixer_count && kms->catalog->mixer)
-		max_blendstages = kms->catalog->mixer[0].sblk->maxblendstages;
-
 	/* add plane to DRM framework */
 	psde->nformats = sde_populate_formats(psde->pipe_sblk->format_list,
 			psde->formats,
@@ -1976,7 +1979,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 			PLANE_PROP_COUNT, PLANE_PROP_BLOBCOUNT,
 			sizeof(struct sde_plane_state));
 
-	_sde_plane_install_properties(plane, max_blendstages);
+	_sde_plane_install_properties(plane, kms->catalog);
 
 	/* save user friendly pipe name for later */
 	snprintf(psde->pipe_name, SDE_NAME_SIZE, "plane%u", plane->base.id);
