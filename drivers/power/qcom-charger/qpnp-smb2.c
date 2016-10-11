@@ -640,6 +640,7 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_STEP_CHARGING_STEP,
 	POWER_SUPPLY_PROP_CHARGE_DONE,
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
+	POWER_SUPPLY_PROP_PARALLEL_PERCENT,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -704,6 +705,9 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->pl_disable_votable,
 					      USER_VOTER);
 		break;
+	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
+		val->intval = chg->pl.slave_pct;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -737,6 +741,12 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 		vote(chg->pl_disable_votable, USER_VOTER, (bool)val->intval, 0);
 		break;
+	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
+		if (val->intval < 0 || val->intval > 100)
+			return -EINVAL;
+		chg->pl.slave_pct = val->intval;
+		rerun_election(chg->fcc_votable);
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -752,6 +762,7 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
+	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
 		return 1;
 	default:
 		break;
