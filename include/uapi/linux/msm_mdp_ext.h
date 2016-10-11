@@ -147,6 +147,9 @@ VALIDATE/COMMIT FLAG CONFIGURATION
  */
 #define MDP_COMMIT_AVR_ONE_SHOT_MODE		0x10
 
+/* Flag to indicate dual partial ROI update */
+#define MDP_COMMIT_PARTIAL_UPDATE_DUAL_ROI	0x20
+
 /* Flag to enable concurrent writeback for the frame */
 #define MDP_COMMIT_CWB_EN 0x800
 
