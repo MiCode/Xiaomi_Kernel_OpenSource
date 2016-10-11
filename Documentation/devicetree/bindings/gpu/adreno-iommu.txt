@@ -36,8 +36,6 @@ Optional properties:
 		  for secure buffer allocation
 - qcom,secure_align_mask: A mask for determining how secure buffers need to
 		  be aligned
-- qcom,coherent-htw: A boolean specifying if coherent hardware table walks should
-		  be enabled.
 
 - List of sub nodes, one for each of the translation context banks supported.
   The driver uses the names of these nodes to determine how they are used,
