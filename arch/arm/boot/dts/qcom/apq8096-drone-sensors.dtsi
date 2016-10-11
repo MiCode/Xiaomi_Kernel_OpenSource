@@ -105,11 +105,11 @@
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_3_active>;
 		pinctrl-1 = <&i2c_3_sleep>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	i2c_7: i2c@75b5000 { /* BLSP2 QUP1 */
-		status = "disabled";
+		status = "ok";
 	};
 
 	blsp2_uart3: uart@075b1000 { /* HW-BLSP9 = BLSP2 UART3 */
