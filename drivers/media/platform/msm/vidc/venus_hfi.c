@@ -4263,7 +4263,7 @@ static inline int __suspend(struct venus_hfi_device *device)
 		return 0;
 	}
 
-	dprintk(VIDC_DBG, "Entering power collapse\n");
+	dprintk(VIDC_PROF, "Entering power collapse\n");
 
 	if (device->res->pm_qos_latency_us &&
 		pm_qos_request_active(&device->qos))
@@ -4276,7 +4276,7 @@ static inline int __suspend(struct venus_hfi_device *device)
 	}
 
 	__venus_power_off(device, true);
-	dprintk(VIDC_INFO, "Venus power collapsed\n");
+	dprintk(VIDC_PROF, "Venus power collapsed\n");
 	return rc;
 
 err_tzbsp_suspend:
@@ -4298,7 +4298,7 @@ static inline int __resume(struct venus_hfi_device *device)
 		return -EINVAL;
 	}
 
-	dprintk(VIDC_DBG, "Resuming from power collapse\n");
+	dprintk(VIDC_PROF, "Resuming from power collapse\n");
 	rc = __venus_power_on(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to power on venus\n");
@@ -4334,7 +4334,7 @@ static inline int __resume(struct venus_hfi_device *device)
 		pm_qos_add_request(&device->qos, PM_QOS_CPU_DMA_LATENCY,
 				device->res->pm_qos_latency_us);
 	}
-	dprintk(VIDC_INFO, "Resumed from power collapse\n");
+	dprintk(VIDC_PROF, "Resumed from power collapse\n");
 exit:
 	device->skip_pc_count = 0;
 	return rc;
