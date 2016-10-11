@@ -2285,12 +2285,12 @@ end:
 	return ret;
 }
 
-int __is_cwb_requested(uint32_t output_layer_flags)
+int __is_cwb_requested(uint32_t commit_flags)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int req = 0;
 
-	req = output_layer_flags & MDP_COMMIT_CWB_EN;
+	req = commit_flags & MDP_COMMIT_CWB_EN;
 	if (req && !test_bit(MDSS_CAPS_CWB_SUPPORTED, mdata->mdss_caps_map)) {
 		pr_err("CWB not supported");
 		return -ENODEV;
@@ -2330,7 +2330,7 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 		return -EINVAL;
 
 	if (commit->output_layer) {
-		ret = __is_cwb_requested(commit->output_layer->flags);
+		ret = __is_cwb_requested(commit->flags);
 		if (IS_ERR_VALUE(ret)) {
 			return ret;
 		} else if (ret) {
@@ -2493,7 +2493,7 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 	}
 
 	if (commit->output_layer) {
-		rc = __is_cwb_requested(commit->output_layer->flags);
+		rc = __is_cwb_requested(commit->flags);
 		if (IS_ERR_VALUE(rc)) {
 			return rc;
 		} else if (rc) {
@@ -2553,7 +2553,7 @@ int mdss_mdp_layer_pre_commit_cwb(struct msm_fb_data_type *mfd,
 		return rc;
 	}
 
-	mdp5_data->cwb.layer = commit->output_layer;
+	mdp5_data->cwb.layer = *commit->output_layer;
 	mdp5_data->cwb.wb_idx = commit->output_layer->writeback_ndx;
 
 	mutex_lock(&mdp5_data->cwb.queue_lock);
