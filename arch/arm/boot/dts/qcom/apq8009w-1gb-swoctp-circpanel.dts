@@ -23,3 +23,15 @@
 		      <301 0>;
 	qcom,board-id= <8 0xc>; /* SWOC P4 1GB with Circular display */
 };
+
+&soc {
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		it7260@46 {
+			reg = <0x46>;
+			ite,panel-coords = <0 0 400 400>;
+			ite,display-coords = <0 0 400 400>;
+			ite,fw-name = "it7262_fw_050F0302.bin";
+			ite,cfg-name = "it7262_cfg_6602780D.bin";
+		};
+	};
+};
