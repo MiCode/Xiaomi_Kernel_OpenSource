@@ -54,6 +54,8 @@
 					CHARS_PER_ITEM) + 1)		\
 
 #define FG_SRAM_ADDRESS_MAX		255
+#define PROFILE_LEN			224
+#define PROFILE_COMP_LEN		148
 #define BUCKET_COUNT			8
 #define BUCKET_SOC_PCT			(256 / BUCKET_COUNT)
 
@@ -121,6 +123,8 @@ enum fg_sram_param_id {
 	FG_SRAM_CUTOFF_VOLT,
 	FG_SRAM_EMPTY_VOLT,
 	FG_SRAM_VBATT_LOW,
+	FG_SRAM_FLOAT_VOLT,
+	FG_SRAM_VBATT_FULL,
 	FG_SRAM_ESR_TIMER_DISCHG_MAX,
 	FG_SRAM_ESR_TIMER_DISCHG_INIT,
 	FG_SRAM_ESR_TIMER_CHG_MAX,
@@ -177,6 +181,7 @@ struct fg_dt_props {
 	int	esr_timer_charging;
 	int	esr_timer_awake;
 	int	esr_timer_asleep;
+	bool	force_load_profile;
 };
 
 /* parameters from battery profile */
@@ -184,6 +189,7 @@ struct fg_batt_props {
 	const char	*batt_type_str;
 	char		*batt_profile;
 	int		float_volt_uv;
+	int		vbatt_full_mv;
 	int		fastchg_curr_ma;
 	int		batt_id_kohm;
 };
@@ -200,8 +206,8 @@ struct fg_cyc_ctr_data {
 struct fg_irq_info {
 	const char		*name;
 	const irq_handler_t	handler;
-	int			irq;
 	bool			wakeable;
+	int			irq;
 };
 
 struct fg_chip {
@@ -217,7 +223,7 @@ struct fg_chip {
 	struct votable		*awake_votable;
 	struct fg_sram_param	*sp;
 	int			*debug_mask;
-	char			*batt_profile;
+	char			batt_profile[PROFILE_LEN];
 	struct fg_dt_props	dt;
 	struct fg_batt_props	bp;
 	struct fg_cyc_ctr_data	cyc_ctr;
@@ -227,10 +233,11 @@ struct fg_chip {
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
+	int			batt_id;
 	int			nom_cap_uah;
 	int			status;
 	int			prev_status;
-	bool			batt_id_avail;
+	bool			profile_available;
 	bool			profile_loaded;
 	bool			battery_missing;
 	struct completion	soc_update;
