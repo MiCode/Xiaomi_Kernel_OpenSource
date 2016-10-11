@@ -987,8 +987,6 @@ TRACE_EVENT(walt_update_task_ravg,
 		__field(	u64,	ps			)
 		__field(	u32,	curr_window		)
 		__field(	u32,	prev_window		)
-		__field(	u64,	nt_cs			)
-		__field(	u64,	nt_ps			)
 		__field(	u32,	active_windows		)
 	),
 
@@ -1011,13 +1009,11 @@ TRACE_EVENT(walt_update_task_ravg,
 		__entry->ps             = rq->prev_runnable_sum;
 		__entry->curr_window	= p->ravg.curr_window;
 		__entry->prev_window	= p->ravg.prev_window;
-		__entry->nt_cs		= rq->nt_curr_runnable_sum;
-		__entry->nt_ps		= rq->nt_prev_runnable_sum;
 		__entry->active_windows	= p->ravg.active_windows;
 	),
 
 	TP_printk("wc %llu ws %llu delta %llu event %d cpu %d cur_freq %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u sum %u irqtime %llu"
-		" cs %llu ps %llu cur_window %u prev_window %u nt_cs %llu nt_ps %llu active_wins %u"
+		" cs %llu ps %llu cur_window %u prev_window %u active_wins %u"
 		, __entry->wallclock, __entry->win_start, __entry->delta,
 		__entry->evt, __entry->cpu,
 		__entry->cur_freq, __entry->cur_pid,
@@ -1026,7 +1022,6 @@ TRACE_EVENT(walt_update_task_ravg,
 		__entry->sum, __entry->irqtime,
 		__entry->cs, __entry->ps,
 		__entry->curr_window, __entry->prev_window,
-		  __entry->nt_cs, __entry->nt_ps,
 		  __entry->active_windows
 		)
 );
@@ -1089,22 +1084,18 @@ TRACE_EVENT(walt_migration_update_sum,
 		__field(int,		pid			)
 		__field(	u64,	cs			)
 		__field(	u64,	ps			)
-		__field(	s64,	nt_cs			)
-		__field(	s64,	nt_ps			)
 	),
 
 	TP_fast_assign(
 		__entry->cpu		= cpu_of(rq);
 		__entry->cs		= rq->curr_runnable_sum;
 		__entry->ps		= rq->prev_runnable_sum;
-		__entry->nt_cs		= (s64)rq->nt_curr_runnable_sum;
-		__entry->nt_ps		= (s64)rq->nt_prev_runnable_sum;
 		__entry->pid		= p->pid;
 	),
 
-	TP_printk("cpu %d: cs %llu ps %llu nt_cs %lld nt_ps %lld pid %d",
+	TP_printk("cpu %d: cs %llu ps %llu %lld pid %d",
 		  __entry->cpu, __entry->cs, __entry->ps,
-		  __entry->nt_cs, __entry->nt_ps, __entry->pid)
+		  __entry->pid)
 );
 #endif /* CONFIG_SCHED_WALT */
 
