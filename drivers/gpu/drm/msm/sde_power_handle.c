@@ -90,7 +90,7 @@ static int sde_power_parse_dt_supply(struct platform_device *pdev,
 	supply_root_node = of_get_child_by_name(of_node,
 						"qcom,platform-supply-entries");
 	if (!supply_root_node) {
-		pr_err("no supply entry present\n");
+		pr_debug("no supply entry present\n");
 		return rc;
 	}
 
@@ -222,28 +222,31 @@ static int sde_power_parse_dt_clock(struct platform_device *pdev,
 	const char *clock_name;
 	u32 clock_rate;
 	u32 clock_max_rate;
+	int num_clk;
 
 	if (!pdev || !mp) {
 		pr_err("invalid input param pdev:%pK mp:%pK\n", pdev, mp);
 		return -EINVAL;
 	}
 
-	mp->num_clk = of_property_count_strings(pdev->dev.of_node,
+	mp->num_clk = 0;
+	num_clk = of_property_count_strings(pdev->dev.of_node,
 							"clock-names");
-	if (mp->num_clk <= 0) {
-		pr_err("clocks are not defined\n");
+	if (num_clk <= 0) {
+		pr_debug("clocks are not defined\n");
 		goto clk_err;
 	}
 
+	mp->num_clk = num_clk;
 	mp->clk_config = devm_kzalloc(&pdev->dev,
-			sizeof(struct dss_clk) * mp->num_clk, GFP_KERNEL);
+			sizeof(struct dss_clk) * num_clk, GFP_KERNEL);
 	if (!mp->clk_config) {
 		rc = -ENOMEM;
 		mp->num_clk = 0;
 		goto clk_err;
 	}
 
-	for (i = 0; i < mp->num_clk; i++) {
+	for (i = 0; i < num_clk; i++) {
 		of_property_read_string_index(pdev->dev.of_node, "clock-names",
 							i, &clock_name);
 		strlcpy(mp->clk_config[i].clk_name, clock_name,
@@ -407,7 +410,7 @@ void sde_power_resource_deinit(struct platform_device *pdev,
 {
 	struct dss_module_power *mp;
 
-	if (!phandle) {
+	if (!phandle || !pdev) {
 		pr_err("invalid input param\n");
 		return;
 	}
@@ -419,8 +422,12 @@ void sde_power_resource_deinit(struct platform_device *pdev,
 
 	msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
 
-	devm_kfree(&pdev->dev, mp->clk_config);
-	devm_kfree(&pdev->dev, mp->vreg_config);
+	if (mp->clk_config)
+		devm_kfree(&pdev->dev, mp->clk_config);
+
+	if (mp->vreg_config)
+		devm_kfree(&pdev->dev, mp->vreg_config);
+
 	mp->num_vreg = 0;
 	mp->num_clk = 0;
 }
