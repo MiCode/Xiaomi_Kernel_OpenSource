@@ -143,6 +143,18 @@ void mdss_dp_aux_reset(struct dss_io_data *ctrl_io)
 	writel_relaxed(aux_ctrl, ctrl_io->base + DP_AUX_CTRL);
 }
 
+/* reset DP controller */
+void mdss_dp_ctrl_reset(struct dss_io_data *ctrl_io)
+{
+	u32 sw_reset = readl_relaxed(ctrl_io->base + DP_SW_RESET);
+
+	sw_reset |= BIT(0);
+	writel_relaxed(sw_reset, ctrl_io->base + DP_SW_RESET);
+	udelay(1000);
+	sw_reset &= ~BIT(0);
+	writel_relaxed(sw_reset, ctrl_io->base + DP_SW_RESET);
+}
+
 /* reset DP Mainlink */
 void mdss_dp_mainlink_reset(struct dss_io_data *ctrl_io)
 {
@@ -439,6 +451,17 @@ u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp)
 
 	pr_debug("DP config = 0x%x\n", config);
 	return config;
+}
+
+void mdss_dp_phy_share_lane_config(struct dss_io_data *phy_io,
+					u8 orientation, u8 ln_cnt)
+{
+	u32 info = 0x0;
+
+	info |= (ln_cnt & 0x0F);
+	info |= ((orientation & 0x0F) << 4);
+	pr_debug("Shared Info = 0x%x\n", info);
+	writel_relaxed(info, phy_io->base + DP_PHY_SPARE0);
 }
 
 void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io, char link_rate)

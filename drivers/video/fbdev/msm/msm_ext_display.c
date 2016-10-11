@@ -365,6 +365,7 @@ static int msm_ext_disp_hpd(struct platform_device *pdev,
 			ext_disp->ops->get_audio_edid_blk = NULL;
 			ext_disp->ops->cable_status = NULL;
 			ext_disp->ops->get_intf_id = NULL;
+			ext_disp->ops->teardown_done = NULL;
 		}
 
 		ext_disp->current_disp = EXT_DISPLAY_TYPE_MAX;
@@ -463,6 +464,20 @@ end:
 	return ret;
 }
 
+static void msm_ext_disp_teardown_done(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct msm_ext_disp_init_data *data = NULL;
+
+	ret = msm_ext_disp_get_intf_data_helper(pdev, &data);
+	if (ret || !data) {
+		pr_err("invalid input");
+		return;
+	}
+
+	data->codec_ops.teardown_done(data->pdev);
+}
+
 static int msm_ext_disp_get_intf_id(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -545,6 +560,8 @@ static int msm_ext_disp_notify(struct platform_device *pdev,
 			msm_ext_disp_cable_status;
 		ext_disp->ops->get_intf_id =
 			msm_ext_disp_get_intf_id;
+		ext_disp->ops->teardown_done =
+			msm_ext_disp_teardown_done;
 	}
 
 	switch_set_state(&ext_disp->audio_sdev, (int)new_state);
@@ -614,6 +631,7 @@ static int msm_ext_disp_audio_ack(struct platform_device *pdev, u32 ack)
 			ext_disp->ops->get_audio_edid_blk = NULL;
 			ext_disp->ops->cable_status = NULL;
 			ext_disp->ops->get_intf_id = NULL;
+			ext_disp->ops->teardown_done = NULL;
 		}
 
 		ext_disp->current_disp = EXT_DISPLAY_TYPE_MAX;

@@ -108,6 +108,7 @@ struct msm_ext_disp_audio_codec_ops {
 		struct msm_ext_disp_audio_edid_blk *blk);
 	int (*cable_status)(struct platform_device *pdev, u32 vote);
 	int (*get_intf_id)(struct platform_device *pdev);
+	void (*teardown_done)(struct platform_device *pdev);
 };
 
 /*
