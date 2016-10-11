@@ -136,7 +136,7 @@ struct wdsp_ramdump_data {
 	void *rd_v_addr;
 
 	/* Data provided through error interrupt */
-	struct wdsp_err_intr_arg err_data;
+	struct wdsp_err_signal_arg err_data;
 };
 
 struct wdsp_mgr_priv {
@@ -608,7 +608,7 @@ static struct device *wdsp_get_dev_for_cmpnt(struct device *wdsp_dev,
 static void wdsp_collect_ramdumps(struct wdsp_mgr_priv *wdsp)
 {
 	struct wdsp_img_section img_section;
-	struct wdsp_err_intr_arg *data = &wdsp->dump_data.err_data;
+	struct wdsp_err_signal_arg *data = &wdsp->dump_data.err_data;
 	struct ramdump_segment rd_seg;
 	int ret = 0;
 
@@ -739,7 +739,7 @@ static int wdsp_ssr_handler(struct wdsp_mgr_priv *wdsp, void *arg,
 			    enum wdsp_ssr_type ssr_type)
 {
 	enum wdsp_ssr_type current_ssr_type;
-	struct wdsp_err_intr_arg *err_data;
+	struct wdsp_err_signal_arg *err_data;
 
 	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
 
@@ -750,7 +750,7 @@ static int wdsp_ssr_handler(struct wdsp_mgr_priv *wdsp, void *arg,
 	wdsp->ssr_type = ssr_type;
 
 	if (arg) {
-		err_data = (struct wdsp_err_intr_arg *) arg;
+		err_data = (struct wdsp_err_signal_arg *) arg;
 		memcpy(&wdsp->dump_data.err_data, err_data,
 		       sizeof(*err_data));
 	} else {
@@ -787,8 +787,8 @@ static int wdsp_ssr_handler(struct wdsp_mgr_priv *wdsp, void *arg,
 	return 0;
 }
 
-static int wdsp_intr_handler(struct device *wdsp_dev,
-			     enum wdsp_intr intr, void *arg)
+static int wdsp_signal_handler(struct device *wdsp_dev,
+			       enum wdsp_signal signal, void *arg)
 {
 	struct wdsp_mgr_priv *wdsp;
 	int ret;
@@ -799,7 +799,7 @@ static int wdsp_intr_handler(struct device *wdsp_dev,
 	wdsp = dev_get_drvdata(wdsp_dev);
 	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->api_mutex);
 
-	switch (intr) {
+	switch (signal) {
 	case WDSP_IPC1_INTR:
 		ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_IPC,
 					 WDSP_EVENT_IPC1_INTR, NULL);
@@ -813,8 +813,8 @@ static int wdsp_intr_handler(struct device *wdsp_dev,
 	}
 
 	if (IS_ERR_VALUE(ret))
-		WDSP_ERR(wdsp, "handling intr %d failed with error %d",
-			 intr, ret);
+		WDSP_ERR(wdsp, "handling signal %d failed with error %d",
+			 signal, ret);
 	WDSP_MGR_MUTEX_UNLOCK(wdsp, wdsp->api_mutex);
 
 	return ret;
@@ -870,7 +870,7 @@ static int wdsp_resume(struct device *wdsp_dev)
 static struct wdsp_mgr_ops wdsp_ops = {
 	.register_cmpnt_ops = wdsp_register_cmpnt_ops,
 	.get_dev_for_cmpnt = wdsp_get_dev_for_cmpnt,
-	.intr_handler = wdsp_intr_handler,
+	.signal_handler = wdsp_signal_handler,
 	.vote_for_dsp = wdsp_vote_for_dsp,
 	.suspend = wdsp_suspend,
 	.resume = wdsp_resume,
