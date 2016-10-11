@@ -55,7 +55,7 @@ module_param(poll_msec, int, 0444);
 
 static inline void set_errxctlr_el1(void)
 {
-	u64 val = 0x8f;
+	u64 val = 0x10f;
 
 	asm volatile("msr s3_0_c5_c4_1, %0" : : "r" (val));
 }
@@ -116,11 +116,20 @@ static const struct errors_edac errors[] = {
 
 struct erp_drvdata {
 	struct edac_device_ctl_info *edev_ctl;
+	struct erp_drvdata __percpu **erp_cpu_drvdata;
+	int ppi;
 };
 
 static struct erp_drvdata *panic_handler_drvdata;
 
 static DEFINE_SPINLOCK(local_handler_lock);
+
+static void l1_l2_irq_enable(void *info)
+{
+	int irq = *(int *)info;
+
+	enable_percpu_irq(irq, IRQ_TYPE_LEVEL_HIGH);
+}
 
 static int request_erp_irq(struct platform_device *pdev, const char *propname,
 			const char *desc, irq_handler_t handler,
@@ -128,13 +137,14 @@ static int request_erp_irq(struct platform_device *pdev, const char *propname,
 {
 	int rc;
 	struct resource *r;
+	struct erp_drvdata *drv = ed;
 
 	r = platform_get_resource_byname(pdev, IORESOURCE_IRQ, propname);
 
 	if (!r) {
 		pr_err("ARM64 CPU ERP: Could not find <%s> IRQ property. Proceeding anyway.\n",
 			propname);
-		return -EINVAL;
+		goto out;
 	}
 
 	if (!percpu) {
@@ -143,17 +153,41 @@ static int request_erp_irq(struct platform_device *pdev, const char *propname,
 					       IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
 					       desc,
 					       ed);
-	} else {
-		rc = request_percpu_irq(r->start, handler, desc, ed);
-	}
 
-	if (rc) {
-		pr_err("ARM64 CPU ERP: Failed to request IRQ %d: %d (%s / %s). Proceeding anyway.\n",
-		       (int) r->start, rc, propname, desc);
-		return -EINVAL;
+		if (rc) {
+			pr_err("ARM64 CPU ERP: Failed to request IRQ %d: %d (%s / %s). Proceeding anyway.\n",
+			       (int) r->start, rc, propname, desc);
+			goto out;
+		}
+
+	} else {
+		drv->erp_cpu_drvdata = alloc_percpu(struct erp_drvdata *);
+		if (!drv->erp_cpu_drvdata) {
+			pr_err("Failed to allocate percpu erp data\n");
+			goto out;
+		}
+
+		*raw_cpu_ptr(drv->erp_cpu_drvdata) = drv;
+		rc = request_percpu_irq(r->start, handler, desc,
+				drv->erp_cpu_drvdata);
+
+		if (rc) {
+			pr_err("ARM64 CPU ERP: Failed to request IRQ %d: %d (%s / %s). Proceeding anyway.\n",
+			       (int) r->start, rc, propname, desc);
+			goto out_free;
+		}
+
+		drv->ppi = r->start;
+		on_each_cpu(l1_l2_irq_enable, &(r->start), 1);
 	}
 
 	return 0;
+
+out_free:
+	free_percpu(drv->erp_cpu_drvdata);
+	drv->erp_cpu_drvdata = NULL;
+out:
+	return -EINVAL;
 }
 
 static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
@@ -285,10 +319,9 @@ void kryo3xx_poll_cache_errors(struct edac_device_ctl_info *edev_ctl)
 
 static irqreturn_t kryo3xx_l1_l2_handler(int irq, void *drvdata)
 {
-	struct erp_drvdata *drv = drvdata;
-	struct edac_device_ctl_info *edev_ctl = drv->edev_ctl;
+	struct erp_drvdata *drv = *(struct erp_drvdata **)(drvdata);
 
-	kryo3xx_check_l1_l2_ecc(edev_ctl);
+	kryo3xx_check_l1_l2_ecc(drv->edev_ctl);
 	return IRQ_HANDLED;
 }
 
@@ -370,6 +403,12 @@ static int kryo3xx_cpu_erp_remove(struct platform_device *pdev)
 {
 	struct erp_drvdata *drv = dev_get_drvdata(&pdev->dev);
 	struct edac_device_ctl_info *edac_ctl = drv->edev_ctl;
+
+
+	if (drv->erp_cpu_drvdata != NULL) {
+		free_percpu_irq(drv->ppi, drv->erp_cpu_drvdata);
+		free_percpu(drv->erp_cpu_drvdata);
+	}
 
 	edac_device_del_device(edac_ctl->dev);
 	edac_device_free_ctl_info(edac_ctl);
