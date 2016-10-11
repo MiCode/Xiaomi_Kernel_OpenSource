@@ -2727,7 +2727,8 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		MDSS_MDP_REG_SPLIT_DISPLAY_EN);
 	if (intf_sel != 0) {
 		for (i = 0; i < 4; i++)
-			num_of_display_on += ((intf_sel >> i*8) & 0x000000FF);
+			if ((intf_sel >> i*8) & 0x000000FF)
+				num_of_display_on++;
 
 		/*
 		 * For split display enabled - DSI0, DSI1 interfaces are
