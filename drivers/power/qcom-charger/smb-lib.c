@@ -152,7 +152,7 @@ static void smblib_split_fcc(struct smb_charger *chg, int total_ua,
 			     int *master_ua, int *slave_ua)
 {
 	int rc, jeita_cc_delta_ua, step_cc_delta_ua, effective_total_ua,
-		hw_cc_delta_ua = 0;
+		slave_limited_ua, hw_cc_delta_ua = 0;
 
 	rc = smblib_get_step_cc_delta(chg, &step_cc_delta_ua);
 	if (rc < 0) {
@@ -172,7 +172,8 @@ static void smblib_split_fcc(struct smb_charger *chg, int total_ua,
 	}
 
 	effective_total_ua = max(0, total_ua + hw_cc_delta_ua);
-	*slave_ua = (effective_total_ua * chg->pl.slave_pct) / 100;
+	slave_limited_ua = min(effective_total_ua, chg->input_limited_fcc_ua);
+	*slave_ua = (slave_limited_ua * chg->pl.slave_pct) / 100;
 	*slave_ua = (*slave_ua * chg->pl.taper_pct) / 100;
 	*master_ua = max(0, total_ua - *slave_ua);
 }
@@ -592,7 +593,7 @@ static int smblib_fcc_vote_callback(struct votable *votable, void *data,
 {
 	struct smb_charger *chg = data;
 	union power_supply_propval pval = {0, };
-	int rc, master_fcc_ua = total_fcc_ua, slave_fcc_ua;
+	int rc, master_fcc_ua = total_fcc_ua, slave_fcc_ua = 0;
 
 	if (total_fcc_ua < 0)
 		return 0;
@@ -623,6 +624,11 @@ static int smblib_fcc_vote_callback(struct votable *votable, void *data,
 		smblib_err(chg, "Couldn't set master fcc rc=%d\n", rc);
 		return rc;
 	}
+
+	smblib_dbg(chg, PR_PARALLEL, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
+		   master_fcc_ua, slave_fcc_ua,
+		   (master_fcc_ua * 100) / total_fcc_ua,
+		   (slave_fcc_ua * 100) / total_fcc_ua);
 
 	return 0;
 }
@@ -832,6 +838,9 @@ static int smblib_pl_disable_vote_callback(struct votable *votable, void *data,
 			"Couldn't change slave suspend state rc=%d\n", rc);
 		return rc;
 	}
+
+	smblib_dbg(chg, PR_PARALLEL, "parallel charging %s\n",
+		   pl_disable ? "disabled" : "enabled");
 
 	return 0;
 }
@@ -2187,12 +2196,14 @@ skip_dpdm_float:
 }
 
 #define USB_WEAK_INPUT_UA	1400000
+#define EFFICIENCY_PCT		80
 irqreturn_t smblib_handle_icl_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 	int rc, icl_ua;
 
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
 	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &icl_ua);
 	if (rc < 0) {
@@ -2200,11 +2211,18 @@ irqreturn_t smblib_handle_icl_change(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	if (chg->mode == PARALLEL_MASTER)
-		vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
-		     icl_ua >= USB_WEAK_INPUT_UA, 0);
+	if (chg->mode != PARALLEL_MASTER)
+		return IRQ_HANDLED;
 
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+	chg->input_limited_fcc_ua = div64_s64(
+			(s64)icl_ua * MICRO_5V * EFFICIENCY_PCT,
+			(s64)get_effective_result(chg->fv_votable) * 100);
+
+	if (!get_effective_result(chg->pl_disable_votable))
+		rerun_election(chg->fcc_votable);
+
+	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
+		icl_ua >= USB_WEAK_INPUT_UA, 0);
 
 	return IRQ_HANDLED;
 }
