@@ -756,6 +756,10 @@ struct adreno_gpudev {
 	void (*pwrlevel_change_settings)(struct adreno_device *,
 				unsigned int prelevel, unsigned int postlevel,
 				bool post);
+	uint64_t (*read_throttling_counters)(struct adreno_device *);
+	void (*count_throttles)(struct adreno_device *, uint64_t adj);
+	int (*enable_pwr_counters)(struct adreno_device *,
+				unsigned int counter);
 	unsigned int (*preemption_pre_ibsubmit)(struct adreno_device *,
 				struct adreno_ringbuffer *rb,
 				unsigned int *, struct kgsl_context *);
@@ -1466,4 +1470,24 @@ static inline void adreno_ringbuffer_set_pagetable(struct adreno_ringbuffer *rb,
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 }
 
+static inline unsigned int counter_delta(struct kgsl_device *device,
+			unsigned int reg, unsigned int *counter)
+{
+	unsigned int val;
+	unsigned int ret = 0;
+
+	/* Read the value */
+	kgsl_regread(device, reg, &val);
+
+	/* Return 0 for the first read */
+	if (*counter != 0) {
+		if (val < *counter)
+			ret = (0xFFFFFFFF - *counter) + val;
+		else
+			ret = val - *counter;
+	}
+
+	*counter = val;
+	return ret;
+}
 #endif /*__ADRENO_H */

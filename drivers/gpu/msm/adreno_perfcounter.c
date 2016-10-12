@@ -598,28 +598,6 @@ int adreno_perfcounter_put(struct adreno_device *adreno_dev,
 	return -EINVAL;
 }
 
-static int _perfcounter_enable_pwr(struct adreno_device *adreno_dev,
-	unsigned int counter)
-{
-	/* PWR counters enabled by default on A3XX/A4XX so nothing to do */
-	if (adreno_is_a3xx(adreno_dev) || adreno_is_a4xx(adreno_dev))
-		return 0;
-
-	/*
-	 * On 5XX we have to emulate the PWR counters which are physically
-	 * missing. Program countable 6 on RBBM_PERFCTR_RBBM_0 as a substitute
-	 * for PWR:1. Don't emulate PWR:0 as nobody uses it and we don't want
-	 * to take away too many of the generic RBBM counters.
-	 */
-
-	if (counter == 0)
-		return -EINVAL;
-
-	kgsl_regwrite(KGSL_DEVICE(adreno_dev), A5XX_RBBM_PERFCTR_RBBM_SEL_0, 6);
-
-	return 0;
-}
-
 static void _perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 		struct adreno_perfcounters *counters, unsigned int counter,
 		unsigned int countable)
@@ -771,6 +749,7 @@ static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter, unsigned int countable)
 {
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
+	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (counters == NULL)
 		return -EINVAL;
@@ -786,7 +765,9 @@ static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
 		/* alwayson counter is global, so init value is 0 */
 		break;
 	case KGSL_PERFCOUNTER_GROUP_PWR:
-		return _perfcounter_enable_pwr(adreno_dev, counter);
+		if (gpudev->enable_pwr_counters)
+			return gpudev->enable_pwr_counters(adreno_dev, counter);
+		return 0;
 	case KGSL_PERFCOUNTER_GROUP_VBIF:
 		if (countable > VBIF2_PERF_CNT_SEL_MASK)
 			return -EINVAL;
