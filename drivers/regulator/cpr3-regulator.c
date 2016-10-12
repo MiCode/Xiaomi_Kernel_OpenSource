@@ -5891,14 +5891,11 @@ static int cpr3_panic_callback(struct notifier_block *nfb,
 				struct cpr3_controller, panic_notifier);
 	struct cpr3_panic_regs_info *regs_info = ctrl->panic_regs_info;
 	struct cpr3_reg_info *reg;
-	void __iomem *virt_addr;
 	int i = 0;
 
 	for (i = 0; i < regs_info->reg_count; i++) {
 		reg = &(regs_info->regs[i]);
-		virt_addr = ioremap(reg->addr, 0x4);
-		reg->value = readl_relaxed(virt_addr);
-		iounmap(virt_addr);
+		reg->value = readl_relaxed(reg->virt_addr);
 		pr_err("%s[0x%08x] = 0x%08x\n", reg->name, reg->addr,
 			reg->value);
 	}
