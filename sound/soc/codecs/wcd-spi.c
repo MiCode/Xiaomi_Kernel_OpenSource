@@ -631,6 +631,14 @@ static int wcd_spi_init(struct spi_device *spi)
 	if (IS_ERR_VALUE(ret))
 		goto err_wr_en;
 
+	/*
+	 * In case spi_init is called after component deinit,
+	 * it is possible hardware register state is also reset.
+	 * Sync the regcache here so hardware state is updated
+	 * to reflect the cache.
+	 */
+	regcache_sync(wcd_spi->regmap);
+
 	regmap_write(wcd_spi->regmap, WCD_SPI_SLAVE_CONFIG,
 		     0x0F3D0800);
 
@@ -1093,46 +1101,12 @@ static struct regmap_config wcd_spi_regmap_cfg = {
 static int wdsp_spi_init(struct device *dev, void *priv_data)
 {
 	struct spi_device *spi = to_spi_device(dev);
-	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
 	int ret;
 
-	wcd_spi->reg_bytes = DIV_ROUND_UP(wcd_spi_regmap_cfg.reg_bits, 8);
-	wcd_spi->val_bytes = DIV_ROUND_UP(wcd_spi_regmap_cfg.val_bits, 8);
-
-	wcd_spi->regmap = devm_regmap_init(&spi->dev, &wcd_spi_regmap_bus,
-					   &spi->dev, &wcd_spi_regmap_cfg);
-	if (IS_ERR(wcd_spi->regmap)) {
-		ret = PTR_ERR(wcd_spi->regmap);
-		dev_err(&spi->dev, "%s: Failed to allocate regmap, err = %d\n",
-			__func__, ret);
-		goto err_regmap;
-	}
-
-	if (wcd_spi_debugfs_init(spi))
-		dev_err(&spi->dev, "%s: Failed debugfs init\n", __func__);
-
-	spi_message_init(&wcd_spi->msg1);
-	spi_message_add_tail(&wcd_spi->xfer1, &wcd_spi->msg1);
-
-	spi_message_init(&wcd_spi->msg2);
-	spi_message_add_tail(&wcd_spi->xfer2[0], &wcd_spi->msg2);
-	spi_message_add_tail(&wcd_spi->xfer2[1], &wcd_spi->msg2);
-
 	ret = wcd_spi_init(spi);
-	if (IS_ERR_VALUE(ret)) {
+	if (IS_ERR_VALUE(ret))
 		dev_err(&spi->dev, "%s: Init failed, err = %d\n",
 			__func__, ret);
-		goto err_init;
-	}
-
-	return 0;
-
-err_init:
-	spi_transfer_del(&wcd_spi->xfer1);
-	spi_transfer_del(&wcd_spi->xfer2[0]);
-	spi_transfer_del(&wcd_spi->xfer2[1]);
-
-err_regmap:
 	return ret;
 }
 
@@ -1141,9 +1115,11 @@ static int wdsp_spi_deinit(struct device *dev, void *priv_data)
 	struct spi_device *spi = to_spi_device(dev);
 	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
 
-	spi_transfer_del(&wcd_spi->xfer1);
-	spi_transfer_del(&wcd_spi->xfer2[0]);
-	spi_transfer_del(&wcd_spi->xfer2[1]);
+	/*
+	 * Deinit means the hardware is reset. Mark the cache
+	 * as dirty here, so init will sync the cache
+	 */
+	regcache_mark_dirty(wcd_spi->regmap);
 
 	return 0;
 }
@@ -1170,9 +1146,34 @@ static int wcd_spi_component_bind(struct device *dev,
 		ret = wcd_spi->m_ops->register_cmpnt_ops(master, dev,
 							 wcd_spi,
 							 &wdsp_spi_ops);
-	if (ret)
+	if (ret) {
 		dev_err(dev, "%s: register_cmpnt_ops failed, err = %d\n",
 			__func__, ret);
+		goto done;
+	}
+
+	wcd_spi->reg_bytes = DIV_ROUND_UP(wcd_spi_regmap_cfg.reg_bits, 8);
+	wcd_spi->val_bytes = DIV_ROUND_UP(wcd_spi_regmap_cfg.val_bits, 8);
+
+	wcd_spi->regmap = devm_regmap_init(&spi->dev, &wcd_spi_regmap_bus,
+					   &spi->dev, &wcd_spi_regmap_cfg);
+	if (IS_ERR(wcd_spi->regmap)) {
+		ret = PTR_ERR(wcd_spi->regmap);
+		dev_err(&spi->dev, "%s: Failed to allocate regmap, err = %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	if (wcd_spi_debugfs_init(spi))
+		dev_err(&spi->dev, "%s: Failed debugfs init\n", __func__);
+
+	spi_message_init(&wcd_spi->msg1);
+	spi_message_add_tail(&wcd_spi->xfer1, &wcd_spi->msg1);
+
+	spi_message_init(&wcd_spi->msg2);
+	spi_message_add_tail(&wcd_spi->xfer2[0], &wcd_spi->msg2);
+	spi_message_add_tail(&wcd_spi->xfer2[1], &wcd_spi->msg2);
+done:
 	return ret;
 }
 
@@ -1185,6 +1186,10 @@ static void wcd_spi_component_unbind(struct device *dev,
 
 	wcd_spi->m_dev = NULL;
 	wcd_spi->m_ops = NULL;
+
+	spi_transfer_del(&wcd_spi->xfer1);
+	spi_transfer_del(&wcd_spi->xfer2[0]);
+	spi_transfer_del(&wcd_spi->xfer2[1]);
 }
 
 static const struct component_ops wcd_spi_component_ops = {
