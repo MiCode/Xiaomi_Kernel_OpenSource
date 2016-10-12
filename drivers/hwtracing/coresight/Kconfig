@@ -92,6 +92,7 @@ config CORESIGHT_STM
 
 config CORESIGHT_OST
 	bool "CoreSight OST framework"
+	depends on CORESIGHT_STM
 	help
 	  This enables support for OST packet in STM.
 endif
