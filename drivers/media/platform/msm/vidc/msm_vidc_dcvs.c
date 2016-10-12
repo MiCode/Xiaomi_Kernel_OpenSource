@@ -599,8 +599,8 @@ static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 			goto dcvs_decision_done;
 		}
 		if (msm_comm_turbo_session(inst) ||
-			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit ||
-			instance_count > 1))
+			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit) ||
+			instance_count > 1)
 			is_dcvs_supported = false;
 	}
 	if (inst->session_type == MSM_VIDC_ENCODER) {
@@ -617,8 +617,8 @@ static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 			goto dcvs_decision_done;
 		}
 		if (msm_comm_turbo_session(inst) ||
-			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit ||
-				instance_count > 1))
+			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit) ||
+				instance_count > 1)
 			is_dcvs_supported = false;
 	}
 dcvs_decision_done:
