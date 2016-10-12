@@ -323,9 +323,9 @@ static int _parse_dt_bit_offset(struct device_node *np,
 	if (arr) {
 		len /= sizeof(u32);
 		for (i = 0, j = 0; i < len; j++) {
-			prop_value[j][i] = be32_to_cpu(arr[i]);
+			prop_value[j][0] = be32_to_cpu(arr[i]);
 			i++;
-			prop_value[j][i] = be32_to_cpu(arr[i]);
+			prop_value[j][1] = be32_to_cpu(arr[i]);
 			i++;
 		}
 	} else {
