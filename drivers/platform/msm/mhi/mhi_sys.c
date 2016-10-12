@@ -21,9 +21,9 @@
 enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_ERROR;
 
 #ifdef CONFIG_MSM_MHI_DEBUG
-	enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_VERBOSE;
+enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_VERBOSE;
 #else
-	enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_ERROR;
+enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_ERROR;
 #endif
 
 unsigned int mhi_log_override;
@@ -58,6 +58,7 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 	int valid_chan = 0;
 	struct mhi_chan_ctxt *cc_list;
 	struct mhi_client_handle *client_handle;
+	int pkts_queued;
 
 	if (NULL == mhi_dev_ctxt)
 		return -EIO;
@@ -86,35 +87,37 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 			mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].wp,
 			&v_wp_index);
 
+	pkts_queued = client_handle->chan_info.max_desc -
+		get_nr_avail_ring_elements(&mhi_dev_ctxt->
+					   mhi_local_chan_ctxt[*offp]) - 1;
 	amnt_copied =
 	scnprintf(mhi_dev_ctxt->chan_info,
-		MHI_LOG_SIZE,
-		"%s0x%x %s %d %s 0x%x %s 0x%llx %s %p %s %p %s %lu %s %p %s %lu %s %d %s %d %s %u\n",
-		"chan:",
-		(unsigned int)*offp,
-		"pkts from dev:",
-		mhi_dev_ctxt->counters.chan_pkts_xferd[*offp],
-		"state:",
-		chan_ctxt->chstate,
-		"p_base:",
-		chan_ctxt->mhi_trb_ring_base_addr,
-		"v_base:",
-		mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].base,
-		"v_wp:",
-		mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].wp,
-		"index:",
-		v_wp_index,
-		"v_rp:",
-		mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].rp,
-		"index:",
-		v_rp_index,
-		"pkts_queued",
-		get_nr_avail_ring_elements(
-		&mhi_dev_ctxt->mhi_local_chan_ctxt[*offp]),
-		"/",
-		client_handle->chan_info.max_desc,
-		"bb_used:",
-		mhi_dev_ctxt->counters.bb_used[*offp]);
+		  MHI_LOG_SIZE,
+		  "%s0x%x %s %d %s 0x%x %s 0x%llx %s %p %s %p %s %lu %s %p %s %lu %s %d %s %d %s %u\n",
+		  "chan:",
+		  (unsigned int)*offp,
+		  "pkts from dev:",
+		  mhi_dev_ctxt->counters.chan_pkts_xferd[*offp],
+		  "state:",
+		  chan_ctxt->chstate,
+		  "p_base:",
+		  chan_ctxt->mhi_trb_ring_base_addr,
+		  "v_base:",
+		  mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].base,
+		  "v_wp:",
+		  mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].wp,
+		  "index:",
+		  v_wp_index,
+		  "v_rp:",
+		  mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].rp,
+		  "index:",
+		  v_rp_index,
+		  "pkts_queued",
+		  pkts_queued,
+		  "/",
+		  client_handle->chan_info.max_desc,
+		  "bb_used:",
+		  mhi_dev_ctxt->counters.bb_used[*offp]);
 
 	*offp += 1;
 
@@ -236,35 +239,37 @@ static ssize_t mhi_dbgfs_state_read(struct file *fp, char __user *buf,
 	msleep(100);
 	amnt_copied =
 	scnprintf(mhi_dev_ctxt->chan_info,
-			MHI_LOG_SIZE,
-			"%s %s %s %d %s %d %s %d %s %d %s %d %s %d %s %d %s %d %s %d %s %d\n",
-			"Our State:",
-			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
-			"M0->M1:",
-			mhi_dev_ctxt->counters.m0_m1,
-			"M0<-M1:",
-			mhi_dev_ctxt->counters.m1_m0,
-			"M1->M2:",
-			mhi_dev_ctxt->counters.m1_m2,
-			"M0<-M2:",
-			mhi_dev_ctxt->counters.m2_m0,
-			"M0->M3:",
-			mhi_dev_ctxt->counters.m0_m3,
-			"M0<-M3:",
-			mhi_dev_ctxt->counters.m3_m0,
-			"M3_ev_TO:",
-			mhi_dev_ctxt->counters.m3_event_timeouts,
-			"M0_ev_TO:",
-			mhi_dev_ctxt->counters.m0_event_timeouts,
-			"outstanding_acks:",
-			atomic_read(&mhi_dev_ctxt->counters.outbound_acks),
-			"LPM:",
-			mhi_dev_ctxt->enable_lpm);
+		  MHI_LOG_SIZE,
+		  "%s %s %s 0x%02x %s %u %s %u %s %u %s %u %s %u %s %u %s %d %s %d %s %d\n",
+		  "MHI State:",
+		  TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
+		  "PM State:",
+		  mhi_dev_ctxt->mhi_pm_state,
+		  "M0->M1:",
+		  mhi_dev_ctxt->counters.m0_m1,
+		  "M1->M2:",
+		  mhi_dev_ctxt->counters.m1_m2,
+		  "M2->M0:",
+		  mhi_dev_ctxt->counters.m2_m0,
+		  "M0->M3:",
+		  mhi_dev_ctxt->counters.m0_m3,
+		  "M1->M3:",
+		  mhi_dev_ctxt->counters.m1_m3,
+		  "M3->M0:",
+		  mhi_dev_ctxt->counters.m3_m0,
+		  "device_wake:",
+		  atomic_read(&mhi_dev_ctxt->counters.device_wake),
+		  "usage_count:",
+		  atomic_read(&mhi_dev_ctxt->dev_info->pcie_device->dev.
+			      power.usage_count),
+		  "outbound_acks:",
+		  atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
 	if (amnt_copied < count)
 		return amnt_copied - copy_to_user(buf,
 				mhi_dev_ctxt->chan_info, amnt_copied);
 	else
 		return -ENOMEM;
+	return 0;
 }
 
 static const struct file_operations mhi_dbgfs_state_fops = {

@@ -89,32 +89,31 @@ dt_error:
 int create_local_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int r = 0;
+	int i;
 
 	mhi_dev_ctxt->mhi_local_event_ctxt = kzalloc(sizeof(struct mhi_ring)*
 					mhi_dev_ctxt->mmio_info.nr_event_rings,
 					GFP_KERNEL);
-
 	if (!mhi_dev_ctxt->mhi_local_event_ctxt)
 		return -ENOMEM;
 
-	mhi_dev_ctxt->counters.ev_counter = kzalloc(sizeof(u32) *
-				     mhi_dev_ctxt->mmio_info.nr_event_rings,
-				     GFP_KERNEL);
-	if (!mhi_dev_ctxt->counters.ev_counter) {
-		r = -ENOMEM;
-		goto free_local_ec_list;
-	}
 	mhi_dev_ctxt->counters.msi_counter = kzalloc(sizeof(u32) *
 				     mhi_dev_ctxt->mmio_info.nr_event_rings,
 				     GFP_KERNEL);
 	if (!mhi_dev_ctxt->counters.msi_counter) {
 		r = -ENOMEM;
-		goto free_ev_counter;
+		goto free_local_ec_list;
 	}
+
+	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; i++) {
+		struct mhi_ring *mhi_ring = &mhi_dev_ctxt->
+			mhi_local_event_ctxt[i];
+
+		spin_lock_init(&mhi_ring->ring_lock);
+	}
+
 	return r;
 
-free_ev_counter:
-	kfree(mhi_dev_ctxt->counters.ev_counter);
 free_local_ec_list:
 	kfree(mhi_dev_ctxt->mhi_local_event_ctxt);
 	return r;
@@ -241,10 +240,9 @@ int mhi_init_local_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 	u32 i = 0;
 	unsigned long flags = 0;
 	int ret_val = 0;
-	spinlock_t *lock =
-		&mhi_dev_ctxt->mhi_ev_spinlock_list[ring_index];
 	struct mhi_ring *event_ctxt =
 		&mhi_dev_ctxt->mhi_local_event_ctxt[ring_index];
+	spinlock_t *lock = &event_ctxt->ring_lock;
 
 	if (NULL == mhi_dev_ctxt || 0 == nr_ev_el) {
 		mhi_log(MHI_MSG_ERROR, "Bad Input data, quitting\n");
