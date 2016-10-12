@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, Linux Foundation. All rights reserved.
+/* Copyright (c) 2014,2016, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,11 +19,6 @@
 		system_heap: qcom,ion-heap@25 {
 			reg = <25>;
 			qcom,ion-heap-type = "SYSTEM";
-		};
-
-		system_contig_heap: qcom,ion-heap@21 {
-			reg = <21>;
-			qcom,ion-heap-type = "SYSTEM_CONTIG";
 		};
 
 		qsecom_heap: qcom,ion-heap@27 { /* QSEECOM HEAP */
