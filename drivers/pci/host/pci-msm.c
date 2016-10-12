@@ -5385,9 +5385,6 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 		dev->link_status = MSM_PCIE_LINK_DISABLED;
 		dev->shadow_en = false;
 
-		pcie_phy_dump(dev);
-		pcie_parf_dump(dev);
-
 		if (dev->linkdown_panic)
 			panic("User has chosen to panic on linkdown\n");
 
