@@ -1016,19 +1016,19 @@ static struct clk_mux_ops mdss_mux_ops = {
  *                  |    vco_clk    |
  *                  +-------+-------+
  *                          |
- *                          +--------------------------------------+
- *                          |                                      |
- *                  +-------v-------+                              |
- *                  |  bitclk_src   |                              |
- *                  |  DIV(1..15)   |                              |
- *                  +-------+-------+                              |
- *                          |                                      |
- *                          +--------------------+                 |
- *   Shadow Path            |                    |                 |
- *       +          +-------v-------+     +------v------+   +------v-------+
- *       |          |  byteclk_src  |     |post_bit_div |   |post_vco_div  |
- *       |          |  DIV(8)       |     |DIV(1,2)     |   |DIV(1,4)      |
- *       |          +-------+-------+     +------+------+   +------+-------+
+ *                          +----------------------+------------------+
+ *                          |                      |                  |
+ *                  +-------v-------+      +-------v-------+  +-------v-------+
+ *                  |  bitclk_src   |      | post_vco_div1 |  | post_vco_div4 |
+ *                  |  DIV(1..15)   |      +-------+-------+  +-------+-------+
+ *                  +-------+-------+              |                  |
+ *                          |                      +------------+     |
+ *                          +--------------------+              |     |
+ *   Shadow Path            |                    |              |     |
+ *       +          +-------v-------+     +------v------+   +---v-----v------+
+ *       |          |  byteclk_src  |     |post_bit_div |    \ post_vco_mux /
+ *       |          |  DIV(8)       |     |DIV(1,2)     |     \            /
+ *       |          +-------+-------+     +------+------+      +---+------+
  *       |                  |                    |                 |
  *       |                  |                    +------+     +----+
  *       |         +--------+                           |     |
@@ -1085,19 +1085,51 @@ static struct div_clk dsi0pll_bitclk_src = {
 	}
 };
 
-static struct div_clk dsi0pll_post_vco_div = {
+static struct div_clk dsi0pll_post_vco_div1 = {
 	.data = {
 		.div = 1,
 		.min_div = 1,
+		.max_div = 1,
+	},
+	.ops = &clk_post_vco_div_ops,
+	.c = {
+		.parent = &dsi0pll_vco_clk.c,
+		.dbg_name = "dsi0pll_post_vco_div1",
+		.ops = &clk_ops_post_vco_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi0pll_post_vco_div1.c),
+	}
+};
+
+static struct div_clk dsi0pll_post_vco_div4 = {
+	.data = {
+		.div = 4,
+		.min_div = 4,
 		.max_div = 4,
 	},
 	.ops = &clk_post_vco_div_ops,
 	.c = {
 		.parent = &dsi0pll_vco_clk.c,
-		.dbg_name = "dsi0pll_post_vco_div",
+		.dbg_name = "dsi0pll_post_vco_div4",
 		.ops = &clk_ops_post_vco_div_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(dsi0pll_post_vco_div.c),
+		CLK_INIT(dsi0pll_post_vco_div4.c),
+	}
+};
+
+static struct mux_clk dsi0pll_post_vco_mux = {
+	.num_parents = 2,
+	.parents = (struct clk_src[]) {
+		{&dsi0pll_post_vco_div1.c, 0},
+		{&dsi0pll_post_vco_div4.c, 1},
+	},
+	.ops = &mdss_mux_ops,
+	.c = {
+		.parent = &dsi0pll_post_vco_div1.c,
+		.dbg_name = "dsi0pll_post_vco_mux",
+		.ops = &clk_ops_gen_mux,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi0pll_post_vco_mux.c),
 	}
 };
 
@@ -1121,7 +1153,7 @@ static struct mux_clk dsi0pll_pclk_src_mux = {
 	.num_parents = 2,
 	.parents = (struct clk_src[]) {
 		{&dsi0pll_post_bit_div.c, 0},
-		{&dsi0pll_post_vco_div.c, 1},
+		{&dsi0pll_post_vco_mux.c, 1},
 	},
 	.ops = &mdss_mux_ops,
 	.c = {
@@ -1222,19 +1254,51 @@ static struct div_clk dsi1pll_bitclk_src = {
 	}
 };
 
-static struct div_clk dsi1pll_post_vco_div = {
+static struct div_clk dsi1pll_post_vco_div1 = {
 	.data = {
 		.div = 1,
 		.min_div = 1,
+		.max_div = 1,
+	},
+	.ops = &clk_post_vco_div_ops,
+	.c = {
+		.parent = &dsi1pll_vco_clk.c,
+		.dbg_name = "dsi1pll_post_vco_div1",
+		.ops = &clk_ops_post_vco_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi1pll_post_vco_div1.c),
+	}
+};
+
+static struct div_clk dsi1pll_post_vco_div4 = {
+	.data = {
+		.div = 4,
+		.min_div = 4,
 		.max_div = 4,
 	},
 	.ops = &clk_post_vco_div_ops,
 	.c = {
 		.parent = &dsi1pll_vco_clk.c,
-		.dbg_name = "dsi1pll_post_vco_div",
+		.dbg_name = "dsi1pll_post_vco_div4",
 		.ops = &clk_ops_post_vco_div_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(dsi1pll_post_vco_div.c),
+		CLK_INIT(dsi1pll_post_vco_div4.c),
+	}
+};
+
+static struct mux_clk dsi1pll_post_vco_mux = {
+	.num_parents = 2,
+	.parents = (struct clk_src[]) {
+		{&dsi1pll_post_vco_div1.c, 0},
+		{&dsi1pll_post_vco_div4.c, 1},
+	},
+	.ops = &mdss_mux_ops,
+	.c = {
+		.parent = &dsi1pll_post_vco_div1.c,
+		.dbg_name = "dsi1pll_post_vco_mux",
+		.ops = &clk_ops_gen_mux,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi1pll_post_vco_mux.c),
 	}
 };
 
@@ -1258,7 +1322,7 @@ static struct mux_clk dsi1pll_pclk_src_mux = {
 	.num_parents = 2,
 	.parents = (struct clk_src[]) {
 		{&dsi1pll_post_bit_div.c, 0},
-		{&dsi1pll_post_vco_div.c, 1},
+		{&dsi1pll_post_vco_mux.c, 1},
 	},
 	.ops = &mdss_mux_ops,
 	.c = {
@@ -1338,7 +1402,9 @@ static struct clk_lookup mdss_dsi_pll0cc_cobalt[] = {
 	CLK_LIST(dsi0pll_pclk_src),
 	CLK_LIST(dsi0pll_pclk_src_mux),
 	CLK_LIST(dsi0pll_post_bit_div),
-	CLK_LIST(dsi0pll_post_vco_div),
+	CLK_LIST(dsi0pll_post_vco_mux),
+	CLK_LIST(dsi0pll_post_vco_div1),
+	CLK_LIST(dsi0pll_post_vco_div4),
 	CLK_LIST(dsi0pll_bitclk_src),
 	CLK_LIST(dsi0pll_vco_clk),
 };
@@ -1349,7 +1415,9 @@ static struct clk_lookup mdss_dsi_pll1cc_cobalt[] = {
 	CLK_LIST(dsi1pll_pclk_src),
 	CLK_LIST(dsi1pll_pclk_src_mux),
 	CLK_LIST(dsi1pll_post_bit_div),
-	CLK_LIST(dsi1pll_post_vco_div),
+	CLK_LIST(dsi1pll_post_vco_mux),
+	CLK_LIST(dsi1pll_post_vco_div1),
+	CLK_LIST(dsi1pll_post_vco_div4),
 	CLK_LIST(dsi1pll_bitclk_src),
 	CLK_LIST(dsi1pll_vco_clk),
 };
@@ -1407,7 +1475,9 @@ int dsi_pll_clock_register_cobalt(struct platform_device *pdev,
 		dsi0pll_pclk_src.priv = pll_res;
 		dsi0pll_pclk_src_mux.priv = pll_res;
 		dsi0pll_post_bit_div.priv = pll_res;
-		dsi0pll_post_vco_div.priv = pll_res;
+		dsi0pll_post_vco_mux.priv = pll_res;
+		dsi0pll_post_vco_div1.priv = pll_res;
+		dsi0pll_post_vco_div4.priv = pll_res;
 		dsi0pll_bitclk_src.priv = pll_res;
 		dsi0pll_vco_clk.priv = pll_res;
 
@@ -1421,7 +1491,9 @@ int dsi_pll_clock_register_cobalt(struct platform_device *pdev,
 		dsi1pll_pclk_src.priv = pll_res;
 		dsi1pll_pclk_src_mux.priv = pll_res;
 		dsi1pll_post_bit_div.priv = pll_res;
-		dsi1pll_post_vco_div.priv = pll_res;
+		dsi1pll_post_vco_mux.priv = pll_res;
+		dsi1pll_post_vco_div1.priv = pll_res;
+		dsi1pll_post_vco_div4.priv = pll_res;
 		dsi1pll_bitclk_src.priv = pll_res;
 		dsi1pll_vco_clk.priv = pll_res;
 
