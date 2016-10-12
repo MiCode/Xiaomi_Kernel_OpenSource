@@ -253,12 +253,6 @@
 #define SWIRE_DEFAULT_2ND_CMD_DLY_MS		20
 #define SWIRE_DEFAULT_IBB_PS_ENABLE_DLY_MS	200
 
-enum pmic_subtype {
-	PMI8994		= 10,
-	PMI8950		= 17,
-	PMI8996		= 19,
-};
-
 /**
  * enum qpnp_labibb_mode - working mode of LAB/IBB regulators
  * %QPNP_LABIBB_LCD_MODE:		configure LAB and IBB regulators
@@ -539,60 +533,58 @@ static struct settings lab_settings[LAB_SETTINGS_MAX] = {
 	SETTING(LAB_RDSON_MNGMNT, false),
 };
 
-static int
-qpnp_labibb_read(struct qpnp_labibb *labibb, u8 *val,
-			u16 base, int count)
+static int qpnp_labibb_read(struct qpnp_labibb *labibb, u8 *val, u16 address,
+				int count)
 {
 	int rc = 0;
 	struct platform_device *pdev = labibb->pdev;
 
-	if (base == 0) {
-		pr_err("base cannot be zero base=0x%02x sid=0x%02x rc=%d\n",
-			base, to_spmi_device(pdev->dev.parent)->usid, rc);
+	if (address == 0) {
+		pr_err("address cannot be zero address=0x%02x sid=0x%02x rc=%d\n",
+			address, to_spmi_device(pdev->dev.parent)->usid, rc);
 		return -EINVAL;
 	}
 
-	rc = regmap_bulk_read(labibb->regmap, base, val, count);
+	rc = regmap_bulk_read(labibb->regmap, address, val, count);
 	if (rc) {
-		pr_err("SPMI read failed base=0x%02x sid=0x%02x rc=%d\n", base,
-				to_spmi_device(pdev->dev.parent)->usid, rc);
-		return rc;
-	}
-	return 0;
-}
-
-static int
-qpnp_labibb_write(struct qpnp_labibb *labibb, u16 base,
-			u8 *val, int count)
-{
-	int rc = 0;
-	struct platform_device *pdev = labibb->pdev;
-
-	if (base == 0) {
-		pr_err("base cannot be zero base=0x%02x sid=0x%02x rc=%d\n",
-			base, to_spmi_device(pdev->dev.parent)->usid, rc);
-		return -EINVAL;
-	}
-
-	rc = regmap_bulk_write(labibb->regmap, base, val, count);
-	if (rc) {
-		pr_err("write failed base=0x%02x sid=0x%02x rc=%d\n",
-			base, to_spmi_device(pdev->dev.parent)->usid, rc);
+		pr_err("SPMI read failed address=0x%02x sid=0x%02x rc=%d\n",
+			address, to_spmi_device(pdev->dev.parent)->usid, rc);
 		return rc;
 	}
 
 	return 0;
 }
 
-static int
-qpnp_labibb_masked_write(struct qpnp_labibb *labibb, u16 base,
-						u8 mask, u8 val)
+static int qpnp_labibb_write(struct qpnp_labibb *labibb, u16 address, u8 *val,
+				int count)
+{
+	int rc = 0;
+	struct platform_device *pdev = labibb->pdev;
+
+	if (address == 0) {
+		pr_err("address cannot be zero address=0x%02x sid=0x%02x rc=%d\n",
+			address, to_spmi_device(pdev->dev.parent)->usid, rc);
+		return -EINVAL;
+	}
+
+	rc = regmap_bulk_write(labibb->regmap, address, val, count);
+	if (rc) {
+		pr_err("write failed address=0x%02x sid=0x%02x rc=%d\n",
+			address, to_spmi_device(pdev->dev.parent)->usid, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int qpnp_labibb_masked_write(struct qpnp_labibb *labibb, u16 address,
+					u8 mask, u8 val)
 {
 	int rc;
 
-	rc = regmap_update_bits(labibb->regmap, base, mask, val);
+	rc = regmap_update_bits(labibb->regmap, address, mask, val);
 	if (rc) {
-		pr_err("spmi write failed: addr=%03X, rc=%d\n", base, rc);
+		pr_err("spmi write failed: addr=%03X, rc=%d\n", address, rc);
 		return rc;
 	}
 
@@ -709,18 +701,24 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 	u8 i, val;
 	u32 tmp;
 
-	if (labibb->mode == QPNP_LABIBB_LCD_MODE)
-		val = REG_LAB_IBB_LCD_MODE;
-	else
-		val = REG_LAB_IBB_AMOLED_MODE;
+	/*
+	 * Do not configure LCD_AMOLED_SEL for pmicobalt as it will be done by
+	 * GPIO selector.
+	 */
+	if (labibb->pmic_rev_id->pmic_subtype != PMICOBALT_SUBTYPE) {
+		if (labibb->mode == QPNP_LABIBB_LCD_MODE)
+			val = REG_LAB_IBB_LCD_MODE;
+		else
+			val = REG_LAB_IBB_AMOLED_MODE;
 
-	rc = qpnp_labibb_sec_write(labibb, labibb->lab_base,
-			REG_LAB_LCD_AMOLED_SEL, &val, 1);
+		rc = qpnp_labibb_sec_write(labibb, labibb->lab_base,
+				REG_LAB_LCD_AMOLED_SEL, &val, 1);
 
-	if (rc) {
-		pr_err("qpnp_lab_sec_write register %x failed rc = %d\n",
-			REG_LAB_LCD_AMOLED_SEL, rc);
-		return rc;
+		if (rc) {
+			pr_err("qpnp_lab_sec_write register %x failed rc = %d\n",
+				REG_LAB_LCD_AMOLED_SEL, rc);
+			return rc;
+		}
 	}
 
 	val = 0;
@@ -1172,7 +1170,7 @@ static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 		}
 
 		val = LAB_SPARE_DISABLE_SCP_BIT;
-		if (labibb->pmic_rev_id->pmic_subtype != PMI8950)
+		if (labibb->pmic_rev_id->pmic_subtype != PMI8950_SUBTYPE)
 			val |= LAB_SPARE_TOUCH_WAKE_BIT;
 		rc = qpnp_labibb_write(labibb, labibb->lab_base +
 				REG_LAB_SPARE_CTL, &val, 1);
@@ -1199,10 +1197,10 @@ static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 	}
 
 	switch (labibb->pmic_rev_id->pmic_subtype) {
-	case PMI8996:
+	case PMI8996_SUBTYPE:
 		rc = qpnp_labibb_ttw_enter_ibb_pmi8996(labibb);
 		break;
-	case PMI8950:
+	case PMI8950_SUBTYPE:
 		rc = qpnp_labibb_ttw_enter_ibb_pmi8950(labibb);
 		break;
 	}
@@ -1282,9 +1280,9 @@ static int qpnp_labibb_regulator_ttw_mode_exit(struct qpnp_labibb *labibb)
 	}
 
 	switch (labibb->pmic_rev_id->pmic_subtype) {
-	case PMI8996:
-	case PMI8994:
-	case PMI8950:
+	case PMI8996_SUBTYPE:
+	case PMI8994_SUBTYPE:
+	case PMI8950_SUBTYPE:
 		rc = qpnp_labibb_ttw_exit_ibb_common(labibb);
 		break;
 	}
@@ -1966,18 +1964,37 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 	u32 i, tmp;
 	u8 val;
 
-	if (labibb->mode == QPNP_LABIBB_LCD_MODE)
-		val = REG_LAB_IBB_LCD_MODE;
-	else
-		val = REG_LAB_IBB_AMOLED_MODE;
+	/*
+	 * Do not configure LCD_AMOLED_SEL for pmicobalt as it will be done by
+	 * GPIO selector. Override the labibb->mode with what was configured
+	 * by the bootloader.
+	 */
+	if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE) {
+		rc = qpnp_labibb_read(labibb, &val,
+			labibb->ibb_base + REG_IBB_LCD_AMOLED_SEL, 1);
+		if (rc) {
+			pr_err("qpnp_labibb_read register %x failed rc = %d\n",
+				REG_IBB_LCD_AMOLED_SEL, rc);
+			return rc;
+		}
 
-	rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
-			REG_LAB_LCD_AMOLED_SEL, &val, 1);
+		if (val == REG_LAB_IBB_AMOLED_MODE)
+			labibb->mode = QPNP_LABIBB_AMOLED_MODE;
+		else
+			labibb->mode = QPNP_LABIBB_LCD_MODE;
+	} else {
+		if (labibb->mode == QPNP_LABIBB_LCD_MODE)
+			val = REG_LAB_IBB_LCD_MODE;
+		else
+			val = REG_LAB_IBB_AMOLED_MODE;
 
-	if (rc) {
-		pr_err("qpnp_labibb_sec_write register %x failed rc = %d\n",
-			REG_IBB_LCD_AMOLED_SEL, rc);
-		return rc;
+		rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
+				REG_LAB_LCD_AMOLED_SEL, &val, 1);
+		if (rc) {
+			pr_err("qpnp_labibb_sec_write register %x failed rc = %d\n",
+				REG_IBB_LCD_AMOLED_SEL, rc);
+			return rc;
+		}
 	}
 
 	rc = of_property_read_u32(of_node, "qcom,qpnp-ibb-lab-pwrdn-delay",
@@ -2482,6 +2499,13 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
+	/*
+	 * For pmicobalt, override swire_control with what was configured
+	 * before by the bootloader.
+	 */
+	if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE)
+		labibb->swire_control = val & IBB_ENABLE_CTL_SWIRE_RDY;
+
 	if (ibb_enable_ctl &
 		(IBB_ENABLE_CTL_SWIRE_RDY | IBB_ENABLE_CTL_MODULE_EN)) {
 		/* SWIRE_RDY or IBB_MODULE_EN enabled */
@@ -2684,7 +2708,7 @@ static int qpnp_labibb_check_ttw_supported(struct qpnp_labibb *labibb)
 	u8 val;
 
 	switch (labibb->pmic_rev_id->pmic_subtype) {
-	case PMI8996:
+	case PMI8996_SUBTYPE:
 		rc = qpnp_labibb_read(labibb, &val,
 				labibb->ibb_base + REG_IBB_REVISION4, 1);
 		if (rc) {
@@ -2702,7 +2726,7 @@ static int qpnp_labibb_check_ttw_supported(struct qpnp_labibb *labibb)
 		/* FORCE_LAB_ON in TTW is not required for PMI8996 */
 		labibb->ttw_force_lab_on = false;
 		break;
-	case PMI8950:
+	case PMI8950_SUBTYPE:
 		/* TTW supported for all revisions */
 		break;
 	default:
@@ -2788,6 +2812,7 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 		pr_err("Invalid mode for SWIRE control\n");
 		return -EINVAL;
 	}
+
 	if (labibb->swire_control) {
 		labibb->skip_2nd_swire_cmd =
 				of_property_read_bool(labibb->dev->of_node,
@@ -2811,6 +2836,7 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 		pr_err("no child nodes\n");
 		return -ENXIO;
 	}
+
 	for_each_available_child_of_node(pdev->dev.of_node, child) {
 		rc = of_property_read_u32(child, "reg", &base);
 		if (rc < 0) {
