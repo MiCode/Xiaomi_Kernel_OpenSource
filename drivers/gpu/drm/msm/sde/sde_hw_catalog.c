@@ -71,6 +71,9 @@
 /* maximum XIN halt timeout in usec */
 #define VBIF_XIN_HALT_TIMEOUT		0x4000
 
+#define DEFAULT_CREQ_LUT_NRT		0x0
+#define DEFAULT_PIXEL_RAM_SIZE		(50 * 1024)
+
 /*************************************************************
  *  DTSI PROPERTY INDEX
  *************************************************************/
@@ -506,6 +509,7 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	sspp->id = SSPP_VIG0 + *vig_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_NONE;
 	sblk->format_list = plane_formats_yuv;
+	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*vig_count)++;
 }
 
@@ -528,6 +532,7 @@ static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
 	sspp->id = SSPP_RGB0 + *rgb_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_NONE;
 	sblk->format_list = plane_formats;
+	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*rgb_count)++;
 }
 
@@ -553,6 +558,7 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 	sspp->id = SSPP_DMA0 + *dma_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_NONE;
 	sblk->format_list = plane_formats;
+	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*dma_count)++;
 }
 
@@ -566,9 +572,20 @@ static int sde_sspp_parse_dt(struct device_node *np,
 	struct sde_sspp_cfg *sspp;
 	struct sde_sspp_sub_blks *sblk;
 	u32 vig_count = 0, dma_count = 0, rgb_count = 0, cursor_count = 0;
+	u32 danger_count = 0, safe_count = 0;
 
 	rc = _validate_dt_entry(np, sspp_prop, ARRAY_SIZE(sspp_prop),
 		prop_count, &off_count);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &sspp_prop[SSPP_DANGER], 1,
+			&prop_count[SSPP_DANGER], &danger_count);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &sspp_prop[SSPP_SAFE], 1,
+			&prop_count[SSPP_SAFE], &safe_count);
 	if (rc)
 		goto end;
 
@@ -619,9 +636,27 @@ static int sde_sspp_parse_dt(struct device_node *np,
 		sblk->maxvdeciexp = MAX_VERT_DECIMATION;
 
 		sspp->xin_id = prop_value[SSPP_XIN][i];
-		sblk->danger_lut_linear = prop_value[SSPP_DANGER][i];
-		sblk->safe_lut_linear = prop_value[SSPP_SAFE][i];
+		sblk->danger_lut_linear = prop_value[SSPP_DANGER][0];
+		sblk->danger_lut_tile = prop_value[SSPP_DANGER][1];
+		sblk->danger_lut_nrt = prop_value[SSPP_DANGER][2];
+		sblk->safe_lut_linear = prop_value[SSPP_SAFE][0];
+		sblk->safe_lut_tile = prop_value[SSPP_SAFE][1];
+		sblk->safe_lut_nrt = prop_value[SSPP_SAFE][2];
+		sblk->creq_lut_nrt = DEFAULT_CREQ_LUT_NRT;
+		sblk->pixel_ram_size = DEFAULT_PIXEL_RAM_SIZE;
 		sblk->src_blk.len = prop_value[SSPP_SIZE][0];
+
+		SDE_DEBUG(
+			"xin:%d danger:%x/%x/%x safe:%x/%x/%x creq:%x ram:%d\n",
+			sspp->xin_id,
+			sblk->danger_lut_linear,
+			sblk->danger_lut_tile,
+			sblk->danger_lut_nrt,
+			sblk->safe_lut_linear,
+			sblk->safe_lut_tile,
+			sblk->safe_lut_nrt,
+			sblk->creq_lut_nrt,
+			sblk->pixel_ram_size);
 	}
 
 end:
