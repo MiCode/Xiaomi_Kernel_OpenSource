@@ -136,7 +136,7 @@ struct wdsp_ramdump_data {
 	void *rd_v_addr;
 
 	/* Data provided through error interrupt */
-	struct wdsp_err_intr_arg err_data;
+	struct wdsp_err_signal_arg err_data;
 };
 
 struct wdsp_mgr_priv {
@@ -608,7 +608,7 @@ static struct device *wdsp_get_dev_for_cmpnt(struct device *wdsp_dev,
 static void wdsp_collect_ramdumps(struct wdsp_mgr_priv *wdsp)
 {
 	struct wdsp_img_section img_section;
-	struct wdsp_err_intr_arg *data = &wdsp->dump_data.err_data;
+	struct wdsp_err_signal_arg *data = &wdsp->dump_data.err_data;
 	struct ramdump_segment rd_seg;
 	int ret = 0;
 
@@ -684,17 +684,18 @@ static void wdsp_ssr_work_fn(struct work_struct *work)
 
 	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
 
-	wdsp_collect_ramdumps(wdsp);
-
-	/* In case of CDC_DOWN event, the DSP is already shutdown */
-	if (wdsp->ssr_type != WDSP_SSR_TYPE_CDC_DOWN) {
+	/* Issue ramdumps and shutdown only if DSP is currently booted */
+	if (WDSP_STATUS_IS_SET(wdsp, WDSP_STATUS_BOOTED)) {
+		wdsp_collect_ramdumps(wdsp);
 		ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_CONTROL,
 					 WDSP_EVENT_DO_SHUTDOWN, NULL);
 		if (IS_ERR_VALUE(ret))
 			WDSP_ERR(wdsp, "Failed WDSP shutdown, err = %d", ret);
+
+		wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_POST_SHUTDOWN,
+					     NULL);
+		WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_BOOTED);
 	}
-	wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_POST_SHUTDOWN, NULL);
-	WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_BOOTED);
 
 	WDSP_MGR_MUTEX_UNLOCK(wdsp, wdsp->ssr_mutex);
 	ret = wait_for_completion_timeout(&wdsp->ready_compl,
@@ -739,7 +740,7 @@ static int wdsp_ssr_handler(struct wdsp_mgr_priv *wdsp, void *arg,
 			    enum wdsp_ssr_type ssr_type)
 {
 	enum wdsp_ssr_type current_ssr_type;
-	struct wdsp_err_intr_arg *err_data;
+	struct wdsp_err_signal_arg *err_data;
 
 	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->ssr_mutex);
 
@@ -750,7 +751,7 @@ static int wdsp_ssr_handler(struct wdsp_mgr_priv *wdsp, void *arg,
 	wdsp->ssr_type = ssr_type;
 
 	if (arg) {
-		err_data = (struct wdsp_err_intr_arg *) arg;
+		err_data = (struct wdsp_err_signal_arg *) arg;
 		memcpy(&wdsp->dump_data.err_data, err_data,
 		       sizeof(*err_data));
 	} else {
@@ -761,13 +762,26 @@ static int wdsp_ssr_handler(struct wdsp_mgr_priv *wdsp, void *arg,
 	switch (ssr_type) {
 
 	case WDSP_SSR_TYPE_WDSP_DOWN:
-	case WDSP_SSR_TYPE_CDC_DOWN:
 		__wdsp_clr_ready_locked(wdsp, WDSP_SSR_STATUS_WDSP_READY);
-		if (ssr_type == WDSP_SSR_TYPE_CDC_DOWN)
-			__wdsp_clr_ready_locked(wdsp,
-						WDSP_SSR_STATUS_CDC_READY);
 		wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_PRE_SHUTDOWN,
 					     NULL);
+		schedule_work(&wdsp->ssr_work);
+		break;
+
+	case WDSP_SSR_TYPE_CDC_DOWN:
+		__wdsp_clr_ready_locked(wdsp, WDSP_SSR_STATUS_CDC_READY);
+		/*
+		 * If DSP is booted when CDC_DOWN is received, it needs
+		 * to be shutdown.
+		 */
+		if (WDSP_STATUS_IS_SET(wdsp, WDSP_STATUS_BOOTED)) {
+			__wdsp_clr_ready_locked(wdsp,
+						WDSP_SSR_STATUS_WDSP_READY);
+			wdsp_broadcast_event_downseq(wdsp,
+						     WDSP_EVENT_PRE_SHUTDOWN,
+						     NULL);
+		}
+
 		schedule_work(&wdsp->ssr_work);
 		break;
 
@@ -787,8 +801,8 @@ static int wdsp_ssr_handler(struct wdsp_mgr_priv *wdsp, void *arg,
 	return 0;
 }
 
-static int wdsp_intr_handler(struct device *wdsp_dev,
-			     enum wdsp_intr intr, void *arg)
+static int wdsp_signal_handler(struct device *wdsp_dev,
+			       enum wdsp_signal signal, void *arg)
 {
 	struct wdsp_mgr_priv *wdsp;
 	int ret;
@@ -799,7 +813,9 @@ static int wdsp_intr_handler(struct device *wdsp_dev,
 	wdsp = dev_get_drvdata(wdsp_dev);
 	WDSP_MGR_MUTEX_LOCK(wdsp, wdsp->api_mutex);
 
-	switch (intr) {
+	WDSP_DBG(wdsp, "Raised signal %d", signal);
+
+	switch (signal) {
 	case WDSP_IPC1_INTR:
 		ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_IPC,
 					 WDSP_EVENT_IPC1_INTR, NULL);
@@ -807,14 +823,20 @@ static int wdsp_intr_handler(struct device *wdsp_dev,
 	case WDSP_ERR_INTR:
 		ret = wdsp_ssr_handler(wdsp, arg, WDSP_SSR_TYPE_WDSP_DOWN);
 		break;
+	case WDSP_CDC_DOWN_SIGNAL:
+		ret = wdsp_ssr_handler(wdsp, arg, WDSP_SSR_TYPE_CDC_DOWN);
+		break;
+	case WDSP_CDC_UP_SIGNAL:
+		ret = wdsp_ssr_handler(wdsp, arg, WDSP_SSR_TYPE_CDC_UP);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
 	}
 
 	if (IS_ERR_VALUE(ret))
-		WDSP_ERR(wdsp, "handling intr %d failed with error %d",
-			 intr, ret);
+		WDSP_ERR(wdsp, "handling signal %d failed with error %d",
+			 signal, ret);
 	WDSP_MGR_MUTEX_UNLOCK(wdsp, wdsp->api_mutex);
 
 	return ret;
@@ -870,7 +892,7 @@ static int wdsp_resume(struct device *wdsp_dev)
 static struct wdsp_mgr_ops wdsp_ops = {
 	.register_cmpnt_ops = wdsp_register_cmpnt_ops,
 	.get_dev_for_cmpnt = wdsp_get_dev_for_cmpnt,
-	.intr_handler = wdsp_intr_handler,
+	.signal_handler = wdsp_signal_handler,
 	.vote_for_dsp = wdsp_vote_for_dsp,
 	.suspend = wdsp_suspend,
 	.resume = wdsp_resume,
