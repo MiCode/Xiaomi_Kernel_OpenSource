@@ -1885,7 +1885,7 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 {
 	int ret;
 	int dest_vmids = VMID_HLOS;
-	int dest_perms = PERM_READ | PERM_WRITE;
+	int dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 	int source_vmlist[2] = {VMID_HLOS, smmu_domain->secure_vmid};
 	struct arm_smmu_pte_info *pte_info, *temp;
 
