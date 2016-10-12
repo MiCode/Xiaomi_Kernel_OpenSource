@@ -221,6 +221,11 @@ enum clk_osm_trace_packet_id {
 #define PERFCL_EFUSE_SHIFT	29
 #define PERFCL_EFUSE_MASK	0x7
 
+#define MSMCOBALTV1_PWRCL_BOOT_RATE	1478400000
+#define MSMCOBALTV1_PERFCL_BOOT_RATE	1536000000
+#define MSMCOBALTV2_PWRCL_BOOT_RATE	1555200000
+#define MSMCOBALTV2_PERFCL_BOOT_RATE	1728000000
+
 static void __iomem *virt_base;
 static void __iomem *debug_base;
 
@@ -2700,18 +2705,22 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(&sys_apcsaux_clk_gcc.c);
 
-	/* Set 300MHz index */
-	rc = clk_set_rate(&pwrcl_clk.c, init_rate);
+	/* Set boot rate */
+	rc = clk_set_rate(&pwrcl_clk.c, msmcobalt_v1 ?
+			  MSMCOBALTV1_PWRCL_BOOT_RATE :
+			  MSMCOBALTV2_PWRCL_BOOT_RATE);
 	if (rc) {
-		dev_err(&pdev->dev, "Unable to set init rate on pwr cluster, rc=%d\n",
+		dev_err(&pdev->dev, "Unable to set boot rate on pwr cluster, rc=%d\n",
 			rc);
 		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
 		return rc;
 	}
 
-	rc = clk_set_rate(&perfcl_clk.c, init_rate);
+	rc = clk_set_rate(&perfcl_clk.c, msmcobalt_v1 ?
+			  MSMCOBALTV1_PERFCL_BOOT_RATE :
+			  MSMCOBALTV2_PERFCL_BOOT_RATE);
 	if (rc) {
-		dev_err(&pdev->dev, "Unable to set init rate on perf cluster, rc=%d\n",
+		dev_err(&pdev->dev, "Unable to set boot rate on perf cluster, rc=%d\n",
 			rc);
 		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
 		return rc;
