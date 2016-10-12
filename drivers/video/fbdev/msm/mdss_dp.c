@@ -1022,6 +1022,8 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 	pinfo->lcdc.hsync_skew = 0;
 	pinfo->is_pluggable = true;
 
+	dp_drv->bpp = pinfo->bpp;
+
 	pr_debug("update res. vic= %d, pclk_rate = %llu\n",
 				dp_drv->vic, pinfo->clk_rate);
 
@@ -1786,16 +1788,15 @@ static void mdss_dp_do_link_train(struct mdss_dp_drv_pdata *dp)
 static void mdss_dp_event_work(struct work_struct *work)
 {
 	struct mdss_dp_drv_pdata *dp = NULL;
-	struct delayed_work *dw = to_delayed_work(work);
 	unsigned long flag;
-	u32 todo = 0, dp_config_pkt[2];
+	u32 todo = 0, config;
 
-	if (!dw) {
+	if (!work) {
 		pr_err("invalid work structure\n");
 		return;
 	}
 
-	dp = container_of(dw, struct mdss_dp_drv_pdata, dwork);
+	dp = container_of(work, struct mdss_dp_drv_pdata, work);
 
 	spin_lock_irqsave(&dp->event_lock, flag);
 	todo = dp->current_event;
@@ -1840,11 +1841,9 @@ static void mdss_dp_event_work(struct work_struct *work)
 			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
 		break;
 	case EV_USBPD_DP_CONFIGURE:
-		dp_config_pkt[0] = SVDM_HDR(USB_C_DP_SID, VDM_VERSION, 0x1,
-			SVDM_CMD_TYPE_INITIATOR, DP_VDM_CONFIGURE);
-		dp_config_pkt[1] = mdss_dp_usbpd_gen_config_pkt(dp);
+		config = mdss_dp_usbpd_gen_config_pkt(dp);
 		usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_CONFIGURE,
-			SVDM_CMD_TYPE_INITIATOR, 0x1, dp_config_pkt, 0x2);
+			SVDM_CMD_TYPE_INITIATOR, 0x1, &config, 0x1);
 		break;
 	default:
 		pr_err("Unknown event:%d\n", todo);
@@ -1855,7 +1854,7 @@ static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events)
 {
 	spin_lock(&dp->event_lock);
 	dp->current_event = events;
-	queue_delayed_work(dp->workq, &dp->dwork, HZ / 100);
+	queue_work(dp->workq, &dp->work);
 	spin_unlock(&dp->event_lock);
 }
 
@@ -1931,7 +1930,7 @@ static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 		return -EPERM;
 	}
 
-	INIT_DELAYED_WORK(&dp->dwork, mdss_dp_event_work);
+	INIT_WORK(&dp->work, mdss_dp_event_work);
 	return 0;
 }
 
@@ -2050,8 +2049,7 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		}
 		break;
 	case DP_VDM_CONFIGURE:
-		if ((dp_drv->cable_connected == true)
-				|| (cmd_type == SVDM_CMD_TYPE_RESP_ACK)) {
+		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
 			dp_drv->alt_mode.current_state = DP_CONFIGURE_DONE;
 			pr_debug("config USBPD to DP done\n");
 			mdss_dp_host_init(&dp_drv->panel_data);
