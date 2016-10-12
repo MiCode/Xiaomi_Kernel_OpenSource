@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -322,7 +322,10 @@ struct mhi_addr {
 	uint64_t	host_pa;
 	uintptr_t	device_pa;
 	uintptr_t	device_va;
-	uint32_t	size;
+	size_t		size;
+	dma_addr_t	phy_addr;
+	void		*virt_addr;
+	bool		use_ipa_dma;
 };
 
 struct mhi_interrupt_state {
@@ -479,6 +482,7 @@ struct mhi_dev {
 	struct mhi_dev_ch_ctx		*cmd_ctx_cache;
 	dma_addr_t			cmd_ctx_cache_dma_handle;
 	struct mhi_dev_ring		*ring;
+	int				mhi_irq;
 	struct mhi_dev_channel		*ch;
 
 	int				ctrl_int;
@@ -516,6 +520,7 @@ struct mhi_dev {
 	atomic_t			write_active;
 	atomic_t			is_suspended;
 	struct mutex			mhi_write_test;
+	u32				device_local_pa_base;
 	u32				mhi_ep_msi_num;
 	u32				mhi_version;
 	void				*dma_cache;
@@ -533,6 +538,12 @@ struct mhi_dev {
 	 * region from device used in mhi_write()
 	 */
 	dma_addr_t			write_dma_handle;
+
+	/* Use IPA DMA for Software channel data transfer */
+	bool				use_ipa;
+
+	/* iATU is required to map control and data region */
+	bool				config_iatu;
 };
 
 enum mhi_msg_level {
@@ -756,14 +767,14 @@ int mhi_transfer_host_to_device(void *device, uint64_t src_pa, uint32_t len,
 				struct mhi_dev *mhi);
 
 /**
- * mhi_dev_write_to_host() - memcpy equivalent API to transfer data
- *		from device to host.
+ * mhi_dev_write_to_host() - Transfer data from device to host.
+ *		Based on support available, either IPA DMA or memcpy is used.
  * @host:	Host and device address details.
  * @buf:	Data buffer that needs to be written to the host.
  * @size:	Data buffer size.
  */
-void mhi_dev_write_to_host(struct mhi_addr *host, void *buf, size_t size,
-				struct mhi_dev *mhi);
+void mhi_dev_write_to_host(struct mhi_dev *mhi,
+				struct mhi_addr *mhi_transfer);
 
 /**
  * mhi_dev_read_from_host() - memcpy equivalent API to transfer data
@@ -772,7 +783,8 @@ void mhi_dev_write_to_host(struct mhi_addr *host, void *buf, size_t size,
  * @buf:	Data buffer that needs to be read from the host.
  * @size:	Data buffer size.
  */
-void mhi_dev_read_from_host(struct mhi_addr *dst, dma_addr_t buf, size_t size);
+void mhi_dev_read_from_host(struct mhi_dev *mhi,
+				struct mhi_addr *mhi_transfer);
 
 /**
  * mhi_dev_read_from_host() - memcpy equivalent API to transfer data
