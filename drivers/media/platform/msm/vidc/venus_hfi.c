@@ -3336,7 +3336,6 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 {
 	bool local_packet = false;
 	enum vidc_msg_prio log_level = VIDC_FW;
-	unsigned int pending_packet_count = 0;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
@@ -3359,23 +3358,6 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 		 */
 
 		log_level = VIDC_ERR;
-	}
-
-	/*
-	 * In FATAL situation, print all the pending messages in msg
-	 * queue. This is useful for debugging. At this time, message
-	 * queues may be corrupted. Hence don't trust them and just print
-	 * first max_packets packets.
-	 */
-
-	if (local_packet) {
-		dprintk(VIDC_ERR,
-			"Printing all pending messages in message Queue\n");
-		while (!__iface_msgq_read(device, packet) &&
-				pending_packet_count < max_packets) {
-			__dump_packet(packet, log_level);
-			pending_packet_count++;
-		}
 	}
 
 	while (!__iface_dbgq_read(device, packet)) {
