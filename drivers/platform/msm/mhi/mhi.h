@@ -277,6 +277,8 @@ struct mhi_ring {
 	u32 overwrite_en;
 	enum MHI_CHAN_DIR dir;
 	struct db_mode db_mode;
+	u32 msi_disable_cntr;
+	u32 msi_enable_cntr;
 };
 
 enum MHI_CMD_STATUS {
@@ -351,12 +353,6 @@ struct mhi_client_handle {
 	int event_ring_index;
 };
 
-enum MHI_EVENT_POLLING {
-	MHI_EVENT_POLLING_DISABLED = 0x0,
-	MHI_EVENT_POLLING_ENABLED = 0x1,
-	MHI_EVENT_POLLING_reserved = 0x80000000
-};
-
 enum MHI_TYPE_EVENT_RING {
 	MHI_ER_DATA_TYPE = 0x1,
 	MHI_ER_CTRL_TYPE = 0x2,
@@ -393,8 +389,6 @@ struct mhi_counters {
 	u32 m3_event_timeouts;
 	u32 m0_event_timeouts;
 	u32 m2_event_timeouts;
-	u32 msi_disable_cntr;
-	u32 msi_enable_cntr;
 	u32 nr_irq_migrations;
 	u32 *msi_counter;
 	u32 *ev_counter;
