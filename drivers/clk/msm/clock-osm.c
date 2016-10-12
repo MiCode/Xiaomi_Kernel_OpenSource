@@ -202,6 +202,8 @@ enum clk_osm_trace_packet_id {
 #define TRACE_CTRL_EN_MASK BIT(0)
 #define TRACE_CTRL_ENABLE 1
 #define TRACE_CTRL_DISABLE 0
+#define TRACE_CTRL_ENABLE_WDOG_STATUS	BIT(30)
+#define TRACE_CTRL_ENABLE_WDOG_STATUS_MASK	BIT(30)
 #define TRACE_CTRL_PACKET_TYPE_MASK BVAL(2, 1, 3)
 #define TRACE_CTRL_PACKET_TYPE_SHIFT 1
 #define TRACE_CTRL_PERIODIC_TRACE_EN_MASK BIT(3)
@@ -2690,6 +2692,18 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to register CPU clocks, rc=%d\n",
 			rc);
 		return rc;
+	}
+
+	if (msmcobalt_v2) {
+		/* Enable OSM WDOG registers */
+		clk_osm_masked_write_reg(&pwrcl_clk,
+					 TRACE_CTRL_ENABLE_WDOG_STATUS,
+					 TRACE_CTRL,
+					 TRACE_CTRL_ENABLE_WDOG_STATUS_MASK);
+		clk_osm_masked_write_reg(&perfcl_clk,
+					 TRACE_CTRL_ENABLE_WDOG_STATUS,
+					 TRACE_CTRL,
+					 TRACE_CTRL_ENABLE_WDOG_STATUS_MASK);
 	}
 
 	/*
