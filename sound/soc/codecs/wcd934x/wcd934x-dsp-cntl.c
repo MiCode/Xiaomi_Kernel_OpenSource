@@ -523,7 +523,9 @@ static int wcd_cntl_enable_memory(struct wcd_dsp_cntl *cntl)
 				  ARRAY_SIZE(mem_enable_values),
 				  mem_enable_values);
 
-	snd_soc_write(codec, WCD934X_CPE_SS_PWR_CPE_SYSMEM_DEEPSLP_0, 0x05);
+	/* Make sure Deep sleep of memories is enabled for all banks */
+	snd_soc_write(codec, WCD934X_CPE_SS_PWR_CPE_SYSMEM_DEEPSLP_0, 0xFF);
+	snd_soc_write(codec, WCD934X_CPE_SS_PWR_CPE_SYSMEM_DEEPSLP_1, 0x0F);
 done:
 	return ret;
 }
@@ -533,6 +535,7 @@ static void wcd_cntl_disable_memory(struct wcd_dsp_cntl *cntl)
 	struct snd_soc_codec *codec = cntl->codec;
 
 	snd_soc_write(codec, WCD934X_CPE_SS_PWR_CPE_SYSMEM_DEEPSLP_0, 0xFF);
+	snd_soc_write(codec, WCD934X_CPE_SS_PWR_CPE_SYSMEM_DEEPSLP_1, 0x0F);
 	snd_soc_write(codec, WCD934X_CPE_SS_PWR_CPE_SYSMEM_SHUTDOWN_3, 0xFF);
 	snd_soc_write(codec, WCD934X_CPE_SS_PWR_CPE_SYSMEM_SHUTDOWN_2, 0xFF);
 	snd_soc_write(codec, WCD934X_CPE_SS_PWR_CPE_DRAM1_SHUTDOWN, 0x07);
