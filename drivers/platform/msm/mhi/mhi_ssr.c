@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/pm_runtime.h>
 #include <mhi_sys.h>
 #include <mhi.h>
 #include <mhi_bhi.h>
@@ -23,24 +24,11 @@
 static int mhi_ssr_notify_cb(struct notifier_block *nb,
 			unsigned long action, void *data)
 {
-	int ret_val = 0;
-	struct mhi_device_ctxt *mhi_dev_ctxt =
-		&mhi_devices.device_list[0].mhi_ctxt;
-	struct mhi_pcie_dev_info *mhi_pcie_dev = NULL;
 
-	mhi_pcie_dev = &mhi_devices.device_list[mhi_devices.nr_of_devices];
-	if (NULL != mhi_dev_ctxt)
-		mhi_dev_ctxt->esoc_notif = action;
 	switch (action) {
 	case SUBSYS_BEFORE_POWERUP:
 		mhi_log(MHI_MSG_INFO,
 			"Received Subsystem event BEFORE_POWERUP\n");
-		atomic_set(&mhi_dev_ctxt->flags.pending_powerup, 1);
-		ret_val = init_mhi_base_state(mhi_dev_ctxt);
-		if (0 != ret_val)
-			mhi_log(MHI_MSG_CRITICAL,
-				"Failed to transition to base state %d.\n",
-				ret_val);
 		break;
 	case SUBSYS_AFTER_POWERUP:
 		mhi_log(MHI_MSG_INFO,
@@ -148,7 +136,7 @@ void mhi_notify_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
 	}
 }
 
-static int set_mhi_base_state(struct mhi_pcie_dev_info *mhi_pcie_dev)
+int set_mhi_base_state(struct mhi_pcie_dev_info *mhi_pcie_dev)
 {
 	u32 pcie_word_val = 0;
 	int r = 0;
@@ -159,13 +147,11 @@ static int set_mhi_base_state(struct mhi_pcie_dev_info *mhi_pcie_dev)
 	mhi_pcie_dev->bhi_ctxt.bhi_base += pcie_word_val;
 	pcie_word_val = mhi_reg_read(mhi_pcie_dev->bhi_ctxt.bhi_base,
 				     BHI_EXECENV);
+	mhi_dev_ctxt->dev_exec_env = pcie_word_val;
 	if (pcie_word_val == MHI_EXEC_ENV_AMSS) {
 		mhi_dev_ctxt->base_state = STATE_TRANSITION_RESET;
 	} else if (pcie_word_val == MHI_EXEC_ENV_PBL) {
 		mhi_dev_ctxt->base_state = STATE_TRANSITION_BHI;
-		r = bhi_probe(mhi_pcie_dev);
-		if (r)
-			mhi_log(MHI_MSG_ERROR, "Failed to initialize BHI.\n");
 	} else {
 		mhi_log(MHI_MSG_ERROR, "Invalid EXEC_ENV: 0x%x\n",
 			pcie_word_val);
@@ -178,10 +164,9 @@ static int set_mhi_base_state(struct mhi_pcie_dev_info *mhi_pcie_dev)
 
 void mhi_link_state_cb(struct msm_pcie_notify *notify)
 {
-	int ret_val = 0;
+
 	struct mhi_pcie_dev_info *mhi_pcie_dev;
 	struct mhi_device_ctxt *mhi_dev_ctxt = NULL;
-	int r = 0;
 
 	if (NULL == notify || NULL == notify->data) {
 		mhi_log(MHI_MSG_CRITICAL,
@@ -198,32 +183,6 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 	case MSM_PCIE_EVENT_LINKUP:
 		mhi_log(MHI_MSG_INFO,
 			"Received MSM_PCIE_EVENT_LINKUP\n");
-		if (0 == mhi_pcie_dev->link_up_cntr) {
-			mhi_log(MHI_MSG_INFO,
-				"Initializing MHI for the first time\n");
-				r = mhi_ctxt_init(mhi_pcie_dev);
-				if (r) {
-					mhi_log(MHI_MSG_ERROR,
-					"MHI initialization failed, ret %d.\n",
-					r);
-					r = msm_pcie_register_event(
-					&mhi_pcie_dev->mhi_pci_link_event);
-					mhi_log(MHI_MSG_ERROR,
-					"Deregistered from PCIe notif r %d.\n",
-					r);
-					return;
-				}
-				mhi_dev_ctxt = &mhi_pcie_dev->mhi_ctxt;
-				mhi_pcie_dev->mhi_ctxt.flags.link_up = 1;
-				pci_set_master(mhi_pcie_dev->pcie_device);
-				r = set_mhi_base_state(mhi_pcie_dev);
-				if (r)
-					return;
-				init_mhi_base_state(mhi_dev_ctxt);
-		} else {
-			mhi_log(MHI_MSG_INFO,
-				"Received Link Up Callback\n");
-		}
 		mhi_pcie_dev->link_up_cntr++;
 		break;
 	case MSM_PCIE_EVENT_WAKEUP:
@@ -231,17 +190,14 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 			"Received MSM_PCIE_EVENT_WAKE\n");
 		__pm_stay_awake(&mhi_dev_ctxt->w_lock);
 		__pm_relax(&mhi_dev_ctxt->w_lock);
-		if (atomic_read(&mhi_dev_ctxt->flags.pending_resume)) {
-			mhi_log(MHI_MSG_INFO,
-				"There is a pending resume, doing nothing.\n");
-			return;
-		}
-		ret_val = mhi_init_state_transition(mhi_dev_ctxt,
-				STATE_TRANSITION_WAKE);
-		if (0 != ret_val) {
-			mhi_log(MHI_MSG_CRITICAL,
-				"Failed to init state transition, to %d\n",
-				STATE_TRANSITION_WAKE);
+
+		if (mhi_dev_ctxt->flags.mhi_initialized) {
+			pm_runtime_get(&mhi_dev_ctxt->
+				       dev_info->pcie_device->dev);
+			pm_runtime_mark_last_busy(&mhi_dev_ctxt->
+						  dev_info->pcie_device->dev);
+			pm_runtime_put_noidle(&mhi_dev_ctxt->
+					      dev_info->pcie_device->dev);
 		}
 		break;
 	default:
@@ -255,12 +211,6 @@ int init_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int r = 0;
 
-	mhi_assert_device_wake(mhi_dev_ctxt);
-	mhi_dev_ctxt->flags.link_up = 1;
-	r = mhi_set_bus_request(mhi_dev_ctxt, 1);
-	if (r)
-		mhi_log(MHI_MSG_INFO,
-			"Failed to scale bus request to active set.\n");
 	r = mhi_init_state_transition(mhi_dev_ctxt, mhi_dev_ctxt->base_state);
 	if (r) {
 		mhi_log(MHI_MSG_CRITICAL,
