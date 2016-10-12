@@ -48,8 +48,8 @@ static struct smb_params v1_params = {
 		.name	= "fast charge current",
 		.reg	= FAST_CHARGE_CURRENT_CFG_REG,
 		.min_u	= 0,
-		.max_u	= 5000000,
-		.step_u	= 50000,
+		.max_u	= 4500000,
+		.step_u	= 25000,
 	},
 	.fv		= {
 		.name	= "float voltage",
@@ -1121,6 +1121,15 @@ static int smb138x_slave_probe(struct smb138x *chip)
 				 CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT, 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure charge enable source rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* enable parallel current sensing */
+	rc = smblib_masked_write(chg, CFG_REG,
+				 VCHG_EN_CFG_BIT, VCHG_EN_CFG_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't enable parallel current sensing rc=%d\n",
 			rc);
 		return rc;
 	}

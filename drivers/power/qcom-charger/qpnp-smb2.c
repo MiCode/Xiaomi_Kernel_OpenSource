@@ -342,6 +342,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
+	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -404,6 +405,10 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
 		rc = smblib_get_prop_usb_current_now(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
+		val->intval = get_client_vote(chg->pl_disable_votable,
+					      USER_VOTER);
+		break;
 	default:
 		pr_err("get prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -448,6 +453,9 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PD_ACTIVE:
 		rc = smblib_set_prop_pd_active(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
+		vote(chg->pl_disable_votable, USER_VOTER, (bool)val->intval, 0);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -462,6 +470,7 @@ static int smb2_usb_prop_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
+	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 		return 1;
 	default:
 		break;
