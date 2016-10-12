@@ -353,6 +353,7 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 		if (atomic_read(&rmnet_mhi_ptr->irq_masked_cntr)) {
 			atomic_dec(&rmnet_mhi_ptr->irq_masked_cntr);
 			mhi_unmask_irq(rmnet_mhi_ptr->rx_client_handle);
+			mhi_set_lpm(rmnet_mhi_ptr->rx_client_handle, true);
 		}
 	} else {
 		if (received_packets == budget)
@@ -493,6 +494,7 @@ static void rmnet_mhi_rx_cb(struct mhi_result *result)
 	if (napi_schedule_prep(&(rmnet_mhi_ptr->napi))) {
 		mhi_mask_irq(rmnet_mhi_ptr->rx_client_handle);
 		atomic_inc(&rmnet_mhi_ptr->irq_masked_cntr);
+		mhi_set_lpm(rmnet_mhi_ptr->rx_client_handle, false);
 		__napi_schedule(&(rmnet_mhi_ptr->napi));
 	} else {
 		rmnet_mhi_ptr->debug.rx_interrupts_in_masked_irq++;
@@ -525,6 +527,7 @@ static int rmnet_mhi_open(struct net_device *dev)
 	if (napi_schedule_prep(&(rmnet_mhi_ptr->napi))) {
 		mhi_mask_irq(rmnet_mhi_ptr->rx_client_handle);
 		atomic_inc(&rmnet_mhi_ptr->irq_masked_cntr);
+		mhi_set_lpm(rmnet_mhi_ptr->rx_client_handle, false);
 		__napi_schedule(&(rmnet_mhi_ptr->napi));
 	} else {
 		rmnet_mhi_ptr->debug.rx_interrupts_in_masked_irq++;
