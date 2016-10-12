@@ -279,6 +279,52 @@
 		qcom,sleep-stats-version = <2>;
 	};
 
+	qcom,rpm-rail-stats@200000 {
+		compatible = "qcom,rpm-rail-stats";
+		reg = <0x200000 0x100>,
+			<0x29000c 0x4>;
+		reg-names = "phys_addr_base",
+			    "offset_addr";
+	};
+
+	qcom,rpm-log@200000 {
+		compatible = "qcom,rpm-log";
+		reg = <0x200000 0x4000>,
+			<0x290018 0x4>;
+		qcom,rpm-addr-phys = <0x200000>;
+		qcom,offset-version = <4>;
+		qcom,offset-page-buffer-addr = <36>;
+		qcom,offset-log-len = <40>;
+		qcom,offset-log-len-mask = <44>;
+		qcom,offset-page-indices = <56>;
+	};
+
+	qcom,rpm-master-stats@778150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0x778150 0x5000>;
+		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <4096>;
+	};
+
+	rpm_msg_ram: memory@0x200000 {
+		compatible = "qcom,rpm-msg-ram";
+		reg = <0x200000 0x1000>,
+			<0x290000 0x1000>;
+	};
+
+	rpm_code_ram: rpm-memory@0x778000 {
+		compatible = "qcom,rpm-code-ram";
+		reg = <0x778000 0x5000>;
+	};
+
+	qcom,system-stats {
+		compatible = "qcom,system-stats";
+		qcom,rpm-msg-ram = <&rpm_msg_ram>;
+		qcom,rpm-code-ram = <&rpm_code_ram>;
+		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI";
+	};
+
 	qcom,mpm@7781b8 {
 		compatible = "qcom,mpm-v2";
 		reg = <0x7781b8 0x1000>, /* MSM_RPM_MPM_BASE 4K */
