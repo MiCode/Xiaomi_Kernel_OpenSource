@@ -463,11 +463,19 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev)
 	struct iommu_domain *domain;
 	unsigned long iova = 0x10000;
 	phys_addr_t paddr = 0xa000;
+	int atomic_domain = 1;
 
 	domain = iommu_domain_alloc(&platform_bus_type);
 	if (!domain) {
 		seq_puts(s, "Couldn't allocate domain\n");
 		return;
+	}
+
+	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_ATOMIC,
+				  &atomic_domain)) {
+		seq_printf(s, "Couldn't set atomic_domain to %d\n",
+			   atomic_domain);
+		goto out_domain_free;
 	}
 
 	if (iommu_attach_device(domain, dev)) {
