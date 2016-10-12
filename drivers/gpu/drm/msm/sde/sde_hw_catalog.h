@@ -567,7 +567,7 @@ struct sde_vbif_dynamic_ot_cfg {
  */
 struct sde_vbif_dynamic_ot_tbl {
 	u32 count;
-	const struct sde_vbif_dynamic_ot_cfg *cfg;
+	struct sde_vbif_dynamic_ot_cfg *cfg;
 };
 
 /**
