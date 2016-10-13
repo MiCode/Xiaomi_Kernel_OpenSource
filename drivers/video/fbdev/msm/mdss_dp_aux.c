@@ -525,8 +525,8 @@ char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
 	 * Any changes in the section of code should
 	 * consider this limitation.
 	 */
-	min_link_rate = pinfo->clk_rate
-			/ (lane_cnt * encoding_factx10);
+	min_link_rate = (u32)div_u64(pinfo->clk_rate,
+				(lane_cnt * encoding_factx10));
 	min_link_rate /= ln_to_link_ratio;
 	min_link_rate = (min_link_rate * pinfo->bpp);
 	min_link_rate = (u32)div_u64(min_link_rate * 10,
