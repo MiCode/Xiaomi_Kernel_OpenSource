@@ -532,7 +532,7 @@ static void parse_driver_options(struct arm_smmu_device *smmu)
 		if (of_property_read_bool(smmu->dev->of_node,
 						arm_smmu_options[i].prop)) {
 			smmu->options |= arm_smmu_options[i].opt;
-			dev_notice(smmu->dev, "option %s\n",
+			dev_dbg(smmu->dev, "option %s\n",
 				arm_smmu_options[i].prop);
 		}
 	} while (arm_smmu_options[++i].opt);
@@ -3138,8 +3138,8 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	u32 id;
 	bool cttw_dt, cttw_reg;
 
-	dev_notice(smmu->dev, "probing hardware configuration...\n");
-	dev_notice(smmu->dev, "SMMUv%d with:\n",
+	dev_dbg(smmu->dev, "probing hardware configuration...\n");
+	dev_dbg(smmu->dev, "SMMUv%d with:\n",
 			smmu->version == ARM_SMMU_V2 ? 2 : 1);
 
 	/* ID0 */
@@ -3153,17 +3153,17 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 
 	if (id & ID0_S1TS) {
 		smmu->features |= ARM_SMMU_FEAT_TRANS_S1;
-		dev_notice(smmu->dev, "\tstage 1 translation\n");
+		dev_dbg(smmu->dev, "\tstage 1 translation\n");
 	}
 
 	if (id & ID0_S2TS) {
 		smmu->features |= ARM_SMMU_FEAT_TRANS_S2;
-		dev_notice(smmu->dev, "\tstage 2 translation\n");
+		dev_dbg(smmu->dev, "\tstage 2 translation\n");
 	}
 
 	if (id & ID0_NTS) {
 		smmu->features |= ARM_SMMU_FEAT_TRANS_NESTED;
-		dev_notice(smmu->dev, "\tnested translation\n");
+		dev_dbg(smmu->dev, "\tnested translation\n");
 	}
 
 	if (!(smmu->features &
@@ -3175,7 +3175,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	if ((id & ID0_S1TS) &&
 		((smmu->version < ARM_SMMU_V2) || !(id & ID0_ATOSNS))) {
 		smmu->features |= ARM_SMMU_FEAT_TRANS_OPS;
-		dev_notice(smmu->dev, "\taddress translation ops\n");
+		dev_dbg(smmu->dev, "\taddress translation ops\n");
 	}
 
 	/*
@@ -3189,7 +3189,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	if (cttw_dt)
 		smmu->features |= ARM_SMMU_FEAT_COHERENT_WALK;
 	if (cttw_dt || cttw_reg)
-		dev_notice(smmu->dev, "\t%scoherent table walk\n",
+		dev_dbg(smmu->dev, "\t%scoherent table walk\n",
 			   cttw_dt ? "" : "non-");
 	if (cttw_dt != cttw_reg)
 		dev_notice(smmu->dev,
@@ -3222,7 +3222,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 				return -ENODEV;
 			}
 
-			dev_notice(smmu->dev,
+			dev_dbg(smmu->dev,
 				   "\tstream matching with %u register groups, mask 0x%x",
 				   smmu->num_mapping_groups, mask);
 		}
@@ -3255,7 +3255,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 		dev_err(smmu->dev, "impossible number of S2 context banks!\n");
 		return -ENODEV;
 	}
-	dev_notice(smmu->dev, "\t%u context banks (%u stage-2 only)\n",
+	dev_dbg(smmu->dev, "\t%u context banks (%u stage-2 only)\n",
 		   smmu->num_context_banks, smmu->num_s2_context_banks);
 	/*
 	 * Cavium CN88xx erratum #27704.
@@ -3320,17 +3320,17 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 		arm_smmu_ops.pgsize_bitmap = smmu->pgsize_bitmap;
 	else
 		arm_smmu_ops.pgsize_bitmap |= smmu->pgsize_bitmap;
-	dev_notice(smmu->dev, "\tSupported page sizes: 0x%08lx\n",
+	dev_dbg(smmu->dev, "\tSupported page sizes: 0x%08lx\n",
 		   smmu->pgsize_bitmap);
 
 
 	if (smmu->features & ARM_SMMU_FEAT_TRANS_S1)
-		dev_notice(smmu->dev, "\tStage-1: %lu-bit VA -> %lu-bit IPA\n",
-			   smmu->va_size, smmu->ipa_size);
+		dev_dbg(smmu->dev, "\tStage-1: %lu-bit VA -> %lu-bit IPA\n",
+			smmu->va_size, smmu->ipa_size);
 
 	if (smmu->features & ARM_SMMU_FEAT_TRANS_S2)
-		dev_notice(smmu->dev, "\tStage-2: %lu-bit IPA -> %lu-bit PA\n",
-			   smmu->ipa_size, smmu->pa_size);
+		dev_dbg(smmu->dev, "\tStage-2: %lu-bit IPA -> %lu-bit PA\n",
+			smmu->ipa_size, smmu->pa_size);
 
 	return 0;
 }
@@ -3460,7 +3460,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	if (err)
 		goto out_put_masters;
 
-	dev_notice(dev, "registered %d master devices\n", num_masters);
+	dev_dbg(dev, "registered %d master devices\n", num_masters);
 
 	err = arm_smmu_parse_impl_def_registers(smmu);
 	if (err)
