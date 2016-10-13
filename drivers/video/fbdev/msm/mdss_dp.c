@@ -789,16 +789,33 @@ void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *dp)
 
 	cap = &dp->dpcd;
 
-	data = dp->lane_cnt - 1;
-	data <<= 4;
+	data |= (2 << 13); /* Default-> LSCLK DIV: 1/4 LCLK  */
+
+	/* Color Format */
+	switch (dp->panel_data.panel_info.out_format) {
+	case MDP_Y_CBCR_H2V2:
+		data |= (1 << 11); /* YUV420 */
+		break;
+	case MDP_Y_CBCR_H2V1:
+		data |= (2 << 11); /* YUV422 */
+		break;
+	default:
+		data |= (0 << 11); /* RGB */
+		break;
+	}
+
+	/* Scrambler reset enable */
+	if (cap->scrambler_reset)
+		data |= (1 << 10);
+
+	if (dp->edid.color_depth != 6)
+		data |= 0x100;	/* Default: 8 bits */
+
+	/* Num of Lanes */
+	data |= ((dp->lane_cnt - 1) << 4);
 
 	if (cap->enhanced_frame)
 		data |= 0x40;
-
-	if (dp->edid.color_depth == 8) {
-		/* 0 == 6 bits, 1 == 8 bits */
-		data |= 0x100;	/* bit 8 */
-	}
 
 	if (!timing->interlaced)	/* progressive */
 		data |= 0x04;
@@ -1825,8 +1842,7 @@ static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events)
 {
 	spin_lock(&dp->event_lock);
 	dp->current_event = events;
-	queue_delayed_work(dp->workq,
-				&dp->dwork, HZ);
+	queue_delayed_work(dp->workq, &dp->dwork, HZ / 100);
 	spin_unlock(&dp->event_lock);
 }
 
