@@ -296,13 +296,47 @@ void mdss_dp_sw_mvid_nvid(struct dss_io_data *ctrl_io)
 	writel_relaxed(0x3c, ctrl_io->base + DP_SOFTWARE_NVID);
 }
 
-void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io)
+void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
+				u8 ln_cnt, u32 res)
 {
-	/* Current Tr unit configuration supports only 1080p */
+	u32 dp_tu = 0x0;
+	u32 valid_boundary = 0x0;
+	u32 valid_boundary2 = 0x0;
+	struct dp_vc_tu_mapping_table const *tu_entry = tu_table;
+
 	writel_relaxed(0x21, ctrl_io->base + DP_MISC1_MISC0);
-	writel_relaxed(0x0f0016, ctrl_io->base + DP_VALID_BOUNDARY);
-	writel_relaxed(0x1f, ctrl_io->base + DP_TU);
-	writel_relaxed(0x0, ctrl_io->base + DP_VALID_BOUNDARY_2);
+
+	for (; tu_entry != tu_table + ARRAY_SIZE(tu_table); ++tu_entry) {
+		if ((tu_entry->vic == res) &&
+			(tu_entry->lanes == ln_cnt) &&
+			(tu_entry->lrate == link_rate))
+		break;
+	}
+
+	if (tu_entry == tu_table + ARRAY_SIZE(tu_table)) {
+		pr_err("requested ln_cnt=%d, lrate=0x%x not supported\n",
+				ln_cnt, link_rate);
+		return;
+	}
+
+	dp_tu |= tu_entry->tu_size_minus1;
+	valid_boundary |= tu_entry->valid_boundary_link;
+	valid_boundary |= (tu_entry->delay_start_link << 16);
+
+	valid_boundary2 |= (tu_entry->valid_lower_boundary_link << 1);
+	valid_boundary2 |= (tu_entry->upper_boundary_count << 16);
+	valid_boundary2 |= (tu_entry->lower_boundary_count << 20);
+
+	if (tu_entry->boundary_moderation_en)
+		valid_boundary2 |= BIT(0);
+
+	writel_relaxed(valid_boundary, ctrl_io->base + DP_VALID_BOUNDARY);
+	writel_relaxed(dp_tu, ctrl_io->base + DP_TU);
+	writel_relaxed(valid_boundary2, ctrl_io->base + DP_VALID_BOUNDARY_2);
+
+	pr_debug("valid_boundary=0x%x, valid_boundary2=0x%x\n",
+				valid_boundary, valid_boundary2);
+	pr_debug("dp_tu=0x%x\n", dp_tu);
 }
 
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
