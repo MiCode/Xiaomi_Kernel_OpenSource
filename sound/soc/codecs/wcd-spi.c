@@ -319,7 +319,7 @@ static int wcd_spi_transfer_split(struct spi_device *spi,
 	u32 addr = data_msg->remote_addr;
 	u8 *data = data_msg->data;
 	int remain_size = data_msg->len;
-	int to_xfer, loop_cnt, ret;
+	int to_xfer, loop_cnt, ret = 0;
 
 	/* Perform single writes until multi word alignment is met */
 	loop_cnt = 1;
@@ -845,7 +845,7 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 				  void *data)
 {
 	struct spi_device *spi = to_spi_device(dev);
-	int ret;
+	int ret = 0;
 
 	dev_dbg(&spi->dev, "%s: event type %d\n",
 		__func__, event);
