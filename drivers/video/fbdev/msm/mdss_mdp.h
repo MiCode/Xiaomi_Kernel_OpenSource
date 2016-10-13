@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,6 +124,7 @@
 #define DS_ENHANCER_UPDATE  BIT(5)
 #define DS_VALIDATE         BIT(6)
 #define DS_DIRTY_UPDATE     BIT(7)
+#define DS_PU_ENABLE        BIT(8)
 
 /**
  * Destination Scaler DUAL mode overfetch pixel count
@@ -386,6 +387,7 @@ struct mdss_mdp_destination_scaler {
 	u16 last_mixer_height;
 	u32 flags;
 	struct mdp_scale_data_v2 scaler;
+	struct mdss_rect panel_roi;
 };
 
 
@@ -1167,6 +1169,14 @@ static inline int is_dest_scaling_enable(struct mdss_mdp_mixer *mixer)
 {
 	return (test_bit(MDSS_CAPS_DEST_SCALER, mdss_res->mdss_caps_map) &&
 			mixer && mixer->ds && (mixer->ds->flags & DS_ENABLE));
+}
+
+static inline int is_dest_scaling_pu_enable(struct mdss_mdp_mixer *mixer)
+{
+	if (is_dest_scaling_enable(mixer))
+		return (mixer->ds->flags & DS_PU_ENABLE);
+
+	return 0;
 }
 
 static inline u32 get_ds_input_width(struct mdss_mdp_mixer *mixer)

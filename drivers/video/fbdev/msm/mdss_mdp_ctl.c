@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4652,7 +4652,15 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	previous_frame_pu_type = mdss_mdp_get_pu_type(ctl);
 	if (ctl->mixer_left) {
 		mdss_mdp_set_mixer_roi(ctl->mixer_left, l_roi);
-		ctl->roi = ctl->mixer_left->roi;
+		if (is_dest_scaling_enable(ctl->mixer_left))
+			ctl->roi = ctl->mixer_left->ds->panel_roi;
+		else
+			ctl->roi = ctl->mixer_left->roi;
+
+		pr_debug("ctl->mixer_left: [%d %d %d %d] ds:%d\n",
+				ctl->roi.x, ctl->roi.y,
+				ctl->roi.w, ctl->roi.h,
+				is_dest_scaling_enable(ctl->mixer_left));
 	}
 
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
@@ -4660,20 +4668,43 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 
 		if (sctl && sctl->mixer_left) {
 			mdss_mdp_set_mixer_roi(sctl->mixer_left, r_roi);
-			sctl->roi = sctl->mixer_left->roi;
+			if (is_dest_scaling_enable(sctl->mixer_left))
+				sctl->roi = sctl->mixer_left->ds->panel_roi;
+			else
+				sctl->roi = sctl->mixer_left->roi;
+
+			pr_debug("sctl->mixer_left: [%d %d %d %d] ds:%d\n",
+				sctl->roi.x, sctl->roi.y,
+				sctl->roi.w, sctl->roi.h,
+				is_dest_scaling_enable(sctl->mixer_left));
+
 		}
 	} else if (is_dual_lm_single_display(ctl->mfd) && ctl->mixer_right) {
 
 		mdss_mdp_set_mixer_roi(ctl->mixer_right, r_roi);
 
 		/* in this case, CTL_ROI is a union of left+right ROIs. */
-		ctl->roi.w += ctl->mixer_right->roi.w;
+		if (is_dest_scaling_enable(ctl->mixer_right))
+			ctl->roi.w += ctl->mixer_right->ds->panel_roi.w;
+		else
+			ctl->roi.w += ctl->mixer_right->roi.w;
 
 		/* right_only, update roi.x as per CTL ROI guidelines */
 		if (ctl->mixer_left && !ctl->mixer_left->valid_roi) {
-			ctl->roi = ctl->mixer_right->roi;
-			ctl->roi.x = left_lm_w_from_mfd(ctl->mfd) +
-				ctl->mixer_right->roi.x;
+			if (is_dest_scaling_enable(ctl->mixer_right)) {
+				ctl->roi = ctl->mixer_right->ds->panel_roi;
+				ctl->roi.x =
+					get_ds_output_width(ctl->mixer_left) +
+					ctl->mixer_right->ds->panel_roi.x;
+			} else {
+				ctl->roi = ctl->mixer_right->roi;
+				ctl->roi.x = left_lm_w_from_mfd(ctl->mfd) +
+					ctl->mixer_right->roi.x;
+			}
+			pr_debug("ctl->mixer_right_only : [%d %d %d %d] ds:%d\n",
+				ctl->roi.x, ctl->roi.y,
+				ctl->roi.w, ctl->roi.h,
+				is_dest_scaling_enable(ctl->mixer_right));
 		}
 	}
 
