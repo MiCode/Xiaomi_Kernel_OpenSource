@@ -2412,6 +2412,8 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	vote(chg->apsd_disable_votable, PD_HARD_RESET_VOTER, false, 0);
 
 	typec_source_removal(chg);
+
+	smblib_update_usb_type(chg);
 }
 
 static void smblib_handle_typec_insertion(struct smb_charger *chg,
