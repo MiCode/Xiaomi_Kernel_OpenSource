@@ -41,6 +41,7 @@
 #define DP_PHY_TX0_TX1_LANE_CTL			0x0068
 
 #define DP_PHY_TX2_TX3_LANE_CTL			0x0084
+#define DP_PHY_SPARE0				0x00A8
 #define DP_PHY_STATUS				0x00BC
 
 /* Tx registers */

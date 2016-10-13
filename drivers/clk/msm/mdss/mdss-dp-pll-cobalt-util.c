@@ -18,6 +18,7 @@
 #include <linux/iopoll.h>
 #include <linux/delay.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <linux/usb/usbpd.h>
 
 #include "mdss-pll.h"
 #include "mdss-dp-pll.h"
@@ -172,9 +173,27 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 {
 	u32 res = 0;
 	struct mdss_pll_resources *dp_res = vco->priv;
+	u8 orientation, ln_cnt;
+	u32 spare_value;
 
-	MDSS_PLL_REG_W(dp_res->phy_base,
-			DP_PHY_PD_CTL, 0x3d);
+	spare_value = MDSS_PLL_REG_R(dp_res->phy_base, DP_PHY_SPARE0);
+	ln_cnt = spare_value & 0x0F;
+	orientation = (spare_value & 0xF0) >> 4;
+	pr_debug("%s: spare_value=0x%x, ln_cnt=0x%x, orientation=0x%x\n",
+				__func__, spare_value, ln_cnt, orientation);
+
+	if (ln_cnt != 4) {
+		if (orientation == ORIENTATION_CC2)
+			MDSS_PLL_REG_W(dp_res->phy_base,
+				DP_PHY_PD_CTL, 0x2d);
+		else
+			MDSS_PLL_REG_W(dp_res->phy_base,
+				DP_PHY_PD_CTL, 0x35);
+	} else {
+		MDSS_PLL_REG_W(dp_res->phy_base,
+				DP_PHY_PD_CTL, 0x3d);
+	}
+
 	/* Make sure the PHY register writes are done */
 	wmb();
 	MDSS_PLL_REG_W(dp_res->pll_base,
@@ -314,8 +333,13 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 	/* Make sure the PLL register writes are done */
 	wmb();
 
-	MDSS_PLL_REG_W(dp_res->phy_base,
-			DP_PHY_MODE, 0x58);
+	if (orientation == ORIENTATION_CC2)
+		MDSS_PLL_REG_W(dp_res->phy_base,
+				DP_PHY_MODE, 0x48);
+	else
+		MDSS_PLL_REG_W(dp_res->phy_base,
+				DP_PHY_MODE, 0x58);
+
 	MDSS_PLL_REG_W(dp_res->phy_base,
 			DP_PHY_TX0_TX1_LANE_CTL, 0x05);
 	MDSS_PLL_REG_W(dp_res->phy_base,
@@ -427,6 +451,12 @@ static int dp_pll_enable(struct clk *c)
 	u32 status;
 	struct dp_pll_vco_clk *vco = mdss_dp_to_vco_clk(c);
 	struct mdss_pll_resources *dp_res = vco->priv;
+	u8 orientation, ln_cnt;
+	u32 spare_value, bias_en, drvr_en;
+
+	spare_value = MDSS_PLL_REG_R(dp_res->phy_base, DP_PHY_SPARE0);
+	ln_cnt = spare_value & 0x0F;
+	orientation = (spare_value & 0xF0) >> 4;
 
 	MDSS_PLL_REG_W(dp_res->phy_base,
 			DP_PHY_CFG, 0x01);
@@ -474,18 +504,45 @@ static int dp_pll_enable(struct clk *c)
 
 	pr_debug("%s: PLL is locked\n", __func__);
 
-	MDSS_PLL_REG_W(dp_res->phy_base,
+	if (ln_cnt == 1) {
+		bias_en = 0x3e;
+		drvr_en = 0x13;
+	} else {
+		bias_en = 0x3f;
+		drvr_en = 0x10;
+	}
+
+	if (ln_cnt != 4) {
+		if (orientation == ORIENTATION_CC1) {
+			MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_TRANSCEIVER_BIAS_EN,
-			0x3f);
-	MDSS_PLL_REG_W(dp_res->phy_base,
+			bias_en);
+			MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_HIGHZ_DRVR_EN,
-			0x10);
-	MDSS_PLL_REG_W(dp_res->phy_base,
+			drvr_en);
+		} else {
+			MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_TRANSCEIVER_BIAS_EN,
-			0x3f);
-	MDSS_PLL_REG_W(dp_res->phy_base,
+			bias_en);
+			MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_HIGHZ_DRVR_EN,
-			0x10);
+			drvr_en);
+		}
+	} else {
+		MDSS_PLL_REG_W(dp_res->phy_base,
+			QSERDES_TX0_OFFSET + TXn_TRANSCEIVER_BIAS_EN,
+			bias_en);
+		MDSS_PLL_REG_W(dp_res->phy_base,
+			QSERDES_TX0_OFFSET + TXn_HIGHZ_DRVR_EN,
+			drvr_en);
+		MDSS_PLL_REG_W(dp_res->phy_base,
+			QSERDES_TX1_OFFSET + TXn_TRANSCEIVER_BIAS_EN,
+			bias_en);
+		MDSS_PLL_REG_W(dp_res->phy_base,
+			QSERDES_TX1_OFFSET + TXn_HIGHZ_DRVR_EN,
+			drvr_en);
+	}
+
 	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_TX_POL_INV,
 			0x0a);
@@ -615,7 +672,7 @@ int dp_vco_prepare(struct clk *c)
 	rc = dp_pll_enable(c);
 	if (rc) {
 		mdss_pll_resource_enable(dp_pll_res, false);
-		pr_err("ndx=%d failed to enable dsi pll\n",
+		pr_err("ndx=%d failed to enable dp pll\n",
 					dp_pll_res->index);
 		goto error;
 	}
