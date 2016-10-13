@@ -207,6 +207,7 @@ int dp_aux_write(void *ep, struct edp_cmd *cmd);
 void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data);
 u32 mdss_dp_get_ctrl_hw_version(struct dss_io_data *ctrl_io);
 u32 mdss_dp_get_phy_hw_version(struct dss_io_data *phy_io);
+void mdss_dp_ctrl_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_aux_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_mainlink_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_phy_reset(struct dss_io_data *ctrl_io);
