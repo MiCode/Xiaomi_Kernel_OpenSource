@@ -1108,6 +1108,40 @@ end:
 }
 
 /*
+ * __is_sd_state_valid() - validate secure display state
+ *
+ * This function checks if the current state of secrure display is valid,
+ * based on the new settings.
+ * For command mode panels, the sd state would be invalid if a non secure pipe
+ * comes and one of the below condition is met:
+ *	1) Secure Display is enabled for current client, and there is other
+	secure client.
+ *	2) Secure Display is disabled for current client, and there is other
+	secure client.
+ *	3) Secure pipes are already staged for the current client.
+ * For other panels, the sd state would be invalid if a non secure pipe comes
+ * and one of the below condition is met:
+ *	1) Secure Display is enabled for current or other client.
+ *	2) Secure pipes are already staged for the current client.
+ *
+ */
+static inline bool __is_sd_state_valid(uint32_t sd_pipes, uint32_t nonsd_pipes,
+	int panel_type, u32 sd_enabled)
+{
+	if (panel_type == MIPI_CMD_PANEL) {
+		if ((((mdss_get_sd_client_cnt() > 1) && sd_enabled) ||
+			(mdss_get_sd_client_cnt() && !sd_enabled) ||
+			sd_pipes)
+			&& nonsd_pipes)
+			return false;
+	} else {
+		if ((sd_pipes || mdss_get_sd_client_cnt()) && nonsd_pipes)
+			return false;
+	}
+	return true;
+}
+
+/*
  * __validate_secure_display() - validate secure display
  *
  * This function travers through used pipe list and checks if any pipe
@@ -1119,6 +1153,8 @@ static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
 	uint32_t sd_pipes = 0, nonsd_pipes = 0;
+	int panel_type = mdp5_data->ctl->panel_data->panel_info.type;
+	int ret = 0;
 
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
@@ -1132,14 +1168,21 @@ static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
 	pr_debug("pipe count:: secure display:%d non-secure:%d\n",
 		sd_pipes, nonsd_pipes);
 
-	if ((sd_pipes || mdss_get_sd_client_cnt()) && nonsd_pipes) {
+	mdp5_data->sd_transition_state = SD_TRANSITION_NONE;
+	if (!__is_sd_state_valid(sd_pipes, nonsd_pipes, panel_type,
+		mdp5_data->sd_enabled)) {
 		pr_err("non-secure layer validation request during secure display session\n");
 		pr_err(" secure client cnt:%d secure pipe cnt:%d non-secure pipe cnt:%d\n",
 			mdss_get_sd_client_cnt(), sd_pipes, nonsd_pipes);
-		return -EINVAL;
-	} else {
-		return 0;
+		ret = -EINVAL;
+	} else if (!mdp5_data->sd_enabled && sd_pipes) {
+			mdp5_data->sd_transition_state =
+				SD_TRANSITION_NON_SECURE_TO_SECURE;
+	} else if (mdp5_data->sd_enabled && !sd_pipes) {
+			mdp5_data->sd_transition_state =
+				SD_TRANSITION_SECURE_TO_NON_SECURE;
 	}
+	return ret;
 }
 
 /*
@@ -2000,7 +2043,8 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 	/* handle null commit */
 	if (!layer_count) {
 		__handle_free_list(mdp5_data, NULL, layer_count);
-		return 0;
+		/* Check for secure state transition. */
+		return __validate_secure_display(mdp5_data);
 	}
 
 	validate_info_list = kcalloc(layer_count, sizeof(*validate_info_list),
