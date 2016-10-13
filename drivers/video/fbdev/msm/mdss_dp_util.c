@@ -32,6 +32,29 @@
 #define AUDIO_FREQ_48		48000
 #define DP_AUDIO_FREQ_COUNT	3
 
+enum mdss_dp_pin_assignment {
+	PIN_ASSIGNMENT_A,
+	PIN_ASSIGNMENT_B,
+	PIN_ASSIGNMENT_C,
+	PIN_ASSIGNMENT_D,
+	PIN_ASSIGNMENT_E,
+	PIN_ASSIGNMENT_F,
+	PIN_ASSIGNMENT_MAX,
+};
+
+static const char *mdss_dp_pin_name(u8 pin)
+{
+	switch (pin) {
+	case PIN_ASSIGNMENT_A: return "PIN_ASSIGNMENT_A";
+	case PIN_ASSIGNMENT_B: return "PIN_ASSIGNMENT_B";
+	case PIN_ASSIGNMENT_C: return "PIN_ASSIGNMENT_C";
+	case PIN_ASSIGNMENT_D: return "PIN_ASSIGNMENT_D";
+	case PIN_ASSIGNMENT_E: return "PIN_ASSIGNMENT_E";
+	case PIN_ASSIGNMENT_F: return "PIN_ASSIGNMENT_F";
+	default: return "UNKNOWN";
+	}
+}
+
 static const uint32_t naud_value[DP_AUDIO_FREQ_COUNT][DP_AUDIO_FREQ_COUNT] = {
 	{ 10125, 16875, 33750 },
 	{ 5625, 9375, 18750 },
@@ -477,9 +500,23 @@ void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status)
 
 u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp)
 {
+	u8 pin_cfg, pin;
 	u32 config = 0;
 
-	config |= (dp->alt_mode.dp_cap.dlink_pin_config << 8);
+	pin_cfg = dp->alt_mode.dp_cap.dlink_pin_config;
+
+	for (pin = PIN_ASSIGNMENT_A; pin < PIN_ASSIGNMENT_MAX; pin++) {
+		if (pin_cfg & BIT(pin))
+			break;
+	}
+
+	if (pin == PIN_ASSIGNMENT_MAX)
+		pin = PIN_ASSIGNMENT_C;
+
+	pr_debug("pin assignment: %s\n", mdss_dp_pin_name(pin));
+
+	config |= BIT(pin) << 8;
+
 	config |= (0x1 << 2); /* configure for DPv1.3 */
 	config |= 0x2; /* Configuring for UFP_D */
 
