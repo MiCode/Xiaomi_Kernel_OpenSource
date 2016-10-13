@@ -820,7 +820,8 @@ static void ipa_rm_wq_resume_handler(struct work_struct *work)
 	}
 	ipa_rm_resource_consumer_request_work(
 			(struct ipa_rm_resource_cons *)resource,
-			ipa_rm_work->prev_state, ipa_rm_work->needed_bw, true);
+			ipa_rm_work->prev_state, ipa_rm_work->needed_bw, true,
+			ipa_rm_work->inc_usage_count);
 	spin_unlock_irqrestore(&ipa_rm_ctx->ipa_rm_lock, flags);
 bail:
 	kfree(ipa_rm_work);
@@ -916,7 +917,8 @@ int ipa_rm_wq_send_suspend_cmd(enum ipa_rm_resource_name resource_name,
 
 int ipa_rm_wq_send_resume_cmd(enum ipa_rm_resource_name resource_name,
 		enum ipa_rm_resource_state prev_state,
-		u32 needed_bw)
+		u32 needed_bw,
+		bool inc_usage_count)
 {
 	int result = -ENOMEM;
 	struct ipa_rm_wq_suspend_resume_work_type *work = kzalloc(sizeof(*work),
@@ -926,6 +928,7 @@ int ipa_rm_wq_send_resume_cmd(enum ipa_rm_resource_name resource_name,
 		work->resource_name = resource_name;
 		work->prev_state = prev_state;
 		work->needed_bw = needed_bw;
+		work->inc_usage_count = inc_usage_count;
 		result = queue_work(ipa_rm_ctx->ipa_rm_wq,
 				(struct work_struct *)work);
 	} else {
