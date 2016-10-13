@@ -441,6 +441,17 @@ u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp)
 	return config;
 }
 
+void mdss_dp_phy_share_lane_config(struct dss_io_data *phy_io,
+					u8 orientation, u8 ln_cnt)
+{
+	u32 info = 0x0;
+
+	info |= (ln_cnt & 0x0F);
+	info |= ((orientation & 0x0F) << 4);
+	pr_debug("Shared Info = 0x%x\n", info);
+	writel_relaxed(info, phy_io->base + DP_PHY_SPARE0);
+}
+
 void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io, char link_rate)
 {
 	u32 acr_ctrl = 0;

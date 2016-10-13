@@ -150,6 +150,8 @@
 #define DP_PHY_AUX_INTERRUPT_MASK               (0x00000044)
 #define DP_PHY_AUX_INTERRUPT_CLEAR              (0x00000048)
 
+#define DP_PHY_SPARE0				0x00A8
+
 #define QSERDES_TX0_OFFSET			0x0400
 #define QSERDES_TX1_OFFSET			0x0800
 
@@ -231,6 +233,8 @@ void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status);
 u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp);
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
 					struct lane_mapping l_map);
+void mdss_dp_phy_share_lane_config(struct dss_io_data *phy_io,
+					u8 orientation, u8 ln_cnt);
 void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io,
 						char link_rate);
 void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io);
