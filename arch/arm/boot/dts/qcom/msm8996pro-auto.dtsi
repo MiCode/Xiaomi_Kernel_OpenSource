@@ -13,23 +13,60 @@
 #include "msm8996v3-auto.dtsi"
 
 &gfx_vreg {
-	qcom,cpr-voltage-ceiling =
-		/* Speed bin 0 */
-		<600000  670000  670000  750000  830000  910000  960000 1020000
-		1070000>,
+	qcom,cpr-fuse-combos = <24>;
+	qcom,cpr-speed-bins = <3>;
+	qcom,cpr-speed-bin-corners = <8 8 8>;
+	qcom,cpr-corners = <8>;
 
-		/* Speed bin 1 */
-		<600000  670000  670000  750000  830000  910000  960000 1020000
-		1070000>;
+	qcom,cpr-corner-fmax-map =
+		<2 4 6 8>;
+
+	qcom,cpr-voltage-ceiling =
+		<600000  670000  670000  750000  830000  910000  960000
+		1020000>;
 
 	qcom,cpr-voltage-floor =
-		/* Speed bin 0 */
-		<600000  600000  600000  600000  600000  600000  600000  600000
-		 600000>,
+		<600000  600000  600000  600000  600000  600000  600000
+		600000>;
 
-		/* Speed bin 1 */
-		<600000  600000  600000  600000  600000  600000  600000  600000
-		 600000>;
+	qcom,mem-acc-voltage =
+		<1 1 1 1 2 2 2 2>;
+
+	qcom,corner-frequencies =
+		<0 133000000 214000000 315000000 401800000 510000000 560000000
+		   624000000>;
+
+	qcom,cpr-target-quotients =
+		<0 0 0 0 0 0    0    0    0    0    0    0 0 0 0 0>,
+		<0 0 0 0 0 0  185  179  291  299  304  319 0 0 0 0>,
+		<0 0 0 0 0 0  287  273  425  426  443  453 0 0 0 0>,
+		<0 0 0 0 0 0  414  392  584  576  608  612 0 0 0 0>,
+		<0 0 0 0 0 0  459  431  684  644  692  679 0 0 0 0>,
+		<0 0 0 0 0 0  577  543  798  768  823  810 0 0 0 0>,
+		<0 0 0 0 0 0  669  629  886  864  924  911 0 0 0 0>,
+		<0 0 0 0 0 0  771  725  984  970 1036 1024 0 0 0 0>;
+
+	qcom,cpr-ro-scaling-factor =
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>;
+
+	qcom,cpr-open-loop-voltage-fuse-adjustment =
+		<(-85000) (-15000) (-15000) (-30000)>;
+
+	qcom,cpr-closed-loop-voltage-adjustment =
+		<0 0 30000 10000 10000 45000 25000 25000>;
+
+	qcom,cpr-floor-to-ceiling-max-range =
+		<0 70000 70000 75000 80000 90000 95000 100000>;
+
+	qcom,cpr-fused-closed-loop-voltage-adjustment-map =
+		<0 2 2 2 2 0 0 4>;
 };
 
 &apcc_cpr {
@@ -38,9 +75,9 @@
 
 &apc0_pwrcl_vreg {
 	regulator-max-microvolt = <19>;
-	qcom,cpr-fuse-combos = <8>;
-	qcom,cpr-speed-bins = <1>;
-	qcom,cpr-speed-bin-corners = <19>;
+	qcom,cpr-fuse-combos = <24>;
+	qcom,cpr-speed-bins = <3>;
+	qcom,cpr-speed-bin-corners = <19 19 19>;
 	qcom,cpr-corners = <19>;
 
 	qcom,cpr-corner-fmax-map =
@@ -66,23 +103,9 @@
 		1440000000 1516800000 1593600000 1785600000>;
 
 	qcom,cpr-open-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,cpr-closed-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,cpr-open-loop-voltage-adjustment =
@@ -101,9 +124,9 @@
 };
 
 &apc0_cbf_vreg {
-	qcom,cpr-fuse-combos = <8>;
-	qcom,cpr-speed-bins = <1>;
-	qcom,cpr-speed-bin-corners = <19>;
+	qcom,cpr-fuse-combos = <24>;
+	qcom,cpr-speed-bins = <3>;
+	qcom,cpr-speed-bin-corners = <19 19 19>;
 	qcom,cpr-corners = <19>;
 
 	qcom,cpr-corner-fmax-map =
@@ -129,23 +152,9 @@
 		1363200000 1440000000 1516800000 1593600000>;
 
 	qcom,cpr-open-loop-voltage-fuse-adjustment =
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
 		<0        0        0    15000        0 >;
 
 	qcom,cpr-closed-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,allow-aging-voltage-adjustment = <0>;
@@ -153,9 +162,9 @@
 };
 
 &apc1_vreg {
-	qcom,cpr-fuse-combos = <8>;
-	qcom,cpr-speed-bins = <1>;
-	qcom,cpr-speed-bin-corners = <25>;
+	qcom,cpr-fuse-combos = <24>;
+	qcom,cpr-speed-bins = <3>;
+	qcom,cpr-speed-bin-corners = <25 25 25>;
 	qcom,cpr-corners = <25>;
 
 	qcom,cpr-corner-fmax-map =
@@ -184,23 +193,9 @@
 		1824000000 1900800000 1977600000 2054400000 2150400000>;
 
 	qcom,cpr-open-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,cpr-closed-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,cpr-open-loop-voltage-adjustment =
