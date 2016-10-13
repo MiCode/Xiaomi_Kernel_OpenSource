@@ -3097,8 +3097,10 @@ static int arm_smmu_init_clocks(struct arm_smmu_device *smmu)
 	smmu->num_clocks =
 		of_property_count_strings(dev->of_node, "clock-names");
 
-	if (smmu->num_clocks < 1)
+	if (smmu->num_clocks < 1) {
+		smmu->num_clocks = 0;
 		return 0;
+	}
 
 	smmu->clocks = devm_kzalloc(
 		dev, sizeof(*smmu->clocks) * smmu->num_clocks,
