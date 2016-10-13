@@ -375,6 +375,11 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		q6asm_cmd(prtd->audio_client, CMD_PAUSE);
 		q6asm_cmd(prtd->audio_client, CMD_FLUSH);
 		buf = q6asm_shared_io_buf(prtd->audio_client, dir);
+		if (buf == NULL) {
+			pr_err("%s: shared IO buffer is null\n", __func__);
+			ret = -EINVAL;
+			break;
+		}
 		memset(buf->data, 0, buf->actual_size);
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
