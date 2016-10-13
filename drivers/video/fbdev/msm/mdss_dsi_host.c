@@ -1108,6 +1108,11 @@ static int mdss_dsi_read_status(struct mdss_dsi_ctrl_pdata *ctrl)
 	rc = 1;
 	lenp = ctrl->status_valid_params ?: ctrl->status_cmds_rlen;
 
+	if (!lenp || !ctrl->status_cmds_rlen) {
+		pr_err("invalid dsi read params!\n");
+		return 0;
+	}
+
 	for (i = 0; i < ctrl->status_cmds.cmd_cnt; ++i) {
 		memset(&cmdreq, 0, sizeof(cmdreq));
 		cmdreq.cmds = ctrl->status_cmds.cmds + i;
