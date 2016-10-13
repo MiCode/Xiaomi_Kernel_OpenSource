@@ -444,47 +444,6 @@ static int smblib_update_usb_type(struct smb_charger *chg)
 	return rc;
 }
 
-static int smblib_detach_typec(struct smb_charger *chg)
-{
-	int rc;
-
-	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
-	chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-
-	/* reconfigure allowed voltage for HVDCP */
-	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG,
-			  USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	chg->voltage_min_uv = MICRO_5V;
-	chg->voltage_max_uv = MICRO_5V;
-
-	/* clear USB ICL vote for PD_VOTER */
-	rc = vote(chg->usb_icl_votable, PD_VOTER, false, 0);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't vote for USB ICL rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	/* cc removed, disable pd_allowed */
-	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
-	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
-	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER, true, 0);
-	vote(chg->pd_disallowed_votable_indirect, VBUS_CC_SHORT_VOTER, true, 0);
-
-	/* reset votes from vbus_cc_short */
-	vote(chg->hvdcp_disable_votable, VBUS_CC_SHORT_VOTER, true, 0);
-
-	vote(chg->apsd_disable_votable, PD_VOTER, false, 0);
-
-	return rc;
-}
-
 static int smblib_notifier_call(struct notifier_block *nb,
 		unsigned long ev, void *v)
 {
@@ -2317,74 +2276,83 @@ irqreturn_t smblib_handle_usb_source_change(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void smblib_handle_typec_cc(struct smb_charger *chg, bool attached)
+static void typec_source_removal(struct smb_charger *chg)
 {
 	int rc;
 
-	if (!attached) {
-		rc = smblib_detach_typec(chg);
-		if (rc < 0)
-			dev_err(chg->dev, "Couldn't detach USB rc=%d\n", rc);
-	}
+	vote(chg->pl_disable_votable, TYPEC_SRC_VOTER, true, 0);
+	/* reset both usbin current and voltage votes */
+	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
+	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
+	/* reset taper_end voter here */
+	vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
 
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: CC %s\n",
-		   attached ? "attached" : "detached");
+	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
+
+	/* reconfigure allowed voltage for HVDCP */
+	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG,
+			  USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
+			rc);
+
+	chg->voltage_min_uv = MICRO_5V;
+	chg->voltage_max_uv = MICRO_5V;
+
+	/* clear USB ICL vote for PD_VOTER */
+	rc = vote(chg->usb_icl_votable, PD_VOTER, false, 0);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't vote for USB ICL rc=%d\n", rc);
 }
 
-static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
-				bool attached, bool rising, bool sink_attached)
+static void typec_source_insertion(struct smb_charger *chg)
 {
-	int rc;
-	union power_supply_propval pval = {0, };
+	vote(chg->pl_disable_votable, TYPEC_SRC_VOTER, false, 0);
+}
 
-	/* allow PD when cc is attached and debounced */
-	if (attached && rising)
-		vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER,
-				false, 0);
+static void typec_sink_insertion(struct smb_charger *chg)
+{
+	/* when a sink is inserted we should not wait on hvdcp timeout to
+	 * enable pd
+	 */
+	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
+			false, 0);
+}
 
-	rc = smblib_get_prop_typec_mode(chg, &pval);
-	if (rc < 0)
-		dev_err(chg->dev, "Couldn't get prop typec mode rc=%d\n", rc);
+static void smblib_handle_typec_removal(struct smb_charger *chg)
+{
+	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
+	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
+	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER, true, 0);
+	vote(chg->pd_disallowed_votable_indirect, VBUS_CC_SHORT_VOTER, true, 0);
+
+	/* reset votes from vbus_cc_short */
+	vote(chg->hvdcp_disable_votable, VBUS_CC_SHORT_VOTER, true, 0);
 
 	/*
-	 * vote to enable parallel charging if a source is attached, and disable
-	 * otherwise
+	 * cable could be removed during hard reset, remove its vote to
+	 * disable apsd
 	 */
-	vote(chg->pl_disable_votable, TYPEC_SRC_VOTER,
-					!rising || sink_attached, 0);
+	vote(chg->apsd_disable_votable, PD_HARD_RESET_VOTER, false, 0);
 
-	if (!rising || sink_attached) {
-		/* reset both usbin current and voltage votes */
-		vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
-		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
-		/* reset taper_end voter here */
-		vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
-	}
-
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: debounce-done %s; Type-C %s detected\n",
-		   rising ? "rising" : "falling",
-		   smblib_typec_mode_name[pval.intval]);
+	typec_source_removal(chg);
 }
 
-static void smblib_handle_legacy_cable(struct smb_charger *chg,
-					bool typec_debounced)
+static void smblib_handle_typec_insertion(struct smb_charger *chg,
+		bool sink_attached, bool legacy_cable)
 {
-	int rc, rp;
-	u8 stat;
-	bool legacy_cable;
+	int rp;
 	bool vbus_cc_short = false;
 
-	if (!typec_debounced)
-		return;
+	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, false, 0);
 
-	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't read TYPE_C_STATUS_5 rc=%d\n",
-			rc);
-		return;
+	if (sink_attached) {
+		typec_source_removal(chg);
+		typec_sink_insertion(chg);
+	} else {
+		typec_source_insertion(chg);
 	}
 
-	legacy_cable = stat & TYPEC_LEGACY_CABLE_STATUS_BIT;
 	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER,
 			legacy_cable, 0);
 
@@ -2403,12 +2371,33 @@ static void smblib_handle_legacy_cable(struct smb_charger *chg,
 			vbus_cc_short, 0);
 }
 
+static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
+			bool rising, bool sink_attached, bool legacy_cable)
+{
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	if (rising)
+		smblib_handle_typec_insertion(chg, sink_attached, legacy_cable);
+	else
+		smblib_handle_typec_removal(chg);
+
+	rc = smblib_get_prop_typec_mode(chg, &pval);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't get prop typec mode rc=%d\n", rc);
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: debounce-done %s; Type-C %s detected\n",
+		   rising ? "rising" : "falling",
+		   smblib_typec_mode_name[pval.intval]);
+}
+
 irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 	int rc;
 	u8 stat;
+	bool debounce_done, sink_attached, legacy_cable;
 
 	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
 	if (rc < 0) {
@@ -2417,15 +2406,20 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_4 = 0x%02x\n", stat);
+	debounce_done = (bool)(stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT);
+	sink_attached = (bool)(stat & UFP_DFP_MODE_STATUS_BIT);
 
-	smblib_handle_typec_cc(chg,
-			(bool)(stat & CC_ATTACHED_BIT));
+	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read TYPE_C_STATUS_5 rc=%d\n",
+			rc);
+		return IRQ_HANDLED;
+	}
+	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_5 = 0x%02x\n", stat);
+	legacy_cable = (bool)(stat & TYPEC_LEGACY_CABLE_STATUS_BIT);
+
 	smblib_handle_typec_debounce_done(chg,
-			(bool)(stat & CC_ATTACHED_BIT),
-			(bool)(stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT),
-			(bool)(stat & UFP_DFP_MODE_STATUS_BIT));
-	smblib_handle_legacy_cable(chg,
-			(bool)(stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT));
+			debounce_done, sink_attached, legacy_cable);
 
 	power_supply_changed(chg->usb_psy);
 
