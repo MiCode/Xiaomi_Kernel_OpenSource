@@ -554,7 +554,7 @@
 		reg = <0x15700000 0x00100>;
 		interrupts = <0 162 1>;
 
-		vdd_cx-supply = <&pmfalcon_s3b_level>;
+		vdd_cx-supply = <&pm2falcon_s3_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
 
@@ -638,9 +638,9 @@
 					 "mnoc_axi_clk";
 
 		interrupts = <0 448 1>;
-		vdd_cx-supply = <&pmfalcon_s3b_level>;
+		vdd_cx-supply = <&pm2falcon_s3_level>;
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		vdd_mx-supply = <&pmfalcon_s5b_level>;
+		vdd_mx-supply = <&pm2falcon_s5_level>;
 		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
