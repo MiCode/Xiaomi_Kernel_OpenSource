@@ -5740,7 +5740,7 @@ struct target_nrg schedtune_target_nrg;
 
 /*
  * System energy normalization
- * Returns the normalized value, in the range [0..SCHED_LOAD_SCALE],
+ * Returns the normalized value, in the range [0..SCHED_CAPACITY_SCALE],
  * corresponding to the specified energy variation.
  */
 static inline int
