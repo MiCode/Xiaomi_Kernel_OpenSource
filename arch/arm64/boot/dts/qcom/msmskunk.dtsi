@@ -562,7 +562,6 @@
 		compatible = "llcc-core", "syscon", "simple-mfd";
 		reg = <0x1300000 0x50000>;
 		reg-names = "llcc_base";
-		status = "disabled";
 
 		llcc: qcom,msmskunk-llcc {
 			compatible = "qcom,msmskunk-llcc";
