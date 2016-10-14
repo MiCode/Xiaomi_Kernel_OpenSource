@@ -1798,7 +1798,7 @@ out:
 
 invalid_format:
 	pr_err("Invalid format. Expected: iova,len\n");
-	return retval;
+	return -EINVAL;
 }
 
 static const struct file_operations iommu_debug_unmap_fops = {
