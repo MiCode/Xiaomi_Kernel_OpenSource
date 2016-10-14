@@ -567,23 +567,23 @@
 		};
 		qcom,sde-plane-id@2 {
 			qcom,display-type = "primary";
-			qcom,plane-name = "vig2", "vig3";
+			qcom,plane-name = "dma0", "dma1";
 			qcom,plane-type = "overlay";
 		};
 		qcom,sde-plane-id@3 {
 			qcom,display-type = "primary";
-			qcom,plane-name = "rgb2", "rgb3";
-			qcom,plane-type = "overlay";
-		};
-		qcom,sde-plane-id@4 {
-			qcom,display-type = "primary";
-			qcom,plane-name = "dma0", "dma1";
-			qcom,plane-type = "overlay";
-		};
-		qcom,sde-plane-id@5 {
-			qcom,display-type = "primary";
 			qcom,plane-name = "cursor0", "cursor1";
 			qcom,plane-type = "cursor";
+		};
+		qcom,sde-plane-id@4 {
+			qcom,display-type = "secondary";
+			qcom,plane-name = "rgb2", "rgb3";
+			qcom,plane-type = "primary";
+		};
+		qcom,sde-plane-id@5 {
+			qcom,display-type = "secondary";
+			qcom,plane-name = "vig2", "vig3";
+			qcom,plane-type = "overlay";
 		};
 	};
 };
@@ -602,8 +602,31 @@
 	/delete-property/ qcom,dsi-display-active;
 };
 
-&hdmi_display {
-	qcom,display-type = "primary";
+&dsi_adv_7533_1 {
+	qcom,dsi-display-active;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
 };
 
 &mdss_dsi {

@@ -231,6 +231,26 @@
 			qcom,dsi-panel = <&dsi_dual_nt35597_video>;
 			vddio-supply = <&pm8994_l14>;
 		};
+
+		dsi_adv_7533_1: qcom,dsi-display@7 {
+			compatible = "qcom,dsi-display";
+			label = "dsi_adv_7533_1";
+			qcom,display-type = "primary";
+
+			qcom,dsi-ctrl = <&sde_dsi0>;
+			qcom,dsi-phy = <&sde_dsi_phy0>;
+			clocks = <&clock_mmss clk_ext_byte0_clk_src>,
+				 <&clock_mmss clk_ext_pclk0_clk_src>;
+			clock-names = "src_byte_clk", "src_pixel_clk";
+
+			pinctrl-names = "panel_active", "panel_suspend";
+			pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+			pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+			qcom,dsi-panel = <&dsi_adv7533_720p>;
+			vddio-supply = <&pm8994_l14>;
+			qcom,bridge-index = <0>;
+		};
 	};
 };
 
