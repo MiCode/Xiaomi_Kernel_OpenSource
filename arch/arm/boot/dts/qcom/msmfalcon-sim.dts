@@ -20,6 +20,10 @@
 	model = "Qualcomm Technologies, Inc. MSM FALCON SIM";
 	compatible = "qcom,msmfalcon-sim", "qcom,msmfalcon", "qcom,sim";
 	qcom,board-id = <16 0>;
+
+	chosen {
+		bootargs = "lpm_levels.sleep_disabled=1";
+	};
 };
 
 &uartblsp1dm1 {
