@@ -318,8 +318,9 @@ static void msm_ext_disp_audio_codec_rx_dai_shutdown(
 	struct msm_ext_disp_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
-	if (!codec_data || !codec_data->ext_disp_ops.cable_status) {
-		dev_err(dai->dev, "%s: codec data or cable_status is null\n",
+	if (!codec_data || !codec_data->ext_disp_ops.teardown_done ||
+	    !codec_data->ext_disp_ops.cable_status) {
+		dev_err(dai->dev, "%s: codec data or teardown_done or cable_status is null\n",
 			__func__);
 		return;
 	}
@@ -332,6 +333,8 @@ static void msm_ext_disp_audio_codec_rx_dai_shutdown(
 			__func__);
 	}
 
+	codec_data->ext_disp_ops.teardown_done(
+		codec_data->ext_disp_core_pdev);
 	return;
 }
 

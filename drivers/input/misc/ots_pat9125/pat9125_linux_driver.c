@@ -11,6 +11,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/of_gpio.h>
+#include <linux/delay.h>
 #include "pixart_ots.h"
 
 struct pixart_pat9125_data {
@@ -18,6 +19,10 @@ struct pixart_pat9125_data {
 	struct input_dev *input;
 	int irq_gpio;
 	u32 irq_flags;
+	u32 press_keycode;
+	bool press_en;
+	bool inverse_x;
+	bool inverse_y;
 };
 
 static int pat9125_i2c_write(struct i2c_client *client, u8 reg, u8 *data,
@@ -70,7 +75,7 @@ static int pat9125_i2c_read(struct i2c_client *client, u8 reg, u8 *data)
 	return ret;
 }
 
-unsigned char read_data(struct i2c_client *client, u8 addr)
+u8 read_data(struct i2c_client *client, u8 addr)
 {
 	u8 data = 0xff;
 
@@ -83,8 +88,55 @@ void write_data(struct i2c_client *client, u8 addr, u8 data)
 	pat9125_i2c_write(client, addr, &data, 1);
 }
 
-static irqreturn_t pixart_pat9125_irq(int irq, void *data)
+static irqreturn_t pat9125_irq(int irq, void *dev_data)
 {
+	u8 delta_x = 0, delta_y = 0, motion;
+	struct pixart_pat9125_data *data = dev_data;
+	struct input_dev *ipdev = data->input;
+	struct device *dev = &data->client->dev;
+
+	motion = read_data(data->client, PIXART_PAT9125_MOTION_STATUS_REG);
+	do {
+		/* check if MOTION bit is set or not */
+		if (motion & PIXART_PAT9125_VALID_MOTION_DATA) {
+			delta_x = read_data(data->client,
+					PIXART_PAT9125_DELTA_X_LO_REG);
+			delta_y = read_data(data->client,
+					PIXART_PAT9125_DELTA_Y_LO_REG);
+
+			/* Inverse x depending upon the device orientation */
+			delta_x = (data->inverse_x) ? -delta_x : delta_x;
+			/* Inverse y depending upon the device orientation */
+			delta_y = (data->inverse_y) ? -delta_y : delta_y;
+		}
+
+		dev_dbg(dev, "motion = %x, delta_x = %x, delta_y = %x\n",
+					motion, delta_x, delta_y);
+
+		if (delta_x != 0) {
+			/* Send delta_x as REL_WHEEL for rotation */
+			input_report_rel(ipdev, REL_WHEEL, (s8) delta_x);
+			input_sync(ipdev);
+		}
+
+		if (data->press_en && delta_y != 0) {
+			if ((s8) delta_y > 0) {
+				/* Send DOWN event for press keycode */
+				input_report_key(ipdev, data->press_keycode, 1);
+				input_sync(ipdev);
+			} else {
+				/* Send UP event for press keycode */
+				input_report_key(ipdev, data->press_keycode, 0);
+				input_sync(ipdev);
+			}
+		}
+		usleep_range(PIXART_SAMPLING_PERIOD_US_MIN,
+					PIXART_SAMPLING_PERIOD_US_MAX);
+
+		motion = read_data(data->client,
+				PIXART_PAT9125_MOTION_STATUS_REG);
+	} while (motion & PIXART_PAT9125_VALID_MOTION_DATA);
+
 	return IRQ_HANDLED;
 }
 
@@ -145,13 +197,36 @@ static struct attribute_group pat9125_attr_grp = {
 	.attrs = pat9125_attr_list,
 };
 
+static int pat9125_parse_dt(struct device *dev,
+		struct pixart_pat9125_data *data)
+{
+	struct device_node *np = dev->of_node;
+	u32 temp_val;
+	int ret;
+
+	data->inverse_x = of_property_read_bool(np, "pixart,inverse-x");
+	data->inverse_y = of_property_read_bool(np, "pixart,inverse-y");
+	data->press_en = of_property_read_bool(np, "pixart,press-enabled");
+	if (data->press_en) {
+		ret = of_property_read_u32(np, "pixart,press-keycode",
+						&temp_val);
+		if (!ret) {
+			data->press_keycode = temp_val;
+		} else {
+			dev_err(dev, "Unable to parse press-keycode\n");
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int pat9125_i2c_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
 	int err = 0;
 	struct pixart_pat9125_data *data;
 	struct input_dev *input;
-	struct device_node *np;
 	struct device *dev = &client->dev;
 
 	err = i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE);
@@ -165,6 +240,11 @@ static int pat9125_i2c_probe(struct i2c_client *client,
 				GFP_KERNEL);
 		if (!data)
 			return -ENOMEM;
+		err = pat9125_parse_dt(dev, data);
+		if (err) {
+			dev_err(dev, "DT parsing failed, errno:%d\n", err);
+			return err;
+		}
 	} else {
 		data = client->dev.platform_data;
 		if (!data) {
@@ -179,6 +259,10 @@ static int pat9125_i2c_probe(struct i2c_client *client,
 		dev_err(dev, "Failed to alloc input device\n");
 		return -ENOMEM;
 	}
+
+	input_set_capability(input, EV_REL, REL_WHEEL);
+	if (data->press_en)
+		input_set_capability(input, EV_KEY, data->press_keycode);
 
 	i2c_set_clientdata(client, data);
 	input_set_drvdata(input, data);
@@ -213,8 +297,8 @@ static int pat9125_i2c_probe(struct i2c_client *client,
 		goto err_sensor_init;
 	}
 
-	err = devm_request_threaded_irq(dev, client->irq, NULL,
-			pixart_pat9125_irq, (unsigned long)data->irq_flags,
+	err = devm_request_threaded_irq(dev, client->irq, NULL, pat9125_irq,
+			 IRQF_ONESHOT | IRQF_TRIGGER_FALLING | IRQF_TRIGGER_LOW,
 			"pixart_pat9125_irq", data);
 	if (err) {
 		dev_err(dev, "Req irq %d failed, errno:%d\n", client->irq, err);

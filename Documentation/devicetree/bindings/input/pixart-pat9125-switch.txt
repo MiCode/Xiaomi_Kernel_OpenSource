@@ -6,5 +6,24 @@ to the Host processor. The host processor reads the direction and number of
 steps over I2C and passes the data to the rest of the system.
 
 Required properties:
+ - compatible	: should be "pixart,pat9125".
+ - reg	: i2c slave address of the device.
+ - interrupt-parent	: parent of interrupt.
+ - interrupts	: interrupt to indicate motion of the rotating switch.
 
- - compatible		: should be "pixart,pat9125".
+Optional properties:
+ - pixart,inverse-x 	: boolean, use this to invert the x data before sending it to input framework
+ - pixart,inverse-y 	: boolean, use this to invert the y data before sending it to input framework
+ - pixart,press-enabled : boolean, use this to enable detection of pressing the button
+
+Required properties if 'pixart,press-enabled' DT property is defined:
+ - pixart,press-keycode	: keycode to be sent when press is detected by the driver.
+
+Example:
+	pixart_pat9125@75 {
+		compatible = "pixart,pat9125";
+		reg = <0x75>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <98 0x2008>;
+		pixart,irq-gpio = <&msm_gpio 98 0x2008>;
+	};

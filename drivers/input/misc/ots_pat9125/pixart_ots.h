@@ -39,6 +39,9 @@
 #define PIXART_PAT9125_LOW_VOLTAGE_SEGMENT	0x04
 #define PIXART_PAT9125_VALID_MOTION_DATA	0x80
 
+#define PIXART_SAMPLING_PERIOD_US_MIN 4000
+#define PIXART_SAMPLING_PERIOD_US_MAX 8000
+
 /* Export functions */
 bool ots_sensor_init(struct i2c_client *);
 

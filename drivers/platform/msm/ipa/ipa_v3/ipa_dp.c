@@ -3180,22 +3180,20 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 					IPA_CLIENT_APPS_WAN_CONS) {
 				sys->pyld_hdlr = ipa3_wan_rx_pyld_hdlr;
 				sys->free_rx_wrapper = ipa3_free_rx_wrapper;
-				if (in->recycle_enabled) {
+				sys->rx_pool_sz = ipa3_ctx->wan_rx_ring_size;
+				if (nr_cpu_ids > 1) {
 					sys->repl_hdlr =
-					   ipa3_replenish_rx_cache_recycle;
+					   ipa3_fast_replenish_rx_cache;
+				} else {
+					sys->repl_hdlr =
+					   ipa3_replenish_rx_cache;
+				}
+				if (in->napi_enabled)
 					sys->rx_pool_sz =
 					   IPA_WAN_NAPI_CONS_RX_POOL_SZ;
-				} else {
-					if (nr_cpu_ids > 1) {
-						sys->repl_hdlr =
-						   ipa3_fast_replenish_rx_cache;
-					} else {
-						sys->repl_hdlr =
-						   ipa3_replenish_rx_cache;
-					}
-					sys->rx_pool_sz =
-					   ipa3_ctx->wan_rx_ring_size;
-				}
+				if (in->napi_enabled && in->recycle_enabled)
+					sys->repl_hdlr =
+					 ipa3_replenish_rx_cache_recycle;
 				in->ipa_ep_cfg.aggr.aggr_sw_eof_active
 					= true;
 				if (ipa3_ctx->
