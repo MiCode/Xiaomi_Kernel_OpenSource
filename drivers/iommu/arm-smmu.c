@@ -1763,6 +1763,13 @@ out_unlock:
 	return ret;
 }
 
+static void arm_smmu_domain_reinit(struct arm_smmu_domain *smmu_domain)
+{
+	smmu_domain->cfg.irptndx = INVALID_IRPTNDX;
+	smmu_domain->cfg.cbndx = INVALID_CBNDX;
+	smmu_domain->secure_vmid = VMID_INVAL;
+}
+
 static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -1792,6 +1799,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 		arm_smmu_secure_pool_destroy(smmu_domain);
 		arm_smmu_unassign_table(smmu_domain);
 		arm_smmu_secure_domain_unlock(smmu_domain);
+		arm_smmu_domain_reinit(smmu_domain);
 		return;
 	}
 
@@ -1815,6 +1823,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
 
 	arm_smmu_power_off(smmu->pwr);
+	arm_smmu_domain_reinit(smmu_domain);
 }
 
 static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
@@ -1841,12 +1850,11 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->pgtbl_lock);
-	smmu_domain->cfg.cbndx = INVALID_CBNDX;
-	smmu_domain->secure_vmid = VMID_INVAL;
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
 	INIT_LIST_HEAD(&smmu_domain->unassign_list);
 	mutex_init(&smmu_domain->assign_lock);
 	INIT_LIST_HEAD(&smmu_domain->secure_pool_list);
+	arm_smmu_domain_reinit(smmu_domain);
 
 	return &smmu_domain->domain;
 }
