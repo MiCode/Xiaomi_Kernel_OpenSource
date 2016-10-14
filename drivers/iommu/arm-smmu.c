@@ -2140,18 +2140,6 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	if (ret)
 		return ret;
 
-	/*
-	 * Keep an additional vote for non-atomic power until domain is
-	 * detached
-	 */
-	if (atomic_domain) {
-		ret = arm_smmu_power_on(smmu->pwr);
-		if (ret)
-			goto out_power_off;
-
-		arm_smmu_power_off_atomic(smmu->pwr);
-	}
-
 	/* Ensure that the domain is finalised */
 	ret = arm_smmu_init_domain_context(domain, smmu);
 	if (ret < 0)
@@ -2191,6 +2179,15 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		dev->archdata.iommu = domain;
 
 out_power_off:
+	/*
+	 * Keep an additional vote for non-atomic power until domain is
+	 * detached
+	 */
+	if (!ret && atomic_domain) {
+		WARN_ON(arm_smmu_power_on(smmu->pwr));
+		arm_smmu_power_off_atomic(smmu->pwr);
+	}
+
 	arm_smmu_power_off(smmu->pwr);
 
 	return ret;
