@@ -33,7 +33,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/qmi_encdec.h>
 #include <linux/ipc_logging.h>
-#include <linux/msm-bus.h>
 #include <linux/thread_info.h>
 #include <linux/uaccess.h>
 #include <linux/qpnp/qpnp-adc.h>
@@ -411,8 +410,6 @@ static struct icnss_priv {
 	size_t smmu_iova_len;
 	dma_addr_t smmu_iova_ipa_start;
 	size_t smmu_iova_ipa_len;
-	struct msm_bus_scale_pdata *bus_scale_table;
-	uint32_t bus_client;
 	struct qmi_handle *wlfw_clnt;
 	struct list_head event_list;
 	spinlock_t event_lock;
@@ -3410,62 +3407,6 @@ unsigned int icnss_socinfo_get_serial_number(struct device *dev)
 }
 EXPORT_SYMBOL(icnss_socinfo_get_serial_number);
 
-static int icnss_bw_vote(struct icnss_priv *priv, int index)
-{
-	int ret = 0;
-
-	icnss_pr_dbg("Vote %d for msm_bus, state 0x%lx\n",
-		     index, priv->state);
-	ret = msm_bus_scale_client_update_request(priv->bus_client, index);
-	if (ret)
-		icnss_pr_err("Fail to vote %d: ret %d, state 0x%lx\n",
-			     index, ret, priv->state);
-
-	return ret;
-}
-
-static int icnss_bw_init(struct icnss_priv *priv)
-{
-	int ret = 0;
-
-	priv->bus_scale_table = msm_bus_cl_get_pdata(priv->pdev);
-	if (!priv->bus_scale_table) {
-		icnss_pr_err("Missing entry for msm_bus scale table\n");
-		return -EINVAL;
-	}
-
-	priv->bus_client = msm_bus_scale_register_client(priv->bus_scale_table);
-	if (!priv->bus_client) {
-		icnss_pr_err("Fail to register with bus_scale client\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	ret = icnss_bw_vote(priv, 1);
-	if (ret)
-		goto out;
-
-	return 0;
-
-out:
-	msm_bus_cl_clear_pdata(priv->bus_scale_table);
-	return ret;
-}
-
-static void icnss_bw_deinit(struct icnss_priv *priv)
-{
-	if (!priv)
-		return;
-
-	if (priv->bus_client) {
-		icnss_bw_vote(priv, 0);
-		msm_bus_scale_unregister_client(priv->bus_client);
-	}
-
-	if (priv->bus_scale_table)
-		msm_bus_cl_clear_pdata(priv->bus_scale_table);
-}
-
 static int icnss_smmu_init(struct icnss_priv *priv)
 {
 	struct dma_iommu_mapping *mapping;
@@ -4419,10 +4360,6 @@ static int icnss_probe(struct platform_device *pdev)
 				     priv->smmu_iova_len);
 			goto out;
 		}
-
-		ret = icnss_bw_init(priv);
-		if (ret)
-			goto out_smmu_deinit;
 	}
 
 	spin_lock_init(&priv->event_lock);
@@ -4432,7 +4369,7 @@ static int icnss_probe(struct platform_device *pdev)
 	if (!priv->event_wq) {
 		icnss_pr_err("Workqueue creation failed\n");
 		ret = -EFAULT;
-		goto out_bw_deinit;
+		goto out_smmu_deinit;
 	}
 
 	INIT_WORK(&priv->event_work, icnss_driver_event_work);
@@ -4460,8 +4397,6 @@ static int icnss_probe(struct platform_device *pdev)
 
 out_destroy_wq:
 	destroy_workqueue(priv->event_wq);
-out_bw_deinit:
-	icnss_bw_deinit(priv);
 out_smmu_deinit:
 	icnss_smmu_deinit(priv);
 out:
@@ -4486,8 +4421,6 @@ static int icnss_remove(struct platform_device *pdev)
 					  &wlfw_clnt_nb);
 	if (penv->event_wq)
 		destroy_workqueue(penv->event_wq);
-
-	icnss_bw_deinit(penv);
 
 	icnss_hw_power_off(penv);
 
