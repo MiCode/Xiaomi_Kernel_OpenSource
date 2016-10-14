@@ -24,6 +24,7 @@
 #include <linux/msm_ext_display.h>
 
 #include "mdss_hdmi_util.h"
+#include "mdss_fb.h"
 
 struct msm_ext_disp_list {
 	struct msm_ext_disp_init_data *data;
@@ -97,41 +98,55 @@ end:
 	return;
 }
 
-static int msm_ext_disp_get_pdev(struct device *dev,
-		struct platform_device *pdev) {
-	int ret = 0;
+static void msm_ext_disp_get_pdev_by_name(struct device *dev,
+		const char *phandle, struct platform_device **pdev)
+{
 	struct device_node *pd_np;
-	const char *phandle = "qcom,msm_ext_disp";
 
-	if (!dev || !dev->of_node) {
-		ret = -ENODEV;
-		pr_err("Invalid params\n");
-		goto end;
+	if (!dev) {
+		pr_err("Invalid device\n");
+		return;
+	}
+
+	if (!dev->of_node) {
+		pr_err("Invalid of_node\n");
+		return;
 	}
 
 	pd_np = of_parse_phandle(dev->of_node, phandle, 0);
 	if (!pd_np) {
 		pr_err("Cannot find %s dev\n", phandle);
-		ret = -ENODEV;
-		goto end;
+		return;
 	}
 
-	pdev = of_find_device_by_node(pd_np);
-	if (!pdev) {
-		pr_err("Cannot find %s pdev\n", phandle);
-		ret = -ENODEV;
-	}
-
-end:
-	return ret;
+	*pdev = of_find_device_by_node(pd_np);
 }
 
+static void msm_ext_disp_get_fb_pdev(struct device *device,
+		struct platform_device **fb_pdev)
+{
+	struct msm_fb_data_type *mfd = NULL;
+	struct fb_info *fbi = dev_get_drvdata(device);
+
+	if (!fbi) {
+		pr_err("fb_info is null\n");
+		return;
+	}
+
+	mfd = (struct msm_fb_data_type *)fbi->par;
+
+	*fb_pdev = mfd->pdev;
+}
 static ssize_t msm_ext_disp_sysfs_wta_audio_cb(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	int ack, ret = 0;
 	ssize_t size = strnlen(buf, PAGE_SIZE);
-	struct platform_device *pdev = NULL;
+	const char *ext_phandle = "qcom,msm_ext_disp";
+	struct platform_device *ext_pdev = NULL;
+	const char *intf_phandle = "qcom,mdss-intf";
+	struct platform_device *intf_pdev = NULL;
+	struct platform_device *fb_pdev = NULL;
 
 	ret = kstrtoint(buf, 10, &ack);
 	if (ret) {
@@ -139,13 +154,25 @@ static ssize_t msm_ext_disp_sysfs_wta_audio_cb(struct device *dev,
 		goto end;
 	}
 
-	ret = msm_ext_disp_get_pdev(dev, pdev);
-	if (ret) {
-		pr_err("Failed to get pdev. ret=%d\n", ret);
+	msm_ext_disp_get_fb_pdev(dev, &fb_pdev);
+	if (!fb_pdev) {
+		pr_err("failed to get fb pdev\n");
 		goto end;
 	}
 
-	ret = msm_ext_disp_audio_ack(pdev, ack);
+	msm_ext_disp_get_pdev_by_name(&fb_pdev->dev, intf_phandle, &intf_pdev);
+	if (!intf_pdev) {
+		pr_err("failed to get display intf pdev\n");
+		goto end;
+	}
+
+	msm_ext_disp_get_pdev_by_name(&intf_pdev->dev, ext_phandle, &ext_pdev);
+	if (!ext_pdev) {
+		pr_err("failed to get ext_pdev\n");
+		goto end;
+	}
+
+	ret = msm_ext_disp_audio_ack(ext_pdev, ack);
 	if (ret)
 		pr_err("Failed to process ack. ret=%d\n", ret);
 
