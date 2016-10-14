@@ -78,6 +78,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9640")
 #define early_machine_is_mdmcalifornium()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdmcalifornium")
+#define early_machine_is_sdxhedgehog()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdxhedgehog")
 #define early_machine_is_fsm9900()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,fsm9900")
 #define early_machine_is_msm8994()	\
@@ -142,6 +144,7 @@
 #define early_machine_is_msm8929()	0
 #define early_machine_is_mdm9607()	0
 #define early_machine_is_mdmcalifornium()	0
+#define early_machine_is_sdxhedgehog()	0
 #define early_machine_is_msmcobalt()	0
 #endif
 
@@ -207,6 +210,7 @@ enum msm_cpu {
 	MSM_CPU_9607,
 	MSM_CPU_CALIFORNIUM,
 	MSM_CPU_COBALT,
+	SDX_CPU_HEDGEHOG,
 };
 
 struct msm_soc_info {
