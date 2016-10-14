@@ -265,6 +265,8 @@ static void send_irq(struct edge_info *einfo)
 	 */
 	wmb();
 	writel_relaxed(einfo->out_irq_mask, einfo->out_irq_reg);
+	if (einfo->remote_proc_id != SMEM_SPSS)
+		writel_relaxed(0, einfo->out_irq_reg);
 	einfo->tx_irq_count++;
 }
 
