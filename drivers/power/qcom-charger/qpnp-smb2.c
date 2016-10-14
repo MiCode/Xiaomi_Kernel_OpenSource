@@ -1584,6 +1584,7 @@ static int smb2_probe(struct platform_device *pdev)
 	chg->param = v1_params;
 	chg->debug_mask = &__debug_mask;
 	chg->mode = PARALLEL_MASTER;
+	chg->name = "PMI";
 	chg->pl.master_percent = &__pl_master_percent;
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);

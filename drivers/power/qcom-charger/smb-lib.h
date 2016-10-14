@@ -116,6 +116,7 @@ struct smb_iio {
 
 struct smb_charger {
 	struct device		*dev;
+	char			*name;
 	struct regmap		*regmap;
 	struct smb_params	param;
 	struct smb_iio		iio;
