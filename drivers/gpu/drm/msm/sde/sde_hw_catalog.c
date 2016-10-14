@@ -87,6 +87,7 @@ enum sde_prop {
 	QSEED_TYPE,
 	PANIC_PER_PIPE,
 	CDP,
+	SRC_SPLIT,
 };
 
 enum {
@@ -138,7 +139,6 @@ enum {
 enum {
 	MIXER_OFF,
 	MIXER_LEN,
-	SRC_SPLIT,
 	MIXER_GC,
 };
 
@@ -188,6 +188,7 @@ static struct sde_prop_type sde_prop[] = {
 	{QSEED_TYPE, "qcom,sde-qseed-type", false, PROP_TYPE_STRING},
 	{PANIC_PER_PIPE, "qcom,sde-panic-per-pipe", false, PROP_TYPE_BOOL},
 	{CDP, "qcom,sde-has-cdp", false, PROP_TYPE_BOOL},
+	{SRC_SPLIT, "qcom,sde-has-src-split", false, PROP_TYPE_BOOL},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -215,7 +216,6 @@ static struct sde_prop_type ctl_prop[] = {
 static struct sde_prop_type mixer_prop[] = {
 	{MIXER_OFF, "qcom,sde-mixer-off", true, PROP_TYPE_U32_ARRAY},
 	{MIXER_LEN, "qcom,sde-mixer-size", false, PROP_TYPE_U32},
-	{SRC_SPLIT, "qcom,sde-has-src-split", false, PROP_TYPE_BOOL},
 	{MIXER_GC, "qcom,sde-has-mixer-gc", false, PROP_TYPE_BOOL},
 };
 
@@ -704,7 +704,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 		memcpy(sblk->blendstage_base, blend_reg_base, sizeof(u32) *
 			min_t(u32, MAX_BLOCKS, min_t(u32,
 			ARRAY_SIZE(blend_reg_base), max_blendstages)));
-		if (prop_value[SRC_SPLIT][0])
+		if (sde_cfg->has_src_split)
 			set_bit(SDE_MIXER_SOURCESPLIT, &mixer->features);
 		if (prop_value[MIXER_GC][0])
 			set_bit(SDE_MIXER_GC, &mixer->features);
@@ -1098,11 +1098,27 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	else if (!rc && !strcmp(type, "qseedv2"))
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED2;
 
+	cfg->has_src_split = prop_value[SRC_SPLIT][0];
 end:
 	return rc;
 }
 
-void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
+static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
+{
+	switch (hw_rev) {
+	case SDE_HW_VER_170:
+	case SDE_HW_VER_171:
+	case SDE_HW_VER_172:
+		/* update msm8996 target here */
+		break;
+	case SDE_HW_VER_300:
+	case SDE_HW_VER_400:
+		/* update cobalt and skunk target here */
+		break;
+	}
+}
+
+static void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 {
 	int i;
 
@@ -1177,6 +1193,8 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 	rc = sde_cdm_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
+
+	sde_hardware_caps(sde_cfg, hw_rev);
 
 	return sde_cfg;
 
