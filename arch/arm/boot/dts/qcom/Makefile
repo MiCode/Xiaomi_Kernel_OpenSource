@@ -160,6 +160,12 @@ dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-v1.1-nand-mtp.dtb \
 	mdmcalifornium-v1.1-nand-dualwifi-mtp.dtb
 
+dtb-$(CONFIG_ARCH_SDXHEDGEHOG) += sdxhedgehog-emmc-cdp.dtb \
+	sdxhedgehog-emmc-mtp.dtb \
+	sdxhedgehog-nand-cdp.dtb \
+	sdxhedgehog-nand-mtp.dtb \
+	sdxhedgehog-nand-dualwifi-mtp.dtb
+
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \
 	msm8937-pmi8937-cdp.dtb \
