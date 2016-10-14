@@ -428,6 +428,31 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
  * HELPER FUNCTIONS *
  ********************/
 
+static int try_rerun_apsd_for_hvdcp(struct smb_charger *chg)
+{
+	const struct apsd_result *apsd_result;
+
+	/*
+	 * PD_INACTIVE_VOTER on hvdcp_disable_votable indicates whether
+	 * apsd rerun was tried earlier
+	 */
+	if (get_client_vote(chg->hvdcp_disable_votable, PD_INACTIVE_VOTER)) {
+		vote(chg->hvdcp_disable_votable, PD_INACTIVE_VOTER, false, 0);
+		/* ensure hvdcp is enabled */
+		if (!get_effective_result(chg->hvdcp_disable_votable)) {
+			apsd_result = smblib_get_apsd_result(chg);
+			if (apsd_result->pst == POWER_SUPPLY_TYPE_USB_HVDCP) {
+				/* rerun APSD */
+				smblib_dbg(chg, PR_MISC, "rerun APSD\n");
+				smblib_masked_write(chg, CMD_APSD_REG,
+						APSD_RERUN_BIT,
+						APSD_RERUN_BIT);
+			}
+		}
+	}
+	return 0;
+}
+
 static int smblib_update_usb_type(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -1864,50 +1889,58 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			      const union power_supply_propval *val)
 {
 	int rc;
-	u8 stat;
+	u8 stat = 0;
+	bool cc_debounced;
+	bool orientation;
+	bool pd_active = val->intval;
 
 	if (!get_effective_result(chg->pd_allowed_votable)) {
 		dev_err(chg->dev, "PD is not allowed\n");
 		return -EINVAL;
 	}
 
-	vote(chg->apsd_disable_votable, PD_VOTER, val->intval, 0);
-	vote(chg->pd_allowed_votable, PD_VOTER, val->intval, 0);
+	vote(chg->apsd_disable_votable, PD_VOTER, pd_active, 0);
+	vote(chg->pd_allowed_votable, PD_VOTER, pd_active, 0);
 
 	/*
 	 * VCONN_EN_ORIENTATION_BIT controls whether to use CC1 or CC2 line
 	 * when TYPEC_SPARE_CFG_BIT (CC pin selection s/w override) is set
 	 * or when VCONN_EN_VALUE_BIT is set.
 	 */
-	if (val->intval) {
-		rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't read TYPE_C_STATUS_4 rc=%d\n",
-					rc);
-			return rc;
-		}
+	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
+		return rc;
+	}
 
-		stat &= CC_ORIENTATION_BIT;
+	if (pd_active) {
+		orientation = stat & CC_ORIENTATION_BIT;
 		rc = smblib_masked_write(chg,
-					TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-					VCONN_EN_ORIENTATION_BIT,
-					stat ? 0 : VCONN_EN_ORIENTATION_BIT);
-		if (rc < 0)
+				TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				VCONN_EN_ORIENTATION_BIT,
+				orientation ? 0 : VCONN_EN_ORIENTATION_BIT);
+		if (rc < 0) {
 			dev_err(chg->dev,
 				"Couldn't enable vconn on CC line rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* CC pin selection s/w override in PD session; h/w otherwise. */
 	rc = smblib_masked_write(chg, TAPER_TIMER_SEL_CFG_REG,
 				 TYPEC_SPARE_CFG_BIT,
-				 val->intval ? TYPEC_SPARE_CFG_BIT : 0);
+				 pd_active ? TYPEC_SPARE_CFG_BIT : 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't change cc_out ctrl to %s rc=%d\n",
-			val->intval ? "SW" : "HW", rc);
+			pd_active ? "SW" : "HW", rc);
 		return rc;
 	}
 
-	chg->pd_active = (bool)val->intval;
+	cc_debounced = (bool)(stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT);
+	if (!pd_active && cc_debounced)
+		try_rerun_apsd_for_hvdcp(chg);
+
+	chg->pd_active = pd_active;
 	smblib_update_usb_type(chg);
 	power_supply_changed(chg->usb_psy);
 
@@ -2209,9 +2242,13 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 					      bool rising, bool qc_charger)
 {
 	/* Hold off PD only until hvdcp 2.0 detection timeout */
-	if (rising)
+	if (rising) {
 		vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
-				false, 0);
+								false, 0);
+		if (get_effective_result(chg->pd_disallowed_votable_indirect))
+			/* could be a legacy cable, try doing hvdcp */
+			try_rerun_apsd_for_hvdcp(chg);
+	}
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: smblib_handle_hvdcp_check_timeout %s\n",
 		   rising ? "rising" : "falling");
@@ -2365,6 +2402,8 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	/* reset votes from vbus_cc_short */
 	vote(chg->hvdcp_disable_votable, VBUS_CC_SHORT_VOTER, true, 0);
 
+	vote(chg->hvdcp_disable_votable, PD_INACTIVE_VOTER, true, 0);
+
 	/*
 	 * cable could be removed during hard reset, remove its vote to
 	 * disable apsd
@@ -2488,7 +2527,12 @@ static void smblib_hvdcp_detect_work(struct work_struct *work)
 
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
 				false, 0);
-	power_supply_changed(chg->usb_psy);
+	if (get_effective_result(chg->pd_disallowed_votable_indirect))
+		/* pd is still disabled, try hvdcp */
+		try_rerun_apsd_for_hvdcp(chg);
+	else
+		/* notify pd now that pd is allowed */
+		power_supply_changed(chg->usb_psy);
 }
 
 static void bms_update_work(struct work_struct *work)
