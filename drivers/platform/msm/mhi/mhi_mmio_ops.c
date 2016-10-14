@@ -144,6 +144,11 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 				MHICFG,
 				MHICFG_NER_MASK, MHICFG_NER_SHIFT,
 				mhi_dev_ctxt->mmio_info.nr_event_rings);
+	mhi_reg_write_field(mhi_dev_ctxt, mhi_dev_ctxt->mmio_info.mmio_addr,
+			    MHICFG,
+			    MHICFG_NHWER_MASK,
+			    MHICFG_NHWER_SHIFT,
+			    mhi_dev_ctxt->mmio_info.nr_hw_event_rings);
 
 	pcie_dword_val = mhi_dev_ctxt->dev_space.ring_ctxt.dma_cc_list;
 	pcie_word_val = HIGH_WORD(pcie_dword_val);

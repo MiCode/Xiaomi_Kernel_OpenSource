@@ -41,6 +41,7 @@
 		i2c12 = &i2c_12;
 		spi0 = &spi_0;
 		mhi_rmnet0 = &mhi_rmnet_0;
+		mhi_rmnet1 = &mhi_rmnet_1;
 	};
 
 	psci {
@@ -1697,6 +1698,13 @@
 		qcom,mhi-rx-channel = <101>;
 		qcom,mhi-tx-channel = <100>;
 		qcom,mhi-mru = <8000>;
+		status = "disabled";
+	};
+
+	mhi_rmnet_1: qcom,mhi-rmnet@1 {
+		compatible = "qcom,mhi-rmnet";
+		qcom,mhi-rx-channel = <102>;
+		qcom,mhi-mru = <0x4000>;
 		status = "disabled";
 	};
 
