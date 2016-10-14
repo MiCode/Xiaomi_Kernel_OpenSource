@@ -21,6 +21,7 @@
 #include "ipahal/ipahal.h"
 #include "ipahal/ipahal_fltrt.h"
 
+#define IPA_WAN_AGGR_PKT_CNT 5
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
 #define POLLING_MIN_SLEEP_RX 1010
@@ -60,7 +61,6 @@
 #define IPA_ODU_RX_POOL_SZ 64
 #define IPA_SIZE_DL_CSUM_META_TRAILER 8
 
-#define IPA_GSI_EVT_RING_LEN 4096
 #define IPA_GSI_MAX_CH_LOW_WEIGHT 15
 #define IPA_GSI_EVT_RING_INT_MODT 3200 /* 0.1s under 32KHz clock */
 
@@ -3298,9 +3298,6 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 					sys->repl_hdlr =
 					   ipa3_replenish_rx_cache;
 				}
-				if (in->napi_enabled)
-					sys->rx_pool_sz =
-					   IPA_WAN_NAPI_CONS_RX_POOL_SZ;
 				if (in->napi_enabled && in->recycle_enabled)
 					sys->repl_hdlr =
 					 ipa3_replenish_rx_cache_recycle;
@@ -3965,13 +3962,19 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_evt_ring_props.re_size =
 			GSI_EVT_RING_RE_SIZE_16B;
 
-		gsi_evt_ring_props.ring_len = IPA_GSI_EVT_RING_LEN;
+		/*
+		* GSI ring length is calculated based on the desc_fifo_sz
+		* which was meant to define the BAM desc fifo. GSI descriptors
+		* are 16B as opposed to 8B for BAM.
+		*/
+		gsi_evt_ring_props.ring_len = 2 * in->desc_fifo_sz;
+
 		gsi_evt_ring_props.ring_base_vaddr =
-			dma_alloc_coherent(ipa3_ctx->pdev, IPA_GSI_EVT_RING_LEN,
-			&evt_dma_addr, GFP_KERNEL);
+			dma_alloc_coherent(ipa3_ctx->pdev,
+			gsi_evt_ring_props.ring_len, &evt_dma_addr, GFP_KERNEL);
 		if (!gsi_evt_ring_props.ring_base_vaddr) {
 			IPAERR("fail to dma alloc %u bytes\n",
-				IPA_GSI_EVT_RING_LEN);
+				gsi_evt_ring_props.ring_len);
 			return -ENOMEM;
 		}
 		gsi_evt_ring_props.ring_base_addr = evt_dma_addr;
@@ -4098,7 +4101,7 @@ fail_get_gsi_ep_info:
 	}
 fail_alloc_evt_ring:
 	if (gsi_evt_ring_props.ring_base_vaddr)
-		dma_free_coherent(ipa3_ctx->pdev, IPA_GSI_EVT_RING_LEN,
+		dma_free_coherent(ipa3_ctx->pdev, gsi_evt_ring_props.ring_len,
 			gsi_evt_ring_props.ring_base_vaddr, evt_dma_addr);
 	IPAERR("Return with err: %d\n", result);
 	return result;
@@ -4280,15 +4283,17 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 			break;
 
 		ipa3_wq_rx_common(ep->sys, mem_info.size);
-		cnt += 5;
+		cnt += IPA_WAN_AGGR_PKT_CNT;
 	};
 
-	if (cnt == 0) {
+	if (cnt == 0 || cnt < weight) {
 		ep->inactive_cycles++;
 		ep->client_notify(ep->priv, IPA_CLIENT_COMP_NAPI, 0);
 
 		if (ep->inactive_cycles > 3 || ep->sys->len == 0) {
 			ep->switch_to_intr = true;
+			delay = 0;
+		} else if (cnt < weight) {
 			delay = 0;
 		}
 		queue_delayed_work(ep->sys->wq,
