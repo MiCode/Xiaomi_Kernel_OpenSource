@@ -66,6 +66,7 @@
 	((rmnet_ipa3_ctx && rmnet_ipa3_ctx->wwan_priv) ? \
 	  rmnet_ipa3_ctx->wwan_priv->net : NULL)
 
+#define IPA_WWAN_CONS_DESC_FIFO_SZ 256
 
 static int ipa3_wwan_add_ul_flt_rule_to_ipa(void);
 static int ipa3_wwan_del_ul_flt_rule_to_ipa(void);
@@ -90,6 +91,7 @@ struct ipa3_rmnet_plat_drv_res {
 	bool ipa_loaduC;
 	bool ipa_advertise_sg_support;
 	bool ipa_napi_enable;
+	u32 wan_rx_desc_size;
 };
 
 /**
@@ -1297,7 +1299,7 @@ static int handle3_ingress_format(struct net_device *dev,
 			ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr_pkt_limit =
 			   in->u.ingress_format.agg_count;
 
-			if (ipa_wan_ep_cfg->napi_enabled) {
+			if (ipa3_rmnet_res.ipa_napi_enable) {
 				ipa_wan_ep_cfg->recycle_enabled = true;
 				ep_cfg = (struct rmnet_phys_ep_conf_s *)
 				   rcu_dereference(dev->rx_handler_data);
@@ -1325,10 +1327,8 @@ static int handle3_ingress_format(struct net_device *dev,
 	ipa_wan_ep_cfg->priv = dev;
 
 	ipa_wan_ep_cfg->napi_enabled = ipa3_rmnet_res.ipa_napi_enable;
-	if (ipa_wan_ep_cfg->napi_enabled)
-		ipa_wan_ep_cfg->desc_fifo_sz = IPA_WAN_CONS_DESC_FIFO_SZ;
-	else
-		ipa_wan_ep_cfg->desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
+	ipa_wan_ep_cfg->desc_fifo_sz =
+		ipa3_rmnet_res.wan_rx_desc_size * IPA_FIFO_ELEMENT_SIZE;
 
 	mutex_lock(&rmnet_ipa3_ctx->pipe_handle_guard);
 
@@ -2012,6 +2012,9 @@ static struct notifier_block ipa3_ssr_notifier = {
 static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 		struct ipa3_rmnet_plat_drv_res *ipa_rmnet_drv_res)
 {
+	int result;
+
+	ipa_rmnet_drv_res->wan_rx_desc_size = IPA_WWAN_CONS_DESC_FIFO_SZ;
 	ipa_rmnet_drv_res->ipa_rmnet_ssr =
 			of_property_read_bool(pdev->dev.of_node,
 			"qcom,rmnet-ipa-ssr");
@@ -2034,6 +2037,18 @@ static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-napi-enable");
 	pr_info("IPA Napi Enable = %s\n",
 		ipa_rmnet_drv_res->ipa_napi_enable ? "True" : "False");
+
+	/* Get IPA WAN RX desc fifo size */
+	result = of_property_read_u32(pdev->dev.of_node,
+			"qcom,wan-rx-desc-size",
+			&ipa_rmnet_drv_res->wan_rx_desc_size);
+	if (result)
+		pr_info("using default for wan-rx-desc-size = %u\n",
+				ipa_rmnet_drv_res->wan_rx_desc_size);
+	else
+		IPAWANDBG(": found ipa_drv_res->wan-rx-desc-size = %u\n",
+				ipa_rmnet_drv_res->wan_rx_desc_size);
+
 	return 0;
 }
 

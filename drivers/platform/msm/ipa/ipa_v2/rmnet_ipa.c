@@ -64,6 +64,7 @@
 #define IPA_UEVENT_NUM_EVNP 4 /* number of event pointers */
 
 #define NAPI_WEIGHT 60
+#define IPA_WWAN_CONS_DESC_FIFO_SZ 1024
 
 static struct net_device *ipa_netdevs[IPA_WWAN_DEVICE_COUNT];
 static struct ipa_sys_connect_params apps_to_ipa_ep_cfg, ipa_to_apps_ep_cfg;
@@ -102,6 +103,7 @@ struct ipa_rmnet_plat_drv_res {
 	bool ipa_loaduC;
 	bool ipa_advertise_sg_support;
 	bool ipa_napi_enable;
+	u32 wan_rx_desc_size;
 };
 
 static struct ipa_rmnet_plat_drv_res ipa_rmnet_res;
@@ -1310,10 +1312,8 @@ static int handle_ingress_format(struct net_device *dev,
 	ipa_to_apps_ep_cfg.priv = dev;
 
 	ipa_to_apps_ep_cfg.napi_enabled = ipa_rmnet_res.ipa_napi_enable;
-	if (ipa_to_apps_ep_cfg.napi_enabled)
-		ipa_to_apps_ep_cfg.desc_fifo_sz = IPA_WAN_CONS_DESC_FIFO_SZ;
-	else
-		ipa_to_apps_ep_cfg.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
+	ipa_to_apps_ep_cfg.desc_fifo_sz =
+		ipa_rmnet_res.wan_rx_desc_size * sizeof(struct sps_iovec);
 
 	mutex_lock(&ipa_to_apps_pipe_handle_guard);
 	if (atomic_read(&is_ssr)) {
@@ -1944,6 +1944,9 @@ static struct notifier_block ssr_notifier = {
 static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 		struct ipa_rmnet_plat_drv_res *ipa_rmnet_drv_res)
 {
+	int result;
+
+	ipa_rmnet_drv_res->wan_rx_desc_size = IPA_WWAN_CONS_DESC_FIFO_SZ;
 	ipa_rmnet_drv_res->ipa_rmnet_ssr =
 			of_property_read_bool(pdev->dev.of_node,
 			"qcom,rmnet-ipa-ssr");
@@ -1966,6 +1969,18 @@ static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-napi-enable");
 	pr_info("IPA Napi Enable = %s\n",
 		ipa_rmnet_drv_res->ipa_napi_enable ? "True" : "False");
+
+	/* Get IPA WAN RX desc fifo size */
+	result = of_property_read_u32(pdev->dev.of_node,
+			"qcom,wan-rx-desc-size",
+			&ipa_rmnet_drv_res->wan_rx_desc_size);
+	if (result)
+		pr_info("using default for wan-rx-desc-size = %u\n",
+				ipa_rmnet_drv_res->wan_rx_desc_size);
+	else
+		IPAWANDBG(": found ipa_drv_res->wan-rx-desc-size = %u\n",
+				ipa_rmnet_drv_res->wan_rx_desc_size);
+
 	return 0;
 }
 
