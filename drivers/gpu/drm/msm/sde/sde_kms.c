@@ -687,8 +687,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 * max crtc width is equal to the max mixer width * 2 and max height is
 	 * is 4K
 	 */
-	dev->mode_config.max_width =
-			sde_kms->catalog->mixer[0].sblk->maxwidth * 2;
+	dev->mode_config.max_width = sde_kms->catalog->max_mixer_width * 2;
 	dev->mode_config.max_height = 4096;
 
 	/*
