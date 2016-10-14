@@ -55,6 +55,9 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 	if (!crtc)
 		return;
 
+	if (sde_crtc->blob_info)
+		drm_property_unreference_blob(sde_crtc->blob_info);
+
 	msm_property_destroy(&sde_crtc->property_info);
 	sde_cp_crtc_destroy_properties(crtc);
 	debugfs_remove_recursive(sde_crtc->debugfs_root);
@@ -934,20 +937,28 @@ void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
  * sde_crtc_install_properties - install all drm properties for crtc
  * @crtc: Pointer to drm crtc structure
  */
-static void sde_crtc_install_properties(struct drm_crtc *crtc)
+static void sde_crtc_install_properties(struct drm_crtc *crtc,
+				struct sde_mdss_cfg *catalog)
 {
 	struct sde_crtc *sde_crtc;
 	struct drm_device *dev;
+	struct sde_kms_info *info;
 
 	SDE_DEBUG("\n");
 
-	if (!crtc) {
-		SDE_ERROR("invalid crtc\n");
+	if (!crtc || !catalog) {
+		SDE_ERROR("invalid crtc or catalog\n");
 		return;
 	}
 
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
+
+	info = kzalloc(sizeof(struct sde_kms_info), GFP_KERNEL);
+	if (!info) {
+		SDE_ERROR("failed to allocate info memory\n");
+		return;
+	}
 
 	/* range properties */
 	msm_property_install_range(&sde_crtc->property_info,
@@ -960,6 +971,25 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc)
 	msm_property_install_range(&sde_crtc->property_info,
 			"output_fence_offset", 0x0, 0, 1, 0,
 			CRTC_PROP_OUTPUT_FENCE_OFFSET);
+
+	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
+		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
+	sde_kms_info_reset(info);
+
+	sde_kms_info_add_keyint(info, "hw_version", catalog->hwversion);
+	sde_kms_info_add_keyint(info, "max_linewidth",
+			catalog->max_mixer_width);
+	sde_kms_info_add_keyint(info, "max_blendstages",
+			catalog->max_mixer_blendstages);
+	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED2)
+		sde_kms_info_add_keystr(info, "qseed_type", "qseed2");
+	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED3)
+		sde_kms_info_add_keystr(info, "qseed_type", "qseed3");
+	sde_kms_info_add_keyint(info, "has_src_split", catalog->has_src_split);
+	msm_property_set_blob(&sde_crtc->property_info, &sde_crtc->blob_info,
+			info->data, info->len, CRTC_PROP_INFO);
+
+	kfree(info);
 }
 
 /**
@@ -1200,7 +1230,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 			CRTC_PROP_COUNT, CRTC_PROP_BLOBCOUNT,
 			sizeof(struct sde_crtc_state));
 
-	sde_crtc_install_properties(crtc);
+	sde_crtc_install_properties(crtc, kms->catalog);
 	sde_cp_crtc_init(crtc);
 
 	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);

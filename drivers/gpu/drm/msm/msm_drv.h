@@ -105,6 +105,8 @@ enum msm_mdp_plane_property {
 };
 
 enum msm_mdp_crtc_property {
+	CRTC_PROP_INFO,
+
 	/* # of blob properties */
 	CRTC_PROP_BLOBCOUNT,
 

@@ -72,6 +72,7 @@ struct sde_crtc {
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CRTC_PROP_COUNT];
+	struct drm_property_blob *blob_info;
 
 	/* output fence support */
 	struct sde_fence output_fence;
