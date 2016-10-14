@@ -1259,11 +1259,13 @@ static int handle_ingress_format(struct net_device *dev,
 			ipa_to_apps_ep_cfg.ipa_ep_cfg.aggr.aggr_pkt_limit =
 				in->u.ingress_format.agg_count;
 
-			ipa_to_apps_ep_cfg.recycle_enabled = true;
-			ep_cfg = (struct rmnet_phys_ep_conf_s *)
-			   rcu_dereference(dev->rx_handler_data);
-			ep_cfg->recycle = ipa_recycle_wan_skb;
-			pr_info("Wan Recycle Enabled\n");
+			if (ipa_rmnet_res.ipa_napi_enable) {
+				ipa_to_apps_ep_cfg.recycle_enabled = true;
+				ep_cfg = (struct rmnet_phys_ep_conf_s *)
+				   rcu_dereference(dev->rx_handler_data);
+				ep_cfg->recycle = ipa_recycle_wan_skb;
+				pr_info("Wan Recycle Enabled\n");
+			}
 		}
 	}
 
