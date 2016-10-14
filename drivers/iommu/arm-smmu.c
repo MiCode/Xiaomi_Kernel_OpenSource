@@ -528,6 +528,8 @@ static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu);
 static bool arm_smmu_is_slave_side_secure(struct arm_smmu_domain *smmu_domain);
 static bool arm_smmu_has_secure_vmid(struct arm_smmu_domain *smmu_domain);
 
+static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
+
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
 	return container_of(dom, struct arm_smmu_domain, domain);
@@ -1604,7 +1606,8 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_EAE_SBOP;
 
-	if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) ||
+	if ((!(smmu_domain->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
+	     !(smmu_domain->attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) ||
 								!stage1)
 		reg |= SCTLR_M;
 	if (stage1)
@@ -3043,6 +3046,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	}
+	case DOMAIN_ATTR_EARLY_MAP:
+		*((int *)data) = !!(smmu_domain->attributes
+				    & (1 << DOMAIN_ATTR_EARLY_MAP));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -3148,6 +3156,24 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_EARLY_MAP: {
+		int early_map = *((int *)data);
+
+		ret = 0;
+		if (early_map) {
+			smmu_domain->attributes |=
+						1 << DOMAIN_ATTR_EARLY_MAP;
+		} else {
+			if (smmu_domain->smmu)
+				ret = arm_smmu_enable_s1_translations(
+								smmu_domain);
+
+			if (!ret)
+				smmu_domain->attributes &=
+					~(1 << DOMAIN_ATTR_EARLY_MAP);
+		}
+		break;
+	}
 	default:
 		ret = -ENODEV;
 		break;
@@ -3155,6 +3181,28 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 
 out_unlock:
 	mutex_unlock(&smmu_domain->init_mutex);
+	return ret;
+}
+
+
+static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
+{
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	void __iomem *cb_base;
+	u32 reg;
+	int ret;
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	ret = arm_smmu_enable_clocks(smmu);
+	if (ret)
+		return ret;
+
+	reg = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	reg |= SCTLR_M;
+
+	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
+	arm_smmu_disable_clocks(smmu);
 	return ret;
 }
 
