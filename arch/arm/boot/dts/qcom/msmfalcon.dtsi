@@ -427,7 +427,7 @@
 		      <0x10b4000 0x800>;
 		reg-names = "dcc-base", "dcc-ram-base";
 
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>;
+		clocks = <&clock_rpmcc GCC_DCC_AHB_CLK>;
 		clock-names = "dcc_clk";
 	};
 
