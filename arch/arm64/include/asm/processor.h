@@ -180,7 +180,7 @@ static inline void prefetchw(const void *ptr)
 static inline void spin_lock_prefetch(const void *ptr)
 {
 	asm volatile(ARM64_LSE_ATOMIC_INSN(
-		     "prfm pstl1strm, %a0",
+		     "prfm pstl1strm, [%x0]",
 		     "nop") : : "p" (ptr));
 }
 
