@@ -168,7 +168,11 @@ static void *usbpd_ipc_log;
 #define PS_HARD_RESET_TIME	25
 #define PS_SOURCE_ON		400
 #define PS_SOURCE_OFF		750
+#define SWAP_SOURCE_START_TIME	20
 #define VDM_BUSY_TIME		50
+
+/* tPSHardReset + tSafe0V + tSrcRecover + tSrcTurnOn */
+#define SNK_HARD_RESET_RECOVER_TIME	(35 + 650 + 1000 + 275)
 
 #define PD_CAPS_COUNT		50
 
@@ -593,6 +597,11 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			/* Defer starting USB host mode until after PD */
 		}
 
+		/* Set CC back to DRP toggle for the next disconnect */
+		val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &val);
+
 		pd->rx_msg_len = 0;
 		pd->rx_msg_type = 0;
 		pd->rx_msgid = -1;
@@ -622,10 +631,15 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
-		pd->in_pr_swap = false;
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
-		usbpd_dbg(&pd->dev, "Enter %s\n",
-				usbpd_state_strings[pd->current_state]);
+		if (pd->in_pr_swap) {
+			pd->in_pr_swap = false;
+			hrtimer_start(&pd->timer,
+					ms_to_ktime(SWAP_SOURCE_START_TIME),
+					HRTIMER_MODE_REL);
+			break;
+		}
+
 		/* fall-through */
 
 	case PE_SRC_SEND_CAPABILITIES:
@@ -800,18 +814,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		pd->in_pr_swap = false;
 		pd->current_voltage = 5000000;
 
-		if (!pd->vbus_present) {
-			/* can get here during a hard reset and we lost vbus */
-			pd->current_state = PE_SNK_DISCOVERY;
-			hrtimer_start(&pd->timer, ms_to_ktime(2000),
-					HRTIMER_MODE_REL);
-			break;
-		}
-
-		/*
-		 * If VBUS is already present go and skip ahead to
-		 * PE_SNK_WAIT_FOR_CAPABILITIES.
-		 */
 		pd->current_state = PE_SNK_WAIT_FOR_CAPABILITIES;
 		/* fall-through */
 
@@ -882,8 +884,28 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 				POWER_SUPPLY_PROP_VOLTAGE_MAX, &val);
 		pd->current_voltage = pd->requested_voltage;
 
-		/* recursive call; go back to beginning state */
-		usbpd_set_state(pd, PE_SNK_STARTUP);
+		/* max time for hard reset to toggle vbus off/on */
+		hrtimer_start(&pd->timer,
+				ms_to_ktime(SNK_HARD_RESET_RECOVER_TIME),
+				HRTIMER_MODE_REL);
+		break;
+
+	case PE_PRS_SNK_SRC_TRANSITION_TO_OFF:
+		val.intval = pd->requested_current = 0; /* suspend charging */
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+
+		pd->in_explicit_contract = false;
+
+		/*
+		 * need to update PR bit in message header so that
+		 * proper GoodCRC is sent when receiving next PS_RDY
+		 */
+		pd_phy_update_roles(pd->current_dr, PR_SRC);
+
+		/* wait for PS_RDY */
+		hrtimer_start(&pd->timer, ms_to_ktime(PS_SOURCE_OFF),
+				HRTIMER_MODE_REL);
 		break;
 
 	default:
@@ -1276,12 +1298,12 @@ static void usbpd_sm(struct work_struct *w)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
-		if (pd->current_pr == PR_SRC) {
+		if (pd->current_pr == PR_SRC)
 			regulator_disable(pd->vbus);
-			if (pd->vconn_enabled) {
-				regulator_disable(pd->vconn);
-				pd->vconn_enabled = false;
-			}
+
+		if (pd->vconn_enabled) {
+			regulator_disable(pd->vconn);
+			pd->vconn_enabled = false;
 		}
 
 		if (pd->current_dr == DR_UFP)
@@ -1388,7 +1410,7 @@ static void usbpd_sm(struct work_struct *w)
 		pd->hard_reset_count = 0;
 		pd->pd_connected = true; /* we know peer is PD capable */
 
-		val.intval = POWER_SUPPLY_TYPE_USB_PD;
+		val.intval = pd->psy_type = POWER_SUPPLY_TYPE_USB_PD;
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_TYPE, &val);
 
@@ -1436,6 +1458,9 @@ static void usbpd_sm(struct work_struct *w)
 			dr_swap(pd);
 			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		} else if (ctrl_recvd == MSG_PR_SWAP) {
+			/* lock in current mode */
+			set_power_role(pd, pd->current_pr);
+
 			/* we'll happily accept Src->Sink requests anytime */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
@@ -1445,7 +1470,9 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			pd->current_state = PE_PRS_SRC_SNK_TRANSITION_TO_OFF;
-			queue_work(pd->wq, &pd->sm_work);
+			hrtimer_start(&pd->timer,
+					ms_to_ktime(SRC_TRANSITION_TIME),
+					HRTIMER_MODE_REL);
 			break;
 		} else {
 			if (data_recvd == MSG_VDM)
@@ -1465,28 +1492,13 @@ static void usbpd_sm(struct work_struct *w)
 		usbpd_set_state(pd, PE_SRC_TRANSITION_TO_DEFAULT);
 		break;
 
-	case PE_SNK_DISCOVERY:
-		if (!pd->vbus_present) {
-			/* Hard reset and VBUS didn't come back? */
-			power_supply_get_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_TYPE, &val);
-			if (val.intval == POWER_SUPPLY_TYPEC_NONE) {
-				pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
-				queue_work(pd->wq, &pd->sm_work);
-			}
-			break;
-		}
-
-		usbpd_set_state(pd, PE_SNK_WAIT_FOR_CAPABILITIES);
-		break;
-
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
 		if (data_recvd == MSG_SOURCE_CAPABILITIES) {
 			val.intval = 1;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
-			val.intval = POWER_SUPPLY_TYPE_USB_PD;
+			val.intval = pd->psy_type = POWER_SUPPLY_TYPE_USB_PD;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_TYPE, &val);
 
@@ -1580,6 +1592,9 @@ static void usbpd_sm(struct work_struct *w)
 			dr_swap(pd);
 			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		} else if (ctrl_recvd == MSG_PR_SWAP) {
+			/* lock in current mode */
+			set_power_role(pd, pd->current_pr);
+
 			/* TODO: should we Reject in certain circumstances? */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
@@ -1589,25 +1604,27 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			pd->in_pr_swap = true;
-			pd->current_state = PE_PRS_SNK_SRC_TRANSITION_TO_OFF;
-			/* turn off sink */
-			pd->in_explicit_contract = false;
-
-			/*
-			 * need to update PR bit in message header so that
-			 * proper GoodCRC is sent when receiving next PS_RDY
-			 */
-			pd->current_pr = PR_SRC;
-			pd_phy_update_roles(pd->current_dr, pd->current_pr);
-
-			hrtimer_start(&pd->timer, ms_to_ktime(PS_SOURCE_OFF),
-					HRTIMER_MODE_REL);
+			usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 			break;
 		} else {
 			if (data_recvd == MSG_VDM)
 				handle_vdm_rx(pd);
 			else
 				handle_vdm_tx(pd);
+		}
+		break;
+
+	case PE_SNK_TRANSITION_TO_DEFAULT:
+		if (pd->vbus_present) {
+			usbpd_set_state(pd, PE_SNK_STARTUP);
+		} else {
+			/* Hard reset and VBUS didn't come back? */
+			power_supply_get_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_TYPEC_MODE, &val);
+			if (val.intval == POWER_SUPPLY_TYPEC_NONE) {
+				pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
+				queue_work(pd->wq, &pd->sm_work);
+			}
 		}
 		break;
 
@@ -1684,15 +1701,23 @@ static void usbpd_sm(struct work_struct *w)
 		}
 
 		pd->current_state = PE_PRS_SRC_SNK_TRANSITION_TO_OFF;
-		/* fall-through */
+		hrtimer_start(&pd->timer, ms_to_ktime(SRC_TRANSITION_TIME),
+				HRTIMER_MODE_REL);
+		break;
+
 	case PE_PRS_SRC_SNK_TRANSITION_TO_OFF:
 		pd->in_pr_swap = true;
 		pd->in_explicit_contract = false;
 
 		regulator_disable(pd->vbus);
-		set_power_role(pd, PR_SINK); /* switch Rp->Rd */
+
+		/* PE_PRS_SRC_SNK_Assert_Rd */
 		pd->current_pr = PR_SINK;
+		set_power_role(pd, pd->current_pr);
 		pd_phy_update_roles(pd->current_dr, pd->current_pr);
+
+		/* allow time for Vbus discharge, must be < tSrcSwapStdby */
+		msleep(500);
 
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
 		if (ret) {
@@ -1720,19 +1745,7 @@ static void usbpd_sm(struct work_struct *w)
 		}
 
 		pd->in_pr_swap = true;
-		pd->current_state = PE_PRS_SNK_SRC_TRANSITION_TO_OFF;
-		/* turn off sink */
-		pd->in_explicit_contract = false;
-
-		/*
-		 * need to update PR bit in message header so that
-		 * proper GoodCRC is sent when receiving next PS_RDY
-		 */
-		pd->current_pr = PR_SRC;
-		pd_phy_update_roles(pd->current_dr, pd->current_pr);
-
-		hrtimer_start(&pd->timer, ms_to_ktime(PS_SOURCE_OFF),
-				HRTIMER_MODE_REL);
+		usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 		break;
 
 	case PE_PRS_SNK_SRC_TRANSITION_TO_OFF:
@@ -1741,13 +1754,19 @@ static void usbpd_sm(struct work_struct *w)
 			break;
 		}
 
+		/* PE_PRS_SNK_SRC_Assert_Rp */
+		pd->current_pr = PR_SRC;
+		set_power_role(pd, pd->current_pr);
 		pd->current_state = PE_PRS_SNK_SRC_SOURCE_ON;
+
 		/* fall-through */
+
 	case PE_PRS_SNK_SRC_SOURCE_ON:
-		set_power_role(pd, PR_SRC);
 		ret = regulator_enable(pd->vbus);
 		if (ret)
 			usbpd_err(&pd->dev, "Unable to enable vbus\n");
+
+		msleep(200); /* allow time VBUS ramp-up, must be < tNewSrc */
 
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
 		if (ret) {
@@ -1846,11 +1865,12 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	 * until the HW bug is fixed: in which disconnection won't be reported
 	 * on VBUS loss alone unless pullup is also removed from CC.
 	 */
-	if ((pd->hard_reset || pd->in_pr_swap) &&
-			typec_mode == POWER_SUPPLY_TYPEC_NONE &&
-			pd->psy_type != POWER_SUPPLY_TYPE_USB) {
+	if (typec_mode == POWER_SUPPLY_TYPEC_NONE &&
+		(pd->in_pr_swap ||
+		 (pd->psy_type != POWER_SUPPLY_TYPE_USB &&
+		  pd->current_state == PE_SNK_TRANSITION_TO_DEFAULT))) {
 		usbpd_dbg(&pd->dev, "Ignoring disconnect due to %s\n",
-				pd->hard_reset ? "hard reset" : "PR swap");
+				pd->in_pr_swap ? "PR swap" : "hard reset");
 		return 0;
 	}
 
@@ -1863,8 +1883,9 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 	psy_type = val.intval;
 
-	usbpd_dbg(&pd->dev, "typec mode:%d present:%d type:%d\n", typec_mode,
-			pd->vbus_present, psy_type);
+	usbpd_dbg(&pd->dev, "typec mode:%d present:%d type:%d orientation:%d\n",
+			typec_mode, pd->vbus_present, psy_type,
+			usbpd_get_plug_orientation(pd));
 
 	/* any change? */
 	if (pd->typec_mode == typec_mode && pd->psy_type == psy_type)
@@ -1885,7 +1906,8 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
 		usbpd_info(&pd->dev, "Type-C Source (%s) connected\n",
 				src_current(typec_mode));
-		if (pd->current_pr != PR_SINK) {
+		if (pd->current_pr != PR_SINK ||
+			pd->current_state == PE_SNK_TRANSITION_TO_DEFAULT) {
 			pd->current_pr = PR_SINK;
 			queue_work(pd->wq, &pd->sm_work);
 		}
