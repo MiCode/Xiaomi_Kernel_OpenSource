@@ -2034,7 +2034,7 @@ static void ipa_usb_debugfs_init(void)
 
 	ipa3_usb_ctx->dent = debugfs_create_dir("ipa_usb", 0);
 	if (IS_ERR(ipa3_usb_ctx->dent)) {
-		IPA_USB_ERR("fail to create folder in debug_fs.\n");
+		pr_err("fail to create folder in debug_fs.\n");
 		return;
 	}
 
@@ -2043,7 +2043,7 @@ static void ipa_usb_debugfs_init(void)
 			&ipa3_ipa_usb_ops);
 	if (!ipa3_usb_ctx->dfile_state_info ||
 		IS_ERR(ipa3_usb_ctx->dfile_state_info)) {
-		IPA_USB_ERR("failed to create file for state_info\n");
+		pr_err("failed to create file for state_info\n");
 		goto fail;
 	}
 
@@ -2644,11 +2644,11 @@ static int __init ipa3_usb_init(void)
 	unsigned long flags;
 	int res;
 
-	IPA_USB_DBG("entry\n");
+	pr_debug("entry\n");
 	ipa3_usb_ctx = kzalloc(sizeof(struct ipa3_usb_context), GFP_KERNEL);
 	if (ipa3_usb_ctx == NULL) {
-		IPA_USB_ERR("failed to allocate memory\n");
-		IPA_USB_ERR(":ipa_usb init failed\n");
+		pr_err("failed to allocate memory\n");
+		pr_err(":ipa_usb init failed\n");
 		return -EFAULT;
 	}
 	memset(ipa3_usb_ctx, 0, sizeof(struct ipa3_usb_context));
@@ -2680,19 +2680,19 @@ static int __init ipa3_usb_init(void)
 
 	ipa3_usb_ctx->wq = create_singlethread_workqueue("ipa_usb_wq");
 	if (!ipa3_usb_ctx->wq) {
-		IPA_USB_ERR("failed to create workqueue\n");
+		pr_err("failed to create workqueue\n");
 		res = -EFAULT;
 		goto ipa_usb_workqueue_fail;
 	}
 
 	ipa_usb_debugfs_init();
 
-	IPA_USB_INFO("exit: IPA_USB init success!\n");
+	pr_info("exit: IPA_USB init success!\n");
 
 	return 0;
 
 ipa_usb_workqueue_fail:
-	IPA_USB_ERR(":init failed (%d)\n", -res);
+	pr_err(":init failed (%d)\n", -res);
 	kfree(ipa3_usb_ctx);
 	return res;
 }
