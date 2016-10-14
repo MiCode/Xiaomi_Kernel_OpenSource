@@ -339,6 +339,8 @@
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
+	connectors = <&mdss_hdmi &display_manager>;
+	memory-region = <&cont_splash_mem>;
 };
 
 &mdss_dsi {

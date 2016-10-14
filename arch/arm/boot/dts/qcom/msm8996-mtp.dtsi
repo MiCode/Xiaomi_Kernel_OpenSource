@@ -374,6 +374,10 @@
 	qcom,qpnp-ibb-discharge-resistor = <32>;
 };
 
+&mdss_hdmi {
+	qcom,hdmi-tx-hpd-gpio = <&pm8994_mpps 4 0>;
+};
+
 &labibb {
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";

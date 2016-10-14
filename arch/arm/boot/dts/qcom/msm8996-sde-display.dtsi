@@ -27,6 +27,8 @@
 #include "dsi-panel-r69007-dualdsi-wqxga-cmd.dtsi"
 #include "dsi-panel-jdi-1080p-video.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
+#include "dsi-adv7533-720p.dtsi"
+#include "dsi-adv7533-1080p.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -125,8 +127,6 @@
 
 			qcom,dsi-panel = <&dsi_dual_sharp_video>;
 			vddio-supply = <&pm8994_l14>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
 			qcom,dsi-display-active;
 		};
 
@@ -148,8 +148,6 @@
 
 			qcom,dsi-panel = <&dsi_sim_vid>;
 			vddio-supply = <&pm8994_l14>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
 		};
 
 		dsi_toshiba_720p_vid: qcom,dsi-display@2 {
@@ -210,8 +208,12 @@
 			qcom,dsi-panel = <&dsi_sharp_1080_cmd>;
 			vddio-supply = <&pm8994_l14>;
 			vdd-supply = <&pm8994_l19>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
+		};
+
+		hdmi_display: qcom,hdmi-display {
+			compatible = "qcom,hdmi-display";
+			label = "hdmi_display";
+			qcom,display-type = "secondary";
 		};
 
 		sde_wb: qcom,wb-display@0 {
@@ -238,8 +240,6 @@
 
 			qcom,dsi-panel = <&dsi_dual_nt35597_cmd>;
 			vddio-supply = <&pm8994_l14>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
 		};
 
 		dsi_dual_nt35597_video_1: qcom,dsi-display@6 {
@@ -260,8 +260,6 @@
 
 			qcom,dsi-panel = <&dsi_dual_nt35597_video>;
 			vddio-supply = <&pm8994_l14>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
 		};
 	};
 };

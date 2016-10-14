@@ -359,7 +359,11 @@
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <8 0>;
 		hpd-gdsc-supply = <&gdsc_mdss>;
-		qcom,hdmi-tx-hpd-gpio = <&pm8994_mpps 4 0>;
+		qcom,hdmi-tx-ddc-clk-gpio = <&tlmm 32 0>;
+		qcom,hdmi-tx-ddc-data-gpio = <&tlmm 33 0>;
+		qcom,hdmi-tx-hpd-gpio = <&tlmm 34 0>;
+		qcom,hdmi-tx-mux-en-gpio = <&tlmm 27 0>;
+		qcom,hdmi-tx-mux-sel-gpio = <&tlmm 83 0>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&mdss_hdmi_hpd_active
 			     &mdss_hdmi_ddc_active
