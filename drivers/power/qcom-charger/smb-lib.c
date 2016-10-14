@@ -91,15 +91,13 @@ unlock:
 	return rc;
 }
 
-static int smblib_get_step_charging_adjustment(struct smb_charger *chg,
-					       int *cc_offset)
+static int smblib_get_step_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 {
-	int step_state;
-	int rc;
+	int rc, step_state;
 	u8 stat;
 
 	if (!chg->step_chg_enabled) {
-		*cc_offset = 0;
+		*cc_delta_ua = 0;
 		return 0;
 	}
 
@@ -113,57 +111,70 @@ static int smblib_get_step_charging_adjustment(struct smb_charger *chg,
 	step_state = (stat & STEP_CHARGING_STATUS_MASK) >>
 				STEP_CHARGING_STATUS_SHIFT;
 	rc = smblib_get_charge_param(chg, &chg->param.step_cc_delta[step_state],
-				     cc_offset);
-
-	return rc;
-}
-
-static void smblib_fcc_split_ua(struct smb_charger *chg, int total_fcc,
-			int *master_ua, int *slave_ua)
-{
-	int rc, cc_reduction_ua = 0;
-	int step_cc_delta;
-	int master_percent = min(max(*chg->pl.master_percent, 0), 100);
-	union power_supply_propval pval = {0, };
-	int effective_fcc;
-
-	/*
-	 * if master_percent is 0, s/w will configure master's fcc to zero and
-	 * slave's fcc to the max. However since master's fcc is zero it
-	 * disables its own charging and as a result the slave's charging is
-	 * disabled via the fault line.
-	 */
-
-	rc = smblib_get_prop_batt_health(chg, &pval);
-	if (rc == 0) {
-		if (pval.intval == POWER_SUPPLY_HEALTH_WARM
-			|| pval.intval == POWER_SUPPLY_HEALTH_COOL) {
-			rc = smblib_get_charge_param(chg,
-					&chg->param.jeita_cc_comp,
-					&cc_reduction_ua);
-			if (rc < 0) {
-				smblib_err(chg, "Could not get jeita comp, rc=%d\n",
-					rc);
-				cc_reduction_ua = 0;
-			}
-		}
+				     cc_delta_ua);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get step cc delta rc=%d\n", rc);
+		return rc;
 	}
 
-	rc = smblib_get_step_charging_adjustment(chg, &step_cc_delta);
-	if (rc < 0)
-		step_cc_delta = 0;
+	return 0;
+}
 
-	/*
-	 * During JEITA condition and with step_charging enabled, PMI will
-	 * pick the lower of the two value: (FCC - JEITA current compensation)
-	 * or (FCC + step_charging current delta)
-	 */
+static int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
+{
+	int rc, cc_minus_ua;
+	u8 stat;
 
-	effective_fcc = min(max(0, total_fcc - cc_reduction_ua),
-			    max(0, total_fcc + step_cc_delta));
-	*master_ua = (effective_fcc * master_percent) / 100;
-	*slave_ua = (effective_fcc - *master_ua) * chg->pl.taper_percent / 100;
-	*master_ua = max(0, *master_ua + total_fcc - effective_fcc);
+	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_2_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_2 rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	if (!(stat & BAT_TEMP_STATUS_SOFT_LIMIT_MASK)) {
+		*cc_delta_ua = 0;
+		return 0;
+	}
+
+	rc = smblib_get_charge_param(chg, &chg->param.jeita_cc_comp,
+				     &cc_minus_ua);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get jeita cc minus rc=%d\n", rc);
+		return rc;
+	}
+
+	*cc_delta_ua = -cc_minus_ua;
+	return 0;
+}
+
+static void smblib_split_fcc(struct smb_charger *chg, int total_ua,
+			     int *master_ua, int *slave_ua)
+{
+	int rc, jeita_cc_delta_ua, step_cc_delta_ua, effective_total_ua,
+		hw_cc_delta_ua = 0;
+
+	rc = smblib_get_step_cc_delta(chg, &step_cc_delta_ua);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get step cc delta rc=%d\n", rc);
+		step_cc_delta_ua = 0;
+	} else {
+		hw_cc_delta_ua = step_cc_delta_ua;
+	}
+
+	rc = smblib_get_jeita_cc_delta(chg, &jeita_cc_delta_ua);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get jeita cc delta rc=%d\n", rc);
+		jeita_cc_delta_ua = 0;
+	} else if (jeita_cc_delta_ua < 0) {
+		/* HW will take the min between JEITA and step charge */
+		hw_cc_delta_ua = min(hw_cc_delta_ua, jeita_cc_delta_ua);
+	}
+
+	effective_total_ua = max(0, total_ua + hw_cc_delta_ua);
+	*slave_ua = (effective_total_ua * chg->pl.slave_pct) / 100;
+	*slave_ua = (*slave_ua * chg->pl.taper_pct) / 100;
+	*master_ua = max(0, total_ua - *slave_ua);
 }
 
 /********************
@@ -577,27 +588,25 @@ static int smblib_fcc_max_vote_callback(struct votable *votable, void *data,
 }
 
 static int smblib_fcc_vote_callback(struct votable *votable, void *data,
-			int fcc_ua, const char *client)
+			int total_fcc_ua, const char *client)
 {
 	struct smb_charger *chg = data;
-	int rc = 0;
 	union power_supply_propval pval = {0, };
-	int master_ua = fcc_ua, slave_ua;
+	int rc, master_fcc_ua = total_fcc_ua, slave_fcc_ua;
 
-	if (fcc_ua < 0) {
-		smblib_dbg(chg, PR_MISC, "No Voter\n");
+	if (total_fcc_ua < 0)
 		return 0;
-	}
 
 	if (chg->mode == PARALLEL_MASTER
 		&& !get_effective_result_locked(chg->pl_disable_votable)) {
-		smblib_fcc_split_ua(chg, fcc_ua, &master_ua, &slave_ua);
+		smblib_split_fcc(chg, total_fcc_ua, &master_fcc_ua,
+				 &slave_fcc_ua);
 
 		/*
 		 * parallel charger is not disabled, implying that
 		 * chg->pl.psy exists
 		 */
-		pval.intval = slave_ua;
+		pval.intval = slave_fcc_ua;
 		rc = power_supply_set_property(chg->pl.psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
 		if (rc < 0) {
@@ -606,12 +615,12 @@ static int smblib_fcc_vote_callback(struct votable *votable, void *data,
 			return rc;
 		}
 
-		chg->pl.slave_fcc = slave_ua;
+		chg->pl.slave_fcc_ua = slave_fcc_ua;
 	}
 
-	rc = smblib_set_charge_param(chg, &chg->param.fcc, master_ua);
+	rc = smblib_set_charge_param(chg, &chg->param.fcc, master_fcc_ua);
 	if (rc < 0) {
-		smblib_err(chg, "Error in setting fcc, rc=%d\n", rc);
+		smblib_err(chg, "Couldn't set master fcc rc=%d\n", rc);
 		return rc;
 	}
 
@@ -811,7 +820,7 @@ static int smblib_pl_disable_vote_callback(struct votable *votable, void *data,
 	if (chg->mode != PARALLEL_MASTER || !chg->pl.psy)
 		return 0;
 
-	chg->pl.taper_percent = 100;
+	chg->pl.taper_pct = 100;
 	rerun_election(chg->fv_votable);
 	rerun_election(chg->fcc_votable);
 
@@ -2177,15 +2186,15 @@ skip_dpdm_float:
 	return IRQ_HANDLED;
 }
 
-#define USB_WEAK_INPUT_MA      1400000
+#define USB_WEAK_INPUT_UA	1400000
 irqreturn_t smblib_handle_icl_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
-	int icl_ma;
-	int rc;
+	int rc, icl_ua;
 
-	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &icl_ma);
+
+	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &icl_ua);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't get ICL status rc=%d\n", rc);
 		return IRQ_HANDLED;
@@ -2193,7 +2202,7 @@ irqreturn_t smblib_handle_icl_change(int irq, void *data)
 
 	if (chg->mode == PARALLEL_MASTER)
 		vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
-		     icl_ma >= USB_WEAK_INPUT_MA, 0);
+		     icl_ua >= USB_WEAK_INPUT_UA, 0);
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
@@ -2569,7 +2578,7 @@ static void smblib_pl_detect_work(struct work_struct *work)
 
 #define MINIMUM_PARALLEL_FCC_UA		500000
 #define PL_TAPER_WORK_DELAY_MS		100
-#define TAPER_RESIDUAL_PERCENT		75
+#define TAPER_RESIDUAL_PCT		75
 static void smblib_pl_taper_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -2577,7 +2586,7 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	union power_supply_propval pval = {0, };
 	int rc;
 
-	if (chg->pl.slave_fcc < MINIMUM_PARALLEL_FCC_UA) {
+	if (chg->pl.slave_fcc_ua < MINIMUM_PARALLEL_FCC_UA) {
 		vote(chg->pl_disable_votable, TAPER_END_VOTER, true, 0);
 		goto done;
 	}
@@ -2591,8 +2600,8 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
 		vote(chg->awake_votable, PL_TAPER_WORK_RUNNING_VOTER, true, 0);
 		/* Reduce the taper percent by 25 percent */
-		chg->pl.taper_percent = chg->pl.taper_percent
-					* TAPER_RESIDUAL_PERCENT / 100;
+		chg->pl.taper_pct = chg->pl.taper_pct
+					* TAPER_RESIDUAL_PCT / 100;
 		rerun_election(chg->fcc_votable);
 		schedule_delayed_work(&chg->pl_taper_work,
 				msecs_to_jiffies(PL_TAPER_WORK_DELAY_MS));

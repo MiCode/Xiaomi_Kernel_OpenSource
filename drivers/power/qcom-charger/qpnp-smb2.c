@@ -233,11 +233,6 @@ module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
 
-static int __pl_master_percent = 50;
-module_param_named(
-	pl_master_percent, __pl_master_percent, int, 0600
-);
-
 #define MICRO_1P5A	1500000
 static int smb2_parse_dt(struct smb2 *chip)
 {
@@ -356,7 +351,6 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
-	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -422,10 +416,6 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
 		rc = smblib_get_prop_usb_current_now(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
-		val->intval = get_client_vote(chg->pl_disable_votable,
-					      USER_VOTER);
-		break;
 	case POWER_SUPPLY_PROP_PD_IN_HARD_RESET:
 		rc = smblib_get_prop_pd_in_hard_reset(chg, val);
 		break;
@@ -471,9 +461,6 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PD_ACTIVE:
 		rc = smblib_set_prop_pd_active(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
-		vote(chg->pl_disable_votable, USER_VOTER, (bool)val->intval, 0);
-		break;
 	case POWER_SUPPLY_PROP_PD_IN_HARD_RESET:
 		rc = smblib_set_prop_pd_in_hard_reset(chg, val);
 		break;
@@ -494,7 +481,6 @@ static int smb2_usb_prop_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
-	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 		return 1;
 	default:
 		break;
@@ -653,6 +639,7 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_STEP_CHARGING_STEP,
 	POWER_SUPPLY_PROP_CHARGE_DONE,
+	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -713,6 +700,10 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
 		rc = smblib_get_prop_batt_charge_done(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
+		val->intval = get_client_vote(chg->pl_disable_votable,
+					      USER_VOTER);
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -743,6 +734,9 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = smblib_set_prop_batt_capacity(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
+		vote(chg->pl_disable_votable, USER_VOTER, (bool)val->intval, 0);
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -757,6 +751,7 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
+	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 		return 1;
 	default:
 		break;
@@ -1585,7 +1580,6 @@ static int smb2_probe(struct platform_device *pdev)
 	chg->debug_mask = &__debug_mask;
 	chg->mode = PARALLEL_MASTER;
 	chg->name = "PMI";
-	chg->pl.master_percent = &__pl_master_percent;
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {
@@ -1654,6 +1648,7 @@ static int smb2_probe(struct platform_device *pdev)
 		return 0;
 	}
 
+	chg->pl.slave_pct = 50;
 	rc = smb2_init_batt_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize batt psy rc=%d\n", rc);
