@@ -65,9 +65,14 @@ enum wdsp_event_type {
 	WDSP_EVENT_RESUME,
 };
 
-enum wdsp_intr {
+enum wdsp_signal {
+	/* Hardware generated interrupts signalled to manager */
 	WDSP_IPC1_INTR,
 	WDSP_ERR_INTR,
+
+	/* Other signals */
+	WDSP_CDC_DOWN_SIGNAL,
+	WDSP_CDC_UP_SIGNAL,
 };
 
 /*
@@ -92,7 +97,7 @@ struct wdsp_img_section {
 	u8 *data;
 };
 
-struct wdsp_err_intr_arg {
+struct wdsp_err_signal_arg {
 	bool mem_dumps_enabled;
 	u32 remote_start_addr;
 	size_t dump_size;
@@ -104,8 +109,9 @@ struct wdsp_err_intr_arg {
  *			their own ops to manager driver
  * @get_dev_for_cmpnt: components can use this to get handle
  *		       to struct device * of any other component
- * @intr_handler: callback to notify manager driver that interrupt
- *		  has occurred.
+ * @signal_handler: callback to notify manager driver that signal
+ *		    has occurred. Cannot be called from interrupt
+ *		    context as this can sleep
  * @vote_for_dsp: notifies manager that dsp should be booted up
  * @suspend: notifies manager that one component wants to suspend.
  *	     Manager will make sure to suspend all components in order
@@ -120,8 +126,8 @@ struct wdsp_mgr_ops {
 				  struct wdsp_cmpnt_ops *ops);
 	struct device *(*get_dev_for_cmpnt)(struct device *wdsp_dev,
 					    enum wdsp_cmpnt_type type);
-	int (*intr_handler)(struct device *wdsp_dev,
-			      enum wdsp_intr intr, void *arg);
+	int (*signal_handler)(struct device *wdsp_dev,
+			      enum wdsp_signal signal, void *arg);
 	int (*vote_for_dsp)(struct device *wdsp_dev, bool vote);
 	int (*suspend)(struct device *wdsp_dev);
 	int (*resume)(struct device *wdsp_dev);

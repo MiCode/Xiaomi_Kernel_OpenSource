@@ -967,8 +967,10 @@ static struct msm_rpm_request *msm_rpm_create_request_common(
 
 	cdata->client_buf = kzalloc(buf_size, GFP_FLAG(noirq));
 
-	if (!cdata->client_buf)
-		goto cdata_alloc_fail;
+	if (!cdata->client_buf) {
+		pr_warn("Cannot allocate memory for client_buf\n");
+		goto client_buf_alloc_fail;
+	}
 
 	set_set_type(cdata->client_buf, set);
 	set_rsc_type(cdata->client_buf, rsc_type);
@@ -997,6 +999,8 @@ static struct msm_rpm_request *msm_rpm_create_request_common(
 buf_alloc_fail:
 	kfree(cdata->kvp);
 kvp_alloc_fail:
+	kfree(cdata->client_buf);
+client_buf_alloc_fail:
 	kfree(cdata);
 cdata_alloc_fail:
 	return NULL;

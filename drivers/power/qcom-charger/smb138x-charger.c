@@ -48,8 +48,8 @@ static struct smb_params v1_params = {
 		.name	= "fast charge current",
 		.reg	= FAST_CHARGE_CURRENT_CFG_REG,
 		.min_u	= 0,
-		.max_u	= 5000000,
-		.step_u	= 50000,
+		.max_u	= 4500000,
+		.step_u	= 25000,
 	},
 	.fv		= {
 		.name	= "float voltage",
@@ -395,6 +395,7 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 };
@@ -430,6 +431,9 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fcc,
 					     &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		rc = smblib_get_prop_slave_current_now(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP:
 		rc = smblib_get_prop_charger_temp(chg, val);
@@ -1121,6 +1125,15 @@ static int smb138x_slave_probe(struct smb138x *chip)
 				 CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT, 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure charge enable source rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* enable parallel current sensing */
+	rc = smblib_masked_write(chg, CFG_REG,
+				 VCHG_EN_CFG_BIT, VCHG_EN_CFG_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't enable parallel current sensing rc=%d\n",
 			rc);
 		return rc;
 	}

@@ -646,9 +646,9 @@ static irqreturn_t wcd_cntl_ipc_irq(int irq, void *data)
 	complete(&cntl->boot_complete);
 
 	if (cntl->m_dev && cntl->m_ops &&
-	    cntl->m_ops->intr_handler)
-		ret = cntl->m_ops->intr_handler(cntl->m_dev, WDSP_IPC1_INTR,
-						NULL);
+	    cntl->m_ops->signal_handler)
+		ret = cntl->m_ops->signal_handler(cntl->m_dev, WDSP_IPC1_INTR,
+						  NULL);
 	else
 		ret = -EINVAL;
 
@@ -663,7 +663,7 @@ static irqreturn_t wcd_cntl_err_irq(int irq, void *data)
 {
 	struct wcd_dsp_cntl *cntl = data;
 	struct snd_soc_codec *codec = cntl->codec;
-	struct wdsp_err_intr_arg arg;
+	struct wdsp_err_signal_arg arg;
 	u16 status = 0;
 	u8 reg_val;
 	int ret = 0;
@@ -678,19 +678,19 @@ static irqreturn_t wcd_cntl_err_irq(int irq, void *data)
 		__func__, status);
 
 	if ((status & cntl->irqs.fatal_irqs) &&
-	    (cntl->m_dev && cntl->m_ops && cntl->m_ops->intr_handler)) {
+	    (cntl->m_dev && cntl->m_ops && cntl->m_ops->signal_handler)) {
 		arg.mem_dumps_enabled = cntl->ramdump_enable;
 		arg.remote_start_addr = WCD_934X_RAMDUMP_START_ADDR;
 		arg.dump_size = WCD_934X_RAMDUMP_SIZE;
-		ret = cntl->m_ops->intr_handler(cntl->m_dev, WDSP_ERR_INTR,
-						&arg);
+		ret = cntl->m_ops->signal_handler(cntl->m_dev, WDSP_ERR_INTR,
+						  &arg);
 		if (IS_ERR_VALUE(ret))
 			dev_err(cntl->codec->dev,
 				"%s: Failed to handle fatal irq 0x%x\n",
 				__func__, status & cntl->irqs.fatal_irqs);
 		wcd_cntl_change_online_state(cntl, 0);
 	} else {
-		dev_err(cntl->codec->dev, "%s: Invalid intr_handler\n",
+		dev_err(cntl->codec->dev, "%s: Invalid signal_handler\n",
 			__func__);
 	}
 

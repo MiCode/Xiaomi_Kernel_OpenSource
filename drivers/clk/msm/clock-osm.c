@@ -202,6 +202,8 @@ enum clk_osm_trace_packet_id {
 #define TRACE_CTRL_EN_MASK BIT(0)
 #define TRACE_CTRL_ENABLE 1
 #define TRACE_CTRL_DISABLE 0
+#define TRACE_CTRL_ENABLE_WDOG_STATUS	BIT(30)
+#define TRACE_CTRL_ENABLE_WDOG_STATUS_MASK	BIT(30)
 #define TRACE_CTRL_PACKET_TYPE_MASK BVAL(2, 1, 3)
 #define TRACE_CTRL_PACKET_TYPE_SHIFT 1
 #define TRACE_CTRL_PERIODIC_TRACE_EN_MASK BIT(3)
@@ -220,6 +222,11 @@ enum clk_osm_trace_packet_id {
 #define PWRCL_EFUSE_MASK	0
 #define PERFCL_EFUSE_SHIFT	29
 #define PERFCL_EFUSE_MASK	0x7
+
+#define MSMCOBALTV1_PWRCL_BOOT_RATE	1478400000
+#define MSMCOBALTV1_PERFCL_BOOT_RATE	1536000000
+#define MSMCOBALTV2_PWRCL_BOOT_RATE	1555200000
+#define MSMCOBALTV2_PERFCL_BOOT_RATE	1728000000
 
 static void __iomem *virt_base;
 static void __iomem *debug_base;
@@ -2687,6 +2694,18 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	if (msmcobalt_v2) {
+		/* Enable OSM WDOG registers */
+		clk_osm_masked_write_reg(&pwrcl_clk,
+					 TRACE_CTRL_ENABLE_WDOG_STATUS,
+					 TRACE_CTRL,
+					 TRACE_CTRL_ENABLE_WDOG_STATUS_MASK);
+		clk_osm_masked_write_reg(&perfcl_clk,
+					 TRACE_CTRL_ENABLE_WDOG_STATUS,
+					 TRACE_CTRL,
+					 TRACE_CTRL_ENABLE_WDOG_STATUS_MASK);
+	}
+
 	/*
 	 * The hmss_gpll0 clock runs at 300 MHz. Ensure it is at the correct
 	 * frequency before enabling OSM. LUT index 0 is always sourced from
@@ -2700,18 +2719,22 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(&sys_apcsaux_clk_gcc.c);
 
-	/* Set 300MHz index */
-	rc = clk_set_rate(&pwrcl_clk.c, init_rate);
+	/* Set boot rate */
+	rc = clk_set_rate(&pwrcl_clk.c, msmcobalt_v1 ?
+			  MSMCOBALTV1_PWRCL_BOOT_RATE :
+			  MSMCOBALTV2_PWRCL_BOOT_RATE);
 	if (rc) {
-		dev_err(&pdev->dev, "Unable to set init rate on pwr cluster, rc=%d\n",
+		dev_err(&pdev->dev, "Unable to set boot rate on pwr cluster, rc=%d\n",
 			rc);
 		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
 		return rc;
 	}
 
-	rc = clk_set_rate(&perfcl_clk.c, init_rate);
+	rc = clk_set_rate(&perfcl_clk.c, msmcobalt_v1 ?
+			  MSMCOBALTV1_PERFCL_BOOT_RATE :
+			  MSMCOBALTV2_PERFCL_BOOT_RATE);
 	if (rc) {
-		dev_err(&pdev->dev, "Unable to set init rate on perf cluster, rc=%d\n",
+		dev_err(&pdev->dev, "Unable to set boot rate on perf cluster, rc=%d\n",
 			rc);
 		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
 		return rc;
