@@ -2794,6 +2794,20 @@ static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
 	arm_smmu_tlb_inv_context(to_smmu_domain(domain));
 }
 
+static int arm_smmu_enable_config_clocks(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+
+	return arm_smmu_power_on(smmu_domain->smmu);
+}
+
+static void arm_smmu_disable_config_clocks(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+
+	arm_smmu_power_off(smmu_domain->smmu);
+}
+
 static struct iommu_ops arm_smmu_ops = {
 	.capable		= arm_smmu_capable,
 	.domain_alloc		= arm_smmu_domain_alloc,
@@ -2815,6 +2829,8 @@ static struct iommu_ops arm_smmu_ops = {
 	.reg_read		= arm_smmu_reg_read,
 	.reg_write		= arm_smmu_reg_write,
 	.tlbi_domain		= arm_smmu_tlbi_domain,
+	.enable_config_clocks	= arm_smmu_enable_config_clocks,
+	.disable_config_clocks	= arm_smmu_disable_config_clocks,
 };
 
 static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu)
