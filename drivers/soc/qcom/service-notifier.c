@@ -605,8 +605,8 @@ void *service_notif_register_notifier(const char *service_path, int instance_id,
 	if (!service_path || !instance_id || !nb)
 		return ERR_PTR(-EINVAL);
 
-	service_notif = _find_service_info(service_path);
 	mutex_lock(&notif_add_lock);
+	service_notif = _find_service_info(service_path);
 	if (!service_notif) {
 		service_notif = (struct service_notif_info *)add_service_notif(
 								service_path,
