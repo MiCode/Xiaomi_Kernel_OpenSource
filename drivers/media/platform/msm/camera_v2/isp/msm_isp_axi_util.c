@@ -1690,8 +1690,8 @@ int msm_isp_cfg_offline_ping_pong_address(struct vfe_device *vfe_dev,
 		rc = vfe_dev->buf_mgr->ops->get_buf_by_index(
 			vfe_dev->buf_mgr, bufq_handle, buf_idx, &buf);
 		if (rc < 0 || !buf) {
-			pr_err("%s: No fetch buffer rc= %d buf= %p\n",
-				__func__, rc, buf);
+			pr_err("%s: No fetch buffer rc= %d\n",
+				__func__, rc);
 			return -EINVAL;
 		}
 
