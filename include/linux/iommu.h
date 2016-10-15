@@ -182,6 +182,8 @@ extern struct dentry *iommu_debugfs_top;
  * @reg_read: read an IOMMU register
  * @reg_write: write an IOMMU register
  * @tlbi_domain: Invalidate all TLBs covering an iommu domain
+ * @enable_config_clocks: Enable all config clocks for this domain's IOMMU
+ * @disable_config_clocks: Disable all config clocks for this domain's IOMMU
  */
 struct iommu_ops {
 	bool (*capable)(enum iommu_cap);
@@ -229,6 +231,8 @@ struct iommu_ops {
 	void (*reg_write)(struct iommu_domain *domain, unsigned long val,
 			  unsigned long offset);
 	void (*tlbi_domain)(struct iommu_domain *domain);
+	int (*enable_config_clocks)(struct iommu_domain *domain);
+	void (*disable_config_clocks)(struct iommu_domain *domain);
 
 	int (*of_xlate)(struct device *dev, struct of_phandle_args *args);
 
@@ -382,6 +386,19 @@ static inline void iommu_tlbiall(struct iommu_domain *domain)
 {
 	if (domain->ops->tlbi_domain)
 		domain->ops->tlbi_domain(domain);
+}
+
+static inline int iommu_enable_config_clocks(struct iommu_domain *domain)
+{
+	if (domain->ops->enable_config_clocks)
+		return domain->ops->enable_config_clocks(domain);
+	return 0;
+}
+
+static inline void iommu_disable_config_clocks(struct iommu_domain *domain)
+{
+	if (domain->ops->disable_config_clocks)
+		domain->ops->disable_config_clocks(domain);
 }
 
 #else /* CONFIG_IOMMU_API */
@@ -617,6 +634,15 @@ static inline void iommu_reg_write(struct iommu_domain *domain,
 }
 
 static inline void iommu_tlbiall(struct iommu_domain *domain)
+{
+}
+
+static inline int iommu_enable_config_clocks(struct iommu_domain *domain)
+{
+	return 0;
+}
+
+static inline void iommu_disable_config_clocks(struct iommu_domain *domain)
 {
 }
 
