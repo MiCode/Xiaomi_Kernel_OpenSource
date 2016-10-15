@@ -800,9 +800,11 @@ enum {
 #define WCD934X_VBADC_NEW_ADC_DOUTLSB                      0x0731
 #define WCD934X_HPH_NEW_INT_RDAC_GAIN_CTL                  0x0732
 #define WCD934X_HPH_NEW_INT_RDAC_HD2_CTL                   0x0733
+#define WCD934X_HPH_NEW_INT_RDAC_HD2_CTL_L                 0x0733
 #define WCD934X_HPH_NEW_INT_RDAC_VREF_CTL                  0x0734
 #define WCD934X_HPH_NEW_INT_RDAC_OVERRIDE_CTL              0x0735
 #define WCD934X_HPH_NEW_INT_RDAC_MISC1                     0x0736
+#define WCD934X_HPH_NEW_INT_RDAC_HD2_CTL_R                 0x0736
 #define WCD934X_HPH_NEW_INT_PA_MISC1                       0x0737
 #define WCD934X_HPH_NEW_INT_PA_MISC2                       0x0738
 #define WCD934X_HPH_NEW_INT_PA_RDAC_MISC                   0x0739

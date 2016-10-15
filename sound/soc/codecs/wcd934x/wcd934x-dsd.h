@@ -40,6 +40,7 @@ struct tavil_dsd_config {
 	u32 base_sample_rate[DSD_MAX];
 	int volume[DSD_MAX];
 	struct mutex vol_mutex;
+	int version;
 };
 
 #ifdef CONFIG_SND_SOC_WCD934X_DSD

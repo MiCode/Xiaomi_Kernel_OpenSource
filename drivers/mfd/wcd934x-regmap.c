@@ -17,6 +17,18 @@
 #include <linux/device.h>
 #include "wcd9xxx-regmap.h"
 
+
+static const struct reg_sequence wcd934x_1_1_defaults[] = {
+	{ WCD934X_CHIP_TIER_CTRL_CHIP_ID_BYTE0,             0x01 },
+	{ WCD934X_BIAS_VBG_FINE_ADJ,                        0x75 },
+	{ WCD934X_HPH_REFBUFF_LP_CTL,                       0x0E },
+	{ WCD934X_EAR_DAC_CTL_ATEST,                        0x08 },
+	{ WCD934X_SIDO_NEW_VOUT_A_STARTUP,                  0x17 },
+	{ WCD934X_HPH_NEW_INT_RDAC_GAIN_CTL,                0x40 },
+	{ WCD934X_HPH_NEW_INT_RDAC_HD2_CTL_L,               0x81 },
+	{ WCD934X_HPH_NEW_INT_RDAC_HD2_CTL_R,               0x81 },
+};
+
 static const struct reg_default wcd934x_defaults[] = {
 	{ WCD934X_PAGE0_PAGE_REGISTER,                      0x00 },
 	{ WCD934X_CODEC_RPM_CLK_BYPASS,                     0x00 },
@@ -1802,6 +1814,37 @@ static const struct reg_default wcd934x_defaults[] = {
 	{ WCD934X_TEST_DEBUG_SPI_SLAVE_CHAR,               0x00 },
 	{ WCD934X_TEST_DEBUG_CODEC_DIAGS,                  0x00 },
 };
+
+/*
+ * wcd934x_regmap_register_patch: Update register defaults based on version
+ * @regmap: handle to wcd9xxx regmap
+ * @version: wcd934x version
+ *
+ * Returns error code in case of failure or 0 for success
+ */
+int wcd934x_regmap_register_patch(struct regmap *regmap, int revision)
+{
+	int rc = 0;
+
+	if (!regmap) {
+		pr_err("%s: regmap struct is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (revision) {
+	case TAVIL_VERSION_1_1:
+	case TAVIL_VERSION_WCD9340_1_1:
+	case TAVIL_VERSION_WCD9341_1_1:
+		regcache_cache_only(regmap, true);
+		rc = regmap_multi_reg_write(regmap, wcd934x_1_1_defaults,
+					    ARRAY_SIZE(wcd934x_1_1_defaults));
+		regcache_cache_only(regmap, false);
+		break;
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL(wcd934x_regmap_register_patch);
 
 static bool wcd934x_is_readable_register(struct device *dev, unsigned int reg)
 {

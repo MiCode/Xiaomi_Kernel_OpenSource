@@ -21,6 +21,8 @@ typedef int (*regmap_patch_fptr)(struct regmap *, int);
 
 #ifdef CONFIG_WCD934X_CODEC
 extern struct regmap_config wcd934x_regmap_config;
+extern int wcd934x_regmap_register_patch(struct regmap *regmap,
+					 int version);
 #endif
 
 #ifdef CONFIG_WCD9335_CODEC
@@ -69,6 +71,11 @@ static inline regmap_patch_fptr wcd9xxx_get_regmap_reg_patch(int type)
 #ifdef CONFIG_WCD9335_CODEC
 	case WCD9335:
 		apply_patch = wcd9335_regmap_register_patch;
+		break;
+#endif
+#ifdef CONFIG_WCD934X_CODEC
+	case WCD934X:
+		apply_patch = wcd934x_regmap_register_patch;
 		break;
 #endif
 	default:

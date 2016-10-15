@@ -28,6 +28,9 @@
 #define DSD_VOLUME_STEP_DELAY_US    ((1000 * DSD_VOLUME_UPDATE_DELAY_MS) / \
 				     (2 * DSD_VOLUME_STEPS))
 
+#define TAVIL_VERSION_1_0  0
+#define TAVIL_VERSION_1_1  1
+
 static const DECLARE_TLV_DB_MINMAX(tavil_dsd_db_scale, DSD_VOLUME_MIN_M110dB,
 				   DSD_VOLUME_MAX_0dB);
 
@@ -369,6 +372,14 @@ static void tavil_dsd_data_pull(struct snd_soc_codec *codec, int dsd_num,
 	}
 }
 
+static void tavil_dsd_update_volume(struct tavil_dsd_config *dsd_conf)
+{
+	snd_soc_update_bits(dsd_conf->codec, WCD934X_CDC_TOP_TOP_CFG0,
+			    0x01, 0x01);
+	snd_soc_update_bits(dsd_conf->codec, WCD934X_CDC_TOP_TOP_CFG0,
+			    0x01, 0x00);
+}
+
 static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol, int event)
 {
@@ -429,6 +440,8 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 			/* Apply Gain */
 			snd_soc_write(codec, WCD934X_CDC_DSD0_CFG1,
 				      dsd_conf->volume[DSD0]);
+			if (dsd_conf->version == TAVIL_VERSION_1_1)
+				tavil_dsd_update_volume(dsd_conf);
 
 		} else if (w->shift == DSD1) {
 			snd_soc_update_bits(codec, WCD934X_CDC_DSD1_PATH_CTL,
@@ -440,6 +453,8 @@ static int tavil_enable_dsd(struct snd_soc_dapm_widget *w,
 			/* Apply Gain */
 			snd_soc_write(codec, WCD934X_CDC_DSD1_CFG1,
 				      dsd_conf->volume[DSD1]);
+			if (dsd_conf->version == TAVIL_VERSION_1_1)
+				tavil_dsd_update_volume(dsd_conf);
 		}
 		/* 10msec sleep required after DSD clock is set */
 		usleep_range(10000, 10100);
@@ -538,15 +553,22 @@ static int tavil_dsd_vol_put(struct snd_kcontrol *kcontrol,
 			snd_soc_write(codec,
 				      WCD934X_CDC_DSD0_CFG1 + 16 * dsd_idx,
 				      nv1);
+			if (dsd_conf->version == TAVIL_VERSION_1_1)
+				tavil_dsd_update_volume(dsd_conf);
+
 			/* sleep required after each volume step */
 			usleep_range(DSD_VOLUME_STEP_DELAY_US,
 				     (DSD_VOLUME_STEP_DELAY_US +
 				      DSD_VOLUME_USLEEP_MARGIN_US));
 		}
-		if (nv1 != nv[dsd_idx])
+		if (nv1 != nv[dsd_idx]) {
 			snd_soc_write(codec,
 				      WCD934X_CDC_DSD0_CFG1 + 16 * dsd_idx,
 				      nv[dsd_idx]);
+
+			if (dsd_conf->version == TAVIL_VERSION_1_1)
+				tavil_dsd_update_volume(dsd_conf);
+		}
 
 		dsd_conf->volume[dsd_idx] = nv[dsd_idx];
 	}
@@ -629,9 +651,14 @@ struct tavil_dsd_config *tavil_dsd_init(struct snd_soc_codec *codec)
 
 	dsd_conf->codec = codec;
 
+	/* Read version */
+	dsd_conf->version = snd_soc_read(codec,
+					 WCD934X_CHIP_TIER_CTRL_CHIP_ID_BYTE0);
 	/* DSD registers init */
-	snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2, 0x02, 0x00);
-	snd_soc_update_bits(codec, WCD934X_CDC_DSD1_CFG2, 0x02, 0x00);
+	if (dsd_conf->version == TAVIL_VERSION_1_0) {
+		snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2, 0x02, 0x00);
+		snd_soc_update_bits(codec, WCD934X_CDC_DSD1_CFG2, 0x02, 0x00);
+	}
 	/* DSD0: Mute EN */
 	snd_soc_update_bits(codec, WCD934X_CDC_DSD0_CFG2, 0x04, 0x04);
 	/* DSD1: Mute EN */
