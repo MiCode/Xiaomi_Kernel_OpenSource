@@ -10,6 +10,9 @@
 #define PAT9125_DEV_NAME	"pixart_pat9125"
 #define MAX_BUF_SIZE		20
 #define RESET_DELAY_US		1000
+#define PINCTRL_STATE_ACTIVE	"pmx_rot_switch_active"
+#define PINCTRL_STATE_SUSPEND	"pmx_rot_switch_suspend"
+#define PINCTRL_STATE_RELEASE	"pmx_rot_switch_release"
 
 /* Register addresses */
 #define PIXART_PAT9125_PRODUCT_ID1_REG		0x00
