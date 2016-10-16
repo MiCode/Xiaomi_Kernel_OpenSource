@@ -777,10 +777,28 @@ static void ipa3_transport_irq_cmd_ack(void *user1, int user2)
  */
 int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 {
+	return ipa3_send_cmd_timeout(num_desc, descr, 0);
+}
+
+/**
+ * ipa3_send_cmd_timeout - send immediate commands with limited time
+ *	waiting for ACK from IPA HW
+ * @num_desc:	number of descriptors within the desc struct
+ * @descr:	descriptor structure
+ * @timeout:	millisecond to wait till get ACK from IPA HW
+ *
+ * Function will block till command gets ACK from IPA HW or timeout.
+ * Caller needs to free any resources it allocated after function returns
+ * The callback in ipa3_desc should not be set by the caller
+ * for this function.
+ */
+int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
+{
 	struct ipa3_desc *desc;
 	int i, result = 0;
 	struct ipa3_sys_context *sys;
 	int ep_idx;
+	int completed;
 
 	for (i = 0; i < num_desc; i++)
 		IPADBG("sending imm cmd %d\n", descr[i].opcode);
@@ -807,7 +825,14 @@ int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 			result = -EFAULT;
 			goto bail;
 		}
-		wait_for_completion(&descr->xfer_done);
+		if (timeout) {
+			completed = wait_for_completion_timeout(
+				&descr->xfer_done, msecs_to_jiffies(timeout));
+			if (!completed)
+				IPADBG("timeout waiting for imm-cmd ACK\n");
+		} else {
+			wait_for_completion(&descr->xfer_done);
+		}
 	} else {
 		desc = &descr[num_desc - 1];
 		init_completion(&desc->xfer_done);
@@ -822,7 +847,15 @@ int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 			result = -EFAULT;
 			goto bail;
 		}
-		wait_for_completion(&desc->xfer_done);
+		if (timeout) {
+			completed = wait_for_completion_timeout(
+				&desc->xfer_done, msecs_to_jiffies(timeout));
+			if (!completed)
+				IPADBG("timeout waiting for imm-cmd ACK\n");
+		} else {
+			wait_for_completion(&desc->xfer_done);
+		}
+
 	}
 
 bail:

@@ -1820,6 +1820,7 @@ void ipa3_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
 int ipa3_controller_static_bind(struct ipa3_controller *controller,
 		enum ipa_hw_type ipa_hw_type);
 int ipa3_cfg_route(struct ipahal_reg_route *route);
+int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout);
 int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr);
 int ipa3_cfg_filter(u32 disable);
 int ipa3_pipe_mem_init(u32 start_ofst, u32 size);
