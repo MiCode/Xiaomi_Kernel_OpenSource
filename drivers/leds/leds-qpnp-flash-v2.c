@@ -63,6 +63,7 @@
 #define	FLASH_LED_ISC_WARMUP_DELAY_MASK		GENMASK(1, 0)
 #define	FLASH_LED_CURRENT_DERATE_EN_MASK	GENMASK(2, 0)
 #define	FLASH_LED_VPH_DROOP_DEBOUNCE_MASK	GENMASK(1, 0)
+#define	FLASH_LED_CHGR_MITIGATION_SEL_MASK	GENMASK(5, 4)
 #define	FLASH_LED_LMH_MITIGATION_SEL_MASK	GENMASK(1, 0)
 #define	FLASH_LED_ILED_GRT_THRSH_MASK		GENMASK(5, 0)
 #define	FLASH_LED_LMH_LEVEL_MASK		GENMASK(1, 0)
@@ -70,11 +71,11 @@
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MASK	GENMASK(2, 0)
 #define	FLASH_LED_THERMAL_THRSH_MASK		GENMASK(2, 0)
 #define	FLASH_LED_THERMAL_OTST_MASK		GENMASK(2, 0)
-#define	FLASH_LED_PREPARE_OPTIONS_MASK		GENMASK(2, 0)
 #define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 #define	FLASH_LED_HW_SW_STROBE_SEL_MASK		BIT(2)
 #define	FLASH_LED_VPH_DROOP_FAULT_MASK		BIT(4)
 #define	FLASH_LED_LMH_MITIGATION_EN_MASK	BIT(0)
+#define	FLASH_LED_CHGR_MITIGATION_EN_MASK	BIT(4)
 
 #define	VPH_DROOP_DEBOUNCE_US_TO_VAL(val_us)	(val_us / 8)
 #define	VPH_DROOP_HYST_MV_TO_VAL(val_mv)	(val_mv / 25)
@@ -102,8 +103,11 @@
 #define	FLASH_LED_LMH_LEVEL_DEFAULT		0
 #define	FLASH_LED_LMH_MITIGATION_ENABLE		1
 #define	FLASH_LED_LMH_MITIGATION_DISABLE	0
-#define	FLASH_LED_LMH_MITIGATION_SEL_DEFAULT	2
-#define	FLASH_LED_LMH_MITIGATION_SEL_MAX	2
+#define	FLASH_LED_CHGR_MITIGATION_ENABLE	BIT(4)
+#define	FLASH_LED_CHGR_MITIGATION_DISABLE	0
+#define	FLASH_LED_MITIGATION_SEL_DEFAULT	2
+#define	FLASH_LED_MITIGATION_SEL_MAX		2
+#define	FLASH_LED_CHGR_MITIGATION_SEL_SHIFT	4
 #define	FLASH_LED_MITIGATION_THRSH_DEFAULT	0xA
 #define	FLASH_LED_MITIGATION_THRSH_MAX		0x1F
 #define	FLASH_LED_LMH_OCV_THRESH_DEFAULT_UV	3700000
@@ -204,6 +208,7 @@ struct flash_led_platform_data {
 	u8	vph_droop_hysteresis;
 	u8	vph_droop_debounce;
 	u8	lmh_mitigation_sel;
+	u8	chgr_mitigation_sel;
 	u8	lmh_level;
 	u8	iled_thrsh_val;
 	u8	hw_strobe_option;
@@ -228,6 +233,7 @@ struct qpnp_flash_led {
 	int				enable;
 	u16				base;
 	bool				trigger_lmh;
+	bool				trigger_chgr;
 };
 
 static int
@@ -354,6 +360,13 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 			FLASH_LED_REG_MITIGATION_SEL(led->base),
 			FLASH_LED_LMH_MITIGATION_SEL_MASK,
 			led->pdata->lmh_mitigation_sel);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_flash_led_masked_write(led,
+			FLASH_LED_REG_MITIGATION_SEL(led->base),
+			FLASH_LED_CHGR_MITIGATION_SEL_MASK,
+			led->pdata->chgr_mitigation_sel);
 	if (rc < 0)
 		return rc;
 
@@ -752,6 +765,18 @@ static int qpnp_flash_led_switch_disable(struct flash_switch_data *snode)
 		}
 	}
 
+	if (!led->trigger_chgr) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_MITIGATION_SW(led->base),
+				FLASH_LED_CHGR_MITIGATION_EN_MASK,
+				FLASH_LED_CHGR_MITIGATION_DISABLE);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev, "disable chgr mitigation failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	led->enable--;
 	if (led->enable == 0) {
 		rc = qpnp_flash_led_masked_write(led,
@@ -905,6 +930,18 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 		}
 	}
 
+	if (led->trigger_chgr) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_MITIGATION_SW(led->base),
+				FLASH_LED_CHGR_MITIGATION_EN_MASK,
+				FLASH_LED_CHGR_MITIGATION_ENABLE);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev, "trigger chgr mitigation failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	rc = qpnp_flash_led_masked_write(led,
 					FLASH_LED_EN_LED_CTRL(led->base),
 					snode->led_mask, val);
@@ -964,6 +1001,10 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
 		*max_current = rc;
 	}
 
+	led->trigger_chgr = false;
+	if (options & PRE_FLASH)
+		led->trigger_chgr = true;
+
 	return 0;
 }
 
@@ -972,15 +1013,22 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 {
 	struct flash_node_data *fnode = NULL;
 	struct flash_switch_data *snode = NULL;
-	struct qpnp_flash_led *led = dev_get_drvdata(&fnode->pdev->dev);
+	struct qpnp_flash_led *led = NULL;
 	int rc;
 
 	if (!strncmp(led_cdev->name, "led:switch", strlen("led:switch"))) {
 		snode = container_of(led_cdev, struct flash_switch_data, cdev);
 		led = dev_get_drvdata(&snode->pdev->dev);
-	} else {
+	} else if (!strncmp(led_cdev->name, "led:flash", strlen("led:flash")) ||
+			!strncmp(led_cdev->name, "led:torch",
+						strlen("led:torch"))) {
 		fnode = container_of(led_cdev, struct flash_node_data, cdev);
 		led = dev_get_drvdata(&fnode->pdev->dev);
+	}
+
+	if (!led) {
+		pr_err("Failed to get flash driver data\n");
+		return;
 	}
 
 	spin_lock(&led->lock);
@@ -1662,7 +1710,7 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
-	led->pdata->lmh_mitigation_sel = FLASH_LED_LMH_MITIGATION_SEL_DEFAULT;
+	led->pdata->lmh_mitigation_sel = FLASH_LED_MITIGATION_SEL_DEFAULT;
 	rc = of_property_read_u32(node, "qcom,lmh-mitigation-sel", &val);
 	if (!rc) {
 		led->pdata->lmh_mitigation_sel = val;
@@ -1672,10 +1720,27 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
-	if (led->pdata->lmh_mitigation_sel > FLASH_LED_LMH_MITIGATION_SEL_MAX) {
+	if (led->pdata->lmh_mitigation_sel > FLASH_LED_MITIGATION_SEL_MAX) {
 		dev_err(&led->pdev->dev, "Invalid lmh_mitigation_sel specified\n");
 		return -EINVAL;
 	}
+
+	led->pdata->chgr_mitigation_sel = FLASH_LED_MITIGATION_SEL_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,chgr-mitigation-sel", &val);
+	if (!rc) {
+		led->pdata->chgr_mitigation_sel = val;
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to parse chgr_mitigation_sel, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	if (led->pdata->chgr_mitigation_sel > FLASH_LED_MITIGATION_SEL_MAX) {
+		dev_err(&led->pdev->dev, "Invalid chgr_mitigation_sel specified\n");
+		return -EINVAL;
+	}
+
+	led->pdata->chgr_mitigation_sel <<= FLASH_LED_CHGR_MITIGATION_SEL_SHIFT;
 
 	led->pdata->iled_thrsh_val = FLASH_LED_MITIGATION_THRSH_DEFAULT;
 	rc = of_property_read_u32(node, "qcom,iled-thrsh-ma", &val);

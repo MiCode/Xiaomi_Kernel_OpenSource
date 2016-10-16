@@ -59,6 +59,7 @@ enum usbpd_state {
 	PE_PRS_SRC_SNK_SEND_SWAP,
 	PE_PRS_SRC_SNK_TRANSITION_TO_OFF,
 	PE_PRS_SRC_SNK_WAIT_SOURCE_ON,
+	PE_VCS_WAIT_FOR_VCONN,
 };
 
 static const char * const usbpd_state_strings[] = {
@@ -94,6 +95,7 @@ static const char * const usbpd_state_strings[] = {
 	"PRS_SRC_SNK_Send_Swap",
 	"PRS_SRC_SNK_Transition_to_off",
 	"PRS_SRC_SNK_Wait_Source_on",
+	"VCS_Wait_for_VCONN",
 };
 
 enum usbpd_control_msg_type {
@@ -170,6 +172,7 @@ static void *usbpd_ipc_log;
 #define PS_SOURCE_OFF		750
 #define SWAP_SOURCE_START_TIME	20
 #define VDM_BUSY_TIME		50
+#define VCONN_ON_TIME		100
 
 /* tPSHardReset + tSafe0V + tSrcRecover + tSrcTurnOn */
 #define SNK_HARD_RESET_RECOVER_TIME	(35 + 650 + 1000 + 275)
@@ -195,7 +198,7 @@ static void *usbpd_ipc_log;
 #define PD_RDO_MISMATCH(rdo)		((rdo) >> 26 & 1)
 #define PD_RDO_USB_COMM(rdo)		((rdo) >> 25 & 1)
 #define PD_RDO_NO_USB_SUSP(rdo)		((rdo) >> 24 & 1)
-#define PD_RDO_FIXED_CURR(rdo)		((rdo) >> 19 & 0x3FF)
+#define PD_RDO_FIXED_CURR(rdo)		((rdo) >> 10 & 0x3FF)
 #define PD_RDO_FIXED_CURR_MINMAX(rdo)	((rdo) & 0x3FF)
 
 #define PD_SRC_PDO_TYPE(pdo)		(((pdo) >> 30) & 3)
@@ -223,9 +226,10 @@ static void *usbpd_ipc_log;
 
 /* VDM header is the first 32-bit object following the 16-bit PD header */
 #define VDM_HDR_SVID(hdr)	((hdr) >> 16)
-#define VDM_HDR_TYPE(hdr)	((hdr) & 0x8000)
-#define VDM_HDR_CMD_TYPE(hdr)	(((hdr) >> 6) & 0x3)
-#define VDM_HDR_CMD(hdr)	((hdr) & 0x1f)
+#define VDM_IS_SVDM(hdr)	((hdr) & 0x8000)
+#define SVDM_HDR_OBJ_POS(hdr)	(((hdr) >> 8) & 0x7)
+#define SVDM_HDR_CMD_TYPE(hdr)	(((hdr) >> 6) & 0x3)
+#define SVDM_HDR_CMD(hdr)	((hdr) & 0x1f)
 
 #define SVDM_HDR(svid, ver, obj, cmd_type, cmd) \
 	(((svid) << 16) | (1 << 15) | ((ver) << 13) \
@@ -253,15 +257,11 @@ static bool ss_dev = true;
 module_param(ss_dev, bool, S_IRUSR | S_IWUSR);
 
 static const u32 default_src_caps[] = { 0x36019096 };	/* VSafe5V @ 1.5A */
-
-static const u32 default_snk_caps[] = { 0x2601905A,	/* 5V @ 900mA */
-					0x0002D096,	/* 9V @ 1.5A */
-					0x0003C064 };	/* 12V @ 1A */
+static const u32 default_snk_caps[] = { 0x2601905A };	/* 5V @ 900mA */
 
 struct vdm_tx {
 	u32			data[7];
 	int			size;
-	struct list_head	entry;
 };
 
 struct usbpd {
@@ -269,6 +269,7 @@ struct usbpd {
 	struct workqueue_struct	*wq;
 	struct work_struct	sm_work;
 	struct hrtimer		timer;
+	bool			sm_queued;
 
 	struct extcon_dev	*extcon;
 
@@ -307,6 +308,7 @@ struct usbpd {
 	struct regulator	*vbus;
 	struct regulator	*vconn;
 	bool			vconn_enabled;
+	bool			vconn_is_external;
 
 	u8			tx_msgid;
 	u8			rx_msgid;
@@ -315,8 +317,9 @@ struct usbpd {
 
 	enum vdm_state		vdm_state;
 	u16			*discovered_svids;
+	int			num_svids;
+	struct vdm_tx		*vdm_tx;
 	struct vdm_tx		*vdm_tx_retry;
-	struct list_head	vdm_tx_queue;
 	struct list_head	svid_handlers;
 
 	struct list_head	instance;
@@ -440,6 +443,12 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos)
 	}
 
 	pd->requested_voltage = PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50 * 1000;
+
+	/* Can't sink more than 5V if VCONN is sourced from the VBUS input */
+	if (pd->vconn_enabled && !pd->vconn_is_external &&
+			pd->requested_voltage > 5000000)
+		return -ENOTSUPP;
+
 	pd->requested_current = curr;
 	pd->requested_pdo = pdo_pos;
 	pd->rdo = PD_RDO_FIXED(pdo_pos, 0, mismatch, 1, 1, curr / 10,
@@ -485,6 +494,17 @@ static void pd_send_hard_reset(struct usbpd *pd)
 		pd->hard_reset = true;
 }
 
+static void kick_sm(struct usbpd *pd, int ms)
+{
+	pm_stay_awake(&pd->dev);
+	pd->sm_queued = true;
+
+	if (ms)
+		hrtimer_start(&pd->timer, ms_to_ktime(ms), HRTIMER_MODE_REL);
+	else
+		queue_work(pd->wq, &pd->sm_work);
+}
+
 static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 {
 	if (type != HARD_RESET_SIG) {
@@ -497,7 +517,7 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
 	pd->hard_reset = true;
-	queue_work(pd->wq, &pd->sm_work);
+	kick_sm(pd, 0);
 }
 
 static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
@@ -534,6 +554,10 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 
 	pd->rx_msgid = PD_MSG_HDR_ID(header);
 
+	/* discard Pings */
+	if (PD_MSG_HDR_TYPE(header) == MSG_PING && !len)
+		return;
+
 	/* check header's count field to see if it matches len */
 	if (PD_MSG_HDR_COUNT(header) != (len / 4)) {
 		usbpd_err(&pd->dev, "header count (%d) mismatch, len=%ld\n",
@@ -541,11 +565,18 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 		return;
 	}
 
+	/* block until previous message has been consumed by usbpd_sm */
+	if (pd->rx_msg_type)
+		flush_work(&pd->sm_work);
+
 	pd->rx_msg_type = PD_MSG_HDR_TYPE(header);
 	pd->rx_msg_len = PD_MSG_HDR_COUNT(header);
 	memcpy(&pd->rx_payload, buf, len);
 
-	queue_work(pd->wq, &pd->sm_work);
+	usbpd_dbg(&pd->dev, "received message: type(%d) len(%d)\n",
+			pd->rx_msg_type, pd->rx_msg_len);
+
+	kick_sm(pd, 0);
 }
 
 static void phy_shutdown(struct usbpd *pd)
@@ -587,7 +618,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		pd->in_pr_swap = false;
 		set_power_role(pd, PR_NONE);
 		pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
-		queue_work(pd->wq, &pd->sm_work);
+		kick_sm(pd, 0);
 		break;
 
 	/* Source states */
@@ -627,27 +658,25 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->pd_phy_opened = true;
 		}
 
-		val.intval = 1;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
-
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
 		if (pd->in_pr_swap) {
 			pd->in_pr_swap = false;
-			hrtimer_start(&pd->timer,
-					ms_to_ktime(SWAP_SOURCE_START_TIME),
-					HRTIMER_MODE_REL);
+			kick_sm(pd, SWAP_SOURCE_START_TIME);
 			break;
 		}
 
 		/* fall-through */
 
 	case PE_SRC_SEND_CAPABILITIES:
-		queue_work(pd->wq, &pd->sm_work);
+		kick_sm(pd, 0);
 		break;
 
 	case PE_SRC_NEGOTIATE_CAPABILITY:
-		if (PD_RDO_OBJ_POS(pd->rdo) != 1) {
+		if (PD_RDO_OBJ_POS(pd->rdo) != 1 ||
+			PD_RDO_FIXED_CURR(pd->rdo) >
+				PD_SRC_PDO_FIXED_MAX_CURR(*default_src_caps) ||
+			PD_RDO_FIXED_CURR_MINMAX(pd->rdo) >
+				PD_SRC_PDO_FIXED_MAX_CURR(*default_src_caps)) {
 			/* send Reject */
 			ret = pd_send_msg(pd, MSG_REJECT, NULL, 0, SOP_MSG);
 			if (ret) {
@@ -717,6 +746,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_SRC_TRANSITION_TO_DEFAULT:
+		pd->hard_reset = false;
+
 		if (pd->vconn_enabled)
 			regulator_disable(pd->vconn);
 		regulator_disable(pd->vbus);
@@ -741,13 +772,17 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			}
 		}
 
+		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 		usbpd_set_state(pd, PE_SRC_STARTUP);
 		break;
 
 	case PE_SRC_HARD_RESET:
 	case PE_SNK_HARD_RESET:
 		/* hard reset may sleep; handle it in the workqueue */
-		queue_work(pd->wq, &pd->sm_work);
+		kick_sm(pd, 0);
 		break;
 
 	case PE_SRC_SEND_SOFT_RESET:
@@ -765,8 +800,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		}
 
 		/* wait for ACCEPT */
-		hrtimer_start(&pd->timer, ms_to_ktime(SENDER_RESPONSE_TIME),
-				HRTIMER_MODE_REL);
+		kick_sm(pd, SENDER_RESPONSE_TIME);
 		break;
 
 	/* Sink states */
@@ -786,9 +820,11 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			}
 		}
 
+		/* Reset protocol layer */
+		pd->tx_msgid = 0;
+		pd->rx_msgid = -1;
 		pd->rx_msg_len = 0;
 		pd->rx_msg_type = 0;
-		pd->rx_msgid = -1;
 
 		if (!pd->in_pr_swap) {
 			if (pd->pd_phy_opened) {
@@ -819,11 +855,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
 		if (pd->rx_msg_len && pd->rx_msg_type)
-			queue_work(pd->wq, &pd->sm_work);
+			kick_sm(pd, 0);
 		else
-			hrtimer_start(&pd->timer,
-					ms_to_ktime(SINK_WAIT_CAP_TIME),
-					HRTIMER_MODE_REL);
+			kick_sm(pd, SINK_WAIT_CAP_TIME);
 		break;
 
 	case PE_SNK_EVALUATE_CAPABILITY:
@@ -841,18 +875,19 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SNK_SELECT_CAPABILITY:
 		ret = pd_send_msg(pd, MSG_REQUEST, &pd->rdo, 1, SOP_MSG);
-		if (ret)
+		if (ret) {
 			usbpd_err(&pd->dev, "Error sending Request\n");
+			usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+			break;
+		}
 
 		/* wait for ACCEPT */
-		hrtimer_start(&pd->timer, ms_to_ktime(SENDER_RESPONSE_TIME),
-				HRTIMER_MODE_REL);
+		kick_sm(pd, SENDER_RESPONSE_TIME);
 		break;
 
 	case PE_SNK_TRANSITION_SINK:
 		/* wait for PS_RDY */
-		hrtimer_start(&pd->timer, ms_to_ktime(PS_TRANSITION_TIME),
-				HRTIMER_MODE_REL);
+		kick_sm(pd, PS_TRANSITION_TIME);
 		break;
 
 	case PE_SNK_READY:
@@ -861,6 +896,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_SNK_TRANSITION_TO_DEFAULT:
+		pd->hard_reset = false;
+
 		if (pd->current_dr != DR_UFP) {
 			extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 0);
 
@@ -877,17 +914,13 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->vconn_enabled = false;
 		}
 
-		pd->tx_msgid = 0;
-
 		val.intval = pd->requested_voltage; /* set range back to 5V */
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_VOLTAGE_MAX, &val);
 		pd->current_voltage = pd->requested_voltage;
 
 		/* max time for hard reset to toggle vbus off/on */
-		hrtimer_start(&pd->timer,
-				ms_to_ktime(SNK_HARD_RESET_RECOVER_TIME),
-				HRTIMER_MODE_REL);
+		kick_sm(pd, SNK_HARD_RESET_RECOVER_TIME);
 		break;
 
 	case PE_PRS_SNK_SRC_TRANSITION_TO_OFF:
@@ -904,8 +937,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		pd_phy_update_roles(pd->current_dr, PR_SRC);
 
 		/* wait for PS_RDY */
-		hrtimer_start(&pd->timer, ms_to_ktime(PS_SOURCE_OFF),
-				HRTIMER_MODE_REL);
+		kick_sm(pd, PS_SOURCE_OFF);
 		break;
 
 	default:
@@ -929,10 +961,10 @@ int usbpd_register_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
 
 	/* already connected with this SVID discovered? */
 	if (pd->vdm_state >= DISCOVERED_SVIDS) {
-		u16 *psvid;
+		int i;
 
-		for (psvid = pd->discovered_svids; *psvid; psvid++) {
-			if (*psvid == hdlr->svid) {
+		for (i = 0; i < pd->num_svids; i++) {
+			if (pd->discovered_svids[i] == hdlr->svid) {
 				if (hdlr->connect)
 					hdlr->connect(hdlr);
 				break;
@@ -954,7 +986,7 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 {
 	struct vdm_tx *vdm_tx;
 
-	if (!pd->in_explicit_contract)
+	if (!pd->in_explicit_contract || pd->vdm_tx)
 		return -EBUSY;
 
 	vdm_tx = kzalloc(sizeof(*vdm_tx), GFP_KERNEL);
@@ -967,8 +999,10 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 	vdm_tx->size = num_vdos + 1; /* include the header */
 
 	/* VDM will get sent in PE_SRC/SNK_READY state handling */
-	list_add_tail(&vdm_tx->entry, &pd->vdm_tx_queue);
-	queue_work(pd->wq, &pd->sm_work);
+	pd->vdm_tx = vdm_tx;
+
+	/* slight delay before queuing to prioritize handling of incoming VDM */
+	kick_sm(pd, 5);
 
 	return 0;
 }
@@ -994,8 +1028,8 @@ static void handle_vdm_rx(struct usbpd *pd)
 	u16 svid = VDM_HDR_SVID(vdm_hdr);
 	u16 *psvid;
 	u8 i, num_vdos = pd->rx_msg_len - 1;	/* num objects minus header */
-	u8 cmd = VDM_HDR_CMD(vdm_hdr);
-	u8 cmd_type = VDM_HDR_CMD_TYPE(vdm_hdr);
+	u8 cmd = SVDM_HDR_CMD(vdm_hdr);
+	u8 cmd_type = SVDM_HDR_CMD_TYPE(vdm_hdr);
 	struct usbpd_svid_handler *handler;
 
 	usbpd_dbg(&pd->dev, "VDM rx: svid:%x cmd:%x cmd_type:%x vdm_hdr:%x\n",
@@ -1005,7 +1039,7 @@ static void handle_vdm_rx(struct usbpd *pd)
 	handler = find_svid_handler(pd, svid);
 
 	/* Unstructured VDM */
-	if (!VDM_HDR_TYPE(vdm_hdr)) {
+	if (!VDM_IS_SVDM(vdm_hdr)) {
 		if (handler && handler->vdm_received)
 			handler->vdm_received(handler, vdm_hdr, vdos, num_vdos);
 		return;
@@ -1016,7 +1050,19 @@ static void handle_vdm_rx(struct usbpd *pd)
 
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
-		if (cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
+		/*
+		 * if this interrupts a previous exchange, abort the previous
+		 * outgoing response
+		 */
+		if (pd->vdm_tx) {
+			usbpd_dbg(&pd->dev, "Discarding previously queued SVDM tx (SVID:0x%04x)\n",
+					VDM_HDR_SVID(pd->vdm_tx->data[0]));
+
+			kfree(pd->vdm_tx);
+			pd->vdm_tx = NULL;
+		}
+
+		if (svid == USBPD_SID && cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
 			u32 tx_vdos[3] = {
 				ID_HDR_USB_HOST | ID_HDR_USB_DEVICE |
 					ID_HDR_PRODUCT_PER_MASK | ID_HDR_VID,
@@ -1027,9 +1073,9 @@ static void handle_vdm_rx(struct usbpd *pd)
 
 			usbpd_send_svdm(pd, USBPD_SID, cmd,
 					SVDM_CMD_TYPE_RESP_ACK, 0, tx_vdos, 3);
-		} else {
-			usbpd_send_svdm(pd, USBPD_SID, cmd,
-					SVDM_CMD_TYPE_RESP_NAK, 0, NULL, 0);
+		} else if (cmd != USBPD_SVDM_ATTENTION) {
+			usbpd_send_svdm(pd, svid, cmd, SVDM_CMD_TYPE_RESP_NAK,
+					SVDM_HDR_OBJ_POS(vdm_hdr), NULL, 0);
 		}
 		break;
 
@@ -1061,19 +1107,37 @@ static void handle_vdm_rx(struct usbpd *pd)
 			kfree(pd->vdm_tx_retry);
 			pd->vdm_tx_retry = NULL;
 
-			kfree(pd->discovered_svids);
-
-			/* TODO: handle > 12 SVIDs */
-			pd->discovered_svids = kzalloc((2 * num_vdos + 1) *
-							sizeof(u16),
-							GFP_KERNEL);
 			if (!pd->discovered_svids) {
-				usbpd_err(&pd->dev, "unable to allocate SVIDs\n");
-				break;
+				pd->num_svids = 2 * num_vdos;
+				pd->discovered_svids = kcalloc(pd->num_svids,
+								sizeof(u16),
+								GFP_KERNEL);
+				if (!pd->discovered_svids) {
+					usbpd_err(&pd->dev, "unable to allocate SVIDs\n");
+					break;
+				}
+
+				psvid = pd->discovered_svids;
+			} else { /* handle > 12 SVIDs */
+				void *ptr;
+				size_t oldsize = pd->num_svids * sizeof(u16);
+				size_t newsize = oldsize +
+						(2 * num_vdos * sizeof(u16));
+
+				ptr = krealloc(pd->discovered_svids, newsize,
+						GFP_KERNEL);
+				if (!ptr) {
+					usbpd_err(&pd->dev, "unable to realloc SVIDs\n");
+					break;
+				}
+
+				pd->discovered_svids = ptr;
+				psvid = pd->discovered_svids + pd->num_svids;
+				memset(psvid, 0, (2 * num_vdos));
+				pd->num_svids += 2 * num_vdos;
 			}
 
 			/* convert 32-bit VDOs to list of 16-bit SVIDs */
-			psvid = pd->discovered_svids;
 			for (i = 0; i < num_vdos * 2; i++) {
 				/*
 				 * Within each 32-bit VDO,
@@ -1097,8 +1161,22 @@ static void handle_vdm_rx(struct usbpd *pd)
 					usbpd_dbg(&pd->dev, "Discovered SVID: 0x%04x\n",
 							svid);
 					*psvid++ = svid;
+				}
+			}
 
-					/* if SVID supported notify handler */
+			/* if more than 12 SVIDs, resend the request */
+			if (num_vdos == 6 && vdos[5] != 0) {
+				usbpd_send_svdm(pd, USBPD_SID,
+						USBPD_SVDM_DISCOVER_SVIDS,
+						SVDM_CMD_TYPE_INITIATOR, 0,
+						NULL, 0);
+				break;
+			}
+
+			/* now that all SVIDs are discovered, notify handlers */
+			for (i = 0; i < pd->num_svids; i++) {
+				svid = pd->discovered_svids[i];
+				if (svid) {
 					handler = find_svid_handler(pd, svid);
 					if (handler && handler->connect)
 						handler->connect(handler);
@@ -1148,10 +1226,9 @@ static void handle_vdm_rx(struct usbpd *pd)
 			}
 
 			/* wait tVDMBusy, then retry */
-			list_move(&pd->vdm_tx_retry->entry, &pd->vdm_tx_queue);
+			pd->vdm_tx = pd->vdm_tx_retry;
 			pd->vdm_tx_retry = NULL;
-			hrtimer_start(&pd->timer, ms_to_ktime(VDM_BUSY_TIME),
-					HRTIMER_MODE_REL);
+			kick_sm(pd, VDM_BUSY_TIME);
 			break;
 		default:
 			break;
@@ -1165,16 +1242,14 @@ static void handle_vdm_tx(struct usbpd *pd)
 	int ret;
 
 	/* only send one VDM at a time */
-	if (!list_empty(&pd->vdm_tx_queue)) {
-		struct vdm_tx *vdm_tx = list_first_entry(&pd->vdm_tx_queue,
-				struct vdm_tx, entry);
-		u32 vdm_hdr = vdm_tx->data[0];
+	if (pd->vdm_tx) {
+		u32 vdm_hdr = pd->vdm_tx->data[0];
 
-		ret = pd_send_msg(pd, MSG_VDM, vdm_tx->data, vdm_tx->size,
-				SOP_MSG);
+		ret = pd_send_msg(pd, MSG_VDM, pd->vdm_tx->data,
+				pd->vdm_tx->size, SOP_MSG);
 		if (ret) {
 			usbpd_err(&pd->dev, "Error sending VDM command %d\n",
-					VDM_HDR_CMD(vdm_tx->data[0]));
+					SVDM_HDR_CMD(pd->vdm_tx->data[0]));
 			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_SEND_SOFT_RESET :
 					PE_SNK_SEND_SOFT_RESET);
@@ -1183,24 +1258,25 @@ static void handle_vdm_tx(struct usbpd *pd)
 			return;
 		}
 
-		list_del(&vdm_tx->entry);
-
 		/*
 		 * special case: keep initiated Discover ID/SVIDs
 		 * around in case we need to re-try when receiving BUSY
 		 */
-		if (VDM_HDR_TYPE(vdm_hdr) &&
-			VDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR &&
-			VDM_HDR_CMD(vdm_hdr) <= USBPD_SVDM_DISCOVER_SVIDS) {
+		if (VDM_IS_SVDM(vdm_hdr) &&
+			SVDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR &&
+			SVDM_HDR_CMD(vdm_hdr) <= USBPD_SVDM_DISCOVER_SVIDS) {
 			if (pd->vdm_tx_retry) {
 				usbpd_err(&pd->dev, "Previous Discover VDM command %d not ACKed/NAKed\n",
-					VDM_HDR_CMD(pd->vdm_tx_retry->data[0]));
+					SVDM_HDR_CMD(
+						pd->vdm_tx_retry->data[0]));
 				kfree(pd->vdm_tx_retry);
 			}
-			pd->vdm_tx_retry = vdm_tx;
+			pd->vdm_tx_retry = pd->vdm_tx;
 		} else {
-			kfree(vdm_tx);
+			kfree(pd->vdm_tx);
 		}
+
+		pd->vdm_tx = NULL;
 	}
 }
 
@@ -1216,13 +1292,9 @@ static void reset_vdm_state(struct usbpd *pd)
 	pd->vdm_tx_retry = NULL;
 	kfree(pd->discovered_svids);
 	pd->discovered_svids = NULL;
-	while (!list_empty(&pd->vdm_tx_queue)) {
-		struct vdm_tx *vdm_tx =
-			list_first_entry(&pd->vdm_tx_queue,
-				struct vdm_tx, entry);
-		list_del(&vdm_tx->entry);
-		kfree(vdm_tx);
-	}
+	pd->num_svids = 0;
+	kfree(pd->vdm_tx);
+	pd->vdm_tx = NULL;
 }
 
 static void dr_swap(struct usbpd *pd)
@@ -1252,6 +1324,34 @@ static void dr_swap(struct usbpd *pd)
 	pd_phy_update_roles(pd->current_dr, pd->current_pr);
 }
 
+
+static void vconn_swap(struct usbpd *pd)
+{
+	int ret;
+
+	if (pd->vconn_enabled) {
+		pd->current_state = PE_VCS_WAIT_FOR_VCONN;
+		kick_sm(pd, VCONN_ON_TIME);
+	} else {
+		ret = regulator_enable(pd->vconn);
+		if (ret) {
+			usbpd_err(&pd->dev, "Unable to enable vconn\n");
+			return;
+		}
+
+		pd->vconn_enabled = true;
+
+		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
+		if (ret) {
+			usbpd_err(&pd->dev, "Error sending PS_RDY\n");
+			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
+					PE_SRC_SEND_SOFT_RESET :
+					PE_SNK_SEND_SOFT_RESET);
+			return;
+		}
+	}
+}
+
 /* Handles current state and determines transitions */
 static void usbpd_sm(struct work_struct *w)
 {
@@ -1265,6 +1365,7 @@ static void usbpd_sm(struct work_struct *w)
 			usbpd_state_strings[pd->current_state]);
 
 	hrtimer_cancel(&pd->timer);
+	pd->sm_queued = false;
 
 	if (pd->rx_msg_len)
 		data_recvd = pd->rx_msg_type;
@@ -1274,7 +1375,7 @@ static void usbpd_sm(struct work_struct *w)
 	/* Disconnect? */
 	if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
 		if (pd->current_state == PE_UNKNOWN)
-			return;
+			goto sm_done;
 
 		usbpd_info(&pd->dev, "USB PD disconnect\n");
 
@@ -1295,6 +1396,9 @@ static void usbpd_sm(struct work_struct *w)
 		memset(&pd->received_pdos, 0, sizeof(pd->received_pdos));
 
 		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
@@ -1328,18 +1432,23 @@ static void usbpd_sm(struct work_struct *w)
 
 		pd->current_state = PE_UNKNOWN;
 
-		return;
+		goto sm_done;
 	}
 
 	/* Hard reset? */
 	if (pd->hard_reset) {
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 		reset_vdm_state(pd);
 
 		if (pd->current_pr == PR_SINK)
 			usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
 		else
 			usbpd_set_state(pd, PE_SRC_TRANSITION_TO_DEFAULT);
-		pd->hard_reset = false;
+
+		goto sm_done;
 	}
 
 	/* Soft reset? */
@@ -1400,30 +1509,31 @@ static void usbpd_sm(struct work_struct *w)
 				break;
 			}
 
-			hrtimer_start(&pd->timer, ms_to_ktime(SRC_CAP_TIME),
-					HRTIMER_MODE_REL);
+			kick_sm(pd, SRC_CAP_TIME);
 			break;
 		}
+
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
 		/* transmit was successful if GoodCRC was received */
 		pd->caps_count = 0;
 		pd->hard_reset_count = 0;
 		pd->pd_connected = true; /* we know peer is PD capable */
 
-		val.intval = pd->psy_type = POWER_SUPPLY_TYPE_USB_PD;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_TYPE, &val);
-
 		/* wait for REQUEST */
 		pd->current_state = PE_SRC_SEND_CAPABILITIES_WAIT;
-		hrtimer_start(&pd->timer, ms_to_ktime(SENDER_RESPONSE_TIME),
-				HRTIMER_MODE_REL);
+		kick_sm(pd, SENDER_RESPONSE_TIME);
 		break;
 
 	case PE_SRC_SEND_CAPABILITIES_WAIT:
 		if (data_recvd == MSG_REQUEST) {
 			pd->rdo = pd->rx_payload[0];
 			usbpd_set_state(pd, PE_SRC_NEGOTIATE_CAPABILITY);
+		} else if (data_recvd || ctrl_recvd) {
+			usbpd_err(&pd->dev, "Unexpected message received\n");
+			usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 		} else {
 			usbpd_set_state(pd, PE_SRC_HARD_RESET);
 		}
@@ -1438,6 +1548,14 @@ static void usbpd_sm(struct work_struct *w)
 				usbpd_err(&pd->dev, "Error sending SRC CAPs\n");
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 				break;
+			}
+		} else if (ctrl_recvd == MSG_GET_SINK_CAP) {
+			ret = pd_send_msg(pd, MSG_SINK_CAPABILITIES,
+					default_snk_caps,
+					ARRAY_SIZE(default_snk_caps), SOP_MSG);
+			if (ret) {
+				usbpd_err(&pd->dev, "Error sending Sink Caps\n");
+				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 			}
 		} else if (data_recvd == MSG_REQUEST) {
 			pd->rdo = pd->rx_payload[0];
@@ -1470,10 +1588,17 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			pd->current_state = PE_PRS_SRC_SNK_TRANSITION_TO_OFF;
-			hrtimer_start(&pd->timer,
-					ms_to_ktime(SRC_TRANSITION_TIME),
-					HRTIMER_MODE_REL);
+			kick_sm(pd, SRC_TRANSITION_TIME);
 			break;
+		} else if (ctrl_recvd == MSG_VCONN_SWAP) {
+			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
+			if (ret) {
+				usbpd_err(&pd->dev, "Error sending Accept\n");
+				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				break;
+			}
+
+			vconn_swap(pd);
 		} else {
 			if (data_recvd == MSG_VDM)
 				handle_vdm_rx(pd);
@@ -1483,6 +1608,10 @@ static void usbpd_sm(struct work_struct *w)
 		break;
 
 	case PE_SRC_HARD_RESET:
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;
 		reset_vdm_state(pd);
@@ -1494,22 +1623,35 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
 		if (data_recvd == MSG_SOURCE_CAPABILITIES) {
+			val.intval = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
+					&val);
+
 			val.intval = 1;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
-
-			val.intval = pd->psy_type = POWER_SUPPLY_TYPE_USB_PD;
-			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_TYPE, &val);
 
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
 		} else if (pd->hard_reset_count < 3) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
 		} else if (pd->pd_connected) {
 			usbpd_info(&pd->dev, "Sink hard reset count exceeded, forcing reconnect\n");
+
+			val.intval = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
+					&val);
+
 			usbpd_set_state(pd, PE_ERROR_RECOVERY);
 		} else {
 			usbpd_dbg(&pd->dev, "Sink hard reset count exceeded, disabling PD\n");
+
+			val.intval = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
+					&val);
+
 			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
@@ -1538,6 +1680,9 @@ static void usbpd_sm(struct work_struct *w)
 			else
 				usbpd_set_state(pd,
 						PE_SNK_WAIT_FOR_CAPABILITIES);
+		} else if (pd->rx_msg_type) {
+			usbpd_err(&pd->dev, "Invalid response to sink request\n");
+			usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 		} else {
 			/* timed out; go to hard reset */
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
@@ -1566,15 +1711,24 @@ static void usbpd_sm(struct work_struct *w)
 		break;
 
 	case PE_SNK_READY:
-		if (data_recvd == MSG_SOURCE_CAPABILITIES)
+		if (data_recvd == MSG_SOURCE_CAPABILITIES) {
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
-		else if (ctrl_recvd == MSG_GET_SINK_CAP) {
+		} else if (ctrl_recvd == MSG_GET_SINK_CAP) {
 			ret = pd_send_msg(pd, MSG_SINK_CAPABILITIES,
 					default_snk_caps,
 					ARRAY_SIZE(default_snk_caps), SOP_MSG);
 			if (ret) {
 				usbpd_err(&pd->dev, "Error sending Sink Caps\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+			}
+		} else if (ctrl_recvd == MSG_GET_SOURCE_CAP) {
+			ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES,
+					default_src_caps,
+					ARRAY_SIZE(default_src_caps), SOP_MSG);
+			if (ret) {
+				usbpd_err(&pd->dev, "Error sending SRC CAPs\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
 			}
 		} else if (ctrl_recvd == MSG_DR_SWAP) {
 			if (pd->vdm_state == MODE_ENTERED) {
@@ -1606,6 +1760,32 @@ static void usbpd_sm(struct work_struct *w)
 			pd->in_pr_swap = true;
 			usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 			break;
+		} else if (ctrl_recvd == MSG_VCONN_SWAP) {
+			/*
+			 * if VCONN is connected to VBUS, make sure we are
+			 * not in high voltage contract, otherwise reject.
+			 */
+			if (!pd->vconn_is_external &&
+					(pd->requested_voltage > 5000000)) {
+				ret = pd_send_msg(pd, MSG_REJECT, NULL, 0,
+						SOP_MSG);
+				if (ret) {
+					usbpd_err(&pd->dev, "Error sending Reject\n");
+					usbpd_set_state(pd,
+							PE_SNK_SEND_SOFT_RESET);
+				}
+
+				break;
+			}
+
+			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
+			if (ret) {
+				usbpd_err(&pd->dev, "Error sending Accept\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
+			}
+
+			vconn_swap(pd);
 		} else {
 			if (data_recvd == MSG_VDM)
 				handle_vdm_rx(pd);
@@ -1623,7 +1803,7 @@ static void usbpd_sm(struct work_struct *w)
 					POWER_SUPPLY_PROP_TYPEC_MODE, &val);
 			if (val.intval == POWER_SUPPLY_TYPEC_NONE) {
 				pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
-				queue_work(pd->wq, &pd->sm_work);
+				kick_sm(pd, 0);
 			}
 		}
 		break;
@@ -1666,7 +1846,7 @@ static void usbpd_sm(struct work_struct *w)
 		/* prepare charger for VBUS change */
 		val.intval = 1;
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
 		pd->requested_voltage = 5000000;
 
@@ -1701,8 +1881,7 @@ static void usbpd_sm(struct work_struct *w)
 		}
 
 		pd->current_state = PE_PRS_SRC_SNK_TRANSITION_TO_OFF;
-		hrtimer_start(&pd->timer, ms_to_ktime(SRC_TRANSITION_TIME),
-				HRTIMER_MODE_REL);
+		kick_sm(pd, SRC_TRANSITION_TIME);
 		break;
 
 	case PE_PRS_SRC_SNK_TRANSITION_TO_OFF:
@@ -1727,8 +1906,7 @@ static void usbpd_sm(struct work_struct *w)
 		}
 
 		pd->current_state = PE_PRS_SRC_SNK_WAIT_SOURCE_ON;
-		hrtimer_start(&pd->timer, ms_to_ktime(PS_SOURCE_ON),
-				HRTIMER_MODE_REL);
+		kick_sm(pd, PS_SOURCE_ON);
 		break;
 
 	case PE_PRS_SRC_SNK_WAIT_SOURCE_ON:
@@ -1778,6 +1956,26 @@ static void usbpd_sm(struct work_struct *w)
 		usbpd_set_state(pd, PE_SRC_STARTUP);
 		break;
 
+	case PE_VCS_WAIT_FOR_VCONN:
+		if (ctrl_recvd == MSG_PS_RDY) {
+			/*
+			 * hopefully redundant check but in case not enabled
+			 * avoids unbalanced regulator disable count
+			 */
+			if (pd->vconn_enabled)
+				regulator_disable(pd->vconn);
+			pd->vconn_enabled = false;
+
+			pd->current_state = pd->current_pr == PR_SRC ?
+				PE_SRC_READY : PE_SNK_READY;
+		} else {
+			/* timed out; go to hard reset */
+			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
+					PE_SRC_HARD_RESET : PE_SNK_HARD_RESET);
+		}
+
+		break;
+
 	default:
 		usbpd_err(&pd->dev, "Unhandled state %s\n",
 				usbpd_state_strings[pd->current_state]);
@@ -1786,6 +1984,10 @@ static void usbpd_sm(struct work_struct *w)
 
 	/* Rx message should have been consumed now */
 	pd->rx_msg_type = pd->rx_msg_len = 0;
+
+sm_done:
+	if (!pd->sm_queued)
+		pm_relax(&pd->dev);
 }
 
 static inline const char *src_current(enum power_supply_typec_mode typec_mode)
@@ -1897,7 +2099,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	switch (typec_mode) {
 	/* Disconnect */
 	case POWER_SUPPLY_TYPEC_NONE:
-		queue_work(pd->wq, &pd->sm_work);
+		kick_sm(pd, 0);
 		break;
 
 	/* Sink states */
@@ -1909,7 +2111,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		if (pd->current_pr != PR_SINK ||
 			pd->current_state == PE_SNK_TRANSITION_TO_DEFAULT) {
 			pd->current_pr = PR_SINK;
-			queue_work(pd->wq, &pd->sm_work);
+			kick_sm(pd, 0);
 		}
 		break;
 
@@ -1921,7 +2123,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 					"" : " (powered)");
 		if (pd->current_pr != PR_SRC) {
 			pd->current_pr = PR_SRC;
-			queue_work(pd->wq, &pd->sm_work);
+			kick_sm(pd, 0);
 		}
 		break;
 
@@ -2359,6 +2561,10 @@ struct usbpd *usbpd_create(struct device *parent)
 	if (ret)
 		goto free_pd;
 
+	ret = device_init_wakeup(&pd->dev, true);
+	if (ret)
+		goto free_pd;
+
 	ret = device_add(&pd->dev);
 	if (ret)
 		goto free_pd;
@@ -2414,11 +2620,13 @@ struct usbpd *usbpd_create(struct device *parent)
 		goto unreg_psy;
 	}
 
+	pd->vconn_is_external = device_property_present(parent,
+					"qcom,vconn-uses-external-source");
+
 	pd->current_pr = PR_NONE;
 	pd->current_dr = DR_NONE;
 	list_add_tail(&pd->instance, &_usbpd);
 
-	INIT_LIST_HEAD(&pd->vdm_tx_queue);
 	INIT_LIST_HEAD(&pd->svid_handlers);
 
 	/* force read initial power_supply values */

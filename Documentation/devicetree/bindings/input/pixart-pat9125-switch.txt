@@ -15,6 +15,25 @@ Optional properties:
  - pixart,inverse-x 	: boolean, use this to invert the x data before sending it to input framework
  - pixart,inverse-y 	: boolean, use this to invert the y data before sending it to input framework
  - pixart,press-enabled : boolean, use this to enable detection of pressing the button
+ - pinctrl-names	: This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt
+			It should specify the names of the configs that pinctrl can
+			install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_rot_switch_active" : Active configuration of pins,
+						it should specify active config
+						defined in pin groups of
+						interrupt gpio.
+			"pmx_rot_switch_suspend" : Disabled configuration of
+						 pins, it should specify sleep
+						 config defined in pin groups
+						 of interrupt gpio.
+			"pmx_rot_switch_release" : Release configuration of
+						 pins, it should specify release
+						 config defined in pin groups of
+						 interrupt gpio.
+ - pixart,irq-gpio	: This should be defined if a target doesn't use pinctrl framework.
+			irq gpio, which is to provide interrupts to host, same as "interrupts" node.
 
 Required properties if 'pixart,press-enabled' DT property is defined:
  - pixart,press-keycode	: keycode to be sent when press is detected by the driver.
@@ -26,4 +45,10 @@ Example:
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <98 0x2008>;
 		pixart,irq-gpio = <&msm_gpio 98 0x2008>;
+		pinctrl-names = "pmx_rot_switch_active",
+				"pmx_rot_switch_suspend",
+				"pmx_rot_switch_release";
+		pinctrl-0 = <&pix_int_active>;
+		pinctrl-1 = <&pix_int_suspend>;
+		pinctrl-2 = <&pix_release>;
 	};
