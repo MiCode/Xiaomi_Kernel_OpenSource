@@ -502,7 +502,16 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	if (ret)
 		goto fail;
 
-	drm_kms_helper_poll_init(ddev);
+	/* perform subdriver post initialization */
+	if (kms && kms->funcs && kms->funcs->postinit) {
+		ret = kms->funcs->postinit(kms);
+		if (ret) {
+			dev_err(dev->dev, "kms post init failed: %d\n", ret);
+			goto fail;
+		}
+	}
+
+	drm_kms_helper_poll_init(dev);
 
 	return 0;
 
@@ -681,6 +690,21 @@ static void msm_lastclose(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_kms *kms = priv->kms;
+	int i;
+
+	/*
+	 * clean up vblank disable immediately as this is the last close.
+	 */
+	for (i = 0; i < dev->num_crtcs; i++) {
+		struct drm_vblank_crtc *vblank = &dev->vblank[i];
+		struct timer_list *disable_timer = &vblank->disable_timer;
+
+		if (del_timer_sync(disable_timer))
+			disable_timer->function(disable_timer->data);
+	}
+
+	/* wait for pending vblank requests to be executed by worker thread */
+	flush_workqueue(priv->wq);
 
 	if (priv->fbdev) {
 		drm_fb_helper_restore_fbdev_mode_unlocked(priv->fbdev);
