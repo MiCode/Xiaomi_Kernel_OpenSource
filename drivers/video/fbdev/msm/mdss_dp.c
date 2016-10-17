@@ -1360,6 +1360,7 @@ edid_error:
 	mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
 clk_error:
 	mdss_dp_regulator_ctrl(dp_drv, false);
+	mdss_dp_config_gpios(dp_drv, false);
 vreg_error:
 	return ret;
 }
@@ -1964,8 +1965,48 @@ static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
 	pr_debug("cable disconnected\n");
 	mutex_lock(&dp_drv->pd_msg_mutex);
 	dp_drv->cable_connected = false;
+	dp_drv->alt_mode.current_state = UNKNOWN_STATE;
 	mutex_unlock(&dp_drv->pd_msg_mutex);
 	mdss_dp_notify_clients(dp_drv, false);
+}
+
+static int mdss_dp_validate_callback(u8 cmd,
+	enum usbpd_svdm_cmd_type cmd_type, int num_vdos)
+{
+	int ret = 0;
+
+	if (cmd_type == SVDM_CMD_TYPE_RESP_NAK) {
+		pr_err("error: NACK\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	if (cmd_type == SVDM_CMD_TYPE_RESP_BUSY) {
+		pr_err("error: BUSY\n");
+		ret = -EBUSY;
+		goto end;
+	}
+
+	if (cmd == USBPD_SVDM_ATTENTION) {
+		if (cmd_type != SVDM_CMD_TYPE_INITIATOR) {
+			pr_err("error: invalid cmd type for attention\n");
+			ret = -EINVAL;
+			goto end;
+		}
+
+		if (!num_vdos) {
+			pr_err("error: no vdo provided\n");
+			ret = -EINVAL;
+			goto end;
+		}
+	} else {
+		if (cmd_type != SVDM_CMD_TYPE_RESP_ACK) {
+			pr_err("error: invalid cmd type\n");
+			ret = -EINVAL;
+		}
+	}
+end:
+	return ret;
 }
 
 static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
@@ -1983,80 +2024,51 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 	pr_debug("callback -> cmd: 0x%x, *vdos = 0x%x, num_vdos = %d\n",
 				cmd, *vdos, num_vdos);
 
+	if (mdss_dp_validate_callback(cmd, cmd_type, num_vdos))
+		return;
+
 	switch (cmd) {
 	case USBPD_SVDM_DISCOVER_MODES:
-		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
-			dp_drv->alt_mode.dp_cap.response = *vdos;
-			mdss_dp_usbpd_ext_capabilities
-					(&dp_drv->alt_mode.dp_cap);
-			dp_drv->alt_mode.current_state = DISCOVER_MODES_DONE;
-			dp_send_events(dp_drv, EV_USBPD_ENTER_MODE);
-		} else {
-			pr_err("unknown response: %d for Discover_modes\n",
-			       cmd_type);
-		}
+		dp_drv->alt_mode.dp_cap.response = *vdos;
+		mdss_dp_usbpd_ext_capabilities(&dp_drv->alt_mode.dp_cap);
+		dp_drv->alt_mode.current_state |= DISCOVER_MODES_DONE;
+		dp_send_events(dp_drv, EV_USBPD_ENTER_MODE);
 		break;
 	case USBPD_SVDM_ENTER_MODE:
-		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
-			dp_drv->alt_mode.current_state = ENTER_MODE_DONE;
-			dp_send_events(dp_drv, EV_USBPD_DP_STATUS);
-		} else {
-			pr_err("unknown response: %d for Enter_mode\n",
-			       cmd_type);
-		}
+		dp_drv->alt_mode.current_state |= ENTER_MODE_DONE;
+		dp_send_events(dp_drv, EV_USBPD_DP_STATUS);
 		break;
 	case USBPD_SVDM_ATTENTION:
-		if (cmd_type == SVDM_CMD_TYPE_INITIATOR) {
-			pr_debug("Attention. cmd_type=%d\n",
-			       cmd_type);
-			if (!(dp_drv->alt_mode.current_state
-					== ENTER_MODE_DONE)) {
-				pr_debug("sending discover_mode\n");
-				dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
-				break;
-			}
-			if (num_vdos == 1) {
-				dp_drv->alt_mode.dp_status.response = *vdos;
-				mdss_dp_usbpd_ext_dp_status
-						(&dp_drv->alt_mode.dp_status);
-				if (dp_drv->alt_mode.dp_status.hpd_high) {
-					pr_debug("HPD high\n");
-					dp_drv->alt_mode.current_state =
-							DP_STATUS_DONE;
-					dp_send_events
-						(dp_drv, EV_USBPD_DP_CONFIGURE);
-				}
-			}
-		} else {
-			pr_debug("unknown response: %d for Attention\n",
-			       cmd_type);
-		}
+		dp_drv->alt_mode.dp_status.response = *vdos;
+		mdss_dp_usbpd_ext_dp_status(&dp_drv->alt_mode.dp_status);
+
+		if (!dp_drv->alt_mode.dp_status.hpd_high)
+			return;
+
+		pr_debug("HPD high\n");
+
+		dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
+
+		if (dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE)
+			mdss_dp_host_init(&dp_drv->panel_data);
+		else
+			dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
 		break;
 	case DP_VDM_STATUS:
-		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
-			dp_drv->alt_mode.dp_status.response = *vdos;
-			mdss_dp_usbpd_ext_dp_status
-					(&dp_drv->alt_mode.dp_status);
-			if (dp_drv->alt_mode.dp_status.hpd_high) {
-				pr_debug("HDP high\n");
-				dp_drv->alt_mode.current_state =
-						DP_STATUS_DONE;
-				dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
-			}
-		} else {
-			pr_err("unknown response: %d for DP_Status\n",
-			       cmd_type);
+		dp_drv->alt_mode.dp_status.response = *vdos;
+		mdss_dp_usbpd_ext_dp_status(&dp_drv->alt_mode.dp_status);
+
+		if (!(dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE)) {
+			dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
+			dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
 		}
 		break;
 	case DP_VDM_CONFIGURE:
-		if (cmd_type == SVDM_CMD_TYPE_RESP_ACK) {
-			dp_drv->alt_mode.current_state = DP_CONFIGURE_DONE;
-			pr_debug("config USBPD to DP done\n");
+		dp_drv->alt_mode.current_state |= DP_CONFIGURE_DONE;
+		pr_debug("config USBPD to DP done\n");
+
+		if (dp_drv->alt_mode.dp_status.hpd_high)
 			mdss_dp_host_init(&dp_drv->panel_data);
-		} else {
-			pr_err("unknown response: %d for DP_Configure\n",
-			       cmd_type);
-		}
 		break;
 	default:
 		pr_err("unknown cmd: %d\n", cmd);
