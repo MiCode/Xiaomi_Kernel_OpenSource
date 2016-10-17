@@ -471,9 +471,8 @@ static int try_rerun_apsd_for_hvdcp(struct smb_charger *chg)
 	return 0;
 }
 
-static int smblib_update_usb_type(struct smb_charger *chg)
+static const struct apsd_result *smblib_update_usb_type(struct smb_charger *chg)
 {
-	int rc = 0;
 	const struct apsd_result *apsd_result;
 
 	/* if PD is active, APSD is disabled so won't have a valid result */
@@ -484,7 +483,7 @@ static int smblib_update_usb_type(struct smb_charger *chg)
 
 	apsd_result = smblib_get_apsd_result(chg);
 	chg->usb_psy_desc.type = apsd_result->pst;
-	return rc;
+	return apsd_result;
 }
 
 static int smblib_notifier_call(struct notifier_block *nb,
@@ -1767,7 +1766,7 @@ int smblib_get_prop_typec_power_role(struct smb_charger *chg,
 int smblib_get_prop_pd_allowed(struct smb_charger *chg,
 			       union power_supply_propval *val)
 {
-	val->intval = get_effective_result_locked(chg->pd_allowed_votable);
+	val->intval = get_effective_result(chg->pd_allowed_votable);
 	return 0;
 }
 
@@ -1790,6 +1789,19 @@ int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
 		return rc;
 	}
 	val->intval = ctrl & EXIT_SNK_BASED_ON_CC_BIT;
+	return 0;
+}
+
+int smblib_get_pe_start(struct smb_charger *chg,
+			       union power_supply_propval *val)
+{
+	/*
+	 * hvdcp timeout voter is the last one to allow pd. Use its vote
+	 * to indicate start of pe engine
+	 */
+	val->intval
+		= !get_client_vote_locked(chg->pd_disallowed_votable_indirect,
+			HVDCP_TIMEOUT_VOTER);
 	return 0;
 }
 
@@ -2298,13 +2310,12 @@ static void smblib_handle_hvdcp_detect_done(struct smb_charger *chg,
 #define HVDCP_DET_MS 2500
 static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 {
-	int rc;
 	const struct apsd_result *apsd_result;
 
 	if (!rising)
 		return;
 
-	apsd_result = smblib_get_apsd_result(chg);
+	apsd_result = smblib_update_usb_type(chg);
 	switch (apsd_result->bit) {
 	case SDP_CHARGER_BIT:
 	case CDP_CHARGER_BIT:
@@ -2322,10 +2333,6 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	default:
 		break;
 	}
-
-	rc = smblib_update_usb_type(chg);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't update usb type rc=%d\n", rc);
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: apsd-done rising; %s detected\n",
 		   apsd_result->name);
