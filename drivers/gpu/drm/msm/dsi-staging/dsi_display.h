@@ -332,4 +332,5 @@ int dsi_display_set_tpg_state(struct dsi_display *display, bool enable);
 int dsi_display_clock_gate(struct dsi_display *display, bool enable);
 int dsi_dispaly_static_frame(struct dsi_display *display, bool enable);
 
+int dsi_display_set_backlight(void *display, u32 bl_lvl);
 #endif /* _DSI_DISPLAY_H_ */

@@ -436,6 +436,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_modes =  dsi_connector_get_modes,
 		.mode_valid = dsi_conn_mode_valid,
 		.get_info =   dsi_display_get_info,
+		.set_backlight = dsi_display_set_backlight
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
