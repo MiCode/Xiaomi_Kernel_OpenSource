@@ -111,6 +111,8 @@ struct sde_connector_ops {
 	 * Returns: Zero on success
 	 */
 	int (*get_info)(struct msm_display_info *info, void *display);
+
+	int (*set_backlight)(void *display, u32 bl_lvl);
 };
 
 /**

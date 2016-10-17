@@ -36,6 +36,24 @@ static const struct of_device_id dsi_display_dt_match[] = {
 
 static struct dsi_display *main_display;
 
+int dsi_display_set_backlight(void *display, u32 bl_lvl)
+{
+	struct dsi_display *dsi_display = display;
+	struct dsi_panel *panel;
+	int rc = 0;
+
+	if (dsi_display == NULL)
+		return -EINVAL;
+
+	panel = dsi_display->panel;
+
+	rc = dsi_panel_set_backlight(panel, bl_lvl);
+	if (rc)
+		pr_err("unable to set backlight\n");
+
+	return rc;
+}
+
 static ssize_t debugfs_dump_info_read(struct file *file,
 				      char __user *buff,
 				      size_t count,

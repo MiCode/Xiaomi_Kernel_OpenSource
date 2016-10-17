@@ -15,6 +15,7 @@
 
 #include "sde_kms.h"
 #include "sde_connector.h"
+#include "sde_backlight.h"
 
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_UNKNOWN,	"sde_unknown"},
@@ -534,6 +535,14 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	if (rc) {
 		SDE_ERROR("failed to attach encoder to connector, %d\n", rc);
 		goto error_unregister_conn;
+	}
+
+	if (c_conn->ops.set_backlight) {
+		rc = sde_backlight_setup(&c_conn->base);
+		if (rc) {
+			pr_err("failed to setup backlight, rc=%d\n", rc);
+			goto error_unregister_conn;
+		}
 	}
 
 	/* create properties */
