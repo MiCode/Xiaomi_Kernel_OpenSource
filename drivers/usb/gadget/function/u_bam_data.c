@@ -1424,20 +1424,22 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 			 */
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			usb_ep_disable(port->port_usb->in);
+			spin_lock_irqsave(&port->port_lock, flags);
 			if (d->tx_req) {
 				usb_ep_free_request(port->port_usb->in,
 								d->tx_req);
 				d->tx_req = NULL;
 			}
+			spin_unlock_irqrestore(&port->port_lock, flags);
 
 			usb_ep_disable(port->port_usb->out);
+			spin_lock_irqsave(&port->port_lock, flags);
 			if (d->rx_req) {
 				usb_ep_free_request(port->port_usb->out,
 								d->rx_req);
 				d->rx_req = NULL;
 			}
 
-			spin_lock_irqsave(&port->port_lock, flags);
 
 			/* Only for SYS2BAM mode related UL workaround */
 			if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
