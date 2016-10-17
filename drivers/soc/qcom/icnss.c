@@ -2947,7 +2947,7 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
 				      ICNSS_EVENT_SYNC, ops);
 
-	if (ret == -ERESTARTSYS)
+	if (ret == -EINTR)
 		ret = 0;
 
 out:
