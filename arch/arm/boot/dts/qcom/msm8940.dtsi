@@ -287,12 +287,27 @@
 };
 
 &soc {
-	cti_modem_cpu1: cti@6128000{
+	/delete-node/ cti@6124000;
+	cti_modem_cpu0: cti@6128000{
 		compatible = "arm,coresight-cti";
 		reg = <0x6128000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <59>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_modem_cpu1: cti@6124000{
+		compatible = "arm,coresight-cti";
+		reg = <0x6124000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <60>;
 		coresight-name = "coresight-cti-modem-cpu1";
 		coresight-nr-inports = <0>;
 
@@ -305,7 +320,7 @@
 	modem_etm1 {
 		compatible = "qcom,coresight-remote-etm";
 
-		coresight-id = <60>;
+		coresight-id = <61>;
 		coresight-name = "coresight-modem-etm1";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
