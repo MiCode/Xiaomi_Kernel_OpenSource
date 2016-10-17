@@ -577,7 +577,7 @@ struct tavil_priv {
 	/* num of slim ports required */
 	struct wcd9xxx_codec_dai_data  dai[NUM_CODEC_DAIS];
 	/* Port values for Rx and Tx codec_dai */
-	unsigned int rx_port_value;
+	unsigned int rx_port_value[WCD934X_RX_MAX];
 	unsigned int tx_port_value;
 
 	struct wcd9xxx_resmgr_v2 *resmgr;
@@ -1298,7 +1298,8 @@ static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 
-	ucontrol->value.enumerated.item[0] = tavil_p->rx_port_value;
+	ucontrol->value.enumerated.item[0] =
+				tavil_p->rx_port_value[widget->shift];
 	return 0;
 }
 
@@ -1313,17 +1314,20 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
+	unsigned int rx_port_value;
 	u32 port_id = widget->shift;
 
+	tavil_p->rx_port_value[port_id] = ucontrol->value.enumerated.item[0];
+	rx_port_value = tavil_p->rx_port_value[port_id];
+
 	mutex_lock(&tavil_p->codec_mutex);
-	tavil_p->rx_port_value = ucontrol->value.enumerated.item[0];
 	dev_dbg(codec->dev, "%s: wname %s cname %s value %u shift %d item %ld\n",
 		__func__, widget->name, ucontrol->id.name,
-		tavil_p->rx_port_value,	widget->shift,
+		rx_port_value, widget->shift,
 		ucontrol->value.integer.value[0]);
 
 	/* value need to match the Virtual port and AIF number */
-	switch (tavil_p->rx_port_value) {
+	switch (rx_port_value) {
 	case 0:
 		list_del_init(&core->rx_chs[port_id].list);
 		break;
@@ -1372,13 +1376,13 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 			      &tavil_p->dai[AIF4_PB].wcd9xxx_ch_list);
 		break;
 	default:
-		dev_err(codec->dev, "Unknown AIF %d\n", tavil_p->rx_port_value);
+		dev_err(codec->dev, "Unknown AIF %d\n", rx_port_value);
 		goto err;
 	}
 rtn:
 	mutex_unlock(&tavil_p->codec_mutex);
 	snd_soc_dapm_mux_update_power(widget->dapm, kcontrol,
-				      tavil_p->rx_port_value, e, update);
+				      rx_port_value, e, update);
 
 	return 0;
 err:
