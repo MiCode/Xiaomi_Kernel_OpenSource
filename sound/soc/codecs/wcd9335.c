@@ -4347,9 +4347,11 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 		if (!ret) {
 			wcd_clsh_imped_config(codec, impedl, false);
 			set_bit(CLASSH_CONFIG, &tasha->status_mask);
-		} else
+		} else {
 			dev_dbg(codec->dev, "%s: Failed to get mbhc impedance %d\n",
 						__func__, ret);
+			ret = 0;
+		}
 
 
 		break;
