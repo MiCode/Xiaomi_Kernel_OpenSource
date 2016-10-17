@@ -64,6 +64,8 @@
 #define PROFILE_LOAD_OFFSET		0
 #define NOM_CAP_WORD			58
 #define NOM_CAP_OFFSET			0
+#define ACT_BATT_CAP_BKUP_WORD		74
+#define ACT_BATT_CAP_BKUP_OFFSET	0
 #define CYCLE_COUNT_WORD		75
 #define CYCLE_COUNT_OFFSET		0
 #define PROFILE_INTEGRITY_WORD		79
@@ -156,8 +158,8 @@ static struct fg_sram_param pmicobalt_v1_sram_params[] = {
 		fg_decode_cc_soc),
 	PARAM(CC_SOC_SW, CC_SOC_SW_WORD, CC_SOC_SW_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_cc_soc),
-	PARAM(ACT_BATT_CAP, ACT_BATT_CAP_WORD, ACT_BATT_CAP_OFFSET, 2, 1, 1, 0,
-		NULL, fg_decode_default),
+	PARAM(ACT_BATT_CAP, ACT_BATT_CAP_BKUP_WORD, ACT_BATT_CAP_BKUP_OFFSET, 2,
+		1, 1, 0, NULL, fg_decode_default),
 	/* Entries below here are configurable during initialization */
 	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
 		244141, 0, fg_encode_voltage, NULL),
@@ -208,8 +210,8 @@ static struct fg_sram_param pmicobalt_v2_sram_params[] = {
 		fg_decode_cc_soc),
 	PARAM(CC_SOC_SW, CC_SOC_SW_WORD, CC_SOC_SW_OFFSET, 4, 1, 1, 0, NULL,
 		fg_decode_cc_soc),
-	PARAM(ACT_BATT_CAP, ACT_BATT_CAP_WORD, ACT_BATT_CAP_OFFSET, 2, 1, 1, 0,
-		NULL, fg_decode_default),
+	PARAM(ACT_BATT_CAP, ACT_BATT_CAP_BKUP_WORD, ACT_BATT_CAP_BKUP_OFFSET, 2,
+		1, 1, 0, NULL, fg_decode_default),
 	/* Entries below here are configurable during initialization */
 	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
 		244141, 0, fg_encode_voltage, NULL),
@@ -887,9 +889,19 @@ static int fg_save_learned_cap_to_sram(struct fg_chip *chip)
 		return -EPERM;
 
 	cc_mah = div64_s64(chip->cl.learned_cc_uah, 1000);
+	/* Write to a backup register to use across reboot */
 	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ACT_BATT_CAP].addr_word,
 			chip->sp[FG_SRAM_ACT_BATT_CAP].addr_byte, (u8 *)&cc_mah,
 			chip->sp[FG_SRAM_ACT_BATT_CAP].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing act_batt_cap_bkup, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Write to actual capacity register for coulomb counter operation */
+	rc = fg_sram_write(chip, ACT_BATT_CAP_WORD, ACT_BATT_CAP_OFFSET,
+			(u8 *)&cc_mah, chip->sp[FG_SRAM_ACT_BATT_CAP].len,
+			FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in writing act_batt_cap, rc=%d\n", rc);
 		return rc;
@@ -927,16 +939,14 @@ static int fg_load_learned_cap_from_sram(struct fg_chip *chip)
 		 * the nominal capacity.
 		 */
 		if (chip->cl.nom_cap_uah && delta_cc_uah > pct_nom_cap_uah) {
-			fg_dbg(chip, FG_CAP_LEARN, "learned_cc_uah: %lld is higher than expected\n",
-				chip->cl.learned_cc_uah);
-			fg_dbg(chip, FG_CAP_LEARN, "Capping it to nominal:%lld\n",
-				chip->cl.nom_cap_uah);
+			fg_dbg(chip, FG_CAP_LEARN, "learned_cc_uah: %lld is higher than expected, capping it to nominal: %lld\n",
+				chip->cl.learned_cc_uah, chip->cl.nom_cap_uah);
 			chip->cl.learned_cc_uah = chip->cl.nom_cap_uah;
-			rc = fg_save_learned_cap_to_sram(chip);
-			if (rc < 0)
-				pr_err("Error in saving learned_cc_uah, rc=%d\n",
-					rc);
 		}
+
+		rc = fg_save_learned_cap_to_sram(chip);
+		if (rc < 0)
+			pr_err("Error in saving learned_cc_uah, rc=%d\n", rc);
 	}
 
 	fg_dbg(chip, FG_CAP_LEARN, "learned_cc_uah:%lld nom_cap_uah: %lld\n",
