@@ -29,6 +29,8 @@
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/mfd/qcom-rpm.h>
 
+#include "clk-voter.h"
+
 #define QCOM_RPM_KEY_SOFTWARE_ENABLE			0x6e657773
 #define QCOM_RPM_KEY_PIN_CTRL_CLK_BUFFER_ENABLE_KEY	0x62636370
 #define QCOM_RPM_SMD_KEY_RATE				0x007a484b
@@ -603,7 +605,7 @@ DEFINE_CLK_SMD_RPM(msmfalcon, cnoc_clk, cnoc_a_clk, QCOM_SMD_RPM_BUS_CLK, 2);
 DEFINE_CLK_SMD_RPM(msmfalcon, cnoc_periph_clk, cnoc_periph_a_clk,
 						QCOM_SMD_RPM_BUS_CLK, 0);
 DEFINE_CLK_SMD_RPM(msmfalcon, bimc_clk, bimc_a_clk, QCOM_SMD_RPM_MEM_CLK, 0);
-DEFINE_CLK_SMD_RPM(msmfalcon, mmssnoc_axi_rpm_clk, mmssnoc_axi_rpm_a_clk,
+DEFINE_CLK_SMD_RPM(msmfalcon, mmssnoc_axi_clk, mmssnoc_axi_a_clk,
 						   QCOM_SMD_RPM_MMAXI_CLK, 0);
 DEFINE_CLK_SMD_RPM(msmfalcon, ipa_clk, ipa_a_clk, QCOM_SMD_RPM_IPA_CLK, 0);
 DEFINE_CLK_SMD_RPM(msmfalcon, ce1_clk, ce1_a_clk, QCOM_SMD_RPM_CE_CLK, 0);
@@ -624,6 +626,27 @@ DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(msmfalcon, ln_bb_clk2_pin,
 							ln_bb_clk2_pin_ao, 0x2);
 DEFINE_CLK_SMD_RPM_XO_BUFFER_PINCTRL(msmfalcon, ln_bb_clk3_pin,
 							ln_bb_clk3_pin_ao, 0x3);
+/* Voter clocks */
+static DEFINE_CLK_VOTER(bimc_msmbus_clk, bimc_clk, LONG_MAX);
+static DEFINE_CLK_VOTER(bimc_msmbus_a_clk, bimc_a_clk, LONG_MAX);
+static DEFINE_CLK_VOTER(cnoc_msmbus_clk, cnoc_clk, LONG_MAX);
+static DEFINE_CLK_VOTER(cnoc_msmbus_a_clk, cnoc_a_clk, LONG_MAX);
+static DEFINE_CLK_VOTER(snoc_msmbus_clk, snoc_clk, LONG_MAX);
+static DEFINE_CLK_VOTER(snoc_msmbus_a_clk, snoc_a_clk, LONG_MAX);
+static DEFINE_CLK_VOTER(cnoc_periph_keepalive_a_clk, cnoc_periph_a_clk,
+						LONG_MAX);
+static DEFINE_CLK_VOTER(mcd_ce1_clk, ce1_clk, 85710000);
+static DEFINE_CLK_VOTER(qcedev_ce1_clk, ce1_clk, 85710000);
+static DEFINE_CLK_VOTER(qcrypto_ce1_clk, ce1_clk, 85710000);
+static DEFINE_CLK_VOTER(qseecom_ce1_clk, ce1_clk, 85710000);
+static DEFINE_CLK_VOTER(scm_ce1_clk, ce1_clk, 85710000);
+
+static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, cxo);
+static DEFINE_CLK_BRANCH_VOTER(cxo_lpm_clk, cxo);
+static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, cxo);
+static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, cxo);
+static DEFINE_CLK_BRANCH_VOTER(cxo_pil_cdsp_clk, cxo);
+
 static struct clk_hw *msmfalcon_clks[] = {
 	[RPM_XO_CLK_SRC]	= &msmfalcon_cxo.hw,
 	[RPM_XO_A_CLK_SRC]	= &msmfalcon_cxo_a.hw,
@@ -639,8 +662,8 @@ static struct clk_hw *msmfalcon_clks[] = {
 	[RPM_AGGR2_NOC_A_CLK]	= &msmfalcon_aggre2_noc_a_clk.hw,
 	[RPM_CNOC_CLK]		= &msmfalcon_cnoc_clk.hw,
 	[RPM_CNOC_A_CLK]	= &msmfalcon_cnoc_a_clk.hw,
-	[RPM_MMAXI_CLK]		= &msmfalcon_mmssnoc_axi_rpm_clk.hw,
-	[RPM_MMAXI_A_CLK]	= &msmfalcon_mmssnoc_axi_rpm_a_clk.hw,
+	[RPM_MMAXI_CLK]		= &msmfalcon_mmssnoc_axi_clk.hw,
+	[RPM_MMAXI_A_CLK]	= &msmfalcon_mmssnoc_axi_a_clk.hw,
 	[RPM_IPA_CLK]		= &msmfalcon_ipa_clk.hw,
 	[RPM_IPA_A_CLK]		= &msmfalcon_ipa_a_clk.hw,
 	[RPM_CE1_CLK]		= &msmfalcon_ce1_clk.hw,
@@ -661,6 +684,25 @@ static struct clk_hw *msmfalcon_clks[] = {
 	[RPM_LN_BB_CLK3_PIN_AO] = &msmfalcon_ln_bb_clk3_pin_ao.hw,
 	[RPM_CNOC_PERIPH_CLK]	= &msmfalcon_cnoc_periph_clk.hw,
 	[RPM_CNOC_PERIPH_A_CLK] = &msmfalcon_cnoc_periph_a_clk.hw,
+
+	/* Voter Clocks */
+	[BIMC_MSMBUS_CLK]	= &bimc_msmbus_clk.hw,
+	[BIMC_MSMBUS_A_CLK]	= &bimc_msmbus_a_clk.hw,
+	[CNOC_MSMBUS_CLK]	= &cnoc_msmbus_clk.hw,
+	[CNOC_MSMBUS_A_CLK]	= &cnoc_msmbus_a_clk.hw,
+	[MCD_CE1_CLK]		= &mcd_ce1_clk.hw,
+	[QCEDEV_CE1_CLK]	= &qcedev_ce1_clk.hw,
+	[QCRYPTO_CE1_CLK]	= &qcrypto_ce1_clk.hw,
+	[QSEECOM_CE1_CLK]	= &qseecom_ce1_clk.hw,
+	[SCM_CE1_CLK]		= &scm_ce1_clk.hw,
+	[SNOC_MSMBUS_CLK]	= &snoc_msmbus_clk.hw,
+	[SNOC_MSMBUS_A_CLK]	= &snoc_msmbus_a_clk.hw,
+	[CXO_DWC3_CLK]		= &cxo_dwc3_clk.hw,
+	[CXO_LPM_CLK]		= &cxo_lpm_clk.hw,
+	[CXO_OTG_CLK]		= &cxo_otg_clk.hw,
+	[CXO_PIL_LPASS_CLK]	= &cxo_pil_lpass_clk.hw,
+	[CXO_PIL_CDSP_CLK]	= &cxo_pil_cdsp_clk.hw,
+	[CNOC_PERIPH_KEEPALIVE_A_CLK] = &cnoc_periph_keepalive_a_clk.hw,
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_msmfalcon = {
@@ -757,8 +799,13 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 	/* Keep an active vote on CXO in case no other driver votes for it */
 	if (is_8996)
 		clk_prepare_enable(msm8996_cxo_a.hw.clk);
-	else if (is_falcon)
+	else if (is_falcon) {
 		clk_prepare_enable(msmfalcon_cxo_a.hw.clk);
+
+		/* Hold an active set vote for the cnoc_periph resource */
+		clk_set_rate(cnoc_periph_keepalive_a_clk.hw.clk, 19200000);
+		clk_prepare_enable(cnoc_periph_keepalive_a_clk.hw.clk);
+	}
 
 	dev_info(&pdev->dev, "Registered RPM clocks\n");
 
