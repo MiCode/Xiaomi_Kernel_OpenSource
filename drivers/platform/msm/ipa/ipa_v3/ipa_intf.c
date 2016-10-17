@@ -528,12 +528,12 @@ ssize_t ipa3_read(struct file *filp, char __user *buf, size_t count,
 	start = buf;
 
 	while (1) {
+		mutex_lock(&ipa3_ctx->msg_lock);
+		locked = 1;
 		prepare_to_wait(&ipa3_ctx->msg_waitq,
 				&wait,
 				TASK_INTERRUPTIBLE);
 
-		mutex_lock(&ipa3_ctx->msg_lock);
-		locked = 1;
 		if (!list_empty(&ipa3_ctx->msg_list)) {
 			msg = list_first_entry(&ipa3_ctx->msg_list,
 					struct ipa3_push_msg, link);
