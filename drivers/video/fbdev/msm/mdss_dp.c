@@ -1647,7 +1647,7 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		return -EINVAL;
 	}
 
-	pr_debug("event=%d\n", event);
+	pr_debug("event=%s\n", mdss_panel_intf_event_to_string(event));
 
 	dp = container_of(pdata, struct mdss_dp_drv_pdata,
 				panel_data);
@@ -1835,7 +1835,7 @@ static void mdss_dp_event_work(struct work_struct *work)
 	dp->current_event = 0;
 	spin_unlock_irqrestore(&dp->event_lock, flag);
 
-	pr_debug("todo=%x\n", todo);
+	pr_debug("todo=%s\n", mdss_dp_ev_event_to_string(todo));
 
 	switch (todo) {
 	case EV_EDID_READ:

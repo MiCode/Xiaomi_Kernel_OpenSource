@@ -495,6 +495,14 @@ void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status)
 	dp_status->hpd_irq =
 			(buf & BIT(8)) ? true : false;
 
+	pr_debug("low_pow_st = %d, adaptor_dp_en = %d, multi_func = %d\n",
+			dp_status->low_pow_st, dp_status->adaptor_dp_en,
+			dp_status->multi_func);
+	pr_debug("switch_to_usb_config = %d, exit_dp_mode = %d, hpd_high =%d\n",
+			dp_status->switch_to_usb_config,
+			dp_status->exit_dp_mode, dp_status->hpd_high);
+	pr_debug("hpd_irq = %d\n", dp_status->hpd_irq);
+
 	mdss_dp_initialize_s_port(&dp_status->c_port, port);
 }
 
