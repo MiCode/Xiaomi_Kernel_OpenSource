@@ -38,8 +38,8 @@
 
 static bool is_secure(struct smb_charger *chg, int addr)
 {
-	/* assume everything above 0xC0 is secure */
-	return (bool)((addr & 0xFF) >= 0xC0);
+	/* assume everything above 0xA0 is secure */
+	return (bool)((addr & 0xFF) >= 0xA0);
 }
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val)
