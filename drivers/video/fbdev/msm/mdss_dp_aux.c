@@ -1174,8 +1174,9 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 	pr_debug("Entered++");
 
 	dp_host_train_set(ep, 0x01); /* train_1 */
-	dp_voltage_pre_emphasise_set(ep);
+	dp_cap_lane_rate_set(ep);
 	dp_train_pattern_set_write(ep, 0x21); /* train_1 */
+	dp_voltage_pre_emphasise_set(ep);
 
 	tries = 0;
 	old_v_level = ep->v_level;
@@ -1336,7 +1337,6 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 train_start:
 	dp->v_level = 0; /* start from default level */
 	dp->p_level = 0;
-	dp_cap_lane_rate_set(dp);
 	mdss_dp_config_ctrl(dp);
 
 	mdss_dp_state_ctrl(&dp->ctrl_io, 0);

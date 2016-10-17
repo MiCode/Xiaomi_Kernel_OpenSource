@@ -1157,6 +1157,32 @@ exit:
 	return ret;
 }
 
+static void mdss_dp_mainlink_off(struct mdss_panel_data *pdata)
+{
+	struct mdss_dp_drv_pdata *dp_drv = NULL;
+	const int idle_pattern_completion_timeout_ms = 3 * HZ / 100;
+
+	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
+				panel_data);
+	if (!dp_drv) {
+		pr_err("Invalid input data\n");
+		return;
+	}
+	pr_debug("Entered++\n");
+
+	/* wait until link training is completed */
+	mutex_lock(&dp_drv->train_mutex);
+
+	reinit_completion(&dp_drv->idle_comp);
+	mdss_dp_state_ctrl(&dp_drv->ctrl_io, ST_PUSH_IDLE);
+	if (!wait_for_completion_timeout(&dp_drv->idle_comp,
+			idle_pattern_completion_timeout_ms))
+		pr_warn("PUSH_IDLE pattern timedout\n");
+
+	mutex_unlock(&dp_drv->train_mutex);
+	pr_debug("mainlink off done\n");
+}
+
 int mdss_dp_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
@@ -1172,9 +1198,6 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	/* wait until link training is completed */
 	mutex_lock(&dp_drv->train_mutex);
 
-	reinit_completion(&dp_drv->idle_comp);
-	mdss_dp_state_ctrl(&dp_drv->ctrl_io, ST_PUSH_IDLE);
-
 	if (dp_drv->link_clks_on)
 		mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
 
@@ -1186,6 +1209,13 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 
 	mdss_dp_config_gpios(dp_drv, false);
 	mdss_dp_pinctrl_set_state(dp_drv, false);
+
+	/*
+	* The global reset will need DP link ralated clocks to be
+	* running. Add the global reset just before disabling the
+	* link clocks and core clocks.
+	*/
+	mdss_dp_ctrl_reset(&dp_drv->ctrl_io);
 
 	/* Make sure DP is disabled before clk disable */
 	wmb();
@@ -1640,6 +1670,7 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_BLANK:
 		if (ops && ops->off)
 			ops->off(dp->hdcp_data);
+		mdss_dp_mainlink_off(pdata);
 		break;
 	case MDSS_EVENT_FB_REGISTERED:
 		fbi = (struct fb_info *)arg;
