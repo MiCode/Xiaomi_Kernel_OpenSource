@@ -92,6 +92,15 @@ enum sde_rotator_ts {
 	SDE_ROTATOR_TS_MAX
 };
 
+enum sde_rotator_clk_type {
+	SDE_ROTATOR_CLK_MDSS_AHB,
+	SDE_ROTATOR_CLK_MDSS_AXI,
+	SDE_ROTATOR_CLK_ROT_CORE,
+	SDE_ROTATOR_CLK_MDSS_ROT,
+	SDE_ROTATOR_CLK_MNOC_AHB,
+	SDE_ROTATOR_CLK_MAX
+};
+
 struct sde_rotation_item {
 	/* rotation request flag */
 	uint32_t	flags;
@@ -275,7 +284,6 @@ struct sde_rot_mgr {
 	int rot_enable_clk_cnt;
 	struct sde_rot_clk *rot_clk;
 	int num_rot_clk;
-	int core_clk_idx;
 	u32 rdot_limit;
 	u32 wrot_limit;
 
