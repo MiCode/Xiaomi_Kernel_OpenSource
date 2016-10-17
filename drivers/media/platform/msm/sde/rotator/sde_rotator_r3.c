@@ -2337,9 +2337,9 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 		goto error_hw_rev_init;
 
 	/* set rotator CBCR to shutoff memory/periphery on clock off.*/
-	clk_set_flags(mgr->rot_clk[mgr->core_clk_idx].clk,
+	clk_set_flags(mgr->rot_clk[SDE_ROTATOR_CLK_ROT_CORE].clk,
 			CLKFLAG_NORETAIN_MEM);
-	clk_set_flags(mgr->rot_clk[mgr->core_clk_idx].clk,
+	clk_set_flags(mgr->rot_clk[SDE_ROTATOR_CLK_ROT_CORE].clk,
 			CLKFLAG_NORETAIN_PERIPH);
 
 	mdata->sde_rot_hw = rot;
