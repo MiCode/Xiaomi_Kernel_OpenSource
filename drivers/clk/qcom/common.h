@@ -25,7 +25,9 @@ struct parent_map;
 struct qcom_cc_desc {
 	const struct regmap_config *config;
 	struct clk_regmap **clks;
+	struct clk_hw **hwclks;
 	size_t num_clks;
+	size_t num_hwclks;
 	const struct qcom_reset_map *resets;
 	size_t num_resets;
 	struct gdsc **gdscs;
