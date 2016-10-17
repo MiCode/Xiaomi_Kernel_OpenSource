@@ -793,3 +793,4 @@
 #include "msm-pmfalcon.dtsi"
 #include "msm-pm2falcon.dtsi"
 #include "msm-arm-smmu-falcon.dtsi"
+#include "msm-arm-smmu-impl-defs-falcon.dtsi"
