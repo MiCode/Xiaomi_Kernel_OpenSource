@@ -351,6 +351,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
+	POWER_SUPPLY_PROP_PE_START,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -421,6 +422,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED:
 		val->intval = chg->system_suspend_supported;
+		break;
+	case POWER_SUPPLY_PROP_PE_START:
+		rc = smblib_get_pe_start(chg, val);
 		break;
 	default:
 		pr_err("get prop %d is not supported\n", psp);
