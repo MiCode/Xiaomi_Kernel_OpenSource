@@ -695,6 +695,11 @@
 	status = "ok";
 };
 
+&gpu_gx_gdsc {
+	parent-supply = <&pm8005_s1_level>;
+	status = "ok";
+};
+
 &vcodec0_gdsc {
 	status = "ok";
 };
