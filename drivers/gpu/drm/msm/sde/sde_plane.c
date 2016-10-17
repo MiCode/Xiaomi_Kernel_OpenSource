@@ -417,7 +417,7 @@ static void _sde_plane_setup_csc(struct sde_phy_plane *pp,
 			&csc_size,
 			PLANE_PROP_CSC);
 	if (!csc)
-		return;
+		goto apply_value;
 
 	/* user space override */
 	memcpy(&pp->csc_cfg, &sde_csc_NOP, sizeof(struct sde_csc_cfg));
@@ -451,6 +451,7 @@ static void _sde_plane_setup_csc(struct sde_phy_plane *pp,
 	if (!pp->csc_ptr)
 		SDE_ERROR("invalid csc blob, v%lld\n", csc->version);
 
+apply_value:
 	/* revert to kernel default if override not available */
 	if (pp->csc_ptr)
 		SDE_DEBUG("user blob override for csc\n");
