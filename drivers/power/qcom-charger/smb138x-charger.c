@@ -192,11 +192,13 @@ static int smb138x_usb_get_prop(struct power_supply *psy,
 		pr_err("get prop %d is not supported\n", prop);
 		return -EINVAL;
 	}
+
 	if (rc < 0) {
 		pr_debug("Couldn't get prop %d rc = %d\n", prop, rc);
 		return -ENODATA;
 	}
-	return 0;
+
+	return rc;
 }
 
 static int smb138x_usb_set_prop(struct power_supply *psy,
@@ -319,11 +321,13 @@ static int smb138x_batt_get_prop(struct power_supply *psy,
 		pr_err("batt power supply get prop %d not supported\n", prop);
 		return -EINVAL;
 	}
+
 	if (rc < 0) {
 		pr_debug("Couldn't get prop %d rc = %d\n", prop, rc);
 		return -ENODATA;
 	}
-	return 0;
+
+	return rc;
 }
 
 static int smb138x_batt_set_prop(struct power_supply *psy,
@@ -457,11 +461,37 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 			prop);
 		return -EINVAL;
 	}
+
 	if (rc < 0) {
 		pr_debug("Couldn't get prop %d rc = %d\n", prop, rc);
 		return -ENODATA;
 	}
-	return 0;
+
+	return rc;
+}
+
+static int smb138x_set_parallel_suspend(struct smb138x *chip, bool suspend)
+{
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	rc = smblib_masked_write(chg, WD_CFG_REG, WDOG_TIMER_EN_BIT,
+				 suspend ? 0 : WDOG_TIMER_EN_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't %s watchdog rc=%d\n",
+		       suspend ? "disable" : "enable", rc);
+		suspend = true;
+	}
+
+	rc = smblib_masked_write(chg, USBIN_CMD_IL_REG, USBIN_SUSPEND_BIT,
+				 suspend ? USBIN_SUSPEND_BIT : 0);
+	if (rc < 0) {
+		pr_err("Couldn't %s parallel charger rc=%d\n",
+		       suspend ? "suspend" : "resume", rc);
+		return rc;
+	}
+
+	return rc;
 }
 
 static int smb138x_parallel_set_prop(struct power_supply *psy,
@@ -474,7 +504,7 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		rc = smblib_set_usb_suspend(chg, val->intval);
+		rc = smb138x_set_parallel_suspend(chip, (bool)val->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
@@ -620,7 +650,7 @@ static int smb138x_init_vconn_regulator(struct smb138x *chip)
 static int smb138x_init_hw(struct smb138x *chip)
 {
 	struct smb_charger *chg = &chip->chg;
-	int rc;
+	int rc = 0;
 
 	/* votes must be cast before configuring software control */
 	vote(chg->usb_suspend_votable,
@@ -772,6 +802,7 @@ static int smb138x_determine_initial_status(struct smb138x *chip)
 struct smb138x_irq_info {
 	const char			*name;
 	const irq_handler_t		handler;
+	const bool			wake;
 	const struct storm_watch	storm_data;
 };
 
@@ -908,7 +939,8 @@ static const struct smb138x_irq_info smb138x_irqs[] = {
 	},
 	{
 		.name		= "wdog-bark",
-		.handler	= smblib_handle_debug,
+		.handler	= smblib_handle_wdog_bark,
+		.wake		= true,
 	},
 	{
 		.name		= "aicl-fail",
@@ -953,7 +985,7 @@ static int smb138x_request_interrupt(struct smb138x *chip,
 				     const char *irq_name)
 {
 	struct smb_charger *chg = &chip->chg;
-	int rc, irq, irq_index;
+	int rc = 0, irq, irq_index;
 	struct smb_irq_data *irq_data;
 
 	irq = of_irq_get_byname(node, irq_name);
@@ -967,6 +999,9 @@ static int smb138x_request_interrupt(struct smb138x *chip,
 		pr_err("%s is not a defined irq\n", irq_name);
 		return irq_index;
 	}
+
+	if (!smb138x_irqs[irq_index].handler)
+		return 0;
 
 	irq_data = devm_kzalloc(chg->dev, sizeof(*irq_data), GFP_KERNEL);
 	if (!irq_data)
@@ -983,6 +1018,9 @@ static int smb138x_request_interrupt(struct smb138x *chip,
 		pr_err("Couldn't request irq %d\n", irq);
 		return rc;
 	}
+
+	if (smb138x_irqs[irq_index].wake)
+		enable_irq_wake(irq);
 
 	return rc;
 }
@@ -1001,7 +1039,7 @@ static int smb138x_request_interrupts(struct smb138x *chip)
 					    prop, name) {
 			rc = smb138x_request_interrupt(chip, child, name);
 			if (rc < 0) {
-				pr_err("Coudn't request interrupt %s rc=%d\n",
+				pr_err("Couldn't request interrupt %s rc=%d\n",
 				       name, rc);
 				return rc;
 			}
@@ -1092,7 +1130,7 @@ static int smb138x_slave_probe(struct smb138x *chip)
 	rc = smblib_init(chg);
 	if (rc < 0) {
 		pr_err("Couldn't initialize smblib rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	if (chip->wa_flags & OOB_COMP_WA_BIT) {
@@ -1102,7 +1140,7 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		if (rc < 0) {
 			dev_err(chg->dev,
 			"Couldn't configure the oob comp threh rc = %d\n", rc);
-			return rc;
+			goto cleanup;
 		}
 
 		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG6,
@@ -1110,22 +1148,41 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		if (rc < 0) {
 			dev_err(chg->dev,
 			"Couldn't configure the sdcdc cfg 6 reg rc = %d\n", rc);
-			return rc;
+			goto cleanup;
 		}
 	}
 
-	/* suspend usb input */
-	rc = smblib_set_usb_suspend(chg, true);
+	/* enable watchdog bark and bite interrupts, and disable the watchdog */
+	rc = smblib_masked_write(chg, WD_CFG_REG, WDOG_TIMER_EN_BIT
+			| WDOG_TIMER_EN_ON_PLUGIN_BIT | BITE_WDOG_INT_EN_BIT
+			| BARK_WDOG_INT_EN_BIT,
+			BITE_WDOG_INT_EN_BIT | BARK_WDOG_INT_EN_BIT);
 	if (rc < 0) {
-		pr_err("Couldn't suspend USB input rc=%d\n", rc);
-		return rc;
+		pr_err("Couldn't configure the watchdog rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	/* disable charging when watchdog bites */
+	rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
+				 BITE_WDOG_DISABLE_CHARGING_CFG_BIT,
+				 BITE_WDOG_DISABLE_CHARGING_CFG_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't configure the watchdog bite rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	/* suspend parallel charging */
+	rc = smb138x_set_parallel_suspend(chip, true);
+	if (rc < 0) {
+		pr_err("Couldn't suspend parallel charging rc=%d\n", rc);
+		goto cleanup;
 	}
 
 	/* initialize FCC to 0 */
 	rc = smblib_set_charge_param(chg, &chg->param.fcc, 0);
 	if (rc < 0) {
 		pr_err("Couldn't set 0 FCC rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	/* enable the charging path */
@@ -1134,7 +1191,7 @@ static int smb138x_slave_probe(struct smb138x *chip)
 				 CHARGING_ENABLE_CMD_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't enable charging rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
 	/* configure charge enable for software control; active high */
@@ -1143,7 +1200,7 @@ static int smb138x_slave_probe(struct smb138x *chip)
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure charge enable source rc=%d\n",
 			rc);
-		return rc;
+		goto cleanup;
 	}
 
 	/* enable parallel current sensing */
@@ -1152,16 +1209,27 @@ static int smb138x_slave_probe(struct smb138x *chip)
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't enable parallel current sensing rc=%d\n",
 			rc);
-		return rc;
+		goto cleanup;
 	}
 
-	/* keep at the end of probe, ready to serve before notifying others */
 	rc = smb138x_init_parallel_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
-		return rc;
+		goto cleanup;
 	}
 
+	rc = smb138x_request_interrupts(chip);
+	if (rc < 0) {
+		pr_err("Couldn't request interrupts rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	return rc;
+
+cleanup:
+	smblib_deinit(chg);
+	if (chip->parallel_psy)
+		power_supply_unregister(chip->parallel_psy);
 	return rc;
 }
 
