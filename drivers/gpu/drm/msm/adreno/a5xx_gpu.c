@@ -48,9 +48,6 @@ struct a5xx_gpu {
 	 (1 << A5XX_INT_GPMU_FIRMWARE) |                \
 	 (1 << A5XX_INT_GPMU_VOLTAGE_DROOP))
 
-
-static void a5xx_dump(struct msm_gpu *gpu);
-
 static void a5xx_debug_status(struct msm_gpu *gpu)
 {
 	pr_warn("\tCP S:%x, INT status:%x HW F:%x, PROT S:%x\n",
@@ -640,9 +637,6 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct a5xx_gpu *a5xx = to_a5xx_gpu(adreno_gpu);
-	const struct firmware *fw;
-	size_t size;
-	void *vaddr;
 	uint32_t iova;
 	int ret;
 
@@ -788,73 +782,25 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 	if (ret)
 		return ret;
 
-	fw = adreno_gpu->pm4;
-
-	size = fw->size - 4;
-	if (size == 0 || size > SIZE_MAX)
-		return -EINVAL;
-
-	mutex_lock(&gpu->dev->struct_mutex);
-	adreno_gpu->pm4_bo = msm_gem_new(gpu->dev, size,
-			MSM_BO_UNCACHED | 0x10000000);
-	mutex_unlock(&gpu->dev->struct_mutex);
-
-	if (IS_ERR(adreno_gpu->pm4_bo)) {
-		ret = PTR_ERR(adreno_gpu->pm4_bo);
-		adreno_gpu->pm4_bo = NULL;
-		DRM_ERROR("%s: create pm4 bo failed\n", __func__);
-		return ret;
-	}
-
-	vaddr = msm_gem_vaddr(adreno_gpu->pm4_bo);
-	if (!vaddr) {
-		DRM_ERROR("could not vmap pm4\n");
-		return -ENOMEM;
-	}
-
 	ret = msm_gem_get_iova(adreno_gpu->pm4_bo, gpu->id,
 			&iova);
-	if (ret) {
-		DRM_ERROR("could not map pm4: %d\n", ret);
+	if (ret)
 		return ret;
-	}
-	memcpy(vaddr, &fw->data[4], size);
 
 	gpu_write(gpu, A5XX_CP_PM4_INSTR_BASE_LO,
 			lower_32_bits(iova));
 	gpu_write(gpu, A5XX_CP_PM4_INSTR_BASE_HI,
 			upper_32_bits(iova));
 
-	fw = adreno_gpu->pfp;
-	size = fw->size - 4;
-	if (size == 0 || size > SIZE_MAX)
-		return -EINVAL;
-
-	mutex_lock(&gpu->dev->struct_mutex);
-	adreno_gpu->pfp_bo = msm_gem_new(gpu->dev, size,
-			MSM_BO_UNCACHED | 0x10000000);
-	mutex_unlock(&gpu->dev->struct_mutex);
-
-	if (IS_ERR(adreno_gpu->pfp_bo)) {
-		ret = PTR_ERR(adreno_gpu->pfp_bo);
-		adreno_gpu->pfp_bo = NULL;
-		DRM_ERROR("%s: create pfp bo failed\n", __func__);
-		return ret;
-	}
-
-	vaddr = msm_gem_vaddr(adreno_gpu->pfp_bo);
-	if (!vaddr) {
-		DRM_ERROR("could not vmap pfp\n");
-		return -ENOMEM;
-	}
-
 	ret = msm_gem_get_iova(adreno_gpu->pfp_bo, gpu->id,
 			&iova);
-	if (ret) {
-		DRM_ERROR("could not map pfp: %d\n", ret);
+	if (ret)
 		return ret;
-	}
-	memcpy(vaddr, &fw->data[4], size);
+
+	gpu_write(gpu, A5XX_CP_PFP_INSTR_BASE_LO,
+			lower_32_bits(iova));
+	gpu_write(gpu, A5XX_CP_PFP_INSTR_BASE_HI,
+			upper_32_bits(iova));
 
 	/*
 	 * Resume call to write the zap shader base address into the
@@ -889,11 +835,6 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 		a5xx->zap_loaded = true;
 	}
 
-	gpu_write(gpu, A5XX_CP_PFP_INSTR_BASE_LO,
-			lower_32_bits(iova));
-	gpu_write(gpu, A5XX_CP_PFP_INSTR_BASE_HI,
-			upper_32_bits(iova));
-
 	gpu_write(gpu, A5XX_CP_ME_CNTL, 0);
 
 	do {
@@ -912,13 +853,6 @@ static void a5xx_recover(struct msm_gpu *gpu)
 {
 	adreno_dump_info(gpu);
 	a5xx_debug_status(gpu);
-	/* dump registers before resetting gpu, if enabled: */
-	if (hang_debug)
-		a5xx_dump(gpu);
-
-	gpu_write(gpu, A5XX_RBBM_SW_RESET_CMD, 1);
-	gpu_read(gpu, A5XX_RBBM_SW_RESET_CMD);
-	gpu_write(gpu, A5XX_RBBM_SW_RESET_CMD, 0);
 	adreno_recover(gpu);
 }
 
@@ -1231,14 +1165,6 @@ static const unsigned int a5xx_register_offsets[REG_ADRENO_REGISTER_MAX] = {
 				A5XX_VBIF_VERSION),
 };
 
-static void a5xx_dump(struct msm_gpu *gpu)
-{
-	adreno_dump(gpu);
-	pr_info("status:   %08x\n",
-			gpu_read(gpu, A5XX_RBBM_STATUS));
-	adreno_dump(gpu);
-}
-
 static const struct adreno_gpu_funcs funcs = {
 	.base = {
 		.get_param = adreno_get_param,
@@ -1266,6 +1192,9 @@ struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 	struct msm_drm_private *priv = dev->dev_private;
 	struct platform_device *pdev = priv->gpu_pdev;
 	int ret;
+	const struct firmware *fw;
+	size_t size;
+	void *vaddr;
 
 	if (!pdev) {
 		dev_err(dev->dev, "no a5xx device\n");
@@ -1302,6 +1231,58 @@ struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 		ret = -ENXIO;
 		goto fail;
 	}
+
+	fw = adreno_gpu->pm4;
+	size = fw->size - 4;
+	if (size == 0 || size > SIZE_MAX)
+		goto fail;
+
+	mutex_lock(&gpu->dev->struct_mutex);
+	adreno_gpu->pm4_bo = msm_gem_new(gpu->dev, size,
+			MSM_BO_UNCACHED);
+	mutex_unlock(&gpu->dev->struct_mutex);
+
+	if (IS_ERR(adreno_gpu->pm4_bo)) {
+		ret = PTR_ERR(adreno_gpu->pm4_bo);
+		adreno_gpu->pm4_bo = NULL;
+		DRM_ERROR("%s: create pm4 bo failed\n", __func__);
+		goto fail;
+	}
+
+	vaddr = msm_gem_vaddr(adreno_gpu->pm4_bo);
+	if (!vaddr) {
+		DRM_ERROR("could not vmap pm4\n");
+		goto fail;
+	}
+	adreno_gpu->pm4_vaddr = vaddr;
+
+	memcpy(vaddr, &fw->data[4], size);
+
+	fw = adreno_gpu->pfp;
+	size = fw->size - 4;
+	if (size == 0 || size > SIZE_MAX)
+		goto fail;
+
+	mutex_lock(&gpu->dev->struct_mutex);
+	adreno_gpu->pfp_bo = msm_gem_new(gpu->dev, size,
+			MSM_BO_UNCACHED);
+	mutex_unlock(&gpu->dev->struct_mutex);
+
+	if (IS_ERR(adreno_gpu->pfp_bo)) {
+		ret = PTR_ERR(adreno_gpu->pfp_bo);
+		adreno_gpu->pfp_bo = NULL;
+		DRM_ERROR("%s: create pfp bo failed\n", __func__);
+		goto fail;
+	}
+
+	vaddr = msm_gem_vaddr(adreno_gpu->pfp_bo);
+	if (!vaddr) {
+		DRM_ERROR("could not vmap pfp\n");
+		goto fail;
+	}
+	adreno_gpu->pfp_vaddr = vaddr;
+
+	memcpy(vaddr, &fw->data[4], size);
 
 	return gpu;
 
