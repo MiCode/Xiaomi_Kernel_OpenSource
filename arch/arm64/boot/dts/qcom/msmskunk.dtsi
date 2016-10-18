@@ -513,6 +513,58 @@
 		status = "disabled";
 	};
 
+	pil_modem: qcom,mss@4080000 {
+		compatible = "qcom,pil-q6v55-mss";
+		reg = <0x4080000 0x100>,
+		      <0x1f63000 0x008>,
+		      <0x1f65000 0x008>,
+		      <0x1f64000 0x008>,
+		      <0x4180000 0x020>,
+		      <0x00179000 0x004>;
+		reg-names = "qdsp6_base", "halt_q6", "halt_modem",
+			    "halt_nc", "rmb_base", "restart_reg";
+
+		clocks = <&clock_gcc RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_MSS_CFG_AHB_CLK>,
+			 <&clock_gcc GCC_MSS_Q6_MEMNOC_AXI_CLK>,
+			 <&clock_gcc GCC_BOOT_ROM_AHB_CLK>,
+			 <&clock_gcc GCC_MSS_GPLL0_DIV_CLK_SRC>,
+			 <&clock_gcc GCC_MSS_SNOC_AXI_CLK>,
+			 <&clock_gcc GCC_MSS_MFAB_AXIS_CLK>;
+		clock-names = "xo", "iface_clk", "bus_clk",
+			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
+			      "mnoc_axi_clk";
+		qcom,proxy-clock-names = "xo";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
+					  "gpll0_mss_clk", "snoc_axi_clk",
+					  "mnoc_axi_clk";
+
+		interrupts = <0 266 1>;
+		vdd_cx-supply = <&pmcobalt_s9_level>;
+		vdd_cx-voltage = <RPMH_REGULATOR_LEVEL_MAX>;
+		vdd_mx-supply = <&pmcobalt_s6_level>;
+		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_MAX>;
+		qcom,firmware-name = "modem";
+		qcom,pil-self-auth;
+		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,override-acc;
+		qcom,qdsp6v65-1-0;
+		status = "ok";
+		memory-region = <&pil_modem_mem>;
+		qcom,mem-protect-id = <0xF>;
+
+		/* GPIO inputs from mss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
+		qcom,gpio-shutdown-ack = <&smp2pgpio_ssr_smp2p_1_in 7 0>;
+
+		/* GPIO output to mss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+	};
+
 	eud: qcom,msm-eud@88e0000 {
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
