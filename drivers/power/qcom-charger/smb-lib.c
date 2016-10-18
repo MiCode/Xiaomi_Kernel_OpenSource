@@ -2031,6 +2031,52 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	return rc;
 }
 
+int smblib_reg_block_update(struct smb_charger *chg,
+				struct reg_info *entry)
+{
+	int rc = 0;
+
+	while (entry && entry->reg) {
+		rc = smblib_read(chg, entry->reg, &entry->bak);
+		if (rc < 0) {
+			dev_err(chg->dev, "Error in reading %s rc=%d\n",
+				entry->desc, rc);
+			break;
+		}
+		entry->bak &= entry->mask;
+
+		rc = smblib_masked_write(chg, entry->reg,
+					 entry->mask, entry->val);
+		if (rc < 0) {
+			dev_err(chg->dev, "Error in writing %s rc=%d\n",
+				entry->desc, rc);
+			break;
+		}
+		entry++;
+	}
+
+	return rc;
+}
+
+int smblib_reg_block_restore(struct smb_charger *chg,
+				struct reg_info *entry)
+{
+	int rc = 0;
+
+	while (entry && entry->reg) {
+		rc = smblib_masked_write(chg, entry->reg,
+					 entry->mask, entry->bak);
+		if (rc < 0) {
+			dev_err(chg->dev, "Error in writing %s rc=%d\n",
+				entry->desc, rc);
+			break;
+		}
+		entry++;
+	}
+
+	return rc;
+}
+
 int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {

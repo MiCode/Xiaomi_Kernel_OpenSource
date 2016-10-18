@@ -118,6 +118,14 @@ struct smb_iio {
 	struct iio_channel	*batt_i_chan;
 };
 
+struct reg_info {
+	u16		reg;
+	u8		mask;
+	u8		val;
+	u8		bak;
+	const char	*desc;
+};
+
 struct smb_charger {
 	struct device		*dev;
 	char			*name;
