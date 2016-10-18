@@ -261,6 +261,11 @@ struct dpcd_test_request {
 	u32 response;
 };
 
+struct dpcd_sink_count {
+	u32 count;
+	bool cp_ready;
+};
+
 struct display_timing_desc {
 	u32 pclk;
 	u32 h_addressable; /* addressable + boder = active */
@@ -463,6 +468,7 @@ struct mdss_dp_drv_pdata {
 	void *hdcp_data;
 	struct hdcp_ops *hdcp_ops;
 	struct dpcd_test_request test_data;
+	struct dpcd_sink_count sink_count;
 };
 
 enum dp_lane_count {
@@ -549,7 +555,7 @@ void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp);
 
 void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *dp);
-void mdss_dp_aux_parse_test_request(struct mdss_dp_drv_pdata *dp);
+void mdss_dp_aux_parse_sink_status_field(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp);
 void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *dp, u32 isr);

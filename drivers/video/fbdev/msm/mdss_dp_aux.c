@@ -953,10 +953,10 @@ static int dp_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
 }
 
 /**
- * dp_sink_send_test_response() - sends a test response to the sink
+ * mdss_dp_aux_send_test_response() - sends a test response to the sink
  * @dp: Display Port Driver data
  */
-static void dp_sink_send_test_response(struct mdss_dp_drv_pdata *dp)
+void mdss_dp_aux_send_test_response(struct mdss_dp_drv_pdata *dp)
 {
 	char test_response[4];
 
@@ -1056,6 +1056,41 @@ static int dp_parse_link_training_params(struct mdss_dp_drv_pdata *ep)
 
 exit:
 	return ret;
+}
+
+/**
+ * dp_sink_parse_sink_count() - parses the sink count
+ * @ep: Display Port Driver data
+ *
+ * Parses the DPCD to check if there is an update to the sink count
+ * (Byte 0x200), and whether all the sink devices connected have Content
+ * Protection enabled.
+ */
+static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep)
+{
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const param_len = 0x1;
+	int const sink_count_addr = 0x200;
+
+	rlen = dp_aux_read_buf(ep, sink_count_addr, param_len, 0);
+	if (rlen < param_len) {
+		pr_err("failed to read sink count\n");
+		return;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	/* BIT 7, BIT 5:0 */
+	ep->sink_count.count = (data & BIT(7)) << 6 | (data & 0x63);
+	/* BIT 6*/
+	ep->sink_count.cp_ready = data & BIT(6);
+
+	pr_debug("sink_count = 0x%x, cp_ready = 0x%x\n",
+			ep->sink_count.count, ep->sink_count.cp_ready);
 }
 
 /**
@@ -1611,14 +1646,11 @@ void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 	dp_sink_capability_read(ep, 16);
 }
 
-void mdss_dp_aux_parse_test_request(struct mdss_dp_drv_pdata *ep)
+void mdss_dp_aux_parse_sink_status_field(struct mdss_dp_drv_pdata *ep)
 {
+	dp_sink_parse_sink_count(ep);
 	dp_sink_parse_test_request(ep);
-}
-
-void mdss_dp_aux_send_test_response(struct mdss_dp_drv_pdata *ep)
-{
-	dp_sink_send_test_response(ep);
+	dp_link_status_read(ep, 6);
 }
 
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *ep)

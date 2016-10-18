@@ -2297,11 +2297,11 @@ static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 
 	dp->hpd_irq_on = true;
 
-	mdss_dp_aux_parse_test_request(dp);
-
-	mdss_dp_send_test_response(dp);
+	mdss_dp_aux_parse_sink_status_field(dp);
 
 	if (mdss_dp_is_link_training_requested(dp)) {
+		mdss_dp_send_test_response(dp);
+
 		pr_info("%s requested: link rate = 0x%x, lane count = 0x%x\n",
 				mdss_dp_get_test_name(TEST_LINK_TRAINING),
 				dp->test_data.test_link_rate,
