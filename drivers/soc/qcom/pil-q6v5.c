@@ -79,6 +79,14 @@
 #define BHS_CHECK_MAX_LOOPS             (200)
 #define QDSP6SS_XO_CBCR                 (0x0038)
 
+/* QDSP6v65 parameters */
+#define QDSP6SS_BOOT_CORE_START		(0x400)
+#define QDSP6SS_BOOT_CMD		(0x404)
+#define QDSP6SS_BOOT_STATUS		(0x408)
+#define QDSP6SS_SLEEP			(0x3C)
+#define SLEEP_CHECK_MAX_LOOPS		(200)
+#define BOOT_FSM_TIMEOUT		(10)
+
 #define QDSP6SS_ACC_OVERRIDE_VAL	0x20
 
 int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
@@ -353,6 +361,46 @@ static int q6v55_branch_clk_enable(struct q6v5_data *drv)
 	return -EINVAL;
 }
 
+static int __pil_q6v65_reset(struct pil_desc *pil)
+{
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	u32 val, count;
+	unsigned long timeout;
+
+	val = readl_relaxed(drv->reg_base + QDSP6SS_SLEEP);
+	val |= 0x1;
+	writel_relaxed(val, drv->reg_base + QDSP6SS_SLEEP);
+	for (count = SLEEP_CHECK_MAX_LOOPS; count > 0; count--) {
+		val = readl_relaxed(drv->reg_base + QDSP6SS_SLEEP);
+		if (!(val & BIT(31)))
+			break;
+		udelay(1);
+	}
+
+	if (!count) {
+		dev_err(drv->desc.dev, "Sleep clock did not come on in time\n");
+		return -ETIMEDOUT;
+	}
+
+	/* De-assert QDSP6 stop core */
+	writel_relaxed(1, drv->reg_base + QDSP6SS_BOOT_CORE_START);
+	/* De-assert stop core before starting boot FSM */
+	mb();
+	/* Trigger boot FSM */
+	writel_relaxed(1, drv->reg_base + QDSP6SS_BOOT_CMD);
+
+	/* Wait for boot FSM to complete */
+	timeout = jiffies + usecs_to_jiffies(BOOT_FSM_TIMEOUT);
+	while (time_before(jiffies, timeout)) {
+		val = readl_relaxed(drv->reg_base + QDSP6SS_BOOT_STATUS);
+		if (val & BIT(0))
+			return 0;
+	}
+
+	dev_err(drv->desc.dev, "Boot FSM failed to complete.\n");
+	return -ETIMEDOUT;
+}
+
 static int __pil_q6v55_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
@@ -556,7 +604,10 @@ int pil_q6v5_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 
-	if (drv->qdsp6v55)
+
+	if (drv->qdsp6v65_1_0)
+		return __pil_q6v65_reset(pil);
+	else if (drv->qdsp6v55)
 		return __pil_q6v55_reset(pil);
 	else
 		return __pil_q6v5_reset(pil);
@@ -672,6 +723,9 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 
 	drv->qdsp6v62_1_5 = of_property_read_bool(pdev->dev.of_node,
 						"qcom,qdsp6v62-1-5");
+
+	drv->qdsp6v65_1_0 = of_property_read_bool(pdev->dev.of_node,
+						"qcom,qdsp6v65-1-0");
 
 	drv->non_elf_image = of_property_read_bool(pdev->dev.of_node,
 						"qcom,mba-image-is-not-elf");
