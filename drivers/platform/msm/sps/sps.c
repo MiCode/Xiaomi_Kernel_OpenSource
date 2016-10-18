@@ -1596,10 +1596,6 @@ int sps_transfer(struct sps_pipe *h, struct sps_transfer *transfer)
 	} else if (transfer->iovec_count == 0) {
 		SPS_ERR(sps, "sps:%s:iovec list is empty.\n", __func__);
 		return SPS_ERROR;
-	} else if (transfer->iovec_phys == 0) {
-		SPS_ERR(sps,
-			"sps:%s:iovec list address is invalid.\n", __func__);
-		return SPS_ERROR;
 	}
 
 	/* Verify content of IOVECs */
