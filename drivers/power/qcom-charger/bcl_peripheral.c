@@ -459,7 +459,7 @@ static void bcl_lmh_dcvs_enable(void)
 	desc_arg.arginfo = SCM_ARGS(5, SCM_RO, SCM_VAL, SCM_VAL,
 				SCM_VAL, SCM_VAL);
 
-	dmac_flush_range(payload, payload + 5 * (sizeof(uint32_t)));
+	dmac_flush_range(payload, (void *)payload + 5 * (sizeof(uint32_t)));
 	if (scm_call2(SCM_SIP_FNID(SCM_SVC_LMH, LMH_DCVSH),
 			&desc_arg))
 		pr_err("Error enabling LMH BCL monitoringfor cluster0\n");
