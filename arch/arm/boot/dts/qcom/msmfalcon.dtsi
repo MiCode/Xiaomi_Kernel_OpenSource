@@ -377,9 +377,8 @@
 		};
 	};
 
-	clock_rpmcc: qcom,dummycc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmcc_clocks";
+	clock_rpmcc: qcom,rpmcc {
+		compatible = "qcom,rpmcc-msmfalcon", "qcom,rpmcc";
 		#clock-cells = <1>;
 	};
 
