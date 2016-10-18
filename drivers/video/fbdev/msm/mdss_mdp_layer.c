@@ -1618,8 +1618,8 @@ static bool __multirect_validate_rects(struct mdp_input_layer **layers,
 	/* resolution related validation */
 	if (mdss_rect_overlap_check(&dst[0], &dst[1])) {
 		pr_err("multirect dst overlap is not allowed. input: %d,%d,%d,%d paired %d,%d,%d,%d\n",
-			dst[0].x, dst[0].y, dst[0].w, dst[0].y,
-			dst[1].x, dst[1].y, dst[1].w, dst[1].y);
+			dst[0].x, dst[0].y, dst[0].w, dst[0].h,
+			dst[1].x, dst[1].y, dst[1].w, dst[1].h);
 		return false;
 	}
 
