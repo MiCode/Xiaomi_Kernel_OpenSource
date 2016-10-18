@@ -1139,6 +1139,7 @@ static void f_midi_free(struct usb_function *f)
 	mutex_lock(&opts->lock);
 	for (i = opts->in_ports - 1; i >= 0; --i)
 		kfree(midi->in_port[i]);
+	opts->func_inst.f = NULL;
 	kfree(midi);
 	--opts->refcnt;
 	mutex_unlock(&opts->lock);
