@@ -168,7 +168,7 @@
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <0>;
-		cam_vdig-supply = <&vph_pwr_vreg>;
+		cam_vdig-supply = <&pm8994_l3>;
 		/* Cameras powered by PMIC: */
 		cam_vio-supply = <&pm8994_lvs1>;
 		cam_vana-supply = <&pm8994_l23>;
@@ -211,7 +211,7 @@
 		qcom,eeprom-src = <&eeprom1>;
 		qcom,actuator-src = <&actuator1>;
 		/* Cameras powered by PMIC: */
-		cam_vdig-supply = <&vph_pwr_vreg>;
+		cam_vdig-supply = <&pm8994_l3>;
 		cam_vio-supply = <&pm8994_lvs1>;
 		cam_vana-supply = <&pm8994_l23>;
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
@@ -239,6 +239,47 @@
 		status = "ok";
 		clocks = <&clock_mmss clk_mclk2_clk_src>,
 			<&clock_mmss clk_camss_mclk2_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+	};
+
+/* right ov */
+	qcom,camera@3 {
+		cell-index = <3>;
+		compatible = "qcom,camera";
+		reg = <0x03>;
+		qcom,csiphy-sd-index = <1>;
+		qcom,csid-sd-index = <3>;
+		qcom,mount-angle = <0>;
+		cam_vdig-supply = <&vph_pwr_vreg>;
+		/* Cameras powered by PMIC: */
+		cam_vio-supply = <&pm8994_lvs1>;
+		cam_vana-supply = <&pm8994_l23>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1000000 0 2800000>;
+		qcom,cam-vreg-max-voltage = <1000000 0 2800000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk3_active &cam_csi1_sensor_active>;
+		pinctrl-1 = <&cam_sensor_mclk3_suspend
+				&cam_csi1_sensor_suspend>;
+		gpios = <&tlmm 16 0>,
+			<&tlmm 121 0>,
+			<&tlmm 29 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK1",
+					  "CAM_RESET1",
+					  "CAM_STANDBY1";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
+		qcom,cci-master = <1>;
+		status = "ok";
+		clocks = <&clock_mmss clk_mclk3_clk_src>,
+			<&clock_mmss clk_camss_mclk3_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 		qcom,clock-rates = <24000000 0>;
 	};
