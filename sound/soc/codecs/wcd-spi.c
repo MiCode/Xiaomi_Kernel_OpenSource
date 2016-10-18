@@ -80,7 +80,9 @@
 /* Word sizes and min/max lengths */
 #define WCD_SPI_WORD_BYTE_CNT (4)
 #define WCD_SPI_RW_MULTI_MIN_LEN (16)
-#define WCD_SPI_RW_MULTI_MAX_LEN (64 * 1024)
+
+/* Max size is closest multiple of 16 less than 64Kbytes */
+#define WCD_SPI_RW_MULTI_MAX_LEN ((64 * 1024) - 16)
 
 /* Alignment requirements */
 #define WCD_SPI_RW_MIN_ALIGN    WCD_SPI_WORD_BYTE_CNT
@@ -642,11 +644,10 @@ static int wcd_spi_init(struct spi_device *spi)
 	regmap_write(wcd_spi->regmap, WCD_SPI_SLAVE_CONFIG,
 		     0x0F3D0800);
 
-	/* Write the MTU to 64K */
+	/* Write the MTU to max allowed size */
 	regmap_update_bits(wcd_spi->regmap,
 			   WCD_SPI_SLAVE_TRNS_LEN,
-			   0xFFFF0000,
-			   (WCD_SPI_RW_MULTI_MAX_LEN / 4) << 16);
+			   0xFFFF0000, 0xFFFF0000);
 err_wr_en:
 	wcd_spi_clk_ctrl(spi, WCD_SPI_CLK_DISABLE,
 			 WCD_SPI_CLK_FLAG_IMMEDIATE);
