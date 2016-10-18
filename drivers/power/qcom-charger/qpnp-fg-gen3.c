@@ -1654,6 +1654,37 @@ out:
 	return rc;
 }
 
+static void fg_notify_charger(struct fg_chip *chip)
+{
+	union power_supply_propval prop = {0, };
+	int rc;
+
+	if (!is_charger_available(chip)) {
+		pr_warn("Charger not available yet?\n");
+		return;
+	}
+
+	prop.intval = chip->bp.float_volt_uv;
+	rc = power_supply_set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
+	if (rc < 0) {
+		pr_err("Error in setting voltage_max property on batt_psy, rc=%d\n",
+			rc);
+		return;
+	}
+
+	prop.intval = chip->bp.fastchg_curr_ma;
+	rc = power_supply_set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &prop);
+	if (rc < 0) {
+		pr_err("Error in setting constant_charge_current_max property on batt_psy, rc=%d\n",
+			rc);
+		return;
+	}
+
+	fg_dbg(chip, FG_STATUS, "Notified charger on float voltage and FCC\n");
+}
+
 static void profile_load_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -1719,6 +1750,7 @@ done:
 				rc);
 	}
 
+	fg_notify_charger(chip);
 	chip->profile_loaded = true;
 	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
 out:
@@ -1808,6 +1840,7 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		pval->intval = chip->bp.float_volt_uv;
+		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 		pval->intval = fg_get_cycle_count(chip);
 		break;
