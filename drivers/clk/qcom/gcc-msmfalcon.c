@@ -2739,6 +2739,8 @@ static const struct qcom_cc_desc gcc_falcon_desc = {
 	.config = &gcc_falcon_regmap_config,
 	.clks = gcc_falcon_clocks,
 	.num_clks = ARRAY_SIZE(gcc_falcon_clocks),
+	.hwclks = gcc_msmfalcon_hws,
+	.num_hwclks = ARRAY_SIZE(gcc_msmfalcon_hws),
 	.resets = gcc_falcon_resets,
 	.num_resets = ARRAY_SIZE(gcc_falcon_resets),
 };
@@ -2764,13 +2766,6 @@ static int gcc_falcon_probe(struct platform_device *pdev)
 	 * turned off by hardware during certain apps low power modes.
 	 */
 	regmap_update_bits(regmap, 0x52008, BIT(21), BIT(21));
-
-	/* register hardware clocks */
-	for (i = 0; i < ARRAY_SIZE(gcc_msmfalcon_hws); i++) {
-		clk = devm_clk_register(&pdev->dev, gcc_msmfalcon_hws[i]);
-		if (IS_ERR(clk))
-			return PTR_ERR(clk);
-	}
 
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0])) {

@@ -27,6 +27,7 @@ enum print_reason {
 #define DEFAULT_VOTER			"DEFAULT_VOTER"
 #define USER_VOTER			"USER_VOTER"
 #define PD_VOTER			"PD_VOTER"
+#define USB_PSY_VOTER			"USB_PSY_VOTER"
 #define PL_TAPER_WORK_RUNNING_VOTER	"PL_TAPER_WORK_RUNNING_VOTER"
 #define PARALLEL_PSY_VOTER		"PARALLEL_PSY_VOTER"
 #define PL_INDIRECT_VOTER		"PL_INDIRECT_VOTER"
@@ -37,6 +38,13 @@ enum print_reason {
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
 #define FCC_MAX_RESULT_VOTER		"FCC_MAX_RESULT_VOTER"
 #define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
+#define CC_DETACHED_VOTER		"CC_DETACHED_VOTER"
+#define HVDCP_TIMEOUT_VOTER		"HVDCP_TIMEOUT_VOTER"
+#define PD_DISALLOWED_INDIRECT_VOTER	"PD_DISALLOWED_INDIRECT_VOTER"
+#define PD_HARD_RESET_VOTER		"PD_HARD_RESET_VOTER"
+#define VBUS_CC_SHORT_VOTER		"VBUS_CC_SHORT_VOTER"
+#define LEGACY_CABLE_VOTER		"LEGACY_CABLE_VOTER"
+#define PD_INACTIVE_VOTER		"PD_INACTIVE_VOTER"
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -89,6 +97,7 @@ struct smb_params {
 	struct smb_chg_param	step_soc_threshold[4];
 	struct smb_chg_param	step_soc;
 	struct smb_chg_param	step_cc_delta[5];
+	struct smb_chg_param	freq_buck;
 };
 
 struct parallel_params {
@@ -108,6 +117,7 @@ struct smb_iio {
 
 struct smb_charger {
 	struct device		*dev;
+	char			*name;
 	struct regmap		*regmap;
 	struct smb_params	param;
 	struct smb_iio		iio;
@@ -144,11 +154,14 @@ struct smb_charger {
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
 	struct votable		*dc_icl_votable;
+	struct votable		*pd_disallowed_votable_indirect;
 	struct votable		*pd_allowed_votable;
 	struct votable		*awake_votable;
 	struct votable		*pl_disable_votable;
 	struct votable		*chg_disable_votable;
 	struct votable		*pl_enable_votable_indirect;
+	struct votable		*hvdcp_disable_votable;
+	struct votable		*apsd_disable_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
@@ -162,8 +175,9 @@ struct smb_charger {
 	/* cached status */
 	int			voltage_min_uv;
 	int			voltage_max_uv;
-	bool			pd_active;
+	int			pd_active;
 	bool			vbus_present;
+	bool			system_suspend_supported;
 
 	int			system_temp_level;
 	int			thermal_levels;
@@ -275,6 +289,8 @@ int smblib_get_prop_usb_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_pd_current_max(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_get_prop_usb_current_max(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_current_now(struct smb_charger *chg,
@@ -289,10 +305,14 @@ int smblib_get_prop_pd_allowed(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
+			       union power_supply_propval *val);
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_charger_temp_max(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_set_prop_pd_current_max(struct smb_charger *chg,
+				const union power_supply_propval *val);
 int smblib_set_prop_usb_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_usb_voltage_min(struct smb_charger *chg,
@@ -303,6 +323,8 @@ int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_pd_active(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
+				const union power_supply_propval *val);
 
 int smblib_get_prop_slave_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -310,4 +332,3 @@ int smblib_get_prop_slave_current_now(struct smb_charger *chg,
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
 #endif /* __SMB2_CHARGER_H */
-

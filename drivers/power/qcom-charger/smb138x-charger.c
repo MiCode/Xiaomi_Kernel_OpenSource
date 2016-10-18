@@ -72,6 +72,13 @@ static struct smb_params v1_params = {
 		.max_u	= 6000000,
 		.step_u	= 25000,
 	},
+	.freq_buck	= {
+		.name	= "buck switching frequency",
+		.reg	= CFG_BUCKBOOST_FREQ_SELECT_BUCK_REG,
+		.min_u	= 500,
+		.max_u	= 2000,
+		.step_u	= 100,
+	},
 };
 
 struct smb_dt_props {
@@ -470,6 +477,10 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_BUCK_FREQ:
+		rc = smblib_set_charge_param(chg, &chg->param.freq_buck,
+					     val->intval);
 		break;
 	default:
 		pr_err("parallel power supply set prop %d not supported\n",
@@ -1172,6 +1183,7 @@ static int smb138x_probe(struct platform_device *pdev)
 
 	chip->chg.dev = &pdev->dev;
 	chip->chg.debug_mask = &__debug_mask;
+	chip->chg.name = "SMB";
 
 	chip->chg.regmap = dev_get_regmap(chip->chg.dev->parent, NULL);
 	if (!chip->chg.regmap) {

@@ -358,6 +358,15 @@ enum {
 	ASRC_MAX,
 };
 
+enum {
+	CONV_88P2K_TO_384K,
+	CONV_96K_TO_352P8K,
+	CONV_352P8K_TO_384K,
+	CONV_384K_TO_352P8K,
+	CONV_384K_TO_384K,
+	CONV_96K_TO_384K,
+};
+
 static struct afe_param_slimbus_slave_port_cfg tavil_slimbus_slave_port_cfg = {
 	.minor_version = 1,
 	.slimbus_dev_id = AFE_SLIMBUS_DEVICE_1,
@@ -577,7 +586,7 @@ struct tavil_priv {
 	/* num of slim ports required */
 	struct wcd9xxx_codec_dai_data  dai[NUM_CODEC_DAIS];
 	/* Port values for Rx and Tx codec_dai */
-	unsigned int rx_port_value;
+	unsigned int rx_port_value[WCD934X_RX_MAX];
 	unsigned int tx_port_value;
 
 	struct wcd9xxx_resmgr_v2 *resmgr;
@@ -616,6 +625,7 @@ struct tavil_priv {
 	int native_clk_users;
 	/* ASRC users count */
 	int asrc_users[ASRC_MAX];
+	int asrc_output_mode[ASRC_MAX];
 	/* Main path clock users count */
 	int main_clk_users[WCD934X_NUM_INTERPOLATORS];
 	struct tavil_dsd_config *dsd_config;
@@ -1298,7 +1308,8 @@ static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 
-	ucontrol->value.enumerated.item[0] = tavil_p->rx_port_value;
+	ucontrol->value.enumerated.item[0] =
+				tavil_p->rx_port_value[widget->shift];
 	return 0;
 }
 
@@ -1313,17 +1324,20 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
+	unsigned int rx_port_value;
 	u32 port_id = widget->shift;
 
+	tavil_p->rx_port_value[port_id] = ucontrol->value.enumerated.item[0];
+	rx_port_value = tavil_p->rx_port_value[port_id];
+
 	mutex_lock(&tavil_p->codec_mutex);
-	tavil_p->rx_port_value = ucontrol->value.enumerated.item[0];
 	dev_dbg(codec->dev, "%s: wname %s cname %s value %u shift %d item %ld\n",
 		__func__, widget->name, ucontrol->id.name,
-		tavil_p->rx_port_value,	widget->shift,
+		rx_port_value, widget->shift,
 		ucontrol->value.integer.value[0]);
 
 	/* value need to match the Virtual port and AIF number */
-	switch (tavil_p->rx_port_value) {
+	switch (rx_port_value) {
 	case 0:
 		list_del_init(&core->rx_chs[port_id].list);
 		break;
@@ -1372,13 +1386,13 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 			      &tavil_p->dai[AIF4_PB].wcd9xxx_ch_list);
 		break;
 	default:
-		dev_err(codec->dev, "Unknown AIF %d\n", tavil_p->rx_port_value);
+		dev_err(codec->dev, "Unknown AIF %d\n", rx_port_value);
 		goto err;
 	}
 rtn:
 	mutex_unlock(&tavil_p->codec_mutex);
 	snd_soc_dapm_mux_update_power(widget->dapm, kcontrol,
-				      tavil_p->rx_port_value, e, update);
+				      rx_port_value, e, update);
 
 	return 0;
 err:
@@ -2592,6 +2606,45 @@ done:
 	return rc;
 }
 
+static int tavil_get_asrc_mode(struct tavil_priv *tavil, int asrc,
+			       u8 main_sr, u8 mix_sr)
+{
+	u8 asrc_output_mode;
+	int asrc_mode = CONV_88P2K_TO_384K;
+
+	if ((asrc < 0) || (asrc >= ASRC_MAX))
+		return 0;
+
+	asrc_output_mode = tavil->asrc_output_mode[asrc];
+
+	if (asrc_output_mode) {
+		/*
+		 * If Mix sample rate is < 96KHz, use 96K to 352.8K
+		 * conversion, or else use 384K to 352.8K conversion
+		 */
+		if (mix_sr < 5)
+			asrc_mode = CONV_96K_TO_352P8K;
+		else
+			asrc_mode = CONV_384K_TO_352P8K;
+	} else {
+		/* Integer main and Fractional mix path */
+		if (main_sr < 8 && mix_sr > 9) {
+			asrc_mode = CONV_352P8K_TO_384K;
+		} else if (main_sr > 8 && mix_sr < 8) {
+			/* Fractional main and Integer mix path */
+			if (mix_sr < 5)
+				asrc_mode = CONV_96K_TO_352P8K;
+			else
+				asrc_mode = CONV_384K_TO_352P8K;
+		} else if (main_sr < 8 && mix_sr < 8) {
+			/* Integer main and Integer mix path */
+			asrc_mode = CONV_96K_TO_384K;
+		}
+	}
+
+	return asrc_mode;
+}
+
 static int tavil_codec_enable_asrc(struct snd_soc_codec *codec,
 				   int asrc_in, int event)
 {
@@ -2658,19 +2711,8 @@ static int tavil_codec_enable_asrc(struct snd_soc_codec *codec,
 			main_sr = snd_soc_read(codec, ctl_reg) & 0x0F;
 			mix_ctl_reg = ctl_reg + 5;
 			mix_sr = snd_soc_read(codec, mix_ctl_reg) & 0x0F;
-			/* Integer main and Fractional mix path */
-			if (main_sr < 8 && mix_sr > 9) {
-				asrc_mode = 2;
-			} else if (main_sr > 8 && mix_sr < 8) {
-				/* Fractional main and Integer mix path */
-				if (mix_sr < 5)
-					asrc_mode = 1;
-				else
-					asrc_mode = 3;
-			} else if (main_sr < 8 && mix_sr < 8) {
-				/* Integer main and Integer mix path */
-				asrc_mode = 5;
-			}
+			asrc_mode = tavil_get_asrc_mode(tavil, asrc,
+							main_sr, mix_sr);
 			dev_dbg(codec->dev, "%s: main_sr:%d mix_sr:%d asrc_mode %d\n",
 				__func__, main_sr, mix_sr, asrc_mode);
 			snd_soc_update_bits(codec, asrc_ctl, 0x07, asrc_mode);
@@ -4752,6 +4794,46 @@ static int tavil_compander_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int tavil_hph_asrc_mode_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int index = -EINVAL;
+
+	if (!strcmp(kcontrol->id.name, "ASRC0 Output Mode"))
+		index = ASRC0;
+	if (!strcmp(kcontrol->id.name, "ASRC1 Output Mode"))
+		index = ASRC1;
+
+	if (tavil && (index >= 0) && (index < ASRC_MAX))
+		tavil->asrc_output_mode[index] =
+			ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int tavil_hph_asrc_mode_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	int val = 0;
+	int index = -EINVAL;
+
+	if (!strcmp(kcontrol->id.name, "ASRC0 Output Mode"))
+		index = ASRC0;
+	if (!strcmp(kcontrol->id.name, "ASRC1 Output Mode"))
+		index = ASRC1;
+
+	if (tavil && (index >= 0) && (index < ASRC_MAX))
+		val = tavil->asrc_output_mode[index];
+
+	ucontrol->value.integer.value[0] = val;
+
+	return 0;
+}
+
 static int tavil_hph_idle_detect_get(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
@@ -5146,6 +5228,10 @@ static const char * const hph_idle_detect_text[] = {
 	"OFF", "ON"
 };
 
+static const char * const asrc_mode_text[] = {
+	"INT", "FRAC"
+};
+
 static const char * const tavil_ear_pa_gain_text[] = {
 	"G_6_DB", "G_4P5_DB", "G_3_DB", "G_1P5_DB",
 	"G_0_DB", "G_M2P5_DB", "UNDEFINED", "G_M12_DB"
@@ -5161,6 +5247,7 @@ static SOC_ENUM_SINGLE_EXT_DECL(tavil_ear_spkr_pa_gain_enum,
 				tavil_ear_spkr_pa_gain_text);
 static SOC_ENUM_SINGLE_EXT_DECL(amic_pwr_lvl_enum, amic_pwr_lvl_text);
 static SOC_ENUM_SINGLE_EXT_DECL(hph_idle_detect_enum, hph_idle_detect_text);
+static SOC_ENUM_SINGLE_EXT_DECL(asrc_mode_enum, asrc_mode_text);
 static SOC_ENUM_SINGLE_DECL(cf_dec0_enum, WCD934X_CDC_TX0_TX_PATH_CFG0, 5,
 							cf_text);
 static SOC_ENUM_SINGLE_DECL(cf_dec1_enum, WCD934X_CDC_TX1_TX_PATH_CFG0, 5,
@@ -5394,6 +5481,11 @@ static const struct snd_kcontrol_new tavil_snd_controls[] = {
 		tavil_compander_get, tavil_compander_put),
 	SOC_SINGLE_EXT("COMP8 Switch", SND_SOC_NOPM, COMPANDER_8, 1, 0,
 		tavil_compander_get, tavil_compander_put),
+
+	SOC_ENUM_EXT("ASRC0 Output Mode", asrc_mode_enum,
+		tavil_hph_asrc_mode_get, tavil_hph_asrc_mode_put),
+	SOC_ENUM_EXT("ASRC1 Output Mode", asrc_mode_enum,
+		tavil_hph_asrc_mode_get, tavil_hph_asrc_mode_put),
 
 	SOC_ENUM_EXT("HPH Idle Detect", hph_idle_detect_enum,
 		tavil_hph_idle_detect_get, tavil_hph_idle_detect_put),

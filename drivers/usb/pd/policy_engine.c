@@ -299,6 +299,7 @@ struct usbpd {
 	enum power_supply_typec_mode typec_mode;
 	enum power_supply_type	psy_type;
 	bool			vbus_present;
+	bool			pd_allowed;
 
 	enum data_role		current_dr;
 	enum power_role		current_pr;
@@ -459,6 +460,7 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos)
 
 static int pd_eval_src_caps(struct usbpd *pd, const u32 *src_caps)
 {
+	union power_supply_propval val;
 	u32 first_pdo = src_caps[0];
 
 	/* save the PDOs so userspace can further evaluate */
@@ -473,6 +475,10 @@ static int pd_eval_src_caps(struct usbpd *pd, const u32 *src_caps)
 	pd->peer_usb_comm = PD_SRC_PDO_FIXED_USB_COMM(first_pdo);
 	pd->peer_pr_swap = PD_SRC_PDO_FIXED_PR_SWAP(first_pdo);
 	pd->peer_dr_swap = PD_SRC_PDO_FIXED_DR_SWAP(first_pdo);
+
+	val.intval = PD_SRC_PDO_FIXED_USB_SUSP(first_pdo);
+	power_supply_set_property(pd->usb_psy,
+			POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED, &val);
 
 	/* Select the first PDO (vSafe5V) immediately. */
 	pd_select_pdo(pd, 1);
@@ -625,7 +631,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_SRC_STARTUP:
 		if (pd->current_dr == DR_NONE) {
 			pd->current_dr = DR_DFP;
-			/* Defer starting USB host mode until after PD */
+			/*
+			 * Defer starting USB host mode until PE_SRC_READY or
+			 * when PE_SRC_SEND_CAPABILITIES fails
+			 */
 		}
 
 		/* Set CC back to DRP toggle for the next disconnect */
@@ -660,7 +669,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
 		if (pd->in_pr_swap) {
-			pd->in_pr_swap = false;
 			kick_sm(pd, SWAP_SOURCE_START_TIME);
 			break;
 		}
@@ -820,6 +828,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			}
 		}
 
+		if (!pd->pd_allowed)
+			break;
+
 		/* Reset protocol layer */
 		pd->tx_msgid = 0;
 		pd->rx_msgid = -1;
@@ -847,7 +858,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->pd_phy_opened = true;
 		}
 
-		pd->in_pr_swap = false;
 		pd->current_voltage = 5000000;
 
 		pd->current_state = PE_SNK_WAIT_FOR_CAPABILITIES;
@@ -1373,11 +1383,11 @@ static void usbpd_sm(struct work_struct *w)
 		ctrl_recvd = pd->rx_msg_type;
 
 	/* Disconnect? */
-	if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+	if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE && !pd->in_pr_swap) {
 		if (pd->current_state == PE_UNKNOWN)
 			goto sm_done;
 
-		usbpd_info(&pd->dev, "USB PD disconnect\n");
+		usbpd_info(&pd->dev, "USB Type-C disconnect\n");
 
 		if (pd->pd_phy_opened) {
 			pd_phy_close();
@@ -1398,6 +1408,10 @@ static void usbpd_sm(struct work_struct *w)
 		val.intval = 0;
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED,
+				&val);
 
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
@@ -1482,6 +1496,10 @@ static void usbpd_sm(struct work_struct *w)
 
 			usbpd_set_state(pd, PE_SRC_STARTUP);
 		}
+		break;
+
+	case PE_SRC_STARTUP:
+		usbpd_set_state(pd, PE_SRC_STARTUP);
 		break;
 
 	case PE_SRC_SEND_CAPABILITIES:
@@ -1621,6 +1639,10 @@ static void usbpd_sm(struct work_struct *w)
 		usbpd_set_state(pd, PE_SRC_TRANSITION_TO_DEFAULT);
 		break;
 
+	case PE_SNK_STARTUP:
+		usbpd_set_state(pd, PE_SNK_STARTUP);
+		break;
+
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
 		if (data_recvd == MSG_SOURCE_CAPABILITIES) {
 			val.intval = 0;
@@ -1668,9 +1690,14 @@ static void usbpd_sm(struct work_struct *w)
 					POWER_SUPPLY_PROP_VOLTAGE_MIN,
 					&val);
 
-			val.intval = 0; /* suspend charging */
+			/*
+			 * disable charging; technically we are allowed to
+			 * charge up to pSnkStdby (2.5 W) during this
+			 * transition, but disable it just for simplicity.
+			 */
+			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
 
 			pd->selected_pdo = pd->requested_pdo;
 			usbpd_set_state(pd, PE_SNK_TRANSITION_SINK);
@@ -1701,7 +1728,7 @@ static void usbpd_sm(struct work_struct *w)
 			/* resume charging */
 			val.intval = pd->requested_current * 1000; /* mA->uA */
 			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
 
 			usbpd_set_state(pd, PE_SNK_READY);
 		} else {
@@ -1853,7 +1880,7 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->requested_current) {
 			val.intval = pd->requested_current = 0;
 			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
 		}
 
 		val.intval = pd->requested_voltage;
@@ -2008,9 +2035,8 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 {
 	struct usbpd *pd = container_of(nb, struct usbpd, psy_nb);
 	union power_supply_propval val;
-	bool pd_allowed;
 	enum power_supply_typec_mode typec_mode;
-	enum power_supply_type psy_type;
+	bool do_work = false;
 	int ret;
 
 	if (ptr != pd->usb_psy || evt != PSY_EVENT_PROP_CHANGED)
@@ -2024,7 +2050,9 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		return ret;
 	}
 
-	pd_allowed = val.intval;
+	if (pd->pd_allowed != val.intval)
+		do_work = true;
+	pd->pd_allowed = val.intval;
 
 	ret = power_supply_get_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PRESENT, &val);
@@ -2044,38 +2072,6 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 	typec_mode = val.intval;
 
-	/*
-	 * Don't proceed if cable is connected but PD_ALLOWED is false.
-	 * It means the PMIC may still be in the middle of performing
-	 * charger type detection.
-	 */
-	if (!pd_allowed && typec_mode != POWER_SUPPLY_TYPEC_NONE)
-		return 0;
-
-	/*
-	 * Workaround for PMIC HW bug.
-	 *
-	 * During hard reset or PR swap (sink to source) when VBUS goes to 0
-	 * the CC logic will report this as a disconnection. In those cases it
-	 * can be ignored, however the downside is that pd->hard_reset can be
-	 * momentarily true even when a non-PD capable source is attached, and
-	 * can't be distinguished from a physical disconnect. In that case,
-	 * allow for the common case of disconnecting from an SDP.
-	 *
-	 * The less common case is a PD-capable SDP which will result in a
-	 * hard reset getting treated like a disconnect. We can live with this
-	 * until the HW bug is fixed: in which disconnection won't be reported
-	 * on VBUS loss alone unless pullup is also removed from CC.
-	 */
-	if (typec_mode == POWER_SUPPLY_TYPEC_NONE &&
-		(pd->in_pr_swap ||
-		 (pd->psy_type != POWER_SUPPLY_TYPE_USB &&
-		  pd->current_state == PE_SNK_TRANSITION_TO_DEFAULT))) {
-		usbpd_dbg(&pd->dev, "Ignoring disconnect due to %s\n",
-				pd->in_pr_swap ? "PR swap" : "hard reset");
-		return 0;
-	}
-
 	ret = power_supply_get_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_TYPE, &val);
 	if (ret) {
@@ -2083,60 +2079,90 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		return ret;
 	}
 
-	psy_type = val.intval;
+	if (pd->psy_type != val.intval)
+		do_work = true;
+	pd->psy_type = val.intval;
 
 	usbpd_dbg(&pd->dev, "typec mode:%d present:%d type:%d orientation:%d\n",
-			typec_mode, pd->vbus_present, psy_type,
+			typec_mode, pd->vbus_present, pd->psy_type,
 			usbpd_get_plug_orientation(pd));
 
-	/* any change? */
-	if (pd->typec_mode == typec_mode && pd->psy_type == psy_type)
-		return 0;
+	if (pd->typec_mode != typec_mode) {
+		pd->typec_mode = typec_mode;
+		do_work = true;
 
-	pd->typec_mode = typec_mode;
-	pd->psy_type = psy_type;
+		switch (typec_mode) {
+		/* Disconnect */
+		case POWER_SUPPLY_TYPEC_NONE:
+			if (pd->in_pr_swap) {
+				usbpd_dbg(&pd->dev, "Ignoring disconnect due to PR swap\n");
+				do_work = false;
+			}
 
-	switch (typec_mode) {
-	/* Disconnect */
-	case POWER_SUPPLY_TYPEC_NONE:
-		kick_sm(pd, 0);
-		break;
+			/*
+			 * Workaround for PMIC HW bug.
+			 *
+			 * During hard reset when VBUS goes to 0 the CC logic
+			 * will report this as a disconnection. In those cases
+			 * it can be ignored, however the downside is that
+			 * pd->hard_reset can be momentarily true even when a
+			 * non-PD capable source is attached, and can't be
+			 * distinguished from a physical disconnect. In that
+			 * case, allow for the common case of disconnecting
+			 * from an SDP.
+			 *
+			 * The less common case is a PD-capable SDP which will
+			 * result in a hard reset getting treated like a
+			 * disconnect. We can live with this until the HW bug
+			 * is fixed: in which disconnection won't be reported
+			 * on VBUS loss alone unless pullup is also removed
+			 * from CC.
+			 */
+			if (pd->psy_type != POWER_SUPPLY_TYPE_USB &&
+				  pd->current_state ==
+					  PE_SNK_TRANSITION_TO_DEFAULT) {
+				usbpd_dbg(&pd->dev, "Ignoring disconnect due to hard reset\n");
+				do_work = false;
+			}
 
-	/* Sink states */
-	case POWER_SUPPLY_TYPEC_SOURCE_DEFAULT:
-	case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
-	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
-		usbpd_info(&pd->dev, "Type-C Source (%s) connected\n",
-				src_current(typec_mode));
-		if (pd->current_pr != PR_SINK ||
-			pd->current_state == PE_SNK_TRANSITION_TO_DEFAULT) {
+			break;
+
+		/* Sink states */
+		case POWER_SUPPLY_TYPEC_SOURCE_DEFAULT:
+		case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
+		case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
+			usbpd_info(&pd->dev, "Type-C Source (%s) connected\n",
+					src_current(typec_mode));
 			pd->current_pr = PR_SINK;
-			kick_sm(pd, 0);
-		}
-		break;
+			pd->in_pr_swap = false;
+			break;
 
-	/* Source states */
-	case POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE:
-	case POWER_SUPPLY_TYPEC_SINK:
-		usbpd_info(&pd->dev, "Type-C Sink%s connected\n",
-				typec_mode == POWER_SUPPLY_TYPEC_SINK ?
-					"" : " (powered)");
-		if (pd->current_pr != PR_SRC) {
+		/* Source states */
+		case POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE:
+		case POWER_SUPPLY_TYPEC_SINK:
+			usbpd_info(&pd->dev, "Type-C Sink%s connected\n",
+					typec_mode == POWER_SUPPLY_TYPEC_SINK ?
+						"" : " (powered)");
 			pd->current_pr = PR_SRC;
-			kick_sm(pd, 0);
-		}
-		break;
+			pd->in_pr_swap = false;
+			break;
 
-	case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
-		usbpd_info(&pd->dev, "Type-C Debug Accessory connected\n");
-		break;
-	case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
-		usbpd_info(&pd->dev, "Type-C Analog Audio Adapter connected\n");
-		break;
-	default:
-		usbpd_warn(&pd->dev, "Unsupported typec mode:%d\n", typec_mode);
-		break;
+		case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
+			usbpd_info(&pd->dev, "Type-C Debug Accessory connected\n");
+			break;
+		case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
+			usbpd_info(&pd->dev, "Type-C Analog Audio Adapter connected\n");
+			break;
+		default:
+			usbpd_warn(&pd->dev, "Unsupported typec mode:%d\n",
+					typec_mode);
+			break;
+		}
 	}
+
+	/* only queue state machine if CC state or PD_ALLOWED changes */
+	if (do_work)
+		kick_sm(pd, 0);
 
 	return 0;
 }

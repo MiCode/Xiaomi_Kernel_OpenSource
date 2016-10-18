@@ -105,6 +105,7 @@
 	EDP_INTR_FRAME_END | EDP_INTR_CRC_UPDATED)
 
 #define EDP_INTR_MASK2		(EDP_INTR_STATUS2 << 2)
+#define EV_EVENT_STR(x)		#x
 
 struct edp_buf {
 	char *start;	/* buffer start addr */
@@ -170,12 +171,12 @@ struct usbpd_dp_status {
 };
 
 enum dp_alt_mode_state {
-	ALT_MODE_INIT_STATE = 0,
-	DISCOVER_MODES_DONE,
-	ENTER_MODE_DONE,
-	DP_STATUS_DONE,
-	DP_CONFIGURE_DONE,
-	UNKNOWN_STATE,
+	UNKNOWN_STATE       = 0,
+	ALT_MODE_INIT_STATE = BIT(0),
+	DISCOVER_MODES_DONE = BIT(1),
+	ENTER_MODE_DONE     = BIT(2),
+	DP_STATUS_DONE      = BIT(3),
+	DP_CONFIGURE_DONE   = BIT(4),
 };
 
 struct dp_alt_mode {
@@ -462,6 +463,28 @@ static inline const char *__mdss_dp_pm_supply_node_name(
 	case DP_CTRL_PM:	return "qcom,ctrl-supply-entries";
 	case DP_PHY_PM:		return "qcom,phy-supply-entries";
 	default:		return "???";
+	}
+}
+
+static inline char *mdss_dp_ev_event_to_string(int event)
+{
+	switch (event) {
+	case EV_EDP_AUX_SETUP:
+		return EV_EVENT_STR(EV_EDP_AUX_SETUP);
+	case EV_EDID_READ:
+		return EV_EVENT_STR(EV_EDID_READ);
+	case EV_DPCD_CAP_READ:
+		return EV_EVENT_STR(EV_DPCD_CAP_READ);
+	case EV_DPCD_STATUS_READ:
+		return EV_EVENT_STR(EV_DPCD_STATUS_READ);
+	case EV_LINK_TRAIN:
+		return EV_EVENT_STR(EV_LINK_TRAIN);
+	case EV_IDLE_PATTERNS_SENT:
+		return EV_EVENT_STR(EV_IDLE_PATTERNS_SENT);
+	case EV_VIDEO_READY:
+		return EV_EVENT_STR(EV_VIDEO_READY);
+	default:
+		return "unknown";
 	}
 }
 
