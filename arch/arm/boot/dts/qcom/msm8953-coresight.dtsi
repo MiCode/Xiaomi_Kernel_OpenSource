@@ -751,9 +751,9 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
-	cti_modem_cpu0: cti@6124000 {
+	cti_modem_cpu0: cti@6128000 {
 		compatible = "arm,coresight-cti";
-		reg = <0x6124000 0x1000>;
+		reg = <0x6128000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <44>;
@@ -765,9 +765,9 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
-	cti_modem_cpu1: cti@6128000{
+	cti_modem_cpu1: cti@6124000{
 		compatible = "arm,coresight-cti";
-		reg = <0x6128000 0x1000>;
+		reg = <0x6124000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <45>;

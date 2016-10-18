@@ -133,6 +133,7 @@ panasonic	Panasonic Corporation
 pericom	Pericom Semiconductor Corp.
 phytec	PHYTEC Messtechnik GmbH
 picochip	Picochip Ltd
+pixart	PixArt Imaging Inc
 plathome	Plat'Home Co., Ltd.
 plda	PLDA
 pixcir  PIXCIR MICROELECTRONICS Co., Ltd

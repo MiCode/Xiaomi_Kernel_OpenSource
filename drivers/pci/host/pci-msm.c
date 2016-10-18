@@ -3261,7 +3261,7 @@ static struct pci_ops msm_pcie_ops = {
 
 static int msm_pcie_gpio_init(struct msm_pcie_dev_t *dev)
 {
-	int rc, i;
+	int rc = 0, i;
 	struct msm_pcie_gpio_info_t *info;
 
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
@@ -5254,9 +5254,6 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 	} else {
 		dev->link_status = MSM_PCIE_LINK_DISABLED;
 		dev->shadow_en = false;
-
-		pcie_phy_dump(dev);
-		pcie_parf_dump(dev);
 
 		if (dev->linkdown_panic)
 			panic("User has chosen to panic on linkdown\n");

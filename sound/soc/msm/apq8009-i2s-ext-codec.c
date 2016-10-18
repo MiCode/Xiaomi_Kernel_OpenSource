@@ -927,7 +927,8 @@ static int msm_audrx_init_wcd(struct snd_soc_pcm_runtime *rtd)
 				__func__);
 		return  -ENOMEM;
 	}
-
+	tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
+	tasha_set_spkr_gain_offset(rtd->codec, RX_GAIN_OFFSET_M1P5_DB);
 	card = rtd->card->snd_card;
 	entry = snd_register_module_info(card->module,
 						"codecs",
