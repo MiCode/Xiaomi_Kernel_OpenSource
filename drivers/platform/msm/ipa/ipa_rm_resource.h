@@ -155,7 +155,8 @@ int ipa_rm_resource_producer_print_stat(
 int ipa_rm_resource_consumer_request_work(struct ipa_rm_resource_cons *consumer,
 		enum ipa_rm_resource_state prev_state,
 		u32 needed_bw,
-		bool notify_completion);
+		bool notify_completion,
+		bool dec_client_on_err);
 
 int ipa_rm_resource_consumer_release_work(
 		struct ipa_rm_resource_cons *consumer,
