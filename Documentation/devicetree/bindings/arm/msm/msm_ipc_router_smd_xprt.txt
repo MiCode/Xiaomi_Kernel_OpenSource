@@ -1,0 +1,34 @@
+Qualcomm Technologies, Inc. IPC Router SMD Transport
+
+Required properties:
+-compatible:		should be "qcom,ipc_router_smd_xprt"
+-qcom,ch-name:		the SMD channel name used by the SMD transport
+-qcom,xprt-remote:	string that defines the edge of the transport (PIL Name)
+-qcom,xprt-linkid:	unique integer to identify the tier to which the link
+			belongs to in the network and is used to avoid the
+			routing loops while forwarding the broadcast messages
+-qcom,xprt-version:	unique version ID used by SMD transport header
+
+Optional properties:
+-qcom,fragmented-data:	Indicate the SMD transport supports fragmented data
+-qcom,disable-pil-loading: Disable PIL Loading of the remote subsystem
+
+Example:
+	qcom,ipc_router_modem_xprt {
+		compatible = "qcom,ipc_router_smd_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "modem";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+		qcom,disable-pil-loading;
+	};
+
+	qcom,ipc_router_q6_xprt {
+		compatible = "qcom,ipc_router_smd_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "adsp";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+	};

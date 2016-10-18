@@ -314,3 +314,13 @@ config MSM_SMP2P_TEST
 	  processors to do unit testing. Unit tests
 	  are used to verify the local and remote
 	  implementations.
+
+config MSM_IPC_ROUTER_SMD_XPRT
+	depends on MSM_SMD
+	depends on IPC_ROUTER
+	bool "MSM SMD XPRT Layer"
+	help
+	  SMD Transport Layer that enables IPC Router communication within
+	  a System-on-Chip(SoC). When the SMD channels become available,
+	  this layer registers a transport with IPC Router and enable
+	  message exchange.
