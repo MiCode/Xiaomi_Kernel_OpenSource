@@ -1,4 +1,5 @@
-/* Copyright (c) 2011-2012, 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2016-2017, The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,8 +135,10 @@ static inline bool coresight_authstatus_enabled(void __iomem *addr)
 void coresight_disable_path(struct list_head *path);
 int coresight_enable_path(struct list_head *path, u32 mode);
 struct coresight_device *coresight_get_sink(struct list_head *path);
+struct coresight_device *coresight_get_source(struct list_head *path);
 struct list_head *coresight_build_path(struct coresight_device *csdev);
-void coresight_release_path(struct list_head *path);
+void coresight_release_path(struct coresight_device *csdev,
+			    struct list_head *path);
 
 #ifdef CONFIG_CORESIGHT_SOURCE_ETM3X
 extern int etm_readl_cp14(u32 off, unsigned int *val);
