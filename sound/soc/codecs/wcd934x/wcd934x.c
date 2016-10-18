@@ -8552,6 +8552,7 @@ static int tavil_device_down(struct wcd9xxx *wcd9xxx)
 	snd_soc_card_change_online_state(codec->component.card, 0);
 	for (count = 0; count < NUM_CODEC_DAIS; count++)
 		priv->dai[count].bus_down_in_recovery = true;
+	wcd_dsp_ssr_event(priv->wdsp_cntl, WCD_CDC_DOWN_EVENT);
 	priv->resmgr->sido_input_src = SIDO_SOURCE_INTERNAL;
 
 	return 0;
@@ -8655,6 +8656,7 @@ static int tavil_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	 * can be released allowing the codec to go to SVS2.
 	 */
 	tavil_vote_svs(tavil, false);
+	wcd_dsp_ssr_event(tavil->wdsp_cntl, WCD_CDC_UP_EVENT);
 
 done:
 	mutex_unlock(&tavil->codec_mutex);
