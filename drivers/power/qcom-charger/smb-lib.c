@@ -2949,6 +2949,19 @@ irqreturn_t smblib_handle_switcher_power_ok(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smblib_handle_wdog_bark(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+	int rc;
+
+	rc = smblib_write(chg, BARK_BITE_WDOG_PET_REG, BARK_BITE_WDOG_PET_BIT);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't pet the dog rc=%d\n", rc);
+
+	return IRQ_HANDLED;
+}
+
 /***************
  * Work Queues *
  ***************/
