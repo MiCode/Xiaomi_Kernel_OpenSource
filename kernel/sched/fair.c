@@ -3397,8 +3397,8 @@ retry:
 		}
 	}
 	p->last_cpu_selected_ts = sched_ktime_clock();
-	sbc_flag |= env.sbc_best_cluster_flag;
 out:
+	sbc_flag |= env.sbc_best_cluster_flag;
 	rcu_read_unlock();
 	trace_sched_task_load(p, sched_boost(), env.reason, env.sync,
 					env.need_idle, sbc_flag, target);
