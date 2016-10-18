@@ -362,12 +362,12 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 	else
 		id = CAM_AHB_CLIENT_VFE1;
 
+	vfe_dev->hw_info->vfe_ops.platform_ops.set_clk_rate(vfe_dev, &rate);
+
 	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to vote for AHB\n", __func__);
 
 	vfe_dev->ahb_vote = CAM_AHB_SUSPEND_VOTE;
-
-	vfe_dev->hw_info->vfe_ops.platform_ops.set_clk_rate(vfe_dev, &rate);
 
 	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(
 							vfe_dev, 0);
