@@ -17,8 +17,10 @@
 int mmc_register_host_class(void);
 void mmc_unregister_host_class(void);
 
+#ifdef CONFIG_BLOCK
 void mmc_latency_hist_sysfs_init(struct mmc_host *host);
 void mmc_latency_hist_sysfs_exit(struct mmc_host *host);
+#endif
 
 #endif
 

@@ -556,8 +556,9 @@ int mmc_add_host(struct mmc_host *host)
 	mmc_add_host_debugfs(host);
 #endif
 	mmc_host_clk_sysfs_init(host);
+#ifdef CONFIG_BLOCK
 	mmc_latency_hist_sysfs_init(host);
-
+#endif
 	mmc_start_host(host);
 	if (!(host->pm_flags & MMC_PM_IGNORE_PM_NOTIFY))
 		register_pm_notifier(&host->pm_notify);
@@ -585,8 +586,9 @@ void mmc_remove_host(struct mmc_host *host)
 #ifdef CONFIG_DEBUG_FS
 	mmc_remove_host_debugfs(host);
 #endif
-
+#ifdef CONFIG_BLOCK
 	mmc_latency_hist_sysfs_exit(host);
+#endif
 
 	device_del(&host->class_dev);
 
