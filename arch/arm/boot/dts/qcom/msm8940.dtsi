@@ -155,8 +155,8 @@
 		<90 512 100000 800000>, /* SVS (ab=100, ib=800 ~ 50MHz) */
 		<90 512 100000 1200000>; /* PERF (ab=100, ib=1200 ~ 75MHz) */
 		qcom,bus-vector-names = "MIN", "SVS", "PERF";
-		qcom,rx-polling-sleep-ms = <3>; /* Polling sleep interval */
-		qcom,ipa-polling-iteration = <15>;	/* Polling Iteration */
+		qcom,rx-polling-sleep-ms = <2>; /* Polling sleep interval */
+		qcom,ipa-polling-iteration = <5>;	/* Polling Iteration */
 	};
 
 	qcom,rmnet-ipa {
