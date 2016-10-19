@@ -94,6 +94,11 @@ struct lsm_priv {
 	int dma_write;
 };
 
+enum { /* lsm session states */
+	IDLE = 0,
+	RUNNING,
+};
+
 static int msm_lsm_queue_lab_buffer(struct lsm_priv *prtd, int i)
 {
 	int rc = 0;
@@ -647,6 +652,51 @@ err_ret:
 	return rc;
 }
 
+static int msm_lsm_set_poll_enable(struct snd_pcm_substream *substream,
+		struct lsm_params_info *p_info)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct lsm_priv *prtd = runtime->private_data;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_lsm_poll_enable poll_enable;
+	int rc = 0;
+
+	if (p_info->param_size != sizeof(poll_enable)) {
+		dev_err(rtd->dev,
+			"%s: Invalid param_size %d\n",
+			__func__, p_info->param_size);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	if (copy_from_user(&poll_enable, p_info->param_data,
+			   sizeof(poll_enable))) {
+		dev_err(rtd->dev,
+			"%s: copy_from_user failed, size = %zd\n",
+			__func__, sizeof(poll_enable));
+		rc = -EFAULT;
+		goto done;
+	}
+
+	if (prtd->lsm_client->poll_enable == poll_enable.poll_en) {
+		dev_dbg(rtd->dev,
+			"%s: Polling for session %d already %s\n",
+			__func__, prtd->lsm_client->session,
+			(poll_enable.poll_en ? "enabled" : "disabled"));
+		rc = 0;
+		goto done;
+	}
+
+	rc = q6lsm_set_one_param(prtd->lsm_client, p_info,
+				 &poll_enable, LSM_POLLING_ENABLE);
+	if (rc)
+		dev_err(rtd->dev,
+			"%s: Failed to set poll enable, err = %d\n",
+			__func__, rc);
+done:
+	return rc;
+}
+
 static int msm_lsm_process_params(struct snd_pcm_substream *substream,
 		struct snd_lsm_module_params *p_data,
 		void *params)
@@ -687,6 +737,9 @@ static int msm_lsm_process_params(struct snd_pcm_substream *substream,
 		case LSM_CUSTOM_PARAMS:
 			rc = msm_lsm_set_custom(substream, p_info);
 			break;
+		case LSM_POLLING_ENABLE:
+			rc = msm_lsm_set_poll_enable(substream, p_info);
+			break;
 		default:
 			dev_err(rtd->dev,
 				"%s: Invalid param_type %d\n",
@@ -722,6 +775,7 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 	struct snd_lsm_event_status *user = arg;
 	struct snd_lsm_detection_params det_params;
 	uint8_t *confidence_level = NULL;
+	bool poll_en;
 
 	if (!substream || !substream->private_data) {
 		pr_err("%s: Invalid %s\n", __func__,
@@ -857,10 +911,32 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		rc = q6lsm_set_data(prtd->lsm_client,
 			       det_params.detect_mode,
 			       det_params.detect_failure);
+
 		if (rc)
 			dev_err(rtd->dev,
 				"%s: Failed to set params, err = %d\n",
 				__func__, rc);
+		else {
+			poll_en = det_params.poll_enable;
+			if (prtd->lsm_client->poll_enable == poll_en) {
+				dev_dbg(rtd->dev,
+					"%s: Polling for session %d already %s\n",
+					__func__, prtd->lsm_client->session,
+					(poll_en ? "enabled" : "disabled"));
+				rc = 0;
+			} else {
+				dev_dbg(rtd->dev, "%s: polling enable = %d\n",
+					 __func__, poll_en);
+				rc = q6lsm_polling_enable(prtd->lsm_client,
+								poll_en);
+				if (!rc)
+					prtd->lsm_client->poll_enable = poll_en;
+				else
+					dev_err(rtd->dev,
+						"%s: poll enable failed %d\n",
+						__func__, rc);
+			}
+		}
 
 		kfree(prtd->lsm_client->confidence_levels);
 		prtd->lsm_client->confidence_levels = NULL;
@@ -1045,6 +1121,12 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			prtd->lsm_client->lab_started = false;
 		}
 	break;
+
+	case SNDRV_LSM_SET_PORT:
+		dev_dbg(rtd->dev, "%s: set LSM port\n", __func__);
+		rc = q6lsm_set_port_connected(prtd->lsm_client);
+		break;
+
 	default:
 		dev_dbg(rtd->dev,
 			"%s: Falling into default snd_lib_ioctl cmd 0x%x\n",
@@ -1083,6 +1165,7 @@ struct snd_lsm_detection_params_32 {
 	enum lsm_detection_mode detect_mode;
 	u8 num_confidence_levels;
 	bool detect_failure;
+	bool poll_enable;
 };
 
 struct lsm_params_info_32 {
@@ -1264,6 +1347,7 @@ static int msm_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 				det_params32.num_confidence_levels;
 			det_params.detect_failure =
 				det_params32.detect_failure;
+			det_params.poll_enable = det_params32.poll_enable;
 			cmd = SNDRV_LSM_SET_PARAMS;
 			err = msm_lsm_ioctl_shared(substream, cmd,
 					&det_params);
@@ -1697,6 +1781,10 @@ static int msm_lsm_open(struct snd_pcm_substream *substream)
 		return -ENOMEM;
 	}
 	prtd->lsm_client->opened = false;
+	prtd->lsm_client->session_state = IDLE;
+	prtd->lsm_client->poll_enable = true;
+	prtd->lsm_client->perf_mode = 0;
+
 	return 0;
 }
 
@@ -1705,6 +1793,7 @@ static int msm_lsm_prepare(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct lsm_priv *prtd = runtime->private_data;
 	struct snd_soc_pcm_runtime *rtd;
+	int ret = 0;
 
 	if (!substream->private_data) {
 		pr_err("%s: Invalid private_data", __func__);
@@ -1718,9 +1807,26 @@ static int msm_lsm_prepare(struct snd_pcm_substream *substream)
 			"%s: LSM client data ptr is NULL\n", __func__);
 		return -EINVAL;
 	}
+
+	if (prtd->lsm_client->session_state == IDLE) {
+		ret = msm_pcm_routing_reg_phy_compr_stream(
+				rtd->dai_link->be_id,
+				prtd->lsm_client->perf_mode,
+				prtd->lsm_client->session,
+				SNDRV_PCM_STREAM_CAPTURE,
+				LISTEN);
+		if (ret) {
+			dev_err(rtd->dev,
+				"%s: register phy compr stream failed %d\n",
+					__func__, ret);
+			return ret;
+		}
+	}
+
+	prtd->lsm_client->session_state = RUNNING;
 	prtd->lsm_client->started = false;
 	runtime->private_data = prtd;
-	return 0;
+	return ret;
 }
 
 static int msm_lsm_close(struct snd_pcm_substream *substream)
@@ -1768,6 +1874,9 @@ static int msm_lsm_close(struct snd_pcm_substream *substream)
 			dev_dbg(rtd->dev, "%s: dereg_snd_model succesful\n",
 				 __func__);
 	}
+
+	msm_pcm_routing_dereg_phy_stream(rtd->dai_link->be_id,
+					SNDRV_PCM_STREAM_CAPTURE);
 
 	if (prtd->lsm_client->opened) {
 		q6lsm_close(prtd->lsm_client);
