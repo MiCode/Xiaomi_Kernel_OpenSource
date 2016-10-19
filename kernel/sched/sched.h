@@ -351,13 +351,23 @@ struct cfs_bandwidth { };
 
 #ifdef CONFIG_SCHED_HMP
 
+#define NUM_TRACKED_WINDOWS 2
+#define NUM_LOAD_INDICES 1000
+
 struct hmp_sched_stats {
 	int nr_big_tasks;
 	u64 cumulative_runnable_avg;
 	u64 pred_demands_sum;
 };
 
+struct load_subtractions {
+	u64 window_start;
+	u64 subs;
+	u64 new_subs;
+};
+
 struct sched_cluster {
+	raw_spinlock_t load_lock;
 	struct list_head list;
 	struct cpumask cpus;
 	int id;
@@ -742,6 +752,13 @@ struct rq {
 	u64 prev_runnable_sum;
 	u64 nt_curr_runnable_sum;
 	u64 nt_prev_runnable_sum;
+	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
+	DECLARE_BITMAP_ARRAY(top_tasks_bitmap,
+			NUM_TRACKED_WINDOWS, NUM_LOAD_INDICES);
+	u8 *top_tasks[NUM_TRACKED_WINDOWS];
+	u8 curr_table;
+	int prev_top;
+	int curr_top;
 #endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -1056,8 +1073,9 @@ extern unsigned int  __read_mostly sched_spill_load;
 extern unsigned int  __read_mostly sched_upmigrate;
 extern unsigned int  __read_mostly sched_downmigrate;
 extern unsigned int  __read_mostly sysctl_sched_spill_nr_run;
+extern unsigned int  __read_mostly sched_load_granule;
 
-extern void init_new_task_load(struct task_struct *p);
+extern void init_new_task_load(struct task_struct *p, bool idle_task);
 extern u64 sched_ktime_clock(void);
 extern int got_boost_kick(void);
 extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
@@ -1401,6 +1419,7 @@ extern int cpu_upmigrate_discourage_write_u64(struct cgroup_subsys_state *css,
 				struct cftype *cft, u64 upmigrate_discourage);
 extern void sched_hmp_parse_dt(void);
 extern void init_sched_hmp_boost_policy(void);
+extern void clear_top_tasks_bitmap(unsigned long *bitmap);
 
 #else	/* CONFIG_SCHED_HMP */
 
@@ -1503,7 +1522,9 @@ static inline struct sched_cluster *rq_cluster(struct rq *rq)
 	return NULL;
 }
 
-static inline void init_new_task_load(struct task_struct *p) { }
+static inline void init_new_task_load(struct task_struct *p, bool idle_task)
+{
+}
 
 static inline u64 scale_load_to_cpu(u64 load, int cpu)
 {
@@ -1570,8 +1591,6 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 static inline void add_new_task_to_grp(struct task_struct *new) {}
 
 #define sched_enable_hmp 0
-#define sched_freq_legacy_mode 1
-#define sched_migration_fixup	0
 #define PRED_DEMAND_DELTA (0)
 
 static inline void
