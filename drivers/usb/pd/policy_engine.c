@@ -497,6 +497,7 @@ static void pd_send_hard_reset(struct usbpd *pd)
 	ret = pd_phy_signal(HARD_RESET_SIG, 5); /* tHardResetComplete */
 	if (!ret)
 		pd->hard_reset = true;
+	pd->in_pr_swap = false;
 }
 
 static void kick_sm(struct usbpd *pd, int ms)
@@ -913,8 +914,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_SNK_TRANSITION_TO_DEFAULT:
-		pd->hard_reset = false;
-
 		if (pd->current_dr != DR_UFP) {
 			extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 0);
 
@@ -1462,6 +1461,7 @@ static void usbpd_sm(struct work_struct *w)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
+		pd->in_pr_swap = false;
 		reset_vdm_state(pd);
 
 		if (pd->current_pr == PR_SINK)
@@ -1829,6 +1829,12 @@ static void usbpd_sm(struct work_struct *w)
 		break;
 
 	case PE_SNK_TRANSITION_TO_DEFAULT:
+		pd->hard_reset = false;
+
+		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 		if (pd->vbus_present) {
 			usbpd_set_state(pd, PE_SNK_STARTUP);
 		} else {
