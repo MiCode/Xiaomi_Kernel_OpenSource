@@ -862,3 +862,7 @@
 
 	lanes-per-direction = <2>;
 };
+
+&ssc_sensors {
+	qcom,firmware-name = "slpi_v2";
+};
