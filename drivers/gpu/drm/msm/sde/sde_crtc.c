@@ -81,11 +81,6 @@ static bool sde_crtc_mode_fixup(struct drm_crtc *crtc,
 	return true;
 }
 
-static void sde_crtc_mode_set_nofb(struct drm_crtc *crtc)
-{
-	DBG("");
-}
-
 static void _sde_crtc_setup_blend_cfg(struct sde_crtc_mixer *mixer,
 	struct sde_plane_state *pstate, struct sde_format *format)
 {
@@ -1139,7 +1134,6 @@ static const struct drm_crtc_funcs sde_crtc_funcs = {
 
 static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
 	.mode_fixup = sde_crtc_mode_fixup,
-	.mode_set_nofb = sde_crtc_mode_set_nofb,
 	.disable = sde_crtc_disable,
 	.enable = sde_crtc_enable,
 	.atomic_check = sde_crtc_atomic_check,
