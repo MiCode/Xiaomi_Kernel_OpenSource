@@ -947,6 +947,8 @@ struct ufs_hba {
 
 	int scsi_block_reqs_cnt;
 
+	bool full_init_linereset;
+
 	struct reset_control *core_reset;
 
 	struct ufs_desc_size desc_size;
