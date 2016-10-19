@@ -1303,17 +1303,23 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	return mdss_dp_on_hpd(dp_drv);
 }
 
-static void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
+static inline void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
 {
 	dp->test_data = (const struct dpcd_test_request){ 0 };
 }
 
-static bool mdss_dp_is_link_training_requested(struct mdss_dp_drv_pdata *dp)
+static inline bool mdss_dp_is_link_status_updated(struct mdss_dp_drv_pdata *dp)
+{
+	return dp->link_status.link_status_updated;
+}
+
+static inline bool mdss_dp_is_link_training_requested(
+		struct mdss_dp_drv_pdata *dp)
 {
 	return (dp->test_data.test_requested == TEST_LINK_TRAINING);
 }
 
-static bool mdss_dp_soft_hpd_reset(struct mdss_dp_drv_pdata *dp)
+static inline bool mdss_dp_soft_hpd_reset(struct mdss_dp_drv_pdata *dp)
 {
 	return mdss_dp_is_link_training_requested(dp) &&
 		dp->alt_mode.dp_status.hpd_irq;
@@ -2281,7 +2287,7 @@ end:
  * This function will send the test response to the sink but only after
  * any previous link training has been completed.
  */
-static void mdss_dp_send_test_response(struct mdss_dp_drv_pdata *dp)
+static inline void mdss_dp_send_test_response(struct mdss_dp_drv_pdata *dp)
 {
 	mutex_lock(&dp->train_mutex);
 	mdss_dp_aux_send_test_response(dp);
@@ -2318,11 +2324,76 @@ static int mdss_dp_hpd_irq_notify_clients(struct mdss_dp_drv_pdata *dp)
 }
 
 /**
+ * mdss_dp_link_retraining() - initiates link retraining
+ * @dp: Display Port Driver data
+ *
+ * This function will initiate link retraining by first notifying
+ * DP clients and triggering DP shutdown, and then enabling DP after
+ * notification is done successfully.
+ */
+static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp)
+{
+	if (mdss_dp_hpd_irq_notify_clients(dp))
+		return;
+
+	mdss_dp_on_irq(dp);
+}
+
+/**
+ * mdss_dp_process_link_status_update() - processes link status updates
+ * @dp: Display Port Driver data
+ *
+ * This function will check for changes in the link status, e.g. clock
+ * recovery done on all lanes, and trigger link training if there is a
+ * failure/error on the link.
+ */
+static void mdss_dp_process_link_status_update(struct mdss_dp_drv_pdata *dp)
+{
+	if (!mdss_dp_is_link_status_updated(dp) ||
+			(mdss_dp_aux_channel_eq_done(dp) &&
+			mdss_dp_aux_clock_recovery_done(dp)))
+		return;
+
+	pr_info("channel_eq_done = %d, clock_recovery_done = %d\n",
+			mdss_dp_aux_channel_eq_done(dp),
+			mdss_dp_aux_clock_recovery_done(dp));
+
+	mdss_dp_link_retraining(dp);
+}
+
+/**
+ * mdss_dp_process_link_training_request() - processes new training requests
+ * @dp: Display Port Driver data
+ *
+ * This function will handle new link training requests that are initiated by
+ * the sink. In particular, it will update the requested lane count and link
+ * link rate, and then trigger the link retraining procedure.
+ */
+static void mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
+{
+	if (!mdss_dp_is_link_training_requested(dp))
+		return;
+
+	mdss_dp_send_test_response(dp);
+
+	pr_info("%s link rate = 0x%x, lane count = 0x%x\n",
+			mdss_dp_get_test_name(TEST_LINK_TRAINING),
+			dp->test_data.test_link_rate,
+			dp->test_data.test_lane_count);
+	dp->dpcd.max_lane_count =
+		dp->test_data.test_lane_count;
+	dp->link_rate = dp->test_data.test_link_rate;
+
+	mdss_dp_link_retraining(dp);
+}
+
+/**
  * mdss_dp_process_hpd_irq_high() - handle HPD IRQ transition to HIGH
  * @dp: Display Port Driver data
  *
- * This function will handle the HPD IRQ state transitions from HIGH to HIGH
- * or LOW to HIGH, indicating the start of a new test request.
+ * This function will handle the HPD IRQ state transitions from LOW to HIGH
+ * (including cases when there are back to back HPD IRQ HIGH) indicating
+ * the start of a new link training request or sink status update.
  */
 static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 {
@@ -2332,22 +2403,9 @@ static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 
 	mdss_dp_aux_parse_sink_status_field(dp);
 
-	if (mdss_dp_is_link_training_requested(dp)) {
-		mdss_dp_send_test_response(dp);
+	mdss_dp_process_link_training_request(dp);
 
-		pr_info("%s requested: link rate = 0x%x, lane count = 0x%x\n",
-				mdss_dp_get_test_name(TEST_LINK_TRAINING),
-				dp->test_data.test_link_rate,
-				dp->test_data.test_lane_count);
-		dp->dpcd.max_lane_count =
-			dp->test_data.test_lane_count;
-		dp->link_rate = dp->test_data.test_link_rate;
-
-		if (mdss_dp_hpd_irq_notify_clients(dp))
-			return;
-
-		mdss_dp_on_irq(dp);
-	}
+	mdss_dp_process_link_status_update(dp);
 
 	mdss_dp_reset_test_data(dp);
 
