@@ -118,6 +118,7 @@ struct ipa_rm_wq_suspend_resume_work_type {
 	enum ipa_rm_resource_name	resource_name;
 	enum ipa_rm_resource_state	prev_state;
 	u32				needed_bw;
+	bool				inc_usage_count;
 
 };
 
@@ -128,7 +129,8 @@ int ipa_rm_wq_send_cmd(enum ipa_rm_wq_cmd wq_cmd,
 
 int ipa_rm_wq_send_resume_cmd(enum ipa_rm_resource_name resource_name,
 		enum ipa_rm_resource_state prev_state,
-		u32 needed_bw);
+		u32 needed_bw,
+		bool inc_usage_count);
 
 int ipa_rm_wq_send_suspend_cmd(enum ipa_rm_resource_name resource_name,
 		enum ipa_rm_resource_state prev_state,
