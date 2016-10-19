@@ -373,7 +373,7 @@ static int modeset_init(struct sde_kms *sde_kms)
 
 	/* Create one CRTC per encoder */
 	for (i = 0; i < max_crtc_count; i++) {
-		crtc = sde_crtc_init(dev, primary_planes[i], i);
+		crtc = sde_crtc_init(dev, primary_planes[i]);
 		if (IS_ERR(crtc)) {
 			ret = PTR_ERR(crtc);
 			goto fail;

@@ -432,12 +432,9 @@ void sde_crtc_prepare_fence(struct drm_crtc *crtc);
  * sde_crtc_init - create a new crtc object
  * @dev: sde device
  * @plane: base plane
- * @vblank_id: Id for reporting vblank. Id in range from 0..dev->num_crtcs.
  * @Return: new crtc object or error
  */
-struct drm_crtc *sde_crtc_init(struct drm_device *dev,
-		struct drm_plane *plane,
-		int vblank_id);
+struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
 
 /**
  * sde_crtc_complete_commit - callback signalling completion of current commit
