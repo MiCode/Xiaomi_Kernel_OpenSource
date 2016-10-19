@@ -1536,6 +1536,20 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		}
 		break;
 
+	case SNDRV_LSM_SET_PORT: {
+		u32 port_id = cpe->input_port_id;
+
+		dev_dbg(rtd->dev, "%s: %s\n", __func__, "SNDRV_LSM_SET_PORT");
+		rc = lsm_ops->lsm_set_port(cpe->core_handle, session, &port_id);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: lsm_set_port failed, err = %d\n",
+				__func__, rc);
+			return rc;
+		}
+	}
+	break;
+
 	default:
 		dev_dbg(rtd->dev,
 			"%s: Default snd_lib_ioctl cmd 0x%x\n",
