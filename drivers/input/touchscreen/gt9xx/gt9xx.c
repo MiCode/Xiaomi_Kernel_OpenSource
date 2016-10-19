@@ -861,7 +861,7 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 
 	if (ts->pdata->driver_send_cfg) {
 		for (i = 0; i < GOODIX_MAX_CFG_GROUP; i++)
-			dev_dbg(&client->dev, "Config Groups(%d) Lengths: %d",
+			dev_dbg(&client->dev, "Config Groups(%d) Lengths: %zu",
 				i, ts->pdata->config_data_len[i]);
 
 		ret = gtp_i2c_read_dbl_check(ts->client, 0x41E4, opr_buf, 1);
@@ -1822,7 +1822,7 @@ static int goodix_parse_dt(struct device *dev,
 	u32 temp_val, num_buttons;
 	u32 button_map[MAX_BUTTONS];
 	char prop_name[PROP_NAME_SIZE];
-	int i, read_cfg_num;
+	int i, read_cfg_num, temp;
 
 	rc = goodix_ts_get_dt_coords(dev, "goodix,panel-coords", pdata);
 	if (rc && (rc != -EINVAL))
@@ -1904,14 +1904,15 @@ static int goodix_parse_dt(struct device *dev,
 
 	read_cfg_num = 0;
 	for (i = 0; i < GOODIX_MAX_CFG_GROUP; i++) {
+		temp = 0;
 		snprintf(prop_name, sizeof(prop_name), "goodix,cfg-data%d", i);
-		prop = of_find_property(np, prop_name,
-			&pdata->config_data_len[i]);
+		prop = of_find_property(np, prop_name, &temp);
 		if (!prop || !prop->value) {
 			pdata->config_data_len[i] = 0;
 			pdata->config_data[i] = NULL;
 			continue;
 		}
+		pdata->config_data_len[i] = temp;
 		pdata->config_data[i] = devm_kzalloc(dev,
 				GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH,
 				GFP_KERNEL);
