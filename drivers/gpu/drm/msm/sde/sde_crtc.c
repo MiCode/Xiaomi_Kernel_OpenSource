@@ -26,14 +26,6 @@
 #include "sde_crtc.h"
 #include "sde_color_processing.h"
 
-#define CTL(i)       (CTL_0 + (i))
-#define LM(i)        (LM_0  + (i))
-#define INTF(i)      (INTF_0 + (i))
-
-/* uncomment to enable higher level IRQ msg's */
-/*#define DBG_IRQ      DBG*/
-#define DBG_IRQ(fmt, ...)
-
 /* default input fence timeout, in ms */
 #define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
 
@@ -349,7 +341,7 @@ static void sde_crtc_vblank_cb(void *data)
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 
 	drm_crtc_handle_vblank(crtc);
-	DBG_IRQ("");
+	DRM_DEBUG_VBL("crtc%d\n", crtc->base.id);
 	MSM_EVT(crtc->dev, crtc->base.id, 0);
 }
 

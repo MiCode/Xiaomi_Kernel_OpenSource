@@ -23,6 +23,7 @@
 #include "sde_hw_wb.h"
 #include "sde_hw_top.h"
 #include "sde_connector.h"
+#include "sde_crtc.h"
 #include "sde_rm.h"
 #include "sde_power_handle.h"
 #include "sde_irq.h"
@@ -415,34 +416,6 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms);
  */
 int sde_plane_color_fill(struct drm_plane *plane,
 		uint32_t color, uint32_t alpha);
-
-/**
- * CRTC functions
- */
-int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
-void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
-
-/**
- * sde_crtc_prepare_fence - callback to prepare for output fences
- * @crtc: Pointer to drm crtc object
- */
-void sde_crtc_prepare_fence(struct drm_crtc *crtc);
-
-/**
- * sde_crtc_init - create a new crtc object
- * @dev: sde device
- * @plane: base plane
- * @Return: new crtc object or error
- */
-struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
-
-/**
- * sde_crtc_complete_commit - callback signalling completion of current commit
- * @crtc: Pointer to drm crtc object
- */
-void sde_crtc_complete_commit(struct drm_crtc *crtc);
-
-void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 
 /**
  * sde_encoder_get_hw_resources - Populate table of required hardware resources

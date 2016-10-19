@@ -19,10 +19,6 @@
 #include "sde_kms.h"
 
 #define SDE_CRTC_NAME_SIZE	12
-#define PENDING_FLIP		2
-/* worst case one frame wait time based on 30 FPS : 33.33ms*/
-#define CRTC_MAX_WAIT_ONE_FRAME     34
-#define CRTC_HW_MIXER_MAXSTAGES(c, idx) ((c)->mixer[idx].sblk->maxblendstages)
 
 /**
  * struct sde_crtc_mixer: stores the map for each virtual pipeline in the CRTC
@@ -49,7 +45,8 @@ struct sde_crtc_mixer {
  * @num_ctls      : Number of ctl paths in use
  * @num_mixers    : Number of mixers in use
  * @mixer         : List of active mixers
- * @event         : Pointer to last received drm vblank event
+ * @event         : Pointer to last received drm vblank event. If there is a
+ *                  pending vblank event, this will be non-null.
  * @pending       : Whether or not an update is pending
  * @vsync_count   : Running count of received vsync events
  * @drm_requested_vblank : Whether vblanks have been enabled in the encoder
@@ -70,7 +67,6 @@ struct sde_crtc {
 	u32 num_mixers;
 	struct sde_crtc_mixer mixers[CRTC_DUAL_MIXERS];
 
-	/*if there is a pending flip, these will be non-null */
 	struct drm_pending_vblank_event *event;
 	u32 vsync_count;
 
@@ -138,5 +134,45 @@ static inline uint32_t get_crtc_split_width(struct drm_crtc *crtc)
 	mode = &crtc->state->adjusted_mode;
 	return sde_crtc_mixer_width(sde_crtc, mode);
 }
+
+/**
+ * sde_crtc_vblank - enable or disable vblanks for this crtc
+ * @crtc: Pointer to drm crtc object
+ * @en: true to enable vblanks, false to disable
+ */
+int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
+
+/**
+ * sde_crtc_commit_kickoff - trigger kickoff of the commit for this crtc
+ * @crtc: Pointer to drm crtc object
+ */
+void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
+
+/**
+ * sde_crtc_prepare_fence - callback to prepare for output fences
+ * @crtc: Pointer to drm crtc object
+ */
+void sde_crtc_prepare_fence(struct drm_crtc *crtc);
+
+/**
+ * sde_crtc_init - create a new crtc object
+ * @dev: sde device
+ * @plane: base plane
+  * @Return: new crtc object or error
+ */
+struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
+
+/**
+ * sde_crtc_complete_commit - callback signalling completion of current commit
+ * @crtc: Pointer to drm crtc object
+ */
+void sde_crtc_complete_commit(struct drm_crtc *crtc);
+
+/**
+ * sde_crtc_cancel_pending_flip - complete flip for clients on lastclose
+ * @crtc: Pointer to drm crtc object
+ * @file: client to cancel's file handle
+ */
+void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 
 #endif /* _SDE_CRTC_H_ */
