@@ -23,6 +23,9 @@ extern int wcnss_prealloc_put(void *ptr);
 extern int wcnss_pre_alloc_reset(void);
 void wcnss_prealloc_check_memory_leak(void);
 
+extern void wcnss_skb_prealloc_check_memory_leak(void);
+extern int wcnss_skb_pre_alloc_reset(void);
+
 #ifdef CONFIG_WCNSS_SKB_PRE_ALLOC
 extern struct sk_buff *wcnss_skb_prealloc_get(unsigned int size);
 extern int wcnss_skb_prealloc_put(struct sk_buff *skb);
