@@ -106,6 +106,12 @@
 	mutex_unlock(&lock);                         \
 }
 
+struct wcd_spi_debug_data {
+	struct dentry *dir;
+	u32 addr;
+	u32 size;
+};
+
 struct wcd_spi_priv {
 	struct spi_device *spi;
 	u32 mem_base_addr;
@@ -135,6 +141,9 @@ struct wcd_spi_priv {
 
 	struct device *m_dev;
 	struct wdsp_mgr_ops *m_ops;
+
+	/* Debugfs related information */
+	struct wcd_spi_debug_data debug_data;
 };
 
 enum xfer_request {
@@ -1013,20 +1022,81 @@ static const struct file_operations state_fops = {
 	.release = single_release,
 };
 
+static ssize_t wcd_spi_debugfs_mem_read(struct file *file, char __user *ubuf,
+					size_t count, loff_t *ppos)
+{
+	struct spi_device *spi = file->private_data;
+	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
+	struct wcd_spi_debug_data *dbg_data = &wcd_spi->debug_data;
+	struct wcd_spi_msg msg;
+	ssize_t buf_size, read_count = 0;
+	char *buf;
+	int ret;
+
+	if (*ppos < 0 || !count)
+		return -EINVAL;
+
+	if (dbg_data->size == 0 || dbg_data->addr == 0) {
+		dev_err(&spi->dev,
+			"%s: Invalid request, size = %u, addr = 0x%x\n",
+			__func__, dbg_data->size, dbg_data->addr);
+		return 0;
+	}
+
+	buf_size = count < dbg_data->size ? count : dbg_data->size;
+	buf = kzalloc(buf_size, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	msg.data = buf;
+	msg.remote_addr = dbg_data->addr;
+	msg.len = buf_size;
+	msg.flags = 0;
+
+	ret = wcd_spi_data_read(spi, &msg);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(&spi->dev,
+			"%s: Failed to read %zu bytes from addr 0x%x\n",
+			__func__, buf_size, msg.remote_addr);
+		goto done;
+	}
+
+	read_count = simple_read_from_buffer(ubuf, count, ppos, buf, buf_size);
+
+done:
+	kfree(buf);
+	if (ret < 0)
+		return ret;
+	else
+		return read_count;
+}
+
+static const struct file_operations mem_read_fops = {
+	.open = simple_open,
+	.read = wcd_spi_debugfs_mem_read,
+};
+
 static int wcd_spi_debugfs_init(struct spi_device *spi)
 {
+	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
+	struct wcd_spi_debug_data *dbg_data = &wcd_spi->debug_data;
 	int rc = 0;
-	struct dentry *dir;
 
-	dir = debugfs_create_dir("wcd_spi", NULL);
-	if (IS_ERR_OR_NULL(dir)) {
-		dir = NULL;
+	dbg_data->dir = debugfs_create_dir("wcd_spi", NULL);
+	if (IS_ERR_OR_NULL(dbg_data->dir)) {
+		dbg_data->dir = NULL;
 		rc = -ENODEV;
 		goto done;
 	}
 
-	debugfs_create_file("state", 0444, dir, spi, &state_fops);
+	debugfs_create_file("state", 0444, dbg_data->dir, spi, &state_fops);
+	debugfs_create_u32("addr", S_IRUGO | S_IWUSR, dbg_data->dir,
+			   &dbg_data->addr);
+	debugfs_create_u32("size", S_IRUGO | S_IWUSR, dbg_data->dir,
+			   &dbg_data->size);
 
+	debugfs_create_file("mem_read", S_IRUGO, dbg_data->dir,
+			    spi, &mem_read_fops);
 done:
 	return rc;
 }
