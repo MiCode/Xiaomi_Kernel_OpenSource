@@ -1590,7 +1590,7 @@ static void msm_vfe44_stats_cfg_wm_reg(
 	if (stats_idx == STATS_IDX_BF_SCALE)
 		return;
 	/*WR_ADDR_CFG*/
-	msm_camera_io_w(stream_info->framedrop_period << 2,
+	msm_camera_io_w((stream_info->framedrop_period - 1) << 2,
 		vfe_dev->vfe_base + stats_base + 0x8);
 	/*WR_IRQ_FRAMEDROP_PATTERN*/
 	msm_camera_io_w(stream_info->framedrop_pattern,
