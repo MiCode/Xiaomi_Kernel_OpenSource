@@ -40,7 +40,7 @@
 #define LEFT_MIXER 0
 #define RIGHT_MIXER 1
 
-static struct sde_kms *get_kms(struct drm_crtc *crtc)
+static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv = crtc->dev->dev_private;
 	return to_sde_kms(priv->kms);
@@ -50,7 +50,7 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	if (!crtc)
 		return;
@@ -68,14 +68,12 @@ static bool sde_crtc_mode_fixup(struct drm_crtc *crtc,
 		const struct drm_display_mode *mode,
 		struct drm_display_mode *adjusted_mode)
 {
-	DBG("");
+	SDE_DEBUG("\n");
 
-	if (msm_is_mode_seamless(adjusted_mode)) {
-		SDE_DEBUG("seamless mode set requested\n");
-		if (!crtc->enabled || crtc->state->active_changed) {
-			SDE_ERROR("crtc state prevents seamless transition\n");
-			return false;
-		}
+	if (msm_is_mode_seamless(adjusted_mode) &&
+		(!crtc->enabled || crtc->state->active_changed)) {
+		SDE_ERROR("crtc state prevents seamless transition\n");
+		return false;
 	}
 
 	return true;
@@ -307,7 +305,8 @@ void sde_crtc_prepare_fence(struct drm_crtc *crtc)
 }
 
 /* if file!=NULL, this is preclose potential cancel-flip path */
-static void complete_flip(struct drm_crtc *crtc, struct drm_file *file)
+static void _sde_crtc_complete_flip(struct drm_crtc *crtc,
+		struct drm_file *file)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
@@ -323,8 +322,9 @@ static void complete_flip(struct drm_crtc *crtc, struct drm_file *file)
 		 */
 		if (!file || (event->base.file_priv == file)) {
 			sde_crtc->event = NULL;
-			SDE_DEBUG("%s: send event: %pK\n",
+			DRM_DEBUG_VBL("%s: send event: %pK\n",
 						sde_crtc->name, event);
+			MSM_EVT(crtc->dev, crtc->base.id, 0);
 			drm_crtc_send_vblank_event(crtc, event);
 		}
 	}
@@ -376,7 +376,7 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 	uint32_t wait_ms = 1;
 	ktime_t kt_end, kt_wait;
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	if (!crtc || !crtc->state) {
 		SDE_ERROR("invalid crtc/state %pK\n", crtc);
@@ -414,7 +414,7 @@ static void _sde_crtc_setup_mixer_for_encoder(
 		struct drm_encoder *enc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_kms *sde_kms = get_kms(crtc);
+	struct sde_kms *sde_kms = _sde_crtc_get_kms(crtc);
 	struct sde_rm *rm = &sde_kms->rm;
 	struct sde_crtc_mixer *mixer;
 	struct sde_hw_ctl *last_valid_ctl = NULL;
@@ -489,7 +489,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	unsigned long flags;
 	u32 i;
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -551,7 +551,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 		return;
 	}
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	sde_crtc = to_sde_crtc(crtc);
 
@@ -606,7 +606,7 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	__drm_atomic_helper_crtc_destroy_state(crtc, state);
 
@@ -716,12 +716,12 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc;
 
 	if (!crtc) {
-		DRM_ERROR("invalid crtc\n");
+		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 	sde_crtc = to_sde_crtc(crtc);
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
@@ -741,7 +741,7 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 		return;
 	}
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	sde_crtc = to_sde_crtc(crtc);
 	mixer = sde_crtc->mixers;
@@ -927,7 +927,7 @@ void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
 	SDE_DEBUG("%s: cancel: %p", sde_crtc->name, file);
-	complete_flip(crtc, file);
+	_sde_crtc_complete_flip(crtc, file);
 }
 
 /**
@@ -939,7 +939,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc;
 	struct drm_device *dev;
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -1013,7 +1013,7 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 static int sde_crtc_set_property(struct drm_crtc *crtc,
 		struct drm_property *property, uint64_t val)
 {
-	DBG("");
+	SDE_DEBUG("\n");
 
 	return sde_crtc_atomic_set_property(crtc, crtc->state, property, val);
 }
