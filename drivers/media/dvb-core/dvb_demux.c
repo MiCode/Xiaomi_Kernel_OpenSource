@@ -550,7 +550,7 @@ static inline int dvb_dmx_swfilter_payload(struct dvb_demux_feed *feed,
 	if (feed->pusi_seen == 0)
 		return 0;
 
-	ret = feed->cb.ts(&buf[p], count, NULL, 0, &feed->feed.ts, DMX_OK);
+	ret = feed->cb.ts(&buf[p], count, NULL, 0, &feed->feed.ts);
 
 	/* Verify TS packet was copied successfully */
 	if (!ret) {
@@ -582,7 +582,7 @@ static int dvb_dmx_swfilter_sectionfilter(struct dvb_demux_feed *feed,
 		return 0;
 
 	return feed->cb.sec(feed->feed.sec.secbuf, feed->feed.sec.seclen,
-			    NULL, 0, &f->filter, DMX_OK);
+			    NULL, 0, &f->filter);
 }
 
 static inline int dvb_dmx_swfilter_section_feed(struct dvb_demux_feed *feed)
@@ -613,7 +613,7 @@ static inline int dvb_dmx_swfilter_section_feed(struct dvb_demux_feed *feed)
 
 			/* Notify on CRC error */
 			feed->cb.sec(NULL, 0, NULL, 0,
-				&f->filter, DMX_CRC_ERROR);
+				&f->filter);
 
 			return -1;
 		}
@@ -1256,9 +1256,9 @@ static inline void dvb_dmx_swfilter_output_packet(
 	 */
 	if (feed->tsp_out_format == DMX_TSP_FORMAT_192_HEAD)
 		feed->cb.ts(timestamp, TIMESTAMP_LEN, NULL,
-			0, &feed->feed.ts, DMX_OK);
+			0, &feed->feed.ts);
 
-	feed->cb.ts(buf, 188, NULL, 0, &feed->feed.ts, DMX_OK);
+	feed->cb.ts(buf, 188, NULL, 0, &feed->feed.ts);
 
 	/*
 	 * if we output 192 packet with timestamp at tail of packet,
@@ -1266,7 +1266,7 @@ static inline void dvb_dmx_swfilter_output_packet(
 	 */
 	if (feed->tsp_out_format == DMX_TSP_FORMAT_192_TAIL)
 		feed->cb.ts(timestamp, TIMESTAMP_LEN, NULL,
-			0, &feed->feed.ts, DMX_OK);
+			0, &feed->feed.ts);
 
 	if (feed->idx_params.enable)
 		dvb_dmx_index(feed, buf, timestamp);
@@ -1749,7 +1749,7 @@ void dvb_dmx_swfilter_raw(struct dvb_demux *demux, const u8 *buf, size_t count)
 {
 	spin_lock(&demux->lock);
 
-	demux->feed->cb.ts(buf, count, NULL, 0, &demux->feed->feed.ts, DMX_OK);
+	demux->feed->cb.ts(buf, count, NULL, 0, &demux->feed->feed.ts);
 
 	spin_unlock(&demux->lock);
 }
@@ -2520,7 +2520,7 @@ static int dvbdmx_ts_insertion_insert_buffer(struct dmx_ts_feed *ts_feed,
 		return 0;
 	}
 
-	feed->cb.ts(data, size, NULL, 0, ts_feed, DMX_OK);
+	feed->cb.ts(data, size, NULL, 0, ts_feed);
 
 	spin_unlock(&demux->lock);
 

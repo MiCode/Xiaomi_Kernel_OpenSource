@@ -4186,7 +4186,7 @@ static int mpq_sdmx_section_filtering(struct mpq_feed *mpq_feed,
 		mpq_feed->sdmx_buf.size) {
 		feed->cb.sec(&mpq_feed->sdmx_buf.data[mpq_feed->sdmx_buf.pread],
 			header->payload_length,
-			NULL, 0, &f->filter, DMX_OK);
+			NULL, 0, &f->filter);
 	} else {
 		int split = mpq_feed->sdmx_buf.size - mpq_feed->sdmx_buf.pread;
 
@@ -4194,7 +4194,7 @@ static int mpq_sdmx_section_filtering(struct mpq_feed *mpq_feed,
 			split,
 			&mpq_feed->sdmx_buf.data[0],
 			header->payload_length - split,
-			&f->filter, DMX_OK);
+			&f->filter);
 	}
 
 	return 0;
