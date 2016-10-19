@@ -2515,6 +2515,15 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smblib_handle_dc_plugin(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	power_supply_changed(chg->dc_psy);
+	return IRQ_HANDLED;
+}
+
 irqreturn_t smblib_handle_high_duty_cycle(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
