@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,6 +69,8 @@ static void slpi_loader_do(struct platform_device *pdev)
 {
 
 	struct slpi_loader_private *priv = NULL;
+	int ret;
+	const char *firmware_name = NULL;
 
 	if (!pdev) {
 		dev_err(&pdev->dev, "%s: Platform device null\n", __func__);
@@ -81,6 +83,13 @@ static void slpi_loader_do(struct platform_device *pdev)
 		goto fail;
 	}
 
+	ret = of_property_read_string(pdev->dev.of_node,
+		"qcom,firmware-name", &firmware_name);
+	if (ret < 0) {
+		pr_err("can't get fw name.\n");
+		goto fail;
+	}
+
 	priv = platform_get_drvdata(pdev);
 	if (!priv) {
 		dev_err(&pdev->dev,
@@ -88,7 +97,7 @@ static void slpi_loader_do(struct platform_device *pdev)
 		goto fail;
 	}
 
-	priv->pil_h = subsystem_get("slpi");
+	priv->pil_h = subsystem_get_with_fwname("slpi", firmware_name);
 	if (IS_ERR(priv->pil_h)) {
 		dev_err(&pdev->dev, "%s: pil get failed,\n",
 			__func__);
