@@ -263,6 +263,10 @@
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
+&pmicobalt_wled {
+	qcom,led-strings-list = [00 01];
+};
+
 &dsi_dual_nt35597_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
