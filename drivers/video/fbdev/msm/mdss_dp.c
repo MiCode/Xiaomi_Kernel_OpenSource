@@ -898,8 +898,6 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	}
 
 	mdss_dp_audio_setup_sdps(&dp_ctrl->ctrl_io);
-	mdss_dp_audio_set_sample_rate(&dp_ctrl->ctrl_io,
-			dp_ctrl->link_rate, params->sample_rate_hz);
 	mdss_dp_config_audio_acr_ctrl(&dp_ctrl->ctrl_io, dp_ctrl->link_rate);
 	mdss_dp_set_safe_to_exit_level(&dp_ctrl->ctrl_io, dp_ctrl->lane_cnt);
 	mdss_dp_audio_enable(&dp_ctrl->ctrl_io, true);

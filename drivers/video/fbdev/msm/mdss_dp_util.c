@@ -27,10 +27,6 @@
 #define DP_LS_FREQ_162		162000000
 #define DP_LS_FREQ_270		270000000
 #define DP_LS_FREQ_540		540000000
-#define AUDIO_FREQ_32		32000
-#define AUDIO_FREQ_44_1		44100
-#define AUDIO_FREQ_48		48000
-#define DP_AUDIO_FREQ_COUNT	3
 
 enum mdss_dp_pin_assignment {
 	PIN_ASSIGNMENT_A,
@@ -55,67 +51,11 @@ static const char *mdss_dp_pin_name(u8 pin)
 	}
 }
 
-static const uint32_t naud_value[DP_AUDIO_FREQ_COUNT][DP_AUDIO_FREQ_COUNT] = {
-	{ 10125, 16875, 33750 },
-	{ 5625, 9375, 18750 },
-	{ 3375, 5625, 11250 }
-};
-
-static const uint32_t maud_rate[DP_AUDIO_FREQ_COUNT] = { 1024, 784, 512 };
-
-static const uint32_t audio_timing_rbr[DP_AUDIO_FREQ_COUNT] = {
-	MMSS_DP_AUDIO_TIMING_RBR_32,
-	MMSS_DP_AUDIO_TIMING_RBR_44,
-	MMSS_DP_AUDIO_TIMING_RBR_48
-};
-
-static const uint32_t std_audio_freq_list[DP_AUDIO_FREQ_COUNT] = {
-	AUDIO_FREQ_32,
-	AUDIO_FREQ_44_1,
-	AUDIO_FREQ_48
-};
-
 struct mdss_hw mdss_dp_hw = {
 	.hw_ndx = MDSS_HW_EDP,
 	.ptr = NULL,
 	.irq_handler = dp_isr,
 };
-
-static int mdss_dp_get_rate_index(uint32_t rate)
-{
-	int index = 0;
-
-	switch (rate) {
-	case DP_LS_FREQ_162:
-	case AUDIO_FREQ_32:
-		index = 0;
-		break;
-	case DP_LS_FREQ_270:
-	case AUDIO_FREQ_44_1:
-		index = 1;
-		break;
-	case DP_LS_FREQ_540:
-	case AUDIO_FREQ_48:
-		index = 2;
-		break;
-	default:
-		index = 0;
-		pr_err("unsupported rate\n");
-		break;
-	}
-
-	return index;
-}
-
-static bool match_std_freq(uint32_t audio_freq, uint32_t std_freq)
-{
-	int quotient = audio_freq / std_freq;
-
-	if (quotient & (quotient - 1))
-		return false;
-	else
-		return true;
-}
 
 /* DP retrieve ctrl HW version */
 u32 mdss_dp_get_ctrl_hw_version(struct dss_io_data *ctrl_io)
@@ -864,52 +804,6 @@ void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io)
 	mdss_dp_audio_setup_audio_infoframe_sdp(ctrl_io);
 	mdss_dp_audio_setup_copy_management_sdp(ctrl_io);
 	mdss_dp_audio_setup_isrc_sdp(ctrl_io);
-}
-
-void mdss_dp_audio_set_sample_rate(struct dss_io_data *ctrl_io,
-		char dp_link_rate, uint32_t audio_freq)
-{
-	uint32_t link_rate;
-	uint32_t default_audio_freq = AUDIO_FREQ_32;
-	int i, multiplier = 1;
-	uint32_t maud_index, lrate_index, register_index, value;
-
-	link_rate = (uint32_t)dp_link_rate * DP_LINK_RATE_MULTIPLIER;
-
-	pr_debug("link_rate = %u, audio_freq = %u\n", link_rate, audio_freq);
-
-	for (i = 0; i < DP_AUDIO_FREQ_COUNT; i++) {
-		if (audio_freq % std_audio_freq_list[i])
-			continue;
-
-		if (match_std_freq(audio_freq, std_audio_freq_list[i])) {
-			default_audio_freq = std_audio_freq_list[i];
-			multiplier = audio_freq / default_audio_freq;
-			break;
-		}
-	}
-
-	pr_debug("default_audio_freq = %u, multiplier = %d\n",
-			default_audio_freq, multiplier);
-
-	lrate_index = mdss_dp_get_rate_index(link_rate);
-	maud_index = mdss_dp_get_rate_index(default_audio_freq);
-
-	pr_debug("lrate_index = %u, maud_index = %u, maud = %u, naud = %u\n",
-			lrate_index, maud_index,
-			maud_rate[maud_index] * multiplier,
-			naud_value[maud_index][lrate_index]);
-
-	register_index = mdss_dp_get_rate_index(default_audio_freq);
-	value = ((maud_rate[maud_index] * multiplier) << 16) |
-		naud_value[maud_index][lrate_index];
-
-	pr_debug("reg index = %d, offset = 0x%x, value = 0x%x\n",
-			(int)register_index, audio_timing_rbr[register_index],
-			value);
-
-	writel_relaxed(value, ctrl_io->base +
-			audio_timing_rbr[register_index]);
 }
 
 void mdss_dp_set_safe_to_exit_level(struct dss_io_data *ctrl_io,
