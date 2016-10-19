@@ -83,6 +83,12 @@
 			size = <0 0x400000>;
 		};
 
+		mdsp_mem: mdsp_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x6400000>;
+		};
+
 		dfps_data_mem: dfps_data_mem@90000000 {
 		       reg = <0 0x90000000 0 0x1000>;
 		       label = "dfps_data_mem";
@@ -1654,6 +1660,11 @@
 	qcom,adsprpc-mem {
 		compatible = "qcom,msm-adsprpc-mem-region";
 		memory-region = <&adsp_mem>;
+	};
+
+	qcom,mdsprpc-mem {
+		compatible = "qcom,msm-mdsprpc-mem-region";
+		memory-region = <&mdsp_mem>;
 	};
 
 	qcom,adsprpc_domains {
