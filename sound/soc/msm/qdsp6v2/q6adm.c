@@ -4309,6 +4309,136 @@ end:
 	return ret;
 }
 
+/**
+ * adm_swap_speaker_channels
+ *
+ * Receives port_id, copp_idx, sample rate, spk_swap and
+ * send MFC command to swap speaker channel.
+ * Return zero on success. On failure returns nonzero.
+ *
+ * port_id - Passed value, port_id for which channels swap is wanted
+ * copp_idx - Passed value, copp_idx for which channels swap is wanted
+ * sample_rate - Passed value, sample rate used by app type config
+ * spk_swap  - Passed value, spk_swap for check if swap flag is set
+ */
+int adm_swap_speaker_channels(int port_id, int copp_idx,
+			int sample_rate, bool spk_swap)
+{
+	struct audproc_mfc_output_media_fmt mfc_cfg;
+	uint16_t num_channels;
+	int port_idx;
+	int ret  = 0;
+
+	pr_debug("%s: Enter, port_id %d, copp_idx %d\n",
+		  __func__, port_id, copp_idx);
+	port_id = q6audio_convert_virtual_to_portid(port_id);
+	port_idx = adm_validate_and_get_port_index(port_id);
+	if (port_idx < 0 || port_idx >= AFE_MAX_PORTS) {
+		pr_err("%s: Invalid port_id %#x\n", __func__, port_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (copp_idx < 0 || copp_idx >= MAX_COPPS_PER_PORT) {
+		pr_err("%s: Invalid copp_num: %d\n", __func__, copp_idx);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	num_channels = atomic_read(
+				&this_adm.copp.channels[port_idx][copp_idx]);
+	if (num_channels != 2) {
+		pr_debug("%s: Invalid number of channels: %d\n",
+			__func__, num_channels);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memset(&mfc_cfg, 0, sizeof(mfc_cfg));
+	mfc_cfg.params.hdr.hdr_field =
+				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	mfc_cfg.params.hdr.pkt_size =
+				sizeof(mfc_cfg);
+	mfc_cfg.params.hdr.src_svc = APR_SVC_ADM;
+	mfc_cfg.params.hdr.src_domain = APR_DOMAIN_APPS;
+	mfc_cfg.params.hdr.src_port = port_id;
+	mfc_cfg.params.hdr.dest_svc = APR_SVC_ADM;
+	mfc_cfg.params.hdr.dest_domain = APR_DOMAIN_ADSP;
+	mfc_cfg.params.hdr.dest_port =
+			atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
+	mfc_cfg.params.hdr.token = port_idx << 16 | copp_idx;
+	mfc_cfg.params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
+	mfc_cfg.params.payload_addr_lsw = 0;
+	mfc_cfg.params.payload_addr_msw = 0;
+	mfc_cfg.params.mem_map_handle = 0;
+	mfc_cfg.params.payload_size = sizeof(mfc_cfg) -
+				sizeof(mfc_cfg.params);
+	mfc_cfg.data.module_id = AUDPROC_MODULE_ID_MFC;
+	mfc_cfg.data.param_id = AUDPROC_PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT;
+	mfc_cfg.data.param_size = mfc_cfg.params.payload_size -
+				sizeof(mfc_cfg.data);
+	mfc_cfg.data.reserved = 0;
+	mfc_cfg.sampling_rate = sample_rate;
+	mfc_cfg.bits_per_sample =
+		atomic_read(&this_adm.copp.bit_width[port_idx][copp_idx]);
+	mfc_cfg.num_channels = num_channels;
+
+	/* Currently applying speaker swap for only 2 channel use case */
+	if (spk_swap) {
+		mfc_cfg.channel_type[0] =
+			(uint16_t) PCM_CHANNEL_FR;
+		mfc_cfg.channel_type[1] =
+			(uint16_t) PCM_CHANNEL_FL;
+	} else {
+		mfc_cfg.channel_type[0] =
+			(uint16_t) PCM_CHANNEL_FL;
+		mfc_cfg.channel_type[1] =
+			(uint16_t) PCM_CHANNEL_FR;
+	}
+
+	atomic_set(&this_adm.copp.stat[port_idx][copp_idx], -1);
+	pr_debug("%s: mfc config: port_idx %d copp_idx  %d copp SR %d copp BW %d copp chan %d\n",
+		__func__, port_idx, copp_idx, mfc_cfg.sampling_rate,
+		mfc_cfg.bits_per_sample, mfc_cfg.num_channels);
+
+	ret = apr_send_pkt(this_adm.apr, (uint32_t *)&mfc_cfg);
+	if (ret < 0) {
+		pr_err("%s: port_id: for[0x%x] failed %d\n",
+		__func__, port_id, ret);
+		goto done;
+	}
+	/* Wait for the callback with copp id */
+	ret = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx],
+		atomic_read(&this_adm.copp.stat
+		[port_idx][copp_idx]) >= 0,
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: mfc_cfg Set params timed out for port_id: for [0x%x]\n",
+					__func__, port_id);
+		ret = -ETIMEDOUT;
+		goto done;
+	}
+
+	if (atomic_read(&this_adm.copp.stat[port_idx][copp_idx]) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_adm.copp.stat
+			[port_idx][copp_idx])));
+		ret = adsp_err_get_lnx_err_code(
+			atomic_read(&this_adm.copp.stat
+				[port_idx][copp_idx]));
+		goto done;
+	}
+
+	pr_debug("%s: mfc_cfg Set params returned success", __func__);
+	ret = 0;
+
+done:
+	return ret;
+}
+EXPORT_SYMBOL(adm_swap_speaker_channels);
+
 int adm_set_sound_focus(int port_id, int copp_idx,
 			struct sound_focus_param soundFocusData)
 {
