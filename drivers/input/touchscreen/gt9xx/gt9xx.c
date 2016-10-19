@@ -48,6 +48,7 @@
 #include <linux/module.h>
 #include <linux/input/mt.h>
 #include <linux/debugfs.h>
+#include <linux/interrupt.h>
 
 #define GOODIX_DEV_NAME	"Goodix-CTP"
 #define CFG_MAX_TOUCH_POINTS	5
@@ -65,6 +66,8 @@
 
 #define RESET_DELAY_T3_US	200	/* T3: > 100us */
 #define RESET_DELAY_T4		20	/* T4: > 5ms */
+#define SLEEP_DELAY_US		5000
+#define WAKE_UP_DELAY_US	5000
 
 #define PHY_BUF_SIZE		32
 #define PROP_NAME_SIZE		24
@@ -645,7 +648,7 @@ void gtp_reset_guitar(struct goodix_ts_data *ts, int ms)
 	else
 		gpio_direction_output(ts->pdata->irq_gpio, 0);
 
-	usleep(RESET_DELAY_T3_US);
+	usleep_range(RESET_DELAY_T3_US, RESET_DELAY_T3_US + 1);
 	gpio_direction_output(ts->pdata->reset_gpio, 1);
 	msleep(RESET_DELAY_T4);
 
@@ -738,7 +741,7 @@ static u8 gtp_enter_sleep(struct goodix_ts_data *ts)
 		}
 		return 0;
 	}
-	usleep(5000);
+	usleep_range(SLEEP_DELAY_US, SLEEP_DELAY_US + 1);
 	while (retry++ < GTP_I2C_RETRY_5) {
 		ret = gtp_i2c_write(ts->client, i2c_control_buf, 3);
 		if (ret == 1) {
@@ -807,7 +810,8 @@ err_retry:
 			} else {
 				ret = gpio_direction_output(
 						ts->pdata->irq_gpio, 1);
-				usleep(5000);
+				usleep_range(WAKE_UP_DELAY_US,
+						WAKE_UP_DELAY_US + 1);
 			}
 		}
 		ret = gtp_i2c_test(ts->client);
@@ -854,7 +858,7 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 
 	if (ts->pdata->driver_send_cfg) {
 		for (i = 0; i < GOODIX_MAX_CFG_GROUP; i++)
-			dev_dbg(&client->dev, "Config Groups(%d) Lengths: %d",
+			dev_dbg(&client->dev, "Config Groups(%d) Lengths: %zu",
 				i, ts->pdata->config_data_len[i]);
 
 		ret = gtp_i2c_read_dbl_check(ts->client, 0x41E4, opr_buf, 1);
@@ -1171,7 +1175,8 @@ static int gtp_request_irq(struct goodix_ts_data *ts)
 	int ret;
 	const u8 irq_table[] = GTP_IRQ_TAB;
 
-	GTP_DEBUG("INT trigger type:%x, irq=%d", ts->int_trigger_type,
+	dev_dbg(&ts->client->dev, "INT trigger type:%x, irq=%d",
+			ts->int_trigger_type,
 			ts->client->irq);
 
 	ret = request_threaded_irq(ts->client->irq, NULL,
@@ -1273,7 +1278,7 @@ exit_free_inputdev:
 static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
 {
 	return (regulator_count_voltages(reg) > 0) ?
-		regulator_set_optimum_mode(reg, load_uA) : 0;
+		regulator_set_load(reg, load_uA) : 0;
 }
 
 /**
@@ -1818,7 +1823,7 @@ static int goodix_parse_dt(struct device *dev,
 	u32 temp_val, num_buttons;
 	u32 button_map[MAX_BUTTONS];
 	char prop_name[PROP_NAME_SIZE];
-	int i, read_cfg_num;
+	int i, read_cfg_num, temp;
 
 	rc = goodix_ts_get_dt_coords(dev, "goodix,panel-coords", pdata);
 	if (rc && (rc != -EINVAL))
@@ -1900,14 +1905,15 @@ static int goodix_parse_dt(struct device *dev,
 
 	read_cfg_num = 0;
 	for (i = 0; i < GOODIX_MAX_CFG_GROUP; i++) {
+		temp = 0;
 		snprintf(prop_name, sizeof(prop_name), "goodix,cfg-data%d", i);
-		prop = of_find_property(np, prop_name,
-			&pdata->config_data_len[i]);
+		prop = of_find_property(np, prop_name, &temp);
 		if (!prop || !prop->value) {
 			pdata->config_data_len[i] = 0;
 			pdata->config_data[i] = NULL;
 			continue;
 		}
+		pdata->config_data_len[i] = temp;
 		pdata->config_data[i] = devm_kzalloc(dev,
 				GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH,
 				GFP_KERNEL);

@@ -75,6 +75,7 @@ struct goodix_ts_data {
 	struct hrtimer timer;
 	struct workqueue_struct *goodix_wq;
 	struct work_struct	work;
+	char fw_name[GTP_FW_NAME_MAXSIZE];
 	struct delayed_work goodix_update_work;
 	s32 irq_is_disabled;
 	s32 use_irq;
