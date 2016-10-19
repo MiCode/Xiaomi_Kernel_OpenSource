@@ -164,7 +164,7 @@ static int msm_lmh_dcvs_write(uint32_t node_id, uint32_t fn,
 	desc_arg.arginfo = SCM_ARGS(5, SCM_RO, SCM_VAL, SCM_VAL,
 					SCM_VAL, SCM_VAL);
 
-	dmac_flush_range(payload, payload + 5 * (sizeof(uint32_t)));
+	dmac_flush_range(payload, (void *)payload + 5 * (sizeof(uint32_t)));
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH, MSM_LIMITS_DCVSH), &desc_arg);
 
 	kfree(payload);
