@@ -201,7 +201,7 @@ int sched_update_freq_max_load(const cpumask_t *cpumask)
 			entry = &max_load->freqs[i];
 			freq = costs[i].freq;
 			hpct = get_freq_max_load(cpu, freq);
-			if (hpct <= 0 && hpct > 100)
+			if (hpct <= 0 || hpct > 100)
 				hpct = 100;
 			hfreq = div64_u64((u64)freq * hpct, 100);
 			entry->hdemand =
