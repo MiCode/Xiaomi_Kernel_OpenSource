@@ -297,6 +297,14 @@ static struct ctl_table kern_table[] = {
 	},
 #ifdef CONFIG_SCHED_HMP
 	{
+		.procname	= "sched_freq_reporting_policy",
+		.data		= &sysctl_sched_freq_reporting_policy,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+	},
+	{
 		.procname	= "sched_freq_inc_notify",
 		.data		= &sysctl_sched_freq_inc_notify,
 		.maxlen		= sizeof(unsigned int),
