@@ -313,9 +313,6 @@ static int msm_init_vram(struct drm_device *dev)
 	}
 
 	if (size) {
-		DEFINE_DMA_ATTRS(attrs);
-		void *p;
-
 		priv->vram.size = size;
 
 		drm_mm_init(&priv->vram.mm, 0, (size >> PAGE_SHIFT) - 1);
