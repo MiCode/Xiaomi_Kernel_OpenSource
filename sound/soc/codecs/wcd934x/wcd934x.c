@@ -3602,7 +3602,7 @@ static void tavil_tx_hpf_corner_freq_callback(struct work_struct *work)
 	struct hpf_work *hpf_work;
 	struct tavil_priv *tavil;
 	struct snd_soc_codec *codec;
-	u16 dec_cfg_reg, amic_reg;
+	u16 dec_cfg_reg, amic_reg, go_bit_reg;
 	u8 hpf_cut_off_freq;
 	int amic_n;
 
@@ -3613,6 +3613,7 @@ static void tavil_tx_hpf_corner_freq_callback(struct work_struct *work)
 	hpf_cut_off_freq = hpf_work->hpf_cut_off_freq;
 
 	dec_cfg_reg = WCD934X_CDC_TX0_TX_PATH_CFG0 + 16 * hpf_work->decimator;
+	go_bit_reg = dec_cfg_reg + 7;
 
 	dev_dbg(codec->dev, "%s: decimator %u hpf_cut_of_freq 0x%x\n",
 		__func__, hpf_work->decimator, hpf_cut_off_freq);
@@ -3624,6 +3625,10 @@ static void tavil_tx_hpf_corner_freq_callback(struct work_struct *work)
 	}
 	snd_soc_update_bits(codec, dec_cfg_reg, TX_HPF_CUT_OFF_FREQ_MASK,
 			    hpf_cut_off_freq << 5);
+	snd_soc_update_bits(codec, go_bit_reg, 0x02, 0x02);
+	/* Minimum 1 clk cycle delay is required as per HW spec */
+	usleep_range(1000, 1010);
+	snd_soc_update_bits(codec, go_bit_reg, 0x02, 0x00);
 }
 
 static void tavil_tx_mute_update_callback(struct work_struct *work)
@@ -3643,7 +3648,6 @@ static void tavil_tx_mute_update_callback(struct work_struct *work)
 			 16 * tx_mute_dwork->decimator;
 	hpf_gate_reg = WCD934X_CDC_TX0_TX_PATH_SEC2 +
 		       16 * tx_mute_dwork->decimator;
-	snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x01);
 	snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x00);
 }
 
@@ -3730,20 +3734,27 @@ static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 				break;
 			}
 		}
+		/* Enable TX PGA Mute */
+		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
+		break;
+	case SND_SOC_DAPM_POST_PMU:
 		hpf_cut_off_freq = (snd_soc_read(codec, dec_cfg_reg) &
 				   TX_HPF_CUT_OFF_FREQ_MASK) >> 5;
 
 		tavil->tx_hpf_work[decimator].hpf_cut_off_freq =
 							hpf_cut_off_freq;
-		if (hpf_cut_off_freq != CF_MIN_3DB_150HZ)
+		if (hpf_cut_off_freq != CF_MIN_3DB_150HZ) {
 			snd_soc_update_bits(codec, dec_cfg_reg,
 					    TX_HPF_CUT_OFF_FREQ_MASK,
 					    CF_MIN_3DB_150HZ << 5);
-		/* Enable TX PGA Mute */
-		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
-		break;
-	case SND_SOC_DAPM_POST_PMU:
-		snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x00);
+			snd_soc_update_bits(codec, hpf_gate_reg, 0x02, 0x02);
+			/*
+			 * Minimum 1 clk cycle delay is required as per
+			 * HW spec.
+			 */
+			usleep_range(1000, 1010);
+			snd_soc_update_bits(codec, hpf_gate_reg, 0x02, 0x00);
+		}
 		/* schedule work queue to Remove Mute */
 		schedule_delayed_work(&tavil->tx_mute_dwork[decimator].dwork,
 				      msecs_to_jiffies(tx_unmute_delay));
@@ -3760,10 +3771,20 @@ static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
 		if (cancel_delayed_work_sync(
 		    &tavil->tx_hpf_work[decimator].dwork)) {
-			if (hpf_cut_off_freq != CF_MIN_3DB_150HZ)
+			if (hpf_cut_off_freq != CF_MIN_3DB_150HZ) {
 				snd_soc_update_bits(codec, dec_cfg_reg,
 						    TX_HPF_CUT_OFF_FREQ_MASK,
 						    hpf_cut_off_freq << 5);
+				snd_soc_update_bits(codec, hpf_gate_reg,
+						    0x02, 0x02);
+				/*
+				 * Minimum 1 clk cycle delay is required as per
+				 * HW spec.
+				 */
+				usleep_range(1000, 1010);
+				snd_soc_update_bits(codec, hpf_gate_reg,
+						    0x02, 0x00);
+			}
 		}
 		cancel_delayed_work_sync(
 				&tavil->tx_mute_dwork[decimator].dwork);
