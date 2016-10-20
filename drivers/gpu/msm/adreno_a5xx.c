@@ -196,6 +196,8 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 		/* A510 has 3 XIN ports in VBIF */
 		gpudev->vbif_xin_halt_ctrl0_mask =
 				A510_VBIF_XIN_HALT_CTRL0_MASK;
+	} else if (adreno_is_a540(adreno_dev)) {
+		gpudev->snapshot_data->sect_sizes->cp_merciu = 1024;
 	}
 
 	/* Calculate SP local and private mem addresses */
