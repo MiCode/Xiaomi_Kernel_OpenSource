@@ -2062,7 +2062,7 @@ void msm_vfe47_stats_cfg_wm_reg(
 	stats_base = VFE47_STATS_BASE(stats_idx);
 
 	/* WR_ADDR_CFG */
-	msm_camera_io_w(stream_info->framedrop_period << 2,
+	msm_camera_io_w((stream_info->framedrop_period - 1) << 2,
 		vfe_dev->vfe_base + stats_base + 0x10);
 	/* WR_IRQ_FRAMEDROP_PATTERN */
 	msm_camera_io_w(stream_info->framedrop_pattern,

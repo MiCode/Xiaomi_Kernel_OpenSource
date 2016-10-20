@@ -70,8 +70,8 @@
 		int idx = 0;						\
 		desc_arg.args[cmd_idx] = cmd_buf.list_start = next;	\
 		trace_lmh_event_call("GET_TYPE enter");			\
-		dmac_flush_range(payload, payload + sizeof(uint32_t) *	\
-			LMH_SCM_PAYLOAD_SIZE);				\
+		dmac_flush_range(payload, (void *)payload +             \
+				sizeof(uint32_t) * LMH_SCM_PAYLOAD_SIZE);\
 		if (!is_scm_armv8()) {					\
 			ret = scm_call(SCM_SVC_LMH, cmd_id,		\
 				(void *) &cmd_buf, SCM_BUFFER_SIZE(cmd_buf), \
@@ -321,7 +321,8 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 			= SCM_BUFFER_SIZE(struct lmh_sensor_packet);
 	desc_arg.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 	trace_lmh_event_call("GET_INTENSITY enter");
-	dmac_flush_range(&payload, &payload + sizeof(struct lmh_sensor_packet));
+	dmac_flush_range(&payload, (void *)&payload +
+			sizeof(struct lmh_sensor_packet));
 	if (!is_scm_armv8())
 		ret = scm_call(SCM_SVC_LMH, LMH_GET_INTENSITY,
 			(void *) &cmd_buf, SCM_BUFFER_SIZE(cmd_buf), NULL, 0);
@@ -664,7 +665,7 @@ static int lmh_get_sensor_list(void)
 				lmh_sensor_packet);
 		desc_arg.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 		trace_lmh_event_call("GET_SENSORS enter");
-		dmac_flush_range(payload, payload + buf_size);
+		dmac_flush_range(payload, (void *)payload + buf_size);
 		if (!is_scm_armv8())
 			ret = scm_call(SCM_SVC_LMH, LMH_GET_SENSORS,
 				(void *) &cmd_buf,
@@ -898,7 +899,7 @@ static int lmh_debug_read(struct lmh_debug_ops *ops, uint32_t **buf)
 	desc_arg.args[1] = cmd_buf.buf_size = curr_size;
 	desc_arg.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 	trace_lmh_event_call("GET_DEBUG_READ enter");
-	dmac_flush_range(payload, payload + curr_size);
+	dmac_flush_range(payload, (void *)payload + curr_size);
 	if (!is_scm_armv8()) {
 		ret = scm_call(SCM_SVC_LMH, LMH_DEBUG_READ,
 			(void *) &cmd_buf, SCM_BUFFER_SIZE(cmd_buf),
@@ -968,7 +969,7 @@ static int lmh_debug_config_write(uint32_t cmd_id, uint32_t *buf, int size)
 	desc_arg.arginfo = SCM_ARGS(5, SCM_RO, SCM_VAL, SCM_VAL, SCM_VAL,
 					SCM_VAL);
 	trace_lmh_event_call("CONFIG_DEBUG_WRITE enter");
-	dmac_flush_range(payload, payload + size_bytes);
+	dmac_flush_range(payload, (void *)payload + size_bytes);
 	if (!is_scm_armv8())
 		ret = scm_call(SCM_SVC_LMH, cmd_id, (void *) &cmd_buf,
 			SCM_BUFFER_SIZE(cmd_buf), NULL, 0);

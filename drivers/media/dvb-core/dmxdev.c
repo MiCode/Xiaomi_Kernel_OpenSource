@@ -2603,15 +2603,15 @@ static void dvb_dmxdev_filter_timer(struct dmxdev_filter *dmxdevfilter)
 
 static int dvb_dmxdev_section_callback(const u8 *buffer1, size_t buffer1_len,
 				       const u8 *buffer2, size_t buffer2_len,
-				       struct dmx_section_filter *filter,
-				       enum dmx_success success)
+				       struct dmx_section_filter *filter)
 {
 	struct dmxdev_filter *dmxdevfilter = filter->priv;
 	struct dmx_filter_event event;
 	ssize_t free;
 
+
 	if (!dmxdevfilter) {
-		pr_err("%s: null filter. status=%d\n", __func__, success);
+		pr_err("%s: null filter.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -2633,7 +2633,7 @@ static int dvb_dmxdev_section_callback(const u8 *buffer1, size_t buffer1_len,
 	}
 
 	if ((buffer1_len + buffer2_len) == 0) {
-		if (success == DMX_CRC_ERROR) {
+		if (buffer1 == NULL && buffer2 == NULL) {
 			/* Section was dropped due to CRC error */
 			event.type = DMX_EVENT_SECTION_CRC_ERROR;
 			dvb_dmxdev_add_event(&dmxdevfilter->events, &event);
@@ -2671,11 +2671,6 @@ static int dvb_dmxdev_section_callback(const u8 *buffer1, size_t buffer1_len,
 	event.params.section.actual_length =
 		event.params.section.total_length;
 
-	if (success == DMX_MISSED_ERROR)
-		event.params.section.flags = DMX_FILTER_CC_ERROR;
-	else
-		event.params.section.flags = 0;
-
 	dvb_dmxdev_add_event(&dmxdevfilter->events, &event);
 
 	if (dmxdevfilter->params.sec.flags & DMX_ONESHOT)
@@ -2687,8 +2682,7 @@ static int dvb_dmxdev_section_callback(const u8 *buffer1, size_t buffer1_len,
 
 static int dvb_dmxdev_ts_callback(const u8 *buffer1, size_t buffer1_len,
 				  const u8 *buffer2, size_t buffer2_len,
-				  struct dmx_ts_feed *feed,
-				enum dmx_success success)
+				  struct dmx_ts_feed *feed)
 {
 	struct dmxdev_filter *dmxdevfilter = feed->priv;
 	struct dvb_ringbuffer *buffer;
@@ -2697,11 +2691,10 @@ static int dvb_dmxdev_ts_callback(const u8 *buffer1, size_t buffer1_len,
 	ssize_t free;
 
 	if (!dmxdevfilter) {
-		pr_err("%s: null filter (feed->is_filtering=%d) status=%d\n",
-			__func__, feed->is_filtering, success);
+		pr_err("%s: null filter (feed->is_filtering=%d)\n",
+			__func__, feed->is_filtering);
 		return -EINVAL;
 	}
-
 	spin_lock(&dmxdevfilter->dev->lock);
 
 	if (dmxdevfilter->params.pes.output == DMX_OUT_DECODER ||
@@ -2725,36 +2718,8 @@ static int dvb_dmxdev_ts_callback(const u8 *buffer1, size_t buffer1_len,
 		return buffer->error;
 	}
 
-	if (dmxdevfilter->params.pes.output == DMX_OUT_TAP) {
-		if (success == DMX_OK && !events->current_event_data_size) {
-			events->current_event_start_offset = buffer->pwrite;
-		} else if (success == DMX_OK_PES_END) {
-			event.type = DMX_EVENT_NEW_PES;
-
-			event.params.pes.actual_length =
-				events->current_event_data_size;
-			event.params.pes.total_length =
-				events->current_event_data_size;
-
-			event.params.pes.base_offset =
-				events->current_event_start_offset;
-			event.params.pes.start_offset =
-				events->current_event_start_offset;
-
-			event.params.pes.flags = 0;
-			event.params.pes.stc = 0;
-			event.params.pes.transport_error_indicator_counter = 0;
-			event.params.pes.continuity_error_counter = 0;
-			event.params.pes.ts_packets_num = 0;
-
-			/* Do not report zero length PES */
-			if (event.params.pes.total_length)
-				dvb_dmxdev_add_event(events, &event);
-			events->current_event_data_size = 0;
-		}
-	} else if (!events->current_event_data_size) {
+	if (!events->current_event_data_size)
 		events->current_event_start_offset = buffer->pwrite;
-	}
 
 	/* Verify output buffer has sufficient space, or report overflow */
 	free = dvb_ringbuffer_free(buffer);

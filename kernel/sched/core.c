@@ -2255,13 +2255,13 @@ void __dl_clear_params(struct task_struct *p)
 void sched_exit(struct task_struct *p)
 {
 	unsigned long flags;
-	int cpu = get_cpu();
-	struct rq *rq = cpu_rq(cpu);
+	struct rq *rq;
 	u64 wallclock;
 
 	sched_set_group_id(p, 0);
 
-	raw_spin_lock_irqsave(&rq->lock, flags);
+	rq = task_rq_lock(p, &flags);
+
 	/* rq->curr == p */
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
@@ -2269,11 +2269,13 @@ void sched_exit(struct task_struct *p)
 	reset_task_stats(p);
 	p->ravg.mark_start = wallclock;
 	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
+
+	kfree(p->ravg.curr_window_cpu);
+	kfree(p->ravg.prev_window_cpu);
+
 	enqueue_task(rq, p, 0);
 	clear_ed_task(p, rq);
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
-
-	put_cpu();
+	task_rq_unlock(rq, p, &flags);
 }
 #endif /* CONFIG_SCHED_HMP */
 
@@ -2377,6 +2379,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	int cpu = get_cpu();
 
 	__sched_fork(clone_flags, p);
+	init_new_task_load(p, false);
 	/*
 	 * We mark the process as running here. This guarantees that
 	 * nobody will actually run it, and a signal or other external
@@ -2562,7 +2565,6 @@ void wake_up_new_task(struct task_struct *p)
 	struct rq *rq;
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
-	init_new_task_load(p);
 	add_new_task_to_grp(p);
 	/* Initialize new task's runnable average */
 	init_entity_runnable_average(&p->se);
@@ -5210,16 +5212,20 @@ void init_idle_bootup_task(struct task_struct *idle)
  * init_idle - set up an idle thread for a given CPU
  * @idle: task in question
  * @cpu: cpu the idle task belongs to
+ * @cpu_up: differentiate between initial boot vs hotplug
  *
  * NOTE: this function does not set the idle thread's NEED_RESCHED
  * flag, to make booting more robust.
  */
-void init_idle(struct task_struct *idle, int cpu)
+void init_idle(struct task_struct *idle, int cpu, bool cpu_up)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
 
 	__sched_fork(0, idle);
+
+	if (!cpu_up)
+		init_new_task_load(idle, true);
 
 	raw_spin_lock_irqsave(&idle->pi_lock, flags);
 	raw_spin_lock(&rq->lock);
@@ -8009,6 +8015,22 @@ void __init sched_init(void)
 		rq->old_estimated_time = 0;
 		rq->old_busy_time_group = 0;
 		rq->hmp_stats.pred_demands_sum = 0;
+		rq->curr_table = 0;
+		rq->prev_top = 0;
+		rq->curr_top = 0;
+
+		for (j = 0; j < NUM_TRACKED_WINDOWS; j++) {
+			memset(&rq->load_subs[j], 0,
+					sizeof(struct load_subtractions));
+
+			rq->top_tasks[j] = kcalloc(NUM_LOAD_INDICES,
+						sizeof(u8), GFP_NOWAIT);
+
+			/* No other choice */
+			BUG_ON(!rq->top_tasks[j]);
+
+			clear_top_tasks_bitmap(rq->top_tasks_bitmap[j]);
+		}
 #endif
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 
@@ -8051,7 +8073,7 @@ void __init sched_init(void)
 	 * but because we are the idle thread, we just pick up running again
 	 * when this runqueue becomes "idle".
 	 */
-	init_idle(current, smp_processor_id());
+	init_idle(current, smp_processor_id(), false);
 
 	calc_load_update = jiffies + LOAD_FREQ;
 

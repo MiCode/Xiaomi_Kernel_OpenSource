@@ -407,8 +407,7 @@ typedef int (*dmx_ts_cb)(const u8 *buffer1,
 			 size_t buffer1_length,
 			 const u8 *buffer2,
 			 size_t buffer2_length,
-			 struct dmx_ts_feed *source,
-			enum dmx_success success);
+			 struct dmx_ts_feed *source);
 
 /**
  * typedef dmx_section_cb - DVB demux TS filter callback function prototype
@@ -449,8 +448,7 @@ typedef int (*dmx_section_cb)(const u8 *buffer1,
 			      size_t buffer1_len,
 			      const u8 *buffer2,
 			      size_t buffer2_len,
-			      struct dmx_section_filter *source,
-			enum dmx_success success);
+			      struct dmx_section_filter *source);
 
 typedef int (*dmx_ts_fullness) (
 				struct dmx_ts_feed *source,

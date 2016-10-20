@@ -10,6 +10,8 @@ Required properties:
  - reg	: i2c slave address of the device.
  - interrupt-parent	: parent of interrupt.
  - interrupts	: interrupt to indicate motion of the rotating switch.
+ - vdd-supply	: Power supply needed to power up the device.
+ - vld-supply	: Power source required to power up I2C bus.
 
 Optional properties:
  - pixart,inverse-x 	: boolean, use this to invert the x data before sending it to input framework
@@ -44,6 +46,8 @@ Example:
 		reg = <0x75>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <98 0x2008>;
+		vdd-supply = <&pm8110_l5>;
+		vld-supply = <&pm8110_l17>;
 		pixart,irq-gpio = <&msm_gpio 98 0x2008>;
 		pinctrl-names = "pmx_rot_switch_active",
 				"pmx_rot_switch_suspend",
