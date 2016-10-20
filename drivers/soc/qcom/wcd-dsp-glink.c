@@ -216,9 +216,9 @@ static bool wdsp_glink_notify_rx_intent_req(void *handle, const void *priv,
 
 	mutex_lock(&ch->mutex);
 	rc = glink_queue_rx_intent(ch->handle, ch, req_size);
-	if (IS_ERR_VALUE(ret)) {
-		dev_err(wpriv->dev, "%s: Failed to queue rx intent\n",
-			__func__);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(wpriv->dev, "%s: Failed to queue rx intent, rc = %d\n",
+			__func__, rc);
 		mutex_unlock(&ch->mutex);
 		goto done;
 	}
@@ -659,10 +659,13 @@ static ssize_t wdsp_glink_read(struct file *file, char __user *buf,
 		count = WDSP_MAX_READ_SIZE;
 	}
 	/*
-	 * This is unblocked only from glink rx notification callback
-	 * or from flush API.
+	 * Complete signal has given from glink rx notification callback
+	 * or from flush API. Also use interruptible wait_for_completion API
+	 * to allow the system to go in suspend.
 	 */
-	wait_for_completion(&wpriv->rsp_complete);
+	ret = wait_for_completion_interruptible(&wpriv->rsp_complete);
+	if (ret)
+		goto done;
 
 	mutex_lock(&wpriv->rsp_mutex);
 	if (wpriv->rsp_cnt) {
