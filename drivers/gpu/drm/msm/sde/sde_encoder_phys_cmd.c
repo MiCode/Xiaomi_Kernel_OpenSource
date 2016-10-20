@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,7 +133,8 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 	wake_up_all(&cmd_enc->pp_tx_done_wq);
 
 	/* Trigger a pending flush */
-	phys_enc->parent_ops.handle_ready_for_kickoff(phys_enc->parent,
+	if (phys_enc->parent_ops.handle_ready_for_kickoff)
+		phys_enc->parent_ops.handle_ready_for_kickoff(phys_enc->parent,
 			phys_enc);
 }
 
@@ -145,15 +146,28 @@ static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
 	if (!cmd_enc)
 		return;
 
-	phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent);
+	if (phys_enc->parent_ops.handle_vblank_virt)
+		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
+			phys_enc);
 }
 
-static int sde_encoder_phys_cmd_register_pp_irq(
-		struct sde_encoder_phys *phys_enc,
-		enum sde_intr_type intr_type,
-		int *irq_idx,
-		void (*irq_func)(void *, int),
-		const char *irq_name)
+static void sde_encoder_phys_cmd_underrun_irq(void *arg, int irq_idx)
+{
+	struct sde_encoder_phys_cmd *cmd_enc = arg;
+	struct sde_encoder_phys *phys_enc;
+
+	if (!cmd_enc)
+		return;
+
+	phys_enc = &cmd_enc->base;
+	if (phys_enc->parent_ops.handle_underrun_virt)
+		phys_enc->parent_ops.handle_underrun_virt(phys_enc->parent,
+			phys_enc);
+}
+
+static int sde_encoder_phys_cmd_register_irq(struct sde_encoder_phys *phys_enc,
+	enum sde_intr_type intr_type, int *irq_idx,
+	void (*irq_func)(void *, int), const char *irq_name)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
@@ -208,7 +222,7 @@ static int sde_encoder_phys_cmd_register_pp_irq(
 	return ret;
 }
 
-static int sde_encoder_phys_cmd_unregister_pp_irq(
+static int sde_encoder_phys_cmd_unregister_irq(
 		struct sde_encoder_phys *phys_enc,
 		int irq_idx)
 {
@@ -380,7 +394,7 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 
 	/* Slave encoders don't report vblank */
 	if (!sde_encoder_phys_cmd_is_master(phys_enc))
-		return 0;
+		goto end;
 
 	SDE_DEBUG_CMDENC(cmd_enc, "[%pS] enable=%d/%d\n",
 			__builtin_return_address(0),
@@ -390,15 +404,25 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 			atomic_read(&phys_enc->vblank_refcount));
 
 	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
-		ret = sde_encoder_phys_cmd_register_pp_irq(phys_enc,
+		ret = sde_encoder_phys_cmd_register_irq(phys_enc,
 				SDE_IRQ_TYPE_PING_PONG_RD_PTR,
-				&cmd_enc->pp_rd_ptr_irq_idx,
+				&cmd_enc->irq_idx[INTR_IDX_PINGPONG],
 				sde_encoder_phys_cmd_pp_rd_ptr_irq,
 				"pp_rd_ptr");
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
-		ret = sde_encoder_phys_cmd_unregister_pp_irq(phys_enc,
-				cmd_enc->pp_rd_ptr_irq_idx);
+		ret = sde_encoder_phys_cmd_unregister_irq(phys_enc,
+				cmd_enc->irq_idx[INTR_IDX_PINGPONG]);
 
+	if (enable)
+		ret = sde_encoder_phys_cmd_register_irq(phys_enc,
+			SDE_IRQ_TYPE_PING_PONG_RD_PTR,
+			&cmd_enc->irq_idx[INTR_IDX_RDPTR],
+			sde_encoder_phys_cmd_pp_rd_ptr_irq, "pp_rd_ptr");
+	else
+		ret = sde_encoder_phys_cmd_unregister_irq(phys_enc,
+			cmd_enc->irq_idx[INTR_IDX_RDPTR]);
+
+end:
 	if (ret)
 		SDE_ERROR_CMDENC(cmd_enc,
 				"control vblank irq error %d, enable %d\n",
@@ -436,19 +460,30 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 	sde_encoder_phys_cmd_pingpong_config(phys_enc);
 
 	/* Both master and slave need to register for pp_tx_done */
-	ret = sde_encoder_phys_cmd_register_pp_irq(phys_enc,
+	ret = sde_encoder_phys_cmd_register_irq(phys_enc,
 			SDE_IRQ_TYPE_PING_PONG_COMP,
-			&cmd_enc->pp_tx_done_irq_idx,
+			&cmd_enc->irq_idx[INTR_IDX_PINGPONG],
 			sde_encoder_phys_cmd_pp_tx_done_irq,
 			"pp_tx_done");
-
 	if (ret)
 		return;
 
 	ret = sde_encoder_phys_cmd_control_vblank_irq(phys_enc, true);
 	if (ret) {
-		sde_encoder_phys_cmd_unregister_pp_irq(phys_enc,
-				cmd_enc->pp_tx_done_irq_idx);
+		sde_encoder_phys_cmd_unregister_irq(phys_enc,
+				cmd_enc->irq_idx[INTR_IDX_PINGPONG]);
+		return;
+	}
+
+	ret = sde_encoder_phys_cmd_register_irq(phys_enc,
+			SDE_IRQ_TYPE_INTF_UNDER_RUN,
+			&cmd_enc->irq_idx[INTR_IDX_UNDERRUN],
+			sde_encoder_phys_cmd_underrun_irq,
+			"underrun");
+	if (ret) {
+		sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
+		sde_encoder_phys_cmd_unregister_irq(phys_enc,
+				cmd_enc->irq_idx[INTR_IDX_UNDERRUN]);
 		return;
 	}
 
@@ -475,9 +510,11 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 	if (WARN_ON(phys_enc->enable_state == SDE_ENC_DISABLED))
 		return;
 
-	sde_encoder_phys_cmd_unregister_pp_irq(phys_enc,
-			cmd_enc->pp_tx_done_irq_idx);
+	sde_encoder_phys_cmd_unregister_irq(phys_enc,
+			cmd_enc->irq_idx[INTR_IDX_UNDERRUN]);
 	sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
+	sde_encoder_phys_cmd_unregister_irq(phys_enc,
+			cmd_enc->irq_idx[INTR_IDX_PINGPONG]);
 
 	atomic_set(&cmd_enc->pending_cnt, 0);
 	wake_up_all(&cmd_enc->pp_tx_done_wq);
@@ -603,6 +640,7 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	phys_enc->hw_mdptop = hw_mdp;
 
 	cmd_enc->intf_idx = p->intf_idx;
+	phys_enc->intf_idx = p->intf_idx;
 
 	sde_encoder_phys_cmd_init_ops(&phys_enc->ops);
 	phys_enc->parent = p->parent;

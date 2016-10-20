@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,11 +46,16 @@ struct sde_encoder_phys;
  *	provides for the physical encoders to use to callback.
  * @handle_vblank_virt:	Notify virtual encoder of vblank IRQ reception
  *			Note: This is called from IRQ handler context.
+ * @handle_underrun_virt: Notify virtual encoder of underrun IRQ reception
+ *			Note: This is called from IRQ handler context.
  * @handle_ready_for_kickoff:	Notify virtual encoder that this phys encoder
  *				is now ready for the next kickoff.
  */
 struct sde_encoder_virt_ops {
-	void (*handle_vblank_virt)(struct drm_encoder *);
+	void (*handle_vblank_virt)(struct drm_encoder *,
+			struct sde_encoder_phys *phys);
+	void (*handle_underrun_virt)(struct drm_encoder *,
+			struct sde_encoder_phys *phys);
 	void (*handle_ready_for_kickoff)(struct drm_encoder *,
 			struct sde_encoder_phys *phys);
 };
@@ -123,6 +128,21 @@ enum sde_enc_enable_state {
 };
 
 /**
+ * enum sde_intr_idx - sde encoder interrupt index
+ * @INTR_IDX_VSYNC:    Vsync interrupt for video mode panel
+ * @INTR_IDX_PINGPONG: Pingpong done unterrupt for cmd mode panel
+ * @INTR_IDX_UNDERRUN: Underrun unterrupt for video and cmd mode panel
+ * @INTR_IDX_RDPTR:    Readpointer done unterrupt for cmd mode panel
+ */
+enum sde_intr_idx {
+	INTR_IDX_VSYNC,
+	INTR_IDX_PINGPONG,
+	INTR_IDX_UNDERRUN,
+	INTR_IDX_RDPTR,
+	INTR_IDX_MAX,
+};
+
+/**
  * struct sde_encoder_phys - physical encoder that drives a single INTF block
  *	tied to a specific panel / sub-panel. Abstract type, sub-classed by
  *	phys_vid or phys_cmd for video mode or command mode encs respectively.
@@ -138,10 +158,13 @@ enum sde_enc_enable_state {
  * @enabled:		Whether the encoder has enabled and running a mode
  * @split_role:		Role to play in a split-panel configuration
  * @intf_mode:		Interface mode
+ * @intf_idx:		Interface index on sde hardware
  * @spin_lock:		Lock for IRQ purposes
  * @mode_3d:		3D mux configuration
  * @enable_state:	Enable state tracking
  * @vblank_refcount:	Reference count of vblank request
+ * @vsync_cnt:		Vsync count for the physical encoder
+ * @underrun_cnt:	Underrun count for the physical encoder
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -155,10 +178,13 @@ struct sde_encoder_phys {
 	struct drm_display_mode cached_mode;
 	enum sde_enc_split_role split_role;
 	enum sde_intf_mode intf_mode;
+	enum sde_intf intf_idx;
 	spinlock_t spin_lock;
 	enum sde_3d_blend_mode mode_3d;
 	enum sde_enc_enable_state enable_state;
 	atomic_t vblank_refcount;
+	atomic_t vsync_cnt;
+	atomic_t underrun_cnt;
 };
 
 /**
@@ -171,7 +197,7 @@ struct sde_encoder_phys {
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
-	int irq_idx;
+	int irq_idx[INTR_IDX_MAX];
 	struct sde_hw_intf *hw_intf;
 	struct completion vblank_completion;
 };
@@ -199,8 +225,7 @@ struct sde_encoder_phys_cmd {
 	int intf_idx;
 	int stream_sel;
 	struct sde_hw_pingpong *hw_pp;
-	int pp_rd_ptr_irq_idx;
-	int pp_tx_done_irq_idx;
+	int irq_idx[INTR_IDX_MAX];
 	wait_queue_head_t pp_tx_done_wq;
 	atomic_t pending_cnt;
 };

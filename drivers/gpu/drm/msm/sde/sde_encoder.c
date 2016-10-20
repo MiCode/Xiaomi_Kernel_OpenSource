@@ -389,6 +389,9 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
 		if (phys) {
+			atomic_set(&phys->vsync_cnt, 0);
+			atomic_set(&phys->underrun_cnt, 0);
+
 			if (phys->ops.enable)
 				phys->ops.enable(phys);
 
@@ -435,8 +438,12 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->ops.disable && !phys->ops.is_master(phys))
+		if (phys && phys->ops.disable && !phys->ops.is_master(phys)) {
 			phys->ops.disable(phys);
+
+			atomic_set(&phys->vsync_cnt, 0);
+			atomic_set(&phys->underrun_cnt, 0);
+		}
 	}
 
 	if (sde_enc->cur_master && sde_enc->cur_master->ops.disable)
@@ -488,12 +495,13 @@ static enum sde_wb sde_encoder_get_wb(struct sde_mdss_cfg *catalog,
 	return WB_MAX;
 }
 
-static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc)
+static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc,
+		struct sde_encoder_phys *phy_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	unsigned long lock_flags;
 
-	if (!drm_enc)
+	if (!drm_enc || !phy_enc)
 		return;
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
@@ -502,6 +510,17 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc)
 	if (sde_enc->crtc_vblank_cb)
 		sde_enc->crtc_vblank_cb(sde_enc->crtc_vblank_cb_data);
 	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+
+	atomic_inc(&phy_enc->vsync_cnt);
+}
+
+static void sde_encoder_underrun_callback(struct drm_encoder *drm_enc,
+		struct sde_encoder_phys *phy_enc)
+{
+	if (!phy_enc)
+		return;
+
+	atomic_inc(&phy_enc->underrun_cnt);
 }
 
 void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
@@ -829,6 +848,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	enum sde_intf_type intf_type;
 	struct sde_encoder_virt_ops parent_ops = {
 		sde_encoder_vblank_callback,
+		sde_encoder_underrun_callback,
 		sde_encoder_handle_phys_enc_ready_for_kickoff
 	};
 	struct sde_enc_phys_init_params phys_params;
