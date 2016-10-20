@@ -22,6 +22,7 @@ enum print_reason {
 	PR_INTERRUPT	= BIT(0),
 	PR_REGISTER	= BIT(1),
 	PR_MISC		= BIT(2),
+	PR_PARALLEL	= BIT(3),
 };
 
 #define DEFAULT_VOTER			"DEFAULT_VOTER"
@@ -190,6 +191,7 @@ struct smb_charger {
 	bool			step_chg_enabled;
 	bool			is_hdc;
 	bool			chg_done;
+	int			input_limited_fcc_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -307,6 +309,8 @@ int smblib_get_prop_pd_allowed(struct smb_charger *chg,
 int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
+			       union power_supply_propval *val);
+int smblib_get_pe_start(struct smb_charger *chg,
 			       union power_supply_propval *val);
 int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);

@@ -38,8 +38,8 @@
 
 static bool is_secure(struct smb_charger *chg, int addr)
 {
-	/* assume everything above 0xC0 is secure */
-	return (bool)((addr & 0xFF) >= 0xC0);
+	/* assume everything above 0xA0 is secure */
+	return (bool)((addr & 0xFF) >= 0xA0);
 }
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val)
@@ -152,7 +152,7 @@ static void smblib_split_fcc(struct smb_charger *chg, int total_ua,
 			     int *master_ua, int *slave_ua)
 {
 	int rc, jeita_cc_delta_ua, step_cc_delta_ua, effective_total_ua,
-		hw_cc_delta_ua = 0;
+		slave_limited_ua, hw_cc_delta_ua = 0;
 
 	rc = smblib_get_step_cc_delta(chg, &step_cc_delta_ua);
 	if (rc < 0) {
@@ -172,7 +172,8 @@ static void smblib_split_fcc(struct smb_charger *chg, int total_ua,
 	}
 
 	effective_total_ua = max(0, total_ua + hw_cc_delta_ua);
-	*slave_ua = (effective_total_ua * chg->pl.slave_pct) / 100;
+	slave_limited_ua = min(effective_total_ua, chg->input_limited_fcc_ua);
+	*slave_ua = (slave_limited_ua * chg->pl.slave_pct) / 100;
 	*slave_ua = (*slave_ua * chg->pl.taper_pct) / 100;
 	*master_ua = max(0, total_ua - *slave_ua);
 }
@@ -470,9 +471,8 @@ static int try_rerun_apsd_for_hvdcp(struct smb_charger *chg)
 	return 0;
 }
 
-static int smblib_update_usb_type(struct smb_charger *chg)
+static const struct apsd_result *smblib_update_usb_type(struct smb_charger *chg)
 {
-	int rc = 0;
 	const struct apsd_result *apsd_result;
 
 	/* if PD is active, APSD is disabled so won't have a valid result */
@@ -483,7 +483,7 @@ static int smblib_update_usb_type(struct smb_charger *chg)
 
 	apsd_result = smblib_get_apsd_result(chg);
 	chg->usb_psy_desc.type = apsd_result->pst;
-	return rc;
+	return apsd_result;
 }
 
 static int smblib_notifier_call(struct notifier_block *nb,
@@ -592,7 +592,7 @@ static int smblib_fcc_vote_callback(struct votable *votable, void *data,
 {
 	struct smb_charger *chg = data;
 	union power_supply_propval pval = {0, };
-	int rc, master_fcc_ua = total_fcc_ua, slave_fcc_ua;
+	int rc, master_fcc_ua = total_fcc_ua, slave_fcc_ua = 0;
 
 	if (total_fcc_ua < 0)
 		return 0;
@@ -623,6 +623,11 @@ static int smblib_fcc_vote_callback(struct votable *votable, void *data,
 		smblib_err(chg, "Couldn't set master fcc rc=%d\n", rc);
 		return rc;
 	}
+
+	smblib_dbg(chg, PR_PARALLEL, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
+		   master_fcc_ua, slave_fcc_ua,
+		   (master_fcc_ua * 100) / total_fcc_ua,
+		   (slave_fcc_ua * 100) / total_fcc_ua);
 
 	return 0;
 }
@@ -832,6 +837,9 @@ static int smblib_pl_disable_vote_callback(struct votable *votable, void *data,
 			"Couldn't change slave suspend state rc=%d\n", rc);
 		return rc;
 	}
+
+	smblib_dbg(chg, PR_PARALLEL, "parallel charging %s\n",
+		   pl_disable ? "disabled" : "enabled");
 
 	return 0;
 }
@@ -1758,7 +1766,7 @@ int smblib_get_prop_typec_power_role(struct smb_charger *chg,
 int smblib_get_prop_pd_allowed(struct smb_charger *chg,
 			       union power_supply_propval *val)
 {
-	val->intval = get_effective_result_locked(chg->pd_allowed_votable);
+	val->intval = get_effective_result(chg->pd_allowed_votable);
 	return 0;
 }
 
@@ -1781,6 +1789,19 @@ int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
 		return rc;
 	}
 	val->intval = ctrl & EXIT_SNK_BASED_ON_CC_BIT;
+	return 0;
+}
+
+int smblib_get_pe_start(struct smb_charger *chg,
+			       union power_supply_propval *val)
+{
+	/*
+	 * hvdcp timeout voter is the last one to allow pd. Use its vote
+	 * to indicate start of pe engine
+	 */
+	val->intval
+		= !get_client_vote_locked(chg->pd_disallowed_votable_indirect,
+			HVDCP_TIMEOUT_VOTER);
 	return 0;
 }
 
@@ -1953,6 +1974,13 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	chg->pd_active = pd_active;
 	smblib_update_usb_type(chg);
 	power_supply_changed(chg->usb_psy);
+
+	rc = smblib_masked_write(chg, TYPE_C_CFG_3_REG, EN_TRYSINK_MODE_BIT,
+				 chg->pd_active ? 0 : EN_TRYSINK_MODE_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set TRYSINK_MODE rc=%d\n", rc);
+		return rc;
+	}
 
 	return rc;
 }
@@ -2187,12 +2215,14 @@ skip_dpdm_float:
 }
 
 #define USB_WEAK_INPUT_UA	1400000
+#define EFFICIENCY_PCT		80
 irqreturn_t smblib_handle_icl_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 	int rc, icl_ua;
 
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
 	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &icl_ua);
 	if (rc < 0) {
@@ -2200,11 +2230,18 @@ irqreturn_t smblib_handle_icl_change(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	if (chg->mode == PARALLEL_MASTER)
-		vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
-		     icl_ua >= USB_WEAK_INPUT_UA, 0);
+	if (chg->mode != PARALLEL_MASTER)
+		return IRQ_HANDLED;
 
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+	chg->input_limited_fcc_ua = div64_s64(
+			(s64)icl_ua * MICRO_5V * EFFICIENCY_PCT,
+			(s64)get_effective_result(chg->fv_votable) * 100);
+
+	if (!get_effective_result(chg->pl_disable_votable))
+		rerun_election(chg->fcc_votable);
+
+	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
+		icl_ua >= USB_WEAK_INPUT_UA, 0);
 
 	return IRQ_HANDLED;
 }
@@ -2280,13 +2317,12 @@ static void smblib_handle_hvdcp_detect_done(struct smb_charger *chg,
 #define HVDCP_DET_MS 2500
 static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 {
-	int rc;
 	const struct apsd_result *apsd_result;
 
 	if (!rising)
 		return;
 
-	apsd_result = smblib_get_apsd_result(chg);
+	apsd_result = smblib_update_usb_type(chg);
 	switch (apsd_result->bit) {
 	case SDP_CHARGER_BIT:
 	case CDP_CHARGER_BIT:
@@ -2304,10 +2340,6 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	default:
 		break;
 	}
-
-	rc = smblib_update_usb_type(chg);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't update usb type rc=%d\n", rc);
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: apsd-done rising; %s detected\n",
 		   apsd_result->name);

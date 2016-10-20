@@ -351,6 +351,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
+	POWER_SUPPLY_PROP_PE_START,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -421,6 +422,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED:
 		val->intval = chg->system_suspend_supported;
+		break;
+	case POWER_SUPPLY_PROP_PE_START:
+		rc = smblib_get_pe_start(chg, val);
 		break;
 	default:
 		pr_err("get prop %d is not supported\n", psp);
@@ -633,13 +637,16 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_STEP_CHARGING_STEP,
 	POWER_SUPPLY_PROP_CHARGE_DONE,
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
+	POWER_SUPPLY_PROP_PARALLEL_PERCENT,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -679,6 +686,7 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		rc = smblib_get_prop_input_current_limited(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 		val->intval = chg->step_chg_enabled;
 		break;
@@ -688,8 +696,15 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		rc = smblib_get_prop_batt_voltage_now(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = get_client_vote(chg->fv_votable, DEFAULT_VOTER);
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_prop_batt_current_now(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		val->intval = get_client_vote(chg->fcc_max_votable,
+					      DEFAULT_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		rc = smblib_get_prop_batt_temp(chg, val);
@@ -703,6 +718,9 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 		val->intval = get_client_vote(chg->pl_disable_votable,
 					      USER_VOTER);
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
+		val->intval = chg->pl.slave_pct;
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -737,6 +755,18 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 		vote(chg->pl_disable_votable, USER_VOTER, (bool)val->intval, 0);
 		break;
+	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
+		if (val->intval < 0 || val->intval > 100)
+			return -EINVAL;
+		chg->pl.slave_pct = val->intval;
+		rerun_election(chg->fcc_votable);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		vote(chg->fv_votable, DEFAULT_VOTER, true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		vote(chg->fcc_max_votable, DEFAULT_VOTER, true, val->intval);
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -752,6 +782,7 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
+	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
 		return 1;
 	default:
 		break;
