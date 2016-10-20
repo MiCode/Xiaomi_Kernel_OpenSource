@@ -1,0 +1,167 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdss_mdp: qcom,mdss_mdp@c900000 {
+		compatible = "qcom,sde-kms";
+		reg = <0x0c900000 0x90000>,
+		      <0x0c9b0000 0x1040>;
+		reg-names = "mdp_phys", "vbif_phys";
+
+		/* clock and supply entries */
+		clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
+			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
+			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			 <&clock_mmss clk_mmss_mdss_ahb_clk>,
+			 <&clock_mmss clk_mmss_mdss_axi_clk>,
+			 <&clock_mmss clk_mdp_clk_src>,
+			 <&clock_mmss clk_mmss_mdss_mdp_clk>,
+			 <&clock_mmss clk_mmss_mdss_vsync_clk>,
+			 <&clock_mmss clk_mmss_mdss_mdp_lut_clk>;
+		clock-names = "mmss_noc_axi_clk",
+					"mmss_noc_ahb_clk",
+					"mmss_smmu_ahb_clk",
+					"mmss_smmu_axi_clk",
+			    "mnoc_clk", "iface_clk", "bus_clk",
+				"core_clk_src", "core_clk", "vsync_clk",
+				"lut_clk";
+		clock-rate = <0 0 0 0 0 0 0 330000000 0 0 0 0>;
+		clock-max-rate = <0 0 0 0 0 0 412500000 412500000 0 0 0 0>;
+		qcom,sde-max-bw-low-kbps = <6700000>;
+		qcom,sde-max-bw-high-kbps = <6700000>;
+
+		/* interrupt config */
+		interrupt-parent = <&intc>;
+		interrupts = <0 83 0>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		iommus = <&mmss_smmu 0>;
+
+		/* hw blocks */
+		qcom,sde-off = <0x1000>;
+		qcom,sde-ctl-off = <0x2000 0x2200 0x2400
+				     0x2600 0x2800>;
+		qcom,sde-mixer-off = <0x45000 0x46000 0x47000
+				      0x48000 0x49000 0x4a000>;
+		qcom,sde-dspp-off = <0x55000 0x57000>;
+		qcom,sde-wb-off = <0x66000>;
+		qcom,sde-wb-id = <2>;
+		qcom,sde-wb-xin-id = <6>;
+		qcom,sde-wb-clk-ctrl = <0x2bc 0x10>;
+		qcom,sde-intf-off = <0x6b000 0x6b800
+					0x6c000 0x6c800>;
+		qcom,sde-intf-type = "dp", "dsi", "dsi", "hdmi";
+		qcom,sde-pp-off = <0x71000 0x71800
+					  0x72000 0x72800>;
+		qcom,sde-te2-off = <0x2000 0x2000 0x0 0x0>;
+		qcom,sde-cdm-off = <0x7a200>;
+		qcom,sde-dsc-off = <0x10000 0x10000 0x0 0x0>;
+		qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;
+
+		qcom,sde-sspp-type =  "vig", "vig", "vig", "vig",
+						"dma", "dma", "dma", "dma",
+						"cursor", "cursor";
+
+		qcom,sde-sspp-off = <0x5000 0x7000 0x9000 0xb000
+						0x25000 0x27000 0x29000 0x2b000
+						0x35000 0x37000>;
+
+		qcom,sde-sspp-xin-id = <0 4 8 12 1 5 9 13 2 10>;
+
+		/* offsets are relative to "mdp_phys + qcom,sde-off */
+		qcom,sde-sspp-clk-ctrl = <0x2ac 0x8>, <0x2b4 0x8>,
+				  <0x2c4 0x8>, <0x2c4 0xc>, <0x3a8 0x10>,
+				  <0x3b0 0x10>;
+
+		qcom,sde-qseed-type = "qseedv3";
+		qcom,sde-mixer-linewidth = <2560>;
+		qcom,sde-sspp-linewidth = <2560>;
+		qcom,sde-mixer-blendstages = <0x7>;
+		qcom,sde-highest-bank-bit = <0x2>;
+		qcom,sde-panic-per-pipe;
+		qcom,sde-has-cdp;
+		qcom,sde-has-src-split;
+		qcom,sde-sspp-danger-lut = <0x000f 0xffff 0x0000>;
+		qcom,sde-sspp-safe-lut = <0xfffc 0xff00 0xffff>;
+
+		qcom,sde-vbif-off = <0>;
+		qcom,sde-vbif-id = <0>;
+		qcom,sde-vbif-default-ot-rd-limit = <32>;
+		qcom,sde-vbif-default-ot-wr-limit = <32>;
+		qcom,sde-vbif-dynamic-ot-rd-limit = <62208000 2>,
+			<124416000 4>, <248832000 16>;
+		qcom,sde-vbif-dynamic-ot-wr-limit = <62208000 2>,
+			<124416000 4>, <248832000 16>;
+
+		vdd-supply = <&gdsc_mdss>;
+		gdsc-mmagic-mdss-supply = <&gdsc_bimc_smmu>;
+		qcom,sde-csc-type = "csc-10bit";
+
+		qcom,sde-sspp-vig-blocks {
+			qcom,sde-vig-csc-off = <0x1a00>;
+			qcom,sde-vig-qseed-off = <0xa00>;
+		};
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc-mmagic-mdss";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+
+			qcom,platform-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
+			compatible = "qcom,smmu_mdp_unsec";
+			iommus = <&mmss_smmu 0>;
+		};
+
+		/* data and reg bus scale settings */
+		qcom,sde-data-bus {
+			qcom,msm-bus,name = "mdss_sde";
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <2>;
+			qcom,msm-bus,vectors-KBps =
+				<22 512 0 0>, <23 512 0 0>,
+				<22 512 0 6400000>, <23 512 0 6400000>,
+				<22 512 0 6400000>, <23 512 0 6400000>;
+		};
+		qcom,sde-reg-bus {
+			qcom,msm-bus,name = "mdss_reg";
+			qcom,msm-bus,num-cases = <4>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<1 590 0 0>,
+				<1 590 0 76800>,
+				<1 590 0 160000>,
+				<1 590 0 320000>;
+		};
+	};
+};
+#include "msm8998-sde-display.dtsi"
