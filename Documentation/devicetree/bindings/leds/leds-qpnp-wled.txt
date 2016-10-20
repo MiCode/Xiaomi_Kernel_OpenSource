@@ -12,6 +12,8 @@ Required properties:
 - reg-names		: names associated with base addresses. It
 			should be "qpnp-wled-ctrl-base", "qpnp-wled-sink-base",
 			"qpnp-wled-ibb-base", "qpnp-wled-lab-base".
+- qcom,pmic-revid	: phandle of PMIC revid module. This is used to
+			  identify the PMIC subtype.
 
 Optional properties for WLED:
  - interrupts		: Specifies the interrupts associated with WLED. The available

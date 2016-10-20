@@ -537,6 +537,7 @@
 			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01 02 03];
 			qcom,en-ext-pfet-sc-pro;
+			qcom,pmic-revid = <&pmi8994_revid>;
 		};
 
 		pmi8994_haptics: qcom,haptic@c000 {

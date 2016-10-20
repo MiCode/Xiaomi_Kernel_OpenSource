@@ -248,6 +248,7 @@
 			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01 02];
 			qcom,en-ext-pfet-sc-pro;
+			qcom,pmic-revid = <&pm2falcon_revid>;
 			status = "ok";
 		};
 

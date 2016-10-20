@@ -25,6 +25,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/leds-qpnp-wled.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 #define QPNP_IRQ_FLAGS	(IRQF_TRIGGER_RISING | \
 			IRQF_TRIGGER_FALLING | \
@@ -276,6 +277,7 @@ struct qpnp_wled {
 	struct led_classdev	cdev;
 	struct platform_device	*pdev;
 	struct regmap		*regmap;
+	struct pmic_revid_data	*pmic_rev_id;
 	struct work_struct	work;
 	struct mutex		lock;
 	enum qpnp_wled_fdbk_op	fdbk_op;
@@ -1638,6 +1640,7 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 static int qpnp_wled_probe(struct platform_device *pdev)
 {
 	struct qpnp_wled *wled;
+	struct device_node *revid_node;
 	int rc = 0, i;
 	const __be32 *prop;
 
@@ -1651,6 +1654,27 @@ static int qpnp_wled_probe(struct platform_device *pdev)
 		}
 
 	wled->pdev = pdev;
+
+	revid_node = of_parse_phandle(pdev->dev.of_node, "qcom,pmic-revid", 0);
+	if (!revid_node) {
+		pr_err("Missing qcom,pmic-revid property - driver failed\n");
+		return -EINVAL;
+	}
+
+	wled->pmic_rev_id = get_revid_data(revid_node);
+	if (IS_ERR_OR_NULL(wled->pmic_rev_id)) {
+		pr_err("Unable to get pmic_revid rc=%ld\n",
+			PTR_ERR(wled->pmic_rev_id));
+		/*
+		 * the revid peripheral must be registered, any failure
+		 * here only indicates that the rev-id module has not
+		 * probed yet.
+		 */
+		return -EPROBE_DEFER;
+	}
+
+	pr_debug("PMIC subtype %d Digital major %d\n",
+		wled->pmic_rev_id->pmic_subtype, wled->pmic_rev_id->rev4);
 
 	prop = of_get_address_by_name(pdev->dev.of_node, QPNP_WLED_SINK_BASE,
 			0, 0);
