@@ -1663,7 +1663,7 @@ static void fg_notify_charger(struct fg_chip *chip)
 		return;
 	}
 
-	prop.intval = chip->bp.fastchg_curr_ma;
+	prop.intval = chip->bp.fastchg_curr_ma * 1000;
 	rc = power_supply_set_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &prop);
 	if (rc < 0) {
