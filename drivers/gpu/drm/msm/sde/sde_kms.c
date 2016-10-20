@@ -624,6 +624,8 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 
 	core_hw_rev_init(sde_kms);
 
+	pr_info("sde hardware revision:0x%x\n", sde_kms->core_rev);
+
 	sde_kms->catalog = sde_hw_catalog_init(dev, sde_kms->core_rev);
 	if (IS_ERR_OR_NULL(sde_kms->catalog)) {
 		SDE_ERROR("catalog init failed\n");
