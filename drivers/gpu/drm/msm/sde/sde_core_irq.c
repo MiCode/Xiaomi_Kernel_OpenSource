@@ -42,11 +42,6 @@ static void sde_core_irq_callback_handler(void *arg, int irq_idx)
 			irq_idx);
 }
 
-static void sde_core_irq_intf_error_handler(void *arg, int irq_idx)
-{
-	SDE_ERROR("INTF underrun detected, irq_idx=%d\n", irq_idx);
-}
-
 int sde_core_irq_idx_lookup(struct sde_kms *sde_kms,
 		enum sde_intr_type intr_type, u32 instance_idx)
 {
@@ -191,36 +186,6 @@ void sde_core_irq_preinstall(struct sde_kms *sde_kms)
 
 int sde_core_irq_postinstall(struct sde_kms *sde_kms)
 {
-	struct msm_drm_private *priv;
-	struct sde_irq_callback irq_cb;
-	int irq_idx;
-	int i;
-
-	if (!sde_kms) {
-		SDE_ERROR("invalid sde_kms\n");
-		return -EINVAL;
-	} else if (!sde_kms->dev) {
-		SDE_ERROR("invalid drm device\n");
-		return -EINVAL;
-	} else if (!sde_kms->dev->dev_private) {
-		SDE_ERROR("invalid device private\n");
-		return -EINVAL;
-	}
-	priv = sde_kms->dev->dev_private;
-
-	irq_cb.func = sde_core_irq_intf_error_handler;
-	irq_cb.arg  = sde_kms;
-
-	/* Register interface underrun callback */
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
-	for (i = 0; i < sde_kms->catalog->intf_count; i++) {
-		irq_idx = sde_core_irq_idx_lookup(sde_kms,
-				SDE_IRQ_TYPE_INTF_UNDER_RUN, i+INTF_0);
-		sde_core_irq_register_callback(sde_kms, irq_idx, &irq_cb);
-		sde_core_irq_enable(sde_kms, &irq_idx, 1);
-	}
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
-
 	return 0;
 }
 
