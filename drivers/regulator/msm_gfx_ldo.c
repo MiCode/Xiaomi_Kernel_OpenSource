@@ -319,23 +319,23 @@ static int enable_ldo_mode(struct msm_gfx_ldo *ldo_vreg)
 
 	/* Move BHS under SW control */
 	ctl |= BHS_UNDER_SW_CTL;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* Set LDO under gdsc control */
 	ctl &= ~LDO_UNDER_SW_CTRL_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* enable hw_pre-on to gdsc */
 	ctl |= LDO_PREON_SW_OVR_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* remove LDO bypass */
 	ctl &= ~LDO_BYPASS_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* set power-source as LDO */
 	ctl |= PWR_SRC_SEL_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* clear fake-sw ack to gdsc */
 	ctl &= ~ACK_SW_OVR_BIT;
@@ -343,7 +343,7 @@ static int enable_ldo_mode(struct msm_gfx_ldo *ldo_vreg)
 
 	/* put CPR in bypass mode */
 	ctl |= CPR_BYPASS_IN_LDO_MODE_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* complete all writes */
 	mb();
@@ -535,7 +535,7 @@ static int switch_mode_to_ldo(struct msm_gfx_ldo *ldo_vreg, int new_corner)
 
 	/* remove LDO bypass */
 	ctl &= ~LDO_BYPASS_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* expose LDO to gdsc */
 	ctl &= ~ACK_SW_OVR_BIT;
