@@ -35,6 +35,9 @@
 #include <linux/pm_qos.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
+#include <net/cnss_prealloc.h>
+#endif
 
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_VREG_DSRC_NAME	"vdd-wlan-dsrc"
@@ -879,6 +882,12 @@ int cnss_sdio_wlan_register_driver(struct cnss_sdio_wlan_driver *driver)
 					      cnss_info->id) : error;
 	if (error) {
 		pr_err("wlan probe failed error=%d\n", error);
+		/**
+		 * Check memory leak in skb pre-alloc memory pool
+		 * Reset the skb memory pool
+		 */
+		wcnss_skb_prealloc_check_memory_leak();
+		wcnss_skb_pre_alloc_reset();
 		goto pinctrl_sleep;
 	}
 
@@ -926,6 +935,13 @@ cnss_sdio_wlan_unregister_driver(struct cnss_sdio_wlan_driver *driver)
 		return;
 
 	driver->remove(cnss_info->func);
+	/**
+	 * Check memory leak in skb pre-alloc memory pool
+	 * Reset the skb memory pool
+	 */
+	wcnss_skb_prealloc_check_memory_leak();
+	wcnss_skb_pre_alloc_reset();
+
 	cnss_info->wdrv = NULL;
 	cnss_set_pinctrl_state(cnss_pdata, PINCTRL_SLEEP);
 	cnss_put_hw_resources(cnss_info->dev);
