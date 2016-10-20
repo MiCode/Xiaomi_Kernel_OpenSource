@@ -198,9 +198,7 @@
 #define clk_gcc_gp1_clk				0x057f7b69
 #define clk_gcc_gp2_clk				0x9bf83ffd
 #define clk_gcc_gp3_clk				0xec6539ee
-#define clk_gcc_gpu_snoc_dvm_gfx_clk		0xc9147451
 #define clk_gcc_gpu_bimc_gfx_clk		0x3909459b
-#define clk_gcc_gpu_bimc_gfx_src_clk		0x377cb748
 #define clk_gcc_gpu_cfg_ahb_clk			0x72f20a57
 #define clk_gcc_gpu_iref_clk			0xfd82abad
 #define clk_gcc_hmss_ahb_clk			0x62818713
