@@ -196,6 +196,10 @@ struct adreno_gpudev;
 /* Time to allow preemption to complete (in ms) */
 #define ADRENO_PREEMPT_TIMEOUT 10000
 
+#define ADRENO_INT_BIT(a, _bit) (((a)->gpucore->gpudev->int_bits) ? \
+		(adreno_get_int(a, _bit) < 0 ? 0 : \
+		BIT(adreno_get_int(a, _bit))) : 0)
+
 /**
  * enum adreno_preempt_states
  * ADRENO_PREEMPT_NONE: No preemption is scheduled
@@ -572,6 +576,11 @@ enum adreno_regs {
 	ADRENO_REG_REGISTER_MAX,
 };
 
+enum adreno_int_bits {
+	ADRENO_INT_RBBM_AHB_ERROR,
+	ADRENO_INT_BITS_MAX,
+};
+
 /**
  * adreno_reg_offsets: Holds array of register offsets
  * @offsets: Offset array of size defined by enum adreno_regs
@@ -587,6 +596,7 @@ struct adreno_reg_offsets {
 #define ADRENO_REG_UNUSED	0xFFFFFFFF
 #define ADRENO_REG_SKIP	0xFFFFFFFE
 #define ADRENO_REG_DEFINE(_offset, _reg) [_offset] = _reg
+#define ADRENO_INT_DEFINE(_offset, _val) ADRENO_REG_DEFINE(_offset, _val)
 
 /*
  * struct adreno_vbif_data - Describes vbif register value pair
@@ -724,6 +734,7 @@ struct adreno_gpudev {
 	 * so define them in the structure and use them as variables.
 	 */
 	const struct adreno_reg_offsets *reg_offsets;
+	unsigned int *const int_bits;
 	const struct adreno_ft_perf_counters *ft_perf_counters;
 	unsigned int ft_perf_counters_count;
 
@@ -1086,6 +1097,23 @@ static inline unsigned int adreno_getreg(struct adreno_device *adreno_dev,
 	if (!adreno_checkreg_off(adreno_dev, offset_name))
 		return ADRENO_REG_REGISTER_MAX;
 	return gpudev->reg_offsets->offsets[offset_name];
+}
+
+/*
+ * adreno_get_int() - Returns the offset value of an interrupt bit from
+ * the interrupt bit array in the gpudev node
+ * @adreno_dev:		Pointer to the the adreno device
+ * @bit_name:		The interrupt bit enum whose bit is returned
+ */
+static inline unsigned int adreno_get_int(struct adreno_device *adreno_dev,
+				enum adreno_int_bits bit_name)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (bit_name >= ADRENO_INT_BITS_MAX)
+		return -ERANGE;
+
+	return gpudev->int_bits[bit_name];
 }
 
 /**
