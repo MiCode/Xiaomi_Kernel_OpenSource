@@ -649,6 +649,41 @@
 		qcom,smem-state-names = "qcom,force-stop";
 	};
 
+	qcom,ssc@5c00000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x5c00000 0x4000>;
+
+		vdd_cx-supply = <&pm855_l4_level>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,keep-proxy-regs-on;
+
+		qcom,pas-id = <12>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <424>;
+		qcom,sysmon-id = <3>;
+		qcom,ssctl-instance-id = <0x16>;
+		qcom,firmware-name = "slpi";
+		status = "ok";
+		memory-region = <&pil_slpi_mem>;
+
+		/* Inputs from ssc */
+		interrupts-extended = <&intc 0 494 1>,
+				<&dsps_smp2p_in 2 0>,
+				<&dsps_smp2p_in 1 0>,
+				<&dsps_smp2p_in 3 0>,
+				<&dsps_smp2p_in 0 0>;
+
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
+				"qcom,proxy-unvote",
+				"qcom,err-ready",
+				"qcom,stop-ack";
+
+		/* Outputs from ssc */
+		qcom,smem-states = <&dsps_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
+	};
+
 	kryo-erp {
 		compatible = "arm,arm64-kryo-cpu-erp";
 		interrupts = <1 6 4>,
