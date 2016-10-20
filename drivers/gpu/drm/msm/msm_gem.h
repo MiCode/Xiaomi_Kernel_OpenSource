@@ -34,6 +34,11 @@ struct msm_gem_object {
 	struct msm_gem_buf *buf;
 	uint32_t flags;
 
+
+	/* global timestamp */
+	uint32_t read_timestamp;
+	uint32_t write_timestamp;
+
 	/* And object is either:
 	 *  inactive - on priv->inactive_list
 	 *  active   - on one one of the gpu's active_list..  well, at
@@ -44,7 +49,6 @@ struct msm_gem_object {
 	 */
 	struct list_head mm_list;
 	struct msm_gpu *gpu;     /* non-null if active */
-	uint32_t read_fence, write_fence;
 
 	/* Transiently in the process of submit ioctl, objects associated
 	 * with the submit are on submit->bo_list.. this only lasts for
@@ -85,9 +89,9 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
 
 	mutex_lock(&dev->struct_mutex);
 	if (op & MSM_PREP_READ)
-		fence = msm_obj->write_fence;
+		fence = msm_obj->write_timestamp;
 	if (op & MSM_PREP_WRITE)
-		fence = max(fence, msm_obj->read_fence);
+		fence = max(fence, msm_obj->read_timestamp);
 	mutex_unlock(&dev->struct_mutex);
 
 	return fence;
