@@ -110,6 +110,9 @@ SoCs:
 - MDMCALIFORNIUM
   compatible = "qcom,mdmcalifornium"
 
+- SDXHEDGEHOG
+  compatible = "qcom,sdxhedgehog"
+
 - VPIPA
   compatible = "qcom,msmvpipa"
 
@@ -301,5 +304,7 @@ compatible = "qcom,mdmcalifornium-rumi"
 compatible = "qcom,mdmcalifornium-sim"
 compatible = "qcom,mdmcalifornium-cdp"
 compatible = "qcom,mdmcalifornium-mtp"
+compatible = "qcom,sdxhedgehog-mtp"
+compatible = "qcom,sdxhedgehog-cdp"
 compatible = "qcom,apq8009-cdp"
 compatible = "qcom,apq8009-mtp"
