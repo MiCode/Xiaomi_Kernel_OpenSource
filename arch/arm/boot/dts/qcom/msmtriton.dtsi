@@ -580,6 +580,35 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 		status = "ok";
 	};
+
+	qcom,venus@cce0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0xcce0000 0x4000>;
+
+		vdd-supply = <&gdsc_venus>;
+		qcom,proxy-reg-names = "vdd";
+
+		clocks = <&clock_mmss MMSS_VIDEO_CORE_CLK>,
+			<&clock_mmss MMSS_VIDEO_AHB_CLK>,
+			<&clock_mmss MMSS_VIDEO_AXI_CLK>;
+		clock-names = "core_clk","iface_clk",
+			"bus_clk";
+		qcom,proxy-clock-names = "core_clk",
+			"iface_clk","bus_clk";
+
+		qcom,msm-bus,name = "pil-venus";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<63 512 0 0>,
+				<63 512 0 304000>;
+
+		qcom,pas-id = <9>;
+		qcom,proxy-timeout-ms = <100>;
+		qcom,firmware-name = "venus";
+		memory-region = <&venus_fw_mem>;
+		status = "ok";
+	};
 };
 
 #include "msmtriton-ion.dtsi"
