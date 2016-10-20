@@ -51,3 +51,11 @@
 		};
 	};
 };
+
+&modem_adsp_mem {
+	reg = <0x0 0x88000000 0x0 0x1e00000>;
+};
+
+&peripheral_mem {
+	reg = <0x0 0x89e00000 0x0 0x0500000>;
+};
