@@ -72,16 +72,19 @@ static void sde_hw_lm_setup_out(struct sde_hw_mixer *ctx,
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 	u32 outsize;
-	u32 opmode;
+	u32 op_mode;
 
-	opmode = SDE_REG_READ(c, LM_OP_MODE);
+	op_mode = SDE_REG_READ(c, LM_OP_MODE);
 
 	outsize = mixer->out_height << 16 | mixer->out_width;
 	SDE_REG_WRITE(c, LM_OUT_SIZE, outsize);
 
 	/* SPLIT_LEFT_RIGHT */
-	opmode = (opmode & ~(1 << 31)) | ((mixer->right_mixer) ? (1 << 31) : 0);
-	SDE_REG_WRITE(c, LM_OP_MODE, opmode);
+	if (mixer->right_mixer)
+		op_mode |= BIT(31);
+	else
+		op_mode &= ~BIT(31);
+	SDE_REG_WRITE(c, LM_OP_MODE, op_mode);
 }
 
 static void sde_hw_lm_setup_border_color(struct sde_hw_mixer *ctx,
@@ -146,7 +149,7 @@ static void sde_hw_lm_setup_color3(struct sde_hw_mixer *ctx,
 	/* read the existing op_mode configuration */
 	op_mode = SDE_REG_READ(c, LM_OP_MODE);
 
-	op_mode |= mixer_op_mode;
+	op_mode = (op_mode & (BIT(31) | BIT(30))) | mixer_op_mode;
 
 	SDE_REG_WRITE(c, LM_OP_MODE, op_mode);
 }
