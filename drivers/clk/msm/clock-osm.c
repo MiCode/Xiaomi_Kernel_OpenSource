@@ -1776,7 +1776,7 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 
 		val = clk_osm_read_reg(c,
 			       DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
-		val |= BVAL(31, 16, clk_osm_count_ns(c, 500));
+		val |= BVAL(31, 16, clk_osm_count_ns(c, 250));
 		clk_osm_write_reg(c, val,
 				DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
 	}
@@ -1793,7 +1793,7 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 
 		val = clk_osm_read_reg(c,
 				DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
-		val |= BVAL(15, 0, clk_osm_count_ns(c, 15000));
+		val |= BVAL(15, 0, clk_osm_count_ns(c, 250));
 		clk_osm_write_reg(c, val,
 				DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
 	}
@@ -1807,7 +1807,7 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 
 	if (c->wfx_fsm_en || c->ps_fsm_en || c->droop_fsm_en) {
 		clk_osm_write_reg(c, 0x1, DROOP_PROG_SYNC_DELAY_REG);
-		clk_osm_write_reg(c, clk_osm_count_ns(c, 500),
+		clk_osm_write_reg(c, clk_osm_count_ns(c, 5),
 				  DROOP_RELEASE_TIMER_CTRL);
 		clk_osm_write_reg(c, clk_osm_count_ns(c, 500),
 				  DCVS_DROOP_TIMER_CTRL);
