@@ -11,7 +11,7 @@
  */
 
 &soc {
-	mdss_mdp: qcom,mdss_mdp@900000 {
+	sde_kms: qcom,sde_kms@900000 {
 		compatible = "qcom,sde-kms";
 		reg = <0x00900000 0x90000>,
 		      <0x009b0000 0x1040>,
@@ -47,28 +47,28 @@
 		#interrupt-cells = <1>;
 		iommus = <&mdp_smmu 0>;
 
-		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
-			compatible = "qcom,smmu_mdp_unsec";
+		smmu_kms_unsec: qcom,smmu_kms_unsec_cb {
+			compatible = "qcom,smmu_kms_unsec";
 			iommus = <&mdp_smmu 0>;
 		};
 
-		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
-			compatible = "qcom,smmu_rot_unsec";
+		smmu_nrt_unsec: qcom,smmu_nrt_unsec_cb {
+			compatible = "qcom,smmu_nrt_unsec";
 			iommus = <&rot_smmu 0>;
 		};
 
-		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
-			compatible = "qcom,smmu_mdp_sec";
+		smmu_kms_sec: qcom,smmu_kms_sec_cb {
+			compatible = "qcom,smmu_kms_sec";
 			iommus = <&mdp_smmu 1>;
 		};
 
-		smmu_rot_sec: qcom,smmu_rot_sec_cb {
-			compatible = "qcom,smmu_rot_sec";
+		smmu_nrt_sec: qcom,smmu_nrt_sec_cb {
+			compatible = "qcom,smmu_nrt_sec";
 			iommus = <&rot_smmu 1>;
 		};
 	};
 
-	mdss_dsi0: qcom,mdss_dsi_ctrl0@994000 {
+	sde_dsi0: qcom,sde_dsi_ctrl0@994000 {
 		compatible = "qcom,dsi-ctrl-hw-v1.4";
 		label = "dsi-ctrl-0";
 		cell-index = <0>;
@@ -103,7 +103,7 @@
 			<22 512 0 0>,
 			<22 512 0 1000>;
 
-		interrupt-parent = <&mdss_mdp>;
+		interrupt-parent = <&sde_kms>;
 		interrupts = <4 0>;
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -144,7 +144,7 @@
 		};
 	};
 
-	mdss_dsi1: qcom,mdss_dsi_ctrl1@996000 {
+	sde_dsi1: qcom,sde_dsi_ctrl1@996000 {
 		compatible = "qcom,dsi-ctrl-hw-v1.4";
 		label = "dsi-ctrl-1";
 		cell-index = <1>;
@@ -178,7 +178,7 @@
 			<22 512 0 0>,
 			<22 512 0 1000>;
 
-		interrupt-parent = <&mdss_mdp>;
+		interrupt-parent = <&sde_kms>;
 		interrupts = <5 0>;
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -218,7 +218,7 @@
 		};
 	};
 
-	mdss_dsi_phy0: qcom,mdss_dsi_phy0@994400 {
+	sde_dsi_phy0: qcom,sde_dsi_phy0@994400 {
 		compatible = "qcom,dsi-phy-v4.0";
 		label = "dsi-phy-0";
 		cell-index = <0>;
@@ -277,7 +277,7 @@
 		};
 	};
 
-	mdss_dsi_phy1: qcom,mdss_dsi_phy1@996400 {
+	sde_dsi_phy1: qcom,sde_dsi_phy1@996400 {
 		compatible = "qcom,dsi-phy-v4.0";
 		label = "dsi-phy-1";
 		cell-index = <1>;
@@ -336,7 +336,7 @@
 		};
 	};
 
-	mdss_hdmi: qcom,hdmi_tx@9a0000 {
+	sde_hdmi: qcom,sde_hdmi@9a0000 {
 		compatible = "qcom,hdmi-tx-8996";
 
 		reg =	<0x009a0000 0x50c>,
@@ -356,7 +356,7 @@
 			"core_clk",
 			"alt_iface_clk",
 			"extp_clk";
-		interrupt-parent = <&mdss_mdp>;
+		interrupt-parent = <&sde_kms>;
 		interrupts = <8 0>;
 		hpd-gdsc-supply = <&gdsc_mdss>;
 		qcom,hdmi-tx-ddc-clk-gpio = <&tlmm 32 0>;
@@ -372,23 +372,8 @@
 			     &mdss_hdmi_ddc_suspend
 			     &mdss_hdmi_cec_suspend>;
 
-		hdmi_audio: qcom,msm-hdmi-audio-rx {
+		sde_hdmi_audio: qcom,sde-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";
 		};
-	};
-};
-
-/* dummy nodes for compatibility with 8996 mdss dtsi */
-&soc {
-	mdss_dsi: qcom,mdss_dsi_dummy {
-		/* dummy node for backward compatibility */
-	};
-
-	mdss_hdmi_tx: qcom,mdss_hdmi_tx_dummy {
-		/* dummy node for backward compatibility */
-	};
-
-	mdss_fb2: qcom,mdss_fb2_dummy {
-		/* dummy node for backward compatibility */
 	};
 };

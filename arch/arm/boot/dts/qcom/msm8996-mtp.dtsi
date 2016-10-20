@@ -342,8 +342,9 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
-&mdss_hdmi {
+&sde_hdmi {
 	status = "ok";
+	qcom,hdmi-tx-hpd-gpio = <&pm8994_mpps 4 0>;
 };
 
 &mdss_dsi {
@@ -372,10 +373,6 @@
 
 &ibb_regulator {
 	qcom,qpnp-ibb-discharge-resistor = <32>;
-};
-
-&mdss_hdmi {
-	qcom,hdmi-tx-hpd-gpio = <&pm8994_mpps 4 0>;
 };
 
 &labibb {

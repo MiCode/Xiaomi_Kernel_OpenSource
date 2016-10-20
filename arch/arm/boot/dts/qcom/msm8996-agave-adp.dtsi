@@ -548,12 +548,15 @@
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
-	connectors = <&mdss_hdmi &display_manager>;
+};
+
+&sde_kms {
+	connectors = <&sde_hdmi &display_manager>;
 	gpus = <&msm_gpu>;
 	memory-region = <&cont_splash_mem>;
 };
 
-&mdss_hdmi {
+&sde_hdmi {
 	status = "ok";
 	qcom,hdmi-tx-ddc-clk-gpio = <&tlmm 32 0>;
 	qcom,hdmi-tx-ddc-data-gpio = <&tlmm 33 0>;

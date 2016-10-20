@@ -480,7 +480,7 @@
 	gdsc-venus-supply = <&gdsc_venus>;
 };
 
-&mdss_hdmi {
+&sde_hdmi {
 	hpd-gdsc-venus-supply = <&gdsc_venus>;
 };
 
