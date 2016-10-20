@@ -84,12 +84,12 @@ static struct pll_vco gpu_vco[] = {
 	{ 250000000,   500000000, 3 },
 };
 
-/* 640MHz configuration */
+/* 800MHz configuration */
 static const struct pll_config gpu_pll0_config = {
-	.l = 0x21,
+	.l = 0x29,
 	.config_ctl_val = 0x4001055b,
-	.alpha = 0x55555600,
-	.alpha_u = 0x55,
+	.alpha = 0xaaaaab00,
+	.alpha_u = 0xaa,
 	.alpha_en_mask = BIT(24),
 	.vco_val = 0x2 << 20,
 	.vco_mask = 0x3 << 20,
