@@ -2276,9 +2276,9 @@ static void adreno_read(struct kgsl_device *device, void __iomem *base,
 		unsigned int mem_len)
 {
 
-	unsigned int __iomem *reg;
+	void __iomem *reg;
 	BUG_ON(offsetwords*sizeof(uint32_t) >= mem_len);
-	reg = (unsigned int __iomem *)(base + (offsetwords << 2));
+	reg = (base + (offsetwords << 2));
 
 	if (!in_interrupt())
 		kgsl_pre_hwaccess(device);
@@ -2318,7 +2318,7 @@ static void adreno_regwrite(struct kgsl_device *device,
 				unsigned int offsetwords,
 				unsigned int value)
 {
-	unsigned int __iomem *reg;
+	void __iomem *reg;
 
 	BUG_ON(offsetwords*sizeof(uint32_t) >= device->reg_len);
 
@@ -2328,7 +2328,7 @@ static void adreno_regwrite(struct kgsl_device *device,
 	trace_kgsl_regwrite(device, offsetwords, value);
 
 	kgsl_cffdump_regwrite(device, offsetwords << 2, value);
-	reg = (unsigned int __iomem *)(device->reg_virt + (offsetwords << 2));
+	reg = (device->reg_virt + (offsetwords << 2));
 
 	/*ensure previous writes post before this one,
 	 * i.e. act like normal writel() */
