@@ -262,6 +262,29 @@
 		#interrupt-cells = <2>;
 	};
 
+	/* ssr - inbound entry from ssc */
+	smp2pgpio_ssr_smp2p_3_in: qcom,smp2pgpio-ssr-smp2p-3-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "slave-kernel";
+		qcom,remote-pid = <3>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* ssr - outbound entry to ssc */
+	smp2pgpio_ssr_smp2p_3_out: qcom,smp2pgpio-ssr-smp2p-3-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "master-kernel";
+		qcom,remote-pid = <3>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
 	/* ssr - inbound entry from cdsp */
 	smp2pgpio_ssr_smp2p_5_in: qcom,smp2pgpio-ssr-smp2p-5-in {
 		compatible = "qcom,smp2pgpio";
