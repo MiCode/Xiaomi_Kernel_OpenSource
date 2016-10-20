@@ -660,7 +660,7 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 	msleep(20);
 
 	for (i = 0; i <= MSM_SMMU_DOMAIN_NRT_SECURE; i++) {
-		mmu = msm_smmu_new(sde_kms->dev->dev, i);
+		mmu = msm_smmu_new(sde_kms->dev, sde_kms->dev->dev, i);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
 			DRM_ERROR("failed to init iommu: %d\n", ret);

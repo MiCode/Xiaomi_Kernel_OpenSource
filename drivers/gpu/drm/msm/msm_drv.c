@@ -972,7 +972,7 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 		uint32_t iova;
 
 		/* iova is 32 bits for now, later could be 64 bits. */
-		msm_gem_get_iova_in_domain(obj, MSM_SMMU_DOMAIN_GPU, &iova);
+		msm_gem_get_iova(obj, MSM_SMMU_DOMAIN_GPU_UNSECURE, &iova);
 		args->offset = iova;
 	} else {
 		args->offset = msm_gem_mmap_offset(obj);

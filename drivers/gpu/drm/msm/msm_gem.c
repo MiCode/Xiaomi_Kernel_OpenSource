@@ -457,27 +457,6 @@ int msm_gem_get_iova(struct drm_gem_object *obj, int id, uint32_t *iova)
 	return ret;
 }
 
-int msm_gem_get_iova_in_domain(struct drm_gem_object *obj, int domian,
-	uint32_t *iova)
-{
-	struct msm_drm_private *priv = obj->dev->dev_private;
-	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	int id;
-	int ret = -1;
-
-	mutex_lock(&obj->dev->struct_mutex);
-	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-		struct msm_mmu *mmu = priv->mmus[id];
-
-		if (mmu->domain == domian) {
-			ret = msm_gem_get_iova_locked(obj, id, iova);
-			break;
-		}
-	}
-	mutex_unlock(&obj->dev->struct_mutex);
-	return ret;
-}
-
 /* get iova without taking a reference, used in places where you have
  * already done a 'msm_gem_get_iova()'.
  */
