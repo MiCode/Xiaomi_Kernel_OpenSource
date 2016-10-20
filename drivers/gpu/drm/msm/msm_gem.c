@@ -406,7 +406,6 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 
 				ret = mmu->funcs->map(mmu, pa,
 						msm_obj->domain[id].sgt,
-						obj->size,
 						IOMMU_READ | IOMMU_NOEXEC);
 				if (ret) {
 					DRM_ERROR("Unable to map phy buf=%p\n",
@@ -677,8 +676,7 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 				uint32_t offset = msm_obj->domain[id].iova;
 
 				mmu->funcs->unmap(mmu, offset,
-					msm_obj->domain[id].sgt,
-					obj->size);
+					msm_obj->domain[id].sgt);
 			} else {
 				dma_unmap_sg(mmu->dev,
 					msm_obj->domain[id].sgt->sgl,
