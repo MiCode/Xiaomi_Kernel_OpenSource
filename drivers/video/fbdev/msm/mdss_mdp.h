@@ -551,6 +551,8 @@ struct mdss_mdp_mixer {
 	bool valid_roi;
 	bool roi_changed;
 	struct mdss_rect roi;
+	bool dsc_enabled;
+	bool dsc_merge_enabled;
 
 	u8 cursor_enabled;
 	u16 cursor_hotx;

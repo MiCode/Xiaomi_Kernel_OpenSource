@@ -2743,6 +2743,7 @@ static inline void __dsc_enable(struct mdss_mdp_mixer *mixer)
 {
 	mdss_mdp_pingpong_write(mixer->pingpong_base,
 			MDSS_MDP_REG_PP_DSC_MODE, 1);
+	mixer->dsc_enabled = true;
 }
 
 static inline void __dsc_disable(struct mdss_mdp_mixer *mixer)
@@ -2762,6 +2763,13 @@ static inline void __dsc_disable(struct mdss_mdp_mixer *mixer)
 		return;
 	}
 	writel_relaxed(0, offset + MDSS_MDP_REG_DSC_COMMON_MODE);
+	mixer->dsc_enabled = false;
+	mixer->dsc_merge_enabled = false;
+}
+
+static bool __is_dsc_merge_enabled(u32 common_mode)
+{
+	return common_mode & BIT(1);
 }
 
 static void __dsc_config(struct mdss_mdp_mixer *mixer,
@@ -2774,6 +2782,7 @@ static void __dsc_config(struct mdss_mdp_mixer *mixer,
 	u32 initial_lines = dsc->initial_lines;
 	bool is_cmd_mode = !(mode & BIT(2));
 
+	mixer->dsc_merge_enabled = __is_dsc_merge_enabled(mode);
 	data = mdss_mdp_pingpong_read(mixer->pingpong_base,
 			MDSS_MDP_REG_PP_DCE_DATA_OUT_SWAP);
 	data |= BIT(18); /* endian flip */
@@ -2926,11 +2935,6 @@ static void __dsc_config_thresh(struct mdss_mdp_mixer *mixer,
 		writel_relaxed(*cp++, off);
 		off += 4;
 	}
-}
-
-static bool __is_dsc_merge_enabled(u32 common_mode)
-{
-	return common_mode & BIT(1);
 }
 
 static bool __dsc_is_3d_mux_enabled(struct mdss_mdp_ctl *ctl,
@@ -3291,8 +3295,19 @@ void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_ctl *sctl;
 	struct mdss_panel_info *spinfo;
 
-	if (!is_dsc_compression(pinfo))
+	/*
+	* Check for dynamic resolution switch from DSC On to DSC Off
+	* and disable DSC
+	*/
+	if ((ctl->pending_mode_switch == SWITCH_RESOLUTION) &&
+	    ctl->is_master &&
+	    (!is_dsc_compression(pinfo))) {
+		if (ctl->mixer_left && ctl->mixer_left->dsc_enabled)
+			__dsc_disable(ctl->mixer_left);
+		if (ctl->mixer_right && ctl->mixer_right->dsc_enabled)
+			__dsc_disable(ctl->mixer_right);
 		return;
+	}
 
 	if (!ctl->is_master) {
 		pr_debug("skip slave ctl because master will program for both\n");
@@ -3693,6 +3708,30 @@ skip_intf_reconfig:
 			ctl->mixer_right->width = ctl->width / 2;
 			ctl->mixer_right->height = ctl->height;
 		}
+
+		/*
+		* If we are transitioning from  DSC On + DSC Merge to DSC Off
+		* the 3D mux needs to be enabled
+		*/
+		if (!is_dsc_compression(&pdata->panel_info) &&
+		    ctl->mixer_left &&
+		    ctl->mixer_left->dsc_enabled &&
+		    ctl->mixer_left->dsc_merge_enabled) {
+			ctl->opmode |= MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
+				       MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT;
+		}
+
+		/*
+		* If we are transitioning from DSC Off to DSC On + DSC Merge
+		* the 3D mux needs to be disabled
+		*/
+		if (is_dsc_compression(&pdata->panel_info) &&
+		    ctl->mixer_left &&
+		    !ctl->mixer_left->dsc_enabled &&
+		    pdata->panel_info.dsc_enc_total != 1) {
+			ctl->opmode &= ~(MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
+				  MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT);
+		}
 	} else {
 		/*
 		 * Handles MDP_SPLIT_MODE_NONE, MDP_DUAL_LM_DUAL_DISPLAY and
@@ -3707,7 +3746,6 @@ skip_intf_reconfig:
 
 	ctl->border_x_off = pdata->panel_info.lcdc.border_left;
 	ctl->border_y_off = pdata->panel_info.lcdc.border_top;
-
 	return ret;
 }
 
