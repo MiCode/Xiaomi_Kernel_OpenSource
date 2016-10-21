@@ -1173,7 +1173,7 @@ static struct clk_branch gcc_aggre2_usb3_axi_clk = {
 
 static struct clk_branch gcc_bimc_gfx_clk = {
 	.halt_reg = 0x7106c,
-	.halt_check = BRANCH_HALT_NO_CHECK_ON_DISABLE,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x7106c,
 		.enable_mask = BIT(0),
@@ -1711,7 +1711,7 @@ static struct clk_branch gcc_gp3_clk = {
 
 static struct clk_branch gcc_gpu_bimc_gfx_clk = {
 	.halt_reg = 0x71010,
-	.halt_check = BRANCH_HALT_NO_CHECK_ON_DISABLE,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x71010,
 		.enable_mask = BIT(0),
@@ -1737,7 +1737,7 @@ static struct clk_branch gcc_gpu_bimc_gfx_src_clk = {
 
 static struct clk_branch gcc_gpu_cfg_ahb_clk = {
 	.halt_reg = 0x71004,
-	.halt_check = BRANCH_HALT_NO_CHECK_ON_DISABLE,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x71004,
 		.enable_mask = BIT(0),
@@ -2516,7 +2516,7 @@ static struct clk_branch gcc_usb_phy_cfg_ahb2phy_clk = {
 
 static struct clk_branch hlos1_vote_lpass_adsp_smmu_clk = {
 	.halt_reg = 0x7d014,
-	.halt_check = BRANCH_HALT_NO_CHECK_ON_DISABLE,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x7d014,
 		.enable_mask = BIT(0),
@@ -2529,7 +2529,7 @@ static struct clk_branch hlos1_vote_lpass_adsp_smmu_clk = {
 
 static struct clk_branch hlos1_vote_turing_adsp_smmu_clk = {
 	.halt_reg = 0x7d048,
-	.halt_check = BRANCH_HALT_NO_CHECK_ON_DISABLE,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x7d048,
 		.enable_mask = BIT(0),
@@ -2542,7 +2542,7 @@ static struct clk_branch hlos1_vote_turing_adsp_smmu_clk = {
 
 static struct clk_branch hlos2_vote_turing_adsp_smmu_clk = {
 	.halt_reg = 0x7e048,
-	.halt_check = BRANCH_HALT_NO_CHECK_ON_DISABLE,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x7e048,
 		.enable_mask = BIT(0),
