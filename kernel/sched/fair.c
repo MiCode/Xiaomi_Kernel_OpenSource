@@ -8876,12 +8876,12 @@ static int need_active_balance(struct lb_env *env)
 			return 1;
 	}
 
-	if (energy_aware() && (capacity_of(env->src_cpu) < capacity_of(env->dst_cpu)) &&
-				env->src_rq->cfs.h_nr_running == 1 &&
-				cpu_overutilized(env->src_cpu) &&
-				!cpu_overutilized(env->dst_cpu)) {
-			return 1;
-	}
+	if (energy_aware() &&
+	    capacity_of(env->src_cpu) < capacity_of(env->dst_cpu) &&
+	    capacity_orig_of(env->src_cpu) < capacity_orig_of(env->dst_cpu) &&
+	    env->src_rq->cfs.h_nr_running == 1 &&
+	    cpu_overutilized(env->src_cpu) && !cpu_overutilized(env->dst_cpu))
+		return 1;
 
 	return unlikely(sd->nr_balance_failed >
 			sd->cache_nice_tries + NEED_ACTIVE_BALANCE_THRESHOLD);
