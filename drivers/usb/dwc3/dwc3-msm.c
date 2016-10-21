@@ -1753,9 +1753,10 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event,
 
 		/*
 		 * Below sequence is used when controller is working without
-		 * having ssphy and only USB high speed is supported.
+		 * having ssphy and only USB high/full speed is supported.
 		 */
-		if (dwc->maximum_speed == USB_SPEED_HIGH) {
+		if (dwc->maximum_speed == USB_SPEED_HIGH ||
+					dwc->maximum_speed == USB_SPEED_FULL) {
 			dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
 				dwc3_msm_read_reg(mdwc->base,
 				QSCRATCH_GENERAL_CFG)
