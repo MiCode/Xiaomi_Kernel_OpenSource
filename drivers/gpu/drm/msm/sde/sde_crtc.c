@@ -940,7 +940,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		z_pos = pstates[i].stage;
 
 		/* verify z_pos setting before using it */
-		if (z_pos >= SDE_STAGE_MAX) {
+		if (z_pos >= SDE_STAGE_MAX - SDE_STAGE_0) {
 			SDE_ERROR("> %d plane stages assigned\n",
 					SDE_STAGE_MAX - SDE_STAGE_0);
 			rc = -EINVAL;
