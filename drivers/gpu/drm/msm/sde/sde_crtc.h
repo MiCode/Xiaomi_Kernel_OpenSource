@@ -57,6 +57,7 @@ struct sde_crtc_mixer {
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
+ * @crtc_lock     : crtc lock around create, destroy and access.
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -83,6 +84,8 @@ struct sde_crtc {
 	struct list_head feature_list;
 	struct list_head active_list;
 	struct list_head dirty_list;
+
+	struct mutex crtc_lock;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
