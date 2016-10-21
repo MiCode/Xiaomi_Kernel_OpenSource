@@ -16,9 +16,12 @@
 
 #ifdef CONFIG_SCHED_CORE_CTL
 void core_ctl_check(u64 wallclock);
-void core_ctl_set_boost(bool boost);
+int core_ctl_set_boost(bool boost);
 #else
 static inline void core_ctl_check(u64 wallclock) {}
-static inline void core_ctl_set_boost(bool boost) {}
+static inline int core_ctl_set_boost(bool boost)
+{
+	return 0;
+}
 #endif
 #endif
