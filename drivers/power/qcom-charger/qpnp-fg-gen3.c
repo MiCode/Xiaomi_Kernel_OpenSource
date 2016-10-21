@@ -504,8 +504,7 @@ static int fg_get_cc_soc_sw(struct fg_chip *chip, int *val)
 #define BATT_TEMP_DENR		1
 static int fg_get_battery_temp(struct fg_chip *chip, int *val)
 {
-	int rc = 0;
-	u16 temp = 0;
+	int rc = 0, temp;
 	u8 buf[2];
 
 	rc = fg_read(chip, BATT_INFO_BATT_TEMP_LSB(chip), buf, 2);
