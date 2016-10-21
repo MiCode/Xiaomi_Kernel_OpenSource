@@ -20,6 +20,8 @@
 #include <linux/ipa_usb.h>
 #include <linux/usb_bam.h>
 
+#include "u_rmnet.h"
+
 enum ipa_func_type {
 	USB_IPA_FUNC_ECM,
 	USB_IPA_FUNC_MBIM,
@@ -87,4 +89,6 @@ void *rndis_qc_get_ipa_rx_cb(void);
 bool rndis_qc_get_skip_ep_config(void);
 void *rndis_qc_get_ipa_tx_cb(void);
 void rndis_ipa_reset_trigger(void);
+void gqti_ctrl_update_ipa_pipes(void *gr, enum qti_port_type qport,
+				u32 ipa_prod, u32 ipa_cons);
 #endif
