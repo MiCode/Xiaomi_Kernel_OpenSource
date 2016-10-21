@@ -53,7 +53,6 @@ struct dp_hdcp2p2_ctrl {
 	struct kthread_work send_msg;
 	struct kthread_work recv_msg;
 	struct kthread_work link;
-	struct kthread_work poll;
 	char *msg_buf;
 	uint32_t send_msg_len; /* length of all parameters in msg */
 	uint32_t timeout;
@@ -66,26 +65,6 @@ struct dp_hdcp2p2_ctrl {
 	bool cp_irq_done;
 	bool polling;
 };
-
-static inline char *dp_hdcp_cmd_to_str(uint32_t cmd)
-{
-	switch (cmd) {
-	case HDMI_HDCP_WKUP_CMD_SEND_MESSAGE:
-		return "HDMI_HDCP_WKUP_CMD_SEND_MESSAGE";
-	case HDMI_HDCP_WKUP_CMD_RECV_MESSAGE:
-		return "HDMI_HDCP_WKUP_CMD_RECV_MESSAGE";
-	case HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS:
-		return "HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS";
-	case HDMI_HDCP_WKUP_CMD_STATUS_FAILED:
-		return "DP_HDCP_WKUP_CMD_STATUS_FAIL";
-	case HDMI_HDCP_WKUP_CMD_LINK_POLL:
-		return "HDMI_HDCP_WKUP_CMD_LINK_POLL";
-	case HDMI_HDCP_WKUP_CMD_AUTHENTICATE:
-		return "HDMI_HDCP_WKUP_CMD_AUTHENTICATE";
-	default:
-		return "???";
-	}
-}
 
 static inline bool dp_hdcp2p2_is_valid_state(struct dp_hdcp2p2_ctrl *ctrl)
 {
@@ -193,7 +172,7 @@ static int dp_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
 		queue_kthread_work(&ctrl->worker, &ctrl->status);
 		break;
 	case HDMI_HDCP_WKUP_CMD_LINK_POLL:
-		queue_kthread_work(&ctrl->worker, &ctrl->poll);
+		ctrl->polling = true;
 		break;
 	case HDMI_HDCP_WKUP_CMD_AUTHENTICATE:
 		queue_kthread_work(&ctrl->worker, &ctrl->auth);
@@ -203,10 +182,11 @@ static int dp_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
 	}
 exit:
 	mutex_unlock(&ctrl->wakeup_mutex);
+
 	return 0;
 }
 
-static inline int dp_hdcp2p2_wakeup_lib(struct dp_hdcp2p2_ctrl *ctrl,
+static inline void dp_hdcp2p2_wakeup_lib(struct dp_hdcp2p2_ctrl *ctrl,
 	struct hdcp_lib_wakeup_data *data)
 {
 	int rc = 0;
@@ -218,8 +198,6 @@ static inline int dp_hdcp2p2_wakeup_lib(struct dp_hdcp2p2_ctrl *ctrl,
 			pr_err("error sending %s to lib\n",
 				hdcp_lib_cmd_to_str(data->cmd));
 	}
-
-	return rc;
 }
 
 static void dp_hdcp2p2_reset(struct dp_hdcp2p2_ctrl *ctrl)
@@ -339,8 +317,6 @@ static void dp_hdcp2p2_auth_failed(struct dp_hdcp2p2_ctrl *ctrl)
 		return;
 	}
 
-	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
-
 	/* notify DP about HDCP failure */
 	ctrl->init_data.notify_status(ctrl->init_data.cb_data,
 		HDCP_STATE_AUTH_FAIL);
@@ -349,8 +325,7 @@ static void dp_hdcp2p2_auth_failed(struct dp_hdcp2p2_ctrl *ctrl)
 static int dp_hdcp2p2_aux_read_message(struct dp_hdcp2p2_ctrl *ctrl,
 	u8 *buf, int size, int offset, u32 timeout)
 {
-	int rc, max_size = 16, read_size, len = size;
-	u8 *buf_start = buf;
+	int rc, max_size = 16, read_size;
 
 	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
 		pr_err("hdcp is off\n");
@@ -378,8 +353,6 @@ static int dp_hdcp2p2_aux_read_message(struct dp_hdcp2p2_ctrl *ctrl,
 		size -= read_size;
 	} while (size > 0);
 
-	print_hex_dump(KERN_DEBUG, "hdcp2p2: ", DUMP_PREFIX_NONE,
-			16, 1, buf_start, len, false);
 	return rc;
 }
 
@@ -550,7 +523,6 @@ exit:
 
 static void dp_hdcp2p2_recv_msg_work(struct kthread_work *work)
 {
-	int rc = 0;
 	struct hdcp_lib_wakeup_data cdata = { HDCP_LIB_WKUP_CMD_INVALID };
 	struct dp_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct dp_hdcp2p2_ctrl, recv_msg);
@@ -559,44 +531,24 @@ static void dp_hdcp2p2_recv_msg_work(struct kthread_work *work)
 
 	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
 		pr_err("hdcp is off\n");
-		goto exit;
+		return;
 	}
 
-	if (ctrl->sink_rx_status & ctrl->abort_mask) {
-		pr_err("reauth or Link fail triggered by sink\n");
+	if (ctrl->rx_status) {
+		if (!ctrl->cp_irq_done) {
+			pr_debug("waiting for CP_IRQ\n");
+			ctrl->polling = true;
+			return;
+		}
 
-		ctrl->sink_rx_status = 0;
-		rc = -ENOLINK;
-		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
-
-		goto exit;
-	}
-
-	if (ctrl->rx_status && !ctrl->sink_rx_status) {
-		pr_debug("Recv msg for RxStatus, but no CP_IRQ yet\n");
-		ctrl->polling = true;
-		goto exit;
+		if (ctrl->rx_status & ctrl->sink_rx_status) {
+			ctrl->cp_irq_done = false;
+			ctrl->sink_rx_status = 0;
+			ctrl->rx_status = 0;
+		}
 	}
 
 	dp_hdcp2p2_get_msg_from_sink(ctrl);
-
-	return;
-exit:
-	if (rc)
-		dp_hdcp2p2_wakeup_lib(ctrl, &cdata);
-}
-
-static void dp_hdcp2p2_poll_work(struct kthread_work *work)
-{
-	struct dp_hdcp2p2_ctrl *ctrl = container_of(work,
-		struct dp_hdcp2p2_ctrl, poll);
-
-	if (ctrl->cp_irq_done) {
-		ctrl->cp_irq_done = false;
-		dp_hdcp2p2_get_msg_from_sink(ctrl);
-	} else {
-		ctrl->polling = true;
-	}
 }
 
 static void dp_hdcp2p2_auth_status_work(struct kthread_work *work)
@@ -645,44 +597,45 @@ static void dp_hdcp2p2_link_work(struct kthread_work *work)
 	if (rc) {
 		pr_err("failed to read rx status\n");
 
-		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_LINK_FAILED;
+		atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
 		goto exit;
 	}
 
 	if (ctrl->sink_rx_status & ctrl->abort_mask) {
-		pr_err("reauth or Link fail triggered by sink\n");
+		if (ctrl->sink_rx_status & BIT(3))
+			pr_err("reauth_req set by sink\n");
+
+		if (ctrl->sink_rx_status & BIT(4))
+			pr_err("link failure reported by sink\n");
 
 		ctrl->sink_rx_status = 0;
 		ctrl->rx_status = 0;
 
 		rc = -ENOLINK;
-		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+
+		cdata.cmd = HDCP_LIB_WKUP_CMD_LINK_FAILED;
+		atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
 		goto exit;
 	}
 
-	/* if polling, get message from sink else let polling start */
 	if (ctrl->polling && (ctrl->sink_rx_status & ctrl->rx_status)) {
 		ctrl->sink_rx_status = 0;
 		ctrl->rx_status = 0;
 
-		rc = dp_hdcp2p2_get_msg_from_sink(ctrl);
+		dp_hdcp2p2_get_msg_from_sink(ctrl);
 
 		ctrl->polling = false;
 	} else {
 		ctrl->cp_irq_done = true;
 	}
 exit:
-	dp_hdcp2p2_wakeup_lib(ctrl, &cdata);
-
-	if (rc) {
-		dp_hdcp2p2_auth_failed(ctrl);
-		return;
-	}
+	if (rc)
+		dp_hdcp2p2_wakeup_lib(ctrl, &cdata);
 }
 
 static void dp_hdcp2p2_auth_work(struct kthread_work *work)
 {
-	int rc = 0;
 	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
 	struct dp_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct dp_hdcp2p2_ctrl, auth);
@@ -694,12 +647,10 @@ static void dp_hdcp2p2_auth_work(struct kthread_work *work)
 	else
 		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
 
-	rc = dp_hdcp2p2_wakeup_lib(ctrl, &cdata);
-	if (rc)
-		dp_hdcp2p2_auth_failed(ctrl);
+	dp_hdcp2p2_wakeup_lib(ctrl, &cdata);
 }
 
-static int dp_hdcp2p2_isr(void *input)
+static int dp_hdcp2p2_cp_irq(void *input)
 {
 	struct dp_hdcp2p2_ctrl *ctrl = input;
 
@@ -748,7 +699,7 @@ void *dp_hdcp2p2_init(struct hdcp_init_data *init_data)
 		.authenticate = dp_hdcp2p2_authenticate,
 		.feature_supported = dp_hdcp2p2_feature_supported,
 		.off = dp_hdcp2p2_off,
-		.isr = dp_hdcp2p2_isr
+		.cp_irq = dp_hdcp2p2_cp_irq,
 	};
 
 	static struct hdcp_client_ops client_ops = {
@@ -806,7 +757,6 @@ void *dp_hdcp2p2_init(struct hdcp_init_data *init_data)
 	init_kthread_work(&ctrl->recv_msg, dp_hdcp2p2_recv_msg_work);
 	init_kthread_work(&ctrl->status,   dp_hdcp2p2_auth_status_work);
 	init_kthread_work(&ctrl->link,     dp_hdcp2p2_link_work);
-	init_kthread_work(&ctrl->poll,     dp_hdcp2p2_poll_work);
 
 	ctrl->thread = kthread_run(kthread_worker_fn,
 		&ctrl->worker, "dp_hdcp2p2");

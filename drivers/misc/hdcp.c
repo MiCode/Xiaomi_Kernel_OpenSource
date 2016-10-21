@@ -616,32 +616,53 @@ static int hdcp_lib_get_next_message(struct hdcp_lib_handle *handle,
 	}
 }
 
-static inline void hdcp_lib_wakeup_client(struct hdcp_lib_handle *handle,
-					  struct hdmi_hdcp_wakeup_data *data)
+static void hdcp_lib_wakeup_client(struct hdcp_lib_handle *handle,
+				  struct hdmi_hdcp_wakeup_data *data)
 {
-	int rc = 0;
+	int rc = 0, i;
 
-	if (handle && handle->client_ops && handle->client_ops->wakeup &&
-	    data && (data->cmd != HDMI_HDCP_WKUP_CMD_INVALID)) {
-		data->abort_mask = REAUTH_REQ | LINK_INTEGRITY_FAILURE;
+	if (!handle || !handle->client_ops || !handle->client_ops->wakeup ||
+	    !data || (data->cmd == HDMI_HDCP_WKUP_CMD_INVALID))
+		return;
 
-		if (data->cmd == HDMI_HDCP_WKUP_CMD_SEND_MESSAGE ||
-		    data->cmd == HDMI_HDCP_WKUP_CMD_RECV_MESSAGE ||
-		    data->cmd == HDMI_HDCP_WKUP_CMD_LINK_POLL) {
-			handle->last_msg =
-				hdcp_lib_get_next_message(handle, data);
+	data->abort_mask = REAUTH_REQ | LINK_INTEGRITY_FAILURE;
 
-			if (handle->last_msg > INVALID_MESSAGE_ID &&
-			    handle->last_msg < HDCP2P2_MAX_MESSAGES)
-				data->message_data =
-					&hdcp_msg_lookup[handle->last_msg];
+	if (data->cmd == HDMI_HDCP_WKUP_CMD_SEND_MESSAGE ||
+	    data->cmd == HDMI_HDCP_WKUP_CMD_RECV_MESSAGE ||
+	    data->cmd == HDMI_HDCP_WKUP_CMD_LINK_POLL) {
+		handle->last_msg = hdcp_lib_get_next_message(handle, data);
+
+		pr_debug("lib->client: %s (%s)\n",
+			hdmi_hdcp_cmd_to_str(data->cmd),
+			hdcp_lib_message_name(handle->last_msg));
+
+		if (handle->last_msg > INVALID_MESSAGE_ID &&
+		    handle->last_msg < HDCP2P2_MAX_MESSAGES) {
+			u32 msg_num, rx_status;
+			const struct hdcp_msg_part *msg;
+
+			data->message_data = &hdcp_msg_lookup[handle->last_msg];
+
+			msg_num = data->message_data->num_messages;
+			msg = data->message_data->messages;
+			rx_status = data->message_data->rx_status;
+
+			pr_debug("rxstatus 0x%x\n", rx_status);
+			pr_debug("%6s | %4s\n", "offset", "len");
+
+			for (i = 0; i < msg_num; i++)
+				pr_debug("%6x | %4d\n",
+					msg[i].offset, msg[i].length);
 		}
-
-		rc = handle->client_ops->wakeup(data);
-		if (rc)
-			pr_err("error sending %s to client\n",
-			       hdmi_hdcp_cmd_to_str(data->cmd));
+	} else {
+		pr_debug("lib->client: %s\n",
+			hdmi_hdcp_cmd_to_str(data->cmd));
 	}
+
+	rc = handle->client_ops->wakeup(data);
+	if (rc)
+		pr_err("error sending %s to client\n",
+		       hdmi_hdcp_cmd_to_str(data->cmd));
 }
 
 static inline void hdcp_lib_send_message(struct hdcp_lib_handle *handle)
@@ -1486,6 +1507,7 @@ static int hdcp_lib_check_valid_state(struct hdcp_lib_handle *handle)
 
 	if (handle->wakeup_cmd == HDCP_LIB_WKUP_CMD_START) {
 		if (!list_empty(&handle->worker.work_list)) {
+			pr_debug("error: queue not empty\n");
 			rc = -EBUSY;
 			goto exit;
 		}
@@ -1543,9 +1565,8 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 	handle->wakeup_cmd = data->cmd;
 	handle->timeout_left = data->timeout;
 
-	pr_debug("%s, timeout left: %dms, tethered %d\n",
-		 hdcp_lib_cmd_to_str(handle->wakeup_cmd),
-		 handle->timeout_left, handle->tethered);
+	pr_debug("client->lib: %s\n",
+		 hdcp_lib_cmd_to_str(handle->wakeup_cmd));
 
 	rc = hdcp_lib_check_valid_state(handle);
 	if (rc)
@@ -1599,6 +1620,8 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_SEND_FAILED:
 	case HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED:
+	case HDCP_LIB_WKUP_CMD_LINK_FAILED:
+		handle->hdcp_state |= HDCP_STATE_ERROR;
 		HDCP_LIB_EXECUTE(clean);
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS:
@@ -1825,7 +1848,7 @@ static void hdcp_lib_clean(struct hdcp_lib_handle *handle)
 	if (!handle) {
 		pr_err("invalid input\n");
 		return;
-	};
+	}
 
 	hdcp_lib_txmtr_deinit(handle);
 	if (!handle->legacy_app)
@@ -1859,6 +1882,7 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 	struct hdcp_rcvd_msg_rsp *rsp_buf;
 	uint32_t msglen;
 	char *msg = NULL;
+	char msg_name[50];
 	uint32_t message_id_bytes = 0;
 
 	if (!handle || !handle->qseecom_handle ||
@@ -1907,8 +1931,11 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 
 	mutex_unlock(&handle->msg_lock);
 
-	pr_debug("msg received: %s from sink\n",
-		 hdcp_lib_message_name((int)msg[0]));
+	snprintf(msg_name, sizeof(msg_name), "%s: ",
+		hdcp_lib_message_name((int)msg[0]));
+
+	print_hex_dump(KERN_DEBUG, msg_name,
+		DUMP_PREFIX_NONE, 16, 1, msg, msglen, false);
 
 	/* send the message to QSEECOM */
 	req_buf = (struct hdcp_rcvd_msg_req *)(handle->qseecom_handle->sbuf);
@@ -2023,6 +2050,16 @@ static void hdcp_lib_topology_work(struct kthread_work *work)
 
 	if (!handle) {
 		pr_err("invalid input\n");
+		return;
+	}
+
+	if (atomic_read(&handle->hdcp_off)) {
+		pr_debug("invalid state: hdcp off\n");
+		return;
+	}
+
+	if (handle->hdcp_state & HDCP_STATE_ERROR) {
+		pr_debug("invalid state: hdcp error\n");
 		return;
 	}
 
