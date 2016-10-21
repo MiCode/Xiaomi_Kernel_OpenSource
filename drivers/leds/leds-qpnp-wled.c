@@ -85,12 +85,15 @@
 #define QPNP_WLED_VREF_PSM_DFLT_AMOLED_MV		450
 #define QPNP_WLED_PSM_CTRL_OVERWRITE			0x80
 
-#define QPNP_WLED_ILIM_MASK		0xF8
-#define QPNP_WLED_ILIM_MIN_MA		105
-#define QPNP_WLED_ILIM_MAX_MA		1980
-#define QPNP_WLED_ILIM_STEP_MA		280
-#define QPNP_WLED_DFLT_ILIM_MA		980
-#define QPNP_WLED_ILIM_OVERWRITE	0x80
+#define QPNP_WLED_ILIM_MASK		GENMASK(2, 0)
+#define QPNP_WLED_ILIM_OVERWRITE	BIT(7)
+#define PMI8994_WLED_ILIM_MIN_MA	105
+#define PMI8994_WLED_ILIM_MAX_MA	1980
+#define PMI8994_WLED_DFLT_ILIM_MA	980
+#define PMI8994_AMOLED_DFLT_ILIM_MA	385
+#define PMICOBALT_WLED_ILIM_MAX_MA	1500
+#define PMICOBALT_WLED_DFLT_ILIM_MA	970
+#define PMICOBALT_AMOLED_DFLT_ILIM_MA	620
 #define QPNP_WLED_BOOST_DUTY_MASK	0xFC
 #define QPNP_WLED_BOOST_DUTY_STEP_NS	52
 #define QPNP_WLED_BOOST_DUTY_MIN_NS	26
@@ -207,6 +210,7 @@
 #define QPNP_WLED_AVDD_SET_BIT		BIT(4)
 
 #define NUM_SUPPORTED_OVP_THRESHOLDS	4
+#define NUM_SUPPORTED_ILIM_THRESHOLDS	8
 
 #define QPNP_WLED_AVDD_MV_TO_REG(val) \
 		((val - QPNP_WLED_AVDD_MIN_MV) / QPNP_WLED_AVDD_STEP_MV)
@@ -261,6 +265,14 @@ static int qpnp_wled_ovp_thresholds_pmi8994[NUM_SUPPORTED_OVP_THRESHOLDS] = {
 
 static int qpnp_wled_ovp_thresholds_pmicobalt[NUM_SUPPORTED_OVP_THRESHOLDS] = {
 	31100, 29600, 19600, 18100,
+};
+
+static int qpnp_wled_ilim_settings_pmi8994[NUM_SUPPORTED_ILIM_THRESHOLDS] = {
+	105, 385, 660, 980, 1150, 1420, 1700, 1980,
+};
+
+static int qpnp_wled_ilim_settings_pmicobalt[NUM_SUPPORTED_ILIM_THRESHOLDS] = {
+	105, 280, 450, 620, 970, 1150, 1300, 1500,
 };
 
 /**
@@ -1196,6 +1208,46 @@ static int qpnp_wled_avdd_mode_config(struct qpnp_wled *wled)
 	return rc;
 }
 
+static int qpnp_wled_ilim_config(struct qpnp_wled *wled)
+{
+	int rc, i, *ilim_table;
+	u8 reg;
+
+	if (wled->ilim_ma < PMI8994_WLED_ILIM_MIN_MA)
+		wled->ilim_ma = PMI8994_WLED_ILIM_MIN_MA;
+
+	if (wled->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE ||
+		wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE) {
+		ilim_table = qpnp_wled_ilim_settings_pmicobalt;
+		if (wled->ilim_ma > PMICOBALT_WLED_ILIM_MAX_MA)
+			wled->ilim_ma = PMICOBALT_WLED_ILIM_MAX_MA;
+	} else {
+		ilim_table = qpnp_wled_ilim_settings_pmi8994;
+		if (wled->ilim_ma > PMI8994_WLED_ILIM_MAX_MA)
+			wled->ilim_ma = PMI8994_WLED_ILIM_MAX_MA;
+	}
+
+	for (i = 0; i < NUM_SUPPORTED_ILIM_THRESHOLDS; i++) {
+		if (wled->ilim_ma == ilim_table[i])
+			break;
+	}
+
+	if (i == NUM_SUPPORTED_ILIM_THRESHOLDS) {
+		dev_err(&wled->pdev->dev,
+			"Invalid ilim threshold specified in device tree\n");
+		return -EINVAL;
+	}
+
+	reg = (i & QPNP_WLED_ILIM_MASK) | QPNP_WLED_ILIM_OVERWRITE;
+	rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_ILIM_MASK | QPNP_WLED_ILIM_OVERWRITE,
+			&reg, QPNP_WLED_ILIM_REG(wled->ctrl_base));
+	if (rc < 0)
+		dev_err(&wled->pdev->dev, "Write to ILIM register failed, rc=%d\n",
+			rc);
+	return rc;
+}
+
 /* Configure WLED registers */
 static int qpnp_wled_config(struct qpnp_wled *wled)
 {
@@ -1238,24 +1290,10 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 
 	/* Configure the ILIM register */
-	if (wled->ilim_ma < QPNP_WLED_ILIM_MIN_MA)
-		wled->ilim_ma = QPNP_WLED_ILIM_MIN_MA;
-	else if (wled->ilim_ma > QPNP_WLED_ILIM_MAX_MA)
-		wled->ilim_ma = QPNP_WLED_ILIM_MAX_MA;
-
-	rc = qpnp_wled_read_reg(wled, &reg,
-			QPNP_WLED_ILIM_REG(wled->ctrl_base));
-	if (rc < 0)
+	rc = qpnp_wled_ilim_config(wled);
+	if (rc < 0) {
+		pr_err("Error in configuring wled ilim, rc=%d\n", rc);
 		return rc;
-	temp = (wled->ilim_ma / QPNP_WLED_ILIM_STEP_MA);
-	if (temp != (reg & ~QPNP_WLED_ILIM_MASK)) {
-		reg &= QPNP_WLED_ILIM_MASK;
-		reg |= temp;
-		reg |= QPNP_WLED_ILIM_OVERWRITE;
-		rc = qpnp_wled_write_reg(wled, reg,
-			QPNP_WLED_ILIM_REG(wled->ctrl_base));
-		if (rc)
-			return rc;
 	}
 
 	/* Configure the Soft start Ramp delay: for AMOLED - 0,for LCD - 2 */
@@ -1710,7 +1748,19 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 		return rc;
 	}
 
-	wled->ilim_ma = QPNP_WLED_DFLT_ILIM_MA;
+	if (wled->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE ||
+		wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE) {
+		if (wled->disp_type_amoled)
+			wled->ilim_ma = PMICOBALT_AMOLED_DFLT_ILIM_MA;
+		else
+			wled->ilim_ma = PMICOBALT_WLED_DFLT_ILIM_MA;
+	} else {
+		if (wled->disp_type_amoled)
+			wled->ilim_ma = PMI8994_AMOLED_DFLT_ILIM_MA;
+		else
+			wled->ilim_ma = PMI8994_WLED_DFLT_ILIM_MA;
+	}
+
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,ilim-ma", &temp_val);
 	if (!rc) {
