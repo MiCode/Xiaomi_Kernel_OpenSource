@@ -1620,22 +1620,18 @@ end:
 	return rc;
 }
 
-static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
+static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 {
-	struct mdss_dp_drv_pdata *dp = ptr;
+	struct mdss_dp_drv_pdata *dp;
+	struct delayed_work *dw = to_delayed_work(work);
 	struct hdcp_ops *ops;
 	int rc = 0;
 
-	if (!dp) {
-		pr_debug("invalid input\n");
-		return;
-	}
+	dp = container_of(dw, struct mdss_dp_drv_pdata, hdcp_cb_work);
 
 	ops = dp->hdcp.ops;
 
-	mutex_lock(&dp->train_mutex);
-
-	switch (status) {
+	switch (dp->hdcp_status) {
 	case HDCP_STATE_AUTHENTICATED:
 		pr_debug("hdcp authenticated\n");
 		dp->hdcp.auth_state = true;
@@ -1658,8 +1654,20 @@ static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
 	default:
 		break;
 	}
+}
 
-	mutex_unlock(&dp->train_mutex);
+static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
+{
+	struct mdss_dp_drv_pdata *dp = ptr;
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp->hdcp_status = status;
+
+	queue_delayed_work(dp->workq, &dp->hdcp_cb_work, HZ/4);
 }
 
 static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
@@ -1888,6 +1896,13 @@ static void mdss_dp_update_hdcp_info(struct mdss_dp_drv_pdata *dp)
 	dp->hdcp.ops = ops;
 }
 
+static inline bool dp_is_hdcp_enabled(struct mdss_dp_drv_pdata *dp_drv)
+{
+	return dp_drv->hdcp.feature_enabled &&
+		(dp_drv->hdcp.hdcp1_present || dp_drv->hdcp.hdcp2_present) &&
+		dp_drv->hdcp.ops;
+}
+
 static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
@@ -1919,8 +1934,10 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		rc = mdss_dp_off(pdata);
 		break;
 	case MDSS_EVENT_BLANK:
-		if (dp->hdcp.ops && dp->hdcp.ops->off)
+		if (dp_is_hdcp_enabled(dp) && dp->hdcp.ops->off) {
+			flush_delayed_work(&dp->hdcp_cb_work);
 			dp->hdcp.ops->off(dp->hdcp.data);
+		}
 
 		mdss_dp_mainlink_push_idle(pdata);
 		break;
@@ -2197,6 +2214,11 @@ irqreturn_t dp_isr(int irq, void *ptr)
 			dp_aux_native_handler(dp, isr1);
 	}
 
+	if (dp->hdcp.ops && dp->hdcp.ops->isr) {
+		if (dp->hdcp.ops->isr(dp->hdcp.data))
+			pr_err("dp_hdcp_isr failed\n");
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -2211,6 +2233,7 @@ static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 	}
 
 	INIT_WORK(&dp->work, mdss_dp_event_work);
+	INIT_DELAYED_WORK(&dp->hdcp_cb_work, mdss_dp_hdcp_cb_work);
 	return 0;
 }
 
@@ -2434,8 +2457,6 @@ static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 
-	pr_debug("enter: HPD IRQ High\n");
-
 	dp->hpd_irq_on = true;
 
 	mdss_dp_aux_parse_sink_status_field(dp);
@@ -2523,6 +2544,12 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 			dp_drv->alt_mode.dp_status.hpd_irq;
 
 		if (dp_drv->alt_mode.dp_status.hpd_irq) {
+			pr_debug("Attention: hpd_irq high\n");
+
+			if (dp_drv->power_on && dp_drv->hdcp.ops &&
+			    dp_drv->hdcp.ops->cp_irq)
+				dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data);
+
 			mdss_dp_process_hpd_irq_high(dp_drv);
 			break;
 		}
@@ -2552,9 +2579,6 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		else
 			dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
 
-		if (dp_drv->alt_mode.dp_status.hpd_irq && dp_drv->power_on &&
-		    dp_drv->hdcp.ops && dp_drv->hdcp.ops->isr)
-			dp_drv->hdcp.ops->isr(dp_drv->hdcp.data);
 		break;
 	case DP_VDM_STATUS:
 		dp_drv->alt_mode.dp_status.response = *vdos;
@@ -2768,13 +2792,6 @@ void *mdss_dp_get_hdcp_data(struct device *dev)
 		return NULL;
 	}
 	return dp_drv->hdcp.data;
-}
-
-static inline bool dp_is_hdcp_enabled(struct mdss_dp_drv_pdata *dp_drv)
-{
-	return dp_drv->hdcp.feature_enabled &&
-		(dp_drv->hdcp.hdcp1_present || dp_drv->hdcp.hdcp2_present) &&
-		dp_drv->hdcp.ops;
 }
 
 static inline bool dp_is_stream_shareable(struct mdss_dp_drv_pdata *dp_drv)

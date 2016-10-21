@@ -484,6 +484,7 @@ struct mdss_dp_drv_pdata {
 	/* event */
 	struct workqueue_struct *workq;
 	struct work_struct work;
+	struct delayed_work hdcp_cb_work;
 	u32 current_event;
 	spinlock_t event_lock;
 	spinlock_t lock;
@@ -494,6 +495,7 @@ struct mdss_dp_drv_pdata {
 	u32 vic;
 	u32 new_vic;
 	int fb_node;
+	int hdcp_status;
 
 	struct dpcd_test_request test_data;
 	struct dpcd_sink_count sink_count;
