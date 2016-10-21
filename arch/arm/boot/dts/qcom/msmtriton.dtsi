@@ -715,6 +715,7 @@
 #include "msmtriton-ion.dtsi"
 #include "msmtriton-regulator.dtsi"
 #include "msm-gdsc-falcon.dtsi"
+#include "msmfalcon-common.dtsi"
 
 &gdsc_usb30 {
 	clock-names = "core_clk";
