@@ -31,6 +31,12 @@
 					      struct mdp_set_cfg)
 
 /*
+ * Ioctl for setting the PLL PPM.
+ * PLL PPM is passed by the user space using this IOCTL.
+ */
+#define MSMFB_MDP_SET_PANEL_PPM _IOW(MDP_IOCTL_MAGIC, 131, int)
+
+/*
  * To allow proper structure padding for 64bit/32bit target
  */
 #ifdef __LP64
