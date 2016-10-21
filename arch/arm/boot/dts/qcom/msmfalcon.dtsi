@@ -319,6 +319,31 @@
 		clock-names = "core", "iface";
 	};
 
+	slim_aud: slim@151c0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x151c0000 0x2c000>,
+			<0x15180000 0x2e000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x7e0000>;
+		qcom,ea-pc = <0x260>;
+		status = "disabled";
+	};
+
+	slim_qca: slim@15240000 {
+		cell-index = <3>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x15240000 0x2c000>,
+			<0x15200000 0x24000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 291 0>, <0 292 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x1800>;
+		status = "disabled";
+	};
+
 	timer@17920000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
