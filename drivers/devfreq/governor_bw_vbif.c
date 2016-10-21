@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,8 @@ static int devfreq_vbif_ev_handler(struct devfreq *devfreq,
 {
 	int ret;
 	struct devfreq_dev_status stat;
+
+	memset(&stat, 0, sizeof(stat));
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
