@@ -83,9 +83,6 @@ static int clk_branch_wait(const struct clk_branch *br, bool enabling,
 
 	if (br->halt_check == BRANCH_HALT_DELAY || (!enabling && voted)) {
 		udelay(10);
-	} else if ((br->halt_check == BRANCH_HALT_NO_CHECK_ON_DISABLE) &&
-								!enabling) {
-		return 0;
 	} else if (br->halt_check == BRANCH_HALT_ENABLE ||
 		   br->halt_check == BRANCH_HALT ||
 		   (enabling && voted)) {
