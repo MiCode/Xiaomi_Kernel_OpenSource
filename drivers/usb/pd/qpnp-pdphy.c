@@ -23,6 +23,8 @@
 #include <linux/of_irq.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
 #include "usbpd.h"
 
 #define USB_PDPHY_MAX_DATA_OBJ_LEN	28
