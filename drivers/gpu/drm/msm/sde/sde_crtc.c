@@ -57,10 +57,11 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 
 	if (sde_crtc->blob_info)
 		drm_property_unreference_blob(sde_crtc->blob_info);
-
 	msm_property_destroy(&sde_crtc->property_info);
 	sde_cp_crtc_destroy_properties(crtc);
+
 	debugfs_remove_recursive(sde_crtc->debugfs_root);
+	mutex_destroy(&sde_crtc->crtc_lock);
 	sde_fence_deinit(&sde_crtc->output_fence);
 
 	drm_crtc_cleanup(crtc);
@@ -475,6 +476,7 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 	sde_crtc->num_mixers = 0;
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 
+	mutex_lock(&sde_crtc->crtc_lock);
 	/* Check for mixers on all encoders attached to this crtc */
 	list_for_each_entry(enc, &crtc->dev->mode_config.encoder_list, head) {
 		if (enc->crtc != crtc)
@@ -482,6 +484,7 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 
 		_sde_crtc_setup_mixer_for_encoder(crtc, enc);
 	}
+	mutex_unlock(&sde_crtc->crtc_lock);
 }
 
 static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
@@ -726,8 +729,10 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	SDE_DEBUG("\n");
 
+	mutex_lock(&sde_crtc->crtc_lock);
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
+	mutex_unlock(&sde_crtc->crtc_lock);
 }
 
 static void sde_crtc_enable(struct drm_crtc *crtc)
@@ -1093,49 +1098,101 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 	return ret;
 }
 
-static int _sde_debugfs_mixer_read(struct seq_file *s, void *data)
+static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 {
 	struct sde_crtc *sde_crtc;
+	struct sde_plane_state *pstate = NULL;
 	struct sde_crtc_mixer *m;
-	int i, j, k;
+
+	struct drm_crtc *crtc;
+	struct drm_plane *plane;
+	struct drm_display_mode *mode;
+	struct drm_framebuffer *fb;
+	struct drm_plane_state *state;
+
+	int i, out_width;
 
 	if (!s || !s->private)
 		return -EINVAL;
 
 	sde_crtc = s->private;
+	crtc = &sde_crtc->base;
+
+	mutex_lock(&sde_crtc->crtc_lock);
+	mode = &crtc->state->adjusted_mode;
+	out_width = sde_crtc_mixer_width(sde_crtc, mode);
+
+	seq_printf(s, "crtc:%d width:%d height:%d\n", crtc->base.id,
+				mode->hdisplay, mode->vdisplay);
+
+	seq_puts(s, "\n");
+
 	for (i = 0; i < sde_crtc->num_mixers; ++i) {
 		m = &sde_crtc->mixers[i];
-		if (!m->hw_lm) {
-			seq_printf(s, "Mixer[%d] has no LM\n", i);
-		} else if (!m->hw_ctl) {
-			seq_printf(s, "Mixer[%d] has no CTL\n", i);
-		} else {
-			seq_printf(s, "LM_%d/CTL_%d\n",
-					m->hw_lm->idx - LM_0,
-					m->hw_ctl->idx - CTL_0);
-		}
+		if (!m->hw_lm)
+			seq_printf(s, "\tmixer[%d] has no lm\n", i);
+		else if (!m->hw_ctl)
+			seq_printf(s, "\tmixer[%d] has no ctl\n", i);
+		else
+			seq_printf(s, "\tmixer:%d ctl:%d width:%d height:%d\n",
+				m->hw_lm->idx - LM_0, m->hw_ctl->idx - CTL_0,
+				out_width, mode->vdisplay);
 	}
 
-	for (k = 0; k < sde_crtc->num_mixers; ++k) {
-		seq_printf(s, "Mixer[%d] stages\n", k);
-		for (i = 0; i < SDE_STAGE_MAX; ++i) {
-			if (i == SDE_STAGE_BASE)
-				seq_puts(s, "Base Stage:");
-			else
-				seq_printf(s, "Stage %d:", i - SDE_STAGE_0);
+	seq_puts(s, "\n");
 
-			for (j = 0; j < PIPES_PER_STAGE; ++j)
-				seq_printf(s, " % 2d",
-					sde_crtc->stage_cfg.stage[k][i][j]);
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		pstate = to_sde_plane_state(plane->state);
+		state = plane->state;
+
+		if (!pstate || !state)
+			continue;
+
+		seq_printf(s, "\tplane:%u stage:%d\n", plane->base.id,
+			pstate->stage);
+
+		if (plane->state->fb) {
+			fb = plane->state->fb;
+
+			seq_printf(s, "\tfb:%d image format:%4.4s wxh:%ux%u bpp:%d\n",
+				fb->base.id, (char *) &fb->pixel_format,
+				fb->width, fb->height, fb->bits_per_pixel);
+
+			seq_puts(s, "\t");
+			for (i = 0; i < ARRAY_SIZE(fb->modifier); i++)
+				seq_printf(s, "modifier[%d]:%8llu ", i,
+							fb->modifier[i]);
+			seq_puts(s, "\n");
+
+			seq_puts(s, "\t");
+			for (i = 0; i < ARRAY_SIZE(fb->pitches); i++)
+				seq_printf(s, "pitches[%d]:%8u ", i,
+							fb->pitches[i]);
+			seq_puts(s, "\n");
+
+			seq_puts(s, "\t");
+			for (i = 0; i < ARRAY_SIZE(fb->offsets); i++)
+				seq_printf(s, "offsets[%d]:%8u ", i,
+							fb->offsets[i]);
 			seq_puts(s, "\n");
 		}
+
+		seq_printf(s, "\tsrc_x:%4d src_y:%4d src_w:%4d src_h:%4d\n",
+			state->src_x, state->src_y, state->src_w, state->src_h);
+
+		seq_printf(s, "\tdst x:%4d dst_y:%4d dst_w:%4d dst_h:%4d\n",
+			state->crtc_x, state->crtc_y, state->crtc_w,
+			state->crtc_h);
+		seq_puts(s, "\n");
 	}
+	mutex_unlock(&sde_crtc->crtc_lock);
+
 	return 0;
 }
 
-static int _sde_debugfs_mixer_open(struct inode *inode, struct file *file)
+static int _sde_debugfs_status_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, _sde_debugfs_mixer_read, inode->i_private);
+	return single_open(file, _sde_debugfs_status_show, inode->i_private);
 }
 
 static void sde_crtc_suspend(struct drm_crtc *crtc)
@@ -1174,8 +1231,8 @@ static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
 static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 		struct sde_kms *sde_kms)
 {
-	static const struct file_operations debugfs_mixer_fops = {
-		.open =		_sde_debugfs_mixer_open,
+	static const struct file_operations debugfs_status_fops = {
+		.open =		_sde_debugfs_status_open,
 		.read =		seq_read,
 		.llseek =	seq_lseek,
 		.release =	single_release,
@@ -1185,9 +1242,9 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 				sde_debugfs_get_root(sde_kms));
 		if (sde_crtc->debugfs_root) {
 			/* don't error check these */
-			debugfs_create_file("mixers", S_IRUGO,
+			debugfs_create_file("status", S_IRUGO,
 					sde_crtc->debugfs_root,
-					sde_crtc, &debugfs_mixer_fops);
+					sde_crtc, &debugfs_status_fops);
 		}
 	}
 }
@@ -1220,6 +1277,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 
 	/* initialize output fence support */
 	sde_fence_init(dev, &sde_crtc->output_fence, sde_crtc->name);
+	mutex_init(&sde_crtc->crtc_lock);
 
 	/* initialize debugfs support */
 	_sde_crtc_init_debugfs(sde_crtc, kms);
