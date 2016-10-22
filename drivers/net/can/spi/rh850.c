@@ -613,12 +613,16 @@ static int rh850_can_write(struct rh850_can *priv_data,
 
 		for (i = 0; i < cf->len; i++)
 			req_d->data[i] = cf->data[i];
-	} else if (priv_data->driver_mode == DRIVER_MODE_PROPERTIES) {
+	} else if (priv_data->driver_mode == DRIVER_MODE_PROPERTIES ||
+		   priv_data->driver_mode == DRIVER_MODE_AMB) {
 		req->cmd = CMD_PROPERTY_WRITE;
 		req->len = sizeof(struct vehicle_property);
 		req->seq = atomic_inc_return(&priv_data->msg_seq);
 		for (i = 0; i < cf->len; i++)
 			req->data[i] = cf->data[i];
+	} else {
+		LOGDE("rh850_can_write: wrong driver mode %i",
+		      priv_data->driver_mode);
 	}
 
 	ret = rh850_do_spi_transaction(priv_data);
