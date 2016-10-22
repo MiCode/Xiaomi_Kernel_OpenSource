@@ -24,6 +24,7 @@
 #include <linux/interrupt.h>
 #include <linux/timer.h>
 #include <linux/pm_opp.h>
+#include <linux/cpu_cooling.h>
 
 #include <asm/smp_plat.h>
 #include <asm/cacheflush.h>
@@ -40,6 +41,7 @@
 #define MSM_LIMITS_NODE_DCVS		0x44435653
 
 #define MSM_LIMITS_SUB_FN_THERMAL	0x54484D4C
+#define MSM_LIMITS_SUB_FN_GENERAL	0x47454E00
 
 #define MSM_LIMITS_ALGO_MODE_ENABLE	0x454E424C
 
@@ -48,6 +50,8 @@
 
 #define MSM_LIMITS_CLUSTER_0		0x6370302D
 #define MSM_LIMITS_CLUSTER_1		0x6370312D
+
+#define MSM_LIMITS_DOMAIN_MAX		0x444D4158
 
 #define MSM_LIMITS_HIGH_THRESHOLD_VAL	95000
 #define MSM_LIMITS_ARM_THRESHOLD_VAL	65000
@@ -77,7 +81,11 @@ struct msm_lmh_dcvs_hw {
 	cpumask_t core_map;
 	struct timer_list poll_timer;
 	uint32_t max_freq;
+	uint32_t hw_freq_limit;
+	struct list_head list;
 };
+
+LIST_HEAD(lmh_dcvs_hw_list);
 
 static void msm_lmh_dcvs_get_max_freq(uint32_t cpu, uint32_t *max_freq)
 {
@@ -104,6 +112,7 @@ static uint32_t msm_lmh_mitigation_notify(struct msm_lmh_dcvs_hw *hw)
 	dcvsh_get_frequency(val, max_limit);
 	sched_update_cpu_freq_min_max(&hw->core_map, 0, max_limit);
 	trace_lmh_dcvs_freq(cpumask_first(&hw->core_map), max_limit);
+	hw->hw_freq_limit = max_limit;
 
 	return max_limit;
 }
@@ -250,6 +259,45 @@ static int trip_notify(enum thermal_trip_type type, int temp, void *data)
 	return 0;
 }
 
+static struct msm_lmh_dcvs_hw *get_dcvsh_hw_from_cpu(int cpu)
+{
+	struct msm_lmh_dcvs_hw *hw;
+
+	list_for_each_entry(hw, &lmh_dcvs_hw_list, list) {
+		if (cpumask_test_cpu(cpu, &hw->core_map))
+			return hw;
+	}
+
+	return NULL;
+}
+
+static int lmh_set_max_limit(int cpu, u32 freq)
+{
+	struct msm_lmh_dcvs_hw *hw = get_dcvsh_hw_from_cpu(cpu);
+
+	if (!hw)
+		return -EINVAL;
+
+	return msm_lmh_dcvs_write(hw->affinity, MSM_LIMITS_SUB_FN_GENERAL,
+				MSM_LIMITS_DOMAIN_MAX, freq);
+}
+
+static int lmh_get_cur_limit(int cpu, unsigned long *freq)
+{
+	struct msm_lmh_dcvs_hw *hw = get_dcvsh_hw_from_cpu(cpu);
+
+	if (!hw)
+		return -EINVAL;
+	*freq = hw->hw_freq_limit;
+
+	return 0;
+}
+
+static struct cpu_cooling_ops cd_ops = {
+	.get_cur_state = lmh_get_cur_limit,
+	.ceil_limit = lmh_set_max_limit,
+};
+
 static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -257,6 +305,7 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 	struct msm_lmh_dcvs_hw *hw;
 	char sensor_name[] = "limits_sensor-00";
 	struct thermal_zone_device *tzdev;
+	struct thermal_cooling_device *cdev;
 	struct device_node *dn = pdev->dev.of_node;
 	struct device_node *cpu_node, *lmh_node;
 	uint32_t id, max_freq, request_reg, clear_reg;
@@ -331,6 +380,10 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(tzdev))
 		return PTR_ERR(tzdev);
 
+	/* Setup cooling devices to request mitigation states */
+	cdev = cpufreq_platform_cooling_register(&hw->core_map, &cd_ops);
+	if (IS_ERR_OR_NULL(cdev))
+		return PTR_ERR(cdev);
 	/*
 	 * Driver defaults to for low and hi thresholds.
 	 * Since we make a check for hi > lo value, set the hi threshold
@@ -356,7 +409,7 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	hw->max_freq = max_freq;
+	hw->hw_freq_limit = hw->max_freq = max_freq;
 
 	switch (affinity) {
 	case 0:
@@ -398,6 +451,9 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 		pr_err("Error registering for irq. err:%d\n", ret);
 		return ret;
 	}
+
+	INIT_LIST_HEAD(&hw->list);
+	list_add(&hw->list, &lmh_dcvs_hw_list);
 
 	return ret;
 }
