@@ -21,6 +21,8 @@
 #include "sde_hw_pingpong.h"
 #include "sde_hw_intf.h"
 #include "sde_hw_wb.h"
+#include "sde_encoder.h"
+#include "sde_connector.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))

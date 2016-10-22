@@ -17,6 +17,7 @@
 
 #include "msm_kms.h"
 #include "sde_kms.h"
+#include "sde_connector.h"
 
 /**
  * struct sde_wb_device - Writeback device context

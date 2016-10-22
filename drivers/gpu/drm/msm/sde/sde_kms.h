@@ -22,8 +22,6 @@
 #include "sde_hw_interrupts.h"
 #include "sde_hw_wb.h"
 #include "sde_hw_top.h"
-#include "sde_connector.h"
-#include "sde_crtc.h"
 #include "sde_rm.h"
 #include "sde_power_handle.h"
 #include "sde_irq.h"
@@ -107,20 +105,6 @@ struct sde_irq {
 	struct dentry *debugfs_file;
 };
 
-/**
- * Encoder functions and data types
- * @intfs:	Interfaces this encoder is using, INTF_MODE_NONE if unused
- * @wbs:	Writebacks this encoder is using, INTF_MODE_NONE if unused
- * @needs_cdm:	Encoder requests a CDM based on pixel format conversion needs
- * @display_num_of_h_tiles:
- */
-struct sde_encoder_hw_resources {
-	enum sde_intf_mode intfs[INTF_MAX];
-	enum sde_intf_mode wbs[WB_MAX];
-	bool needs_cdm;
-	u32 display_num_of_h_tiles;
-};
-
 struct sde_kms {
 	struct msm_kms base;
 	struct drm_device *dev;
@@ -162,42 +146,6 @@ struct vsync_info {
 };
 
 #define to_sde_kms(x) container_of(x, struct sde_kms, base)
-
-struct sde_plane_state {
-	struct drm_plane_state base;
-
-	/* aligned with property */
-	uint64_t property_values[PLANE_PROP_COUNT];
-
-	/* blob properties */
-	struct drm_property_blob *property_blobs[PLANE_PROP_BLOBCOUNT];
-
-	/* dereferenced input fence pointer */
-	void *input_fence;
-
-	/* assigned by crtc blender */
-	enum sde_stage stage;
-
-	/* bitmask for which pipe h/w config functions need to be updated */
-	uint32_t dirty;
-
-	/* whether the current update is still pending */
-	bool pending : 1;
-};
-
-#define to_sde_plane_state(x) \
-	container_of(x, struct sde_plane_state, base)
-
-/**
- * sde_plane_get_property - Query integer value of plane property
- *
- * @S: Pointer to plane state
- * @X: Property index, from enum msm_mdp_plane_property
- *
- * Return: Integer value of requested property
- */
-#define sde_plane_get_property(S, X) \
-	((S) && ((X) < PLANE_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
 
 /**
  * sde_is_custom_client - whether or not to enable non-standard customizations
@@ -401,92 +349,5 @@ void sde_kms_info_stop(struct sde_kms_info *info);
  */
 int sde_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
 void sde_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
-
-/**
- * Plane functions
- */
-enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
-void sde_plane_flush(struct drm_plane *plane);
-struct drm_plane *sde_plane_init(struct drm_device *dev,
-		uint32_t pipe, bool primary_plane,
-		unsigned long possible_crtcs);
-
-/**
- * sde_plane_wait_input_fence - wait for input fence object
- * @plane:   Pointer to DRM plane object
- * @wait_ms: Wait timeout value
- * Returns: Zero on success
- */
-int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms);
-
-/**
- * sde_plane_color_fill - Enables color fill on plane
- * @plane:  Pointer to DRM plane object
- * @color:  RGB fill color value, [23..16] Blue, [15..8] Green, [7..0] Red
- * @alpha:  8-bit fill alpha value, 255 selects 100% alpha
- *
- * Returns: 0 on success
- */
-int sde_plane_color_fill(struct drm_plane *plane,
-		uint32_t color, uint32_t alpha);
-
-/**
- * sde_encoder_get_hw_resources - Populate table of required hardware resources
- * @encoder:	encoder pointer
- * @hw_res:	resource table to populate with encoder required resources
- * @conn_state:	report hw reqs based on this proposed connector state
- */
-void sde_encoder_get_hw_resources(struct drm_encoder *encoder,
-		struct sde_encoder_hw_resources *hw_res,
-		struct drm_connector_state *conn_state);
-
-/**
- * sde_encoder_register_vblank_callback - provide callback to encoder that
- *	will be called on the next vblank.
- * @encoder:	encoder pointer
- * @cb:		callback pointer, provide NULL to deregister and disable IRQs
- * @data:	user data provided to callback
- */
-void sde_encoder_register_vblank_callback(struct drm_encoder *encoder,
-		void (*cb)(void *), void *data);
-
-/**
- * sde_encoder_schedule_kickoff - Register a callback with the encoder to
- *	trigger a double buffer flip of the ctl path (i.e. ctl flush and start)
- *	at the appropriate time.
- *	Immediately: if no previous commit is outstanding.
- *	Delayed: Save the callback, and return. Does not block. Callback will
- *	be triggered later. E.g. cmd encoder will trigger at pp_done irq
- *	irq if it outstanding.
- * @encoder:	encoder pointer
- */
-void sde_encoder_schedule_kickoff(struct drm_encoder *encoder);
-
-/**
- * sde_encoder_wait_nxt_committed - Wait for hardware to have flushed the
- *	current pending frames to hardware at a vblank or ctl_start
- *	Encoders will map this differently depending on irqs
- *	vid mode -> vsync_irq
- * @encoder:	encoder pointer
- *
- * Return: 0 on success, -EWOULDBLOCK if already signaled, error otherwise
- */
-int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
-
-/**
- * sde_encoder_init - initialize virtual encoder object
- * @dev:        Pointer to drm device structure
- * @disp_info:  Pointer to display information structure
- * Returns:     Pointer to newly created drm encoder
- */
-struct drm_encoder *sde_encoder_init(
-		struct drm_device *dev,
-		struct msm_display_info *disp_info);
-
-/**
- * sde_encoder_destroy - destroy previously initialized virtual encoder
- * @drm_enc:    Pointer to previously created drm encoder structure
- */
-void sde_encoder_destroy(struct drm_encoder *drm_enc);
 
 #endif /* __sde_kms_H__ */

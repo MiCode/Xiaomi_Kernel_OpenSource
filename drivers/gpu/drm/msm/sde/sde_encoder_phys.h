@@ -22,6 +22,8 @@
 #include "sde_hw_top.h"
 #include "sde_hw_wb.h"
 #include "sde_hw_cdm.h"
+#include "sde_encoder.h"
+#include "sde_connector.h"
 
 #define SDE_ENCODER_NAME_MAX	16
 
