@@ -29,6 +29,10 @@
 #include "sde_hw_util.h"
 #include "sde_hw_intf.h"
 #include "sde_hw_vbif.h"
+#include "sde_vbif.h"
+#include "sde_encoder.h"
+#include "sde_plane.h"
+#include "sde_crtc.h"
 
 #define CREATE_TRACE_POINTS
 #include "sde_trace.h"

@@ -187,7 +187,7 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
  * sde_crtc_init - create a new crtc object
  * @dev: sde device
  * @plane: base plane
-  * @Return: new crtc object or error
+ * @Return: new crtc object or error
  */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
 

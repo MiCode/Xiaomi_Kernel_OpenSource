@@ -24,6 +24,7 @@
 #include "sde_trace.h"
 #include "sde_crtc.h"
 #include "sde_vbif.h"
+#include "sde_plane.h"
 
 #define SDE_DEBUG_PLANE(pl, fmt, ...) SDE_DEBUG("plane%d " fmt,\
 		(pl) ? (pl)->base.base.id : -1, ##__VA_ARGS__)

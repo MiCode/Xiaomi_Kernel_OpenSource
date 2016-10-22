@@ -24,7 +24,10 @@
 #include "sde_hw_lm.h"
 #include "sde_hw_ctl.h"
 #include "sde_crtc.h"
+#include "sde_plane.h"
 #include "sde_color_processing.h"
+#include "sde_encoder.h"
+#include "sde_connector.h"
 
 /* default input fence timeout, in ms */
 #define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
