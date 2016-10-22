@@ -2938,7 +2938,7 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 	 */
 	group = generic_device_group(dev);
 
-	if (IS_ERR(group))
+	if (IS_ERR_OR_NULL(group))
 		return group;
 
 	if (dev_is_pci(dev))
