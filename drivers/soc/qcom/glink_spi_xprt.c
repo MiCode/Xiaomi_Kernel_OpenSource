@@ -875,19 +875,18 @@ static void __rx_worker(struct edge_info *einfo)
 	int rcu_id;
 
 	rcu_id = srcu_read_lock(&einfo->use_ref);
+	if (einfo->in_ssr) {
+		srcu_read_unlock(&einfo->use_ref, rcu_id);
+		return;
+	}
+
 	if (unlikely(!einfo->rx_fifo_start)) {
 		rx_avail = glink_spi_xprt_read_avail(einfo);
 		if (!rx_avail) {
 			srcu_read_unlock(&einfo->use_ref, rcu_id);
 			return;
 		}
-		einfo->in_ssr = false;
 		einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
-	}
-
-	if (einfo->in_ssr) {
-		srcu_read_unlock(&einfo->use_ref, rcu_id);
-		return;
 	}
 
 	glink_spi_xprt_set_poll_mode(einfo);
@@ -1818,8 +1817,15 @@ static int glink_wdsp_cmpnt_event_handler(struct device *dev,
 		spi_dev = to_spi_device(sdev);
 		einfo->spi_dev = spi_dev;
 		break;
+	case WDSP_EVENT_POST_BOOTUP:
+		einfo->in_ssr = false;
+		synchronize_srcu(&einfo->use_ref);
+		/* No break here to trigger fake rx_worker */
 	case WDSP_EVENT_IPC1_INTR:
 		queue_kthread_work(&einfo->kworker, &einfo->kwork);
+		break;
+	case WDSP_EVENT_PRE_SHUTDOWN:
+		ssr(&einfo->xprt_if);
 		break;
 	default:
 		pr_debug("%s: unhandled event %d", __func__, event);
@@ -2040,7 +2046,6 @@ static int glink_spi_probe(struct platform_device *pdev)
 	init_xprt_cfg(einfo, subsys_name);
 	init_xprt_if(einfo);
 
-	einfo->in_ssr = true;
 	einfo->fifo_size = DEFAULT_FIFO_SIZE;
 	init_kthread_work(&einfo->kwork, rx_worker);
 	init_kthread_worker(&einfo->kworker);
