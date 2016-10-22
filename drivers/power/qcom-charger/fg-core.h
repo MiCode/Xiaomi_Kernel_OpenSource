@@ -118,7 +118,14 @@ enum {
 	DELTA_SOC_IRQ_WA = BIT(0),
 };
 
-/* SRAM parameters */
+/*
+ * List of FG_SRAM parameters. Please add a parameter only if it is an entry
+ * that will be used either to configure an entity (e.g. termination current)
+ * which might need some encoding (or) it is an entry that will be read from
+ * SRAM and decoded (e.g. CC_SOC_SW) for SW to use at various places. For
+ * generic read/writes to SRAM registers, please use fg_sram_read/write APIs
+ * directly without adding an entry here.
+ */
 enum fg_sram_param_id {
 	FG_SRAM_BATT_SOC = 0,
 	FG_SRAM_VOLTAGE_PRED,
