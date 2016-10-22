@@ -186,3 +186,118 @@
 		};
 	};
 };
+
+&apc_vreg_corner {
+	/delete-property/ qcom,cpr-fuse-version-map;
+	/delete-property/ qcom,cpr-quotient-adjustment;
+	/delete-property/ qcom,cpr-init-voltage-adjustment;
+	/delete-property/ qcom,cpr-enable;
+};
+
+&funnel_apss {
+	coresight-child-ports = <3>;
+};
+
+&soc {
+	/delete-node/ cti@6124000;
+	cti_modem_cpu0: cti@6128000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6128000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <51>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* MSS_SCL */
+	modem_etm0 {
+		coresight-child-ports = <2>;
+	};
+
+	cti_modem_cpu1: cti@6124000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6124000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <52>;
+		coresight-name = "coresight-cti-modem-cpu1";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* MSS_VEC */
+	modem_etm1 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <53>;
+		coresight-name = "coresight-modem-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_right>;
+		coresight-child-ports = <1>;
+
+		qcom,inst-id = <11>;
+	};
+};
+
+&funnel_apss {
+	coresight-child-ports = <3>;
+};
+
+&soc {
+	/delete-node/ cti@6124000;
+	cti_modem_cpu0: cti@6128000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6128000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <51>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* MSS_SCL */
+	modem_etm0 {
+		coresight-child-ports = <2>;
+	};
+
+	cti_modem_cpu1: cti@6124000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6124000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <52>;
+		coresight-name = "coresight-cti-modem-cpu1";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* MSS_VEC */
+	modem_etm1 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <53>;
+		coresight-name = "coresight-modem-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_right>;
+		coresight-child-ports = <1>;
+
+		qcom,inst-id = <11>;
+	};
+};

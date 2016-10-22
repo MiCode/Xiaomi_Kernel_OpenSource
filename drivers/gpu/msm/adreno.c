@@ -588,10 +588,20 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
-	unsigned int status = 0, tmp;
+	unsigned int status = 0, tmp, int_bit;
 	int i;
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
+
+	/*
+	 * Clear all the interrupt bits but ADRENO_INT_RBBM_AHB_ERROR. Because
+	 * even if we clear it here, it will stay high until it is cleared
+	 * in its respective handler. Otherwise, the interrupt handler will
+	 * fire again.
+	 */
+	int_bit = ADRENO_INT_BIT(adreno_dev, ADRENO_INT_RBBM_AHB_ERROR);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_CLEAR_CMD,
+				status & ~int_bit);
 
 	/* Loop through all set interrupts and call respective handlers */
 	for (tmp = status; tmp != 0;) {
@@ -611,9 +621,14 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 
 	gpudev->irq_trace(adreno_dev, status);
 
-	if (status)
+	/*
+	 * Clear ADRENO_INT_RBBM_AHB_ERROR bit after this interrupt has been
+	 * cleared in its respective handler
+	 */
+	if (status & int_bit)
 		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_CLEAR_CMD,
-				status);
+				int_bit);
+
 	return ret;
 
 }
