@@ -913,6 +913,13 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		if (rc != 0)
 			goto end;
 
+		if (!aligned_cmd) {
+			dev_err(drvdata->dev, "%s: Null command buffer\n",
+				__func__);
+			rc = -EINVAL;
+			goto end;
+		}
+
 		rc = copy_from_user(aligned_cmd, (void __user *)tzcmd.req_buf,
 				tzcmd.req_buf_len);
 		if (rc != 0) {
