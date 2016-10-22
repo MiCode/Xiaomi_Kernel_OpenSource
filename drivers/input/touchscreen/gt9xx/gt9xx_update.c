@@ -1408,10 +1408,15 @@ s32 gup_update_proc(void *dir)
 		goto file_fail;
 	}
 
-	ret = gup_enter_update_judge(ts->client, &fw_head);
-	if (ret == FAIL) {
-		pr_err("Check *.bin file fail");
-		goto file_fail;
+	if (ts->force_update) {
+		dev_dbg(&ts->client->dev, "Enter force update.");
+	} else {
+		ret = gup_enter_update_judge(ts->client, &fw_head);
+		if (ret == FAIL) {
+			dev_err(&ts->client->dev,
+					"Check *.bin file fail.");
+			goto file_fail;
+		}
 	}
 
 	ts->enter_update = 1;

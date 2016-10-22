@@ -53,7 +53,7 @@ struct goodix_ts_platform_data {
 	u32 panel_miny;
 	u32 panel_maxx;
 	u32 panel_maxy;
-	bool no_force_update;
+	bool force_update;
 	bool i2c_pull_up;
 	bool enable_power_off;
 	size_t config_data_len[GOODIX_MAX_CFG_GROUP];
@@ -89,6 +89,8 @@ struct goodix_ts_data {
 	u8  fw_error;
 	bool power_on;
 	struct mutex lock;
+	bool fw_loading;
+	bool force_update;
 	struct regulator *avdd;
 	struct regulator *vdd;
 	struct regulator *vcc_i2c;
@@ -213,11 +215,9 @@ s32 init_wr_node(struct i2c_client *client);
 void uninit_wr_node(void);
 #endif
 
-#ifdef CONFIG_GT9XX_TOUCHPANEL_UPDATE
-extern u8 gup_init_update_proc(struct goodix_ts_data *ts);
+u8 gup_init_update_proc(struct goodix_ts_data *ts);
 s32 gup_enter_update_mode(struct i2c_client *client);
 void gup_leave_update_mode(struct i2c_client *client);
 s32 gup_update_proc(void *dir);
 extern struct i2c_client  *i2c_connect_client;
-#endif
 #endif /* _GOODIX_GT9XX_H_ */
