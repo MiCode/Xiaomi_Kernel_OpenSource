@@ -621,6 +621,17 @@ static ssize_t fg_sram_dfs_reg_write(struct file *file, const char __user *buf,
 	/* Parse the data in the buffer.  It should be a string of numbers */
 	while ((pos < count) &&
 		sscanf(kbuf + pos, "%i%n", &data, &bytes_read) == 1) {
+		/*
+		 * We shouldn't be receiving a string of characters that
+		 * exceeds a size of 5 to keep this functionally correct.
+		 * Also, we should make sure that pos never gets overflowed
+		 * beyond the limit.
+		 */
+		if (bytes_read > 5 || bytes_read > INT_MAX - pos) {
+			cnt = 0;
+			ret = -EINVAL;
+			break;
+		}
 		pos += bytes_read;
 		values[cnt++] = data & 0xff;
 	}

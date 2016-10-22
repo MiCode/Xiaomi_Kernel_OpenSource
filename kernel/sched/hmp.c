@@ -18,9 +18,9 @@
 #include <linux/list_sort.h>
 #include <linux/syscore_ops.h>
 #include <linux/of.h>
+#include <linux/sched/core_ctl.h>
 
 #include "sched.h"
-#include "core_ctl.h"
 
 #include <trace/events/sched.h>
 

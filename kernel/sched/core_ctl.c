@@ -45,7 +45,7 @@ struct cluster_data {
 	bool nrrun_changed;
 	struct task_struct *core_ctl_thread;
 	unsigned int first_cpu;
-	bool boost;
+	unsigned int boost;
 	struct kobject kobj;
 };
 
@@ -652,17 +652,40 @@ static bool do_check(u64 wallclock)
 	return do_check;
 }
 
-void core_ctl_set_boost(bool boost)
+int core_ctl_set_boost(bool boost)
 {
 	unsigned int index = 0;
 	struct cluster_data *cluster;
+	unsigned long flags;
+	int ret = 0;
+	bool boost_state_changed = false;
 
+	spin_lock_irqsave(&state_lock, flags);
 	for_each_cluster(cluster, index) {
-		if (cluster->is_big_cluster && cluster->boost != boost) {
-			cluster->boost = boost;
-			apply_need(cluster);
+		if (cluster->is_big_cluster) {
+			if (boost) {
+				boost_state_changed = !cluster->boost;
+				++cluster->boost;
+			} else {
+				if (!cluster->boost) {
+					pr_err("Error turning off boost. Boost already turned off\n");
+					ret = -EINVAL;
+				} else {
+					--cluster->boost;
+					boost_state_changed = !cluster->boost;
+				}
+			}
+			break;
 		}
 	}
+	spin_unlock_irqrestore(&state_lock, flags);
+
+	if (boost_state_changed)
+		apply_need(cluster);
+
+	trace_core_ctl_set_boost(cluster->boost, ret);
+
+	return ret;
 }
 
 void core_ctl_check(u64 wallclock)

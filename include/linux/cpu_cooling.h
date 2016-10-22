@@ -31,6 +31,11 @@
 typedef int (*get_static_t)(cpumask_t *cpumask, int interval,
 			    unsigned long voltage, u32 *power);
 
+struct cpu_cooling_ops {
+	int (*ceil_limit)(int, u32);
+	int (*get_cur_state)(int, unsigned long *);
+};
+
 #ifdef CONFIG_CPU_THERMAL
 /**
  * cpufreq_cooling_register - function to create cpufreq cooling device.
@@ -42,6 +47,10 @@ cpufreq_cooling_register(const struct cpumask *clip_cpus);
 struct thermal_cooling_device *
 cpufreq_power_cooling_register(const struct cpumask *clip_cpus,
 			       u32 capacitance, get_static_t plat_static_func);
+
+struct thermal_cooling_device *
+cpufreq_platform_cooling_register(const struct cpumask *clip_cpus,
+					struct cpu_cooling_ops *ops);
 
 /**
  * of_cpufreq_cooling_register - create cpufreq cooling device based on DT.
@@ -108,6 +117,13 @@ of_cpufreq_power_cooling_register(struct device_node *np,
 				  const struct cpumask *clip_cpus,
 				  u32 capacitance,
 				  get_static_t plat_static_func)
+{
+	return NULL;
+}
+
+static inline struct thermal_cooling_device *
+cpufreq_platform_cooling_register(const struct cpumask *clip_cpus,
+					struct cpu_cooling_ops *ops)
 {
 	return NULL;
 }

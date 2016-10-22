@@ -1323,6 +1323,21 @@ TRACE_EVENT(core_ctl_set_busy,
 		  __entry->is_busy)
 );
 
+TRACE_EVENT(core_ctl_set_boost,
+
+	TP_PROTO(u32 refcount, s32 ret),
+	TP_ARGS(refcount, ret),
+	TP_STRUCT__entry(
+		__field(u32, refcount)
+		__field(s32, ret)
+	),
+	TP_fast_assign(
+		__entry->refcount = refcount;
+		__entry->ret = ret;
+	),
+	TP_printk("refcount=%u, ret=%d", __entry->refcount, __entry->ret)
+);
+
 /**
  * sched_isolate - called when cores are isolated/unisolated
  *
