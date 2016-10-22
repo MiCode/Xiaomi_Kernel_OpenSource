@@ -79,6 +79,7 @@ Optional properties:
 				    current issue.
 - qcom,qdsp6v61-1-1: Boolean- Present if the qdsp version is v61 1.1
 - qcom,qdsp6v62-1-2: Boolean- Present if the qdsp version is v62 1.2
+- qcom,qdsp6v62-1-5: Boolean- Present if the qdsp version is v62 1.5
 - qcom,mx-spike-wa: Boolean- Present if we need to assert QDSP6 I/O clamp, memory
 		    wordline clamp, and compiler memory clamp during MSS restart.
 - qcom,qdsp6v56-1-10: Boolean- Present if the qdsp version is v56 1.10
