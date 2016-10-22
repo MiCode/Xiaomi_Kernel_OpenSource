@@ -74,6 +74,7 @@ struct goodix_ts_data {
 	s32 use_irq;
 	u16 abs_x_max;
 	u16 abs_y_max;
+	u16 addr;
 	u8  max_touch_num;
 	u8  int_trigger_type;
 	u8  green_wake_mode;
@@ -172,6 +173,8 @@ extern u16 total_len;
 /* HIGH: 0x28/0x29, LOW: 0xBA/0xBB */
 #define GTP_I2C_ADDRESS_HIGH	0x14
 #define GTP_I2C_ADDRESS_LOW	0x5D
+#define GTP_VALID_ADDR_START	0x8040
+#define GTP_VALID_ADDR_END	0x8177
 
 /* GTP CM_HEAD RW flags */
 #define GTP_RW_READ			0
