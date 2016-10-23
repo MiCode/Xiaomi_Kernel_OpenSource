@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include "sde_hwio.h"
 #include "sde_hw_lm.h"
 #include "sde_hw_mdss.h"
+#include "sde_dbg.h"
 
 #define LM_OP_MODE                        0x00
 #define LM_OUT_SIZE                       0x04
@@ -196,9 +197,9 @@ struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,
 	c->cap = cfg;
 	_setup_mixer_ops(m, &c->ops, c->cap->features);
 
-	/*
-	 * Perform any default initialization for the sspp blocks
-	 */
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
+			c->hw.blk_off + c->hw.length, c->hw.xin_id);
+
 	return c;
 }
 

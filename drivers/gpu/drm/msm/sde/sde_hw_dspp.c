@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_dspp.h"
 #include "sde_hw_color_processing.h"
+#include "sde_dbg.h"
 
 static struct sde_dspp_cfg *_dspp_offset(enum sde_dspp dspp,
 		struct sde_mdss_cfg *m,
@@ -111,6 +112,9 @@ struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 	c->idx = idx;
 	c->cap = cfg;
 	_setup_dspp_ops(c, c->cap->features);
+
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
+			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
 }
