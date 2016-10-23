@@ -2414,6 +2414,7 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 
 out:
 	icnss_hw_power_off(priv);
+	penv->ops = NULL;
 	return ret;
 }
 
@@ -2516,6 +2517,7 @@ static int icnss_driver_event_register_driver(void *data)
 
 power_off:
 	icnss_hw_power_off(penv);
+	penv->ops = NULL;
 out:
 	return ret;
 }

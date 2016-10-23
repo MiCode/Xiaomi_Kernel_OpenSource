@@ -115,6 +115,8 @@ struct i2c_client  *i2c_connect_client;
 
 #define GTP_DEBUGFS_DIR			"ts_debug"
 #define GTP_DEBUGFS_FILE_SUSPEND	"suspend"
+#define GTP_DEBUGFS_FILE_DATA		"data"
+#define GTP_DEBUGFS_FILE_ADDR		"addr"
 
 /*******************************************************
 Function:
@@ -1521,18 +1523,192 @@ static ssize_t gtp_fw_name_store(struct device *dev,
 	return size;
 }
 
+static ssize_t gtp_fw_upgrade_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
+
+	return snprintf(buf, 2, "%d\n", ts->fw_loading);
+}
+
+static ssize_t gtp_fw_upgrade_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
+	unsigned int val;
+	int ret;
+
+	if (size > 2)
+		return -EINVAL;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	if (ts->gtp_is_suspend) {
+		dev_err(&ts->client->dev,
+			"Can't start fw upgrade. Device is in suspend state");
+		return -EBUSY;
+	}
+
+	mutex_lock(&ts->input_dev->mutex);
+	if (!ts->fw_loading && val) {
+		disable_irq(ts->client->irq);
+		ts->fw_loading = true;
+		if (config_enabled(CONFIG_GT9XX_TOUCHPANEL_UPDATE)) {
+			ret = gup_update_proc(NULL);
+			if (ret == FAIL)
+				dev_err(&ts->client->dev,
+						"Fail to update GTP firmware\n");
+		}
+		ts->fw_loading = false;
+		enable_irq(ts->client->irq);
+	}
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return size;
+}
+
+static ssize_t gtp_force_fw_upgrade_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
+	unsigned int val;
+	int ret;
+
+	if (size > 2)
+		return -EINVAL;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	if (ts->gtp_is_suspend) {
+		dev_err(&ts->client->dev,
+			"Can't start fw upgrade. Device is in suspend state.");
+		return -EBUSY;
+	}
+
+	mutex_lock(&ts->input_dev->mutex);
+	if (!ts->fw_loading && val) {
+		disable_irq(ts->client->irq);
+		ts->fw_loading = true;
+		ts->force_update = true;
+		if (config_enabled(CONFIG_GT9XX_TOUCHPANEL_UPDATE)) {
+			ret = gup_update_proc(NULL);
+			if (ret == FAIL)
+				dev_err(&ts->client->dev,
+				"Fail to force update GTP firmware.\n");
+		}
+		ts->force_update = false;
+		ts->fw_loading = false;
+		enable_irq(ts->client->irq);
+	}
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return size;
+}
+
 static DEVICE_ATTR(fw_name, (S_IRUGO | S_IWUSR | S_IWGRP),
 			gtp_fw_name_show,
 			gtp_fw_name_store);
+static DEVICE_ATTR(fw_upgrade, (S_IRUGO | S_IWUSR | S_IWGRP),
+			gtp_fw_upgrade_show,
+			gtp_fw_upgrade_store);
+static DEVICE_ATTR(force_fw_upgrade, (S_IRUGO | S_IWUSR | S_IWGRP),
+			gtp_fw_upgrade_show,
+			gtp_force_fw_upgrade_store);
 
 static struct attribute *gtp_attrs[] = {
 	&dev_attr_fw_name.attr,
+	&dev_attr_fw_upgrade.attr,
+	&dev_attr_force_fw_upgrade.attr,
 	NULL
 };
 
 static const struct attribute_group gtp_attr_grp = {
 	.attrs = gtp_attrs,
 };
+
+static int gtp_debug_addr_is_valid(u16 addr)
+{
+	if (addr < GTP_VALID_ADDR_START || addr > GTP_VALID_ADDR_END) {
+		pr_err("GTP reg address is invalid: 0x%x\n", addr);
+		return false;
+	}
+
+	return true;
+}
+
+static int gtp_debug_data_set(void *_data, u64 val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	mutex_lock(&ts->input_dev->mutex);
+	if (gtp_debug_addr_is_valid(ts->addr))
+		dev_err(&ts->client->dev,
+			"Writing to GTP registers not supported\n");
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+static int gtp_debug_data_get(void *_data, u64 *val)
+{
+	struct goodix_ts_data *ts = _data;
+	int ret;
+	u8 buf[3] = {0};
+
+	mutex_lock(&ts->input_dev->mutex);
+	buf[0] = ts->addr >> 8;
+	buf[1] = ts->addr & 0x00ff;
+
+	if (gtp_debug_addr_is_valid(ts->addr)) {
+		ret = gtp_i2c_read(ts->client, buf, 3);
+		if (ret < 0)
+			dev_err(&ts->client->dev,
+				"GTP read register 0x%x failed (%d)\n",
+				ts->addr, ret);
+		else
+			*val = buf[2];
+	}
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_data_fops, gtp_debug_data_get,
+				gtp_debug_data_set, "%llx\n");
+
+static int gtp_debug_addr_set(void *_data, u64 val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	if (gtp_debug_addr_is_valid(val)) {
+		mutex_lock(&ts->input_dev->mutex);
+			ts->addr = val;
+		mutex_unlock(&ts->input_dev->mutex);
+	}
+
+	return 0;
+}
+
+static int gtp_debug_addr_get(void *_data, u64 *val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	mutex_lock(&ts->input_dev->mutex);
+	if (gtp_debug_addr_is_valid(ts->addr))
+		*val = ts->addr;
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_addr_fops, gtp_debug_addr_get,
+				gtp_debug_addr_set, "%llx\n");
 
 static int gtp_debug_suspend_set(void *_data, u64 val)
 {
@@ -1567,7 +1743,7 @@ static int gtp_debugfs_init(struct goodix_ts_data *data)
 	data->debug_base = debugfs_create_dir(GTP_DEBUGFS_DIR, NULL);
 
 	if (IS_ERR_OR_NULL(data->debug_base)) {
-		pr_err("Failed to create debugfs dir\n");
+		dev_err(&data->client->dev, "Failed to create debugfs dir\n");
 			return -EINVAL;
 	}
 
@@ -1576,7 +1752,27 @@ static int gtp_debugfs_init(struct goodix_ts_data *data)
 					data->debug_base,
 					data,
 					&debug_suspend_fops)))) {
-		pr_err("Failed to create suspend file\n");
+		dev_err(&data->client->dev, "Failed to create suspend file\n");
+		debugfs_remove_recursive(data->debug_base);
+		return -EINVAL;
+	}
+
+	if ((IS_ERR_OR_NULL(debugfs_create_file(GTP_DEBUGFS_FILE_DATA,
+					S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+					data->debug_base,
+					data,
+					&debug_data_fops)))) {
+		dev_err(&data->client->dev, "Failed to create data file\n");
+		debugfs_remove_recursive(data->debug_base);
+		return -EINVAL;
+	}
+
+	if ((IS_ERR_OR_NULL(debugfs_create_file(GTP_DEBUGFS_FILE_ADDR,
+					S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+					data->debug_base,
+					data,
+					&debug_addr_fops)))) {
+		dev_err(&data->client->dev, "Failed to create addr file\n");
 		debugfs_remove_recursive(data->debug_base);
 		return -EINVAL;
 	}
@@ -1645,8 +1841,8 @@ static int goodix_parse_dt(struct device *dev,
 	pdata->i2c_pull_up = of_property_read_bool(np,
 						"goodix,i2c-pull-up");
 
-	pdata->no_force_update = of_property_read_bool(np,
-						"goodix,no-force-update");
+	pdata->force_update = of_property_read_bool(np,
+						"goodix,force-update");
 
 	pdata->enable_power_off = of_property_read_bool(np,
 						"goodix,enable-power-off");
@@ -1761,9 +1957,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 		return -EINVAL;
 	}
 
-#if GTP_ESD_PROTECT
 	i2c_connect_client = client;
-#endif
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "GTP I2C not supported\n");
@@ -1811,22 +2005,24 @@ static int goodix_ts_probe(struct i2c_client *client,
 		goto exit_power_off;
 	}
 
+	if (pdata->force_update)
+		ts->force_update = true;
+
 	if (pdata->fw_name)
 		strlcpy(ts->fw_name, pdata->fw_name,
 						strlen(pdata->fw_name) + 1);
 
-#ifdef CONFIG_GT9XX_TOUCHPANEL_UPDATE
-	ret = gup_init_update_proc(ts);
-	if (ret < 0) {
-		dev_err(&client->dev,
-			"GTP Create firmware update thread error.\n");
-		goto exit_power_off;
+	if (config_enabled(CONFIG_GT9XX_TOUCHPANEL_UPDATE)) {
+		ret = gup_init_update_proc(ts);
+		if (ret < 0) {
+			dev_err(&client->dev,
+					"GTP Create firmware update thread error\n");
+			goto exit_power_off;
+		}
 	}
-#endif
-
 	ret = gtp_init_panel(ts);
 	if (ret < 0) {
-		dev_err(&client->dev, "GTP init panel failed.\n");
+		dev_err(&client->dev, "GTP init panel failed\n");
 		ts->abs_x_max = GTP_MAX_WIDTH;
 		ts->abs_y_max = GTP_MAX_HEIGHT;
 		ts->int_trigger_type = GTP_INT_TRIGGER;
@@ -1834,7 +2030,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 
 	ret = gtp_request_input_dev(ts);
 	if (ret) {
-		dev_err(&client->dev, "GTP request input dev failed.\n");
+		dev_err(&client->dev, "GTP request input dev failed\n");
 		goto exit_free_inputdev;
 	}
 	input_set_drvdata(ts->input_dev, ts);
@@ -2017,6 +2213,14 @@ static int goodix_ts_suspend(struct device *dev)
 	}
 
 	mutex_lock(&ts->lock);
+
+	if (ts->fw_loading) {
+		dev_info(&ts->client->dev,
+			"Fw upgrade in progress, can't go to suspend.");
+		mutex_unlock(&ts->lock);
+		return 0;
+	}
+
 #if GTP_ESD_PROTECT
 	gtp_esd_switch(ts->client, SWITCH_OFF);
 #endif
