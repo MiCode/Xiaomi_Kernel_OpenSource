@@ -65,6 +65,20 @@ config SECURITY_SELINUX_DEVELOP
 	  can interactively toggle the kernel between enforcing mode and
 	  permissive mode (if permitted by the policy) via /selinux/enforce.
 
+config SECURITY_SELINUX_ALWAYS_ENFORCE
+	bool "NSA SELinux Always Enforcing"
+	depends on SECURITY_SELINUX_DEVELOP
+	default n
+	help
+	  This option will prevent anything from setting SELinux to permissive.
+
+config SECURITY_SELINUX_NEVER_ENFORCE
+	bool "NSA SELinux Never Enforcing"
+	depends on SECURITY_SELINUX_DEVELOP
+	default n
+	help
+	  This option will prevent anything from setting SELinux to enforcing.
+
 config SECURITY_SELINUX_AVC_STATS
 	bool "NSA SELinux AVC Statistics"
 	depends on SECURITY_SELINUX
@@ -73,6 +87,16 @@ config SECURITY_SELINUX_AVC_STATS
 	  This option collects access vector cache statistics to
 	  /selinux/avc/cache_stats, which may be monitored via
 	  tools such as avcstat.
+
+config SECURITY_SELINUX_ENFORCING
+	int "NSA SELinux Enforcing default value"
+	depends on SECURITY_SELINUX && !SECURITY_SELINUX_DEVELOP
+	range 0 1
+	default 1
+	help
+	  This option sets the value of selinux_enforcing, permanently
+	  deciding whether the kernel should run in enforcing or
+	  permissive mode.
 
 config SECURITY_SELINUX_CHECKREQPROT_VALUE
 	int "NSA SELinux checkreqprot default value"
