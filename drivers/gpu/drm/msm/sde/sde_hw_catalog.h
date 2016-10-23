@@ -48,6 +48,8 @@
 
 #define IS_MSMSKUNK_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_400)
 
+#define SDE_HW_BLK_NAME_LEN	16
+
 #define MAX_IMG_WIDTH 0x3fff
 #define MAX_IMG_HEIGHT 0x3fff
 
@@ -57,8 +59,6 @@
 		((((MAJOR) & 0xFFFF) << 16) | (((MINOR) & 0xFFFF)))
 #define SDE_COLOR_PROCESS_MAJOR(version) (((version) & 0xFFFF0000) >> 16)
 #define SDE_COLOR_PROCESS_MINOR(version) ((version) & 0xFFFF)
-
-#define SSPP_NAME_SIZE 12
 
 /**
  * MDP TOP BLOCK features
@@ -236,12 +236,14 @@ enum {
 
 /**
  * MACRO SDE_HW_BLK_INFO - information of HW blocks inside SDE
+ * @name:              string name for debug purposes
  * @id:                enum identifying this block
  * @base:              register base offset to mdss
  * @len:               length of hardware block
  * @features           bit mask identifying sub-blocks/features
  */
 #define SDE_HW_BLK_INFO \
+	char name[SDE_HW_BLK_NAME_LEN]; \
 	u32 id; \
 	u32 base; \
 	u32 len; \
@@ -249,12 +251,14 @@ enum {
 
 /**
  * MACRO SDE_HW_SUBBLK_INFO - information of HW sub-block inside SDE
+ * @name:              string name for debug purposes
  * @id:                enum identifying this sub-block
  * @base:              offset of this sub-block relative to the block
  *                     offset
  * @len                register block length of this sub-block
  */
 #define SDE_HW_SUBBLK_INFO \
+	char name[SDE_HW_BLK_NAME_LEN]; \
 	u32 id; \
 	u32 base; \
 	u32 len
@@ -458,7 +462,6 @@ struct sde_ctl_cfg {
  * @sblk:              SSPP sub-blocks information
  * @xin_id:            bus client identifier
  * @clk_ctrl           clock control identifier
- * @name               source pipe name
  * @type               sspp type identifier
  */
 struct sde_sspp_cfg {
@@ -466,7 +469,6 @@ struct sde_sspp_cfg {
 	const struct sde_sspp_sub_blks *sblk;
 	u32 xin_id;
 	enum sde_clk_ctrl_type clk_ctrl;
-	char name[SSPP_NAME_SIZE];
 	u32 type;
 };
 

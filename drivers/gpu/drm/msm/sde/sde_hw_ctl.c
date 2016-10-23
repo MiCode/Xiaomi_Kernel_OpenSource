@@ -39,6 +39,7 @@ static struct sde_ctl_cfg *_ctl_offset(enum sde_ctl ctl,
 		if (ctl == m->ctl[i].id) {
 			b->base_off = addr;
 			b->blk_off = m->ctl[i].base;
+			b->length = m->ctl[i].len;
 			b->hwversion = m->hwversion;
 			b->log_mask = SDE_DBG_MASK_CTL;
 			return &m->ctl[i];
