@@ -18,6 +18,8 @@
 
 #include "msm_drv.h"
 
+#define SDE_DBG_NAME			"sde"
+
 #define SDE_NONE                        0
 
 #ifndef SDE_CSC_MATRIX_COEFF_SIZE

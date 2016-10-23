@@ -13,6 +13,7 @@
 #include <linux/delay.h>
 #include "sde_hwio.h"
 #include "sde_hw_ctl.h"
+#include "sde_dbg.h"
 
 #define   CTL_LAYER(lm)                 \
 	(((lm) == LM_5) ? (0x024) : (((lm) - LM_0) * 0x004))
@@ -489,6 +490,9 @@ struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
 	c->idx = idx;
 	c->mixer_count = m->mixer_count;
 	c->mixer_hw_caps = m->mixer;
+
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
+			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
 }
