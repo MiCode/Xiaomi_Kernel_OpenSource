@@ -134,6 +134,7 @@ struct sde_kms {
 
 	/* io/register spaces: */
 	void __iomem *mmio, *vbif[VBIF_MAX];
+	unsigned long mmio_len, vbif_len[VBIF_MAX];
 
 	struct regulator *vdd;
 	struct regulator *mmagic;

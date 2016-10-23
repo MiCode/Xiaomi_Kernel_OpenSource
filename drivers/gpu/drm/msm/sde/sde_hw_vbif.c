@@ -13,6 +13,7 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_vbif.h"
+#include "sde_dbg.h"
 
 #define VBIF_VERSION			0x0000
 #define VBIF_CLK_FORCE_CTRL0		0x0008
@@ -156,6 +157,9 @@ struct sde_hw_vbif *sde_hw_vbif_init(enum sde_vbif idx,
 	c->idx = idx;
 	c->cap = cfg;
 	_setup_vbif_ops(&c->ops, c->cap->features);
+
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
+			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
 }
