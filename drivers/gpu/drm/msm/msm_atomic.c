@@ -26,6 +26,7 @@ struct msm_commit {
 	uint32_t fence;
 	struct msm_fence_cb fence_cb;
 	uint32_t crtc_mask;
+	struct kthread_work commit_work;
 };
 
 /* block until specified crtcs are no longer pending update, and
@@ -435,6 +436,20 @@ static void fence_cb(struct msm_fence_cb *cb)
 	complete_commit(commit);
 }
 
+static void _msm_drm_commit_work_cb(struct kthread_work *work)
+{
+	struct msm_commit *commit =  NULL;
+
+	if (!work) {
+		DRM_ERROR("%s: Invalid commit work data!\n", __func__);
+		return;
+	}
+
+	commit = container_of(work, struct msm_commit, commit_work);
+
+	complete_commit(commit);
+}
+
 static struct msm_commit *commit_init(struct drm_atomic_state *state)
 {
 	struct msm_commit *commit = kzalloc(sizeof(*commit), GFP_KERNEL);
@@ -452,6 +467,7 @@ static struct msm_commit *commit_init(struct drm_atomic_state *state)
 	 * bo's..
 	 */
 	INIT_FENCE_CB(&commit->fence_cb, fence_cb);
+	init_kthread_work(&commit->commit_work, _msm_drm_commit_work_cb);
 
 	return commit;
 }
@@ -462,6 +478,47 @@ static void commit_set_fence(struct msm_commit *commit,
 	struct drm_gem_object *obj = msm_framebuffer_bo(fb, 0);
 	commit->fence = max(commit->fence,
 			msm_gem_fence(to_msm_bo(obj), MSM_PREP_READ));
+}
+
+/* Start display thread function */
+static int msm_atomic_commit_dispatch(struct drm_device *dev,
+		struct drm_atomic_state *state, struct msm_commit *commit)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	struct drm_crtc *crtc = NULL;
+	struct drm_crtc_state *crtc_state = NULL;
+	int ret = -EINVAL, i = 0, j = 0;
+
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		for (j = 0; j < priv->num_crtcs; j++) {
+			if (priv->disp_thread[j].crtc_id ==
+						crtc->base.id) {
+				if (priv->disp_thread[j].thread) {
+					queue_kthread_work(
+						&priv->disp_thread[j].worker,
+							&commit->commit_work);
+					/* only return zero if work is
+					 * queued successfully.
+					 */
+					ret = 0;
+				} else {
+					DRM_ERROR(" Error for crtc_id: %d\n",
+						priv->disp_thread[j].crtc_id);
+				}
+				break;
+			}
+		}
+		/*
+		 * TODO: handle cases where there will be more than
+		 * one crtc per commit cycle. Remove this check then.
+		 * Current assumption is there will be only one crtc
+		 * per commit cycle.
+		 */
+		if (j < priv->num_crtcs)
+			break;
+	}
+
+	return ret;
 }
 
 /**
@@ -567,7 +624,13 @@ int msm_atomic_commit(struct drm_device *dev,
 	 */
 
 	if (async) {
-		msm_queue_fence_cb(dev, &commit->fence_cb, commit->fence);
+		ret = msm_atomic_commit_dispatch(dev, state, commit);
+		if (ret) {
+			DRM_ERROR("%s: atomic commit failed\n", __func__);
+			drm_atomic_state_free(state);
+			commit_destroy(commit);
+			goto error;
+		}
 		return 0;
 	}
 
