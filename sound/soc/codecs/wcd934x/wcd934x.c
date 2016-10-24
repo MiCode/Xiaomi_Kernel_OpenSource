@@ -8492,21 +8492,6 @@ done:
 	return rc;
 }
 
-static void tavil_enable_sido_buck(struct snd_soc_codec *codec)
-{
-	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
-
-	snd_soc_update_bits(codec, WCD934X_ANA_RCO, 0x80, 0x80);
-	usleep_range(100, 110);
-	snd_soc_update_bits(codec, WCD934X_ANA_BUCK_CTL, 0x02, 0x02);
-	usleep_range(100, 110);
-	snd_soc_update_bits(codec, WCD934X_ANA_BUCK_CTL, 0x01, 0x01);
-	usleep_range(100, 110);
-	snd_soc_update_bits(codec, WCD934X_ANA_BUCK_CTL, 0x04, 0x04);
-	usleep_range(100, 110);
-	tavil->resmgr->sido_input_src = SIDO_SOURCE_RCO_BG;
-}
-
 static void tavil_cdc_vote_svs(struct snd_soc_codec *codec, bool vote)
 {
 	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
@@ -8609,7 +8594,8 @@ static int tavil_device_down(struct wcd9xxx *wcd9xxx)
 	for (count = 0; count < NUM_CODEC_DAIS; count++)
 		priv->dai[count].bus_down_in_recovery = true;
 	wcd_dsp_ssr_event(priv->wdsp_cntl, WCD_CDC_DOWN_EVENT);
-	priv->resmgr->sido_input_src = SIDO_SOURCE_INTERNAL;
+	wcd_resmgr_set_sido_input_src_locked(priv->resmgr,
+					     SIDO_SOURCE_INTERNAL);
 
 	return 0;
 }
@@ -8781,7 +8767,6 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 		tavil->comp_enabled[i] = 0;
 
 	tavil_codec_init_reg(tavil);
-	tavil_enable_sido_buck(codec);
 
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = tavil_handle_pdata(tavil, pdata);
@@ -9352,7 +9337,6 @@ err_mem:
 static int __tavil_enable_efuse_sensing(struct tavil_priv *tavil)
 {
 	int val, rc;
-	struct snd_soc_codec *codec;
 
 	__tavil_cdc_mclk_enable(tavil, true);
 
@@ -9372,14 +9356,6 @@ static int __tavil_enable_efuse_sensing(struct tavil_priv *tavil)
 		WARN(1, "%s: Efuse sense is not complete val=%x, ret=%d\n",
 			__func__, val, rc);
 
-	codec = tavil->codec;
-	if (!codec) {
-		pr_debug("%s: codec is not yet registered\n", __func__);
-		goto done;
-	}
-	tavil_enable_sido_buck(codec);
-
-done:
 	__tavil_cdc_mclk_enable(tavil, false);
 
 	return rc;
