@@ -48,6 +48,7 @@ struct hdcp_lib_wakeup_data {
 };
 
 struct hdcp_msg_part {
+	char *name;
 	uint32_t offset;
 	uint32_t length;
 };
