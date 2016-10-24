@@ -33,6 +33,7 @@
 #include <linux/of_graph.h>
 #include <linux/mdss_io_util.h>
 #include <asm/sizes.h>
+#include <linux/kthread.h>
 
 #ifndef CONFIG_OF
 #include <mach/board.h>
@@ -147,7 +148,7 @@ enum msm_mdp_conn_property {
 };
 
 struct msm_vblank_ctrl {
-	struct work_struct work;
+	struct kthread_work work;
 	struct list_head event_list;
 	spinlock_t lock;
 };
@@ -229,6 +230,14 @@ struct msm_drm_event {
 	u8 data[];
 };
 
+/* Commit thread specific structure */
+struct msm_drm_commit {
+	struct drm_device *dev;
+	struct task_struct *thread;
+	unsigned int crtc_id;
+	struct kthread_worker worker;
+};
+
 struct msm_drm_private {
 
 	struct msm_kms *kms;
@@ -286,6 +295,8 @@ struct msm_drm_private {
 
 	unsigned int num_crtcs;
 	struct drm_crtc *crtcs[MAX_CRTCS];
+
+	struct msm_drm_commit disp_thread[MAX_CRTCS];
 
 	unsigned int num_encoders;
 	struct drm_encoder *encoders[MAX_ENCODERS];
