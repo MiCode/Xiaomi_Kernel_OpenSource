@@ -112,6 +112,15 @@ void blk_account_io_start(struct request *req, bool new_io);
 void blk_account_io_completion(struct request *req, unsigned int bytes);
 void blk_account_io_done(struct request *req);
 
+#ifdef CONFIG_BLOCK_PERF_FRAMEWORK
+void blk_update_perf_stats(struct bio *bio);
+#else
+static inline void blk_update_perf_stats(struct bio *bio)
+{
+	(void) bio;
+}
+#endif
+
 /*
  * Internal atomic flags for request handling
  */
