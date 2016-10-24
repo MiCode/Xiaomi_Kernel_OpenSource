@@ -425,12 +425,9 @@ end:
 static void dp_hdcp2p2_send_msg_work(struct kthread_work *work)
 {
 	int rc = 0;
-	int i;
-	int sent_bytes = 0;
 	struct dp_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct dp_hdcp2p2_ctrl, send_msg);
 	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
-	char *buf = NULL;
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -447,20 +444,13 @@ static void dp_hdcp2p2_send_msg_work(struct kthread_work *work)
 
 	mutex_lock(&ctrl->msg_lock);
 
-	/* Loop through number of parameters in the messages. */
-	for (i = 0; i < ctrl->num_messages; i++) {
-		buf = ctrl->msg_buf + sent_bytes;
-
-		/* Forward the message to the sink */
-		rc = dp_hdcp2p2_aux_write_message(ctrl, buf,
-			(size_t)ctrl->msg_part[i].length,
-			ctrl->msg_part[i].offset, ctrl->timeout);
-		if (rc) {
-			pr_err("Error sending msg to sink %d\n", rc);
-			mutex_unlock(&ctrl->msg_lock);
-			goto exit;
-		}
-		sent_bytes += ctrl->msg_part[i].length;
+	rc = dp_hdcp2p2_aux_write_message(ctrl, ctrl->msg_buf,
+			ctrl->send_msg_len, ctrl->msg_part->offset,
+			ctrl->timeout);
+	if (rc) {
+		pr_err("Error sending msg to sink %d\n", rc);
+		mutex_unlock(&ctrl->msg_lock);
+		goto exit;
 	}
 
 	cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS;
@@ -478,10 +468,9 @@ exit:
 
 static int dp_hdcp2p2_get_msg_from_sink(struct dp_hdcp2p2_ctrl *ctrl)
 {
-	int i, rc = 0;
+	int rc = 0;
 	char *recvd_msg_buf = NULL;
 	struct hdcp_lib_wakeup_data cdata = { HDCP_LIB_WKUP_CMD_INVALID };
-	int bytes_read = 0;
 
 	cdata.context = ctrl->lib_ctx;
 
@@ -491,17 +480,12 @@ static int dp_hdcp2p2_get_msg_from_sink(struct dp_hdcp2p2_ctrl *ctrl)
 		goto exit;
 	}
 
-	for (i = 0; i < ctrl->num_messages; i++) {
-		rc = dp_hdcp2p2_aux_read_message(
-			ctrl, recvd_msg_buf + bytes_read,
-			ctrl->msg_part[i].length,
-			ctrl->msg_part[i].offset,
-			ctrl->timeout);
-		if (rc) {
-			pr_err("error reading message %d\n", rc);
-			goto exit;
-		}
-		bytes_read += ctrl->msg_part[i].length;
+	rc = dp_hdcp2p2_aux_read_message(ctrl, recvd_msg_buf,
+		ctrl->send_msg_len, ctrl->msg_part->offset,
+		ctrl->timeout);
+	if (rc) {
+		pr_err("error reading message %d\n", rc);
+		goto exit;
 	}
 
 	cdata.recvd_msg_buf = recvd_msg_buf;
