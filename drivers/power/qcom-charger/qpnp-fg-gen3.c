@@ -912,10 +912,11 @@ static int fg_load_learned_cap_from_sram(struct fg_chip *chip)
 	}
 
 	chip->cl.learned_cc_uah = act_cap_mah * 1000;
-	if (chip->cl.learned_cc_uah == 0)
-		chip->cl.learned_cc_uah = chip->cl.nom_cap_uah;
 
 	if (chip->cl.learned_cc_uah != chip->cl.nom_cap_uah) {
+		if (chip->cl.learned_cc_uah == 0)
+			chip->cl.learned_cc_uah = chip->cl.nom_cap_uah;
+
 		delta_cc_uah = abs(chip->cl.learned_cc_uah -
 					chip->cl.nom_cap_uah);
 		pct_nom_cap_uah = div64_s64((int64_t)chip->cl.nom_cap_uah *
