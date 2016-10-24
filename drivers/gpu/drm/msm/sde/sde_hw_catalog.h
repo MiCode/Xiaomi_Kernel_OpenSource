@@ -339,8 +339,8 @@ struct sde_sspp_sub_blks {
 	struct sde_src_blk src_blk;
 	struct sde_scaler_blk scaler_blk;
 	struct sde_pp_blk csc_blk;
-	struct sde_pp_blk hsic;
-	struct sde_pp_blk memcolor;
+	struct sde_pp_blk hsic_blk;
+	struct sde_pp_blk memcolor_blk;
 	struct sde_pp_blk pcc_blk;
 	struct sde_pp_blk igc_blk;
 

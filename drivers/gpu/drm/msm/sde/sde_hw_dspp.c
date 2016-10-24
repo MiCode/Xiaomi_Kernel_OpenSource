@@ -251,17 +251,17 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 		switch (i) {
 		case SDE_DSPP_PCC:
 			if (c->cap->sblk->pcc.version ==
-				(SDE_COLOR_PROCESS_VER(0x1, 0x0)))
+				(SDE_COLOR_PROCESS_VER(0x1, 0x7)))
 				c->ops.setup_pcc = sde_dspp_setup_pcc;
 			break;
 		case SDE_DSPP_HSIC:
 			if (c->cap->sblk->hsic.version ==
-				(SDE_COLOR_PROCESS_VER(0x1, 0x0)))
+				(SDE_COLOR_PROCESS_VER(0x1, 0x7)))
 				c->ops.setup_hue = sde_dspp_setup_hue;
 			break;
 		case SDE_DSPP_VLUT:
 			if (c->cap->sblk->vlut.version ==
-				(SDE_COLOR_PROCESS_VER(0x1, 0x0))) {
+				(SDE_COLOR_PROCESS_VER(0x1, 0x7))) {
 				c->ops.setup_vlut = sde_dspp_setup_vlut;
 			}
 		default:
