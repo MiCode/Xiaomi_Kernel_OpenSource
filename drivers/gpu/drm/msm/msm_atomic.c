@@ -24,11 +24,9 @@
 struct msm_commit {
 	struct drm_device *dev;
 	struct drm_atomic_state *state;
-	struct work_struct work;
 	uint32_t crtc_mask;
+	struct kthread_work commit_work;
 };
-
-static void commit_worker(struct work_struct *work);
 
 /* block until specified crtcs are no longer pending update, and
  * atomically mark them as pending update
@@ -58,21 +56,6 @@ static void end_atomic(struct msm_drm_private *priv, uint32_t crtc_mask)
 	priv->pending_crtcs &= ~crtc_mask;
 	wake_up_all_locked(&priv->pending_crtcs_event);
 	spin_unlock(&priv->pending_crtcs_event.lock);
-}
-
-static struct msm_commit *commit_init(struct drm_atomic_state *state)
-{
-	struct msm_commit *c = kzalloc(sizeof(*c), GFP_KERNEL);
-
-	if (!c)
-		return NULL;
-
-	c->dev = state->dev;
-	c->state = state;
-
-	INIT_WORK(&c->work, commit_worker);
-
-	return c;
 }
 
 static void commit_destroy(struct msm_commit *c)
@@ -404,7 +387,7 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 /* The (potentially) asynchronous part of the commit.  At this point
  * nothing can fail short of armageddon.
  */
-static void complete_commit(struct msm_commit *c, bool async)
+static void complete_commit(struct msm_commit *c)
 {
 	struct drm_atomic_state *state = c->state;
 	struct drm_device *dev = state->dev;
@@ -445,9 +428,74 @@ static void complete_commit(struct msm_commit *c, bool async)
 	commit_destroy(c);
 }
 
-static void commit_worker(struct work_struct *work)
+static void _msm_drm_commit_work_cb(struct kthread_work *work)
 {
-	complete_commit(container_of(work, struct msm_commit, work), true);
+	struct msm_commit *commit =  NULL;
+
+	if (!work) {
+		DRM_ERROR("%s: Invalid commit work data!\n", __func__);
+		return;
+	}
+
+	commit = container_of(work, struct msm_commit, commit_work);
+
+	complete_commit(commit);
+}
+
+static struct msm_commit *commit_init(struct drm_atomic_state *state)
+{
+	struct msm_commit *c = kzalloc(sizeof(*c), GFP_KERNEL);
+
+	if (!c)
+		return NULL;
+
+	c->dev = state->dev;
+	c->state = state;
+
+	kthread_init_work(&c->commit_work, _msm_drm_commit_work_cb);
+
+	return c;
+}
+
+/* Start display thread function */
+static int msm_atomic_commit_dispatch(struct drm_device *dev,
+		struct drm_atomic_state *state, struct msm_commit *commit)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	struct drm_crtc *crtc = NULL;
+	struct drm_crtc_state *crtc_state = NULL;
+	int ret = -EINVAL, i = 0, j = 0;
+
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		for (j = 0; j < priv->num_crtcs; j++) {
+			if (priv->disp_thread[j].crtc_id ==
+						crtc->base.id) {
+				if (priv->disp_thread[j].thread) {
+					kthread_queue_work(
+						&priv->disp_thread[j].worker,
+							&commit->commit_work);
+					/* only return zero if work is
+					 * queued successfully.
+					 */
+					ret = 0;
+				} else {
+					DRM_ERROR(" Error for crtc_id: %d\n",
+						priv->disp_thread[j].crtc_id);
+				}
+				break;
+			}
+		}
+		/*
+		 * TODO: handle cases where there will be more than
+		 * one crtc per commit cycle. Remove this check then.
+		 * Current assumption is there will be only one crtc
+		 * per commit cycle.
+		 */
+		if (j < priv->num_crtcs)
+			break;
+	}
+
+	return ret;
 }
 
 /**
@@ -546,11 +594,17 @@ int msm_atomic_commit(struct drm_device *dev,
 	 */
 
 	if (nonblock) {
-		queue_work(priv->atomic_wq, &c->work);
+		ret = msm_atomic_commit_dispatch(dev, state, c);
+		if (ret) {
+			DRM_ERROR("%s: atomic commit failed\n", __func__);
+			drm_atomic_state_free(state);
+			commit_destroy(c);
+			goto error;
+		}
 		return 0;
 	}
 
-	complete_commit(c, false);
+	complete_commit(c);
 
 	return 0;
 

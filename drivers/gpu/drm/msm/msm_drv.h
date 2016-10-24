@@ -35,6 +35,7 @@
 #include <linux/of_device.h>
 #include <linux/sde_io_util.h>
 #include <asm/sizes.h>
+#include <linux/kthread.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
@@ -154,7 +155,7 @@ enum msm_mdp_conn_property {
 };
 
 struct msm_vblank_ctrl {
-	struct work_struct work;
+	struct kthread_work work;
 	struct list_head event_list;
 	spinlock_t lock;
 };
@@ -235,6 +236,14 @@ struct msm_drm_event {
 	u8 data[];
 };
 
+/* Commit thread specific structure */
+struct msm_drm_commit {
+	struct drm_device *dev;
+	struct task_struct *thread;
+	unsigned int crtc_id;
+	struct kthread_worker worker;
+};
+
 struct msm_drm_private {
 
 	struct drm_device *dev;
@@ -277,7 +286,6 @@ struct msm_drm_private {
 	struct list_head inactive_list;
 
 	struct workqueue_struct *wq;
-	struct workqueue_struct *atomic_wq;
 
 	/* crtcs pending async atomic updates: */
 	uint32_t pending_crtcs;
@@ -292,6 +300,8 @@ struct msm_drm_private {
 
 	unsigned int num_crtcs;
 	struct drm_crtc *crtcs[MAX_CRTCS];
+
+	struct msm_drm_commit disp_thread[MAX_CRTCS];
 
 	unsigned int num_encoders;
 	struct drm_encoder *encoders[MAX_ENCODERS];
