@@ -1623,7 +1623,9 @@ static struct notifier_block perf_cpu_idle_nb = {
  */
 static const struct of_device_id armpmu_of_device_ids[] = {
 	{.compatible = "arm,armv8-pmuv3"},
+#ifdef CONFIG_ARCH_MSM8996
 	{.compatible = "qcom,kryo-pmuv3", .data = kryo_pmu_init},
+#endif
 	{},
 };
 
