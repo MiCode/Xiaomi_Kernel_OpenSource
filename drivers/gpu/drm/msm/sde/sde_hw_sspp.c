@@ -186,13 +186,13 @@ static inline int _sspp_subblk_offset(struct sde_hw_pipe *ctx,
 		*idx = sblk->csc_blk.base;
 		break;
 	case SDE_SSPP_HSIC:
-		*idx = sblk->hsic.base;
+		*idx = sblk->hsic_blk.base;
 		break;
 	case SDE_SSPP_PCC:
 		*idx = sblk->pcc_blk.base;
 		break;
 	case SDE_SSPP_MEMCOLOR:
-		*idx = sblk->memcolor.base;
+		*idx = sblk->memcolor_blk.base;
 		break;
 	default:
 		rc = -EINVAL;
