@@ -244,21 +244,17 @@ static void sde_commit(struct msm_kms *kms, struct drm_atomic_state *old_state)
 }
 
 static void sde_complete_commit(struct msm_kms *kms,
-		struct drm_atomic_state *state)
+		struct drm_atomic_state *old_state)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_device *dev = sde_kms->dev;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct drm_crtc *crtc;
-	struct drm_crtc_state *crtc_state;
-	struct drm_connector *connector;
-	struct drm_connector_state *conn_state;
+	struct drm_crtc_state *old_crtc_state;
 	int i;
 
-	for_each_crtc_in_state(state, crtc, crtc_state, i)
-		sde_crtc_complete_commit(crtc);
-	for_each_connector_in_state(state, connector, conn_state, i)
-		sde_connector_complete_commit(connector);
+	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
+		sde_crtc_complete_commit(crtc, old_crtc_state);
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	MSM_EVT(sde_kms->dev, 0, 0);
@@ -311,18 +307,30 @@ static void sde_wait_for_commit_done(struct msm_kms *kms,
 }
 
 static void sde_kms_prepare_fence(struct msm_kms *kms,
-		struct drm_atomic_state *state)
+		struct drm_atomic_state *old_state)
 {
 	struct drm_crtc *crtc;
-	struct drm_crtc_state *crtc_state;
-	struct drm_connector *connector;
-	struct drm_connector_state *conn_state;
-	int i;
+	struct drm_crtc_state *old_crtc_state;
+	int i, rc;
 
-	for_each_crtc_in_state(state, crtc, crtc_state, i)
-		sde_crtc_prepare_fence(crtc);
-	for_each_connector_in_state(state, connector, conn_state, i)
-		sde_connector_prepare_fence(connector);
+	if (!kms || !old_state || !old_state->dev || !old_state->acquire_ctx) {
+		SDE_ERROR("invalid argument(s)\n");
+		return;
+	}
+
+retry:
+	/* attempt to acquire ww mutex for connection */
+	rc = drm_modeset_lock(&old_state->dev->mode_config.connection_mutex,
+			       old_state->acquire_ctx);
+
+	if (rc == -EDEADLK) {
+		drm_modeset_backoff(old_state->acquire_ctx);
+		goto retry;
+	}
+
+	/* old_state actually contains updated crtc pointers */
+	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
+		sde_crtc_prepare_commit(crtc, old_crtc_state);
 }
 
 /**

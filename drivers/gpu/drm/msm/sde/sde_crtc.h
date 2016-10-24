@@ -93,12 +93,20 @@ struct sde_crtc {
 /**
  * struct sde_crtc_state - sde container for atomic crtc state
  * @base: Base drm crtc state structure
+ * @connectors    : Currently associated drm connectors
+ * @num_connectors: Number of associated drm connectors
+ * @is_rt         : Whether or not the current commit contains RT connectors
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @property_blobs: Reference pointers for blob properties
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
+
+	struct drm_connector *connectors[MAX_CONNECTORS];
+	int num_connectors;
+	bool is_rt;
+
 	uint64_t property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;
 	struct drm_property_blob *property_blobs[CRTC_PROP_COUNT];
@@ -153,10 +161,20 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
 void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
 
 /**
- * sde_crtc_prepare_fence - callback to prepare for output fences
+ * sde_crtc_prepare_commit - callback to prepare for output fences
  * @crtc: Pointer to drm crtc object
+ * @old_state: Pointer to drm crtc old state object
  */
-void sde_crtc_prepare_fence(struct drm_crtc *crtc);
+void sde_crtc_prepare_commit(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state);
+
+/**
+ * sde_crtc_complete_commit - callback signalling completion of current commit
+ * @crtc: Pointer to drm crtc object
+ * @old_state: Pointer to drm crtc old state object
+ */
+void sde_crtc_complete_commit(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state);
 
 /**
  * sde_crtc_init - create a new crtc object
@@ -167,16 +185,17 @@ void sde_crtc_prepare_fence(struct drm_crtc *crtc);
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
 
 /**
- * sde_crtc_complete_commit - callback signalling completion of current commit
- * @crtc: Pointer to drm crtc object
- */
-void sde_crtc_complete_commit(struct drm_crtc *crtc);
-
-/**
  * sde_crtc_cancel_pending_flip - complete flip for clients on lastclose
  * @crtc: Pointer to drm crtc object
  * @file: client to cancel's file handle
  */
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
+
+/**
+ * sde_crtc_is_rt - query whether real time connectors are present on the crtc
+ * @crtc: Pointer to drm crtc structure
+ * Returns: True if a connector is present with real time constraints
+ */
+bool sde_crtc_is_rt(struct drm_crtc *crtc);
 
 #endif /* _SDE_CRTC_H_ */

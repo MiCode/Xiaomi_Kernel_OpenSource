@@ -293,20 +293,47 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 	}
 }
 
-void sde_crtc_prepare_fence(struct drm_crtc *crtc)
+void sde_crtc_prepare_commit(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state)
 {
 	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	struct drm_connector *conn;
 
-	if (!crtc) {
+	if (!crtc || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 
 	sde_crtc = to_sde_crtc(crtc);
-
+	cstate = to_sde_crtc_state(crtc->state);
 	MSM_EVT(crtc->dev, crtc->base.id, 0);
 
+	/* identify connectors attached to this crtc */
+	cstate->is_rt = false;
+	cstate->num_connectors = 0;
+
+	drm_for_each_connector(conn, crtc->dev)
+		if (conn->state && conn->state->crtc == crtc &&
+				cstate->num_connectors < MAX_CONNECTORS) {
+			cstate->connectors[cstate->num_connectors++] = conn;
+			sde_connector_prepare_fence(conn);
+
+			if (conn->connector_type != DRM_MODE_CONNECTOR_VIRTUAL)
+				cstate->is_rt = true;
+		}
+
+	/* prepare main output fence */
 	sde_fence_prepare(&sde_crtc->output_fence);
+}
+
+bool sde_crtc_is_rt(struct drm_crtc *crtc)
+{
+	if (!crtc || !crtc->state) {
+		SDE_ERROR("invalid crtc or state\n");
+		return true;
+	}
+	return to_sde_crtc_state(crtc->state)->is_rt;
 }
 
 /* if file!=NULL, this is preclose potential cancel-flip path */
@@ -345,15 +372,27 @@ static void sde_crtc_vblank_cb(void *data)
 	MSM_EVT(crtc->dev, crtc->base.id, 0);
 }
 
-void sde_crtc_complete_commit(struct drm_crtc *crtc)
+void sde_crtc_complete_commit(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state)
 {
-	if (!crtc) {
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	int i;
+
+	if (!crtc || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 
-	/* signal out fence at end of commit */
-	sde_fence_signal(&to_sde_crtc(crtc)->output_fence, 0);
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc->state);
+	MSM_EVT(crtc->dev, crtc->base.id, 0);
+
+	/* signal output fence(s) at end of commit */
+	sde_fence_signal(&sde_crtc->output_fence, 0);
+
+	for (i = 0; i < cstate->num_connectors; ++i)
+		sde_connector_complete_commit(cstate->connectors[i]);
 }
 
 /**
@@ -489,7 +528,7 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 }
 
 static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
-		struct drm_crtc_state *old_crtc_state)
+		struct drm_crtc_state *old_state)
 {
 	struct sde_crtc *sde_crtc;
 	struct drm_device *dev;

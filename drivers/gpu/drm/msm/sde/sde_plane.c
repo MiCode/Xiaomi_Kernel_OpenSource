@@ -220,36 +220,6 @@ static inline u32 _sde_plane_get_qos_lut_macrotile(u32 total_fl)
 }
 
 /**
- * _sde_plane_is_rt_pipe - check if the given plane requires real-time QoS
- * @plane:		Pointer to drm plane
- * @crtc:		Pointer to drm crtc associated with the given plane
- */
-static bool _sde_plane_is_rt_pipe(struct drm_plane *plane,
-		struct drm_crtc *crtc)
-{
-	struct sde_plane *psde = to_sde_plane(plane);
-	struct drm_connector *connector;
-	bool is_rt = false;
-
-	/* check if this plane has a physical connector interface */
-	mutex_lock(&plane->dev->mode_config.mutex);
-	drm_for_each_connector(connector, plane->dev)
-		if (connector->state &&
-				(connector->state->crtc == crtc) &&
-				(connector->connector_type
-					!= DRM_MODE_CONNECTOR_VIRTUAL)) {
-			is_rt = true;
-			break;
-		}
-	mutex_unlock(&plane->dev->mode_config.mutex);
-
-	SDE_DEBUG("plane%u: pnum:%d rt:%d\n",
-			plane->base.id, psde->pipe - SSPP_VIG0, is_rt);
-
-	return is_rt;
-}
-
-/**
  * _sde_plane_set_qos_lut - set QoS LUT of the given plane
  * @plane:		Pointer to drm plane
  * @fb:			Pointer to framebuffer associated with the given plane
@@ -420,13 +390,14 @@ static void _sde_plane_set_qos_ctrl(struct drm_plane *plane,
 		psde->pipe_qos_cfg.danger_safe_en = false;
 	}
 
-	SDE_DEBUG("plane%u: pnum:%d ds:%d vb:%d pri[0x%x, 0x%x]\n",
+	SDE_DEBUG("plane%u: pnum:%d ds:%d vb:%d pri[0x%x, 0x%x] is_rt:%d\n",
 		plane->base.id,
 		psde->pipe - SSPP_VIG0,
 		psde->pipe_qos_cfg.danger_safe_en,
 		psde->pipe_qos_cfg.vblank_en,
 		psde->pipe_qos_cfg.creq_vblank,
-		psde->pipe_qos_cfg.danger_vblank);
+		psde->pipe_qos_cfg.danger_vblank,
+		psde->is_rt_pipe);
 
 	psde->pipe_hw->ops.setup_qos_ctrl(psde->pipe_hw,
 			&psde->pipe_qos_cfg);
@@ -1001,7 +972,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		return 0;
 	pstate->pending = true;
 
-	psde->is_rt_pipe = _sde_plane_is_rt_pipe(plane, crtc);
+	psde->is_rt_pipe = sde_crtc_is_rt(crtc);
 	_sde_plane_set_qos_ctrl(plane, false, SDE_PLANE_QOS_PANIC_CTRL);
 
 	/* update roi config */
