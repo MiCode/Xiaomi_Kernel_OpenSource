@@ -184,6 +184,7 @@ struct audio_client {
 	int                    session;
 	app_cb		       cb;
 	atomic_t	       cmd_state;
+	atomic_t	       cmd_state_pp;
 	/* Relative or absolute TS */
 	atomic_t	       time_flag;
 	atomic_t	       nowait_cmd_cnt;
