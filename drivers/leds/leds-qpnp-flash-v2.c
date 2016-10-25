@@ -83,6 +83,7 @@
 #define	VPH_DROOP_THRESH_VAL_TO_UV(val)		((val + 25) * 100000)
 #define	MITIGATION_THRSH_MA_TO_VAL(val_ma)	(val_ma / 100)
 #define	CURRENT_MA_TO_REG_VAL(curr_ma, ires_ua)	((curr_ma * 1000) / ires_ua - 1)
+#define	SAFETY_TMR_TO_REG_VAL(duration_ms)	((duration_ms / 10) - 1)
 
 #define	FLASH_LED_ISC_WARMUP_DELAY_SHIFT	6
 #define	FLASH_LED_WARMUP_DELAY_DEFAULT		2
@@ -98,8 +99,6 @@
 #define	FLASH_LED_VLED_MAX_DEFAULT_UV		3500000
 #define	FLASH_LED_IBATT_OCP_THRESH_DEFAULT_UA	4500000
 #define	FLASH_LED_RPARA_DEFAULT_UOHM		0
-#define	FLASH_LED_SAFETY_TMR_VAL_OFFSET		1
-#define	FLASH_LED_SAFETY_TMR_VAL_DIVISOR	10
 #define	FLASH_LED_SAFETY_TMR_ENABLE		BIT(7)
 #define	FLASH_LED_LMH_LEVEL_DEFAULT		0
 #define	FLASH_LED_LMH_MITIGATION_ENABLE		1
@@ -1343,9 +1342,7 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 	fnode->duration = FLASH_LED_SAFETY_TMR_DISABLED;
 	rc = of_property_read_u32(node, "qcom,duration-ms", &val);
 	if (!rc) {
-		fnode->duration = (u8)(((val -
-					FLASH_LED_SAFETY_TMR_VAL_OFFSET) /
-					FLASH_LED_SAFETY_TMR_VAL_DIVISOR) |
+		fnode->duration = (u8)(SAFETY_TMR_TO_REG_VAL(val) |
 					FLASH_LED_SAFETY_TMR_ENABLE);
 	} else if (rc == -EINVAL) {
 		if (fnode->type == FLASH_LED_TYPE_FLASH) {
