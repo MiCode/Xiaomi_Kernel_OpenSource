@@ -70,6 +70,8 @@ Optional properties:
 			  0: Flash strobe is used for LED1, LED2, LED3
 			  1: Flash strobe is used for LED1, LED2 and GPIO10 is used for LED3
 			  2: Flash strobe is used for LED1; GPIO9 is used for LED2; GPIO10 is used for LED3
+- switchX-supply		: phandle of the regulator that needs to be used
+				  as a supply for flash switch_X device.
 
 Child node: Contains settings for each individual LED. Each LED channel needs a flash node and
 torch node for itself, and an individual switch node to serve as an overall switch.
@@ -126,15 +128,6 @@ Optional properties:
 				  be edge triggered. Otherwise, it is level triggered.
 - qcom,hw-strobe-active-low	: Boolean property to select strobe signal polarity. If defined, hw-strobe
 				  signal polarity is set to active-low, else it is active-high.
-- reg<n>		: reg<n> (<n> represents number. e.g. 0,1,2,..) subnode is to add support for
-			  multiple power sources. This subnode should only be specified for switch nodes.
-			  Required property inside regulator node:
-			  - regulator-name	: Name of the regulator which has to be used for this
-						  switch node.
-			  Optional property inside regulator node:
-			  - max-voltage-uv	: This specifies max voltage of regulator. Some switch
-						  or boost regulator does not need this property.
-
 Example:
 	qcom,leds@d300 {
 		compatible = "qcom,qpnp-flash-led-v2";
@@ -160,6 +153,7 @@ Example:
 
 		qcom,hdrm-auto-mode;
 		qcom,isc-delay = <192>;
+		switch0-supply = <&pmicobalt_bob>;
 
 		pmi8998_flash0: qcom,flash_0 {
 			label = "flash";
@@ -254,10 +248,6 @@ Example:
 			qcom,led-mask = <3>;
 			qcom,default-led-trigger =
 						"switch0_trigger";
-			reg0 {
-				regulator-name = "pmicobalt_bob";
-				max-voltage-uv = <3600000>;
-			};
 		};
 
 		pmi8998_switch1: qcom,led_switch_1 {
@@ -266,10 +256,6 @@ Example:
 			qcom,led-mask = <4>;
 			qcom,default-led-trigger =
 						"switch1_trigger";
-			reg0 {
-				regulator-name = "pmicobalt_bob";
-				max-voltage-uv = <3600000>;
-			};
 		};
 	};
 
