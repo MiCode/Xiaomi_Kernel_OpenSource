@@ -302,6 +302,8 @@ static long audio_compat_ioctl(struct file *file, unsigned int cmd,
 		struct msm_audio_aac_config *aac_config;
 		struct msm_audio_aac_config32 aac_config_32;
 
+		memset(&aac_config_32, 0, sizeof(aac_config_32));
+
 		aac_config = (struct msm_audio_aac_config *)audio->codec_cfg;
 		aac_config_32.format = aac_config->format;
 		aac_config_32.audio_object = aac_config->audio_object;

@@ -216,6 +216,8 @@ static long amrwb_in_compat_ioctl(struct file *file,
 		struct msm_audio_amrwb_enc_config *amrwb_config;
 		struct msm_audio_amrwb_enc_config_32 amrwb_config_32;
 
+		memset(&amrwb_config_32, 0, sizeof(amrwb_config_32));
+
 		amrwb_config =
 		(struct msm_audio_amrwb_enc_config *)audio->enc_cfg;
 		amrwb_config_32.band_mode = amrwb_config->band_mode;
