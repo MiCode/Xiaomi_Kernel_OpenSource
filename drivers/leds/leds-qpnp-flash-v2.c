@@ -82,6 +82,7 @@
 #define	VPH_DROOP_THRESH_MV_TO_VAL(val_mv)	((val_mv / 100) - 25)
 #define	VPH_DROOP_THRESH_VAL_TO_UV(val)		((val + 25) * 100000)
 #define	MITIGATION_THRSH_MA_TO_VAL(val_ma)	(val_ma / 100)
+#define	CURRENT_MA_TO_REG_VAL(curr_ma, ires_ua)	((curr_ma * 1000) / ires_ua - 1)
 
 #define	FLASH_LED_ISC_WARMUP_DELAY_SHIFT	6
 #define	FLASH_LED_WARMUP_DELAY_DEFAULT		2
@@ -738,7 +739,8 @@ static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 	prgm_current_ma = min(prgm_current_ma, fnode->max_current);
 	fnode->current_ma = prgm_current_ma;
 	fnode->cdev.brightness = prgm_current_ma;
-	fnode->current_reg_val = prgm_current_ma * 1000 / fnode->ires_ua + 1;
+	fnode->current_reg_val = CURRENT_MA_TO_REG_VAL(prgm_current_ma,
+					fnode->ires_ua);
 	fnode->led_on = prgm_current_ma != 0;
 }
 
