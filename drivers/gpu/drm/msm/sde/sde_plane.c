@@ -406,6 +406,39 @@ static void _sde_plane_set_qos_ctrl(struct drm_plane *plane,
 			&psde->pipe_qos_cfg);
 }
 
+int sde_plane_danger_signal_ctrl(struct drm_plane *plane, bool enable)
+{
+	struct sde_plane *psde;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!plane || !plane->dev) {
+		SDE_ERROR("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+	psde = to_sde_plane(plane);
+
+	if (!psde->is_rt_pipe)
+		goto end;
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+
+	_sde_plane_set_qos_ctrl(plane, enable, SDE_PLANE_QOS_PANIC_CTRL);
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+
+end:
+	return 0;
+}
+
 /**
  * _sde_plane_set_ot_limit - set OT limit for the given plane
  * @plane:		Pointer to drm plane
@@ -2069,6 +2102,98 @@ enum sde_sspp sde_plane_pipe(struct drm_plane *plane)
 	return plane ? to_sde_plane(plane)->pipe : SSPP_NONE;
 }
 
+static ssize_t _sde_plane_danger_read(struct file *file,
+			char __user *buff, size_t count, loff_t *ppos)
+{
+	struct sde_kms *kms = file->private_data;
+	struct sde_mdss_cfg *cfg = kms->catalog;
+	int len = 0;
+	char buf[40] = {'\0'};
+
+	if (!cfg)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0; /* the end */
+
+	len = snprintf(buf, sizeof(buf), "%d\n", !kms->has_danger_ctrl);
+	if (len < 0 || len >= sizeof(buf))
+		return 0;
+
+	if ((count < sizeof(buf)) || copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;   /* increase offset */
+
+	return len;
+}
+
+static void _sde_plane_set_danger_state(struct sde_kms *kms, bool enable)
+{
+	struct drm_plane *plane;
+
+	drm_for_each_plane(plane, kms->dev) {
+		if (plane->fb && plane->state) {
+			sde_plane_danger_signal_ctrl(plane, enable);
+			SDE_DEBUG("plane:%d img:%dx%d ",
+				plane->base.id, plane->fb->width,
+				plane->fb->height);
+			SDE_DEBUG("src[%d,%d,%d,%d] dst[%d,%d,%d,%d]\n",
+				plane->state->src_x >> 16,
+				plane->state->src_y >> 16,
+				plane->state->src_w >> 16,
+				plane->state->src_h >> 16,
+				plane->state->crtc_x, plane->state->crtc_y,
+				plane->state->crtc_w, plane->state->crtc_h);
+		} else {
+			SDE_DEBUG("Inactive plane:%d\n", plane->base.id);
+		}
+	}
+}
+
+static ssize_t _sde_plane_danger_write(struct file *file,
+		    const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct sde_kms *kms = file->private_data;
+	struct sde_mdss_cfg *cfg = kms->catalog;
+	int disable_panic;
+	char buf[10];
+
+	if (!cfg)
+		return -EFAULT;
+
+	if (count >= sizeof(buf))
+		return -EFAULT;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0;	/* end of string */
+
+	if (kstrtoint(buf, 0, &disable_panic))
+		return -EFAULT;
+
+	if (disable_panic) {
+		/* Disable panic signal for all active pipes */
+		SDE_DEBUG("Disabling danger:\n");
+		_sde_plane_set_danger_state(kms, false);
+		kms->has_danger_ctrl = false;
+	} else {
+		/* Enable panic signal for all active pipes */
+		SDE_DEBUG("Enabling danger:\n");
+		kms->has_danger_ctrl = true;
+		_sde_plane_set_danger_state(kms, true);
+	}
+
+	return count;
+}
+
+static const struct file_operations sde_plane_danger_enable = {
+	.open = simple_open,
+	.read = _sde_plane_danger_read,
+	.write = _sde_plane_danger_write,
+};
+
 static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 {
 	const struct sde_sspp_sub_blks *sblk = 0;
@@ -2111,6 +2236,28 @@ static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 					kms);
 			sde_debugfs_create_regset32("csc_blk", 0444,
 					psde->debugfs_root, &psde->debugfs_csc);
+
+			debugfs_create_u32("xin_id",
+					0444,
+					psde->debugfs_root,
+					(u32 *) &cfg->xin_id);
+			debugfs_create_u32("clk_ctrl",
+					0444,
+					psde->debugfs_root,
+					(u32 *) &cfg->clk_ctrl);
+			debugfs_create_x32("creq_vblank",
+					0644,
+					psde->debugfs_root,
+					(u32 *) &sblk->creq_vblank);
+			debugfs_create_x32("danger_vblank",
+					0644,
+					psde->debugfs_root,
+					(u32 *) &sblk->danger_vblank);
+
+			debugfs_create_file("disable_danger",
+					0644,
+					psde->debugfs_root,
+					kms, &sde_plane_danger_enable);
 		}
 	}
 }

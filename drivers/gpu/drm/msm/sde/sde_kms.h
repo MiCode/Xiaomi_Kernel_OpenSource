@@ -121,6 +121,7 @@ struct sde_kms {
 	/* directory entry for debugfs */
 	void *debugfs_root;
 	struct dentry *debugfs_debug;
+	struct dentry *debugfs_danger;
 
 	/* io/register spaces: */
 	void __iomem *mmio, *vbif[VBIF_MAX];
@@ -143,6 +144,8 @@ struct sde_kms {
 	void **dsi_displays;
 	int wb_display_count;
 	void **wb_displays;
+
+	bool has_danger_ctrl;
 };
 
 struct vsync_info {
