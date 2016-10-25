@@ -3525,7 +3525,7 @@ static void dec_throttled_cfs_rq_hmp_stats(struct hmp_sched_stats *stats,
 
 	BUG_ON(stats->nr_big_tasks < 0 ||
 		(s64)stats->cumulative_runnable_avg < 0);
-	verify_pred_demands_sum(stats);
+	BUG_ON((s64)stats->pred_demands_sum < 0);
 }
 
 #else	/* CONFIG_CFS_BANDWIDTH */
