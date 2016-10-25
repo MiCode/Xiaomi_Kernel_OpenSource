@@ -1311,6 +1311,12 @@ static inline bool mdss_dp_is_link_status_updated(struct mdss_dp_drv_pdata *dp)
 	return dp->link_status.link_status_updated;
 }
 
+static inline bool mdss_dp_is_downstream_port_status_changed(
+		struct mdss_dp_drv_pdata *dp)
+{
+	return dp->link_status.downstream_port_status_changed;
+}
+
 static inline bool mdss_dp_is_link_training_requested(
 		struct mdss_dp_drv_pdata *dp)
 {
@@ -2308,6 +2314,7 @@ static int mdss_dp_hpd_irq_notify_clients(struct mdss_dp_drv_pdata *dp)
 
 	if (dp->hpd_irq_toggled) {
 		mdss_dp_notify_clients(dp, false);
+		dp->hpd_irq_clients_notified = true;
 
 		reinit_completion(&dp->irq_comp);
 		ret = wait_for_completion_timeout(&dp->irq_comp,
@@ -2344,19 +2351,24 @@ static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp)
  * This function will check for changes in the link status, e.g. clock
  * recovery done on all lanes, and trigger link training if there is a
  * failure/error on the link.
+ *
+ * The function will return 0 if the a link status update has been processed,
+ * otherwise it will return -EINVAL.
  */
-static void mdss_dp_process_link_status_update(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_process_link_status_update(struct mdss_dp_drv_pdata *dp)
 {
 	if (!mdss_dp_is_link_status_updated(dp) ||
 			(mdss_dp_aux_channel_eq_done(dp) &&
 			mdss_dp_aux_clock_recovery_done(dp)))
-		return;
+		return -EINVAL;
 
 	pr_info("channel_eq_done = %d, clock_recovery_done = %d\n",
 			mdss_dp_aux_channel_eq_done(dp),
 			mdss_dp_aux_clock_recovery_done(dp));
 
 	mdss_dp_link_retraining(dp);
+
+	return 0;
 }
 
 /**
@@ -2366,11 +2378,14 @@ static void mdss_dp_process_link_status_update(struct mdss_dp_drv_pdata *dp)
  * This function will handle new link training requests that are initiated by
  * the sink. In particular, it will update the requested lane count and link
  * link rate, and then trigger the link retraining procedure.
+ *
+ * The function will return 0 if a link training request has been processed,
+ * otherwise it will return -EINVAL.
  */
-static void mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
 {
 	if (!mdss_dp_is_link_training_requested(dp))
-		return;
+		return -EINVAL;
 
 	mdss_dp_send_test_response(dp);
 
@@ -2383,6 +2398,28 @@ static void mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
 	dp->link_rate = dp->test_data.test_link_rate;
 
 	mdss_dp_link_retraining(dp);
+
+	return 0;
+}
+
+/**
+ * mdss_dp_process_downstream_port_status_change() - process port status changes
+ * @dp: Display Port Driver data
+ *
+ * This function will handle downstream port updates that are initiated by
+ * the sink. If the downstream port status has changed, the EDID is read via
+ * AUX.
+ *
+ * The function will return 0 if a downstream port update has been
+ * processed, otherwise it will return -EINVAL.
+ */
+static int mdss_dp_process_downstream_port_status_change(
+		struct mdss_dp_drv_pdata *dp)
+{
+	if (!mdss_dp_is_downstream_port_status_changed(dp))
+		return -EINVAL;
+
+	return mdss_dp_edid_read(dp);
 }
 
 /**
@@ -2395,16 +2432,27 @@ static void mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
  */
 static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 {
+	int ret = 0;
+
 	pr_debug("enter: HPD IRQ High\n");
 
 	dp->hpd_irq_on = true;
 
 	mdss_dp_aux_parse_sink_status_field(dp);
 
-	mdss_dp_process_link_training_request(dp);
+	ret = mdss_dp_process_link_training_request(dp);
+	if (!ret)
+		goto exit;
 
-	mdss_dp_process_link_status_update(dp);
+	ret = mdss_dp_process_link_status_update(dp);
+	if (!ret)
+		goto exit;
 
+	ret = mdss_dp_process_downstream_port_status_change(dp);
+	if (!ret)
+		goto exit;
+
+exit:
 	mdss_dp_reset_test_data(dp);
 
 	pr_debug("done\n");
@@ -2419,9 +2467,13 @@ static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
  */
 static void mdss_dp_process_hpd_irq_low(struct mdss_dp_drv_pdata *dp)
 {
+	if (!dp->hpd_irq_clients_notified)
+		return;
+
 	pr_debug("enter: HPD IRQ low\n");
 
 	dp->hpd_irq_on = false;
+	dp->hpd_irq_clients_notified = false;
 
 	mdss_dp_update_cable_status(dp, false);
 	mdss_dp_mainlink_push_idle(&dp->panel_data);
