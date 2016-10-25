@@ -1396,16 +1396,6 @@ static void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 	}
 }
 
-/*
- * Invoked from three places:
- *	1) try_to_wake_up() -> ... -> select_best_cpu()
- *	2) scheduler_tick() -> ... -> migration_needed() -> select_best_cpu()
- *	3) can_migrate_task()
- *
- * Its safe to de-reference p->grp in first case (since p->pi_lock is held)
- * but not in other cases. p->grp is hence freed after a RCU grace period and
- * accessed under rcu_read_lock()
- */
 int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 {
 	struct related_thread_group *grp;
@@ -3883,7 +3873,12 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 
 void set_preferred_cluster(struct related_thread_group *grp)
 {
-	raw_spin_lock(&grp->lock);
+	/*
+	 * Prevent possible deadlock with update_children(). Not updating
+	 * the preferred cluster once is not a big deal.
+	 */
+	if (!raw_spin_trylock(&grp->lock))
+		return;
 	_set_preferred_cluster(grp);
 	raw_spin_unlock(&grp->lock);
 }
@@ -3904,7 +3899,7 @@ static int alloc_group_cputime(struct related_thread_group *grp)
 	struct rq *rq = cpu_rq(cpu);
 	u64 window_start = rq->window_start;
 
-	grp->cpu_time = alloc_percpu(struct group_cpu_time);
+	grp->cpu_time = alloc_percpu_gfp(struct group_cpu_time, GFP_ATOMIC);
 	if (!grp->cpu_time)
 		return -ENOMEM;
 
@@ -4088,7 +4083,7 @@ struct related_thread_group *alloc_related_thread_group(int group_id)
 {
 	struct related_thread_group *grp;
 
-	grp = kzalloc(sizeof(*grp), GFP_KERNEL);
+	grp = kzalloc(sizeof(*grp), GFP_ATOMIC);
 	if (!grp)
 		return ERR_PTR(-ENOMEM);
 
@@ -4127,19 +4122,64 @@ static void free_related_thread_group(struct rcu_head *rcu)
 	kfree(grp);
 }
 
+/*
+ * The thread group for a task can change while we are here. However,
+ * add_new_task_to_grp() will take care of any tasks that we miss here.
+ * When a parent exits, and a child thread is simultaneously exiting,
+ * sched_set_group_id() will synchronize those operations.
+ */
+static void update_children(struct task_struct *leader,
+			struct related_thread_group *grp, int event)
+{
+	struct task_struct *child;
+	struct rq *rq;
+	unsigned long flags;
+
+	if (!thread_group_leader(leader))
+		return;
+
+	if (event == ADD_TASK && !sysctl_sched_enable_thread_grouping)
+		return;
+
+	if (thread_group_empty(leader))
+		return;
+
+	child = next_thread(leader);
+
+	do {
+		rq = task_rq_lock(child, &flags);
+
+		if (event == REM_TASK && child->grp && grp == child->grp) {
+			transfer_busy_time(rq, grp, child, event);
+			list_del_init(&child->grp_list);
+			rcu_assign_pointer(child->grp, NULL);
+		} else if (event == ADD_TASK && !child->grp) {
+			transfer_busy_time(rq, grp, child, event);
+			list_add(&child->grp_list, &grp->tasks);
+			rcu_assign_pointer(child->grp, grp);
+		}
+
+		task_rq_unlock(rq, child, &flags);
+	}  while_each_thread(leader, child);
+
+}
+
 static void remove_task_from_group(struct task_struct *p)
 {
 	struct related_thread_group *grp = p->grp;
 	struct rq *rq;
 	int empty_group = 1;
+	unsigned long flags;
 
 	raw_spin_lock(&grp->lock);
 
-	rq = __task_rq_lock(p);
+	rq = task_rq_lock(p, &flags);
 	transfer_busy_time(rq, p->grp, p, REM_TASK);
 	list_del_init(&p->grp_list);
 	rcu_assign_pointer(p->grp, NULL);
-	__task_rq_unlock(rq);
+	task_rq_unlock(rq, p, &flags);
+
+	update_children(p, grp, REM_TASK);
 
 	if (!list_empty(&grp->tasks)) {
 		empty_group = 0;
@@ -4158,6 +4198,7 @@ static int
 add_task_to_group(struct task_struct *p, struct related_thread_group *grp)
 {
 	struct rq *rq;
+	unsigned long flags;
 
 	raw_spin_lock(&grp->lock);
 
@@ -4165,11 +4206,13 @@ add_task_to_group(struct task_struct *p, struct related_thread_group *grp)
 	 * Change p->grp under rq->lock. Will prevent races with read-side
 	 * reference of p->grp in various hot-paths
 	 */
-	rq = __task_rq_lock(p);
+	rq = task_rq_lock(p, &flags);
 	transfer_busy_time(rq, grp, p, ADD_TASK);
 	list_add(&p->grp_list, &grp->tasks);
 	rcu_assign_pointer(p->grp, grp);
-	__task_rq_unlock(rq);
+	task_rq_unlock(rq, p, &flags);
+
+	update_children(p, grp, ADD_TASK);
 
 	_set_preferred_cluster(grp);
 
@@ -4192,82 +4235,62 @@ void add_new_task_to_grp(struct task_struct *new)
 
 	parent = new->group_leader;
 
-	/*
-	 * The parent's pi_lock is required here to protect race
-	 * against the parent task being removed from the
-	 * group.
-	 */
-	raw_spin_lock_irqsave(&parent->pi_lock, flags);
+	write_lock_irqsave(&related_thread_group_lock, flags);
 
-	/* protected by pi_lock. */
+	rcu_read_lock();
 	grp = task_related_thread_group(parent);
-	if (!grp) {
-		raw_spin_unlock_irqrestore(&parent->pi_lock, flags);
+	rcu_read_unlock();
+
+	/* Its possible that update_children() already added us to the group */
+	if (!grp || new->grp) {
+		write_unlock_irqrestore(&related_thread_group_lock, flags);
 		return;
 	}
+
 	raw_spin_lock(&grp->lock);
 
 	rcu_assign_pointer(new->grp, grp);
 	list_add(&new->grp_list, &grp->tasks);
 
 	raw_spin_unlock(&grp->lock);
-	raw_spin_unlock_irqrestore(&parent->pi_lock, flags);
+	write_unlock_irqrestore(&related_thread_group_lock, flags);
 }
 
 int sched_set_group_id(struct task_struct *p, unsigned int group_id)
 {
-	int rc = 0, destroy = 0;
+	int rc = 0;
 	unsigned long flags;
-	struct related_thread_group *grp = NULL, *new = NULL;
+	struct related_thread_group *grp = NULL;
 
-redo:
-	raw_spin_lock_irqsave(&p->pi_lock, flags);
+	/* Prevents tasks from exiting while we are managing groups. */
+	write_lock_irqsave(&related_thread_group_lock, flags);
 
+	/* Switching from one group to another directly is not permitted */
 	if ((current != p && p->flags & PF_EXITING) ||
 			(!p->grp && !group_id) ||
-			(p->grp && p->grp->id == group_id))
+			(p->grp && group_id))
 		goto done;
-
-	write_lock(&related_thread_group_lock);
 
 	if (!group_id) {
 		remove_task_from_group(p);
-		write_unlock(&related_thread_group_lock);
 		goto done;
 	}
 
-	if (p->grp && p->grp->id != group_id)
-		remove_task_from_group(p);
-
 	grp = lookup_related_thread_group(group_id);
-	if (!grp && !new) {
-		/* New group */
-		write_unlock(&related_thread_group_lock);
-		raw_spin_unlock_irqrestore(&p->pi_lock, flags);
-		new = alloc_related_thread_group(group_id);
-		if (IS_ERR(new))
-			return -ENOMEM;
-		destroy = 1;
-		/* Rerun checks (like task exiting), since we dropped pi_lock */
-		goto redo;
-	} else if (!grp && new) {
-		/* New group - use object allocated before */
-		destroy = 0;
-		list_add(&new->list, &related_thread_groups);
-		grp = new;
+	if (!grp) {
+		grp = alloc_related_thread_group(group_id);
+		if (IS_ERR(grp)) {
+			rc = -ENOMEM;
+			goto done;
+		}
+
+		list_add(&grp->list, &related_thread_groups);
 	}
 
 	BUG_ON(!grp);
 	rc = add_task_to_group(p, grp);
-	write_unlock(&related_thread_group_lock);
 done:
-	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
-
-	if (new && destroy) {
-		free_group_cputime(new);
-		kfree(new);
-	}
-
+	write_unlock_irqrestore(&related_thread_group_lock, flags);
 	return rc;
 }
 
