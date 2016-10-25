@@ -2261,6 +2261,11 @@
 
 	};
 
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		qcom,usb-audio-intr-num = <2>;
+	};
+
 	dbm_1p5: dbm@70f8000 {
 		compatible = "qcom,usb-dbm-1p5";
 		reg = <0x070f8000 0x300>;
