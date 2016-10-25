@@ -846,9 +846,34 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 	if (--rlen <= 0)
 		return;
 
-	bp += 3;	/* skip 5, 6 and 7 */
-	rlen -= 3;
+	data = *bp++; /* Byte 5: DOWN_STREAM_PORT_PRESENT */
+	cap->downstream_port.dfp_present = data & BIT(0);
+	cap->downstream_port.dfp_type = data & 0x6;
+	cap->downstream_port.format_conversion = data & BIT(3);
+	cap->downstream_port.detailed_cap_info_available = data & BIT(4);
+	pr_debug("dfp_present = %d, dfp_type = %d\n",
+			cap->downstream_port.dfp_present,
+			cap->downstream_port.dfp_type);
+	pr_debug("format_conversion = %d, detailed_cap_info_available = %d\n",
+			cap->downstream_port.format_conversion,
+			cap->downstream_port.detailed_cap_info_available);
+	if (--rlen <= 0)
+		return;
+
+	bp += 1;	/* Skip Byte 6 */
+	rlen -= 1;
 	if (rlen <= 0)
+		return;
+
+	data = *bp++; /* Byte 7: DOWN_STREAM_PORT_COUNT */
+	cap->downstream_port.dfp_count = data & 0x7;
+	cap->downstream_port.msa_timing_par_ignored = data & BIT(6);
+	cap->downstream_port.oui_support = data & BIT(7);
+	pr_debug("dfp_count = %d, msa_timing_par_ignored = %d\n",
+			cap->downstream_port.dfp_count,
+			cap->downstream_port.msa_timing_par_ignored);
+	pr_debug("oui_support = %d\n", cap->downstream_port.oui_support);
+	if (--rlen <= 0)
 		return;
 
 	data = *bp++; /* byte 8 */
