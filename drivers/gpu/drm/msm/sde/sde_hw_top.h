@@ -65,6 +65,18 @@ struct cdm_output_cfg {
 };
 
 /**
+ * struct sde_danger_safe_status: danger and safe status signals
+ * @mdp: top level status
+ * @sspp: source pipe status
+ * @wb: writebck output status
+ */
+struct sde_danger_safe_status {
+	u8 mdp;
+	u8 sspp[SSPP_MAX];
+	u8 wb[WB_MAX];
+};
+
+/**
  * struct sde_hw_mdp_ops - interface to the MDP TOP Hw driver functions
  * Assumption is these functions will be called after clocks are enabled.
  * @setup_split_pipe : Programs the pipe control registers
@@ -113,6 +125,22 @@ struct sde_hw_mdp_ops {
 	 */
 	bool (*setup_clk_force_ctrl)(struct sde_hw_mdp *mdp,
 			enum sde_clk_ctrl_type clk_ctrl, bool enable);
+
+	/**
+	 * get_danger_status - get danger status
+	 * @mdp: mdp top context driver
+	 * @status: Pointer to danger safe status
+	 */
+	void (*get_danger_status)(struct sde_hw_mdp *mdp,
+			struct sde_danger_safe_status *status);
+
+	/**
+	 * get_safe_status - get safe status
+	 * @mdp: mdp top context driver
+	 * @status: Pointer to danger safe status
+	 */
+	void (*get_safe_status)(struct sde_hw_mdp *mdp,
+			struct sde_danger_safe_status *status);
 };
 
 struct sde_hw_mdp {

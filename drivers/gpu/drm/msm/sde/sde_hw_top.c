@@ -22,6 +22,9 @@
 #define FLD_INTF_2_SW_TRG_MUX             BIT(8)
 #define FLD_TE_LINE_INTER_WATERLEVEL_MASK 0xFFFF
 
+#define DANGER_STATUS                     0x360
+#define SAFE_STATUS                       0x364
+
 #define TE_LINE_INTERVAL                  0x3F4
 
 #define TRAFFIC_SHAPER_EN                 BIT(31)
@@ -139,6 +142,63 @@ static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
 	return clk_forced_on;
 }
 
+
+static void sde_hw_get_danger_status(struct sde_hw_mdp *mdp,
+		struct sde_danger_safe_status *status)
+{
+	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	u32 value;
+
+	value = SDE_REG_READ(c, DANGER_STATUS);
+	status->mdp = (value >> 0) & 0x3;
+	status->sspp[SSPP_VIG0] = (value >> 4) & 0x3;
+	status->sspp[SSPP_VIG1] = (value >> 6) & 0x3;
+	status->sspp[SSPP_VIG2] = (value >> 8) & 0x3;
+	status->sspp[SSPP_VIG3] = (value >> 10) & 0x3;
+	status->sspp[SSPP_RGB0] = (value >> 12) & 0x3;
+	status->sspp[SSPP_RGB1] = (value >> 14) & 0x3;
+	status->sspp[SSPP_RGB2] = (value >> 16) & 0x3;
+	status->sspp[SSPP_RGB3] = (value >> 18) & 0x3;
+	status->sspp[SSPP_DMA0] = (value >> 20) & 0x3;
+	status->sspp[SSPP_DMA1] = (value >> 22) & 0x3;
+	status->sspp[SSPP_DMA2] = (value >> 28) & 0x3;
+	status->sspp[SSPP_DMA3] = (value >> 30) & 0x3;
+	status->sspp[SSPP_CURSOR0] = (value >> 24) & 0x3;
+	status->sspp[SSPP_CURSOR1] = (value >> 26) & 0x3;
+	status->wb[WB_0] = 0;
+	status->wb[WB_1] = 0;
+	status->wb[WB_2] = (value >> 2) & 0x3;
+	status->wb[WB_3] = 0;
+}
+
+static void sde_hw_get_safe_status(struct sde_hw_mdp *mdp,
+		struct sde_danger_safe_status *status)
+{
+	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	u32 value;
+
+	value = SDE_REG_READ(c, SAFE_STATUS);
+	status->mdp = (value >> 0) & 0x1;
+	status->sspp[SSPP_VIG0] = (value >> 4) & 0x1;
+	status->sspp[SSPP_VIG1] = (value >> 6) & 0x1;
+	status->sspp[SSPP_VIG2] = (value >> 8) & 0x1;
+	status->sspp[SSPP_VIG3] = (value >> 10) & 0x1;
+	status->sspp[SSPP_RGB0] = (value >> 12) & 0x1;
+	status->sspp[SSPP_RGB1] = (value >> 14) & 0x1;
+	status->sspp[SSPP_RGB2] = (value >> 16) & 0x1;
+	status->sspp[SSPP_RGB3] = (value >> 18) & 0x1;
+	status->sspp[SSPP_DMA0] = (value >> 20) & 0x1;
+	status->sspp[SSPP_DMA1] = (value >> 22) & 0x1;
+	status->sspp[SSPP_DMA2] = (value >> 28) & 0x1;
+	status->sspp[SSPP_DMA3] = (value >> 30) & 0x1;
+	status->sspp[SSPP_CURSOR0] = (value >> 24) & 0x1;
+	status->sspp[SSPP_CURSOR1] = (value >> 26) & 0x1;
+	status->wb[WB_0] = 0;
+	status->wb[WB_1] = 0;
+	status->wb[WB_2] = (value >> 2) & 0x1;
+	status->wb[WB_3] = 0;
+}
+
 static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		unsigned long cap)
 {
@@ -146,6 +206,8 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 	ops->setup_pp_split = sde_hw_setup_pp_split;
 	ops->setup_cdm_output = sde_hw_setup_cdm_output;
 	ops->setup_clk_force_ctrl = sde_hw_setup_clk_force_ctrl;
+	ops->get_danger_status = sde_hw_get_danger_status;
+	ops->get_safe_status = sde_hw_get_safe_status;
 }
 
 static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,
