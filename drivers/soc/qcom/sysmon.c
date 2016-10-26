@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -206,7 +206,7 @@ int sysmon_send_shutdown_no_qmi(struct subsys_desc *dest_desc)
 		return -ENODEV;
 
 	mutex_lock(&ss->lock);
-	ret = sysmon_send_msg(ss, tx_buf, ARRAY_SIZE(tx_buf));
+	ret = sysmon_send_msg(ss, tx_buf, strlen(tx_buf));
 	if (ret) {
 		pr_err("Message sending failed %d\n", ret);
 		goto out;
@@ -257,7 +257,7 @@ int sysmon_get_reason_no_qmi(struct subsys_desc *dest_desc,
 		return -ENODEV;
 
 	mutex_lock(&ss->lock);
-	ret = sysmon_send_msg(ss, tx_buf, ARRAY_SIZE(tx_buf));
+	ret = sysmon_send_msg(ss, tx_buf, strlen(tx_buf));
 	if (ret) {
 		pr_err("Message sending failed %d\n", ret);
 		goto out;
