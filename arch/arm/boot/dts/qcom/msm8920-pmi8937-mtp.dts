@@ -22,3 +22,7 @@
 	qcom,board-id= <8 0>;
 	qcom,pmic-id = <0x10019 0x020037 0x0 0x0>;
 };
+
+&mem_client_3_size {
+	qcom,peripheral-size = <0x500000>;
+};
