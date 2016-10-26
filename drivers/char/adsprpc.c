@@ -1935,7 +1935,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 
 	if (me->pending_free) {
 		event = wait_event_interruptible_timeout(wait_queue,
-						me->pending_free, RPC_TIMEOUT);
+						!me->pending_free, RPC_TIMEOUT);
 		if (event == 0)
 			pr_err("timed out..list is still not empty\n");
 	}
