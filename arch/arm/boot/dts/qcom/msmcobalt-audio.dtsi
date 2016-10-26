@@ -85,14 +85,15 @@
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>,
-				<&pcm_noirq>;
+				<&pcm_noirq>, <&cpe3>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
 				"msm-pcm-routing", "msm-cpe-lsm",
-				"msm-compr-dsp", "msm-pcm-dsp-noirq";
+				"msm-compr-dsp", "msm-pcm-dsp-noirq",
+				"msm-cpe-lsm.3";
 		asoc-cpu = <&dai_hdmi>, <&dai_dp>,
 				<&dai_mi2s0>, <&dai_mi2s1>,
 				<&dai_mi2s2>, <&dai_mi2s3>,
@@ -244,6 +245,12 @@
 
 	cpe: qcom,msm-cpe-lsm {
 		compatible = "qcom,msm-cpe-lsm";
+		qcom,msm-cpe-lsm-id = <1>;
+	};
+
+	cpe3: qcom,msm-cpe-lsm@3 {
+		compatible = "qcom,msm-cpe-lsm";
+		qcom,msm-cpe-lsm-id = <3>;
 	};
 
 	qcom,wcd-dsp-mgr {

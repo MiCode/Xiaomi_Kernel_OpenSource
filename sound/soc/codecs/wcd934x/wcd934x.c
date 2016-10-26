@@ -260,6 +260,11 @@ static const struct intr_data wcd934x_intr_table[] = {
 	{WCD934X_IRQ_VBAT_RESTORE, false},
 };
 
+struct tavil_cpr_reg_defaults {
+	int wr_data;
+	int wr_addr;
+};
+
 struct interp_sample_rate {
 	int sample_rate;
 	int rate_val;
@@ -8035,6 +8040,25 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_1_1_val[] = {
 	{WCD934X_HPH_NEW_INT_RDAC_HD2_CTL_R, 0xFF, 0x84},
 };
 
+static const struct tavil_cpr_reg_defaults cpr_defaults[] = {
+	{ 0x00000820, 0x00000094 },
+	{ 0x00000fC0, 0x00000048 },
+	{ 0x0000f000, 0x00000044 },
+	{ 0x0000bb80, 0xC0000178 },
+	{ 0x00000000, 0x00000160 },
+	{ 0x10854522, 0x00000060 },
+	{ 0x10854509, 0x00000064 },
+	{ 0x108544dd, 0x00000068 },
+	{ 0x108544ad, 0x0000006C },
+	{ 0x0000077E, 0x00000070 },
+	{ 0x000007da, 0x00000074 },
+	{ 0x00000000, 0x00000078 },
+	{ 0x00000000, 0x0000007C },
+	{ 0x00042029, 0x00000080 },
+	{ 0x4002002A, 0x00000090 },
+	{ 0x4002002B, 0x00000090 },
+};
+
 static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
 	{WCD934X_CDC_CLSH_K2_MSB, 0x0F, 0x00},
 	{WCD934X_CDC_CLSH_K2_LSB, 0xFF, 0x60},
@@ -8092,6 +8116,33 @@ static void tavil_update_reg_defaults(struct tavil_priv *tavil)
 				   tavil_codec_reg_defaults[i].reg,
 				   tavil_codec_reg_defaults[i].mask,
 				   tavil_codec_reg_defaults[i].val);
+}
+
+static void tavil_update_cpr_defaults(struct tavil_priv *tavil)
+{
+	int i;
+	struct wcd9xxx *wcd9xxx;
+
+	wcd9xxx = tavil->wcd9xxx;
+	if (!TAVIL_IS_1_1(wcd9xxx))
+		return;
+
+	__tavil_cdc_mclk_enable(tavil, true);
+
+	regmap_write(wcd9xxx->regmap, WCD934X_CODEC_CPR_SVS2_MIN_CX_VDD, 0x2C);
+	regmap_update_bits(wcd9xxx->regmap, WCD934X_CODEC_RPM_CLK_GATE,
+			   0x10, 0x00);
+
+	for (i = 0; i < ARRAY_SIZE(cpr_defaults); i++) {
+		regmap_bulk_write(wcd9xxx->regmap,
+				WCD934X_CODEC_CPR_WR_DATA_0,
+				(u8 *)&cpr_defaults[i].wr_data, 4);
+		regmap_bulk_write(wcd9xxx->regmap,
+				WCD934X_CODEC_CPR_WR_ADDR_0,
+				(u8 *)&cpr_defaults[i].wr_addr, 4);
+	}
+
+	__tavil_cdc_mclk_enable(tavil, false);
 }
 
 static void tavil_slim_interface_init_reg(struct snd_soc_codec *codec)
@@ -9335,6 +9386,7 @@ static int tavil_probe(struct platform_device *pdev)
 	tavil_update_reg_defaults(tavil);
 	__tavil_enable_efuse_sensing(tavil);
 	___tavil_get_codec_fine_version(tavil);
+	tavil_update_cpr_defaults(tavil);
 
 	/* Register with soc framework */
 	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tavil,

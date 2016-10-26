@@ -324,6 +324,7 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 		pr_err("%s: glink_open failed %s\n", __func__,
 		       svc_names[dest][clnt]);
 		apr_ch->handle = NULL;
+		rc = -EINVAL;
 		goto unlock;
 	}
 

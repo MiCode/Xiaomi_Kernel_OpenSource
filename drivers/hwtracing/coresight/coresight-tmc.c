@@ -1143,6 +1143,12 @@ static int tmc_read_prepare(struct tmc_drvdata *drvdata)
 		goto err;
 	}
 
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR &&
+	    drvdata->vaddr == NULL) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	if (!drvdata->enable)
 		goto out;
 

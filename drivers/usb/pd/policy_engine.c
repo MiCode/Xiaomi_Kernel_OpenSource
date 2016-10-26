@@ -538,7 +538,7 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 	}
 
 	if (len < 2) {
-		usbpd_err(&pd->dev, "invalid message received, len=%ld\n", len);
+		usbpd_err(&pd->dev, "invalid message received, len=%zd\n", len);
 		return;
 	}
 
@@ -547,7 +547,7 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 	len -= sizeof(u16);
 
 	if (len % 4 != 0) {
-		usbpd_err(&pd->dev, "len=%ld not multiple of 4\n", len);
+		usbpd_err(&pd->dev, "len=%zd not multiple of 4\n", len);
 		return;
 	}
 
@@ -566,7 +566,7 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 
 	/* check header's count field to see if it matches len */
 	if (PD_MSG_HDR_COUNT(header) != (len / 4)) {
-		usbpd_err(&pd->dev, "header count (%d) mismatch, len=%ld\n",
+		usbpd_err(&pd->dev, "header count (%d) mismatch, len=%zd\n",
 				PD_MSG_HDR_COUNT(header), len);
 		return;
 	}

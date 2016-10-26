@@ -512,10 +512,10 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 };
 
 static struct snd_soc_dapm_route wcd_audio_paths[] = {
-	{"MIC BIAS1", NULL, "MCLK"},
-	{"MIC BIAS2", NULL, "MCLK"},
-	{"MIC BIAS3", NULL, "MCLK"},
-	{"MIC BIAS4", NULL, "MCLK"},
+	{"MIC BIAS1", NULL, "MCLK TX"},
+	{"MIC BIAS2", NULL, "MCLK TX"},
+	{"MIC BIAS3", NULL, "MCLK TX"},
+	{"MIC BIAS4", NULL, "MCLK TX"},
 };
 
 static struct afe_clk_set mi2s_clk[MI2S_MAX] = {
@@ -2463,6 +2463,37 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 	return ret;
 }
 
+static int msm_snd_enable_codec_ext_tx_clk(struct snd_soc_codec *codec,
+					   int enable, bool dapm)
+{
+	int ret = 0;
+
+	if (!strcmp(dev_name(codec->dev), "tasha_codec"))
+		ret = tasha_cdc_mclk_tx_enable(codec, enable, dapm);
+	else {
+		dev_err(codec->dev, "%s: unknown codec to enable ext clk\n",
+			__func__);
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
+static int msm_mclk_tx_event(struct snd_soc_dapm_widget *w,
+				 struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+
+	pr_debug("%s: event = %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		return msm_snd_enable_codec_ext_tx_clk(codec, 1, true);
+	case SND_SOC_DAPM_POST_PMD:
+		return msm_snd_enable_codec_ext_tx_clk(codec, 0, true);
+	}
+	return 0;
+}
+
 static int msm_mclk_event(struct snd_soc_dapm_widget *w,
 				 struct snd_kcontrol *kcontrol, int event)
 {
@@ -2484,6 +2515,9 @@ static const struct snd_soc_dapm_widget msm_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
 			    msm_mclk_event,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_SUPPLY("MCLK TX",  SND_SOC_NOPM, 0, 0,
+	msm_mclk_tx_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SPK("Lineout_1 amp", NULL),
 	SND_SOC_DAPM_SPK("Lineout_3 amp", NULL),
@@ -4631,6 +4665,20 @@ static struct snd_soc_dai_link msm_tasha_fe_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
+	},
+	/* CPE LSM EC PP direct dai-link */
+	{
+		.name = "CPE Listen service ECPP",
+		.stream_name = "CPE Listen Audio Service ECPP",
+		.cpu_dai_name = "CPE_LSM_NOHOST",
+		.platform_name = "msm-cpe-lsm.3",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "tasha_cpe",
+		.codec_name = "tasha_codec",
 	},
 };
 

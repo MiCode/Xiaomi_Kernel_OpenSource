@@ -1199,6 +1199,7 @@ int smblib_get_prop_batt_charge_type(struct smb_charger *chg,
 int smblib_get_prop_batt_health(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
+	union power_supply_propval pval;
 	int rc;
 	u8 stat;
 
@@ -1212,9 +1213,19 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 		   stat);
 
 	if (stat & CHARGER_ERROR_STATUS_BAT_OV_BIT) {
-		smblib_err(chg, "battery over-voltage\n");
-		val->intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
-		goto done;
+		rc = smblib_get_prop_batt_voltage_now(chg, &pval);
+		if (!rc) {
+			/*
+			 * If Vbatt is within 40mV above Vfloat, then don't
+			 * treat it as overvoltage.
+			 */
+			if (pval.intval >=
+				get_effective_result(chg->fv_votable) + 40000) {
+				val->intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+				smblib_err(chg, "battery over-voltage\n");
+				goto done;
+			}
+		}
 	}
 
 	if (stat & BAT_TEMP_STATUS_TOO_COLD_BIT)

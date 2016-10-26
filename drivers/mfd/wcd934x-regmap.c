@@ -1904,6 +1904,9 @@ static bool wcd934x_is_volatile_register(struct device *dev, unsigned int reg)
 	    (reg <= WCD934X_CDC_ANC1_FB_GAIN_CTL))
 		return true;
 
+	if ((reg >= WCD934X_CODEC_CPR_WR_DATA_0) &&
+	    (reg <= WCD934X_CODEC_CPR_RD_DATA_3))
+		return true;
 
 	/*
 	 * Need to mark volatile for registers that are writable but
