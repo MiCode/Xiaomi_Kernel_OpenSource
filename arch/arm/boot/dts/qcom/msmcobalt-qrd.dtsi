@@ -264,7 +264,7 @@
 };
 
 &pmicobalt_wled {
-	qcom,led-strings-list = [00 01];
+	qcom,led-strings-list = [01 02];
 };
 
 &dsi_dual_nt35597_video {
