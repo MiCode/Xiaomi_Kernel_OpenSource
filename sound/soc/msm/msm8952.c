@@ -1598,7 +1598,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			return ret;
 		}
 	}
-	return msm8x16_wcd_hs_detect(codec, &mbhc_cfg);
+	return 0;
 }
 
 static struct snd_soc_ops msm8952_quat_mi2s_be_ops = {
