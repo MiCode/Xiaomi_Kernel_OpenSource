@@ -80,6 +80,7 @@ enum clk_osm_trace_packet_id {
 #define MEM_ACC_SEQ_REG_VAL_START(n) (SEQ_REG(60 + (n)))
 #define SEQ_REG1_MSMCOBALT_V2 0x1048
 #define VERSION_REG 0x0
+#define VERSION_1P1 0x00010100
 
 #define OSM_TABLE_SIZE 40
 #define MAX_CLUSTER_CNT 2
@@ -203,7 +204,6 @@ enum clk_osm_trace_packet_id {
 #define TRACE_CTRL_ENABLE 1
 #define TRACE_CTRL_DISABLE 0
 #define TRACE_CTRL_ENABLE_WDOG_STATUS	BIT(30)
-#define TRACE_CTRL_ENABLE_WDOG_STATUS_MASK	BIT(30)
 #define TRACE_CTRL_PACKET_TYPE_MASK BVAL(2, 1, 3)
 #define TRACE_CTRL_PACKET_TYPE_SHIFT 1
 #define TRACE_CTRL_PERIODIC_TRACE_EN_MASK BIT(3)
@@ -317,6 +317,7 @@ struct clk_osm {
 	unsigned long pbases[NUM_BASES];
 	spinlock_t lock;
 
+	u32 version;
 	u32 cpu_reg_mask;
 	u32 num_entries;
 	u32 cluster_num;
@@ -354,6 +355,7 @@ struct clk_osm {
 	struct notifier_block panic_notifier;
 	u32 trace_periodic_timer;
 	bool trace_en;
+	bool wdog_trace_en;
 };
 
 static bool msmcobalt_v1;
@@ -2145,6 +2147,36 @@ DEFINE_SIMPLE_ATTRIBUTE(debugfs_trace_enable_fops,
 			debugfs_set_trace_enable,
 			"%llu\n");
 
+static int debugfs_get_wdog_trace(void *data, u64 *val)
+{
+	struct clk_osm *c = data;
+
+	*val = c->wdog_trace_en;
+	return 0;
+}
+
+static int debugfs_set_wdog_trace(void *data, u64 val)
+{
+	struct clk_osm *c = data;
+	int regval;
+
+	if (c->version >= VERSION_1P1) {
+		regval = clk_osm_read_reg(c, TRACE_CTRL);
+		regval = val ? regval | TRACE_CTRL_ENABLE_WDOG_STATUS :
+			regval & ~TRACE_CTRL_ENABLE_WDOG_STATUS;
+		clk_osm_write_reg(c, regval, TRACE_CTRL);
+		c->wdog_trace_en = val ? true : false;
+	} else {
+		pr_info("wdog status registers enabled by default\n");
+	}
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_trace_wdog_enable_fops,
+			debugfs_get_wdog_trace,
+			debugfs_set_wdog_trace,
+			"%llu\n");
+
 #define MAX_DEBUG_BUF_LEN 15
 
 static DEFINE_MUTEX(debug_buf_mutex);
@@ -2413,6 +2445,15 @@ static void populate_debugfs_dir(struct clk_osm *c)
 			   &debugfs_perf_state_deviation_corrected_irq_fops);
 	if (IS_ERR_OR_NULL(temp)) {
 		pr_err("debugfs_perf_state_deviation_corrected_irq_fops debugfs file creation failed\n");
+		goto exit;
+	}
+
+	temp = debugfs_create_file("wdog_trace_enable",
+			   S_IRUGO | S_IWUSR,
+			   c->debugfs, c,
+			   &debugfs_trace_wdog_enable_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debugfs_trace_wdog_enable_fops debugfs file creation failed\n");
 		goto exit;
 	}
 
@@ -2694,18 +2735,6 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	if (msmcobalt_v2) {
-		/* Enable OSM WDOG registers */
-		clk_osm_masked_write_reg(&pwrcl_clk,
-					 TRACE_CTRL_ENABLE_WDOG_STATUS,
-					 TRACE_CTRL,
-					 TRACE_CTRL_ENABLE_WDOG_STATUS_MASK);
-		clk_osm_masked_write_reg(&perfcl_clk,
-					 TRACE_CTRL_ENABLE_WDOG_STATUS,
-					 TRACE_CTRL,
-					 TRACE_CTRL_ENABLE_WDOG_STATUS_MASK);
-	}
-
 	/*
 	 * The hmss_gpll0 clock runs at 300 MHz. Ensure it is at the correct
 	 * frequency before enabling OSM. LUT index 0 is always sourced from
@@ -2755,6 +2784,9 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		WARN(clk_prepare_enable(logical_cpu_to_clk(cpu)),
 		     "Failed to enable clock for cpu %d\n", cpu);
 	}
+
+	pwrcl_clk.version = clk_osm_read_reg(&pwrcl_clk, VERSION_REG);
+	perfcl_clk.version = clk_osm_read_reg(&perfcl_clk, VERSION_REG);
 
 	populate_opp_table(pdev);
 	populate_debugfs_dir(&pwrcl_clk);
