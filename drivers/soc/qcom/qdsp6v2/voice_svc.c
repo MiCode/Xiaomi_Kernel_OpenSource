@@ -223,8 +223,8 @@ static int voice_svc_send_req(struct voice_svc_cmd_request *apr_request,
 	} else if (!strcmp(apr_request->svc_name, VOICE_SVC_MVM_STR)) {
 		apr_handle = prtd->apr_q6_mvm;
 	} else {
-		pr_err("%s: Invalid service %s\n", __func__,
-			apr_request->svc_name);
+		pr_err("%s: Invalid service %.*s\n", __func__,
+			MAX_APR_SERVICE_NAME_LEN, apr_request->svc_name);
 
 		ret = -EINVAL;
 		goto done;
@@ -338,8 +338,8 @@ static int process_reg_cmd(struct voice_svc_register *apr_reg_svc,
 		svc = VOICE_SVC_CVS_STR;
 		handle = &prtd->apr_q6_cvs;
 	} else {
-		pr_err("%s: Invalid Service: %s\n", __func__,
-		       apr_reg_svc->svc_name);
+		pr_err("%s: Invalid Service: %.*s\n", __func__,
+			MAX_APR_SERVICE_NAME_LEN, apr_reg_svc->svc_name);
 		ret = -EINVAL;
 		goto done;
 	}
@@ -365,7 +365,17 @@ static ssize_t voice_svc_write(struct file *file, const char __user *buf,
 
 	pr_debug("%s\n", __func__);
 
-	data = kmalloc(count, GFP_KERNEL);
+	/*
+	 * Check if enough memory is allocated to parse the message type.
+	 * Will check there is enough to hold the payload later.
+	 */
+	if (count >= sizeof(struct voice_svc_write_msg)) {
+		data = kmalloc(count, GFP_KERNEL);
+	} else {
+		pr_debug("%s: invalid data size\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
 
 	if (data == NULL) {
 		pr_err("%s: data kmalloc failed.\n", __func__);
@@ -383,7 +393,7 @@ static ssize_t voice_svc_write(struct file *file, const char __user *buf,
 	}
 
 	cmd = data->msg_type;
-	prtd = (struct voice_svc_prvt *)file->private_data;
+	prtd = (struct voice_svc_prvt *) file->private_data;
 	if (prtd == NULL) {
 		pr_err("%s: prtd is NULL\n", __func__);
 
@@ -393,9 +403,13 @@ static ssize_t voice_svc_write(struct file *file, const char __user *buf,
 
 	switch (cmd) {
 	case MSG_REGISTER:
-		if (count  >=
-				(sizeof(struct voice_svc_register) +
-				sizeof(*data))) {
+		/*
+		 * Check that count reflects the expected size to ensure
+		 * sufficient memory was allocated. Since voice_svc_register
+		 * has a static size, this should be exact.
+		 */
+		if (count == (sizeof(struct voice_svc_write_msg) +
+			      sizeof(struct voice_svc_register))) {
 			ret = process_reg_cmd(
 			(struct voice_svc_register *)data->payload, prtd);
 			if (!ret)
@@ -407,8 +421,13 @@ static ssize_t voice_svc_write(struct file *file, const char __user *buf,
 		}
 		break;
 	case MSG_REQUEST:
-	if (count >= (sizeof(struct voice_svc_cmd_request) +
-					sizeof(*data))) {
+		/*
+		 * Check that count reflects the expected size to ensure
+		 * sufficient memory was allocated. Since voice_svc_cmd_request
+		 * has a variable size, check the minimum value count must be.
+		 */
+		if (count >= (sizeof(struct voice_svc_write_msg) +
+			      sizeof(struct voice_svc_cmd_request))) {
 		ret = voice_svc_send_req(
 			(struct voice_svc_cmd_request *)data->payload, prtd);
 		if (!ret)
