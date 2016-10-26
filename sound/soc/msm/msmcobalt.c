@@ -4632,6 +4632,20 @@ static struct snd_soc_dai_link msm_tasha_fe_dai_links[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
+	/* CPE LSM EC PP direct dai-link */
+	{
+		.name = "CPE Listen service ECPP",
+		.stream_name = "CPE Listen Audio Service ECPP",
+		.cpu_dai_name = "CPE_LSM_NOHOST",
+		.platform_name = "msm-cpe-lsm.3",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "tasha_cpe",
+		.codec_name = "tasha_codec",
+	},
 };
 
 static struct snd_soc_dai_link msm_tavil_fe_dai_links[] = {
