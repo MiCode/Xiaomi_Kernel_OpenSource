@@ -2480,6 +2480,28 @@ static int pp_dest_scaler_setup(struct mdss_mdp_mixer *mixer)
 	if (!test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) || !ds)
 		return 0;
 
+	/*
+	 * Non-validated DS data will be related to PM event. It is required
+	 * to send out last setup to match the mixer and panel configuration.
+	 */
+	if (!(ds->flags & DS_VALIDATE)) {
+		pr_debug("Apply old DS[%d] for non validate data\n", ds->num);
+		if (ds->flags & DS_ENABLE)
+			ds->flags |= (DS_SCALE_UPDATE | DS_ENHANCER_UPDATE);
+		ds->flags |= DS_VALIDATE;
+	}
+
+	/*
+	 * If mark for dirty update, force update to scaler and detail
+	 * enhancer.
+	 */
+	if (ds->flags & DS_DIRTY_UPDATE) {
+		pr_debug("Scale dirty update requested\n");
+		ds->flags |= (DS_SCALE_UPDATE | DS_ENHANCER_UPDATE |
+				DS_VALIDATE);
+		ds->flags &= ~DS_DIRTY_UPDATE;
+	}
+
 	ds_offset = ds->ds_base;
 	op_mode = readl_relaxed(MDSS_MDP_REG_DEST_SCALER_OP_MODE +
 			ds_offset);
@@ -2519,10 +2541,35 @@ static int pp_dest_scaler_setup(struct mdss_mdp_mixer *mixer)
 	}
 
 	/* Destinations scaler shared the flush with DSPP in control */
-	if (ds->flags & DS_ENABLE)
+	if (ds->flags & (DS_ENABLE | DS_VALIDATE)) {
+		pr_debug("FLUSH[%d]: flags:%X, op_mode:%x\n",
+				ds->num, ds->flags, op_mode);
 		ctl->flush_bits |= BIT(13 + ds->num);
+	}
 
+	ds->flags &= ~DS_VALIDATE;
 	return 0;
+}
+
+void mdss_mdp_pp_dest_scaler_resume(struct mdss_mdp_ctl *ctl)
+{
+	if (!ctl || !ctl->mdata) {
+		pr_err("Invalid ctl\n");
+		return;
+	}
+
+	if (!test_bit(MDSS_CAPS_DEST_SCALER, ctl->mdata->mdss_caps_map))
+		return;
+
+	if (ctl->mixer_left && ctl->mixer_left->ds) {
+		ctl->mixer_left->ds->flags |= DS_DIRTY_UPDATE;
+		pr_debug("DS left mark dirty\n");
+	}
+
+	if (ctl->mixer_right && ctl->mixer_right->ds) {
+		ctl->mixer_right->ds->flags |= DS_DIRTY_UPDATE;
+		pr_debug("DS right mark dirty\n");
+	}
 }
 
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl)
