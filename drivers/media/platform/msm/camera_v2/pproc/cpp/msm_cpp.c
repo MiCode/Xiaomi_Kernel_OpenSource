@@ -1918,21 +1918,19 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		return -EINVAL;
 	}
 
-	if (!new_frame->partial_frame_indicator) {
-		if (cpp_frame_msg[new_frame->msg_len - 1] !=
-			MSM_CPP_MSG_ID_TRAILER) {
-			pr_err("Invalid frame message\n");
-			return -EINVAL;
-		}
+	if (cpp_frame_msg[new_frame->msg_len - 1] !=
+		MSM_CPP_MSG_ID_TRAILER) {
+		pr_err("Invalid frame message\n");
+		return -EINVAL;
+	}
 
-		if ((stripe_base + new_frame->num_strips * stripe_size + 1) !=
-			new_frame->msg_len) {
-			pr_err("Invalid frame message,len=%d,expected=%d\n",
-				new_frame->msg_len,
-				(stripe_base +
-				new_frame->num_strips * stripe_size + 1));
-			return -EINVAL;
-		}
+	if ((stripe_base + new_frame->num_strips * stripe_size + 1) !=
+		new_frame->msg_len) {
+		pr_err("Invalid frame message,len=%d,expected=%d\n",
+			new_frame->msg_len,
+			(stripe_base +
+			new_frame->num_strips * stripe_size + 1));
+		return -EINVAL;
 	}
 
 	if (cpp_dev->iommu_state != CPP_IOMMU_STATE_ATTACHED) {
