@@ -3667,6 +3667,7 @@ static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	char *wname;
 	int ret = 0, amic_n;
 	u16 tx_vol_ctl_reg, pwr_level_reg = 0, dec_cfg_reg, hpf_gate_reg;
+	u16 tx_gain_ctl_reg;
 	char *dec;
 	u8 hpf_cut_off_freq;
 
@@ -3708,6 +3709,7 @@ static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	tx_vol_ctl_reg = WCD934X_CDC_TX0_TX_PATH_CTL + 16 * decimator;
 	hpf_gate_reg = WCD934X_CDC_TX0_TX_PATH_SEC2 + 16 * decimator;
 	dec_cfg_reg = WCD934X_CDC_TX0_TX_PATH_CFG0 + 16 * decimator;
+	tx_gain_ctl_reg = WCD934X_CDC_TX0_TX_VOL_CTL + 16 * decimator;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -3768,7 +3770,9 @@ static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 			schedule_delayed_work(
 					&tavil->tx_hpf_work[decimator].dwork,
 					msecs_to_jiffies(300));
-
+		/* apply gain after decimator is enabled */
+		snd_soc_write(codec, tx_gain_ctl_reg,
+			      snd_soc_read(codec, tx_gain_ctl_reg));
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		hpf_cut_off_freq =
