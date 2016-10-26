@@ -159,6 +159,10 @@ Optional properties:
 - qcom,sde-cdm-off:	 	Array of offset addresses for the available
 				cdm blocks. These offsets will be calculated from
 				register "mdp_phys" defined in reg property.
+- qcom,sde-vbif-off:		Array of offset addresses for the available
+				vbif blocks. These offsets will be calculated from
+				register "vbif_phys" defined in reg property.
+- qcom,sde-vbif-size:		A u32 value indicates the vbif block address range.
 - qcom,sde-te-off:		A u32 offset indicates the te block offset on pingpong.
 				This offset is 0x0 by default.
 - qcom,sde-te2-off:		A u32 offset indicates the te2 block offset on pingpong.
@@ -173,7 +177,18 @@ Optional properties:
 - qcom,sde-dspp-dither-off:	A u32 offset indicates the dither block offset on dssp.
 - qcom,sde-dspp-hist-off:	A u32 offset indicates the hist block offset on dssp.
 - qcom,sde-dspp-ad-off:		A u32 offset indicates the ad block offset on dssp.
-
+- qcom,sde-vbif-id:		Array of vbif ids corresponding to the
+				offsets defined in property: qcom,sde-vbif-off.
+- qcom,sde-vbif-default-ot-rd-limit:	A u32 value indicates the default read OT limit
+- qcom,sde-vbif-default-ot-wr-limit:	A u32 value indicates the default write OT limit
+- qcom,sde-vbif-dynamic-ot-rd-limit:	A series of 2 cell property, with a format
+				of (pps, OT limit), where pps is pixel per second and
+				OT limit is the read limit to apply if the given
+				pps is not exceeded.
+- qcom,sde-vbif-dynamic-ot-wr-limit:	A series of 2 cell property, with a format
+				of (pps, OT limit), where pps is pixel per second and
+				OT limit is the write limit to apply if the given
+				pps is not exceeded.
 - qcom,sde-wb-id:		Array of writeback ids corresponding to the
 				offsets defined in property: qcom,sde-wb-off.
 Bus Scaling Data:
@@ -317,6 +332,15 @@ Example:
     qcom,sde-dspp-ad-off = <0x100>;
 
     qcom,sde-wb-id = <2>;
+
+    qcom,sde-vbif-off = <0 0>;
+    qcom,sde-vbif-id = <0 1>;
+    qcom,sde-vbif-default-ot-rd-limit = <32>;
+    qcom,sde-vbif-default-ot-wr-limit = <16>;
+    qcom,sde-vbif-dynamic-ot-rd-limit = <62208000 2>,
+        <124416000 4>, <248832000 16>;
+    qcom,sde-vbif-dynamic-ot-wr-limit = <62208000 2>,
+        <124416000 4>, <248832000 16>;
 
     qcom,platform-supply-entries {
        #address-cells = <1>;
