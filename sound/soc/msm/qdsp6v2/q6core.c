@@ -470,6 +470,7 @@ int core_get_adsp_ver(void)
 	get_aver_cmd.hdr.token = 0;
 	get_aver_cmd.hdr.opcode = AVCS_GET_VERSIONS;
 
+	q6core_lcl.cmd_resp_received_flag &= ~(FLAG_AVCS_GET_VERSIONS_RESULT);
 	ret = apr_send_pkt(q6core_lcl.core_handle_q,
 				 (uint32_t *) &get_aver_cmd);
 	if (ret < 0) {
@@ -479,7 +480,6 @@ int core_get_adsp_ver(void)
 		goto fail_cmd;
 	}
 
-	q6core_lcl.cmd_resp_received_flag &= ~(FLAG_AVCS_GET_VERSIONS_RESULT);
 	mutex_unlock(&(q6core_lcl.cmd_lock));
 	ret = wait_event_timeout(q6core_lcl.cmd_req_wait,
 			(q6core_lcl.cmd_resp_received_flag ==
@@ -534,7 +534,7 @@ int32_t core_get_license_status(uint32_t module_id)
 	get_lvr_cmd.hdr.opcode = AVCS_CMD_GET_LICENSE_VALIDATION_RESULT;
 	get_lvr_cmd.id = module_id;
 
-
+	q6core_lcl.cmd_resp_received_flag &= ~(FLAG_CMDRSP_LICENSE_RESULT);
 	ret = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *) &get_lvr_cmd);
 	if (ret < 0) {
 		pr_err("%s: license_validation request failed, err %d\n",
@@ -543,7 +543,6 @@ int32_t core_get_license_status(uint32_t module_id)
 		goto fail_cmd;
 	}
 
-	q6core_lcl.cmd_resp_received_flag &= ~(FLAG_CMDRSP_LICENSE_RESULT);
 	mutex_unlock(&(q6core_lcl.cmd_lock));
 	ret = wait_event_timeout(q6core_lcl.cmd_req_wait,
 			(q6core_lcl.cmd_resp_received_flag ==
