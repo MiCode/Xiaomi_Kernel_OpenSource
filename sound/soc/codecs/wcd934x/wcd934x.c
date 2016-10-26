@@ -8676,6 +8676,8 @@ static int tavil_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	regcache_sync(codec->component.regmap);
 	__tavil_cdc_mclk_enable(tavil, false);
 
+	tavil_update_cpr_defaults(tavil);
+
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = tavil_handle_pdata(tavil, pdata);
 	if (IS_ERR_VALUE(ret))
