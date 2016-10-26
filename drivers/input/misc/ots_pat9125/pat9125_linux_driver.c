@@ -31,6 +31,10 @@ struct pixart_pat9125_data {
 	struct pinctrl_state *pinctrl_state_release;
 };
 
+/* Declaration of suspend and resume functions */
+static int pat9125_suspend(struct device *dev);
+static int pat9125_resume(struct device *dev);
+
 static int pat9125_i2c_write(struct i2c_client *client, u8 reg, u8 *data,
 		int len)
 {
@@ -146,6 +150,27 @@ static irqreturn_t pat9125_irq(int irq, void *dev_data)
 	return IRQ_HANDLED;
 }
 
+static ssize_t pat9125_suspend_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct pixart_pat9125_data *data =
+		(struct pixart_pat9125_data *) dev_get_drvdata(dev);
+	struct i2c_client *client = data->client;
+	int mode;
+
+	if (kstrtoint(buf, 10, &mode)) {
+		dev_err(dev, "failed to read input for sysfs\n");
+		return -EINVAL;
+	}
+
+	if (mode == 1)
+		pat9125_suspend(&client->dev);
+	else if (mode == 0)
+		pat9125_resume(&client->dev);
+
+	return count;
+}
+
 static ssize_t pat9125_test_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -191,11 +216,15 @@ static ssize_t pat9125_test_show(struct device *dev,
 {
 	return 0;
 }
+
+static DEVICE_ATTR(suspend, S_IRUGO | S_IWUSR | S_IWGRP,
+		NULL, pat9125_suspend_store);
 static DEVICE_ATTR(test, S_IRUGO | S_IWUSR | S_IWGRP,
 		pat9125_test_show, pat9125_test_store);
 
 static struct attribute *pat9125_attr_list[] = {
 	&dev_attr_test.attr,
+	&dev_attr_suspend.attr,
 	NULL,
 };
 
