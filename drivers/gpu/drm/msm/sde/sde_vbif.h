@@ -35,4 +35,17 @@ struct sde_vbif_set_ot_params {
 void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 		struct sde_vbif_set_ot_params *params);
 
+#ifdef CONFIG_DEBUG_FS
+int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root);
+void sde_debugfs_vbif_destroy(struct sde_kms *sde_kms);
+#else
+static inline int sde_debugfs_vbif_init(struct sde_kms *sde_kms,
+		struct dentry *debugfs_root)
+{
+	return 0;
+}
+static inline void sde_debugfs_vbif_destroy(struct sde_kms *sde_kms)
+{
+}
+#endif
 #endif /* __SDE_VBIF_H__ */

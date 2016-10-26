@@ -122,6 +122,7 @@ struct sde_kms {
 	void *debugfs_root;
 	struct dentry *debugfs_debug;
 	struct dentry *debugfs_danger;
+	struct dentry *debugfs_vbif;
 
 	/* io/register spaces: */
 	void __iomem *mmio, *vbif[VBIF_MAX];
