@@ -2273,6 +2273,14 @@ void sched_exit(struct task_struct *p)
 	kfree(p->ravg.curr_window_cpu);
 	kfree(p->ravg.prev_window_cpu);
 
+	/*
+	 * update_task_ravg() can be called for exiting tasks. While the
+	 * function itself ensures correct behavior, the corresponding
+	 * trace event requires that these pointers be NULL.
+	 */
+	p->ravg.curr_window_cpu = NULL;
+	p->ravg.prev_window_cpu = NULL;
+
 	enqueue_task(rq, p, 0);
 	clear_ed_task(p, rq);
 	task_rq_unlock(rq, p, &flags);
