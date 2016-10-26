@@ -97,7 +97,7 @@ static int utimes_common(struct path *path, struct timespec *times)
 			goto mnt_drop_write_and_out;
 
 		if (!inode_owner_or_capable(inode)) {
-			error = inode_permission(inode, MAY_WRITE);
+			error = inode_permission2(path->mnt, inode, MAY_WRITE);
 			if (error)
 				goto mnt_drop_write_and_out;
 		}
