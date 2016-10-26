@@ -49,6 +49,7 @@ enum clk_osm_bases {
 	OSM_BASE,
 	PLL_BASE,
 	EFUSE_BASE,
+	ACD_BASE,
 	NUM_BASES,
 };
 
@@ -228,10 +229,42 @@ enum clk_osm_trace_packet_id {
 #define MSMCOBALTV2_PWRCL_BOOT_RATE	1555200000
 #define MSMCOBALTV2_PERFCL_BOOT_RATE	1728000000
 
+/* ACD registers */
+#define ACD_HW_VERSION		0x0
+#define ACDCR			0x4
+#define ACDTD			0x8
+#define ACDSSCR			0x28
+#define ACD_EXTINT_CFG		0x30
+#define ACD_DCVS_SW		0x34
+#define ACD_GFMUX_CFG		0x3c
+#define ACD_READOUT_CFG		0x48
+#define ACD_AUTOXFER_CFG	0x80
+#define ACD_AUTOXFER		0x84
+#define ACD_AUTOXFER_CTL	0x88
+#define ACD_AUTOXFER_STATUS	0x8c
+#define ACD_WRITE_CTL		0x90
+#define ACD_WRITE_STATUS	0x94
+#define ACD_READOUT		0x98
+
+#define ACD_MASTER_ONLY_REG_ADDR	0x80
+#define ACD_WRITE_CTL_UPDATE_EN		BIT(0)
+#define ACD_WRITE_CTL_SELECT_SHIFT	1
+#define ACD_GFMUX_CFG_SELECT		BIT(0)
+#define ACD_AUTOXFER_START_CLEAR	0
+#define ACD_AUTOXFER_START_SET		BIT(0)
+#define AUTO_XFER_DONE_MASK		BIT(0)
+#define ACD_DCVS_SW_DCVS_IN_PRGR_SET	BIT(0)
+#define ACD_DCVS_SW_DCVS_IN_PRGR_CLEAR	0
+#define ACD_LOCAL_TRANSFER_TIMEOUT_NS   500
+
 static void __iomem *virt_base;
 static void __iomem *debug_base;
 
 #define lmh_lite_clk_src_source_val 1
+
+#define ACD_REG_RELATIVE_ADDR(addr) (addr / 4)
+#define ACD_REG_RELATIVE_ADDR_BITMASK(addr) \
+			(1 << (ACD_REG_RELATIVE_ADDR(addr)))
 
 #define FIXDIV(div) (div ? (2 * (div) - 1) : (0))
 
@@ -341,6 +374,14 @@ struct clk_osm {
 	u32 apm_ctrl_status;
 	u32 osm_clk_rate;
 	u32 xo_clk_rate;
+	u32 acd_td;
+	u32 acd_cr;
+	u32 acd_sscr;
+	u32 acd_extint0_cfg;
+	u32 acd_extint1_cfg;
+	u32 acd_autoxfer_ctl;
+	u32 acd_debugfs_addr;
+	bool acd_init;
 	bool secure_init;
 	bool red_fsm_en;
 	bool boost_fsm_en;
@@ -392,6 +433,161 @@ static inline int clk_osm_read_reg_no_log(struct clk_osm *c, u32 offset)
 static inline int clk_osm_mb(struct clk_osm *c, int base)
 {
 	return readl_relaxed_no_log((char *)c->vbases[base] + VERSION_REG);
+}
+
+static inline int clk_osm_acd_mb(struct clk_osm *c)
+{
+	return readl_relaxed_no_log((char *)c->vbases[ACD_BASE] +
+				    ACD_HW_VERSION);
+}
+
+static inline void clk_osm_acd_master_write_reg(struct clk_osm *c,
+						u32 val, u32 offset)
+{
+	writel_relaxed(val, (char *)c->vbases[ACD_BASE] + offset);
+}
+
+static int clk_osm_acd_local_read_reg(struct clk_osm *c, u32 offset)
+{
+	u32 reg = 0;
+	int timeout;
+
+	if (offset >= ACD_MASTER_ONLY_REG_ADDR) {
+		pr_err("ACD register at offset=0x%x not locally readable\n",
+		       offset);
+		return -EINVAL;
+	}
+
+	/* Set select field in read control register */
+	writel_relaxed(ACD_REG_RELATIVE_ADDR(offset),
+		       (char *)c->vbases[ACD_BASE] + ACD_READOUT_CFG);
+
+	/* Clear write control register */
+	writel_relaxed(reg, (char *)c->vbases[ACD_BASE] + ACD_WRITE_CTL);
+
+	/* Set select and update_en fields in write control register */
+	reg = (ACD_REG_RELATIVE_ADDR(ACD_READOUT_CFG)
+	       << ACD_WRITE_CTL_SELECT_SHIFT)
+		| ACD_WRITE_CTL_UPDATE_EN;
+	writel_relaxed(reg, (char *)c->vbases[ACD_BASE] + ACD_WRITE_CTL);
+
+	/* Ensure writes complete before polling */
+	clk_osm_acd_mb(c);
+
+	/* Poll write status register */
+	for (timeout = ACD_LOCAL_TRANSFER_TIMEOUT_NS; timeout > 0;
+	     timeout -= 100) {
+		reg = readl_relaxed((char *)c->vbases[ACD_BASE]
+				    + ACD_WRITE_STATUS);
+		if ((reg & (ACD_REG_RELATIVE_ADDR_BITMASK(ACD_READOUT_CFG))))
+			break;
+		ndelay(100);
+	}
+
+	if (!timeout) {
+		pr_err("local read timed out, offset=0x%x status=0x%x\n",
+		       offset, reg);
+		return -ETIMEDOUT;
+	}
+
+	reg = readl_relaxed((char *)c->vbases[ACD_BASE]
+			    + ACD_READOUT);
+	return reg;
+}
+
+static int clk_osm_acd_local_write_reg(struct clk_osm *c, u32 val, u32 offset)
+{
+	u32 reg = 0;
+	int timeout;
+
+	if (offset >= ACD_MASTER_ONLY_REG_ADDR) {
+		pr_err("ACD register at offset=0x%x not transferrable\n",
+		       offset);
+		return -EINVAL;
+	}
+
+	/* Clear write control register */
+	writel_relaxed(reg, (char *)c->vbases[ACD_BASE] + ACD_WRITE_CTL);
+
+	/* Set select and update_en fields in write control register */
+	reg = (ACD_REG_RELATIVE_ADDR(offset) << ACD_WRITE_CTL_SELECT_SHIFT)
+		| ACD_WRITE_CTL_UPDATE_EN;
+	writel_relaxed(reg, (char *)c->vbases[ACD_BASE] + ACD_WRITE_CTL);
+
+	/* Ensure writes complete before polling */
+	clk_osm_acd_mb(c);
+
+	/* Poll write status register */
+	for (timeout = ACD_LOCAL_TRANSFER_TIMEOUT_NS; timeout > 0;
+	     timeout -= 100) {
+		reg = readl_relaxed((char *)c->vbases[ACD_BASE]
+				    + ACD_WRITE_STATUS);
+		if ((reg & (ACD_REG_RELATIVE_ADDR_BITMASK(offset))))
+			break;
+		ndelay(100);
+	}
+
+	if (!timeout) {
+		pr_err("local write timed out, offset=0x%x val=0x%x status=0x%x\n",
+		       offset, val, reg);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int clk_osm_acd_master_write_through_reg(struct clk_osm *c,
+						u32 val, u32 offset)
+{
+	writel_relaxed(val, (char *)c->vbases[ACD_BASE] + offset);
+
+	/* Ensure writes complete before transfer to local copy */
+	clk_osm_acd_mb(c);
+
+	return clk_osm_acd_local_write_reg(c, val, offset);
+}
+
+static int clk_osm_acd_auto_local_write_reg(struct clk_osm *c, u32 mask)
+{
+	u32 numregs, bitmask = mask;
+	u32 reg = 0;
+	int timeout;
+
+	/* count number of bits set in register mask */
+	for (numregs = 0; bitmask; numregs++)
+		bitmask &= bitmask - 1;
+
+	/* Program auto-transfter mask */
+	writel_relaxed(mask, (char *)c->vbases[ACD_BASE] + ACD_AUTOXFER_CFG);
+
+	/* Clear start field in auto-transfer register */
+	writel_relaxed(ACD_AUTOXFER_START_CLEAR,
+		       (char *)c->vbases[ACD_BASE] + ACD_AUTOXFER);
+
+	/* Set start field in auto-transfer register */
+	writel_relaxed(ACD_AUTOXFER_START_SET,
+		       (char *)c->vbases[ACD_BASE] + ACD_AUTOXFER);
+
+	/* Ensure writes complete before polling */
+	clk_osm_acd_mb(c);
+
+	/* Poll auto-transfer status register */
+	for (timeout = ACD_LOCAL_TRANSFER_TIMEOUT_NS * numregs;
+	     timeout > 0; timeout -= 100) {
+		reg = readl_relaxed((char *)c->vbases[ACD_BASE]
+				    + ACD_AUTOXFER_STATUS);
+		if (reg & AUTO_XFER_DONE_MASK)
+			break;
+		ndelay(100);
+	}
+
+	if (!timeout) {
+		pr_err("local register auto-transfer timed out, mask=0x%x registers=%d status=0x%x\n",
+		       mask, numregs, reg);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
 }
 
 static inline int clk_osm_count_ns(struct clk_osm *c, u64 nsec)
@@ -813,6 +1009,74 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 					   LLM_SW_OVERRIDE_CNT + i,
 					   &perfcl_clk.llm_sw_overr[i]);
 
+	if (pwrcl_clk.acd_init || perfcl_clk.acd_init) {
+		rc = of_property_read_u32_array(of, "qcom,acdtd-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdtd-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_td = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_td = array[perfcl_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdcr-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdcr-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_cr = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_cr = array[perfcl_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdsscr-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdsscr-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_sscr = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_sscr = array[perfcl_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdextint0-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdextint0-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_extint0_cfg = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_extint0_cfg = array[perfcl_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdextint1-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdextint1-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_extint1_cfg = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_extint1_cfg = array[perfcl_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdautoxfer-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdautoxfer-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_autoxfer_ctl = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_autoxfer_ctl = array[perfcl_clk.cluster_num];
+	}
+
 	rc = of_property_read_u32(of, "qcom,xo-clk-rate",
 				  &pwrcl_clk.xo_clk_rate);
 	if (rc) {
@@ -1035,6 +1299,40 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 		}
 		perfcl_clk.pbases[EFUSE_BASE] = pbase;
 		perfcl_clk.vbases[EFUSE_BASE] = vbase;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "pwrcl_acd");
+	if (res) {
+		pbase = (unsigned long)res->start;
+		vbase = devm_ioremap(&pdev->dev, res->start,
+				     resource_size(res));
+		if (!vbase) {
+			dev_err(&pdev->dev, "Unable to map in pwrcl_acd base\n");
+			return -ENOMEM;
+		}
+		pwrcl_clk.pbases[ACD_BASE] = pbase;
+		pwrcl_clk.vbases[ACD_BASE] = vbase;
+		pwrcl_clk.acd_init = true;
+	} else {
+		pwrcl_clk.acd_init = false;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "perfcl_acd");
+	if (res) {
+		pbase = (unsigned long)res->start;
+		vbase = devm_ioremap(&pdev->dev, res->start,
+				     resource_size(res));
+		if (!vbase) {
+			dev_err(&pdev->dev, "Unable to map in perfcl_acd base\n");
+			return -ENOMEM;
+		}
+		perfcl_clk.pbases[ACD_BASE] = pbase;
+		perfcl_clk.vbases[ACD_BASE] = vbase;
+		perfcl_clk.acd_init = true;
+	} else {
+		perfcl_clk.acd_init = false;
 	}
 
 	vdd_pwrcl = devm_regulator_get(&pdev->dev, "vdd-pwrcl");
@@ -2402,6 +2700,42 @@ DEFINE_SIMPLE_ATTRIBUTE(debugfs_perf_state_deviation_corrected_irq_fops,
 			debugfs_set_perf_state_deviation_corrected_irq,
 			"%llu\n");
 
+static int debugfs_get_debug_reg(void *data, u64 *val)
+{
+	struct clk_osm *c = data;
+
+	if (c->acd_debugfs_addr >= ACD_MASTER_ONLY_REG_ADDR)
+		*val = readl_relaxed((char *)c->vbases[ACD_BASE] +
+				     c->acd_debugfs_addr);
+	else
+		*val = clk_osm_acd_local_read_reg(c, c->acd_debugfs_addr);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_acd_debug_reg_fops,
+			debugfs_get_debug_reg,
+			NULL,
+			"%llu\n");
+
+static int debugfs_get_debug_reg_addr(void *data, u64 *val)
+{
+	struct clk_osm *c = data;
+
+	*val = c->acd_debugfs_addr;
+	return 0;
+}
+
+static int debugfs_set_debug_reg_addr(void *data, u64 val)
+{
+	struct clk_osm *c = data;
+
+	c->acd_debugfs_addr = val;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_acd_debug_reg_addr_fops,
+			debugfs_get_debug_reg_addr,
+			debugfs_set_debug_reg_addr,
+			"%llu\n");
+
 static void populate_debugfs_dir(struct clk_osm *c)
 {
 	struct dentry *temp;
@@ -2493,6 +2827,24 @@ static void populate_debugfs_dir(struct clk_osm *c)
 		goto exit;
 	}
 
+	temp = debugfs_create_file("acd_debug_reg",
+			   S_IRUGO | S_IWUSR,
+			   c->debugfs, c,
+			   &debugfs_acd_debug_reg_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debugfs_acd_debug_reg_fops debugfs file creation failed\n");
+		goto exit;
+	}
+
+	temp = debugfs_create_file("acd_debug_reg_addr",
+			   S_IRUGO | S_IWUSR,
+			   c->debugfs, c,
+			   &debugfs_acd_debug_reg_addr_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debugfs_acd_debug_reg_addr_fops debugfs file creation failed\n");
+		goto exit;
+	}
+
 exit:
 	if (IS_ERR_OR_NULL(temp))
 		debugfs_remove_recursive(c->debugfs);
@@ -2535,6 +2887,81 @@ static int clk_osm_panic_callback(struct notifier_block *nfb,
 	}
 
 	return NOTIFY_OK;
+}
+
+static int clk_osm_acd_init(struct clk_osm *c)
+{
+
+	int rc = 0;
+	u32 auto_xfer_mask = 0;
+
+	if (!c->acd_init)
+		return 0;
+
+	c->acd_debugfs_addr = ACD_HW_VERSION;
+
+	/* Program ACD tunable-length delay register */
+	clk_osm_acd_master_write_reg(c, c->acd_td, ACDTD);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDTD);
+
+	/* Program ACD control register */
+	clk_osm_acd_master_write_reg(c, c->acd_cr, ACDCR);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDCR);
+
+	/* Program ACD soft start control register */
+	clk_osm_acd_master_write_reg(c, c->acd_sscr, ACDSSCR);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDSSCR);
+
+	/* Program initial ACD external interface configuration register */
+	clk_osm_acd_master_write_reg(c, c->acd_extint0_cfg, ACD_EXTINT_CFG);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_EXTINT_CFG);
+
+	/* Program ACD auto-register transfer control register */
+	clk_osm_acd_master_write_reg(c, c->acd_autoxfer_ctl, ACD_AUTOXFER_CTL);
+
+	/* Ensure writes complete before transfers to local copy */
+	clk_osm_acd_mb(c);
+
+	/* Transfer master copies */
+	rc = clk_osm_acd_auto_local_write_reg(c, auto_xfer_mask);
+	if (rc)
+		return rc;
+
+	/* Switch CPUSS clock source to ACD clock */
+	rc = clk_osm_acd_master_write_through_reg(c, ACD_GFMUX_CFG_SELECT,
+						  ACD_GFMUX_CFG);
+	if (rc)
+		return rc;
+
+	/* Program ACD_DCVS_SW */
+	rc = clk_osm_acd_master_write_through_reg(c,
+				  ACD_DCVS_SW_DCVS_IN_PRGR_SET,
+				  ACD_DCVS_SW);
+	if (rc)
+		return rc;
+
+	rc = clk_osm_acd_master_write_through_reg(c,
+				  ACD_DCVS_SW_DCVS_IN_PRGR_CLEAR,
+				  ACD_DCVS_SW);
+	if (rc)
+		return rc;
+
+	udelay(1);
+
+	/* Program final ACD external interface configuration register */
+	rc = clk_osm_acd_master_write_through_reg(c, c->acd_extint1_cfg,
+						  ACD_EXTINT_CFG);
+	if (rc)
+		return rc;
+
+	/*
+	 * ACDCR, ACDTD, ACDSSCR, ACD_EXTINT_CFG, ACD_GFMUX_CFG
+	 * must be copied from master to local copy on PC exit.
+	 */
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_GFMUX_CFG);
+	clk_osm_acd_master_write_reg(c, auto_xfer_mask, ACD_AUTOXFER_CFG);
+
+	return 0;
 }
 
 static unsigned long init_rate = 300000000;
@@ -2715,6 +3142,17 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 				  "qcom,osm-pll-setup")) {
 		clk_osm_setup_cluster_pll(&pwrcl_clk);
 		clk_osm_setup_cluster_pll(&perfcl_clk);
+	}
+
+	rc = clk_osm_acd_init(&pwrcl_clk);
+	if (rc) {
+		pr_err("failed to initialize ACD for pwrcl, rc=%d\n", rc);
+		return rc;
+	}
+	rc = clk_osm_acd_init(&perfcl_clk);
+	if (rc) {
+		pr_err("failed to initialize ACD for perfcl, rc=%d\n", rc);
+		return rc;
 	}
 
 	spin_lock_init(&pwrcl_clk.lock);
