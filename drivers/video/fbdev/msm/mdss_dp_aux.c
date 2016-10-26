@@ -801,6 +801,8 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 	cap = &ep->dpcd;
 	bp = rp->data;
 
+	memset(cap, 0, sizeof(*cap));
+
 	data = *bp++; /* byte 0 */
 	cap->major = (data >> 4) & 0x0f;
 	cap->minor = data & 0x0f;
@@ -819,8 +821,13 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 	if (data & BIT(7))
 		cap->enhanced_frame++;
 
-	if (data & 0x40)
+	if (data & 0x40) {
 		cap->flags |=  DPCD_TPS3;
+		pr_debug("pattern 3 supported\n");
+	} else {
+		pr_debug("pattern 3 not supported\n");
+	}
+
 	data &= 0x0f;
 	cap->max_lane_count = data;
 	if (--rlen <= 0)
@@ -886,7 +893,7 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 
 	data = *bp++; /* byte 9 */
 	cap->rx_port0_buf_size = (data + 1) * 32;
-	pr_debug("lane_buf_size=%d", cap->rx_port0_buf_size);
+	pr_debug("lane_buf_size=%d\n", cap->rx_port0_buf_size);
 	if (--rlen <= 0)
 		return;
 
@@ -1456,6 +1463,7 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 	int tries, old_v_level;
 	int ret = 0;
 	int usleep_time;
+	int const maximum_retries = 5;
 
 	pr_debug("Entered++");
 
@@ -1483,7 +1491,7 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 
 		if (old_v_level == ep->v_level) {
 			tries++;
-			if (tries >= 5) {
+			if (tries >= maximum_retries) {
 				ret = -1;
 				break;	/* quit */
 			}
@@ -1505,6 +1513,7 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 	int ret = 0;
 	int usleep_time;
 	char pattern;
+	int const maximum_retries = 5;
 
 	pr_debug("Entered++");
 
@@ -1530,7 +1539,7 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 		}
 
 		tries++;
-		if (tries > 4) {
+		if (tries > maximum_retries) {
 			ret = -1;
 			break;
 		}
@@ -1543,47 +1552,27 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 
 static int dp_link_rate_down_shift(struct mdss_dp_drv_pdata *ep)
 {
-	u32 prate, lrate;
-	int rate, lane, max_lane;
-	int changed = 0;
+	int ret = 0;
 
-	rate = ep->link_rate;
-	lane = ep->lane_cnt;
-	max_lane = ep->dpcd.max_lane_count;
+	if (!ep)
+		return -EINVAL;
 
-	prate = ep->pixel_rate;
-	prate /= 1000;	/* avoid using 64 biits */
-	prate *= ep->bpp;
-	prate /= 8; /* byte */
+	switch (ep->link_rate) {
+	case DP_LINK_RATE_540:
+		ep->link_rate = DP_LINK_RATE_270;
+		break;
+	case DP_LINK_RATE_270:
+		ep->link_rate = DP_LINK_RATE_162;
+		break;
+	case DP_LINK_RATE_162:
+	default:
+		ret = -EINVAL;
+		break;
+	};
 
-	if (rate > DP_LINK_RATE_162 && rate <= DP_LINK_RATE_MAX) {
-		rate -= 4;		/* reduce rate */
-		changed++;
-	}
+	pr_debug("new rate=%d\n", ep->link_rate);
 
-	if (changed) {
-		if (lane >= 1 && lane < max_lane)
-			lane <<= 1;	/* increase lane */
-
-		lrate = 270000000; /* 270M */
-		lrate /= 1000; /* avoid using 64 bits */
-		lrate *= rate;
-		lrate /= 10; /* byte, 10 bits --> 8 bits */
-		lrate *= lane;
-
-		pr_debug("new lrate=%u prate=%u rate=%d lane=%d p=%d b=%d\n",
-			lrate, prate, rate, lane, ep->pixel_rate, ep->bpp);
-
-		if (lrate > prate) {
-			ep->link_rate = rate;
-			ep->lane_cnt = lane;
-			pr_debug("new rate=%d %d\n", rate, lane);
-			return 0;
-		}
-	}
-
-	/* add calculation later */
-	return -EINVAL;
+	return ret;
 }
 
 int mdss_dp_aux_set_sink_power_state(struct mdss_dp_drv_pdata *ep, char state)
@@ -1620,7 +1609,6 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 
 	mdss_dp_aux_set_sink_power_state(dp, SINK_POWER_ON);
 
-train_start:
 	dp->v_level = 0; /* start from default level */
 	dp->p_level = 0;
 	mdss_dp_config_ctrl(dp);
@@ -1630,11 +1618,12 @@ train_start:
 
 	ret = dp_start_link_train_1(dp);
 	if (ret < 0) {
-		if (dp_link_rate_down_shift(dp) == 0) {
-			goto train_start;
+		if (!dp_link_rate_down_shift(dp)) {
+			pr_debug("retry with lower rate\n");
+			return -EAGAIN;
 		} else {
 			pr_err("Training 1 failed\n");
-			ret = -1;
+			ret = -EINVAL;
 			goto clear;
 		}
 	}
@@ -1643,21 +1632,21 @@ train_start:
 
 	ret = dp_start_link_train_2(dp);
 	if (ret < 0) {
-		if (dp_link_rate_down_shift(dp) == 0) {
-			goto train_start;
+		if (!dp_link_rate_down_shift(dp)) {
+			pr_debug("retry with lower rate\n");
+			return -EAGAIN;
 		} else {
 			pr_err("Training 2 failed\n");
-			ret = -1;
+			ret = -EINVAL;
 			goto clear;
 		}
 	}
 
 	pr_debug("Training 2 completed successfully\n");
 
-
 clear:
 	dp_clear_training_pattern(dp);
-	if (ret != -1) {
+	if (ret != -EINVAL) {
 		mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate,
 					dp->lane_cnt, dp->vic);
 		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);

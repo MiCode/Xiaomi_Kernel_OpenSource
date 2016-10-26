@@ -313,14 +313,14 @@ static void msm_ext_disp_remove_intf_data(struct msm_ext_disp *ext_disp,
 	}
 }
 
-static void msm_ext_disp_send_cable_notification(struct msm_ext_disp *ext_disp,
+static int msm_ext_disp_send_cable_notification(struct msm_ext_disp *ext_disp,
 		enum msm_ext_disp_cable_state new_state)
 {
 	int state = EXT_DISPLAY_CABLE_STATE_MAX;
 
 	if (!ext_disp) {
 		pr_err("Invalid params\n");
-		return;
+		return -EINVAL;
 	}
 
 	state = ext_disp->hdmi_sdev.state;
@@ -330,6 +330,8 @@ static void msm_ext_disp_send_cable_notification(struct msm_ext_disp *ext_disp,
 			ext_disp->hdmi_sdev.state == state ?
 			"is same" : "switched to",
 			ext_disp->hdmi_sdev.state);
+
+	return ext_disp->hdmi_sdev.state == state ? 0 : 1;
 }
 
 static int msm_ext_disp_hpd(struct platform_device *pdev,
@@ -398,7 +400,7 @@ static int msm_ext_disp_hpd(struct platform_device *pdev,
 		ext_disp->current_disp = EXT_DISPLAY_TYPE_MAX;
 	}
 
-	msm_ext_disp_send_cable_notification(ext_disp, state);
+	ret = msm_ext_disp_send_cable_notification(ext_disp, state);
 
 	pr_debug("Hpd (%d) for display (%s)\n", state,
 			msm_ext_disp_name(type));
