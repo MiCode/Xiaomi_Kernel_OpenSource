@@ -268,11 +268,13 @@
 		mdss_fb2: qcom,mdss_fb_hdmi {
 			cell-index = <2>;
 			compatible = "qcom,mdss-fb";
+			qcom,mdss-intf = <&mdss_hdmi_tx>;
 		};
 
 		mdss_fb3: qcom,mdss_fb_dp {
 			cell-index = <3>;
 			compatible = "qcom,mdss-fb";
+			qcom,mdss-intf = <&mdss_dp_ctrl>;
 		};
 
 	};
