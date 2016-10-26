@@ -506,8 +506,7 @@ static int fg_get_cc_soc_sw(struct fg_chip *chip, int *val)
 #define BATT_TEMP_DENR		1
 static int fg_get_battery_temp(struct fg_chip *chip, int *val)
 {
-	int rc = 0;
-	u16 temp = 0;
+	int rc = 0, temp;
 	u8 buf[2];
 
 	rc = fg_read(chip, BATT_INFO_BATT_TEMP_LSB(chip), buf, 2);
@@ -925,10 +924,11 @@ static int fg_load_learned_cap_from_sram(struct fg_chip *chip)
 	}
 
 	chip->cl.learned_cc_uah = act_cap_mah * 1000;
-	if (chip->cl.learned_cc_uah == 0)
-		chip->cl.learned_cc_uah = chip->cl.nom_cap_uah;
 
 	if (chip->cl.learned_cc_uah != chip->cl.nom_cap_uah) {
+		if (chip->cl.learned_cc_uah == 0)
+			chip->cl.learned_cc_uah = chip->cl.nom_cap_uah;
+
 		delta_cc_uah = abs(chip->cl.learned_cc_uah -
 					chip->cl.nom_cap_uah);
 		pct_nom_cap_uah = div64_s64((int64_t)chip->cl.nom_cap_uah *
