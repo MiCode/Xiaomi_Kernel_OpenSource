@@ -772,6 +772,29 @@ static inline int dma_mmap_wc(struct device *dev,
 #define dma_mmap_writecombine dma_mmap_wc
 #endif
 
+static inline void *dma_alloc_nonconsistent(struct device *dev, size_t size,
+					dma_addr_t *dma_handle, gfp_t flag)
+{
+	unsigned long attrs = DMA_ATTR_NON_CONSISTENT;
+
+	return dma_alloc_attrs(dev, size, dma_handle, flag, attrs);
+}
+
+static inline void dma_free_nonconsistent(struct device *dev, size_t size,
+					void *cpu_addr, dma_addr_t dma_handle)
+{
+	unsigned long attrs = DMA_ATTR_NON_CONSISTENT;
+
+	return dma_free_attrs(dev, size, cpu_addr, dma_handle, attrs);
+}
+
+static inline int dma_mmap_nonconsistent(struct device *dev,
+		struct vm_area_struct *vma, void *cpu_addr,
+		dma_addr_t dma_addr, size_t size)
+{
+	return -ENODEV;
+}
+
 #if defined(CONFIG_NEED_DMA_MAP_STATE) || defined(CONFIG_DMA_API_DEBUG)
 #define DEFINE_DMA_UNMAP_ADDR(ADDR_NAME)        dma_addr_t ADDR_NAME
 #define DEFINE_DMA_UNMAP_LEN(LEN_NAME)          __u32 LEN_NAME
