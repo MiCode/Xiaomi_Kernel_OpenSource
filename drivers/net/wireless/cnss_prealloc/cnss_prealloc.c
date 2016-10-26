@@ -310,15 +310,16 @@ EXPORT_SYMBOL(wcnss_skb_prealloc_put);
 #ifdef CONFIG_SLUB_DEBUG
 void wcnss_prealloc_check_memory_leak(void)
 {
-	int i, j = 0;
+	int i;
+	bool leak_detected = false;
 
 	for (i = 0; i < ARRAY_SIZE(wcnss_allocs); i++) {
 		if (!wcnss_allocs[i].occupied)
 			continue;
 
-		if (j == 0) {
+		if (!leak_detected) {
 			pr_err("wcnss_prealloc: Memory leak detected\n");
-			j++;
+			leak_detected = true;
 		}
 
 		pr_err("Size: %u, addr: %pK, backtrace:\n",
@@ -326,6 +327,55 @@ void wcnss_prealloc_check_memory_leak(void)
 		print_stack_trace(&wcnss_allocs[i].trace, 1);
 	}
 
+}
+
+/* Check memory leak for socket buffer pre-alloc memeory pool */
+#ifdef CONFIG_WCNSS_SKB_PRE_ALLOC
+void wcnss_skb_prealloc_check_memory_leak(void)
+{
+	int i;
+	bool leak_detected = false;
+
+	for (i = 0; i < ARRAY_SIZE(wcnss_skb_allocs); i++) {
+		if (!wcnss_skb_allocs[i].occupied)
+			continue;
+
+		if (!leak_detected) {
+			pr_err("wcnss_skb_prealloc: Memory leak detected\n");
+			leak_detected = true;
+		}
+
+		pr_err(
+			"Size: %u, addr: %pK, backtrace:\n",
+			wcnss_skb_allocs[i].size, wcnss_skb_allocs[i].ptr);
+		print_stack_trace(&wcnss_skb_allocs[i].trace, 1);
+	}
+}
+#else
+void wcnss_skb_prealloc_check_memory_leak(void) {}
+#endif
+#endif
+
+#ifdef CONFIG_WCNSS_SKB_PRE_ALLOC
+/* Reset socket buffer pre-allock memory pool */
+int wcnss_skb_pre_alloc_reset(void)
+{
+	int i, n = 0;
+
+	for (i = 0; i < ARRAY_SIZE(wcnss_skb_allocs); i++) {
+		if (!wcnss_skb_allocs[i].occupied)
+			continue;
+
+		wcnss_skb_allocs[i].occupied = 0;
+		n++;
+	}
+
+	return n;
+}
+#else
+int wcnss_skb_pre_alloc_reset(void)
+{
+	return 0;
 }
 #endif
 
