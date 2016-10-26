@@ -187,6 +187,13 @@ Optional properties:
 				pps is not exceeded.
 - qcom,sde-wb-id:		Array of writeback ids corresponding to the
 				offsets defined in property: qcom,sde-wb-off.
+- qcom,sde-wb-clk-ctrl:		Array of 2 cell property describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register. Number of offsets defined should
+				match the number of offsets defined in
+				property: qcom,sde-wb-off
 Bus Scaling Data:
 - qcom,msm-bus,name:		String property describing client name.
 - qcom,msm-bus,num-cases:	This is the number of Bus Scaling use cases
@@ -320,6 +327,7 @@ Example:
     qcom,sde-dspp-ad-off = <0x100>;
 
     qcom,sde-wb-id = <2>;
+    qcom,sde-wb-clk-ctrl = <0x2bc 16>;
 
     qcom,sde-sspp-danger-lut = <0x000f 0xffff 0x0000>;
     qcom,sde-sspp-safe-lut = <0xfffc 0xff00 0xffff>;

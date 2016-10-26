@@ -153,6 +153,7 @@ enum {
 	WB_LEN,
 	WB_ID,
 	WB_XIN_ID,
+	WB_CLK_CTRL,
 };
 
 enum {
@@ -278,6 +279,8 @@ static struct sde_prop_type wb_prop[] = {
 	{WB_LEN, "qcom,sde-wb-size", false, PROP_TYPE_U32},
 	{WB_ID, "qcom,sde-wb-id", true, PROP_TYPE_U32_ARRAY},
 	{WB_XIN_ID, "qcom,sde-wb-xin-id", false, PROP_TYPE_U32_ARRAY},
+	{WB_CLK_CTRL, "qcom,sde-wb-clk-ctrl", false,
+		PROP_TYPE_BIT_OFFSET_ARRAY},
 };
 
 static struct sde_prop_type vbif_prop[] = {
@@ -507,7 +510,8 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	sblk->maxupscale = MAX_SSPP_UPSCALE;
 	sblk->maxdwnscale = MAX_SSPP_DOWNSCALE;
 	sspp->id = SSPP_VIG0 + *vig_count;
-	sspp->clk_ctrl = SDE_CLK_CTRL_NONE;
+	sspp->clk_ctrl = SDE_CLK_CTRL_VIG0 + *vig_count;
+
 	sblk->format_list = plane_formats_yuv;
 	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*vig_count)++;
@@ -530,7 +534,7 @@ static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
 	sblk->maxupscale = MAX_SSPP_UPSCALE;
 	sblk->maxdwnscale = MAX_SSPP_DOWNSCALE;
 	sspp->id = SSPP_RGB0 + *rgb_count;
-	sspp->clk_ctrl = SDE_CLK_CTRL_NONE;
+	sspp->clk_ctrl = SDE_CLK_CTRL_RGB0 + *rgb_count;
 	sblk->format_list = plane_formats;
 	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*rgb_count)++;
@@ -544,7 +548,7 @@ static void _sde_sspp_setup_cursor(struct sde_mdss_cfg *sde_cfg,
 	sblk->maxupscale = SSPP_UNITY_SCALE;
 	sblk->maxdwnscale = SSPP_UNITY_SCALE;
 	sspp->id = SSPP_CURSOR0 + *cursor_count;
-	sspp->clk_ctrl = SDE_CLK_CTRL_NONE;
+	sspp->clk_ctrl = SDE_CLK_CTRL_CURSOR0 + *cursor_count;
 	sblk->format_list = plane_formats;
 	(*cursor_count)++;
 }
@@ -556,7 +560,7 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 	sblk->maxupscale = SSPP_UNITY_SCALE;
 	sblk->maxdwnscale = SSPP_UNITY_SCALE;
 	sspp->id = SSPP_DMA0 + *dma_count;
-	sspp->clk_ctrl = SDE_CLK_CTRL_NONE;
+	sspp->clk_ctrl = SDE_CLK_CTRL_DMA0 + *dma_count;
 	sblk->format_list = plane_formats;
 	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*dma_count)++;
@@ -565,7 +569,7 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 static int sde_sspp_parse_dt(struct device_node *np,
 	struct sde_mdss_cfg *sde_cfg)
 {
-	int rc, prop_count[MAX_BLOCKS], off_count, i;
+	int rc, prop_count[MAX_BLOCKS], off_count, i, j;
 	u32 prop_value[MAX_BLOCKS][MAX_SDE_HW_BLK];
 	u32 bit_value[MAX_BLOCKS][MAX_SDE_HW_BLK][MAX_BIT_OFFSET];
 	const char *type;
@@ -646,8 +650,15 @@ static int sde_sspp_parse_dt(struct device_node *np,
 		sblk->pixel_ram_size = DEFAULT_PIXEL_RAM_SIZE;
 		sblk->src_blk.len = prop_value[SSPP_SIZE][0];
 
+		for (j = 0; j < sde_cfg->mdp_count; j++) {
+			sde_cfg->mdp[j].clk_ctrls[sspp->clk_ctrl].reg_off =
+					bit_value[SSPP_CLK_CTRL][i][0];
+			sde_cfg->mdp[j].clk_ctrls[sspp->clk_ctrl].bit_off =
+					bit_value[SSPP_CLK_CTRL][i][1];
+		}
+
 		SDE_DEBUG(
-			"xin:%d danger:%x/%x/%x safe:%x/%x/%x creq:%x ram:%d\n",
+			"xin:%d danger:%x/%x/%x safe:%x/%x/%x creq:%x ram:%d clk%d:%x/%d\n",
 			sspp->xin_id,
 			sblk->danger_lut_linear,
 			sblk->danger_lut_tile,
@@ -656,7 +667,10 @@ static int sde_sspp_parse_dt(struct device_node *np,
 			sblk->safe_lut_tile,
 			sblk->safe_lut_nrt,
 			sblk->creq_lut_nrt,
-			sblk->pixel_ram_size);
+			sblk->pixel_ram_size,
+			sspp->clk_ctrl,
+			sde_cfg->mdp[0].clk_ctrls[sspp->clk_ctrl].reg_off,
+			sde_cfg->mdp[0].clk_ctrls[sspp->clk_ctrl].bit_off);
 	}
 
 end:
@@ -860,7 +874,7 @@ end:
 
 static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 {
-	int rc, prop_count[MAX_BLOCKS], i;
+	int rc, prop_count[MAX_BLOCKS], i, j;
 	u32 prop_value[MAX_BLOCKS][MAX_SDE_HW_BLK] = { { 0 } };
 	u32 bit_value[MAX_BLOCKS][MAX_SDE_HW_BLK][MAX_BIT_OFFSET]
 					= { { { 0 } } };
@@ -913,6 +927,22 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 			set_bit(SDE_WB_BLOCK_MODE, &wb->features);
 		set_bit(SDE_WB_TRAFFIC_SHAPER, &wb->features);
 		set_bit(SDE_WB_YUV_CONFIG, &wb->features);
+
+		for (j = 0; j < sde_cfg->mdp_count; j++) {
+			sde_cfg->mdp[j].clk_ctrls[wb->clk_ctrl].reg_off =
+					bit_value[WB_CLK_CTRL][i][0];
+			sde_cfg->mdp[j].clk_ctrls[wb->clk_ctrl].bit_off =
+					bit_value[WB_CLK_CTRL][i][1];
+		}
+
+		SDE_DEBUG(
+			"wb:%d xin:%d vbif:%d clk%d:%x/%d\n",
+			wb->id - WB_0,
+			wb->xin_id,
+			wb->vbif_idx,
+			wb->clk_ctrl,
+			sde_cfg->mdp[0].clk_ctrls[wb->clk_ctrl].reg_off,
+			sde_cfg->mdp[0].clk_ctrls[wb->clk_ctrl].bit_off);
 	}
 
 end:
