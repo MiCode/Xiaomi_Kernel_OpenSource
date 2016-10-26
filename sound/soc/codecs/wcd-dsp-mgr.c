@@ -717,8 +717,8 @@ static void wdsp_ssr_work_fn(struct work_struct *work)
 	 */
 	WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_CODE_DLOADED);
 
-	/* If codec went down, then all components must be re-initialized */
-	if (wdsp->ssr_type == WDSP_SSR_TYPE_CDC_DOWN) {
+	/* If codec restarted, then all components must be re-initialized */
+	if (wdsp->ssr_type == WDSP_SSR_TYPE_CDC_UP) {
 		wdsp_deinit_components(wdsp);
 		WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_INITIALIZED);
 	}
