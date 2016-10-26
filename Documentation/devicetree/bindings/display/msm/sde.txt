@@ -130,14 +130,10 @@ Optional properties:
 				control register. Number of offsets defined should
 				match the number of offsets defined in
 				property: qcom,sde-sspp-off.
-- qcom,sde-sspp-danger-lut:	Array of u32 values indicating the danger luts on each
-				sspp. Number of offsets defined should
-				match the number of offsets defined in
-				property: qcom,sde-sspp-off.
-- qcom,sde-sspp-safe-lut:	Array of u32 values indicating the safe luts on each
-				sspp. Number of offsets defined should
-				match the number of offsets defined in
-				property: qcom,sde-sspp-off.
+- qcom,sde-sspp-danger-lut:	A 3 cell property, with a format of <linear, tile, nrt>,
+				indicating the danger luts on sspp.
+- qcom,sde-sspp-safe-lut:	A 3 cell property, with a format of <linear, tile, nrt>,
+				indicating the safe luts on sspp.
 - qcom,sde-sspp-qseed-off:	A u32 offset value indicates the qseed block offset
 				from sspp base. It will install qseed property on
 				vig and rgb sspp pipes.
@@ -304,14 +300,6 @@ Example:
     qcom,sde-qseed-type = "qseedv2";
     qcom,sde-highest-bank-bit = <15>;
     qcom,sde-has-mixer-gc;
-    qcom,sde-sspp-danger-lut = <0x55 0x55 0x55 0x55
-				0x55 0x55 0x55 0x55
-				0xaa 0xaa
-				0xbb 0xbb>;
-    qcom,sde-sspp-safe-lut = <0x11 0x11 0x11 0x11
-				0x11 0x11 0x11 0x11
-				0xaa 0xaa
-				0xbb 0xbb>;
     qcom,sde-sspp-max-rects = <1 1 1 1
 				1 1 1 1
 				1 1
@@ -332,6 +320,9 @@ Example:
     qcom,sde-dspp-ad-off = <0x100>;
 
     qcom,sde-wb-id = <2>;
+
+    qcom,sde-sspp-danger-lut = <0x000f 0xffff 0x0000>;
+    qcom,sde-sspp-safe-lut = <0xfffc 0xff00 0xffff>;
 
     qcom,sde-vbif-off = <0 0>;
     qcom,sde-vbif-id = <0 1>;
