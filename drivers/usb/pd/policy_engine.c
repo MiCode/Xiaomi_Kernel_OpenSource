@@ -749,38 +749,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		break;
 
-	case PE_SRC_TRANSITION_TO_DEFAULT:
-		if (pd->vconn_enabled)
-			regulator_disable(pd->vconn);
-		regulator_disable(pd->vbus);
-
-		if (pd->current_dr != DR_DFP) {
-			extcon_set_cable_state_(pd->extcon, EXTCON_USB, 0);
-			pd->current_dr = DR_DFP;
-			pd_phy_update_roles(pd->current_dr, pd->current_pr);
-		}
-
-		msleep(SRC_RECOVER_TIME);
-
-		ret = regulator_enable(pd->vbus);
-		if (ret)
-			usbpd_err(&pd->dev, "Unable to enable vbus\n");
-
-		if (pd->vconn_enabled) {
-			ret = regulator_enable(pd->vconn);
-			if (ret) {
-				usbpd_err(&pd->dev, "Unable to enable vconn\n");
-				pd->vconn_enabled = false;
-			}
-		}
-
-		val.intval = 0;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
-
-		usbpd_set_state(pd, PE_SRC_STARTUP);
-		break;
-
 	case PE_SRC_HARD_RESET:
 	case PE_SNK_HARD_RESET:
 		/* hard reset may sleep; handle it in the workqueue */
@@ -1460,10 +1428,12 @@ static void usbpd_sm(struct work_struct *w)
 		pd->in_pr_swap = false;
 		reset_vdm_state(pd);
 
-		if (pd->current_pr == PR_SINK)
+		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
-		else
-			usbpd_set_state(pd, PE_SRC_TRANSITION_TO_DEFAULT);
+		} else {
+			pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
+			kick_sm(pd, PS_HARD_RESET_TIME);
+		}
 
 		goto sm_done;
 	}
@@ -1628,6 +1598,38 @@ static void usbpd_sm(struct work_struct *w)
 		}
 		break;
 
+	case PE_SRC_TRANSITION_TO_DEFAULT:
+		if (pd->vconn_enabled)
+			regulator_disable(pd->vconn);
+		regulator_disable(pd->vbus);
+
+		if (pd->current_dr != DR_DFP) {
+			extcon_set_cable_state_(pd->extcon, EXTCON_USB, 0);
+			pd->current_dr = DR_DFP;
+			pd_phy_update_roles(pd->current_dr, pd->current_pr);
+		}
+
+		msleep(SRC_RECOVER_TIME);
+
+		ret = regulator_enable(pd->vbus);
+		if (ret)
+			usbpd_err(&pd->dev, "Unable to enable vbus\n");
+
+		if (pd->vconn_enabled) {
+			ret = regulator_enable(pd->vconn);
+			if (ret) {
+				usbpd_err(&pd->dev, "Unable to enable vconn\n");
+				pd->vconn_enabled = false;
+			}
+		}
+
+		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
+		usbpd_set_state(pd, PE_SRC_STARTUP);
+		break;
+
 	case PE_SRC_HARD_RESET:
 		val.intval = 1;
 		power_supply_set_property(pd->usb_psy,
@@ -1637,9 +1639,8 @@ static void usbpd_sm(struct work_struct *w)
 		pd->in_explicit_contract = false;
 		reset_vdm_state(pd);
 
-		usleep_range(PS_HARD_RESET_TIME * USEC_PER_MSEC,
-				(PS_HARD_RESET_TIME + 5) * USEC_PER_MSEC);
-		usbpd_set_state(pd, PE_SRC_TRANSITION_TO_DEFAULT);
+		pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
+		kick_sm(pd, PS_HARD_RESET_TIME);
 		break;
 
 	case PE_SNK_STARTUP:
