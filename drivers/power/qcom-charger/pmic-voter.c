@@ -421,6 +421,7 @@ static int show_votable_clients(struct seq_file *m, void *data)
 
 	lock_votable(votable);
 
+	seq_printf(m, "%s:\n", votable->name);
 	seq_puts(m, "Clients:\n");
 	for (i = 0; i < votable->num_clients; i++) {
 		if (votable->client_strs[i]) {
