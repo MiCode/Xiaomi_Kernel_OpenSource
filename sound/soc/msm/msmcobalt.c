@@ -511,11 +511,18 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.moisture_en = true,
 };
 
-static struct snd_soc_dapm_route wcd_audio_paths[] = {
+static struct snd_soc_dapm_route wcd_audio_paths_tasha[] = {
 	{"MIC BIAS1", NULL, "MCLK TX"},
 	{"MIC BIAS2", NULL, "MCLK TX"},
 	{"MIC BIAS3", NULL, "MCLK TX"},
 	{"MIC BIAS4", NULL, "MCLK TX"},
+};
+
+static struct snd_soc_dapm_route wcd_audio_paths[] = {
+	{"MIC BIAS1", NULL, "MCLK"},
+	{"MIC BIAS2", NULL, "MCLK"},
+	{"MIC BIAS3", NULL, "MCLK"},
+	{"MIC BIAS4", NULL, "MCLK"},
 };
 
 static struct afe_clk_set mi2s_clk[MI2S_MAX] = {
@@ -3123,8 +3130,12 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_new_controls(dapm, msm_dapm_widgets,
 				ARRAY_SIZE(msm_dapm_widgets));
 
-	snd_soc_dapm_add_routes(dapm, wcd_audio_paths,
-				ARRAY_SIZE(wcd_audio_paths));
+	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec"))
+		snd_soc_dapm_add_routes(dapm, wcd_audio_paths_tasha,
+					ARRAY_SIZE(wcd_audio_paths_tasha));
+	else
+		snd_soc_dapm_add_routes(dapm, wcd_audio_paths,
+					ARRAY_SIZE(wcd_audio_paths));
 
 	snd_soc_dapm_ignore_suspend(dapm, "Handset Mic");
 	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
