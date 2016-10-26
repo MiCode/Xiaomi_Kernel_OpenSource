@@ -57,6 +57,10 @@ static u32 supported_modes[] = {
 	HDMI_VFRMT_4096x2160p60_256_135, HDMI_EVFRMT_4096x2160p24_16_9
 };
 
+static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv);
+static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata);
+static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp);
+
 static void mdss_dp_put_dt_clk_data(struct device *dev,
 	struct dss_module_power *module_power)
 {
@@ -1156,19 +1160,27 @@ static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
  *
  * Initiates training of the DP main link and checks the state of the main
  * link after the training is complete.
+ *
+ * Return: error code. -EINVAL if any invalid data or -EAGAIN if retraining
+ * is required.
  */
-static void mdss_dp_train_main_link(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_train_main_link(struct mdss_dp_drv_pdata *dp)
 {
+	int ret = 0;
 	int ready = 0;
 
 	pr_debug("enter\n");
+	ret = mdss_dp_link_train(dp);
+	if (ret)
+		goto end;
 
-	mdss_dp_link_train(dp);
 	mdss_dp_wait4train(dp);
 
 	ready = mdss_dp_mainlink_ready(dp, BIT(0));
 
 	pr_debug("main link %s\n", ready ? "READY" : "NOT READY");
+end:
+	return ret;
 }
 
 static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
@@ -1178,33 +1190,43 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 	struct lane_mapping ln_map;
 
 	/* wait until link training is completed */
-	mutex_lock(&dp_drv->train_mutex);
-
 	pr_debug("enter\n");
 
-	orientation = usbpd_get_plug_orientation(dp_drv->pd);
-	pr_debug("plug orientation = %d\n", orientation);
+	do {
+		if (ret == -EAGAIN) {
+			mdss_dp_mainlink_push_idle(&dp_drv->panel_data);
+			mdss_dp_off_irq(dp_drv);
+		}
 
-	ret = mdss_dp_get_lane_mapping(dp_drv, orientation, &ln_map);
-	if (ret)
-		goto exit;
+		mutex_lock(&dp_drv->train_mutex);
 
-	mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
-			orientation, dp_drv->dpcd.max_lane_count);
+		orientation = usbpd_get_plug_orientation(dp_drv->pd);
+		pr_debug("plug orientation = %d\n", orientation);
 
-	ret = mdss_dp_enable_mainlink_clocks(dp_drv);
-	if (ret)
-		goto exit;
+		ret = mdss_dp_get_lane_mapping(dp_drv, orientation, &ln_map);
+		if (ret)
+			goto exit;
 
-	mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
+		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
+				orientation, dp_drv->dpcd.max_lane_count);
 
-	reinit_completion(&dp_drv->idle_comp);
+		ret = mdss_dp_enable_mainlink_clocks(dp_drv);
+		if (ret)
+			goto exit;
 
-	mdss_dp_configure_source_params(dp_drv, &ln_map);
+		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 
-	mdss_dp_train_main_link(dp_drv);
+		reinit_completion(&dp_drv->idle_comp);
 
-	dp_drv->power_on = true;
+		mdss_dp_configure_source_params(dp_drv, &ln_map);
+
+		dp_drv->power_on = true;
+
+		ret = mdss_dp_train_main_link(dp_drv);
+
+		mutex_unlock(&dp_drv->train_mutex);
+	} while (ret == -EAGAIN);
+
 	pr_debug("end\n");
 
 exit:
@@ -1273,7 +1295,14 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	mdss_dp_configure_source_params(dp_drv, &ln_map);
 
 link_training:
-	mdss_dp_train_main_link(dp_drv);
+	dp_drv->power_on = true;
+
+	if (-EAGAIN == mdss_dp_train_main_link(dp_drv)) {
+		mutex_unlock(&dp_drv->train_mutex);
+
+		mdss_dp_link_retraining(dp_drv);
+		return 0;
+	}
 
 	dp_drv->cont_splash = 0;
 
@@ -1419,18 +1448,23 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 		return mdss_dp_off_hpd(dp);
 }
 
-static void mdss_dp_send_cable_notification(
+static int mdss_dp_send_cable_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
+	int ret = 0;
 
 	if (!dp) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		return;
+		ret = -EINVAL;
+		goto end;
 	}
 
 	if (dp && dp->ext_audio_data.intf_ops.hpd)
-		dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
+		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
 				dp->ext_audio_data.type, val);
+
+end:
+	return ret;
 }
 
 static void mdss_dp_audio_codec_wait(struct mdss_dp_drv_pdata *dp)
@@ -1450,18 +1484,22 @@ static void mdss_dp_audio_codec_wait(struct mdss_dp_drv_pdata *dp)
 	dp->wait_for_audio_comp = false;
 }
 
-static void mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
+static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
 {
+	int notified = 0;
+
 	if (enable) {
-		mdss_dp_send_cable_notification(dp, enable);
+		notified = mdss_dp_send_cable_notification(dp, enable);
 	} else {
 		mdss_dp_set_audio_switch_node(dp, enable);
 		mdss_dp_audio_codec_wait(dp);
-		mdss_dp_send_cable_notification(dp, enable);
+		notified = mdss_dp_send_cable_notification(dp, enable);
 	}
 
 	pr_debug("notify state %s done\n",
 			enable ? "ENABLE" : "DISABLE");
+
+	return notified;
 }
 
 
@@ -2336,15 +2374,20 @@ static int mdss_dp_hpd_irq_notify_clients(struct mdss_dp_drv_pdata *dp)
 	int ret = 0;
 
 	if (dp->hpd_irq_toggled) {
-		mdss_dp_notify_clients(dp, false);
 		dp->hpd_irq_clients_notified = true;
 
-		reinit_completion(&dp->irq_comp);
-		ret = wait_for_completion_timeout(&dp->irq_comp,
-				irq_comp_timeout);
-		if (ret <= 0) {
-			pr_warn("irq_comp timed out\n");
-			return -EINVAL;
+		ret = mdss_dp_notify_clients(dp, false);
+
+		if (!IS_ERR_VALUE(ret) && ret) {
+			reinit_completion(&dp->irq_comp);
+			ret = wait_for_completion_timeout(&dp->irq_comp,
+					irq_comp_timeout);
+			if (ret <= 0) {
+				pr_warn("irq_comp timed out\n");
+				ret = -EINVAL;
+			} else {
+				ret = 0;
+			}
 		}
 	}
 
