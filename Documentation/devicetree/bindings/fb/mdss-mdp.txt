@@ -626,6 +626,14 @@ Subnode properties:
 						secure mdp domain.
 			"qcom,smmu_rot_sec"	- smmu context bank device for
 						secure rotation domain.
+			"qcom,smmu_kms_unsec" 	- smmu context bank device for
+						unsecure mdp domain for KMS driver.
+			"qcom,smmu_nrt_unsec"	- smmu context bank device for
+						unsecure rotation domain for KMS driver.
+			"qcom,smmu_kms_sec" 	- smmu context bank device for
+						secure mdp domain for KMS driver.
+			"qcom,smmu_nrt_sec"	- smmu context bank device for
+						secure rotation domain for KMS driver.
 			"qcom,smmu_arm_mdp_unsec"	- arm smmu context bank device for
 						unsecure mdp domain.
 			"qcom,smmu_arm_mdp_sec"	- arm smmu context bank device for

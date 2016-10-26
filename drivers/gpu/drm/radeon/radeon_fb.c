@@ -52,9 +52,9 @@ static struct fb_ops radeonfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_check_var = drm_fb_helper_check_var,
 	.fb_set_par = drm_fb_helper_set_par,
-	.fb_fillrect = cfb_fillrect,
-	.fb_copyarea = cfb_copyarea,
-	.fb_imageblit = cfb_imageblit,
+	.fb_fillrect = drm_fb_helper_cfb_fillrect,
+	.fb_copyarea = drm_fb_helper_cfb_copyarea,
+	.fb_imageblit = drm_fb_helper_cfb_imageblit,
 	.fb_pan_display = drm_fb_helper_pan_display,
 	.fb_blank = drm_fb_helper_blank,
 	.fb_setcmap = drm_fb_helper_setcmap,
@@ -197,7 +197,6 @@ static int radeonfb_create(struct drm_fb_helper *helper,
 	struct drm_mode_fb_cmd2 mode_cmd;
 	struct drm_gem_object *gobj = NULL;
 	struct radeon_bo *rbo = NULL;
-	struct device *device = &rdev->pdev->dev;
 	int ret;
 	unsigned long tmp;
 
@@ -220,25 +219,25 @@ static int radeonfb_create(struct drm_fb_helper *helper,
 	rbo = gem_to_radeon_bo(gobj);
 
 	/* okay we have an object now allocate the framebuffer */
-	info = framebuffer_alloc(0, device);
-	if (info == NULL) {
-		ret = -ENOMEM;
+	info = drm_fb_helper_alloc_fbi(helper);
+	if (IS_ERR(info)) {
+		ret = PTR_ERR(info);
 		goto out_unref;
 	}
 
 	info->par = rfbdev;
+	info->skip_vt_switch = true;
 
 	ret = radeon_framebuffer_init(rdev->ddev, &rfbdev->rfb, &mode_cmd, gobj);
 	if (ret) {
 		DRM_ERROR("failed to initialize framebuffer %d\n", ret);
-		goto out_unref;
+		goto out_destroy_fbi;
 	}
 
 	fb = &rfbdev->rfb.base;
 
 	/* setup helper */
 	rfbdev->helper.fb = fb;
-	rfbdev->helper.fbdev = info;
 
 	memset_io(rbo->kptr, 0x0, radeon_bo_size(rbo));
 
@@ -258,11 +257,6 @@ static int radeonfb_create(struct drm_fb_helper *helper,
 	drm_fb_helper_fill_var(info, &rfbdev->helper, sizes->fb_width, sizes->fb_height);
 
 	/* setup aperture base/size for vesafb takeover */
-	info->apertures = alloc_apertures(1);
-	if (!info->apertures) {
-		ret = -ENOMEM;
-		goto out_unref;
-	}
 	info->apertures->ranges[0].base = rdev->ddev->mode_config.fb_base;
 	info->apertures->ranges[0].size = rdev->mc.aper_size;
 
@@ -270,13 +264,7 @@ static int radeonfb_create(struct drm_fb_helper *helper,
 
 	if (info->screen_base == NULL) {
 		ret = -ENOSPC;
-		goto out_unref;
-	}
-
-	ret = fb_alloc_cmap(&info->cmap, 256, 0);
-	if (ret) {
-		ret = -ENOMEM;
-		goto out_unref;
+		goto out_destroy_fbi;
 	}
 
 	DRM_INFO("fb mappable at 0x%lX\n",  info->fix.smem_start);
@@ -288,6 +276,8 @@ static int radeonfb_create(struct drm_fb_helper *helper,
 	vga_switcheroo_client_fb_set(rdev->ddev->pdev, info);
 	return 0;
 
+out_destroy_fbi:
+	drm_fb_helper_release_fbi(helper);
 out_unref:
 	if (rbo) {
 
@@ -303,23 +293,15 @@ out_unref:
 
 void radeon_fb_output_poll_changed(struct radeon_device *rdev)
 {
-	if (rdev->mode_info.rfbdev)
-		drm_fb_helper_hotplug_event(&rdev->mode_info.rfbdev->helper);
+	drm_fb_helper_hotplug_event(&rdev->mode_info.rfbdev->helper);
 }
 
 static int radeon_fbdev_destroy(struct drm_device *dev, struct radeon_fbdev *rfbdev)
 {
-	struct fb_info *info;
 	struct radeon_framebuffer *rfb = &rfbdev->rfb;
 
-	if (rfbdev->helper.fbdev) {
-		info = rfbdev->helper.fbdev;
-
-		unregister_framebuffer(info);
-		if (info->cmap.len)
-			fb_dealloc_cmap(&info->cmap);
-		framebuffer_release(info);
-	}
+	drm_fb_helper_unregister_fbi(&rfbdev->helper);
+	drm_fb_helper_release_fbi(&rfbdev->helper);
 
 	if (rfb->obj) {
 		radeonfb_destroy_pinned_object(rfb->obj);
@@ -344,10 +326,6 @@ int radeon_fbdev_init(struct radeon_device *rdev)
 	int bpp_sel = 32;
 	int ret;
 
-	/* don't enable fbdev if no connectors */
-	if (list_empty(&rdev->ddev->mode_config.connector_list))
-		return 0;
-
 	/* select 8 bpp console on RN50 or 16MB cards */
 	if (ASIC_IS_RN50(rdev) || rdev->mc.real_vram_size <= (32*1024*1024))
 		bpp_sel = 8;
@@ -365,18 +343,27 @@ int radeon_fbdev_init(struct radeon_device *rdev)
 	ret = drm_fb_helper_init(rdev->ddev, &rfbdev->helper,
 				 rdev->num_crtc,
 				 RADEONFB_CONN_LIMIT);
-	if (ret) {
-		kfree(rfbdev);
-		return ret;
-	}
+	if (ret)
+		goto free;
 
-	drm_fb_helper_single_add_all_connectors(&rfbdev->helper);
+	ret = drm_fb_helper_single_add_all_connectors(&rfbdev->helper);
+	if (ret)
+		goto fini;
 
 	/* disable all the possible outputs/crtcs before entering KMS mode */
 	drm_helper_disable_unused_functions(rdev->ddev);
 
-	drm_fb_helper_initial_config(&rfbdev->helper, bpp_sel);
+	ret = drm_fb_helper_initial_config(&rfbdev->helper, bpp_sel);
+	if (ret)
+		goto fini;
+
 	return 0;
+
+fini:
+	drm_fb_helper_fini(&rfbdev->helper);
+free:
+	kfree(rfbdev);
+	return ret;
 }
 
 void radeon_fbdev_fini(struct radeon_device *rdev)
@@ -391,25 +378,11 @@ void radeon_fbdev_fini(struct radeon_device *rdev)
 
 void radeon_fbdev_set_suspend(struct radeon_device *rdev, int state)
 {
-	if (rdev->mode_info.rfbdev)
-		fb_set_suspend(rdev->mode_info.rfbdev->helper.fbdev, state);
-}
-
-int radeon_fbdev_total_size(struct radeon_device *rdev)
-{
-	struct radeon_bo *robj;
-	int size = 0;
-
-	robj = gem_to_radeon_bo(rdev->mode_info.rfbdev->rfb.obj);
-	size += radeon_bo_size(robj);
-	return size;
+	fb_set_suspend(rdev->mode_info.rfbdev->helper.fbdev, state);
 }
 
 bool radeon_fbdev_robj_is_fb(struct radeon_device *rdev, struct radeon_bo *robj)
 {
-	if (!rdev->mode_info.rfbdev)
-		return false;
-
 	if (robj == gem_to_radeon_bo(rdev->mode_info.rfbdev->rfb.obj))
 		return true;
 	return false;
@@ -417,12 +390,26 @@ bool radeon_fbdev_robj_is_fb(struct radeon_device *rdev, struct radeon_bo *robj)
 
 void radeon_fb_add_connector(struct radeon_device *rdev, struct drm_connector *connector)
 {
-	if (rdev->mode_info.rfbdev)
-		drm_fb_helper_add_one_connector(&rdev->mode_info.rfbdev->helper, connector);
+	drm_fb_helper_add_one_connector(&rdev->mode_info.rfbdev->helper, connector);
 }
 
 void radeon_fb_remove_connector(struct radeon_device *rdev, struct drm_connector *connector)
 {
-	if (rdev->mode_info.rfbdev)
-		drm_fb_helper_remove_one_connector(&rdev->mode_info.rfbdev->helper, connector);
+	drm_fb_helper_remove_one_connector(&rdev->mode_info.rfbdev->helper, connector);
+}
+
+void radeon_fbdev_restore_mode(struct radeon_device *rdev)
+{
+	struct radeon_fbdev *rfbdev = rdev->mode_info.rfbdev;
+	struct drm_fb_helper *fb_helper;
+	int ret;
+
+	if (!rfbdev)
+		return;
+
+	fb_helper = &rfbdev->helper;
+
+	ret = drm_fb_helper_restore_fbdev_mode_unlocked(fb_helper);
+	if (ret)
+		DRM_DEBUG("failed to restore crtc mode\n");
 }

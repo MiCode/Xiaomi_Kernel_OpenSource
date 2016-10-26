@@ -325,7 +325,7 @@
 	};
 };
 
-#include "msm8996-mdss-panels.dtsi"
+#include "msm8996-sde-display.dtsi"
 
 &dsi_hx8379a_fwvga_truly_vid {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
@@ -339,6 +339,58 @@
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&sde_kms {
+	connectors = <&sde_hdmi &display_manager>;
+	gpus = <&msm_gpu>;
+	memory-region = <&cont_splash_mem>;
+	qcom,sde-plane-id-map {
+		qcom,sde-plane-id@0 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "rgb0", "rgb1";
+			qcom,plane-type = "primary";
+		};
+		qcom,sde-plane-id@1 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "vig0", "vig1";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@2 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "vig2", "vig3";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@3 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "rgb2", "rgb3";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@4 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "dma0", "dma1";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@5 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "cursor0", "cursor1";
+			qcom,plane-type = "cursor";
+		};
+	};
+};
+
+&dsi_dual_sharp_video_1 {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&sde_hdmi {
+	status = "ok";
+	qcom,hdmi-tx-ddc-clk-gpio = <&tlmm 32 0>;
+	qcom,hdmi-tx-ddc-data-gpio = <&tlmm 33 0>;
+	qcom,hdmi-tx-hpd-gpio = <&tlmm 34 0>;
+	qcom,hdmi-tx-mux-en-gpio = <&tlmm 27 0>;
+	qcom,hdmi-tx-mux-sel-gpio = <&tlmm 83 0>;
+	qcom,hdmi-tx-mux-lpm-gpio = <&tlmm 85 0>;
 };
 
 &mdss_dsi {

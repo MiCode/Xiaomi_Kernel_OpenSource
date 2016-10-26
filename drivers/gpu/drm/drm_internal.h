@@ -55,7 +55,6 @@ void drm_prime_remove_buf_handle_locked(struct drm_prime_file_private *prime_fpr
 int drm_name_info(struct seq_file *m, void *data);
 int drm_vm_info(struct seq_file *m, void *data);
 int drm_bufs_info(struct seq_file *m, void *data);
-int drm_vblank_info(struct seq_file *m, void *data);
 int drm_clients_info(struct seq_file *m, void* data);
 int drm_gem_name_info(struct seq_file *m, void *data);
 
@@ -70,12 +69,11 @@ int drm_getmagic(struct drm_device *dev, void *data,
 		 struct drm_file *file_priv);
 int drm_authmagic(struct drm_device *dev, void *data,
 		  struct drm_file *file_priv);
-int drm_remove_magic(struct drm_master *master, drm_magic_t magic);
 
 /* drm_sysfs.c */
 extern struct class *drm_class;
 
-struct class *drm_sysfs_create(struct module *owner, char *name);
+int drm_sysfs_init(void);
 void drm_sysfs_destroy(void);
 struct device *drm_sysfs_minor_alloc(struct drm_minor *minor);
 int drm_sysfs_connector_add(struct drm_connector *connector);
