@@ -1870,6 +1870,10 @@ free_irqs:
 
 	arm_smmu_free_context_idx(smmu, cfg->cbndx);
 	smmu_domain->smmu = NULL;
+	cfg->cbndx = INVALID_CBNDX;
+	cfg->irptndx = INVALID_IRPTNDX;
+	cfg->asid = INVALID_ASID;
+	cfg->vmid = INVALID_VMID;
 }
 
 static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
