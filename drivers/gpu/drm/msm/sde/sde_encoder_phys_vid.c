@@ -248,19 +248,23 @@ static bool sde_encoder_phys_vid_mode_fixup(
 static void sde_encoder_phys_vid_setup_timing_engine(
 		struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-		to_sde_encoder_phys_vid(phys_enc);
-	struct drm_display_mode mode = phys_enc->cached_mode;
+	struct sde_encoder_phys_vid *vid_enc;
+	struct drm_display_mode mode;
 	struct intf_timing_params timing_params = { 0 };
 	const struct sde_format *fmt = NULL;
 	u32 fmt_fourcc = DRM_FORMAT_RGB888;
 	unsigned long lock_flags;
 	struct sde_hw_intf_cfg intf_cfg = { 0 };
 
-	if (!phys_enc ||
-			!vid_enc->hw_intf->ops.setup_timing_gen ||
-			!phys_enc->hw_ctl->ops.setup_intf_cfg) {
+	if (!phys_enc || !phys_enc->hw_ctl->ops.setup_intf_cfg) {
 		SDE_ERROR("invalid encoder %d\n", phys_enc != 0);
+		return;
+	}
+
+	mode = phys_enc->cached_mode;
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	if (!vid_enc->hw_intf->ops.setup_timing_gen) {
+		SDE_ERROR("timing engine setup is not supported\n");
 		return;
 	}
 
@@ -366,8 +370,7 @@ static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc,
 	enum sde_intr_type intr_type, int *irq_idx,
 	void (*irq_func)(void *, int), const char *irq_name)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-			to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_irq_callback irq_cb;
 	int ret = 0;
 
@@ -376,6 +379,7 @@ static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc,
 		return -EINVAL;
 	}
 
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	*irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms, intr_type,
 			vid_enc->hw_intf->idx);
 	if (*irq_idx < 0) {
@@ -417,14 +421,14 @@ static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc,
 static int sde_encoder_phys_vid_unregister_irq(
 	struct sde_encoder_phys *phys_enc, int irq_idx)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-			to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		goto end;
 	}
 
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	sde_core_irq_disable(phys_enc->sde_kms, &irq_idx, 1);
 
 	sde_core_irq_register_callback(phys_enc->sde_kms, irq_idx, NULL);
@@ -440,17 +444,17 @@ static void sde_encoder_phys_vid_mode_set(
 		struct drm_display_mode *mode,
 		struct drm_display_mode *adj_mode)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-		to_sde_encoder_phys_vid(phys_enc);
 	struct sde_rm *rm = &phys_enc->sde_kms->rm;
 	struct sde_rm_hw_iter iter;
 	int i, instance;
+	struct sde_encoder_phys_vid *vid_enc;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	phys_enc->cached_mode = *adj_mode;
 	SDE_DEBUG_VIDENC(vid_enc, "caching mode:\n");
 	drm_mode_debug_printmodeline(adj_mode);
@@ -477,14 +481,15 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 		struct sde_encoder_phys *phys_enc,
 		bool enable)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-		to_sde_encoder_phys_vid(phys_enc);
 	int ret = 0;
+	struct sde_encoder_phys_vid *vid_enc;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return -EINVAL;
 	}
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 
 	/* Slave encoders don't report vblank */
 	if (!sde_encoder_phys_vid_is_master(phys_enc))
@@ -516,17 +521,21 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 
 static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-		to_sde_encoder_phys_vid(phys_enc);
-	struct sde_hw_intf *intf = vid_enc->hw_intf;
-	struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
+	struct sde_encoder_phys_vid *vid_enc;
+	struct sde_hw_intf *intf;
+	struct sde_hw_ctl *ctl;
 	u32 flush_mask = 0;
 	int ret;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
-	} else if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
+	}
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	intf = vid_enc->hw_intf;
+	ctl = phys_enc->hw_ctl;
+	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid hw_intf %d hw_ctl %d\n",
 				vid_enc->hw_intf != 0, phys_enc->hw_ctl != 0);
 		return;
@@ -573,13 +582,15 @@ end:
 static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 {
 	unsigned long lock_flags;
-	struct sde_encoder_phys_vid *vid_enc =
-			to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
-	} else if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
+	}
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid hw_intf %d hw_ctl %d\n",
 				vid_enc->hw_intf != 0, phys_enc->hw_ctl != 0);
 		return;
@@ -623,13 +634,14 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 
 static void sde_encoder_phys_vid_destroy(struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-	    to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	SDE_DEBUG_VIDENC(vid_enc, "\n");
 	kfree(vid_enc);
 }
@@ -639,14 +651,20 @@ static void sde_encoder_phys_vid_get_hw_resources(
 		struct sde_encoder_hw_resources *hw_res,
 		struct drm_connector_state *conn_state)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-		to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 
-	if (!phys_enc || !hw_res || !vid_enc->hw_intf) {
+	if (!phys_enc || !hw_res) {
 		SDE_ERROR("invalid arg(s), enc %d hw_res %d conn_state %d\n",
 				phys_enc != 0, hw_res != 0, conn_state != 0);
 		return;
 	}
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	if (!vid_enc->hw_intf) {
+		SDE_ERROR("invalid arg(s), hw_intf\n");
+		return;
+	}
+
 	SDE_DEBUG_VIDENC(vid_enc, "\n");
 	hw_res->intfs[vid_enc->hw_intf->idx - INTF_0] = INTF_MODE_VIDEO;
 }
@@ -700,13 +718,14 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 		struct sde_encoder_phys *phys_enc)
 {
 	unsigned long lock_flags;
-	struct sde_encoder_phys_vid *vid_enc =
-			to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	SDE_DEBUG_VIDENC(vid_enc, "enable_state %d\n", phys_enc->enable_state);
 
 	/*
