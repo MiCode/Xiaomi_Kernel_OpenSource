@@ -293,6 +293,7 @@ static int _sde_debugfs_init(struct sde_kms *sde_kms)
 		SDE_ERROR("failed to create debugfs debug directory\n");
 
 	sde_debugfs_danger_init(sde_kms, sde_kms->debugfs_debug);
+	sde_debugfs_vbif_init(sde_kms, sde_kms->debugfs_debug);
 
 	return 0;
 }
@@ -301,6 +302,7 @@ static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 {
 	/* don't need to NULL check debugfs_root */
 	if (sde_kms) {
+		sde_debugfs_vbif_destroy(sde_kms);
 		sde_debugfs_danger_destroy(sde_kms);
 		debugfs_remove_recursive(sde_kms->debugfs_debug);
 		sde_kms->debugfs_debug = 0;
