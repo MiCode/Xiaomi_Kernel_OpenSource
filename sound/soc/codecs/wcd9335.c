@@ -10265,14 +10265,14 @@ static int tasha_codec_ec_buf_mux_enable(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_write(codec, WCD9335_CPE_SS_EC_BUF_INT_PERIOD, 0x3B);
-		snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG, 0x68, 0x28);
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG, 0x08, 0x08);
 		snd_soc_update_bits(codec, WCD9335_CDC_IF_ROUTER_TX_MUX_CFG0,
 				    0x08, 0x08);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, WCD9335_CDC_IF_ROUTER_TX_MUX_CFG0,
 				    0x08, 0x00);
-		snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG, 0x68, 0x40);
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG, 0x08, 0x00);
 		snd_soc_write(codec, WCD9335_CPE_SS_EC_BUF_INT_PERIOD, 0x00);
 		break;
 	}
