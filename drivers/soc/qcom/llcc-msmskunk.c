@@ -58,11 +58,11 @@
 	}
 
 static struct llcc_slice_config msmskunk_data[] =  {
-	SCT_ENTRY("cpuss",       1, 1, 0,   0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 1),
+	SCT_ENTRY("cpuss",       1, 1, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 1),
 	SCT_ENTRY("vidsc0",      2, 2, 512, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("vidsc1",      3, 3, 512, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("rotator",     4, 4, 800, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("audiohp",     5, 5, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("voice",       5, 5, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("audio",       6, 6, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modemhp",     7, 7, 1024, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modem",       8, 8, 1024, 0, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
@@ -70,10 +70,11 @@ static struct llcc_slice_config msmskunk_data[] =  {
 	SCT_ENTRY("compute",     10, 10, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("gpuhtw",      11, 11, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("gpu",         12, 12, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("mmuhwt",      13, 13, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 0, 0),
+	SCT_ENTRY("mmuhwt",      13, 13, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1),
 	SCT_ENTRY("sensor",      14, 14, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("compute_dma", 15, 15, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("display",     16, 16, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0)
+	SCT_ENTRY("display",     16, 16, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("videofw",     17, 17, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0)
 };
 
 static int msmskunk_qcom_llcc_probe(struct platform_device *pdev)
