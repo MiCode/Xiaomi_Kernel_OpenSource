@@ -768,6 +768,15 @@ config MSM_SERVICE_NOTIFIER
 	  like audio, the identifier for which is provided by the service
 	  locator.
 
+config MSM_QBT1000
+	bool "QBT1000 Ultrasonic Fingerprint Sensor"
+	help
+	  This driver provides services for configuring the fingerprint
+	  sensor hardware and for communicating with the trusted app which
+	  uses it. It enables clocks and provides commands for loading
+	  trusted apps, unloading them and marshalling buffers to the
+	  trusted fingerprint app.
+
 config MSM_RPM_RBCPR_STATS_V2_LOG
 	tristate "MSM Resource Power Manager RPBCPR Stat Driver"
 	depends on DEBUG_FS
