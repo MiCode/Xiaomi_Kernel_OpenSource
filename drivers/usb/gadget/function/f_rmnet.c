@@ -17,9 +17,11 @@
 #include <linux/netdevice.h>
 #include <linux/spinlock.h>
 #include <linux/usb_bam.h>
+#include <linux/module.h>
 
 #include "u_rmnet.h"
 #include "u_data_ipa.h"
+#include "configfs.h"
 
 #define RMNET_NOTIFY_INTERVAL	5
 #define RMNET_MAX_NOTIFY_SIZE	sizeof(struct usb_cdc_notification)
@@ -49,7 +51,7 @@ struct f_rmnet {
 	struct list_head		cpkt_resp_q;
 	unsigned long			notify_count;
 	unsigned long			cpkts_len;
-} rmnet_port;
+} *rmnet_port;
 
 static struct usb_interface_descriptor rmnet_interface_desc = {
 	.bLength =		USB_DT_INTERFACE_SIZE,
@@ -277,15 +279,6 @@ static void rmnet_free_ctrl_pkt(struct rmnet_ctrl_pkt *pkt)
 
 /* -------------------------------------------*/
 
-static int rmnet_gport_setup(void)
-{
-	int	ret;
-	ret = ipa_data_setup(USB_IPA_FUNC_RMNET);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
-
 static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 {
 	int			ret;
@@ -332,6 +325,16 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 	gqti_ctrl_disconnect(&dev->port, QTI_PORT_RMNET);
 	ipa_data_disconnect(&dev->ipa_port, USB_IPA_FUNC_RMNET);
 	return 0;
+}
+
+static void frmnet_free(struct usb_function *f)
+{
+	struct f_rmnet_opts *opts;
+
+	opts = container_of(f->fi, struct f_rmnet_opts, func_inst);
+	opts->refcnt--;
+	kfree(rmnet_port);
+	rmnet_port = NULL;
 }
 
 static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
@@ -426,11 +429,12 @@ static int
 frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_rmnet			*dev = func_to_rmnet(f);
-	struct usb_composite_dev	*cdev = dev->cdev;
+	struct usb_composite_dev	*cdev = f->config->cdev;
 	int				ret;
 	struct list_head		*cpkt;
 
 	pr_debug("%s: dev: %p\n", __func__, dev);
+	dev->cdev = cdev;
 	if (dev->notify->driver_data) {
 		pr_debug("%s: reset port\n", __func__);
 		usb_ep_disable(dev->notify);
@@ -816,6 +820,16 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_composite_dev	*cdev = c->cdev;
 	int				ret = -ENODEV;
 
+	if (rmnet_string_defs[0].id == 0) {
+		ret = usb_string_id(c->cdev);
+		if (ret < 0) {
+			pr_err("%s: failed to get string id, err:%d\n",
+					__func__, ret);
+			return ret;
+		}
+		rmnet_string_defs[0].id = ret;
+	}
+
 	pr_debug("%s: start binding\n", __func__);
 	dev->ifc_id = usb_interface_id(c, f);
 	if (dev->ifc_id < 0) {
@@ -936,33 +950,26 @@ ep_auto_out_fail:
 	return ret;
 }
 
-static int frmnet_bind_config(struct usb_configuration *c)
+static struct usb_function *frmnet_bind_config(struct usb_function_instance *fi)
 {
+	struct f_rmnet_opts *opts;
 	int			status;
 	struct f_rmnet		*dev;
 	struct usb_function	*f;
 	unsigned long		flags;
 
-	pr_debug("%s: usb config:%p\n", __func__, c);
-	dev = &rmnet_port;
-	if (rmnet_string_defs[0].id == 0) {
-		status = usb_string_id(c->cdev);
-		if (status < 0) {
-			pr_err("%s: failed to get string id, err:%d\n",
-					__func__, status);
-			return status;
-		}
-		rmnet_string_defs[0].id = status;
-	}
-
+	/* allocate and initialize one new instance */
+	status = -ENOMEM;
+	opts = container_of(fi, struct f_rmnet_opts, func_inst);
+	opts->refcnt++;
+	dev = opts->dev;
 	spin_lock_irqsave(&dev->lock, flags);
-	dev->cdev = c->cdev;
 	f = &dev->func;
 	f->name = kasprintf(GFP_ATOMIC, "rmnet%d", 0);
 	spin_unlock_irqrestore(&dev->lock, flags);
 	if (!f->name) {
 		pr_err("%s: cannot allocate memory for name\n", __func__);
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 	}
 
 	f->strings = rmnet_strings;
@@ -973,21 +980,14 @@ static int frmnet_bind_config(struct usb_configuration *c)
 	f->setup = frmnet_setup;
 	f->suspend = frmnet_suspend;
 	f->resume = frmnet_resume;
+	f->free_func = frmnet_free;
 	dev->port.send_cpkt_response = frmnet_send_cpkt_response;
 	dev->port.disconnect = frmnet_disconnect;
 	dev->port.connect = frmnet_connect;
 
-	status = usb_add_function(c, f);
-	if (status) {
-		pr_err("%s: usb add function failed: %d\n",
-				__func__, status);
-		kfree(f->name);
-		return status;
-	}
-
 	pr_debug("%s: complete\n", __func__);
 
-	return status;
+	return f;
 }
 
 static int rmnet_init(void)
@@ -998,24 +998,105 @@ static int rmnet_init(void)
 static void frmnet_cleanup(void)
 {
 	gqti_ctrl_cleanup();
-	kfree(&rmnet_port);
 }
 
-static int frmnet_init_port(const char *ctrl_name, const char *data_name,
-		const char *port_name)
+static void rmnet_free_inst(struct usb_function_instance *f)
 {
-	struct f_rmnet	*dev;
-
-	pr_debug("%s: ctrl port: %s data port: %s\n",
-		__func__, ctrl_name, data_name);
-
-	dev = kzalloc(sizeof(struct f_rmnet), GFP_KERNEL);
-	if (!dev)
-		return -ENOMEM;
-
-	spin_lock_init(&dev->lock);
-	INIT_LIST_HEAD(&dev->cpkt_resp_q);
-	rmnet_port = *dev;
-
-	return 0;
+	struct f_rmnet_opts *opts = container_of(f, struct f_rmnet_opts,
+						func_inst);
+	ipa_data_free(USB_IPA_FUNC_RMNET);
+	kfree(opts);
 }
+
+static int rmnet_set_inst_name(struct usb_function_instance *fi,
+		const char *name)
+{
+	int name_len;
+	int ret;
+
+	name_len = strlen(name) + 1;
+	if (name_len > MAX_INST_NAME_LEN)
+		return -ENAMETOOLONG;
+
+	ret = ipa_data_setup(USB_IPA_FUNC_RMNET);
+	return ret;
+}
+
+static inline struct f_rmnet_opts *to_f_rmnet_opts(struct config_item *item)
+{
+	return container_of(to_config_group(item), struct f_rmnet_opts,
+				func_inst.group);
+}
+
+static void rmnet_opts_release(struct config_item *item)
+{
+	struct f_rmnet_opts *opts = to_f_rmnet_opts(item);
+
+	usb_put_function_instance(&opts->func_inst);
+};
+
+static struct configfs_item_operations rmnet_item_ops = {
+	.release = rmnet_opts_release,
+};
+
+static struct config_item_type rmnet_func_type = {
+	.ct_item_ops    = &rmnet_item_ops,
+	.ct_owner       = THIS_MODULE,
+};
+
+static struct usb_function_instance *rmnet_alloc_inst(void)
+{
+	struct f_rmnet_opts *opts;
+
+	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
+	if (!opts)
+		return ERR_PTR(-ENOMEM);
+
+	opts->func_inst.set_inst_name = rmnet_set_inst_name;
+	opts->func_inst.free_func_inst = rmnet_free_inst;
+
+	config_group_init_type_name(&opts->func_inst.group, "",
+				&rmnet_func_type);
+	return &opts->func_inst;
+}
+
+static struct usb_function *rmnet_alloc(struct usb_function_instance *fi)
+{
+	struct f_rmnet_opts *opts = container_of(fi,
+					struct f_rmnet_opts, func_inst);
+	rmnet_port = kzalloc(sizeof(struct f_rmnet), GFP_KERNEL);
+	if (!rmnet_port)
+		return ERR_PTR(-ENOMEM);
+	opts->dev = rmnet_port;
+	spin_lock_init(&rmnet_port->lock);
+	INIT_LIST_HEAD(&rmnet_port->cpkt_resp_q);
+	return frmnet_bind_config(fi);
+}
+
+DECLARE_USB_FUNCTION(rmnet_bam, rmnet_alloc_inst, rmnet_alloc);
+
+static int __init usb_rmnet_init(void)
+{
+	int ret;
+
+	ret = rmnet_init();
+	if (!ret) {
+		ret = usb_function_register(&rmnet_bamusb_func);
+		if (ret) {
+			pr_err("%s: failed to register rmnet %d\n",
+					__func__, ret);
+			return ret;
+		}
+	}
+	return ret;
+}
+
+static void __exit usb_rmnet_exit(void)
+{
+	usb_function_unregister(&rmnet_bamusb_func);
+	frmnet_cleanup();
+}
+
+module_init(usb_rmnet_init);
+module_exit(usb_rmnet_exit);
+MODULE_DESCRIPTION("USB RMNET Function Driver");

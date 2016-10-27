@@ -59,6 +59,12 @@ struct f_rndis_qc_opts {
 	int				refcnt;
 };
 
+struct f_rmnet_opts {
+	struct usb_function_instance func_inst;
+	struct f_rmnet *dev;
+	int refcnt;
+};
+
 void ipa_data_port_select(enum ipa_func_type func);
 void ipa_data_disconnect(struct gadget_ipa_port *gp, enum ipa_func_type func);
 int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
