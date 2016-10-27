@@ -2072,6 +2072,11 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	clk_prepare_enable(mdwc->iface_clk);
 	clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 	clk_prepare_enable(mdwc->core_clk);
+
+	/* set Memory core: ON, Memory periphery: ON */
+	clk_set_flags(mdwc->core_clk, CLKFLAG_RETAIN_MEM);
+	clk_set_flags(mdwc->core_clk, CLKFLAG_RETAIN_PERIPH);
+
 	clk_prepare_enable(mdwc->utmi_clk);
 	if (mdwc->bus_aggr_clk)
 		clk_prepare_enable(mdwc->bus_aggr_clk);
