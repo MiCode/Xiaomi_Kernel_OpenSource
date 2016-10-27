@@ -1341,8 +1341,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct drm_display_mode *mode;
 
 	int cnt = 0, rc = 0, mixer_width, i, z_pos;
-	int left_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
-	int right_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
+	int left_zpos_cnt = 0, right_zpos_cnt = 0;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -1396,11 +1395,12 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		}
 	}
 
+	/* assign mixer stages based on sorted zpos property */
+	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
+
 	if (!sde_is_custom_client()) {
 		int stage_old = pstates[0].stage;
 
-		/* assign mixer stages based on sorted zpos property */
-		sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
 		z_pos = 0;
 		for (i = 0; i < cnt; i++) {
 			if (stage_old != pstates[i].stage)
@@ -1410,8 +1410,14 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		}
 	}
 
+	z_pos = -1;
 	for (i = 0; i < cnt; i++) {
-		z_pos = pstates[i].stage;
+		/* reset counts at every new blend stage */
+		if (pstates[i].stage != z_pos) {
+			left_zpos_cnt = 0;
+			right_zpos_cnt = 0;
+			z_pos = pstates[i].stage;
+		}
 
 		/* verify z_pos setting before using it */
 		if (z_pos >= SDE_STAGE_MAX - SDE_STAGE_0) {
@@ -1420,22 +1426,24 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			rc = -EINVAL;
 			goto end;
 		} else if (pstates[i].drm_pstate->crtc_x < mixer_width) {
-			if (left_crtc_zpos_cnt[z_pos] == 2) {
-				SDE_ERROR("> 2 plane @ stage%d on left\n",
+			if (left_zpos_cnt == 2) {
+				SDE_ERROR("> 2 planes @ stage %d on left\n",
 					z_pos);
 				rc = -EINVAL;
 				goto end;
 			}
-			left_crtc_zpos_cnt[z_pos]++;
+			left_zpos_cnt++;
+
 		} else {
-			if (right_crtc_zpos_cnt[z_pos] == 2) {
-				SDE_ERROR("> 2 plane @ stage%d on right\n",
+			if (right_zpos_cnt == 2) {
+				SDE_ERROR("> 2 planes @ stage %d on right\n",
 					z_pos);
 				rc = -EINVAL;
 				goto end;
 			}
-			right_crtc_zpos_cnt[z_pos]++;
+			right_zpos_cnt++;
 		}
+
 		pstates[i].sde_pstate->stage = z_pos + SDE_STAGE_0;
 		SDE_DEBUG("%s: zpos %d", sde_crtc->name, z_pos);
 	}
@@ -1446,6 +1454,49 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 				crtc->base.id, rc);
 		goto end;
 	}
+
+	/*
+	 * enforce pipe priority restrictions
+	 * use pstates sorted by stage to check planes on same stage
+	 * we assume that all pipes are in source split so its valid to compare
+	 * without taking into account left/right mixer placement
+	 */
+	for (i = 1; i < cnt; i++) {
+		struct plane_state *prv_pstate, *cur_pstate;
+		int32_t prv_x, cur_x, prv_id, cur_id;
+
+		prv_pstate = &pstates[i - 1];
+		cur_pstate = &pstates[i];
+		if (prv_pstate->stage != cur_pstate->stage)
+			continue;
+
+		prv_x = prv_pstate->drm_pstate->crtc_x;
+		cur_x = cur_pstate->drm_pstate->crtc_x;
+		prv_id = prv_pstate->sde_pstate->base.plane->base.id;
+		cur_id = cur_pstate->sde_pstate->base.plane->base.id;
+
+		/*
+		 * Planes are enumerated in pipe-priority order such that planes
+		 * with lower drm_id must be left-most in a shared blend-stage
+		 * when using source split.
+		 */
+		if (cur_x > prv_x && cur_id < prv_id) {
+			SDE_ERROR(
+				"shared z_pos %d lower id plane%d @ x%d should be left of plane%d @ x %d\n",
+				cur_pstate->stage, cur_id, cur_x,
+				prv_id, prv_x);
+			rc = -EINVAL;
+			goto end;
+		} else if (cur_x < prv_x && cur_id > prv_id) {
+			SDE_ERROR(
+				"shared z_pos %d lower id plane%d @ x%d should be left of plane%d @ x %d\n",
+				cur_pstate->stage, prv_id, prv_x,
+				cur_id, cur_x);
+			rc = -EINVAL;
+			goto end;
+		}
+	}
+
 
 end:
 	return rc;
