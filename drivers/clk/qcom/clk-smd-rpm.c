@@ -662,8 +662,6 @@ static struct clk_hw *msmfalcon_clks[] = {
 	[RPM_AGGR2_NOC_A_CLK]	= &msmfalcon_aggre2_noc_a_clk.hw,
 	[RPM_CNOC_CLK]		= &msmfalcon_cnoc_clk.hw,
 	[RPM_CNOC_A_CLK]	= &msmfalcon_cnoc_a_clk.hw,
-	[RPM_MMAXI_CLK]		= &msmfalcon_mmssnoc_axi_clk.hw,
-	[RPM_MMAXI_A_CLK]	= &msmfalcon_mmssnoc_axi_a_clk.hw,
 	[RPM_IPA_CLK]		= &msmfalcon_ipa_clk.hw,
 	[RPM_IPA_A_CLK]		= &msmfalcon_ipa_a_clk.hw,
 	[RPM_CE1_CLK]		= &msmfalcon_ce1_clk.hw,
@@ -684,6 +682,8 @@ static struct clk_hw *msmfalcon_clks[] = {
 	[RPM_LN_BB_CLK3_PIN_AO] = &msmfalcon_ln_bb_clk3_pin_ao.hw,
 	[RPM_CNOC_PERIPH_CLK]	= &msmfalcon_cnoc_periph_clk.hw,
 	[RPM_CNOC_PERIPH_A_CLK] = &msmfalcon_cnoc_periph_a_clk.hw,
+	[MMSSNOC_AXI_CLK]	= &msmfalcon_mmssnoc_axi_clk.hw,
+	[MMSSNOC_AXI_A_CLK]	= &msmfalcon_mmssnoc_axi_a_clk.hw,
 
 	/* Voter Clocks */
 	[BIMC_MSMBUS_CLK]	= &bimc_msmbus_clk.hw,
