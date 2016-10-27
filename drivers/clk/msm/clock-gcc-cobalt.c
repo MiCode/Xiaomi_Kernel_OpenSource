@@ -1707,17 +1707,6 @@ static struct branch_clk gcc_gpu_bimc_gfx_clk = {
 	},
 };
 
-static struct branch_clk gcc_gpu_bimc_gfx_src_clk = {
-	.cbcr_reg = GCC_GPU_BIMC_GFX_SRC_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_gpu_bimc_gfx_src_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_gpu_bimc_gfx_src_clk.c),
-	},
-};
-
 static struct branch_clk gcc_gpu_cfg_ahb_clk = {
 	.cbcr_reg = GCC_GPU_CFG_AHB_CBCR,
 	.has_sibling = 1,
@@ -1728,17 +1717,6 @@ static struct branch_clk gcc_gpu_cfg_ahb_clk = {
 		.dbg_name = "gcc_gpu_cfg_ahb_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_gpu_cfg_ahb_clk.c),
-	},
-};
-
-static struct branch_clk gcc_gpu_snoc_dvm_gfx_clk = {
-	.cbcr_reg = GCC_GPU_SNOC_DVM_GFX_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_gpu_snoc_dvm_gfx_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_gpu_snoc_dvm_gfx_clk.c),
 	},
 };
 
@@ -2454,7 +2432,6 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_mss_mnoc_bimc_axi_clk.c, 0x0120 },
 		{ &gcc_mss_snoc_axi_clk.c, 0x0123 },
 		{ &gcc_gpu_cfg_ahb_clk.c, 0x013b },
-		{ &gcc_gpu_bimc_gfx_src_clk.c, 0x013e },
 		{ &gcc_gpu_bimc_gfx_clk.c, 0x013f },
 		{ &gcc_qspi_ahb_clk.c, 0x0156 },
 		{ &gcc_qspi_ref_clk.c, 0x0157 },
@@ -2649,9 +2626,7 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_gp2_clk),
 	CLK_LIST(gcc_gp3_clk),
 	CLK_LIST(gcc_gpu_bimc_gfx_clk),
-	CLK_LIST(gcc_gpu_bimc_gfx_src_clk),
 	CLK_LIST(gcc_gpu_cfg_ahb_clk),
-	CLK_LIST(gcc_gpu_snoc_dvm_gfx_clk),
 	CLK_LIST(gcc_gpu_iref_clk),
 	CLK_LIST(gcc_hmss_ahb_clk),
 	CLK_LIST(gcc_hmss_dvm_bus_clk),
