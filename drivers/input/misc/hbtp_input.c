@@ -23,6 +23,12 @@
 #include <linux/regulator/consumer.h>
 #include <uapi/linux/hbtp_input.h>
 #include "../input-compat.h"
+#include <linux/ktime.h>
+#include <linux/uaccess.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/delay.h>
+#include <linux/completion.h>
 
 #if defined(CONFIG_FB)
 #include <linux/notifier.h>
@@ -31,6 +37,10 @@
 
 #define HBTP_INPUT_NAME			"hbtp_input"
 #define DISP_COORDS_SIZE		2
+
+#define HBTP_PINCTRL_VALID_STATE_CNT		(2)
+#define HBTP_HOLD_DURATION_US			(10)
+#define HBTP_PINCTRL_DDIC_SEQ_NUM		(4)
 
 struct hbtp_data {
 	struct platform_device *pdev;
@@ -41,6 +51,20 @@ struct hbtp_data {
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
 #endif
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
+	struct pinctrl_state *ddic_rst_state_active;
+	struct pinctrl_state *ddic_rst_state_suspend;
+	u32 ts_pinctrl_seq_delay;
+	u32 ddic_pinctrl_seq_delay[HBTP_PINCTRL_DDIC_SEQ_NUM];
+	u32 fb_resume_seq_delay;
+	bool lcd_on;
+	bool power_suspended;
+	bool power_sync_enabled;
+	bool power_sig_enabled;
+	struct completion power_resume_sig;
+	struct completion power_suspend_sig;
 	struct regulator *vcc_ana;
 	struct regulator *vcc_dig;
 	int afe_load_ua;
@@ -59,9 +83,18 @@ struct hbtp_data {
 	bool override_disp_coords;
 	bool manage_afe_power_ana;
 	bool manage_power_dig;
+	u32 power_on_delay;
+	u32 power_off_delay;
+	bool manage_pin_ctrl;
 };
 
 static struct hbtp_data *hbtp;
+
+#if defined(CONFIG_FB)
+static int hbtp_fb_suspend(struct hbtp_data *ts);
+static int hbtp_fb_early_resume(struct hbtp_data *ts);
+static int hbtp_fb_resume(struct hbtp_data *ts);
+#endif
 
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
@@ -70,20 +103,48 @@ static int fb_notifier_callback(struct notifier_block *self,
 	int blank;
 	struct fb_event *evdata = data;
 	struct hbtp_data *hbtp_data =
-		container_of(self, struct hbtp_data, fb_notif);
-	char *envp[2] = {HBTP_EVENT_TYPE_DISPLAY, NULL};
+	container_of(self, struct hbtp_data, fb_notif);
 
-	if (evdata && evdata->data && event == FB_EVENT_BLANK &&
-		hbtp_data && hbtp_data->input_dev) {
+	if (evdata && evdata->data && hbtp_data &&
+		(event == FB_EARLY_EVENT_BLANK ||
+		event == FB_R_EARLY_EVENT_BLANK)) {
 		blank = *(int *)(evdata->data);
-		if (blank == FB_BLANK_UNBLANK)
-			kobject_uevent_env(&hbtp_data->input_dev->dev.kobj,
-					KOBJ_ONLINE, envp);
-		else if (blank == FB_BLANK_POWERDOWN)
-			kobject_uevent_env(&hbtp_data->input_dev->dev.kobj,
-					KOBJ_OFFLINE, envp);
+		if (event == FB_EARLY_EVENT_BLANK) {
+			if (blank == FB_BLANK_UNBLANK) {
+				pr_debug("%s: receives EARLY_BLANK:UNBLANK\n",
+					__func__);
+				hbtp_data->lcd_on = true;
+				hbtp_fb_early_resume(hbtp_data);
+			} else if (blank == FB_BLANK_POWERDOWN) {
+				pr_debug("%s: receives EARLY_BLANK:POWERDOWN\n",
+					__func__);
+				hbtp_data->lcd_on = false;
+			}
+		} else if (event == FB_R_EARLY_EVENT_BLANK) {
+			if (blank == FB_BLANK_UNBLANK) {
+				pr_debug("%s: receives R_EARLY_BALNK:UNBLANK\n",
+					__func__);
+				hbtp_data->lcd_on = false;
+				hbtp_fb_suspend(hbtp_data);
+			} else if (blank == FB_BLANK_POWERDOWN) {
+				pr_debug("%s: receives R_EARLY_BALNK:POWERDOWN\n",
+					__func__);
+				hbtp_data->lcd_on = true;
+			}
+		}
 	}
 
+	if (evdata && evdata->data && hbtp_data &&
+		event == FB_EVENT_BLANK) {
+		blank = *(int *)(evdata->data);
+		if (blank == FB_BLANK_POWERDOWN) {
+			pr_debug("%s: receives BLANK:POWERDOWN\n", __func__);
+			hbtp_fb_suspend(hbtp_data);
+		} else if (blank == FB_BLANK_UNBLANK) {
+			pr_debug("%s: receives BLANK:UNBLANK\n", __func__);
+			hbtp_fb_resume(hbtp_data);
+		}
+	}
 	return 0;
 }
 #endif
@@ -111,6 +172,8 @@ static int hbtp_input_release(struct inode *inode, struct file *file)
 		return -ENOTTY;
 	}
 	hbtp->count--;
+	if (hbtp->power_sig_enabled)
+		hbtp->power_sig_enabled = false;
 	mutex_unlock(&hbtp->mutex);
 
 	return 0;
@@ -278,6 +341,14 @@ static int hbtp_pdev_power_on(struct hbtp_data *hbtp, bool on)
 			return ret;
 		}
 	}
+
+	if (hbtp->power_on_delay) {
+		pr_debug("%s: power-on-delay = %u\n", __func__,
+			hbtp->power_on_delay);
+		usleep_range(hbtp->power_on_delay,
+			hbtp->power_on_delay + HBTP_HOLD_DURATION_US);
+	}
+
 	if (hbtp->vcc_dig) {
 		ret = reg_set_load_check(hbtp->vcc_dig,
 			hbtp->dig_load_ua);
@@ -299,15 +370,169 @@ static int hbtp_pdev_power_on(struct hbtp_data *hbtp, bool on)
 	return 0;
 
 reg_off:
-	if (hbtp->vcc_ana) {
-		reg_set_load_check(hbtp->vcc_ana, 0);
-		regulator_disable(hbtp->vcc_ana);
-	}
 	if (hbtp->vcc_dig) {
 		reg_set_load_check(hbtp->vcc_dig, 0);
 		regulator_disable(hbtp->vcc_dig);
 	}
+
+	if (hbtp->power_off_delay) {
+		pr_debug("%s: power-off-delay = %u\n", __func__,
+			hbtp->power_off_delay);
+		usleep_range(hbtp->power_off_delay,
+			hbtp->power_off_delay + HBTP_HOLD_DURATION_US);
+	}
+
+	if (hbtp->vcc_ana) {
+		reg_set_load_check(hbtp->vcc_ana, 0);
+		regulator_disable(hbtp->vcc_ana);
+	}
 	return 0;
+}
+
+static int hbtp_gpio_select(struct hbtp_data *data, bool on)
+{
+	struct pinctrl_state *pins_state;
+	int ret = 0;
+
+	pins_state = on ? data->gpio_state_active : data->gpio_state_suspend;
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		ret = pinctrl_select_state(data->ts_pinctrl, pins_state);
+		if (ret) {
+			dev_err(&data->pdev->dev,
+				"can not set %s pins\n",
+				on ? "ts_active" : "ts_suspend");
+			return ret;
+		}
+
+		if (on) {
+			if (data->ts_pinctrl_seq_delay) {
+				usleep_range(data->ts_pinctrl_seq_delay,
+					data->ts_pinctrl_seq_delay +
+					HBTP_HOLD_DURATION_US);
+				dev_dbg(&data->pdev->dev, "ts_pinctrl_seq_delay = %u\n",
+					data->ts_pinctrl_seq_delay);
+			}
+		}
+	} else {
+		dev_warn(&data->pdev->dev,
+			"not a valid '%s' pinstate\n",
+			on ? "ts_active" : "ts_suspend");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int hbtp_ddic_rst_select(struct hbtp_data *data, bool on)
+{
+	struct pinctrl_state *active, *suspend;
+	int ret = 0;
+
+	active = data->ddic_rst_state_active;
+	if (IS_ERR_OR_NULL(active)) {
+		dev_warn(&data->pdev->dev,
+			"not a valid ddic_rst_active pinstate\n");
+		return ret;
+	}
+
+	suspend = data->ddic_rst_state_suspend;
+	if (IS_ERR_OR_NULL(suspend)) {
+		dev_warn(&data->pdev->dev,
+			"not a valid ddic_rst_suspend pinstate\n");
+		return ret;
+	}
+
+	if (on) {
+		if (data->ddic_pinctrl_seq_delay[0]) {
+			usleep_range(data->ddic_pinctrl_seq_delay[0],
+				data->ddic_pinctrl_seq_delay[0] +
+				HBTP_HOLD_DURATION_US);
+			dev_dbg(&data->pdev->dev, "ddic_seq_delay[0] = %u\n",
+				data->ddic_pinctrl_seq_delay[0]);
+		}
+
+		ret = pinctrl_select_state(data->ts_pinctrl, active);
+		if (ret) {
+			dev_err(&data->pdev->dev,
+				"can not set ddic_rst_active pins\n");
+			return ret;
+		}
+		if (data->ddic_pinctrl_seq_delay[1]) {
+			usleep_range(data->ddic_pinctrl_seq_delay[1],
+				data->ddic_pinctrl_seq_delay[1] +
+				HBTP_HOLD_DURATION_US);
+			dev_dbg(&data->pdev->dev, "ddic_seq_delay[1] = %u\n",
+				data->ddic_pinctrl_seq_delay[1]);
+		}
+		ret = pinctrl_select_state(data->ts_pinctrl, suspend);
+		if (ret) {
+			dev_err(&data->pdev->dev,
+				"can not set ddic_rst_suspend pins\n");
+			return ret;
+		}
+
+		if (data->ddic_pinctrl_seq_delay[2]) {
+			usleep_range(data->ddic_pinctrl_seq_delay[2],
+				data->ddic_pinctrl_seq_delay[2] +
+				HBTP_HOLD_DURATION_US);
+			dev_dbg(&data->pdev->dev, "ddic_seq_delay[2] = %u\n",
+				data->ddic_pinctrl_seq_delay[2]);
+		}
+
+		ret = pinctrl_select_state(data->ts_pinctrl, active);
+		if (ret) {
+			dev_err(&data->pdev->dev,
+				"can not set ddic_rst_active pins\n");
+			return ret;
+		}
+
+		if (data->ddic_pinctrl_seq_delay[3]) {
+			usleep_range(data->ddic_pinctrl_seq_delay[3],
+				data->ddic_pinctrl_seq_delay[3] +
+				HBTP_HOLD_DURATION_US);
+			dev_dbg(&data->pdev->dev, "ddic_seq_delay[3] = %u\n",
+				data->ddic_pinctrl_seq_delay[3]);
+		}
+	} else {
+		ret = pinctrl_select_state(data->ts_pinctrl, suspend);
+		if (ret) {
+			dev_err(&data->pdev->dev,
+				"can not set ddic_rst_suspend pins\n");
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+static int hbtp_pinctrl_enable(struct hbtp_data *ts, bool on)
+{
+	int rc = 0;
+
+	if (!ts->manage_pin_ctrl) {
+		pr_info("%s: pinctrl info is not available\n", __func__);
+		return 0;
+	}
+
+	if (!on)
+		goto pinctrl_suspend;
+
+	rc = hbtp_gpio_select(ts, true);
+	if (rc < 0)
+		return -EINVAL;
+
+	rc = hbtp_ddic_rst_select(ts, true);
+	if (rc < 0)
+		goto err_ddic_rst_pinctrl_enable;
+
+	return rc;
+
+pinctrl_suspend:
+	if (ts->ddic_rst_state_suspend)
+		hbtp_ddic_rst_select(ts, true);
+err_ddic_rst_pinctrl_enable:
+	hbtp_gpio_select(ts, false);
+	return rc;
 }
 
 static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
@@ -318,6 +543,8 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 	struct hbtp_input_absinfo absinfo[ABS_MT_LAST - ABS_MT_FIRST + 1];
 	struct hbtp_input_key key_data;
 	enum hbtp_afe_power_cmd power_cmd;
+	enum hbtp_afe_signal afe_signal;
+	enum hbtp_afe_power_ctrl afe_power_ctrl;
 
 	switch (cmd) {
 	case HBTP_SET_ABSPARAM:
@@ -408,6 +635,112 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 		input_sync(hbtp->input_dev);
 		break;
 
+	case HBTP_SET_SYNCSIGNAL:
+		if (!hbtp || !hbtp->input_dev) {
+			pr_err("%s: The input device hasn't been created\n",
+				__func__);
+			return -EFAULT;
+		}
+
+		if (!hbtp->power_sig_enabled) {
+			pr_err("%s: power_signal is not enabled", __func__);
+			return -EPERM;
+		}
+
+		if (copy_from_user(&afe_signal, (void *)arg,
+					sizeof(enum hbtp_afe_signal))) {
+			pr_err("%s: Error copying data\n", __func__);
+			return -EFAULT;
+		}
+
+		pr_debug("%s: receives %d signal\n", __func__, afe_signal);
+
+		switch (afe_signal) {
+		case HBTP_AFE_SIGNAL_ON_RESUME:
+			mutex_lock(&hbtp->mutex);
+			if (!hbtp->power_suspended) {
+				complete(&hbtp->power_resume_sig);
+			} else {
+				pr_err("%s: resume signal in wrong state\n",
+					__func__);
+			}
+			mutex_unlock(&hbtp->mutex);
+			break;
+		case HBTP_AFE_SIGNAL_ON_SUSPEND:
+			mutex_lock(&hbtp->mutex);
+			if (hbtp->power_suspended) {
+				complete(&hbtp->power_suspend_sig);
+			} else {
+				pr_err("%s: suspend signal in wrong state\n",
+					__func__);
+			}
+			mutex_unlock(&hbtp->mutex);
+			break;
+		default:
+			pr_err("%s: Unsupported command for afe signal, %d\n",
+				__func__, afe_signal);
+			return -EINVAL;
+		}
+		break;
+	case HBTP_SET_POWER_CTRL:
+		if (!hbtp || !hbtp->input_dev) {
+			pr_err("%s: The input device hasn't been created\n",
+				__func__);
+			return -EFAULT;
+		}
+
+		if (copy_from_user(&afe_power_ctrl, (void *)arg,
+					sizeof(enum hbtp_afe_power_ctrl))) {
+			pr_err("%s: Error copying data\n", __func__);
+			return -EFAULT;
+		}
+		switch (afe_power_ctrl) {
+		case HBTP_AFE_POWER_ENABLE_SYNC:
+			pr_debug("%s: power_sync is enabled\n", __func__);
+			if (!hbtp->manage_pin_ctrl || !hbtp->manage_power_dig ||
+				!hbtp->manage_afe_power_ana) {
+				pr_err("%s: power/pin is not available\n",
+					__func__);
+				return -EFAULT;
+			}
+			mutex_lock(&hbtp->mutex);
+			error = hbtp_pdev_power_on(hbtp, true);
+			if (error) {
+				mutex_unlock(&hbtp->mutex);
+				pr_err("%s: failed to power on\n", __func__);
+				return error;
+			}
+			error  = hbtp_pinctrl_enable(hbtp, true);
+			if (error) {
+				mutex_unlock(&hbtp->mutex);
+				pr_err("%s: failed to enable pins\n", __func__);
+				hbtp_pdev_power_on(hbtp, false);
+				return error;
+			}
+			hbtp->power_sync_enabled = true;
+			mutex_unlock(&hbtp->mutex);
+			pr_debug("%s: power_sync option is enabled\n",
+				__func__);
+			break;
+		case HBTP_AFE_POWER_ENABLE_SYNC_SIGNAL:
+			if (!hbtp->power_sync_enabled) {
+				pr_err("%s: power_sync is not enabled\n",
+					__func__);
+				return -EFAULT;
+			}
+			mutex_lock(&hbtp->mutex);
+			init_completion(&hbtp->power_resume_sig);
+			init_completion(&hbtp->power_suspend_sig);
+			hbtp->power_sig_enabled = true;
+			mutex_unlock(&hbtp->mutex);
+			pr_err("%s: sync_signal option is enabled\n", __func__);
+			break;
+		default:
+			pr_err("%s: unsupported power ctrl, %d\n",
+				__func__, afe_power_ctrl);
+			return -EINVAL;
+		}
+		break;
 	default:
 		pr_err("%s: Unsupported ioctl command %u\n", __func__, cmd);
 		error = -EINVAL;
@@ -514,6 +847,25 @@ static int hbtp_parse_dt(struct device *dev)
 		}
 	}
 
+	if (hbtp->manage_power_dig && hbtp->manage_afe_power_ana) {
+		rc = of_property_read_u32(np,
+				"qcom,afe-power-on-delay-us", &temp_val);
+		if (!rc)
+			hbtp->power_on_delay = (u32)temp_val;
+		else
+			dev_info(dev, "Power-On Delay is not specified\n");
+
+		rc = of_property_read_u32(np,
+				"qcom,afe-power-off-delay-us", &temp_val);
+		if (!rc)
+			hbtp->power_off_delay = (u32)temp_val;
+		else
+			dev_info(dev, "Power-Off Delay is not specified\n");
+
+		dev_dbg(dev, "power-on-delay = %u, power-off-delay = %u\n",
+			hbtp->power_on_delay, hbtp->power_off_delay);
+	}
+
 	prop = of_find_property(np, "qcom,display-resolution", NULL);
 	if (prop != NULL) {
 		if (!prop->value)
@@ -605,10 +957,291 @@ static int hbtp_parse_dt(struct device *dev)
 }
 #endif
 
+static int hbtp_pinctrl_init(struct hbtp_data *data)
+{
+	const char *statename;
+	int rc;
+	int state_cnt, i;
+	struct device_node *np = data->pdev->dev.of_node;
+	bool pinctrl_state_act_found = false;
+	bool pinctrl_state_sus_found = false;
+	bool pinctrl_ddic_act_found = false;
+	bool pinctrl_ddic_sus_found = false;
+	int count = 0;
+
+	data->ts_pinctrl = devm_pinctrl_get(&(data->pdev->dev));
+	if (IS_ERR_OR_NULL(data->ts_pinctrl)) {
+		dev_err(&data->pdev->dev,
+			"Target does not use pinctrl\n");
+		rc = PTR_ERR(data->ts_pinctrl);
+		data->ts_pinctrl = NULL;
+		return rc;
+	}
+
+	state_cnt = of_property_count_strings(np, "pinctrl-names");
+	if (state_cnt < HBTP_PINCTRL_VALID_STATE_CNT) {
+		/*
+		 *if pinctrl names are not available then,
+		 *power_sync can't be enabled
+		 */
+		dev_info(&data->pdev->dev,
+				"pinctrl names are not available\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	for (i = 0; i < state_cnt; i++) {
+		rc = of_property_read_string_index(np,
+					"pinctrl-names", i, &statename);
+		if (rc) {
+			dev_err(&data->pdev->dev,
+				"failed to read pinctrl states by index\n");
+			goto error;
+		}
+
+		if (!strcmp(statename, "pmx_ts_active")) {
+			data->gpio_state_active
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR_OR_NULL(data->gpio_state_active)) {
+				dev_err(&data->pdev->dev,
+					"Can not get ts default state\n");
+				rc = PTR_ERR(data->gpio_state_active);
+				goto error;
+			}
+			pinctrl_state_act_found = true;
+		} else if (!strcmp(statename, "pmx_ts_suspend")) {
+			data->gpio_state_suspend
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR_OR_NULL(data->gpio_state_suspend)) {
+				dev_err(&data->pdev->dev,
+					"Can not get ts sleep state\n");
+				rc = PTR_ERR(data->gpio_state_suspend);
+				goto error;
+			}
+			pinctrl_state_sus_found = true;
+		} else if (!strcmp(statename, "ddic_rst_active")) {
+			data->ddic_rst_state_active
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->ddic_rst_state_active)) {
+				dev_err(&data->pdev->dev,
+					"Can not get DDIC rst act state\n");
+				rc = PTR_ERR(data->ddic_rst_state_active);
+				goto error;
+			}
+			pinctrl_ddic_act_found = true;
+		} else if (!strcmp(statename, "ddic_rst_suspend")) {
+			data->ddic_rst_state_suspend
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->ddic_rst_state_suspend)) {
+				dev_err(&data->pdev->dev,
+					"Can not get DDIC rst sleep state\n");
+				rc = PTR_ERR(data->ddic_rst_state_suspend);
+				goto error;
+			}
+			pinctrl_ddic_sus_found = true;
+		} else {
+			dev_err(&data->pdev->dev, "invalid pinctrl state\n");
+			rc = -EINVAL;
+			goto error;
+		}
+	}
+
+	if (!pinctrl_state_act_found || !pinctrl_state_sus_found) {
+		dev_err(&data->pdev->dev,
+			"missing required pinctrl states\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (of_property_read_u32(np, "qcom,pmx-ts-on-seq-delay-us",
+			&data->ts_pinctrl_seq_delay)) {
+		dev_warn(&data->pdev->dev, "Can not find ts seq delay\n");
+	}
+
+	if (of_property_read_u32(np, "qcom,fb-resume-delay-us",
+			&data->fb_resume_seq_delay)) {
+		dev_warn(&data->pdev->dev, "Can not find fb resume seq delay\n");
+	}
+
+	if (pinctrl_ddic_act_found && pinctrl_ddic_sus_found) {
+		count = of_property_count_u32_elems(np,
+					"qcom,ddic-rst-on-seq-delay-us");
+		if (count == HBTP_PINCTRL_DDIC_SEQ_NUM) {
+			of_property_read_u32_array(np,
+					"qcom,ddic-rst-on-seq-delay-us",
+					data->ddic_pinctrl_seq_delay, count);
+		} else {
+			dev_err(&data->pdev->dev, "count(%u) is not same as %u\n",
+				(u32)count, HBTP_PINCTRL_DDIC_SEQ_NUM);
+		}
+	} else {
+		dev_err(&data->pdev->dev, "ddic pinctrl act/sus not found\n");
+	}
+
+	data->manage_pin_ctrl = true;
+	return 0;
+
+error:
+	devm_pinctrl_put(data->ts_pinctrl);
+	data->ts_pinctrl = NULL;
+	return rc;
+}
+
+static int hbtp_fb_suspend(struct hbtp_data *ts)
+{
+	int rc;
+	char *envp[2] = {HBTP_EVENT_TYPE_DISPLAY, NULL};
+
+	mutex_lock(&hbtp->mutex);
+	if (ts->pdev && ts->power_sync_enabled) {
+		pr_debug("%s: power_sync is enabled\n", __func__);
+		if (ts->power_suspended) {
+			mutex_unlock(&hbtp->mutex);
+			pr_err("%s: power is not resumed\n", __func__);
+			return 0;
+		}
+		rc = hbtp_pinctrl_enable(ts, false);
+		if (rc) {
+			pr_err("%s: failed to disable GPIO pins\n", __func__);
+			goto err_pin_disable;
+		}
+
+		rc = hbtp_pdev_power_on(ts, false);
+		if (rc) {
+			pr_err("%s: failed to disable power\n", __func__);
+			goto err_power_disable;
+		}
+		ts->power_suspended = true;
+	}
+
+	if (ts->input_dev) {
+		kobject_uevent_env(&ts->input_dev->dev.kobj,
+				KOBJ_OFFLINE, envp);
+
+		if (ts->power_sig_enabled) {
+			pr_debug("%s: power_sig is enabled, wait for signal\n",
+				__func__);
+			mutex_unlock(&hbtp->mutex);
+			rc = wait_for_completion_interruptible(
+				&hbtp->power_suspend_sig);
+			if (rc != 0) {
+				pr_err("%s: wait for suspend is interrupted\n",
+					__func__);
+			}
+			mutex_lock(&hbtp->mutex);
+			pr_debug("%s: Wait is done for suspend\n", __func__);
+		} else {
+			pr_debug("%s: power_sig is NOT enabled", __func__);
+		}
+	}
+
+	mutex_unlock(&hbtp->mutex);
+	return 0;
+err_power_disable:
+	hbtp_pinctrl_enable(ts, true);
+err_pin_disable:
+	mutex_unlock(&hbtp->mutex);
+	return rc;
+}
+
+static int hbtp_fb_early_resume(struct hbtp_data *ts)
+{
+	char *envp[2] = {HBTP_EVENT_TYPE_DISPLAY, NULL};
+	int rc;
+
+	mutex_lock(&hbtp->mutex);
+
+	pr_debug("%s: hbtp_fb_early_resume\n", __func__);
+
+	if (ts->pdev && ts->power_sync_enabled) {
+		pr_debug("%s: power_sync is enabled\n", __func__);
+		if (!ts->power_suspended) {
+			pr_err("%s: power is not suspended\n", __func__);
+			mutex_unlock(&hbtp->mutex);
+			return 0;
+		}
+		rc = hbtp_pdev_power_on(ts, true);
+		if (rc) {
+			pr_err("%s: failed to enable panel power\n", __func__);
+			goto err_power_on;
+		}
+
+		rc = hbtp_pinctrl_enable(ts, true);
+
+		if (rc) {
+			pr_err("%s: failed to enable pin\n", __func__);
+			goto err_pin_enable;
+		}
+
+		ts->power_suspended = false;
+
+		if (ts->input_dev) {
+
+			kobject_uevent_env(&ts->input_dev->dev.kobj,
+							KOBJ_ONLINE, envp);
+
+			if (ts->power_sig_enabled) {
+				pr_err("%s: power_sig is enabled, wait for signal\n",
+					__func__);
+				mutex_unlock(&hbtp->mutex);
+				rc = wait_for_completion_interruptible(
+					&hbtp->power_resume_sig);
+				if (rc != 0) {
+					pr_err("%s: wait for resume is interrupted\n",
+						__func__);
+				}
+				mutex_lock(&hbtp->mutex);
+				pr_debug("%s: wait is done\n", __func__);
+			} else {
+				pr_debug("%s: power_sig is NOT enabled\n",
+					__func__);
+			}
+
+			if (ts->fb_resume_seq_delay) {
+				usleep_range(ts->fb_resume_seq_delay,
+					ts->fb_resume_seq_delay +
+					HBTP_HOLD_DURATION_US);
+				pr_err("%s: fb_resume_seq_delay = %u\n",
+					__func__, ts->fb_resume_seq_delay);
+			}
+		}
+	}
+	mutex_unlock(&hbtp->mutex);
+	return 0;
+
+err_pin_enable:
+	hbtp_pdev_power_on(ts, false);
+err_power_on:
+	mutex_unlock(&hbtp->mutex);
+	return rc;
+}
+
+static int hbtp_fb_resume(struct hbtp_data *ts)
+{
+	char *envp[2] = {HBTP_EVENT_TYPE_DISPLAY, NULL};
+
+	mutex_lock(&hbtp->mutex);
+	if (!ts->power_sync_enabled) {
+		pr_debug("%s: power_sync is disabled, send uevent\n", __func__);
+		if (ts->input_dev) {
+			kobject_uevent_env(&ts->input_dev->dev.kobj,
+				KOBJ_ONLINE, envp);
+		}
+	}
+	mutex_unlock(&hbtp->mutex);
+	return 0;
+}
+
 static int hbtp_pdev_probe(struct platform_device *pdev)
 {
 	int error;
 	struct regulator *vcc_ana, *vcc_dig;
+
+	hbtp->pdev = pdev;
 
 	if (pdev->dev.of_node) {
 		error = hbtp_parse_dt(&pdev->dev);
@@ -616,6 +1249,14 @@ static int hbtp_pdev_probe(struct platform_device *pdev)
 			pr_err("%s: parse dt failed, rc=%d\n", __func__, error);
 			return error;
 		}
+	}
+
+	platform_set_drvdata(pdev, hbtp);
+
+	error = hbtp_pinctrl_init(hbtp);
+	if (error) {
+		pr_info("%s: pinctrl isn't available, rc=%d\n", __func__,
+			error);
 	}
 
 	if (hbtp->manage_afe_power_ana) {
@@ -662,8 +1303,6 @@ static int hbtp_pdev_probe(struct platform_device *pdev)
 		hbtp->vcc_dig = vcc_dig;
 	}
 
-	hbtp->pdev = pdev;
-
 	return 0;
 }
 
@@ -676,6 +1315,9 @@ static int hbtp_pdev_remove(struct platform_device *pdev)
 		if (hbtp->vcc_dig)
 			regulator_put(hbtp->vcc_dig);
 	}
+
+	if (hbtp->ts_pinctrl)
+		devm_pinctrl_put(hbtp->ts_pinctrl);
 
 	return 0;
 }
