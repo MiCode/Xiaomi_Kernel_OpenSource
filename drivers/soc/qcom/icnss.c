@@ -4236,6 +4236,11 @@ static int icnss_get_vbatt_info(struct icnss_priv *priv)
 	struct qpnp_vadc_chip *vadc_dev = NULL;
 	int ret = 0;
 
+	if (test_bit(VBATT_DISABLE, &quirks)) {
+		icnss_pr_dbg("VBATT feature is disabled\n");
+		return ret;
+	}
+
 	adc_tm_dev = qpnp_get_adc_tm(&priv->pdev->dev, "icnss");
 	if (PTR_ERR(adc_tm_dev) == -EPROBE_DEFER) {
 		icnss_pr_err("adc_tm_dev probe defer\n");
