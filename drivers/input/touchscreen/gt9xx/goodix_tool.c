@@ -236,14 +236,13 @@ static u8 relation(u8 src, u8 dst, u8 rlt)
 	return ret;
 }
 
-/*******************************************************
+/*
  * Function:
- *    Comfirm function.
+ *   Comfirm function.
  * Input:
- *  None.
+ *   None.
  * Output:
  *   Return write length.
- *******************************************************
  */
 static u8 comfirm(void)
 {
@@ -301,11 +300,11 @@ static s32 fill_update_info(char __user *user_buf,
  * Function:
  *   Goodix tool write function.
  * Input:
- * standard proc write function param.
+ *   standard proc write function param.
  * Output:
  *   Return write length.
  */
-static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
+static ssize_t goodix_tool_write(struct file *filp, const char __user *userbuf,
 						size_t count, loff_t *ppos)
 {
 	s32 ret = 0;
@@ -318,20 +317,22 @@ static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
 		goto exit;
 	}
 
-	dev_dbg(&gt_client->dev, "wr:0x%02x, flag:0x%02x, flag addr:0x%02x%02x,
-			flag val:0x%02x, flag rel:0x%02x,", cmd_headd.wr,
-			cmd_head.flag, cmd_head.flag_addr[0],
-			cmd_head.flag_addr[1], cmd_head.flag_val,
-			cmd_head.flag_relation);
-	dev_dbg(&gt_client->dev, "circle:%d, times:%d, retry:%d, delay:%d,
-		data len:%d, addr len:%d, addr:0x%02x%02x, write len: %d",
-		(s32)cmd_head.circle, (s32)cmd_head.times, (s32)cmd_head.retry,
-		(s32)cmd_head.delay, (s32)cmd_head.data_len,
-		(s32)cmd_head.addr_len, cmd_head.addr[0], cmd_head.addr[1],
-		(s32)count);
+	dev_dbg(&gt_client->dev,
+		"wr: 0x%02x, flag:0x%02x, flag addr:0x%02x%02x\n", cmd_head.wr,
+		cmd_head.flag, cmd_head.flag_addr[0], cmd_head.flag_addr[1]);
+	dev_dbg(&gt_client->dev,
+		"flag val:0x%02x, flag rel:0x%02x,\n", cmd_head.flag_val,
+		cmd_head.flag_relation);
+	dev_dbg(&gt_client->dev, "circle:%u, times:%u, retry:%u, delay:%u\n",
+		(s32) cmd_head.circle, (s32) cmd_head.times,
+		(s32) cmd_head.retry, (s32)cmd_head.delay);
+	dev_dbg(&gt_client->dev,
+		"data len:%u, addr len:%u, addr:0x%02x%02x, write len: %u\n",
+		(s32)cmd_head.data_len,	(s32)cmd_head.addr_len,
+		cmd_head.addr[0], cmd_head.addr[1], (s32)count);
 
 	if (cmd_head.data_len > (data_length - GTP_ADDR_LENGTH)) {
-		dev_err(&gt_client->dev, "data len %d > data buff %d, rejected\n",
+		dev_err(&gt_client->dev, "data len %u > data buff %d, rejected\n",
 			cmd_head.data_len, (data_length - GTP_ADDR_LENGTH));
 		ret = -EINVAL;
 		goto exit;
@@ -383,7 +384,7 @@ static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
 
 		if (cmd_head.data_len > sizeof(ic_type)) {
 			dev_err(&gt_client->dev,
-				"data len %d > data buff %d, rejected\n",
+				"data len %u > data buff %zu, rejected\n",
 				cmd_head.data_len, sizeof(ic_type));
 			ret = -EINVAL;
 			goto exit;
@@ -445,7 +446,7 @@ static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
 		show_len = 0;
 		total_len = 0;
 		if (cmd_head.data_len + 1 > data_length) {
-			dev_err(&gt_client->dev, "data len %d > data buff %d, rejected\n",
+			dev_err(&gt_client->dev, "data len %u > data buff %d, rejected\n",
 			cmd_head.data_len + 1, data_length);
 			ret = -EINVAL;
 			goto exit;
@@ -470,11 +471,11 @@ exit:
  * Function:
  *   Goodix tool read function.
  * Input:
- * standard proc read function param.
+ *   standard proc read function param.
  * Output:
  *   Return read length.
  */
-static s32 goodix_tool_read(struct file *file, char __user *user_buf,
+static ssize_t goodix_tool_read(struct file *file, char __user *user_buf,
 					size_t count, loff_t *ppos)
 {
 	u16 data_len = 0;
