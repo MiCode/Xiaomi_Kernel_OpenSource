@@ -1407,6 +1407,7 @@ extern void inc_rq_hmp_stats(struct rq *rq,
 				struct task_struct *p, int change_cra);
 extern void dec_rq_hmp_stats(struct rq *rq,
 				struct task_struct *p, int change_cra);
+extern void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra);
 extern int is_big_task(struct task_struct *p);
 extern int upmigrate_discouraged(struct task_struct *p);
 extern struct sched_cluster *rq_cluster(struct rq *rq);
