@@ -274,7 +274,7 @@ struct usbpd {
 	struct extcon_dev	*extcon;
 
 	enum usbpd_state	current_state;
-	bool			hard_reset_recvd;
+	bool			hard_reset;
 	u8			rx_msg_type;
 	u8			rx_msg_len;
 	u32			rx_payload[7];
@@ -487,12 +487,16 @@ static int pd_eval_src_caps(struct usbpd *pd, const u32 *src_caps)
 
 static void pd_send_hard_reset(struct usbpd *pd)
 {
+	int ret;
+
 	usbpd_dbg(&pd->dev, "send hard reset");
 
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
 	pd->hard_reset_count++;
-	pd_phy_signal(HARD_RESET_SIG, 5); /* tHardResetComplete */
+	ret = pd_phy_signal(HARD_RESET_SIG, 5); /* tHardResetComplete */
+	if (!ret)
+		pd->hard_reset = true;
 	pd->in_pr_swap = false;
 }
 
@@ -518,7 +522,7 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
-	pd->hard_reset_recvd = true;
+	pd->hard_reset = true;
 	kick_sm(pd, 0);
 }
 
@@ -1399,7 +1403,7 @@ static void usbpd_sm(struct work_struct *w)
 		pd->in_pr_swap = false;
 		pd->pd_connected = false;
 		pd->in_explicit_contract = false;
-		pd->hard_reset_recvd = false;
+		pd->hard_reset = false;
 		pd->caps_count = 0;
 		pd->hard_reset_count = 0;
 		pd->src_cap_id = 0;
@@ -1452,9 +1456,7 @@ static void usbpd_sm(struct work_struct *w)
 	}
 
 	/* Hard reset? */
-	if (pd->hard_reset_recvd) {
-		pd->hard_reset_recvd = false;
-
+	if (pd->hard_reset) {
 		val.intval = 1;
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
@@ -1827,6 +1829,8 @@ static void usbpd_sm(struct work_struct *w)
 		break;
 
 	case PE_SNK_TRANSITION_TO_DEFAULT:
+		pd->hard_reset = false;
+
 		val.intval = 0;
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
@@ -2113,11 +2117,11 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		 * During hard reset when VBUS goes to 0 the CC logic
 		 * will report this as a disconnection. In those cases
 		 * it can be ignored, however the downside is that
-		 * we can also happen to be in the SNK_Transition_to_default
-		 * state due to a hard reset attempt even with a non-PD
-		 * capable source, in which a physical disconnect may get
-		 * masked. In that case, allow for the common case of
-		 * disconnecting from an SDP.
+		 * pd->hard_reset can be momentarily true even when a
+		 * non-PD capable source is attached, and can't be
+		 * distinguished from a physical disconnect. In that
+		 * case, allow for the common case of disconnecting
+		 * from an SDP.
 		 *
 		 * The less common case is a PD-capable SDP which will
 		 * result in a hard reset getting treated like a
