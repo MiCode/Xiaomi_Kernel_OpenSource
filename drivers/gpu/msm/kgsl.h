@@ -379,6 +379,9 @@ long kgsl_ioctl_gpuobj_set_info(struct kgsl_device_private *dev_priv,
 
 void kgsl_mem_entry_destroy(struct kref *kref);
 
+void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
+			int *egl_surface_count, int *egl_image_count);
+
 struct kgsl_mem_entry * __must_check
 kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr);
 
