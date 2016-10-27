@@ -2958,7 +2958,7 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 
 	if (pdata->panel_info.dfps_update ==
 		DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
-		if (sscanf(buf, "%d %d %d %d %d",
+		if (sscanf(buf, "%u %u %u %u %u",
 		    &data.hfp, &data.hbp, &data.hpw,
 		    &data.clk_rate, &data.fps) != 5) {
 			pr_err("could not read input\n");
