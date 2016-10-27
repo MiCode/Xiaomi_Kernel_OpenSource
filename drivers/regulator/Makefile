@@ -117,6 +117,7 @@ obj-$(CONFIG_REGULATOR_CPRH_KBSS) += cprh-kbss-regulator.o
 obj-$(CONFIG_REGULATOR_CPR4_MMSS_LDO) += cpr4-mmss-ldo-regulator.o
 obj-$(CONFIG_REGULATOR_QPNP_LABIBB) += qpnp-labibb-regulator.o
 obj-$(CONFIG_REGULATOR_QPNP_LCDB) += qpnp-lcdb-regulator.o
+obj-$(CONFIG_REGULATOR_QPNP_OLEDB) += qpnp-oledb-regulator.o
 obj-$(CONFIG_REGULATOR_STUB) += stub-regulator.o
 obj-$(CONFIG_REGULATOR_KRYO) += kryo-regulator.o
 obj-$(CONFIG_REGULATOR_CPR2_GFX) += cpr2-gfx-regulator.o
