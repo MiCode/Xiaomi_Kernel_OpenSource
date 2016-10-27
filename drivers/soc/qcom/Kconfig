@@ -211,6 +211,15 @@ config QCOM_BUS_SCALING
 	for the active devices needs without keeping the clocks at max
 	frequency when a slower speed is sufficient.
 
+config  QCOM_BUS_CONFIG_RPMH
+	bool "RPMH Bus scaling driver"
+	depends on QCOM_BUS_SCALING
+	help
+	  This option enables bus scaling using QCOM specific hardware
+	  accelerators. It enables the translation of bandwidth requests
+	  from logical nodes to hardware nodes controlled by the BCM (Bus
+	  Clock Manager)
+
 config QCOM_SECURE_BUFFER
 	bool "Helper functions for securing buffers through TZ"
 	help
