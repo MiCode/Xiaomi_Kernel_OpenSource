@@ -226,9 +226,10 @@ static int _freq_tbl_determine_rate(struct clk_hw *hw,
 		const struct freq_tbl *f, struct clk_rate_request *req)
 {
 	unsigned long clk_flags, rate = req->rate;
+	struct clk_rate_request parent_req = { };
 	struct clk_hw *p;
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	int index;
+	int index, ret = 0;
 
 	f = qcom_find_freq(f, rate);
 	if (!f)
@@ -258,6 +259,21 @@ static int _freq_tbl_determine_rate(struct clk_hw *hw,
 	req->best_parent_hw = p;
 	req->best_parent_rate = rate;
 	req->rate = f->freq;
+
+	if (f->src_freq != FIXED_FREQ_SRC) {
+		rate = parent_req.rate = f->src_freq;
+		parent_req.best_parent_hw = p;
+		ret = __clk_determine_rate(p, &parent_req);
+		if (ret)
+			return ret;
+
+		ret = clk_set_rate(p->clk, parent_req.rate);
+		if (ret) {
+			pr_err("Failed set rate(%lu) on parent for non-fixed source\n",
+							parent_req.rate);
+			return ret;
+		}
+	}
 
 	return 0;
 }
