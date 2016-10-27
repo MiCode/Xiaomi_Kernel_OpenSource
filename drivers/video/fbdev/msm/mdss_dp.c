@@ -1743,19 +1743,19 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
 
-	dp_drv->hdcp.data = hdcp_1x_init(&hdcp_init_data);
-	if (IS_ERR_OR_NULL(dp_drv->hdcp.data)) {
+	dp_drv->hdcp.hdcp1 = hdcp_1x_init(&hdcp_init_data);
+	if (IS_ERR_OR_NULL(dp_drv->hdcp.hdcp1)) {
 		pr_err("Error hdcp init\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
-	dp_drv->panel_data.panel_info.hdcp_1x_data = dp_drv->hdcp.data;
+	dp_drv->panel_data.panel_info.hdcp_1x_data = dp_drv->hdcp.hdcp1;
 
 	pr_debug("HDCP 1.3 initialized\n");
 
 	dp_drv->hdcp.hdcp2 = dp_hdcp2p2_init(&hdcp_init_data);
-	if (!IS_ERR_OR_NULL(dp_drv->hdcp.data))
+	if (!IS_ERR_OR_NULL(dp_drv->hdcp.hdcp2))
 		pr_debug("HDCP 2.2 initialized\n");
 
 	dp_drv->hdcp.feature_enabled = true;
