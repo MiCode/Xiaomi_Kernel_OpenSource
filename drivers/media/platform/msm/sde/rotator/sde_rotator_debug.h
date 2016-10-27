@@ -44,6 +44,17 @@ void sde_rot_evtlog_tout_handler(bool queue, const char *name, ...);
 
 struct sde_rotator_device;
 
+struct sde_rotator_debug_base {
+	char name[80];
+	void __iomem *base;
+	size_t off;
+	size_t cnt;
+	size_t max_offset;
+	char *buf;
+	size_t buf_len;
+	struct sde_rot_mgr *mgr;
+};
+
 #if defined(CONFIG_DEBUG_FS)
 struct dentry *sde_rotator_create_debugfs(
 		struct sde_rotator_device *rot_dev);
