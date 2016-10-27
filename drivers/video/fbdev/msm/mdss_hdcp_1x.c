@@ -153,6 +153,7 @@ struct hdcp_reg_set {
 	u32 sec_data12;
 
 	u32 reset;
+	u32 reset_bit;
 };
 
 #define HDCP_REG_SET_CLIENT_HDMI \
@@ -175,7 +176,7 @@ struct hdcp_reg_set {
 	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA10, \
 	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA11, \
 	 HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA12, \
-	 HDMI_HDCP_RESET}
+	 HDMI_HDCP_RESET, BIT(0)}
 
 #define HDCP_REG_SET_CLIENT_DP \
 	{DP_HDCP_STATUS, 16, 14, 13, DP_HDCP_CTRL, \
@@ -193,7 +194,8 @@ struct hdcp_reg_set {
 	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA9, \
 	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA10, \
 	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA11, \
-	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA12, 0}
+	 HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA12, \
+	 DP_SW_RESET, BIT(1)}
 
 #define HDCP_HDMI_SINK_ADDR_MAP \
 	{{"bcaps", 0x40, 1}, {"bksv", 0x00, 5}, {"r0'", 0x08, 2}, \
@@ -1431,7 +1433,7 @@ int hdcp_1x_reauthenticate(void *input)
 	struct hdcp_reg_set *reg_set;
 	struct hdcp_int_set *isr;
 	u32 hdmi_hw_version;
-	u32 ret = 0;
+	u32 ret = 0, reg;
 
 	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1462,15 +1464,17 @@ int hdcp_1x_reauthenticate(void *input)
 	/* Disable HDCP interrupts */
 	DSS_REG_W(io, isr->int_reg, DSS_REG_R(io, isr->int_reg) & ~HDCP_INT_EN);
 
-	if (reg_set->reset)
-		DSS_REG_W(io, reg_set->reset, BIT(0));
+	reg = DSS_REG_R(io, reg_set->reset);
+	DSS_REG_W(io, reg_set->reset, reg | reg_set->reset_bit);
 
 	/* Disable encryption and disable the HDCP block */
 	DSS_REG_W(io, reg_set->ctrl, 0);
 
+	DSS_REG_W(io, reg_set->reset, reg & ~reg_set->reset_bit);
+
 	if (!hdcp_1x_load_keys(input))
 		queue_delayed_work(hdcp_ctrl->init_data.workq,
-			&hdcp_ctrl->hdcp_auth_work, HZ/2);
+			&hdcp_ctrl->hdcp_auth_work, HZ);
 	else
 		queue_work(hdcp_ctrl->init_data.workq,
 			&hdcp_ctrl->hdcp_int_work);
@@ -1485,6 +1489,7 @@ void hdcp_1x_off(void *input)
 	struct hdcp_reg_set *reg_set;
 	struct hdcp_int_set *isr;
 	int rc = 0;
+	u32 reg;
 
 	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1527,11 +1532,14 @@ void hdcp_1x_off(void *input)
 		DEV_DBG("%s: %s: Deleted hdcp int work\n", __func__,
 			HDCP_STATE_NAME);
 
-	if (reg_set->reset)
-		DSS_REG_W(io, reg_set->reset, BIT(0));
+
+	reg = DSS_REG_R(io, reg_set->reset);
+	DSS_REG_W(io, reg_set->reset, reg | reg_set->reset_bit);
 
 	/* Disable encryption and disable the HDCP block */
 	DSS_REG_W(io, reg_set->ctrl, 0);
+
+	DSS_REG_W(io, reg_set->reset, reg & ~reg_set->reset_bit);
 
 	DEV_DBG("%s: %s: HDCP: Off\n", __func__, HDCP_STATE_NAME);
 } /* hdcp_1x_off */
