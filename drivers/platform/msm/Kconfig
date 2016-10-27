@@ -1,0 +1,68 @@
+menu "Qualcomm technologies inc. MSM specific device drivers"
+	depends on ARCH_QCOM
+
+config IPA
+	tristate "IPA support"
+	depends on SPS && NET
+	help
+	  This driver supports the Internet Packet Accelerator (IPA) core.
+	  IPA is a programmable protocol processor HW block.
+	  It is designed to support generic HW processing of UL/DL IP packets
+	  for various use cases independent of radio technology.
+	  The driver support client connection and configuration
+	  for the IPA core.
+	  Kernel and user-space processes can call the IPA driver
+	  to configure IPA core.
+
+config RMNET_IPA
+	tristate "IPA RMNET WWAN Network Device"
+	depends on IPA && MSM_QMI_INTERFACE
+	help
+	  This WWAN Network Driver implements network stack class device.
+	  It supports Embedded data transfer from A7 to Q6. Configures IPA HW
+	  for RmNet Data Driver and also exchange of QMI messages between
+	  A7 and Q6 IPA-driver.
+
+config GSI
+	bool "GSI support"
+	help
+	  This driver provides the transport needed to talk to the
+	  IPA core. It replaces the BAM transport used previously.
+
+	  The GSI connects to a peripheral component via uniform TLV
+	  interface, and allows it to interface with other peripherals
+	  and CPUs over various types of interfaces such as MHI, xDCI,
+	  xHCI, GPI, WDI, Ethernet, etc.
+
+config IPA3
+	tristate "IPA3 support"
+	depends on GSI && NET
+	help
+	  This driver supports the Internet Packet Accelerator (IPA3) core.
+	  IPA is a programmable protocol processor HW block.
+	  It is designed to support generic HW processing of UL/DL IP packets
+	  for various use cases independent of radio technology.
+	  The driver support client connection and configuration
+	  for the IPA core.
+	  Kernel and user-space processes can call the IPA driver
+	  to configure IPA core.
+
+config RMNET_IPA3
+	tristate "IPA3 RMNET WWAN Network Device"
+	depends on IPA3 && MSM_QMI_INTERFACE
+	help
+	  This WWAN Network Driver implements network stack class device.
+	  It supports Embedded data transfer from A7 to Q6. Configures IPA HW
+	  for RmNet Data Driver and also exchange of QMI messages between
+	  A7 and Q6 IPA-driver.
+
+config IPA_UT
+	tristate "IPA Unit-Test Framework and Test Suites"
+	depends on IPA3 && DEBUG_FS
+	help
+	  This Module implements IPA in-kernel test framework.
+	  The framework supports defining and running tests, grouped
+	  into suites according to the sub-unit of the IPA being tested.
+	  The user interface to run and control the tests is debugfs file
+	  system.
+endmenu
