@@ -371,6 +371,7 @@
 		qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 01 17 02];
 		qcom,cdc-dmic-sample-rate = <4800000>;
 		qcom,cdc-mad-dmic-rate = <600000>;
+		qcom,cdc-ecpp-dmic-rate = <1200000>;
 	};
 
 	wcd934x_cdc: tavil_codec {
