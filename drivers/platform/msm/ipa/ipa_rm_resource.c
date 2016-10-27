@@ -116,7 +116,8 @@ bail:
 int ipa_rm_resource_consumer_request_work(struct ipa_rm_resource_cons *consumer,
 		enum ipa_rm_resource_state prev_state,
 		u32 prod_needed_bw,
-		bool notify_completion)
+		bool notify_completion,
+		bool dec_client_on_err)
 {
 	int driver_result;
 
@@ -135,7 +136,8 @@ int ipa_rm_resource_consumer_request_work(struct ipa_rm_resource_cons *consumer,
 	} else if (driver_result != -EINPROGRESS) {
 		consumer->resource.state = prev_state;
 		consumer->resource.needed_bw -= prod_needed_bw;
-		consumer->usage_count--;
+		if (dec_client_on_err)
+			consumer->usage_count--;
 	}
 
 	return driver_result;
@@ -170,19 +172,22 @@ int ipa_rm_resource_consumer_request(
 				ipa_rm_resource_str(consumer->resource.name));
 			ipa_rm_wq_send_resume_cmd(consumer->resource.name,
 						prev_state,
-						prod_needed_bw);
+						prod_needed_bw,
+						inc_usage_count);
 			result = -EINPROGRESS;
 			break;
 		}
 		result = ipa_rm_resource_consumer_request_work(consumer,
 						prev_state,
 						prod_needed_bw,
-						false);
+						false,
+						inc_usage_count);
 		break;
 	case IPA_RM_GRANTED:
 		if (wake_client) {
 			result = ipa_rm_resource_consumer_request_work(
-				consumer, prev_state, prod_needed_bw, false);
+				consumer, prev_state, prod_needed_bw, false,
+				inc_usage_count);
 			break;
 		}
 		ipa_rm_perf_profile_change(consumer->resource.name);

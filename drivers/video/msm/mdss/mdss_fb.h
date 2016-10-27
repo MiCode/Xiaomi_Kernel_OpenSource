@@ -428,6 +428,11 @@ static inline bool mdss_fb_is_power_on_lp(struct msm_fb_data_type *mfd)
 	return mdss_panel_is_power_on_lp(mfd->panel_power_state);
 }
 
+static inline bool mdss_fb_is_power_on_ulp(struct msm_fb_data_type *mfd)
+{
+	return mdss_panel_is_power_on_ulp(mfd->panel_power_state);
+}
+
 static inline bool mdss_fb_is_hdmi_primary(struct msm_fb_data_type *mfd)
 {
 	return (mfd && (mfd->index == 0) &&

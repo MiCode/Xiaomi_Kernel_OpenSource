@@ -70,6 +70,31 @@ config ARCH_MDMCALIFORNIUM
 	select MSM_RPM_LOG
 	select MSM_RPM_STATS_LOG
 
+config ARCH_SDXHEDGEHOG
+	bool "SDXHEDGEHOG"
+	select ARM_GIC
+	select CPU_V7
+	select REGULATOR
+	select REGULATOR_RPM_SMD
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_RPM_SMD
+	select MSM_SPM
+	select MSM_PM if PM
+	select QMI_ENCDEC
+	select MSM_CORTEX_A7
+	select PINCTRL
+	select PINCTRL_MSM_TLMM
+	select USE_PINCTRL_IRQ
+	select PCI
+	select MSM_IRQ
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select MSM_CLK_CONTROLLER_V2
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select MSM_RPM_LOG
+	select MSM_RPM_STATS_LOG
+
 config ARCH_MSM8916
 	bool "MSM8916"
 	select MSM_CORTEX_A53

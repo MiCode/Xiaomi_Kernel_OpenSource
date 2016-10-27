@@ -34,5 +34,92 @@
 			ite,fw-name = "it7262_fw_050F0302.bin";
 			ite,cfg-name = "it7262_cfg_6602780D.bin";
 		};
+
+		pixart_pat9125@75 {
+			compatible = "pixart,pat9125";
+			reg = <0x75>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <92 0x2008>;
+			vld-supply = <&pm8916_l17>;
+			vdd-supply = <&pm8916_l5>;
+			pinctrl-names = "pmx_rot_switch_active",
+					"pmx_rot_switch_suspend",
+					"pmx_rot_switch_release";
+			pinctrl-0 = <&pix_int_active>;
+			pinctrl-1 = <&pix_int_suspend>;
+			pinctrl-2 = <&pix_release>;
+			pixart,inverse-x;
+		};
+	};
+
+	gpio_keys {
+		/delete-node/ camera_snapshot;
+	};
+
+	msm_gpio: pinctrl@1000000 {
+		pmx_rot_switch_active {
+			pix_int_active: pix_int_active {
+				mux {
+					pins = "gpio92";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio92";
+					drive-strength = <8>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_rot_switch_suspend {
+			pix_int_suspend: pix_int_suspend {
+				mux {
+					pins = "gpio92";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio92";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_rot_switch_release {
+			pix_release: pix_release {
+				mux {
+					pins = "gpio92";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio92";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+	};
+};
+
+&gpio_key_active {
+	mux {
+		pins = "gpio90", "gpio91";
+	};
+
+	config {
+		pins = "gpio90", "gpio91";
+	};
+};
+
+&gpio_key_suspend {
+	mux {
+		pins = "gpio91", "gpio91";
+	};
+
+	config {
+		pins = "gpio90", "gpio91";
 	};
 };

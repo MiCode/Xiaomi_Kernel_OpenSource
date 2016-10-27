@@ -45,6 +45,8 @@
 #define IPA_EOT_COAL_GRAN_MIN (1)
 #define IPA_EOT_COAL_GRAN_MAX (16)
 
+#define IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC (15)
+
 #define IPA_AGGR_BYTE_LIMIT (\
 		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
 		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_SHFT)
@@ -99,7 +101,7 @@
 #define IPA_GROUP_DPL		IPA_GROUP_DL
 #define IPA_GROUP_DIAG		(2)
 #define IPA_GROUP_DMA		(3)
-#define IPA_GROUP_IMM_CMD	IPA_GROUP_DMA
+#define IPA_GROUP_IMM_CMD	IPA_GROUP_UL
 #define IPA_GROUP_Q6ZIP		(4)
 #define IPA_GROUP_Q6ZIP_GENERAL	IPA_GROUP_Q6ZIP
 #define IPA_GROUP_UC_RX_Q	(5)
@@ -4948,7 +4950,8 @@ int ipa3_inject_dma_task_for_gsi(void)
 	desc.type = IPA_IMM_CMD_DESC;
 
 	IPADBG("sending 1B packet to IPA\n");
-	if (ipa3_send_cmd(1, &desc)) {
+	if (ipa3_send_cmd_timeout(1, &desc,
+		IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC)) {
 		IPAERR("ipa3_send_cmd failed\n");
 		return -EFAULT;
 	}
@@ -4997,7 +5000,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 			goto end_sequence;
 
 		IPADBG("Inject a DMA_TASK with 1B packet to IPA and retry\n");
-		/* Send a 1B packet DMA_RASK to IPA and try again*/
+		/* Send a 1B packet DMA_TASK to IPA and try again */
 		res = ipa3_inject_dma_task_for_gsi();
 		if (res) {
 			IPAERR("Failed to inject DMA TASk for GSI\n");

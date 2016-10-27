@@ -169,6 +169,7 @@ struct mdp3_hw_resource {
 	bool allow_iommu_update;
 	struct ion_handle *ion_handle;
 	struct mutex iommu_lock;
+	struct mutex fs_idle_pc_lock;
 
 	struct mdp3_dma dma[MDP3_DMA_MAX];
 	struct mdp3_intf intf[MDP3_DMA_OUTPUT_SEL_MAX];
@@ -265,7 +266,8 @@ u64 mdp3_clk_round_off(u64 clk_rate);
 
 void mdp3_calc_dma_res(struct mdss_panel_info *panel_info, u64 *clk_rate,
 		u64 *ab, u64 *ib, uint32_t bpp);
-
+void mdp3_clear_irq(u32 interrupt_mask);
+int mdp3_enable_panic_ctrl(void);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)

@@ -5,6 +5,7 @@ Required properties:
 	      "qcom,mdm9640-pinctrl"
 	      "qcom,mdm9607-pinctrl"
 	      "qcom,msm8917-pinctrl"
+	      "qcom,sdxhedgehog-pinctrl"
 	       "qcom,mdmcalifornium-pinctrl"
 	      "qcom,msm8952-pinctrl"
 	      "qcom,msm8953-pinctrl"

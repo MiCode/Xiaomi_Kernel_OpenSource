@@ -1055,6 +1055,8 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 		IPAWANDBG_LOW
 		("SW filtering out none QMAP packet received from %s",
 		current->comm);
+		dev_kfree_skb_any(skb);
+		dev->stats.tx_dropped++;
 		return NETDEV_TX_OK;
 	}
 
@@ -1066,7 +1068,8 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 			pr_err("[%s]Queue stop, send ctrl pkts\n", dev->name);
 			goto send;
 		} else {
-			pr_err("[%s]fatal: ipa_wwan_xmit stopped\n", dev->name);
+			pr_err("[%s]fatal: ipa3_wwan_xmit stopped\n",
+				  dev->name);
 			return NETDEV_TX_BUSY;
 		}
 	}
@@ -1096,6 +1099,8 @@ send:
 	if (ret) {
 		pr_err("[%s] fatal: ipa rm timer request resource failed %d\n",
 		       dev->name, ret);
+		dev_kfree_skb_any(skb);
+		dev->stats.tx_dropped++;
 		return -EFAULT;
 	}
 	/* IPA_RM checking end */
@@ -1111,7 +1116,6 @@ send:
 
 	if (ret) {
 		ret = NETDEV_TX_BUSY;
-		dev->stats.tx_dropped++;
 		goto out;
 	}
 

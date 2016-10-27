@@ -153,6 +153,12 @@ void mdp3_dma_callback_disable(struct mdp3_dma *dma, int type)
 			irq_bit = MDP3_INTR_SYNC_PRIMARY_LINE;
 			irq_bit += dma->dma_sel;
 			mdp3_irq_disable(irq_bit);
+			/*
+			 * Clear read pointer interrupt before disabling clocks.
+			 * Else pending ISR handling will result in NOC error
+			 * since the clock will be disable after this point.
+			 */
+			mdp3_clear_irq(irq_bit);
 		}
 
 		if (type & MDP3_DMA_CALLBACK_TYPE_DMA_DONE) {
@@ -721,7 +727,6 @@ retry_dma_done:
 retry_vsync:
 		rc = wait_for_completion_timeout(&dma->vsync_comp,
 			KOFF_TIMEOUT);
-		pr_err("%s VID DMA Buff Addr %pK\n", __func__, buf);
 		if (rc <= 0 && --retry_count) {
 			int vsync = MDP3_REG_READ(MDP3_REG_INTR_STATUS) &
 					(1 << MDP3_INTR_LCDC_START_OF_FRAME);

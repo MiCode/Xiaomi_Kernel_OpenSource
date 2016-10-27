@@ -169,6 +169,8 @@ struct kgsl_functable {
 	void (*pwrlevel_change_settings)(struct kgsl_device *device,
 		unsigned int prelevel, unsigned int postlevel, bool post);
 	void (*regulator_disable_poll)(struct kgsl_device *device);
+	void (*gpu_model)(struct kgsl_device *device, char *str,
+		size_t bufsz);
 };
 
 struct kgsl_ioctl {
@@ -284,6 +286,7 @@ struct kgsl_device {
 
 	/* Number of active contexts seen globally for this device */
 	int active_context_count;
+	struct kobject *gpu_sysfs_kobj;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \

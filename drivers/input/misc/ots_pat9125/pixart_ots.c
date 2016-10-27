@@ -19,7 +19,8 @@ static void ots_write_read(struct i2c_client *client, u8 address, u8 wdata)
 
 bool ots_sensor_init(struct i2c_client *client)
 {
-	unsigned char sensor_pid = 0, read_id_ok = 0;
+	u8 sensor_pid = 0;
+	bool read_id_ok = false;
 
 	/*
 	 * Read sensor_pid in address 0x00 to check if the
@@ -28,7 +29,7 @@ bool ots_sensor_init(struct i2c_client *client)
 	sensor_pid = read_data(client, PIXART_PAT9125_PRODUCT_ID1_REG);
 
 	if (sensor_pid == PIXART_PAT9125_SENSOR_ID) {
-		read_id_ok = 1;
+		read_id_ok = true;
 
 		/*
 		 * PAT9125 sensor recommended settings:

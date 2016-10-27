@@ -277,7 +277,7 @@ static struct sk_buff *gbam_alloc_skb_from_pool(struct gbam_port *port)
 		skb = alloc_skb(bam_mux_rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
 
 		if (!skb) {
-			pr_err("%s: alloc skb failed\n", __func__);
+			pr_err_ratelimited("%s: alloc skb failed\n", __func__);
 			goto alloc_exit;
 		}
 
@@ -462,7 +462,8 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 		ret = usb_ep_queue(ep, req, GFP_ATOMIC);
 		spin_lock(&port->port_lock_dl);
 		if (ret) {
-			pr_err("%s: usb epIn failed with %d\n", __func__, ret);
+			pr_err_ratelimited("%s: usb epIn failed with %d\n",
+					 __func__, ret);
 			list_add(&req->list, &d->tx_idle);
 			dev_kfree_skb_any(skb);
 			break;

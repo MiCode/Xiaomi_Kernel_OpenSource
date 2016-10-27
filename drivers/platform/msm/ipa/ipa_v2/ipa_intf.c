@@ -523,10 +523,9 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 	start = buf;
 
 	while (1) {
-		prepare_to_wait(&ipa_ctx->msg_waitq, &wait, TASK_INTERRUPTIBLE);
-
 		mutex_lock(&ipa_ctx->msg_lock);
 		locked = 1;
+		prepare_to_wait(&ipa_ctx->msg_waitq, &wait, TASK_INTERRUPTIBLE);
 		if (!list_empty(&ipa_ctx->msg_list)) {
 			msg = list_first_entry(&ipa_ctx->msg_list,
 					struct ipa_push_msg, link);

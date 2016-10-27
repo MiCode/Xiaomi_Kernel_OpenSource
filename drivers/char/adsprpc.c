@@ -264,6 +264,12 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.edge = "dsps",
 		.vmid = VMID_SSC_Q6,
 	},
+	{
+		.name = "mdsprpc-smd",
+		.subsys = "mdsp",
+		.channel = SMD_APPS_MODEM,
+		.edge = "mdsp",
+	},
 };
 
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
@@ -1854,7 +1860,8 @@ static void file_free_work_handler(struct work_struct *w)
 			break;
 		}
 		mutex_unlock(&me->flfree_mutex);
-		fastrpc_file_free(freefl->fl);
+		if (freefl)
+			fastrpc_file_free(freefl->fl);
 		mutex_lock(&me->flfree_mutex);
 
 		if (hlist_empty(&me->fls)) {
@@ -1928,7 +1935,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 
 	if (me->pending_free) {
 		event = wait_event_interruptible_timeout(wait_queue,
-						me->pending_free, RPC_TIMEOUT);
+						!me->pending_free, RPC_TIMEOUT);
 		if (event == 0)
 			pr_err("timed out..list is still not empty\n");
 	}
