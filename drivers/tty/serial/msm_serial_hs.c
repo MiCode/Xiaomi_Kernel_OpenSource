@@ -1596,6 +1596,16 @@ static void flip_insert_work(struct work_struct *work)
 	struct tty_struct *tty = msm_uport->uport.state->port.tty;
 
 	spin_lock_irqsave(&msm_uport->uport.lock, flags);
+	if (!tty || msm_uport->rx.flush == FLUSH_SHUTDOWN) {
+		dev_err(msm_uport->uport.dev,
+			"%s:Invalid driver state flush %d\n",
+				__func__, msm_uport->rx.flush);
+		MSM_HS_ERR("%s:Invalid driver state flush %d\n",
+				__func__, msm_uport->rx.flush);
+		spin_unlock_irqrestore(&msm_uport->uport.lock, flags);
+		return;
+	}
+
 	if (msm_uport->rx.buffer_pending == NONE_PENDING) {
 		MSM_HS_ERR("Error: No buffer pending in %s", __func__);
 		spin_unlock_irqrestore(&msm_uport->uport.lock, flags);
@@ -1667,6 +1677,16 @@ static void msm_serial_hs_rx_work(struct kthread_work *work)
 	pdata = pdev->dev.platform_data;
 
 	spin_lock_irqsave(&uport->lock, flags);
+
+	if (!tty || rx->flush == FLUSH_SHUTDOWN) {
+		dev_err(uport->dev, "%s:Invalid driver state flush %d\n",
+				__func__, rx->flush);
+		MSM_HS_ERR("%s:Invalid driver state flush %d\n",
+				__func__, rx->flush);
+		spin_unlock_irqrestore(&uport->lock, flags);
+		msm_hs_resource_unvote(msm_uport);
+		return;
+	}
 
 	/*
 	 * Process all pending descs or if nothing is
@@ -3664,12 +3684,12 @@ static void msm_hs_shutdown(struct uart_port *uport)
 
 	if (msm_uport->rx.flush != FLUSH_SHUTDOWN) {
 		/* disable and disconnect rx */
-		msm_hs_disconnect_rx(uport);
 		ret = wait_event_timeout(msm_uport->rx.wait,
-				msm_uport->rx.flush == FLUSH_SHUTDOWN, 500);
+				!msm_uport->rx.pending_flag, 500);
 		if (!ret)
 			MSM_HS_WARN("%s(): rx disconnect not complete",
 				__func__);
+		msm_hs_disconnect_rx(uport);
 	}
 
 	cancel_delayed_work_sync(&msm_uport->rx.flip_insert_work);

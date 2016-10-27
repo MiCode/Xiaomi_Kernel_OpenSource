@@ -277,13 +277,15 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 
 	wait_for_completion(&ep->aux_comp);
 
-	if (ep->aux_error_num == EDP_AUX_ERR_NONE)
+	if (ep->aux_error_num == EDP_AUX_ERR_NONE) {
 		ret = dp_cmd_fifo_rx(rp, len, ep->base);
-	else
-		ret = ep->aux_error_num;
 
-	if (cmds->out_buf)
-		memcpy(cmds->out_buf, rp->data, cmds->len);
+		if (cmds->out_buf)
+			memcpy(cmds->out_buf, rp->data, cmds->len);
+
+	} else {
+		ret = ep->aux_error_num;
+	}
 
 	ep->aux_cmd_busy = 0;
 	mutex_unlock(&ep->aux_mutex);
@@ -952,6 +954,232 @@ static int dp_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
 	return len;
 }
 
+/**
+ * mdss_dp_aux_send_test_response() - sends a test response to the sink
+ * @dp: Display Port Driver data
+ */
+void mdss_dp_aux_send_test_response(struct mdss_dp_drv_pdata *dp)
+{
+	char test_response[4];
+
+	test_response[0] = dp->test_data.response;
+
+	pr_debug("sending test response %s",
+			mdss_dp_get_test_response(test_response[0]));
+	dp_aux_write_buf(dp, 0x260, test_response, 1, 0);
+}
+
+/**
+ * dp_is_link_rate_valid() - validates the link rate
+ * @lane_rate: link rate requested by the sink
+ *
+ * Returns true if the requested link rate is supported.
+ */
+static bool dp_is_link_rate_valid(u32 link_rate)
+{
+	return (link_rate == DP_LINK_RATE_162) ||
+		(link_rate == DP_LINK_RATE_270) ||
+		(link_rate == DP_LINK_RATE_540);
+}
+
+/**
+ * dp_is_lane_count_valid() - validates the lane count
+ * @lane_count: lane count requested by the sink
+ *
+ * Returns true if the requested lane count is supported.
+ */
+static bool dp_is_lane_count_valid(u32 lane_count)
+{
+	return (lane_count == DP_LANE_COUNT_1) ||
+		(lane_count == DP_LANE_COUNT_2) ||
+		(lane_count == DP_LANE_COUNT_4);
+}
+
+/**
+ * dp_parse_link_training_params() - parses link training parameters from DPCD
+ * @ep: Display Port Driver data
+ *
+ * Returns 0 if it successfully parses the link rate (Byte 0x219) and lane
+ * count (Byte 0x220), and if these values parse are valid.
+ */
+static int dp_parse_link_training_params(struct mdss_dp_drv_pdata *ep)
+{
+	int ret = 0;
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const test_parameter_len = 0x1;
+	int const test_link_rate_addr = 0x219;
+	int const test_lane_count_addr = 0x220;
+
+	/* Read the requested link rate (Byte 0x219). */
+	rlen = dp_aux_read_buf(ep, test_link_rate_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read link rate\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	if (!dp_is_link_rate_valid(data)) {
+		pr_err("invalid link rate = 0x%x\n", data);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ep->test_data.test_link_rate = data;
+	pr_debug("link rate = 0x%x\n", ep->test_data.test_link_rate);
+
+	/* Read the requested lane count (Byte 0x220). */
+	rlen = dp_aux_read_buf(ep, test_lane_count_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read lane count\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+	data &= 0x1F;
+
+	if (!dp_is_lane_count_valid(data)) {
+		pr_err("invalid lane count = 0x%x\n", data);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ep->test_data.test_lane_count = data;
+	pr_debug("lane count = 0x%x\n", ep->test_data.test_lane_count);
+
+exit:
+	return ret;
+}
+
+/**
+ * dp_sink_parse_sink_count() - parses the sink count
+ * @ep: Display Port Driver data
+ *
+ * Parses the DPCD to check if there is an update to the sink count
+ * (Byte 0x200), and whether all the sink devices connected have Content
+ * Protection enabled.
+ */
+static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep)
+{
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const param_len = 0x1;
+	int const sink_count_addr = 0x200;
+
+	rlen = dp_aux_read_buf(ep, sink_count_addr, param_len, 0);
+	if (rlen < param_len) {
+		pr_err("failed to read sink count\n");
+		return;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	/* BIT 7, BIT 5:0 */
+	ep->sink_count.count = (data & BIT(7)) << 6 | (data & 0x63);
+	/* BIT 6*/
+	ep->sink_count.cp_ready = data & BIT(6);
+
+	pr_debug("sink_count = 0x%x, cp_ready = 0x%x\n",
+			ep->sink_count.count, ep->sink_count.cp_ready);
+}
+
+/**
+ * dp_is_test_supported() - checks if test requested by sink is supported
+ * @test_requested: test requested by the sink
+ *
+ * Returns true if the requested test is supported.
+ */
+static bool dp_is_test_supported(u32 test_requested)
+{
+	return test_requested == TEST_LINK_TRAINING;
+}
+
+/**
+ * dp_sink_parse_test_request() - parses test request parameters from sink
+ * @ep: Display Port Driver data
+ *
+ * Parses the DPCD to check if an automated test is requested (Byte 0x201),
+ * and what type of test automation is being requested (Byte 0x218).
+ */
+static void dp_sink_parse_test_request(struct mdss_dp_drv_pdata *ep)
+{
+	int ret = 0;
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const test_parameter_len = 0x1;
+	int const device_service_irq_addr = 0x201;
+	int const test_request_addr = 0x218;
+
+	/**
+	 * Read the device service IRQ vector (Byte 0x201) to determine
+	 * whether an automated test has been requested by the sink.
+	 */
+	rlen = dp_aux_read_buf(ep, device_service_irq_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read device service IRQ vector\n");
+		return;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	pr_debug("device service irq vector = 0x%x\n", data);
+
+	if (!(data & BIT(1))) {
+		pr_debug("no test requested\n");
+		return;
+	}
+
+	/**
+	 * Read the test request byte (Byte 0x218) to determine what type
+	 * of automated test has been requested by the sink.
+	 */
+	rlen = dp_aux_read_buf(ep, test_request_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read test_requested\n");
+		return;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	if (!dp_is_test_supported(data)) {
+		pr_debug("test 0x%x not supported\n", data);
+		return;
+	}
+
+	pr_debug("%s requested\n", mdss_dp_get_test_name(data));
+	ep->test_data.test_requested = data;
+
+	if (ep->test_data.test_requested == TEST_LINK_TRAINING)
+		ret = dp_parse_link_training_params(ep);
+
+	/**
+	 * Send a TEST_ACK if all test parameters are valid, otherwise send
+	 * a TEST_NACK.
+	 */
+	if (ret)
+		ep->test_data.response = TEST_NACK;
+	else
+		ep->test_data.response = TEST_ACK;
+}
+
 static int dp_cap_lane_rate_set(struct mdss_dp_drv_pdata *ep)
 {
 	char buf[4];
@@ -975,17 +1203,26 @@ static int dp_lane_set_write(struct mdss_dp_drv_pdata *ep, int voltage_level,
 {
 	int i;
 	char buf[4];
+	u32 max_level_reached = 0;
 
-	if (voltage_level >= DPCD_LINK_VOLTAGE_MAX)
-		voltage_level |= 0x04;
+	if (voltage_level == DPCD_LINK_VOLTAGE_MAX) {
+		pr_debug("max. voltage swing level reached %d\n",
+				voltage_level);
+		max_level_reached |= BIT(2);
+	}
 
-	if (pre_emphasis_level >= DPCD_LINK_PRE_EMPHASIS_MAX)
-		pre_emphasis_level |= 0x04;
+	if (pre_emphasis_level == DPCD_LINK_PRE_EMPHASIS_MAX) {
+		pr_debug("max. pre-emphasis level reached %d\n",
+				pre_emphasis_level);
+		max_level_reached  |= BIT(5);
+	}
+
+	pr_debug("max_level_reached = 0x%x\n", max_level_reached);
 
 	pre_emphasis_level <<= 3;
 
 	for (i = 0; i < 4; i++)
-		buf[i] = voltage_level | pre_emphasis_level;
+		buf[i] = voltage_level | pre_emphasis_level | max_level_reached;
 
 	pr_debug("p|v=0x%x", voltage_level | pre_emphasis_level);
 	return dp_aux_write_buf(ep, 0x103, buf, 4, 0);
@@ -1087,6 +1324,30 @@ void dp_sink_train_set_adjust(struct mdss_dp_drv_pdata *ep)
 	}
 
 	ep->p_level = max;
+
+	/**
+	 * Adjust the voltage swing and pre-emphasis level combination to within
+	 * the allowable range.
+	 */
+	if (ep->v_level > DPCD_LINK_VOLTAGE_MAX) {
+		pr_debug("Requested vSwingLevel=%d, change to %d\n",
+				ep->v_level, DPCD_LINK_VOLTAGE_MAX);
+		ep->v_level = DPCD_LINK_VOLTAGE_MAX;
+	}
+
+	if (ep->p_level > DPCD_LINK_PRE_EMPHASIS_MAX) {
+		pr_debug("Requested preEmphasisLevel=%d, change to %d\n",
+				ep->p_level, DPCD_LINK_PRE_EMPHASIS_MAX);
+		ep->p_level = DPCD_LINK_PRE_EMPHASIS_MAX;
+	}
+
+	if ((ep->p_level > DPCD_LINK_PRE_EMPHASIS_LEVEL_1)
+			&& (ep->v_level == DPCD_LINK_VOLTAGE_LEVEL_2)) {
+		pr_debug("Requested preEmphasisLevel=%d, change to %d\n",
+				ep->p_level, DPCD_LINK_PRE_EMPHASIS_LEVEL_1);
+		ep->p_level = DPCD_LINK_PRE_EMPHASIS_LEVEL_1;
+	}
+
 	pr_debug("v_level=%d, p_level=%d",
 					ep->v_level, ep->p_level);
 }
@@ -1300,7 +1561,7 @@ static int dp_link_rate_down_shift(struct mdss_dp_drv_pdata *ep)
 	return -EINVAL;
 }
 
-static int mdss_dp_sink_power_state(struct mdss_dp_drv_pdata *ep, char state)
+int mdss_dp_aux_set_sink_power_state(struct mdss_dp_drv_pdata *ep, char state)
 {
 	int ret;
 
@@ -1332,7 +1593,7 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 
 	dp_write(dp->base + DP_MAINLINK_CTRL, 0x1);
 
-	mdss_dp_sink_power_state(dp, SINK_POWER_ON);
+	mdss_dp_aux_set_sink_power_state(dp, SINK_POWER_ON);
 
 train_start:
 	dp->v_level = 0; /* start from default level */
@@ -1387,6 +1648,13 @@ void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 	dp_sink_capability_read(ep, 16);
 }
 
+void mdss_dp_aux_parse_sink_status_field(struct mdss_dp_drv_pdata *ep)
+{
+	dp_sink_parse_sink_count(ep);
+	dp_sink_parse_test_request(ep);
+	dp_link_status_read(ep, 6);
+}
+
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *ep)
 {
 	struct dpcd_link_status *sp;
@@ -1427,4 +1695,37 @@ void mdss_dp_aux_init(struct mdss_dp_drv_pdata *ep)
 
 	dp_buf_init(&ep->txp, ep->txbuf, sizeof(ep->txbuf));
 	dp_buf_init(&ep->rxp, ep->rxbuf, sizeof(ep->rxbuf));
+}
+
+int mdss_dp_aux_read_rx_status(struct mdss_dp_drv_pdata *dp, u8 *rx_status)
+{
+	bool cp_irq;
+	int rc = 0;
+
+	if (!dp) {
+		pr_err("%s Invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	*rx_status = 0;
+
+	rc = dp_aux_read_buf(dp, DP_DPCD_CP_IRQ, 1, 0);
+	if (!rc) {
+		pr_err("Error reading CP_IRQ\n");
+		return -EINVAL;
+	}
+
+	cp_irq = *dp->rxp.data & BIT(2);
+
+	if (cp_irq) {
+		rc = dp_aux_read_buf(dp, DP_DPCD_RXSTATUS, 1, 0);
+		if (!rc) {
+			pr_err("Error reading RxStatus\n");
+			return -EINVAL;
+		}
+
+		*rx_status = *dp->rxp.data;
+	}
+
+	return 0;
 }

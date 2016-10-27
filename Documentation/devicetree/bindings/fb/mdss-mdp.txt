@@ -566,6 +566,8 @@ Subnode properties:
 			 Example: Width = 1920, Height = 1080, BytesPerPixel = 4,
 			 Number of frame-buffers reserved = 2.
 			 Size = 1920*1080*4*2 = ROUND_1MB(15.8MB) = 16MB.
+- qcom,mdss-intf:	Phandle to the kernel driver module that is mapped to the
+			frame buffer virtual device.
 - qcom,mdss-fb-splash-logo-enabled:    The boolean entry enables the framebuffer
 					driver to display the splash logo image.
 					It is independent of continuous splash

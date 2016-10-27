@@ -2443,12 +2443,16 @@ static int icnss_call_driver_reinit(struct icnss_priv *priv)
 out:
 	clear_bit(ICNSS_PD_RESTART, &priv->state);
 
+	icnss_pm_relax(priv);
+
 	return 0;
 
 out_power_off:
 	icnss_hw_power_off(priv);
 
 	clear_bit(ICNSS_PD_RESTART, &priv->state);
+
+	icnss_pm_relax(priv);
 	return ret;
 }
 
@@ -2567,6 +2571,8 @@ static int icnss_call_driver_shutdown(struct icnss_priv *priv)
 
 	set_bit(ICNSS_PD_RESTART, &priv->state);
 	clear_bit(ICNSS_FW_READY, &priv->state);
+
+	icnss_pm_stay_awake(priv);
 
 	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
 		return 0;

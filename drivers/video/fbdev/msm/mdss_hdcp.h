@@ -14,6 +14,7 @@
 #define __MDSS_HDMI_HDCP_H__
 
 #include "mdss_hdmi_util.h"
+#include "mdss_dp.h"
 #include <video/msm_hdmi_modes.h>
 #include <soc/qcom/scm.h>
 
@@ -42,6 +43,8 @@ struct hdcp_init_data {
 	void *cb_data;
 	void (*notify_status)(void *cb_data, enum hdcp_states status);
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
+	u8 sink_rx_status;
+	void *dp_data;
 	u32 phy_addr;
 	u32 hdmi_tx_ver;
 	struct msm_hdmi_mode_timing_info *timing;
@@ -59,12 +62,17 @@ struct hdcp_ops {
 };
 
 void *hdcp_1x_init(struct hdcp_init_data *init_data);
-void *hdmi_hdcp2p2_init(struct hdcp_init_data *init_data);
 void hdcp_1x_deinit(void *input);
+
+void *hdmi_hdcp2p2_init(struct hdcp_init_data *init_data);
 void hdmi_hdcp2p2_deinit(void *input);
+
+void *dp_hdcp2p2_init(struct hdcp_init_data *init_data);
+void dp_hdcp2p2_deinit(void *input);
 
 struct hdcp_ops *hdcp_1x_start(void *input);
 struct hdcp_ops *hdmi_hdcp2p2_start(void *input);
+struct hdcp_ops *dp_hdcp2p2_start(void *input);
 
 const char *hdcp_state_name(enum hdcp_states hdcp_state);
 
