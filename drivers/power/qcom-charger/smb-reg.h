@@ -428,6 +428,7 @@ enum {
 #define USBIN_5V_TO_12V_BIT		BIT(2)
 #define USBIN_5V_TO_9V_BIT		BIT(1)
 #define USBIN_5V_BIT			BIT(0)
+#define QC_2P0_STATUS_MASK		GENMASK(2, 0)
 
 #define APSD_STATUS_REG			(USBIN_BASE + 0x07)
 #define APSD_STATUS_7_BIT		BIT(7)
