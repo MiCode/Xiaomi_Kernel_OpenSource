@@ -2508,8 +2508,6 @@ void adm_copp_mfc_cfg(int port_id, int copp_idx, int dst_sample_rate)
 	mfc_cfg.sampling_rate = dst_sample_rate;
 	mfc_cfg.bits_per_sample =
 		atomic_read(&this_adm.copp.bit_width[port_idx][copp_idx]);
-	if (24 == mfc_cfg.bits_per_sample)
-		mfc_cfg.bits_per_sample = 32;
 	open.dev_num_channel = mfc_cfg.num_channels =
 		atomic_read(&this_adm.copp.channels[port_idx][copp_idx]);
 

@@ -121,14 +121,14 @@ static int msm_routing_get_bit_width(unsigned int format)
 	return bit_width;
 }
 
-static bool msm_is_fractional_resample_needed(int input_sr, int output_sr)
+static bool msm_is_resample_needed(int input_sr, int output_sr)
 {
 	bool rc = false;
 
-	if ((input_sr % output_sr != 0) && (output_sr % input_sr != 0))
+	if (input_sr != output_sr)
 		rc = true;
 
-	pr_debug("performing fractional resample (%s) for copp rate (%d)afe rate (%d)",
+	pr_debug("perform resampling (%s) for copp rate (%d)afe rate (%d)",
 		(rc ? "oh yes" : "not really"),
 		input_sr, output_sr);
 
@@ -901,7 +901,7 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 			set_bit(copp_idx,
 				&session_copp_map[fe_id][session_type][i]);
 
-			if (msm_is_fractional_resample_needed(
+			if (msm_is_resample_needed(
 				sample_rate,
 				msm_bedais[i].sample_rate))
 				adm_copp_mfc_cfg(
@@ -1057,7 +1057,7 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 			set_bit(copp_idx,
 				&session_copp_map[fedai_id][session_type][i]);
 
-			if (msm_is_fractional_resample_needed(
+			if (msm_is_resample_needed(
 				sample_rate,
 				msm_bedais[i].sample_rate))
 				adm_copp_mfc_cfg(
@@ -1284,7 +1284,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			set_bit(copp_idx,
 				&session_copp_map[val][session_type][reg]);
 
-			if (msm_is_fractional_resample_needed(
+			if (msm_is_resample_needed(
 				sample_rate,
 				msm_bedais[reg].sample_rate))
 				adm_copp_mfc_cfg(
@@ -10381,7 +10381,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			set_bit(copp_idx,
 				&session_copp_map[i][session_type][be_id]);
 
-			if (msm_is_fractional_resample_needed(
+			if (msm_is_resample_needed(
 				sample_rate,
 				bedai->sample_rate))
 				adm_copp_mfc_cfg(
