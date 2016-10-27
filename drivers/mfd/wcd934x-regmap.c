@@ -1922,6 +1922,10 @@ static bool wcd934x_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD934X_SIDO_NEW_VOUT_A_STARTUP:
 	case WCD934X_SIDO_NEW_VOUT_D_STARTUP:
 	case WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL:
+	case WCD934X_ANA_MBHC_MECH:
+	case WCD934X_ANA_MBHC_ELECT:
+	case WCD934X_ANA_MBHC_ZDET:
+	case WCD934X_ANA_MICB2:
 		return true;
 	}
 
