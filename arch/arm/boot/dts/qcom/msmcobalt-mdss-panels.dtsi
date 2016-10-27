@@ -158,6 +158,8 @@
 	qcom,mdss-dsi-panel-timings = [00 17 05 05 09 0f 05 06 04 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x06>;
 	qcom,mdss-dsi-t-clk-pre = <0x23>;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "te_signal_check";
 };
 
 &dsi_sharp_1080_cmd {
