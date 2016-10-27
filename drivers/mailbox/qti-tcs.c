@@ -485,6 +485,29 @@ static void __tcs_buffer_write(void __iomem *base, int d, int m, int n,
 	}
 }
 
+/**
+ * tcs_drv_is_idle: Check if any of the AMCs are busy.
+ *
+ * @mbox: The mailbox controller.
+ *
+ * Returns true if the AMCs are not engaged or absent.
+ */
+static bool tcs_drv_is_idle(struct mbox_controller *mbox)
+{
+	int m;
+	struct tcs_drv *drv = container_of(mbox, struct tcs_drv, mbox);
+	struct tcs_mbox *tcs = get_tcs_of_type(drv, ACTIVE_TCS);
+
+	if (IS_ERR(tcs))
+		return true;
+
+	for (m = tcs->tcs_offset; m < tcs->tcs_offset + tcs->num_tcs; m++)
+		if (!tcs_is_free(drv->reg_base, m))
+			return false;
+
+	return true;
+}
+
 static void wait_for_req_inflight(struct tcs_drv *drv, struct tcs_mbox *tcs,
 						struct tcs_mbox_msg *msg)
 {
@@ -997,6 +1020,7 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	drv->mbox.num_chans = num_chans;
 	drv->mbox.txdone_irq = true;
 	drv->mbox.of_xlate = of_tcs_mbox_xlate;
+	drv->mbox.is_idle = tcs_drv_is_idle;
 	drv->num_tcs = st;
 	drv->pdev = pdev;
 
