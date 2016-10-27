@@ -100,16 +100,16 @@ extern unsigned int sysctl_sched_cfs_bandwidth_slice;
 #endif
 
 #ifdef CONFIG_SCHED_TUNE
-extern unsigned int sysctl_sched_cfs_boost;
+extern int sysctl_sched_cfs_boost;
 int sysctl_sched_cfs_boost_handler(struct ctl_table *table, int write,
 				   void __user *buffer, size_t *length,
 				   loff_t *ppos);
-static inline unsigned int get_sysctl_sched_cfs_boost(void)
+static inline int get_sysctl_sched_cfs_boost(void)
 {
 	return sysctl_sched_cfs_boost;
 }
 #else
-static inline unsigned int get_sysctl_sched_cfs_boost(void)
+static inline int get_sysctl_sched_cfs_boost(void)
 {
 	return 0;
 }
