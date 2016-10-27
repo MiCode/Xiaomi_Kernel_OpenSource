@@ -1580,6 +1580,10 @@ static void dump_sram(u8 *buf, int len)
 	}
 }
 
+#define PROFILE_LOAD_BIT	BIT(0)
+#define BOOTLOADER_LOAD_BIT	BIT(1)
+#define BOOTLOADER_RESTART_BIT	BIT(2)
+#define HLOS_RESTART_BIT	BIT(3)
 static bool is_profile_load_required(struct fg_chip *chip)
 {
 	u8 buf[PROFILE_COMP_LEN], val;
@@ -1594,7 +1598,7 @@ static bool is_profile_load_required(struct fg_chip *chip)
 	}
 
 	/* Check if integrity bit is set */
-	if (val == 0x01) {
+	if (val & PROFILE_LOAD_BIT) {
 		fg_dbg(chip, FG_STATUS, "Battery profile integrity bit is set\n");
 		rc = fg_sram_read(chip, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
 				buf, PROFILE_COMP_LEN, FG_IMA_DEFAULT);
@@ -1752,7 +1756,7 @@ static void profile_load_work(struct work_struct *work)
 	fg_dbg(chip, FG_STATUS, "SOC is ready\n");
 
 	/* Set the profile integrity bit */
-	val = 0x1;
+	val = HLOS_RESTART_BIT | PROFILE_LOAD_BIT;
 	rc = fg_sram_write(chip, PROFILE_INTEGRITY_WORD,
 			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
