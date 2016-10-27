@@ -3199,33 +3199,26 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(&sys_apcsaux_clk_gcc.c);
 
-	/* Set boot rate */
-	rc = clk_set_rate(&pwrcl_clk.c, msmcobalt_v1 ?
-			  MSMCOBALTV1_PWRCL_BOOT_RATE :
-			  MSMCOBALTV2_PWRCL_BOOT_RATE);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to set boot rate on pwr cluster, rc=%d\n",
-			rc);
-		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
-		return rc;
-	}
-
-	rc = clk_set_rate(&perfcl_clk.c, msmcobalt_v1 ?
-			  MSMCOBALTV1_PERFCL_BOOT_RATE :
-			  MSMCOBALTV2_PERFCL_BOOT_RATE);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to set boot rate on perf cluster, rc=%d\n",
-			rc);
-		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
-		return rc;
-	}
-
 	rc = clk_set_rate(&osm_clk_src.c, osm_clk_init_rate);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set init rate on osm_clk, rc=%d\n",
 			rc);
-		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
-		return rc;
+		goto exit2;
+	}
+
+	/* Make sure index zero is selected */
+	rc = clk_set_rate(&pwrcl_clk.c, init_rate);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to set init rate on pwr cluster, rc=%d\n",
+			rc);
+		goto exit2;
+	}
+
+	rc = clk_set_rate(&perfcl_clk.c, init_rate);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to set init rate on perf cluster, rc=%d\n",
+			rc);
+		goto exit2;
 	}
 
 	get_online_cpus();
@@ -3234,6 +3227,25 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	for_each_online_cpu(cpu) {
 		WARN(clk_prepare_enable(logical_cpu_to_clk(cpu)),
 		     "Failed to enable clock for cpu %d\n", cpu);
+	}
+
+	/* Set final boot rate */
+	rc = clk_set_rate(&pwrcl_clk.c, msmcobalt_v1 ?
+			  MSMCOBALTV1_PWRCL_BOOT_RATE :
+			  MSMCOBALTV2_PWRCL_BOOT_RATE);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to set boot rate on pwr cluster, rc=%d\n",
+			rc);
+		goto exit2;
+	}
+
+	rc = clk_set_rate(&perfcl_clk.c, msmcobalt_v1 ?
+			  MSMCOBALTV1_PERFCL_BOOT_RATE :
+			  MSMCOBALTV2_PERFCL_BOOT_RATE);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to set boot rate on perf cluster, rc=%d\n",
+			rc);
+		goto exit2;
 	}
 
 	pwrcl_clk.version = clk_osm_read_reg(&pwrcl_clk, VERSION_REG);
@@ -3252,6 +3264,8 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 
 	return 0;
 
+exit2:
+	clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
 exit:
 	dev_err(&pdev->dev, "OSM driver failed to initialize, rc=%d\n",
 		rc);
