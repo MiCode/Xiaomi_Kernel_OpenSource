@@ -236,7 +236,7 @@
 			qcom,fdbk-output = "auto";
 			qcom,vref-mv = <350>;
 			qcom,switch-freq-khz = <800>;
-			qcom,ovp-mv = <29500>;
+			qcom,ovp-mv = <29600>;
 			qcom,ilim-ma = <980>;
 			qcom,boost-duty-ns = <26>;
 			qcom,mod-freq-khz = <9600>;
@@ -248,6 +248,7 @@
 			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01 02];
 			qcom,en-ext-pfet-sc-pro;
+			qcom,pmic-revid = <&pm2falcon_revid>;
 			status = "ok";
 		};
 
