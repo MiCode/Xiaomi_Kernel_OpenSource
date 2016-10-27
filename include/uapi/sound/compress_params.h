@@ -70,6 +70,11 @@
 #define Q6_DTS		0x00010D88
 #define Q6_DTS_LBR	0x00010DBB
 
+/* Timestamp flsg */
+/* Bit-0 - 1 : Enable Timestamp mode */
+/* Bit-0 - 0 : Disable Timestamp mode */
+#define COMPRESSED_TIMESTAMP_FLAG 0x0001
+
 /* Codecs are listed linearly to allow for extensibility */
 #define SND_AUDIOCODEC_PCM                   ((__u32) 0x00000001)
 #define SND_AUDIOCODEC_MP3                   ((__u32) 0x00000002)
@@ -480,7 +485,15 @@ struct snd_codec {
 	__u32 align;
 	__u32 compr_passthr;
 	union snd_codec_options options;
-	__u32 reserved[3];
+	__u32 flags;
+	__u32 reserved[2];
 } __attribute__((packed, aligned(4)));
+
+struct snd_codec_metadata {
+	__u32 length;
+	__u32 offset;
+	__u64 timestamp;
+	__u32 reserved[4];
+};
 
 #endif
