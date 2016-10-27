@@ -5132,7 +5132,7 @@ static int tavil_mad_input_put(struct snd_kcontrol *kcontrol,
 	snd_soc_update_bits(codec, WCD934X_SOC_MAD_INP_SEL,
 			    0x0F, tavil_mad_input);
 	snd_soc_update_bits(codec, WCD934X_ANA_MAD_SETUP,
-			    0x03, mic_bias_found);
+			    0x07, mic_bias_found);
 
 	return 0;
 }
