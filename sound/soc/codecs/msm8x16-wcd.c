@@ -5478,13 +5478,20 @@ static int msm8x16_wcd_device_down(struct snd_soc_codec *codec)
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
 		snd_soc_codec_get_drvdata(codec);
 	int i;
+	unsigned int tx_1_en;
+	unsigned int tx_2_en;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 	dev_dbg(codec->dev, "%s: device down!\n", __func__);
+
+	tx_1_en = msm8x16_wcd_read(codec, MSM8X16_WCD_A_ANALOG_TX_1_EN);
+	tx_2_en = msm8x16_wcd_read(codec, MSM8X16_WCD_A_ANALOG_TX_2_EN);
+	tx_1_en = tx_1_en & 0x7f;
+	tx_2_en = tx_2_en & 0x7f;
 	msm8x16_wcd_write(codec,
-		MSM8X16_WCD_A_ANALOG_TX_1_EN, 0x3);
+		MSM8X16_WCD_A_ANALOG_TX_1_EN, tx_1_en);
 	msm8x16_wcd_write(codec,
-		MSM8X16_WCD_A_ANALOG_TX_2_EN, 0x3);
+		MSM8X16_WCD_A_ANALOG_TX_2_EN, tx_2_en);
 	if (msm8x16_wcd_priv->boost_option == BOOST_ON_FOREVER) {
 		if ((snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_SPKR_DRV_CTL)
 			& 0x80) == 0) {
