@@ -329,12 +329,16 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_usb_phy;
 
+	device_wakeup_enable(&hcd->self.root_hub->dev);
+
 	if (HCC_MAX_PSA(xhci->hcc_params) >= 4)
 		xhci->shared_hcd->can_do_streams = 1;
 
 	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto dealloc_usb2_hcd;
+
+	device_wakeup_enable(&xhci->shared_hcd->self.root_hub->dev);
 
 	/* override imod interval if specified */
 	if (imod) {
