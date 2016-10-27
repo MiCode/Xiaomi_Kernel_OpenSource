@@ -2730,6 +2730,21 @@ int afe_port_send_usb_dev_param(u16 port_id, union afe_port_config *afe_config)
 		ret = -EINVAL;
 		goto exit;
 	}
+
+	config.pdata.param_id = AFE_PARAM_ID_USB_AUDIO_DEV_LPCM_FMT;
+	config.pdata.param_size = sizeof(config.lpcm_fmt);
+	config.lpcm_fmt.cfg_minor_version =
+		AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG;
+	config.lpcm_fmt.endian = afe_config->usb_audio.endian;
+
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[index]);
+	if (ret) {
+		pr_err("%s: AFE device param cmd LPCM_FMT failed %d\n",
+			__func__, ret);
+		ret = -EINVAL;
+		goto exit;
+	}
+
 exit:
 	return ret;
 }

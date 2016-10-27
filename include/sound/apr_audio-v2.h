@@ -2461,6 +2461,13 @@ struct afe_param_id_slimbus_cfg {
  */
 #define AFE_PARAM_ID_USB_AUDIO_DEV_PARAMS    0x000102A5
 
+
+/* ID of the parameter used to set the endianness value for the
+ * USB audio device. It should be used with
+ * AFE_MODULE_AUDIO_DEV_INTERFACE
+ */
+#define AFE_PARAM_ID_USB_AUDIO_DEV_LPCM_FMT 0x000102AA
+
 /* Minor version used for tracking USB audio  configuration */
 #define AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG 0x1
 
@@ -2474,6 +2481,15 @@ struct afe_param_id_usb_audio_dev_params {
 	u32                  cfg_minor_version;
 /* Token of actual end USB aduio device */
 	u32                  dev_token;
+} __packed;
+
+struct afe_param_id_usb_audio_dev_lpcm_fmt {
+/* Minor version used for tracking USB audio device parameter.
+ * Supported values: AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG
+ */
+	u32                  cfg_minor_version;
+/* Endianness of actual end USB audio device */
+	u32                  endian;
 } __packed;
 
 /* ID of the parameter used by AFE_PARAM_ID_USB_AUDIO_CONFIG to configure
@@ -2520,13 +2536,18 @@ struct afe_param_id_usb_audio_cfg {
 	u16                  reserved;
 /* device token of actual end USB aduio device */
 	u32                  dev_token;
+/* endianness of this interface */
+	u32                   endian;
 } __packed;
 
 struct afe_usb_audio_dev_param_command {
 	struct apr_hdr hdr;
 	struct afe_port_cmd_set_param_v2 param;
 	struct afe_port_param_data_v2    pdata;
-	struct afe_param_id_usb_audio_dev_params usb_dev;
+	union {
+		struct afe_param_id_usb_audio_dev_params usb_dev;
+		struct afe_param_id_usb_audio_dev_lpcm_fmt lpcm_fmt;
+	};
 } __packed;
 
 /* This param id is used to configure Real Time Proxy interface. */
