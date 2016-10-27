@@ -398,6 +398,15 @@ static int msm_gfx_ldo_enable(struct regulator_dev *rdev)
 				ldo_vreg->corner + MIN_CORNER_OFFSET);
 
 	if (ldo_vreg->vdd_cx) {
+		rc = regulator_set_voltage(ldo_vreg->vdd_cx,
+			ldo_vreg->vdd_cx_corner_map[ldo_vreg->corner],
+			INT_MAX);
+		if (rc) {
+			pr_err("Unable to set CX for corner %d rc=%d\n",
+				ldo_vreg->corner + MIN_CORNER_OFFSET, rc);
+			goto fail;
+		}
+
 		rc = regulator_enable(ldo_vreg->vdd_cx);
 		if (rc) {
 			pr_err("regulator_enable: vdd_cx: failed rc=%d\n", rc);
@@ -646,17 +655,6 @@ static int msm_gfx_ldo_set_voltage(struct regulator_dev *rdev,
 	else if (corner < ldo_vreg->corner)
 		dir = DOWN;
 
-	if (ldo_vreg->vdd_cx) {
-		rc = regulator_set_voltage(ldo_vreg->vdd_cx,
-			ldo_vreg->vdd_cx_corner_map[corner],
-			INT_MAX);
-		if (rc) {
-			pr_err("Unable to set CX for corner %d rc=%d\n",
-					corner + MIN_CORNER_OFFSET, rc);
-			goto done;
-		}
-	}
-
 	if (ldo_vreg->mem_acc_vreg && dir == DOWN) {
 		mem_acc_corner = ldo_vreg->mem_acc_corner_map[corner];
 		rc = regulator_set_voltage(ldo_vreg->mem_acc_vreg,
@@ -666,6 +664,17 @@ static int msm_gfx_ldo_set_voltage(struct regulator_dev *rdev,
 	if (!ldo_vreg->vreg_enabled) {
 		ldo_vreg->corner = corner;
 		goto done;
+	}
+
+	if (ldo_vreg->vdd_cx) {
+		rc = regulator_set_voltage(ldo_vreg->vdd_cx,
+			ldo_vreg->vdd_cx_corner_map[corner],
+			INT_MAX);
+		if (rc) {
+			pr_err("Unable to set CX for corner %d rc=%d\n",
+					corner + MIN_CORNER_OFFSET, rc);
+			goto done;
+		}
 	}
 
 	new_mode = get_operating_mode(ldo_vreg, corner);
