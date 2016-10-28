@@ -365,6 +365,7 @@ static const struct file_operations audio_in_fops = {
 	.release	= audio_in_release,
 	.read		= audio_in_read,
 	.write		= audio_in_write,
+	.unlocked_ioctl = audio_in_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl   = audio_in_compat_ioctl,
 #endif
