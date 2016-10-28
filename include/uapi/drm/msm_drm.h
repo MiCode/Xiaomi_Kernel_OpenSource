@@ -192,6 +192,15 @@ struct drm_msm_gem_submit {
 	__u64 __user cmds;    /* in, ptr to array of submit_cmd's */
 };
 
+struct drm_msm_context_submit {
+	__u32 context_id;     /* in, context id */
+	__u32 timestamp;      /* in, user generated timestamp */
+	__u32 nr_bos;         /* in, number of submit_bo's */
+	__u32 nr_cmds;        /* in, number of submit_cmd's */
+	__u64 __user bos;     /* in, ptr to array of submit_bo's */
+	__u64 __user cmds;    /* in, ptr to array of submit_cmd's */
+};
+
 /* The normal way to synchronize with the GPU is just to CPU_PREP on
  * a buffer if you need to access it from the CPU (other cmdstream
  * submission from same or other contexts, PAGE_FLIP ioctl, etc, all
@@ -306,6 +315,37 @@ struct drm_perfcounter_put {
 	unsigned int __pad[2]; /* For future binary compatibility */
 };
 
+struct drm_msm_context_create {
+	__u32 flags; /* [in] */
+	__u32 context_id; /* [out] */
+};
+
+struct drm_msm_context_destroy {
+	__u32 context_id; /* [in] */
+	__u32 pad;
+};
+
+struct drm_msm_wait_timestamp {
+	__u32 context_id; /*[in]*/
+	__u32 timestamp; /*[in]*/
+	__u32 timeout; /*[in] amount of time to wait (in milliseconds)*/
+	__u32 pad;
+};
+
+struct drm_msm_read_timestamp {
+	__u32 context_id; /* [in] */
+	__u32 type;       /* in, */
+	__u32 timestamp; /* [out] */
+	__u32 pad;
+};
+
+struct drm_msm_gem_close {
+	__u32 handle;     /* in, GEM handle */
+	__u32 context_id; /* in, context id */
+	__u32 timestamp;  /* in, timestamp to free the GEM object */
+	__u32 pad;
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -322,8 +362,13 @@ struct drm_perfcounter_put {
 #define DRM_MSM_PERFCOUNTER_QUERY      0x0B
 #define DRM_MSM_PERFCOUNTER_GET        0x0C
 #define DRM_MSM_PERFCOUNTER_PUT        0x0D
-#define DRM_MSM_NUM_IOCTLS             0x0E
-
+#define DRM_MSM_CONTEXT_CREATE         0x0E
+#define DRM_MSM_CONTEXT_DESTROY        0x0F
+#define DRM_MSM_WAIT_TIMESTAMP         0x10
+#define DRM_MSM_READ_TIMESTAMP         0x11
+#define DRM_MSM_CONTEXT_SUBMIT         0x12
+#define DRM_MSM_GEM_CLOSE              0x13
+#define DRM_MSM_NUM_IOCTLS             0x14
 
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)
@@ -335,6 +380,24 @@ struct drm_perfcounter_put {
 #define DRM_IOCTL_MSM_GET_LAST_FENCE \
 	(DRM_IOR((DRM_COMMAND_BASE + DRM_MSM_GET_LAST_FENCE), \
 	struct drm_msm_get_last_fence))
+#define DRM_IOCTL_MSM_CONTEXT_CREATE   \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_CONTEXT_CREATE,\
+			struct drm_msm_context_create)
+#define DRM_IOCTL_MSM_CONTEXT_DESTROY  \
+	(DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_CONTEXT_DESTROY,\
+			struct drm_msm_context_destroy))
+#define DRM_IOCTL_MSM_WAIT_TIMESTAMP   \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_WAIT_TIMESTAMP,\
+			struct drm_msm_wait_timestamp)
+#define DRM_IOCTL_MSM_READ_TIMESTAMP   \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_READ_TIMESTAMP,\
+			struct drm_msm_read_timestamp)
+#define DRM_IOCTL_MSM_CONTEXT_SUBMIT               \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_CONTEXT_SUBMIT,\
+			struct drm_msm_context_submit)
+#define DRM_IOCTL_MSM_GEM_CLOSE        \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_CLOSE,\
+			struct drm_msm_gem_close)
 #define DRM_IOCTL_SDE_WB_CONFIG \
 	DRM_IOW((DRM_COMMAND_BASE + DRM_SDE_WB_CONFIG), struct sde_drm_wb_cfg)
 #define DRM_IOCTL_MSM_PERFCOUNTER_READ \
