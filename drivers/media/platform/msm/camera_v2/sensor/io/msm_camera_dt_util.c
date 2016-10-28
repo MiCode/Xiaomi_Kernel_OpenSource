@@ -217,7 +217,10 @@ int msm_sensor_get_sub_module_index(struct device_node *of_node,
 			pr_err("%s failed %d\n", __func__, __LINE__);
 			goto ERROR;
 		}
-		sensor_info->subdev_id[SUB_MODULE_ACTUATOR] = val;
+		if (of_device_is_available(src_node))
+			sensor_info->subdev_id[SUB_MODULE_ACTUATOR] = val;
+		else
+			CDBG("%s:%d actuator disabled!\n", __func__, __LINE__);
 		of_node_put(src_node);
 		src_node = NULL;
 	}
