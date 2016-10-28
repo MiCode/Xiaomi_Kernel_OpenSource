@@ -26,6 +26,8 @@ Required properties:
   and reset lines used by this controller.
 - reset-names: reset signal name strings sorted in the same order as the resets
   property.
+- qcom,src-clock-rates =  This is an array which holds clock rates for cpp src
+  clocks. The maximum size for the array is 10.
 
 Required properties of the child node:
 - qcom,stripe-base = Base offset of stripes in cpp payload.
@@ -107,6 +109,8 @@ Example:
 			<0x24 0x10000000>,
 			<0x28 0x10000000>,
 			<0x2C 0x10000000>;
+		qcom,src-clock-rates = <100000000 200000000 384000000 404000000
+			480000000 576000000 600000000>;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <553>;
 			qcom,plane-base = <481>;
