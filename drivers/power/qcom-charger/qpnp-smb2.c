@@ -1748,6 +1748,16 @@ static int smb2_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void smb2_shutdown(struct platform_device *pdev)
+{
+	struct smb2 *chip = platform_get_drvdata(pdev);
+	struct smb_charger *chg = &chip->chg;
+
+	smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+		HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT, 0);
+	smblib_write(chg, CMD_HVDCP_2_REG, FORCE_5V_BIT);
+}
+
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,qpnp-smb2", },
 	{ },
@@ -1761,6 +1771,7 @@ static struct platform_driver smb2_driver = {
 	},
 	.probe		= smb2_probe,
 	.remove		= smb2_remove,
+	.shutdown	= smb2_shutdown,
 };
 module_platform_driver(smb2_driver);
 
