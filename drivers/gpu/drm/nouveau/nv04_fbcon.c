@@ -82,7 +82,6 @@ nv04_fbcon_imageblit(struct fb_info *info, const struct fb_image *image)
 	uint32_t fg;
 	uint32_t bg;
 	uint32_t dsize;
-	uint32_t width;
 	uint32_t *data = (uint32_t *)image->data;
 	int ret;
 
@@ -92,9 +91,6 @@ nv04_fbcon_imageblit(struct fb_info *info, const struct fb_image *image)
 	ret = RING_SPACE(chan, 8);
 	if (ret)
 		return ret;
-
-	width = ALIGN(image->width, 8);
-	dsize = ALIGN(width * image->height, 32) >> 5;
 
 	if (info->fix.visual == FB_VISUAL_TRUECOLOR ||
 	    info->fix.visual == FB_VISUAL_DIRECTCOLOR) {
@@ -111,10 +107,11 @@ nv04_fbcon_imageblit(struct fb_info *info, const struct fb_image *image)
 			 ((image->dx + image->width) & 0xffff));
 	OUT_RING(chan, bg);
 	OUT_RING(chan, fg);
-	OUT_RING(chan, (image->height << 16) | width);
+	OUT_RING(chan, (image->height << 16) | image->width);
 	OUT_RING(chan, (image->height << 16) | image->width);
 	OUT_RING(chan, (image->dy << 16) | (image->dx & 0xffff));
 
+	dsize = ALIGN(image->width * image->height, 32) >> 5;
 	while (dsize) {
 		int iter_len = dsize > 128 ? 128 : dsize;
 
@@ -171,39 +168,39 @@ nv04_fbcon_accel_init(struct fb_info *info)
 		return -EINVAL;
 	}
 
-	ret = nvif_object_init(chan->object, NULL, 0x0062,
+	ret = nvif_object_init(&chan->user, 0x0062,
 			       device->info.family >= NV_DEVICE_INFO_V0_CELSIUS ?
 			       0x0062 : 0x0042, NULL, 0, &nfbdev->surf2d);
 	if (ret)
 		return ret;
 
-	ret = nvif_object_init(chan->object, NULL, 0x0019, 0x0019, NULL, 0,
+	ret = nvif_object_init(&chan->user, 0x0019, 0x0019, NULL, 0,
 			       &nfbdev->clip);
 	if (ret)
 		return ret;
 
-	ret = nvif_object_init(chan->object, NULL, 0x0043, 0x0043, NULL, 0,
+	ret = nvif_object_init(&chan->user, 0x0043, 0x0043, NULL, 0,
 			       &nfbdev->rop);
 	if (ret)
 		return ret;
 
-	ret = nvif_object_init(chan->object, NULL, 0x0044, 0x0044, NULL, 0,
+	ret = nvif_object_init(&chan->user, 0x0044, 0x0044, NULL, 0,
 			       &nfbdev->patt);
 	if (ret)
 		return ret;
 
-	ret = nvif_object_init(chan->object, NULL, 0x004a, 0x004a, NULL, 0,
+	ret = nvif_object_init(&chan->user, 0x004a, 0x004a, NULL, 0,
 			       &nfbdev->gdi);
 	if (ret)
 		return ret;
 
-	ret = nvif_object_init(chan->object, NULL, 0x005f,
+	ret = nvif_object_init(&chan->user, 0x005f,
 			       device->info.chipset >= 0x11 ? 0x009f : 0x005f,
 			       NULL, 0, &nfbdev->blit);
 	if (ret)
 		return ret;
 
-	if (RING_SPACE(chan, 49)) {
+	if (RING_SPACE(chan, 49 + (device->info.chipset >= 0x11 ? 4 : 0))) {
 		nouveau_fbcon_gpu_lockup(info);
 		return 0;
 	}

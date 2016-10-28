@@ -119,10 +119,50 @@ static int mdp4_hw_init(struct msm_kms *kms)
 	if (mdp4_kms->rev > 1)
 		mdp4_write(mdp4_kms, REG_MDP4_RESET_STATUS, 1);
 
+	dev->mode_config.allow_fb_modifiers = true;
+
 out:
 	pm_runtime_put_sync(dev->dev);
 
 	return ret;
+}
+
+static void mdp4_prepare_commit(struct msm_kms *kms, struct drm_atomic_state *state)
+{
+	struct mdp4_kms *mdp4_kms = to_mdp4_kms(to_mdp_kms(kms));
+	int i, ncrtcs = state->dev->mode_config.num_crtc;
+
+	mdp4_enable(mdp4_kms);
+
+	/* see 119ecb7fd */
+	for (i = 0; i < ncrtcs; i++) {
+		struct drm_crtc *crtc = state->crtcs[i];
+		if (!crtc)
+			continue;
+		drm_crtc_vblank_get(crtc);
+	}
+}
+
+static void mdp4_complete_commit(struct msm_kms *kms, struct drm_atomic_state *state)
+{
+	struct mdp4_kms *mdp4_kms = to_mdp4_kms(to_mdp_kms(kms));
+	int i, ncrtcs = state->dev->mode_config.num_crtc;
+
+	/* see 119ecb7fd */
+	for (i = 0; i < ncrtcs; i++) {
+		struct drm_crtc *crtc = state->crtcs[i];
+		if (!crtc)
+			continue;
+		drm_crtc_vblank_put(crtc);
+	}
+
+	mdp4_disable(mdp4_kms);
+}
+
+static void mdp4_wait_for_crtc_commit_done(struct msm_kms *kms,
+						struct drm_crtc *crtc)
+{
+	mdp4_crtc_wait_for_commit_done(crtc);
 }
 
 static long mdp4_round_pixclk(struct msm_kms *kms, unsigned long rate,
@@ -161,6 +201,9 @@ static const struct mdp_kms_funcs kms_funcs = {
 		.irq             = mdp4_irq,
 		.enable_vblank   = mdp4_enable_vblank,
 		.disable_vblank  = mdp4_disable_vblank,
+		.prepare_commit  = mdp4_prepare_commit,
+		.complete_commit = mdp4_complete_commit,
+		.wait_for_crtc_commit_done = mdp4_wait_for_crtc_commit_done,
 		.get_format      = mdp_get_format,
 		.round_pixclk    = mdp4_round_pixclk,
 		.preclose        = mdp4_preclose,
@@ -198,22 +241,37 @@ int mdp4_enable(struct mdp4_kms *mdp4_kms)
 }
 
 #ifdef CONFIG_OF
-static struct drm_panel *detect_panel(struct drm_device *dev, const char *name)
+static struct drm_panel *detect_panel(struct drm_device *dev)
 {
-	struct device_node *n;
+	struct device_node *endpoint, *panel_node;
+	struct device_node *np = dev->dev->of_node;
 	struct drm_panel *panel = NULL;
 
-	n = of_parse_phandle(dev->dev->of_node, name, 0);
-	if (n) {
-		panel = of_drm_find_panel(n);
-		if (!panel)
-			panel = ERR_PTR(-EPROBE_DEFER);
+	endpoint = of_graph_get_next_endpoint(np, NULL);
+	if (!endpoint) {
+		dev_err(dev->dev, "no valid endpoint\n");
+		return ERR_PTR(-ENODEV);
+	}
+
+	panel_node = of_graph_get_remote_port_parent(endpoint);
+	if (!panel_node) {
+		dev_err(dev->dev, "no valid panel node\n");
+		of_node_put(endpoint);
+		return ERR_PTR(-ENODEV);
+	}
+
+	of_node_put(endpoint);
+
+	panel = of_drm_find_panel(panel_node);
+	if (!panel) {
+		of_node_put(panel_node);
+		return ERR_PTR(-EPROBE_DEFER);
 	}
 
 	return panel;
 }
 #else
-static struct drm_panel *detect_panel(struct drm_device *dev, const char *name)
+static struct drm_panel *detect_panel(struct drm_device *dev)
 {
 	// ??? maybe use a module param to specify which panel is attached?
 }
@@ -228,7 +286,6 @@ static int modeset_init(struct mdp4_kms *mdp4_kms)
 	struct drm_encoder *encoder;
 	struct drm_connector *connector;
 	struct drm_panel *panel;
-	struct hdmi *hdmi;
 	int ret;
 
 	/* construct non-private planes: */
@@ -252,7 +309,7 @@ static int modeset_init(struct mdp4_kms *mdp4_kms)
 	 * Setup the LCDC/LVDS path: RGB2 -> DMA_P -> LCDC -> LVDS:
 	 */
 
-	panel = detect_panel(dev, "qcom,lvds-panel");
+	panel = detect_panel(dev);
 	if (IS_ERR(panel)) {
 		ret = PTR_ERR(panel);
 		dev_err(dev->dev, "failed to detect LVDS panel: %d\n", ret);
@@ -326,11 +383,13 @@ static int modeset_init(struct mdp4_kms *mdp4_kms)
 	priv->crtcs[priv->num_crtcs++] = crtc;
 	priv->encoders[priv->num_encoders++] = encoder;
 
-	hdmi = hdmi_init(dev, encoder);
-	if (IS_ERR(hdmi)) {
-		ret = PTR_ERR(hdmi);
-		dev_err(dev->dev, "failed to initialize HDMI: %d\n", ret);
-		goto fail;
+	if (priv->hdmi) {
+		/* Construct bridge/connector for HDMI: */
+		ret = hdmi_modeset_init(priv->hdmi, dev, encoder);
+		if (ret) {
+			dev_err(dev->dev, "failed to initialize HDMI: %d\n", ret);
+			goto fail;
+		}
 	}
 
 	return 0;
@@ -381,6 +440,10 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	if (IS_ERR(mdp4_kms->dsi_pll_vddio))
 		mdp4_kms->dsi_pll_vddio = NULL;
 
+	/* NOTE: driver for this regulator still missing upstream.. use
+	 * _get_exclusive() and ignore the error if it does not exist
+	 * (and hope that the bootloader left it on for us)
+	 */
 	mdp4_kms->vdd = devm_regulator_get_exclusive(&pdev->dev, "vdd");
 	if (IS_ERR(mdp4_kms->vdd))
 		mdp4_kms->vdd = NULL;
@@ -479,6 +542,11 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 		goto fail;
 	}
 
+	dev->mode_config.min_width = 0;
+	dev->mode_config.min_height = 0;
+	dev->mode_config.max_width = 2048;
+	dev->mode_config.max_height = 2048;
+
 	return kms;
 
 fail:
@@ -493,9 +561,12 @@ static struct mdp4_platform_config *mdp4_get_config(struct platform_device *dev)
 #ifdef CONFIG_OF
 	/* TODO */
 	config.max_clk = 266667000;
-	config.iommu = iommu_domain_alloc(msm_iommu_get_bus(&dev->dev));
+	config.iommu = iommu_domain_alloc(&platform_bus_type);
 #else
-	config.max_clk = 200000000;
+	if (cpu_is_apq8064())
+		config.max_clk = 266667000;
+	else
+		config.max_clk = 200000000;
 
 	config.iommu = msm_get_iommu_domain(DISPLAY_READ_DOMAIN);
 #endif

@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 
+#include "msm_iommu.h"
 #include "msm_drv.h"
 #include "msm_ringbuffer.h"
 
@@ -49,7 +50,7 @@ struct msm_gpu_funcs {
 	int (*submit)(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 			struct msm_file_private *ctx);
 	void (*flush)(struct msm_gpu *gpu);
-	void (*idle)(struct msm_gpu *gpu);
+	int (*idle)(struct msm_gpu *gpu);
 	irqreturn_t (*irq)(struct msm_gpu *irq);
 	uint32_t (*last_fence)(struct msm_gpu *gpu);
 	void (*recover)(struct msm_gpu *gpu);
@@ -100,7 +101,7 @@ struct msm_gpu {
 
 	/* Power Control: */
 	struct regulator *gpu_reg, *gpu_cx;
-	struct clk *ebi1_clk, *grp_clks[5];
+	struct clk *ebi1_clk, *grp_clks[8];
 	uint32_t fast_rate, slow_rate, bus_freq;
 
 #ifdef CONFIG_MSM_BUS_SCALING
@@ -119,6 +120,8 @@ struct msm_gpu {
 	struct timer_list hangcheck_timer;
 	uint32_t hangcheck_fence;
 	struct work_struct recover_work;
+
+	struct list_head submit_list;
 };
 
 static inline bool msm_gpu_active(struct msm_gpu *gpu)
@@ -138,6 +141,17 @@ struct msm_gpu_perfcntr {
 	uint32_t select_val;
 	const char *name;
 };
+
+static inline void gpu_write_mask(struct msm_gpu *gpu,
+					unsigned int reg,
+					unsigned int mask, unsigned int bits)
+{
+	unsigned int val = 0;
+
+	val = msm_readl(gpu->mmio + (reg << 2));
+	val &= ~mask;
+	msm_writel(val | bits, gpu->mmio + (reg << 2));
+}
 
 static inline void gpu_write(struct msm_gpu *gpu, u32 reg, u32 data)
 {
@@ -163,9 +177,10 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct msm_gpu *gpu, const struct msm_gpu_funcs *funcs,
-		const char *name, const char *ioname, const char *irqname, int ringsz);
+		const char *name, const char *ioname, const char *irqname);
 void msm_gpu_cleanup(struct msm_gpu *gpu);
 
+struct msm_iommu *get_gpu_iommu(struct platform_device *pdev);
 struct msm_gpu *adreno_load_gpu(struct drm_device *dev);
 void __init adreno_register(void);
 void __exit adreno_unregister(void);

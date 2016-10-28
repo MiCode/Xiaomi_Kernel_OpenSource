@@ -102,7 +102,7 @@ static int qxl_drm_freeze(struct drm_device *dev)
 
 	/* unpin the front buffers */
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-		struct drm_crtc_helper_funcs *crtc_funcs = crtc->helper_private;
+		const struct drm_crtc_helper_funcs *crtc_funcs = crtc->helper_private;
 		if (crtc->enabled)
 			(*crtc_funcs->disable)(crtc);
 	}
@@ -196,17 +196,18 @@ static int qxl_pm_restore(struct device *dev)
 	return qxl_drm_resume(drm_dev, false);
 }
 
-static u32 qxl_noop_get_vblank_counter(struct drm_device *dev, int crtc)
-{
-	return dev->vblank[crtc].count.counter;
-}
-
-static int qxl_noop_enable_vblank(struct drm_device *dev, int crtc)
+static u32 qxl_noop_get_vblank_counter(struct drm_device *dev,
+				       unsigned int pipe)
 {
 	return 0;
 }
 
-static void qxl_noop_disable_vblank(struct drm_device *dev, int crtc)
+static int qxl_noop_enable_vblank(struct drm_device *dev, unsigned int pipe)
+{
+	return 0;
+}
+
+static void qxl_noop_disable_vblank(struct drm_device *dev, unsigned int pipe)
 {
 }
 

@@ -115,7 +115,7 @@ nouveau_connector_ddc_detect(struct drm_connector *connector)
 	struct drm_device *dev = connector->dev;
 	struct nouveau_connector *nv_connector = nouveau_connector(connector);
 	struct nouveau_drm *drm = nouveau_drm(dev);
-	struct nouveau_gpio *gpio = nvkm_gpio(&drm->device);
+	struct nvkm_gpio *gpio = nvxx_gpio(&drm->device);
 	struct nouveau_encoder *nv_encoder;
 	struct drm_encoder *encoder;
 	int i, panel = -ENODEV;
@@ -125,9 +125,9 @@ nouveau_connector_ddc_detect(struct drm_connector *connector)
 	 * is handled by the SOR itself, and not required for LVDS DDC.
 	 */
 	if (nv_connector->type == DCB_CONNECTOR_eDP) {
-		panel = gpio->get(gpio, 0, DCB_GPIO_PANEL_POWER, 0xff);
+		panel = nvkm_gpio_get(gpio, 0, DCB_GPIO_PANEL_POWER, 0xff);
 		if (panel == 0) {
-			gpio->set(gpio, 0, DCB_GPIO_PANEL_POWER, 0xff, 1);
+			nvkm_gpio_set(gpio, 0, DCB_GPIO_PANEL_POWER, 0xff, 1);
 			msleep(300);
 		}
 	}
@@ -148,7 +148,7 @@ nouveau_connector_ddc_detect(struct drm_connector *connector)
 				break;
 		} else
 		if (nv_encoder->i2c) {
-			if (nv_probe_i2c(nv_encoder->i2c, 0x50))
+			if (nvkm_probe_i2c(nv_encoder->i2c, 0x50))
 				break;
 		}
 	}
@@ -157,7 +157,7 @@ nouveau_connector_ddc_detect(struct drm_connector *connector)
 	 * state to avoid confusing the SOR for other output types.
 	 */
 	if (!nv_encoder && panel == 0)
-		gpio->set(gpio, 0, DCB_GPIO_PANEL_POWER, 0xff, panel);
+		nvkm_gpio_set(gpio, 0, DCB_GPIO_PANEL_POWER, 0xff, panel);
 
 	return nv_encoder;
 }
@@ -241,7 +241,7 @@ nouveau_connector_detect(struct drm_connector *connector, bool force)
 	struct nouveau_connector *nv_connector = nouveau_connector(connector);
 	struct nouveau_encoder *nv_encoder = NULL;
 	struct nouveau_encoder *nv_partner;
-	struct nouveau_i2c_port *i2c;
+	struct i2c_adapter *i2c;
 	int type;
 	int ret;
 	enum drm_connector_status conn_status = connector_status_disconnected;
@@ -259,7 +259,7 @@ nouveau_connector_detect(struct drm_connector *connector, bool force)
 
 	nv_encoder = nouveau_connector_ddc_detect(connector);
 	if (nv_encoder && (i2c = nv_encoder->i2c) != NULL) {
-		nv_connector->edid = drm_get_edid(connector, &i2c->adapter);
+		nv_connector->edid = drm_get_edid(connector, i2c);
 		drm_mode_connector_update_edid_property(connector,
 							nv_connector->edid);
 		if (!nv_connector->edid) {
@@ -309,7 +309,7 @@ detect_analog:
 		nv_encoder = find_encoder(connector, DCB_OUTPUT_TV);
 	if (nv_encoder && force) {
 		struct drm_encoder *encoder = to_drm_encoder(nv_encoder);
-		struct drm_encoder_helper_funcs *helper =
+		const struct drm_encoder_helper_funcs *helper =
 						encoder->helper_private;
 
 		if (helper->detect(encoder, connector) ==
@@ -458,6 +458,28 @@ nouveau_connector_set_property(struct drm_connector *connector,
 
 		switch (value) {
 		case DRM_MODE_SCALE_NONE:
+			/* We allow 'None' for EDID modes, even on a fixed
+			 * panel (some exist with support for lower refresh
+			 * rates, which people might want to use for power
+			 * saving purposes).
+			 *
+			 * Non-EDID modes will force the use of GPU scaling
+			 * to the native mode regardless of this setting.
+			 */
+			switch (nv_connector->type) {
+			case DCB_CONNECTOR_LVDS:
+			case DCB_CONNECTOR_LVDS_SPWG:
+			case DCB_CONNECTOR_eDP:
+				/* ... except prior to G80, where the code
+				 * doesn't support such things.
+				 */
+				if (disp->disp.oclass < NV50_DISP)
+					return -EINVAL;
+				break;
+			default:
+				break;
+			}
+			break;
 		case DRM_MODE_SCALE_FULLSCREEN:
 		case DRM_MODE_SCALE_CENTER:
 		case DRM_MODE_SCALE_ASPECT:
@@ -465,11 +487,6 @@ nouveau_connector_set_property(struct drm_connector *connector,
 		default:
 			return -EINVAL;
 		}
-
-		/* LVDS always needs gpu scaling */
-		if (connector->connector_type == DRM_MODE_CONNECTOR_LVDS &&
-		    value == DRM_MODE_SCALE_NONE)
-			return -EINVAL;
 
 		/* Changing between GPU and panel scaling requires a full
 		 * modeset
@@ -575,7 +592,7 @@ nouveau_connector_set_property(struct drm_connector *connector,
 static struct drm_display_mode *
 nouveau_connector_native_mode(struct drm_connector *connector)
 {
-	struct drm_connector_helper_funcs *helper = connector->helper_private;
+	const struct drm_connector_helper_funcs *helper = connector->helper_private;
 	struct nouveau_drm *drm = nouveau_drm(connector->dev);
 	struct nouveau_connector *nv_connector = nouveau_connector(connector);
 	struct drm_device *dev = connector->dev;
@@ -655,14 +672,14 @@ nouveau_connector_scaler_modes_add(struct drm_connector *connector)
 
 	while (mode->hdisplay) {
 		if (mode->hdisplay <= native->hdisplay &&
-		    mode->vdisplay <= native->vdisplay) {
+		    mode->vdisplay <= native->vdisplay &&
+		    (mode->hdisplay != native->hdisplay ||
+		     mode->vdisplay != native->vdisplay)) {
 			m = drm_cvt_mode(dev, mode->hdisplay, mode->vdisplay,
 					 drm_mode_vrefresh(native), false,
 					 false, false);
 			if (!m)
 				continue;
-
-			m->type |= DRM_MODE_TYPE_DRIVER;
 
 			drm_mode_probed_add(connector, m);
 			modes++;
@@ -902,7 +919,7 @@ nouveau_connector_funcs_lvds = {
 	.force = nouveau_connector_force
 };
 
-static void
+static int
 nouveau_connector_dp_dpms(struct drm_connector *connector, int mode)
 {
 	struct nouveau_encoder *nv_encoder = NULL;
@@ -913,15 +930,15 @@ nouveau_connector_dp_dpms(struct drm_connector *connector, int mode)
 	    nv_encoder->dcb->type == DCB_OUTPUT_DP) {
 		if (mode == DRM_MODE_DPMS_ON) {
 			u8 data = DP_SET_POWER_D0;
-			nv_wraux(nv_encoder->i2c, DP_SET_POWER, &data, 1);
+			nvkm_wraux(nv_encoder->aux, DP_SET_POWER, &data, 1);
 			usleep_range(1000, 2000);
 		} else {
 			u8 data = DP_SET_POWER_D3;
-			nv_wraux(nv_encoder->i2c, DP_SET_POWER, &data, 1);
+			nvkm_wraux(nv_encoder->aux, DP_SET_POWER, &data, 1);
 		}
 	}
 
-	drm_helper_connector_dpms(connector, mode);
+	return drm_helper_connector_dpms(connector, mode);
 }
 
 static const struct drm_connector_funcs
@@ -966,29 +983,29 @@ nouveau_connector_hotplug(struct nvif_notify *notify)
 }
 
 static ssize_t
-nouveau_connector_aux_xfer(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
+nouveau_connector_aux_xfer(struct drm_dp_aux *obj, struct drm_dp_aux_msg *msg)
 {
 	struct nouveau_connector *nv_connector =
-		container_of(aux, typeof(*nv_connector), aux);
+		container_of(obj, typeof(*nv_connector), aux);
 	struct nouveau_encoder *nv_encoder;
-	struct nouveau_i2c_port *port;
+	struct nvkm_i2c_aux *aux;
 	int ret;
 
 	nv_encoder = find_encoder(&nv_connector->base, DCB_OUTPUT_DP);
-	if (!nv_encoder || !(port = nv_encoder->i2c))
+	if (!nv_encoder || !(aux = nv_encoder->aux))
 		return -ENODEV;
 	if (WARN_ON(msg->size > 16))
 		return -E2BIG;
 	if (msg->size == 0)
 		return msg->size;
 
-	ret = nouveau_i2c(port)->acquire(port, 0);
+	ret = nvkm_i2c_aux_acquire(aux);
 	if (ret)
 		return ret;
 
-	ret = port->func->aux(port, false, msg->request, msg->address,
-			      msg->buffer, msg->size);
-	nouveau_i2c(port)->release(port);
+	ret = nvkm_i2c_aux_xfer(aux, false, msg->request, msg->address,
+				msg->buffer, msg->size);
+	nvkm_i2c_aux_release(aux);
 	if (ret >= 0) {
 		msg->reply = ret;
 		return msg->size;
@@ -1183,42 +1200,67 @@ nouveau_connector_create(struct drm_device *dev, int index)
 					      disp->color_vibrance_property,
 					      150);
 
+	/* default scaling mode */
 	switch (nv_connector->type) {
-	case DCB_CONNECTOR_VGA:
-		if (drm->device.info.family >= NV_DEVICE_INFO_V0_TESLA) {
-			drm_object_attach_property(&connector->base,
-					dev->mode_config.scaling_mode_property,
-					nv_connector->scaling_mode);
+	case DCB_CONNECTOR_LVDS:
+	case DCB_CONNECTOR_LVDS_SPWG:
+	case DCB_CONNECTOR_eDP:
+		/* see note in nouveau_connector_set_property() */
+		if (disp->disp.oclass < NV50_DISP) {
+			nv_connector->scaling_mode = DRM_MODE_SCALE_FULLSCREEN;
+			break;
 		}
-		/* fall-through */
-	case DCB_CONNECTOR_TV_0:
-	case DCB_CONNECTOR_TV_1:
-	case DCB_CONNECTOR_TV_3:
 		nv_connector->scaling_mode = DRM_MODE_SCALE_NONE;
 		break;
 	default:
-		nv_connector->scaling_mode = DRM_MODE_SCALE_FULLSCREEN;
+		nv_connector->scaling_mode = DRM_MODE_SCALE_NONE;
+		break;
+	}
 
-		drm_object_attach_property(&connector->base,
-				dev->mode_config.scaling_mode_property,
-				nv_connector->scaling_mode);
+	/* scaling mode property */
+	switch (nv_connector->type) {
+	case DCB_CONNECTOR_TV_0:
+	case DCB_CONNECTOR_TV_1:
+	case DCB_CONNECTOR_TV_3:
+		break;
+	case DCB_CONNECTOR_VGA:
+		if (disp->disp.oclass < NV50_DISP)
+			break; /* can only scale on DFPs */
+		/* fall-through */
+	default:
+		drm_object_attach_property(&connector->base, dev->mode_config.
+					   scaling_mode_property,
+					   nv_connector->scaling_mode);
+		break;
+	}
+
+	/* dithering properties */
+	switch (nv_connector->type) {
+	case DCB_CONNECTOR_TV_0:
+	case DCB_CONNECTOR_TV_1:
+	case DCB_CONNECTOR_TV_3:
+	case DCB_CONNECTOR_VGA:
+		break;
+	default:
 		if (disp->dithering_mode) {
-			nv_connector->dithering_mode = DITHERING_MODE_AUTO;
 			drm_object_attach_property(&connector->base,
-						disp->dithering_mode,
-						nv_connector->dithering_mode);
+						   disp->dithering_mode,
+						   nv_connector->
+						   dithering_mode);
+			nv_connector->dithering_mode = DITHERING_MODE_AUTO;
 		}
 		if (disp->dithering_depth) {
-			nv_connector->dithering_depth = DITHERING_DEPTH_AUTO;
 			drm_object_attach_property(&connector->base,
-						disp->dithering_depth,
-						nv_connector->dithering_depth);
+						   disp->dithering_depth,
+						   nv_connector->
+						   dithering_depth);
+			nv_connector->dithering_depth = DITHERING_DEPTH_AUTO;
 		}
 		break;
 	}
 
-	ret = nvif_notify_init(&disp->disp, NULL, nouveau_connector_hotplug,
-				true, NV04_DISP_NTFY_CONN,
+	ret = nvif_notify_init(&disp->disp, nouveau_connector_hotplug, true,
+			       NV04_DISP_NTFY_CONN,
 			       &(struct nvif_notify_conn_req_v0) {
 				.mask = NVIF_NOTIFY_CONN_V0_ANY,
 				.conn = index,
