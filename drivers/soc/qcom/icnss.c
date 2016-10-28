@@ -2612,9 +2612,9 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 		icnss_call_driver_remove(priv);
 
 out:
-	icnss_remove_msa_permissions(priv);
-
 	ret = icnss_hw_power_off(priv);
+
+	icnss_remove_msa_permissions(priv);
 
 	kfree(data);
 
