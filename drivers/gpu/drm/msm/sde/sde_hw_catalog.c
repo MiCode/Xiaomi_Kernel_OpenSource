@@ -353,10 +353,15 @@ static int _validate_dt_entry(struct device_node *np,
 
 	*off_count = of_property_count_u32_elems(np, sde_prop[0].prop_name);
 	if ((*off_count > MAX_BLOCKS) || (*off_count < 0)) {
-		SDE_ERROR("invalid hw offset prop name:%s count:%d\n",
-			sde_prop[0].prop_name, *off_count);
 		*off_count = 0;
-		return sde_prop[0].is_mandatory ? -EINVAL : 0;
+
+		if (sde_prop[0].is_mandatory) {
+			SDE_ERROR("invalid hw offset prop name:%s count:%d\n",
+					sde_prop[0].prop_name, *off_count);
+			rc = -EINVAL;
+		}
+
+		return rc;
 	}
 
 	for (i = 0; i < prop_size && i < MAX_BLOCKS; i++) {
