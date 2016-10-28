@@ -2496,7 +2496,7 @@ static int mdss_dp_process_downstream_port_status_change(
  * (including cases when there are back to back HPD IRQ HIGH) indicating
  * the start of a new link training request or sink status update.
  */
-static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 
@@ -2516,10 +2516,11 @@ static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 	if (!ret)
 		goto exit;
 
+	pr_debug("done\n");
 exit:
 	mdss_dp_reset_test_data(dp);
 
-	pr_debug("done\n");
+	return ret;
 }
 
 /**
@@ -2529,10 +2530,10 @@ exit:
  * This function will handle the HPD IRQ state transitions from HIGH to LOW,
  * indicating the end of a test request.
  */
-static void mdss_dp_process_hpd_irq_low(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_process_hpd_irq_low(struct mdss_dp_drv_pdata *dp)
 {
 	if (!dp->hpd_irq_clients_notified)
-		return;
+		return -EINVAL;
 
 	pr_debug("enter: HPD IRQ low\n");
 
@@ -2546,6 +2547,7 @@ static void mdss_dp_process_hpd_irq_low(struct mdss_dp_drv_pdata *dp)
 	mdss_dp_reset_test_data(dp);
 
 	pr_debug("done\n");
+	return 0;
 }
 
 static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
@@ -2593,14 +2595,11 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 			    dp_drv->hdcp.ops->cp_irq)
 				dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data);
 
-			mdss_dp_process_hpd_irq_high(dp_drv);
-			break;
-		}
-
-		if (dp_drv->hpd_irq_toggled
-				&& !dp_drv->alt_mode.dp_status.hpd_irq) {
-			mdss_dp_process_hpd_irq_low(dp_drv);
-			break;
+			if (!mdss_dp_process_hpd_irq_high(dp_drv))
+				break;
+		} else if (dp_drv->hpd_irq_toggled) {
+			if (!mdss_dp_process_hpd_irq_low(dp_drv))
+				break;
 		}
 
 		if (!dp_drv->alt_mode.dp_status.hpd_high) {
