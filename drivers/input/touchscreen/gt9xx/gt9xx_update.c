@@ -67,6 +67,8 @@
 #define FAIL    0
 #define SUCCESS 1
 
+#define RESET_DELAY_US		20000
+
 struct st_fw_head {
 	u8  hw_info[4];		/* hardware info */
 	u8  pid[8];		/* product id   */
@@ -390,7 +392,7 @@ s32 gup_enter_update_mode(struct i2c_client *client)
 
 	/* step1:RST output low last at least 2ms */
 	gpio_direction_output(ts->pdata->reset_gpio, 0);
-	usleep(20000);
+	usleep_range(RESET_DELAY_US, RESET_DELAY_US + 1);
 
 	/* step2:select I2C slave addr,INT:0--0xBA;1--0x28. */
 	gpio_direction_output(ts->pdata->irq_gpio,
@@ -565,8 +567,8 @@ static s8 gup_update_config(struct i2c_client *client,
 		!memcmp(&pid[GTP_ADDR_LENGTH], "960", 3)) {
 		chip_cfg_len = 228;
 	}
-	pr_debug("config file ASCII len:%d", cfg->size);
-	pr_debug("need config binary len:%d", chip_cfg_len);
+	pr_debug("config file ASCII len: %zu", cfg->size);
+	pr_debug("need config binary len: %u", chip_cfg_len);
 	if ((cfg->size + 5) < chip_cfg_len * 5) {
 		pr_err("Config length error");
 		return -EINVAL;
@@ -643,7 +645,7 @@ static s32 gup_get_firmware_file(struct i2c_client *client,
 		return -EEXIST;
 	}
 
-	dev_dbg(&client->dev, "Config File: %s size=%d", path, fw->size);
+	dev_dbg(&client->dev, "Config File: %s size: %zu", path, fw->size);
 	msg->fw_data =
 		devm_kzalloc(&client->dev, fw->size, GFP_KERNEL);
 	if (!msg->fw_data) {

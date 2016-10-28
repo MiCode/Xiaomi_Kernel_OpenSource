@@ -62,7 +62,7 @@
 				50000000 100000000 200000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 
-	cd-gpios = <&tlmm 95 0x1>;
+	cd-gpios = <&tlmm 95 0x0>;
 
 	status = "ok";
 };

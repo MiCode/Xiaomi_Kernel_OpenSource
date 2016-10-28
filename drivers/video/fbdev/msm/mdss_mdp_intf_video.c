@@ -108,6 +108,8 @@ static void mdss_mdp_fetch_end_config(struct mdss_mdp_video_ctx *ctx,
 
 static void early_wakeup_dfps_update_work(struct work_struct *work);
 
+static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl, bool enable);
+
 static inline void mdp_video_write(struct mdss_mdp_video_ctx *ctx,
 				   u32 reg, u32 val)
 {
@@ -459,13 +461,15 @@ static int mdss_mdp_video_avr_trigger_setup(struct mdss_mdp_ctl *ctl)
 }
 
 static void mdss_mdp_video_avr_ctrl_setup(struct mdss_mdp_video_ctx *ctx,
-		struct mdss_mdp_avr_info *avr_info, bool is_master)
+		struct mdss_mdp_avr_info *avr_info, bool is_master, bool enable)
 {
 	u32 avr_ctrl = 0;
 	u32 avr_mode = 0;
 
-	avr_ctrl = avr_info->avr_enabled;
-	avr_mode = avr_info->avr_mode;
+	if (enable) {
+		avr_ctrl = avr_info->avr_enabled;
+		avr_mode = avr_info->avr_mode;
+	}
 
 	/* Enable avr_vsync_clear_en bit to clear avr in next vsync */
 	if (avr_mode == MDSS_MDP_AVR_ONE_SHOT)
@@ -1429,6 +1433,20 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 			}
 
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+
+			/*
+			 * Need to disable AVR during DFPS update period.
+			 * Next commit will restore the AVR settings.
+			 */
+			if (test_bit(MDSS_CAPS_AVR_SUPPORTED,
+						mdata->mdss_caps_map) &&
+					ctl->avr_info.avr_enabled) {
+				mdss_mdp_video_avr_ctrl(ctl, false);
+				rc = mdss_mdp_video_dfps_wait4vsync(ctl);
+				if (rc < 0)
+					pr_err("Error in dfps_wait: %d\n", rc);
+			}
+
 			spin_lock_irqsave(&ctx->dfps_lock, flags);
 
 			if (mdata->mdp_rev < MDSS_MDP_HW_REV_105) {
@@ -2112,6 +2130,7 @@ static void early_wakeup_dfps_update_work(struct work_struct *work)
 	struct mdss_panel_info *pinfo;
 	struct msm_fb_data_type *mfd;
 	struct mdss_mdp_ctl *ctl;
+	struct mdss_data_type *mdata;
 	struct dynamic_fps_data data = {0};
 	int ret = 0;
 	int dfps;
@@ -2123,7 +2142,8 @@ static void early_wakeup_dfps_update_work(struct work_struct *work)
 
 	ctl = ctx->ctl;
 
-	if (!ctl || !ctl->panel_data || !ctl->mfd || !ctl->mfd->fbi) {
+	if (!ctl || !ctl->panel_data || !ctl->mfd || !ctl->mfd->fbi ||
+			!ctl->mdata) {
 		pr_err("%s: invalid ctl\n", __func__);
 		return;
 	}
@@ -2131,10 +2151,22 @@ static void early_wakeup_dfps_update_work(struct work_struct *work)
 	pdata = ctl->panel_data;
 	pinfo = &ctl->panel_data->panel_info;
 	mfd =	ctl->mfd;
+	mdata = ctl->mdata;
 
 	if (!pinfo->dynamic_fps || !ctl->ops.config_fps_fnc ||
 		!pdata->panel_info.default_fps) {
 		pr_debug("%s: dfps not enabled on this panel\n", __func__);
+		return;
+	}
+
+	/*
+	 * Bypass DFPS update when AVR is enabled because
+	 * AVR will take control of the programmable fetch
+	 */
+	if (test_bit(MDSS_CAPS_AVR_SUPPORTED,
+				mdata->mdss_caps_map) &&
+			ctl->avr_info.avr_enabled) {
+		pr_debug("Bypass DFPS update when AVR is enabled\n");
 		return;
 	}
 
@@ -2213,7 +2245,7 @@ static int mdss_mdp_video_early_wake_up(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
-static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl)
+static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl, bool enable)
 {
 	struct mdss_mdp_video_ctx *ctx = NULL, *sctx = NULL;
 
@@ -2222,7 +2254,8 @@ static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl)
 		pr_err("invalid master ctx\n");
 		return -EINVAL;
 	}
-	mdss_mdp_video_avr_ctrl_setup(ctx, &ctl->avr_info, ctl->is_master);
+	mdss_mdp_video_avr_ctrl_setup(ctx, &ctl->avr_info, ctl->is_master,
+			enable);
 
 	if (is_pingpong_split(ctl->mfd)) {
 		sctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[SLAVE_CTX];
@@ -2230,7 +2263,8 @@ static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl)
 			pr_err("invalid slave ctx\n");
 			return -EINVAL;
 		}
-		mdss_mdp_video_avr_ctrl_setup(sctx, &ctl->avr_info, false);
+		mdss_mdp_video_avr_ctrl_setup(sctx, &ctl->avr_info, false,
+				enable);
 	}
 
 	return 0;

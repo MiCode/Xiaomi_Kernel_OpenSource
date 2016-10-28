@@ -55,6 +55,7 @@ void tavil_dsd_set_interp_rate(struct tavil_dsd_config *dsd_conf, u16 rx_port,
 			       u32 sample_rate, u8 sample_rate_val);
 struct tavil_dsd_config *tavil_dsd_init(struct snd_soc_codec *codec);
 void tavil_dsd_deinit(struct tavil_dsd_config *dsd_config);
+int tavil_dsd_post_ssr_init(struct tavil_dsd_config *dsd_config);
 #else
 int tavil_dsd_set_mixer_value(struct tavil_dsd_config *dsd_conf,
 			      int interp_num, int sw_value)
@@ -88,5 +89,9 @@ struct tavil_dsd_config *tavil_dsd_init(struct snd_soc_codec *codec)
 
 void tavil_dsd_deinit(struct tavil_dsd_config *dsd_config)
 {  }
+int tavil_dsd_post_ssr_init(struct tavil_dsd_config *dsd_config)
+{
+	return 0;
+}
 #endif
 #endif

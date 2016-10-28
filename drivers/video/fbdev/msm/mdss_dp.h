@@ -585,5 +585,7 @@ int mdss_dp_aux_set_sink_power_state(struct mdss_dp_drv_pdata *ep, char state);
 void mdss_dp_aux_send_test_response(struct mdss_dp_drv_pdata *ep);
 void *mdss_dp_get_hdcp_data(struct device *dev);
 int mdss_dp_hdcp2p2_init(struct mdss_dp_drv_pdata *dp_drv);
+bool mdss_dp_aux_clock_recovery_done(struct mdss_dp_drv_pdata *ep);
+bool mdss_dp_aux_channel_eq_done(struct mdss_dp_drv_pdata *ep);
 
 #endif /* MDSS_DP_H */

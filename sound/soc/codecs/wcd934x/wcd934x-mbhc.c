@@ -912,6 +912,37 @@ void tavil_mbhc_hs_detect_exit(struct snd_soc_codec *codec)
 EXPORT_SYMBOL(tavil_mbhc_hs_detect_exit);
 
 /*
+ * tavil_mbhc_post_ssr_init: initialize mbhc for tavil post subsystem restart
+ * @mbhc: poniter to wcd934x_mbhc structure
+ * @codec: handle to snd_soc_codec *
+ *
+ * return 0 if mbhc_init is success or error code in case of failure
+ */
+int tavil_mbhc_post_ssr_init(struct wcd934x_mbhc *mbhc,
+			     struct snd_soc_codec *codec)
+{
+	int ret;
+
+	if (!mbhc || !codec)
+		return -EINVAL;
+
+	wcd_mbhc_deinit(&mbhc->wcd_mbhc);
+	ret = wcd_mbhc_init(&mbhc->wcd_mbhc, codec, &mbhc_cb, &intr_ids,
+			    wcd_mbhc_registers, TAVIL_ZDET_SUPPORTED);
+	if (ret) {
+		dev_err(codec->dev, "%s: mbhc initialization failed\n",
+			__func__);
+		goto done;
+	}
+	snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_1, 0x04, 0x04);
+	snd_soc_update_bits(codec, WCD934X_MBHC_CTL_BCS, 0x01, 0x01);
+
+done:
+	return ret;
+}
+EXPORT_SYMBOL(tavil_mbhc_post_ssr_init);
+
+/*
  * tavil_mbhc_init: initialize mbhc for tavil
  * @mbhc: poniter to wcd934x_mbhc struct pointer to store the configs
  * @codec: handle to snd_soc_codec *
@@ -977,7 +1008,9 @@ void tavil_mbhc_deinit(struct snd_soc_codec *codec)
 {
 	struct wcd934x_mbhc *wcd934x_mbhc = tavil_soc_get_mbhc(codec);
 
-	if (!wcd934x_mbhc)
+	if (wcd934x_mbhc) {
+		wcd_mbhc_deinit(&wcd934x_mbhc->wcd_mbhc);
 		devm_kfree(codec->dev, wcd934x_mbhc);
+	}
 }
 EXPORT_SYMBOL(tavil_mbhc_deinit);

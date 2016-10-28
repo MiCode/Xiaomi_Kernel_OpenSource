@@ -134,6 +134,29 @@
 		gpios = <&smp2pgpio_sleepstate_2_out 0 0>;
 	};
 
+	/* ssr - inbound entry from mss */
+	smp2pgpio_ssr_smp2p_1_in: qcom,smp2pgpio-ssr-smp2p-1-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "slave-kernel";
+		qcom,remote-pid = <1>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* ssr - outbound entry to mss */
+	smp2pgpio_ssr_smp2p_1_out: qcom,smp2pgpio-ssr-smp2p-1-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "master-kernel";
+		qcom,remote-pid = <1>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
 	/* ssr - inbound entry from lpass */
 	smp2pgpio_ssr_smp2p_2_in: qcom,smp2pgpio-ssr-smp2p-2-in {
 		compatible = "qcom,smp2pgpio";

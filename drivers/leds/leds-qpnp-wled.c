@@ -25,6 +25,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/leds-qpnp-wled.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 #define QPNP_IRQ_FLAGS	(IRQF_TRIGGER_RISING | \
 			IRQF_TRIGGER_FALLING | \
@@ -49,10 +50,12 @@
 #define QPNP_WLED_VLOOP_COMP_GM_REG(b)	(b + 0x56)
 #define QPNP_WLED_PSM_CTRL_REG(b)	(b + 0x5B)
 #define QPNP_WLED_SC_PRO_REG(b)		(b + 0x5E)
+#define QPNP_WLED_CTRL_SPARE_REG(b)	(b + 0xDF)
 #define QPNP_WLED_TEST1_REG(b)		(b + 0xE2)
 #define QPNP_WLED_TEST4_REG(b)		(b + 0xE5)
 #define QPNP_WLED_REF_7P7_TRIM_REG(b)	(b + 0xF2)
 
+#define QPNP_WLED_7P7_TRIM_MASK		GENMASK(3, 0)
 #define QPNP_WLED_EN_MASK		0x7F
 #define QPNP_WLED_EN_SHIFT		7
 #define QPNP_WLED_FDBK_OP_MASK		0xF8
@@ -79,9 +82,6 @@
 #define QPNP_WLED_VREF_PSM_MAX_MV			750
 #define QPNP_WLED_VREF_PSM_DFLT_AMOLED_MV		450
 #define QPNP_WLED_PSM_CTRL_OVERWRITE			0x80
-#define QPNP_WLED_AVDD_MIN_TRIM_VALUE			-7
-#define QPNP_WLED_AVDD_MAX_TRIM_VALUE			8
-#define QPNP_WLED_AVDD_TRIM_CENTER_VALUE		7
 
 #define QPNP_WLED_ILIM_MASK		0xF8
 #define QPNP_WLED_ILIM_MIN_MA		105
@@ -98,11 +98,7 @@
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ	800
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ	1600
 #define QPNP_WLED_SWITCH_FREQ_OVERWRITE 0x80
-#define QPNP_WLED_OVP_MASK		0xFC
-#define QPNP_WLED_OVP_17800_MV		17800
-#define QPNP_WLED_OVP_19400_MV		19400
-#define QPNP_WLED_OVP_29500_MV		29500
-#define QPNP_WLED_OVP_31000_MV		31000
+#define QPNP_WLED_OVP_MASK		GENMASK(1, 0)
 #define QPNP_WLED_TEST4_EN_VREF_UP	0x32
 #define QPNP_WLED_INT_EN_SET_OVP_EN	0x02
 #define QPNP_WLED_OVP_FLT_SLEEP_US	10
@@ -198,6 +194,14 @@
 #define QPNP_WLED_MIN_MSLEEP		20
 #define QPNP_WLED_SC_DLY_MS		20
 
+#define NUM_SUPPORTED_AVDD_VOLTAGES	6
+#define QPNP_WLED_DFLT_AVDD_MV		7600
+#define QPNP_WLED_AVDD_MIN_TRIM_VAL	0x0
+#define QPNP_WLED_AVDD_MAX_TRIM_VAL	0xF
+#define QPNP_WLED_AVDD_SET_BIT		BIT(4)
+
+#define NUM_SUPPORTED_OVP_THRESHOLDS	4
+
 /* output feedback mode */
 enum qpnp_wled_fdbk_op {
 	QPNP_WLED_FDBK_AUTO,
@@ -230,10 +234,30 @@ static u8 qpnp_wled_sink_dbg_regs[] = {
 	0xe6,
 };
 
+static int qpnp_wled_avdd_target_voltages[NUM_SUPPORTED_AVDD_VOLTAGES] = {
+	7900, 7600, 7300, 6400, 6100, 5800,
+};
+
+static u8 qpnp_wled_ovp_reg_settings[NUM_SUPPORTED_AVDD_VOLTAGES] = {
+	0x0, 0x0, 0x1, 0x2, 0x2, 0x3,
+};
+
+static int qpnp_wled_avdd_trim_adjustments[NUM_SUPPORTED_AVDD_VOLTAGES] = {
+	3, 0, -2, 7, 3, 3,
+};
+
+static int qpnp_wled_ovp_thresholds_pmi8994[NUM_SUPPORTED_OVP_THRESHOLDS] = {
+	31000, 29500, 19400, 17800,
+};
+
+static int qpnp_wled_ovp_thresholds_pmicobalt[NUM_SUPPORTED_OVP_THRESHOLDS] = {
+	31100, 29600, 19600, 18100,
+};
+
 /**
  *  qpnp_wled - wed data structure
  *  @ cdev - led class device
- *  @ spmi - spmi device
+ *  @ pdev - platform device
  *  @ work - worker for led operation
  *  @ lock - mutex lock for exclusive access
  *  @ fdbk_op - output feedback mode
@@ -241,7 +265,7 @@ static u8 qpnp_wled_sink_dbg_regs[] = {
  *  @ ovp_irq - over voltage protection irq
  *  @ sc_irq - short circuit irq
  *  @ sc_cnt - short circuit irq count
- *  @ avdd_trim_steps_from_center - number of steps to trim from center value
+ *  @ avdd_target_voltage_mv - target voltage for AVDD module in mV
  *  @ ctrl_base - base address for wled ctrl
  *  @ sink_base - base address for wled sink
  *  @ ibb_base - base address for IBB(Inverting Buck Boost)
@@ -276,14 +300,16 @@ struct qpnp_wled {
 	struct led_classdev	cdev;
 	struct platform_device	*pdev;
 	struct regmap		*regmap;
+	struct pmic_revid_data	*pmic_rev_id;
 	struct work_struct	work;
 	struct mutex		lock;
+	struct mutex		bus_lock;
 	enum qpnp_wled_fdbk_op	fdbk_op;
 	enum qpnp_wled_dim_mode	dim_mode;
 	int			ovp_irq;
 	int			sc_irq;
 	u32			sc_cnt;
-	u32			avdd_trim_steps_from_center;
+	u32			avdd_target_voltage_mv;
 	u16			ctrl_base;
 	u16			sink_base;
 	u16			mod_freq_khz;
@@ -319,39 +345,79 @@ static int qpnp_wled_read_reg(struct qpnp_wled *wled, u8 *data, u16 addr)
 	uint val;
 
 	rc = regmap_read(wled->regmap, addr, &val);
-	if (rc < 0)
+	if (rc < 0) {
 		dev_err(&wled->pdev->dev,
 			"Error reading address: %x(%d)\n", addr, rc);
+		return rc;
+	}
+
 	*data = (u8)val;
-	return rc;
+	return 0;
 }
 
 /* helper to write a pmic register */
-static int qpnp_wled_write_reg(struct qpnp_wled *wled, u8 *data, u16 addr)
+static int qpnp_wled_write_reg(struct qpnp_wled *wled, u8 data, u16 addr)
 {
 	int rc;
 
-	rc = regmap_write(wled->regmap, addr, *data);
-	if (rc < 0)
-		dev_err(&wled->pdev->dev,
-			"Error writing address: %x(%d)\n", addr, rc);
+	mutex_lock(&wled->bus_lock);
+	rc = regmap_write(wled->regmap, addr, data);
+	if (rc < 0) {
+		dev_err(&wled->pdev->dev, "Error writing address: %x(%d)\n",
+			addr, rc);
+		goto out;
+	}
 
-	dev_dbg(&wled->pdev->dev, "write: WLED_0x%x = 0x%x\n", addr, *data);
+	dev_dbg(&wled->pdev->dev, "wrote: WLED_0x%x = 0x%x\n", addr, data);
+out:
+	mutex_unlock(&wled->bus_lock);
+	return rc;
+}
+
+static int qpnp_wled_masked_write_reg(struct qpnp_wled *wled, u8 mask, u8 *data,
+					u16 addr)
+{
+	u8 reg;
+	int rc;
+
+	rc = qpnp_wled_read_reg(wled, &reg, addr);
+	if (rc < 0)
+		return rc;
+
+	reg &= ~mask;
+	reg |= *data & mask;
+
+	rc = qpnp_wled_write_reg(wled, reg, addr);
 
 	return rc;
 }
 
-static int qpnp_wled_sec_access(struct qpnp_wled *wled, u16 base_addr)
+static int qpnp_wled_sec_write_reg(struct qpnp_wled *wled, u8 data, u16 addr)
 {
 	int rc;
 	u8 reg = QPNP_WLED_SEC_UNLOCK;
+	u16 base_addr = addr & 0xFF00;
 
-	rc = qpnp_wled_write_reg(wled, &reg,
-		QPNP_WLED_SEC_ACCESS_REG(base_addr));
-	if (rc)
-		return rc;
+	mutex_lock(&wled->bus_lock);
+	rc = regmap_write(wled->regmap, QPNP_WLED_SEC_ACCESS_REG(base_addr),
+			reg);
+	if (rc < 0) {
+		dev_err(&wled->pdev->dev, "Error writing address: %x(%d)\n",
+			QPNP_WLED_SEC_ACCESS_REG(base_addr), rc);
+		goto out;
+	}
 
-	return 0;
+	rc = regmap_write(wled->regmap, addr, data);
+	if (rc < 0) {
+		dev_err(&wled->pdev->dev, "Error writing address: %x(%d)\n",
+			addr, rc);
+		goto out;
+	}
+
+	dev_dbg(&wled->pdev->dev, "wrote: WLED_0x%x = 0x%x\n", addr, data);
+out:
+	mutex_unlock(&wled->bus_lock);
+	return rc;
 }
 
 static int qpnp_wled_sync_reg_toggle(struct qpnp_wled *wled)
@@ -361,7 +427,7 @@ static int qpnp_wled_sync_reg_toggle(struct qpnp_wled *wled)
 
 	/* sync */
 	reg = QPNP_WLED_SYNC;
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 		QPNP_WLED_SYNC_REG(wled->sink_base));
 	if (rc < 0)
 		return rc;
@@ -371,7 +437,7 @@ static int qpnp_wled_sync_reg_toggle(struct qpnp_wled *wled)
 				wled->cons_sync_write_delay_us + 1);
 
 	reg = QPNP_WLED_SYNC_RESET;
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 		QPNP_WLED_SYNC_REG(wled->sink_base));
 	if (rc < 0)
 		return rc;
@@ -388,7 +454,7 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 	/* set brightness registers */
 	for (i = 0; i < wled->num_strings; i++) {
 		reg = level & QPNP_WLED_BRIGHT_LSB_MASK;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_BRIGHT_LSB_REG(wled->sink_base,
 						wled->strings[i]));
 		if (rc < 0)
@@ -396,7 +462,7 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 
 		reg = level >> QPNP_WLED_BRIGHT_MSB_SHIFT;
 		reg = reg & QPNP_WLED_BRIGHT_MSB_MASK;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_BRIGHT_MSB_REG(wled->sink_base,
 						wled->strings[i]));
 		if (rc < 0)
@@ -421,7 +487,7 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 	/* disable OVP fault interrupt */
 	if (state) {
 		reg = QPNP_WLED_INT_EN_SET_OVP_EN;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_INT_EN_CLR(base_addr));
 		if (rc)
 			return rc;
@@ -433,7 +499,7 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 		return rc;
 	reg &= QPNP_WLED_MODULE_EN_MASK;
 	reg |= (state << QPNP_WLED_MODULE_EN_SHIFT);
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_MODULE_EN_REG(base_addr));
 	if (rc)
 		return rc;
@@ -442,7 +508,7 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 	if (state && (wled->ovp_irq > 0)) {
 		udelay(QPNP_WLED_OVP_FLT_SLEEP_US);
 		reg = QPNP_WLED_INT_EN_SET_OVP_EN;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_INT_EN_SET(base_addr));
 		if (rc)
 			return rc;
@@ -678,7 +744,7 @@ static ssize_t qpnp_wled_dim_mode_store(struct device *dev,
 		reg |= temp;
 	}
 
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_MOD_REG(wled->sink_base));
 	if (rc)
 		return rc;
@@ -722,7 +788,7 @@ static ssize_t qpnp_wled_fs_curr_ua_store(struct device *dev,
 		reg &= QPNP_WLED_FS_CURR_MASK;
 		temp = data / QPNP_WLED_FS_CURR_STEP_UA;
 		reg |= temp;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_FS_CURR_REG(wled->sink_base,
 							wled->strings[i]));
 		if (rc)
@@ -838,11 +904,7 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 	reg &= QPNP_WLED_DISP_SEL_MASK;
 	reg |= (wled->disp_type_amoled << QPNP_WLED_DISP_SEL_SHIFT);
 
-	rc = qpnp_wled_sec_access(wled, base_addr);
-	if (rc)
-		return rc;
-
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_sec_write_reg(wled, reg,
 			QPNP_WLED_DISP_SEL_REG(base_addr));
 	if (rc)
 		return rc;
@@ -863,7 +925,7 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 		reg |= ((wled->vref_psm_mv - QPNP_WLED_VREF_PSM_MIN_MV)/
 			QPNP_WLED_VREF_PSM_STEP_MV);
 		reg |= QPNP_WLED_PSM_CTRL_OVERWRITE;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_PSM_CTRL_REG(wled->ctrl_base));
 		if (rc)
 			return rc;
@@ -887,7 +949,7 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 				 QPNP_WLED_LOOP_COMP_RES_MIN_KOHM)/
 				 QPNP_WLED_LOOP_COMP_RES_STEP_KOHM);
 		reg |= QPNP_WLED_VLOOP_COMP_RES_OVERWRITE;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_VLOOP_COMP_RES_REG(wled->ctrl_base));
 		if (rc)
 			return rc;
@@ -905,7 +967,7 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 
 		reg &= QPNP_WLED_VLOOP_COMP_GM_MASK;
 		reg |= (wled->loop_ea_gm | QPNP_WLED_VLOOP_COMP_GM_OVERWRITE);
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_VLOOP_COMP_GM_REG(wled->ctrl_base));
 		if (rc)
 			return rc;
@@ -916,12 +978,8 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 		if (rc < 0)
 			return rc;
 
-		rc = qpnp_wled_sec_access(wled, base_addr);
-		if (rc)
-			return rc;
-
 		reg |= QPNP_WLED_TEST4_EN_IIND_UP;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_sec_write_reg(wled, reg,
 				QPNP_WLED_TEST4_REG(base_addr));
 		if (rc)
 			return rc;
@@ -929,12 +987,8 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 		/*
 		 * enable VREF_UP to avoid false ovp on low brightness for LCD
 		 */
-		rc = qpnp_wled_sec_access(wled, base_addr);
-		if (rc)
-			return rc;
-
 		reg = QPNP_WLED_TEST4_EN_VREF_UP;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_sec_write_reg(wled, reg,
 				QPNP_WLED_TEST4_REG(base_addr));
 		if (rc)
 			return rc;
@@ -968,6 +1022,73 @@ static irqreturn_t qpnp_wled_sc_irq(int irq, void *_wled)
 	return IRQ_HANDLED;
 }
 
+static bool is_avdd_trim_adjustment_required(struct qpnp_wled *wled)
+{
+	int rc;
+	u8 reg = 0;
+
+	/*
+	 * AVDD trim adjustment is not required for pmicobalt/pm2falcon and not
+	 * supported for pmi8994.
+	 */
+	if (wled->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE ||
+		wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE ||
+		wled->pmic_rev_id->pmic_subtype == PMI8994_SUBTYPE)
+		return false;
+
+	/*
+	 * Configure TRIM_REG only if disp_type_amoled and it has
+	 * not already been programmed by bootloader.
+	 */
+	if (!wled->disp_type_amoled)
+		return false;
+
+	rc = qpnp_wled_read_reg(wled, &reg,
+			QPNP_WLED_CTRL_SPARE_REG(wled->ctrl_base));
+	if (rc < 0)
+		return false;
+
+	return !(reg & QPNP_WLED_AVDD_SET_BIT);
+}
+
+static int qpnp_wled_ovp_config(struct qpnp_wled *wled)
+{
+	int rc, i, *ovp_table;
+	u8 reg;
+
+	/*
+	 * Configure the OVP register based on ovp_mv only if display type is
+	 * not AMOLED.
+	 */
+	if (wled->disp_type_amoled)
+		return 0;
+
+	if (wled->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE ||
+		wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE)
+		ovp_table = qpnp_wled_ovp_thresholds_pmicobalt;
+	else
+		ovp_table = qpnp_wled_ovp_thresholds_pmi8994;
+
+	for (i = 0; i < NUM_SUPPORTED_OVP_THRESHOLDS; i++) {
+		if (wled->ovp_mv == ovp_table[i])
+			break;
+	}
+
+	if (i == NUM_SUPPORTED_OVP_THRESHOLDS) {
+		dev_err(&wled->pdev->dev,
+			"Invalid ovp threshold specified in device tree\n");
+		return -EINVAL;
+	}
+
+	reg = i & QPNP_WLED_OVP_MASK;
+	rc = qpnp_wled_masked_write_reg(wled, QPNP_WLED_OVP_MASK, &reg,
+			QPNP_WLED_OVP_REG(wled->ctrl_base));
+	if (rc)
+		return rc;
+
+	return 0;
+}
+
 /* Configure WLED registers */
 static int qpnp_wled_config(struct qpnp_wled *wled)
 {
@@ -986,7 +1107,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 	reg &= QPNP_WLED_FDBK_OP_MASK;
 	reg |= wled->fdbk_op;
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_FDBK_OP_REG(wled->ctrl_base));
 	if (rc)
 		return rc;
@@ -1004,7 +1125,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	reg &= QPNP_WLED_VREF_MASK;
 	temp = wled->vref_mv - QPNP_WLED_VREF_MIN_MV;
 	reg |= (temp / QPNP_WLED_VREF_STEP_MV);
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_VREF_REG(wled->ctrl_base));
 	if (rc)
 		return rc;
@@ -1024,7 +1145,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		reg &= QPNP_WLED_ILIM_MASK;
 		reg |= temp;
 		reg |= QPNP_WLED_ILIM_OVERWRITE;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_ILIM_REG(wled->ctrl_base));
 		if (rc)
 			return rc;
@@ -1032,7 +1153,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 
 	/* Configure the Soft start Ramp delay: for AMOLED - 0,for LCD - 2 */
 	reg = (wled->disp_type_amoled) ? 0 : 2;
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_SOFTSTART_RAMP_DLY(wled->ctrl_base));
 	if (rc)
 		return rc;
@@ -1049,7 +1170,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 	reg &= QPNP_WLED_BOOST_DUTY_MASK;
 	reg |= (wled->boost_duty_ns / QPNP_WLED_BOOST_DUTY_STEP_NS);
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_BOOST_DUTY_REG(wled->ctrl_base));
 	if (rc)
 		return rc;
@@ -1066,57 +1187,57 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 	reg &= QPNP_WLED_SWITCH_FREQ_MASK;
 	reg |= (temp | QPNP_WLED_SWITCH_FREQ_OVERWRITE);
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_SWITCH_FREQ_REG(wled->ctrl_base));
 	if (rc)
 		return rc;
 
-	/* Configure the OVP register */
-	if (wled->ovp_mv <= QPNP_WLED_OVP_17800_MV) {
-		wled->ovp_mv = QPNP_WLED_OVP_17800_MV;
-		temp = 3;
-	} else if (wled->ovp_mv <= QPNP_WLED_OVP_19400_MV) {
-		wled->ovp_mv = QPNP_WLED_OVP_19400_MV;
-		temp = 2;
-	} else if (wled->ovp_mv <= QPNP_WLED_OVP_29500_MV) {
-		wled->ovp_mv = QPNP_WLED_OVP_29500_MV;
-		temp = 1;
-	} else {
-		wled->ovp_mv = QPNP_WLED_OVP_31000_MV;
-		temp = 0;
+	rc = qpnp_wled_ovp_config(wled);
+	if (rc < 0) {
+		pr_err("Error in configuring OVP threshold, rc=%d\n", rc);
+		return rc;
 	}
 
-	rc = qpnp_wled_read_reg(wled, &reg,
-			QPNP_WLED_OVP_REG(wled->ctrl_base));
-	if (rc < 0)
-		return rc;
-	reg &= QPNP_WLED_OVP_MASK;
-	reg |= temp;
-	rc = qpnp_wled_write_reg(wled, &reg,
-			QPNP_WLED_OVP_REG(wled->ctrl_base));
-	if (rc)
-		return rc;
+	if (is_avdd_trim_adjustment_required(wled)) {
+		for (i = 0; i < NUM_SUPPORTED_AVDD_VOLTAGES; i++) {
+			if (wled->avdd_target_voltage_mv ==
+					qpnp_wled_avdd_target_voltages[i])
+				break;
+		}
 
-	if (wled->disp_type_amoled) {
-		/* Configure avdd trim register */
-		rc = qpnp_wled_sec_access(wled, wled->ctrl_base);
+		if (i == NUM_SUPPORTED_AVDD_VOLTAGES) {
+			dev_err(&wled->pdev->dev,
+				"Invalid avdd target voltage specified in device tree\n");
+			return -EINVAL;
+		}
+
+		/* Update WLED_OVP register based on desired target voltage */
+		reg = qpnp_wled_ovp_reg_settings[i];
+		rc = qpnp_wled_masked_write_reg(wled, QPNP_WLED_OVP_MASK, &reg,
+				QPNP_WLED_OVP_REG(wled->ctrl_base));
 		if (rc)
 			return rc;
 
-		/* Check if wled->avdd_trim_steps_from_center is negative */
-		if ((s32)wled->avdd_trim_steps_from_center <
-					QPNP_WLED_AVDD_MIN_TRIM_VALUE) {
-			wled->avdd_trim_steps_from_center =
-					QPNP_WLED_AVDD_MIN_TRIM_VALUE;
-		} else if ((s32)wled->avdd_trim_steps_from_center >
-						QPNP_WLED_AVDD_MAX_TRIM_VALUE) {
-			wled->avdd_trim_steps_from_center =
-					QPNP_WLED_AVDD_MAX_TRIM_VALUE;
-		}
-		reg = wled->avdd_trim_steps_from_center +
-					QPNP_WLED_AVDD_TRIM_CENTER_VALUE;
+		/* Update WLED_TRIM register based on desired target voltage */
+		rc = qpnp_wled_read_reg(wled, &reg,
+			QPNP_WLED_REF_7P7_TRIM_REG(wled->ctrl_base));
+		if (rc)
+			return rc;
 
-		rc = qpnp_wled_write_reg(wled, &reg,
+		reg += qpnp_wled_avdd_trim_adjustments[i];
+		if ((s8)reg < QPNP_WLED_AVDD_MIN_TRIM_VAL ||
+				(s8)reg > QPNP_WLED_AVDD_MAX_TRIM_VAL) {
+			dev_info(&wled->pdev->dev,
+				 "adjusted trim %d is not within range, capping it\n",
+				 (s8)reg);
+			if ((s8)reg < QPNP_WLED_AVDD_MIN_TRIM_VAL)
+				reg = QPNP_WLED_AVDD_MIN_TRIM_VAL;
+			else
+				reg = QPNP_WLED_AVDD_MAX_TRIM_VAL;
+		}
+
+		reg &= QPNP_WLED_7P7_TRIM_MASK;
+		rc = qpnp_wled_sec_write_reg(wled, reg,
 				QPNP_WLED_REF_7P7_TRIM_REG(wled->ctrl_base));
 		if (rc)
 			return rc;
@@ -1166,7 +1287,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		reg |= wled->dim_mode;
 	}
 
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_MOD_REG(wled->sink_base));
 	if (rc)
 		return rc;
@@ -1184,7 +1305,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	reg &= QPNP_WLED_HYB_THRES_MASK;
 	temp = fls(wled->hyb_thres / QPNP_WLED_HYB_THRES_MIN) - 1;
 	reg |= temp;
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_HYB_THRES_REG(wled->sink_base));
 	if (rc)
 		return rc;
@@ -1195,17 +1316,14 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	else
 		reg = QPNP_WLED_SINK_TEST5_HYB;
 
-	rc = qpnp_wled_sec_access(wled, wled->sink_base);
-	if (rc)
-		return rc;
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_sec_write_reg(wled, reg,
 			QPNP_WLED_SINK_TEST5_REG(wled->sink_base));
 	if (rc)
 		return rc;
 
 	/* disable all current sinks and enable selected strings */
 	reg = 0x00;
-	rc = qpnp_wled_write_reg(wled, &reg,
+	rc = qpnp_wled_write_reg(wled, reg,
 			QPNP_WLED_CURR_SINK_REG(wled->sink_base));
 
 	for (i = 0; i < wled->num_strings; i++) {
@@ -1228,7 +1346,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		else
 			reg |= ~QPNP_WLED_GATE_DRV_MASK;
 
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_MOD_EN_REG(wled->sink_base,
 						wled->strings[i]));
 		if (rc)
@@ -1246,7 +1364,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		reg &= QPNP_WLED_SYNC_DLY_MASK;
 		temp = wled->sync_dly_us / QPNP_WLED_SYNC_DLY_STEP_US;
 		reg |= temp;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_SYNC_DLY_REG(wled->sink_base,
 						wled->strings[i]));
 		if (rc)
@@ -1264,7 +1382,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		reg &= QPNP_WLED_FS_CURR_MASK;
 		temp = wled->fs_curr_ua / QPNP_WLED_FS_CURR_STEP_UA;
 		reg |= temp;
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_FS_CURR_REG(wled->sink_base,
 						wled->strings[i]));
 		if (rc)
@@ -1278,7 +1396,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 			return rc;
 		reg &= QPNP_WLED_CABC_MASK;
 		reg |= (wled->en_cabc << QPNP_WLED_CABC_SHIFT);
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_CABC_REG(wled->sink_base,
 						wled->strings[i]));
 		if (rc)
@@ -1291,7 +1409,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 			return rc;
 		temp = wled->strings[i] + QPNP_WLED_CURR_SINK_SHIFT;
 		reg |= (1 << temp);
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_CURR_SINK_REG(wled->sink_base));
 		if (rc)
 			return rc;
@@ -1348,18 +1466,14 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		if (wled->disp_type_amoled)
 			reg |= QPNP_WLED_SC_PRO_EN_DSCHGR;
 
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_SC_PRO_REG(wled->ctrl_base));
 		if (rc)
 			return rc;
 
 		if (wled->en_ext_pfet_sc_pro) {
-			rc = qpnp_wled_sec_access(wled, wled->ctrl_base);
-			if (rc)
-				return rc;
-
 			reg = QPNP_WLED_EXT_FET_DTEST2;
-			rc = qpnp_wled_write_reg(wled, &reg,
+			rc = qpnp_wled_sec_write_reg(wled, reg,
 					QPNP_WLED_TEST1_REG(wled->ctrl_base));
 			if (rc)
 				return rc;
@@ -1378,7 +1492,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		temp = fls(wled->sc_deb_cycles) - QPNP_WLED_SC_DEB_CYCLES_SUB;
 		reg |= (temp << 1);
 
-		rc = qpnp_wled_write_reg(wled, &reg,
+		rc = qpnp_wled_write_reg(wled, reg,
 				QPNP_WLED_SC_PRO_REG(wled->ctrl_base));
 		if (rc)
 			return rc;
@@ -1447,13 +1561,13 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 			return rc;
 		}
 
-		wled->avdd_trim_steps_from_center = 0;
+		wled->avdd_target_voltage_mv = QPNP_WLED_DFLT_AVDD_MV;
 		rc = of_property_read_u32(pdev->dev.of_node,
-				"qcom,avdd-trim-steps-from-center", &temp_val);
+				"qcom,avdd-target-voltage-mv", &temp_val);
 		if (!rc) {
-			wled->avdd_trim_steps_from_center = temp_val;
+			wled->avdd_target_voltage_mv = temp_val;
 		} else if (rc != -EINVAL) {
-			dev_err(&pdev->dev, "Unable to read avdd trim steps from center value\n");
+			dev_err(&pdev->dev, "Unable to read avdd target voltage\n");
 			return rc;
 		}
 	}
@@ -1507,13 +1621,17 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 		return rc;
 	}
 
-	wled->ovp_mv = QPNP_WLED_OVP_29500_MV;
+	if (wled->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE ||
+		wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE)
+		wled->ovp_mv = 29600;
+	else
+		wled->ovp_mv = 29500;
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,ovp-mv", &temp_val);
 	if (!rc) {
 		wled->ovp_mv = temp_val;
 	} else if (rc != -EINVAL) {
-		dev_err(&pdev->dev, "Unable to read vref\n");
+		dev_err(&pdev->dev, "Unable to read ovp\n");
 		return rc;
 	}
 
@@ -1638,6 +1756,7 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 static int qpnp_wled_probe(struct platform_device *pdev)
 {
 	struct qpnp_wled *wled;
+	struct device_node *revid_node;
 	int rc = 0, i;
 	const __be32 *prop;
 
@@ -1651,6 +1770,27 @@ static int qpnp_wled_probe(struct platform_device *pdev)
 		}
 
 	wled->pdev = pdev;
+
+	revid_node = of_parse_phandle(pdev->dev.of_node, "qcom,pmic-revid", 0);
+	if (!revid_node) {
+		pr_err("Missing qcom,pmic-revid property - driver failed\n");
+		return -EINVAL;
+	}
+
+	wled->pmic_rev_id = get_revid_data(revid_node);
+	if (IS_ERR_OR_NULL(wled->pmic_rev_id)) {
+		pr_err("Unable to get pmic_revid rc=%ld\n",
+			PTR_ERR(wled->pmic_rev_id));
+		/*
+		 * the revid peripheral must be registered, any failure
+		 * here only indicates that the rev-id module has not
+		 * probed yet.
+		 */
+		return -EPROBE_DEFER;
+	}
+
+	pr_debug("PMIC subtype %d Digital major %d\n",
+		wled->pmic_rev_id->pmic_subtype, wled->pmic_rev_id->rev4);
 
 	prop = of_get_address_by_name(pdev->dev.of_node, QPNP_WLED_SINK_BASE,
 			0, 0);
@@ -1676,6 +1816,7 @@ static int qpnp_wled_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	mutex_init(&wled->bus_lock);
 	rc = qpnp_wled_config(wled);
 	if (rc) {
 		dev_err(&pdev->dev, "wled config failed\n");

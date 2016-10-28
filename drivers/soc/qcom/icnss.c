@@ -1318,7 +1318,7 @@ static int icnss_hw_reset_rf_reset_cmd(struct icnss_priv *priv)
 	if (ret) {
 		icnss_pr_err("RESET: RF reset command failed, state: 0x%lx\n",
 			     priv->state);
-		icnss_hw_wsi_cmd_error_recovery(priv);
+		return ret;
 	}
 
 	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
@@ -1389,7 +1389,7 @@ static int icnss_hw_reset_xo_disable_cmd(struct icnss_priv *priv)
 	if (ret) {
 		icnss_pr_err("RESET: XO disable command failed, state: 0x%lx\n",
 			     priv->state);
-		icnss_hw_wsi_cmd_error_recovery(priv);
+		return ret;
 	}
 
 	icnss_hw_write_reg_field(priv->mem_base_va, PMM_WSI_CMD_OFFSET,
@@ -1406,6 +1406,7 @@ static int icnss_hw_reset(struct icnss_priv *priv)
 	u32 rdata;
 	u32 rdata1;
 	int i;
+	int ret = 0;
 
 	if (test_bit(HW_ONLY_TOP_LEVEL_RESET, &quirks))
 		goto top_level_reset;
@@ -1457,11 +1458,15 @@ static int icnss_hw_reset(struct icnss_priv *priv)
 
 	icnss_hw_reset_wlan_rfactrl_power_down(priv);
 
-	icnss_hw_reset_rf_reset_cmd(priv);
+	ret = icnss_hw_reset_rf_reset_cmd(priv);
+	if (ret)
+		goto top_level_reset;
 
 	icnss_hw_reset_switch_to_cxo(priv);
 
-	icnss_hw_reset_xo_disable_cmd(priv);
+	ret = icnss_hw_reset_xo_disable_cmd(priv);
+	if (ret)
+		goto top_level_reset;
 
 	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
 				 MPM_WCSSAON_CONFIG_FORCE_ACTIVE, 0);
@@ -4230,6 +4235,11 @@ static int icnss_get_vbatt_info(struct icnss_priv *priv)
 	struct qpnp_adc_tm_chip *adc_tm_dev = NULL;
 	struct qpnp_vadc_chip *vadc_dev = NULL;
 	int ret = 0;
+
+	if (test_bit(VBATT_DISABLE, &quirks)) {
+		icnss_pr_dbg("VBATT feature is disabled\n");
+		return ret;
+	}
 
 	adc_tm_dev = qpnp_get_adc_tm(&priv->pdev->dev, "icnss");
 	if (PTR_ERR(adc_tm_dev) == -EPROBE_DEFER) {

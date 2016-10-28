@@ -60,6 +60,12 @@ struct goodix_ts_platform_data {
 	u8 *config_data[GOODIX_MAX_CFG_GROUP];
 	u32 button_map[MAX_BUTTONS];
 	u8 num_button;
+	bool have_touch_key;
+	bool driver_send_cfg;
+	bool change_x2y;
+	bool with_pen;
+	bool slide_wakeup;
+	bool dbl_clk_wakeup;
 };
 struct goodix_ts_data {
 	spinlock_t irq_lock;
@@ -69,6 +75,7 @@ struct goodix_ts_data {
 	struct hrtimer timer;
 	struct workqueue_struct *goodix_wq;
 	struct work_struct	work;
+	char fw_name[GTP_FW_NAME_MAXSIZE];
 	struct delayed_work goodix_update_work;
 	s32 irq_is_disabled;
 	s32 use_irq;
@@ -107,17 +114,7 @@ extern u16 total_len;
 
 /***************************PART1:ON/OFF define*******************************/
 #define GTP_CUSTOM_CFG			0
-#define GTP_CHANGE_X2Y			0
-#define GTP_DRIVER_SEND_CFG		1
-#define GTP_HAVE_TOUCH_KEY		1
-
 #define GTP_ESD_PROTECT			0
-#define GTP_WITH_PEN			0
-
-/* This cannot work when enable-power-off is on */
-#define GTP_SLIDE_WAKEUP		0
-/* double-click wakeup, function together with GTP_SLIDE_WAKEUP */
-#define GTP_DBL_CLK_WAKEUP		0
 
 #define GTP_IRQ_TAB            {\
 				IRQ_TYPE_EDGE_RISING,\

@@ -1238,7 +1238,7 @@ static int dp_train_pattern_set_write(struct mdss_dp_drv_pdata *ep,
 	return dp_aux_write_buf(ep, 0x102, buf, 1, 0);
 }
 
-static int dp_sink_clock_recovery_done(struct mdss_dp_drv_pdata *ep)
+bool mdss_dp_aux_clock_recovery_done(struct mdss_dp_drv_pdata *ep)
 {
 	u32 mask;
 	u32 data;
@@ -1259,12 +1259,12 @@ static int dp_sink_clock_recovery_done(struct mdss_dp_drv_pdata *ep)
 	pr_debug("data=%x mask=%x\n", data, mask);
 	data &= mask;
 	if (data == mask) /* all done */
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
-static int dp_sink_channel_eq_done(struct mdss_dp_drv_pdata *ep)
+bool mdss_dp_aux_channel_eq_done(struct mdss_dp_drv_pdata *ep)
 {
 	u32 mask;
 	u32 data;
@@ -1293,9 +1293,9 @@ static int dp_sink_channel_eq_done(struct mdss_dp_drv_pdata *ep)
 
 	data &= mask;
 	if (data == mask)/* all done */
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 void dp_sink_train_set_adjust(struct mdss_dp_drv_pdata *ep)
@@ -1446,7 +1446,7 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 		usleep_range(usleep_time, usleep_time);
 
 		dp_link_status_read(ep, 6);
-		if (dp_sink_clock_recovery_done(ep)) {
+		if (mdss_dp_aux_clock_recovery_done(ep)) {
 			ret = 0;
 			break;
 		}
@@ -1499,7 +1499,7 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 
 		dp_link_status_read(ep, 6);
 
-		if (dp_sink_channel_eq_done(ep)) {
+		if (mdss_dp_aux_channel_eq_done(ep)) {
 			ret = 0;
 			break;
 		}

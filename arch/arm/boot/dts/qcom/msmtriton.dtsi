@@ -609,6 +609,59 @@
 		memory-region = <&venus_fw_mem>;
 		status = "ok";
 	};
+
+	pil_modem: qcom,mss@4080000 {
+		compatible = "qcom,pil-q6v55-mss";
+		reg = <0x4080000 0x100>,
+		      <0x1f63000 0x008>,
+		      <0x1f65000 0x008>,
+		      <0x1f64000 0x008>,
+		      <0x4180000 0x040>,
+		      <0x00179000 0x004>;
+		reg-names = "qdsp6_base", "halt_q6", "halt_modem",
+			    "halt_nc", "rmb_base", "restart_reg";
+
+		clocks = <&clock_rpmcc RPM_XO_CLK_SRC>,
+			 <&clock_gcc GCC_MSS_CFG_AHB_CLK>,
+			 <&clock_gcc GCC_BIMC_MSS_Q6_AXI_CLK>,
+			 <&clock_gcc GCC_BOOT_ROM_AHB_CLK>,
+			 <&clock_gcc GPLL0_OUT_MSSCC>,
+			 <&clock_gcc GCC_MSS_SNOC_AXI_CLK>,
+			 <&clock_gcc GCC_MSS_MNOC_BIMC_AXI_CLK>,
+			 <&clock_rpmcc RPM_QDSS_CLK>;
+		clock-names = "xo", "iface_clk", "bus_clk",
+			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
+			      "mnoc_axi_clk", "qdss_clk";
+		qcom,proxy-clock-names = "xo", "qdss_clk";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
+					 "gpll0_mss_clk", "snoc_axi_clk",
+					 "mnoc_axi_clk";
+
+		interrupts = <0 448 1>;
+		vdd_cx-supply = <&pmfalcon_s3b_level>;
+		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		vdd_mx-supply = <&pmfalcon_s5b_level>;
+		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,firmware-name = "modem";
+		qcom,pil-self-auth;
+		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,override-acc;
+		qcom,qdsp6v62-1-5;
+		memory-region = <&modem_fw_mem>;
+		qcom,mem-protect-id = <0xF>;
+
+		/* GPIO inputs from mss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
+		qcom,gpio-shutdown-ack = <&smp2pgpio_ssr_smp2p_1_in 7 0>;
+
+		/* GPIO output to mss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		status = "ok";
+	};
 };
 
 #include "msmtriton-ion.dtsi"

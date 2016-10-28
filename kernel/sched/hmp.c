@@ -1387,7 +1387,7 @@ void dec_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra)
 		dec_cumulative_runnable_avg(&rq->hmp_stats, p);
 }
 
-static void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
+void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 {
 	stats->nr_big_tasks = 0;
 	if (reset_cra) {

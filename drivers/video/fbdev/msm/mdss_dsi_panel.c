@@ -25,6 +25,7 @@
 
 #include "mdss_dsi.h"
 #include "mdss_dba_utils.h"
+#include "mdss_debug.h"
 
 #define DT_CMD_HDR 6
 #define DEFAULT_MDP_TRANSFER_TIME 14000
@@ -1498,7 +1499,7 @@ static int mdss_dsi_parse_reset_seq(struct device_node *np,
 
 static bool mdss_dsi_cmp_panel_reg_v2(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	int i, j;
+	int i, j = 0;
 	int len = 0, *lenp;
 	int group = 0;
 
@@ -1506,6 +1507,15 @@ static bool mdss_dsi_cmp_panel_reg_v2(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	for (i = 0; i < ctrl->status_cmds.cmd_cnt; i++)
 		len += lenp[i];
+
+	for (i = 0; i < len; i++) {
+		pr_debug("[%i] return:0x%x status:0x%x\n",
+			i, (unsigned int)ctrl->return_buf[i],
+			(unsigned int)ctrl->status_value[j + i]);
+		MDSS_XLOG(ctrl->ndx, ctrl->return_buf[i],
+			ctrl->status_value[j + i]);
+		j += len;
+	}
 
 	for (j = 0; j < ctrl->groups; ++j) {
 		for (i = 0; i < len; ++i) {

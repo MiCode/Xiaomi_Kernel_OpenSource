@@ -2810,9 +2810,10 @@
 		};
 	};
 
-	qcom,msm-ssc-sensors {
+	ssc_sensors: qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
 		status = "ok";
+		qcom,firmware-name = "slpi_v1";
 	};
 
 	dcc: dcc@10b3000 {

@@ -266,7 +266,7 @@ static int sde_rotator_update_clk(struct sde_rot_mgr *mgr)
 
 	SDEROT_DBG("core_clk %lu\n", total_clk_rate);
 	ATRACE_INT("core_clk", total_clk_rate);
-	sde_rotator_set_clk_rate(mgr, total_clk_rate, mgr->core_clk_idx);
+	sde_rotator_set_clk_rate(mgr, total_clk_rate, SDE_ROTATOR_CLK_ROT_CORE);
 
 	return 0;
 }
@@ -300,11 +300,34 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	mgr->regulator_enable = on;
 }
 
-int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
+static int sde_rotator_enable_clk(struct sde_rot_mgr *mgr, int clk_idx)
 {
 	struct clk *clk;
 	int ret = 0;
-	int i, changed = 0;
+
+	clk = sde_rotator_get_clk(mgr, clk_idx);
+	if (clk) {
+		ret = clk_prepare_enable(clk);
+		if (ret)
+			SDEROT_ERR("enable failed clk_idx %d\n", clk_idx);
+	}
+
+	return ret;
+}
+
+static void sde_rotator_disable_clk(struct sde_rot_mgr *mgr, int clk_idx)
+{
+	struct clk *clk;
+
+	clk = sde_rotator_get_clk(mgr, clk_idx);
+	if (clk)
+		clk_disable_unprepare(clk);
+}
+
+int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
+{
+	int ret = 0;
+	int changed = 0;
 
 	if (enable) {
 		if (mgr->rot_enable_clk_cnt == 0)
@@ -323,32 +346,41 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 	if (changed) {
 		SDEROT_EVTLOG(enable);
 		SDEROT_DBG("Rotator clk %s\n", enable ? "enable" : "disable");
-		for (i = 0; i < mgr->num_rot_clk; i++) {
-			clk = mgr->rot_clk[i].clk;
-
-			if (!clk)
-				continue;
-
-			if (enable) {
-				ret = clk_prepare_enable(clk);
-				if (ret) {
-					SDEROT_ERR(
-						"enable failed clk_idx %d\n",
-						i);
-					goto error;
-				}
-			} else {
-				clk_disable_unprepare(clk);
-			}
-		}
 
 		if (enable) {
+			ret = sde_rotator_enable_clk(mgr,
+						SDE_ROTATOR_CLK_MNOC_AHB);
+			if (ret)
+				goto error_mnoc_ahb;
+			ret = sde_rotator_enable_clk(mgr,
+						SDE_ROTATOR_CLK_MDSS_AHB);
+			if (ret)
+				goto error_mdss_ahb;
+			ret = sde_rotator_enable_clk(mgr,
+						SDE_ROTATOR_CLK_MDSS_AXI);
+			if (ret)
+				goto error_mdss_axi;
+			ret = sde_rotator_enable_clk(mgr,
+						SDE_ROTATOR_CLK_ROT_CORE);
+			if (ret)
+				goto error_rot_core;
+			ret = sde_rotator_enable_clk(mgr,
+						SDE_ROTATOR_CLK_MDSS_ROT);
+			if (ret)
+				goto error_mdss_rot;
+
 			/* Active+Sleep */
 			msm_bus_scale_client_update_context(
 				mgr->data_bus.bus_hdl, false,
 				mgr->data_bus.curr_bw_uc_idx);
 			trace_rot_bw_ao_as_context(0);
 		} else {
+			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_ROT);
+			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_ROT_CORE);
+			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AXI);
+			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AHB);
+			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MNOC_AHB);
+
 			/* Active Only */
 			msm_bus_scale_client_update_context(
 				mgr->data_bus.bus_hdl, true,
@@ -358,9 +390,15 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 	}
 
 	return ret;
-error:
-	for (i--; i >= 0; i--)
-		clk_disable_unprepare(mgr->rot_clk[i].clk);
+error_mdss_rot:
+	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_ROT_CORE);
+error_rot_core:
+	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AXI);
+error_mdss_axi:
+	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AHB);
+error_mdss_ahb:
+	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MNOC_AHB);
+error_mnoc_ahb:
 	return ret;
 }
 
@@ -2101,7 +2139,6 @@ static ssize_t sde_rotator_show_state(struct device *dev,
 	SPRINT("footswitch_cnt=%d\n", mgr->res_ref_cnt);
 	SPRINT("regulator_enable=%d\n", mgr->regulator_enable);
 	SPRINT("enable_clk_cnt=%d\n", mgr->rot_enable_clk_cnt);
-	SPRINT("core_clk_idx=%d\n", mgr->core_clk_idx);
 	for (i = 0; i < mgr->num_rot_clk; i++)
 		if (mgr->rot_clk[i].clk)
 			SPRINT("%s=%lu\n", mgr->rot_clk[i].clk_name,
@@ -2301,17 +2338,39 @@ static int sde_rotator_bus_scale_register(struct sde_rot_mgr *mgr)
 	return 0;
 }
 
+static inline int sde_rotator_search_dt_clk(struct platform_device *pdev,
+		struct sde_rot_mgr *mgr, char *clk_name, int clk_idx)
+{
+	struct clk *tmp;
+
+	if (clk_idx >= SDE_ROTATOR_CLK_MAX) {
+		SDEROT_ERR("invalid clk index %d\n", clk_idx);
+		return -EINVAL;
+	}
+
+	tmp = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(tmp)) {
+		SDEROT_ERR("unable to get clk: %s\n", clk_name);
+		return PTR_ERR(tmp);
+	}
+
+	strlcpy(mgr->rot_clk[clk_idx].clk_name, clk_name,
+			sizeof(mgr->rot_clk[clk_idx].clk_name));
+
+	mgr->rot_clk[clk_idx].clk = tmp;
+	return 0;
+}
+
 static int sde_rotator_parse_dt_clk(struct platform_device *pdev,
 		struct sde_rot_mgr *mgr)
 {
-	u32 i = 0, rc = 0;
-	const char *clock_name;
+	u32 rc = 0;
 	int num_clk;
 
 	num_clk = of_property_count_strings(pdev->dev.of_node,
 			"clock-names");
-	if (num_clk <= 0) {
-		SDEROT_ERR("clocks are not defined\n");
+	if ((num_clk <= 0) || (num_clk > SDE_ROTATOR_CLK_MAX)) {
+		SDEROT_ERR("Number of clocks are out of range: %d\n", num_clk);
 		goto clk_err;
 	}
 
@@ -2325,19 +2384,17 @@ static int sde_rotator_parse_dt_clk(struct platform_device *pdev,
 		goto clk_err;
 	}
 
-	for (i = 0; i < mgr->num_rot_clk; i++) {
-		u32 clock_rate = 0;
-
-		of_property_read_string_index(pdev->dev.of_node, "clock-names",
-							i, &clock_name);
-		strlcpy(mgr->rot_clk[i].clk_name, clock_name,
-				sizeof(mgr->rot_clk[i].clk_name));
-
-		of_property_read_u32_index(pdev->dev.of_node, "clock-rate",
-							i, &clock_rate);
-		mgr->rot_clk[i].rate = clock_rate;
-	}
-
+	if (sde_rotator_search_dt_clk(pdev, mgr, "mnoc_clk",
+				SDE_ROTATOR_CLK_MNOC_AHB) ||
+			sde_rotator_search_dt_clk(pdev, mgr, "iface_clk",
+				SDE_ROTATOR_CLK_MDSS_AHB) ||
+			sde_rotator_search_dt_clk(pdev, mgr, "axi_clk",
+				SDE_ROTATOR_CLK_MDSS_AXI) ||
+			sde_rotator_search_dt_clk(pdev, mgr, "rot_core_clk",
+				SDE_ROTATOR_CLK_ROT_CORE) ||
+			sde_rotator_search_dt_clk(pdev, mgr, "rot_clk",
+				SDE_ROTATOR_CLK_MDSS_ROT))
+		rc = -EINVAL;
 clk_err:
 	return rc;
 }
@@ -2345,38 +2402,13 @@ clk_err:
 static int sde_rotator_register_clk(struct platform_device *pdev,
 		struct sde_rot_mgr *mgr)
 {
-	int i, ret;
-	struct clk *clk;
-	struct sde_rot_clk *rot_clk;
-	int core_clk_idx = -1;
+	int ret;
 
 	ret = sde_rotator_parse_dt_clk(pdev, mgr);
 	if (ret) {
 		SDEROT_ERR("unable to parse clocks\n");
 		return -EINVAL;
 	}
-
-	for (i = 0; i < mgr->num_rot_clk; i++) {
-		rot_clk = &mgr->rot_clk[i];
-
-		clk = devm_clk_get(&pdev->dev, rot_clk->clk_name);
-		if (IS_ERR(clk)) {
-			SDEROT_ERR("unable to get clk: %s\n",
-					rot_clk->clk_name);
-			return PTR_ERR(clk);
-		}
-		rot_clk->clk = clk;
-
-		if (strcmp(rot_clk->clk_name, "rot_core_clk") == 0)
-			core_clk_idx = i;
-	}
-
-	if (core_clk_idx < 0) {
-		SDEROT_ERR("undefined core clk\n");
-		return -ENXIO;
-	}
-
-	mgr->core_clk_idx = core_clk_idx;
 
 	return 0;
 }

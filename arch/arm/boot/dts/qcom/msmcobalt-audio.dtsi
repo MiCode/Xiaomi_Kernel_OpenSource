@@ -108,7 +108,10 @@
 				<&incall_music_2_rx>, <&sb_5_rx>, <&sb_6_rx>,
 				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
 				<&usb_audio_rx>, <&usb_audio_tx>,
-				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>;
+				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
+				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>;
 		asoc-cpu-names = "msm-dai-q6-hdmi.8", "msm-dai-q6-dp.24608",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -127,7 +130,10 @@
 				"msm-dai-q6-dev.16396", "msm-dai-q6-dev.16398",
 				"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
-				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897";
+				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
+				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913";
 		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
 		asoc-codec-names = "msm-stub-codec.1",
 				   "msm-ext-disp-audio-codec-rx";
@@ -213,7 +219,10 @@
 				<&incall_music_2_rx>, <&sb_5_rx>, <&sb_6_rx>,
 				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
 				<&usb_audio_rx>, <&usb_audio_tx>,
-				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>;
+				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
+				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>;
 		asoc-cpu-names = "msm-dai-q6-hdmi.8",  "msm-dai-q6-dp.24608",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -232,7 +241,10 @@
 				"msm-dai-q6-dev.16396", "msm-dai-q6-dev.16398",
 				"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
-				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897";
+				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
+				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913";
 		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
 		asoc-codec-names = "msm-stub-codec.1",
 				   "msm-ext-disp-audio-codec-rx";
@@ -371,6 +383,7 @@
 		qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 01 17 02];
 		qcom,cdc-dmic-sample-rate = <4800000>;
 		qcom,cdc-mad-dmic-rate = <600000>;
+		qcom,cdc-ecpp-dmic-rate = <1200000>;
 	};
 
 	wcd934x_cdc: tavil_codec {
