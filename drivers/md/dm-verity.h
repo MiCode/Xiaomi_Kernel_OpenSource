@@ -30,7 +30,6 @@ enum verity_block_type {
 };
 
 struct dm_verity_fec;
-struct bvec_merge_data;
 
 struct dm_verity {
 	struct dm_dev *data_dev;
