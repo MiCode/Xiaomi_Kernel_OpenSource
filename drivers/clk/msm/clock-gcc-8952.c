@@ -4417,6 +4417,12 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		vdd_hf_pll.cur_level = VDD_HF_PLL_NUM_8917;
 		get_speed_bin(pdev, &speed_bin);
 		override_for_8917(speed_bin);
+
+		if (compat_bin4) {
+			gfx3d_clk_src.freq_tbl =
+					ftbl_gcc_oxili_gfx3d_clk_8917_650MHz;
+			gfx3d_clk_src.c.fmax[VDD_DIG_HIGH] = 650000000;
+		}
 	} else {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8952.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8952.c;
