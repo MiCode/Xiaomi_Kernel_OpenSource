@@ -92,6 +92,48 @@ TRACE_EVENT(sde_perf_set_ot,
 			__entry->vbif_idx)
 )
 
+
+TRACE_EVENT(sde_mark_write,
+	TP_PROTO(int pid, const char *name, bool trace_begin),
+	TP_ARGS(pid, name, trace_begin),
+	TP_STRUCT__entry(
+			__field(int, pid)
+			__string(trace_name, name)
+			__field(bool, trace_begin)
+	),
+	TP_fast_assign(
+			__entry->pid = pid;
+			__assign_str(trace_name, name);
+			__entry->trace_begin = trace_begin;
+	),
+	TP_printk("%s|%d|%s", __entry->trace_begin ? "B" : "E",
+		__entry->pid, __get_str(trace_name))
+)
+
+TRACE_EVENT(sde_trace_counter,
+	TP_PROTO(int pid, char *name, int value),
+	TP_ARGS(pid, name, value),
+	TP_STRUCT__entry(
+			__field(int, pid)
+			__string(counter_name, name)
+			__field(int, value)
+	),
+	TP_fast_assign(
+			__entry->pid = current->tgid;
+			__assign_str(counter_name, name);
+			__entry->value = value;
+	),
+	TP_printk("%d|%s|%d", __entry->pid,
+			__get_str(counter_name), __entry->value)
+)
+
+#define SDE_ATRACE_END(name) trace_sde_mark_write(current->tgid, name, 0)
+#define SDE_ATRACE_BEGIN(name) trace_sde_mark_write(current->tgid, name, 1)
+#define SDE_ATRACE_FUNC() SDE_ATRACE_BEGIN(__func__)
+
+#define SDE_ATRACE_INT(name, value) \
+	trace_sde_trace_counter(current->tgid, name, value)
+
 #endif /* _SDE_TRACE_H_ */
 
 /* This part must be outside protection */
