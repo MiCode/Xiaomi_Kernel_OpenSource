@@ -220,9 +220,9 @@ static int sde_power_parse_dt_clock(struct platform_device *pdev,
 {
 	u32 i = 0, rc = 0;
 	const char *clock_name;
-	u32 clock_rate;
-	u32 clock_max_rate;
-	int num_clk;
+	u32 clock_rate = 0;
+	u32 clock_max_rate = 0;
+	int num_clk = 0;
 
 	if (!pdev || !mp) {
 		pr_err("invalid input param pdev:%pK mp:%pK\n", pdev, mp);
