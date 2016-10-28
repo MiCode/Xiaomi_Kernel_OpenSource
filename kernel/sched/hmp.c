@@ -3068,9 +3068,9 @@ static void reset_all_task_stats(void)
 
 	read_lock(&tasklist_lock);
 	do_each_thread(g, p) {
-		raw_spin_lock(&p->pi_lock);
+		raw_spin_lock_irq(&p->pi_lock);
 		reset_task_stats(p);
-		raw_spin_unlock(&p->pi_lock);
+		raw_spin_unlock_irq(&p->pi_lock);
 	}  while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
 }
