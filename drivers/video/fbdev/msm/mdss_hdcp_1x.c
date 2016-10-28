@@ -1297,6 +1297,9 @@ static void hdcp_1x_int_work(struct work_struct *work)
 		return;
 	}
 
+	if (hdcp_ctrl->hdcp_state == HDCP_STATE_AUTHENTICATED)
+		hdcp1_set_enc(false);
+
 	mutex_lock(hdcp_ctrl->init_data.mutex);
 	hdcp_ctrl->hdcp_state = HDCP_STATE_AUTH_FAIL;
 	mutex_unlock(hdcp_ctrl->init_data.mutex);
@@ -1385,6 +1388,8 @@ error:
 				hdcp_ctrl->init_data.cb_data,
 				hdcp_ctrl->hdcp_state);
 		}
+
+		hdcp1_set_enc(true);
 	} else {
 		DEV_DBG("%s: %s: HDCP state changed during authentication\n",
 			__func__, HDCP_STATE_NAME);
@@ -1505,6 +1510,9 @@ void hdcp_1x_off(void *input)
 			HDCP_STATE_NAME);
 		return;
 	}
+
+	if (hdcp_ctrl->hdcp_state == HDCP_STATE_AUTHENTICATED)
+		hdcp1_set_enc(false);
 
 	/*
 	 * Disable HDCP interrupts.
