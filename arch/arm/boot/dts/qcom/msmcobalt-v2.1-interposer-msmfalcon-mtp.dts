@@ -15,6 +15,7 @@
 
 #include "msmcobalt-v2.1-interposer-msmfalcon.dtsi"
 #include "msmcobalt-interposer-msmfalcon-mtp.dtsi"
+#include "msmcobalt-interposer-pmfalcon.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM COBALT v2.1 MSM FALCON Interposer MTP";
