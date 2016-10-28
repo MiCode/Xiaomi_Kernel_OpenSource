@@ -490,7 +490,7 @@ static int try_rerun_apsd_for_hvdcp(struct smb_charger *chg)
 		/* ensure hvdcp is enabled */
 		if (!get_effective_result(chg->hvdcp_disable_votable)) {
 			apsd_result = smblib_get_apsd_result(chg);
-			if (apsd_result->pst == POWER_SUPPLY_TYPE_USB_HVDCP) {
+			if (apsd_result->bit & (QC_2P0_BIT | QC_3P0_BIT)) {
 				/* rerun APSD */
 				smblib_dbg(chg, PR_MISC, "rerun APSD\n");
 				smblib_masked_write(chg, CMD_APSD_REG,
