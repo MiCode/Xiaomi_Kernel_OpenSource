@@ -462,7 +462,7 @@
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 
 	qcom,cpr-aging-ref-corner = <22 22>;
-	qcom,cpr-aging-ro-scaling-factor = <2950>;
+	qcom,cpr-aging-ro-scaling-factor = <1620>;
 	qcom,allow-aging-voltage-adjustment = <0>;
 };
 
@@ -623,7 +623,7 @@
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 
 	qcom,cpr-aging-ref-corner = <30 26>;
-	qcom,cpr-aging-ro-scaling-factor = <2950>;
+	qcom,cpr-aging-ro-scaling-factor = <1700>;
 	qcom,allow-aging-voltage-adjustment = <0>;
 };
 
