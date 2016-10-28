@@ -18,6 +18,7 @@
 #include <linux/export.h>
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
+#include <linux/clk/qcom.h>
 
 #include "clk-branch.h"
 
