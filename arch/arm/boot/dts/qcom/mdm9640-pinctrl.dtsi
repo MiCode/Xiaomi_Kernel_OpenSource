@@ -325,6 +325,50 @@
 			};
 		};
 
+		pcie_ep0 {
+			/* pcie_ep_clkreq_groups */
+			pcie_ep0_clkreq_default: pcie_ep_clkreq_default {
+				mux {
+					pins = "gpio64";
+					function = "pcie_clkreq";
+				};
+
+				config {
+					pins = "gpio64";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			/* pcie_ep_rst_groups */
+			pcie_ep0_perst_default: pcie_ep0_perst_default {
+				mux {
+					pins = "gpio65";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio65";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			/* pcie_ep_wake_groups */
+			pcie_ep0_wake_default: pcie_ep0_wake_default {
+				mux {
+					pins = "gpio61";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio61";
+					drive-strength = <2>;
+					bias-disable;		/* NO pull */
+				};
+			};
+		};
+
 		/* QDSD pin type; num-pins(6):clk,cmd,data0,data1,data2,data3 */
 
 		/* PIN group 0 : qdsd_clk */
