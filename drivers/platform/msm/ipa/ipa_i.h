@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -476,6 +477,16 @@ struct ipa_wlan_comm_memb {
 	atomic_t active_clnt_cnt;
 };
 
+enum ipa_wakelock_ref_client {
+	IPA_WAKELOCK_REF_CLIENT_TX  = 0,
+	IPA_WAKELOCK_REF_CLIENT_LAN_RX = 1,
+	IPA_WAKELOCK_REF_CLIENT_WAN_RX = 2,
+	IPA_WAKELOCK_REF_CLIENT_WLAN_RX = 3,
+	IPA_WAKELOCK_REF_CLIENT_ODU_RX = 4,
+	IPA_WAKELOCK_REF_CLIENT_SPS = 5,
+	IPA_WAKELOCK_REF_CLIENT_MAX
+};
+
 /**
  * struct ipa_ep_context - IPA end point context
  * @valid: flag indicating id EP context is valid
@@ -535,6 +546,7 @@ struct ipa_ep_context {
 	u32 rx_replenish_threshold;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
+	enum ipa_wakelock_ref_client wakelock_client;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
@@ -776,14 +788,6 @@ struct ipa_active_clients {
 	spinlock_t spinlock;
 	bool mutex_locked;
 	int cnt;
-};
-
-enum ipa_wakelock_ref_client {
-	IPA_WAKELOCK_REF_CLIENT_TX  = 0,
-	IPA_WAKELOCK_REF_CLIENT_LAN_RX = 1,
-	IPA_WAKELOCK_REF_CLIENT_WAN_RX = 2,
-	IPA_WAKELOCK_REF_CLIENT_SPS = 3,
-	IPA_WAKELOCK_REF_CLIENT_MAX
 };
 
 struct ipa_wakelock_ref_cnt {

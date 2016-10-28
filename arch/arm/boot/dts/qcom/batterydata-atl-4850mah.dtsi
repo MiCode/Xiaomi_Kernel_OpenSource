@@ -1,0 +1,47 @@
+qcom,hydrogen_atl {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4850>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "b3_atl";
+	qcom,chg-rslow-comp-c1 = <2962256>;
+	qcom,chg-rslow-comp-c2 = <3650972>;
+	qcom,chg-rs-to-rslow = <926181>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0xC13A>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+		 EC 83 45 7D
+		 78 81 03 7C
+		 55 83 F3 36
+		 E3 80 08 8C
+		 1A 82 83 9A
+		 C2 BD FC CA
+		 5B 0E 10 88
+		 BD 7E 78 82
+		 E8 7C 47 83
+		 73 72 B7 76
+		 29 57 53 82
+		 50 99 6D BC
+		 FC C8 5E 0D
+		 0E 13 14 59
+		 14 70 4A FC
+		 7A 3D E9 44
+		 B3 40 00 00
+		 A0 4C 42 3A
+		 43 40 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 F6 6B 51 6A
+		 3E 70 1D 8A
+		 5F 76 88 6A
+		 27 5A 0A 81
+		 E1 74 2F 68
+		 C6 76 20 A2
+		 1D AC 62 25
+		 65 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

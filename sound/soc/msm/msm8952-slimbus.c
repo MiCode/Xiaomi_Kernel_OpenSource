@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +37,10 @@
 #include "../codecs/wcd9335.h"
 #include "../codecs/wcd-mbhc-v2.h"
 #include "../codecs/wsa881x.h"
+
+#if defined(CONFIG_SPEAKER_EXT_PA)
+#include <linux/delay.h>
+#endif
 
 #define DRV_NAME "msm8952-slimbus-wcd"
 
@@ -118,9 +123,9 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[1] = BTN_1,
+	.key_code[2] = BTN_2,
+	.key_code[3] = 0,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -177,7 +182,7 @@ static void *def_tasha_mbhc_cal(void)
 	}
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(tasha_wcd_cal)->X) = (Y))
-	S(v_hs_max, 1500);
+	S(v_hs_max, 1700);
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(tasha_wcd_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -188,13 +193,13 @@ static void *def_tasha_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
-	btn_high[1] = 150;
-	btn_high[2] = 237;
-	btn_high[3] = 450;
-	btn_high[4] = 450;
-	btn_high[5] = 450;
-	btn_high[6] = 450;
-	btn_high[7] = 450;
+	btn_high[1] = 260;
+	btn_high[2] = 750;
+	btn_high[3] = 750;
+	btn_high[4] = 750;
+	btn_high[5] = 750;
+	btn_high[6] = 750;
+	btn_high[7] = 750;
 
 	return tasha_wcd_cal;
 }
@@ -304,9 +309,23 @@ struct msm8952_codec {
 			       struct wcd9xxx_mbhc_config *mbhc_cfg);
 };
 
+#if defined(CONFIG_SPEAKER_EXT_PA)
+struct msm8952_pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
+	uint8_t pinctrl_status;
+};
+#endif
+
 struct msm8952_asoc_mach_data {
 	int ext_pa;
 	int us_euro_gpio;
+#if defined(CONFIG_SPEAKER_EXT_PA)
+	int spk_ext_pa_gpio;
+	struct msm8952_pinctrl_info spk_ext_pa_pinctrl_info;
+#endif
+
 	struct delayed_work hs_detect_dwork;
 	struct snd_soc_codec *codec;
 	struct msm8952_codec msm8952_codec_fn;
@@ -1938,6 +1957,120 @@ static int msm8952_codec_event_cb(struct snd_soc_codec *codec,
 		return -EINVAL;
 	}
 }
+#if defined(CONFIG_SPEAKER_EXT_PA)
+static int is_ext_spk_gpio_support(struct platform_device *pdev,
+			struct msm8952_asoc_mach_data *pdata)
+{
+	const char *spk_ext_pa = "qcom,msm-spk-ext-pa";
+	struct msm8952_pinctrl_info *pctrl = &pdata->spk_ext_pa_pinctrl_info;
+	int ret = 0;
+
+	printk("%s:Enter\n", __func__);
+
+	pdata->spk_ext_pa_gpio = of_get_named_gpio(pdev->dev.of_node, spk_ext_pa, 0);
+
+	if (pdata->spk_ext_pa_gpio < 0) {
+		printk("%s: missing %s in dt node\n", __func__, spk_ext_pa);
+	return -EINVAL;
+	} else {
+		printk("%s, spk_ext_pa_gpio=%d\n", __func__, pdata->spk_ext_pa_gpio);
+		if (!gpio_is_valid(pdata->spk_ext_pa_gpio)) {
+			pr_err("%s: Invalid external speaker gpio: %d",	__func__, pdata->spk_ext_pa_gpio);
+			return -EINVAL;
+		} else {
+			ret = gpio_request_one(pdata->spk_ext_pa_gpio, GPIOF_DIR_OUT, "spk_ext_pa");
+			if (ret) {
+				pr_err("%s, unable to request gpio %d\n", __func__, pdata->spk_ext_pa_gpio);
+				return ret;
+			}
+
+			pctrl->pinctrl = devm_pinctrl_get(&pdev->dev);
+			if (IS_ERR_OR_NULL(pctrl->pinctrl)) {
+				pr_err("%s:%d Getting pinctrl handle failed\n", __func__, __LINE__);
+				goto err;
+			}
+			pctrl->gpio_state_active = pinctrl_lookup_state(pctrl->pinctrl, "spk_ext_pa_act");
+			if (IS_ERR_OR_NULL(pctrl->gpio_state_active)) {
+				pr_err("%s:%d Failed to get the active state pinctrl handle\n",	__func__, __LINE__);
+				goto err;
+			}
+			pctrl->gpio_state_suspend = pinctrl_lookup_state(pctrl->pinctrl, "spk_ext_pa_sus");
+			if (IS_ERR_OR_NULL(pctrl->gpio_state_suspend)) {
+				pr_err("%s:%d Failed to get the suspend state pinctrl handle\n", __func__, __LINE__);
+				goto err;
+			}
+			pctrl->pinctrl_status = true;
+		}
+	}
+	return 0;
+err:
+	if (pdata->spk_ext_pa_gpio > 0) {
+		gpio_free(pdata->spk_ext_pa_gpio);
+		pdata->spk_ext_pa_gpio = 0;
+	}
+    return -EINVAL;
+}
+
+static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
+{
+	struct snd_soc_card *card = codec->card;
+	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret;
+	unsigned long flags;
+
+	printk("%s: %s external speaker PA %d\n", __func__,
+		enable ? "Enable" : "Disable", pdata->spk_ext_pa_gpio);
+
+	if (!gpio_is_valid(pdata->spk_ext_pa_gpio)) {
+		pr_err("%s: Invalid gpio: %d\n", __func__, pdata->spk_ext_pa_gpio);
+		return false;
+	}
+
+	if (enable) {
+		ret = msm_gpioset_activate(CLIENT_WCD_EXT, "ext_spk_gpio");
+		if (ret) {
+			pr_err("%s: gpio set cannot be de-activated %s\n",
+					__func__, "ext_spk_gpio");
+			return ret;
+		}
+
+		printk("%s, set pa\n", __func__);
+
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, false);
+		msleep(1);
+		local_irq_save(flags);
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, true);
+		udelay(2);
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, false);
+		udelay(2);
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, true);
+		udelay(2);
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, false);
+		udelay(2);
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, true);
+		udelay(2);
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, false);
+		udelay(2);
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, true);
+		udelay(2);
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, false);
+		udelay(2);
+		local_irq_restore(flags);
+
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
+		msleep(1);
+	} else {
+		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
+		ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "ext_spk_gpio");
+		if (ret) {
+			pr_err("%s: gpio set cannot be de-activated %s\n",
+					__func__, "ext_spk_gpio");
+			return ret;
+		}
+	}
+	return 0;
+}
+#endif
 
 static int msm8976_tasha_codec_event_cb(struct snd_soc_codec *codec,
 					enum wcd9335_codec_event codec_event)
@@ -2091,7 +2224,9 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
-
+#if defined(CONFIG_SPEAKER_EXT_PA)
+	tasha_spk_ext_pa_cb(enable_spk_ext_pa, codec);
+#endif
 	err = msm_afe_set_config(codec);
 	if (err) {
 		pr_err("%s: Failed to set AFE config %d\n", __func__, err);
@@ -2508,7 +2643,12 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 				__func__, ret);
 		goto err;
 	}
-
+#if defined(CONFIG_SPEAKER_EXT_PA)
+	ret = is_ext_spk_gpio_support(pdev, pdata);
+	if (ret < 0)
+		printk("%s:  doesn't support external speaker pa\n",
+			__func__);
+#endif
 	return 0;
 err:
 	if (pdata->us_euro_gpio > 0) {
@@ -2539,6 +2679,12 @@ static int msm8952_asoc_machine_remove(struct platform_device *pdev)
 		gpio_free(pdata->us_euro_gpio);
 		pdata->us_euro_gpio = 0;
 	}
+#if defined(CONFIG_SPEAKER_EXT_PA)
+	if (pdata->spk_ext_pa_gpio > 0) {
+		gpio_free(pdata->spk_ext_pa_gpio);
+		pdata->spk_ext_pa_gpio = 0;
+	}
+#endif
 	if (pdata->vaddr_gpio_mux_spkr_ctl)
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
 	if (pdata->vaddr_gpio_mux_mic_ctl)

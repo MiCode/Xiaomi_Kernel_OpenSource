@@ -1,4 +1,5 @@
 /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -199,15 +200,18 @@
 			#size-cells = <1>;
 
 			qcom,iterm-ma = <100>;
-			qcom,float-voltage-mv = <4200>;
+			qcom,fastchg-current-ma = <2400>;
+			qcom,float-voltage-mv = <4400>;
 			qcom,resume-delta-mv = <200>;
 			qcom,chg-inhibit-fg;
 			qcom,rparasitic-uohm = <100000>;
 			qcom,bms-psy-name = "bms";
-			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,thermal-mitigation = <2000 1500 1000 0>;
 			qcom,parallel-usb-min-current-ma = <1400>;
 			qcom,parallel-usb-9v-min-current-ma = <900>;
 			qcom,parallel-allowed-lowering-ma = <500>;
+			qcom,fastchg-current-comp = <1200>;
+			qcom,float-voltage-comp = <16>;
 			qcom,autoadjust-vfloat;
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,charge-unknown-battery;
@@ -319,7 +323,14 @@
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,cycle-counter-en;
 			qcom,capacity-learning-on;
-			qcom,fg-cutoff-voltage-mv = <3500>;
+			qcom,fg-cutoff-voltage-mv = <3400>;
+			qcom,thermal-coefficients = [C2 86 BB 50 CF 37];
+			qcom,vbat-estimate-diff-mv = <100>;
+
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-decidegc = <150>;
+			qcom,hot-bat-decidegc  = <600>;
+			qcom,cold-bat-decidegc = <0>;
 
 			qcom,fg-soc@4000 {
 			status = "okay";
@@ -412,13 +423,15 @@
 		#size-cells = <1>;
 
 		pmi8950_pwm: pwm@b000 {
-			status = "disabled";
+			status = "okay";
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb000 0x100>;
 			reg-names = "qpnp-lpg-channel-base";
 			qcom,channel-id = <0>;
 			qcom,supported-sizes = <6>, <9>;
 			#pwm-cells = <2>;
+			qcom,lpg-dtest-line = <1>;       /*DTEST be configured LPG output*/
+			qcom,dtest-output = <1>;		 /*LPG output low*/
 		};
 
 		labibb: qpnp-labibb-regulator {
@@ -511,7 +524,7 @@
 			linux,default-trigger = "bkl-trigger";
 			qcom,fdbk-output = "auto";
 			qcom,vref-mv = <350>;
-			qcom,switch-freq-khz = <800>;
+			qcom,switch-freq-khz = <600>;
 			qcom,ovp-mv = <29500>;
 			qcom,ilim-ma = <980>;
 			qcom,boost-duty-ns = <26>;
@@ -524,7 +537,6 @@
 			qcom,en-phase-stag;
 			qcom,ibb-pwrup-dly = <8>;
 			qcom,led-strings-list = [00 01];
-			qcom,en-ext-pfet-sc-pro;
 			qcom,cons-sync-write-delay-us = <1000>;
 		};
 

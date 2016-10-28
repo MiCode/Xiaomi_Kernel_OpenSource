@@ -2,6 +2,7 @@
  * Persistent Storage - ramfs parts.
  *
  * Copyright (C) 2010 Intel Corporation <tony.luck@intel.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -36,6 +37,9 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
+#ifdef CONFIG_PSTORE_LAST_KMSG
+#include <linux/proc_fs.h>
+#endif
 
 #include "internal.h"
 
@@ -270,6 +274,24 @@ int pstore_is_mounted(void)
 	return pstore_sb != NULL;
 }
 
+#ifdef CONFIG_PSTORE_LAST_KMSG
+static char *console_buffer;
+static ssize_t console_bufsize;
+
+static ssize_t last_kmsg_read(struct file *file, char __user *buf,
+			      size_t len, loff_t *offset)
+{
+	return simple_read_from_buffer(buf, len, offset,
+				       console_buffer, console_bufsize);
+}
+
+static const struct file_operations last_kmsg_fops = {
+	.owner		= THIS_MODULE,
+	.read		= last_kmsg_read,
+	.llseek		= default_llseek,
+};
+#endif
+
 /*
  * Make a regular file in the root directory of our file system.
  * Load it up with "size" bytes of data from "buf".
@@ -360,6 +382,13 @@ int pstore_mkfile(enum pstore_type_id type, char *psname, u64 id, int count,
 	list_add(&private->list, &allpstore);
 	spin_unlock_irqrestore(&allpstore_lock, flags);
 
+#ifdef CONFIG_PSTORE_LAST_KMSG
+	if (type == PSTORE_TYPE_CONSOLE) {
+		console_buffer = private->data;
+		console_bufsize = size;
+	}
+#endif
+
 	mutex_unlock(&root->d_inode->i_mutex);
 
 	return 0;
@@ -430,6 +459,9 @@ static struct kobject *pstore_kobj;
 static int __init init_pstore_fs(void)
 {
 	int err = 0;
+#ifdef CONFIG_PSTORE_LAST_KMSG
+	struct proc_dir_entry *last_kmsg_entry = NULL;
+#endif
 
 	/* Create a convenient mount point for people to access pstore */
 	pstore_kobj = kobject_create_and_add("pstore", fs_kobj);
@@ -441,6 +473,14 @@ static int __init init_pstore_fs(void)
 	err = register_filesystem(&pstore_fs_type);
 	if (err < 0)
 		kobject_put(pstore_kobj);
+
+#ifdef CONFIG_PSTORE_LAST_KMSG
+	last_kmsg_entry = proc_create_data("last_kmsg", S_IFREG | S_IRUGO,
+					   NULL, &last_kmsg_fops, NULL);
+	if (!last_kmsg_entry)
+		pr_err("Failed to create last_kmsg\n");
+		goto out;
+#endif
 
 out:
 	return err;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,11 +103,11 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
 		goto err_ion_handle;
 	}
-	pr_debug("%s: mapped address = %p, size=%zd\n", __func__,
+	pr_debug("%s: mapped address = %pK, size=%zd\n", __func__,
 		*vaddr, bufsz);
 
 	if (bufsz != 0) {
-		pr_debug("%s: memset to 0 %p %zd\n", __func__, *vaddr, bufsz);
+		pr_debug("%s: memset to 0 %pK %zd\n", __func__, *vaddr, bufsz);
 		memset((void *)*vaddr, 0, bufsz);
 	}
 
@@ -153,7 +153,7 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 	bufsz should be 0 and fd shouldn't be 0 as of now
 	*/
 	*handle = ion_import_dma_buf(*client, fd);
-	pr_debug("%s: DMA Buf name=%s, fd=%d handle=%p\n", __func__,
+	pr_debug("%s: DMA Buf name=%s, fd=%d handle=%pK\n", __func__,
 							name, fd, *handle);
 	if (IS_ERR_OR_NULL((void *) (*handle))) {
 		pr_err("%s: ion import dma buffer failed\n",
@@ -184,7 +184,7 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 		rc = -ENOMEM;
 		goto err_ion_handle;
 	}
-	pr_debug("%s: mapped address = %p, size=%zd\n", __func__,
+	pr_debug("%s: mapped address = %pK, size=%zd\n", __func__,
 		*vaddr, bufsz);
 
 	return 0;
@@ -207,7 +207,7 @@ int msm_audio_ion_free(struct ion_client *client, struct ion_handle *handle)
 	}
 	if (msm_audio_ion_data.smmu_enabled) {
 		/* Need to populate book kept infomation */
-		pr_debug("client=%p, domain=%p, domain_id=%d, group=%p",
+		pr_debug("client=%pK, domain=%pK, domain_id=%d, group=%pK",
 			client, msm_audio_ion_data.domain,
 			msm_audio_ion_data.domain_id, msm_audio_ion_data.group);
 
@@ -273,7 +273,7 @@ int msm_audio_ion_mmap(struct audio_buffer *ab,
 				offset = 0;
 			}
 			len = min(len, remainder);
-			pr_debug("vma=%p, addr=%x len=%ld vm_start=%x vm_end=%x vm_page_prot=%ld\n",
+			pr_debug("vma=%pK, addr=%x len=%ld vm_start=%x vm_end=%x vm_page_prot=%ld\n",
 				vma, (unsigned int)addr, len,
 				(unsigned int)vma->vm_start,
 				(unsigned int)vma->vm_end,
@@ -296,8 +296,8 @@ int msm_audio_ion_mmap(struct audio_buffer *ab,
 				, __func__ , ret);
 			return ret;
 		}
-		pr_debug("phys=%pa len=%zd\n", &phys_addr, phys_len);
-		pr_debug("vma=%p, vm_start=%x vm_end=%x vm_pgoff=%ld vm_page_prot=%ld\n",
+		pr_debug("phys=%pK len=%zd\n", &phys_addr, phys_len);
+		pr_debug("vma=%pK, vm_start=%x vm_end=%x vm_pgoff=%ld vm_page_prot=%ld\n",
 			vma, (unsigned int)vma->vm_start,
 			(unsigned int)vma->vm_end, vma->vm_pgoff,
 			(unsigned long int)vma->vm_page_prot);
@@ -333,7 +333,7 @@ struct ion_client *msm_audio_ion_client_create(const char *name)
 
 void msm_audio_ion_client_destroy(struct ion_client *client)
 {
-	pr_debug("%s: client = %p smmu_enabled = %d\n", __func__,
+	pr_debug("%s: client = %pK smmu_enabled = %d\n", __func__,
 		client, msm_audio_ion_data.smmu_enabled);
 
 	ion_client_destroy(client);
@@ -355,7 +355,7 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 	bufsz should be 0 and fd shouldn't be 0 as of now
 	*/
 	*handle = ion_import_dma_buf(client, fd);
-	pr_debug("%s: DMA Buf name=%s, fd=%d handle=%p\n", __func__,
+	pr_debug("%s: DMA Buf name=%s, fd=%d handle=%pK\n", __func__,
 							name, fd, *handle);
 	if (IS_ERR_OR_NULL((void *)(*handle))) {
 		pr_err("%s: ion import dma buffer failed\n",
@@ -421,7 +421,7 @@ int msm_audio_ion_cache_operations(struct audio_buffer *abuff, int cache_op)
 	int msm_cache_ops = 0;
 
 	if (!abuff) {
-		pr_err("Invalid params: %p, %p\n", __func__, abuff);
+		pr_err("%s: Invalid params: %pK\n", __func__, abuff);
 		return -EINVAL;
 	}
 	rc = ion_handle_get_flags(abuff->client, abuff->handle,
@@ -467,7 +467,7 @@ static int msm_audio_ion_get_phys(struct ion_client *client,
 			pr_err("%s: ION map iommu failed %d\n", __func__, rc);
 			return rc;
 		}
-		pr_debug("client=%p, domain=%p, domain_id=%d, group=%p",
+		pr_debug("client=%pK, domain=%pK, domain_id=%d, group=%pK",
 			client, msm_audio_ion_data.domain,
 			msm_audio_ion_data.domain_id, msm_audio_ion_data.group);
 		/* Append the SMMU SID information to the address */
@@ -476,7 +476,8 @@ static int msm_audio_ion_get_phys(struct ion_client *client,
 		/* SMMU is disabled*/
 		rc = ion_phys(client, handle, addr, len);
 	}
-	pr_debug("phys=%pa, len=%zd, rc=%d\n", &(*addr), *len, rc);
+	pr_debug("phys=%pK, len=%zd, rc=%d\n", &(*addr), *len, rc);
+
 	return rc;
 }
 
@@ -540,18 +541,18 @@ static int msm_audio_ion_probe(struct platform_device *pdev)
 		msm_audio_ion_data.domain =
 			iommu_group_get_iommudata(msm_audio_ion_data.group);
 		if (IS_ERR_OR_NULL(msm_audio_ion_data.domain)) {
-			pr_err("Failed to get domain data for group %p",
+			pr_err("Failed to get domain data for group %pK",
 					msm_audio_ion_data.group);
 			goto fail_group;
 		}
 		msm_audio_ion_data.domain_id =
 				msm_find_domain_no(msm_audio_ion_data.domain);
 		if (msm_audio_ion_data.domain_id < 0) {
-			pr_err("Failed to get domain index for domain %p",
+			pr_err("Failed to get domain index for domain %pK",
 					msm_audio_ion_data.domain);
 			goto fail_group;
 		}
-		pr_debug("domain=%p, domain_id=%d, group=%p",
+		pr_debug("domain=%pK, domain_id=%d, group=%pK",
 			msm_audio_ion_data.domain,
 			msm_audio_ion_data.domain_id, msm_audio_ion_data.group);
 
@@ -575,7 +576,7 @@ fail_group:
 
 static int msm_audio_ion_remove(struct platform_device *pdev)
 {
-	pr_debug("%s: msm audio ion is unloaded, domain=%p, group=%p\n",
+	pr_debug("%s: msm audio ion is unloaded, domain=%pK, group=%pK\n",
 		__func__, msm_audio_ion_data.domain, msm_audio_ion_data.group);
 	iommu_detach_group(msm_audio_ion_data.domain, msm_audio_ion_data.group);
 

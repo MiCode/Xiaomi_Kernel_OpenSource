@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +47,8 @@ struct panel_id {
 #define WRITEBACK_PANEL		10	/* Wifi display */
 #define LVDS_PANEL		11	/* LVDS */
 #define EDP_PANEL		12	/* LVDS */
+
+#define NIGHT_MAP_LEN		256	/*night mode map array length*/
 
 static inline const char *mdss_panel2str(u32 panel)
 {

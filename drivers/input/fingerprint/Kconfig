@@ -1,0 +1,11 @@
+#
+# Fingerprint driver configuration
+#
+config FINGERPRINT_FPC1020_TA
+	tristate "Fingerprint FPC"
+	help
+	  Say Y here to enable support for retrieving self-test reports.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.

@@ -159,7 +159,6 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
-			qcom,mdss-fb-splash-logo-enabled;
 			qcom,cont-splash-memory {
 				linux,contiguous-region = <&cont_splash_mem>;
 			};
@@ -178,7 +177,7 @@
 
 	mdss_dsi: qcom,mdss_dsi@0 {
 		compatible = "qcom,mdss-dsi";
-		hw-config = "split_dsi";
+		hw-config = "single_dsi";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		qcom,mdss-fb-map-prim = <&mdss_fb0>;

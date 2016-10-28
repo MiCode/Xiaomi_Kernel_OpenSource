@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +23,31 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 DEFINE_MSM_MUTEX(msm_eeprom_mutex);
+#define HYDROGEN_BACK_MODULE_ID_OFFSET 0x1
+#define HYDROGEN_BACK_MODULE_ID_OFILM 0x07
+#define HYDROGEN_BACK_MODULE_ID_QTEC  0x06
+#define HYDROGEN_BACK_MODULE_OFILM "ov16880"
+#define HYDROGEN_BACK_MODULE_QTEC "ov16880_qtec"
+#define HYDROGEN_BACK_MODULE_OFILM_S5K3P3 "s5k3p3sm"
+#define HYDROGEN_BACK_SENSOR_EEPROM_NAME "dw9763"
+#define HYDROGEN_BACK_OFILM_SID_OFFSET 0x0C
+#define HYDROGEN_BAKC_OFILM_SID_S5K3P3 0x07
+#define HYDROGEN_BACK_OFILM_SID_OV16880 0x08
+
+#define HYDROGEN_FRONT_MODULE_ID_OFFSET_1 2
+#define HYDROGEN_FRONT_MODULE_ID_OFFSET_2 25
+#define HYDROGEN_FRONT_MODULE_ID_OFFSET_3 48
+#define HYDROGEN_FRONT_MODULE_ID_OFILM 0x07
+#define HYDROGEN_FRONT_MODULE_ID_QTEC  0x06
+#define HYDROGEN_FRONT_MODULE_OFILM "s5k5e8_ofilm"
+#define HYDROGEN_FRONT_MODULE_QTEC "s5k5e8_qtec"
+#define HYDROGEN_FRONT_SENSOR_EEPROM_NAME "s5k5e8"
+
+static int hydrogen_set_back_sensor_name;
+static char hydrogen_back_sensor_name[32];
+static int hydrogen_set_front_sensor_name;
+static char hydrogen_front_sensor_name[32];
+
 #ifdef CONFIG_COMPAT
 static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
 #endif
@@ -87,6 +113,105 @@ static int msm_eeprom_verify_sum(const char *mem, uint32_t size, uint32_t sum)
 	}
 	CDBG("%s: checksum pass 0x%x\n", __func__, sum);
 	return 0;
+}
+static void set_hydrogen_back_sensor_name(struct msm_eeprom_ctrl_t *e_ctrl,
+		char *mapdata)
+{
+	uint8_t *memptr;
+
+	if (hydrogen_set_back_sensor_name)
+		return;
+
+	memptr = mapdata;
+
+	if (memptr[HYDROGEN_BACK_MODULE_ID_OFFSET] == HYDROGEN_BACK_MODULE_ID_OFILM) {
+		pr_err("SID = 0x%x\n", memptr[HYDROGEN_BACK_OFILM_SID_OFFSET]);
+		if (memptr[HYDROGEN_BACK_OFILM_SID_OFFSET] == HYDROGEN_BACK_OFILM_SID_OV16880)
+			strcpy(hydrogen_back_sensor_name, HYDROGEN_BACK_MODULE_OFILM);
+		else if (memptr[HYDROGEN_BACK_OFILM_SID_OFFSET] == HYDROGEN_BAKC_OFILM_SID_S5K3P3) {
+			strcpy(hydrogen_back_sensor_name, HYDROGEN_BACK_MODULE_OFILM_S5K3P3);
+		}
+		hydrogen_set_back_sensor_name = 1;
+		pr_err("hydrogen back sensor name = %s, line = %d\n", hydrogen_back_sensor_name, __LINE__);
+		return;
+	} else if (memptr[HYDROGEN_BACK_MODULE_ID_OFFSET] == HYDROGEN_BACK_MODULE_ID_QTEC) {
+		strcpy(hydrogen_back_sensor_name, HYDROGEN_BACK_MODULE_QTEC);
+		hydrogen_set_back_sensor_name = 1;
+		pr_err("hydrogen back sensor name = %s, line = %d\n", hydrogen_back_sensor_name, __LINE__);
+		return;
+	} else {
+		pr_err("hydrogen back sensor name not match!\n");
+	}
+}
+
+int hydrogen_get_back_sensor_name(char *sensor_name)
+{
+	if (hydrogen_set_back_sensor_name) {
+		strcpy(sensor_name, hydrogen_back_sensor_name);
+		return 0;
+	} else
+		return -EINVAL;
+}
+EXPORT_SYMBOL(hydrogen_get_back_sensor_name);
+
+static void set_hydrogen_front_sensor_name(struct msm_eeprom_ctrl_t *e_ctrl,
+	char *mapdata)
+{
+	uint8_t *memptr;
+
+	if (hydrogen_set_front_sensor_name)
+		return;
+
+	memptr = mapdata;
+
+	if ((memptr[HYDROGEN_FRONT_MODULE_ID_OFFSET_1] == HYDROGEN_FRONT_MODULE_ID_OFILM) ||
+		(memptr[HYDROGEN_FRONT_MODULE_ID_OFFSET_2] == HYDROGEN_FRONT_MODULE_ID_OFILM) ||
+		(memptr[HYDROGEN_FRONT_MODULE_ID_OFFSET_3] == HYDROGEN_FRONT_MODULE_ID_OFILM)) {
+		strcpy(hydrogen_front_sensor_name, HYDROGEN_FRONT_MODULE_OFILM);
+		hydrogen_set_front_sensor_name = 1;
+		pr_err("hydrogen front sensor name = %s, line = %d\n", hydrogen_front_sensor_name, __LINE__);
+		return;
+	} else if ((memptr[HYDROGEN_FRONT_MODULE_ID_OFFSET_1] == HYDROGEN_FRONT_MODULE_ID_QTEC) ||
+		(memptr[HYDROGEN_FRONT_MODULE_ID_OFFSET_2] == HYDROGEN_FRONT_MODULE_ID_QTEC) ||
+		(memptr[HYDROGEN_FRONT_MODULE_ID_OFFSET_3] == HYDROGEN_FRONT_MODULE_ID_QTEC)) {
+		strcpy(hydrogen_front_sensor_name, HYDROGEN_FRONT_MODULE_QTEC);
+		hydrogen_set_front_sensor_name = 1;
+		pr_err("hydrogen front sensor name = %s, line = %d\n", hydrogen_front_sensor_name, __LINE__);
+		return;
+	} else {
+		pr_err("hydrogen front sensor name not match!\n");
+		return;
+	}
+}
+
+int hydrogen_get_front_sensor_name(char *sensor_name)
+{
+	if (hydrogen_set_front_sensor_name) {
+		strcpy(sensor_name, hydrogen_front_sensor_name);
+		return 0;
+	} else
+		return -EINVAL;
+}
+EXPORT_SYMBOL(hydrogen_get_front_sensor_name);
+
+static void hydrogen_set_sensor_name(struct msm_eeprom_ctrl_t *e_ctrl, char *mapdata)
+{
+	struct msm_eeprom_board_info *eb_info;
+
+	eb_info = e_ctrl->eboard_info;
+
+	if (e_ctrl->eboard_info->eeprom_name == NULL || mapdata == NULL)
+		return;
+
+	if (!strncmp(eb_info->eeprom_name, HYDROGEN_BACK_SENSOR_EEPROM_NAME,
+				strlen(HYDROGEN_BACK_SENSOR_EEPROM_NAME))) {
+		set_hydrogen_back_sensor_name(e_ctrl, mapdata);
+	} else if (!strncmp(eb_info->eeprom_name, HYDROGEN_FRONT_SENSOR_EEPROM_NAME,
+				strlen(HYDROGEN_FRONT_SENSOR_EEPROM_NAME))) {
+		set_hydrogen_front_sensor_name(e_ctrl, mapdata);
+	} else {
+		pr_err("hydrogen sensor name check failed\n");
+	}
 }
 
 /**
@@ -224,6 +349,7 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 			}
 		}
 	}
+	hydrogen_set_sensor_name(e_ctrl, block->mapdata);
 	return rc;
 }
 /**

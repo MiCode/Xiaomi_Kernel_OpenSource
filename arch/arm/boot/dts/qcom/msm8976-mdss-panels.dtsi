@@ -1,4 +1,5 @@
 /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,8 @@
 #include "dsi-panel-adv7533-1080p-video.dtsi"
 #include "dsi-panel-adv7533-720p-video.dtsi"
 #include "dsi-panel-nt35523-dualmipi-wqxga-video.dtsi"
+#include "dsi-panel-tianma-r63350-1080p-video.dtsi"
+#include "dsi-panel-auo-r61322-1080p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -45,6 +48,8 @@
 			qcom,supply-max-voltage = <1800000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <1>;
+			qcom,supply-pre-off-sleep = <1>;
 		};
 
 		qcom,panel-supply-entry@2 {
@@ -54,6 +59,8 @@
 			qcom,supply-max-voltage = <6000000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <1>;
+			qcom,supply-pre-off-sleep = <1>;
 		};
 
 		qcom,panel-supply-entry@3 {
@@ -64,6 +71,7 @@
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
 			qcom,supply-post-on-sleep = <20>;
+			qcom,supply-pre-off-sleep = <1>;
 		};
 	};
 };

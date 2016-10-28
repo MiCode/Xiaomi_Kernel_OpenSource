@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2006 Oracle.  All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -955,11 +956,13 @@ int rds_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 		release_sock(sk);
 	}
 
-	/* racing with another thread binding seems ok here */
+	lock_sock(sk);
 	if (daddr == 0 || rs->rs_bound_addr == 0) {
+		release_sock(sk);
 		ret = -ENOTCONN; /* XXX not a great errno */
 		goto out;
 	}
+	release_sock(sk);
 
 	/* size of rm including all sgs */
 	ret = rds_rm_size(msg, payload_len);

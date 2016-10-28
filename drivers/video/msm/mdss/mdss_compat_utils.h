@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,6 +133,10 @@ struct mdp_pa_mem_col_cfg32 {
 	uint32_t hue_region;
 	uint32_t sat_region;
 	uint32_t val_region;
+	uint32_t color_adjust_p2;
+	uint32_t blend_gain;
+	uint8_t sat_hold;
+	uint8_t val_hold;
 };
 
 struct mdp_pa_v2_data32 {
@@ -148,6 +153,10 @@ struct mdp_pa_v2_data32 {
 	uint32_t six_zone_thresh;
 	compat_caddr_t six_zone_curve_p0;
 	compat_caddr_t six_zone_curve_p1;
+	uint32_t six_zone_adj_p0;
+	uint32_t six_zone_adj_p1;
+	uint8_t six_zone_sat_hold;
+	uint8_t six_zone_val_hold;
 };
 
 struct mdp_pa_v2_cfg_data32 {

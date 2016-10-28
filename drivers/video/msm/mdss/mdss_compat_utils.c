@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  * Copyright (C) 1994 Martin Schaller
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * 2001 - Documented with DocBook
  * - Brad Douglas <brad@neruo.com>
@@ -1193,7 +1194,19 @@ static int __from_user_mem_col_cfg(
 			sizeof(uint32_t)) ||
 	    copy_in_user(&mem_col_cfg->val_region,
 			&mem_col_cfg32->val_region,
-			sizeof(uint32_t)))
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg->color_adjust_p2,
+			&mem_col_cfg32->color_adjust_p2,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg->blend_gain,
+			&mem_col_cfg32->blend_gain,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg->sat_hold,
+			&mem_col_cfg32->sat_hold,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&mem_col_cfg->val_hold,
+			&mem_col_cfg32->val_hold,
+			sizeof(uint8_t)))
 		return -EFAULT;
 
 	return 0;
@@ -1217,7 +1230,19 @@ static int __to_user_mem_col_cfg(
 			sizeof(uint32_t)) ||
 	    copy_in_user(&mem_col_cfg32->val_region,
 			&mem_col_cfg->val_region,
-			sizeof(uint32_t)))
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg32->color_adjust_p2,
+			&mem_col_cfg->color_adjust_p2,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg32->blend_gain,
+			&mem_col_cfg->blend_gain,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg32->sat_hold,
+			&mem_col_cfg->sat_hold,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&mem_col_cfg32->val_hold,
+			&mem_col_cfg->val_hold,
+			sizeof(uint8_t)))
 		return -EFAULT;
 
 	return 0;
@@ -1249,7 +1274,20 @@ static int __from_user_pa_v2_data(
 			sizeof(uint32_t)) ||
 	    copy_in_user(&pa_v2_data->six_zone_len,
 			&pa_v2_data32->six_zone_len,
-			sizeof(uint32_t)))
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data->six_zone_adj_p0,
+			&pa_v2_data32->six_zone_adj_p0,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data->six_zone_adj_p1,
+			&pa_v2_data32->six_zone_adj_p1,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data->six_zone_sat_hold,
+			&pa_v2_data32->six_zone_sat_hold,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&pa_v2_data->six_zone_val_hold,
+			&pa_v2_data32->six_zone_val_hold,
+			sizeof(uint8_t)))
+
 		return -EFAULT;
 
 	if (get_user(data, &pa_v2_data32->six_zone_curve_p0) ||
@@ -1298,7 +1336,19 @@ static int __to_user_pa_v2_data(
 			sizeof(uint32_t)) ||
 	    copy_in_user(&pa_v2_data32->six_zone_len,
 			&pa_v2_data->six_zone_len,
-			sizeof(uint32_t)))
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data32->six_zone_adj_p0,
+			&pa_v2_data->six_zone_adj_p0,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data32->six_zone_adj_p1,
+			&pa_v2_data->six_zone_adj_p1,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data32->six_zone_sat_hold,
+			&pa_v2_data->six_zone_sat_hold,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&pa_v2_data32->six_zone_val_hold,
+			&pa_v2_data->six_zone_val_hold,
+			sizeof(uint8_t)))
 		return -EFAULT;
 
 	if (get_user(data, (unsigned long *) &pa_v2_data->six_zone_curve_p0) ||

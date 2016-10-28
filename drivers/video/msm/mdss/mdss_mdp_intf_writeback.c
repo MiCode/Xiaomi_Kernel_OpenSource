@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -330,7 +331,7 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 
 	ctx->bwc_mode = rot->bwc_mode;
 	ctx->opmode |= ctx->bwc_mode;
-
+		ctx->frame_rate = ctl->frame_rate;
 	ctx->width = ctx->dst_rect.w = rot->dnsc_factor_w ?
 		rot->dst.w / rot->dnsc_factor_w : rot->dst.w;
 	ctx->height = ctx->dst_rect.h = rot->dnsc_factor_h ?

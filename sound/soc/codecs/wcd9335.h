@@ -25,7 +25,7 @@
 #define TASHA_SB_PGD_PORT_RX_BASE   0x40
 #define TASHA_SB_PGD_PORT_TX_BASE   0x50
 
-#define TASHA_ZDET_SUPPORTED true
+#define TASHA_ZDET_SUPPORTED false
 /* z value defined in milliohm */
 #define TASHA_ZDET_VAL_32	32000
 #define TASHA_ZDET_VAL_400	400000

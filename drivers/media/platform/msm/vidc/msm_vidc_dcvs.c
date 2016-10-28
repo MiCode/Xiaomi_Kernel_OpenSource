@@ -1,4 +1,5 @@
 /* Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -491,6 +492,7 @@ static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 	int rc = 0;
 	int num_mbs_per_frame = 0;
 	int instance_count = 0;
+	int instance_load = 0;
 	struct msm_vidc_inst *temp = NULL;
 	struct msm_vidc_core *core;
 	struct hal_buffer_requirements *output_buf_req;
@@ -512,6 +514,7 @@ static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 
 	if (instance_count == 1 && inst->session_type == MSM_VIDC_DECODER) {
 		num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
+		instance_load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
 		output_buf_req = get_buff_req_buffer(inst,
 			msm_comm_get_hal_output_buffer(inst));
 
@@ -526,7 +529,9 @@ static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 				V4L2_PIX_FMT_H264_NO_SC);
 		if (!is_codec_supported ||
 			!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-					core->resources.dcvs_min_mbperframe))
+					core->resources.dcvs_min_mbperframe) ||
+			!IS_VALID_DCVS_SESSION(instance_load,
+					core->resources.dcvs_min_load))
 			return -ENOTSUPP;
 
 		if (!output_buf_req) {

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +15,6 @@
 #include "msm8976-pinctrl.dtsi"
 #include "msm8976-camera-sensor-mtp.dtsi"
 #include "msm8976-mdss-mtp.dtsi"
-#include "msm8976-wsa881x.dtsi"
 
 &i2c_4 { /* BLSP1 QUP4 */
 	synaptics@20 {
@@ -88,20 +88,6 @@
 			linux,code = <115>;
 			debounce-interval = <15>;
 		};
-	};
-
-	sound-9335 {
-		qcom,msm-gpios =
-			"us_eu_gpio";
-		qcom,pinctrl-names =
-			"all_off",
-			"us_eu_gpio_act";
-		pinctrl-names =
-			"all_off",
-			"us_eu_gpio_act";
-		pinctrl-0 = <&cross_conn_det_sus>;
-		pinctrl-1 = <&cross_conn_det_act>;
-		qcom,cdc-us-euro-gpios = <&msm_gpio 144 0>;
 	};
 };
 
@@ -263,4 +249,8 @@
 
 &pm8950_cajon_analog {
 	status = "disabled";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_tianma_r63350_1080p_vid>;
 };

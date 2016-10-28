@@ -247,6 +247,13 @@ config SND_SOC_APQ8084
 	 the machine drivers and the corresponding
 	 DAI-links.
 
+config SPEAKER_EXT_PA
+	default n
+	bool "Speaker external PA"
+	help
+	  Support for external PA.
+
+
 config SND_SOC_MSM8X16
 	tristate "SoC Machine driver for MSM8X16 boards"
 	depends on ARCH_MSM8916
@@ -267,6 +274,7 @@ config SND_SOC_MSM8X16
 	select SND_SOC_CPE
 	select SND_HWDEP
         select DTS_EAGLE
+	select SPEAKER_EXT_PA
 	help
 	 To add support for SoC audio on MSM8X16.
 	 This will enable sound soc drivers which
