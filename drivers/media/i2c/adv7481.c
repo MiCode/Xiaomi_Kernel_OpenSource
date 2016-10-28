@@ -2388,6 +2388,7 @@ err_media_entity:
 	media_entity_cleanup(&sd->entity);
 
 err_mem_free:
+	adv7481_release_cci_clks(state);
 	devm_kfree(&pdev->dev, state);
 
 err:
