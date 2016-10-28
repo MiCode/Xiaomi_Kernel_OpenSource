@@ -961,6 +961,7 @@
 		qcom,cpr-step-quot-init-min = <8>;
 		qcom,cpr-step-quot-init-max = <12>;
 		qcom,cpr-count-mode = <0>;		/* All-at-once min */
+		qcom,cpr-count-repeat = <1>;
 
 		vdd-supply = <&pm8005_s1>;
 		qcom,voltage-step = <4000>;
