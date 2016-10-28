@@ -450,7 +450,6 @@ struct mdss_dp_drv_pdata {
 	struct completion train_comp;
 	struct completion idle_comp;
 	struct completion video_comp;
-	struct completion audio_comp;
 	struct completion irq_comp;
 	struct mutex aux_mutex;
 	struct mutex train_mutex;
@@ -476,7 +475,6 @@ struct mdss_dp_drv_pdata {
 	char delay_start;
 	u32 bpp;
 	struct dp_statistic dp_stat;
-	bool wait_for_audio_comp;
 	bool hpd_irq_on;
 	bool hpd_irq_toggled;
 	bool hpd_irq_clients_notified;

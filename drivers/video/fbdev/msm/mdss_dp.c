@@ -906,8 +906,6 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	mdss_dp_set_safe_to_exit_level(&dp_ctrl->ctrl_io, dp_ctrl->lane_cnt);
 	mdss_dp_audio_enable(&dp_ctrl->ctrl_io, true);
 
-	dp_ctrl->wait_for_audio_comp = true;
-
 	return rc;
 } /* dp_audio_info_setup */
 
@@ -930,17 +928,6 @@ static int dp_get_audio_edid_blk(struct platform_device *pdev,
 	return rc;
 } /* dp_get_audio_edid_blk */
 
-static void dp_audio_codec_teardown_done(struct platform_device *pdev)
-{
-	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
-
-	if (!dp)
-		pr_err("invalid input\n");
-
-	pr_debug("audio codec teardown done\n");
-	complete_all(&dp->audio_comp);
-}
-
 static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
@@ -962,8 +949,6 @@ static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 		dp_get_audio_edid_blk;
 	dp->ext_audio_data.codec_ops.cable_status =
 		dp_get_cable_status;
-	dp->ext_audio_data.codec_ops.teardown_done =
-		dp_audio_codec_teardown_done;
 
 	if (!dp->pdev->dev.of_node) {
 		pr_err("%s cannot find dp dev.of_node\n", __func__);
@@ -1044,12 +1029,10 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 	return 0;
 } /* dp_init_panel_info */
 
-static inline void mdss_dp_set_audio_switch_node(
-	struct mdss_dp_drv_pdata *dp, int val)
+static inline void mdss_dp_ack_state(struct mdss_dp_drv_pdata *dp, int val)
 {
 	if (dp && dp->ext_audio_data.intf_ops.notify)
-		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev,
-				val);
+		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev, val);
 }
 
 /**
@@ -1307,7 +1290,7 @@ link_training:
 	dp_drv->cont_splash = 0;
 
 	dp_drv->power_on = true;
-	mdss_dp_set_audio_switch_node(dp_drv, true);
+	mdss_dp_ack_state(dp_drv, true);
 	pr_debug("End-\n");
 
 exit:
@@ -1425,6 +1408,7 @@ static int mdss_dp_off_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	dp_drv->dp_initialized = false;
 
 	dp_drv->power_on = false;
+	mdss_dp_ack_state(dp_drv, false);
 	mutex_unlock(&dp_drv->train_mutex);
 	pr_debug("DP off done\n");
 
@@ -1467,41 +1451,10 @@ end:
 	return ret;
 }
 
-static void mdss_dp_audio_codec_wait(struct mdss_dp_drv_pdata *dp)
-{
-	const int audio_completion_timeout_ms = HZ * 3;
-	int ret = 0;
-
-	if (!dp->wait_for_audio_comp)
-		return;
-
-	reinit_completion(&dp->audio_comp);
-	ret = wait_for_completion_timeout(&dp->audio_comp,
-			audio_completion_timeout_ms);
-	if (ret <= 0)
-		pr_warn("audio codec teardown timed out\n");
-
-	dp->wait_for_audio_comp = false;
-}
-
 static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
 {
-	int notified = 0;
-
-	if (enable) {
-		notified = mdss_dp_send_cable_notification(dp, enable);
-	} else {
-		mdss_dp_set_audio_switch_node(dp, enable);
-		mdss_dp_audio_codec_wait(dp);
-		notified = mdss_dp_send_cable_notification(dp, enable);
-	}
-
-	pr_debug("notify state %s done\n",
-			enable ? "ENABLE" : "DISABLE");
-
-	return notified;
+	return mdss_dp_send_cable_notification(dp, enable);
 }
-
 
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 {
@@ -2795,10 +2748,8 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	mdss_dp_device_register(dp_drv);
 
 	dp_drv->inited = true;
-	dp_drv->wait_for_audio_comp = false;
 	dp_drv->hpd_irq_on = false;
 	mdss_dp_reset_test_data(dp_drv);
-	init_completion(&dp_drv->audio_comp);
 	init_completion(&dp_drv->irq_comp);
 
 	pr_debug("done\n");
