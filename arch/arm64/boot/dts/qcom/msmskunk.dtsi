@@ -1142,6 +1142,30 @@
 			0x0	/* apps_v6_rt_nhash_size; */
 		>;
 	};
+
+	qcom,chd_sliver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x17e00058 0x17e10058
+		0x17e20058 0x17e30058>;
+		qcom,config-arr = <0x17e00060 0x17e10060
+		0x17e20060 0x17e30060>;
+	};
+
+	qcom,chd_gold {
+		compatible = "qcom,core-hang-detect";
+		label = "gold";
+		qcom,threshold-arr = <0x17e40058 0x17e50058
+		0x17e60058 0x17e70058>;
+		qcom,config-arr = <0x17e40060 0x17e50060
+		0x17e60060 0x17e70060>;
+	};
+
+	qcom,ghd {
+		compatible = "qcom,gladiator-hang-detect";
+		qcom,threshold-arr = <0x1799041c 0x17990420>;
+		qcom,config-reg = <0x17990434>;
+	};
 };
 
 &pcie_0_gdsc {
