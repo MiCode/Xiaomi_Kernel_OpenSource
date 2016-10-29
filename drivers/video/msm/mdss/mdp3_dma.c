@@ -34,11 +34,13 @@ static void mdp3_vsync_intr_handler(int type, void *arg)
 {
 	struct mdp3_dma *dma = (struct mdp3_dma *)arg;
 	struct mdp3_notification vsync_client;
+	struct mdp3_notification retire_client;
 	unsigned int wait_for_next_vs;
 
 	pr_debug("mdp3_vsync_intr_handler\n");
 	spin_lock(&dma->dma_lock);
 	vsync_client = dma->vsync_client;
+	retire_client = dma->retire_client;
 	wait_for_next_vs = !dma->vsync_status;
 	dma->vsync_status = 0;
 	if (wait_for_next_vs)
@@ -50,6 +52,9 @@ static void mdp3_vsync_intr_handler(int type, void *arg)
 		if (wait_for_next_vs)
 			mdp3_irq_disable_nosync(type);
 	}
+
+	if (retire_client.handler)
+		retire_client.handler(retire_client.arg);
 }
 
 static void mdp3_dma_done_intr_handler(int type, void *arg)

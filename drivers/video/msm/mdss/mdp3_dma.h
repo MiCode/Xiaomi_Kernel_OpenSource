@@ -263,6 +263,7 @@ struct mdp3_dma {
 	struct completion histo_comp;
 	struct mdp3_notification vsync_client;
 	struct mdp3_notification dma_notifier_client;
+	struct mdp3_notification retire_client;
 
 	struct mdp3_dma_output_config output_config;
 	struct mdp3_dma_source source_config;
@@ -329,6 +330,9 @@ struct mdp3_dma {
 
 	void (*vsync_enable)(struct mdp3_dma *dma,
 			struct mdp3_notification *vsync_client);
+
+	void (*retire_enable)(struct mdp3_dma *dma,
+			struct mdp3_notification *retire_client);
 
 	void (*dma_done_notifier)(struct mdp3_dma *dma,
 			struct mdp3_notification *dma_client);

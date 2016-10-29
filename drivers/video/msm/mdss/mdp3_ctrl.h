@@ -70,8 +70,19 @@ struct mdp3_session_data {
 	bool dma_active;
 	struct completion dma_completion;
 	int (*wait_for_dma_done)(struct mdp3_session_data *session);
+
+	/* For retire fence */
+	struct sw_sync_timeline *vsync_timeline;
+	int retire_cnt;
+	struct work_struct retire_work;
 };
 
+void mdp3_bufq_deinit(struct mdp3_buffer_queue *bufq);
 int mdp3_ctrl_init(struct msm_fb_data_type *mfd);
+int mdp3_bufq_push(struct mdp3_buffer_queue *bufq,
+			struct mdp3_img_data *data);
+int mdp3_ctrl_get_source_format(u32 imgType);
+int mdp3_ctrl_get_pack_pattern(u32 imgType);
+int mdp3_ctrl_reset(struct msm_fb_data_type *mfd);
 
 #endif /* MDP3_CTRL_H */
