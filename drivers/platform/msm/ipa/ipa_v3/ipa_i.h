@@ -1288,6 +1288,7 @@ struct ipa3_context {
 	bool ipa_initialization_complete;
 	struct list_head ipa_ready_cb_list;
 	struct completion init_completion_obj;
+	struct completion uc_loaded_completion_obj;
 	struct ipa3_smp2p_info smp2p_info;
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
