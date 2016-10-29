@@ -766,6 +766,30 @@ static void ipa3_transport_irq_cmd_ack(void *user1, int user2)
 }
 
 /**
+ * ipa3_transport_irq_cmd_ack_free - callback function which will be
+ * called by SPS/GSI driver after an immediate command is complete.
+ * This function will also free the completion object once it is done.
+ * @tag_comp: pointer to the completion object
+ * @ignored: parameter not used
+ *
+ * Complete the immediate commands completion object, this will release the
+ * thread which waits on this completion object (ipa3_send_cmd())
+ */
+static void ipa3_transport_irq_cmd_ack_free(void *tag_comp, int ignored)
+{
+	struct ipa3_tag_completion *comp = tag_comp;
+
+	if (!comp) {
+		IPAERR("comp is NULL\n");
+		return;
+	}
+
+	complete(&comp->comp);
+	if (atomic_dec_return(&comp->cnt) == 0)
+		kfree(comp);
+}
+
+/**
  * ipa3_send_cmd - send immediate commands
  * @num_desc:	number of descriptors within the desc struct
  * @descr:	descriptor structure
@@ -777,7 +801,58 @@ static void ipa3_transport_irq_cmd_ack(void *user1, int user2)
  */
 int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 {
-	return ipa3_send_cmd_timeout(num_desc, descr, 0);
+	struct ipa3_desc *desc;
+	int i, result = 0;
+	struct ipa3_sys_context *sys;
+	int ep_idx;
+
+	for (i = 0; i < num_desc; i++)
+		IPADBG("sending imm cmd %d\n", descr[i].opcode);
+
+	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
+	if (-1 == ep_idx) {
+		IPAERR("Client %u is not mapped\n",
+			IPA_CLIENT_APPS_CMD_PROD);
+		return -EFAULT;
+	}
+
+	sys = ipa3_ctx->ep[ep_idx].sys;
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (num_desc == 1) {
+		init_completion(&descr->xfer_done);
+
+		if (descr->callback || descr->user1)
+			WARN_ON(1);
+
+		descr->callback = ipa3_transport_irq_cmd_ack;
+		descr->user1 = descr;
+		if (ipa3_send_one(sys, descr, true)) {
+			IPAERR("fail to send immediate command\n");
+			result = -EFAULT;
+			goto bail;
+		}
+		wait_for_completion(&descr->xfer_done);
+	} else {
+		desc = &descr[num_desc - 1];
+		init_completion(&desc->xfer_done);
+
+		if (desc->callback || desc->user1)
+			WARN_ON(1);
+
+		desc->callback = ipa3_transport_irq_cmd_ack;
+		desc->user1 = desc;
+		if (ipa3_send(sys, num_desc, descr, true)) {
+			IPAERR("fail to send multiple immediate command set\n");
+			result = -EFAULT;
+			goto bail;
+		}
+		wait_for_completion(&desc->xfer_done);
+	}
+
+bail:
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+		return result;
 }
 
 /**
@@ -799,6 +874,7 @@ int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
 	struct ipa3_sys_context *sys;
 	int ep_idx;
 	int completed;
+	struct ipa3_tag_completion *comp;
 
 	for (i = 0; i < num_desc; i++)
 		IPADBG("sending imm cmd %d\n", descr[i].opcode);
@@ -809,54 +885,55 @@ int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
 			IPA_CLIENT_APPS_CMD_PROD);
 		return -EFAULT;
 	}
+
+	comp = kzalloc(sizeof(*comp), GFP_ATOMIC);
+	if (!comp) {
+		IPAERR("no mem\n");
+		return -ENOMEM;
+	}
+	init_completion(&comp->comp);
+
+	/* completion needs to be released from both here and in ack callback */
+	atomic_set(&comp->cnt, 2);
+
 	sys = ipa3_ctx->ep[ep_idx].sys;
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (num_desc == 1) {
-		init_completion(&descr->xfer_done);
-
 		if (descr->callback || descr->user1)
 			WARN_ON(1);
 
-		descr->callback = ipa3_transport_irq_cmd_ack;
-		descr->user1 = descr;
+		descr->callback = ipa3_transport_irq_cmd_ack_free;
+		descr->user1 = comp;
 		if (ipa3_send_one(sys, descr, true)) {
 			IPAERR("fail to send immediate command\n");
+			kfree(comp);
 			result = -EFAULT;
 			goto bail;
 		}
-		if (timeout) {
-			completed = wait_for_completion_timeout(
-				&descr->xfer_done, msecs_to_jiffies(timeout));
-			if (!completed)
-				IPADBG("timeout waiting for imm-cmd ACK\n");
-		} else {
-			wait_for_completion(&descr->xfer_done);
-		}
 	} else {
 		desc = &descr[num_desc - 1];
-		init_completion(&desc->xfer_done);
 
 		if (desc->callback || desc->user1)
 			WARN_ON(1);
 
-		desc->callback = ipa3_transport_irq_cmd_ack;
-		desc->user1 = desc;
+		desc->callback = ipa3_transport_irq_cmd_ack_free;
+		desc->user1 = comp;
 		if (ipa3_send(sys, num_desc, descr, true)) {
 			IPAERR("fail to send multiple immediate command set\n");
+			kfree(comp);
 			result = -EFAULT;
 			goto bail;
 		}
-		if (timeout) {
-			completed = wait_for_completion_timeout(
-				&desc->xfer_done, msecs_to_jiffies(timeout));
-			if (!completed)
-				IPADBG("timeout waiting for imm-cmd ACK\n");
-		} else {
-			wait_for_completion(&desc->xfer_done);
-		}
-
 	}
+
+	completed = wait_for_completion_timeout(
+		&comp->comp, msecs_to_jiffies(timeout));
+	if (!completed)
+		IPADBG("timeout waiting for imm-cmd ACK\n");
+
+	if (atomic_dec_return(&comp->cnt) == 0)
+		kfree(comp);
 
 bail:
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
