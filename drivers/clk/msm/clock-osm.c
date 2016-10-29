@@ -85,7 +85,9 @@ enum clk_osm_trace_packet_id {
 
 #define OSM_TABLE_SIZE 40
 #define MAX_CLUSTER_CNT 2
-#define MAX_CONFIG 4
+#define CORE_COUNT_VAL(val) ((val & GENMASK(18, 16)) >> 16)
+#define SINGLE_CORE 1
+#define MAX_CORE_COUNT 4
 #define LLM_SW_OVERRIDE_CNT 3
 
 #define ENABLE_REG 0x1004
@@ -642,11 +644,25 @@ static long clk_osm_round_rate(struct clk *c, unsigned long rate)
 
 static int clk_osm_search_table(struct osm_entry *table, int entries, long rate)
 {
-	int i;
+	int quad_core_index, single_core_index = 0;
+	int core_count;
 
-	for (i = 0; i < entries; i++)
-		if (rate == table[i].frequency)
-			return i;
+	for (quad_core_index = 0; quad_core_index < entries;
+	     quad_core_index++) {
+		core_count =
+			CORE_COUNT_VAL(table[quad_core_index].freq_data);
+		if (rate == table[quad_core_index].frequency &&
+		    core_count == SINGLE_CORE) {
+			single_core_index = quad_core_index;
+			continue;
+		}
+		if (rate == table[quad_core_index].frequency &&
+		    core_count == MAX_CORE_COUNT)
+			return quad_core_index;
+	}
+	if (single_core_index)
+		return single_core_index;
+
 	return -EINVAL;
 }
 
@@ -839,8 +855,10 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 	int prop_len, total_elems, num_rows, i, j, k;
 	int rc = 0;
 	u32 *array;
+	u32 *fmax_temp;
 	u32 data;
 	bool last_entry = false;
+	unsigned long abs_fmax = 0;
 
 	if (!of_find_property(of, prop_name, &prop_len)) {
 		dev_err(&pdev->dev, "missing %s\n", prop_name);
@@ -855,9 +873,9 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 
 	num_rows = total_elems / NUM_FIELDS;
 
-	clk->fmax = devm_kzalloc(&pdev->dev, num_rows * sizeof(unsigned long),
-			       GFP_KERNEL);
-	if (!clk->fmax)
+	fmax_temp = devm_kzalloc(&pdev->dev, num_rows * sizeof(unsigned long),
+				 GFP_KERNEL);
+	if (!fmax_temp)
 		return -ENOMEM;
 
 	array = devm_kzalloc(&pdev->dev, prop_len, GFP_KERNEL);
@@ -893,18 +911,33 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 			 c->osm_table[j].spare_data);
 
 		data = (array[i + FREQ_DATA] & GENMASK(18, 16)) >> 16;
-		if (!last_entry) {
-			clk->fmax[k] = array[i];
+		if (!last_entry && data == MAX_CORE_COUNT) {
+			fmax_temp[k] = array[i];
 			k++;
 		}
 
 		if (i < total_elems - NUM_FIELDS)
 			i += NUM_FIELDS;
-		else
+		else {
+			abs_fmax = array[i];
 			last_entry = true;
+		}
 	}
+
+	fmax_temp[k++] = abs_fmax;
+	clk->fmax = devm_kzalloc(&pdev->dev, k * sizeof(unsigned long),
+				 GFP_KERNEL);
+	if (!clk->fmax) {
+		rc = -ENOMEM;
+		goto exit;
+	}
+
+	for (i = 0; i < k; i++)
+		clk->fmax[i] = fmax_temp[i];
+
 	clk->num_fmax = k;
 exit:
+	devm_kfree(&pdev->dev, fmax_temp);
 	devm_kfree(&pdev->dev, array);
 	return rc;
 }
