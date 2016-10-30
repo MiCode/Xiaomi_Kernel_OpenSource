@@ -131,6 +131,9 @@ module_param(qmi_timeout, ulong, 0600);
  * Registers: WCSS_HM_A_PMM_PMM
  * Base Address: 0x18880000
  */
+#define WCSS_HM_A_PMM_ROOT_CLK_ENABLE				0x80010
+#define PMM_TCXO_CLK_ENABLE					BIT(13)
+
 #define PMM_COMMON_IDLEREQ_CSR_OFFSET				0x80120
 #define PMM_COMMON_IDLEREQ_CSR_SW_WNOC_IDLEREQ_SET		BIT(16)
 #define PMM_COMMON_IDLEREQ_CSR_WNOC_IDLEACK			BIT(26)
@@ -1332,7 +1335,27 @@ static int icnss_hw_reset_rf_reset_cmd(struct icnss_priv *priv)
 
 static int icnss_hw_reset_switch_to_cxo(struct icnss_priv *priv)
 {
+	u32 rdata;
+
 	icnss_pr_dbg("RESET: Switch to CXO, state: 0x%lx\n", priv->state);
+
+	rdata = icnss_hw_read_reg(priv->mem_base_va,
+				  WCSS_HM_A_PMM_ROOT_CLK_ENABLE);
+
+	icnss_pr_dbg("RESET: PMM_TCXO_CLK_ENABLE : 0x%05lx\n",
+		     rdata & PMM_TCXO_CLK_ENABLE);
+
+	if ((rdata & PMM_TCXO_CLK_ENABLE) == 0) {
+		icnss_pr_dbg("RESET: Set PMM_TCXO_CLK_ENABLE to 1\n");
+
+		icnss_hw_write_reg_field(priv->mem_base_va,
+					 WCSS_HM_A_PMM_ROOT_CLK_ENABLE,
+					 PMM_TCXO_CLK_ENABLE, 1);
+		icnss_hw_poll_reg_field(priv->mem_base_va,
+					WCSS_HM_A_PMM_ROOT_CLK_ENABLE,
+					PMM_TCXO_CLK_ENABLE, 1, 10,
+					ICNSS_HW_REG_RETRY);
+	}
 
 	icnss_hw_write_reg_field(priv->mem_base_va,
 				 WCSS_CLK_CTL_NOC_CFG_RCGR_OFFSET,
@@ -1463,6 +1486,26 @@ static int icnss_hw_reset(struct icnss_priv *priv)
 		goto top_level_reset;
 
 	icnss_hw_reset_switch_to_cxo(priv);
+
+	for (i = 0; i < ICNSS_HW_REG_RETRY; i++) {
+		rdata = icnss_hw_read_reg(priv->mem_base_va, SR_PMM_SR_MSB);
+		usleep_range(5, 10);
+		rdata1 = icnss_hw_read_reg(priv->mem_base_va, SR_PMM_SR_MSB);
+
+		icnss_pr_dbg("RESET: SR_PMM_SR_MSB: 0x%08x/0x%08x, XO: 0x%05lx/0x%05lx, AHB: 0x%05lx/0x%05lx\n",
+			     rdata, rdata1,
+			     rdata & SR_PMM_SR_MSB_XO_CLOCK_MASK,
+			     rdata1 & SR_PMM_SR_MSB_XO_CLOCK_MASK,
+			     rdata & SR_PMM_SR_MSB_AHB_CLOCK_MASK,
+			     rdata1 & SR_PMM_SR_MSB_AHB_CLOCK_MASK);
+
+		if ((rdata & SR_PMM_SR_MSB_AHB_CLOCK_MASK) !=
+		    (rdata1 & SR_PMM_SR_MSB_AHB_CLOCK_MASK) &&
+		    (rdata & SR_PMM_SR_MSB_XO_CLOCK_MASK) !=
+		    (rdata1 & SR_PMM_SR_MSB_XO_CLOCK_MASK))
+			break;
+		usleep_range(5, 10);
+	}
 
 	ret = icnss_hw_reset_xo_disable_cmd(priv);
 	if (ret)
