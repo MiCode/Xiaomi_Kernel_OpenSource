@@ -2145,6 +2145,7 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	info->max_width = 1920;
 	info->max_height = 1080;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
+	info->display_id = msm_get_display_id(display->display_type);
 
 	switch (display->panel[0]->mode.panel_mode) {
 	case DSI_OP_VIDEO_MODE:
