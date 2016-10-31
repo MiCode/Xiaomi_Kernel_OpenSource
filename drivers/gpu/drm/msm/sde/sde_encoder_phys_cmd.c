@@ -104,6 +104,11 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 
 	phys_enc = &cmd_enc->base;
 
+	/* notify all synchronous clients first, then asynchronous clients */
+	if (phys_enc->parent_ops.handle_frame_done)
+		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
+				phys_enc, SDE_ENCODER_FRAME_EVENT_DONE);
+
 	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
@@ -191,6 +196,10 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 					phys_enc->hw_pp->idx - PINGPONG_0);
 			SDE_ERROR_CMDENC(cmd_enc, "pp:%d kickoff timed out\n",
 					phys_enc->hw_pp->idx - PINGPONG_0);
+			if (phys_enc->parent_ops.handle_frame_done)
+				phys_enc->parent_ops.handle_frame_done(
+						phys_enc->parent, phys_enc,
+						SDE_ENCODER_FRAME_EVENT_ERROR);
 			ret = -ETIMEDOUT;
 		}
 	} else {

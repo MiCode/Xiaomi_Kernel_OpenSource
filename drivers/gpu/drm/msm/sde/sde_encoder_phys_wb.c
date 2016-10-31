@@ -537,10 +537,14 @@ static void sde_encoder_phys_wb_done_irq(void *arg, int irq_idx)
 	SDE_DEBUG("[wb:%d,%u]\n", hw_wb->idx - WB_0,
 			wb_enc->frame_count);
 
-	complete_all(&wb_enc->wbdone_complete);
+	if (phys_enc->parent_ops.handle_frame_done)
+		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
+				phys_enc, SDE_ENCODER_FRAME_EVENT_DONE);
 
 	phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 			phys_enc);
+
+	complete_all(&wb_enc->wbdone_complete);
 }
 
 /**
@@ -689,6 +693,10 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 		} else {
 			SDE_ERROR("wb:%d kickoff timed out\n",
 					wb_enc->wb_dev->wb_idx - WB_0);
+			if (phys_enc->parent_ops.handle_frame_done)
+				phys_enc->parent_ops.handle_frame_done(
+						phys_enc->parent, phys_enc,
+						SDE_ENCODER_FRAME_EVENT_ERROR);
 			rc = -ETIMEDOUT;
 		}
 	}

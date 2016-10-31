@@ -56,12 +56,16 @@ struct sde_encoder_phys;
  *			Note: This is called from IRQ handler context.
  * @handle_underrun_virt: Notify virtual encoder of underrun IRQ reception
  *			Note: This is called from IRQ handler context.
+ * @handle_frame_done:	Notify virtual encoder that this phys encoder
+ *			completes last request frame.
  */
 struct sde_encoder_virt_ops {
 	void (*handle_vblank_virt)(struct drm_encoder *,
 			struct sde_encoder_phys *phys);
 	void (*handle_underrun_virt)(struct drm_encoder *,
 			struct sde_encoder_phys *phys);
+	void (*handle_frame_done)(struct drm_encoder *,
+			struct sde_encoder_phys *phys, u32 event);
 };
 
 /**
