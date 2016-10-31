@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@ struct rmnet_logical_ep_conf_s {
 	u8 rmnet_mode;
 	u8 mux_id;
 	struct timespec flush_time;
+	unsigned int flush_byte_count;
 	struct net_device *egress_dev;
 };
 
