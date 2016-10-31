@@ -61,10 +61,13 @@ Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
 - qcom,loop-ea-gm	: control the gm for gm stage in control loop. default is 3.
 - qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.
 - qcom,vref-psm-mv	: reference psm voltage in mv. default for amoled is 450.
-- qcom,avdd-target-voltage-mv: The target voltage desired for the AVDD module in mV.
-				The supported values are:
-				7900, 7600, 7300, 6400, 6100, 5800.
-				If not specified, default value used is 7600.
+- qcom,avdd-mode-spmi: Boolean property to enable AMOLED_VOUT programming via SPMI. If not specified,
+			AMOLED_VOUT is programmed via S-wire. This can be specified only for newer
+			PMICs like pmicobalt/pm2falcon.
+- qcom,avdd-target-voltage-mv: The voltage required for AMOLED_VOUT. Accepted values are in the range
+				of 5650 to 7900 in steps of 150. Default value is 7600. Unit is in mV.
+				For old revisions, accepted values are: 7900, 7600, 7300, 6400, 6100,
+				5800.
 
 Example:
 	qcom,leds@d800 {

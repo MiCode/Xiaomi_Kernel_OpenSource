@@ -45,11 +45,13 @@
 #define QPNP_WLED_SWITCH_FREQ_REG(b)	(b + 0x4C)
 #define QPNP_WLED_OVP_REG(b)		(b + 0x4D)
 #define QPNP_WLED_ILIM_REG(b)		(b + 0x4E)
+#define QPNP_WLED_AMOLED_VOUT_REG(b)	(b + 0x4F)
 #define QPNP_WLED_SOFTSTART_RAMP_DLY(b) (b + 0x53)
 #define QPNP_WLED_VLOOP_COMP_RES_REG(b)	(b + 0x55)
 #define QPNP_WLED_VLOOP_COMP_GM_REG(b)	(b + 0x56)
 #define QPNP_WLED_PSM_CTRL_REG(b)	(b + 0x5B)
 #define QPNP_WLED_SC_PRO_REG(b)		(b + 0x5E)
+#define QPNP_WLED_SWIRE_AVDD_REG(b)	(b + 0x5F)
 #define QPNP_WLED_CTRL_SPARE_REG(b)	(b + 0xDF)
 #define QPNP_WLED_TEST1_REG(b)		(b + 0xE2)
 #define QPNP_WLED_TEST4_REG(b)		(b + 0xE5)
@@ -196,11 +198,18 @@
 
 #define NUM_SUPPORTED_AVDD_VOLTAGES	6
 #define QPNP_WLED_DFLT_AVDD_MV		7600
+#define QPNP_WLED_AVDD_MIN_MV		5650
+#define QPNP_WLED_AVDD_MAX_MV		7900
+#define QPNP_WLED_AVDD_STEP_MV		150
 #define QPNP_WLED_AVDD_MIN_TRIM_VAL	0x0
 #define QPNP_WLED_AVDD_MAX_TRIM_VAL	0xF
+#define QPNP_WLED_AVDD_SEL_SPMI_BIT	BIT(7)
 #define QPNP_WLED_AVDD_SET_BIT		BIT(4)
 
 #define NUM_SUPPORTED_OVP_THRESHOLDS	4
+
+#define QPNP_WLED_AVDD_MV_TO_REG(val) \
+		((val - QPNP_WLED_AVDD_MIN_MV) / QPNP_WLED_AVDD_STEP_MV)
 
 /* output feedback mode */
 enum qpnp_wled_fdbk_op {
@@ -288,6 +297,7 @@ static int qpnp_wled_ovp_thresholds_pmicobalt[NUM_SUPPORTED_OVP_THRESHOLDS] = {
  *  @ cons_sync_write_delay_us - delay between two consecutive writes to SYNC
  *  @ strings - supported list of strings
  *  @ num_strings - number of strings
+ *  @ avdd_mode_spmi - enable avdd programming via spmi
  *  @ en_9b_dim_res - enable or disable 9bit dimming
  *  @ en_phase_stag - enable or disable phase staggering
  *  @ en_cabc - enable or disable cabc
@@ -330,6 +340,7 @@ struct qpnp_wled {
 	u16			cons_sync_write_delay_us;
 	u8			strings[QPNP_WLED_MAX_STRINGS];
 	u8			num_strings;
+	bool			avdd_mode_spmi;
 	bool			en_9b_dim_res;
 	bool			en_phase_stag;
 	bool			en_cabc;
@@ -1089,6 +1100,102 @@ static int qpnp_wled_ovp_config(struct qpnp_wled *wled)
 	return 0;
 }
 
+static int qpnp_wled_avdd_trim_config(struct qpnp_wled *wled)
+{
+	int rc, i;
+	u8 reg;
+
+	for (i = 0; i < NUM_SUPPORTED_AVDD_VOLTAGES; i++) {
+		if (wled->avdd_target_voltage_mv ==
+				qpnp_wled_avdd_target_voltages[i])
+			break;
+	}
+
+	if (i == NUM_SUPPORTED_AVDD_VOLTAGES) {
+		dev_err(&wled->pdev->dev,
+			"Invalid avdd target voltage specified in device tree\n");
+		return -EINVAL;
+	}
+
+	/* Update WLED_OVP register based on desired target voltage */
+	reg = qpnp_wled_ovp_reg_settings[i];
+	rc = qpnp_wled_masked_write_reg(wled, QPNP_WLED_OVP_MASK, &reg,
+			QPNP_WLED_OVP_REG(wled->ctrl_base));
+	if (rc)
+		return rc;
+
+	/* Update WLED_TRIM register based on desired target voltage */
+	rc = qpnp_wled_read_reg(wled, &reg,
+			QPNP_WLED_REF_7P7_TRIM_REG(wled->ctrl_base));
+	if (rc)
+		return rc;
+
+	reg += qpnp_wled_avdd_trim_adjustments[i];
+	if ((s8)reg < QPNP_WLED_AVDD_MIN_TRIM_VAL ||
+			(s8)reg > QPNP_WLED_AVDD_MAX_TRIM_VAL) {
+		dev_dbg(&wled->pdev->dev,
+			 "adjusted trim %d is not within range, capping it\n",
+			 (s8)reg);
+		if ((s8)reg < QPNP_WLED_AVDD_MIN_TRIM_VAL)
+			reg = QPNP_WLED_AVDD_MIN_TRIM_VAL;
+		else
+			reg = QPNP_WLED_AVDD_MAX_TRIM_VAL;
+	}
+
+	reg &= QPNP_WLED_7P7_TRIM_MASK;
+	rc = qpnp_wled_sec_write_reg(wled, reg,
+			QPNP_WLED_REF_7P7_TRIM_REG(wled->ctrl_base));
+	if (rc < 0)
+		dev_err(&wled->pdev->dev, "Write to 7P7_TRIM register failed, rc=%d\n",
+			rc);
+	return rc;
+}
+
+static int qpnp_wled_avdd_mode_config(struct qpnp_wled *wled)
+{
+	int rc;
+	u8 reg = 0;
+
+	/*
+	 * At present, configuring the mode to SPMI/SWIRE for controlling
+	 * AVDD voltage is available only in pmicobalt/pm2falcon.
+	 */
+	if (wled->pmic_rev_id->pmic_subtype != PMICOBALT_SUBTYPE &&
+		wled->pmic_rev_id->pmic_subtype != PM2FALCON_SUBTYPE)
+		return 0;
+
+	/* AMOLED_VOUT should be configured for AMOLED */
+	if (!wled->disp_type_amoled)
+		return 0;
+
+	/* Configure avdd register */
+	if (wled->avdd_target_voltage_mv > QPNP_WLED_AVDD_MAX_MV) {
+		dev_dbg(&wled->pdev->dev, "Capping avdd target voltage to %d\n",
+			QPNP_WLED_AVDD_MAX_MV);
+		wled->avdd_target_voltage_mv = QPNP_WLED_AVDD_MAX_MV;
+	} else if (wled->avdd_target_voltage_mv < QPNP_WLED_AVDD_MIN_MV) {
+		dev_info(&wled->pdev->dev, "Capping avdd target voltage to %d\n",
+			QPNP_WLED_AVDD_MIN_MV);
+		wled->avdd_target_voltage_mv = QPNP_WLED_AVDD_MIN_MV;
+	}
+
+	reg = QPNP_WLED_AVDD_MV_TO_REG(wled->avdd_target_voltage_mv);
+
+	if (wled->avdd_mode_spmi) {
+		reg |= QPNP_WLED_AVDD_SEL_SPMI_BIT;
+		rc = qpnp_wled_write_reg(wled, reg,
+				QPNP_WLED_AMOLED_VOUT_REG(wled->ctrl_base));
+	} else {
+		rc = qpnp_wled_write_reg(wled, reg,
+				QPNP_WLED_SWIRE_AVDD_REG(wled->ctrl_base));
+	}
+
+	if (rc < 0)
+		dev_err(&wled->pdev->dev, "Write to VOUT/AVDD register failed, rc=%d\n",
+			rc);
+	return rc;
+}
+
 /* Configure WLED registers */
 static int qpnp_wled_config(struct qpnp_wled *wled)
 {
@@ -1199,49 +1306,14 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	}
 
 	if (is_avdd_trim_adjustment_required(wled)) {
-		for (i = 0; i < NUM_SUPPORTED_AVDD_VOLTAGES; i++) {
-			if (wled->avdd_target_voltage_mv ==
-					qpnp_wled_avdd_target_voltages[i])
-				break;
-		}
-
-		if (i == NUM_SUPPORTED_AVDD_VOLTAGES) {
-			dev_err(&wled->pdev->dev,
-				"Invalid avdd target voltage specified in device tree\n");
-			return -EINVAL;
-		}
-
-		/* Update WLED_OVP register based on desired target voltage */
-		reg = qpnp_wled_ovp_reg_settings[i];
-		rc = qpnp_wled_masked_write_reg(wled, QPNP_WLED_OVP_MASK, &reg,
-				QPNP_WLED_OVP_REG(wled->ctrl_base));
-		if (rc)
-			return rc;
-
-		/* Update WLED_TRIM register based on desired target voltage */
-		rc = qpnp_wled_read_reg(wled, &reg,
-			QPNP_WLED_REF_7P7_TRIM_REG(wled->ctrl_base));
-		if (rc)
-			return rc;
-
-		reg += qpnp_wled_avdd_trim_adjustments[i];
-		if ((s8)reg < QPNP_WLED_AVDD_MIN_TRIM_VAL ||
-				(s8)reg > QPNP_WLED_AVDD_MAX_TRIM_VAL) {
-			dev_info(&wled->pdev->dev,
-				 "adjusted trim %d is not within range, capping it\n",
-				 (s8)reg);
-			if ((s8)reg < QPNP_WLED_AVDD_MIN_TRIM_VAL)
-				reg = QPNP_WLED_AVDD_MIN_TRIM_VAL;
-			else
-				reg = QPNP_WLED_AVDD_MAX_TRIM_VAL;
-		}
-
-		reg &= QPNP_WLED_7P7_TRIM_MASK;
-		rc = qpnp_wled_sec_write_reg(wled, reg,
-				QPNP_WLED_REF_7P7_TRIM_REG(wled->ctrl_base));
-		if (rc)
+		rc = qpnp_wled_avdd_trim_config(wled);
+		if (rc < 0)
 			return rc;
 	}
+
+	rc = qpnp_wled_avdd_mode_config(wled);
+	if (rc < 0)
+		return rc;
 
 	/* Configure the MODULATION register */
 	if (wled->mod_freq_khz <= QPNP_WLED_MOD_FREQ_1200_KHZ) {
@@ -1560,6 +1632,9 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 			dev_err(&pdev->dev, "Unable to read loop-ea-gm\n");
 			return rc;
 		}
+
+		wled->avdd_mode_spmi = of_property_read_bool(pdev->dev.of_node,
+				"qcom,avdd-mode-spmi");
 
 		wled->avdd_target_voltage_mv = QPNP_WLED_DFLT_AVDD_MV;
 		rc = of_property_read_u32(pdev->dev.of_node,
