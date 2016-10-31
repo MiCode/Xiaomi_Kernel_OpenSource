@@ -25,7 +25,6 @@
 #include "sde_hw_ctl.h"
 #include "sde_formats.h"
 #include "sde_encoder_phys.h"
-#include "display_manager.h"
 #include "sde_color_processing.h"
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
@@ -218,7 +217,7 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 	}
 }
 
-static void sde_encoder_destroy(struct drm_encoder *drm_enc)
+void sde_encoder_destroy(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
@@ -1049,8 +1048,9 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	return ret;
 }
 
-static struct drm_encoder *sde_encoder_virt_init(
-		struct drm_device *dev, struct msm_display_info *disp_info)
+struct drm_encoder *sde_encoder_init(
+		struct drm_device *dev,
+		struct msm_display_info *disp_info)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct sde_kms *sde_kms = to_sde_kms(priv->kms);
@@ -1119,64 +1119,3 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_enc)
 	return ret;
 }
 
-/* encoders init,
- * initialize encoder based on displays
- */
-void sde_encoders_init(struct drm_device *dev)
-{
-	struct msm_drm_private *priv = NULL;
-	struct display_manager *disp_man = NULL;
-	u32 i = 0;
-	u32 num_displays = 0;
-
-	SDE_DEBUG("\n");
-
-	if (!dev || !dev->dev_private) {
-		SDE_ERROR("invalid device %d\n", dev != 0);
-		return;
-	}
-
-	priv = dev->dev_private;
-	priv->num_encoders = 0;
-	if (!priv->kms || !priv->dm) {
-		SDE_ERROR("invalid priv pointer, kms %d dm %d\n",
-				priv->kms != 0, priv->dm != 0);
-		return;
-	}
-	disp_man = priv->dm;
-
-	num_displays = display_manager_get_count(disp_man);
-	SDE_DEBUG("num_displays %d\n", num_displays);
-
-	if (num_displays > ARRAY_SIZE(priv->encoders)) {
-		num_displays = ARRAY_SIZE(priv->encoders);
-		SDE_ERROR("too many displays found, capping to %d\n",
-				num_displays);
-	}
-
-	for (i = 0; i < num_displays; i++) {
-		struct msm_display_info info = { 0 };
-		struct drm_encoder *enc = NULL;
-		u32 ret = 0;
-
-		ret = display_manager_get_info_by_index(disp_man, i, &info);
-		if (ret) {
-			SDE_ERROR("failed to get display info, %d\n", ret);
-			return;
-		}
-
-		enc = sde_encoder_virt_init(dev, &info);
-		if (IS_ERR_OR_NULL(enc)) {
-			SDE_ERROR("encoder initialization failed\n");
-			return;
-		}
-
-		ret = display_manager_drm_init_by_index(disp_man, i, enc);
-		if (ret) {
-			SDE_ERROR("display drm_init failed, %d\n", ret);
-			return;
-		}
-
-		priv->encoders[priv->num_encoders++] = enc;
-	}
-}

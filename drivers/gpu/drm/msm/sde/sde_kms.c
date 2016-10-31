@@ -17,6 +17,11 @@
 
 #include "msm_drv.h"
 #include "msm_mmu.h"
+
+#include "dsi_display.h"
+#include "dsi_drm.h"
+#include "sde_wb.h"
+
 #include "sde_kms.h"
 #include "sde_core_irq.h"
 #include "sde_formats.h"
@@ -320,6 +325,215 @@ static void sde_kms_prepare_fence(struct msm_kms *kms,
 		sde_connector_prepare_fence(connector);
 }
 
+/**
+ * _sde_kms_get_displays - query for underlying display handles and cache them
+ * @sde_kms:    Pointer to sde kms structure
+ * Returns:     Zero on success
+ */
+static int _sde_kms_get_displays(struct sde_kms *sde_kms)
+{
+	int rc = -ENOMEM;
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde kms\n");
+		return -EINVAL;
+	}
+
+	/* dsi */
+	sde_kms->dsi_displays = NULL;
+	sde_kms->dsi_display_count = dsi_display_get_num_of_displays();
+	if (sde_kms->dsi_display_count) {
+		sde_kms->dsi_displays = kcalloc(sde_kms->dsi_display_count,
+				sizeof(void *),
+				GFP_KERNEL);
+		if (!sde_kms->dsi_displays) {
+			SDE_ERROR("failed to allocate dsi displays\n");
+			goto exit_deinit_dsi;
+		}
+		sde_kms->dsi_display_count =
+			dsi_display_get_active_displays(sde_kms->dsi_displays,
+					sde_kms->dsi_display_count);
+	}
+
+	/* wb */
+	sde_kms->wb_displays = NULL;
+	sde_kms->wb_display_count = sde_wb_get_num_of_displays();
+	if (sde_kms->wb_display_count) {
+		sde_kms->wb_displays = kcalloc(sde_kms->wb_display_count,
+				sizeof(void *),
+				GFP_KERNEL);
+		if (!sde_kms->wb_displays) {
+			SDE_ERROR("failed to allocate wb displays\n");
+			goto exit_deinit_wb;
+		}
+		sde_kms->wb_display_count =
+			wb_display_get_displays(sde_kms->wb_displays,
+					sde_kms->wb_display_count);
+	}
+	return 0;
+
+exit_deinit_wb:
+	kfree(sde_kms->wb_displays);
+	sde_kms->wb_display_count = 0;
+	sde_kms->wb_displays = NULL;
+
+exit_deinit_dsi:
+	kfree(sde_kms->dsi_displays);
+	sde_kms->dsi_display_count = 0;
+	sde_kms->dsi_displays = NULL;
+	return rc;
+}
+
+/**
+ * _sde_kms_release_displays - release cache of underlying display handles
+ * @sde_kms:    Pointer to sde kms structure
+ */
+static void _sde_kms_release_displays(struct sde_kms *sde_kms)
+{
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde kms\n");
+		return;
+	}
+
+	kfree(sde_kms->wb_displays);
+	sde_kms->wb_displays = NULL;
+	sde_kms->wb_display_count = 0;
+
+	kfree(sde_kms->dsi_displays);
+	sde_kms->dsi_displays = NULL;
+	sde_kms->dsi_display_count = 0;
+}
+
+/**
+ * _sde_kms_setup_displays - create encoders, bridges and connectors
+ *                           for underlying displays
+ * @dev:        Pointer to drm device structure
+ * @priv:       Pointer to private drm device data
+ * @sde_kms:    Pointer to sde kms structure
+ * Returns:     Zero on success
+ */
+static int _sde_kms_setup_displays(struct drm_device *dev,
+		struct msm_drm_private *priv,
+		struct sde_kms *sde_kms)
+{
+	static const struct sde_connector_ops dsi_ops = {
+		.post_init =  dsi_conn_post_init,
+		.detect =     dsi_conn_detect,
+		.get_modes =  dsi_connector_get_modes,
+		.mode_valid = dsi_conn_mode_valid,
+		.get_info =   dsi_display_get_info,
+	};
+	static const struct sde_connector_ops wb_ops = {
+		.post_init =    sde_wb_connector_post_init,
+		.detect =       sde_wb_connector_detect,
+		.get_modes =    sde_wb_connector_get_modes,
+		.set_property = sde_wb_connector_set_property,
+		.get_info =     sde_wb_get_info,
+	};
+	struct msm_display_info info;
+	struct drm_encoder *encoder;
+	void *display, *connector;
+	int i, max_encoders;
+	int rc = 0;
+
+	if (!dev || !priv || !sde_kms) {
+		SDE_ERROR("invalid argument(s)\n");
+		return -EINVAL;
+	}
+
+	max_encoders = sde_kms->dsi_display_count + sde_kms->wb_display_count;
+	if (max_encoders > ARRAY_SIZE(priv->encoders)) {
+		max_encoders = ARRAY_SIZE(priv->encoders);
+		SDE_ERROR("capping number of displays to %d", max_encoders);
+	}
+
+	/* dsi */
+	for (i = 0; i < sde_kms->dsi_display_count &&
+		priv->num_encoders < max_encoders; ++i) {
+		display = sde_kms->dsi_displays[i];
+		encoder = NULL;
+
+		memset(&info, 0x0, sizeof(info));
+		rc = dsi_display_get_info(&info, display);
+		if (rc) {
+			SDE_ERROR("dsi get_info %d failed\n", i);
+			continue;
+		}
+
+		encoder = sde_encoder_init(dev, &info);
+		if (IS_ERR_OR_NULL(encoder)) {
+			SDE_ERROR("encoder init failed for dsi %d\n", i);
+			continue;
+		}
+
+		rc = dsi_display_drm_bridge_init(display, encoder);
+		if (rc) {
+			SDE_ERROR("dsi bridge %d init failed, %d\n", i, rc);
+			sde_encoder_destroy(encoder);
+			continue;
+		}
+
+		connector = sde_connector_init(dev,
+					encoder,
+					0,
+					display,
+					&dsi_ops,
+					DRM_CONNECTOR_POLL_HPD,
+					DRM_MODE_CONNECTOR_DSI);
+		if (connector) {
+			priv->encoders[priv->num_encoders++] = encoder;
+		} else {
+			SDE_ERROR("dsi %d connector init failed\n", i);
+			dsi_display_drm_bridge_deinit(display);
+			sde_encoder_destroy(encoder);
+		}
+	}
+
+	/* wb */
+	for (i = 0; i < sde_kms->wb_display_count &&
+		priv->num_encoders < max_encoders; ++i) {
+		display = sde_kms->wb_displays[i];
+		encoder = NULL;
+
+		memset(&info, 0x0, sizeof(info));
+		rc = sde_wb_get_info(&info, display);
+		if (rc) {
+			SDE_ERROR("wb get_info %d failed\n", i);
+			continue;
+		}
+
+		encoder = sde_encoder_init(dev, &info);
+		if (IS_ERR_OR_NULL(encoder)) {
+			SDE_ERROR("encoder init failed for wb %d\n", i);
+			continue;
+		}
+
+		rc = sde_wb_drm_init(display, encoder);
+		if (rc) {
+			SDE_ERROR("wb bridge %d init failed, %d\n", i, rc);
+			sde_encoder_destroy(encoder);
+			continue;
+		}
+
+		connector = sde_connector_init(dev,
+				encoder,
+				0,
+				display,
+				&wb_ops,
+				DRM_CONNECTOR_POLL_HPD,
+				DRM_MODE_CONNECTOR_VIRTUAL);
+		if (connector) {
+			priv->encoders[priv->num_encoders++] = encoder;
+		} else {
+			SDE_ERROR("wb %d connector init failed\n", i);
+			sde_wb_drm_deinit(display);
+			sde_encoder_destroy(encoder);
+		}
+	}
+
+	return 0;
+}
+
 static int modeset_init(struct sde_kms *sde_kms)
 {
 	struct drm_device *dev;
@@ -341,8 +555,12 @@ static int modeset_init(struct sde_kms *sde_kms)
 	priv = dev->dev_private;
 	catalog = sde_kms->catalog;
 
-	/* Enumerate displays supported */
-	sde_encoders_init(dev);
+	/*
+	 * Query for underlying display drivers, and create connectors,
+	 * bridges and encoders for them.
+	 */
+	if (!_sde_kms_get_displays(sde_kms))
+		(void)_sde_kms_setup_displays(dev, priv, sde_kms);
 
 	max_crtc_count = min(catalog->mixer_count, priv->num_encoders);
 	max_plane_count = min_t(u32, catalog->sspp_count, MAX_PLANES);
@@ -440,6 +658,7 @@ static void sde_destroy(struct msm_kms *kms)
 			sde_hw_vbif_destroy(sde_kms->hw_vbif[vbif_idx]);
 	}
 
+	_sde_kms_release_displays(sde_kms);
 	sde_debugfs_destroy(sde_kms);
 	sde_hw_intr_destroy(sde_kms->hw_intr);
 	sde_rm_destroy(&sde_kms->rm);

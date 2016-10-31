@@ -1,5 +1,4 @@
 ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging
-ccflags-y += -Idrivers/gpu/drm/msm/display-manager
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
@@ -44,25 +43,7 @@ msm_drm-y := \
 	sde/sde_plane.o \
 	sde/sde_connector.o \
 	sde/sde_color_processing.o \
-	sde/sde_vbif.o \
-	msm_atomic.o \
-	msm_debugfs.o \
-	msm_drv.o \
-	msm_fb.o \
-	msm_fence.o \
-	msm_gem.o \
-	msm_gem_prime.o \
-	msm_gem_shrinker.o \
-	msm_gem_submit.o \
-	msm_gpu.o \
-	msm_iommu.o \
-	msm_smmu.o \
-	msm_perf.o \
-	msm_rd.o \
-	msm_ringbuffer.o \
-	msm_evtlog.o \
-	sde_power_handle.o \
-	msm_prop.o \
+	sde/sde_vbif.o
 
 # use drm gpu driver only if qcom_kgsl driver not available
 ifneq ($(CONFIG_QCOM_KGSL),y)
@@ -118,9 +99,11 @@ msm_drm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_panel.o \
 				dsi-staging/dsi_display_test.o
 
-obj-$(CONFIG_DRM_MSM)	+= msm_drm.o
+msm_drm-$(CONFIG_DRM_MSM_DSI_PLL) += dsi/pll/dsi_pll.o \
+				dsi/pll/dsi_pll_28nm.o
 
-obj-$(CONFIG_DRM_MSM) += sde/sde_hw_catalog.o \
+msm_drm-$(CONFIG_DRM_MSM) += \
+	sde/sde_hw_catalog.o \
 	sde/sde_hw_cdm.o \
 	sde/sde_hw_dspp.o \
 	sde/sde_hw_intf.o \
@@ -134,8 +117,25 @@ obj-$(CONFIG_DRM_MSM) += sde/sde_hw_catalog.o \
 	sde/sde_hw_interrupts.o \
 	sde/sde_hw_vbif.o \
 	sde/sde_formats.o \
+	sde_power_handle.o
 
-obj-$(CONFIG_DRM_MSM) += display-manager/display_manager.o
-
-obj-$(CONFIG_DRM_SDE_WB) += sde/sde_wb.o \
+msm_drm-$(CONFIG_DRM_SDE_WB) += sde/sde_wb.o \
 	sde/sde_encoder_phys_wb.o
+
+msm_drm-$(CONFIG_DRM_MSM) += \
+	msm_atomic.o \
+	msm_drv.o \
+	msm_fb.o \
+	msm_gem.o \
+	msm_gem_prime.o \
+	msm_gem_submit.o \
+	msm_gpu.o \
+	msm_iommu.o \
+	msm_smmu.o \
+	msm_perf.o \
+	msm_rd.o \
+	msm_ringbuffer.o \
+	msm_evtlog.o \
+	msm_prop.o
+
+obj-$(CONFIG_DRM_MSM)	+= msm_drm.o

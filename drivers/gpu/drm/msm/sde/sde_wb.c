@@ -487,7 +487,11 @@ fail:
 	return rc;
 }
 
-int sde_wb_dev_init(struct sde_wb_device *wb_dev)
+/**
+ * _sde_wb_dev_init - perform device initialization
+ * @wb_dev:	Pointer to writeback device
+ */
+static int _sde_wb_dev_init(struct sde_wb_device *wb_dev)
 {
 	int rc = 0;
 
@@ -501,7 +505,11 @@ int sde_wb_dev_init(struct sde_wb_device *wb_dev)
 	return rc;
 }
 
-int sde_wb_dev_deinit(struct sde_wb_device *wb_dev)
+/**
+ * _sde_wb_dev_deinit - perform device de-initialization
+ * @wb_dev:	Pointer to writeback device
+ */
+static int _sde_wb_dev_deinit(struct sde_wb_device *wb_dev)
 {
 	int rc = 0;
 
@@ -515,31 +523,57 @@ int sde_wb_dev_deinit(struct sde_wb_device *wb_dev)
 	return rc;
 }
 
-int sde_wb_bind(struct sde_wb_device *wb_dev, struct drm_device *drm_dev)
+/**
+ * sde_wb_bind - bind writeback device with controlling device
+ * @dev:        Pointer to base of platform device
+ * @master:     Pointer to container of drm device
+ * @data:       Pointer to private data
+ * Returns:     Zero on success
+ */
+static int sde_wb_bind(struct device *dev, struct device *master, void *data)
 {
-	int rc = 0;
+	struct sde_wb_device *wb_dev;
 
-	if (!wb_dev || !drm_dev) {
+	if (!dev || !master) {
 		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	wb_dev = platform_get_drvdata(to_platform_device(dev));
+	if (!wb_dev) {
+		SDE_ERROR("invalid wb device\n");
 		return -EINVAL;
 	}
 
 	SDE_DEBUG("\n");
 
 	mutex_lock(&wb_dev->wb_lock);
-	wb_dev->drm_dev = drm_dev;
+	wb_dev->drm_dev = dev_get_drvdata(master);
 	mutex_unlock(&wb_dev->wb_lock);
 
-	return rc;
+	return 0;
 }
 
-int sde_wb_unbind(struct sde_wb_device *wb_dev)
+/**
+ * sde_wb_unbind - unbind writeback from controlling device
+ * @dev:        Pointer to base of platform device
+ * @master:     Pointer to container of drm device
+ * @data:       Pointer to private data
+ */
+static void sde_wb_unbind(struct device *dev,
+		struct device *master, void *data)
 {
-	int rc = 0;
+	struct sde_wb_device *wb_dev;
 
-	if (!wb_dev) {
+	if (!dev) {
 		SDE_ERROR("invalid params\n");
-		return -EINVAL;
+		return;
+	}
+
+	wb_dev = platform_get_drvdata(to_platform_device(dev));
+	if (!wb_dev) {
+		SDE_ERROR("invalid wb device\n");
+		return;
 	}
 
 	SDE_DEBUG("\n");
@@ -547,15 +581,23 @@ int sde_wb_unbind(struct sde_wb_device *wb_dev)
 	mutex_lock(&wb_dev->wb_lock);
 	wb_dev->drm_dev = NULL;
 	mutex_unlock(&wb_dev->wb_lock);
-
-	return rc;
 }
 
+static const struct component_ops sde_wb_comp_ops = {
+	.bind = sde_wb_bind,
+	.unbind = sde_wb_unbind,
+};
+
+/**
+ * sde_wb_drm_init - perform DRM initialization
+ * @wb_dev:	Pointer to writeback device
+ * @encoder:	Pointer to associated encoder
+ */
 int sde_wb_drm_init(struct sde_wb_device *wb_dev, struct drm_encoder *encoder)
 {
 	int rc = 0;
 
-	if (!wb_dev || !encoder) {
+	if (!wb_dev || !wb_dev->drm_dev || !encoder) {
 		SDE_ERROR("invalid params\n");
 		return -EINVAL;
 	}
@@ -631,7 +673,13 @@ static int sde_wb_probe(struct platform_device *pdev)
 	list_add(&wb_dev->wb_list, &sde_wb_list);
 	mutex_unlock(&sde_wb_list_lock);
 
-	return 0;
+	if (!_sde_wb_dev_init(wb_dev)) {
+		ret = component_add(&pdev->dev, &sde_wb_comp_ops);
+		if (ret)
+			pr_err("component add failed\n");
+	}
+
+	return ret;
 }
 
 /**
@@ -648,6 +696,8 @@ static int sde_wb_remove(struct platform_device *pdev)
 		return 0;
 
 	SDE_DEBUG("\n");
+
+	(void)_sde_wb_dev_deinit(wb_dev);
 
 	mutex_lock(&sde_wb_list_lock);
 	list_for_each_entry_safe(curr, next, &sde_wb_list, wb_list) {
@@ -681,12 +731,15 @@ static struct platform_driver sde_wb_driver = {
 	},
 };
 
-void sde_wb_register(void)
+static int __init sde_wb_register(void)
 {
-	platform_driver_register(&sde_wb_driver);
+	return platform_driver_register(&sde_wb_driver);
 }
 
-void sde_wb_unregister(void)
+static void __exit sde_wb_unregister(void)
 {
 	platform_driver_unregister(&sde_wb_driver);
 }
+
+module_init(sde_wb_register);
+module_exit(sde_wb_unregister);

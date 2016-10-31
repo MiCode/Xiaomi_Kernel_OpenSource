@@ -93,35 +93,8 @@ u32 sde_wb_get_num_of_displays(void);
  */
 int wb_display_get_displays(void **display_array, u32 max_display_count);
 
-/**
- * wb_display_get_displays - returns pointers for supported display devices
- * @display_array: Pointer to display array to be filled
- * @max_display_count: Size of display_array
- * @Returns: Number of display entries filled
- */
-int sde_wb_dev_init(struct sde_wb_device *wb_dev);
-
-/**
- * sde_wb_dev_deinit - perform device de-initialization
- * @wb_dev:	Pointer to writeback device
- * Returns:	0 if success; error code otherwise
- */
-int sde_wb_dev_deinit(struct sde_wb_device *wb_dev);
-
-/**
- * sde_wb_bind - bind writeback device with controlling device
- * @wb_dev:	Pointer to writeback device
- * @drm_dev:	Pointer to controlling DRM device
- * Returns:	0 if success; error code otherwise
- */
-int sde_wb_bind(struct sde_wb_device *wb_dev, struct drm_device *drm_dev);
-
-/**
- * sde_wb_unbind - unbind writeback from controlling device
- * @wb_dev:	Pointer to writeback device
- * Returns:	0 if success; error code otherwise
- */
-int sde_wb_unbind(struct sde_wb_device *wb_dev);
+void sde_wb_set_active_state(struct sde_wb_device *wb_dev, bool is_active);
+bool sde_wb_is_active(struct sde_wb_device *wb_dev);
 
 /**
  * sde_wb_drm_init - perform DRM initialization
@@ -137,16 +110,6 @@ int sde_wb_drm_init(struct sde_wb_device *wb_dev, struct drm_encoder *encoder);
  * Returns:	0 if success; error code otherwise
  */
 int sde_wb_drm_deinit(struct sde_wb_device *wb_dev);
-
-/**
- * sde_wb_register - register writeback module
- */
-void sde_wb_register(void);
-
-/**
- * sde_wb_unregister - unregister writeback module
- */
-void sde_wb_unregister(void);
 
 /**
  * sde_wb_config - setup connection status and available drm modes of the
@@ -274,24 +237,13 @@ int wb_display_get_displays(void **display_array, u32 max_display_count)
 	return 0;
 }
 static inline
-int sde_wb_dev_init(struct sde_wb_device *wb_dev)
+void sde_wb_set_active_state(struct sde_wb_device *wb_dev, bool is_active)
 {
-	return 0;
 }
 static inline
-int sde_wb_dev_deinit(struct sde_wb_device *wb_dev)
+bool sde_wb_is_active(struct sde_wb_device *wb_dev)
 {
-	return 0;
-}
-static inline
-int sde_wb_bind(struct sde_wb_device *wb_dev, struct drm_device *drm_dev)
-{
-	return 0;
-}
-static inline
-int sde_wb_unbind(struct sde_wb_device *wb_dev)
-{
-	return 0;
+	return false;
 }
 static inline
 int sde_wb_drm_init(struct sde_wb_device *wb_dev, struct drm_encoder *encoder)
@@ -302,14 +254,6 @@ static inline
 int sde_wb_drm_deinit(struct sde_wb_device *wb_dev)
 {
 	return 0;
-}
-static inline
-void sde_wb_register(void)
-{
-}
-static inline
-void sde_wb_unregister(void)
-{
 }
 static inline
 int sde_wb_config(struct drm_device *drm_dev, void *data,
