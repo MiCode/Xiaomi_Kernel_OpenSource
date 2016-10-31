@@ -31,3 +31,20 @@ DT_MACHINE_START(MSMFALCON_DT,
 	.init_machine = msmfalcon_init,
 	.dt_compat = msmfalcon_dt_match,
 MACHINE_END
+
+static const char *msmtriton_dt_match[] __initconst = {
+	"qcom,msmtriton",
+	"qcom,apqtriton",
+	NULL
+};
+
+static void __init msmtriton_init(void)
+{
+	board_dt_populate(NULL);
+}
+
+DT_MACHINE_START(MSMTRITON_DT,
+	"Qualcomm Technologies, Inc. MSM TRITON (Flattened Device Tree)")
+	.init_machine = msmtriton_init,
+	.dt_compat = msmtriton_dt_match,
+MACHINE_END
