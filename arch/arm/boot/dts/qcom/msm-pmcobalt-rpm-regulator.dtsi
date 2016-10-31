@@ -592,7 +592,7 @@
 
 		regulator-bob {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmcobalt_bob";
+			regulator-name = "pmicobalt_bob";
 			qcom,set = <3>;
 			status = "disabled";
 		};
