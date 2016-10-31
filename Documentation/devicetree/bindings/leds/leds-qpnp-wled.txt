@@ -33,7 +33,15 @@ Optional properties for WLED:
 			  - 31100, 29600, 19600, 18100 for pmicobalt/pm2falcon.
 			  Should only be used if qcom,disp-type-amoled is not
 			  specified.
-- qcom,ilim-ma		: maximum current limiter in ma. default is 980.
+- qcom,ilim-ma		: Current limit threshold in mA.
+			  For pmi8994/8952/8996, default value for LCD is 980mA
+			  and AMOLED is 385mA.
+			  Supported values are:
+			  - 105, 385, 660, 980, 1150, 1420, 1700, 1980.
+			  For pmicobalt/pm2falcon, default value for LCD is
+			  970mA and AMOLED is 620mA.
+			  Supported values are:
+			  - 105, 280, 450, 620, 970, 1150, 1300, 1500.
 - qcom,boost-duty-ns	: maximum boost duty cycle in ns. default is 104.
 - qcom,mod-freq-khz	: modulation frequency in khz. default is 9600.
 - qcom,dim-mode		: dimming mode. supporting dimming modes are "analog",
