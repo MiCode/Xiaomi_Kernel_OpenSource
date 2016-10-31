@@ -3585,6 +3585,12 @@ static int ipa3_gsi_pre_fw_load_init(void)
 	return 0;
 }
 
+static void ipa3_uc_is_loaded(void)
+{
+	IPADBG("\n");
+	complete_all(&ipa3_ctx->uc_loaded_completion_obj);
+}
+
 static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 {
 	enum gsi_ver gsi_ver;
@@ -3637,6 +3643,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	int result;
 	struct sps_bam_props bam_props = { 0 };
 	struct gsi_per_props gsi_props;
+	struct ipa3_uc_hdlrs uc_hdlrs = { 0 };
 
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		memset(&gsi_props, 0, sizeof(gsi_props));
@@ -3712,6 +3719,9 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR(":ipa Uc interface init failed (%d)\n", -result);
 	else
 		IPADBG(":ipa Uc interface init ok\n");
+
+	uc_hdlrs.ipa_uc_loaded_hdlr = ipa3_uc_is_loaded;
+	ipa3_uc_register_handlers(IPA_HW_FEATURE_COMMON, &uc_hdlrs);
 
 	result = ipa3_wdi_init();
 	if (result)
@@ -4336,6 +4346,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	INIT_LIST_HEAD(&ipa3_ctx->ipa_ready_cb_list);
 
 	init_completion(&ipa3_ctx->init_completion_obj);
+	init_completion(&ipa3_ctx->uc_loaded_completion_obj);
 
 	/*
 	 * For GSI, we can't register the GSI driver yet, as it expects

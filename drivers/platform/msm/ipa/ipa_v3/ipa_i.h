@@ -1230,6 +1230,7 @@ struct ipa3_context {
 	bool ipa_initialization_complete;
 	struct list_head ipa_ready_cb_list;
 	struct completion init_completion_obj;
+	struct completion uc_loaded_completion_obj;
 	struct ipa3_smp2p_info smp2p_info;
 };
 
