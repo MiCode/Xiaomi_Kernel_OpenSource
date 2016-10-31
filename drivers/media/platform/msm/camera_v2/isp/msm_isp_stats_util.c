@@ -1089,12 +1089,12 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev_ioctl,
 		stats_mask |= 1 << idx;
 		for (k = 0; k < stream_info->num_isp; k++) {
 			vfe_dev = stream_info->vfe_dev[k];
-			if (update_vfes[vfe_dev->pdev->id])
-				continue;
-			update_vfes[vfe_dev->pdev->id] = vfe_dev;
 			stats_data = &vfe_dev->stats_data;
-			num_active_streams[vfe_dev->pdev->id] =
-				stats_data->num_active_stream;
+			if (update_vfes[vfe_dev->pdev->id] == NULL) {
+				update_vfes[vfe_dev->pdev->id] = vfe_dev;
+				num_active_streams[vfe_dev->pdev->id] =
+					stats_data->num_active_stream;
+			}
 			stats_data->num_active_stream++;
 		}
 
