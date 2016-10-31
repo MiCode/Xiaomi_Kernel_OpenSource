@@ -497,7 +497,8 @@ static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 	log_event_dbg("%s: Calling xdci_suspend", __func__);
 
 	ret = ipa_usb_xdci_suspend(gsi->d_port.out_channel_handle,
-				gsi->d_port.in_channel_handle, gsi->prot_id);
+				gsi->d_port.in_channel_handle, gsi->prot_id,
+				true);
 
 	if (!ret) {
 		d_port->sm_state = STATE_SUSPENDED;
