@@ -42,6 +42,7 @@ enum usbpd_svdm_cmd_type {
 struct usbpd_svid_handler {
 	u16 svid;
 
+	/* Notified when VDM session established/reset; must be implemented */
 	void (*connect)(struct usbpd_svid_handler *hdlr);
 	void (*disconnect)(struct usbpd_svid_handler *hdlr);
 
@@ -54,7 +55,9 @@ struct usbpd_svid_handler {
 			enum usbpd_svdm_cmd_type cmd_type, const u32 *vdos,
 			int num_vdos);
 
+	/* client should leave these blank; private members used by PD driver */
 	struct list_head entry;
+	bool discovered;
 };
 
 enum plug_orientation {
