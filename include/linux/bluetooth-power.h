@@ -85,4 +85,5 @@ struct bluetooth_power_platform_data {
 int bt_register_slimdev(struct device *dev);
 
 #define BT_CMD_SLIM_TEST		0xbfac
+#define BT_CMD_PWR_CTRL			0xbfad
 #endif /* __LINUX_BLUETOOTH_POWER_H */

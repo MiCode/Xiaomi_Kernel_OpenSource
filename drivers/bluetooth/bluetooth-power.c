@@ -46,6 +46,7 @@ static const struct of_device_id bt_power_match_table[] = {
 static struct bluetooth_power_platform_data *bt_power_pdata;
 static struct platform_device *btpdev;
 static bool previous;
+static int pwr_state;
 struct class *bt_class;
 static int bt_major;
 
@@ -636,6 +637,7 @@ static int bt_power_probe(struct platform_device *pdev)
 
 		memcpy(bt_power_pdata, pdev->dev.platform_data,
 			sizeof(struct bluetooth_power_platform_data));
+		pwr_state = 0;
 	} else {
 		BT_PWR_ERR("Failed to get platform data");
 		goto free_pdata;
@@ -680,7 +682,7 @@ int bt_register_slimdev(struct device *dev)
 
 static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int ret;
+	int ret, pwr_cntrl = 0;
 
 	switch (cmd) {
 	case BT_CMD_SLIM_TEST:
@@ -691,6 +693,18 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		ret = btfm_slim_hw_init(
 			bt_power_pdata->slim_dev->platform_data
 		);
+		break;
+	case BT_CMD_PWR_CTRL:
+		pwr_cntrl = (int)arg;
+		BT_PWR_ERR("BT_CMD_PWR_CTRL pwr_cntrl:%d", pwr_cntrl);
+		if (pwr_state != pwr_cntrl) {
+			ret = bluetooth_power(pwr_cntrl);
+			if (!ret)
+				pwr_state = pwr_cntrl;
+		} else {
+			BT_PWR_ERR("BT chip state is already :%d no change d\n"
+				, pwr_state);
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -711,6 +725,7 @@ static struct platform_driver bt_power_driver = {
 static const struct file_operations bt_dev_fops = {
 	.owner		= THIS_MODULE,
 	.unlocked_ioctl = bt_ioctl,
+	.compat_ioctl = bt_ioctl,
 };
 
 static int __init bluetooth_power_init(void)
@@ -733,7 +748,7 @@ static int __init bluetooth_power_init(void)
 
 
 	if (device_create(bt_class, NULL, MKDEV(bt_major, 0),
-		NULL, "pintest") == NULL) {
+		NULL, "btpower") == NULL) {
 		BTFMSLIM_ERR("failed to allocate char dev\n");
 		goto chrdev_unreg;
 	}
