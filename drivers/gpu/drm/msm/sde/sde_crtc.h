@@ -26,6 +26,9 @@
 
 #define SDE_CRTC_NAME_SIZE	12
 
+/* define the maximum number of in-flight frame events */
+#define SDE_CRTC_FRAME_EVENT_SIZE	2
+
 /**
  * struct sde_crtc_mixer: stores the map for each virtual pipeline in the CRTC
  * @hw_lm:	LM HW Driver context
@@ -45,6 +48,22 @@ struct sde_crtc_mixer {
 };
 
 /**
+ * struct sde_crtc_frame_event: stores crtc frame event for crtc processing
+ * @work:	base work structure
+ * @crtc:	Pointer to crtc handling this event
+ * @list:	event list
+ * @ts:		timestamp at queue entry
+ * @event:	event identifier
+ */
+struct sde_crtc_frame_event {
+	struct kthread_work work;
+	struct drm_crtc *crtc;
+	struct list_head list;
+	ktime_t ts;
+	u32 event;
+};
+
+/**
  * struct sde_crtc - virtualized CRTC data structure
  * @base          : Base drm crtc structure
  * @name          : ASCII description of this crtc
@@ -53,7 +72,6 @@ struct sde_crtc_mixer {
  * @mixer         : List of active mixers
  * @event         : Pointer to last received drm vblank event. If there is a
  *                  pending vblank event, this will be non-null.
- * @pending       : Whether or not an update is pending
  * @vsync_count   : Running count of received vsync events
  * @drm_requested_vblank : Whether vblanks have been enabled in the encoder
  * @property_info : Opaque structure for generic property support
@@ -67,6 +85,10 @@ struct sde_crtc_mixer {
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
  * @crtc_lock     : crtc lock around create, destroy and access.
+ * @frame_pending : Whether or not an update is pending
+ * @frame_events  : static allocation of in-flight frame events
+ * @frame_event_list : available frame event list
+ * @spin_lock     : spin lock for frame event, transaction status, etc...
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -99,6 +121,11 @@ struct sde_crtc {
 	struct list_head dirty_list;
 
 	struct mutex crtc_lock;
+
+	atomic_t frame_pending;
+	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
+	struct list_head frame_event_list;
+	spinlock_t spin_lock;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)

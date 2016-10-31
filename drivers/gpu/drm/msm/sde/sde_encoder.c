@@ -39,6 +39,9 @@
 #define SDE_ERROR_ENC(e, fmt, ...) SDE_ERROR("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
 
+/* timeout in frames waiting for frame done */
+#define SDE_ENCODER_FRAME_DONE_TIMEOUT	60
+
 /*
  * Two to anticipate panels that can do cmd/vid dynamic switching
  * plan is to create all possible physical encoder types, and switch between
@@ -75,6 +78,14 @@
  * @debugfs_root:		Debug file system root file node
  * @enc_lock:			Lock around physical encoder create/destroy and
 				access.
+ * @frame_busy_mask:		Bitmask tracking which phys_enc we are still
+ *				busy processing current command.
+ *				Bit0 = phys_encs[0] etc.
+ * @crtc_frame_event_cb:	callback handler for frame event
+ * @crtc_frame_event_cb_data:	callback handler private data
+ * @crtc_frame_event:		callback event
+ * @frame_done_timeout:		frame done timeout in Hz
+ * @frame_done_timer:		watchdog timer for frame done event
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -93,6 +104,13 @@ struct sde_encoder_virt {
 
 	struct dentry *debugfs_root;
 	struct mutex enc_lock;
+	DECLARE_BITMAP(frame_busy_mask, MAX_PHYS_ENCODERS_PER_VIRTUAL);
+	void (*crtc_frame_event_cb)(void *, u32 event);
+	void *crtc_frame_event_cb_data;
+	u32 crtc_frame_event;
+
+	atomic_t frame_done_timeout;
+	struct timer_list frame_done_timer;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -511,6 +529,11 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	SDE_EVT32(DRMID(drm_enc));
 
+	if (atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
+		SDE_ERROR("enc%d timeout pending\n", drm_enc->base.id);
+		del_timer_sync(&sde_enc->frame_done_timer);
+	}
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
@@ -624,6 +647,56 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 
 		if (phys && phys->ops.control_vblank_irq)
 			phys->ops.control_vblank_irq(phys, enable);
+	}
+}
+
+void sde_encoder_register_frame_event_callback(struct drm_encoder *drm_enc,
+		void (*frame_event_cb)(void *, u32 event),
+		void *frame_event_cb_data)
+{
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	unsigned long lock_flags;
+	bool enable;
+
+	enable = frame_event_cb ? true : false;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	SDE_DEBUG_ENC(sde_enc, "\n");
+	SDE_EVT32(DRMID(drm_enc), enable, 0);
+
+	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
+	sde_enc->crtc_frame_event_cb = frame_event_cb;
+	sde_enc->crtc_frame_event_cb_data = frame_event_cb_data;
+	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
+}
+
+static void sde_encoder_frame_done_callback(
+		struct drm_encoder *drm_enc,
+		struct sde_encoder_phys *ready_phys, u32 event)
+{
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	unsigned int i;
+
+	/* One of the physical encoders has become idle */
+	for (i = 0; i < sde_enc->num_phys_encs; i++)
+		if (sde_enc->phys_encs[i] == ready_phys) {
+			clear_bit(i, sde_enc->frame_busy_mask);
+			sde_enc->crtc_frame_event |= event;
+			SDE_EVT32(DRMID(drm_enc), i,
+					sde_enc->frame_busy_mask[0]);
+		}
+
+	if (!sde_enc->frame_busy_mask[0]) {
+		atomic_set(&sde_enc->frame_done_timeout, 0);
+		del_timer(&sde_enc->frame_done_timer);
+
+		if (sde_enc->crtc_frame_event_cb)
+			sde_enc->crtc_frame_event_cb(
+					sde_enc->crtc_frame_event_cb_data,
+					sde_enc->crtc_frame_event);
 	}
 }
 
@@ -742,6 +815,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	}
 
 	pending_flush = 0x0;
+	sde_enc->crtc_frame_event = 0;
 
 	/* update pending counts and trigger kickoff ctl flush atomically */
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
@@ -756,6 +830,8 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 		ctl = phys->hw_ctl;
 		if (!ctl)
 			continue;
+
+		set_bit(i, sde_enc->frame_busy_mask);
 
 		if (!phys->ops.needs_single_flush ||
 				!phys->ops.needs_single_flush(phys))
@@ -777,7 +853,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 }
 
-void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
+void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
@@ -798,8 +874,29 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
 		if (phys && phys->ops.prepare_for_kickoff)
 			phys->ops.prepare_for_kickoff(phys);
 	}
+}
 
-	/* all phys encs are ready to go, trigger the kickoff */
+void sde_encoder_kickoff(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *phys;
+	unsigned int i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	SDE_DEBUG_ENC(sde_enc, "\n");
+
+	atomic_set(&sde_enc->frame_done_timeout,
+			SDE_ENCODER_FRAME_DONE_TIMEOUT * 1000 /
+			drm_enc->crtc->state->adjusted_mode.vrefresh);
+	mod_timer(&sde_enc->frame_done_timer, jiffies +
+		((atomic_read(&sde_enc->frame_done_timeout) * HZ) / 1000));
+
+	/* All phys encs are ready to go, trigger the kickoff */
 	_sde_encoder_kickoff_phys(sde_enc);
 
 	/* allow phys encs to handle any post-kickoff business */
@@ -1094,6 +1191,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	struct sde_encoder_virt_ops parent_ops = {
 		sde_encoder_vblank_callback,
 		sde_encoder_underrun_callback,
+		sde_encoder_frame_done_callback,
 	};
 	struct sde_enc_phys_init_params phys_params;
 
@@ -1196,6 +1294,34 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	return ret;
 }
 
+static void sde_encoder_frame_done_timeout(unsigned long data)
+{
+	struct drm_encoder *drm_enc = (struct drm_encoder *) data;
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	struct msm_drm_private *priv;
+
+	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+	priv = drm_enc->dev->dev_private;
+
+	if (!sde_enc->frame_busy_mask[0] || !sde_enc->crtc_frame_event_cb) {
+		SDE_DEBUG("enc%d invalid timeout\n", drm_enc->base.id);
+		SDE_EVT32(DRMID(drm_enc),
+				sde_enc->frame_busy_mask[0], 0);
+		return;
+	} else if (!atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
+		SDE_ERROR("enc%d invalid timeout\n", drm_enc->base.id);
+		SDE_EVT32(DRMID(drm_enc), 0, 1);
+		return;
+	}
+
+	SDE_EVT32(DRMID(drm_enc), 0, 2);
+	sde_enc->crtc_frame_event_cb(sde_enc->crtc_frame_event_cb_data,
+			SDE_ENCODER_FRAME_EVENT_ERROR);
+}
+
 struct drm_encoder *sde_encoder_init(
 		struct drm_device *dev,
 		struct msm_display_info *disp_info)
@@ -1225,6 +1351,10 @@ struct drm_encoder *sde_encoder_init(
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode, NULL);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
 	bs_init(sde_enc);
+
+	atomic_set(&sde_enc->frame_done_timeout, 0);
+	setup_timer(&sde_enc->frame_done_timer, sde_encoder_frame_done_timeout,
+			(unsigned long) sde_enc);
 
 	_sde_encoder_init_debugfs(drm_enc, sde_enc, sde_kms);
 

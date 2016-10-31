@@ -24,6 +24,9 @@
 #include "msm_prop.h"
 #include "sde_hw_mdss.h"
 
+#define SDE_ENCODER_FRAME_EVENT_DONE	BIT(0)
+#define SDE_ENCODER_FRAME_EVENT_ERROR	BIT(1)
+
 /**
  * Encoder functions and data types
  * @intfs:	Interfaces this encoder is using, INTF_MODE_NONE if unused
@@ -59,16 +62,30 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *encoder,
 		void (*cb)(void *), void *data);
 
 /**
- * sde_encoder_schedule_kickoff - Register a callback with the encoder to
- *	trigger a double buffer flip of the ctl path (i.e. ctl flush and start)
- *	at the appropriate time.
+ * sde_encoder_register_frame_event_callback - provide callback to encoder that
+ *	will be called after the request is complete, or other events.
+ * @encoder:	encoder pointer
+ * @cb:		callback pointer, provide NULL to deregister
+ * @data:	user data provided to callback
+ */
+void sde_encoder_register_frame_event_callback(struct drm_encoder *encoder,
+		void (*cb)(void *, u32), void *data);
+
+/**
+ * sde_encoder_prepare_for_kickoff - schedule double buffer flip of the ctl
+ *	path (i.e. ctl flush and start) at next appropriate time.
  *	Immediately: if no previous commit is outstanding.
- *	Delayed: Save the callback, and return. Does not block. Callback will
- *	be triggered later. E.g. cmd encoder will trigger at pp_done irq
- *	irq if it outstanding.
+ *	Delayed: Block until next trigger can be issued.
  * @encoder:	encoder pointer
  */
-void sde_encoder_schedule_kickoff(struct drm_encoder *encoder);
+void sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder);
+
+/**
+ * sde_encoder_kickoff - trigger a double buffer flip of the ctl path
+ *	(i.e. ctl flush and start) immediately.
+ * @encoder:	encoder pointer
+ */
+void sde_encoder_kickoff(struct drm_encoder *drm_enc);
 
 /**
  * sde_encoder_wait_nxt_committed - Wait for hardware to have flushed the

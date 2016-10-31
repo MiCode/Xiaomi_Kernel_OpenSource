@@ -478,6 +478,111 @@ static void sde_crtc_vblank_cb(void *data)
 	SDE_EVT32_IRQ(DRMID(crtc));
 }
 
+static void sde_crtc_frame_event_work(struct kthread_work *work)
+{
+	struct sde_crtc_frame_event *fevent;
+	struct drm_crtc *crtc;
+	struct sde_crtc *sde_crtc;
+	struct sde_kms *sde_kms;
+	unsigned long flags;
+
+	if (!work) {
+		SDE_ERROR("invalid work handle\n");
+		return;
+	}
+
+	fevent = container_of(work, struct sde_crtc_frame_event, work);
+	if (!fevent->crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	crtc = fevent->crtc;
+	sde_crtc = to_sde_crtc(crtc);
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms) {
+		SDE_ERROR("invalid kms handle\n");
+		return;
+	}
+
+	SDE_DEBUG("crtc%d event:%u ts:%lld\n", crtc->base.id, fevent->event,
+			ktime_to_ns(fevent->ts));
+
+	if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE ||
+			fevent->event == SDE_ENCODER_FRAME_EVENT_ERROR) {
+
+		if (atomic_read(&sde_crtc->frame_pending) < 1) {
+			/* this should not happen */
+			SDE_ERROR("crtc%d ts:%lld invalid frame_pending:%d\n",
+					crtc->base.id,
+					ktime_to_ns(fevent->ts),
+					atomic_read(&sde_crtc->frame_pending));
+			SDE_EVT32(DRMID(crtc), fevent->event, 0);
+		} else if (atomic_dec_return(&sde_crtc->frame_pending) == 0) {
+			/* release bandwidth and other resources */
+			SDE_DEBUG("crtc%d ts:%lld last pending\n",
+					crtc->base.id,
+					ktime_to_ns(fevent->ts));
+			SDE_EVT32(DRMID(crtc), fevent->event, 1);
+		} else {
+			SDE_EVT32(DRMID(crtc), fevent->event, 2);
+		}
+	} else {
+		SDE_ERROR("crtc%d ts:%lld unknown event %u\n", crtc->base.id,
+				ktime_to_ns(fevent->ts),
+				fevent->event);
+		SDE_EVT32(DRMID(crtc), fevent->event, 3);
+	}
+
+	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+	list_add_tail(&fevent->list, &sde_crtc->frame_event_list);
+	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+}
+
+static void sde_crtc_frame_event_cb(void *data, u32 event)
+{
+	struct drm_crtc *crtc = (struct drm_crtc *)data;
+	struct sde_crtc *sde_crtc;
+	struct msm_drm_private *priv;
+	struct list_head *list, *next;
+	struct sde_crtc_frame_event *fevent;
+	unsigned long flags;
+	int pipe_id;
+
+	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+	priv = crtc->dev->dev_private;
+	pipe_id = drm_crtc_index(crtc);
+
+	SDE_DEBUG("crtc%d\n", crtc->base.id);
+
+	SDE_EVT32(DRMID(crtc), event);
+
+	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+	list_for_each_safe(list, next, &sde_crtc->frame_event_list) {
+		list_del_init(list);
+		break;
+	}
+	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+
+	if (!list) {
+		SDE_ERROR("crtc%d event %d overflow\n",
+				crtc->base.id, event);
+		SDE_EVT32(DRMID(crtc), event);
+		return;
+	}
+
+	fevent = container_of(list, struct sde_crtc_frame_event, list);
+	fevent->event = event;
+	fevent->crtc = crtc;
+	fevent->ts = ktime_get();
+	kthread_queue_work(&priv->disp_thread[pipe_id].worker, &fevent->work);
+}
+
 void sde_crtc_complete_commit(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state)
 {
@@ -839,12 +944,14 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 {
 	struct drm_encoder *encoder;
 	struct drm_device *dev;
+	struct sde_crtc *sde_crtc;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
 		return;
 	}
 	dev = crtc->dev;
+	sde_crtc = to_sde_crtc(crtc);
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
@@ -854,7 +961,29 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		 * Encoder will flush/start now, unless it has a tx pending.
 		 * If so, it may delay and flush at an irq event (e.g. ppdone)
 		 */
-		sde_encoder_schedule_kickoff(encoder);
+		sde_encoder_prepare_for_kickoff(encoder);
+	}
+
+	if (atomic_read(&sde_crtc->frame_pending) > 2) {
+		/* framework allows only 1 outstanding + current */
+		SDE_ERROR("crtc%d invalid frame pending\n",
+				crtc->base.id);
+		SDE_EVT32(DRMID(crtc), 0);
+		return;
+	} else if (atomic_inc_return(&sde_crtc->frame_pending) == 1) {
+		/* acquire bandwidth and other resources */
+		SDE_DEBUG("crtc%d first commit\n", crtc->base.id);
+		SDE_EVT32(DRMID(crtc), 1);
+	} else {
+		SDE_DEBUG("crtc%d commit\n", crtc->base.id);
+		SDE_EVT32(DRMID(crtc), 2);
+	}
+
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
+
+		sde_encoder_kickoff(encoder);
 	}
 }
 
@@ -945,10 +1074,12 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	mutex_lock(&sde_crtc->crtc_lock);
+	SDE_EVT32(DRMID(crtc));
+
 	if (atomic_read(&sde_crtc->vblank_refcount)) {
-		SDE_ERROR("crtc%d invalid vblank refcount %d\n",
-				crtc->base.id,
-				atomic_read(&sde_crtc->vblank_refcount));
+		SDE_ERROR("crtc%d invalid vblank refcount\n",
+				crtc->base.id);
+		SDE_EVT32(DRMID(crtc));
 		drm_for_each_encoder(encoder, crtc->dev) {
 			if (encoder->crtc != crtc)
 				continue;
@@ -956,6 +1087,20 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 						NULL);
 		}
 		atomic_set(&sde_crtc->vblank_refcount, 0);
+	}
+
+	if (atomic_read(&sde_crtc->frame_pending)) {
+		/* release bandwidth and other resources */
+		SDE_ERROR("crtc%d invalid frame pending\n",
+				crtc->base.id);
+		SDE_EVT32(DRMID(crtc));
+		atomic_set(&sde_crtc->frame_pending, 0);
+	}
+
+	drm_for_each_encoder(encoder, crtc->dev) {
+		if (encoder->crtc != crtc)
+			continue;
+		sde_encoder_register_frame_event_callback(encoder, NULL, NULL);
 	}
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
@@ -970,6 +1115,7 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	struct sde_hw_mixer *lm;
 	struct drm_display_mode *mode;
 	struct sde_hw_mixer_cfg cfg;
+	struct drm_encoder *encoder;
 	int i;
 
 	if (!crtc) {
@@ -978,6 +1124,7 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	}
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
+	SDE_EVT32(DRMID(crtc));
 
 	sde_crtc = to_sde_crtc(crtc);
 	mixer = sde_crtc->mixers;
@@ -988,6 +1135,13 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	mode = &crtc->state->adjusted_mode;
 
 	drm_mode_debug_printmodeline(mode);
+
+	drm_for_each_encoder(encoder, crtc->dev) {
+		if (encoder->crtc != crtc)
+			continue;
+		sde_encoder_register_frame_event_callback(encoder,
+				sde_crtc_frame_event_cb, (void *)crtc);
+	}
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		lm = mixer[i].hw_lm;
@@ -1557,6 +1711,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	struct sde_crtc *sde_crtc = NULL;
 	struct msm_drm_private *priv = NULL;
 	struct sde_kms *kms = NULL;
+	int i;
 
 	priv = dev->dev_private;
 	kms = to_sde_kms(priv->kms);
@@ -1568,6 +1723,18 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	crtc = &sde_crtc->base;
 	crtc->dev = dev;
 	atomic_set(&sde_crtc->vblank_refcount, 0);
+
+	spin_lock_init(&sde_crtc->spin_lock);
+	atomic_set(&sde_crtc->frame_pending, 0);
+
+	INIT_LIST_HEAD(&sde_crtc->frame_event_list);
+	for (i = 0; i < ARRAY_SIZE(sde_crtc->frame_events); i++) {
+		INIT_LIST_HEAD(&sde_crtc->frame_events[i].list);
+		list_add(&sde_crtc->frame_events[i].list,
+				&sde_crtc->frame_event_list);
+		kthread_init_work(&sde_crtc->frame_events[i].work,
+				sde_crtc_frame_event_work);
+	}
 
 	drm_crtc_init_with_planes(dev, crtc, plane, NULL, &sde_crtc_funcs,
 				NULL);
