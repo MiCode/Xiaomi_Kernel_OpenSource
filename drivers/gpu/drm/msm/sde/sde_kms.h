@@ -143,6 +143,10 @@ struct sde_kms {
 
 	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
 	struct sde_hw_mdp *hw_mdp;
+	int dsi_display_count;
+	void **dsi_displays;
+	int wb_display_count;
+	void **wb_displays;
 };
 
 struct vsync_info {
@@ -463,10 +467,19 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *encoder);
 int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
 
 /**
- * sde_encoders_init - query platform, create all encoders and bridges,
- *	and register them with the drm_device
- * @dev:	drm device pointer
+ * sde_encoder_init - initialize virtual encoder object
+ * @dev:        Pointer to drm device structure
+ * @disp_info:  Pointer to display information structure
+ * Returns:     Pointer to newly created drm encoder
  */
-void sde_encoders_init(struct drm_device *dev);
+struct drm_encoder *sde_encoder_init(
+		struct drm_device *dev,
+		struct msm_display_info *disp_info);
+
+/**
+ * sde_encoder_destroy - destroy previously initialized virtual encoder
+ * @drm_enc:    Pointer to previously created drm encoder structure
+ */
+void sde_encoder_destroy(struct drm_encoder *drm_enc);
 
 #endif /* __sde_kms_H__ */

@@ -210,8 +210,6 @@ struct msm_display_info {
 	enum msm_display_compression compression;
 };
 
-struct display_manager;
-
 /**
  * struct msm_drm_event - defines custom event notification struct
  * @base: base object required for event notification by DRM framework.
@@ -250,9 +248,6 @@ struct msm_drm_private {
 
 	/* DSI is shared by mdp4 and mdp5 */
 	struct msm_dsi *dsi[2];
-
-	/* Display manager for SDE driver */
-	struct display_manager *dm;
 
 	/* when we have more than one 'msm_gpu' these need to be an array: */
 	struct msm_gpu *gpu;

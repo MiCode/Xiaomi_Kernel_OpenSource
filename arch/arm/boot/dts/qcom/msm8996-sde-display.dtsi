@@ -103,171 +103,168 @@
 		};
 	};
 
-	display_manager: qcom,display-manager {
-		compatible = "qcom,display-manager";
+	dsi_dual_sharp_video_1: qcom,dsi-display@0 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_dual_sharp_video";
+		qcom,display-type = "primary";
 
-		dsi_dual_sharp_video_1: qcom,dsi-display@0 {
-			compatible = "qcom,dsi-display";
-			label = "dsi_dual_sharp_video";
-			qcom,display-type = "primary";
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
+			 <&clock_mmss clk_ext_pclk0_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
 
-			qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
-			qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-			clocks = <&clock_mmss clk_ext_byte0_clk_src>,
-				 <&clock_mmss clk_ext_pclk0_clk_src>;
-			clock-names = "src_byte_clk", "src_pixel_clk";
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+		pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 10 0>;
+		qcom,platform-reset-gpio = <&tlmm 8 0>;
 
-			pinctrl-names = "panel_active", "panel_suspend";
-			pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-			pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-			qcom,platform-te-gpio = <&tlmm 10 0>;
-			qcom,platform-reset-gpio = <&tlmm 8 0>;
+		qcom,dsi-panel = <&dsi_dual_sharp_video>;
+		vddio-supply = <&pm8994_l14>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
+		qcom,dsi-display-active;
+	};
 
-			qcom,dsi-panel = <&dsi_dual_sharp_video>;
-			vddio-supply = <&pm8994_l14>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
-			qcom,dsi-display-active;
-		};
+	single_dsi_sim_vid: qcom,dsi-display@1 {
+		compatible = "qcom,dsi-display";
+		label = "single_dsi_sim";
+		qcom,display-type = "primary";
 
-		single_dsi_sim_vid: qcom,dsi-display@1 {
-			compatible = "qcom,dsi-display";
-			label = "single_dsi_sim";
-			qcom,display-type = "primary";
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
+			 <&clock_mmss clk_ext_pclk0_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
 
-			qcom,dsi-ctrl = <&mdss_dsi0>;
-			qcom,dsi-phy = <&mdss_dsi_phy0>;
-			clocks = <&clock_mmss clk_ext_byte0_clk_src>,
-				 <&clock_mmss clk_ext_pclk0_clk_src>;
-			clock-names = "src_byte_clk", "src_pixel_clk";
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+		pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 10 0>;
 
-			pinctrl-names = "panel_active", "panel_suspend";
-			pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-			pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-			qcom,platform-te-gpio = <&tlmm 10 0>;
+		qcom,dsi-panel = <&dsi_sim_vid>;
+		vddio-supply = <&pm8994_l14>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
+	};
 
-			qcom,dsi-panel = <&dsi_sim_vid>;
-			vddio-supply = <&pm8994_l14>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
-		};
+	dsi_toshiba_720p_vid: qcom,dsi-display@2 {
+		compatible = "qcom,dsi-display";
+		label = "single_dsi_toshiba_720p";
+		qcom,display-type = "primary";
 
-		dsi_toshiba_720p_vid: qcom,dsi-display@2 {
-			compatible = "qcom,dsi-display";
-			label = "single_dsi_toshiba_720p";
-			qcom,display-type = "primary";
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
+			 <&clock_mmss clk_ext_pclk0_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
 
-			qcom,dsi-ctrl = <&mdss_dsi0>;
-			qcom,dsi-phy = <&mdss_dsi_phy0>;
-			clocks = <&clock_mmss clk_ext_byte0_clk_src>,
-				 <&clock_mmss clk_ext_pclk0_clk_src>;
-			clock-names = "src_byte_clk", "src_pixel_clk";
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+		pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 10 0>;
 
-			pinctrl-names = "panel_active", "panel_suspend";
-			pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-			pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-			qcom,platform-te-gpio = <&tlmm 10 0>;
+		qcom,dsi-panel = <&dsi_tosh_720_vid>;
+		vddio-supply = <&pm8994_l14>;
+		vdd-supply = <&pm8994_l19>;
+	};
 
-			qcom,dsi-panel = <&dsi_tosh_720_vid>;
-			vddio-supply = <&pm8994_l14>;
-			vdd-supply = <&pm8994_l19>;
-		};
+	dsi_jdi_1080p_vid: qcom,dsi-display@3 {
+		compatible = "qcom,dsi-display";
+		label = "single_dsi_jdi_1080p";
+		qcom,display-type = "primary";
 
-		dsi_jdi_1080p_vid: qcom,dsi-display@3 {
-			compatible = "qcom,dsi-display";
-			label = "single_dsi_jdi_1080p";
-			qcom,display-type = "primary";
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
+			 <&clock_mmss clk_ext_pclk0_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
 
-			qcom,dsi-ctrl = <&mdss_dsi0>;
-			qcom,dsi-phy = <&mdss_dsi_phy0>;
-			clocks = <&clock_mmss clk_ext_byte0_clk_src>,
-				 <&clock_mmss clk_ext_pclk0_clk_src>;
-			clock-names = "src_byte_clk", "src_pixel_clk";
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+		pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
-			pinctrl-names = "panel_active", "panel_suspend";
-			pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-			pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+		qcom,dsi-panel = <&dsi_jdi_1080p_video>;
+		vddio-supply = <&pm8994_l14>;
+	};
 
-			qcom,dsi-panel = <&dsi_jdi_1080p_video>;
-			vddio-supply = <&pm8994_l14>;
-		};
+	dsi_sharp_fhd_cmd: qcom,dsi-display@4 {
+		compatible = "qcom,dsi-display";
+		label = "single_dsi_sharp_1080p";
+		qcom,display-type = "primary";
 
-		dsi_sharp_fhd_cmd: qcom,dsi-display@4 {
-			compatible = "qcom,dsi-display";
-			label = "single_dsi_sharp_1080p";
-			qcom,display-type = "primary";
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
+			 <&clock_mmss clk_ext_pclk0_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
 
-			qcom,dsi-ctrl = <&mdss_dsi0>;
-			qcom,dsi-phy = <&mdss_dsi_phy0>;
-			clocks = <&clock_mmss clk_ext_byte0_clk_src>,
-				 <&clock_mmss clk_ext_pclk0_clk_src>;
-			clock-names = "src_byte_clk", "src_pixel_clk";
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+		pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
-			pinctrl-names = "panel_active", "panel_suspend";
-			pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-			pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+		qcom,dsi-panel = <&dsi_sharp_1080_cmd>;
+		vddio-supply = <&pm8994_l14>;
+		vdd-supply = <&pm8994_l19>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
+	};
 
-			qcom,dsi-panel = <&dsi_sharp_1080_cmd>;
-			vddio-supply = <&pm8994_l14>;
-			vdd-supply = <&pm8994_l19>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
-		};
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
 
-		sde_wb: qcom,wb-display@0 {
-			compatible = "qcom,wb-display";
-			cell-index = <0>;
-			label = "wb_display";
-		};
+	dsi_dual_nt35597_cmd_1: qcom,dsi-display@5 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_dual_nt35597_cmd";
+		qcom,display-type = "primary";
 
-		dsi_dual_nt35597_cmd_1: qcom,dsi-display@5 {
-			compatible = "qcom,dsi-display";
-			label = "dsi_dual_nt35597_cmd";
-			qcom,display-type = "primary";
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
+			 <&clock_mmss clk_ext_pclk0_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
 
-			qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
-			qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-			clocks = <&clock_mmss clk_ext_byte0_clk_src>,
-				 <&clock_mmss clk_ext_pclk0_clk_src>;
-			clock-names = "src_byte_clk", "src_pixel_clk";
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+		pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 10 0>;
 
-			pinctrl-names = "panel_active", "panel_suspend";
-			pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-			pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-			qcom,platform-te-gpio = <&tlmm 10 0>;
+		qcom,dsi-panel = <&dsi_dual_nt35597_cmd>;
+		vddio-supply = <&pm8994_l14>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
+	};
 
-			qcom,dsi-panel = <&dsi_dual_nt35597_cmd>;
-			vddio-supply = <&pm8994_l14>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
-		};
+	dsi_dual_nt35597_video_1: qcom,dsi-display@6 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_dual_nt35597_video";
+		qcom,display-type = "primary";
 
-		dsi_dual_nt35597_video_1: qcom,dsi-display@6 {
-			compatible = "qcom,dsi-display";
-			label = "dsi_dual_nt35597_video";
-			qcom,display-type = "primary";
+		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
+			 <&clock_mmss clk_ext_pclk0_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
 
-			qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
-			qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-			clocks = <&clock_mmss clk_ext_byte0_clk_src>,
-				 <&clock_mmss clk_ext_pclk0_clk_src>;
-			clock-names = "src_byte_clk", "src_pixel_clk";
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+		pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 10 0>;
 
-			pinctrl-names = "panel_active", "panel_suspend";
-			pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-			pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-			qcom,platform-te-gpio = <&tlmm 10 0>;
-
-			qcom,dsi-panel = <&dsi_dual_nt35597_video>;
-			vddio-supply = <&pm8994_l14>;
-			lab-supply = <&lab_regulator>;
-			ibb-supply = <&ibb_regulator>;
-		};
+		qcom,dsi-panel = <&dsi_dual_nt35597_video>;
+		vddio-supply = <&pm8994_l14>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
 	};
 };
 
 &mdss_mdp {
-	connectors = <&display_manager>;
+	connectors = <&dsi_dual_sharp_video_1
+		&sde_wb>;
 };
 
 &dsi_dual_sharp_video {

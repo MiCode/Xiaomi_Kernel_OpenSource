@@ -159,22 +159,12 @@ int dsi_display_dev_probe(struct platform_device *pdev);
 int dsi_display_dev_remove(struct platform_device *pdev);
 
 /**
- * dsi_display_register() - register dsi display platform driver
- */
-void dsi_display_register(void);
-
-/**
- * dsi_display_unregister() - unregister dsi display platform driver
- */
-void dsi_display_unregister(void);
-
-/**
  * dsi_display_get_num_of_displays() - returns number of display devices
  *				       supported.
  *
  * Return: number of displays.
  */
-u32 dsi_display_get_num_of_displays(void);
+int dsi_display_get_num_of_displays(void);
 
 /**
  * dsi_display_get_active_displays - returns pointers for active display devices
@@ -199,44 +189,6 @@ struct dsi_display *dsi_display_get_display_by_name(const char *name);
  * @is_active:      state
  */
 void dsi_display_set_active_state(struct dsi_display *display, bool is_active);
-
-/**
- * dsi_display_dev_init() - Initializes the display device
- * @display:         Handle to the display.
- *
- * Initialization will acquire references to the resources required for the
- * display hardware to function.
- *
- * Return: error code.
- */
-int dsi_display_dev_init(struct dsi_display *display);
-
-/**
- * dsi_display_dev_deinit() - Desinitializes the display device
- * @display:        Handle to the display.
- *
- * All the resources acquired during device init will be released.
- *
- * Return: error code.
- */
-int dsi_display_dev_deinit(struct dsi_display *display);
-
-/**
- * dsi_display_bind() - Binds the display device to the DRM device
- * @display:       Handle to the display.
- * @dev:           Pointer to the DRM device.
- *
- * Return: error code.
- */
-int dsi_display_bind(struct dsi_display *display, struct drm_device *dev);
-
-/**
- * dsi_display_unbind() - Unbinds the display device from the DRM device
- * @display:         Handle to the display.
- *
- * Return: error code.
- */
-int dsi_display_unbind(struct dsi_display *display);
 
 /**
  * dsi_display_drm_bridge_init() - initializes DRM bridge object for DSI
