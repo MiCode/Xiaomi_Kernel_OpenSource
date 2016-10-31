@@ -336,6 +336,9 @@
 
 		qcom,pcie-link-speed = <2>;
 		qcom,pcie-phy-ver = <3>;
+		qcom,phy-status-reg = <0x728>;
+		qcom,dbi-base-reg = <0x168>;
+		qcom,slv-space-reg = <0x16c>;
 	};
 
 	ipa_hw: qcom,ipa@07900000 {
