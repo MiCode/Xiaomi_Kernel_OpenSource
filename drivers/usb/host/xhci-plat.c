@@ -241,9 +241,13 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_usb_phy;
 
+	device_wakeup_enable(&hcd->self.root_hub->dev);
+
 	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED | IRQF_ONESHOT);
 	if (ret)
 		goto dealloc_usb2_hcd;
+
+	device_wakeup_enable(&xhci->shared_hcd->self.root_hub->dev);
 
 	ret = device_create_file(&pdev->dev, &dev_attr_config_imod);
 	if (ret)
