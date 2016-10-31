@@ -122,9 +122,11 @@ void ring_ev_db(struct mhi_device_ctxt *mhi_dev_ctxt, u32 event_ring_index)
 {
 	struct mhi_ring *event_ctxt = NULL;
 	u64 db_value = 0;
+	unsigned long flags;
 
 	event_ctxt =
 		&mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index];
+	spin_lock_irqsave(&event_ctxt->ring_lock, flags);
 	db_value = mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_EVENT_RING,
 						event_ring_index,
 						(uintptr_t) event_ctxt->wp);
@@ -132,6 +134,7 @@ void ring_ev_db(struct mhi_device_ctxt *mhi_dev_ctxt, u32 event_ring_index)
 				    mhi_dev_ctxt->mmio_info.event_db_addr,
 				    event_ring_index,
 				    db_value);
+	spin_unlock_irqrestore(&event_ctxt->ring_lock, flags);
 }
 
 static int mhi_event_ring_init(struct mhi_event_ctxt *ev_list,
