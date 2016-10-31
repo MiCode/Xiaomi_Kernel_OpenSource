@@ -594,6 +594,7 @@ int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 	ring->el_size = sizeof(struct mhi_tx_pkt);
 	ring->overwrite_en = 0;
 	ring->dir = chan_type;
+	ring->ch_state = MHI_CHAN_STATE_DISABLED;
 	ring->db_mode.db_mode = 1;
 	ring->db_mode.preserve_db_state = (preserve_db_state) ? 1 : 0;
 	ring->db_mode.brstmode = brstmode;

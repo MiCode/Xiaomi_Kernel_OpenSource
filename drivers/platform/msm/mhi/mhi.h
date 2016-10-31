@@ -206,6 +206,7 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_CMD_COMPLETION_EVENT = 0x21,
 	MHI_PKT_TYPE_TX_EVENT = 0x22,
 	MHI_PKT_TYPE_EE_EVENT = 0x40,
+	MHI_PKT_TYPE_STALE_EVENT, /* Internal event */
 	MHI_PKT_TYPE_SYS_ERR_EVENT = 0xFF,
 };
 
@@ -310,6 +311,7 @@ struct mhi_ring {
 	uintptr_t el_size;
 	u32 overwrite_en;
 	enum MHI_CHAN_DIR dir;
+	enum MHI_CHAN_STATE ch_state;
 	struct db_mode db_mode;
 	u32 msi_disable_cntr;
 	u32 msi_enable_cntr;
