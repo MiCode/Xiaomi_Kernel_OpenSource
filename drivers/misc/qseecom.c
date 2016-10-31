@@ -4684,6 +4684,40 @@ int qseecom_set_bandwidth(struct qseecom_handle *handle, bool high)
 }
 EXPORT_SYMBOL(qseecom_set_bandwidth);
 
+int qseecom_process_listener_from_smcinvoke(struct scm_desc *desc)
+{
+	struct qseecom_registered_app_list dummy_app_entry = { {0} };
+	struct qseecom_dev_handle dummy_private_data = {0};
+	struct qseecom_command_scm_resp resp;
+	int ret = 0;
+
+	if (!desc) {
+		pr_err("desc is NULL\n");
+		return -EINVAL;
+	}
+
+	resp.result = desc->ret[0];	/*req_cmd*/
+	resp.resp_type = desc->ret[1];	/*app_id*/
+	resp.data = desc->ret[2];	/*listener_id*/
+
+	dummy_private_data.client.app_id = desc->ret[1];
+	dummy_app_entry.app_id = desc->ret[1];
+
+	mutex_lock(&app_access_lock);
+	ret = __qseecom_process_reentrancy(&resp, &dummy_app_entry,
+					&dummy_private_data);
+	mutex_unlock(&app_access_lock);
+	if (ret)
+		pr_err("Failed to req cmd %d lsnr %d on app %d, ret = %d\n",
+			(int)desc->ret[0], (int)desc->ret[2],
+			(int)desc->ret[1], ret);
+	desc->ret[0] = resp.result;
+	desc->ret[1] = resp.resp_type;
+	desc->ret[2] = resp.data;
+	return ret;
+}
+EXPORT_SYMBOL(qseecom_process_listener_from_smcinvoke);
+
 static int qseecom_send_resp(void)
 {
 	qseecom.send_resp_flag = 1;
