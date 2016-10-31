@@ -728,7 +728,7 @@ int __init_memblock memblock_free(phys_addr_t base, phys_addr_t size)
 		     (void *)_RET_IP_);
 
 	if (base < memblock.current_limit)
-		kmemleak_free_part(__va(base), size);
+		kmemleak_free_part_phys(base, size);
 	return memblock_remove_range(&memblock.reserved, base, size);
 }
 
@@ -1158,7 +1158,7 @@ static phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
 		 * never reported as leaks.
 		 */
 		if (found < memblock.current_limit)
-			kmemleak_alloc(__va(found), size, 0, 0);
+			kmemleak_alloc_phys(found, size, 0, 0);
 		return found;
 	}
 	return 0;
@@ -1405,7 +1405,7 @@ void __init __memblock_free_early(phys_addr_t base, phys_addr_t size)
 	memblock_dbg("%s: [%#016llx-%#016llx] %pF\n",
 		     __func__, (u64)base, (u64)base + size - 1,
 		     (void *)_RET_IP_);
-	kmemleak_free_part(__va(base), size);
+	kmemleak_free_part_phys(base, size);
 	memblock_remove_range(&memblock.reserved, base, size);
 }
 
@@ -1425,7 +1425,7 @@ void __init __memblock_free_late(phys_addr_t base, phys_addr_t size)
 	memblock_dbg("%s: [%#016llx-%#016llx] %pF\n",
 		     __func__, (u64)base, (u64)base + size - 1,
 		     (void *)_RET_IP_);
-	kmemleak_free_part(__va(base), size);
+	kmemleak_free_part_phys(base, size);
 	cursor = PFN_UP(base);
 	end = PFN_DOWN(base + size);
 
@@ -1442,6 +1442,11 @@ void __init __memblock_free_late(phys_addr_t base, phys_addr_t size)
 phys_addr_t __init_memblock memblock_phys_mem_size(void)
 {
 	return memblock.memory.total_size;
+}
+
+phys_addr_t __init_memblock memblock_reserved_size(void)
+{
+	return memblock.reserved.total_size;
 }
 
 phys_addr_t __init memblock_mem_size(unsigned long limit_pfn)

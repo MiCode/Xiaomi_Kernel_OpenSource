@@ -41,22 +41,22 @@
  */
 static inline void __raw_writeb_no_log(u8 val, volatile void __iomem *addr)
 {
-	asm volatile("strb %w0, [%1]" : : "r" (val), "r" (addr));
+	asm volatile("strb %w0, [%1]" : : "rZ" (val), "r" (addr));
 }
 
 static inline void __raw_writew_no_log(u16 val, volatile void __iomem *addr)
 {
-	asm volatile("strh %w0, [%1]" : : "r" (val), "r" (addr));
+	asm volatile("strh %w0, [%1]" : : "rZ" (val), "r" (addr));
 }
 
 static inline void __raw_writel_no_log(u32 val, volatile void __iomem *addr)
 {
-	asm volatile("str %w0, [%1]" : : "r" (val), "r" (addr));
+	asm volatile("str %w0, [%1]" : : "rZ" (val), "r" (addr));
 }
 
 static inline void __raw_writeq_no_log(u64 val, volatile void __iomem *addr)
 {
-	asm volatile("str %0, [%1]" : : "r" (val), "r" (addr));
+	asm volatile("str %x0, [%1]" : : "rZ" (val), "r" (addr));
 }
 
 static inline u8 __raw_readb_no_log(const volatile void __iomem *addr)
@@ -237,17 +237,6 @@ extern void __iomem *ioremap_cache(phys_addr_t phys_addr, size_t size);
 #define iowrite16be(v,p)	({ __iowmb(); __raw_writew((__force __u16)cpu_to_be16(v), p); })
 #define iowrite32be(v,p)	({ __iowmb(); __raw_writel((__force __u32)cpu_to_be32(v), p); })
 #define iowrite64be(v,p)	({ __iowmb(); __raw_writeq((__force __u64)cpu_to_be64(v), p); })
-
-/*
- * Convert a physical pointer to a virtual kernel pointer for /dev/mem
- * access
- */
-#define xlate_dev_mem_ptr(p)	__va(p)
-
-/*
- * Convert a virtual cached pointer to an uncached pointer
- */
-#define xlate_dev_kmem_ptr(p)	p
 
 #include <asm-generic/io.h>
 

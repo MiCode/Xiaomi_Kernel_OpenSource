@@ -24,7 +24,7 @@
 
 #define UFS_VENDOR_TOSHIBA     0x198
 #define UFS_VENDOR_SAMSUNG     0x1CE
-#define UFS_VENDOR_HYNIX       0x1AD
+#define UFS_VENDOR_SKHYNIX     0x1AD
 
 /* UFS TOSHIBA MODELS */
 #define UFS_MODEL_TOSHIBA_32GB "THGLF2G8D4KBADR"
@@ -141,4 +141,5 @@ struct ufs_card_fix {
 
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);
+
 #endif /* UFS_QUIRKS_H_ */

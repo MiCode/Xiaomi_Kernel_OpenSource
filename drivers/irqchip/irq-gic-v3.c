@@ -154,7 +154,7 @@ static void gic_enable_redist(bool enable)
 			return;	/* No PM support in this redistributor */
 	}
 
-	while (count--) {
+	while (--count) {
 		val = readl_relaxed(rbase + GICR_WAKER);
 		if (enable ^ (bool)(val & GICR_WAKER_ChildrenAsleep))
 			break;
@@ -497,6 +497,14 @@ static void gic_cpu_sys_reg_init(void)
 
 	/* Set priority mask register */
 	gic_write_pmr(DEFAULT_PMR_VALUE);
+
+	/*
+	 * Some firmwares hand over to the kernel with the BPR changed from
+	 * its reset value (and with a value large enough to prevent
+	 * any pre-emptive interrupts from working at all). Writing a zero
+	 * to BPR restores is reset value.
+	 */
+	gic_write_bpr1(0);
 
 	if (static_key_true(&supports_deactivate)) {
 		/* EOI drops priority only (mode 1) */
@@ -915,7 +923,6 @@ static int __init gic_init_bases(void __iomem *dist_base,
 				 u64 redist_stride,
 				 struct fwnode_handle *handle)
 {
-	struct device_node *node;
 	u32 typer;
 	int gic_irqs;
 	int err;
@@ -956,11 +963,9 @@ static int __init gic_init_bases(void __iomem *dist_base,
 
 	set_handle_irq(gic_handle_irq);
 
-	node = to_of_node(handle);
 	if (IS_ENABLED(CONFIG_ARM_GIC_V3_ITS) && gic_dist_supports_lpis() &&
-	    !IS_ENABLED(CONFIG_ARM_GIC_V3_ACL) &&
-	    node) /* Temp hack to prevent ITS init for ACPI */
-		its_init(node, &gic_data.rdists, gic_data.domain);
+	    !IS_ENABLED(CONFIG_ARM_GIC_V3_ACL))
+		its_init(handle, &gic_data.rdists, gic_data.domain);
 
 	gic_smp_init();
 	gic_dist_init();

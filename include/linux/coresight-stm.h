@@ -40,11 +40,13 @@ enum stm_pkt_type {
 /**
  * struct channel_space - central management entity for extended ports
  * @base:		memory mapped base address where channels start.
+ * @phys:		physical base address of channel region.
  * @guaraneed:		is the channel delivery guaranteed.
  * @bitmap:		channel info for OST packet
  */
 struct channel_space {
 	void __iomem		*base;
+	phys_addr_t		phys;
 	unsigned long		*guaranteed;
 	unsigned long		*bitmap;
 };

@@ -607,12 +607,6 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 			   daddr, saddr, 0, 0,
 			   sock_i_uid(sk));
 
-	if (!saddr && ipc.oif) {
-		err = l3mdev_get_saddr(net, ipc.oif, &fl4);
-		if (err < 0)
-			goto done;
-	}
-
 	if (!inet->hdrincl) {
 		rfv.msg = msg;
 		rfv.hlen = 0;

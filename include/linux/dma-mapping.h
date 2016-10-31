@@ -57,25 +57,30 @@
  */
 #define DMA_ATTR_ALLOC_SINGLE_PAGES	(1UL << 7)
 /*
+ * DMA_ATTR_NO_WARN: This tells the DMA-mapping subsystem to suppress
+ * allocation failure reports (similarly to __GFP_NOWARN).
+ */
+#define DMA_ATTR_NO_WARN	(1UL << 8)
+/*
  * DMA_ATTR_STRONGLY_ORDERED: Specifies that accesses to the mapping must
  * not be buffered, reordered, merged with other accesses, or unaligned.
  * No speculative access may occur in this mapping.
  */
-#define DMA_ATTR_STRONGLY_ORDERED	(1UL << 8)
+#define DMA_ATTR_STRONGLY_ORDERED	(1UL << 9)
 /*
  * DMA_ATTR_SKIP_ZEROING: Do not zero mapping.
  */
-#define DMA_ATTR_SKIP_ZEROING		(1UL << 9)
+#define DMA_ATTR_SKIP_ZEROING		(1UL << 10)
 /*
  * DMA_ATTR_NO_DELAYED_UNMAP: Used by msm specific lazy mapping to indicate
  * that the mapping can be freed on unmap, rather than when the ion_buffer
  * is freed.
  */
-#define DMA_ATTR_NO_DELAYED_UNMAP	(1UL << 10)
+#define DMA_ATTR_NO_DELAYED_UNMAP	(1UL << 11)
 /*
  * DMA_ATTR_EXEC_MAPPING: The mapping has executable permissions.
  */
-#define DMA_ATTR_EXEC_MAPPING		(1UL << 11)
+#define DMA_ATTR_EXEC_MAPPING		(1UL << 12)
 
 /*
  * A dma_addr_t can hold any valid DMA or bus address for the platform.
@@ -115,6 +120,12 @@ struct dma_map_ops {
 			 struct scatterlist *sg, int nents,
 			 enum dma_data_direction dir,
 			 unsigned long attrs);
+	dma_addr_t (*map_resource)(struct device *dev, phys_addr_t phys_addr,
+			       size_t size, enum dma_data_direction dir,
+			       unsigned long attrs);
+	void (*unmap_resource)(struct device *dev, dma_addr_t dma_handle,
+			   size_t size, enum dma_data_direction dir,
+			   unsigned long attrs);
 	void (*sync_single_for_cpu)(struct device *dev,
 				    dma_addr_t dma_handle, size_t size,
 				    enum dma_data_direction dir);
@@ -280,6 +291,41 @@ static inline void dma_unmap_page(struct device *dev, dma_addr_t addr,
 	if (ops->unmap_page)
 		ops->unmap_page(dev, addr, size, dir, 0);
 	debug_dma_unmap_page(dev, addr, size, dir, false);
+}
+
+static inline dma_addr_t dma_map_resource(struct device *dev,
+					  phys_addr_t phys_addr,
+					  size_t size,
+					  enum dma_data_direction dir,
+					  unsigned long attrs)
+{
+	const struct dma_map_ops *ops = get_dma_ops(dev);
+	dma_addr_t addr;
+
+	BUG_ON(!valid_dma_direction(dir));
+
+	/* Don't allow RAM to be mapped */
+	BUG_ON(pfn_valid(PHYS_PFN(phys_addr)));
+
+	addr = phys_addr;
+	if (ops->map_resource)
+		addr = ops->map_resource(dev, phys_addr, size, dir, attrs);
+
+	debug_dma_map_resource(dev, phys_addr, size, dir, addr);
+
+	return addr;
+}
+
+static inline void dma_unmap_resource(struct device *dev, dma_addr_t addr,
+				      size_t size, enum dma_data_direction dir,
+				      unsigned long attrs)
+{
+	const struct dma_map_ops *ops = get_dma_ops(dev);
+
+	BUG_ON(!valid_dma_direction(dir));
+	if (ops->unmap_resource)
+		ops->unmap_resource(dev, addr, size, dir, attrs);
+	debug_dma_unmap_resource(dev, addr, size, dir);
 }
 
 static inline void dma_sync_single_for_cpu(struct device *dev, dma_addr_t addr,
@@ -771,29 +817,6 @@ static inline int dma_mmap_wc(struct device *dev,
 #ifndef dma_mmap_writecombine
 #define dma_mmap_writecombine dma_mmap_wc
 #endif
-
-static inline void *dma_alloc_nonconsistent(struct device *dev, size_t size,
-					dma_addr_t *dma_handle, gfp_t flag)
-{
-	unsigned long attrs = DMA_ATTR_NON_CONSISTENT;
-
-	return dma_alloc_attrs(dev, size, dma_handle, flag, attrs);
-}
-
-static inline void dma_free_nonconsistent(struct device *dev, size_t size,
-					void *cpu_addr, dma_addr_t dma_handle)
-{
-	unsigned long attrs = DMA_ATTR_NON_CONSISTENT;
-
-	return dma_free_attrs(dev, size, cpu_addr, dma_handle, attrs);
-}
-
-static inline int dma_mmap_nonconsistent(struct device *dev,
-		struct vm_area_struct *vma, void *cpu_addr,
-		dma_addr_t dma_addr, size_t size)
-{
-	return -ENODEV;
-}
 
 #if defined(CONFIG_NEED_DMA_MAP_STATE) || defined(CONFIG_DMA_API_DEBUG)
 #define DEFINE_DMA_UNMAP_ADDR(ADDR_NAME)        dma_addr_t ADDR_NAME

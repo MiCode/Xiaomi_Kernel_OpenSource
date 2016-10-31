@@ -428,8 +428,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 		sg_miter_start(&miter, sgt.sgl, sgt.orig_nents,
 			       SG_MITER_FROM_SG);
 		while (sg_miter_next(&miter))
-			__dma_flush_range(miter.addr,
-					  miter.addr + miter.length);
+			__dma_flush_area(miter.addr, miter.length);
 		sg_miter_stop(&miter);
 	}
 
