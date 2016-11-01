@@ -1303,6 +1303,8 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 		chip->chg.wa_flags |= BOOST_BACK_WA;
 		if (pmic_rev_id->rev4 == PMICOBALT_V1P1_REV4) /* PMI rev 1.1 */
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
+		if (pmic_rev_id->rev4 == PMICOBALT_V2P0_REV4) /* PMI rev 2.0 */
+			chg->wa_flags |= TYPEC_CC2_REMOVAL_WA_BIT;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported\n",
