@@ -676,12 +676,18 @@ static bool is_debug_batt_id(struct fg_chip *chip)
 #define FULL_CAPACITY	100
 #define FULL_SOC_RAW	255
 #define DEBUG_BATT_SOC	67
+#define EMPTY_SOC	0
 static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 {
 	int rc, msoc;
 
 	if (is_debug_batt_id(chip)) {
 		*val = DEBUG_BATT_SOC;
+		return 0;
+	}
+
+	if (chip->charge_empty) {
+		*val = EMPTY_SOC;
 		return 0;
 	}
 
@@ -2302,6 +2308,7 @@ static irqreturn_t fg_empty_soc_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
 
+	chip->charge_empty = true;
 	if (is_charger_available(chip))
 		power_supply_changed(chip->batt_psy);
 
@@ -2523,7 +2530,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 }
 
 #define DEFAULT_CUTOFF_VOLT_MV		3200
-#define DEFAULT_EMPTY_VOLT_MV		3100
+#define DEFAULT_EMPTY_VOLT_MV		2800
 #define DEFAULT_CHG_TERM_CURR_MA	100
 #define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_DELTA_SOC_THR		1
