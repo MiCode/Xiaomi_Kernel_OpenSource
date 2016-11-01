@@ -1005,6 +1005,12 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	pa->spmic = ctrl;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "core");
+	if (!res) {
+		dev_err(&pdev->dev, "core resource not specified\n");
+		err = -EINVAL;
+		goto err_put_ctrl;
+	}
+
 	pa->core_size = resource_size(res);
 	if (pa->core_size <= 0x800) {
 		dev_err(&pdev->dev, "core_size is smaller than 0x800. Failing Probe\n");
