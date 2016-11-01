@@ -504,15 +504,14 @@ static int try_rerun_apsd_for_hvdcp(struct smb_charger *chg)
 
 static const struct apsd_result *smblib_update_usb_type(struct smb_charger *chg)
 {
-	const struct apsd_result *apsd_result;
+	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
 
 	/* if PD is active, APSD is disabled so won't have a valid result */
 	if (chg->pd_active) {
 		chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_USB_PD;
-		return 0;
+		return apsd_result;
 	}
 
-	apsd_result = smblib_get_apsd_result(chg);
 	chg->usb_psy_desc.type = apsd_result->pst;
 	return apsd_result;
 }
