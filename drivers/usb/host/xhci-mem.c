@@ -1834,6 +1834,8 @@ void xhci_free_erst(struct xhci_hcd *xhci, struct xhci_erst *erst)
 int xhci_sec_event_ring_cleanup(struct usb_hcd *hcd, unsigned int intr_num)
 {
 	int size;
+	u32 iman_reg;
+	u64 erdp_reg;
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 	struct device	*dev = xhci_to_hcd(xhci)->self.sysdev;
 
@@ -1845,14 +1847,38 @@ int xhci_sec_event_ring_cleanup(struct usb_hcd *hcd, unsigned int intr_num)
 
 	size =
 	sizeof(struct xhci_erst_entry)*(xhci->sec_erst[intr_num].num_entries);
-	if (xhci->sec_erst[intr_num].entries)
+	if (xhci->sec_erst[intr_num].entries) {
+		/*
+		 * disable irq, ack pending interrupt and clear EHB for xHC to
+		 * generate interrupt again when new event ring is setup
+		 */
+		iman_reg =
+			readl_relaxed(&xhci->sec_ir_set[intr_num]->irq_pending);
+		iman_reg &= ~IMAN_IE;
+		writel_relaxed(iman_reg,
+				&xhci->sec_ir_set[intr_num]->irq_pending);
+		iman_reg =
+			readl_relaxed(&xhci->sec_ir_set[intr_num]->irq_pending);
+		if (iman_reg & IMAN_IP)
+			writel_relaxed(iman_reg,
+				&xhci->sec_ir_set[intr_num]->irq_pending);
+		/* make sure IP gets cleared before clearing EHB */
+		mb();
+
+		erdp_reg = xhci_read_64(xhci,
+				&xhci->sec_ir_set[intr_num]->erst_dequeue);
+		xhci_write_64(xhci, erdp_reg | ERST_EHB,
+				&xhci->sec_ir_set[intr_num]->erst_dequeue);
+
 		dma_free_coherent(dev, size, xhci->sec_erst[intr_num].entries,
 				xhci->sec_erst[intr_num].erst_dma_addr);
-	xhci->sec_erst[intr_num].entries = NULL;
+		xhci->sec_erst[intr_num].entries = NULL;
+	}
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init, "Freed SEC ERST#%d",
 		intr_num);
 	if (xhci->sec_event_ring[intr_num])
 		xhci_ring_free(xhci, xhci->sec_event_ring[intr_num]);
+
 	xhci->sec_event_ring[intr_num] = NULL;
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
 		"Freed sec event ring");
