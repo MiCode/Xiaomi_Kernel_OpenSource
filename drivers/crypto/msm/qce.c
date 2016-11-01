@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2014,2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1952,8 +1952,8 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 	else
 		q_req->cryptlen = areq->cryptlen - authsize;
 
-	if ((q_req->cryptlen > ULONG_MAX - ivsize) ||
-		(q_req->cryptlen + ivsize > ULONG_MAX - areq->assoclen)) {
+	if ((q_req->cryptlen > UINT_MAX - ivsize) ||
+		(q_req->cryptlen + ivsize > UINT_MAX - areq->assoclen)) {
 		pr_err("Integer overflow on total aead req length.\n");
 		return -EINVAL;
 	}
