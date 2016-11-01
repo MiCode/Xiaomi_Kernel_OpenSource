@@ -310,6 +310,7 @@ struct wcd9xxx_pdata *wcd9xxx_populate_dt_data(struct device *dev)
 	u32 ecpp_dmic_sample_rate = WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED;
 	u32 dmic_clk_drive = WCD9XXX_DMIC_CLK_DRIVE_UNDEFINED;
 	u32 prop_val;
+	int rc = 0;
 
 	if (!dev || !dev->of_node)
 		return NULL;
@@ -368,9 +369,13 @@ struct wcd9xxx_pdata *wcd9xxx_populate_dt_data(struct device *dev)
 							pdata->mclk_rate,
 							"mad_dmic_rate");
 
-	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-ecpp-dmic-rate",
-					   &prop_val)))
-		ecpp_dmic_sample_rate = prop_val;
+	if (of_find_property(dev->of_node, "qcom,cdc-ecpp-dmic-rate", NULL)) {
+		rc = wcd9xxx_read_of_property_u32(dev,
+						  "qcom,cdc-ecpp-dmic-rate",
+						  &prop_val);
+		if (!rc)
+			ecpp_dmic_sample_rate = prop_val;
+	}
 
 	pdata->ecpp_dmic_sample_rate = wcd9xxx_validate_dmic_sample_rate(dev,
 							ecpp_dmic_sample_rate,
@@ -379,13 +384,14 @@ struct wcd9xxx_pdata *wcd9xxx_populate_dt_data(struct device *dev)
 
 	if (!(of_property_read_u32(dev->of_node,
 				   "qcom,cdc-dmic-clk-drv-strength",
-				   &prop_val)))
+				   &prop_val))) {
 		dmic_clk_drive = prop_val;
 
-	if (dmic_clk_drive != 2 && dmic_clk_drive != 4 &&
-	    dmic_clk_drive != 8 && dmic_clk_drive != 16)
-		dev_err(dev, "Invalid cdc-dmic-clk-drv-strength %d\n",
-			dmic_clk_drive);
+		if (dmic_clk_drive != 2 && dmic_clk_drive != 4 &&
+		    dmic_clk_drive != 8 && dmic_clk_drive != 16)
+			dev_err(dev, "Invalid cdc-dmic-clk-drv-strength %d\n",
+				dmic_clk_drive);
+	}
 
 	pdata->dmic_clk_drv = dmic_clk_drive;
 
