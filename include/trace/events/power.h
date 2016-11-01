@@ -369,15 +369,17 @@ TRACE_EVENT(clock_set_parent,
 TRACE_EVENT(clock_state,
 
 	TP_PROTO(const char *name, unsigned long prepare_count,
-		unsigned long count, unsigned long rate),
+		unsigned long count, unsigned long rate,
+		unsigned int vdd_level),
 
-	TP_ARGS(name, prepare_count, count, rate),
+	TP_ARGS(name, prepare_count, count, rate, vdd_level),
 
 	TP_STRUCT__entry(
 		__string(name,			name)
 		__field(unsigned long,		prepare_count)
 		__field(unsigned long,		count)
 		__field(unsigned long,		rate)
+		__field(unsigned int,		vdd_level)
 	),
 
 	TP_fast_assign(
@@ -385,10 +387,12 @@ TRACE_EVENT(clock_state,
 		__entry->prepare_count = prepare_count;
 		__entry->count = count;
 		__entry->rate = rate;
+		__entry->vdd_level = vdd_level;
 	),
 
-	TP_printk("%s\t[%lu:%lu]\t%lu", __get_str(name), __entry->prepare_count,
-					__entry->count, __entry->rate)
+	TP_printk("%s\tprepare:enable cnt [%lu:%lu]\trate: vdd level [%lu:%u]",
+			__get_str(name), __entry->prepare_count,
+			__entry->count, __entry->rate, __entry->vdd_level)
 );
 
 /*

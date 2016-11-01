@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -355,8 +355,12 @@ static int trace_clocks_show(struct seq_file *m, void *unused)
 		return 1;
 	}
 	list_for_each_entry(c, &clk_list, list) {
+		int vlevel = 0;
+
+		if (c->num_fmax)
+			vlevel = find_vdd_level(c, c->rate);
 		trace_clock_state(c->dbg_name, c->prepare_count, c->count,
-					c->rate);
+					c->rate, vlevel);
 		total_cnt++;
 	}
 	mutex_unlock(&clk_list_lock);
