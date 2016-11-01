@@ -55,7 +55,7 @@ First Level Node - FG Gen3 device
 		    be notified via the power supply framework. The userspace
 		    will read 0% soc and immediately shutdown. If this property
 		    is not specified, then the default value used will be
-		    3100mV.
+		    2800mV.
 
 - qcom,fg-vbatt-low-thr
 	Usage:      optional

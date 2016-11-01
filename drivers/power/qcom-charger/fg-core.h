@@ -288,6 +288,7 @@ struct fg_chip {
 	bool			battery_missing;
 	bool			fg_restarting;
 	bool			charge_full;
+	bool			charge_empty;
 	bool			recharge_soc_adjusted;
 	bool			ki_coeff_dischg_en;
 	struct completion	soc_update;
