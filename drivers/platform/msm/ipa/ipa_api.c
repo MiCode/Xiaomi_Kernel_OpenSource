@@ -1634,6 +1634,25 @@ u16 ipa_get_smem_restr_bytes(void)
 EXPORT_SYMBOL(ipa_get_smem_restr_bytes);
 
 /**
+ * ipa_broadcast_wdi_quota_reach_ind() - quota reach
+ * @uint32_t fid: [in] input netdev ID
+ * @uint64_t num_bytes: [in] used bytes
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_broadcast_wdi_quota_reach_ind(uint32_t fid,
+		uint64_t num_bytes)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_broadcast_wdi_quota_reach_ind,
+		fid, num_bytes);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_broadcast_wdi_quota_reach_ind);
+
+/**
  * ipa_uc_wdi_get_dbpa() - To retrieve
  * doorbell physical address of wlan pipes
  * @param:  [in/out] input/output parameters

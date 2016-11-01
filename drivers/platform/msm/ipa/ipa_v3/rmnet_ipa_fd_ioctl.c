@@ -279,8 +279,9 @@ static long ipa3_wan_ioctl(struct file *filp,
 			break;
 		}
 
-		if (rmnet_ipa3_query_tethering_stats(NULL, true)) {
-			IPAWANERR("WAN_IOC_QUERY_TETHER_STATS failed\n");
+		if (rmnet_ipa3_reset_tethering_stats(
+				(struct wan_ioctl_reset_tether_stats *)param)) {
+			IPAWANERR("WAN_IOC_RESET_TETHER_STATS failed\n");
 			retval = -EFAULT;
 			break;
 		}
