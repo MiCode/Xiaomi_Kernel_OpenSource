@@ -343,6 +343,33 @@ struct arm_smmu_master {
 	struct arm_smmu_master_cfg	cfg;
 };
 
+/*
+ * Describes resources required for on/off power operation.
+ * Separate reference count is provided for atomic/nonatomic
+ * operations.
+ */
+struct arm_smmu_power_resources {
+	struct platform_device		*pdev;
+	struct device			*dev;
+
+	struct clk			**clocks;
+	int				num_clocks;
+
+	struct regulator_bulk_data	*gdscs;
+	int				num_gdscs;
+
+	uint32_t			bus_client;
+	struct msm_bus_scale_pdata	*bus_dt_data;
+
+	/* Protects power_count */
+	struct mutex			power_lock;
+	int				power_count;
+
+	/* Protects clock_refs_count */
+	spinlock_t			clock_refs_lock;
+	int				clock_refs_count;
+};
+
 struct arm_smmu_device {
 	struct device			*dev;
 
@@ -397,20 +424,7 @@ struct arm_smmu_device {
 	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
 	unsigned int			num_impl_def_attach_registers;
 
-	int				num_clocks;
-	struct clk			**clocks;
-
-	struct regulator		*gdsc;
-
-	uint32_t			bus_client;
-	struct msm_bus_scale_pdata	*bus_dt_data;
-
-	/* Protects power_count */
-	struct mutex			power_lock;
-	int				power_count;
-	/* Protects clock_refs_count */
-	spinlock_t			clock_refs_lock;
-	int				clock_refs_count;
+	struct arm_smmu_power_resources *pwr;
 
 	spinlock_t			atos_lock;
 
@@ -786,188 +800,193 @@ static void __arm_smmu_free_bitmap(unsigned long *map, int idx)
 	clear_bit(idx, map);
 }
 
-static int arm_smmu_prepare_clocks(struct arm_smmu_device *smmu)
+static int arm_smmu_prepare_clocks(struct arm_smmu_power_resources *pwr)
 {
 	int i, ret = 0;
 
-	for (i = 0; i < smmu->num_clocks; ++i) {
-		ret = clk_prepare(smmu->clocks[i]);
+	for (i = 0; i < pwr->num_clocks; ++i) {
+		ret = clk_prepare(pwr->clocks[i]);
 		if (ret) {
-			dev_err(smmu->dev, "Couldn't prepare clock #%d\n", i);
+			dev_err(pwr->dev, "Couldn't prepare clock #%d\n", i);
 			while (i--)
-				clk_unprepare(smmu->clocks[i]);
+				clk_unprepare(pwr->clocks[i]);
 			break;
 		}
 	}
 	return ret;
 }
 
-static void arm_smmu_unprepare_clocks(struct arm_smmu_device *smmu)
+static void arm_smmu_unprepare_clocks(struct arm_smmu_power_resources *pwr)
 {
 	int i;
 
-	for (i = smmu->num_clocks; i; --i)
-		clk_unprepare(smmu->clocks[i - 1]);
+	for (i = pwr->num_clocks; i; --i)
+		clk_unprepare(pwr->clocks[i - 1]);
 }
 
-/* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
-static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu)
+static int arm_smmu_enable_clocks(struct arm_smmu_power_resources *pwr)
 {
 	int i, ret = 0;
-	unsigned long flags;
 
-	spin_lock_irqsave(&smmu->clock_refs_lock, flags);
-	if (smmu->clock_refs_count > 0) {
-		smmu->clock_refs_count++;
-		spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
-		return 0;
-	}
-
-	for (i = 0; i < smmu->num_clocks; ++i) {
-		ret = clk_enable(smmu->clocks[i]);
+	for (i = 0; i < pwr->num_clocks; ++i) {
+		ret = clk_enable(pwr->clocks[i]);
 		if (ret) {
-			dev_err(smmu->dev, "Couldn't enable clock #%d\n", i);
+			dev_err(pwr->dev, "Couldn't enable clock #%d\n", i);
 			while (i--)
-				clk_disable(smmu->clocks[i]);
+				clk_disable(pwr->clocks[i]);
 			break;
 		}
 	}
 
-	if (!ret)
-		smmu->clock_refs_count++;
+	return ret;
+}
 
-	spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
+static void arm_smmu_disable_clocks(struct arm_smmu_power_resources *pwr)
+{
+	int i;
+
+	for (i = pwr->num_clocks; i; --i)
+		clk_disable(pwr->clocks[i - 1]);
+}
+
+static int arm_smmu_request_bus(struct arm_smmu_power_resources *pwr)
+{
+	if (!pwr->bus_client)
+		return 0;
+	return msm_bus_scale_client_update_request(pwr->bus_client, 1);
+}
+
+static void arm_smmu_unrequest_bus(struct arm_smmu_power_resources *pwr)
+{
+	if (!pwr->bus_client)
+		return;
+	WARN_ON(msm_bus_scale_client_update_request(pwr->bus_client, 0));
+}
+
+/* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
+static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
+{
+	int ret = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&pwr->clock_refs_lock, flags);
+	if (pwr->clock_refs_count > 0) {
+		pwr->clock_refs_count++;
+		spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
+		return 0;
+	}
+
+	ret = arm_smmu_enable_clocks(pwr);
+	if (!ret)
+		pwr->clock_refs_count = 1;
+
+	spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
 	return ret;
 }
 
 /* Clocks should be unprepared after this (arm_smmu_unprepare_clocks) */
-static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu)
+static void arm_smmu_power_off_atomic(struct arm_smmu_power_resources *pwr)
 {
-	int i;
 	unsigned long flags;
 
-	spin_lock_irqsave(&smmu->clock_refs_lock, flags);
-	WARN_ON(smmu->clock_refs_count == 0);
-	if (smmu->clock_refs_count > 1) {
-		smmu->clock_refs_count--;
-		spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
+	spin_lock_irqsave(&pwr->clock_refs_lock, flags);
+	if (pwr->clock_refs_count == 0) {
+		WARN(1, "%s: bad clock_ref_count\n", dev_name(pwr->dev));
+		spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
+		return;
+
+	} else if (pwr->clock_refs_count > 1) {
+		pwr->clock_refs_count--;
+		spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
 		return;
 	}
 
-	for (i = smmu->num_clocks; i; --i)
-		clk_disable(smmu->clocks[i - 1]);
+	arm_smmu_disable_clocks(pwr);
 
-	smmu->clock_refs_count--;
-	spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
+	pwr->clock_refs_count = 0;
+	spin_unlock_irqrestore(&pwr->clock_refs_lock, flags);
 }
 
-static int arm_smmu_enable_regulators(struct arm_smmu_device *smmu)
-{
-	if (!smmu->gdsc)
-		return 0;
-
-	return regulator_enable(smmu->gdsc);
-}
-
-static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
-{
-	if (!smmu->gdsc)
-		return 0;
-
-	return regulator_disable(smmu->gdsc);
-}
-
-static int arm_smmu_request_bus(uint32_t client)
-{
-	if (!client)
-		return 0;
-	return msm_bus_scale_client_update_request(client, 1);
-}
-
-static void arm_smmu_unrequest_bus(uint32_t client)
-{
-	if (!client)
-		return;
-	WARN_ON(msm_bus_scale_client_update_request(client, 0));
-}
-
-static int arm_smmu_power_on_slow(struct arm_smmu_device *smmu)
+static int arm_smmu_power_on_slow(struct arm_smmu_power_resources *pwr)
 {
 	int ret;
 
-	mutex_lock(&smmu->power_lock);
-	if (smmu->power_count > 0) {
-		smmu->power_count += 1;
-		mutex_unlock(&smmu->power_lock);
+	mutex_lock(&pwr->power_lock);
+	if (pwr->power_count > 0) {
+		pwr->power_count += 1;
+		mutex_unlock(&pwr->power_lock);
 		return 0;
 	}
 
-	ret = arm_smmu_enable_regulators(smmu);
+	ret = regulator_bulk_enable(pwr->num_gdscs, pwr->gdscs);
 	if (ret)
 		goto out_unlock;
 
-	ret = arm_smmu_request_bus(smmu->bus_client);
+	ret = arm_smmu_request_bus(pwr);
 	if (ret)
 		goto out_disable_regulators;
 
-	ret = arm_smmu_prepare_clocks(smmu);
+	ret = arm_smmu_prepare_clocks(pwr);
 	if (ret)
 		goto out_disable_bus;
 
-	smmu->power_count += 1;
-	mutex_unlock(&smmu->power_lock);
+	pwr->power_count = 1;
+	mutex_unlock(&pwr->power_lock);
 	return 0;
 
 out_disable_bus:
-	arm_smmu_unrequest_bus(smmu->bus_client);
+	arm_smmu_unrequest_bus(pwr);
 out_disable_regulators:
-	arm_smmu_disable_regulators(smmu);
+	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
 out_unlock:
-	mutex_unlock(&smmu->power_lock);
+	mutex_unlock(&pwr->power_lock);
 	return ret;
 }
 
-static void arm_smmu_power_off_slow(struct arm_smmu_device *smmu)
+static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
 {
-	mutex_lock(&smmu->power_lock);
-	smmu->power_count--;
-	WARN_ON(smmu->power_count < 0);
+	mutex_lock(&pwr->power_lock);
+	if (pwr->power_count == 0) {
+		WARN(1, "%s: Bad power count\n", dev_name(pwr->dev));
+		mutex_unlock(&pwr->power_lock);
+		return;
 
-	if (smmu->power_count > 0) {
-		mutex_unlock(&smmu->power_lock);
+	} else if (pwr->power_count > 1) {
+		pwr->power_count--;
+		mutex_unlock(&pwr->power_lock);
 		return;
 	}
 
-	arm_smmu_unprepare_clocks(smmu);
-	arm_smmu_unrequest_bus(smmu->bus_client);
-	arm_smmu_disable_regulators(smmu);
+	arm_smmu_unprepare_clocks(pwr);
+	arm_smmu_unrequest_bus(pwr);
+	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
 
-	mutex_unlock(&smmu->power_lock);
+	mutex_unlock(&pwr->power_lock);
 }
 
-static int arm_smmu_power_on(struct arm_smmu_device *smmu)
+static int arm_smmu_power_on(struct arm_smmu_power_resources *pwr)
 {
 	int ret;
 
-	ret = arm_smmu_power_on_slow(smmu);
+	ret = arm_smmu_power_on_slow(pwr);
 	if (ret)
 		return ret;
 
-	ret = arm_smmu_enable_clocks_atomic(smmu);
+	ret = arm_smmu_power_on_atomic(pwr);
 	if (ret)
 		goto out_disable;
 
 	return 0;
 
 out_disable:
-	arm_smmu_power_off_slow(smmu);
+	arm_smmu_power_off_slow(pwr);
 	return ret;
 }
 
-static void arm_smmu_power_off(struct arm_smmu_device *smmu)
+static void arm_smmu_power_off(struct arm_smmu_power_resources *pwr)
 {
-	arm_smmu_disable_clocks_atomic(smmu);
-	arm_smmu_power_off_slow(smmu);
+	arm_smmu_power_off_atomic(pwr);
+	arm_smmu_power_off_slow(pwr);
 }
 
 /*
@@ -981,9 +1000,9 @@ static int arm_smmu_domain_power_on(struct iommu_domain *domain,
 	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	if (atomic_domain)
-		return arm_smmu_enable_clocks_atomic(smmu);
+		return arm_smmu_power_on_atomic(smmu->pwr);
 
-	return arm_smmu_power_on(smmu);
+	return arm_smmu_power_on(smmu->pwr);
 }
 
 /*
@@ -997,11 +1016,11 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	if (atomic_domain) {
-		arm_smmu_disable_clocks_atomic(smmu);
+		arm_smmu_power_off_atomic(smmu->pwr);
 		return;
 	}
 
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 }
 
 /* Wait for any pending TLB invalidations to complete */
@@ -1259,7 +1278,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 				      DEFAULT_RATELIMIT_INTERVAL,
 				      DEFAULT_RATELIMIT_BURST);
 
-	ret = arm_smmu_power_on(smmu);
+	ret = arm_smmu_power_on(smmu->pwr);
 	if (ret)
 		return IRQ_NONE;
 
@@ -1372,7 +1391,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	}
 
 out_power_off:
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 
 	return ret;
 }
@@ -1383,7 +1402,7 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	struct arm_smmu_device *smmu = dev;
 	void __iomem *gr0_base = ARM_SMMU_GR0_NS(smmu);
 
-	if (arm_smmu_power_on(smmu))
+	if (arm_smmu_power_on(smmu->pwr))
 		return IRQ_NONE;
 
 	gfsr = readl_relaxed(gr0_base + ARM_SMMU_GR0_sGFSR);
@@ -1392,7 +1411,7 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	gfsynr2 = readl_relaxed(gr0_base + ARM_SMMU_GR0_sGFSYNR2);
 
 	if (!gfsr) {
-		arm_smmu_power_off(smmu);
+		arm_smmu_power_off(smmu->pwr);
 		return IRQ_NONE;
 	}
 
@@ -1403,7 +1422,7 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 		gfsr, gfsynr0, gfsynr1, gfsynr2);
 
 	writel(gfsr, gr0_base + ARM_SMMU_GR0_sGFSR);
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 	return IRQ_HANDLED;
 }
 
@@ -1757,7 +1776,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	if (!smmu || domain->type == IOMMU_DOMAIN_DMA)
 		return;
 
-	ret = arm_smmu_power_on(smmu);
+	ret = arm_smmu_power_on(smmu->pwr);
 	if (ret) {
 		WARN_ONCE(ret, "Woops, powering on smmu %p failed. Leaking context bank\n",
 				smmu);
@@ -1768,7 +1787,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	if (dynamic) {
 		arm_smmu_free_asid(domain);
 		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
-		arm_smmu_power_off(smmu);
+		arm_smmu_power_off(smmu->pwr);
 		arm_smmu_secure_domain_lock(smmu_domain);
 		arm_smmu_secure_pool_destroy(smmu_domain);
 		arm_smmu_unassign_table(smmu_domain);
@@ -1795,7 +1814,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	arm_smmu_secure_domain_unlock(smmu_domain);
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
 
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 }
 
 static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
@@ -2004,8 +2023,8 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 
 	/* Remove additional vote for atomic power */
 	if (atomic_domain) {
-		WARN_ON(arm_smmu_enable_clocks_atomic(smmu));
-		arm_smmu_power_off(smmu);
+		WARN_ON(arm_smmu_power_on_atomic(smmu->pwr));
+		arm_smmu_power_off(smmu->pwr);
 	}
 }
 
@@ -2109,7 +2128,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	}
 
 	/* Enable Clocks and Power */
-	ret = arm_smmu_power_on(smmu);
+	ret = arm_smmu_power_on(smmu->pwr);
 	if (ret)
 		return ret;
 
@@ -2118,11 +2137,11 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	 * detached
 	 */
 	if (atomic_domain) {
-		ret = arm_smmu_power_on(smmu);
+		ret = arm_smmu_power_on(smmu->pwr);
 		if (ret)
 			goto out_power_off;
 
-		arm_smmu_disable_clocks_atomic(smmu);
+		arm_smmu_power_off_atomic(smmu->pwr);
 	}
 
 	/* Ensure that the domain is finalised */
@@ -2164,7 +2183,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		dev->archdata.iommu = domain;
 
 out_power_off:
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 
 	return ret;
 }
@@ -2703,7 +2722,7 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	}
 
 	smmu = smmu_domain->smmu;
-	if (arm_smmu_power_on(smmu))
+	if (arm_smmu_power_on(smmu->pwr))
 		return;
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
@@ -2713,7 +2732,7 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	/* give the interrupt time to fire... */
 	msleep(1000);
 
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 }
 
 static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
@@ -2737,13 +2756,13 @@ static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
 		return val;
 	}
 
-	if (arm_smmu_power_on(smmu))
+	if (arm_smmu_power_on(smmu->pwr))
 		return 0;
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	val = readl_relaxed(cb_base + offset);
 
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 	return val;
 }
 
@@ -2766,13 +2785,13 @@ static void arm_smmu_reg_write(struct iommu_domain *domain,
 		return;
 	}
 
-	if (arm_smmu_power_on(smmu))
+	if (arm_smmu_power_on(smmu->pwr))
 		return;
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	writel_relaxed(val, cb_base + offset);
 
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 }
 
 static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
@@ -2784,14 +2803,14 @@ static int arm_smmu_enable_config_clocks(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
-	return arm_smmu_power_on(smmu_domain->smmu);
+	return arm_smmu_power_on(smmu_domain->smmu->pwr);
 }
 
 static void arm_smmu_disable_config_clocks(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
-	arm_smmu_power_off(smmu_domain->smmu);
+	arm_smmu_power_off(smmu_domain->smmu->pwr);
 }
 
 static struct iommu_ops arm_smmu_ops = {
@@ -2916,7 +2935,7 @@ static phys_addr_t __qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
 	phys_addr_t phys = 0;
 	unsigned long flags;
 
-	ret = arm_smmu_power_on(smmu_domain->smmu);
+	ret = arm_smmu_power_on(smmu_domain->smmu->pwr);
 	if (ret)
 		return 0;
 
@@ -2936,7 +2955,7 @@ static phys_addr_t __qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
 		qsmmuv2_resume(smmu);
 
 out_power_off:
-	arm_smmu_power_off(smmu_domain->smmu);
+	arm_smmu_power_off(smmu_domain->smmu->pwr);
 	return phys;
 }
 
@@ -3154,30 +3173,28 @@ static int arm_smmu_parse_impl_def_registers(struct arm_smmu_device *smmu)
 	return 0;
 }
 
-static int arm_smmu_init_clocks(struct arm_smmu_device *smmu)
+
+static int arm_smmu_init_clocks(struct arm_smmu_power_resources *pwr)
 {
 	const char *cname;
 	struct property *prop;
 	int i;
-	struct device *dev = smmu->dev;
+	struct device *dev = pwr->dev;
 
-	smmu->num_clocks =
+	pwr->num_clocks =
 		of_property_count_strings(dev->of_node, "clock-names");
 
-	if (smmu->num_clocks < 1) {
-		smmu->num_clocks = 0;
+	if (pwr->num_clocks < 1) {
+		pwr->num_clocks = 0;
 		return 0;
 	}
 
-	smmu->clocks = devm_kzalloc(
-		dev, sizeof(*smmu->clocks) * smmu->num_clocks,
+	pwr->clocks = devm_kzalloc(
+		dev, sizeof(*pwr->clocks) * pwr->num_clocks,
 		GFP_KERNEL);
 
-	if (!smmu->clocks) {
-		dev_err(dev,
-			"Failed to allocate memory for clocks\n");
-		return -ENODEV;
-	}
+	if (!pwr->clocks)
+		return -ENOMEM;
 
 	i = 0;
 	of_property_for_each_string(dev->of_node, "clock-names",
@@ -3196,63 +3213,109 @@ static int arm_smmu_init_clocks(struct arm_smmu_device *smmu)
 			clk_set_rate(c, rate);
 		}
 
-		smmu->clocks[i] = c;
+		pwr->clocks[i] = c;
 
 		++i;
 	}
 	return 0;
 }
 
-static int arm_smmu_init_regulators(struct arm_smmu_device *smmu)
+static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 {
-	struct device *dev = smmu->dev;
+	const char *cname;
+	struct property *prop;
+	int i, ret = 0;
+	struct device *dev = pwr->dev;
 
-	if (!of_get_property(dev->of_node, "vdd-supply", NULL))
+	pwr->num_gdscs =
+		of_property_count_strings(dev->of_node, "qcom,regulator-names");
+
+	if (pwr->num_gdscs < 1) {
+		pwr->num_gdscs = 0;
 		return 0;
+	}
 
-	smmu->gdsc = devm_regulator_get(dev, "vdd");
-	if (IS_ERR(smmu->gdsc))
-		return PTR_ERR(smmu->gdsc);
+	pwr->gdscs = devm_kzalloc(
+			dev, sizeof(*pwr->gdscs) * pwr->num_gdscs, GFP_KERNEL);
+
+	if (!pwr->gdscs)
+		return -ENOMEM;
+
+	i = 0;
+	of_property_for_each_string(dev->of_node, "qcom,regulator-names",
+				prop, cname)
+		pwr->gdscs[i].supply = cname;
+
+	ret = devm_regulator_bulk_get(dev, pwr->num_gdscs, pwr->gdscs);
+	return ret;
+}
+
+static int arm_smmu_init_bus_scaling(struct arm_smmu_power_resources *pwr)
+{
+	struct device *dev = pwr->dev;
+
+	/* We don't want the bus APIs to print an error message */
+	if (!of_find_property(dev->of_node, "qcom,msm-bus,name", NULL)) {
+		dev_dbg(dev, "No bus scaling info\n");
+		return 0;
+	}
+
+	pwr->bus_dt_data = msm_bus_cl_get_pdata(pwr->pdev);
+	if (!pwr->bus_dt_data) {
+		dev_err(dev, "Unable to read bus-scaling from devicetree\n");
+		return -EINVAL;
+	}
+
+	pwr->bus_client = msm_bus_scale_register_client(pwr->bus_dt_data);
+	if (!pwr->bus_client) {
+		dev_err(dev, "Bus client registration failed\n");
+		msm_bus_cl_clear_pdata(pwr->bus_dt_data);
+		return -EINVAL;
+	}
 
 	return 0;
 }
 
-static int arm_smmu_init_bus_scaling(struct platform_device *pdev,
-				     uint32_t *client,
-				     struct msm_bus_scale_pdata **data)
+/*
+ * Cleanup done by devm. Any non-devm resources must clean up themselves.
+ */
+static struct arm_smmu_power_resources *arm_smmu_init_power_resources(
+						struct platform_device *pdev)
 {
-	uint32_t __client;
+	struct arm_smmu_power_resources *pwr;
+	int ret;
 
-	if (!of_find_property(pdev->dev.of_node, "qcom,msm-bus,name", NULL)) {
-		dev_dbg(&pdev->dev, "No bus scaling info\n");
-		return 0;
-	}
+	pwr = devm_kzalloc(&pdev->dev, sizeof(*pwr), GFP_KERNEL);
+	if (!pwr)
+		return ERR_PTR(-ENOMEM);
 
-	*data = msm_bus_cl_get_pdata(pdev);
-	if (*data) {
-		dev_err(&pdev->dev, "Unable to read bus-scaling from devicetree\n");
-		return -EINVAL;
-	}
+	pwr->dev = &pdev->dev;
+	pwr->pdev = pdev;
+	mutex_init(&pwr->power_lock);
+	spin_lock_init(&pwr->clock_refs_lock);
 
-	__client = msm_bus_scale_register_client(*data);
-	if (!__client) {
-		dev_err(&pdev->dev, "Bus client registration failed\n");
-		msm_bus_cl_clear_pdata(*data);
-		return -EINVAL;
-	}
+	ret = arm_smmu_init_clocks(pwr);
+	if (ret)
+		return ERR_PTR(ret);
 
-	*client = __client;
-	return 0;
+	ret = arm_smmu_init_regulators(pwr);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = arm_smmu_init_bus_scaling(pwr);
+	if (ret)
+		return ERR_PTR(ret);
+
+	return pwr;
 }
 
 /*
  * Bus APIs are not devm-safe.
  */
-static void arm_smmu_exit_bus_scaling(uint32_t *client,
-				      struct msm_bus_scale_pdata **data)
+static void arm_smmu_exit_power_resources(struct arm_smmu_power_resources *pwr)
 {
-	msm_bus_scale_unregister_client(*client);
-	msm_bus_cl_clear_pdata(*data);
+	msm_bus_scale_unregister_client(pwr->bus_client);
+	msm_bus_cl_clear_pdata(pwr->bus_dt_data);
 }
 
 static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
@@ -3526,8 +3589,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	}
 	smmu->dev = dev;
 	spin_lock_init(&smmu->atos_lock);
-	mutex_init(&smmu->power_lock);
-	spin_lock_init(&smmu->clock_refs_lock);
 	idr_init(&smmu->asid_idr);
 	mutex_init(&smmu->idr_mutex);
 
@@ -3581,22 +3642,14 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 
 	parse_driver_options(smmu);
 
-	err = arm_smmu_init_clocks(smmu);
-	if (err)
-		return err;
 
-	err = arm_smmu_init_regulators(smmu);
-	if (err)
-		return err;
+	smmu->pwr = arm_smmu_init_power_resources(pdev);
+	if (IS_ERR(smmu->pwr))
+		return PTR_ERR(smmu->pwr);
 
-	err = arm_smmu_init_bus_scaling(pdev, &smmu->bus_client,
-					&smmu->bus_dt_data);
+	err = arm_smmu_power_on(smmu->pwr);
 	if (err)
-		return err;
-
-	err = arm_smmu_power_on(smmu);
-	if (err)
-		goto out_exit_bus;
+		goto out_exit_power_resources;
 
 	err = arm_smmu_device_cfg_probe(smmu);
 	if (err)
@@ -3646,7 +3699,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		goto out_put_masters;
 
 	arm_smmu_device_reset(smmu);
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 
 	return 0;
 
@@ -3658,10 +3711,10 @@ out_put_masters:
 	}
 
 out_power_off:
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 
-out_exit_bus:
-	arm_smmu_exit_bus_scaling(&smmu->bus_client, &smmu->bus_dt_data);
+out_exit_power_resources:
+	arm_smmu_exit_power_resources(smmu->pwr);
 
 	return err;
 }
@@ -3686,7 +3739,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	if (!smmu)
 		return -ENODEV;
 
-	if (arm_smmu_power_on(smmu))
+	if (arm_smmu_power_on(smmu->pwr))
 		return -EINVAL;
 
 	for (node = rb_first(&smmu->masters); node; node = rb_next(node)) {
@@ -3705,9 +3758,9 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 
 	/* Turn the thing off */
 	writel(sCR0_CLIENTPD, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
-	arm_smmu_power_off(smmu);
+	arm_smmu_power_off(smmu->pwr);
 
-	arm_smmu_exit_bus_scaling(&smmu->bus_client, &smmu->bus_dt_data);
+	arm_smmu_exit_power_resources(smmu->pwr);
 
 	return 0;
 }
