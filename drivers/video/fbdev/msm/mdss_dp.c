@@ -45,6 +45,11 @@
 #define VDDA_UA_ON_LOAD		100000	/* uA units */
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
+struct mdss_dp_attention_node {
+	u32 vdo;
+	struct list_head list;
+};
+
 #define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
 static u32 supported_modes[] = {
 	HDMI_VFRMT_640x480p60_4_3,
@@ -60,6 +65,7 @@ static u32 supported_modes[] = {
 static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv);
 static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata);
 static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp);
+static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp_drv);
 
 static void mdss_dp_put_dt_clk_data(struct device *dev,
 	struct dss_module_power *module_power)
@@ -1290,7 +1296,6 @@ link_training:
 	dp_drv->cont_splash = 0;
 
 	dp_drv->power_on = true;
-	mdss_dp_ack_state(dp_drv, true);
 	pr_debug("End-\n");
 
 exit:
@@ -1559,6 +1564,7 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		goto edid_error;
 	}
 
+	mdss_dp_update_cable_status(dp_drv, true);
 	mdss_dp_notify_clients(dp_drv, true);
 	dp_drv->dp_initialized = true;
 
@@ -1925,6 +1931,8 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 
 		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
 			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
+
+		mdss_dp_ack_state(dp, true);
 		break;
 	case MDSS_EVENT_PANEL_OFF:
 		rc = mdss_dp_off(pdata);
@@ -2128,6 +2136,9 @@ static void mdss_dp_event_work(struct work_struct *work)
 	case EV_IDLE_PATTERNS_SENT:
 		mdss_dp_idle_patterns_sent(dp);
 		break;
+	case EV_USBPD_ATTENTION:
+		mdss_dp_handle_attention(dp);
+		break;
 	case EV_USBPD_DISCOVER_MODES:
 		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_DISCOVER_MODES,
 			SVDM_CMD_TYPE_INITIATOR, 0x0, 0x0, 0x0);
@@ -2236,6 +2247,7 @@ static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 
 	INIT_WORK(&dp->work, mdss_dp_event_work);
 	INIT_DELAYED_WORK(&dp->hdcp_cb_work, mdss_dp_hdcp_cb_work);
+	INIT_LIST_HEAD(&dp->attention_head);
 	return 0;
 }
 
@@ -2519,6 +2531,7 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 				const u32 *vdos, int num_vdos)
 {
 	struct mdss_dp_drv_pdata *dp_drv;
+	struct mdss_dp_attention_node *node;
 
 	dp_drv = container_of(hdlr, struct mdss_dp_drv_pdata, svid_handler);
 	if (!dp_drv->pd) {
@@ -2546,45 +2559,14 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		dp_send_events(dp_drv, EV_USBPD_DP_STATUS);
 		break;
 	case USBPD_SVDM_ATTENTION:
-		dp_drv->alt_mode.dp_status.response = *vdos;
-		mdss_dp_usbpd_ext_dp_status(&dp_drv->alt_mode.dp_status);
+		node = kzalloc(sizeof(*node), GFP_KERNEL);
+		node->vdo = *vdos;
 
-		dp_drv->hpd_irq_toggled = dp_drv->hpd_irq_on !=
-			dp_drv->alt_mode.dp_status.hpd_irq;
+		mutex_lock(&dp_drv->attention_lock);
+		list_add_tail(&node->list, &dp_drv->attention_head);
+		mutex_unlock(&dp_drv->attention_lock);
 
-		if (dp_drv->alt_mode.dp_status.hpd_irq) {
-			pr_debug("Attention: hpd_irq high\n");
-
-			if (dp_drv->power_on && dp_drv->hdcp.ops &&
-			    dp_drv->hdcp.ops->cp_irq)
-				dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data);
-
-			if (!mdss_dp_process_hpd_irq_high(dp_drv))
-				break;
-		} else if (dp_drv->hpd_irq_toggled) {
-			if (!mdss_dp_process_hpd_irq_low(dp_drv))
-				break;
-		}
-
-		if (!dp_drv->alt_mode.dp_status.hpd_high) {
-			pr_debug("Attention: HPD low\n");
-			mdss_dp_update_cable_status(dp_drv, false);
-			mdss_dp_notify_clients(dp_drv, false);
-			pr_debug("Attention: Notified clients\n");
-			break;
-		}
-
-		pr_debug("Attention: HPD high\n");
-
-		mdss_dp_update_cable_status(dp_drv, true);
-
-		dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
-
-		if (dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE)
-			mdss_dp_host_init(&dp_drv->panel_data);
-		else
-			dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
-
+		dp_send_events(dp_drv, EV_USBPD_ATTENTION);
 		break;
 	case DP_VDM_STATUS:
 		dp_drv->alt_mode.dp_status.response = *vdos;
@@ -2606,6 +2588,74 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		pr_err("unknown cmd: %d\n", cmd);
 		break;
 	}
+}
+
+static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
+{
+	dp_drv->hpd_irq_toggled = dp_drv->hpd_irq_on !=
+		dp_drv->alt_mode.dp_status.hpd_irq;
+
+	if (dp_drv->alt_mode.dp_status.hpd_irq) {
+		pr_debug("Attention: hpd_irq high\n");
+
+		if (dp_drv->power_on && dp_drv->hdcp.ops &&
+		    dp_drv->hdcp.ops->cp_irq)
+			dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data);
+
+		if (!mdss_dp_process_hpd_irq_high(dp_drv))
+			return;
+	} else if (dp_drv->hpd_irq_toggled) {
+		if (!mdss_dp_process_hpd_irq_low(dp_drv))
+			return;
+	}
+
+	if (!dp_drv->alt_mode.dp_status.hpd_high) {
+		pr_debug("Attention: HPD low\n");
+		mdss_dp_update_cable_status(dp_drv, false);
+		mdss_dp_notify_clients(dp_drv, false);
+		pr_debug("Attention: Notified clients\n");
+		return;
+	}
+
+	pr_debug("Attention: HPD high\n");
+
+	mdss_dp_update_cable_status(dp_drv, true);
+
+	dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
+
+	if (dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE)
+		mdss_dp_host_init(&dp_drv->panel_data);
+	else
+		dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
+
+	pr_debug("exit\n");
+}
+
+static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp)
+{
+	int i = 0;
+
+	while (!list_empty_careful(&dp->attention_head)) {
+		struct mdss_dp_attention_node *node;
+		u32 vdo;
+
+		pr_debug("processing item %d in the list\n", ++i);
+
+		mutex_lock(&dp->attention_lock);
+		node = list_first_entry(&dp->attention_head,
+				struct mdss_dp_attention_node, list);
+
+		vdo = node->vdo;
+		list_del(&node->list);
+		mutex_unlock(&dp->attention_lock);
+
+		kzfree(node);
+
+		dp->alt_mode.dp_status.response = vdo;
+		mdss_dp_usbpd_ext_dp_status(&dp->alt_mode.dp_status);
+		mdss_dp_process_attention(dp);
+	};
+
 }
 
 static int mdss_dp_usbpd_setup(struct mdss_dp_drv_pdata *dp_drv)
@@ -2681,6 +2731,7 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	dp_drv->mask2 = EDP_INTR_MASK2;
 	mutex_init(&dp_drv->emutex);
 	mutex_init(&dp_drv->pd_msg_mutex);
+	mutex_init(&dp_drv->attention_lock);
 	mutex_init(&dp_drv->hdcp_mutex);
 	spin_lock_init(&dp_drv->lock);
 

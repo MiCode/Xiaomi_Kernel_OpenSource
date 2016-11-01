@@ -205,6 +205,7 @@ struct dp_alt_mode {
 #define EV_USBPD_DP_CONFIGURE		BIT(10)
 #define EV_USBPD_CC_PIN_POLARITY	BIT(11)
 #define EV_USBPD_EXIT_MODE		BIT(12)
+#define EV_USBPD_ATTENTION		BIT(13)
 
 /* dp state ctrl */
 #define ST_TRAIN_PATTERN_1		BIT(0)
@@ -455,6 +456,7 @@ struct mdss_dp_drv_pdata {
 	struct mutex aux_mutex;
 	struct mutex train_mutex;
 	struct mutex pd_msg_mutex;
+	struct mutex attention_lock;
 	struct mutex hdcp_mutex;
 	bool cable_connected;
 	u32 s3d_mode;
@@ -498,6 +500,8 @@ struct mdss_dp_drv_pdata {
 
 	struct dpcd_test_request test_data;
 	struct dpcd_sink_count sink_count;
+
+	struct list_head attention_head;
 };
 
 enum dp_lane_count {
