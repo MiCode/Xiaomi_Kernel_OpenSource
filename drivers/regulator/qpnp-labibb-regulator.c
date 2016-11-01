@@ -32,6 +32,7 @@
 
 #define QPNP_LABIBB_REGULATOR_DRIVER_NAME	"qcom,qpnp-labibb-regulator"
 
+#define REG_REVISION_2			0x01
 #define REG_PERPH_TYPE			0x04
 
 #define QPNP_LAB_TYPE			0x24
@@ -60,6 +61,7 @@
 #define REG_LAB_PRECHARGE_CTL		0x5E
 #define REG_LAB_SOFT_START_CTL		0x5F
 #define REG_LAB_SPARE_CTL		0x60
+#define REG_LAB_PFM_CTL			0x62
 
 /* LAB register bits definitions */
 
@@ -91,9 +93,9 @@
 #define LAB_IBB_EN_RDY_EN		BIT(7)
 
 /* REG_LAB_CURRENT_LIMIT */
-#define LAB_CURRENT_LIMIT_BITS		3
-#define LAB_CURRENT_LIMIT_MASK		((1 << LAB_CURRENT_LIMIT_BITS) - 1)
-#define LAB_CURRENT_LIMIT_EN		BIT(7)
+#define LAB_CURRENT_LIMIT_MASK		GENMASK(2, 0)
+#define LAB_CURRENT_LIMIT_EN_BIT	BIT(7)
+#define LAB_OVERRIDE_CURRENT_MAX_BIT	BIT(3)
 
 /* REG_LAB_CURRENT_SENSE */
 #define LAB_CURRENT_SENSE_GAIN_BITS	2
@@ -128,6 +130,9 @@
 /* REG_LAB_SPARE_CTL */
 #define LAB_SPARE_TOUCH_WAKE_BIT	BIT(3)
 #define LAB_SPARE_DISABLE_SCP_BIT	BIT(0)
+
+/* REG_LAB_PFM_CTL */
+#define LAB_PFM_EN_BIT			BIT(7)
 
 /* IBB register offset definitions */
 #define REG_IBB_REVISION4		0x03
@@ -344,6 +349,10 @@ static const int lab_current_limit_plan[] = {
 	400,
 	600,
 	800,
+	1000,
+	1200,
+	1400,
+	1600,
 };
 
 static const char * const lab_current_sense_plan[] = {
@@ -471,6 +480,8 @@ struct qpnp_labibb {
 	struct pmic_revid_data		*pmic_rev_id;
 	u16				lab_base;
 	u16				ibb_base;
+	u8				lab_dig_major;
+	u8				ibb_dig_major;
 	struct lab_regulator		lab_vreg;
 	struct ibb_regulator		ibb_vreg;
 	enum qpnp_labibb_mode		mode;
@@ -481,6 +492,7 @@ struct qpnp_labibb {
 	bool				swire_control;
 	bool				ttw_force_lab_on;
 	bool				skip_2nd_swire_cmd;
+	bool				pfm_enable;
 	u32				swire_2nd_cmd_delay;
 	u32				swire_ibb_ps_enable_delay;
 };
@@ -783,7 +795,7 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 
 	if (of_property_read_bool(of_node,
 		"qcom,qpnp-lab-limit-max-current-enable"))
-		val |= LAB_CURRENT_LIMIT_EN;
+		val |= LAB_CURRENT_LIMIT_EN_BIT;
 
 	rc = qpnp_labibb_write(labibb, labibb->lab_base +
 				REG_LAB_CURRENT_LIMIT, &val, 1);
@@ -933,6 +945,88 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 			pr_err("Unable to set SWIRE_RDY rc=%d\n", rc);
 	}
 
+	return rc;
+}
+
+#define LAB_CURRENT_MAX_1600MA	0x7
+#define LAB_CURRENT_MAX_400MA	0x1
+static int qpnp_lab_pfm_disable(struct qpnp_labibb *labibb)
+{
+	int rc = 0;
+	u8 val, mask;
+
+	mutex_lock(&(labibb->lab_vreg.lab_mutex));
+	if (!labibb->pfm_enable) {
+		pr_debug("PFM already disabled\n");
+		goto out;
+	}
+
+	val = 0;
+	mask = LAB_PFM_EN_BIT;
+	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+				REG_LAB_PFM_CTL, mask, val);
+	if (rc < 0) {
+		pr_err("Write register %x failed rc = %d\n",
+			REG_LAB_PFM_CTL, rc);
+		goto out;
+	}
+
+	val = LAB_CURRENT_MAX_1600MA;
+	mask = LAB_OVERRIDE_CURRENT_MAX_BIT | LAB_CURRENT_LIMIT_MASK;
+	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+				REG_LAB_CURRENT_LIMIT, mask, val);
+	if (rc < 0) {
+		pr_err("Write register %x failed rc = %d\n",
+			REG_LAB_CURRENT_LIMIT, rc);
+		goto out;
+	}
+
+	labibb->pfm_enable = false;
+out:
+	mutex_unlock(&(labibb->lab_vreg.lab_mutex));
+	return rc;
+}
+
+static int qpnp_lab_pfm_enable(struct qpnp_labibb *labibb)
+{
+	int rc = 0;
+	u8 val, mask;
+
+	mutex_lock(&(labibb->lab_vreg.lab_mutex));
+	if (labibb->pfm_enable) {
+		pr_debug("PFM already enabled\n");
+		goto out;
+	}
+
+	/* Wait for ~100uS */
+	usleep_range(100, 105);
+
+	val = LAB_OVERRIDE_CURRENT_MAX_BIT | LAB_CURRENT_MAX_400MA;
+	mask = LAB_OVERRIDE_CURRENT_MAX_BIT | LAB_CURRENT_LIMIT_MASK;
+	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+				REG_LAB_CURRENT_LIMIT, mask, val);
+	if (rc < 0) {
+		pr_err("Write register %x failed rc = %d\n",
+			REG_LAB_CURRENT_LIMIT, rc);
+		goto out;
+	}
+
+	/* Wait for ~100uS */
+	usleep_range(100, 105);
+
+	val = LAB_PFM_EN_BIT;
+	mask = LAB_PFM_EN_BIT;
+	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+				REG_LAB_PFM_CTL, mask, val);
+	if (rc < 0) {
+		pr_err("Write register %x failed rc = %d\n",
+			REG_LAB_PFM_CTL, rc);
+		goto out;
+	}
+
+	labibb->pfm_enable = true;
+out:
+	mutex_unlock(&(labibb->lab_vreg.lab_mutex));
 	return rc;
 }
 
@@ -1435,6 +1529,15 @@ static int qpnp_labibb_regulator_disable(struct qpnp_labibb *labibb)
 		return -EINVAL;
 	}
 
+	if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE &&
+		labibb->mode == QPNP_LABIBB_LCD_MODE) {
+		rc = qpnp_lab_pfm_disable(labibb);
+		if (rc < 0) {
+			pr_err("Error in disabling PFM, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	labibb->lab_vreg.vreg_enabled = 0;
 	labibb->ibb_vreg.vreg_enabled = 0;
 
@@ -1644,9 +1747,17 @@ static irqreturn_t lab_vreg_ok_handler(int irq, void *_labibb)
 	struct qpnp_labibb *labibb = _labibb;
 	int rc;
 
-	rc = qpnp_skip_swire_command(labibb);
-	if (rc)
-		pr_err("Failed in 'qpnp_skip_swire_command' rc=%d\n", rc);
+	if (labibb->skip_2nd_swire_cmd && labibb->lab_dig_major < 2) {
+		rc = qpnp_skip_swire_command(labibb);
+		if (rc < 0)
+			pr_err("Failed in 'qpnp_skip_swire_command' rc=%d\n",
+				rc);
+	} else if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE &&
+		labibb->mode == QPNP_LABIBB_LCD_MODE) {
+		rc = qpnp_lab_pfm_enable(labibb);
+		if (rc < 0)
+			pr_err("Failed to config PFM, rc=%d\n", rc);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -1659,6 +1770,23 @@ static int qpnp_lab_regulator_get_voltage(struct regulator_dev *rdev)
 		return 0;
 
 	return labibb->lab_vreg.curr_volt;
+}
+
+static bool is_lab_vreg_ok_irq_available(struct qpnp_labibb *labibb)
+{
+	/*
+	 * LAB VREG_OK interrupt is used only to skip 2nd SWIRE command in
+	 * dig_major < 2 targets. For pmicobalt, it is used to enable PFM in
+	 * LCD mode.
+	 */
+	if (labibb->skip_2nd_swire_cmd && labibb->lab_dig_major < 2)
+		return true;
+
+	if (labibb->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE &&
+		labibb->mode == QPNP_LABIBB_LCD_MODE)
+		return true;
+
+	return false;
 }
 
 static struct regulator_ops qpnp_lab_ops = {
@@ -1809,19 +1937,6 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		}
 	}
 
-	if (labibb->skip_2nd_swire_cmd) {
-		rc = devm_request_threaded_irq(labibb->dev,
-				labibb->lab_vreg.lab_vreg_ok_irq, NULL,
-				lab_vreg_ok_handler,
-				IRQF_ONESHOT | IRQF_TRIGGER_RISING,
-				"lab-vreg-ok", labibb);
-		if (rc) {
-			pr_err("Failed to register 'lab-vreg-ok' irq rc=%d\n",
-						rc);
-			return rc;
-		}
-	}
-
 	val = (labibb->standalone) ? 0 : LAB_IBB_EN_RDY_EN;
 	rc = qpnp_labibb_sec_write(labibb, labibb->lab_base,
 			REG_LAB_IBB_EN_RDY, &val, 1);
@@ -1899,6 +2014,19 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		labibb->lab_vreg.vreg_enabled = 1;
 	}
 
+	if (is_lab_vreg_ok_irq_available(labibb)) {
+		rc = devm_request_threaded_irq(labibb->dev,
+				labibb->lab_vreg.lab_vreg_ok_irq, NULL,
+				lab_vreg_ok_handler,
+				IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+				"lab-vreg-ok", labibb);
+		if (rc) {
+			pr_err("Failed to register 'lab-vreg-ok' irq rc=%d\n",
+						rc);
+			return rc;
+		}
+	}
+
 	rc = qpnp_labibb_read(labibb, &val,
 			labibb->lab_base + REG_LAB_MODULE_RDY, 1);
 	if (rc) {
@@ -1953,7 +2081,6 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		return -EINVAL;
 	}
 
-	mutex_init(&(labibb->lab_vreg.lab_mutex));
 	return 0;
 }
 
@@ -2683,14 +2810,13 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		return -EINVAL;
 	}
 
-	mutex_init(&(labibb->ibb_vreg.ibb_mutex));
 	return 0;
 }
 
 static int qpnp_lab_register_irq(struct device_node *child,
 				struct qpnp_labibb *labibb)
 {
-	if (labibb->skip_2nd_swire_cmd) {
+	if (is_lab_vreg_ok_irq_available(labibb)) {
 		labibb->lab_vreg.lab_vreg_ok_irq =
 					of_irq_get_byname(child, "lab-vreg-ok");
 		if (labibb->lab_vreg.lab_vreg_ok_irq < 0) {
@@ -2745,7 +2871,7 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 	unsigned int base;
 	struct device_node *child, *revid_dev_node;
 	const char *mode_name;
-	u8 type;
+	u8 type, revision;
 	int rc = 0;
 
 	labibb = devm_kzalloc(&pdev->dev,
@@ -2762,6 +2888,9 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 
 	labibb->dev = &(pdev->dev);
 	labibb->pdev = pdev;
+
+	mutex_init(&(labibb->lab_vreg.lab_mutex));
+	mutex_init(&(labibb->ibb_vreg.ibb_mutex));
 
 	revid_dev_node = of_parse_phandle(labibb->dev->of_node,
 					"qcom,pmic-revid", 0);
@@ -2817,6 +2946,7 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 		labibb->skip_2nd_swire_cmd =
 				of_property_read_bool(labibb->dev->of_node,
 				"qcom,skip-2nd-swire-cmd");
+
 		rc = of_property_read_u32(labibb->dev->of_node,
 				"qcom,swire-2nd-cmd-delay",
 				&labibb->swire_2nd_cmd_delay);
@@ -2846,6 +2976,13 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 			return rc;
 		}
 
+		rc = qpnp_labibb_read(labibb, &revision, base + REG_REVISION_2,
+					1);
+		if (rc) {
+			pr_err("Reading REVISION_2 failed rc=%d\n", rc);
+			goto fail_registration;
+		}
+
 		rc = qpnp_labibb_read(labibb, &type,
 				base + REG_PERPH_TYPE, 1);
 		if (rc) {
@@ -2856,6 +2993,7 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 		switch (type) {
 		case QPNP_LAB_TYPE:
 			labibb->lab_base = base;
+			labibb->lab_dig_major = revision;
 			rc = qpnp_lab_register_irq(child, labibb);
 			if (rc) {
 				pr_err("Failed to register LAB IRQ rc=%d\n",
@@ -2869,6 +3007,7 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 
 		case QPNP_IBB_TYPE:
 			labibb->ibb_base = base;
+			labibb->ibb_dig_major = revision;
 			rc = register_qpnp_ibb_regulator(labibb, child);
 			if (rc)
 				goto fail_registration;
