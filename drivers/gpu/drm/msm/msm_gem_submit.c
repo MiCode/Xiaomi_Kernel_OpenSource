@@ -302,7 +302,7 @@ static int submit_reloc(struct msm_gem_submit *submit, struct msm_gem_object *ob
 	return 0;
 }
 
-static void submit_cleanup(struct msm_gem_submit *submit, bool fail)
+static void submit_cleanup(struct msm_gem_submit *submit, int fail)
 {
 	unsigned i;
 
@@ -314,7 +314,8 @@ static void submit_cleanup(struct msm_gem_submit *submit, bool fail)
 	}
 
 	ww_acquire_fini(&submit->ticket);
-	kfree(submit);
+	if (fail)
+		kfree(submit);
 }
 
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
@@ -392,9 +393,12 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 			goto out;
 		}
 
-		if ((submit_cmd.size + submit_cmd.submit_offset) >=
+		if ((submit_cmd.size + submit_cmd.submit_offset) >
 				msm_obj->base.size) {
-			DRM_ERROR("invalid cmdstream size: %u\n", submit_cmd.size);
+			DRM_ERROR(
+			"invalid cmdstream size:%u, offset:%u, base_size:%zu\n",
+				submit_cmd.size, submit_cmd.submit_offset,
+				msm_obj->base.size);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -420,8 +424,8 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	args->fence = submit->fence;
 
 out:
-	if (submit)
-		submit_cleanup(submit, !!ret);
+	submit_cleanup(submit, ret);
+
 	mutex_unlock(&dev->struct_mutex);
 	return ret;
 }

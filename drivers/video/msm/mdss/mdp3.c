@@ -78,6 +78,13 @@ struct mdp3_hw_resource *mdp3_res;
 		.ib = (ib_val),				\
 	}
 
+#define SET_BIT(value, bit_num) \
+{ \
+	value[bit_num >> 3] |= (1 << (bit_num & 7)); \
+}
+
+#define MAX_BPP_SUPPORTED 4
+
 static struct msm_bus_vectors mdp_bus_vectors[] = {
 	MDP_BUS_VECTOR_ENTRY(0, 0),
 	MDP_BUS_VECTOR_ENTRY(SZ_128M, SZ_256M),
@@ -2271,6 +2278,14 @@ splash_on_err:
 static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
 {
 	int rc = 0;
+	u64 ab = 0; u64 ib = 0;
+	u64 mdp_clk_rate = 0;
+
+	/* Store max bandwidth supported in mdp res */
+	mdp3_calc_dma_res(&pdata->panel_info, &mdp_clk_rate, &ab, &ib,
+			MAX_BPP_SUPPORTED);
+	do_div(ab, 1024);
+	mdp3_res->max_bw = ab+1;
 
 	/*
 	* If idle pc feature is not enabled, then get a reference to the
@@ -2428,6 +2443,61 @@ static void mdp3_dma_underrun_intr_handler(int type, void *arg)
 	}
 }
 
+uint32_t ppp_formats_supported[] = {
+	MDP_RGB_565,
+	MDP_BGR_565,
+	MDP_RGB_888,
+	MDP_BGR_888,
+	MDP_XRGB_8888,
+	MDP_ARGB_8888,
+	MDP_RGBA_8888,
+	MDP_BGRA_8888,
+	MDP_RGBX_8888,
+	MDP_Y_CBCR_H2V1,
+	MDP_Y_CBCR_H2V2,
+	MDP_Y_CBCR_H2V2_ADRENO,
+	MDP_Y_CBCR_H2V2_VENUS,
+	MDP_Y_CRCB_H2V1,
+	MDP_Y_CRCB_H2V2,
+	MDP_YCRYCB_H2V1,
+	MDP_BGRX_8888,
+};
+
+uint32_t dma_formats_supported[] = {
+	MDP_RGB_565,
+	MDP_RGB_888,
+	MDP_XRGB_8888,
+};
+
+static void __mdp3_set_supported_formats(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ppp_formats_supported); i++)
+		SET_BIT(mdp3_res->ppp_formats, ppp_formats_supported[i]);
+
+	for (i = 0; i < ARRAY_SIZE(dma_formats_supported); i++)
+		SET_BIT(mdp3_res->dma_formats, dma_formats_supported[i]);
+}
+
+static void __update_format_supported_info(char *buf, int *cnt)
+{
+	int j;
+	size_t len = PAGE_SIZE;
+	int num_bytes = BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1);
+#define SPRINT(fmt, ...) \
+	(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
+
+	SPRINT("ppp_input_fmts=");
+	for (j = 0; j < num_bytes; j++)
+		SPRINT("%d,", mdp3_res->ppp_formats[j]);
+	SPRINT("\ndma_output_fmts=");
+	for (j = 0; j < num_bytes; j++)
+		SPRINT("%d,", mdp3_res->dma_formats[j]);
+	SPRINT("\n");
+#undef SPRINT
+}
+
 static ssize_t mdp3_show_capabilities(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -2437,10 +2507,32 @@ static ssize_t mdp3_show_capabilities(struct device *dev,
 #define SPRINT(fmt, ...) \
 		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
 
+	SPRINT("dma_pipes=%d\n", 1);
 	SPRINT("mdp_version=3\n");
 	SPRINT("hw_rev=%d\n", 305);
+	SPRINT("pipe_count:%d\n", 1);
+	SPRINT("pipe_num:%d pipe_type:dma pipe_ndx:%d rects:%d ", 0, 1, 1);
+	SPRINT("pipe_is_handoff:%d display_id:%d\n", 0, 0);
+	__update_format_supported_info(buf, &cnt);
+	SPRINT("rgb_pipes=%d\n", 0);
+	SPRINT("vig_pipes=%d\n", 0);
 	SPRINT("dma_pipes=%d\n", 1);
-	SPRINT("\n");
+	SPRINT("blending_stages=%d\n", 1);
+	SPRINT("cursor_pipes=%d\n", 0);
+	SPRINT("max_cursor_size=%d\n", 0);
+	SPRINT("smp_count=%d\n", 0);
+	SPRINT("smp_size=%d\n", 0);
+	SPRINT("smp_mb_per_pipe=%d\n", 0);
+	SPRINT("max_downscale_ratio=%d\n", PPP_DOWNSCALE_MAX);
+	SPRINT("max_upscale_ratio=%d\n", PPP_UPSCALE_MAX);
+	SPRINT("max_pipe_bw=%u\n", mdp3_res->max_bw);
+	SPRINT("max_bandwidth_low=%u\n", mdp3_res->max_bw);
+	SPRINT("max_bandwidth_high=%u\n", mdp3_res->max_bw);
+	SPRINT("max_mdp_clk=%u\n", MDP_CORE_CLK_RATE_MAX);
+	SPRINT("clk_fudge_factor=%u,%u\n", CLK_FUDGE_NUM, CLK_FUDGE_DEN);
+	SPRINT("features=has_ppp\n");
+
+#undef SPRINT
 
 	return cnt;
 }
@@ -2811,6 +2903,8 @@ static int mdp3_probe(struct platform_device *pdev)
 	rc = mdss_smmu_init(mdss_res, &pdev->dev);
 	if (rc)
 		pr_err("mdss smmu init failed\n");
+
+	__mdp3_set_supported_formats();
 
 	mdp3_res->mdss_util->mdp_probe_done = true;
 	pr_debug("%s: END\n", __func__);

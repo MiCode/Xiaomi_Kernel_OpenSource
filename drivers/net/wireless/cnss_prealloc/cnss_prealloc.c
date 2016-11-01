@@ -328,9 +328,10 @@ void wcnss_prealloc_check_memory_leak(void)
 	}
 
 }
+#endif
 
+#if defined(CONFIG_WCNSS_SKB_PRE_ALLOC) && defined(CONFIG_SLUB_DEBUG)
 /* Check memory leak for socket buffer pre-alloc memeory pool */
-#ifdef CONFIG_WCNSS_SKB_PRE_ALLOC
 void wcnss_skb_prealloc_check_memory_leak(void)
 {
 	int i;
@@ -353,7 +354,6 @@ void wcnss_skb_prealloc_check_memory_leak(void)
 }
 #else
 void wcnss_skb_prealloc_check_memory_leak(void) {}
-#endif
 #endif
 
 #ifdef CONFIG_WCNSS_SKB_PRE_ALLOC

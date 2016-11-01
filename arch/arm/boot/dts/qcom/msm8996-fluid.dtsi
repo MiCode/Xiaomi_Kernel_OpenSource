@@ -587,6 +587,7 @@
 	status = "ok";
 };
 
+#include "msm8996-sde-display.dtsi"
 #include "msm8996-mdss-panels.dtsi"
 
 &mdss_mdp {

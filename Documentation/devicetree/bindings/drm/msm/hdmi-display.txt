@@ -1,0 +1,56 @@
+Qualcomm Technologies,Inc. Adreno/Snapdragon hdmi display manager
+
+Required properties:
+- compatible: "qcom,hdmi-display"
+- label: label of this display manager
+
+Optional properties:
+- qcom,display-type: display type of this manager. It could be "primary",
+  "secondary", "tertiary", etc.
+- qcom,non-pluggable: Indicate if display is non pluggable.
+- qcom,customize-modes: Customized modes when it's non pluggable display.
+- qcom,customize-mode-id: Customized mode node.
+- qcom,mode-name: Mode name.
+- qcom,mode-h-active: Mode horizontal active pixels.
+- qcom,mode-h-front-porch: Mode horizontal front porch in pixels.
+- qcom,mode-h-pulse-width: Mode horizontal sync width in pixels.
+- qcom,mode-h-back-porch: Mode horizontal back porch in pixels.
+- qcom,mode-h-active-high: If mode horizontal polarity is active high.
+- qcom,mode-v-active: Mode virtical active lines.
+- qcom,mode-v-front-porch: Mode virtical front porch in lines.
+- qcom,mode-v-pulse-width: Mode virtical sync width in lines.
+- qcom,mode-v-back-porch: Mode virtical back porch in lines.
+- qcom,mode-v-active-high: If mode virtical polarity is active high.
+- qcom,mode-refersh-rate: Mode refresh rate in hertz.
+- qcom,mode-clock-in-khz: Mode pixel clock in KHz.
+
+Example:
+
+/ {
+	...
+
+	hdmi_display: qcom,hdmi-display {
+		compatible = "qcom,hdmi-display";
+		label = "hdmi_display";
+		qcom,display-type = "secondary";
+		qcom,non-pluggable;
+		qcom,customize-modes {
+			qcom,customize-mode-id@0 {
+				qcom,mode-name = "3840x2160@30Hz";
+				qcom,mode-h-active = <3840>;
+				qcom,mode-h-front-porch = <176>;
+				qcom,mode-h-pulse-width = <88>;
+				qcom,mode-h-back-porch = <296>;
+				qcom,mode-h-active-high;
+				qcom,mode-v-active = <2160>;
+				qcom,mode-v-front-porch = <8>;
+				qcom,mode-v-pulse-width = <10>;
+				qcom,mode-v-back-porch = <72>;
+				qcom,mode-v-active-high;
+				qcom,mode-refersh-rate = <30>;
+				qcom,mode-clock-in-khz = <297000>;
+			};
+		};
+	};
+
+};

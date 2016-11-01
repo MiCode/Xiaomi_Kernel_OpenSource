@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/msm_gsi.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 #include "gsi.h"
 #include "gsi_reg.h"
 
@@ -26,6 +27,8 @@
 #define GSI_MHI_ER_START 10
 #define GSI_MHI_ER_END 16
 
+#define GSI_RESET_WA_MIN_SLEEP 1000
+#define GSI_RESET_WA_MAX_SLEEP 2000
 static const struct of_device_id msm_gsi_match[] = {
 	{ .compatible = "qcom,msm_gsi", },
 	{ },
@@ -1869,6 +1872,7 @@ reset:
 
 	/* workaround: reset GSI producers again */
 	if (ctx->props.dir == GSI_CHAN_DIR_FROM_GSI && !reset_done) {
+		usleep_range(GSI_RESET_WA_MIN_SLEEP, GSI_RESET_WA_MAX_SLEEP);
 		reset_done = true;
 		goto reset;
 	}

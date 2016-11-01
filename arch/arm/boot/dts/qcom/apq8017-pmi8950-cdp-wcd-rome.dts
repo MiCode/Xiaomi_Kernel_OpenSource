@@ -23,3 +23,7 @@
 	qcom,board-id= <1 2>;
 	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
 };
+
+&blsp1_uart1 {
+	status = "ok";
+};

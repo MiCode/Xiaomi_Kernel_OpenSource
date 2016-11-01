@@ -294,6 +294,9 @@ config OMAP_IOMMU
 	bool "OMAP IOMMU Support"
 	depends on ARCH_OMAP2PLUS
 	select IOMMU_API
+	---help---
+	  The OMAP3 media platform drivers depend on iommu support,
+	  if you need them say Y here.
 
 config OMAP_IOMMU_DEBUG
        tristate "Export OMAP IOMMU internals in DebugFS"

@@ -59,6 +59,7 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996pro-v1.1-pmi8996-pmk8001-mtp.dtb \
 	apq8096pro-auto-cdp.dtb \
 	apq8096pro-v1.1-auto-adp.dtb \
+	apq8096pro-v1.1-auto-adp-lite.dts \
 	apq8096pro-liquid.dtb \
 	apq8096pro-v1.1-auto-cdp.dtb \
 	apq8096pro-v1.1-pmi8994-cdp.dtb \
@@ -205,7 +206,8 @@ dtb-$(CONFIG_ARCH_MSM8920) += msm8920-pmi8937-cdp.dtb \
 	msm8920-pmi8950-cdp.dtb \
 	msm8920-pmi8950-mtp.dtb \
 	msm8920-pmi8937-rcm.dtb \
-	msm8920-pmi8950-rcm.dtb
+	msm8920-pmi8950-rcm.dtb \
+	msm8920-pmi8940-qrd-sku7.dtb
 
 dtb-$(CONFIG_ARCH_MSM8940) += msm8940-pmi8937-cdp.dtb \
 	msm8940-pmi8937-mtp.dtb \

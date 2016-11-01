@@ -365,8 +365,7 @@ static int bcl_access_monitor_enable(bool enable)
 				/* Fall through to clear the poll work */
 			case BCL_PARAM_INACTIVE:
 			case BCL_PARAM_POLLING:
-				cancel_delayed_work_sync(
-					&perph_data->poll_work);
+				cancel_delayed_work(&perph_data->poll_work);
 				break;
 			default:
 				break;

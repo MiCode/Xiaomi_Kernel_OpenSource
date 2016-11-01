@@ -46,7 +46,7 @@ struct bdb_header {
 	u16 version;			/**< decimal */
 	u16 header_size;		/**< in bytes */
 	u16 bdb_size;			/**< in bytes */
-};
+} __packed;
 
 /* strictly speaking, this is a "skip" block, but it has interesting info */
 struct vbios_data {
@@ -80,7 +80,7 @@ struct vbios_data {
 #define BDB_EXT_MMIO_REGS	  6
 #define BDB_SWF_IO		  7
 #define BDB_SWF_MMIO		  8
-#define BDB_DOT_CLOCK_TABLE	  9
+#define BDB_PSR			  9
 #define BDB_MODE_REMOVAL_TABLE	 10
 #define BDB_CHILD_DEVICE_TABLE	 11
 #define BDB_DRIVER_FEATURES	 12
@@ -203,9 +203,11 @@ struct bdb_general_features {
 #define DEVICE_PORT_DVOB	0x01
 #define DEVICE_PORT_DVOC	0x02
 
-/* We used to keep this struct but without any version control. We should avoid
+/*
+ * We used to keep this struct but without any version control. We should avoid
  * using it in the future, but it should be safe to keep using it in the old
- * code. */
+ * code. Do not change; we rely on its size.
+ */
 struct old_child_dev_config {
 	u16 handle;
 	u16 device_type;
@@ -231,6 +233,10 @@ struct old_child_dev_config {
 /* This one contains field offsets that are known to be common for all BDB
  * versions. Notice that the meaning of the contents contents may still change,
  * but at least the offsets are consistent. */
+
+/* Definitions for flags_1 */
+#define IBOOST_ENABLE (1<<3)
+
 struct common_child_dev_config {
 	u16 handle;
 	u16 device_type;
@@ -239,7 +245,12 @@ struct common_child_dev_config {
 	u8 not_common2[2];
 	u8 ddc_pin;
 	u16 edid_ptr;
+	u8 obsolete;
+	u8 flags_1;
+	u8 not_common3[13];
+	u8 iboost_level;
 } __packed;
+
 
 /* This field changes depending on the BDB version, so the most reliable way to
  * read it is by checking the BDB version and reading the raw pointer. */
@@ -252,7 +263,7 @@ union child_device_config {
 	/* This one should also be safe to use anywhere, even without version
 	 * checks. */
 	struct common_child_dev_config common;
-};
+} __packed;
 
 struct bdb_general_definitions {
 	/* DDC GPIO */
@@ -277,9 +288,9 @@ struct bdb_general_definitions {
 	 * And the device num is related with the size of general definition
 	 * block. It is obtained by using the following formula:
 	 * number = (block_size - sizeof(bdb_general_definitions))/
-	 *	     sizeof(child_device_config);
+	 *	     defs->child_dev_size;
 	 */
-	union child_device_config devices[0];
+	uint8_t devices[0];
 } __packed;
 
 /* Mask for DRRS / Panel Channel / SSC / BLT control bits extraction */
@@ -554,9 +565,29 @@ struct bdb_edp {
 	/* ith bit indicates enabled/disabled for (i+1)th panel */
 	u16 edp_s3d_feature;
 	u16 edp_t3_optimization;
+	u64 edp_vswing_preemph;		/* v173 */
 } __packed;
 
-void intel_setup_bios(struct drm_device *dev);
+struct psr_table {
+	/* Feature bits */
+	u8 full_link:1;
+	u8 require_aux_to_wakeup:1;
+	u8 feature_bits_rsvd:6;
+
+	/* Wait times */
+	u8 idle_frames:4;
+	u8 lines_to_wait:3;
+	u8 wait_times_rsvd:1;
+
+	/* TP wake up time in multiple of 100 */
+	u16 tp1_wakeup_time;
+	u16 tp2_tp3_wakeup_time;
+} __packed;
+
+struct bdb_psr {
+	struct psr_table psr_table[16];
+} __packed;
+
 int intel_parse_bios(struct drm_device *dev);
 
 /*
@@ -710,7 +741,6 @@ int intel_parse_bios(struct drm_device *dev);
  */
 #define DEVICE_TYPE_eDP_BITS \
 	(DEVICE_TYPE_INTERNAL_CONNECTOR | \
-	 DEVICE_TYPE_NOT_HDMI_OUTPUT | \
 	 DEVICE_TYPE_MIPI_OUTPUT | \
 	 DEVICE_TYPE_COMPOSITE_OUTPUT | \
 	 DEVICE_TYPE_DUAL_CHANNEL | \
@@ -718,18 +748,12 @@ int intel_parse_bios(struct drm_device *dev);
 	 DEVICE_TYPE_TMDS_DVI_SIGNALING | \
 	 DEVICE_TYPE_VIDEO_SIGNALING | \
 	 DEVICE_TYPE_DISPLAYPORT_OUTPUT | \
-	 DEVICE_TYPE_DIGITAL_OUTPUT | \
 	 DEVICE_TYPE_ANALOG_OUTPUT)
 
 /* define the DVO port for HDMI output type */
 #define		DVO_B		1
 #define		DVO_C		2
 #define		DVO_D		3
-
-/* define the PORT for DP output type */
-#define		PORT_IDPB	7
-#define		PORT_IDPC	8
-#define		PORT_IDPD	9
 
 /* Possible values for the "DVO Port" field for versions >= 155: */
 #define DVO_PORT_HDMIA	0
@@ -743,6 +767,8 @@ int intel_parse_bios(struct drm_device *dev);
 #define DVO_PORT_DPC	8
 #define DVO_PORT_DPD	9
 #define DVO_PORT_DPA	10
+#define DVO_PORT_DPE	11
+#define DVO_PORT_HDMIE	12
 #define DVO_PORT_MIPIA	21
 #define DVO_PORT_MIPIB	22
 #define DVO_PORT_MIPIC	23
@@ -756,6 +782,13 @@ int intel_parse_bios(struct drm_device *dev);
 
 #define MIPI_DSI_UNDEFINED_PANEL_ID	0
 #define MIPI_DSI_GENERIC_PANEL_ID	1
+
+/*
+ * PMIC vs SoC Backlight support specified in pwm_blc
+ * field in mipi_config block below.
+*/
+#define PPS_BLC_PMIC   0
+#define PPS_BLC_SOC    1
 
 struct mipi_config {
 	u16 panel_id;
@@ -798,7 +831,8 @@ struct mipi_config {
 #define DUAL_LINK_PIXEL_ALT	2
 	u16 dual_link:2;
 	u16 lane_cnt:2;
-	u16 rsvd3:12;
+	u16 pixel_overlap:3;
+	u16 rsvd3:9;
 
 	u16 rsvd4;
 
@@ -888,12 +922,12 @@ struct mipi_pps_data {
 	u16 bl_disable_delay;
 	u16 panel_off_delay;
 	u16 panel_power_cycle_delay;
-};
+} __packed;
 
 struct bdb_mipi_config {
 	struct mipi_config config[MAX_MIPI_CONFIGURATIONS];
 	struct mipi_pps_data pps[MAX_MIPI_CONFIGURATIONS];
-};
+} __packed;
 
 /* Block 53 contains MIPI sequences as needed by the panel
  * for enabling it. This block can be variable in size and
@@ -902,7 +936,7 @@ struct bdb_mipi_config {
 struct bdb_mipi_sequence {
 	u8 version;
 	u8 data[0];
-};
+} __packed;
 
 /* MIPI Sequnece Block definitions */
 enum mipi_seq {

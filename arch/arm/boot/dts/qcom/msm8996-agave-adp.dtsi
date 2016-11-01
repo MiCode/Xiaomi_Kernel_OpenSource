@@ -544,10 +544,89 @@
 						&mdss_hdmi_cec_suspend>;
 };
 
-#include "msm8996-mdss-panels.dtsi"
+#include "msm8996-sde-display.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&sde_kms {
+	connectors = <&sde_hdmi &display_manager>;
+	gpus = <&msm_gpu>;
+	memory-region = <&cont_splash_mem>;
+	qcom,sde-plane-id-map {
+		qcom,sde-plane-id@0 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "rgb0", "rgb1";
+			qcom,plane-type = "primary";
+		};
+		qcom,sde-plane-id@1 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "vig0", "vig1";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@2 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "dma0", "dma1";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@3 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "cursor0", "cursor1";
+			qcom,plane-type = "cursor";
+		};
+		qcom,sde-plane-id@4 {
+			qcom,display-type = "secondary";
+			qcom,plane-name = "rgb2", "rgb3";
+			qcom,plane-type = "primary";
+		};
+		qcom,sde-plane-id@5 {
+			qcom,display-type = "secondary";
+			qcom,plane-name = "vig2", "vig3";
+			qcom,plane-type = "overlay";
+		};
+	};
+};
+
+&sde_hdmi {
+	status = "ok";
+	qcom,hdmi-tx-ddc-clk-gpio = <&tlmm 32 0>;
+	qcom,hdmi-tx-ddc-data-gpio = <&tlmm 33 0>;
+	qcom,hdmi-tx-hpd-gpio = <&tlmm 34 0>;
+	qcom,hdmi-tx-mux-en-gpio = <&tlmm 27 0>;
+	qcom,hdmi-tx-mux-sel-gpio = <&tlmm 83 0>;
+	qcom,hdmi-tx-mux-lpm-gpio = <&tlmm 85 0>;
+};
+
+&dsi_dual_sharp_video_1 {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&dsi_adv_7533_1 {
+	qcom,dsi-display-active;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
 };
 
 &mdss_dsi {

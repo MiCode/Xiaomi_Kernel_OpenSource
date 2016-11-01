@@ -17,9 +17,9 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-#include <linux/spinlock.h>
 #include <linux/shmem_fs.h>
+#include <linux/spinlock.h>
+
 #include <drm/drm_vma_manager.h>
 
 #include "omap_drv.h"
@@ -612,8 +612,7 @@ int omap_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
 {
 	union omap_gem_size gsize;
 
-	/* in case someone tries to feed us a completely bogus stride: */
-	args->pitch = align_pitch(args->pitch, args->width, args->bpp);
+	args->pitch = align_pitch(0, args->width, args->bpp);
 	args->size = PAGE_ALIGN(args->pitch * args->height);
 
 	gsize = (union omap_gem_size){
@@ -809,10 +808,10 @@ fail:
 /* Release physical address, when DMA is no longer being performed.. this
  * could potentially unpin and unmap buffers from TILER
  */
-int omap_gem_put_paddr(struct drm_gem_object *obj)
+void omap_gem_put_paddr(struct drm_gem_object *obj)
 {
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&obj->dev->struct_mutex);
 	if (omap_obj->paddr_cnt > 0) {
@@ -822,19 +821,18 @@ int omap_gem_put_paddr(struct drm_gem_object *obj)
 			if (ret) {
 				dev_err(obj->dev->dev,
 					"could not unpin pages: %d\n", ret);
-				goto fail;
 			}
 			ret = tiler_release(omap_obj->block);
 			if (ret) {
 				dev_err(obj->dev->dev,
 					"could not release unmap: %d\n", ret);
 			}
+			omap_obj->paddr = 0;
 			omap_obj->block = NULL;
 		}
 	}
-fail:
+
 	mutex_unlock(&obj->dev->struct_mutex);
-	return ret;
 }
 
 /* Get rotated scanout address (only valid if already pinned), at the
@@ -1273,13 +1271,16 @@ unlock:
 void omap_gem_free_object(struct drm_gem_object *obj)
 {
 	struct drm_device *dev = obj->dev;
+	struct omap_drm_private *priv = dev->dev_private;
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
 
 	evict(obj);
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
+	spin_lock(&priv->list_lock);
 	list_del(&omap_obj->mm_list);
+	spin_unlock(&priv->list_lock);
 
 	drm_gem_free_mmap_offset(obj);
 
@@ -1359,8 +1360,8 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 		/* currently don't allow cached buffers.. there is some caching
 		 * stuff that needs to be handled better
 		 */
-		flags &= ~(OMAP_BO_CACHED|OMAP_BO_UNCACHED);
-		flags |= OMAP_BO_WC;
+		flags &= ~(OMAP_BO_CACHED|OMAP_BO_WC|OMAP_BO_UNCACHED);
+		flags |= tiler_get_cpu_cache_flags();
 
 		/* align dimensions to slot boundaries... */
 		tiler_align(gem2fmt(flags),
@@ -1375,9 +1376,7 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 
 	omap_obj = kzalloc(sizeof(*omap_obj), GFP_KERNEL);
 	if (!omap_obj)
-		goto fail;
-
-	list_add(&omap_obj->mm_list, &priv->obj_list);
+		return NULL;
 
 	obj = &omap_obj->base;
 
@@ -1387,10 +1386,18 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 		 */
 		omap_obj->vaddr =  dma_alloc_writecombine(dev->dev, size,
 				&omap_obj->paddr, GFP_KERNEL);
-		if (omap_obj->vaddr)
-			flags |= OMAP_BO_DMA;
+		if (!omap_obj->vaddr) {
+			kfree(omap_obj);
 
+			return NULL;
+		}
+
+		flags |= OMAP_BO_DMA;
 	}
+
+	spin_lock(&priv->list_lock);
+	list_add(&omap_obj->mm_list, &priv->obj_list);
+	spin_unlock(&priv->list_lock);
 
 	omap_obj->flags = flags;
 
