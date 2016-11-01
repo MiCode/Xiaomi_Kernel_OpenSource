@@ -1782,16 +1782,16 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 	}
 
 	if (of_find_property(of_node,
-		"qpnp,qpnp-lab-current-sense", NULL)) {
+		"qcom,qpnp-lab-current-sense", NULL)) {
 		config_current_sense = true;
 		rc = of_property_read_string(of_node,
-			"qpnp,qpnp-lab-current-sense",
+			"qcom,qpnp-lab-current-sense",
 			&current_sense_str);
 		if (!rc) {
 			val = qpnp_labibb_get_matching_idx(
 					current_sense_str);
 		} else {
-			pr_err("qpnp,qpnp-lab-current-sense configured incorrectly rc = %d\n",
+			pr_err("qcom,qpnp-lab-current-sense configured incorrectly rc = %d\n",
 				rc);
 			return rc;
 		}
@@ -2777,19 +2777,19 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_string(labibb->dev->of_node,
-			"qpnp,qpnp-labibb-mode", &mode_name);
+			"qcom,qpnp-labibb-mode", &mode_name);
 	if (!rc) {
 		if (strcmp("lcd", mode_name) == 0) {
 			labibb->mode = QPNP_LABIBB_LCD_MODE;
 		} else if (strcmp("amoled", mode_name) == 0) {
 			labibb->mode = QPNP_LABIBB_AMOLED_MODE;
 		} else {
-			pr_err("Invalid device property in qpnp,qpnp-labibb-mode: %s\n",
+			pr_err("Invalid device property in qcom,qpnp-labibb-mode: %s\n",
 				mode_name);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("qpnp_labibb: qpnp,qpnp-labibb-mode is missing.\n");
+		pr_err("qpnp_labibb: qcom,qpnp-labibb-mode is missing.\n");
 		return rc;
 	}
 
@@ -2807,7 +2807,7 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 		labibb->dev->of_node, "qcom,labibb-ttw-force-lab-on");
 
 	labibb->swire_control = of_property_read_bool(labibb->dev->of_node,
-							"qpnp,swire-control");
+							"qcom,swire-control");
 	if (labibb->swire_control && labibb->mode != QPNP_LABIBB_AMOLED_MODE) {
 		pr_err("Invalid mode for SWIRE control\n");
 		return -EINVAL;
