@@ -262,8 +262,8 @@ int __rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 
 	rpm_msg->msg.state = state;
 
-	/* Send to mailbox only if active */
-	if (state == RPMH_ACTIVE_ONLY_STATE) {
+	/* Send to mailbox only if active or awake */
+	if (state == RPMH_ACTIVE_ONLY_STATE || state == RPMH_AWAKE_STATE) {
 		ret = mbox_send_message(rc->chan, &rpm_msg->msg);
 		if (ret > 0)
 			ret = 0;
