@@ -28,6 +28,7 @@
 #include "sde_color_processing.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
+#include "sde_power_handle.h"
 
 /* default input fence timeout, in ms */
 #define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
@@ -331,6 +332,12 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 				cstate->is_rt = true;
 		}
 
+	if (cstate->num_connectors > 0 && cstate->connectors[0]->encoder)
+		cstate->intf_mode = sde_encoder_get_intf_mode(
+				cstate->connectors[0]->encoder);
+	else
+		cstate->intf_mode = INTF_MODE_NONE;
+
 	/* prepare main output fence */
 	sde_fence_prepare(&sde_crtc->output_fence);
 }
@@ -389,6 +396,7 @@ static void sde_crtc_vblank_cb(void *data)
 
 static void sde_crtc_frame_event_work(struct kthread_work *work)
 {
+	struct msm_drm_private *priv;
 	struct sde_crtc_frame_event *fevent;
 	struct drm_crtc *crtc;
 	struct sde_crtc *sde_crtc;
@@ -414,6 +422,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 		SDE_ERROR("invalid kms handle\n");
 		return;
 	}
+	priv = sde_kms->dev->dev_private;
 
 	SDE_DEBUG("crtc%d event:%u ts:%lld\n", crtc->base.id, fevent->event,
 			ktime_to_ns(fevent->ts));
@@ -434,6 +443,8 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 					crtc->base.id,
 					ktime_to_ns(fevent->ts));
 			SDE_EVT32(DRMID(crtc), fevent->event, 1);
+			sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
+					sde_kms->core_client, false);
 		} else {
 			SDE_EVT32(DRMID(crtc), fevent->event, 2);
 		}
@@ -798,6 +809,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	struct drm_encoder *encoder;
 	struct drm_device *dev;
 	struct sde_crtc *sde_crtc;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -805,6 +818,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	}
 	dev = crtc->dev;
 	sde_crtc = to_sde_crtc(crtc);
+	sde_kms = _sde_crtc_get_kms(crtc);
+	priv = sde_kms->dev->dev_private;
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
@@ -827,6 +842,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		/* acquire bandwidth and other resources */
 		SDE_DEBUG("crtc%d first commit\n", crtc->base.id);
 		SDE_EVT32(DRMID(crtc), 1);
+		sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
+				sde_kms->core_client, true);
 	} else {
 		SDE_DEBUG("crtc%d commit\n", crtc->base.id);
 		SDE_EVT32(DRMID(crtc), 2);
@@ -915,14 +932,18 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 
 static void sde_crtc_disable(struct drm_crtc *crtc)
 {
+	struct msm_drm_private *priv;
 	struct sde_crtc *sde_crtc;
 	struct drm_encoder *encoder;
+	struct sde_kms *sde_kms;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 	sde_crtc = to_sde_crtc(crtc);
+	sde_kms = _sde_crtc_get_kms(crtc);
+	priv = sde_kms->dev->dev_private;
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
@@ -947,6 +968,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		SDE_ERROR("crtc%d invalid frame pending\n",
 				crtc->base.id);
 		SDE_EVT32(DRMID(crtc));
+		sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
+				sde_kms->core_client, false);
 		atomic_set(&sde_crtc->frame_pending, 0);
 	}
 
@@ -1347,6 +1370,7 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 	return ret;
 }
 
+#ifdef CONFIG_DEBUG_FS
 static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 {
 	struct sde_crtc *sde_crtc;
@@ -1464,6 +1488,7 @@ static int _sde_debugfs_status_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, _sde_debugfs_status_show, inode->i_private);
 }
+#endif
 
 static void sde_crtc_suspend(struct drm_crtc *crtc)
 {
@@ -1498,6 +1523,33 @@ static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
 	.atomic_flush = sde_crtc_atomic_flush,
 };
 
+#ifdef CONFIG_DEBUG_FS
+#define DEFINE_SDE_DEBUGFS_SEQ_FOPS(__prefix)				\
+static int __prefix ## _open(struct inode *inode, struct file *file)	\
+{									\
+	return single_open(file, __prefix ## _show, inode->i_private);	\
+}									\
+static const struct file_operations __prefix ## _fops = {		\
+	.owner = THIS_MODULE,						\
+	.open = __prefix ## _open,					\
+	.release = single_release,					\
+	.read = seq_read,						\
+	.llseek = seq_lseek,						\
+}
+
+static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
+{
+	struct drm_crtc *crtc = (struct drm_crtc *) s->private;
+	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc->state);
+
+	seq_printf(s, "num_connectors: %d\n", cstate->num_connectors);
+	seq_printf(s, "is_rt: %d\n", cstate->is_rt);
+	seq_printf(s, "intf_mode: %d\n", cstate->intf_mode);
+
+	return 0;
+}
+DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_crtc_debugfs_state);
+
 static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 		struct sde_kms *sde_kms)
 {
@@ -1507,6 +1559,7 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 		.llseek =	seq_lseek,
 		.release =	single_release,
 	};
+
 	if (sde_crtc && sde_kms) {
 		sde_crtc->debugfs_root = debugfs_create_dir(sde_crtc->name,
 				sde_debugfs_get_root(sde_kms));
@@ -1518,6 +1571,12 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 		}
 	}
 }
+#else
+static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
+		struct sde_kms *sde_kms)
+{
+}
+#endif
 
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)

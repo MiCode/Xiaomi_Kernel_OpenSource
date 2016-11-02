@@ -92,6 +92,26 @@ TRACE_EVENT(sde_perf_set_ot,
 			__entry->vbif_idx)
 )
 
+TRACE_EVENT(sde_perf_update_bus,
+	TP_PROTO(int client, unsigned long long ab_quota,
+	unsigned long long ib_quota),
+	TP_ARGS(client, ab_quota, ib_quota),
+	TP_STRUCT__entry(
+			__field(int, client)
+			__field(u64, ab_quota)
+			__field(u64, ib_quota)
+	),
+	TP_fast_assign(
+			__entry->client = client;
+			__entry->ab_quota = ab_quota;
+			__entry->ib_quota = ib_quota;
+	),
+	TP_printk("Request client:%d ab=%llu ib=%llu",
+			__entry->client,
+			__entry->ab_quota,
+			__entry->ib_quota)
+)
+
 
 TRACE_EVENT(sde_mark_write,
 	TP_PROTO(int pid, const char *name, bool trace_begin),
