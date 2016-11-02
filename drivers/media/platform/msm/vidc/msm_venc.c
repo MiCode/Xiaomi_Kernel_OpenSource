@@ -2356,12 +2356,34 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE: {
 		struct v4l2_ctrl *air_mbs, *air_ref, *cir_mbs;
+		bool is_cont_intra_supported = false;
+
 		air_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_MBS);
 		air_ref = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF);
 		cir_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS);
 
-		property_id =
-			HAL_PARAM_VENC_INTRA_REFRESH;
+		is_cont_intra_supported =
+		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264) ||
+		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_HEVC);
+
+		if (is_cont_intra_supported) {
+			if (air_mbs || air_ref || cir_mbs)
+				enable.enable = true;
+			else
+				enable.enable = false;
+
+			rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session,
+				HAL_PARAM_VENC_CONSTRAINED_INTRA_PRED, &enable);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to set constrained intra\n");
+				rc = -EINVAL;
+				break;
+			}
+		}
+
+		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
 
 		intra_refresh.mode = ctrl->val;
 		intra_refresh.air_mbs = air_mbs->val;
