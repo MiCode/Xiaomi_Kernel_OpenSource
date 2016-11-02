@@ -13654,6 +13654,7 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 		snd_soc_dapm_ignore_suspend(dapm, "AIF Mix Playback");
 		snd_soc_dapm_ignore_suspend(dapm, "AIF4 MAD TX");
 		snd_soc_dapm_ignore_suspend(dapm, "VIfeed");
+		snd_soc_dapm_ignore_suspend(dapm, "AIF5 CPE TX");
 	}
 
 	snd_soc_dapm_sync(dapm);
