@@ -2364,7 +2364,7 @@ static int arm_smmu_add_device(struct device *dev)
 		fwspec = dev->iommu_fwspec;
 		if (ret)
 			goto out_free;
-	} else if (fwspec) {
+	} else if (fwspec && fwspec->ops == &arm_smmu_ops) {
 		smmu = arm_smmu_get_by_node(to_of_node(fwspec->iommu_fwnode));
 		if (!smmu)
 			return -ENODEV;
