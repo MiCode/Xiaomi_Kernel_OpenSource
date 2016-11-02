@@ -459,6 +459,10 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&mem_client_3_size {
+	qcom,peripheral-size = <0x500000>;
+};
+
 &pmicobalt_haptics {
 	status = "okay";
 };
