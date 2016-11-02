@@ -225,6 +225,7 @@ struct smb_dt_props {
 	s32	step_cc_delta[STEP_CHARGING_MAX_STEPS];
 	struct	device_node *revid_dev_node;
 	int	float_option;
+	int	chg_inhibit_thr_mv;
 	bool	hvdcp_disable;
 };
 
@@ -334,6 +335,14 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	chip->dt.hvdcp_disable = of_property_read_bool(node,
 						"qcom,hvdcp-disable");
+
+	of_property_read_u32(node, "qcom,chg-inhibit-threshold-mv",
+				&chip->dt.chg_inhibit_thr_mv);
+	if ((chip->dt.chg_inhibit_thr_mv < 0 ||
+		chip->dt.chg_inhibit_thr_mv > 300)) {
+		pr_err("qcom,chg-inhibit-threshold-mv is incorrect\n");
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -1209,6 +1218,40 @@ static int smb2_init_hw(struct smb2 *chip)
 
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure float charger options rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	switch (chip->dt.chg_inhibit_thr_mv) {
+	case 50:
+		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
+				CHARGE_INHIBIT_THRESHOLD_MASK,
+				CHARGE_INHIBIT_THRESHOLD_50MV);
+		break;
+	case 100:
+		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
+				CHARGE_INHIBIT_THRESHOLD_MASK,
+				CHARGE_INHIBIT_THRESHOLD_100MV);
+		break;
+	case 200:
+		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
+				CHARGE_INHIBIT_THRESHOLD_MASK,
+				CHARGE_INHIBIT_THRESHOLD_200MV);
+		break;
+	case 300:
+		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
+				CHARGE_INHIBIT_THRESHOLD_MASK,
+				CHARGE_INHIBIT_THRESHOLD_300MV);
+		break;
+	case 0:
+		rc = smblib_masked_write(chg, CHGR_CFG2_REG,
+				CHARGER_INHIBIT_BIT, 0);
+	default:
+		break;
+	}
+
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure charge inhibit threshold rc=%d\n",
 			rc);
 		return rc;
 	}
