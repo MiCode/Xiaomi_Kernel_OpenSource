@@ -24,6 +24,7 @@
 #define QMI_WLFW_CAL_DOWNLOAD_RESP_V01 0x0027
 #define QMI_WLFW_INI_RESP_V01 0x002F
 #define QMI_WLFW_CAL_REPORT_RESP_V01 0x0026
+#define QMI_WLFW_MAC_ADDR_RESP_V01 0x0033
 #define QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01 0x0028
 #define QMI_WLFW_MSA_READY_IND_V01 0x002B
 #define QMI_WLFW_ATHDIAG_WRITE_RESP_V01 0x0031
@@ -43,6 +44,7 @@
 #define QMI_WLFW_CAP_RESP_V01 0x0024
 #define QMI_WLFW_ATHDIAG_READ_RESP_V01 0x0030
 #define QMI_WLFW_VBATT_REQ_V01 0x0032
+#define QMI_WLFW_MAC_ADDR_REQ_V01 0x0033
 #define QMI_WLFW_VBATT_RESP_V01 0x0032
 #define QMI_WLFW_MSA_INFO_REQ_V01 0x002D
 #define QMI_WLFW_CAL_DOWNLOAD_REQ_V01 0x0027
@@ -57,6 +59,8 @@
 #define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
 #define QMI_WLFW_MAX_STR_LEN_V01 16
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V01 24
+#define QMI_WLFW_MAC_ADDR_SIZE_V01 6
+#define QMI_WLFW_MAX_BUILD_ID_LEN_V01 128
 #define QMI_WLFW_MAX_NUM_SVC_V01 24
 
 enum wlfw_driver_mode_enum_v01 {
@@ -99,6 +103,7 @@ enum wlfw_pipedir_enum_v01 {
 
 #define QMI_WLFW_ALREADY_REGISTERED_V01 ((uint64_t)0x01ULL)
 #define QMI_WLFW_FW_READY_V01 ((uint64_t)0x02ULL)
+#define QMI_WLFW_MSA_READY_V01 ((uint64_t)0x04ULL)
 
 struct wlfw_ce_tgt_pipe_cfg_s_v01 {
 	uint32_t pipe_num;
@@ -243,8 +248,10 @@ struct wlfw_cap_resp_msg_v01 {
 	struct wlfw_soc_info_s_v01 soc_info;
 	uint8_t fw_version_info_valid;
 	struct wlfw_fw_version_info_s_v01 fw_version_info;
+	uint8_t fw_build_id_valid;
+	char fw_build_id[QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1];
 };
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 72
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 203
 extern struct elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {
@@ -427,5 +434,18 @@ struct wlfw_vbatt_resp_msg_v01 {
 };
 #define WLFW_VBATT_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct elem_info wlfw_vbatt_resp_msg_v01_ei[];
+
+struct wlfw_mac_addr_req_msg_v01 {
+	uint8_t mac_addr_valid;
+	uint8_t mac_addr[QMI_WLFW_MAC_ADDR_SIZE_V01];
+};
+#define WLFW_MAC_ADDR_REQ_MSG_V01_MAX_MSG_LEN 9
+extern struct elem_info wlfw_mac_addr_req_msg_v01_ei[];
+
+struct wlfw_mac_addr_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+#define WLFW_MAC_ADDR_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct elem_info wlfw_mac_addr_resp_msg_v01_ei[];
 
 #endif
