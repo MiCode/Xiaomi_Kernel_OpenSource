@@ -959,7 +959,9 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 				      (info->data_ready > 0) || (!info->hdl) ||
 				      (atomic_read(&info->diag_state) == 0));
 	if (err) {
+		mutex_lock(&driver->diagfwd_channel_mutex);
 		diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
+		mutex_unlock(&driver->diagfwd_channel_mutex);
 		return -ERESTARTSYS;
 	}
 
@@ -971,7 +973,9 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			 "%s closing read thread. diag state is closed\n",
 			 info->name);
+		mutex_lock(&driver->diagfwd_channel_mutex);
 		diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
+		mutex_unlock(&driver->diagfwd_channel_mutex);
 		return 0;
 	}
 
@@ -1038,8 +1042,10 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	if (total_recd > 0) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s read total bytes: %d\n",
 			 info->name, total_recd);
+		mutex_lock(&driver->diagfwd_channel_mutex);
 		err = diagfwd_channel_read_done(info->fwd_ctxt,
 						buf, total_recd);
+		mutex_unlock(&driver->diagfwd_channel_mutex);
 		if (err)
 			goto fail;
 	} else {
@@ -1052,7 +1058,9 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	return 0;
 
 fail:
+	mutex_lock(&driver->diagfwd_channel_mutex);
 	diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
+	mutex_unlock(&driver->diagfwd_channel_mutex);
 	return -EIO;
 }
 
