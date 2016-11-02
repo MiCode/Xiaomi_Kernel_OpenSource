@@ -9840,6 +9840,15 @@ static int need_active_balance(struct lb_env *env)
 	return unlikely(sd->nr_balance_failed > sd->cache_nice_tries+2);
 }
 
+static int group_balance_cpu_not_isolated(struct sched_group *sg)
+{
+	cpumask_t cpus;
+
+	cpumask_and(&cpus, sched_group_span(sg), group_balance_mask(sg));
+	cpumask_andnot(&cpus, &cpus, cpu_isolated_mask);
+	return cpumask_first(&cpus);
+}
+
 static int active_load_balance_cpu_stop(void *data);
 
 static int should_we_balance(struct lb_env *env)
@@ -9863,7 +9872,7 @@ static int should_we_balance(struct lb_env *env)
 
 	/* Try to find first idle cpu */
 	for_each_cpu_and(cpu, group_balance_mask(sg), env->cpus) {
-		if (!idle_cpu(cpu))
+		if (!idle_cpu(cpu) || cpu_isolated(cpu))
 			continue;
 
 		balance_cpu = cpu;
@@ -9871,7 +9880,7 @@ static int should_we_balance(struct lb_env *env)
 	}
 
 	if (balance_cpu == -1)
-		balance_cpu = group_balance_cpu(sg);
+		balance_cpu = group_balance_cpu_not_isolated(sg);
 
 	/*
 	 * First idle cpu or the first cpu(busiest) in this sched group
@@ -10079,7 +10088,8 @@ more_balance:
 			 * ->active_balance_work.  Once set, it's cleared
 			 * only after active load balance is finished.
 			 */
-			if (!busiest->active_balance) {
+			if (!busiest->active_balance &&
+			    !cpu_isolated(cpu_of(busiest))) {
 				busiest->active_balance = 1;
 				busiest->push_cpu = this_cpu;
 				active_balance = 1;
@@ -10685,6 +10695,7 @@ static void nohz_idle_balance(struct rq *this_rq, enum cpu_idle_type idle)
 	/* Earliest time when we have to do rebalance again */
 	unsigned long next_balance = jiffies + 60*HZ;
 	int update_next_balance = 0;
+	cpumask_t cpus;
 
 	if (idle != CPU_IDLE ||
 	    !test_bit(NOHZ_BALANCE_KICK, nohz_flags(this_cpu)))
@@ -10707,7 +10718,9 @@ static void nohz_idle_balance(struct rq *this_rq, enum cpu_idle_type idle)
 		nohz.next_update = jiffies + msecs_to_jiffies(LOAD_AVG_PERIOD);
 	rcu_read_unlock();
 
-	for_each_cpu(balance_cpu, nohz.idle_cpus_mask) {
+	cpumask_andnot(&cpus, nohz.idle_cpus_mask, cpu_isolated_mask);
+
+	for_each_cpu(balance_cpu, &cpus) {
 		if (balance_cpu == this_cpu || !idle_cpu(balance_cpu))
 			continue;
 
