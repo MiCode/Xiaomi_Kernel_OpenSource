@@ -1884,7 +1884,7 @@ void scheduler_ipi(void)
 	/*
 	 * Check if someone kicked us for doing the nohz idle load balance.
 	 */
-	if (unlikely(got_nohz_idle_kick())) {
+	if (unlikely(got_nohz_idle_kick()) && !cpu_isolated(cpu)) {
 		this_rq()->idle_balance = 1;
 		raise_softirq_irqoff(SCHED_SOFTIRQ);
 	}
@@ -5834,7 +5834,6 @@ static void set_rq_offline(struct rq *rq);
 
 int do_isolation_work_cpu_stop(void *data)
 {
-	unsigned long flags;
 	unsigned int cpu = smp_processor_id();
 	struct rq *rq = cpu_rq(cpu);
 
@@ -5842,9 +5841,12 @@ int do_isolation_work_cpu_stop(void *data)
 
 	irq_migrate_all_off_this_cpu();
 
+	local_irq_disable();
+
 	sched_ttwu_pending();
+
 	/* Update our root-domain */
-	raw_spin_lock_irqsave(&rq->lock, flags);
+	raw_spin_lock(&rq->lock);
 
 	if (rq->rd) {
 		BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
@@ -5852,13 +5854,16 @@ int do_isolation_work_cpu_stop(void *data)
 	}
 
 	migrate_tasks(rq, false);
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
+	raw_spin_unlock(&rq->lock);
 
 	/*
 	 * We might have been in tickless state. Clear NOHZ flags to avoid
 	 * us being kicked for helping out with balancing
 	 */
 	nohz_balance_clear_nohz_mask(cpu);
+
+	clear_hmp_request(cpu);
+	local_irq_enable();
 	return 0;
 }
 
@@ -5967,7 +5972,6 @@ int sched_isolate_cpu(int cpu)
 	migrate_sync_cpu(cpu, cpumask_first(&avail_cpus));
 	stop_cpus(cpumask_of(cpu), do_isolation_work_cpu_stop, 0);
 
-	clear_hmp_request(cpu);
 	calc_load_migrate(rq);
 	update_max_interval();
 	sched_update_group_capacities(cpu);
