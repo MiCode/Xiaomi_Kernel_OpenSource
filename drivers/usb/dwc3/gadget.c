@@ -2130,23 +2130,10 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
 
-	pm_runtime_get_sync(dwc->dev);
-	dbg_event(0xFF, "Stop gsync",
-		atomic_read(&dwc->dev->power.usage_count));
-	dwc3_gadget_disable_irq(dwc);
 
 	spin_lock_irqsave(&dwc->lock, flags);
-
-	__dwc3_gadget_ep_disable(dwc->eps[0]);
-	__dwc3_gadget_ep_disable(dwc->eps[1]);
-
 	dwc->gadget_driver	= NULL;
-
 	spin_unlock_irqrestore(&dwc->lock, flags);
-
-	pm_runtime_mark_last_busy(dwc->dev);
-	pm_runtime_put_autosuspend(dwc->dev);
-	dbg_event(0xFF, "Auto_susgsync", 0);
 
 	return 0;
 }
