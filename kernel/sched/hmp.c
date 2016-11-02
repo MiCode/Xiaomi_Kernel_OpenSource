@@ -1624,6 +1624,20 @@ unsigned int cpu_temp(int cpu)
 		return 0;
 }
 
+void free_task_load_ptrs(struct task_struct *p)
+{
+	kfree(p->ravg.curr_window_cpu);
+	kfree(p->ravg.prev_window_cpu);
+
+	/*
+	 * update_task_ravg() can be called for exiting tasks. While the
+	 * function itself ensures correct behavior, the corresponding
+	 * trace event requires that these pointers be NULL.
+	 */
+	p->ravg.curr_window_cpu = NULL;
+	p->ravg.prev_window_cpu = NULL;
+}
+
 void init_new_task_load(struct task_struct *p, bool idle_task)
 {
 	int i;
@@ -1636,8 +1650,8 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
 
-	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_ATOMIC);
-	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_ATOMIC);
+	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
+	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
 
 	/* Don't have much choice. CPU frequency would be bogus */
 	BUG_ON(!p->ravg.curr_window_cpu || !p->ravg.prev_window_cpu);
