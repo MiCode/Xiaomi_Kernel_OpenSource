@@ -154,6 +154,7 @@ enum sde_intr_idx {
  * @hw_ctl:		Hardware interface to the ctl registers
  * @hw_cdm:		Hardware interface to the cdm registers
  * @cdm_cfg:		Chroma-down hardware configuration
+ * @hw_pp:		Hardware interface to the ping pong registers
  * @sde_kms:		Pointer to the sde_kms top level
  * @cached_mode:	DRM mode cached at mode_set time, acted on in enable
  * @enabled:		Whether the encoder has enabled and running a mode
@@ -175,6 +176,7 @@ struct sde_encoder_phys {
 	struct sde_hw_ctl *hw_ctl;
 	struct sde_hw_cdm *hw_cdm;
 	struct sde_hw_cdm_cfg cdm_cfg;
+	struct sde_hw_pingpong *hw_pp;
 	struct sde_kms *sde_kms;
 	struct drm_display_mode cached_mode;
 	enum sde_enc_split_role split_role;
@@ -210,7 +212,6 @@ struct sde_encoder_phys_vid {
  * @base:	Baseclass physical encoder structure
  * @intf_idx:	Intf Block index used by this phys encoder
  * @stream_sel:	Stream selection for multi-stream interfaces
- * @hw_pp:	Hardware interface to the ping pong registers
  * @pp_rd_ptr_irq_idx:	IRQ signifying panel's frame read pointer
  *			For CMD encoders, VBLANK is driven by the PP RD Done IRQ
  * @pp_tx_done_irq_idx:	IRQ signifying frame transmission to panel complete
@@ -227,7 +228,6 @@ struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
 	int intf_idx;
 	int stream_sel;
-	struct sde_hw_pingpong *hw_pp;
 	int irq_idx[INTR_IDX_MAX];
 	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
 	wait_queue_head_t pp_tx_done_wq;
