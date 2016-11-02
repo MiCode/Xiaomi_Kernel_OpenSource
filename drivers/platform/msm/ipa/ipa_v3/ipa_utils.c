@@ -3522,7 +3522,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 			goto end_sequence;
 
 		IPADBG("Inject a DMA_TASK with 1B packet to IPA and retry\n");
-		/* Send a 1B packet DMA_RASK to IPA and try again*/
+		/* Send a 1B packet DMA_TASK to IPA and try again */
 		res = ipa3_inject_dma_task_for_gsi();
 		if (res) {
 			IPAERR("Failed to inject DMA TASk for GSI\n");

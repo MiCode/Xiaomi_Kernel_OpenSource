@@ -13,6 +13,9 @@ void  mount_block_root(char *name, int flags);
 void  mount_root(void);
 extern int root_mountflags;
 
+struct dm_table;
+static inline void dm_table_put(struct dm_table *t) { }
+
 static inline int create_dev(char *name, dev_t dev)
 {
 	sys_unlink(name);

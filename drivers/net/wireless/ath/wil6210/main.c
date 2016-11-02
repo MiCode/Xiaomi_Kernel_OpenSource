@@ -875,19 +875,29 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	flush_workqueue(wil->wq_service);
 	flush_workqueue(wil->wmi_wq);
 
+	wil6210_unmask_irq_pseudo(wil);
+	wil6210_unmask_halp(wil);
+	wil_halp_vote(wil);
+
 	wil_bl_crash_info(wil, false);
 	rc = wil_target_reset(wil);
+	/* wil_target_reset clears the HALP IRQ, need to set it again.
+	 * Call wil_halp_unvote to clear the HALP reference counter
+	 * and unmask the HALP interrupt before setting it again
+	 */
+	wil_halp_unvote(wil);
+	wil_halp_vote(wil);
 	wil_rx_fini(wil);
 	if (rc) {
 		wil_bl_crash_info(wil, true);
-		return rc;
+		goto out;
 	}
 
 	rc = wil_get_bl_info(wil);
 	if (rc == -EAGAIN && !load_fw) /* ignore RF error if not going up */
 		rc = 0;
 	if (rc)
-		return rc;
+		goto out;
 
 	wil_set_oob_mode(wil, oob_mode);
 	if (load_fw) {
@@ -899,13 +909,18 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		/* Loading f/w from the file */
 		rc = wil_request_firmware(wil, WIL_FW_NAME, true);
 		if (rc)
-			return rc;
+			goto out;
 		rc = wil_request_firmware(wil, WIL_FW2_NAME, true);
 		if (rc)
-			return rc;
+			goto out;
 
 		/* Mark FW as loaded from host */
 		wil_s(wil, RGF_USER_USAGE_6, 1);
+
+		/* Clear the HALP while in BL, before clearing all the IRQs
+		 * and running the FW.
+		 */
+		wil_halp_unvote(wil);
 
 		/* clear any interrupts which on-card-firmware
 		 * may have set
@@ -917,6 +932,9 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		wil_w(wil, RGF_CAF_ICR + offsetof(struct RGF_ICR, IMV), ~0);
 
 		wil_release_cpu(wil);
+	} else {
+		/* Allow XTAL off when going down */
+		wil_halp_unvote(wil);
 	}
 
 	/* init after reset */
@@ -954,6 +972,10 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		}
 	}
 
+	return rc;
+
+out:
+	wil_halp_unvote(wil);
 	return rc;
 }
 

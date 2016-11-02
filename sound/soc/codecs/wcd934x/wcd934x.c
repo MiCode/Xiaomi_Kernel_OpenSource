@@ -8039,6 +8039,7 @@ static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
 	{WCD934X_HPH_OCP_CTL, 0xFF, 0x3A}, /* OCP current limit */
 	{WCD934X_HPH_L_TEST, 0x01, 0x01},
 	{WCD934X_HPH_R_TEST, 0x01, 0x01},
+	{WCD934X_CPE_FLL_CONFIG_CTL_2, 0xFF, 0x20},
 };
 
 static const struct tavil_reg_mask_val tavil_codec_reg_init_1_1_val[] = {
@@ -8675,6 +8676,8 @@ static int tavil_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	regcache_mark_dirty(codec->component.regmap);
 	regcache_sync(codec->component.regmap);
 	__tavil_cdc_mclk_enable(tavil, false);
+
+	tavil_update_cpr_defaults(tavil);
 
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = tavil_handle_pdata(tavil, pdata);

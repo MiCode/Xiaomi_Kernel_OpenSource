@@ -1200,29 +1200,46 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	 * ptr[2] = flag to indicate bit depth or/and pic struct changed
 	 * ptr[3] = bit depth
 	 * ptr[4] = pic struct (progressive or interlaced)
+	 * ptr[5] = colour space
 	 */
 
 	ptr = (u32 *)seq_changed_event.u.data;
-	ptr[2] = 0x0;
-	ptr[3] = inst->bit_depth;
-	ptr[4] = inst->pic_struct;
 
-	if (inst->bit_depth != event_notify->bit_depth) {
-		inst->bit_depth = event_notify->bit_depth;
-		ptr[2] |= V4L2_EVENT_BITDEPTH_FLAG;
+	if (ptr != NULL) {
+		ptr[2] = 0x0;
 		ptr[3] = inst->bit_depth;
-		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-		dprintk(VIDC_DBG,
-			"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to bit-depth change\n");
-	}
-
-	if (inst->pic_struct != event_notify->pic_struct) {
-		inst->pic_struct = event_notify->pic_struct;
-		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-		ptr[2] |= V4L2_EVENT_PICSTRUCT_FLAG;
 		ptr[4] = inst->pic_struct;
-		dprintk(VIDC_DBG,
-			"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to pic-struct change\n");
+		ptr[5] = inst->colour_space;
+
+		if (inst->bit_depth != event_notify->bit_depth) {
+			inst->bit_depth = event_notify->bit_depth;
+			ptr[2] |= V4L2_EVENT_BITDEPTH_FLAG;
+			ptr[3] = inst->bit_depth;
+			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+			dprintk(VIDC_DBG,
+				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to bit-depth change\n");
+		}
+
+		if (inst->pic_struct != event_notify->pic_struct) {
+			inst->pic_struct = event_notify->pic_struct;
+			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+			ptr[2] |= V4L2_EVENT_PICSTRUCT_FLAG;
+			ptr[4] = inst->pic_struct;
+			dprintk(VIDC_DBG,
+				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to pic-struct change\n");
+		}
+
+		if (inst->bit_depth == MSM_VIDC_BIT_DEPTH_10
+				&& inst->colour_space !=
+					event_notify->colour_space) {
+			inst->colour_space = event_notify->colour_space;
+			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+			ptr[2] |= V4L2_EVENT_COLOUR_SPACE_FLAG;
+			ptr[5] = inst->colour_space;
+			dprintk(VIDC_DBG,
+				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to colour space change\n");
+		}
+
 	}
 
 	if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {

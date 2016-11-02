@@ -161,8 +161,8 @@ static void wdsp_glink_notify_rx(void *handle, const void *priv,
 	wpriv->rsp_cnt = ++rsp_cnt;
 	mutex_unlock(&wpriv->rsp_mutex);
 
-	complete(&wpriv->rsp_complete);
 	glink_rx_done(handle, ptr, true);
+	complete(&wpriv->rsp_complete);
 }
 
 /*

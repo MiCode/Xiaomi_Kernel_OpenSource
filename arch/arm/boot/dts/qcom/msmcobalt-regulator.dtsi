@@ -501,7 +501,7 @@
 		};
 		pmicobalt_bob_pin1: regulator-bob-pin1 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmcobalt_bob_pin1";
+			regulator-name = "pmicobalt_bob_pin1";
 			qcom,set = <3>;
 			regulator-min-microvolt = <3312000>;
 			regulator-max-microvolt = <3600000>;
@@ -509,7 +509,7 @@
 		};
 		pmicobalt_bob_pin2: regulator-bob-pin2 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmcobalt_bob_pin2";
+			regulator-name = "pmicobalt_bob_pin2";
 			qcom,set = <3>;
 			regulator-min-microvolt = <3312000>;
 			regulator-max-microvolt = <3600000>;
@@ -517,7 +517,7 @@
 		};
 		pmicobalt_bob_pin3: regulator-bob-pin3 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmcobalt_bob_pin3";
+			regulator-name = "pmicobalt_bob_pin3";
 			qcom,set = <3>;
 			regulator-min-microvolt = <3312000>;
 			regulator-max-microvolt = <3600000>;

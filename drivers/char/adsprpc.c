@@ -1070,7 +1070,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			int idx = list[i].pgidx;
 
 			if (map->attr & FASTRPC_ATTR_NOVA) {
-				offset = (uintptr_t)lpra[i].buf.pv;
+				offset = 0;
 			} else {
 				down_read(&current->mm->mmap_sem);
 				VERIFY(err, NULL != (vma = find_vma(current->mm,

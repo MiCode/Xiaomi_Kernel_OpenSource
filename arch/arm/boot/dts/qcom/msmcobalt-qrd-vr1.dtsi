@@ -99,4 +99,31 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	sound-tavil {
+		qcom,model = "msmcobalt-qvr-tavil-snd-card";
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"DMIC0", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic0",
+			"DMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic1",
+			"DMIC2", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic2",
+			"DMIC4", "MIC BIAS4",
+			"MIC BIAS4", "Digital Mic4",
+			"SpkrLeft IN", "SPK1 OUT";
+
+		qcom,msm-mbhc-hphl-swh = <1>;
+		/delete-property/ qcom,us-euro-gpios;
+		/delete-property/ qcom,hph-en0-gpio;
+		/delete-property/ qcom,hph-en0-gpio;
+
+		qcom,wsa-max-devs = <1>;
+		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
+	};
 };

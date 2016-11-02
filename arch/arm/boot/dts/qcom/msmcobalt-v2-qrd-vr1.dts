@@ -13,11 +13,11 @@
 
 /dts-v1/;
 
-#include "msmcobalt.dtsi"
+#include "msmcobalt-v2.dtsi"
 #include "msmcobalt-qrd-vr1.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM COBALT VR1 Board";
+	model = "Qualcomm Technologies, Inc. MSM COBALT V2 VR1 Board";
 	compatible = "qcom,msmcobalt-qrd", "qcom,msmcobalt", "qcom,qrd";
 	qcom,board-id = <0x02000b 0x80>;
 };
