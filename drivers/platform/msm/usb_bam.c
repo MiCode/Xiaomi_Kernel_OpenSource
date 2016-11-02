@@ -1323,6 +1323,9 @@ static void usb_bam_finish_suspend(enum usb_ctrl cur_bam)
 					__func__, ret);
 				goto no_lpm;
 			}
+		} else {
+			log_event_err("%s: pipe type is not B2B\n", __func__);
+			cons_empty = true;
 		}
 
 		spin_lock(&usb_bam_ipa_handshake_info_lock);
@@ -1959,8 +1962,8 @@ static void usb_bam_finish_resume(struct work_struct *w)
 
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 	mutex_unlock(&info[cur_bam].suspend_resume_mutex);
-	log_event_dbg("%s: done..PM Runtime PUT %d, count: %d\n",
-			  __func__, idx, get_pm_runtime_counter(bam_dev));
+	log_event_dbg("%s: done..PM Runtime PUT :%d\n",
+			  __func__, get_pm_runtime_counter(bam_dev));
 	/* Put to match _get at the beginning of this routine */
 	pm_runtime_put(&ctx->usb_bam_pdev->dev);
 }
@@ -2762,16 +2765,14 @@ static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 		log_event_dbg("%s: received SPS_CALLBACK_BAM_TIMER_IRQ\n",
 				__func__);
 
-		spin_lock(&ctx->usb_bam_lock);
-
 		bam = get_bam_type_from_core_name((char *)user);
 		if (bam < 0 || bam >= MAX_BAMS) {
 			log_event_err("%s: Invalid bam, type=%d ,name=%s\n",
 				__func__, bam, (char *)user);
-			spin_unlock(&ctx->usb_bam_lock);
 			return;
 		}
 		ctx = &msm_usb_bam[bam];
+		spin_lock(&ctx->usb_bam_lock);
 
 		ctx->is_bam_inactivity = true;
 		log_event_dbg("%s: Inactivity happened on bam=%s,%d\n",
