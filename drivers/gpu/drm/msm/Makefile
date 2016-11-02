@@ -37,6 +37,7 @@ msm_drm-y := \
 	sde/sde_encoder_phys_cmd.o \
 	sde/sde_irq.o \
 	sde/sde_core_irq.o \
+	sde/sde_core_perf.o \
 	sde/sde_rm.o \
 	sde/sde_kms_utils.o \
 	sde/sde_kms.o \

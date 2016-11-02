@@ -478,16 +478,19 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 
 static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 {
+	struct msm_drm_private *priv;
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_intf *intf;
 	struct sde_hw_ctl *ctl;
 	u32 flush_mask = 0;
 	int ret;
 
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
+	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->dev ||
+			!phys_enc->parent->dev->dev_private) {
+		SDE_ERROR("invalid encoder/device\n");
 		return;
 	}
+	priv = phys_enc->parent->dev->dev_private;
 
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	intf = vid_enc->hw_intf;
@@ -502,6 +505,9 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 
 	if (WARN_ON(!vid_enc->hw_intf->ops.enable_timing))
 		return;
+
+	sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
+			phys_enc->sde_kms->core_client, true);
 
 	sde_encoder_helper_split_config(phys_enc, vid_enc->hw_intf->idx);
 
@@ -649,14 +655,17 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 
 static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 {
+	struct msm_drm_private *priv;
 	struct sde_encoder_phys_vid *vid_enc;
 	unsigned long lock_flags;
 	int ret;
 
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
+	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->dev ||
+			!phys_enc->parent->dev->dev_private) {
+		SDE_ERROR("invalid encoder/device\n");
 		return;
 	}
+	priv = phys_enc->parent->dev->dev_private;
 
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
@@ -701,6 +710,9 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 		}
 		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
 	}
+
+	sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
+			phys_enc->sde_kms->core_client, false);
 
 	if (atomic_read(&phys_enc->vblank_refcount))
 		SDE_ERROR_VIDENC(vid_enc, "invalid vblank refcount %d\n",

@@ -136,6 +136,7 @@ struct sde_crtc {
  * @connectors    : Currently associated drm connectors
  * @num_connectors: Number of associated drm connectors
  * @is_rt         : Whether or not the current commit contains RT connectors
+ * @intf_mode     : Interface mode of the primary connector
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @property_blobs: Reference pointers for blob properties
@@ -148,6 +149,7 @@ struct sde_crtc_state {
 	struct drm_connector *connectors[MAX_CONNECTORS];
 	int num_connectors;
 	bool is_rt;
+	enum sde_intf_mode intf_mode;
 
 	uint64_t property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;

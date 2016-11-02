@@ -85,7 +85,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder);
  *	(i.e. ctl flush and start) immediately.
  * @encoder:	encoder pointer
  */
-void sde_encoder_kickoff(struct drm_encoder *drm_enc);
+void sde_encoder_kickoff(struct drm_encoder *encoder);
 
 /**
  * sde_encoder_wait_nxt_committed - Wait for hardware to have flushed the
@@ -96,6 +96,12 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc);
  * Returns: 0 on success, -EWOULDBLOCK if already signaled, error otherwise
  */
 int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
+
+/*
+ * sde_encoder_get_intf_mode - get interface mode of the given encoder
+ * @encoder: Pointer to drm encoder object
+ */
+enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
 
 /**
  * sde_encoder_init - initialize virtual encoder object

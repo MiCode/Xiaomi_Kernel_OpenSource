@@ -115,93 +115,6 @@ struct sde_encoder_virt {
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
 
-#ifdef CONFIG_QCOM_BUS_SCALING
-#include <linux/msm-bus.h>
-#include <linux/msm-bus-board.h>
-#define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
-	{						\
-		.src = MSM_BUS_MASTER_MDP_PORT0,	\
-		.dst = MSM_BUS_SLAVE_EBI_CH0,		\
-		.ab = (ab_val),				\
-		.ib = (ib_val),				\
-	}
-
-static struct msm_bus_vectors mdp_bus_vectors[] = {
-	MDP_BUS_VECTOR_ENTRY(0, 0),
-	MDP_BUS_VECTOR_ENTRY(8000000000, 8000000000),
-};
-
-static struct msm_bus_paths mdp_bus_usecases[] = { {
-						    .num_paths = 1,
-						    .vectors =
-						    &mdp_bus_vectors[0],
-						    }, {
-							.num_paths = 1,
-							.vectors =
-							&mdp_bus_vectors[1],
-							}
-};
-
-static struct msm_bus_scale_pdata mdp_bus_scale_table = {
-	.usecase = mdp_bus_usecases,
-	.num_usecases = ARRAY_SIZE(mdp_bus_usecases),
-	.name = "mdss_mdp",
-};
-
-static void bs_init(struct sde_encoder_virt *sde_enc)
-{
-	if (!sde_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return;
-	}
-
-	sde_enc->bus_scaling_client =
-	    msm_bus_scale_register_client(&mdp_bus_scale_table);
-	SDE_DEBUG_ENC(sde_enc, "bus scale client %08x\n",
-			sde_enc->bus_scaling_client);
-}
-
-static void bs_fini(struct sde_encoder_virt *sde_enc)
-{
-	if (!sde_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return;
-	}
-
-	if (sde_enc->bus_scaling_client) {
-		msm_bus_scale_unregister_client(sde_enc->bus_scaling_client);
-		sde_enc->bus_scaling_client = 0;
-	}
-}
-
-static void bs_set(struct sde_encoder_virt *sde_enc, int idx)
-{
-	if (!sde_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return;
-	}
-
-	if (sde_enc->bus_scaling_client) {
-		SDE_DEBUG_ENC(sde_enc, "set bus scaling to %d\n", idx);
-		idx = 1;
-		msm_bus_scale_client_update_request(sde_enc->bus_scaling_client,
-						    idx);
-	}
-}
-#else
-static void bs_init(struct sde_encoder_virt *sde_enc)
-{
-}
-
-static void bs_fini(struct sde_encoder_virt *sde_enc)
-{
-}
-
-static void bs_set(struct sde_encoder_virt *sde_enc, int idx)
-{
-}
-#endif
-
 void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 		struct sde_encoder_hw_resources *hw_res,
 		struct drm_connector_state *conn_state)
@@ -261,7 +174,6 @@ void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	mutex_unlock(&sde_enc->enc_lock);
 
 	drm_encoder_cleanup(drm_enc);
-	bs_fini(sde_enc);
 	debugfs_remove_recursive(sde_enc->debugfs_root);
 	mutex_destroy(&sde_enc->enc_lock);
 
@@ -477,8 +389,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 
-	bs_set(sde_enc, 1);
-
 	sde_enc->cur_master = NULL;
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -550,7 +460,6 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	sde_enc->cur_master = NULL;
 	SDE_DEBUG_ENC(sde_enc, "cleared master\n");
 
-	bs_set(sde_enc, 0);
 	sde_rm_release(&sde_kms->rm, drm_enc);
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
@@ -1350,7 +1259,6 @@ struct drm_encoder *sde_encoder_init(
 	drm_enc = &sde_enc->base;
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode, NULL);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
-	bs_init(sde_enc);
 
 	atomic_set(&sde_enc->frame_done_timeout, 0);
 	setup_timer(&sde_enc->frame_done_timer, sde_encoder_frame_done_timeout,
@@ -1399,3 +1307,26 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_enc)
 	return ret;
 }
 
+enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+	int i;
+
+	if (!encoder) {
+		SDE_ERROR("invalid encoder\n");
+		return INTF_MODE_NONE;
+	}
+	sde_enc = to_sde_encoder_virt(encoder);
+
+	if (sde_enc->cur_master)
+		return sde_enc->cur_master->intf_mode;
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys)
+			return phys->intf_mode;
+	}
+
+	return INTF_MODE_NONE;
+}

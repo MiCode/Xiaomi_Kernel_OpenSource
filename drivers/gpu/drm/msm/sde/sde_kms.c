@@ -860,6 +860,7 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	/* safe to call these more than once during shutdown */
 	_sde_debugfs_destroy(sde_kms);
 	_sde_kms_mmu_destroy(sde_kms);
+	sde_core_perf_destroy(&sde_kms->perf);
 
 	if (sde_kms->catalog) {
 		for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
@@ -1159,6 +1160,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
+	rc = sde_core_perf_init(&sde_kms->perf, dev, sde_kms->catalog,
+			&priv->phandle, priv->pclient, "core_clk_src",
+			sde_kms->debugfs_debug);
+	if (rc) {
+		SDE_ERROR("failed to init perf %d\n", rc);
+		goto perf_err;
+	}
+
 	/*
 	 * _sde_kms_drm_obj_init should create the DRM related objects
 	 * i.e. CRTCs, planes, encoders, connectors and so forth
@@ -1166,7 +1175,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	rc = _sde_kms_drm_obj_init(sde_kms);
 	if (rc) {
 		SDE_ERROR("modeset init failed: %d\n", rc);
-		goto power_error;
+		goto drm_obj_init_err;
 	}
 
 	dev->mode_config.min_width = 0;
@@ -1197,6 +1206,9 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 hw_intr_init_err:
 	_sde_kms_drm_obj_destroy(sde_kms);
+drm_obj_init_err:
+	sde_core_perf_destroy(&sde_kms->perf);
+perf_err:
 power_error:
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 error:

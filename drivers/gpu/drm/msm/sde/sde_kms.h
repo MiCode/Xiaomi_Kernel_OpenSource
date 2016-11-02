@@ -32,6 +32,7 @@
 #include "sde_rm.h"
 #include "sde_power_handle.h"
 #include "sde_irq.h"
+#include "sde_core_perf.h"
 
 #define DRMID(x) ((x) ? (x)->base.id : -1)
 
@@ -141,6 +142,8 @@ struct sde_kms {
 
 	struct sde_hw_intr *hw_intr;
 	struct sde_irq irq_obj;
+
+	struct sde_core_perf perf;
 
 	struct sde_rm rm;
 	bool rm_init;
