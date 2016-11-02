@@ -221,31 +221,6 @@ struct wcd_imped_i_ref {
 	int offset;
 };
 
-struct msm8916_asoc_mach_data {
-	int codec_type;
-	int ext_pa;
-	int us_euro_gpio;
-	int spk_ext_pa_gpio;
-	int mclk_freq;
-	int lb_mode;
-	int afe_clk_ver;
-	u8 micbias1_cap_mode;
-	u8 micbias2_cap_mode;
-	atomic_t mclk_rsc_ref;
-	atomic_t mclk_enabled;
-	atomic_t wsa_mclk_rsc_ref;
-	struct mutex cdc_mclk_mutex;
-	struct mutex wsa_mclk_mutex;
-	struct delayed_work disable_mclk_work;
-	struct afe_digital_clk_cfg digital_cdc_clk;
-	struct afe_clk_set digital_cdc_core_clk;
-	void __iomem *vaddr_gpio_mux_spkr_ctl;
-	void __iomem *vaddr_gpio_mux_mic_ctl;
-	void __iomem *vaddr_gpio_mux_quin_ctl;
-	void __iomem *vaddr_gpio_mux_pcm_ctl;
-	struct on_demand_supply wsa_switch_supply;
-};
-
 struct msm8x16_wcd_pdata {
 	int irq;
 	int irq_base;
@@ -291,7 +266,7 @@ struct msm8x16_wcd_priv {
 	u32 rx_bias_count;
 	s32 dmic_1_2_clk_cnt;
 	u32 mute_mask;
-	bool mclk_enabled;
+	bool int_mclk0_enabled;
 	bool clock_active;
 	bool config_mode_active;
 	u16 boost_option;
