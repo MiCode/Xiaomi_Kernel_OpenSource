@@ -2222,6 +2222,16 @@
 		qcom,sensors = <8>;
 	};
 
+	qcom,qbt1000 {
+		compatible = "qcom,qbt1000";
+		clock-names = "core", "iface";
+		clocks = <&clock_gcc clk_gcc_blsp2_qup6_spi_apps_clk>,
+			<&clock_gcc clk_gcc_blsp2_ahb_clk>;
+		clock-frequency = <15000000>;
+		qcom,ipc-gpio = <&tlmm 121 0>;
+		qcom,finger-detect-gpio = <&pmcobalt_gpios 2 0>;
+	};
+
 	qcom,sensor-information {
 		compatible = "qcom,sensor-information";
 		sensor_information0: qcom,sensor-information-0 {
