@@ -259,6 +259,7 @@ struct fg_chip {
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
+	struct power_supply	*parallel_psy;
 	struct iio_channel	*batt_id_chan;
 	struct fg_memif		*sram;
 	struct fg_irq_info	*irqs;
@@ -291,6 +292,7 @@ struct fg_chip {
 	bool			charge_empty;
 	bool			recharge_soc_adjusted;
 	bool			ki_coeff_dischg_en;
+	bool			esr_fcc_ctrl_en;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
