@@ -98,23 +98,6 @@ static void sde_encoder_phys_cmd_mode_set(
 		phys_enc->hw_ctl = NULL;
 		return;
 	}
-
-	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id,
-			SDE_HW_BLK_PINGPONG);
-	for (i = 0; i <= instance; i++) {
-		sde_rm_get_hw(rm, &iter);
-		if (i == instance)
-			cmd_enc->hw_pp = (struct sde_hw_pingpong *) iter.hw;
-	}
-
-	if (IS_ERR_OR_NULL(cmd_enc->hw_pp)) {
-		SDE_ERROR_CMDENC(cmd_enc, "failed to init pingpong: %ld\n",
-				PTR_ERR(cmd_enc->hw_pp));
-		cmd_enc->hw_pp = NULL;
-		phys_enc->hw_ctl = NULL;
-		return;
-	}
-
 }
 
 static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
@@ -128,7 +111,7 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 
 	phys_enc = &cmd_enc->base;
 	new_pending_cnt = atomic_dec_return(&cmd_enc->pending_cnt);
-	MSM_EVT(DEV(phys_enc), cmd_enc->hw_pp->idx, new_pending_cnt);
+	MSM_EVT(DEV(phys_enc), phys_enc->hw_pp->idx, new_pending_cnt);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&cmd_enc->pp_tx_done_wq);
@@ -180,12 +163,12 @@ static int sde_encoder_phys_cmd_register_irq(struct sde_encoder_phys *phys_enc,
 	}
 
 	cmd_enc->irq_idx[idx] = sde_core_irq_idx_lookup(phys_enc->sde_kms,
-			intr_type, cmd_enc->hw_pp->idx);
+			intr_type, phys_enc->hw_pp->idx);
 	if (cmd_enc->irq_idx[idx] < 0) {
 		SDE_ERROR_CMDENC(cmd_enc,
 			"failed to lookup IRQ index for %s with pp=%d\n",
 			irq_name,
-			cmd_enc->hw_pp->idx - PINGPONG_0);
+			phys_enc->hw_pp->idx - PINGPONG_0);
 		return -EINVAL;
 	}
 
@@ -205,7 +188,7 @@ static int sde_encoder_phys_cmd_register_irq(struct sde_encoder_phys *phys_enc,
 		SDE_ERROR_CMDENC(cmd_enc,
 			"failed to enable IRQ for %s, pp %d, irq_idx %d\n",
 			irq_name,
-			cmd_enc->hw_pp->idx - PINGPONG_0,
+			phys_enc->hw_pp->idx - PINGPONG_0,
 			cmd_enc->irq_idx[idx]);
 		cmd_enc->irq_idx[idx] = -EINVAL;
 
@@ -217,7 +200,7 @@ static int sde_encoder_phys_cmd_register_irq(struct sde_encoder_phys *phys_enc,
 
 	SDE_DEBUG_CMDENC(cmd_enc, "registered IRQ %s for pp %d, irq_idx %d\n",
 			irq_name,
-			cmd_enc->hw_pp->idx - PINGPONG_0,
+			phys_enc->hw_pp->idx - PINGPONG_0,
 			cmd_enc->irq_idx[idx]);
 
 	return ret;
@@ -239,7 +222,7 @@ static int sde_encoder_phys_cmd_unregister_irq(
 			cmd_enc->irq_idx[idx], &cmd_enc->irq_cb[idx]);
 
 	SDE_DEBUG_CMDENC(cmd_enc, "unregistered IRQ for pp %d, irq_idx %d\n",
-			cmd_enc->hw_pp->idx - PINGPONG_0,
+			phys_enc->hw_pp->idx - PINGPONG_0,
 			cmd_enc->irq_idx[idx]);
 
 	return 0;
@@ -262,10 +245,10 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 		return;
 	}
 
-	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", cmd_enc->hw_pp->idx - PINGPONG_0);
+	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
-	if (!cmd_enc->hw_pp->ops.setup_tearcheck ||
-		!cmd_enc->hw_pp->ops.enable_tearcheck) {
+	if (!phys_enc->hw_pp->ops.setup_tearcheck ||
+		!phys_enc->hw_pp->ops.enable_tearcheck) {
 		SDE_DEBUG_CMDENC(cmd_enc, "tearcheck not supported\n");
 		return;
 	}
@@ -304,23 +287,23 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 
 	SDE_DEBUG_CMDENC(cmd_enc,
 		"tc %d vsync_clk_speed_hz %u vtotal %u vrefresh %u\n",
-		cmd_enc->hw_pp->idx - PINGPONG_0, vsync_hz,
+		phys_enc->hw_pp->idx - PINGPONG_0, vsync_hz,
 		mode->vtotal, mode->vrefresh);
 	SDE_DEBUG_CMDENC(cmd_enc,
 		"tc %d enable %u start_pos %u rd_ptr_irq %u\n",
-		cmd_enc->hw_pp->idx - PINGPONG_0, tc_enable, tc_cfg.start_pos,
+		phys_enc->hw_pp->idx - PINGPONG_0, tc_enable, tc_cfg.start_pos,
 		tc_cfg.rd_ptr_irq);
 	SDE_DEBUG_CMDENC(cmd_enc,
 		"tc %d hw_vsync_mode %u vsync_count %u vsync_init_val %u\n",
-		cmd_enc->hw_pp->idx - PINGPONG_0, tc_cfg.hw_vsync_mode,
+		phys_enc->hw_pp->idx - PINGPONG_0, tc_cfg.hw_vsync_mode,
 		tc_cfg.vsync_count, tc_cfg.vsync_init_val);
 	SDE_DEBUG_CMDENC(cmd_enc,
 		"tc %d cfgheight %u thresh_start %u thresh_cont %u\n",
-		cmd_enc->hw_pp->idx - PINGPONG_0, tc_cfg.sync_cfg_height,
+		phys_enc->hw_pp->idx - PINGPONG_0, tc_cfg.sync_cfg_height,
 		tc_cfg.sync_threshold_start, tc_cfg.sync_threshold_continue);
 
-	cmd_enc->hw_pp->ops.setup_tearcheck(cmd_enc->hw_pp, &tc_cfg);
-	cmd_enc->hw_pp->ops.enable_tearcheck(cmd_enc->hw_pp, tc_enable);
+	phys_enc->hw_pp->ops.setup_tearcheck(phys_enc->hw_pp, &tc_cfg);
+	phys_enc->hw_pp->ops.enable_tearcheck(phys_enc->hw_pp, tc_enable);
 }
 
 static void sde_encoder_phys_cmd_pingpong_config(
@@ -337,7 +320,7 @@ static void sde_encoder_phys_cmd_pingpong_config(
 	}
 
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d, enabling mode:\n",
-			cmd_enc->hw_pp->idx - PINGPONG_0);
+			phys_enc->hw_pp->idx - PINGPONG_0);
 	drm_mode_debug_printmodeline(&phys_enc->cached_mode);
 
 	intf_cfg.intf = cmd_enc->intf_idx;
@@ -444,7 +427,7 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
-	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", cmd_enc->hw_pp->idx - PINGPONG_0);
+	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
 	if (WARN_ON(phys_enc->enable_state == SDE_ENC_ENABLED))
 		return;
@@ -506,7 +489,7 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
-	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", cmd_enc->hw_pp->idx - PINGPONG_0);
+	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
 	if (WARN_ON(phys_enc->enable_state == SDE_ENC_DISABLED))
 		return;
@@ -578,7 +561,7 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
-	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", cmd_enc->hw_pp->idx - PINGPONG_0);
+	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
 	/*
 	 * Mark kickoff request as outstanding. If there are more than one,
@@ -590,9 +573,9 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 	if (*need_to_wait)
 		SDE_DEBUG_CMDENC(cmd_enc,
 				"pp %d needs to wait, new_pending_cnt %d",
-				cmd_enc->hw_pp->idx - PINGPONG_0,
+				phys_enc->hw_pp->idx - PINGPONG_0,
 				new_pending_cnt);
-	MSM_EVT(DEV(phys_enc), cmd_enc->hw_pp->idx, new_pending_cnt);
+	MSM_EVT(DEV(phys_enc), phys_enc->hw_pp->idx, new_pending_cnt);
 }
 
 static void sde_encoder_phys_cmd_init_ops(
