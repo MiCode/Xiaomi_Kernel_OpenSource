@@ -13,6 +13,8 @@
 #ifndef __QCOM_CLK_COMMON_H__
 #define __QCOM_CLK_COMMON_H__
 
+#include <linux/reset-controller.h>
+
 struct platform_device;
 struct regmap_config;
 struct clk_regmap;
@@ -30,6 +32,12 @@ struct qcom_cc_desc {
 	size_t num_resets;
 	struct gdsc **gdscs;
 	size_t num_gdscs;
+};
+
+struct clk_dummy {
+	struct clk_hw hw;
+	struct reset_controller_dev reset;
+	unsigned long rrate;
 };
 
 extern const struct freq_tbl *qcom_find_freq(const struct freq_tbl *f,
