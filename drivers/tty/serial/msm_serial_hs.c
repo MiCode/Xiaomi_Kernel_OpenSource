@@ -3575,6 +3575,7 @@ static int msm_hs_probe(struct platform_device *pdev)
 	}
 
 	msm_serial_debugfs_init(msm_uport, pdev->id);
+	msm_hs_unconfig_uart_gpios(uport);
 
 	uport->line = pdev->id;
 	if (pdata->userid && pdata->userid <= UARTDM_NR)
