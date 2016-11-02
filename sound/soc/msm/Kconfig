@@ -130,6 +130,7 @@ config SND_SOC_INT_CODEC
 	select DTS_EAGLE
 	select SND_SOC_MSMFALCON_COMMON
 	select SND_SOC_COMPRESS
+	select PINCTRL_LPI
 	help
 	To add support for SoC audio on MSM_INT.
 	This will enable sound soc drivers which
@@ -164,6 +165,7 @@ config SND_SOC_EXT_CODEC
 	select DTS_EAGLE
 	select SND_SOC_MSMFALCON_COMMON
 	select SND_SOC_COMPRESS
+	select PINCTRL_LPI
 	help
 	To add support for SoC audio on MSM_EXT.
 	This will enable sound soc drivers which
