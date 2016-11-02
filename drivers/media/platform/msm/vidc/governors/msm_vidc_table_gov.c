@@ -24,6 +24,7 @@ enum bus_profile {
 	VIDC_BUS_PROFILE_NORMAL			= BIT(0),
 	VIDC_BUS_PROFILE_LOW			= BIT(1),
 	VIDC_BUS_PROFILE_UBWC			= BIT(2),
+	VIDC_BUS_PROFILE_UBWC_10_BIT		= BIT(3),
 };
 
 struct bus_profile_entry {
@@ -53,7 +54,7 @@ static int __get_bus_freq(struct msm_vidc_bus_table_gov *gov,
 	load = NUM_MBS_PER_SEC(data->width, data->height, data->fps);
 	sess_type = VIDC_VOTE_DATA_SESSION_VAL(data->codec, data->domain);
 
-	/* check if ubwc bus profile is present */
+	/* check if appropriate bus profile is present */
 	for (i = 0; i < gov->count; i++) {
 		entry = &gov->bus_prof_entries[i];
 		if (!entry->bus_table || !entry->bus_table_size)
@@ -119,18 +120,23 @@ static int msm_vidc_table_get_target_freq(struct devfreq *dev,
 		}
 
 		profile = VIDC_BUS_PROFILE_NORMAL;
-		if (data->color_formats[0] == HAL_COLOR_FORMAT_NV12_TP10_UBWC ||
-			data->color_formats[0] == HAL_COLOR_FORMAT_NV12_UBWC)
+		if (data->color_formats[0] == HAL_COLOR_FORMAT_NV12_UBWC)
 			profile = VIDC_BUS_PROFILE_UBWC;
+		else if (data->color_formats[0] ==
+					HAL_COLOR_FORMAT_NV12_TP10_UBWC)
+			profile = VIDC_BUS_PROFILE_UBWC_10_BIT;
 
 		freq = __get_bus_freq(gov, data, profile);
 		/*
 		 * chose frequency from normal profile
 		 * if specific profile frequency was not found.
 		 */
-		if (!freq)
+		if (!freq) {
+			dprintk(VIDC_WARN,
+				"appropriate bus table not found, voting with Normal Profile\n");
 			freq = __get_bus_freq(gov, data,
 				VIDC_BUS_PROFILE_NORMAL);
+		}
 
 		*frequency += (unsigned long)freq;
 
@@ -260,6 +266,8 @@ static int msm_vidc_load_bus_table(struct platform_device *pdev,
 			entry->profile = VIDC_BUS_PROFILE_LOW;
 		else if (of_find_property(child_node, "qcom,ubwc-mode", NULL))
 			entry->profile = VIDC_BUS_PROFILE_UBWC;
+		else if (of_find_property(child_node, "qcom,ubwc-10bit", NULL))
+			entry->profile = VIDC_BUS_PROFILE_UBWC_10_BIT;
 		else
 			entry->profile = VIDC_BUS_PROFILE_NORMAL;
 
