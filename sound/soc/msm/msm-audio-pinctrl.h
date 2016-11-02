@@ -1,4 +1,4 @@
- /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,8 +14,7 @@
 #define __MSM_AUDIO_PINCTRL_H
 
 enum pinctrl_client {
-	CLIENT_WCD_INT,
-	CLIENT_WCD_EXT,
+	CLIENT_WCD,
 	CLIENT_WSA_BONGO_1,
 	CLIENT_WSA_BONGO_2,
 	MAX_PINCTRL_CLIENT,
