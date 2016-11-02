@@ -28,9 +28,10 @@
 
 #define VCO_DELAY_USEC 1
 
-#define MHZ_375		375000000UL
-#define MHZ_750		750000000UL
-#define MHZ_1500	1500000000UL
+#define MHZ_250		250000000UL
+#define MHZ_500		500000000UL
+#define MHZ_1000	1000000000UL
+#define MHZ_1100	1100000000UL
 #define MHZ_1900	1900000000UL
 #define MHZ_3000	3000000000UL
 
@@ -45,6 +46,8 @@
 #define PLL_CALIBRATION_SETTINGS		0x030
 #define PLL_BAND_SEL_CAL_SETTINGS_THREE		0x054
 #define PLL_FREQ_DETECT_SETTINGS_ONE		0x064
+#define PLL_PFILT				0x07c
+#define PLL_IFILT				0x080
 #define PLL_OUTDIV				0x094
 #define PLL_CORE_OVERRIDE			0x0a4
 #define PLL_CORE_INPUT_OVERRIDE			0x0a8
@@ -68,6 +71,7 @@
 #define PLL_PLL_FL_INT_GAIN_PFILT_BAND_1	0x164
 #define PLL_PLL_LOCK_OVERRIDE			0x180
 #define PLL_PLL_LOCK_DELAY			0x184
+#define PLL_CLOCK_INVERTERS			0x18c
 #define PLL_COMMON_STATUS_ONE			0x1a0
 
 /* Register Offsets from PHY base address */
@@ -101,6 +105,7 @@ struct dsi_pll_regs {
 	u32 frac_div_start_low;
 	u32 frac_div_start_mid;
 	u32 frac_div_start_high;
+	u32 pll_clock_inverters;
 	u32 ssc_stepsize_low;
 	u32 ssc_stepsize_high;
 	u32 ssc_div_per_low;
@@ -234,13 +239,13 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_8998 *pll,
 		}
 
 	} else {
-		if (target_freq < MHZ_375) {
+		if (target_freq < MHZ_250) {
 			computed_output_div = 8;
 			div_log = 3;
-		} else if (target_freq < MHZ_750) {
+		} else if (target_freq < MHZ_500) {
 			computed_output_div = 4;
 			div_log = 2;
-		} else if (target_freq < MHZ_1500) {
+		} else if (target_freq < MHZ_1000) {
 			computed_output_div = 2;
 			div_log = 1;
 		} else {
@@ -269,6 +274,11 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_8998 *pll,
 		regs->pll_prop_gain_rate = 10;
 	else
 		regs->pll_prop_gain_rate = 12;
+
+	if (pll_freq < MHZ_1100)
+		regs->pll_clock_inverters = 8;
+	else
+		regs->pll_clock_inverters = 0;
 
 	regs->pll_outdiv_rate = div_log;
 	regs->pll_lockdet_rate = config->lock_timer;
@@ -359,7 +369,6 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_8998 *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_THREE, 0x00);
 	MDSS_PLL_REG_W(pll_base, PLL_DSM_DIVIDER, 0x00);
 	MDSS_PLL_REG_W(pll_base, PLL_FEEDBACK_DIVIDER, 0x4e);
-	MDSS_PLL_REG_W(pll_base, PLL_CMODE, 0x00);
 	MDSS_PLL_REG_W(pll_base, PLL_CALIBRATION_SETTINGS, 0x40);
 	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_SETTINGS_THREE, 0xba);
 	MDSS_PLL_REG_W(pll_base, PLL_FREQ_DETECT_SETTINGS_ONE, 0x0c);
@@ -371,6 +380,8 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_8998 *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_INT_GAIN_IFILT_BAND_1, 0x82);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_FL_INT_GAIN_PFILT_BAND_1, 0x4c);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_OVERRIDE, 0x80);
+	MDSS_PLL_REG_W(pll_base, PLL_PFILT, 0x29);
+	MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x3f);
 }
 
 static void dsi_pll_commit(struct dsi_pll_8998 *pll,
@@ -388,9 +399,11 @@ static void dsi_pll_commit(struct dsi_pll_8998 *pll,
 		       reg->frac_div_start_mid);
 	MDSS_PLL_REG_W(pll_base, PLL_FRAC_DIV_START_HIGH_1,
 		       reg->frac_div_start_high);
-	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCKDET_RATE_1, 0xc8);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCKDET_RATE_1, 0x40);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_OUTDIV_RATE, reg->pll_outdiv_rate);
-	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_DELAY, 0x0a);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_DELAY, 0x06);
+	MDSS_PLL_REG_W(pll_base, PLL_CMODE, 0x10);
+	MDSS_PLL_REG_W(pll_base, PLL_CLOCK_INVERTERS, reg->pll_clock_inverters);
 
 }
 
@@ -1075,7 +1088,7 @@ static struct clk_mux_ops mdss_mux_ops = {
 
 static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 	.ref_clk_rate = 19200000UL,
-	.min_rate = 1500000000UL,
+	.min_rate = 1000000000UL,
 	.max_rate = 3500000000UL,
 	.c = {
 		.dbg_name = "dsi0pll_vco_clk",
@@ -1244,7 +1257,7 @@ static struct mux_clk dsi0pll_byteclk_mux = {
 
 static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 	.ref_clk_rate = 19200000UL,
-	.min_rate = 1500000000UL,
+	.min_rate = 1000000000UL,
 	.max_rate = 3500000000UL,
 	.c = {
 		.dbg_name = "dsi1pll_vco_clk",
