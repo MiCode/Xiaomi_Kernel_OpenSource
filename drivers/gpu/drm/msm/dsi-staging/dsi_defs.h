@@ -198,12 +198,12 @@ enum dsi_video_traffic_mode {
  * @h_sync_width:     HSYNC width in pixels.
  * @h_front_porch:    Horizontal fron porch in pixels.
  * @h_skew:
- * @h_sync_polarity:  Polarity of HSYNC (false is active low).
+ * @h_sync_polarity:  Polarity of HSYNC (false is active high).
  * @v_active:         Active height of one frame in lines.
  * @v_back_porch:     Vertical back porch in lines.
  * @v_sync_width:     VSYNC width in lines.
  * @v_front_porch:    Vertical front porch in lines.
- * @v_sync_polarity:  Polarity of VSYNC (false is active low).
+ * @v_sync_polarity:  Polarity of VSYNC (false is active high).
  * @refresh_rate:     Refresh rate in Hz.
  */
 struct dsi_mode_info {

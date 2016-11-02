@@ -73,12 +73,6 @@ static void drm_mode_to_intf_timing_params(
 	timing->underflow_clr = 0xff;
 	timing->hsync_skew = mode->hskew;
 
-	/* DSI controller cannot handle active-low sync signals. */
-	if (vid_enc->hw_intf->cap->type == INTF_DSI) {
-		timing->hsync_polarity = 0;
-		timing->vsync_polarity = 0;
-	}
-
 	/*
 	 * For edp only:
 	 * DISPLAY_V_START = (VBP * HCYCLE) + HBP

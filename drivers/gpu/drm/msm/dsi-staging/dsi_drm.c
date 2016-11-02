@@ -56,6 +56,10 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 		dsi_mode->flags |= DSI_MODE_FLAG_DFPS;
 	if (msm_needs_vblank_pre_modeset(drm_mode))
 		dsi_mode->flags |= DSI_MODE_FLAG_VBLANK_PRE_MODESET;
+	dsi_mode->timing.h_sync_polarity =
+		(drm_mode->flags & DRM_MODE_FLAG_PHSYNC) ? false : true;
+	dsi_mode->timing.v_sync_polarity =
+		(drm_mode->flags & DRM_MODE_FLAG_PVSYNC) ? false : true;
 }
 
 static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
@@ -87,6 +91,10 @@ static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_DYNAMIC_FPS;
 	if (dsi_mode->flags & DSI_MODE_FLAG_VBLANK_PRE_MODESET)
 		drm_mode->private_flags |= MSM_MODE_FLAG_VBLANK_PRE_MODESET;
+	drm_mode->flags |= (dsi_mode->timing.h_sync_polarity) ?
+				DRM_MODE_FLAG_NHSYNC : DRM_MODE_FLAG_PHSYNC;
+	drm_mode->flags |= (dsi_mode->timing.v_sync_polarity) ?
+				DRM_MODE_FLAG_NVSYNC : DRM_MODE_FLAG_PVSYNC;
 
 	drm_mode_set_name(drm_mode);
 }
