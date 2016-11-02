@@ -4394,14 +4394,14 @@ static const struct tavil_reg_mask_val tavil_pa_disable[] = {
 };
 
 static const struct tavil_reg_mask_val tavil_ocp_en_seq[] = {
-	{ WCD934X_RX_OCP_CTL, 0x0F, 0x01 }, /* OCP number of attempts is 1 */
+	{ WCD934X_RX_OCP_CTL, 0x0F, 0x02 }, /* OCP number of attempts is 2 */
 	{ WCD934X_HPH_OCP_CTL, 0xFA, 0x3A }, /* OCP current limit */
 	{ WCD934X_HPH_L_TEST, 0x01, 0x01 }, /* Enable HPHL OCP */
 	{ WCD934X_HPH_R_TEST, 0x01, 0x01 }, /* Enable HPHR OCP */
 };
 
 static const struct tavil_reg_mask_val tavil_ocp_en_seq_1[] = {
-	{ WCD934X_RX_OCP_CTL, 0x0F, 0x01 }, /* OCP number of attempts is 1 */
+	{ WCD934X_RX_OCP_CTL, 0x0F, 0x02 }, /* OCP number of attempts is 2 */
 	{ WCD934X_HPH_OCP_CTL, 0xFA, 0x3A }, /* OCP current limit */
 };
 
@@ -8035,7 +8035,7 @@ static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
 	{WCD934X_CDC_TX6_TX_PATH_CFG1, 0x01, 0x00},
 	{WCD934X_CDC_TX7_TX_PATH_CFG1, 0x01, 0x00},
 	{WCD934X_CDC_TX8_TX_PATH_CFG1, 0x01, 0x00},
-	{WCD934X_RX_OCP_CTL, 0x0F, 0x01}, /* OCP number of attempts is 1 */
+	{WCD934X_RX_OCP_CTL, 0x0F, 0x02}, /* OCP number of attempts is 2 */
 	{WCD934X_HPH_OCP_CTL, 0xFF, 0x3A}, /* OCP current limit */
 	{WCD934X_HPH_L_TEST, 0x01, 0x01},
 	{WCD934X_HPH_R_TEST, 0x01, 0x01},
