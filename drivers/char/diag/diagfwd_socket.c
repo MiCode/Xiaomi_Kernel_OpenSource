@@ -41,6 +41,7 @@
 #define WCNSS_INST_BASE		128
 #define SENSORS_INST_BASE	192
 #define WDSP_INST_BASE	256
+#define CDSP_INST_BASE  320
 
 #define INST_ID_CNTL		0
 #define INST_ID_CMD		1
@@ -75,6 +76,11 @@ struct diag_socket_info socket_data[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DATA,
 		.name = "DIAG_DATA"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DATA,
+		.name = "CDSP_DATA"
 	}
 };
 
@@ -103,6 +109,11 @@ struct diag_socket_info socket_cntl[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_CNTL,
 		.name = "DIAG_CTRL"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_CNTL,
+		.name = "CDSP_CNTL"
 	}
 };
 
@@ -131,6 +142,11 @@ struct diag_socket_info socket_dci[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DCI,
 		.name = "DIAG_DCI_DATA"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DCI,
+		.name = "CDSP_DCI"
 	}
 };
 
@@ -159,6 +175,11 @@ struct diag_socket_info socket_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_CMD,
 		.name = "DIAG_CMD"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_CMD,
+		.name = "CDSP_CMD"
 	}
 
 };
@@ -188,7 +209,12 @@ struct diag_socket_info socket_dci_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DCI_CMD,
 		.name = "DIAG_DCI_CMD"
-	}
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DCI_CMD,
+		.name = "CDSP_DCI_CMD"
+	},
 };
 
 static void diag_state_open_socket(void *ctxt);
@@ -738,6 +764,9 @@ static void __diag_socket_init(struct diag_socket_info *info)
 		break;
 	case PERIPHERAL_WDSP:
 		ins_base = WDSP_INST_BASE;
+		break;
+	case PERIPHERAL_CDSP:
+		ins_base = CDSP_INST_BASE;
 		break;
 	}
 

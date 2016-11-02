@@ -27,14 +27,16 @@
 	((x == PERIPHERAL_LPASS) ? DIAG_CON_LPASS :		\
 	((x == PERIPHERAL_WCNSS) ? DIAG_CON_WCNSS :		\
 	((x == PERIPHERAL_SENSORS) ? DIAG_CON_SENSORS : \
-	((x == PERIPHERAL_WDSP) ? DIAG_CON_WDSP : 0)))))	\
+	((x == PERIPHERAL_WDSP) ? DIAG_CON_WDSP : \
+	((x == PERIPHERAL_CDSP) ? DIAG_CON_CDSP : 0))))))	\
 
 #define PERIPHERAL_STRING(x)					\
 	((x == PERIPHERAL_MODEM) ? "MODEM" :			\
 	((x == PERIPHERAL_LPASS) ? "LPASS" :			\
 	((x == PERIPHERAL_WCNSS) ? "WCNSS" :			\
 	((x == PERIPHERAL_SENSORS) ? "SENSORS" :		\
-	((x == PERIPHERAL_WDSP) ? "WDSP" : "UNKNOWN")))))	\
+	((x == PERIPHERAL_WDSP) ? "WDSP" :			\
+	((x == PERIPHERAL_CDSP) ? "CDSP" : "UNKNOWN"))))))	\
 
 struct diagfwd_buf_t {
 	unsigned char *data;
