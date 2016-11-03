@@ -5845,15 +5845,21 @@ int do_isolation_work_cpu_stop(void *data)
 
 	sched_ttwu_pending();
 
-	/* Update our root-domain */
 	raw_spin_lock(&rq->lock);
 
+	/*
+	 * Temporarily mark the rq as offline. This will allow us to
+	 * move tasks off the CPU.
+	 */
 	if (rq->rd) {
 		BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
 		set_rq_offline(rq);
 	}
 
 	migrate_tasks(rq, false);
+
+	if (rq->rd)
+		set_rq_online(rq);
 	raw_spin_unlock(&rq->lock);
 
 	/*
@@ -6013,10 +6019,6 @@ int sched_unisolate_cpu_unlocked(int cpu)
 
 		raw_spin_lock_irqsave(&rq->lock, flags);
 		rq->age_stamp = sched_clock_cpu(cpu);
-		if (rq->rd) {
-			BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
-			set_rq_online(rq);
-		}
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 	}
 
