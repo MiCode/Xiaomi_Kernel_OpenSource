@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,9 +19,49 @@
 
 void ep_pcie_phy_init(struct ep_pcie_dev_t *dev)
 {
-	EP_PCIE_DBG(dev,
-		"PCIe V%d: PHY V%d: Initializing 14nm QMP phy - 100MHz\n",
-		dev->rev, dev->phy_rev);
+	switch (dev->phy_rev) {
+	case 3:
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: PHY V%d: Initializing 20nm QMP phy - 100MHz\n",
+			dev->rev, dev->phy_rev);
+		break;
+	case 4:
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: PHY V%d: Initializing 14nm QMP phy - 100MHz\n",
+			dev->rev, dev->phy_rev);
+		break;
+	case 5:
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: PHY V%d: Initializing 10nm QMP phy - 100MHz\n",
+			dev->rev, dev->phy_rev);
+		break;
+	default:
+		EP_PCIE_ERR(dev,
+			"PCIe V%d: Unexpected phy version %d is caught!\n",
+			dev->rev, dev->phy_rev);
+	}
+
+	if (dev->phy_init_len && dev->phy_init) {
+		int i;
+		struct ep_pcie_phy_info_t *phy_init;
+
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: PHY V%d: process the sequence specified by DT.\n",
+			dev->rev, dev->phy_rev);
+
+		i =  dev->phy_init_len;
+		phy_init = dev->phy_init;
+		while (i--) {
+			ep_pcie_write_reg(dev->phy,
+				phy_init->offset,
+				phy_init->val);
+			if (phy_init->delay)
+				usleep_range(phy_init->delay,
+					phy_init->delay + 1);
+			phy_init++;
+		}
+		return;
+	}
 
 	ep_pcie_write_reg(dev->phy, PCIE_PHY_SW_RESET, 0x01);
 	ep_pcie_write_reg(dev->phy, PCIE_PHY_POWER_DOWN_CONTROL, 0x01);
@@ -106,7 +146,14 @@ void ep_pcie_phy_init(struct ep_pcie_dev_t *dev)
 
 bool ep_pcie_phy_is_ready(struct ep_pcie_dev_t *dev)
 {
-	if (readl_relaxed(dev->phy + PCIE_PHY_PCS_STATUS) & BIT(6))
+	u32 offset;
+
+	if (dev->phy_status_reg)
+		offset = dev->phy_status_reg;
+	else
+		offset = PCIE_PHY_PCS_STATUS;
+
+	if (readl_relaxed(dev->phy + offset) & BIT(6))
 		return false;
 	else
 		return true;
