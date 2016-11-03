@@ -456,17 +456,13 @@ static void watchdog_set_prio(unsigned int policy, unsigned int prio)
 	sched_setscheduler(current, policy, &param);
 }
 
-/* Must be called with hotplug lock (lock_device_hotplug()) held. */
 void watchdog_enable(unsigned int cpu)
 {
 	struct hrtimer *hrtimer = this_cpu_ptr(&watchdog_hrtimer);
 	unsigned int *enabled = this_cpu_ptr(&watchdog_en);
 
-	lock_device_hotplug_assert();
-
 	if (*enabled)
 		return;
-	*enabled = 1;
 
 	/*
 	 * Start the timer first to prevent the NMI watchdog triggering
@@ -484,19 +480,24 @@ void watchdog_enable(unsigned int cpu)
 		watchdog_nmi_enable(cpu);
 
 	watchdog_set_prio(SCHED_FIFO, MAX_RT_PRIO - 1);
+
+	/*
+	 * Need to ensure above operations are observed by other CPUs before
+	 * indicating that timer is enabled. This is to synchronize core
+	 * isolation and hotplug. Core isolation will wait for this flag to be
+	 * set.
+	 */
+	mb();
+	*enabled = 1;
 }
 
-/* Must be called with hotplug lock (lock_device_hotplug()) held. */
 void watchdog_disable(unsigned int cpu)
 {
 	struct hrtimer *hrtimer = this_cpu_ptr(&watchdog_hrtimer);
 	unsigned int *enabled = this_cpu_ptr(&watchdog_en);
 
-	lock_device_hotplug_assert();
-
 	if (!*enabled)
 		return;
-	*enabled = 0;
 
 	watchdog_set_prio(SCHED_NORMAL, 0);
 	/*
@@ -506,6 +507,17 @@ void watchdog_disable(unsigned int cpu)
 	 */
 	watchdog_nmi_disable(cpu);
 	hrtimer_cancel(hrtimer);
+
+	/*
+	 * No need for barrier here since disabling the watchdog is
+	 * synchronized with hotplug lock
+	 */
+	*enabled = 0;
+}
+
+bool watchdog_configured(unsigned int cpu)
+{
+	return *per_cpu_ptr(&watchdog_en, cpu);
 }
 
 static void watchdog_cleanup(unsigned int cpu, bool online)
