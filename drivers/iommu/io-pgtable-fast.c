@@ -133,9 +133,11 @@ struct av8l_fast_io_pgtable {
 #define AV8L_FAST_MAIR_ATTR_DEVICE	0x04
 #define AV8L_FAST_MAIR_ATTR_NC		0x44
 #define AV8L_FAST_MAIR_ATTR_WBRWA	0xff
+#define AV8L_FAST_MAIR_ATTR_UPSTREAM	0xf4
 #define AV8L_FAST_MAIR_ATTR_IDX_NC	0
 #define AV8L_FAST_MAIR_ATTR_IDX_CACHE	1
 #define AV8L_FAST_MAIR_ATTR_IDX_DEV	2
+#define AV8L_FAST_MAIR_ATTR_IDX_UPSTREAM	3
 
 #define AV8L_FAST_PAGE_SHIFT		12
 
@@ -203,6 +205,9 @@ int av8l_fast_map_public(av8l_fast_iopte *ptep, phys_addr_t paddr, size_t size,
 			<< AV8L_FAST_PTE_ATTRINDX_SHIFT);
 	else if (prot & IOMMU_CACHE)
 		pte |= (AV8L_FAST_MAIR_ATTR_IDX_CACHE
+			<< AV8L_FAST_PTE_ATTRINDX_SHIFT);
+	else if (prot & IOMMU_USE_UPSTREAM_HINT)
+		pte |= (AV8L_FAST_MAIR_ATTR_IDX_UPSTREAM
 			<< AV8L_FAST_PTE_ATTRINDX_SHIFT);
 
 	if (!(prot & IOMMU_WRITE))
@@ -467,7 +472,9 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 	      (AV8L_FAST_MAIR_ATTR_WBRWA
 	       << AV8L_FAST_MAIR_ATTR_SHIFT(AV8L_FAST_MAIR_ATTR_IDX_CACHE)) |
 	      (AV8L_FAST_MAIR_ATTR_DEVICE
-	       << AV8L_FAST_MAIR_ATTR_SHIFT(AV8L_FAST_MAIR_ATTR_IDX_DEV));
+	       << AV8L_FAST_MAIR_ATTR_SHIFT(AV8L_FAST_MAIR_ATTR_IDX_DEV)) |
+	      (AV8L_FAST_MAIR_ATTR_UPSTREAM
+	       << AV8L_FAST_MAIR_ATTR_SHIFT(AV8L_FAST_MAIR_ATTR_IDX_UPSTREAM));
 
 	cfg->av8l_fast_cfg.mair[0] = reg;
 	cfg->av8l_fast_cfg.mair[1] = 0;
