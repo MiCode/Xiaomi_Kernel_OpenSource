@@ -942,6 +942,13 @@ int usbpd_register_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
 		return -EINVAL;
 	}
 
+	/* require connect/disconnect callbacks be implemented */
+	if (!hdlr->connect || !hdlr->disconnect) {
+		usbpd_err(&pd->dev, "SVID 0x%04x connect/disconnect must be non-NULL\n",
+				hdlr->svid);
+		return -EINVAL;
+	}
+
 	usbpd_dbg(&pd->dev, "registered handler for SVID 0x%04x\n", hdlr->svid);
 
 	list_add_tail(&hdlr->entry, &pd->svid_handlers);
@@ -952,8 +959,8 @@ int usbpd_register_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
 
 		for (i = 0; i < pd->num_svids; i++) {
 			if (pd->discovered_svids[i] == hdlr->svid) {
-				if (hdlr->connect)
-					hdlr->connect(hdlr);
+				hdlr->connect(hdlr);
+				hdlr->discovered = true;
 				break;
 			}
 		}
@@ -1165,8 +1172,10 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 				svid = pd->discovered_svids[i];
 				if (svid) {
 					handler = find_svid_handler(pd, svid);
-					if (handler && handler->connect)
+					if (handler) {
 						handler->connect(handler);
+						handler->discovered = true;
+					}
 				}
 			}
 
@@ -1271,10 +1280,14 @@ static void reset_vdm_state(struct usbpd *pd)
 {
 	struct usbpd_svid_handler *handler;
 
-	pd->vdm_state = VDM_NONE;
-	list_for_each_entry(handler, &pd->svid_handlers, entry)
-		if (handler->disconnect)
+	list_for_each_entry(handler, &pd->svid_handlers, entry) {
+		if (handler->discovered) {
 			handler->disconnect(handler);
+			handler->discovered = false;
+		}
+	}
+
+	pd->vdm_state = VDM_NONE;
 	kfree(pd->vdm_tx_retry);
 	pd->vdm_tx_retry = NULL;
 	kfree(pd->discovered_svids);
