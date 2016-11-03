@@ -1879,6 +1879,7 @@ static void tavil_codec_override(struct snd_soc_codec *codec, int mode,
 {
 	if (mode == CLS_AB || mode == CLS_AB_HIFI) {
 		switch (event) {
+		case SND_SOC_DAPM_PRE_PMU:
 		case SND_SOC_DAPM_POST_PMU:
 			if (!(snd_soc_read(codec,
 					WCD934X_CDC_RX2_RX_PATH_CTL) & 0x10) &&
@@ -2088,6 +2089,9 @@ static int tavil_codec_enable_lineout_pa(struct snd_soc_dapm_widget *w,
 	}
 
 	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		tavil_codec_override(codec, CLS_AB, event);
+		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/*
 		 * 5ms sleep is required after PA is enabled as per
@@ -2102,6 +2106,13 @@ static int tavil_codec_enable_lineout_pa(struct snd_soc_dapm_widget *w,
 					    lineout_mix_vol_reg,
 					    0x10, 0x00);
 		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/*
+		 * 5ms sleep is required after PA is disabled as per
+		 * HW requirement
+		 */
+		usleep_range(5000, 5500);
+		tavil_codec_override(codec, CLS_AB, event);
 	default:
 		break;
 	};
@@ -7003,10 +7014,12 @@ static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_E("LINEOUT1 PA", WCD934X_ANA_LO_1_2, 7, 0, NULL, 0,
 		tavil_codec_enable_lineout_pa,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_E("LINEOUT2 PA", WCD934X_ANA_LO_1_2, 6, 0, NULL, 0,
 		tavil_codec_enable_lineout_pa,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_E("ANC EAR PA", WCD934X_ANA_EAR, 7, 0, NULL, 0,
 		tavil_codec_enable_ear_pa, SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
@@ -8120,6 +8133,8 @@ static const struct tavil_reg_mask_val tavil_codec_reg_defaults[] = {
 	{WCD934X_CDC_RX0_RX_PATH_DSMDEM_CTL, 0x01, 0x01},
 	{WCD934X_CDC_RX1_RX_PATH_DSMDEM_CTL, 0x01, 0x01},
 	{WCD934X_CDC_RX2_RX_PATH_DSMDEM_CTL, 0x01, 0x01},
+	{WCD934X_CDC_RX3_RX_PATH_DSMDEM_CTL, 0x01, 0x01},
+	{WCD934X_CDC_RX4_RX_PATH_DSMDEM_CTL, 0x01, 0x01},
 	{WCD934X_CDC_RX7_RX_PATH_DSMDEM_CTL, 0x01, 0x01},
 	{WCD934X_CDC_RX8_RX_PATH_DSMDEM_CTL, 0x01, 0x01},
 	{WCD934X_CDC_COMPANDER8_CTL7, 0x1E, 0x18},
@@ -8153,6 +8168,8 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_1_1_val[] = {
 	{WCD934X_CDC_COMPANDER2_CTL7, 0x1E, 0x06},
 	{WCD934X_HPH_NEW_INT_RDAC_HD2_CTL_L, 0xFF, 0x84},
 	{WCD934X_HPH_NEW_INT_RDAC_HD2_CTL_R, 0xFF, 0x84},
+	{WCD934X_CDC_RX3_RX_PATH_SEC0, 0xFC, 0xF4},
+	{WCD934X_CDC_RX4_RX_PATH_SEC0, 0xFC, 0xF4},
 };
 
 static const struct tavil_cpr_reg_defaults cpr_defaults[] = {
