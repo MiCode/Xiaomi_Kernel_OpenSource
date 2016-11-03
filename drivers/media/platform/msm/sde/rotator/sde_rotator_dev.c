@@ -305,6 +305,39 @@ static void sde_rotator_buf_queue(struct vb2_buffer *vb)
 }
 
 /*
+ * sde_rotator_buf_finish - vb2_ops buf_finish to finalize buffer before going
+ *				back to user space
+ * @vb: Pointer to vb2 buffer struct.
+ */
+static void sde_rotator_buf_finish(struct vb2_buffer *vb)
+{
+	struct sde_rotator_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+	int i;
+
+	SDEDEV_DBG(ctx->rot_dev->dev,
+			"buf_finish t:%d i:%d s:%d m:%u np:%d up:%lu\n",
+			vb->type, vb->index, vb->state,
+			vb->vb2_queue->memory,
+			vb->num_planes,
+			vb->planes[0].m.userptr);
+
+	if (vb->vb2_queue->memory != VB2_MEMORY_USERPTR)
+		return;
+
+	/*
+	 * We use userptr to tunnel fd, and fd can be the same across qbuf
+	 * even though the underlying buffer is different.  Since vb2 layer
+	 * optimizes memory mapping for userptr by first checking if userptr
+	 * has changed, it will not trigger put_userptr if fd value does
+	 * not change.  In order to force buffer release, we need to clear
+	 * userptr when the current buffer is done and ready to go back to
+	 * user mode. Since 0 is a valid fd, reset userptr to -1 instead.
+	 */
+	for (i = 0; i < vb->num_planes; i++)
+		vb->planes[i].m.userptr = ~0;
+}
+
+/*
  * sde_rotator_return_all_buffers - Return all buffers with the given status.
  * @q: Pointer to vb2 buffer queue struct.
  * @state: State of the buffer
@@ -460,6 +493,7 @@ static struct vb2_ops sde_rotator_vb2_q_ops = {
 	.stop_streaming  = sde_rotator_stop_streaming,
 	.wait_prepare	 = vb2_ops_wait_prepare,
 	.wait_finish	 = vb2_ops_wait_finish,
+	.buf_finish      = sde_rotator_buf_finish,
 };
 
 /*
