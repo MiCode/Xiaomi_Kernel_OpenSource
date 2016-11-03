@@ -222,7 +222,6 @@ struct fg_batt_props {
 	int		float_volt_uv;
 	int		vbatt_full_mv;
 	int		fastchg_curr_ma;
-	int		batt_id_kohm;
 };
 
 struct fg_cyc_ctr_data {
@@ -278,7 +277,7 @@ struct fg_chip {
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
-	int			batt_id;
+	int			batt_id_kohms;
 	int			status;
 	int			charge_done;
 	int			last_soc;
