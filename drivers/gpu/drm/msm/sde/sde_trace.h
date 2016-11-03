@@ -127,6 +127,27 @@ TRACE_EVENT(sde_trace_counter,
 			__get_str(counter_name), __entry->value)
 )
 
+TRACE_EVENT(sde_evtlog,
+	TP_PROTO(const char *tag, u32 tag_id, u64 value1, u64 value2),
+	TP_ARGS(tag, tag_id, value1, value2),
+	TP_STRUCT__entry(
+			__field(int, pid)
+			__string(evtlog_tag, tag)
+			__field(u32, tag_id)
+			__field(u64, value1)
+			__field(u64, value2)
+	),
+	TP_fast_assign(
+			__entry->pid = current->tgid;
+			__assign_str(evtlog_tag, tag);
+			__entry->tag_id = tag_id;
+			__entry->value1 = value1;
+			__entry->value2 = value2;
+	),
+	TP_printk("%d|%s:%d|%llu|%llu", __entry->pid, __get_str(evtlog_tag),
+			__entry->tag_id, __entry->value1, __entry->value2)
+)
+
 #define SDE_ATRACE_END(name) trace_sde_mark_write(current->tgid, name, 0)
 #define SDE_ATRACE_BEGIN(name) trace_sde_mark_write(current->tgid, name, 1)
 #define SDE_ATRACE_FUNC() SDE_ATRACE_BEGIN(__func__)

@@ -19,6 +19,8 @@
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 
+#include "sde_trace.h"
+
 #define SIZE_MASK(x) (x - 1)
 
 static int msm_evtlog_debugfs_dump(struct seq_file *s, void *data)
@@ -169,4 +171,6 @@ void msm_evtlog_sample(
 	log->events[i].val2 = val2;
 	log->events[i].line = line;
 	log->events[i].pid = current->pid;
+
+	trace_sde_evtlog(func, line, val1, val2);
 }
