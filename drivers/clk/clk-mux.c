@@ -124,7 +124,7 @@ struct clk *clk_register_mux_table(struct device *dev, const char *name,
 {
 	struct clk_mux *mux;
 	struct clk *clk;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	u8 width = 0;
 
 	if (clk_mux_flags & CLK_MUX_HIWORD_MASK) {

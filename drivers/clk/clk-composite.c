@@ -194,7 +194,7 @@ struct clk *clk_register_composite(struct device *dev, const char *name,
 			unsigned long flags)
 {
 	struct clk *clk;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk_composite *composite;
 	struct clk_ops *clk_composite_ops;
 

@@ -75,7 +75,7 @@ struct clk *clk_register_fixed_factor(struct device *dev, const char *name,
 		unsigned int mult, unsigned int div)
 {
 	struct clk_fixed_factor *fix;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk *clk;
 
 	fix = kmalloc(sizeof(*fix), GFP_KERNEL);
