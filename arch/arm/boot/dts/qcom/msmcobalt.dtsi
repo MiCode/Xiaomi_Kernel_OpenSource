@@ -1877,6 +1877,7 @@
 			usb-phy = <&qusb_phy0>, <&ssphy>;
 			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
+			snps,disable-clk-gating;
 			snps,hird_thresh = <0x10>;
 			snps,num-gsi-evt-buffs = <0x3>;
 		};
