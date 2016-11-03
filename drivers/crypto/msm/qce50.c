@@ -2978,6 +2978,7 @@ static void qce_multireq_timeout(unsigned long data)
 	struct qce_device *pce_dev = (struct qce_device *)data;
 	int ret = 0;
 	int last_seq;
+	unsigned long flags;
 
 	last_seq = atomic_read(&pce_dev->bunch_cmd_seq);
 	if (last_seq == 0 ||
@@ -2987,21 +2988,33 @@ static void qce_multireq_timeout(unsigned long data)
 		return;
 	}
 	/* last bunch mode command time out */
+
+	/*
+	 * From here to dummy request finish sps request and set owner back
+	 * to none, we disable interrupt.
+	 * So it won't get preempted or interrupted. If bam inerrupts happen
+	 * between, and completion callback gets called from BAM, a new
+	 * request may be issued by the client driver.  Deadlock may happen.
+	 */
+	local_irq_save(flags);
 	if (cmpxchg(&pce_dev->owner, QCE_OWNER_NONE, QCE_OWNER_TIMEOUT)
 							!= QCE_OWNER_NONE) {
+		local_irq_restore(flags);
 		mod_timer(&(pce_dev->timer), (jiffies + DELAY_IN_JIFFIES));
 		return;
 	}
-	del_timer(&(pce_dev->timer));
-	pce_dev->mode = IN_INTERRUPT_MODE;
-	pce_dev->qce_stats.no_of_timeouts++;
-	pr_debug("pcedev %d mode switch to INTR\n", pce_dev->dev_no);
 
 	ret = qce_dummy_req(pce_dev);
 	if (ret)
 		pr_warn("pcedev %d: Failed to insert dummy req\n",
 				pce_dev->dev_no);
 	cmpxchg(&pce_dev->owner, QCE_OWNER_TIMEOUT, QCE_OWNER_NONE);
+	pce_dev->mode = IN_INTERRUPT_MODE;
+	local_irq_restore(flags);
+
+	del_timer(&(pce_dev->timer));
+	pce_dev->qce_stats.no_of_timeouts++;
+	pr_debug("pcedev %d mode switch to INTR\n", pce_dev->dev_no);
 }
 
 void qce_get_driver_stats(void *handle)
