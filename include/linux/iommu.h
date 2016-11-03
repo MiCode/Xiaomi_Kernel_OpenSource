@@ -32,6 +32,8 @@
 #define IOMMU_NOEXEC	(1 << 3)
 #define IOMMU_MMIO	(1 << 4) /* e.g. things like MSI doorbells */
 #define IOMMU_PRIV	(1 << 5)
+/* Use upstream device's bus attribute */
+#define IOMMU_USE_UPSTREAM_HINT	(1 << 6)
 
 struct iommu_ops;
 struct iommu_group;
