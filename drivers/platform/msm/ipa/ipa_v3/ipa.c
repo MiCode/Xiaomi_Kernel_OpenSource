@@ -2088,7 +2088,7 @@ static int ipa3_q6_clean_q6_tables(void)
 
 	mem.size = IPA_HW_TBL_HDR_WIDTH;
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size,
-		&mem.phys_base, GFP_KERNEL);
+		&mem.phys_base, GFP_ATOMIC);
 	if (!mem.base) {
 		IPAERR("failed to alloc DMA buff of size %d\n", mem.size);
 		return -ENOMEM;
@@ -4166,10 +4166,10 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_0)
-			result = ipa3_trigger_fw_loading_mdms();
-		else if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1)
+		if (ipa3_is_msm_device())
 			result = ipa3_trigger_fw_loading_msms();
+		else
+			result = ipa3_trigger_fw_loading_mdms();
 		/* No IPAv3.x chipsets that don't support FW loading */
 
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
