@@ -243,7 +243,6 @@
 	/delete-node/qcom,msm-thermal;
 	/delete-node/qcom,ssc@5c00000;
 	/delete-node/qcom,spss@1d00000;
-	/delete-node/qcom,icnss@18800000;
 	/delete-node/qcom,wil6210;
 	/delete-node/qcom,rpm-smd;
 	/delete-node/qcom,spmi@800f000;
