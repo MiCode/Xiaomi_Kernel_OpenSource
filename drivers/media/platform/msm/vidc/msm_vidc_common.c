@@ -3705,6 +3705,10 @@ static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
 		if (msm_comm_scale_clocks(inst->core))
 			dprintk(VIDC_WARN,
 				"Failed to scale clocks. Performance might be impacted\n");
+
+	if (msm_comm_vote_bus(inst->core))
+		dprintk(VIDC_WARN,
+			"Failed to scale bus. Performance might be impacted\n");
 }
 
 static int request_seq_header(struct msm_vidc_inst *inst,

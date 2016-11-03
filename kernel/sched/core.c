@@ -2572,8 +2572,8 @@ void wake_up_new_task(struct task_struct *p)
 	unsigned long flags;
 	struct rq *rq;
 
-	raw_spin_lock_irqsave(&p->pi_lock, flags);
 	add_new_task_to_grp(p);
+	raw_spin_lock_irqsave(&p->pi_lock, flags);
 	/* Initialize new task's runnable average */
 	init_entity_runnable_average(&p->se);
 #ifdef CONFIG_SMP

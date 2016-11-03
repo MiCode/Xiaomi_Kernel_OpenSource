@@ -113,6 +113,7 @@ dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-v2-cdp.dtb \
 	msmcobalt-v2-qrd.dtb \
 	msmcobalt-qrd-skuk.dtb \
+	msmcobalt-v2-qrd-skuk.dtb \
 	msmcobalt-qrd-vr1.dtb \
 	msmcobalt-v2-qrd-vr1.dtb \
 	apqcobalt-mtp.dtb \

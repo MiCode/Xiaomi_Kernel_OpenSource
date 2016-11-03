@@ -792,11 +792,14 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		   drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 		drvdata->usbch = usb_qdss_open("qdss", drvdata,
 					       usb_notifier);
-		if (IS_ERR(drvdata->usbch)) {
+		if (IS_ERR_OR_NULL(drvdata->usbch)) {
 			dev_err(drvdata->dev, "usb_qdss_open failed\n");
 			ret = PTR_ERR(drvdata->usbch);
 			pm_runtime_put(drvdata->dev);
 			mutex_unlock(&drvdata->mem_lock);
+			if (!ret)
+				ret = -ENODEV;
+
 			return ret;
 		}
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETB ||
@@ -1846,12 +1849,13 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	struct device_node *np = adev->dev.of_node;
 	struct coresight_cti_data *ctidata;
 
-	if (np) {
-		pdata = of_get_coresight_platform_data(dev, np);
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
-		adev->dev.platform_data = pdata;
-	}
+	if (!np)
+		return -ENODEV;
+
+	pdata = of_get_coresight_platform_data(dev, np);
+	if (IS_ERR(pdata))
+		return PTR_ERR(pdata);
+	adev->dev.platform_data = pdata;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
