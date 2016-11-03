@@ -300,10 +300,11 @@ void vsync_count_down(void *arg)
 {
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
 	/* We are counting down to turn off clocks */
-	if (atomic_read(&session->vsync_countdown) > 0)
+	if (atomic_read(&session->vsync_countdown) > 0) {
 		atomic_dec(&session->vsync_countdown);
-	if (atomic_read(&session->vsync_countdown) == 0)
-		schedule_work(&session->clk_off_work);
+		if (atomic_read(&session->vsync_countdown) == 0)
+			schedule_work(&session->clk_off_work);
+	}
 }
 
 void mdp3_ctrl_reset_countdown(struct mdp3_session_data *session,
