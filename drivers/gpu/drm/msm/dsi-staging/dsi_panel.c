@@ -172,10 +172,12 @@ static int dsi_panel_set_pinctrl_state(struct dsi_panel *panel, bool enable)
 	else
 		state = panel->pinctrl.suspend;
 
-	rc = pinctrl_select_state(panel->pinctrl.pinctrl, state);
-	if (rc)
-		pr_err("[%s] failed to set pin state, rc=%d\n", panel->name,
-		       rc);
+	if (panel->pinctrl.pinctrl && state) {
+		rc = pinctrl_select_state(panel->pinctrl.pinctrl, state);
+		if (rc)
+			pr_err("[%s] failed to set pin state, rc=%d\n",
+				panel->name, rc);
+	}
 
 	return rc;
 }
@@ -1656,10 +1658,8 @@ int dsi_panel_drv_init(struct dsi_panel *panel,
 	}
 
 	rc = dsi_panel_pinctrl_init(panel);
-	if (rc) {
+	if (rc)
 		pr_err("[%s] failed to init pinctrl, rc=%d\n", panel->name, rc);
-		goto error_vreg_put;
-	}
 
 	rc = dsi_panel_gpio_request(panel);
 	if (rc) {
@@ -1682,7 +1682,6 @@ error_gpio_release:
 	(void)dsi_panel_gpio_release(panel);
 error_pinctrl_deinit:
 	(void)dsi_panel_pinctrl_deinit(panel);
-error_vreg_put:
 	(void)dsi_panel_vreg_put(panel);
 exit:
 	mutex_unlock(&panel->panel_lock);
