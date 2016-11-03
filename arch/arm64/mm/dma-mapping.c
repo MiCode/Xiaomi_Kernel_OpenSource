@@ -57,6 +57,8 @@ static int __get_iommu_pgprot(unsigned long attrs, int prot,
 {
 	if (!(attrs & DMA_ATTR_EXEC_MAPPING))
 		prot |= IOMMU_NOEXEC;
+	if (attrs & DMA_ATTR_IOMMU_USE_UPSTREAM_HINT)
+		prot |= IOMMU_USE_UPSTREAM_HINT;
 	if (coherent)
 		prot |= IOMMU_CACHE;
 
