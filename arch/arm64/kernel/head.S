@@ -424,6 +424,7 @@ kernel_img_size:
 	.set	initial_sp, init_thread_union + THREAD_START_SP
 __mmap_switched:
 	mov	x28, lr				// preserve LR
+
 	adr_l	x8, vectors			// load VBAR_EL1 with virtual
 	msr	vbar_el1, x8			// vector table address
 	isb
@@ -474,10 +475,18 @@ __mmap_switched:
 	dsb	sy				// with MMU off
 #endif
 
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+        adrp    x4, init_thread_union
+        add     sp, x4, #THREAD_SIZE
+        adr_l   x5, init_task
+        msr     sp_el0, x5                      // Save thread_info
+#else
 	adr_l	sp, initial_sp, x4
 	mov	x4, sp
 	and	x4, x4, #~(THREAD_SIZE - 1)
 	msr	sp_el0, x4			// Save thread_info
+#endif
+
 	str_l	x21, __fdt_pointer, x5		// Save FDT pointer
 
 	ldr_l	x4, kimage_vaddr		// Save the offset between
@@ -689,11 +698,18 @@ ENTRY(__secondary_switched)
 	adr_l	x5, vectors
 	msr	vbar_el1, x5
 	isb
-
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+	adr_l	x0, secondary_data
+	ldr	x1, [x0, #CPU_BOOT_STACK]	// get secondary_data.stack
+	mov	sp, x1
+	ldr	x2, [x0, #CPU_BOOT_TASK]
+	msr	sp_el0, x2
+#else
 	ldr_l	x0, secondary_data		// get secondary_data.stack
 	mov	sp, x0
 	and	x0, x0, #~(THREAD_SIZE - 1)
 	msr	sp_el0, x0			// save thread_info
+#endif
 	mov	x29, #0
 	b	secondary_start_kernel
 ENDPROC(__secondary_switched)
