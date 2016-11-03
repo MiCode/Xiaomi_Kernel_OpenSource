@@ -4362,6 +4362,9 @@ static const struct reg_sequence tavil_hph_reset_tbl[] = {
 	{ WCD934X_HPH_RDAC_LDO_CTL, 0x33 },
 	{ WCD934X_HPH_RDAC_CHOP_CLK_LP_CTL, 0x00 },
 	{ WCD934X_HPH_REFBUFF_UHQA_CTL, 0xA8 },
+};
+
+static const struct reg_sequence tavil_hph_reset_tbl_1_0[] = {
 	{ WCD934X_HPH_REFBUFF_LP_CTL, 0x0A },
 	{ WCD934X_HPH_L_DAC_CTL, 0x00 },
 	{ WCD934X_HPH_R_DAC_CTL, 0x00 },
@@ -4372,6 +4375,28 @@ static const struct reg_sequence tavil_hph_reset_tbl[] = {
 	{ WCD934X_HPH_NEW_INT_RDAC_VREF_CTL, 0x10 },
 	{ WCD934X_HPH_NEW_INT_RDAC_OVERRIDE_CTL, 0x00 },
 	{ WCD934X_HPH_NEW_INT_RDAC_MISC1, 0x00 },
+	{ WCD934X_HPH_NEW_INT_PA_MISC1, 0x22 },
+	{ WCD934X_HPH_NEW_INT_PA_MISC2, 0x00 },
+	{ WCD934X_HPH_NEW_INT_PA_RDAC_MISC, 0x00 },
+	{ WCD934X_HPH_NEW_INT_HPH_TIMER1, 0xFE },
+	{ WCD934X_HPH_NEW_INT_HPH_TIMER2, 0x2 },
+	{ WCD934X_HPH_NEW_INT_HPH_TIMER3, 0x4e},
+	{ WCD934X_HPH_NEW_INT_HPH_TIMER4, 0x54 },
+	{ WCD934X_HPH_NEW_INT_PA_RDAC_MISC2, 0x00 },
+	{ WCD934X_HPH_NEW_INT_PA_RDAC_MISC3, 0x00 },
+};
+
+static const struct reg_sequence tavil_hph_reset_tbl_1_1[] = {
+	{ WCD934X_HPH_REFBUFF_LP_CTL, 0x0E },
+	{ WCD934X_HPH_L_DAC_CTL, 0x00 },
+	{ WCD934X_HPH_R_DAC_CTL, 0x00 },
+	{ WCD934X_HPH_NEW_ANA_HPH2, 0x00 },
+	{ WCD934X_HPH_NEW_ANA_HPH3, 0x00 },
+	{ WCD934X_HPH_NEW_INT_RDAC_GAIN_CTL, 0x40 },
+	{ WCD934X_HPH_NEW_INT_RDAC_HD2_CTL, 0x81 },
+	{ WCD934X_HPH_NEW_INT_RDAC_VREF_CTL, 0x10 },
+	{ WCD934X_HPH_NEW_INT_RDAC_OVERRIDE_CTL, 0x00 },
+	{ WCD934X_HPH_NEW_INT_RDAC_MISC1, 0x81 },
 	{ WCD934X_HPH_NEW_INT_PA_MISC1, 0x22 },
 	{ WCD934X_HPH_NEW_INT_PA_MISC2, 0x00 },
 	{ WCD934X_HPH_NEW_INT_PA_RDAC_MISC, 0x00 },
@@ -4408,6 +4433,7 @@ static const struct tavil_reg_mask_val tavil_ocp_en_seq_1[] = {
 /* LO-HIFI */
 static const struct tavil_reg_mask_val tavil_pre_pa_en_lohifi[] = {
 	{ WCD934X_HPH_NEW_INT_HPH_TIMER1, 0x02, 0x00 },
+	{ WCD934X_FLYBACK_VNEG_CTRL_4, 0xf0, 0x80 },
 	{ WCD934X_HPH_NEW_INT_PA_MISC2, 0x20, 0x20 },
 	{ WCD934X_HPH_NEW_INT_RDAC_GAIN_CTL, 0xf0, 0x40 },
 	{ WCD934X_HPH_CNP_WG_CTL, 0x80, 0x00 },
@@ -4449,6 +4475,7 @@ static void tavil_codec_hph_reg_recover(struct tavil_priv *tavil,
 					struct regmap *map, int pa_status)
 {
 	int i;
+	unsigned int reg;
 
 	blocking_notifier_call_chain(&tavil->mbhc->notifier,
 				     WCD_EVENT_OCP_OFF,
@@ -4470,6 +4497,12 @@ static void tavil_codec_hph_reg_recover(struct tavil_priv *tavil,
 	/* Restore to HW defaults */
 	regmap_multi_reg_write(map, tavil_hph_reset_tbl,
 			       ARRAY_SIZE(tavil_hph_reset_tbl));
+	if (TAVIL_IS_1_1(tavil->wcd9xxx))
+		regmap_multi_reg_write(map, tavil_hph_reset_tbl_1_1,
+				ARRAY_SIZE(tavil_hph_reset_tbl_1_1));
+	if (TAVIL_IS_1_0(tavil->wcd9xxx))
+		regmap_multi_reg_write(map, tavil_hph_reset_tbl_1_0,
+				ARRAY_SIZE(tavil_hph_reset_tbl_1_0));
 
 	for (i = 0; i < ARRAY_SIZE(tavil_ocp_en_seq); i++)
 		regmap_write_bits(map, tavil_ocp_en_seq[i].reg,
@@ -4483,13 +4516,23 @@ pa_en_restore:
 		__func__, pa_status);
 
 	/* Disable PA and other registers before restoring */
-	for (i = 0; i < ARRAY_SIZE(tavil_pa_disable); i++)
+	for (i = 0; i < ARRAY_SIZE(tavil_pa_disable); i++) {
+		if (TAVIL_IS_1_1(tavil->wcd9xxx) &&
+		    (tavil_pa_disable[i].reg == WCD934X_HPH_CNP_WG_CTL))
+			continue;
 		regmap_write_bits(map, tavil_pa_disable[i].reg,
 				  tavil_pa_disable[i].mask,
 				  tavil_pa_disable[i].val);
+	}
 
 	regmap_multi_reg_write(map, tavil_hph_reset_tbl,
 			       ARRAY_SIZE(tavil_hph_reset_tbl));
+	if (TAVIL_IS_1_1(tavil->wcd9xxx))
+		regmap_multi_reg_write(map, tavil_hph_reset_tbl_1_1,
+				ARRAY_SIZE(tavil_hph_reset_tbl_1_1));
+	if (TAVIL_IS_1_0(tavil->wcd9xxx))
+		regmap_multi_reg_write(map, tavil_hph_reset_tbl_1_0,
+				ARRAY_SIZE(tavil_hph_reset_tbl_1_0));
 
 	for (i = 0; i < ARRAY_SIZE(tavil_ocp_en_seq_1); i++)
 		regmap_write_bits(map, tavil_ocp_en_seq_1[i].reg,
@@ -4497,17 +4540,37 @@ pa_en_restore:
 				  tavil_ocp_en_seq_1[i].val);
 
 	if (tavil->hph_mode == CLS_H_LOHIFI) {
-		for (i = 0; i < ARRAY_SIZE(tavil_pre_pa_en_lohifi); i++)
+		for (i = 0; i < ARRAY_SIZE(tavil_pre_pa_en_lohifi); i++) {
+			reg = tavil_pre_pa_en_lohifi[i].reg;
+			if ((TAVIL_IS_1_1(tavil->wcd9xxx)) &&
+			    ((reg == WCD934X_HPH_NEW_INT_RDAC_GAIN_CTL) ||
+			     (reg == WCD934X_HPH_CNP_WG_CTL) ||
+			     (reg == WCD934X_HPH_REFBUFF_LP_CTL)))
+				continue;
 			regmap_write_bits(map,
 					  tavil_pre_pa_en_lohifi[i].reg,
 					  tavil_pre_pa_en_lohifi[i].mask,
 					  tavil_pre_pa_en_lohifi[i].val);
+		}
 	} else {
-		for (i = 0; i < ARRAY_SIZE(tavil_pre_pa_en); i++)
+		for (i = 0; i < ARRAY_SIZE(tavil_pre_pa_en); i++) {
+			reg = tavil_pre_pa_en[i].reg;
+			if ((TAVIL_IS_1_1(tavil->wcd9xxx)) &&
+			    ((reg == WCD934X_HPH_NEW_INT_RDAC_GAIN_CTL) ||
+			     (reg == WCD934X_HPH_CNP_WG_CTL) ||
+			     (reg == WCD934X_HPH_REFBUFF_LP_CTL)))
+				continue;
 			regmap_write_bits(map, tavil_pre_pa_en[i].reg,
 					  tavil_pre_pa_en[i].mask,
 					  tavil_pre_pa_en[i].val);
+		}
 	}
+
+	if (TAVIL_IS_1_1(tavil->wcd9xxx)) {
+		regmap_write(map, WCD934X_HPH_NEW_INT_RDAC_HD2_CTL_L, 0x84);
+		regmap_write(map, WCD934X_HPH_NEW_INT_RDAC_HD2_CTL_R, 0x84);
+	}
+
 	regmap_write_bits(map, WCD934X_ANA_HPH, 0x0C, pa_status & 0x0C);
 	regmap_write_bits(map, WCD934X_ANA_HPH, 0x30, 0x30);
 	/* wait for 100usec after HPH DAC is enabled */
@@ -4516,10 +4579,14 @@ pa_en_restore:
 	/* Sleep for 7msec after PA is enabled */
 	usleep_range(7000, 7100);
 
-	for (i = 0; i < ARRAY_SIZE(tavil_post_pa_en); i++)
+	for (i = 0; i < ARRAY_SIZE(tavil_post_pa_en); i++) {
+		if ((TAVIL_IS_1_1(tavil->wcd9xxx)) &&
+		    (tavil_post_pa_en[i].reg == WCD934X_HPH_CNP_WG_CTL))
+			continue;
 		regmap_write_bits(map, tavil_post_pa_en[i].reg,
 				  tavil_post_pa_en[i].mask,
 				  tavil_post_pa_en[i].val);
+	}
 
 end:
 	tavil->mbhc->is_hph_recover = true;
