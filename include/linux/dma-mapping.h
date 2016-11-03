@@ -81,6 +81,12 @@
  * DMA_ATTR_EXEC_MAPPING: The mapping has executable permissions.
  */
 #define DMA_ATTR_EXEC_MAPPING		(1UL << 12)
+/*
+ * DMA_ATTR_IOMMU_USE_UPSTREAM_HINT: Normally an smmu will override any bus
+ * attributes (i.e cacheablilty) provided by the client device. Some hardware
+ * may be designed to use the original attributes instead.
+ */
+#define DMA_ATTR_IOMMU_USE_UPSTREAM_HINT	(1UL << 13)
 
 /*
  * A dma_addr_t can hold any valid DMA or bus address for the platform.

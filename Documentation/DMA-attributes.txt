@@ -169,3 +169,10 @@ DMA_ATTR_EXEC_MAPPING
 By default, the DMA mappings are non-executable. Some use cases might require
 an executable mapping. This attribute can be used to indicate to the DMA
 subsystem to create an executable mappings for the buffer.
+
+DMA_ATTR_IOMMU_USE_UPSTREAM_HINT
+--------------------------------
+
+DMA_ATTR_IOMMU_USE_UPSTREAM_HINT: Normally an smmu will override any bus
+attributes (i.e cacheablilty) provided by the client device. Some hardware
+may be designed to use the original attributes instead.
