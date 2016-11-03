@@ -24,14 +24,23 @@ struct pll_vco {
 	u32 val;
 };
 
+enum pll_type {
+	ALPHA_PLL,
+	FABIA_PLL,
+};
+
 /**
  * struct clk_alpha_pll - phase locked loop (PLL)
  * @offset: base address of registers
+ * @inited: flag that's set when the PLL is initialized
  * @vco_table: array of VCO settings
  * @clkr: regmap clock handle
+ * @is_fabia: Set if the PLL type is FABIA
  */
 struct clk_alpha_pll {
 	u32 offset;
+	struct pll_config *config;
+	bool inited;
 
 	const struct pll_vco *vco_table;
 	size_t num_vco;
@@ -43,17 +52,20 @@ struct clk_alpha_pll {
 #define PLLOUT_AUX2	BIT(2)
 #define PLLOUT_EARLY	BIT(3)
 	u32 pllout_flags;
+	enum pll_type type;
 };
 
 /**
  * struct clk_alpha_pll_postdiv - phase locked loop (PLL) post-divider
  * @offset: base address of registers
  * @width: width of post-divider
+ * @post_div_shift: shift to differentiate between odd and even post-divider
  * @clkr: regmap clock handle
  */
 struct clk_alpha_pll_postdiv {
 	u32 offset;
 	u8 width;
+	int post_div_shift;
 
 	struct clk_regmap clkr;
 };
@@ -61,8 +73,13 @@ struct clk_alpha_pll_postdiv {
 extern const struct clk_ops clk_alpha_pll_ops;
 extern const struct clk_ops clk_alpha_pll_hwfsm_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_ops;
+extern const struct clk_ops clk_fabia_pll_ops;
+extern const struct clk_ops clk_fabia_fixed_pll_ops;
+extern const struct clk_ops clk_fabia_pll_postdiv_ops;
 
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 		const struct pll_config *config);
+void clk_fabia_pll_configure(struct clk_alpha_pll *pll,
+		struct regmap *regmap, const struct pll_config *config);
 
 #endif

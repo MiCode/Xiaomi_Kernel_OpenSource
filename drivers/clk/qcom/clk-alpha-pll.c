@@ -55,6 +55,20 @@
  */
 #define ALPHA_REG_BITWIDTH	40
 #define ALPHA_BITWIDTH		32
+#define FABIA_BITWIDTH		16
+
+#define FABIA_USER_CTL_LO	0xc
+#define FABIA_USER_CTL_HI	0x10
+#define FABIA_CAL_L_VAL		0x8
+#define FABIA_FRAC_VAL		0x38
+#define FABIA_OPMODE		0x2c
+#define FABIA_PLL_STANDBY	0x0
+#define FABIA_PLL_RUN		0x1
+#define FABIA_PLL_OUT_MASK	0x7
+#define FABIA_PLL_RATE_MARGIN	500
+#define FABIA_PLL_ACK_LATCH	BIT(29)
+#define FABIA_PLL_UPDATE	BIT(22)
+#define FABIA_PLL_HW_UPDATE_LOGIC_BYPASS	BIT(23)
 
 #define to_clk_alpha_pll(_hw) container_of(to_clk_regmap(_hw), \
 					   struct clk_alpha_pll, clkr)
@@ -274,16 +288,24 @@ static void clk_alpha_pll_disable(struct clk_hw *hw)
 	regmap_update_bits(pll->clkr.regmap, off + PLL_MODE, mask, 0);
 }
 
-static unsigned long alpha_pll_calc_rate(u64 prate, u32 l, u32 a)
+static unsigned long alpha_pll_calc_rate(const struct clk_alpha_pll *pll,
+						u64 prate, u32 l, u32 a)
 {
-	return (prate * l) + ((prate * a) >> ALPHA_BITWIDTH);
+	int alpha_bw = ALPHA_BITWIDTH;
+
+	if (pll->type == FABIA_PLL)
+		alpha_bw = FABIA_BITWIDTH;
+
+	return (prate * l) + ((prate * a) >> alpha_bw);
 }
 
 static unsigned long
-alpha_pll_round_rate(unsigned long rate, unsigned long prate, u32 *l, u64 *a)
+alpha_pll_round_rate(const struct clk_alpha_pll *pll, unsigned long rate,
+				unsigned long prate, u32 *l, u64 *a)
 {
 	u64 remainder;
 	u64 quotient;
+	int alpha_bw = ALPHA_BITWIDTH;
 
 	quotient = rate;
 	remainder = do_div(quotient, prate);
@@ -294,15 +316,19 @@ alpha_pll_round_rate(unsigned long rate, unsigned long prate, u32 *l, u64 *a)
 		return rate;
 	}
 
+	/* Fabia PLLs only have 16 bits to program the fractional divider */
+	if (pll->type == FABIA_PLL)
+		alpha_bw = FABIA_BITWIDTH;
+
 	/* Upper ALPHA_BITWIDTH bits of Alpha */
-	quotient = remainder << ALPHA_BITWIDTH;
+	quotient = remainder << alpha_bw;
 	remainder = do_div(quotient, prate);
 
 	if (remainder)
 		quotient++;
 
 	*a = quotient;
-	return alpha_pll_calc_rate(prate, *l, *a);
+	return alpha_pll_calc_rate(pll, prate, *l, *a);
 }
 
 static const struct pll_vco *
@@ -336,7 +362,7 @@ clk_alpha_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 		a >>= ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH;
 	}
 
-	return alpha_pll_calc_rate(prate, l, a);
+	return alpha_pll_calc_rate(pll, prate, l, a);
 }
 
 static int clk_alpha_pll_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -347,7 +373,7 @@ static int clk_alpha_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 l, off = pll->offset;
 	u64 a;
 
-	rate = alpha_pll_round_rate(rate, prate, &l, &a);
+	rate = alpha_pll_round_rate(pll, rate, prate, &l, &a);
 	vco = alpha_pll_find_vco(pll, rate);
 	if (!vco) {
 		pr_err("alpha pll not in a valid vco range\n");
@@ -378,14 +404,217 @@ static long clk_alpha_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 	u64 a;
 	unsigned long min_freq, max_freq;
 
-	rate = alpha_pll_round_rate(rate, *prate, &l, &a);
-	if (alpha_pll_find_vco(pll, rate))
+	rate = alpha_pll_round_rate(pll, rate, *prate, &l, &a);
+	if (pll->type == FABIA_PLL || alpha_pll_find_vco(pll, rate))
 		return rate;
 
 	min_freq = pll->vco_table[0].min_freq;
 	max_freq = pll->vco_table[pll->num_vco - 1].max_freq;
 
 	return clamp(rate, min_freq, max_freq);
+}
+
+void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct pll_config *config)
+{
+	u32 val, mask;
+
+	if (config->l) {
+		regmap_write(regmap, pll->offset + PLL_L_VAL,
+						config->l);
+		regmap_write(regmap, pll->offset + FABIA_CAL_L_VAL,
+						config->l);
+	}
+
+	if (config->frac)
+		regmap_write(regmap, pll->offset + FABIA_FRAC_VAL,
+						config->frac);
+	if (config->config_ctl_val)
+		regmap_write(regmap, pll->offset + PLL_CONFIG_CTL,
+				config->config_ctl_val);
+
+	if (config->post_div_mask) {
+		mask = config->post_div_mask;
+		val = config->post_div_val;
+		regmap_update_bits(regmap, pll->offset + FABIA_USER_CTL_LO,
+					mask, val);
+	}
+
+	regmap_update_bits(regmap, pll->offset + PLL_MODE,
+				 FABIA_PLL_HW_UPDATE_LOGIC_BYPASS,
+				 FABIA_PLL_HW_UPDATE_LOGIC_BYPASS);
+
+	regmap_update_bits(regmap, pll->offset + PLL_MODE,
+			   PLL_RESET_N, PLL_RESET_N);
+
+	pll->inited = true;
+}
+
+
+static int clk_fabia_pll_enable(struct clk_hw *hw)
+{
+	int ret;
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 val, off = pll->offset;
+
+	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &val);
+	if (ret)
+		return ret;
+
+	/* If in FSM mode, just vote for it */
+	if (val & PLL_VOTE_FSM_ENA) {
+		ret = clk_enable_regmap(hw);
+		if (ret)
+			return ret;
+		return wait_for_pll_enable(pll, PLL_ACTIVE_FLAG);
+	}
+
+	if (unlikely(!pll->inited))
+		clk_fabia_pll_configure(pll, pll->clkr.regmap, pll->config);
+
+	/* Disable PLL output */
+	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
+					PLL_OUTCTRL, 0);
+	if (ret)
+		return ret;
+
+	/* Set operation mode to STANDBY */
+	regmap_write(pll->clkr.regmap, off + FABIA_OPMODE, FABIA_PLL_STANDBY);
+
+	/* PLL should be in STANDBY mode before continuing */
+	mb();
+
+	/* Bring PLL out of reset */
+	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
+				 PLL_RESET_N, PLL_RESET_N);
+	if (ret)
+		return ret;
+
+	/* Set operation mode to RUN */
+	regmap_write(pll->clkr.regmap, off + FABIA_OPMODE, FABIA_PLL_RUN);
+
+	ret = wait_for_pll_enable(pll, PLL_LOCK_DET);
+	if (ret)
+		return ret;
+
+	/* Enable the main PLL output */
+	ret = regmap_update_bits(pll->clkr.regmap, off + FABIA_USER_CTL_LO,
+				 FABIA_PLL_OUT_MASK, FABIA_PLL_OUT_MASK);
+	if (ret)
+		return ret;
+
+	/* Enable PLL outputs */
+	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
+				 PLL_OUTCTRL, PLL_OUTCTRL);
+	if (ret)
+		return ret;
+
+	/* Ensure that the write above goes through before returning. */
+	mb();
+	return ret;
+}
+
+static void clk_fabia_pll_disable(struct clk_hw *hw)
+{
+	int ret;
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 val, off = pll->offset;
+
+	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &val);
+	if (ret)
+		return;
+
+	/* If in FSM mode, just unvote it */
+	if (val & PLL_VOTE_FSM_ENA) {
+		clk_disable_regmap(hw);
+		return;
+	}
+
+	/* Disable PLL outputs */
+	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
+							PLL_OUTCTRL, 0);
+	if (ret)
+		return;
+
+	/* Disable the main PLL output */
+	ret = regmap_update_bits(pll->clkr.regmap, off + FABIA_USER_CTL_LO,
+			FABIA_PLL_OUT_MASK, 0);
+	if (ret)
+		return;
+
+	/* Place the PLL mode in STANDBY */
+	regmap_write(pll->clkr.regmap, off + FABIA_OPMODE, FABIA_PLL_STANDBY);
+}
+
+static unsigned long
+clk_fabia_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	u32 l, frac;
+	u64 prate = parent_rate;
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 off = pll->offset;
+
+	regmap_read(pll->clkr.regmap, off + PLL_L_VAL, &l);
+	regmap_read(pll->clkr.regmap, off + FABIA_FRAC_VAL, &frac);
+
+	return alpha_pll_calc_rate(pll, prate, l, frac);
+}
+
+static int clk_fabia_pll_set_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long prate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	unsigned long rrate;
+	u32 regval, l, off = pll->offset;
+	u64 a;
+	int ret;
+
+	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &regval);
+	if (ret)
+		return ret;
+
+	rrate = alpha_pll_round_rate(pll, rate, prate, &l, &a);
+	/*
+	 * Due to limited number of bits for fractional rate programming, the
+	 * rounded up rate could be marginally higher than the requested rate.
+	 */
+	if (rrate > (rate + FABIA_PLL_RATE_MARGIN) || rrate < rate) {
+		pr_err("Call set rate on the PLL with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	regmap_write(pll->clkr.regmap, off + PLL_L_VAL, l);
+	/*
+	 * pll_cal_l_val is set to pll_l_val on MOST targets. Set it
+	 * explicitly here for PLL out-of-reset calibration to work
+	 * without a glitch on ALL of them.
+	 */
+	regmap_write(pll->clkr.regmap, off + FABIA_CAL_L_VAL, l);
+	regmap_write(pll->clkr.regmap, off + FABIA_FRAC_VAL, a);
+
+	/* Latch the PLL input */
+	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
+			   FABIA_PLL_UPDATE, FABIA_PLL_UPDATE);
+	if (ret)
+		return ret;
+
+	/* Wait for 2 reference cycles before checking the ACK bit. */
+	udelay(1);
+	regmap_read(pll->clkr.regmap, off + PLL_MODE, &regval);
+	if (!(regval & FABIA_PLL_ACK_LATCH)) {
+		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		return -EINVAL;
+	}
+
+	/* Return the latch input to 0 */
+	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
+			   FABIA_PLL_UPDATE, 0);
+	if (ret)
+		return ret;
+
+	/* Wait for PLL output to stabilize */
+	udelay(100);
+	return 0;
 }
 
 const struct clk_ops clk_alpha_pll_ops = {
@@ -405,6 +634,22 @@ const struct clk_ops clk_alpha_pll_hwfsm_ops = {
 	.set_rate = clk_alpha_pll_set_rate,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_hwfsm_ops);
+
+const struct clk_ops clk_fabia_pll_ops = {
+	.enable = clk_fabia_pll_enable,
+	.disable = clk_fabia_pll_disable,
+	.recalc_rate = clk_fabia_pll_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+	.set_rate = clk_fabia_pll_set_rate,
+};
+EXPORT_SYMBOL_GPL(clk_fabia_pll_ops);
+
+const struct clk_ops clk_fabia_fixed_pll_ops = {
+	.enable = clk_fabia_pll_enable,
+	.disable = clk_fabia_pll_disable,
+	.recalc_rate = clk_fabia_pll_recalc_rate,
+};
+EXPORT_SYMBOL_GPL(clk_fabia_fixed_pll_ops);
 
 static unsigned long
 clk_alpha_pll_postdiv_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
@@ -459,3 +704,72 @@ const struct clk_ops clk_alpha_pll_postdiv_ops = {
 	.set_rate = clk_alpha_pll_postdiv_set_rate,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_ops);
+
+static const struct clk_div_table clk_fabia_div_table[] = {
+	{ 0x0, 1 },
+	{ 0x1, 2 },
+	{ 0x3, 3 },
+	{ 0x3, 4 },
+	{ 0x5, 5 },
+	{ 0x7, 7 },
+	{ 0x7, 8 },
+	{ }
+};
+
+static unsigned long clk_fabia_pll_postdiv_recalc_rate(struct clk_hw *hw,
+				unsigned long parent_rate)
+{
+	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
+	u32 i, div = 1, val;
+
+	regmap_read(pll->clkr.regmap, pll->offset + FABIA_USER_CTL_LO, &val);
+
+	/* Will need to add support for even and odd divider settings */
+	val >>= pll->post_div_shift;
+	val &= PLL_POST_DIV_MASK;
+
+	for (i = 0; i < ARRAY_SIZE(clk_fabia_div_table); i++) {
+		if (clk_fabia_div_table[i].val == val) {
+			div = clk_fabia_div_table[i].div;
+			break;
+		}
+	}
+
+	return (parent_rate / div);
+}
+
+static long clk_fabia_pll_postdiv_round_rate(struct clk_hw *hw,
+				unsigned long rate, unsigned long *prate)
+{
+	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
+
+	return divider_round_rate(hw, rate, prate, clk_fabia_div_table,
+					pll->width, CLK_DIVIDER_ROUND_CLOSEST);
+}
+
+static int clk_fabia_pll_postdiv_set_rate(struct clk_hw *hw,
+				unsigned long rate, unsigned long parent_rate)
+{
+	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
+	int i, val = 0, div;
+
+	div = DIV_ROUND_UP_ULL((u64)parent_rate, rate);
+	for (i = 0; i < ARRAY_SIZE(clk_fabia_div_table); i++) {
+		if (clk_fabia_div_table[i].div == div) {
+			val = clk_fabia_div_table[i].val;
+			break;
+		}
+	}
+
+	return regmap_update_bits(pll->clkr.regmap,
+				pll->offset + FABIA_USER_CTL_LO,
+				PLL_POST_DIV_MASK << pll->post_div_shift,
+				val << pll->post_div_shift);
+}
+
+const struct clk_ops clk_fabia_pll_postdiv_ops = {
+	.recalc_rate = clk_fabia_pll_postdiv_recalc_rate,
+	.round_rate = clk_fabia_pll_postdiv_round_rate,
+	.set_rate = clk_fabia_pll_postdiv_set_rate,
+};
+EXPORT_SYMBOL_GPL(clk_fabia_pll_postdiv_ops);
