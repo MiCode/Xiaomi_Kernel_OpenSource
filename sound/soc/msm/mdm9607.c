@@ -144,6 +144,30 @@ static atomic_t sec_mi2s_ref_count;
 
 static int clk_users;
 
+static inline int param_is_mask(int p)
+{
+	return (p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
+			(p <= SNDRV_PCM_HW_PARAM_LAST_MASK);
+}
+
+static inline struct snd_mask *param_to_mask(struct snd_pcm_hw_params *p, int n)
+{
+	return &(p->masks[n - SNDRV_PCM_HW_PARAM_FIRST_MASK]);
+}
+
+static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
+{
+	if (bit >= SNDRV_MASK_MAX)
+		return;
+	if (param_is_mask(n)) {
+		struct snd_mask *m = param_to_mask(p, n);
+
+		m->bits[0] = 0;
+		m->bits[1] = 0;
+		m->bits[bit >> 5] |= (1 << (bit & 31));
+	}
+}
+
 static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
 
@@ -581,6 +605,8 @@ static int mdm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 	rate->min = rate->max = mdm_mi2s_rate;
 	channels->min = channels->max = mdm_mi2s_rx_ch;
+	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			SNDRV_PCM_FORMAT_S16_LE);
 	return 0;
 }
 
@@ -1636,6 +1662,23 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.codec_dai_name = "msm-stub-rx",
 		.ignore_suspend = 1,
 		 .ignore_pmdown_time = 1,
+	},
+	{
+		.name = "MDM Compress1",
+		.stream_name = "MultiMedia4",
+		.cpu_dai_name	= "MultiMedia4",
+		.platform_name  = "msm-compress-dsp",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		/* this dainlink has playback support */
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA4,
 	},
 	/* Backend DAI Links */
 	{
