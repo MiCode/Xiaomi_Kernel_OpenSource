@@ -392,6 +392,23 @@
 					0x608 0x03 0x0 0x1>;
 	};
 
+	mhi_dev@87000 {
+		compatible = "qcom,msm-mhi-dev";
+		reg = <0x87000 0x1000>,
+			<0x7962000 0x1>,
+			<0x7962080 0x1>;
+			reg-names = "mhi_mmio_base", "ipa_uc_mbox_crdb",
+				"ipa_uc_mbox_erdb";
+			interrupts = <0 50 0>;
+			interrupt-names = "mhi-device-inta";
+			qcom,mhi-ifc-id = <0x030117cb>;
+			qcom,mhi-ep-msi = <0>;
+			qcom,mhi-version = <0x1000000>;
+			qcom,mhi-local-pa-base = <0x40000000>;
+			qcom,mhi-config-iatu;
+			qcom,use-ipa-software-channel;
+	};
+
 	ipa_hw: qcom,ipa@07900000 {
 		compatible = "qcom,ipa";
 		reg = <0x07900000 0x4EFFC>,
