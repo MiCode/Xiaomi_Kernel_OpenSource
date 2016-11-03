@@ -665,6 +665,12 @@ static int wcd_cntl_do_boot(struct wcd_dsp_cntl *cntl)
 			__func__);
 		ret = -ETIMEDOUT;
 		goto err_boot;
+	} else {
+		/*
+		 * Re-initialize the return code to 0, as in success case,
+		 * it will hold the remaining time for completion timeout
+		 */
+		ret = 0;
 	}
 
 	dev_dbg(codec->dev, "%s: WDSP booted in normal mode\n", __func__);
@@ -877,6 +883,108 @@ static void wcd_cntl_debugfs_remove(struct wcd_dsp_cntl *cntl)
 		debugfs_remove(cntl->entry);
 }
 
+static int wcd_miscdev_release(struct inode *inode, struct file *filep)
+{
+	struct wcd_dsp_cntl *cntl = container_of(filep->private_data,
+						 struct wcd_dsp_cntl, miscdev);
+	if (!cntl->m_dev || !cntl->m_ops ||
+	    !cntl->m_ops->vote_for_dsp) {
+		dev_err(cntl->codec->dev,
+			"%s: DSP not ready to boot\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Make sure the DSP users goes to zero upon closing dev node */
+	while (cntl->boot_reqs > 0) {
+		cntl->m_ops->vote_for_dsp(cntl->m_dev, false);
+		cntl->boot_reqs--;
+	}
+
+	return 0;
+}
+
+static ssize_t wcd_miscdev_write(struct file *filep, const char __user *ubuf,
+				 size_t count, loff_t *pos)
+{
+	struct wcd_dsp_cntl *cntl = container_of(filep->private_data,
+						 struct wcd_dsp_cntl, miscdev);
+	char val[count];
+	bool vote;
+	int ret = 0;
+
+	if (count == 0 || count > 2) {
+		pr_err("%s: Invalid count = %zd\n", __func__, count);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = copy_from_user(val, ubuf, count);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(cntl->codec->dev,
+			"%s: copy_from_user failed, err = %d\n",
+			__func__, ret);
+		ret = -EFAULT;
+		goto done;
+	}
+
+	if (val[0] == '1') {
+		cntl->boot_reqs++;
+		vote = true;
+	} else if (val[0] == '0') {
+		if (cntl->boot_reqs == 0) {
+			dev_err(cntl->codec->dev,
+				"%s: WDSP already disabled\n", __func__);
+			ret = -EINVAL;
+			goto done;
+		}
+		cntl->boot_reqs--;
+		vote = false;
+	} else {
+		dev_err(cntl->codec->dev, "%s: Invalid value %s\n",
+			__func__, val);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	dev_dbg(cntl->codec->dev,
+		"%s: booted = %s, ref_cnt = %d, vote = %s\n",
+		__func__, cntl->is_wdsp_booted ? "true" : "false",
+		cntl->boot_reqs, vote ? "true" : "false");
+
+	if (cntl->m_dev && cntl->m_ops &&
+	    cntl->m_ops->vote_for_dsp)
+		ret = cntl->m_ops->vote_for_dsp(cntl->m_dev, vote);
+	else
+		ret = -EINVAL;
+done:
+	if (ret)
+		return ret;
+	else
+		return count;
+}
+
+static const struct file_operations wcd_miscdev_fops = {
+	.write = wcd_miscdev_write,
+	.release = wcd_miscdev_release,
+};
+
+static int wcd_cntl_miscdev_create(struct wcd_dsp_cntl *cntl)
+{
+	snprintf(cntl->miscdev_name, ARRAY_SIZE(cntl->miscdev_name),
+		"wcd_dsp%u_control", cntl->dsp_instance);
+	cntl->miscdev.minor = MISC_DYNAMIC_MINOR;
+	cntl->miscdev.name = cntl->miscdev_name;
+	cntl->miscdev.fops = &wcd_miscdev_fops;
+	cntl->miscdev.parent = cntl->codec->dev;
+
+	return misc_register(&cntl->miscdev);
+}
+
+static void wcd_cntl_miscdev_destroy(struct wcd_dsp_cntl *cntl)
+{
+	misc_deregister(&cntl->miscdev);
+}
+
 static int wcd_control_init(struct device *dev, void *priv_data)
 {
 	struct wcd_dsp_cntl *cntl = priv_data;
@@ -1009,13 +1117,20 @@ static int wcd_ctrl_component_bind(struct device *dev,
 		goto done;
 	}
 
+	ret = wcd_cntl_miscdev_create(cntl);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(dev, "%s: misc dev register failed, err = %d\n",
+			__func__, ret);
+		goto done;
+	}
+
 	snprintf(wcd_cntl_dir_name, WCD_CNTL_DIR_NAME_LEN_MAX,
 		 "%s%d", "wdsp", cntl->dsp_instance);
 	ret = wcd_cntl_sysfs_init(wcd_cntl_dir_name, cntl);
 	if (IS_ERR_VALUE(ret)) {
 		dev_err(dev, "%s: sysfs_init failed, err = %d\n",
 			__func__, ret);
-		goto done;
+		goto err_sysfs_init;
 	}
 
 	wcd_cntl_debugfs_init(wcd_cntl_dir_name, cntl);
@@ -1029,7 +1144,7 @@ static int wcd_ctrl_component_bind(struct device *dev,
 		/* Do not treat this as Fatal error */
 		dev_err(dev, "%s: Failed to create procfs entry %s\n",
 			__func__, proc_name);
-		goto done;
+		goto err_sysfs_init;
 	}
 
 	cntl->ssr_entry.entry = entry;
@@ -1047,6 +1162,10 @@ static int wcd_ctrl_component_bind(struct device *dev,
 		ret = 0;
 	}
 done:
+	return ret;
+
+err_sysfs_init:
+	wcd_cntl_miscdev_destroy(cntl);
 	return ret;
 }
 
@@ -1077,6 +1196,8 @@ static void wcd_ctrl_component_unbind(struct device *dev,
 	/* Remove the debugfs entries */
 	wcd_cntl_debugfs_remove(cntl);
 
+	/* Remove the misc device */
+	wcd_cntl_miscdev_destroy(cntl);
 }
 
 static const struct component_ops wcd_ctrl_component_ops = {
