@@ -5824,12 +5824,18 @@ int do_isolation_work_cpu_stop(void *data)
 	/* Update our root-domain */
 	raw_spin_lock_irqsave(&rq->lock, flags);
 
+	/*
+	 * Temporarily mark the rq as offline. This will allow us to
+	 * move tasks off the CPU.
+	 */
 	if (rq->rd) {
 		BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
 		set_rq_offline(rq);
 	}
 
 	migrate_tasks(rq, &rf, false);
+	if (rq->rd)
+		set_rq_online(rq);
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 	return 0;
@@ -5957,7 +5963,6 @@ out:
 int sched_unisolate_cpu_unlocked(int cpu)
 {
 	int ret_code = 0;
-	struct rq *rq = cpu_rq(cpu);
 	u64 start_time = 0;
 
 	if (trace_sched_isolate_enabled())
@@ -5972,17 +5977,6 @@ int sched_unisolate_cpu_unlocked(int cpu)
 
 	if (--cpu_isolation_vote[cpu])
 		goto out;
-
-	if (cpu_online(cpu)) {
-		unsigned long flags;
-
-		raw_spin_lock_irqsave(&rq->lock, flags);
-		if (rq->rd) {
-			BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
-			set_rq_online(rq);
-		}
-		raw_spin_unlock_irqrestore(&rq->lock, flags);
-	}
 
 	set_cpu_isolated(cpu, false);
 	update_max_interval();
