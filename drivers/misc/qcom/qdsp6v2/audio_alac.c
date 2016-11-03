@@ -52,7 +52,7 @@ static long audio_ioctl_shared(struct file *file, unsigned int cmd,
 					__func__, audio->pcm_cfg.channel_count);
 		}
 
-		pr_debug("%s[%p]: AUDIO_START session_id[%d]\n", __func__,
+		pr_debug("%s[%pK]: AUDIO_START session_id[%d]\n", __func__,
 						audio, audio->ac->session);
 		if (audio->feedback == NON_TUNNEL_MODE) {
 			/* Configure PCM output block */
