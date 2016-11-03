@@ -471,7 +471,6 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 	return HRTIMER_RESTART;
 }
 
-/* Must be called with hotplug lock (lock_device_hotplug()) held. */
 void watchdog_enable(unsigned int cpu)
 {
 	struct hrtimer *hrtimer = this_cpu_ptr(&watchdog_hrtimer);
@@ -483,11 +482,8 @@ void watchdog_enable(unsigned int cpu)
 	init_completion(done);
 	complete(done);
 
-	lock_device_hotplug_assert();
-
 	if (*enabled)
 		return;
-	*enabled = 1;
 
 	/*
 	 * Start the timer first to prevent the NMI watchdog triggering
@@ -503,19 +499,24 @@ void watchdog_enable(unsigned int cpu)
 	/* Enable the perf event */
 	if (watchdog_enabled & NMI_WATCHDOG_ENABLED)
 		watchdog_nmi_enable(cpu);
+
+	/*
+	 * Need to ensure above operations are observed by other CPUs before
+	 * indicating that timer is enabled. This is to synchronize core
+	 * isolation and hotplug. Core isolation will wait for this flag to be
+	 * set.
+	 */
+	mb();
+	*enabled = 1;
 }
 
-/* Must be called with hotplug lock (lock_device_hotplug()) held. */
 void watchdog_disable(unsigned int cpu)
 {
 	struct hrtimer *hrtimer = this_cpu_ptr(&watchdog_hrtimer);
 	unsigned int *enabled = this_cpu_ptr(&watchdog_en);
 
-	lock_device_hotplug_assert();
-
 	if (!*enabled)
 		return;
-	*enabled = 0;
 
 	WARN_ON_ONCE(cpu != smp_processor_id());
 
@@ -527,6 +528,17 @@ void watchdog_disable(unsigned int cpu)
 	watchdog_nmi_disable(cpu);
 	hrtimer_cancel(hrtimer);
 	wait_for_completion(this_cpu_ptr(&softlockup_completion));
+
+	/*
+	 * No need for barrier here since disabling the watchdog is
+	 * synchronized with hotplug lock
+	 */
+	*enabled = 0;
+}
+
+bool watchdog_configured(unsigned int cpu)
+{
+	return *per_cpu_ptr(&watchdog_en, cpu);
 }
 
 static int softlockup_stop_fn(void *data)
