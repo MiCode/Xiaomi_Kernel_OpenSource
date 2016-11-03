@@ -3905,6 +3905,32 @@ static void ipa3_uc_is_loaded(void)
 	complete_all(&ipa3_ctx->uc_loaded_completion_obj);
 }
 
+static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
+{
+	enum gsi_ver gsi_ver;
+
+	switch (ipa_hw_type) {
+	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
+		gsi_ver = GSI_VER_1_0;
+		break;
+	case IPA_HW_v3_5:
+		gsi_ver = GSI_VER_1_2;
+		break;
+	case IPA_HW_v3_5_1:
+		gsi_ver = GSI_VER_1_3;
+		break;
+	default:
+		IPAERR("No GSI version for ipa type %d\n", ipa_hw_type);
+		WARN_ON(1);
+		gsi_ver = GSI_VER_ERR;
+	}
+
+	IPADBG("GSI version %d\n", gsi_ver);
+
+	return gsi_ver;
+}
+
 /**
  * ipa3_post_init() - Initialize the IPA Driver (Part II).
  * This part contains all initialization which requires interaction with
@@ -3935,6 +3961,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		memset(&gsi_props, 0, sizeof(gsi_props));
+		gsi_props.ver = ipa3_get_gsi_ver(resource_p->ipa_hw_type);
 		gsi_props.ee = resource_p->ee;
 		gsi_props.intr = GSI_INTR_IRQ;
 		gsi_props.irq = resource_p->transport_irq;
