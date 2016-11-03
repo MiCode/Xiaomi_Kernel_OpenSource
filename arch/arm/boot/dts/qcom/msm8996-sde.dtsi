@@ -102,6 +102,8 @@
 		qcom,sde-panic-per-pipe;
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
+		qcom,sde-dram-channels = <2>;
+		qcom,sde-num-nrt-paths = <1>;
 
 		qcom,sde-sspp-danger-lut = <0x000f 0xffff 0x0000>;
 		qcom,sde-sspp-safe-lut = <0xfffc 0xff00 0xffff>;
@@ -193,7 +195,7 @@
 		};
 
 		/* data and reg bus scale settings */
-		mdss-data-bus {
+		qcom,sde-data-bus {
 			qcom,msm-bus,name = "mdss_sde";
 			qcom,msm-bus,num-cases = <3>;
 			qcom,msm-bus,num-paths = <3>;
@@ -205,7 +207,7 @@
 					<25 512 0 6400000>;
 		};
 
-		mdss-reg-bus {
+		qcom,sde-reg-bus {
 			qcom,msm-bus,name = "mdss_reg";
 			qcom,msm-bus,num-cases = <4>;
 			qcom,msm-bus,num-paths = <1>;
