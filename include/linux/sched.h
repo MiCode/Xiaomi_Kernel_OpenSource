@@ -446,6 +446,7 @@ extern unsigned int  hardlockup_panic;
 void lockup_detector_init(void);
 extern void watchdog_enable(unsigned int cpu);
 extern void watchdog_disable(unsigned int cpu);
+extern bool watchdog_configured(unsigned int cpu);
 #else
 static inline void touch_softlockup_watchdog_sched(void)
 {
@@ -467,6 +468,14 @@ static inline void watchdog_enable(unsigned int cpu)
 }
 static inline void watchdog_disable(unsigned int cpu)
 {
+}
+static inline bool watchdog_configured(unsigned int cpu)
+{
+	/*
+	 * Predend the watchdog is always configured.
+	 * We will be waiting for the watchdog to be enabled in core isolation
+	 */
+	return true;
 }
 #endif
 
