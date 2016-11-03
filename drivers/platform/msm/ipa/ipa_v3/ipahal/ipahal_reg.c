@@ -909,6 +909,24 @@ static void ipareg_construct_tx_cfg(enum ipahal_reg_name reg,
 		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_BMSK_V3_5);
 }
 
+static void ipareg_construct_idle_indication_cfg(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_reg_idle_indication_cfg *idle_indication_cfg;
+
+	idle_indication_cfg = (struct ipahal_reg_idle_indication_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val,
+		idle_indication_cfg->enter_idle_debounce_thresh,
+		IPA_IDLE_INDICATION_CFG_ENTER_IDLE_DEBOUNCE_THRESH_SHFT_V3_5,
+		IPA_IDLE_INDICATION_CFG_ENTER_IDLE_DEBOUNCE_THRESH_BMSK_V3_5);
+
+	IPA_SETFIELD_IN_REG(*val,
+		idle_indication_cfg->const_non_idle_enable,
+		IPA_IDLE_INDICATION_CFG_CONST_NON_IDLE_ENABLE_SHFT_V3_5,
+		IPA_IDLE_INDICATION_CFG_CONST_NON_IDLE_ENABLE_BMSK_V3_5);
+}
+
 /*
  * struct ipahal_reg_obj - Register H/W information for specific IPA version
  * @construct - CB to construct register value from abstracted structure
@@ -1185,6 +1203,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_5][IPA_SPARE_REG_2] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00002784, 0},
+	[IPA_HW_v3_5][IPA_IDLE_INDICATION_CFG] = {
+		ipareg_construct_idle_indication_cfg, ipareg_parse_dummy,
+		0x00000220, 0},
 };
 
 /*
