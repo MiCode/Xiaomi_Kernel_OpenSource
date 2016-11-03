@@ -345,6 +345,8 @@ int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
 int smblib_get_prop_slave_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 
+int smblib_validate_initial_typec_legacy_status(struct smb_charger *chg);
+
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
 #endif /* __SMB2_CHARGER_H */

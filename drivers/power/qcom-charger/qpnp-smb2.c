@@ -1265,6 +1265,13 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	rc = smblib_validate_initial_typec_legacy_status(chg);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't validate typec legacy status rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	return rc;
 }
 
