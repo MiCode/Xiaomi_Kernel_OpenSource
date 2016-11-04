@@ -1672,3 +1672,4 @@
 #include "sdm845-camera.dtsi"
 #include "sdm845-bus.dtsi"
 #include "sdm845-vidc.dtsi"
+#include "sdm845-pm.dtsi"
