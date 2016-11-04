@@ -6908,11 +6908,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	if (ret)
 		goto out;
 
-	/* Enable auto hibern8 if supported */
-	if (ufshcd_is_auto_hibern8_supported(hba))
-		ufshcd_set_auto_hibern8_timer(hba,
-					      hba->hibern8_on_idle.delay_ms);
-
 	/* Debug counters initialization */
 	ufshcd_clear_dbg_ufs_stats(hba);
 	/* set the default level for urgent bkops */
@@ -6978,6 +6973,13 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		/* Add required well known logical units to scsi mid layer */
 		if (ufshcd_scsi_add_wlus(hba))
 			goto out;
+
+		/* Enable auto hibern8 if supported, after full host and
+		 * device initialization.
+		 */
+		if (ufshcd_is_auto_hibern8_supported(hba))
+			ufshcd_set_auto_hibern8_timer(hba,
+					      hba->hibern8_on_idle.delay_ms);
 
 		/* Initialize devfreq after UFS device is detected */
 		if (ufshcd_is_clkscaling_supported(hba)) {
