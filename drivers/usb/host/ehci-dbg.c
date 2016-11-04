@@ -89,7 +89,7 @@ static void dbg_hcc_params(struct ehci_hcd *ehci, char *label)
 static void __maybe_unused
 dbg_qtd(const char *label, struct ehci_hcd *ehci, struct ehci_qtd *qtd)
 {
-	ehci_dbg(ehci, "%s td %p n%08x %08x t%08x p0=%08x\n", label, qtd,
+	ehci_dbg(ehci, "%s td %pK n%08x %08x t%08x p0=%08x\n", label, qtd,
 		hc32_to_cpup(ehci, &qtd->hw_next),
 		hc32_to_cpup(ehci, &qtd->hw_alt_next),
 		hc32_to_cpup(ehci, &qtd->hw_token),
@@ -107,7 +107,7 @@ dbg_qh(const char *label, struct ehci_hcd *ehci, struct ehci_qh *qh)
 {
 	struct ehci_qh_hw *hw = qh->hw;
 
-	ehci_dbg(ehci, "%s qh %p n%08x info %x %x qtd %x\n", label,
+	ehci_dbg(ehci, "%s qh %pK n%08x info %x %x qtd %x\n", label,
 		qh, hw->hw_next, hw->hw_info1, hw->hw_info2, hw->hw_current);
 	dbg_qtd("overlay", ehci, (struct ehci_qtd *) &hw->hw_qtd_next);
 }
@@ -115,7 +115,7 @@ dbg_qh(const char *label, struct ehci_hcd *ehci, struct ehci_qh *qh)
 static void __maybe_unused
 dbg_itd(const char *label, struct ehci_hcd *ehci, struct ehci_itd *itd)
 {
-	ehci_dbg(ehci, "%s [%d] itd %p, next %08x, urb %p\n",
+	ehci_dbg(ehci, "%s [%d] itd %pK, next %08x, urb %p\n",
 		label, itd->frame, itd, hc32_to_cpu(ehci, itd->hw_next),
 		itd->urb);
 	ehci_dbg(ehci,
@@ -146,7 +146,7 @@ dbg_itd(const char *label, struct ehci_hcd *ehci, struct ehci_itd *itd)
 static void __maybe_unused
 dbg_sitd(const char *label, struct ehci_hcd *ehci, struct ehci_sitd *sitd)
 {
-	ehci_dbg(ehci, "%s [%d] sitd %p, next %08x, urb %p\n",
+	ehci_dbg(ehci, "%s [%d] sitd %pK, next %08x, urb %p\n",
 		label, sitd->frame, sitd, hc32_to_cpu(ehci, sitd->hw_next),
 		sitd->urb);
 	ehci_dbg(ehci,
@@ -406,7 +406,7 @@ static void qh_lines(struct ehci_hcd *ehci, struct ehci_qh *qh,
 	scratch = hc32_to_cpup(ehci, &hw->hw_info1);
 	hw_curr = (mark == '*') ? hc32_to_cpup(ehci, &hw->hw_current) : 0;
 	temp = scnprintf(next, size,
-			"qh/%p dev%d %cs ep%d %08x %08x (%08x%c %s nak%d)"
+			"qh/%pK dev%d %cs ep%d %08x %08x (%08x%c %s nak%d)"
 			" [cur %08x next %08x buf[0] %08x]",
 			qh, scratch & 0x007f,
 			speed_char (scratch),
@@ -454,7 +454,7 @@ static void qh_lines(struct ehci_hcd *ehci, struct ehci_qh *qh,
 			break;
 		}
 		temp = scnprintf(next, size,
-				"\n\t%p%c%s len=%d %08x urb %p"
+				"\n\t%pK%c%s len=%d %08x urb %pK"
 				" [td %08x buf[0] %08x]",
 				td, mark, type,
 				(scratch >> 16) & 0x7fff,
@@ -674,7 +674,7 @@ static ssize_t fill_periodic_buffer(struct debug_buffer *buf)
 			switch (hc32_to_cpu(ehci, tag)) {
 			case Q_TYPE_QH:
 				hw = p.qh->hw;
-				temp = scnprintf(next, size, " qh%d-%04x/%p",
+				temp = scnprintf(next, size, " qh%d-%04x/%pK",
 						p.qh->ps.period,
 						hc32_to_cpup(ehci,
 							&hw->hw_info2)
@@ -709,21 +709,21 @@ static ssize_t fill_periodic_buffer(struct debug_buffer *buf)
 				p = p.qh->qh_next;
 				break;
 			case Q_TYPE_FSTN:
-				temp = scnprintf(next, size,
-					" fstn-%8x/%p", p.fstn->hw_prev,
+				temp = scnprintf (next, size,
+					" fstn-%8x/%pK", p.fstn->hw_prev,
 					p.fstn);
 				tag = Q_NEXT_TYPE(ehci, p.fstn->hw_next);
 				p = p.fstn->fstn_next;
 				break;
 			case Q_TYPE_ITD:
-				temp = scnprintf(next, size,
-					" itd/%p", p.itd);
+				temp = scnprintf (next, size,
+					" itd/%pK", p.itd);
 				tag = Q_NEXT_TYPE(ehci, p.itd->hw_next);
 				p = p.itd->itd_next;
 				break;
 			case Q_TYPE_SITD:
-				temp = scnprintf(next, size,
-					" sitd%d-%04x/%p",
+				temp = scnprintf (next, size,
+					" sitd%d-%04x/%pK",
 					p.sitd->stream->ps.period,
 					hc32_to_cpup(ehci, &p.sitd->hw_uframe)
 						& 0x0000ffff,
@@ -895,7 +895,7 @@ static ssize_t fill_registers_buffer(struct debug_buffer *buf)
 	}
 
 	if (!list_empty(&ehci->async_unlink)) {
-		temp = scnprintf(next, size, "async unlink qh %p\n",
+		temp = scnprintf(next, size, "async unlink qh %pK\n",
 				list_first_entry(&ehci->async_unlink,
 						struct ehci_qh, unlink_node));
 		size -= temp;
