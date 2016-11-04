@@ -156,6 +156,28 @@ static void bs_set(struct sde_encoder_virt *sde_enc, int idx)
 }
 #endif
 
+static inline void sde_encoder_add_display_id(enum msm_mdp_display_id id,
+	int display_index, int *id_list, u32 num_of_id_list)
+{
+	u32 i = 0;
+
+	if (id == DISPLAY_ID_NONE) {
+		/* add it to spare place */
+		for (i = 0; i < num_of_id_list; i++) {
+			if (id_list[i] < 0) {
+				id_list[i] = display_index;
+				break;
+			}
+		}
+	} else {
+		/*
+		 * To reduce complexity, don't do sorting. Caller should always
+		 * add fixed dislay ID first, then add unknown ones.
+		 */
+		id_list[id - 1] = display_index;
+	}
+}
+
 void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 		struct sde_encoder_hw_resources *hw_res,
 		struct drm_connector_state *conn_state)
@@ -863,6 +885,7 @@ void sde_encoders_init(struct drm_device *dev)
 	struct display_manager *disp_man = NULL;
 	u32 i = 0;
 	u32 num_displays = 0;
+	int *id_list;
 
 	DBG("");
 
@@ -888,29 +911,60 @@ void sde_encoders_init(struct drm_device *dev)
 				num_displays);
 	}
 
+	id_list = kcalloc(num_displays, sizeof(int), GFP_KERNEL);
+	if (!id_list) {
+		DRM_ERROR("id_list out of memory");
+		return;
+	}
+	memset(id_list, 0xFF, sizeof(int) * num_displays);
+
+	/* Add fixed display id list */
 	for (i = 0; i < num_displays; i++) {
 		struct msm_display_info info = { 0 };
-		struct drm_encoder *enc = NULL;
 		u32 ret = 0;
 
 		ret = display_manager_get_info_by_index(disp_man, i, &info);
 		if (ret) {
 			DRM_ERROR("Failed to get display info, %d", ret);
-			return;
+			goto error;
 		}
+		if (info.display_id != DISPLAY_ID_NONE)
+			sde_encoder_add_display_id(info.display_id, i, id_list,
+				num_displays);
+	}
 
+	/* Add unknown display id list */
+	for (i = 0; i < num_displays; i++) {
+		struct msm_display_info info = { 0 };
+
+		display_manager_get_info_by_index(disp_man, i, &info);
+		if (info.display_id == DISPLAY_ID_NONE)
+			sde_encoder_add_display_id(info.display_id, i, id_list,
+				num_displays);
+	}
+
+	for (i = 0; i < num_displays; i++) {
+		struct msm_display_info info = { 0 };
+		struct drm_encoder *enc = NULL;
+		u32 ret = 0;
+
+		display_manager_get_info_by_index(disp_man, id_list[i], &info);
 		enc = sde_encoder_virt_init(dev, &info);
 		if (IS_ERR_OR_NULL(enc)) {
 			DRM_ERROR("Encoder initialization failed");
-			return;
+			goto error;
 		}
 
-		ret = display_manager_drm_init_by_index(disp_man, i, enc);
+		ret = display_manager_drm_init_by_index(disp_man, id_list[i],
+			enc);
 		if (ret) {
 			DRM_ERROR("Display drm_init failed, %d", ret);
-			return;
+			goto error;
 		}
 
 		priv->encoders[priv->num_encoders++] = enc;
 	}
+
+error:
+	kfree(id_list);
 }

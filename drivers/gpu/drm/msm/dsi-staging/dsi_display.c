@@ -2051,6 +2051,7 @@ int dsi_display_drm_bridge_init(struct dsi_display *display,
 			init_data.hdmi_mode = panel->dba_config.hdmi_mode;
 			init_data.num_of_input_lanes = num_of_lanes;
 			init_data.precede_bridge = precede_bridge;
+			init_data.panel_count = display->panel_count;
 			dba_bridge = dba_bridge_init(display->drm_dev, enc,
 							&init_data);
 			if (IS_ERR_OR_NULL(dba_bridge)) {
@@ -2145,6 +2146,7 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	info->max_width = 1920;
 	info->max_height = 1080;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
+	info->display_id = msm_get_display_id(display->display_type);
 
 	switch (display->panel[0]->mode.panel_mode) {
 	case DSI_OP_VIDEO_MODE:
