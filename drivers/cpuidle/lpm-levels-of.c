@@ -382,86 +382,6 @@ bool lpm_cluster_mode_allow(struct lpm_cluster *cluster,
 				avail->suspend_enabled);
 }
 
-static int parse_legacy_cluster_params(struct device_node *node,
-		struct lpm_cluster *c)
-{
-	int i;
-	char *key;
-	int ret;
-	struct lpm_match {
-		char *devname;
-		int (*set_mode)(struct low_power_ops *, int, bool);
-	};
-	struct lpm_match match_tbl[] = {
-		{"l2", set_l2_mode},
-		{"cci", set_system_mode},
-		{"l3", set_l3_mode},
-		{"cbf", set_system_mode},
-	};
-
-
-	key = "qcom,spm-device-names";
-	c->ndevices = of_property_count_strings(node, key);
-
-	if (c->ndevices < 0) {
-		pr_info("%s(): Ignoring cluster params\n", __func__);
-		c->no_saw_devices = true;
-		c->ndevices = 0;
-		return 0;
-	}
-
-	c->name = devm_kzalloc(&lpm_pdev->dev, c->ndevices * sizeof(*c->name),
-				GFP_KERNEL);
-	c->lpm_dev = devm_kzalloc(&lpm_pdev->dev,
-				c->ndevices * sizeof(*c->lpm_dev),
-				GFP_KERNEL);
-	if (!c->name || !c->lpm_dev) {
-		ret = -ENOMEM;
-		goto failed;
-	}
-
-	for (i = 0; i < c->ndevices; i++) {
-		char device_name[20];
-		int j;
-
-		ret = of_property_read_string_index(node, key, i, &c->name[i]);
-		if (ret)
-			goto failed;
-		snprintf(device_name, sizeof(device_name), "%s-%s",
-				c->cluster_name, c->name[i]);
-
-		c->lpm_dev[i].spm = msm_spm_get_device_by_name(device_name);
-
-		if (IS_ERR_OR_NULL(c->lpm_dev[i].spm)) {
-			pr_err("Failed to get spm device by name:%s\n",
-					device_name);
-			ret = PTR_ERR(c->lpm_dev[i].spm);
-			goto failed;
-		}
-		for (j = 0; j < ARRAY_SIZE(match_tbl); j++) {
-			if (!strcmp(c->name[i], match_tbl[j].devname))
-				c->lpm_dev[i].set_mode = match_tbl[j].set_mode;
-		}
-
-		if (!c->lpm_dev[i].set_mode) {
-			ret = -ENODEV;
-			goto failed;
-		}
-	}
-
-	key = "qcom,default-level";
-	if (of_property_read_u32(node, key, &c->default_level))
-		c->default_level = 0;
-	return 0;
-failed:
-	pr_err("%s(): Failed reading %s\n", __func__, key);
-	kfree(c->name);
-	kfree(c->lpm_dev);
-	c->name = NULL;
-	c->lpm_dev = NULL;
-	return ret;
-}
-
 static int parse_cluster_params(struct device_node *node,
 		struct lpm_cluster *c)
 {
@@ -497,28 +417,9 @@ static int parse_cluster_params(struct device_node *node,
 		/* Set ndevice to 1 as default */
 		c->ndevices = 1;
 
-		return 0;
 	} else
-		return parse_legacy_cluster_params(node, c);
-}
-
-static int parse_lpm_mode(const char *str)
-{
-	int i;
-	struct lpm_lookup_table mode_lookup[] = {
-		{MSM_SPM_MODE_POWER_COLLAPSE, "pc"},
-		{MSM_SPM_MODE_STANDALONE_POWER_COLLAPSE, "spc"},
-		{MSM_SPM_MODE_FASTPC, "fpc"},
-		{MSM_SPM_MODE_GDHS, "gdhs"},
-		{MSM_SPM_MODE_RETENTION, "retention"},
-		{MSM_SPM_MODE_CLOCK_GATING, "wfi"},
-		{MSM_SPM_MODE_DISABLED, "active"}
-	};
-
-	for (i = 0; i < ARRAY_SIZE(mode_lookup); i++)
-		if (!strcmp(str, mode_lookup[i].mode_name))
-			return  mode_lookup[i].modes;
-	return -EINVAL;
+		pr_warn("Target supports PSCI only\n");
+	return 0;
 }
 
 static int parse_power_params(struct device_node *node,
@@ -557,7 +458,6 @@ fail:
 static int parse_cluster_level(struct device_node *node,
 		struct lpm_cluster *cluster)
 {
-	int i = 0;
 	struct lpm_cluster_level *level = &cluster->levels[cluster->nlevels];
 	int ret = -ENOMEM;
 	char *key;
@@ -575,37 +475,8 @@ static int parse_cluster_level(struct device_node *node,
 			goto failed;
 
 		level->is_reset = of_property_read_bool(node, "qcom,is-reset");
-	} else if (!cluster->no_saw_devices) {
-		key  = "no saw-devices";
-
-		level->mode = devm_kzalloc(&lpm_pdev->dev,
-				cluster->ndevices * sizeof(*level->mode),
-				GFP_KERNEL);
-		if (!level->mode) {
-			pr_err("Memory allocation failed\n");
-			goto failed;
-		}
-
-		for (i = 0; i < cluster->ndevices; i++) {
-			const char *spm_mode;
-			char key[25] = {0};
-
-			snprintf(key, 25, "qcom,spm-%s-mode", cluster->name[i]);
-			ret = of_property_read_string(node, key, &spm_mode);
-			if (ret)
-				goto failed;
-
-			level->mode[i] = parse_lpm_mode(spm_mode);
-
-			if (level->mode[i] < 0)
-				goto failed;
-
-			if (level->mode[i] == MSM_SPM_MODE_POWER_COLLAPSE
-				|| level->mode[i] ==
-				MSM_SPM_MODE_STANDALONE_POWER_COLLAPSE)
-				level->is_reset |= true;
-		}
-	}
+	} else
+		pr_warn("Build supports PSCI targets only");
 
 	key = "label";
 	ret = of_property_read_string(node, key, &level->level_name);
@@ -650,32 +521,6 @@ failed:
 	return ret;
 }
 
-static int parse_cpu_spm_mode(const char *mode_name)
-{
-	struct lpm_lookup_table pm_sm_lookup[] = {
-		{MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
-			"wfi"},
-		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
-			"standalone_pc"},
-		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
-			"pc"},
-		{MSM_PM_SLEEP_MODE_RETENTION,
-			"retention"},
-		{MSM_PM_SLEEP_MODE_FASTPC,
-			"fpc"},
-	};
-	int i;
-	int ret = -EINVAL;
-
-	for (i = 0; i < ARRAY_SIZE(pm_sm_lookup); i++) {
-		if (!strcmp(mode_name, pm_sm_lookup[i].mode_name)) {
-			ret = pm_sm_lookup[i].modes;
-			break;
-		}
-	}
-	return ret;
-}
-
 static int parse_cpu_mode(struct device_node *n, struct lpm_cpu_level *l)
 {
 	char *key;
@@ -700,12 +545,8 @@ static int parse_cpu_mode(struct device_node *n, struct lpm_cpu_level *l)
 		key = "qcom,hyp-psci";
 
 		l->hyp_psci = of_property_read_bool(n, key);
-	} else {
-		l->mode = parse_cpu_spm_mode(l->name);
-
-		if (l->mode < 0)
-			return l->mode;
-	}
+	} else
+		pr_warn("Build supports PSCI targets only");
 	return 0;
 
 }

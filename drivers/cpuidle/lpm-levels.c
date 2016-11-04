@@ -21,7 +21,6 @@
 #include <linux/mutex.h>
 #include <linux/cpu.h>
 #include <linux/of.h>
-#include <linux/irqchip/msm-mpm-irq.h>
 #include <linux/hrtimer.h>
 #include <linux/ktime.h>
 #include <linux/tick.h>
@@ -38,10 +37,10 @@
 #include <linux/cpu_pm.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
-#include <soc/qcom/rpm-notifier.h>
 #include <soc/qcom/event_timer.h>
 #include <soc/qcom/lpm-stats.h>
 #include <soc/qcom/jtag.h>
+#include <soc/qcom/system_pm.h>
 #include <asm/cputype.h>
 #include <asm/arch_timer.h>
 #include <asm/cacheflush.h>
@@ -51,7 +50,6 @@
 #include <trace/events/power.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
-#include "../../drivers/clk/msm/clock.h"
 
 #define SCLK_HZ (32768)
 #define SCM_HANDOFF_LOCK_ID "S:7"
@@ -114,8 +112,6 @@ static struct hrtimer histtimer;
 static struct lpm_debug *lpm_debug;
 static phys_addr_t lpm_debug_phys;
 static const int num_dbg_elements = 0x100;
-static int lpm_cpu_callback(struct notifier_block *cpu_nb,
-				unsigned long action, void *hcpu);
 
 static void cluster_unprepare(struct lpm_cluster *cluster,
 		const struct cpumask *cpu, int child_idx, bool from_idle,
@@ -123,10 +119,6 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 static void cluster_prepare(struct lpm_cluster *cluster,
 		const struct cpumask *cpu, int child_idx, bool from_idle,
 		int64_t time);
-
-static struct notifier_block __refdata lpm_cpu_nblk = {
-	.notifier_call = lpm_cpu_callback,
-};
 
 static bool menu_select;
 module_param_named(menu_select, menu_select, bool, 0664);
@@ -422,70 +414,6 @@ static void msm_pm_set_timer(uint32_t modified_time_us)
 
 	lpm_hrtimer.function = lpm_hrtimer_cb;
 	hrtimer_start(&lpm_hrtimer, modified_ktime, HRTIMER_MODE_REL_PINNED);
-}
-
-int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
-{
-	int lpm = mode;
-	int rc = 0;
-	struct low_power_ops *cpu_ops = per_cpu(cpu_cluster,
-			smp_processor_id())->lpm_dev;
-
-	if (cpu_ops->tz_flag & MSM_SCM_L2_OFF ||
-			cpu_ops->tz_flag & MSM_SCM_L2_GDHS)
-		coresight_cti_ctx_restore();
-
-	switch (mode) {
-	case MSM_SPM_MODE_STANDALONE_POWER_COLLAPSE:
-	case MSM_SPM_MODE_POWER_COLLAPSE:
-	case MSM_SPM_MODE_FASTPC:
-		cpu_ops->tz_flag = MSM_SCM_L2_OFF;
-		coresight_cti_ctx_save();
-		break;
-	case MSM_SPM_MODE_GDHS:
-		cpu_ops->tz_flag = MSM_SCM_L2_GDHS;
-		coresight_cti_ctx_save();
-		break;
-	case MSM_SPM_MODE_CLOCK_GATING:
-	case MSM_SPM_MODE_RETENTION:
-	case MSM_SPM_MODE_DISABLED:
-		cpu_ops->tz_flag = MSM_SCM_L2_ON;
-		break;
-	default:
-		cpu_ops->tz_flag = MSM_SCM_L2_ON;
-		lpm = MSM_SPM_MODE_DISABLED;
-		break;
-	}
-	rc = msm_spm_config_low_power_mode(ops->spm, lpm, notify_rpm);
-
-	if (rc)
-		pr_err("%s: Failed to set L2 low power mode %d, ERR %d",
-				__func__, lpm, rc);
-
-	return rc;
-}
-
-int set_l3_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
-{
-	struct low_power_ops *cpu_ops = per_cpu(cpu_cluster,
-			smp_processor_id())->lpm_dev;
-
-	switch (mode) {
-	case MSM_SPM_MODE_STANDALONE_POWER_COLLAPSE:
-	case MSM_SPM_MODE_POWER_COLLAPSE:
-	case MSM_SPM_MODE_FASTPC:
-		cpu_ops->tz_flag |= MSM_SCM_L3_PC_OFF;
-		break;
-	default:
-		break;
-	}
-	return msm_spm_config_low_power_mode(ops->spm, mode, notify_rpm);
-}
-
-
-int set_system_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
-{
-	return msm_spm_config_low_power_mode(ops->spm, mode, notify_rpm);
 }
 
 static int set_device_mode(struct lpm_cluster *cluster, int ndevice,
@@ -957,7 +885,6 @@ static void clear_cl_history_each(struct cluster_history *history)
 	history->hinvalid = 0;
 	history->htmr_wkup = 0;
 }
-
 static void clear_cl_predict_history(void)
 {
 	struct lpm_cluster *cluster = lpm_root_node;
@@ -1045,9 +972,6 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle,
 		if (suspend_in_progress && from_idle && level->notify_rpm)
 			continue;
 
-		if (level->notify_rpm && msm_rpm_waiting_for_ack())
-			continue;
-
 		best_level = i;
 
 		if (predicted ? (pred_us <= pwr_params->max_residency)
@@ -1105,7 +1029,6 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		if (ret)
 			goto failed_set_mode;
 	}
-
 	if (level->notify_rpm) {
 		struct cpumask nextcpu, *cpumask;
 		uint64_t us;
@@ -1115,7 +1038,6 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 						from_idle, &pred_us);
 		cpumask = level->disable_dynamic_routing ? NULL : &nextcpu;
 
-		ret = msm_rpm_enter_sleep(0, cpumask);
 		if (ret) {
 			pr_info("Failed msm_rpm_enter_sleep() rc = %d\n", ret);
 			goto failed_set_mode;
@@ -1126,9 +1048,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		clear_cl_predict_history();
 
 		do_div(us, USEC_PER_SEC/SCLK_HZ);
-		msm_mpm_enter_sleep(us, from_idle, cpumask);
+		system_sleep_enter(us);
 	}
-
 	/* Notify cluster enter event after successfully config completion */
 	cluster_notify(cluster, level, true);
 
@@ -1145,16 +1066,16 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	}
 
 	return 0;
-
 failed_set_mode:
 
 	for (i = 0; i < cluster->ndevices; i++) {
 		int rc = 0;
 
 		level = &cluster->levels[cluster->default_level];
-		rc = set_device_mode(cluster, i, level);
+		// rc = set_device_mode(cluster, i, level);
 		WARN_ON(rc);
 	}
+
 	return ret;
 }
 
@@ -1271,16 +1192,9 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	lpm_stats_cluster_exit(cluster->stats, cluster->last_level, true);
 
 	level = &cluster->levels[cluster->last_level];
-	if (level->notify_rpm) {
-		msm_rpm_exit_sleep();
 
-		/* If RPM bumps up CX to turbo, unvote CX turbo vote
-		 * during exit of rpm assisted power collapse to
-		 * reduce the power impact
-		 */
-
-		msm_mpm_exit_sleep(from_idle);
-	}
+	if (level->notify_rpm)
+		system_sleep_exit();
 
 	update_debug_pc_event(CLUSTER_EXIT, cluster->last_level,
 			cluster->num_children_in_sync.bits[0],
@@ -1329,8 +1243,7 @@ static inline void cpu_prepare(struct lpm_cluster *cluster, int cpu_index,
 	 * next wakeup within a cluster, in which case, CPU switches over to
 	 * use broadcast timer.
 	 */
-	if (from_idle && (cpu_level->use_bc_timer ||
-			(cpu_index >= cluster->min_child_level)))
+	if (from_idle && cpu_level->use_bc_timer)
 		tick_broadcast_enter();
 
 	if (from_idle && ((cpu_level->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
@@ -1353,8 +1266,7 @@ static inline void cpu_unprepare(struct lpm_cluster *cluster, int cpu_index,
 	bool jtag_save_restore =
 			cluster->cpu->levels[cpu_index].jtag_save_restore;
 
-	if (from_idle && (cpu_level->use_bc_timer ||
-			(cpu_index >= cluster->min_child_level)))
+	if (from_idle && cpu_level->use_bc_timer)
 		tick_broadcast_exit();
 
 	if (from_idle && ((cpu_level->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
@@ -1399,7 +1311,6 @@ unlock_and_return:
 }
 
 #if !defined(CONFIG_CPU_V7)
-asmlinkage int __invoke_psci_fn_smc(u64, u64, u64, u64);
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 {
 	int affinity_level = 0;
@@ -1413,13 +1324,6 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 	if (!idx) {
 		stop_critical_timings();
 		wfi();
-		start_critical_timings();
-		return 1;
-	}
-
-	if (cluster->cpu->levels[idx].hyp_psci) {
-		stop_critical_timings();
-		__invoke_psci_fn_smc(0xC4000021, 0, 0, 0);
 		start_critical_timings();
 		return 1;
 	}
@@ -1751,7 +1655,6 @@ static void register_cluster_lpm_stats(struct lpm_cluster *cl,
 static int lpm_suspend_prepare(void)
 {
 	suspend_in_progress = true;
-	msm_mpm_suspend_prepare();
 	lpm_stats_suspend_enter();
 
 	return 0;
@@ -1760,7 +1663,6 @@ static int lpm_suspend_prepare(void)
 static void lpm_suspend_wake(void)
 {
 	suspend_in_progress = false;
-	msm_mpm_suspend_wake();
 	lpm_stats_suspend_exit();
 }
 
@@ -1793,7 +1695,6 @@ static int lpm_suspend_enter(suspend_state_t state)
 	 * clocks that are enabled and preventing the system level
 	 * LPMs(XO and Vmin).
 	 */
-	clock_debug_print_enabled();
 
 	WARN_ON(!use_psci);
 	psci_enter_sleep(cluster, idx, true);
