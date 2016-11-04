@@ -282,10 +282,6 @@ static void sde_wait_for_commit_done(struct msm_kms *kms,
 		return;
 	}
 
-	 /* ref count the vblank event and interrupts while we wait for it */
-	if (sde_crtc_vblank(crtc, true))
-		return;
-
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
 			continue;
@@ -301,9 +297,6 @@ static void sde_wait_for_commit_done(struct msm_kms *kms,
 			break;
 		}
 	}
-
-	 /* release vblank event ref count */
-	sde_crtc_vblank(crtc, false);
 }
 
 static void sde_kms_prepare_fence(struct msm_kms *kms,
