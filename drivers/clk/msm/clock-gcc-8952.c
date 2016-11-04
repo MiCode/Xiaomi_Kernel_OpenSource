@@ -4314,7 +4314,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	if (compat_bin2)
+	if (compat_bin2 || compat_bin4)
 		nbases = APCS_C0_PLL_BASE;
 
 	ret = get_mmio_addr(pdev, nbases);
