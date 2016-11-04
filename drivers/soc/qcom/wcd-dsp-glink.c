@@ -185,6 +185,24 @@ static void wdsp_glink_notify_tx_done(void *handle, const void *priv,
 }
 
 /*
+ * wdsp_glink_notify_tx_abort - Glink notify tx abort callback to
+ * free tx buffer
+ * handle:      Opaque Channel handle returned by GLink
+ * priv:        Private pointer to the channel
+ * pkt_priv:    Private pointer to the packet
+ */
+static void wdsp_glink_notify_tx_abort(void *handle, const void *priv,
+				       const void *pkt_priv)
+{
+	if (!pkt_priv) {
+		pr_err("%s: Invalid parameter\n", __func__);
+		return;
+	}
+	/* Free tx pkt */
+	kfree(pkt_priv);
+}
+
+/*
  * wdsp_glink_notify_rx_intent_req - Glink notify rx intent request callback
  * to queue buffer to receive from remote client
  * handle:      Opaque channel handle returned by GLink
@@ -382,6 +400,7 @@ static int wdsp_glink_open_ch(struct wdsp_glink_ch *ch)
 		open_cfg.edge = WDSP_EDGE;
 		open_cfg.notify_rx = wdsp_glink_notify_rx;
 		open_cfg.notify_tx_done = wdsp_glink_notify_tx_done;
+		open_cfg.notify_tx_abort = wdsp_glink_notify_tx_abort;
 		open_cfg.notify_state = wdsp_glink_notify_state;
 		open_cfg.notify_rx_intent_req = wdsp_glink_notify_rx_intent_req;
 		open_cfg.priv = ch;
