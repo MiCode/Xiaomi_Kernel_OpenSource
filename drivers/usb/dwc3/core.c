@@ -74,9 +74,8 @@ static int dwc3_get_dr_mode(struct dwc3 *dwc)
 	struct device *dev = dwc->dev;
 	unsigned int hw_mode;
 
-	if (dwc->dr_mode == USB_DR_MODE_UNKNOWN)
-		dwc->dr_mode = USB_DR_MODE_OTG;
 
+	dwc->is_drd = 0;
 	mode = dwc->dr_mode;
 	hw_mode = DWC3_GHWPARAMS0_MODE(dwc->hwparams.hwparams0);
 
@@ -111,6 +110,9 @@ static int dwc3_get_dr_mode(struct dwc3 *dwc)
 
 		dwc->dr_mode = mode;
 	}
+
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		dwc->is_drd = 1;
 
 	return 0;
 }
@@ -786,6 +788,10 @@ int dwc3_core_init(struct dwc3 *dwc)
 	if (dwc->revision < DWC3_REVISION_190A)
 		reg |= DWC3_GCTL_U2RSTECN;
 
+	ret = dwc3_get_dr_mode(dwc);
+	if (ret)
+		goto err0;
+
 	dwc3_core_num_eps(dwc);
 
 	/*
@@ -1172,6 +1178,12 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	dwc->maximum_speed = usb_get_maximum_speed(dev);
 	dwc->dr_mode = usb_get_dr_mode(dev);
+
+	if (dwc->dr_mode == USB_DR_MODE_UNKNOWN) {
+		dwc->dr_mode = USB_DR_MODE_OTG;
+		dwc->is_drd = 1;
+	}
+
 	dwc->hsphy_mode = of_usb_get_phy_mode(dev->of_node);
 
 	dwc->has_lpm_erratum = device_property_read_bool(dev,
@@ -1253,10 +1265,6 @@ static int dwc3_probe(struct platform_device *pdev)
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 	pm_runtime_forbid(dev);
-
-	ret = dwc3_get_dr_mode(dwc);
-	if (ret)
-		goto err0;
 
 	/* Check the maximum_speed parameter */
 	switch (dwc->maximum_speed) {
