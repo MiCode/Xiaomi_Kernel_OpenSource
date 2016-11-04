@@ -1163,7 +1163,6 @@
 		compatible = "qcom,rpm-glink";
 		qcom,glink-edge = "rpm";
 		rpm-channel-name = "rpm_requests";
-		rpm-standalone; /* TODO: remove this after bring up */
 	};
 
 	qcom,ipc_router {
