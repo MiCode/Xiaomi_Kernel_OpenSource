@@ -96,22 +96,6 @@ int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev)
 				"Failed to register with esoc ret %d.\n",
 				ret_val);
 	}
-	mhi_pcie_dev->mhi_ctxt.bus_scale_table =
-				msm_bus_cl_get_pdata(mhi_pcie_dev->plat_dev);
-	mhi_pcie_dev->mhi_ctxt.bus_client =
-		msm_bus_scale_register_client(
-				mhi_pcie_dev->mhi_ctxt.bus_scale_table);
-	if (!mhi_pcie_dev->mhi_ctxt.bus_client) {
-		mhi_log(MHI_MSG_CRITICAL,
-			"Could not register for bus control ret: %d.\n",
-			mhi_pcie_dev->mhi_ctxt.bus_client);
-	} else {
-		ret_val = mhi_set_bus_request(&mhi_pcie_dev->mhi_ctxt, 1);
-		if (ret_val)
-			mhi_log(MHI_MSG_CRITICAL,
-				"Could not set bus frequency ret: %d\n",
-				ret_val);
-	}
 
 	device_disable_async_suspend(&pcie_device->dev);
 	ret_val = pci_enable_msi_range(pcie_device, 1, requested_msi_number);
@@ -188,9 +172,7 @@ mhi_state_transition_error:
 		   mhi_dev_ctxt->dev_space.dev_mem_len,
 		   mhi_dev_ctxt->dev_space.dev_mem_start,
 		   mhi_dev_ctxt->dev_space.dma_dev_mem_start);
-	kfree(mhi_dev_ctxt->mhi_cmd_mutex_list);
-	kfree(mhi_dev_ctxt->mhi_chan_mutex);
-	kfree(mhi_dev_ctxt->mhi_ev_spinlock_list);
+
 	kfree(mhi_dev_ctxt->ev_ring_props);
 	mhi_rem_pm_sysfs(&pcie_device->dev);
 sysfs_config_err:
@@ -203,7 +185,9 @@ msi_config_err:
 }
 
 static const struct dev_pm_ops pm_ops = {
-	SET_RUNTIME_PM_OPS(mhi_runtime_suspend, mhi_runtime_resume, NULL)
+	SET_RUNTIME_PM_OPS(mhi_runtime_suspend,
+			   mhi_runtime_resume,
+			   mhi_runtime_idle)
 	SET_SYSTEM_SLEEP_PM_OPS(mhi_pci_suspend, mhi_pci_resume)
 };
 
@@ -217,14 +201,15 @@ static struct pci_driver mhi_pcie_driver = {
 };
 
 static int mhi_pci_probe(struct pci_dev *pcie_device,
-		const struct pci_device_id *mhi_device_id)
+			 const struct pci_device_id *mhi_device_id)
 {
 	int ret_val = 0;
 	struct mhi_pcie_dev_info *mhi_pcie_dev = NULL;
 	struct platform_device *plat_dev;
+	struct mhi_device_ctxt *mhi_dev_ctxt;
 	u32 nr_dev = mhi_devices.nr_of_devices;
 
-	mhi_log(MHI_MSG_INFO, "Entering.\n");
+	mhi_log(MHI_MSG_INFO, "Entering\n");
 	mhi_pcie_dev = &mhi_devices.device_list[mhi_devices.nr_of_devices];
 	if (mhi_devices.nr_of_devices + 1 > MHI_MAX_SUPPORTED_DEVICES) {
 		mhi_log(MHI_MSG_ERROR, "Error: Too many devices\n");
@@ -234,29 +219,120 @@ static int mhi_pci_probe(struct pci_dev *pcie_device,
 	mhi_devices.nr_of_devices++;
 	plat_dev = mhi_devices.device_list[nr_dev].plat_dev;
 	pcie_device->dev.of_node = plat_dev->dev.of_node;
-	pm_runtime_put_noidle(&pcie_device->dev);
+	mhi_dev_ctxt = &mhi_devices.device_list[nr_dev].mhi_ctxt;
+	mhi_dev_ctxt->mhi_pm_state = MHI_PM_DISABLE;
+	INIT_WORK(&mhi_dev_ctxt->process_m1_worker, process_m1_transition);
+	mutex_init(&mhi_dev_ctxt->pm_lock);
+	rwlock_init(&mhi_dev_ctxt->pm_xfer_lock);
+	spin_lock_init(&mhi_dev_ctxt->dev_wake_lock);
+	tasklet_init(&mhi_dev_ctxt->ev_task,
+		     mhi_ctrl_ev_task,
+		     (unsigned long)mhi_dev_ctxt);
+
+	mhi_dev_ctxt->flags.link_up = 1;
+	ret_val = mhi_set_bus_request(mhi_dev_ctxt, 1);
 	mhi_pcie_dev->pcie_device = pcie_device;
 	mhi_pcie_dev->mhi_pcie_driver = &mhi_pcie_driver;
 	mhi_pcie_dev->mhi_pci_link_event.events =
-			(MSM_PCIE_EVENT_LINKDOWN | MSM_PCIE_EVENT_LINKUP |
-			 MSM_PCIE_EVENT_WAKEUP);
+			(MSM_PCIE_EVENT_LINKDOWN | MSM_PCIE_EVENT_WAKEUP);
 	mhi_pcie_dev->mhi_pci_link_event.user = pcie_device;
 	mhi_pcie_dev->mhi_pci_link_event.callback = mhi_link_state_cb;
 	mhi_pcie_dev->mhi_pci_link_event.notify.data = mhi_pcie_dev;
 	ret_val = msm_pcie_register_event(&mhi_pcie_dev->mhi_pci_link_event);
-	if (ret_val)
+	if (ret_val) {
 		mhi_log(MHI_MSG_ERROR,
 			"Failed to register for link notifications %d.\n",
 			ret_val);
+		return ret_val;
+	}
+
+	/* Initialize MHI CNTXT */
+	ret_val = mhi_ctxt_init(mhi_pcie_dev);
+	if (ret_val) {
+		mhi_log(MHI_MSG_ERROR,
+			"MHI Initialization failed, ret %d\n",
+			ret_val);
+		goto deregister_pcie;
+	}
+	pci_set_master(mhi_pcie_dev->pcie_device);
+
+	mutex_lock(&mhi_dev_ctxt->pm_lock);
+	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	mhi_dev_ctxt->mhi_pm_state = MHI_PM_POR;
+	ret_val = set_mhi_base_state(mhi_pcie_dev);
+	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	if (ret_val) {
+		mhi_log(MHI_MSG_ERROR,
+			"Error Setting MHI Base State %d\n", ret_val);
+		goto unlock_pm_lock;
+	}
+
+	if (mhi_dev_ctxt->base_state == STATE_TRANSITION_BHI) {
+		ret_val = bhi_probe(mhi_pcie_dev);
+		if (ret_val) {
+			mhi_log(MHI_MSG_ERROR,
+				"Error with bhi_probe ret:%d", ret_val);
+			goto unlock_pm_lock;
+		}
+	}
+
+	init_mhi_base_state(mhi_dev_ctxt);
+
+	pm_runtime_set_autosuspend_delay(&pcie_device->dev,
+					 MHI_RPM_AUTOSUSPEND_TMR_VAL_MS);
+	pm_runtime_use_autosuspend(&pcie_device->dev);
+	pm_suspend_ignore_children(&pcie_device->dev, true);
+
+	/*
+	 * pci framework will increment usage count (twice) before
+	 * calling local device driver probe function.
+	 * 1st pci.c pci_pm_init() calls pm_runtime_forbid
+	 * 2nd pci-driver.c local_pci_probe calls pm_runtime_get_sync
+	 * Framework expect pci device driver to call pm_runtime_put_noidle
+	 * to decrement usage count after successful probe and
+	 * and call pm_runtime_allow to enable runtime suspend.
+	 * MHI will allow runtime after entering AMSS state.
+	 */
+	pm_runtime_mark_last_busy(&pcie_device->dev);
+	pm_runtime_put_noidle(&pcie_device->dev);
+
+	/*
+	 * Keep the MHI state in Active (M0) state until AMSS because EP
+	 * would error fatal if we try to enter M1 before entering
+	 * AMSS state.
+	 */
+	read_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	mhi_assert_device_wake(mhi_dev_ctxt, false);
+	read_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+
+	mutex_unlock(&mhi_dev_ctxt->pm_lock);
+
+	return 0;
+
+unlock_pm_lock:
+	mutex_unlock(&mhi_dev_ctxt->pm_lock);
+deregister_pcie:
+	msm_pcie_deregister_event(&mhi_pcie_dev->mhi_pci_link_event);
 	return ret_val;
 }
 
 static int mhi_plat_probe(struct platform_device *pdev)
 {
 	u32 nr_dev = mhi_devices.nr_of_devices;
+	struct mhi_device_ctxt *mhi_dev_ctxt;
 	int r = 0;
 
 	mhi_log(MHI_MSG_INFO, "Entered\n");
+	mhi_dev_ctxt = &mhi_devices.device_list[nr_dev].mhi_ctxt;
+
+	mhi_dev_ctxt->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (!mhi_dev_ctxt->bus_scale_table)
+		return -ENODATA;
+	mhi_dev_ctxt->bus_client = msm_bus_scale_register_client
+		(mhi_dev_ctxt->bus_scale_table);
+	if (!mhi_dev_ctxt->bus_client)
+		return -EINVAL;
+
 	mhi_devices.device_list[nr_dev].plat_dev = pdev;
 	r = dma_set_mask(&pdev->dev, MHI_DMA_MASK);
 	if (r)
