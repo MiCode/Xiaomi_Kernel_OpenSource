@@ -62,6 +62,15 @@
 #define   INTF_FRAME_COUNT              0x0AC
 #define   INTF_LINE_COUNT               0x0B0
 
+#define INTF_MISR_CTRL			0x180
+#define INTF_MISR_SIGNATURE		0x184
+
+#define MISR_FRAME_COUNT_MASK		0xFF
+#define MISR_CTRL_ENABLE		BIT(8)
+#define MISR_CTRL_STATUS		BIT(9)
+#define MISR_CTRL_STATUS_CLEAR		BIT(10)
+#define INTF_MISR_CTRL_FREE_RUN_MASK	BIT(31)
+
 static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 		struct sde_mdss_cfg *m,
 		void __iomem *addr,
@@ -239,6 +248,50 @@ static void sde_hw_intf_get_status(
 	}
 }
 
+static void sde_hw_intf_set_misr(struct sde_hw_intf *intf,
+		struct sde_misr_params *misr_map)
+{
+	struct sde_hw_blk_reg_map *c = &intf->hw;
+	u32 config = 0;
+
+	if (!misr_map)
+		return;
+
+	SDE_REG_WRITE(c, INTF_MISR_CTRL, MISR_CTRL_STATUS_CLEAR);
+	/* Clear data */
+	wmb();
+
+	if (misr_map->enable) {
+		config = (MISR_FRAME_COUNT_MASK & 1) |
+			(MISR_CTRL_ENABLE);
+
+		SDE_REG_WRITE(c, INTF_MISR_CTRL, config);
+	} else {
+		SDE_REG_WRITE(c, INTF_MISR_CTRL, 0);
+	}
+}
+
+static void sde_hw_intf_collect_misr(struct sde_hw_intf *intf,
+		struct sde_misr_params *misr_map)
+{
+	struct sde_hw_blk_reg_map *c = &intf->hw;
+
+	if (!misr_map)
+		return;
+
+	if (misr_map->enable) {
+		if (misr_map->last_idx < misr_map->frame_count &&
+			misr_map->last_idx < SDE_CRC_BATCH_SIZE)
+			misr_map->crc_value[misr_map->last_idx] =
+				SDE_REG_READ(c, INTF_MISR_SIGNATURE);
+	}
+
+	misr_map->enable =
+		misr_map->enable & (misr_map->last_idx <= SDE_CRC_BATCH_SIZE);
+
+	misr_map->last_idx++;
+}
+
 static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 		unsigned long cap)
 {
@@ -246,6 +299,8 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	ops->setup_prg_fetch  = sde_hw_intf_setup_prg_fetch;
 	ops->get_status = sde_hw_intf_get_status;
 	ops->enable_timing = sde_hw_intf_enable_timing_engine;
+	ops->setup_misr = sde_hw_intf_set_misr;
+	ops->collect_misr = sde_hw_intf_collect_misr;
 }
 
 struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
