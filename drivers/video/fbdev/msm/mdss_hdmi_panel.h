@@ -28,6 +28,7 @@
  * @infoframe: set to true if infoframes should be sent to sink
  * @is_it_content: set to true if content is IT
  * @scrambler: set to true if scrambler needs to be enabled
+ * @dc_enable: set to true if deep color is enabled
  */
 struct hdmi_panel_data {
 	struct mdss_panel_info *pinfo;
@@ -39,6 +40,7 @@ struct hdmi_panel_data {
 	bool infoframe;
 	bool is_it_content;
 	bool scrambler;
+	bool dc_enable;
 };
 
 /**

@@ -35,6 +35,7 @@
 #include "mdss.h"
 #include "mdss_panel.h"
 #include "mdss_hdmi_mhl.h"
+#include "mdss_hdmi_util.h"
 
 #define DRV_NAME "hdmi-tx"
 #define COMPATIBLE_NAME "qcom,hdmi-tx"
@@ -57,13 +58,6 @@
  */
 #define AUDIO_POLL_SLEEP_US   (5 * 1000)
 #define AUDIO_POLL_TIMEOUT_US (AUDIO_POLL_SLEEP_US * 1000)
-
-#define HDMI_TX_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO 2
-#define HDMI_TX_YUV422_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
-#define HDMI_TX_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
-
-#define HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ 340000
-#define HDMI_TX_SCRAMBLER_TIMEOUT_MSEC 200
 
 /* Maximum pixel clock rates for hdmi tx */
 #define HDMI_DEFAULT_MAX_PCLK_RATE         148500
@@ -111,7 +105,6 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data);
 static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl);
 static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable);
-static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl);
 static void hdmi_tx_fps_work(struct work_struct *work);
 static int hdmi_tx_pinctrl_set_state(struct hdmi_tx_ctrl *hdmi_ctrl,
 			enum hdmi_tx_power_module_type module, bool active);
@@ -318,11 +311,29 @@ static inline bool hdmi_tx_metadata_type_one(struct hdmi_tx_ctrl *hdmi_ctrl)
 	return hdr_data->metadata_type_one;
 }
 
+static inline bool hdmix_tx_sink_dc_support(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	void *edid_fd = hdmi_tx_get_fd(HDMI_TX_FEAT_EDID);
+
+	if (hdmi_ctrl->panel_data.panel_info.out_format == MDP_Y_CBCR_H2V2)
+		return (hdmi_edid_get_deep_color(edid_fd) & BIT(4));
+	else
+		return (hdmi_edid_get_deep_color(edid_fd) & BIT(1));
+}
+
 static inline bool hdmi_tx_dc_support(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	return hdmi_ctrl->dc_feature_on && hdmi_ctrl->dc_support &&
-		(hdmi_edid_get_deep_color(
-			hdmi_tx_get_fd(HDMI_TX_FEAT_EDID)) & BIT(1));
+	/* actual pixel clock if deep color is enabled */
+	void *edid_fd = hdmi_tx_get_fd(HDMI_TX_FEAT_EDID);
+	u32 tmds_clk_with_dc = hdmi_tx_setup_tmds_clk_rate(
+		hdmi_ctrl->timing.pixel_freq,
+		hdmi_ctrl->panel.pinfo->out_format,
+		true);
+
+	return hdmi_ctrl->dc_feature_on &&
+		hdmi_ctrl->dc_support &&
+		hdmix_tx_sink_dc_support(hdmi_ctrl) &&
+		(tmds_clk_with_dc <= hdmi_edid_get_max_pclk(edid_fd));
 }
 
 static const char *hdmi_tx_pm_name(enum hdmi_tx_power_module_type module)
@@ -349,7 +360,10 @@ static const char *hdmi_tx_io_name(u32 type)
 static void hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	if (hdmi_ctrl && hdmi_ctrl->audio_ops.on) {
-		u32 pclk = hdmi_tx_setup_tmds_clk_rate(hdmi_ctrl);
+		u32 pclk = hdmi_tx_setup_tmds_clk_rate(
+			hdmi_ctrl->timing.pixel_freq,
+			hdmi_ctrl->panel.pinfo->out_format,
+			hdmi_ctrl->panel.dc_enable);
 
 		hdmi_ctrl->audio_ops.on(hdmi_ctrl->audio_data,
 			pclk, &hdmi_ctrl->audio_params);
@@ -2345,7 +2359,6 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 	struct dss_io_data *io = NULL;
 	/* Defaults: Disable block, HDMI mode */
 	u32 hdmi_ctrl_reg = BIT(1);
-	u32 vbi_pkt_reg;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -2383,27 +2396,6 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 		 * longer be used
 		 */
 		hdmi_ctrl_reg |= BIT(31);
-
-		/* enable deep color if supported */
-		if (hdmi_tx_dc_support(hdmi_ctrl)) {
-			/* GC CD override */
-			hdmi_ctrl_reg |= BIT(27);
-
-			/* enable deep color for RGB888 30 bits */
-			hdmi_ctrl_reg |= BIT(24);
-
-			/* Enable GC_CONT and GC_SEND in General Control Packet
-			 * (GCP) register so that deep color data is
-			 * transmitted to the sink on every frame, allowing
-			 * the sink to decode the data correctly.
-			 *
-			 * GC_CONT: 0x1 - Send GCP on every frame
-			 * GC_SEND: 0x1 - Enable GCP Transmission
-			 */
-			vbi_pkt_reg = DSS_REG_R(io, HDMI_VBI_PKT_CTRL);
-			vbi_pkt_reg |= BIT(5) | BIT(4);
-			DSS_REG_W(io, HDMI_VBI_PKT_CTRL, vbi_pkt_reg);
-		}
 	}
 
 	DSS_REG_W(io, HDMI_CTRL, hdmi_ctrl_reg);
@@ -2973,44 +2965,6 @@ static int hdmi_tx_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hpd;
 }
 
-static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl)
-{
-	u32 rate = 0;
-	struct msm_hdmi_mode_timing_info *timing = NULL;
-	u32 rate_ratio;
-
-	if (!hdmi_ctrl) {
-		DEV_ERR("%s: Bad input parameters\n", __func__);
-		goto end;
-	}
-
-	timing = &hdmi_ctrl->timing;
-	if (!timing) {
-		DEV_ERR("%s: Invalid timing info\n", __func__);
-		goto end;
-	}
-
-	switch (hdmi_ctrl->panel_data.panel_info.out_format) {
-	case MDP_Y_CBCR_H2V2:
-		rate_ratio = HDMI_TX_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO;
-		break;
-	case MDP_Y_CBCR_H2V1:
-		rate_ratio = HDMI_TX_YUV422_24BPP_PCLK_TMDS_CH_RATE_RATIO;
-		break;
-	default:
-		rate_ratio = HDMI_TX_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO;
-		break;
-	}
-
-	rate = timing->pixel_freq / rate_ratio;
-
-	if (hdmi_tx_dc_support(hdmi_ctrl))
-		rate += rate >> 2;
-
-end:
-	return rate;
-}
-
 static inline bool hdmi_tx_hw_is_cable_connected(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	return DSS_REG_R(&hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO],
@@ -3144,16 +3098,14 @@ static int hdmi_tx_power_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 					hdmi_ctrl->vic);
 	hdmi_ctrl->panel.scrambler = hdmi_edid_get_sink_scrambler_support(
 					edata);
+	hdmi_ctrl->panel.dc_enable = hdmi_tx_dc_support(hdmi_ctrl);
 
 	if (hdmi_ctrl->panel_ops.on)
 		hdmi_ctrl->panel_ops.on(pdata);
 
-	pixel_clk = hdmi_ctrl->timing.pixel_freq * 1000;
-
-	if (panel_data->panel_info.out_format == MDP_Y_CBCR_H2V2)
-		pixel_clk >>= 1;
-	else if (hdmi_tx_dc_support(hdmi_ctrl))
-		pixel_clk += pixel_clk >> 2;
+	pixel_clk = hdmi_tx_setup_tmds_clk_rate(hdmi_ctrl->timing.pixel_freq,
+		hdmi_ctrl->panel.pinfo->out_format,
+		hdmi_ctrl->panel.dc_enable) * 1000;
 
 	DEV_DBG("%s: setting pixel clk %d\n", __func__, pixel_clk);
 
