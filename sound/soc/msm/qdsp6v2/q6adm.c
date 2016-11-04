@@ -2633,7 +2633,8 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 		if (port_idx < 0) {
 			pr_err("%s: Invalid port_id 0x%x\n", __func__,
 				payload_map.port_id[i]);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto fail_cmd;
 		}
 		copp_idx = payload_map.copp_idx[i];
 		copps_list[i] = atomic_read(&this_adm.copp.id[port_idx]
@@ -2670,6 +2671,12 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 		for (i = 0; i < payload_map.num_copps; i++) {
 			port_idx = afe_get_port_index(payload_map.port_id[i]);
 			copp_idx = payload_map.copp_idx[i];
+			if (port_idx < 0 || copp_idx < 0 ||
+			    (copp_idx > MAX_COPPS_PER_PORT - 1)) {
+				pr_err("%s: Invalid idx port_idx %d copp_idx %d\n",
+					__func__, port_idx, copp_idx);
+				continue;
+			}
 			if (atomic_read(
 				&this_adm.copp.topology[port_idx][copp_idx]) ==
 				ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX)

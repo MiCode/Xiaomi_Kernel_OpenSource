@@ -2994,7 +2994,7 @@ static bool msm_swap_gnd_mic(struct snd_soc_codec *codec)
 	struct snd_soc_card *card = codec->component.card;
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(card);
-	int value;
+	int value = 0;
 
 	if (pdata->us_euro_gpio_p) {
 		value = msm_cdc_pinctrl_get_state(pdata->us_euro_gpio_p);

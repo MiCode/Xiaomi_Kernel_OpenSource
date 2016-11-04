@@ -1301,7 +1301,7 @@ static int afe_send_port_topology_id(u16 port_id)
 	u32 topology_id = 0;
 
 	index = q6audio_get_port_index(port_id);
-	if (index < 0 || index > AFE_MAX_PORTS) {
+	if (index < 0 || index > AFE_MAX_PORTS - 1) {
 		pr_err("%s: AFE port index[%d] invalid!\n",
 				__func__, index);
 		return -EINVAL;
@@ -1545,7 +1545,7 @@ static int afe_send_codec_reg_page_config(
 static int afe_send_codec_reg_config(
 	struct afe_param_cdc_reg_cfg_data *cdc_reg_cfg)
 {
-	int i, j, ret;
+	int i, j, ret = -EINVAL;
 	int pkt_size, payload_size, reg_per_pkt, num_pkts, num_regs;
 	struct afe_svc_cmd_cdc_reg_cfg *config;
 	struct afe_svc_cmd_set_param *param;
@@ -5720,6 +5720,13 @@ int afe_get_sp_ex_vi_ftm_data(struct afe_sp_ex_vi_get_param *ex_vi)
 	}
 
 	index = q6audio_get_port_index(port);
+	if (index < 0) {
+		pr_err("%s: invalid index %d port 0x%x\n", __func__,
+			index, port);
+		ret = -EINVAL;
+		goto done;
+	}
+
 	ex_vi->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 	ex_vi->hdr.pkt_size = sizeof(*ex_vi);

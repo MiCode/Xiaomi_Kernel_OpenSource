@@ -105,6 +105,10 @@ struct wcd_dsp_cntl {
 	/* SSR related */
 	struct wdsp_ssr_entry ssr_entry;
 	struct mutex ssr_mutex;
+
+	/* Misc device related */
+	char miscdev_name[256];
+	struct miscdevice miscdev;
 };
 
 void wcd_dsp_cntl_init(struct snd_soc_codec *codec,
