@@ -256,7 +256,7 @@ static void ohci_dump_td (const struct ohci_hcd *ohci, const char *label,
 {
 	u32	tmp = hc32_to_cpup (ohci, &td->hwINFO);
 
-	ohci_dbg (ohci, "%s td %p%s; urb %p index %d; hw next td %08x\n",
+	ohci_dbg (ohci, "%s td %pK%s; urb %pK index %d; hw next td %08x\n",
 		label, td,
 		(tmp & TD_DONE) ? " (DONE)" : "",
 		td->urb, td->index,
@@ -314,7 +314,7 @@ ohci_dump_ed (const struct ohci_hcd *ohci, const char *label,
 	u32	tmp = hc32_to_cpu (ohci, ed->hwINFO);
 	char	*type = "";
 
-	ohci_dbg (ohci, "%s, ed %p state 0x%x type %s; next ed %08x\n",
+	ohci_dbg (ohci, "%s, ed %pK state 0x%x type %s; next ed %08x\n",
 		label,
 		ed, ed->state, edstring (ed->type),
 		hc32_to_cpup (ohci, &ed->hwNextED));
@@ -415,7 +415,7 @@ show_list (struct ohci_hcd *ohci, char *buf, size_t count, struct ed *ed)
 		struct td	*td;
 
 		temp = scnprintf (buf, size,
-			"ed/%p %cs dev%d ep%d%s max %d %08x%s%s %s",
+			"ed/%pK %cs dev%d ep%d%s max %d %08x%s%s %s",
 			ed,
 			(info & ED_LOWSPEED) ? 'l' : 'f',
 			info & 0x7f,
@@ -437,7 +437,7 @@ show_list (struct ohci_hcd *ohci, char *buf, size_t count, struct ed *ed)
 			cbp = hc32_to_cpup (ohci, &td->hwCBP);
 			be = hc32_to_cpup (ohci, &td->hwBE);
 			temp = scnprintf (buf, size,
-					"\n\ttd %p %s %d cc=%x urb %p (%08x)",
+					"\n\ttd %pK %s %d cc=%x urb %pK (%08x)",
 					td,
 					({ char *pid;
 					switch (info & TD_DP) {
@@ -516,7 +516,7 @@ static ssize_t fill_periodic_buffer(struct debug_buffer *buf)
 		next += temp;
 
 		do {
-			temp = scnprintf (next, size, " ed%d/%p",
+			temp = scnprintf (next, size, " ed%d/%pK",
 				ed->interval, ed);
 			size -= temp;
 			next += temp;

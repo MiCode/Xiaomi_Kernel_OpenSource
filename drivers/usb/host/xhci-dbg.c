@@ -30,27 +30,27 @@ void xhci_dbg_regs(struct xhci_hcd *xhci)
 {
 	u32 temp;
 
-	xhci_dbg(xhci, "// xHCI capability registers at %p:\n",
+	xhci_dbg(xhci, "// xHCI capability registers at %pK:\n",
 			xhci->cap_regs);
 	temp = readl(&xhci->cap_regs->hc_capbase);
-	xhci_dbg(xhci, "// @%p = 0x%x (CAPLENGTH AND HCIVERSION)\n",
+	xhci_dbg(xhci, "// @%pK = 0x%x (CAPLENGTH AND HCIVERSION)\n",
 			&xhci->cap_regs->hc_capbase, temp);
 	xhci_dbg(xhci, "//   CAPLENGTH: 0x%x\n",
 			(unsigned int) HC_LENGTH(temp));
 	xhci_dbg(xhci, "//   HCIVERSION: 0x%x\n",
 			(unsigned int) HC_VERSION(temp));
 
-	xhci_dbg(xhci, "// xHCI operational registers at %p:\n", xhci->op_regs);
+	xhci_dbg(xhci, "// xHCI operational registers at %pK:\n", xhci->op_regs);
 
 	temp = readl(&xhci->cap_regs->run_regs_off);
-	xhci_dbg(xhci, "// @%p = 0x%x RTSOFF\n",
+	xhci_dbg(xhci, "// @%pK = 0x%x RTSOFF\n",
 			&xhci->cap_regs->run_regs_off,
 			(unsigned int) temp & RTSOFF_MASK);
-	xhci_dbg(xhci, "// xHCI runtime registers at %p:\n", xhci->run_regs);
+	xhci_dbg(xhci, "// xHCI runtime registers at %pK:\n", xhci->run_regs);
 
 	temp = readl(&xhci->cap_regs->db_off);
-	xhci_dbg(xhci, "// @%p = 0x%x DBOFF\n", &xhci->cap_regs->db_off, temp);
-	xhci_dbg(xhci, "// Doorbell array at %p:\n", xhci->dba);
+	xhci_dbg(xhci, "// @%pK = 0x%x DBOFF\n", &xhci->cap_regs->db_off, temp);
+	xhci_dbg(xhci, "// Doorbell array at %pK:\n", xhci->dba);
 }
 
 static void xhci_print_cap_regs(struct xhci_hcd *xhci)
@@ -58,7 +58,7 @@ static void xhci_print_cap_regs(struct xhci_hcd *xhci)
 	u32 temp;
 	u32 hci_version;
 
-	xhci_dbg(xhci, "xHCI capability registers at %p:\n", xhci->cap_regs);
+	xhci_dbg(xhci, "xHCI capability registers at %pK:\n", xhci->cap_regs);
 
 	temp = readl(&xhci->cap_regs->hc_capbase);
 	hci_version = HC_VERSION(temp);
@@ -155,7 +155,7 @@ static void xhci_print_status(struct xhci_hcd *xhci)
 
 static void xhci_print_op_regs(struct xhci_hcd *xhci)
 {
-	xhci_dbg(xhci, "xHCI operational registers at %p:\n", xhci->op_regs);
+	xhci_dbg(xhci, "xHCI operational registers at %pK:\n", xhci->op_regs);
 	xhci_print_command_reg(xhci);
 	xhci_print_status(xhci);
 }
@@ -175,8 +175,8 @@ static void xhci_print_ports(struct xhci_hcd *xhci)
 	ports = HCS_MAX_PORTS(xhci->hcs_params1);
 	addr = &xhci->op_regs->port_status_base;
 	for (i = 0; i < ports; i++) {
-		for (j = 0; j < NUM_PORT_REGS; j++) {
-			xhci_dbg(xhci, "%p port %s reg = 0x%x\n",
+		for (j = 0; j < NUM_PORT_REGS; ++j) {
+			xhci_dbg(xhci, "%pK port %s reg = 0x%x\n",
 					addr, names[j],
 					(unsigned int) readl(addr));
 			addr++;
@@ -196,35 +196,35 @@ void xhci_print_ir_set(struct xhci_hcd *xhci, int set_num)
 	if (temp == XHCI_INIT_VALUE)
 		return;
 
-	xhci_dbg(xhci, "  %p: ir_set[%i]\n", ir_set, set_num);
+	xhci_dbg(xhci, "  %pK: ir_set[%i]\n", ir_set, set_num);
 
-	xhci_dbg(xhci, "  %p: ir_set.pending = 0x%x\n", addr,
+	xhci_dbg(xhci, "  %pK: ir_set.pending = 0x%x\n", addr,
 			(unsigned int)temp);
 
 	addr = &ir_set->irq_control;
 	temp = readl(addr);
-	xhci_dbg(xhci, "  %p: ir_set.control = 0x%x\n", addr,
+	xhci_dbg(xhci, "  %pK: ir_set.control = 0x%x\n", addr,
 			(unsigned int)temp);
 
 	addr = &ir_set->erst_size;
 	temp = readl(addr);
-	xhci_dbg(xhci, "  %p: ir_set.erst_size = 0x%x\n", addr,
+	xhci_dbg(xhci, "  %pK: ir_set.erst_size = 0x%x\n", addr,
 			(unsigned int)temp);
 
 	addr = &ir_set->rsvd;
 	temp = readl(addr);
 	if (temp != XHCI_INIT_VALUE)
-		xhci_dbg(xhci, "  WARN: %p: ir_set.rsvd = 0x%x\n",
+		xhci_dbg(xhci, "  WARN: %pK: ir_set.rsvd = 0x%x\n",
 				addr, (unsigned int)temp);
 
 	addr = &ir_set->erst_base;
 	temp_64 = xhci_read_64(xhci, addr);
-	xhci_dbg(xhci, "  %p: ir_set.erst_base = @%08llx\n",
+	xhci_dbg(xhci, "  %pK: ir_set.erst_base = @%08llx\n",
 			addr, temp_64);
 
 	addr = &ir_set->erst_dequeue;
 	temp_64 = xhci_read_64(xhci, addr);
-	xhci_dbg(xhci, "  %p: ir_set.erst_dequeue = @%08llx\n",
+	xhci_dbg(xhci, "  %pK: ir_set.erst_dequeue = @%08llx\n",
 			addr, temp_64);
 }
 
@@ -233,15 +233,15 @@ void xhci_print_run_regs(struct xhci_hcd *xhci)
 	u32 temp;
 	int i;
 
-	xhci_dbg(xhci, "xHCI runtime registers at %p:\n", xhci->run_regs);
+	xhci_dbg(xhci, "xHCI runtime registers at %pK:\n", xhci->run_regs);
 	temp = readl(&xhci->run_regs->microframe_index);
-	xhci_dbg(xhci, "  %p: Microframe index = 0x%x\n",
+	xhci_dbg(xhci, "  %pK: Microframe index = 0x%x\n",
 			&xhci->run_regs->microframe_index,
 			(unsigned int) temp);
 	for (i = 0; i < 7; i++) {
 		temp = readl(&xhci->run_regs->rsvd[i]);
 		if (temp != XHCI_INIT_VALUE)
-			xhci_dbg(xhci, "  WARN: %p: Rsvd[%i] = 0x%x\n",
+			xhci_dbg(xhci, "  WARN: %pK: Rsvd[%i] = 0x%x\n",
 					&xhci->run_regs->rsvd[i],
 					i, (unsigned int) temp);
 	}
