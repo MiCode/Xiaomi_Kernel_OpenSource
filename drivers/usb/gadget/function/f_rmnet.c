@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -466,8 +466,8 @@ static void frmnet_suspend(struct usb_function *f)
 	else
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
 
-	pr_debug("%s: dev: %p remote_wakeup: %d\n",
-		__func__, dev, remote_wakeup_allowed);
+	pr_debug("%s: dev: %pK remote_wakeup: %d\n", __func__, dev,
+			remote_wakeup_allowed);
 
 	if (dev->notify) {
 		usb_ep_fifo_flush(dev->notify);
@@ -486,8 +486,8 @@ static void frmnet_resume(struct usb_function *f)
 	else
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
 
-	pr_debug("%s: dev: %p remote_wakeup: %d\n",
-		__func__, dev, remote_wakeup_allowed);
+	pr_debug("%s: dev: %pK remote_wakeup: %d\n", __func__, dev,
+			remote_wakeup_allowed);
 
 	ipa_data_resume(&dev->ipa_port, dev->func_type, remote_wakeup_allowed);
 }
@@ -514,7 +514,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	struct usb_composite_dev	*cdev = f->config->cdev;
 	int				ret = 0;
 
-	pr_debug("%s: dev: %p\n", __func__, dev);
+	pr_debug("%s:dev:%pK\n", __func__, dev);
 	dev->cdev = cdev;
 	if (dev->notify) {
 		if (dev->notify->driver_data) {
@@ -596,7 +596,7 @@ static void frmnet_ctrl_response_available(struct f_rmnet *dev)
 	int				ret;
 	struct rmnet_ctrl_pkt		*cpkt;
 
-	pr_debug("%s: dev: %p\n", __func__, dev);
+	pr_debug("%s:dev:%pK\n", __func__, dev);
 	spin_lock_irqsave(&dev->lock, flags);
 	if (!atomic_read(&dev->online) || !req || !req->buf) {
 		spin_unlock_irqrestore(&dev->lock, flags);
@@ -644,7 +644,7 @@ static void frmnet_connect(struct grmnet *gr)
 	struct f_rmnet			*dev;
 
 	if (!gr) {
-		pr_err("%s: Invalid grmnet:%p\n", __func__, gr);
+		pr_err("%s: Invalid grmnet:%pK\n", __func__, gr);
 		return;
 	}
 
@@ -660,7 +660,7 @@ static void frmnet_disconnect(struct grmnet *gr)
 	int				status;
 
 	if (!gr) {
-		pr_err("%s: Invalid grmnet:%p\n", __func__, gr);
+		pr_err("%s: Invalid grmnet:%pK\n", __func__, gr);
 		return;
 	}
 
@@ -702,7 +702,7 @@ frmnet_send_cpkt_response(void *gr, void *buf, size_t len)
 	unsigned long		flags;
 
 	if (!gr || !buf) {
-		pr_err("%s: Invalid grmnet/buf, grmnet:%p buf:%p\n",
+		pr_err("%s: Invalid grmnet/buf, grmnet:%pK buf:%pK\n",
 				__func__, gr, buf);
 		return -ENODEV;
 	}
@@ -716,7 +716,7 @@ frmnet_send_cpkt_response(void *gr, void *buf, size_t len)
 
 	dev = port_to_rmnet(gr);
 
-	pr_debug("%s: dev: %p\n", __func__, dev);
+	pr_debug("%s: dev: %pK\n", __func__, dev);
 	if (!atomic_read(&dev->online) || !atomic_read(&dev->ctrl_online)) {
 		rmnet_free_ctrl_pkt(cpkt);
 		return 0;
@@ -741,7 +741,7 @@ frmnet_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 		pr_err("%s: rmnet dev is null\n", __func__);
 		return;
 	}
-	pr_debug("%s: dev: %p\n", __func__, dev);
+	pr_debug("%s: dev: %pK\n", __func__, dev);
 	cdev = dev->cdev;
 
 	if (dev->port.send_encap_cmd) {
@@ -756,7 +756,7 @@ static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	unsigned long		flags;
 	struct rmnet_ctrl_pkt	*cpkt;
 
-	pr_debug("%s: dev: %p\n", __func__, dev);
+	pr_debug("%s: dev: %pK\n", __func__, dev);
 	switch (status) {
 	case -ECONNRESET:
 	case -ESHUTDOWN:
@@ -823,7 +823,7 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	u16				w_length = le16_to_cpu(ctrl->wLength);
 	int				ret = -EOPNOTSUPP;
 
-	pr_debug("%s: dev: %p\n", __func__, dev);
+	pr_debug("%s: dev: %pK\n", __func__, dev);
 	if (!atomic_read(&dev->online)) {
 		pr_warn("%s: usb cable is not connected\n", __func__);
 		return -ENOTCONN;

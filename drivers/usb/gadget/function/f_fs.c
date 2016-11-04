@@ -699,7 +699,7 @@ static void ffs_epfile_io_complete(struct usb_ep *_ep, struct usb_request *req)
 		ep->status = req->status ? req->status : req->actual;
 		/* Set is_busy false to indicate completion of last request */
 		ep->is_busy = false;
-		ffs_log("ep status %d for req %p", ep->status, req);
+		ffs_log("ep status %d for req %pK", ep->status, req);
 		complete(req->context);
 	}
 }
@@ -1720,12 +1720,12 @@ static void ffs_data_clear(struct ffs_data *ffs)
 	ffs_log("enter: state %d setup_state %d flag %lu", ffs->state,
 		ffs->setup_state, ffs->flags);
 
-	pr_debug("%s: ffs->gadget= %p, ffs->flags= %lu\n",
+	pr_debug("%s: ffs->gadget= %pK, ffs->flags= %lu\n",
 				__func__, ffs->gadget, ffs->flags);
 	ffs_closed(ffs);
 
 	if (ffs->gadget)
-		pr_err("%s: ffs:%p ffs->gadget= %p, ffs->flags= %lu\n",
+		pr_err("%s: ffs:%pK ffs->gadget= %pK, ffs->flags= %lu\n",
 				__func__, ffs, ffs->gadget, ffs->flags);
 	BUG_ON(ffs->gadget);
 
@@ -1814,7 +1814,7 @@ static int functionfs_bind(struct ffs_data *ffs, struct usb_composite_dev *cdev)
 
 	ffs->gadget = cdev->gadget;
 
-	ffs_log("exit: state %d setup_state %d flag %lu gadget %p\n",
+	ffs_log("exit: state %d setup_state %d flag %lu gadget %pK\n",
 			ffs->state, ffs->setup_state, ffs->flags, ffs->gadget);
 
 	ffs_data_get(ffs);
@@ -1830,7 +1830,7 @@ static void functionfs_unbind(struct ffs_data *ffs)
 		ffs->ep0req = NULL;
 		ffs->gadget = NULL;
 		clear_bit(FFS_FL_BOUND, &ffs->flags);
-		ffs_log("state %d setup_state %d flag %lu gadget %p\n",
+		ffs_log("state %d setup_state %d flag %lu gadget %pK\n",
 			ffs->state, ffs->setup_state, ffs->flags, ffs->gadget);
 		ffs_data_put(ffs);
 	}
