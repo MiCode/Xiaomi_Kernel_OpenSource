@@ -2743,7 +2743,9 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	union power_supply_propval pval = {0, };
 	int rc;
 
+	smblib_dbg(chg, PR_PARALLEL, "starting parallel taper work\n");
 	if (chg->pl.slave_fcc_ua < MINIMUM_PARALLEL_FCC_UA) {
+		smblib_dbg(chg, PR_PARALLEL, "parallel taper is done\n");
 		vote(chg->pl_disable_votable, TAPER_END_VOTER, true, 0);
 		goto done;
 	}
@@ -2755,6 +2757,7 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	}
 
 	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+		smblib_dbg(chg, PR_PARALLEL, "master is taper charging; reducing slave FCC\n");
 		vote(chg->awake_votable, PL_TAPER_WORK_RUNNING_VOTER, true, 0);
 		/* Reduce the taper percent by 25 percent */
 		chg->pl.taper_pct = chg->pl.taper_pct
@@ -2768,6 +2771,8 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	/*
 	 * Master back to Fast Charge, get out of this round of taper reduction
 	 */
+	smblib_dbg(chg, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
+
 done:
 	vote(chg->awake_votable, PL_TAPER_WORK_RUNNING_VOTER, false, 0);
 }
