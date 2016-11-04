@@ -546,6 +546,16 @@ struct tx_mute_work {
 	struct delayed_work dwork;
 };
 
+#define WCD934X_SPK_ANC_EN_DELAY_MS 350
+static int spk_anc_en_delay = WCD934X_SPK_ANC_EN_DELAY_MS;
+module_param(spk_anc_en_delay, int, S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(spk_anc_en_delay, "delay to enable anc in speaker path");
+
+struct spk_anc_work {
+	struct tavil_priv *tavil;
+	struct delayed_work dwork;
+};
+
 struct hpf_work {
 	struct tavil_priv *tavil;
 	u8 decimator;
@@ -610,6 +620,7 @@ struct tavil_priv {
 	struct work_struct tavil_add_child_devices_work;
 	struct hpf_work tx_hpf_work[WCD934X_NUM_DECIMATORS];
 	struct tx_mute_work tx_mute_dwork[WCD934X_NUM_DECIMATORS];
+	struct spk_anc_work spk_anc_dwork;
 
 	unsigned int vi_feed_value;
 
@@ -1775,6 +1786,21 @@ static int tavil_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void tavil_spk_anc_update_callback(struct work_struct *work)
+{
+	struct spk_anc_work *spk_anc_dwork;
+	struct tavil_priv *tavil;
+	struct delayed_work *delayed_work;
+	struct snd_soc_codec *codec;
+
+	delayed_work = to_delayed_work(work);
+	spk_anc_dwork = container_of(delayed_work, struct spk_anc_work, dwork);
+	tavil = spk_anc_dwork->tavil;
+	codec = tavil->codec;
+
+	snd_soc_update_bits(codec, WCD934X_CDC_RX7_RX_PATH_CFG0, 0x10, 0x10);
+}
+
 static int tavil_codec_enable_spkr_anc(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol,
 				     int event)
@@ -1792,10 +1818,11 @@ static int tavil_codec_enable_spkr_anc(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		ret = tavil_codec_enable_anc(w, kcontrol, event);
-		snd_soc_update_bits(codec, WCD934X_CDC_RX7_RX_PATH_CFG0,
-				    0x10, 0x10);
+		schedule_delayed_work(&tavil->spk_anc_dwork.dwork,
+				      msecs_to_jiffies(spk_anc_en_delay));
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		cancel_delayed_work_sync(&tavil->spk_anc_dwork.dwork);
 		snd_soc_update_bits(codec, WCD934X_CDC_RX7_RX_PATH_CFG0,
 				    0x10, 0x00);
 		ret = tavil_codec_enable_anc(w, kcontrol, event);
@@ -8836,6 +8863,10 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 		INIT_DELAYED_WORK(&tavil->tx_mute_dwork[i].dwork,
 				  tavil_tx_mute_update_callback);
 	}
+
+	tavil->spk_anc_dwork.tavil = tavil;
+	INIT_DELAYED_WORK(&tavil->spk_anc_dwork.dwork,
+			  tavil_spk_anc_update_callback);
 
 	tavil_mclk2_reg_defaults(tavil);
 
