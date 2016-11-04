@@ -2576,6 +2576,7 @@ struct cpu_cycle_counter_cb {
 };
 
 #ifdef CONFIG_SCHED_HMP
+extern void free_task_load_ptrs(struct task_struct *p);
 extern int sched_set_window(u64 window_start, unsigned int window_size);
 extern unsigned long sched_get_busy(int cpu);
 extern void sched_get_cpus_busy(struct sched_load *busy,
@@ -2601,6 +2602,8 @@ extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
 
 #else /* CONFIG_SCHED_HMP */
+static inline void free_task_load_ptrs(struct task_struct *p) { }
+
 static inline u64 sched_ktime_clock(void)
 {
 	return 0;
