@@ -269,7 +269,7 @@
 			batt_i@3 {
 				reg = <3>;
 				qcom,channel = <3>;
-				qcom,scale = <20000000>;
+				qcom,scale = <(-20000000)>;
 			};
 
 			batt_v@4 {
