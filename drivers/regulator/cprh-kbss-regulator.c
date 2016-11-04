@@ -73,8 +73,10 @@ struct cprh_msm8998_kbss_fuses {
 /*
  * Fuse combos 0 - 7 map to CPR fusing revision 0 - 7 with speed bin fuse = 0.
  * Fuse combos 8 - 15 map to CPR fusing revision 0 - 7 with speed bin fuse = 1.
+ * Fuse combos 16 - 23 map to CPR fusing revision 0 - 7 with speed bin fuse = 2.
+ * Fuse combos 24 - 31 map to CPR fusing revision 0 - 7 with speed bin fuse = 3.
  */
-#define CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT 16
+#define CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT 32
 
 /*
  * Constants which define the name of each fuse corner.
