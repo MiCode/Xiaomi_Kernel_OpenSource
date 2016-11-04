@@ -848,6 +848,108 @@ static int _sde_encoder_debugfs_status_open(struct inode *inode,
 	return single_open(file, _sde_encoder_status_show, inode->i_private);
 }
 
+static void _sde_set_misr_params(struct sde_encoder_phys *phys, u32 enable,
+					u32 frame_count)
+{
+	int j;
+
+	if (!phys->misr_map)
+		return;
+
+	phys->misr_map->enable = enable;
+
+	if (frame_count <= SDE_CRC_BATCH_SIZE)
+		phys->misr_map->frame_count = frame_count;
+	else if (frame_count <= 0)
+		phys->misr_map->frame_count = 0;
+	else
+		phys->misr_map->frame_count = SDE_CRC_BATCH_SIZE;
+
+	if (!enable) {
+		phys->misr_map->last_idx = 0;
+		phys->misr_map->frame_count = 0;
+		for (j = 0; j < SDE_CRC_BATCH_SIZE; j++)
+			phys->misr_map->crc_value[j] = 0;
+	}
+}
+
+static ssize_t _sde_encoder_misr_set(struct file *file,
+		const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct drm_encoder *drm_enc;
+	int i = 0;
+	char buf[10];
+	u32 enable, frame_count;
+
+	drm_enc = file->private_data;
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0; /* end of string */
+
+	if (sscanf(buf, "%u %u", &enable, &frame_count) != 2)
+		return -EFAULT;
+
+	mutex_lock(&sde_enc->enc_lock);
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (!phys || !phys->misr_map || !phys->ops.setup_misr)
+			continue;
+
+		_sde_set_misr_params(phys, enable, frame_count);
+		phys->ops.setup_misr(phys, phys->misr_map);
+	}
+	mutex_unlock(&sde_enc->enc_lock);
+	return count;
+}
+
+static ssize_t _sde_encoder_misr_read(
+		struct file *file,
+		char __user *buff, size_t count, loff_t *ppos)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct drm_encoder *drm_enc;
+	int i = 0, j = 0, len = 0;
+	char buf[512] = {'\0'};
+
+	if (*ppos)
+		return 0;
+
+	drm_enc = file->private_data;
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	mutex_lock(&sde_enc->enc_lock);
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		struct sde_misr_params *misr_map;
+
+		if (!phys || !phys->misr_map)
+			continue;
+
+		misr_map = phys->misr_map;
+
+		len += snprintf(buf+len, sizeof(buf), "INTF%d\n", i);
+		for (j = 0; j < SDE_CRC_BATCH_SIZE; j++)
+			len += snprintf(buf+len, sizeof(buf), "%x\n",
+						misr_map->crc_value[j]);
+	}
+
+	if (len < 0 || len >= sizeof(buf))
+		return 0;
+
+	if ((count < sizeof(buf)) || copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;   /* increase offset */
+	mutex_unlock(&sde_enc->enc_lock);
+
+	return len;
+}
+
 static void _sde_encoder_init_debugfs(struct drm_encoder *drm_enc,
 	struct sde_encoder_virt *sde_enc, struct sde_kms *sde_kms)
 {
@@ -857,6 +959,13 @@ static void _sde_encoder_init_debugfs(struct drm_encoder *drm_enc,
 		.llseek =	seq_lseek,
 		.release =	single_release,
 	};
+
+	static const struct file_operations debugfs_misr_fops = {
+		.open = simple_open,
+		.read = _sde_encoder_misr_read,
+		.write = _sde_encoder_misr_set,
+	};
+
 	char name[SDE_NAME_SIZE];
 
 	if (!drm_enc || !sde_enc || !sde_kms) {
@@ -873,6 +982,10 @@ static void _sde_encoder_init_debugfs(struct drm_encoder *drm_enc,
 		/* don't error check these */
 		debugfs_create_file("status", S_IRUGO | S_IWUSR,
 			sde_enc->debugfs_root, sde_enc, &debugfs_status_fops);
+
+		debugfs_create_file("misr_data", S_IRUGO | S_IWUSR,
+			sde_enc->debugfs_root, drm_enc, &debugfs_misr_fops);
+
 	}
 }
 
@@ -1136,6 +1249,10 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_enc)
 			if (ret)
 				return ret;
 		}
+
+		if (phys && phys->ops.collect_misr)
+			if (phys->misr_map && phys->misr_map->enable)
+				phys->ops.collect_misr(phys, phys->misr_map);
 	}
 
 	return ret;

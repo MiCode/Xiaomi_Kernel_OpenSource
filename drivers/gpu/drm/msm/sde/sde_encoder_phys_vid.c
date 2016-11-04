@@ -743,6 +743,26 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 	}
 }
 
+static void sde_encoder_phys_vid_setup_misr(struct sde_encoder_phys *phys_enc,
+			struct sde_misr_params *misr_map)
+{
+	struct sde_encoder_phys_vid *vid_enc =
+		to_sde_encoder_phys_vid(phys_enc);
+
+	if (vid_enc && vid_enc->hw_intf && vid_enc->hw_intf->ops.setup_misr)
+		vid_enc->hw_intf->ops.setup_misr(vid_enc->hw_intf, misr_map);
+}
+
+static void sde_encoder_phys_vid_collect_misr(struct sde_encoder_phys *phys_enc,
+			struct sde_misr_params *misr_map)
+{
+	struct sde_encoder_phys_vid *vid_enc =
+			to_sde_encoder_phys_vid(phys_enc);
+
+	if (vid_enc && vid_enc->hw_intf && vid_enc->hw_intf->ops.collect_misr)
+		vid_enc->hw_intf->ops.collect_misr(vid_enc->hw_intf, misr_map);
+}
+
 static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 {
 	ops->is_master = sde_encoder_phys_vid_is_master;
@@ -757,6 +777,8 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->prepare_for_kickoff = sde_encoder_phys_vid_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
 	ops->needs_split_flush = sde_encoder_phys_vid_needs_split_flush;
+	ops->setup_misr = sde_encoder_phys_vid_setup_misr;
+	ops->collect_misr = sde_encoder_phys_vid_collect_misr;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(
@@ -810,6 +832,11 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 		SDE_ERROR("failed to get hw_intf\n");
 		goto fail;
 	}
+
+	phys_enc->misr_map = kzalloc(sizeof(struct sde_misr_params),
+						GFP_KERNEL);
+	if (!phys_enc->misr_map)
+		SDE_ERROR("sde misr map allocation failed\n");
 
 	SDE_DEBUG_VIDENC(vid_enc, "\n");
 
