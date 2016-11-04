@@ -405,7 +405,7 @@ int dwc3_event_buffers_setup(struct dwc3 *dwc)
 
 	evt = dwc->ev_buf;
 	dwc3_trace(trace_dwc3_core,
-			"Event buf %p dma %08llx length %d\n",
+			"Event buf %pK dma %08llx length %d\n",
 			evt->buf, (unsigned long long) evt->dma,
 			evt->length);
 
