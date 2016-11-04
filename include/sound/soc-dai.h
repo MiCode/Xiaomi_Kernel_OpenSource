@@ -269,7 +269,7 @@ struct snd_soc_dai {
 	struct snd_soc_dai_driver *driver;
 
 	/* DAI runtime info */
-	unsigned int capture_active:1;		/* stream is in use */
+	unsigned int capture_active;		/* stream is in use */
 	unsigned int playback_active;		/* stream is in use */
 	unsigned int symmetric_rates:1;
 	unsigned int symmetric_channels:1;
