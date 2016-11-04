@@ -2957,9 +2957,15 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 	pcm->private_free = soc_pcm_private_free;
 	pcm->no_device_suspend = true;
 out:
-	dev_info(rtd->card->dev, "%s <-> %s mapping ok\n",
+#ifdef CONFIG_AUDIO_QGKI
+	dev_dbg(rtd->card->dev, "%s <-> %s mapping ok\n",
 		 (rtd->num_codecs > 1) ? "multicodec" : rtd->codec_dai->name,
 		 cpu_dai->name);
+#else
+	dev_info(rtd->card->dev, "%s <-> %s mapping ok\n",
+		(rtd->num_codecs > 1) ? "multicodec" : rtd->codec_dai->name,
+		cpu_dai->name);
+#endif
 	return ret;
 }
 
