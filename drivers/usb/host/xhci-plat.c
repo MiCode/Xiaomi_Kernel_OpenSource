@@ -197,7 +197,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			goto disable_clk;
 	}
 
-	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
+	ret = usb_add_hcd(hcd, irq, IRQF_SHARED | IRQF_ONESHOT);
 	if (ret)
 		goto disable_clk;
 
