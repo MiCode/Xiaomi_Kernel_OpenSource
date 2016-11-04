@@ -3122,13 +3122,13 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 	unsigned int old = 0, new = 0;
 	struct related_thread_group *grp;
 
+	read_lock(&related_thread_group_lock);
+
 	disable_window_stats();
 
 	reset_all_task_stats();
 
 	local_irq_save(flags);
-
-	read_lock(&related_thread_group_lock);
 
 	for_each_possible_cpu(cpu)
 		raw_spin_lock(&cpu_rq(cpu)->lock);
@@ -3195,9 +3195,9 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 	for_each_possible_cpu(cpu)
 		raw_spin_unlock(&cpu_rq(cpu)->lock);
 
-	read_unlock(&related_thread_group_lock);
-
 	local_irq_restore(flags);
+
+	read_unlock(&related_thread_group_lock);
 
 	trace_sched_reset_all_window_stats(window_start, window_size,
 		sched_ktime_clock() - start_ts, reason, old, new);
