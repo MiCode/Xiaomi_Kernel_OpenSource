@@ -397,6 +397,7 @@ static int smb138x_init_batt_psy(struct smb138x *chip)
  *****************************/
 
 static enum power_supply_property smb138x_parallel_props[] = {
+	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
@@ -417,6 +418,9 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 	u8 temp;
 
 	switch (prop) {
+	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		rc = smblib_get_prop_batt_charge_type(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		rc = smblib_read(chg, BATTERY_CHARGER_STATUS_5_REG,
 				 &temp);
