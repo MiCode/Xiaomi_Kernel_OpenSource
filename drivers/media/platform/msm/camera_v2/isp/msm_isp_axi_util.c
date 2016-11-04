@@ -67,7 +67,7 @@ static int msm_isp_axi_create_stream(struct vfe_device *vfe_dev,
 	} else {
 		/* check if the stream has been added for the vfe-device */
 		if (stream_info->vfe_mask & (1 << vfe_dev->pdev->id)) {
-			pr_err("%s: stream %p/%x is already added for vfe dev %d vfe_mask %x\n",
+			pr_err("%s: stream %pK/%x is already added for vfe dev %d vfe_mask %x\n",
 				__func__, stream_info, stream_info->stream_id,
 				vfe_dev->pdev->id, stream_info->vfe_mask);
 			return -EINVAL;
@@ -1255,7 +1255,7 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	if (vfe_idx == -ENOTTY ||
 		stream_release_cmd->stream_handle !=
 		stream_info->stream_handle[vfe_idx]) {
-		pr_err("%s: Invalid stream %p handle %x/%x vfe_idx %d vfe_dev %d num_isp %d\n",
+		pr_err("%s: Invalid stream %pK handle %x/%x vfe_idx %d vfe_dev %d num_isp %d\n",
 			__func__, stream_info,
 			stream_release_cmd->stream_handle,
 			vfe_idx != -ENOTTY ?
@@ -3483,7 +3483,7 @@ static int msm_isp_stream_axi_cfg_update(struct vfe_device *vfe_dev,
 	if (stream_info->update_vfe_mask) {
 		if (stream_info->update_vfe_mask & (1 << vfe_dev->pdev->id)) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
-			pr_err("%s: Stream %p/%x Update already in progress for vfe %d\n",
+			pr_err("%s: Stream %pK/%x Update already in progress for vfe %d\n",
 				__func__, stream_info, stream_info->stream_src,
 				vfe_dev->pdev->id);
 			return -EINVAL;
