@@ -58,6 +58,10 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.name	= ION_KMALLOC_HEAP_NAME,
 	},
 	{
+		.id	= ION_SECURE_HEAP_ID,
+		.name	= ION_SECURE_HEAP_NAME,
+	},
+	{
 		.id	= ION_CP_MM_HEAP_ID,
 		.name	= ION_MM_HEAP_NAME,
 		.permission_type = IPT_TYPE_MM_CARVEOUT,
@@ -372,6 +376,7 @@ static struct heap_types_info {
 	MAKE_HEAP_TYPE_MAPPING(CARVEOUT),
 	MAKE_HEAP_TYPE_MAPPING(CHUNK),
 	MAKE_HEAP_TYPE_MAPPING(DMA),
+	MAKE_HEAP_TYPE_MAPPING(SYSTEM_SECURE),
 };
 
 static int msm_ion_get_heap_type_from_dt_node(struct device_node *node,
@@ -649,6 +654,11 @@ out:
 	return ret;
 }
 
+int ion_heap_is_system_secure_heap_type(enum ion_heap_type type)
+{
+	return type == ((enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE);
+}
+
 int ion_heap_allow_heap_secure(enum ion_heap_type type)
 {
 	return false;
@@ -880,6 +890,9 @@ static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
 	struct ion_heap *heap = NULL;
 
 	switch ((int)heap_data->type) {
+	case ION_HEAP_TYPE_SYSTEM_SECURE:
+		heap = ion_system_secure_heap_create(heap_data);
+		break;
 	default:
 		heap = ion_heap_create(heap_data);
 	}
@@ -903,9 +916,27 @@ static void msm_ion_heap_destroy(struct ion_heap *heap)
 		return;
 
 	switch ((int)heap->type) {
+	case ION_HEAP_TYPE_SYSTEM_SECURE:
+		ion_system_secure_heap_destroy(heap);
+		break;
 	default:
 		ion_heap_destroy(heap);
 	}
+}
+
+struct ion_heap *get_ion_heap(int heap_id)
+{
+	int i;
+	struct ion_heap *heap;
+
+	for (i = 0; i < num_heaps; i++) {
+		heap = heaps[i];
+		if (heap->id == heap_id)
+			return heap;
+	}
+
+	pr_err("%s: heap_id %d not found\n", __func__, heap_id);
+	return NULL;
 }
 
 static int msm_ion_probe(struct platform_device *pdev)

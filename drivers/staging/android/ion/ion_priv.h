@@ -275,6 +275,7 @@ int ion_heap_buffer_zero(struct ion_buffer *buffer);
 int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot);
 
 int msm_ion_heap_high_order_page_zero(struct page *page, int order);
+struct ion_heap *get_ion_heap(int heap_id);
 int msm_ion_heap_buffer_zero(struct ion_buffer *buffer);
 int msm_ion_heap_pages_zero(struct page **pages, int num_pages);
 int msm_ion_heap_alloc_pages_mem(struct pages_mem *pages_mem);
@@ -283,6 +284,8 @@ void msm_ion_heap_free_pages_mem(struct pages_mem *pages_mem);
 long msm_ion_custom_ioctl(struct ion_client *client,
 			  unsigned int cmd,
 			  unsigned long arg);
+
+int ion_heap_is_system_secure_heap_type(enum ion_heap_type type);
 
 /**
  * ion_heap_init_shrinker
@@ -386,6 +389,9 @@ struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *);
 void ion_chunk_heap_destroy(struct ion_heap *);
 struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *);
 void ion_cma_heap_destroy(struct ion_heap *);
+
+struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *heap);
+void ion_system_secure_heap_destroy(struct ion_heap *heap);
 
 /**
  * kernel api to allocate/free from carveout -- used when carveout is
