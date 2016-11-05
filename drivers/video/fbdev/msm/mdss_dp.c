@@ -1883,8 +1883,13 @@ static void mdss_dp_update_hdcp_info(struct mdss_dp_drv_pdata *dp)
 	}
 
 	/* update internal data about hdcp */
-	dp->hdcp.data = fd;
-	dp->hdcp.ops = ops;
+	if (dp->hdcp.hdcp2_present || dp->hdcp.hdcp1_present) {
+		dp->hdcp.data = fd;
+		dp->hdcp.ops = ops;
+	} else {
+		dp->hdcp.data = NULL;
+		dp->hdcp.ops = NULL;
+	}
 }
 
 static inline bool dp_is_hdcp_enabled(struct mdss_dp_drv_pdata *dp_drv)
