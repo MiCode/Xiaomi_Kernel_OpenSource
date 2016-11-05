@@ -36,6 +36,9 @@
 
 #include "mailbox.h"
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/rpmh.h>
+
 #define MAX_CMDS_PER_TCS		16
 #define MAX_TCS_PER_TYPE		3
 #define MAX_TCS_SLOTS			(MAX_CMDS_PER_TCS * MAX_TCS_PER_TYPE)
@@ -383,6 +386,8 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 			mbox_chan_received_data(resp->chan, resp->msg);
 		}
 
+		trace_rpmh_notify_irq(m, resp->msg->payload[0].addr, resp->err);
+
 		/* Notify the client that this request is completed. */
 		send_tcs_response(resp);
 		irq_clear |= BIT(m);
@@ -397,6 +402,7 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 static inline void mbox_notify_tx_done(struct mbox_chan *chan,
 				struct tcs_mbox_msg *msg, int m, int err)
 {
+	trace_rpmh_notify(m, msg->payload[0].addr, err);
 	mbox_chan_txdone(chan, err);
 }
 
@@ -487,6 +493,8 @@ static void __tcs_buffer_write(void __iomem *base, int d, int m, int n,
 		write_tcs_reg(base, TCS_DRV_CMD_MSGID, m, n + i, cmd_msgid);
 		write_tcs_reg(base, TCS_DRV_CMD_ADDR, m, n + i, cmd->addr);
 		write_tcs_reg(base, TCS_DRV_CMD_DATA, m, n + i, cmd->data);
+		trace_rpmh_send_msg(base, m, n + i,
+				cmd_msgid, cmd->addr, cmd->data, cmd->complete);
 	}
 
 	/* Write the send-after-prev completion bits for the batch */
@@ -830,6 +838,7 @@ static void __tcs_write_hidden(void *base, int d, struct tcs_mbox_msg *msg)
 		/* Only data is write capable */
 		writel_relaxed(cpu_to_le32(msg->payload[i].data),
 							addr + offset);
+		trace_rpmh_control_msg(addr + offset, msg->payload[i].data);
 		addr += TCS_HIDDEN_CMD_SHIFT;
 	}
 }
