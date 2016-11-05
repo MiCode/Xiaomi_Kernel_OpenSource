@@ -490,8 +490,14 @@ u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp)
 	pin_cfg = dp->alt_mode.dp_cap.dlink_pin_config;
 
 	for (pin = PIN_ASSIGNMENT_A; pin < PIN_ASSIGNMENT_MAX; pin++) {
-		if (pin_cfg & BIT(pin))
-			break;
+		if (pin_cfg & BIT(pin)) {
+			if (dp->alt_mode.dp_status.multi_func) {
+				if (pin == PIN_ASSIGNMENT_D)
+					break;
+			} else {
+				break;
+			}
+		}
 	}
 
 	if (pin == PIN_ASSIGNMENT_MAX)
