@@ -412,6 +412,17 @@ static struct usbpd_svid_handler *find_svid_handler(struct usbpd *pd, u16 svid)
 	return NULL;
 }
 
+/* Reset protocol layer */
+static inline void pd_reset_protocol(struct usbpd *pd)
+{
+	/*
+	 * first Rx ID should be 0; set this to a sentinel of -1 so that in
+	 * phy_msg_received() we can check if we had seen it before.
+	 */
+	pd->rx_msgid = -1;
+	pd->tx_msgid = 0;
+}
+
 static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
 		size_t num_data, enum pd_msg_type type)
 {
@@ -654,7 +665,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &val);
 
-		pd->rx_msgid = -1;
+		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
 			if (pd->pd_phy_opened) {
@@ -771,9 +782,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SRC_SEND_SOFT_RESET:
 	case PE_SNK_SEND_SOFT_RESET:
-		/* Reset protocol layer */
-		pd->tx_msgid = 0;
-		pd->rx_msgid = -1;
+		pd_reset_protocol(pd);
 
 		ret = pd_send_msg(pd, MSG_SOFT_RESET, NULL, 0, SOP_MSG);
 		if (ret) {
@@ -815,9 +824,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		if (!val.intval)
 			break;
 
-		/* Reset protocol layer */
-		pd->tx_msgid = 0;
-		pd->rx_msgid = -1;
+		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
 			if (pd->pd_phy_opened) {
@@ -1894,9 +1901,7 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SRC_SOFT_RESET:
 	case PE_SNK_SOFT_RESET:
-		/* Reset protocol layer */
-		pd->tx_msgid = 0;
-		pd->rx_msgid = -1;
+		pd_reset_protocol(pd);
 
 		ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 		if (ret) {
