@@ -1,7 +1,8 @@
 /*
- * drivers/staging/android/ion/ion_mem_pool.c
+ * drivers/staging/android/ion/ion_page_pool.c
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -22,19 +23,33 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/swap.h>
+#include <linux/vmalloc.h>
 #include "ion_priv.h"
 
 static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 {
-	struct page *page = alloc_pages(pool->gfp_mask, pool->order);
+	struct page *page;
+
+	page = alloc_pages(pool->gfp_mask & ~__GFP_ZERO, pool->order);
 
 	if (!page)
 		return NULL;
+
 	ion_page_pool_alloc_set_cache_policy(pool, page);
 
+/* TODO QCOM - Identify if this sync is needed */
 	ion_pages_sync_for_device(NULL, page, PAGE_SIZE << pool->order,
 				  DMA_BIDIRECTIONAL);
+
+	if (pool->gfp_mask & __GFP_ZERO) {
+		if (msm_ion_heap_high_order_page_zero(page, pool->order))
+			goto error_free_pages;
+	}
+
 	return page;
+error_free_pages:
+	__free_pages(page, pool->order);
+	return NULL;
 }
 
 static void ion_page_pool_free_pages(struct ion_page_pool *pool,
@@ -76,22 +91,25 @@ static struct page *ion_page_pool_remove(struct ion_page_pool *pool, bool high)
 	return page;
 }
 
-struct page *ion_page_pool_alloc(struct ion_page_pool *pool)
+void *ion_page_pool_alloc(struct ion_page_pool *pool, bool *from_pool)
 {
 	struct page *page = NULL;
 
 	BUG_ON(!pool);
 
-	mutex_lock(&pool->mutex);
-	if (pool->high_count)
-		page = ion_page_pool_remove(pool, true);
-	else if (pool->low_count)
-		page = ion_page_pool_remove(pool, false);
-	mutex_unlock(&pool->mutex);
+	*from_pool = true;
 
-	if (!page)
+	if (mutex_trylock(&pool->mutex)) {
+		if (pool->high_count)
+			page = ion_page_pool_remove(pool, true);
+		else if (pool->low_count)
+			page = ion_page_pool_remove(pool, false);
+		mutex_unlock(&pool->mutex);
+	}
+	if (!page) {
 		page = ion_page_pool_alloc_pages(pool);
-
+		*from_pool = false;
+	}
 	return page;
 }
 
