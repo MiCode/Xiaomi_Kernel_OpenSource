@@ -215,46 +215,46 @@
 			reg = <0 0x85800000 0 0x3700000>;
 		};
 
-		pil_spss_mem: spss_region@8ab00000 {
+		pil_camera_mem: camera_region@8ab00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8ab00000 0 0x700000>;
+			reg = <0 0x8ab00000 0 0x500000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@8b200000 {
+		pil_modem_mem: modem_region@8b000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8b200000 0 0x1a00000>;
+			reg = <0 0x8b000000 0 0x6e00000>;
 		};
 
-		pil_modem_mem: modem_region@8cc00000 {
+		pil_video_mem: pil_video_region@91e00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8cc00000 0 0x6e00000>;
+			reg = <0 0x91e00000 0 0x500000>;
 		};
 
-		pil_video_mem: pil_video_region@93a00000 {
+		pil_cdsp_mem: cdsp_regions@92300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93a00000 0 0x500000>;
+			reg = <0 0x92300000 0 0x800000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@93f00000 {
+		pil_adsp_mem: pil_adsp_region@92b00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93f00000 0 0xf00000>;
+			reg = <0 0x92b00000 0 0x1a00000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@94e00000 {
+		pil_slpi_mem: pil_slpi_region@94500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x94e00000 0 0x800000>;
+			reg = <0 0x94500000 0 0xf00000>;
 		};
 
-		pil_camera_mem: camera_region@95600000 {
+		pil_spss_mem: spss_region@95400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95600000 0 0x500000>;
+			reg = <0 0x95400000 0 0x700000>;
 		};
 
 		adsp_mem: adsp_region {
