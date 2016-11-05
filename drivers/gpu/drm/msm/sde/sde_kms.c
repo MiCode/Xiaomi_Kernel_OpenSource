@@ -189,6 +189,13 @@ static int sde_debugfs_init(struct sde_kms *sde_kms)
 	/* allow debugfs_root to be NULL */
 	debugfs_create_x32(SDE_DEBUGFS_HWMASKNAME,
 			0644, sde_kms->debugfs_root, p);
+
+	/* create common folder for debug information */
+	sde_kms->debugfs_debug = debugfs_create_dir("debug",
+			sde_kms->debugfs_root);
+	if (!sde_kms->debugfs_debug)
+		SDE_ERROR("failed to create debugfs debug directory\n");
+
 	return 0;
 }
 
@@ -196,6 +203,8 @@ static void sde_debugfs_destroy(struct sde_kms *sde_kms)
 {
 	/* don't need to NULL check debugfs_root */
 	if (sde_kms) {
+		debugfs_remove_recursive(sde_kms->debugfs_debug);
+		sde_kms->debugfs_debug = 0;
 		debugfs_remove_recursive(sde_kms->debugfs_root);
 		sde_kms->debugfs_root = 0;
 	}
