@@ -203,6 +203,23 @@ int cnss_get_platform_cap(struct cnss_platform_cap *cap)
 }
 EXPORT_SYMBOL(cnss_get_platform_cap);
 
+int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
+{
+	int ret = 0;
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	void *bus_priv = cnss_bus_dev_to_bus_priv(dev);
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	ret = cnss_pci_get_bar_info(bus_priv, &info->va, &info->pa);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_soc_info);
+
 void cnss_set_driver_status(enum cnss_driver_status driver_status)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);

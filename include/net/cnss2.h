@@ -16,6 +16,7 @@
 #include <linux/pci.h>
 
 #define CNSS_MAX_FILE_NAME		20
+#define CNSS_MAX_TIMESTAMP_LEN		32
 
 enum cnss_bus_width_type {
 	CNSS_BUS_WIDTH_NONE,
@@ -41,6 +42,17 @@ struct cnss_fw_files {
 	char utf_board_data[CNSS_MAX_FILE_NAME];
 	char epping_file[CNSS_MAX_FILE_NAME];
 	char evicted_data[CNSS_MAX_FILE_NAME];
+};
+
+struct cnss_soc_info {
+	void __iomem *va;
+	phys_addr_t pa;
+	uint32_t chip_id;
+	uint32_t chip_family;
+	uint32_t board_id;
+	uint32_t soc_id;
+	uint32_t fw_version;
+	char fw_build_timestamp[CNSS_MAX_TIMESTAMP_LEN + 1];
 };
 
 struct cnss_wlan_runtime_ops {
@@ -78,6 +90,7 @@ extern void *cnss_get_virt_ramdump_mem(unsigned long *size);
 extern int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 					u32 target_type, u32 target_version);
 extern int cnss_get_platform_cap(struct cnss_platform_cap *cap);
+extern int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info);
 extern void cnss_set_driver_status(enum cnss_driver_status driver_status);
 extern int cnss_request_bus_bandwidth(int bandwidth);
 extern int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count);

@@ -570,6 +570,18 @@ out:
 }
 EXPORT_SYMBOL(cnss_auto_resume);
 
+int cnss_pci_get_bar_info(struct cnss_pci_data *pci_priv, void __iomem **va,
+			  phys_addr_t *pa)
+{
+	if (!pci_priv)
+		return -ENODEV;
+
+	*va = pci_priv->bar;
+	*pa = pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM);
+
+	return 0;
+}
+
 #ifdef CONFIG_CNSS_QCA6290
 #define PCI_MAX_BAR_SIZE		0xD00000
 
