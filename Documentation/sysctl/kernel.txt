@@ -60,6 +60,7 @@ show up in /proc/sys/kernel:
 - panic_on_stackoverflow
 - panic_on_unrecovered_nmi
 - panic_on_warn
+- perf_cpu_time_max_percent
 - perf_event_paranoid
 - pid_max
 - powersave-nap               [ PPC only ]
