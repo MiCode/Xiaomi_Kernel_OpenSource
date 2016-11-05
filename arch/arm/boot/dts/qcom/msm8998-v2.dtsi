@@ -510,7 +510,7 @@
 &apc1_cpr {
 	compatible = "qcom,cprh-msm8998-v2-kbss-regulator";
 	qcom,cpr-corner-switch-delay-time = <1042>;
-	qcom,cpr-aging-ref-voltage = <1056000>;
+	qcom,cpr-aging-ref-voltage = <1136000>;
 };
 
 &apc1_perfcl_vreg {
@@ -858,7 +858,7 @@
 &soc {
 	/* Gold L2 SAW */
 	qcom,spm@178120000 {
-		qcom,saw2-avs-limit = <0x4200420>;
+		qcom,saw2-avs-limit = <0x4700470>;
 	};
 
 	/* Silver L2 SAW */
