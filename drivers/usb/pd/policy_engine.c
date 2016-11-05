@@ -1039,23 +1039,23 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		return;
 	}
 
-	if (handler && handler->svdm_received)
-		handler->svdm_received(handler, cmd, cmd_type, vdos, num_vdos);
+	/* if this interrupts a previous exchange, abort queued response */
+	if (cmd_type == SVDM_CMD_TYPE_INITIATOR && pd->vdm_tx) {
+		usbpd_dbg(&pd->dev, "Discarding previously queued SVDM tx (SVID:0x%04x)\n",
+				VDM_HDR_SVID(pd->vdm_tx->data[0]));
 
+		kfree(pd->vdm_tx);
+		pd->vdm_tx = NULL;
+	}
+
+	if (handler && handler->svdm_received) {
+		handler->svdm_received(handler, cmd, cmd_type, vdos, num_vdos);
+		return;
+	}
+
+	/* Standard Discovery or unhandled messages go here */
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
-		/*
-		 * if this interrupts a previous exchange, abort the previous
-		 * outgoing response
-		 */
-		if (pd->vdm_tx) {
-			usbpd_dbg(&pd->dev, "Discarding previously queued SVDM tx (SVID:0x%04x)\n",
-					VDM_HDR_SVID(pd->vdm_tx->data[0]));
-
-			kfree(pd->vdm_tx);
-			pd->vdm_tx = NULL;
-		}
-
 		if (svid == USBPD_SID && cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
 			u32 tx_vdos[3] = {
 				ID_HDR_USB_HOST | ID_HDR_USB_DEVICE |
@@ -1074,13 +1074,14 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		break;
 
 	case SVDM_CMD_TYPE_RESP_ACK:
+		if (svid != USBPD_SID) {
+			usbpd_err(&pd->dev, "unhandled ACK for SVID:0x%x\n",
+					svid);
+			break;
+		}
+
 		switch (cmd) {
 		case USBPD_SVDM_DISCOVER_IDENTITY:
-			if (svid != USBPD_SID) {
-				usbpd_err(&pd->dev, "invalid VID:0x%x\n", svid);
-				break;
-			}
-
 			kfree(pd->vdm_tx_retry);
 			pd->vdm_tx_retry = NULL;
 
@@ -1091,11 +1092,6 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 			break;
 
 		case USBPD_SVDM_DISCOVER_SVIDS:
-			if (svid != USBPD_SID) {
-				usbpd_err(&pd->dev, "invalid VID:0x%x\n", svid);
-				break;
-			}
-
 			pd->vdm_state = DISCOVERED_SVIDS;
 
 			kfree(pd->vdm_tx_retry);
@@ -1181,33 +1177,15 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 
 			break;
 
-		case USBPD_SVDM_DISCOVER_MODES:
-			usbpd_info(&pd->dev, "SVID:0x%04x VDM Modes discovered\n",
-					svid);
-			pd->vdm_state = DISCOVERED_MODES;
-			break;
-
-		case USBPD_SVDM_ENTER_MODE:
-			usbpd_info(&pd->dev, "SVID:0x%04x VDM Mode entered\n",
-					svid);
-			pd->vdm_state = MODE_ENTERED;
-			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-			break;
-
-		case USBPD_SVDM_EXIT_MODE:
-			usbpd_info(&pd->dev, "SVID:0x%04x VDM Mode exited\n",
-					svid);
-			pd->vdm_state = MODE_EXITED;
-			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-			break;
-
 		default:
+			usbpd_dbg(&pd->dev, "unhandled ACK for command:0x%x\n",
+					cmd);
 			break;
 		}
 		break;
 
 	case SVDM_CMD_TYPE_RESP_NAK:
-		usbpd_info(&pd->dev, "VDM NAK received for SVID:0x%04x command:%d\n",
+		usbpd_info(&pd->dev, "VDM NAK received for SVID:0x%04x command:0x%x\n",
 				svid, cmd);
 		break;
 
