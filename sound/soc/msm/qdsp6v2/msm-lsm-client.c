@@ -42,6 +42,12 @@
 #define LAB_BUFFER_ALLOC 1
 #define LAB_BUFFER_DEALLOC 0
 
+/*
+ * Driver ioctl will parse only so many params
+ * size of LSM_PARAMS_MAX is last LSM_PARAM_TYPE + 1
+ */
+#define LSM_PARAMS_MAX (LSM_POLLING_ENABLE + 1)
+
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
 				SNDRV_PCM_INFO_BLOCK_TRANSFER |
