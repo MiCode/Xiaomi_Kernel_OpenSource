@@ -25,5 +25,13 @@
 			<1 11 0xf08>;
 		clock-frequency = <19200000>;
 	};
+
+};
+
+&soc {
+	ipa_hw: qcom,ipa@07B00000 {
+		qcom,ipa-hw-ver = <12>; /* IPA core version = IPAv3.5 */
+		/delete-property/qcom,use-rg10-limitation-mitigation;
+	};
 };
 
