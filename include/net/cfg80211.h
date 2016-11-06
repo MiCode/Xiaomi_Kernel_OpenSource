@@ -71,6 +71,7 @@ struct wiphy;
 #define CFG80211_DISCONNECTED_V2 1
 #define CFG80211_CONNECT_TIMEOUT 1
 #define CFG80211_INFORM_BSS_FRAME_DATA 1
+#define CFG80211_SCAN_RANDOM_MAC_ADDR 1
 
 /*
  * wireless hardware capability structures
