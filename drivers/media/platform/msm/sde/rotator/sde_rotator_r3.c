@@ -2013,15 +2013,18 @@ static int sde_hw_rotator_validate_entry(struct sde_rot_mgr *mgr,
 		}
 	}
 
-	fmt = sde_get_format_params(item->output.format);
-	/* Tiled format downscale support not applied to AYUV tiled */
-	if (sde_mdp_is_tilea5x_format(fmt) && (entry->dnsc_factor_h > 4)) {
-		SDEROT_DBG("max downscale for tiled format is 4\n");
+	fmt = sde_get_format_params(item->input.format);
+	/*
+	 * Rotator downscale support max 4 times for UBWC format and
+	 * max 2 times for TP10/TP10_UBWC format
+	 */
+	if (sde_mdp_is_ubwc_format(fmt) && (entry->dnsc_factor_h > 4)) {
+		SDEROT_DBG("max downscale for UBWC format is 4\n");
 		ret = -EINVAL;
 		goto dnsc_err;
 	}
-	if (sde_mdp_is_ubwc_format(fmt)	&& (entry->dnsc_factor_h > 2)) {
-		SDEROT_DBG("downscale with ubwc cannot be more than 2\n");
+	if (sde_mdp_is_tp10_format(fmt) && (entry->dnsc_factor_h > 2)) {
+		SDEROT_DBG("downscale with TP10 cannot be more than 2\n");
 		ret = -EINVAL;
 	}
 	goto dnsc_err;
@@ -2076,6 +2079,7 @@ static ssize_t sde_hw_rotator_show_caps(struct sde_rot_mgr *mgr,
 		struct device_attribute *attr, char *buf, ssize_t len)
 {
 	struct sde_hw_rotator *hw_data;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	int cnt = 0;
 
 	if (!mgr || !buf)
@@ -2087,6 +2091,10 @@ static ssize_t sde_hw_rotator_show_caps(struct sde_rot_mgr *mgr,
 		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
 
 	/* insert capabilities here */
+	if (test_bit(SDE_CAPS_R3_1P5_DOWNSCALE, mdata->sde_caps_map))
+		SPRINT("min_downscale=1.5\n");
+	else
+		SPRINT("min_downscale=2.0\n");
 
 #undef SPRINT
 	return cnt;
