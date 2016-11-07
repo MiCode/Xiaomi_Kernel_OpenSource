@@ -1,0 +1,365 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* Stub regulators */
+
+/ {
+	/* PMFALCON S1 - VDD_APC0 supply */
+	pmfalcon_s1a: regulator-pmfalcon-s1a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s1a";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <565000>;
+		regulator-max-microvolt = <1170000>;
+	};
+
+	/* PMFALCON S2 + S3 = VDD_APC1 supply */
+	pmfalcon_s2a: regulator-pmfalcon-s2a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s2a";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <565000>;
+		regulator-max-microvolt = <1170000>;
+	};
+
+	pmfalcon_s4a: regulator-pmfalcon-s4a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s4a";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1805000>;
+		regulator-max-microvolt = <2040000>;
+	};
+
+	pmfalcon_s5a: regulator-pmfalcon-s5a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s5a";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1350000>;
+		regulator-max-microvolt = <1350000>;
+	};
+
+	pmfalcon_s6a: regulator-pmfalcon-s6a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s6a";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <504000>;
+		regulator-max-microvolt = <992000>;
+	};
+
+	pmfalcon_s1b: regulator-pmfalcon-s1b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s1b";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1125000>;
+		regulator-max-microvolt = <1125000>;
+	};
+
+	pmfalcon_s2b: regulator-pmfalcon-s2b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s2b";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
+	};
+
+	/* PMFALCON S3 + S4 - VDD_CX supply */
+	pmfalcon_s3b_level: regulator-pmfalcon-s3b-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s3b_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmfalcon_s3b_floor_level: regulator-pmfalcon-s3b-floor-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s3b_floor_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmfalcon_s3b_level_ao: regulator-pmfalcon-s3b-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s3b_level_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	/* PMFALCON S5 - VDD_MX supply */
+	pmfalcon_s5b_level: regulator-pmfalcon-s5b-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s5b_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmfalcon_s5b_floor_level: regulator-pmfalcon-s5b-floor-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s5b_floor_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmfalcon_s5b_level_ao: regulator-pmfalcon-s5b-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_s5b_level_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmfalcon_l1a: regulator-pmfalcon-l1a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l1a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1150000>;
+		regulator-max-microvolt = <1250000>;
+	};
+
+	pmfalcon_l2a: regulator-pmfalcon-l2a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l2a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <950000>;
+		regulator-max-microvolt = <1010000>;
+	};
+
+	pmfalcon_l3a: regulator-pmfalcon-l3a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l3a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <950000>;
+		regulator-max-microvolt = <1010000>;
+	};
+
+	/* TODO: remove if ADRASTEA CX/MX not voted from APPS */
+	pmfalcon_l5a: regulator-pmfalcon-l5a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l5a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <525000>;
+		regulator-max-microvolt = <950000>;
+	};
+
+	pmfalcon_l6a: regulator-pmfalcon-l6a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l6a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1370000>;
+	};
+
+	pmfalcon_l7a: regulator-pmfalcon-l7a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l7a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	pmfalcon_l8a: regulator-pmfalcon-l8a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l8a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1750000>;
+		regulator-max-microvolt = <1900000>;
+	};
+
+	pmfalcon_l9a: regulator-pmfalcon-l9a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l9a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1750000>;
+		regulator-max-microvolt = <1900000>;
+	};
+
+	pmfalcon_l10a: regulator-pmfalcon-l10a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l10a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1780000>;
+		regulator-max-microvolt = <1950000>;
+	};
+
+	pmfalcon_l11a: regulator-pmfalcon-l11a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l11a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1780000>;
+		regulator-max-microvolt = <1950000>;
+	};
+
+	pmfalcon_l12a: regulator-pmfalcon-l12a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l12a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1780000>;
+		regulator-max-microvolt = <1950000>;
+	};
+
+	pmfalcon_l13a: regulator-pmfalcon-l13a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l13a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1750000>;
+		regulator-max-microvolt = <1950000>;
+	};
+
+	pmfalcon_l14a: regulator-pmfalcon-l14a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l14a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1710000>;
+		regulator-max-microvolt = <1900000>;
+	};
+
+	pmfalcon_l15a: regulator-pmfalcon-l15a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l15a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1650000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
+	pmfalcon_l17a: regulator-pmfalcon-l17a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l17a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1650000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
+	pmfalcon_l19a: regulator-pmfalcon-l19a {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l19a";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3200000>;
+		regulator-max-microvolt = <3400000>;
+	};
+
+	pmfalcon_l1b: regulator-pmfalcon-l1b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l1b";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <925000>;
+	};
+
+	pmfalcon_l2b: regulator-pmfalcon-l2b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l2b";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <350000>;
+		regulator-max-microvolt = <3100000>;
+	};
+
+	pmfalcon_l3b: regulator-pmfalcon-l3b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l3b";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1710000>;
+		regulator-max-microvolt = <3600000>;
+	};
+
+	pmfalcon_l4b: regulator-pmfalcon-l4b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l4b";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1700000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
+	pmfalcon_l5b: regulator-pmfalcon-l5b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l5b";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1721000>;
+		regulator-max-microvolt = <3600000>;
+	};
+
+	pmfalcon_l6b: regulator-pmfalcon-l6b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l6b";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <1700000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	pmfalcon_l7b: regulator-pmfalcon-l7b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l7b";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2700000>;
+		regulator-max-microvolt = <3125000>;
+	};
+
+	pmfalcon_l8b: regulator-pmfalcon-l8b {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l8b";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3200000>;
+		regulator-max-microvolt = <3400000>;
+	};
+
+	/* PMFALCON L9 = VDD_SSC_CX supply */
+	pmfalcon_l9b_level: regulator-pmfalcon-l9b-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l9b_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmfalcon_l9b_floor_level: regulator-pmfalcon-l9b-floor-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l9b_floor_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	/* PMFALCON L10 = VDD_SSC_MX supply */
+	pmfalcon_l10b_level: regulator-pmfalcon-l10b-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l10b_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmfalcon_l10b_floor_level: regulator-pmfalcon-l10b-floor-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_l10b_floor_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmfalcon_bobb: regulator-pmfalcon-bob {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmfalcon_bob";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	/* GFX Supply */
+	gfx_vreg_corner: regulator-gfx-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "gfx_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+};
