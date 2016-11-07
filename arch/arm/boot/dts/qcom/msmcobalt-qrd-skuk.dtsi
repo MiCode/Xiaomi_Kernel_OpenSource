@@ -194,3 +194,15 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+/{
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+
+		#include "batterydata-qrd-skuk-4v4-3000mah.dtsi"
+	};
+};
+
+&pmicobalt_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+};
