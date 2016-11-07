@@ -2014,6 +2014,45 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 				"Couldn't enable vconn on CC line rc=%d\n", rc);
 			return rc;
 		}
+
+		rc = vote(chg->usb_icl_votable, PD_VOTER, true, USBIN_500MA);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
+				USBIN_MODE_CHG_BIT, USBIN_MODE_CHG_BIT);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't change USB mode rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, CMD_APSD_REG,
+				ICL_OVERRIDE_BIT, ICL_OVERRIDE_BIT);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't override APSD rc=%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = smblib_masked_write(chg, CMD_APSD_REG,
+				ICL_OVERRIDE_BIT, 0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't override APSD rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
+				USBIN_MODE_CHG_BIT, 0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't change USB mode rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* CC pin selection s/w override in PD session; h/w otherwise. */
