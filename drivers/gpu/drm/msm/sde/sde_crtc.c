@@ -179,7 +179,7 @@ static u32 blend_config_per_mixer(struct drm_crtc *crtc,
 	struct sde_hw_mixer *lm = mixer->hw_lm;
 
 	u32 flush_mask = 0, crtc_split_width;
-	bool is_right_lm = 0;
+	bool dual_pipe = false;
 
 	mode = &crtc->state->adjusted_mode;
 	crtc_split_width = sde_crtc_mixer_width(sde_crtc, mode);
@@ -190,23 +190,17 @@ static u32 blend_config_per_mixer(struct drm_crtc *crtc,
 		 * Always program right lm first if in dual mixer mode,
 		 * it could be overwrote later.
 		 */
-		if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
+		dual_pipe = (sde_crtc->num_mixers == CRTC_DUAL_MIXERS) ||
+				(sde_plane_num_of_phy_pipe(plane) > 1);
+		if (dual_pipe)
 			sde_crtc->stage_cfg.stage[pstate->stage][1] =
 				sde_plane_pipe(plane, 1);
-		is_right_lm = plane->state->crtc_x >= crtc_split_width ?
-						true : false;
-		sde_crtc->stage_cfg.stage[pstate->stage][is_right_lm] =
-			sde_plane_pipe(plane, is_right_lm ? 1 : 0);
-
-		/* stage layer on right lm if it crosses the boundary */
-		if (plane->state->crtc_x + plane->state->crtc_w >
-							crtc_split_width)
-			sde_crtc->stage_cfg.stage[pstate->stage][is_right_lm] =
-				sde_plane_pipe(plane, is_right_lm ? 1 : 0);
+		sde_crtc->stage_cfg.stage[pstate->stage][0] =
+			sde_plane_pipe(plane, 0);
 
 		SDE_DEBUG("crtc_id %d pipe %d at stage %d\n",
 			crtc->base.id,
-			sde_plane_pipe(plane, is_right_lm ? 1 : 0),
+			sde_plane_pipe(plane, 0),
 			pstate->stage);
 
 		/**
@@ -214,11 +208,11 @@ static u32 blend_config_per_mixer(struct drm_crtc *crtc,
 		 * sourcesplit is always enabled, so this layer will
 		 * be staged on both the mixers
 		 */
-		if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS)
+		if (dual_pipe)
 			ctl->ops.get_bitmask_sspp(ctl, &flush_mask,
 					sde_plane_pipe(plane, 1));
 		ctl->ops.get_bitmask_sspp(ctl, &flush_mask,
-				sde_plane_pipe(plane, is_right_lm ? 1 : 0));
+				sde_plane_pipe(plane, 0));
 
 		/* blend config */
 		sde_crtc_get_blend_cfg(&blend, pstate);

@@ -602,8 +602,13 @@
 	/delete-property/ qcom,dsi-display-active;
 };
 
+&hdmi_display {
+	qcom,display-type = "primary";
+};
+
 &dsi_adv_7533_1 {
 	qcom,dsi-display-active;
+	qcom,display-type = "secondary";
 
 	qcom,panel-supply-entries {
 		#address-cells = <1>;
