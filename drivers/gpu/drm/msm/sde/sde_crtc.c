@@ -29,6 +29,7 @@
 #include "sde_encoder.h"
 #include "sde_connector.h"
 #include "sde_power_handle.h"
+#include "sde_core_perf.h"
 
 /* default input fence timeout, in ms */
 #define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
@@ -445,6 +446,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			SDE_EVT32(DRMID(crtc), fevent->event, 1);
 			sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
 					sde_kms->core_client, false);
+			sde_core_perf_crtc_release_bw(crtc);
 		} else {
 			SDE_EVT32(DRMID(crtc), fevent->event, 2);
 		}
@@ -765,6 +767,9 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	/* wait for acquire fences before anything else is done */
 	_sde_crtc_wait_for_fences(crtc);
 
+	/* update performance setting before crtc kickoff */
+	sde_core_perf_crtc_update(crtc, 1, false);
+
 	/*
 	 * Final plane updates: Give each plane a chance to complete all
 	 *                      required writes/flushing before crtc's "flush
@@ -970,8 +975,11 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		SDE_EVT32(DRMID(crtc));
 		sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
 				sde_kms->core_client, false);
+		sde_core_perf_crtc_release_bw(crtc);
 		atomic_set(&sde_crtc->frame_pending, 0);
 	}
+
+	sde_core_perf_crtc_update(crtc, 0, true);
 
 	drm_for_each_encoder(encoder, crtc->dev) {
 		if (encoder->crtc != crtc)
@@ -1160,6 +1168,13 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		SDE_DEBUG("%s: zpos %d", sde_crtc->name, z_pos);
 	}
 
+	rc = sde_core_perf_crtc_check(crtc, state);
+	if (rc) {
+		SDE_ERROR("crtc%d failed performance check %d\n",
+				crtc->base.id, rc);
+		goto end;
+	}
+
 end:
 	return rc;
 }
@@ -1220,6 +1235,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct drm_device *dev;
 	struct sde_kms_info *info;
+	struct sde_kms *sde_kms;
 
 	SDE_DEBUG("\n");
 
@@ -1230,6 +1246,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
+	sde_kms = _sde_crtc_get_kms(crtc);
 
 	info = kzalloc(sizeof(struct sde_kms_info), GFP_KERNEL);
 	if (!info) {
@@ -1248,6 +1265,19 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	msm_property_install_range(&sde_crtc->property_info,
 			"output_fence_offset", 0x0, 0, 1, 0,
 			CRTC_PROP_OUTPUT_FENCE_OFFSET);
+
+	msm_property_install_range(&sde_crtc->property_info,
+			"core_clk", 0x0, 0, U64_MAX,
+			sde_kms->perf.max_core_clk_rate,
+			CRTC_PROP_CORE_CLK);
+	msm_property_install_range(&sde_crtc->property_info,
+			"core_ab", 0x0, 0, U64_MAX,
+			SDE_POWER_HANDLE_DATA_BUS_AB_QUOTA,
+			CRTC_PROP_CORE_AB);
+	msm_property_install_range(&sde_crtc->property_info,
+			"core_ib", 0x0, 0, U64_MAX,
+			SDE_POWER_HANDLE_DATA_BUS_IB_QUOTA,
+			CRTC_PROP_CORE_IB);
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
@@ -1545,6 +1575,10 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 	seq_printf(s, "num_connectors: %d\n", cstate->num_connectors);
 	seq_printf(s, "is_rt: %d\n", cstate->is_rt);
 	seq_printf(s, "intf_mode: %d\n", cstate->intf_mode);
+	seq_printf(s, "bw_ctl: %llu\n", cstate->cur_perf.bw_ctl);
+	seq_printf(s, "core_clk_rate: %u\n", cstate->cur_perf.core_clk_rate);
+	seq_printf(s, "max_per_pipe_ib: %llu\n",
+			cstate->cur_perf.max_per_pipe_ib);
 
 	return 0;
 }
@@ -1568,6 +1602,10 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 			debugfs_create_file("status", S_IRUGO,
 					sde_crtc->debugfs_root,
 					sde_crtc, &debugfs_status_fops);
+			debugfs_create_file("state", S_IRUGO | S_IWUSR,
+					sde_crtc->debugfs_root,
+					&sde_crtc->base,
+					&sde_crtc_debugfs_state_fops);
 		}
 	}
 }

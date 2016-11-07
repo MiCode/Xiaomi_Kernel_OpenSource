@@ -598,6 +598,16 @@ struct sde_vbif_cfg {
 };
 
 /**
+ * struct sde_perf_cfg - performance control settings
+ * @max_bw_low         low threshold of maximum bandwidth (kbps)
+ * @max_bw_high        high threshold of maximum bandwidth (kbps)
+ */
+struct sde_perf_cfg {
+	u32 max_bw_low;
+	u32 max_bw_high;
+};
+
+/**
  * struct sde_mdss_cfg - information of MDSS HW
  * This is the main catalog data structure representing
  * this HW version. Contains number of instances,
@@ -658,6 +668,8 @@ struct sde_mdss_cfg {
 	u32 vbif_count;
 	struct sde_vbif_cfg vbif[MAX_BLOCKS];
 	/* Add additional block data structures here */
+
+	struct sde_perf_cfg perf;
 };
 
 struct sde_mdss_hw_cfg_handler {

@@ -113,6 +113,18 @@ TRACE_EVENT(sde_perf_update_bus,
 )
 
 
+TRACE_EVENT(sde_cmd_release_bw,
+	TP_PROTO(u32 crtc_id),
+	TP_ARGS(crtc_id),
+	TP_STRUCT__entry(
+			__field(u32, crtc_id)
+	),
+	TP_fast_assign(
+			__entry->crtc_id = crtc_id;
+	),
+	TP_printk("crtc:%d", __entry->crtc_id)
+);
+
 TRACE_EVENT(sde_mark_write,
 	TP_PROTO(int pid, const char *name, bool trace_begin),
 	TP_ARGS(pid, name, trace_begin),
