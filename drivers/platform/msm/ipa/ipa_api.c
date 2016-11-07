@@ -2903,6 +2903,22 @@ int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	return ret;
 }
 
+/**
+ * ipa_get_pdev() - return a pointer to IPA dev struct
+ *
+ * Return value: a pointer to IPA dev struct
+ *
+ */
+struct device *ipa_get_pdev(void)
+{
+	struct device *ret;
+
+	IPA_API_DISPATCH_RETURN_PTR(ipa_get_pdev);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_pdev);
+
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,
 	.resume_noirq = ipa_ap_resume,
