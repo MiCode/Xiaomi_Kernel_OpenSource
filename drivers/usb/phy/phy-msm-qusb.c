@@ -25,6 +25,8 @@
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
 
+#include <soc/qcom/scm.h>
+
 /* TCSR_PHY_CLK_SCHEME_SEL bit mask */
 #define PHY_CLK_SCHEME_SEL BIT(0)
 
@@ -112,6 +114,8 @@
 
 #define QUSB2PHY_REFCLK_ENABLE		BIT(0)
 
+#define QUSB2PHY_LVL_SHIFTER_CMD_ID	0x1B
+
 unsigned int tune2;
 module_param(tune2, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(tune2, "QUSB PHY TUNE2");
@@ -164,7 +168,25 @@ struct qusb_phy {
 	int			emu_dcm_reset_seq_len;
 	spinlock_t		pulse_lock;
 	bool			put_into_high_z_state;
+	bool			scm_lvl_shifter_update;
 };
+
+static void qusb_phy_update_tcsr_level_shifter(struct qusb_phy *qphy, u32 val)
+{
+	int scm_ret, resp_ret;
+
+	dev_dbg(qphy->phy.dev, "%s(): update tcsr lvl shift value:%d\n",
+				__func__, val);
+	if (qphy->tcsr_phy_lvl_shift_keeper)
+		writel_relaxed(val, qphy->tcsr_phy_lvl_shift_keeper);
+
+	else if (qphy->scm_lvl_shifter_update) {
+		scm_ret = scm_call(SCM_SVC_BOOT, QUSB2PHY_LVL_SHIFTER_CMD_ID,
+			&val, sizeof(val), &resp_ret, sizeof(resp_ret));
+		dev_dbg(qphy->phy.dev, "%s(): scm_ret:%d resp_ret:%d\n",
+				__func__, scm_ret, resp_ret);
+	}
+}
 
 static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
 {
@@ -409,10 +431,7 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 			}
 
 			if (qphy->put_into_high_z_state) {
-				if (qphy->tcsr_phy_lvl_shift_keeper)
-					writel_relaxed(0x1,
-					       qphy->tcsr_phy_lvl_shift_keeper);
-
+				qusb_phy_update_tcsr_level_shifter(qphy, 0x1);
 				qusb_phy_gdsc(qphy, true);
 				qusb_phy_enable_clocks(qphy, true);
 
@@ -484,9 +503,7 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 			}
 
 			if (!qphy->cable_connected) {
-				if (qphy->tcsr_phy_lvl_shift_keeper)
-					writel_relaxed(0x0,
-					       qphy->tcsr_phy_lvl_shift_keeper);
+				qusb_phy_update_tcsr_level_shifter(qphy, 0x0);
 				dev_dbg(phy->dev, "turn off for HVDCP case\n");
 				ret = qusb_phy_enable_power(qphy, false);
 			}
@@ -1015,9 +1032,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			wmb();
 
 			qusb_phy_enable_clocks(qphy, false);
-			if (qphy->tcsr_phy_lvl_shift_keeper)
-				writel_relaxed(0x0,
-					qphy->tcsr_phy_lvl_shift_keeper);
+			qusb_phy_update_tcsr_level_shifter(qphy, 0x0);
 			/* Do not disable power rails if there is vote for it */
 			if (!qphy->rm_pulldown)
 				qusb_phy_enable_power(qphy, false);
@@ -1044,9 +1059,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 		} else {
 			qusb_phy_enable_power(qphy, true);
-			if (qphy->tcsr_phy_lvl_shift_keeper)
-				writel_relaxed(0x1,
-					qphy->tcsr_phy_lvl_shift_keeper);
+			qusb_phy_update_tcsr_level_shifter(qphy, 0x1);
 			qusb_phy_enable_clocks(qphy, true);
 		}
 		qphy->suspended = false;
@@ -1164,6 +1177,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 			qphy->tcsr_phy_lvl_shift_keeper = NULL;
 		}
 	}
+
+	qphy->scm_lvl_shifter_update = of_property_read_bool(dev->of_node,
+					"qcom,secure-level-shifter-update");
 
 	qphy->dpdm_pulsing_enabled = of_property_read_bool(dev->of_node,
 					"qcom,enable-dpdm-pulsing");
