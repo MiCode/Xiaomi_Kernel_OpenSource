@@ -77,6 +77,18 @@ static unsigned int _ft_pagefault_policy_show(struct adreno_device *adreno_dev)
 	return adreno_dev->ft_pf_policy;
 }
 
+static int _gpu_llc_slice_enable_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	adreno_dev->gpu_llc_slice_enable = val ? true : false;
+	return 0;
+}
+
+static unsigned int _gpu_llc_slice_enable_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->gpu_llc_slice_enable;
+}
+
 static int _ft_long_ib_detect_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
@@ -290,6 +302,7 @@ static ADRENO_SYSFS_U32(ft_policy);
 static ADRENO_SYSFS_U32(ft_pagefault_policy);
 static ADRENO_SYSFS_BOOL(ft_long_ib_detect);
 static ADRENO_SYSFS_BOOL(ft_hang_intr_status);
+static ADRENO_SYSFS_BOOL(gpu_llc_slice_enable);
 
 static DEVICE_INT_ATTR(wake_nice, 0644, adreno_wake_nice);
 static DEVICE_INT_ATTR(wake_timeout, 0644, adreno_wake_timeout);
@@ -314,6 +327,7 @@ static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_preemption.attr,
 	&adreno_attr_hwcg.attr,
 	&adreno_attr_throttling.attr,
+	&adreno_attr_gpu_llc_slice_enable.attr,
 	NULL,
 };
 

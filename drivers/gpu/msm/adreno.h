@@ -397,6 +397,7 @@ struct adreno_gpu_core {
  * @active_list: List to track active contexts
  * @active_list_lock: Lock to protect active_list
  * @gpu_llc_slice: GPU system cache slice descriptor
+ * @gpu_llc_slice_enable: To enable the GPU system cache slice or not
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -457,6 +458,7 @@ struct adreno_device {
 	spinlock_t active_list_lock;
 
 	void *gpu_llc_slice;
+	bool gpu_llc_slice_enable;
 };
 
 /**

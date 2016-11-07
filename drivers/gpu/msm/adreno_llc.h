@@ -48,7 +48,7 @@ static inline void adreno_llc_setup(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
-	if (adreno_dev->gpu_llc_slice)
+	if (adreno_dev->gpu_llc_slice && adreno_dev->gpu_llc_slice_enable)
 		if (!llcc_slice_activate(adreno_dev->gpu_llc_slice)) {
 			if (gpudev->llc_configure_gpu_scid)
 				gpudev->llc_configure_gpu_scid(adreno_dev);
