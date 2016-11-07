@@ -16,9 +16,32 @@
 #include <linux/types.h>
 #include <linux/dcache.h>
 #include <linux/mutex.h>
+#include <drm/drm_crtc.h>
 
 #include "sde_hw_catalog.h"
 #include "sde_power_handle.h"
+
+/**
+ * struct sde_core_perf_params - definition of performance parameters
+ * @max_per_pipe_ib: maximum instantaneous bandwidth request
+ * @bw_ctl: arbitrated bandwidth request
+ * @core_clk_rate: core clock rate request
+ */
+struct sde_core_perf_params {
+	u64 max_per_pipe_ib;
+	u64 bw_ctl;
+	u32 core_clk_rate;
+};
+
+/**
+ * struct sde_core_perf_tune - definition of performance tuning control
+ * @min_core_clk: minimum core clock
+ * @min_bus_vote: minimum bus vote
+ */
+struct sde_core_perf_tune {
+	unsigned long min_core_clk;
+	u64 min_bus_vote;
+};
 
 /**
  * struct sde_core_perf - definition of core performance context
@@ -32,6 +55,8 @@
  * @core_clk: Pointer to core clock structure
  * @core_clk_rate: current core clock rate
  * @max_core_clk_rate: maximum allowable core clock rate
+ * @perf_tune: debug control for performance tuning
+ * @enable_bw_release: debug control for bandwidth release
  */
 struct sde_core_perf {
 	struct drm_device *dev;
@@ -44,7 +69,33 @@ struct sde_core_perf {
 	struct clk *core_clk;
 	u32 core_clk_rate;
 	u64 max_core_clk_rate;
+	struct sde_core_perf_tune perf_tune;
+	u32 enable_bw_release;
 };
+
+/**
+ * sde_core_perf_crtc_check - validate performance of the given crtc state
+ * @crtc: Pointer to crtc
+ * @state: Pointer to new crtc state
+ * return: zero if success, or error code otherwise
+ */
+int sde_core_perf_crtc_check(struct drm_crtc *crtc,
+		struct drm_crtc_state *state);
+
+/**
+ * sde_core_perf_crtc_update - update performance of the given crtc
+ * @crtc: Pointer to crtc
+ * @params_changed: true if crtc parameters are modified
+ * @stop_req: true if this is a stop request
+ */
+void sde_core_perf_crtc_update(struct drm_crtc *crtc,
+		int params_changed, bool stop_req);
+
+/**
+ * sde_core_perf_crtc_release_bw - release bandwidth of the given crtc
+ * @crtc: Pointer to crtc
+ */
+void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc);
 
 /**
  * sde_core_perf_destroy - destroy the given core performance context

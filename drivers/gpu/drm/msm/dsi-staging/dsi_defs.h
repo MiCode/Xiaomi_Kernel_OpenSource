@@ -318,12 +318,15 @@ struct dsi_video_engine_cfg {
  * @wr_mem_continue:               DCS command for write_memory_continue.
  * @insert_dcs_command:            Insert DCS command as first byte of payload
  *                                 of the pixel data.
+ * @mdp_transfer_time_us   Specifies the mdp transfer time for command mode
+ *                         panels in microseconds
  */
 struct dsi_cmd_engine_cfg {
 	u32 max_cmd_packets_interleave;
 	u32 wr_mem_start;
 	u32 wr_mem_continue;
 	bool insert_dcs_command;
+	u32 mdp_transfer_time_us;
 };
 
 /**
