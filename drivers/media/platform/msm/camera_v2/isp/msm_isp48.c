@@ -287,6 +287,8 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 			.restart = msm_vfe47_axi_restart,
 			.update_cgc_override =
 				msm_vfe47_axi_update_cgc_override,
+			.ub_reg_offset = msm_vfe47_ub_reg_offset,
+			.get_ub_size = msm_vfe47_get_ub_size,
 		},
 		.core_ops = {
 			.reg_update = msm_vfe47_reg_update,

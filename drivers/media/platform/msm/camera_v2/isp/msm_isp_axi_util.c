@@ -2117,16 +2117,16 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 static void msm_isp_input_disable(struct vfe_device *vfe_dev)
 {
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	int ext_read =
-		(axi_data->src_info[VFE_PIX_0].input_mux == EXTERNAL_READ);
 	int stream_count;
 	int total_stream_count = 0;
 	int i;
 	struct msm_vfe_src_info *src_info;
+	int ext_read =
+		(axi_data->src_info[VFE_PIX_0].input_mux == EXTERNAL_READ);
 
 	for (i = 0; i < VFE_SRC_MAX; i++)
 		total_stream_count += axi_data->src_info[i].stream_count +
-					axi_data->src_info[i].raw_stream_count;
+				axi_data->src_info[i].raw_stream_count;
 
 	for (i = 0; i < VFE_SRC_MAX; i++) {
 		stream_count = axi_data->src_info[i].stream_count +
@@ -2168,20 +2168,21 @@ static void msm_isp_input_disable(struct vfe_device *vfe_dev)
 				&vfe_dev->common_data->common_dev_data_lock,
 				flags);
 		}
-
 		if (i != VFE_PIX_0 || ext_read)
 			continue;
-		/* halt camif */
-		if (total_stream_count == 0) {
+		if (total_stream_count == 0)
 			vfe_dev->hw_info->vfe_ops.core_ops.
 				update_camif_state(vfe_dev,
 				DISABLE_CAMIF_IMMEDIATELY);
-		 } else {
+		else
 			vfe_dev->hw_info->vfe_ops.core_ops.
-				update_camif_state(vfe_dev, DISABLE_CAMIF);
-		}
+				update_camif_state(vfe_dev,
+				DISABLE_CAMIF);
 	}
-	/* halt and reset hardware if all streams are disabled */
+	/*
+	 * halt and reset hardware if all streams are disabled, in this case
+	 * ispif is halted immediately as well
+	 */
 	if (total_stream_count == 0) {
 		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
 		msm_isp_flush_tasklet(vfe_dev);
@@ -2231,6 +2232,10 @@ static void msm_isp_input_enable(struct vfe_device *vfe_dev,
 			axi_data->src_info[i].frame_id =
 				axi_data->src_info[VFE_PIX_0].frame_id;
 		}
+		/* when start reset overflow state and cfg ub for this intf */
+		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_ub(vfe_dev, i);
+		atomic_set(&vfe_dev->error_info.overflow_state,
+			NO_OVERFLOW);
 		if (i != VFE_PIX_0 || ext_read)
 			continue;
 		/* for camif input the camif needs enabling */
@@ -2690,7 +2695,6 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 	int i;
 	struct msm_vfe_axi_shared_data *axi_data;
 	struct msm_isp_timestamp timestamp;
-	int total_stream_count = 0;
 	uint32_t bufq_id = 0, bufq_handle = 0;
 	struct msm_vfe_axi_stream *stream_info;
 	unsigned long flags;
@@ -2748,44 +2752,28 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 	}
 
 	for (k = 0; k < MAX_VFE; k++) {
-		int ext_read;
-
 		if (!update_vfes[k])
 			continue;
 		vfe_dev = update_vfes[k];
 		axi_data = &vfe_dev->axi_data;
-		ext_read =
-		(axi_data->src_info[VFE_PIX_0].input_mux == EXTERNAL_READ);
-		for (i = 0; i < VFE_SRC_MAX; i++) {
-			total_stream_count +=
-				axi_data->src_info[i].stream_count +
-				axi_data->src_info[i].raw_stream_count;
-			if (i != VFE_PIX_0)
-				continue;
-			if (axi_data->src_info[i].stream_count == 0) {
-				vfe_dev->hw_info->vfe_ops.stats_ops.
-						enable_module(vfe_dev, 0xFF, 0);
-				/* reg update for PIX with 0 streams active */
-				if (ext_read == 0)
-					vfe_dev->hw_info->vfe_ops.core_ops.
-						reg_update(vfe_dev, VFE_PIX_0);
-			}
+		if (axi_data->src_info[VFE_PIX_0].active == 0) {
+			vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
+				vfe_dev, 0xFF, 0);
 		}
-
 	}
 	for (i = 0; i < num_streams; i++) {
 		stream_info = streams[i];
+		spin_lock_irqsave(&stream_info->lock, flags);
 		intf = SRC_TO_INTF(stream_info->stream_src);
-		if (total_stream_count == 0 ||
-			((stream_info->stream_type == BURST_STREAM) &&
-			stream_info->runtime_num_burst_capture == 0)) {
-			spin_lock_irqsave(&stream_info->lock, flags);
+		if (((stream_info->stream_type == BURST_STREAM) &&
+			stream_info->runtime_num_burst_capture == 0) ||
+			(stream_info->vfe_dev[0]->axi_data.src_info[intf].
+							active == 0)) {
 			while (stream_info->state != INACTIVE)
 				__msm_isp_axi_stream_update(
 					stream_info, &timestamp);
-			spin_unlock_irqrestore(&stream_info->lock, flags);
-			continue;
 		}
+		spin_unlock_irqrestore(&stream_info->lock, flags);
 	}
 
 	rc = msm_isp_axi_wait_for_streams(streams, num_streams, 0);
@@ -2868,7 +2856,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev_ioctl,
 	struct msm_isp_timestamp timestamp;
 	struct vfe_device *update_vfes[MAX_VFE] = {0, 0};
 	int k;
-	uint32_t num_active_streams[MAX_VFE] = {0, 0};
 	struct vfe_device *vfe_dev;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev_ioctl->axi_data;
 
@@ -2914,9 +2901,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev_ioctl,
 				continue;
 			update_vfes[stream_info->vfe_dev[k]->pdev->id] =
 							stream_info->vfe_dev[k];
-			num_active_streams[stream_info->vfe_dev[k]->pdev->id] =
-				stream_info->vfe_dev[k]->axi_data.
-							num_active_stream;
 		}
 		msm_isp_reset_framedrop(vfe_dev_ioctl, stream_info);
 		rc = msm_isp_init_stream_ping_pong_reg(stream_info);
@@ -2976,13 +2960,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev_ioctl,
 		vfe_dev = update_vfes[i];
 		if (!vfe_dev)
 			continue;
-		if (num_active_streams[i] == 0) {
-			/* Configure UB */
-			vfe_dev->hw_info->vfe_ops.axi_ops.cfg_ub(vfe_dev);
-			/* when start reset overflow state */
-			atomic_set(&vfe_dev->error_info.overflow_state,
-				NO_OVERFLOW);
-		}
 		msm_isp_update_stream_bandwidth(vfe_dev);
 		vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev,
 			vfe_dev->vfe_base, wm_reload_mask[i]);

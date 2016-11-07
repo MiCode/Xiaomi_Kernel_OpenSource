@@ -97,10 +97,12 @@ void msm_vfe47_axi_clear_wm_xbar_reg(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx);
 void msm_vfe47_cfg_axi_ub_equal_default(
-	struct vfe_device *vfe_dev);
+	struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src);
 void msm_vfe47_cfg_axi_ub_equal_slicing(
 	struct vfe_device *vfe_dev);
-void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev);
+void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src);
 void msm_vfe47_read_wm_ping_pong_addr(
 	struct vfe_device *vfe_dev);
 void msm_vfe47_update_ping_pong_addr(
@@ -198,4 +200,6 @@ void msm_vfe47_config_irq(struct vfe_device *vfe_dev,
 int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
 			struct msm_isp_ahb_clk_cfg *ahb_cfg);
 void msm_vfe47_set_halt_restart_mask(struct vfe_device *vfe_dev);
+uint32_t msm_vfe47_ub_reg_offset(struct vfe_device *vfe_dev, int wm_idx);
+uint32_t msm_vfe47_get_ub_size(struct vfe_device *vfe_dev);
 #endif /* __MSM_ISP47_H__ */
