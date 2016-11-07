@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -489,6 +489,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 		if (pskb_expand_head(skb, required_headroom, 0, GFP_KERNEL)) {
 			LOGD("Failed to add headroom of %d bytes",
 			     required_headroom);
+			kfree_skb(skb);
 			return 1;
 		}
 	}
@@ -512,6 +513,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	if (!map_header) {
 		LOGD("%s", "Failed to add MAP header to egress packet");
+		kfree_skb(skb);
 		return 1;
 	}
 
