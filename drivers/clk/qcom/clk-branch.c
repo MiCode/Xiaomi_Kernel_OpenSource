@@ -16,10 +16,12 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/export.h>
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
 
 #include "clk-branch.h"
+#include "clk-regmap.h"
 
 static bool clk_branch_in_hwcg_mode(const struct clk_branch *br)
 {
@@ -181,6 +183,43 @@ const struct clk_ops clk_branch_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_branch_ops);
 
+static void clk_branch2_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	struct clk_branch *br = to_clk_branch(hw);
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"CBCR", 0x0},
+	};
+
+	static struct clk_register_data data1[] = {
+		{"APSS_VOTE", 0x0},
+		{"APSS_SLEEP_VOTE", 0x4},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(br->clkr.regmap, br->halt_reg + data[i].offset,
+					&val);
+		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+	}
+
+	if ((br->halt_check & BRANCH_HALT_VOTED) &&
+			!(br->halt_check & BRANCH_VOTED)) {
+		if (rclk->enable_reg) {
+			size = ARRAY_SIZE(data1);
+			for (i = 0; i < size; i++) {
+				regmap_read(br->clkr.regmap, rclk->enable_reg +
+						data1[i].offset, &val);
+				seq_printf(f, "%20s: 0x%.8x\n",
+						data1[i].name, val);
+			}
+		}
+	}
+}
+
 static int clk_branch2_enable(struct clk_hw *hw)
 {
 	return clk_branch_toggle(hw, true, clk_branch2_check_halt);
@@ -196,6 +235,7 @@ const struct clk_ops clk_branch2_ops = {
 	.disable = clk_branch2_disable,
 	.is_enabled = clk_is_enabled_regmap,
 	.set_flags = clk_branch_set_flags,
+	.list_registers = clk_branch2_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
 
@@ -228,10 +268,29 @@ static void clk_gate2_disable(struct clk_hw *hw)
 	clk_gate_toggle(hw, false);
 }
 
+static void clk_gate2_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	struct clk_gate2 *gt = to_clk_gate2(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"EN_REG", 0x0},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(gt->clkr.regmap, gt->clkr.enable_reg +
+					data[i].offset, &val);
+		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+	}
+}
+
 const struct clk_ops clk_gate2_ops = {
 	.enable = clk_gate2_enable,
 	.disable = clk_gate2_disable,
 	.is_enabled = clk_is_enabled_regmap,
+	.list_registers = clk_gate2_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_gate2_ops);
 
