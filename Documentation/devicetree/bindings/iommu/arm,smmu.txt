@@ -90,8 +90,12 @@ conditions.
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for more info.
 
-- vdd-supply    : Phandle of the regulator that should be powered on during
-                  SMMU register access.
+- (%s)-supply   : Phandle of the regulator that should be powered on during
+                  SMMU register access. (%s) is a string from the
+		  qcom,regulator-names property.
+
+- qcom,regulator-names :
+		  List of strings to use with the (%s)-supply property.
 
 - qcom,msm-bus,name
 - qcom,msm-bus,num-cases
