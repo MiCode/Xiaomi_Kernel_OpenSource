@@ -154,6 +154,7 @@ struct kgsl_regulator {
  * @deep_nap_timer - Timer struct for entering deep nap
  * @deep_nap_timeout - Timeout for entering deep nap
  * @gx_retention - true if retention voltage is allowed
+ * @tsens_name - pointer to temperature sensor name of GPU temperature sensor
  */
 
 struct kgsl_pwrctrl {
@@ -209,6 +210,7 @@ struct kgsl_pwrctrl {
 	bool gx_retention;
 	unsigned int gpu_bimc_int_clk_freq;
 	bool gpu_bimc_interface_enabled;
+	const char *tsens_name;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);

@@ -148,6 +148,10 @@ Optional Properties:
 				baseAddr - base address of the gpu channels in the qdss stm memory region
 				size     - size of the gpu stm region
 
+- qcom,tsens-name:
+				Specify the name of GPU temperature sensor. This name will be used
+				to get the temperature from the thermal driver API.
+
 GPU Quirks:
 - qcom,gpu-quirk-two-pass-use-wfi:
 				Signal the GPU to set Set TWOPASSUSEWFI bit in
