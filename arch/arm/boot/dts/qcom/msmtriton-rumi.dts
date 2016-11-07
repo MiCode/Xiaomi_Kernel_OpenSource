@@ -20,6 +20,10 @@
 	model = "Qualcomm Technologies, Inc. MSM TRITON RUMI";
 	compatible = "qcom,msmtriton-rumi", "qcom,msmtriton", "qcom,rumi";
 	qcom,board-id = <15 0>;
+
+	chosen {
+		bootargs = "lpm_levels.sleep_disabled=1";
+	};
 };
 
 &usb3 {
