@@ -2188,6 +2188,10 @@ static int smblib_cc2_sink_removal_enter(struct smb_charger *chg)
 		chg->cc2_sink_detach_flag = CC2_SINK_STD;
 		schedule_work(&chg->rdstd_cc2_detach_work);
 		break;
+	case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
+	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
+		chg->cc2_sink_detach_flag = CC2_SINK_MEDIUM_HIGH;
+		break;
 	default:
 		break;
 	}
@@ -2824,6 +2828,24 @@ static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
 	rc = smblib_get_prop_typec_mode(chg, &pval);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't get prop typec mode rc=%d\n", rc);
+
+	/*
+	 * HW BUG - after cable is removed, medium or high rd reading
+	 * falls to std. Use it for signal of typec cc detachment in
+	 * software WA.
+	 */
+	if (chg->cc2_sink_detach_flag == CC2_SINK_MEDIUM_HIGH
+		&& pval.intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
+
+		chg->cc2_sink_detach_flag = CC2_SINK_WA_DONE;
+
+		rc = smblib_masked_write(chg,
+				TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				EXIT_SNK_BASED_ON_CC_BIT, 0);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't get prop typec mode rc=%d\n",
+				rc);
+	}
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: debounce-done %s; Type-C %s detected\n",
 		   rising ? "rising" : "falling",

@@ -57,6 +57,7 @@ enum smb_mode {
 enum cc2_sink_type {
 	CC2_SINK_NONE = 0,
 	CC2_SINK_STD,
+	CC2_SINK_MEDIUM_HIGH,
 	CC2_SINK_WA_DONE,
 };
 
