@@ -14,6 +14,7 @@
 #define _SDE_HW_COLOR_PROCESSING_V1_7_H
 
 #include "sde_hw_sspp.h"
+#include "sde_hw_dspp.h"
 
 /**
  * sde_setup_pipe_pa_hue_v1_7 - setup SSPP hue feature in v1.7 hardware
@@ -52,5 +53,26 @@ void sde_setup_pipe_pa_cont_v1_7(struct sde_hw_pipe *ctx, void *cfg);
 void sde_setup_pipe_pa_memcol_v1_7(struct sde_hw_pipe *ctx,
 				   enum sde_memcolor_type type,
 				   void *cfg);
+
+/**
+ * sde_setup_dspp_pcc_v1_7 - setup DSPP PCC veature in v1.7 hardware
+ * @ctx: Pointer to dspp context
+ * @cfg: Pointer to PCC data
+ */
+void sde_setup_dspp_pcc_v1_7(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * sde_setup_dspp_pa_hue_v1_7 - setup DSPP hue feature in v1.7 hardware
+ * @ctx: Pointer to DSPP context
+ * @cfg: Pointer to hue data
+ */
+void sde_setup_dspp_pa_hue_v1_7(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * sde_setup_dspp_pa_vlut_v1_7 - setup DSPP PA vLUT feature in v1.7 hardware
+ * @ctx: Pointer to DSPP context
+ * @cfg: Pointer to vLUT data
+ */
+void sde_setup_dspp_pa_vlut_v1_7(struct sde_hw_dspp *ctx, void *cfg);
 
 #endif
