@@ -504,6 +504,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 		if (pskb_expand_head(skb, required_headroom, 0, GFP_KERNEL)) {
 			LOGD("Failed to add headroom of %d bytes",
 			     required_headroom);
+			kfree_skb(skb);
 			return 1;
 		}
 	}
@@ -527,6 +528,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	if (!map_header) {
 		LOGD("%s", "Failed to add MAP header to egress packet");
+		kfree_skb(skb);
 		return 1;
 	}
 
