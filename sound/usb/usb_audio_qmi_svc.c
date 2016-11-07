@@ -101,6 +101,27 @@ static struct msg_desc uaudio_stream_ind_desc = {
 	.ei_array = qmi_uaudio_stream_ind_msg_v01_ei,
 };
 
+enum usb_qmi_audio_format {
+	USB_QMI_PCM_FORMAT_S8 = 0,
+	USB_QMI_PCM_FORMAT_U8,
+	USB_QMI_PCM_FORMAT_S16_LE,
+	USB_QMI_PCM_FORMAT_S16_BE,
+	USB_QMI_PCM_FORMAT_U16_LE,
+	USB_QMI_PCM_FORMAT_U16_BE,
+	USB_QMI_PCM_FORMAT_S24_LE,
+	USB_QMI_PCM_FORMAT_S24_BE,
+	USB_QMI_PCM_FORMAT_U24_LE,
+	USB_QMI_PCM_FORMAT_U24_BE,
+	USB_QMI_PCM_FORMAT_S24_3LE,
+	USB_QMI_PCM_FORMAT_S24_3BE,
+	USB_QMI_PCM_FORMAT_U24_3LE,
+	USB_QMI_PCM_FORMAT_U24_3BE,
+	USB_QMI_PCM_FORMAT_S32_LE,
+	USB_QMI_PCM_FORMAT_S32_BE,
+	USB_QMI_PCM_FORMAT_U32_LE,
+	USB_QMI_PCM_FORMAT_U32_BE,
+};
+
 static int prepare_qmi_response(struct snd_usb_substream *subs,
 		struct qmi_uaudio_stream_resp_msg_v01 *resp, u32 xfer_buf_len,
 		int card_num)
@@ -427,6 +448,51 @@ static void uaudio_dev_release(struct kref *kref)
 	wake_up(&dev->disconnect_wq);
 }
 
+/* maps audio format received over QMI to asound.h based pcm format */
+int map_pcm_format(unsigned int fmt_received)
+{
+	switch (fmt_received) {
+	case USB_QMI_PCM_FORMAT_S8:
+		return SNDRV_PCM_FORMAT_S8;
+	case USB_QMI_PCM_FORMAT_U8:
+		return SNDRV_PCM_FORMAT_U8;
+	case USB_QMI_PCM_FORMAT_S16_LE:
+		return SNDRV_PCM_FORMAT_S16_LE;
+	case USB_QMI_PCM_FORMAT_S16_BE:
+		return SNDRV_PCM_FORMAT_S16_BE;
+	case USB_QMI_PCM_FORMAT_U16_LE:
+		return SNDRV_PCM_FORMAT_U16_LE;
+	case USB_QMI_PCM_FORMAT_U16_BE:
+		return SNDRV_PCM_FORMAT_U16_BE;
+	case USB_QMI_PCM_FORMAT_S24_LE:
+		return SNDRV_PCM_FORMAT_S24_LE;
+	case USB_QMI_PCM_FORMAT_S24_BE:
+		return SNDRV_PCM_FORMAT_S24_BE;
+	case USB_QMI_PCM_FORMAT_U24_LE:
+		return SNDRV_PCM_FORMAT_U24_LE;
+	case USB_QMI_PCM_FORMAT_U24_BE:
+		return SNDRV_PCM_FORMAT_U24_BE;
+	case USB_QMI_PCM_FORMAT_S24_3LE:
+		return SNDRV_PCM_FORMAT_S24_3LE;
+	case USB_QMI_PCM_FORMAT_S24_3BE:
+		return SNDRV_PCM_FORMAT_S24_3BE;
+	case USB_QMI_PCM_FORMAT_U24_3LE:
+		return SNDRV_PCM_FORMAT_U24_3LE;
+	case USB_QMI_PCM_FORMAT_U24_3BE:
+		return SNDRV_PCM_FORMAT_U24_3BE;
+	case USB_QMI_PCM_FORMAT_S32_LE:
+		return SNDRV_PCM_FORMAT_S32_LE;
+	case USB_QMI_PCM_FORMAT_S32_BE:
+		return SNDRV_PCM_FORMAT_S32_BE;
+	case USB_QMI_PCM_FORMAT_U32_LE:
+		return SNDRV_PCM_FORMAT_U32_LE;
+	case USB_QMI_PCM_FORMAT_U32_BE:
+		return SNDRV_PCM_FORMAT_U32_BE;
+	default:
+		return -EINVAL;
+	}
+}
+
 static int handle_uaudio_stream_req(void *req_h, void *req)
 {
 	struct qmi_uaudio_stream_req_msg_v01 *req_msg;
@@ -435,6 +501,7 @@ static int handle_uaudio_stream_req(void *req_h, void *req)
 	struct snd_usb_audio *chip = NULL;
 	struct uaudio_qmi_svc *svc = uaudio_svc;
 	struct intf_info *info;
+	int pcm_format;
 	u8 pcm_card_num, pcm_dev_num, direction;
 	int intf_num = -1, ret = 0;
 
@@ -462,6 +529,14 @@ static int handle_uaudio_stream_req(void *req_h, void *req)
 		goto response;
 	}
 
+	pcm_format = map_pcm_format(req_msg->audio_format);
+	if (pcm_format == -EINVAL) {
+		pr_err("%s: unsupported pcm format received %d\n",
+		__func__, req_msg->audio_format);
+		ret = -EINVAL;
+		goto response;
+	}
+
 	subs = find_snd_usb_substream(pcm_card_num, pcm_dev_num, direction,
 					&chip, uaudio_disconnect_cb);
 	if (!subs || !chip || chip->shutdown) {
@@ -480,7 +555,7 @@ static int handle_uaudio_stream_req(void *req_h, void *req)
 		goto response;
 	}
 
-	subs->pcm_format = req_msg->audio_format;
+	subs->pcm_format = pcm_format;
 	subs->channels = req_msg->number_of_ch;
 	subs->cur_rate = req_msg->bit_rate;
 
