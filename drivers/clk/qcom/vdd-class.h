@@ -66,5 +66,6 @@ int clk_find_vdd_level(struct clk_hw *hw, struct clk_vdd_class_data *vdd_data,
 				unsigned long rate);
 int clk_vote_vdd_level(struct clk_vdd_class_data *vdd_class, int level);
 int clk_unvote_vdd_level(struct clk_vdd_class_data *vdd_class, int level);
+int clk_list_rate_vdd_level(struct clk_hw *hw, unsigned int rate);
 
 #endif
