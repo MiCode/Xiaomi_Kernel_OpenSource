@@ -676,12 +676,18 @@ static bool is_debug_batt_id(struct fg_chip *chip)
 #define FULL_CAPACITY	100
 #define FULL_SOC_RAW	255
 #define DEBUG_BATT_SOC	67
+#define EMPTY_SOC	0
 static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 {
 	int rc, msoc;
 
 	if (is_debug_batt_id(chip)) {
 		*val = DEBUG_BATT_SOC;
+		return 0;
+	}
+
+	if (chip->charge_empty) {
+		*val = EMPTY_SOC;
 		return 0;
 	}
 
@@ -898,6 +904,17 @@ static bool is_charger_available(struct fg_chip *chip)
 		chip->batt_psy = power_supply_get_by_name("battery");
 
 	if (!chip->batt_psy)
+		return false;
+
+	return true;
+}
+
+static bool is_parallel_charger_available(struct fg_chip *chip)
+{
+	if (!chip->parallel_psy)
+		chip->parallel_psy = power_supply_get_by_name("parallel");
+
+	if (!chip->parallel_psy)
 		return false;
 
 	return true;
@@ -1375,6 +1392,72 @@ static int fg_adjust_recharge_soc(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_esr_fcc_config(struct fg_chip *chip)
+{
+	union power_supply_propval prop = {0, };
+	int rc;
+	bool parallel_en = false;
+
+	if (is_parallel_charger_available(chip)) {
+		rc = power_supply_get_property(chip->parallel_psy,
+			POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
+		if (rc < 0) {
+			pr_err("Error in reading charging_enabled from parallel_psy, rc=%d\n",
+				rc);
+			return rc;
+		}
+		parallel_en = prop.intval;
+	}
+
+	fg_dbg(chip, FG_POWER_SUPPLY, "status: %d parallel_en: %d esr_fcc_ctrl_en: %d\n",
+		chip->status, parallel_en, chip->esr_fcc_ctrl_en);
+
+	if (chip->status == POWER_SUPPLY_STATUS_CHARGING && parallel_en) {
+		if (chip->esr_fcc_ctrl_en)
+			return 0;
+
+		/*
+		 * When parallel charging is enabled, configure ESR FCC to
+		 * 300mA to trigger an ESR pulse. Without this, FG can ask
+		 * the main charger to increase FCC when it is supposed to
+		 * decrease it.
+		 */
+		rc = fg_masked_write(chip, BATT_INFO_ESR_FAST_CRG_CFG(chip),
+				ESR_FAST_CRG_IVAL_MASK |
+				ESR_FAST_CRG_CTL_EN_BIT,
+				ESR_FCC_300MA | ESR_FAST_CRG_CTL_EN_BIT);
+		if (rc < 0) {
+			pr_err("Error in writing to %04x, rc=%d\n",
+				BATT_INFO_ESR_FAST_CRG_CFG(chip), rc);
+			return rc;
+		}
+
+		chip->esr_fcc_ctrl_en = true;
+	} else {
+		if (!chip->esr_fcc_ctrl_en)
+			return 0;
+
+		/*
+		 * If we're here, then it means either the device is not in
+		 * charging state or parallel charging is disabled. Disable
+		 * ESR fast charge current control in SW.
+		 */
+		rc = fg_masked_write(chip, BATT_INFO_ESR_FAST_CRG_CFG(chip),
+				ESR_FAST_CRG_CTL_EN_BIT, 0);
+		if (rc < 0) {
+			pr_err("Error in writing to %04x, rc=%d\n",
+				BATT_INFO_ESR_FAST_CRG_CFG(chip), rc);
+			return rc;
+		}
+
+		chip->esr_fcc_ctrl_en = false;
+	}
+
+	fg_dbg(chip, FG_STATUS, "esr_fcc_ctrl_en set to %d\n",
+		chip->esr_fcc_ctrl_en);
+	return 0;
+}
+
 static void status_change_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -1422,6 +1505,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_adjust_ki_coeff_dischg(chip);
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
+
+	rc = fg_esr_fcc_config(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 out:
 	pm_relax(chip->dev);
 }
@@ -2302,6 +2389,7 @@ static irqreturn_t fg_empty_soc_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
 
+	chip->charge_empty = true;
 	if (is_charger_available(chip))
 		power_supply_changed(chip->batt_psy);
 
@@ -2523,7 +2611,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 }
 
 #define DEFAULT_CUTOFF_VOLT_MV		3200
-#define DEFAULT_EMPTY_VOLT_MV		3100
+#define DEFAULT_EMPTY_VOLT_MV		2800
 #define DEFAULT_CHG_TERM_CURR_MA	100
 #define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_DELTA_SOC_THR		1
