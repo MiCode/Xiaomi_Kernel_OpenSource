@@ -283,7 +283,8 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 
 	if (esr & ESR_LNX_EXEC) {
 		vm_flags = VM_EXEC;
-	} else if (esr & ESR_ELx_WNR) {
+	} else if (((esr & ESR_ELx_WNR) && !(esr & ESR_ELx_CM)) ||
+			((esr & ESR_ELx_CM) && !(mm_flags & FAULT_FLAG_USER))) {
 		vm_flags = VM_WRITE;
 		mm_flags |= FAULT_FLAG_WRITE;
 	}
