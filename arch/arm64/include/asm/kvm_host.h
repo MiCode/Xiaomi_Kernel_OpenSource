@@ -398,7 +398,7 @@ static inline void __cpu_init_stage2(void)
 
 static inline bool kvm_arm_harden_branch_predictor(void)
 {
-	return cpus_have_cap(ARM64_HARDEN_BRANCH_PREDICTOR);
+	return cpus_have_const_cap(ARM64_HARDEN_BRANCH_PREDICTOR);
 }
 
 #endif /* __ARM64_KVM_HOST_H__ */
