@@ -594,7 +594,7 @@
 			linux,name = "wled";
 			linux,default-trigger = "bkl-trigger";
 			qcom,fdbk-output = "auto";
-			qcom,vref-mv = <350>;
+			qcom,vref-uv = <127500>;
 			qcom,switch-freq-khz = <800>;
 			qcom,ovp-mv = <29600>;
 			qcom,ilim-ma = <970>;
