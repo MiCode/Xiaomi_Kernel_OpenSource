@@ -665,7 +665,7 @@
 };
 
 #include "msmtriton-ion.dtsi"
-#include "msmfalcon-regulator.dtsi"
+#include "msmtriton-regulator.dtsi"
 #include "msm-gdsc-falcon.dtsi"
 
 &gdsc_usb30 {
