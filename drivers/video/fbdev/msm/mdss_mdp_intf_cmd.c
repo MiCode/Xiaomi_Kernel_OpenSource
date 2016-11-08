@@ -2029,8 +2029,22 @@ static void mdss_mdp_cmd_dsc_reconfig(struct mdss_mdp_ctl *ctl)
 		return;
 
 	pinfo = &ctl->panel_data->panel_info;
-	if (pinfo->compression_mode != COMPRESSION_DSC)
-		return;
+	if (pinfo->compression_mode != COMPRESSION_DSC) {
+		/*
+		* Check for a dynamic resolution switch from DSC On to
+		* DSC Off and call mdss_mdp_ctl_dsc_setup to disable DSC
+		*/
+		if (ctl->pending_mode_switch == SWITCH_RESOLUTION) {
+			if (ctl->mixer_left && ctl->mixer_left->dsc_enabled)
+				changed = true;
+			if (is_split_lm(ctl->mfd) &&
+			    ctl->mixer_right &&
+			    ctl->mixer_right->dsc_enabled)
+				changed = true;
+		} else {
+			return;
+		}
+	}
 
 	changed = ctl->mixer_left->roi_changed;
 	if (is_split_lm(ctl->mfd))
