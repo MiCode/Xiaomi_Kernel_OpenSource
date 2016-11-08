@@ -7,6 +7,11 @@ dtb-$(CONFIG_ARCH_MSMSKUNK) += msmskunk-sim.dtb \
 	msmskunk-mtp.dtb \
 	msmskunk-cdp.dtb
 
+dtb-$(CONFIG_ARCH_SDMBAT) += sdmbat-sim.dtb \
+	sdmbat-rumi.dtb \
+	sdmbat-mtp.dtb \
+	sdmbat-cdp.dtb
+
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb
