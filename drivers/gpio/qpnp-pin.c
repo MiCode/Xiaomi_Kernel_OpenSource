@@ -827,9 +827,17 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 	if (WARN_ON(!q_spec))
 		return -ENODEV;
 
+	if (is_gpio_lv_mv(q_spec)) {
+		mask = Q_REG_LV_MV_MODE_SEL_MASK;
+		shift = Q_REG_LV_MV_MODE_SEL_SHIFT;
+	} else {
+		mask = Q_REG_MODE_SEL_MASK;
+		shift = Q_REG_MODE_SEL_SHIFT;
+	}
+
 	/* gpio val is from RT status iff input is enabled */
-	if ((q_spec->regs[Q_REG_I_MODE_CTL] & Q_REG_MODE_SEL_MASK)
-						== QPNP_PIN_MODE_DIG_IN) {
+	if (q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL], shift, mask)
+					== QPNP_PIN_MODE_DIG_IN) {
 		rc = regmap_read(q_chip->regmap,
 				 Q_REG_ADDR(q_spec, Q_REG_STATUS1), &val);
 		buf[0] = (u8)val;
