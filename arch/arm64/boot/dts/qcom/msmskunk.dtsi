@@ -1618,3 +1618,4 @@
 #include "msmskunk-ion.dtsi"
 #include "msmskunk-smp2p.dtsi"
 #include "msmskunk-camera.dtsi"
+#include "msmskunk-bus.dtsi"
