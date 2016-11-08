@@ -714,6 +714,16 @@ struct hpf_work {
 	struct delayed_work dwork;
 };
 
+#define WCD9335_SPK_ANC_EN_DELAY_MS 350
+static int spk_anc_en_delay = WCD9335_SPK_ANC_EN_DELAY_MS;
+module_param(spk_anc_en_delay, int, S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(spk_anc_en_delay, "delay to enable anc in speaker path");
+
+struct spk_anc_work {
+	struct tasha_priv *tasha;
+	struct delayed_work dwork;
+};
+
 struct tx_mute_work {
 	struct tasha_priv *tasha;
 	u8 decimator;
@@ -836,6 +846,7 @@ struct tasha_priv {
 	int ear_spkr_gain;
 	struct hpf_work tx_hpf_work[TASHA_NUM_DECIMATORS];
 	struct tx_mute_work tx_mute_dwork[TASHA_NUM_DECIMATORS];
+	struct spk_anc_work spk_anc_dwork;
 	struct mutex codec_mutex;
 	int hph_l_gain;
 	int hph_r_gain;
@@ -4278,6 +4289,21 @@ static int tasha_codec_enable_lineout_pa(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static void tasha_spk_anc_update_callback(struct work_struct *work)
+{
+	struct spk_anc_work *spk_anc_dwork;
+	struct tasha_priv *tasha;
+	struct delayed_work *delayed_work;
+	struct snd_soc_codec *codec;
+
+	delayed_work = to_delayed_work(work);
+	spk_anc_dwork = container_of(delayed_work, struct spk_anc_work, dwork);
+	tasha = spk_anc_dwork->tasha;
+	codec = tasha->codec;
+
+	snd_soc_update_bits(codec, WCD9335_CDC_RX7_RX_PATH_CFG0, 0x10, 0x10);
+}
+
 static int tasha_codec_enable_spk_anc(struct snd_soc_dapm_widget *w,
 				      struct snd_kcontrol *kcontrol,
 				      int event)
@@ -4295,10 +4321,11 @@ static int tasha_codec_enable_spk_anc(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		ret = tasha_codec_enable_anc(w, kcontrol, event);
-		snd_soc_update_bits(codec, WCD9335_CDC_RX7_RX_PATH_CFG0,
-				    0x10, 0x10);
+		schedule_delayed_work(&tasha->spk_anc_dwork.dwork,
+				      msecs_to_jiffies(spk_anc_en_delay));
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		cancel_delayed_work_sync(&tasha->spk_anc_dwork.dwork);
 		snd_soc_update_bits(codec, WCD9335_CDC_RX7_RX_PATH_CFG0,
 				    0x10, 0x00);
 		ret = tasha_codec_enable_anc(w, kcontrol, event);
@@ -13686,6 +13713,10 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 		INIT_DELAYED_WORK(&tasha->tx_mute_dwork[i].dwork,
 			  tasha_tx_mute_update_callback);
 	}
+
+	tasha->spk_anc_dwork.tasha = tasha;
+	INIT_DELAYED_WORK(&tasha->spk_anc_dwork.dwork,
+			  tasha_spk_anc_update_callback);
 
 	mutex_lock(&tasha->codec_mutex);
 	snd_soc_dapm_disable_pin(dapm, "ANC LINEOUT1");
