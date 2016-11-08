@@ -3118,5 +3118,6 @@
 #include "msm-audio-lpass.dtsi"
 #include "msmcobalt-mdss.dtsi"
 #include "msmcobalt-mdss-pll.dtsi"
+#include "msm-rdbg.dtsi"
 #include "msmcobalt-blsp.dtsi"
 #include "msmcobalt-audio.dtsi"
