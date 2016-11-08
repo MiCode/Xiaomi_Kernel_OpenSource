@@ -760,7 +760,7 @@
 
 	qcom,cpr-aging-max-voltage-adjustment = <15000>;
 	qcom,cpr-aging-ref-corner = <8>;
-	qcom,cpr-aging-ro-scaling-factor = <2950>;
+	qcom,cpr-aging-ro-scaling-factor = <1620>;
 	qcom,allow-aging-voltage-adjustment = <0 0 1 1 1 1 1 1>;
 };
 
