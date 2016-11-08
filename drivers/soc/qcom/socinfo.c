@@ -541,6 +541,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Skunk ID */
 	[321] = {MSM_CPU_SKUNK, "MSMSKUNK"},
 
+	/* Bat ID */
+	[328] = {MSM_CPU_BAT, "SDMBAT"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1221,6 +1224,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msmskunk()) {
 		dummy_socinfo.id = 321;
 		strlcpy(dummy_socinfo.build_id, "msmskunk - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdmbat()) {
+		dummy_socinfo.id = 328;
+		strlcpy(dummy_socinfo.build_id, "sdmbat - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 
