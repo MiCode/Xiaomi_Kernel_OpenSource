@@ -368,6 +368,22 @@ TRACE_EVENT(mdp_cmd_pingpong_done,
 			__entry->koff_cnt)
 );
 
+TRACE_EVENT(mdp_cmd_readptr_done,
+	TP_PROTO(u32 ctl_num, int koff_cnt),
+	TP_ARGS(ctl_num, koff_cnt),
+	TP_STRUCT__entry(
+			__field(u32, ctl_num)
+			__field(int, koff_cnt)
+	),
+	TP_fast_assign(
+			__entry->ctl_num = ctl_num;
+			__entry->koff_cnt = koff_cnt;
+	),
+	TP_printk("ctl num:%d kickoff:%d",
+			__entry->ctl_num,
+			__entry->koff_cnt)
+);
+
 TRACE_EVENT(mdp_cmd_release_bw,
 	TP_PROTO(u32 ctl_num),
 	TP_ARGS(ctl_num),

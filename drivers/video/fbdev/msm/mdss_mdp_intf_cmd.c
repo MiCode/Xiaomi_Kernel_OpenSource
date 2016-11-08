@@ -1064,6 +1064,7 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 	vsync_time = ktime_get();
 	ctl->vsync_cnt++;
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
+	trace_mdp_cmd_readptr_done(ctl->num, atomic_read(&ctx->koff_cnt));
 	complete_all(&ctx->rdptr_done);
 
 	/* If caller is waiting for the read pointer, notify. */
