@@ -46,6 +46,7 @@ enum print_reason {
 #define VBUS_CC_SHORT_VOTER		"VBUS_CC_SHORT_VOTER"
 #define LEGACY_CABLE_VOTER		"LEGACY_CABLE_VOTER"
 #define PD_INACTIVE_VOTER		"PD_INACTIVE_VOTER"
+#define BOOST_BACK_VOTER		"BOOST_BACK_VOTER"
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -55,6 +56,7 @@ enum smb_mode {
 
 enum {
 	QC_CHARGER_DETECTION_WA_BIT = BIT(0),
+	BOOST_BACK_WA = BIT(1),
 };
 
 struct smb_regulator {
@@ -240,6 +242,7 @@ irqreturn_t smblib_handle_icl_change(int irq, void *data);
 irqreturn_t smblib_handle_usb_typec_change(int irq, void *data);
 irqreturn_t smblib_handle_dc_plugin(int irq, void *data);
 irqreturn_t smblib_handle_high_duty_cycle(int irq, void *data);
+irqreturn_t smblib_handle_switcher_power_ok(int irq, void *data);
 
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
