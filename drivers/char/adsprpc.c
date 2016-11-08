@@ -490,7 +490,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 			ion_free(fl->apps->client, map->handle);
 		if (sess->smmu.enabled) {
 			if (map->size || map->phys)
-				msm_dma_unmap_sg(fl->sctx->dev,
+				msm_dma_unmap_sg(sess->dev,
 					map->table->sgl,
 					map->table->nents, DMA_BIDIRECTIONAL,
 					map->buf);
