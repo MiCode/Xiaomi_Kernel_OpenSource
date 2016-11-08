@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/regmap.h>
 #include <linux/delay.h>
+#include <linux/sched.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include <linux/mfd/wcd9xxx/core.h>
