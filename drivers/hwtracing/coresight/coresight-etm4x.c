@@ -2801,6 +2801,10 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 
 	put_online_cpus();
 
+	ret = clk_set_rate(adev->pclk, CORESIGHT_CLK_RATE_TRACE);
+	if (ret)
+		return ret;
+
 	pm_runtime_put(&adev->dev);
 
 	mutex_lock(&drvdata->mutex);
