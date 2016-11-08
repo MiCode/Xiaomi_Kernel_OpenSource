@@ -4182,7 +4182,7 @@ int tavil_micbias_control(struct snd_soc_codec *codec,
 					post_dapm_on, &tavil->mbhc->wcd_mbhc);
 		break;
 	case MICB_DISABLE:
-		if (tavil->pullup_ref[micb_index] > 0)
+		if (tavil->micb_ref[micb_index] > 0)
 			tavil->micb_ref[micb_index]--;
 		if ((tavil->micb_ref[micb_index] == 0) &&
 		    (tavil->pullup_ref[micb_index] > 0))
