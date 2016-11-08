@@ -178,6 +178,7 @@ enum mdss_hw_capabilities {
 	MDSS_CAPS_CWB_SUPPORTED,
 	MDSS_CAPS_MDP_VOTE_CLK_NOT_SUPPORTED,
 	MDSS_CAPS_AVR_SUPPORTED,
+	MDSS_CAPS_SEC_DETACH_SMMU,
 	MDSS_CAPS_MAX,
 };
 
@@ -221,6 +222,7 @@ struct mdss_smmu_client {
 	bool domain_attached;
 	bool handoff_pending;
 	void __iomem *mmu_base;
+	int domain;
 };
 
 struct mdss_mdp_qseed3_lut_tbl {
@@ -327,6 +329,7 @@ struct mdss_data_type {
 	u32 wfd_mode;
 	u32 has_no_lut_read;
 	atomic_t sd_client_count;
+	atomic_t sc_client_count;
 	u8 has_wb_ad;
 	u8 has_non_scalar_rgb;
 	bool has_src_split;
@@ -519,6 +522,8 @@ struct mdss_data_type {
 	u32 max_dest_scaler_input_width;
 	u32 max_dest_scaler_output_width;
 	struct mdss_mdp_destination_scaler *ds;
+	u32 sec_disp_en;
+	u32 sec_cam_en;
 };
 
 extern struct mdss_data_type *mdss_res;
@@ -577,6 +582,14 @@ static inline int mdss_get_sd_client_cnt(void)
 		return 0;
 	else
 		return atomic_read(&mdss_res->sd_client_count);
+}
+
+static inline int mdss_get_sc_client_cnt(void)
+{
+	if (!mdss_res)
+		return 0;
+	else
+		return atomic_read(&mdss_res->sc_client_count);
 }
 
 static inline void mdss_set_quirk(struct mdss_data_type *mdata,
