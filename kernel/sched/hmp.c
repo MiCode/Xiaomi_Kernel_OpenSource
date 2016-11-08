@@ -1624,6 +1624,20 @@ unsigned int cpu_temp(int cpu)
 		return 0;
 }
 
+void free_task_load_ptrs(struct task_struct *p)
+{
+	kfree(p->ravg.curr_window_cpu);
+	kfree(p->ravg.prev_window_cpu);
+
+	/*
+	 * update_task_ravg() can be called for exiting tasks. While the
+	 * function itself ensures correct behavior, the corresponding
+	 * trace event requires that these pointers be NULL.
+	 */
+	p->ravg.curr_window_cpu = NULL;
+	p->ravg.prev_window_cpu = NULL;
+}
+
 void init_new_task_load(struct task_struct *p, bool idle_task)
 {
 	int i;
@@ -1636,8 +1650,8 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
 
-	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_ATOMIC);
-	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_ATOMIC);
+	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
+	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
 
 	/* Don't have much choice. CPU frequency would be bogus */
 	BUG_ON(!p->ravg.curr_window_cpu || !p->ravg.prev_window_cpu);
@@ -1814,6 +1828,7 @@ static void group_load_in_freq_domain(struct cpumask *cpus,
 	}
 }
 
+static inline u64 freq_policy_load(struct rq *rq, u64 load);
 /*
  * Should scheduler alert governor for changing frequency?
  *
@@ -1864,6 +1879,7 @@ static int send_notification(struct rq *rq, int check_pred, int check_groups)
 			_group_load_in_cpu(cpu_of(rq), &group_load, NULL);
 
 		new_load = rq->prev_runnable_sum + group_load;
+		new_load = freq_policy_load(rq, new_load);
 
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 		read_unlock(&related_thread_group_lock);
@@ -3296,7 +3312,7 @@ void sched_get_cpus_busy(struct sched_load *busy,
 	u64 load[cpus], group_load[cpus];
 	u64 nload[cpus], ngload[cpus];
 	u64 pload[cpus];
-	unsigned int cur_freq[cpus], max_freq[cpus];
+	unsigned int max_freq[cpus];
 	int notifier_sent = 0;
 	int early_detection[cpus];
 	int cpu, i = 0;
@@ -3336,10 +3352,9 @@ void sched_get_cpus_busy(struct sched_load *busy,
 
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_ktime_clock(),
 				 0);
-		cur_freq[i] = cpu_cycles_to_freq(rq->cc.cycles, rq->cc.time);
 
 		account_load_subtractions(rq);
-		load[i] = rq->old_busy_time = rq->prev_runnable_sum;
+		load[i] = rq->prev_runnable_sum;
 		nload[i] = rq->nt_prev_runnable_sum;
 		pload[i] = rq->hmp_stats.pred_demands_sum;
 		rq->old_estimated_time = pload[i];
@@ -3360,7 +3375,6 @@ void sched_get_cpus_busy(struct sched_load *busy,
 			rq->cluster->notifier_sent = 0;
 		}
 		early_detection[i] = (rq->ed_task != NULL);
-		cur_freq[i] = cpu_cur_freq(cpu);
 		max_freq[i] = cpu_max_freq(cpu);
 		i++;
 	}
@@ -3403,6 +3417,8 @@ void sched_get_cpus_busy(struct sched_load *busy,
 		nload[i] += ngload[i];
 
 		load[i] = freq_policy_load(rq, load[i]);
+		rq->old_busy_time = load[i];
+
 		/*
 		 * Scale load in reference to cluster max_possible_freq.
 		 *
@@ -3433,33 +3449,11 @@ skip_early:
 			goto exit_early;
 		}
 
-		/*
-		 * When the load aggregation is controlled by
-		 * sched_freq_aggregate_threshold, allow reporting loads
-		 * greater than 100 @ Fcur to ramp up the frequency
-		 * faster.
-		 */
-		if (notifier_sent || (aggregate_load &&
-					sched_freq_aggregate_threshold)) {
-			load[i] = scale_load_to_freq(load[i], max_freq[i],
-						    cpu_max_possible_freq(cpu));
-			nload[i] = scale_load_to_freq(nload[i], max_freq[i],
-						    cpu_max_possible_freq(cpu));
-		} else {
-			load[i] = scale_load_to_freq(load[i], max_freq[i],
-						     cur_freq[i]);
-			nload[i] = scale_load_to_freq(nload[i], max_freq[i],
-						      cur_freq[i]);
-			if (load[i] > window_size)
-				load[i] = window_size;
-			if (nload[i] > window_size)
-				nload[i] = window_size;
+		load[i] = scale_load_to_freq(load[i], max_freq[i],
+				cpu_max_possible_freq(cpu));
+		nload[i] = scale_load_to_freq(nload[i], max_freq[i],
+				cpu_max_possible_freq(cpu));
 
-			load[i] = scale_load_to_freq(load[i], cur_freq[i],
-						    cpu_max_possible_freq(cpu));
-			nload[i] = scale_load_to_freq(nload[i], cur_freq[i],
-						    cpu_max_possible_freq(cpu));
-		}
 		pload[i] = scale_load_to_freq(pload[i], max_freq[i],
 					     rq->cluster->max_possible_freq);
 
