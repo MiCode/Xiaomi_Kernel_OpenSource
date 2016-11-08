@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/hrtimer.h>
 #include <linux/ipc_logging.h>
@@ -24,6 +25,7 @@
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
 #include <linux/extcon.h>
+#include <linux/usb/class-dual-role.h>
 #include <linux/usb/usbpd.h>
 #include "usbpd.h"
 
@@ -308,12 +310,19 @@ struct usbpd {
 
 	enum power_supply_typec_mode typec_mode;
 	enum power_supply_type	psy_type;
+	enum power_supply_typec_power_role forced_pr;
 	bool			vbus_present;
 
 	enum data_role		current_dr;
 	enum power_role		current_pr;
 	bool			in_pr_swap;
 	bool			pd_phy_opened;
+	struct completion	swap_complete;
+
+	struct dual_role_phy_instance	*dual_role;
+	struct dual_role_phy_desc	dr_desc;
+	bool			send_pr_swap;
+	bool			send_dr_swap;
 
 	struct regulator	*vbus;
 	struct regulator	*vconn;
@@ -646,6 +655,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			 */
 		}
 
+		dual_role_instance_changed(pd->dual_role);
+
 		/* Set CC back to DRP toggle for the next disconnect */
 		val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
 		power_supply_set_property(pd->usb_psy,
@@ -758,6 +769,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		}
 
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
+		complete(&pd->swap_complete);
+		dual_role_instance_changed(pd->dual_role);
 		break;
 
 	case PE_SRC_HARD_RESET:
@@ -800,6 +813,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 						EXTCON_USB, 1);
 			}
 		}
+
+		dual_role_instance_changed(pd->dual_role);
 
 		ret = power_supply_get_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_ALLOWED, &val);
@@ -882,6 +897,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_SNK_READY:
 		pd->in_explicit_contract = true;
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
+		complete(&pd->swap_complete);
+		dual_role_instance_changed(pd->dual_role);
 		break;
 
 	case PE_SNK_TRANSITION_TO_DEFAULT:
@@ -1445,12 +1462,21 @@ static void usbpd_sm(struct work_struct *w)
 			usleep_range(ERROR_RECOVERY_TIME * USEC_PER_MSEC,
 				(ERROR_RECOVERY_TIME + 5) * USEC_PER_MSEC);
 
-		/* Set CC back to DRP toggle */
-		val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+		/* set due to dual_role class "mode" change */
+		if (pd->forced_pr != POWER_SUPPLY_TYPEC_PR_NONE)
+			val.intval = pd->forced_pr;
+		else
+			/* Set CC back to DRP toggle */
+			val.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &val);
+		pd->forced_pr = POWER_SUPPLY_TYPEC_PR_NONE;
 
 		pd->current_state = PE_UNKNOWN;
+
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
+		dual_role_instance_changed(pd->dual_role);
 
 		goto sm_done;
 	}
@@ -1604,7 +1630,6 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			dr_swap(pd);
-			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		} else if (IS_CTRL(rx_msg, MSG_PR_SWAP)) {
 			/* lock in current mode */
 			set_power_role(pd, pd->current_pr);
@@ -1629,11 +1654,32 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			vconn_swap(pd);
+		} else if (IS_DATA(rx_msg, MSG_VDM)) {
+			handle_vdm_rx(pd, rx_msg);
+		} else if (pd->send_pr_swap) {
+			pd->send_pr_swap = false;
+			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
+			if (ret) {
+				dev_err(&pd->dev, "Error sending PR Swap\n");
+				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				break;
+			}
+
+			pd->current_state = PE_PRS_SRC_SNK_SEND_SWAP;
+			kick_sm(pd, SENDER_RESPONSE_TIME);
+		} else if (pd->send_dr_swap) {
+			pd->send_dr_swap = false;
+			ret = pd_send_msg(pd, MSG_DR_SWAP, NULL, 0, SOP_MSG);
+			if (ret) {
+				dev_err(&pd->dev, "Error sending DR Swap\n");
+				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+				break;
+			}
+
+			pd->current_state = PE_DRS_SEND_DR_SWAP;
+			kick_sm(pd, SENDER_RESPONSE_TIME);
 		} else {
-			if (IS_DATA(rx_msg, MSG_VDM))
-				handle_vdm_rx(pd, rx_msg);
-			else
-				handle_vdm_tx(pd);
+			handle_vdm_tx(pd);
 		}
 		break;
 
@@ -1826,7 +1872,6 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			dr_swap(pd);
-			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		} else if (IS_CTRL(rx_msg, MSG_PR_SWAP)) {
 			/* lock in current mode */
 			set_power_role(pd, pd->current_pr);
@@ -1868,11 +1913,32 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			vconn_swap(pd);
+		} else if (IS_DATA(rx_msg, MSG_VDM)) {
+			handle_vdm_rx(pd, rx_msg);
+		} else if (pd->send_pr_swap) {
+			pd->send_pr_swap = false;
+			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
+			if (ret) {
+				dev_err(&pd->dev, "Error sending PR Swap\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
+			}
+
+			pd->current_state = PE_PRS_SNK_SRC_SEND_SWAP;
+			kick_sm(pd, SENDER_RESPONSE_TIME);
+		} else if (pd->send_dr_swap) {
+			pd->send_dr_swap = false;
+			ret = pd_send_msg(pd, MSG_DR_SWAP, NULL, 0, SOP_MSG);
+			if (ret) {
+				dev_err(&pd->dev, "Error sending DR Swap\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
+			}
+
+			pd->current_state = PE_DRS_SEND_DR_SWAP;
+			kick_sm(pd, SENDER_RESPONSE_TIME);
 		} else {
-			if (IS_DATA(rx_msg, MSG_VDM))
-				handle_vdm_rx(pd, rx_msg);
-			else
-				handle_vdm_tx(pd);
+			handle_vdm_tx(pd);
 		}
 		break;
 
@@ -2218,6 +2284,198 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 	/* queue state machine due to CC state change */
 	kick_sm(pd, 0);
+	return 0;
+}
+
+static enum dual_role_property usbpd_dr_properties[] = {
+	DUAL_ROLE_PROP_SUPPORTED_MODES,
+	DUAL_ROLE_PROP_MODE,
+	DUAL_ROLE_PROP_PR,
+	DUAL_ROLE_PROP_DR,
+};
+
+static int usbpd_dr_get_property(struct dual_role_phy_instance *dual_role,
+		enum dual_role_property prop, unsigned int *val)
+{
+	struct usbpd *pd = dual_role_get_drvdata(dual_role);
+
+	if (!pd)
+		return -ENODEV;
+
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		/* For now associate UFP/DFP with data role only */
+		if (pd->current_dr == DR_UFP)
+			*val = DUAL_ROLE_PROP_MODE_UFP;
+		else if (pd->current_dr == DR_DFP)
+			*val = DUAL_ROLE_PROP_MODE_DFP;
+		else
+			*val = DUAL_ROLE_PROP_MODE_NONE;
+		break;
+	case DUAL_ROLE_PROP_PR:
+		if (pd->current_pr == PR_SRC)
+			*val = DUAL_ROLE_PROP_PR_SRC;
+		else if (pd->current_pr == PR_SINK)
+			*val = DUAL_ROLE_PROP_PR_SNK;
+		else
+			*val = DUAL_ROLE_PROP_PR_NONE;
+		break;
+	case DUAL_ROLE_PROP_DR:
+		if (pd->current_dr == DR_UFP)
+			*val = DUAL_ROLE_PROP_DR_DEVICE;
+		else if (pd->current_dr == DR_DFP)
+			*val = DUAL_ROLE_PROP_DR_HOST;
+		else
+			*val = DUAL_ROLE_PROP_DR_NONE;
+		break;
+	default:
+		usbpd_warn(&pd->dev, "unsupported property %d\n", prop);
+		return -ENODATA;
+	}
+
+	return 0;
+}
+
+static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
+		enum dual_role_property prop, const unsigned int *val)
+{
+	struct usbpd *pd = dual_role_get_drvdata(dual_role);
+	bool do_swap = false;
+
+	if (!pd)
+		return -ENODEV;
+
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		usbpd_dbg(&pd->dev, "Setting mode to %d\n", *val);
+
+		/*
+		 * Forces disconnect on CC and re-establishes connection.
+		 * This does not use PD-based PR/DR swap
+		 */
+		if (*val == DUAL_ROLE_PROP_MODE_UFP)
+			pd->forced_pr = POWER_SUPPLY_TYPEC_PR_SINK;
+		else if (*val == DUAL_ROLE_PROP_MODE_DFP)
+			pd->forced_pr = POWER_SUPPLY_TYPEC_PR_SOURCE;
+
+		/* new mode will be applied in disconnect handler */
+		set_power_role(pd, PR_NONE);
+
+		/* wait until it takes effect */
+		while (pd->forced_pr != POWER_SUPPLY_TYPEC_PR_NONE)
+			msleep(20);
+
+		break;
+
+	case DUAL_ROLE_PROP_DR:
+		usbpd_dbg(&pd->dev, "Setting data_role to %d\n", *val);
+
+		if (*val == DUAL_ROLE_PROP_DR_HOST) {
+			if (pd->current_dr == DR_UFP)
+				do_swap = true;
+		} else if (*val == DUAL_ROLE_PROP_DR_DEVICE) {
+			if (pd->current_dr == DR_DFP)
+				do_swap = true;
+		} else {
+			usbpd_warn(&pd->dev, "setting data_role to 'none' unsupported\n");
+			return -ENOTSUPP;
+		}
+
+		if (do_swap) {
+			if (pd->current_state != PE_SRC_READY &&
+					pd->current_state != PE_SNK_READY) {
+				usbpd_err(&pd->dev, "data_role swap not allowed: PD not in Ready state\n");
+				return -EAGAIN;
+			}
+
+			reinit_completion(&pd->swap_complete);
+			pd->send_dr_swap = true;
+			kick_sm(pd, 0);
+
+			/* wait for operation to complete */
+			if (!wait_for_completion_timeout(&pd->swap_complete,
+					msecs_to_jiffies(100))) {
+				usbpd_err(&pd->dev, "data_role swap timed out\n");
+				return -ETIMEDOUT;
+			}
+
+			if ((*val == DUAL_ROLE_PROP_DR_HOST &&
+					pd->current_dr != DR_DFP) ||
+				(*val == DUAL_ROLE_PROP_DR_DEVICE &&
+					 pd->current_dr != DR_UFP)) {
+				usbpd_err(&pd->dev, "incorrect state (%s) after data_role swap\n",
+						pd->current_dr == DR_DFP ?
+						"dfp" : "ufp");
+				return -EPROTO;
+			}
+		}
+
+		break;
+
+	case DUAL_ROLE_PROP_PR:
+		usbpd_dbg(&pd->dev, "Setting power_role to %d\n", *val);
+
+		if (*val == DUAL_ROLE_PROP_PR_SRC) {
+			if (pd->current_pr == PR_SINK)
+				do_swap = true;
+		} else if (*val == DUAL_ROLE_PROP_PR_SNK) {
+			if (pd->current_pr == PR_SRC)
+				do_swap = true;
+		} else {
+			usbpd_warn(&pd->dev, "setting power_role to 'none' unsupported\n");
+			return -ENOTSUPP;
+		}
+
+		if (do_swap) {
+			if (pd->current_state != PE_SRC_READY &&
+					pd->current_state != PE_SNK_READY) {
+				usbpd_err(&pd->dev, "power_role swap not allowed: PD not in Ready state\n");
+				return -EAGAIN;
+			}
+
+			reinit_completion(&pd->swap_complete);
+			pd->send_pr_swap = true;
+			kick_sm(pd, 0);
+
+			/* wait for operation to complete */
+			if (!wait_for_completion_timeout(&pd->swap_complete,
+					msecs_to_jiffies(2000))) {
+				usbpd_err(&pd->dev, "power_role swap timed out\n");
+				return -ETIMEDOUT;
+			}
+
+			if ((*val == DUAL_ROLE_PROP_PR_SRC &&
+					pd->current_pr != PR_SRC) ||
+				(*val == DUAL_ROLE_PROP_PR_SNK &&
+					 pd->current_pr != PR_SINK)) {
+				usbpd_err(&pd->dev, "incorrect state (%s) after power_role swap\n",
+						pd->current_pr == PR_SRC ?
+						"source" : "sink");
+				return -EPROTO;
+			}
+		}
+		break;
+
+	default:
+		usbpd_warn(&pd->dev, "unsupported property %d\n", prop);
+		return -ENOTSUPP;
+	}
+
+	return 0;
+}
+
+static int usbpd_dr_prop_writeable(struct dual_role_phy_instance *dual_role,
+		enum dual_role_property prop)
+{
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+	case DUAL_ROLE_PROP_DR:
+	case DUAL_ROLE_PROP_PR:
+		return 1;
+	default:
+		break;
+	}
+
 	return 0;
 }
 
@@ -2703,6 +2961,30 @@ struct usbpd *usbpd_create(struct device *parent)
 	pd->vconn_is_external = device_property_present(parent,
 					"qcom,vconn-uses-external-source");
 
+	/*
+	 * Register the Android dual-role class (/sys/class/dual_role_usb/).
+	 * The first instance should be named "otg_default" as that's what
+	 * Android expects.
+	 * Note this is different than the /sys/class/usbpd/ created above.
+	 */
+	pd->dr_desc.name = (num_pd_instances == 1) ?
+				"otg_default" : dev_name(&pd->dev);
+	pd->dr_desc.supported_modes = DUAL_ROLE_SUPPORTED_MODES_DFP_AND_UFP;
+	pd->dr_desc.properties = usbpd_dr_properties;
+	pd->dr_desc.num_properties = ARRAY_SIZE(usbpd_dr_properties);
+	pd->dr_desc.get_property = usbpd_dr_get_property;
+	pd->dr_desc.set_property = usbpd_dr_set_property;
+	pd->dr_desc.property_is_writeable = usbpd_dr_prop_writeable;
+
+	pd->dual_role = devm_dual_role_instance_register(&pd->dev,
+			&pd->dr_desc);
+	if (IS_ERR(pd->dual_role)) {
+		usbpd_err(&pd->dev, "could not register dual_role instance\n");
+		goto unreg_psy;
+	} else {
+		pd->dual_role->drv_data = pd;
+	}
+
 	pd->current_pr = PR_NONE;
 	pd->current_dr = DR_NONE;
 	list_add_tail(&pd->instance, &_usbpd);
@@ -2710,6 +2992,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	spin_lock_init(&pd->rx_lock);
 	INIT_LIST_HEAD(&pd->rx_q);
 	INIT_LIST_HEAD(&pd->svid_handlers);
+	init_completion(&pd->swap_complete);
 
 	/* force read initial power_supply values */
 	psy_changed(&pd->psy_nb, PSY_EVENT_PROP_CHANGED, pd->usb_psy);
