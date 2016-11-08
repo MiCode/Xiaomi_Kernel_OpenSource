@@ -241,7 +241,7 @@ void mdss_mdp_intersect_rect(struct mdss_rect *res_rect,
 
 void mdss_mdp_crop_rect(struct mdss_rect *src_rect,
 	struct mdss_rect *dst_rect,
-	const struct mdss_rect *sci_rect)
+	const struct mdss_rect *sci_rect, bool normalize)
 {
 	struct mdss_rect res;
 	mdss_mdp_intersect_rect(&res, dst_rect, sci_rect);
@@ -253,9 +253,17 @@ void mdss_mdp_crop_rect(struct mdss_rect *src_rect,
 			src_rect->w = res.w;
 			src_rect->h = res.h;
 		}
-		*dst_rect = (struct mdss_rect)
-			{(res.x - sci_rect->x), (res.y - sci_rect->y),
-			res.w, res.h};
+
+		/* adjust dest rect based on the sci_rect starting */
+		if (normalize) {
+			*dst_rect = (struct mdss_rect) {(res.x - sci_rect->x),
+					(res.y - sci_rect->y), res.w, res.h};
+
+		/* return the actual cropped intersecting rect */
+		} else {
+			*dst_rect = (struct mdss_rect) {res.x, res.y,
+					res.w, res.h};
+		}
 	}
 }
 

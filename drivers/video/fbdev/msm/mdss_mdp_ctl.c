@@ -728,7 +728,7 @@ int mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
 
 	/* crop rectangles */
 	if (roi && !mixer->ctl->is_video_mode && !pipe->src_split_req)
-		mdss_mdp_crop_rect(&src, &dst, roi);
+		mdss_mdp_crop_rect(&src, &dst, roi, true);
 
 	/*
 	 * when doing vertical decimation lines will be skipped, hence there is
@@ -1108,7 +1108,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 
 	/* crop rectangles */
 	if (roi && !mixer->ctl->is_video_mode && !pipe->src_split_req)
-		mdss_mdp_crop_rect(&src, &dst, roi);
+		mdss_mdp_crop_rect(&src, &dst, roi, true);
 
 	pr_debug("v_total=%d, xres=%d fps=%d\n", v_total, xres, fps);
 	pr_debug("src(w,h)(%d,%d) dst(w,h)(%d,%d) dst_y=%d bpp=%d yuv=%d\n",

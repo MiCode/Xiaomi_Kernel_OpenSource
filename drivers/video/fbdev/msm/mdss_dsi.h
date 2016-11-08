@@ -468,6 +468,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool cmd_sync_wait_trigger;
 
 	struct mdss_rect roi;
+	struct mdss_dsi_dual_pu_roi dual_roi;
 	struct pwm_device *pwm_bl;
 	u32 pclk_rate;
 	u32 byte_clk_rate;

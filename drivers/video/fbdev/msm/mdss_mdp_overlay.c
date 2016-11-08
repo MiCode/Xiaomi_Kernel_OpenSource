@@ -1861,12 +1861,109 @@ int mdss_mode_switch_post(struct msm_fb_data_type *mfd, u32 mode)
 	return rc;
 }
 
+static void __restore_pipe(struct mdss_mdp_pipe *pipe)
+{
+
+	if (!pipe->restore_roi)
+		return;
+
+	pr_debug("restoring pipe:%d dst from:{%d,%d,%d,%d} to:{%d,%d,%d,%d}\n",
+		pipe->num, pipe->dst.x, pipe->dst.y,
+		pipe->dst.w, pipe->dst.h, pipe->layer.dst_rect.x,
+		pipe->layer.dst_rect.y, pipe->layer.dst_rect.w,
+		pipe->layer.dst_rect.h);
+	pr_debug("restoring pipe:%d src from:{%d,%d,%d,%d} to:{%d,%d,%d,%d}\n",
+		pipe->num, pipe->src.x, pipe->src.y,
+		pipe->src.w, pipe->src.h, pipe->layer.src_rect.x,
+		pipe->layer.src_rect.y, pipe->layer.src_rect.w,
+		pipe->layer.src_rect.h);
+
+	pipe->src.x = pipe->layer.src_rect.x;
+	pipe->src.y = pipe->layer.src_rect.y;
+	pipe->src.w = pipe->layer.src_rect.w;
+	pipe->src.h = pipe->layer.src_rect.h;
+
+	pipe->dst.x = pipe->layer.dst_rect.x;
+	pipe->dst.y = pipe->layer.dst_rect.y;
+	pipe->dst.w = pipe->layer.dst_rect.w;
+	pipe->dst.h = pipe->layer.dst_rect.h;
+}
+
+ /**
+ * __crop_adjust_pipe_rect() - Adjust pipe roi for dual partial
+ *   update feature.
+ * @pipe: pipe to check against.
+ * @dual_roi: roi's for the dual partial roi.
+ *
+ * For dual PU ROI case, the layer mixer is configured
+ * by merging the two width aligned ROIs (first_roi and
+ * second_roi) vertically. So, the y-offset of all the
+ * pipes belonging to the second_roi needs to adjusted
+ * accordingly. Also the cropping of the pipe's src/dst
+ * rect has to be done with respect to the ROI the pipe
+ * is intersecting with, before the adjustment.
+ */
+static int __crop_adjust_pipe_rect(struct mdss_mdp_pipe *pipe,
+		struct mdss_dsi_dual_pu_roi *dual_roi)
+{
+	u32 adjust_h;
+	u32 roi_y_pos;
+	int ret = 0;
+
+	pipe->restore_roi = false;
+	if (mdss_rect_overlap_check(&pipe->dst, &dual_roi->first_roi)) {
+		mdss_mdp_crop_rect(&pipe->src, &pipe->dst,
+				&dual_roi->first_roi, false);
+		pipe->restore_roi = true;
+
+	} else if (mdss_rect_overlap_check(&pipe->dst, &dual_roi->second_roi)) {
+		mdss_mdp_crop_rect(&pipe->src, &pipe->dst,
+				&dual_roi->second_roi, false);
+		adjust_h =  dual_roi->second_roi.y;
+		roi_y_pos = dual_roi->first_roi.y + dual_roi->first_roi.h;
+
+		if (adjust_h > roi_y_pos) {
+			adjust_h = adjust_h - roi_y_pos;
+			pipe->dst.y -= adjust_h;
+		} else {
+			pr_err("wrong y-pos adjust_y:%d roi_y_pos:%d\n",
+				adjust_h, roi_y_pos);
+			ret = -EINVAL;
+		}
+		pipe->restore_roi = true;
+
+	} else {
+		ret = -EINVAL;
+	}
+
+	pr_debug("crop/adjusted p:%d src:{%d,%d,%d,%d} dst:{%d,%d,%d,%d} r:%d\n",
+		pipe->num, pipe->src.x, pipe->src.y,
+		pipe->src.w, pipe->src.h, pipe->dst.x,
+		pipe->dst.y, pipe->dst.w, pipe->dst.h,
+		pipe->restore_roi);
+
+	if (ret) {
+		pr_err("dual roi error p%d dst{%d,%d,%d,%d}",
+			pipe->num, pipe->dst.x, pipe->dst.y, pipe->dst.w,
+			pipe->dst.h);
+		pr_err(" roi1{%d,%d,%d,%d} roi2{%d,%d,%d,%d}\n",
+			dual_roi->first_roi.x, dual_roi->first_roi.y,
+			dual_roi->first_roi.w, dual_roi->first_roi.h,
+			dual_roi->second_roi.x, dual_roi->second_roi.y,
+			dual_roi->second_roi.w, dual_roi->second_roi.h);
+	}
+
+	return ret;
+}
+
 static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 	struct mdp_display_commit *commit)
 {
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+	struct mdss_dsi_dual_pu_roi *dual_roi = &pinfo->dual_roi;
 	struct mdss_rect l_roi = {0}, r_roi = {0};
 	struct mdp_rect tmp_roi = {0};
 	bool skip_partial_update = true;
@@ -1880,6 +1977,39 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 
 	rect_copy_mdp_to_mdss(&commit->l_roi, &l_roi);
 	rect_copy_mdp_to_mdss(&commit->r_roi, &r_roi);
+
+	/*
+	 * In case of dual partial update ROI, update the two ROIs to dual_roi
+	 * struct and combine both the ROIs and assign it as a merged ROI in
+	 * l_roi, as MDP would need only the merged ROI information for all
+	 * LM settings.
+	 */
+	if (pinfo->partial_update_enabled == PU_DUAL_ROI) {
+		if (commit->flags & MDP_COMMIT_PARTIAL_UPDATE_DUAL_ROI) {
+
+			if (!is_valid_pu_dual_roi(pinfo, &l_roi, &r_roi)) {
+				pr_err("Invalid dual roi - fall back to full screen update\n");
+				goto set_roi;
+			}
+
+			dual_roi->first_roi = (struct mdss_rect)
+					{l_roi.x, l_roi.y, l_roi.w, l_roi.h};
+			dual_roi->second_roi = (struct mdss_rect)
+					{r_roi.x, r_roi.y, r_roi.w, r_roi.h};
+			dual_roi->enabled = true;
+
+			l_roi.h += r_roi.h;
+			memset(&r_roi, 0, sizeof(struct mdss_rect));
+
+			pr_debug("Dual ROI - first_roi:{%d,%d,%d,%d}, second_roi:{%d,%d,%d,%d}\n",
+				dual_roi->first_roi.x, dual_roi->first_roi.y,
+				dual_roi->first_roi.w, dual_roi->first_roi.h,
+				dual_roi->second_roi.x, dual_roi->second_roi.y,
+				dual_roi->second_roi.w, dual_roi->second_roi.h);
+		} else {
+			dual_roi->enabled = false;
+		}
+	}
 
 	pr_debug("input: l_roi:-> %d %d %d %d r_roi:-> %d %d %d %d\n",
 		l_roi.x, l_roi.y, l_roi.w, l_roi.h,
@@ -1926,12 +2056,24 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 	}
 
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
+		pr_debug("pipe:%d src:{%d,%d,%d,%d} dst:{%d,%d,%d,%d}\n",
+			pipe->num, pipe->src.x, pipe->src.y,
+			pipe->src.w, pipe->src.h, pipe->dst.x,
+			pipe->dst.y, pipe->dst.w, pipe->dst.h);
+
+		if (dual_roi->enabled) {
+			if (__crop_adjust_pipe_rect(pipe, dual_roi)) {
+				skip_partial_update = true;
+				break;
+			}
+		}
+
 		if (!__is_roi_valid(pipe, &l_roi, &r_roi)) {
 			skip_partial_update = true;
-			pr_err("error. invalid pu config for pipe%d: %d,%d,%d,%d\n",
-				pipe->num,
-				pipe->dst.x, pipe->dst.y,
-				pipe->dst.w, pipe->dst.h);
+			pr_err("error. invalid pu config for pipe%d: %d,%d,%d,%d, dual_pu_roi:%d\n",
+				pipe->num, pipe->dst.x, pipe->dst.y,
+				pipe->dst.w, pipe->dst.h,
+				dual_roi->enabled);
 			break;
 		}
 	}
@@ -1946,13 +2088,24 @@ set_roi:
 					ctl->mixer_right->width,
 					ctl->mixer_right->height};
 		}
+
+		if (pinfo->partial_update_enabled == PU_DUAL_ROI) {
+			if (dual_roi->enabled) {
+				/* we failed pu validation, restore pipes */
+				list_for_each_entry(pipe,
+					&mdp5_data->pipes_used, list)
+				__restore_pipe(pipe);
+			}
+			dual_roi->enabled = false;
+		}
 	}
 
-	pr_debug("after processing: %s l_roi:-> %d %d %d %d r_roi:-> %d %d %d %d\n",
+	pr_debug("after processing: %s l_roi:-> %d %d %d %d r_roi:-> %d %d %d %d, dual_pu_roi:%d\n",
 		(l_roi.w && l_roi.h && r_roi.w && r_roi.h) ? "left+right" :
 			((l_roi.w && l_roi.h) ? "left-only" : "right-only"),
 		l_roi.x, l_roi.y, l_roi.w, l_roi.h,
-		r_roi.x, r_roi.y, r_roi.w, r_roi.h);
+		r_roi.x, r_roi.y, r_roi.w, r_roi.h,
+		dual_roi->enabled);
 
 	mdss_mdp_set_roi(ctl, &l_roi, &r_roi);
 }
