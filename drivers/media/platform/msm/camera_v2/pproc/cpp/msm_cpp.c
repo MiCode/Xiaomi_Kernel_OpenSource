@@ -1074,6 +1074,13 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 		goto end;
 	}
 
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
+			CAM_AHB_NOMINAL_VOTE);
+	if (rc < 0) {
+		pr_err("%s:%d: failed to vote for AHB\n", __func__, __LINE__);
+		goto end;
+	}
+
 	msm_camera_io_w(0x1, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
 	msm_camera_io_w(0x1, cpp_dev->base +
 			 MSM_CPP_MICRO_BOOT_START);
@@ -1082,7 +1089,7 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	if (rc) {
 		pr_err("%s:%d] poll command %x failed %d", __func__, __LINE__,
 			MSM_CPP_MSG_ID_CMD, rc);
-		goto end;
+		goto vote;
 	}
 
 	msm_camera_io_w(0xFFFFFFFF, cpp_dev->base +
@@ -1092,7 +1099,7 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	if (rc) {
 		pr_err("%s:%d] poll rx empty failed %d",
 			__func__, __LINE__, rc);
-		goto end;
+		goto vote;
 	}
 	/*Start firmware loading*/
 	msm_cpp_write(MSM_CPP_CMD_FW_LOAD, cpp_dev->base);
@@ -1102,7 +1109,7 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	if (rc) {
 		pr_err("%s:%d] poll rx empty failed %d",
 			__func__, __LINE__, rc);
-		goto end;
+		goto vote;
 	}
 	for (i = 0; i < cpp_dev->fw->size/4; i++) {
 		msm_cpp_write(*ptr_bin, cpp_dev->base);
@@ -1111,7 +1118,7 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 			if (rc) {
 				pr_err("%s:%d] poll rx empty failed %d",
 					__func__, __LINE__, rc);
-				goto end;
+				goto vote;
 			}
 		}
 		ptr_bin++;
@@ -1124,21 +1131,21 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	if (rc) {
 		pr_err("%s:%d] poll command %x failed %d", __func__, __LINE__,
 			MSM_CPP_MSG_ID_OK, rc);
-		goto end;
+		goto vote;
 	}
 
 	rc = msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
 	if (rc) {
 		pr_err("%s:%d] poll command %x failed %d", __func__, __LINE__,
 			MSM_CPP_MSG_ID_CMD, rc);
-		goto end;
+		goto vote;
 	}
 
 	rc = msm_cpp_poll_rx_empty(cpp_dev->base);
 	if (rc) {
 		pr_err("%s:%d] poll rx empty failed %d",
 			__func__, __LINE__, rc);
-		goto end;
+		goto vote;
 	}
 	/*Trigger MC to jump to start address*/
 	msm_cpp_write(MSM_CPP_CMD_EXEC_JUMP, cpp_dev->base);
@@ -1148,21 +1155,21 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	if (rc) {
 		pr_err("%s:%d] poll command %x failed %d", __func__, __LINE__,
 			MSM_CPP_MSG_ID_CMD, rc);
-		goto end;
+		goto vote;
 	}
 
 	rc = msm_cpp_poll(cpp_dev->base, 0x1);
 	if (rc) {
 		pr_err("%s:%d] poll command 0x1 failed %d", __func__, __LINE__,
 			rc);
-		goto end;
+		goto vote;
 	}
 
 	rc = msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_JUMP_ACK);
 	if (rc) {
 		pr_err("%s:%d] poll command %x failed %d", __func__, __LINE__,
 			MSM_CPP_MSG_ID_JUMP_ACK, rc);
-		goto end;
+		goto vote;
 	}
 
 	rc = msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
@@ -1171,6 +1178,11 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 			MSM_CPP_MSG_ID_JUMP_ACK, rc);
 	}
 
+vote:
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
+			CAM_AHB_SVS_VOTE);
+	if (rc < 0)
+		pr_err("%s:%d: failed to vote for AHB\n", __func__, __LINE__);
 end:
 	return rc;
 }
