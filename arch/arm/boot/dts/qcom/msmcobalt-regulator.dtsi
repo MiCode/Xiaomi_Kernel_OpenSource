@@ -590,8 +590,9 @@
 		qcom,cpr-idle-cycles = <15>;
 		qcom,cpr-up-down-delay-time = <3000>;
 		qcom,cpr-step-quot-init-min = <11>;
-		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-step-quot-init-max = <12>;
 		qcom,cpr-count-mode = <0>;		/* All at once */
+		qcom,cpr-count-repeat = <1>;
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
 		qcom,cpr-corner-switch-delay-time = <209>;
@@ -618,7 +619,7 @@
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <0>;
+			qcom,cpr-consecutive-down = <2>;
 			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <2>;
 
@@ -740,7 +741,7 @@
 
 				qcom,cpr-aging-max-voltage-adjustment = <15000>;
 				qcom,cpr-aging-ref-corner = <22>;
-				qcom,cpr-aging-ro-scaling-factor = <2950>;
+				qcom,cpr-aging-ro-scaling-factor = <1620>;
 				qcom,allow-aging-voltage-adjustment = <0>;
 				qcom,allow-aging-open-loop-voltage-adjustment =
 					<1>;
@@ -761,9 +762,10 @@
 		qcom,cpr-loop-time = <5000000>;
 		qcom,cpr-idle-cycles = <15>;
 		qcom,cpr-up-down-delay-time = <3000>;
-		qcom,cpr-step-quot-init-min = <11>;
-		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-step-quot-init-min = <9>;
+		qcom,cpr-step-quot-init-max = <14>;
 		qcom,cpr-count-mode = <0>;		/* All at once */
+		qcom,cpr-count-repeat = <1>;
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
 		qcom,cpr-corner-switch-delay-time = <209>;
@@ -790,7 +792,7 @@
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <0>;
+			qcom,cpr-consecutive-down = <2>;
 			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <2>;
 
@@ -932,7 +934,7 @@
 
 				qcom,cpr-aging-max-voltage-adjustment = <15000>;
 				qcom,cpr-aging-ref-corner = <25>;
-				qcom,cpr-aging-ro-scaling-factor = <2950>;
+				qcom,cpr-aging-ro-scaling-factor = <1700>;
 				qcom,allow-aging-voltage-adjustment = <0>;
 				qcom,allow-aging-open-loop-voltage-adjustment =
 					<1>;
