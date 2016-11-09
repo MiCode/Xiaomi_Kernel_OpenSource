@@ -313,8 +313,8 @@ void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 	}
 
 	if (tu_entry == tu_table + ARRAY_SIZE(tu_table)) {
-		pr_err("requested ln_cnt=%d, lrate=0x%x not supported\n",
-				ln_cnt, link_rate);
+		pr_err("requested res=%d, ln_cnt=%d, lrate=0x%x not supported\n",
+				res, ln_cnt, link_rate);
 		return;
 	}
 
