@@ -1575,6 +1575,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	bool is_fast = smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST);
+	unsigned long quirks = 0;
 	bool dynamic;
 
 	mutex_lock(&smmu_domain->init_mutex);
@@ -1681,6 +1682,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (is_fast)
 		fmt = ARM_V8L_FAST;
 
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT))
+		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
 
 	/* Dynamic domains must set cbndx through domain attribute */
 	if (!dynamic) {
@@ -1698,6 +1701,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	}
 
 	smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
+		.quirks		= quirks,
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
 		.oas		= oas,
@@ -2579,6 +2583,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					& (1 << DOMAIN_ATTR_FAST));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
+		*((int *)data) = !!(smmu_domain->attributes &
+				   (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT));
+		ret = 0;
+		break;
 	default:
 		return -ENODEV;
 	}
@@ -2704,6 +2713,17 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 	case DOMAIN_ATTR_FAST:
 		if (*((int *)data))
 			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_USE_UPSTREAM_HINT:
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+			break;
+		}
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_USE_UPSTREAM_HINT;
 		ret = 0;
 		break;
 	default:
