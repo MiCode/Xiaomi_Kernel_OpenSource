@@ -1829,7 +1829,8 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 			break;
 
 		if (c->osm_table[i].spare_data != curr_level) {
-			mem_acc_level_map[j++] = i - 1;
+			mem_acc_level_map[j++]
+					= c->osm_table[i].virtual_corner - 1;
 			curr_level = c->osm_table[i].spare_data;
 		}
 	}
