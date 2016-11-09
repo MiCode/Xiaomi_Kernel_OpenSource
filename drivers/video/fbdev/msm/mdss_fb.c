@@ -243,9 +243,11 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 		}
 	} else if (notify == NOTIFY_UPDATE_STOP) {
 		mutex_lock(&mfd->update.lock);
-		if (mfd->update.init_done)
+		if (mfd->update.init_done) {
+			mutex_unlock(&mfd->update.lock);
+			mutex_lock(&mfd->no_update.lock);
 			reinit_completion(&mfd->no_update.comp);
-		else {
+		} else {
 			mutex_unlock(&mfd->update.lock);
 			pr_err("notify update stop called without init\n");
 			return -EINVAL;
