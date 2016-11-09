@@ -289,6 +289,16 @@ Properties:
 		    values per performance mode with a total of 4 tuples
 		    corresponding to each supported performance mode.
 
+- qcom,perfcl-apcs-mem-acc-threshold-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the highest MEM ACC threshold voltage in
+		    microvolts for the Performance cluster.  This voltage is
+		    used to determine which MEM ACC setting is used for the
+		    highest frequencies.  If specified, the voltage must match
+		    the MEM ACC threshold voltage specified for the
+		    corresponding CPRh device.
+
 - qcom,red-fsm-en
 	Usage:      optional
 	Value type: <empty>
