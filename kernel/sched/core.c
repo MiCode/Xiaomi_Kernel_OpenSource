@@ -5769,7 +5769,7 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 		 */
 		if ((migrate_pinned_tasks && rq->nr_running == 1) ||
 		   (!migrate_pinned_tasks &&
-		    rq->nr_running == num_pinned_kthreads))
+		    rq->nr_running <= num_pinned_kthreads))
 			break;
 
 		/*
@@ -5805,8 +5805,12 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 		 * Since we're inside stop-machine, _nothing_ should have
 		 * changed the task, WARN if weird stuff happened, because in
 		 * that case the above rq->lock drop is a fail too.
+		 * However, during cpu isolation the load balancer might have
+		 * interferred since we don't stop all CPUs. Ignore warning for
+		 * this case.
 		 */
-		if (WARN_ON(task_rq(next) != rq || !task_on_rq_queued(next))) {
+		if (WARN_ON((task_rq(next) != rq || !task_on_rq_queued(next)) &&
+			     migrate_pinned_tasks)) {
 			raw_spin_unlock(&next->pi_lock);
 			continue;
 		}
