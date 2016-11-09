@@ -359,6 +359,8 @@ struct clk_osm {
 	u32 irq;
 	u32 apm_crossover_vc;
 	u32 apm_threshold_vc;
+	u32 mem_acc_crossover_vc;
+	u32 mem_acc_threshold_vc;
 	u32 cycle_counter_reads;
 	u32 cycle_counter_delay;
 	u32 cycle_counter_factor;
@@ -845,6 +847,8 @@ static void clk_osm_print_osm_table(struct clk_osm *c)
 	}
 	pr_debug("APM threshold corner=%d, crossover corner=%d\n",
 		 c->apm_threshold_vc, c->apm_crossover_vc);
+	pr_debug("MEM-ACC threshold corner=%d, crossover corner=%d\n",
+		 c->mem_acc_threshold_vc, c->mem_acc_crossover_vc);
 }
 
 static int clk_osm_get_lut(struct platform_device *pdev,
@@ -1523,19 +1527,26 @@ static int clk_osm_resolve_open_loop_voltages(struct clk_osm *c)
 }
 
 static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
-				     struct platform_device *pdev)
+				     struct platform_device *pdev,
+				     const char *mem_acc_prop)
 {
 	struct regulator *regulator = c->vdd_reg;
-	int count, vc, i, threshold, rc = 0;
+	int count, vc, i, apm_threshold;
+	int mem_acc_threshold = 0;
+	int rc = 0;
 	u32 corner_volt;
 
 	rc = of_property_read_u32(pdev->dev.of_node,
 				  "qcom,apm-threshold-voltage",
-				  &threshold);
+				  &apm_threshold);
 	if (rc) {
 		pr_info("qcom,apm-threshold-voltage property not specified\n");
 		return rc;
 	}
+
+	if (mem_acc_prop)
+		of_property_read_u32(pdev->dev.of_node, mem_acc_prop,
+					  &mem_acc_threshold);
 
 	/* Determine crossover virtual corner */
 	count = regulator_count_voltages(regulator);
@@ -1544,16 +1555,46 @@ static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 		return count;
 	}
 
-	c->apm_crossover_vc = count - 1;
+	/*
+	 * CPRh corners (in hardware) are ordered:
+	 * 0 - n-1		- for n functional corners
+	 * APM crossover	- required for OSM
+	 * [MEM ACC crossover]	- optional
+	 *
+	 * 'count' corresponds to the total number of corners including n
+	 * functional corners, the APM crossover corner, and potentially the
+	 * MEM ACC cross over corner.
+	 */
+	if (mem_acc_threshold) {
+		c->apm_crossover_vc = count - 2;
+		c->mem_acc_crossover_vc = count - 1;
+	} else {
+		c->apm_crossover_vc = count - 1;
+	}
 
-	/* Determine threshold virtual corner */
+	/* Determine APM threshold virtual corner */
 	for (i = 0; i < OSM_TABLE_SIZE; i++) {
 		vc = c->osm_table[i].virtual_corner + 1;
 		corner_volt = regulator_list_corner_voltage(regulator, vc);
 
-		if (corner_volt >= threshold) {
+		if (corner_volt >= apm_threshold) {
 			c->apm_threshold_vc = c->osm_table[i].virtual_corner;
 			break;
+		}
+	}
+
+	/* Determine MEM ACC threshold virtual corner */
+	if (mem_acc_threshold) {
+		for (i = 0; i < OSM_TABLE_SIZE; i++) {
+			vc = c->osm_table[i].virtual_corner + 1;
+			corner_volt
+				= regulator_list_corner_voltage(regulator, vc);
+
+			if (corner_volt >= mem_acc_threshold) {
+				c->mem_acc_threshold_vc
+					= c->osm_table[i].virtual_corner;
+				break;
+			}
 		}
 	}
 
@@ -1855,6 +1896,7 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 {
 	int i, curr_level, j = 0;
 	int mem_acc_level_map[MAX_MEM_ACC_LEVELS] = {0, 0, 0};
+	int threshold_vc[4];
 
 	curr_level = c->osm_table[0].spare_data;
 	for (i = 0; i < c->num_entries; i++) {
@@ -1889,14 +1931,37 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 			clk_osm_write_reg(c, c->apcs_mem_acc_cfg[i],
 					  MEM_ACC_SEQ_REG_CFG_START(i));
 	} else {
+		if (c->mem_acc_crossover_vc)
+			scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(88),
+					c->mem_acc_crossover_vc);
+
+		threshold_vc[0] = mem_acc_level_map[0];
+		threshold_vc[1] = mem_acc_level_map[0] + 1;
+		threshold_vc[2] = mem_acc_level_map[1];
+		threshold_vc[3] = mem_acc_level_map[1] + 1;
+
+		/*
+		 * Use dynamic MEM ACC threshold voltage based value for the
+		 * highest MEM ACC threshold if it is specified instead of the
+		 * fixed mapping in the LUT.
+		 */
+		if (c->mem_acc_threshold_vc) {
+			threshold_vc[2] = c->mem_acc_threshold_vc - 1;
+			threshold_vc[3] = c->mem_acc_threshold_vc;
+			if (threshold_vc[1] >= threshold_vc[2])
+				threshold_vc[1] = threshold_vc[2] - 1;
+			if (threshold_vc[0] >= threshold_vc[1])
+				threshold_vc[0] = threshold_vc[1] - 1;
+		}
+
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(55),
-			     mem_acc_level_map[0]);
+				threshold_vc[0]);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(56),
-			     mem_acc_level_map[0] + 1);
+				threshold_vc[1]);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(57),
-			     mem_acc_level_map[1]);
+				threshold_vc[2]);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(58),
-			     mem_acc_level_map[1] + 1);
+				threshold_vc[3]);
 		/* SEQ_REG(49) = SEQ_REG(28) init by TZ */
 	}
 
@@ -3110,13 +3175,14 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = clk_osm_resolve_crossover_corners(&pwrcl_clk, pdev);
+	rc = clk_osm_resolve_crossover_corners(&pwrcl_clk, pdev, NULL);
 	if (rc)
 		dev_info(&pdev->dev, "No APM crossover corner programmed\n");
 
-	rc = clk_osm_resolve_crossover_corners(&perfcl_clk, pdev);
+	rc = clk_osm_resolve_crossover_corners(&perfcl_clk, pdev,
+				"qcom,perfcl-apcs-mem-acc-threshold-voltage");
 	if (rc)
-		dev_info(&pdev->dev, "No APM crossover corner programmed\n");
+		dev_info(&pdev->dev, "No MEM-ACC crossover corner programmed\n");
 
 	clk_osm_setup_cycle_counters(&pwrcl_clk);
 	clk_osm_setup_cycle_counters(&perfcl_clk);
