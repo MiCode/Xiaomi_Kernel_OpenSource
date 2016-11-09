@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include "mdmcalifornium.dtsi"
-
 / {
 	model = "Qualcomm Technologies, Inc. SDX HEDGEHOG";
 	compatible = "qcom,sdxhedgehog";
