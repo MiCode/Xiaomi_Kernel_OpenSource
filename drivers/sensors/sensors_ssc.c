@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,51 @@
 #define DSPS_IOCTL_READ_SLOW_TIMER32 _IOR(DSPS_IOCTL_MAGIC, 3, compat_uint_t)
 #endif
 
+static void __iomem *qdsp6ss_qtmr_base;
+static uint32_t qdsp6ss_qtmr_hi_offset;
+static uint32_t qdsp6ss_qtmr_lo_offset;
+
+struct msm_ssc_sensors_data {
+	uint32_t qtmr_base;
+	uint32_t qtmr_length;
+	uint32_t qtmr_hi_offset;
+	uint32_t qtmr_lo_offset;
+};
+
+static inline uint64_t qdsp6_get_counter_value(void)
+{
+	uint32_t cvall = 0;
+	uint32_t cvalh = 0;
+	uint32_t thigh = 0;
+
+	if (qdsp6ss_qtmr_base != NULL) {
+		do {
+			cvalh = __raw_readl(qdsp6ss_qtmr_base +
+			    qdsp6ss_qtmr_hi_offset);
+			cvall = __raw_readl(qdsp6ss_qtmr_base +
+			    qdsp6ss_qtmr_lo_offset);
+			thigh = __raw_readl(qdsp6ss_qtmr_base +
+			    qdsp6ss_qtmr_hi_offset);
+		} while (cvalh != thigh);
+	} else {
+		pr_err("qdsp6ss_qtmr_base is NULL\n");
+	}
+
+	return ((uint64_t) cvalh << 32) | cvall;
+}
+
+static ssize_t qdsp_qtimer_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	uint64_t qdsp_qtimer_value = 0;
+
+	qdsp_qtimer_value = qdsp6_get_counter_value();
+	return snprintf(buf, 20, "%llx\n", qdsp_qtimer_value);
+}
+
+static DEVICE_ATTR(qdsp_qtimer, S_IRUGO , qdsp_qtimer_show, NULL);
+
 struct sns_ssc_control_s {
 	struct class *dev_class;
 	dev_t dev_num;
@@ -60,6 +105,7 @@ static struct kobj_attribute slpi_boot_attribute =
 
 static struct attribute *attrs[] = {
 	&slpi_boot_attribute.attr,
+	&dev_attr_qdsp_qtimer.attr,
 	NULL,
 };
 
@@ -138,10 +184,48 @@ static ssize_t slpi_boot_store(struct kobject *kobj,
 	return count;
 }
 
+static int msm_ssc_sensors_dt_parse(struct platform_device *pdev,
+		struct msm_ssc_sensors_data *ssc_sensors_data)
+{
+	int ret = -EINVAL;
+	uint32_t qtimer_prop[2];
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+		    "qcom,qtimer-cntpct-hi-offset",
+		    &ssc_sensors_data->qtmr_hi_offset);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: get qdsp timer cntpct hi offset fail\n",
+			__func__);
+		return ret;
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+		    "qcom,qtimer-cntpct-lo-offset",
+		    &ssc_sensors_data->qtmr_lo_offset);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: get qdsp timer cntpct lo offset fail\n",
+			__func__);
+		return ret;
+	}
+
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,qdsp-timer-base", &qtimer_prop[0], 2);
+	if (!ret) {
+		ssc_sensors_data->qtmr_base = qtimer_prop[0];
+		ssc_sensors_data->qtmr_length = qtimer_prop[1];
+	} else {
+		dev_err(&pdev->dev, "%s: get qdsp timer base fail\n",
+			__func__);
+	}
+
+	return ret;
+}
+
 static int slpi_loader_init_sysfs(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 	struct slpi_loader_private *priv = NULL;
+	struct msm_ssc_sensors_data ssc_sensors_data;
 
 	slpi_private = NULL;
 
@@ -173,6 +257,21 @@ static int slpi_loader_init_sysfs(struct platform_device *pdev)
 						__func__);
 		ret = -ENOMEM;
 		goto error_return;
+	}
+
+	ret = msm_ssc_sensors_dt_parse(pdev, &ssc_sensors_data);
+	if (!ret) {
+		qdsp6ss_qtmr_hi_offset = ssc_sensors_data.qtmr_hi_offset;
+		qdsp6ss_qtmr_lo_offset = ssc_sensors_data.qtmr_lo_offset;
+		qdsp6ss_qtmr_base = ioremap(ssc_sensors_data.qtmr_base,
+			ssc_sensors_data.qtmr_length);
+		if (qdsp6ss_qtmr_base == NULL) {
+			dev_err(&pdev->dev, "%s: qdsp timer ioremap fail\n",
+				__func__);
+		}
+	} else {
+		dev_info(&pdev->dev, "%s: Could not parse dt\n",
+			__func__);
 	}
 
 	ret = sysfs_create_group(priv->boot_slpi_obj, priv->attr_group);
