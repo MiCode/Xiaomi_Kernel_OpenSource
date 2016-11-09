@@ -12,6 +12,7 @@
 
 #define pr_fmt(fmt) "qbt1000:%s: " fmt, __func__
 
+#include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -105,10 +106,14 @@ struct qbt1000_drvdata {
 */
 struct fw_ipc_cmd {
 	uint32_t status;
+	uint32_t numMsgs;
+	uint8_t msg_data[FW_MAX_IPC_MSG_DATA_SIZE];
+};
+
+struct fw_ipc_header {
 	uint32_t msg_type;
 	uint32_t msg_len;
 	uint32_t resp_needed;
-	uint8_t msg_data[FW_MAX_IPC_MSG_DATA_SIZE];
 };
 
 /*
@@ -352,7 +357,14 @@ static int qbt1000_open(struct inode *inode, struct file *file)
  */
 static int qbt1000_release(struct inode *inode, struct file *file)
 {
-	struct qbt1000_drvdata *drvdata = file->private_data;
+	struct qbt1000_drvdata *drvdata;
+
+	if (!file->private_data) {
+		pr_err("Null pointer passed in file->private_data");
+		return -EINVAL;
+	}
+
+	drvdata = file->private_data;
 
 	atomic_inc(&drvdata->available);
 	return 0;
@@ -373,6 +385,11 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	int rc = 0;
 	void __user *priv_arg = (void __user *)arg;
 	struct qbt1000_drvdata *drvdata;
+
+	if (!file->private_data) {
+		pr_err("Null pointer passed in file->private_data");
+		return -EINVAL;
+	}
 
 	drvdata = file->private_data;
 
@@ -789,6 +806,8 @@ static int qbt1000_create_input_device(struct qbt1000_drvdata *drvdata)
 		BIT_MASK(KEY_HOMEPAGE);
 	drvdata->in_dev->keybit[BIT_WORD(KEY_CAMERA)] |=
 		BIT_MASK(KEY_CAMERA);
+	drvdata->in_dev->keybit[BIT_WORD(KEY_VOLUMEDOWN)] |=
+		BIT_MASK(KEY_VOLUMEDOWN);
 	drvdata->in_dev->keybit[BIT_WORD(KEY_POWER)] |=
 		BIT_MASK(KEY_POWER);
 
@@ -917,11 +936,14 @@ static irqreturn_t qbt1000_gpio_isr(int irq, void *dev_id)
  */
 static irqreturn_t qbt1000_ipc_irq_handler(int irq, void *dev_id)
 {
+	uint8_t *msg_buffer;
 	struct fw_ipc_cmd *rx_cmd;
-	int i;
+	struct fw_ipc_header *header;
+	int i, j;
 	uint32_t rxipc = FP_APP_CMD_RX_IPC;
 	struct qbt1000_drvdata *drvdata = (struct qbt1000_drvdata *)dev_id;
 	int rc = 0;
+	uint32_t retry_count = 10;
 
 	pm_stay_awake(drvdata->dev);
 
@@ -933,18 +955,25 @@ static irqreturn_t qbt1000_ipc_irq_handler(int irq, void *dev_id)
 		goto end;
 	}
 
-	pr_debug("firmware interrupt received (irq %d)\n", irq);
-
 	if (!drvdata->fp_app_handle)
 		goto end;
 
-	/*
-	 * send the TZ command to fetch the message from firmware
-	 * TZ will process the message if it can
-	 */
-	rc = send_tz_cmd(drvdata, drvdata->fp_app_handle, 0,
-					&rxipc, sizeof(rxipc),
-					(void *)&rx_cmd, sizeof(*rx_cmd));
+	while (retry_count > 0) {
+		/*
+		 * send the TZ command to fetch the message from firmware
+		 * TZ will process the message if it can
+		 */
+		rc = send_tz_cmd(drvdata, drvdata->fp_app_handle, 0,
+				&rxipc, sizeof(rxipc),
+				(void *)&rx_cmd, sizeof(*rx_cmd));
+		if (rc < 0) {
+			msleep(50); /* sleep for 50ms before retry */
+			retry_count -= 1;
+			continue;
+		} else {
+			break;
+		}
+	}
 
 	if (rc < 0) {
 		pr_err("failure sending tz cmd %d\n", rxipc);
@@ -956,29 +985,35 @@ static irqreturn_t qbt1000_ipc_irq_handler(int irq, void *dev_id)
 		goto end;
 	}
 
-	/*
-	 * given the IPC message type, search for a corresponding event for the
-	 * driver client. If found, add to the events FIFO
-	 */
-	for (i = 0; i < ARRAY_SIZE(g_msg_to_event); i++) {
-		if (g_msg_to_event[i].msg_type == rx_cmd->msg_type) {
-			enum qbt1000_fw_event ev = g_msg_to_event[i].fw_event;
-			struct fw_event_desc fw_ev_desc;
+	msg_buffer = rx_cmd->msg_data;
 
-			mutex_lock(&drvdata->fw_events_mutex);
-			pr_debug("fw events: add %d\n", (int) ev);
-			fw_ev_desc.ev = ev;
+	for (j = 0; j < rx_cmd->numMsgs; j++) {
+		header = (struct fw_ipc_header *) msg_buffer;
+		/*
+		 * given the IPC message type, search for a corresponding event
+		 * for the driver client. If found, add to the events FIFO
+		 */
+		for (i = 0; i < ARRAY_SIZE(g_msg_to_event); i++) {
+			if (g_msg_to_event[i].msg_type == header->msg_type) {
+				enum qbt1000_fw_event ev =
+						g_msg_to_event[i].fw_event;
+				struct fw_event_desc fw_ev_desc;
 
-			if (!kfifo_put(&drvdata->fw_events, fw_ev_desc))
-				pr_err("fw events: fifo full, drop event %d\n",
-					(int) ev);
+				mutex_lock(&drvdata->fw_events_mutex);
+				pr_debug("fw events: add %d\n", (int) ev);
+				fw_ev_desc.ev = ev;
 
-			mutex_unlock(&drvdata->fw_events_mutex);
-			wake_up_interruptible(&drvdata->read_wait_queue);
-			break;
+				if (!kfifo_put(&drvdata->fw_events, fw_ev_desc))
+					pr_err("fw events: fifo full, drop event %d\n",
+						(int) ev);
+
+				mutex_unlock(&drvdata->fw_events_mutex);
+				break;
+			}
 		}
+		msg_buffer += sizeof(*header) + header->msg_len;
 	}
-
+	wake_up_interruptible(&drvdata->read_wait_queue);
 end:
 	mutex_unlock(&drvdata->mutex);
 	pm_relax(drvdata->dev);
