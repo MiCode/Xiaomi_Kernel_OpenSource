@@ -68,7 +68,8 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	pingpong_bit = (~(pingpong_status >> stats_pingpong_offset) & 0x1);
 
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
-			vfe_dev->pdev->id, bufq_handle, &buf);
+			vfe_dev->pdev->id, bufq_handle,
+			MSM_ISP_INVALID_BUF_INDEX, &buf);
 	if (rc == -EFAULT) {
 		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_BUF_FATAL_ERROR);
 		return rc;
