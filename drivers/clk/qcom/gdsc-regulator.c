@@ -26,8 +26,7 @@
 #include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/mfd/syscon.h>
-
-#include "clk-branch.h"
+#include <linux/clk/qcom.h>
 
 /* GDSCR */
 #define PWR_ON_MASK		BIT(31)
