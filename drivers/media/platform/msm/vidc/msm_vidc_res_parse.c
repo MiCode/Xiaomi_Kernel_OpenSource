@@ -1249,7 +1249,7 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 		port = is_decode ? OUTPUT_PORT : CAPTURE_PORT;
 		dprintk(VIDC_ERR,
 			"%s session, Codec type: %s HxW: %d x %d fps: %d bitrate: %d bit-depth: %s\n",
-			is_decode ? "Decode" : "Encode", inst->fmts[port]->name,
+			is_decode ? "Decode" : "Encode", inst->fmts[port].name,
 			inst->prop.height[port], inst->prop.width[port],
 			inst->prop.fps, inst->prop.bitrate,
 			!inst->bit_depth ? "8" : "10");
