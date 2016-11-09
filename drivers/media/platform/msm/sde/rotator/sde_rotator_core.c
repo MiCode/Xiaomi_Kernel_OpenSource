@@ -1021,6 +1021,7 @@ static int sde_rotator_init_queue(struct sde_rot_mgr *mgr)
 {
 	int i, size, ret = 0;
 	char name[32];
+	struct sched_param param = { .sched_priority = 5 };
 
 	size = sizeof(struct sde_rot_queue) * mgr->queue_count;
 	mgr->commitq = devm_kzalloc(mgr->device, size, GFP_KERNEL);
@@ -1031,11 +1032,21 @@ static int sde_rotator_init_queue(struct sde_rot_mgr *mgr)
 		snprintf(name, sizeof(name), "rot_commitq_%d_%d",
 				mgr->device->id, i);
 		SDEROT_DBG("work queue name=%s\n", name);
-		mgr->commitq[i].rot_work_queue =
-			alloc_ordered_workqueue("%s",
-				WQ_MEM_RECLAIM | WQ_HIGHPRI, name);
-		if (!mgr->commitq[i].rot_work_queue) {
+		kthread_init_worker(&mgr->commitq[i].rot_kw);
+		mgr->commitq[i].rot_thread = kthread_run(kthread_worker_fn,
+				&mgr->commitq[i].rot_kw, name);
+		if (IS_ERR(mgr->commitq[i].rot_thread)) {
 			ret = -EPERM;
+			mgr->commitq[i].rot_thread = NULL;
+			break;
+		}
+
+		ret = sched_setscheduler(mgr->commitq[i].rot_thread,
+			SCHED_FIFO, &param);
+		if (ret) {
+			SDEROT_ERR(
+				"failed to set kthread priority for commitq %d\n",
+				ret);
 			break;
 		}
 
@@ -1052,10 +1063,21 @@ static int sde_rotator_init_queue(struct sde_rot_mgr *mgr)
 		snprintf(name, sizeof(name), "rot_doneq_%d_%d",
 				mgr->device->id, i);
 		SDEROT_DBG("work queue name=%s\n", name);
-		mgr->doneq[i].rot_work_queue = alloc_ordered_workqueue("%s",
-				WQ_MEM_RECLAIM | WQ_HIGHPRI, name);
-		if (!mgr->doneq[i].rot_work_queue) {
+		kthread_init_worker(&mgr->doneq[i].rot_kw);
+		mgr->doneq[i].rot_thread = kthread_run(kthread_worker_fn,
+				&mgr->doneq[i].rot_kw, name);
+		if (IS_ERR(mgr->doneq[i].rot_thread)) {
 			ret = -EPERM;
+			mgr->doneq[i].rot_thread = NULL;
+			break;
+		}
+
+		ret = sched_setscheduler(mgr->doneq[i].rot_thread,
+			SCHED_FIFO, &param);
+		if (ret) {
+			SDEROT_ERR(
+				"failed to set kthread priority for doneq %d\n",
+				ret);
 			break;
 		}
 
@@ -1071,18 +1093,20 @@ static void sde_rotator_deinit_queue(struct sde_rot_mgr *mgr)
 
 	if (mgr->commitq) {
 		for (i = 0; i < mgr->queue_count; i++) {
-			if (mgr->commitq[i].rot_work_queue)
-				destroy_workqueue(
-					mgr->commitq[i].rot_work_queue);
+			if (mgr->commitq[i].rot_thread) {
+				kthread_flush_worker(&mgr->commitq[i].rot_kw);
+				kthread_stop(mgr->commitq[i].rot_thread);
+			}
 		}
 		devm_kfree(mgr->device, mgr->commitq);
 		mgr->commitq = NULL;
 	}
 	if (mgr->doneq) {
 		for (i = 0; i < mgr->queue_count; i++) {
-			if (mgr->doneq[i].rot_work_queue)
-				destroy_workqueue(
-					mgr->doneq[i].rot_work_queue);
+			if (mgr->doneq[i].rot_thread) {
+				kthread_flush_worker(&mgr->doneq[i].rot_kw);
+				kthread_stop(mgr->doneq[i].rot_thread);
+			}
 		}
 		devm_kfree(mgr->device, mgr->doneq);
 		mgr->doneq = NULL;
@@ -1203,7 +1227,7 @@ void sde_rotator_queue_request(struct sde_rot_mgr *mgr,
 
 		if (entry->item.ts)
 			entry->item.ts[SDE_ROTATOR_TS_QUEUE] = ktime_get();
-		queue_work(queue->rot_work_queue, &entry->commit_work);
+		kthread_queue_work(&queue->rot_kw, &entry->commit_work);
 	}
 }
 
@@ -1423,12 +1447,13 @@ static void sde_rotator_release_entry(struct sde_rot_mgr *mgr,
  *
  * Note this asynchronous handler is protected by hal lock.
  */
-static void sde_rotator_commit_handler(struct work_struct *work)
+static void sde_rotator_commit_handler(struct kthread_work *work)
 {
 	struct sde_rot_entry *entry;
 	struct sde_rot_entry_container *request;
 	struct sde_rot_hw_resource *hw;
 	struct sde_rot_mgr *mgr;
+	struct sched_param param = { .sched_priority = 5 };
 	int ret;
 
 	entry = container_of(work, struct sde_rot_entry, commit_work);
@@ -1437,6 +1462,12 @@ static void sde_rotator_commit_handler(struct work_struct *work)
 	if (!request || !entry->private || !entry->private->mgr) {
 		SDEROT_ERR("fatal error, null request/context/device\n");
 		return;
+	}
+
+	ret = sched_setscheduler(entry->fenceq->rot_thread, SCHED_FIFO, &param);
+	if (ret) {
+		SDEROT_WARN("Fail to set kthread priority for fenceq: %d\n",
+				ret);
 	}
 
 	mgr = entry->private->mgr;
@@ -1514,7 +1545,7 @@ static void sde_rotator_commit_handler(struct work_struct *work)
 
 	SDEROT_EVTLOG(entry->item.session_id, 1);
 
-	queue_work(entry->doneq->rot_work_queue, &entry->done_work);
+	kthread_queue_work(&entry->doneq->rot_kw, &entry->done_work);
 	sde_rot_mgr_unlock(mgr);
 	return;
 error:
@@ -1526,8 +1557,8 @@ get_hw_res_err:
 	sde_rotator_release_entry(mgr, entry);
 	atomic_dec(&request->pending_count);
 	atomic_inc(&request->failed_count);
-	if (request->retireq && request->retire_work)
-		queue_work(request->retireq, request->retire_work);
+	if (request->retire_kw && request->retire_work)
+		kthread_queue_work(request->retire_kw, request->retire_work);
 	sde_rot_mgr_unlock(mgr);
 }
 
@@ -1541,7 +1572,7 @@ get_hw_res_err:
  *
  * Note this asynchronous handler is protected by hal lock.
  */
-static void sde_rotator_done_handler(struct work_struct *work)
+static void sde_rotator_done_handler(struct kthread_work *work)
 {
 	struct sde_rot_entry *entry;
 	struct sde_rot_entry_container *request;
@@ -1606,8 +1637,8 @@ static void sde_rotator_done_handler(struct work_struct *work)
 	ATRACE_INT("sde_rot_done", 1);
 	sde_rotator_release_entry(mgr, entry);
 	atomic_dec(&request->pending_count);
-	if (request->retireq && request->retire_work)
-		queue_work(request->retireq, request->retire_work);
+	if (request->retire_kw && request->retire_work)
+		kthread_queue_work(request->retire_kw, request->retire_work);
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_RETIRE] = ktime_get();
 	sde_rot_mgr_unlock(mgr);
@@ -1966,8 +1997,10 @@ static int sde_rotator_add_request(struct sde_rot_mgr *mgr,
 
 		entry->request = req;
 
-		INIT_WORK(&entry->commit_work, sde_rotator_commit_handler);
-		INIT_WORK(&entry->done_work, sde_rotator_done_handler);
+		kthread_init_work(&entry->commit_work,
+				sde_rotator_commit_handler);
+		kthread_init_work(&entry->done_work,
+				sde_rotator_done_handler);
 		SDEROT_DBG(
 			"Entry added. wbidx=%u, src{%u,%u,%u,%u}f=%x dst{%u,%u,%u,%u}f=%x session_id=%u\n",
 			item->wb_idx,
@@ -2016,8 +2049,8 @@ static void sde_rotator_cancel_request(struct sde_rot_mgr *mgr,
 		sde_rot_mgr_unlock(mgr);
 		for (i = req->count - 1; i >= 0; i--) {
 			entry = req->entries + i;
-			cancel_work_sync(&entry->commit_work);
-			cancel_work_sync(&entry->done_work);
+			kthread_cancel_work_sync(&entry->commit_work);
+			kthread_cancel_work_sync(&entry->done_work);
 		}
 		sde_rot_mgr_lock(mgr);
 		SDEROT_DBG("cancel work done\n");
@@ -2134,7 +2167,7 @@ void sde_rotator_commit_request(struct sde_rot_mgr *mgr,
 
 	sde_rot_mgr_unlock(mgr);
 	for (i = 0; i < req->count; i++)
-		flush_work(&req->entries[i].commit_work);
+		kthread_flush_work(&req->entries[i].commit_work);
 	sde_rot_mgr_lock(mgr);
 }
 
