@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2014,2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,13 +16,36 @@
 #include <linux/slab.h>
 #include <linux/msm_ion.h>
 #include <soc/qcom/secure_buffer.h>
+#include <linux/workqueue.h>
+#include <linux/uaccess.h>
 #include "ion.h"
 #include "ion_priv.h"
 
 struct ion_system_secure_heap {
 	struct ion_heap *sys_heap;
 	struct ion_heap heap;
+
+	/* Protects prefetch_list */
+	spinlock_t work_lock;
+	bool destroy_heap;
+	struct list_head prefetch_list;
+	struct delayed_work prefetch_work;
 };
+
+struct prefetch_info {
+	struct list_head list;
+	int vmid;
+	size_t size;
+	bool shrink;
+};
+
+/*
+ * The video client may not hold the last reference count on the
+ * ion_buffer(s). Delay for a short time after the video client sends
+ * the IOC_DRAIN event to increase the chance that the reference
+ * count drops to zero. Time in milliseconds.
+ */
+#define SHRINK_DELAY 1000
 
 static bool is_cp_flag_present(unsigned long flags)
 {
@@ -33,49 +56,52 @@ static bool is_cp_flag_present(unsigned long flags)
 			ION_FLAG_CP_CAMERA);
 }
 
-static int get_secure_vmid(unsigned long flags)
+int ion_system_secure_heap_unassign_sg(struct sg_table *sgt, int source_vmid)
 {
-	if (flags & ION_FLAG_CP_TOUCH)
-		return VMID_CP_TOUCH;
-	if (flags & ION_FLAG_CP_BITSTREAM)
-		return VMID_CP_BITSTREAM;
-	if (flags & ION_FLAG_CP_PIXEL)
-		return VMID_CP_PIXEL;
-	if (flags & ION_FLAG_CP_NON_PIXEL)
-		return VMID_CP_NON_PIXEL;
-	if (flags & ION_FLAG_CP_CAMERA)
-		return VMID_CP_CAMERA;
+	u32 dest_vmid = VMID_HLOS;
+	u32 dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
+	struct scatterlist *sg;
+	int ret, i;
 
-	return -EINVAL;
+	ret = hyp_assign_table(sgt, &source_vmid, 1,
+			       &dest_vmid, &dest_perms, 1);
+	if (ret) {
+		pr_err("%s: Not freeing memory since assign call failed. VMID %d\n",
+		       __func__, source_vmid);
+		return -ENXIO;
+	}
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		ClearPagePrivate(sg_page(sg));
+	return 0;
+}
+
+int ion_system_secure_heap_assign_sg(struct sg_table *sgt, int dest_vmid)
+{
+	u32 source_vmid = VMID_HLOS;
+	u32 dest_perms = PERM_READ | PERM_WRITE;
+	struct scatterlist *sg;
+	int ret, i;
+
+	ret = hyp_assign_table(sgt, &source_vmid, 1,
+			       &dest_vmid, &dest_perms, 1);
+	if (ret) {
+		pr_err("%s: Assign call failed. VMID %d\n",
+		       __func__, dest_vmid);
+		return -EINVAL;
+	}
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		SetPagePrivate(sg_page(sg));
+	return 0;
 }
 
 static void ion_system_secure_heap_free(struct ion_buffer *buffer)
 {
-	int ret = 0;
-	u32 source_vm;
-	int dest_vmid;
-	int dest_perms;
 	struct ion_heap *heap = buffer->heap;
 	struct ion_system_secure_heap *secure_heap = container_of(heap,
 						struct ion_system_secure_heap,
 						heap);
-
-	source_vm = get_secure_vmid(buffer->flags);
-	if (source_vm < 0) {
-		pr_info("%s: Unable to get secure VMID\n", __func__);
-		return;
-	}
-	dest_vmid = VMID_HLOS;
-	dest_perms = PERM_READ | PERM_WRITE;
-
-	ret = hyp_assign_table(buffer->priv_virt, &source_vm, 1,
-			       &dest_vmid, &dest_perms, 1);
-	if (ret) {
-		pr_err("%s: Not freeing memory since assign call failed\n",
-		       __func__);
-		return;
-	}
-
 	buffer->heap = secure_heap->sys_heap;
 	secure_heap->sys_heap->ops->free(buffer);
 }
@@ -87,9 +113,6 @@ static int ion_system_secure_heap_allocate(
 					unsigned long flags)
 {
 	int ret = 0;
-	u32 source_vm;
-	int dest_vmid;
-	int dest_perms;
 	struct ion_system_secure_heap *secure_heap = container_of(heap,
 						struct ion_system_secure_heap,
 						heap);
@@ -108,27 +131,190 @@ static int ion_system_secure_heap_allocate(
 			__func__, heap->name, ret);
 		return ret;
 	}
+	return ret;
+}
 
-	source_vm = VMID_HLOS;
-	dest_vmid = get_secure_vmid(flags);
-	if (dest_vmid < 0) {
-		pr_info("%s: Unable to get secure VMID\n", __func__);
-		ret = -EINVAL;
-		goto err;
-	}
-	dest_perms = PERM_READ | PERM_WRITE;
+static void process_one_prefetch(struct ion_heap *sys_heap,
+				 struct prefetch_info *info)
+{
+	struct ion_buffer buffer;
+	struct sg_table *sg_table;
+	int ret;
 
-	ret = hyp_assign_table(buffer->priv_virt, &source_vm, 1,
-			       &dest_vmid, &dest_perms, 1);
+	buffer.heap = sys_heap;
+	buffer.flags = 0;
+
+	ret = sys_heap->ops->allocate(sys_heap, &buffer, info->size,
+						PAGE_SIZE, buffer.flags);
 	if (ret) {
-		pr_err("%s: Assign call failed\n", __func__);
-		goto err;
+		pr_debug("%s: Failed to prefetch 0x%zx, ret = %d\n",
+			 __func__, info->size, ret);
+		return;
+	}
+
+	sg_table = sys_heap->ops->map_dma(sys_heap, &buffer);
+	if (IS_ERR_OR_NULL(sg_table))
+		goto out;
+
+	ret = ion_system_secure_heap_assign_sg(sg_table,
+					       get_secure_vmid(info->vmid));
+	if (ret)
+		goto unmap;
+
+	/* Now free it to the secure heap */
+	buffer.heap = sys_heap;
+	buffer.flags = info->vmid;
+
+unmap:
+	sys_heap->ops->unmap_dma(sys_heap, &buffer);
+out:
+	sys_heap->ops->free(&buffer);
+}
+
+static void process_one_shrink(struct ion_heap *sys_heap,
+			       struct prefetch_info *info)
+{
+	struct ion_buffer buffer;
+	size_t pool_size, size;
+	int ret;
+
+	buffer.heap = sys_heap;
+	buffer.flags = info->vmid;
+
+	pool_size = ion_system_heap_secure_page_pool_total(sys_heap,
+							   info->vmid);
+	size = min(pool_size, info->size);
+	ret = sys_heap->ops->allocate(sys_heap, &buffer, size, PAGE_SIZE,
+				      buffer.flags);
+	if (ret) {
+		pr_debug("%s: Failed to shrink 0x%zx, ret = %d\n",
+			 __func__, info->size, ret);
+		return;
+	}
+
+	buffer.private_flags = ION_PRIV_FLAG_SHRINKER_FREE;
+	sys_heap->ops->free(&buffer);
+}
+
+static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
+{
+	struct ion_system_secure_heap *secure_heap = container_of(work,
+						struct ion_system_secure_heap,
+						prefetch_work.work);
+	struct ion_heap *sys_heap = secure_heap->sys_heap;
+	struct prefetch_info *info, *tmp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&secure_heap->work_lock, flags);
+	list_for_each_entry_safe(info, tmp,
+				 &secure_heap->prefetch_list, list) {
+		list_del(&info->list);
+		spin_unlock_irqrestore(&secure_heap->work_lock, flags);
+
+		if (info->shrink)
+			process_one_shrink(sys_heap, info);
+		else
+			process_one_prefetch(sys_heap, info);
+
+		kfree(info);
+		spin_lock_irqsave(&secure_heap->work_lock, flags);
+	}
+	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
+}
+
+static int alloc_prefetch_info(
+			struct ion_prefetch_regions __user *user_regions,
+			bool shrink, struct list_head *items)
+{
+	struct prefetch_info *info;
+	size_t __user *user_sizes;
+	int err;
+	unsigned int nr_sizes, vmid, i;
+
+	err = get_user(nr_sizes, &user_regions->nr_sizes);
+	err |= get_user(user_sizes, &user_regions->sizes);
+	err |= get_user(vmid, &user_regions->vmid);
+	if (err)
+		return -EFAULT;
+
+	if (!is_secure_vmid_valid(get_secure_vmid(vmid)))
+		return -EINVAL;
+
+	if (nr_sizes > 0x10)
+		return -EINVAL;
+
+	for (i = 0; i < nr_sizes; i++) {
+		info = kzalloc(sizeof(*info), GFP_KERNEL);
+		if (!info)
+			return -ENOMEM;
+
+		err = get_user(info->size, &user_sizes[i]);
+		if (err)
+			goto out_free;
+
+		info->vmid = vmid;
+		info->shrink = shrink;
+		INIT_LIST_HEAD(&info->list);
+		list_add_tail(&info->list, items);
+	}
+	return err;
+out_free:
+	kfree(info);
+	return err;
+}
+
+static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
+					   bool shrink)
+{
+	struct ion_system_secure_heap *secure_heap = container_of(heap,
+						struct ion_system_secure_heap,
+						heap);
+	struct ion_prefetch_data *data = ptr;
+	int i, ret = 0;
+	struct prefetch_info *info, *tmp;
+	unsigned long flags;
+	LIST_HEAD(items);
+
+	if ((int)heap->type != ION_HEAP_TYPE_SYSTEM_SECURE)
+		return -EINVAL;
+
+	if (data->nr_regions > 0x10)
+		return -EINVAL;
+
+	for (i = 0; i < data->nr_regions; i++) {
+		ret = alloc_prefetch_info(&data->regions[i], shrink, &items);
+		if (ret)
+			goto out_free;
+	}
+
+	spin_lock_irqsave(&secure_heap->work_lock, flags);
+	if (secure_heap->destroy_heap) {
+		spin_unlock_irqrestore(&secure_heap->work_lock, flags);
+		goto out_free;
+	}
+	list_splice_init(&items, &secure_heap->prefetch_list);
+	schedule_delayed_work(&secure_heap->prefetch_work,
+			      shrink ? msecs_to_jiffies(SHRINK_DELAY) : 0);
+	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
+
+	return 0;
+
+out_free:
+	list_for_each_entry_safe(info, tmp, &items, list) {
+		list_del(&info->list);
+		kfree(info);
 	}
 	return ret;
+}
 
-err:
-	ion_system_secure_heap_free(buffer);
-	return ret;
+int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
+{
+	return __ion_system_secure_heap_resize(heap, ptr, false);
+}
+
+int ion_system_secure_heap_drain(struct ion_heap *heap, void *ptr)
+{
+	return __ion_system_secure_heap_resize(heap, ptr, true);
 }
 
 static struct sg_table *ion_system_secure_heap_map_dma(
@@ -207,10 +393,36 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	heap->heap.ops = &system_secure_heap_ops;
 	heap->heap.type = ION_HEAP_TYPE_SYSTEM_SECURE;
 	heap->sys_heap = get_ion_heap(ION_SYSTEM_HEAP_ID);
+
+	heap->destroy_heap = false;
+	heap->work_lock = __SPIN_LOCK_UNLOCKED(heap->work_lock);
+	INIT_LIST_HEAD(&heap->prefetch_list);
+	INIT_DELAYED_WORK(&heap->prefetch_work,
+			  ion_system_secure_heap_prefetch_work);
 	return &heap->heap;
 }
 
 void ion_system_secure_heap_destroy(struct ion_heap *heap)
 {
+	struct ion_system_secure_heap *secure_heap = container_of(heap,
+						struct ion_system_secure_heap,
+						heap);
+	unsigned long flags;
+	LIST_HEAD(items);
+	struct prefetch_info *info, *tmp;
+
+	/* Stop any pending/future work */
+	spin_lock_irqsave(&secure_heap->work_lock, flags);
+	secure_heap->destroy_heap = true;
+	list_splice_init(&secure_heap->prefetch_list, &items);
+	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
+
+	cancel_delayed_work_sync(&secure_heap->prefetch_work);
+
+	list_for_each_entry_safe(info, tmp, &items, list) {
+		list_del(&info->list);
+		kfree(info);
+	}
+
 	kfree(heap);
 }

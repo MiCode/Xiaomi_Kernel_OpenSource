@@ -26,9 +26,17 @@ struct compat_ion_flush_data {
 	compat_uint_t length;
 };
 
+struct compat_ion_prefetch_regions {
+	compat_uint_t vmid;
+	compat_uptr_t sizes;
+	compat_uint_t nr_sizes;
+};
+
 struct compat_ion_prefetch_data {
 	compat_int_t heap_id;
 	compat_ulong_t len;
+	compat_uptr_t regions;
+	compat_uint_t nr_regions;
 };
 
 #define COMPAT_ION_IOC_CLEAN_CACHES    _IOWR(ION_IOC_MSM_MAGIC, 0, \
@@ -58,7 +66,7 @@ static int compat_get_ion_flush_data(
 	err |= put_user(i, &data->fd);
 	err |= get_user(u, &data32->vaddr);
 	/* upper bits won't get set, zero them */
-	data->vaddr = NULL;
+	err |= put_user(NULL, &data->vaddr);
 	err |= put_user(u, (compat_uptr_t *)&data->vaddr);
 	err |= get_user(l, &data32->offset);
 	err |= put_user(l, &data->offset);
@@ -70,16 +78,61 @@ static int compat_get_ion_flush_data(
 
 static int compat_get_ion_prefetch_data(
 			struct compat_ion_prefetch_data __user *data32,
-			struct ion_prefetch_data __user *data)
+			struct ion_prefetch_data __user *data,
+			size_t stack_offset)
 {
 	compat_int_t i;
 	compat_ulong_t l;
-	int err;
+	compat_uint_t u;
+	int err, j, k;
+	compat_uint_t nr_regions, nr_sizes;
+	struct compat_ion_prefetch_regions __user *regions32;
+	struct ion_prefetch_regions __user *regions;
+	compat_uptr_t ptr;
 
 	err = get_user(i, &data32->heap_id);
 	err |= put_user(i, &data->heap_id);
 	err |= get_user(l, &data32->len);
 	err |= put_user(l, &data->len);
+	err |= get_user(nr_regions, &data32->nr_regions);
+	err |= put_user(nr_regions, &data->nr_regions);
+	err |= get_user(ptr, &data32->regions);
+	regions32 = compat_ptr(ptr);
+	if (err)
+		return err;
+
+	stack_offset += nr_regions * sizeof(*regions);
+	regions = compat_alloc_user_space(stack_offset);
+	if (!regions)
+		return -EFAULT;
+	err |= put_user(regions, &data->regions);
+
+	for (k = 0; k < nr_regions; k++) {
+		compat_size_t __user *sizes32;
+		size_t __user *sizes;
+
+		err |= get_user(u, &regions32[k].vmid);
+		err |= put_user(u, &regions[k].vmid);
+		err |= get_user(nr_sizes, &regions32[k].nr_sizes);
+		err |= put_user(nr_sizes, &regions[k].nr_sizes);
+		err |= get_user(ptr, &regions32[k].sizes);
+		sizes32 = compat_ptr(ptr);
+		if (err)
+			return -EFAULT;
+
+		stack_offset += nr_sizes * sizeof(*sizes);
+		sizes = compat_alloc_user_space(stack_offset);
+		if (!sizes)
+			return -EFAULT;
+		err |= put_user(sizes, &regions[k].sizes);
+
+		for (j = 0; j < nr_sizes; j++) {
+			compat_size_t s;
+
+			err |= get_user(s, &sizes32[j]);
+			err |= put_user(s, &sizes[j]);
+		}
+	}
 
 	return err;
 }
@@ -138,7 +191,7 @@ long compat_msm_ion_ioctl(struct ion_client *client, unsigned int cmd,
 		if (!data)
 			return -EFAULT;
 
-		err = compat_get_ion_prefetch_data(data32, data);
+		err = compat_get_ion_prefetch_data(data32, data, sizeof(*data));
 		if (err)
 			return err;
 

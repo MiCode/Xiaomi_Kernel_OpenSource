@@ -145,13 +145,14 @@ static void msm_iommu_meta_put(struct msm_iommu_meta *meta);
 
 static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 				   int nents, enum dma_data_direction dir,
-				   struct dma_buf *dma_buf, int flags)
+				   struct dma_buf *dma_buf,
+				   unsigned long attrs)
 {
 	struct msm_iommu_map *iommu_map;
 	struct msm_iommu_meta *iommu_meta = NULL;
 	int ret = 0;
 	bool extra_meta_ref_taken = false;
-	bool late_unmap = (flags & MSM_DMA_ATTR_NO_DELAYED_UNMAP) == 0;
+	int late_unmap = !(attrs & DMA_ATTR_NO_DELAYED_UNMAP);
 
 	mutex_lock(&msm_iommu_map_mutex);
 	iommu_meta = msm_iommu_meta_lookup(dma_buf->priv);
@@ -184,7 +185,7 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 			goto out_unlock;
 		}
 
-		ret = dma_map_sg(dev, sg, nents, dir);
+		ret = dma_map_sg_attrs(dev, sg, nents, dir, attrs);
 		if (ret != nents) {
 			kfree(iommu_map);
 			goto out_unlock;
@@ -232,7 +233,7 @@ out:
  */
 int msm_dma_map_sg_attrs(struct device *dev, struct scatterlist *sg, int nents,
 		   enum dma_data_direction dir, struct dma_buf *dma_buf,
-		   int flags)
+		   unsigned long attrs)
 {
 	int ret;
 
@@ -251,7 +252,7 @@ int msm_dma_map_sg_attrs(struct device *dev, struct scatterlist *sg, int nents,
 		return -EINVAL;
 	}
 
-	ret = __msm_dma_map_sg(dev, sg, nents, dir, dma_buf, flags);
+	ret = __msm_dma_map_sg(dev, sg, nents, dir, dma_buf, attrs);
 
 	return ret;
 }
@@ -333,6 +334,35 @@ out:
 	return;
 }
 EXPORT_SYMBOL(msm_dma_unmap_sg);
+
+int msm_dma_unmap_all_for_dev(struct device *dev)
+{
+	int ret = 0;
+	struct msm_iommu_meta *meta;
+	struct rb_root *root;
+	struct rb_node *meta_node;
+
+	mutex_lock(&msm_iommu_map_mutex);
+	root = &iommu_root;
+	meta_node = rb_first(root);
+	while (meta_node) {
+		struct msm_iommu_map *iommu_map;
+
+		meta = rb_entry(meta_node, struct msm_iommu_meta, node);
+		mutex_lock(&meta->lock);
+		list_for_each_entry(iommu_map, &meta->iommu_maps, lnode)
+			if (iommu_map->dev == dev)
+				if (!kref_put(&iommu_map->ref,
+						msm_iommu_map_release))
+					ret = -EINVAL;
+
+		mutex_unlock(&meta->lock);
+		meta_node = rb_next(meta_node);
+	}
+	mutex_unlock(&msm_iommu_map_mutex);
+
+	return ret;
+}
 
 /*
  * Only to be called by ION code when a buffer is freed
