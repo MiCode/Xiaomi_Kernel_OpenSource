@@ -345,10 +345,32 @@ static inline void sde_hw_rotator_put_ctx(struct sde_hw_rotator_context *ctx)
 {
 	 struct sde_hw_rotator *rot = ctx->rot;
 	 u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
+	 unsigned long flags;
 
+	 spin_lock_irqsave(&rot->rotisr_lock, flags);
 	 rot->rotCtx[ctx->q_id][idx] = ctx;
+	 spin_unlock_irqrestore(&rot->rotisr_lock, flags);
+
 	 SDEROT_DBG("rotCtx[%d][%d] <== ctx:%p | session-id:%d\n",
 			 ctx->q_id, idx, ctx, ctx->session_id);
+}
+
+/**
+ * sde_hw_rotator_clr_ctx(): Clearing rotator context according to its
+ * timestamp.
+ */
+static inline void sde_hw_rotator_clr_ctx(struct sde_hw_rotator_context *ctx)
+{
+	 struct sde_hw_rotator *rot = ctx->rot;
+	 u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
+	 unsigned long flags;
+
+	 spin_lock_irqsave(&rot->rotisr_lock, flags);
+	 rot->rotCtx[ctx->q_id][idx] = NULL;
+	 spin_unlock_irqrestore(&rot->rotisr_lock, flags);
+
+	 SDEROT_DBG("rotCtx[%d][%d] <== null | session-id:%d\n",
+			 ctx->q_id, idx, ctx->session_id);
 }
 
 #endif /*_SDE_ROTATOR_R3_INTERNAL_H */

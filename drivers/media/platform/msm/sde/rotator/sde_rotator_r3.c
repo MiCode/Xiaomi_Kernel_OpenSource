@@ -1502,7 +1502,8 @@ static void sde_hw_rotator_free_rotctx(struct sde_hw_rotator *rot,
 		ctx->q_id, ctx->timestamp,
 		atomic_read(&ctx->hwres->num_active));
 
-	rot->rotCtx[ctx->q_id][sde_hw_rotator_get_regdma_ctxidx(ctx)] = NULL;
+	/* Clear rotator context from lookup purpose */
+	sde_hw_rotator_clr_ctx(ctx);
 
 	devm_kfree(&rot->pdev->dev, ctx);
 }
