@@ -72,6 +72,9 @@ Optional properties for WLED:
 - qcom,loop-auto-gm-en	: A boolean property to specify if auto gm is enabled.
 - qcom,loop-auto-gm-thresh	: Specify auto gm threshold if "loop-auto-gm-en" is defined.
 				  Supported values are: 0 - 3.
+- qcom,lcd-auto-pfm-thresh	: Specify the auto-pfm threshold, if the headroom voltage level
+				  falls below this threshold and auto PFM is enabled, boost
+				  controller will enter into PFM mode automatically.
 
 Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
 - qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.

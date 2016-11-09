@@ -50,6 +50,7 @@
 #define QPNP_WLED_VLOOP_COMP_RES_REG(b)	(b + 0x55)
 #define QPNP_WLED_VLOOP_COMP_GM_REG(b)	(b + 0x56)
 #define QPNP_WLED_PSM_CTRL_REG(b)	(b + 0x5B)
+#define QPNP_WLED_LCD_AUTO_PFM_REG(b)	(b + 0x5C)
 #define QPNP_WLED_SC_PRO_REG(b)		(b + 0x5E)
 #define QPNP_WLED_SWIRE_AVDD_REG(b)	(b + 0x5F)
 #define QPNP_WLED_CTRL_SPARE_REG(b)	(b + 0xDF)
@@ -87,6 +88,11 @@
 #define QPNP_WLED_VREF_PSM_MAX_MV			750
 #define QPNP_WLED_VREF_PSM_DFLT_AMOLED_MV		450
 #define QPNP_WLED_PSM_CTRL_OVERWRITE			0x80
+#define QPNP_WLED_LCD_AUTO_PFM_DFLT_THRESH		1
+#define QPNP_WLED_LCD_AUTO_PFM_THRESH_MAX		0xF
+#define QPNP_WLED_LCD_AUTO_PFM_EN_SHIFT			7
+#define QPNP_WLED_LCD_AUTO_PFM_EN_BIT			BIT(7)
+#define QPNP_WLED_LCD_AUTO_PFM_THRESH_MASK		GENMASK(3, 0)
 
 #define QPNP_WLED_ILIM_MASK		GENMASK(2, 0)
 #define QPNP_WLED_ILIM_OVERWRITE	BIT(7)
@@ -327,7 +333,9 @@ static struct wled_vref_setting vref_setting_pmicobalt = {
  *  @ strings - supported list of strings
  *  @ num_strings - number of strings
  *  @ loop_auto_gm_thresh - the clamping level for auto gm
+ *  @ lcd_auto_pfm_thresh - the threshold for lcd auto pfm mode
  *  @ loop_auto_gm_en - select if auto gm is enabled
+ *  @ lcd_auto_pfm_en - select if auto pfm is enabled in lcd mode
  *  @ avdd_mode_spmi - enable avdd programming via spmi
  *  @ en_9b_dim_res - enable or disable 9bit dimming
  *  @ en_phase_stag - enable or disable phase staggering
@@ -372,7 +380,9 @@ struct qpnp_wled {
 	u8			strings[QPNP_WLED_MAX_STRINGS];
 	u8			num_strings;
 	u8			loop_auto_gm_thresh;
+	u8			lcd_auto_pfm_thresh;
 	bool			loop_auto_gm_en;
+	bool			lcd_auto_pfm_en;
 	bool			avdd_mode_spmi;
 	bool			en_9b_dim_res;
 	bool			en_phase_stag;
@@ -1363,6 +1373,24 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 	}
 
+	/* Configure auto PFM mode for LCD mode only */
+	if ((wled->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE ||
+		wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE)
+		&& !wled->disp_type_amoled) {
+		reg = 0;
+		reg |= wled->lcd_auto_pfm_thresh;
+		reg |= wled->lcd_auto_pfm_en <<
+			QPNP_WLED_LCD_AUTO_PFM_EN_SHIFT;
+		rc = qpnp_wled_masked_write_reg(wled,
+				QPNP_WLED_LCD_AUTO_PFM_EN_BIT |
+				QPNP_WLED_LCD_AUTO_PFM_THRESH_MASK, &reg,
+				QPNP_WLED_LCD_AUTO_PFM_REG(wled->ctrl_base));
+		if (rc < 0) {
+			pr_err("Write LCD_AUTO_PFM failed, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	/* Configure the Soft start Ramp delay: for AMOLED - 0,for LCD - 2 */
 	reg = (wled->disp_type_amoled) ? 0 : 2;
 	rc = qpnp_wled_write_reg(wled, reg,
@@ -1777,6 +1805,30 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 				"Unable to read loop-auto-gm-thresh\n");
 			return rc;
 		}
+	}
+
+	if (wled->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE ||
+		wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE) {
+
+		if (wled->pmic_rev_id->rev4 == PMICOBALT_V2P0_REV4)
+			wled->lcd_auto_pfm_en = false;
+		else
+			wled->lcd_auto_pfm_en = true;
+
+		wled->lcd_auto_pfm_thresh = QPNP_WLED_LCD_AUTO_PFM_DFLT_THRESH;
+		rc = of_property_read_u8(pdev->dev.of_node,
+				"qcom,lcd-auto-pfm-thresh",
+				&wled->lcd_auto_pfm_thresh);
+		if (rc && rc != -EINVAL) {
+			dev_err(&pdev->dev,
+				"Unable to read lcd-auto-pfm-thresh\n");
+			return rc;
+		}
+
+		if (wled->lcd_auto_pfm_thresh >
+				QPNP_WLED_LCD_AUTO_PFM_THRESH_MAX)
+			wled->lcd_auto_pfm_thresh =
+				QPNP_WLED_LCD_AUTO_PFM_THRESH_MAX;
 	}
 
 	wled->sc_deb_cycles = QPNP_WLED_SC_DEB_CYCLES_DFLT;
