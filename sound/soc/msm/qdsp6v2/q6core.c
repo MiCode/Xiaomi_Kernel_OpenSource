@@ -192,6 +192,31 @@ void ocm_core_open(void)
 		pr_err("%s: Unable to register CORE\n", __func__);
 }
 
+struct cal_block_data *cal_utils_get_cal_block_by_key(
+		struct cal_type_data *cal_type, uint32_t key)
+{
+	struct list_head                *ptr, *next;
+	struct cal_block_data           *cal_block = NULL;
+	struct audio_cal_info_metainfo  *metainfo;
+
+	list_for_each_safe(ptr, next,
+		&cal_type->cal_blocks) {
+
+		cal_block = list_entry(ptr,
+			struct cal_block_data, list);
+		metainfo = (struct audio_cal_info_metainfo *)
+			cal_block->cal_info;
+		if (metainfo->nKey != key) {
+			pr_debug("%s: metainfo key mismatch!!! found:%x, needed:%x\n",
+				__func__, metainfo->nKey, key);
+		} else {
+			pr_debug("%s: metainfo key match found", __func__);
+			return cal_block;
+		}
+	}
+	return NULL;
+}
+
 int32_t core_set_license(uint32_t key, uint32_t module_id)
 {
 	struct avcs_cmd_set_license *cmd_setl = NULL;
@@ -209,28 +234,13 @@ int32_t core_set_license(uint32_t key, uint32_t module_id)
 	}
 
 	mutex_lock(&((q6core_lcl.cal_data[META_CAL])->lock));
-	cal_block =
-		cal_utils_get_only_cal_block(q6core_lcl.cal_data[META_CAL]);
+	cal_block = cal_utils_get_cal_block_by_key(
+				q6core_lcl.cal_data[META_CAL], key);
 	if (cal_block == NULL ||
 		cal_block->cal_data.kvaddr == NULL ||
 		cal_block->cal_data.size <= 0) {
 		pr_err("%s: Invalid cal block to send", __func__);
 		rc = -EINVAL;
-		goto cal_data_unlock;
-	}
-	metainfo = (struct audio_cal_info_metainfo *)cal_block->cal_info;
-	if (metainfo == NULL) {
-		pr_err("%s: No metainfo!!!", __func__);
-		rc = -EINVAL;
-		goto cal_data_unlock;
-	}
-	if (metainfo->nKey != key) {
-		pr_err("%s: metainfo key mismatch!!! found:%x, needed:%x\n",
-				__func__, metainfo->nKey, key);
-		rc = -EINVAL;
-		goto cal_data_unlock;
-	} else if (key == 0) {
-		pr_err("%s: metainfo key is %d a invalid key", __func__, key);
 		goto cal_data_unlock;
 	}
 
