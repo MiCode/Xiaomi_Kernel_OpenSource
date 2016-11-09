@@ -1066,11 +1066,6 @@ struct ipa3_ready_cb_info {
 	void *user_data;
 };
 
-struct ipa_tz_unlock_reg_info {
-	u64 reg_addr;
-	u32 size;
-};
-
 /**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
@@ -2020,4 +2015,5 @@ int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr,
 	u32 size, bool map);
 struct dentry *ipa_debugfs_get_root(void);
 bool ipa3_is_msm_device(void);
+int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
 #endif /* _IPA3_I_H_ */

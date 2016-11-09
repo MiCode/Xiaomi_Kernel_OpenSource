@@ -365,6 +365,9 @@ struct ipa_api_controller {
 
 	int (*ipa_tear_down_uc_offload_pipes)(int ipa_ep_idx_ul,
 		int ipa_ep_idx_dl);
+
+	int (*ipa_tz_unlock_reg)(struct ipa_tz_unlock_reg_info *reg_info,
+		u16 num_regs);
 };
 
 #ifdef CONFIG_IPA
