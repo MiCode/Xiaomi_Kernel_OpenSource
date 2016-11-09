@@ -565,6 +565,11 @@ struct cpr3_panic_regs_info {
  * @mem_acc_corner_map: mem-acc regulator corners mapping to low and high
  *			voltage mem-acc settings for the memories powered by
  *			this CPR3 controller and its associated CPR3 regulators
+ * @mem_acc_crossover_volt: Voltage in microvolts corresponding to the voltage
+ *			that the VDD supply must be set to while a MEM ACC
+ *			switch is in progress. This element must be initialized
+ *			for CPRh controllers when a MEM ACC threshold voltage is
+ *			defined.
  * @core_clk:		Pointer to the CPR3 controller core clock
  * @iface_clk:		Pointer to the CPR3 interface clock (platform specific)
  * @bus_clk:		Pointer to the CPR3 bus clock (platform specific)
@@ -744,6 +749,7 @@ struct cpr3_controller {
 	int			system_supply_max_volt;
 	int			mem_acc_threshold_volt;
 	int			mem_acc_corner_map[CPR3_MEM_ACC_CORNERS];
+	int			mem_acc_crossover_volt;
 	struct clk		*core_clk;
 	struct clk		*iface_clk;
 	struct clk		*bus_clk;
@@ -876,6 +882,7 @@ int cpr4_parse_core_count_temp_voltage_adj(struct cpr3_regulator *vreg,
 int cpr3_apm_init(struct cpr3_controller *ctrl);
 int cpr3_mem_acc_init(struct cpr3_regulator *vreg);
 void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg);
+void cprh_adjust_voltages_for_mem_acc(struct cpr3_regulator *vreg);
 
 #else
 
@@ -1049,6 +1056,10 @@ static inline int cpr3_mem_acc_init(struct cpr3_regulator *vreg)
 }
 
 static inline void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
+{
+}
+
+static inline void cprh_adjust_voltages_for_mem_acc(struct cpr3_regulator *vreg)
 {
 }
 
