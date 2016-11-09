@@ -727,6 +727,12 @@
 		clock-names = "atb_clk";
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>;
 	};
+
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 6 4>;
+	};
 };
 
 #include "msmtriton-ion.dtsi"
