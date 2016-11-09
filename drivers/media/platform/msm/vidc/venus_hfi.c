@@ -3407,10 +3407,12 @@ static int __response_handler(struct venus_hfi_device *device)
 
 	packets = device->response_pkt;
 
-	raw_packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
+	raw_packet = device->raw_packet;
+
 	if (!raw_packet || !packets) {
-		dprintk(VIDC_ERR, "%s: Failed to allocate memory\n",  __func__);
-		kfree(raw_packet);
+		dprintk(VIDC_ERR,
+			"%s: Invalid args : Res packet = %p, Raw packet = %p\n",
+			__func__, packets, raw_packet);
 		return 0;
 	}
 
@@ -3566,7 +3568,6 @@ static int __response_handler(struct venus_hfi_device *device)
 exit:
 	__flush_debug_queue(device, raw_packet);
 
-	kfree(raw_packet);
 	return packet_count;
 }
 
@@ -4553,6 +4554,13 @@ static struct venus_hfi_device *__add_device(u32 device_id,
 		goto err_cleanup;
 	}
 
+	hdevice->raw_packet =
+		kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
+	if (!hdevice->raw_packet) {
+		dprintk(VIDC_ERR, "failed to allocate raw packet\n");
+		goto err_cleanup;
+	}
+
 	rc = __init_regs_and_interrupts(hdevice, res);
 	if (rc)
 		goto err_cleanup;
@@ -4590,6 +4598,7 @@ err_cleanup:
 	if (hdevice->vidc_workq)
 		destroy_workqueue(hdevice->vidc_workq);
 	kfree(hdevice->response_pkt);
+	kfree(hdevice->raw_packet);
 	kfree(hdevice);
 exit:
 	return NULL;
@@ -4631,6 +4640,7 @@ void venus_hfi_delete_device(void *device)
 			iounmap(dev->hal_data->register_base);
 			kfree(close->hal_data);
 			kfree(close->response_pkt);
+			kfree(close->raw_packet);
 			kfree(close);
 			break;
 		}
