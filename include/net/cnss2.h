@@ -92,6 +92,7 @@ extern void cnss_request_pm_qos(u32 qos_val);
 extern void cnss_remove_pm_qos(void);
 extern void cnss_lock_pm_sem(void);
 extern void cnss_release_pm_sem(void);
+extern int cnss_wlan_pm_control(bool vote);
 extern int cnss_auto_suspend(void);
 extern int cnss_auto_resume(void);
 
