@@ -3949,7 +3949,6 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 			xprt_ptr->edge, xprt_ptr->name);
 	if (IS_ERR_OR_NULL(xprt_ptr->tx_task)) {
 		GLINK_ERR("%s: unable to run thread\n", __func__);
-		glink_core_deinit_xprt_qos_cfg(xprt_ptr);
 		kfree(xprt_ptr);
 		return -ENOMEM;
 	}
