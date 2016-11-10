@@ -706,32 +706,25 @@ const struct clk_ops clk_alpha_pll_postdiv_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_ops);
 
-static const struct clk_div_table clk_fabia_div_table[] = {
-	{ 0x0, 1 },
-	{ 0x1, 2 },
-	{ 0x3, 3 },
-	{ 0x3, 4 },
-	{ 0x5, 5 },
-	{ 0x7, 7 },
-	{ 0x7, 8 },
-	{ }
-};
-
-static unsigned long clk_fabia_pll_postdiv_recalc_rate(struct clk_hw *hw,
+static unsigned long clk_generic_pll_postdiv_recalc_rate(struct clk_hw *hw,
 				unsigned long parent_rate)
 {
 	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
 	u32 i, div = 1, val;
 
+	if (!pll->post_div_table) {
+		pr_err("Missing the post_div_table for the PLL\n");
+		return -EINVAL;
+	}
+
 	regmap_read(pll->clkr.regmap, pll->offset + FABIA_USER_CTL_LO, &val);
 
-	/* Will need to add support for even and odd divider settings */
 	val >>= pll->post_div_shift;
 	val &= PLL_POST_DIV_MASK;
 
-	for (i = 0; i < ARRAY_SIZE(clk_fabia_div_table); i++) {
-		if (clk_fabia_div_table[i].val == val) {
-			div = clk_fabia_div_table[i].div;
+	for (i = 0; i < pll->num_post_div; i++) {
+		if (pll->post_div_table[i].val == val) {
+			div = pll->post_div_table[i].div;
 			break;
 		}
 	}
@@ -739,25 +732,33 @@ static unsigned long clk_fabia_pll_postdiv_recalc_rate(struct clk_hw *hw,
 	return (parent_rate / div);
 }
 
-static long clk_fabia_pll_postdiv_round_rate(struct clk_hw *hw,
+static long clk_generic_pll_postdiv_round_rate(struct clk_hw *hw,
 				unsigned long rate, unsigned long *prate)
 {
 	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
 
-	return divider_round_rate(hw, rate, prate, clk_fabia_div_table,
+	if (!pll->post_div_table)
+		return -EINVAL;
+
+	return divider_round_rate(hw, rate, prate, pll->post_div_table,
 					pll->width, CLK_DIVIDER_ROUND_CLOSEST);
 }
 
-static int clk_fabia_pll_postdiv_set_rate(struct clk_hw *hw,
+static int clk_generic_pll_postdiv_set_rate(struct clk_hw *hw,
 				unsigned long rate, unsigned long parent_rate)
 {
 	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
 	int i, val = 0, div;
 
+	if (!pll->post_div_table) {
+		pr_err("Missing the post_div_table for the PLL\n");
+		return -EINVAL;
+	}
+
 	div = DIV_ROUND_UP_ULL((u64)parent_rate, rate);
-	for (i = 0; i < ARRAY_SIZE(clk_fabia_div_table); i++) {
-		if (clk_fabia_div_table[i].div == div) {
-			val = clk_fabia_div_table[i].val;
+	for (i = 0; i < pll->num_post_div; i++) {
+		if (pll->post_div_table[i].div == div) {
+			val = pll->post_div_table[i].val;
 			break;
 		}
 	}
@@ -768,9 +769,9 @@ static int clk_fabia_pll_postdiv_set_rate(struct clk_hw *hw,
 				val << pll->post_div_shift);
 }
 
-const struct clk_ops clk_fabia_pll_postdiv_ops = {
-	.recalc_rate = clk_fabia_pll_postdiv_recalc_rate,
-	.round_rate = clk_fabia_pll_postdiv_round_rate,
-	.set_rate = clk_fabia_pll_postdiv_set_rate,
+const struct clk_ops clk_generic_pll_postdiv_ops = {
+	.recalc_rate = clk_generic_pll_postdiv_recalc_rate,
+	.round_rate = clk_generic_pll_postdiv_round_rate,
+	.set_rate = clk_generic_pll_postdiv_set_rate,
 };
-EXPORT_SYMBOL_GPL(clk_fabia_pll_postdiv_ops);
+EXPORT_SYMBOL_GPL(clk_generic_pll_postdiv_ops);
