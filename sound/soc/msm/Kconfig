@@ -98,6 +98,70 @@ config SND_SOC_CPE
 	 The configuration includes the cpe lsm driver to enable
 	 listen on codec.
 
+config SND_SOC_INT_CODEC
+	tristate "SoC Machine driver for MSMFALCON_INT"
+	depends on ARCH_QCOM
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_DYNAMIC_MINORS
+	select MSM_QDSP6_APRV2_GLINK
+	select MSM_QDSP6_SSR
+	select MSM_QDSP6_PDR
+	select MSM_QDSP6_NOTIFIER
+	select MSM_QDSP6V2_CODECS
+	select SND_SOC_MSM_SWR
+	select SND_SOC_MSM8X16_WCD
+	select QTI_PP
+	select DTS_SRS_TM
+	select DOLBY_DAP
+	select DOLBY_DS2
+	select SND_HWDEP
+	select MSM_ULTRASOUND
+	select DTS_EAGLE
+	select SND_SOC_MSMFALCON_COMMON
+	select SND_SOC_COMPRESS
+	help
+	To add support for SoC audio on MSM_INT.
+	This will enable sound soc drivers which
+	interfaces with DSP, also it will enable
+	the machine driver and the corresponding
+	DAI-links
+
+config SND_SOC_EXT_CODEC
+	tristate "SoC Machine driver for MSMFALCON_EXT"
+	depends on ARCH_QCOM
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_DYNAMIC_MINORS
+	select MSM_QDSP6_APRV2_GLINK
+	select MSM_QDSP6_SSR
+	select MSM_QDSP6_PDR
+	select MSM_QDSP6_NOTIFIER
+	select MSM_QDSP6V2_CODECS
+	select SND_SOC_WCD9335
+	select SND_SOC_WCD934X
+	select SND_SOC_WSA881X
+	select MFD_CORE
+	select QTI_PP
+	select DTS_SRS_TM
+	select DOLBY_DAP
+	select DOLBY_DS2
+	select SND_SOC_CPE
+	select SND_SOC_WCD_CPE
+	select SND_HWDEP
+	select MSM_ULTRASOUND
+	select DTS_EAGLE
+	select SND_SOC_MSMFALCON_COMMON
+	select SND_SOC_COMPRESS
+	help
+	To add support for SoC audio on MSM_EXT.
+	This will enable sound soc drivers which
+	interfaces with DSP, also it will enable
+	the machine driver and the corresponding
+	DAI-links
+
 config SND_SOC_MSM8996
 	tristate "SoC Machine driver for MSM8996 boards"
 	depends on ARCH_MSM8996
@@ -152,6 +216,18 @@ config SND_SOC_MSMCOBALT
         select DTS_EAGLE
 	help
 	 To add support for SoC audio on MSMCOBALT.
+	 This will enable sound soc drivers which
+	 interfaces with DSP, also it will enable
+	 the machine driver and the corresponding
+	 DAI-links
+
+config SND_SOC_FALCON
+	tristate "SoC Machine driver for MSMFALCON boards"
+	depends on ARCH_MSMFALCON
+	select SND_SOC_INT_CODEC
+	select SND_SOC_EXT_CODEC
+	help
+	 To add support for SoC audio on MSMFALCON.
 	 This will enable sound soc drivers which
 	 interfaces with DSP, also it will enable
 	 the machine driver and the corresponding
