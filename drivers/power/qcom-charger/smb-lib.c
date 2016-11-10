@@ -961,12 +961,13 @@ static int smblib_apsd_disable_vote_callback(struct votable *votable,
  * OTG REGULATOR *
  *****************/
 
-#define OTG_SOFT_START_DELAY_MS	20
+#define MAX_SOFTSTART_TRIES	2
 int smblib_vbus_regulator_enable(struct regulator_dev *rdev)
 {
 	struct smb_charger *chg = rdev_get_drvdata(rdev);
 	u8 stat;
 	int rc = 0;
+	int tries = MAX_SOFTSTART_TRIES;
 
 	rc = smblib_masked_write(chg, OTG_ENG_OTG_CFG_REG,
 				 ENG_BUCKBOOST_HALT1_8_MODE_BIT,
@@ -983,14 +984,25 @@ int smblib_vbus_regulator_enable(struct regulator_dev *rdev)
 		return rc;
 	}
 
-	msleep(OTG_SOFT_START_DELAY_MS);
-	rc = smblib_read(chg, OTG_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read OTG_STATUS_REG rc=%d\n", rc);
-		return rc;
-	}
-	if (stat & BOOST_SOFTSTART_DONE_BIT)
-		smblib_otg_cl_config(chg, chg->otg_cl_ua);
+	/* waiting for boost readiness, usually ~1ms, 2ms in worst case */
+	do {
+		usleep_range(1000, 1100);
+
+		rc = smblib_read(chg, OTG_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read OTG_STATUS_REG rc=%d\n",
+				rc);
+			return rc;
+		}
+		if (stat & BOOST_SOFTSTART_DONE_BIT) {
+			smblib_otg_cl_config(chg, chg->otg_cl_ua);
+			break;
+		}
+	} while (--tries);
+
+	if (tries == 0)
+		smblib_err(chg, "Timeout waiting for boost softstart rc=%d\n",
+				rc);
 
 	return rc;
 }
