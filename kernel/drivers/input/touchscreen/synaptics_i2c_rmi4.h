@@ -20,10 +20,7 @@
 #ifndef _SYNAPTICS_DSX_RMI4_H_
 #define _SYNAPTICS_DSX_RMI4_H_
 
-#define SYNAPTICS_RMI4_DS4 0x0001
-#define SYNAPTICS_RMI4_DS5 0x0002
-#define SYNAPTICS_RMI4_DRIVER_PRODUCT SYNAPTICS_RMI4_DS4
-#define SYNAPTICS_RMI4_DRIVER_VERSION 0x1001
+#define SYNAPTICS_RMI4_DRIVER_VERSION "DSX 1.0"
 
 #include <linux/version.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -161,7 +158,6 @@ struct synaptics_rmi4_device_info {
 	unsigned short serial_number;
 	unsigned char product_id_string[SYNAPTICS_RMI4_PRODUCT_ID_SIZE + 1];
 	unsigned char build_id[SYNAPTICS_RMI4_BUILD_ID_SIZE];
-	unsigned char config_id[3];
 	struct list_head support_fn_list;
 };
 
