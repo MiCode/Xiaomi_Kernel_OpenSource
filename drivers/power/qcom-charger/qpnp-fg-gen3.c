@@ -655,6 +655,35 @@ static int fg_get_msoc_raw(struct fg_chip *chip, int *val)
 	return 0;
 }
 
+static bool is_batt_empty(struct fg_chip *chip)
+{
+	u8 status;
+	int rc, vbatt_uv, msoc;
+
+	rc = fg_read(chip, BATT_SOC_INT_RT_STS(chip), &status, 1);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			BATT_SOC_INT_RT_STS(chip), rc);
+		return false;
+	}
+
+	if (!(status & MSOC_EMPTY_BIT))
+		return false;
+
+	rc = fg_get_battery_voltage(chip, &vbatt_uv);
+	if (rc < 0) {
+		pr_err("failed to get battery voltage, rc=%d\n", rc);
+		return false;
+	}
+
+	rc = fg_get_msoc_raw(chip, &msoc);
+	if (!rc)
+		pr_warn("batt_soc_rt_sts: %x vbatt: %d uV msoc:%d\n", status,
+			vbatt_uv, msoc);
+
+	return ((vbatt_uv < chip->dt.cutoff_volt_mv * 1000) ? true : false);
+}
+
 #define DEBUG_BATT_ID_KOHMS	7
 static bool is_debug_batt_id(struct fg_chip *chip)
 {
@@ -686,7 +715,7 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 		return 0;
 	}
 
-	if (chip->charge_empty) {
+	if (is_batt_empty(chip)) {
 		*val = EMPTY_SOC;
 		return 0;
 	}
@@ -2394,13 +2423,9 @@ static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
 	struct fg_chip *chip = data;
 	int rc;
 
+	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	if (chip->cyc_ctr.en)
 		schedule_work(&chip->cycle_count_work);
-
-	if (is_charger_available(chip))
-		power_supply_changed(chip->batt_psy);
-
-	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 
 	if (chip->cl.active)
 		fg_cap_learning_update(chip);
@@ -2413,6 +2438,9 @@ static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
 
+	if (is_charger_available(chip))
+		power_supply_changed(chip->batt_psy);
+
 	return IRQ_HANDLED;
 }
 
@@ -2420,11 +2448,10 @@ static irqreturn_t fg_empty_soc_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
 
-	chip->charge_empty = true;
+	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	if (is_charger_available(chip))
 		power_supply_changed(chip->batt_psy);
 
-	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	return IRQ_HANDLED;
 }
 
@@ -2438,9 +2465,7 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *data)
 
 static irqreturn_t fg_dummy_irq_handler(int irq, void *data)
 {
-	struct fg_chip *chip = data;
-
-	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
+	pr_debug("irq %d triggered\n", irq);
 	return IRQ_HANDLED;
 }
 
@@ -2930,7 +2955,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 {
 	struct fg_chip *chip;
 	struct power_supply_config fg_psy_cfg;
-	int rc;
+	int rc, msoc, volt_uv, batt_temp;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
@@ -3023,11 +3048,22 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	rc = fg_get_battery_voltage(chip, &volt_uv);
+	if (!rc)
+		rc = fg_get_prop_capacity(chip, &msoc);
+
+	if (!rc)
+		rc = fg_get_battery_temp(chip, &batt_temp);
+
+	if (!rc)
+		pr_info("battery SOC:%d voltage: %duV temp: %d id: %dKOhms\n",
+			msoc, volt_uv, batt_temp, chip->batt_id_kohms);
+
+	device_init_wakeup(chip->dev, true);
 	if (chip->profile_available)
 		schedule_delayed_work(&chip->profile_load_work, 0);
 
-	device_init_wakeup(chip->dev, true);
-	pr_debug("FG GEN3 driver successfully probed\n");
+	pr_debug("FG GEN3 driver probed successfully\n");
 	return 0;
 exit:
 	fg_cleanup(chip);

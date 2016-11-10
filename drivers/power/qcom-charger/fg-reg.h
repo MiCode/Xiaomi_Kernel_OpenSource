@@ -26,6 +26,9 @@
 #define BATT_SOC_LOW_PWR_CFG(chip)		(chip->batt_soc_base + 0x52)
 #define BATT_SOC_LOW_PWR_STS(chip)		(chip->batt_soc_base + 0x56)
 
+/* BATT_SOC_INT_RT_STS */
+#define MSOC_EMPTY_BIT				BIT(5)
+
 /* BATT_SOC_EN_CTL */
 #define FG_ALGORITHM_EN_BIT			BIT(7)
 

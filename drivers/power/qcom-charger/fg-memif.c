@@ -221,7 +221,7 @@ int fg_clear_ima_errors_if_any(struct fg_chip *chip, bool check_hw_sts)
 		return rc;
 	}
 
-	fg_dbg(chip, FG_STATUS, "ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
+	fg_dbg(chip, FG_SRAM_READ | FG_SRAM_WRITE, "ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
 		err_sts, exp_sts, hw_sts);
 
 	if (check_hw_sts) {
