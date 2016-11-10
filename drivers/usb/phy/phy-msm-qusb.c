@@ -109,6 +109,7 @@ struct qusb_phy {
 	void __iomem		*base;
 	void __iomem		*tune2_efuse_reg;
 	void __iomem		*ref_clk_base;
+	void __iomem		*tcsr_clamp_dig_n;
 
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
@@ -147,6 +148,7 @@ struct qusb_phy {
 	int			phy_pll_reset_seq_len;
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
+	bool			put_into_high_z_state;
 };
 
 static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
@@ -329,6 +331,47 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 				dev_dbg(phy->dev, "DP_DM_F: rm_pulldown:%d\n",
 						qphy->rm_pulldown);
 			}
+
+			if (qphy->put_into_high_z_state) {
+				if (qphy->tcsr_clamp_dig_n)
+					writel_relaxed(0x1,
+					       qphy->tcsr_clamp_dig_n);
+
+				qusb_phy_enable_clocks(qphy, true);
+
+				dev_dbg(phy->dev, "RESET QUSB PHY\n");
+				ret = reset_control_assert(qphy->phy_reset);
+				if (ret)
+					dev_err(phy->dev, "phyassert failed\n");
+				usleep_range(100, 150);
+				ret = reset_control_deassert(qphy->phy_reset);
+				if (ret)
+					dev_err(phy->dev, "deassert failed\n");
+
+				/*
+				 * Phy in non-driving mode leaves Dp and Dm
+				 * lines in high-Z state. Controller power
+				 * collapse is not switching phy to non-driving
+				 * mode causing charger detection failure. Bring
+				 * phy to non-driving mode by overriding
+				 * controller output via UTMI interface.
+				 */
+				writel_relaxed(TERM_SELECT | XCVR_SELECT_FS |
+					OP_MODE_NON_DRIVE,
+					qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
+				writel_relaxed(UTMI_ULPI_SEL |
+					UTMI_TEST_MUX_SEL,
+					qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+
+				/* Disable PHY */
+				writel_relaxed(CLAMP_N_EN | FREEZIO_N |
+					POWER_DOWN,
+					qphy->base + QUSB2PHY_PORT_POWERDOWN);
+				/* Make sure that above write is completed */
+				wmb();
+
+				qusb_phy_enable_clocks(qphy, false);
+			}
 		}
 
 		break;
@@ -337,6 +380,9 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DPR_DMR\n");
 		if (qphy->rm_pulldown) {
 			if (!qphy->cable_connected) {
+				if (qphy->tcsr_clamp_dig_n)
+					writel_relaxed(0x0,
+					       qphy->tcsr_clamp_dig_n);
 				dev_dbg(phy->dev, "turn off for HVDCP case\n");
 				ret = qusb_phy_enable_power(qphy, false);
 			}
@@ -647,22 +693,23 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			/* Disable all interrupts */
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
-			/*
-			 * Phy in non-driving mode leaves Dp and Dm lines in
-			 * high-Z state. Controller power collapse is not
-			 * switching phy to non-driving mode causing charger
-			 * detection failure. Bring phy to non-driving mode by
-			 * overriding controller output via UTMI interface.
-			 */
-			writel_relaxed(TERM_SELECT | XCVR_SELECT_FS |
-				OP_MODE_NON_DRIVE,
-				qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
-			writel_relaxed(UTMI_ULPI_SEL | UTMI_TEST_MUX_SEL,
-				qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
 
+			/* Make sure that above write is completed */
+			wmb();
 
 			qusb_phy_enable_clocks(qphy, false);
+			if (qphy->tcsr_clamp_dig_n)
+				writel_relaxed(0x0,
+					qphy->tcsr_clamp_dig_n);
 			qusb_phy_enable_power(qphy, false);
+			/*
+			 * Set put_into_high_z_state to true so next USB
+			 * cable connect, DPF_DMF request performs PHY
+			 * reset and put it into high-z state. For bootup
+			 * with or without USB cable, it doesn't require
+			 * to put QUSB PHY into high-z state.
+			 */
+			qphy->put_into_high_z_state = true;
 		}
 		qphy->suspended = true;
 	} else {
@@ -675,6 +722,9 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 		} else {
 			qusb_phy_enable_power(qphy, true);
+			if (qphy->tcsr_clamp_dig_n)
+				writel_relaxed(0x1,
+					qphy->tcsr_clamp_dig_n);
 			qusb_phy_enable_clocks(qphy, true);
 		}
 		qphy->suspended = false;
@@ -844,6 +894,18 @@ static int qusb_phy_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"tcsr_clamp_dig_n_1p8");
+	if (res) {
+		qphy->tcsr_clamp_dig_n = devm_ioremap_nocache(dev,
+				res->start, resource_size(res));
+		if (IS_ERR(qphy->tcsr_clamp_dig_n)) {
+			dev_err(dev, "err reading tcsr_clamp_dig_n\n");
+			qphy->tcsr_clamp_dig_n = NULL;
+		}
+	}
+
 
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
 	if (IS_ERR(qphy->ref_clk_src))
