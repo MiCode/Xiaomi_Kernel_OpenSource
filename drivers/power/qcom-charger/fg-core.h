@@ -342,6 +342,8 @@ extern int fg_read(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_write(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_masked_write(struct fg_chip *chip, int addr, u8 mask, u8 val);
 extern int fg_ima_init(struct fg_chip *chip);
+extern int fg_clear_ima_errors_if_any(struct fg_chip *chip, bool check_hw_sts);
+extern int fg_clear_dma_errors_if_any(struct fg_chip *chip);
 extern int fg_debugfs_create(struct fg_chip *chip);
 extern void fill_string(char *str, size_t str_len, u8 *buf, int buf_len);
 extern int64_t twos_compliment_extend(int64_t val, int s_bit_pos);

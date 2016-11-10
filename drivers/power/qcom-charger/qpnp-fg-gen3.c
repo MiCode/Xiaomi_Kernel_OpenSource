@@ -2267,6 +2267,37 @@ static int fg_memif_init(struct fg_chip *chip)
 
 /* INTERRUPT HANDLERS STAY HERE */
 
+static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
+{
+	struct fg_chip *chip = data;
+	u8 status;
+	int rc;
+
+	rc = fg_read(chip, MEM_IF_INT_RT_STS(chip), &status, 1);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			MEM_IF_INT_RT_STS(chip), rc);
+		return IRQ_HANDLED;
+	}
+
+	fg_dbg(chip, FG_IRQ, "irq %d triggered, status:%d\n", irq, status);
+	if (status & MEM_XCP_BIT) {
+		rc = fg_clear_dma_errors_if_any(chip);
+		if (rc < 0) {
+			pr_err("Error in clearing DMA error, rc=%d\n", rc);
+			return IRQ_HANDLED;
+		}
+
+		mutex_lock(&chip->sram_rw_lock);
+		rc = fg_clear_ima_errors_if_any(chip, true);
+		if (rc < 0 && rc != -EAGAIN)
+			pr_err("Error in checking IMA errors rc:%d\n", rc);
+		mutex_unlock(&chip->sram_rw_lock);
+	}
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
@@ -2483,7 +2514,7 @@ static struct fg_irq_info fg_irqs[FG_IRQ_MAX] = {
 	},
 	[MEM_XCP_IRQ] = {
 		.name		= "mem-xcp",
-		.handler	= fg_dummy_irq_handler,
+		.handler	= fg_mem_xcp_irq_handler,
 	},
 	[IMA_RDY_IRQ] = {
 		.name		= "ima-rdy",

@@ -258,6 +258,7 @@
 #define ESR_REQ_CTL_EN_BIT			BIT(0)
 
 /* FG_MEM_IF register and bit definitions */
+#define MEM_IF_INT_RT_STS(chip)			((chip->mem_if_base) + 0x10)
 #define MEM_IF_MEM_INTF_CFG(chip)		((chip->mem_if_base) + 0x50)
 #define MEM_IF_IMA_CTL(chip)			((chip->mem_if_base) + 0x51)
 #define MEM_IF_IMA_CFG(chip)			((chip->mem_if_base) + 0x52)
@@ -273,6 +274,11 @@
 #define MEM_IF_WR_DATA3(chip)			((chip->mem_if_base) + 0x66)
 #define MEM_IF_RD_DATA0(chip)			((chip->mem_if_base) + 0x67)
 #define MEM_IF_RD_DATA3(chip)			((chip->mem_if_base) + 0x6A)
+#define MEM_IF_DMA_STS(chip)			((chip->mem_if_base) + 0x70)
+#define MEM_IF_DMA_CTL(chip)			((chip->mem_if_base) + 0x71)
+
+/* MEM_IF_INT_RT_STS */
+#define MEM_XCP_BIT				BIT(1)
 
 /* MEM_IF_MEM_INTF_CFG */
 #define MEM_ACCESS_REQ_BIT			BIT(7)
@@ -286,9 +292,18 @@
 /* MEM_IF_IMA_CFG */
 #define IACS_CLR_BIT				BIT(2)
 #define IACS_INTR_SRC_SLCT_BIT			BIT(3)
+#define STATIC_CLK_EN_BIT			BIT(4)
 
 /* MEM_IF_IMA_OPR_STS */
 #define IACS_RDY_BIT				BIT(1)
+
+/* MEM_IF_IMA_EXP_STS */
+#define IACS_ERR_BIT				BIT(0)
+#define XCT_TYPE_ERR_BIT			BIT(1)
+#define DATA_RD_ERR_BIT				BIT(3)
+#define DATA_WR_ERR_BIT				BIT(4)
+#define ADDR_BURST_WRAP_BIT			BIT(5)
+#define ADDR_STABLE_ERR_BIT			BIT(7)
 
 /* MEM_IF_IMA_ERR_STS */
 #define ADDR_STBL_ERR_BIT			BIT(7)
@@ -297,4 +312,11 @@
 
 /* MEM_IF_FG_BEAT_COUNT */
 #define BEAT_COUNT_MASK				GENMASK(3, 0)
+
+/* MEM_IF_DMA_STS */
+#define DMA_WRITE_ERROR_BIT			BIT(1)
+#define DMA_READ_ERROR_BIT			BIT(2)
+
+/* MEM_IF_DMA_CTL */
+#define DMA_CLEAR_LOG_BIT			BIT(0)
 #endif
