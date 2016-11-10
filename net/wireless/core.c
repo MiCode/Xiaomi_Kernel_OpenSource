@@ -419,6 +419,9 @@ struct wiphy *wiphy_new(const struct cfg80211_ops *ops, int sizeof_priv)
 
 	rdev->wiphy.max_num_csa_counters = 1;
 
+	rdev->wiphy.max_sched_scan_plans = 1;
+	rdev->wiphy.max_sched_scan_plan_interval = U32_MAX;
+
 	return &rdev->wiphy;
 }
 EXPORT_SYMBOL(wiphy_new);
