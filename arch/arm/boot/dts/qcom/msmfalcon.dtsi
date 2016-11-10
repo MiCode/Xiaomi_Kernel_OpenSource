@@ -410,8 +410,10 @@
 	};
 
 	clock_gcc: clock-controller@100000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-msmfalcon";
+		reg = <0x100000 0x94000>;
+		vdd_dig-supply = <&pm2falcon_s3_level>;
+		vdd_dig_ao-supply = <&pm2falcon_s3_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
