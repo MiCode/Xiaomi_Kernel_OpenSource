@@ -13,6 +13,34 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "msm8998-v2.1-interposer-msmfalcon.dtsi"
 
+/ {
+	bluetooth: bt_wcn3990 {
+		status = "disabled";
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-io-supply = <&pmfalcon_l13>;
+		qca,bt-vdd-xtal-supply = <&pmfalcon_l9>;
+		qca,bt-vdd-core-supply = <&pmfalcon_l9>;
+		qca,bt-vdd-pa-supply = <&pmfalcon_l6>;
+		qca,bt-vdd-ldo-supply = <&pmfalcon_l19>;
+		qca,bt-chip-pwd-supply = <&pm2falcon_bob_pin1>;
+		clocks = <&clock_gcc clk_rf_clk2>;
+		clock-names = "rf_clk2";
+
+		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-core-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-pa-voltage-level = <1304000 1304000>;
+		qca,bt-vdd-ldo-voltage-level = <3312000 3312000>;
+		qca,bt-chip-pwd-voltage-level = <3600000 3600000>;
+
+		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-xtal-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
+	};
+};
+
 &uartblsp2dm1 {
 	status = "ok";
 	pinctrl-names = "default";
