@@ -13,6 +13,8 @@ Required properties:
 			 on msmcobalt platform,
 			"qcom,ufs-phy-qrbtc-sdm845" for phy support
 			 for sdm845 emulation
+		        "qcom,ufs-phy-qmp-v3-falcon" for phy support
+			 for msmfalcon
 			"qcom,msm8996-ufs-phy-qmp-14nm" for 14nm ufs phy
 			 present on MSM8996 chipset.
 - reg               : should contain PHY register address space (mandatory),
