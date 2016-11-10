@@ -1465,18 +1465,18 @@ void ipa_install_dflt_flt_rules(u32 ipa_ep_idx)
 
 	mutex_lock(&ipa_ctx->lock);
 	tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v4];
-	tbl->sticky_rear = true;
 	rule.action = IPA_PASS_TO_EXCEPTION;
-	__ipa_add_flt_rule(tbl, IPA_IP_v4, &rule, false,
+	__ipa_add_flt_rule(tbl, IPA_IP_v4, &rule, true,
 			&ep->dflt_flt4_rule_hdl);
 	ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v4);
+	tbl->sticky_rear = true;
 
 	tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v6];
-	tbl->sticky_rear = true;
 	rule.action = IPA_PASS_TO_EXCEPTION;
-	__ipa_add_flt_rule(tbl, IPA_IP_v6, &rule, false,
+	__ipa_add_flt_rule(tbl, IPA_IP_v6, &rule, true,
 			&ep->dflt_flt6_rule_hdl);
 	ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v6);
+	tbl->sticky_rear = true;
 	mutex_unlock(&ipa_ctx->lock);
 }
 
