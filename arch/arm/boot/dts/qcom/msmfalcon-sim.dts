@@ -30,12 +30,12 @@
 
 &sdhc_1 {
 	/* device core power supply */
-	vdd-supply = <&pmfalcon_l4b>;
+	vdd-supply = <&pm2falcon_l4>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <200 570000>;
 
 	/* device communication power supply */
-	vdd-io-supply = <&pmfalcon_l8a>;
+	vdd-io-supply = <&pmfalcon_l8>;
 	qcom,vdd-io-always-on;
 	qcom,vdd-io-lpm-sup;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
