@@ -42,9 +42,6 @@
 
 	i2c@75b6000 { /* BLSP8 */
 		/* ADV7533 HDMI Bridge Chip removed on ADP Lite */
-		adv7533@3d {
-			status = "disabled";
-		};
 		adv7533@39 {
 			status = "disabled";
 		};
