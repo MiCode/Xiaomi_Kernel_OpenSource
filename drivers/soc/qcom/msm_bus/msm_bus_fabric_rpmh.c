@@ -18,6 +18,9 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 //#include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/cmd-db.h>
+#include <soc/qcom/rpmh.h>
+#include <soc/qcom/tcs.h>
 #include <trace/events/trace_msm_bus.h>
 #include "msm_bus_core.h"
 #include "msm_bus_rpmh.h"
@@ -25,13 +28,15 @@
 #include "msm_bus_bimc.h"
 
 #define BCM_TCS_CMD_COMMIT_SHFT		30
+#define BCM_TCS_CMD_COMMIT_MASK		0x40000000
 #define BCM_TCS_CMD_VALID_SHFT		29
+#define BCM_TCS_CMD_VALID_MASK		0x20000000
 #define BCM_TCS_CMD_VOTE_X_SHFT		14
-#define BCM_TCS_CMD_VOTE_Y_SHFT		0
 #define BCM_TCS_CMD_VOTE_MASK		0x3FFF
-#define BCM_TCS_CMD_VOTE_X_SHFT		14
+#define BCM_TCS_CMD_VOTE_Y_SHFT		0
+#define BCM_TCS_CMD_VOTE_Y_MASK		0xFFFC000
 
-#define BCM_VCD_MAX_CNT			10
+#define VCD_MAX_CNT			16
 
 #define BCM_TCS_CMD(commit, valid, vote_x, vote_y) \
 	(((commit & 0x1) << BCM_TCS_CMD_COMMIT_SHFT) |\
@@ -41,12 +46,14 @@
 
 static int msm_bus_dev_init_qos(struct device *dev, void *data);
 
-struct list_head bcm_clist_inorder[BCM_VCD_MAX_CNT];
+struct list_head bcm_clist_inorder[VCD_MAX_CNT];
+static struct rpmh_client *mbox_apps;
 
-struct tcs_cmd {
-	u32 addr;	/* slv_id:18:16 | offset:0:15 */
-	u32 data;	/* data for resource (or read response) */
-	bool complete;	/* wait for completion before sending next */
+struct bcm_db {
+	uint32_t unit_size;
+	uint16_t width;
+	uint8_t clk_domain;
+	uint8_t reserved;
 };
 
 ssize_t bw_show(struct device *dev, struct device_attribute *attr,
@@ -265,8 +272,6 @@ static int tcs_cmd_gen(struct msm_bus_node_device_type *cur_bcm,
 					uint64_t ab, bool commit)
 {
 	int ret = 0;
-	uint32_t tcs_cmd_addr = 0;
-	uint32_t tcs_cmd_data = 0;
 	bool valid = true;
 
 	if (ib == 0 && ab == 0) {
@@ -282,82 +287,110 @@ static int tcs_cmd_gen(struct msm_bus_node_device_type *cur_bcm,
 	if (ab > BCM_TCS_CMD_VOTE_MASK)
 		ab = BCM_TCS_CMD_VOTE_MASK;
 
-	tcs_cmd_addr = cur_bcm->bcmdev->addr;
-	tcs_cmd_data = BCM_TCS_CMD(commit, valid, ib, ab);
+	cmd->addr = cur_bcm->bcmdev->addr;
+	cmd->data = BCM_TCS_CMD(commit, valid, ab, ib);
+	cmd->complete = commit;
 
 	return ret;
 }
 
-static int tcs_cmd_list_gen(uint32_t vcd_cnt, uint32_t *n,
-				struct tcs_cmd *active_cmdlist,
-				struct tcs_cmd *awake_cmdlist,
-				struct tcs_cmd *sleep_cmdlist)
+static int tcs_cmd_list_gen(int *n_active,
+				int *n_wake,
+				int *n_sleep,
+				struct tcs_cmd *cmdlist_active,
+				struct tcs_cmd *cmdlist_wake,
+				struct tcs_cmd *cmdlist_sleep)
 {
 	struct msm_bus_node_device_type *cur_bcm = NULL;
-	struct msm_bus_node_device_type *next_bcm = NULL;
-	uint32_t bcm_cnt_amc = 0;
-	uint32_t bcm_cnt_tcs = 0;
 	int i = 0;
-	int j = 0;
 	int k = 0;
-	bool commit;
+	int idx = 0;
+	int last_tcs = -1;
+	bool commit = false;
 
-	if ((cur_bcm->node_bw[DUAL_CTX].max_ab ==
-				cur_bcm->node_bw[ACTIVE_CTX].max_ab) &&
-				(cur_bcm->node_bw[DUAL_CTX].max_ib ==
-				cur_bcm->node_bw[ACTIVE_CTX].max_ib))
-
-	for (i = 0; i < VCD_MAX_CNT; i++) {
-		if (list_empty(bcm_clist_inorder[i]))
-			continue;
-		list_for_each_entry(cur_bcm, &bcm_clist_inorder[i], link)
-			bcm_cnt_amc++;
-		if ((cur_bcm->node_bw[DUAL_CTX].max_ab !=
-				cur_bcm->node_bw[ACTIVE_CTX].max_ab) &&
-				(cur_bcm->node_bw[DUAL_CTX].max_ib !=
-				cur_bcm->node_bw[ACTIVE_CTX].max_ib))
-			bcm_cnt_tcs++;
-		vcd_cnt++;
-	}
-
-	n = kcalloc(vcd_cnt, sizeof(int), GFP_KERNEL);
-	active_cmdlist = kcalloc(bcm_cnt_amc, sizeof(struct tcs_cmd),
-								GFP_KERNEL);
-	awake_cmdlist = kcalloc(bcm_cnt_tcs, sizeof(struct tcs_cmd),
-								GFP_KERNEL);
-	sleep_cmdlist = kcalloc(bcm_cnt_tcs, sizeof(struct tcs_cmd),
-								GFP_KERNEL);
+	if (!cmdlist_active)
+		goto exit_tcs_cmd_list_gen;
 
 	for (i = 0; i < VCD_MAX_CNT; i++) {
-		if (list_empty(bcm_clist_inorder[i]))
+		last_tcs = -1;
+		if (list_empty(&bcm_clist_inorder[i]))
 			continue;
 		list_for_each_entry(cur_bcm, &bcm_clist_inorder[i], link) {
-			n[i]++;
-			list_is_last(&cur_bcm, &bcm_clist_inorder[i]) {
-				i++;
-				commit = true;
+			if (cur_bcm->dirty) {
+				if (last_tcs != -1 &&
+					list_is_last(&cur_bcm->link,
+						&bcm_clist_inorder[i])) {
+					cmdlist_active[last_tcs].data |=
+						BCM_TCS_CMD_COMMIT_MASK;
+					cmdlist_active[last_tcs].complete
+								= true;
+				}
+				continue;
 			}
-			tcs_cmd_gen(cur_bcm, &active_cmdlist[j],
-				cur_bcm->node_bw[ACTIVE_CTX].max_ab,
-				cur_bcm->node_bw[ACTIVE_CTX].max_ib, commit);
-			j++;
+			n_active[idx]++;
+			commit = false;
+			if (list_is_last(&cur_bcm->link,
+						&bcm_clist_inorder[i])) {
+				commit = true;
+				idx++;
+			}
+			tcs_cmd_gen(cur_bcm, &cmdlist_active[k],
+				cur_bcm->node_bw[ACTIVE_CTX].max_ib,
+				cur_bcm->node_bw[ACTIVE_CTX].max_ab, commit);
+			k++;
+			last_tcs = k;
+			cur_bcm->dirty = true;
+		}
+	}
+
+	if (!cmdlist_wake || !cmdlist_sleep)
+		goto exit_tcs_cmd_list_gen;
+
+	k = 0;
+	idx = 0;
+	for (i = 0; i < VCD_MAX_CNT; i++) {
+		last_tcs = -1;
+		if (list_empty(&bcm_clist_inorder[i]))
+			continue;
+		list_for_each_entry(cur_bcm, &bcm_clist_inorder[i], link) {
+			commit = false;
 			if ((cur_bcm->node_bw[DUAL_CTX].max_ab ==
 				cur_bcm->node_bw[ACTIVE_CTX].max_ab) &&
 				(cur_bcm->node_bw[DUAL_CTX].max_ib ==
-				cur_bcm->node_bw[ACTIVE_CTX].max_ib))
+				cur_bcm->node_bw[ACTIVE_CTX].max_ib)) {
+				if (last_tcs != -1 &&
+					list_is_last(&cur_bcm->link,
+					&bcm_clist_inorder[i])) {
+					cmdlist_wake[k].data |=
+						BCM_TCS_CMD_COMMIT_MASK;
+					cmdlist_sleep[k].data |=
+						BCM_TCS_CMD_COMMIT_MASK;
+					cmdlist_wake[k].complete = true;
+					cmdlist_sleep[k].complete = true;
+					idx++;
+				}
 				continue;
+			}
+			last_tcs = k;
+			n_sleep[idx]++;
+			if (list_is_last(&cur_bcm->link,
+						&bcm_clist_inorder[i])) {
+				commit = true;
+				idx++;
+			}
 
-			tcs_cmd_gen(cur_bcm, &awake_cmdlist[k],
-				cur_bcm->node_bw[DUAL_CTX].max_ab,
-				cur_bcm->node_bw[DUAL_CTX].max_ib, commit);
-
-			tcs_cmd_gen(cur_bcm, &sleep_cmdlist[k],
-				cur_bcm->node_bw[DUAL_CTX].max_ab,
-				cur_bcm->node_bw[DUAL_CTX].max_ib, commit);
+			tcs_cmd_gen(cur_bcm, &cmdlist_wake[k],
+				cur_bcm->node_bw[ACTIVE_CTX].max_ib,
+				cur_bcm->node_bw[ACTIVE_CTX].max_ab, commit);
+			tcs_cmd_gen(cur_bcm, &cmdlist_sleep[k],
+				cur_bcm->node_bw[DUAL_CTX].max_ib,
+				cur_bcm->node_bw[DUAL_CTX].max_ab, commit);
 			k++;
 		}
 	}
-	return bcm_cnt;
+
+exit_tcs_cmd_list_gen:
+	return k;
 }
 
 static int bcm_clist_add(struct msm_bus_node_device_type *cur_dev)
@@ -365,7 +398,6 @@ static int bcm_clist_add(struct msm_bus_node_device_type *cur_dev)
 	int ret = 0;
 	int cur_vcd = 0;
 	struct msm_bus_node_device_type *cur_bcm = NULL;
-	struct msm_bus_node_device_type *tmp_bcm = NULL;
 
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_clist_add;
@@ -373,8 +405,32 @@ static int bcm_clist_add(struct msm_bus_node_device_type *cur_dev)
 	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
 	cur_vcd = cur_bcm->bcmdev->clk_domain;
 
-	list_add_tail(&bcm_clist_inorder[cur_vcd]);
-	cur_bcm->dirty = true;
+	if (!cur_bcm->dirty)
+		list_add_tail(&cur_bcm->link, &bcm_clist_inorder[cur_vcd]);
+	else
+		cur_bcm->dirty = false;
+
+exit_bcm_clist_add:
+	return ret;
+}
+
+static int bcm_clist_clean(struct msm_bus_node_device_type *cur_dev)
+{
+	int ret = 0;
+	struct msm_bus_node_device_type *cur_bcm = NULL;
+
+	if (!cur_dev->node_info->num_bcm_devs)
+		goto exit_bcm_clist_add;
+
+	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
+
+	if (cur_bcm->node_bw[DUAL_CTX].max_ab == 0 &&
+			cur_bcm->node_bw[ACTIVE_CTX].max_ab == 0 &&
+			cur_bcm->node_bw[DUAL_CTX].max_ib == 0 &&
+			cur_bcm->node_bw[ACTIVE_CTX].max_ib == 0) {
+		cur_bcm->dirty = false;
+		list_del_init(&cur_bcm->link);
+	}
 
 exit_bcm_clist_add:
 	return ret;
@@ -384,26 +440,81 @@ int msm_bus_commit_data(struct list_head *clist)
 {
 	int ret = 0;
 	int bcm_cnt;
-	struct msm_bus_node_device_type *node;
-	struct msm_bus_node_device_type *node_tmp;
-	struct tcs_cmd *active_cmdlist = NULL;
-	struct tcs_cmd *sleep_cmdlist = NULL;
-	uint32_t *n = NULL;
+	struct msm_bus_node_device_type *node = NULL;
+	struct msm_bus_node_device_type *node_tmp = NULL;
+	struct msm_bus_node_device_type *cur_bcm = NULL;
+	struct tcs_cmd *cmdlist_active = NULL;
+	struct tcs_cmd *cmdlist_wake = NULL;
+	struct tcs_cmd *cmdlist_sleep = NULL;
+	int *n_active = NULL;
+	int *n_wake = NULL;
+	int *n_sleep = NULL;
+	int cnt_vcd = 0;
+	int cnt_active = 0;
+	int cnt_wake = 0;
+	int cnt_sleep = 0;
+	int i = 0;
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
 		if (unlikely(node->node_info->defer_qos))
 			msm_bus_dev_init_qos(&node->dev, NULL);
 
 		bcm_clist_add(node);
+	}
 
+	for (i = 0; i < VCD_MAX_CNT; i++) {
+		if (list_empty(&bcm_clist_inorder[i]))
+			continue;
+		list_for_each_entry(cur_bcm, &bcm_clist_inorder[i], link) {
+			if ((cur_bcm->node_bw[DUAL_CTX].max_ab !=
+				cur_bcm->node_bw[ACTIVE_CTX].max_ab) ||
+				(cur_bcm->node_bw[DUAL_CTX].max_ib !=
+				cur_bcm->node_bw[ACTIVE_CTX].max_ib)) {
+				cnt_sleep++;
+				cnt_wake++;
+			}
+			if (!cur_bcm->dirty)
+				cnt_active++;
+		}
+		cnt_vcd++;
+	}
+
+	n_active = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
+	n_wake = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
+	n_sleep = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
+
+	cmdlist_active = kcalloc(cnt_active, sizeof(struct tcs_cmd),
+								GFP_KERNEL);
+	if (cnt_sleep && cnt_wake) {
+		cmdlist_wake = kcalloc(cnt_wake, sizeof(struct tcs_cmd),
+								GFP_KERNEL);
+		cmdlist_sleep = kcalloc(cnt_sleep, sizeof(struct tcs_cmd),
+								GFP_KERNEL);
+	}
+	bcm_cnt = tcs_cmd_list_gen(n_active, n_wake, n_sleep, cmdlist_active,
+					cmdlist_wake, cmdlist_sleep);
+
+	ret = rpmh_invalidate(mbox_apps);
+
+	ret = rpmh_write_passthru(mbox_apps, RPMH_ACTIVE_ONLY_STATE,
+						cmdlist_active, n_active);
+	ret = rpmh_write_passthru(mbox_apps, RPMH_WAKE_ONLY_STATE,
+						cmdlist_wake, n_wake);
+	ret = rpmh_write_passthru(mbox_apps, RPMH_SLEEP_STATE,
+						cmdlist_sleep, n_sleep);
+
+	list_for_each_entry_safe(node, node_tmp, clist, link) {
+		bcm_clist_clean(node);
 		node->dirty = false;
 		list_del_init(&node->link);
 	}
-	bcm_cnt = tcs_cmd_list_gen(vcd_cnt, n, active_cmdlist, sleep_cmdlist);
-	// Insert calls to rpmh driver;
-	kfree(active_cmdlist);
-	kfree(sleep_cmdlist);
-	kfree(n);
+
+	kfree(cmdlist_active);
+	kfree(cmdlist_wake);
+	kfree(cmdlist_sleep);
+	kfree(n_active);
+	kfree(n_wake);
+	kfree(n_sleep);
 	return ret;
 }
 
@@ -670,7 +781,9 @@ static int msm_bus_bcm_init(struct device *dev,
 {
 	struct msm_bus_bcm_device_type *bcmdev;
 	struct msm_bus_node_device_type *node_dev = NULL;
+	struct bcm_db aux_data = {0};
 	int ret = 0;
+	int i = 0;
 
 	node_dev = to_msm_bus_node(dev);
 	if (!node_dev) {
@@ -686,12 +799,21 @@ static int msm_bus_bcm_init(struct device *dev,
 	}
 
 	node_dev->bcmdev = bcmdev;
+	if (!cmd_db_get_aux_data_len(node_dev->node_info->name)) {
+		MSM_BUS_ERR("%s: Error getting bcm info, bcm:%s",
+			__func__, node_dev->node_info->name);
+		ret = -ENXIO;
+		goto exit_bcm_init;
+	}
 
-	//pending cmddb APIs
-	bcmdev->width = 1;
-	bcmdev->clk_domain = 0;
+	cmd_db_get_aux_data(node_dev->node_info->name, (u8 *)&aux_data,
+						sizeof(struct bcm_db));
+
+	bcmdev->addr = cmd_db_get_addr(node_dev->node_info->name);
+	bcmdev->width = (uint32_t)aux_data.width;
+	bcmdev->clk_domain = aux_data.clk_domain;
+	bcmdev->unit_size = aux_data.unit_size;
 	bcmdev->type = 0;
-	bcmdev->unit_size = 1000000;
 	bcmdev->num_bus_devs = 0;
 
 	// Add way to count # of VCDs, initialize LL
@@ -1024,7 +1146,8 @@ static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
 	}
 
 	/* Setup parent bus device for this node */
-	if (!bus_node->node_info->is_fab_dev) {
+	if (!bus_node->node_info->is_fab_dev &&
+		!bus_node->node_info->is_bcm_dev) {
 		struct device *bus_parent_device =
 			bus_find_device(&msm_bus_type, NULL,
 				(void *)&bus_node->node_info->bus_device_id,
@@ -1090,7 +1213,7 @@ static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
 			ret = -ENODEV;
 			goto exit_setup_dev_conn;
 		}
-		bcm_node = to_bcm_bus_node(bus_node->node_info->bcm_devs[j]);
+		bcm_node = to_msm_bus_node(bus_node->node_info->bcm_devs[j]);
 		bcm_node->bcmdev->num_bus_devs++;
 	}
 
@@ -1223,6 +1346,12 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 	/* Register the arb layer ops */
 	msm_bus_arb_setops_adhoc(&arb_ops);
 	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_node_debug);
+
+	mbox_apps = rpmh_get_byname(pdev, "apps_rsc");
+	if (IS_ERR_OR_NULL(mbox_apps)) {
+		MSM_BUS_ERR("%s: mbox failure", __func__);
+		return PTR_ERR(mbox_apps);
+	}
 
 	devm_kfree(&pdev->dev, pdata->info);
 	devm_kfree(&pdev->dev, pdata);

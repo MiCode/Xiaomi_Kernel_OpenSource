@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -510,7 +510,7 @@ static void bcm_update_bus_req(struct device *dev, int ctx)
 
 		bcm_dev->lnode_list[lnode_idx].lnode_ab[ctx] =
 			msm_bus_div64(cur_dev->node_info->agg_params.buswidth,
-					cur_dev->node_bw[ctx].max_ab *
+					cur_dev->node_bw[ctx].sum_ab *
 					(uint64_t)bcm_dev->bcmdev->width);
 
 		for (i = 0; i < bcm_dev->num_lnodes; i++) {
@@ -555,9 +555,6 @@ int bcm_remove_handoff_req(struct device *dev, void *data)
 
 	if (!bcm_dev->node_info->is_bcm_dev)
 		goto exit_bcm_remove_handoff_req;
-
-	bcm_dev->bcmdev->init_ab = 0;
-	bcm_dev->bcmdev->init_ib = 0;
 
 	for (i = 0; i < bcm_dev->num_lnodes; i++) {
 		max_ib = max(max_ib,
@@ -893,8 +890,6 @@ static void unregister_client_adhoc(uint32_t cl)
 		curr = 0;
 	}
 
-	MSM_BUS_DBG("%s: Unregistering client %p", __func__, client);
-
 	for (i = 0; i < pdata->usecase->num_paths; i++) {
 		src = client->pdata->usecase[curr].vectors[i].src;
 		dest = client->pdata->usecase[curr].vectors[i].dst;
@@ -1110,6 +1105,8 @@ static int update_client_paths(struct msm_bus_client *client, bool log_trns,
 		} else {
 			slp_clk = req_clk;
 			slp_bw = req_bw;
+			req_clk = 0;
+			req_bw = 0;
 		}
 
 		ret = update_path(src_dev, dest, req_clk, req_bw, slp_clk,
@@ -1371,6 +1368,7 @@ static void unregister_adhoc(struct msm_bus_client_handle *cl)
 	commit_data();
 	msm_bus_dbg_remove_client(cl);
 	kfree(cl);
+	MSM_BUS_DBG("%s: Unregistered client", __func__);
 exit_unregister_client:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 }
