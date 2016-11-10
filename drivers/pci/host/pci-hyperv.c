@@ -1607,6 +1607,10 @@ static void hv_eject_device_work(struct work_struct *work)
 		pci_unlock_rescan_remove();
 	}
 
+	spin_lock_irqsave(&hpdev->hbus->device_list_lock, flags);
+	list_del(&hpdev->list_entry);
+	spin_unlock_irqrestore(&hpdev->hbus->device_list_lock, flags);
+
 	memset(&ctxt, 0, sizeof(ctxt));
 	ejct_pkt = (struct pci_eject_response *)&ctxt.pkt.message;
 	ejct_pkt->message_type.type = PCI_EJECTION_COMPLETE;
@@ -1614,10 +1618,6 @@ static void hv_eject_device_work(struct work_struct *work)
 	vmbus_sendpacket(hpdev->hbus->hdev->channel, ejct_pkt,
 			 sizeof(*ejct_pkt), (unsigned long)&ctxt.pkt,
 			 VM_PKT_DATA_INBAND, 0);
-
-	spin_lock_irqsave(&hpdev->hbus->device_list_lock, flags);
-	list_del(&hpdev->list_entry);
-	spin_unlock_irqrestore(&hpdev->hbus->device_list_lock, flags);
 
 	put_pcichild(hpdev, hv_pcidev_ref_childlist);
 	put_pcichild(hpdev, hv_pcidev_ref_initial);
