@@ -21,11 +21,6 @@
 			qcom,ion-heap-type = "SYSTEM";
 		};
 
-		qcom,ion-heap@21 {
-			reg = <21>;
-			qcom,ion-heap-type = "SYSTEM_CONTIG";
-		};
-
 		qcom,ion-heap@27 { /* QSEECOM HEAP */
 			reg = <27>;
 			memory-region = <&venus_qseecom_mem>;
