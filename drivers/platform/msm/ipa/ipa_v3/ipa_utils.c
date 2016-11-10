@@ -4698,6 +4698,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_setup_uc_ntn_pipes = ipa3_setup_uc_ntn_pipes;
 	api_ctrl->ipa_tear_down_uc_offload_pipes =
 		ipa3_tear_down_uc_offload_pipes;
+	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
 
 	return 0;
 }

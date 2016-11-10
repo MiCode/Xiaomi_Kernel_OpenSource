@@ -4210,50 +4210,61 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	return count;
 }
 
-static int ipa3_tz_unlock_reg(struct ipa3_context *ipa3_ctx)
+/**
+ * ipa3_tz_unlock_reg - Unlocks memory regions so that they become accessible
+ *	from AP.
+ * @reg_info - Pointer to array of memory regions to unlock
+ * @num_regs - Number of elements in the array
+ *
+ * Converts the input array of regions to a struct that TZ understands and
+ * issues an SCM call.
+ * Also flushes the memory cache to DDR in order to make sure that TZ sees the
+ * correct data structure.
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 {
 	int i, size, ret, resp;
 	struct tz_smmu_ipa_protect_region_iovec_s *ipa_tz_unlock_vec;
 	struct tz_smmu_ipa_protect_region_s cmd_buf;
 
-	if (ipa3_ctx && ipa3_ctx->ipa_tz_unlock_reg_num > 0) {
-		size = ipa3_ctx->ipa_tz_unlock_reg_num *
-			sizeof(struct tz_smmu_ipa_protect_region_iovec_s);
-		ipa_tz_unlock_vec = kzalloc(PAGE_ALIGN(size), GFP_KERNEL);
-		if (ipa_tz_unlock_vec == NULL)
-			return -ENOMEM;
-
-		for (i = 0; i < ipa3_ctx->ipa_tz_unlock_reg_num; i++) {
-			ipa_tz_unlock_vec[i].input_addr =
-				ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr ^
-				(ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr &
-				0xFFF);
-			ipa_tz_unlock_vec[i].output_addr =
-				ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr ^
-				(ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr &
-				0xFFF);
-			ipa_tz_unlock_vec[i].size =
-				ipa3_ctx->ipa_tz_unlock_reg[i].size;
-			ipa_tz_unlock_vec[i].attr = IPA_TZ_UNLOCK_ATTRIBUTE;
-		}
-
-		/* pass physical address of command buffer */
-		cmd_buf.iovec_buf = virt_to_phys((void *)ipa_tz_unlock_vec);
-		cmd_buf.size_bytes = size;
-
-		/* flush cache to DDR */
-		__cpuc_flush_dcache_area((void *)ipa_tz_unlock_vec, size);
-		outer_flush_range(cmd_buf.iovec_buf, cmd_buf.iovec_buf + size);
-
-		ret = scm_call(SCM_SVC_MP, TZ_MEM_PROTECT_REGION_ID, &cmd_buf,
-				sizeof(cmd_buf), &resp, sizeof(resp));
-		if (ret) {
-			IPAERR("scm call SCM_SVC_MP failed: %d\n", ret);
-			kfree(ipa_tz_unlock_vec);
-			return -EFAULT;
-		}
-		kfree(ipa_tz_unlock_vec);
+	if (reg_info ==  NULL || num_regs == 0) {
+		IPAERR("Bad parameters\n");
+		return -EFAULT;
 	}
+
+	size = num_regs * sizeof(struct tz_smmu_ipa_protect_region_iovec_s);
+	ipa_tz_unlock_vec = kzalloc(PAGE_ALIGN(size), GFP_KERNEL);
+	if (ipa_tz_unlock_vec == NULL)
+		return -ENOMEM;
+
+	for (i = 0; i < num_regs; i++) {
+		ipa_tz_unlock_vec[i].input_addr = reg_info[i].reg_addr ^
+			(reg_info[i].reg_addr & 0xFFF);
+		ipa_tz_unlock_vec[i].output_addr = reg_info[i].reg_addr ^
+			(reg_info[i].reg_addr & 0xFFF);
+		ipa_tz_unlock_vec[i].size = reg_info[i].size;
+		ipa_tz_unlock_vec[i].attr = IPA_TZ_UNLOCK_ATTRIBUTE;
+	}
+
+	/* pass physical address of command buffer */
+	cmd_buf.iovec_buf = virt_to_phys((void *)ipa_tz_unlock_vec);
+	cmd_buf.size_bytes = size;
+
+	/* flush cache to DDR */
+	__cpuc_flush_dcache_area((void *)ipa_tz_unlock_vec, size);
+	outer_flush_range(cmd_buf.iovec_buf, cmd_buf.iovec_buf + size);
+
+	ret = scm_call(SCM_SVC_MP, TZ_MEM_PROTECT_REGION_ID, &cmd_buf,
+		       sizeof(cmd_buf), &resp, sizeof(resp));
+	if (ret) {
+		IPAERR("scm call SCM_SVC_MP failed: %d\n", ret);
+		kfree(ipa_tz_unlock_vec);
+		return -EFAULT;
+	}
+	kfree(ipa_tz_unlock_vec);
+
 	return 0;
 }
 
@@ -4361,7 +4372,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 
 	/* unlock registers for uc */
-	ipa3_tz_unlock_reg(ipa3_ctx);
+	result = ipa3_tz_unlock_reg(ipa3_ctx->ipa_tz_unlock_reg,
+				    ipa3_ctx->ipa_tz_unlock_reg_num);
+	if (result)
+		IPAERR("Failed to unlock memory region using TZ\n");
 
 	/* default aggregation parameters */
 	ipa3_ctx->aggregation_type = IPA_MBIM_16;
@@ -5118,7 +5132,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 				ipa_tz_unlock_reg[pos++];
 			ipa_drv_res->ipa_tz_unlock_reg[i].size =
 				ipa_tz_unlock_reg[pos++];
-			IPADBG("tz unlock reg %d: addr 0x%pa size %d\n", i,
+			IPADBG("tz unlock reg %d: addr 0x%pa size %llu\n", i,
 				&ipa_drv_res->ipa_tz_unlock_reg[i].reg_addr,
 				ipa_drv_res->ipa_tz_unlock_reg[i].size);
 		}
