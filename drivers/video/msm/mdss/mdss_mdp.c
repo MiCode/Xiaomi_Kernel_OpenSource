@@ -4788,7 +4788,8 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 	}
 }
 
-int mdss_mdp_secure_display_ctrl(unsigned int enable)
+int mdss_mdp_secure_display_ctrl(struct mdss_data_type *mdata,
+	unsigned int enable)
 {
 	struct sd_ctrl_req {
 		unsigned int enable;
@@ -4796,6 +4797,12 @@ int mdss_mdp_secure_display_ctrl(unsigned int enable)
 	unsigned int resp = -1;
 	int ret = 0;
 	struct scm_desc desc;
+
+	if ((enable && (mdss_get_sd_client_cnt() > 0)) ||
+		(!enable && (mdss_get_sd_client_cnt() > 1))) {
+		mdss_update_sd_client(mdata, enable);
+		return ret;
+	}
 
 	desc.args[0] = request.enable = enable;
 	desc.arginfo = SCM_ARGS(1);
@@ -4814,6 +4821,7 @@ int mdss_mdp_secure_display_ctrl(unsigned int enable)
 	if (ret)
 		return ret;
 
+	mdss_update_sd_client(mdata, enable);
 	return resp;
 }
 
