@@ -19,5 +19,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM COBALT V2 SKUK";
 	compatible = "qcom,msmcobalt-qrd", "qcom,msmcobalt", "qcom,qrd";
-	qcom,board-id = <0x01000b 0x80>;
+	qcom,board-id = <0x01000b 0x10>;
 };
