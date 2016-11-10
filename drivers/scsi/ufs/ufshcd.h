@@ -907,6 +907,7 @@ struct ufs_hba {
 	int scsi_block_reqs_cnt;
 
 	bool full_init_linereset;
+	struct pinctrl *pctrl;
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
