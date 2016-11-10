@@ -1034,6 +1034,7 @@
 #include "msm-pm2falcon-rpm-regulator.dtsi"
 #include "msmfalcon-regulator.dtsi"
 #include "msm-gdsc-falcon.dtsi"
+#include "msmfalcon-gpu.dtsi"
 
 &gdsc_usb30 {
 	clock-names = "core_clk";
