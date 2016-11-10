@@ -156,8 +156,7 @@ Required properties:
  - phy_type: Should be one of "ulpi" or "utmi". ChipIdea core uses "ulpi" mode.
 
 Optional properties:
- - reg: Address and length register set to control QUSB2 PHY
-   "qscratch_base" : QSCRATCH base register set.
+ - reg-names: Additional registers corresponding with the following:
    "tune2_efuse_addr": EFUSE based register address to read TUNE2 parameter.
    via the QSCRATCH interface.
    "emu_phy_base" : phy base address used for programming emulation target phy.
@@ -192,10 +191,8 @@ Optional properties:
 Example:
 	qusb_phy: qusb@f9b39000 {
 		compatible = "qcom,qusb2phy";
-		reg = <0x00079000 0x7000>,
-			<0x08af8800 0x400>;
-		reg-names = "qusb_phy_base",
-			    "qscratch_base";
+		reg = <0x00079000 0x7000>;
+		reg-names = "qusb_phy_base";
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l6>;
 		vdda33-supply = <&pm8994_l24>;

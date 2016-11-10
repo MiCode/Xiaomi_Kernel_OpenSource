@@ -772,6 +772,7 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 	info->max_width = 4096;
 	info->max_height = 2160;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
+	info->display_id = msm_get_display_id(hdmi_display->display_type);
 
 	mutex_unlock(&hdmi_display->display_lock);
 	return rc;

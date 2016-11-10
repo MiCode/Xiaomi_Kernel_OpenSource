@@ -456,6 +456,28 @@ static int cnss_pci_runtime_idle(struct device *dev)
 	return -EBUSY;
 }
 
+int cnss_wlan_pm_control(bool vote)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_pci_data *pci_priv;
+	struct pci_dev *pci_dev;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	pci_priv = plat_priv->bus_priv;
+	if (!pci_priv)
+		return -ENODEV;
+
+	pci_dev = pci_priv->pci_dev;
+
+	return msm_pcie_pm_control(vote ? MSM_PCIE_DISABLE_PC :
+				   MSM_PCIE_ENABLE_PC,
+				   pci_dev->bus->number, pci_dev,
+				   NULL, PM_OPTIONS_DEFAULT);
+}
+EXPORT_SYMBOL(cnss_wlan_pm_control);
+
 int cnss_auto_suspend(void)
 {
 	int ret = 0;

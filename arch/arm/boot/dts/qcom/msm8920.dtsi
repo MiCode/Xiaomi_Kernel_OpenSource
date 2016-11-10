@@ -136,6 +136,15 @@
 		qcom,ipa-advertise-sg-support;
 	};
 
+	qcom,bm-sensors {
+		compatible = "qcom,bm-sensors";
+
+		bw_mm {
+			qcom,bm-sensor = <&slv_snoc_bimc_2 &mas_vfe0 &mas_vfe1>;
+			qcom,bm-sensor-field = "ab";
+		};
+	};
+
 	qcom,sensor-information {
 		sensor_information16: qcom,sensor-information-16 {
 			qcom,sensor-type = "tsens";
@@ -163,15 +172,6 @@
 		qcom,prio0 = <0>;
 		qcom,bus-dev = <&fab_snoc>;
 		qcom,mas-rpm-id = <ICBID_MASTER_IPA>;
-	};
-
-	qcom,bm-sensors {
-		compatible = "qcom,bm-sensors";
-
-		bw_mm {
-			qcom,bm-sensor = <&slv_snoc_bimc_2 &mas_vfe0 &mas_vfe1>;
-			qcom,bm-sensor-field = "ab";
-		};
 	};
 };
 

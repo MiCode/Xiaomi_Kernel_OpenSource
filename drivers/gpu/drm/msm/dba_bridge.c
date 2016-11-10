@@ -34,6 +34,7 @@
  * @hdmi_mode:          HDMI or DVI mode for the sink
  * @num_of_input_lanes: Number of input lanes in case of DSI/LVDS
  * @pluggable:          If it's pluggable
+ * @panel_count:        Number of panels attached to this display
  */
 struct dba_bridge {
 	struct drm_bridge base;
@@ -48,6 +49,7 @@ struct dba_bridge {
 	bool hdmi_mode;
 	u32 num_of_input_lanes;
 	bool pluggable;
+	u32 panel_count;
 };
 #define to_dba_bridge(x)     container_of((x), struct dba_bridge, base)
 
@@ -225,9 +227,18 @@ static void _dba_bridge_mode_set(struct drm_bridge *bridge,
 	if (!bridge || !mode || !adjusted_mode || !d_bridge) {
 		SDE_ERROR("Invalid params\n");
 		return;
+	} else if (!d_bridge->panel_count) {
+		SDE_ERROR("Panel count is 0\n");
+		return;
 	}
 
 	d_bridge->mode = *adjusted_mode;
+	/* Adjust mode according to number of panels */
+	d_bridge->mode.hdisplay /= d_bridge->panel_count;
+	d_bridge->mode.hsync_start /= d_bridge->panel_count;
+	d_bridge->mode.hsync_end /= d_bridge->panel_count;
+	d_bridge->mode.htotal /= d_bridge->panel_count;
+	d_bridge->mode.clock /= d_bridge->panel_count;
 }
 
 static bool _dba_bridge_mode_fixup(struct drm_bridge *bridge,
@@ -293,6 +304,7 @@ struct drm_bridge *dba_bridge_init(struct drm_device *dev,
 	bridge->hdmi_mode = data->hdmi_mode;
 	bridge->num_of_input_lanes = data->num_of_input_lanes;
 	bridge->pluggable = data->pluggable;
+	bridge->panel_count = data->panel_count;
 	bridge->base.funcs = &_dba_bridge_ops;
 	bridge->base.encoder = encoder;
 

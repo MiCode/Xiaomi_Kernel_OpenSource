@@ -131,6 +131,15 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_COUNT
 };
 
+enum msm_mdp_display_id {
+	DISPLAY_ID_NONE,
+	DISPLAY_ID_PRIMARY,
+	DISPLAY_ID_SECONDARY,
+	DISPLAY_ID_TERTIARY,
+	DISPLAY_ID_QUATERNARY,
+	DISPLAY_ID_MAX
+};
+
 struct msm_vblank_ctrl {
 	struct work_struct work;
 	struct list_head event_list;
@@ -180,6 +189,7 @@ enum msm_display_caps {
  * @max_height:         Max height of display. In case of hot pluggable display
  *                      this is max height supported by controller
  * @compression:        Compression supported by the display
+ * @display_id:         Display ID such as primary, secondary, etc.
  */
 struct msm_display_info {
 	int intf_type;
@@ -197,6 +207,8 @@ struct msm_display_info {
 	uint32_t max_height;
 
 	enum msm_display_compression compression;
+
+	enum msm_mdp_display_id display_id;
 };
 
 struct display_manager;
@@ -465,6 +477,23 @@ static inline int align_pitch(int width, int bpp)
 	/* adreno needs pitch aligned to 32 pixels: */
 	return bytespp * ALIGN(width, 32);
 }
+
+static inline enum msm_mdp_display_id msm_get_display_id(
+	const char *display_type)
+{
+	if (!display_type)
+		return DISPLAY_ID_NONE;
+	else if (!strcmp(display_type, "primary"))
+		return DISPLAY_ID_PRIMARY;
+	else if (!strcmp(display_type, "secondary"))
+		return DISPLAY_ID_SECONDARY;
+	else if (!strcmp(display_type, "tertiary"))
+		return DISPLAY_ID_TERTIARY;
+	else if (!strcmp(display_type, "quaternary"))
+		return DISPLAY_ID_QUATERNARY;
+	else
+		return DISPLAY_ID_NONE;
+};
 
 /* for the generated headers: */
 #define INVALID_IDX(idx) ({BUG(); 0;})

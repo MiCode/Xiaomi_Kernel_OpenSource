@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <linux/delay.h>
 #include <linux/msm_ep_pcie.h>
 
 #define PCIE20_PARF_SYS_CTRL           0x00
@@ -255,6 +256,14 @@ struct ep_pcie_irq_info_t {
 	u32          num;
 };
 
+/* phy info structure */
+struct ep_pcie_phy_info_t {
+	u32	offset;
+	u32	val;
+	u32	delay;
+	u32	direction;
+};
+
 /* pcie endpoint device structure */
 struct ep_pcie_dev_t {
 	struct platform_device       *pdev;
@@ -278,6 +287,11 @@ struct ep_pcie_dev_t {
 	u32                          link_speed;
 	bool                         active_config;
 	bool                         aggregated_irq;
+	u32                          dbi_base_reg;
+	u32                          slv_space_reg;
+	u32                          phy_status_reg;
+	u32                          phy_init_len;
+	struct ep_pcie_phy_info_t    *phy_init;
 
 	u32                          rev;
 	u32                          phy_rev;

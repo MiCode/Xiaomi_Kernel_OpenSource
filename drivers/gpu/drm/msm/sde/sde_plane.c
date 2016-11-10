@@ -64,6 +64,7 @@ struct sde_plane {
 	char pipe_name[SDE_NAME_SIZE];
 
 	struct list_head phy_planes;
+	u32 num_of_phy_planes;
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[PLANE_PROP_COUNT];
@@ -696,10 +697,9 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	const struct sde_format *fmt;
 	struct drm_crtc *crtc;
 	struct drm_framebuffer *fb;
-	struct sde_rect src, dst;
+	struct sde_rect src, dst, src_tmp, dst_tmp;
 	bool q16_data = true;
 	struct sde_phy_plane *pp;
-	uint32_t num_of_phy_planes = 0, maxlinewidth = 0xFFFF;
 
 	if (!plane || !plane->state) {
 		SDE_ERROR("invalid plane/state\n");
@@ -750,34 +750,27 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		src.y &= ~0x1;
 	}
 
-	list_for_each_entry(pp, &psde->phy_planes, list) {
-		if (maxlinewidth > pp->pipe_sblk->maxlinewidth)
-			maxlinewidth = pp->pipe_sblk->maxlinewidth;
-		num_of_phy_planes++;
+	if (!psde->num_of_phy_planes) {
+		SDE_ERROR("No physical pipe for this plane=%s\n",
+			psde->pipe_name);
+		return -EINVAL;
 	}
 
-	/*
-	 * Only need to use one physical plane if plane width is still within
-	 * the limitation.
-	 */
-	if (maxlinewidth >= (src.x + src.w))
-		num_of_phy_planes = 1;
-
-	if (num_of_phy_planes > 1) {
-		/* Adjust width for multi-pipe */
-		src.w /= num_of_phy_planes;
-		dst.w /= num_of_phy_planes;
-	}
+	/* Adjust width for multi-pipe */
+	src.w /= psde->num_of_phy_planes;
+	dst.w /= psde->num_of_phy_planes;
 
 	list_for_each_entry(pp, &psde->phy_planes, list) {
 		memset(&(pp->pipe_cfg), 0, sizeof(struct sde_hw_pipe_cfg));
+		src_tmp = src;
+		dst_tmp = dst;
 
 		/* Adjust offset for multi-pipe */
-		src.x += src.w * pp->index;
-		dst.x += dst.w * pp->index;
+		src_tmp.x = src.x + src.w * pp->index;
+		dst_tmp.x = dst.x + dst.w * pp->index;
 
-		pp->pipe_cfg.src_rect = src;
-		pp->pipe_cfg.dst_rect = dst;
+		pp->pipe_cfg.src_rect = src_tmp;
+		pp->pipe_cfg.dst_rect = dst_tmp;
 
 		/* check for color fill */
 		pp->color_fill = (uint32_t)sde_plane_get_property(pstate,
@@ -958,7 +951,6 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 	uint32_t max_upscale, max_downscale, min_src_size, max_linewidth;
 	bool q16_data = true;
 	struct sde_phy_plane *pp;
-	uint32_t num_of_phy_planes = 0;
 
 	if (!plane || !state) {
 		SDE_ERROR("invalid plane/state\n");
@@ -968,9 +960,6 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 
 	psde = to_sde_plane(plane);
 	pstate = to_sde_plane_state(state);
-
-	list_for_each_entry(pp, &psde->phy_planes, list)
-		num_of_phy_planes++;
 
 	valid_scale_data = __get_scale_data(psde, pstate, sc_u, &sc_u_size);
 	deci_w = valid_scale_data && sc_u ? sc_u->v1.horz_decimate : 0;
@@ -1054,11 +1043,12 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 			ret = -EINVAL;
 
 		/* check decimated source width */
-		} else if (src_deci_w > max_linewidth * num_of_phy_planes) {
+		} else if (src_deci_w >
+				max_linewidth * psde->num_of_phy_planes) {
 			SDE_ERROR("invalid source width:%u, deci wid:%u, line\"\
 					wid:%u num_of_phy_plane=%u\n",
 					src.w, src_deci_w, max_linewidth,
-					num_of_phy_planes);
+					psde->num_of_phy_planes);
 			ret = -E2BIG;
 
 		/* check max scaler capability */
@@ -1507,6 +1497,19 @@ enum sde_sspp sde_plane_pipe(struct drm_plane *plane, uint32_t index)
 	return default_sspp;
 }
 
+u32 sde_plane_num_of_phy_pipe(struct drm_plane *plane)
+{
+	struct sde_plane *sde_plane = to_sde_plane(plane);
+
+	if (!plane || !sde_plane) {
+		SDE_ERROR("plane=%p or sde_plane=%p is NULL\n",
+			plane, sde_plane);
+		return 0;
+	}
+
+	return sde_plane->num_of_phy_planes;
+}
+
 static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
 {
 	const struct sde_sspp_sub_blks *sblk = NULL;
@@ -1686,6 +1689,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 			}
 			list_add_tail(&pp->list, &psde->phy_planes);
 			index++;
+			psde->num_of_phy_planes++;
 		}
 	} else {
 		pp = kzalloc(sizeof(*pp), GFP_KERNEL);
@@ -1706,6 +1710,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 		memcpy(formats, pp->formats,
 			sizeof(uint32_t) * 64);
 		list_add_tail(&pp->list, &psde->phy_planes);
+		psde->num_of_phy_planes++;
 	}
 
 	if (kms->catalog && kms->catalog->mixer_count && kms->catalog->mixer)

@@ -32,6 +32,7 @@
  * @num_of_input_lanes:   Number of input lanes in case of DSI/LVDS
  * @precede_bridge:       Precede bridge chip
  * @pluggable:            If it's pluggable
+ * @panel_count:          Number of panels attached to this display
  */
 struct dba_bridge_init {
 	const char *client_name;
@@ -42,6 +43,7 @@ struct dba_bridge_init {
 	u32 num_of_input_lanes;
 	struct drm_bridge *precede_bridge;
 	bool pluggable;
+	u32 panel_count;
 };
 
 /**

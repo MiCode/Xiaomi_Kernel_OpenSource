@@ -19,8 +19,8 @@
 #include <linux/spinlock.h>
 #include <linux/msm_gsi.h>
 
-#define GSI_MAX_CHAN      31
-#define GSI_MAX_EVT_RING  23
+#define GSI_CHAN_MAX      31
+#define GSI_EVT_RING_MAX  23
 #define GSI_NO_EVT_ERINDEX 31
 
 #define gsi_readl(c)	({ u32 __v = readl_relaxed(c); __iormb(); __v; })
@@ -125,13 +125,24 @@ struct gsi_ee_scratch {
 	uint32_t word1;
 };
 
+struct ch_debug_stats {
+	unsigned long ch_allocate;
+	unsigned long ch_start;
+	unsigned long ch_stop;
+	unsigned long ch_reset;
+	unsigned long ch_de_alloc;
+	unsigned long ch_db_stop;
+	unsigned long cmd_completed;
+};
+
 struct gsi_ctx {
 	void __iomem *base;
 	struct device *dev;
 	struct gsi_per_props per;
 	bool per_registered;
-	struct gsi_chan_ctx chan[GSI_MAX_CHAN];
-	struct gsi_evt_ctx evtr[GSI_MAX_EVT_RING];
+	struct gsi_chan_ctx chan[GSI_CHAN_MAX];
+	struct ch_debug_stats ch_dbg[GSI_CHAN_MAX];
+	struct gsi_evt_ctx evtr[GSI_EVT_RING_MAX];
 	struct mutex mlock;
 	spinlock_t slock;
 	unsigned long evt_bmap;
@@ -141,6 +152,8 @@ struct gsi_ctx {
 	struct gsi_ee_scratch scratch;
 	int num_ch_dp_stats;
 	struct workqueue_struct *dp_stat_wq;
+	u32 max_ch;
+	u32 max_ev;
 };
 
 enum gsi_re_type {

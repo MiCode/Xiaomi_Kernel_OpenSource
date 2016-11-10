@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,11 +131,18 @@ static int ep_pcie_gpio_init(struct ep_pcie_dev_t *dev)
 		info = &dev->gpio[i];
 
 		if (!info->num) {
-			EP_PCIE_ERR(dev,
-				"PCIe V%d:  the number of gpio %s is invalid\n",
-				dev->rev, info->name);
-			rc = -EINVAL;
-			break;
+			if (i == EP_PCIE_GPIO_MDM2AP) {
+				EP_PCIE_DBG(dev,
+					"PCIe V%d: gpio %s does not exist.\n",
+					dev->rev, info->name);
+				continue;
+			} else {
+				EP_PCIE_ERR(dev,
+					"PCIe V%d:  the number of gpio %s is invalid\n",
+					dev->rev, info->name);
+				rc = -EINVAL;
+				break;
+			}
 		}
 
 		rc = gpio_request(info->num, info->name);
@@ -463,10 +470,18 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x0);
 
 	/* adjust DBI base address */
-	writel_relaxed(0x3FFFE000, dev->parf + PCIE20_PARF_DBI_BASE_ADDR);
+	if (dev->dbi_base_reg)
+		writel_relaxed(0x3FFFE000, dev->parf + dev->dbi_base_reg);
+	else
+		writel_relaxed(0x3FFFE000,
+			dev->parf + PCIE20_PARF_DBI_BASE_ADDR);
 
 	/* Configure PCIe core to support 1GB aperture */
-	ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE,
+	if (dev->slv_space_reg)
+		ep_pcie_write_reg(dev->parf, dev->slv_space_reg,
+			0x40000000);
+	else
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE,
 			0x40000000);
 
 	/* Configure link speed */
@@ -576,7 +591,8 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
 	}
 
-	ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
+	if (dev->active_config)
+		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
 }
 
 static void ep_pcie_config_inbound_iatu(struct ep_pcie_dev_t *dev)
@@ -681,7 +697,7 @@ static void ep_pcie_notify_event(struct ep_pcie_dev_t *dev,
 static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 					struct platform_device *pdev)
 {
-	int i, len, cnt, ret = 0;
+	int i, len, cnt, ret = 0, size = 0;
 	struct ep_pcie_vreg_info_t *vreg_info;
 	struct ep_pcie_gpio_info_t *gpio_info;
 	struct ep_pcie_clk_info_t  *clk_info;
@@ -693,6 +709,34 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	u32 *clkfreq = NULL;
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
+
+	of_get_property(pdev->dev.of_node, "qcom,phy-init", &size);
+	if (size) {
+		dev->phy_init = (struct ep_pcie_phy_info_t *)
+			devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+
+		if (dev->phy_init) {
+			dev->phy_init_len =
+				size / sizeof(*dev->phy_init);
+			EP_PCIE_DBG(dev,
+					"PCIe V%d: phy init length is 0x%x.\n",
+					dev->rev, dev->phy_init_len);
+
+			of_property_read_u32_array(pdev->dev.of_node,
+				"qcom,phy-init",
+				(unsigned int *)dev->phy_init,
+				size / sizeof(dev->phy_init->offset));
+		} else {
+			EP_PCIE_ERR(dev,
+					"PCIe V%d: Could not allocate memory for phy init sequence.\n",
+					dev->rev);
+			return -ENOMEM;
+		}
+	} else {
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: PHY V%d: phy init sequence is not present in DT.\n",
+			dev->rev, dev->phy_rev);
+	}
 
 	cnt = of_property_count_strings((&pdev->dev)->of_node,
 			"clock-names");
@@ -782,6 +826,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 			EP_PCIE_DBG(dev,
 				"GPIO %s is not supported in this configuration.\n",
 				gpio_info->name);
+			ret = 0;
 		}
 	}
 
@@ -1977,6 +2022,39 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: pcie-link-speed:%d.\n",
 			ep_pcie_dev.rev, ep_pcie_dev.link_speed);
 
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,dbi-base-reg",
+				&ep_pcie_dev.dbi_base_reg);
+	if (ret)
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: dbi-base-reg does not exist.\n",
+			ep_pcie_dev.rev);
+	else
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: dbi-base-reg:0x%x.\n",
+			ep_pcie_dev.rev, ep_pcie_dev.dbi_base_reg);
+
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,slv-space-reg",
+				&ep_pcie_dev.slv_space_reg);
+	if (ret)
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: slv-space-reg does not exist.\n",
+			ep_pcie_dev.rev);
+	else
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: slv-space-reg:0x%x.\n",
+			ep_pcie_dev.rev, ep_pcie_dev.slv_space_reg);
+
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,phy-status-reg",
+				&ep_pcie_dev.phy_status_reg);
+	if (ret)
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: phy-status-reg does not exist.\n",
+			ep_pcie_dev.rev);
+	else
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: phy-status-reg:0x%x.\n",
+			ep_pcie_dev.rev, ep_pcie_dev.phy_status_reg);
+
 	ep_pcie_dev.phy_rev = 1;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,pcie-phy-ver",
@@ -2002,7 +2080,7 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		"PCIe V%d: aggregated IRQ is %s enabled.\n",
 		ep_pcie_dev.rev, ep_pcie_dev.aggregated_irq ? "" : "not");
 
-	ep_pcie_dev.rev = 1511053;
+	ep_pcie_dev.rev = 1610071;
 	ep_pcie_dev.pdev = pdev;
 	memcpy(ep_pcie_dev.vreg, ep_pcie_vreg_info,
 				sizeof(ep_pcie_vreg_info));
