@@ -8,7 +8,7 @@ display panels, LCD or AMOLED.
 Main node required properties:
 
 - compatible:			Must be "qcom,qpnp-labibb-regulator"
-- qpnp,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB
+- qcom,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB
 				regulators when bootloader does not turned on the
 				display panel. Could be "lcd" or "amoled".
 				"lcd" means using LAB and IBB regulators are
@@ -26,9 +26,9 @@ Main node optional properties:
 					in LAB and IBB modules. Make sure the
 					hardware has needed support before
 					enabling this property.
-- qpnp,swire-control:			A bool property which indicates if the LAB/IBB is
+- qcom,swire-control:			A bool property which indicates if the LAB/IBB is
 					controlled by the SWIRE interface. Enable only
-					if qpnp,qpnp-labibb-mode = "amoled".
+					if qcom,qpnp-labibb-mode = "amoled".
 - qcom,labibb-ttw-force-lab-on:		A boolean property which forces LAB to be
 					always on during TTW mode.
 - qcom,skip-2nd-swire-cmd:		A boolean property which indicates if
@@ -95,7 +95,7 @@ LAB subnode required properties:
 
 LAB subnode optional properties:
 
-- qpnp,qpnp-lab-current-sense:		If this property is specified, the LAB current
+- qcom,qpnp-lab-current-sense:		If this property is specified, the LAB current
 					sense gain will be programmed for LAB regulator.
 					Otherwise, LAB current sense gain will be
 					default to "1x". A string is used to specify the
@@ -209,7 +209,7 @@ IBB subnode optional properties:
 						any value in the allowed limit.
 - qcom,output-voltage-one-pulse			The expected voltage (in mV) of VDISN signal
 						on the first SWIRE pulse. This property
-						can be specified only if 'qpnp,swire-control'
+						can be specified only if 'qcom,swire-control'
 						is defined. The minimum and maximum values
 						are 1400mV and 7700mV.
 
@@ -219,7 +219,7 @@ Example:
 			compatible = "qcom,qpnp-labibb-regulator";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qpnp,qpnp-labibb-mode = "lcd";
+			qcom,qpnp-labibb-mode = "lcd";
 			qcom,pmic-revid = <&pmi8994_revid>;
 			qcom,skip-2nd-swire-cmd;
 

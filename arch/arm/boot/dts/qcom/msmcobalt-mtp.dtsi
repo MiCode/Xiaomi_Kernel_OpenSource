@@ -362,7 +362,7 @@
 
 &labibb {
 	status = "ok";
-	qpnp,qpnp-labibb-mode = "lcd";
+	qcom,qpnp-labibb-mode = "lcd";
 };
 
 &pmicobalt_wled {
