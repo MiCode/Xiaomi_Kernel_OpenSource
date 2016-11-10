@@ -18,3 +18,76 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_active>;
 };
+
+&ufsphy1 {
+	vdda-phy-supply = <&pmcobalt_l1>;
+	vdda-pll-supply = <&pmcobalt_l2>;
+	vddp-ref-clk-supply = <&pmcobalt_l26>;
+	vdda-phy-max-microamp = <51400>;
+	vdda-pll-max-microamp = <14600>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
+	status = "ok";
+};
+
+&ufs1 {
+	vdd-hba-supply = <&gdsc_ufs>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pmcobalt_l20>;
+	vccq-supply = <&pmcobalt_l26>;
+	vccq2-supply = <&pmcobalt_s4>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <560000>;
+	vccq2-max-microamp = <750000>;
+	status = "ok";
+};
+
+&ufs_ice {
+	status = "ok";
+};
+
+&sdc2_cd_on {
+	mux {
+		pins = "gpio54";
+	};
+
+	config {
+		pins = "gpio54";
+		/delete-property/ bias-pull-up;
+		bias-disable;
+	};
+};
+
+&sdc2_cd_off {
+	mux {
+		pins = "gpio54";
+	};
+
+	config {
+		pins = "gpio54";
+		/delete-property/ bias-pull-up;
+		bias-disable;
+	};
+};
+
+&sdhc_2 {
+	vdd-supply = <&pmcobalt_l21>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pmcobalt_l13>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	cd-gpios = <&tlmm 54 0x0>;
+
+	status = "ok";
+};
