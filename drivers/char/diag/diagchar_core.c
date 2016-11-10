@@ -701,6 +701,11 @@ struct diag_cmd_reg_entry_t *diag_cmd_search(
 
 	list_for_each_safe(start, temp, &driver->cmd_reg_list) {
 		item = list_entry(start, struct diag_cmd_reg_t, link);
+		if (item == NULL || &item->entry == NULL) {
+			pr_err("diag: In %s, unable to search command\n",
+			       __func__);
+			return NULL;
+		}
 		temp_entry = &item->entry;
 		if (temp_entry->cmd_code == entry->cmd_code &&
 		    temp_entry->subsys_id == entry->subsys_id &&
