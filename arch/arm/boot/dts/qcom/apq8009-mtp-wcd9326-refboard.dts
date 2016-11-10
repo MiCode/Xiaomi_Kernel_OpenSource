@@ -17,6 +17,7 @@
 #include "msm8909-pm8916.dtsi"
 #include "msm8909-pm8916-mtp.dtsi"
 #include "apq8009-audio-external_codec.dtsi"
+#include "apq8009-memory.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 WCD9326 Reference Board";
@@ -50,12 +51,4 @@
 			qcom,cdc-reset-gpio = <&msm_gpio 27 0>;
 		};
 	};
-};
-
-&modem_adsp_mem {
-	reg = <0x0 0x88000000 0x0 0x1e00000>;
-};
-
-&peripheral_mem {
-	reg = <0x0 0x89e00000 0x0 0x0500000>;
 };
