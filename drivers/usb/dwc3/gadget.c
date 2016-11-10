@@ -2084,7 +2084,7 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 	spin_lock_irqsave(&dwc->lock, flags);
 	__dwc3_gadget_stop(dwc);
 	dwc->gadget_driver = NULL;
-	spin_lock_irqsave(&dwc->lock, flags);
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	pm_runtime_mark_last_busy(dwc->dev);
 	pm_runtime_put_autosuspend(dwc->dev);
