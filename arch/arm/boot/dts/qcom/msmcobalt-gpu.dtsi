@@ -77,6 +77,9 @@
 
 		qcom,tsens-name = "tsens_tz_sensor12";
 
+		/* Quirks */
+		qcom,gpu-quirk-lmloadkill-disable;
+
 		clocks = <&clock_gfx clk_gpucc_gfx3d_clk>,
 			<&clock_gcc clk_gcc_gpu_cfg_ahb_clk>,
 			<&clock_gpu clk_gpucc_rbbmtimer_clk>,
