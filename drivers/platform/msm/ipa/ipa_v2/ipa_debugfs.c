@@ -1420,6 +1420,7 @@ static ssize_t ipa_read_nat4(struct file *file,
 	u16 enable, tbl_entry, flag;
 	u32 no_entrys = 0;
 
+	mutex_lock(&ipa_ctx->nat_mem.lock);
 	value = ipa_ctx->nat_mem.public_ip_addr;
 	pr_err(
 				"Table IP Address:%d.%d.%d.%d\n",
@@ -1573,6 +1574,7 @@ static ssize_t ipa_read_nat4(struct file *file,
 		}
 	}
 	pr_err("Current No. Nat Entries: %d\n", no_entrys);
+	mutex_unlock(&ipa_ctx->nat_mem.lock);
 
 	return 0;
 }

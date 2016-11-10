@@ -26,7 +26,8 @@
 #define IPA_API_DISPATCH_RETURN(api, p...) \
 	do { \
 		if (!ipa_api_ctrl) { \
-			pr_err("IPA HW is not supported on this target\n"); \
+			pr_err("%s:%d IPA HW is not supported\n", \
+				__func__, __LINE__); \
 			ret = -EPERM; \
 		} \
 		else { \
@@ -44,7 +45,8 @@
 #define IPA_API_DISPATCH(api, p...) \
 	do { \
 		if (!ipa_api_ctrl) \
-			pr_err("IPA HW is not supported on this target\n"); \
+			pr_err("%s:%d IPA HW is not supported\n", \
+				__func__, __LINE__); \
 		else { \
 			if (ipa_api_ctrl->api) { \
 				ipa_api_ctrl->api(p); \
@@ -59,7 +61,8 @@
 #define IPA_API_DISPATCH_RETURN_PTR(api, p...) \
 	do { \
 		if (!ipa_api_ctrl) { \
-			pr_err("IPA HW is not supported on this target\n"); \
+			pr_err("%s:%d IPA HW is not supported\n", \
+				__func__, __LINE__); \
 			ret = NULL; \
 		} \
 		else { \
@@ -77,7 +80,8 @@
 #define IPA_API_DISPATCH_RETURN_BOOL(api, p...) \
 	do { \
 		if (!ipa_api_ctrl) { \
-			pr_err("IPA HW is not supported on this target\n"); \
+			pr_err("%s:%d IPA HW is not supported\n", \
+				__func__, __LINE__); \
 			ret = false; \
 		} \
 		else { \

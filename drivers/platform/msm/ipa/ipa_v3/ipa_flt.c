@@ -136,7 +136,7 @@ static int ipa_prep_flt_tbl_for_cmt(enum ipa_ip_type ip,
 			IPAERR("failed to calculate HW FLT rule size\n");
 			return -EPERM;
 		}
-		IPADBG("pipe %d rule_id (handle) %u hw_len %d priority %u\n",
+		IPADBG_LOW("pipe %d rule_id(handle) %u hw_len %d priority %u\n",
 			pipe_idx, entry->rule_id, entry->hw_len, entry->prio);
 
 		if (entry->rule.hashable)
@@ -1372,18 +1372,18 @@ void ipa3_install_dflt_flt_rules(u32 ipa_ep_idx)
 
 	mutex_lock(&ipa3_ctx->lock);
 	tbl = &ipa3_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v4];
-	tbl->sticky_rear = true;
 	rule.action = IPA_PASS_TO_EXCEPTION;
-	__ipa_add_flt_rule(tbl, IPA_IP_v4, &rule, false,
+	__ipa_add_flt_rule(tbl, IPA_IP_v4, &rule, true,
 			&ep->dflt_flt4_rule_hdl);
 	ipa3_ctx->ctrl->ipa3_commit_flt(IPA_IP_v4);
+	tbl->sticky_rear = true;
 
 	tbl = &ipa3_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v6];
-	tbl->sticky_rear = true;
 	rule.action = IPA_PASS_TO_EXCEPTION;
-	__ipa_add_flt_rule(tbl, IPA_IP_v6, &rule, false,
+	__ipa_add_flt_rule(tbl, IPA_IP_v6, &rule, true,
 			&ep->dflt_flt6_rule_hdl);
 	ipa3_ctx->ctrl->ipa3_commit_flt(IPA_IP_v6);
+	tbl->sticky_rear = true;
 	mutex_unlock(&ipa3_ctx->lock);
 }
 

@@ -41,8 +41,6 @@
 #define MTU_BYTE 1500
 
 #define IPA_MAX_NUM_PIPES 0x14
-#define IPA_WAN_CONS_DESC_FIFO_SZ 0x5E80
-#define IPA_WAN_NAPI_CONS_RX_POOL_SZ 3000
 #define IPA_SYS_DESC_FIFO_SZ 0x2000
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
 #define IPA_LAN_RX_HEADER_LENGTH (2)
@@ -50,6 +48,11 @@
 #define IPA_DL_CHECKSUM_LENGTH (8)
 #define IPA_NUM_DESC_PER_SW_TX (2)
 #define IPA_GENERIC_RX_POOL_SZ 1000
+#define IPA_UC_FINISH_MAX 6
+#define IPA_UC_WAIT_MIN_SLEEP 1000
+#define IPA_UC_WAII_MAX_SLEEP 1200
+#define IPA_WAN_NAPI_CONS_RX_POOL_SZ (IPA_GENERIC_RX_POOL_SZ*3)
+#define IPA_WAN_CONS_DESC_FIFO_SZ (IPA_SYS_DESC_FIFO_SZ*3)
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 
@@ -890,6 +893,14 @@ struct ipa_uc_ctx {
 	u32 uc_status;
 	bool uc_zip_error;
 	u32 uc_error_type;
+	phys_addr_t rdy_ring_base_pa;
+	phys_addr_t rdy_ring_rp_pa;
+	u32 rdy_ring_size;
+	phys_addr_t rdy_comp_ring_base_pa;
+	phys_addr_t rdy_comp_ring_wp_pa;
+	u32 rdy_comp_ring_size;
+	u32 *rdy_ring_rp_va;
+	u32 *rdy_comp_ring_wp_va;
 };
 
 /**
@@ -994,6 +1005,7 @@ struct ipacm_client_info {
  * @use_ipa_teth_bridge: use tethering bridge driver
  * @ipa_bam_remote_mode: ipa bam is in remote mode
  * @modem_cfg_emb_pipe_flt: modem configure embedded pipe filtering rules
+ * @ipa_wdi2: using wdi-2.0
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
@@ -1081,6 +1093,7 @@ struct ipa_context {
 	bool use_ipa_teth_bridge;
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
+	bool ipa_wdi2;
 	/* featurize if memory footprint becomes a concern */
 	struct ipa_stats stats;
 	void *smem_pipe_mem;
@@ -1171,6 +1184,7 @@ struct ipa_plat_drv_res {
 	u32 ee;
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
+	bool ipa_wdi2;
 	u32 wan_rx_ring_size;
 	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
