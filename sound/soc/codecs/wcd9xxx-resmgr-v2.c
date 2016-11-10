@@ -25,6 +25,8 @@
 #define WCD93XX_CDC_CLK_RST_CTRL_MCLK_CONTROL 0x0d41
 #define WCD93XX_CDC_CLK_RST_CTRL_FS_CNT_CONTROL 0x0d42
 
+static void wcd_resmgr_set_sido_input_src(struct wcd9xxx_resmgr_v2 *resmgr,
+					  int sido_src);
 static const char *wcd_resmgr_clk_type_to_str(enum wcd_clock_type clk_type)
 {
 	if (clk_type == WCD_CLK_OFF)
@@ -262,6 +264,8 @@ static int wcd_resmgr_enable_clk_mclk(struct wcd9xxx_resmgr_v2 *resmgr)
 					0x01, 0x01);
 			wcd_resmgr_codec_reg_update_bits(resmgr,
 					WCD934X_CODEC_RPM_CLK_GATE, 0x03, 0x00);
+			wcd_resmgr_set_sido_input_src(resmgr,
+						      SIDO_SOURCE_RCO_BG);
 		} else {
 			wcd_resmgr_codec_reg_update_bits(resmgr,
 					WCD93XX_CDC_CLK_RST_CTRL_FS_CNT_CONTROL,
@@ -314,6 +318,10 @@ static int wcd_resmgr_disable_clk_mclk(struct wcd9xxx_resmgr_v2 *resmgr)
 		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_CLK_TOP,
 						 0x80, 0x00);
 	}
+
+	if ((resmgr->codec_type == WCD934X) &&
+	    (resmgr->clk_type == WCD_CLK_OFF))
+		wcd_resmgr_set_sido_input_src(resmgr, SIDO_SOURCE_INTERNAL);
 
 	pr_debug("%s: mclk_users: %d, clk_type: %s\n", __func__,
 		 resmgr->clk_mclk_users,
@@ -444,6 +452,9 @@ static int wcd_resmgr_disable_clk_rco(struct wcd9xxx_resmgr_v2 *resmgr)
 			wcd_resmgr_codec_reg_update_bits(resmgr,
 							 WCD9335_ANA_RCO,
 							 0x80, 0x00);
+		wcd_resmgr_codec_reg_update_bits(resmgr,
+						 WCD934X_CLK_SYS_MCLK_PRG,
+						 0x01, 0x00);
 		resmgr->clk_type = WCD_CLK_OFF;
 	} else if ((resmgr->clk_rco_users == 0) &&
 	      (resmgr->clk_mclk_users)) {
@@ -455,6 +466,11 @@ static int wcd_resmgr_disable_clk_rco(struct wcd9xxx_resmgr_v2 *resmgr)
 							 WCD9335_ANA_RCO,
 							 0x80, 0x00);
 	}
+
+	if ((resmgr->codec_type == WCD934X) &&
+	    (resmgr->clk_type == WCD_CLK_OFF))
+		wcd_resmgr_set_sido_input_src(resmgr, SIDO_SOURCE_INTERNAL);
+
 	pr_debug("%s: rco clk users: %d, clk_type: %s\n", __func__,
 		 resmgr->clk_rco_users,
 		 wcd_resmgr_clk_type_to_str(resmgr->clk_type));
@@ -492,6 +508,64 @@ int wcd_resmgr_enable_clk_block(struct wcd9xxx_resmgr_v2 *resmgr,
 
 	return ret;
 }
+
+static void wcd_resmgr_set_sido_input_src(struct wcd9xxx_resmgr_v2 *resmgr,
+					  int sido_src)
+{
+	if (!resmgr)
+		return;
+
+	if (sido_src == resmgr->sido_input_src)
+		return;
+
+	if (sido_src == SIDO_SOURCE_INTERNAL) {
+		wcd_resmgr_codec_reg_update_bits(resmgr, WCD934X_ANA_BUCK_CTL,
+						 0x04, 0x00);
+		usleep_range(100, 110);
+		wcd_resmgr_codec_reg_update_bits(resmgr, WCD934X_ANA_BUCK_CTL,
+						 0x03, 0x00);
+		usleep_range(100, 110);
+		wcd_resmgr_codec_reg_update_bits(resmgr, WCD934X_ANA_RCO,
+						 0x80, 0x00);
+		usleep_range(100, 110);
+		resmgr->sido_input_src = SIDO_SOURCE_INTERNAL;
+		pr_debug("%s: sido input src to internal\n", __func__);
+	} else if (sido_src == SIDO_SOURCE_RCO_BG) {
+		wcd_resmgr_codec_reg_update_bits(resmgr, WCD934X_ANA_RCO,
+						 0x80, 0x80);
+		usleep_range(100, 110);
+		wcd_resmgr_codec_reg_update_bits(resmgr, WCD934X_ANA_BUCK_CTL,
+						 0x02, 0x02);
+		usleep_range(100, 110);
+		wcd_resmgr_codec_reg_update_bits(resmgr, WCD934X_ANA_BUCK_CTL,
+						 0x01, 0x01);
+		usleep_range(100, 110);
+		wcd_resmgr_codec_reg_update_bits(resmgr, WCD934X_ANA_BUCK_CTL,
+						 0x04, 0x04);
+		usleep_range(100, 110);
+		resmgr->sido_input_src = SIDO_SOURCE_RCO_BG;
+		pr_debug("%s: sido input src to external\n", __func__);
+	}
+}
+
+/*
+ * wcd_resmgr_set_sido_input_src_locked:
+ *   Set SIDO input in BG_CLK locked context
+ *
+ * @resmgr: handle to struct wcd9xxx_resmgr_v2
+ * @sido_src: Select the SIDO input source
+ */
+void wcd_resmgr_set_sido_input_src_locked(struct wcd9xxx_resmgr_v2 *resmgr,
+					  int sido_src)
+{
+	if (!resmgr)
+		return;
+
+	WCD9XXX_V2_BG_CLK_LOCK(resmgr);
+	wcd_resmgr_set_sido_input_src(resmgr, sido_src);
+	WCD9XXX_V2_BG_CLK_UNLOCK(resmgr);
+}
+EXPORT_SYMBOL(wcd_resmgr_set_sido_input_src_locked);
 
 /*
  * wcd_resmgr_disable_clk_block: disable MCLK or RCO
