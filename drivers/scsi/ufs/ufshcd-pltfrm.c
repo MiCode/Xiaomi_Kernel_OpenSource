@@ -250,6 +250,20 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 	}
 }
 
+static int ufshcd_parse_pinctrl_info(struct ufs_hba *hba)
+{
+	int ret = 0;
+
+	/* Try to obtain pinctrl handle */
+	hba->pctrl = devm_pinctrl_get(hba->dev);
+	if (IS_ERR(hba->pctrl)) {
+		ret = PTR_ERR(hba->pctrl);
+		hba->pctrl = NULL;
+	}
+
+	return ret;
+}
+
 static void ufshcd_parse_gear_limits(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
@@ -437,6 +451,13 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 		dev_err(&pdev->dev, "%s: reset parse failed %d\n",
 				__func__, err);
 		goto dealloc_host;
+	}
+
+	err = ufshcd_parse_pinctrl_info(hba);
+	if (err) {
+		dev_dbg(&pdev->dev, "%s: unable to parse pinctrl data %d\n",
+				__func__, err);
+		/* let's not fail the probe */
 	}
 
 	ufshcd_parse_dev_ref_clk_freq(hba);

@@ -951,6 +951,7 @@ struct ufs_hba {
 	int scsi_block_reqs_cnt;
 
 	bool full_init_linereset;
+	struct pinctrl *pctrl;
 
 	struct reset_control *core_reset;
 
