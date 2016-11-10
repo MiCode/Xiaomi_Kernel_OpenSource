@@ -103,9 +103,10 @@
 		qcom,pm-qos-active-latency = <360>;
 		qcom,pm-qos-wakeup-latency = <360>;
 
-		/* Quirks */
+		/*  Quirks  */
 		qcom,gpu-quirk-two-pass-use-wfi;
 		qcom,gpu-quirk-dp2clockgating-disable;
+		qcom,gpu-quirk-lmloadkill-disable;
 
 		/* Trace bus */
 		coresight-id = <67>;
