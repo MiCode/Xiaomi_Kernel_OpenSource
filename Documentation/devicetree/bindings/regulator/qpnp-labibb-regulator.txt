@@ -82,8 +82,10 @@ LAB subnode required properties:
 					are 25, 50, 75 and 100.
 - qcom,qpnp-lab-nfet-size:		NFET size in percentage. Supported values
 					are 25, 50, 75 and 100.
-- qcom,qpnp-lab-max-precharge-time:	Precharge time in us of LAB regulator.
+- qcom,qpnp-lab-max-precharge-time:	Precharge time in uS for LAB regulator.
 					Supported values are 200, 300, 400 and 500.
+					Suggested values for LCD and AMOLED mode
+					are 500 and 300uS respectively.
 - qcom,qpnp-lab-switching-clock-frequency:	The PWM switching clock frequency in
 						kHz of Lab regulator, Supported values
 						are: 3200, 2740, 2400, 2130, 1920,
