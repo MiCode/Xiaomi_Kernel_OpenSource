@@ -154,6 +154,9 @@ GPU Quirks:
 				detection logic
 - qcom,gpu-quirk-dp2clockgating-disable:
 				Disable RB sampler data path clock gating optimization
+- qcom,gpu-quirk-lmloadkill-disable:
+				Use register setting to disable local memory(LM) feature
+				to avoid corner case error
 
 KGSL Memory Pools:
 - qcom,gpu-mempools:		Container for sets of GPU mempools.Multiple sets

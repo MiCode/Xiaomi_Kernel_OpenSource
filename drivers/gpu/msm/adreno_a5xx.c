@@ -1946,6 +1946,16 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	}
 
+	/*
+	 * VPC corner case with local memory load kill leads to corrupt
+	 * internal state. Normal Disable does not work for all a5x chips.
+	 * So do the following setting to disable it.
+	 */
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_DISABLE_LMLOADKILL)) {
+		kgsl_regrmw(device, A5XX_VPC_DBG_ECO_CNTL, 0, 0x1 << 23);
+		kgsl_regrmw(device, A5XX_HLSQ_DBG_ECO_CNTL, 0x1 << 18, 0);
+	}
+
 	a5xx_preemption_start(adreno_dev);
 	a5xx_protect_init(adreno_dev);
 }
