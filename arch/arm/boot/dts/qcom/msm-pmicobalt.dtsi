@@ -609,6 +609,7 @@
 			qcom,led-strings-list = [00 01 02 03];
 			qcom,en-ext-pfet-sc-pro;
 			qcom,pmic-revid = <&pmicobalt_revid>;
+			qcom,loop-auto-gm-en;
 		};
 
 		pmicobalt_haptics: qcom,haptic@c000 {
