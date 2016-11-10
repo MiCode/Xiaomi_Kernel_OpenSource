@@ -20,6 +20,10 @@
 	model = "Qualcomm Technologies, Inc. MSM FALCON RUMI";
 	compatible = "qcom,msmfalcon-rumi", "qcom,msmfalcon", "qcom,rumi";
 	qcom,board-id = <15 0>;
+
+	chosen {
+		bootargs = "lpm_levels.sleep_disabled=1";
+	};
 };
 
 &uartblsp1dm1 {
