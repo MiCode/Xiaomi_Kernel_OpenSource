@@ -242,7 +242,7 @@ static long msm_ir_led_subdev_ioctl(struct v4l2_subdev *sd,
 {
 	struct msm_ir_led_ctrl_t *fctrl = NULL;
 	void __user *argp = (void __user *)arg;
-	struct msm_ir_led_cfg_data_t *ir_led_data;
+	struct msm_ir_led_cfg_data_t ir_led_data = {0};
 
 	if (!sd) {
 		pr_err(" v4l2 ir led subdevice is NULL\n");
@@ -261,13 +261,12 @@ static long msm_ir_led_subdev_ioctl(struct v4l2_subdev *sd,
 	case MSM_SD_NOTIFY_FREEZE:
 		return 0;
 	case MSM_SD_SHUTDOWN:
-		ir_led_data = (struct msm_ir_led_cfg_data_t *)argp;
 		if (!fctrl->func_tbl) {
 			pr_err("No call back funcions\n");
 			return -EINVAL;
 		} else {
 			return fctrl->func_tbl->camera_ir_led_release(fctrl,
-							ir_led_data);
+							&ir_led_data);
 		}
 	default:
 		pr_err_ratelimited("invalid cmd %d\n", cmd);
