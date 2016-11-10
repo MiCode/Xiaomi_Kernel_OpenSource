@@ -2865,39 +2865,39 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
 	int rc;
-	u8 stat;
+	u8 stat4, stat5;
 	bool debounce_done, sink_attached, legacy_cable;
 
 	/* WA - not when PD hard_reset WIP on cc2 in sink mode */
 	if (chg->cc2_sink_detach_flag == CC2_SINK_STD)
 		return IRQ_HANDLED;
 
-	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
+	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat4);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
 		return IRQ_HANDLED;
 	}
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_4 = 0x%02x\n", stat);
-	debounce_done = (bool)(stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT);
-	sink_attached = (bool)(stat & UFP_DFP_MODE_STATUS_BIT);
 
-	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat);
+	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat5);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read TYPE_C_STATUS_5 rc=%d\n", rc);
 		return IRQ_HANDLED;
 	}
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_5 = 0x%02x\n", stat);
-	legacy_cable = (bool)(stat & TYPEC_LEGACY_CABLE_STATUS_BIT);
+
+	debounce_done = (bool)(stat4 & TYPEC_DEBOUNCE_DONE_STATUS_BIT);
+	sink_attached = (bool)(stat4 & UFP_DFP_MODE_STATUS_BIT);
+	legacy_cable = (bool)(stat5 & TYPEC_LEGACY_CABLE_STATUS_BIT);
 
 	smblib_handle_typec_debounce_done(chg,
 			debounce_done, sink_attached, legacy_cable);
 
-	power_supply_changed(chg->usb_psy);
-
-	if (stat & TYPEC_VBUS_ERROR_STATUS_BIT)
+	if (stat4 & TYPEC_VBUS_ERROR_STATUS_BIT)
 		smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s vbus-error\n",
 			   irq_data->name);
 
+	power_supply_changed(chg->usb_psy);
+	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_4 = 0x%02x\n", stat4);
+	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_5 = 0x%02x\n", stat5);
 	return IRQ_HANDLED;
 }
 
