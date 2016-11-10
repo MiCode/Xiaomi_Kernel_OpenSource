@@ -4909,20 +4909,16 @@ int ipa_iommu_map(struct iommu_domain *domain,
 	IPADBG("domain =0x%p iova 0x%lx\n", domain, iova);
 	IPADBG("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
 
-	/* make sure no overlapping */
+	/* Checking the address overlapping */
 	if (domain == ipa2_get_smmu_domain()) {
 		if (iova >= ap_cb->va_start && iova < ap_cb->va_end) {
 			IPAERR("iommu AP overlap addr 0x%lx\n", iova);
-			ipa_assert();
-			return -EFAULT;
 		}
 	} else if (domain == ipa2_get_wlan_smmu_domain()) {
 		/* wlan is one time map */
 	} else if (domain == ipa2_get_uc_smmu_domain()) {
 		if (iova >= uc_cb->va_start && iova < uc_cb->va_end) {
 			IPAERR("iommu uC overlap addr 0x%lx\n", iova);
-			ipa_assert();
-			return -EFAULT;
 		}
 	} else {
 		IPAERR("Unexpected domain 0x%p\n", domain);
