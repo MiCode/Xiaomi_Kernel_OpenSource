@@ -481,3 +481,6 @@ header-y += xilinx-v4l2-controls.h
 header-y += zorro.h
 header-y += zorro_ids.h
 header-y += userfaultfd.h
+header-y += ipa_qmi_service_v01.h
+header-y += msm_ipa.h
+header-y += rmnet_ipa_fd_ioctl.h
