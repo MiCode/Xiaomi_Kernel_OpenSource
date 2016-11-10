@@ -208,7 +208,7 @@ struct ipa3_ioc_nat_alloc_mem32 {
 };
 #endif
 
-#define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
+#define IPA_TZ_UNLOCK_ATTRIBUTE 0xDEADBEEF
 #define TZ_MEM_PROTECT_REGION_ID 0x10
 
 struct tz_smmu_ipa_protect_region_iovec_s {
