@@ -63,13 +63,14 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <270>;
 		cam_vio-supply = <&pm8953_l6>;
+		cam_vdig-supply = <&pm8953_l2>;
 		cam_vana-supply = <&pm8953_l22>;
 		qcom,ir-led-src = <&led_ir0>;
 		qcom,ir-cut-src = <&ir_cut0>;
-		qcom,cam-vreg-name = "cam_vio", "cam_vana";
-		qcom,cam-vreg-min-voltage = <0 2800000>;
-		qcom,cam-vreg-max-voltage = <0 2800000>;
-		qcom,cam-vreg-op-mode = <0 80000>;
+		qcom,cam-vreg-name = "cam_vio", "cam_vdig", "cam_vana";
+		qcom,cam-vreg-min-voltage = <0 1100000 2800000>;
+		qcom,cam-vreg-max-voltage = <0 1100000 2800000>;
+		qcom,cam-vreg-op-mode = <0 105000 80000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_default
 				&cam_sensor_rear_default1
