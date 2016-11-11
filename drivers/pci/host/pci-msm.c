@@ -5420,7 +5420,7 @@ static irqreturn_t handle_msi_irq(int irq, void *data)
 	struct msm_pcie_dev_t *dev = data;
 	void __iomem *ctrl_status;
 
-	PCIE_DBG(dev, "irq=%d\n", irq);
+	PCIE_DUMP(dev, "irq: %d\n", irq);
 
 	/* check for set bits, clear it by setting that bit
 	   and trigger corresponding irq */
