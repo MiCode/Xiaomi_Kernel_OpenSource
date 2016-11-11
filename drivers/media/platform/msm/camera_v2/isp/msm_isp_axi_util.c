@@ -2114,7 +2114,7 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
  *
  * If stream count on an input line is 0 then disable the input
  */
-static void msm_isp_input_disable(struct vfe_device *vfe_dev)
+static void msm_isp_input_disable(struct vfe_device *vfe_dev, int cmd_type)
 {
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	int stream_count;
@@ -2170,7 +2170,7 @@ static void msm_isp_input_disable(struct vfe_device *vfe_dev)
 		}
 		if (i != VFE_PIX_0 || ext_read)
 			continue;
-		if (total_stream_count == 0)
+		if (total_stream_count == 0 || cmd_type == STOP_IMMEDIATELY)
 			vfe_dev->hw_info->vfe_ops.core_ops.
 				update_camif_state(vfe_dev,
 				DISABLE_CAMIF_IMMEDIATELY);
@@ -2723,7 +2723,7 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 	for (k = 0; k < MAX_VFE; k++) {
 		if (!update_vfes[k])
 			continue;
-		msm_isp_input_disable(update_vfes[k]);
+		msm_isp_input_disable(update_vfes[k], cmd_type);
 	}
 
 	for (i = 0; i < num_streams; i++) {
