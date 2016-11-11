@@ -643,6 +643,9 @@ static int ffs_ep0_open(struct inode *inode, struct file *file)
 	ffs_log("state %d setup_state %d flags %lu opened %d", ffs->state,
 		ffs->setup_state, ffs->flags, atomic_read(&ffs->opened));
 
+	if (atomic_read(&ffs->opened))
+		return -EBUSY;
+
 	if (unlikely(ffs->state == FFS_CLOSING))
 		return -EBUSY;
 
