@@ -91,7 +91,7 @@ enum msm_ext_disp_power_state {
 /**
  * struct msm_ext_disp_intf_ops - operations exposed to display interface
  * @hpd: updates external display interface state
- * @notify: updates audio framework with interface state
+ * @notify: acknowledgment to power on or off
  */
 struct msm_ext_disp_intf_ops {
 	int (*hpd)(struct platform_device *pdev,
@@ -100,8 +100,7 @@ struct msm_ext_disp_intf_ops {
 			u32 flags);
 	int (*notify)(struct platform_device *pdev,
 			enum msm_ext_disp_cable_state state);
-	int (*ack)(struct platform_device *pdev,
-			u32 ack);
+	int (*ack)(struct platform_device *pdev, u32 ack);
 };
 
 /**

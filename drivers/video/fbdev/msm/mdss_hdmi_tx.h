@@ -98,7 +98,6 @@ struct hdmi_tx_ctrl {
 	struct mutex tx_lock;
 	struct list_head cable_notify_handlers;
 	struct kobject *kobj;
-	struct switch_dev sdev;
 	struct workqueue_struct *workq;
 	struct hdmi_util_ds_data ds_data;
 	struct completion hpd_int_done;
@@ -166,7 +165,10 @@ struct hdmi_tx_ctrl {
 
 	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 
+	/* pre/post is done in the context without tx_lock */
+	hdmi_tx_evt_handler pre_evt_handler[MDSS_EVENT_MAX - 1];
 	hdmi_tx_evt_handler evt_handler[MDSS_EVENT_MAX - 1];
+	hdmi_tx_evt_handler post_evt_handler[MDSS_EVENT_MAX - 1];
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */
