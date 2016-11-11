@@ -2340,15 +2340,22 @@ static int msm_isp_init_stream_ping_pong_reg(
 	/* Set address for both PING & PO NG register */
 	rc = msm_isp_cfg_ping_pong_address(
 		stream_info, VFE_PING_FLAG);
+	/* No buffer available on start is not error */
+	if (rc == -ENOMEM && stream_info->stream_type != BURST_STREAM)
+		return 0;
 	if (rc < 0) {
 		pr_err("%s: No free buffer for ping\n",
 			   __func__);
 		return rc;
 	}
 	if (stream_info->stream_type != BURST_STREAM ||
-		stream_info->runtime_num_burst_capture > 1)
+		stream_info->runtime_num_burst_capture > 1) {
 		rc = msm_isp_cfg_ping_pong_address(
 			stream_info, VFE_PONG_FLAG);
+		/* No buffer available on start is not error */
+		if (rc == -ENOMEM)
+			return 0;
+	}
 
 	if (rc < 0) {
 		pr_err("%s: No free buffer for pong\n",
