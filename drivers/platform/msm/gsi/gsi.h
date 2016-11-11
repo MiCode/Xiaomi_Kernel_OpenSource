@@ -125,12 +125,23 @@ struct gsi_ee_scratch {
 	uint32_t word1;
 };
 
+struct ch_debug_stats {
+	unsigned long ch_allocate;
+	unsigned long ch_start;
+	unsigned long ch_stop;
+	unsigned long ch_reset;
+	unsigned long ch_de_alloc;
+	unsigned long ch_db_stop;
+	unsigned long cmd_completed;
+};
+
 struct gsi_ctx {
 	void __iomem *base;
 	struct device *dev;
 	struct gsi_per_props per;
 	bool per_registered;
 	struct gsi_chan_ctx chan[GSI_CHAN_MAX];
+	struct ch_debug_stats ch_dbg[GSI_CHAN_MAX];
 	struct gsi_evt_ctx evtr[GSI_EVT_RING_MAX];
 	struct mutex mlock;
 	spinlock_t slock;
