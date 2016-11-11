@@ -15,7 +15,6 @@
 
 #include "msmcobalt.dtsi"
 #include "msmcobalt-qrd-skuk.dtsi"
-#include "msmcobalt-camera-sensor-skuk.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM COBALT SKUK";
