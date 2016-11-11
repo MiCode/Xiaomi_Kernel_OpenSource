@@ -131,6 +131,7 @@ struct ffs_ep {
 	u8				num;
 
 	int				status;	/* P: epfile->mutex */
+	bool				is_busy;
 };
 
 struct ffs_epfile {
@@ -765,6 +766,8 @@ static void ffs_epfile_io_complete(struct usb_ep *_ep, struct usb_request *req)
 		struct ffs_ep *ep = _ep->driver_data;
 		ep->status = req->status ? req->status : req->actual;
 		ffs_log("ep status %d for req %p", ep->status, req);
+		/* Set is_busy false to indicate completion of last request */
+		ep->is_busy = false;
 		complete(req->context);
 	}
 }
@@ -1081,7 +1084,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 		req = ep->req;
 		req->buf      = data;
 		req->length   = data_len;
-
+		ret           = 0;
 		req->complete = ffs_epfile_io_complete;
 
 		if (io_data->read) {
@@ -1093,9 +1096,18 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 		}
 
 		req->context = done;
-		ret = usb_ep_queue(ep->ep, req, GFP_ATOMIC);
+		/*
+		 * Don't queue another read request if previous is
+		 * still busy.
+		 */
+		if (!(io_data->read && ep->is_busy)) {
+			ret = usb_ep_queue(ep->ep, req, GFP_ATOMIC);
+			ep->is_busy = true;
+		}
+
 		if (unlikely(ret < 0)) {
 			ret = -EIO;
+			ep->is_busy = false;
 			goto error_lock;
 		}
 
