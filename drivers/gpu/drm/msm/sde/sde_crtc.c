@@ -365,6 +365,13 @@ static void _sde_crtc_complete_flip(struct drm_crtc *crtc,
 static void sde_crtc_vblank_cb(void *data)
 {
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
+	/* keep statistics on vblank callback - with auto reset via debugfs */
+	if (ktime_equal(sde_crtc->vblank_cb_time, ktime_set(0, 0)))
+		sde_crtc->vblank_cb_time = ktime_get();
+	else
+		sde_crtc->vblank_cb_count++;
 
 	drm_crtc_handle_vblank(crtc);
 	DRM_DEBUG_VBL("crtc%d\n", crtc->base.id);
@@ -759,6 +766,7 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 static void sde_crtc_disable(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
+	struct drm_encoder *encoder;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -769,6 +777,19 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	SDE_DEBUG("\n");
 
 	mutex_lock(&sde_crtc->crtc_lock);
+	if (atomic_read(&sde_crtc->vblank_refcount)) {
+		SDE_ERROR("crtc%d invalid vblank refcount %d\n",
+				crtc->base.id,
+				atomic_read(&sde_crtc->vblank_refcount));
+		drm_for_each_encoder(encoder, crtc->dev) {
+			if (encoder->crtc != crtc)
+				continue;
+			sde_encoder_register_vblank_callback(encoder, NULL,
+						NULL);
+		}
+		atomic_set(&sde_crtc->vblank_refcount, 0);
+	}
+
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
 	mutex_unlock(&sde_crtc->crtc_lock);
@@ -947,10 +968,24 @@ end:
 
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 {
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct drm_encoder *encoder;
 	struct drm_device *dev = crtc->dev;
 
-	SDE_DEBUG("%d", en);
+	if (en && atomic_inc_return(&sde_crtc->vblank_refcount) == 1) {
+		SDE_DEBUG("crtc%d vblank enable\n", crtc->base.id);
+	} else if (!en && atomic_read(&sde_crtc->vblank_refcount) < 1) {
+		SDE_ERROR("crtc%d invalid vblank disable\n", crtc->base.id);
+		return -EINVAL;
+	} else if (!en && atomic_dec_return(&sde_crtc->vblank_refcount) == 0) {
+		SDE_DEBUG("crtc%d vblank disable\n", crtc->base.id);
+	} else {
+		SDE_DEBUG("crtc%d vblank %s refcount:%d\n",
+				crtc->base.id,
+				en ? "enable" : "disable",
+				atomic_read(&sde_crtc->vblank_refcount));
+		return 0;
+	}
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
@@ -1224,6 +1259,27 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 			state->crtc_h);
 		seq_puts(s, "\n");
 	}
+
+	if (sde_crtc->vblank_cb_count) {
+		ktime_t diff = ktime_sub(ktime_get(), sde_crtc->vblank_cb_time);
+		s64 diff_ms = ktime_to_ms(diff);
+		s64 fps = diff_ms ? DIV_ROUND_CLOSEST(
+				sde_crtc->vblank_cb_count * 1000, diff_ms) : 0;
+
+		seq_printf(s,
+			"vblank fps:%lld count:%u total:%llums\n",
+				fps,
+				sde_crtc->vblank_cb_count,
+				ktime_to_ms(diff));
+
+		/* reset time & count for next measurement */
+		sde_crtc->vblank_cb_count = 0;
+		sde_crtc->vblank_cb_time = ktime_set(0, 0);
+	}
+
+	seq_printf(s, "vblank_refcount:%d\n",
+			atomic_read(&sde_crtc->vblank_refcount));
+
 	mutex_unlock(&sde_crtc->crtc_lock);
 
 	return 0;
@@ -1305,6 +1361,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 
 	crtc = &sde_crtc->base;
 	crtc->dev = dev;
+	atomic_set(&sde_crtc->vblank_refcount, 0);
 
 	drm_crtc_init_with_planes(dev, crtc, plane, NULL, &sde_crtc_funcs);
 

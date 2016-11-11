@@ -54,6 +54,9 @@ struct sde_crtc_mixer {
  * @property_defaults : Array of default values for generic property support
  * @stage_cfg     : H/w mixer stage configuration
  * @debugfs_root  : Parent of debugfs node
+ * @vblank_cb_count : count of vblank callback since last reset
+ * @vblank_cb_time  : ktime at vblank count reset
+ * @vblank_refcount : reference count for vblank enable request
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
@@ -80,6 +83,10 @@ struct sde_crtc {
 
 	struct sde_hw_stage_cfg stage_cfg;
 	struct dentry *debugfs_root;
+
+	u32 vblank_cb_count;
+	ktime_t vblank_cb_time;
+	atomic_t vblank_refcount;
 
 	struct list_head feature_list;
 	struct list_head active_list;
