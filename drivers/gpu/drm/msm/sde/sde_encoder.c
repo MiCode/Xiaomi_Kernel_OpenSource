@@ -43,6 +43,8 @@
 #define MAX_PHYS_ENCODERS_PER_VIRTUAL \
 	(MAX_H_TILES_PER_DISPLAY * NUM_PHYS_ENCODER_TYPES)
 
+#define MAX_CHANNELS_PER_ENC 2
+
 /* Wait timeout sized on worst case of 4 60fps frames ~= 67ms */
 #define WAIT_TIMEOUT_MSEC 67
 
@@ -59,6 +61,8 @@
  * @phys_encs:		Container of physical encoders managed.
  * @cur_master:		Pointer to the current master in this mode. Optimization
  *			Only valid after enable. Cleared as disable.
+ * @hw_pp		Handle to the pingpong blocks used for the display. No.
+ *                      pingpong blocks can be different than num_phys_encs.
  * @crtc_vblank_cb:	Callback into the upper layer / CRTC for
  *			notification of the VBLANK
  * @crtc_vblank_cb_data:	Data from upper layer for VBLANK notification
@@ -89,6 +93,7 @@ struct sde_encoder_virt {
 	unsigned int num_phys_encs;
 	struct sde_encoder_phys *phys_encs[MAX_PHYS_ENCODERS_PER_VIRTUAL];
 	struct sde_encoder_phys *cur_master;
+	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
 
 	void (*crtc_vblank_cb)(void *);
 	void *crtc_vblank_cb_data;
@@ -326,6 +331,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct sde_kms *sde_kms;
 	struct list_head *connector_list;
 	struct drm_connector *conn = NULL, *conn_iter;
+	struct sde_rm_hw_iter pp_iter;
 	int i = 0, ret;
 
 	if (!drm_enc) {
@@ -363,10 +369,24 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		return;
 	}
 
+	sde_rm_init_hw_iter(&pp_iter, drm_enc->base.id, SDE_HW_BLK_PINGPONG);
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		sde_enc->hw_pp[i] = NULL;
+		if (!sde_rm_get_hw(&sde_kms->rm, &pp_iter))
+			break;
+		sde_enc->hw_pp[i] = (struct sde_hw_pingpong *) pp_iter.hw;
+	}
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
 		if (phys) {
+			if (!sde_enc->hw_pp[i]) {
+				SDE_ERROR_ENC(sde_enc,
+				    "invalid pingpong block for the encoder\n");
+				return;
+			}
+			phys->hw_pp = sde_enc->hw_pp[i];
 			phys->connector = conn->state->connector;
 			if (phys->ops.mode_set)
 				phys->ops.mode_set(phys, mode, adj_mode);
