@@ -460,7 +460,7 @@ int msm_camera_set_clk_flags(struct clk *clk, unsigned long flags)
 	if (!clk)
 		return -EINVAL;
 
-	CDBG("clk : %p, flags : %ld\n", clk, flags);
+	CDBG("clk : %pK, flags : %ld\n", clk, flags);
 
 	return clk_set_flags(clk, flags);
 }
