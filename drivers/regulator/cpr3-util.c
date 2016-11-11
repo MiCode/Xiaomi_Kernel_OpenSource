@@ -1851,7 +1851,7 @@ static int cpr4_load_core_and_temp_adj(struct cpr3_regulator *vreg,
 	for (i = 0; i < sdelta->max_core_count; i++) {
 		for (j = 0, pos = 0; j < sdelta->temp_band_count; j++)
 			pos += scnprintf(buf + pos, buflen - pos, " %u",
-			 sdelta->table[i * sdelta->max_core_count + j]);
+			 sdelta->table[i * sdelta->temp_band_count + j]);
 		cpr3_debug(vreg, "sdelta[%d]:%s\n", i, buf);
 	}
 
