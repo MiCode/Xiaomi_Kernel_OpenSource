@@ -353,7 +353,6 @@ static int xhci_abort_cmd_ring(struct xhci_hcd *xhci, unsigned long flags)
 			xhci_err(xhci, "Stopped the command ring failed, "
 				 "maybe the host is dead\n");
 			xhci->xhc_state |= XHCI_STATE_DYING;
-			xhci_quiesce(xhci);
 			xhci_halt(xhci);
 			return -ESHUTDOWN;
 		}
