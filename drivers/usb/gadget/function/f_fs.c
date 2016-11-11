@@ -643,6 +643,8 @@ static int ffs_ep0_open(struct inode *inode, struct file *file)
 	ffs_log("state %d setup_state %d flags %lu opened %d", ffs->state,
 		ffs->setup_state, ffs->flags, atomic_read(&ffs->opened));
 
+	/* to get updated opened atomic variable value */
+	smp_mb__before_atomic();
 	if (atomic_read(&ffs->opened))
 		return -EBUSY;
 
@@ -950,6 +952,8 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 	ffs_log("enter: epfile name %s epfile err %d (%s)", epfile->name,
 		atomic_read(&epfile->error), io_data->read ? "READ" : "WRITE");
 
+	/* to get updated error atomic variable value */
+	smp_mb__before_atomic();
 	if (atomic_read(&epfile->error))
 		return -ENODEV;
 
@@ -966,6 +970,9 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 		/* Don't wait on write if device is offline */
 		if (!io_data->read)
 			return -ENODEV;
+
+		/* to get updated error atomic variable value */
+		smp_mb__before_atomic();
 
 		/*
 		 * if ep is disabled, this fails all current IOs
@@ -1755,6 +1762,8 @@ static void ffs_data_get(struct ffs_data *ffs)
 
 	ffs_log("enter");
 
+	/* to get updated ref atomic variable value */
+	smp_mb__before_atomic();
 	atomic_inc(&ffs->ref);
 
 	ffs_log("exit");
@@ -1767,6 +1776,8 @@ static void ffs_data_opened(struct ffs_data *ffs)
 	ffs_log("enter: state %d setup_state %d flag %lu opened %d", ffs->state,
 		ffs->setup_state, ffs->flags, atomic_read(&ffs->opened));
 
+	/* to get updated ref atomic variable value */
+	smp_mb__before_atomic();
 	atomic_inc(&ffs->ref);
 	if (atomic_add_return(1, &ffs->opened) == 1 &&
 			ffs->state == FFS_DEACTIVATED) {
@@ -1784,6 +1795,8 @@ static void ffs_data_put(struct ffs_data *ffs)
 
 	ffs_log("enter");
 
+	/* to get updated ref atomic variable value */
+	smp_mb__before_atomic();
 	if (unlikely(atomic_dec_and_test(&ffs->ref))) {
 		pr_info("%s(): freeing\n", __func__);
 		ffs_data_clear(ffs);
@@ -1803,6 +1816,8 @@ static void ffs_data_closed(struct ffs_data *ffs)
 	ffs_log("enter: state %d setup_state %d flag %lu opened %d", ffs->state,
 		ffs->setup_state, ffs->flags, atomic_read(&ffs->opened));
 
+	/* to get updated opened atomic variable value */
+	smp_mb__before_atomic();
 	if (atomic_dec_and_test(&ffs->opened)) {
 		if (ffs->no_disconnect) {
 			ffs->state = FFS_DEACTIVATED;
@@ -1818,6 +1833,9 @@ static void ffs_data_closed(struct ffs_data *ffs)
 			ffs_data_reset(ffs);
 		}
 	}
+
+	/* to get updated opened atomic variable value */
+	smp_mb__before_atomic();
 	if (atomic_read(&ffs->opened) < 0) {
 		ffs->state = FFS_CLOSING;
 		ffs_data_reset(ffs);
@@ -4120,6 +4138,8 @@ static void ffs_closed(struct ffs_data *ffs)
 		goto done;
 	}
 
+	/* to get updated refcount atomic variable value */
+	smp_mb__before_atomic();
 	if (opts->no_configfs || !opts->func_inst.group.cg_item.ci_parent
 	    || !atomic_read(&opts->func_inst.group.cg_item.ci_kref.refcount)) {
 		ffs_dev_unlock();
