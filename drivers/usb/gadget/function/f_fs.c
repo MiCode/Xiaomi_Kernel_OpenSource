@@ -939,7 +939,8 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 	ssize_t ret, data_len = -EINVAL;
 	int halt;
 
-	ffs_log("enter: epfile name %s", epfile->name);
+	ffs_log("enter: epfile name %s (%s)", epfile->name,
+				io_data->read ? "READ" : "WRITE");
 
 	/* Are we still active? */
 	if (WARN_ON(epfile->ffs->state != FFS_ACTIVE))
@@ -950,6 +951,10 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 	if (!ep) {
 		if (file->f_flags & O_NONBLOCK)
 			return -EAGAIN;
+
+		/* Don't wait on write if device is offline */
+		if (!io_data->read)
+			return -EINTR;
 
 		ret = wait_event_interruptible(epfile->wait, (ep = epfile->ep));
 		if (ret)
