@@ -32,6 +32,161 @@
 				<GIC_SPI 371 IRQ_TYPE_EDGE_RISING>;
 	};
 
+	apps_smmu: apps-smmu@0x15000000 {
+		compatible = "qcom,qsmmu-v500";
+		reg = <0x15000000 0x80000>;
+		#iommu-cells = <1>;
+		qcom,skip-init;
+		#global-interrupts = <1>;
+		#size-cells = <1>;
+		#address-cells = <1>;
+		ranges;
+		interrupts =	<GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 316 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 318 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 322 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>;
+
+		anoc_1_tbu: anoc_1_tbu@0x150c5000 {
+			status = "disabled";
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x150c5000 0x1000>,
+				<0x150c2200 0x8>;
+			reg-names = "base", "status-reg";
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_aggre_noc_mmu_tbu1_gdsc>;
+		};
+
+		anoc_2_tbu: anoc_2_tbu@0x150c9000 {
+			status = "disabled";
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x150c9000 0x1000>,
+				<0x150c2208 0x8>;
+			reg-names = "base", "status-reg";
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_aggre_noc_mmu_tbu2_gdsc>;
+		};
+
+		mnoc_hf_0_tbu: mnoc_hf_0_tbu@0x150cd000 {
+			status = "disabled";
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x150cd000 0x1000>,
+				<0x150c2210 0x8>;
+			reg-names = "base", "status-reg";
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc>;
+		};
+
+		mnoc_hf_1_tbu: mnoc_hf_1_tbu@0x150d1000 {
+			status = "disabled";
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x150d1000 0x1000>,
+				<0x150c2218 0x8>;
+			reg-names = "base", "status-reg";
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc>;
+		};
+
+		mnoc_sf_0_tbu: mnoc_sf_0_tbu@0x150d5000 {
+			status = "disabled";
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x150d5000 0x1000>,
+				<0x150c2220 0x8>;
+			reg-names = "base", "status-reg";
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc>;
+		};
+
+		compute_dsp_tbu: compute_dsp_tbu@0x150d9000 {
+			status = "disabled";
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x150d9000 0x1000>,
+				<0x150c2228 0x8>;
+			reg-names = "base", "status-reg";
+			/* No GDSC */
+		};
+
+		adsp_tbu: adsp_tbu@0x150dd000 {
+			status = "disabled";
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x150dd000 0x1000>,
+				<0x150c2230 0x8>;
+			reg-names = "base", "status-reg";
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc>;
+		};
+
+		anoc_1_pcie_tbu: anoc_1_pcie_tbu@0x150e1000 {
+			status = "disabled";
+			compatible = "qcom,qsmmuv500-tbu";
+			reg = <0x150e1000 0x1000>,
+				<0x150c2238 0x8>;
+			reg-names = "base", "status-reg";
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc>;
+		};
+	};
+
 	iommu_test_device {
 		compatible = "iommu-debug-test";
 		/*
@@ -41,5 +196,14 @@
 		 * anyways, so using a dummy value is ok.
 		 */
 		iommus = <&kgsl_smmu 42>;
+	};
+
+	iommu_test_device2 {
+		compatible = "iommu-debug-test";
+		/*
+		 * This SID belongs to PCIE. We can't use a fake SID for
+		 * the apps_smmu device.
+		 */
+		iommus = <&apps_smmu 0x1c03>;
 	};
 };
