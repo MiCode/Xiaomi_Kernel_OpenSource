@@ -25,6 +25,7 @@ The device tree parameters for the core hang detection are:
 Required properties:
 
 - compatible : "qcom,core-hang-detect"
+- label: unique name used to created sysfs entry
 - qcom,threshold-arr :
 	Array of APCS_ALIAS*_CORE_HANG_THRESHOLD register address
 	for each core.
