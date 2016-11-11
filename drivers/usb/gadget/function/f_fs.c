@@ -137,6 +137,7 @@ struct ffs_epfile {
 	/* Protects ep->ep and ep->req. */
 	struct mutex			mutex;
 	wait_queue_head_t		wait;
+	atomic_t			error;
 
 	struct ffs_data			*ffs;
 	struct ffs_ep			*ep;	/* P: ffs->eps_lock */
@@ -954,11 +955,21 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 
 		/* Don't wait on write if device is offline */
 		if (!io_data->read)
-			return -EINTR;
+			return -ENODEV;
 
-		ret = wait_event_interruptible(epfile->wait, (ep = epfile->ep));
-		if (ret)
-			return -EINTR;
+		/*
+		 * if ep is disabled, this fails all current IOs
+		 * and wait for next epfile open to happen
+		 */
+		if (!atomic_read(&epfile->error)) {
+			ret = wait_event_interruptible(epfile->wait,
+					(ep = epfile->ep));
+			if (ret < 0)
+				return -EINTR;
+		}
+
+		if (!ep)
+			return -ENODEV;
 	}
 
 	/* Do we halt? */
@@ -1058,8 +1069,10 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 		req->complete = ffs_epfile_io_complete;
 
 		ret = usb_ep_queue(ep->ep, req, GFP_ATOMIC);
-		if (unlikely(ret < 0))
+		if (unlikely(ret < 0)) {
+			ret = -EIO;
 			goto error_lock;
+		}
 
 		spin_unlock_irq(&epfile->ffs->eps_lock);
 
@@ -1148,6 +1161,7 @@ ffs_epfile_open(struct inode *inode, struct file *file)
 
 	file->private_data = epfile;
 	ffs_data_opened(epfile->ffs);
+	atomic_set(&epfile->error, 0);
 
 	ffs_log("exit:state %d setup_state %d flag %lu", epfile->ffs->state,
 		epfile->ffs->setup_state, epfile->ffs->flags);
@@ -1286,6 +1300,7 @@ ffs_epfile_release(struct inode *inode, struct file *file)
 		epfile->ffs->setup_state, epfile->ffs->flags);
 
 	ffs_data_closed(epfile->ffs);
+	atomic_set(&epfile->error, 1);
 
 	ffs_log("exit");
 
@@ -2014,6 +2029,7 @@ static void ffs_func_eps_disable(struct ffs_function *func)
 		++ep;
 
 		if (epfile) {
+			atomic_set(&epfile->error, 1);
 			epfile->ep = NULL;
 			__ffs_epfile_read_buffer_free(epfile);
 			++epfile;
