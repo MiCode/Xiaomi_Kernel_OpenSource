@@ -2068,7 +2068,7 @@ static int mdss_retrieve_dp_ctrl_resources(struct platform_device *pdev,
 					"hdcp_physical"))
 		pr_warn("unable to remap dp hdcp resources\n");
 
-	pr_debug("DP Driver base=%p size=%x\n",
+	pr_debug("DP Driver base=%pK size=%x\n",
 		dp_drv->base, dp_drv->base_size);
 
 	mdss_debug_register_base("dp",

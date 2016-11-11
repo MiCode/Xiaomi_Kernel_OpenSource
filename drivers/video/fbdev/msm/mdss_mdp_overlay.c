@@ -1533,7 +1533,7 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 				}
 				break;
 			default:
-				pr_err("invalid state of buf %p=%d\n",
+				pr_err("invalid state of buf %pK=%d\n",
 						buf, buf->state);
 				BUG();
 				break;
