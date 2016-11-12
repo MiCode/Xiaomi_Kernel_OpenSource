@@ -2533,7 +2533,8 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		 */
 		if (mdwc->otg_state == OTG_STATE_UNDEFINED) {
 			mdwc->vbus_active = val->intval;
-			dwc3_ext_event_notify(mdwc);
+			queue_delayed_work(mdwc->dwc3_wq,
+					&mdwc->resume_work, 0);
 			break;
 		}
 
