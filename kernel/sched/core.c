@@ -5809,8 +5809,8 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 		 * interferred since we don't stop all CPUs. Ignore warning for
 		 * this case.
 		 */
-		if (WARN_ON((task_rq(next) != rq || !task_on_rq_queued(next)) &&
-			     migrate_pinned_tasks)) {
+		if (task_rq(next) != rq || !task_on_rq_queued(next)) {
+			WARN_ON(migrate_pinned_tasks);
 			raw_spin_unlock(&next->pi_lock);
 			continue;
 		}
