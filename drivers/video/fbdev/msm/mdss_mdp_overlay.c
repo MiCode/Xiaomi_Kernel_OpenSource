@@ -2120,8 +2120,10 @@ static int __overlay_secure_ctrl(struct msm_fb_data_type *mfd)
 	int ret = 0;
 	int sd_in_pipe = 0;
 	int sc_in_pipe = 0;
+	u64 pipes_flags = 0;
 
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
+		pipes_flags |= pipe->flags;
 		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
 			sd_in_pipe = 1;
 			pr_debug("Secure pipe: %u : %16llx\n",
@@ -2133,34 +2135,54 @@ static int __overlay_secure_ctrl(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	if ((!sd_in_pipe && !mdp5_data->sd_enabled) ||
-			(sd_in_pipe && mdp5_data->sd_enabled) ||
-			(!sc_in_pipe && !mdp5_data->sc_enabled) ||
+	MDSS_XLOG(sd_in_pipe, sc_in_pipe, pipes_flags,
+			mdp5_data->sc_enabled, mdp5_data->sd_enabled);
+	pr_debug("sd:%d sd_in_pipe:%d sc:%d sc_in_pipe:%d flags:0x%llx\n",
+		mdp5_data->sd_enabled, sd_in_pipe,
+		mdp5_data->sc_enabled, sc_in_pipe, pipes_flags);
+
+	/*
+	* Return early in only two conditions:
+	* 1. All the features are already disabled and state remains
+	*    disabled for the pipes.
+	* 2. One of the features is already enabled and state remains
+	*    enabled for the pipes.
+	*/
+	if (!sd_in_pipe && !mdp5_data->sd_enabled &&
+			!sc_in_pipe && !mdp5_data->sc_enabled)
+		return ret;
+	else if ((sd_in_pipe && mdp5_data->sd_enabled) ||
 			(sc_in_pipe && mdp5_data->sc_enabled))
 		return ret;
 
 	/* Secure Display */
 	if (!mdp5_data->sd_enabled && sd_in_pipe) {
 		if (!mdss_get_sd_client_cnt()) {
+			MDSS_XLOG(0x11);
 			/*wait for ping pong done */
 			if (ctl->ops.wait_pingpong)
 				mdss_mdp_display_wait4pingpong(ctl, true);
 			ret = mdss_mdp_secure_session_ctrl(1,
 					MDP_SECURE_DISPLAY_OVERLAY_SESSION);
-			if (ret)
+			if (ret) {
+				pr_err("secure display enable fail:%d", ret);
 				return ret;
+			}
 		}
 		mdp5_data->sd_enabled = 1;
 		mdss_update_sd_client(mdp5_data->mdata, true);
 	} else if (mdp5_data->sd_enabled && !sd_in_pipe) {
 		/* disable the secure display on last client */
 		if (mdss_get_sd_client_cnt() == 1) {
+			MDSS_XLOG(0x22);
 			if (ctl->ops.wait_pingpong)
 				mdss_mdp_display_wait4pingpong(ctl, true);
 			ret = mdss_mdp_secure_session_ctrl(0,
 					MDP_SECURE_DISPLAY_OVERLAY_SESSION);
-			if (ret)
+			if (ret) {
+				pr_err("secure display disable fail:%d\n", ret);
 				return ret;
+			}
 		}
 		mdss_update_sd_client(mdp5_data->mdata, false);
 		mdp5_data->sd_enabled = 0;
@@ -2169,29 +2191,36 @@ static int __overlay_secure_ctrl(struct msm_fb_data_type *mfd)
 	/* Secure Camera */
 	if (!mdp5_data->sc_enabled && sc_in_pipe) {
 		if (!mdss_get_sc_client_cnt()) {
+			MDSS_XLOG(0x33);
 			if (ctl->ops.wait_pingpong)
 				mdss_mdp_display_wait4pingpong(ctl, true);
 			ret = mdss_mdp_secure_session_ctrl(1,
 					MDP_SECURE_CAMERA_OVERLAY_SESSION);
-			if (ret)
+			if (ret) {
+				pr_err("secure camera enable fail:%d\n", ret);
 				return ret;
+			}
 		}
 		mdp5_data->sc_enabled = 1;
 		mdss_update_sc_client(mdp5_data->mdata, true);
 	} else if (mdp5_data->sc_enabled && !sc_in_pipe) {
 		/* disable the secure camera on last client */
 		if (mdss_get_sc_client_cnt() == 1) {
+			MDSS_XLOG(0x44);
 			if (ctl->ops.wait_pingpong)
 				mdss_mdp_display_wait4pingpong(ctl, true);
 			ret = mdss_mdp_secure_session_ctrl(0,
 					MDP_SECURE_CAMERA_OVERLAY_SESSION);
-			if (ret)
+			if (ret) {
+				pr_err("secure camera disable fail:%d\n", ret);
 				return ret;
+			}
 		}
 		mdss_update_sc_client(mdp5_data->mdata, false);
 		mdp5_data->sc_enabled = 0;
 	}
 
+	MDSS_XLOG(ret);
 	return ret;
 }
 
