@@ -31,6 +31,7 @@ CONTENTS
    6.1 Per-CPU Window-Based Stats
    6.2 Per-task Window-Based Stats
    6.3 Effect of various task events
+   6.4 Tying it all together
 7. Tunables
 8. HMP Scheduler Trace Points
    8.1 sched_enq_deq_task
@@ -872,11 +873,17 @@ both in what they mean and also how they are derived.
 
 *** 6.1 Per-CPU Window-Based Stats
 
-In addition to the per-task window-based demand, the HMP scheduler
-extensions also track the aggregate demand seen on each CPU. This is
-done using the same windows that the task demand is tracked with
-(which is in turn set by the governor when frequency guidance is in
-use). There are four quantities maintained for each CPU by the HMP scheduler:
+The scheduler tracks two separate types of quantities on a per CPU basis.
+The first type has to deal with the aggregate load on a CPU and the second
+type deals with top-tasks on that same CPU. We will first proceed to explain
+what is maintained as part of each type of statistics and then provide the
+connection between these two types of statistics at the end.
+
+First lets describe the HMP scheduler extensions to track the aggregate load
+seen on each CPU. This is done using the same windows that the task demand
+is tracked with (which is in turn set by the governor when frequency guidance
+is in use). There are four quantities maintained for each CPU by the HMP
+scheduler for tracking CPU load:
 
   curr_runnable_sum: aggregate demand from all tasks which executed during
   the current (not yet completed) window
@@ -903,24 +910,86 @@ A 'new' task is defined as a task whose number of active windows since fork is
 less than sysctl_sched_new_task_windows. An active window is defined as a window
 where a task was observed to be runnable.
 
+Moving on the second type of statistics; top-tasks, the scheduler tracks a list
+of top tasks per CPU. A top-task is defined as the task that runs the most in a
+given window on that CPU. This includes task that ran on that CPU through out
+the window or were migrated to that CPU prior to window expiration. It does not
+include tasks that were migrated away from that CPU prior to window expiration.
+
+To track top tasks, we first realize that there is no strict need to maintain
+the task struct itself as long as we know the load exerted by the top task. We
+also realize that to maintain top tasks on every CPU we have to track the
+execution of every single task that runs during the window. The load associated
+with a task needs to be migrated when the task migrates from one CPU to another.
+When the top task migrates away, we need to locate the second top task and so
+on.
+
+Given the above realizations, we use hashmaps to track top task load both
+for the current and the previous window. This hashmap is implemented as an array
+of fixed size. The key of the hashmap is given by
+task_execution_time_in_a_window / array_size. The size of the array (number of
+buckets in the hashmap) dictate the load granularity of each bucket. The value
+stored in each bucket is a refcount of all the tasks that executed long enough
+to be in that bucket.  This approach has a few benefits. Firstly, any top task
+stats update now take O(1) time. While task migration is also O(1), it does
+still involve going through up to the size of the array to find the second top
+task. We optimize this search by using bitmaps. The next set bit in the bitmap
+gives the position of the second top task in our hashamp.
+
+Secondly, and more importantly, not having to store the task struct itself
+saves a lot of memory usage in that 1) there is no need to retrieve task structs
+later causing cache misses and 2) we don't have to unnecessarily hold up task
+memory for up to 2 full windows by calling get_task_struct() after a task exits.
+
+Given the motivation above, here are a list of quantities tracked as part of
+per CPU task top-tasks management
+
+  top_tasks[NUM_TRACKED_WINDOWS] - Hashmap of top-task load for the current and
+				   previous window
+
+  BITMAP_ARRAY(top_tasks_bitmap) - Two bitmaps for the current and previous
+				   windows corresponding to the top-task
+				   hashmap.
+
+  load_subs[NUM_TRACKED_WINDOWS] - An array of load subtractions to be carried
+				   out form curr/prev_runnable_sums for each CPU
+				   prior to reporting load to the governor. The
+				   purpose for this will be explained later in
+				   the section pertaining to the TASK_MIGRATE
+				   event. The type struct load_subtractions,
+				   stores the value of the subtraction along
+				   with the window start value for the window
+				   for which the subtraction has to take place.
+
+
+  curr_table - Indication of which index of the array points to the current
+	       window.
+
+  curr_top - The top task on a CPU at any given moment in the current window
+
+  prev_top - The top task on a CPU in the previous window
+
+
 *** 6.2 Per-task window-based stats
 
 Corresponding to curr_runnable_sum and prev_runnable_sum, two counters are
 maintained per-task
 
-curr_window - represents cpu demand of task in its most recently tracked
-	      window
-prev_window - represents cpu demand of task in the window prior to the one
-	      being tracked by curr_window
+curr_window_cpu - represents task's contribution to cpu busy time on
+		  various CPUs in the current window
 
-The above counters are resued for nt_curr_runnable_sum and
-nt_prev_runnable_sum.
+prev_window_cpu - represents task's contribution to cpu busy time on
+		  various CPUs in the previous window
+
+curr_window - represents the sum of all entries in curr_window_cpu
+
+prev_window - represents the sum of all entries in prev_window_cpu
 
 "cpu demand" of a task includes its execution time and can also include its
 wait time. 'SCHED_FREQ_ACCOUNT_WAIT_TIME' controls whether task's wait
-time is included in its 'curr_window' and 'prev_window' counters or not.
+time is included in its CPU load counters or not.
 
-Needless to say, curr_runnable_sum counter of a cpu is derived from curr_window
+Curr_runnable_sum counter of a cpu is derived from curr_window_cpu[cpu]
 counter of various tasks that ran on it in its most recent window.
 
 *** 6.3 Effect of various task events
@@ -931,11 +1000,17 @@ PICK_NEXT_TASK
 	This represents beginning of execution for a task. Provided the task
 	refers to a non-idle task, a portion of task's wait time that
 	corresponds to the current window being tracked on a cpu is added to
-	task's curr_window counter, provided SCHED_FREQ_ACCOUNT_WAIT_TIME is
-	set. The same quantum is also added to cpu's curr_runnable_sum counter.
-	The remaining portion, which corresponds to task's wait time in previous
-	window is added to task's prev_window and cpu's prev_runnable_sum
-	counters.
+	task's curr_window_cpu and curr_window counter, provided
+	SCHED_FREQ_ACCOUNT_WAIT_TIME is set. The same quantum is also added to
+	cpu's curr_runnable_sum counter. The remaining portion, which
+	corresponds to task's wait time in previous window is added to task's
+	prev_window, prev_window_cpu and cpu's prev_runnable_sum counters.
+
+	CPUs top_tasks hashmap is updated if needed with the new information.
+	Any previous entries in the hashmap are deleted and newer entries are
+	created. The top_tasks_bitmap reflects the updated state of the
+	hashmap. If the top task for the current and/or previous window has
+	changed, curr_top and prev_top are updated accordingly.
 
 PUT_PREV_TASK
 	This represents end of execution of a time-slice for a task, where the
@@ -943,9 +1018,16 @@ PUT_PREV_TASK
 	or (in case of task being idle with cpu having non-zero rq->nr_iowait
 	count and sched_io_is_busy =1), a portion of task's execution time, that
 	corresponds to current window being tracked on a cpu is added to task's
-	curr_window_counter and also to cpu's curr_runnable_sum counter. Portion
-	of task's execution that corresponds to the previous window is added to
-	task's prev_window and cpu's prev_runnable_sum counters.
+	curr_window_cpu and curr_window counter and also to cpu's
+	curr_runnable_sum counter. Portion of task's execution that corresponds
+	to the previous window is added to task's prev_window, prev_window_cpu
+	and cpu's prev_runnable_sum counters.
+
+	CPUs top_tasks hashmap is updated if needed with the new information.
+	Any previous entries in the hashmap are deleted and newer entries are
+	created. The top_tasks_bitmap reflects the updated state of the
+	hashmap. If the top task for the current and/or previous window has
+	changed, curr_top and prev_top are updated accordingly.
 
 TASK_UPDATE
 	This event is called on a cpu's currently running task and hence
@@ -955,34 +1037,128 @@ TASK_UPDATE
 
 TASK_WAKE
 	This event signifies a task waking from sleep. Since many windows
-	could have elapsed since the task went to sleep, its curr_window
-	and prev_window are updated to reflect task's demand in the most
-	recent and its previous window that is being tracked on a cpu.
+	could have elapsed since the task went to sleep, its
+	curr_window_cpu/curr_window and prev_window_cpu/prev_window are
+	updated to reflect task's demand in the most recent and its previous
+	window that is being tracked on a cpu. Updated stats will trigger
+	the same book-keeping for top-tasks as other events.
 
 TASK_MIGRATE
 	This event signifies task migration across cpus. It is invoked on the
 	task prior to being moved. Thus at the time of this event, the task
 	can be considered to be in "waiting" state on src_cpu. In that way
 	this event reflects actions taken under PICK_NEXT_TASK (i.e its
-	wait time is added to task's curr/prev_window counters as well
+	wait time is added to task's curr/prev_window/_cpu counters as well
 	as src_cpu's curr/prev_runnable_sum counters, provided
-	SCHED_FREQ_ACCOUNT_WAIT_TIME is non-zero). After that update,
-	src_cpu's curr_runnable_sum is reduced by task's curr_window value
-	and dst_cpu's curr_runnable_sum is increased by task's curr_window
-	value. Similarly, src_cpu's prev_runnable_sum is reduced by task's
-	prev_window value and dst_cpu's prev_runnable_sum is increased by
-	task's prev_window value.
+	SCHED_FREQ_ACCOUNT_WAIT_TIME is non-zero).
+
+	After that update, we make a distinction between intra-cluster and
+	inter-cluster migrations for further book-keeping.
+
+	For intra-cluster migrations, we simply remove the entry for the task
+	in the top_tasks hashmap from the source CPU and add the entry to the
+	destination CPU. The top_tasks_bitmap, curr_top and prev_top are
+	updated accordingly. We then find the second top-task top in our
+	top_tasks hashmap for both the current and previous window and set
+	curr_top and prev_top to their new values.
+
+	For inter-cluster migrations we have a much more complicated scheme.
+	Firstly we add to the destination CPU's curr/prev_runnable_sum
+	the tasks curr/prev_window. Note we add the sum and not the
+	contribution any individual CPU. This is because when a tasks migrates
+	across clusters, we need the new cluster to ramp up to the appropriate
+	frequency given the task's total execution summed up across all CPUs
+	in the previous cluster.
+
+	Secondly the src_cpu's curr/prev_runnable_sum are reduced by task's
+	curr/prev_window_cpu values.
+
+	Thirdly, we need to walk all the CPUs in the cluster and subtract from
+	each CPU's curr/prev_runnable_sum the task's respective
+	curr/prev_window_cpu values. However, subtracting load from each of
+	the source CPUs is not trivial, as it would require all runqueue
+	locks to be held. To get around this we introduce a deferred load
+	subtraction mechanism whereby subtracting load from each of the source
+	CPUs is deferred until an opportune moment. This opportune moment is
+	when the governor comes asking the scheduler for load. At that time, all
+	necessary runqueue locks are already held.
+
+	There are a few cases to consider when doing deferred subtraction. Since
+	we are not holding all runqueue locks other CPUs in the source cluster
+	can be in a different window than the source CPU where the task is
+	migrating from.
+
+	Case 1:
+	Other CPU in the source cluster is in the same window. No special
+	consideration.
+
+	Case 2:
+	Other CPU in the source cluster is ahead by 1 window. In this
+	case, we will be doing redundant updates to subtraction load for the
+	prev window. There is no way to avoid this redundant update though,
+	without holding the rq lock.
+
+	Case 3:
+	Other CPU in the source cluster is trailing by 1 window In this
+	case, we might end up overwriting old data for that CPU. But this is not
+	a problem as when the other CPU calls update_task_ravg() it will move to
+	the same window. This relies on maintaining synchronized windows between
+	CPUs, which is true today.
+
+	To achieve all the above, we simple add the task's curr/prev_window_cpu
+	contributions to the per CPU load_subtractions array. These load
+	subtractions are subtracted from the respective CPU's
+	curr/prev_runnable_sums before the governor queries CPU load. Once this
+	is complete, the scheduler sets all curr/prev_window_cpu contributions
+	of the task to 0 for all CPUs in the source cluster. The destination
+	CPUs's curr/prev_window_cpu is updated with the tasks curr/prev_window
+	sums.
+
+	Finally, we must deal with frequency aggregation. When frequency
+	aggregation is in effect, there is little point in dealing with per CPU
+	footprint since the load of all related tasks have to be reported on a
+	single CPU. Therefore when a task enters a related group we clear out
+	all per CPU contributions and add it to the task CPU's cpu_time struct.
+	From that point onwards we stop managing per CPU contributions upon
+	inter cluster migrations since that work is redundant. Finally when a
+	task exits a related group we must walk every CPU in reset all CPU
+	contributions. We then set the task CPU contribution to the respective
+	curr/prev sum values and add that sum to the task CPU rq runnable sum.
+
+	Top-task management is the same as in the case of intra-cluster
+	migrations.
 
 IRQ_UPDATE
 	This event signifies end of execution of an interrupt handler. This
 	event results in update of cpu's busy time counters, curr_runnable_sum
-	and prev_runnable_sum, provided cpu was idle.
-	When sched_io_is_busy = 0, only the interrupt handling time is added
-	to cpu's curr_runnable_sum and prev_runnable_sum counters. When
-	sched_io_is_busy = 1, the event mirrors actions taken under
-	TASK_UPDATED event i.e  time since last accounting of idle task's cpu
-	usage is added to cpu's curr_runnable_sum and prev_runnable_sum
-	counters.
+	and prev_runnable_sum, provided cpu was idle. When sched_io_is_busy = 0,
+	only the interrupt handling time is added to cpu's curr_runnable_sum and
+	prev_runnable_sum counters. When sched_io_is_busy = 1, the event mirrors
+	actions taken under TASK_UPDATED event i.e  time since last accounting
+	of idle task's cpu usage is added to cpu's curr_runnable_sum and
+	prev_runnable_sum counters. No update is needed for top-tasks in this
+	case.
+
+*** 6.4 Tying it all together
+
+Now the scheduler maintains two independent quantities for load reporing 1) CPU
+load as represented by prev_runnable_sum and 2) top-tasks. The reported load
+is governed by tunable sched_freq_reporting_policy. The default choice is
+FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK. In other words:
+
+max(prev_runnable_sum, top_task load)
+
+Let's explain the rationale behind the choice. CPU load tracks the exact amount
+of execution observed on a CPU. This is close to the quantity that the vanilla
+governor used to track. It offers the advantages of no load over-reporting that
+our earlier load fixup mechanisms had deal with. It then also tackles the part
+picture problem by keeping of track of tasks that might be migrating across
+CPUs leaving a small footprint on each CPU. Since we maintain one top task per
+CPU, we can handle as many top tasks as the number of CPUs in a cluster. We
+might miss a few cases where the combined load of the top and non-top tasks on
+a CPU are more representative of the true load. However, those cases have been
+deemed to rare and have little impact on overall load/frequency behavior.
+
 
 ===========
 7. TUNABLES
@@ -1238,6 +1414,18 @@ However LPM exit latency associated with an idle CPU outweigh the above
 benefits on some targets. When this knob is turned on, the waker CPU is
 selected if it has only 1 runnable task.
 
+*** 7.20 sched_freq_reporting_policy
+
+Appears at: /proc/sys/kernel/sched_freq_reporting_policy
+
+Default value: 0
+
+This dictates what the load reporting policy to the governor should be. The
+default value is FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK. Other values include
+FREQ_REPORT_CPU_LOAD which only reports CPU load to the governor and
+FREQ_REPORT_TOP_TASK which only reports the load of the top task on a CPU
+to the governor.
+
 =========================
 8. HMP SCHEDULER TRACE POINTS
 =========================
@@ -1318,7 +1506,7 @@ frequency of the CPU for real time task placement).
 Logged when window-based stats are updated for a task. The update may happen
 for a variety of reasons, see section 2.5, "Task Events."
 
-<idle>-0     [004] d.h4 12700.711513: sched_update_task_ravg: wc 12700711473496 ws 12700691772135 delta 19701361 event TASK_WAKE cpu 4 cur_freq 199200 cur_pid 0 task 13227 (powertop) ms 12640648272532 delta 60063200964 demand 13364423 sum 0 irqtime 0 cs 0 ps 495018 cur_window 0 prev_window 0
+rcu_preempt-7     [000] d..3 262857.738888: sched_update_task_ravg: wc 262857521127957 ws 262857490000000 delta 31127957 event PICK_NEXT_TASK cpu 0 cur_freq 291055 cur_pid 7 task 9309 (kworker/u16:0) ms 262857520627280 delta 500677 demand 282196 sum 156201 irqtime 0 pred_demand 267103 rq_cs 478718 rq_ps 0 cur_window 78433 (78433 0 0 0 0 0 0 0 ) prev_window 146430 (0 146430 0 0 0 0 0 0 ) nt_cs 0 nt_ps 0 active_wins 149 grp_cs 0 grp_ps 0, grp_nt_cs 0, grp_nt_ps: 0 curr_top 6 prev_top 2
 
 - wc: wallclock, output of sched_clock(), monotonically increasing time since
   boot (will roll over in 585 years) (ns)
@@ -1344,9 +1532,27 @@ for a variety of reasons, see section 2.5, "Task Events."
   counter.
 - ps: prev_runnable_sum of cpu (ns). See section 6.1 for more details of this
   counter.
-- cur_window: cpu demand of task in its most recently tracked window (ns)
-- prev_window: cpu demand of task in the window prior to the one being tracked
-  by cur_window
+- cur_window: cpu demand of task in its most recently tracked window summed up
+  across all CPUs (ns). This is followed by a list of contributions on each
+  individual CPU.
+- prev_window: cpu demand of task in its previous window summed up across
+  all CPUs (ns). This is followed by a list of contributions on each individual
+  CPU.
+- nt_cs: curr_runnable_sum of a cpu for new tasks only (ns).
+- nt_ps: prev_runnable_sum of a cpu for new tasks only (ns).
+- active_wins: No. of active windows since task statistics were initialized
+- grp_cs: curr_runnable_sum for colocated tasks. This is independent from
+  cs described above. The addition of these two fields give the total CPU
+  load for the most recent window
+- grp_ps: prev_runnable_sum for colocated tasks. This is independent from
+  ps described above. The addition of these two fields give the total CPU
+  load for the previous window.
+- grp_nt_cs: curr_runnable_sum of a cpu for grouped new tasks only (ns).
+- grp_nt_ps: prev_runnable_sum for a cpu for grouped new tasks only (ns).
+- curr_top: index of the top task in the top_tasks array in the current
+  window for a CPU.
+- prev_top: index of the top task in the top_tasks array in the previous
+  window for a CPU
 
 *** 8.5 sched_update_history
 
