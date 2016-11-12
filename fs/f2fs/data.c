@@ -653,11 +653,11 @@ alloc:
 	return 0;
 }
 
-ssize_t f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
+int f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
 					size_t count, bool dio)
 {
 	struct f2fs_map_blocks map;
-	ssize_t ret = 0;
+	int err = 0;
 
 	map.m_lblk = F2FS_BLK_ALIGN(pos);
 	map.m_len = F2FS_BYTES_TO_BLK(pos + count);
@@ -669,19 +669,19 @@ ssize_t f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
 	map.m_next_pgofs = NULL;
 
 	if (dio) {
-		ret = f2fs_convert_inline_inode(inode);
-		if (ret)
-			return ret;
+		err = f2fs_convert_inline_inode(inode);
+		if (err)
+			return err;
 		return f2fs_map_blocks(inode, &map, 1, F2FS_GET_BLOCK_PRE_DIO);
 	}
 	if (pos + count > MAX_INLINE_DATA) {
-		ret = f2fs_convert_inline_inode(inode);
-		if (ret)
-			return ret;
+		err = f2fs_convert_inline_inode(inode);
+		if (err)
+			return err;
 	}
 	if (!f2fs_has_inline_data(inode))
 		return f2fs_map_blocks(inode, &map, 1, F2FS_GET_BLOCK_PRE_AIO);
-	return ret;
+	return err;
 }
 
 /*
@@ -858,19 +858,19 @@ static int __get_data_block(struct inode *inode, sector_t iblock,
 			pgoff_t *next_pgofs)
 {
 	struct f2fs_map_blocks map;
-	int ret;
+	int err;
 
 	map.m_lblk = iblock;
 	map.m_len = bh->b_size >> inode->i_blkbits;
 	map.m_next_pgofs = next_pgofs;
 
-	ret = f2fs_map_blocks(inode, &map, create, flag);
-	if (!ret) {
+	err = f2fs_map_blocks(inode, &map, create, flag);
+	if (!err) {
 		map_bh(bh, inode->i_sb, map.m_pblk);
 		bh->b_state = (bh->b_state & ~F2FS_MAP_FLAGS) | map.m_flags;
 		bh->b_size = map.m_len << inode->i_blkbits;
 	}
-	return ret;
+	return err;
 }
 
 static int get_data_block(struct inode *inode, sector_t iblock,

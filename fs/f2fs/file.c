@@ -1325,15 +1325,15 @@ static int expand_inode_data(struct inode *inode, loff_t offset,
 	pgoff_t pg_end;
 	loff_t new_size = i_size_read(inode);
 	loff_t off_end;
-	int ret;
+	int err;
 
-	ret = inode_newsize_ok(inode, (len + offset));
-	if (ret)
-		return ret;
+	err = inode_newsize_ok(inode, (len + offset));
+	if (err)
+		return err;
 
-	ret = f2fs_convert_inline_inode(inode);
-	if (ret)
-		return ret;
+	err = f2fs_convert_inline_inode(inode);
+	if (err)
+		return err;
 
 	f2fs_balance_fs(sbi, true);
 
@@ -1345,12 +1345,12 @@ static int expand_inode_data(struct inode *inode, loff_t offset,
 	if (off_end)
 		map.m_len++;
 
-	ret = f2fs_map_blocks(inode, &map, 1, F2FS_GET_BLOCK_PRE_AIO);
-	if (ret) {
+	err = f2fs_map_blocks(inode, &map, 1, F2FS_GET_BLOCK_PRE_AIO);
+	if (err) {
 		pgoff_t last_off;
 
 		if (!map.m_len)
-			return ret;
+			return err;
 
 		last_off = map.m_lblk + map.m_len - 1;
 
@@ -1364,10 +1364,18 @@ static int expand_inode_data(struct inode *inode, loff_t offset,
 	if (!(mode & FALLOC_FL_KEEP_SIZE) && i_size_read(inode) < new_size)
 		f2fs_i_size_write(inode, new_size);
 
-	return ret;
+	return err;
 }
 
+#ifndef FALLOC_FL_COLLAPSE_RANGE
+#define FALLOC_FL_COLLAPSE_RANGE	0X08
+#endif
+#ifndef FALLOC_FL_ZERO_RANGE
+#define FALLOC_FL_ZERO_RANGE		0X10
+#endif
+#ifndef FALLOC_FL_INSERT_RANGE
 #define FALLOC_FL_INSERT_RANGE		0X20
+#endif
 
 static long f2fs_fallocate(struct file *file, int mode,
 				loff_t offset, loff_t len)
@@ -2279,13 +2287,15 @@ static ssize_t f2fs_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	inode_lock(inode);
 	ret = generic_write_checks(file, &pos, &count, S_ISBLK(inode->i_mode));
 	if (!ret) {
-		ret = f2fs_preallocate_blocks(inode, pos, count,
+		int err = f2fs_preallocate_blocks(inode, pos, count,
 				file->f_flags & O_DIRECT);
-		if (!ret) {
-			blk_start_plug(&plug);
-			ret = __generic_file_write_iter(iocb, from);
-			blk_finish_plug(&plug);
+		if (err) {
+			inode_unlock(inode);
+			return err;
 		}
+		blk_start_plug(&plug);
+		ret = __generic_file_write_iter(iocb, from);
+		blk_finish_plug(&plug);
 	}
 	inode_unlock(inode);
 
