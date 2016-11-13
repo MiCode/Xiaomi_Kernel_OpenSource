@@ -205,18 +205,34 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_cobalt *pll,
 	struct dsi_pll_regs *regs = &pll->reg_setup;
 	u64 target_freq;
 	u64 fref = rsc->vco_ref_clk_rate;
-	u32 computed_output_div, div_log;
+	u32 computed_output_div, div_log = 0;
 	u64 pll_freq;
 	u64 divider;
 	u64 dec, dec_multiple;
 	u32 frac;
 	u64 multiplier;
+	u32 i;
 
 	target_freq = rsc->vco_current_rate;
 	pr_debug("target_freq = %llu\n", target_freq);
 
 	if (config->div_override) {
 		computed_output_div = config->output_div;
+
+		/*
+		 * Computed_output_div = 2 ^ div_log
+		 * To get div_log from output div just get the index of the
+		 * 1 bit in the value.
+		 * div_log ranges from 0-3. so check the 4 lsbs
+		 */
+
+		for (i = 0; i < 4; i++) {
+			if (computed_output_div & (1 << i)) {
+				div_log = i;
+				break;
+			}
+		}
+
 	} else {
 		if (target_freq < MHZ_375) {
 			computed_output_div = 8;

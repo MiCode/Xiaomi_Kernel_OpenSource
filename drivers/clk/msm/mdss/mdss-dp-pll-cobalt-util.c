@@ -733,7 +733,7 @@ unsigned long dp_vco_get_rate(struct clk *c)
 {
 	struct dp_pll_vco_clk *vco = mdss_dp_to_vco_clk(c);
 	int rc;
-	u32 div, hsclk_div, link2xclk_div;
+	u32 div, hsclk_div, link2xclk_div = 0;
 	u64 vco_rate;
 	struct mdss_pll_resources *pll = vco->priv;
 
