@@ -339,7 +339,8 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 
 	req = cmd->request;
 	if (req->bio)
-		lba = req->bio->bi_iter.bi_sector;
+		lba = (req->bio->bi_iter.bi_sector) >>
+			UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
 
 	slot = req->tag;
 	if (slot < 0 || slot > qcom_host->hba->nutrs) {
@@ -390,6 +391,7 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 		bypass = ice_set.decr_bypass ? UFS_QCOM_ICE_ENABLE_BYPASS :
 						UFS_QCOM_ICE_DISABLE_BYPASS;
 
+
 	/* Configure ICE index */
 	ctrl_info_val =
 		(ice_set.crypto_data.key_index &
@@ -398,8 +400,7 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 
 	/* Configure data unit size of transfer request */
 	ctrl_info_val |=
-		(UFS_QCOM_ICE_TR_DATA_UNIT_4_KB &
-		 MASK_UFS_QCOM_ICE_CTRL_INFO_CDU)
+		UFS_QCOM_ICE_TR_DATA_UNIT_4_KB
 		 << OFFSET_UFS_QCOM_ICE_CTRL_INFO_CDU;
 
 	/* Configure ICE bypass mode */
