@@ -2466,9 +2466,6 @@ static int ufshcd_prepare_crypto_utrd(struct ufs_hba *hba,
 		goto out;
 
 	req_desc->header.dword_0 |= cc_index | UTRD_CRYPTO_ENABLE;
-	if (lrbp->cmd->request && lrbp->cmd->request->bio)
-		dun = lrbp->cmd->request->bio->bi_iter.bi_sector;
-
 	req_desc->header.dword_1 = (u32)(dun & 0xFFFFFFFF);
 	req_desc->header.dword_3 = (u32)((dun >> 32) & 0xFFFFFFFF);
 out:
