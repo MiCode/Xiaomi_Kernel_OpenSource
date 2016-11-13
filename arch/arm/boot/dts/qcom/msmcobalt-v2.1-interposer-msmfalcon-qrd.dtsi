@@ -91,3 +91,15 @@
 
 	status = "ok";
 };
+
+/{
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+
+		#include "batterydata-qrd-skuk-4v4-3000mah.dtsi"
+	};
+};
+
+&pmicobalt_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+};
