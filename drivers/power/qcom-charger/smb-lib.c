@@ -1464,21 +1464,17 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 int smblib_get_prop_dc_present(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
-	int rc = 0;
+	int rc;
 	u8 stat;
 
-	rc = smblib_read(chg, DC_INT_RT_STS_REG, &stat);
+	rc = smblib_read(chg, DCIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't read DC_INT_RT_STS_REG rc=%d\n",
-			rc);
+		smblib_err(chg, "Couldn't read DCIN_RT_STS rc=%d\n", rc);
 		return rc;
 	}
-	smblib_dbg(chg, PR_REGISTER, "DC_INT_RT_STS_REG = 0x%02x\n",
-		   stat);
 
 	val->intval = (bool)(stat & DCIN_PLUGIN_RT_STS_BIT);
-
-	return rc;
+	return 0;
 }
 
 int smblib_get_prop_dc_online(struct smb_charger *chg,
@@ -1534,20 +1530,17 @@ int smblib_set_prop_dc_current_max(struct smb_charger *chg,
 int smblib_get_prop_usb_present(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
-	int rc = 0;
+	int rc;
 	u8 stat;
 
-	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
+	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
+		smblib_err(chg, "Couldn't read USBIN_RT_STS rc=%d\n", rc);
 		return rc;
 	}
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_4 = 0x%02x\n",
-		   stat);
 
-	val->intval = (bool)(stat & CC_ATTACHED_BIT);
-
-	return rc;
+	val->intval = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
+	return 0;
 }
 
 int smblib_get_prop_usb_online(struct smb_charger *chg,
