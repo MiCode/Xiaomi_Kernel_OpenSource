@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  */
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM clk
@@ -218,6 +218,42 @@ DEFINE_EVENT(clk_duty_cycle, clk_set_duty_cycle_complete,
 	TP_PROTO(struct clk_core *core, struct clk_duty *duty),
 
 	TP_ARGS(core, duty)
+);
+
+DECLARE_EVENT_CLASS(clk_state_dump,
+
+	TP_PROTO(const char *name, unsigned int prepare_count,
+	unsigned int enable_count, unsigned long rate, unsigned int vdd_level),
+
+	TP_ARGS(name, prepare_count, enable_count, rate, vdd_level),
+
+	TP_STRUCT__entry(
+		__string(name,			name)
+		__field(unsigned int,		prepare_count)
+		__field(unsigned int,		enable_count)
+		__field(unsigned long,		rate)
+		__field(unsigned int,		vdd_level)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->prepare_count = prepare_count;
+		__entry->enable_count = enable_count;
+		__entry->rate = rate;
+		__entry->vdd_level = vdd_level;
+	),
+
+	TP_printk("%s\tprepare:enable cnt [%u:%u]\trate: vdd_level [%lu:%u]",
+		__get_str(name), __entry->prepare_count, __entry->enable_count,
+		__entry->rate, __entry->vdd_level)
+);
+
+DEFINE_EVENT(clk_state_dump, clk_state,
+
+	TP_PROTO(const char *name, unsigned int prepare_count,
+	unsigned int enable_count, unsigned long rate, unsigned int vdd_level),
+
+	TP_ARGS(name, prepare_count, enable_count, rate, vdd_level)
 );
 
 #endif /* _TRACE_CLK_H */
