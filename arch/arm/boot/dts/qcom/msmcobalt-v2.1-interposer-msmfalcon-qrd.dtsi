@@ -20,9 +20,6 @@
 };
 
 &ufsphy1 {
-	vdda-phy-supply = <&pmcobalt_l1>;
-	vdda-pll-supply = <&pmcobalt_l2>;
-	vddp-ref-clk-supply = <&pmcobalt_l26>;
 	vdda-phy-max-microamp = <51400>;
 	vdda-pll-max-microamp = <14600>;
 	vddp-ref-clk-max-microamp = <100>;
@@ -33,9 +30,6 @@
 &ufs1 {
 	vdd-hba-supply = <&gdsc_ufs>;
 	vdd-hba-fixed-regulator;
-	vcc-supply = <&pmcobalt_l20>;
-	vccq-supply = <&pmcobalt_l26>;
-	vccq2-supply = <&pmcobalt_s4>;
 	vcc-max-microamp = <750000>;
 	vccq-max-microamp = <560000>;
 	vccq2-max-microamp = <750000>;
@@ -71,11 +65,9 @@
 };
 
 &sdhc_2 {
-	vdd-supply = <&pmcobalt_l21>;
 	qcom,vdd-voltage-level = <2950000 2960000>;
 	qcom,vdd-current-level = <200 800000>;
 
-	vdd-io-supply = <&pmcobalt_l13>;
 	qcom,vdd-io-voltage-level = <1808000 2960000>;
 	qcom,vdd-io-current-level = <200 22000>;
 
@@ -90,16 +82,4 @@
 	cd-gpios = <&tlmm 54 0x0>;
 
 	status = "ok";
-};
-
-/{
-	qrd_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-
-		#include "batterydata-qrd-skuk-4v4-3000mah.dtsi"
-	};
-};
-
-&pmicobalt_fg {
-	qcom,battery-data = <&qrd_batterydata>;
 };
