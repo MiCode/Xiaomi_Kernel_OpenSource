@@ -1208,13 +1208,12 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
-	/* configure PMI stat output to enable and disable parallel charging */
+	/* disable SW STAT override */
 	rc = smblib_masked_write(chg, STAT_CFG_REG,
-			STAT_PARALLEL_CFG_BIT | STAT_SW_OVERRIDE_CFG_BIT,
-			STAT_PARALLEL_CFG_BIT);
+				 STAT_SW_OVERRIDE_CFG_BIT, 0);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure signal for parallel rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't disable SW STAT override rc=%d\n",
+			rc);
 		return rc;
 	}
 
