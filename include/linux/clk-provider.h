@@ -211,6 +211,13 @@ struct clk_duty {
  * @set_flags: Set custom flags which deal with hardware specifics. Returns 0
  *	       on success, -EERROR otherwise.
  *
+ * @list_registers: Queries the hardware to get the current register contents.
+ *		    This callback is optional.
+ *
+ * @list_rate:  On success, return the nth supported frequency for a given
+ *		clock that is below rate_max. Return -ENXIO in case there is
+ *		no frequency table.
+ *
  * The clk_enable/clk_disable and clk_prepare/clk_unprepare pairs allow
  * implementations to split any work between atomic (enable) and sleepable
  * (prepare) contexts.  If enabling a clock requires code that might sleep,
@@ -255,6 +262,10 @@ struct clk_ops {
 	void		(*init)(struct clk_hw *hw);
 	void		(*debug_init)(struct clk_hw *hw, struct dentry *dentry);
 	int		(*set_flags)(struct clk_hw *hw, unsigned int flags);
+	void		(*list_registers)(struct seq_file *f,
+							struct clk_hw *hw);
+	long		(*list_rate)(struct clk_hw *hw, unsigned int n,
+							unsigned long rate_max);
 };
 
 /**
