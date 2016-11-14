@@ -31,6 +31,34 @@
 #define SAMPLING_RATE_352P8KHZ  352800
 #define SAMPLING_RATE_384KHZ    384000
 
+#define TDM_CHANNEL_MAX 8
+#define TDM_SLOT_OFFSET_MAX 8
+
+enum {
+	TDM_0 = 0,
+	TDM_1,
+	TDM_2,
+	TDM_3,
+	TDM_4,
+	TDM_5,
+	TDM_6,
+	TDM_7,
+	TDM_PORT_MAX,
+};
+
+enum {
+	TDM_PRI = 0,
+	TDM_SEC,
+	TDM_TERT,
+	TDM_QUAT,
+	TDM_INTERFACE_MAX,
+};
+
+struct tdm_port {
+	u32 mode;
+	u32 channel;
+};
+
 extern const struct snd_kcontrol_new msm_common_snd_controls[];
 struct msmfalcon_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,

@@ -28,6 +28,112 @@
 #define DEV_NAME_STR_LEN  32
 #define DEFAULT_MCLK_RATE 9600000
 
+struct dev_config {
+	u32 sample_rate;
+	u32 bit_format;
+	u32 channels;
+};
+
+/* TDM default config */
+static struct dev_config tdm_rx_cfg[TDM_INTERFACE_MAX][TDM_PORT_MAX] = {
+	{ /* PRI TDM */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_0 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_1 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_2 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_3 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_4 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_5 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_6 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_7 */
+	},
+	{ /* SEC TDM */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_0 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_1 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_2 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_3 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_4 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_5 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_6 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_7 */
+	},
+	{ /* TERT TDM */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_0 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_1 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_2 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_3 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_4 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_5 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_6 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_7 */
+	},
+	{ /* QUAT TDM */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_0 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_1 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_2 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_3 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_4 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_5 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_6 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* RX_7 */
+	}
+};
+
+/* TDM default config */
+static struct dev_config tdm_tx_cfg[TDM_INTERFACE_MAX][TDM_PORT_MAX] = {
+	{ /* PRI TDM */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_0 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_1 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_2 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_3 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_4 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_5 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_6 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_7 */
+	},
+	{ /* SEC TDM */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_0 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_1 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_2 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_3 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_4 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_5 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_6 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_7 */
+	},
+	{ /* TERT TDM */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_0 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_1 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_2 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_3 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_4 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_5 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_6 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_7 */
+	},
+	{ /* QUAT TDM */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_0 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_1 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_2 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_3 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_4 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_5 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_6 */
+		{SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1}, /* TX_7 */
+	}
+};
+
+static struct dev_config usb_rx_cfg = {
+	.sample_rate = SAMPLING_RATE_48KHZ,
+	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
+	.channels = 2,
+};
+
+static struct dev_config usb_tx_cfg = {
+	.sample_rate = SAMPLING_RATE_48KHZ,
+	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
+	.channels = 1,
+};
+
 enum {
 	PRIM_MI2S = 0,
 	SEC_MI2S,
@@ -68,12 +174,6 @@ struct auxpcm_conf {
 	u32 ref_cnt;
 };
 
-struct dev_config {
-	u32 sample_rate;
-	u32 bit_format;
-	u32 channels;
-};
-
 struct msm_wsa881x_dev_info {
 	struct device_node *of_node;
 	u32 index;
@@ -109,12 +209,6 @@ static struct dev_config proxy_rx_cfg = {
 	.sample_rate = SAMPLING_RATE_48KHZ,
 	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
 	.channels = 2,
-};
-
-static struct dev_config btsco_cfg = {
-	.sample_rate = SAMPLING_RATE_8KHZ,
-	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
-	.channels = 1,
 };
 
 /* Default configuration of MI2S channels */
@@ -155,8 +249,22 @@ static char const *mi2s_rate_text[] = {"KHZ_8", "KHZ_16",
 static const char *const mi2s_ch_text[] = {"One", "Two", "Three", "Four",
 					   "Five", "Six", "Seven",
 					   "Eight"};
+static char const *bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE",
+					  "S32_LE"};
+static char const *tdm_ch_text[] = {"One", "Two", "Three", "Four",
+				    "Five", "Six", "Seven", "Eight"};
+static char const *tdm_bit_format_text[] = {"S16_LE", "S24_LE", "S32_LE"};
+static char const *tdm_sample_rate_text[] = {"KHZ_8", "KHZ_16", "KHZ_32",
+					     "KHZ_44P1", "KHZ_48", "KHZ_96",
+					     "KHZ_192", "KHZ_352P8", "KHZ_384"};
+static const char *const usb_ch_text[] = {"One", "Two", "Three", "Four",
+					   "Five", "Six", "Seven",
+					   "Eight"};
+static char const *usb_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
+					"KHZ_16", "KHZ_22P05",
+					"KHZ_32", "KHZ_44P1", "KHZ_48",
+					"KHZ_96", "KHZ_192", "KHZ_384"};
 
-static SOC_ENUM_SINGLE_EXT_DECL(btsco_sample_rate, auxpcm_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(proxy_rx_chs, ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(prim_aux_pcm_rx_sample_rate, auxpcm_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(sec_aux_pcm_rx_sample_rate, auxpcm_rate_text);
@@ -182,6 +290,18 @@ static SOC_ENUM_SINGLE_EXT_DECL(tert_mi2s_rx_chs, mi2s_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(tert_mi2s_tx_chs, mi2s_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(quat_mi2s_rx_chs, mi2s_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(quat_mi2s_tx_chs, mi2s_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_chs, usb_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_chs, usb_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_format, bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_format, bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_sample_rate, usb_sample_rate_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_sample_rate, usb_sample_rate_text);
+static SOC_ENUM_SINGLE_EXT_DECL(tdm_tx_chs, tdm_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(tdm_tx_format, tdm_bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(tdm_tx_sample_rate, tdm_sample_rate_text);
+static SOC_ENUM_SINGLE_EXT_DECL(tdm_rx_chs, tdm_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(tdm_rx_format, tdm_bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(tdm_rx_sample_rate, tdm_sample_rate_text);
 
 static struct afe_clk_set mi2s_clk[MI2S_MAX] = {
 	{
@@ -242,6 +362,439 @@ static int proxy_rx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int tdm_get_sample_rate(int value)
+{
+	int sample_rate = 0;
+
+	switch (value) {
+	case 0:
+		sample_rate = SAMPLING_RATE_8KHZ;
+		break;
+	case 1:
+		sample_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 2:
+		sample_rate = SAMPLING_RATE_32KHZ;
+		break;
+	case 3:
+		sample_rate = SAMPLING_RATE_44P1KHZ;
+		break;
+	case 4:
+		sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	case 5:
+		sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 6:
+		sample_rate = SAMPLING_RATE_192KHZ;
+		break;
+	case 7:
+		sample_rate = SAMPLING_RATE_352P8KHZ;
+		break;
+	case 8:
+		sample_rate = SAMPLING_RATE_384KHZ;
+		break;
+	default:
+		sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+	return sample_rate;
+}
+
+static int tdm_get_sample_rate_val(int sample_rate)
+{
+	int sample_rate_val = 0;
+
+	switch (sample_rate) {
+	case SAMPLING_RATE_8KHZ:
+		sample_rate_val = 0;
+		break;
+	case SAMPLING_RATE_16KHZ:
+		sample_rate_val = 1;
+		break;
+	case SAMPLING_RATE_32KHZ:
+		sample_rate_val = 2;
+		break;
+	case SAMPLING_RATE_44P1KHZ:
+		sample_rate_val = 3;
+		break;
+	case SAMPLING_RATE_48KHZ:
+		sample_rate_val = 4;
+		break;
+	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 5;
+		break;
+	case SAMPLING_RATE_192KHZ:
+		sample_rate_val = 6;
+		break;
+	case SAMPLING_RATE_352P8KHZ:
+		sample_rate_val = 7;
+		break;
+	case SAMPLING_RATE_384KHZ:
+		sample_rate_val = 8;
+		break;
+	default:
+		sample_rate_val = 4;
+		break;
+	}
+	return sample_rate_val;
+}
+
+static int tdm_get_port_idx(struct snd_kcontrol *kcontrol,
+			    struct tdm_port *port)
+{
+	if (port) {
+		if (strnstr(kcontrol->id.name, "PRI",
+		    sizeof(kcontrol->id.name))) {
+			port->mode = TDM_PRI;
+		} else if (strnstr(kcontrol->id.name, "SEC",
+		    sizeof(kcontrol->id.name))) {
+			port->mode = TDM_SEC;
+		} else if (strnstr(kcontrol->id.name, "TERT",
+		    sizeof(kcontrol->id.name))) {
+			port->mode = TDM_TERT;
+		} else if (strnstr(kcontrol->id.name, "QUAT",
+		    sizeof(kcontrol->id.name))) {
+			port->mode = TDM_QUAT;
+		} else {
+			pr_err("%s: unsupported mode in: %s",
+				__func__, kcontrol->id.name);
+			return -EINVAL;
+		}
+
+		if (strnstr(kcontrol->id.name, "RX_0",
+		    sizeof(kcontrol->id.name)) ||
+		    strnstr(kcontrol->id.name, "TX_0",
+		    sizeof(kcontrol->id.name))) {
+			port->channel = TDM_0;
+		} else if (strnstr(kcontrol->id.name, "RX_1",
+			   sizeof(kcontrol->id.name)) ||
+			   strnstr(kcontrol->id.name, "TX_1",
+			   sizeof(kcontrol->id.name))) {
+			port->channel = TDM_1;
+		} else if (strnstr(kcontrol->id.name, "RX_2",
+			   sizeof(kcontrol->id.name)) ||
+			   strnstr(kcontrol->id.name, "TX_2",
+			   sizeof(kcontrol->id.name))) {
+			port->channel = TDM_2;
+		} else if (strnstr(kcontrol->id.name, "RX_3",
+			   sizeof(kcontrol->id.name)) ||
+			   strnstr(kcontrol->id.name, "TX_3",
+			   sizeof(kcontrol->id.name))) {
+			port->channel = TDM_3;
+		} else if (strnstr(kcontrol->id.name, "RX_4",
+			   sizeof(kcontrol->id.name)) ||
+			   strnstr(kcontrol->id.name, "TX_4",
+			   sizeof(kcontrol->id.name))) {
+			port->channel = TDM_4;
+		} else if (strnstr(kcontrol->id.name, "RX_5",
+			   sizeof(kcontrol->id.name)) ||
+			   strnstr(kcontrol->id.name, "TX_5",
+			   sizeof(kcontrol->id.name))) {
+			port->channel = TDM_5;
+		} else if (strnstr(kcontrol->id.name, "RX_6",
+			   sizeof(kcontrol->id.name)) ||
+			   strnstr(kcontrol->id.name, "TX_6",
+			   sizeof(kcontrol->id.name))) {
+			port->channel = TDM_6;
+		} else if (strnstr(kcontrol->id.name, "RX_7",
+			   sizeof(kcontrol->id.name)) ||
+			   strnstr(kcontrol->id.name, "TX_7",
+			   sizeof(kcontrol->id.name))) {
+			port->channel = TDM_7;
+		} else {
+			pr_err("%s: unsupported channel in: %s",
+				__func__, kcontrol->id.name);
+			return -EINVAL;
+		}
+	} else
+		return -EINVAL;
+	return 0;
+}
+
+static int tdm_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		ucontrol->value.enumerated.item[0] = tdm_get_sample_rate_val(
+			tdm_rx_cfg[port.mode][port.channel].sample_rate);
+
+		pr_debug("%s: tdm_rx_sample_rate = %d, item = %d\n", __func__,
+			 tdm_rx_cfg[port.mode][port.channel].sample_rate,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		tdm_rx_cfg[port.mode][port.channel].sample_rate =
+			tdm_get_sample_rate(ucontrol->value.enumerated.item[0]);
+
+		pr_debug("%s: tdm_rx_sample_rate = %d, item = %d\n", __func__,
+			 tdm_rx_cfg[port.mode][port.channel].sample_rate,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_tx_sample_rate_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		ucontrol->value.enumerated.item[0] = tdm_get_sample_rate_val(
+			tdm_tx_cfg[port.mode][port.channel].sample_rate);
+
+		pr_debug("%s: tdm_tx_sample_rate = %d, item = %d\n", __func__,
+			 tdm_tx_cfg[port.mode][port.channel].sample_rate,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_tx_sample_rate_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		tdm_tx_cfg[port.mode][port.channel].sample_rate =
+			tdm_get_sample_rate(ucontrol->value.enumerated.item[0]);
+
+		pr_debug("%s: tdm_tx_sample_rate = %d, item = %d\n", __func__,
+			 tdm_tx_cfg[port.mode][port.channel].sample_rate,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_get_format(int value)
+{
+	int format = 0;
+
+	switch (value) {
+	case 0:
+		format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	case 1:
+		format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 2:
+		format = SNDRV_PCM_FORMAT_S32_LE;
+		break;
+	default:
+		format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	return format;
+}
+
+static int tdm_get_format_val(int format)
+{
+	int value = 0;
+
+	switch (format) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		value = 0;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		value = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
+		value = 2;
+		break;
+	default:
+		value = 0;
+		break;
+	}
+	return value;
+}
+
+static int tdm_rx_format_get(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		ucontrol->value.enumerated.item[0] = tdm_get_format_val(
+				tdm_rx_cfg[port.mode][port.channel].bit_format);
+
+		pr_debug("%s: tdm_rx_bit_format = %d, item = %d\n", __func__,
+			 tdm_rx_cfg[port.mode][port.channel].bit_format,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_rx_format_put(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		tdm_rx_cfg[port.mode][port.channel].bit_format =
+			tdm_get_format(ucontrol->value.enumerated.item[0]);
+
+		pr_debug("%s: tdm_rx_bit_format = %d, item = %d\n", __func__,
+			 tdm_rx_cfg[port.mode][port.channel].bit_format,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_tx_format_get(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		ucontrol->value.enumerated.item[0] = tdm_get_format_val(
+				tdm_tx_cfg[port.mode][port.channel].bit_format);
+
+		pr_debug("%s: tdm_tx_bit_format = %d, item = %d\n", __func__,
+			 tdm_tx_cfg[port.mode][port.channel].bit_format,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_tx_format_put(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		tdm_tx_cfg[port.mode][port.channel].bit_format =
+			tdm_get_format(ucontrol->value.enumerated.item[0]);
+
+		pr_debug("%s: tdm_tx_bit_format = %d, item = %d\n", __func__,
+			 tdm_tx_cfg[port.mode][port.channel].bit_format,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_rx_ch_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+
+		ucontrol->value.enumerated.item[0] =
+			tdm_rx_cfg[port.mode][port.channel].channels - 1;
+
+		pr_debug("%s: tdm_rx_ch = %d, item = %d\n", __func__,
+			 tdm_rx_cfg[port.mode][port.channel].channels - 1,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_rx_ch_put(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		tdm_rx_cfg[port.mode][port.channel].channels =
+			ucontrol->value.enumerated.item[0] + 1;
+
+		pr_debug("%s: tdm_rx_ch = %d, item = %d\n", __func__,
+			 tdm_rx_cfg[port.mode][port.channel].channels,
+			 ucontrol->value.enumerated.item[0] + 1);
+	}
+	return ret;
+}
+
+static int tdm_tx_ch_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		ucontrol->value.enumerated.item[0] =
+			tdm_tx_cfg[port.mode][port.channel].channels - 1;
+
+		pr_debug("%s: tdm_tx_ch = %d, item = %d\n", __func__,
+			 tdm_tx_cfg[port.mode][port.channel].channels - 1,
+			 ucontrol->value.enumerated.item[0]);
+	}
+	return ret;
+}
+
+static int tdm_tx_ch_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct tdm_port port;
+	int ret = tdm_get_port_idx(kcontrol, &port);
+
+	if (ret) {
+		pr_err("%s: unsupported control: %s",
+			__func__, kcontrol->id.name);
+	} else {
+		tdm_tx_cfg[port.mode][port.channel].channels =
+			ucontrol->value.enumerated.item[0] + 1;
+
+		pr_debug("%s: tdm_tx_ch = %d, item = %d\n", __func__,
+			 tdm_tx_cfg[port.mode][port.channel].channels,
+			 ucontrol->value.enumerated.item[0] + 1);
+	}
+	return ret;
+}
+
 static int aux_pcm_get_sample_rate(int value)
 {
 	int sample_rate;
@@ -297,32 +850,6 @@ static int aux_pcm_get_port_idx(struct snd_kcontrol *kcontrol)
 	}
 
 	return idx;
-}
-
-static int btsco_sample_rate_put(struct snd_kcontrol *kcontrol,
-				 struct snd_ctl_elem_value *ucontrol)
-{
-	btsco_cfg.sample_rate =
-		aux_pcm_get_sample_rate(ucontrol->value.enumerated.item[0]);
-
-	pr_debug("%s: btsco_sample_rate = %d, item = %d\n", __func__,
-		 btsco_cfg.sample_rate,
-		 ucontrol->value.enumerated.item[0]);
-
-	return 0;
-}
-
-static int btsco_sample_rate_get(struct snd_kcontrol *kcontrol,
-				 struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.enumerated.item[0] =
-	     aux_pcm_get_sample_rate_val(btsco_cfg.sample_rate);
-
-	pr_debug("%s: btsco_sample_rate = %d, item = %d\n", __func__,
-		 btsco_cfg.sample_rate,
-		 ucontrol->value.enumerated.item[0]);
-
-	return 0;
 }
 
 static int aux_pcm_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
@@ -632,12 +1159,331 @@ static int msm_mi2s_tx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int usb_audio_rx_ch_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: usb_audio_rx_ch  = %d\n", __func__,
+		 usb_rx_cfg.channels);
+	ucontrol->value.integer.value[0] = usb_rx_cfg.channels - 1;
+	return 0;
+}
+
+static int usb_audio_rx_ch_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	usb_rx_cfg.channels = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: usb_audio_rx_ch = %d\n", __func__, usb_rx_cfg.channels);
+	return 1;
+}
+
+static int usb_audio_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int sample_rate_val;
+
+	switch (usb_rx_cfg.sample_rate) {
+	case SAMPLING_RATE_384KHZ:
+		sample_rate_val = 9;
+		break;
+	case SAMPLING_RATE_192KHZ:
+		sample_rate_val = 8;
+		break;
+	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 7;
+		break;
+	case SAMPLING_RATE_48KHZ:
+		sample_rate_val = 6;
+		break;
+	case SAMPLING_RATE_44P1KHZ:
+		sample_rate_val = 5;
+		break;
+	case SAMPLING_RATE_32KHZ:
+		sample_rate_val = 4;
+		break;
+	case SAMPLING_RATE_22P05KHZ:
+		sample_rate_val = 3;
+		break;
+	case SAMPLING_RATE_16KHZ:
+		sample_rate_val = 2;
+		break;
+	case SAMPLING_RATE_11P025KHZ:
+		sample_rate_val = 1;
+		break;
+	case SAMPLING_RATE_8KHZ:
+	default:
+		sample_rate_val = 0;
+		break;
+	}
+
+	ucontrol->value.integer.value[0] = sample_rate_val;
+	pr_debug("%s: usb_audio_rx_sample_rate = %d\n", __func__,
+		 usb_rx_cfg.sample_rate);
+	return 0;
+}
+
+static int usb_audio_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 9:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_384KHZ;
+		break;
+	case 8:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_192KHZ;
+		break;
+	case 7:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 6:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	case 5:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_44P1KHZ;
+		break;
+	case 4:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_32KHZ;
+		break;
+	case 3:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_22P05KHZ;
+		break;
+	case 2:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 1:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_11P025KHZ;
+		break;
+	case 0:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_8KHZ;
+		break;
+	default:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+
+	pr_debug("%s: control value = %ld, usb_audio_rx_sample_rate = %d\n",
+		__func__, ucontrol->value.integer.value[0],
+		usb_rx_cfg.sample_rate);
+	return 0;
+}
+
+static int usb_audio_rx_format_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	switch (usb_rx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		ucontrol->value.integer.value[0] = 3;
+		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		ucontrol->value.integer.value[0] = 2;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: usb_audio_rx_format = %d, ucontrol value = %ld\n",
+		 __func__, usb_rx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int usb_audio_rx_format_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 3:
+		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S32_LE;
+		break;
+	case 2:
+		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_3LE;
+		break;
+	case 1:
+		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: usb_audio_rx_format = %d, ucontrol value = %ld\n",
+		 __func__, usb_rx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+
+	return rc;
+}
+
+static int usb_audio_tx_ch_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: usb_audio_tx_ch  = %d\n", __func__,
+		 usb_tx_cfg.channels);
+	ucontrol->value.integer.value[0] = usb_tx_cfg.channels - 1;
+	return 0;
+}
+
+static int usb_audio_tx_ch_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	usb_tx_cfg.channels = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: usb_audio_tx_ch = %d\n", __func__, usb_tx_cfg.channels);
+	return 1;
+}
+
+static int usb_audio_tx_sample_rate_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int sample_rate_val;
+
+	switch (usb_tx_cfg.sample_rate) {
+	case SAMPLING_RATE_384KHZ:
+		sample_rate_val = 9;
+		break;
+	case SAMPLING_RATE_192KHZ:
+		sample_rate_val = 8;
+		break;
+	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 7;
+		break;
+	case SAMPLING_RATE_48KHZ:
+		sample_rate_val = 6;
+		break;
+	case SAMPLING_RATE_44P1KHZ:
+		sample_rate_val = 5;
+		break;
+	case SAMPLING_RATE_32KHZ:
+		sample_rate_val = 4;
+		break;
+	case SAMPLING_RATE_22P05KHZ:
+		sample_rate_val = 3;
+		break;
+	case SAMPLING_RATE_16KHZ:
+		sample_rate_val = 2;
+		break;
+	case SAMPLING_RATE_11P025KHZ:
+		sample_rate_val = 1;
+		break;
+	case SAMPLING_RATE_8KHZ:
+		sample_rate_val = 0;
+		break;
+	default:
+		sample_rate_val = 6;
+		break;
+	}
+
+	ucontrol->value.integer.value[0] = sample_rate_val;
+	pr_debug("%s: usb_audio_tx_sample_rate = %d\n", __func__,
+		 usb_tx_cfg.sample_rate);
+	return 0;
+}
+
+static int usb_audio_tx_sample_rate_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 9:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_384KHZ;
+		break;
+	case 8:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_192KHZ;
+		break;
+	case 7:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 6:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	case 5:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_44P1KHZ;
+		break;
+	case 4:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_32KHZ;
+		break;
+	case 3:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_22P05KHZ;
+		break;
+	case 2:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 1:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_11P025KHZ;
+		break;
+	case 0:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_8KHZ;
+		break;
+	default:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+
+	pr_debug("%s: control value = %ld, usb_audio_tx_sample_rate = %d\n",
+		__func__, ucontrol->value.integer.value[0],
+		usb_tx_cfg.sample_rate);
+	return 0;
+}
+
+static int usb_audio_tx_format_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	switch (usb_tx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+		ucontrol->value.integer.value[0] = 3;
+		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		ucontrol->value.integer.value[0] = 2;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: usb_audio_tx_format = %d, ucontrol value = %ld\n",
+		 __func__, usb_tx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int usb_audio_tx_format_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 3:
+		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S32_LE;
+		break;
+	case 2:
+		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_3LE;
+		break;
+	case 1:
+		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: usb_audio_tx_format = %d, ucontrol value = %ld\n",
+		 __func__, usb_tx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+
+	return rc;
+}
+
 const struct snd_kcontrol_new msm_common_snd_controls[] = {
 	SOC_ENUM_EXT("PROXY_RX Channels", proxy_rx_chs,
 			proxy_rx_ch_get, proxy_rx_ch_put),
-	SOC_ENUM_EXT("BTSCO SampleRate", btsco_sample_rate,
-			btsco_sample_rate_get,
-			btsco_sample_rate_put),
 	SOC_ENUM_EXT("PRIM_AUX_PCM_RX SampleRate", prim_aux_pcm_rx_sample_rate,
 			aux_pcm_rx_sample_rate_get,
 			aux_pcm_rx_sample_rate_put),
@@ -702,7 +1548,118 @@ const struct snd_kcontrol_new msm_common_snd_controls[] = {
 			msm_mi2s_rx_ch_get, msm_mi2s_rx_ch_put),
 	SOC_ENUM_EXT("QUAT_MI2S_TX Channels", quat_mi2s_tx_chs,
 			msm_mi2s_tx_ch_get, msm_mi2s_tx_ch_put),
+	SOC_ENUM_EXT("USB_AUDIO_RX Channels", usb_rx_chs,
+			usb_audio_rx_ch_get, usb_audio_rx_ch_put),
+	SOC_ENUM_EXT("USB_AUDIO_TX Channels", usb_tx_chs,
+			usb_audio_tx_ch_get, usb_audio_tx_ch_put),
+	SOC_ENUM_EXT("USB_AUDIO_RX Format", usb_rx_format,
+			usb_audio_rx_format_get, usb_audio_rx_format_put),
+	SOC_ENUM_EXT("USB_AUDIO_TX Format", usb_tx_format,
+			usb_audio_tx_format_get, usb_audio_tx_format_put),
+	SOC_ENUM_EXT("USB_AUDIO_RX SampleRate", usb_rx_sample_rate,
+			usb_audio_rx_sample_rate_get,
+			usb_audio_rx_sample_rate_put),
+	SOC_ENUM_EXT("USB_AUDIO_TX SampleRate", usb_tx_sample_rate,
+			usb_audio_tx_sample_rate_get,
+			usb_audio_tx_sample_rate_put),
+	SOC_ENUM_EXT("PRI_TDM_RX_0 SampleRate", tdm_rx_sample_rate,
+			tdm_rx_sample_rate_get,
+			tdm_rx_sample_rate_put),
+	SOC_ENUM_EXT("PRI_TDM_TX_0 SampleRate", tdm_tx_sample_rate,
+			tdm_tx_sample_rate_get,
+			tdm_tx_sample_rate_put),
+	SOC_ENUM_EXT("PRI_TDM_RX_0 Format", tdm_rx_format,
+			tdm_rx_format_get,
+			tdm_rx_format_put),
+	SOC_ENUM_EXT("PRI_TDM_TX_0 Format", tdm_tx_format,
+			tdm_tx_format_get,
+			tdm_tx_format_put),
+	SOC_ENUM_EXT("PRI_TDM_RX_0 Channels", tdm_rx_chs,
+			tdm_rx_ch_get,
+			tdm_rx_ch_put),
+	SOC_ENUM_EXT("PRI_TDM_TX_0 Channels", tdm_tx_chs,
+			tdm_tx_ch_get,
+			tdm_tx_ch_put),
+	SOC_ENUM_EXT("SEC_TDM_RX_0 SampleRate", tdm_rx_sample_rate,
+			tdm_rx_sample_rate_get,
+			tdm_rx_sample_rate_put),
+	SOC_ENUM_EXT("SEC_TDM_TX_0 SampleRate", tdm_tx_sample_rate,
+			tdm_tx_sample_rate_get,
+			tdm_tx_sample_rate_put),
+	SOC_ENUM_EXT("SEC_TDM_RX_0 Format", tdm_rx_format,
+			tdm_rx_format_get,
+			tdm_rx_format_put),
+	SOC_ENUM_EXT("SEC_TDM_TX_0 Format", tdm_tx_format,
+			tdm_tx_format_get,
+			tdm_tx_format_put),
+	SOC_ENUM_EXT("SEC_TDM_RX_0 Channels", tdm_rx_chs,
+			tdm_rx_ch_get,
+			tdm_rx_ch_put),
+	SOC_ENUM_EXT("SEC_TDM_TX_0 Channels", tdm_tx_chs,
+			tdm_tx_ch_get,
+			tdm_tx_ch_put),
+	SOC_ENUM_EXT("TERT_TDM_RX_0 SampleRate", tdm_rx_sample_rate,
+			tdm_rx_sample_rate_get,
+			tdm_rx_sample_rate_put),
+	SOC_ENUM_EXT("TERT_TDM_TX_0 SampleRate", tdm_tx_sample_rate,
+			tdm_tx_sample_rate_get,
+			tdm_tx_sample_rate_put),
+	SOC_ENUM_EXT("TERT_TDM_RX_0 Format", tdm_rx_format,
+			tdm_rx_format_get,
+			tdm_rx_format_put),
+	SOC_ENUM_EXT("TERT_TDM_TX_0 Format", tdm_tx_format,
+			tdm_tx_format_get,
+			tdm_tx_format_put),
+	SOC_ENUM_EXT("TERT_TDM_RX_0 Channels", tdm_rx_chs,
+			tdm_rx_ch_get,
+			tdm_rx_ch_put),
+	SOC_ENUM_EXT("TERT_TDM_TX_0 Channels", tdm_tx_chs,
+			tdm_tx_ch_get,
+			tdm_tx_ch_put),
+	SOC_ENUM_EXT("QUAT_TDM_RX_0 SampleRate", tdm_rx_sample_rate,
+			tdm_rx_sample_rate_get,
+			tdm_rx_sample_rate_put),
+	SOC_ENUM_EXT("QUAT_TDM_TX_0 SampleRate", tdm_tx_sample_rate,
+			tdm_tx_sample_rate_get,
+			tdm_tx_sample_rate_put),
+	SOC_ENUM_EXT("QUAT_TDM_RX_0 Format", tdm_rx_format,
+			tdm_rx_format_get,
+			tdm_rx_format_put),
+	SOC_ENUM_EXT("QUAT_TDM_TX_0 Format", tdm_tx_format,
+			tdm_tx_format_get,
+			tdm_tx_format_put),
+	SOC_ENUM_EXT("QUAT_TDM_RX_0 Channels", tdm_rx_chs,
+			tdm_rx_ch_get,
+			tdm_rx_ch_put),
+	SOC_ENUM_EXT("QUAT_TDM_TX_0 Channels", tdm_tx_chs,
+			tdm_tx_ch_get,
+			tdm_tx_ch_put),
 };
+
+static inline int param_is_mask(int p)
+{
+	return (p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
+			(p <= SNDRV_PCM_HW_PARAM_LAST_MASK);
+}
+
+static inline struct snd_mask *param_to_mask(struct snd_pcm_hw_params *p,
+					     int n)
+{
+	return &(p->masks[n - SNDRV_PCM_HW_PARAM_FIRST_MASK]);
+}
+
+static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
+{
+	if (bit >= SNDRV_MASK_MAX)
+		return;
+	if (param_is_mask(n)) {
+		struct snd_mask *m = param_to_mask(p, n);
+
+		m->bits[0] = 0;
+		m->bits[1] = 0;
+		m->bits[bit >> 5] |= (1 << (bit & 31));
+	}
+}
 
 /**
  * msm_common_be_hw_params_fixup - updates settings of ALSA BE hw params.
@@ -726,15 +1683,87 @@ int msm_common_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		  __func__, params_format(params), params_rate(params));
 
 	switch (dai_link->be_id) {
-	case MSM_BACKEND_DAI_INT_BT_SCO_RX:
-	case MSM_BACKEND_DAI_INT_BT_SCO_TX:
-		channels->min = channels->max = btsco_cfg.channels;
-		rate->min = rate->max = 1;
+	case MSM_BACKEND_DAI_USB_RX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				usb_rx_cfg.bit_format);
+		rate->min = rate->max = usb_rx_cfg.sample_rate;
+		channels->min = channels->max = usb_rx_cfg.channels;
+		break;
+
+	case MSM_BACKEND_DAI_USB_TX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				usb_tx_cfg.bit_format);
+		rate->min = rate->max = usb_tx_cfg.sample_rate;
+		channels->min = channels->max = usb_tx_cfg.channels;
 		break;
 
 	case MSM_BACKEND_DAI_AFE_PCM_RX:
 		channels->min = channels->max = proxy_rx_cfg.channels;
 		rate->min = rate->max = SAMPLING_RATE_48KHZ;
+		break;
+
+	case MSM_BACKEND_DAI_PRI_TDM_RX_0:
+		channels->min = channels->max =
+				tdm_rx_cfg[TDM_PRI][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				   tdm_rx_cfg[TDM_PRI][TDM_0].bit_format);
+		rate->min = rate->max = tdm_rx_cfg[TDM_PRI][TDM_0].sample_rate;
+		break;
+
+	case MSM_BACKEND_DAI_PRI_TDM_TX_0:
+		channels->min = channels->max =
+				tdm_tx_cfg[TDM_PRI][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				   tdm_tx_cfg[TDM_PRI][TDM_0].bit_format);
+		rate->min = rate->max = tdm_tx_cfg[TDM_PRI][TDM_0].sample_rate;
+		break;
+
+	case MSM_BACKEND_DAI_SEC_TDM_RX_0:
+		channels->min = channels->max =
+				tdm_rx_cfg[TDM_SEC][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				   tdm_rx_cfg[TDM_SEC][TDM_0].bit_format);
+		rate->min = rate->max = tdm_rx_cfg[TDM_SEC][TDM_0].sample_rate;
+		break;
+
+	case MSM_BACKEND_DAI_SEC_TDM_TX_0:
+		channels->min = channels->max =
+				tdm_tx_cfg[TDM_SEC][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				   tdm_tx_cfg[TDM_SEC][TDM_0].bit_format);
+		rate->min = rate->max = tdm_tx_cfg[TDM_SEC][TDM_0].sample_rate;
+		break;
+
+	case MSM_BACKEND_DAI_TERT_TDM_RX_0:
+		channels->min = channels->max =
+				tdm_rx_cfg[TDM_TERT][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				   tdm_rx_cfg[TDM_TERT][TDM_0].bit_format);
+		rate->min = rate->max = tdm_rx_cfg[TDM_TERT][TDM_0].sample_rate;
+		break;
+
+	case MSM_BACKEND_DAI_TERT_TDM_TX_0:
+		channels->min = channels->max =
+				tdm_tx_cfg[TDM_TERT][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				   tdm_tx_cfg[TDM_TERT][TDM_0].bit_format);
+		rate->min = rate->max = tdm_tx_cfg[TDM_TERT][TDM_0].sample_rate;
+		break;
+
+	case MSM_BACKEND_DAI_QUAT_TDM_RX_0:
+		channels->min = channels->max =
+				tdm_rx_cfg[TDM_QUAT][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				   tdm_rx_cfg[TDM_QUAT][TDM_0].bit_format);
+		rate->min = rate->max = tdm_rx_cfg[TDM_QUAT][TDM_0].sample_rate;
+		break;
+
+	case MSM_BACKEND_DAI_QUAT_TDM_TX_0:
+		channels->min = channels->max =
+				tdm_tx_cfg[TDM_QUAT][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				   tdm_tx_cfg[TDM_QUAT][TDM_0].bit_format);
+		rate->min = rate->max = tdm_tx_cfg[TDM_QUAT][TDM_0].sample_rate;
 		break;
 
 	case MSM_BACKEND_DAI_AUXPCM_RX:
