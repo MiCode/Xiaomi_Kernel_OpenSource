@@ -2502,7 +2502,15 @@ int clock_debug_print_clock(struct clk_core *c, struct seq_file *s)
 	clock_debug_output(s, 0, "\t");
 
 	do {
-		clock_debug_output(s, 1, "%s%s:%u:%u [%ld]", start,
+		if (clk->core->vdd_class)
+			clock_debug_output(s, 1, "%s%s:%u:%u [%ld, %d]", start,
+					clk->core->name,
+					clk->core->prepare_count,
+					clk->core->enable_count,
+					clk->core->rate,
+				clk_find_vdd_level(clk->core, clk->core->rate));
+		else
+			clock_debug_output(s, 1, "%s%s:%u:%u [%ld]", start,
 					clk->core->name,
 					clk->core->prepare_count,
 					clk->core->enable_count,
@@ -2593,6 +2601,117 @@ static const struct file_operations clock_print_hw_fops = {
 	.release	= seq_release,
 };
 
+static int list_rates_show(struct seq_file *s, void *unused)
+{
+	struct clk_core *core = s->private;
+	int level = 0, i = 0;
+	unsigned long rate, rate_max = 0;
+
+	/* Find max frequency supported within voltage constraints. */
+	if (!core->vdd_class) {
+		rate_max = ULONG_MAX;
+	} else {
+		for (level = 0; level < core->num_rate_max; level++)
+			if (core->rate_max[level])
+				rate_max = core->rate_max[level];
+	}
+
+	/*
+	 * List supported frequencies <= rate_max. Higher frequencies may
+	 * appear in the frequency table, but are not valid and should not
+	 * be listed.
+	 */
+	while (!IS_ERR_VALUE(rate =
+			core->ops->list_rate(core->hw, i++, rate_max))) {
+		if (rate <= 0)
+			break;
+		if (rate <= rate_max)
+			seq_printf(s, "%lu\n", rate);
+	}
+
+	return 0;
+}
+
+static int list_rates_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, list_rates_show, inode->i_private);
+}
+
+static const struct file_operations list_rates_fops = {
+	.open		= list_rates_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static void clock_print_rate_max_by_level(struct seq_file *s, int level)
+{
+	struct clk_core *core = s->private;
+	struct clk_vdd_class *vdd_class = core->vdd_class;
+	int off, i, vdd_level, nregs = vdd_class->num_regulators;
+
+	vdd_level = clk_find_vdd_level(core, core->rate);
+
+	seq_printf(s, "%2s%10lu", vdd_level == level ? "[" : "",
+		core->rate_max[level]);
+
+	for (i = 0; i < nregs; i++) {
+		off = nregs*level + i;
+		if (vdd_class->vdd_uv)
+			seq_printf(s, "%10u", vdd_class->vdd_uv[off]);
+	}
+
+	if (vdd_level == level)
+		seq_puts(s, "]");
+
+	seq_puts(s, "\n");
+}
+
+static int rate_max_show(struct seq_file *s, void *unused)
+{
+	struct clk_core *core = s->private;
+	struct clk_vdd_class *vdd_class = core->vdd_class;
+	int level = 0, i, nregs = vdd_class->num_regulators;
+	char reg_name[10];
+
+	int vdd_level = clk_find_vdd_level(core, core->rate);
+
+	if (vdd_level < 0) {
+		seq_printf(s, "could not find_vdd_level for %s, %ld\n",
+			core->name, core->rate);
+		return 0;
+	}
+
+	seq_printf(s, "%12s", "");
+	for (i = 0; i < nregs; i++) {
+		snprintf(reg_name, ARRAY_SIZE(reg_name), "reg %d", i);
+		seq_printf(s, "%10s", reg_name);
+	}
+
+	seq_printf(s, "\n%12s", "freq");
+	for (i = 0; i < nregs; i++)
+		seq_printf(s, "%10s", "uV");
+
+	seq_puts(s, "\n");
+
+	for (level = 0; level < core->num_rate_max; level++)
+		clock_print_rate_max_by_level(s, level);
+
+	return 0;
+}
+
+static int rate_max_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, rate_max_show, inode->i_private);
+}
+
+static const struct file_operations rate_max_fops = {
+	.open		= rate_max_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
 static int clk_debug_create_one(struct clk_core *core, struct dentry *pdentry)
 {
 	struct dentry *d;
@@ -2612,6 +2731,16 @@ static int clk_debug_create_one(struct clk_core *core, struct dentry *pdentry)
 	d = debugfs_create_file("clk_rate", S_IRUGO, core->dentry, core,
 			&clock_rate_fops);
 	if (!d)
+		goto err_out;
+
+	if (core->ops->list_rate) {
+		if (!debugfs_create_file("clk_list_rates",
+				S_IRUGO, core->dentry, core, &list_rates_fops))
+			goto err_out;
+	}
+
+	if (core->vdd_class && !debugfs_create_file("clk_rate_max",
+				S_IRUGO, core->dentry, core, &rate_max_fops))
 		goto err_out;
 
 	d = debugfs_create_u32("clk_accuracy", S_IRUGO, core->dentry,

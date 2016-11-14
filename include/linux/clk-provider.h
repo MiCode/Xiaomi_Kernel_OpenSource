@@ -181,6 +181,10 @@ struct clk_rate_request {
  *		    This callback is optional and required clocks could
  *		    add this callback.
  *
+ * @list_rate:  Return the nth supported frequency for a given clock which is
+ *		below rate_max on success and -ENXIO in case of no frequency
+ *		table.
+ *
  * The clk_enable/clk_disable and clk_prepare/clk_unprepare pairs allow
  * implementations to split any work between atomic (enable) and sleepable
  * (prepare) contexts.  If enabling a clock requires code that might sleep,
@@ -223,6 +227,8 @@ struct clk_ops {
 	int		(*set_flags)(struct clk_hw *hw, unsigned flags);
 	void		(*list_registers)(struct seq_file *f,
 							struct clk_hw *hw);
+	long		(*list_rate)(struct clk_hw *hw, unsigned n,
+							unsigned long rate_max);
 };
 
 /**
