@@ -1845,4 +1845,5 @@ int ipa_ntn_init(void);
 int ipa2_get_ntn_stats(struct IpaHwStatsNTNInfoData_t *stats);
 int ipa2_register_ipa_ready_cb(void (*ipa_ready_cb)(void *),
 				void *user_data);
+struct device *ipa2_get_pdev(void);
 #endif /* _IPA_I_H_ */
