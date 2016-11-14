@@ -223,7 +223,7 @@ config SND_SOC_MSM8998
 
 config SND_SOC_FALCON
 	tristate "SoC Machine driver for MSMFALCON boards"
-	depends on ARCH_MSMFALCON
+	depends on ARCH_MSM8998
 	select SND_SOC_INT_CODEC
 	select SND_SOC_EXT_CODEC
 	help
