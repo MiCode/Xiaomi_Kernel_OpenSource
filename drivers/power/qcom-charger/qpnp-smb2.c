@@ -1049,6 +1049,7 @@ static int smb2_init_hw(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	int rc;
+	u8 stat;
 
 	if (chip->dt.no_battery)
 		chg->fake_capacity = 50;
@@ -1068,6 +1069,21 @@ static int smb2_init_hw(struct smb2 *chip)
 					&chip->dt.dc_icl_ua);
 
 	chg->otg_cl_ua = chip->dt.otg_cl_ua;
+
+	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
+	if (rc < 0) {
+		pr_err("Couldn't read APSD_RESULT_STATUS rc=%d\n", rc);
+		return rc;
+	}
+
+	/* clear the ICL override if it is set */
+	if (stat & ICL_OVERRIDE_LATCH_BIT) {
+		rc = smblib_write(chg, CMD_APSD_REG, ICL_OVERRIDE_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't disable ICL override rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	/* votes must be cast before configuring software control */
 	vote(chg->pl_disable_votable,
