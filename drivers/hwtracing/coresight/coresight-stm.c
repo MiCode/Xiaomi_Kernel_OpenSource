@@ -86,7 +86,7 @@ static int boot_nr_channel;
  * remain consistent with existing use cases for now.
  */
 module_param_named(
-	boot_nr_channel, boot_nr_channel, int, S_IRUGO
+	boot_nr_channel, boot_nr_channel, int, 0444
 );
 
 static void stm_hwevent_enable_hw(struct stm_drvdata *drvdata)
