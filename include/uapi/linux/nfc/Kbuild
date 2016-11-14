@@ -1,0 +1,2 @@
+#UAPI export list
+header-y += nfcinfo.h

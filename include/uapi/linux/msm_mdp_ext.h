@@ -96,6 +96,10 @@ LAYER FLAG CONFIGURATION
  */
 #define MDP_LAYER_MULTIRECT_PARALLEL_MODE	0x2000
 
+
+/* Flag indicates that layer is associated with secure camera session */
+#define MDP_LAYER_SECURE_CAMERA_SESSION		0x4000
+
 /**********************************************************************
 DESTINATION SCALER FLAG CONFIGURATION
 **********************************************************************/
@@ -146,6 +150,9 @@ VALIDATE/COMMIT FLAG CONFIGURATION
  * Default mode is continuous mode.
  */
 #define MDP_COMMIT_AVR_ONE_SHOT_MODE		0x10
+
+/* Flag to indicate dual partial ROI update */
+#define MDP_COMMIT_PARTIAL_UPDATE_DUAL_ROI	0x20
 
 /* Flag to enable concurrent writeback for the frame */
 #define MDP_COMMIT_CWB_EN 0x800

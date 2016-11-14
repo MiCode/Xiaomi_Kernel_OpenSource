@@ -12,6 +12,7 @@
 
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "msmcobalt-pinctrl.dtsi"
+#include "msmcobalt-camera-sensor-qrd-vr1.dtsi"
 
 &blsp1_uart3_hs {
 	status = "ok";

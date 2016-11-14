@@ -162,6 +162,9 @@ static int tpiu_probe(struct amba_device *adev, const struct amba_id *id)
 
 	/* Disable tpiu to support older devices */
 	tpiu_disable_hw(drvdata);
+	ret = clk_set_rate(adev->pclk, CORESIGHT_CLK_RATE_TRACE);
+	if (ret)
+		return ret;
 
 	pm_runtime_put(&adev->dev);
 

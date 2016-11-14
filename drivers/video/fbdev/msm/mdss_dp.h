@@ -228,6 +228,18 @@ struct dp_alt_mode {
 
 #define DP_LINK_RATE_MULTIPLIER	27000000
 #define DP_MAX_PIXEL_CLK_KHZ	675000
+struct downstream_port_config {
+	/* Byte 02205h */
+	bool dfp_present;
+	u32 dfp_type;
+	bool format_conversion;
+	bool detailed_cap_info_available;
+	/* Byte 02207h */
+	u32 dfp_count;
+	bool msa_timing_par_ignored;
+	bool oui_support;
+};
+
 struct dpcd_cap {
 	char major;
 	char minor;
@@ -240,6 +252,7 @@ struct dpcd_cap {
 	u32 flags;
 	u32 rx_port0_buf_size;
 	u32 training_read_interval;/* us */
+	struct downstream_port_config downstream_port;
 };
 
 struct dpcd_link_status {
@@ -437,7 +450,6 @@ struct mdss_dp_drv_pdata {
 	struct completion train_comp;
 	struct completion idle_comp;
 	struct completion video_comp;
-	struct completion audio_comp;
 	struct completion irq_comp;
 	struct mutex aux_mutex;
 	struct mutex train_mutex;
@@ -463,13 +475,14 @@ struct mdss_dp_drv_pdata {
 	char delay_start;
 	u32 bpp;
 	struct dp_statistic dp_stat;
-	bool wait_for_audio_comp;
 	bool hpd_irq_on;
 	bool hpd_irq_toggled;
+	bool hpd_irq_clients_notified;
 
 	/* event */
 	struct workqueue_struct *workq;
 	struct work_struct work;
+	struct delayed_work hdcp_cb_work;
 	u32 current_event;
 	spinlock_t event_lock;
 	spinlock_t lock;
@@ -480,6 +493,7 @@ struct mdss_dp_drv_pdata {
 	u32 vic;
 	u32 new_vic;
 	int fb_node;
+	int hdcp_status;
 
 	struct dpcd_test_request test_data;
 	struct dpcd_sink_count sink_count;

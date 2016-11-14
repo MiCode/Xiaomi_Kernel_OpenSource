@@ -35,8 +35,8 @@
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
-static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
-static DEFINE_VDD_REGULATORS(vdd_dig_ao, VDD_DIG_NUM, 1, vdd_corner, NULL);
+static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_dig_ao, VDD_DIG_NUM, 1, vdd_corner);
 
 enum {
 	P_CORE_BI_PLL_TEST_SE,
@@ -2201,7 +2201,7 @@ static struct clk_branch gcc_ufs_axi_hw_ctl_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_hw_ctl_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -2249,7 +2249,7 @@ static struct clk_branch gcc_ufs_ice_core_hw_ctl_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_hw_ctl_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -2284,7 +2284,7 @@ static struct clk_branch gcc_ufs_phy_aux_hw_ctl_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_hw_ctl_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -2355,7 +2355,7 @@ static struct clk_branch gcc_ufs_unipro_core_hw_ctl_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_hw_ctl_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -2753,9 +2753,8 @@ MODULE_DEVICE_TABLE(of, gcc_falcon_match_table);
 
 static int gcc_falcon_probe(struct platform_device *pdev)
 {
-	int ret = 0, i;
+	int ret = 0;
 	struct regmap *regmap;
-	struct clk *clk;
 
 	regmap = qcom_cc_map(pdev, &gcc_falcon_desc);
 	if (IS_ERR(regmap))

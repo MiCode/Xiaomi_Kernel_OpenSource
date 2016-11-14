@@ -129,6 +129,15 @@ Charger specific properties:
 		happen but the adapter won't be asked to switch to a higher
 		voltage point.
 
+- qcom,chg-inhibit-threshold-mv
+  Usage:      optional
+  Value type: <u32>
+  Definition: Charge inhibit threshold in milli-volts. Charging will be
+		inhibited when the battery voltage is within this threshold
+		from Vfloat at charger insertion. If this is not specified
+		then charge inhibit will be disabled by default.
+		Allowed values are: 50, 100, 200, 300.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================

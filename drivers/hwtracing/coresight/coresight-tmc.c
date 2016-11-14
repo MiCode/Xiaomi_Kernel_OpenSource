@@ -1545,8 +1545,8 @@ static ssize_t mem_size_store(struct device *dev,
 
 	mutex_lock(&drvdata->mem_lock);
 	if (kstrtoul(buf, 16, &val)) {
-		return -EINVAL;
 		mutex_unlock(&drvdata->mem_lock);
+		return -EINVAL;
 	}
 
 	drvdata->mem_size = val;
@@ -1899,6 +1899,10 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	} else {
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
+
+	ret = clk_set_rate(adev->pclk, CORESIGHT_CLK_RATE_TRACE);
+	if (ret)
+		return ret;
 
 	pm_runtime_put(&adev->dev);
 

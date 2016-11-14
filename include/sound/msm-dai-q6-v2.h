@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,8 +28,15 @@
 #define MSM_SEC_MI2S_SD1  4
 #define MSM_QUIN_MI2S  5
 #define MSM_SENARY_MI2S  6
+#define MSM_INT0_MI2S  7
+#define MSM_INT1_MI2S  8
+#define MSM_INT2_MI2S  9
+#define MSM_INT3_MI2S  10
+#define MSM_INT4_MI2S  11
+#define MSM_INT5_MI2S  12
+#define MSM_INT6_MI2S  13
 #define MSM_MI2S_MIN MSM_PRIM_MI2S
-#define MSM_MI2S_MAX MSM_SENARY_MI2S
+#define MSM_MI2S_MAX MSM_INT6_MI2S
 
 struct msm_dai_auxpcm_config {
 	u16 mode;

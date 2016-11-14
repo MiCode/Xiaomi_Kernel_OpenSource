@@ -849,7 +849,7 @@ int snd_pcm_new_internal(struct snd_card *card, const char *id, int device,
 }
 EXPORT_SYMBOL(snd_pcm_new_internal);
 
-static void free_pcm_kctl(struct snd_pcm_str *pstr)
+static void free_chmap(struct snd_pcm_str *pstr)
 {
 	if (pstr->chmap_kctl) {
 		snd_ctl_remove(pstr->pcm->card, pstr->chmap_kctl);
@@ -887,7 +887,7 @@ static void snd_pcm_free_stream(struct snd_pcm_str * pstr)
 		kfree(setup);
 	}
 #endif
-	free_pcm_kctl(pstr);
+	free_chmap(pstr);
 	if (pstr->substream_count)
 		put_device(&pstr->dev);
 }
@@ -1152,7 +1152,7 @@ static int snd_pcm_dev_disconnect(struct snd_device *device)
 	for (cidx = 0; cidx < 2; cidx++) {
 		if (!pcm->internal)
 			snd_unregister_device(&pcm->streams[cidx].dev);
-		free_pcm_kctl(&pcm->streams[cidx]);
+		free_chmap(&pcm->streams[cidx]);
 	}
 	mutex_unlock(&pcm->open_mutex);
 	mutex_unlock(&register_mutex);

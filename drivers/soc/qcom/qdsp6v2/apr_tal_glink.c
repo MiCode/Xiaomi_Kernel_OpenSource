@@ -35,6 +35,7 @@
 
 struct apr_tx_buf {
 	struct list_head list;
+	struct apr_pkt_priv pkt_priv;
 	char buf[APR_MAX_BUF];
 };
 
@@ -67,29 +68,28 @@ static char *svc_names[APR_DEST_MAX][APR_CLIENT_MAX] = {
 static struct apr_svc_ch_dev
 	apr_svc_ch[APR_DL_MAX][APR_DEST_MAX][APR_CLIENT_MAX];
 
-static int apr_get_free_buf(int len, void **buf)
+static struct apr_tx_buf *apr_get_free_buf(int len)
 {
 	struct apr_tx_buf *tx_buf;
 	unsigned long flags;
 
-	if (!buf || len > APR_MAX_BUF) {
+	if (len > APR_MAX_BUF) {
 		pr_err("%s: buf too large [%d]\n", __func__, len);
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 	}
 
 	spin_lock_irqsave(&buf_list.lock, flags);
 	if (list_empty(&buf_list.list)) {
 		spin_unlock_irqrestore(&buf_list.lock, flags);
 		pr_err("%s: No buf available\n", __func__);
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 	}
 
 	tx_buf = list_first_entry(&buf_list.list, struct apr_tx_buf, list);
 	list_del(&tx_buf->list);
 	spin_unlock_irqrestore(&buf_list.lock, flags);
 
-	*buf = tx_buf->buf;
-	return 0;
+	return tx_buf;
 }
 
 static void apr_buf_add_tail(const void *buf)
@@ -130,16 +130,22 @@ int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
 {
 	int rc = 0, retries = 0;
 	void *pkt_data = NULL;
+	struct apr_tx_buf *tx_buf;
+	struct apr_pkt_priv *pkt_priv_ptr = pkt_priv;
 
 	if (!apr_ch->handle || !pkt_priv)
 		return -EINVAL;
 
 	if (pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER) {
-		rc = apr_get_free_buf(len, &pkt_data);
-		if (rc)
+		tx_buf = apr_get_free_buf(len);
+		if (IS_ERR_OR_NULL(tx_buf)) {
+			rc = -EINVAL;
 			goto exit;
-
-		memcpy(pkt_data, data, len);
+		}
+		memcpy(tx_buf->buf, data, len);
+		memcpy(&tx_buf->pkt_priv, pkt_priv, sizeof(tx_buf->pkt_priv));
+		pkt_priv_ptr = &tx_buf->pkt_priv;
+		pkt_data = tx_buf->buf;
 	} else {
 		pkt_data = data;
 	}
@@ -148,7 +154,7 @@ int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
 		if (rc == -EAGAIN)
 			udelay(50);
 
-		rc = __apr_tal_write(apr_ch, pkt_data, pkt_priv, len);
+		rc = __apr_tal_write(apr_ch, pkt_data, pkt_priv_ptr, len);
 	} while (rc == -EAGAIN && retries++ < APR_MAXIMUM_NUM_OF_RETRIES);
 
 	if (rc < 0) {
@@ -178,6 +184,28 @@ void apr_tal_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 		apr_ch->func((void *)ptr, size, (void *)pkt_priv);
 	spin_unlock_irqrestore(&apr_ch->r_lock, flags);
 	glink_rx_done(apr_ch->handle, ptr, true);
+}
+
+static void apr_tal_notify_tx_abort(void *handle, const void *priv,
+				    const void *pkt_priv)
+{
+	struct apr_pkt_priv *apr_pkt_priv_ptr =
+				(struct apr_pkt_priv *)pkt_priv;
+	struct apr_tx_buf *list_node;
+
+	if (!apr_pkt_priv_ptr) {
+		pr_err("%s: Invalid pkt_priv\n", __func__);
+		return;
+	}
+
+	pr_debug("%s: tx_abort received for apr_pkt_priv_ptr:%pK\n",
+		 __func__, apr_pkt_priv_ptr);
+
+	if (apr_pkt_priv_ptr->pkt_owner == APR_PKT_OWNER_DRIVER) {
+		list_node = container_of(apr_pkt_priv_ptr,
+					 struct apr_tx_buf, pkt_priv);
+		apr_buf_add_tail(list_node->buf);
+	}
 }
 
 void apr_tal_notify_tx_done(void *handle, const void *priv,
@@ -315,6 +343,7 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	open_cfg.notify_state = apr_tal_notify_state;
 	open_cfg.notify_rx_intent_req = apr_tal_notify_rx_intent_req;
 	open_cfg.notify_remote_rx_intent = apr_tal_notify_remote_rx_intent;
+	open_cfg.notify_tx_abort = apr_tal_notify_tx_abort;
 	open_cfg.priv = apr_ch;
 	open_cfg.transport = "smem";
 

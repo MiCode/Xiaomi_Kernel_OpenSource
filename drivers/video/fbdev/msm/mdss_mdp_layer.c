@@ -522,6 +522,56 @@ static void __update_avr_info(struct mdss_mdp_ctl *ctl,
 }
 
 /*
+ * __validate_dual_partial_update() - validation function for
+ * dual partial update ROIs
+ *
+ * - This function uses the commit structs "left_roi" and "right_roi"
+ *   to pass the first and second ROI information for the multiple
+ *   partial update feature.
+ * - Supports only SINGLE DSI with a max of 2 PU ROIs.
+ * - Not supported along with destination scalar.
+ * - Not supported when source-split is disabled.
+ * - Not supported with ping-pong split enabled.
+ */
+static int __validate_dual_partial_update(
+		struct mdss_mdp_ctl *ctl, struct mdp_layer_commit_v1 *commit)
+{
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+	struct mdss_data_type *mdata = ctl->mdata;
+	struct mdss_rect first_roi, second_roi;
+	int ret = 0;
+	struct mdp_destination_scaler_data *ds_data = commit->dest_scaler;
+
+	if (!mdata->has_src_split
+			|| (is_panel_split(ctl->mfd))
+			|| (is_pingpong_split(ctl->mfd))
+			|| (ds_data && commit->dest_scaler_cnt &&
+			    ds_data->flags & MDP_DESTSCALER_ENABLE)) {
+		pr_err("Invalid mode multi pu src_split:%d, split_mode:%d, ds_cnt:%d\n",
+				mdata->has_src_split, ctl->mfd->split_mode,
+				commit->dest_scaler_cnt);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	rect_copy_mdp_to_mdss(&commit->left_roi, &first_roi);
+	rect_copy_mdp_to_mdss(&commit->right_roi, &second_roi);
+
+	if (!is_valid_pu_dual_roi(pinfo, &first_roi, &second_roi))
+		ret = -EINVAL;
+
+	MDSS_XLOG(ctl->num, first_roi.x, first_roi.y, first_roi.w, first_roi.h,
+			second_roi.x, second_roi.y, second_roi.w, second_roi.h,
+			ret);
+	pr_debug("Multiple PU ROIs - roi0:{%d,%d,%d,%d}, roi1{%d,%d,%d,%d}, ret:%d\n",
+			first_roi.x, first_roi.y, first_roi.w, first_roi.h,
+			second_roi.x, second_roi.y, second_roi.w,
+			second_roi.h, ret);
+end:
+	return ret;
+}
+
+/*
  * __layer_needs_src_split() - check needs source split configuration
  * @layer:	input layer
  *
@@ -936,7 +986,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 {
 	int ret = 0;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
-	u32 flags;
+	u64 flags;
 
 	struct mdss_mdp_mixer *mixer = NULL;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -978,6 +1028,8 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		pipe->flags |= MDP_BWC_EN;
 	if (layer->flags & MDP_LAYER_PP)
 		pipe->flags |= MDP_OVERLAY_PP_CFG_EN;
+	if (layer->flags & MDP_LAYER_SECURE_CAMERA_SESSION)
+		pipe->flags |= MDP_SECURE_CAMERA_OVERLAY_SESSION;
 
 	pipe->scaler.enable = (layer->flags & SCALER_ENABLED);
 	pipe->is_fg = layer->flags & MDP_LAYER_FORGROUND;
@@ -1000,6 +1052,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	pipe->is_handed_off = false;
 	pipe->async_update = (layer->flags & MDP_LAYER_ASYNC) ? true : false;
 	pipe->csc_coeff_set = layer->color_space;
+	pipe->restore_roi = false;
 
 	if (mixer->ctl) {
 		pipe->dst.x += mixer->ctl->border_x_off;
@@ -1007,7 +1060,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		pr_debug("border{%d,%d}\n", mixer->ctl->border_x_off,
 				mixer->ctl->border_y_off);
 	}
-	pr_debug("src{%d,%d,%d,%d}, dst{%d,%d,%d,%d}\n",
+	pr_debug("pipe:%d src{%d,%d,%d,%d}, dst{%d,%d,%d,%d}\n", pipe->num,
 		pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
 		pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
 
@@ -1348,7 +1401,7 @@ static struct mdss_mdp_data *__map_layer_buffer(struct msm_fb_data_type *mfd,
 	struct mdp_layer_buffer *buffer;
 	struct msmfb_data image;
 	int i, ret;
-	u32 flags;
+	u64 flags;
 	struct mdss_mdp_validate_info_t *vitem;
 
 	for (i = 0; i < layer_count; i++) {
@@ -1374,7 +1427,8 @@ static struct mdss_mdp_data *__map_layer_buffer(struct msm_fb_data_type *mfd,
 	}
 
 	flags = (pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
-				MDP_SECURE_DISPLAY_OVERLAY_SESSION));
+				MDP_SECURE_DISPLAY_OVERLAY_SESSION |
+				MDP_SECURE_CAMERA_OVERLAY_SESSION));
 
 	if (buffer->planes[0].fd < 0) {
 		pr_err("invalid file descriptor for layer buffer\n");
@@ -1585,34 +1639,48 @@ end:
 }
 
 /*
- * __validate_secure_display() - validate secure display
+ * __validate_secure_session() - validate various secure sessions
  *
  * This function travers through used pipe list and checks if any pipe
- * is with secure display enabled flag. It fails if client tries to stage
- * unsecure content with secure display session.
+ * is with secure display, secure video and secure camera enabled flag.
+ * It fails if client tries to stage unsecure content with
+ * secure display session and secure camera with secure video sessions.
  *
  */
-static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
+static int __validate_secure_session(struct mdss_overlay_private *mdp5_data)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
 	uint32_t sd_pipes = 0, nonsd_pipes = 0;
+	uint32_t secure_vid_pipes = 0, secure_cam_pipes = 0;
 
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
 		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
 			sd_pipes++;
+		else if (pipe->flags & MDP_SECURE_OVERLAY_SESSION)
+			secure_vid_pipes++;
+		else if (pipe->flags & MDP_SECURE_CAMERA_OVERLAY_SESSION)
+			secure_cam_pipes++;
 		else
 			nonsd_pipes++;
 	}
 	mutex_unlock(&mdp5_data->list_lock);
 
-	pr_debug("pipe count:: secure display:%d non-secure:%d\n",
-		sd_pipes, nonsd_pipes);
+	pr_debug("pipe count:: secure display:%d non-secure:%d secure-vid:%d,secure-cam:%d\n",
+		sd_pipes, nonsd_pipes, secure_vid_pipes, secure_cam_pipes);
 
-	if ((sd_pipes || mdss_get_sd_client_cnt()) && nonsd_pipes) {
+	if ((sd_pipes || mdss_get_sd_client_cnt()) &&
+		(nonsd_pipes || secure_vid_pipes ||
+		secure_cam_pipes)) {
 		pr_err("non-secure layer validation request during secure display session\n");
-		pr_err(" secure client cnt:%d secure pipe cnt:%d non-secure pipe cnt:%d\n",
-			mdss_get_sd_client_cnt(), sd_pipes, nonsd_pipes);
+		pr_err(" secure client cnt:%d secure pipe:%d non-secure pipe:%d, secure-vid:%d, secure-cam:%d\n",
+			mdss_get_sd_client_cnt(), sd_pipes, nonsd_pipes,
+			secure_vid_pipes, secure_cam_pipes);
+		return -EINVAL;
+	} else if (secure_cam_pipes && (secure_vid_pipes || sd_pipes)) {
+		pr_err(" incompatible layers during secure camera session\n");
+		pr_err("secure-camera cnt:%d secure video:%d secure display:%d\n",
+				secure_cam_pipes, secure_vid_pipes, sd_pipes);
 		return -EINVAL;
 	} else {
 		return 0;
@@ -2388,7 +2456,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 validate_skip:
 	__handle_free_list(mdp5_data, validate_info_list, layer_count);
 
-	ret = __validate_secure_display(mdp5_data);
+	ret = __validate_secure_session(mdp5_data);
 
 validate_exit:
 	pr_debug("err=%d total_layer:%d left:%d right:%d rec0_rel_ndx=0x%x rec1_rel_ndx=0x%x rec0_destroy_ndx=0x%x rec1_destroy_ndx=0x%x processed=%d\n",
@@ -2625,6 +2693,7 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 {
 	struct mdss_overlay_private *mdp5_data;
 	struct mdp_destination_scaler_data *ds_data;
+	struct mdss_panel_info *pinfo;
 	int rc = 0;
 
 	if (!mfd || !commit) {
@@ -2655,6 +2724,23 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 				pr_err("failed to validate CWB config!!!\n");
 				return rc;
 			}
+		}
+	}
+
+	pinfo = mfd->panel_info;
+	if (pinfo->partial_update_enabled == PU_DUAL_ROI) {
+		if (commit->flags & MDP_COMMIT_PARTIAL_UPDATE_DUAL_ROI) {
+			rc = __validate_dual_partial_update(mdp5_data->ctl,
+					commit);
+			if (IS_ERR_VALUE(rc)) {
+				pr_err("Multiple pu pre-validate fail\n");
+				return rc;
+			}
+		}
+	} else {
+		if (commit->flags & MDP_COMMIT_PARTIAL_UPDATE_DUAL_ROI) {
+			pr_err("Multiple partial update not supported!\n");
+			return -EINVAL;
 		}
 	}
 

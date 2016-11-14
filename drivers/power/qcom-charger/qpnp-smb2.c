@@ -225,6 +225,7 @@ struct smb_dt_props {
 	s32	step_cc_delta[STEP_CHARGING_MAX_STEPS];
 	struct	device_node *revid_dev_node;
 	int	float_option;
+	int	chg_inhibit_thr_mv;
 	bool	hvdcp_disable;
 };
 
@@ -334,6 +335,14 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	chip->dt.hvdcp_disable = of_property_read_bool(node,
 						"qcom,hvdcp-disable");
+
+	of_property_read_u32(node, "qcom,chg-inhibit-threshold-mv",
+				&chip->dt.chg_inhibit_thr_mv);
+	if ((chip->dt.chg_inhibit_thr_mv < 0 ||
+		chip->dt.chg_inhibit_thr_mv > 300)) {
+		pr_err("qcom,chg-inhibit-threshold-mv is incorrect\n");
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -1213,6 +1222,40 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	switch (chip->dt.chg_inhibit_thr_mv) {
+	case 50:
+		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
+				CHARGE_INHIBIT_THRESHOLD_MASK,
+				CHARGE_INHIBIT_THRESHOLD_50MV);
+		break;
+	case 100:
+		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
+				CHARGE_INHIBIT_THRESHOLD_MASK,
+				CHARGE_INHIBIT_THRESHOLD_100MV);
+		break;
+	case 200:
+		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
+				CHARGE_INHIBIT_THRESHOLD_MASK,
+				CHARGE_INHIBIT_THRESHOLD_200MV);
+		break;
+	case 300:
+		rc = smblib_masked_write(chg, CHARGE_INHIBIT_THRESHOLD_CFG_REG,
+				CHARGE_INHIBIT_THRESHOLD_MASK,
+				CHARGE_INHIBIT_THRESHOLD_300MV);
+		break;
+	case 0:
+		rc = smblib_masked_write(chg, CHGR_CFG2_REG,
+				CHARGER_INHIBIT_BIT, 0);
+	default:
+		break;
+	}
+
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure charge inhibit threshold rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -1241,6 +1284,7 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMICOBALT_SUBTYPE:
+		chip->chg.wa_flags |= BOOST_BACK_WA;
 		if (pmic_rev_id->rev4 == PMICOBALT_V1P1_REV4) /* PMI rev 1.1 */
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
 		break;
@@ -1451,7 +1495,8 @@ static struct smb2_irq_info smb2_irqs[] = {
 	},
 	{
 		.name		= "switcher-power-ok",
-		.handler	= smblib_handle_debug,
+		.handler	= smblib_handle_switcher_power_ok,
+		.storm_data	= {true, 1000, 3},
 	},
 };
 
@@ -1746,6 +1791,16 @@ static int smb2_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void smb2_shutdown(struct platform_device *pdev)
+{
+	struct smb2 *chip = platform_get_drvdata(pdev);
+	struct smb_charger *chg = &chip->chg;
+
+	smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+		HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT, 0);
+	smblib_write(chg, CMD_HVDCP_2_REG, FORCE_5V_BIT);
+}
+
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,qpnp-smb2", },
 	{ },
@@ -1759,6 +1814,7 @@ static struct platform_driver smb2_driver = {
 	},
 	.probe		= smb2_probe,
 	.remove		= smb2_remove,
+	.shutdown	= smb2_shutdown,
 };
 module_platform_driver(smb2_driver);
 

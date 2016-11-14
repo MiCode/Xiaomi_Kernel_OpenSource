@@ -1788,6 +1788,16 @@
 		qcom,msm-bus,num-cases = <22>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
+		/*
+		 * During HS G3 UFS runs at nominal voltage corner, vote
+		 * higher bandwidth to push other buses in the data path
+		 * to run at nominal to achieve max throughput.
+		 * 4GBps pushes BIMC to run at nominal.
+		 * 200MBps pushes CNOC to run at nominal.
+		 * Vote for half of this bandwidth for HS G3 1-lane.
+		 * For max bandwidth, vote high enough to push the buses
+		 * to run in turbo voltage corner.
+		 */
 		<95 512 0 0>, <1 650 0 0>,          /* No vote */
 		<95 512 922 0>, <1 650 1000 0>,     /* PWM G1 */
 		<95 512 1844 0>, <1 650 1000 0>,    /* PWM G2 */
@@ -1799,17 +1809,17 @@
 		<95 512 14752 0>, <1 650 1000 0>,   /* PWM G4 L2 */
 		<95 512 127796 0>, <1 650 1000 0>,  /* HS G1 RA */
 		<95 512 255591 0>, <1 650 1000 0>,  /* HS G2 RA */
-		<95 512 511181 0>, <1 650 1000 0>,  /* HS G3 RA */
+		<95 512 2097152 0>, <1 650 102400 0>,  /* HS G3 RA */
 		<95 512 255591 0>, <1 650 1000 0>,  /* HS G1 RA L2 */
 		<95 512 511181 0>, <1 650 1000 0>,  /* HS G2 RA L2 */
-		<95 512 1022362 0>, <1 650 1000 0>, /* HS G3 RA L2 */
+		<95 512 4194304 0>, <1 650 204800 0>, /* HS G3 RA L2 */
 		<95 512 149422 0>, <1 650 1000 0>,  /* HS G1 RB */
 		<95 512 298189 0>, <1 650 1000 0>,  /* HS G2 RB */
-		<95 512 596378 0>, <1 650 1000 0>,  /* HS G3 RB */
+		<95 512 2097152 0>, <1 650 102400 0>,  /* HS G3 RB */
 		<95 512 298189 0>, <1 650 1000 0>,  /* HS G1 RB L2 */
 		<95 512 596378 0>, <1 650 1000 0>,  /* HS G2 RB L2 */
-		<95 512 1192756 0>, <1 650 1000 0>, /* HS G3 RB L2 */
-		<95 512 4096000 0>, <1 650 1000 0>; /* Max. bandwidth */
+		<95 512 4194304 0>, <1 650 204800 0>, /* HS G3 RB L2 */
+		<95 512 7643136 0>, <1 650 307200 0>; /* Max. bandwidth */
 		qcom,bus-vector-names = "MIN",
 		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
 		"PWM_G1_L2", "PWM_G2_L2", "PWM_G3_L2", "PWM_G4_L2",
@@ -1877,6 +1887,7 @@
 			usb-phy = <&qusb_phy0>, <&ssphy>;
 			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
+			snps,disable-clk-gating;
 			snps,hird_thresh = <0x10>;
 			snps,num-gsi-evt-buffs = <0x3>;
 		};
@@ -2145,6 +2156,32 @@
 
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+	};
+
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x200000>;
+			qcom,client-id = <0>;
+			qcom,allocate-boot-time;
+			label = "modem";
+		};
+
+		qcom,client_2 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x300000>;
+			qcom,client-id = <2>;
+			label = "modem";
+		};
+
+		mem_client_3_size: qcom,client_3 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <1>;
+			label = "modem";
+		};
 	};
 
 	pil_modem: qcom,mss@4080000 {
@@ -3107,5 +3144,6 @@
 #include "msm-audio-lpass.dtsi"
 #include "msmcobalt-mdss.dtsi"
 #include "msmcobalt-mdss-pll.dtsi"
+#include "msm-rdbg.dtsi"
 #include "msmcobalt-blsp.dtsi"
 #include "msmcobalt-audio.dtsi"

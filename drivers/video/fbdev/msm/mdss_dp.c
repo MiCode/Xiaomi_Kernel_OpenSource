@@ -57,6 +57,10 @@ static u32 supported_modes[] = {
 	HDMI_VFRMT_4096x2160p60_256_135, HDMI_EVFRMT_4096x2160p24_16_9
 };
 
+static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv);
+static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata);
+static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp);
+
 static void mdss_dp_put_dt_clk_data(struct device *dev,
 	struct dss_module_power *module_power)
 {
@@ -902,8 +906,6 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 	mdss_dp_set_safe_to_exit_level(&dp_ctrl->ctrl_io, dp_ctrl->lane_cnt);
 	mdss_dp_audio_enable(&dp_ctrl->ctrl_io, true);
 
-	dp_ctrl->wait_for_audio_comp = true;
-
 	return rc;
 } /* dp_audio_info_setup */
 
@@ -926,17 +928,6 @@ static int dp_get_audio_edid_blk(struct platform_device *pdev,
 	return rc;
 } /* dp_get_audio_edid_blk */
 
-static void dp_audio_codec_teardown_done(struct platform_device *pdev)
-{
-	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
-
-	if (!dp)
-		pr_err("invalid input\n");
-
-	pr_debug("audio codec teardown done\n");
-	complete_all(&dp->audio_comp);
-}
-
 static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
@@ -958,8 +949,6 @@ static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 		dp_get_audio_edid_blk;
 	dp->ext_audio_data.codec_ops.cable_status =
 		dp_get_cable_status;
-	dp->ext_audio_data.codec_ops.teardown_done =
-		dp_audio_codec_teardown_done;
 
 	if (!dp->pdev->dev.of_node) {
 		pr_err("%s cannot find dp dev.of_node\n", __func__);
@@ -1040,12 +1029,10 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 	return 0;
 } /* dp_init_panel_info */
 
-static inline void mdss_dp_set_audio_switch_node(
-	struct mdss_dp_drv_pdata *dp, int val)
+static inline void mdss_dp_ack_state(struct mdss_dp_drv_pdata *dp, int val)
 {
 	if (dp && dp->ext_audio_data.intf_ops.notify)
-		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev,
-				val);
+		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev, val);
 }
 
 /**
@@ -1156,19 +1143,27 @@ static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
  *
  * Initiates training of the DP main link and checks the state of the main
  * link after the training is complete.
+ *
+ * Return: error code. -EINVAL if any invalid data or -EAGAIN if retraining
+ * is required.
  */
-static void mdss_dp_train_main_link(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_train_main_link(struct mdss_dp_drv_pdata *dp)
 {
+	int ret = 0;
 	int ready = 0;
 
 	pr_debug("enter\n");
+	ret = mdss_dp_link_train(dp);
+	if (ret)
+		goto end;
 
-	mdss_dp_link_train(dp);
 	mdss_dp_wait4train(dp);
 
 	ready = mdss_dp_mainlink_ready(dp, BIT(0));
 
 	pr_debug("main link %s\n", ready ? "READY" : "NOT READY");
+end:
+	return ret;
 }
 
 static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
@@ -1178,33 +1173,43 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 	struct lane_mapping ln_map;
 
 	/* wait until link training is completed */
-	mutex_lock(&dp_drv->train_mutex);
-
 	pr_debug("enter\n");
 
-	orientation = usbpd_get_plug_orientation(dp_drv->pd);
-	pr_debug("plug orientation = %d\n", orientation);
+	do {
+		if (ret == -EAGAIN) {
+			mdss_dp_mainlink_push_idle(&dp_drv->panel_data);
+			mdss_dp_off_irq(dp_drv);
+		}
 
-	ret = mdss_dp_get_lane_mapping(dp_drv, orientation, &ln_map);
-	if (ret)
-		goto exit;
+		mutex_lock(&dp_drv->train_mutex);
 
-	mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
-			orientation, dp_drv->dpcd.max_lane_count);
+		orientation = usbpd_get_plug_orientation(dp_drv->pd);
+		pr_debug("plug orientation = %d\n", orientation);
 
-	ret = mdss_dp_enable_mainlink_clocks(dp_drv);
-	if (ret)
-		goto exit;
+		ret = mdss_dp_get_lane_mapping(dp_drv, orientation, &ln_map);
+		if (ret)
+			goto exit;
 
-	mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
+		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
+				orientation, dp_drv->dpcd.max_lane_count);
 
-	reinit_completion(&dp_drv->idle_comp);
+		ret = mdss_dp_enable_mainlink_clocks(dp_drv);
+		if (ret)
+			goto exit;
 
-	mdss_dp_configure_source_params(dp_drv, &ln_map);
+		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 
-	mdss_dp_train_main_link(dp_drv);
+		reinit_completion(&dp_drv->idle_comp);
 
-	dp_drv->power_on = true;
+		mdss_dp_configure_source_params(dp_drv, &ln_map);
+
+		dp_drv->power_on = true;
+
+		ret = mdss_dp_train_main_link(dp_drv);
+
+		mutex_unlock(&dp_drv->train_mutex);
+	} while (ret == -EAGAIN);
+
 	pr_debug("end\n");
 
 exit:
@@ -1273,12 +1278,19 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	mdss_dp_configure_source_params(dp_drv, &ln_map);
 
 link_training:
-	mdss_dp_train_main_link(dp_drv);
+	dp_drv->power_on = true;
+
+	if (-EAGAIN == mdss_dp_train_main_link(dp_drv)) {
+		mutex_unlock(&dp_drv->train_mutex);
+
+		mdss_dp_link_retraining(dp_drv);
+		return 0;
+	}
 
 	dp_drv->cont_splash = 0;
 
 	dp_drv->power_on = true;
-	mdss_dp_set_audio_switch_node(dp_drv, true);
+	mdss_dp_ack_state(dp_drv, true);
 	pr_debug("End-\n");
 
 exit:
@@ -1309,6 +1321,12 @@ static inline void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
 static inline bool mdss_dp_is_link_status_updated(struct mdss_dp_drv_pdata *dp)
 {
 	return dp->link_status.link_status_updated;
+}
+
+static inline bool mdss_dp_is_downstream_port_status_changed(
+		struct mdss_dp_drv_pdata *dp)
+{
+	return dp->link_status.downstream_port_status_changed;
 }
 
 static inline bool mdss_dp_is_link_training_requested(
@@ -1390,6 +1408,7 @@ static int mdss_dp_off_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	dp_drv->dp_initialized = false;
 
 	dp_drv->power_on = false;
+	mdss_dp_ack_state(dp_drv, false);
 	mutex_unlock(&dp_drv->train_mutex);
 	pr_debug("DP off done\n");
 
@@ -1413,51 +1432,29 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 		return mdss_dp_off_hpd(dp);
 }
 
-static void mdss_dp_send_cable_notification(
+static int mdss_dp_send_cable_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
+	int ret = 0;
 
 	if (!dp) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		return;
+		ret = -EINVAL;
+		goto end;
 	}
 
 	if (dp && dp->ext_audio_data.intf_ops.hpd)
-		dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
+		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
 				dp->ext_audio_data.type, val);
+
+end:
+	return ret;
 }
 
-static void mdss_dp_audio_codec_wait(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
 {
-	const int audio_completion_timeout_ms = HZ * 3;
-	int ret = 0;
-
-	if (!dp->wait_for_audio_comp)
-		return;
-
-	reinit_completion(&dp->audio_comp);
-	ret = wait_for_completion_timeout(&dp->audio_comp,
-			audio_completion_timeout_ms);
-	if (ret <= 0)
-		pr_warn("audio codec teardown timed out\n");
-
-	dp->wait_for_audio_comp = false;
+	return mdss_dp_send_cable_notification(dp, enable);
 }
-
-static void mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
-{
-	if (enable) {
-		mdss_dp_send_cable_notification(dp, enable);
-	} else {
-		mdss_dp_set_audio_switch_node(dp, enable);
-		mdss_dp_audio_codec_wait(dp);
-		mdss_dp_send_cable_notification(dp, enable);
-	}
-
-	pr_debug("notify state %s done\n",
-			enable ? "ENABLE" : "DISABLE");
-}
-
 
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 {
@@ -1614,22 +1611,18 @@ end:
 	return rc;
 }
 
-static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
+static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 {
-	struct mdss_dp_drv_pdata *dp = ptr;
+	struct mdss_dp_drv_pdata *dp;
+	struct delayed_work *dw = to_delayed_work(work);
 	struct hdcp_ops *ops;
 	int rc = 0;
 
-	if (!dp) {
-		pr_debug("invalid input\n");
-		return;
-	}
+	dp = container_of(dw, struct mdss_dp_drv_pdata, hdcp_cb_work);
 
 	ops = dp->hdcp.ops;
 
-	mutex_lock(&dp->train_mutex);
-
-	switch (status) {
+	switch (dp->hdcp_status) {
 	case HDCP_STATE_AUTHENTICATED:
 		pr_debug("hdcp authenticated\n");
 		dp->hdcp.auth_state = true;
@@ -1652,8 +1645,20 @@ static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
 	default:
 		break;
 	}
+}
 
-	mutex_unlock(&dp->train_mutex);
+static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
+{
+	struct mdss_dp_drv_pdata *dp = ptr;
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp->hdcp_status = status;
+
+	queue_delayed_work(dp->workq, &dp->hdcp_cb_work, HZ/4);
 }
 
 static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
@@ -1691,19 +1696,19 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
 
-	dp_drv->hdcp.data = hdcp_1x_init(&hdcp_init_data);
-	if (IS_ERR_OR_NULL(dp_drv->hdcp.data)) {
+	dp_drv->hdcp.hdcp1 = hdcp_1x_init(&hdcp_init_data);
+	if (IS_ERR_OR_NULL(dp_drv->hdcp.hdcp1)) {
 		pr_err("Error hdcp init\n");
 		rc = -EINVAL;
 		goto error;
 	}
 
-	dp_drv->panel_data.panel_info.hdcp_1x_data = dp_drv->hdcp.data;
+	dp_drv->panel_data.panel_info.hdcp_1x_data = dp_drv->hdcp.hdcp1;
 
 	pr_debug("HDCP 1.3 initialized\n");
 
 	dp_drv->hdcp.hdcp2 = dp_hdcp2p2_init(&hdcp_init_data);
-	if (!IS_ERR_OR_NULL(dp_drv->hdcp.data))
+	if (!IS_ERR_OR_NULL(dp_drv->hdcp.hdcp2))
 		pr_debug("HDCP 2.2 initialized\n");
 
 	dp_drv->hdcp.feature_enabled = true;
@@ -1882,6 +1887,13 @@ static void mdss_dp_update_hdcp_info(struct mdss_dp_drv_pdata *dp)
 	dp->hdcp.ops = ops;
 }
 
+static inline bool dp_is_hdcp_enabled(struct mdss_dp_drv_pdata *dp_drv)
+{
+	return dp_drv->hdcp.feature_enabled &&
+		(dp_drv->hdcp.hdcp1_present || dp_drv->hdcp.hdcp2_present) &&
+		dp_drv->hdcp.ops;
+}
+
 static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
@@ -1913,8 +1925,10 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		rc = mdss_dp_off(pdata);
 		break;
 	case MDSS_EVENT_BLANK:
-		if (dp->hdcp.ops && dp->hdcp.ops->off)
+		if (dp_is_hdcp_enabled(dp) && dp->hdcp.ops->off) {
+			flush_delayed_work(&dp->hdcp_cb_work);
 			dp->hdcp.ops->off(dp->hdcp.data);
+		}
 
 		mdss_dp_mainlink_push_idle(pdata);
 		break;
@@ -2191,6 +2205,11 @@ irqreturn_t dp_isr(int irq, void *ptr)
 			dp_aux_native_handler(dp, isr1);
 	}
 
+	if (dp->hdcp.ops && dp->hdcp.ops->isr) {
+		if (dp->hdcp.ops->isr(dp->hdcp.data))
+			pr_err("dp_hdcp_isr failed\n");
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -2205,6 +2224,7 @@ static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 	}
 
 	INIT_WORK(&dp->work, mdss_dp_event_work);
+	INIT_DELAYED_WORK(&dp->hdcp_cb_work, mdss_dp_hdcp_cb_work);
 	return 0;
 }
 
@@ -2307,14 +2327,20 @@ static int mdss_dp_hpd_irq_notify_clients(struct mdss_dp_drv_pdata *dp)
 	int ret = 0;
 
 	if (dp->hpd_irq_toggled) {
-		mdss_dp_notify_clients(dp, false);
+		dp->hpd_irq_clients_notified = true;
 
-		reinit_completion(&dp->irq_comp);
-		ret = wait_for_completion_timeout(&dp->irq_comp,
-				irq_comp_timeout);
-		if (ret <= 0) {
-			pr_warn("irq_comp timed out\n");
-			return -EINVAL;
+		ret = mdss_dp_notify_clients(dp, false);
+
+		if (!IS_ERR_VALUE(ret) && ret) {
+			reinit_completion(&dp->irq_comp);
+			ret = wait_for_completion_timeout(&dp->irq_comp,
+					irq_comp_timeout);
+			if (ret <= 0) {
+				pr_warn("irq_comp timed out\n");
+				ret = -EINVAL;
+			} else {
+				ret = 0;
+			}
 		}
 	}
 
@@ -2344,19 +2370,24 @@ static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp)
  * This function will check for changes in the link status, e.g. clock
  * recovery done on all lanes, and trigger link training if there is a
  * failure/error on the link.
+ *
+ * The function will return 0 if the a link status update has been processed,
+ * otherwise it will return -EINVAL.
  */
-static void mdss_dp_process_link_status_update(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_process_link_status_update(struct mdss_dp_drv_pdata *dp)
 {
 	if (!mdss_dp_is_link_status_updated(dp) ||
 			(mdss_dp_aux_channel_eq_done(dp) &&
 			mdss_dp_aux_clock_recovery_done(dp)))
-		return;
+		return -EINVAL;
 
 	pr_info("channel_eq_done = %d, clock_recovery_done = %d\n",
 			mdss_dp_aux_channel_eq_done(dp),
 			mdss_dp_aux_clock_recovery_done(dp));
 
 	mdss_dp_link_retraining(dp);
+
+	return 0;
 }
 
 /**
@@ -2366,11 +2397,14 @@ static void mdss_dp_process_link_status_update(struct mdss_dp_drv_pdata *dp)
  * This function will handle new link training requests that are initiated by
  * the sink. In particular, it will update the requested lane count and link
  * link rate, and then trigger the link retraining procedure.
+ *
+ * The function will return 0 if a link training request has been processed,
+ * otherwise it will return -EINVAL.
  */
-static void mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
 {
 	if (!mdss_dp_is_link_training_requested(dp))
-		return;
+		return -EINVAL;
 
 	mdss_dp_send_test_response(dp);
 
@@ -2383,6 +2417,28 @@ static void mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
 	dp->link_rate = dp->test_data.test_link_rate;
 
 	mdss_dp_link_retraining(dp);
+
+	return 0;
+}
+
+/**
+ * mdss_dp_process_downstream_port_status_change() - process port status changes
+ * @dp: Display Port Driver data
+ *
+ * This function will handle downstream port updates that are initiated by
+ * the sink. If the downstream port status has changed, the EDID is read via
+ * AUX.
+ *
+ * The function will return 0 if a downstream port update has been
+ * processed, otherwise it will return -EINVAL.
+ */
+static int mdss_dp_process_downstream_port_status_change(
+		struct mdss_dp_drv_pdata *dp)
+{
+	if (!mdss_dp_is_downstream_port_status_changed(dp))
+		return -EINVAL;
+
+	return mdss_dp_edid_read(dp);
 }
 
 /**
@@ -2393,21 +2449,31 @@ static void mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
  * (including cases when there are back to back HPD IRQ HIGH) indicating
  * the start of a new link training request or sink status update.
  */
-static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 {
-	pr_debug("enter: HPD IRQ High\n");
+	int ret = 0;
 
 	dp->hpd_irq_on = true;
 
 	mdss_dp_aux_parse_sink_status_field(dp);
 
-	mdss_dp_process_link_training_request(dp);
+	ret = mdss_dp_process_link_training_request(dp);
+	if (!ret)
+		goto exit;
 
-	mdss_dp_process_link_status_update(dp);
+	ret = mdss_dp_process_link_status_update(dp);
+	if (!ret)
+		goto exit;
 
-	mdss_dp_reset_test_data(dp);
+	ret = mdss_dp_process_downstream_port_status_change(dp);
+	if (!ret)
+		goto exit;
 
 	pr_debug("done\n");
+exit:
+	mdss_dp_reset_test_data(dp);
+
+	return ret;
 }
 
 /**
@@ -2417,11 +2483,15 @@ static void mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
  * This function will handle the HPD IRQ state transitions from HIGH to LOW,
  * indicating the end of a test request.
  */
-static void mdss_dp_process_hpd_irq_low(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_process_hpd_irq_low(struct mdss_dp_drv_pdata *dp)
 {
+	if (!dp->hpd_irq_clients_notified)
+		return -EINVAL;
+
 	pr_debug("enter: HPD IRQ low\n");
 
 	dp->hpd_irq_on = false;
+	dp->hpd_irq_clients_notified = false;
 
 	mdss_dp_update_cable_status(dp, false);
 	mdss_dp_mainlink_push_idle(&dp->panel_data);
@@ -2430,6 +2500,7 @@ static void mdss_dp_process_hpd_irq_low(struct mdss_dp_drv_pdata *dp)
 	mdss_dp_reset_test_data(dp);
 
 	pr_debug("done\n");
+	return 0;
 }
 
 static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
@@ -2471,14 +2542,17 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 			dp_drv->alt_mode.dp_status.hpd_irq;
 
 		if (dp_drv->alt_mode.dp_status.hpd_irq) {
-			mdss_dp_process_hpd_irq_high(dp_drv);
-			break;
-		}
+			pr_debug("Attention: hpd_irq high\n");
 
-		if (dp_drv->hpd_irq_toggled
-				&& !dp_drv->alt_mode.dp_status.hpd_irq) {
-			mdss_dp_process_hpd_irq_low(dp_drv);
-			break;
+			if (dp_drv->power_on && dp_drv->hdcp.ops &&
+			    dp_drv->hdcp.ops->cp_irq)
+				dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data);
+
+			if (!mdss_dp_process_hpd_irq_high(dp_drv))
+				break;
+		} else if (dp_drv->hpd_irq_toggled) {
+			if (!mdss_dp_process_hpd_irq_low(dp_drv))
+				break;
 		}
 
 		if (!dp_drv->alt_mode.dp_status.hpd_high) {
@@ -2500,9 +2574,6 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		else
 			dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
 
-		if (dp_drv->alt_mode.dp_status.hpd_irq && dp_drv->power_on &&
-		    dp_drv->hdcp.ops && dp_drv->hdcp.ops->isr)
-			dp_drv->hdcp.ops->isr(dp_drv->hdcp.data);
 		break;
 	case DP_VDM_STATUS:
 		dp_drv->alt_mode.dp_status.response = *vdos;
@@ -2677,10 +2748,8 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	mdss_dp_device_register(dp_drv);
 
 	dp_drv->inited = true;
-	dp_drv->wait_for_audio_comp = false;
 	dp_drv->hpd_irq_on = false;
 	mdss_dp_reset_test_data(dp_drv);
-	init_completion(&dp_drv->audio_comp);
 	init_completion(&dp_drv->irq_comp);
 
 	pr_debug("done\n");
@@ -2716,13 +2785,6 @@ void *mdss_dp_get_hdcp_data(struct device *dev)
 		return NULL;
 	}
 	return dp_drv->hdcp.data;
-}
-
-static inline bool dp_is_hdcp_enabled(struct mdss_dp_drv_pdata *dp_drv)
-{
-	return dp_drv->hdcp.feature_enabled &&
-		(dp_drv->hdcp.hdcp1_present || dp_drv->hdcp.hdcp2_present) &&
-		dp_drv->hdcp.ops;
 }
 
 static inline bool dp_is_stream_shareable(struct mdss_dp_drv_pdata *dp_drv)

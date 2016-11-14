@@ -319,7 +319,7 @@
 
 &labibb {
 	status = "ok";
-	qpnp,qpnp-labibb-mode = "lcd";
+	qcom,qpnp-labibb-mode = "lcd";
 };
 
 &dsi_dual_jdi_4k_nofbc_video {

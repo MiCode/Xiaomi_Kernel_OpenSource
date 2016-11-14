@@ -870,6 +870,38 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.name = "QUAT_MI2S_RX_HOSTLESS",
 		.probe = fe_dai_probe,
 	},
+	{
+		.playback = {
+			.stream_name = "INT0 MI2S_RX Hostless Playback",
+			.aif_name = "INT0_MI2S_DL_HL",
+			.rates = SNDRV_PCM_RATE_8000_192000,
+			.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+				    SNDRV_PCM_FMTBIT_S24_LE),
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min =     8000,
+			.rate_max =    192000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "INT0_MI2S_RX_HOSTLESS",
+		.probe = fe_dai_probe,
+	},
+	{
+		.playback = {
+			.stream_name = "INT4 MI2S_RX Hostless Playback",
+			.aif_name = "INT4_MI2S_DL_HL",
+			.rates = SNDRV_PCM_RATE_8000_192000,
+			.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+				    SNDRV_PCM_FMTBIT_S24_LE),
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min =     8000,
+			.rate_max =    192000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "INT4_MI2S_RX_HOSTLESS",
+		.probe = fe_dai_probe,
+	},
 	/* TDM Hostless */
 	{
 		.capture = {
