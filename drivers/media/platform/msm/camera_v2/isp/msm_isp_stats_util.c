@@ -848,7 +848,6 @@ int msm_isp_stats_reset(struct vfe_device *vfe_dev)
 	struct msm_vfe_stats_stream *stream_info = NULL;
 	struct msm_isp_timestamp timestamp;
 	unsigned long flags;
-	int k;
 
 	msm_isp_get_timestamp(&timestamp, vfe_dev);
 
@@ -877,15 +876,6 @@ int msm_isp_stats_reset(struct vfe_device *vfe_dev)
 				ISP_EVENT_BUF_FATAL_ERROR);
 			return rc;
 		}
-		for (k = 0; k < stream_info->num_isp; k++) {
-			struct vfe_device *temp_vfe_dev =
-					stream_info->vfe_dev[k];
-			temp_vfe_dev->hw_info->vfe_ops.stats_ops.
-				cfg_wm_irq_mask(
-					temp_vfe_dev, stream_info);
-			temp_vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
-				temp_vfe_dev, BIT(i), 1);
-		}
 	}
 
 	return rc;
@@ -912,6 +902,22 @@ int msm_isp_stats_restart(struct vfe_device *vfe_dev)
 			stream_info->composite_irq[j] = 0;
 		msm_isp_init_stats_ping_pong_reg(
 				stream_info);
+		for (j = 0; j < stream_info->num_isp; j++) {
+			struct vfe_device *temp_vfe_dev =
+					stream_info->vfe_dev[j];
+			uint8_t comp_flag = stream_info->composite_flag;
+
+			temp_vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
+				temp_vfe_dev, BIT(i), 1);
+			if (comp_flag)
+				temp_vfe_dev->hw_info->vfe_ops.stats_ops.
+					cfg_comp_mask(temp_vfe_dev, BIT(i),
+					(comp_flag - 1), 1);
+			else
+				temp_vfe_dev->hw_info->vfe_ops.stats_ops.
+					cfg_wm_irq_mask(
+						temp_vfe_dev, stream_info);
+		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 	}
 

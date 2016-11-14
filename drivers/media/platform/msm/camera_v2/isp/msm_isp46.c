@@ -90,7 +90,7 @@ static uint8_t stats_pingpong_offset_map[] = {
 
 uint32_t msm_vfe46_ub_reg_offset(struct vfe_device *vfe_dev, int wm_idx)
 {
-	return (VFE46_WM_BASE(wm_idx) + 0x18);
+	return (VFE46_WM_BASE(wm_idx) + 0x10);
 }
 
 uint32_t msm_vfe46_get_ub_size(struct vfe_device *vfe_dev)
@@ -526,7 +526,7 @@ static long msm_vfe46_reset_hardware(struct vfe_device *vfe_dev,
 		msm_camera_io_w(0xFFFFFEFF, vfe_dev->vfe_base + 0x68);
 		msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x58);
 		vfe_dev->hw_info->vfe_ops.axi_ops.
-			reload_wm(vfe_dev, vfe_dev->vfe_base, 0x0001FFFF);
+			reload_wm(vfe_dev, vfe_dev->vfe_base, 0x0031FFFF);
 	}
 
 	if (blocking_call) {
