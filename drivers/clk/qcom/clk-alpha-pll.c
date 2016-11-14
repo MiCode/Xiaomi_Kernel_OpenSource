@@ -221,8 +221,6 @@ void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 
 	if (pll->flags & SUPPORTS_FSM_MODE)
 		clk_alpha_set_fsm_mode(pll);
-
-	pll->inited = true;
 }
 
 static int clk_alpha_pll_hwfsm_enable(struct clk_hw *hw)
@@ -288,12 +286,6 @@ static int clk_alpha_pll_enable(struct clk_hw *hw)
 	u32 val, mask, off;
 
 	off = pll->offset;
-
-	if (unlikely(!pll->inited)) {
-		clk_alpha_pll_configure(pll, pll->clkr.regmap,
-					pll->config);
-	}
-
 	mask = PLL_OUTCTRL | PLL_RESET_N | PLL_BYPASSNL;
 	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &val);
 	if (ret)
