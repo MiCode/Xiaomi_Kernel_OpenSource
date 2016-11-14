@@ -177,6 +177,10 @@ struct clk_rate_request {
  * @set_flags: Set custom flags which deals with hardware specifics. Returns 0
  *	       on success, -EEROR otherwise.
  *
+ * @list_registers: Queries the hardware to get the current register contents.
+ *		    This callback is optional and required clocks could
+ *		    add this callback.
+ *
  * The clk_enable/clk_disable and clk_prepare/clk_unprepare pairs allow
  * implementations to split any work between atomic (enable) and sleepable
  * (prepare) contexts.  If enabling a clock requires code that might sleep,
@@ -217,6 +221,8 @@ struct clk_ops {
 	void		(*init)(struct clk_hw *hw);
 	int		(*debug_init)(struct clk_hw *hw, struct dentry *dentry);
 	int		(*set_flags)(struct clk_hw *hw, unsigned flags);
+	void		(*list_registers)(struct seq_file *f,
+							struct clk_hw *hw);
 };
 
 /**
