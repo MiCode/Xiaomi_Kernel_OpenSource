@@ -740,6 +740,16 @@ int dwc3_core_init(struct dwc3 *dwc)
 		}
 	}
 
+	/*
+	 * Workaround for STAR 9000961433 which affects only version
+	 * 3.00a of the DWC_usb3 core. This prevents the controller
+	 * interrupt from being masked while handling events. IMOD
+	 * allows us to work around this issue. Enable it for the
+	 * affected version.
+	 */
+	 if (!dwc->imod_interval && (dwc->revision == DWC3_REVISION_300A))
+		dwc->imod_interval = 1;
+
 	/* issue device SoftReset too */
 	ret = dwc3_core_reset(dwc);
 	if (ret)
