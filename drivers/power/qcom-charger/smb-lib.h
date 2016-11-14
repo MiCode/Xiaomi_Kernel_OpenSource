@@ -187,7 +187,6 @@ struct smb_charger {
 	int			voltage_min_uv;
 	int			voltage_max_uv;
 	int			pd_active;
-	bool			vbus_present;
 	bool			system_suspend_supported;
 
 	int			system_temp_level;

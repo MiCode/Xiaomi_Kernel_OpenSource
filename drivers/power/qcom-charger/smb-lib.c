@@ -2303,6 +2303,7 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 	int rc;
 	u8 stat;
+	bool vbus_rising;
 
 	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
@@ -2310,9 +2311,9 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	chg->vbus_present = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
+	vbus_rising = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
 	smblib_set_opt_freq_buck(chg,
-		chg->vbus_present ? FSW_600HZ_FOR_5V : FSW_1MHZ_FOR_REMOVAL);
+		vbus_rising ? FSW_600HZ_FOR_5V : FSW_1MHZ_FOR_REMOVAL);
 
 	/* fetch the DPDM regulator */
 	if (!chg->dpdm_reg && of_get_property(chg->dev->of_node,
@@ -2325,7 +2326,7 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 		}
 	}
 
-	if (chg->vbus_present) {
+	if (vbus_rising) {
 		if (chg->dpdm_reg && !regulator_is_enabled(chg->dpdm_reg)) {
 			smblib_dbg(chg, PR_MISC, "enabling DPDM regulator\n");
 			rc = regulator_enable(chg->dpdm_reg);
@@ -2352,7 +2353,7 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 
 	power_supply_changed(chg->usb_psy);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s %s\n",
-		   irq_data->name, chg->vbus_present ? "attached" : "detached");
+		   irq_data->name, vbus_rising ? "attached" : "detached");
 	return IRQ_HANDLED;
 }
 
