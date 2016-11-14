@@ -260,7 +260,7 @@ int hyp_assign_table(struct sg_table *table,
 			int *dest_vmids, int *dest_perms,
 			int dest_nelems)
 {
-	int ret;
+	int ret = 0;
 	struct scm_desc desc = {0};
 	u32 *source_vm_copy;
 	size_t source_vm_copy_size;
