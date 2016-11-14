@@ -8584,7 +8584,7 @@ static int tavil_handle_pdata(struct tavil_priv *tavil,
 	if (pdata->dmic_clk_drv ==
 	    WCD9XXX_DMIC_CLK_DRIVE_UNDEFINED) {
 		pdata->dmic_clk_drv = WCD934X_DMIC_CLK_DRIVE_DEFAULT;
-		dev_info(codec->dev,
+		dev_dbg(codec->dev,
 			 "%s: dmic_clk_strength invalid, default = %d\n",
 			 __func__, pdata->dmic_clk_drv);
 	}

@@ -761,7 +761,8 @@ const struct snd_soc_dapm_route tavil_audio_map[] = {
 	{"RX INT0_2 MUX", "RX5", "CDC_IF RX5 MUX"},
 	{"RX INT0_2 MUX", "RX6", "CDC_IF RX6 MUX"},
 	{"RX INT0_2 MUX", "RX7", "CDC_IF RX7 MUX"},
-	{"RX INT0 SEC MIX", NULL, "RX INT0_2 MUX"},
+	{"RX INT0_2 INTERP", NULL, "RX INT0_2 MUX"},
+	{"RX INT0 SEC MIX", NULL, "RX INT0_2 INTERP"},
 
 	/* Mixing path INT1 */
 	{"RX INT1_2 MUX", "RX0", "CDC_IF RX0 MUX"},
