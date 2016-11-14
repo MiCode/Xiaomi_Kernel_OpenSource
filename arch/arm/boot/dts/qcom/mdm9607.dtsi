@@ -1501,6 +1501,20 @@
 		status = "disabled";
 	};
 
+	qrng: rng@0x22000 {
+		compatible = "qcom,msm-rng";
+		reg = <0x22000 0x140>;
+		qcom,msm-rng-iface-clk;
+		qcom,msm-bus,name = "msm-rng-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<1 618 0 0>,
+			<1 618 0 800>;
+		clocks = <&clock_gcc clk_gcc_prng_ahb_clk>;
+		clock-names = "iface_clk";
+	};
+
 	qcom_crypto: qcrypto@720000 {
 		compatible = "qcom,qcrypto";
 		reg = <0x720000 0x20000>,
