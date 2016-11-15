@@ -2203,6 +2203,32 @@ config ATAGS_PROC
 	  Should the atags used to boot the kernel be exported in an "atags"
 	  file in procfs. Useful with kexec.
 
+config KEXEC_HARDBOOT
+	bool "Support hard booting to a kexec kernel"
+	depends on KEXEC
+	help
+	  Allows hard booting (i.e., with a full hardware reboot) to a kernel
+	  previously loaded in memory by kexec.  This works around the problem of
+	  soft-booted kernel hangs due to improper device shutdown and/or
+	  reinitialization.  Support is comprised of two components:
+
+	  First, a "hardboot" flag is added to the kexec syscall to force a hard
+	  reboot in relocate_new_kernel() (which requires machine-specific assembly
+	  code).  This also requires the kexec userspace tool to load the kexec'd
+	  kernel in memory region left untouched by the bootloader (i.e., not
+	  explicitly cleared and not overwritten by the boot kernel).  Just prior
+	  to reboot, the kexec kernel arguments are stashed in a machine-specific
+	  memory page that must also be preserved.  Note that this hardboot page
+	  need not be reserved during regular kernel execution.
+
+	  Second, the zImage decompresor of the boot (bootloader-loaded) kernel is
+	  modified to check the hardboot page for fresh kexec arguments, and if
+	  present, attempts to jump to the kexec'd kernel preserved in memory.
+
+	  Note that hardboot support is only required in the boot kernel and any
+	  kernel capable of performing a hardboot kexec.  It is _not_ required by a
+	  kexec'd kernel.
+
 config CRASH_DUMP
 	bool "Build kdump crash kernel (EXPERIMENTAL)"
 	help
