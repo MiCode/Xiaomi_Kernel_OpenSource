@@ -652,10 +652,6 @@ int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
 		return -EINVAL;
 	}
 
-	if (binfo->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		return 0;
-
-
 	for (i = 0; i < binfo->num_planes; i++) {
 		if (binfo->handle[i]) {
 			rc = msm_comm_smem_cache_operations(inst,
