@@ -744,10 +744,6 @@
 				qcom,led-name = "led:switch_0";
 				qcom,led-mask = <3>;
 				qcom,default-led-trigger = "switch0_trigger";
-				reg0 {
-					regulator-name = "pmicobalt_bob";
-					max-voltage-uv = <3600000>;
-				};
 			};
 
 			pmicobalt_switch1: qcom,led_switch_1 {
@@ -755,10 +751,6 @@
 				qcom,led-name = "led:switch_1";
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
-				reg0 {
-					regulator-name = "pmicobalt_bob";
-					max-voltage-uv = <3600000>;
-				};
 			};
 		};
 	};
