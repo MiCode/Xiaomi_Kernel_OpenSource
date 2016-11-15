@@ -680,6 +680,35 @@ struct drm_crtc {
 	 * context.
 	 */
 	struct drm_modeset_acquire_ctx *acquire_ctx;
+
+	/**
+	 * @fence_context:
+	 *
+	 * timeline context used for fence operations.
+	 */
+	unsigned int fence_context;
+
+	/**
+	 * @fence_lock:
+	 *
+	 * spinlock to protect the fences in the fence_context.
+	 */
+
+	spinlock_t fence_lock;
+	/**
+	 * @fence_seqno:
+	 *
+	 * Seqno variable used as monotonic counter for the fences
+	 * created on the CRTC's timeline.
+	 */
+	unsigned long fence_seqno;
+
+	/**
+	 * @timeline_name:
+	 *
+	 * The name of the CRTC's fence timeline.
+	 */
+	char timeline_name[32];
 };
 
 /**
