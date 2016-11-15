@@ -30,7 +30,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x86800000 0x0 0x05600000>;
+			reg = <0x0 0x86800000 0x0 0x05500000>;
 			label = "modem_adsp_mem";
 		};
 
@@ -38,8 +38,16 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8be00000 0x0 0x0600000>;
+			reg = <0x0 0x8bd00000 0x0 0x0600000>;
 			label = "peripheral_mem";
+		};
+
+		hardboot_mem: hardboot_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x8c300000 0x0 0x0100000>;
+			label = "hardboot_mem";
 		};
 
 		pstore_reserve_mem: pstore_reserve_mem_region@0 {

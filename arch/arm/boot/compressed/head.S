@@ -10,6 +10,10 @@
  */
 #include <linux/linkage.h>
 #include <asm/assembler.h>
+#ifdef CONFIG_KEXEC_HARDBOOT
+#include <asm/kexec.h>
+#include <asm/memory.h>
+#endif
 
 	.arch	armv7-a
 /*
@@ -141,6 +145,65 @@ start:
 #endif
 		mov	r7, r1			@ save architecture ID
 		mov	r8, r2			@ save atags pointer
+
+#ifdef CONFIG_KEXEC_HARDBOOT
+               /* Check hardboot page for a kexec kernel. */
+               ldr     r3, =KEXEC_HB_PAGE_ADDR
+               ldr     r0, [r3]
+               ldr     r1, =KEXEC_HB_PAGE_MAGIC
+               teq     r0, r1
+               bne     not_booting_other
+
+               /* Clear hardboot page magic to avoid boot loop. */
+               mov     r0, #0
+               str     r0, [r3]
+
+               /*
+                * Copy dtb from location up high in memory to default location.
+                * Kernel freezes if this is not done.
+                */
+               ldr     r1, [r3, #12]                   @ kexec_boot_atags
+               ldr     r2, [r3, #16]                   @ kexec_boot_atags_len
+               mov     r5, #0                                  @ iterator
+catags_cpy:
+               ldr     r0, [r1, r5]                    @ from kexec_boot_atags
+               str     r0, [r8, r5]                    @ to atags_pointer
+               add     r5, r5, #4
+               cmp     r5, r2
+               blo     catags_cpy
+
+#ifdef KEXEC_HB_KERNEL_LOC
+               /*
+                * Copy kernel from location up high in memory to location in first 128MB.
+                * Bootloader on hammerhead erases first 128MB of ram on reboot, so it can't
+                * be in there before reboot, but decompressing in location above 128MB takes
+                * a long time. This memcpy is much quicker, for some reason.
+                */
+               ldr     r2, [r3, #4]                            @ kexec_start_address
+               ldr     r4, [r3, #20]                           @ kexec_kernel_len
+               ldr     r6, =KEXEC_HB_KERNEL_LOC    @ target
+               mov     r5, #0                                          @ iterator
+
+kernel_cpy:
+               ldr     r0, [r2, r5]                            @ from kexec_start_address
+               str     r0, [r6, r5]                            @ to KEXEC_HB_KERNEL_LOC
+               add     r5, r5, #4
+               cmp     r5, r4
+               blo     kernel_cpy
+#else
+               ldr     r6, [r3, #4]                            @ kexec_start_address
+#endif
+
+               /* set registers and boot kexecd' kernel */
+               mov     r0, #0
+               ldr     r1, [r3, #8]                            @ kexec_mach_type
+               mov     r2, r8                                          @ atags pointer
+               mov     pc, r6
+
+               .ltorg
+
+not_booting_other:
+#endif
 
 #ifndef __ARM_ARCH_2__
 		/*

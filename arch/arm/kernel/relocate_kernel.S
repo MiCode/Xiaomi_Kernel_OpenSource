@@ -4,6 +4,16 @@
 
 #include <asm/kexec.h>
 
+#ifdef CONFIG_KEXEC_HARDBOOT
+#include <asm/memory.h>
+#if defined(CONFIG_ARCH_TEGRA_2x_SOC) || defined(CONFIG_ARCH_TEGRA_3x_SOC)
+#include <mach/iomap.h>
+#elif defined(CONFIG_ARCH_APQ8064) || defined(CONFIG_ARCH_MSM8916)
+#include <asm/memory.h>
+#include <mach/msm_iomap.h>
+#endif
+#endif
+
 	.globl relocate_new_kernel
 relocate_new_kernel:
 
@@ -52,6 +62,11 @@ relocate_new_kernel:
 	b 0b
 
 2:
+#ifdef CONFIG_KEXEC_HARDBOOT
+	ldr	r0, kexec_hardboot
+	teq	r0, #0
+	bne	hardboot
+#endif
 	/* Jump to relocated kernel */
 	mov lr,r1
 	mov r0,#0
@@ -60,6 +75,52 @@ relocate_new_kernel:
  ARM(	mov pc, lr	)
  THUMB(	bx lr		)
 
+#ifdef CONFIG_KEXEC_HARDBOOT
+hardboot:
+	/* Stash boot arguments in hardboot page:
+	 *  0: KEXEC_HB_PAGE_MAGIC
+	 *  4: kexec_start_address
+	 *  8: kexec_mach_type
+	 * 12: kexec_boot_atags
+	 * 16: kexec_boot_atags_len
+	 * 20: kexec_kernel_len */
+	ldr	r0, =KEXEC_HB_PAGE_ADDR
+	str	r1, [r0, #4]
+	ldr	r1, kexec_mach_type
+	str	r1, [r0, #8]
+	ldr	r1, kexec_boot_atags
+	str	r1, [r0, #12]
+	ldr	r1, kexec_boot_atags_len
+	str	r1, [r0, #16]
+	ldr	r1, kexec_kernel_len
+	str	r1, [r0, #20]
+	ldr	r1, =KEXEC_HB_PAGE_MAGIC
+	str	r1, [r0]
+
+#if defined(CONFIG_ARCH_TEGRA_2x_SOC) || defined(CONFIG_ARCH_TEGRA_3x_SOC)
+	ldr     r0, =TEGRA_PMC_BASE
+	ldr	r1, [r0]
+	orr	r1, r1, #0x10
+	str	r1, [r0]
+loop:	b	loop
+#elif defined(CONFIG_ARCH_APQ8064)
+	/* Restart using the PMIC chip, see mach-msm/restart.c */
+	ldr	r0, =APQ8064_TLMM_PHYS
+	mov	r1, #0
+	str	r1, [r0, #0x820]  @ PSHOLD_CTL_SU
+loop:	b	loop
+#elif defined(CONFIG_ARCH_MSM8916)
+	/* Restart using the PMIC chip, see mach-msm/restart.c */
+	ldr	r0, =MSM8916_KEXEC_HARDBOOT
+	mov	r1, #0
+	str	r1, [r0, #0]
+loop:	b	loop
+#else
+#error "No reboot method defined for hardboot."
+#endif
+
+	.ltorg
+#endif
 	.align
 
 	.globl kexec_start_address
@@ -78,6 +139,20 @@ kexec_mach_type:
 	.globl kexec_boot_atags
 kexec_boot_atags:
 	.long	0x0
+
+#ifdef CONFIG_KEXEC_HARDBOOT
+	.globl kexec_boot_atags_len
+kexec_boot_atags_len:
+	.long	0x0
+
+	.globl kexec_kernel_len
+kexec_kernel_len:
+	.long	0x0
+
+	.globl kexec_hardboot
+kexec_hardboot:
+	.long	0x0
+#endif
 
 relocate_new_kernel_end:
 
