@@ -611,7 +611,7 @@
 			< 13763 /* 1804 MHz */ >;
 	};
 
-	qcom,arm-memlat-mon-0 {
+	devfreq_memlat_0: qcom,arm-memlat-mon-0 {
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist =	<&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,target-dev = <&memlat_cpu0>;
@@ -622,7 +622,7 @@
 			< 1881600 5859 >;
 	};
 
-	qcom,arm-memlat-mon-4 {
+	devfreq_memlat_4: qcom,arm-memlat-mon-4 {
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist =	<&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,target-dev = <&memlat_cpu4>;
