@@ -4,3 +4,4 @@
 obj-$(CONFIG_GSI) += gsi/
 obj-$(CONFIG_IPA) += ipa/
 obj-$(CONFIG_IPA3) += ipa/
+obj-$(CONFIG_SPS) += sps/
