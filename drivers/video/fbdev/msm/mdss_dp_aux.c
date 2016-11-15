@@ -142,7 +142,6 @@ static int dp_cmd_fifo_tx(struct edp_buf *tp, unsigned char *base)
 		data &= 0x00ff00; /* index = 0, write */
 		if (cnt == 0)
 			data |= BIT(31);  /* INDEX_WRITE */
-		pr_debug("data=%x\n", data);
 		dp_write(base + DP_AUX_DATA, data);
 		cnt++;
 		dp++;
@@ -153,7 +152,6 @@ static int dp_cmd_fifo_tx(struct edp_buf *tp, unsigned char *base)
 		data |= BIT(8); /* I2C */
 
 	data |= BIT(9); /* GO */
-	pr_debug("data=%x\n", data);
 	dp_write(base + DP_AUX_TRANS_CTRL, data);
 
 	return tp->len;
@@ -176,7 +174,6 @@ static int dp_cmd_fifo_rx(struct edp_buf *rp, int len, unsigned char *base)
 	data = dp_read(base + DP_AUX_DATA);
 	for (i = 0; i < len; i++) {
 		data = dp_read(base + DP_AUX_DATA);
-		pr_debug("data=%x\n", data);
 		*dp++ = (char)((data >> 8) & 0xff);
 	}
 
@@ -199,9 +196,6 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 
 	cm = cmd;
 	while (cm) {
-		pr_debug("i2c=%d read=%d addr=%x len=%d next=%d\n",
-			cm->i2c, cm->read, cm->addr, cm->len,
-			cm->next);
 		ret = dp_buf_add_cmd(tp, cm);
 		if (ret <= 0)
 			break;
@@ -257,9 +251,6 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 	cm = cmds;
 	len = 0;
 	while (cm) {
-		pr_debug("i2c=%d read=%d addr=%x len=%d next=%d\n",
-			cm->i2c, cm->read, cm->addr, cm->len,
-			cm->next);
 		ret = dp_buf_add_cmd(tp, cm);
 		len += cm->len;
 		if (ret <= 0)
@@ -305,9 +296,6 @@ int dp_aux_read(void *ep, struct edp_cmd *cmds)
 
 void dp_aux_native_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 {
-
-	pr_debug("isr=%x\n", isr);
-
 	if (isr & EDP_INTR_AUX_I2C_DONE)
 		ep->aux_error_num = EDP_AUX_ERR_NONE;
 	else if (isr & EDP_INTR_WRONG_ADDR)
@@ -322,9 +310,6 @@ void dp_aux_native_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 
 void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 {
-
-	pr_debug("isr=%x\n", isr);
-
 	if (isr & EDP_INTR_AUX_I2C_DONE) {
 		if (isr & (EDP_INTR_I2C_NACK | EDP_INTR_I2C_DEFER))
 			ep->aux_error_num = EDP_AUX_ERR_NACK;
