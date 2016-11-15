@@ -358,6 +358,8 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 		feature_mask_len = FEATURE_MASK_LEN;
 	}
 
+	diag_cmd_remove_reg_by_proc(peripheral);
+
 	driver->feature[peripheral].rcvd_feature_mask = 1;
 
 	for (i = 0; i < feature_mask_len && read_len < len; i++) {
