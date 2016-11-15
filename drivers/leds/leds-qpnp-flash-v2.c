@@ -27,6 +27,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/leds-qpnp-flash.h>
 #include <linux/leds-qpnp-flash-v2.h>
+#include <linux/qpnp/qpnp-revid.h>
 #include "leds.h"
 
 #define	FLASH_LED_REG_LED_STATUS1(base)		(base + 0x08)
@@ -191,32 +192,33 @@ struct flash_switch_data {
  * Flash LED configuration read from device tree
  */
 struct flash_led_platform_data {
-	int	*thermal_derate_current;
-	int	all_ramp_up_done_irq;
-	int	all_ramp_down_done_irq;
-	int	led_fault_irq;
-	int	ibatt_ocp_threshold_ua;
-	int	vled_max_uv;
-	int	rpara_uohm;
-	int	lmh_rbatt_threshold_uohm;
-	int	lmh_ocv_threshold_uv;
-	u32	led1n2_iclamp_low_ma;
-	u32	led1n2_iclamp_mid_ma;
-	u32	led3_iclamp_low_ma;
-	u32	led3_iclamp_mid_ma;
-	u8	isc_delay;
-	u8	warmup_delay;
-	u8	current_derate_en_cfg;
-	u8	vph_droop_threshold;
-	u8	vph_droop_hysteresis;
-	u8	vph_droop_debounce;
-	u8	lmh_mitigation_sel;
-	u8	chgr_mitigation_sel;
-	u8	lmh_level;
-	u8	iled_thrsh_val;
-	u8	hw_strobe_option;
-	bool	hdrm_auto_mode_en;
-	bool	thermal_derate_en;
+	struct pmic_revid_data	*pmic_rev_id;
+	int			*thermal_derate_current;
+	int			all_ramp_up_done_irq;
+	int			all_ramp_down_done_irq;
+	int			led_fault_irq;
+	int			ibatt_ocp_threshold_ua;
+	int			vled_max_uv;
+	int			rpara_uohm;
+	int			lmh_rbatt_threshold_uohm;
+	int			lmh_ocv_threshold_uv;
+	u32			led1n2_iclamp_low_ma;
+	u32			led1n2_iclamp_mid_ma;
+	u32			led3_iclamp_low_ma;
+	u32			led3_iclamp_mid_ma;
+	u8			isc_delay;
+	u8			warmup_delay;
+	u8			current_derate_en_cfg;
+	u8			vph_droop_threshold;
+	u8			vph_droop_hysteresis;
+	u8			vph_droop_debounce;
+	u8			lmh_mitigation_sel;
+	u8			chgr_mitigation_sel;
+	u8			lmh_level;
+	u8			iled_thrsh_val;
+	u8			hw_strobe_option;
+	bool			hdrm_auto_mode_en;
+	bool			thermal_derate_en;
 };
 
 /*
@@ -1500,9 +1502,32 @@ static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
 static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 						struct device_node *node)
 {
+	struct device_node *revid_node;
 	int rc;
 	u32 val;
 	bool short_circuit_det, open_circuit_det, vph_droop_det;
+
+	revid_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
+	if (!revid_node) {
+		pr_err("Missing qcom,pmic-revid property - driver failed\n");
+		return -EINVAL;
+	}
+
+	led->pdata->pmic_rev_id = get_revid_data(revid_node);
+	if (IS_ERR_OR_NULL(led->pdata->pmic_rev_id)) {
+		pr_err("Unable to get pmic_revid rc=%ld\n",
+			PTR_ERR(led->pdata->pmic_rev_id));
+		/*
+		 * the revid peripheral must be registered, any failure
+		 * here only indicates that the rev-id module has not
+		 * probed yet.
+		 */
+		return -EPROBE_DEFER;
+	}
+
+	pr_debug("PMIC subtype %d Digital major %d\n",
+		led->pdata->pmic_rev_id->pmic_subtype,
+		led->pdata->pmic_rev_id->rev4);
 
 	led->pdata->hdrm_auto_mode_en = of_property_read_bool(node,
 							"qcom,hdrm-auto-mode");
