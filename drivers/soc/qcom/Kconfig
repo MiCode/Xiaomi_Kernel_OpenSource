@@ -364,3 +364,12 @@ config MSM_QMI_INTERFACE
 	  This library provides interface functions to the kernel drivers
 	  to perform QMI message marshaling and transport them over IPC
 	  Router.
+
+config MSM_GLINK_PKT
+	bool "Enable device interface for GLINK packet channels"
+	depends on MSM_GLINK
+	help
+	  G-link packet driver provides the interface for the userspace
+	  clients to communicate over G-Link via device nodes.
+	  This enable the userspace clients to read and write to
+	  some glink packets channel.
