@@ -42,7 +42,7 @@
 	qcom,acdcr-val = <0x002b5ffd 0x002b5ffd>;
 	qcom,acdsscr-val = <0x00000501 0x00000501>;
 	qcom,acdextint0-val = <0x2cf9ae8 0x2cf9ae8>;
-	qcom,acdextint1-val = <0x2cf9afc 0x2cf9afc>;
+	qcom,acdextint1-val = <0x2cf9afe 0x2cf9afe>;
 	qcom,acdautoxfer-val = <0x00000015 0x00000015>;
 	qcom,perfcl-apcs-mem-acc-threshold-voltage = <852000>;
 	qcom,apm-threshold-voltage = <800000>;
