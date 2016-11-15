@@ -32,6 +32,9 @@
 #include "sde_formats.h"
 #include "sde_encoder_phys.h"
 #include "sde_color_processing.h"
+#include "sde_rsc.h"
+
+#include "sde_power_handle.h"
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
@@ -111,6 +114,9 @@ struct sde_encoder_virt {
 
 	atomic_t frame_done_timeout;
 	struct timer_list frame_done_timer;
+
+	struct sde_rsc_client *rsc_client;
+	struct msm_display_info disp_info;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -157,6 +163,8 @@ void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	SDE_DEBUG_ENC(sde_enc, "\n");
 
 	mutex_lock(&sde_enc->enc_lock);
+	sde_rsc_client_destroy(sde_enc->rsc_client);
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
@@ -367,7 +375,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
-	int i = 0;
+	int i = 0, ret;
+	enum sde_rsc_state rsc_state;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -390,6 +399,9 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 
 	sde_enc->cur_master = NULL;
+	rsc_state = sde_enc->disp_info.capabilities & MSM_DISPLAY_CAP_CMD_MODE ?
+				SDE_RSC_CMD_STATE : SDE_RSC_VID_STATE;
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
@@ -411,6 +423,19 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		SDE_ERROR("virt encoder has no master! num_phys %d\n", i);
 	else if (sde_enc->cur_master->ops.enable)
 		sde_enc->cur_master->ops.enable(sde_enc->cur_master);
+
+	/**
+	 * this should be after interface enable because interface enable api
+	 * turns on panel, configure the TE for command mode and turns on
+	 * timing engine for video mode. The RSC api call is going to wait
+	 * for vsync after it switches the mode - that requires te/timing engine
+	 * enabled.
+	 */
+	ret = sde_rsc_client_state_update(sde_enc->rsc_client, rsc_state, NULL,
+			drm_enc->crtc ? drm_enc->crtc->index : -1);
+	if (ret)
+		SDE_ERROR("sde rsc client update failed ret:%d\n", ret);
+
 }
 
 static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
@@ -462,6 +487,8 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	sde_rm_release(&sde_kms->rm, drm_enc);
 
+	sde_rsc_client_state_update(sde_enc->rsc_client, SDE_RSC_IDLE_STATE,
+						NULL, -1);
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 }
 
@@ -821,6 +848,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 	struct sde_encoder_phys *phys;
 	bool needs_hw_reset = false;
 	unsigned int i;
+	int ret;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -830,6 +858,15 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
+
+	if (sde_enc->disp_info.is_primary) {
+		ret = sde_rsc_client_vote(sde_enc->rsc_client,
+			SDE_POWER_HANDLE_DATA_BUS_IB_QUOTA,
+			SDE_POWER_HANDLE_DATA_BUS_AB_QUOTA,
+			true);
+		if (ret)
+			SDE_ERROR("sde rsc client vote failed ret:%d\n", ret);
+	}
 
 	/* prepare for next kickoff, may include waiting on previous kickoff */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -1310,6 +1347,7 @@ struct drm_encoder *sde_encoder_init(
 	struct drm_encoder *drm_enc = NULL;
 	struct sde_encoder_virt *sde_enc = NULL;
 	int drm_enc_mode = DRM_MODE_ENCODER_NONE;
+	char name[SDE_NAME_SIZE];
 	int ret = 0;
 
 	sde_enc = kzalloc(sizeof(*sde_enc), GFP_KERNEL);
@@ -1335,6 +1373,16 @@ struct drm_encoder *sde_encoder_init(
 			(unsigned long) sde_enc);
 
 	_sde_encoder_init_debugfs(drm_enc, sde_enc, sde_kms);
+
+	snprintf(name, SDE_NAME_SIZE, "rsc_enc%u", drm_enc->base.id);
+	sde_enc->rsc_client = sde_rsc_client_create(SDE_RSC_INDEX, name,
+							disp_info->is_primary);
+	if (IS_ERR_OR_NULL(sde_enc->rsc_client)) {
+		SDE_ERROR("sde rsc client create failed :%ld\n",
+						PTR_ERR(sde_enc->rsc_client));
+		sde_enc->rsc_client = NULL;
+	}
+	memcpy(&sde_enc->disp_info, disp_info, sizeof(*disp_info));
 
 	SDE_DEBUG_ENC(sde_enc, "created\n");
 
@@ -1399,4 +1447,17 @@ enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder)
 	}
 
 	return INTF_MODE_NONE;
+}
+
+bool sde_encoder_get_intf_primary(struct drm_encoder *encoder)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+
+	if (!encoder) {
+		SDE_ERROR("invalid encoder\n");
+		return INTF_MODE_NONE;
+	}
+	sde_enc = to_sde_encoder_virt(encoder);
+
+	return sde_enc->disp_info.is_primary;
 }

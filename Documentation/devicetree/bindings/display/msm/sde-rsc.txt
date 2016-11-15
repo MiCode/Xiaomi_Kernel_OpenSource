@@ -1,0 +1,72 @@
+Qualcomm Technologies, Inc. SDE RSC
+
+Snapdragon Display Engine implements display rsc to driver
+display core to different modes for power saving
+
+Required properties
+- compatible:			Must be "qcom,sde-rsc"
+- reg:				Offset and length of the register set for
+				the device.
+- reg-names:			Names to refer to register sets related
+				to this device
+
+Optional properties:
+- clocks:			List of phandles for clock device nodes
+				needed by the device.
+- clock-names:			List of clock names needed by the device.
+- vdd-supply:			phandle for vdd regulator device node.
+- qcom,sde-rsc-version:		U32 property represents the rsc version. It helps to
+				select correct sequence for sde rsc based on version.
+- qcom,sde-dram-channels:	U32 property represents the number of channels in the
+				Bus memory controller.
+- qcom,sde-num-nrt-paths:	U32 property represents the number of non-realtime
+				paths in each Bus Scaling Usecase. This value depends on
+				number of AXI ports that are dedicated to non-realtime VBIF
+				for particular chipset.
+				These paths must be defined after rt-paths in
+				"qcom,msm-bus,vectors-KBps" vector request.
+
+Bus Scaling Subnodes:
+- qcom,sde-data-bus:		Property to provide Bus scaling for data bus access for
+				sde blocks.
+
+Bus Scaling Data:
+- qcom,msm-bus,name:		String property describing client name.
+- qcom,msm-bus,active-only:	Boolean context flag for requests in active or
+				dual (active & sleep) contex
+- qcom,msm-bus,num-cases:	This is the number of Bus Scaling use cases
+				defined in the vectors property.
+- qcom,msm-bus,num-paths:	This represents the number of paths in each
+				Bus Scaling Usecase.
+- qcom,msm-bus,vectors-KBps:	* A series of 4 cell properties, with a format
+				of (src, dst, ab, ib) which is defined at
+				Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+				* Current values of src & dst are defined at
+				include/linux/msm-bus-board.h
+Example:
+	sde_rscc {
+		cell-index = <0>;
+		compatible = "qcom,sde-rsc";
+		reg = <0xaf20000 0x1c44>,
+			<0xaf30000 0x3fd4>;
+		reg-names = "drv", "wrapper";
+		clocks = <&clock_mmss clk_mdss_ahb_clk>,
+			<&clock_mmss clk_mdss_axi_clk>;
+		clock-names = "iface_clk", "bus_clk";
+		vdd-supply = <&gdsc_mdss>;
+
+		qcom,sde-rsc-version = <1>;
+		qcom,sde-dram-channels = <2>;
+		qcom,sde-num-nrt-paths = <1>;
+
+		qcom,sde-data-bus {
+		      qcom,msm-bus,name = "sde_rsc";
+		      qcom,msm-bus,active-only;
+		      qcom,msm-bus,num-cases = <3>;
+		      qcom,msm-bus,num-paths = <2>;
+		      qcom,msm-bus,vectors-KBps =
+		          <22 512 0 0>, <23 512 0 0>,
+		          <22 512 0 6400000>, <23 512 0 6400000>,
+		          <22 512 0 6400000>, <23 512 0 6400000>;
+		};
+	};

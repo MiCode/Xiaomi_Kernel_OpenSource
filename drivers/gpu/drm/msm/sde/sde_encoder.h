@@ -104,6 +104,12 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
  */
 enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
 
+/*
+ * sde_encoder_get_intf_primary - is primary display connected with encoder
+ * @encoder: Pointer to drm encoder object
+ */
+bool sde_encoder_get_intf_primary(struct drm_encoder *encoder);
+
 /**
  * sde_encoder_init - initialize virtual encoder object
  * @dev:        Pointer to drm device structure
