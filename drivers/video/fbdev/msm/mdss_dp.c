@@ -1450,6 +1450,12 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
 	return mdss_dp_send_cable_notification(dp, enable);
 }
 
+static void mdss_dp_set_default_resolution(struct mdss_dp_drv_pdata *dp)
+{
+	hdmi_edid_set_video_resolution(dp->panel_data.panel_info.edid_data,
+			DEFAULT_VIDEO_RESOLUTION, true);
+}
+
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
@@ -1483,6 +1489,8 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 	/* initialize EDID buffer pointers */
 	dp_drv->edid_buf = edid_init_data.buf;
 	dp_drv->edid_buf_size = edid_init_data.buf_size;
+
+	mdss_dp_set_default_resolution(dp_drv);
 
 	return 0;
 }
@@ -1548,8 +1556,11 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	mdss_dp_dpcd_cap_read(dp_drv);
 
 	ret = mdss_dp_edid_read(dp_drv);
-	if (ret)
+	if (ret) {
+		pr_info("edid read error, setting default resolution\n");
+		mdss_dp_set_default_resolution(dp_drv);
 		goto edid_error;
+	}
 
 	pr_debug("edid_read success. buf_size=%d\n",
 				dp_drv->edid_buf_size);
@@ -1560,14 +1571,13 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		goto edid_error;
 	}
 
+edid_error:
 	mdss_dp_update_cable_status(dp_drv, true);
 	mdss_dp_notify_clients(dp_drv, true);
 	dp_drv->dp_initialized = true;
 
 	return ret;
 
-edid_error:
-	mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
 clk_error:
 	mdss_dp_regulator_ctrl(dp_drv, false);
 	mdss_dp_config_gpios(dp_drv, false);

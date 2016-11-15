@@ -770,8 +770,11 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		pr_debug("blk_num=%d, rlen=%d\n", blk_num, rlen);
 
 		if (dp_edid_is_valid_header(rp->data)) {
-			if (dp_edid_buf_error(rp->data, rp->len))
-				continue;
+			ret = dp_edid_buf_error(rp->data, rp->len);
+			if (ret) {
+				pr_err("corrupt edid block detected\n");
+				goto end;
+			}
 
 			if (edid_parsing_done) {
 				blk_num++;
@@ -817,7 +820,7 @@ end:
 		dp->test_data = (const struct dpcd_test_request){ 0 };
 	}
 
-	return 0;
+	return ret;
 }
 
 static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
