@@ -165,7 +165,8 @@
 #define FG_ADC_RR_CHG_THRESHOLD_SCALE		4
 
 #define FG_ADC_RR_VOLT_INPUT_FACTOR		8
-#define FG_ADC_RR_CURR_INPUT_FACTOR		2
+#define FG_ADC_RR_CURR_INPUT_FACTOR		2000
+#define FG_ADC_RR_CURR_USBIN_INPUT_FACTOR_MIL	1886
 #define FG_ADC_SCALE_MILLI_FACTOR		1000
 #define FG_ADC_KELVINMIL_CELSIUSMIL		273150
 
@@ -323,12 +324,20 @@ static int rradc_post_process_curr(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 adc_code,
 			int *result_ua)
 {
-	int64_t ua = 0;
+	int64_t ua = 0, scale = 0;
 
-	/* 0.5 V/A; 2.5V ADC full scale */
-	ua = ((int64_t)adc_code * FG_ADC_RR_CURR_INPUT_FACTOR);
+	if (!prop)
+		return -EINVAL;
+
+	if (prop->channel == RR_ADC_USBIN_I)
+		scale = FG_ADC_RR_CURR_USBIN_INPUT_FACTOR_MIL;
+	else
+		scale = FG_ADC_RR_CURR_INPUT_FACTOR;
+
+	/* scale * V/A; 2.5V ADC full scale */
+	ua = ((int64_t)adc_code * scale);
 	ua *= (FG_ADC_RR_FS_VOLTAGE_MV * FG_ADC_SCALE_MILLI_FACTOR);
-	ua = div64_s64(ua, FG_MAX_ADC_READINGS);
+	ua = div64_s64(ua, (FG_MAX_ADC_READINGS * 1000));
 	*result_ua = ua;
 
 	return 0;
