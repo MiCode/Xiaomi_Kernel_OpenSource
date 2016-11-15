@@ -1568,6 +1568,10 @@
 		qcom,vreg-cx-voltage-level = <RPM_SMD_REGULATOR_LEVEL_BINNING
 						RPM_SMD_REGULATOR_LEVEL_SVS 0>;
 
+		qcom,l1-supported;
+		qcom,l1ss-supported;
+		qcom,aux-clk-sync;
+
 		qcom,ep-latency = <10>;
 
 		qcom,ep-wakeirq;
