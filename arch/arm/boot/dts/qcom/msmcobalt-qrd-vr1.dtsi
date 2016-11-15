@@ -140,3 +140,7 @@
 &pmicobalt_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 };
+
+&pmicobalt_haptics {
+	status = "okay";
+};
