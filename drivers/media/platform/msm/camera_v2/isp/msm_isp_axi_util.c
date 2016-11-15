@@ -700,7 +700,7 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 		sof_info->regs_not_updated =
 			vfe_dev->reg_update_requested;
 	}
-	for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
+	for (i = 0; i < RDI_INTF_0; i++) {
 		stream_info = msm_isp_get_stream_common_data(vfe_dev,
 								i);
 		stream_idx = HANDLE_TO_IDX(stream_info->stream_handle[0]);
@@ -980,16 +980,12 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 				event_data.u.sof_info.ms_delta_info.
 				num_delta_info = 1;
 			}
-			spin_unlock_irqrestore(&vfe_dev->common_data->
-				common_dev_data_lock, flags);
-		} else {
-			spin_unlock_irqrestore(&vfe_dev->common_data->
-				common_dev_data_lock, flags);
-			if (frame_src <= VFE_RAW_2) {
-				msm_isp_check_for_output_error(vfe_dev, ts,
-					&event_data.u.sof_info);
-			}
 		}
+		spin_unlock_irqrestore(&vfe_dev->common_data->
+			common_dev_data_lock, flags);
+		if (frame_src == VFE_PIX_0)
+			msm_isp_check_for_output_error(vfe_dev, ts,
+					&event_data.u.sof_info);
 		break;
 
 	default:
