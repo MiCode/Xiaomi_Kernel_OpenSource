@@ -145,4 +145,14 @@ static inline int etm_readl_cp14(u32 off, unsigned int *val) { return 0; }
 static inline int etm_writel_cp14(u32 off, u32 val) { return 0; }
 #endif
 
+#ifdef CONFIG_CORESIGHT_CSR
+extern void msm_qdss_csr_enable_bam_to_usb(void);
+extern void msm_qdss_csr_disable_bam_to_usb(void);
+extern void msm_qdss_csr_disable_flush(void);
+#else
+static inline void msm_qdss_csr_enable_bam_to_usb(void) {}
+static inline void msm_qdss_csr_disable_bam_to_usb(void) {}
+static inline void msm_qdss_csr_disable_flush(void) {}
+#endif
+
 #endif
