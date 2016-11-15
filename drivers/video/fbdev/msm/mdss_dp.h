@@ -513,16 +513,22 @@ enum dp_lane_count {
 };
 
 enum test_response {
-	TEST_NACK	= 0x0,
-	TEST_ACK	= 0x1,
+	TEST_ACK			= 0x1,
+	TEST_NACK			= 0x2,
+	TEST_EDID_CHECKSUM_WRITE	= 0x4,
 };
 
 static inline char *mdss_dp_get_test_response(u32 test_response)
 {
 	switch (test_response) {
-	case TEST_NACK:		return DP_ENUM_STR(TEST_NACK);
-	case TEST_ACK:		return DP_ENUM_STR(TEST_ACK);
-	default:		return "unknown";
+	case TEST_NACK:
+		return DP_ENUM_STR(TEST_NACK);
+	case TEST_ACK:
+		return DP_ENUM_STR(TEST_ACK);
+	case TEST_EDID_CHECKSUM_WRITE:
+		return DP_ENUM_STR(TEST_EDID_CHECKSUM_WRITE);
+	default:
+		return "unknown";
 	}
 }
 

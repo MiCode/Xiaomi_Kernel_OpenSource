@@ -34,6 +34,8 @@
 #include "mdss_dp.h"
 #include "mdss_dp_util.h"
 
+static void dp_sink_parse_test_request(struct mdss_dp_drv_pdata *ep);
+
 /*
  * edp buffer operation
  */
@@ -721,6 +723,20 @@ static int dp_aux_chan_ready(struct mdss_dp_drv_pdata *ep)
 	return 0;
 }
 
+static void dp_aux_send_checksum(struct mdss_dp_drv_pdata *dp, u32 checksum)
+{
+	char data[4];
+
+	data[0] = checksum;
+	pr_debug("writing checksum %d\n", data[0]);
+	dp_aux_write_buf(dp, 0x261, data, 1, 0);
+
+	data[0] = TEST_EDID_CHECKSUM_WRITE;
+	pr_debug("sending test response %s\n",
+			mdss_dp_get_test_response(data[0]));
+	dp_aux_write_buf(dp, 0x260, data, 1, 0);
+}
+
 int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 {
 	struct edp_buf *rp = &dp->rxp;
@@ -728,12 +744,19 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	int edid_blk = 0, blk_num = 0, retries = 10;
 	bool edid_parsing_done = false;
 	const u8 cea_tag = 0x02;
+	u32 checksum = 0;
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
 		pr_err("aux chan NOT ready\n");
 		return ret;
 	}
+
+	/**
+	 * Parse the test request vector to see whether there is a
+	 * TEST_EDID_READ test request.
+	 */
+	dp_sink_parse_test_request(dp);
 
 	do {
 		rlen = dp_aux_read_buf(dp, EDID_START_ADDRESS +
@@ -765,6 +788,7 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 				rp->data);
 
 			edid_parsing_done = true;
+			checksum = rp->data[rp->len - 1];
 		} else {
 			edid_blk++;
 			blk_num++;
@@ -783,8 +807,15 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 			rp->data, EDID_BLOCK_SIZE);
 
 		if (edid_blk == dp->edid.ext_block_cnt)
-			return 0;
+			goto end;
 	} while (retries--);
+
+end:
+	if (dp->test_data.test_requested == TEST_EDID_READ) {
+		pr_debug("sending checksum %d\n", checksum);
+		dp_aux_send_checksum(dp, checksum);
+		dp->test_data = (const struct dpcd_test_request){ 0 };
+	}
 
 	return 0;
 }
@@ -1141,7 +1172,8 @@ static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep)
  */
 static bool dp_is_test_supported(u32 test_requested)
 {
-	return test_requested == TEST_LINK_TRAINING;
+	return (test_requested == TEST_LINK_TRAINING) ||
+		(test_requested == TEST_EDID_READ);
 }
 
 /**
