@@ -39,7 +39,6 @@ struct pll_vco {
 struct clk_alpha_pll {
 	u32 offset;
 	struct pll_config *config;
-	bool inited;
 
 	const struct pll_vco *vco_table;
 	size_t num_vco;
