@@ -14,6 +14,82 @@
 
 #include "fg-core.h"
 
+void fg_circ_buf_add(struct fg_circ_buf *buf, int val)
+{
+	buf->arr[buf->head] = val;
+	buf->head = (buf->head + 1) % ARRAY_SIZE(buf->arr);
+	buf->size = min(++buf->size, (int)ARRAY_SIZE(buf->arr));
+}
+
+void fg_circ_buf_clr(struct fg_circ_buf *buf)
+{
+	memset(buf, 0, sizeof(*buf));
+}
+
+int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg)
+{
+	s64 result = 0;
+	int i;
+
+	if (buf->size == 0)
+		return -ENODATA;
+
+	for (i = 0; i < buf->size; i++)
+		result += buf->arr[i];
+
+	*avg = div_s64(result, buf->size);
+	return 0;
+}
+
+int fg_lerp(const struct fg_pt *pts, size_t tablesize, s32 input, s32 *output)
+{
+	int i;
+	s64 temp;
+
+	if (pts == NULL) {
+		pr_err("Table is NULL\n");
+		return -EINVAL;
+	}
+
+	if (tablesize < 1) {
+		pr_err("Table has no entries\n");
+		return -ENOENT;
+	}
+
+	if (tablesize == 1) {
+		*output = pts[0].y;
+		return 0;
+	}
+
+	if (pts[0].x > pts[1].x) {
+		pr_err("Table is not in acending order\n");
+		return -EINVAL;
+	}
+
+	if (input <= pts[0].x) {
+		*output = pts[0].y;
+		return 0;
+	}
+
+	if (input >= pts[tablesize - 1].x) {
+		*output = pts[tablesize - 1].y;
+		return 0;
+	}
+
+	for (i = 1; i < tablesize; i++) {
+		if (input >= pts[i].x)
+			continue;
+
+		temp = (s64)(pts[i].y - pts[i - 1].y) *
+						(s64)(input - pts[i - 1].x);
+		temp = div_s64(temp, pts[i].x - pts[i - 1].x);
+		*output = temp + pts[i - 1].y;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
 static struct fg_dbgfs dbgfs_data = {
 	.help_msg = {
 	.data =
