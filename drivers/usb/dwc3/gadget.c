@@ -3360,8 +3360,6 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 		 */
 		evt->lpos = (evt->lpos + 4) % DWC3_EVENT_BUFFERS_SIZE;
 		left -= 4;
-
-		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(buf), 4);
 	}
 
 	dwc->bh_handled_evt_cnt[dwc->bh_dbg_index] += (evt->count / 4);
@@ -3431,6 +3429,8 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3 *dwc, u32 buf)
 	reg = dwc3_readl(dwc->regs, DWC3_GEVNTSIZ(buf));
 	reg |= DWC3_GEVNTSIZ_INTMASK;
 	dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(buf), reg);
+
+	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(buf), count);
 
 	return IRQ_WAKE_THREAD;
 }
