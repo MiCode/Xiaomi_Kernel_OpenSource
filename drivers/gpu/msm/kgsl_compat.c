@@ -382,6 +382,8 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 			kgsl_ioctl_sparse_virt_free),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_BIND,
 			kgsl_ioctl_sparse_bind),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_SPARSE_COMMAND,
+			kgsl_ioctl_gpu_sparse_command),
 };
 
 long kgsl_compat_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)

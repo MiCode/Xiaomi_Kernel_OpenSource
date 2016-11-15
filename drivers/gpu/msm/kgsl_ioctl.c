@@ -100,6 +100,8 @@ static const struct kgsl_ioctl kgsl_ioctl_funcs[] = {
 			kgsl_ioctl_sparse_virt_free),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_BIND,
 			kgsl_ioctl_sparse_bind),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_SPARSE_COMMAND,
+			kgsl_ioctl_gpu_sparse_command),
 };
 
 long kgsl_ioctl_copy_in(unsigned int kernel_cmd, unsigned int user_cmd,
