@@ -1268,6 +1268,7 @@ static uint8_t hdlc_reset;
 
 static void hdlc_reset_timer_start(struct diag_md_session_t *info)
 {
+	mutex_lock(&driver->md_session_lock);
 	if (!hdlc_timer_in_progress) {
 		hdlc_timer_in_progress = 1;
 		if (info)
@@ -1277,6 +1278,7 @@ static void hdlc_reset_timer_start(struct diag_md_session_t *info)
 			mod_timer(&driver->hdlc_reset_timer,
 			  jiffies + msecs_to_jiffies(200));
 	}
+	mutex_unlock(&driver->md_session_lock);
 }
 
 static void hdlc_reset_timer_func(unsigned long data)
