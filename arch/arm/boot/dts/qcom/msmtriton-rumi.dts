@@ -27,3 +27,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_active>;
 };
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "gcc_clocks";
+};
