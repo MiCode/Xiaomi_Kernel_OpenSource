@@ -63,14 +63,13 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <270>;
 		cam_vio-supply = <&pm8953_l6>;
-		cam_vdig-supply = <&pm8953_s3>;
 		cam_vana-supply = <&pm8953_l22>;
 		qcom,ir-led-src = <&led_ir0>;
 		qcom,ir-cut-src = <&ir_cut0>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana";
 		qcom,cam-vreg-min-voltage = <0 2800000>;
 		qcom,cam-vreg-max-voltage = <0 2800000>;
-		qcom,cam-vreg-op-mode = <0 105000 100000>;
+		qcom,cam-vreg-op-mode = <0 80000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_default
 				&cam_sensor_rear_default1
@@ -79,13 +78,16 @@
 				&cam_sensor_rear_vana_sleep1>;
 		gpios = <&tlmm 26 0>,
 			<&tlmm 40 0>,
-			<&tlmm 46 0>;
+			<&tlmm 46 0>,
+			<&tlmm 134 0>;
 		qcom,gpio-reset = <1>;
-		qcom,gpio-vana =  <2>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-vdig =  <2>;
+		qcom,gpio-vana =  <3>;
+		qcom,gpio-req-tbl-num = <0 1 2 3>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
 			"CAM_RESET0",
+			"CAM_VDIG",
 			"CAM_VANA";
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
