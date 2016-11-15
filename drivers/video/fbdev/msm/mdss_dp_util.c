@@ -253,10 +253,48 @@ void mdss_dp_timing_cfg(struct dss_io_data *ctrl_io,
 	writel_relaxed(data, ctrl_io->base + DP_ACTIVE_HOR_VER);
 }
 
-void mdss_dp_sw_mvid_nvid(struct dss_io_data *ctrl_io)
+void mdss_dp_sw_config_msa(struct dss_io_data *ctrl_io,
+				char lrate, struct dss_io_data *dp_cc_io)
 {
-	writel_relaxed(0x37, ctrl_io->base + DP_SOFTWARE_MVID);
-	writel_relaxed(0x3c, ctrl_io->base + DP_SOFTWARE_NVID);
+	u32 pixel_m, pixel_n;
+	u32 mvid, nvid;
+
+	pixel_m = readl_relaxed(dp_cc_io->base + MMSS_DP_PIXEL_M);
+	pixel_n = readl_relaxed(dp_cc_io->base + MMSS_DP_PIXEL_N);
+	pr_debug("pixel_m=0x%x, pixel_n=0x%x\n",
+					pixel_m, pixel_n);
+
+	mvid = (pixel_m & 0xFFFF) * 5;
+	nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
+	if (lrate == DP_LINK_RATE_540)
+		nvid = nvid * 2;
+	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
+	writel_relaxed(mvid, ctrl_io->base + DP_SOFTWARE_MVID);
+	writel_relaxed(nvid, ctrl_io->base + DP_SOFTWARE_NVID);
+}
+
+void mdss_dp_config_misc_settings(struct dss_io_data *ctrl_io,
+					struct mdss_panel_info *pinfo)
+{
+	u32 bpp = pinfo->bpp;
+	u32 misc_val = 0x0;
+
+	switch (bpp) {
+	case 18:
+		misc_val |= (0x0 << 5);
+		break;
+	case 30:
+		misc_val |= (0x2 << 5);
+		break;
+	case 24:
+	default:
+		misc_val |= (0x1 << 5);
+	}
+
+	misc_val |= BIT(0); /* Configure clock to synchronous mode */
+
+	pr_debug("Misc settings = 0x%x\n", misc_val);
+	writel_relaxed(misc_val, ctrl_io->base + DP_MISC1_MISC0);
 }
 
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
@@ -266,8 +304,6 @@ void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 	u32 valid_boundary = 0x0;
 	u32 valid_boundary2 = 0x0;
 	struct dp_vc_tu_mapping_table const *tu_entry = tu_table;
-
-	writel_relaxed(0x21, ctrl_io->base + DP_MISC1_MISC0);
 
 	for (; tu_entry != tu_table + ARRAY_SIZE(tu_table); ++tu_entry) {
 		if ((tu_entry->vic == res) &&
@@ -454,8 +490,14 @@ u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp)
 	pin_cfg = dp->alt_mode.dp_cap.dlink_pin_config;
 
 	for (pin = PIN_ASSIGNMENT_A; pin < PIN_ASSIGNMENT_MAX; pin++) {
-		if (pin_cfg & BIT(pin))
-			break;
+		if (pin_cfg & BIT(pin)) {
+			if (dp->alt_mode.dp_status.multi_func) {
+				if (pin == PIN_ASSIGNMENT_D)
+					break;
+			} else {
+				break;
+			}
+		}
 	}
 
 	if (pin == PIN_ASSIGNMENT_MAX)

@@ -164,6 +164,12 @@
 #define TCSR_USB3_DP_PHYMODE			0x48
 #define EDID_START_ADDRESS			0x50
 
+/* DP MMSS_CC registers */
+#define MMSS_DP_LINK_CMD_RCGR			0x0000
+#define MMSS_DP_LINK_CFG_RCGR			0x0004
+#define MMSS_DP_PIXEL_M				0x0048
+#define MMSS_DP_PIXEL_N				0x004C
+
 /* DP HDCP 1.3 registers */
 #define DP_HDCP_CTRL                                   (0x0A0)
 #define DP_HDCP_STATUS                                 (0x0A4)
@@ -271,6 +277,8 @@ void mdss_dp_switch_usb3_phy_to_dp_mode(struct dss_io_data *tcsr_reg_io);
 void mdss_dp_assert_phy_reset(struct dss_io_data *ctrl_io, bool assert);
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 				u8 ln_cnt, u32 res);
+void mdss_dp_config_misc_settings(struct dss_io_data *ctrl_io,
+					struct mdss_panel_info *pinfo);
 void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io);
 void mdss_dp_hpd_configure(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_aux_ctrl(struct dss_io_data *ctrl_io, bool enable);
@@ -285,7 +293,8 @@ void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data);
 int mdss_dp_irq_setup(struct mdss_dp_drv_pdata *dp_drv);
 void mdss_dp_irq_enable(struct mdss_dp_drv_pdata *dp_drv);
 void mdss_dp_irq_disable(struct mdss_dp_drv_pdata *dp_drv);
-void mdss_dp_sw_mvid_nvid(struct dss_io_data *ctrl_io);
+void mdss_dp_sw_config_msa(struct dss_io_data *ctrl_io,
+				char lrate, struct dss_io_data *dp_cc_io);
 void mdss_dp_usbpd_ext_capabilities(struct usbpd_dp_capabilities *dp_cap);
 void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status);
 u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp);

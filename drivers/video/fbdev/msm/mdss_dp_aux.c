@@ -1647,6 +1647,8 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 clear:
 	dp_clear_training_pattern(dp);
 	if (ret != -EINVAL) {
+		mdss_dp_config_misc_settings(&dp->ctrl_io,
+				&dp->panel_data.panel_info);
 		mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate,
 					dp->lane_cnt, dp->vic);
 		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
