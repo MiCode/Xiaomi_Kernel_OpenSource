@@ -358,6 +358,23 @@ static int dsi_panel_led_bl_register(struct dsi_panel *panel,
 }
 #endif
 
+int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
+{
+	int rc = 0;
+	struct dsi_backlight_config *bl = &panel->bl_config;
+
+	switch (bl->type) {
+	case DSI_BACKLIGHT_WLED:
+		led_trigger_event(bl->wled, bl_lvl);
+		break;
+	default:
+		pr_err("Backlight type(%d) not supported\n", bl->type);
+		rc = -ENOTSUPP;
+	}
+
+	return rc;
+}
+
 static int dsi_panel_bl_register(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -1423,18 +1440,28 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel,
 	if (rc) {
 		pr_debug("[%s] bl-min-level unspecified, defaulting to zero\n",
 			 panel->name);
-		panel->bl_config.min_level = 0;
+		panel->bl_config.bl_min_level = 0;
 	} else {
-		panel->bl_config.min_level = val;
+		panel->bl_config.bl_min_level = val;
 	}
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-bl-max-level", &val);
 	if (rc) {
-		pr_debug("[%s] bl-max-level unspecified, defaulting to 255\n",
+		pr_debug("[%s] bl-max-level unspecified, defaulting to max level\n",
 			 panel->name);
-		panel->bl_config.max_level = 255;
+		panel->bl_config.bl_max_level = MAX_BL_LEVEL;
 	} else {
-		panel->bl_config.max_level = val;
+		panel->bl_config.bl_max_level = val;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,mdss-brightness-max-level",
+		&val);
+	if (rc) {
+		pr_debug("[%s] brigheness-max-level unspecified, defaulting to 255\n",
+			 panel->name);
+		panel->bl_config.brightness_max_level = 255;
+	} else {
+		panel->bl_config.brightness_max_level = val;
 	}
 
 	if (panel->bl_config.type == DSI_BACKLIGHT_PWM) {
@@ -1834,8 +1861,6 @@ int dsi_panel_enable(struct dsi_panel *panel)
 		pr_err("[%s] failed to send DSI_CMD_SET_ON cmds, rc=%d\n",
 		       panel->name, rc);
 	}
-	/* TODO:  hack to enable backlight; */
-	led_trigger_event(panel->bl_config.wled, panel->bl_config.max_level);
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -1873,8 +1898,6 @@ int dsi_panel_pre_disable(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
-	/* TODO:  hack to disable backlight; */
-	led_trigger_event(panel->bl_config.wled, 0x0);
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_PRE_OFF);
 	if (rc) {
 		pr_err("[%s] failed to send DSI_CMD_SET_PRE_OFF cmds, rc=%d\n",

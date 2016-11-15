@@ -41,6 +41,7 @@ msm_drm-y := \
 	sde/sde_kms.o \
 	sde/sde_plane.o \
 	sde/sde_connector.o \
+	sde/sde_backlight.o \
 	sde/sde_color_processing.o \
 	sde/sde_vbif.o
 
