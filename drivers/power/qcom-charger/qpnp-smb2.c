@@ -1161,6 +1161,15 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	/* increase VCONN softstart */
+	rc = smblib_masked_write(chg, TYPE_C_CFG_2_REG,
+			VCONN_SOFTSTART_CFG_MASK, VCONN_SOFTSTART_CFG_MASK);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't increase VCONN softstart rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	rc = smblib_masked_write(chg, QNOVO_PT_ENABLE_CMD_REG,
 			QNOVO_PT_ENABLE_CMD_BIT, QNOVO_PT_ENABLE_CMD_BIT);
 	if (rc < 0) {
