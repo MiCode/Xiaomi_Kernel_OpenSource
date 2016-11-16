@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,9 +31,39 @@
 #define SUBSYS_MODEM "modem"
 
 #define IPAWANDBG(fmt, args...) \
-	pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+#define IPAWANDBG_LOW(fmt, args...) \
+	do { \
+		pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
 #define IPAWANERR(fmt, args...) \
-	pr_err(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_err(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+#define IPAWANINFO(fmt, args...) \
+	do { \
+		pr_info(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			DEV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
 
 extern struct ipa_qmi_context *ipa_qmi_ctx;
 extern struct mutex ipa_qmi_lock;

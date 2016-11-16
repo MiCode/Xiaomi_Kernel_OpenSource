@@ -54,10 +54,37 @@
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 
+#define IPA_IPC_LOG_PAGES 50
+
 #define IPADBG(fmt, args...) \
-	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa_ctx) { \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			} \
+	} while (0)
+
+#define IPADBG_LOW(fmt, args...) \
+	do { \
+		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa_ctx) \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
 #define IPAERR(fmt, args...) \
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa_ctx) { \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
 
 #define WLAN_AMPDU_TX_EP 15
 #define WLAN_PROD_TX_EP  19
@@ -1003,6 +1030,8 @@ struct ipacm_client_info {
  * @use_ipa_teth_bridge: use tethering bridge driver
  * @ipa_bam_remote_mode: ipa bam is in remote mode
  * @modem_cfg_emb_pipe_flt: modem configure embedded pipe filtering rules
+ * @logbuf: ipc log buffer for high priority messages
+ * @logbuf_low: ipc log buffer for low priority messages
  * @ipa_wdi2: using wdi-2.0
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
@@ -1095,6 +1124,8 @@ struct ipa_context {
 	/* featurize if memory footprint becomes a concern */
 	struct ipa_stats stats;
 	void *smem_pipe_mem;
+	void *logbuf;
+	void *logbuf_low;
 	u32 ipa_bus_hdl;
 	struct ipa_controller *ctrl;
 	struct idr ipa_idr;
