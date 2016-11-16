@@ -35,6 +35,7 @@
 #include "mdss_dp_util.h"
 
 static void dp_sink_parse_test_request(struct mdss_dp_drv_pdata *ep);
+static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep);
 
 /*
  * edp buffer operation
@@ -970,6 +971,8 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 		cap->training_read_interval = 4000 * data; /* us */
 	pr_debug("training_interval=%d\n",
 			 cap->training_read_interval);
+
+	dp_sink_parse_sink_count(ep);
 }
 
 static int dp_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
