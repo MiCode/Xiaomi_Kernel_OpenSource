@@ -39,11 +39,6 @@
 #define EDP_PORT_MAX		1
 #define EDP_SINK_CAP_LEN	16
 
-#define EDP_AUX_ERR_NONE	0
-#define EDP_AUX_ERR_ADDR	-1
-#define EDP_AUX_ERR_TOUT	-2
-#define EDP_AUX_ERR_NACK	-3
-
 /* 4 bits of aux command */
 #define EDP_CMD_AUX_WRITE	0x8
 #define EDP_CMD_AUX_READ	0x9
@@ -511,6 +506,35 @@ enum dp_lane_count {
 	DP_LANE_COUNT_2	= 2,
 	DP_LANE_COUNT_4	= 4,
 };
+
+enum dp_aux_error {
+	EDP_AUX_ERR_NONE	= 0,
+	EDP_AUX_ERR_ADDR	= -1,
+	EDP_AUX_ERR_TOUT	= -2,
+	EDP_AUX_ERR_NACK	= -3,
+	EDP_AUX_ERR_DEFER	= -4,
+	EDP_AUX_ERR_NACK_DEFER	= -5,
+};
+
+static inline char *mdss_dp_get_aux_error(u32 aux_error)
+{
+	switch (aux_error) {
+	case EDP_AUX_ERR_NONE:
+		return DP_ENUM_STR(EDP_AUX_ERR_NONE);
+	case EDP_AUX_ERR_ADDR:
+		return DP_ENUM_STR(EDP_AUX_ERR_ADDR);
+	case EDP_AUX_ERR_TOUT:
+		return DP_ENUM_STR(EDP_AUX_ERR_TOUT);
+	case EDP_AUX_ERR_NACK:
+		return DP_ENUM_STR(EDP_AUX_ERR_NACK);
+	case EDP_AUX_ERR_DEFER:
+		return DP_ENUM_STR(EDP_AUX_ERR_DEFER);
+	case EDP_AUX_ERR_NACK_DEFER:
+		return DP_ENUM_STR(EDP_AUX_ERR_NACK_DEFER);
+	default:
+		return "unknown";
+	}
+}
 
 enum test_response {
 	TEST_ACK			= 0x1,

@@ -335,11 +335,11 @@ void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 		else if (isr & EDP_INTR_TIMEOUT)
 			ep->aux_error_num = EDP_AUX_ERR_TOUT;
 		if (isr & EDP_INTR_NACK_DEFER)
-			ep->aux_error_num = EDP_AUX_ERR_NACK;
+			ep->aux_error_num = EDP_AUX_ERR_NACK_DEFER;
 		if (isr & EDP_INTR_I2C_NACK)
 			ep->aux_error_num = EDP_AUX_ERR_NACK;
 		if (isr & EDP_INTR_I2C_DEFER)
-			ep->aux_error_num = EDP_AUX_ERR_NACK;
+			ep->aux_error_num = EDP_AUX_ERR_DEFER;
 	}
 
 	complete(&ep->aux_comp);
@@ -709,7 +709,8 @@ static int dp_aux_chan_ready(struct mdss_dp_drv_pdata *ep)
 
 	for (cnt = 5; cnt; cnt--) {
 		ret = dp_aux_write_buf(ep, EDID_START_ADDRESS, &data, 1, 1);
-		pr_debug("ret=%d\n", ret);
+		pr_debug("ret = %d, aux_error = %s\n",
+				ret, mdss_dp_get_aux_error(ep->aux_error_num));
 		if (ret >= 0)
 			break;
 		msleep(100);
