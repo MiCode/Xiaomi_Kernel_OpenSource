@@ -2669,11 +2669,15 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	if (!strcmp(match->data, "tasha_codec") ||
 	    !strcmp(match->data, "tavil_codec")) {
+		if (!strcmp(match->data, "tasha_codec"))
+			pdata->snd_card_val = EXT_SND_CARD_TASHA;
+		else
+			pdata->snd_card_val = EXT_SND_CARD_TAVIL;
 		ret = msm_ext_cdc_init(pdev, pdata, &card, &mbhc_cfg);
 		if (ret)
 			goto err;
 	} else if (!strcmp(match->data, "internal_codec")) {
-		pdata->int_codec = 1;
+		pdata->snd_card_val = INT_SND_CARD;
 		ret = msm_int_cdc_init(pdev, pdata, &card, &mbhc_cfg);
 		if (ret)
 			goto err;
@@ -2685,12 +2689,15 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (!card)
 		goto err;
 
-	/*reading the gpio configurations from dtsi file*/
-	ret = msm_gpioset_initialize(CLIENT_WCD, &pdev->dev);
-	if (ret < 0) {
-		dev_err(&pdev->dev,
-			"%s: error reading dtsi files%d\n", __func__, ret);
-		goto err;
+	if (pdata->snd_card_val == INT_SND_CARD) {
+		/*reading the gpio configurations from dtsi file*/
+		ret = msm_gpioset_initialize(CLIENT_WCD, &pdev->dev);
+		if (ret < 0) {
+			dev_err(&pdev->dev,
+				"%s: error reading dtsi files%d\n",
+				__func__, ret);
+			goto err;
+		}
 	}
 
 	/*
@@ -2739,6 +2746,8 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
+	if (pdata->snd_card_val != INT_SND_CARD)
+		msm_ext_register_audio_notifier();
 	return 0;
 err:
 	if (pdata->us_euro_gpio > 0) {
@@ -2767,7 +2776,7 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
-	if (pdata->int_codec)
+	if (pdata->snd_card_val == INT_SND_CARD)
 		mutex_destroy(&pdata->cdc_int_mclk0_mutex);
 	msm_free_auxdev_mem(pdev);
 

@@ -29,7 +29,8 @@
 #define WCN_CDC_SLIM_RX_CH_MAX 2
 #define WCN_CDC_SLIM_TX_CH_MAX 3
 
-static struct snd_soc_card snd_soc_card_msm_card;
+static struct snd_soc_card snd_soc_card_msm_card_tavil;
+static struct snd_soc_card snd_soc_card_msm_card_tasha;
 
 static struct snd_soc_ops msm_ext_slimbus_be_ops = {
 	.hw_params = msm_snd_hw_params,
@@ -1851,12 +1852,23 @@ ARRAY_SIZE(msm_wcn_be_dai_links)];
  *
  * Returns card on success or NULL on failure.
  */
-struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
+struct snd_soc_card *populate_snd_card_dailinks(struct device *dev,
+						int snd_card_val)
 {
-	struct snd_soc_card *card = &snd_soc_card_msm_card;
+	struct snd_soc_card *card;
 	struct snd_soc_dai_link *msm_ext_dai_links = NULL;
 	int ret, len1, len2, len3, len4;
 	enum codec_variant codec_ver = 0;
+
+	if (snd_card_val == EXT_SND_CARD_TASHA) {
+		card = &snd_soc_card_msm_card_tasha;
+	} else if (snd_card_val == EXT_SND_CARD_TAVIL) {
+		card = &snd_soc_card_msm_card_tavil;
+	} else {
+		dev_err(dev, "%s: failing as no matching card name\n",
+			__func__);
+		return NULL;
+	}
 
 	card->dev = dev;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
@@ -1949,7 +1961,6 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	}
 	card->dai_link = msm_ext_dai_links;
 	card->num_links = len4;
-	card->dev = dev;
 
 	return card;
 }

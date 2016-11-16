@@ -1685,6 +1685,21 @@ err_mbhc_cal:
 EXPORT_SYMBOL(msm_audrx_init);
 
 /**
+ * msm_ext_register_audio_notifier - register SSR notifier.
+ */
+void msm_ext_register_audio_notifier(void)
+{
+	int ret;
+
+	ret = audio_notifier_register("msmfalcon", AUDIO_NOTIFIER_ADSP_DOMAIN,
+				      &service_nb);
+	if (ret < 0)
+		pr_err("%s: Audio notifier register failed ret = %d\n",
+			__func__, ret);
+}
+EXPORT_SYMBOL(msm_ext_register_audio_notifier);
+
+/**
  * msm_ext_cdc_init - external codec machine specific init.
  *
  * @pdev: platform device handle
@@ -1708,24 +1723,16 @@ int msm_ext_cdc_init(struct platform_device *pdev,
 	wcd_mbhc_cfg_ptr->anc_micbias = MIC_BIAS_2;
 	wcd_mbhc_cfg_ptr->enable_anc_mic_detect = false;
 
-	*card = populate_snd_card_dailinks(&pdev->dev);
+	*card = populate_snd_card_dailinks(&pdev->dev, pdata->snd_card_val);
 	if (!(*card)) {
 		dev_err(&pdev->dev, "%s: Card uninitialized\n", __func__);
 		ret = -EPROBE_DEFER;
 		goto err;
 	}
-	(*card)->dev = &pdev->dev;
 	spdev = pdev;
 	platform_set_drvdata(pdev, *card);
 	snd_soc_card_set_drvdata(*card, pdata);
 	is_initial_boot = true;
-	ret = audio_notifier_register("msmfalcon", AUDIO_NOTIFIER_ADSP_DOMAIN,
-				      &service_nb);
-	if (ret < 0) {
-		pr_err("%s: Audio notifier register failed ret = %d\n",
-			__func__, ret);
-		goto err;
-	}
 	pdata->hph_en1_gpio = of_get_named_gpio(pdev->dev.of_node,
 						"qcom,hph-en1-gpio", 0);
 	if (!gpio_is_valid(pdata->hph_en1_gpio))
