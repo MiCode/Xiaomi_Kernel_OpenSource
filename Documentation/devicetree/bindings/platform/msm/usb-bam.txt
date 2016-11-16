@@ -36,7 +36,6 @@ Optional properties:
 - qcom,reset-bam-on-connect: If present then BAM is RESET before connecting
   pipe. This may be required if BAM peripheral is also reset before connect.
 - qcom,reset-bam-on-disconnect: If present then BAM is RESET after disconnecting pipes.
-- qcom,enable-hsusb-bam-on-boot: If present then BAM is enabled at bootup itself.
 
 A number of USB BAM pipe parameters are represented as sub-nodes:
 
