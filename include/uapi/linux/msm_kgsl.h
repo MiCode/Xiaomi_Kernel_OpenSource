@@ -222,6 +222,12 @@ enum kgsl_user_mem_type {
 /* Server Side Sync Timeout in milliseconds */
 #define KGSL_SYNCOBJ_SERVER_TIMEOUT 2000
 
+/* UBWC Modes */
+#define KGSL_UBWC_NONE	0
+#define KGSL_UBWC_1_0	1
+#define KGSL_UBWC_2_0	2
+#define KGSL_UBWC_3_0	3
+
 /*
  * Reset status values for context
  */
@@ -319,6 +325,8 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_HIGHEST_BANK_BIT	0x17
 #define KGSL_PROP_DEVICE_BITNESS	0x18
 #define KGSL_PROP_DEVICE_QDSS_STM	0x19
+#define KGSL_PROP_MIN_ACCESS_LENGTH	0x1A
+#define KGSL_PROP_UBWC_MODE		0x1B
 
 struct kgsl_shadowprop {
 	unsigned long gpuaddr;
