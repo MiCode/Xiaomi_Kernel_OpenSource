@@ -96,6 +96,11 @@
 #define IPA_MBIM_MAX_STREAM_NUM 8
 
 /**
+ *  size of the ipv6 address
+ */
+#define IPA_WAN_MSG_IPv6_ADDR_GW_LEN 4
+
+/**
  * the attributes of the rule (routing or filtering)
  */
 #define IPA_FLT_TOS			(1ul << 0)
@@ -434,6 +439,9 @@ enum ipa_rm_resource_name {
  * @IPA_HW_v2_6: IPA hardware version 2.6
  * @IPA_HW_v2_6L: IPA hardware version 2.6L
  * @IPA_HW_v3_0: IPA hardware version 3.0
+ * @IPA_HW_v3_1: IPA hardware version 3.1
+ * @IPA_HW_v3_5: IPA hardware version 3.5
+ * @IPA_HW_v3_5_1: IPA hardware version 3.5.1
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
@@ -446,6 +454,8 @@ enum ipa_hw_type {
 	IPA_HW_v2_6L = 6,
 	IPA_HW_v3_0 = 10,
 	IPA_HW_v3_1 = 11,
+	IPA_HW_v3_5 = 12,
+	IPA_HW_v3_5_1 = 13,
 	IPA_HW_MAX
 };
 
@@ -1430,12 +1440,15 @@ struct ipa_ecm_msg {
  * @name: name of the wan interface
  *
  * CnE need to pass the name of default wan iface when connected/disconnected.
+ * CNE need to pass the gw info in wlan AP+STA mode.
  * netmgr need to pass the name of wan eMBMS iface when connected.
  */
 struct ipa_wan_msg {
 	char upstream_ifname[IPA_RESOURCE_NAME_MAX];
 	char tethered_ifname[IPA_RESOURCE_NAME_MAX];
 	enum ipa_ip_type ip;
+	uint32_t ipv4_addr_gw;
+	uint32_t ipv6_addr_gw[IPA_WAN_MSG_IPv6_ADDR_GW_LEN];
 };
 
 /**

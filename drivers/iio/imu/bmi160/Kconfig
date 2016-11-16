@@ -2,8 +2,6 @@
 # IIO imu drivers configuration
 #
 menu "Inertial measurement units"
-source "drivers/staging/iio/imu/bmi160/Kconfig"
-
 
 #
 # Bosch BMI160 IMU drivers configuration

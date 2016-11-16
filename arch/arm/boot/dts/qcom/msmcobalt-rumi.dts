@@ -102,10 +102,8 @@
 
 &qusb_phy0 {
 	reg = <0x0a928000 0x8000>,
-	    <0x0a8f8800 0x400>,
 	    <0x0a920000 0x100>;
 	reg-names = "qusb_phy_base",
-		"qscratch_base",
 		"emu_phy_base";
 	qcom,emulation;
 	qcom,emu-init-seq = <0x7f 0x4

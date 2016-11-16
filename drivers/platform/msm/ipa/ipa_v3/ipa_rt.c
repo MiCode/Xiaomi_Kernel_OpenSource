@@ -823,13 +823,13 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	IPA_DUMP_BUFF(nhash_hdr.base, nhash_hdr.phys_base, nhash_hdr.size);
 
 	if (hash_bdy.size) {
-		IPADBG("Hashable BODY\n");
+		IPADBG_LOW("Hashable BODY\n");
 		IPA_DUMP_BUFF(hash_bdy.base,
 			hash_bdy.phys_base, hash_bdy.size);
 	}
 
 	if (nhash_bdy.size) {
-		IPADBG("Non-Hashable BODY\n");
+		IPADBG_LOW("Non-Hashable BODY\n");
 		IPA_DUMP_BUFF(nhash_bdy.base,
 			nhash_bdy.phys_base, nhash_bdy.size);
 	}
@@ -1384,8 +1384,9 @@ int __ipa3_del_rt_rule(u32 rule_hdl)
 		__ipa3_release_hdr_proc_ctx(entry->proc_ctx->id);
 	list_del(&entry->link);
 	entry->tbl->rule_cnt--;
-	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d rule_id=%d\n",
-		entry->tbl->idx, entry->tbl->rule_cnt, entry->rule_id);
+	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d rule_id=%d\n ref_cnt=%u",
+		entry->tbl->idx, entry->tbl->rule_cnt,
+		entry->rule_id, entry->tbl->ref_cnt);
 	idr_remove(&entry->tbl->rule_ids, entry->rule_id);
 	if (entry->tbl->rule_cnt == 0 && entry->tbl->ref_cnt == 0) {
 		if (__ipa_del_rt_tbl(entry->tbl))
@@ -1662,6 +1663,8 @@ int ipa3_put_rt_tbl(u32 rt_tbl_hdl)
 
 	entry->ref_cnt--;
 	if (entry->ref_cnt == 0 && entry->rule_cnt == 0) {
+		IPADBG("zero ref_cnt, delete rt tbl (idx=%u)\n",
+			entry->idx);
 		if (__ipa_del_rt_tbl(entry))
 			IPAERR("fail to del RT tbl\n");
 		/* commit for put */
@@ -1849,7 +1852,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	u8 rule_size;
 	void *ipa_sram_mmio;
 
-	IPADBG("tbl_idx=%d ip_type=%d hashable=%d\n",
+	IPADBG_LOW("tbl_idx=%d ip_type=%d hashable=%d\n",
 		tbl_idx, ip_type, hashable);
 
 	if (ip_type == IPA_IP_v4 && tbl_idx >= IPA_MEM_PART(v4_rt_num_index)) {
@@ -1899,7 +1902,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 				tbl_idx * IPA_HW_TBL_HDR_WIDTH;
 	}
 
-	IPADBG("tbl_entry_in_hdr_ofst=0x%llx\n", tbl_entry_in_hdr_ofst);
+	IPADBG_LOW("tbl_entry_in_hdr_ofst=0x%llx\n", tbl_entry_in_hdr_ofst);
 
 	tbl_entry_in_hdr = ipa_sram_mmio + tbl_entry_in_hdr_ofst;
 
@@ -1932,7 +1935,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 
 	rule_idx = 0;
 	while (rule_idx < *num_entry) {
-		IPADBG("*((u64 *)hdr)=0x%llx\n", *((u64 *)hdr));
+		IPADBG_LOW("*((u64 *)hdr)=0x%llx\n", *((u64 *)hdr));
 		if (*((u64 *)hdr) == 0)
 			break;
 
@@ -1949,9 +1952,9 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 
 		ipa3_generate_eq_from_hw_rule(&entry[rule_idx].eq_attrib, buf,
 			&rule_size);
-		IPADBG("rule_size=%d\n", rule_size);
+		IPADBG_LOW("rule_size=%d\n", rule_size);
 		hdr = (void *)(buf + rule_size);
-		IPADBG("hdr=0x%p\n", hdr);
+		IPADBG_LOW("hdr=0x%p\n", hdr);
 		rule_idx++;
 	}
 

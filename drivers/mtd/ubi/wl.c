@@ -489,21 +489,50 @@ out_free:
 }
 
 /**
- * ubi_wl_erase_peb - synchronously erase a physical eraseblock.
+ * ubi_wl_re_erase_peb - synchronously re-erase a physical eraseblock without
+			 updating the EC of the PEB
  * @ubi: UBI device description object
  * @pnum: the the physical eraseblock number to erase
  *
  * This function returns zero in case of success and a negative error code in
  * case of failure.
  */
-int ubi_wl_erase_peb(struct ubi_device *ubi, int pnum)
+int ubi_wl_re_erase_peb(struct ubi_device *ubi, int pnum)
 {
+	int err;
 	struct ubi_wl_entry *e;
+	struct ubi_ec_hdr *ec_hdr;
 
 	spin_lock(&ubi->wl_lock);
 	e = ubi->lookuptbl[pnum];
 	spin_unlock(&ubi->wl_lock);
-	return sync_erase(ubi, e, 0);
+
+	dbg_wl("Re-erase PEB %d,  EC %u", e->pnum, e->ec);
+
+	err = self_check_ec(ubi, e->pnum, e->ec);
+	if (err)
+		return -EINVAL;
+
+	ec_hdr = kzalloc(ubi->ec_hdr_alsize, GFP_NOFS);
+	if (!ec_hdr)
+		return -ENOMEM;
+
+	err = ubi_io_sync_erase(ubi, e->pnum, 0);
+	if (err < 0)
+		goto out_free;
+
+	dbg_wl("re-erased PEB %d, EC %u", e->pnum, e->ec);
+
+	ec_hdr->ec = cpu_to_be64(e->ec);
+
+	err = ubi_io_write_ec_hdr(ubi, e->pnum, ec_hdr);
+	if (err)
+		goto out_free;
+
+out_free:
+	kfree(ec_hdr);
+	return err;
+
 }
 
 /**

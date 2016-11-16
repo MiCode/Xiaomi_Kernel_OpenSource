@@ -239,7 +239,7 @@ static int erasecrosstest(void)
 	if (memcmp(writebuf, readbuf, pgsize)) {
 		pr_err("verify failed!\n");
 		errcnt += 1;
-		return -1;
+		return -EIO;
 	}
 
 	pr_info("erasing block %d\n", ebnum);
@@ -269,7 +269,7 @@ static int erasecrosstest(void)
 	if (memcmp(writebuf, readbuf, pgsize)) {
 		pr_err("verify failed!\n");
 		errcnt += 1;
-		return -1;
+		return -EIO;
 	}
 
 	if (!err)
@@ -328,6 +328,102 @@ static int erasetest(void)
 
 	return err;
 }
+
+static int erase_neighbor_check(int ebnum, int ebnum2, loff_t addr0)
+{
+	int err = 0;
+	char *readbuf = twopages;
+
+	pr_info("erasing block %d\n", ebnum);
+	err = mtdtest_erase_eraseblock(mtd, ebnum);
+	if (err)
+		return err;
+
+	pr_info("writing 1st page of block %d\n", ebnum);
+	prandom_bytes_state(&rnd_state, writebuf, pgsize);
+	strlcpy(writebuf, "There is no data like this!", mtd->erasesize);
+	err = mtdtest_write(mtd, addr0, pgsize, writebuf);
+	if (err)
+		return err;
+
+	pr_info("reading 1st page of block %d\n", ebnum);
+	memset(readbuf, 0, pgsize);
+	err = mtdtest_read(mtd, addr0, pgsize, readbuf);
+	if (err)
+		return err;
+
+	pr_info("verifying 1st page of block %d\n", ebnum);
+	if (memcmp(writebuf, readbuf, pgsize)) {
+		pr_err("verify failed!\n");
+		errcnt += 1;
+		return -EIO;
+	}
+
+	pr_info("erasing block %d\n", ebnum);
+	err = mtdtest_erase_eraseblock(mtd, ebnum);
+	if (err)
+		return err;
+
+	pr_info("writing 1st page of block %d\n", ebnum);
+	prandom_bytes_state(&rnd_state, writebuf, pgsize);
+	strlcpy(writebuf, "There is no data like this!", mtd->erasesize);
+	err = mtdtest_write(mtd, addr0, pgsize, writebuf);
+	if (err)
+		return err;
+
+	pr_info("erasing block %d\n", ebnum2);
+	err = mtdtest_erase_eraseblock(mtd, ebnum2);
+	if (err)
+		return err;
+
+	pr_info("reading 1st page of block %d\n", ebnum);
+	memset(readbuf, 0, pgsize);
+	err = mtdtest_read(mtd, addr0, pgsize, readbuf);
+	if (err)
+		return err;
+
+	pr_info("verifying 1st page of block %d\n", ebnum);
+	if (memcmp(writebuf, readbuf, pgsize)) {
+		pr_err("verify failed!\n");
+		errcnt += 1;
+		return -EIO;
+	}
+	pr_info("verified block %d and block %d\n", ebnum, ebnum2);
+	return 0;
+}
+
+static int erase_neighbour_test(void)
+{
+	int err = 0, ebnum;
+	loff_t addr0;
+
+	pr_info("erase_neighbour_test\n");
+
+	addr0 = 0;
+	for (ebnum = 0; ebnum < ebcnt; ++ebnum, addr0 += mtd->erasesize) {
+		/* Skip if current block is bad */
+		if (bbt[ebnum])
+			continue;
+
+		/* Verify previous and current block if prev block is good */
+		if (ebnum > 1 && !bbt[ebnum - 1])
+			err = erase_neighbor_check(ebnum, ebnum - 1, addr0);
+		if (err)
+			return err;
+
+		/* Verify next and current block if next block is good */
+		if (ebnum < ebcnt - 1 && !bbt[ebnum + 1])
+			err = erase_neighbor_check(ebnum, ebnum + 1, addr0);
+		if (err)
+			return err;
+	}
+
+
+	if (!err)
+		pr_info("erase_neighbour_test ok\n");
+	return err;
+}
+
 
 static int __init mtd_pagetest_init(void)
 {
@@ -435,6 +531,10 @@ static int __init mtd_pagetest_init(void)
 		goto out;
 
 	err = erasetest();
+	if (err)
+		goto out;
+
+	err = erase_neighbour_test();
 	if (err)
 		goto out;
 

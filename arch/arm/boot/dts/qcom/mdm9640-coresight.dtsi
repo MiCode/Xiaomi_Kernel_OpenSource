@@ -159,7 +159,7 @@
 	};
 
 	rpm_etm0 {
-		compatible = "qcom,coresight-rpm-etm";
+		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <7>;
 		coresight-name = "coresight-rpm-etm0";
@@ -172,7 +172,7 @@
 	};
 
 	modem_etm0 {
-		compatible = "qcom,coresight-modem-etm";
+		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <8>;
 		coresight-name = "coresight-modem-etm0";

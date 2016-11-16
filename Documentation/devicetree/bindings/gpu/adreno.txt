@@ -148,6 +148,10 @@ Optional Properties:
 				baseAddr - base address of the gpu channels in the qdss stm memory region
 				size     - size of the gpu stm region
 
+- qcom,tsens-name:
+				Specify the name of GPU temperature sensor. This name will be used
+				to get the temperature from the thermal driver API.
+
 GPU Quirks:
 - qcom,gpu-quirk-two-pass-use-wfi:
 				Signal the GPU to set Set TWOPASSUSEWFI bit in
@@ -159,6 +163,23 @@ GPU Quirks:
 				detection logic
 - qcom,gpu-quirk-dp2clockgating-disable:
 				Disable RB sampler data path clock gating optimization
+
+KGSL Memory Pools:
+- qcom,gpu-mempools:		Container for sets of GPU mempools.Multiple sets
+				(pools) can be defined within qcom,gpu-mempools.
+				Each mempool defines a pool order, reserved pages,
+				allocation allowed.
+Properties:
+- compatible:			Must be qcom,gpu-mempools.
+- qcom,mempool-max-pages:	Max pages for all mempools, If not defined there is no limit.
+- qcom,gpu-mempool:		Defines a set of mempools.
+
+Properties:
+- reg:				Index of the pool (0 = lowest pool order).
+- qcom,mempool-page-size:	Size of page.
+- qcom,mempool-reserved:	Number of pages reserved at init time for a pool.
+- qcom,mempool-allocate:	Allocate memory from the system memory when the
+				reserved pool exhausted.
 
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight
@@ -235,6 +256,40 @@ Example of A330 GPU in MSM8916:
 
 		/* Context aware jump target power level */
 		qcom,ca-target-pwrlevel = <1>;
+
+		/* GPU Mempools */
+		qcom,gpu-mempools {
+			#address-cells= <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-mempools";
+
+			/* 4K Page Pool configuration */
+			qcom,gpu-mempool@0 {
+				reg = <0>;
+				qcom,mempool-page-size = <4096>;
+				qcom,mempool-reserved = <2048>;
+				qcom,mempool-allocate;
+			};
+			/* 8K Page Pool configuration */
+			qcom,gpu-mempool@1 {
+				reg = <1>;
+				qcom,mempool-page-size  = <8192>;
+				qcom,mempool-reserved = <1024>;
+				qcom,mempool-allocate;
+			};
+			/* 64K Page Pool configuration */
+			qcom,gpu-mempool@2 {
+				reg = <2>;
+				qcom,mempool-page-size  = <65536>;
+				qcom,mempool-reserved = <256>;
+			};
+			/* 1M Page Pool configuration */
+			qcom,gpu-mempool@3 {
+				reg = <3>;
+				qcom,mempool-page-size  = <1048576>;
+				qcom,mempool-reserved = <32>;
+			};
+		};
 
 		/* Power levels */
 		qcom,gpu-pwrlevels-bins {

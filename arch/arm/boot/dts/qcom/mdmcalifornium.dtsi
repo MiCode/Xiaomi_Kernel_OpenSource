@@ -142,7 +142,6 @@
 		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
 					"gpll0_mss_clk";
 
-		interrupts = <0 24 1>;
 		vdd_cx-supply = <&pmdcalifornium_s5_level>;
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&pmdcalifornium_l9_level>;
@@ -518,6 +517,21 @@
 		compatible = "qcom,msm_gsi";
 	};
 
+	qcom_rng: qrng@e3000 {
+		compatible = "qcom,msm-rng";
+		reg = <0xe3000 0x1000>;
+		qcom,msm-rng-iface-clk;
+		qcom,no-qrng-config;
+		qcom,msm-bus,name = "msm-rng-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 618 0 0>,		/* No vote */
+				<1 618 0 800>;		/* 100 MB/s */
+		clocks = <&clock_gcc clk_gcc_prng_ahb_clk>;
+		clock-names = "iface_clk";
+	};
+
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
 	};
@@ -564,6 +578,9 @@
 			<90 585 206000 3600000>,
 			<1 676 206000 960000>;
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+		/* ipa tz unlock registers */
+		qcom,ipa-tz-unlock-reg =
+			<0x4043583c 0x1000>; /* 32-bit reg addr and size */
 
 		/* smp2p gpio information */
 		qcom,smp2pgpio_map_ipa_1_out {
@@ -879,6 +896,7 @@
 
 	cnss_pcie: qcom,cnss {
 		compatible = "qcom,cnss";
+		wlan-en-gpio = <&tlmm_pinmux 95 0>;
 		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-xtal-supply = <&pmdcalifornium_l5>;
 		vdd-wlan-io-supply = <&pmdcalifornium_l6>;

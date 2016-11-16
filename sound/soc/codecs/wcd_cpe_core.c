@@ -473,7 +473,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 	bool load_segment;
 
 	if (!core || !core->cpe_handle) {
-		pr_err("%s: Error CPE core %p\n", __func__,
+		pr_err("%s: Error CPE core %pK\n", __func__,
 		       core);
 		return -EINVAL;
 	}
@@ -3051,25 +3051,9 @@ static int wcd_cpe_set_one_param(void *core_handle,
 		rc = wcd_cpe_send_param_epd_thres(core, session,
 						data, &ids);
 		break;
-	case LSM_OPERATION_MODE: {
-		struct cpe_lsm_ids connectport_ids;
-
-		rc = wcd_cpe_send_param_opmode(core, session,
-					data, &ids);
-		if (rc)
-			break;
-
-		connectport_ids.module_id = LSM_MODULE_ID_FRAMEWORK;
-		connectport_ids.param_id = LSM_PARAM_ID_CONNECT_TO_PORT;
-
-		rc = wcd_cpe_send_param_connectport(core, session, NULL,
-				       &connectport_ids, CPE_AFE_PORT_1_TX);
-		if (rc)
-			dev_err(core->dev,
-				"%s: send_param_connectport failed, err %d\n",
-				__func__, rc);
+	case LSM_OPERATION_MODE:
+		rc = wcd_cpe_send_param_opmode(core, session, data, &ids);
 		break;
-	}
 	case LSM_GAIN:
 		rc = wcd_cpe_send_param_gain(core, session, data, &ids);
 		break;

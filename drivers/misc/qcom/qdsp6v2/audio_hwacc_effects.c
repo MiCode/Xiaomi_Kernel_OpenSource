@@ -99,7 +99,7 @@ static void audio_effects_event_handler(uint32_t opcode, uint32_t token,
 	struct q6audio_effects *effects;
 
 	if (!payload || !priv) {
-		pr_err("%s: invalid data to handle events, payload: %p, priv: %p\n",
+		pr_err("%s: invalid data to handle events, payload: %pK, priv: %pK\n",
 			__func__, payload, priv);
 		return;
 	}
@@ -630,6 +630,8 @@ static long audio_effects_compat_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_EFFECTS_GET_BUF_AVAIL32: {
 		struct msm_hwacc_buf_avail32 buf_avail;
 
+		memset(&buf_avail, 0, sizeof(buf_avail));
+
 		buf_avail.input_num_avail = atomic_read(&effects->in_count);
 		buf_avail.output_num_avail = atomic_read(&effects->out_count);
 		pr_debug("%s: write buf avail: %d, read buf avail: %d\n",
@@ -703,7 +705,7 @@ static int audio_effects_release(struct inode *inode, struct file *file)
 				__func__);
 		rc = q6asm_cmd(effects->ac, CMD_CLOSE);
 		if (rc < 0)
-			pr_err("%s[%p]:Failed to close the session rc=%d\n",
+			pr_err("%s[%pK]:Failed to close the session rc=%d\n",
 				__func__, effects, rc);
 		effects->opened = 0;
 		effects->started = 0;

@@ -387,7 +387,7 @@ static void msm_vfe44_process_error_status(struct vfe_device *vfe_dev)
 	}
 }
 
-static void msm_vfe44_read_irq_status(struct vfe_device *vfe_dev,
+static void msm_vfe44_read_irq_status_and_clear(struct vfe_device *vfe_dev,
 	uint32_t *irq_status0, uint32_t *irq_status1)
 {
 	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x38);
@@ -413,6 +413,13 @@ static void msm_vfe44_read_irq_status(struct vfe_device *vfe_dev,
 		vfe_dev->error_info.violation_status =
 		msm_camera_io_r(vfe_dev->vfe_base + 0x48);
 
+}
+
+static void msm_vfe44_read_irq_status(struct vfe_device *vfe_dev,
+	uint32_t *irq_status0, uint32_t *irq_status1)
+{
+	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x38);
+	*irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x3C);
 }
 
 static void msm_vfe44_process_reg_update(struct vfe_device *vfe_dev,
@@ -664,6 +671,12 @@ static void msm_vfe44_axi_clear_wm_irq_mask(struct vfe_device *vfe_dev,
 {
 	msm_vfe44_config_irq(vfe_dev, (1 << (stream_info->wm[0] + 8)), 0,
 			MSM_ISP_IRQ_DISABLE);
+}
+
+static void msm_vfe44_axi_clear_irq_mask(struct vfe_device *vfe_dev)
+{
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x28);
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x2C);
 }
 
 static void msm_vfe44_cfg_framedrop(void __iomem *vfe_base,
@@ -1823,6 +1836,8 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 	.vfe_ops = {
 		.irq_ops = {
 			.read_irq_status = msm_vfe44_read_irq_status,
+			.read_irq_status_and_clear =
+				msm_vfe44_read_irq_status_and_clear,
 			.process_camif_irq = msm_vfe44_process_input_irq,
 			.process_reset_irq = msm_vfe44_process_reset_irq,
 			.process_halt_irq = msm_vfe44_process_halt_irq,
@@ -1841,6 +1856,8 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 			.clear_comp_mask = msm_vfe44_axi_clear_comp_mask,
 			.cfg_wm_irq_mask = msm_vfe44_axi_cfg_wm_irq_mask,
 			.clear_wm_irq_mask = msm_vfe44_axi_clear_wm_irq_mask,
+			.clear_irq_mask =
+				msm_vfe44_axi_clear_irq_mask,
 			.cfg_framedrop = msm_vfe44_cfg_framedrop,
 			.clear_framedrop = msm_vfe44_clear_framedrop,
 			.cfg_wm_reg = msm_vfe44_axi_cfg_wm_reg,

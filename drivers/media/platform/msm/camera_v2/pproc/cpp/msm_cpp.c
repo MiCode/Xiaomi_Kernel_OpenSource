@@ -115,6 +115,13 @@ static  int msm_cpp_update_gdscr_status(struct cpp_device *cpp_dev,
 	bool status);
 static int msm_cpp_buffer_private_ops(struct cpp_device *cpp_dev,
 	uint32_t buff_mgr_ops, uint32_t id, void *arg);
+static void msm_cpp_set_micro_irq_mask(struct cpp_device *cpp_dev,
+	uint8_t enable, uint32_t irq_mask);
+static void msm_cpp_flush_queue_and_release_buffer(struct cpp_device *cpp_dev,
+	int queue_len);
+static int msm_cpp_dump_frame_cmd(struct msm_cpp_frame_info_t *frame_info);
+static int msm_cpp_dump_addr(struct cpp_device *cpp_dev,
+	struct msm_cpp_frame_info_t *frame_info);
 
 #if CONFIG_MSM_CPP_DBG
 #define CPP_DBG(fmt, args...) pr_err(fmt, ##args)
@@ -657,6 +664,127 @@ static int32_t msm_cpp_poll_rx_empty(void __iomem *cpp_base)
 	return rc;
 }
 
+static int msm_cpp_dump_addr(struct cpp_device *cpp_dev,
+	struct msm_cpp_frame_info_t *frame_info)
+{
+	int32_t s_base, p_base;
+	uint32_t rd_off, wr0_off, wr1_off, wr2_off, wr3_off;
+	uint32_t wr0_mdata_off, wr1_mdata_off, wr2_mdata_off, wr3_mdata_off;
+	uint32_t rd_ref_off, wr_ref_off;
+	uint32_t s_size, p_size;
+	uint8_t tnr_enabled, ubwc_enabled, cds_en;
+	int32_t i = 0;
+	uint32_t *cpp_frame_msg;
+
+	cpp_frame_msg = frame_info->cpp_cmd_msg;
+
+	/* Update stripe/plane size and base offsets */
+	s_base = cpp_dev->payload_params.stripe_base;
+	s_size = cpp_dev->payload_params.stripe_size;
+	p_base = cpp_dev->payload_params.plane_base;
+	p_size = cpp_dev->payload_params.plane_size;
+
+	/* Fetch engine Offset */
+	rd_off = cpp_dev->payload_params.rd_pntr_off;
+	/* Write engine offsets */
+	wr0_off = cpp_dev->payload_params.wr_0_pntr_off;
+	wr1_off = wr0_off + 1;
+	wr2_off = wr1_off + 1;
+	wr3_off = wr2_off + 1;
+	/* Reference engine offsets */
+	rd_ref_off = cpp_dev->payload_params.rd_ref_pntr_off;
+	wr_ref_off = cpp_dev->payload_params.wr_ref_pntr_off;
+	/* Meta data offsets */
+	wr0_mdata_off =
+		cpp_dev->payload_params.wr_0_meta_data_wr_pntr_off;
+	wr1_mdata_off = (wr0_mdata_off + 1);
+	wr2_mdata_off = (wr1_mdata_off + 1);
+	wr3_mdata_off = (wr2_mdata_off + 1);
+
+	tnr_enabled = ((frame_info->feature_mask & TNR_MASK) >> 2);
+	ubwc_enabled = ((frame_info->feature_mask & UBWC_MASK) >> 5);
+	cds_en = ((frame_info->feature_mask & CDS_MASK) >> 6);
+
+	for (i = 0; i < frame_info->num_strips; i++) {
+		pr_err("stripe %d: in %x, out1 %x out2 %x, out3 %x, out4 %x\n",
+			i, cpp_frame_msg[s_base + rd_off + i * s_size],
+			cpp_frame_msg[s_base + wr0_off + i * s_size],
+			cpp_frame_msg[s_base + wr1_off + i * s_size],
+			cpp_frame_msg[s_base + wr2_off + i * s_size],
+			cpp_frame_msg[s_base + wr3_off + i * s_size]);
+
+		if (tnr_enabled) {
+			pr_err("stripe %d: read_ref %x, write_ref %x\n", i,
+				cpp_frame_msg[s_base + rd_ref_off + i * s_size],
+				cpp_frame_msg[s_base + wr_ref_off + i * s_size]
+				);
+		}
+
+		if (cds_en) {
+			pr_err("stripe %d:, dsdn_off %x\n", i,
+				cpp_frame_msg[s_base + rd_ref_off + i * s_size]
+				);
+		}
+
+		if (ubwc_enabled) {
+			pr_err("stripe %d: metadata %x, %x, %x, %x\n", i,
+				cpp_frame_msg[s_base + wr0_mdata_off +
+				i * s_size],
+				cpp_frame_msg[s_base + wr1_mdata_off +
+				i * s_size],
+				cpp_frame_msg[s_base + wr2_mdata_off +
+				i * s_size],
+				cpp_frame_msg[s_base + wr3_mdata_off +
+				i * s_size]
+				);
+		}
+
+	}
+	return 0;
+}
+
+static void msm_cpp_iommu_fault_handler(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags, void *token)
+{
+	struct cpp_device *cpp_dev = NULL;
+	struct msm_cpp_frame_info_t *processed_frame[MAX_CPP_PROCESSING_FRAME];
+	int32_t i = 0, queue_len = 0;
+	struct msm_device_queue *queue = NULL;
+
+	if (token) {
+		cpp_dev = token;
+		disable_irq(cpp_dev->irq->start);
+		if (atomic_read(&cpp_timer.used)) {
+			atomic_set(&cpp_timer.used, 0);
+			del_timer_sync(&cpp_timer.cpp_timer);
+		}
+		mutex_lock(&cpp_dev->mutex);
+		tasklet_kill(&cpp_dev->cpp_tasklet);
+		cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
+		queue = &cpp_timer.data.cpp_dev->processing_q;
+		queue_len = queue->len;
+		if (!queue_len) {
+			pr_err("%s:%d: Invalid queuelen\n", __func__, __LINE__);
+			msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
+			mutex_unlock(&cpp_dev->mutex);
+			return;
+		}
+		for (i = 0; i < queue_len; i++) {
+			if (cpp_timer.data.processed_frame[i]) {
+				processed_frame[i] =
+					cpp_timer.data.processed_frame[i];
+				pr_err("Fault on  identity=0x%x, frame_id=%03d\n",
+					processed_frame[i]->identity,
+					processed_frame[i]->frame_id);
+				msm_cpp_dump_addr(cpp_dev, processed_frame[i]);
+				msm_cpp_dump_frame_cmd(processed_frame[i]);
+			}
+		}
+		msm_cpp_flush_queue_and_release_buffer(cpp_dev, queue_len);
+		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
+		mutex_unlock(&cpp_dev->mutex);
+	}
+}
 
 static int cpp_init_mem(struct cpp_device *cpp_dev)
 {
@@ -673,6 +801,9 @@ static int cpp_init_mem(struct cpp_device *cpp_dev)
 		return -ENODEV;
 
 	cpp_dev->iommu_hdl = iommu_hdl;
+	cam_smmu_reg_client_page_fault_handler(
+			cpp_dev->iommu_hdl,
+			msm_cpp_iommu_fault_handler, cpp_dev);
 	return 0;
 }
 
@@ -2274,21 +2405,19 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		return -EINVAL;
 	}
 
-	if (!new_frame->partial_frame_indicator) {
-		if (cpp_frame_msg[new_frame->msg_len - 1] !=
-			MSM_CPP_MSG_ID_TRAILER) {
-			pr_err("Invalid frame message\n");
-			return -EINVAL;
-		}
+	if (cpp_frame_msg[new_frame->msg_len - 1] !=
+		MSM_CPP_MSG_ID_TRAILER) {
+		pr_err("Invalid frame message\n");
+		return -EINVAL;
+	}
 
-		if ((stripe_base + new_frame->num_strips * stripe_size + 1) !=
-			new_frame->msg_len) {
-			pr_err("Invalid frame message,len=%d,expected=%d\n",
-				new_frame->msg_len,
-				(stripe_base +
-				new_frame->num_strips * stripe_size + 1));
-			return -EINVAL;
-		}
+	if ((stripe_base + new_frame->num_strips * stripe_size + 1) !=
+		new_frame->msg_len) {
+		pr_err("Invalid frame message,len=%d,expected=%d\n",
+			new_frame->msg_len,
+			(stripe_base +
+			new_frame->num_strips * stripe_size + 1));
+		return -EINVAL;
 	}
 
 	if (cpp_dev->iommu_state != CPP_IOMMU_STATE_ATTACHED) {
@@ -2678,14 +2807,14 @@ static int msm_cpp_validate_input(unsigned int cmd, void *arg,
 		break;
 	default: {
 		if (ioctl_ptr == NULL) {
-			pr_err("Wrong ioctl_ptr %pK\n", ioctl_ptr);
+			pr_err("Wrong ioctl_ptr for cmd %u\n", cmd);
 			return -EINVAL;
 		}
 
 		*ioctl_ptr = arg;
 		if ((*ioctl_ptr == NULL) ||
-			((*ioctl_ptr)->ioctl_ptr == NULL)) {
-			pr_err("Wrong arg %pK\n", arg);
+			(*ioctl_ptr)->ioctl_ptr == NULL) {
+			pr_err("Error invalid ioctl argument cmd %u", cmd);
 			return -EINVAL;
 		}
 		break;
@@ -2710,6 +2839,12 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		pr_err("cpp_dev is null\n");
 		return -EINVAL;
 	}
+
+	if (_IOC_DIR(cmd) == _IOC_NONE) {
+		pr_err("Invalid ioctl/subdev cmd %u", cmd);
+		return -EINVAL;
+	}
+
 	rc = msm_cpp_validate_input(cmd, arg, &ioctl_ptr);
 	if (rc != 0) {
 		pr_err("input validation failed\n");
@@ -4089,7 +4224,7 @@ static int cpp_probe(struct platform_device *pdev)
 	cpp_dev->state = CPP_STATE_BOOT;
 	rc = cpp_init_hardware(cpp_dev);
 	if (rc < 0)
-		goto cpp_probe_init_error;
+		goto bus_de_init;
 
 	media_entity_init(&cpp_dev->msm_sd.sd.entity, 0, NULL, 0);
 	cpp_dev->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
@@ -4128,7 +4263,7 @@ static int cpp_probe(struct platform_device *pdev)
 	if (!cpp_dev->work) {
 		pr_err("no enough memory\n");
 		rc = -ENOMEM;
-		goto cpp_probe_init_error;
+		goto bus_de_init;
 	}
 
 	INIT_WORK((struct work_struct *)cpp_dev->work, msm_cpp_do_timeout_work);
@@ -4148,6 +4283,12 @@ static int cpp_probe(struct platform_device *pdev)
 	else
 		CPP_DBG("FAILED.");
 	return rc;
+
+bus_de_init:
+	if (cpp_dev->bus_master_flag)
+		msm_cpp_deinit_bandwidth_mgr(cpp_dev);
+	else
+		msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 cpp_probe_init_error:
 	media_entity_cleanup(&cpp_dev->msm_sd.sd.entity);
 	msm_sd_unregister(&cpp_dev->msm_sd);

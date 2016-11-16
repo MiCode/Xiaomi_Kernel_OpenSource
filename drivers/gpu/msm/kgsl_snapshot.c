@@ -1060,6 +1060,9 @@ void kgsl_snapshot_save_frozen_objs(struct work_struct *work)
 	size_t size = 0;
 	void *ptr;
 
+	if (IS_ERR_OR_NULL(device))
+		return;
+
 	kgsl_snapshot_process_ib_obj_list(snapshot);
 
 	list_for_each_entry(obj, &snapshot->obj_list, node) {
@@ -1074,9 +1077,6 @@ void kgsl_snapshot_save_frozen_objs(struct work_struct *work)
 		goto done;
 
 	snapshot->mempool = vmalloc(size);
-	if (snapshot->mempool != NULL)
-		KGSL_DRV_ERR(device, "snapshot: mempool address %p, size %zx\n",
-				snapshot->mempool, size);
 
 	ptr = snapshot->mempool;
 	snapshot->mempool_size = 0;

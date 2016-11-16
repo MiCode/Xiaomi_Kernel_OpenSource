@@ -1251,30 +1251,50 @@ bool ieee80211_operating_class_to_band(u8 operating_class,
 EXPORT_SYMBOL(ieee80211_operating_class_to_band);
 
 int cfg80211_validate_beacon_int(struct cfg80211_registered_device *rdev,
-				 u32 beacon_int)
+				 enum nl80211_iftype iftype, u32 beacon_int)
 {
 	struct wireless_dev *wdev;
-	int res = 0;
+	struct iface_combination_params params = {
+		.beacon_int_gcd = beacon_int,	/* GCD(n) = n */
+	};
 
 	if (!beacon_int)
 		return -EINVAL;
 
+	params.iftype_num[iftype] = 1;
 	list_for_each_entry(wdev, &rdev->wdev_list, list) {
 		if (!wdev->beacon_interval)
 			continue;
-		if (wdev->beacon_interval != beacon_int) {
-			res = -EINVAL;
-			break;
+
+		params.iftype_num[wdev->iftype]++;
+	}
+
+	list_for_each_entry(wdev, &rdev->wdev_list, list) {
+		u32 bi_prev = wdev->beacon_interval;
+
+		if (!wdev->beacon_interval)
+			continue;
+
+		/* slight optimisation - skip identical BIs */
+		if (wdev->beacon_interval == beacon_int)
+			continue;
+
+		params.beacon_int_different = true;
+
+		/* Get the GCD */
+		while (bi_prev != 0) {
+			u32 tmp_bi = bi_prev;
+
+			bi_prev = params.beacon_int_gcd % bi_prev;
+			params.beacon_int_gcd = tmp_bi;
 		}
 	}
 
-	return res;
+	return cfg80211_check_combinations(&rdev->wiphy, &params);
 }
 
 int cfg80211_iter_combinations(struct wiphy *wiphy,
-			       const int num_different_channels,
-			       const u8 radar_detect,
-			       const int iftype_num[NUM_NL80211_IFTYPES],
+			       struct iface_combination_params *params,
 			       void (*iter)(const struct ieee80211_iface_combination *c,
 					    void *data),
 			       void *data)
@@ -1285,7 +1305,7 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 	int num_interfaces = 0;
 	u32 used_iftypes = 0;
 
-	if (radar_detect) {
+	if (params->radar_detect) {
 		rcu_read_lock();
 		regdom = rcu_dereference(cfg80211_regdomain);
 		if (regdom)
@@ -1294,8 +1314,8 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 	}
 
 	for (iftype = 0; iftype < NUM_NL80211_IFTYPES; iftype++) {
-		num_interfaces += iftype_num[iftype];
-		if (iftype_num[iftype] > 0 &&
+		num_interfaces += params->iftype_num[iftype];
+		if (params->iftype_num[iftype] > 0 &&
 		    !(wiphy->software_iftypes & BIT(iftype)))
 			used_iftypes |= BIT(iftype);
 	}
@@ -1309,7 +1329,7 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 
 		if (num_interfaces > c->max_interfaces)
 			continue;
-		if (num_different_channels > c->num_different_channels)
+		if (params->num_different_channels > c->num_different_channels)
 			continue;
 
 		limits = kmemdup(c->limits, sizeof(limits[0]) * c->n_limits,
@@ -1324,16 +1344,17 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 				all_iftypes |= limits[j].types;
 				if (!(limits[j].types & BIT(iftype)))
 					continue;
-				if (limits[j].max < iftype_num[iftype])
+				if (limits[j].max < params->iftype_num[iftype])
 					goto cont;
-				limits[j].max -= iftype_num[iftype];
+				limits[j].max -= params->iftype_num[iftype];
 			}
 		}
 
-		if (radar_detect != (c->radar_detect_widths & radar_detect))
+		if (params->radar_detect !=
+			(c->radar_detect_widths & params->radar_detect))
 			goto cont;
 
-		if (radar_detect && c->radar_detect_regions &&
+		if (params->radar_detect && c->radar_detect_regions &&
 		    !(c->radar_detect_regions & BIT(region)))
 			goto cont;
 
@@ -1344,6 +1365,17 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 		 */
 		if ((all_iftypes & used_iftypes) != used_iftypes)
 			goto cont;
+
+		if (params->beacon_int_gcd) {
+			if (c->beacon_int_min_gcd &&
+			    params->beacon_int_gcd < c->beacon_int_min_gcd) {
+				kfree(limits);
+				return -EINVAL;
+			}
+			if (!c->beacon_int_min_gcd &&
+			    params->beacon_int_different)
+				goto cont;
+		}
 
 		/* This combination covered all interface types and
 		 * supported the requested numbers, so we're good.
@@ -1367,14 +1399,11 @@ cfg80211_iter_sum_ifcombs(const struct ieee80211_iface_combination *c,
 }
 
 int cfg80211_check_combinations(struct wiphy *wiphy,
-				const int num_different_channels,
-				const u8 radar_detect,
-				const int iftype_num[NUM_NL80211_IFTYPES])
+				struct iface_combination_params *params)
 {
 	int err, num = 0;
 
-	err = cfg80211_iter_combinations(wiphy, num_different_channels,
-					 radar_detect, iftype_num,
+	err = cfg80211_iter_combinations(wiphy, params,
 					 cfg80211_iter_sum_ifcombs, &num);
 	if (err)
 		return err;
@@ -1393,14 +1422,15 @@ int cfg80211_can_use_iftype_chan(struct cfg80211_registered_device *rdev,
 				 u8 radar_detect)
 {
 	struct wireless_dev *wdev_iter;
-	int num[NUM_NL80211_IFTYPES];
 	struct ieee80211_channel
 			*used_channels[CFG80211_MAX_NUM_DIFFERENT_CHANNELS];
 	struct ieee80211_channel *ch;
 	enum cfg80211_chan_mode chmode;
-	int num_different_channels = 0;
 	int total = 1;
 	int i;
+	struct iface_combination_params params = {
+		.radar_detect = radar_detect,
+	};
 
 	ASSERT_RTNL();
 
@@ -1417,10 +1447,9 @@ int cfg80211_can_use_iftype_chan(struct cfg80211_registered_device *rdev,
 		return 0;
 	}
 
-	memset(num, 0, sizeof(num));
 	memset(used_channels, 0, sizeof(used_channels));
 
-	num[iftype] = 1;
+	params.iftype_num[iftype] = 1;
 
 	/* TODO: We'll probably not need this anymore, since this
 	 * should only be called with CHAN_MODE_UNDEFINED. There are
@@ -1433,10 +1462,10 @@ int cfg80211_can_use_iftype_chan(struct cfg80211_registered_device *rdev,
 	case CHAN_MODE_SHARED:
 		WARN_ON(!chan);
 		used_channels[0] = chan;
-		num_different_channels++;
+		params.num_different_channels++;
 		break;
 	case CHAN_MODE_EXCLUSIVE:
-		num_different_channels++;
+		params.num_different_channels++;
 		break;
 	}
 
@@ -1464,7 +1493,8 @@ int cfg80211_can_use_iftype_chan(struct cfg80211_registered_device *rdev,
 		 */
 		mutex_lock_nested(&wdev_iter->mtx, 1);
 		__acquire(wdev_iter->mtx);
-		cfg80211_get_chan_state(wdev_iter, &ch, &chmode, &radar_detect);
+		cfg80211_get_chan_state(wdev_iter, &ch, &chmode,
+					&params.radar_detect);
 		wdev_unlock(wdev_iter);
 
 		switch (chmode) {
@@ -1480,23 +1510,22 @@ int cfg80211_can_use_iftype_chan(struct cfg80211_registered_device *rdev,
 
 			if (used_channels[i] == NULL) {
 				used_channels[i] = ch;
-				num_different_channels++;
+				params.num_different_channels++;
 			}
 			break;
 		case CHAN_MODE_EXCLUSIVE:
-			num_different_channels++;
+			params.num_different_channels++;
 			break;
 		}
 
-		num[wdev_iter->iftype]++;
+		params.iftype_num[wdev_iter->iftype]++;
 		total++;
 	}
 
-	if (total == 1 && !radar_detect)
+	if (total == 1 && !params.radar_detect)
 		return 0;
 
-	return cfg80211_check_combinations(&rdev->wiphy, num_different_channels,
-					   radar_detect, num);
+	return cfg80211_check_combinations(&rdev->wiphy, &params);
 }
 
 int ieee80211_get_ratemask(struct ieee80211_supported_band *sband,

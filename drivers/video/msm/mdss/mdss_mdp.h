@@ -56,7 +56,8 @@
 #define C0_G_Y		0	/* G/luma */
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
-#define KOFF_TIMEOUT msecs_to_jiffies(84)
+#define KOFF_TIMEOUT_MS 84
+#define KOFF_TIMEOUT msecs_to_jiffies(KOFF_TIMEOUT_MS)
 
 #define OVERFETCH_DISABLE_TOP		BIT(0)
 #define OVERFETCH_DISABLE_BOTTOM	BIT(1)
@@ -112,6 +113,12 @@ enum mdss_mdp_mixer_mux {
 	MDSS_MDP_MIXER_MUX_DEFAULT,
 	MDSS_MDP_MIXER_MUX_LEFT,
 	MDSS_MDP_MIXER_MUX_RIGHT,
+};
+
+enum mdss_sd_transition {
+	SD_TRANSITION_NONE,
+	SD_TRANSITION_SECURE_TO_NON_SECURE,
+	SD_TRANSITION_NON_SECURE_TO_SECURE
 };
 
 static inline enum mdss_mdp_sspp_index get_pipe_num_from_ndx(u32 ndx)
@@ -316,6 +323,7 @@ struct mdss_mdp_ctl_intfs_ops {
 	int (*prepare_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
 	int (*display_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
 	int (*wait_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
+	int (*wait_vsync_fnc)(struct mdss_mdp_ctl *ctl);
 	int (*wait_pingpong)(struct mdss_mdp_ctl *ctl, void *arg);
 	u32 (*read_line_cnt_fnc)(struct mdss_mdp_ctl *);
 	int (*add_vsync_handler)(struct mdss_mdp_ctl *,
@@ -337,6 +345,183 @@ struct mdss_mdp_ctl_intfs_ops {
 
 	/* to update lineptr, [1..yres] - enable, 0 - disable */
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
+};
+
+/* FRC info used for Deterministic Frame Rate Control */
+#define FRC_CADENCE_22_RATIO 2000000000u /* 30fps -> 60fps, 29.97 -> 59.94 */
+#define FRC_CADENCE_22_RATIO_LOW 1940000000u
+#define FRC_CADENCE_22_RATIO_HIGH 2060000000u
+
+#define FRC_CADENCE_23_RATIO 2500000000u /* 24fps -> 60fps, 23.976 -> 59.94 */
+#define FRC_CADENCE_23_RATIO_LOW 2450000000u
+#define FRC_CADENCE_23_RATIO_HIGH 2550000000u
+
+#define FRC_CADENCE_23223_RATIO 2400000000u /* 25fps -> 60fps */
+#define FRC_CADENCE_23223_RATIO_LOW 2360000000u
+#define FRC_CADENCE_23223_RATIO_HIGH 2440000000u
+
+#define FRC_VIDEO_TS_DELTA_THRESHOLD_US (16666 * 10) /* 10 frames at 60fps */
+
+/*
+ * In current FRC design, the minimum video fps change we can support is 24fps
+ * to 25fps, so the timestamp delta per frame is 1667. Use this threshold to
+ * catch this case and ignore more trivial video fps variations.
+ */
+#define FRC_VIDEO_FPS_CHANGE_THRESHOLD_US 1667
+#define FRC_VIDEO_FPS_DETECT_WINDOW 32 /* how many samples we need for video
+				fps calculation */
+
+/*
+ * Experimental value. Mininum vsync counts during video's single update could
+ * be thought of as pause. If video fps is 10fps and display is 60fps, every
+ * video frame should arrive per 6 vsync, and add 2 more vsync delay, each frame
+ * should arrive in at most 8 vsync interval, otherwise it's considered as a
+ * pause. This value might need tuning in some cases.
+ */
+#define FRC_VIDEO_PAUSE_THRESHOLD 8
+
+#define FRC_MAX_VIDEO_DROPPING_CNT 10 /* how many drops before we disable FRC */
+#define FRC_VIDEO_DROP_TOLERANCE_WINDOW 1000 /* how many frames to count drop */
+
+/* DONOT change the definition order. __check_known_cadence depends on it */
+enum {
+	FRC_CADENCE_NONE = 0, /* Waiting for samples to compute cadence */
+	FRC_CADENCE_23,
+	FRC_CADENCE_22,
+	FRC_CADENCE_23223,
+	FRC_CADENCE_FREE_RUN, /* No extra repeat, but wait for changes */
+	FRC_CADENCE_DISABLE, /* FRC disabled, no extra repeat */
+};
+#define FRC_MAX_SUPPORT_CADENCE FRC_CADENCE_FREE_RUN
+
+#define FRC_CADENCE_SEQUENCE_MAX_LEN 5 /* 5 -> 23223 */
+#define FRC_CADENCE_SEQUENCE_MAX_RETRY 5 /* max retry of matching sequence */
+
+/* sequence generator for pre-defined cadence */
+struct mdss_mdp_frc_seq_gen {
+	int seq[FRC_CADENCE_SEQUENCE_MAX_LEN];
+	int cache[FRC_CADENCE_SEQUENCE_MAX_LEN]; /* 0 -> this slot is empty */
+	int len;
+	int pos; /* current position in seq, < 0 -> pattern not matched */
+	int base;
+	int retry;
+};
+
+struct mdss_mdp_frc_data {
+	u32 frame_cnt; /* video frame count */
+	s64 timestamp; /* video timestamp in millisecond */
+};
+
+struct mdss_mdp_frc_video_stat {
+	u32 frame_cnt; /* video frame count */
+	s64 timestamp; /* video timestamp in millisecond */
+	s64 last_delta;
+};
+
+struct mdss_mdp_frc_drop_stat {
+	u32 drop_cnt; /* how many video buffer drop */
+	u32 frame_cnt; /* the first frame cnt where drop happens */
+};
+
+#define FRC_CADENCE_DETECT_WINDOW 6 /* how many samples at least we need for
+					cadence detection */
+
+struct mdss_mdp_frc_cadence_calc {
+	struct mdss_mdp_frc_data samples[FRC_CADENCE_DETECT_WINDOW];
+	int sample_cnt;
+};
+
+struct mdss_mdp_frc_info {
+	u32 cadence_id; /* patterns such as 22/23/23223 */
+	u32 display_fp1000s;
+	u32 last_vsync_cnt; /* vsync when we kicked off last frame */
+	u32 last_repeat; /* how many times last frame was repeated */
+	u32 base_vsync_cnt;
+	struct mdss_mdp_frc_data cur_frc;
+	struct mdss_mdp_frc_data last_frc;
+	struct mdss_mdp_frc_data base_frc;
+	struct mdss_mdp_frc_video_stat video_stat;
+	struct mdss_mdp_frc_drop_stat drop_stat;
+	struct mdss_mdp_frc_cadence_calc calc;
+	struct mdss_mdp_frc_seq_gen gen;
+};
+
+/*
+ * FSM used in deterministic frame rate control:
+ *
+ *                +----------------+                      +----------------+
+ *                | +------------+ |    too many drops    | +------------+ |
+ *       +--------> |  INIT      | +----------------------> |   DISABLE  | |
+ *       |        | +------------+ <-----------+          | +------------+ |
+ *       |        +----------------+           |          +----------------+
+ *       |           |        |                |
+ *       |           |        |                | change
+ *       |      frame|        |change          +----------------+
+ *       |           |        |                                 |
+ *       |           |        |                                 |
+ *       |        +--v--------+----+                      +-----+----------+
+ * change|        |                |      not supported   |                |
+ *       |        | CADENCE_DETECT +---------------------->    FREE_RUN    |
+ *       |        |                |                      |                |
+ *       |        +-------+--------+                      +----------------+
+ *       |                |
+ *       |                |
+ *       |                |cadence detected
+ *       |                |
+ *       |                |
+ *       |        +-------v--------+             +----------------------------+
+ *       |        |                |             |Events:                     |
+ *       +--------+  SEQ_MATCH     |             |  1. change: some changes   |
+ *       |        |                |             |  might change cadence like |
+ *       |        +-------+--------+             |  video/display fps.        |
+ *       |                |                      |  2. frame: video frame with|
+ *       |                |sequence matched      |  correct FRC info.         |
+ *       |                |                      |  3. in other states than   |
+ *       |        +-------v--------+             |  INIT frame event doesn't  |
+ *       |        |                |             |  make any state change.    |
+ *       |        |                |             +----------------------------+
+ *       +--------+   READY        |
+ *                |                |
+ *                +----------------+
+ */
+enum mdss_mdp_frc_state_type {
+	FRC_STATE_INIT = 0, /* INIT state waiting for frames */
+	FRC_STATE_CADENCE_DETECT, /* state to detect cadence ID */
+	FRC_STATE_SEQ_MATCH, /* state to find start pos in cadence sequence */
+	FRC_STATE_FREERUN, /* state has no extra repeat but might be changed */
+	FRC_STATE_READY, /* state ready to do FRC */
+	FRC_STATE_DISABLE, /* state in which FRC is disabled */
+	FRC_STATE_MAX,
+};
+
+struct mdss_mdp_frc_fsm;
+
+struct mdss_mdp_frc_fsm_ops {
+	/* preprocess incoming FRC info like checking fps changes */
+	void (*pre_frc)(struct mdss_mdp_frc_fsm *frc_fsm, void *arg);
+	/* deterministic frame rate control like delaying frame's display */
+	void (*do_frc)(struct mdss_mdp_frc_fsm *frc_fsm, void *arg);
+	/* post-operations after FRC like saving past info */
+	void (*post_frc)(struct mdss_mdp_frc_fsm *frc_fsm, void *arg);
+};
+
+struct mdss_mdp_frc_fsm_cbs {
+	/* callback used once updating FRC FSM's state */
+	void (*update_state_cb)(struct mdss_mdp_frc_fsm *frc_fsm);
+};
+
+struct mdss_mdp_frc_fsm_state {
+	char *name; /* debug name of current state */
+	enum mdss_mdp_frc_state_type state; /* current state type */
+	struct mdss_mdp_frc_fsm_ops ops; /* operations of curent state */
+};
+
+struct mdss_mdp_frc_fsm {
+	bool enable; /* whether FRC is running */
+	struct mdss_mdp_frc_fsm_state state; /* current state */
+	struct mdss_mdp_frc_fsm_state to_state; /* state to set */
+	struct mdss_mdp_frc_fsm_cbs cbs;
+	struct mdss_mdp_frc_info frc_info;
 };
 
 struct mdss_mdp_ctl {
@@ -450,6 +635,9 @@ struct mdss_mdp_ctl {
 
 	/* dynamic resolution switch during cont-splash handoff */
 	bool switch_with_handoff;
+
+	/* vsync handler for FRC */
+	struct mdss_mdp_vsync_handler frc_vsync_handler;
 };
 
 struct mdss_mdp_mixer {
@@ -823,6 +1011,10 @@ struct mdss_overlay_private {
 	u32 ad_bl_events;
 
 	bool allow_kickoff;
+
+	/* video frame info used by deterministic frame rate control */
+	struct mdss_mdp_frc_fsm *frc_fsm;
+	u8 sd_transition_state;
 };
 
 struct mdss_mdp_set_ot_params {
@@ -1119,7 +1311,7 @@ static inline struct clk *mdss_mdp_get_clk(u32 clk_idx)
 }
 
 static inline void mdss_update_sd_client(struct mdss_data_type *mdata,
-							bool status)
+							unsigned int status)
 {
 	if (status)
 		atomic_inc(&mdata->sd_client_count);
@@ -1131,12 +1323,21 @@ static inline int mdss_mdp_get_wb_ctl_support(struct mdss_data_type *mdata,
 							bool rotator_session)
 {
 	/*
-	 * Initial control paths are used for primary and external
-	 * interfaces and remaining control paths are used for WB
-	 * interfaces.
+	 * Any control path can be routed to any of the hardware datapaths.
+	 * But there is a HW restriction for 3D Mux block. As the 3D Mux
+	 * settings in the CTL registers are double buffered, if an interface
+	 * uses it and disconnects, then the subsequent interface which gets
+	 * connected should use the same control path in order to clear the
+	 * 3D MUX settings.
+	 * To handle this restriction, we are allowing WB also, to loop through
+	 * all the avialable control paths, so that it can reuse the control
+	 * path left by the external interface, thereby clearing the 3D Mux
+	 * settings.
+	 * The initial control paths can be used by Primary, External and WB.
+	 * The rotator can use the remaining available control paths.
 	 */
 	return rotator_session ? (mdata->nctl - mdata->nmixers_wb) :
-				(mdata->nctl - mdata->nwb);
+		MDSS_MDP_CTL0;
 }
 
 static inline bool mdss_mdp_is_nrt_vbif_client(struct mdss_data_type *mdata,
@@ -1409,7 +1610,8 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx, bool locked);
 int mdss_mdp_vsync_clk_enable(int enable, bool locked);
 void mdss_mdp_clk_ctrl(int enable);
 struct mdss_data_type *mdss_mdp_get_mdata(void);
-int mdss_mdp_secure_display_ctrl(unsigned int enable);
+int mdss_mdp_secure_display_ctrl(struct mdss_data_type *mdata,
+	unsigned int enable);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
 int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
@@ -1734,6 +1936,12 @@ void mdss_mdp_enable_hw_irq(struct mdss_data_type *mdata);
 void mdss_mdp_disable_hw_irq(struct mdss_data_type *mdata);
 
 void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata);
+
+void mdss_mdp_frc_fsm_init_state(struct mdss_mdp_frc_fsm *frc_fsm);
+void mdss_mdp_frc_fsm_change_state(struct mdss_mdp_frc_fsm *frc_fsm,
+	enum mdss_mdp_frc_state_type state,
+	void (*cb)(struct mdss_mdp_frc_fsm *frc_fsm));
+void mdss_mdp_frc_fsm_update_state(struct mdss_mdp_frc_fsm *frc_fsm);
 
 #ifdef CONFIG_FB_MSM_MDP_NONE
 struct mdss_data_type *mdss_mdp_get_mdata(void)

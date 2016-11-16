@@ -107,7 +107,7 @@ static int diagfwd_bridge_mux_write_done(unsigned char *buf, int len,
 
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
-	ch = &bridge_info[id];
+	ch = &bridge_info[buf_ctx];
 	if (ch->dev_ops && ch->dev_ops->fwd_complete)
 		ch->dev_ops->fwd_complete(ch->ctxt, buf, len, 0);
 	return 0;

@@ -40,6 +40,7 @@
 		compatible = "qcom,msm-smmu-v2", "qcom,msm-mmu-500";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		#iommu-cells = <1>;
 		ranges;
 		reg = <0x1e00000 0x40000>;
 		reg-names = "iommu_base";

@@ -2164,6 +2164,7 @@ static int emac_open(struct net_device *netdev)
 			 retval, irq->irq, irq_cmn->name, irq_cmn->irqflags);
 		goto err_up;
 	} else {
+		adpt->is_wol_enabled = true;
 		emac_wol_gpio_irq(adpt, false);
 	}
 	return retval;
@@ -2185,8 +2186,10 @@ static int emac_close(struct net_device *netdev)
 		msleep(20); /* Reset might take few 10s of ms */
 
 	pm_runtime_get_sync(netdev->dev.parent);
-	if (adpt->irq[EMAC_WOL_IRQ].irq)
+	if (adpt->irq[EMAC_WOL_IRQ].irq) {
+		adpt->is_wol_enabled = false;
 		free_irq(adpt->irq[EMAC_WOL_IRQ].irq, &adpt->irq[EMAC_WOL_IRQ]);
+	}
 
 	if (!TEST_FLAG(adpt, ADPT_STATE_DOWN))
 		emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
@@ -2829,7 +2832,7 @@ static void emac_disable_clks(struct emac_adapter *adpt)
 	u8 i;
 
 	for (i = 0; i < EMAC_CLK_CNT; i++) {
-		struct emac_clk *clk = &adpt->clk[i];
+		struct emac_clk *clk = &adpt->clk[EMAC_CLK_CNT - i - 1];
 
 		if (clk->enabled) {
 			clk_disable_unprepare(clk->clk);
@@ -3188,6 +3191,11 @@ static int emac_pm_resume(struct device *device)
 	emac_hw_reset_mac(hw);
 	emac_phy_reset_external(adpt);
 
+	retval = emac_phy_setup_link(adpt, phy->autoneg_advertised, true,
+				     !phy->disable_fc_autoneg);
+	if (retval)
+		goto error;
+
 	/* Disable EPHY Link UP interrupt */
 	retval = emac_phy_write(adpt, phy->addr, MII_INT_ENABLE, 0);
 	if (retval)
@@ -3400,8 +3408,8 @@ static int emac_probe(struct platform_device *pdev)
 	emac_hw_set_mac_addr(hw, hw->mac_addr);
 
 	/* disable emac core and phy regulator */
-	emac_disable_regulator(adpt, EMAC_VREG1, EMAC_VREG2);
 	emac_disable_clks(adpt);
+	emac_disable_regulator(adpt, EMAC_VREG1, EMAC_VREG2);
 
 	/* set hw features */
 	netdev->features = NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM |

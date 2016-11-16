@@ -1172,6 +1172,16 @@ config SCHED_HMP_CSTATE_AWARE
 	  with CPUs C-state. If this is enabled, scheduler places tasks
 	  onto the shallowest C-state CPU among the most power efficient CPUs.
 
+config SCHED_CORE_CTL
+	bool "QTI Core Control"
+	depends on SMP
+	help
+	  This options enables the core control functionality in
+	  the scheduler. Core control automatically offline and
+	  online cores based on cpu load and utilization.
+
+	  If unsure, say N here.
+
 config SCHED_QHMP
 	bool "QHMP scheduler extensions"
 	depends on SCHED_HMP

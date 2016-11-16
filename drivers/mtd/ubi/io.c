@@ -1106,7 +1106,7 @@ int ubi_io_write_vid_hdr(struct ubi_device *ubi, int pnum,
 	 * from decay of charge in this block.
 	 */
 	if (ubi->wl_is_inited) {
-		err = ubi_wl_erase_peb(ubi, pnum);
+		err = ubi_wl_re_erase_peb(ubi, pnum);
 		if (err)
 			return err;
 	}

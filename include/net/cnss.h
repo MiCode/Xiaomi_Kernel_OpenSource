@@ -18,6 +18,7 @@
 #include <linux/mmc/sdio_func.h>
 
 #ifdef CONFIG_CNSS
+#define MAX_FIRMWARE_SIZE (1 * 1024 * 1024)
 #define CNSS_MAX_FILE_NAME	20
 #define PINCTRL_SLEEP  0
 #define PINCTRL_ACTIVE 1
@@ -108,6 +109,7 @@ enum cnss_runtime_request {
 	CNSS_PM_RUNTIME_PUT_NOIDLE,
 	CNSS_PM_REQUEST_RESUME,
 	CNSS_PM_RUNTIME_PUT_AUTO,
+	CNSS_PM_GET_NORESUME,
 };
 
 extern int cnss_get_fw_image(struct image_desc_info *image_desc_info);

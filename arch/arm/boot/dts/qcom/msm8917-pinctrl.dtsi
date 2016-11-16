@@ -128,6 +128,38 @@
 
 		};
 
+		blsp1_uart1 {
+			blsp1_uart1_active: blsp1_uart1_active {
+				mux {
+					pins = "gpio0", "gpio1",
+						"gpio2", "gpio3";
+					function = "blsp_uart1";
+				};
+
+				config {
+					pins = "gpio0", "gpio1",
+						"gpio2", "gpio3";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			blsp1_uart1_sleep: blsp1_uart1_sleep {
+				mux {
+					pins = "gpio0", "gpio1",
+						"gpio2", "gpio3";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio0", "gpio1",
+						"gpio2", "gpio3";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
 		wcnss_pmux_5wire {
 			/* Active configuration of bus pins */
 			wcnss_default: wcnss_default {

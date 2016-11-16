@@ -23,6 +23,9 @@
 		ntn-supply-enable-gpio = <&pmd9635_gpios 3 0>;
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <0>;
+		qcom,ntn-fw-load-delay-msec = <200>;
+		qcom,ntn-pcierst-resx;
+		qcom,ntn-timestamp-valid-window = <4>; /* 4 is approx 67 ms */
 	};
 };
 
@@ -74,7 +77,7 @@
 		qcom,pull = <5>;         /* No Pull */
 		qcom,vin-sel = <2>;      /* VIN2 */
 		qcom,src-sel = <0>;      /* GPIO */
-		qcom,invert = <0>;       /* Invert */
+		qcom,invert = <1>;       /* Output high */
 		qcom,master-en = <1>;    /* Enable GPIO */
 		status = "ok";
 	};

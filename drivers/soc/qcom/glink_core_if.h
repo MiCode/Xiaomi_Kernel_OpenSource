@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +64,7 @@ struct glink_core_version {
  * iovec:	Pointer to vector buffer if the transport passes a vector buffer
  * vprovider:	Virtual address-space buffer provider for a vector buffer
  * pprovider:	Physical address-space buffer provider for a vector buffer
+ * cookie:	Private transport specific cookie
  * pkt_priv:	G-Link core owned packet-private data
  * list:	G-Link core owned list node
  * bounce_buf:	Pointer to the temporary/internal bounce buffer
@@ -78,6 +79,7 @@ struct glink_core_rx_intent {
 	void *iovec;
 	void * (*vprovider)(void *iovec, size_t offset, size_t *size);
 	void * (*pprovider)(void *iovec, size_t offset, size_t *size);
+	void *cookie;
 
 	/* G-Link-Core-owned elements - please ignore */
 	struct list_head list;
@@ -151,6 +153,9 @@ struct glink_core_if {
 			struct glink_core_rx_intent *intent_ptr, bool complete);
 	void (*rx_cmd_remote_rx_intent_put)(struct glink_transport_if *if_ptr,
 			uint32_t rcid, uint32_t riid, size_t size);
+	void (*rx_cmd_remote_rx_intent_put_cookie)(
+			struct glink_transport_if *if_ptr, uint32_t rcid,
+			uint32_t riid, size_t size, void *cookie);
 	void (*rx_cmd_tx_done)(struct glink_transport_if *if_ptr, uint32_t rcid,
 			uint32_t riid, bool reuse);
 	void (*rx_cmd_remote_rx_intent_req)(struct glink_transport_if *if_ptr,

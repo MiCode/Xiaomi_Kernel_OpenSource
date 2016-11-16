@@ -707,14 +707,6 @@ config ICNSS
 	  control messages to FW over QMI channel. It is also responsible for
 	  handling WLAN PD restart notifications.
 
-config MSM_CORE_CTL_HELPER
-	tristate "Core control helper functions for dynamically hotplug CPUs"
-	help
-	  Provide helper functions for core control driver. Core control
-	  driver dynamically hotplugs CPUs from kernel based on current
-	  system load and state. It also supports limiting min and
-	  max online CPUs from userspace.
-
 config MSM_BAM_DMUX
 	bool "BAM Data Mux Driver"
 	depends on SPS
@@ -782,7 +774,7 @@ config MSM_PACMAN
 	  peripheral (BLSP) ownership.
 
 config MSM_KERNEL_PROTECT
-	bool "Protect kernel text by removing write permissions in stage-2"
+	bool "Protect kernel text by removing write permissions"
         depends on !FUNCTION_TRACER
         help
           On hypervisor-enabled targets, this option will make a call into
@@ -794,6 +786,18 @@ config MSM_KERNEL_PROTECT
           (i.e. anything that uses apply_alternatives,
           aarch64_insn_patch_text_nosync, etc. including the various CPU
           errata workarounds in arch/arm64/kernel/cpu_errata.c).
+
+	  For MPU based protection-enabled targets please refer to
+	  MSM_KERNEL_PROTECT_MPU
+
+config MSM_KERNEL_PROTECT_MPU
+	bool "Protect kernel text from other masters by MPU"
+	depends on MSM_KERNEL_PROTECT
+	help
+	  On MPU based protection enabled targets, this option will make a call
+	  into TrustZone to request that the kernel text be ptotected for any
+	  write access from external bus masters. This protects against
+	  malicious devices rewriting kernel code.
 
 config MSM_KERNEL_PROTECT_TEST
 	bool "Bootup test of kernel protection (INTENTIONAL CRASH)"
@@ -811,6 +815,12 @@ config MSM_REMOTEQDSS
 	  events. Provide a sysfs interface for debug tools to dynamically
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
+
+config QCOM_SMCINVOKE
+	bool "Secure QSEE Support"
+	help
+	  Enable SMCInvoke driver which supports capability based secure
+	  communication between QSEE and HLOS.
 
 source "drivers/soc/qcom/memshare/Kconfig"
 

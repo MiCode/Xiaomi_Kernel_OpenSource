@@ -1,0 +1,15 @@
+Qualcomm Technologies, Inc. FastRPC MDSP CMA Heap
+
+The MSM MDSPRPC memory device allocates CMA memory, for sharing memory
+of FastRPC buffers to remote processor(MDSP).
+
+Required properties:
+-compatible: Must be "qcom,msm-mdsprpc-mem-region"
+-memory-region: A phandle that points to a memory heap where the
+heap memory is allocated
+
+Example:
+	qcom,mdsprpc-mem {
+		compatible = "qcom,msm-mdsprpc-mem-region";
+		memory-region = <&mdsp_mem>;
+	};

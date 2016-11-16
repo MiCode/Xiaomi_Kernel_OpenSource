@@ -305,8 +305,10 @@ static int adf_buffer_map(struct adf_device *dev, struct adf_buffer *buf,
 	}
 
 done:
-	if (ret < 0)
+	if (ret < 0) {
 		adf_buffer_mapping_cleanup(mapping, buf);
+		memset(mapping, 0, sizeof(*mapping));
+	}
 
 	return ret;
 }

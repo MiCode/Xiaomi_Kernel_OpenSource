@@ -36,6 +36,9 @@
 #define RX_ASSEMBLY_BUFFER_SIZE	128
 #define RH850_CLOCK	16000000
 #define RH850_MAX_CHANNELS	4
+#define DRIVER_MODE_RAW_FRAMES 0
+#define DRIVER_MODE_PROPERTIES 1
+#define DRIVER_MODE_AMB 2
 
 struct rh850_can {
 	struct net_device	*netdev[RH850_MAX_CHANNELS];
@@ -54,6 +57,7 @@ struct rh850_can {
 	struct completion response_completion;
 	int wait_cmd;
 	int cmd_result;
+	int driver_mode;
 };
 
 struct rh850_netdev_privdata {
@@ -94,6 +98,8 @@ struct spi_miso { /* TLV for MISO line */
 #define CMD_CAN_DATA_BUFF_REMOVE	0X88
 #define CMD_CAN_RELEASE_BUFFER	0x89
 #define CMD_CAN_DATA_BUFF_REMOVE_ALL	0x8A
+#define CMD_PROPERTY_WRITE	0x8B
+#define CMD_PROPERTY_READ	0x8C
 
 #define CMD_GET_FW_BR_VERSION		0x95
 #define CMD_BEGIN_FIRMWARE_UPGRADE	0x96
@@ -166,6 +172,22 @@ struct can_config_bit_timing {
 	u32 sjw;
 } __packed;
 
+struct vehicle_property {
+	int id;
+	u64 ts;
+	int zone;
+	int val_type;
+	u32 data_len;
+	union {
+		u8 bval;
+		int val;
+		int val_arr[4];
+		float f_value;
+		float float_arr[4];
+		u8 str[36];
+	};
+} __packed;
+
 /* IOCTL messages */
 struct rh850_release_can_buffer {
 	u8 enable;
@@ -198,6 +220,18 @@ struct rh850_ioctl_req {
 } __packed;
 
 static struct can_bittiming_const rh850_bittiming_const = {
+	.name = "rh850",
+	.tseg1_min = 1,
+	.tseg1_max = 16,
+	.tseg2_min = 1,
+	.tseg2_max = 16,
+	.sjw_max = 4,
+	.brp_min = 1,
+	.brp_max = 70,
+	.brp_inc = 1,
+};
+
+static struct can_bittiming_const rh850_data_bittiming_const = {
 	.name = "rh850",
 	.tseg1_min = 1,
 	.tseg1_max = 16,
@@ -262,6 +296,47 @@ static void rh850_receive_frame(struct rh850_can *priv_data,
 	netdev->stats.rx_packets++;
 }
 
+static void rh850_receive_property(struct rh850_can *priv_data,
+				   struct vehicle_property *property)
+{
+	struct canfd_frame *cfd;
+	u8 *p;
+	struct sk_buff *skb;
+	struct skb_shared_hwtstamps *skt;
+	struct timeval tv;
+	static u64 nanosec;
+	struct net_device *netdev;
+	int i;
+
+	/* can0 as the channel with properties */
+	netdev = priv_data->netdev[0];
+	skb = alloc_canfd_skb(netdev, &cfd);
+	if (skb == NULL) {
+		LOGDE("skb alloc failed. frame->can_if %d\n", 0);
+		return;
+	}
+
+	LOGDI("rcv property:0x%x data:%2x %2x %2x %2x",
+	      property->id, property->str[0], property->str[1],
+	      property->str[2], property->str[3]);
+	cfd->can_id = 0x00;
+	cfd->len = sizeof(struct vehicle_property);
+
+	p = (u8 *)property;
+	for (i = 0; i < cfd->len; i++)
+		cfd->data[i] = p[i];
+
+	nanosec = le64_to_cpu(property->ts);
+	tv.tv_sec = (int)(nanosec / 1000000000);
+	tv.tv_usec = (int)(nanosec - (u64)tv.tv_sec * 1000000000) / 1000;
+	skt = skb_hwtstamps(skb);
+	skt->hwtstamp = timeval_to_ktime(tv);
+	LOGDI("  hwtstamp %lld\n", ktime_to_ms(skt->hwtstamp));
+	skb->tstamp = timeval_to_ktime(tv);
+	netif_rx(skb);
+	netdev->stats.rx_packets++;
+}
+
 static int rh850_process_response(struct rh850_can *priv_data,
 				  struct spi_miso *resp, int length)
 {
@@ -279,6 +354,19 @@ static int rh850_process_response(struct rh850_can *priv_data,
 			priv_data->assembly_buffer_size = length;
 		} else {
 			rh850_receive_frame(priv_data, frame);
+		}
+	} else if (resp->cmd == CMD_PROPERTY_READ) {
+		struct vehicle_property *property =
+				(struct vehicle_property *)&resp->data;
+		if (resp->len > length) {
+			LOGDE("Error. This should never happen\n");
+			LOGDE("process_response: Saving %d bytes\n",
+			      length);
+			memcpy(priv_data->assembly_buffer, (char *)resp,
+			       length);
+			priv_data->assembly_buffer_size = length;
+		} else {
+			rh850_receive_property(priv_data, property);
 		}
 	} else if (resp->cmd  == CMD_GET_FW_VERSION) {
 		struct can_fw_resp *fw_resp = (struct can_fw_resp *)resp->data;
@@ -492,7 +580,7 @@ static int rh850_set_bitrate(struct net_device *netdev)
 }
 
 static int rh850_can_write(struct rh850_can *priv_data,
-			   int can_channel, struct can_frame *cf)
+			   int can_channel, struct canfd_frame *cf)
 {
 	char *tx_buf, *rx_buf;
 	int ret, i;
@@ -513,16 +601,29 @@ static int rh850_can_write(struct rh850_can *priv_data,
 	priv_data->xfer_length = XFER_BUFFER_SIZE;
 
 	req = (struct spi_mosi *)tx_buf;
-	req->cmd = CMD_CAN_SEND_FRAME;
-	req->len = sizeof(struct can_write_req) + 8;
-	req->seq = atomic_inc_return(&priv_data->msg_seq);
+	if (priv_data->driver_mode == DRIVER_MODE_RAW_FRAMES) {
+		req->cmd = CMD_CAN_SEND_FRAME;
+		req->len = sizeof(struct can_write_req) + 8;
+		req->seq = atomic_inc_return(&priv_data->msg_seq);
 
-	req_d = (struct can_write_req *)req->data;
-	req_d->can_if = can_channel;
-	req_d->mid = cf->can_id;
-	req_d->dlc = cf->can_dlc;
-	for (i = 0; i < cf->can_dlc; i++)
-		req_d->data[i] = cf->data[i];
+		req_d = (struct can_write_req *)req->data;
+		req_d->can_if = can_channel;
+		req_d->mid = cf->can_id;
+		req_d->dlc = cf->len;
+
+		for (i = 0; i < cf->len; i++)
+			req_d->data[i] = cf->data[i];
+	} else if (priv_data->driver_mode == DRIVER_MODE_PROPERTIES ||
+		   priv_data->driver_mode == DRIVER_MODE_AMB) {
+		req->cmd = CMD_PROPERTY_WRITE;
+		req->len = sizeof(struct vehicle_property);
+		req->seq = atomic_inc_return(&priv_data->msg_seq);
+		for (i = 0; i < cf->len; i++)
+			req->data[i] = cf->data[i];
+	} else {
+		LOGDE("rh850_can_write: wrong driver mode %i",
+		      priv_data->driver_mode);
+	}
 
 	ret = rh850_do_spi_transaction(priv_data);
 	netdev = priv_data->netdev[can_channel];
@@ -558,7 +659,7 @@ static int rh850_netdev_close(struct net_device *netdev)
 static void rh850_send_can_frame(struct work_struct *ws)
 {
 	struct rh850_tx_work *tx_work;
-	struct can_frame *cf;
+	struct canfd_frame *cf;
 	struct rh850_can *priv_data;
 	struct net_device *netdev;
 	struct rh850_netdev_privdata *netdev_priv_data;
@@ -572,7 +673,7 @@ static void rh850_send_can_frame(struct work_struct *ws)
 	LOGDI("send_can_frame ws %p\n", ws);
 	LOGDI("send_can_frame tx %p\n", tx_work);
 
-	cf = (struct can_frame *)tx_work->skb->data;
+	cf = (struct canfd_frame *)tx_work->skb->data;
 	rh850_can_write(priv_data, can_channel, cf);
 
 	dev_kfree_skb(tx_work->skb);
@@ -609,6 +710,7 @@ static int rh850_send_release_can_buffer_cmd(struct net_device *netdev)
 	struct spi_mosi *req;
 	struct rh850_can *priv_data;
 	struct rh850_netdev_privdata *netdev_priv_data;
+	int *mode;
 
 	netdev_priv_data = netdev_priv(netdev);
 	priv_data = netdev_priv_data->rh850_can;
@@ -621,8 +723,10 @@ static int rh850_send_release_can_buffer_cmd(struct net_device *netdev)
 
 	req = (struct spi_mosi *)tx_buf;
 	req->cmd = CMD_CAN_RELEASE_BUFFER;
-	req->len = 0;
+	req->len = sizeof(int);
 	req->seq = atomic_inc_return(&priv_data->msg_seq);
+	mode = (int *)req->data;
+	*mode = priv_data->driver_mode;
 
 	ret = rh850_do_spi_transaction(priv_data);
 	mutex_unlock(&priv_data->spi_lock);
@@ -842,6 +946,7 @@ static int rh850_netdev_do_ioctl(struct net_device *netdev,
 {
 	struct rh850_can *priv_data;
 	struct rh850_netdev_privdata *netdev_priv_data;
+	int *mode;
 	int ret = -EINVAL;
 
 	netdev_priv_data = netdev_priv(netdev);
@@ -850,6 +955,11 @@ static int rh850_netdev_do_ioctl(struct net_device *netdev,
 
 	switch (cmd) {
 	case IOCTL_RELEASE_CAN_BUFFER:
+		if (ifr->ifr_data > (void *)0x100) {
+			mode = ifr->ifr_data;
+			priv_data->driver_mode = *mode;
+		}
+		LOGDE("rh850_driver_mode  %d\n", priv_data->driver_mode);
 		rh850_send_release_can_buffer_cmd(netdev);
 		ret = 0;
 		break;
@@ -915,8 +1025,11 @@ static int rh850_create_netdev(struct spi_device *spi,
 	netdev->netdev_ops = &rh850_netdev_ops;
 	SET_NETDEV_DEV(netdev, &spi->dev);
 	netdev_priv_data->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
-						   CAN_CTRLMODE_LISTENONLY;
+						   CAN_CTRLMODE_LISTENONLY |
+						   CAN_CTRLMODE_FD;
 	netdev_priv_data->can.bittiming_const = &rh850_bittiming_const;
+	netdev_priv_data->can.data_bittiming_const =
+			&rh850_data_bittiming_const;
 	netdev_priv_data->can.clock.freq = RH850_CLOCK;
 	netdev_priv_data->can.do_set_bittiming = rh850_set_bitrate;
 
@@ -960,6 +1073,7 @@ static struct rh850_can *rh850_create_priv_data(struct spi_device *spi)
 		goto cleanup_privdata;
 	}
 	priv_data->xfer_length = 0;
+	priv_data->driver_mode = DRIVER_MODE_RAW_FRAMES;
 
 	mutex_init(&priv_data->spi_lock);
 	atomic_set(&priv_data->msg_seq, 0);

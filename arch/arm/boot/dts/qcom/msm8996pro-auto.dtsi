@@ -13,23 +13,60 @@
 #include "msm8996v3-auto.dtsi"
 
 &gfx_vreg {
-	qcom,cpr-voltage-ceiling =
-		/* Speed bin 0 */
-		<600000  670000  670000  750000  830000  910000  960000 1020000
-		1070000>,
+	qcom,cpr-fuse-combos = <24>;
+	qcom,cpr-speed-bins = <3>;
+	qcom,cpr-speed-bin-corners = <8 8 8>;
+	qcom,cpr-corners = <8>;
 
-		/* Speed bin 1 */
-		<600000  670000  670000  750000  830000  910000  960000 1020000
-		1070000>;
+	qcom,cpr-corner-fmax-map =
+		<2 4 6 8>;
+
+	qcom,cpr-voltage-ceiling =
+		<600000  670000  670000  750000  830000  910000  960000
+		1020000>;
 
 	qcom,cpr-voltage-floor =
-		/* Speed bin 0 */
-		<600000  600000  600000  600000  600000  600000  600000  600000
-		 600000>,
+		<600000  600000  600000  600000  600000  600000  600000
+		600000>;
 
-		/* Speed bin 1 */
-		<600000  600000  600000  600000  600000  600000  600000  600000
-		 600000>;
+	qcom,mem-acc-voltage =
+		<1 1 1 1 2 2 2 2>;
+
+	qcom,corner-frequencies =
+		<0 133000000 214000000 315000000 401800000 510000000 560000000
+		   624000000>;
+
+	qcom,cpr-target-quotients =
+		<0 0 0 0 0 0    0    0    0    0    0    0 0 0 0 0>,
+		<0 0 0 0 0 0  185  179  291  299  304  319 0 0 0 0>,
+		<0 0 0 0 0 0  287  273  425  426  443  453 0 0 0 0>,
+		<0 0 0 0 0 0  414  392  584  576  608  612 0 0 0 0>,
+		<0 0 0 0 0 0  459  431  684  644  692  679 0 0 0 0>,
+		<0 0 0 0 0 0  577  543  798  768  823  810 0 0 0 0>,
+		<0 0 0 0 0 0  669  629  886  864  924  911 0 0 0 0>,
+		<0 0 0 0 0 0  771  725  984  970 1036 1024 0 0 0 0>;
+
+	qcom,cpr-ro-scaling-factor =
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>,
+		<0 0 0 0 0 0 2035 1917 1959 2131 2246 2253 0 0 0 0>;
+
+	qcom,cpr-open-loop-voltage-fuse-adjustment =
+		<(-85000) (-15000) (-15000) (-30000)>;
+
+	qcom,cpr-closed-loop-voltage-adjustment =
+		<0 0 30000 10000 10000 45000 25000 25000>;
+
+	qcom,cpr-floor-to-ceiling-max-range =
+		<0 70000 70000 75000 80000 90000 95000 100000>;
+
+	qcom,cpr-fused-closed-loop-voltage-adjustment-map =
+		<0 2 2 2 2 0 0 4>;
 };
 
 &apcc_cpr {
@@ -38,9 +75,9 @@
 
 &apc0_pwrcl_vreg {
 	regulator-max-microvolt = <19>;
-	qcom,cpr-fuse-combos = <8>;
-	qcom,cpr-speed-bins = <1>;
-	qcom,cpr-speed-bin-corners = <19>;
+	qcom,cpr-fuse-combos = <24>;
+	qcom,cpr-speed-bins = <3>;
+	qcom,cpr-speed-bin-corners = <19 19 19>;
 	qcom,cpr-corners = <19>;
 
 	qcom,cpr-corner-fmax-map =
@@ -66,23 +103,9 @@
 		1440000000 1516800000 1593600000 1785600000>;
 
 	qcom,cpr-open-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,cpr-closed-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,cpr-open-loop-voltage-adjustment =
@@ -101,9 +124,9 @@
 };
 
 &apc0_cbf_vreg {
-	qcom,cpr-fuse-combos = <8>;
-	qcom,cpr-speed-bins = <1>;
-	qcom,cpr-speed-bin-corners = <19>;
+	qcom,cpr-fuse-combos = <24>;
+	qcom,cpr-speed-bins = <3>;
+	qcom,cpr-speed-bin-corners = <19 19 19>;
 	qcom,cpr-corners = <19>;
 
 	qcom,cpr-corner-fmax-map =
@@ -129,23 +152,9 @@
 		1363200000 1440000000 1516800000 1593600000>;
 
 	qcom,cpr-open-loop-voltage-fuse-adjustment =
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
-		<0        0        0    15000        0 >,
 		<0        0        0    15000        0 >;
 
 	qcom,cpr-closed-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,allow-aging-voltage-adjustment = <0>;
@@ -153,9 +162,9 @@
 };
 
 &apc1_vreg {
-	qcom,cpr-fuse-combos = <8>;
-	qcom,cpr-speed-bins = <1>;
-	qcom,cpr-speed-bin-corners = <25>;
+	qcom,cpr-fuse-combos = <24>;
+	qcom,cpr-speed-bins = <3>;
+	qcom,cpr-speed-bin-corners = <25 25 25>;
 	qcom,cpr-corners = <25>;
 
 	qcom,cpr-corner-fmax-map =
@@ -184,23 +193,9 @@
 		1824000000 1900800000 1977600000 2054400000 2150400000>;
 
 	qcom,cpr-open-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,cpr-closed-loop-voltage-fuse-adjustment =
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
-		<0        0        0        0        0 >,
 		<0        0        0        0        0 >;
 
 	qcom,cpr-open-loop-voltage-adjustment =
@@ -218,4 +213,386 @@
 
 	qcom,allow-aging-voltage-adjustment = <0>;
 	qcom,allow-aging-open-loop-voltage-adjustment = <0>;
+};
+
+&clock_cpu {
+	qcom,pwrcl-speedbin0-v0 =
+		<          0  0 >,
+		<  768000000  7 >,
+		<  844800000  8 >,
+		<  902400000  9 >,
+		<  979200000 10 >,
+		< 1056000000 11 >,
+		< 1132800000 12 >,
+		< 1209600000 13 >,
+		< 1286400000 14 >,
+		< 1363200000 15 >,
+		< 1440000000 16 >,
+		< 1516800000 17 >,
+		< 1593600000 18 >;
+
+	qcom,pwrcl-speedbin1-v0 =
+		<          0  0 >,
+		<  768000000  7 >,
+		<  844800000  8 >,
+		<  902400000  9 >,
+		<  979200000 10 >,
+		< 1056000000 11 >,
+		< 1132800000 12 >,
+		< 1209600000 13 >,
+		< 1286400000 14 >,
+		< 1363200000 15 >,
+		< 1440000000 16 >,
+		< 1516800000 17 >,
+		< 1593600000 18 >;
+
+	qcom,pwrcl-speedbin2-v0 =
+		<          0  0 >,
+		<  768000000  7 >,
+		<  844800000  8 >,
+		<  902400000  9 >,
+		<  979200000 10 >,
+		< 1056000000 11 >,
+		< 1132800000 12 >,
+		< 1209600000 13 >,
+		< 1286400000 14 >;
+
+	qcom,perfcl-speedbin0-v0 =
+		<          0  0 >,
+		<  825600000  8 >,
+		<  902400000  9 >,
+		<  979200000 10 >,
+		< 1056000000 11 >,
+		< 1132800000 12 >,
+		< 1209600000 13 >,
+		< 1286400000 14 >,
+		< 1363200000 15 >,
+		< 1440000000 16 >,
+		< 1516800000 17 >,
+		< 1593600000 18 >,
+		< 1670400000 19 >,
+		< 1747200000 20 >,
+		< 1824000000 21 >,
+		< 1900800000 22 >,
+		< 1977600000 23 >,
+		< 2054400000 24 >;
+
+	qcom,perfcl-speedbin1-v0 =
+		<          0  0 >,
+		<  825600000  8 >,
+		<  902400000  9 >,
+		<  979200000 10 >,
+		< 1056000000 11 >,
+		< 1132800000 12 >,
+		< 1209600000 13 >,
+		< 1286400000 14 >,
+		< 1363200000 15 >,
+		< 1440000000 16 >,
+		< 1516800000 17 >,
+		< 1593600000 18 >,
+		< 1670400000 19 >;
+
+	qcom,perfcl-speedbin2-v0 =
+		<          0  0 >,
+		<  825600000  8 >,
+		<  902400000  9 >,
+		<  979200000 10 >,
+		< 1056000000 11 >,
+		< 1132800000 12 >,
+		< 1209600000 13 >,
+		< 1286400000 14 >,
+		< 1363200000 15 >,
+		< 1440000000 16 >,
+		< 1516800000 17 >;
+
+	qcom,cbf-speedbin0-v0 =
+		<	   0  0 >,
+		<  537600000  5 >,
+		<  614400000  6 >,
+		<  691200000  7 >,
+		<  768000000  8 >,
+		<  844800000  9 >,
+		<  902400000 10 >,
+		<  979200000 11 >,
+		< 1056000000 12 >,
+		< 1132800000 13 >,
+		< 1190400000 14 >,
+		< 1286400000 15 >,
+		< 1363200000 16 >,
+		< 1440000000 17 >,
+		< 1516800000 18 >,
+		< 1593600000 19 >;
+
+	qcom,cbf-speedbin1-v0 =
+		<	   0  0 >,
+		<  537600000  5 >,
+		<  614400000  6 >,
+		<  691200000  7 >,
+		<  768000000  8 >,
+		<  844800000  9 >,
+		<  902400000 10 >,
+		<  979200000 11 >,
+		< 1056000000 12 >,
+		< 1132800000 13 >,
+		< 1190400000 14 >,
+		< 1286400000 15 >,
+		< 1363200000 16 >,
+		< 1440000000 17 >,
+		< 1516800000 18 >,
+		< 1593600000 19 >;
+
+	qcom,cbf-speedbin2-v0 =
+		<	   0  0 >,
+		<  537600000  5 >,
+		<  614400000  6 >,
+		<  691200000  7 >,
+		<  768000000  8 >,
+		<  844800000  9 >,
+		<  902400000 10 >,
+		<  979200000 11 >,
+		< 1056000000 12 >,
+		< 1132800000 13 >,
+		< 1190400000 14 >;
+};
+
+&msm_cpufreq {
+	qcom,cpufreq-table-0 =
+		<  768000 >,
+		<  844800 >,
+		<  902400 >,
+		<  979200 >,
+		< 1056000 >,
+		< 1132800 >,
+		< 1209600 >,
+		< 1286400 >,
+		< 1363200 >,
+		< 1440000 >,
+		< 1516800 >,
+		< 1593600 >;
+	qcom,cpufreq-table-2 =
+		<  825600 >,
+		<  902400 >,
+		<  979200 >,
+		< 1056000 >,
+		< 1132800 >,
+		< 1209600 >,
+		< 1286400 >,
+		< 1363200 >,
+		< 1440000 >,
+		< 1516800 >,
+		< 1593600 >,
+		< 1670400 >,
+		< 1747200 >,
+		< 1824000 >,
+		< 1900800 >,
+		< 1977600 >,
+		< 2054400 >;
+};
+
+&m4m_cache {
+	freq-tbl-khz =
+		<  537600 >,
+		<  614400 >,
+		<  691200 >,
+		<  768000 >,
+		<  844800 >,
+		<  902400 >,
+		<  979200 >,
+		< 1056000 >,
+		< 1132800 >,
+		< 1190400 >,
+		< 1286400 >,
+		< 1363200 >,
+		< 1440000 >,
+		< 1516800 >,
+		< 1593600 >;
+};
+
+&devfreq_cpufreq {
+	mincpubw-cpufreq {
+		cpu-to-dev-map-0 =
+			< 1593600 1525 >;
+		cpu-to-dev-map-2 =
+			< 1977600 1525 >,
+			< 2054400 5195 >;
+	};
+};
+
+&clock_gpu {
+	qcom,gfxfreq-speedbin0 =
+		<          0  0  0 >,
+		<  315000000  4  4 >,
+		<  401800000  5  5 >,
+		<  510000000  6  5 >,
+		<  560000000  7  7 >,
+		<  624000000  8  7 >;
+
+	qcom,gfxfreq-mx-speedbin0 =
+		<          0  0 >,
+		<  315000000  4 >,
+		<  401800000  5 >,
+		<  510000000  5 >,
+		<  560000000  7 >,
+		<  624000000  7 >;
+
+	qcom,gfxfreq-speedbin1 =
+		<          0  0  0 >,
+		<  315000000  4  4 >,
+		<  401800000  5  5 >,
+		<  510000000  6  5 >;
+
+	qcom,gfxfreq-mx-speedbin1 =
+		<          0  0 >,
+		<  315000000  4 >,
+		<  401800000  5 >,
+		<  510000000  5 >;
+
+	qcom,gfxfreq-speedbin2 =
+		<          0  0  0 >,
+		<  315000000  4  4 >;
+
+	qcom,gfxfreq-mx-speedbin2 =
+		<          0  0 >,
+		<  315000000  4 >;
+};
+
+&msm_gpu {
+	qcom,gpu-pwrlevel-bins {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible="qcom,gpu-pwrlevel-bins";
+
+		qcom,gpu-pwrlevels-0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <0>;
+
+			qcom,initial-pwrlevel = <4>;
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <624000000>;
+				qcom,bus-freq = <12>;
+				qcom,bus-min = <11>;
+				qcom,bus-max = <12>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <560000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <9>;
+				qcom,bus-max = <12>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <510000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <401800000>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <7>;
+				qcom,bus-max = <9>;
+			};
+
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <315000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <7>;
+			};
+
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <27000000>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+
+			/delete-node/ qcom,gpu-pwrlevel@6;
+			/delete-node/ qcom,gpu-pwrlevel@7;
+			/delete-node/ qcom,gpu-pwrlevel@8;
+		};
+
+		qcom,gpu-pwrlevels-1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <1>;
+
+			qcom,initial-pwrlevel = <2>;
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <510000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <401800000>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <7>;
+				qcom,bus-max = <9>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <315000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <7>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <27000000>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+
+			/delete-node/ qcom,gpu-pwrlevel@4;
+			/delete-node/ qcom,gpu-pwrlevel@5;
+			/delete-node/ qcom,gpu-pwrlevel@6;
+			/delete-node/ qcom,gpu-pwrlevel@7;
+		};
+
+		qcom,gpu-pwrlevels-2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <2>;
+
+			qcom,initial-pwrlevel = <0>;
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <315000000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <7>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <27000000>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+		};
+	};
 };

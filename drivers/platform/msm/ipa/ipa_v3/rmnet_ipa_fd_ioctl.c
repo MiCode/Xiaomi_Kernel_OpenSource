@@ -97,6 +97,31 @@ static long ipa3_wan_ioctl(struct file *filp,
 		}
 		break;
 
+	case WAN_IOC_ADD_FLT_RULE_EX:
+		IPAWANDBG("device %s got WAN_IOC_ADD_FLT_RULE_EX :>>>\n",
+		DRIVER_NAME);
+		pyld_sz = sizeof(struct ipa_install_fltr_rule_req_ex_msg_v01);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa3_qmi_filter_request_ex_send(
+			(struct ipa_install_fltr_rule_req_ex_msg_v01 *)param)) {
+			IPAWANDBG("IPACM->Q6 add filter rule failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
 	case WAN_IOC_ADD_FLT_RULE_INDEX:
 		IPAWANDBG("device %s got WAN_IOC_ADD_FLT_RULE_INDEX :>>>\n",
 		DRIVER_NAME);

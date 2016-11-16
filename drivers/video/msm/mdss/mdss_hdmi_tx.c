@@ -664,6 +664,9 @@ static int hdmi_tx_update_pixel_clk(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	power_data->clk_config->rate = pinfo->clk_rate;
 
+	if (pinfo->out_format == MDP_Y_CBCR_H2V2)
+		power_data->clk_config->rate /= 2;
+
 	DEV_DBG("%s: rate %ld\n", __func__, power_data->clk_config->rate);
 
 	msm_dss_clk_set_rate(power_data->clk_config, power_data->num_clk);
@@ -1306,7 +1309,7 @@ static int hdmi_tx_sysfs_create(struct hdmi_tx_ctrl *hdmi_ctrl,
 		return rc;
 	}
 	hdmi_ctrl->kobj = &fbi->dev->kobj;
-	DEV_DBG("%s: sysfs group %p\n", __func__, hdmi_ctrl->kobj);
+	DEV_DBG("%s: sysfs group %pK\n", __func__, hdmi_ctrl->kobj);
 
 	return 0;
 } /* hdmi_tx_sysfs_create */
@@ -1443,6 +1446,8 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 		return;
 	}
 
+	mutex_lock(&hdmi_ctrl->tx_lock);
+
 	switch (hdmi_ctrl->hdcp_status) {
 	case HDCP_STATE_AUTHENTICATED:
 		hdmi_ctrl->auth_state = true;
@@ -1464,14 +1469,15 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 
 		hdmi_ctrl->auth_state = false;
 
-		if (hdmi_tx_is_encryption_set(hdmi_ctrl) ||
-			!hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
-			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
-			rc = hdmi_tx_config_avmute(hdmi_ctrl, true);
-		}
-
 		if (hdmi_tx_is_panel_on(hdmi_ctrl)) {
 			DEV_DBG("%s: Reauthenticating\n", __func__);
+
+			if (hdmi_tx_is_encryption_set(hdmi_ctrl) ||
+				!hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
+				hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
+				rc = hdmi_tx_config_avmute(hdmi_ctrl, true);
+			}
+
 			rc = hdmi_ctrl->hdcp_ops->hdmi_hdcp_reauthenticate(
 				hdmi_ctrl->hdcp_data);
 			if (rc)
@@ -1508,6 +1514,8 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 		break;
 		/* do nothing */
 	}
+
+	mutex_unlock(&hdmi_ctrl->tx_lock);
 }
 
 static u32 hdmi_tx_ddc_read(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
@@ -3410,8 +3418,6 @@ static int hdmi_tx_hdcp_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->hdcp_ops->hdmi_hdcp_off(
 		hdmi_ctrl->hdcp_data);
 
-	flush_delayed_work(&hdmi_ctrl->hdcp_cb_work);
-
 	hdmi_ctrl->hdcp_ops = NULL;
 
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM,
@@ -3493,6 +3499,9 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_DBG("%s: Dynamic fps not enabled\n", __func__);
 		return;
 	}
+
+	DEV_DBG("%s: current fps %d, new fps %d\n", __func__,
+		pinfo->current_fps, hdmi_ctrl->dynamic_fps);
 
 	if (hdmi_ctrl->dynamic_fps == pinfo->current_fps) {
 		DEV_DBG("%s: Panel is already at this FPS: %d\n",
@@ -3759,6 +3768,7 @@ static int hdmi_tx_event_handler(struct mdss_panel_data *panel_data,
 	/* UPDATE FPS is called from atomic context */
 	if (event == MDSS_EVENT_PANEL_UPDATE_FPS) {
 		hdmi_ctrl->dynamic_fps = (u32) (unsigned long)arg;
+		DEV_DBG("%s: fps %d\n", __func__, hdmi_ctrl->dynamic_fps);
 		queue_work(hdmi_ctrl->workq, &hdmi_ctrl->fps_work);
 		return rc;
 	}
@@ -3858,7 +3868,7 @@ static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 			DEV_DBG("%s: '%s' remap failed or not available\n",
 				__func__, hdmi_tx_io_name(i));
 		}
-		DEV_INFO("%s: '%s': start = 0x%p, len=0x%x\n", __func__,
+		DEV_INFO("%s: '%s': start = 0x%pK, len=0x%x\n", __func__,
 			hdmi_tx_io_name(i), pdata->io[i].base,
 			pdata->io[i].len);
 	}
@@ -4361,7 +4371,7 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 
 	data = of_get_property(pdev->dev.of_node, "qcom,display-id", &len);
 	if (!data || len <= 0)
-		pr_err("%s:%d Unable to read qcom,display-id, data=%p,len=%d\n",
+		pr_err("%s:%d Unable to read qcom,display-id, data=%pK,len=%d\n",
 			__func__, __LINE__, data, len);
 	else
 		snprintf(hdmi_ctrl->panel_data.panel_info.display_id,

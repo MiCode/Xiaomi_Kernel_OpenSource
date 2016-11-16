@@ -2386,6 +2386,31 @@ handle_request32_err:
 	return ret;
 }
 
+static unsigned int __do_compat_ioctl_rot(unsigned int cmd32)
+{
+	unsigned int cmd;
+
+	switch (cmd32) {
+	case MDSS_ROTATION_REQUEST32:
+		cmd = MDSS_ROTATION_REQUEST;
+		break;
+	case MDSS_ROTATION_OPEN32:
+		cmd = MDSS_ROTATION_OPEN;
+		break;
+	case MDSS_ROTATION_CLOSE32:
+		cmd = MDSS_ROTATION_CLOSE;
+		break;
+	case MDSS_ROTATION_CONFIG32:
+		cmd = MDSS_ROTATION_CONFIG;
+		break;
+	default:
+		cmd = cmd32;
+		break;
+	}
+
+	return cmd;
+}
+
 static long mdss_rotator_compat_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
@@ -2407,6 +2432,8 @@ static long mdss_rotator_compat_ioctl(struct file *file, unsigned int cmd,
 		pr_err("Calling ioctl with unrecognized rot_file_private\n");
 		return -EINVAL;
 	}
+
+	cmd = __do_compat_ioctl_rot(cmd);
 
 	switch (cmd) {
 	case MDSS_ROTATION_REQUEST:

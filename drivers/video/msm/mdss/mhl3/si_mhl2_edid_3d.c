@@ -1118,7 +1118,7 @@ static void tx_prune_dtd_list(struct edid_3d_data_t *mhl_edid_3d_data,
 			if ((0 != p_desc->dtd.pixel_clock_low) ||
 				(0 != p_desc->dtd.pixel_clock_high)) {
 				MHL_TX_EDID_INFO(
-					"pix clock non-zero p_desc:%p", p_desc)
+					"pix clock non-zero p_desc:%pK", p_desc)
 				if ((0 == p_desc->dtd.horz_active_7_0) &&
 				    (0 == p_desc->dtd.horz_active_blanking_high.
 					horz_active_11_8)) {
@@ -1133,7 +1133,7 @@ static void tx_prune_dtd_list(struct edid_3d_data_t *mhl_edid_3d_data,
 						 * one by one
 						 */
 						MHL_TX_EDID_INFO(
-						"p_desc:%p p_next_desc:%p\n",
+						"p_desc:%pK p_next_desc:%pK\n",
 						p_desc, p_next_desc)
 						*p_desc++ = *p_next_desc++;
 					}
@@ -1144,7 +1144,7 @@ static void tx_prune_dtd_list(struct edid_3d_data_t *mhl_edid_3d_data,
 					p_desc = p_holder;
 				} else {
 					p_desc++;
-					MHL_TX_EDID_INFO("p_desc:%p\n", p_desc)
+					MHL_TX_EDID_INFO("p_desc:%pK\n", p_desc)
 				}
 			}
 		}
@@ -1446,7 +1446,7 @@ static bool si_mhl_tx_parse_detailed_timing_descriptor(
 			 * Mark this mode for pruning by setting
 			 * horizontal active to zero
 			 */
-			MHL_TX_DBG_ERR("%smark for pruning%s %p\n",
+			MHL_TX_DBG_ERR("%smark for pruning%s %pK\n",
 				ANSI_ESC_YELLOW_TEXT,
 				ANSI_ESC_RESET_TEXT,
 				p_desc);
@@ -1500,7 +1500,7 @@ static uint8_t si_mhl_tx_parse_861_long_descriptors(
 				++mhl_edid_3d_data->parse_data.
 				    num_cea_861_timing_dtds;
 			} else if (valid) {
-				MHL_TX_EDID_INFO("stopping at %p\n",
+				MHL_TX_EDID_INFO("stopping at %pK\n",
 					p_data_u.p_long_descriptors)
 				break;
 			}
@@ -1600,7 +1600,7 @@ static void prune_hdmi_vsdb_vic_list(
 		HDMI_VIC_len = inner_loop_limit;
 	p_CEA_extension->byte_offset_to_18_byte_descriptors -=
 	    num_HDMI_VICs_pruned;
-	MHL_TX_EDID_INFO("%p\n", mhl_edid_3d_data->parse_data.p_HDMI_vsdb);
+	MHL_TX_EDID_INFO("%pK\n", mhl_edid_3d_data->parse_data.p_HDMI_vsdb);
 	if (mhl_edid_3d_data->parse_data.p_HDMI_vsdb) {
 		mhl_edid_3d_data->parse_data.p_HDMI_vsdb->
 		    header.fields.length_following_header -=
@@ -1722,8 +1722,7 @@ static void prune_svd_list(
 					   ("\n\nInvalid extension size\n\n"));
 				while (pb_src < pb_limit) {
 					MHL_TX_EDID_INFO(
-					    "moving data up %p(0x%02X) "
-					    "<- %p(0x%02X)\n",
+					    "moving data up %pK(0x%02X)<- %pK(0x%02X)\n",
 					    pb_dest, (uint16_t)*pb_dest,
 					    pb_src, (uint16_t)*pb_src);
 					*pb_dest++ = *pb_src++;
@@ -3123,7 +3122,7 @@ void si_mhl_tx_process_hev_vic_burst(struct edid_3d_data_t *mhl_edid_3d_data,
 				     ANSI_ESC_RED_TEXT, ANSI_ESC_RESET_TEXT);
 				return;
 			} else {
-				MHL_TX_DBG_WARN(" %d %p\n", hev_index,
+				MHL_TX_DBG_WARN(" %d %pK\n", hev_index,
 					mhl_edid_3d_data->hev_vic_list)
 				mhl_edid_3d_data->hev_vic_info.
 				    num_items_allocated =
@@ -3136,7 +3135,7 @@ void si_mhl_tx_process_hev_vic_burst(struct edid_3d_data_t *mhl_edid_3d_data,
 		MHL_TX_DBG_ERR("bogus write burst, no hev_vic_list\n")
 		return;
 	}
-	MHL_TX_DBG_WARN(" %d %p\n", hev_index, mhl_edid_3d_data->hev_vic_list)
+	MHL_TX_DBG_WARN(" %d %pK\n", hev_index, mhl_edid_3d_data->hev_vic_list)
 	if (NULL == mhl_edid_3d_data->hev_vic_list) {
 		MHL_TX_DBG_ERR("%s no place to put HEV_VIC burst%s\n",
 			       ANSI_ESC_RED_TEXT, ANSI_ESC_RESET_TEXT);
@@ -3155,7 +3154,7 @@ void si_mhl_tx_process_hev_vic_burst(struct edid_3d_data_t *mhl_edid_3d_data,
 		     burst_id_HEV_VIC,
 		     (union video_burst_descriptor_u *) &p_burst->
 		     video_descriptors[i])) {
-			MHL_TX_DBG_INFO(" %d %p\n",
+			MHL_TX_DBG_INFO(" %d %pK\n",
 				hev_index, mhl_edid_3d_data->hev_vic_list)
 			mhl_edid_3d_data->hev_vic_list[hev_index].
 			    mhl3_hev_vic_descriptor =
@@ -4036,7 +4035,8 @@ static uint8_t parse_861_block(struct edid_3d_data_t *mhl_edid_3d_data,
 
 	mhl_edid_3d_data->parse_data.p_HDMI_vsdb = NULL;
 
-	MHL_TX_EDID_INFO("tag:place holder EDID block:%p\n", p_EDID_block_data);
+	MHL_TX_EDID_INFO("tag:place holder EDID block:%pK\n",
+		p_EDID_block_data);
 	if (EDID_EXTENSION_BLOCK_MAP == p_CEA_extension->tag) {
 		struct block_map_t *p_block_map;
 		int i;
@@ -4123,7 +4123,7 @@ void si_mhl_tx_handle_atomic_hw_edid_read_complete(
 		     mhl_edid_3d_data->parse_data.num_EDID_extensions;
 		     ++counter) {
 			MHL_TX_EDID_INFO
-			    (" counter:%d tag:place holder EDID block:%p\n",
+			    (" counter:%d tag:place holder EDID block:%pK\n",
 			     counter,
 			     &mhl_edid_3d_data->
 			     EDID_block_data[EDID_BLOCK_SIZE * counter]);

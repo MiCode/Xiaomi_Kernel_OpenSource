@@ -26,7 +26,8 @@
 #define IPA_API_DISPATCH_RETURN(api, p...) \
 	do { \
 		if (!ipa_api_ctrl) { \
-			pr_err("IPA HW is not supported on this target\n"); \
+			pr_err("%s:%d IPA HW is not supported\n", \
+				__func__, __LINE__); \
 			ret = -EPERM; \
 		} \
 		else { \
@@ -44,7 +45,8 @@
 #define IPA_API_DISPATCH(api, p...) \
 	do { \
 		if (!ipa_api_ctrl) \
-			pr_err("IPA HW is not supported on this target\n"); \
+			pr_err("%s:%d IPA HW is not supported\n", \
+				__func__, __LINE__); \
 		else { \
 			if (ipa_api_ctrl->api) { \
 				ipa_api_ctrl->api(p); \
@@ -59,7 +61,8 @@
 #define IPA_API_DISPATCH_RETURN_PTR(api, p...) \
 	do { \
 		if (!ipa_api_ctrl) { \
-			pr_err("IPA HW is not supported on this target\n"); \
+			pr_err("%s:%d IPA HW is not supported\n", \
+				__func__, __LINE__); \
 			ret = NULL; \
 		} \
 		else { \
@@ -77,7 +80,8 @@
 #define IPA_API_DISPATCH_RETURN_BOOL(api, p...) \
 	do { \
 		if (!ipa_api_ctrl) { \
-			pr_err("IPA HW is not supported on this target\n"); \
+			pr_err("%s:%d IPA HW is not supported\n", \
+				__func__, __LINE__); \
 			ret = false; \
 		} \
 		else { \
@@ -2450,6 +2454,12 @@ const char *ipa_get_version_string(enum ipa_hw_type ver)
 	case IPA_HW_v3_1:
 		str = "3.1";
 		break;
+	case IPA_HW_v3_5:
+		str = "3.5";
+		break;
+	case IPA_HW_v3_5_1:
+		str = "3.5.1";
+		break;
 	default:
 		str = "Invalid version";
 		break;
@@ -2508,6 +2518,8 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 		break;
 	case IPA_HW_v3_0:
 	case IPA_HW_v3_1:
+	case IPA_HW_v3_5:
+	case IPA_HW_v3_5_1:
 		result = ipa3_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
 		break;
@@ -2742,6 +2754,18 @@ int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 
 	IPA_API_DISPATCH_RETURN(ipa_tear_down_uc_offload_pipes, ipa_ep_idx_ul,
 		ipa_ep_idx_dl);
+
+	return ret;
+}
+
+/**
+ * ipa_tz_unlock_reg() - Allow AP access to memory regions controlled by TZ
+ */
+int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_tz_unlock_reg, reg_info, num_regs);
 
 	return ret;
 }

@@ -1,0 +1,126 @@
+/*
+ * Copyright (c) 2016  The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8909w-swoctp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8909W-PM8916 \
+						SWOC CIRC PANEL MTP";
+	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
+	qcom,msm-id =   <245 0>,
+			<258 0>,
+			<275 0>,
+			<300 0>;
+	qcom,board-id = <8 0x10c>; /* SWOC P4 with Circular display */
+};
+
+&soc {
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		it7260@46 {
+			reg = <0x46>;
+			ite,panel-coords = <0 0 400 400>;
+			ite,display-coords = <0 0 400 400>;
+			ite,fw-name = "it7262_fw_050F0302.bin";
+			ite,cfg-name = "it7262_cfg_6602780D.bin";
+		};
+
+		pixart_pat9125@75 {
+			compatible = "pixart,pat9125";
+			reg = <0x75>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <92 0x2008>;
+			vld-supply = <&pm8916_l17>;
+			vdd-supply = <&pm8916_l5>;
+			pinctrl-names = "pmx_rot_switch_active",
+					"pmx_rot_switch_suspend",
+					"pmx_rot_switch_release";
+			pinctrl-0 = <&pix_int_active>;
+			pinctrl-1 = <&pix_int_suspend>;
+			pinctrl-2 = <&pix_release>;
+			pixart,inverse-x;
+		};
+	};
+
+	gpio_keys {
+		/delete-node/ camera_snapshot;
+	};
+
+	msm_gpio: pinctrl@1000000 {
+		pmx_rot_switch_active {
+			pix_int_active: pix_int_active {
+				mux {
+					pins = "gpio92";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio92";
+					drive-strength = <8>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_rot_switch_suspend {
+			pix_int_suspend: pix_int_suspend {
+				mux {
+					pins = "gpio92";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio92";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_rot_switch_release {
+			pix_release: pix_release {
+				mux {
+					pins = "gpio92";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio92";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+	};
+};
+
+&gpio_key_active {
+	mux {
+		pins = "gpio90", "gpio91";
+	};
+
+	config {
+		pins = "gpio90", "gpio91";
+	};
+};
+
+&gpio_key_suspend {
+	mux {
+		pins = "gpio91", "gpio91";
+	};
+
+	config {
+		pins = "gpio90", "gpio91";
+	};
+};

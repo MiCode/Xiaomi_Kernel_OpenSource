@@ -44,6 +44,7 @@
 #include <linux/kernel.h>
 #include <linux/timer.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/dma-mapping.h>
@@ -1237,16 +1238,27 @@ static void msm_hs_set_termios(struct uart_port *uport,
 unsigned int msm_hs_tx_empty(struct uart_port *uport)
 {
 	unsigned int data;
+	unsigned int isr;
 	unsigned int ret = 0;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
 	msm_hs_resource_vote(msm_uport);
 	data = msm_hs_read(uport, UART_DM_SR);
+	isr = msm_hs_read(uport, UART_DM_ISR);
 	msm_hs_resource_unvote(msm_uport);
-	MSM_HS_DBG("%s(): SR Reg Read 0x%x", __func__, data);
+	MSM_HS_INFO("%s(): SR:0x%x ISR:0x%x ", __func__, data, isr);
 
-	if (data & UARTDM_SR_TXEMT_BMSK)
+	if (data & UARTDM_SR_TXEMT_BMSK) {
 		ret = TIOCSER_TEMT;
+	} else
+		/*
+		 * Add an extra sleep here because sometimes the framework's
+		 * delay (based on baud rate) isn't good enough.
+		 * Note that this won't happen during every port close, only
+		 * on select occassions when the userspace does back to back
+		 * write() and close().
+		 */
+		usleep_range(5000, 7000);
 
 	return ret;
 }
@@ -2221,12 +2233,12 @@ void enable_wakeup_interrupt(struct msm_hs_port *msm_uport)
 		return;
 
 	if (!(msm_uport->wakeup.enabled)) {
-		enable_irq(msm_uport->wakeup.irq);
-		disable_irq(uport->irq);
 		spin_lock_irqsave(&uport->lock, flags);
 		msm_uport->wakeup.ignore = 1;
 		msm_uport->wakeup.enabled = true;
 		spin_unlock_irqrestore(&uport->lock, flags);
+		disable_irq(uport->irq);
+		enable_irq(msm_uport->wakeup.irq);
 	} else {
 		MSM_HS_WARN("%s:Wake up IRQ already enabled", __func__);
 	}
@@ -3563,6 +3575,7 @@ static int msm_hs_probe(struct platform_device *pdev)
 	}
 
 	msm_serial_debugfs_init(msm_uport, pdev->id);
+	msm_hs_unconfig_uart_gpios(uport);
 
 	uport->line = pdev->id;
 	if (pdata->userid && pdata->userid <= UARTDM_NR)

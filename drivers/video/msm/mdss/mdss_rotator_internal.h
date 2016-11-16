@@ -187,6 +187,23 @@ struct mdss_rot_mgr {
 };
 
 #ifdef CONFIG_COMPAT
+
+/* open a rotation session */
+#define MDSS_ROTATION_OPEN32 \
+	_IOWR(MDSS_ROTATOR_IOCTL_MAGIC, 1, compat_caddr_t)
+
+/* change the rotation session configuration */
+#define MDSS_ROTATION_CONFIG32 \
+	_IOWR(MDSS_ROTATOR_IOCTL_MAGIC, 2, compat_caddr_t)
+
+/* queue the rotation request */
+#define MDSS_ROTATION_REQUEST32 \
+	_IOWR(MDSS_ROTATOR_IOCTL_MAGIC, 3, compat_caddr_t)
+
+/* close a rotation session with the specified rotation session ID */
+#define MDSS_ROTATION_CLOSE32 \
+	_IOW(MDSS_ROTATOR_IOCTL_MAGIC, 4, unsigned int)
+
 struct mdp_rotation_request32 {
 	uint32_t version;
 	uint32_t flags;

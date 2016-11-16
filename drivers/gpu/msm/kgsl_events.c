@@ -314,22 +314,16 @@ EXPORT_SYMBOL(kgsl_add_event);
 static DEFINE_RWLOCK(group_lock);
 static LIST_HEAD(group_list);
 
-/**
- * kgsl_process_events() - Work queue for processing new timestamp events
- * @work: Pointer to a work_struct
- */
-void kgsl_process_events(struct work_struct *work)
+void kgsl_process_event_groups(struct kgsl_device *device)
 {
 	struct kgsl_event_group *group;
-	struct kgsl_device *device = container_of(work, struct kgsl_device,
-		event_work);
 
 	read_lock(&group_lock);
 	list_for_each_entry(group, &group_list, group)
 		_process_event_group(device, group, false);
 	read_unlock(&group_lock);
 }
-EXPORT_SYMBOL(kgsl_process_events);
+EXPORT_SYMBOL(kgsl_process_event_groups);
 
 /**
  * kgsl_del_event_group() - Remove a GPU event group

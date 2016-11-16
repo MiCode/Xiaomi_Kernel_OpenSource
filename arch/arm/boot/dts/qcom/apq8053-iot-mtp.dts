@@ -15,6 +15,7 @@
 
 #include "apq8053.dtsi"
 #include "msm8953-mtp.dtsi"
+#include "apq8053-camera-sensor-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8053 IOT MTP";
@@ -46,4 +47,95 @@
 		qcom,out-strength = <2>;
 	};
 
+};
+
+&rpm_bus {
+	rpm-regulator-ldoa18 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <18>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+
+		pm8953_l18: regulator-l18 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8953_l18";
+			qcom,set = <3>;
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <2700000>;
+		};
+	};
+};
+
+&soc {
+	usb_detect {
+		compatible = "qcom,gpio-usbdetect";
+		vdd33-supply = <&pm8953_l18>;
+		vdd12-supply = <&pm8953_l23>;
+		interrupt-names = "vbus_det_irq";
+		interrupt-parent = <&tlmm>;
+		interrupts = <12 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ssusb_mode_sel>;
+		qcom,notify-host-mode;
+		qcom,gpio-mode-sel = <&tlmm 12 0>;
+	};
+};
+
+&int_codec {
+	status = "disabled";
+};
+
+&pm8953_diangu_dig {
+	status = "disabled";
+};
+
+&pm8953_diangu_analog {
+	status = "disabled";
+};
+
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wsa881x_i2c_f {
+	status = "disabled";
+};
+
+&wsa881x_i2c_45 {
+	status = "disabled";
+};
+
+&slim_msm {
+	status = "okay";
+};
+
+&dai_slim {
+	status = "okay";
+};
+
+&wcd9xxx_intc {
+	status = "okay";
+};
+
+&clock_audio {
+	status = "okay";
+};
+
+&wcd9335 {
+	status = "okay";
+};
+
+&wcd_rst_gpio {
+	status = "okay";
+};
+
+&ext_codec {
+	qcom,model = "msm8953-tasha-snd-card";
+	status = "okay";
 };

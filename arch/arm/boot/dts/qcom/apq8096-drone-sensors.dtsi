@@ -1,0 +1,265 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&uartblsp2dm1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&soc {
+	i2c@757a000 { /* HW BLSP6 - I2C */
+		status = "disabled"; /* For external GPS magnetometer */
+	};
+
+	i2c@75b6000 { /* HW BLSP8 */
+		status = "disabled"; /* Disabled for use by SLPI */
+	};
+
+	i2c_12: i2c@75ba000 {
+		status = "disabled"; /* Disabled for use by SLPI */
+	};
+
+	tlmm: pinctrl@01010000 {
+		spi_0_cs {
+			spi_0_cs0_active: spi_0_cs0_active {
+				mux {
+					pins = "gpio2";
+					function = "blsp1_spi";
+				};
+
+				config {
+					pins = "gpio2";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			spi_0_cs0_sleep: spi_0_cs0_sleep {
+				mux {
+					pins = "gpio2";
+					function = "blsp1_spi";
+				};
+
+				config {
+					pins = "gpio2";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			spi_0_cs1_active: spi_0_cs1_active {
+				mux {
+					pins = "gpio90";
+					function = "blsp1_spi";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			spi_0_cs1_sleep: spi_0_cs1_sleep {
+				mux {
+					pins = "gpio90";
+					function = "blsp1_spi";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+		};
+	};
+
+	i2c_3: i2c@7577000 { /* BLSP1 QUP3 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x7577000  0x1000>;
+		reg-names = "qup_phys_addr";
+		interrupt-names = "qup_irq";
+		interrupts = <0 97 0>;
+		dmas = <&dma_blsp1 16 32 0x20000020 0x20>,
+			<&dma_blsp1 17 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_3_active>;
+		pinctrl-1 = <&i2c_3_sleep>;
+		status = "ok";
+	};
+
+	i2c_7: i2c@75b5000 { /* BLSP2 QUP1 */
+		status = "ok";
+	};
+
+	blsp2_uart3: uart@075b1000 { /* HW-BLSP9 = BLSP2 UART3 */
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x075b1000 0x1000>,
+		    <0x7584000 0x2b000>;
+		status = "disabled"; /* External GNSS disabled */
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp2_uart3>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 0 115 0
+						 1 &intc 0 0 239 0
+						 2 &tlmm 42 0>;
+
+		qcom,bam-tx-ep-pipe-index = <4>;
+		qcom,bam-rx-ep-pipe-index = <5>;
+		qcom,master-id = <84>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_uart3_apps_clk>,
+		    <&clock_gcc clk_gcc_blsp2_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp2_uart3_sleep>;
+		pinctrl-1 = <&blsp2_uart3_active>;
+
+		qcom,msm-bus,name = "buart9";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			    <86 512 0 0>,
+			    <86 512 500 800>;
+	};
+
+	blsp2_uart6: uart@075b4000 { /* HW-BLSP12 = BLSP2 UART6 */
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x075b4000 0x1000>,
+		    <0x7584000 0x2b000>;
+		status = "disabled"; /* Spektrum/Exp sensor connector */
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp2_uart6>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 0 118 0
+						 1 &intc 0 0 239 0
+						 2 &tlmm 42 0>;
+
+		qcom,bam-tx-ep-pipe-index = <10>;
+		qcom,bam-rx-ep-pipe-index = <11>;
+		qcom,master-id = <84>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_uart6_apps_clk>,
+		    <&clock_gcc clk_gcc_blsp2_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp2_uart6_sleep>;
+		pinctrl-1 = <&blsp2_uart6_active>;
+
+		qcom,msm-bus,name = "buart12";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			    <86 512 0 0>,
+			    <86 512 500 800>;
+	};
+
+	blsp1_uart5: uart@07573000 { /* HW-BLSP5 = BLSP1 UART5 */
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x07573000 0x1000>,
+		    <0x7544000 0x2b000>;
+		status = "disabled"; /* Disabled */
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp1_uart5>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 0 111 0
+						 1 &intc 0 0 238 0
+						 2 &tlmm 42 0>;
+
+		qcom,bam-tx-ep-pipe-index = <8>;
+		qcom,bam-rx-ep-pipe-index = <9>;
+		qcom,master-id = <86>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart5_apps_clk>,
+		    <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp1_uart5_sleep>;
+		pinctrl-1 = <&blsp1_uart5_active>;
+
+		qcom,msm-bus,name = "buart5";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			    <86 512 0 0>,
+			    <86 512 500 800>;
+	};
+
+	blsp2_uart1: uart@075af000 { /* HW-BLSP7 = BLSP2 UART1 */
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x075af000 0x1000>,
+			<0x7584000 0x2b000>;
+		status = "disabled"; /* External IMU disabled */
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp2_uart1>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 0 113 0
+						 1 &intc 0 0 239 0
+						 2 &tlmm 42 0>;
+
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
+		qcom,master-id = <84>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_uart1_apps_clk>,
+			<&clock_gcc clk_gcc_blsp2_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp2_uart1_sleep>;
+		pinctrl-1 = <&blsp2_uart1_active>;
+
+		qcom,msm-bus,name = "buart7";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<86 512 0 0>,
+				<86 512 500 800>;
+	};
+
+	spi@7575000 { /* BLSP1 QUP1 - SPI1 */
+		pinctrl-0 = <&spi_0_active &spi_0_cs0_active &spi_0_cs1_active>;
+		pinctrl-1 = <&spi_0_sleep &spi_0_cs0_sleep &spi_0_cs1_sleep>;
+		status = "disabled";
+	};
+
+	spi@75B8000 { /* BLSP2 QUP4 - SPI10 */
+		status = "disabled";
+	};
+
+	spi@75BA000 { /* BLSP2 QUP6 */
+		status = "disabled";
+	};
+};
+

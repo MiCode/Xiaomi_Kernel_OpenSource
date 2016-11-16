@@ -805,7 +805,7 @@ static int __wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx,
 }
 
 /*
- * wcd9xxx_slim_write_repeat: Write the same register with multiple values
+ * wcd9xxx_bus_write_repeat: Write the same register with multiple values
  * @wcd9xxx: handle to wcd core
  * @reg: register to be written
  * @bytes: number of bytes to be written to reg
@@ -813,7 +813,7 @@ static int __wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx,
  * This API will write reg with bytes from src in a single slimbus
  * transaction. All values from 1 to 16 are supported by this API.
  */
-int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
+int wcd9xxx_bus_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			      int bytes, void *src)
 {
 	int ret = 0;
@@ -824,11 +824,21 @@ int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		if (ret)
 			goto err;
 
-		ret = __wcd9xxx_slim_write_repeat(wcd9xxx, reg, bytes, src);
-		if (ret < 0)
-			dev_err(wcd9xxx->dev,
-				"%s: Codec repeat write failed (%d)\n",
-				__func__, ret);
+		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C) {
+			ret = wcd9xxx->write_dev(wcd9xxx, reg, bytes, src,
+						false);
+			if (ret < 0)
+				dev_err(wcd9xxx->dev,
+					"%s: Codec repeat write failed (%d)\n",
+					__func__, ret);
+		} else {
+			ret = __wcd9xxx_slim_write_repeat(wcd9xxx, reg, bytes,
+							src);
+			if (ret < 0)
+				dev_err(wcd9xxx->dev,
+					"%s: Codec repeat write failed (%d)\n",
+					__func__, ret);
+		}
 	} else {
 		ret = __wcd9xxx_slim_write_repeat(wcd9xxx, reg, bytes, src);
 	}
@@ -836,7 +846,7 @@ err:
 	mutex_unlock(&wcd9xxx->io_lock);
 	return ret;
 }
-EXPORT_SYMBOL(wcd9xxx_slim_write_repeat);
+EXPORT_SYMBOL(wcd9xxx_bus_write_repeat);
 
 /*
  * wcd9xxx_slim_reserve_bw: API to reserve the slimbus bandwidth
@@ -2088,6 +2098,7 @@ static int wcd9xxx_i2c_write_device(struct wcd9xxx *wcd9xxx, u16 reg, u8 *value,
 	u8 reg_addr = 0;
 	u8 data[bytes + 1];
 	struct wcd9xxx_i2c *wcd9xxx_i2c;
+	int i;
 
 	wcd9xxx_i2c = wcd9xxx_i2c_get_device_info(wcd9xxx, reg);
 	if (wcd9xxx_i2c == NULL || wcd9xxx_i2c->client == NULL) {
@@ -2100,7 +2111,8 @@ static int wcd9xxx_i2c_write_device(struct wcd9xxx *wcd9xxx, u16 reg, u8 *value,
 	msg->len = bytes + 1;
 	msg->flags = 0;
 	data[0] = reg;
-	data[1] = *value;
+	for (i = 0; i < bytes; i++)
+		data[i + 1] = value[i];
 	msg->buf = data;
 	ret = i2c_transfer(wcd9xxx_i2c->client->adapter,
 			   wcd9xxx_i2c->xfer_msg, 1);

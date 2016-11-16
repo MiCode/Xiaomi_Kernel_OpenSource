@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,10 +63,8 @@
 
 &qusb_phy {
 	reg = <0x00079000 0x180>,
-	      <0x08af8800 0x400>,
 	      <0x08a0cd00 0x40>;
 	reg-names = "qusb_phy_base",
-		    "qscratch_base",
 		    "emu_phy_base";
 	qcom,emulation;
 	qcom,qusb-phy-init-seq = <0x19 0x404

@@ -96,7 +96,7 @@ int adm_unmap_rtac_block(uint32_t *mem_map_handle);
 int adm_close(int port, int topology, int perf_mode);
 
 int adm_matrix_map(int path, struct route_payload payload_map,
-		   int perf_mode);
+		   int perf_mode, uint32_t passthr_mode);
 
 int adm_connect_afe_port(int mode, int session_id, int port_id);
 

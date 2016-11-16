@@ -300,6 +300,15 @@ config MSM_11AD
 	  If you choose to build it as a module, it will be called
 	  msm_11ad_proxy.
 
+config BW_MONITOR
+	bool "Bandwidth monitor driver"
+        depends on BUS_TOPOLOGY_ADHOC && THERMAL
+	help
+	 Enable this module if any bandwidth of a bus needs to be
+	 monitored and limited by thermal core framework. It does
+	 it by registering the bus bandwidth as a sensor in
+	 thermal core framework.
+
 source "drivers/platform/msm/spmi/Kconfig"
 
 endmenu

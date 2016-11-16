@@ -1,0 +1,14 @@
+#
+# PixArt OTS switch driver configuration
+#
+
+config INPUT_PIXART_OTS_PAT9125_SWITCH
+	tristate "PixArt PAT9125 Rotating Switch driver"
+	depends on INPUT && I2C && GPIOLIB
+	help
+	  Say Y to enable support for the PixArt OTS pat9125
+	  rotating switch driver.
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ots_pat9125.

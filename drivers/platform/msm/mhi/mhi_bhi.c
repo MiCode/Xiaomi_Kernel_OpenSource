@@ -41,6 +41,9 @@ static ssize_t bhi_write(struct file *file,
 	size_t amount_copied = 0;
 	uintptr_t align_len = 0x1000;
 	u32 tx_db_val = 0;
+	rwlock_t *pm_xfer_lock = &mhi_dev_ctxt->pm_xfer_lock;
+	const long bhi_timeout_ms = 1000;
+	long timeout;
 
 	if (buf == NULL || 0 == count)
 		return -EIO;
@@ -48,8 +51,12 @@ static ssize_t bhi_write(struct file *file,
 	if (count > BHI_MAX_IMAGE_SIZE)
 		return -ENOMEM;
 
-	wait_event_interruptible(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
-			mhi_dev_ctxt->mhi_state == MHI_STATE_BHI);
+	timeout = wait_event_interruptible_timeout(
+				*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
+				mhi_dev_ctxt->mhi_state == MHI_STATE_BHI,
+				msecs_to_jiffies(bhi_timeout_ms));
+	if (timeout <= 0 && mhi_dev_ctxt->mhi_state != MHI_STATE_BHI)
+		return -EIO;
 
 	mhi_log(MHI_MSG_INFO, "Entered. User Image size 0x%zx\n", count);
 
@@ -95,6 +102,11 @@ static ssize_t bhi_write(struct file *file,
 	bhi_ctxt->image_size = count;
 
 	/* Write the image size */
+	read_lock_bh(pm_xfer_lock);
+	if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+		read_unlock_bh(pm_xfer_lock);
+		goto bhi_copy_error;
+	}
 	pcie_word_val = HIGH_WORD(bhi_ctxt->phy_image_loc);
 	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base,
 				BHI_IMGADDR_HIGH,
@@ -119,10 +131,15 @@ static ssize_t bhi_write(struct file *file,
 			BHI_IMGTXDB, 0xFFFFFFFF, 0, ++pcie_word_val);
 
 	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHI_INTVEC, 0);
-
+	read_unlock_bh(pm_xfer_lock);
 	for (i = 0; i < BHI_POLL_NR_RETRIES; ++i) {
 		u32 err = 0, errdbg1 = 0, errdbg2 = 0, errdbg3 = 0;
 
+		read_lock_bh(pm_xfer_lock);
+		if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+			read_unlock_bh(pm_xfer_lock);
+			goto bhi_copy_error;
+		}
 		err = mhi_reg_read(bhi_ctxt->bhi_base, BHI_ERRCODE);
 		errdbg1 = mhi_reg_read(bhi_ctxt->bhi_base, BHI_ERRDBG1);
 		errdbg2 = mhi_reg_read(bhi_ctxt->bhi_base, BHI_ERRDBG2);
@@ -131,6 +148,7 @@ static ssize_t bhi_write(struct file *file,
 						BHI_STATUS,
 						BHI_STATUS_MASK,
 						BHI_STATUS_SHIFT);
+		read_unlock_bh(pm_xfer_lock);
 		mhi_log(MHI_MSG_CRITICAL,
 		"BHI STATUS 0x%x, err:0x%x errdbg1:0x%x errdbg2:0x%x errdbg3:0x%x\n",
 			tx_db_val, err, errdbg1, errdbg2, errdbg3);
@@ -176,9 +194,6 @@ int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
 	    || 0 == mhi_pcie_device->core.bar0_end)
 		return -EIO;
 
-	mhi_log(MHI_MSG_INFO,
-		"Successfully registered char dev. bhi base is: 0x%p.\n",
-		bhi_ctxt->bhi_base);
 	ret_val = alloc_chrdev_region(&bhi_ctxt->bhi_dev, 0, 1, "bhi");
 	if (IS_ERR_VALUE(ret_val)) {
 		mhi_log(MHI_MSG_CRITICAL,

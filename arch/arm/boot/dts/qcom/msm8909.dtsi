@@ -132,7 +132,7 @@
 			reusable;
 			alloc-ranges = <0x0 0x80000000 0x0 0x10000000>;
 			alignment = <0 0x400000>;
-			size = <0 0x0600000>;
+			size = <0 0x0800000>;
 		};
 
 		audio_mem: audio_region@0 {
@@ -1277,7 +1277,6 @@
 
 	compress: qcom,msm-compress-dsp {
 		compatible = "qcom,msm-compress-dsp";
-		qcom,adsp-version = "MDSP 1.2";
 	};
 
 	voip: qcom,msm-voip-dsp {

@@ -9,6 +9,19 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
+#include <linux/completion.h>
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
+#include <linux/interrupt.h>
+#include <linux/msm-bus.h>
+#include <linux/cpu.h>
+#include <linux/kthread.h>
+#include <linux/slab.h>
+#include <linux/interrupt.h>
+#include <linux/completion.h>
+#include <linux/pm_runtime.h>
 #include "mhi_sys.h"
 #include "mhi_hwio.h"
 #include "mhi.h"
@@ -17,25 +30,40 @@ int mhi_test_for_device_reset(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	u32 pcie_word_val = 0;
 	u32 expiry_counter;
+	unsigned long flags;
+	rwlock_t *pm_xfer_lock = &mhi_dev_ctxt->pm_xfer_lock;
 
 	mhi_log(MHI_MSG_INFO, "Waiting for MMIO RESET bit to be cleared.\n");
+	read_lock_irqsave(pm_xfer_lock, flags);
+	if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+		read_unlock_irqrestore(pm_xfer_lock, flags);
+		return -EIO;
+	}
 	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr,
-					MHISTATUS);
+				     MHISTATUS);
 	MHI_READ_FIELD(pcie_word_val,
 			MHICTRL_RESET_MASK,
 			MHICTRL_RESET_SHIFT);
+	read_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock, flags);
 	if (pcie_word_val == 0xFFFFFFFF)
 		return -ENOTCONN;
+
 	while (MHI_STATE_RESET != pcie_word_val && expiry_counter < 100) {
 		expiry_counter++;
 		mhi_log(MHI_MSG_ERROR,
 			"Device is not RESET, sleeping and retrying.\n");
 		msleep(MHI_READY_STATUS_TIMEOUT_MS);
+		read_lock_irqsave(pm_xfer_lock, flags);
+		if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+			read_unlock_irqrestore(pm_xfer_lock, flags);
+			return -EIO;
+		}
 		pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr,
 							MHICTRL);
 		MHI_READ_FIELD(pcie_word_val,
 				MHICTRL_RESET_MASK,
 				MHICTRL_RESET_SHIFT);
+		read_unlock_irqrestore(pm_xfer_lock, flags);
 	}
 
 	if (MHI_STATE_READY != pcie_word_val)
@@ -47,15 +75,23 @@ int mhi_test_for_device_ready(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	u32 pcie_word_val = 0;
 	u32 expiry_counter;
+	unsigned long flags;
+	rwlock_t *pm_xfer_lock = &mhi_dev_ctxt->pm_xfer_lock;
 
 	mhi_log(MHI_MSG_INFO, "Waiting for MMIO Ready bit to be set\n");
 
+	read_lock_irqsave(pm_xfer_lock, flags);
+	if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+		read_unlock_irqrestore(pm_xfer_lock, flags);
+		return -EIO;
+	}
 	/* Read MMIO and poll for READY bit to be set */
 	pcie_word_val = mhi_reg_read(
 			mhi_dev_ctxt->mmio_info.mmio_addr, MHISTATUS);
 	MHI_READ_FIELD(pcie_word_val,
 			MHISTATUS_READY_MASK,
 			MHISTATUS_READY_SHIFT);
+	read_unlock_irqrestore(pm_xfer_lock, flags);
 
 	if (pcie_word_val == 0xFFFFFFFF)
 		return -ENOTCONN;
@@ -65,10 +101,16 @@ int mhi_test_for_device_ready(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_log(MHI_MSG_ERROR,
 			"Device is not ready, sleeping and retrying.\n");
 		msleep(MHI_READY_STATUS_TIMEOUT_MS);
+		read_lock_irqsave(pm_xfer_lock, flags);
+		if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+			read_unlock_irqrestore(pm_xfer_lock, flags);
+			return -EIO;
+		}
 		pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr,
 					     MHISTATUS);
 		MHI_READ_FIELD(pcie_word_val,
 				MHISTATUS_READY_MASK, MHISTATUS_READY_SHIFT);
+		read_unlock_irqrestore(pm_xfer_lock, flags);
 	}
 
 	if (pcie_word_val != MHI_STATE_READY)
@@ -102,21 +144,20 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_dev_ctxt->dev_props->mhi_ver = mhi_reg_read(
 				mhi_dev_ctxt->mmio_info.mmio_addr, MHIVER);
 	if (MHI_VERSION != mhi_dev_ctxt->dev_props->mhi_ver) {
-		mhi_log(MHI_MSG_CRITICAL, "Bad MMIO version, 0x%x\n",
-					mhi_dev_ctxt->dev_props->mhi_ver);
-		if (mhi_dev_ctxt->dev_props->mhi_ver == 0xFFFFFFFF)
-			ret_val = mhi_wait_for_mdm(mhi_dev_ctxt);
-		if (ret_val)
+		mhi_log(MHI_MSG_CRITICAL,
+			"Bad MMIO version, 0x%x\n",
+			mhi_dev_ctxt->dev_props->mhi_ver);
 			return ret_val;
 	}
+
 	/* Enable the channels */
 	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
 			struct mhi_chan_ctxt *chan_ctxt =
 				&mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[i];
 		if (VALID_CHAN_NR(i))
-			chan_ctxt->mhi_chan_state = MHI_CHAN_STATE_ENABLED;
+			chan_ctxt->chstate = MHI_CHAN_STATE_ENABLED;
 		else
-			chan_ctxt->mhi_chan_state = MHI_CHAN_STATE_DISABLED;
+			chan_ctxt->chstate = MHI_CHAN_STATE_DISABLED;
 	}
 	mhi_log(MHI_MSG_INFO,
 			"Read back MMIO Ready bit successfully. Moving on..\n");
@@ -144,6 +185,11 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 				MHICFG,
 				MHICFG_NER_MASK, MHICFG_NER_SHIFT,
 				mhi_dev_ctxt->mmio_info.nr_event_rings);
+	mhi_reg_write_field(mhi_dev_ctxt, mhi_dev_ctxt->mmio_info.mmio_addr,
+			    MHICFG,
+			    MHICFG_NHWER_MASK,
+			    MHICFG_NHWER_SHIFT,
+			    mhi_dev_ctxt->mmio_info.nr_hw_event_rings);
 
 	pcie_dword_val = mhi_dev_ctxt->dev_space.ring_ctxt.dma_cc_list;
 	pcie_word_val = HIGH_WORD(pcie_dword_val);

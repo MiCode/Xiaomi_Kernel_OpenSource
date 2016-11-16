@@ -895,6 +895,8 @@ static int uci_init_client_attributes(struct mhi_uci_ctxt_t
 		case MHI_CLIENT_BL_IN:
 		case MHI_CLIENT_DUN_OUT:
 		case MHI_CLIENT_DUN_IN:
+		case MHI_CLIENT_TF_OUT:
+		case MHI_CLIENT_TF_IN:
 			chan_attrib->uci_ownership = 1;
 			break;
 		default:

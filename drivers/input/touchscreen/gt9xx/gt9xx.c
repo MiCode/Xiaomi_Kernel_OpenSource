@@ -861,7 +861,7 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 
 	if (ts->pdata->driver_send_cfg) {
 		for (i = 0; i < GOODIX_MAX_CFG_GROUP; i++)
-			dev_dbg(&client->dev, "Config Groups(%d) Lengths: %d",
+			dev_dbg(&client->dev, "Config Groups(%d) Lengths: %zu",
 				i, ts->pdata->config_data_len[i]);
 
 		ret = gtp_i2c_read_dbl_check(ts->client, 0x41E4, opr_buf, 1);
@@ -973,7 +973,8 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 		}
 	} /* !DRIVER NOT SEND CONFIG */
 
-	if ((ts->abs_x_max == 0) && (ts->abs_y_max == 0)) {
+	if ((ts->abs_x_max == 0) && (ts->abs_y_max == 0) &&
+							(config_data != NULL)) {
 		ts->abs_x_max = (config_data[RESOLUTION_LOC + 1] << 8)
 				+ config_data[RESOLUTION_LOC];
 		ts->abs_y_max = (config_data[RESOLUTION_LOC + 3] << 8)
@@ -1821,7 +1822,7 @@ static int goodix_parse_dt(struct device *dev,
 	u32 temp_val, num_buttons;
 	u32 button_map[MAX_BUTTONS];
 	char prop_name[PROP_NAME_SIZE];
-	int i, read_cfg_num;
+	int i, read_cfg_num, temp;
 
 	rc = goodix_ts_get_dt_coords(dev, "goodix,panel-coords", pdata);
 	if (rc && (rc != -EINVAL))
@@ -1903,14 +1904,15 @@ static int goodix_parse_dt(struct device *dev,
 
 	read_cfg_num = 0;
 	for (i = 0; i < GOODIX_MAX_CFG_GROUP; i++) {
+		temp = 0;
 		snprintf(prop_name, sizeof(prop_name), "goodix,cfg-data%d", i);
-		prop = of_find_property(np, prop_name,
-			&pdata->config_data_len[i]);
+		prop = of_find_property(np, prop_name, &temp);
 		if (!prop || !prop->value) {
 			pdata->config_data_len[i] = 0;
 			pdata->config_data[i] = NULL;
 			continue;
 		}
+		pdata->config_data_len[i] = temp;
 		pdata->config_data[i] = devm_kzalloc(dev,
 				GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH,
 				GFP_KERNEL);
@@ -2120,8 +2122,8 @@ exit_free_irq:
 	flush_workqueue(ts->goodix_wq);
 	destroy_workqueue(ts->goodix_wq);
 
-	input_unregister_device(ts->input_dev);
 	if (ts->input_dev) {
+		input_unregister_device(ts->input_dev);
 		input_free_device(ts->input_dev);
 		ts->input_dev = NULL;
 	}
@@ -2155,28 +2157,26 @@ static int goodix_ts_remove(struct i2c_client *client)
 {
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
 
-	sysfs_remove_group(&ts->input_dev->dev.kobj, &gtp_attr_grp);
+	if (ts) {
+		sysfs_remove_group(&ts->input_dev->dev.kobj, &gtp_attr_grp);
 
 #if defined(CONFIG_FB)
-	if (fb_unregister_client(&ts->fb_notif))
-		dev_err(&client->dev,
-			"Error occurred while unregistering fb_notifier.\n");
+		fb_unregister_client(&ts->fb_notif);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
-	unregister_early_suspend(&ts->early_suspend);
+		unregister_early_suspend(&ts->early_suspend);
 #endif
-	mutex_destroy(&ts->lock);
+		mutex_destroy(&ts->lock);
 
 #ifdef CONFIG_GT9XX_TOUCHPANEL_DEBUG
-	uninit_wr_node();
+		uninit_wr_node();
 #endif
 
 #if GTP_ESD_PROTECT
-	cancel_work_sync(gtp_esd_check_workqueue);
-	flush_workqueue(gtp_esd_check_workqueue);
-	destroy_workqueue(gtp_esd_check_workqueue);
+		cancel_work_sync(gtp_esd_check_workqueue);
+		flush_workqueue(gtp_esd_check_workqueue);
+		destroy_workqueue(gtp_esd_check_workqueue);
 #endif
 
-	if (ts) {
 		if (ts->use_irq)
 			free_irq(client->irq, ts);
 
@@ -2184,8 +2184,8 @@ static int goodix_ts_remove(struct i2c_client *client)
 		flush_workqueue(ts->goodix_wq);
 		destroy_workqueue(ts->goodix_wq);
 
-		input_unregister_device(ts->input_dev);
 		if (ts->input_dev) {
+			input_unregister_device(ts->input_dev);
 			input_free_device(ts->input_dev);
 			ts->input_dev = NULL;
 		}
@@ -2198,8 +2198,8 @@ static int goodix_ts_remove(struct i2c_client *client)
 		goodix_power_off(ts);
 		goodix_power_deinit(ts);
 		i2c_set_clientdata(client, NULL);
+		debugfs_remove_recursive(ts->debug_base);
 	}
-	debugfs_remove_recursive(ts->debug_base);
 
 	return 0;
 }

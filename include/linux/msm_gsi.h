@@ -13,6 +13,14 @@
 #define MSM_GSI_H
 #include <linux/types.h>
 
+enum gsi_ver {
+	GSI_VER_ERR = 0,
+	GSI_VER_1_0 = 1,
+	GSI_VER_1_2 = 2,
+	GSI_VER_1_3 = 3,
+	GSI_VER_MAX,
+};
+
 enum gsi_status {
 	GSI_STATUS_SUCCESS = 0,
 	GSI_STATUS_ERROR = 1,
@@ -65,6 +73,7 @@ enum gsi_intr_type {
 /**
  * gsi_per_props - Peripheral related properties
  *
+ * @gsi:        GSI core version
  * @ee:         EE where this driver and peripheral driver runs
  * @intr:       control interrupt type
  * @intvec:     write data for MSI write
@@ -87,6 +96,7 @@ enum gsi_intr_type {
  *
  */
 struct gsi_per_props {
+	enum gsi_ver ver;
 	unsigned int ee;
 	enum gsi_intr_type intr;
 	uint32_t intvec;

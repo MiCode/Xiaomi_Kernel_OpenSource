@@ -27,46 +27,21 @@ static int mhi_init_sync(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int i;
 
-	mhi_dev_ctxt->mhi_ev_spinlock_list = kmalloc(sizeof(spinlock_t) *
-					mhi_dev_ctxt->mmio_info.nr_event_rings,
-					GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->mhi_ev_spinlock_list)
-		goto ev_mutex_free;
-	mhi_dev_ctxt->mhi_chan_mutex = kmalloc(sizeof(struct mutex) *
-						MHI_MAX_CHANNELS, GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->mhi_chan_mutex)
-		goto chan_mutex_free;
-	mhi_dev_ctxt->mhi_cmd_mutex_list = kmalloc(sizeof(struct mutex) *
-						NR_OF_CMD_RINGS, GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->mhi_cmd_mutex_list)
-		goto cmd_mutex_free;
+	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
+		struct mhi_ring *ring = &mhi_dev_ctxt->mhi_local_chan_ctxt[i];
 
-	mhi_dev_ctxt->db_write_lock = kmalloc(sizeof(spinlock_t) *
-						MHI_MAX_CHANNELS, GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->db_write_lock)
-		goto db_write_lock_free;
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
-		mutex_init(&mhi_dev_ctxt->mhi_chan_mutex[i]);
-	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i)
-		spin_lock_init(&mhi_dev_ctxt->mhi_ev_spinlock_list[i]);
-	for (i = 0; i < NR_OF_CMD_RINGS; ++i)
-		mutex_init(&mhi_dev_ctxt->mhi_cmd_mutex_list[i]);
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
-		spin_lock_init(&mhi_dev_ctxt->db_write_lock[i]);
-	rwlock_init(&mhi_dev_ctxt->xfer_lock);
-	mutex_init(&mhi_dev_ctxt->mhi_link_state);
-	mutex_init(&mhi_dev_ctxt->pm_lock);
-	atomic_set(&mhi_dev_ctxt->flags.m2_transition, 0);
+		mutex_init(&mhi_dev_ctxt->mhi_chan_cfg[i].chan_lock);
+		spin_lock_init(&mhi_dev_ctxt->mhi_chan_cfg[i].event_lock);
+		spin_lock_init(&ring->ring_lock);
+	}
+
+	for (i = 0; i < NR_OF_CMD_RINGS; i++) {
+		struct mhi_ring *ring = &mhi_dev_ctxt->mhi_local_cmd_ctxt[i];
+
+		spin_lock_init(&ring->ring_lock);
+	}
+
 	return 0;
-
-db_write_lock_free:
-	kfree(mhi_dev_ctxt->mhi_cmd_mutex_list);
-cmd_mutex_free:
-	kfree(mhi_dev_ctxt->mhi_chan_mutex);
-chan_mutex_free:
-	kfree(mhi_dev_ctxt->mhi_ev_spinlock_list);
-ev_mutex_free:
-	return -ENOMEM;
 }
 
 size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -115,7 +90,7 @@ void init_dev_chan_ctxt(struct mhi_chan_ctxt *chan_ctxt,
 	chan_ctxt->mhi_trb_write_ptr = p_base_addr;
 	chan_ctxt->mhi_trb_ring_len = len;
 	/* Prepulate the channel ctxt */
-	chan_ctxt->mhi_chan_state = MHI_CHAN_STATE_ENABLED;
+	chan_ctxt->chstate = MHI_CHAN_STATE_ENABLED;
 	chan_ctxt->mhi_event_ring_index = ev_index;
 }
 
@@ -173,6 +148,8 @@ static int mhi_cmd_ring_init(struct mhi_cmd_ctxt *cmd_ctxt,
 	ring[PRIMARY_CMD_RING].len = ring_size;
 	ring[PRIMARY_CMD_RING].el_size = sizeof(union mhi_cmd_pkt);
 	ring[PRIMARY_CMD_RING].overwrite_en = 0;
+	ring[PRIMARY_CMD_RING].db_mode.process_db =
+		mhi_process_db_brstmode_disable;
 	return 0;
 }
 
@@ -547,7 +524,6 @@ int mhi_init_device_ctxt(struct mhi_pcie_dev_info *dev_info,
 	}
 	init_event_ctxt_array(mhi_dev_ctxt);
 	mhi_dev_ctxt->mhi_state = MHI_STATE_RESET;
-	mhi_dev_ctxt->enable_lpm = 1;
 
 	r = mhi_spawn_threads(mhi_dev_ctxt);
 	if (r) {
@@ -573,9 +549,6 @@ error_wq_init:
 		   mhi_dev_ctxt->dev_space.dma_dev_mem_start);
 error_during_dev_mem_init:
 error_during_local_ev_ctxt:
-	kfree(mhi_dev_ctxt->mhi_cmd_mutex_list);
-	kfree(mhi_dev_ctxt->mhi_chan_mutex);
-	kfree(mhi_dev_ctxt->mhi_ev_spinlock_list);
 error_during_sync:
 	kfree(mhi_dev_ctxt->ev_ring_props);
 error_during_props:
@@ -585,24 +558,28 @@ error_during_props:
 /**
  * @brief Initialize the channel context and shadow context
  *
- * @cc_list:		Context to initialize
- * @trb_list_phy:	Physical base address for the TRE ring
- * @trb_list_virt:	Virtual base address for the TRE ring
- * @el_per_ring:	Number of TREs this ring will contain
- * @chan_type:		Type of channel IN/OUT
- * @event_ring:	 Event ring to be mapped to this channel context
- * @ring:		 Shadow context to be initialized alongside
- *
+ * @cc_list: Context to initialize
+ * @trb_list_phy: Physical base address for the TRE ring
+ * @trb_list_virt: Virtual base address for the TRE ring
+ * @el_per_ring: Number of TREs this ring will contain
+ * @chan_type: Type of channel IN/OUT
+ * @event_ring: Event ring to be mapped to this channel context
+ * @ring: Shadow context to be initialized alongside
+ * @chan_state: Channel state
+ * @preserve_db_state: Do not reset DB state during resume
  * @Return errno
  */
 int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
-		uintptr_t trb_list_phy, uintptr_t trb_list_virt,
-		u64 el_per_ring, enum MHI_CHAN_DIR chan_type,
-		u32 event_ring, struct mhi_ring *ring,
-		enum MHI_CHAN_STATE chan_state)
+		       uintptr_t trb_list_phy, uintptr_t trb_list_virt,
+		       u64 el_per_ring, enum MHI_CHAN_DIR chan_type,
+		       u32 event_ring, struct mhi_ring *ring,
+		       enum MHI_CHAN_STATE chan_state,
+		       bool preserve_db_state,
+		       enum MHI_BRSTMODE brstmode)
 {
-	cc_list->mhi_chan_state = chan_state;
-	cc_list->mhi_chan_type = chan_type;
+	cc_list->brstmode = brstmode;
+	cc_list->chstate = chan_state;
+	cc_list->chtype = chan_type;
 	cc_list->mhi_event_ring_index = event_ring;
 	cc_list->mhi_trb_ring_base_addr = trb_list_phy;
 	cc_list->mhi_trb_ring_len =
@@ -617,6 +594,21 @@ int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 	ring->el_size = sizeof(struct mhi_tx_pkt);
 	ring->overwrite_en = 0;
 	ring->dir = chan_type;
+	ring->db_mode.db_mode = 1;
+	ring->db_mode.preserve_db_state = (preserve_db_state) ? 1 : 0;
+	ring->db_mode.brstmode = brstmode;
+
+	switch (ring->db_mode.brstmode) {
+	case MHI_BRSTMODE_ENABLE:
+		ring->db_mode.process_db = mhi_process_db_brstmode;
+		break;
+	case MHI_BRSTMODE_DISABLE:
+		ring->db_mode.process_db = mhi_process_db_brstmode_disable;
+		break;
+	default:
+		ring->db_mode.process_db = mhi_process_db;
+	}
+
 	/* Flush writes to MMIO */
 	wmb();
 	return 0;

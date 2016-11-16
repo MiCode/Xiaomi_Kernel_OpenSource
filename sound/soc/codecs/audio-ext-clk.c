@@ -57,6 +57,8 @@ struct audio_ext_ap_clk2 {
 struct audio_ext_lpass_mclk {
 	struct pinctrl_info pnctrl_info;
 	struct clk c;
+	u32 lpass_clock;
+	void __iomem *lpass_csr_gpio_mux_spkrctl_vaddr;
 };
 
 static struct afe_clk_set clk2_config = {
@@ -82,6 +84,15 @@ static struct afe_clk_set lpass_default2 = {
 	Q6AFE_LPASS_CLK_CONFIG_API_VERSION,
 	Q6AFE_LPASS_CLK_ID_SPEAKER_I2S_OSR,
 	Q6AFE_LPASS_IBIT_CLK_12_P288_MHZ,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	0,
+};
+
+static struct afe_clk_set digital_cdc_core_clk = {
+	Q6AFE_LPASS_CLK_CONFIG_API_VERSION,
+	Q6AFE_LPASS_CLK_ID_INTERNAL_DIGITAL_CODEC_CORE,
+	Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
 	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
 	0,
@@ -163,7 +174,7 @@ static int audio_ext_lpass_mclk_prepare(struct clk *clk)
 	struct audio_ext_lpass_mclk *audio_lpass_mclk;
 	struct pinctrl_info *pnctrl_info;
 	struct afe_clk_cfg *lpass_clk = NULL;
-	int ret;
+	int ret, val = 0;
 
 	audio_lpass_mclk = container_of(clk, struct audio_ext_lpass_mclk, c);
 	pnctrl_info = &audio_lpass_mclk->pnctrl_info;
@@ -174,26 +185,46 @@ static int audio_ext_lpass_mclk_prepare(struct clk *clk)
 
 	if (pnctrl_info->pinctrl) {
 		ret = pinctrl_select_state(pnctrl_info->pinctrl,
-					   pnctrl_info->active);
+				pnctrl_info->active);
 		if (ret) {
 			pr_err("%s: active state select failed with %d\n",
 				__func__, ret);
 			ret = -EIO;
-			goto err;
+			goto done;
 		}
 	}
+	if (!audio_lpass_mclk->lpass_clock) {
+		memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
+		lpass_clk->clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
+		lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK2_VALID;
+		ret = afe_set_lpass_clock(AFE_PORT_ID_SECONDARY_MI2S_RX,
+				lpass_clk);
+		if (ret < 0) {
+			pr_err("%s afe_set_lpass_clock failed, ret = %d\n",
+					__func__, ret);
+			kfree(lpass_clk);
+			return -EINVAL;
+		}
+	} else {
+		if (audio_lpass_mclk->lpass_csr_gpio_mux_spkrctl_vaddr) {
+			val = ioread32(audio_lpass_mclk->
+					lpass_csr_gpio_mux_spkrctl_vaddr);
+			val = val | 0x00000002;
+			iowrite32(val, audio_lpass_mclk->
+					lpass_csr_gpio_mux_spkrctl_vaddr);
+		}
 
-	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
-	lpass_clk->clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
-	lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK2_VALID;
-	ret = afe_set_lpass_clock(AFE_PORT_ID_SECONDARY_MI2S_RX, lpass_clk);
-	if (ret < 0) {
-		pr_err("%s afe_set_lpass_clock failed, ret = %d\n",
-			__func__, ret);
-		kfree(lpass_clk);
-		return -EINVAL;
+		digital_cdc_core_clk.enable = 1;
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
+				&digital_cdc_core_clk);
+		if (ret < 0) {
+			pr_err("%s afe_set_digital_codec_core_clock failed\n",
+					__func__);
+			kfree(lpass_clk);
+			return ret;
+		}
 	}
-err:
+done:
 	kfree(lpass_clk);
 	return 0;
 }
@@ -214,7 +245,7 @@ static void audio_ext_lpass_mclk_unprepare(struct clk *clk)
 
 	if (pnctrl_info->pinctrl) {
 		ret = pinctrl_select_state(pnctrl_info->pinctrl,
-					   pnctrl_info->active);
+					   pnctrl_info->sleep);
 		if (ret) {
 			pr_err("%s: active state select failed with %d\n",
 				__func__, ret);
@@ -222,14 +253,24 @@ static void audio_ext_lpass_mclk_unprepare(struct clk *clk)
 			goto err;
 		}
 	}
+	if (!audio_lpass_mclk->lpass_clock) {
+		memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
+		lpass_clk->clk_val2 = 0;
+		lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK2_VALID;
+		ret = afe_set_lpass_clock(AFE_PORT_ID_SECONDARY_MI2S_RX,
+				lpass_clk);
+		if (ret < 0)
+			pr_err("%s: afe_set_lpass_clock failed, ret = %d\n",
+				__func__, ret);
 
-	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
-	lpass_clk->clk_val2 = 0;
-	lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK2_VALID;
-	ret = afe_set_lpass_clock(AFE_PORT_ID_SECONDARY_MI2S_RX, lpass_clk);
-	if (ret < 0)
-		pr_err("%s: afe_set_lpass_clock failed, ret = %d\n",
-			__func__, ret);
+	} else {
+		digital_cdc_core_clk.enable = 0;
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
+				&digital_cdc_core_clk);
+		if (ret < 0)
+			pr_err("%s: afe_set_digital_codec_core_clock failed, ret = %d\n",
+					__func__, ret);
+	}
 err:
 	kfree(lpass_clk);
 }
@@ -437,11 +478,26 @@ static int audio_ref_clk_probe(struct platform_device *pdev)
 	u32 mclk_freq;
 	const char *mclk_id = "qcom,lpass-mclk-id";
 	const char *mclk_str = NULL;
+	u32 lpass_csr_gpio_mux_spkrctl_reg = 0;
 
 	ret = of_property_read_u32(pdev->dev.of_node,
-				   "qcom,codec-mclk-clk-freq",
-				   &mclk_freq);
-	if (!ret && mclk_freq == 12288000) {
+			"qcom,lpass-clock",
+			&audio_lpass_mclk.lpass_clock);
+	if (ret)
+		dev_dbg(&pdev->dev, "%s: qcom,lpass-clock is undefined\n",
+				__func__);
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+			"qcom,codec-mclk-clk-freq",
+			&mclk_freq);
+	if (!ret && (mclk_freq == 12288000 || audio_lpass_mclk.lpass_clock)) {
+		ret = of_property_read_u32(pdev->dev.of_node, "reg",
+				&lpass_csr_gpio_mux_spkrctl_reg);
+		if (!ret) {
+			audio_lpass_mclk.lpass_csr_gpio_mux_spkrctl_vaddr =
+				ioremap(lpass_csr_gpio_mux_spkrctl_reg, 4);
+		}
+
 		ret = audio_get_pinctrl(pdev, LPASS_MCLK);
 		if (ret)
 			dev_err(&pdev->dev, "%s: Parsing pinctrl %s failed\n",
@@ -547,6 +603,9 @@ static int audio_ref_clk_remove(struct platform_device *pdev)
 		devm_pinctrl_put(pnctrl_info->pinctrl);
 		pnctrl_info->pinctrl = NULL;
 	}
+
+	if (audio_lpass_mclk.lpass_csr_gpio_mux_spkrctl_vaddr)
+		iounmap(audio_lpass_mclk.lpass_csr_gpio_mux_spkrctl_vaddr);
 
 	return 0;
 }

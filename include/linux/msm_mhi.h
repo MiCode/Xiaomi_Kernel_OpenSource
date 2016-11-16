@@ -63,9 +63,10 @@ enum MHI_CLIENT_CHANNEL {
 	MHI_CLIENT_RESERVED_1_UPPER = 99,
 	MHI_CLIENT_IP_HW_0_OUT = 100,
 	MHI_CLIENT_IP_HW_0_IN = 101,
-	MHI_CLIENT_RESERVED_2_LOWER = 102,
+	MHI_CLIENT_IP_HW_ADPL_IN = 102,
+	MHI_CLIENT_RESERVED_2_LOWER = 103,
 	MHI_CLIENT_RESERVED_2_UPPER = 127,
-	MHI_MAX_CHANNELS = 102
+	MHI_MAX_CHANNELS = 103
 };
 
 enum MHI_CB_REASON {
@@ -214,7 +215,7 @@ int mhi_get_max_desc(struct mhi_client_handle *client_handle);
 /* RmNET Reserved APIs, This APIs are reserved for use by the linux network
 * stack only. Use by other clients will introduce system wide issues
 */
-int mhi_set_lpm(struct mhi_client_handle *client_handle, int enable_lpm);
+int mhi_set_lpm(struct mhi_client_handle *client_handle, bool enable_lpm);
 int mhi_get_epid(struct mhi_client_handle *mhi_handle);
 struct mhi_result *mhi_poll(struct mhi_client_handle *client_handle);
 void mhi_mask_irq(struct mhi_client_handle *client_handle);

@@ -39,11 +39,14 @@
 #define IPA_TAG_SLEEP_MIN_USEC (1000)
 #define IPA_TAG_SLEEP_MAX_USEC (2000)
 #define IPA_FORCE_CLOSE_TAG_PROCESS_TIMEOUT (10 * HZ)
-#define IPA_BCR_REG_VAL (0x00000001)
+#define IPA_BCR_REG_VAL_v3_0 (0x00000001)
+#define IPA_BCR_REG_VAL_v3_5 (0x0000003B)
 #define IPA_AGGR_GRAN_MIN (1)
 #define IPA_AGGR_GRAN_MAX (32)
 #define IPA_EOT_COAL_GRAN_MIN (1)
 #define IPA_EOT_COAL_GRAN_MAX (16)
+
+#define IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC (15)
 
 #define IPA_AGGR_BYTE_LIMIT (\
 		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
@@ -99,7 +102,7 @@
 #define IPA_GROUP_DPL		IPA_GROUP_DL
 #define IPA_GROUP_DIAG		(2)
 #define IPA_GROUP_DMA		(3)
-#define IPA_GROUP_IMM_CMD	IPA_GROUP_DMA
+#define IPA_GROUP_IMM_CMD	IPA_GROUP_UL
 #define IPA_GROUP_Q6ZIP		(4)
 #define IPA_GROUP_Q6ZIP_GENERAL	IPA_GROUP_Q6ZIP
 #define IPA_GROUP_UC_RX_Q	(5)
@@ -855,14 +858,28 @@ void ipa3_cfg_qsb(void)
 int ipa3_init_hw(void)
 {
 	u32 ipa_version = 0;
+	u32 val;
 
 	/* Read IPA version and make sure we have access to the registers */
 	ipa_version = ipahal_read_reg(IPA_VERSION);
 	if (ipa_version == 0)
 		return -EFAULT;
 
-	/* using old BCR configuration(IPAv2.6)*/
-	ipahal_write_reg(IPA_BCR, IPA_BCR_REG_VAL);
+	switch (ipa3_ctx->ipa_hw_type) {
+	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
+		val = IPA_BCR_REG_VAL_v3_0;
+		break;
+	case IPA_HW_v3_5:
+	case IPA_HW_v3_5_1:
+		val = IPA_BCR_REG_VAL_v3_5;
+		break;
+	default:
+		IPAERR("unknown HW type in dts\n");
+		return -EFAULT;
+	}
+
+	ipahal_write_reg(IPA_BCR, val);
 
 	ipa3_cfg_qsb();
 
@@ -4681,6 +4698,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_setup_uc_ntn_pipes = ipa3_setup_uc_ntn_pipes;
 	api_ctrl->ipa_tear_down_uc_offload_pipes =
 		ipa3_tear_down_uc_offload_pipes;
+	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
 
 	return 0;
 }
@@ -4833,6 +4851,12 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		}
 	}
 
+	/* move resource group configuration from HLOS to TZ */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_1) {
+		IPAERR("skip configuring ipa_rx_hps_clients from HLOS\n");
+		return;
+	}
+
 	IPADBG("Assign RX_HPS CMDQ rsrc groups min-max limits\n");
 
 	ipa3_configure_rx_hps_clients(0, true);
@@ -4948,7 +4972,8 @@ int ipa3_inject_dma_task_for_gsi(void)
 	desc.type = IPA_IMM_CMD_DESC;
 
 	IPADBG("sending 1B packet to IPA\n");
-	if (ipa3_send_cmd(1, &desc)) {
+	if (ipa3_send_cmd_timeout(1, &desc,
+		IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC)) {
 		IPAERR("ipa3_send_cmd failed\n");
 		return -EFAULT;
 	}
@@ -4997,7 +5022,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 			goto end_sequence;
 
 		IPADBG("Inject a DMA_TASK with 1B packet to IPA and retry\n");
-		/* Send a 1B packet DMA_RASK to IPA and try again*/
+		/* Send a 1B packet DMA_TASK to IPA and try again */
 		res = ipa3_inject_dma_task_for_gsi();
 		if (res) {
 			IPAERR("Failed to inject DMA TASk for GSI\n");
@@ -5332,4 +5357,28 @@ int ipa3_load_fws(const struct firmware *firmware)
 	}
 	IPADBG("IPA FWs (GSI FW, HPS and DPS) were loaded\n");
 	return 0;
+}
+
+/**
+ * ipa3_is_msm_device() - Is the running device a MSM or MDM?
+ *  Determine according to IPA version
+ *
+ * Return value: true if MSM, false if MDM
+ *
+ */
+bool ipa3_is_msm_device(void)
+{
+	switch (ipa3_ctx->ipa_hw_type) {
+	case IPA_HW_v3_0:
+	case IPA_HW_v3_5:
+		return false;
+	case IPA_HW_v3_1:
+	case IPA_HW_v3_5_1:
+		return true;
+	default:
+		IPAERR("unknown HW type %d\n", ipa3_ctx->ipa_hw_type);
+		ipa_assert();
+	}
+
+	return false;
 }

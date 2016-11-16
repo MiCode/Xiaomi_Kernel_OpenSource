@@ -115,10 +115,10 @@ static ssize_t ipa3_read_gen_reg(struct file *file, char __user *ubuf,
 	struct ipahal_reg_shared_mem_size smem_sz;
 
 	memset(&smem_sz, 0, sizeof(smem_sz));
-	ipahal_read_reg_fields(IPA_SHARED_MEM_SIZE, &smem_sz);
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
+	ipahal_read_reg_fields(IPA_SHARED_MEM_SIZE, &smem_sz);
 	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"IPA_VERSION=0x%x\n"
 			"IPA_COMP_HW_VERSION=0x%x\n"
@@ -1353,7 +1353,7 @@ static ssize_t ipa3_write_dbg_cnt(struct file *file, const char __user *buf,
 	memset(&dbg_cnt_ctrl, 0, sizeof(dbg_cnt_ctrl));
 	dbg_cnt_ctrl.type = DBG_CNT_TYPE_GENERAL;
 	dbg_cnt_ctrl.product = true;
-	dbg_cnt_ctrl.src_pipe = 0x1f;
+	dbg_cnt_ctrl.src_pipe = 0xff;
 	dbg_cnt_ctrl.rule_idx_pipe_rule = false;
 	dbg_cnt_ctrl.rule_idx = 0;
 	if (option == 1)

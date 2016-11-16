@@ -212,6 +212,7 @@ struct fastrpc_apps {
 	spinlock_t hlock;
 	struct ion_client *client;
 	struct device *dev;
+	struct device *modem_cma_dev;
 	bool glink;
 };
 
@@ -263,6 +264,12 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.channel = SMD_APPS_DSPS,
 		.edge = "dsps",
 		.vmid = VMID_SSC_Q6,
+	},
+	{
+		.name = "mdsprpc-smd",
+		.subsys = "mdsp",
+		.channel = SMD_APPS_MODEM,
+		.edge = "mdsp",
 	},
 };
 
@@ -1717,17 +1724,26 @@ static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int *session)
 	struct fastrpc_apps *me = &gfa;
 	int idx = 0, err = 0;
 
-	if (chan->sesscount) {
+	switch (chan->channel) {
+	case SMD_APPS_QDSP:
 		idx = ffz(chan->bitmap);
 		VERIFY(err, idx < chan->sesscount);
 		if (err)
 			goto bail;
 		set_bit(idx, &chan->bitmap);
-	} else {
+		break;
+	case SMD_APPS_DSPS:
 		VERIFY(err, me->dev != NULL);
 		if (err)
 			goto bail;
 		chan->session[0].dev = me->dev;
+		break;
+	case SMD_APPS_MODEM:
+		VERIFY(err, me->dev != NULL);
+		if (err)
+			goto bail;
+		chan->session[0].dev = me->modem_cma_dev;
+		break;
 	}
 
 	chan->session[idx].smmu.faults = 0;
@@ -1854,7 +1870,8 @@ static void file_free_work_handler(struct work_struct *w)
 			break;
 		}
 		mutex_unlock(&me->flfree_mutex);
-		fastrpc_file_free(freefl->fl);
+		if (freefl)
+			fastrpc_file_free(freefl->fl);
 		mutex_lock(&me->flfree_mutex);
 
 		if (hlist_empty(&me->fls)) {
@@ -1928,7 +1945,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 
 	if (me->pending_free) {
 		event = wait_event_interruptible_timeout(wait_queue,
-						me->pending_free, RPC_TIMEOUT);
+						!me->pending_free, RPC_TIMEOUT);
 		if (event == 0)
 			pr_err("timed out..list is still not empty\n");
 	}
@@ -2142,6 +2159,7 @@ static struct of_device_id fastrpc_match_table[] = {
 	{ .compatible = "qcom,msm-fastrpc-compute-cb", },
 	{ .compatible = "qcom,msm-fastrpc-legacy-compute-cb", },
 	{ .compatible = "qcom,msm-adsprpc-mem-region", },
+	{ .compatible = "qcom,msm-mdsprpc-mem-region", },
 	{}
 };
 
@@ -2311,6 +2329,12 @@ static int fastrpc_probe(struct platform_device *pdev)
 			pr_err("ADSPRPC: Unable to create adsp-remoteheap ramdump device.\n");
 			me->channel[0].remoteheap_ramdump_dev = NULL;
 		}
+		return 0;
+	}
+
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-mdsprpc-mem-region")) {
+		me->modem_cma_dev = dev;
 		return 0;
 	}
 

@@ -42,9 +42,6 @@
 #define BLEND_LATENCY		3
 #define CSC_LATENCY		1
 
-#define CLK_FUDGE_NUM		12
-#define CLK_FUDGE_DEN		10
-
 #define YUV_BW_FUDGE_NUM	10
 #define YUV_BW_FUDGE_DEN	10
 
@@ -530,6 +527,8 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,
 	int i, lcount = 0;
 	struct mdp_blit_req *req;
 	struct bpp_info bpp;
+	u64 old_solid_fill_pixel = 0;
+	u64 new_solid_fill_pixel = 0;
 	u64 src_read_bw = 0;
 	u32 bg_read_bw = 0;
 	u32 dst_write_bw = 0;
@@ -548,12 +547,14 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,
 	if (lreq->req_list[0].flags & MDP_SOLID_FILL) {
 		req = &(lreq->req_list[0]);
 		mdp3_get_bpp_info(req->dst.format, &bpp);
-		ppp_res.solid_fill_pixel += req->dst_rect.w * req->dst_rect.h;
+		old_solid_fill_pixel = ppp_res.solid_fill_pixel;
+		new_solid_fill_pixel = req->dst_rect.w * req->dst_rect.h;
+		ppp_res.solid_fill_pixel += new_solid_fill_pixel;
 		ppp_res.solid_fill_byte += req->dst_rect.w * req->dst_rect.h *
 						bpp.bpp_num / bpp.bpp_den;
-		if ((panel_info->yres/2 > req->dst_rect.h) ||
+		if ((old_solid_fill_pixel >= new_solid_fill_pixel) ||
 			(mdp3_res->solid_fill_vote_en)) {
-			pr_debug("Solid fill less than H/2 or fill vote %d\n",
+			pr_debug("Last fill pixels are higher or fill_en %d\n",
 				mdp3_res->solid_fill_vote_en);
 			ATRACE_END(__func__);
 			return 0;

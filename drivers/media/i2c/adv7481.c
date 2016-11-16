@@ -116,6 +116,7 @@ struct adv7481_state {
 	int device_num;
 	int powerup;
 	int cec_detected;
+	int clocks_requested;
 
 	/* GPIOs */
 	struct gpio gpio_array[ADV7481_GPIO_MAX];
@@ -421,6 +422,59 @@ static irqreturn_t adv7481_irq(int irq, void *dev)
 	schedule_delayed_work(&state->irq_delayed_work,
 						msecs_to_jiffies(0));
 	return IRQ_HANDLED;
+}
+
+/* Request CCI clocks for adv7481 register access */
+static int adv7481_request_cci_clks(struct adv7481_state *state)
+{
+	int ret = 0;
+
+	if (state->clocks_requested == TRUE)
+		return ret;
+
+	ret = state->i2c_client.i2c_func_tbl->i2c_util(
+				&state->i2c_client, MSM_CCI_INIT);
+	if (ret < 0)
+		pr_err("%s - cci_init failed\n", __func__);
+	else
+		state->clocks_requested = TRUE;
+
+	/* enable camera voltage regulator */
+	ret = msm_camera_enable_vreg(state->dev, state->cci_vreg,
+			state->regulator_count, NULL, 0,
+			&state->cci_reg_ptr[0], 1);
+	if (ret < 0)
+		pr_err("%s:cci enable_vreg failed\n", __func__);
+	else
+		pr_debug("%s - VREG Initialized...\n", __func__);
+
+	return ret;
+}
+
+static int adv7481_release_cci_clks(struct adv7481_state *state)
+{
+	int ret = 0;
+
+	if (state->clocks_requested == FALSE)
+		return ret;
+
+	ret = state->i2c_client.i2c_func_tbl->i2c_util(
+				&state->i2c_client, MSM_CCI_RELEASE);
+	if (ret < 0)
+		pr_err("%s - cci_release failed\n", __func__);
+	else
+		state->clocks_requested = FALSE;
+
+	/* disable camera voltage regulator */
+	ret = msm_camera_enable_vreg(state->dev, state->cci_vreg,
+			state->regulator_count, NULL, 0,
+			&state->cci_reg_ptr[0], 0);
+	if (ret < 0)
+		pr_err("%s:cci disable vreg failed\n", __func__);
+	else
+		pr_debug("%s - VREG Initialized...\n", __func__);
+
+	return ret;
 }
 
 static void adv7481_irq_delay_work(struct work_struct *work)
@@ -2143,6 +2197,8 @@ static int adv7481_cci_init(struct adv7481_state *state)
 				&state->i2c_client, MSM_CCI_INIT);
 	if (ret < 0)
 		pr_err("%s - cci_init failed\n", __func__);
+	else
+		state->clocks_requested = TRUE;
 
 	pr_debug("%s i2c_client.client: %p\n", __func__,
 		state->i2c_client.client);
@@ -2332,6 +2388,7 @@ err_media_entity:
 	media_entity_cleanup(&sd->entity);
 
 err_mem_free:
+	adv7481_release_cci_clks(state);
 	devm_kfree(&pdev->dev, state);
 
 err:
@@ -2359,11 +2416,54 @@ static int adv7481_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int adv7481_suspend(struct device *dev)
+{
+	struct adv7481_state *state;
+	int ret;
+
+	state = (struct adv7481_state *)dev_get_drvdata(dev);
+
+	/* release CCI clocks */
+	ret = adv7481_release_cci_clks(state);
+	if (ret)
+		pr_err("%s: adv7481 release cci clocks failed\n", __func__);
+	else
+		pr_debug("released cci clocks in suspend");
+
+	return 0;
+}
+
+static int adv7481_resume(struct device *dev)
+{
+	struct adv7481_state *state;
+	int ret;
+
+	state = (struct adv7481_state *)dev_get_drvdata(dev);
+
+	/* Request CCI clocks */
+	ret = adv7481_request_cci_clks(state);
+	if (ret)
+		pr_err("%s: adv7481 request cci clocks failed\n", __func__);
+	else
+		pr_debug("requested cci clocks in resume");
+
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(adv7481_pm_ops, adv7481_suspend, adv7481_resume);
+#define ADV7481_PM_OPS (&adv7481_pm_ops)
+
+#else
+#define ADV7481_PM_OPS NULL
+#endif
+
 static struct platform_driver adv7481_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = KBUILD_MODNAME,
 		.of_match_table = adv7481_id,
+		.pm = ADV7481_PM_OPS,
 	},
 	.probe = adv7481_probe,
 	.remove = adv7481_remove,

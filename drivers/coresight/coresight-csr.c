@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, 2015-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,8 +190,6 @@ static int csr_probe(struct platform_device *pdev)
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
 		return -ENOMEM;
-	/* Store the driver data pointer for use in exported functions */
-	csrdrvdata = drvdata;
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
@@ -219,6 +217,9 @@ static int csr_probe(struct platform_device *pdev)
 	drvdata->csdev = coresight_register(desc);
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
+
+	/* Store the driver data pointer for use in exported functions */
+	csrdrvdata = drvdata;
 
 	dev_info(dev, "CSR initialized\n");
 	return 0;

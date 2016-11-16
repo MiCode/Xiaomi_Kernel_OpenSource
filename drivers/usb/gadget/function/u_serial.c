@@ -415,6 +415,8 @@ __acquires(&port->port_lock)
 					printk(KERN_ERR "%s: %s err %d\n",
 					__func__, "queue", status);
 					list_add(&req->list, pool);
+				} else {
+					port->write_started++;
 				}
 				prev_len = 0;
 			}

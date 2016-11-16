@@ -235,6 +235,10 @@
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 253>, /* sdcc_pwr_cmd_irq */
+			<0xff 260>, /* ipa_irq[0] */
+			<0xff 261>, /* ipa_irq[2] */
+			<0xff 262>, /* ipa_bam_irq[0] */
+			<0xff 263>, /* ipa_bam_irq[2] */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
 			<0xff 272>, /* smmu_intr_bus[17] */

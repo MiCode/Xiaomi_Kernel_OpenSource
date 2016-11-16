@@ -766,6 +766,30 @@ static void ipa3_transport_irq_cmd_ack(void *user1, int user2)
 }
 
 /**
+ * ipa3_transport_irq_cmd_ack_free - callback function which will be
+ * called by SPS/GSI driver after an immediate command is complete.
+ * This function will also free the completion object once it is done.
+ * @tag_comp: pointer to the completion object
+ * @ignored: parameter not used
+ *
+ * Complete the immediate commands completion object, this will release the
+ * thread which waits on this completion object (ipa3_send_cmd())
+ */
+static void ipa3_transport_irq_cmd_ack_free(void *tag_comp, int ignored)
+{
+	struct ipa3_tag_completion *comp = tag_comp;
+
+	if (!comp) {
+		IPAERR("comp is NULL\n");
+		return;
+	}
+
+	complete(&comp->comp);
+	if (atomic_dec_return(&comp->cnt) == 0)
+		kfree(comp);
+}
+
+/**
  * ipa3_send_cmd - send immediate commands
  * @num_desc:	number of descriptors within the desc struct
  * @descr:	descriptor structure
@@ -791,6 +815,7 @@ int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 			IPA_CLIENT_APPS_CMD_PROD);
 		return -EFAULT;
 	}
+
 	sys = ipa3_ctx->ep[ep_idx].sys;
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
@@ -824,6 +849,91 @@ int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 		}
 		wait_for_completion(&desc->xfer_done);
 	}
+
+bail:
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+		return result;
+}
+
+/**
+ * ipa3_send_cmd_timeout - send immediate commands with limited time
+ *	waiting for ACK from IPA HW
+ * @num_desc:	number of descriptors within the desc struct
+ * @descr:	descriptor structure
+ * @timeout:	millisecond to wait till get ACK from IPA HW
+ *
+ * Function will block till command gets ACK from IPA HW or timeout.
+ * Caller needs to free any resources it allocated after function returns
+ * The callback in ipa3_desc should not be set by the caller
+ * for this function.
+ */
+int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
+{
+	struct ipa3_desc *desc;
+	int i, result = 0;
+	struct ipa3_sys_context *sys;
+	int ep_idx;
+	int completed;
+	struct ipa3_tag_completion *comp;
+
+	for (i = 0; i < num_desc; i++)
+		IPADBG("sending imm cmd %d\n", descr[i].opcode);
+
+	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
+	if (-1 == ep_idx) {
+		IPAERR("Client %u is not mapped\n",
+			IPA_CLIENT_APPS_CMD_PROD);
+		return -EFAULT;
+	}
+
+	comp = kzalloc(sizeof(*comp), GFP_ATOMIC);
+	if (!comp) {
+		IPAERR("no mem\n");
+		return -ENOMEM;
+	}
+	init_completion(&comp->comp);
+
+	/* completion needs to be released from both here and in ack callback */
+	atomic_set(&comp->cnt, 2);
+
+	sys = ipa3_ctx->ep[ep_idx].sys;
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (num_desc == 1) {
+		if (descr->callback || descr->user1)
+			WARN_ON(1);
+
+		descr->callback = ipa3_transport_irq_cmd_ack_free;
+		descr->user1 = comp;
+		if (ipa3_send_one(sys, descr, true)) {
+			IPAERR("fail to send immediate command\n");
+			kfree(comp);
+			result = -EFAULT;
+			goto bail;
+		}
+	} else {
+		desc = &descr[num_desc - 1];
+
+		if (desc->callback || desc->user1)
+			WARN_ON(1);
+
+		desc->callback = ipa3_transport_irq_cmd_ack_free;
+		desc->user1 = comp;
+		if (ipa3_send(sys, num_desc, descr, true)) {
+			IPAERR("fail to send multiple immediate command set\n");
+			kfree(comp);
+			result = -EFAULT;
+			goto bail;
+		}
+	}
+
+	completed = wait_for_completion_timeout(
+		&comp->comp, msecs_to_jiffies(timeout));
+	if (!completed)
+		IPADBG("timeout waiting for imm-cmd ACK\n");
+
+	if (atomic_dec_return(&comp->cnt) == 0)
+		kfree(comp);
 
 bail:
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
@@ -1983,7 +2093,7 @@ static void ipa3_alloc_wlan_rx_common_cache(u32 size)
 			goto fail_skb_alloc;
 		}
 		ptr = skb_put(rx_pkt->data.skb, IPA_WLAN_RX_BUFF_SZ);
-		rx_pkt->data.dma_addr = dma_map_single(NULL, ptr,
+		rx_pkt->data.dma_addr = dma_map_single(ipa3_ctx->pdev, ptr,
 				IPA_WLAN_RX_BUFF_SZ, DMA_FROM_DEVICE);
 		if (rx_pkt->data.dma_addr == 0 ||
 				rx_pkt->data.dma_addr == ~0) {
@@ -3771,6 +3881,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	union __packed gsi_channel_scratch ch_scratch;
 	struct ipa_gsi_ep_config *gsi_ep_info;
 	dma_addr_t dma_addr;
+	dma_addr_t evt_dma_addr;
 	int result;
 
 	if (!ep) {
@@ -3779,13 +3890,13 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	}
 
 	ep->gsi_evt_ring_hdl = ~0;
+	memset(&gsi_evt_ring_props, 0, sizeof(gsi_evt_ring_props));
 	/*
 	 * allocate event ring for all interrupt-policy
 	 * pipes and IPA consumers pipes
 	 */
 	if (ep->sys->policy != IPA_POLICY_NOINTR_MODE ||
 	     IPA_CLIENT_IS_CONS(ep->client)) {
-		memset(&gsi_evt_ring_props, 0, sizeof(gsi_evt_ring_props));
 		gsi_evt_ring_props.intf = GSI_EVT_CHTYPE_GPI_EV;
 		gsi_evt_ring_props.intr = GSI_INTR_IRQ;
 		gsi_evt_ring_props.re_size =
@@ -3794,8 +3905,13 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_evt_ring_props.ring_len = IPA_GSI_EVT_RING_LEN;
 		gsi_evt_ring_props.ring_base_vaddr =
 			dma_alloc_coherent(ipa3_ctx->pdev, IPA_GSI_EVT_RING_LEN,
-			&dma_addr, 0);
-		gsi_evt_ring_props.ring_base_addr = dma_addr;
+			&evt_dma_addr, GFP_KERNEL);
+		if (!gsi_evt_ring_props.ring_base_vaddr) {
+			IPAERR("fail to dma alloc %u bytes\n",
+				IPA_GSI_EVT_RING_LEN);
+			return -ENOMEM;
+		}
+		gsi_evt_ring_props.ring_base_addr = evt_dma_addr;
 
 		/* copy mem info */
 		ep->gsi_mem_info.evt_ring_len = gsi_evt_ring_props.ring_len;
@@ -3830,7 +3946,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	if (!gsi_ep_info) {
 		IPAERR("Invalid ep number\n");
 		result = -EINVAL;
-		goto fail_alloc_evt_ring;
+		goto fail_get_gsi_ep_info;
 	} else
 		gsi_channel_props.ch_id = gsi_ep_info->ipa_gsi_chan_num;
 
@@ -3849,7 +3965,12 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_channel_props.ring_len = 2 * in->desc_fifo_sz;
 	gsi_channel_props.ring_base_vaddr =
 		dma_alloc_coherent(ipa3_ctx->pdev, gsi_channel_props.ring_len,
-			&dma_addr, 0);
+			&dma_addr, GFP_KERNEL);
+	if (!gsi_channel_props.ring_base_vaddr) {
+		IPAERR("fail to dma alloc %u bytes\n",
+			gsi_channel_props.ring_len);
+		goto fail_alloc_channel_ring;
+	}
 	gsi_channel_props.ring_base_addr = dma_addr;
 
 	/* copy mem info */
@@ -3885,7 +4006,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	result = gsi_write_channel_scratch(ep->gsi_chan_hdl, ch_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to write scratch %d\n", result);
-		goto fail_start_channel;
+		goto fail_write_channel_scratch;
 	}
 
 	result = gsi_start_channel(ep->gsi_chan_hdl);
@@ -3897,17 +4018,25 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	return 0;
 
 fail_start_channel:
+fail_write_channel_scratch:
 	if (gsi_dealloc_channel(ep->gsi_chan_hdl)
 		!= GSI_STATUS_SUCCESS) {
 		IPAERR("Failed to dealloc GSI chan.\n");
 		BUG();
 	}
 fail_alloc_channel:
+	dma_free_coherent(ipa3_ctx->pdev, gsi_channel_props.ring_len,
+			gsi_channel_props.ring_base_vaddr, dma_addr);
+fail_alloc_channel_ring:
+fail_get_gsi_ep_info:
 	if (ep->gsi_evt_ring_hdl != ~0) {
 		gsi_dealloc_evt_ring(ep->gsi_evt_ring_hdl);
 		ep->gsi_evt_ring_hdl = ~0;
 	}
 fail_alloc_evt_ring:
+	if (gsi_evt_ring_props.ring_base_vaddr)
+		dma_free_coherent(ipa3_ctx->pdev, IPA_GSI_EVT_RING_LEN,
+			gsi_evt_ring_props.ring_base_vaddr, evt_dma_addr);
 	IPAERR("Return with err: %d\n", result);
 	return result;
 }
@@ -4045,7 +4174,7 @@ static uint64_t pointer_to_tag_wa(struct ipa3_tx_pkt_wrapper *tx_pkt)
 {
 	u16 temp;
 	/* Add the check but it might have throughput issue */
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1) {
+	if (ipa3_is_msm_device()) {
 		temp = (u16) (~((unsigned long) tx_pkt &
 			0xFFFF000000000000) >> 48);
 		if (temp) {

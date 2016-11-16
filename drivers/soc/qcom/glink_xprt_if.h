@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +56,7 @@ enum xprt_ids {
  * @iovec:		Pointer to the vector buffer packet.
  * @vprovider:		Packet-specific virtual buffer provider function.
  * @pprovider:		Packet-specific physical buffer provider function.
+ * @cookie:		Transport-specific cookie
  * @pkt_ref:		Active references to the packet.
  */
 struct glink_core_tx_pkt {
@@ -73,6 +74,7 @@ struct glink_core_tx_pkt {
 	void *iovec;
 	void * (*vprovider)(void *iovec, size_t offset, size_t *size);
 	void * (*pprovider)(void *iovec, size_t offset, size_t *size);
+	void *cookie;
 	struct rwref_lock pkt_ref;
 };
 

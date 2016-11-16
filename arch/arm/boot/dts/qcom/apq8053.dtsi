@@ -24,6 +24,16 @@
 	};
 };
 
+&pm8953_vadc {
+	/delete-node/ chan@36;
+	/delete-node/ chan@11;
+	/delete-node/ chan@13;
+};
+
+&pm8953_adc_tm {
+	/delete-node/ chan@36;
+};
+
 &ipa_hw {
 	status = "disabled";
 };

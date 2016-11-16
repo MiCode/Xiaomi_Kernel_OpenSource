@@ -153,7 +153,7 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	struct dentry *f = debugfs_create_##__type(__name, S_IRUGO | S_IWUSR, \
 		dir, __value);                                                \
 	if (IS_ERR_OR_NULL(f)) {                                              \
-		dprintk(VIDC_ERR, "Failed creating debugfs file '%pKd/%s'\n",  \
+		dprintk(VIDC_ERR, "Failed creating debugfs file '%pd/%s'\n",  \
 			dir, __name);                                         \
 		f = NULL;                                                     \
 	}                                                                     \
@@ -292,10 +292,10 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	for (i = 0; i < MAX_PORT_NUM; i++) {
 		write_str(&dbg_buf, "capability: %s\n", i == OUTPUT_PORT ?
 			"Output" : "Capture");
-		write_str(&dbg_buf, "name : %s\n", inst->fmts[i]->name);
-		write_str(&dbg_buf, "planes : %d\n", inst->fmts[i]->num_planes);
+		write_str(&dbg_buf, "name : %s\n", inst->fmts[i].name);
+		write_str(&dbg_buf, "planes : %d\n", inst->fmts[i].num_planes);
 		write_str(
-		&dbg_buf, "type: %s\n", inst->fmts[i]->type == OUTPUT_PORT ?
+		&dbg_buf, "type: %s\n", inst->fmts[i].type == OUTPUT_PORT ?
 		"Output" : "Capture");
 		switch (inst->buffer_mode_set[i]) {
 		case HAL_BUFFER_MODE_STATIC:
@@ -314,7 +314,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		write_str(&dbg_buf, "count: %u\n",
 				inst->bufq[i].vb2_bufq.num_buffers);
 
-		for (j = 0; j < inst->fmts[i]->num_planes; j++)
+		for (j = 0; j < inst->fmts[i].num_planes; j++)
 			write_str(&dbg_buf, "size for plane %d: %u\n", j,
 			inst->bufq[i].vb2_bufq.plane_sizes[j]);
 
@@ -352,7 +352,7 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "Invalid params, inst: %pK\n", inst);
 		goto failed_create_dir;
 	}
-	snprintf(debugfs_name, MAX_DEBUGFS_NAME, "inst_%pK", inst);
+	snprintf(debugfs_name, MAX_DEBUGFS_NAME, "inst_%p", inst);
 	dir = debugfs_create_dir(debugfs_name, parent);
 	if (!dir) {
 		dprintk(VIDC_ERR, "Failed to create debugfs for msm_vidc\n");
