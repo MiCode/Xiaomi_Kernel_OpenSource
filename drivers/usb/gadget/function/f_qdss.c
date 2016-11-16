@@ -478,6 +478,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		}
 	}
 
+	c->cdev->gadget->bam2bam_func_enabled = true;
 	return 0;
 fail:
 	clear_eps(f);
@@ -494,7 +495,7 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 	pr_debug("qdss_unbind\n");
 
 	flush_workqueue(qdss->wq);
-
+	c->cdev->gadget->bam2bam_func_enabled = false;
 	clear_eps(f);
 	clear_desc(gadget, f);
 }
