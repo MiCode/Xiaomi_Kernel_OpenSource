@@ -574,18 +574,6 @@ static void dp_hdcp2p2_link_work(struct kthread_work *work)
 
 	cdata.context = ctrl->lib_ctx;
 
-	ctrl->sink_rx_status = 0;
-	rc = mdss_dp_aux_read_rx_status(ctrl->init_data.cb_data,
-		&ctrl->sink_rx_status);
-
-	if (rc) {
-		pr_err("failed to read rx status\n");
-
-		cdata.cmd = HDCP_LIB_WKUP_CMD_LINK_FAILED;
-		atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
-		goto exit;
-	}
-
 	if (ctrl->sink_rx_status & ctrl->abort_mask) {
 		if (ctrl->sink_rx_status & BIT(3))
 			pr_err("reauth_req set by sink\n");
@@ -636,6 +624,7 @@ static void dp_hdcp2p2_auth_work(struct kthread_work *work)
 
 static int dp_hdcp2p2_cp_irq(void *input)
 {
+	int rc = 0;
 	struct dp_hdcp2p2_ctrl *ctrl = input;
 
 	if (!ctrl) {
@@ -643,9 +632,25 @@ static int dp_hdcp2p2_cp_irq(void *input)
 		return -EINVAL;
 	}
 
+	ctrl->sink_rx_status = 0;
+	rc = mdss_dp_aux_read_rx_status(ctrl->init_data.cb_data,
+		&ctrl->sink_rx_status);
+	if (rc) {
+		pr_err("failed to read rx status\n");
+		goto error;
+	}
+
+	if (!ctrl->sink_rx_status) {
+		pr_debug("not a hdcp 2.2 irq\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
 	queue_kthread_work(&ctrl->worker, &ctrl->link);
 
 	return 0;
+error:
+	return rc;
 }
 
 void dp_hdcp2p2_deinit(void *input)
