@@ -1,0 +1,213 @@
+Introduction
+============
+
+System Health Monitor (SHM) passively monitors the health of the
+peripherals connected to the application processor. Software components
+in the application processor that experience communication failure can
+request the SHM to perform a system-wide health check. If any failures
+are detected during the health-check, then a subsystem restart will be
+triggered for the failed subsystem.
+
+Hardware description
+====================
+
+SHM is solely a software component and it interfaces with peripherals
+through QMI communication. SHM does not control any hardware blocks and
+it uses subsystem_restart to restart any peripheral.
+
+Software description
+====================
+
+SHM hosts a QMI service in the kernel that is connected to the Health
+Monitor Agents (HMA) hosted in the peripherals. HMAs in the peripherals
+are initialized along with other critical services in the peripherals and
+hence the connection between SHM and HMAs are established during the early
+stages of the peripheral boot-up procedure. Software components within the
+application processor, either user-space or kernel-space, identify any
+communication failure with the peripheral by a lack of response and report
+that failure to SHM. SHM checks the health of the entire system through
+HMAs that are connected to it. If all the HMAs respond in time, then the
+failure report by the software component is ignored. If any HMAs do not
+respond in time, then SHM will restart the concerned peripheral. Figure 1
+shows a high level design diagram and Figure 2 shows a flow diagram of the
+design.
+
+Figure 1 - System Health Monitor Overview:
+
+    +------------------------------------+         +----------------------+
+    |   Application Processor            |         |    Peripheral 1      |
+    |                  +--------------+  |         |  +----------------+  |
+    |                  | Applications |  |         |  | Health Monitor |  |
+    |                  +------+-------+  |   +------->| Agent 1        |  |
+    |   User-space            |          |   |     |  +----------------+  |
+    +-------------------------|----------+   |     +----------------------+
+    |   Kernel-space          v          |  QMI         .
+    | +---------+      +---------------+ |   |          .
+    | | Kernel  |----->| System Health |<----+          .
+    | | Drivers |      |    Monitor    | |   |
+    | +---------+      +---------------+ |  QMI    +----------------------+
+    |                                    |   |     |    Peripheral N      |
+    |                                    |   |     |  +----------------+  |
+    |                                    |   |     |  | Health Monitor |  |
+    |                                    |   +------->| Agent N        |  |
+    |                                    |         |  +----------------+  |
+    +------------------------------------+         +----------------------+
+
+
+Figure 2 - System Health Monitor Message Flow with 2 peripherals:
+
+  +-----------+          +-------+         +-------+         +-------+
+  |Application|          |  SHM  |         | HMA 1 |         | HMA 2 |
+  +-----+-----+          +-------+         +---+---+         +---+---+
+        |                    |                 |                 |
+        |                    |                 |                 |
+        |   check_system     |                 |                 |
+        |------------------->|                 |                 |
+        |   _health()        |    Report_      |                 |
+        |                    |---------------->|                 |
+        |                    |  health_req(1)  |                 |
+        |                    |                 |                 |
+        |                    |    Report_      |                 |
+        |                    |---------------------------------->|
+        |                   +-+ health_req(2)  |                 |
+        |                   |T|                |                 |
+        |                   |i|                |                 |
+        |                   |m|                |                 |
+        |                   |e|   Report_      |                 |
+        |                   |o|<---------------|                 |
+        |                   |u| health_resp(1) |                 |
+        |                   |t|                |                 |
+        |                   +-+                |                 |
+        |                    |   subsystem_    |                 |
+        |                    |---------------------------------->|
+        |                    |   restart(2)    |                 |
+        +                    +                 +                 +
+
+HMAs can be extended to monitor the health of individual software services
+executing in their concerned peripherals. HMAs can restore the services
+that are not responding to a responsive state.
+
+Design
+======
+
+The design goal of SHM is to:
+  * Restore the unresponsive peripheral to a responsive state.
+  * Restore the unresponsive software services in a peripheral to a
+    responsive state.
+  * Perform power-efficient monitoring of the system health.
+
+The alternate design discussion includes sending keepalive messages in
+IPC protocols at Transport Layer. This approach requires rolling out the
+protocol update in all the peripherals together and hence has considerable
+coupling unless a suitable feature negotiation algorithm is implemented.
+This approach also requires all the IPC protocols at transport layer to be
+updated and hence replication of effort. There are multiple link-layer
+protocols and adding keep-alive at the link-layer protocols does not solve
+issues at the client layer which is solved by SHM. Restoring a peripheral
+or a remote software service by an IPC protocol has not been an industry
+standard practice. Industry standard IPC protocols only terminate the
+connection if there is any communication failure and rely upon other
+mechanisms to restore the system to full operation.
+
+Power Management
+================
+
+This driver ensures that the health monitor messages are sent only upon
+request and hence does not wake up application processor or any peripheral
+unnecessarily.
+
+SMP/multi-core
+==============
+
+This driver uses standard kernel mutexes and wait queues to achieve any
+required synchronization.
+
+Security
+========
+
+Denial of Service (DoS) attack by an application that keeps requesting
+health checks at a high rate can be throttled by the SHM to minimize the
+impact of the misbehaving application.
+
+Interface
+=========
+
+Kernel-space APIs:
+------------------
+/**
+ * kern_check_system_health() - Check the system health
+ *
+ * @return: 0 on success, standard Linux error codes on failure.
+ *
+ * This function is used by the kernel drivers to initiate the
+ * system health check. This function in turn trigger SHM to send
+ * QMI message to all the HMAs connected to it.
+ */
+int kern_check_system_health(void);
+
+User-space Interface:
+---------------------
+This driver provides a devfs interface(/dev/system_health_monitor) to the
+user-space. A wrapper API library will be provided to the user-space
+applications in order to initiate the system health check. The API in turn
+will interface with the driver through the sysfs interface provided by the
+driver.
+
+/**
+ * check_system_health() - Check the system health
+ *
+ * @return: 0 on success, -1 on failure.
+ *
+ * This function is used by the user-space applications to initiate the
+ * system health check. This function in turn trigger SHM to send QMI
+ * message to all the HMAs connected to it.
+ */
+int check_system_health(void);
+
+The above mentioned interface function works by opening the sysfs
+interface provided by SHM, perform an ioctl operation and then close the
+sysfs interface. The concerned ioctl command(CHECK_SYS_HEALTH_IOCTL) does
+not take any argument. This function performs the health check, handles the
+response and timeout in an asynchronous manner.
+
+Driver parameters
+=================
+
+The time duration for which the SHM has to wait before a response
+arrives from HMAs can be configured using a module parameter. This
+parameter will be used only for debugging purposes. The default SHM health
+check timeout is 2s, which can be overwritten by the timeout provided by
+HMA during the connection establishment.
+
+Config options
+==============
+
+This driver is enabled through kernel config option
+CONFIG_SYSTEM_HEALTH_MONITOR.
+
+Dependencies
+============
+
+This driver depends on the following kernel modules for its complete
+functionality:
+  * Kernel QMI interface
+  * Subsystem Restart support
+
+User space utilities
+====================
+
+Any user-space or kernel-space modules that experience communication
+failure with peripherals will interface with this driver. Some of the
+modules include:
+  * RIL
+  * Location Manager
+  * Data Services
+
+Other
+=====
+
+SHM provides a debug interface to enumerate some information regarding the
+recent health checks. The debug information includes, but not limited to:
+* application name that triggered the health check.
+* time of the health check.
+* status of the health check.
