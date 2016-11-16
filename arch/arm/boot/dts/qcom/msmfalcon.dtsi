@@ -884,6 +884,12 @@
 		status = "ok";
 	};
 
+	qcom,mpm2-sleep-counter@10a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x10a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	qcom,msm-imem@146bf000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146bf000 0x1000>;
