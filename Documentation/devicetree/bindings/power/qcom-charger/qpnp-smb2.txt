@@ -138,6 +138,14 @@ Charger specific properties:
 		then charge inhibit will be disabled by default.
 		Allowed values are: 50, 100, 200, 300.
 
+- qcom,auto-recharge-soc
+  Usage:      optional
+  Value type: <empty>
+  Definition: Specifies if automatic recharge needs to be based off battery
+		SOC. If this property is not specified, then auto recharge will
+		be based off battery voltage. For both SOC and battery voltage,
+		charger receives the signal from FG to resume charging.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================
