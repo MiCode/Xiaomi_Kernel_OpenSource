@@ -863,7 +863,6 @@ int dwc3_core_init(struct dwc3 *dwc)
 
 err2:
 	dwc3_free_scratch_buffers(dwc);
-
 err1:
 	usb_phy_shutdown(dwc->usb2_phy);
 	usb_phy_shutdown(dwc->usb3_phy);
