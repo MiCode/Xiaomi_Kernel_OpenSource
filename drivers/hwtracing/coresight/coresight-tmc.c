@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2017, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  *
@@ -273,13 +273,52 @@ static ssize_t trigger_cntr_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(trigger_cntr);
 
-static struct attribute *coresight_tmc_attrs[] = {
+static ssize_t mem_size_show(struct device *dev,
+			     struct device_attribute *attr,
+			     char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val = drvdata->mem_size;
+
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t mem_size_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	mutex_lock(&drvdata->mem_lock);
+	if (kstrtoul(buf, 16, &val)) {
+		mutex_unlock(&drvdata->mem_lock);
+		return -EINVAL;
+	}
+
+	drvdata->mem_size = val;
+	mutex_unlock(&drvdata->mem_lock);
+	return size;
+}
+static DEVICE_ATTR_RW(mem_size);
+
+static struct attribute *coresight_tmc_etf_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	NULL,
 };
 
-static const struct attribute_group coresight_tmc_group = {
-	.attrs = coresight_tmc_attrs,
+static struct attribute *coresight_tmc_etr_attrs[] = {
+	&dev_attr_mem_size.attr,
+	&dev_attr_trigger_cntr.attr,
+	NULL,
+};
+
+static const struct attribute_group coresight_tmc_etf_group = {
+	.attrs = coresight_tmc_etf_attrs,
+};
+
+static const struct attribute_group coresight_tmc_etr_group = {
+	.attrs = coresight_tmc_etr_attrs,
 };
 
 static const struct attribute_group coresight_tmc_mgmt_group = {
@@ -287,8 +326,14 @@ static const struct attribute_group coresight_tmc_mgmt_group = {
 	.name = "mgmt",
 };
 
-const struct attribute_group *coresight_tmc_groups[] = {
-	&coresight_tmc_group,
+const struct attribute_group *coresight_tmc_etf_groups[] = {
+	&coresight_tmc_etf_group,
+	&coresight_tmc_mgmt_group,
+	NULL,
+};
+
+const struct attribute_group *coresight_tmc_etr_groups[] = {
+	&coresight_tmc_etr_group,
 	&coresight_tmc_mgmt_group,
 	NULL,
 };
@@ -332,6 +377,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->base = base;
 
 	spin_lock_init(&drvdata->spinlock);
+	mutex_init(&drvdata->mem_lock);
 
 	devid = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
 	drvdata->config_type = BMVAL(devid, 6, 7);
@@ -344,6 +390,8 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 						   &drvdata->size);
 		if (ret)
 			drvdata->size = SZ_1M;
+
+		drvdata->mem_size = drvdata->size;
 	} else {
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
@@ -352,20 +400,21 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 
 	desc.pdata = pdata;
 	desc.dev = dev;
-	desc.groups = coresight_tmc_groups;
-
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
 		desc.type = CORESIGHT_DEV_TYPE_SINK;
-		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
 		desc.ops = &tmc_etb_cs_ops;
+		desc.groups = coresight_tmc_etf_groups;
+		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		desc.type = CORESIGHT_DEV_TYPE_SINK;
-		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
 		desc.ops = &tmc_etr_cs_ops;
+		desc.groups = coresight_tmc_etr_groups;
+		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
 	} else {
 		desc.type = CORESIGHT_DEV_TYPE_LINKSINK;
-		desc.subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_FIFO;
 		desc.ops = &tmc_etf_cs_ops;
+		desc.groups = coresight_tmc_etf_groups;
+		desc.subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_FIFO;
 	}
 
 	drvdata->csdev = coresight_register(&desc);
