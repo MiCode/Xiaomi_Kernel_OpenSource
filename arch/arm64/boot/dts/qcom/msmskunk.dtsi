@@ -645,6 +645,46 @@
 		compatible = "qcom,system-pm";
 		mboxes = <&apps_rsc 0>;
 	};
+
+	qcom,glink-smem-native-xprt-modem@86000000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0x86000000 0x200000>,
+			<0x1799000c 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x1000>;
+		interrupts = <GIC_SPI 449 IRQ_TYPE_EDGE_RISING>;
+		label = "mpss";
+	};
+
+	qcom,glink-smem-native-xprt-adsp@86000000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0x86000000 0x200000>,
+			<0x1799000c 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x100>;
+		interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
+		label = "lpass";
+	};
+
+	qcom,glink-smem-native-xprt-dsps@86000000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0x86000000 0x200000>,
+			<0x1799000c 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x1000000>;
+		interrupts = <GIC_SPI 170 IRQ_TYPE_EDGE_RISING>;
+		label = "dsps";
+	};
+
+	qcom,glink-smem-native-xprt-cdsp@86000000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0x86000000 0x200000>,
+			<0x1799000c 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x10>;
+		interrupts = <GIC_SPI 574 IRQ_TYPE_EDGE_RISING>;
+		label = "cdsp";
+	};
 };
 
 &pcie_0_gdsc {
