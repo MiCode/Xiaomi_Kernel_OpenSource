@@ -16,7 +16,7 @@
 #include "msm8998-v2.1-interposer-msmfalcon-qrd.dtsi"
 #include "msm8998-interposer-pmfalcon.dtsi"
 #include "msm8998-interposer-msmfalcon-audio.dtsi"
-#include "msm8998-interposer-camera-sensor-mtp.dtsi"
+#include "msm8998-interposer-camera-sensor-qrd.dtsi"
 
 / {
 	model =
