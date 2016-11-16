@@ -517,6 +517,18 @@
 			compatible = "qcom,wcd9xxx-i2c";
 			reg = <0x55>;
 		};
+
+		bmi160@68{
+			compatible = "bosch-sensortec,bmi160";
+			reg = <0x68>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&bmi160_int1_default &bmi160_int2_default>;
+			interrupt-parent = <&tlmm_pinmux>;
+			interrupts = <78 0x2002>;
+			bmi,init-interval = <200>;
+			bmi,place = <1>;
+			bmi,gpio_irq = <&tlmm_pinmux 78 0x2002>;
+		};
 	};
 
 	blsp1_uart3: uart@78b1000 {
