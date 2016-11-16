@@ -1675,6 +1675,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 	 * OFFSET_MEQ32_0 with mask of 0 and val of 0 and offset 0
 	 */
 	if (attrib->attrib_mask == 0) {
+		IPADBG_LOW("building default rule\n");
 		if (ipa_ofst_meq32[ofst_meq32] == -1) {
 			IPAERR("ran out of meq32 eq\n");
 			return -EPERM;
@@ -4913,13 +4914,17 @@ static int ipa2_stop_gsi_channel(u32 clnt_hdl)
 
 static void *ipa2_get_ipc_logbuf(void)
 {
-	/* no support for IPC logging in IPAv2 */
+	if (ipa_ctx)
+		return ipa_ctx->logbuf;
+
 	return NULL;
 }
 
 static void *ipa2_get_ipc_logbuf_low(void)
 {
-	/* no support for IPC logging in IPAv2 */
+	if (ipa_ctx)
+		return ipa_ctx->logbuf_low;
+
 	return NULL;
 }
 
