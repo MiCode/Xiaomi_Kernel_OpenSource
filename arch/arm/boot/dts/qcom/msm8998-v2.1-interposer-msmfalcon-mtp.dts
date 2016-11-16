@@ -102,3 +102,7 @@
 	qcom,vdd-voltage-level = <0 925000 925000>;
 	core-supply = <&pmfalcon_l1>;
 };
+
+&pm2falcon_wled {
+	qcom,led-strings-list = [00 01];
+};
