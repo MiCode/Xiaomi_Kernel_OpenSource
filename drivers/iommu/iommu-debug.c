@@ -69,6 +69,8 @@ static const char *iommu_debug_attr_to_string(enum iommu_attr attr)
 		return "DOMAIN_ATTR_S1_BYPASS";
 	case DOMAIN_ATTR_FAST:
 		return "DOMAIN_ATTR_FAST";
+	case DOMAIN_ATTR_EARLY_MAP:
+		return "DOMAIN_ATTR_EARLY_MAP";
 	default:
 		return "Unknown attr!";
 	}
