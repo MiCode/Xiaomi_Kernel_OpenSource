@@ -741,19 +741,13 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 	req->length = length;
 
-	/* throttle highspeed IRQ rate back slightly */
-	if (gadget_is_dualspeed(dev->gadget) &&
-			 (dev->gadget->speed == USB_SPEED_HIGH)) {
-		dev->tx_qlen++;
-		if (dev->tx_qlen == (dev->qmult/2)) {
-			req->no_interrupt = 0;
-			dev->tx_qlen = 0;
-		} else {
-			req->no_interrupt = 1;
-		}
-	} else {
-		req->no_interrupt = 0;
-	}
+	/* throttle high/super speed IRQ rate back slightly */
+	if (gadget_is_dualspeed(dev->gadget))
+		req->no_interrupt = (((dev->gadget->speed == USB_SPEED_HIGH ||
+				       dev->gadget->speed == USB_SPEED_SUPER)) &&
+					!list_empty(&dev->tx_reqs))
+			? ((atomic_read(&dev->tx_qlen) % dev->qmult) != 0)
+			: 0;
 
 	retval = usb_ep_queue(in, req, GFP_ATOMIC);
 	switch (retval) {
