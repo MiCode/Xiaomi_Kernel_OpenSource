@@ -134,12 +134,6 @@ Optional properties:
 				indicating the danger luts on sspp.
 - qcom,sde-sspp-safe-lut:	A 3 cell property, with a format of <linear, tile, nrt>,
 				indicating the safe luts on sspp.
-- qcom,sde-sspp-qseed-off:	A u32 offset value indicates the qseed block offset
-				from sspp base. It will install qseed property on
-				vig and rgb sspp pipes.
-- qcom,sde-sspp-csc-off:	A u32 offset value indicates the csc block offset
-				from sspp base. It will be used to install the csc
-				property on vig type pipe.
 - qcom,sde-sspp-max-rects:	Array of u32 values indicating maximum rectangles supported
 				on each sspp. This property is for multirect feature support.
 				Number of offsets defined should match the number of
@@ -165,14 +159,48 @@ Optional properties:
 - qcom,sde-te-size:		A u32 value indicates the te block address range.
 - qcom,sde-te2-size:		A u32 value indicates the te2 block address range.
 - qcom,sde-dsc-off:	 	A u32 offset indicates the dsc block offset on pingpong.
-- qcom,sde-dspp-igc-off:	A u32 offset indicates the igc block offset on dssp.
-- qcom,sde-dspp-pcc-off:	A u32 offset indicates the pcc block offset on dssp.
-- qcom,sde-dspp-gc-off:		A u32 offset indicates the gc block offset on dssp.
-- qcom,sde-dspp-pa-off:		A u32 offset indicates the pa block offset on dssp.
-- qcom,sde-dspp-gamut-off:	A u32 offset indicates the gamut block offset on dssp.
-- qcom,sde-dspp-dither-off:	A u32 offset indicates the dither block offset on dssp.
-- qcom,sde-dspp-hist-off:	A u32 offset indicates the hist block offset on dssp.
-- qcom,sde-dspp-ad-off:		A u32 offset indicates the ad block offset on dssp.
+- qcom,sde-sspp-vig-blocks:	A node that lists the blocks inside the VIG hardware. The
+				block entries will contain the offset and version (if needed)
+				of each feature block. The presence of a block entry
+				indicates that the SSPP VIG contains that feature hardware.
+				e.g. qcom,sde-sspp-vig-blocks
+				-- qcom,sde-vig-csc-off: offset of CSC hardware
+				-- qcom,sde-vig-qseed-off: offset of QSEED hardware
+				-- qcom,sde-vig-pcc: offset and version of PCC hardware
+				-- qcom,sde-vig-hsic: offset and version of global PA adjustment
+				-- qcom,sde-vig-memcolor: offset and version of PA memcolor hardware
+- qcom,sde-sspp-rgb-blocks:	A node that lists the blocks inside the RGB hardware. The
+				block entries will contain the offset and version (if needed)
+				of each feature block. The presence of a block entry
+				indicates that the SSPP RGB contains that feature hardware.
+				e.g. qcom,sde-sspp-vig-blocks
+				-- qcom,sde-rgb-scaler-off: offset of RGB scaler hardware
+				-- qcom,sde-rgb-pcc: offset and version of PCC hardware
+- qcom,sde-dspp-blocks:		A node that lists the blocks inside the DSPP hardware. The
+				block entries will contain the offset and version of each
+				feature block. The presence of a block entry indicates that
+				the DSPP contains that feature hardware.
+				e.g. qcom,sde-dspp-blocks
+				-- qcom,sde-dspp-pcc: offset and version of PCC hardware
+				-- qcom,sde-dspp-gc: offset and version of GC hardware
+				-- qcom,sde-dspp-hsic: offset and version of global PA adjustment
+				-- qcom,sde-dspp-memcolor: offset and version of PA memcolor hardware
+				-- qcom,sde-dspp-sixzone: offset and version of PA sixzone hardware
+				-- qcom,sde-dspp-gamut: offset and version of Gamut mapping hardware
+				-- qcom,sde-dspp-dither: offset and version of dither hardware
+				-- qcom,sde-dspp-hist: offset and version of histogram hardware
+				-- qcom,sde-dspp-vlut: offset and version of PA vLUT hardware
+- qcom,sde-mixer-blocks:	A node that lists the blocks inside the layer mixer hardware. The
+				block entries will contain the offset and version (if needed)
+				of each feature block. The presence of a block entry
+				indicates that the layer mixer contains that feature hardware.
+				e.g. qcom,sde-mixer-blocks
+				-- qcom,sde-mixer-gc: offset and version of mixer GC hardware
+- qcom,sde-dspp-ad-off:		Array of u32 offsets indicate the ad block offset from the
+				DSPP offset. Since AD hardware is represented as part of
+				DSPP block, the AD offsets must be offset from the
+				corresponding DSPP base.
+- qcom,sde-dspp-ad-version	A u32 value indicating the version of the AD hardware
 - qcom,sde-vbif-id:		Array of vbif ids corresponding to the
 				offsets defined in property: qcom,sde-vbif-off.
 - qcom,sde-vbif-default-ot-rd-limit:	A u32 value indicates the default read OT limit
@@ -249,6 +277,8 @@ Example:
     qcom,sde-mixer-off = <0x00045000 0x00046000
 			0x00047000 0x0004a000>;
     qcom,sde-dspp-off = <0x00055000 0x00057000>;
+    qcom,sde-dspp-ad-off = <0x24000 0x22800>;
+    qcom,sde-dspp-ad-version = <0x00030000>;
     qcom,sde-wb-off = <0x00066000>;
     qcom,sde-wb-xin-id = <6>;
     qcom,sde-intf-off = <0x0006b000 0x0006b800
@@ -315,16 +345,6 @@ Example:
     qcom,sde-te2-off = <0x100>;
     qcom,sde-te-size = <0xffff>;
     qcom,sde-te2-size = <0xffff>;
-    qcom,sde-sspp-qseed-off = <0x100>;
-    qcom,sde-sspp-csc-off = <0x100>;
-    qcom,sde-dspp-igc-off = <0x100>;
-    qcom,sde-dspp-pcc-off = <0x100>;
-    qcom,sde-dspp-gc-off = <0x100>;
-    qcom,sde-dspp-pa-off = <0x100>;
-    qcom,sde-dspp-gamut-off = <0x100>;
-    qcom,sde-dspp-dither-off = <0x100>;
-    qcom,sde-dspp-hist-off = <0x100>;
-    qcom,sde-dspp-ad-off = <0x100>;
 
     qcom,sde-wb-id = <2>;
     qcom,sde-wb-clk-ctrl = <0x2bc 16>;
@@ -340,6 +360,36 @@ Example:
         <124416000 4>, <248832000 16>;
     qcom,sde-vbif-dynamic-ot-wr-limit = <62208000 2>,
         <124416000 4>, <248832000 16>;
+
+    qcom,sde-sspp-vig-blocks {
+        qcom,sde-vig-csc-off = <0x320>;
+        qcom,sde-vig-qseed-off = <0x200>;
+        /* Offset from vig top, version of HSIC */
+        qcom,sde-vig-hsic = <0x200 0x00010000>;
+        qcom,sde-vig-memcolor = <0x200 0x00010000>;
+        qcom,sde-vig-pcc = <0x1780 0x00010000>;
+    };
+
+    qcom,sde-sspp-rgb-blocks {
+        qcom,sde-rgb-scaler-off = <0x200>;
+        qcom,sde-rgb-pcc = <0x380 0x00010000>;
+    };
+
+    qcom,sde-dspp-blocks {
+        qcom,sde-dspp-pcc = <0x1700 0x00010000>;
+        qcom,sde-dspp-gc = <0x17c0 0x00010000>;
+        qcom,sde-dspp-hsic = <0x0 0x00010000>;
+        qcom,sde-dspp-memcolor = <0x0 0x00010000>;
+        qcom,sde-dspp-sixzone = <0x0 0x00010000>;
+        qcom,sde-dspp-gamut = <0x1600 0x00010000>;
+        qcom,sde-dspp-dither = <0x0 0x00010000>;
+        qcom,sde-dspp-hist = <0x0 0x00010000>;
+        qcom,sde-dspp-vlut = <0x0 0x00010000>;
+    };
+
+    qcom,sde-mixer-blocks {
+        qcom,sde-mixer-gc = <0x3c0 0x00010000>;
+    };
 
     qcom,platform-supply-entries {
        #address-cells = <1>;
