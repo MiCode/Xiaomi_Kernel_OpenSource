@@ -320,6 +320,7 @@ struct usbpd {
 
 	struct regulator	*vbus;
 	struct regulator	*vconn;
+	bool			vbus_enabled;
 	bool			vconn_enabled;
 	bool			vconn_is_external;
 
@@ -645,6 +646,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	switch (next_state) {
 	case PE_ERROR_RECOVERY: /* perform hard disconnect/reconnect */
 		pd->in_pr_swap = false;
+		pd->current_pr = PR_NONE;
 		set_power_role(pd, PR_NONE);
 		pd->typec_mode = POWER_SUPPLY_TYPEC_NONE;
 		kick_sm(pd, 0);
@@ -691,6 +693,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
 		if (pd->in_pr_swap) {
 			kick_sm(pd, SWAP_SOURCE_START_TIME);
+			pd->in_pr_swap = false;
 			break;
 		}
 
@@ -1381,7 +1384,7 @@ static void usbpd_sm(struct work_struct *w)
 	spin_unlock_irqrestore(&pd->rx_lock, flags);
 
 	/* Disconnect? */
-	if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE && !pd->in_pr_swap) {
+	if (pd->current_pr == PR_NONE) {
 		if (pd->current_state == PE_UNKNOWN)
 			goto sm_done;
 
@@ -1415,8 +1418,10 @@ static void usbpd_sm(struct work_struct *w)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
-		if (pd->current_pr == PR_SRC)
+		if (pd->vbus_enabled) {
 			regulator_disable(pd->vbus);
+			pd->vbus_enabled = false;
+		}
 
 		if (pd->vconn_enabled) {
 			regulator_disable(pd->vconn);
@@ -1488,6 +1493,8 @@ static void usbpd_sm(struct work_struct *w)
 			ret = regulator_enable(pd->vbus);
 			if (ret)
 				usbpd_err(&pd->dev, "Unable to enable vbus\n");
+			else
+				pd->vbus_enabled = true;
 
 			if (!pd->vconn_enabled &&
 					pd->typec_mode ==
@@ -1633,7 +1640,8 @@ static void usbpd_sm(struct work_struct *w)
 	case PE_SRC_TRANSITION_TO_DEFAULT:
 		if (pd->vconn_enabled)
 			regulator_disable(pd->vconn);
-		regulator_disable(pd->vbus);
+		if (pd->vbus_enabled)
+			regulator_disable(pd->vbus);
 
 		if (pd->current_dr != DR_DFP) {
 			extcon_set_cable_state_(pd->extcon, EXTCON_USB, 0);
@@ -1643,9 +1651,12 @@ static void usbpd_sm(struct work_struct *w)
 
 		msleep(SRC_RECOVER_TIME);
 
+		pd->vbus_enabled = false;
 		ret = regulator_enable(pd->vbus);
 		if (ret)
 			usbpd_err(&pd->dev, "Unable to enable vbus\n");
+		else
+			pd->vbus_enabled = true;
 
 		if (pd->vconn_enabled) {
 			ret = regulator_enable(pd->vconn);
@@ -1685,11 +1696,27 @@ static void usbpd_sm(struct work_struct *w)
 			if (pd->vbus_present)
 				usbpd_set_state(pd,
 						PE_SNK_WAIT_FOR_CAPABILITIES);
+
+			/*
+			 * Handle disconnection in the middle of PR_Swap.
+			 * Since in psy_changed() if pd->in_pr_swap is true
+			 * we ignore the typec_mode==NONE change since that is
+			 * expected to happen. However if the cable really did
+			 * get disconnected we need to check for it here after
+			 * waiting for VBUS presence times out.
+			 */
+			if (!pd->typec_mode) {
+				pd->current_pr = PR_NONE;
+				kick_sm(pd, 0);
+			}
+
 			break;
 		}
 		/* else fall-through */
 
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
+		pd->in_pr_swap = false;
+
 		if (IS_DATA(rx_msg, MSG_SOURCE_CAPABILITIES)) {
 			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
@@ -1977,7 +2004,10 @@ static void usbpd_sm(struct work_struct *w)
 		pd->in_pr_swap = true;
 		pd->in_explicit_contract = false;
 
-		regulator_disable(pd->vbus);
+		if (pd->vbus_enabled) {
+			regulator_disable(pd->vbus);
+			pd->vbus_enabled = false;
+		}
 
 		/* PE_PRS_SRC_SNK_Assert_Rd */
 		pd->current_pr = PR_SINK;
@@ -2032,6 +2062,8 @@ static void usbpd_sm(struct work_struct *w)
 		ret = regulator_enable(pd->vbus);
 		if (ret)
 			usbpd_err(&pd->dev, "Unable to enable vbus\n");
+		else
+			pd->vbus_enabled = true;
 
 		msleep(200); /* allow time VBUS ramp-up, must be < tNewSrc */
 
@@ -2174,6 +2206,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 			return 0;
 		}
 
+		pd->current_pr = PR_NONE;
 		break;
 
 	/* Sink states */
@@ -2182,8 +2215,11 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
 		usbpd_info(&pd->dev, "Type-C Source (%s) connected\n",
 				src_current(typec_mode));
+
+		if (pd->current_pr == PR_SINK)
+			return 0;
+
 		pd->current_pr = PR_SINK;
-		pd->in_pr_swap = false;
 		break;
 
 	/* Source states */
@@ -2192,8 +2228,11 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		usbpd_info(&pd->dev, "Type-C Sink%s connected\n",
 				typec_mode == POWER_SUPPLY_TYPEC_SINK ?
 					"" : " (powered)");
+
+		if (pd->current_pr == PR_SRC)
+			return 0;
+
 		pd->current_pr = PR_SRC;
-		pd->in_pr_swap = false;
 		break;
 
 	case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
