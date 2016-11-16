@@ -284,7 +284,7 @@ void mdss_dp_phy_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_switch_usb3_phy_to_dp_mode(struct dss_io_data *tcsr_reg_io);
 void mdss_dp_assert_phy_reset(struct dss_io_data *ctrl_io, bool assert);
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
-				u8 ln_cnt, u32 res);
+			u8 ln_cnt, u32 res, struct mdss_panel_info *pinfo);
 void mdss_dp_config_misc_settings(struct dss_io_data *ctrl_io,
 					struct mdss_panel_info *pinfo);
 void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io);

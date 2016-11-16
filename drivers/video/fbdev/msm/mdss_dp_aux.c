@@ -1836,7 +1836,8 @@ clear:
 		mdss_dp_config_misc_settings(&dp->ctrl_io,
 				&dp->panel_data.panel_info);
 		mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate,
-					dp->lane_cnt, dp->vic);
+					dp->lane_cnt, dp->vic,
+					&dp->panel_data.panel_info);
 		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
 		pr_debug("State_ctrl set to SEND_VIDEO\n");
 	}
