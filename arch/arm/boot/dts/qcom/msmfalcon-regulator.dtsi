@@ -142,6 +142,7 @@
 	};
 
 	rpm-regulator-ldoa2 {
+		status = "okay";
 		pmfalcon_l2: regulator-l2 {
 			regulator-min-microvolt = <950000>;
 			regulator-max-microvolt = <1010000>;
@@ -150,6 +151,7 @@
 	};
 
 	rpm-regulator-ldoa3 {
+		status = "okay";
 		pmfalcon_l3: regulator-l3 {
 			regulator-min-microvolt = <950000>;
 			regulator-max-microvolt = <1010000>;
@@ -159,6 +161,7 @@
 
 	/* TODO: remove if ADRASTEA CX/MX not voted from APPS */
 	rpm-regulator-ldoa5 {
+		status = "okay";
 		pmfalcon_l5: regulator-l5 {
 			regulator-min-microvolt = <525000>;
 			regulator-max-microvolt = <950000>;
@@ -167,6 +170,7 @@
 	};
 
 	rpm-regulator-ldoa6 {
+		status = "okay";
 		pmfalcon_l6: regulator-l6 {
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1370000>;
@@ -175,6 +179,7 @@
 	};
 
 	rpm-regulator-ldoa7 {
+		status = "okay";
 		pmfalcon_l7: regulator-l7 {
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
@@ -183,6 +188,7 @@
 	};
 
 	rpm-regulator-ldoa8 {
+		status = "okay";
 		pmfalcon_l8: regulator-l8 {
 			regulator-min-microvolt = <1750000>;
 			regulator-max-microvolt = <1900000>;
@@ -191,6 +197,7 @@
 	};
 
 	rpm-regulator-ldoa9 {
+		status = "okay";
 		pmfalcon_l9: regulator-l9 {
 			regulator-min-microvolt = <1750000>;
 			regulator-max-microvolt = <1900000>;
@@ -199,6 +206,7 @@
 	};
 
 	rpm-regulator-ldoa10 {
+		status = "okay";
 		pmfalcon_l10: regulator-l10 {
 			regulator-min-microvolt = <1780000>;
 			regulator-max-microvolt = <1950000>;
@@ -207,6 +215,7 @@
 	};
 
 	rpm-regulator-ldoa11 {
+		status = "okay";
 		pmfalcon_l11: regulator-l11 {
 			regulator-min-microvolt = <1780000>;
 			regulator-max-microvolt = <1950000>;
@@ -215,6 +224,7 @@
 	};
 
 	rpm-regulator-ldoa12 {
+		status = "okay";
 		pmfalcon_l12: regulator-l12 {
 			regulator-min-microvolt = <1780000>;
 			regulator-max-microvolt = <1950000>;
@@ -223,6 +233,7 @@
 	};
 
 	rpm-regulator-ldoa13 {
+		status = "okay";
 		pmfalcon_l13: regulator-l13 {
 			regulator-min-microvolt = <1780000>;
 			regulator-max-microvolt = <1950000>;
@@ -231,6 +242,7 @@
 	};
 
 	rpm-regulator-ldoa14 {
+		status = "okay";
 		pmfalcon_l14: regulator-l14 {
 			regulator-min-microvolt = <1710000>;
 			regulator-max-microvolt = <1900000>;
@@ -239,6 +251,7 @@
 	};
 
 	rpm-regulator-ldoa15 {
+		status = "okay";
 		pmfalcon_l15: regulator-l15 {
 			regulator-min-microvolt = <1650000>;
 			regulator-max-microvolt = <2950000>;
@@ -247,6 +260,7 @@
 	};
 
 	rpm-regulator-ldoa17 {
+		status = "okay";
 		pmfalcon_l17: regulator-l17 {
 			regulator-min-microvolt = <1650000>;
 			regulator-max-microvolt = <2950000>;
@@ -255,6 +269,7 @@
 	};
 
 	rpm-regulator-ldoa19 {
+		status = "okay";
 		pmfalcon_l19: regulator-l19 {
 			regulator-min-microvolt = <3200000>;
 			regulator-max-microvolt = <3400000>;
@@ -263,6 +278,7 @@
 	};
 
 	rpm-regulator-ldob1 {
+		status = "okay";
 		pm2falcon_l1: regulator-l1 {
 			regulator-min-microvolt = <800000>;
 			regulator-max-microvolt = <925000>;
@@ -271,6 +287,7 @@
 	};
 
 	rpm-regulator-ldob2 {
+		status = "okay";
 		pm2falcon_l2: regulator-l2 {
 			regulator-min-microvolt = <350000>;
 			regulator-max-microvolt = <3100000>;
@@ -279,6 +296,7 @@
 	};
 
 	rpm-regulator-ldob3 {
+		status = "okay";
 		pm2falcon_l3: regulator-l3 {
 			regulator-min-microvolt = <1710000>;
 			regulator-max-microvolt = <3600000>;
@@ -287,6 +305,7 @@
 	};
 
 	rpm-regulator-ldob4 {
+		status = "okay";
 		pm2falcon_l4: regulator-l4 {
 			regulator-min-microvolt = <1700000>;
 			regulator-max-microvolt = <2950000>;
@@ -295,6 +314,7 @@
 	};
 
 	rpm-regulator-ldob5 {
+		status = "okay";
 		pm2falcon_l5: regulator-l5 {
 			regulator-min-microvolt = <1721000>;
 			regulator-max-microvolt = <3600000>;
@@ -303,6 +323,7 @@
 	};
 
 	rpm-regulator-ldob6 {
+		status = "okay";
 		pm2falcon_l6: regulator-l6 {
 			regulator-min-microvolt = <1700000>;
 			regulator-max-microvolt = <3300000>;
@@ -311,6 +332,7 @@
 	};
 
 	rpm-regulator-ldob7 {
+		status = "okay";
 		pm2falcon_l7: regulator-l7 {
 			regulator-min-microvolt = <2700000>;
 			regulator-max-microvolt = <3125000>;
@@ -319,6 +341,7 @@
 	};
 
 	rpm-regulator-ldob8 {
+		status = "okay";
 		pm2falcon_l8: regulator-l8 {
 			regulator-min-microvolt = <3200000>;
 			regulator-max-microvolt = <3400000>;
