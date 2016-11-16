@@ -1666,7 +1666,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	 */
 
 	mutex_lock(&core->lock);
-	inst = list_first_entry(&core->instances,
+	inst = list_first_entry_or_null(&core->instances,
 		struct msm_vidc_inst, list);
 	mutex_unlock(&core->lock);
 
