@@ -22,6 +22,7 @@ header-y += usb/
 header-y += wimax/
 header-y += ../../../drivers/staging/android/uapi/
 header-y += mfd/
+header-y += nfc/
 
 genhdr-y += version.h
 
