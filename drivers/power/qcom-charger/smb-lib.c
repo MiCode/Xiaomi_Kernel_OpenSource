@@ -2081,13 +2081,6 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	smblib_update_usb_type(chg);
 	power_supply_changed(chg->usb_psy);
 
-	rc = smblib_masked_write(chg, TYPE_C_CFG_3_REG, EN_TRYSINK_MODE_BIT,
-				 chg->pd_active ? 0 : EN_TRYSINK_MODE_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't set TRYSINK_MODE rc=%d\n", rc);
-		return rc;
-	}
-
 	return rc;
 }
 
