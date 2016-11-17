@@ -37,4 +37,11 @@
 	};
 };
 
+&rpm_bus {
+		compatible = "qcom,rpm-glink";
+		qcom,glink-edge = "rpm";
+		rpm-channel-name = "rpm_requests";
+		/delete-property/ rpm-channel-type;
+};
+
 #include "sdxhedgehog-bus.dtsi"
