@@ -192,6 +192,25 @@
 	/delete-property/ qcom,cpr-quotient-adjustment;
 	/delete-property/ qcom,cpr-init-voltage-adjustment;
 	/delete-property/ qcom,cpr-enable;
+
+	qcom,cpr-speed-bin-max-corners =
+		<0 (-1) 1 2 4>,
+		<1 (-1) 1 2 5>;
+
+	qcom,cpr-fuse-version-map =
+		/* Format: <speed_bin foundry cpr_rev ...> */
+		<  0      0    (-1)   (-1)    (-1)    (-1)>,
+		<(-1)   (-1)   (-1)   (-1)    (-1)    (-1)>;
+
+	qcom,cpr-init-voltage-adjustment =
+		<40000  15000   20000>,
+		<0       0          0>;
+
+	qcom,cpr-quotient-adjustment =
+		<66    57   66>, /* SVSP(35mv); NOM(30mv); TUR(35mv); KV(1.9) */
+		<0      0    0>;
+
+	qcom,cpr-enable;
 };
 
 &funnel_apss {
