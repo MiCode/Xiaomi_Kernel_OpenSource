@@ -21,6 +21,8 @@
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/subsystem_restart.h>
 
+#include "qmi.h"
+
 #define MAX_NO_OF_MAC_ADDR		4
 
 enum cnss_dev_bus_type {
@@ -81,6 +83,31 @@ struct cnss_wlan_mac_info {
 	bool is_wlan_mac_set;
 };
 
+struct cnss_fw_mem {
+	size_t size;
+	void *va;
+	phys_addr_t pa;
+	bool valid;
+};
+
+enum cnss_driver_event_type {
+	CNSS_DRIVER_EVENT_SERVER_ARRIVE,
+	CNSS_DRIVER_EVENT_SERVER_EXIT,
+	CNSS_DRIVER_EVENT_REQUEST_MEM,
+	CNSS_DRIVER_EVENT_FW_MEM_READY,
+	CNSS_DRIVER_EVENT_FW_READY,
+	CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
+	CNSS_DRIVER_EVENT_MAX,
+};
+
+enum cnss_driver_state {
+	CNSS_QMI_WLFW_CONNECTED,
+	CNSS_FW_MEM_READY,
+	CNSS_FW_READY,
+	CNSS_COLD_BOOT_CAL_DONE,
+	CNSS_DRIVER_PROBED,
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -99,10 +126,27 @@ struct cnss_plat_data {
 	uint32_t recovery_count;
 	bool recovery_in_progress;
 	struct cnss_wlan_mac_info wlan_mac_info;
+	unsigned long driver_state;
+	struct completion fw_ready_event;
+	struct list_head event_list;
+	spinlock_t event_lock; /* spinlock for driver work event handling */
+	struct work_struct event_work;
+	struct workqueue_struct *event_wq;
+	struct qmi_handle *qmi_wlfw_clnt;
+	struct work_struct qmi_recv_msg_work;
+	struct notifier_block qmi_wlfw_clnt_nb;
+	struct wlfw_rf_chip_info_s_v01 chip_info;
+	struct wlfw_rf_board_info_s_v01 board_info;
+	struct wlfw_soc_info_s_v01 soc_info;
+	struct wlfw_fw_version_info_s_v01 fw_version_info;
+	struct cnss_fw_mem fw_mem;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);
 struct cnss_plat_data *cnss_bus_dev_to_plat_priv(struct device *dev);
+int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
+			   enum cnss_driver_event_type type,
+			   bool sync, void *data);
 int cnss_get_vreg(struct cnss_plat_data *plat_priv);
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);
