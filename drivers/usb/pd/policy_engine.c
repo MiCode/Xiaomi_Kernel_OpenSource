@@ -913,7 +913,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_PRS_SNK_SRC_TRANSITION_TO_OFF:
 		val.intval = pd->requested_current = 0; /* suspend charging */
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+				POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
 
 		pd->in_explicit_contract = false;
 
@@ -1731,6 +1731,8 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SNK_SELECT_CAPABILITY:
 		if (IS_CTRL(rx_msg, MSG_ACCEPT)) {
+			usbpd_set_state(pd, PE_SNK_TRANSITION_SINK);
+
 			/* prepare for voltage increase/decrease */
 			val.intval = pd->requested_voltage;
 			power_supply_set_property(pd->usb_psy,
@@ -1740,16 +1742,31 @@ static void usbpd_sm(struct work_struct *w)
 					&val);
 
 			/*
-			 * disable charging; technically we are allowed to
-			 * charge up to pSnkStdby (2.5 W) during this
-			 * transition, but disable it just for simplicity.
+			 * if we are changing voltages, we must lower input
+			 * current to pSnkStdby (2.5W). Calculate it and set
+			 * PD_CURRENT_MAX accordingly.
 			 */
-			val.intval = 0;
-			power_supply_set_property(pd->usb_psy,
+			if (pd->requested_voltage != pd->current_voltage) {
+				int mv = max(pd->requested_voltage,
+						pd->current_voltage) / 1000;
+				val.intval = (2500000 / mv) * 1000;
+				power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
+			} else {
+				/* decreasing current? */
+				ret = power_supply_get_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
+				if (!ret &&
+					pd->requested_current < val.intval) {
+					val.intval =
+						pd->requested_current * 1000;
+					power_supply_set_property(pd->usb_psy,
+					     POWER_SUPPLY_PROP_PD_CURRENT_MAX,
+					     &val);
+				}
+			}
 
 			pd->selected_pdo = pd->requested_pdo;
-			usbpd_set_state(pd, PE_SNK_TRANSITION_SINK);
 		} else if (IS_CTRL(rx_msg, MSG_REJECT) ||
 				IS_CTRL(rx_msg, MSG_WAIT)) {
 			if (pd->in_explicit_contract)
