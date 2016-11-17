@@ -3088,3 +3088,48 @@
 #include "msmcobalt-mdss-pll.dtsi"
 #include "msmcobalt-blsp.dtsi"
 #include "msmcobalt-audio.dtsi"
+
+
+/* GPU overrides */
+&msm_gpu {
+	qcom,initial-pwrlevel = <0>;
+
+	qcom,gpu-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,gpu-pwrlevels";
+		qcom,gpu-pwrlevel@0 {
+			reg = <0>;
+			qcom,gpu-freq = <332000000>;
+			qcom,bus-freq = <7>;
+			qcom,bus-min = <6>;
+			qcom,bus-max = <8>;
+		};
+
+		qcom,gpu-pwrlevel@1 {
+			reg = <1>;
+			qcom,gpu-freq = <251000000>;
+			qcom,bus-freq = <4>;
+			qcom,bus-min = <3>;
+			qcom,bus-max = <5>;
+		};
+
+		qcom,gpu-pwrlevel@2 {
+			reg = <2>;
+			qcom,gpu-freq = <171000000>;
+			qcom,bus-freq = <3>;
+			qcom,bus-min = <1>;
+			qcom,bus-max = <4>;
+		};
+
+		qcom,gpu-pwrlevel@3 {
+			reg = <3>;
+			qcom,gpu-freq = <27000000>;
+			qcom,bus-freq = <0>;
+			qcom,bus-min = <0>;
+			qcom,bus-max = <0>;
+		};
+	};
+
+};

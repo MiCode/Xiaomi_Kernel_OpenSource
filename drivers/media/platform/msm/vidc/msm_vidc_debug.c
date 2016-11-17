@@ -24,7 +24,7 @@ EXPORT_SYMBOL(msm_vidc_debug_out);
 int msm_vidc_fw_debug = 0x18;
 int msm_vidc_fw_debug_mode = 1;
 int msm_vidc_fw_low_power_mode = 1;
-int msm_vidc_hw_rsp_timeout = 1000;
+int msm_vidc_hw_rsp_timeout = 2000;
 bool msm_vidc_fw_coverage = false;
 bool msm_vidc_vpe_csc_601_to_709 = false;
 bool msm_vidc_dec_dcvs_mode = true;

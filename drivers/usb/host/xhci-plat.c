@@ -332,7 +332,7 @@ static int xhci_plat_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "xhci-plat runtime suspend\n");
 
-	return xhci_suspend(xhci, true);
+	return 0;
 }
 
 static int xhci_plat_runtime_resume(struct device *dev)
@@ -346,7 +346,7 @@ static int xhci_plat_runtime_resume(struct device *dev)
 
 	dev_dbg(dev, "xhci-plat runtime resume\n");
 
-	ret = xhci_resume(xhci, false);
+	ret = 0;
 	pm_runtime_mark_last_busy(dev);
 
 	return ret;

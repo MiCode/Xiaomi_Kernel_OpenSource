@@ -32,7 +32,7 @@
 #if defined(CONFIG_MSM_QDSP6_APRV2_GLINK) || \
 	defined(CONFIG_MSM_QDSP6_APRV3_GLINK)
 #define APR_MAX_BUF			512
-#define APR_NUM_OF_TX_BUF		20
+#define APR_NUM_OF_TX_BUF		30
 #else
 #define APR_MAX_BUF			8092
 #endif

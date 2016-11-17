@@ -1049,6 +1049,7 @@ static int smb2_init_hw(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	int rc;
+	u8 stat;
 
 	if (chip->dt.no_battery)
 		chg->fake_capacity = 50;
@@ -1068,6 +1069,21 @@ static int smb2_init_hw(struct smb2 *chip)
 					&chip->dt.dc_icl_ua);
 
 	chg->otg_cl_ua = chip->dt.otg_cl_ua;
+
+	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
+	if (rc < 0) {
+		pr_err("Couldn't read APSD_RESULT_STATUS rc=%d\n", rc);
+		return rc;
+	}
+
+	/* clear the ICL override if it is set */
+	if (stat & ICL_OVERRIDE_LATCH_BIT) {
+		rc = smblib_write(chg, CMD_APSD_REG, ICL_OVERRIDE_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't disable ICL override rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	/* votes must be cast before configuring software control */
 	vote(chg->pl_disable_votable,
@@ -1161,6 +1177,15 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	/* increase VCONN softstart */
+	rc = smblib_masked_write(chg, TYPE_C_CFG_2_REG,
+			VCONN_SOFTSTART_CFG_MASK, VCONN_SOFTSTART_CFG_MASK);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't increase VCONN softstart rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	rc = smblib_masked_write(chg, QNOVO_PT_ENABLE_CMD_REG,
 			QNOVO_PT_ENABLE_CMD_BIT, QNOVO_PT_ENABLE_CMD_BIT);
 	if (rc < 0) {
@@ -1183,13 +1208,12 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
-	/* configure PMI stat output to enable and disable parallel charging */
+	/* disable SW STAT override */
 	rc = smblib_masked_write(chg, STAT_CFG_REG,
-			STAT_PARALLEL_CFG_BIT | STAT_SW_OVERRIDE_CFG_BIT,
-			STAT_PARALLEL_CFG_BIT);
+				 STAT_SW_OVERRIDE_CFG_BIT, 0);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure signal for parallel rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't disable SW STAT override rc=%d\n",
+			rc);
 		return rc;
 	}
 
@@ -1287,6 +1311,8 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 		chip->chg.wa_flags |= BOOST_BACK_WA;
 		if (pmic_rev_id->rev4 == PMICOBALT_V1P1_REV4) /* PMI rev 1.1 */
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
+		if (pmic_rev_id->rev4 == PMICOBALT_V2P0_REV4) /* PMI rev 2.0 */
+			chg->wa_flags |= TYPEC_CC2_REMOVAL_WA_BIT;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported\n",

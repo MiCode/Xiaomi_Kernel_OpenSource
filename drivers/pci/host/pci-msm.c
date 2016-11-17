@@ -619,6 +619,7 @@ struct msm_pcie_dev_t {
 	bool				 ext_ref_clk;
 	bool				common_phy;
 	uint32_t			   ep_latency;
+	uint32_t			wr_halt_size;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	short				current_short_bdf;
@@ -1976,6 +1977,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->common_phy);
 	PCIE_DBG_FS(dev, "ep_latency: %dms\n",
 		dev->ep_latency);
+	PCIE_DBG_FS(dev, "wr_halt_size: 0x%x\n",
+		dev->wr_halt_size);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
@@ -4495,8 +4498,19 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	if (dev->use_msi) {
 		PCIE_DBG(dev, "RC%d: enable WR halt.\n", dev->rc_idx);
-		msm_pcie_write_mask(dev->parf +
-			PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT, 0, BIT(31));
+		val = dev->wr_halt_size ? dev->wr_halt_size :
+			readl_relaxed(dev->parf +
+				PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT);
+
+		msm_pcie_write_reg(dev->parf,
+			PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT,
+			BIT(31) | val);
+
+		PCIE_DBG(dev,
+			"RC%d: PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT: 0x%x.\n",
+			dev->rc_idx,
+			readl_relaxed(dev->parf +
+				PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT));
 	}
 
 	mutex_lock(&com_phy_lock);
@@ -5385,9 +5399,6 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 		dev->link_status = MSM_PCIE_LINK_DISABLED;
 		dev->shadow_en = false;
 
-		pcie_phy_dump(dev);
-		pcie_parf_dump(dev);
-
 		if (dev->linkdown_panic)
 			panic("User has chosen to panic on linkdown\n");
 
@@ -5696,7 +5707,7 @@ static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
 	irq_set_msi_desc(firstirq, desc);
 	msg.address_hi = 0;
 	msg.address_lo = dev->msi_gicm_addr;
-	msg.data = dev->msi_gicm_base;
+	msg.data = dev->msi_gicm_base + (firstirq - dev->msi[0].num);
 	write_msi_msg(firstirq, &msg);
 
 	return 0;
@@ -6070,6 +6081,18 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: ep-latency: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].ep_latency);
+
+	msm_pcie_dev[rc_idx].wr_halt_size = 0;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,wr-halt-size",
+				&msm_pcie_dev[rc_idx].wr_halt_size);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: wr-halt-size not specified in dt. Use default value.\n",
+			rc_idx);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: wr-halt-size: 0x%x.\n",
+			rc_idx, msm_pcie_dev[rc_idx].wr_halt_size);
 
 	msm_pcie_dev[rc_idx].cpl_timeout = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,

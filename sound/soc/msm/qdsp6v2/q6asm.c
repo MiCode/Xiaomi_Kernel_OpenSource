@@ -3015,7 +3015,8 @@ int q6asm_set_shared_circ_buff(struct audio_client *ac,
 			       int dir)
 {
 	struct audio_buffer *buf_circ;
-	int bytes_to_alloc, rc, len;
+	int bytes_to_alloc, rc;
+	size_t len;
 
 	buf_circ = kzalloc(sizeof(struct audio_buffer), GFP_KERNEL);
 
@@ -3034,7 +3035,7 @@ int q6asm_set_shared_circ_buff(struct audio_client *ac,
 	rc = msm_audio_ion_alloc("audio_client", &buf_circ->client,
 			&buf_circ->handle, bytes_to_alloc,
 			(ion_phys_addr_t *)&buf_circ->phys,
-			(size_t *)&len, &buf_circ->data);
+			&len, &buf_circ->data);
 
 	if (rc) {
 		pr_err("%s: Audio ION alloc is failed, rc = %d\n", __func__,
@@ -3076,7 +3077,8 @@ int q6asm_set_shared_pos_buff(struct audio_client *ac,
 			       int dir)
 {
 	struct audio_buffer *buf_pos = &ac->shared_pos_buf;
-	int len, rc;
+	int rc;
+	size_t len;
 	int bytes_to_alloc = sizeof(struct asm_shared_position_buffer);
 
 	mutex_lock(&ac->cmd_lock);
@@ -3085,7 +3087,7 @@ int q6asm_set_shared_pos_buff(struct audio_client *ac,
 
 	rc = msm_audio_ion_alloc("audio_client", &buf_pos->client,
 			&buf_pos->handle, bytes_to_alloc,
-			(ion_phys_addr_t *)&buf_pos->phys, (size_t *)&len,
+			(ion_phys_addr_t *)&buf_pos->phys, &len,
 			&buf_pos->data);
 
 	if (rc) {
@@ -5848,7 +5850,7 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 	struct asm_buffer_node *buffer_node = NULL;
 	int	rc = 0;
 	int    i = 0;
-	int	cmd_size = 0;
+	uint32_t cmd_size = 0;
 	uint32_t bufcnt_t;
 	uint32_t bufsz_t;
 
@@ -5870,9 +5872,24 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 		bufsz_t = PAGE_ALIGN(bufsz_t);
 	}
 
+	if (bufcnt_t > (UINT_MAX
+			- sizeof(struct avs_cmd_shared_mem_map_regions))
+			/ sizeof(struct avs_shared_map_region_payload)) {
+		pr_err("%s: Unsigned Integer Overflow. bufcnt_t = %u\n",
+				__func__, bufcnt_t);
+		return -EINVAL;
+	}
+
 	cmd_size = sizeof(struct avs_cmd_shared_mem_map_regions)
 			+ (sizeof(struct avs_shared_map_region_payload)
 							* bufcnt_t);
+
+
+	if (bufcnt > (UINT_MAX / sizeof(struct asm_buffer_node))) {
+		pr_err("%s: Unsigned Integer Overflow. bufcnt = %u\n",
+				__func__, bufcnt);
+		return -EINVAL;
+	}
 
 	buffer_node = kzalloc(sizeof(struct asm_buffer_node) * bufcnt,
 				GFP_KERNEL);

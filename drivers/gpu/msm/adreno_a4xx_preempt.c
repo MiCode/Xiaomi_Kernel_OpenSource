@@ -146,6 +146,8 @@ static int a4xx_submit_preempt_token(struct adreno_ringbuffer *rb,
 			&ptname, PT_INFO_OFFSET(current_rb_ptname));
 		pt = kgsl_mmu_get_pt_from_ptname(&(device->mmu),
 			ptname);
+		if (IS_ERR_OR_NULL(pt))
+			return (pt == NULL) ? -ENOENT : PTR_ERR(pt);
 		/* set the ringbuffer for incoming RB */
 		pt_switch_sizedwords =
 			adreno_iommu_set_pt_generate_cmds(incoming_rb,

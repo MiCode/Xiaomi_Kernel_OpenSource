@@ -54,9 +54,17 @@ enum smb_mode {
 	NUM_MODES,
 };
 
+enum cc2_sink_type {
+	CC2_SINK_NONE = 0,
+	CC2_SINK_STD,
+	CC2_SINK_MEDIUM_HIGH,
+	CC2_SINK_WA_DONE,
+};
+
 enum {
-	QC_CHARGER_DETECTION_WA_BIT = BIT(0),
-	BOOST_BACK_WA = BIT(1),
+	QC_CHARGER_DETECTION_WA_BIT	= BIT(0),
+	BOOST_BACK_WA			= BIT(1),
+	TYPEC_CC2_REMOVAL_WA_BIT	= BIT(2),
 };
 
 struct smb_regulator {
@@ -177,6 +185,7 @@ struct smb_charger {
 	/* work */
 	struct work_struct	bms_update_work;
 	struct work_struct	pl_detect_work;
+	struct work_struct	rdstd_cc2_detach_work;
 	struct delayed_work	hvdcp_detect_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	pl_taper_work;
@@ -187,7 +196,6 @@ struct smb_charger {
 	int			voltage_min_uv;
 	int			voltage_max_uv;
 	int			pd_active;
-	bool			vbus_present;
 	bool			system_suspend_supported;
 
 	int			system_temp_level;
@@ -205,6 +213,7 @@ struct smb_charger {
 
 	/* workaround flag */
 	u32			wa_flags;
+	enum cc2_sink_type	cc2_sink_detach_flag;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);

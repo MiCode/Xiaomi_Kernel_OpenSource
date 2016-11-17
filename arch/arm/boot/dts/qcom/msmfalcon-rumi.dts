@@ -57,3 +57,8 @@
 
 	status = "ok";
 };
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "gcc_clocks";
+};
