@@ -81,3 +81,7 @@
 &pmfalcon_fg {
 	status = "disabled";
 };
+
+&pmfalcon_pdphy {
+	status = "disabled";
+};
