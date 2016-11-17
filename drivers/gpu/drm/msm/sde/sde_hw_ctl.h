@@ -103,6 +103,17 @@ struct sde_hw_ctl_ops {
 
 	int (*reset)(struct sde_hw_ctl *c);
 
+	/*
+	 * wait_reset_status - checks ctl reset status
+	 * @ctx       : ctl path ctx pointer
+	 *
+	 * This function checks the ctl reset status bit.
+	 * If the reset bit is set, it keeps polling the status till the hw
+	 * reset is complete.
+	 * Returns: 0 on success or -error if reset incomplete within interval
+	 */
+	int (*wait_reset_status)(struct sde_hw_ctl *ctx);
+
 	uint32_t (*get_bitmask_sspp)(struct sde_hw_ctl *ctx,
 		enum sde_sspp blk);
 
