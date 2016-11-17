@@ -167,7 +167,7 @@ static void *usbpd_ipc_log;
 #define PS_TRANSITION_TIME	450
 #define SRC_CAP_TIME		120
 #define SRC_TRANSITION_TIME	25
-#define SRC_RECOVER_TIME	660
+#define SRC_RECOVER_TIME	750
 #define PS_HARD_RESET_TIME	25
 #define PS_SOURCE_ON		400
 #define PS_SOURCE_OFF		750
@@ -438,7 +438,9 @@ static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
 	/* MessageID incremented regardless of Tx error */
 	pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
 
-	if (ret != num_data * sizeof(u32))
+	if (ret < 0)
+		return ret;
+	else if (ret != num_data * sizeof(u32))
 		return -EIO;
 	return 0;
 }
@@ -1014,7 +1016,7 @@ int usbpd_send_vdm(struct usbpd *pd, u32 vdm_hdr, const u32 *vdos, int num_vdos)
 	pd->vdm_tx = vdm_tx;
 
 	/* slight delay before queuing to prioritize handling of incoming VDM */
-	kick_sm(pd, 5);
+	kick_sm(pd, 2);
 
 	return 0;
 }
@@ -1232,21 +1234,32 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 static void handle_vdm_tx(struct usbpd *pd)
 {
 	int ret;
+	unsigned long flags;
 
 	/* only send one VDM at a time */
 	if (pd->vdm_tx) {
 		u32 vdm_hdr = pd->vdm_tx->data[0];
 
+		/* bail out and try again later if a message just arrived */
+		spin_lock_irqsave(&pd->rx_lock, flags);
+		if (!list_empty(&pd->rx_q)) {
+			spin_unlock_irqrestore(&pd->rx_lock, flags);
+			return;
+		}
+		spin_unlock_irqrestore(&pd->rx_lock, flags);
+
 		ret = pd_send_msg(pd, MSG_VDM, pd->vdm_tx->data,
 				pd->vdm_tx->size, SOP_MSG);
 		if (ret) {
-			usbpd_err(&pd->dev, "Error sending VDM command %d\n",
-					SVDM_HDR_CMD(pd->vdm_tx->data[0]));
-			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
+			usbpd_err(&pd->dev, "Error (%d) sending VDM command %d\n",
+					ret, SVDM_HDR_CMD(pd->vdm_tx->data[0]));
+
+			/* retry when hitting PE_SRC/SNK_Ready again */
+			if (ret != -EBUSY)
+				usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_SEND_SOFT_RESET :
 					PE_SNK_SEND_SOFT_RESET);
 
-			/* retry when hitting PE_SRC/SNK_Ready again */
 			return;
 		}
 
@@ -1258,7 +1271,7 @@ static void handle_vdm_tx(struct usbpd *pd)
 			SVDM_HDR_CMD_TYPE(vdm_hdr) == SVDM_CMD_TYPE_INITIATOR &&
 			SVDM_HDR_CMD(vdm_hdr) <= USBPD_SVDM_DISCOVER_SVIDS) {
 			if (pd->vdm_tx_retry) {
-				usbpd_err(&pd->dev, "Previous Discover VDM command %d not ACKed/NAKed\n",
+				usbpd_dbg(&pd->dev, "Previous Discover VDM command %d not ACKed/NAKed\n",
 					SVDM_HDR_CMD(
 						pd->vdm_tx_retry->data[0]));
 				kfree(pd->vdm_tx_retry);
@@ -1336,6 +1349,13 @@ static void vconn_swap(struct usbpd *pd)
 		}
 
 		pd->vconn_enabled = true;
+
+		/*
+		 * Small delay to ensure Vconn has ramped up. This is well
+		 * below tVCONNSourceOn (100ms) so we still send PS_RDY within
+		 * the allowed time.
+		 */
+		usleep_range(5000, 10000);
 
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
 		if (ret) {
@@ -1543,10 +1563,6 @@ static void usbpd_sm(struct work_struct *w)
 			break;
 		}
 
-		val.intval = 1;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
-
 		/* transmit was successful if GoodCRC was received */
 		pd->caps_count = 0;
 		pd->hard_reset_count = 0;
@@ -1555,6 +1571,10 @@ static void usbpd_sm(struct work_struct *w)
 		/* wait for REQUEST */
 		pd->current_state = PE_SRC_SEND_CAPABILITIES_WAIT;
 		kick_sm(pd, SENDER_RESPONSE_TIME);
+
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 		break;
 
 	case PE_SRC_SEND_CAPABILITIES_WAIT:
@@ -1723,16 +1743,16 @@ static void usbpd_sm(struct work_struct *w)
 					POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
 					&val);
 
-			val.intval = 1;
-			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
-
 			/* save the PDOs so userspace can further evaluate */
 			memcpy(&pd->received_pdos, rx_msg->payload,
 					sizeof(pd->received_pdos));
 			pd->src_cap_id++;
 
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
+
+			val.intval = 1;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 		} else if (pd->hard_reset_count < 3) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
 		} else if (pd->pd_connected) {
