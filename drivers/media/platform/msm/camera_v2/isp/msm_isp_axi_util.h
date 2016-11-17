@@ -14,6 +14,7 @@
 
 #include "msm_isp.h"
 
+#define HANDLE_TO_IDX(handle) (handle & 0xFF)
 #define SRC_TO_INTF(src) \
 	((src < RDI_INTF_0 || src == VFE_AXI_SRC_MAX) ? VFE_PIX_0 : \
 	(VFE_RAW_0 + src - RDI_INTF_0))

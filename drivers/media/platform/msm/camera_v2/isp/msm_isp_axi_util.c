@@ -15,7 +15,6 @@
 #include "msm_isp_util.h"
 #include "msm_isp_axi_util.h"
 
-#define HANDLE_TO_IDX(handle) (handle & 0xFF)
 #define ISP_SOF_DEBUG_COUNT 0
 
 static int msm_isp_update_dual_HW_ms_info_at_start(

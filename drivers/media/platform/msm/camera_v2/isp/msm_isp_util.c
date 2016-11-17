@@ -377,13 +377,9 @@ static int msm_isp_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
 		fe_cfg->frame_id;
 
 	if (fe_cfg->offline_pass == OFFLINE_SECOND_PASS) {
-		for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
-			stream_info = &vfe_dev->axi_data.stream_info[i];
-			if (stream_info->stream_id == fe_cfg->output_stream_id)
-				break;
-		}
-
-		if (i == VFE_AXI_SRC_MAX) {
+		stream_info = &vfe_dev->axi_data.stream_info[
+			HANDLE_TO_IDX(fe_cfg->output_stream_id)];
+		if (!stream_info) {
 			pr_err("%s: Couldn't find streamid 0x%X\n", __func__,
 				fe_cfg->output_stream_id);
 			return -EINVAL;
