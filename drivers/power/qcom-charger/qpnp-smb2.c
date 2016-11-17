@@ -1187,6 +1187,13 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	/* disable try.SINK mode */
+	rc = smblib_masked_write(chg, TYPE_C_CFG_3_REG, EN_TRYSINK_MODE_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set TRYSINK_MODE rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = smblib_masked_write(chg, QNOVO_PT_ENABLE_CMD_REG,
 			QNOVO_PT_ENABLE_CMD_BIT, QNOVO_PT_ENABLE_CMD_BIT);
 	if (rc < 0) {
