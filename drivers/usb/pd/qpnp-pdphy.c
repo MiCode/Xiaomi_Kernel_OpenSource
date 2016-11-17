@@ -673,6 +673,9 @@ static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
 	if (ret)
 		goto done;
 
+	/* ack to change ownership of rx buffer back to PDPHY RX HW */
+	pdphy_reg_write(pdphy, USB_PDPHY_RX_ACKNOWLEDGE, 0);
+
 	if (((buf[0] & 0xf) == PD_MSG_BIST) && size >= 5) { /* BIST */
 		u8 mode = buf[5] >> 4; /* [31:28] of 1st data object */
 
@@ -688,9 +691,6 @@ static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
 
 	if (pdphy->msg_rx_cb)
 		pdphy->msg_rx_cb(pdphy->usbpd, frame_type, buf, size + 1);
-
-	/* ack to change ownership of rx buffer back to PDPHY RX HW */
-	pdphy_reg_write(pdphy, USB_PDPHY_RX_ACKNOWLEDGE, 0);
 
 	print_hex_dump_debug("rx msg:", DUMP_PREFIX_NONE, 32, 4, buf, size + 1,
 		false);
