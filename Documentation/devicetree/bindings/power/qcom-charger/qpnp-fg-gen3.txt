@@ -63,6 +63,14 @@ First Level Node - FG Gen3 device
 	Definition: The voltage threshold (in mV) which upon set will be used
 		    for configuring the low battery voltage threshold.
 
+- qcom,fg-recharge-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: The voltage threshold (in mV) based on which the charging
+		    will be resumed once the charging is complete. If this
+		    property is not specified, then the default value will be
+		    4250mV.
+
 - qcom,fg-chg-term-current
 	Usage:      optional
 	Value type: <u32>
