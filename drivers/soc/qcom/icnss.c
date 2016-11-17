@@ -440,6 +440,7 @@ static struct icnss_priv {
 	struct wlfw_rf_board_info_s_v01 board_info;
 	struct wlfw_soc_info_s_v01 soc_info;
 	struct wlfw_fw_version_info_s_v01 fw_version_info;
+	char fw_build_id[QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1];
 	u32 pwr_pin_result;
 	u32 phy_io_pin_result;
 	u32 rf_pin_result;
@@ -1973,12 +1974,16 @@ static int wlfw_cap_send_sync_msg(void)
 		penv->soc_info = resp.soc_info;
 	if (resp.fw_version_info_valid)
 		penv->fw_version_info = resp.fw_version_info;
+	if (resp.fw_build_id_valid)
+		strlcpy(penv->fw_build_id, resp.fw_build_id,
+			QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1);
 
-	icnss_pr_dbg("Capability, chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s",
+	icnss_pr_dbg("Capability, chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s, fw_build_id: %s",
 		     penv->chip_info.chip_id, penv->chip_info.chip_family,
 		     penv->board_info.board_id, penv->soc_info.soc_id,
 		     penv->fw_version_info.fw_version,
-		     penv->fw_version_info.fw_build_timestamp);
+		     penv->fw_version_info.fw_build_timestamp,
+		     penv->fw_build_id);
 
 	return 0;
 
@@ -3952,6 +3957,8 @@ static int icnss_stats_show_capability(struct seq_file *s,
 			   priv->fw_version_info.fw_version);
 		seq_printf(s, "Firmware Build Timestamp: %s\n",
 			   priv->fw_version_info.fw_build_timestamp);
+		seq_printf(s, "Firmware Build ID: %s\n",
+			   priv->fw_build_id);
 	}
 
 	return 0;
