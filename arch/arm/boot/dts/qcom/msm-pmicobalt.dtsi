@@ -657,6 +657,7 @@
 			qcom,thermal-derate-en;
 			qcom,thermal-derate-current = <200 500 1000>;
 			qcom,isc-delay = <192>;
+			qcom,pmic-revid = <&pmicobalt_revid>;
 
 			pmicobalt_flash0: qcom,flash_0 {
 				label = "flash";
