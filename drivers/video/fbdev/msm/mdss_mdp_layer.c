@@ -2656,13 +2656,22 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 	if (mdp5_data->cwb.valid) {
 		struct sync_fence *retire_fence = NULL;
 
+		if (!commit->output_layer) {
+			pr_err("cwb request without setting output layer\n");
+			goto map_err;
+		}
+
 		retire_fence = __create_fence(mfd,
 				&mdp5_data->cwb.cwb_sync_pt_data,
 				MDSS_MDP_CWB_RETIRE_FENCE,
 				&commit->output_layer->buffer.fence, 0);
 		if (IS_ERR_OR_NULL(retire_fence)) {
 			pr_err("failed to handle cwb fence");
+			goto map_err;
 		}
+
+		sync_fence_install(retire_fence,
+				commit->output_layer->buffer.fence);
 	}
 
 map_err:
