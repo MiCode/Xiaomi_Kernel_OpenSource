@@ -112,6 +112,8 @@
 #define EMPTY_VOLT_v2_OFFSET		3
 #define VBATT_LOW_v2_WORD		16
 #define VBATT_LOW_v2_OFFSET		0
+#define RECHARGE_VBATT_THR_v2_WORD	16
+#define RECHARGE_VBATT_THR_v2_OFFSET	1
 #define FLOAT_VOLT_v2_WORD		16
 #define FLOAT_VOLT_v2_OFFSET		2
 
@@ -236,6 +238,9 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 	PARAM(RECHARGE_SOC_THR, RECHARGE_SOC_THR_v2_WORD,
 		RECHARGE_SOC_THR_v2_OFFSET, 1, 256, 100, 0, fg_encode_default,
 		NULL),
+	PARAM(RECHARGE_VBATT_THR, RECHARGE_VBATT_THR_v2_WORD,
+		RECHARGE_VBATT_THR_v2_OFFSET, 1, 1000, 15625, -2000,
+		fg_encode_voltage, NULL),
 	PARAM(ESR_TIMER_DISCHG_MAX, ESR_TIMER_DISCHG_MAX_WORD,
 		ESR_TIMER_DISCHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default,
 		NULL),
@@ -2395,8 +2400,8 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
-	/* This SRAM register is only present in v2.0 */
-	if (chip->pmic_rev_id->rev4 == PMI8998_V2P0_REV4 &&
+	/* This SRAM register is only present in v2.0 and above */
+	if (chip->pmic_rev_id->rev4 >= PMI8998_V2P0_REV4 &&
 		chip->bp.float_volt_uv > 0) {
 		fg_encode(chip->sp, FG_SRAM_FLOAT_VOLT,
 			chip->bp.float_volt_uv / 1000, buf);
@@ -2472,6 +2477,23 @@ static int fg_hw_init(struct fg_chip *chip)
 		rc = fg_set_recharge_soc(chip, chip->dt.recharge_soc_thr);
 		if (rc < 0) {
 			pr_err("Error in setting recharge_soc, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	/* This configuration is available only for pmicobalt v2.0 and above */
+	if (chip->pmic_rev_id->rev4 >= PMI8998_V2P0_REV4 &&
+		chip->dt.recharge_volt_thr_mv > 0) {
+		fg_encode(chip->sp, FG_SRAM_RECHARGE_VBATT_THR,
+			chip->dt.recharge_volt_thr_mv, buf);
+		rc = fg_sram_write(chip,
+				chip->sp[FG_SRAM_RECHARGE_VBATT_THR].addr_word,
+				chip->sp[FG_SRAM_RECHARGE_VBATT_THR].addr_byte,
+				buf, chip->sp[FG_SRAM_RECHARGE_VBATT_THR].len,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing recharge_vbatt_thr, rc=%d\n",
+				rc);
 			return rc;
 		}
 	}
@@ -2935,6 +2957,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 
 #define DEFAULT_CUTOFF_VOLT_MV		3200
 #define DEFAULT_EMPTY_VOLT_MV		2800
+#define DEFAULT_RECHARGE_VOLT_MV	4250
 #define DEFAULT_CHG_TERM_CURR_MA	100
 #define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_DELTA_SOC_THR		1
@@ -3095,6 +3118,12 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->dt.recharge_soc_thr = DEFAULT_RECHARGE_SOC_THR;
 	else
 		chip->dt.recharge_soc_thr = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-recharge-voltage", &temp);
+	if (rc < 0)
+		chip->dt.recharge_volt_thr_mv = DEFAULT_RECHARGE_VOLT_MV;
+	else
+		chip->dt.recharge_volt_thr_mv = temp;
 
 	rc = of_property_read_u32(node, "qcom,fg-rsense-sel", &temp);
 	if (rc < 0)
