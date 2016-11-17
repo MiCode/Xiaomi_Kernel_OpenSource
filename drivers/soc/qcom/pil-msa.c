@@ -75,6 +75,9 @@
 #define MSS_RESTART_ID			0xA
 
 #define MSS_MAGIC			0XAABADEAD
+/* CX_IPEAK Parameters */
+#define CX_IPEAK_MSS			BIT(5)
+
 enum scm_cmd {
 	PAS_MEM_SETUP_CMD = 2,
 };
@@ -303,6 +306,14 @@ int pil_mss_shutdown(struct pil_desc *pil)
 			dev_err(pil->dev, "error turning ON AHB clock(rc:%d)\n",
 									ret);
 	}
+
+	/*
+	 *  If MSS was in turbo state before fatal error occurs, it would
+	 *  have set the vote bit. Since MSS is restarting, So PIL need to
+	 *  clear this bit. This may clear the throttle state.
+	 */
+	if (drv->cx_ipeak_vote)
+		writel_relaxed(CX_IPEAK_MSS, drv->cxip_lm_vote_clear);
 
 	ret = pil_mss_restart_reg(drv, 1);
 
