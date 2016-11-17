@@ -343,7 +343,7 @@
 				mux {
 					pins = "gpio28", "gpio29",
 							"gpio30", "gpio31";
-					function = "blsp_spi8";
+					function = "blsp_spi8_a";
 				};
 
 				config {
@@ -358,7 +358,7 @@
 				mux {
 					pins = "gpio28", "gpio29",
 							"gpio30", "gpio31";
-					function = "blsp_spi8";
+					function = "blsp_spi8_a";
 				};
 
 				config {
