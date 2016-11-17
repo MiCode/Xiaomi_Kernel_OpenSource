@@ -99,6 +99,18 @@ Optional properties:
 				  Allowed values are:
 				  0, 15, 30, 45 for pmicobalt.
 				  0, 20, 40, 60 for pm2falcon.
+- qcom,thermal-thrsh1		: Integer property to specify OTST1 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  85, 79, 73, 67, 109, 103, 97, 91.
+- qcom,thermal-thrsh2		: Integer property to specify OTST2 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  110, 104, 98, 92, 134, 128, 122, 116.
+- qcom,thermal-thrsh3		: Integer property to specify OTST3 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  125, 119, 113, 107, 149, 143, 137, 131.
 - qcom,hw-strobe-option	: Integer type to specify hardware strobe option. Based on the specified
 			  value, additional GPIO configuration may be required to provide strobing
 			  support. Supported values are:

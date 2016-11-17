@@ -114,6 +114,7 @@
 #define	THERMAL_DEBOUNCE_TIME_MAX		64
 #define	THERMAL_DERATE_HYSTERESIS_MAX		3
 #define	FLASH_LED_THERMAL_THRSH_MIN		3
+#define	FLASH_LED_THERMAL_THRSH_MAX		7
 #define	FLASH_LED_THERMAL_OTST_LEVELS		3
 #define	FLASH_LED_VLED_MAX_DEFAULT_UV		3500000
 #define	FLASH_LED_IBATT_OCP_THRESH_DEFAULT_UA	4500000
@@ -219,6 +220,9 @@ struct flash_led_platform_data {
 	int			thermal_derate_fast;
 	int			thermal_hysteresis;
 	int			thermal_debounce;
+	int			thermal_thrsh1;
+	int			thermal_thrsh2;
+	int			thermal_thrsh3;
 	u32			led1n2_iclamp_low_ma;
 	u32			led1n2_iclamp_mid_ma;
 	u32			led3_iclamp_low_ma;
@@ -265,6 +269,18 @@ static int thermal_derate_slow_table[] = {
 
 static int thermal_derate_fast_table[] = {
 	32, 64, 96, 128, 256, 384, 512,
+};
+
+static int otst1_threshold_table[] = {
+	85, 79, 73, 67, 109, 103, 97, 91,
+};
+
+static int otst2_threshold_table[] = {
+	110, 104, 98, 92, 134, 128, 122, 116,
+};
+
+static int otst3_threshold_table[] = {
+	125, 119, 113, 107, 149, 143, 137, 131,
 };
 
 static int qpnp_flash_led_read(struct qpnp_flash_led *led, u16 addr, u8 *data)
@@ -412,6 +428,33 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 				FLASH_LED_REG_THERMAL_HYSTERESIS(led->base),
 				FLASH_LED_THERMAL_HYSTERESIS_MASK,
 				led->pdata->thermal_hysteresis);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (led->pdata->thermal_thrsh1 >= 0) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_THERMAL_THRSH1(led->base),
+				FLASH_LED_THERMAL_THRSH_MASK,
+				led->pdata->thermal_thrsh1);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (led->pdata->thermal_thrsh2 >= 0) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_THERMAL_THRSH2(led->base),
+				FLASH_LED_THERMAL_THRSH_MASK,
+				led->pdata->thermal_thrsh2);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (led->pdata->thermal_thrsh3 >= 0) {
+		rc = qpnp_flash_led_masked_write(led,
+				FLASH_LED_REG_THERMAL_THRSH3(led->base),
+				FLASH_LED_THERMAL_THRSH_MASK,
+				led->pdata->thermal_thrsh3);
 		if (rc < 0)
 			return rc;
 	}
@@ -1747,6 +1790,42 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		led->pdata->thermal_hysteresis = val;
 	} else if (rc != -EINVAL) {
 		dev_err(&led->pdev->dev, "Unable to read thermal hysteresis, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->thermal_thrsh1 = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,thermal-thrsh1", &val);
+	if (!rc) {
+		led->pdata->thermal_thrsh1 =
+			get_code_from_table(otst1_threshold_table,
+				ARRAY_SIZE(otst1_threshold_table), val);
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read thermal thrsh1, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->thermal_thrsh2 = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,thermal-thrsh2", &val);
+	if (!rc) {
+		led->pdata->thermal_thrsh2 =
+			get_code_from_table(otst2_threshold_table,
+				ARRAY_SIZE(otst2_threshold_table), val);
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read thermal thrsh2, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	led->pdata->thermal_thrsh3 = -EINVAL;
+	rc = of_property_read_u32(node, "qcom,thermal-thrsh3", &val);
+	if (!rc) {
+		led->pdata->thermal_thrsh3 =
+			get_code_from_table(otst3_threshold_table,
+				ARRAY_SIZE(otst3_threshold_table), val);
+	} else if (rc != -EINVAL) {
+		dev_err(&led->pdev->dev, "Unable to read thermal thrsh3, rc=%d\n",
 				rc);
 		return rc;
 	}
