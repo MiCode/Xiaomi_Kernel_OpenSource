@@ -27,17 +27,12 @@
 #include <linux/leds-qpnp-wled.h>
 #include <linux/qpnp/qpnp-revid.h>
 
-#define QPNP_IRQ_FLAGS	(IRQF_TRIGGER_RISING | \
-			IRQF_TRIGGER_FALLING | \
-			IRQF_ONESHOT)
-
 /* base addresses */
 #define QPNP_WLED_CTRL_BASE		"qpnp-wled-ctrl-base"
 #define QPNP_WLED_SINK_BASE		"qpnp-wled-sink-base"
 
 /* ctrl registers */
-#define QPNP_WLED_INT_EN_SET(b)		(b + 0x15)
-#define QPNP_WLED_INT_EN_CLR(b)		(b + 0x16)
+#define QPNP_WLED_FAULT_STATUS(b)	(b + 0x08)
 #define QPNP_WLED_EN_REG(b)		(b + 0x46)
 #define QPNP_WLED_FDBK_OP_REG(b)	(b + 0x48)
 #define QPNP_WLED_VREF_REG(b)		(b + 0x49)
@@ -114,8 +109,6 @@
 #define QPNP_WLED_SWITCH_FREQ_OVERWRITE 0x80
 #define QPNP_WLED_OVP_MASK		GENMASK(1, 0)
 #define QPNP_WLED_TEST4_EN_VREF_UP	0x32
-#define QPNP_WLED_INT_EN_SET_OVP_EN	0x02
-#define QPNP_WLED_OVP_FLT_SLEEP_US	10
 #define QPNP_WLED_TEST4_EN_IIND_UP	0x1
 
 /* sink registers */
@@ -183,7 +176,7 @@
 #define QPNP_WLED_MODULE_EN_REG(b)	(b + 0x46)
 #define QPNP_WLED_MODULE_RDY_MASK	0x7F
 #define QPNP_WLED_MODULE_RDY_SHIFT	7
-#define QPNP_WLED_MODULE_EN_MASK	0x7F
+#define QPNP_WLED_MODULE_EN_MASK	BIT(7)
 #define QPNP_WLED_MODULE_EN_SHIFT	7
 #define QPNP_WLED_DISP_SEL_MASK		0x7F
 #define QPNP_WLED_DISP_SEL_SHIFT	7
@@ -386,6 +379,7 @@ struct qpnp_wled {
 	bool			disp_type_amoled;
 	bool			en_ext_pfet_sc_pro;
 	bool			prev_state;
+	bool			ovp_irq_disabled;
 };
 
 /* helper to read a pmic register */
@@ -533,34 +527,29 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 				u16 base_addr, bool state)
 {
 	int rc;
-	u8 reg;
 
-	/* disable OVP fault interrupt */
-	if (state) {
-		reg = QPNP_WLED_INT_EN_SET_OVP_EN;
-		rc = qpnp_wled_write_reg(wled, QPNP_WLED_INT_EN_CLR(base_addr),
-				reg);
-		if (rc)
-			return rc;
-	}
-
-	rc = qpnp_wled_read_reg(wled, QPNP_WLED_MODULE_EN_REG(base_addr), &reg);
+	rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_MODULE_EN_REG(base_addr),
+			QPNP_WLED_MODULE_EN_MASK,
+			state << QPNP_WLED_MODULE_EN_SHIFT);
 	if (rc < 0)
 		return rc;
-	reg &= QPNP_WLED_MODULE_EN_MASK;
-	reg |= (state << QPNP_WLED_MODULE_EN_SHIFT);
-	rc = qpnp_wled_write_reg(wled, QPNP_WLED_MODULE_EN_REG(base_addr), reg);
-	if (rc)
-		return rc;
 
-	/* enable OVP fault interrupt */
-	if (state && (wled->ovp_irq > 0)) {
-		udelay(QPNP_WLED_OVP_FLT_SLEEP_US);
-		reg = QPNP_WLED_INT_EN_SET_OVP_EN;
-		rc = qpnp_wled_write_reg(wled, QPNP_WLED_INT_EN_SET(base_addr),
-				reg);
-		if (rc)
-			return rc;
+	if (wled->ovp_irq > 0) {
+		if (state && wled->ovp_irq_disabled) {
+			/*
+			 * Wait for at least 10ms before enabling OVP fault
+			 * interrupt after enabling the module so that soft
+			 * start is completed. Keep OVP interrupt disabled
+			 * when the module is disabled.
+			 */
+			usleep_range(10000, 11000);
+			enable_irq(wled->ovp_irq);
+			wled->ovp_irq_disabled = false;
+		} else if (!state && !wled->ovp_irq_disabled) {
+			disable_irq(wled->ovp_irq);
+			wled->ovp_irq_disabled = true;
+		}
 	}
 
 	return 0;
@@ -1027,26 +1016,44 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 }
 
 /* ovp irq handler */
-static irqreturn_t qpnp_wled_ovp_irq(int irq, void *_wled)
+static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 {
 	struct qpnp_wled *wled = _wled;
+	int rc;
+	u8 val;
 
-	dev_dbg(&wled->pdev->dev, "ovp detected\n");
+	rc = qpnp_wled_read_reg(wled,
+			QPNP_WLED_FAULT_STATUS(wled->ctrl_base), &val);
+	if (rc < 0) {
+		pr_err("Error in reading WLED_FAULT_STATUS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
 
+	pr_err("WLED OVP fault detected, fault_status= %x\n", val);
 	return IRQ_HANDLED;
 }
 
 /* short circuit irq handler */
-static irqreturn_t qpnp_wled_sc_irq(int irq, void *_wled)
+static irqreturn_t qpnp_wled_sc_irq_handler(int irq, void *_wled)
 {
 	struct qpnp_wled *wled = _wled;
+	int rc;
+	u8 val;
 
-	dev_err(&wled->pdev->dev,
-			"Short circuit detected %d times\n", ++wled->sc_cnt);
+	rc = qpnp_wled_read_reg(wled,
+			QPNP_WLED_FAULT_STATUS(wled->ctrl_base), &val);
+	if (rc < 0) {
+		pr_err("Error in reading WLED_FAULT_STATUS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
 
+	pr_err("WLED short circuit detected %d times fault_status=%x\n",
+		++wled->sc_cnt, val);
+	mutex_lock(&wled->lock);
 	qpnp_wled_module_en(wled, wled->ctrl_base, false);
 	msleep(QPNP_WLED_SC_DLY_MS);
 	qpnp_wled_module_en(wled, wled->ctrl_base, true);
+	mutex_unlock(&wled->lock);
 
 	return IRQ_HANDLED;
 }
@@ -1625,11 +1632,9 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 
 	/* setup ovp and sc irqs */
 	if (wled->ovp_irq >= 0) {
-		rc = devm_request_threaded_irq(&wled->pdev->dev,
-					       wled->ovp_irq,
-			NULL, qpnp_wled_ovp_irq,
-			QPNP_IRQ_FLAGS,
-			"qpnp_wled_ovp_irq", wled);
+		rc = devm_request_threaded_irq(&wled->pdev->dev, wled->ovp_irq,
+				NULL, qpnp_wled_ovp_irq_handler, IRQF_ONESHOT,
+				"qpnp_wled_ovp_irq", wled);
 		if (rc < 0) {
 			dev_err(&wled->pdev->dev,
 				"Unable to request ovp(%d) IRQ(err:%d)\n",
@@ -1641,9 +1646,8 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (wled->sc_irq >= 0) {
 		wled->sc_cnt = 0;
 		rc = devm_request_threaded_irq(&wled->pdev->dev, wled->sc_irq,
-			NULL, qpnp_wled_sc_irq,
-			QPNP_IRQ_FLAGS,
-			"qpnp_wled_sc_irq", wled);
+				NULL, qpnp_wled_sc_irq_handler, IRQF_ONESHOT,
+				"qpnp_wled_sc_irq", wled);
 		if (rc < 0) {
 			dev_err(&wled->pdev->dev,
 				"Unable to request sc(%d) IRQ(err:%d)\n",
