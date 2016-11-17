@@ -149,7 +149,7 @@ static void service_locator_recv_msg(struct work_struct *work)
 	do {
 		pr_debug("Notified about a Receive event\n");
 		ret = qmi_recv_msg(service_locator.clnt_handle);
-		if (ret != -ENOMSG)
+		if (ret < 0)
 			pr_err("Error receiving message rc:%d. Retrying...\n",
 								ret);
 	} while (ret == 0);

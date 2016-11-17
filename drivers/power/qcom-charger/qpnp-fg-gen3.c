@@ -655,11 +655,70 @@ static int fg_get_msoc_raw(struct fg_chip *chip, int *val)
 	return 0;
 }
 
+static bool is_batt_empty(struct fg_chip *chip)
+{
+	u8 status;
+	int rc, vbatt_uv, msoc;
+
+	rc = fg_read(chip, BATT_SOC_INT_RT_STS(chip), &status, 1);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			BATT_SOC_INT_RT_STS(chip), rc);
+		return false;
+	}
+
+	if (!(status & MSOC_EMPTY_BIT))
+		return false;
+
+	rc = fg_get_battery_voltage(chip, &vbatt_uv);
+	if (rc < 0) {
+		pr_err("failed to get battery voltage, rc=%d\n", rc);
+		return false;
+	}
+
+	rc = fg_get_msoc_raw(chip, &msoc);
+	if (!rc)
+		pr_warn("batt_soc_rt_sts: %x vbatt: %d uV msoc:%d\n", status,
+			vbatt_uv, msoc);
+
+	return ((vbatt_uv < chip->dt.cutoff_volt_mv * 1000) ? true : false);
+}
+
+#define DEBUG_BATT_ID_KOHMS	7
+static bool is_debug_batt_id(struct fg_chip *chip)
+{
+	int batt_id_delta = 0;
+
+	if (!chip->batt_id_kohms)
+		return false;
+
+	batt_id_delta = abs(chip->batt_id_kohms - DEBUG_BATT_ID_KOHMS);
+	if (batt_id_delta <= 1) {
+		fg_dbg(chip, FG_POWER_SUPPLY, "Debug battery id: %dKohms\n",
+			chip->batt_id_kohms);
+		return true;
+	}
+
+	return false;
+}
+
 #define FULL_CAPACITY	100
 #define FULL_SOC_RAW	255
+#define DEBUG_BATT_SOC	67
+#define EMPTY_SOC	0
 static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 {
 	int rc, msoc;
+
+	if (is_debug_batt_id(chip)) {
+		*val = DEBUG_BATT_SOC;
+		return 0;
+	}
+
+	if (is_batt_empty(chip)) {
+		*val = EMPTY_SOC;
+		return 0;
+	}
 
 	if (chip->charge_full) {
 		*val = FULL_CAPACITY;
@@ -725,7 +784,7 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 	}
 
 	batt_id /= 1000;
-	chip->batt_id = batt_id;
+	chip->batt_id_kohms = batt_id;
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
 		pr_err("Batterydata not available\n");
@@ -874,6 +933,17 @@ static bool is_charger_available(struct fg_chip *chip)
 		chip->batt_psy = power_supply_get_by_name("battery");
 
 	if (!chip->batt_psy)
+		return false;
+
+	return true;
+}
+
+static bool is_parallel_charger_available(struct fg_chip *chip)
+{
+	if (!chip->parallel_psy)
+		chip->parallel_psy = power_supply_get_by_name("parallel");
+
+	if (!chip->parallel_psy)
 		return false;
 
 	return true;
@@ -1351,6 +1421,72 @@ static int fg_adjust_recharge_soc(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_esr_fcc_config(struct fg_chip *chip)
+{
+	union power_supply_propval prop = {0, };
+	int rc;
+	bool parallel_en = false;
+
+	if (is_parallel_charger_available(chip)) {
+		rc = power_supply_get_property(chip->parallel_psy,
+			POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
+		if (rc < 0) {
+			pr_err("Error in reading charging_enabled from parallel_psy, rc=%d\n",
+				rc);
+			return rc;
+		}
+		parallel_en = prop.intval;
+	}
+
+	fg_dbg(chip, FG_POWER_SUPPLY, "status: %d parallel_en: %d esr_fcc_ctrl_en: %d\n",
+		chip->status, parallel_en, chip->esr_fcc_ctrl_en);
+
+	if (chip->status == POWER_SUPPLY_STATUS_CHARGING && parallel_en) {
+		if (chip->esr_fcc_ctrl_en)
+			return 0;
+
+		/*
+		 * When parallel charging is enabled, configure ESR FCC to
+		 * 300mA to trigger an ESR pulse. Without this, FG can ask
+		 * the main charger to increase FCC when it is supposed to
+		 * decrease it.
+		 */
+		rc = fg_masked_write(chip, BATT_INFO_ESR_FAST_CRG_CFG(chip),
+				ESR_FAST_CRG_IVAL_MASK |
+				ESR_FAST_CRG_CTL_EN_BIT,
+				ESR_FCC_300MA | ESR_FAST_CRG_CTL_EN_BIT);
+		if (rc < 0) {
+			pr_err("Error in writing to %04x, rc=%d\n",
+				BATT_INFO_ESR_FAST_CRG_CFG(chip), rc);
+			return rc;
+		}
+
+		chip->esr_fcc_ctrl_en = true;
+	} else {
+		if (!chip->esr_fcc_ctrl_en)
+			return 0;
+
+		/*
+		 * If we're here, then it means either the device is not in
+		 * charging state or parallel charging is disabled. Disable
+		 * ESR fast charge current control in SW.
+		 */
+		rc = fg_masked_write(chip, BATT_INFO_ESR_FAST_CRG_CFG(chip),
+				ESR_FAST_CRG_CTL_EN_BIT, 0);
+		if (rc < 0) {
+			pr_err("Error in writing to %04x, rc=%d\n",
+				BATT_INFO_ESR_FAST_CRG_CFG(chip), rc);
+			return rc;
+		}
+
+		chip->esr_fcc_ctrl_en = false;
+	}
+
+	fg_dbg(chip, FG_STATUS, "esr_fcc_ctrl_en set to %d\n",
+		chip->esr_fcc_ctrl_en);
+	return 0;
+}
+
 static void status_change_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -1398,6 +1534,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_adjust_ki_coeff_dischg(chip);
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
+
+	rc = fg_esr_fcc_config(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
 out:
 	pm_relax(chip->dev);
 }
@@ -1556,6 +1696,10 @@ static void dump_sram(u8 *buf, int len)
 	}
 }
 
+#define PROFILE_LOAD_BIT	BIT(0)
+#define BOOTLOADER_LOAD_BIT	BIT(1)
+#define BOOTLOADER_RESTART_BIT	BIT(2)
+#define HLOS_RESTART_BIT	BIT(3)
 static bool is_profile_load_required(struct fg_chip *chip)
 {
 	u8 buf[PROFILE_COMP_LEN], val;
@@ -1570,7 +1714,7 @@ static bool is_profile_load_required(struct fg_chip *chip)
 	}
 
 	/* Check if integrity bit is set */
-	if (val == 0x01) {
+	if (val & PROFILE_LOAD_BIT) {
 		fg_dbg(chip, FG_STATUS, "Battery profile integrity bit is set\n");
 		rc = fg_sram_read(chip, PROFILE_LOAD_WORD, PROFILE_LOAD_OFFSET,
 				buf, PROFILE_COMP_LEN, FG_IMA_DEFAULT);
@@ -1728,7 +1872,7 @@ static void profile_load_work(struct work_struct *work)
 	fg_dbg(chip, FG_STATUS, "SOC is ready\n");
 
 	/* Set the profile integrity bit */
-	val = 0x1;
+	val = HLOS_RESTART_BIT | PROFILE_LOAD_BIT;
 	rc = fg_sram_write(chip, PROFILE_INTEGRITY_WORD,
 			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
@@ -2152,6 +2296,37 @@ static int fg_memif_init(struct fg_chip *chip)
 
 /* INTERRUPT HANDLERS STAY HERE */
 
+static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
+{
+	struct fg_chip *chip = data;
+	u8 status;
+	int rc;
+
+	rc = fg_read(chip, MEM_IF_INT_RT_STS(chip), &status, 1);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			MEM_IF_INT_RT_STS(chip), rc);
+		return IRQ_HANDLED;
+	}
+
+	fg_dbg(chip, FG_IRQ, "irq %d triggered, status:%d\n", irq, status);
+	if (status & MEM_XCP_BIT) {
+		rc = fg_clear_dma_errors_if_any(chip);
+		if (rc < 0) {
+			pr_err("Error in clearing DMA error, rc=%d\n", rc);
+			return IRQ_HANDLED;
+		}
+
+		mutex_lock(&chip->sram_rw_lock);
+		rc = fg_clear_ima_errors_if_any(chip, true);
+		if (rc < 0 && rc != -EAGAIN)
+			pr_err("Error in checking IMA errors rc:%d\n", rc);
+		mutex_unlock(&chip->sram_rw_lock);
+	}
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
@@ -2248,13 +2423,9 @@ static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
 	struct fg_chip *chip = data;
 	int rc;
 
+	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	if (chip->cyc_ctr.en)
 		schedule_work(&chip->cycle_count_work);
-
-	if (is_charger_available(chip))
-		power_supply_changed(chip->batt_psy);
-
-	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 
 	if (chip->cl.active)
 		fg_cap_learning_update(chip);
@@ -2267,6 +2438,9 @@ static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
 
+	if (is_charger_available(chip))
+		power_supply_changed(chip->batt_psy);
+
 	return IRQ_HANDLED;
 }
 
@@ -2274,10 +2448,10 @@ static irqreturn_t fg_empty_soc_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
 
+	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	if (is_charger_available(chip))
 		power_supply_changed(chip->batt_psy);
 
-	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	return IRQ_HANDLED;
 }
 
@@ -2291,9 +2465,7 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *data)
 
 static irqreturn_t fg_dummy_irq_handler(int irq, void *data)
 {
-	struct fg_chip *chip = data;
-
-	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
+	pr_debug("irq %d triggered\n", irq);
 	return IRQ_HANDLED;
 }
 
@@ -2367,7 +2539,7 @@ static struct fg_irq_info fg_irqs[FG_IRQ_MAX] = {
 	},
 	[MEM_XCP_IRQ] = {
 		.name		= "mem-xcp",
-		.handler	= fg_dummy_irq_handler,
+		.handler	= fg_mem_xcp_irq_handler,
 	},
 	[IMA_RDY_IRQ] = {
 		.name		= "ima-rdy",
@@ -2495,7 +2667,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 }
 
 #define DEFAULT_CUTOFF_VOLT_MV		3200
-#define DEFAULT_EMPTY_VOLT_MV		3100
+#define DEFAULT_EMPTY_VOLT_MV		2800
 #define DEFAULT_CHG_TERM_CURR_MA	100
 #define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_DELTA_SOC_THR		1
@@ -2612,7 +2784,7 @@ static int fg_parse_dt(struct fg_chip *chip)
 	rc = fg_get_batt_profile(chip);
 	if (rc < 0)
 		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
-			chip->batt_id, rc);
+			chip->batt_id_kohms, rc);
 
 	/* Read all the optional properties below */
 	rc = of_property_read_u32(node, "qcom,fg-cutoff-voltage", &temp);
@@ -2783,7 +2955,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 {
 	struct fg_chip *chip;
 	struct power_supply_config fg_psy_cfg;
-	int rc;
+	int rc, msoc, volt_uv, batt_temp;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
@@ -2876,11 +3048,22 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	rc = fg_get_battery_voltage(chip, &volt_uv);
+	if (!rc)
+		rc = fg_get_prop_capacity(chip, &msoc);
+
+	if (!rc)
+		rc = fg_get_battery_temp(chip, &batt_temp);
+
+	if (!rc)
+		pr_info("battery SOC:%d voltage: %duV temp: %d id: %dKOhms\n",
+			msoc, volt_uv, batt_temp, chip->batt_id_kohms);
+
+	device_init_wakeup(chip->dev, true);
 	if (chip->profile_available)
 		schedule_delayed_work(&chip->profile_load_work, 0);
 
-	device_init_wakeup(chip->dev, true);
-	pr_debug("FG GEN3 driver successfully probed\n");
+	pr_debug("FG GEN3 driver probed successfully\n");
 	return 0;
 exit:
 	fg_cleanup(chip);

@@ -719,8 +719,18 @@ static void move_cpu_lru(struct cpu_data *cpu_data)
 static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 {
 	struct cpu_data *c, *tmp;
+	unsigned long flags;
+	unsigned int num_cpus = cluster->num_cpus;
 
+	/*
+	 * Protect against entry being removed (and added at tail) by other
+	 * thread (hotplug).
+	 */
+	spin_lock_irqsave(&state_lock, flags);
 	list_for_each_entry_safe(c, tmp, &cluster->lru, sib) {
+		if (!num_cpus--)
+			break;
+
 		if (!is_active(c))
 			continue;
 		if (cluster->active_cpus == need)
@@ -729,6 +739,8 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 		if (c->is_busy)
 			continue;
 
+		spin_unlock_irqrestore(&state_lock, flags);
+
 		pr_debug("Trying to isolate CPU%u\n", c->cpu);
 		if (!sched_isolate_cpu(c->cpu)) {
 			c->isolated_by_us = true;
@@ -738,7 +750,9 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 			pr_debug("Unable to isolate CPU%u\n", c->cpu);
 		}
 		cluster->active_cpus = get_active_cpu_count(cluster);
+		spin_lock_irqsave(&state_lock, flags);
 	}
+	spin_unlock_irqrestore(&state_lock, flags);
 
 	/*
 	 * If the number of active CPUs is within the limits, then
@@ -747,11 +761,18 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 	if (cluster->active_cpus <= cluster->max_cpus)
 		return;
 
+	num_cpus = cluster->num_cpus;
+	spin_lock_irqsave(&state_lock, flags);
 	list_for_each_entry_safe(c, tmp, &cluster->lru, sib) {
+		if (!num_cpus--)
+			break;
+
 		if (!is_active(c))
 			continue;
 		if (cluster->active_cpus <= cluster->max_cpus)
 			break;
+
+		spin_unlock_irqrestore(&state_lock, flags);
 
 		pr_debug("Trying to isolate CPU%u\n", c->cpu);
 		if (!sched_isolate_cpu(c->cpu)) {
@@ -762,15 +783,28 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 			pr_debug("Unable to isolate CPU%u\n", c->cpu);
 		}
 		cluster->active_cpus = get_active_cpu_count(cluster);
+		spin_lock_irqsave(&state_lock, flags);
 	}
+	spin_unlock_irqrestore(&state_lock, flags);
+
 }
 
 static void __try_to_unisolate(struct cluster_data *cluster,
 			       unsigned int need, bool force)
 {
 	struct cpu_data *c, *tmp;
+	unsigned long flags;
+	unsigned int num_cpus = cluster->num_cpus;
 
+	/*
+	 * Protect against entry being removed (and added at tail) by other
+	 * thread (hotplug).
+	 */
+	spin_lock_irqsave(&state_lock, flags);
 	list_for_each_entry_safe(c, tmp, &cluster->lru, sib) {
+		if (!num_cpus--)
+			break;
+
 		if (!c->isolated_by_us)
 			continue;
 		if ((c->online && !cpu_isolated(c->cpu)) ||
@@ -778,6 +812,8 @@ static void __try_to_unisolate(struct cluster_data *cluster,
 			continue;
 		if (cluster->active_cpus == need)
 			break;
+
+		spin_unlock_irqrestore(&state_lock, flags);
 
 		pr_debug("Trying to unisolate CPU%u\n", c->cpu);
 		if (!sched_unisolate_cpu(c->cpu)) {
@@ -787,7 +823,9 @@ static void __try_to_unisolate(struct cluster_data *cluster,
 			pr_debug("Unable to unisolate CPU%u\n", c->cpu);
 		}
 		cluster->active_cpus = get_active_cpu_count(cluster);
+		spin_lock_irqsave(&state_lock, flags);
 	}
+	spin_unlock_irqrestore(&state_lock, flags);
 }
 
 static void try_to_unisolate(struct cluster_data *cluster, unsigned int need)

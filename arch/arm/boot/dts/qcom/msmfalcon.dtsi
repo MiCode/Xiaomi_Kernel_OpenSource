@@ -287,6 +287,32 @@
 		qcom,pipe-attr-ee;
 	};
 
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x200000>;
+			qcom,client-id = <0>;
+			qcom,allocate-boot-time;
+			label = "modem";
+		};
+
+		qcom,client_2 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x300000>;
+			qcom,client-id = <2>;
+			label = "modem";
+		};
+
+		mem_client_3_size: qcom,client_3 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <1>;
+			label = "modem";
+		};
+	};
+
 	tsens: tsens@10ad000 {
 		compatible = "qcom,msmfalcon-tsens";
 		reg = <0x10ad000 0x2000>,
@@ -384,8 +410,10 @@
 	};
 
 	clock_gcc: clock-controller@100000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,gcc-msmfalcon";
+		reg = <0x100000 0x94000>;
+		vdd_dig-supply = <&pm2falcon_s3_level>;
+		vdd_dig_ao-supply = <&pm2falcon_s3_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -696,7 +724,7 @@
 		reg = <0x15700000 0x00100>;
 		interrupts = <0 162 1>;
 
-		vdd_cx-supply = <&pmfalcon_s3b_level>;
+		vdd_cx-supply = <&pm2falcon_s3_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
 
@@ -728,7 +756,7 @@
 		reg = <0x1a300000 0x00100>;
 		interrupts = <0 518 1>;
 
-		vdd_cx-supply = <&pmfalcon_s3b_level>;
+		vdd_cx-supply = <&pm2falcon_s3_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
 
@@ -783,9 +811,9 @@
 					 "mnoc_axi_clk";
 
 		interrupts = <0 448 1>;
-		vdd_cx-supply = <&pmfalcon_s3b_level>;
+		vdd_cx-supply = <&pm2falcon_s3_level>;
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		vdd_mx-supply = <&pmfalcon_s5b_level>;
+		vdd_mx-supply = <&pm2falcon_s5_level>;
 		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
@@ -807,10 +835,25 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 		status = "ok";
 	};
+
+	qcom,msm-imem@146bf000 {
+		compatible = "qcom,msm-imem";
+		reg = <0x146bf000 0x1000>;
+		ranges = <0x0 0x146bf000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
+	};
 };
 
 #include "msmfalcon-ion.dtsi"
 #include "msmfalcon-bus.dtsi"
+#include "msm-pmfalcon-rpm-regulator.dtsi"
+#include "msm-pm2falcon-rpm-regulator.dtsi"
 #include "msmfalcon-regulator.dtsi"
 #include "msm-gdsc-falcon.dtsi"
 

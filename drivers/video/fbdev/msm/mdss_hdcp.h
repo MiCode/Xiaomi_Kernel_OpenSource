@@ -55,6 +55,7 @@ struct hdcp_init_data {
 
 struct hdcp_ops {
 	int (*isr)(void *ptr);
+	int (*cp_irq)(void *ptr);
 	int (*reauthenticate)(void *input);
 	int (*authenticate)(void *hdcp_ctrl);
 	bool (*feature_supported)(void *input);

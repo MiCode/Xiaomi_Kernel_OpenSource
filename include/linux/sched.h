@@ -446,6 +446,7 @@ extern unsigned int  hardlockup_panic;
 void lockup_detector_init(void);
 extern void watchdog_enable(unsigned int cpu);
 extern void watchdog_disable(unsigned int cpu);
+extern bool watchdog_configured(unsigned int cpu);
 #else
 static inline void touch_softlockup_watchdog_sched(void)
 {
@@ -467,6 +468,14 @@ static inline void watchdog_enable(unsigned int cpu)
 }
 static inline void watchdog_disable(unsigned int cpu)
 {
+}
+static inline bool watchdog_configured(unsigned int cpu)
+{
+	/*
+	 * Predend the watchdog is always configured.
+	 * We will be waiting for the watchdog to be enabled in core isolation
+	 */
+	return true;
 }
 #endif
 
@@ -900,6 +909,7 @@ struct user_struct {
 #endif
 	unsigned long locked_shm; /* How many pages of mlocked shm ? */
 	unsigned long unix_inflight;	/* How many files in flight in unix sockets */
+	atomic_long_t pipe_bufs;  /* how many pages are allocated in pipe buffers */
 
 #ifdef CONFIG_KEYS
 	struct key *uid_keyring;	/* UID specific keyring */
@@ -1900,8 +1910,8 @@ struct task_struct {
 	 * time slack values; these are used to round up poll() and
 	 * select() etc timeout values. These are in nanoseconds.
 	 */
-	unsigned long timer_slack_ns;
-	unsigned long default_timer_slack_ns;
+	u64 timer_slack_ns;
+	u64 default_timer_slack_ns;
 
 #ifdef CONFIG_KASAN
 	unsigned int kasan_depth;
@@ -2392,6 +2402,7 @@ struct cpu_cycle_counter_cb {
 };
 
 #ifdef CONFIG_SCHED_HMP
+extern void free_task_load_ptrs(struct task_struct *p);
 extern int sched_set_window(u64 window_start, unsigned int window_size);
 extern unsigned long sched_get_busy(int cpu);
 extern void sched_get_cpus_busy(struct sched_load *busy,
@@ -2417,6 +2428,8 @@ extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
 
 #else /* CONFIG_SCHED_HMP */
+static inline void free_task_load_ptrs(struct task_struct *p) { }
+
 static inline u64 sched_ktime_clock(void)
 {
 	return 0;

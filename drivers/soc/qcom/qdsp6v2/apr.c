@@ -54,6 +54,28 @@ struct apr_reset_work {
 	struct work_struct work;
 };
 
+static bool apr_cf_debug;
+
+#ifdef CONFIG_DEBUG_FS
+static struct dentry *debugfs_apr_debug;
+static ssize_t apr_debug_write(struct file *filp, const char __user *ubuf,
+			       size_t cnt, loff_t *ppos)
+{
+	char cmd;
+
+	if (copy_from_user(&cmd, ubuf, 1))
+		return -EFAULT;
+
+	apr_cf_debug = (cmd == '1') ? true : false;
+
+	return cnt;
+}
+
+static const struct file_operations apr_debug_ops = {
+	.write = apr_debug_write,
+};
+#endif
+
 #define APR_PKT_INFO(x...) \
 do { \
 	if (apr_pkt_ctx) \
@@ -343,8 +365,13 @@ int apr_send_pkt(void *handle, uint32_t *buf)
 	hdr->dest_domain = svc->dest_domain;
 	hdr->dest_svc = svc->id;
 
-	APR_PKT_INFO("Tx: dest_svc[%d], opcode[0x%X], size[%d]",
-			hdr->dest_svc, hdr->opcode, hdr->pkt_size);
+	if (unlikely(apr_cf_debug)) {
+		APR_PKT_INFO(
+		"Tx: src_addr[0x%X] dest_addr[0x%X] opcode[0x%X] token[0x%X]",
+		(hdr->src_domain << 8) | hdr->src_svc,
+		(hdr->dest_domain << 8) | hdr->dest_svc, hdr->opcode,
+		hdr->token);
+	}
 
 	rc = apr_tal_write(clnt->handle, buf,
 			(struct apr_pkt_priv *)&svc->pkt_owner,
@@ -538,8 +565,6 @@ void apr_cb_func(void *buf, int len, void *priv)
 		return;
 	}
 	hdr = buf;
-	APR_PKT_INFO("Rx: dest_svc[%d], opcode[0x%X], size[%d]",
-		     hdr->dest_svc, hdr->opcode, hdr->pkt_size);
 
 	ver = hdr->hdr_field;
 	ver = (ver & 0x000F);
@@ -631,8 +656,27 @@ void apr_cb_func(void *buf, int len, void *priv)
 	data.dest_port = hdr->dest_port;
 	data.token = hdr->token;
 	data.msg_type = msg_type;
+	data.payload = NULL;
 	if (data.payload_size > 0)
 		data.payload = (char *)hdr + hdr_size;
+
+	if (unlikely(apr_cf_debug)) {
+		if (hdr->opcode == APR_BASIC_RSP_RESULT && data.payload) {
+			uint32_t *ptr = data.payload;
+
+			APR_PKT_INFO(
+			"Rx: src_addr[0x%X] dest_addr[0x%X] opcode[0x%X] token[0x%X] rc[0x%X]",
+			(hdr->src_domain << 8) | hdr->src_svc,
+			(hdr->dest_domain << 8) | hdr->dest_svc,
+			hdr->opcode, hdr->token, ptr[1]);
+		} else {
+			APR_PKT_INFO(
+			"Rx: src_addr[0x%X] dest_addr[0x%X] opcode[0x%X] token[0x%X]",
+			(hdr->src_domain << 8) | hdr->src_svc,
+			(hdr->dest_domain << 8) | hdr->dest_svc, hdr->opcode,
+			hdr->token);
+		}
+	}
 
 	temp_port = ((data.dest_port >> 8) * 8) + (data.dest_port & 0xFF);
 	pr_debug("port = %d t_port = %d\n", data.src_port, temp_port);
@@ -910,3 +954,14 @@ static int __init apr_late_init(void)
 	return ret;
 }
 late_initcall(apr_late_init);
+
+#ifdef CONFIG_DEBUG_FS
+static int __init apr_debug_init(void)
+{
+	debugfs_apr_debug = debugfs_create_file("msm_apr_debug",
+						 S_IFREG | S_IRUGO, NULL, NULL,
+						 &apr_debug_ops);
+	return 0;
+}
+device_initcall(apr_debug_init);
+#endif

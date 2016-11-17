@@ -162,7 +162,7 @@ static void root_service_clnt_recv_msg(struct work_struct *work)
 							data->instance_id);
 	} while ((ret = qmi_recv_msg(data->clnt_handle)) == 0);
 
-	pr_info("Notified about a Receive event (instance-id: %d)\n",
+	pr_debug("Notified about a Receive event (instance-id: %d)\n",
 							data->instance_id);
 }
 
@@ -227,7 +227,8 @@ static void root_service_service_ind_cb(struct qmi_handle *handle,
 	struct qmi_client_info *data = (struct qmi_client_info *)ind_cb_priv;
 	struct service_notif_info *service_notif;
 	struct msg_desc ind_desc;
-	struct qmi_servreg_notif_state_updated_ind_msg_v01 ind_msg;
+	struct qmi_servreg_notif_state_updated_ind_msg_v01 ind_msg = {
+					QMI_STATE_MIN_VAL, "", 0xFFFF };
 	int rc;
 
 	ind_desc.msg_id = SERVREG_NOTIF_STATE_UPDATED_IND_MSG;

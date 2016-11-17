@@ -794,7 +794,7 @@ int32_t msm_camera_tz_i2c_register_sensor(
 		return -EINVAL;
 	}
 
-	CDBG("id=%d, client=%p\n", s_ctrl->id, s_ctrl);
+	CDBG("id=%d, client=%pK\n", s_ctrl->id, s_ctrl);
 	sensor_info[s_ctrl->id].s_ctrl = s_ctrl;
 	sensor_info[s_ctrl->id].secure = s_ctrl->is_secure;
 	return 0;

@@ -74,6 +74,9 @@ static void msm_vfe44_config_irq(struct vfe_device *vfe_dev,
 	case MSM_ISP_IRQ_ENABLE:
 		vfe_dev->irq0_mask |= irq0_mask;
 		vfe_dev->irq1_mask |= irq1_mask;
+		msm_camera_io_w(irq0_mask, vfe_dev->vfe_base + 0x30);
+		msm_camera_io_w(irq1_mask, vfe_dev->vfe_base + 0x34);
+		msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x24);
 		break;
 	case MSM_ISP_IRQ_DISABLE:
 		vfe_dev->irq0_mask &= ~irq0_mask;
@@ -82,6 +85,9 @@ static void msm_vfe44_config_irq(struct vfe_device *vfe_dev,
 	case MSM_ISP_IRQ_SET:
 		vfe_dev->irq0_mask = irq0_mask;
 		vfe_dev->irq1_mask = irq1_mask;
+		msm_camera_io_w(irq0_mask, vfe_dev->vfe_base + 0x30);
+		msm_camera_io_w(irq1_mask, vfe_dev->vfe_base + 0x34);
+		msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x24);
 		break;
 	}
 	msm_camera_io_w_mb(irq0_mask, vfe_dev->vfe_base + 0x28);
@@ -175,9 +181,6 @@ static void msm_vfe44_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w(0x10000001, vfe_dev->vfe_base + 0x50);
 	msm_vfe44_config_irq(vfe_dev, 0x800000E0, 0xFFFFFF7E,
 			MSM_ISP_IRQ_ENABLE);
-	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x30);
-	msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x34);
-	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x24);
 
 }
 
@@ -1349,15 +1352,6 @@ static int msm_vfe44_axi_halt(struct vfe_device *vfe_dev,
 	msm_vfe44_config_irq(vfe_dev, (1 << 31), (1 << 8),
 			MSM_ISP_IRQ_SET);
 
-	/*Clear IRQ Status0, only leave reset irq mask*/
-	msm_camera_io_w(0x7FFFFFFF, vfe_dev->vfe_base + 0x30);
-
-	/*Clear IRQ Status1, only leave halt irq mask*/
-	msm_camera_io_w(0xFEFFFEFF, vfe_dev->vfe_base + 0x34);
-
-	/*push clear cmd*/
-	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x24);
-
 	if (atomic_read(&vfe_dev->error_info.overflow_state)
 		== OVERFLOW_DETECTED)
 		pr_err_ratelimited("%s: VFE%d halt for recovery, blocking %d\n",
@@ -1393,11 +1387,8 @@ static int msm_vfe44_axi_halt(struct vfe_device *vfe_dev,
 static void msm_vfe44_axi_restart(struct vfe_device *vfe_dev,
 	uint32_t blocking, uint32_t enable_camif)
 {
-	msm_vfe44_config_irq(vfe_dev, vfe_dev->irq0_mask, vfe_dev->irq1_mask,
-		MSM_ISP_IRQ_SET);
-	msm_camera_io_w(0x7FFFFFFF, vfe_dev->vfe_base + 0x30);
-	msm_camera_io_w(0xFEFFFEFF, vfe_dev->vfe_base + 0x34);
-	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x24);
+	msm_vfe44_config_irq(vfe_dev, 0x800000E0, 0xFFFFFF7E,
+			MSM_ISP_IRQ_ENABLE);
 	msm_camera_io_w_mb(0x140000, vfe_dev->vfe_base + 0x318);
 
 	/* Start AXI */

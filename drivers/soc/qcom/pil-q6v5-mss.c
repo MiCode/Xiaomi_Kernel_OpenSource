@@ -277,7 +277,8 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 		q6->restart_reg_sec = true;
 	}
 
-	q6->restart_reg = devm_ioremap_resource(&pdev->dev, res);
+	q6->restart_reg = devm_ioremap(&pdev->dev,
+						res->start, resource_size(res));
 	if (!q6->restart_reg)
 		return -ENOMEM;
 

@@ -608,6 +608,7 @@
 #define A5XX_PC_PERFCTR_PC_SEL_7            0xD17
 
 /* HLSQ registers */
+#define A5XX_HLSQ_DBG_ECO_CNTL		    0xE04
 #define A5XX_HLSQ_ADDR_MODE_CNTL            0xE05
 #define A5XX_HLSQ_PERFCTR_HLSQ_SEL_0        0xE10
 #define A5XX_HLSQ_PERFCTR_HLSQ_SEL_1        0xE11
@@ -632,6 +633,7 @@
 #define A5XX_VFD_PERFCTR_VFD_SEL_7          0xE57
 
 /* VPC registers */
+#define A5XX_VPC_DBG_ECO_CNTL		    0xE60
 #define A5XX_VPC_ADDR_MODE_CNTL             0xE61
 #define A5XX_VPC_PERFCTR_VPC_SEL_0          0xE64
 #define A5XX_VPC_PERFCTR_VPC_SEL_1          0xE65

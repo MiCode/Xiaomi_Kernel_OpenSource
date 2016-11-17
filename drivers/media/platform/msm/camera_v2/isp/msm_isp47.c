@@ -156,6 +156,9 @@ void msm_vfe47_config_irq(struct vfe_device *vfe_dev,
 	case MSM_ISP_IRQ_ENABLE:
 		vfe_dev->irq0_mask |= irq0_mask;
 		vfe_dev->irq1_mask |= irq1_mask;
+		msm_camera_io_w_mb(irq0_mask, vfe_dev->vfe_base + 0x64);
+		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x58);
 		break;
 	case MSM_ISP_IRQ_DISABLE:
 		vfe_dev->irq0_mask &= ~irq0_mask;
@@ -164,6 +167,9 @@ void msm_vfe47_config_irq(struct vfe_device *vfe_dev,
 	case MSM_ISP_IRQ_SET:
 		vfe_dev->irq0_mask = irq0_mask;
 		vfe_dev->irq1_mask = irq1_mask;
+		msm_camera_io_w_mb(irq0_mask, vfe_dev->vfe_base + 0x64);
+		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x58);
 		break;
 	}
 	msm_camera_io_w_mb(vfe_dev->irq0_mask,
@@ -404,9 +410,6 @@ void msm_vfe47_init_hardware_reg(struct vfe_device *vfe_dev)
 	/* IRQ_MASK/CLEAR */
 	vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
 			0x810000E0, 0xFFFFFF7E, MSM_ISP_IRQ_ENABLE);
-	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x64);
-	msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x68);
-	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x58);
 }
 
 void msm_vfe47_clear_status_reg(struct vfe_device *vfe_dev)
@@ -792,6 +795,8 @@ void msm_vfe47_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
 	uint32_t comp_mask, comp_mask_index;
+	int i;
+	uint32_t overflow_mask = 0;
 
 	comp_mask_index = stream_info->comp_mask_index[vfe_idx];
 	comp_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x74);
@@ -800,8 +805,11 @@ void msm_vfe47_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 		stream_composite_mask << (comp_mask_index * 8));
 	msm_camera_io_w(comp_mask, vfe_dev->vfe_base + 0x74);
 
+	for (i = 0; i < stream_info->num_planes; i++)
+		overflow_mask |= (1 << (stream_info->wm[vfe_idx][i] + 9));
+
 	vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << (comp_mask_index + 25), 0,
+				1 << (comp_mask_index + 25), overflow_mask,
 				MSM_ISP_IRQ_ENABLE);
 }
 
@@ -827,7 +835,8 @@ void msm_vfe47_axi_cfg_wm_irq_mask(struct vfe_device *vfe_dev,
 	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
 
 	vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << (stream_info->wm[vfe_idx][0] + 8), 0,
+				1 << (stream_info->wm[vfe_idx][0] + 8),
+				1 << (stream_info->wm[vfe_idx][0] + 9),
 				MSM_ISP_IRQ_ENABLE);
 }
 
@@ -1309,7 +1318,7 @@ void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 		msm_camera_io_w(
 		subsample_cfg->first_line << 16 |
 			subsample_cfg->last_line,
-			vfe_dev->vfe_base + 0xCE4);
+			vfe_dev->vfe_base + 0xCE8);
 		val = msm_camera_io_r(
 			vfe_dev->vfe_base + 0x47C);
 		ISP_DBG("%s: camif raw crop enabled\n", __func__);
@@ -1417,11 +1426,8 @@ void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 
 	val = msm_camera_io_r(vfe_dev->vfe_base + 0x47C);
 	if (update_state == ENABLE_CAMIF) {
-		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x64);
-		msm_camera_io_w(0x81, vfe_dev->vfe_base + 0x68);
-		msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x58);
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-					0x15, 0x81,
+					0x15, 0x91,
 					MSM_ISP_IRQ_ENABLE);
 
 		if ((vfe_dev->hvx_cmd > HVX_DISABLE) &&
@@ -1452,8 +1458,8 @@ void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 		/* For testgen always halt on camif boundary */
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
 			update_state = DISABLE_CAMIF;
-		/* turn off camif violation and error irqs */
-		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev, 0, 0x81,
+		/* turn off camif, violation and write master overwrite irq */
+		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev, 0, 0x91,
 					MSM_ISP_IRQ_DISABLE);
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x464);
 		/* disable danger signal */
@@ -1471,16 +1477,6 @@ void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 		if ((vfe_dev->hvx_cmd > HVX_DISABLE) &&
 			(vfe_dev->hvx_cmd <= HVX_ROUND_TRIP))
 			msm_vfe47_configure_hvx(vfe_dev, 0);
-		/*
-		 * restore the irq that were disabled for camif stop and clear
-		 * the camif error interrupts if generated during that period
-		 */
-		msm_camera_io_w(0, vfe_dev->vfe_base + 0x64);
-		msm_camera_io_w(1 << 0, vfe_dev->vfe_base + 0x68);
-		msm_camera_io_w_mb(1, vfe_dev->vfe_base + 0x58);
-		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-					vfe_dev->irq0_mask,
-					vfe_dev->irq1_mask, MSM_ISP_IRQ_SET);
 
 	}
 }
@@ -1768,16 +1764,6 @@ int msm_vfe47_axi_halt(struct vfe_device *vfe_dev,
 				(1 << 31), (1 << 8),
 				MSM_ISP_IRQ_SET);
 
-	/*Clear IRQ Status0, only leave reset irq mask*/
-	msm_camera_io_w(0x7FFFFFFF, vfe_dev->vfe_base + 0x64);
-
-	/*Clear IRQ Status1, only leave halt irq mask*/
-	msm_camera_io_w(0xFFFFFEFF, vfe_dev->vfe_base + 0x68);
-
-	/*push clear cmd*/
-	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x58);
-
-
 	if (atomic_read(&vfe_dev->error_info.overflow_state)
 		== OVERFLOW_DETECTED)
 		pr_err_ratelimited("%s: VFE%d halt for recovery, blocking %d\n",
@@ -1815,12 +1801,7 @@ void msm_vfe47_axi_restart(struct vfe_device *vfe_dev,
 	uint32_t blocking, uint32_t enable_camif)
 {
 	vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				vfe_dev->irq0_mask, vfe_dev->irq1_mask,
-				MSM_ISP_IRQ_SET);
-	msm_camera_io_w(0x7FFFFFFF, vfe_dev->vfe_base + 0x64);
-	msm_camera_io_w(0xFFFFFEFF, vfe_dev->vfe_base + 0x68);
-	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x58);
-
+			0x810000E0, 0xFFFFFF7E, MSM_ISP_IRQ_ENABLE);
 	/* Start AXI */
 	msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x400);
 
@@ -1832,6 +1813,8 @@ void msm_vfe47_axi_restart(struct vfe_device *vfe_dev,
 		vfe_dev->hw_info->vfe_ops.core_ops.
 		update_camif_state(vfe_dev, ENABLE_CAMIF);
 	}
+	vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
+			0x810000E0, 0xFFFFFF7E, MSM_ISP_IRQ_ENABLE);
 }
 
 uint32_t msm_vfe47_get_wm_mask(
@@ -1957,40 +1940,40 @@ void msm_vfe47_stats_cfg_wm_irq_mask(
 	switch (STATS_IDX(stream_info->stream_handle[vfe_idx])) {
 	case STATS_COMP_IDX_AEC_BG:
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << 15, 0, MSM_ISP_IRQ_ENABLE);
+				1 << 15, 1 << 24, MSM_ISP_IRQ_ENABLE);
 		break;
 	case STATS_COMP_IDX_HDR_BE:
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << 16, 0, MSM_ISP_IRQ_ENABLE);
+				1 << 16, 1 << 16, MSM_ISP_IRQ_ENABLE);
 		break;
 	case STATS_COMP_IDX_BG:
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << 17, 0, MSM_ISP_IRQ_ENABLE);
+				1 << 17, 1 << 17, MSM_ISP_IRQ_ENABLE);
 		break;
 	case STATS_COMP_IDX_BF:
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << 18, 1 << 26,
+				1 << 18, 1 << 26 | 1 << 18,
 				MSM_ISP_IRQ_ENABLE);
 		break;
 	case STATS_COMP_IDX_HDR_BHIST:
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << 19, 0, MSM_ISP_IRQ_ENABLE);
+				1 << 19, 1 << 19, MSM_ISP_IRQ_ENABLE);
 		break;
 	case STATS_COMP_IDX_RS:
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << 20, 0, MSM_ISP_IRQ_ENABLE);
+				1 << 20, 1 << 20, MSM_ISP_IRQ_ENABLE);
 		break;
 	case STATS_COMP_IDX_CS:
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << 21, 0, MSM_ISP_IRQ_ENABLE);
+				1 << 21, 1 << 21, MSM_ISP_IRQ_ENABLE);
 		break;
 	case STATS_COMP_IDX_IHIST:
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << 22, 0, MSM_ISP_IRQ_ENABLE);
+				1 << 22, 1 << 22, MSM_ISP_IRQ_ENABLE);
 		break;
 	case STATS_COMP_IDX_BHIST:
 		vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-				1 << 23, 0, MSM_ISP_IRQ_ENABLE);
+				1 << 23, 1 << 23, MSM_ISP_IRQ_ENABLE);
 		break;
 	default:
 		pr_err("%s: Invalid stats idx %d\n", __func__,

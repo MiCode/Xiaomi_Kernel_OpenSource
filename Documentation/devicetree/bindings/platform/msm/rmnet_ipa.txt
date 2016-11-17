@@ -12,9 +12,11 @@ Optional:
 regarding scatter-gather capability
 - qcom,ipa-napi-enable: Boolean context flag to indicate whether
                         to enable napi framework or not
+- qcom,wan-rx-desc-size: size of WAN rx desc fifo ring, default is 256
 
 Example:
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa";
+		qcom,wan-rx-desc-size = <256>;
 	}
 

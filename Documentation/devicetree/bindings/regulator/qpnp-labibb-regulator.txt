@@ -8,7 +8,7 @@ display panels, LCD or AMOLED.
 Main node required properties:
 
 - compatible:			Must be "qcom,qpnp-labibb-regulator"
-- qpnp,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB
+- qcom,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB
 				regulators when bootloader does not turned on the
 				display panel. Could be "lcd" or "amoled".
 				"lcd" means using LAB and IBB regulators are
@@ -26,9 +26,9 @@ Main node optional properties:
 					in LAB and IBB modules. Make sure the
 					hardware has needed support before
 					enabling this property.
-- qpnp,swire-control:			A bool property which indicates if the LAB/IBB is
+- qcom,swire-control:			A bool property which indicates if the LAB/IBB is
 					controlled by the SWIRE interface. Enable only
-					if qpnp,qpnp-labibb-mode = "amoled".
+					if qcom,qpnp-labibb-mode = "amoled".
 - qcom,labibb-ttw-force-lab-on:		A boolean property which forces LAB to be
 					always on during TTW mode.
 - qcom,skip-2nd-swire-cmd:		A boolean property which indicates if
@@ -82,8 +82,10 @@ LAB subnode required properties:
 					are 25, 50, 75 and 100.
 - qcom,qpnp-lab-nfet-size:		NFET size in percentage. Supported values
 					are 25, 50, 75 and 100.
-- qcom,qpnp-lab-max-precharge-time:	Precharge time in us of LAB regulator.
+- qcom,qpnp-lab-max-precharge-time:	Precharge time in uS for LAB regulator.
 					Supported values are 200, 300, 400 and 500.
+					Suggested values for LCD and AMOLED mode
+					are 500 and 300uS respectively.
 - qcom,qpnp-lab-switching-clock-frequency:	The PWM switching clock frequency in
 						kHz of Lab regulator, Supported values
 						are: 3200, 2740, 2400, 2130, 1920,
@@ -91,11 +93,22 @@ LAB subnode required properties:
 						1130, 1070, 1010, 960, 910.
 - qcom,qpnp-lab-limit-maximum-current:		The maximum inductor current limit in
 						mA of LAB regulator. Supported values
-						are 200, 400, 600 and 800.
+						are 200, 400, 600, 800, 1000, 1200,
+						1400 and 1600.
+- interrupts:				Specify the interrupts as per the interrupt
+					encoding.
+					Currently "lab-vreg-ok" is required for
+					LCD mode in pmicobalt. For AMOLED mode,
+					"lab-vreg-ok" is required only when SWIRE
+					control is enabled and skipping 2nd SWIRE
+					pulse is required in pmi8952/8996.
+- interrupt-names:			Interrupt names to match up 1-to-1 with
+					the interrupts specified in 'interrupts'
+					property.
 
 LAB subnode optional properties:
 
-- qpnp,qpnp-lab-current-sense:		If this property is specified, the LAB current
+- qcom,qpnp-lab-current-sense:		If this property is specified, the LAB current
 					sense gain will be programmed for LAB regulator.
 					Otherwise, LAB current sense gain will be
 					default to "1x". A string is used to specify the
@@ -209,7 +222,7 @@ IBB subnode optional properties:
 						any value in the allowed limit.
 - qcom,output-voltage-one-pulse			The expected voltage (in mV) of VDISN signal
 						on the first SWIRE pulse. This property
-						can be specified only if 'qpnp,swire-control'
+						can be specified only if 'qcom,swire-control'
 						is defined. The minimum and maximum values
 						are 1400mV and 7700mV.
 
@@ -219,7 +232,7 @@ Example:
 			compatible = "qcom,qpnp-labibb-regulator";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qpnp,qpnp-labibb-mode = "lcd";
+			qcom,qpnp-labibb-mode = "lcd";
 			qcom,pmic-revid = <&pmi8994_revid>;
 			qcom,skip-2nd-swire-cmd;
 
@@ -227,7 +240,8 @@ Example:
 				reg = <0xde00 0x100>;
 				reg-names = "lab";
 
-				interrupts = <0x3 0xde 0x0>;
+				interrupts = <0x3 0xde 0x0
+						IRQ_TYPE_EDGE_RISING>;
                                 interrupt-names = "lab-vreg-ok";
 
 				regulator-name = "lab_reg";
@@ -247,7 +261,7 @@ Example:
 				qcom,qpnp-lab-full-pull-down;
 				qcom,qpnp-lab-pull-down-enable;
 				qcom,qpnp-lab-switching-clock-frequency = <1600>;
-				qcom,qpnp-lab-limit-maximum-current = <800>;
+				qcom,qpnp-lab-limit-maximum-current = <1600>;
 				qcom,qpnp-lab-limit-max-current-enable;
 				qcom,qpnp-lab-ps-threshold = <40>;
 				qcom,qpnp-lab-ps-enable;

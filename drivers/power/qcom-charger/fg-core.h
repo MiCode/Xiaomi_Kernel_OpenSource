@@ -222,7 +222,6 @@ struct fg_batt_props {
 	int		float_volt_uv;
 	int		vbatt_full_mv;
 	int		fastchg_curr_ma;
-	int		batt_id_kohm;
 };
 
 struct fg_cyc_ctr_data {
@@ -260,6 +259,7 @@ struct fg_chip {
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
+	struct power_supply	*parallel_psy;
 	struct iio_channel	*batt_id_chan;
 	struct fg_memif		*sram;
 	struct fg_irq_info	*irqs;
@@ -278,7 +278,7 @@ struct fg_chip {
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
-	int			batt_id;
+	int			batt_id_kohms;
 	int			status;
 	int			charge_done;
 	int			last_soc;
@@ -291,6 +291,7 @@ struct fg_chip {
 	bool			charge_full;
 	bool			recharge_soc_adjusted;
 	bool			ki_coeff_dischg_en;
+	bool			esr_fcc_ctrl_en;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
@@ -340,6 +341,8 @@ extern int fg_read(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_write(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_masked_write(struct fg_chip *chip, int addr, u8 mask, u8 val);
 extern int fg_ima_init(struct fg_chip *chip);
+extern int fg_clear_ima_errors_if_any(struct fg_chip *chip, bool check_hw_sts);
+extern int fg_clear_dma_errors_if_any(struct fg_chip *chip);
 extern int fg_debugfs_create(struct fg_chip *chip);
 extern void fill_string(char *str, size_t str_len, u8 *buf, int buf_len);
 extern int64_t twos_compliment_extend(int64_t val, int s_bit_pos);

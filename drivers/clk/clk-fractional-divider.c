@@ -124,7 +124,7 @@ struct clk *clk_register_fractional_divider(struct device *dev,
 		u8 clk_divider_flags, spinlock_t *lock)
 {
 	struct clk_fractional_divider *fd;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk *clk;
 
 	fd = kzalloc(sizeof(*fd), GFP_KERNEL);

@@ -137,6 +137,25 @@ enum {
 	SIM_HW_TE_MODE,
 };
 
+
+/*
+ * enum partial_update_mode - Different modes for partial update feature
+ *
+ * @PU_NOT_SUPPORTED:	Feature is not supported on target.
+ * @PU_SINGLE_ROI:	Default mode, only one ROI is triggered to the
+ *                              panel(one on each DSI in case of split dsi)
+ * @PU_DUAL_ROI:	Support for sending two roi's that are clubbed
+ *                              together as one big single ROI. This is only
+ *                              supported on certain panels that have this
+ *                              capability in their DDIC.
+ *
+ */
+enum {
+	PU_NOT_SUPPORTED = 0,
+	PU_SINGLE_ROI,
+	PU_DUAL_ROI,
+};
+
 struct mdss_rect {
 	u16 x;
 	u16 y;
@@ -664,6 +683,50 @@ struct mdss_panel_roi_alignment {
 	u32 min_height;
 };
 
+
+/*
+ * Nomeclature used to represent partial ROI in case of
+ * dual roi when the panel supports it. Region marked (XXX) is
+ * the extended roi to align with the second roi since LM output
+ * has to be rectangle.
+ *
+ * For single ROI, only the first ROI will be used in the struct.
+ * DSI driver will merge it based on the partial_update_roi_merge
+ * property.
+ *
+ * -------------------------------
+ * |   DSI0       |    DSI1      |
+ * -------------------------------
+ * |              |              |
+ * |              |              |
+ * |     =========|=======----+  |
+ * |     |        |      |XXXX|  |
+ * |     |   First| Roi  |XXXX|  |
+ * |     |        |      |XXXX|  |
+ * |     =========|=======----+  |
+ * |              |              |
+ * |              |              |
+ * |              |              |
+ * |     +----=================  |
+ * |     |XXXX|   |           |  |
+ * |     |XXXX| Second Roi    |  |
+ * |     |XXXX|   |           |  |
+ * |     +----====|============  |
+ * |              |              |
+ * |              |              |
+ * |              |              |
+ * |              |              |
+ * |              |              |
+ * ------------------------------
+ *
+ */
+
+struct mdss_dsi_dual_pu_roi {
+	struct mdss_rect first_roi;
+	struct mdss_rect second_roi;
+	bool enabled;
+};
+
 struct mdss_panel_info {
 	u32 xres;
 	u32 yres;
@@ -689,6 +752,7 @@ struct mdss_panel_info {
 	u32 vic; /* video identification code */
 	u32 deep_color;
 	struct mdss_rect roi;
+	struct mdss_dsi_dual_pu_roi dual_roi;
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
 	int pwm_period;
@@ -723,8 +787,8 @@ struct mdss_panel_info {
 
 	u32 cont_splash_enabled;
 	bool esd_rdy;
-	bool partial_update_supported; /* value from dts if pu is supported */
-	bool partial_update_enabled; /* is pu currently allowed */
+	u32 partial_update_supported; /* value from dts if pu is supported */
+	u32 partial_update_enabled; /* is pu currently allowed */
 	u32 dcs_cmd_by_left;
 	u32 partial_update_roi_merge;
 	struct ion_handle *splash_ihdl;
@@ -997,6 +1061,27 @@ static inline bool is_lm_configs_dsc_compatible(struct mdss_panel_info *pinfo,
 	if ((width % pinfo->dsc.slice_width) ||
 		(height % pinfo->dsc.slice_height))
 		return false;
+	return true;
+}
+
+static inline bool is_valid_pu_dual_roi(struct mdss_panel_info *pinfo,
+		struct mdss_rect *first_roi, struct mdss_rect *second_roi)
+{
+	if ((first_roi->x != second_roi->x) || (first_roi->w != second_roi->w)
+		|| (first_roi->y > second_roi->y)
+		|| ((first_roi->y + first_roi->h) > second_roi->y)
+		|| (is_dsc_compression(pinfo) &&
+			!is_lm_configs_dsc_compatible(pinfo,
+				first_roi->w, first_roi->h) &&
+			!is_lm_configs_dsc_compatible(pinfo,
+				second_roi->w, second_roi->h))) {
+		pr_err("Invalid multiple PU ROIs, roi0:{%d,%d,%d,%d}, roi1{%d,%d,%d,%d}\n",
+				first_roi->x, first_roi->y, first_roi->w,
+				first_roi->h, second_roi->x, second_roi->y,
+				second_roi->w, second_roi->h);
+		return false;
+	}
+
 	return true;
 }
 

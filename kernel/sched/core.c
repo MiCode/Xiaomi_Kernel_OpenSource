@@ -1912,7 +1912,7 @@ void scheduler_ipi(void)
 	/*
 	 * Check if someone kicked us for doing the nohz idle load balance.
 	 */
-	if (unlikely(got_nohz_idle_kick())) {
+	if (unlikely(got_nohz_idle_kick()) && !cpu_isolated(cpu)) {
 		this_rq()->idle_balance = 1;
 		raise_softirq_irqoff(SCHED_SOFTIRQ);
 	}
@@ -2269,17 +2269,7 @@ void sched_exit(struct task_struct *p)
 	reset_task_stats(p);
 	p->ravg.mark_start = wallclock;
 	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
-
-	kfree(p->ravg.curr_window_cpu);
-	kfree(p->ravg.prev_window_cpu);
-
-	/*
-	 * update_task_ravg() can be called for exiting tasks. While the
-	 * function itself ensures correct behavior, the corresponding
-	 * trace event requires that these pointers be NULL.
-	 */
-	p->ravg.curr_window_cpu = NULL;
-	p->ravg.prev_window_cpu = NULL;
+	free_task_load_ptrs(p);
 
 	enqueue_task(rq, p, 0);
 	clear_ed_task(p, rq);
@@ -2384,10 +2374,12 @@ int sysctl_numa_balancing(struct ctl_table *table, int write,
 int sched_fork(unsigned long clone_flags, struct task_struct *p)
 {
 	unsigned long flags;
-	int cpu = get_cpu();
+	int cpu;
+
+	init_new_task_load(p, false);
+	cpu = get_cpu();
 
 	__sched_fork(clone_flags, p);
-	init_new_task_load(p, false);
 	/*
 	 * We mark the process as running here. This guarantees that
 	 * nobody will actually run it, and a signal or other external
@@ -5505,7 +5497,7 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 		 */
 		if ((migrate_pinned_tasks && rq->nr_running == 1) ||
 		   (!migrate_pinned_tasks &&
-		    rq->nr_running == num_pinned_kthreads))
+		    rq->nr_running <= num_pinned_kthreads))
 			break;
 
 		/*
@@ -5541,8 +5533,12 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 		 * Since we're inside stop-machine, _nothing_ should have
 		 * changed the task, WARN if weird stuff happened, because in
 		 * that case the above rq->lock drop is a fail too.
+		 * However, during cpu isolation the load balancer might have
+		 * interferred since we don't stop all CPUs. Ignore warning for
+		 * this case.
 		 */
-		if (WARN_ON(task_rq(next) != rq || !task_on_rq_queued(next))) {
+		if (WARN_ON((task_rq(next) != rq || !task_on_rq_queued(next)) &&
+			     migrate_pinned_tasks)) {
 			raw_spin_unlock(&next->pi_lock);
 			continue;
 		}
@@ -5570,7 +5566,6 @@ static void set_rq_offline(struct rq *rq);
 
 int do_isolation_work_cpu_stop(void *data)
 {
-	unsigned long flags;
 	unsigned int cpu = smp_processor_id();
 	struct rq *rq = cpu_rq(cpu);
 
@@ -5578,23 +5573,35 @@ int do_isolation_work_cpu_stop(void *data)
 
 	irq_migrate_all_off_this_cpu();
 
-	sched_ttwu_pending();
-	/* Update our root-domain */
-	raw_spin_lock_irqsave(&rq->lock, flags);
+	local_irq_disable();
 
+	sched_ttwu_pending();
+
+	raw_spin_lock(&rq->lock);
+
+	/*
+	 * Temporarily mark the rq as offline. This will allow us to
+	 * move tasks off the CPU.
+	 */
 	if (rq->rd) {
 		BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
 		set_rq_offline(rq);
 	}
 
 	migrate_tasks(rq, false);
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
+
+	if (rq->rd)
+		set_rq_online(rq);
+	raw_spin_unlock(&rq->lock);
 
 	/*
 	 * We might have been in tickless state. Clear NOHZ flags to avoid
 	 * us being kicked for helping out with balancing
 	 */
 	nohz_balance_clear_nohz_mask(cpu);
+
+	clear_hmp_request(cpu);
+	local_irq_enable();
 	return 0;
 }
 
@@ -5693,6 +5700,22 @@ int sched_isolate_cpu(int cpu)
 	if (++cpu_isolation_vote[cpu] > 1)
 		goto out;
 
+	/*
+	 * There is a race between watchdog being enabled by hotplug and
+	 * core isolation disabling the watchdog. When a CPU is hotplugged in
+	 * and the hotplug lock has been released the watchdog thread might
+	 * not have run yet to enable the watchdog.
+	 * We have to wait for the watchdog to be enabled before proceeding.
+	 */
+	if (!watchdog_configured(cpu)) {
+		msleep(20);
+		if (!watchdog_configured(cpu)) {
+			--cpu_isolation_vote[cpu];
+			ret_code = -EBUSY;
+			goto out;
+		}
+	}
+
 	set_cpu_isolated(cpu, true);
 	cpumask_clear_cpu(cpu, &avail_cpus);
 
@@ -5703,7 +5726,6 @@ int sched_isolate_cpu(int cpu)
 	migrate_sync_cpu(cpu, cpumask_first(&avail_cpus));
 	stop_cpus(cpumask_of(cpu), do_isolation_work_cpu_stop, 0);
 
-	clear_hmp_request(cpu);
 	calc_load_migrate(rq);
 	update_max_interval();
 	sched_update_group_capacities(cpu);
@@ -5745,10 +5767,6 @@ int sched_unisolate_cpu_unlocked(int cpu)
 
 		raw_spin_lock_irqsave(&rq->lock, flags);
 		rq->age_stamp = sched_clock_cpu(cpu);
-		if (rq->rd) {
-			BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
-			set_rq_online(rq);
-		}
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 	}
 

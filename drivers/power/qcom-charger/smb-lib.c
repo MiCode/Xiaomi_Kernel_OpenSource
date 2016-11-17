@@ -490,7 +490,7 @@ static int try_rerun_apsd_for_hvdcp(struct smb_charger *chg)
 		/* ensure hvdcp is enabled */
 		if (!get_effective_result(chg->hvdcp_disable_votable)) {
 			apsd_result = smblib_get_apsd_result(chg);
-			if (apsd_result->pst == POWER_SUPPLY_TYPE_USB_HVDCP) {
+			if (apsd_result->bit & (QC_2P0_BIT | QC_3P0_BIT)) {
 				/* rerun APSD */
 				smblib_dbg(chg, PR_MISC, "rerun APSD\n");
 				smblib_masked_write(chg, CMD_APSD_REG,
@@ -596,7 +596,11 @@ static int smblib_usb_suspend_vote_callback(struct votable *votable, void *data,
 {
 	struct smb_charger *chg = data;
 
-	return smblib_set_usb_suspend(chg, suspend);
+	/* resume input if suspend is invalid */
+	if (suspend < 0)
+		suspend = 0;
+
+	return smblib_set_usb_suspend(chg, (bool)suspend);
 }
 
 static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
@@ -604,10 +608,11 @@ static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
 {
 	struct smb_charger *chg = data;
 
+	/* resume input if suspend is invalid */
 	if (suspend < 0)
-		suspend = false;
+		suspend = 0;
 
-	return smblib_set_dc_suspend(chg, suspend);
+	return smblib_set_dc_suspend(chg, (bool)suspend);
 }
 
 static int smblib_fcc_max_vote_callback(struct votable *votable, void *data,
@@ -956,12 +961,13 @@ static int smblib_apsd_disable_vote_callback(struct votable *votable,
  * OTG REGULATOR *
  *****************/
 
-#define OTG_SOFT_START_DELAY_MS	20
+#define MAX_SOFTSTART_TRIES	2
 int smblib_vbus_regulator_enable(struct regulator_dev *rdev)
 {
 	struct smb_charger *chg = rdev_get_drvdata(rdev);
 	u8 stat;
 	int rc = 0;
+	int tries = MAX_SOFTSTART_TRIES;
 
 	rc = smblib_masked_write(chg, OTG_ENG_OTG_CFG_REG,
 				 ENG_BUCKBOOST_HALT1_8_MODE_BIT,
@@ -978,14 +984,25 @@ int smblib_vbus_regulator_enable(struct regulator_dev *rdev)
 		return rc;
 	}
 
-	msleep(OTG_SOFT_START_DELAY_MS);
-	rc = smblib_read(chg, OTG_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read OTG_STATUS_REG rc=%d\n", rc);
-		return rc;
-	}
-	if (stat & BOOST_SOFTSTART_DONE_BIT)
-		smblib_otg_cl_config(chg, chg->otg_cl_ua);
+	/* waiting for boost readiness, usually ~1ms, 2ms in worst case */
+	do {
+		usleep_range(1000, 1100);
+
+		rc = smblib_read(chg, OTG_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read OTG_STATUS_REG rc=%d\n",
+				rc);
+			return rc;
+		}
+		if (stat & BOOST_SOFTSTART_DONE_BIT) {
+			smblib_otg_cl_config(chg, chg->otg_cl_ua);
+			break;
+		}
+	} while (--tries);
+
+	if (tries == 0)
+		smblib_err(chg, "Timeout waiting for boost softstart rc=%d\n",
+				rc);
 
 	return rc;
 }
@@ -1997,6 +2014,45 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 				"Couldn't enable vconn on CC line rc=%d\n", rc);
 			return rc;
 		}
+
+		rc = vote(chg->usb_icl_votable, PD_VOTER, true, USBIN_500MA);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
+				USBIN_MODE_CHG_BIT, USBIN_MODE_CHG_BIT);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't change USB mode rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, CMD_APSD_REG,
+				ICL_OVERRIDE_BIT, ICL_OVERRIDE_BIT);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't override APSD rc=%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = smblib_masked_write(chg, CMD_APSD_REG,
+				ICL_OVERRIDE_BIT, 0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't override APSD rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
+				USBIN_MODE_CHG_BIT, 0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't change USB mode rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* CC pin selection s/w override in PD session; h/w otherwise. */
@@ -2022,6 +2078,52 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't set TRYSINK_MODE rc=%d\n", rc);
 		return rc;
+	}
+
+	return rc;
+}
+
+int smblib_reg_block_update(struct smb_charger *chg,
+				struct reg_info *entry)
+{
+	int rc = 0;
+
+	while (entry && entry->reg) {
+		rc = smblib_read(chg, entry->reg, &entry->bak);
+		if (rc < 0) {
+			dev_err(chg->dev, "Error in reading %s rc=%d\n",
+				entry->desc, rc);
+			break;
+		}
+		entry->bak &= entry->mask;
+
+		rc = smblib_masked_write(chg, entry->reg,
+					 entry->mask, entry->val);
+		if (rc < 0) {
+			dev_err(chg->dev, "Error in writing %s rc=%d\n",
+				entry->desc, rc);
+			break;
+		}
+		entry++;
+	}
+
+	return rc;
+}
+
+int smblib_reg_block_restore(struct smb_charger *chg,
+				struct reg_info *entry)
+{
+	int rc = 0;
+
+	while (entry && entry->reg) {
+		rc = smblib_masked_write(chg, entry->reg,
+					 entry->mask, entry->bak);
+		if (rc < 0) {
+			dev_err(chg->dev, "Error in writing %s rc=%d\n",
+				entry->desc, rc);
+			break;
+		}
+		entry++;
 	}
 
 	return rc;
@@ -2230,11 +2332,8 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 		}
 	}
 
-	if (!chg->dpdm_reg)
-		goto skip_dpdm_float;
-
 	if (chg->vbus_present) {
-		if (!regulator_is_enabled(chg->dpdm_reg)) {
+		if (chg->dpdm_reg && !regulator_is_enabled(chg->dpdm_reg)) {
 			smblib_dbg(chg, PR_MISC, "enabling DPDM regulator\n");
 			rc = regulator_enable(chg->dpdm_reg);
 			if (rc < 0)
@@ -2242,7 +2341,14 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 					rc);
 		}
 	} else {
-		if (regulator_is_enabled(chg->dpdm_reg)) {
+		if (chg->wa_flags & BOOST_BACK_WA) {
+			vote(chg->usb_suspend_votable,
+						BOOST_BACK_VOTER, false, 0);
+			vote(chg->dc_suspend_votable,
+						BOOST_BACK_VOTER, false, 0);
+		}
+
+		if (chg->dpdm_reg && regulator_is_enabled(chg->dpdm_reg)) {
 			smblib_dbg(chg, PR_MISC, "disabling DPDM regulator\n");
 			rc = regulator_disable(chg->dpdm_reg);
 			if (rc < 0)
@@ -2251,7 +2357,6 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 		}
 	}
 
-skip_dpdm_float:
 	power_supply_changed(chg->usb_psy);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s %s\n",
 		   irq_data->name, chg->vbus_present ? "attached" : "detached");
@@ -2683,6 +2788,39 @@ irqreturn_t smblib_handle_high_duty_cycle(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smblib_handle_switcher_power_ok(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+	int rc;
+	u8 stat;
+
+	if (!(chg->wa_flags & BOOST_BACK_WA))
+		return IRQ_HANDLED;
+
+	rc = smblib_read(chg, POWER_PATH_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read POWER_PATH_STATUS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	if ((stat & USE_USBIN_BIT) &&
+				get_effective_result(chg->usb_suspend_votable))
+		return IRQ_HANDLED;
+
+	if ((stat & USE_DCIN_BIT) &&
+				get_effective_result(chg->dc_suspend_votable))
+		return IRQ_HANDLED;
+
+	if (is_storming(&irq_data->storm_data)) {
+		smblib_dbg(chg, PR_MISC, "reverse boost detected; suspending input\n");
+		vote(chg->usb_suspend_votable, BOOST_BACK_VOTER, true, 0);
+		vote(chg->dc_suspend_votable, BOOST_BACK_VOTER, true, 0);
+	}
+
+	return IRQ_HANDLED;
+}
+
 /***************
  * Work Queues *
  ***************/
@@ -2743,7 +2881,9 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	union power_supply_propval pval = {0, };
 	int rc;
 
+	smblib_dbg(chg, PR_PARALLEL, "starting parallel taper work\n");
 	if (chg->pl.slave_fcc_ua < MINIMUM_PARALLEL_FCC_UA) {
+		smblib_dbg(chg, PR_PARALLEL, "parallel taper is done\n");
 		vote(chg->pl_disable_votable, TAPER_END_VOTER, true, 0);
 		goto done;
 	}
@@ -2755,6 +2895,7 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	}
 
 	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+		smblib_dbg(chg, PR_PARALLEL, "master is taper charging; reducing slave FCC\n");
 		vote(chg->awake_votable, PL_TAPER_WORK_RUNNING_VOTER, true, 0);
 		/* Reduce the taper percent by 25 percent */
 		chg->pl.taper_pct = chg->pl.taper_pct
@@ -2768,6 +2909,8 @@ static void smblib_pl_taper_work(struct work_struct *work)
 	/*
 	 * Master back to Fast Charge, get out of this round of taper reduction
 	 */
+	smblib_dbg(chg, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
+
 done:
 	vote(chg->awake_votable, PL_TAPER_WORK_RUNNING_VOTER, false, 0);
 }

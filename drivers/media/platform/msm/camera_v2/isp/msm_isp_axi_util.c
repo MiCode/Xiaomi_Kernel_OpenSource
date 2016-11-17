@@ -14,6 +14,7 @@
 #include <asm/div64.h>
 #include "msm_isp_util.h"
 #include "msm_isp_axi_util.h"
+#include "msm_isp48.h"
 
 #define HANDLE_TO_IDX(handle) (handle & 0xFF)
 #define ISP_SOF_DEBUG_COUNT 0
@@ -66,7 +67,7 @@ static int msm_isp_axi_create_stream(struct vfe_device *vfe_dev,
 	} else {
 		/* check if the stream has been added for the vfe-device */
 		if (stream_info->vfe_mask & (1 << vfe_dev->pdev->id)) {
-			pr_err("%s: stream %p/%x is already added for vfe dev %d vfe_mask %x\n",
+			pr_err("%s: stream %pK/%x is already added for vfe dev %d vfe_mask %x\n",
 				__func__, stream_info, stream_info->stream_id,
 				vfe_dev->pdev->id, stream_info->vfe_mask);
 			return -EINVAL;
@@ -1254,7 +1255,7 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	if (vfe_idx == -ENOTTY ||
 		stream_release_cmd->stream_handle !=
 		stream_info->stream_handle[vfe_idx]) {
-		pr_err("%s: Invalid stream %p handle %x/%x vfe_idx %d vfe_dev %d num_isp %d\n",
+		pr_err("%s: Invalid stream %pK handle %x/%x vfe_idx %d vfe_dev %d num_isp %d\n",
 			__func__, stream_info,
 			stream_release_cmd->stream_handle,
 			vfe_idx != -ENOTTY ?
@@ -2017,22 +2018,25 @@ static void msm_isp_input_disable(struct vfe_device *vfe_dev)
 		if (i != VFE_PIX_0 || ext_read)
 			continue;
 		/* halt camif */
-		if (total_stream_count == 0)
+		if (total_stream_count == 0) {
 			vfe_dev->hw_info->vfe_ops.core_ops.
 				update_camif_state(vfe_dev,
 				DISABLE_CAMIF_IMMEDIATELY);
-		else
+		 } else {
 			vfe_dev->hw_info->vfe_ops.core_ops.
 				update_camif_state(vfe_dev, DISABLE_CAMIF);
+		}
 	}
-
 	/* halt and reset hardware if all streams are disabled */
 	if (total_stream_count == 0) {
 		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
+		msm_isp_flush_tasklet(vfe_dev);
 		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, 0, 1);
-		vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
-
+		if (msm_vfe_is_vfe48(vfe_dev))
+			vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
+								0, 1);
 	}
+
 }
 
 /**
@@ -2719,6 +2723,20 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 
 	for (i = 0; i < num_streams; i++) {
 		stream_info = streams[i];
+		msm_isp_update_intf_stream_cnt(stream_info, 0);
+		for (k = 0; k < stream_info->num_isp; k++) {
+			vfe_dev = stream_info->vfe_dev[k];
+			update_vfes[vfe_dev->pdev->id] = vfe_dev;
+		}
+	}
+	for (k = 0; k < MAX_VFE; k++) {
+		if (!update_vfes[k])
+			continue;
+		msm_isp_input_disable(update_vfes[k]);
+	}
+
+	for (i = 0; i < num_streams; i++) {
+		stream_info = streams[i];
 		spin_lock_irqsave(&stream_info->lock, flags);
 		/*
 		 * since we can get here from start axi stream error path due
@@ -2743,12 +2761,10 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 			else
 				vfe_dev->hw_info->vfe_ops.axi_ops.
 				clear_wm_irq_mask(vfe_dev, stream_info);
-			update_vfes[vfe_dev->pdev->id] = vfe_dev;
 		}
 		init_completion(&stream_info->inactive_comp);
 		stream_info->state = STOP_PENDING;
 		spin_unlock_irqrestore(&stream_info->lock, flags);
-		msm_isp_update_intf_stream_cnt(stream_info, 0);
 	}
 
 	for (k = 0; k < MAX_VFE; k++) {
@@ -2843,7 +2859,6 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 		if (!update_vfes[k])
 			continue;
 		msm_isp_update_stream_bandwidth(update_vfes[k]);
-		msm_isp_input_disable(update_vfes[k]);
 	}
 
 	for (i = 0; i < num_streams; i++) {
@@ -3468,7 +3483,7 @@ static int msm_isp_stream_axi_cfg_update(struct vfe_device *vfe_dev,
 	if (stream_info->update_vfe_mask) {
 		if (stream_info->update_vfe_mask & (1 << vfe_dev->pdev->id)) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
-			pr_err("%s: Stream %p/%x Update already in progress for vfe %d\n",
+			pr_err("%s: Stream %pK/%x Update already in progress for vfe %d\n",
 				__func__, stream_info, stream_info->stream_src,
 				vfe_dev->pdev->id);
 			return -EINVAL;
@@ -3777,8 +3792,9 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			(~(pingpong_status >>
 			stream_info->wm[vfe_idx][i]) & 0x1)) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
-			pr_err("%s: Write master ping pong mismatch. Status: 0x%x\n",
-				__func__, pingpong_status);
+			pr_err("%s: Write master ping pong mismatch. Status: 0x%x %x\n",
+				__func__, pingpong_status,
+				stream_info->stream_src);
 			msm_isp_halt_send_error(vfe_dev,
 					ISP_EVENT_PING_PONG_MISMATCH);
 			return;

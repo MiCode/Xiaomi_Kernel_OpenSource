@@ -516,7 +516,7 @@ exit:
 	return rc;
 }
 
-static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
+static int msm_pcm_add_volume_controls(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
 	struct snd_pcm_volume *volume_info;
@@ -535,6 +535,192 @@ static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
 	kctl->get = msm_pcm_volume_ctl_get;
 	kctl->tlv.p = loopback_rx_vol_gain;
 	return 0;
+}
+
+static int msm_pcm_playback_app_type_cfg_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate = 48000;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	app_type = ucontrol->value.integer.value[0];
+	acdb_dev_id = ucontrol->value.integer.value[1];
+	if (ucontrol->value.integer.value[2] != 0)
+		sample_rate = ucontrol->value.integer.value[2];
+	pr_debug("%s: app_type- %d acdb_dev_id- %d sample_rate- %d session_type- %d\n",
+		__func__, app_type, acdb_dev_id, sample_rate, SESSION_TYPE_RX);
+	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type,
+			acdb_dev_id, sample_rate, SESSION_TYPE_RX);
+
+	return 0;
+}
+
+static int msm_pcm_playback_app_type_cfg_ctl_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int ret = 0;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, SESSION_TYPE_RX,
+		&app_type, &acdb_dev_id, &sample_rate);
+	if (ret < 0) {
+		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ucontrol->value.integer.value[0] = app_type;
+	ucontrol->value.integer.value[1] = acdb_dev_id;
+	ucontrol->value.integer.value[2] = sample_rate;
+	pr_debug("%s: fedai_id %llu, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fe_id, SESSION_TYPE_RX,
+		app_type, acdb_dev_id, sample_rate);
+done:
+	return ret;
+}
+
+static int msm_pcm_capture_app_type_cfg_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate = 48000;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	app_type = ucontrol->value.integer.value[0];
+	acdb_dev_id = ucontrol->value.integer.value[1];
+	if (ucontrol->value.integer.value[2] != 0)
+		sample_rate = ucontrol->value.integer.value[2];
+	pr_debug("%s: app_type- %d acdb_dev_id- %d sample_rate- %d session_type- %d\n",
+		__func__, app_type, acdb_dev_id, sample_rate, SESSION_TYPE_TX);
+	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type,
+			acdb_dev_id, sample_rate, SESSION_TYPE_TX);
+
+	return 0;
+}
+
+static int msm_pcm_capture_app_type_cfg_ctl_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int ret = 0;
+	int app_type;
+	int acdb_dev_id;
+	int sample_rate;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, SESSION_TYPE_TX,
+		&app_type, &acdb_dev_id, &sample_rate);
+	if (ret < 0) {
+		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ucontrol->value.integer.value[0] = app_type;
+	ucontrol->value.integer.value[1] = acdb_dev_id;
+	ucontrol->value.integer.value[2] = sample_rate;
+	pr_debug("%s: fedai_id %llu, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fe_id, SESSION_TYPE_TX,
+		app_type, acdb_dev_id, sample_rate);
+done:
+	return ret;
+}
+
+static int msm_pcm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
+	struct snd_pcm_usr *app_type_info;
+	struct snd_kcontrol *kctl;
+	const char *playback_mixer_ctl_name	= "Audio Stream";
+	const char *capture_mixer_ctl_name	= "Audio Stream Capture";
+	const char *deviceNo		= "NN";
+	const char *suffix		= "App Type Cfg";
+	int ctl_len, ret = 0;
+
+	if (pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream) {
+		ctl_len = strlen(playback_mixer_ctl_name) + 1 +
+				strlen(deviceNo) + 1 + strlen(suffix) + 1;
+		pr_debug("%s: Playback app type cntrl add\n", __func__);
+		ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+					NULL, 1, ctl_len, rtd->dai_link->be_id,
+					&app_type_info);
+		if (ret < 0)
+			return ret;
+		kctl = app_type_info->kctl;
+		snprintf(kctl->id.name, ctl_len, "%s %d %s",
+			playback_mixer_ctl_name, rtd->pcm->device, suffix);
+		kctl->put = msm_pcm_playback_app_type_cfg_ctl_put;
+		kctl->get = msm_pcm_playback_app_type_cfg_ctl_get;
+	}
+
+	if (pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream) {
+		ctl_len = strlen(capture_mixer_ctl_name) + 1 +
+				strlen(deviceNo) + 1 + strlen(suffix) + 1;
+		pr_debug("%s: Capture app type cntrl add\n", __func__);
+		ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_CAPTURE,
+					NULL, 1, ctl_len, rtd->dai_link->be_id,
+					&app_type_info);
+		if (ret < 0)
+			return ret;
+		kctl = app_type_info->kctl;
+		snprintf(kctl->id.name, ctl_len, "%s %d %s",
+			capture_mixer_ctl_name, rtd->pcm->device, suffix);
+		kctl->put = msm_pcm_capture_app_type_cfg_ctl_put;
+		kctl->get = msm_pcm_capture_app_type_cfg_ctl_get;
+	}
+
+	return 0;
+}
+
+static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+
+	pr_debug("%s\n", __func__);
+	ret = msm_pcm_add_volume_controls(rtd);
+	if (ret)
+		pr_err("%s: pcm add volume controls failed:%d\n",
+			__func__, ret);
+	ret = msm_pcm_add_app_type_controls(rtd);
+	if (ret)
+		pr_err("%s: pcm add app type controls failed:%d\n",
+			__func__, ret);
+	return ret;
 }
 
 static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)

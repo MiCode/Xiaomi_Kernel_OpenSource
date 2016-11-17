@@ -161,7 +161,7 @@ struct dentry_operations {
 	struct vfsmount *(*d_automount)(struct path *);
 	int (*d_manage)(struct dentry *, bool);
 	struct inode *(*d_select_inode)(struct dentry *, unsigned);
-	void (*d_canonical_path)(const struct dentry *, struct path *);
+	void (*d_canonical_path)(const struct path *, struct path *);
 	struct dentry *(*d_real)(struct dentry *, struct inode *);
 } ____cacheline_aligned;
 
@@ -602,6 +602,18 @@ static inline struct inode *vfs_select_inode(struct dentry *dentry,
 		inode = dentry->d_op->d_select_inode(dentry, open_flags);
 
 	return inode;
+}
+
+/**
+ * d_real_inode - Return the real inode
+ * @dentry: The dentry to query
+ *
+ * If dentry is on an union/overlay, then return the underlying, real inode.
+ * Otherwise return d_inode().
+ */
+static inline struct inode *d_real_inode(struct dentry *dentry)
+{
+	return d_backing_inode(d_real(dentry));
 }
 
 

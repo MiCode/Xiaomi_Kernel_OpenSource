@@ -40,9 +40,10 @@
 #include <sound/tlv.h>
 #include <sound/q6core.h>
 #include <soc/qcom/subsystem_notif.h>
-#include "msm8x16-wcd.h"
+#include "../../msm/msmfalcon-common.h"
 #include "../wcd-mbhc-v2.h"
 #include "msm8916-wcd-irq.h"
+#include "msm8x16-wcd.h"
 
 #define DRV_NAME "msm-codec"
 #define MSM89XX_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
@@ -253,8 +254,6 @@ static struct wcd_mbhc_register
 	WCD_MBHC_REGISTER("WCD_MBHC_SWCH_LEVEL_REMOVE",
 			  MSM89XX_PMIC_ANALOG_MBHC_ZDET_ELECT_RESULT,
 			  0x10, 4, 0),
-	WCD_MBHC_REGISTER("WCD_MBHC_MOISTURE_VREF",
-			  0, 0, 0, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_PULLDOWN_CTRL",
 			  MSM89XX_PMIC_ANALOG_MICB_2_EN, 0x20, 5, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_ANC_DET_EN",
@@ -295,7 +294,7 @@ static int msm8x16_wcd_dt_parse_vreg_info(struct device *dev,
 	const char *vreg_name, bool ondemand);
 static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 	struct device *dev);
-static int msm8x16_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
+static int msm8x16_wcd_enable_ext_mb_source(struct wcd_mbhc *mbhc,
 					    bool turn_on);
 static void msm8x16_trim_btn_reg(struct snd_soc_codec *codec);
 static void msm8x16_wcd_set_micb_v(struct snd_soc_codec *codec);
@@ -335,35 +334,28 @@ static int get_codec_version(struct msm8x16_wcd_priv *msm8x16_wcd)
 static int msm_digcdc_clock_control(bool flag)
 {
 	int ret = -EINVAL;
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 
 	pdata = snd_soc_card_get_drvdata(registered_codec->component.card);
 
 	if (flag) {
-		mutex_lock(&pdata->cdc_mclk_mutex);
-		if (atomic_read(&pdata->mclk_enabled) == false) {
-			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
-				pdata->digital_cdc_clk.clk_val =
-							pdata->mclk_freq;
-				ret = afe_set_digital_codec_core_clock(
-						AFE_PORT_ID_PRIMARY_MI2S_RX,
-						&pdata->digital_cdc_clk);
-			} else {
-				pdata->digital_cdc_core_clk.enable = 1;
-				ret = afe_set_lpass_clock_v2(
-						AFE_PORT_ID_PRIMARY_MI2S_RX,
-						&pdata->digital_cdc_core_clk);
-			}
+		mutex_lock(&pdata->cdc_int_mclk0_mutex);
+		if (atomic_read(&pdata->int_mclk0_enabled) == false) {
+			pdata->digital_cdc_core_clk.enable = 1;
+			ret = afe_set_lpass_clock_v2(
+					AFE_PORT_ID_INT0_MI2S_RX,
+					&pdata->digital_cdc_core_clk);
 			if (ret < 0) {
-				pr_err("failed to enable the MCLK\n");
-				goto err;
+				pr_err("failed to enable the INT_MCLK0\n");
+				goto err_mclk;
 			}
 			pr_err("enabled digital codec core clk\n");
-			atomic_set(&pdata->mclk_enabled, true);
-			schedule_delayed_work(&pdata->disable_mclk_work, 50);
+			atomic_set(&pdata->int_mclk0_enabled, true);
+			schedule_delayed_work(&pdata->disable_int_mclk0_work,
+					      50);
 		}
-err:
-		mutex_unlock(&pdata->cdc_mclk_mutex);
+err_mclk:
+		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 		return ret;
 	}
 	return 0;
@@ -617,11 +609,12 @@ static void msm8x16_wcd_compute_impedance(struct snd_soc_codec *codec, s16 l,
 }
 
 static struct firmware_cal *msm8x16_wcd_get_hwdep_fw_cal(
-		struct snd_soc_codec *codec,
+		struct wcd_mbhc *mbhc,
 		enum wcd_cal_type type)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd;
 	struct firmware_cal *hwdep_cal;
+	struct snd_soc_codec *codec = mbhc->codec;
 
 	if (!codec) {
 		pr_err("%s: NULL codec pointer\n", __func__);
@@ -1063,10 +1056,11 @@ exit:
 	pr_err("%s: Impedance detection completed\n", __func__);
 }
 
-static int msm8x16_register_notifier(struct snd_soc_codec *codec,
+static int msm8x16_register_notifier(struct wcd_mbhc *mbhc,
 				     struct notifier_block *nblock,
 				     bool enable)
 {
+	struct snd_soc_codec *codec = mbhc->codec;
 	struct msm8x16_wcd_priv *msm8x16_wcd =
 		snd_soc_codec_get_drvdata(codec);
 
@@ -1624,7 +1618,7 @@ out:
 static int msm8x16_wcd_codec_enable_clock_block(struct snd_soc_codec *codec,
 						int enable)
 {
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 	if (enable) {
@@ -1776,7 +1770,7 @@ static int msm8x16_wcd_loopback_mode_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 	dev_err(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
@@ -1789,7 +1783,7 @@ static int msm8x16_wcd_loopback_mode_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 	dev_err(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
@@ -3061,7 +3055,7 @@ static int msm8x16_wcd_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 
@@ -3202,11 +3196,12 @@ static void msm8x16_trim_btn_reg(struct snd_soc_codec *codec)
 		pr_err("%s: This device is trimmed at ATE\n", __func__);
 	}
 }
-static int msm8x16_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
+static int msm8x16_wcd_enable_ext_mb_source(struct wcd_mbhc *mbhc,
 					    bool turn_on)
 {
 	int ret = 0;
 	static int count;
+	struct snd_soc_codec *codec = mbhc->codec;
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 
 	dev_err(codec->dev, "%s turn_on: %d count: %d\n", __func__, turn_on,
@@ -3405,7 +3400,7 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 	unsigned int decimator;
 	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 	char *dec_name = NULL;
@@ -4328,14 +4323,14 @@ int msm8x16_wcd_mclk_enable(struct snd_soc_codec *codec,
 	dev_err(codec->dev, "%s: mclk_enable = %u, dapm = %d\n",
 		__func__, mclk_enable, dapm);
 	if (mclk_enable) {
-		msm8x16_wcd->mclk_enabled = true;
+		msm8x16_wcd->int_mclk0_enabled = true;
 		msm8x16_wcd_codec_enable_clock_block(codec, 1);
 	} else {
-		if (!msm8x16_wcd->mclk_enabled) {
+		if (!msm8x16_wcd->int_mclk0_enabled) {
 			dev_err(codec->dev, "Error, MCLK already diabled\n");
 			return -EINVAL;
 		}
-		msm8x16_wcd->mclk_enabled = false;
+		msm8x16_wcd->int_mclk0_enabled = false;
 		msm8x16_wcd_codec_enable_clock_block(codec, 0);
 	}
 	return 0;
@@ -5178,7 +5173,7 @@ static struct regulator *wcd8x16_wcd_codec_find_regulator(
 
 static int msm8x16_wcd_device_down(struct snd_soc_codec *codec)
 {
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
 		snd_soc_codec_get_drvdata(codec);
 	int i;
@@ -5250,7 +5245,7 @@ static int msm8x16_wcd_device_down(struct snd_soc_codec *codec)
 		MSM89XX_PMIC_ANALOG_SPKR_DAC_CTL, 0x93);
 
 	msm8x16_wcd_bringup(codec);
-	atomic_set(&pdata->mclk_enabled, false);
+	atomic_set(&pdata->int_mclk0_enabled, false);
 	set_bit(BUS_DOWN, &msm8x16_wcd_priv->status_mask);
 	snd_soc_card_change_online_state(codec->component.card, 0);
 	return 0;
@@ -5399,7 +5394,7 @@ static void msm8x16_wcd_configure_cap(struct snd_soc_codec *codec,
 		bool micbias1, bool micbias2)
 {
 
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 
@@ -5553,7 +5548,7 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &mbhc_cb, &intr_ids,
 		      wcd_mbhc_registers, true);
 
-	msm8x16_wcd_priv->mclk_enabled = false;
+	msm8x16_wcd_priv->int_mclk0_enabled = false;
 	msm8x16_wcd_priv->clock_active = false;
 	msm8x16_wcd_priv->config_mode_active = false;
 
@@ -5654,33 +5649,23 @@ static int msm8x16_wcd_disable_static_supplies_to_optimum(
 
 int msm8x16_wcd_suspend(struct snd_soc_codec *codec)
 {
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 	struct msm8x16_wcd *msm8x16 = codec->control_data;
 	struct msm8x16_wcd_pdata *msm8x16_pdata = msm8x16->dev->platform_data;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 	pr_err("%s: mclk cnt = %d, mclk_enabled = %d\n",
-			__func__, atomic_read(&pdata->mclk_rsc_ref),
-			atomic_read(&pdata->mclk_enabled));
-	if (atomic_read(&pdata->mclk_enabled) == true) {
+			__func__, atomic_read(&pdata->int_mclk0_rsc_ref),
+			atomic_read(&pdata->int_mclk0_enabled));
+	if (atomic_read(&pdata->int_mclk0_enabled) == true) {
 		cancel_delayed_work_sync(
-				&pdata->disable_mclk_work);
-		mutex_lock(&pdata->cdc_mclk_mutex);
-		if (atomic_read(&pdata->mclk_enabled) == true) {
-			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
-				pdata->digital_cdc_clk.clk_val = 0;
-				afe_set_digital_codec_core_clock(
-						AFE_PORT_ID_PRIMARY_MI2S_RX,
-						&pdata->digital_cdc_clk);
-			} else {
-				pdata->digital_cdc_core_clk.enable = 0;
-				afe_set_lpass_clock_v2(
-						AFE_PORT_ID_PRIMARY_MI2S_RX,
-						&pdata->digital_cdc_core_clk);
-			}
-			atomic_set(&pdata->mclk_enabled, false);
-		}
-		mutex_unlock(&pdata->cdc_mclk_mutex);
+				&pdata->disable_int_mclk0_work);
+		mutex_lock(&pdata->cdc_int_mclk0_mutex);
+		pdata->digital_cdc_core_clk.enable = 0;
+		afe_set_lpass_clock_v2(AFE_PORT_ID_INT0_MI2S_RX,
+				       &pdata->digital_cdc_core_clk);
+		atomic_set(&pdata->int_mclk0_enabled, false);
+		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 	}
 	msm8x16_wcd_disable_static_supplies_to_optimum(msm8x16, msm8x16_pdata);
 	return 0;
@@ -5688,7 +5673,7 @@ int msm8x16_wcd_suspend(struct snd_soc_codec *codec)
 
 int msm8x16_wcd_resume(struct snd_soc_codec *codec)
 {
-	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm_asoc_mach_data *pdata = NULL;
 	struct msm8x16_wcd *msm8x16 = codec->control_data;
 	struct msm8x16_wcd_pdata *msm8x16_pdata = msm8x16->dev->platform_data;
 
