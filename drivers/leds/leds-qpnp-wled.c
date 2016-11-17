@@ -61,11 +61,7 @@
 #define QPNP_WLED_EN_MASK		0x7F
 #define QPNP_WLED_EN_SHIFT		7
 #define QPNP_WLED_FDBK_OP_MASK		0xF8
-#define QPNP_WLED_VREF_MASK		0xF0
-#define QPNP_WLED_VREF_STEP_MV		25
-#define QPNP_WLED_VREF_MIN_MV		300
-#define QPNP_WLED_VREF_MAX_MV		675
-#define QPNP_WLED_DFLT_VREF_MV		350
+#define QPNP_WLED_VREF_MASK		GENMASK(3, 0)
 
 #define QPNP_WLED_VLOOP_COMP_RES_MASK			0xF0
 #define QPNP_WLED_VLOOP_COMP_RES_OVERWRITE		0x80
@@ -275,6 +271,20 @@ static int qpnp_wled_ilim_settings_pmicobalt[NUM_SUPPORTED_ILIM_THRESHOLDS] = {
 	105, 280, 450, 620, 970, 1150, 1300, 1500,
 };
 
+struct wled_vref_setting {
+	u32 min_uv;
+	u32 max_uv;
+	u32 step_uv;
+	u32 default_uv;
+};
+
+static struct wled_vref_setting vref_setting_pmi8994 = {
+	300000, 675000, 25000, 350000,
+};
+static struct wled_vref_setting vref_setting_pmicobalt = {
+	60000, 397500, 22500, 127500,
+};
+
 /**
  *  qpnp_wled - wed data structure
  *  @ cdev - led class device
@@ -294,7 +304,7 @@ static int qpnp_wled_ilim_settings_pmicobalt[NUM_SUPPORTED_ILIM_THRESHOLDS] = {
  *  @ mod_freq_khz - modulator frequency in KHZ
  *  @ hyb_thres - threshold for hybrid dimming
  *  @ sync_dly_us - sync delay in us
- *  @ vref_mv - ref voltage in mv
+ *  @ vref_uv - ref voltage in uv
  *  @ vref_psm_mv - ref psm voltage in mv
  *  @ loop_comp_res_kohm - control to select the compensation resistor
  *  @ loop_ea_gm - control to select the gm for the gm stage in control loop
@@ -337,7 +347,7 @@ struct qpnp_wled {
 	u16			mod_freq_khz;
 	u16			hyb_thres;
 	u16			sync_dly_us;
-	u16			vref_mv;
+	u32			vref_uv;
 	u16			vref_psm_mv;
 	u16			loop_comp_res_kohm;
 	u16			loop_ea_gm;
@@ -1248,6 +1258,35 @@ static int qpnp_wled_ilim_config(struct qpnp_wled *wled)
 	return rc;
 }
 
+static int qpnp_wled_vref_config(struct qpnp_wled *wled)
+{
+
+	struct wled_vref_setting vref_setting;
+	int rc;
+	u8 reg = 0;
+
+	if (wled->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE ||
+			wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE)
+		vref_setting = vref_setting_pmicobalt;
+	else
+		vref_setting = vref_setting_pmi8994;
+
+	if (wled->vref_uv < vref_setting.min_uv)
+		wled->vref_uv = vref_setting.min_uv;
+	else if (wled->vref_uv > vref_setting.max_uv)
+		wled->vref_uv = vref_setting.max_uv;
+
+	reg |= DIV_ROUND_CLOSEST(wled->vref_uv - vref_setting.min_uv,
+					vref_setting.step_uv);
+
+	rc = qpnp_wled_masked_write_reg(wled, QPNP_WLED_VREF_MASK,
+			&reg, QPNP_WLED_VREF_REG(wled->ctrl_base));
+	if (rc)
+		pr_err("Write VREF_REG failed, rc=%d\n", rc);
+
+	return rc;
+}
+
 /* Configure WLED registers */
 static int qpnp_wled_config(struct qpnp_wled *wled)
 {
@@ -1272,22 +1311,11 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 
 	/* Configure the VREF register */
-	if (wled->vref_mv < QPNP_WLED_VREF_MIN_MV)
-		wled->vref_mv = QPNP_WLED_VREF_MIN_MV;
-	else if (wled->vref_mv > QPNP_WLED_VREF_MAX_MV)
-		wled->vref_mv = QPNP_WLED_VREF_MAX_MV;
-
-	rc = qpnp_wled_read_reg(wled, &reg,
-			QPNP_WLED_VREF_REG(wled->ctrl_base));
-	if (rc < 0)
+	rc = qpnp_wled_vref_config(wled);
+	if (rc < 0) {
+		pr_err("Error in configuring wled vref, rc=%d\n", rc);
 		return rc;
-	reg &= QPNP_WLED_VREF_MASK;
-	temp = wled->vref_mv - QPNP_WLED_VREF_MIN_MV;
-	reg |= (temp / QPNP_WLED_VREF_STEP_MV);
-	rc = qpnp_wled_write_reg(wled, reg,
-			QPNP_WLED_VREF_REG(wled->ctrl_base));
-	if (rc)
-		return rc;
+	}
 
 	/* Configure the ILIM register */
 	rc = qpnp_wled_ilim_config(wled);
@@ -1714,11 +1742,15 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 		return rc;
 	}
 
-	wled->vref_mv = QPNP_WLED_DFLT_VREF_MV;
+	if (wled->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE ||
+			wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE)
+		wled->vref_uv = vref_setting_pmicobalt.default_uv;
+	else
+		wled->vref_uv = vref_setting_pmi8994.default_uv;
 	rc = of_property_read_u32(pdev->dev.of_node,
-			"qcom,vref-mv", &temp_val);
+			"qcom,vref-uv", &temp_val);
 	if (!rc) {
-		wled->vref_mv = temp_val;
+		wled->vref_uv = temp_val;
 	} else if (rc != -EINVAL) {
 		dev_err(&pdev->dev, "Unable to read vref\n");
 		return rc;
