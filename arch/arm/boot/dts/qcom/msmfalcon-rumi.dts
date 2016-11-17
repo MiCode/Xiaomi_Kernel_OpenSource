@@ -102,3 +102,8 @@
 &pmfalcon_fg {
 	status = "disabled";
 };
+
+&clock_gfx {
+	compatible = "qcom,dummycc";
+	clock-output-names = "gfx_clocks";
+};

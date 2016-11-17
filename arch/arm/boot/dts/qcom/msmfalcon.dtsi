@@ -467,8 +467,21 @@
 	};
 
 	clock_gfx: clock-controller@5065000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gfx_clocks";
+		compatible = "qcom,gpucc-msmfalcon";
+		reg = <0x5065000 0x10000>;
+		vdd_dig_gfx-supply = <&pm2falcon_s3_level>;
+		vdd_mx_gfx-supply = <&pm2falcon_s5_level>;
+		vdd_gfx-supply = <&gfx_vreg_corner>;
+		qcom,gfxfreq-corner =
+			< 0         0>,
+			< 160000000 1>,  /* MinSVS */
+			< 266000000 2>,  /* LowSVS */
+			< 370000000 3>,  /* SVS    */
+			< 465000000 4>,  /* SVS_L1 */
+			< 588000000 5>,  /* NOM    */
+			< 647000000 6>,  /* NOM_L1 */
+			< 700000000 7>,  /* TURBO */
+			< 750000000 7>;  /* TURBO  */
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -985,10 +998,8 @@
 };
 
 &gdsc_gpu_gx {
-	clock-names = "bimc_core_clk", "core_clk", "core_root_clk";
-	clocks = <&clock_gcc GCC_GPU_BIMC_GFX_CLK>,
-		 <&clock_gfx GPUCC_GFX3D_CLK>,
-		 <&clock_gfx GFX3D_CLK_SRC>;
+	clock-names = "core_root_clk";
+	clocks = <&clock_gfx GFX3D_CLK_SRC>;
 	qcom,force-enable-root-clk;
 	parent-supply = <&gfx_vreg_corner>;
 	status = "ok";
