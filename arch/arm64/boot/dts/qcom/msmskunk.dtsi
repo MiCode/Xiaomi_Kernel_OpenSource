@@ -1326,7 +1326,7 @@
 	};
 
 	qcom,ghd {
-		compatible = "qcom,gladiator-hang-detect";
+		compatible = "qcom,gladiator-hang-detect-v2";
 		qcom,threshold-arr = <0x1799041c 0x17990420>;
 		qcom,config-reg = <0x17990434>;
 	};
