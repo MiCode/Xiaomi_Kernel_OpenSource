@@ -905,6 +905,8 @@ struct ufs_hba {
 	bool no_ref_clk_gating;
 
 	int scsi_block_reqs_cnt;
+
+	bool full_init_linereset;
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
