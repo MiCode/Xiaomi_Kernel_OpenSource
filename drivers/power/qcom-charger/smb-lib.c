@@ -2015,6 +2015,13 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			return rc;
 		}
 
+		rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
+					rc);
+			return rc;
+		}
+
 		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
 				USBIN_MODE_CHG_BIT, USBIN_MODE_CHG_BIT);
 		if (rc < 0) {
@@ -2031,6 +2038,14 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			return rc;
 		}
 	} else {
+		rc = vote(chg->usb_icl_votable, DCP_VOTER, true,
+				chg->dcp_icl_ua);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
+					rc);
+			return rc;
+		}
+
 		rc = smblib_masked_write(chg, CMD_APSD_REG,
 				ICL_OVERRIDE_BIT, 0);
 		if (rc < 0) {
