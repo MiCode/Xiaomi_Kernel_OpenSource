@@ -137,6 +137,7 @@ struct clk_debug_mux {
 };
 
 #define BM(msb, lsb) (((((uint32_t)-1) << (31-msb)) >> (31-msb+lsb)) << lsb)
+#define BVAL(msb, lsb, val)     (((val) << lsb) & BM(msb, lsb))
 
 #define to_clk_measure(_hw) container_of((_hw), struct clk_debug_mux, hw)
 
