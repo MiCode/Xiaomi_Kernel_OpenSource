@@ -2186,6 +2186,7 @@ static void msm_isp_input_disable(struct vfe_device *vfe_dev, int cmd_type)
 		if (msm_vfe_is_vfe48(vfe_dev))
 			vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
 								0, 1);
+		vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
 	}
 
 }
