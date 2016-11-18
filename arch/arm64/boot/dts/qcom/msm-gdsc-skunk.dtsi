@@ -17,6 +17,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "pcie_0_gdsc";
 		reg = <0x16b004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -24,6 +25,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "pcie_1_gdsc";
 		reg = <0x18d004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -31,6 +33,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "ufs_card_gdsc";
 		reg = <0x175004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -38,6 +41,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "ufs_phy_gdsc";
 		reg = <0x177004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -45,6 +49,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "usb30_prim_gdsc";
 		reg = <0x10f004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -52,6 +57,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "usb30_sec_gdsc";
 		reg = <0x110004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -123,6 +129,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "bps_gdsc";
 		reg = <0xad06004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -130,6 +137,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "ife_0_gdsc";
 		reg = <0xad09004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -137,6 +145,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "ife_1_gdsc";
 		reg = <0xad0a004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -144,6 +153,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "ipe_0_gdsc";
 		reg = <0xad07004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -151,6 +161,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "ipe_1_gdsc";
 		reg = <0xad08004 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -158,6 +169,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "titan_top_gdsc";
 		reg = <0xad0b134 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -166,6 +178,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "mdss_core_gdsc";
 		reg = <0xaf03000 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -202,6 +215,7 @@
 		domain-addr = <&gpu_gx_domain_addr>;
 		sw-reset = <&gpu_gx_sw_reset>;
 		qcom,reset-aon-logic;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -210,6 +224,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "vcodec0_gdsc";
 		reg = <0xab00874 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -217,6 +232,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "vcodec1_gdsc";
 		reg = <0xab008b4 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 
@@ -224,6 +240,7 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "venus_gdsc";
 		reg = <0xab00814 0x4>;
+		qcom,poll-cfg-gdscr;
 		status = "disabled";
 	};
 };
