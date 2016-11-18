@@ -105,6 +105,8 @@ static void gsi_handle_ch_ctrl(int ee)
 
 	ch = gsi_readl(gsi_ctx->base +
 		GSI_EE_n_CNTXT_SRC_GSI_CH_IRQ_OFFS(ee));
+	gsi_writel(ch, gsi_ctx->base +
+		GSI_EE_n_CNTXT_SRC_GSI_CH_IRQ_CLR_OFFS(ee));
 	GSIDBG("ch %x\n", ch);
 	for (i = 0; i < 32; i++) {
 		if ((1 << i) & ch) {
@@ -124,9 +126,6 @@ static void gsi_handle_ch_ctrl(int ee)
 			gsi_ctx->ch_dbg[i].cmd_completed++;
 		}
 	}
-
-	gsi_writel(ch, gsi_ctx->base +
-			GSI_EE_n_CNTXT_SRC_GSI_CH_IRQ_CLR_OFFS(ee));
 }
 
 static void gsi_handle_ev_ctrl(int ee)
@@ -138,6 +137,8 @@ static void gsi_handle_ev_ctrl(int ee)
 
 	ch = gsi_readl(gsi_ctx->base +
 		GSI_EE_n_CNTXT_SRC_EV_CH_IRQ_OFFS(ee));
+	gsi_writel(ch, gsi_ctx->base +
+		GSI_EE_n_CNTXT_SRC_EV_CH_IRQ_CLR_OFFS(ee));
 	GSIDBG("ev %x\n", ch);
 	for (i = 0; i < 32; i++) {
 		if ((1 << i) & ch) {
@@ -156,9 +157,6 @@ static void gsi_handle_ev_ctrl(int ee)
 			complete(&ctx->compl);
 		}
 	}
-
-	gsi_writel(ch, gsi_ctx->base +
-			GSI_EE_n_CNTXT_SRC_EV_CH_IRQ_CLR_OFFS(ee));
 }
 
 static void gsi_handle_glob_err(uint32_t err)
@@ -439,9 +437,16 @@ static void gsi_handle_ieob(int ee)
 		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(ee));
 	msk = gsi_readl(gsi_ctx->base +
 		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS(ee));
+	gsi_writel(ch & msk, gsi_ctx->base +
+		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
 
 	for (i = 0; i < 32; i++) {
 		if ((1 << i) & ch & msk) {
+			if (i >= gsi_ctx->max_ev || i >= GSI_EVT_RING_MAX) {
+				GSIERR("invalid event %d\n", i);
+				break;
+			}
+
 			ctx = &gsi_ctx->evtr[i];
 			BUG_ON(ctx->props.intf != GSI_EVT_CHTYPE_GPI_EV);
 			spin_lock_irqsave(&ctx->ring.slock, flags);
@@ -467,9 +472,6 @@ check_again:
 			spin_unlock_irqrestore(&ctx->ring.slock, flags);
 		}
 	}
-
-	gsi_writel(ch & msk, gsi_ctx->base +
-			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
 }
 
 static void gsi_handle_inter_ee_ch_ctrl(int ee)
@@ -479,15 +481,14 @@ static void gsi_handle_inter_ee_ch_ctrl(int ee)
 
 	ch = gsi_readl(gsi_ctx->base +
 		GSI_INTER_EE_n_SRC_GSI_CH_IRQ_OFFS(ee));
+	gsi_writel(ch, gsi_ctx->base +
+		GSI_INTER_EE_n_SRC_GSI_CH_IRQ_CLR_OFFS(ee));
 	for (i = 0; i < 32; i++) {
 		if ((1 << i) & ch) {
 			/* not currently expected */
 			GSIERR("ch %u was inter-EE changed\n", i);
 		}
 	}
-
-	gsi_writel(ch, gsi_ctx->base +
-			GSI_INTER_EE_n_SRC_GSI_CH_IRQ_CLR_OFFS(ee));
 }
 
 static void gsi_handle_inter_ee_ev_ctrl(int ee)
@@ -497,15 +498,14 @@ static void gsi_handle_inter_ee_ev_ctrl(int ee)
 
 	ch = gsi_readl(gsi_ctx->base +
 		GSI_INTER_EE_n_SRC_EV_CH_IRQ_OFFS(ee));
+	gsi_writel(ch, gsi_ctx->base +
+		GSI_INTER_EE_n_SRC_EV_CH_IRQ_CLR_OFFS(ee));
 	for (i = 0; i < 32; i++) {
 		if ((1 << i) & ch) {
 			/* not currently expected */
 			GSIERR("evt %u was inter-EE changed\n", i);
 		}
 	}
-
-	gsi_writel(ch, gsi_ctx->base +
-			GSI_INTER_EE_n_SRC_EV_CH_IRQ_CLR_OFFS(ee));
 }
 
 static void gsi_handle_general(int ee)
