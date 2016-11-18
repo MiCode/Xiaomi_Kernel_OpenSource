@@ -121,6 +121,7 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
 {
 	struct rmnet_map_control_command_s *cmd;
 	int xmit_status;
+	int rc;
 
 	if (unlikely(!skb))
 		BUG();
@@ -149,6 +150,15 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
 	netif_tx_unlock(skb->dev);
 
 	LOGD("MAP command ACK=%hhu sent with rc: %d", type & 0x03, xmit_status);
+
+	if (xmit_status != NETDEV_TX_OK) {
+		rc = dev_queue_xmit(skb);
+		if (rc != 0) {
+			LOGD("Failed to queue packet for transmission on [%s]",
+			     skb->dev->name);
+		}
+	}
+
 }
 
 /**
