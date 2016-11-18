@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,37 +16,18 @@
 #include <linux/err.h>
 #include <linux/iopoll.h>
 #include <linux/delay.h>
-#include <linux/clk/msm-clock-generic.h>
 
 #include "mdss-pll.h"
 #include "mdss-dsi-pll.h"
-#include "mdss-dsi-pll-8996.h"
+#include "mdss-dsi-pll-14nm.h"
 
 #define DSI_PLL_POLL_MAX_READS                  15
 #define DSI_PLL_POLL_TIMEOUT_US                 1000
 #define MSM8996_DSI_PLL_REVISION_2		2
 
+#define VCO_REF_CLK_RATE 19200000
+
 #define CEIL(x, y)		(((x) + ((y)-1)) / (y))
-
-int set_mdss_byte_mux_sel_8996(struct mux_clk *clk, int sel)
-{
-	return 0;
-}
-
-int get_mdss_byte_mux_sel_8996(struct mux_clk *clk)
-{
-	return 0;
-}
-
-int set_mdss_pixel_mux_sel_8996(struct mux_clk *clk, int sel)
-{
-	return 0;
-}
-
-int get_mdss_pixel_mux_sel_8996(struct mux_clk *clk)
-{
-	return 0;
-}
 
 static int mdss_pll_read_stored_trim_codes(
 		struct mdss_pll_resources *dsi_pll_res, s64 vco_clk_rate)
@@ -94,9 +75,9 @@ end_read:
 	return rc;
 }
 
-int post_n1_div_set_div(struct div_clk *clk, int div)
+int post_n1_div_set_div(void *context, unsigned int reg, unsigned int div)
 {
-	struct mdss_pll_resources *pll = clk->priv;
+	struct mdss_pll_resources *pll = context;
 	struct dsi_pll_db *pdb;
 	struct dsi_pll_output *pout;
 	int rc;
@@ -107,6 +88,9 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 		pr_err("Failed to enable mdss dsi pll resources\n");
 		return rc;
 	}
+
+	/* in common clock framework the divider value provided is one less */
+	div++;
 
 	pdb = (struct dsi_pll_db *)pll->priv;
 	pout = &pdb->out;
@@ -120,8 +104,6 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 	 * support bit_clk above 86.67Mhz
 	 */
 
-	/* this is for vco/bit clock */
-	pout->pll_postdiv = 1;	/* fixed, divided by 1 */
 	pout->pll_n1div  = div;
 
 	n1div = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_CMN_CLK_CFG0);
@@ -138,11 +120,15 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 	return 0;
 }
 
-int post_n1_div_get_div(struct div_clk *clk)
+int post_n1_div_get_div(void *context, unsigned int reg, unsigned int *div)
 {
-	u32  div;
 	int rc;
-	struct mdss_pll_resources *pll = clk->priv;
+	struct mdss_pll_resources *pll = context;
+	struct dsi_pll_db *pdb;
+	struct dsi_pll_output *pout;
+
+	pdb = (struct dsi_pll_db *)pll->priv;
+	pout = &pdb->out;
 
 	if (is_gdsc_disabled(pll))
 		return 0;
@@ -159,20 +145,33 @@ int post_n1_div_get_div(struct div_clk *clk)
 	 * fot the time being, assume postdiv = 1
 	 */
 
-	div = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_CMN_CLK_CFG0);
-	div &= 0xF;
-	pr_debug("n1 div = %d\n", div);
+	*div = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_CMN_CLK_CFG0);
+	*div &= 0xF;
+
+	/*
+	 * initialize n1div here, it will get updated when
+	 * corresponding set_div is called.
+	 */
+	pout->pll_n1div = *div;
+
+	/* common clock framework will add one to the divider value sent */
+	if (*div == 0)
+		*div = 1; /* value of zero means div is 2 as per SWI */
+	else
+		*div -= 1;
+
+	pr_debug("post n1 get div = %d\n", *div);
 
 	mdss_pll_resource_enable(pll, false);
 
-	return div;
+	return rc;
 }
 
-int n2_div_set_div(struct div_clk *clk, int div)
+int n2_div_set_div(void *context, unsigned int reg, unsigned int div)
 {
 	int rc;
 	u32 n2div;
-	struct mdss_pll_resources *pll = clk->priv;
+	struct mdss_pll_resources *pll = context;
 	struct dsi_pll_db *pdb;
 	struct dsi_pll_output *pout;
 	struct mdss_pll_resources *slave;
@@ -182,6 +181,12 @@ int n2_div_set_div(struct div_clk *clk, int div)
 		pr_err("Failed to enable mdss dsi pll resources\n");
 		return rc;
 	}
+
+	/*
+	 * in common clock framework the actual divider value
+	 * provided is one less.
+	 */
+	div++;
 
 	pdb = (struct dsi_pll_db *)pll->priv;
 	pout = &pdb->out;
@@ -208,15 +213,21 @@ int n2_div_set_div(struct div_clk *clk, int div)
 	return rc;
 }
 
-int shadow_n2_div_set_div(struct div_clk *clk, int div)
+int shadow_n2_div_set_div(void *context, unsigned int reg, unsigned int div)
 {
-	struct mdss_pll_resources *pll = clk->priv;
+	struct mdss_pll_resources *pll = context;
 	struct dsi_pll_db *pdb;
 	struct dsi_pll_output *pout;
 	u32 data;
 
 	pdb = pll->priv;
 	pout = &pdb->out;
+
+	/*
+	 * in common clock framework the actual divider value
+	 * provided is one less.
+	 */
+	div++;
 
 	pout->pll_n2div = div;
 
@@ -228,14 +239,19 @@ int shadow_n2_div_set_div(struct div_clk *clk, int div)
 	return 0;
 }
 
-int n2_div_get_div(struct div_clk *clk)
+int n2_div_get_div(void *context, unsigned int reg, unsigned int *div)
 {
 	int rc;
 	u32 n2div;
-	struct mdss_pll_resources *pll = clk->priv;
+	struct mdss_pll_resources *pll = context;
+	struct dsi_pll_db *pdb;
+	struct dsi_pll_output *pout;
 
 	if (is_gdsc_disabled(pll))
 		return 0;
+
+	pdb = (struct dsi_pll_db *)pll->priv;
+	pout = &pdb->out;
 
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
@@ -247,15 +263,27 @@ int n2_div_get_div(struct div_clk *clk)
 	n2div = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_CMN_CLK_CFG0);
 	n2div >>= 4;
 	n2div &= 0x0f;
-
+	/*
+	 * initialize n2div here, it will get updated when
+	 * corresponding set_div is called.
+	 */
+	pout->pll_n2div = n2div;
 	mdss_pll_resource_enable(pll, false);
 
-	pr_debug("ndx=%d div=%d\n", pll->index, n2div);
+	*div = n2div;
 
-	return n2div;
+	/* common clock framework will add one to the divider value sent */
+	if (*div == 0)
+		*div = 1; /* value of zero means div is 2 as per SWI */
+	else
+		*div -= 1;
+
+	pr_debug("ndx=%d div=%d\n", pll->index, *div);
+
+	return rc;
 }
 
-static bool pll_is_pll_locked_8996(struct mdss_pll_resources *pll)
+static bool pll_is_pll_locked_14nm(struct mdss_pll_resources *pll)
 {
 	u32 status;
 	bool pll_locked;
@@ -286,22 +314,22 @@ static bool pll_is_pll_locked_8996(struct mdss_pll_resources *pll)
 	return pll_locked;
 }
 
-static void dsi_pll_start_8996(void __iomem *pll_base)
+static void dsi_pll_start_14nm(void __iomem *pll_base)
 {
-	pr_debug("start PLL at base=%p\n", pll_base);
+	pr_debug("start PLL at base=%pK\n", pll_base);
 
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_VREF_CFG1, 0x10);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_CMN_PLL_CNTRL, 1);
 }
 
-static void dsi_pll_stop_8996(void __iomem *pll_base)
+static void dsi_pll_stop_14nm(void __iomem *pll_base)
 {
-	pr_debug("stop PLL at base=%p\n", pll_base);
+	pr_debug("stop PLL at base=%pK\n", pll_base);
 
 	MDSS_PLL_REG_W(pll_base, DSIPHY_CMN_PLL_CNTRL, 0);
 }
 
-int dsi_pll_enable_seq_8996(struct mdss_pll_resources *pll)
+int dsi_pll_enable_seq_14nm(struct mdss_pll_resources *pll)
 {
 	int rc = 0;
 
@@ -310,14 +338,14 @@ int dsi_pll_enable_seq_8996(struct mdss_pll_resources *pll)
 		return -EINVAL;
 	}
 
-	dsi_pll_start_8996(pll->pll_base);
+	dsi_pll_start_14nm(pll->pll_base);
 
 	/*
 	 * both DSIPHY_PLL_CLKBUFLR_EN and DSIPHY_CMN_GLBL_TEST_CTRL
-	 * enabled at mdss_dsi_8996_phy_config()
+	 * enabled at mdss_dsi_14nm_phy_config()
 	 */
 
-	if (!pll_is_pll_locked_8996(pll)) {
+	if (!pll_is_pll_locked_14nm(pll)) {
 		pr_err("DSI PLL ndx=%d lock failed\n", pll->index);
 		rc = -EINVAL;
 		goto init_lock_err;
@@ -329,10 +357,10 @@ init_lock_err:
 	return rc;
 }
 
-static int dsi_pll_enable(struct clk *c)
+static int dsi_pll_enable(struct clk_hw *hw)
 {
 	int i, rc = 0;
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
 	struct mdss_pll_resources *pll = vco->priv;
 
 	/* Try all enable sequences until one succeeds */
@@ -352,9 +380,9 @@ static int dsi_pll_enable(struct clk *c)
 	return rc;
 }
 
-static void dsi_pll_disable(struct clk *c)
+static void dsi_pll_disable(struct clk_hw *hw)
 {
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
 	struct mdss_pll_resources *pll = vco->priv;
 	struct mdss_pll_resources *slave;
 
@@ -367,7 +395,7 @@ static void dsi_pll_disable(struct clk *c)
 	pll->handoff_resources = false;
 	slave = pll->slave;
 
-	dsi_pll_stop_8996(pll->pll_base);
+	dsi_pll_stop_14nm(pll->pll_base);
 
 	mdss_pll_resource_enable(pll, false);
 
@@ -376,7 +404,7 @@ static void dsi_pll_disable(struct clk *c)
 	pr_debug("DSI PLL ndx=%d Disabled\n", pll->index);
 }
 
-static void mdss_dsi_pll_8996_input_init(struct mdss_pll_resources *pll,
+static void mdss_dsi_pll_14nm_input_init(struct mdss_pll_resources *pll,
 					struct dsi_pll_db *pdb)
 {
 	pdb->in.fref = 19200000;	/* 19.2 Mhz*/
@@ -414,9 +442,10 @@ static void mdss_dsi_pll_8996_input_init(struct mdss_pll_resources *pll,
 	pdb->in.pll_iptat_trim = 7;
 	pdb->in.pll_c3ctrl = 2;		/* 2 */
 	pdb->in.pll_r3ctrl = 1;		/* 1 */
+	pdb->out.pll_postdiv = 1;
 }
 
-static void pll_8996_ssc_calc(struct mdss_pll_resources *pll,
+static void pll_14nm_ssc_calc(struct mdss_pll_resources *pll,
 				struct dsi_pll_db *pdb)
 {
 	u32 period, ssc_period;
@@ -457,13 +486,13 @@ static void pll_8996_ssc_calc(struct mdss_pll_resources *pll,
 	pdb->out.ssc_step_size = step_size;
 }
 
-static void pll_8996_dec_frac_calc(struct mdss_pll_resources *pll,
+static void pll_14nm_dec_frac_calc(struct mdss_pll_resources *pll,
 				struct dsi_pll_db *pdb)
 {
 	struct dsi_pll_input *pin = &pdb->in;
 	struct dsi_pll_output *pout = &pdb->out;
-	s64 multiplier = BIT(20);
-	s64 dec_start_multiple, dec_start, pll_comp_val;
+	u64 multiplier = BIT(20);
+	u64 dec_start_multiple, dec_start, pll_comp_val;
 	s32 duration, div_frac_start;
 	s64 vco_clk_rate = pll->vco_current_rate;
 	s64 fref = pll->vco_ref_clk_rate;
@@ -489,7 +518,7 @@ static void pll_8996_dec_frac_calc(struct mdss_pll_resources *pll,
 		duration = 32;
 
 	pll_comp_val =  duration * dec_start_multiple;
-	pll_comp_val =  div_s64(pll_comp_val, multiplier);
+	pll_comp_val =  div_u64(pll_comp_val, multiplier);
 	do_div(pll_comp_val, 10);
 
 	pout->plllock_cmp = (u32)pll_comp_val;
@@ -501,7 +530,7 @@ static void pll_8996_dec_frac_calc(struct mdss_pll_resources *pll,
 		pout->cmn_ldo_cntrl = 0x1c;
 }
 
-static u32 pll_8996_kvco_slop(u32 vrate)
+static u32 pll_14nm_kvco_slop(u32 vrate)
 {
 	u32 slop = 0;
 
@@ -515,12 +544,12 @@ static u32 pll_8996_kvco_slop(u32 vrate)
 	return slop;
 }
 
-static void pll_8996_calc_vco_count(struct dsi_pll_db *pdb,
+static void pll_14nm_calc_vco_count(struct dsi_pll_db *pdb,
 			 s64 vco_clk_rate, s64 fref)
 {
 	struct dsi_pll_input *pin = &pdb->in;
 	struct dsi_pll_output *pout = &pdb->out;
-	s64 data;
+	u64 data;
 	u32 cnt;
 
 	data = fref * pin->vco_measure_time;
@@ -540,9 +569,9 @@ static void pll_8996_calc_vco_count(struct dsi_pll_db *pdb,
 	data -= 1;
 	pout->pll_kvco_div_ref = data;
 
-	cnt = pll_8996_kvco_slop(vco_clk_rate);
+	cnt = pll_14nm_kvco_slop(vco_clk_rate);
 	cnt *= 2;
-	do_div(cnt, 100);
+	cnt /= 100;
 	cnt *= pin->kvco_measure_time;
 	pout->pll_kvco_count = cnt;
 
@@ -659,7 +688,7 @@ static void pll_db_commit_common(struct mdss_pll_resources *pll,
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_PLL_CRCTRL, data);
 }
 
-static void pll_db_commit_8996(struct mdss_pll_resources *pll,
+static void pll_db_commit_14nm(struct mdss_pll_resources *pll,
 					struct dsi_pll_db *pdb)
 {
 	void __iomem *pll_base = pll->pll_base;
@@ -753,7 +782,7 @@ static void pll_db_commit_8996(struct mdss_pll_resources *pll,
 /*
  * pll_source_finding:
  * Both GLBL_TEST_CTRL and CLKBUFLR_EN are configured
- * at mdss_dsi_8996_phy_config()
+ * at mdss_dsi_14nm_phy_config()
  */
 static int pll_source_finding(struct mdss_pll_resources *pll)
 {
@@ -820,10 +849,59 @@ static void pll_source_setup(struct mdss_pll_resources *pll)
 		other->slave = pll;
 }
 
-int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
+unsigned long pll_vco_recalc_rate_14nm(struct clk_hw *hw,
+					unsigned long parent_rate)
+{
+	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
+	struct mdss_pll_resources *pll = vco->priv;
+	u64 vco_rate, multiplier = BIT(20);
+	s32 div_frac_start;
+	u32 dec_start;
+	u64 ref_clk = vco->ref_clk_rate;
+	int rc;
+
+	if (pll->vco_current_rate)
+		return (unsigned long)pll->vco_current_rate;
+
+	if (is_gdsc_disabled(pll))
+		return 0;
+
+	rc = mdss_pll_resource_enable(pll, true);
+	if (rc) {
+		pr_err("Failed to enable mdss dsi pll=%d\n", pll->index);
+		return rc;
+	}
+
+	dec_start = MDSS_PLL_REG_R(pll->pll_base,
+			DSIPHY_PLL_DEC_START);
+	dec_start &= 0x0ff;
+	pr_debug("dec_start = 0x%x\n", dec_start);
+
+	div_frac_start = (MDSS_PLL_REG_R(pll->pll_base,
+			DSIPHY_PLL_DIV_FRAC_START3) & 0x0f) << 16;
+	div_frac_start |= (MDSS_PLL_REG_R(pll->pll_base,
+			DSIPHY_PLL_DIV_FRAC_START2) & 0x0ff) << 8;
+	div_frac_start |= MDSS_PLL_REG_R(pll->pll_base,
+			DSIPHY_PLL_DIV_FRAC_START1) & 0x0ff;
+	pr_debug("div_frac_start = 0x%x\n", div_frac_start);
+
+	vco_rate = ref_clk * dec_start;
+	vco_rate += ((ref_clk * div_frac_start) / multiplier);
+
+	pr_debug("returning vco rate = %lu\n", (unsigned long)vco_rate);
+
+	mdss_pll_resource_enable(pll, false);
+
+	pr_debug("%s: returning vco rate as %lu\n",
+			__func__, (unsigned long)vco_rate);
+	return (unsigned long)vco_rate;
+}
+
+int pll_vco_set_rate_14nm(struct clk_hw *hw, unsigned long rate,
+					unsigned long parent_rate)
 {
 	int rc;
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
 	struct mdss_pll_resources *pll = vco->priv;
 	struct mdss_pll_resources *slave;
 	struct dsi_pll_db *pdb;
@@ -842,36 +920,36 @@ int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 
 	pll_source_setup(pll);
 
-	pr_debug("%s: ndx=%d base=%p rate=%lu slave=%p\n", __func__,
+	pr_debug("%s: ndx=%d base=%pK rate=%lu slave=%pK\n", __func__,
 				pll->index, pll->pll_base, rate, pll->slave);
 
 	pll->vco_current_rate = rate;
 	pll->vco_ref_clk_rate = vco->ref_clk_rate;
 
-	mdss_dsi_pll_8996_input_init(pll, pdb);
+	mdss_dsi_pll_14nm_input_init(pll, pdb);
 
-	pll_8996_dec_frac_calc(pll, pdb);
+	pll_14nm_dec_frac_calc(pll, pdb);
 
 	if (pll->ssc_en)
-		pll_8996_ssc_calc(pll, pdb);
+		pll_14nm_ssc_calc(pll, pdb);
 
-	pll_8996_calc_vco_count(pdb, pll->vco_current_rate,
+	pll_14nm_calc_vco_count(pdb, pll->vco_current_rate,
 					pll->vco_ref_clk_rate);
 
 	/* commit slave if split display is enabled */
 	slave = pll->slave;
 	if (slave)
-		pll_db_commit_8996(slave, pdb);
+		pll_db_commit_14nm(slave, pdb);
 
 	/* commit master itself */
-	pll_db_commit_8996(pll, pdb);
+	pll_db_commit_14nm(pll, pdb);
 
 	mdss_pll_resource_enable(pll, false);
 
 	return rc;
 }
 
-static void shadow_pll_dynamic_refresh_8996(struct mdss_pll_resources *pll,
+static void shadow_pll_dynamic_refresh_14nm(struct mdss_pll_resources *pll,
 							struct dsi_pll_db *pdb)
 {
 	struct dsi_pll_output *pout = &pdb->out;
@@ -931,10 +1009,11 @@ static void shadow_pll_dynamic_refresh_8996(struct mdss_pll_resources *pll,
 	wmb();
 }
 
-int shadow_pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
+int shadow_pll_vco_set_rate_14nm(struct clk_hw *hw, unsigned long rate,
+					unsigned long parent_rate)
 {
 	int rc;
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
 	struct mdss_pll_resources *pll = vco->priv;
 	struct dsi_pll_db *pdb;
 	s64 vco_clk_rate = (s64)rate;
@@ -962,20 +1041,20 @@ int shadow_pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 		return rc;
 	}
 
-	pr_debug("%s: ndx=%d base=%p rate=%lu\n", __func__,
+	pr_debug("%s: ndx=%d base=%pK rate=%lu\n", __func__,
 			pll->index, pll->pll_base, rate);
 
 	pll->vco_current_rate = rate;
 	pll->vco_ref_clk_rate = vco->ref_clk_rate;
 
-	mdss_dsi_pll_8996_input_init(pll, pdb);
+	mdss_dsi_pll_14nm_input_init(pll, pdb);
 
-	pll_8996_dec_frac_calc(pll, pdb);
+	pll_14nm_dec_frac_calc(pll, pdb);
 
-	pll_8996_calc_vco_count(pdb, pll->vco_current_rate,
+	pll_14nm_calc_vco_count(pdb, pll->vco_current_rate,
 			pll->vco_ref_clk_rate);
 
-	shadow_pll_dynamic_refresh_8996(pll, pdb);
+	shadow_pll_dynamic_refresh_14nm(pll, pdb);
 
 	rc = mdss_pll_resource_enable(pll, false);
 	if (rc) {
@@ -986,53 +1065,12 @@ int shadow_pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 	return rc;
 }
 
-unsigned long pll_vco_get_rate_8996(struct clk *c)
-{
-	u64 vco_rate, multiplier = BIT(20);
-	s32 div_frac_start;
-	u32 dec_start;
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
-	u64 ref_clk = vco->ref_clk_rate;
-	int rc;
-	struct mdss_pll_resources *pll = vco->priv;
-
-	if (is_gdsc_disabled(pll))
-		return 0;
-
-	rc = mdss_pll_resource_enable(pll, true);
-	if (rc) {
-		pr_err("Failed to enable mdss dsi pll=%d\n", pll->index);
-		return rc;
-	}
-
-	dec_start = MDSS_PLL_REG_R(pll->pll_base,
-			DSIPHY_PLL_DEC_START);
-	dec_start &= 0x0ff;
-	pr_debug("dec_start = 0x%x\n", dec_start);
-
-	div_frac_start = (MDSS_PLL_REG_R(pll->pll_base,
-			DSIPHY_PLL_DIV_FRAC_START3) & 0x0f) << 16;
-	div_frac_start |= (MDSS_PLL_REG_R(pll->pll_base,
-			DSIPHY_PLL_DIV_FRAC_START2) & 0x0ff) << 8;
-	div_frac_start |= MDSS_PLL_REG_R(pll->pll_base,
-			DSIPHY_PLL_DIV_FRAC_START1) & 0x0ff;
-	pr_debug("div_frac_start = 0x%x\n", div_frac_start);
-
-	vco_rate = ref_clk * dec_start;
-	vco_rate += ((ref_clk * div_frac_start) / multiplier);
-
-	pr_debug("returning vco rate = %lu\n", (unsigned long)vco_rate);
-
-	mdss_pll_resource_enable(pll, false);
-
-	return (unsigned long)vco_rate;
-}
-
-long pll_vco_round_rate_8996(struct clk *c, unsigned long rate)
+long pll_vco_round_rate_14nm(struct clk_hw *hw, unsigned long rate,
+						unsigned long *parent_rate)
 {
 	unsigned long rrate = rate;
 	u32 div;
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
 
 	div = vco->min_rate / rate;
 	if (div > 15) {
@@ -1046,46 +1084,14 @@ long pll_vco_round_rate_8996(struct clk *c, unsigned long rate)
 	if (rate > vco->max_rate)
 		rrate = vco->max_rate;
 
+	*parent_rate = rrate;
 	return rrate;
 }
 
-enum handoff pll_vco_handoff_8996(struct clk *c)
-{
-	int rc;
-	enum handoff ret = HANDOFF_DISABLED_CLK;
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
-	struct mdss_pll_resources *pll = vco->priv;
-
-	if (is_gdsc_disabled(pll))
-		return HANDOFF_DISABLED_CLK;
-
-	rc = mdss_pll_resource_enable(pll, true);
-	if (rc) {
-		pr_err("Failed to enable mdss dsi pll=%d\n", pll->index);
-		return ret;
-	}
-
-	if (pll_is_pll_locked_8996(pll)) {
-		pll->handoff_resources = true;
-		pll->pll_on = true;
-		c->rate = pll_vco_get_rate_8996(c);
-		ret = HANDOFF_ENABLED_CLK;
-	} else {
-		mdss_pll_resource_enable(pll, false);
-	}
-
-	return ret;
-}
-
-enum handoff shadow_pll_vco_handoff_8996(struct clk *c)
-{
-	return HANDOFF_DISABLED_CLK;
-}
-
-int pll_vco_prepare_8996(struct clk *c)
+int pll_vco_prepare_14nm(struct clk_hw *hw)
 {
 	int rc = 0;
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
 	struct mdss_pll_resources *pll = vco->priv;
 
 	if (!pll) {
@@ -1101,8 +1107,9 @@ int pll_vco_prepare_8996(struct clk *c)
 	}
 
 	if ((pll->vco_cached_rate != 0)
-	    && (pll->vco_cached_rate == c->rate)) {
-		rc = c->ops->set_rate(c, pll->vco_cached_rate);
+	    && (pll->vco_cached_rate == clk_hw_get_rate(hw))) {
+		rc = hw->init->ops->set_rate(hw, pll->vco_cached_rate,
+						pll->vco_cached_rate);
 		if (rc) {
 			pr_err("index=%d vco_set_rate failed. rc=%d\n",
 					rc, pll->index);
@@ -1111,7 +1118,7 @@ int pll_vco_prepare_8996(struct clk *c)
 		}
 	}
 
-	rc = dsi_pll_enable(c);
+	rc = dsi_pll_enable(hw);
 
 	if (rc) {
 		mdss_pll_resource_enable(pll, false);
@@ -1122,9 +1129,9 @@ error:
 	return rc;
 }
 
-void pll_vco_unprepare_8996(struct clk *c)
+void pll_vco_unprepare_14nm(struct clk_hw *hw)
 {
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
 	struct mdss_pll_resources *pll = vco->priv;
 
 	if (!pll) {
@@ -1132,6 +1139,17 @@ void pll_vco_unprepare_8996(struct clk *c)
 		return;
 	}
 
-	pll->vco_cached_rate = c->rate;
-	dsi_pll_disable(c);
+	pll->vco_cached_rate = clk_hw_get_rate(hw);
+	dsi_pll_disable(hw);
+}
+
+int dsi_mux_set_parent_14nm(void *context, unsigned int reg, unsigned int val)
+{
+	return 0;
+}
+
+int dsi_mux_get_parent_14nm(void *context, unsigned int reg, unsigned int *val)
+{
+	*val = 0;
+	return 0;
 }
