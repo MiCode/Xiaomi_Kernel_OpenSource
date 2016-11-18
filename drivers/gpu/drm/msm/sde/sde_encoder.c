@@ -703,6 +703,51 @@ int sde_encoder_helper_wait_event_timeout(
 	return rc;
 }
 
+void sde_encoder_helper_hw_reset(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_connector *sde_con;
+	void *sde_con_disp;
+	struct sde_hw_ctl *ctl;
+	int rc;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(phys_enc->parent);
+	ctl = phys_enc->hw_ctl;
+
+	if (!ctl || !ctl->ops.reset)
+		return;
+
+	SDE_DEBUG_ENC(sde_enc, "ctl %d reset\n",  ctl->idx);
+	SDE_EVT32(DRMID(phys_enc->parent), ctl->idx);
+
+	if (phys_enc->ops.is_master && phys_enc->ops.is_master(phys_enc) &&
+			phys_enc->connector) {
+		sde_con = to_sde_connector(phys_enc->connector);
+		sde_con_disp = sde_connector_get_display(phys_enc->connector);
+
+		if (sde_con->ops.soft_reset) {
+			rc = sde_con->ops.soft_reset(sde_con_disp);
+			if (rc) {
+				SDE_ERROR_ENC(sde_enc,
+						"connector soft reset failure\n");
+				SDE_DBG_DUMP("panic");
+			}
+		}
+	}
+
+	rc = ctl->ops.reset(ctl);
+	if (rc) {
+		SDE_ERROR_ENC(sde_enc, "ctl %d reset failure\n",  ctl->idx);
+		SDE_DBG_DUMP("panic");
+	}
+
+	phys_enc->enable_state = SDE_ENC_ENABLED;
+}
+
 /**
  * _sde_encoder_kickoff_phys - handle physical encoder kickoff
  *	Iterate through the physical encoders and perform consolidated flush
@@ -766,6 +811,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
+	bool needs_hw_reset = false;
 	unsigned int i;
 
 	if (!drm_enc) {
@@ -780,8 +826,21 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 	/* prepare for next kickoff, may include waiting on previous kickoff */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
-		if (phys && phys->ops.prepare_for_kickoff)
-			phys->ops.prepare_for_kickoff(phys);
+		if (phys) {
+			if (phys->ops.prepare_for_kickoff)
+				phys->ops.prepare_for_kickoff(phys);
+			if (phys->enable_state == SDE_ENC_ERR_NEEDS_HW_RESET)
+				needs_hw_reset = true;
+		}
+	}
+
+	/* if any phys needs reset, reset all phys, in-order */
+	if (needs_hw_reset) {
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			phys = sde_enc->phys_encs[i];
+			if (phys && phys->ops.hw_reset)
+				phys->ops.hw_reset(phys);
+		}
 	}
 }
 
@@ -1216,18 +1275,21 @@ static void sde_encoder_frame_done_timeout(unsigned long data)
 	priv = drm_enc->dev->dev_private;
 
 	if (!sde_enc->frame_busy_mask[0] || !sde_enc->crtc_frame_event_cb) {
-		SDE_DEBUG("enc%d invalid timeout\n", drm_enc->base.id);
-		SDE_EVT32(DRMID(drm_enc),
-				sde_enc->frame_busy_mask[0], 0);
+		SDE_DEBUG_ENC(sde_enc, "invalid timeout\n");
+		SDE_EVT32(DRMID(drm_enc), sde_enc->frame_busy_mask[0], 0);
 		return;
 	} else if (!atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
-		SDE_ERROR("enc%d invalid timeout\n", drm_enc->base.id);
+		SDE_ERROR_ENC(sde_enc, "invalid timeout\n");
 		SDE_EVT32(DRMID(drm_enc), 0, 1);
 		return;
 	}
 
-	SDE_EVT32(DRMID(drm_enc), 0, 2);
+	SDE_EVT32(DRMID(drm_enc), 2, sde_enc->crtc_frame_event);
+	SDE_ERROR_ENC(sde_enc, "frame done timeout, frame_event %d\n",
+			sde_enc->crtc_frame_event);
+
 	sde_enc->crtc_frame_event_cb(sde_enc->crtc_frame_event_cb_data,
+			sde_enc->crtc_frame_event |
 			SDE_ENCODER_FRAME_EVENT_ERROR);
 }
 

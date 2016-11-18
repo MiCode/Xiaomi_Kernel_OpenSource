@@ -31,6 +31,8 @@
 #define to_sde_encoder_phys_cmd(x) \
 	container_of(x, struct sde_encoder_phys_cmd, base)
 
+#define PP_TIMEOUT_MAX_TRIALS	10
+
 /*
  * Tearcheck sync start and continue thresholds are empirically found
  * based on common panels In the future, may want to allow panels to override
@@ -149,6 +151,53 @@ static bool _sde_encoder_phys_is_ppsplit_slave(
 	return false;
 }
 
+static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_cmd *cmd_enc =
+			to_sde_encoder_phys_cmd(phys_enc);
+	u32 frame_event = SDE_ENCODER_FRAME_EVENT_ERROR;
+	bool do_log = false;
+
+	cmd_enc->pp_timeout_report_cnt++;
+	if (cmd_enc->pp_timeout_report_cnt == PP_TIMEOUT_MAX_TRIALS) {
+		frame_event |= SDE_ENCODER_FRAME_EVENT_PANEL_DEAD;
+		do_log = true;
+	} else if (cmd_enc->pp_timeout_report_cnt == 1) {
+		do_log = true;
+	}
+
+	/* to avoid flooding, only log first time, and "dead" time */
+	if (do_log) {
+		SDE_ERROR_CMDENC(cmd_enc,
+				"pp:%d kickoff timed out ctl %d cnt %d koff_cnt %d\n",
+				phys_enc->hw_pp->idx - PINGPONG_0,
+				phys_enc->hw_ctl->idx - CTL_0,
+				cmd_enc->pp_timeout_report_cnt,
+				atomic_read(&phys_enc->pending_kickoff_cnt));
+
+		SDE_EVT32(DRMID(phys_enc->parent),
+				phys_enc->hw_pp->idx - PINGPONG_0,
+				0xbad, cmd_enc->pp_timeout_report_cnt,
+				atomic_read(&phys_enc->pending_kickoff_cnt));
+
+		SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
+				"dsi1_phy", "vbif", "vbif_nrt", "dbg_bus",
+				"vbif_dbg_bus", "panic");
+	}
+
+	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
+
+	/* request a ctl reset before the next kickoff */
+	phys_enc->enable_state = SDE_ENC_ERR_NEEDS_HW_RESET;
+
+	if (phys_enc->parent_ops.handle_frame_done)
+		phys_enc->parent_ops.handle_frame_done(
+				phys_enc->parent, phys_enc, frame_event);
+
+	return -ETIMEDOUT;
+}
+
 static int _sde_encoder_phys_cmd_wait_for_idle(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -180,31 +229,31 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 			&phys_enc->pending_kickoff_cnt,
 			KICKOFF_TIMEOUT_MS);
 	if (ret <= 0) {
+		/* read and clear interrupt */
 		irq_status = sde_core_irq_read(phys_enc->sde_kms,
 				INTR_IDX_PINGPONG, true);
 		if (irq_status) {
+			unsigned long flags;
 			SDE_EVT32(DRMID(phys_enc->parent),
 					phys_enc->hw_pp->idx - PINGPONG_0);
 			SDE_DEBUG_CMDENC(cmd_enc,
 					"pp:%d done but irq not triggered\n",
 					phys_enc->hw_pp->idx - PINGPONG_0);
+			local_irq_save(flags);
 			sde_encoder_phys_cmd_pp_tx_done_irq(cmd_enc,
 					INTR_IDX_PINGPONG);
+			local_irq_restore(flags);
 			ret = 0;
 		} else {
-			SDE_EVT32(DRMID(phys_enc->parent),
-					phys_enc->hw_pp->idx - PINGPONG_0);
-			SDE_ERROR_CMDENC(cmd_enc, "pp:%d kickoff timed out\n",
-					phys_enc->hw_pp->idx - PINGPONG_0);
-			if (phys_enc->parent_ops.handle_frame_done)
-				phys_enc->parent_ops.handle_frame_done(
-						phys_enc->parent, phys_enc,
-						SDE_ENCODER_FRAME_EVENT_ERROR);
-			ret = -ETIMEDOUT;
+			ret = _sde_encoder_phys_cmd_handle_ppdone_timeout(
+					phys_enc);
 		}
 	} else {
 		ret = 0;
 	}
+
+	if (!ret)
+		cmd_enc->pp_timeout_report_cnt = 0;
 
 	return ret;
 }
@@ -666,6 +715,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->prepare_for_kickoff = sde_encoder_phys_cmd_prepare_for_kickoff;
 	ops->trigger_start = sde_encoder_helper_trigger_start;
 	ops->needs_single_flush = sde_encoder_phys_cmd_needs_single_flush;
+	ops->hw_reset = sde_encoder_helper_hw_reset;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(

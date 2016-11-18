@@ -56,6 +56,30 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl)
 	return rc;
 }
 
+int dsi_display_soft_reset(void *display)
+{
+	struct dsi_display *dsi_display;
+	struct dsi_display_ctrl *ctrl;
+	int rc = 0;
+	int i;
+
+	if (!display)
+		return -EINVAL;
+
+	dsi_display = display;
+
+	for (i = 0 ; i < dsi_display->ctrl_count; i++) {
+		ctrl = &dsi_display->ctrl[i];
+		rc = dsi_ctrl_soft_reset(ctrl->ctrl);
+		if (rc) {
+			pr_err("[%s] failed to soft reset host_%d, rc=%d\n",
+					dsi_display->name, i, rc);
+			break;
+		}
+	}
+
+	return rc;
+}
 static ssize_t debugfs_dump_info_read(struct file *file,
 				      char __user *buff,
 				      size_t count,

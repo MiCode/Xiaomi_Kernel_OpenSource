@@ -1685,6 +1685,19 @@ error:
 	return rc;
 }
 
+int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)
+{
+	if (!dsi_ctrl)
+		return -EINVAL;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	pr_debug("[DSI_%d]Soft reset complete\n", dsi_ctrl->index);
+	return 0;
+}
+
 /**
  * dsi_ctrl_host_deinit() - De-Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.

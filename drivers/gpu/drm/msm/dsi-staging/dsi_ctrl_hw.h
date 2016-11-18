@@ -346,12 +346,12 @@ struct dsi_ctrl_hw_ops {
 	 * soft_reset() - perform a soft reset on DSI controller
 	 * @ctrl:          Pointer to the controller host hardware.
 	 *
-	 * The video, command and controller engines will be disable before the
-	 * reset is triggered. These engines will not be enabled after the reset
-	 * is complete. Caller must re-enable the engines.
+	 * The video, command and controller engines will be disabled before the
+	 * reset is triggered. After, the engines will be re-enabled to the same
+	 * state as before the reset.
 	 *
 	 * If the reset is done while MDP timing engine is turned on, the video
-	 * enigne should be re-enabled only during the vertical blanking time.
+	 * engine should be re-enabled only during the vertical blanking time.
 	 */
 	void (*soft_reset)(struct dsi_ctrl_hw *ctrl);
 
