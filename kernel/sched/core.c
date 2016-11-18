@@ -5954,7 +5954,7 @@ int sched_isolate_cpu(int cpu)
 	if (trace_sched_isolate_enabled())
 		start_time = sched_clock();
 
-	lock_device_hotplug();
+	cpu_maps_update_begin();
 
 	cpumask_andnot(&avail_cpus, cpu_online_mask, cpu_isolated_mask);
 
@@ -6003,7 +6003,7 @@ int sched_isolate_cpu(int cpu)
 	sched_update_group_capacities(cpu);
 
 out:
-	unlock_device_hotplug();
+	cpu_maps_update_done();
 	trace_sched_isolate(cpu, cpumask_bits(cpu_isolated_mask)[0],
 			    start_time, 1);
 	return ret_code;
@@ -6023,8 +6023,6 @@ int sched_unisolate_cpu_unlocked(int cpu)
 
 	if (trace_sched_isolate_enabled())
 		start_time = sched_clock();
-
-	lock_device_hotplug_assert();
 
 	if (!cpu_isolation_vote[cpu]) {
 		ret_code = -EINVAL;
@@ -6064,9 +6062,9 @@ int sched_unisolate_cpu(int cpu)
 {
 	int ret_code;
 
-	lock_device_hotplug();
+	cpu_maps_update_begin();
 	ret_code = sched_unisolate_cpu_unlocked(cpu);
-	unlock_device_hotplug();
+	cpu_maps_update_done();
 	return ret_code;
 }
 

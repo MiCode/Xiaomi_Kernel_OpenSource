@@ -893,14 +893,10 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 	unsigned int need;
 	int ret = NOTIFY_OK;
 
-	/* Don't affect suspend resume */
-	if (action & CPU_TASKS_FROZEN)
-		return NOTIFY_OK;
-
 	if (unlikely(!cluster || !cluster->inited))
 		return NOTIFY_OK;
 
-	switch (action) {
+	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
 
 		/* If online state of CPU somehow got out of sync, fix it. */
@@ -1095,7 +1091,7 @@ static int __init core_ctl_init(void)
 	cpufreq_register_notifier(&cpufreq_pol_nb, CPUFREQ_POLICY_NOTIFIER);
 	cpufreq_register_notifier(&cpufreq_gov_nb, CPUFREQ_GOVINFO_NOTIFIER);
 
-	lock_device_hotplug();
+	cpu_maps_update_begin();
 	for_each_online_cpu(cpu) {
 		struct cpufreq_policy *policy;
 		int ret;
@@ -1109,7 +1105,7 @@ static int __init core_ctl_init(void)
 			cpufreq_cpu_put(policy);
 		}
 	}
-	unlock_device_hotplug();
+	cpu_maps_update_done();
 	initialized = true;
 	return 0;
 }
