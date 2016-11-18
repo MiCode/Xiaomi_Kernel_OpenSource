@@ -605,8 +605,9 @@ static u8 mdss_dp_calculate_parity_byte(u32 data)
 	u8 iData = 0;
 	u8 i = 0;
 	u8 parityByte;
+	u8 num_byte = (data & 0xFF00) > 0 ? 8 : 2;
 
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < num_byte; i++) {
 		iData = (data >> i*4) & 0xF;
 
 		ci = iData ^ x1;
