@@ -122,6 +122,7 @@ static char const *slim_sample_rate_text[] = {"KHZ_8", "KHZ_16",
 					"KHZ_88P2", "KHZ_96", "KHZ_176P4",
 					"KHZ_192", "KHZ_352P8", "KHZ_384"};
 static const char *const spk_function_text[] = {"Off", "On"};
+static char const *bt_sample_rate_text[] = {"KHZ_8", "KHZ_16", "KHZ_48"};
 
 static SOC_ENUM_SINGLE_EXT_DECL(spk_func_en, spk_function_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
@@ -140,6 +141,7 @@ static SOC_ENUM_SINGLE_EXT_DECL(slim_2_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_6_rx_sample_rate, slim_sample_rate_text);
+static SOC_ENUM_SINGLE_EXT_DECL(bt_sample_rate, bt_sample_rate_text);
 
 static int slim_get_sample_rate_val(int sample_rate)
 {
@@ -300,6 +302,59 @@ static int slim_get_port_idx(struct snd_kcontrol *kcontrol)
 	}
 
 	return port_id;
+}
+
+static int msm_bt_sample_rate_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	/*
+	 * Slimbus_7_Rx/Tx sample rate values should always be in sync (same)
+	 * when used for BT_SCO use case. Return either Rx or Tx sample rate
+	 * value.
+	 */
+	switch (slim_rx_cfg[SLIM_RX_7].sample_rate) {
+	case SAMPLING_RATE_48KHZ:
+		ucontrol->value.integer.value[0] = 2;
+		break;
+	case SAMPLING_RATE_16KHZ:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SAMPLING_RATE_8KHZ:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+	pr_debug("%s: sample rate = %d", __func__,
+		 slim_rx_cfg[SLIM_RX_7].sample_rate);
+
+	return 0;
+}
+
+static int msm_bt_sample_rate_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		slim_rx_cfg[SLIM_RX_7].sample_rate = SAMPLING_RATE_16KHZ;
+		slim_tx_cfg[SLIM_TX_7].sample_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 2:
+		slim_rx_cfg[SLIM_RX_7].sample_rate = SAMPLING_RATE_48KHZ;
+		slim_tx_cfg[SLIM_TX_7].sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	case 0:
+	default:
+		slim_rx_cfg[SLIM_RX_7].sample_rate = SAMPLING_RATE_8KHZ;
+		slim_tx_cfg[SLIM_TX_7].sample_rate = SAMPLING_RATE_8KHZ;
+		break;
+	}
+	pr_debug("%s: sample rates: slim7_rx = %d, slim7_tx = %d, value = %d\n",
+		 __func__,
+		 slim_rx_cfg[SLIM_RX_7].sample_rate,
+		 slim_tx_cfg[SLIM_TX_7].sample_rate,
+		 ucontrol->value.enumerated.item[0]);
+
+	return 0;
 }
 
 static int slim_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
@@ -670,6 +725,9 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim_rx_sample_rate_get, slim_rx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_6_RX SampleRate", slim_6_rx_sample_rate,
 			slim_rx_sample_rate_get, slim_rx_sample_rate_put),
+	SOC_ENUM_EXT("BT SampleRate", bt_sample_rate,
+			msm_bt_sample_rate_get,
+			msm_bt_sample_rate_put),
 };
 
 static int msm_slim_get_ch_from_beid(int32_t be_id)
@@ -1627,6 +1685,21 @@ err_mbhc_cal:
 EXPORT_SYMBOL(msm_audrx_init);
 
 /**
+ * msm_ext_register_audio_notifier - register SSR notifier.
+ */
+void msm_ext_register_audio_notifier(void)
+{
+	int ret;
+
+	ret = audio_notifier_register("msmfalcon", AUDIO_NOTIFIER_ADSP_DOMAIN,
+				      &service_nb);
+	if (ret < 0)
+		pr_err("%s: Audio notifier register failed ret = %d\n",
+			__func__, ret);
+}
+EXPORT_SYMBOL(msm_ext_register_audio_notifier);
+
+/**
  * msm_ext_cdc_init - external codec machine specific init.
  *
  * @pdev: platform device handle
@@ -1650,24 +1723,16 @@ int msm_ext_cdc_init(struct platform_device *pdev,
 	wcd_mbhc_cfg_ptr->anc_micbias = MIC_BIAS_2;
 	wcd_mbhc_cfg_ptr->enable_anc_mic_detect = false;
 
-	*card = populate_snd_card_dailinks(&pdev->dev);
+	*card = populate_snd_card_dailinks(&pdev->dev, pdata->snd_card_val);
 	if (!(*card)) {
 		dev_err(&pdev->dev, "%s: Card uninitialized\n", __func__);
 		ret = -EPROBE_DEFER;
 		goto err;
 	}
-	(*card)->dev = &pdev->dev;
 	spdev = pdev;
 	platform_set_drvdata(pdev, *card);
 	snd_soc_card_set_drvdata(*card, pdata);
 	is_initial_boot = true;
-	ret = audio_notifier_register("msmfalcon", AUDIO_NOTIFIER_ADSP_DOMAIN,
-				      &service_nb);
-	if (ret < 0) {
-		pr_err("%s: Audio notifier register failed ret = %d\n",
-			__func__, ret);
-		goto err;
-	}
 	pdata->hph_en1_gpio = of_get_named_gpio(pdev->dev.of_node,
 						"qcom,hph-en1-gpio", 0);
 	if (!gpio_is_valid(pdata->hph_en1_gpio))

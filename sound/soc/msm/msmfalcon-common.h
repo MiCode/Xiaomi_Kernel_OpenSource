@@ -31,10 +31,44 @@
 #define SAMPLING_RATE_352P8KHZ  352800
 #define SAMPLING_RATE_384KHZ    384000
 
+#define TDM_CHANNEL_MAX 8
+#define TDM_SLOT_OFFSET_MAX 8
+
+enum {
+	TDM_0 = 0,
+	TDM_1,
+	TDM_2,
+	TDM_3,
+	TDM_4,
+	TDM_5,
+	TDM_6,
+	TDM_7,
+	TDM_PORT_MAX,
+};
+
+enum {
+	TDM_PRI = 0,
+	TDM_SEC,
+	TDM_TERT,
+	TDM_QUAT,
+	TDM_INTERFACE_MAX,
+};
+
+struct tdm_port {
+	u32 mode;
+	u32 channel;
+};
+
 extern const struct snd_kcontrol_new msm_common_snd_controls[];
 struct msmfalcon_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,
 				   enum afe_config_type config_type);
+};
+
+enum {
+	INT_SND_CARD,
+	EXT_SND_CARD_TASHA,
+	EXT_SND_CARD_TAVIL,
 };
 
 struct msm_asoc_mach_data {
@@ -50,6 +84,7 @@ struct msm_asoc_mach_data {
 	int spk_ext_pa_gpio;
 	int mclk_freq;
 	int lb_mode;
+	int snd_card_val;
 	u8 micbias1_cap_mode;
 	u8 micbias2_cap_mode;
 	atomic_t int_mclk0_rsc_ref;
@@ -57,7 +92,6 @@ struct msm_asoc_mach_data {
 	struct mutex cdc_int_mclk0_mutex;
 	struct delayed_work disable_int_mclk0_work;
 	struct afe_clk_set digital_cdc_core_clk;
-	bool int_codec;
 };
 
 int msm_common_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
