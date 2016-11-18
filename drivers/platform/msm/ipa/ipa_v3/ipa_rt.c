@@ -291,7 +291,7 @@ static int ipa_prep_rt_tbl_for_cmt(enum ipa_ip_type ip,
 			return -EPERM;
 		}
 
-		IPADBG("RT rule id (handle) %d hw_len %u priority %u\n",
+		IPADBG_LOW("RT rule id (handle) %d hw_len %u priority %u\n",
 			entry->id, entry->hw_len, entry->prio);
 
 		if (entry->rule.hashable)
@@ -644,23 +644,23 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		goto fail_imm_cmd_construct;
 	}
 
-	IPADBG("Hashable HEAD\n");
+	IPADBG_LOW("Hashable HEAD\n");
 	IPA_DUMP_BUFF(alloc_params.hash_hdr.base,
 		alloc_params.hash_hdr.phys_base, alloc_params.hash_hdr.size);
 
-	IPADBG("Non-Hashable HEAD\n");
+	IPADBG_LOW("Non-Hashable HEAD\n");
 	IPA_DUMP_BUFF(alloc_params.nhash_hdr.base,
 		alloc_params.nhash_hdr.phys_base, alloc_params.nhash_hdr.size);
 
 	if (alloc_params.hash_bdy.size) {
-		IPADBG("Hashable BODY\n");
+		IPADBG_LOW("Hashable BODY\n");
 		IPA_DUMP_BUFF(alloc_params.hash_bdy.base,
 			alloc_params.hash_bdy.phys_base,
 			alloc_params.hash_bdy.size);
 	}
 
 	if (alloc_params.nhash_bdy.size) {
-		IPADBG("Non-Hashable BODY\n");
+		IPADBG_LOW("Non-Hashable BODY\n");
 		IPA_DUMP_BUFF(alloc_params.nhash_bdy.base,
 			alloc_params.nhash_bdy.phys_base,
 			alloc_params.nhash_bdy.size);
@@ -1212,8 +1212,9 @@ int __ipa3_del_rt_rule(u32 rule_hdl)
 		__ipa3_release_hdr_proc_ctx(entry->proc_ctx->id);
 	list_del(&entry->link);
 	entry->tbl->rule_cnt--;
-	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d rule_id=%d\n",
-		entry->tbl->idx, entry->tbl->rule_cnt, entry->rule_id);
+	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d rule_id=%d\n ref_cnt=%u",
+		entry->tbl->idx, entry->tbl->rule_cnt,
+		entry->rule_id, entry->tbl->ref_cnt);
 	idr_remove(&entry->tbl->rule_ids, entry->rule_id);
 	if (entry->tbl->rule_cnt == 0 && entry->tbl->ref_cnt == 0) {
 		if (__ipa_del_rt_tbl(entry->tbl))
@@ -1490,6 +1491,8 @@ int ipa3_put_rt_tbl(u32 rt_tbl_hdl)
 
 	entry->ref_cnt--;
 	if (entry->ref_cnt == 0 && entry->rule_cnt == 0) {
+		IPADBG("zero ref_cnt, delete rt tbl (idx=%u)\n",
+			entry->idx);
 		if (__ipa_del_rt_tbl(entry))
 			IPAERR("fail to del RT tbl\n");
 		/* commit for put */
@@ -1677,7 +1680,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx, enum ipa_ip_type ip_type,
 	u8 *rule_addr;
 	int rule_idx;
 
-	IPADBG("tbl_idx=%d ip_type=%d hashable=%d entry=0x%p num_entry=0x%p\n",
+	IPADBG_LOW("tbl_idx=%d ip_t=%d hashable=%d entry=0x%p num_entry=0x%p\n",
 		tbl_idx, ip_type, hashable, entry, num_entry);
 
 	if (ip_type == IPA_IP_v4 && tbl_idx >= IPA_MEM_PART(v4_rt_num_index)) {
@@ -1718,7 +1721,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx, enum ipa_ip_type ip_type,
 				IPA_MEM_PART(v6_rt_nhash_ofst);
 	}
 
-	IPADBG("hdr_base_ofst=0x%llx\n", hdr_base_ofst);
+	IPADBG_LOW("hdr_base_ofst=0x%llx\n", hdr_base_ofst);
 
 	res = ipahal_fltrt_read_addr_from_hdr(ipa_sram_mmio + hdr_base_ofst,
 		tbl_idx, &tbl_addr, &is_sys);
@@ -1726,7 +1729,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx, enum ipa_ip_type ip_type,
 		IPAERR("failed to read table address from header structure\n");
 		goto bail;
 	}
-	IPADBG("rt tbl %d: tbl_addr=0x%llx is_sys=%d\n",
+	IPADBG_LOW("rt tbl %d: tbl_addr=0x%llx is_sys=%d\n",
 		tbl_idx, tbl_addr, is_sys);
 	if (!tbl_addr) {
 		IPAERR("invalid rt tbl addr\n");
@@ -1762,7 +1765,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx, enum ipa_ip_type ip_type,
 		rule_addr = ipa_sram_mmio + hdr_base_ofst + tbl_addr;
 	}
 
-	IPADBG("First rule addr 0x%p\n", rule_addr);
+	IPADBG_LOW("First rule addr 0x%p\n", rule_addr);
 
 	if (!rule_addr) {
 		/* Modem table in system memory or empty table */
@@ -1778,7 +1781,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx, enum ipa_ip_type ip_type,
 			goto bail;
 		}
 
-		IPADBG("rule_size=%d\n", entry[rule_idx].rule_size);
+		IPADBG_LOW("rule_size=%d\n", entry[rule_idx].rule_size);
 		if (!entry[rule_idx].rule_size)
 			break;
 

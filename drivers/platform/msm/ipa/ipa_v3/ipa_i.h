@@ -43,8 +43,6 @@
 #define MTU_BYTE 1500
 
 #define IPA3_MAX_NUM_PIPES 31
-#define IPA_WAN_CONS_DESC_FIFO_SZ 0x5E80
-#define IPA_WAN_NAPI_CONS_RX_POOL_SZ 3000
 #define IPA_SYS_DESC_FIFO_SZ 0x800
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
 #define IPA_LAN_RX_HEADER_LENGTH (2)
@@ -55,6 +53,8 @@
 #define IPA_UC_FINISH_MAX 6
 #define IPA_UC_WAIT_MIN_SLEEP 1000
 #define IPA_UC_WAII_MAX_SLEEP 1200
+#define IPA_WAN_NAPI_CONS_RX_POOL_SZ (IPA_GENERIC_RX_POOL_SZ*3)
+#define IPA_WAN_CONS_DESC_FIFO_SZ (IPA_SYS_DESC_FIFO_SZ*3)
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 
@@ -481,7 +481,7 @@ struct ipa_gsi_ep_mem_info {
 
 struct ipa3_status_stats {
 	struct ipahal_pkt_status status[IPA_MAX_STATUS_STAT_NUM];
-	int curr;
+	unsigned int curr;
 };
 
 /**
@@ -1015,6 +1015,11 @@ struct ipa3_ready_cb_info {
 	void *user_data;
 };
 
+struct ipa_tz_unlock_reg_info {
+	u64 reg_addr;
+	u32 size;
+};
+
 /**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
@@ -1232,6 +1237,8 @@ struct ipa3_context {
 	struct completion init_completion_obj;
 	struct completion uc_loaded_completion_obj;
 	struct ipa3_smp2p_info smp2p_info;
+	u32 ipa_tz_unlock_reg_num;
+	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 };
 
 /**
@@ -1270,6 +1277,8 @@ struct ipa3_plat_drv_res {
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool tethered_flow_control;
+	u32 ipa_tz_unlock_reg_num;
+	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 };
 
 /**
@@ -1830,6 +1839,7 @@ int ipa3_init_mem_partition(struct device_node *dev_node);
 int ipa3_controller_static_bind(struct ipa3_controller *controller,
 		enum ipa_hw_type ipa_hw_type);
 int ipa3_cfg_route(struct ipahal_reg_route *route);
+int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout);
 int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr);
 int ipa3_cfg_filter(u32 disable);
 int ipa3_pipe_mem_init(u32 start_ofst, u32 size);

@@ -778,10 +778,28 @@ static void ipa3_transport_irq_cmd_ack(void *user1, int user2)
  */
 int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 {
+	return ipa3_send_cmd_timeout(num_desc, descr, 0);
+}
+
+/**
+ * ipa3_send_cmd_timeout - send immediate commands with limited time
+ *	waiting for ACK from IPA HW
+ * @num_desc:	number of descriptors within the desc struct
+ * @descr:	descriptor structure
+ * @timeout:	millisecond to wait till get ACK from IPA HW
+ *
+ * Function will block till command gets ACK from IPA HW or timeout.
+ * Caller needs to free any resources it allocated after function returns
+ * The callback in ipa3_desc should not be set by the caller
+ * for this function.
+ */
+int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
+{
 	struct ipa3_desc *desc;
 	int i, result = 0;
 	struct ipa3_sys_context *sys;
 	int ep_idx;
+	int completed;
 
 	for (i = 0; i < num_desc; i++)
 		IPADBG("sending imm cmd %d\n", descr[i].opcode);
@@ -808,7 +826,14 @@ int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 			result = -EFAULT;
 			goto bail;
 		}
-		wait_for_completion(&descr->xfer_done);
+		if (timeout) {
+			completed = wait_for_completion_timeout(
+				&descr->xfer_done, msecs_to_jiffies(timeout));
+			if (!completed)
+				IPADBG("timeout waiting for imm-cmd ACK\n");
+		} else {
+			wait_for_completion(&descr->xfer_done);
+		}
 	} else {
 		desc = &descr[num_desc - 1];
 		init_completion(&desc->xfer_done);
@@ -823,7 +848,15 @@ int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 			result = -EFAULT;
 			goto bail;
 		}
-		wait_for_completion(&desc->xfer_done);
+		if (timeout) {
+			completed = wait_for_completion_timeout(
+				&desc->xfer_done, msecs_to_jiffies(timeout));
+			if (!completed)
+				IPADBG("timeout waiting for imm-cmd ACK\n");
+		} else {
+			wait_for_completion(&desc->xfer_done);
+		}
+
 	}
 
 bail:
@@ -3181,22 +3214,20 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 					IPA_CLIENT_APPS_WAN_CONS) {
 				sys->pyld_hdlr = ipa3_wan_rx_pyld_hdlr;
 				sys->free_rx_wrapper = ipa3_free_rx_wrapper;
-				if (in->napi_enabled) {
+				sys->rx_pool_sz = ipa3_ctx->wan_rx_ring_size;
+				if (nr_cpu_ids > 1) {
 					sys->repl_hdlr =
-					   ipa3_replenish_rx_cache_recycle;
+					   ipa3_fast_replenish_rx_cache;
+				} else {
+					sys->repl_hdlr =
+					   ipa3_replenish_rx_cache;
+				}
+				if (in->napi_enabled)
 					sys->rx_pool_sz =
 					   IPA_WAN_NAPI_CONS_RX_POOL_SZ;
-				} else {
-					if (nr_cpu_ids > 1) {
-						sys->repl_hdlr =
-						   ipa3_fast_replenish_rx_cache;
-					} else {
-						sys->repl_hdlr =
-						   ipa3_replenish_rx_cache;
-					}
-					sys->rx_pool_sz =
-					   ipa3_ctx->wan_rx_ring_size;
-				}
+				if (in->napi_enabled && in->recycle_enabled)
+					sys->repl_hdlr =
+					 ipa3_replenish_rx_cache_recycle;
 				in->ipa_ep_cfg.aggr.aggr_sw_eof_active
 					= true;
 				if (ipa3_ctx->
@@ -3837,6 +3868,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	union __packed gsi_channel_scratch ch_scratch;
 	struct ipa_gsi_ep_config *gsi_ep_info;
 	dma_addr_t dma_addr;
+	dma_addr_t evt_dma_addr;
 	int result;
 
 	if (!ep) {
@@ -3845,13 +3877,13 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	}
 
 	ep->gsi_evt_ring_hdl = ~0;
+	memset(&gsi_evt_ring_props, 0, sizeof(gsi_evt_ring_props));
 	/*
 	 * allocate event ring for all interrupt-policy
 	 * pipes and IPA consumers pipes
 	 */
 	if (ep->sys->policy != IPA_POLICY_NOINTR_MODE ||
 	     IPA_CLIENT_IS_CONS(ep->client)) {
-		memset(&gsi_evt_ring_props, 0, sizeof(gsi_evt_ring_props));
 		gsi_evt_ring_props.intf = GSI_EVT_CHTYPE_GPI_EV;
 		gsi_evt_ring_props.intr = GSI_INTR_IRQ;
 		gsi_evt_ring_props.re_size =
@@ -3860,8 +3892,13 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_evt_ring_props.ring_len = IPA_GSI_EVT_RING_LEN;
 		gsi_evt_ring_props.ring_base_vaddr =
 			dma_alloc_coherent(ipa3_ctx->pdev, IPA_GSI_EVT_RING_LEN,
-			&dma_addr, 0);
-		gsi_evt_ring_props.ring_base_addr = dma_addr;
+			&evt_dma_addr, GFP_KERNEL);
+		if (!gsi_evt_ring_props.ring_base_vaddr) {
+			IPAERR("fail to dma alloc %u bytes\n",
+				IPA_GSI_EVT_RING_LEN);
+			return -ENOMEM;
+		}
+		gsi_evt_ring_props.ring_base_addr = evt_dma_addr;
 
 		/* copy mem info */
 		ep->gsi_mem_info.evt_ring_len = gsi_evt_ring_props.ring_len;
@@ -3896,7 +3933,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	if (!gsi_ep_info) {
 		IPAERR("Invalid ep number\n");
 		result = -EINVAL;
-		goto fail_alloc_evt_ring;
+		goto fail_get_gsi_ep_info;
 	} else
 		gsi_channel_props.ch_id = gsi_ep_info->ipa_gsi_chan_num;
 
@@ -3915,7 +3952,12 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_channel_props.ring_len = 2 * in->desc_fifo_sz;
 	gsi_channel_props.ring_base_vaddr =
 		dma_alloc_coherent(ipa3_ctx->pdev, gsi_channel_props.ring_len,
-			&dma_addr, 0);
+			&dma_addr, GFP_KERNEL);
+	if (!gsi_channel_props.ring_base_vaddr) {
+		IPAERR("fail to dma alloc %u bytes\n",
+			gsi_channel_props.ring_len);
+		goto fail_alloc_channel_ring;
+	}
 	gsi_channel_props.ring_base_addr = dma_addr;
 
 	/* copy mem info */
@@ -3951,7 +3993,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	result = gsi_write_channel_scratch(ep->gsi_chan_hdl, ch_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to write scratch %d\n", result);
-		goto fail_start_channel;
+		goto fail_write_channel_scratch;
 	}
 
 	result = gsi_start_channel(ep->gsi_chan_hdl);
@@ -3963,17 +4005,25 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	return 0;
 
 fail_start_channel:
+fail_write_channel_scratch:
 	if (gsi_dealloc_channel(ep->gsi_chan_hdl)
 		!= GSI_STATUS_SUCCESS) {
 		IPAERR("Failed to dealloc GSI chan.\n");
 		BUG();
 	}
 fail_alloc_channel:
+	dma_free_coherent(ipa3_ctx->pdev, gsi_channel_props.ring_len,
+			gsi_channel_props.ring_base_vaddr, dma_addr);
+fail_alloc_channel_ring:
+fail_get_gsi_ep_info:
 	if (ep->gsi_evt_ring_hdl != ~0) {
 		gsi_dealloc_evt_ring(ep->gsi_evt_ring_hdl);
 		ep->gsi_evt_ring_hdl = ~0;
 	}
 fail_alloc_evt_ring:
+	if (gsi_evt_ring_props.ring_base_vaddr)
+		dma_free_coherent(ipa3_ctx->pdev, IPA_GSI_EVT_RING_LEN,
+			gsi_evt_ring_props.ring_base_vaddr, evt_dma_addr);
 	IPAERR("Return with err: %d\n", result);
 	return result;
 }

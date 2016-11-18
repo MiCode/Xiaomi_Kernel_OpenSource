@@ -2404,7 +2404,7 @@ begin:
 		if (skb->len < IPA_PKT_STATUS_SIZE) {
 			WARN_ON(sys->prev_skb != NULL);
 			IPADBG("status straddles buffer\n");
-			sys->prev_skb = skb;
+			sys->prev_skb = skb_copy(skb, GFP_KERNEL);
 			sys->len_partial = skb->len;
 			return rc;
 		}
@@ -2489,7 +2489,7 @@ begin:
 					!status->exception) {
 				WARN_ON(sys->prev_skb != NULL);
 				IPADBG("Ins header in next buffer\n");
-				sys->prev_skb = skb;
+				sys->prev_skb = skb_copy(skb, GFP_KERNEL);
 				sys->len_partial =	 skb->len;
 				return rc;
 			}
@@ -3160,23 +3160,23 @@ static int ipa_assign_policy_v2(struct ipa_sys_connect_params *in,
 		} else if (in->client ==
 					  IPA_CLIENT_APPS_WAN_CONS) {
 			sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
-			if (in->napi_enabled) {
+			sys->rx_pool_sz = ipa_ctx->wan_rx_ring_size;
+			if (nr_cpu_ids > 1) {
 				sys->repl_hdlr =
-				   ipa_replenish_rx_cache_recycle;
-				sys->rx_pool_sz =
-				   IPA_WAN_NAPI_CONS_RX_POOL_SZ;
+				   ipa_fast_replenish_rx_cache;
+				sys->repl_trig_thresh =
+				   sys->rx_pool_sz / 8;
 			} else {
-				if (nr_cpu_ids > 1) {
-					sys->repl_hdlr =
-					   ipa_fast_replenish_rx_cache;
-					sys->repl_trig_thresh =
-					   sys->rx_pool_sz / 8;
-				} else {
-					sys->repl_hdlr =
-					   ipa_replenish_rx_cache;
-				}
+				sys->repl_hdlr =
+				   ipa_replenish_rx_cache;
+			}
+			if (in->napi_enabled) {
 				sys->rx_pool_sz =
-				   ipa_ctx->wan_rx_ring_size;
+					   IPA_WAN_NAPI_CONS_RX_POOL_SZ;
+				if (in->recycle_enabled) {
+					sys->repl_hdlr =
+					   ipa_replenish_rx_cache_recycle;
+				}
 			}
 			sys->ep->wakelock_client =
 			   IPA_WAKELOCK_REF_CLIENT_WAN_RX;
