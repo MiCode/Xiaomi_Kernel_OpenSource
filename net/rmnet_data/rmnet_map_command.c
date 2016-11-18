@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,6 +118,7 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
 {
 	struct rmnet_map_control_command_s *cmd;
 	int xmit_status;
+	int rc;
 
 	if (unlikely(!skb))
 		return;
@@ -146,6 +147,15 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
 	netif_tx_unlock(skb->dev);
 
 	LOGD("MAP command ACK=%hhu sent with rc: %d", type & 0x03, xmit_status);
+
+	if (xmit_status != NETDEV_TX_OK) {
+		rc = dev_queue_xmit(skb);
+		if (rc != 0) {
+			LOGD("Failed to queue packet for transmission on [%s]",
+			     skb->dev->name);
+		}
+	}
+
 }
 
 /* rmnet_map_command() - Entry point for handling MAP commands
