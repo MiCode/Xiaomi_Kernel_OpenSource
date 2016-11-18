@@ -25,7 +25,11 @@ Optional properties for WLED:
 - linux,default-trigger	: trigger for the backlight. default is NONE.
 - qcom,fdbk-output	: string feedback current output for wled module. The accepted values
 			  are "wled1", "wled2", "wled3", "wled4" and "auto". default is "auto".
-- qcom,vref-mv		: maximum reference voltage in mv. default is 350.
+- qcom,vref-uv		: maximum reference voltage in uV.
+			  For pmi8994/8952/8996, supported values are from 300000 to 675000
+			  with a step size of 25000, the default value is 350000.
+			  For pmicobalt/pm2falcon, supported values are from 60000 to 397500
+			  with a step size of 22500, the default value is 127500.
 - qcom,switch-freq-khz	: switch frequency in khz. default is 800.
 - qcom,ovp-mv		: Over voltage protection threshold in mV. Default is
 			  29500. Supported values are:
@@ -94,7 +98,7 @@ Example:
 		linux,name = "wled";
 		linux,default-trigger = "bkl-trigger";
 		qcom,fdbk-output = "auto";
-		qcom,vref-mv = <350>;
+		qcom,vref-uv = <350000>;
 		qcom,switch-freq-khz = <800>;
 		qcom,ovp-mv = <29500>;
 		qcom,ilim-ma = <980>;

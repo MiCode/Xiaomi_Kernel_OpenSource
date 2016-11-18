@@ -45,6 +45,7 @@
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
 #include <soc/qcom/socinfo.h>
+#include <soc/qcom/ramdump.h>
 
 #include "wlan_firmware_service_v01.h"
 
@@ -439,6 +440,7 @@ static struct icnss_priv {
 	struct wlfw_rf_board_info_s_v01 board_info;
 	struct wlfw_soc_info_s_v01 soc_info;
 	struct wlfw_fw_version_info_s_v01 fw_version_info;
+	char fw_build_id[QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1];
 	u32 pwr_pin_result;
 	u32 phy_io_pin_result;
 	u32 rf_pin_result;
@@ -463,6 +465,7 @@ static struct icnss_priv {
 	struct qpnp_vadc_chip *vadc_dev;
 	uint64_t vph_pwr;
 	atomic_t pm_count;
+	struct ramdump_device *msa0_dump_dev;
 } *penv;
 
 static void icnss_hw_write_reg(void *base, u32 offset, u32 val)
@@ -1971,12 +1974,16 @@ static int wlfw_cap_send_sync_msg(void)
 		penv->soc_info = resp.soc_info;
 	if (resp.fw_version_info_valid)
 		penv->fw_version_info = resp.fw_version_info;
+	if (resp.fw_build_id_valid)
+		strlcpy(penv->fw_build_id, resp.fw_build_id,
+			QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1);
 
-	icnss_pr_dbg("Capability, chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s",
+	icnss_pr_dbg("Capability, chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s, fw_build_id: %s",
 		     penv->chip_info.chip_id, penv->chip_info.chip_family,
 		     penv->board_info.board_id, penv->soc_info.soc_id,
 		     penv->fw_version_info.fw_version,
-		     penv->fw_version_info.fw_build_timestamp);
+		     penv->fw_version_info.fw_build_timestamp,
+		     penv->fw_build_id);
 
 	return 0;
 
@@ -2657,8 +2664,6 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 out:
 	ret = icnss_hw_power_off(priv);
 
-	icnss_remove_msa_permissions(priv);
-
 	kfree(data);
 
 	return ret;
@@ -2763,6 +2768,16 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 	return ret;
 }
 
+static int icnss_msa0_ramdump(struct icnss_priv *priv)
+{
+	struct ramdump_segment segment;
+
+	memset(&segment, 0, sizeof(segment));
+	segment.v_address = priv->msa_va;
+	segment.size = priv->msa_mem_size;
+	return do_ramdump(priv->msa0_dump_dev, &segment, 1);
+}
+
 static struct notifier_block wlfw_clnt_nb = {
 	.notifier_call = icnss_qmi_wlfw_clnt_svc_event_notify,
 };
@@ -2778,7 +2793,17 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	icnss_pr_dbg("Modem-Notify: event %lu\n", code);
 
+	if (code == SUBSYS_AFTER_SHUTDOWN) {
+		icnss_remove_msa_permissions(priv);
+		icnss_pr_info("Collecting msa0 segment dump\n");
+		icnss_msa0_ramdump(priv);
+		return NOTIFY_OK;
+	}
+
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
+		return NOTIFY_OK;
+
+	if (test_bit(ICNSS_PDR_ENABLED, &priv->state))
 		return NOTIFY_OK;
 
 	icnss_pr_info("Modem went down, state: %lx\n", priv->state);
@@ -2936,8 +2961,6 @@ static int icnss_get_service_location_notify(struct notifier_block *nb,
 
 	set_bit(ICNSS_PDR_ENABLED, &priv->state);
 
-	icnss_modem_ssr_unregister_notifier(priv);
-
 	icnss_pr_dbg("PD restart enabled, state: 0x%lx\n", priv->state);
 
 	return NOTIFY_OK;
@@ -2999,6 +3022,11 @@ static int icnss_enable_recovery(struct icnss_priv *priv)
 		icnss_pr_dbg("SSR disabled through module parameter\n");
 		goto enable_pdr;
 	}
+
+	priv->msa0_dump_dev = create_ramdump_device("wcss_msa0",
+						    &priv->pdev->dev);
+	if (!priv->msa0_dump_dev)
+		return -ENOMEM;
 
 	icnss_modem_ssr_register_notifier(priv);
 	if (test_bit(SSR_ONLY, &quirks)) {
@@ -3929,6 +3957,8 @@ static int icnss_stats_show_capability(struct seq_file *s,
 			   priv->fw_version_info.fw_version);
 		seq_printf(s, "Firmware Build Timestamp: %s\n",
 			   priv->fw_version_info.fw_build_timestamp);
+		seq_printf(s, "Firmware Build ID: %s\n",
+			   priv->fw_build_id);
 	}
 
 	return 0;
@@ -4511,6 +4541,8 @@ static int icnss_remove(struct platform_device *pdev)
 
 	icnss_modem_ssr_unregister_notifier(penv);
 
+	destroy_ramdump_device(penv->msa0_dump_dev);
+
 	icnss_pdr_unregister_notifier(penv);
 
 	qmi_svc_event_notifier_unregister(WLFW_SERVICE_ID_V01,
@@ -4521,6 +4553,8 @@ static int icnss_remove(struct platform_device *pdev)
 		destroy_workqueue(penv->event_wq);
 
 	icnss_hw_power_off(penv);
+
+	icnss_remove_msa_permissions(penv);
 
 	dev_set_drvdata(&pdev->dev, NULL);
 
