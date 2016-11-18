@@ -235,6 +235,30 @@
 			};
 		};
 
+		bmi160_int1_default: bmi160_int1_default {
+			mux {
+				pins = "gpio78";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio78";
+				drive-strength = <16>; /* 16 mA */
+				bias-pull-down; /* pull down */
+			};
+		};
+
+		bmi160_int2_default: bmi160_int2_default {
+			mux {
+				pins = "gpio79";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio79";
+				drive-strength = <16>; /* 16 mA */
+				bias-pull-down; /* pull down */
+			};
+		};
+
 		codec_reset {
 			codec_reset_active: codec_reset_active {
 				mux {

@@ -64,6 +64,7 @@
 #define MAX_BUFFERS_IN_HW 2
 
 #define MAX_VFE 2
+#define MAX_RECOVERY_THRESHOLD  5
 
 struct vfe_device;
 struct msm_vfe_axi_stream;
@@ -518,6 +519,7 @@ struct msm_vfe_axi_shared_data {
 	uint32_t event_mask;
 	uint8_t enable_frameid_recovery;
 	enum msm_vfe_camif_state camif_state;
+	uint32_t recovery_count;
 };
 
 struct msm_vfe_stats_hardware_info {
@@ -773,6 +775,9 @@ struct vfe_device {
 	/* irq info */
 	uint32_t irq0_mask;
 	uint32_t irq1_mask;
+	/* before halt irq info */
+	uint32_t recovery_irq0_mask;
+	uint32_t recovery_irq1_mask;
 };
 
 struct vfe_parent_device {

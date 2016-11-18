@@ -1162,7 +1162,7 @@ static const struct msm_pingroup msm8909_groups[] = {
 	PINGROUP(55, uim1_reset, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(56, uim1_present, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(57, uim_batt, NA, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(58, qdss_tracedata_a, NA, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(58, qdss_tracedata_a, smb_int, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(59, cdc_pdm0, pri_mi2s_mclk_a, atest_char3, NA, NA, NA, NA,
 		 NA, bimc_dte0),
 	PINGROUP(60, cdc_pdm0, pri_mi2s_sck_a, atest_char2, NA, NA, NA, NA, NA,

@@ -300,6 +300,12 @@ Optional Properties:
 - qcom,max-pulse-allowed	The maximum number of pulses allowed in
 				HVDCP3 mode. It can be used to restrict VBUS
 				to a value.
+- qcom,use-parallel-aicl	A boolean property to indicate that AICL is run on the
+				parallel slave to detect adapter's ICL capacity. Ideally
+				to be used if the required FCC is greater then 3A and if
+				the parallel slave supports AICL.
+- qcom,parallel-min-main-icl-ma	Minimum ICL allotted to main charger in parallel
+				configuration.
 
 Example:
 	qcom,qpnp-smbcharger {

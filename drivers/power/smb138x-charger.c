@@ -12,6 +12,8 @@
 
 #define pr_fmt(fmt) "SMB138X: %s: " fmt, __func__
 
+#include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -43,6 +45,7 @@ enum smb_print_reason {
 	PR_INTERRUPT	= BIT(0),
 	PR_REGISTER	= BIT(1),
 	PR_MISC		= BIT(2),
+	PR_PARALLEL	= BIT(3),
 };
 
 enum smb_voters {
@@ -81,6 +84,9 @@ struct smb_params {
 	struct smb_chg_param fv;
 	struct smb_chg_param usb_icl;
 	struct smb_chg_param dc_icl;
+	struct smb_chg_param icl_status;
+	struct smb_chg_param icl_status_5v;
+	struct smb_chg_param icl_status_9v;
 };
 
 struct smb_charger {
@@ -96,6 +102,14 @@ struct smb_charger {
 	/* power supplies */
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
+	struct power_supply	parallel_psy;
+
+	/* parallel props */
+	int			parallel_charger_present;
+	bool			aicl_enabled_in_parallel;
+	u32			vfloat_mv;
+	int			aicl_ma;
+	int			usb_psy_ma;
 
 	/* regulators */
 	struct smb_regulator	*vbus_vreg;
@@ -106,6 +120,10 @@ struct smb_charger {
 	struct votable		*fcc_votable;
 	struct votable		*usb_icl_votable;
 	struct votable		*dc_icl_votable;
+
+	/* debugfs */
+	struct dentry		*debug_root;
+	u32			peek_poke_address;
 };
 
 static struct smb_params v1_params = {
@@ -133,6 +151,27 @@ static struct smb_params v1_params = {
 	.dc_icl		= {
 		.name	= "dc input current limit",
 		.reg	= DCIN_CURRENT_LIMIT_CFG_REG,
+		.min_u	= 0,
+		.max_u	= 6000000,
+		.step_u	= 25000,
+	},
+	.icl_status	= {
+		.name	= "icl status",
+		.reg	= ICL_STATUS_REG,
+		.min_u	= 0,
+		.max_u	= 6000000,
+		.step_u	= 25000,
+	},
+	.icl_status_5v	= {
+		.name	= "icl status from 5V to 9V",
+		.reg	= ADAPTER_5V_ICL_STATUS_REG,
+		.min_u	= 0,
+		.max_u	= 6000000,
+		.step_u	= 25000,
+	},
+	.icl_status_9v	= {
+		.name	= "icl status from 9V to 12V",
+		.reg	= ADAPTER_9V_ICL_STATUS_REG,
 		.min_u	= 0,
 		.max_u	= 6000000,
 		.step_u	= 25000,
@@ -306,6 +345,26 @@ static int smb138x_set_charge_param(struct smb_charger *chg,
 	return rc;
 }
 
+static int smb138x_get_charge_param(struct smb_charger *chg,
+			struct smb_chg_param *param, int *val_u)
+{
+	int rc;
+	u8 val_raw;
+
+	rc = smb138x_read(chg, param->reg, &val_raw);
+	if (rc < 0) {
+		pr_err("%s: Couldn't read from 0x%02x rc=%d\n",
+			param->name, param->reg, rc);
+		return rc;
+	}
+
+	*val_u = val_raw * param->step_u + param->min_u;
+	smb_dbg(chg, PR_REGISTER, "%s = %d (0x%02x)\n",
+		   param->name, *val_u, val_raw);
+
+	return rc;
+}
+
 static int smb138x_set_usb_suspend(struct smb_charger *chg, bool suspend)
 {
 	int rc;
@@ -317,6 +376,18 @@ static int smb138x_set_usb_suspend(struct smb_charger *chg, bool suspend)
 			suspend ? "suspend" : "resume", rc);
 
 	return rc;
+}
+
+static bool smb138x_get_usb_suspend(struct smb_charger *chg)
+{
+	int rc;
+	u8 reg;
+
+	rc = smb138x_read(chg, USBIN_CMD_IL_REG, &reg);
+	if (rc)
+		return 0;
+
+	return reg & USBIN_SUSPEND_BIT ? 1 : 0;
 }
 
 static int smb138x_set_dc_suspend(struct smb_charger *chg, bool suspend)
@@ -940,6 +1011,338 @@ static int smb138x_init_batt_psy(struct smb138x *chip)
 	return rc;
 }
 
+#define AICL_DONE_CHECK_INTERVAL_MS	500
+#define AICL_DONE_CHECK_COUNT		4
+static int smb138x_get_icl_status(struct smb_charger *chg)
+{
+	int rc = 0, icl_ua, tries = AICL_DONE_CHECK_COUNT;
+	u8 reg;
+
+	while (tries--) {
+		rc = smb138x_read(chg, AICL_STATUS_REG, &reg);
+		if (rc) {
+			pr_err("Read AICL_STATUS failed, rc=%d\n", rc);
+			goto out;
+		}
+
+		if ((reg & AICL_DONE_BIT) == 0)
+			smb_dbg(chg, PR_REGISTER, "AICL not done\n");
+		else
+			break;
+
+		msleep(AICL_DONE_CHECK_INTERVAL_MS);
+	}
+
+	rc = smb138x_get_charge_param(chg, &chg->param.icl_status, &icl_ua);
+	if (rc) {
+		pr_err("Get icl_status failed, rc=%d\n", rc);
+		goto out;
+	}
+
+	chg->aicl_ma = icl_ua / 1000;
+
+	smb_dbg(chg, PR_REGISTER, "AICL result: %d mA\n", chg->aicl_ma);
+	return rc;
+out:
+	chg->aicl_ma = 0;
+	return rc;
+}
+
+static bool smb138x_is_input_current_limited(struct smb_charger *chg)
+{
+	int rc;
+	u8 val;
+	bool icl;
+
+	rc = smb138x_read(chg, MISC_INT_RT_STS_REG, &val);
+	if (rc) {
+		pr_err("Read MIST_INT_RT_STS failed, rc=%d\n", rc);
+		return false;
+	}
+
+	icl = !!(val & INPUT_CURRENT_LIMITING_RT_STS_BIT);
+	smb_dbg(chg, PR_REGISTER, "Input is %slimited\n", icl ? "" : "not ");
+
+	return icl;
+}
+
+static int smb138x_enable_aicl(struct smb_charger *chg, bool enable)
+{
+	int rc = 0;
+
+	rc = smb138x_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+			USBIN_AICL_EN_BIT, enable ? USBIN_AICL_EN_BIT : 0);
+	if (rc)
+		pr_err("%sable AICL failed, rc=%d\n", enable ? "En" : "Dis",
+							rc);
+
+	return rc;
+}
+
+/*****************************
+ * PARALLEL PSY REGISTRATION *
+ *****************************/
+
+static int smb138x_parallel_set_chg_present(struct smb_charger *chg,
+						int present)
+{
+	int rc;
+
+	if (present == chg->parallel_charger_present) {
+		smb_dbg(chg, PR_PARALLEL, "parallel-present already %d\n",
+								present);
+		return 0;
+	}
+	smb_dbg(chg, PR_REGISTER, "set present: %d\n", present);
+
+	smb138x_set_usb_suspend(chg, true);
+	smb138x_set_charge_param(chg, &chg->param.usb_icl, 0);
+	chg->usb_psy_ma = 0;
+
+	if (present) {
+		/* enable the charging path */
+		rc = smb138x_enable_charging(chg, true);
+		if (rc < 0) {
+			pr_err("Couldn't enable charging rc=%d\n", rc);
+			return rc;
+		}
+
+		/* configure charge enable for software control; active high */
+		rc = smb138x_masked_write(chg, CHGR_CFG2_REG,
+				 CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT, 0);
+		if (rc < 0) {
+			pr_err("Couldn't configure charge enable source rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	chg->parallel_charger_present = present;
+
+	return 0;
+}
+
+static enum power_supply_property smb138x_parallel_props[] = {
+	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_PRESENT,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_ENABLE_AICL,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
+	POWER_SUPPLY_PROP_MODEL_NAME,
+};
+
+static int smb138x_parallel_get_prop(struct power_supply *psy,
+				     enum power_supply_property prop,
+				     union power_supply_propval *val)
+{
+	struct smb138x *chip = dev_get_drvdata(psy->dev->parent);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	val->intval = 0;
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		if (chg->parallel_charger_present)
+			val->intval = smb138x_get_usb_suspend(chg);
+		else
+			val->intval = 1;	/* suspended */
+		break;
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		if (chg->parallel_charger_present)
+			val->intval = !smb138x_get_usb_suspend(chg);
+		else
+			val->intval = 0;	/* disabled */
+		break;
+	case POWER_SUPPLY_PROP_STATUS:
+		if (chg->parallel_charger_present) {
+			rc = smb138x_get_prop_batt_status(chg, val);
+			if (rc)
+				pr_err("get batt_status failed, rc=%d\n", rc);
+		} else {
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		}
+		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = chg->parallel_charger_present;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		if (chg->parallel_charger_present) {
+			rc = smb138x_get_charge_param(chg, &chg->param.fv,
+							&val->intval);
+			if (rc)
+				pr_err("Get vfloat failed, rc=%d\n", rc);
+		}
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (chg->parallel_charger_present) {
+			rc = smb138x_get_charge_param(chg, &chg->param.usb_icl,
+							&val->intval);
+			if (rc)
+				pr_err("Get usb_icl failed, rc=%d\n", rc);
+		}
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		if (chg->parallel_charger_present) {
+			rc = smb138x_get_charge_param(chg, &chg->param.fcc,
+							&val->intval);
+			if (rc)
+				pr_err("Get fcc failed, rc=%d\n", rc);
+		}
+		break;
+	case POWER_SUPPLY_PROP_ENABLE_AICL:
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+		if (chg->parallel_charger_present)
+			val->intval = chg->aicl_ma * 1000;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
+		if (chg->parallel_charger_present)
+			val->intval = smb138x_is_input_current_limited(chg);
+		break;
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		val->strval = "smb138x";
+		break;
+	default:
+		pr_err("parallel power supply get prop %d not supported\n",
+			prop);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int smb138x_parallel_set_prop(struct power_supply *psy,
+				     enum power_supply_property prop,
+				     const union power_supply_propval *val)
+{
+	struct smb138x *chip = dev_get_drvdata(psy->dev->parent);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		if (chg->parallel_charger_present) {
+			rc = smb138x_set_usb_suspend(chg, val->intval);
+			if (rc < 0)
+				pr_err("Couldn't suspend input, rc=%d\n", rc);
+			else
+				smb_dbg(chg, PR_PARALLEL, "USB_SUSPEND=%d\n",
+								val->intval);
+		}
+		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		rc = smb138x_parallel_set_chg_present(chg, val->intval);
+		if (rc)
+			pr_err("Couldn't %s parallel-charger rc=%d\n",
+				val->intval ? "enable" : "disable", rc);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		if (chg->parallel_charger_present) {
+			rc = smb138x_set_charge_param(chg, &chg->param.fcc,
+							val->intval);
+			if (rc < 0)
+				pr_err("Couldn't set FCC rc=%d\n", rc);
+			else
+				smb_dbg(chg, PR_PARALLEL, "parallel FCC=%d uA\n",
+								val->intval);
+		}
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		if (chg->parallel_charger_present) {
+			rc = smb138x_set_charge_param(chg, &chg->param.fv,
+							val->intval * 1000);
+			if (rc < 0)
+				pr_err("Couldn't voltage max, rc=%d\n", rc);
+			else
+				smb_dbg(chg, PR_PARALLEL, "parallel FV=%d uV\n",
+								val->intval);
+		}
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (chg->parallel_charger_present) {
+			rc = smb138x_set_charge_param(chg, &chg->param.usb_icl,
+							val->intval);
+			if (!rc) {
+				smb138x_get_charge_param(chg,
+					&chg->param.usb_icl, &chg->usb_psy_ma);
+				chg->usb_psy_ma /= 1000;
+				smb_dbg(chg, PR_PARALLEL, "parallel ICL=%d mA\n",
+							chg->usb_psy_ma);
+				/* enable charging */
+				rc = smb138x_set_usb_suspend(chg, false);
+				if (rc < 0)
+					pr_err("Couldn't clear USB suspend, rc=%d\n",
+									rc);
+				if (chg->aicl_enabled_in_parallel) {
+					rc = smb138x_get_icl_status(chg);
+					if (rc < 0)
+						pr_err("Get icl status failed, rc=%d\n",
+									rc);
+				}
+			}
+		}
+		break;
+	case POWER_SUPPLY_PROP_ENABLE_AICL:
+		if (chg->parallel_charger_present) {
+			rc = smb138x_enable_aicl(chg, !!val->intval);
+			if (rc)
+				pr_err("Unable to %sable AICL, rc=%d\n",
+					!!val->intval ? "en" : "dis", rc);
+			else
+				chg->aicl_enabled_in_parallel = !!val->intval;
+		}
+		break;
+	default:
+		pr_err("parallel power supply set prop %d not supported\n",
+			prop);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int smb138x_parallel_prop_is_writeable(struct power_supply *psy,
+				      enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_PRESENT:
+	case POWER_SUPPLY_PROP_ENABLE_AICL:
+		return 1;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int smb138x_init_parallel_psy(struct smb138x *chip)
+{
+	int rc = 0;
+	struct smb_charger *chg = &chip->chg;
+
+	chg->parallel_psy.name		= "usb-parallel";
+	chg->parallel_psy.type		= POWER_SUPPLY_TYPE_USB_PARALLEL;
+	chg->parallel_psy.properties	= smb138x_parallel_props;
+	chg->parallel_psy.num_properties	=
+					ARRAY_SIZE(smb138x_parallel_props);
+	chg->parallel_psy.get_property	= smb138x_parallel_get_prop;
+	chg->parallel_psy.set_property	= smb138x_parallel_set_prop;
+	chg->parallel_psy.property_is_writeable =
+		smb138x_parallel_prop_is_writeable;
+
+	rc = power_supply_register(chg->dev, &chg->parallel_psy);
+	if (rc < 0)
+		pr_err("Couldn't register parallel power supply rc=%d\n", rc);
+
+	return rc;
+}
+
 static struct regulator_ops smb138x_vbus_reg_ops = {
 	.enable		= smb138x_vbus_regulator_enable,
 	.disable	= smb138x_vbus_regulator_disable,
@@ -1354,8 +1757,93 @@ static int smb138x_master_probe(struct smb138x *chip)
 	return rc;
 }
 
+static int get_reg(void *data, u64 *val)
+{
+	struct smb_charger *chg = data;
+	int rc;
+	u8 temp;
+
+	rc = smb138x_read(chg, chg->peek_poke_address, &temp);
+	if (rc) {
+		pr_err("Couldn't read reg %x rc = %d\n",
+				chg->peek_poke_address, rc);
+		return -EAGAIN;
+	}
+	*val = temp;
+	return 0;
+}
+
+static int set_reg(void *data, u64 val)
+{
+	struct smb_charger *chg = data;
+	int rc;
+	u8 temp;
+
+	temp = (u8) val;
+	rc = smb138x_write(chg, chg->peek_poke_address, temp);
+	if (rc) {
+		pr_err("Couldn't write 0x%02x to 0x%02x rc= %d\n",
+			temp, chg->peek_poke_address, rc);
+		return -EAGAIN;
+	}
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(poke_poke_debug_ops, get_reg, set_reg, "0x%02llx\n");
+
+static int create_debugfs_entries(struct smb_charger *chg)
+{
+	struct dentry *ent;
+
+	chg->debug_root = debugfs_create_dir("smb138x", NULL);
+	if (!chg->debug_root) {
+		pr_err("Couldn't create debug dir\n");
+	} else {
+		ent = debugfs_create_x32("address", S_IFREG | S_IWUSR | S_IRUGO,
+					  chg->debug_root,
+					  &(chg->peek_poke_address));
+		if (!ent)
+			pr_err("Couldn't create address debug file\n");
+
+		ent = debugfs_create_file("data", S_IFREG | S_IWUSR | S_IRUGO,
+					  chg->debug_root, chg,
+					  &poke_poke_debug_ops);
+		if (!ent)
+			pr_err("Couldn't create data debug file\n");
+	}
+	return 0;
+}
+
 static int smb138x_slave_probe(struct smb138x *chip)
 {
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+	struct device_node *node = chg->dev->of_node;
+
+	chg->param = v1_params;
+
+	rc = smb138x_init_parallel_psy(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,float-voltage-mv",
+						&chg->vfloat_mv);
+	if (rc)
+		chg->vfloat_mv = -EINVAL;
+
+	/* initial configuration of the parallel charger */
+	smb138x_set_usb_suspend(chg, true);
+	smb138x_set_charge_param(chg, &chg->param.usb_icl, 0);
+	chg->usb_psy_ma = 0;
+
+	rc = smb138x_set_charge_param(chg, &chg->param.fv,
+					chg->vfloat_mv * 1000);
+	if (rc)
+		smb_dbg(chg, PR_REGISTER, "Couldn't set vfloat rc=%d\n", rc);
+
+	create_debugfs_entries(chg);
+
 	return 0;
 }
 
@@ -1441,6 +1929,17 @@ static int smb138x_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void smb138x_shutdown(struct platform_device *pdev)
+{
+	struct smb138x *chip = platform_get_drvdata(pdev);
+	struct smb_charger *chg = &chip->chg;
+
+	if (chg->mode == PARALLEL_SLAVE) {
+		smb_dbg(chg, PR_MISC, "suspend slave in shutdown\n");
+		smb138x_parallel_set_chg_present(chg, 0);
+	}
+}
+
 static struct platform_driver smb138x_driver = {
 	.driver		= {
 		.name		= "qcom,smb138x-charger",
@@ -1449,6 +1948,7 @@ static struct platform_driver smb138x_driver = {
 	},
 	.probe		= smb138x_probe,
 	.remove		= smb138x_remove,
+	.shutdown	= smb138x_shutdown,
 };
 module_platform_driver(smb138x_driver);
 
