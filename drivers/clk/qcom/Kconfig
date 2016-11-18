@@ -218,3 +218,5 @@ config QCOM_A53
 	  Support for the A53 clock controller on MSM devices.
 	  Say Y if you want to support CPU frequency scaling on devices
 	  such as MSM8916.
+
+source "drivers/clk/qcom/mdss/Kconfig"
