@@ -81,18 +81,6 @@
 	/delete-property/qca,bt-chip-pwd-supply;
 };
 
-&ufsphy1 {
-	/delete-property/vdda-phy-supply;
-	/delete-property/vdda-pll-supply;
-	/delete-property/vddp-ref-clk-supply;
-};
-
-&ufs1 {
-	/delete-property/vcc-supply;
-	/delete-property/vccq-supply;
-	/delete-property/vccq2-supply;
-};
-
 &sdhc_2 {
 	/delete-property/vdd-supply;
 	/delete-property/vdd-io-supply;
