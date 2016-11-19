@@ -68,9 +68,15 @@ Optional properties for WLED:
 - qcom,cons-sync-write-delay-us : Specify in 'us' the duration of delay between two consecutive writes to
 				  SYNC register.
 - qcom,sc-deb-cycles	: debounce time for short circuit detection
+- qcom,loop-ea-gm	: control the gm for gm stage in control loop. default is 3.
+- qcom,loop-auto-gm-en	: A boolean property to specify if auto gm is enabled.
+- qcom,loop-auto-gm-thresh	: Specify auto gm threshold if "loop-auto-gm-en" is defined.
+				  Supported values are: 0 - 3.
+- qcom,lcd-auto-pfm-thresh	: Specify the auto-pfm threshold, if the headroom voltage level
+				  falls below this threshold and auto PFM is enabled, boost
+				  controller will enter into PFM mode automatically.
 
 Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
-- qcom,loop-ea-gm	: control the gm for gm stage in control loop. default is 3.
 - qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.
 - qcom,vref-psm-mv	: reference psm voltage in mv. default for amoled is 450.
 - qcom,avdd-mode-spmi: Boolean property to enable AMOLED_VOUT programming via SPMI. If not specified,

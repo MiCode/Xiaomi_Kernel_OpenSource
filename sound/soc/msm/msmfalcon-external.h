@@ -26,12 +26,14 @@ int msm_proxy_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 int msm_audrx_init(struct snd_soc_pcm_runtime *rtd);
 int msm_snd_cpe_hw_params(struct snd_pcm_substream *substream,
 			  struct snd_pcm_hw_params *params);
-struct snd_soc_card *populate_snd_card_dailinks(struct device *dev);
+struct snd_soc_card *populate_snd_card_dailinks(struct device *dev,
+						int snd_card_val);
 int msm_ext_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			       struct snd_pcm_hw_params *params);
 #ifdef CONFIG_SND_SOC_EXT_CODEC
 int msm_ext_cdc_init(struct platform_device *, struct msm_asoc_mach_data *,
 		     struct snd_soc_card **, struct wcd_mbhc_config *);
+void msm_ext_register_audio_notifier(void);
 #else
 inline int msm_ext_cdc_init(struct platform_device *pdev,
 			    struct msm_asoc_mach_data *pdata,
@@ -39,6 +41,10 @@ inline int msm_ext_cdc_init(struct platform_device *pdev,
 			    struct wcd_mbhc_config *wcd_mbhc_cfg_ptr1)
 {
 	return 0;
+}
+
+inline void msm_ext_register_audio_notifier(void)
+{
 }
 #endif
 #endif

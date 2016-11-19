@@ -16,6 +16,7 @@
 #include <linux/iio/consumer.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/driver.h>
+#include <linux/qpnp/power-on.h>
 #include <linux/irq.h>
 #include "smb-lib.h"
 #include "smb-reg.h"
@@ -2015,6 +2016,13 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			return rc;
 		}
 
+		rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
+					rc);
+			return rc;
+		}
+
 		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
 				USBIN_MODE_CHG_BIT, USBIN_MODE_CHG_BIT);
 		if (rc < 0) {
@@ -2031,6 +2039,14 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			return rc;
 		}
 	} else {
+		rc = vote(chg->usb_icl_votable, DCP_VOTER, true,
+				chg->dcp_icl_ua);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
+					rc);
+			return rc;
+		}
+
 		rc = smblib_masked_write(chg, CMD_APSD_REG,
 				ICL_OVERRIDE_BIT, 0);
 		if (rc < 0) {
@@ -2065,13 +2081,6 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	chg->pd_active = pd_active;
 	smblib_update_usb_type(chg);
 	power_supply_changed(chg->usb_psy);
-
-	rc = smblib_masked_write(chg, TYPE_C_CFG_3_REG, EN_TRYSINK_MODE_BIT,
-				 chg->pd_active ? 0 : EN_TRYSINK_MODE_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't set TRYSINK_MODE rc=%d\n", rc);
-		return rc;
-	}
 
 	return rc;
 }
@@ -3353,6 +3362,43 @@ int smblib_deinit(struct smb_charger *chg)
 	}
 
 	smblib_iio_deinit(chg);
+
+	return 0;
+}
+
+int smblib_validate_initial_typec_legacy_status(struct smb_charger *chg)
+{
+	int rc;
+	u8 stat;
+
+
+	if (qpnp_pon_is_warm_reset())
+		return 0;
+
+	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TYPE_C_STATUS_5 rc=%d\n", rc);
+		return rc;
+	}
+
+	if ((stat & TYPEC_LEGACY_CABLE_STATUS_BIT) == 0)
+		return 0;
+
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				 TYPEC_DISABLE_CMD_BIT, TYPEC_DISABLE_CMD_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't disable typec rc=%d\n", rc);
+		return rc;
+	}
+
+	usleep_range(150000, 151000);
+
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				 TYPEC_DISABLE_CMD_BIT, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't enable typec rc=%d\n", rc);
+		return rc;
+	}
 
 	return 0;
 }

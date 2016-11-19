@@ -11,6 +11,8 @@ Main node:
 Required properties:
 - compatible		: Should be "qcom,qpnp-flash-led-v2"
 - reg			: Base address and size for flash LED modules
+- qcom,pmic-revid	: phandle of PMIC revid module. This is used to
+			  identify the PMIC subtype.
 
 Optional properties:
 - interrupts		: Specifies the interrupts associated with flash-led.
@@ -76,6 +78,39 @@ Optional properties:
 - qcom,thermal-derate-current	: Array of currrent limits for thermal mitigation. Required if
 				  qcom,thermal-derate-en is specified. Unit is mA. Format is
 				  qcom,thermal-derate-current = <OTST1_LIMIT, OTST2_LIMIT, OTST3_LIMIT>.
+- qcom,otst-ramp-back-up-dis	: Boolean property to disable current ramp
+				  backup after thermal derate trigger is
+				  deasserted.
+- qcom,thermal-derate-slow	: Integer property to specify slow ramping
+				  down thermal rate. Unit is in uS. Allowed
+				  values are: 128, 256, 512, 1024, 2048, 4096,
+				  8192 and 314592.
+- qcom,thermal-derate-fast	: Integer property to specify fast ramping
+				  down thermal rate. Unit is in uS. Allowed
+				  values are: 32, 64, 96, 128, 256, 384 and
+				  512.
+- qcom,thermal-debounce		: Integer property to specify thermal debounce
+				  time. It is only used if qcom,thermal-derate-en
+				  is specified. Unit is in uS. Allowed values
+				  are: 0, 16, 32, 64.
+- qcom,thermal-hysteresis	: Integer property to specify thermal derating
+				  hysteresis. Unit is in deciDegC. It is only
+				  used if qcom,thermal-derate-en is specified.
+				  Allowed values are:
+				  0, 15, 30, 45 for pmicobalt.
+				  0, 20, 40, 60 for pm2falcon.
+- qcom,thermal-thrsh1		: Integer property to specify OTST1 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  85, 79, 73, 67, 109, 103, 97, 91.
+- qcom,thermal-thrsh2		: Integer property to specify OTST2 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  110, 104, 98, 92, 134, 128, 122, 116.
+- qcom,thermal-thrsh3		: Integer property to specify OTST3 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  125, 119, 113, 107, 149, 143, 137, 131.
 - qcom,hw-strobe-option	: Integer type to specify hardware strobe option. Based on the specified
 			  value, additional GPIO configuration may be required to provide strobing
 			  support. Supported values are:

@@ -82,7 +82,6 @@
 #define FLASH_LED_HDRM_SNS_ENABLE_MASK				0x81
 #define	FLASH_MASK_MODULE_CONTRL_MASK				0xE0
 #define FLASH_FOLLOW_OTST2_RB_MASK				0x08
-#define FLASH_PREPARE_OPTIONS_MASK				0x08
 
 #define FLASH_LED_TRIGGER_DEFAULT				"none"
 #define FLASH_LED_HEADROOM_DEFAULT_MV				500
@@ -1172,7 +1171,7 @@ int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
 	flash_node = container_of(led_cdev, struct flash_node_data, cdev);
 	led = dev_get_drvdata(&flash_node->pdev->dev);
 
-	if (!(options & FLASH_PREPARE_OPTIONS_MASK)) {
+	if (!(options & FLASH_LED_PREPARE_OPTIONS_MASK)) {
 		dev_err(&led->pdev->dev, "Invalid options %d\n", options);
 		return -EINVAL;
 	}

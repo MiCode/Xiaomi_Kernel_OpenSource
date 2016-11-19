@@ -613,6 +613,7 @@
 			qcom,led-strings-list = [00 01 02 03];
 			qcom,en-ext-pfet-sc-pro;
 			qcom,pmic-revid = <&pmicobalt_revid>;
+			qcom,loop-auto-gm-en;
 		};
 
 		pmicobalt_haptics: qcom,haptic@c000 {
@@ -657,6 +658,7 @@
 			qcom,thermal-derate-en;
 			qcom,thermal-derate-current = <200 500 1000>;
 			qcom,isc-delay = <192>;
+			qcom,pmic-revid = <&pmicobalt_revid>;
 
 			pmicobalt_flash0: qcom,flash_0 {
 				label = "flash";

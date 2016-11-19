@@ -117,6 +117,11 @@ static int wait_for_pll_latch_ack(struct clk_alpha_pll *pll, u32 mask)
 	return wait_for_pll(pll, mask, 0, "latch_ack");
 }
 
+static int wait_for_pll_update(struct clk_alpha_pll *pll, u32 mask)
+{
+	return wait_for_pll(pll, mask, 1, "update");
+}
+
 /* alpha pll with hwfsm support */
 
 #define PLL_OFFLINE_REQ		BIT(7)
@@ -562,12 +567,48 @@ static long clk_alpha_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 	return clamp(rate, min_freq, max_freq);
 }
 
+static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_ALPHA_VAL", 0x8},
+		{"PLL_ALPHA_VAL_U", 0xC},
+		{"PLL_USER_CTL", 0x10},
+		{"PLL_CONFIG_CTL", 0x18},
+	};
+
+	static struct clk_register_data data1[] = {
+		{"APSS_PLL_VOTE", 0x0},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(pll->clkr.regmap, pll->offset + data[i].offset,
+					&val);
+		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+	}
+
+	regmap_read(pll->clkr.regmap, pll->offset + data[0].offset, &val);
+
+	if (val & PLL_FSM_ENA) {
+		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
+					data1[0].offset, &val);
+		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+	}
+}
+
 const struct clk_ops clk_alpha_pll_ops = {
 	.enable = clk_alpha_pll_enable,
 	.disable = clk_alpha_pll_disable,
 	.recalc_rate = clk_alpha_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_alpha_pll_set_rate,
+	.list_registers = clk_alpha_pll_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_ops);
 
@@ -577,6 +618,7 @@ const struct clk_ops clk_alpha_pll_hwfsm_ops = {
 	.recalc_rate = clk_alpha_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_alpha_pll_set_rate,
+	.list_registers = clk_alpha_pll_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_hwfsm_ops);
 
@@ -633,3 +675,177 @@ const struct clk_ops clk_alpha_pll_postdiv_ops = {
 	.set_rate = clk_alpha_pll_postdiv_set_rate,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_ops);
+
+static int clk_alpha_pll_slew_update(struct clk_alpha_pll *pll)
+{
+	int ret = 0;
+	u32 val;
+
+	regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_MODE,
+					PLL_UPDATE, PLL_UPDATE);
+	regmap_read(pll->clkr.regmap, pll->offset + PLL_MODE, &val);
+
+	ret = wait_for_pll_update(pll, PLL_UPDATE);
+	if (ret)
+		return ret;
+	/*
+	 * HPG mandates a wait of at least 570ns before polling the LOCK
+	 * detect bit. Have a delay of 1us just to be safe.
+	 */
+	mb();
+	udelay(1);
+
+	ret = wait_for_pll_enable(pll, PLL_LOCK_DET);
+
+	return ret;
+}
+
+static int clk_alpha_pll_slew_set_rate(struct clk_hw *hw, unsigned long rate,
+			unsigned long parent_rate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	unsigned long freq_hz;
+	const struct pll_vco *curr_vco, *vco;
+	u32 l;
+	u64 a;
+
+	freq_hz = alpha_pll_round_rate(rate, parent_rate, &l, &a);
+	if (freq_hz != rate) {
+		pr_err("alpha_pll: Call clk_set_rate with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	curr_vco = alpha_pll_find_vco(pll, clk_hw_get_rate(hw));
+	if (!curr_vco) {
+		pr_err("alpha pll: not in a valid vco range\n");
+		return -EINVAL;
+	}
+
+	vco = alpha_pll_find_vco(pll, freq_hz);
+	if (!vco) {
+		pr_err("alpha pll: not in a valid vco range\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * Dynamic pll update will not support switching frequencies across
+	 * vco ranges. In those cases fall back to normal alpha set rate.
+	 */
+	if (curr_vco->val != vco->val)
+		return clk_alpha_pll_set_rate(hw, rate, parent_rate);
+
+	a = a << (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
+
+	regmap_write(pll->clkr.regmap, pll->offset + PLL_L_VAL, l);
+	regmap_write(pll->clkr.regmap, pll->offset + PLL_ALPHA_VAL, a);
+	regmap_write(pll->clkr.regmap, pll->offset + PLL_ALPHA_VAL_U, a >> 32);
+
+	/* Ensure that the write above goes through before proceeding. */
+	mb();
+
+	if (clk_hw_is_enabled(hw))
+		clk_alpha_pll_slew_update(pll);
+
+	return 0;
+}
+
+/*
+ * Slewing plls should be bought up at frequency which is in the middle of the
+ * desired VCO range. So after bringing up the pll at calibration freq, set it
+ * back to desired frequency(that was set by previous clk_set_rate).
+ */
+static int clk_alpha_pll_calibrate(struct clk_hw *hw)
+{
+	unsigned long calibration_freq, freq_hz;
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	const struct pll_vco *vco;
+	u64 a;
+	u32 l;
+	int rc;
+
+	vco = alpha_pll_find_vco(pll, clk_hw_get_rate(hw));
+	if (!vco) {
+		pr_err("alpha pll: not in a valid vco range\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * As during slewing plls vco_sel won't be allowed to change, vco table
+	 * should have only one entry table, i.e. index = 0, find the
+	 * calibration frequency.
+	 */
+	calibration_freq = (pll->vco_table[0].min_freq +
+					pll->vco_table[0].max_freq)/2;
+
+	freq_hz = alpha_pll_round_rate(calibration_freq,
+			clk_hw_get_rate(clk_hw_get_parent(hw)), &l, &a);
+	if (freq_hz != calibration_freq) {
+		pr_err("alpha_pll: call clk_set_rate with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	/* Setup PLL for calibration frequency */
+	a <<= (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
+
+	regmap_write(pll->clkr.regmap, pll->offset + PLL_L_VAL, l);
+	regmap_write(pll->clkr.regmap, pll->offset + PLL_ALPHA_VAL, a);
+	regmap_write(pll->clkr.regmap, pll->offset + PLL_ALPHA_VAL_U, a >> 32);
+
+	regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_USER_CTL,
+				PLL_VCO_MASK << PLL_VCO_SHIFT,
+				vco->val << PLL_VCO_SHIFT);
+
+	regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_USER_CTL,
+				PLL_ALPHA_EN, PLL_ALPHA_EN);
+
+	/* Bringup the pll at calibration frequency */
+	rc = clk_alpha_pll_enable(hw);
+	if (rc) {
+		pr_err("alpha pll calibration failed\n");
+		return rc;
+	}
+
+	/*
+	 * PLL is already running at calibration frequency.
+	 * So slew pll to the previously set frequency.
+	 */
+	freq_hz = alpha_pll_round_rate(clk_hw_get_rate(hw),
+			clk_hw_get_rate(clk_hw_get_parent(hw)), &l, &a);
+
+	pr_debug("pll %s: setting back to required rate %lu, freq_hz %ld\n",
+				hw->init->name, clk_hw_get_rate(hw), freq_hz);
+
+	/* Setup the PLL for the new frequency */
+	a <<= (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
+
+	regmap_write(pll->clkr.regmap, pll->offset + PLL_L_VAL, l);
+	regmap_write(pll->clkr.regmap, pll->offset + PLL_ALPHA_VAL, a);
+	regmap_write(pll->clkr.regmap, pll->offset + PLL_ALPHA_VAL_U, a >> 32);
+
+	regmap_update_bits(pll->clkr.regmap, pll->offset + PLL_USER_CTL,
+				PLL_ALPHA_EN, PLL_ALPHA_EN);
+
+	return clk_alpha_pll_slew_update(pll);
+}
+
+static int clk_alpha_pll_slew_enable(struct clk_hw *hw)
+{
+	int rc;
+
+	rc = clk_alpha_pll_calibrate(hw);
+	if (rc)
+		return rc;
+
+	rc = clk_alpha_pll_enable(hw);
+
+	return rc;
+}
+
+const struct clk_ops clk_alpha_pll_slew_ops = {
+	.enable = clk_alpha_pll_slew_enable,
+	.disable = clk_alpha_pll_disable,
+	.recalc_rate = clk_alpha_pll_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+	.set_rate = clk_alpha_pll_slew_set_rate,
+};
+EXPORT_SYMBOL_GPL(clk_alpha_pll_slew_ops);

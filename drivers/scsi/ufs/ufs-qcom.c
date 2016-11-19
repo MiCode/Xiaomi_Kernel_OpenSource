@@ -412,8 +412,9 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 /**
  * Returns zero for success and non-zero in case of a failure
  */
-static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
-			       u32 hs, u32 rate, bool update_link_startup_timer)
+static int __ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
+			       u32 hs, u32 rate, bool update_link_startup_timer,
+			       bool is_pre_scale_up)
 {
 	int ret = 0;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -460,8 +461,12 @@ static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
 	}
 
 	list_for_each_entry(clki, &hba->clk_list_head, list) {
-		if (!strcmp(clki->name, "core_clk"))
-			core_clk_rate = clk_get_rate(clki->clk);
+		if (!strcmp(clki->name, "core_clk")) {
+			if (is_pre_scale_up)
+				core_clk_rate = clki->max_freq;
+			else
+				core_clk_rate = clk_get_rate(clki->clk);
+		}
 	}
 
 	/* If frequency is smaller than 1MHz, set to 1MHz */
@@ -556,6 +561,13 @@ out_error:
 	ret = -EINVAL;
 out:
 	return ret;
+}
+
+static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
+			       u32 hs, u32 rate, bool update_link_startup_timer)
+{
+	return  __ufs_qcom_cfg_timers(hba, gear, hs, rate,
+				      update_link_startup_timer, false);
 }
 
 static int ufs_qcom_link_startup_pre_change(struct ufs_hba *hba)
@@ -2160,60 +2172,48 @@ out:
 static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct ufs_pa_layer_attr *attr = &host->dev_req_params;
+	int err = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
-		return 0;
+		goto out;
 
-	return ufs_qcom_configure_lpm(hba, false);
-}
+	err = ufs_qcom_configure_lpm(hba, false);
+	if (err)
+		goto out;
 
-static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-	if (!ufs_qcom_cap_qunipro(host))
-		return 0;
+	if (attr)
+		__ufs_qcom_cfg_timers(hba, attr->gear_rx, attr->pwr_rx,
+				      attr->hs_rate, false, true);
 
 	/* set unipro core clock cycles to 150 and clear clock divider */
-	return ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150);
+	err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150);
+out:
+	return err;
 }
 
 static int ufs_qcom_clk_scale_down_pre_change(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	u32 core_clk_ctrl_reg;
-	int err = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
-		goto out;
+		return 0;
 
-	err = ufs_qcom_configure_lpm(hba, true);
-	if (err)
-		goto out;
-
-	err = ufshcd_dme_get(hba,
-			    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
-			    &core_clk_ctrl_reg);
-
-	/* make sure CORE_CLK_DIV_EN is cleared */
-	if (!err &&
-	    (core_clk_ctrl_reg & DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT)) {
-		core_clk_ctrl_reg &= ~DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT;
-		err = ufshcd_dme_set(hba,
-				    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
-				    core_clk_ctrl_reg);
-	}
-out:
-	return err;
+	return ufs_qcom_configure_lpm(hba, true);
 }
 
 static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct ufs_pa_layer_attr *attr = &host->dev_req_params;
 	int err = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
 		return 0;
+
+	if (attr)
+		ufs_qcom_cfg_timers(hba, attr->gear_rx, attr->pwr_rx,
+				    attr->hs_rate, false);
 
 	if (ufs_qcom_cap_svs2(host))
 		/*
@@ -2235,7 +2235,6 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 		bool scale_up, enum ufs_notify_change_status status)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
 	int err = 0;
 
 	switch (status) {
@@ -2246,19 +2245,9 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 			err = ufs_qcom_clk_scale_down_pre_change(hba);
 		break;
 	case POST_CHANGE:
-		if (scale_up)
-			err = ufs_qcom_clk_scale_up_post_change(hba);
-		else
+		if (!scale_up)
 			err = ufs_qcom_clk_scale_down_post_change(hba);
 
-		if (err || !dev_req_params)
-			goto out;
-
-		ufs_qcom_cfg_timers(hba,
-				    dev_req_params->gear_rx,
-				    dev_req_params->pwr_rx,
-				    dev_req_params->hs_rate,
-				    false);
 		ufs_qcom_update_bus_bw_vote(host);
 		break;
 	default:
@@ -2267,7 +2256,6 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 		break;
 	}
 
-out:
 	return err;
 }
 

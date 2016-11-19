@@ -249,6 +249,22 @@
 		clock-frequency = <19200000>;
 	};
 
+	dma_blsp1: qcom,sps-dma@0xc144000{ /* BLSP1 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0xc144000 0x1F000>;
+		interrupts = <0 238 0>;
+		qcom,summing-threshold = <0x10>;
+	};
+
+	dma_blsp2: qcom,sps-dma@0xc184000{ /* BLSP2 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0xc184000 0x1F000>;
+		interrupts = <0 239 0>;
+		qcom,summing-threshold = <0x10>;
+	};
+
 	spmi_bus: qcom,spmi@800f000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0x800f000 0x1000>,
@@ -873,6 +889,23 @@
 			reg = <0x94c 200>;
 		};
 	};
+
+	qcom,ghd {
+		compatible = "qcom,gladiator-hang-detect";
+		qcom,threshold-arr = <0x179d141c 0x179d1420
+				      0x179d1424 0x179d1428
+				      0x179d142c 0x179d1430>;
+		qcom,config-reg = <0x179d1434>;
+	};
+
+	qcom,msm-gladiator-v2@17900000 {
+		compatible = "qcom,msm-gladiator-v2";
+		reg = <0x17900000 0xe000>;
+		reg-names = "gladiator_base";
+		interrupts = <0 22 0>;
+		clock-names = "atb_clk";
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>;
+	};
 };
 
 #include "msmfalcon-ion.dtsi"
@@ -967,4 +1000,5 @@
 #include "msm-pm2falcon.dtsi"
 #include "msm-arm-smmu-falcon.dtsi"
 #include "msm-arm-smmu-impl-defs-falcon.dtsi"
+#include "msmfalcon-common.dtsi"
 #include "msmfalcon-blsp.dtsi"

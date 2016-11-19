@@ -1485,8 +1485,18 @@ static int icnss_hw_reset(struct icnss_priv *priv)
 	icnss_hw_reset_wlan_rfactrl_power_down(priv);
 
 	ret = icnss_hw_reset_rf_reset_cmd(priv);
-	if (ret)
+	if (ret) {
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+					 MPM_WCSSAON_CONFIG_OFFSET,
+					 MPM_WCSSAON_CONFIG_FORCE_ACTIVE, 0);
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+					 MPM_WCSSAON_CONFIG_OFFSET,
+					 MPM_WCSSAON_CONFIG_DISCONNECT_CLR, 0);
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+					 MPM_WCSSAON_CONFIG_OFFSET,
+					 MPM_WCSSAON_CONFIG_WLAN_DISABLE, 1);
 		goto top_level_reset;
+	}
 
 	icnss_hw_reset_switch_to_cxo(priv);
 
@@ -1511,8 +1521,18 @@ static int icnss_hw_reset(struct icnss_priv *priv)
 	}
 
 	ret = icnss_hw_reset_xo_disable_cmd(priv);
-	if (ret)
+	if (ret) {
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+					 MPM_WCSSAON_CONFIG_OFFSET,
+					 MPM_WCSSAON_CONFIG_FORCE_ACTIVE, 0);
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+					 MPM_WCSSAON_CONFIG_OFFSET,
+					 MPM_WCSSAON_CONFIG_DISCONNECT_CLR, 0);
+		icnss_hw_write_reg_field(priv->mpm_config_va,
+					 MPM_WCSSAON_CONFIG_OFFSET,
+					 MPM_WCSSAON_CONFIG_WLAN_DISABLE, 1);
 		goto top_level_reset;
+	}
 
 	icnss_hw_write_reg_field(priv->mpm_config_va, MPM_WCSSAON_CONFIG_OFFSET,
 				 MPM_WCSSAON_CONFIG_FORCE_ACTIVE, 0);
