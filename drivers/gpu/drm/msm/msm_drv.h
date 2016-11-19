@@ -472,6 +472,9 @@ struct msm_drm_private {
 	 */
 	struct task_struct *struct_mutex_task;
 
+	/* saved atomic state during system suspend */
+	struct drm_atomic_state *suspend_state;
+
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
 
