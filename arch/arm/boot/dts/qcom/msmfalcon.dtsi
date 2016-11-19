@@ -889,6 +889,23 @@
 			reg = <0x94c 200>;
 		};
 	};
+
+	qcom,ghd {
+		compatible = "qcom,gladiator-hang-detect";
+		qcom,threshold-arr = <0x179d141c 0x179d1420
+				      0x179d1424 0x179d1428
+				      0x179d142c 0x179d1430>;
+		qcom,config-reg = <0x179d1434>;
+	};
+
+	qcom,msm-gladiator-v2@17900000 {
+		compatible = "qcom,msm-gladiator-v2";
+		reg = <0x17900000 0xe000>;
+		reg-names = "gladiator_base";
+		interrupts = <0 22 0>;
+		clock-names = "atb_clk";
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>;
+	};
 };
 
 #include "msmfalcon-ion.dtsi"
