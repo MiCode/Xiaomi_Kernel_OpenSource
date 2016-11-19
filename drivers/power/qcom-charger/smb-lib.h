@@ -28,6 +28,7 @@ enum print_reason {
 #define DEFAULT_VOTER			"DEFAULT_VOTER"
 #define USER_VOTER			"USER_VOTER"
 #define PD_VOTER			"PD_VOTER"
+#define DCP_VOTER			"DCP_VOTER"
 #define USB_PSY_VOTER			"USB_PSY_VOTER"
 #define PL_TAPER_WORK_RUNNING_VOTER	"PL_TAPER_WORK_RUNNING_VOTER"
 #define PARALLEL_PSY_VOTER		"PARALLEL_PSY_VOTER"
@@ -203,6 +204,7 @@ struct smb_charger {
 	int			*thermal_mitigation;
 
 	int			otg_cl_ua;
+	int			dcp_icl_ua;
 
 	int			fake_capacity;
 

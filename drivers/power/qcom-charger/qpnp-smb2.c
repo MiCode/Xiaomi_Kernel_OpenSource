@@ -1069,6 +1069,7 @@ static int smb2_init_hw(struct smb2 *chip)
 					&chip->dt.dc_icl_ua);
 
 	chg->otg_cl_ua = chip->dt.otg_cl_ua;
+	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
 
 	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
 	if (rc < 0) {
@@ -1101,7 +1102,7 @@ static int smb2_init_hw(struct smb2 *chip)
 	vote(chg->fv_votable,
 		DEFAULT_VOTER, true, chip->dt.fv_uv);
 	vote(chg->usb_icl_votable,
-		DEFAULT_VOTER, true, chip->dt.usb_icl_ua);
+		DCP_VOTER, true, chip->dt.usb_icl_ua);
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 	vote(chg->hvdcp_disable_votable, DEFAULT_VOTER,
@@ -1183,6 +1184,13 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't increase VCONN softstart rc=%d\n",
 			rc);
+		return rc;
+	}
+
+	/* disable try.SINK mode */
+	rc = smblib_masked_write(chg, TYPE_C_CFG_3_REG, EN_TRYSINK_MODE_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set TRYSINK_MODE rc=%d\n", rc);
 		return rc;
 	}
 
