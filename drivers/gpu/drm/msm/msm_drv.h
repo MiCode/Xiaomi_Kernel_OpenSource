@@ -367,6 +367,9 @@ struct msm_drm_private {
 
 	struct msm_vblank_ctrl vblank_ctrl;
 
+	/* saved atomic state during system suspend */
+	struct drm_atomic_state *suspend_state;
+
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
 };
