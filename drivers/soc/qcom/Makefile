@@ -42,3 +42,14 @@ obj-$(CONFIG_MSM_QMI_INTERFACE) += qmi_interface.o
 obj-$(CONFIG_MSM_GLINK_PKT) += msm_glink_pkt.o
 obj-$(CONFIG_MSM_SYSTEM_HEALTH_MONITOR)	+=	system_health_monitor_v01.o
 obj-$(CONFIG_MSM_SYSTEM_HEALTH_MONITOR)	+=	system_health_monitor.o
+obj-$(CONFIG_MSM_SYSMON_GLINK_COMM) += sysmon-glink.o sysmon-qmi.o
+
+obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
+obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
+obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
+
+ifdef CONFIG_MSM_SUBSYSTEM_RESTART
+       obj-y += subsystem_notif.o
+       obj-y += subsystem_restart.o
+       obj-y += ramdump.o
+endif
