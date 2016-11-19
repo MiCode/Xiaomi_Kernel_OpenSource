@@ -73,3 +73,11 @@
 
 	status = "ok";
 };
+
+&pmfalcon_charger {
+	status = "disabled";
+};
+
+&pmfalcon_fg {
+	status = "disabled";
+};

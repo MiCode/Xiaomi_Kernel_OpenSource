@@ -22,3 +22,7 @@
 	compatible = "qcom,msmcobalt-mtp", "qcom,msmcobalt", "qcom,mtp";
 	qcom,board-id = <8 2>;
 };
+
+&pmfalcon_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};

@@ -910,6 +910,8 @@
 
 #include "msmfalcon-ion.dtsi"
 #include "msmfalcon-bus.dtsi"
+#include "msm-pmfalcon.dtsi"
+#include "msm-pm2falcon.dtsi"
 #include "msm-pmfalcon-rpm-regulator.dtsi"
 #include "msm-pm2falcon-rpm-regulator.dtsi"
 #include "msmfalcon-regulator.dtsi"
@@ -996,8 +998,6 @@
 	status = "ok";
 };
 
-#include "msm-pmfalcon.dtsi"
-#include "msm-pm2falcon.dtsi"
 #include "msm-arm-smmu-falcon.dtsi"
 #include "msm-arm-smmu-impl-defs-falcon.dtsi"
 #include "msmfalcon-common.dtsi"
