@@ -273,10 +273,15 @@
 
 &mdss_dsi {
 	hw-config = "split_dsi";
+	vdda-1p2-supply = <&pmfalcon_l1>;
+	vdda-0p9-supply = <&pm2falcon_l1>;
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_video>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
+	wqhd-vddio-supply = <&pmfalcon_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -286,7 +291,10 @@
 };
 
 &mdss_dsi1 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_video>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
+	wqhd-vddio-supply = <&pmfalcon_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -422,6 +430,8 @@
 };
 
 &mdss_dp_ctrl {
+	vdda-1p2-supply = <&pmfalcon_l1>;
+	vdda-0p9-supply = <&pm2falcon_l1>;
 	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
 	pinctrl-0 = <&mdss_dp_aux_active &mdss_dp_usbplug_cc_active>;
 	pinctrl-1 = <&mdss_dp_aux_suspend &mdss_dp_usbplug_cc_suspend>;

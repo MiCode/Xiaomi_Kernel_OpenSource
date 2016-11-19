@@ -265,3 +265,19 @@
 #include "msm-pm2falcon.dtsi"
 #include "msmfalcon-regulator.dtsi"
 
+/* dummy LCDB regulator nodes */
+&soc {
+	lcdb_ldo_vreg: regulator-vdisp-vreg {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "lcdb_ldo";
+		regulator-min-microvolt = <4000000>;
+		regulator-max-microvolt = <6000000>;
+	};
+
+	lcdb_ncp_vreg: regulator-vdisn-vreg {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "lcdb_ncp";
+		regulator-min-microvolt = <4000000>;
+		regulator-max-microvolt = <6000000>;
+	};
+};
