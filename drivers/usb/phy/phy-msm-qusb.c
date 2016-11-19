@@ -189,15 +189,14 @@ static int qusb_phy_config_vdd(struct qusb_phy *qphy, int high)
 	return ret;
 }
 
-static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on,
-						bool toggle_vdd)
+static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 {
 	int ret = 0;
 
 	dev_dbg(qphy->phy.dev, "%s turn %s regulators. power_enabled:%d\n",
 			__func__, on ? "on" : "off", qphy->power_enabled);
 
-	if (toggle_vdd && qphy->power_enabled == on) {
+	if (qphy->power_enabled == on) {
 		dev_dbg(qphy->phy.dev, "PHYs' regulators are already ON.\n");
 		return 0;
 	}
@@ -205,19 +204,17 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on,
 	if (!on)
 		goto disable_vdda33;
 
-	if (toggle_vdd) {
-		ret = qusb_phy_config_vdd(qphy, true);
-		if (ret) {
-			dev_err(qphy->phy.dev, "Unable to config VDD:%d\n",
-								ret);
-			goto err_vdd;
-		}
+	ret = qusb_phy_config_vdd(qphy, true);
+	if (ret) {
+		dev_err(qphy->phy.dev, "Unable to config VDD:%d\n",
+							ret);
+		goto err_vdd;
+	}
 
-		ret = regulator_enable(qphy->vdd);
-		if (ret) {
-			dev_err(qphy->phy.dev, "Unable to enable VDD\n");
-			goto unconfig_vdd;
-		}
+	ret = regulator_enable(qphy->vdd);
+	if (ret) {
+		dev_err(qphy->phy.dev, "Unable to enable VDD\n");
+		goto unconfig_vdd;
 	}
 
 	ret = regulator_set_load(qphy->vdda18, QUSB2PHY_1P8_HPM_LOAD);
@@ -260,8 +257,7 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on,
 		goto unset_vdd33;
 	}
 
-	if (toggle_vdd)
-		qphy->power_enabled = true;
+	qphy->power_enabled = true;
 
 	pr_debug("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
 	return ret;
@@ -299,21 +295,18 @@ put_vdda18_lpm:
 		dev_err(qphy->phy.dev, "Unable to set LPM of vdda18\n");
 
 disable_vdd:
-	if (toggle_vdd) {
-		ret = regulator_disable(qphy->vdd);
-		if (ret)
-			dev_err(qphy->phy.dev, "Unable to disable vdd:%d\n",
+	ret = regulator_disable(qphy->vdd);
+	if (ret)
+		dev_err(qphy->phy.dev, "Unable to disable vdd:%d\n",
 								ret);
 
 unconfig_vdd:
-		ret = qusb_phy_config_vdd(qphy, false);
-		if (ret)
-			dev_err(qphy->phy.dev, "Unable unconfig VDD:%d\n",
+	ret = qusb_phy_config_vdd(qphy, false);
+	if (ret)
+		dev_err(qphy->phy.dev, "Unable unconfig VDD:%d\n",
 								ret);
-	}
 err_vdd:
-	if (toggle_vdd)
-		qphy->power_enabled = false;
+	qphy->power_enabled = false;
 	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
 	return ret;
 }
@@ -330,7 +323,7 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 	case POWER_SUPPLY_DP_DM_DPF_DMF:
 		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DPF_DMF\n");
 		if (!qphy->rm_pulldown) {
-			ret = qusb_phy_enable_power(qphy, true, false);
+			ret = qusb_phy_enable_power(qphy, true);
 			if (ret >= 0) {
 				qphy->rm_pulldown = true;
 				dev_dbg(phy->dev, "DP_DM_F: rm_pulldown:%d\n",
@@ -343,7 +336,10 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 	case POWER_SUPPLY_DP_DM_DPR_DMR:
 		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DPR_DMR\n");
 		if (qphy->rm_pulldown) {
-			ret = qusb_phy_enable_power(qphy, false, false);
+			if (!qphy->cable_connected) {
+				dev_dbg(phy->dev, "turn off for HVDCP case\n");
+				ret = qusb_phy_enable_power(qphy, false);
+			}
 			if (ret >= 0) {
 				qphy->rm_pulldown = false;
 				dev_dbg(phy->dev, "DP_DM_R: rm_pulldown:%d\n",
@@ -420,7 +416,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
-	ret = qusb_phy_enable_power(qphy, true, true);
+	ret = qusb_phy_enable_power(qphy, true);
 	if (ret)
 		return ret;
 
@@ -666,7 +662,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 
 
 			qusb_phy_enable_clocks(qphy, false);
-			qusb_phy_enable_power(qphy, false, true);
+			qusb_phy_enable_power(qphy, false);
 		}
 		qphy->suspended = true;
 	} else {
@@ -678,7 +674,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 		} else {
-			qusb_phy_enable_power(qphy, true, true);
+			qusb_phy_enable_power(qphy, true);
 			qusb_phy_enable_clocks(qphy, true);
 		}
 		qphy->suspended = false;
@@ -1046,7 +1042,7 @@ static int qusb_phy_remove(struct platform_device *pdev)
 		qphy->clocks_enabled = false;
 	}
 
-	qusb_phy_enable_power(qphy, false, true);
+	qusb_phy_enable_power(qphy, false);
 
 	return 0;
 }
