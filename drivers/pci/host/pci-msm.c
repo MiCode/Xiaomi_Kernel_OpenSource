@@ -5563,7 +5563,7 @@ static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
 	irq_set_msi_desc(firstirq, desc);
 	msg.address_hi = 0;
 	msg.address_lo = dev->msi_gicm_addr;
-	msg.data = dev->msi_gicm_base;
+	msg.data = dev->msi_gicm_base + (firstirq - dev->msi[0].num);
 	write_msi_msg(firstirq, &msg);
 
 	return 0;
