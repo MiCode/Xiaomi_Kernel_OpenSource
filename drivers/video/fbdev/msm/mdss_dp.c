@@ -53,16 +53,6 @@ struct mdss_dp_attention_node {
 };
 
 #define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
-static u32 supported_modes[] = {
-	HDMI_VFRMT_640x480p60_4_3,
-	HDMI_VFRMT_720x480p60_4_3, HDMI_VFRMT_720x480p60_16_9,
-	HDMI_VFRMT_1280x720p60_16_9,
-	HDMI_VFRMT_1920x1080p60_16_9,
-	HDMI_VFRMT_3840x2160p24_16_9, HDMI_VFRMT_3840x2160p30_16_9,
-	HDMI_VFRMT_3840x2160p60_16_9,
-	HDMI_VFRMT_4096x2160p24_256_135, HDMI_VFRMT_4096x2160p30_256_135,
-	HDMI_VFRMT_4096x2160p60_256_135, HDMI_EVFRMT_4096x2160p24_16_9
-};
 
 static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv);
 static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata);
@@ -1004,7 +994,7 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 		return -EINVAL;
 	}
 
-	ret = hdmi_get_supported_mode(&timing, &dp_drv->ds_data, vic);
+	ret = hdmi_get_supported_mode(&timing, 0, vic);
 	pinfo = &dp_drv->panel_data.panel_info;
 
 	if (ret || !timing.supported || !pinfo) {
@@ -1528,13 +1518,8 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
 
-	dp_drv->ds_data.ds_registered = true;
-	dp_drv->ds_data.modes_num = ARRAY_SIZE(supported_modes);
-	dp_drv->ds_data.modes = supported_modes;
-
 	dp_drv->max_pclk_khz = DP_MAX_PIXEL_CLK_KHZ;
 	edid_init_data.kobj = dp_drv->kobj;
-	edid_init_data.ds_data = dp_drv->ds_data;
 	edid_init_data.max_pclk_khz = dp_drv->max_pclk_khz;
 
 	edid_data = hdmi_edid_init(&edid_init_data);
@@ -1669,7 +1654,7 @@ static int mdss_dp_check_params(struct mdss_dp_drv_pdata *dp, void *arg)
 			var_pinfo->xres, var_pinfo->yres,
 					pinfo->xres, pinfo->yres);
 
-	new_vic = hdmi_panel_get_vic(var_pinfo, &dp->ds_data);
+	new_vic = hdmi_panel_get_vic(var_pinfo, 0);
 
 	if ((new_vic < 0) || (new_vic > HDMI_VFRMT_MAX)) {
 		DEV_ERR("%s: invalid or not supported vic\n", __func__);
