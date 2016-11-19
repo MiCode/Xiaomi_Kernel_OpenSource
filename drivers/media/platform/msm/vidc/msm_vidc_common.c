@@ -5359,10 +5359,10 @@ static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_ERR, "Venus core frequency = %lu",
 		msm_comm_get_clock_rate(core));
+	mutex_lock(&core->lock);
 	dprintk(VIDC_ERR, "Printing instance info that caused Error\n");
 	msm_comm_print_inst_info(inst);
 	dprintk(VIDC_ERR, "Printing remaining instances info\n");
-	mutex_lock(&core->lock);
 	list_for_each_entry(temp, &core->instances, list) {
 		/* inst already printed above. Hence don't repeat.*/
 		if (temp == inst)
