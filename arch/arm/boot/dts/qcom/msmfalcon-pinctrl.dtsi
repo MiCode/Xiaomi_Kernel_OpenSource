@@ -22,12 +22,12 @@
 
 		uart_console_active: uart_console_active {
 			mux {
-				pins = "gpio0", "gpio1";
-				function = "blsp_uart1";
+				pins = "gpio4", "gpio5";
+				function = "blsp_uart2";
 			};
 
 			config {
-				pins = "gpio0", "gpio1";
+				pins = "gpio4", "gpio5";
 				drive-strength = <2>;
 				bias-disable;
 			};
