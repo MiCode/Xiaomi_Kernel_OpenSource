@@ -384,7 +384,8 @@ static int msm_isp_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
 				fe_cfg->output_stream_id);
 			return -EINVAL;
 		}
-
+		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
+			0, 1);
 		msm_isp_reset_framedrop(vfe_dev, stream_info);
 
 		rc = msm_isp_cfg_offline_ping_pong_address(vfe_dev, stream_info,
