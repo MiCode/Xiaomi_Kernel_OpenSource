@@ -2887,9 +2887,6 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	else
 		pdata->override_threshold = threshold;
 
-	pdata->enable_hsusb_bam_on_boot = of_property_read_bool(node,
-		"qcom,enable-hsusb-bam-on-boot");
-
 	for_each_child_of_node(pdev->dev.of_node, node)
 		max_connections++;
 
@@ -3013,6 +3010,46 @@ err:
 	return NULL;
 }
 
+static void msm_usb_bam_update_props(struct sps_bam_props *props,
+				struct platform_device *pdev)
+{
+	struct msm_usb_bam_platform_data *pdata = pdev->dev.platform_data;
+	enum usb_ctrl bam_type = pdata->bam_type;
+	struct usb_bam_ctx_type *ctx = &msm_usb_bam[bam_type];
+
+
+	props->phys_addr = ctx->io_res->start;
+	props->virt_addr = NULL;
+	props->virt_size = resource_size(ctx->io_res);
+	props->irq = ctx->irq;
+	props->summing_threshold = pdata->override_threshold;
+	props->event_threshold = pdata->override_threshold;
+	props->num_pipes = pdata->usb_bam_num_pipes;
+	props->callback = usb_bam_sps_events;
+	props->user = bam_enable_strings[bam_type];
+
+	/*
+	* HSUSB and HSIC Cores don't support RESET ACK signal to BAMs
+	* Hence, let BAM to ignore acknowledge from USB while resetting PIPE
+	*/
+	if (pdata->ignore_core_reset_ack && bam_type != DWC3_CTRL)
+		props->options = SPS_BAM_NO_EXT_P_RST;
+
+	if (pdata->disable_clk_gating)
+		props->options |= SPS_BAM_NO_LOCAL_CLK_GATING;
+
+	/*
+	 * HSUSB BAM is not NDP BAM and it must be enabled before
+	 * starting peripheral controller to avoid switching USB core mode
+	 * from legacy to BAM with ongoing data transfers.
+	 */
+	if (bam_type == CI_CTRL) {
+		log_event_dbg("Register and enable HSUSB BAM\n");
+		props->options |= SPS_BAM_OPT_ENABLE_AT_BOOT;
+		props->options |= SPS_BAM_FORCE_RESET;
+	}
+}
+
 static int usb_bam_init(struct platform_device *pdev)
 {
 	int ret;
@@ -3021,45 +3058,24 @@ static int usb_bam_init(struct platform_device *pdev)
 	struct usb_bam_ctx_type *ctx = &msm_usb_bam[bam_type];
 	struct sps_bam_props props;
 
-	memset(&props, 0, sizeof(props));
 
 	pr_debug("%s: usb_bam_init - %s\n", __func__,
 		bam_enable_strings[bam_type]);
 
-	props.phys_addr = ctx->io_res->start;
-	props.virt_addr = ctx->regs;
-	props.virt_size = resource_size(ctx->io_res);
-	props.irq = ctx->irq;
-	props.summing_threshold = pdata->override_threshold;
-	props.event_threshold = pdata->override_threshold;
-	props.num_pipes = pdata->usb_bam_num_pipes;
-	props.callback = usb_bam_sps_events;
-	props.user = bam_enable_strings[bam_type];
-
 	/*
-	* HSUSB and HSIC Cores don't support RESET ACK signal to BAMs
-	* Hence, let BAM to ignore acknowledge from USB while resetting PIPE
-	*/
-	if (pdata->ignore_core_reset_ack && bam_type != DWC3_CTRL)
-		props.options = SPS_BAM_NO_EXT_P_RST;
-
-	if (pdata->disable_clk_gating)
-		props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
-
-	/*
-	 * HSUSB BAM is not NDP BAM and it must be enabled early before
-	 * starting peripheral controller to avoid switching USB core mode
-	 * from legacy to BAM with ongoing data transfers.
+	 * CI USB2 BAM is registered before starting controller
+	 * and only if bam2bam function is present in composition
 	 */
-	if (pdata->enable_hsusb_bam_on_boot && bam_type == CI_CTRL) {
-		pr_debug("Register and enable HSUSB BAM\n");
-		props.options |= SPS_BAM_OPT_ENABLE_AT_BOOT;
-		props.options |= SPS_BAM_FORCE_RESET;
-	}
+	if (bam_type == CI_CTRL)
+		return 0;
+
+	memset(&props, 0, sizeof(props));
+	msm_usb_bam_update_props(&props, pdev);
 	ret = sps_register_bam_device(&props, &ctx->h_bam);
 
 	if (ret < 0) {
-		log_event_err("%s: register bam error %d\n", __func__, ret);
+		log_event_err("%s: register bam error %d\n",
+				__func__, ret);
 		return -EFAULT;
 	}
 
@@ -3418,7 +3434,7 @@ int msm_do_bam_disable_enable(enum usb_ctrl bam)
 		return 0;
 
 	pdata = ctx->usb_bam_pdev->dev.platform_data;
-	if ((bam != CI_CTRL) || !pdata->enable_hsusb_bam_on_boot)
+	if (bam != CI_CTRL)
 		return 0;
 
 	if (!ctx->pipes_enabled_per_bam || info[bam].pipes_suspended)
@@ -3520,20 +3536,44 @@ EXPORT_SYMBOL(msm_do_bam_disable_enable);
 
 bool msm_usb_bam_enable(enum usb_ctrl bam, bool bam_enable)
 {
-	struct msm_usb_bam_platform_data *pdata;
 	struct usb_bam_ctx_type *ctx = &msm_usb_bam[bam];
+	static bool bam_enabled;
+	int ret;
 
 	if (!ctx->usb_bam_pdev)
 		return 0;
 
-	pdata = ctx->usb_bam_pdev->dev.platform_data;
-	if ((bam != CI_CTRL) || !(bam_enable ||
-					pdata->enable_hsusb_bam_on_boot))
+	if (bam != CI_CTRL)
 		return 0;
 
-	msm_hw_bam_disable(1);
-	sps_device_reset(ctx->h_bam);
-	msm_hw_bam_disable(0);
+	if (bam_enabled == bam_enable) {
+		log_event_dbg("%s: USB BAM is already %s\n", __func__,
+				bam_enable ? "Registered" : "De-registered");
+		return 0;
+	}
+
+	if (bam_enable) {
+		struct sps_bam_props props;
+
+		memset(&props, 0, sizeof(props));
+		msm_usb_bam_update_props(&props, ctx->usb_bam_pdev);
+		msm_hw_bam_disable(1);
+		ret = sps_register_bam_device(&props, &ctx->h_bam);
+		bam_enabled = true;
+		if (ret < 0) {
+			log_event_err("%s: register bam error %d\n",
+					__func__, ret);
+			return -EFAULT;
+		}
+		log_event_dbg("%s: USB BAM Registered\n", __func__);
+		msm_hw_bam_disable(0);
+	} else {
+		msm_hw_bam_disable(1);
+		sps_device_reset(ctx->h_bam);
+		sps_deregister_bam_device(ctx->h_bam);
+		log_event_dbg("%s: USB BAM De-registered\n", __func__);
+		bam_enabled = false;
+	}
 
 	return 0;
 }

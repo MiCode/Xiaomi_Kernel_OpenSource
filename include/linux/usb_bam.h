@@ -209,7 +209,6 @@ struct usb_bam_pipe_connect {
  *		can work at in bam2bam mode when connected to HS host.
  * @max_mbps_superspeed: Maximum Mbits per seconds that the USB core
  *		can work at in bam2bam mode when connected to SS host.
- * @enable_hsusb_bam_on_boot: Enable HSUSB BAM (non-NDP) on bootup itself
  */
 struct msm_usb_bam_platform_data {
 	u8 max_connections;
@@ -222,7 +221,6 @@ struct msm_usb_bam_platform_data {
 	u32 override_threshold;
 	u32 max_mbps_highspeed;
 	u32 max_mbps_superspeed;
-	bool enable_hsusb_bam_on_boot;
 	enum usb_ctrl bam_type;
 };
 
