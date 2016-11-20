@@ -331,6 +331,11 @@ const struct dentry_operations fuse_dentry_operations = {
 	.d_canonical_path = fuse_dentry_canonical_path,
 };
 
+const struct dentry_operations fuse_root_dentry_operations = {
+	.d_init		= fuse_dentry_init,
+	.d_release	= fuse_dentry_release,
+};
+
 int fuse_valid_type(int m)
 {
 	return S_ISREG(m) || S_ISDIR(m) || S_ISLNK(m) || S_ISCHR(m) ||
