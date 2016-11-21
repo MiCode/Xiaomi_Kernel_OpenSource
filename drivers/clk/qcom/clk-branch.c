@@ -286,11 +286,20 @@ static void clk_gate2_list_registers(struct seq_file *f, struct clk_hw *hw)
 	}
 }
 
+static int clk_gate2_set_flags(struct clk_hw *hw, unsigned flags)
+{
+	struct clk_gate2 *gt = to_clk_gate2(hw);
+
+	return clk_cbcr_set_flags(gt->clkr.regmap, gt->clkr.enable_reg,
+					flags);
+}
+
 const struct clk_ops clk_gate2_ops = {
 	.enable = clk_gate2_enable,
 	.disable = clk_gate2_disable,
 	.is_enabled = clk_is_enabled_regmap,
 	.list_registers = clk_gate2_list_registers,
+	.set_flags = clk_gate2_set_flags,
 };
 EXPORT_SYMBOL_GPL(clk_gate2_ops);
 
