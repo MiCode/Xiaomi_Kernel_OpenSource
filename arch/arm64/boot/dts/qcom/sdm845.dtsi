@@ -1530,6 +1530,13 @@
 		qcom,config-reg = <0x17990434>;
 	};
 
+	qcom,msm-gladiator-v3@17900000 {
+		compatible = "qcom,msm-gladiator-v3";
+		reg = <0x17900000 0xd080>;
+		reg-names = "gladiator_base";
+		interrupts = <0 17 0>;
+	};
+
 	cmd_db: qcom,cmd-db@861e0000 {
 		compatible = "qcom,cmd-db";
 		reg = <0x861e0000 0x4000>;

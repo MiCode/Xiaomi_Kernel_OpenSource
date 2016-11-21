@@ -174,8 +174,8 @@ config MSM_GLADIATOR_HANG_DETECT
          gladiator hang detection and collects the context for the
          gladiator hang.
 
-config MSM_GLADIATOR_ERP_V2
-       tristate "GLADIATOR coherency interconnect error reporting driver v2"
+config MSM_GLADIATOR_ERP
+       tristate "GLADIATOR coherency interconnect error reporting driver"
        help
                Support dumping debug information for the GLADIATOR
                cache interconnect in the error interrupt handler.
@@ -183,9 +183,9 @@ config MSM_GLADIATOR_ERP_V2
 
                If unsure, say N.
 
-config PANIC_ON_GLADIATOR_ERROR_V2
-       depends on MSM_GLADIATOR_ERP_V2
-       bool "Panic on GLADIATOR error report v2"
+config PANIC_ON_GLADIATOR_ERROR
+       depends on MSM_GLADIATOR_ERP
+       bool "Panic on GLADIATOR error report"
        help
                Panic upon detection of an Gladiator coherency interconnect error
                in order to support dumping debug information.
