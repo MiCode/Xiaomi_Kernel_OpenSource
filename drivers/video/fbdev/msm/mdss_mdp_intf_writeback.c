@@ -260,10 +260,19 @@ static void mdss_mdp_writeback_cwb_overflow(void *arg)
 	mdp5_data->cwb.valid = 0;
 
 	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
+	mdss_mdp_set_intr_callback_nosync(ctx->intr_type, ctx->intf_num,
+			NULL, NULL);
+
 	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_0);
-	if (mdss_mdp_get_split_ctl(ctl))
+	mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
+			CWB_PPB_0, NULL, NULL);
+
+	if (mdss_mdp_get_split_ctl(ctl)) {
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
-				CWB_PPB_1);
+			CWB_PPB_1);
+		mdss_mdp_set_intr_callback_nosync(
+			MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_1, NULL, NULL);
+	}
 
 	if (!atomic_add_unless(&mdp5_data->wb_busy, -1, 0))
 		pr_err("Invalid state for WB\n");
@@ -285,10 +294,20 @@ static void mdss_mdp_writeback_cwb_intr_done(void *arg)
 	mdp5_data->cwb.valid = 0;
 
 	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
-	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_0);
-	if (mdss_mdp_get_split_ctl(ctl))
+	mdss_mdp_set_intr_callback_nosync(ctx->intr_type, ctx->intf_num,
+			NULL, NULL);
+
+	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
+			CWB_PPB_0);
+	mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
+			CWB_PPB_0, NULL, NULL);
+
+	if (mdss_mdp_get_split_ctl(ctl)) {
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
-				CWB_PPB_1);
+			CWB_PPB_1);
+		mdss_mdp_set_intr_callback_nosync(
+			MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_1, NULL, NULL);
+	}
 
 	queue_work(mdp5_data->cwb.cwb_work_queue, &mdp5_data->cwb.cwb_work);
 
@@ -495,21 +514,20 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 		pr_err("cwb writeback data setup error\n");
 		return ret;
 	}
-	mdss_mdp_irq_enable(ctx->intr_type, ctx->intf_num);
 	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
 			 mdss_mdp_writeback_cwb_intr_done, ctl);
+	mdss_mdp_irq_enable(ctx->intr_type, ctx->intf_num);
 
-	mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, ctl->intf_num);
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
-			ctl->intf_num,
-			mdss_mdp_writeback_cwb_overflow, ctl);
+			CWB_PPB_0, mdss_mdp_writeback_cwb_overflow, ctl);
+	mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_0);
+
 	sctl = mdss_mdp_get_split_ctl(ctl);
 	if (sctl) {
-		mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
-				sctl->intf_num);
 		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
-				sctl->intf_num,
-				mdss_mdp_writeback_cwb_overflow, sctl);
+				CWB_PPB_1, mdss_mdp_writeback_cwb_overflow,
+				sctl);
+		mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_1);
 	}
 
 	if (test_bit(MDSS_QOS_WB2_WRITE_GATHER_EN, ctl->mdata->mdss_qos_map))
