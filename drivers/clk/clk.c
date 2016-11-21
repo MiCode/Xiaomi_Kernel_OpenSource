@@ -60,8 +60,8 @@ struct clk_core {
 	struct clk_core		*parent;
 	const char		**parent_names;
 	struct clk_core		**parents;
-	u8			num_parents;
-	u8			new_parent_index;
+	unsigned int		num_parents;
+	unsigned int		new_parent_index;
 	unsigned long		rate;
 	unsigned long		req_rate;
 	unsigned long		new_rate;
@@ -2146,7 +2146,7 @@ static int clk_core_set_parent(struct clk_core *core, struct clk_core *parent)
 	/* prevent racing with updates to the clock topology */
 	clk_prepare_lock();
 
-	if (core->parent == parent)
+	if (core->parent == parent && !(core->flags & CLK_IS_MEASURE))
 		goto out;
 
 	/* verify ops for for multi-parent clks */
