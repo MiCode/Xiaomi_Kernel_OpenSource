@@ -490,9 +490,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 
 	pipe->comp_ratio = layer->buffer.comp_ratio;
 
-	if (mfd->panel_orientation)
-		layer->flags ^= mfd->panel_orientation;
-
 	pipe->mixer_left = mixer;
 	pipe->mfd = mfd;
 	pipe->play_cnt = 0;
@@ -630,13 +627,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 
 	pipe->multirect.mode = vinfo->multirect.mode;
 	pipe->mixer_stage = layer->z_order;
-
-	if (mfd->panel_orientation & MDP_FLIP_LR)
-		pipe->dst.x = pipe->mixer_left->width - pipe->dst.x -
-			pipe->dst.w;
-	if (mfd->panel_orientation & MDP_FLIP_UD)
-		pipe->dst.y = pipe->mixer_left->height - pipe->dst.y -
-			pipe->dst.h;
 
 	memcpy(&pipe->layer, layer, sizeof(struct mdp_input_layer));
 

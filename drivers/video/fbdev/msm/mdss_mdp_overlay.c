@@ -6649,10 +6649,6 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	mfd->panel_orientation = mfd->panel_info->panel_orientation;
 
-	if ((mfd->panel_info->panel_orientation & MDP_FLIP_LR) &&
-	    (mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY))
-		mdp5_data->mixer_swap = true;
-
 	rc = sysfs_create_group(&dev->kobj, &mdp_overlay_sysfs_group);
 	if (rc) {
 		pr_err("vsync sysfs group creation failed, ret=%d\n", rc);
