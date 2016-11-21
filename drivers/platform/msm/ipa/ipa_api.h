@@ -369,6 +369,8 @@ struct ipa_api_controller {
 
 	int (*ipa_tear_down_uc_offload_pipes)(int ipa_ep_idx_ul,
 		int ipa_ep_idx_dl);
+
+	struct device *(*ipa_get_pdev)(void);
 };
 
 #ifdef CONFIG_IPA
