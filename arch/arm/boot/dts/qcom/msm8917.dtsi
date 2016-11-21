@@ -913,7 +913,7 @@
 			label = "modem";
 		};
 
-		qcom,client_3 {
+		mem_client_3_size: qcom,client_3 {
 			compatible = "qcom,memshare-peripheral";
 			qcom,peripheral-size = <0x0>;
 			qcom,client-id = <1>;
