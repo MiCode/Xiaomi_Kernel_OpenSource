@@ -1351,9 +1351,16 @@ static inline bool mdss_dp_is_link_training_requested(
 	return (dp->test_data.test_requested == TEST_LINK_TRAINING);
 }
 
+static inline bool mdss_dp_is_phy_test_pattern_requested(
+		struct mdss_dp_drv_pdata *dp)
+{
+	return (dp->test_data.test_requested == PHY_TEST_PATTERN);
+}
+
 static inline bool mdss_dp_soft_hpd_reset(struct mdss_dp_drv_pdata *dp)
 {
-	return mdss_dp_is_link_training_requested(dp) &&
+	return (mdss_dp_is_link_training_requested(dp) ||
+			mdss_dp_is_phy_test_pattern_requested(dp)) &&
 		dp->alt_mode.dp_status.hpd_irq;
 }
 
@@ -2501,6 +2508,57 @@ static int mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
 }
 
 /**
+ * mdss_dp_process_phy_test_pattern_request() - process new phy test requests
+ * @dp: Display Port Driver data
+ *
+ * This function will handle new phy test pattern requests that are initiated
+ * by the sink. The function will return 0 if a phy test pattern has been
+ * processed, otherwise it will return -EINVAL.
+ */
+static int mdss_dp_process_phy_test_pattern_request(
+		struct mdss_dp_drv_pdata *dp)
+{
+	u32 test_link_rate = 0, test_lane_count = 0;
+
+	if (!mdss_dp_is_phy_test_pattern_requested(dp))
+		return -EINVAL;
+
+	mdss_dp_send_test_response(dp);
+
+	test_link_rate = dp->test_data.test_link_rate;
+	test_lane_count = dp->test_data.test_lane_count;
+
+	pr_info("%s link rate = 0x%x, lane count = 0x%x\n",
+			mdss_dp_get_test_name(TEST_LINK_TRAINING),
+			test_link_rate, test_lane_count);
+
+	/**
+	 * Retrain the mainlink if there is a change in link rate or lane
+	 * count.
+	 */
+	if (mdss_dp_aux_is_link_rate_valid(test_link_rate) &&
+			mdss_dp_aux_is_lane_count_valid(test_lane_count) &&
+			((dp->dpcd.max_lane_count != test_lane_count) ||
+			(dp->link_rate != test_link_rate))) {
+
+		pr_info("updated link rate or lane count, retraining.\n");
+
+		dp->dpcd.max_lane_count = dp->test_data.test_lane_count;
+		dp->link_rate = dp->test_data.test_link_rate;
+
+		mdss_dp_link_retraining(dp);
+	}
+
+	mdss_dp_config_ctrl(dp);
+
+	mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(dp);
+
+	mdss_dp_phy_send_test_pattern(dp);
+
+	return 0;
+}
+
+/**
  * mdss_dp_process_downstream_port_status_change() - process port status changes
  * @dp: Display Port Driver data
  *
@@ -2548,6 +2606,9 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 	if (!ret)
 		goto exit;
 
+	ret = mdss_dp_process_phy_test_pattern_request(dp);
+	if (!ret)
+		goto exit;
 	pr_debug("done\n");
 exit:
 	mdss_dp_reset_test_data(dp);
