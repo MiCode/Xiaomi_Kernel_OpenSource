@@ -415,6 +415,47 @@ static int mhi_plat_probe(struct platform_device *pdev)
 		mhi_dev_ctxt->dev_space.start_win_addr,
 		mhi_dev_ctxt->dev_space.end_win_addr);
 
+	r = of_property_read_u32(of_node, "qcom,bhi-alignment",
+				 &mhi_dev_ctxt->bhi_ctxt.alignment);
+	if (r)
+		mhi_dev_ctxt->bhi_ctxt.alignment = BHI_DEFAULT_ALIGNMENT;
+
+	r = of_property_read_u32(of_node, "qcom,bhi-poll-timeout",
+				 &mhi_dev_ctxt->bhi_ctxt.poll_timeout);
+	if (r)
+		mhi_dev_ctxt->bhi_ctxt.poll_timeout = BHI_POLL_TIMEOUT_MS;
+
+	mhi_dev_ctxt->bhi_ctxt.manage_boot =
+		of_property_read_bool(pdev->dev.of_node,
+				      "qcom,mhi-manage-boot");
+	if (mhi_dev_ctxt->bhi_ctxt.manage_boot) {
+		struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
+		struct firmware_info *fw_info = &bhi_ctxt->firmware_info;
+
+		r = of_property_read_string(of_node, "qcom,mhi-fw-image",
+					    &fw_info->fw_image);
+		if (r) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+				"Error reading DT node 'qcom,mhi-fw-image'\n");
+			return r;
+		}
+		r = of_property_read_u32(of_node, "qcom,mhi-max-sbl",
+					 (u32 *)&fw_info->max_sbl_len);
+		if (r) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+				"Error reading DT node 'qcom,mhi-max-sbl'\n");
+			return r;
+		}
+		r = of_property_read_u32(of_node, "qcom,mhi-sg-size",
+					 (u32 *)&fw_info->segment_size);
+		if (r) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+				"Error reading DT node 'qcom,mhi-sg-size'\n");
+			return r;
+		}
+		INIT_WORK(&bhi_ctxt->fw_load_work, bhi_firmware_download);
+	}
+
 	mhi_dev_ctxt->plat_dev = pdev;
 	platform_set_drvdata(pdev, mhi_dev_ctxt);
 

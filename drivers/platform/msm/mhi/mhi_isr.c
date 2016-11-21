@@ -165,6 +165,10 @@ static int mhi_process_event_ring(
 				mhi_init_state_transition(mhi_dev_ctxt,
 								new_state);
 				break;
+			case MHI_EXEC_ENV_BHIE:
+				new_state = STATE_TRANSITION_BHIE;
+				mhi_init_state_transition(mhi_dev_ctxt,
+							  new_state);
 			}
 			break;
 		}

@@ -19,24 +19,24 @@
 
 const char *state_transition_str(enum STATE_TRANSITION state)
 {
-	static const char * const mhi_states_transition_str[] = {
-		"RESET",
-		"READY",
-		"M0",
-		"M1",
-		"M2",
-		"M3",
-		"BHI",
-		"SBL",
-		"AMSS",
-		"LINK_DOWN",
-		"WAKE"
+	static const char * const
+		mhi_states_transition_str[STATE_TRANSITION_MAX] = {
+		[STATE_TRANSITION_RESET] = "RESET",
+		[STATE_TRANSITION_READY] = "READY",
+		[STATE_TRANSITION_M0] = "M0",
+		[STATE_TRANSITION_M1] = "M1",
+		[STATE_TRANSITION_M2] = "M2",
+		[STATE_TRANSITION_M3] = "M3",
+		[STATE_TRANSITION_BHI] = "BHI",
+		[STATE_TRANSITION_SBL] = "SBL",
+		[STATE_TRANSITION_AMSS] = "AMSS",
+		[STATE_TRANSITION_LINK_DOWN] = "LINK_DOWN",
+		[STATE_TRANSITION_WAKE] = "WAKE",
+		[STATE_TRANSITION_BHIE] = "BHIE",
+		[STATE_TRANSITION_SYS_ERR] = "SYS_ERR",
 	};
 
-	if (state == STATE_TRANSITION_SYS_ERR)
-		return "SYS_ERR";
-
-	return (state <= STATE_TRANSITION_WAKE) ?
+	return (state < STATE_TRANSITION_MAX) ?
 		mhi_states_transition_str[state] : "Invalid";
 }
 
@@ -156,6 +156,17 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 				db_value);
 		spin_unlock_irqrestore(lock, flags);
 	}
+}
+
+static int process_bhie_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
+				   enum STATE_TRANSITION cur_work_item)
+{
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Entered\n");
+	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_BHIE;
+	wake_up(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exited\n");
+
+	return 0;
 }
 
 static int process_m0_transition(
@@ -578,6 +589,9 @@ static int process_stt_work_item(
 		break;
 	case STATE_TRANSITION_WAKE:
 		r = process_wake_transition(mhi_dev_ctxt, cur_work_item);
+		break;
+	case STATE_TRANSITION_BHIE:
+		r = process_bhie_transition(mhi_dev_ctxt, cur_work_item);
 		break;
 	default:
 		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,

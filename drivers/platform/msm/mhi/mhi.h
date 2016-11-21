@@ -57,15 +57,47 @@ struct pcie_core_info {
 	bool pci_master;
 };
 
+struct firmware_info {
+	const char *fw_image;
+	size_t max_sbl_len;
+	size_t segment_size;
+};
+
+struct bhie_mem_info {
+	void *pre_aligned;
+	void *aligned;
+	size_t alloc_size;
+	size_t size;
+	phys_addr_t phys_addr;
+	dma_addr_t dma_handle;
+};
+
+struct bhie_vec_table {
+	struct scatterlist *sg_list;
+	struct bhie_mem_info *bhie_mem_info;
+	struct bhi_vec_entry *bhi_vec_entry;
+	unsigned segment_count;
+	u32 sequence; /* sequence to indicate new xfer */
+};
+
 struct bhi_ctxt_t {
 	void __iomem *bhi_base;
+	void *unaligned_image_loc;
+	dma_addr_t dma_handle;
+	size_t alloc_size;
 	void *image_loc;
 	dma_addr_t phy_image_loc;
 	size_t image_size;
-	void *unaligned_image_loc;
 	dev_t bhi_dev;
 	struct cdev cdev;
 	struct device *dev;
+	u32 alignment;
+	u32 poll_timeout;
+	/* BHI/E vector table */
+	bool manage_boot; /* fw download done by MHI host */
+	struct work_struct fw_load_work;
+	struct firmware_info firmware_info;
+	struct bhie_vec_table fw_table;
 };
 
 enum MHI_CHAN_DIR {
@@ -344,25 +376,27 @@ enum MHI_INIT_ERROR_STAGE {
 };
 
 enum STATE_TRANSITION {
-	STATE_TRANSITION_RESET = 0x0,
-	STATE_TRANSITION_READY = 0x1,
-	STATE_TRANSITION_M0 = 0x2,
-	STATE_TRANSITION_M1 = 0x3,
-	STATE_TRANSITION_M2 = 0x4,
-	STATE_TRANSITION_M3 = 0x5,
-	STATE_TRANSITION_BHI = 0x6,
-	STATE_TRANSITION_SBL = 0x7,
-	STATE_TRANSITION_AMSS = 0x8,
-	STATE_TRANSITION_LINK_DOWN = 0x9,
-	STATE_TRANSITION_WAKE = 0xA,
-	STATE_TRANSITION_SYS_ERR = 0xFF,
-	STATE_TRANSITION_reserved = 0x80000000
+	STATE_TRANSITION_RESET = MHI_STATE_RESET,
+	STATE_TRANSITION_READY = MHI_STATE_READY,
+	STATE_TRANSITION_M0 = MHI_STATE_M0,
+	STATE_TRANSITION_M1 = MHI_STATE_M1,
+	STATE_TRANSITION_M2 = MHI_STATE_M2,
+	STATE_TRANSITION_M3 = MHI_STATE_M3,
+	STATE_TRANSITION_BHI,
+	STATE_TRANSITION_SBL,
+	STATE_TRANSITION_AMSS,
+	STATE_TRANSITION_LINK_DOWN,
+	STATE_TRANSITION_WAKE,
+	STATE_TRANSITION_BHIE,
+	STATE_TRANSITION_SYS_ERR,
+	STATE_TRANSITION_MAX
 };
 
 enum MHI_EXEC_ENV {
 	MHI_EXEC_ENV_PBL = 0x0,
 	MHI_EXEC_ENV_SBL = 0x1,
 	MHI_EXEC_ENV_AMSS = 0x2,
+	MHI_EXEC_ENV_BHIE = 0x3,
 	MHI_EXEC_ENV_reserved = 0x80000000
 };
 
