@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -213,6 +213,99 @@ struct drm_msm_get_last_fence {
 	uint32_t pad;
 };
 
+/**
+ * struct drm_perfcounter_read_group - argument to DRM_IOCTL_MSM_PERFCOUNTER_READ
+ * @groupid: Performance counter group IDs
+ * @countable: Performance counter countable IDs
+ * @value: Return performance counter reads
+ *
+ * Read in the current value of a performance counter given by the groupid
+ * and countable.
+ *
+ */
+
+struct drm_perfcounter_read_group {
+	unsigned int groupid;
+	unsigned int countable;
+	unsigned long long value;
+};
+
+struct drm_perfcounter_read {
+	struct drm_perfcounter_read_group __user *reads;
+	unsigned int count;
+	/* private: reserved for future use */
+	unsigned int __pad[2]; /* For future binary compatibility */
+};
+
+/**
+ * struct drm_perfcounter_query - argument to DRM_IOCTL_MSM_PERFCOUNTER_QUERY
+ * @groupid: Performance counter group ID
+ * @countable: Return active countables array
+ * @size: Size of active countables array
+ * @max_counters: Return total number counters for the group ID
+ *
+ * Query the available performance counters given a groupid.  The array
+ * *countables is used to return the current active countables in counters.
+ * The size of the array is passed in so the kernel will only write at most
+ * size or counter->size for the group id.  The total number of available
+ * counters for the group ID is returned in max_counters.
+ * If the array or size passed in are invalid, then only the maximum number
+ * of counters will be returned, no data will be written to *countables.
+ * If the groupid is invalid an error code will be returned.
+ *
+ */
+struct drm_perfcounter_query {
+	unsigned int groupid;
+	/* Array to return the current countable for up to size counters */
+	unsigned int __user *countables;
+	unsigned int count;
+	unsigned int max_counters;
+	/* private: reserved for future use */
+	unsigned int __pad[2]; /* For future binary compatibility */
+};
+
+/**
+ * struct drm_perfcounter_get - argument to DRM_IOCTL_MSM_PERFCOUNTER_GET
+ * @groupid: Performance counter group ID
+ * @countable: Countable to select within the group
+ * @offset: Return offset of the reserved LO counter
+ * @offset_hi: Return offset of the reserved HI counter
+ *
+ * Get an available performance counter from a specified groupid.  The offset
+ * of the performance counter will be returned after successfully assigning
+ * the countable to the counter for the specified group.  An error will be
+ * returned and an offset of 0 if the groupid is invalid or there are no
+ * more counters left.  After successfully getting a perfcounter, the user
+ * must call drm_perfcounter_put(groupid, contable) when finished with
+ * the perfcounter to clear up perfcounter resources.
+ *
+ */
+struct drm_perfcounter_get {
+	unsigned int groupid;
+	unsigned int countable;
+	unsigned int offset;
+	unsigned int offset_hi;
+	/* private: reserved for future use */
+	unsigned int __pad; /* For future binary compatibility */
+};
+
+/**
+ * struct drm_perfcounter_put - argument to DRM_IOCTL_MSM_PERFCOUNTER_PUT
+ * @groupid: Performance counter group ID
+ * @countable: Countable to release within the group
+ *
+ * Put an allocated performance counter to allow others to have access to the
+ * resource that was previously taken.  This is only to be called after
+ * successfully getting a performance counter from drm_perfcounter_get().
+ *
+ */
+struct drm_perfcounter_put {
+	unsigned int groupid;
+	unsigned int countable;
+	/* private: reserved for future use */
+	unsigned int __pad[2]; /* For future binary compatibility */
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -225,7 +318,12 @@ struct drm_msm_get_last_fence {
 #define DRM_MSM_WAIT_FENCE             0x07
 #define DRM_MSM_GET_LAST_FENCE         0x08
 #define DRM_SDE_WB_CONFIG              0x09
-#define DRM_MSM_NUM_IOCTLS             0x0A
+#define DRM_MSM_PERFCOUNTER_READ       0x0A
+#define DRM_MSM_PERFCOUNTER_QUERY      0x0B
+#define DRM_MSM_PERFCOUNTER_GET        0x0C
+#define DRM_MSM_PERFCOUNTER_PUT        0x0D
+#define DRM_MSM_NUM_IOCTLS             0x0E
+
 
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)
@@ -239,5 +337,67 @@ struct drm_msm_get_last_fence {
 	struct drm_msm_get_last_fence))
 #define DRM_IOCTL_SDE_WB_CONFIG \
 	DRM_IOW((DRM_COMMAND_BASE + DRM_SDE_WB_CONFIG), struct sde_drm_wb_cfg)
+#define DRM_IOCTL_MSM_PERFCOUNTER_READ \
+	(DRM_IOWR((DRM_COMMAND_BASE + DRM_MSM_PERFCOUNTER_READ), \
+	struct drm_perfcounter_read))
+#define DRM_IOCTL_MSM_PERFCOUNTER_QUERY \
+	(DRM_IOWR((DRM_COMMAND_BASE + DRM_MSM_PERFCOUNTER_QUERY), \
+	struct drm_perfcounter_query))
+#define DRM_IOCTL_MSM_PERFCOUNTER_GET \
+	(DRM_IOWR((DRM_COMMAND_BASE + DRM_MSM_PERFCOUNTER_GET), \
+	struct drm_perfcounter_get))
+#define DRM_IOCTL_MSM_PERFCOUNTER_PUT \
+	(DRM_IOWR((DRM_COMMAND_BASE + DRM_MSM_PERFCOUNTER_PUT), \
+	struct drm_perfcounter_put))
+
+
+/* Performance counter groups */
+
+#define DRM_MSM_PERFCOUNTER_GROUP_CP 0x0
+#define DRM_MSM_PERFCOUNTER_GROUP_RBBM 0x1
+#define DRM_MSM_PERFCOUNTER_GROUP_PC 0x2
+#define DRM_MSM_PERFCOUNTER_GROUP_VFD 0x3
+#define DRM_MSM_PERFCOUNTER_GROUP_HLSQ 0x4
+#define DRM_MSM_PERFCOUNTER_GROUP_VPC 0x5
+#define DRM_MSM_PERFCOUNTER_GROUP_TSE 0x6
+#define DRM_MSM_PERFCOUNTER_GROUP_RAS 0x7
+#define DRM_MSM_PERFCOUNTER_GROUP_UCHE 0x8
+#define DRM_MSM_PERFCOUNTER_GROUP_TP 0x9
+#define DRM_MSM_PERFCOUNTER_GROUP_SP 0xA
+#define DRM_MSM_PERFCOUNTER_GROUP_RB 0xB
+#define DRM_MSM_PERFCOUNTER_GROUP_PWR 0xC
+#define DRM_MSM_PERFCOUNTER_GROUP_VBIF 0xD
+#define DRM_MSM_PERFCOUNTER_GROUP_VBIF_PWR 0xE
+#define DRM_MSM_PERFCOUNTER_GROUP_MH 0xF
+#define DRM_MSM_PERFCOUNTER_GROUP_PA_SU 0x10
+#define DRM_MSM_PERFCOUNTER_GROUP_SQ 0x11
+#define DRM_MSM_PERFCOUNTER_GROUP_SX 0x12
+#define DRM_MSM_PERFCOUNTER_GROUP_TCF 0x13
+#define DRM_MSM_PERFCOUNTER_GROUP_TCM 0x14
+#define DRM_MSM_PERFCOUNTER_GROUP_TCR 0x15
+#define DRM_MSM_PERFCOUNTER_GROUP_L2 0x16
+#define DRM_MSM_PERFCOUNTER_GROUP_VSC 0x17
+#define DRM_MSM_PERFCOUNTER_GROUP_CCU 0x18
+#define DRM_MSM_PERFCOUNTER_GROUP_LRZ 0x19
+#define DRM_MSM_PERFCOUNTER_GROUP_CMP 0x1A
+#define DRM_MSM_PERFCOUNTER_GROUP_ALWAYSON 0x1B
+#define DRM_MSM_PERFCOUNTER_GROUP_SP_PWR 0x1C
+#define DRM_MSM_PERFCOUNTER_GROUP_TP_PWR 0x1D
+#define DRM_MSM_PERFCOUNTER_GROUP_RB_PWR 0x1E
+#define DRM_MSM_PERFCOUNTER_GROUP_CCU_PWR 0x1F
+#define DRM_MSM_PERFCOUNTER_GROUP_UCHE_PWR 0x20
+#define DRM_MSM_PERFCOUNTER_GROUP_CP_PWR 0x21
+#define DRM_MSM_PERFCOUNTER_GROUP_GPMU_PWR 0x22
+#define DRM_MSM_PERFCOUNTER_GROUP_ALWAYSON_PWR 0x23
+#define DRM_MSM_PERFCOUNTER_GROUP_MAX 0x24
+
+#define DRM_MSM_PERFCOUNTER_NOT_USED 0xFFFFFFFF
+#define DRM_MSM_PERFCOUNTER_BROKEN 0xFFFFFFFE
+
+#define PERFCOUNTER_FLAG_NONE 0x0
+#define PERFCOUNTER_FLAG_KERNEL 0x1
+
+#define DRM_MSM_PERFCOUNTER_NOT_USED 0xFFFFFFFF
+#define DRM_MSM_PERFCOUNTER_BROKEN 0xFFFFFFFE
 
 #endif /* __MSM_DRM_H__ */

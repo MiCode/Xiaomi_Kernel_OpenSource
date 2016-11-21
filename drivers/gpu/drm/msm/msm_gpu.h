@@ -2,6 +2,8 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
+ * Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
  * the Free Software Foundation.
@@ -59,6 +61,17 @@ struct msm_gpu_funcs {
 	/* show GPU status in debugfs: */
 	void (*show)(struct msm_gpu *gpu, struct seq_file *m);
 #endif
+	int (*perfcounter_read)(struct msm_gpu *gpu,
+		struct drm_perfcounter_read_group __user *reads,
+			unsigned int count);
+	int (*perfcounter_query)(struct msm_gpu *gpu, unsigned int groupid,
+		unsigned int __user *countables, unsigned int count,
+			unsigned int *max_counters);
+	int (*perfcounter_get)(struct msm_gpu *gpu, unsigned int groupid,
+		unsigned int countable, unsigned int *offset,
+			unsigned int *offset_hi, unsigned int flags);
+	int (*perfcounter_put)(struct msm_gpu *gpu, unsigned int groupid,
+		unsigned int countable, unsigned int flags);
 };
 
 struct msm_gpu {

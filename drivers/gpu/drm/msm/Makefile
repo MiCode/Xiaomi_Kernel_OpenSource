@@ -64,7 +64,8 @@ msm-y := \
 ifneq ($(CONFIG_QCOM_KGSL),y)
 msm-y += adreno/adreno_device.o \
 	adreno/adreno_gpu.o \
-	adreno/a5xx_gpu.o
+	adreno/a5xx_gpu.o \
+	adreno/adreno_perfcounter.o
 endif
 
 msm-$(CONFIG_DRM_MSM_HDCP) += hdmi/hdmi_hdcp.o

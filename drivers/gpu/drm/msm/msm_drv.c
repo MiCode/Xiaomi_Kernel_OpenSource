@@ -2,6 +2,8 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
+ * Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
  * the Free Software Foundation.
@@ -1017,17 +1019,109 @@ static int msm_ioctl_get_last_fence(struct drm_device *dev, void *data,
 	return 0;
 }
 
+static int msm_ioctl_perfcounter_read(struct drm_device *dev, void *data,
+	struct drm_file *file)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	struct drm_perfcounter_read *read = data;
+	struct msm_gpu *gpu;
+
+	gpu = priv->gpu;
+
+	if (!gpu)
+		return -ENXIO;
+
+	return gpu->funcs->perfcounter_read(gpu, read->reads, read->count);
+}
+
+static int msm_ioctl_perfcounter_query(struct drm_device *dev, void *data,
+	struct drm_file *file)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	struct drm_perfcounter_query *query = data;
+	struct msm_gpu *gpu;
+
+	gpu = priv->gpu;
+
+	if (!gpu)
+		return -ENXIO;
+
+	return gpu->funcs->perfcounter_query(gpu, query->groupid,
+		query->countables, query->count, &query->max_counters);
+}
+
+long msm_ioctl_perfcounter_get(struct drm_device *dev, void *data,
+	struct drm_file *file)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	struct drm_perfcounter_get *get = data;
+	struct msm_gpu *gpu;
+	long result;
+
+	gpu = priv->gpu;
+	if (!gpu)
+		return -ENXIO;
+
+	mutex_lock(&dev->struct_mutex);
+
+	result =  (long) gpu->funcs->perfcounter_get(gpu, get->groupid,
+		get->countable, &get->offset, &get->offset_hi,
+			PERFCOUNTER_FLAG_NONE);
+
+	mutex_unlock(&dev->struct_mutex);
+
+	return result;
+}
+
+long msm_ioctl_perfcounter_put(struct drm_device *dev, void *data,
+	struct drm_file *file)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	struct drm_perfcounter_put *put = data;
+	struct msm_gpu *gpu;
+	long result;
+
+	gpu = priv->gpu;
+
+	if (!gpu)
+		return -ENXIO;
+
+	mutex_lock(&dev->struct_mutex);
+
+	result = (long) gpu->funcs->perfcounter_put(gpu, put->groupid,
+		put->countable, PERFCOUNTER_FLAG_NONE);
+
+	mutex_unlock(&dev->struct_mutex);
+
+	return result;
+}
+
 static const struct drm_ioctl_desc msm_ioctls[] = {
-	DRM_IOCTL_DEF_DRV(MSM_GET_PARAM,    msm_ioctl_get_param,    DRM_AUTH|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MSM_GEM_NEW,      msm_ioctl_gem_new,      DRM_AUTH|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MSM_GEM_INFO,     msm_ioctl_gem_info,     DRM_AUTH|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MSM_GEM_CPU_PREP, msm_ioctl_gem_cpu_prep, DRM_AUTH|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MSM_GEM_CPU_FINI, msm_ioctl_gem_cpu_fini, DRM_AUTH|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MSM_GEM_SUBMIT,   msm_ioctl_gem_submit,   DRM_AUTH|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MSM_WAIT_FENCE,   msm_ioctl_wait_fence,   DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_GET_PARAM,    msm_ioctl_get_param,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_GEM_NEW,      msm_ioctl_gem_new,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_GEM_INFO,     msm_ioctl_gem_info,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_GEM_CPU_PREP, msm_ioctl_gem_cpu_prep,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_GEM_CPU_FINI, msm_ioctl_gem_cpu_fini,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_GEM_SUBMIT,   msm_ioctl_gem_submit,
+		DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_WAIT_FENCE,   msm_ioctl_wait_fence,
+		DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_GET_LAST_FENCE,	 msm_ioctl_get_last_fence,
 				DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(SDE_WB_CONFIG, sde_wb_config, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(MSM_PERFCOUNTER_READ,	 msm_ioctl_perfcounter_read,
+				DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_PERFCOUNTER_QUERY, msm_ioctl_perfcounter_query,
+				DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_PERFCOUNTER_GET, msm_ioctl_perfcounter_get,
+				DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_PERFCOUNTER_PUT, msm_ioctl_perfcounter_put,
+				DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
 static const struct vm_operations_struct vm_ops = {
