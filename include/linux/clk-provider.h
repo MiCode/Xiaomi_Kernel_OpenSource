@@ -32,6 +32,7 @@
 #define CLK_OPS_PARENT_ENABLE	BIT(12)
 /* duty cycle call may be forwarded to the parent clock */
 #define CLK_DUTY_CYCLE_PARENT	BIT(13)
+#define CLK_IS_MEASURE		BIT(14) /* clock used for measurement only */
 
 struct clk;
 struct clk_hw;
