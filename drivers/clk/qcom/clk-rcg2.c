@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/regmap.h>
 #include <linux/math64.h>
+#include <linux/clk.h>
 
 #include <asm/div64.h>
 
@@ -47,6 +48,14 @@
 #define M_REG			0x8
 #define N_REG			0xc
 #define D_REG			0x10
+
+static struct freq_tbl cxo_f = {
+	.freq = 19200000,
+	.src = 0,
+	.pre_div = 1,
+	.m = 0,
+	.n = 0,
+};
 
 static int clk_rcg2_is_enabled(struct clk_hw *hw)
 {
@@ -125,6 +134,35 @@ static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
 	return update_config(rcg);
 }
 
+static int clk_rcg2_set_force_enable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	int ret = 0, count = 500;
+
+	ret = regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CMD_REG,
+					CMD_ROOT_EN, CMD_ROOT_EN);
+	if (ret)
+		return ret;
+
+	for (; count > 0; count--) {
+		if (clk_rcg2_is_enabled(hw))
+			return ret;
+		/* Delay for 1usec and retry polling the status bit */
+		udelay(1);
+	}
+
+	WARN(1, "%s: rcg didn't turn on.", clk_hw_get_name(hw));
+	return ret;
+}
+
+static void clk_rcg2_clear_force_enable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	regmap_update_bits(rcg->clkr.regmap, rcg->cmd_rcgr + CMD_REG,
+					CMD_ROOT_EN, 0);
+}
+
 /*
  * Calculate m/n:d rate
  *
@@ -155,6 +193,12 @@ clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	u32 cfg, hid_div, m = 0, n = 0, mode = 0, mask;
+
+	if (rcg->enable_safe_config && !clk_hw_is_prepared(hw)) {
+		if (!rcg->current_freq)
+			rcg->current_freq = cxo_f.freq;
+		return rcg->current_freq;
+	}
 
 	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
 
@@ -275,6 +319,15 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 	if (!f)
 		return -EINVAL;
 
+	/*
+	 * Return if the RCG is currently disabled. This configuration update
+	 * will happen as part of the RCG enable sequence.
+	 */
+	if (rcg->enable_safe_config && !clk_hw_is_prepared(hw)) {
+		rcg->current_freq = rate;
+		return 0;
+	}
+
 	return clk_rcg2_configure(rcg, f);
 }
 
@@ -290,8 +343,65 @@ static int clk_rcg2_set_rate_and_parent(struct clk_hw *hw,
 	return __clk_rcg2_set_rate(hw, rate);
 }
 
+static int clk_rcg2_enable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	unsigned long rate = clk_get_rate(hw->clk);
+	const struct freq_tbl *f;
+
+	if (!rcg->enable_safe_config)
+		return 0;
+
+	/*
+	 * Switch from CXO to the stashed mux selection. Force enable and
+	 * disable the RCG while configuring it to safeguard against any update
+	 * signal coming from the downstream clock. The current parent has
+	 * already been prepared and enabled at this point, and the CXO source
+	 * is always on while APPS is online. Therefore, the RCG can safely be
+	 * switched.
+	 */
+	f = qcom_find_freq(rcg->freq_tbl, rate);
+	if (!f)
+		return -EINVAL;
+
+	clk_rcg2_set_force_enable(hw);
+	clk_rcg2_configure(rcg, f);
+	clk_rcg2_clear_force_enable(hw);
+
+	return 0;
+}
+
+static void clk_rcg2_disable(struct clk_hw *hw)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	if (!rcg->enable_safe_config)
+		return;
+	/*
+	 * Park the RCG at a safe configuration - sourced off the CXO. This is
+	 * needed for 2 reasons: In the case of RCGs sourcing PSCBCs, due to a
+	 * default HW behavior, the RCG will turn on when its corresponding
+	 * GDSC is enabled. We might also have cases when the RCG might be left
+	 * enabled without the overlying SW knowing about it. This results from
+	 * hard to track cases of downstream clocks being left enabled. In both
+	 * these cases, scaling the RCG will fail since it's enabled but with
+	 * its sources cut off.
+	 *
+	 * Save mux select and switch to CXO. Force enable and disable the RCG
+	 * while configuring it to safeguard against any update signal coming
+	 * from the downstream clock. The current parent is still prepared and
+	 * enabled at this point, and the CXO source is always on while APPS is
+	 * online. Therefore, the RCG can safely be switched.
+	 */
+	clk_rcg2_set_force_enable(hw);
+	clk_rcg2_configure(rcg, &cxo_f);
+	clk_rcg2_clear_force_enable(hw);
+}
+
 const struct clk_ops clk_rcg2_ops = {
 	.is_enabled = clk_rcg2_is_enabled,
+	.enable = clk_rcg2_enable,
+	.disable = clk_rcg2_disable,
 	.get_parent = clk_rcg2_get_parent,
 	.set_parent = clk_rcg2_set_parent,
 	.recalc_rate = clk_rcg2_recalc_rate,
