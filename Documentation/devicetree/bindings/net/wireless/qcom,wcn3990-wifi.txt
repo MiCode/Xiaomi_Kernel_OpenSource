@@ -1,0 +1,16 @@
+* Qualcomm Technologies, Inc. WCN3990 chipset WLAN platform Driver
+
+This driver adds support for the Integrated WCN3990 WLAN module, WCN3990
+is integrated 802.11ac chipset with SNOC bus interface. It also add support
+for SNOC bus registration, copy engine configuration for the WCN3990 chipset,
+shadow register configuration, create host to target communication interface
+to interact with WLAN firmware, WLAN module interface control and data
+receive(RX)/transmit(TX) control.
+
+Required properties:
+ - compatible: "qcom,wcn3990-wifi";
+
+Example:
+	qcom,msm_ath10k@18000000 {
+		compatible = "qcom,wcn3990-wifi";
+	};
