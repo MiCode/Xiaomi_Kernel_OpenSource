@@ -10,7 +10,7 @@ clk-qcom-y += clk-branch.o
 clk-qcom-y += clk-regmap-divider.o
 clk-qcom-y += clk-regmap-mux.o
 clk-qcom-y += reset.o clk-voter.o
-clk-qcom-y += clk-dummy.o
+clk-qcom-y += clk-dummy.o clk-debug.o
 clk-qcom-$(CONFIG_QCOM_GDSC) += gdsc.o gdsc-regulator.o
 
 # Keep alphabetically sorted by config

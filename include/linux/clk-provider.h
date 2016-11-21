@@ -36,6 +36,8 @@
 #define CLK_IS_CRITICAL		BIT(11) /* do not gate, ever */
 /* parents need enable during gate/ungate, set rate and re-parent */
 #define CLK_OPS_PARENT_ENABLE	BIT(12)
+				/* unused */
+#define CLK_IS_MEASURE          BIT(14) /* measure clock */
 
 struct clk;
 struct clk_hw;

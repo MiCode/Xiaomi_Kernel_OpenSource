@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2010-2011 Canonical Ltd <jeremy.kerr@canonical.com>
  * Copyright (C) 2011-2012 Linaro Ltd <mturquette@linaro.org>
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -2101,7 +2101,7 @@ static int clk_core_set_parent(struct clk_core *core, struct clk_core *parent)
 	/* prevent racing with updates to the clock topology */
 	clk_prepare_lock();
 
-	if (core->parent == parent)
+	if (core->parent == parent && !(core->flags & CLK_IS_MEASURE))
 		goto out;
 
 	/* verify ops for for multi-parent clks */
@@ -2599,7 +2599,7 @@ static const struct file_operations clk_enabled_list_fops = {
 	.release	= seq_release,
 };
 
-static void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
+void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
 {
 	if (IS_ERR_OR_NULL(clk))
 		return;
