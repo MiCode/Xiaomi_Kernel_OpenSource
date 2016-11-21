@@ -127,6 +127,7 @@ dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	apqcobalt-v2.1-mtp.dtb \
 	apqcobalt-v2.1-cdp.dtb \
 	apqcobalt-v2.1-qrd.dtb \
+	apqcobalt-v2.1-mediabox.dtb \
 	msmcobalt-v2.1-interposer-msmfalcon-cdp.dtb \
 	msmcobalt-v2.1-interposer-msmfalcon-mtp.dtb \
 	msmcobalt-v2.1-interposer-msmfalcon-qrd.dtb
