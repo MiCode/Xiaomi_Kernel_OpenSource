@@ -199,9 +199,7 @@
 };
 
 &gfx_cpr {
-	reg =	<0x05061000 0x4000>,
-		    <0x00784000 0x1000>;
-	reg-names = "cpr_ctrl", "fuse_base";
+	status = "disabled";
 
 	/* disable aging and closed-loop */
 	/delete-property/vdd-supply;
@@ -212,6 +210,8 @@
 };
 
 &gfx_vreg {
+	status = "disabled";
+
 	/delete-property/qcom,cpr-aging-max-voltage-adjustment;
 	/delete-property/qcom,cpr-aging-ref-corner;
 	/delete-property/qcom,cpr-aging-ro-scaling-factor;
