@@ -304,6 +304,7 @@
 };
 
 #include "msmtriton-smp2p.dtsi"
+#include "msmtriton-coresight.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -446,6 +447,18 @@
 		interrupts = <0 184 0>, <0 430 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
 		qcom,sensors = <12>;
+	};
+
+	wdog: qcom,wdt@17817000 {
+		status = "disabled";
+		compatible = "qcom,msm-watchdog";
+		reg = <0x17817000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 3 0>, <0 4 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
+		qcom,ipi-ping;
+		qcom,wakeup-enable;
 	};
 
 	uartblsp1dm1: serial@0c170000 {
@@ -598,6 +611,16 @@
 		reg-names = "smem", "irq-reg-base", "aux-mem1",
 			"smem_targ_info_reg";
 		qcom,mpu-enabled;
+	};
+
+	dcc: dcc@10b3000 {
+		compatible = "qcom,dcc";
+		reg = <0x10b3000 0x1000>,
+			<0x10b4000 0x800>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		clocks = <&clock_gcc GCC_DCC_AHB_CLK>;
+		clock-names = "dcc_clk";
 	};
 
 	qcom,glink-smem-native-xprt-modem@86000000 {
