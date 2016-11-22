@@ -562,7 +562,8 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_free_descriptors(f->fs_descriptors);
 
 	frmnet_free_req(dev->notify, dev->notify_req);
-
+	gbam_data_flush_workqueue();
+	c->cdev->gadget->bam2bam_func_enabled = false;
 	kfree(f->name);
 }
 
@@ -1318,6 +1319,7 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 		kfree(f->name);
 		return status;
 	}
+	c->cdev->gadget->bam2bam_func_enabled = true;
 
 	pr_debug("%s: complete\n", __func__);
 
