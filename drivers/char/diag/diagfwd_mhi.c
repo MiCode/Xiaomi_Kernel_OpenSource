@@ -665,8 +665,7 @@ static int diag_mhi_register_ch(int id, struct diag_mhi_ch_t *ch)
 	atomic_set(&(ch->opened), 0);
 	ctxt = SET_CH_CTXT(id, ch->type);
 	ch->client_info.mhi_client_cb = mhi_notifier;
-	return mhi_register_channel(&ch->hdl, ch->chan, 0, &ch->client_info,
-				    (void *)(uintptr_t)ctxt);
+	return mhi_register_channel(&ch->hdl, NULL);
 }
 
 int diag_mhi_init()

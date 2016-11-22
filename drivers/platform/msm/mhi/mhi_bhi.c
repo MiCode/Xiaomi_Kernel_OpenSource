@@ -23,7 +23,12 @@
 
 static int bhi_open(struct inode *mhi_inode, struct file *file_handle)
 {
-	file_handle->private_data = &mhi_devices.device_list[0];
+	struct mhi_device_ctxt *mhi_dev_ctxt;
+
+	mhi_dev_ctxt = container_of(mhi_inode->i_cdev,
+				    struct mhi_device_ctxt,
+				    bhi_ctxt.cdev);
+	file_handle->private_data = mhi_dev_ctxt;
 	return 0;
 }
 
@@ -34,10 +39,9 @@ static ssize_t bhi_write(struct file *file,
 	int ret_val = 0;
 	u32 pcie_word_val = 0;
 	u32 i = 0;
-	struct bhi_ctxt_t *bhi_ctxt =
-		&(((struct mhi_pcie_dev_info *)file->private_data)->bhi_ctxt);
-	struct mhi_device_ctxt *mhi_dev_ctxt =
-		&((struct mhi_pcie_dev_info *)file->private_data)->mhi_ctxt;
+	struct mhi_device_ctxt *mhi_dev_ctxt = file->private_data;
+	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
+
 	size_t amount_copied = 0;
 	uintptr_t align_len = 0x1000;
 	u32 tx_db_val = 0;
@@ -58,21 +62,18 @@ static ssize_t bhi_write(struct file *file,
 	if (timeout <= 0 && mhi_dev_ctxt->mhi_state != MHI_STATE_BHI)
 		return -EIO;
 
-	mhi_log(MHI_MSG_INFO, "Entered. User Image size 0x%zx\n", count);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Entered. User Image size 0x%zx\n", count);
 
 	bhi_ctxt->unaligned_image_loc = kmalloc(count + (align_len - 1),
 						GFP_KERNEL);
 	if (bhi_ctxt->unaligned_image_loc == NULL)
 		return -ENOMEM;
 
-	mhi_log(MHI_MSG_INFO, "Unaligned Img Loc: %p\n",
-			bhi_ctxt->unaligned_image_loc);
 	bhi_ctxt->image_loc =
 			(void *)((uintptr_t)bhi_ctxt->unaligned_image_loc +
 		 (align_len - (((uintptr_t)bhi_ctxt->unaligned_image_loc) %
 			       align_len)));
-
-	mhi_log(MHI_MSG_INFO, "Aligned Img Loc: %p\n", bhi_ctxt->image_loc);
 
 	bhi_ctxt->image_size = count;
 
@@ -83,10 +84,9 @@ static ssize_t bhi_write(struct file *file,
 	amount_copied = count;
 	/* Flush the writes, in anticipation for a device read */
 	wmb();
-	mhi_log(MHI_MSG_INFO,
-		"Copied image from user at addr: %p\n", bhi_ctxt->image_loc);
+
 	bhi_ctxt->phy_image_loc = dma_map_single(
-			&mhi_dev_ctxt->dev_info->plat_dev->dev,
+			&mhi_dev_ctxt->plat_dev->dev,
 			bhi_ctxt->image_loc,
 			bhi_ctxt->image_size,
 			DMA_TO_DEVICE);
@@ -95,9 +95,8 @@ static ssize_t bhi_write(struct file *file,
 		ret_val = -EIO;
 		goto bhi_copy_error;
 	}
-	mhi_log(MHI_MSG_INFO,
-		"Mapped image to DMA addr 0x%lx:\n",
-		(uintptr_t)bhi_ctxt->phy_image_loc);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Mapped image to DMA addr 0x%llx:\n", bhi_ctxt->phy_image_loc);
 
 	bhi_ctxt->image_size = count;
 
@@ -149,18 +148,18 @@ static ssize_t bhi_write(struct file *file,
 						BHI_STATUS_MASK,
 						BHI_STATUS_SHIFT);
 		read_unlock_bh(pm_xfer_lock);
-		mhi_log(MHI_MSG_CRITICAL,
-		"BHI STATUS 0x%x, err:0x%x errdbg1:0x%x errdbg2:0x%x errdbg3:0x%x\n",
+		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
+			"BHI STATUS 0x%x, err:0x%x errdbg1:0x%x errdbg2:0x%x errdbg3:0x%x\n",
 			tx_db_val, err, errdbg1, errdbg2, errdbg3);
 		if (BHI_STATUS_SUCCESS != tx_db_val)
-			mhi_log(MHI_MSG_CRITICAL,
+			mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
 				"Incorrect BHI status: %d retry: %d\n",
 				tx_db_val, i);
 		else
 			break;
 		usleep_range(20000, 25000);
 	}
-	dma_unmap_single(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+	dma_unmap_single(&mhi_dev_ctxt->plat_dev->dev,
 			bhi_ctxt->phy_image_loc,
 			bhi_ctxt->image_size, DMA_TO_DEVICE);
 
@@ -169,8 +168,8 @@ static ssize_t bhi_write(struct file *file,
 	ret_val = mhi_init_state_transition(mhi_dev_ctxt,
 					STATE_TRANSITION_RESET);
 	if (ret_val) {
-		mhi_log(MHI_MSG_CRITICAL,
-				"Failed to start state change event\n");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
+			"Failed to start state change event\n");
 	}
 	return amount_copied;
 
@@ -184,48 +183,43 @@ static const struct file_operations bhi_fops = {
 	.open = bhi_open,
 };
 
-int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
+int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	struct bhi_ctxt_t *bhi_ctxt = &mhi_pcie_device->bhi_ctxt;
+	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
+	const struct pcie_core_info *core = &mhi_dev_ctxt->core;
 	int ret_val = 0;
 	int r;
+	char node_name[32];
 
-	if (NULL == mhi_pcie_device || 0 == mhi_pcie_device->core.bar0_base
-	    || 0 == mhi_pcie_device->core.bar0_end)
+	if (bhi_ctxt->bhi_base == NULL)
 		return -EIO;
 
 	ret_val = alloc_chrdev_region(&bhi_ctxt->bhi_dev, 0, 1, "bhi");
 	if (IS_ERR_VALUE(ret_val)) {
-		mhi_log(MHI_MSG_CRITICAL,
-			"Failed to alloc char device %d\n",
-			ret_val);
+		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
+			"Failed to alloc char device %d\n", ret_val);
 		return -EIO;
-	}
-	bhi_ctxt->bhi_class = class_create(THIS_MODULE, "bhi");
-	if (IS_ERR(bhi_ctxt->bhi_class)) {
-		mhi_log(MHI_MSG_CRITICAL,
-			"Failed to instantiate class %d\n",
-			ret_val);
-		r = PTR_RET(bhi_ctxt->bhi_class);
-		goto err_class_create;
 	}
 	cdev_init(&bhi_ctxt->cdev, &bhi_fops);
 	bhi_ctxt->cdev.owner = THIS_MODULE;
 	ret_val = cdev_add(&bhi_ctxt->cdev, bhi_ctxt->bhi_dev, 1);
-	bhi_ctxt->dev = device_create(bhi_ctxt->bhi_class, NULL,
-					bhi_ctxt->bhi_dev, NULL,
-					"bhi");
+	snprintf(node_name, sizeof(node_name),
+		 "bhi_%04X_%02u.%02u.%02u",
+		 core->dev_id, core->domain, core->bus, core->slot);
+	bhi_ctxt->dev = device_create(mhi_device_drv->mhi_bhi_class,
+				      NULL,
+				      bhi_ctxt->bhi_dev,
+				      NULL,
+				      node_name);
 	if (IS_ERR(bhi_ctxt->dev)) {
-		mhi_log(MHI_MSG_CRITICAL,
-				"Failed to add bhi cdev\n");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
+			"Failed to add bhi cdev\n");
 		r = PTR_RET(bhi_ctxt->dev);
 		goto err_dev_create;
 	}
 	return 0;
 err_dev_create:
 	cdev_del(&bhi_ctxt->cdev);
-	class_destroy(bhi_ctxt->bhi_class);
-err_class_create:
 	unregister_chrdev_region(MAJOR(bhi_ctxt->bhi_dev), 1);
 	return r;
 }

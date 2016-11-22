@@ -53,12 +53,12 @@ size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
 			(NR_OF_CMD_RINGS * sizeof(struct mhi_chan_ctxt)) +
 			(mhi_dev_ctxt->mmio_info.nr_event_rings *
 					  sizeof(struct mhi_event_ctxt));
-	mhi_log(MHI_MSG_INFO, "Reserved %zd bytes for context info\n",
-				mhi_dev_mem);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Reserved %zd bytes for context info\n", mhi_dev_mem);
 	/*Calculate size needed for cmd TREs */
 	mhi_dev_mem += (CMD_EL_PER_RING * sizeof(union mhi_cmd_pkt));
-	mhi_log(MHI_MSG_INFO, "Final bytes for MHI device space %zd\n",
-				mhi_dev_mem);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Final bytes for MHI device space %zd\n", mhi_dev_mem);
 	return mhi_dev_mem;
 }
 
@@ -105,23 +105,6 @@ void init_local_chan_ctxt(struct mhi_ring *chan_ctxt,
 	chan_ctxt->overwrite_en = 0;
 }
 
-int populate_bb_list(struct list_head *bb_list, int num_bb)
-{
-	struct mhi_buf_info *mhi_buf = NULL;
-	int i;
-
-	for (i = 0; i < num_bb; ++i) {
-		mhi_buf = kzalloc(sizeof(struct mhi_buf_info), GFP_KERNEL);
-		if (!mhi_buf)
-			return -ENOMEM;
-		mhi_buf->bb_p_addr = 0;
-		mhi_buf->bb_v_addr = NULL;
-		mhi_log(MHI_MSG_INFO,
-			"Allocated BB v_addr 0x%p, p_addr 0x%llx\n",
-			mhi_buf->bb_v_addr, (u64)mhi_buf->bb_p_addr);
-	}
-	return 0;
-}
 /**
  * mhi_cmd_ring_init-  Initialization of the command ring
  *
@@ -153,91 +136,6 @@ static int mhi_cmd_ring_init(struct mhi_cmd_ctxt *cmd_ctxt,
 	return 0;
 }
 
-/*
- * The device can have severe addressing limitations, and in this case
- * the MHI driver may be restricted on where memory can be allocated.
- *
- * The allocation of the MHI control data structures takes place as one
- * big, physically contiguous allocation.
- * The device's addressing window, must be placed around that control segment
- * allocation.
- * Here we attempt to do this by building an addressing window around the
- * initial allocated control segment.
- *
- * The window size is specified by the device and must be contiguous,
- * but depending on where the control segment was allocated, it may be
- * necessary to leave more room, before the ctrl segment start or after
- * the ctrl segment end.
- * The following assumptions are made:
- * Assumption: 1. size of allocated ctrl seg << (device allocation window / 2)
- *	       2. allocated ctrl seg is physically contiguous
- */
-static int calculate_mhi_addressing_window(struct mhi_device_ctxt *mhi_dev_ctxt)
-{
-	u64 dma_dev_mem_start = 0;
-	u64 dma_seg_size = 0;
-	u64 dma_max_addr = (dma_addr_t)(-1);
-	u64 dev_address_limit = 0;
-	int r = 0;
-	const struct device_node *np =
-		mhi_dev_ctxt->dev_info->plat_dev->dev.of_node;
-
-	dma_dev_mem_start = mhi_dev_ctxt->dev_space.dma_dev_mem_start;
-	r = of_property_read_u64(np, "mhi-dev-address-win-size",
-				 &dev_address_limit);
-	if (r) {
-		mhi_log(MHI_MSG_ERROR,
-			"Failed to get device addressing limit ret %d",
-			r);
-		return r;
-	}
-	/* Mask off the last 3 bits for address calculation */
-	dev_address_limit &= ~0x7;
-	mhi_log(MHI_MSG_INFO, "Device Addressing limit 0x%llx\n",
-				dev_address_limit);
-	dma_seg_size = dev_address_limit / 2;
-
-	/*
-	 * The region of the allocated control segment is within the
-	 * first half of the device's addressing limit
-	 */
-	if (dma_dev_mem_start < dma_seg_size) {
-		mhi_dev_ctxt->dev_space.start_win_addr = 0;
-		mhi_dev_ctxt->dev_space.end_win_addr =
-			dma_dev_mem_start + dma_seg_size +
-				       (dma_seg_size - dma_dev_mem_start);
-	} else if (dma_dev_mem_start >= dma_seg_size &&
-			dma_dev_mem_start <= (dma_max_addr - dma_seg_size)) {
-		/*
-		 * The start of the control segment is located past
-		 * halfway point of the device's addressing limit
-		 * Place the control segment in the middle of the device's
-		 * addressing range
-		 */
-		mhi_dev_ctxt->dev_space.start_win_addr =
-					 dma_dev_mem_start - dma_seg_size;
-		mhi_dev_ctxt->dev_space.end_win_addr =
-					 dma_dev_mem_start + dma_seg_size;
-	} else if (dma_dev_mem_start > (dma_max_addr - dma_seg_size)) {
-		/*
-		 * The start of the control segment is located at the tail end
-		 * of the host addressing space. Leave extra addressing space
-		 * at window start
-		 */
-		mhi_dev_ctxt->dev_space.start_win_addr = dma_dev_mem_start;
-		mhi_dev_ctxt->dev_space.start_win_addr -=
-			dma_seg_size + (dma_seg_size -
-					(dma_max_addr - dma_dev_mem_start));
-		mhi_dev_ctxt->dev_space.end_win_addr = dma_max_addr;
-	}
-	mhi_log(MHI_MSG_INFO,
-	"MHI start address at 0x%llx, Window Start 0x%llx Window End 0x%llx\n",
-		(u64)dma_dev_mem_start,
-		(u64)mhi_dev_ctxt->dev_space.start_win_addr,
-		(u64)mhi_dev_ctxt->dev_space.end_win_addr);
-	return 0;
-}
-
 int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	size_t mhi_mem_index = 0, ring_len;
@@ -249,12 +147,12 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 					calculate_mhi_space(mhi_dev_ctxt);
 
 	mhi_dev_ctxt->dev_space.dev_mem_start =
-		dma_alloc_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
+		dma_alloc_coherent(&mhi_dev_ctxt->plat_dev->dev,
 				    mhi_dev_ctxt->dev_space.dev_mem_len,
 				   &mhi_dev_ctxt->dev_space.dma_dev_mem_start,
 				    GFP_KERNEL);
 	if (!mhi_dev_ctxt->dev_space.dev_mem_start) {
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to allocate memory of size %zd bytes\n",
 			mhi_dev_ctxt->dev_space.dev_mem_len);
 		return -ENOMEM;
@@ -263,26 +161,20 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 	dma_dev_mem_start = mhi_dev_ctxt->dev_space.dma_dev_mem_start;
 	memset(dev_mem_start, 0, mhi_dev_ctxt->dev_space.dev_mem_len);
 
-	r = calculate_mhi_addressing_window(mhi_dev_ctxt);
-	if (r) {
-		mhi_log(MHI_MSG_ERROR,
-		"Failed to calculate addressing window ret %d", r);
-		return r;
-	}
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Starting Seg address: virt 0x%p, dma 0x%llx\n",
+		dev_mem_start, (u64)dma_dev_mem_start);
 
-	mhi_log(MHI_MSG_INFO, "Starting Seg address: virt 0x%p, dma 0x%llx\n",
-					dev_mem_start, (u64)dma_dev_mem_start);
-
-	mhi_log(MHI_MSG_INFO, "Initializing CCABAP at virt 0x%p, dma 0x%llx\n",
-					dev_mem_start + mhi_mem_index,
-					(u64)dma_dev_mem_start + mhi_mem_index);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Initializing CCABAP at dma 0x%llx\n",
+		(u64)dma_dev_mem_start + mhi_mem_index);
 	mhi_dev_ctxt->dev_space.ring_ctxt.cc_list = dev_mem_start;
 	mhi_dev_ctxt->dev_space.ring_ctxt.dma_cc_list = dma_dev_mem_start;
 	mhi_mem_index += MHI_MAX_CHANNELS * sizeof(struct mhi_chan_ctxt);
 
-	mhi_log(MHI_MSG_INFO, "Initializing CRCBAP at virt 0x%p, dma 0x%llx\n",
-					dev_mem_start + mhi_mem_index,
-					(u64)dma_dev_mem_start + mhi_mem_index);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Initializing CRCBAP at dma 0x%llx\n",
+		(u64)dma_dev_mem_start + mhi_mem_index);
 
 	mhi_dev_ctxt->dev_space.ring_ctxt.cmd_ctxt =
 						dev_mem_start + mhi_mem_index;
@@ -290,9 +182,9 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 					dma_dev_mem_start + mhi_mem_index;
 	mhi_mem_index += NR_OF_CMD_RINGS * sizeof(struct mhi_chan_ctxt);
 
-	mhi_log(MHI_MSG_INFO, "Initializing ECABAP at virt 0x%p, dma 0x%llx\n",
-					dev_mem_start + mhi_mem_index,
-					(u64)dma_dev_mem_start + mhi_mem_index);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Initializing ECABAP at dma 0x%llx\n",
+		(u64)dma_dev_mem_start + mhi_mem_index);
 	mhi_dev_ctxt->dev_space.ring_ctxt.ec_list =
 						dev_mem_start + mhi_mem_index;
 	mhi_dev_ctxt->dev_space.ring_ctxt.dma_ec_list =
@@ -300,10 +192,9 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_mem_index += mhi_dev_ctxt->mmio_info.nr_event_rings *
 					  sizeof(struct mhi_event_ctxt);
 
-	mhi_log(MHI_MSG_INFO,
-			"Initializing CMD context at virt 0x%p, dma 0x%llx\n",
-					dev_mem_start + mhi_mem_index,
-					(u64)dma_dev_mem_start + mhi_mem_index);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Initializing CMD context at dma 0x%llx\n",
+		(u64)dma_dev_mem_start + mhi_mem_index);
 
 	/* TODO: Initialize both the local and device cmd context */
 	ring_len = (CMD_EL_PER_RING * sizeof(union mhi_cmd_pkt));
@@ -322,7 +213,7 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 		ring_len = sizeof(union mhi_event_pkt) *
 					mhi_dev_ctxt->ev_ring_props[i].nr_desc;
 		ring_addr = dma_alloc_coherent(
-				&mhi_dev_ctxt->dev_info->pcie_device->dev,
+				&mhi_dev_ctxt->plat_dev->dev,
 				ring_len, &ring_dma_addr, GFP_KERNEL);
 		if (!ring_addr)
 			goto err_ev_alloc;
@@ -330,9 +221,9 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 				ring_dma_addr, ring_len);
 		init_local_ev_ctxt(&mhi_dev_ctxt->mhi_local_event_ctxt[i],
 				ring_addr, ring_len);
-		mhi_log(MHI_MSG_INFO,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 			"Initializing EV_%d TRE list at virt 0x%p dma 0x%llx\n",
-				i, ring_addr, (u64)ring_dma_addr);
+			i, ring_addr, (u64)ring_dma_addr);
 	}
 	return 0;
 
@@ -344,12 +235,12 @@ err_ev_alloc:
 		dev_ev_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i];
 		ev_ctxt = &mhi_dev_ctxt->mhi_local_event_ctxt[i];
 
-		dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
+		dma_free_coherent(&mhi_dev_ctxt->plat_dev->dev,
 				  ev_ctxt->len,
 				  ev_ctxt->base,
 				  dev_ev_ctxt->mhi_event_ring_base_addr);
 	}
-	dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
+	dma_free_coherent(&mhi_dev_ctxt->plat_dev->dev,
 			   mhi_dev_ctxt->dev_space.dev_mem_len,
 			   mhi_dev_ctxt->dev_space.dev_mem_start,
 			   mhi_dev_ctxt->dev_space.dma_dev_mem_start);
@@ -363,34 +254,34 @@ static int mhi_init_events(struct mhi_device_ctxt *mhi_dev_ctxt)
 						sizeof(wait_queue_head_t),
 						GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq) {
-		mhi_log(MHI_MSG_ERROR, "Failed to init event");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR, "Failed to init event");
 		return -ENOMEM;
 	}
 	mhi_dev_ctxt->mhi_ev_wq.state_change_event =
 				kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->mhi_ev_wq.state_change_event) {
-		mhi_log(MHI_MSG_ERROR, "Failed to init event");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR, "Failed to init event");
 		goto error_event_handle_alloc;
 	}
 	/* Initialize the event which signals M0 */
 	mhi_dev_ctxt->mhi_ev_wq.m0_event = kmalloc(sizeof(wait_queue_head_t),
 								GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->mhi_ev_wq.m0_event) {
-		mhi_log(MHI_MSG_ERROR, "Failed to init event");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR, "Failed to init event");
 		goto error_state_change_event_handle;
 	}
 	/* Initialize the event which signals M0 */
 	mhi_dev_ctxt->mhi_ev_wq.m3_event = kmalloc(sizeof(wait_queue_head_t),
 								GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->mhi_ev_wq.m3_event) {
-		mhi_log(MHI_MSG_ERROR, "Failed to init event");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR, "Failed to init event");
 		goto error_m0_event;
 	}
 	/* Initialize the event which signals M0 */
 	mhi_dev_ctxt->mhi_ev_wq.bhi_event = kmalloc(sizeof(wait_queue_head_t),
 								GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->mhi_ev_wq.bhi_event) {
-		mhi_log(MHI_MSG_ERROR, "Failed to init event");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR, "Failed to init event");
 		goto error_bhi_event;
 	}
 	/* Initialize the event which starts the event parsing thread */
@@ -468,57 +359,49 @@ static int mhi_spawn_threads(struct mhi_device_ctxt *mhi_dev_ctxt)
  *	 All threads, events mutexes, mhi specific data structures
  *	 are initialized here
  *
- * @param dev_info [IN ] pcie struct device information structure to
- which this mhi context belongs
  * @param mhi_struct device [IN/OUT] reference to a mhi context to be populated
  *
  * @return errno
  */
-int mhi_init_device_ctxt(struct mhi_pcie_dev_info *dev_info,
-		struct mhi_device_ctxt *mhi_dev_ctxt)
+int mhi_init_device_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int r = 0;
 
-	if (NULL == dev_info || NULL == mhi_dev_ctxt)
-		return -EINVAL;
-
-	mhi_log(MHI_MSG_VERBOSE, "Entered\n");
-
-	mhi_dev_ctxt->dev_info = dev_info;
-	mhi_dev_ctxt->dev_props = &dev_info->core;
+	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Entered\n");
 
 	r = mhi_populate_event_cfg(mhi_dev_ctxt);
 	if (r) {
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to get event ring properties ret %d\n", r);
 		goto error_during_props;
 	}
 	r = mhi_init_sync(mhi_dev_ctxt);
 	if (r) {
-		mhi_log(MHI_MSG_ERROR, "Failed to initialize mhi sync\n");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Failed to initialize mhi sync\n");
 		goto error_during_sync;
 	}
 	r = create_local_ev_ctxt(mhi_dev_ctxt);
 	if (r) {
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to initialize local event ctxt ret %d\n", r);
 		goto error_during_local_ev_ctxt;
 	}
 	r = init_mhi_dev_mem(mhi_dev_ctxt);
 	if (r) {
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to initialize device memory ret %d\n", r);
 		goto error_during_dev_mem_init;
 	}
 	r = mhi_init_events(mhi_dev_ctxt);
 	if (r) {
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to initialize mhi events ret %d\n", r);
 		goto error_wq_init;
 	}
 	r = mhi_reset_all_thread_queues(mhi_dev_ctxt);
 	if (r) {
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to initialize work queues ret %d\n", r);
 		goto error_during_thread_init;
 	}
@@ -527,7 +410,8 @@ int mhi_init_device_ctxt(struct mhi_pcie_dev_info *dev_info,
 
 	r = mhi_spawn_threads(mhi_dev_ctxt);
 	if (r) {
-		mhi_log(MHI_MSG_ERROR, "Failed to spawn threads ret %d\n", r);
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Failed to spawn threads ret %d\n", r);
 		goto error_during_thread_spawn;
 	}
 	mhi_init_wakelock(mhi_dev_ctxt);
@@ -543,7 +427,7 @@ error_during_thread_init:
 	kfree(mhi_dev_ctxt->mhi_ev_wq.m3_event);
 	kfree(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
 error_wq_init:
-	dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
+	dma_free_coherent(&mhi_dev_ctxt->plat_dev->dev,
 		   mhi_dev_ctxt->dev_space.dev_mem_len,
 		   mhi_dev_ctxt->dev_space.dev_mem_start,
 		   mhi_dev_ctxt->dev_space.dma_dev_mem_start);
@@ -623,7 +507,8 @@ int mhi_reset_all_thread_queues(
 	ret_val = mhi_init_state_change_thread_work_queue(
 				&mhi_dev_ctxt->state_change_work_item_list);
 	if (ret_val)
-		mhi_log(MHI_MSG_ERROR, "Failed to reset STT work queue\n");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Failed to reset STT work queue\n");
 	return ret_val;
 }
 

@@ -39,7 +39,6 @@
 #define MHI_WORK_Q_MAX_SIZE 128
 
 #define MAX_XFER_WORK_ITEMS 100
-#define MHI_MAX_SUPPORTED_DEVICES 1
 
 #define MHI_PCIE_VENDOR_ID 0x17CB
 #define MHI_PCIE_DEVICE_ID_9x35 0x0300
@@ -70,9 +69,9 @@
 	 ((enum MHI_CLIENT_CHANNEL)(_CHAN_NR) < MHI_CLIENT_RESERVED_1_LOWER))
 
 #define IRQ_TO_MSI(_MHI_DEV_CTXT, _IRQ_NR) \
-	((_IRQ_NR) - (_MHI_DEV_CTXT)->dev_info->core.irq_base)
+	((_IRQ_NR) - (_MHI_DEV_CTXT)->core.irq_base)
 #define MSI_TO_IRQ(_MHI_DEV_CTXT, _MSI_NR) \
-	((_MHI_DEV_CTXT)->dev_info->core.irq_base + (_MSI_NR))
+	((_MHI_DEV_CTXT)->core.irq_base + (_MSI_NR))
 #define VALID_CHAN_NR(_CHAN_NR) (IS_HARDWARE_CHANNEL(_CHAN_NR) || \
 		IS_SOFTWARE_CHANNEL(_CHAN_NR))
 
@@ -84,8 +83,8 @@
 
 #define MHI_HW_INTMOD_VAL_MS 2
 /* Timeout Values */
-#define MHI_READY_STATUS_TIMEOUT_MS 50
-#define MHI_THREAD_SLEEP_TIMEOUT_MS 20
+#define MHI_READY_STATUS_TIMEOUT_MS 500
+#define MHI_THREAD_SLEEP_TIMEOUT_MS 100
 #define MHI_RESUME_WAKE_RETRIES 20
 
 #define IS_HW_EV_RING(_mhi_dev_ctxt, _EV_INDEX) (_EV_INDEX >= \
