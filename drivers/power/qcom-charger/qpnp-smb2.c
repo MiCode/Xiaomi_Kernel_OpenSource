@@ -1864,8 +1864,13 @@ static void smb2_shutdown(struct platform_device *pdev)
 	struct smb2 *chip = platform_get_drvdata(pdev);
 	struct smb_charger *chg = &chip->chg;
 
+	/* configure power role for UFP */
+	smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				TYPEC_POWER_ROLE_CMD_MASK, UFP_EN_CMD_BIT);
+
+	/* force HVDCP to 5V */
 	smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-		HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT, 0);
+				HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT, 0);
 	smblib_write(chg, CMD_HVDCP_2_REG, FORCE_5V_BIT);
 }
 
