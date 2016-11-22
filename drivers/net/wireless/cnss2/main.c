@@ -28,6 +28,7 @@
 #define CNSS_DUMP_MAGIC_VER_V2		0x42445953
 #define CNSS_DUMP_NAME			"CNSS_WLAN"
 #define WLAN_RECOVERY_DELAY		1000
+#define FILE_SYSTEM_READY		1
 
 static struct cnss_plat_data *plat_env;
 
@@ -638,13 +639,19 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		goto power_off;
 	}
 
+	ret = cnss_pci_start_mhi(pci_priv);
+	if (ret) {
+		cnss_pr_err("Failed to start MHI, err = %d\n", ret);
+		goto suspend_link;
+	}
+
 	if (plat_priv->driver_status == CNSS_LOAD_UNLOAD) {
 		ret = plat_priv->driver_ops->probe(pci_priv->pci_dev,
 						   pci_priv->pci_device_id);
 		if (ret) {
 			cnss_pr_err("Failed to probe host driver, err = %d\n",
 				    ret);
-			goto suspend_link;
+			goto stop_mhi;
 		}
 	} else if (plat_priv->recovery_in_progress) {
 		ret = plat_priv->driver_ops->reinit(pci_priv->pci_dev,
@@ -652,16 +659,19 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		if (ret) {
 			cnss_pr_err("Failed to reinit host driver, err = %d\n",
 				    ret);
-			goto suspend_link;
+			goto stop_mhi;
 		}
 		plat_priv->recovery_in_progress = false;
 	} else {
 		cnss_pr_err("Driver state is not correct to power up!\n");
 		ret = -EINVAL;
-		goto suspend_link;
+		goto stop_mhi;
 	}
+
 	return 0;
 
+stop_mhi:
+	cnss_pci_stop_mhi(pci_priv);
 suspend_link:
 	cnss_suspend_pci_link(pci_priv);
 power_off:
@@ -690,6 +700,8 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 		plat_priv->recovery_in_progress = true;
 		plat_priv->driver_ops->shutdown(pci_priv->pci_dev);
 	}
+
+	cnss_pci_stop_mhi(pci_priv);
 
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
@@ -1064,6 +1076,62 @@ static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 		msm_bus_scale_unregister_client(bus_bw_info->bus_client);
 }
 
+static ssize_t cnss_fs_ready_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf,
+				   size_t count)
+{
+	int fs_ready = 0;
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%du", &fs_ready) != 1)
+		return -EINVAL;
+
+	cnss_pr_dbg("File system is ready, fs_ready is %d, count is %zu\n",
+		    fs_ready, count);
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL!\n");
+		return count;
+	}
+
+	switch (plat_priv->device_id) {
+	case QCA6290_DEVICE_ID:
+		break;
+	default:
+		cnss_pr_err("Not supported for device ID 0x%lx\n",
+			    plat_priv->device_id);
+		return count;
+	}
+
+	if (fs_ready == FILE_SYSTEM_READY)
+		cnss_pci_start_mhi(plat_priv->bus_priv);
+
+	return count;
+}
+
+static DEVICE_ATTR(fs_ready, S_IWUSR | S_IWGRP, NULL, cnss_fs_ready_store);
+
+static int cnss_create_sysfs(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+
+	ret = device_create_file(&plat_priv->plat_dev->dev, &dev_attr_fs_ready);
+	if (ret) {
+		cnss_pr_err("Failed to create device file, err = %d\n", ret);
+		goto out;
+	}
+
+	return 0;
+out:
+	return ret;
+}
+
+static void cnss_remove_sysfs(struct cnss_plat_data *plat_priv)
+{
+	device_remove_file(&plat_priv->plat_dev->dev, &dev_attr_fs_ready);
+}
+
 static const struct platform_device_id cnss_platform_id_table[] = {
 	{ .name = "qca6174", .driver_data = QCA6174_DEVICE_ID, },
 	{ .name = "qca6290", .driver_data = QCA6290_DEVICE_ID, },
@@ -1142,12 +1210,18 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto unreg_ramdump;
 
+	ret = cnss_create_sysfs(plat_priv);
+	if (ret)
+		goto unreg_bus_scale;
+
 	register_pm_notifier(&cnss_pm_notifier);
 
 	cnss_pr_info("Platform driver probed successfully.\n");
 
 	return 0;
 
+unreg_bus_scale:
+	cnss_unregister_bus_scale(plat_priv);
 unreg_ramdump:
 	cnss_unregister_ramdump(plat_priv);
 unreg_subsys:
@@ -1172,6 +1246,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
 	unregister_pm_notifier(&cnss_pm_notifier);
+	cnss_remove_sysfs(plat_priv);
 	cnss_unregister_bus_scale(plat_priv);
 	cnss_unregister_ramdump(plat_priv);
 	cnss_unregister_subsys(plat_priv);
