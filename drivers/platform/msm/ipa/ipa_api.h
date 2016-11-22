@@ -368,6 +368,8 @@ struct ipa_api_controller {
 
 	int (*ipa_tz_unlock_reg)(struct ipa_tz_unlock_reg_info *reg_info,
 		u16 num_regs);
+
+	struct device *(*ipa_get_pdev)(void);
 };
 
 #ifdef CONFIG_IPA

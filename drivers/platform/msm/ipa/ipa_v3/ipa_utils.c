@@ -4699,6 +4699,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_tear_down_uc_offload_pipes =
 		ipa3_tear_down_uc_offload_pipes;
 	api_ctrl->ipa_tz_unlock_reg = ipa3_tz_unlock_reg;
+	api_ctrl->ipa_get_pdev = ipa3_get_pdev;
 
 	return 0;
 }
@@ -5381,4 +5382,18 @@ bool ipa3_is_msm_device(void)
 	}
 
 	return false;
+}
+
+/**
+ * ipa3_get_pdev() - return a pointer to IPA dev struct
+ *
+ * Return value: a pointer to IPA dev struct
+ *
+ */
+struct device *ipa3_get_pdev(void)
+{
+	if (!ipa3_ctx)
+		return NULL;
+
+	return ipa3_ctx->pdev;
 }
