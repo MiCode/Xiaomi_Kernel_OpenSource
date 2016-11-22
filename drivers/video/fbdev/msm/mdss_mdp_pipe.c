@@ -2702,8 +2702,8 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		if (ret) {
 			pr_err("pipe pp setup error for pnum=%d\n", pipe->num);
 
-			MDSS_XLOG(pipe->num, pipe->mixer_left->num,
-				pipe->play_cnt, 0xbad);
+			MDSS_XLOG(pipe->num, pipe->multirect.num,
+				pipe->mixer_left->num, pipe->play_cnt, 0xbad);
 
 			goto done;
 		}
@@ -2714,13 +2714,14 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		pipe->params_changed = 0;
 		mdss_mdp_pipe_solidfill_setup(pipe);
 
-		MDSS_XLOG(pipe->num, pipe->mixer_left->num, pipe->play_cnt,
-			0x111);
+		MDSS_XLOG(pipe->num, pipe->multirect.num, pipe->mixer_left->num,
+			pipe->play_cnt, 0x111);
 
 		goto update_nobuf;
 	}
 
-	MDSS_XLOG(pipe->num, pipe->mixer_left->num, pipe->play_cnt, 0x222);
+	MDSS_XLOG(pipe->num, pipe->multirect.num, pipe->mixer_left->num,
+		pipe->play_cnt, 0x222);
 
 	if (params_changed) {
 		pipe->params_changed = 0;
