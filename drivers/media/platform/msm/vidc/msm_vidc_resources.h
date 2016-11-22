@@ -157,6 +157,7 @@ struct msm_vidc_platform_resources {
 	uint32_t irq;
 	struct version_table *pf_ver_tbl;
 	struct version_table *pf_cap_tbl;
+	struct version_table *pf_speedbin_tbl;
 	struct allowed_clock_rates_table *allowed_clks_tbl;
 	u32 allowed_clks_tbl_size;
 	struct clock_freq_table clock_freq_tbl;
