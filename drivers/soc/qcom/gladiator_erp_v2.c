@@ -628,9 +628,11 @@ static irqreturn_t msm_gladiator_isr(int irq, void *dev_id)
 					msm_gld_data->gladiator_virt_base +
 					get_gld_offset(err_log));
 		}
-		pr_alert("Main log register data:\n%08x %08x %08x %08x\n%08x %08x %08x %08x\n%08x %08x %08x\n",
-			err_buf[0], err_buf[1], err_buf[2], err_buf[3], err_buf[4], err_buf[5], err_buf[6],
-			err_buf[7], err_buf[8], err_buf[9], err_buf[10]);
+		pr_alert("Main log register data:\n%08x %08x %08x %08x\n"
+				"%08x %08x %08x %08x\n%08x %08x %08x %08x\n",
+			err_buf[2], err_buf[3], err_buf[4], err_buf[5],
+			err_buf[6], err_buf[7], err_buf[8], err_buf[9],
+			err_buf[10], err_buf[11], err_buf[12], err_buf[13]);
 	}
 
 	if (obsrv_err_valid) {
