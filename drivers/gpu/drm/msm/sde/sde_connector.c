@@ -583,11 +583,11 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	msm_property_install_enum(&c_conn->property_info, "topology_name",
 			DRM_MODE_PROP_IMMUTABLE, 0, e_topology_name,
 			ARRAY_SIZE(e_topology_name),
-			CONNECTOR_PROP_TOPOLOGY_NAME);
+			CONNECTOR_PROP_TOPOLOGY_NAME, 0);
 	msm_property_install_enum(&c_conn->property_info, "topology_control",
 			0, 1, e_topology_control,
 			ARRAY_SIZE(e_topology_control),
-			CONNECTOR_PROP_TOPOLOGY_CONTROL);
+			CONNECTOR_PROP_TOPOLOGY_CONTROL, 0);
 
 	rc = msm_property_install_get_status(&c_conn->property_info);
 	if (rc) {
