@@ -13,6 +13,7 @@
 #include <media/v4l2-subdev.h>
 #include <asm/div64.h>
 #include "msm_isp_util.h"
+#include "msm_isp_stats_util.h"
 #include "msm_isp_axi_util.h"
 #include "msm_isp48.h"
 
@@ -2759,12 +2760,11 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 		if (!update_vfes[k])
 			continue;
 		vfe_dev = update_vfes[k];
-		axi_data = &vfe_dev->axi_data;
-		if (axi_data->src_info[VFE_PIX_0].active == 0) {
-			vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
-				vfe_dev, 0xFF, 0);
-		}
+		/* make sure all stats are stopped if camif is stopped */
+		if (vfe_dev->axi_data.src_info[VFE_PIX_0].active == 0)
+			msm_isp_stop_all_stats_stream(vfe_dev);
 	}
+
 	for (i = 0; i < num_streams; i++) {
 		stream_info = streams[i];
 		spin_lock_irqsave(&stream_info->lock, flags);

@@ -29,6 +29,7 @@ int msm_isp_stats_restart(struct vfe_device *vfe_dev);
 void msm_isp_release_all_stats_stream(struct vfe_device *vfe_dev);
 void msm_isp_process_stats_reg_upd_epoch_irq(struct vfe_device *vfe_dev,
 		enum msm_isp_comp_irq_types irq);
+void msm_isp_stop_all_stats_stream(struct vfe_device *vfe_dev);
 
 static inline int msm_isp_get_vfe_idx_for_stats_stream_user(
 				struct vfe_device *vfe_dev,
