@@ -12,11 +12,12 @@
 #ifndef MSM_MHI_H
 #define MSM_MHI_H
 #include <linux/types.h>
-
-struct mhi_client_handle;
+#include <linux/device.h>
 
 #define MHI_DMA_MASK       0xFFFFFFFFFFULL
 #define MHI_MAX_MTU        0xFFFF
+
+struct mhi_client_config;
 
 enum MHI_CLIENT_CHANNEL {
 	MHI_CLIENT_LOOPBACK_OUT = 0,
@@ -99,8 +100,33 @@ struct mhi_cb_info {
 };
 
 struct mhi_client_info_t {
+	enum MHI_CLIENT_CHANNEL chan;
+	const struct device *dev;
+	const char *node_name;
 	void (*mhi_client_cb)(struct mhi_cb_info *);
+	bool pre_allocate;
+	size_t max_payload;
+	void *user_data;
 };
+
+struct mhi_client_handle {
+	u32 dev_id;
+	u32 domain;
+	u32 bus;
+	u32 slot;
+	struct mhi_client_config *client_config;
+};
+
+/**
+ * mhi_is_device_ready - Check if MHI is ready to register clients
+ *
+ * @dev: device node that points to DT node
+ * @node_name: device tree node that links MHI node
+ *
+ * @Return true if ready
+ */
+bool mhi_is_device_ready(const struct device * const dev,
+			 const char *node_name);
 
 /**
  * mhi_deregister_channel - de-register callbacks from MHI
@@ -116,21 +142,13 @@ int mhi_deregister_channel(struct mhi_client_handle *client_handle);
  *			  any MHI operations
  *
  *  @client_handle:  Handle populated by MHI, opaque to client
- *  @chan:           Channel provided by client to which the handle
- *                   maps to.
- *  @device_index:   MHI device for which client wishes to register, if
- *                   there are multiple devices supporting MHI. Client
- *                   should specify 0 for the first device 1 for second etc.
- *  @info:           Client provided callbacks which MHI will invoke on events
- *  @user_data:      Client provided context to be returned to client upon
- *                   callback invocation.
- *  Not thread safe, caller must ensure concurrency protection.
+ *  @client_info:    Channel\device information provided by client to
+ *                   which the handle maps to.
  *
  * @Return errno
  */
 int mhi_register_channel(struct mhi_client_handle **client_handle,
-		enum MHI_CLIENT_CHANNEL chan, s32 device_index,
-		struct mhi_client_info_t *client_info, void *user_data);
+			 struct mhi_client_info_t *client_info);
 
 /**
  * mhi_open_channel - Client must call this function to open a channel

@@ -129,9 +129,8 @@ struct uci_client {
 
 struct mhi_uci_ctxt_t {
 	struct list_head node;
-	struct platform_dev *pdev;
+	struct platform_device *pdev;
 	struct uci_client client_handles[MHI_SOFTWARE_CLIENT_LIMIT];
-	struct mhi_client_info_t client_info;
 	dev_t dev_t;
 	struct mutex ctrl_mutex;
 	struct cdev cdev[MHI_SOFTWARE_CLIENT_LIMIT];
@@ -1172,6 +1171,9 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 	uci_handle = cb_info->result->user_data;
 	switch (cb_info->cb_reason) {
 	case MHI_CB_MHI_ENABLED:
+		uci_log(uci_handle->uci_ipc_log,
+			UCI_DBG_INFO,
+			"MHI enabled CB received.\n");
 		atomic_set(&uci_handle->mhi_disabled, 0);
 		break;
 	case MHI_CB_MHI_DISABLED:
@@ -1202,9 +1204,11 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 	}
 }
 
-static int mhi_register_client(struct uci_client *mhi_client)
+static int mhi_register_client(struct uci_client *mhi_client,
+			       struct device *dev)
 {
 	int ret_val = 0;
+	struct mhi_client_info_t client_info;
 
 	uci_log(mhi_client->uci_ipc_log,
 		UCI_DBG_INFO,
@@ -1222,11 +1226,12 @@ static int mhi_register_client(struct uci_client *mhi_client)
 		UCI_DBG_INFO,
 		"Registering chan %d\n",
 		mhi_client->out_chan);
-	ret_val = mhi_register_channel(&mhi_client->out_handle,
-			mhi_client->out_chan,
-			0,
-			&mhi_client->uci_ctxt->client_info,
-			mhi_client);
+	client_info.dev = dev;
+	client_info.node_name = "qcom,mhi";
+	client_info.user_data = mhi_client;
+	client_info.mhi_client_cb = uci_xfer_cb;
+	client_info.chan = mhi_client->out_chan;
+	ret_val = mhi_register_channel(&mhi_client->out_handle, &client_info);
 	if (0 != ret_val)
 		uci_log(mhi_client->uci_ipc_log,
 			UCI_DBG_ERROR,
@@ -1238,11 +1243,8 @@ static int mhi_register_client(struct uci_client *mhi_client)
 		UCI_DBG_INFO,
 		"Registering chan %d\n",
 		mhi_client->in_chan);
-	ret_val = mhi_register_channel(&mhi_client->in_handle,
-			mhi_client->in_chan,
-			0,
-			&mhi_client->uci_ctxt->client_info,
-			mhi_client);
+	client_info.chan = mhi_client->in_chan;
+	ret_val = mhi_register_channel(&mhi_client->in_handle, &client_info);
 	if (0 != ret_val)
 		uci_log(mhi_client->uci_ipc_log,
 			UCI_DBG_ERROR,
@@ -1266,12 +1268,15 @@ static int mhi_uci_probe(struct platform_device *pdev)
 	struct mhi_uci_ctxt_t *uci_ctxt;
 	int ret_val;
 	int i;
-	char node_name[16];
+	char node_name[32];
 
 	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
 		UCI_DBG_INFO,
 		"Entered with pdev:%p\n",
 		pdev);
+
+	if (mhi_is_device_ready(&pdev->dev, "qcom,mhi") == false)
+		return -EPROBE_DEFER;
 
 	if (pdev->dev.of_node == NULL)
 		return -ENODEV;
@@ -1286,7 +1291,7 @@ static int mhi_uci_probe(struct platform_device *pdev)
 	if (!uci_ctxt)
 		return -ENOMEM;
 
-	uci_ctxt->client_info.mhi_client_cb = uci_xfer_cb;
+	uci_ctxt->pdev = pdev;
 	mutex_init(&uci_ctxt->ctrl_mutex);
 
 	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
@@ -1309,7 +1314,8 @@ static int mhi_uci_probe(struct platform_device *pdev)
 
 		uci_client->uci_ctxt = uci_ctxt;
 		if (uci_client->in_attr.uci_ownership) {
-			ret_val = mhi_register_client(uci_client);
+			ret_val = mhi_register_client(uci_client,
+						      &pdev->dev);
 			if (ret_val) {
 				uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
 					UCI_DBG_CRITICAL,
@@ -1319,7 +1325,13 @@ static int mhi_uci_probe(struct platform_device *pdev)
 
 				return -EIO;
 			}
-			snprintf(node_name, sizeof(node_name), "mhi-uci%d",
+			snprintf(node_name,
+				 sizeof(node_name),
+				 "mhi_uci_%04x_%02u.%02u.%02u_%d",
+				 uci_client->out_handle->dev_id,
+				 uci_client->out_handle->domain,
+				 uci_client->out_handle->bus,
+				 uci_client->out_handle->slot,
 				 uci_client->out_attr.chan_id);
 			uci_client->uci_ipc_log = ipc_log_context_create
 				(MHI_UCI_IPC_LOG_PAGES,
@@ -1364,11 +1376,16 @@ static int mhi_uci_probe(struct platform_device *pdev)
 			}
 			uci_client->dev =
 				device_create(mhi_uci_drv_ctxt.mhi_uci_class,
-					      NULL,
-					      uci_ctxt->dev_t + i,
-					      NULL,
-					      DEVICE_NAME "_pipe_%d",
-					      uci_client->out_chan);
+					NULL,
+					uci_ctxt->dev_t + i,
+					NULL,
+					DEVICE_NAME "_%04x_%02u.%02u.%02u%s%d",
+					uci_client->out_handle->dev_id,
+					uci_client->out_handle->domain,
+					uci_client->out_handle->bus,
+					uci_client->out_handle->slot,
+					"_pipe_",
+					uci_client->out_chan);
 			if (IS_ERR(uci_client->dev)) {
 				uci_log(uci_client->uci_ipc_log,
 					UCI_DBG_ERROR,

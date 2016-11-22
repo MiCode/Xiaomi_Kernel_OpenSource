@@ -27,6 +27,7 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/of_device.h>
+#include <linux/rtnetlink.h>
 
 #define RMNET_MHI_DRIVER_NAME "rmnet_mhi"
 #define RMNET_MHI_DEV_NAME    "rmnet_mhi%d"
@@ -79,6 +80,7 @@ struct __packed mhi_skb_priv {
 
 struct rmnet_mhi_private {
 	struct list_head	      node;
+	u32                           dev_id;
 	struct mhi_client_handle      *tx_client_handle;
 	struct mhi_client_handle      *rx_client_handle;
 	enum MHI_CLIENT_CHANNEL       tx_channel;
@@ -793,6 +795,8 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 	int ret = 0;
 	struct rmnet_mhi_private **rmnet_mhi_ctxt = NULL;
 	int r = 0;
+	char ifalias[IFALIASZ];
+	struct mhi_client_handle *client_handle = NULL;
 
 	rmnet_log(rmnet_mhi_ptr, MSG_INFO, "Entered.\n");
 
@@ -826,6 +830,7 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		} else {
 			rmnet_mhi_ptr->tx_enabled = 1;
 		}
+		client_handle = rmnet_mhi_ptr->tx_client_handle;
 	}
 	if (rmnet_mhi_ptr->rx_client_handle != NULL) {
 		rmnet_log(rmnet_mhi_ptr,
@@ -841,7 +846,26 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		} else {
 			rmnet_mhi_ptr->rx_enabled = 1;
 		}
+		/* Both tx & rx client handle contain same device info */
+		client_handle = rmnet_mhi_ptr->rx_client_handle;
 	}
+
+	if (!client_handle) {
+		ret = -EINVAL;
+		goto net_dev_alloc_fail;
+	}
+
+	snprintf(ifalias,
+		 sizeof(ifalias),
+		 "%s_%04x_%02u.%02u.%02u_%u",
+		 RMNET_MHI_DRIVER_NAME,
+		 client_handle->dev_id,
+		 client_handle->domain,
+		 client_handle->bus,
+		 client_handle->slot,
+		 rmnet_mhi_ptr->dev_id);
+
+	rtnl_lock();
 	rmnet_mhi_ptr->dev =
 		alloc_netdev(sizeof(struct rmnet_mhi_private *),
 			     RMNET_MHI_DEV_NAME,
@@ -854,7 +878,9 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		goto net_dev_alloc_fail;
 	}
 	SET_NETDEV_DEV(rmnet_mhi_ptr->dev, &rmnet_mhi_ptr->pdev->dev);
+	dev_set_alias(rmnet_mhi_ptr->dev, ifalias, strlen(ifalias));
 	rmnet_mhi_ctxt = netdev_priv(rmnet_mhi_ptr->dev);
+	rtnl_unlock();
 	*rmnet_mhi_ctxt = rmnet_mhi_ptr;
 
 	ret = dma_set_mask(&(rmnet_mhi_ptr->dev->dev),
@@ -981,17 +1007,16 @@ static void rmnet_mhi_cb(struct mhi_cb_info *cb_info)
 	}
 }
 
-static struct mhi_client_info_t rmnet_mhi_info = {rmnet_mhi_cb};
-
 #ifdef CONFIG_DEBUG_FS
 struct dentry *dentry;
 
 static void rmnet_mhi_create_debugfs(struct rmnet_mhi_private *rmnet_mhi_ptr)
 {
-	char node_name[15];
+	char node_name[32];
 	int i;
 	const umode_t mode = (S_IRUSR | S_IWUSR);
 	struct dentry *file;
+	struct mhi_client_handle *client_handle;
 
 	const struct {
 		char *name;
@@ -1047,8 +1072,20 @@ static void rmnet_mhi_create_debugfs(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		},
 	};
 
-	snprintf(node_name, sizeof(node_name), "%s%d",
-		 RMNET_MHI_DRIVER_NAME, rmnet_mhi_ptr->pdev->id);
+	/* Both tx & rx client handle contain same device info */
+	client_handle = rmnet_mhi_ptr->rx_client_handle;
+	if (!client_handle)
+		client_handle = rmnet_mhi_ptr->tx_client_handle;
+
+	snprintf(node_name,
+		 sizeof(node_name),
+		 "%s_%04x_%02u.%02u.%02u_%u",
+		 RMNET_MHI_DRIVER_NAME,
+		 client_handle->dev_id,
+		 client_handle->domain,
+		 client_handle->bus,
+		 client_handle->slot,
+		 rmnet_mhi_ptr->dev_id);
 
 	if (IS_ERR_OR_NULL(dentry))
 		return;
@@ -1109,10 +1146,15 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 	int rc;
 	u32 channel;
 	struct rmnet_mhi_private *rmnet_mhi_ptr;
-	char node_name[15];
+	struct mhi_client_handle *client_handle = NULL;
+	char node_name[32];
+	struct mhi_client_info_t client_info;
 
 	if (unlikely(!pdev->dev.of_node))
 		return -ENODEV;
+
+	if (!mhi_is_device_ready(&pdev->dev, "qcom,mhi"))
+		return -EPROBE_DEFER;
 
 	pdev->id = of_alias_get_id(pdev->dev.of_node, "mhi_rmnet");
 	if (unlikely(pdev->id < 0))
@@ -1135,15 +1177,29 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_u32(pdev->dev.of_node,
+				  "cell-index",
+				  &rmnet_mhi_ptr->dev_id);
+	if (unlikely(rc)) {
+		rmnet_log(rmnet_mhi_ptr,
+			  MSG_CRITICAL,
+			  "failed to get valid 'cell-index'\n");
+		goto probe_fail;
+	}
+
+	client_info.dev = &pdev->dev;
+	client_info.node_name = "qcom,mhi";
+	client_info.mhi_client_cb = rmnet_mhi_cb;
+	client_info.user_data = rmnet_mhi_ptr;
+
+	rc = of_property_read_u32(pdev->dev.of_node,
 				  "qcom,mhi-tx-channel",
 				  &channel);
 	if (rc == 0) {
 		rmnet_mhi_ptr->tx_channel = channel;
+		client_info.chan = channel;
+
 		rc = mhi_register_channel(&rmnet_mhi_ptr->tx_client_handle,
-					  rmnet_mhi_ptr->tx_channel,
-					  0,
-					  &rmnet_mhi_info,
-					  rmnet_mhi_ptr);
+					  &client_info);
 		if (unlikely(rc)) {
 			rmnet_log(rmnet_mhi_ptr,
 				  MSG_CRITICAL,
@@ -1152,6 +1208,7 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 				  rc);
 			goto probe_fail;
 		}
+		client_handle = rmnet_mhi_ptr->tx_client_handle;
 	}
 
 	rc = of_property_read_u32(pdev->dev.of_node,
@@ -1159,11 +1216,9 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 				  &channel);
 	if (rc == 0) {
 		rmnet_mhi_ptr->rx_channel = channel;
+		client_info.chan = channel;
 		rc = mhi_register_channel(&rmnet_mhi_ptr->rx_client_handle,
-					  rmnet_mhi_ptr->rx_channel,
-					  0,
-					  &rmnet_mhi_info,
-					  rmnet_mhi_ptr);
+					  &client_info);
 		if (unlikely(rc)) {
 			rmnet_log(rmnet_mhi_ptr,
 				  MSG_CRITICAL,
@@ -1172,22 +1227,31 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 				  rc);
 			goto probe_fail;
 		}
-
+		/* overwriting tx_client_handle is ok because dev_id and
+		 * bdf are same for both channels
+		 */
+		client_handle = rmnet_mhi_ptr->rx_client_handle;
 		INIT_WORK(&rmnet_mhi_ptr->alloc_work, rmnet_mhi_alloc_work);
 		spin_lock_init(&rmnet_mhi_ptr->alloc_lock);
 	}
 
 	/* We must've have @ least one valid channel */
-	if (!rmnet_mhi_ptr->rx_client_handle &&
-	    !rmnet_mhi_ptr->tx_client_handle) {
+	if (!client_handle) {
 		rmnet_log(rmnet_mhi_ptr, MSG_CRITICAL,
 			  "No registered channels\n");
 		rc = -ENODEV;
 		goto probe_fail;
 	}
 
-	snprintf(node_name, sizeof(node_name), "%s%d",
-		 RMNET_MHI_DRIVER_NAME, pdev->id);
+	snprintf(node_name,
+		 sizeof(node_name),
+		 "%s_%04x_%02u.%02u.%02u_%u",
+		 RMNET_MHI_DRIVER_NAME,
+		 client_handle->dev_id,
+		 client_handle->domain,
+		 client_handle->bus,
+		 client_handle->slot,
+		 rmnet_mhi_ptr->dev_id);
 	rmnet_mhi_ptr->rmnet_ipc_log =
 		ipc_log_context_create(RMNET_IPC_LOG_PAGES,
 				       node_name, 0);
