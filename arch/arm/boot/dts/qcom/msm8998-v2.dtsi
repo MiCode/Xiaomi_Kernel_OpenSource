@@ -955,7 +955,7 @@
 		<0 0>,
 		<0 0>;
 
-	lanes-per-direction = <2>;
+	lanes-per-direction = <1>;
 };
 
 &ssc_sensors {
