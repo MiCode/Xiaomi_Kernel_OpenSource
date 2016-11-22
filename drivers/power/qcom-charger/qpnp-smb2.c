@@ -688,6 +688,7 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_DONE,
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 	POWER_SUPPLY_PROP_PARALLEL_PERCENT,
+	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -763,6 +764,10 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
 		val->intval = chg->pl.slave_pct;
 		break;
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as device is active */
+		val->intval = 0;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -807,6 +812,12 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		vote(chg->fcc_max_votable, DEFAULT_VOTER, true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as the device is active */
+		if (!val->intval)
+			break;
+		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	default:
 		rc = -EINVAL;
