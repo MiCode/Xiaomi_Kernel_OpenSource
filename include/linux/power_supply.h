@@ -232,6 +232,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 	POWER_SUPPLY_PROP_PARALLEL_PERCENT,
 	POWER_SUPPLY_PROP_PE_START,
+	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
