@@ -55,6 +55,14 @@
 				      cache-level = <3>;
 				};
 			};
+			L1_I_0: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+			L1_D_0: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
 		};
 
 		CPU1: cpu@1 {
@@ -70,6 +78,14 @@
 			      cache-size = <0x20000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
+			};
+			L1_I_1: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+			L1_D_1: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
 			};
 		};
 
@@ -87,6 +103,14 @@
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
+			L1_I_2: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+			L1_D_2: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
 		};
 
 		CPU3: cpu@3 {
@@ -102,6 +126,14 @@
 			      cache-size = <0x20000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
+			};
+			L1_I_3: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+			L1_D_3: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
 			};
 		};
 
@@ -119,6 +151,14 @@
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
+			L1_I_100: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
+			L1_D_100: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
 		};
 
 		CPU5: cpu@101 {
@@ -134,6 +174,14 @@
 			      cache-size = <0x40000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
+			};
+			L1_I_101: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
+			L1_D_101: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
 			};
 		};
 
@@ -151,6 +199,14 @@
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
+			L1_I_102: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
+			L1_D_102: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
 		};
 
 		CPU7: cpu@103 {
@@ -166,6 +222,14 @@
 			      cache-size = <0x40000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
+			};
+			L1_I_103: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
+			L1_D_103: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
 			};
 		};
 
