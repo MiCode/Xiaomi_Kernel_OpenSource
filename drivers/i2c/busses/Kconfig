@@ -790,6 +790,16 @@ config I2C_QUP
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-qup.
 
+config I2C_QCOM_GENI
+	tristate "Qualcomm Technologies Inc.'s GENI based I2C controller"
+	depends on ARCH_QCOM
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in I2C interface on the Qualcomm Technologies Inc.'s SoCs.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called i2c-qcom-geni.
+
 config I2C_RIIC
 	tristate "Renesas RIIC adapter"
 	depends on ARCH_RENESAS || COMPILE_TEST

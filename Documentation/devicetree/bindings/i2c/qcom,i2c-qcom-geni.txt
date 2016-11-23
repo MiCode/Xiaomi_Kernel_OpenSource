@@ -1,0 +1,22 @@
+GENI based Qualcomm Technologies Inc Universal Peripheral version 3 (QUPv3)
+								I2C controller
+
+Required properties:
+ - compatible: Should be:
+   * "qcom,i2c-geni.
+ - reg: Should contain QUP register address and length.
+ - interrupts: Should contain I2C interrupt.
+ - #address-cells: Should be <1> Address cells for i2c device address
+ - #size-cells: Should be <0> as i2c addresses have no size component
+
+Child nodes should conform to i2c bus binding.
+
+Example:
+
+i2c@a94000 {
+	compatible = "qcom,i2c-geni";
+	reg = <0xa94000 0x4000>;
+	interrupts = <GIC_SPI 358 0>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+};
