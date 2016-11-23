@@ -2096,6 +2096,8 @@ static ssize_t sde_hw_rotator_show_caps(struct sde_rot_mgr *mgr,
 	else
 		SPRINT("min_downscale=2.0\n");
 
+	SPRINT("downscale_compression=1\n");
+
 #undef SPRINT
 	return cnt;
 }
