@@ -1111,6 +1111,75 @@ exit_update_client_paths:
 	return ret;
 }
 
+static int query_client_paths(struct msm_bus_client *client, bool log_trns,
+							unsigned int idx)
+{
+	int lnode, src, dest, cur_idx;
+	uint64_t req_clk, req_bw, curr_clk, curr_bw, slp_clk, slp_bw;
+	int i, ret = 0;
+	struct msm_bus_scale_pdata *pdata;
+	struct device *src_dev;
+
+	if (!client) {
+		MSM_BUS_ERR("Client handle  Null");
+		ret = -ENXIO;
+		goto exit_update_client_paths;
+	}
+
+	pdata = client->pdata;
+	if (!pdata) {
+		MSM_BUS_ERR("Client pdata Null");
+		ret = -ENXIO;
+		goto exit_update_client_paths;
+	}
+
+	cur_idx = client->curr;
+	client->curr = idx;
+	for (i = 0; i < pdata->usecase->num_paths; i++) {
+		src = pdata->usecase[idx].vectors[i].src;
+		dest = pdata->usecase[idx].vectors[i].dst;
+
+		lnode = client->src_pnode[i];
+		src_dev = client->src_devs[i];
+		req_clk = client->pdata->usecase[idx].vectors[i].ib;
+		req_bw = client->pdata->usecase[idx].vectors[i].ab;
+		if (cur_idx < 0) {
+			curr_clk = 0;
+			curr_bw = 0;
+		} else {
+			curr_clk =
+				client->pdata->usecase[cur_idx].vectors[i].ib;
+			curr_bw = client->pdata->usecase[cur_idx].vectors[i].ab;
+			MSM_BUS_DBG("%s:ab: %llu ib: %llu\n", __func__,
+					curr_bw, curr_clk);
+		}
+
+		if (pdata->active_only) {
+			slp_clk = 0;
+			slp_bw = 0;
+		} else {
+			slp_clk = req_clk;
+			slp_bw = req_bw;
+		}
+
+		ret = update_path(src_dev, dest, req_clk, req_bw, slp_clk,
+			slp_bw, curr_clk, curr_bw, lnode, pdata->active_only);
+
+		if (ret) {
+			MSM_BUS_ERR("%s: Update path failed! %d ctx %d\n",
+					__func__, ret, pdata->active_only);
+			goto exit_update_client_paths;
+		}
+
+		if (log_trns)
+			getpath_debug(src, lnode, pdata->active_only);
+	}
+	commit_data();
+exit_update_client_paths:
+	return ret;
+}
+
+
 static int update_context(uint32_t cl, bool active_only,
 					unsigned int ctx_idx)
 {

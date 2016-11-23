@@ -69,6 +69,11 @@ struct msm_bus_arb_ops {
 	void (*unregister)(struct msm_bus_client_handle *cl);
 	int (*update_bw_context)(struct msm_bus_client_handle *cl, u64 act_ab,
 				u64 act_ib, u64 slp_ib, u64 slp_ab);
+	int (*query_usecase)(struct msm_bus_tcs_usecase *tcs_usecase,
+				uint32_t cl, unsigned int index);
+	int (*query_usecase_all)(struct msm_bus_tcs_handle *tcs_handle,
+				uint32_t cl);
+
 };
 
 enum {

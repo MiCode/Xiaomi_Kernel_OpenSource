@@ -14,6 +14,7 @@
 #define __SOC_QCOM_RPMH_H__
 
 #include <soc/qcom/tcs.h>
+#include <linux/platform_device.h>
 
 struct rpmh_client;
 
