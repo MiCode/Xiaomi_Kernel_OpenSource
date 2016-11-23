@@ -20,7 +20,7 @@
 #include <sound/q6core.h>
 
 
-#ifdef CONFIG_DOLBY_DS2
+#if defined(CONFIG_DOLBY_DS2) || defined(CONFIG_DOLBY_LICENSE)
 
 /* ramp up/down for 30ms    */
 #define DOLBY_SOFT_VOLUME_PERIOD	40
@@ -2296,4 +2296,4 @@ int msm_ds2_dap_ioctl_shared(struct snd_hwdep *hw, struct file *file,
 {
 	return 0;
 }
-#endif /*CONFIG_DOLBY_DS2*/
+#endif /* CONFIG_DOLBY_DS2 || CONFIG_DOLBY_LICENSE */
