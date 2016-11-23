@@ -1056,6 +1056,11 @@ static int msm_lmh_dcvs_update(int cpu)
 					MSM_LIMITS_DOMAIN_MIN, min_freq);
 	if (ret)
 		return ret;
+	/*
+	 * Notify LMH dcvs driver about the new software limit. This will
+	 * trigger LMH DCVS driver polling for the mitigated frequency.
+	 */
+	msm_lmh_dcvsh_sw_notify(cpu);
 
 	return ret;
 }
