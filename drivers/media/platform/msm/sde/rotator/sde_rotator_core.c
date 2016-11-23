@@ -2108,7 +2108,7 @@ static ssize_t sde_rotator_show_caps(struct device *dev,
 #define SPRINT(fmt, ...) \
 		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
 
-	SPRINT("wb_count=%d\n", mgr->queue_count);
+	SPRINT("queue_count=%d\n", mgr->queue_count);
 	SPRINT("downscale=1\n");
 	SPRINT("ubwc=1\n");
 
