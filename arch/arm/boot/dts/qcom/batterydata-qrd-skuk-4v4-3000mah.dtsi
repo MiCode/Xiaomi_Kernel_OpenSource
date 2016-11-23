@@ -10,12 +10,12 @@
  * GNU General Public License for more details.
  */
 
-qcom,qrd_msmcobalt_skuk_3000mah {
+qcom,qrd_msm8998_skuk_3000mah {
 	qcom,max-voltage-uv = <4400000>;
 	qcom,nom-batt-capacity-mah = <3000>;
 	qcom,batt-id-kohm = <68>;
 	qcom,battery-beta = <3380>;
-	qcom,battery-type = "qrd_msmcobalt_skuk_300mah";
+	qcom,battery-type = "qrd_msm8998_skuk_300mah";
 	qcom,checksum = <0x0F19>;
 	qcom,fg-profile-data = [
 		 6F 1F B2 05

@@ -220,13 +220,13 @@ static void mdss_dsi_phy_v3_config_lane_settings(
 
 int mdss_dsi_phy_v3_regulator_enable(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	/* Nothing to be done for cobalt */
+	/* Nothing to be done for 8998 */
 	return 0;
 }
 
 int mdss_dsi_phy_v3_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	/* Nothing to be done for cobalt */
+	/* Nothing to be done for 8998 */
 	return 0;
 }
 

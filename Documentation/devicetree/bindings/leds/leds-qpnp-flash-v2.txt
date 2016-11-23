@@ -97,7 +97,7 @@ Optional properties:
 				  hysteresis. Unit is in deciDegC. It is only
 				  used if qcom,thermal-derate-en is specified.
 				  Allowed values are:
-				  0, 15, 30, 45 for pmicobalt.
+				  0, 15, 30, 45 for pmi8998.
 				  0, 20, 40, 60 for pm2falcon.
 - qcom,thermal-thrsh1		: Integer property to specify OTST1 threshold
 				  for thermal mitigation. Unit is in Celsius.
@@ -200,7 +200,7 @@ Example:
 
 		qcom,hdrm-auto-mode;
 		qcom,isc-delay = <192>;
-		switch0-supply = <&pmicobalt_bob>;
+		switch0-supply = <&pmi8998_bob>;
 
 		pmi8998_flash0: qcom,flash_0 {
 			label = "flash";

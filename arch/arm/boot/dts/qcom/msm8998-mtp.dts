@@ -1,0 +1,38 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "msm8998.dtsi"
+#include "msm8998-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8998 v1 MTP";
+	compatible = "qcom,msm8998-mtp", "qcom,msm8998", "qcom,mtp";
+	qcom,board-id = <8 0>;
+};
+
+&qusb_phy0 {
+	qcom,qusb-phy-host-init-seq =
+			/* value reg_offsets> */
+				<0x63 0x210
+				0x13 0x04
+				0x7c 0x18c
+				0x80 0x2c
+				0x0a 0x184
+				0x8c 0x21c
+				0x05 0x23c
+				0x03 0x240
+				0xff 0x218
+				0x62 0x210>;
+};

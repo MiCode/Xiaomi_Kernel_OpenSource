@@ -56,25 +56,25 @@
 #define BCL_VBAT_TRIP           0x68
 #define BCL_IBAT_TRIP           0x69
 
-#define BCL_COBALT_VBAT_VALUE     0x58
-#define BCL_COBALT_IBAT_VALUE     0x59
-#define BCL_COBALT_VBAT_MIN       0x5C
-#define BCL_COBALT_IBAT_MAX       0x5D
-#define BCL_COBALT_MAX_MIN_CLR    0x48
-#define BCL_COBALT_IBAT_MAX_CLR   3
-#define BCL_COBALT_VBAT_MIN_CLR   2
-#define BCL_COBALT_VBAT_ADC_LOW   0x72
-#define BCL_COBALT_VBAT_COMP_LOW  0x75
-#define BCL_COBALT_VBAT_COMP_TLOW 0x76
-#define BCL_COBALT_IBAT_HIGH      0x78
-#define BCL_COBALT_IBAT_TOO_HIGH  0x79
-#define BCL_COBALT_LMH_CFG        0xA3
-#define BCL_COBALT_BCL_CFG        0x6A
-#define LMH_COBALT_INT_POL_HIGH   0x12
-#define LMH_COBALT_INT_EN         0x15
+#define BCL_8998_VBAT_VALUE     0x58
+#define BCL_8998_IBAT_VALUE     0x59
+#define BCL_8998_VBAT_MIN       0x5C
+#define BCL_8998_IBAT_MAX       0x5D
+#define BCL_8998_MAX_MIN_CLR    0x48
+#define BCL_8998_IBAT_MAX_CLR   3
+#define BCL_8998_VBAT_MIN_CLR   2
+#define BCL_8998_VBAT_ADC_LOW   0x72
+#define BCL_8998_VBAT_COMP_LOW  0x75
+#define BCL_8998_VBAT_COMP_TLOW 0x76
+#define BCL_8998_IBAT_HIGH      0x78
+#define BCL_8998_IBAT_TOO_HIGH  0x79
+#define BCL_8998_LMH_CFG        0xA3
+#define BCL_8998_BCL_CFG        0x6A
+#define LMH_8998_INT_POL_HIGH   0x12
+#define LMH_8998_INT_EN         0x15
 
-#define BCL_COBALT_VBAT_SCALING   39000
-#define BCL_COBALT_IBAT_SCALING   80000
+#define BCL_8998_VBAT_SCALING   39000
+#define BCL_8998_IBAT_SCALING   80000
 #define BCL_VBAT_LOW_THRESHOLD  0x7 /* 3.1V */
 #define BCL_VBAT_TLOW_THRESHOLD 0x5 /* 2.9v */
 #define BCL_IBAT_HIGH_THRESH_UA 4300000
@@ -124,7 +124,7 @@ enum bcl_monitor_state {
 
 enum bcl_hw_type {
 	BCL_PMI8994,
-	BCL_PMICOBALT,
+	BCL_PMI8998,
 	BCL_VERSION_MAX,
 };
 
@@ -243,8 +243,8 @@ static void convert_vbat_to_adc_val(int *val)
 			/ perph_data->gain_factor_den))
 			/ perph_data->scaling_factor;
 		break;
-	case BCL_PMICOBALT:
-		*val = *val / BCL_COBALT_VBAT_SCALING;
+	case BCL_PMI8998:
+		*val = *val / BCL_8998_VBAT_SCALING;
 		break;
 	default:
 		break;
@@ -268,8 +268,8 @@ static void convert_adc_to_vbat_val(int *val)
 			* BCL_CONSTANT_NUM  / perph_data->gain_factor_den)
 			/ 100;
 		break;
-	case BCL_PMICOBALT:
-		*val = *val * BCL_COBALT_VBAT_SCALING;
+	case BCL_PMI8998:
+		*val = *val * BCL_8998_VBAT_SCALING;
 		break;
 	default:
 		break;
@@ -295,8 +295,8 @@ static void convert_ibat_to_adc_val(int *val)
 			/ perph_data->offset_factor_den)
 			/  perph_data->scaling_factor;
 		break;
-	case BCL_PMICOBALT:
-		*val = *val / BCL_COBALT_IBAT_SCALING;
+	case BCL_PMI8998:
+		*val = *val / BCL_8998_IBAT_SCALING;
 		break;
 	default:
 		break;
@@ -321,8 +321,8 @@ static void convert_adc_to_ibat_val(int *val)
 			* perph_data->gain) * BCL_CONSTANT_NUM /
 			perph_data->gain_factor_den) / 100;
 		break;
-	case BCL_PMICOBALT:
-		*val = *val * BCL_COBALT_IBAT_SCALING;
+	case BCL_PMI8998:
+		*val = *val * BCL_8998_IBAT_SCALING;
 		break;
 	default:
 		break;
@@ -355,18 +355,18 @@ static int bcl_set_high_ibat(int thresh_value)
 			thresh_value);
 	val = (int8_t)thresh_value;
 	ret = bcl_write_register((bcl_perph_version == BCL_PMI8994) ?
-		BCL_IBAT_TRIP : BCL_COBALT_IBAT_HIGH, val);
+		BCL_IBAT_TRIP : BCL_8998_IBAT_HIGH, val);
 	if (ret) {
 		pr_err("Error accessing BCL peripheral. err:%d\n", ret);
 		return ret;
 	}
 	bcl_perph->param[BCL_PARAM_CURRENT].high_trip = thresh_value;
-	if (bcl_perph_version == BCL_PMICOBALT) {
+	if (bcl_perph_version == BCL_PMI8998) {
 		convert_ibat_to_adc_val(&too_high_thresh);
 		pr_debug("Setting Ibat too high trip:%d. ADC_val:%d\n",
 			BCL_IBAT_HIGH_THRESH_UA, too_high_thresh);
 		val = (int8_t)too_high_thresh;
-		ret = bcl_write_register(BCL_COBALT_IBAT_TOO_HIGH, val);
+		ret = bcl_write_register(BCL_8998_IBAT_TOO_HIGH, val);
 		if (ret) {
 			pr_err("Error accessing BCL peripheral. err:%d\n", ret);
 			return ret;
@@ -408,13 +408,13 @@ static int bcl_set_low_vbat(int thresh_value)
 			thresh_value);
 	val = (int8_t)thresh_value;
 	ret = bcl_write_register((bcl_perph_version == BCL_PMI8994)
-		? BCL_VBAT_TRIP : BCL_COBALT_VBAT_ADC_LOW, val);
+		? BCL_VBAT_TRIP : BCL_8998_VBAT_ADC_LOW, val);
 	if (ret) {
 		pr_err("Error accessing BCL peripheral. err:%d\n", ret);
 		return ret;
 	}
-	if (bcl_perph_version == BCL_PMICOBALT) {
-		ret = bcl_write_register(BCL_COBALT_VBAT_COMP_LOW,
+	if (bcl_perph_version == BCL_PMI8998) {
+		ret = bcl_write_register(BCL_8998_VBAT_COMP_LOW,
 			BCL_VBAT_LOW_THRESHOLD);
 		if (ret) {
 			pr_err("Error accessing BCL peripheral. err:%d\n", ret);
@@ -422,7 +422,7 @@ static int bcl_set_low_vbat(int thresh_value)
 		}
 		pr_debug("Setting Vbat low comparator threshold:0x%x.\n",
 			BCL_VBAT_LOW_THRESHOLD);
-		ret = bcl_write_register(BCL_COBALT_VBAT_COMP_TLOW,
+		ret = bcl_write_register(BCL_8998_VBAT_COMP_TLOW,
 			BCL_VBAT_TLOW_THRESHOLD);
 		if (ret) {
 			pr_err("Error accessing BCL peripheral. err:%d\n", ret);
@@ -482,7 +482,7 @@ static int bcl_access_monitor_enable(bool enable)
 	if (enable == bcl_perph->enabled)
 		goto access_exit;
 
-	if ((bcl_perph_version == BCL_PMICOBALT) && !hw_enabled && enable)
+	if ((bcl_perph_version == BCL_PMI8998) && !hw_enabled && enable)
 		bcl_lmh_dcvs_enable();
 
 	for (; i < BCL_PARAM_MAX; i++) {
@@ -552,7 +552,7 @@ static int bcl_read_ibat_high_trip(int *thresh_value)
 
 	*thresh_value = (int)val;
 	ret = bcl_read_register((bcl_perph_version == BCL_PMI8994) ?
-		BCL_IBAT_TRIP : BCL_COBALT_IBAT_HIGH, &val);
+		BCL_IBAT_TRIP : BCL_8998_IBAT_HIGH, &val);
 	if (ret) {
 		pr_err("BCL register read error. err:%d\n", ret);
 		ret = 0;
@@ -581,7 +581,7 @@ static int bcl_read_vbat_low_trip(int *thresh_value)
 
 	*thresh_value = (int)val;
 	ret = bcl_read_register((bcl_perph_version == BCL_PMI8994)
-			? BCL_VBAT_TRIP	: BCL_COBALT_VBAT_ADC_LOW,
+			? BCL_VBAT_TRIP	: BCL_8998_VBAT_ADC_LOW,
 			&val);
 	if (ret) {
 		pr_err("BCL register read error. err:%d\n", ret);
@@ -610,8 +610,8 @@ static int bcl_clear_vbat_min(void)
 	if (bcl_perph_version == BCL_PMI8994)
 		ret = bcl_write_register(BCL_VBAT_MIN_CLR, BIT(7));
 	else
-		ret = bcl_write_register(BCL_COBALT_MAX_MIN_CLR,
-			BIT(BCL_COBALT_VBAT_MIN_CLR));
+		ret = bcl_write_register(BCL_8998_MAX_MIN_CLR,
+			BIT(BCL_8998_VBAT_MIN_CLR));
 	if (ret)
 		pr_err("Error in clearing vbat min reg. err:%d", ret);
 
@@ -625,8 +625,8 @@ static int bcl_clear_ibat_max(void)
 	if (bcl_perph_version == BCL_PMI8994)
 		ret = bcl_write_register(BCL_IBAT_MAX_CLR, BIT(7));
 	else
-		ret = bcl_write_register(BCL_COBALT_MAX_MIN_CLR,
-			BIT(BCL_COBALT_IBAT_MAX_CLR));
+		ret = bcl_write_register(BCL_8998_MAX_MIN_CLR,
+			BIT(BCL_8998_IBAT_MAX_CLR));
 	if (ret)
 		pr_err("Error in clearing ibat max reg. err:%d", ret);
 
@@ -642,7 +642,7 @@ static int bcl_read_ibat_max(int *adc_value)
 	do {
 		ret = bcl_read_multi_register(
 			(bcl_perph_version == BCL_PMI8994) ? BCL_IBAT_MAX
-			: BCL_COBALT_IBAT_MAX, val,
+			: BCL_8998_IBAT_MAX, val,
 			VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
@@ -673,7 +673,7 @@ static int bcl_read_vbat_min(int *adc_value)
 	do {
 		ret = bcl_read_multi_register(
 			(bcl_perph_version == BCL_PMI8994) ? BCL_VBAT_MIN
-			: BCL_COBALT_VBAT_MIN, val,
+			: BCL_8998_VBAT_MIN, val,
 			VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
@@ -704,7 +704,7 @@ static int bcl_read_ibat(int *adc_value)
 	do {
 		ret = bcl_read_multi_register(
 			(bcl_perph_version == BCL_PMI8994) ? BCL_IBAT_VALUE
-			: BCL_COBALT_IBAT_VALUE, val,
+			: BCL_8998_IBAT_VALUE, val,
 			VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
@@ -735,7 +735,7 @@ static int bcl_read_vbat(int *adc_value)
 	do {
 		ret = bcl_read_multi_register(
 			(bcl_perph_version == BCL_PMI8994) ? BCL_VBAT_VALUE :
-			BCL_COBALT_VBAT_VALUE, val,
+			BCL_8998_VBAT_VALUE, val,
 			VAL_CP_REG_BUF_LEN);
 		if (ret) {
 			pr_err("BCL register read error. err:%d\n", ret);
@@ -1231,11 +1231,11 @@ static int bcl_probe(struct platform_device *pdev)
 			return ret;
 		}
 	} else {
-		bcl_write_register(BCL_COBALT_LMH_CFG, BCL_LMH_CFG_VAL);
-		bcl_write_register(BCL_COBALT_BCL_CFG, BCL_CFG_VAL);
-		bcl_write_general_register(LMH_COBALT_INT_POL_HIGH,
+		bcl_write_register(BCL_8998_LMH_CFG, BCL_LMH_CFG_VAL);
+		bcl_write_register(BCL_8998_BCL_CFG, BCL_CFG_VAL);
+		bcl_write_general_register(LMH_8998_INT_POL_HIGH,
 			bcl_perph->fg_lmh_addr, LMH_INT_VAL);
-		bcl_write_general_register(LMH_COBALT_INT_EN,
+		bcl_write_general_register(LMH_8998_INT_EN,
 			bcl_perph->fg_lmh_addr, LMH_INT_VAL);
 	}
 
@@ -1320,7 +1320,7 @@ static struct of_device_id bcl_match[] = {
 		.data		= (void *) BCL_PMI8994,
 	},
 	{	.compatible	= "qcom,msm-bcl-lmh",
-		.data		= (void *) BCL_PMICOBALT,
+		.data		= (void *) BCL_PMI8998,
 	},
 	{},
 };

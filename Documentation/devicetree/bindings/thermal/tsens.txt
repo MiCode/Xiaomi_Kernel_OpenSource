@@ -29,7 +29,7 @@ Required properties:
 	       should be "qcom,msmtitanium-tsens" for titanium TSENS driver.
 	       should be "qcom,msm8937-tsens" for 8937 TSENS driver.
 	       should be "qcom,msmgold-tsens" for gold TSENS driver.
-	       should be "qcom,msmcobalt-tsens" for cobalt TSENS driver.
+	       should be "qcom,msm8998-tsens" for 8998 TSENS driver.
 	       should be "qcom,msmhamster-tsens" for hamster TSENS driver.
 	       should be "qcom,msmfalcon-tsens" for falcon TSENS driver.
 	       should be "qcom,msmtriton-tsens" for triton TSENS driver.

@@ -1,0 +1,124 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8998-pinctrl.dtsi"
+
+&uartblsp2dm1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&ufsphy1 {
+	vdda-phy-supply = <&pm8998_l1>;
+	vdda-pll-supply = <&pm8998_l2>;
+	vddp-ref-clk-supply = <&pm8998_l26>;
+	vdda-phy-max-microamp = <51400>;
+	vdda-pll-max-microamp = <14600>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
+	status = "ok";
+};
+
+&ufs1 {
+	vdd-hba-supply = <&gdsc_ufs>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8998_l20>;
+	vccq-supply = <&pm8998_l26>;
+	vccq2-supply = <&pm8998_s4>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <560000>;
+	vccq2-max-microamp = <750000>;
+	status = "ok";
+};
+
+&ufs_ice {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8998_l21>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8998_l13>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	cd-gpios = <&tlmm 95 0x1>;
+
+	status = "ok";
+};
+
+&gfx_stub_vreg {
+	status = "okay";
+};
+
+&clock_gfx {
+	vdd_gpucc-supply = <&gfx_stub_vreg>;
+};
+
+&gdsc_gpu_gx {
+	parent-supply = <&gfx_stub_vreg>;
+};
+
+&soc {
+	sound_sim {
+		compatible = "qcom,msm8998-asoc-snd-stub";
+		qcom,model = "msm8998-stub-snd-card";
+
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
+			"RX_BIAS", "MCLK";
+
+		qcom,tasha-mclk-clk-freq = <9600000>;
+		asoc-platform = <&pcm0>, <&routing>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-routing";
+		asoc-cpu = <&sb_0_rx>, <&sb_0_tx>;
+		asoc-cpu-names = "msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+		qcom,wsa-max-devs = <0>;
+	};
+};
+
+&wcd9xxx_intc {
+	status = "disabled";
+	compatible = "qcom,wcd9xxx-irq";
+	interrupt-controller;
+	#interrupt-cells = <1>;
+	interrupt-names = "cdc-int";
+};
+
+&pmi8998_charger {
+	qcom,suspend-input;
+};
+
+&tsens0 {
+	status = "disabled";
+};
+
+&tsens1 {
+	status = "disabled";
+};

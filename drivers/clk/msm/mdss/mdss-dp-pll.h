@@ -28,7 +28,7 @@ static inline struct dp_pll_vco_clk *mdss_dp_to_vco_clk(struct clk *clk)
 	return container_of(clk, struct dp_pll_vco_clk, c);
 }
 
-int dp_pll_clock_register_cobalt(struct platform_device *pdev,
+int dp_pll_clock_register_8998(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 
 

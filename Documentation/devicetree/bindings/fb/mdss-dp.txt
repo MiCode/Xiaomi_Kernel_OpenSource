@@ -59,8 +59,8 @@ Example:
 		qcom,mdss-fb-map = <&mdss_fb3>;
 
 		gdsc-supply = <&gdsc_mdss>;
-		vdda-1p2-supply = <&pmcobalt_l2>;
-		vdda-0p9-supply = <&pmcobalt_l1>;
+		vdda-1p2-supply = <&pm8998_l2>;
+		vdda-0p9-supply = <&pm8998_l1>;
 
 		reg =	<0xc990000 0xa84>,
 			<0xc011000 0x910>,

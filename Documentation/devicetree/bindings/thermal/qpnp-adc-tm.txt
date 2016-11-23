@@ -203,7 +203,7 @@ Example for "qcom,qpnp-adc-tm" device:
 
 Example for "qcom,qpnp-adc-tm-hc" device:
 	/* Main Node */
-	pmcobalt_adc_tm: vadc@3400 {
+	pm8998_adc_tm: vadc@3400 {
 			compatible = "qcom,qpnp-adc-tm-hc";
 			reg = <0x3400 0x100>;
 			#address-cells = <1>;
@@ -212,7 +212,7 @@ Example for "qcom,qpnp-adc-tm-hc" device:
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1875>;
-			qcom,adc_tm-vadc = <&pmcobalt_vadc>;
+			qcom,adc_tm-vadc = <&pm8998_vadc>;
 			qcom,decimation = <0>;
 			qcom,fast-avg-setup = <0>;
 

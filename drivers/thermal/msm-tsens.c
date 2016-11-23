@@ -924,7 +924,7 @@ static struct of_device_id tsens_match[] = {
 	{	.compatible = "qcom,msmgold-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_MSMGOLD,
 	},
-	{	.compatible = "qcom,msmcobalt-tsens",
+	{	.compatible = "qcom,msm8998-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_NONE,
 	},
 	{	.compatible = "qcom,msmhamster-tsens",
@@ -980,7 +980,7 @@ static int32_t get_tsens_sensor_for_client_id(struct tsens_tm_device *tmdev,
 	}
 
 	if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
-		(!strcmp(id->compatible, "qcom,msmcobalt-tsens")) ||
+		(!strcmp(id->compatible, "qcom,msm8998-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmhamster-tsens"))) {
 		while (i < tmdev->tsens_num_sensor && !id_found) {
 			if (tmdev->sensor[i].sensor_client_id ==
@@ -1109,7 +1109,7 @@ int tsens_get_hw_id_mapping(int thermal_sensor_num, int *sensor_client_id)
 		}
 
 		if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
-			(!strcmp(id->compatible, "qcom,msmcobalt-tsens")) ||
+			(!strcmp(id->compatible, "qcom,msm8998-tsens")) ||
 			(!strcmp(id->compatible, "qcom,msmhamster-tsens"))) {
 			/* Assign client id's that is used to get the
 			 * controller and hw_sensor details
@@ -5434,7 +5434,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 		(!strcmp(id->compatible, "qcom,msm8992-tsens")))
 		tmdev->tsens_type = TSENS_TYPE2;
 	else if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
-		(!strcmp(id->compatible, "qcom,msmcobalt-tsens")))
+		(!strcmp(id->compatible, "qcom,msm8998-tsens")))
 		tmdev->tsens_type = TSENS_TYPE3;
 	else if (!strcmp(id->compatible, "qcom,msmtitanium-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmfalcon-tsens") ||
@@ -5459,7 +5459,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 		(!strcmp(id->compatible, "qcom,msm8952-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8937-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmtitanium-tsens")) ||
-		(!strcmp(id->compatible, "qcom,msmcobalt-tsens")) ||
+		(!strcmp(id->compatible, "qcom,msm8998-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmfalcon-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmtriton-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmhamster-tsens")))))
@@ -5475,7 +5475,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 	}
 
 	if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
-		(!strcmp(id->compatible, "qcom,msmcobalt-tsens")) ||
+		(!strcmp(id->compatible, "qcom,msm8998-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmhamster-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmfalcon-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmtriton-tsens") ||
