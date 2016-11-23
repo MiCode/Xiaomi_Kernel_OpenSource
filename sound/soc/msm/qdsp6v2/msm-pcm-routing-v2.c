@@ -46,6 +46,16 @@
 #include "q6voice.h"
 #include "sound/q6lsm.h"
 
+#ifndef CONFIG_DOLBY_DAP
+#undef DOLBY_ADM_COPP_TOPOLOGY_ID
+#define DOLBY_ADM_COPP_TOPOLOGY_ID 0xFFFFFFFE
+#endif
+
+#ifndef CONFIG_DOLBY_DS2
+#undef DS2_ADM_COPP_TOPOLOGY_ID
+#define DS2_ADM_COPP_TOPOLOGY_ID 0xFFFFFFFF
+#endif
+
 static int get_cal_path(int path_type);
 
 static struct mutex routing_lock;
