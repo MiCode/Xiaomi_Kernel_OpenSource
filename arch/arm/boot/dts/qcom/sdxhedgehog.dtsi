@@ -26,6 +26,10 @@
 
 };
 
+&tsens0 {
+	qcom,sensor-id = <0 1 2 3 4>;
+};
+
 &soc {
 	ipa_hw: qcom,ipa@07B00000 {
 		qcom,ipa-hw-ver = <12>; /* IPA core version = IPAv3.5 */
