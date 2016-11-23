@@ -35,7 +35,7 @@
 #include <linux/qcom_iommu.h>
 #include <linux/time.h>
 #include <linux/hashtable.h>
-#include <linux/hash.h>
+#include <linux/jhash.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/scm.h>
@@ -3250,7 +3250,7 @@ void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
 	hfound = NULL;
 	memset(str_to_hash, 0, IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN);
 	strlcpy(str_to_hash, id->id_string, IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN);
-	hkey = arch_fast_hash(str_to_hash, IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN,
+	hkey = jhash(str_to_hash, IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN,
 			0);
 	hash_for_each_possible(ipa3_ctx->ipa3_active_clients_logging.htable,
 			hentry, list, hkey) {
