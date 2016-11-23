@@ -69,9 +69,12 @@
 #define ARM_LPAE_PGD_IDX(l,d)						\
 	((l) == ARM_LPAE_START_LVL(d) ? ilog2(ARM_LPAE_PAGES_PER_PGD(d)) : 0)
 
+#define ARM_LPAE_LVL_MASK(l, d)						\
+	((l) == ARM_LPAE_START_LVL(d) ?	(1 << (d)->pgd_bits) - 1 :	\
+					(1 << (d)->bits_per_level) - 1)
 #define ARM_LPAE_LVL_IDX(a,l,d)						\
 	(((u64)(a) >> ARM_LPAE_LVL_SHIFT(l,d)) &			\
-	 ((1 << ((d)->bits_per_level + ARM_LPAE_PGD_IDX(l,d))) - 1))
+	 ARM_LPAE_LVL_MASK(l, d))
 
 /* Calculate the block/page mapping size at level l for pagetable in d. */
 #define ARM_LPAE_BLOCK_SIZE(l,d)					\
@@ -196,6 +199,7 @@ struct arm_lpae_io_pgtable {
 	struct io_pgtable	iop;
 
 	int			levels;
+	unsigned int		pgd_bits;
 	size_t			pgd_size;
 	unsigned long		pg_shift;
 	unsigned long		bits_per_level;
@@ -908,6 +912,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 
 	/* Calculate the actual size of our pgd (without concatenation) */
 	pgd_bits = va_bits - (data->bits_per_level * (data->levels - 1));
+	data->pgd_bits = pgd_bits;
 	data->pgd_size = 1UL << (pgd_bits + ilog2(sizeof(arm_lpae_iopte)));
 
 	data->iop.ops = (struct io_pgtable_ops) {
