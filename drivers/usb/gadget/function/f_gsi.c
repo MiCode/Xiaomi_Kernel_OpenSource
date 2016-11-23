@@ -2537,6 +2537,10 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	atomic_set(&gsi->connected, 1);
 
+	/* send 0 len pkt to qti to notify state change */
+	if (gsi->prot_id == IPA_USB_DIAG)
+		gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
+
 	return 0;
 
 notify_ep_disable:
