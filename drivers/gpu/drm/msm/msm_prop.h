@@ -204,6 +204,7 @@ void msm_property_install_rotation(struct msm_property_info *info,
  * @values: Array of allowable enumeration/bitmask values
  * @num_values: Size of values array
  * @property_idx: Property index
+ * @default_value: Default value of current property
  */
 void msm_property_install_enum(struct msm_property_info *info,
 		const char *name,
@@ -211,7 +212,8 @@ void msm_property_install_enum(struct msm_property_info *info,
 		int is_bitmask,
 		const struct drm_prop_enum_list *values,
 		int num_values,
-		uint32_t property_idx);
+		uint32_t property_idx,
+		uint64_t default_value);
 
 /**
  * msm_property_install_blob - install standard drm blob property
