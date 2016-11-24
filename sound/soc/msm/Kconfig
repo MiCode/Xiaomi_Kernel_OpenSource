@@ -119,7 +119,7 @@ config SND_SOC_INT_CODEC
 	select MSM_QDSP6_PDR
 	select MSM_QDSP6_NOTIFIER
 	select MSM_QDSP6V2_CODECS
-	select SND_SOC_MSM_SWR
+	select SND_SOC_MSM_SDW
 	select SND_SOC_MSM8X16_WCD
 	select QTI_PP
 	select DTS_SRS_TM
