@@ -740,14 +740,13 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 	}
 
 	/*
-	 * In this case don't reset the buffers as there is no need to further
-	 * read over peripherals. Also release the wake source hold earlier.
+	 * Reset the buffers. Also release the wake source hold earlier.
 	 */
 	if (atomic_read(&smd_info->diag_state) == 0) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			 "%s closing read thread. diag state is closed\n",
 			 smd_info->name);
-		diag_ws_release();
+		diagfwd_channel_read_done(smd_info->fwd_ctxt, buf, 0);
 		return 0;
 	}
 
