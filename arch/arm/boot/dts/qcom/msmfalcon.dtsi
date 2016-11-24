@@ -1013,3 +1013,4 @@
 #include "msm-arm-smmu-impl-defs-falcon.dtsi"
 #include "msmfalcon-common.dtsi"
 #include "msmfalcon-blsp.dtsi"
+#include "msmfalcon-vidc.dtsi"
