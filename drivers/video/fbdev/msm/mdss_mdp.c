@@ -1129,12 +1129,31 @@ static int mdss_mdp_clk_update(u32 clk_idx, u32 enable)
 {
 	int ret = -ENODEV;
 	struct clk *clk = mdss_mdp_get_clk(clk_idx);
+	struct mdss_data_type *mdata = mdss_res;
 
 	if (clk) {
 		pr_debug("clk=%d en=%d\n", clk_idx, enable);
 		if (enable) {
 			if (clk_idx == MDSS_CLK_MDP_VSYNC)
 				clk_set_rate(clk, 19200000);
+			if (mdss_has_quirk(mdata, MDSS_QUIRK_MDP_CLK_SET_RATE)
+					&& (clk_idx == MDSS_CLK_MDP_CORE)) {
+
+				if (WARN_ON(!mdata->mdp_clk_rate)) {
+					/*
+					 * rate should have been set in probe
+					 * or during clk scaling; but if this
+					 * is not the case, set max clk rate.
+					 */
+					pr_warn("set max mdp clk rate:%u\n",
+						mdata->max_mdp_clk_rate);
+					mdss_mdp_set_clk_rate(
+						mdata->max_mdp_clk_rate, true);
+				} else {
+					clk_set_rate(clk, mdata->mdp_clk_rate);
+				}
+			}
+
 			ret = clk_prepare_enable(clk);
 		} else {
 			clk_disable_unprepare(clk);
@@ -1163,7 +1182,7 @@ int mdss_mdp_vsync_clk_enable(int enable, bool locked)
 	return ret;
 }
 
-void mdss_mdp_set_clk_rate(unsigned long rate)
+void mdss_mdp_set_clk_rate(unsigned long rate, bool locked)
 {
 	struct mdss_data_type *mdata = mdss_res;
 	unsigned long clk_rate;
@@ -1173,7 +1192,9 @@ void mdss_mdp_set_clk_rate(unsigned long rate)
 	min_clk_rate = max(rate, mdata->perf_tune.min_mdp_clk);
 
 	if (clk) {
-		mutex_lock(&mdp_clk_lock);
+
+		if (!locked)
+			mutex_lock(&mdp_clk_lock);
 		if (min_clk_rate < mdata->max_mdp_clk_rate)
 			clk_rate = clk_round_rate(clk, min_clk_rate);
 		else
@@ -1181,13 +1202,15 @@ void mdss_mdp_set_clk_rate(unsigned long rate)
 		if (IS_ERR_VALUE(clk_rate)) {
 			pr_err("unable to round rate err=%ld\n", clk_rate);
 		} else if (clk_rate != clk_get_rate(clk)) {
-			if (IS_ERR_VALUE((unsigned long)
-					 clk_set_rate(clk, clk_rate)))
+			mdata->mdp_clk_rate = clk_rate;
+			if (IS_ERR_VALUE(
+				(unsigned long)clk_set_rate(clk, clk_rate)))
 				pr_err("clk_set_rate failed\n");
 			else
 				pr_debug("mdp clk rate=%lu\n", clk_rate);
 		}
-		mutex_unlock(&mdp_clk_lock);
+		if (!locked)
+			mutex_unlock(&mdp_clk_lock);
 	} else {
 		pr_err("mdp src clk not setup properly\n");
 	}
@@ -1787,7 +1810,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	mdss_mdp_irq_clk_register(mdata, "mnoc_clk", MDSS_CLK_MNOC_AHB);
 
 	/* Setting the default clock rate to the max supported.*/
-	mdss_mdp_set_clk_rate(mdata->max_mdp_clk_rate);
+	mdss_mdp_set_clk_rate(mdata->max_mdp_clk_rate, false);
 	pr_debug("mdp clk rate=%ld\n",
 		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_CORE, false));
 
@@ -2010,6 +2033,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
 		mdss_set_quirk(mdata, MDSS_QUIRK_SRC_SPLIT_ALWAYS);
+		mdss_set_quirk(mdata, MDSS_QUIRK_MDP_CLK_SET_RATE);
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		break;

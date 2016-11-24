@@ -163,6 +163,7 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_NEED_SECURE_MAP,
 	MDSS_QUIRK_SRC_SPLIT_ALWAYS,
 	MDSS_QUIRK_HDR_SUPPORT_ENABLED,
+	MDSS_QUIRK_MDP_CLK_SET_RATE,
 	MDSS_QUIRK_MAX,
 };
 
@@ -289,6 +290,7 @@ struct mdss_data_type {
 	u32 max_mdp_clk_rate;
 	struct mdss_util_intf *mdss_util;
 	struct mdss_panel_data *pdata;
+	unsigned long mdp_clk_rate;
 
 	struct platform_device *pdev;
 	struct mdss_io_data mdss_io;

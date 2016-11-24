@@ -2396,7 +2396,7 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 	 */
 	if (update_clk) {
 		ATRACE_INT("mdp_clk", clk_rate);
-		mdss_mdp_set_clk_rate(clk_rate);
+		mdss_mdp_set_clk_rate(clk_rate, false);
 		pr_debug("update clk rate = %d HZ\n", clk_rate);
 	}
 

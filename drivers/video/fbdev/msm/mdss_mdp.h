@@ -1622,7 +1622,7 @@ u32 mdss_mdp_get_irq_mask(u32 intr_type, u32 intf_num);
 
 void mdss_mdp_footswitch_ctrl_splash(int on);
 void mdss_mdp_batfet_ctrl(struct mdss_data_type *mdata, int enable);
-void mdss_mdp_set_clk_rate(unsigned long min_clk_rate);
+void mdss_mdp_set_clk_rate(unsigned long min_clk_rate, bool locked);
 unsigned long mdss_mdp_get_clk_rate(u32 clk_idx, bool locked);
 int mdss_mdp_vsync_clk_enable(int enable, bool locked);
 void mdss_mdp_clk_ctrl(int enable);
