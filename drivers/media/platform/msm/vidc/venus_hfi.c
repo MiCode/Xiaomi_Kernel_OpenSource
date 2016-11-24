@@ -75,7 +75,7 @@ const struct msm_vidc_gov_data DEFAULT_BUS_VOTE = {
 	.imem_size = 0,
 };
 
-const int max_packets = 250;
+const int max_packets = 1000;
 
 static void venus_hfi_pm_handler(struct work_struct *work);
 static DECLARE_DELAYED_WORK(venus_hfi_pm_work, venus_hfi_pm_handler);
@@ -3576,6 +3576,7 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 	struct venus_hfi_device *device = list_first_entry(
 		&hal_ctxt.dev_head, struct venus_hfi_device, list);
 	int num_responses = 0, i = 0;
+	u32 intr_status;
 
 	mutex_lock(&device->lock);
 
@@ -3601,10 +3602,9 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 	num_responses = __response_handler(device);
 
 err_no_work:
-	/* We need re-enable the irq which was disabled in ISR handler */
-	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
-		enable_irq(device->hal_data->irq);
 
+	/* Keep the interrupt status before releasing device lock */
+	intr_status = device->intr_status;
 	mutex_unlock(&device->lock);
 
 	/*
@@ -3618,6 +3618,10 @@ err_no_work:
 
 		device->callback(r->response_type, &r->response);
 	}
+
+	/* We need re-enable the irq which was disabled in ISR handler */
+	if (!(intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
+		enable_irq(device->hal_data->irq);
 
 	/*
 	 * XXX: Don't add any code beyond here.  Reacquiring locks after release
@@ -4548,7 +4552,7 @@ static struct venus_hfi_device *__add_device(u32 device_id,
 	}
 
 	hdevice->response_pkt = kmalloc_array(max_packets,
-				sizeof(*hdevice->response_pkt), GFP_TEMPORARY);
+				sizeof(*hdevice->response_pkt), GFP_KERNEL);
 	if (!hdevice->response_pkt) {
 		dprintk(VIDC_ERR, "failed to allocate response_pkt\n");
 		goto err_cleanup;
