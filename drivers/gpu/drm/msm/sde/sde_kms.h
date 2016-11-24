@@ -135,6 +135,7 @@ struct sde_kms {
 	struct sde_irq irq_obj;
 
 	struct sde_rm rm;
+	bool rm_init;
 
 	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
 	struct sde_hw_mdp *hw_mdp;

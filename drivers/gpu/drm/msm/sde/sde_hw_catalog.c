@@ -1822,7 +1822,7 @@ static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 	}
 }
 
-static void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
+void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 {
 	int i;
 
@@ -1848,6 +1848,7 @@ static void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 		kfree(sde_cfg->vbif[i].dynamic_ot_rd_tbl.cfg);
 		kfree(sde_cfg->vbif[i].dynamic_ot_wr_tbl.cfg);
 	}
+	kfree(sde_cfg);
 }
 
 /*************************************************************
@@ -1913,6 +1914,5 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 
 end:
 	sde_hw_catalog_deinit(sde_cfg);
-	kfree(sde_cfg);
 	return NULL;
 }
