@@ -910,7 +910,7 @@ void cfg80211_process_rdev_events(struct cfg80211_registered_device *rdev)
 
 	ASSERT_RTNL();
 
-	list_for_each_entry(wdev, &rdev->wdev_list, list)
+	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list)
 		cfg80211_process_wdev_events(wdev);
 }
 
@@ -1490,18 +1490,18 @@ int cfg80211_validate_beacon_int(struct cfg80211_registered_device *rdev,
 		.beacon_int_gcd = beacon_int,	/* GCD(n) = n */
 	};
 
-	if (!beacon_int)
+	if (beacon_int < 10 || beacon_int > 10000)
 		return -EINVAL;
 
 	params.iftype_num[iftype] = 1;
-	list_for_each_entry(wdev, &rdev->wdev_list, list) {
+	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
 		if (!wdev->beacon_interval)
 			continue;
 
 		params.iftype_num[wdev->iftype]++;
 	}
 
-	list_for_each_entry(wdev, &rdev->wdev_list, list) {
+	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
 		u32 bi_prev = wdev->beacon_interval;
 
 		if (!wdev->beacon_interval)
@@ -1701,7 +1701,7 @@ int cfg80211_can_use_iftype_chan(struct cfg80211_registered_device *rdev,
 		break;
 	}
 
-	list_for_each_entry(wdev_iter, &rdev->wdev_list, list) {
+	list_for_each_entry(wdev_iter, &rdev->wiphy.wdev_list, list) {
 		if (wdev_iter == wdev)
 			continue;
 		if (wdev_iter->iftype == NL80211_IFTYPE_P2P_DEVICE) {
