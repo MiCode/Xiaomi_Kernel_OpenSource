@@ -38,12 +38,13 @@ extern void *mhi_ipc_log;
 		} \
 	} while (0)
 
-#define mhi_log(_msg_lvl, _msg, ...) do { \
+#define mhi_log(mhi_dev_ctxt, _msg_lvl, _msg, ...) do {	\
 		if ((_msg_lvl) >= mhi_msg_lvl) \
 			pr_alert("[%s] " _msg, __func__, ##__VA_ARGS__);\
-		if (mhi_ipc_log && ((_msg_lvl) >= mhi_ipc_log_lvl))	\
-			ipc_log_string(mhi_ipc_log,			\
-			       "[%s] " _msg, __func__, ##__VA_ARGS__);	\
+		if (mhi_dev_ctxt->mhi_ipc_log && \
+		    ((_msg_lvl) >= mhi_ipc_log_lvl)) \
+			ipc_log_string(mhi_dev_ctxt->mhi_ipc_log, \
+			       "[%s] " _msg, __func__, ##__VA_ARGS__); \
 } while (0)
 
 extern const char * const mhi_states_str[MHI_STATE_LIMIT];

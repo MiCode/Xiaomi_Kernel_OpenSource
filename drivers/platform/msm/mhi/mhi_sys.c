@@ -51,13 +51,13 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 {
 	int amnt_copied = 0;
 	struct mhi_chan_ctxt *chan_ctxt;
-	struct mhi_device_ctxt *mhi_dev_ctxt =
-		&mhi_devices.device_list[0].mhi_ctxt;
+	struct mhi_device_ctxt *mhi_dev_ctxt = fp->private_data;
 	uintptr_t v_wp_index;
 	uintptr_t v_rp_index;
 	int valid_chan = 0;
 	struct mhi_chan_ctxt *cc_list;
 	struct mhi_client_handle *client_handle;
+	struct mhi_client_config *client_config;
 	int pkts_queued;
 
 	if (NULL == mhi_dev_ctxt)
@@ -76,6 +76,7 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 			continue;
 		}
 		client_handle = mhi_dev_ctxt->client_handle_list[*offp];
+		client_config = client_handle->client_config;
 		valid_chan = 1;
 	}
 
@@ -87,8 +88,9 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 			mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].wp,
 			&v_wp_index);
 
-	pkts_queued = client_handle->chan_info.max_desc -
-		get_nr_avail_ring_elements(&mhi_dev_ctxt->
+	pkts_queued = client_config->chan_info.max_desc -
+		get_nr_avail_ring_elements(mhi_dev_ctxt,
+					   &mhi_dev_ctxt->
 					   mhi_local_chan_ctxt[*offp]) - 1;
 	amnt_copied =
 	scnprintf(mhi_dev_ctxt->chan_info,
@@ -115,7 +117,7 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 		  "pkts_queued",
 		  pkts_queued,
 		  "/",
-		  client_handle->chan_info.max_desc,
+		  client_config->chan_info.max_desc,
 		  "bb_used:",
 		  mhi_dev_ctxt->counters.bb_used[*offp]);
 
@@ -128,9 +130,16 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 		return -ENOMEM;
 }
 
+int mhi_dbgfs_open(struct inode *inode, struct file *fp)
+{
+	fp->private_data = inode->i_private;
+	return 0;
+}
+
 static const struct file_operations mhi_dbgfs_chan_fops = {
 	.read = mhi_dbgfs_chan_read,
 	.write = NULL,
+	.open = mhi_dbgfs_open,
 };
 
 static ssize_t mhi_dbgfs_ev_read(struct file *fp, char __user *buf,
@@ -143,8 +152,7 @@ static ssize_t mhi_dbgfs_ev_read(struct file *fp, char __user *buf,
 	uintptr_t v_rp_index;
 	uintptr_t device_p_rp_index;
 
-	struct mhi_device_ctxt *mhi_dev_ctxt =
-		&mhi_devices.device_list[0].mhi_ctxt;
+	struct mhi_device_ctxt *mhi_dev_ctxt = fp->private_data;
 	if (NULL == mhi_dev_ctxt)
 		return -EIO;
 	*offp = (u32)(*offp) % mhi_dev_ctxt->mmio_info.nr_event_rings;
@@ -209,31 +217,15 @@ static ssize_t mhi_dbgfs_ev_read(struct file *fp, char __user *buf,
 static const struct file_operations mhi_dbgfs_ev_fops = {
 	.read = mhi_dbgfs_ev_read,
 	.write = NULL,
-};
-
-static ssize_t mhi_dbgfs_trigger_msi(struct file *fp, const char __user *buf,
-				size_t count, loff_t *offp)
-{
-	u32 msi_nr = 0;
-	void *irq_ctxt = &((mhi_devices.device_list[0]).pcie_device->dev);
-
-	if (copy_from_user(&msi_nr, buf, sizeof(msi_nr)))
-		return -ENOMEM;
-	mhi_msi_handlr(msi_nr, irq_ctxt);
-	return 0;
-}
-
-static const struct file_operations mhi_dbgfs_trigger_msi_fops = {
-	.read = NULL,
-	.write = mhi_dbgfs_trigger_msi,
+	.open = mhi_dbgfs_open,
 };
 
 static ssize_t mhi_dbgfs_state_read(struct file *fp, char __user *buf,
 				size_t count, loff_t *offp)
 {
 	int amnt_copied = 0;
-	struct mhi_device_ctxt *mhi_dev_ctxt =
-		&mhi_devices.device_list[0].mhi_ctxt;
+	struct mhi_device_ctxt *mhi_dev_ctxt = fp->private_data;
+
 	if (NULL == mhi_dev_ctxt)
 		return -EIO;
 	msleep(100);
@@ -260,7 +252,7 @@ static ssize_t mhi_dbgfs_state_read(struct file *fp, char __user *buf,
 		  "device_wake:",
 		  atomic_read(&mhi_dev_ctxt->counters.device_wake),
 		  "usage_count:",
-		  atomic_read(&mhi_dev_ctxt->dev_info->pcie_device->dev.
+		  atomic_read(&mhi_dev_ctxt->pcie_device->dev.
 			      power.usage_count),
 		  "outbound_acks:",
 		  atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
@@ -275,63 +267,61 @@ static ssize_t mhi_dbgfs_state_read(struct file *fp, char __user *buf,
 static const struct file_operations mhi_dbgfs_state_fops = {
 	.read = mhi_dbgfs_state_read,
 	.write = NULL,
+	.open = mhi_dbgfs_open,
 };
 
 int mhi_init_debugfs(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	struct dentry *mhi_chan_stats;
 	struct dentry *mhi_state_stats;
-	struct dentry *mhi_msi_trigger;
 	struct dentry *mhi_ev_stats;
+	const struct pcie_core_info *core = &mhi_dev_ctxt->core;
+	char node_name[32];
 
-	mhi_dev_ctxt->mhi_parent_folder =
-					debugfs_create_dir("mhi", NULL);
-	if (mhi_dev_ctxt->mhi_parent_folder == NULL) {
-		mhi_log(MHI_MSG_INFO, "Failed to create debugfs parent dir.\n");
+	snprintf(node_name,
+		 sizeof(node_name),
+		 "%04x_%02u.%02u.%02u",
+		 core->dev_id, core->domain, core->bus, core->slot);
+
+	mhi_dev_ctxt->child =
+		debugfs_create_dir(node_name, mhi_dev_ctxt->parent);
+	if (mhi_dev_ctxt->child == NULL) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Failed to create debugfs parent dir.\n");
 		return -EIO;
 	}
 	mhi_chan_stats = debugfs_create_file("mhi_chan_stats",
 					0444,
-					mhi_dev_ctxt->mhi_parent_folder,
+					mhi_dev_ctxt->child,
 					mhi_dev_ctxt,
 					&mhi_dbgfs_chan_fops);
 	if (mhi_chan_stats == NULL)
 		return -ENOMEM;
 	mhi_ev_stats = debugfs_create_file("mhi_ev_stats",
 					0444,
-					mhi_dev_ctxt->mhi_parent_folder,
+					mhi_dev_ctxt->child,
 					mhi_dev_ctxt,
 					&mhi_dbgfs_ev_fops);
 	if (mhi_ev_stats == NULL)
 		goto clean_chan;
 	mhi_state_stats = debugfs_create_file("mhi_state_stats",
 					0444,
-					mhi_dev_ctxt->mhi_parent_folder,
+					mhi_dev_ctxt->child,
 					mhi_dev_ctxt,
 					&mhi_dbgfs_state_fops);
 	if (mhi_state_stats == NULL)
 		goto clean_ev_stats;
-	mhi_msi_trigger = debugfs_create_file("mhi_msi_trigger",
-					0444,
-					mhi_dev_ctxt->mhi_parent_folder,
-					mhi_dev_ctxt,
-					&mhi_dbgfs_trigger_msi_fops);
-	if (mhi_msi_trigger == NULL)
-		goto clean_state;
 
 	mhi_dev_ctxt->chan_info = kmalloc(MHI_LOG_SIZE, GFP_KERNEL);
 	if (mhi_dev_ctxt->chan_info == NULL)
-		goto clean_all;
+		goto clean_ev_stats;
 	return 0;
-clean_all:
-	debugfs_remove(mhi_msi_trigger);
-clean_state:
-	debugfs_remove(mhi_state_stats);
+
 clean_ev_stats:
 	debugfs_remove(mhi_ev_stats);
 clean_chan:
 	debugfs_remove(mhi_chan_stats);
-	debugfs_remove(mhi_dev_ctxt->mhi_parent_folder);
+	debugfs_remove(mhi_dev_ctxt->child);
 	return -ENOMEM;
 }
 
