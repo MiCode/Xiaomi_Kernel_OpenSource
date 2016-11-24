@@ -70,6 +70,9 @@ static bool sdecustom = true;
 module_param(sdecustom, bool, 0400);
 MODULE_PARM_DESC(sdecustom, "Enable customizations for sde clients");
 
+static int sde_kms_hw_init(struct msm_kms *kms);
+static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms);
+
 bool sde_is_custom_client(void)
 {
 	return sdecustom;
@@ -567,15 +570,21 @@ static void _sde_kms_drm_obj_destroy(struct sde_kms *sde_kms)
 
 	for (i = 0; i < priv->num_crtcs; i++)
 		priv->crtcs[i]->funcs->destroy(priv->crtcs[i]);
+	priv->num_crtcs = 0;
 
 	for (i = 0; i < priv->num_planes; i++)
 		priv->planes[i]->funcs->destroy(priv->planes[i]);
+	priv->num_planes = 0;
 
 	for (i = 0; i < priv->num_connectors; i++)
 		priv->connectors[i]->funcs->destroy(priv->connectors[i]);
+	priv->num_connectors = 0;
 
 	for (i = 0; i < priv->num_encoders; i++)
 		priv->encoders[i]->funcs->destroy(priv->encoders[i]);
+	priv->num_encoders = 0;
+
+	_sde_kms_release_displays(sde_kms);
 }
 
 static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
@@ -660,11 +669,6 @@ fail:
 	return ret;
 }
 
-static int sde_kms_hw_init(struct msm_kms *kms)
-{
-	return 0;
-}
-
 static int sde_kms_postinit(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
@@ -691,10 +695,33 @@ static long sde_kms_round_pixclk(struct msm_kms *kms, unsigned long rate,
 	return rate;
 }
 
-static void sde_kms_destroy(struct msm_kms *kms)
+static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
+		struct platform_device *pdev)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
 	int i;
+
+	if (!sde_kms || !pdev)
+		return;
+
+	dev = sde_kms->dev;
+	if (!dev)
+		return;
+
+	priv = dev->dev_private;
+	if (!priv)
+		return;
+
+	if (sde_kms->hw_intr)
+		sde_hw_intr_destroy(sde_kms->hw_intr);
+	sde_kms->hw_intr = NULL;
+
+	_sde_kms_release_displays(sde_kms);
+
+	/* safe to call these more than once during shutdown */
+	_sde_debugfs_destroy(sde_kms);
+	_sde_kms_mmu_destroy(sde_kms);
 
 	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
 		u32 vbif_idx = sde_kms->catalog->vbif[i].id;
@@ -703,10 +730,49 @@ static void sde_kms_destroy(struct msm_kms *kms)
 			sde_hw_vbif_destroy(sde_kms->hw_vbif[vbif_idx]);
 	}
 
-	_sde_kms_release_displays(sde_kms);
-	_sde_debugfs_destroy(sde_kms);
-	sde_hw_intr_destroy(sde_kms->hw_intr);
-	sde_rm_destroy(&sde_kms->rm);
+	if (sde_kms->rm_init)
+		sde_rm_destroy(&sde_kms->rm);
+	sde_kms->rm_init = false;
+
+	if (sde_kms->catalog)
+		sde_hw_catalog_deinit(sde_kms->catalog);
+	sde_kms->catalog = NULL;
+
+	if (sde_kms->core_client)
+		sde_power_client_destroy(&priv->phandle, sde_kms->core_client);
+	sde_kms->core_client = NULL;
+
+	if (sde_kms->vbif[VBIF_NRT])
+		msm_iounmap(pdev, sde_kms->vbif[VBIF_NRT]);
+	sde_kms->vbif[VBIF_NRT] = NULL;
+
+	if (sde_kms->vbif[VBIF_RT])
+		msm_iounmap(pdev, sde_kms->vbif[VBIF_RT]);
+	sde_kms->vbif[VBIF_RT] = NULL;
+
+	if (sde_kms->mmio)
+		msm_iounmap(pdev, sde_kms->mmio);
+	sde_kms->mmio = NULL;
+}
+
+static void sde_kms_destroy(struct msm_kms *kms)
+{
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+	if (!dev) {
+		SDE_ERROR("invalid device\n");
+		return;
+	}
+
+	_sde_kms_hw_destroy(sde_kms, dev->platformdev);
 	kfree(sde_kms);
 }
 
@@ -743,7 +809,7 @@ static const struct msm_kms_funcs kms_funcs = {
 };
 
 /* the caller api needs to turn on clock before calling it */
-static void _sde_kms_core_hw_rev_init(struct sde_kms *sde_kms)
+static inline void _sde_kms_core_hw_rev_init(struct sde_kms *sde_kms)
 {
 	sde_kms->core_rev = readl_relaxed(sde_kms->mmio + 0x0);
 }
@@ -811,112 +877,69 @@ fail:
 	return ret;
 }
 
-static struct sde_kms *_sde_kms_hw_setup(struct platform_device *pdev)
+static int sde_kms_hw_init(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
-	int ret = 0;
-
-	sde_kms = kzalloc(sizeof(*sde_kms), GFP_KERNEL);
-	if (!sde_kms)
-		return ERR_PTR(-ENOMEM);
-
-	sde_kms->mmio = msm_ioremap(pdev, "mdp_phys", "SDE");
-	if (IS_ERR(sde_kms->mmio)) {
-		ret = PTR_ERR(sde_kms->mmio);
-		SDE_ERROR("mdp register memory map failed: %d\n", ret);
-		sde_kms->mmio = NULL;
-		goto err;
-	}
-	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
-
-	sde_kms->vbif[VBIF_RT] = msm_ioremap(pdev, "vbif_phys", "VBIF");
-	if (IS_ERR(sde_kms->vbif[VBIF_RT])) {
-		ret = PTR_ERR(sde_kms->vbif[VBIF_RT]);
-		SDE_ERROR("vbif register memory map failed: %d\n", ret);
-		sde_kms->vbif[VBIF_RT] = NULL;
-		goto vbif_map_err;
-	}
-
-	sde_kms->vbif[VBIF_NRT] = msm_ioremap(pdev, "vbif_nrt_phys",
-		"VBIF_NRT");
-	if (IS_ERR(sde_kms->vbif[VBIF_NRT])) {
-		sde_kms->vbif[VBIF_NRT] = NULL;
-		SDE_DEBUG("VBIF NRT is not defined");
-	}
-
-	/* junk API - no error return for init api */
-	msm_kms_init(&sde_kms->base, &kms_funcs);
-	if (ret) {
-		SDE_ERROR("mdp/kms hw init failed\n");
-		goto kms_init_err;
-	}
-
-	SDE_DEBUG("sde hw setup successful\n");
-
-	return sde_kms;
-
-kms_init_err:
-	if (sde_kms->vbif[VBIF_NRT])
-		msm_iounmap(pdev, sde_kms->vbif[VBIF_NRT]);
-	if (sde_kms->vbif[VBIF_RT])
-		msm_iounmap(pdev, sde_kms->vbif[VBIF_RT]);
-vbif_map_err:
-	if (sde_kms->mmio)
-		msm_iounmap(pdev, sde_kms->mmio);
-err:
-	kfree(sde_kms);
-	return ERR_PTR(ret);
-}
-
-static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
-		struct platform_device *pdev)
-{
-	if (sde_kms->vbif[VBIF_NRT])
-		msm_iounmap(pdev, sde_kms->vbif[VBIF_NRT]);
-	if (sde_kms->vbif[VBIF_RT])
-		msm_iounmap(pdev, sde_kms->vbif[VBIF_RT]);
-	if (sde_kms->mmio)
-		msm_iounmap(pdev, sde_kms->mmio);
-	kfree(sde_kms);
-}
-
-struct msm_kms *sde_kms_init(struct drm_device *dev)
-{
+	struct drm_device *dev;
 	struct msm_drm_private *priv;
-	struct sde_kms *sde_kms;
-	int i;
-	int rc;
+	int i, rc = -EINVAL;
 
-	if (!dev) {
-		SDE_ERROR("drm device node invalid\n");
-		rc = -EINVAL;
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		goto end;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+	if (!dev || !dev->platformdev) {
+		SDE_ERROR("invalid device\n");
 		goto end;
 	}
 
 	priv = dev->dev_private;
-	sde_kms = _sde_kms_hw_setup(dev->platformdev);
-	if (IS_ERR_OR_NULL(sde_kms)) {
-		rc = PTR_ERR(sde_kms);
-		SDE_ERROR("sde hw setup failed: %d\n", rc);
+	if (!priv) {
+		SDE_ERROR("invalid private data\n");
 		goto end;
 	}
 
-	sde_kms->dev = dev;
-	priv->kms = &sde_kms->base;
+	sde_kms->mmio = msm_ioremap(dev->platformdev, "mdp_phys", "SDE");
+	if (IS_ERR(sde_kms->mmio)) {
+		rc = PTR_ERR(sde_kms->mmio);
+		SDE_ERROR("mdp register memory map failed: %d\n", rc);
+		sde_kms->mmio = NULL;
+		goto error;
+	}
+	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
+
+	sde_kms->vbif[VBIF_RT] = msm_ioremap(dev->platformdev,
+			"vbif_phys", "VBIF");
+	if (IS_ERR(sde_kms->vbif[VBIF_RT])) {
+		rc = PTR_ERR(sde_kms->vbif[VBIF_RT]);
+		SDE_ERROR("vbif register memory map failed: %d\n", rc);
+		sde_kms->vbif[VBIF_RT] = NULL;
+		goto error;
+	}
+
+	sde_kms->vbif[VBIF_NRT] = msm_ioremap(dev->platformdev,
+			"vbif_nrt_phys", "VBIF_NRT");
+	if (IS_ERR(sde_kms->vbif[VBIF_NRT])) {
+		sde_kms->vbif[VBIF_NRT] = NULL;
+		SDE_DEBUG("VBIF NRT is not defined");
+	}
 
 	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
 	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
 		rc = PTR_ERR(sde_kms->core_client);
 		SDE_ERROR("sde power client create failed: %d\n", rc);
 		sde_kms->core_client = NULL;
-		goto kms_destroy;
+		goto error;
 	}
 
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 		true);
 	if (rc) {
 		SDE_ERROR("resource enable failed: %d\n", rc);
-		goto clk_enable_err;
+		goto error;
 	}
 
 	_sde_kms_core_hw_rev_init(sde_kms);
@@ -928,20 +951,24 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 		rc = PTR_ERR(sde_kms->catalog);
 		SDE_ERROR("catalog init failed: %d\n", rc);
 		sde_kms->catalog = NULL;
-		goto catalog_err;
+		goto power_error;
 	}
 
 	rc = sde_rm_init(&sde_kms->rm, sde_kms->catalog, sde_kms->mmio,
 			sde_kms->dev);
-	if (rc)
-		goto rm_init_err;
+	if (rc) {
+		SDE_ERROR("rm init failed: %d\n", rc);
+		goto power_error;
+	}
+
+	sde_kms->rm_init = true;
 
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
 		rc = PTR_ERR(sde_kms->hw_mdp);
 		SDE_ERROR("failed to get hw_mdp: %d\n", rc);
 		sde_kms->hw_mdp = NULL;
-		goto mdp_top_init_err;
+		goto power_error;
 	}
 
 	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
@@ -953,7 +980,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 			rc = PTR_ERR(sde_kms->hw_vbif[vbif_idx]);
 			SDE_ERROR("failed to init vbif %d: %d\n", vbif_idx, rc);
 			sde_kms->hw_vbif[vbif_idx] = NULL;
-			goto vbif_init_err;
+			goto power_error;
 		}
 	}
 
@@ -964,7 +991,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	rc = _sde_kms_mmu_init(sde_kms);
 	if (rc) {
 		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
-		goto mmu_init_err;
+		goto power_error;
 	}
 
 	/*
@@ -974,7 +1001,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	rc = _sde_debugfs_init(sde_kms);
 	if (rc) {
 		SDE_ERROR("sde_debugfs init failed: %d\n", rc);
-		goto debugfs_init_err;
+		goto power_error;
 	}
 
 	/*
@@ -984,7 +1011,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	rc = _sde_kms_drm_obj_init(sde_kms);
 	if (rc) {
 		SDE_ERROR("modeset init failed: %d\n", rc);
-		goto drm_obj_init_err;
+		goto power_error;
 	}
 
 	dev->mode_config.min_width = 0;
@@ -1011,32 +1038,38 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	}
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
-
-	return &sde_kms->base;
+	return 0;
 
 hw_intr_init_err:
 	_sde_kms_drm_obj_destroy(sde_kms);
-drm_obj_init_err:
-	_sde_debugfs_destroy(sde_kms);
-debugfs_init_err:
-mmu_init_err:
-	_sde_kms_mmu_destroy(sde_kms);
-vbif_init_err:
-	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
-		u32 vbif_idx = sde_kms->catalog->vbif[i].id;
-
-		if ((vbif_idx < VBIF_MAX) && sde_kms->hw_vbif[vbif_idx])
-			sde_hw_vbif_destroy(sde_kms->hw_vbif[vbif_idx]);
-	}
-mdp_top_init_err:
-	sde_rm_destroy(&sde_kms->rm);
-rm_init_err:
-catalog_err:
+power_error:
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
-clk_enable_err:
-	sde_power_client_destroy(&priv->phandle, sde_kms->core_client);
-kms_destroy:
+error:
 	_sde_kms_hw_destroy(sde_kms, dev->platformdev);
 end:
-	return ERR_PTR(rc);
+	return rc;
+}
+
+struct msm_kms *sde_kms_init(struct drm_device *dev)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!dev || !dev->dev_private) {
+		SDE_ERROR("drm device node invalid\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	priv = dev->dev_private;
+
+	sde_kms = kzalloc(sizeof(*sde_kms), GFP_KERNEL);
+	if (!sde_kms) {
+		SDE_ERROR("failed to allocate sde kms\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	msm_kms_init(&sde_kms->base, &kms_funcs);
+	sde_kms->dev = dev;
+
+	return &sde_kms->base;
 }

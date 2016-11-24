@@ -681,7 +681,7 @@ struct sde_mdss_hw_cfg_handler {
 #define BLK_AD(s) ((s)->ad)
 
 /**
- * sde_hw_catalog_init() - sde hardware catalog init API parses dtsi property
+ * sde_hw_catalog_init - sde hardware catalog init API parses dtsi property
  * and stores all parsed offset, hardware capabilities in config structure.
  * @dev:          drm device node.
  * @hw_rev:       caller needs provide the hardware revision before parsing.
@@ -689,5 +689,11 @@ struct sde_mdss_hw_cfg_handler {
  * Return: parsed sde config structure
  */
 struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev);
+
+/**
+ * sde_hw_catalog_deinit - sde hardware catalog cleanup
+ * @sde_cfg:      pointer returned from init function
+ */
+void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg);
 
 #endif /* _SDE_HW_CATALOG_H */
