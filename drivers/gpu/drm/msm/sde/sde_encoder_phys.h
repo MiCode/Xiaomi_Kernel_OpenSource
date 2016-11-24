@@ -15,6 +15,8 @@
 #ifndef __SDE_ENCODER_PHYS_H__
 #define __SDE_ENCODER_PHYS_H__
 
+#include <linux/jiffies.h>
+
 #include "sde_kms.h"
 #include "sde_hw_intf.h"
 #include "sde_hw_pingpong.h"
@@ -26,6 +28,10 @@
 #include "sde_connector.h"
 
 #define SDE_ENCODER_NAME_MAX	16
+
+/* wait for at most 2 vsync for lowest refresh rate (24hz) */
+#define KICKOFF_TIMEOUT_MS		84
+#define KICKOFF_TIMEOUT_JIFFIES		msecs_to_jiffies(KICKOFF_TIMEOUT_MS)
 
 /**
  * enum sde_enc_split_role - Role this physical encoder will play in a
@@ -50,15 +56,11 @@ struct sde_encoder_phys;
  *			Note: This is called from IRQ handler context.
  * @handle_underrun_virt: Notify virtual encoder of underrun IRQ reception
  *			Note: This is called from IRQ handler context.
- * @handle_ready_for_kickoff:	Notify virtual encoder that this phys encoder
- *				is now ready for the next kickoff.
  */
 struct sde_encoder_virt_ops {
 	void (*handle_vblank_virt)(struct drm_encoder *,
 			struct sde_encoder_phys *phys);
 	void (*handle_underrun_virt)(struct drm_encoder *,
-			struct sde_encoder_phys *phys);
-	void (*handle_ready_for_kickoff)(struct drm_encoder *,
 			struct sde_encoder_phys *phys);
 };
 
@@ -82,9 +84,7 @@ struct sde_encoder_virt_ops {
  * @wait_for_commit_done:	Wait for hardware to have flushed the
  *				current pending frames to hardware
  * @prepare_for_kickoff:	Do any work necessary prior to a kickoff
- *				and report whether need to wait before
- *				triggering the next kickoff
- *				(ie for previous tx to complete)
+ *				For CMD encoder, may wait for previous tx done
  * @handle_post_kickoff:	Do any work necessary post-kickoff work
  * @trigger_start:		Process start event on physical encoder
  * @needs_split_flush:		Whether encoder type needs split flush
@@ -111,8 +111,7 @@ struct sde_encoder_phys_ops {
 			struct drm_connector_state *conn_state);
 	int (*control_vblank_irq)(struct sde_encoder_phys *enc, bool enable);
 	int (*wait_for_commit_done)(struct sde_encoder_phys *phys_enc);
-	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
-			bool *wait_until_ready);
+	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
 	void (*trigger_start)(struct sde_encoder_phys *phys_enc);
 	bool (*needs_split_flush)(struct sde_encoder_phys *phys_enc);
@@ -353,6 +352,24 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
  * @phys_enc: Pointer to physical encoder structure
  */
 void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc);
+
+/**
+ * sde_encoder_helper_wait_event_timeout - wait for event with timeout
+ *	taking into account that jiffies may jump between reads leading to
+ *	incorrectly detected timeouts. Prevent failure in this scenario by
+ *	making sure that elapsed time during wait is valid.
+ * @drm_id: drm object id for logging
+ * @hw_id: hw instance id for logging
+ * @wq: wait queue structure
+ * @cnt: atomic counter to wait on
+ * @timeout_ms: timeout value in milliseconds
+ */
+int sde_encoder_helper_wait_event_timeout(
+		int32_t drm_id,
+		int32_t hw_id,
+		wait_queue_head_t *wq,
+		atomic_t *cnt,
+		s64 timeout_ms);
 
 
 static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
