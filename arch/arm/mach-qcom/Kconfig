@@ -2,7 +2,7 @@ if ARCH_QCOM
 menu "QCOM SoC Type"
 
 config ARCH_MSMFALCON
-        bool "Enable Support for Qualcomm MSMFALCON"
+        bool "Enable Support for MSMFALCON"
 	select CLKDEV_LOOKUP
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
@@ -40,7 +40,7 @@ config ARCH_MSMFALCON
 	wish to build a kernel that runs on this chipset, say 'N' here.
 
 config ARCH_MSMTRITON
-        bool "Enable Support for Qualcomm MSMTRITON"
+        bool "Enable Support for MSMTRITON"
 	select CLKDEV_LOOKUP
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
