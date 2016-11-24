@@ -7,6 +7,7 @@
 #include <linux/pageblock-flags.h>
 #include <linux/memory.h>
 #include <linux/hugetlb.h>
+#include <linux/kasan.h>
 #include "internal.h"
 
 int set_migratetype_isolate(struct page *page, bool skip_hwpoisoned_pages)
@@ -104,6 +105,8 @@ void unset_migratetype_isolate(struct page *page, unsigned migratetype)
 
 			if (!is_migrate_isolate_page(buddy)) {
 				__isolate_free_page(page, order);
+				kasan_alloc_pages(page, order);
+				arch_alloc_page(page, order);
 				kernel_map_pages(page, (1 << order), 1);
 				set_page_refcounted(page);
 				isolated_page = page;
