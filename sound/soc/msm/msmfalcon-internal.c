@@ -18,6 +18,7 @@
 #include "msm-audio-pinctrl.h"
 #include "msmfalcon-common.h"
 #include "../codecs/msm8x16/msm8x16-wcd.h"
+#include "../codecs/msm_sdw/msm_sdw.h"
 
 #define __CHIPSET__ "MSMFALCON "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
@@ -29,6 +30,9 @@
 
 #define WCN_CDC_SLIM_RX_CH_MAX 2
 #define WCN_CDC_SLIM_TX_CH_MAX 3
+
+#define WSA8810_NAME_1 "wsa881x.20170211"
+#define WSA8810_NAME_2 "wsa881x.20170212"
 
 enum {
 	INT0_MI2S = 0,
@@ -176,6 +180,7 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream);
 static void msm_int_mi2s_snd_shutdown(struct snd_pcm_substream *substream);
 
 static struct wcd_mbhc_config *mbhc_cfg_ptr;
+static struct snd_info_entry *msm_sdw_codec_root;
 
 static int int_mi2s_get_bit_format_val(int bit_format)
 {
@@ -526,6 +531,33 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		}
 	}
 	return 0;
+}
+
+static int msm_config_sdw_gpio(bool enable, struct snd_soc_codec *codec)
+{
+	int ret = 0;
+
+	pr_debug("%s: %s SDW Clk/Data Gpios\n", __func__,
+		enable ? "Enable" : "Disable");
+
+	if (enable) {
+		ret = msm_gpioset_activate(CLIENT_WCD, "sdw_pin");
+		if (ret) {
+			pr_err("%s: gpio set cannot be activated %s\n",
+				__func__, "sdw_pin");
+			goto done;
+		}
+	} else {
+		ret = msm_gpioset_suspend(CLIENT_WCD, "sdw_pin");
+		if (ret) {
+			pr_err("%s: gpio set cannot be de-activated %s\n",
+				__func__, "sdw_pin");
+			goto done;
+		}
+	}
+
+done:
+	return ret;
 }
 
 static int int_mi2s_get_idx_from_beid(int32_t be_id)
@@ -893,7 +925,7 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_bt_sample_rate_put),
 };
 
-static const struct snd_kcontrol_new msm_swr_controls[] = {
+static const struct snd_kcontrol_new msm_sdw_controls[] = {
 	SOC_ENUM_EXT("INT4_MI2S_RX Format", int4_mi2s_rx_format,
 		     int_mi2s_bit_format_get, int_mi2s_bit_format_put),
 	SOC_ENUM_EXT("INT4_MI2S_RX SampleRate", int4_mi2s_rx_sample_rate,
@@ -1098,7 +1130,7 @@ done:
 	return ret;
 }
 
-static int msm_swr_mi2s_snd_startup(struct snd_pcm_substream *substream)
+static int msm_sdw_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
@@ -1113,13 +1145,6 @@ static int msm_swr_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				__func__, ret);
 		return ret;
 	}
-	/* Enable the codec mclk config */
-	ret = msm_gpioset_activate(CLIENT_WCD, "swr_pin");
-	if (ret < 0) {
-		pr_err("%s: gpio set cannot be activated %sd",
-				__func__, "swr_pin");
-		return ret;
-	}
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0)
 		pr_err("%s: set fmt cpu dai failed; ret=%d\n", __func__, ret);
@@ -1127,7 +1152,7 @@ static int msm_swr_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	return ret;
 }
 
-static void msm_swr_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
+static void msm_sdw_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret;
 
@@ -1253,6 +1278,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm =
 			snd_soc_codec_get_dapm(codec);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
 	int ret = -ENOMEM;
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
@@ -1285,6 +1311,17 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
+	/*
+	 * Send speaker configuration only for WSA8810.
+	 * Defalut configuration is for WSA8815.
+	 */
+	if (rtd_aux && rtd_aux->component)
+		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
+		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+			msm_sdw_set_spkr_mode(rtd->codec, SPKR_MODE_1);
+			msm_sdw_set_spkr_gain_offset(rtd->codec,
+						   RX_GAIN_OFFSET_M1P5_DB);
+	}
 	msm8x16_wcd_spk_ext_pa_cb(enable_spk_ext_pa, codec);
 	msm8x16_wcd_hph_comp_cb(msm_config_hph_compander_gpio, codec);
 
@@ -1300,24 +1337,38 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-static int msm_swr_audrx_init(struct snd_soc_pcm_runtime *rtd)
+static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm =
 			snd_soc_codec_get_dapm(codec);
+	struct snd_card *card;
+	struct snd_info_entry *entry;
 
-	snd_soc_add_codec_controls(codec, msm_swr_controls,
-			ARRAY_SIZE(msm_swr_controls));
+	snd_soc_add_codec_controls(codec, msm_sdw_controls,
+			ARRAY_SIZE(msm_sdw_controls));
 
-	snd_soc_dapm_ignore_suspend(dapm, "AIF1_SWR Playback");
-	snd_soc_dapm_ignore_suspend(dapm, "VIfeed_SWR");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF1_SDW Playback");
+	snd_soc_dapm_ignore_suspend(dapm, "VIfeed_SDW");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
-	snd_soc_dapm_ignore_suspend(dapm, "AIF1_SWR VI");
-	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT_SWR");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF1_SDW VI");
+	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT_SDW");
 
 	snd_soc_dapm_sync(dapm);
-
+	msm_sdw_gpio_cb(msm_config_sdw_gpio, codec);
+	card = rtd->card->snd_card;
+	entry = snd_register_module_info(card->module, "codecs",
+					 card->proc_root);
+	if (!entry) {
+		pr_debug("%s: Cannot create codecs module entry\n",
+			 __func__);
+		msm_sdw_codec_root = NULL;
+		goto done;
+	}
+	msm_sdw_codec_root = entry;
+	msm_sdw_codec_info_create_codec_entry(msm_sdw_codec_root, codec);
+done:
 	return 0;
 }
 
@@ -1540,9 +1591,9 @@ static struct snd_soc_ops msm_int_mi2s_be_ops = {
 	.shutdown = msm_int_mi2s_snd_shutdown,
 };
 
-static struct snd_soc_ops msm_swr_mi2s_be_ops = {
-	.startup = msm_swr_mi2s_snd_startup,
-	.shutdown = msm_swr_mi2s_snd_shutdown,
+static struct snd_soc_ops msm_sdw_mi2s_be_ops = {
+	.startup = msm_sdw_mi2s_snd_startup,
+	.shutdown = msm_sdw_mi2s_snd_shutdown,
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -2118,11 +2169,11 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.stream_name = "INT5_mi2s Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.12",
 		.platform_name = "msm-pcm-hostless",
-		.codec_name = "msm_swr_codec",
-		.codec_dai_name = "msm_swr_vifeedback",
+		.codec_name = "msm_sdw_codec",
+		.codec_dai_name = "msm_sdw_vifeedback",
 		.be_id = MSM_BACKEND_DAI_INT5_MI2S_TX,
 		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
-		.ops = &msm_swr_mi2s_be_ops,
+		.ops = &msm_sdw_mi2s_be_ops,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
 		.dpcm_capture = 1,
@@ -2219,14 +2270,14 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.stream_name = "INT4 MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.11",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm_swr_codec",
-		.codec_dai_name = "msm_swr_i2s_rx1",
+		.codec_name = "msm_sdw_codec",
+		.codec_dai_name = "msm_sdw_i2s_rx1",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_INT4_MI2S_RX,
-		.init = &msm_swr_audrx_init,
+		.init = &msm_sdw_audrx_init,
 		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
-		.ops = &msm_swr_mi2s_be_ops,
+		.ops = &msm_sdw_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
 	{
@@ -2913,8 +2964,7 @@ static int msm_internal_init(struct platform_device *pdev,
 			AFE_API_VERSION_I2S_CONFIG;
 	pdata->digital_cdc_core_clk.clk_id =
 			Q6AFE_LPASS_CLK_ID_INT_MCLK_0;
-	pdata->digital_cdc_core_clk.clk_freq_in_hz =
-			pdata->mclk_freq;
+	pdata->digital_cdc_core_clk.clk_freq_in_hz = 0;
 	pdata->digital_cdc_core_clk.clk_attri =
 			Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO;
 	pdata->digital_cdc_core_clk.clk_root =

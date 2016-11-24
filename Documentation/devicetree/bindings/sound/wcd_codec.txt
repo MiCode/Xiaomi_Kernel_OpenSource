@@ -504,6 +504,41 @@ msm8x16_wcd_codec@f000{
 	qcom,dig-cdc-base-addr = <0xc0f0000>;
 };
 
+MSM based Soundwire audio codec
+
+Required properties:
+ - compatible = "qcom,msm-sdw-codec";
+ - reg: Specifies the soundwire codec base address for MSM digital
+	soundwire core registers.
+ - interrupts: Specifies the soundwire master interrupt number to Apps processor.
+ - interrupt-names: Specify the interrupt name from soundwire master.
+ - swr_master: This node is added as a child of MSM soundwire codec
+	       and uses already existing driver soundwire master.
+	       And there is/are subchild node(s) under soundwire master
+	       which is also existing driver WSA881x that represents
+	       soundwire slave devices.
+
+Example:
+
+msm_sdw_codec: qcom,msm-sdw-codec@152c1000 {
+	compatible = "qcom,msm-sdw-codec";
+	reg = <0x152c1000 0x0>;
+	interrupts = <0 161 0>;
+	interrupt-names = "swr_master_irq";
+
+	swr_master {
+		compatible = "qcom,swr-wcd";
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		wsa881x_1: wsa881x@20170212 {
+			compatible = "qcom,wsa881x";
+			reg = <0x00 0x20170212>;
+			qcom,spkr-sd-n-gpio = <&tlmm 80 0>;
+		};
+	};
+};
+
 Tasha audio CODEC in I2C mode
 
  - compatible = "qcom,tasha-i2c-pgd";
