@@ -45,9 +45,6 @@
 
 #define MAX_CHANNELS_PER_ENC 2
 
-/* Wait timeout sized on worst case of 4 60fps frames ~= 67ms */
-#define WAIT_TIMEOUT_MSEC 67
-
 /**
  * struct sde_encoder_virt - virtual encoder. Container of one or more physical
  *	encoders. Virtual encoder manages one "logical" display. Physical
@@ -66,19 +63,9 @@
  * @crtc_vblank_cb:	Callback into the upper layer / CRTC for
  *			notification of the VBLANK
  * @crtc_vblank_cb_data:	Data from upper layer for VBLANK notification
- * @pending_kickoff_mask:	Bitmask used to track which physical encoders
- *				still have pending transmissions before we can
- *				trigger the next kickoff. Bitmask tracks the
- *				index of the phys_enc table. Protect since
- *				shared between irq and commit thread
  * @crtc_kickoff_cb:		Callback into CRTC that will flush & start
  *				all CTL paths
  * @crtc_kickoff_cb_data:	Opaque user data given to crtc_kickoff_cb
- * @pending_kickoff_mask:	Bitmask tracking which phys_enc we are still
- *				waiting on before we can trigger the next
- *				kickoff. Bit0 = phys_encs[0] etc.
- * @pending_kickoff_wq:		Wait queue commit thread to wait on phys_encs
- *				become ready for kickoff in IRQ contexts
  * @debugfs_root:		Debug file system root file node
  * @enc_lock:			Lock around physical encoder create/destroy and
 				access.
@@ -97,9 +84,6 @@ struct sde_encoder_virt {
 
 	void (*crtc_vblank_cb)(void *);
 	void *crtc_vblank_cb_data;
-
-	unsigned int pending_kickoff_mask;
-	wait_queue_head_t pending_kickoff_wq;
 
 	struct dentry *debugfs_root;
 	struct mutex enc_lock;
@@ -590,29 +574,6 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 	}
 }
 
-static void sde_encoder_handle_phys_enc_ready_for_kickoff(
-		struct drm_encoder *drm_enc,
-		struct sde_encoder_phys *ready_phys)
-{
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
-	unsigned long lock_flags;
-	unsigned int i, mask;
-
-	/* One of the physical encoders has become ready for kickoff */
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		if (sde_enc->phys_encs[i] == ready_phys) {
-			spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
-			sde_enc->pending_kickoff_mask &= ~(1 << i);
-			mask = sde_enc->pending_kickoff_mask;
-			spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
-			SDE_EVT32(DRMID(drm_enc), i, mask);
-		}
-	}
-
-	/* Wake the commit thread to check if they all ready for kickoff */
-	wake_up_all(&sde_enc->pending_kickoff_wq);
-}
-
 /**
  * _sde_encoder_trigger_flush - trigger flush for a physical encoder
  * drm_enc: Pointer to drm encoder structure
@@ -678,6 +639,30 @@ void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 		SDE_EVT32(DRMID(phys_enc->parent), ctl_idx);
 }
 
+int sde_encoder_helper_wait_event_timeout(
+		int32_t drm_id,
+		int32_t hw_id,
+		wait_queue_head_t *wq,
+		atomic_t *cnt,
+		s64 timeout_ms)
+{
+	int rc = 0;
+	s64 expected_time = ktime_to_ms(ktime_get()) + timeout_ms;
+	s64 jiffies = msecs_to_jiffies(timeout_ms);
+	s64 time;
+
+	do {
+		rc = wait_event_timeout(*wq, atomic_read(cnt) == 0, jiffies);
+		time = ktime_to_ms(ktime_get());
+
+		SDE_EVT32(drm_id, hw_id, rc, time, expected_time,
+				atomic_read(cnt));
+	/* If we timed out, counter is valid and time is less, wait again */
+	} while (atomic_read(cnt) && (rc == 0) && (time < expected_time));
+
+	return rc;
+}
+
 /**
  * _sde_encoder_kickoff_phys - handle physical encoder kickoff
  *	Iterate through the physical encoders and perform consolidated flush
@@ -729,10 +714,7 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
-	unsigned long lock_flags;
-	bool need_to_wait;
 	unsigned int i;
-	int ret;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -743,52 +725,19 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
 
-	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
-	sde_enc->pending_kickoff_mask = 0;
-	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
-
+	/* prepare for next kickoff, may include waiting on previous kickoff */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		need_to_wait = false;
 		phys = sde_enc->phys_encs[i];
-
 		if (phys && phys->ops.prepare_for_kickoff)
-			phys->ops.prepare_for_kickoff(phys, &need_to_wait);
-
-		if (need_to_wait) {
-			spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
-			sde_enc->pending_kickoff_mask |= 1 << i;
-			spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
-		}
+			phys->ops.prepare_for_kickoff(phys);
 	}
 
-	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
-	SDE_EVT32(DRMID(drm_enc), sde_enc->pending_kickoff_mask);
-	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
-
-	/* Wait for the busy phys encs to be ready */
-	ret = -ERESTARTSYS;
-	while (ret == -ERESTARTSYS) {
-		spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
-		ret = wait_event_interruptible_lock_irq_timeout(
-				sde_enc->pending_kickoff_wq,
-				sde_enc->pending_kickoff_mask == 0,
-				sde_enc->spin_lock,
-				msecs_to_jiffies(WAIT_TIMEOUT_MSEC));
-		spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
-		if (!ret) {
-			SDE_ERROR_ENC(sde_enc, "wait %ums timed out\n",
-					WAIT_TIMEOUT_MSEC);
-			SDE_DBG_DUMP("panic");
-		}
-	}
-
-	/* All phys encs are ready to go, trigger the kickoff */
+	/* all phys encs are ready to go, trigger the kickoff */
 	_sde_encoder_kickoff_phys(sde_enc);
 
-	/* Allow phys encs to handle any post-kickoff business */
+	/* allow phys encs to handle any post-kickoff business */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-
+		phys = sde_enc->phys_encs[i];
 		if (phys && phys->ops.handle_post_kickoff)
 			phys->ops.handle_post_kickoff(phys);
 	}
@@ -1078,7 +1027,6 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	struct sde_encoder_virt_ops parent_ops = {
 		sde_encoder_vblank_callback,
 		sde_encoder_underrun_callback,
-		sde_encoder_handle_phys_enc_ready_for_kickoff
 	};
 	struct sde_enc_phys_init_params phys_params;
 
@@ -1209,8 +1157,6 @@ struct drm_encoder *sde_encoder_init(
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
 	bs_init(sde_enc);
-	sde_enc->pending_kickoff_mask = 0;
-	init_waitqueue_head(&sde_enc->pending_kickoff_wq);
 
 	_sde_encoder_init_debugfs(drm_enc, sde_enc, sde_kms);
 

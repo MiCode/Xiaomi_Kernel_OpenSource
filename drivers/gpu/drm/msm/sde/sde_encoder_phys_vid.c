@@ -11,9 +11,6 @@
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
-
-#include <linux/jiffies.h>
-
 #include "sde_encoder_phys.h"
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
@@ -31,12 +28,8 @@
 		(e) && (e)->hw_intf ? \
 		(e)->hw_intf->idx - INTF_0 : -1, ##__VA_ARGS__)
 
-#define VBLANK_TIMEOUT msecs_to_jiffies(100)
-
 #define to_sde_encoder_phys_vid(x) \
 	container_of(x, struct sde_encoder_phys_vid, base)
-
-#define WAIT_TIMEOUT_MSEC 100
 
 static bool sde_encoder_phys_vid_is_master(
 		struct sde_encoder_phys *phys_enc)
@@ -60,7 +53,7 @@ static void sde_encoder_phys_vid_wait_for_vblank(
 	}
 	SDE_DEBUG_VIDENC(vid_enc, "\n");
 	rc = wait_for_completion_timeout(&vid_enc->vblank_completion,
-			VBLANK_TIMEOUT);
+			KICKOFF_TIMEOUT_JIFFIES);
 	if (rc == 0) {
 		SDE_ERROR_VIDENC(vid_enc, "timed out waiting for vblank irq\n");
 		SDE_DBG_DUMP("panic");
@@ -689,11 +682,12 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 			SDE_EVTLOG_FUNC_ENTRY);
 
 	ret = wait_for_completion_timeout(&vid_enc->vblank_completion,
-			msecs_to_jiffies(WAIT_TIMEOUT_MSEC));
+			KICKOFF_TIMEOUT_JIFFIES);
 	if (!ret) {
 		SDE_DEBUG_VIDENC(vid_enc, "wait %u ms timed out\n",
-				WAIT_TIMEOUT_MSEC);
-		SDE_EVT32(DRMID(phys_enc->parent), WAIT_TIMEOUT_MSEC);
+				KICKOFF_TIMEOUT_MS);
+		SDE_EVT32(DRMID(phys_enc->parent), vid_enc->hw_intf->idx,
+				KICKOFF_TIMEOUT_MS);
 		return -ETIMEDOUT;
 	}
 
@@ -704,14 +698,10 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 }
 
 static void sde_encoder_phys_vid_prepare_for_kickoff(
-		struct sde_encoder_phys *phys_enc,
-		bool *need_to_wait)
+		struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
-
-	/* Vid encoder is simple, kickoff is immediate */
-	*need_to_wait = false;
 
 	/* Reset completion to wait for the next vblank */
 	reinit_completion(&vid_enc->vblank_completion);

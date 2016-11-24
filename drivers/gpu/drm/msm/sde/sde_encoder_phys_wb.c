@@ -13,8 +13,6 @@
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
-
-#include <linux/jiffies.h>
 #include <linux/debugfs.h>
 
 #include "sde_encoder_phys.h"
@@ -24,9 +22,6 @@
 #include "sde_core_irq.h"
 #include "sde_wb.h"
 #include "sde_vbif.h"
-
-/* wait for at most 2 vsync for lowest refresh rate (24hz) */
-#define WAIT_TIMEOUT_MSEC			84
 
 #define to_sde_encoder_phys_wb(x) \
 	container_of(x, struct sde_encoder_phys_wb, base)
@@ -679,7 +674,7 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->frame_count);
 
 	ret = wait_for_completion_timeout(&wb_enc->wbdone_complete,
-			msecs_to_jiffies(wb_enc->wbdone_timeout));
+			KICKOFF_TIMEOUT_JIFFIES);
 
 	if (!ret) {
 		SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc),
@@ -730,19 +725,15 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 /**
  * sde_encoder_phys_wb_prepare_for_kickoff - pre-kickoff processing
  * @phys_enc:	Pointer to physical encoder
- * @need_to_wait:	 Wait for next submission
  */
 static void sde_encoder_phys_wb_prepare_for_kickoff(
-		struct sde_encoder_phys *phys_enc,
-		bool *need_to_wait)
+		struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	int ret;
 
 	SDE_DEBUG("[wb:%d,%u]\n", wb_enc->hw_wb->idx - WB_0,
 			wb_enc->kickoff_count);
-
-	*need_to_wait = false;
 
 	reinit_completion(&wb_enc->wbdone_complete);
 
@@ -762,8 +753,7 @@ static void sde_encoder_phys_wb_prepare_for_kickoff(
 	/* vote for iommu/clk/bus */
 	wb_enc->start_time = ktime_get();
 
-	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), *need_to_wait,
-			wb_enc->kickoff_count);
+	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->kickoff_count);
 }
 
 /**
@@ -1013,7 +1003,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 		goto fail_alloc;
 	}
 	wb_enc->irq_idx = -EINVAL;
-	wb_enc->wbdone_timeout = WAIT_TIMEOUT_MSEC;
+	wb_enc->wbdone_timeout = KICKOFF_TIMEOUT_MS;
 	init_completion(&wb_enc->wbdone_complete);
 
 	phys_enc = &wb_enc->base;
