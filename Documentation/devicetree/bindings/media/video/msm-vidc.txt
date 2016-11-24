@@ -183,6 +183,9 @@ Optional properties:
 - qcom,bus-rage-kbps : an array of two items (<min max>) that indicate the
   minimum and maximum acceptable votes for the bus.
   In the absence of this property <0 INT_MAX> is used.
+- qcom,ubwc-10bit : UBWC 10 bit content has different bus requirements,
+  this tag will be used to pick the appropriate bus as per the session profile
+  as shown below in example.
 
 Example:
 
@@ -269,5 +272,18 @@ Example:
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
 			qcom,bus-governor = "msm-vidc-ddr";
 			qcom,bus-range-kbps = <1000 3388000>;
+		};
+		qcom,profile-dec-ubwc-10bit {
+			qcom,codec-mask = <0xffffffff>;
+			qcom,ubwc-10bit;
+			qcom,load-busfreq-tbl =
+				<979200 2446336>,  /* UHD30D     */
+				<864000 2108416>,  /* 720p240D   */
+				<489600 1207296>,  /* 1080p60D   */
+				<432000 1058816>,  /* 720p120D   */
+				<244800 616448>,   /* 1080p30D   */
+				<216000 534528>,   /* 720p60D    */
+				<108000 271360>,   /* 720p30D    */
+				<0 0>;
 		};
 	};
