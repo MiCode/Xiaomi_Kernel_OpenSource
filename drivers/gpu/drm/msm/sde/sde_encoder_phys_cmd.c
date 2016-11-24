@@ -389,21 +389,12 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
 		ret = sde_encoder_phys_cmd_register_irq(phys_enc,
 				SDE_IRQ_TYPE_PING_PONG_RD_PTR,
-				INTR_IDX_PINGPONG,
+				INTR_IDX_RDPTR,
 				sde_encoder_phys_cmd_pp_rd_ptr_irq,
 				"pp_rd_ptr");
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
 		ret = sde_encoder_phys_cmd_unregister_irq(phys_enc,
-				INTR_IDX_PINGPONG);
-
-	if (enable)
-		ret = sde_encoder_phys_cmd_register_irq(phys_enc,
-			SDE_IRQ_TYPE_PING_PONG_RD_PTR,
-			INTR_IDX_RDPTR,
-			sde_encoder_phys_cmd_pp_rd_ptr_irq, "pp_rd_ptr");
-	else
-		ret = sde_encoder_phys_cmd_unregister_irq(phys_enc,
-			INTR_IDX_RDPTR);
+				INTR_IDX_RDPTR);
 
 end:
 	if (ret)
