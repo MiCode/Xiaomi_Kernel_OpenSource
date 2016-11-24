@@ -908,8 +908,6 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 	}
 
 	if (fwd_info->buf_1 && !atomic_read(&fwd_info->buf_1->in_busy)) {
-		temp_buf = fwd_info->buf_1;
-		atomic_set(&temp_buf->in_busy, 1);
 		if (driver->feature[fwd_info->peripheral].encode_hdlc &&
 		    (fwd_info->type == TYPE_DATA ||
 		     fwd_info->type == TYPE_CMD)) {
@@ -919,9 +917,11 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 			read_buf = fwd_info->buf_1->data;
 			read_len = fwd_info->buf_1->len;
 		}
+		if (read_buf) {
+			temp_buf = fwd_info->buf_1;
+			atomic_set(&temp_buf->in_busy, 1);
+		}
 	} else if (fwd_info->buf_2 && !atomic_read(&fwd_info->buf_2->in_busy)) {
-		temp_buf = fwd_info->buf_2;
-		atomic_set(&temp_buf->in_busy, 1);
 		if (driver->feature[fwd_info->peripheral].encode_hdlc &&
 		    (fwd_info->type == TYPE_DATA ||
 		     fwd_info->type == TYPE_CMD)) {
@@ -930,6 +930,10 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 		} else {
 			read_buf = fwd_info->buf_2->data;
 			read_len = fwd_info->buf_2->len;
+		}
+		if (read_buf) {
+			temp_buf = fwd_info->buf_2;
+			atomic_set(&temp_buf->in_busy, 1);
 		}
 	} else {
 		pr_debug("diag: In %s, both buffers are empty for p: %d, t: %d\n",
