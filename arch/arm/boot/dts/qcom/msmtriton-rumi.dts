@@ -63,3 +63,8 @@
 	compatible = "qcom,dummycc";
 	clock-output-names = "gcc_clocks";
 };
+
+&clock_gfx {
+	compatible = "qcom,dummycc";
+	clock-output-names = "gfx_clocks";
+};

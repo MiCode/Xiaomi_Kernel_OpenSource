@@ -283,4 +283,18 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
 	},
+	{
+		.gpurev = ADRENO_REV_A512,
+		.core = 5,
+		.major = 1,
+		.minor = 2,
+		.patchid = ANY_ID,
+		.features = ADRENO_64BIT,
+		.pm4fw_name = "a530_pm4.fw",
+		.pfpfw_name = "a530_pfp.fw",
+		.gpudev = &adreno_a5xx_gpudev,
+		.gmem_size = (SZ_256K + SZ_16K),
+		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
+	},
 };

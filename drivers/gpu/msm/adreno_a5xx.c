@@ -57,6 +57,7 @@ static const struct adreno_vbif_data a540_vbif[] = {
 static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 	{ adreno_is_a540, a540_vbif },
 	{ adreno_is_a530, a530_vbif },
+	{ adreno_is_a512, a540_vbif },
 	{ adreno_is_a510, a530_vbif },
 	{ adreno_is_a505, a530_vbif },
 	{ adreno_is_a506, a530_vbif },
@@ -1884,7 +1885,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	if (adreno_is_a505_or_a506(adreno_dev))
 		kgsl_regwrite(device, A5XX_PC_DBG_ECO_CNTL,
 						(0x100 << 11 | 0x100 << 22));
-	else if (adreno_is_a510(adreno_dev))
+	else if (adreno_is_a510(adreno_dev) || adreno_is_a512(adreno_dev))
 		kgsl_regwrite(device, A5XX_PC_DBG_ECO_CNTL,
 						(0x200 << 11 | 0x200 << 22));
 	else
@@ -1976,8 +1977,8 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 			kgsl_regwrite(device, A5XX_TPL1_MODE_CNTL, bit << 7);
 			kgsl_regwrite(device, A5XX_RB_MODE_CNTL, bit << 1);
-
-			if (adreno_is_a540(adreno_dev))
+			if (adreno_is_a540(adreno_dev) ||
+				adreno_is_a512(adreno_dev))
 				kgsl_regwrite(device, A5XX_UCHE_DBG_ECO_CNTL_2,
 					bit);
 		}

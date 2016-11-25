@@ -94,3 +94,16 @@
 	compatible = "qcom,dummycc";
 	clock-output-names = "gcc_clocks";
 };
+
+&pmfalcon_charger {
+	status = "disabled";
+};
+
+&pmfalcon_fg {
+	status = "disabled";
+};
+
+&clock_gfx {
+	compatible = "qcom,dummycc";
+	clock-output-names = "gfx_clocks";
+};

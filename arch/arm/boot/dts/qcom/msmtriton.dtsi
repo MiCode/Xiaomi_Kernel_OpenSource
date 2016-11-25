@@ -241,6 +241,13 @@
 		clock-frequency = <19200000>;
 	};
 
+	restart@10ac000 {
+		compatible = "qcom,pshold";
+		reg = <0x10ac000 0x4>,
+		      <0x1fd3000 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm_sps_4k";
 		qcom,pipe-attr-ee;
@@ -382,8 +389,21 @@
 	};
 
 	clock_gfx: clock-controller@5065000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gfx_clocks";
+		compatible = "qcom,gpucc-msmfalcon";
+		reg = <0x5065000 0x10000>;
+		vdd_dig_gfx-supply = <&pm2falcon_s3_level>;
+		vdd_mx_gfx-supply = <&pm2falcon_s5_level>;
+		vdd_gfx-supply = <&gfx_vreg_corner>;
+		qcom,gfxfreq-corner =
+			< 0         0>,
+			< 160000000 1>,  /* MinSVS */
+			< 266000000 2>,  /* LowSVS */
+			< 370000000 3>,  /* SVS    */
+			< 465000000 4>,  /* SVS_L1 */
+			< 588000000 5>,  /* NOM    */
+			< 647000000 6>,  /* NOM_L1 */
+			< 700000000 7>,  /* TURBO  */
+			< 750000000 7>;  /* TURBO  */
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -698,12 +718,38 @@
 		status = "ok";
 	};
 
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
+	};
+
+	qcom,mpm2-sleep-counter@10a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x10a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	qcom,msm-imem@146bf000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146bf000 0x1000>;
 		ranges = <0x0 0x146bf000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		dload_type@18 {
+			compatible = "qcom,msm-imem-dload-type";
+			reg = <0x18 4>;
+		};
+
+		restart_reason@65c {
+			compatible = "qcom,msm-imem-restart_reason";
+			reg = <0x65c 4>;
+		};
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
+		};
 
 		pil@94c {
 			compatible = "qcom,msm-imem-pil";
@@ -726,6 +772,12 @@
 		interrupts = <0 22 0>;
 		clock-names = "atb_clk";
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>;
+	};
+
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 6 4>;
 	};
 };
 
@@ -794,10 +846,8 @@
 };
 
 &gdsc_gpu_gx {
-	clock-names = "bimc_core_clk", "core_clk", "core_root_clk";
-	clocks = <&clock_gcc GCC_GPU_BIMC_GFX_CLK>,
-		 <&clock_gfx GPUCC_GFX3D_CLK>,
-		 <&clock_gfx GFX3D_CLK_SRC>;
+	clock-names = "core_root_clk";
+	clocks = <&clock_gfx GFX3D_CLK_SRC>;
 	qcom,force-enable-root-clk;
 	parent-supply = <&gfx_vreg_corner>;
 	status = "ok";
