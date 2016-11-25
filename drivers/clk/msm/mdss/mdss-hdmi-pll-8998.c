@@ -29,6 +29,7 @@
 #define _R(x, y)    MDSS_PLL_REG_R(x, y)
 
 /* PLL REGISTERS */
+#define FREQ_UPDATE                  (0x008)
 #define BIAS_EN_CLKBUFLR_EN          (0x034)
 #define CLK_ENABLE1                  (0x038)
 #define SYS_CLK_CTRL                 (0x03C)
@@ -80,6 +81,7 @@
 #define HDMI_BIT_CLK_TO_PIX_CLK_RATIO		10
 #define HDMI_MHZ_TO_HZ				1000000
 #define HDMI_HZ_TO_MHZ				1000000
+#define HDMI_KHZ_TO_HZ				1000
 #define HDMI_REF_CLOCK_MHZ			19.2
 #define HDMI_REF_CLOCK_HZ			(HDMI_REF_CLOCK_MHZ * 1000000)
 #define HDMI_VCO_MIN_RATE_HZ			25000000
@@ -609,49 +611,6 @@ static int hdmi_8998_phy_ready_status(struct mdss_pll_resources *io)
 	return rc;
 }
 
-static int hdmi_8998_vco_set_rate(struct clk *c, unsigned long rate)
-{
-	int rc = 0;
-	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
-	struct mdss_pll_resources *io = vco->priv;
-
-	rc = mdss_pll_resource_enable(io, true);
-	if (rc) {
-		pr_err("pll resource enable failed, rc=%d\n", rc);
-		return rc;
-	}
-
-	if (io->pll_on)
-		goto error;
-
-	rc = hdmi_8998_pll_set_clk_rate(c, rate);
-	if (rc) {
-		pr_err("failed to set clk rate, rc=%d\n", rc);
-		goto error;
-	}
-
-	vco->rate = rate;
-	vco->rate_set = true;
-
-error:
-	(void)mdss_pll_resource_enable(io, false);
-
-	return rc;
-}
-
-static long hdmi_8998_vco_round_rate(struct clk *c, unsigned long rate)
-{
-	unsigned long rrate = rate;
-	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
-
-	if (rate < vco->min_rate)
-		rrate = vco->min_rate;
-	if (rate > vco->max_rate)
-		rrate = vco->max_rate;
-
-	return rrate;
-}
-
 static int hdmi_8998_pll_enable(struct clk *c)
 {
 	int rc = 0;
@@ -698,6 +657,149 @@ static int hdmi_8998_pll_enable(struct clk *c)
 
 	io->pll_on = true;
 	return rc;
+}
+
+/*
+ * Get the clock range allowed in atomic update. If clock rate
+ * goes beyond this range, a full tear down is required to set
+ * the new pixel clock.
+ */
+static int hdmi_8998_vco_get_lock_range(struct clk *c,
+	unsigned long pixel_clk)
+{
+	const u32 rng = 64, cmp_cnt = 1024;
+	const u32 coreclk_div = 5, clks_pll_divsel = 2;
+	u32 vco_freq, vco_ratio, ppm_range;
+	struct hdmi_8998_reg_cfg cfg = {0};
+
+	pr_debug("rate=%ld\n", pixel_clk);
+
+	hdmi_8998_get_div(&cfg, pixel_clk);
+	if (cfg.vco_ratio <= 0 || cfg.vco_freq <= 0) {
+		pr_err("couldn't get post div\n");
+		return -EINVAL;
+	}
+
+	vco_freq  = (u32) cfg.vco_freq;
+	vco_ratio = (u32) cfg.vco_ratio;
+
+	pr_debug("freq %d, ratio %d\n", vco_freq, vco_ratio);
+
+	ppm_range = (rng * HDMI_REF_CLOCK_HZ) / cmp_cnt;
+	ppm_range /= vco_freq / vco_ratio;
+	ppm_range *= coreclk_div * clks_pll_divsel;
+
+	pr_debug("ppm range: %d\n", ppm_range);
+
+	return ppm_range;
+}
+
+static int hdmi_8998_vco_rate_atomic_update(struct clk *c,
+	unsigned long rate)
+{
+	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
+	struct mdss_pll_resources *io = vco->priv;
+	void __iomem *pll;
+	struct hdmi_8998_reg_cfg cfg = {0};
+	int rc = 0;
+
+	rc = hdmi_8998_config_phy(rate, &cfg);
+	if (rc) {
+		pr_err("rate calculation failed\n, rc=%d", rc);
+		goto end;
+	}
+
+	pll = io->pll_base;
+
+	_W(pll, DEC_START_MODE0, cfg.dec_start_mode0);
+	_W(pll, DIV_FRAC_START1_MODE0, cfg.div_frac_start1_mode0);
+	_W(pll, DIV_FRAC_START2_MODE0, cfg.div_frac_start2_mode0);
+	_W(pll, DIV_FRAC_START3_MODE0, cfg.div_frac_start3_mode0);
+
+	_W(pll, FREQ_UPDATE, 0x01);
+	_W(pll, FREQ_UPDATE, 0x00);
+
+	pr_debug("updated to rate %ld\n", rate);
+end:
+	return rc;
+}
+
+static int hdmi_8998_vco_set_rate(struct clk *c, unsigned long rate)
+{
+	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
+	struct mdss_pll_resources *io = vco->priv;
+	unsigned int set_power_dwn = 0;
+	bool atomic_update = false;
+	int pll_lock_range = 0;
+	int rc = 0;
+
+	rc = mdss_pll_resource_enable(io, true);
+	if (rc) {
+		pr_err("pll resource enable failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("rate %ld\n", rate);
+
+	if (_R(io->pll_base, C_READY_STATUS) & BIT(0) &&
+		_R(io->phy_base, PHY_STATUS) & BIT(0)) {
+		pll_lock_range = hdmi_8998_vco_get_lock_range(c, vco->rate);
+
+		if (pll_lock_range > 0 && vco->rate) {
+			u32 range_limit;
+
+			range_limit  = vco->rate *
+				(pll_lock_range / HDMI_KHZ_TO_HZ);
+			range_limit /= HDMI_KHZ_TO_HZ;
+
+			pr_debug("range limit %d\n", range_limit);
+
+			if (abs(rate - vco->rate) < range_limit)
+				atomic_update = true;
+		}
+	}
+
+	if (io->pll_on && !atomic_update)
+		set_power_dwn = 1;
+
+	if (atomic_update)
+		rc = hdmi_8998_vco_rate_atomic_update(c, rate);
+	else
+		rc = hdmi_8998_pll_set_clk_rate(c, rate);
+
+	if (rc) {
+		pr_err("failed to set clk rate\n");
+		goto error;
+	}
+
+	if (set_power_dwn) {
+		rc = hdmi_8998_pll_enable(c);
+		if (rc) {
+			pr_err("failed to enable pll, rc=%d\n", rc);
+			goto error;
+		}
+	}
+
+	vco->rate = rate;
+	vco->rate_set = true;
+
+error:
+	(void)mdss_pll_resource_enable(io, false);
+
+	return rc;
+}
+
+static long hdmi_8998_vco_round_rate(struct clk *c, unsigned long rate)
+{
+	unsigned long rrate = rate;
+	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
+
+	if (rate < vco->min_rate)
+		rrate = vco->min_rate;
+	if (rate > vco->max_rate)
+		rrate = vco->max_rate;
+
+	return rrate;
 }
 
 static int hdmi_8998_vco_prepare(struct clk *c)
