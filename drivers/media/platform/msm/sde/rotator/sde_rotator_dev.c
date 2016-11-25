@@ -249,41 +249,34 @@ static int sde_rotator_validate_item(struct sde_rotator_ctx *ctx,
 /*
  * sde_rotator_queue_setup - vb2_ops queue_setup callback.
  * @q: Pointer to vb2 queue struct.
- * @parg: Pointer to v4l2 format struct (NULL is valid argument).
  * @num_buffers: Pointer of number of buffers requested.
  * @num_planes: Pointer to number of planes requested.
  * @sizes: Array containing sizes of planes.
  * @alloc_ctxs: Array of allocated contexts for each plane.
  */
 static int sde_rotator_queue_setup(struct vb2_queue *q,
-	const void *parg,
 	unsigned int *num_buffers, unsigned int *num_planes,
-	unsigned int sizes[], void *alloc_ctxs[])
+	unsigned int sizes[], struct device *alloc_devs[])
 {
 	struct sde_rotator_ctx *ctx = vb2_get_drv_priv(q);
-	const struct v4l2_format *fmt = parg;
 	int i;
 
 	if (!num_buffers)
 		return -EINVAL;
 
-	if (fmt == NULL) {
-		switch (q->type) {
-		case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-			sizes[0] = ctx->format_out.fmt.pix.sizeimage;
-			break;
-		case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-			sizes[0] = ctx->format_cap.fmt.pix.sizeimage;
-			break;
-		default:
-			return -EINVAL;
-		}
-	} else {
-		sizes[0] = fmt->fmt.pix.sizeimage;
+	switch (q->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		sizes[0] = ctx->format_out.fmt.pix.sizeimage;
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		sizes[0] = ctx->format_cap.fmt.pix.sizeimage;
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	*num_planes = 1;
-	alloc_ctxs[0] = ctx;
+	alloc_devs[0] = (struct device *)ctx;
 
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
@@ -500,7 +493,7 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 }
 
 /* Videobuf2 queue callbacks. */
-static struct vb2_ops sde_rotator_vb2_q_ops = {
+static const struct vb2_ops sde_rotator_vb2_q_ops = {
 	.queue_setup     = sde_rotator_queue_setup,
 	.buf_queue       = sde_rotator_buf_queue,
 	.start_streaming = sde_rotator_start_streaming,
@@ -512,16 +505,16 @@ static struct vb2_ops sde_rotator_vb2_q_ops = {
 
 /*
  * sde_rotator_get_userptr - Map and get buffer handler for user pointer buffer.
- * @alloc_ctx: Contexts allocated in buf_setup.
+ * @dev: device allocated in buf_setup.
  * @vaddr: Virtual addr passed from userpsace (in our case ion fd)
  * @size: Size of the buffer
  * @dma_dir: DMA data direction of the given buffer.
  */
-static void *sde_rotator_get_userptr(void *alloc_ctx,
+static void *sde_rotator_get_userptr(struct device *dev,
 	unsigned long vaddr, unsigned long size,
 	enum dma_data_direction dma_dir)
 {
-	struct sde_rotator_ctx *ctx = alloc_ctx;
+	struct sde_rotator_ctx *ctx = (struct sde_rotator_ctx *)dev;
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_rotator_buf_handle *buf;
 	struct ion_client *iclient = rot_dev->mdata->iclient;
@@ -535,7 +528,7 @@ static void *sde_rotator_get_userptr(void *alloc_ctx,
 	buf->ctx = ctx;
 	buf->rot_dev = rot_dev;
 	if (ctx->secure_camera) {
-		buf->handle = ion_import_dma_buf(iclient,
+		buf->handle = ion_import_dma_buf_fd(iclient,
 				buf->fd);
 		if (IS_ERR_OR_NULL(buf->handle)) {
 			SDEDEV_ERR(rot_dev->dev,
@@ -824,6 +817,7 @@ static int sde_rotator_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock = &ctx->rot_dev->lock;
 	src_vq->min_buffers_needed = 1;
+	src_vq->dev = ctx->rot_dev->dev;
 
 	ret = vb2_queue_init(src_vq);
 	if (ret) {
@@ -841,6 +835,7 @@ static int sde_rotator_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock = &ctx->rot_dev->lock;
 	dst_vq->min_buffers_needed = 1;
+	src_vq->dev = ctx->rot_dev->dev;
 
 	ret = vb2_queue_init(dst_vq);
 	if (ret) {

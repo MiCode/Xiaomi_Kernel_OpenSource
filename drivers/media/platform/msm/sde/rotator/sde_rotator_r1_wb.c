@@ -463,7 +463,7 @@ static int sde_mdp_writeback_display(struct sde_mdp_ctl *ctl, void *arg)
 	if (ctl->irq_num >= 0)
 		enable_irq(ctl->irq_num);
 	ret = sde_smmu_ctrl(1);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		SDEROT_ERR("IOMMU attach failed\n");
 		return ret;
 	}

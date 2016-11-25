@@ -16,16 +16,14 @@
 #include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/iommu.h>
-#include <linux/qcom_iommu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/clk/msm-clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/of_platform.h>
 #include <linux/msm_dma_iommu_mapping.h>
-#include <linux/qcom_iommu.h>
 #include <asm/dma-iommu.h>
 
 #include "soc/qcom/secure_buffer.h"
@@ -397,7 +395,7 @@ int sde_smmu_ctrl(int enable)
 	}
 	mutex_unlock(&sde_smmu_ref_cnt_lock);
 
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		return rc;
 	else
 		return mdata->iommu_ref_cnt;
@@ -590,7 +588,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 	}
 
 	sde_smmu->mmu_mapping = arm_iommu_create_mapping(
-		msm_iommu_get_bus(dev), smmu_domain.start, smmu_domain.size);
+		&platform_bus_type, smmu_domain.start, smmu_domain.size);
 	if (IS_ERR(sde_smmu->mmu_mapping)) {
 		SDEROT_ERR("iommu create mapping failed for domain[%d]\n",
 			smmu_domain.domain);

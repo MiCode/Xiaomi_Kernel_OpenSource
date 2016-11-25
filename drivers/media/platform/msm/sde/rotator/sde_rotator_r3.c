@@ -17,14 +17,14 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/file.h>
-#include <linux/sync.h>
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
-#include <linux/clk/msm-clk.h>
+#include <linux/clk.h>
+#include <linux/clk/qcom.h>
 
 #include "sde_rotator_core.h"
 #include "sde_rotator_util.h"
@@ -420,8 +420,7 @@ static void sde_hw_rotator_map_vaddr(struct sde_dbg_buf *dbgbuf,
 	dbgbuf->height = buf->height;
 
 	if (dbgbuf->dmabuf && (dbgbuf->buflen > 0)) {
-		dma_buf_begin_cpu_access(dbgbuf->dmabuf, 0, dbgbuf->buflen,
-				DMA_FROM_DEVICE);
+		dma_buf_begin_cpu_access(dbgbuf->dmabuf, DMA_FROM_DEVICE);
 		dbgbuf->vaddr = dma_buf_kmap(dbgbuf->dmabuf, 0);
 		SDEROT_DBG("vaddr mapping: 0x%p/%ld w:%d/h:%d\n",
 				dbgbuf->vaddr, dbgbuf->buflen,
@@ -437,8 +436,7 @@ static void sde_hw_rotator_unmap_vaddr(struct sde_dbg_buf *dbgbuf)
 {
 	if (dbgbuf->vaddr) {
 		dma_buf_kunmap(dbgbuf->dmabuf, 0, dbgbuf->vaddr);
-		dma_buf_end_cpu_access(dbgbuf->dmabuf, 0, dbgbuf->buflen,
-				DMA_FROM_DEVICE);
+		dma_buf_end_cpu_access(dbgbuf->dmabuf, DMA_FROM_DEVICE);
 	}
 
 	dbgbuf->vaddr  = NULL;
@@ -1251,13 +1249,12 @@ static int sde_hw_rotator_swts_create(struct sde_hw_rotator *rot)
 	rc = sde_smmu_map_dma_buf(data->srcp_dma_buf, data->srcp_table,
 			SDE_IOMMU_DOMAIN_ROT_UNSECURE, &data->addr,
 			&data->len, DMA_BIDIRECTIONAL);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		SDEROT_ERR("smmu_map_dma_buf failed: (%d)\n", rc);
 		goto err_unmap;
 	}
 
-	dma_buf_begin_cpu_access(data->srcp_dma_buf, 0, data->len,
-			DMA_FROM_DEVICE);
+	dma_buf_begin_cpu_access(data->srcp_dma_buf, DMA_FROM_DEVICE);
 	rot->swts_buffer = dma_buf_kmap(data->srcp_dma_buf, 0);
 	if (IS_ERR_OR_NULL(rot->swts_buffer)) {
 		SDEROT_ERR("ion kernel memory mapping failed\n");
@@ -1301,8 +1298,7 @@ static void sde_hw_rotator_swtc_destroy(struct sde_hw_rotator *rot)
 
 	data = &rot->swts_buf;
 
-	dma_buf_end_cpu_access(data->srcp_dma_buf, 0, data->len,
-			DMA_FROM_DEVICE);
+	dma_buf_end_cpu_access(data->srcp_dma_buf, DMA_FROM_DEVICE);
 	dma_buf_kunmap(data->srcp_dma_buf, 0, rot->swts_buffer);
 
 	sde_smmu_unmap_dma_buf(data->srcp_table, SDE_IOMMU_DOMAIN_ROT_UNSECURE,
