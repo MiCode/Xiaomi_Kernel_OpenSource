@@ -18,7 +18,7 @@
 	model = "Qualcomm Technologies, Inc. MDM CALIFORNIUM MTP (NAND)";
 	compatible = "qcom,mdmcalifornium-mtp", "qcom,mdmcalifornium",
 		     "qcom,mtp";
-	qcom,board-id = <8 0>;
+	qcom,board-id = <8 0>, <8 0x100>;
 };
 
 &sdhc_1 {

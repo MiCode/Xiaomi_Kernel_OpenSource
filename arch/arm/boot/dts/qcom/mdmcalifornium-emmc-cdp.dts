@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 	model = "Qualcomm Technologies, Inc. MDM CALIFORNIUM CDP (eMMC)";
 	compatible = "qcom,mdmcalifornium-cdp", "qcom,mdmcalifornium",
 		     "qcom,cdp";
-	qcom,board-id = <1 0x00030000>;
+	qcom,board-id = <1 0x00030000>, <1 0x00030100>;
 
 	qcom,rmtfs_sharedmem@0 {
 		compatible = "qcom,sharedmem-uio";
