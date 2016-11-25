@@ -21,6 +21,7 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/clk/msm-clock-generic.h>
 #include <dt-bindings/clock/msm-clocks-8998.h>
+#include <linux/math64.h>
 
 #include "mdss-pll.h"
 #include "mdss-hdmi-pll.h"
@@ -78,6 +79,8 @@
 #define PHY_CMN_CTRL                 (0x68)
 #define PHY_STATUS                   (0xB4)
 
+#define HDMI_VCO_MAX_FREQ			12000000000
+#define HDMI_VCO_MIN_FREQ			8000000000
 #define HDMI_BIT_CLK_TO_PIX_CLK_RATIO		10
 #define HDMI_MHZ_TO_HZ				1000000
 #define HDMI_HZ_TO_MHZ				1000000
@@ -111,7 +114,7 @@ struct hdmi_8998_reg_cfg {
 	u32 core_clk_en;
 	u32 coreclk_div_mode0;
 	u32 phy_mode;
-	u32 vco_freq;
+	u64 vco_freq;
 	u32 hsclk_divsel;
 	u32 vco_ratio;
 	u32 ssc_en_center;
@@ -144,17 +147,19 @@ static void hdmi_8998_get_div(struct hdmi_8998_reg_cfg *cfg, unsigned long pclk)
 	u32 const band_list[] = {0, 1, 2, 3};
 	u32 const sz_ratio = ARRAY_SIZE(ratio_list);
 	u32 const sz_band = ARRAY_SIZE(band_list);
-	u32 const min_freq = 8000, max_freq = 12000;
 	u32 const cmp_cnt = 1024;
 	u32 const th_min = 500, th_max = 1000;
-	u64 bit_clk = ((u64)pclk) * HDMI_BIT_CLK_TO_PIX_CLK_RATIO;
 	u32 half_rate_mode = 0;
-	u32 freq_optimal, list_elements;
+	u32 list_elements;
 	int optimal_index;
 	u32 i, j, k;
-	u32 freq_list[sz_ratio * sz_band];
 	u32 found_hsclk_divsel = 0, found_vco_ratio;
-	u32 found_tx_band_sel, found_vco_freq;
+	u32 found_tx_band_sel;
+	u64 const min_freq = HDMI_VCO_MIN_FREQ, max_freq = HDMI_VCO_MAX_FREQ;
+	u64 const bit_clk = ((u64)pclk) * HDMI_BIT_CLK_TO_PIX_CLK_RATIO;
+	u64 freq_list[sz_ratio * sz_band];
+	u64 found_vco_freq;
+	u64 freq_optimal;
 
 find_optimal_index:
 	freq_optimal = max_freq;
@@ -166,7 +171,6 @@ find_optimal_index:
 			u64 freq = div_u64(bit_clk, (1 << half_rate_mode));
 
 			freq *= (ratio_list[i] * (1 << band_list[j]));
-			do_div(freq, (u64) HDMI_MHZ_TO_HZ);
 			freq_list[list_elements++] = freq;
 		}
 	}
@@ -174,23 +178,23 @@ find_optimal_index:
 	for (k = 0; k < ARRAY_SIZE(freq_list); k++) {
 		u32 const clks_pll_div = 2, core_clk_div = 5;
 		u32 const rng1 = 16, rng2 = 8;
-		u32 core_clk, rvar1;
 		u32 th1, th2;
+		u64 core_clk, rvar1, rem;
 
 		core_clk = (((freq_list[k] /
 			      ratio_list[k / sz_band]) /
 			      clks_pll_div) / core_clk_div);
 
-		rvar1 = HDMI_REF_CLOCK_HZ / cmp_cnt;
-		rvar1 *= rng1;
-		rvar1 /= core_clk;
-
+		rvar1 = HDMI_REF_CLOCK_HZ * rng1 * HDMI_MHZ_TO_HZ;
+		rvar1 = div64_u64_rem(rvar1, (cmp_cnt * core_clk), &rem);
+		if (rem > ((cmp_cnt * core_clk) >> 1))
+			rvar1++;
 		th1 = rvar1;
 
-		rvar1 = HDMI_REF_CLOCK_HZ / cmp_cnt;
-		rvar1 *= rng2;
-		rvar1 /= core_clk;
-
+		rvar1 = HDMI_REF_CLOCK_HZ * rng2 * HDMI_MHZ_TO_HZ;
+		rvar1 = div64_u64_rem(rvar1, (cmp_cnt * core_clk), &rem);
+		if (rem > ((cmp_cnt * core_clk) >> 1))
+			rvar1++;
 		th2 = rvar1;
 
 		if (freq_list[k] >= min_freq &&
@@ -259,7 +263,7 @@ find_optimal_index:
 		break;
 	};
 
-	pr_debug("found_vco_freq=%d\n", found_vco_freq);
+	pr_debug("found_vco_freq=%llu\n", found_vco_freq);
 	pr_debug("found_hsclk_divsel=%d\n", found_hsclk_divsel);
 	pr_debug("found_vco_ratio=%d\n", found_vco_ratio);
 	pr_debug("found_tx_band_sel=%d\n", found_tx_band_sel);
@@ -280,9 +284,9 @@ static int hdmi_8998_config_phy(unsigned long rate,
 	u64 const mid_freq_bit_clk_threshold = 750000000;
 	int rc = 0;
 	u64 fdata, tmds_clk;
-	u64 pll_div = 4 * HDMI_REF_CLOCK_HZ;
+	u32 pll_div = 4 * HDMI_REF_CLOCK_HZ;
 	u64 bclk;
-	u64 vco_freq_mhz;
+	u64 vco_freq;
 	u64 hsclk_sel, dec_start, div_frac_start;
 	u64 rem;
 	u64 cpctrl, rctrl, cctrl;
@@ -304,15 +308,15 @@ static int hdmi_8998_config_phy(unsigned long rate,
 
 	hdmi_8998_get_div(cfg, rate);
 
-	vco_freq_mhz = cfg->vco_freq * (u64) HDMI_HZ_TO_MHZ;
+	vco_freq = cfg->vco_freq;
 	fdata = cfg->vco_freq;
 	do_div(fdata, cfg->vco_ratio);
 
 	hsclk_sel = cfg->hsclk_divsel;
-	dec_start = vco_freq_mhz;
+	dec_start = vco_freq;
 	do_div(dec_start, pll_div);
 
-	div_frac_start = vco_freq_mhz * (1 << 20);
+	div_frac_start = vco_freq * (1 << 20);
 	rem = do_div(div_frac_start, pll_div);
 	div_frac_start -= (dec_start * (1 << 20));
 	if (rem > (pll_div >> 1))
@@ -332,19 +336,19 @@ static int hdmi_8998_config_phy(unsigned long rate,
 
 	integloop_gain = ((div_frac_start != 0) ||
 			(gen_ssc == true)) ? 0x3F : 0xC4;
-	integloop_gain <<= digclk_divsel;
+	integloop_gain <<= (digclk_divsel == 2 ? 1 : 0);
 	integloop_gain = (integloop_gain <= 2046 ? integloop_gain : 0x7FE);
 
 	cmp_rng = gen_ssc ? 0x40 : 0x10;
 
 	pll_cmp = cmp_cnt * fdata;
-	rem = do_div(pll_cmp, (u64)(HDMI_REF_CLOCK_MHZ * 10));
-	if (rem > ((u64)(HDMI_REF_CLOCK_MHZ * 10) >> 1))
+	rem = do_div(pll_cmp, (u32)(HDMI_REF_CLOCK_HZ * 10));
+	if (rem > ((u64)(HDMI_REF_CLOCK_HZ * 10) >> 1))
 		pll_cmp++;
 
 	pll_cmp =  pll_cmp - 1;
 
-	pr_debug("VCO_FREQ = %u\n", cfg->vco_freq);
+	pr_debug("VCO_FREQ = %llu\n", cfg->vco_freq);
 	pr_debug("FDATA = %llu\n", fdata);
 	pr_debug("DEC_START = %llu\n", dec_start);
 	pr_debug("DIV_FRAC_START = %llu\n", div_frac_start);
@@ -680,6 +684,8 @@ static int hdmi_8998_vco_get_lock_range(struct clk *c,
 		return -EINVAL;
 	}
 
+	do_div(cfg.vco_freq, HDMI_KHZ_TO_HZ * HDMI_KHZ_TO_HZ);
+
 	vco_freq  = (u32) cfg.vco_freq;
 	vco_ratio = (u32) cfg.vco_ratio;
 
@@ -739,7 +745,7 @@ static int hdmi_8998_vco_set_rate(struct clk *c, unsigned long rate)
 		return rc;
 	}
 
-	pr_debug("rate %ld\n", rate);
+	pr_debug("rate %ld, vco_rate %ld\n", rate, vco->rate);
 
 	if (_R(io->pll_base, C_READY_STATUS) & BIT(0) &&
 		_R(io->phy_base, PHY_STATUS) & BIT(0)) {
@@ -748,8 +754,8 @@ static int hdmi_8998_vco_set_rate(struct clk *c, unsigned long rate)
 		if (pll_lock_range > 0 && vco->rate) {
 			u32 range_limit;
 
-			range_limit  = vco->rate *
-				(pll_lock_range / HDMI_KHZ_TO_HZ);
+			range_limit  = pll_lock_range *
+				(vco->rate / HDMI_KHZ_TO_HZ);
 			range_limit /= HDMI_KHZ_TO_HZ;
 
 			pr_debug("range limit %d\n", range_limit);
