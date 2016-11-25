@@ -346,6 +346,13 @@ static int msm_dai_slim_prepare(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+	if (dai_data->status & DAI_STATE_PREPARED) {
+		dev_dbg(dai->dev,
+			"%s: dai id (%d) has already prepared.\n",
+			__func__, dai->id);
+		return 0;
+	}
+
 	dma_data = &dai_data->dma_data;
 	snd_soc_dai_set_dma_data(dai, substream, dma_data);
 
