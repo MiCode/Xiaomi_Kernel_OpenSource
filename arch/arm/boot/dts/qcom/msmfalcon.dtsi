@@ -47,6 +47,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
+			qcom,limits-info = <&mitigation_profile0>;
 		};
 
 		CPU1: cpu@1 {
@@ -54,6 +55,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x1>;
 			enable-method = "psci";
+			qcom,limits-info = <&mitigation_profile0>;
 		};
 
 		CPU2: cpu@2 {
@@ -61,6 +63,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x2>;
 			enable-method = "psci";
+			qcom,limits-info = <&mitigation_profile0>;
 		};
 
 		CPU3: cpu@3 {
@@ -68,6 +71,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x3>;
 			enable-method = "psci";
+			qcom,limits-info = <&mitigation_profile0>;
 		};
 
 		CPU4: cpu@100 {
@@ -75,6 +79,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
 			enable-method = "psci";
+			qcom,limits-info = <&mitigation_profile1>;
 		};
 
 		CPU5: cpu@101 {
@@ -82,6 +87,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x101>;
 			enable-method = "psci";
+			qcom,limits-info = <&mitigation_profile2>;
 		};
 
 		CPU6: cpu@102 {
@@ -89,6 +95,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x102>;
 			enable-method = "psci";
+			qcom,limits-info = <&mitigation_profile3>;
 		};
 
 		CPU7: cpu@103 {
@@ -96,6 +103,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x103>;
 			enable-method = "psci";
+			qcom,limits-info = <&mitigation_profile4>;
 		};
 
 		cpu-map {
@@ -356,6 +364,180 @@
 		clocks = <&clock_gcc GCC_BLSP1_UART2_APPS_CLK>,
 			 <&clock_gcc GCC_BLSP1_AHB_CLK>;
 		clock-names = "core", "iface";
+	};
+
+	qcom,sensor-information {
+		compatible = "qcom,sensor-information";
+		sensor_information0: qcom,sensor-information-0 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor0";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information1: qcom,sensor-information-1 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor1";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information2: qcom,sensor-information-2 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor2";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information3: qcom,sensor-information-3 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor3";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information4: qcom,sensor-information-4 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor4";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information5: qcom,sensor-information-5 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor5";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information6: qcom,sensor-information-6 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor6";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information7: qcom,sensor-information-7 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor7";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information8: qcom,sensor-information-8 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor8";
+			qcom,scaling-factor = <10>;
+			qcom,alias-name = "gpu";
+		};
+		sensor_information9: qcom,sensor-information-9 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor9";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information10: qcom,sensor-information-10 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor10";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information11: qcom,sensor-information-11 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor11";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information12: qcom,sensor-information-12 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor12";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information13: qcom,sensor-information-13 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor13";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information14: qcom,sensor-information-14 {
+			qcom,sensor-type =  "alarm";
+			qcom,sensor-name = "pmfalcon_tz";
+			qcom,scaling-factor = <1000>;
+		};
+		sensor_information15: qcom,sensor-information-15 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "msm_therm";
+		};
+		sensor_information16: qcom,sensor-information-16 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "xo_therm";
+		};
+		sensor_information17: qcom,sensor-information-17 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "pa_therm0";
+		};
+		sensor_information18: qcom,sensor-information-18 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "pa_therm1";
+		};
+		sensor_information19: qcom,sensor-information-19 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "quiet_therm";
+		};
+		sensor_information20: qcom,sensor-information-20 {
+			qcom,sensor-type = "llm";
+			qcom,sensor-name = "limits_sensor-00";
+		};
+		sensor_information21: qcom,sensor-information-21 {
+			qcom,sensor-type = "llm";
+			qcom,sensor-name = "limits_sensor-01";
+		};
+	};
+
+	mitigation_profile0: qcom,limit_info-0 {
+		qcom,temperature-sensor = <&sensor_information1>;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile1: qcom,limit_info-1 {
+		qcom,temperature-sensor = <&sensor_information3>;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile2: qcom,limit_info-2 {
+		qcom,temperature-sensor = <&sensor_information4>;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile3: qcom,limit_info-3 {
+		qcom,temperature-sensor = <&sensor_information5>;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile4: qcom,limit_info-4 {
+		qcom,temperature-sensor = <&sensor_information6>;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <1>;
+		qcom,poll-ms = <100>;
+		qcom,therm-reset-temp = <115>;
+		qcom,core-limit-temp = <70>;
+		qcom,core-temp-hysteresis = <10>;
+		qcom,hotplug-temp = <105>;
+		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,online-hotplug-core;
+		qcom,synchronous-cluster-id = <0 1>;
+		qcom,synchronous-cluster-map = <0 4 &CPU0 &CPU1 &CPU2 &CPU3>,
+						<1 4 &CPU4 &CPU5 &CPU6 &CPU7>;
+
+		qcom,vdd-restriction-temp = <5>;
+		qcom,vdd-restriction-temp-hysteresis = <10>;
+
+		vdd-dig-supply = <&pm2falcon_s3_floor_level>;
+		vdd-gfx-supply = <&gfx_vreg_corner>;
+
+		qcom,vdd-dig-rstr{
+			qcom,vdd-rstr-reg = "vdd-dig";
+			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_NOM
+					RPM_SMD_REGULATOR_LEVEL_TURBO
+					RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,min-level = <RPM_SMD_REGULATOR_LEVEL_NONE>;
+		};
+
+		qcom,vdd-gfx-rstr{
+			qcom,vdd-rstr-reg = "vdd-gfx";
+			qcom,levels = <5 6 6>; /* Nominal, Turbo, Turbo */
+			qcom,min-level = <1>; /* No Request */
+		};
+
+		msm_thermal_freq: qcom,vdd-apps-rstr{
+			qcom,vdd-rstr-reg = "vdd-apps";
+			qcom,levels = <1248000>;
+			qcom,freq-req;
+		};
 	};
 
 	uartblsp2dm1: serial@0c1b0000 {
