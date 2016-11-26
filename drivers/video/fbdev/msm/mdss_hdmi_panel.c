@@ -602,14 +602,51 @@ end:
 	return rc;
 }
 
+static int hdmi_panel_setup_dc(struct hdmi_panel *panel)
+{
+	u32 hdmi_ctrl_reg;
+	u32 vbi_pkt_reg;
+	int rc = 0;
+
+	pr_debug("Deep Color: %s\n", panel->data->dc_enable ? "ON" : "OFF");
+
+	/* enable deep color if supported */
+	if (panel->data->dc_enable) {
+		hdmi_ctrl_reg = DSS_REG_R(panel->io, HDMI_CTRL);
+
+		/* GC CD override */
+		hdmi_ctrl_reg |= BIT(27);
+
+		/* enable deep color for RGB888 30 bits */
+		hdmi_ctrl_reg |= BIT(24);
+		DSS_REG_W(panel->io, HDMI_CTRL, hdmi_ctrl_reg);
+
+		/* Enable GC_CONT and GC_SEND in General Control Packet
+		 * (GCP) register so that deep color data is
+		 * transmitted to the sink on every frame, allowing
+		 * the sink to decode the data correctly.
+		 *
+		 * GC_CONT: 0x1 - Send GCP on every frame
+		 * GC_SEND: 0x1 - Enable GCP Transmission
+		 */
+		vbi_pkt_reg = DSS_REG_R(panel->io, HDMI_VBI_PKT_CTRL);
+		vbi_pkt_reg |= BIT(5) | BIT(4);
+		DSS_REG_W(panel->io, HDMI_VBI_PKT_CTRL, vbi_pkt_reg);
+	}
+
+	return rc;
+}
+
 static int hdmi_panel_setup_scrambler(struct hdmi_panel *panel)
 {
 	int rc = 0;
 	int timeout_hsync;
 	u32 reg_val = 0;
 	u32 tmds_clock_ratio = 0;
+	u32 tmds_clock = 0;
 	bool scrambler_on = false;
 	struct msm_hdmi_mode_timing_info *timing = NULL;
+	struct mdss_panel_info *pinfo = NULL;
 
 	if (!panel) {
 		pr_err("invalid input\n");
@@ -622,13 +659,22 @@ static int hdmi_panel_setup_scrambler(struct hdmi_panel *panel)
 		return -EINVAL;
 	}
 
+	pinfo = panel->data->pinfo;
+	if (!pinfo) {
+		pr_err("invalid panel data\n");
+		return -EINVAL;
+	}
+
 	/* Scrambling is supported from HDMI TX 4.0 */
 	if (panel->version < HDMI_TX_SCRAMBLER_MIN_TX_VERSION) {
 		pr_debug("scrambling not supported by tx\n");
 		return 0;
 	}
 
-	if (timing->pixel_freq > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
+	tmds_clock = hdmi_tx_setup_tmds_clk_rate(timing->pixel_freq,
+		pinfo->out_format, panel->data->dc_enable);
+
+	if (tmds_clock > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
 		scrambler_on = true;
 		tmds_clock_ratio = 1;
 	} else {
@@ -796,6 +842,12 @@ static int hdmi_panel_power_on(void *input)
 	rc = hdmi_panel_setup_scrambler(panel);
 	if (rc) {
 		pr_err("scrambler setup failed. rc=%d\n", rc);
+		goto err;
+	}
+
+	rc = hdmi_panel_setup_dc(panel);
+	if (rc) {
+		pr_err("Deep Color setup failed. rc=%d\n", rc);
 		goto err;
 	}
 end:
