@@ -33,3 +33,4 @@
 	};
 };
 
+#include "sdxhedgehog-bus.dtsi"
