@@ -51,8 +51,10 @@ static int msm_auxpcm_rate = SAMPLING_RATE_8KHZ;
 static int msm_hdmi_rx_ch = 2;
 static int msm_proxy_rx_ch = 2;
 static int hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
+static int msm_sec_mi2s_tx_ch = 2;
 static int msm_tert_mi2s_tx_ch = 2;
 static int msm_quat_mi2s_rx_ch = 2;
+static int msm_sec_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_tert_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_quat_mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
@@ -259,6 +261,15 @@ static char const *ec_ref_bit_format_text[] = {"0", "S16_LE", "S24_LE"};
 
 static const char *const ec_ref_rate_text[] = {"0", "8000", "16000",
 	"32000", "44100", "48000", "96000", "192000", "384000"};
+
+static struct afe_clk_set sec_mi2s_tx_clk = {
+	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_CLK_ID_SEC_MI2S_EBIT,
+	Q6AFE_LPASS_IBIT_CLK_DISABLE,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	0,
+};
 
 static struct afe_clk_set mi2s_tx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
@@ -523,6 +534,40 @@ static int msm_tert_mi2s_tx_bit_format_put(struct snd_kcontrol *kcontrol,
 	}
 	pr_debug("%s: msm_tert_mi2s_tx_bit_format = %d\n",
 		 __func__, msm_tert_mi2s_tx_bit_format);
+	return 0;
+}
+
+static int msm_sec_mi2s_tx_bit_format_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (msm_sec_mi2s_tx_bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+	pr_debug("%s: msm_sec_mi2s_tx_bit_format = %ld\n",
+		 __func__, ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_sec_mi2s_tx_bit_format_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		msm_sec_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		msm_sec_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: msm_sec_mi2s_tx_bit_format = %d\n",
+		 __func__, msm_sec_mi2s_tx_bit_format);
 	return 0;
 }
 
@@ -1548,16 +1593,39 @@ static int msm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 static int msm_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				     struct snd_pcm_hw_params *params)
 {
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_interval *rate = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_RATE);
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	pr_debug("%s: channel:%d\n", __func__, msm_tert_mi2s_tx_ch);
+	switch (cpu_dai->id) {
+	case 0:	/*MSM_PRIM_MI2S*/
+		break;
+	case 1:	/*MSM_SEC_MI2S*/
+		pr_debug("%s: channel:%d\n", __func__, msm_sec_mi2s_tx_ch);
+		channels->min = channels->max = msm_sec_mi2s_tx_ch;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_sec_mi2s_tx_bit_format);
+		break;
+	case 2:	/*MSM_TERT_MI2S*/
+		pr_debug("%s: channel:%d\n", __func__, msm_tert_mi2s_tx_ch);
+		channels->min = channels->max = msm_tert_mi2s_tx_ch;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_mi2s_tx_bit_format);
+		break;
+	case 3:	/*MSM_QUAT_MI2S*/
+		break;
+	default:
+		pr_err("%s: dai id 0x%x not supported\n",
+			__func__, cpu_dai->id);
+		return -EINVAL;
+	}
 	rate->min = rate->max = SAMPLING_RATE_48KHZ;
-	channels->min = channels->max = msm_tert_mi2s_tx_ch;
-	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
-		msm_tert_mi2s_tx_bit_format);
+
+	pr_debug("%s: dai id = 0x%x channels = %d rate = %d format = 0x%x\n",
+		__func__, cpu_dai->id, channels->max, rate->max,
+		params_format(params));
 
 	return 0;
 }
@@ -1690,6 +1758,18 @@ static int apq8096_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	case 0:	/*MSM_PRIM_MI2S*/
 		break;
 	case 1:	/*MSM_SEC_MI2S*/
+		sec_mi2s_tx_clk.enable = 1;
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_SECONDARY_MI2S_TX,
+					&sec_mi2s_tx_clk);
+		if (ret < 0) {
+			pr_err("%s: afe lpass clock failed, err:%d\n",
+				__func__, ret);
+			goto err;
+		}
+		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBM_CFM);
+		if (ret < 0)
+			pr_err("%s: set fmt cpu dai failed, err:%d\n",
+				__func__, ret);
 		break;
 	case 2:	/*MSM_TERT_MI2S*/
 		mi2s_tx_clk.enable = 1;
@@ -1741,6 +1821,12 @@ static void apq8096_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	case 0:	/*MSM_PRIM_MI2S*/
 		break;
 	case 1:	/*MSM_SEC_MI2S*/
+		sec_mi2s_tx_clk.enable = 0;
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_SECONDARY_MI2S_TX,
+					&sec_mi2s_tx_clk);
+		if (ret < 0)
+			pr_err("%s: afe lpass clock failed, err:%d\n",
+				__func__, ret);
 		break;
 	case 2:	/*MSM_TERT_MI2S*/
 		mi2s_tx_clk.enable = 0;
@@ -2107,6 +2193,9 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("TERT_MI2S_TX Bit Format", msm_snd_enum[7],
 			msm_tert_mi2s_tx_bit_format_get,
 			msm_tert_mi2s_tx_bit_format_put),
+	SOC_ENUM_EXT("SEC_MI2S_TX Bit Format", msm_snd_enum[7],
+			msm_sec_mi2s_tx_bit_format_get,
+			msm_sec_mi2s_tx_bit_format_put),
 	SOC_ENUM_EXT("EC Reference Channels", msm_snd_enum[8],
 			msm_ec_ref_ch_get, msm_ec_ref_ch_put),
 	SOC_ENUM_EXT("EC Reference Bit Format", msm_snd_enum[9],
@@ -3096,6 +3185,21 @@ static struct snd_soc_dai_link apq8096_auto_fe_dai_links[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
+	{
+		.name = "Secondary MI2S_TX Hostless Capture",
+		.stream_name = "Secondary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "SEC_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
 };
 
 static struct snd_soc_dai_link apq8096_common_be_dai_links[] = {
@@ -3217,6 +3321,20 @@ static struct snd_soc_dai_link apq8096_common_be_dai_links[] = {
 
 static struct snd_soc_dai_link apq8096_auto_be_dai_links[] = {
 	/* Backend DAI Links */
+	{
+		.name = LPASS_BE_SEC_MI2S_TX,
+		.stream_name = "Secondary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.1",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_TX,
+		.be_hw_params_fixup = msm_mi2s_tx_be_hw_params_fixup,
+		.ops = &apq8096_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
 	{
 		.name = LPASS_BE_TERT_MI2S_TX,
 		.stream_name = "Tertiary MI2S Capture",

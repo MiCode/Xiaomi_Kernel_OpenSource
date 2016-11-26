@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,6 @@
 #define BHI_POLL_SLEEP_TIME 1000
 #define BHI_POLL_NR_RETRIES 10
 
-int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device);
+int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt);
 
 #endif

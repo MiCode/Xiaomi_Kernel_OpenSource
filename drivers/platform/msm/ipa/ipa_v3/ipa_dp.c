@@ -1701,6 +1701,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	struct ipa3_sys_context *sys;
 	int src_ep_idx;
 	int num_frags, f;
+	struct ipa_gsi_ep_config *gsi_ep;
 
 	if (unlikely(!ipa3_ctx)) {
 		IPAERR("IPA3 driver was not initialized\n");
@@ -1710,23 +1711,6 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	if (skb->len == 0) {
 		IPAERR("packet size is 0\n");
 		return -EINVAL;
-	}
-
-	num_frags = skb_shinfo(skb)->nr_frags;
-	if (num_frags) {
-		/* 1 desc for tag to resolve status out-of-order issue;
-		 * 1 desc is needed for the linear portion of skb;
-		 * 1 desc may be needed for the PACKET_INIT;
-		 * 1 desc for each frag
-		 */
-		desc = kzalloc(sizeof(*desc) * (num_frags + 3), GFP_ATOMIC);
-		if (!desc) {
-			IPAERR("failed to alloc desc array\n");
-			goto fail_mem;
-		}
-	} else {
-		memset(_desc, 0, 3 * sizeof(struct ipa3_desc));
-		desc = &_desc[0];
 	}
 
 	/*
@@ -1765,6 +1749,37 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		goto fail_gen;
 	}
 
+	num_frags = skb_shinfo(skb)->nr_frags;
+	/*
+	 * make sure TLV FIFO supports the needed frags.
+	 * 2 descriptors are needed for IP_PACKET_INIT and TAG_STATUS.
+	 * 1 descriptor needed for the linear portion of skb.
+	 */
+	gsi_ep = ipa3_get_gsi_ep_info(src_ep_idx);
+	if (gsi_ep && (num_frags + 3 > gsi_ep->ipa_if_tlv)) {
+		if (skb_linearize(skb)) {
+			IPAERR("Failed to linear skb with %d frags\n",
+				num_frags);
+			goto fail_gen;
+		}
+		num_frags = 0;
+	}
+	if (num_frags) {
+		/* 1 desc for tag to resolve status out-of-order issue;
+		 * 1 desc is needed for the linear portion of skb;
+		 * 1 desc may be needed for the PACKET_INIT;
+		 * 1 desc for each frag
+		 */
+		desc = kzalloc(sizeof(*desc) * (num_frags + 3), GFP_ATOMIC);
+		if (!desc) {
+			IPAERR("failed to alloc desc array\n");
+			goto fail_gen;
+		}
+	} else {
+		memset(_desc, 0, 3 * sizeof(struct ipa3_desc));
+		desc = &_desc[0];
+	}
+
 	if (dst_ep_idx != -1) {
 		/* SW data path */
 		cmd.destination_pipe_index = dst_ep_idx;
@@ -1772,7 +1787,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			IPA_IMM_CMD_IP_PACKET_INIT, &cmd, true);
 		if (unlikely(!cmd_pyld)) {
 			IPAERR("failed to construct ip_packet_init imm cmd\n");
-			goto fail_gen;
+			goto fail_mem;
 		}
 
 		/* the tag field will be populated in ipa3_send() function */
@@ -1841,7 +1856,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		if (num_frags == 0) {
 			if (ipa3_send(sys, 2, desc, true)) {
 				IPAERR("fail to send skb %p HWP\n", skb);
-				goto fail_gen;
+				goto fail_mem;
 			}
 		} else {
 			for (f = 0; f < num_frags; f++) {
@@ -1858,7 +1873,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			if (ipa3_send(sys, num_frags + 2, desc, true)) {
 				IPAERR("fail to send skb %p num_frags %u HWP\n",
 					skb, num_frags);
-				goto fail_gen;
+				goto fail_mem;
 			}
 		}
 		IPA_STATS_INC_CNT(ipa3_ctx->stats.tx_hw_pkts);
@@ -1872,10 +1887,10 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 
 fail_send:
 	ipahal_destroy_imm_cmd(cmd_pyld);
-fail_gen:
+fail_mem:
 	if (num_frags)
 		kfree(desc);
-fail_mem:
+fail_gen:
 	return -EFAULT;
 }
 

@@ -18,7 +18,7 @@
 	model = "Qualcomm Technologies, Inc. MDM CALIFORNIUM CDP (NAND)";
 	compatible = "qcom,mdmcalifornium-cdp", "qcom,mdmcalifornium",
 		     "qcom,cdp";
-	qcom,board-id = <1 0x0>;
+	qcom,board-id = <1 0x0>, <1 0x100>;
 };
 
 &qnand_1 {

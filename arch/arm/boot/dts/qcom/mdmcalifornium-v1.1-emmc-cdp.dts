@@ -18,7 +18,7 @@
 	model = "Qualcomm Technologies, Inc. MDM CALIFORNIUM v1.1 CDP (eMMC)";
 	compatible = "qcom,mdmcalifornium-cdp", "qcom,mdmcalifornium",
 		     "qcom,cdp";
-	qcom,board-id = <1 0x00030000>;
+	qcom,board-id = <1 0x00030000>, <1 0x00030100>;
 
 	qcom,rmtfs_sharedmem@0 {
 		compatible = "qcom,sharedmem-uio";

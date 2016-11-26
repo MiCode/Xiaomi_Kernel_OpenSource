@@ -477,6 +477,30 @@ static int mhi_sm_change_to_M0(void)
 	mhi_sm_mmio_set_mhistatus(MHI_DEV_M0_STATE);
 
 	/* Tell the host, device move to M0 */
+	if (old_state == MHI_DEV_M3_STATE) {
+		if (mhi_sm_ctx->mhi_dev->use_ipa) {
+			res = ipa_dma_enable();
+			if (res) {
+				MHI_SM_ERR("IPA enable failed\n");
+				return res;
+			}
+		}
+
+		res = mhi_dev_resume(mhi_sm_ctx->mhi_dev);
+		if (res) {
+			MHI_SM_ERR("Failed resuming mhi core, returned %d",
+				res);
+			goto exit;
+		}
+
+		res = ipa_mhi_resume();
+		if (res) {
+			MHI_SM_ERR("Failed resuming ipa_mhi, returned %d",
+				res);
+			goto exit;
+		}
+	}
+
 	res = mhi_dev_send_state_change_event(mhi_sm_ctx->mhi_dev,
 				MHI_DEV_M0_STATE);
 	if (res) {
@@ -490,20 +514,6 @@ static int mhi_sm_change_to_M0(void)
 		res = mhi_dev_send_ee_event(mhi_sm_ctx->mhi_dev, 2);
 		if (res) {
 			MHI_SM_ERR("failed sending EE event to host\n");
-			goto exit;
-		}
-	} else if (old_state == MHI_DEV_M3_STATE) {
-		/*Resuming MHI operation*/
-		res = mhi_dev_resume(mhi_sm_ctx->mhi_dev);
-		if (res) {
-			MHI_SM_ERR("Failed resuming mhi core, returned %d",
-				res);
-			goto exit;
-		}
-		res = ipa_mhi_resume();
-		if (res) {
-			MHI_SM_ERR("Failed resuming ipa_mhi, returned %d",
-				res);
 			goto exit;
 		}
 	}
@@ -556,6 +566,14 @@ static int mhi_sm_change_to_M3(void)
 		MHI_SM_ERR("Failed sendind event: %s to mhi_host\n",
 			mhi_sm_dev_event_str(MHI_DEV_EVENT_M3_STATE));
 		goto exit;
+	}
+
+	if (mhi_sm_ctx->mhi_dev->use_ipa) {
+		res = ipa_dma_disable();
+		if (res) {
+			MHI_SM_ERR("IPA disable failed\n");
+			return res;
+		}
 	}
 
 exit:
