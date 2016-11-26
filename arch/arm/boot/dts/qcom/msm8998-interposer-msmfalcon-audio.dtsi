@@ -1,0 +1,73 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&clock_audio {
+	qcom,audio-ref-clk-gpio = <&pmfalcon_gpios 3 0>;
+};
+
+&slim_aud {
+	tasha_codec {
+		cdc-vdd-buck-supply = <&pmfalcon_s4>;
+		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-buck-current = <650000>;
+
+		cdc-buck-sido-supply = <&pmfalcon_s4>;
+		qcom,cdc-buck-sido-voltage = <1800000 1800000>;
+		qcom,cdc-buck-sido-current = <250000>;
+
+		cdc-vdd-tx-h-supply = <&pmfalcon_s4>;
+		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-tx-h-current = <25000>;
+
+		cdc-vdd-rx-h-supply = <&pmfalcon_s4>;
+		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-rx-h-current = <25000>;
+
+		cdc-vddpx-1-supply = <&pmfalcon_s4>;
+		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
+		qcom,cdc-vddpx-1-current = <10000>;
+	};
+
+	tavil_codec {
+		cdc-vdd-buck-supply = <&pmfalcon_s4>;
+		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-buck-current = <650000>;
+
+		cdc-buck-sido-supply = <&pmfalcon_s4>;
+		qcom,cdc-buck-sido-voltage = <1800000 1800000>;
+		qcom,cdc-buck-sido-current = <250000>;
+
+		cdc-vdd-tx-h-supply = <&pmfalcon_s4>;
+		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-tx-h-current = <25000>;
+
+		cdc-vdd-rx-h-supply = <&pmfalcon_s4>;
+		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-rx-h-current = <25000>;
+
+		cdc-vddpx-1-supply = <&pmfalcon_s4>;
+		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
+		qcom,cdc-vddpx-1-current = <10000>;
+	};
+};
+
+&pmfalcon_gpios {
+	gpio@c200 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <2>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
+};
