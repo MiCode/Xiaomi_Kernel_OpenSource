@@ -2018,6 +2018,11 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 		return -ENOMEM;
 
 	actual_size = spcom_handle_read(ch, buf, size);
+	if ((actual_size <= 0) || (actual_size > size)) {
+		pr_err("invalid actual_size [%d].\n", actual_size);
+		kfree(buf);
+		return -EFAULT;
+	}
 
 	ret = copy_to_user(user_buff, buf, actual_size);
 
