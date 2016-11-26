@@ -2415,7 +2415,7 @@ static int sde_rotator_register_clk(struct platform_device *pdev,
 
 static void sde_rotator_unregister_clk(struct sde_rot_mgr *mgr)
 {
-	kfree(mgr->rot_clk);
+	devm_kfree(mgr->device, mgr->rot_clk);
 	mgr->rot_clk = NULL;
 	mgr->num_rot_clk = 0;
 }
