@@ -9,6 +9,7 @@ config USB_PD
 config USB_PD_POLICY
 	tristate "USB Power Delivery Protocol and Policy Engine"
 	depends on EXTCON
+	depends on DUAL_ROLE_USB_INTF
 	select USB_PD
 	help
           Say Y here to enable USB PD protocol and policy engine.
