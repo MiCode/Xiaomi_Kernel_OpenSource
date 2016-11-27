@@ -134,6 +134,7 @@ struct hdmi_edid_ctrl {
 	u8 it_scan_info;
 	u8 ce_scan_info;
 	u8 cea_blks;
+	/* DC: MSB -> LSB: Y420_48|Y420_36|Y420_30|RGB48|RGB36|RGB30|Y444 */
 	u8 deep_color;
 	u16 physical_address;
 	u32 video_resolution; /* selected by user */
@@ -858,6 +859,43 @@ static const u8 *hdmi_edid_find_block(const u8 *in_buf, u32 start_offset,
 	return NULL;
 } /* hdmi_edid_find_block */
 
+static const u8 *hdmi_edid_find_hfvsdb(const u8 *in_buf)
+{
+	u8 len = 0, i = 0;
+	const u8 *vsd = NULL;
+	u32 vsd_offset = DBC_START_OFFSET;
+	u32 hf_ieee_oui = 0;
+
+	/* Find HF-VSDB with HF-OUI */
+	do {
+		vsd = hdmi_edid_find_block(in_buf, vsd_offset,
+			   VENDOR_SPECIFIC_DATA_BLOCK, &len);
+
+		if (!vsd || !len || len > MAX_DATA_BLOCK_SIZE) {
+			if (i == 0)
+				pr_debug("%s: VSDB not found\n", __func__);
+			else
+				pr_debug("%s: no more VSDB found\n", __func__);
+
+			return NULL;
+		}
+
+		hf_ieee_oui = (vsd[1] << 16) | (vsd[2] << 8) | vsd[3];
+
+		if (hf_ieee_oui == HDMI_FORUM_IEEE_OUI) {
+			pr_debug("%s: found HF-VSDB\n", __func__);
+			break;
+		}
+
+		pr_debug("%s: Not a HF OUI 0x%x\n", __func__, hf_ieee_oui);
+
+		i++;
+		vsd_offset = vsd - in_buf + len + 1;
+	} while (1);
+
+	return vsd;
+}
+
 static void hdmi_edid_set_y420_support(struct hdmi_edid_ctrl *edid_ctrl,
 				  u32 video_format)
 {
@@ -1251,62 +1289,32 @@ static void hdmi_edid_extract_speaker_allocation_data(
 static void hdmi_edid_extract_sink_caps(struct hdmi_edid_ctrl *edid_ctrl,
 	const u8 *in_buf)
 {
-	u8 len = 0, i = 0;
 	const u8 *vsd = NULL;
-	u32 vsd_offset = DBC_START_OFFSET;
-	u32 hf_ieee_oui = 0;
 
 	if (!edid_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+		pr_err("%s: invalid input\n", __func__);
 		return;
 	}
 
-	/* Find HF-VSDB with HF-OUI */
-	do {
-		vsd = hdmi_edid_find_block(in_buf, vsd_offset,
-			   VENDOR_SPECIFIC_DATA_BLOCK, &len);
+	vsd = hdmi_edid_find_hfvsdb(in_buf);
 
-		if (!vsd || !len || len > MAX_DATA_BLOCK_SIZE) {
-			if (i == 0)
-				DEV_ERR("%s: VSDB not found\n", __func__);
-			else
-				DEV_DBG("%s: no more VSDB found\n", __func__);
-			break;
-		}
-
-		hf_ieee_oui = (vsd[1] << 16) | (vsd[2] << 8) | vsd[3];
-
-		if (hf_ieee_oui == HDMI_FORUM_IEEE_OUI) {
-			DEV_DBG("%s: found HF-VSDB\n", __func__);
-			break;
-		}
-
-		DEV_DBG("%s: Not a HF OUI 0x%x\n", __func__, hf_ieee_oui);
-
-		i++;
-		vsd_offset = vsd - in_buf + len + 1;
-	} while (1);
-
-	if (!vsd) {
-		DEV_DBG("%s: HF-VSDB not found\n", __func__);
-		return;
+	if (vsd) {
+		/* Max pixel clock is in  multiples of 5Mhz. */
+		edid_ctrl->sink_caps.max_pclk_in_hz =
+				vsd[5]*5000000;
+		edid_ctrl->sink_caps.scdc_present =
+				(vsd[6] & 0x80) ? true : false;
+		edid_ctrl->sink_caps.scramble_support =
+				(vsd[6] & 0x08) ? true : false;
+		edid_ctrl->sink_caps.read_req_support =
+				(vsd[6] & 0x40) ? true : false;
+		edid_ctrl->sink_caps.osd_disparity =
+				(vsd[6] & 0x01) ? true : false;
+		edid_ctrl->sink_caps.dual_view_support =
+				(vsd[6] & 0x02) ? true : false;
+		edid_ctrl->sink_caps.ind_view_support =
+				(vsd[6] & 0x04) ? true : false;
 	}
-
-	/* Max pixel clock is in  multiples of 5Mhz. */
-	edid_ctrl->sink_caps.max_pclk_in_hz =
-			vsd[5]*5000000;
-	edid_ctrl->sink_caps.scdc_present =
-			(vsd[6] & 0x80) ? true : false;
-	edid_ctrl->sink_caps.scramble_support =
-			(vsd[6] & 0x08) ? true : false;
-	edid_ctrl->sink_caps.read_req_support =
-			(vsd[6] & 0x40) ? true : false;
-	edid_ctrl->sink_caps.osd_disparity =
-			(vsd[6] & 0x01) ? true : false;
-	edid_ctrl->sink_caps.dual_view_support =
-			(vsd[6] & 0x02) ? true : false;
-	edid_ctrl->sink_caps.ind_view_support =
-			(vsd[6] & 0x04) ? true : false;
 }
 
 static void hdmi_edid_extract_latency_fields(struct hdmi_edid_ctrl *edid_ctrl,
@@ -1404,12 +1412,19 @@ static void hdmi_edid_extract_dc(struct hdmi_edid_ctrl *edid_ctrl,
 
 	edid_ctrl->deep_color = (vsd[6] >> 0x3) & 0xF;
 
-	DEV_DBG("%s: deep color: Y444|RGB30|RGB36|RGB48: (%d|%d|%d|%d)\n",
-		__func__,
+	vsd = hdmi_edid_find_hfvsdb(in_buf);
+
+	if (vsd)
+		edid_ctrl->deep_color |= (vsd[7] & 0x07) << 4;
+
+	pr_debug("deep color: Y444|RGB30|RGB36|RGB48|Y420_30|Y420_36|Y420_48: (%d|%d|%d|%d|%d|%d|%d)\n",
 		(int) (edid_ctrl->deep_color & BIT(0)) >> 0,
 		(int) (edid_ctrl->deep_color & BIT(1)) >> 1,
 		(int) (edid_ctrl->deep_color & BIT(2)) >> 2,
-		(int) (edid_ctrl->deep_color & BIT(3)) >> 3);
+		(int) (edid_ctrl->deep_color & BIT(3)) >> 3,
+		(int) (edid_ctrl->deep_color & BIT(4)) >> 4,
+		(int) (edid_ctrl->deep_color & BIT(5)) >> 5,
+		(int) (edid_ctrl->deep_color & BIT(6)) >> 6);
 }
 
 static u32 hdmi_edid_check_header(const u8 *edid_buf)
@@ -2398,8 +2413,8 @@ u32 hdmi_edid_get_sink_mode(void *input)
  *
  * This API returns deep color for different formats supported by sink.
  * Deep color support for Y444 (BIT(0)), RGB30 (BIT(1)), RGB36 (BIT(2),
- * RGB 48 (BIT(3)) is provided in a 8 bit integer. The MSB 8 bits are
- * not used.
+ * RGB 48 (BIT(3)), Y420_30 (BIT(4)), Y420_36 (BIT(5)), Y420_48 (BIT(6))
+ * is provided in a 8 bit integer. The MSB 8 bits are not used.
  *
  * Return: deep color data.
  */
@@ -2413,6 +2428,25 @@ u8 hdmi_edid_get_deep_color(void *input)
 	}
 
 	return edid_ctrl->deep_color;
+}
+
+/**
+ * hdmi_edid_get_max_pclk() - get max pclk supported. Sink side's limitation
+ *                            should be concerned as well.
+ * @input: edid parser data
+ *
+ * Return: max pclk rate
+ */
+u32 hdmi_edid_get_max_pclk(void *input)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return 0;
+	}
+
+	return edid_ctrl->init_data.max_pclk_khz;
 }
 
 /**
