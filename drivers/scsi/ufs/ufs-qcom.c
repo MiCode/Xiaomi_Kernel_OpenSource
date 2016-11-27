@@ -791,8 +791,12 @@ static int ufs_qcom_full_reset(struct ufs_hba *hba)
 		goto out;
 	}
 
-	/* Very small delay, per the documented requirement */
-	usleep_range(1, 2);
+	/*
+	 * The hardware requirement for delay between assert/deassert
+	 * is at least 3-4 sleep clock (32.7KHz) cycles, which comes to
+	 * ~125us (4/32768). To be on the safe side add 200us delay.
+	 */
+	usleep_range(200, 210);
 
 	ret = reset_control_deassert(hba->core_reset);
 	if (ret)
