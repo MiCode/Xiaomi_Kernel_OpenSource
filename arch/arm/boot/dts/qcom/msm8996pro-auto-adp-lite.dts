@@ -48,6 +48,10 @@
 	};
 };
 
+&dsi_adv_7533_2 {
+	/delete-property/ qcom,dsi-display-active;
+};
+
 &pil_modem {
 	pinctrl-names = "default";
 	pinctrl-0 = <&modem_mux>;

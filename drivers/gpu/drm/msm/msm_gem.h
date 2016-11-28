@@ -90,7 +90,7 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
 	return fence;
 }
 
-#define MAX_CMDS 4
+#define MAX_CMDS 10
 
 /* Created per submit-ioctl, to track bo's and cmdstream bufs, etc,
  * associated with the cmdstream submission for synchronization (and
