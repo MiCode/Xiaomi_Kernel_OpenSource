@@ -385,9 +385,14 @@ static inline bool hdmi_tx_is_panel_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static inline bool hdmi_tx_is_cec_wakeup_en(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	void *fd = hdmi_tx_get_fd(HDMI_TX_FEAT_CEC_HW);
+	void *fd = NULL;
 
-	if (!hdmi_ctrl || !fd)
+	if (!hdmi_ctrl)
+		return false;
+
+	fd = hdmi_tx_get_fd(HDMI_TX_FEAT_CEC_HW);
+
+	if (!fd)
 		return false;
 
 	return hdmi_cec_is_wakeup_en(fd);
@@ -395,9 +400,14 @@ static inline bool hdmi_tx_is_cec_wakeup_en(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static inline void hdmi_tx_cec_device_suspend(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	void *fd = hdmi_tx_get_fd(HDMI_TX_FEAT_CEC_HW);
+	void *fd = NULL;
 
-	if (!hdmi_ctrl || !fd)
+	if (!hdmi_ctrl)
+		return;
+
+	fd = hdmi_tx_get_fd(HDMI_TX_FEAT_CEC_HW);
+
+	if (!fd)
 		return;
 
 	hdmi_cec_device_suspend(fd, hdmi_ctrl->panel_suspend);
@@ -1233,8 +1243,14 @@ static ssize_t hdmi_tx_sysfs_wta_5v(struct device *dev,
 	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
+	}
+
+	pd = &hdmi_ctrl->pdata.power_data[HDMI_TX_HPD_PM];
+
+	if (!pd || !pd->gpio_config) {
+		DEV_ERR("%s: Error: invalid power data\n", __func__);
+		return -EINVAL;
 	}
 
 	mutex_lock(&hdmi_ctrl->tx_lock);
@@ -3052,7 +3068,12 @@ static void hdmi_tx_hpd_polarity_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 static inline void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	if (hdmi_ctrl && hdmi_ctrl->audio_ops.off)
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (hdmi_ctrl->audio_ops.off)
 		hdmi_ctrl->audio_ops.off(hdmi_ctrl->audio_data);
 
 	memset(&hdmi_ctrl->audio_params, 0,
@@ -3559,13 +3580,15 @@ static int hdmi_tx_hdcp_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	void *pdata = pdata = hdmi_tx_get_fd(HDMI_TX_FEAT_PANEL);
+	void *pdata = NULL;
 	struct mdss_panel_info *pinfo;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
+
+	pdata = hdmi_tx_get_fd(HDMI_TX_FEAT_PANEL);
 
 	pinfo = &hdmi_ctrl->panel_data.panel_info;
 
