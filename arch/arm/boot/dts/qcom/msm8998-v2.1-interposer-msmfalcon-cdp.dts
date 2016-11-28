@@ -85,3 +85,20 @@
 	parent-supply = <&pm2falcon_s3_level>;
 	status = "ok";
 };
+
+&usb3 {
+	extcon = <&pmfalcon_pdphy>;
+};
+
+&qusb_phy0 {
+	vdd-supply = <&pm2falcon_l1>;
+	vdda18-supply = <&pmfalcon_l10>;
+	qcom,vdd-voltage-level = <0 925000 925000>;
+	vdda33-supply = <&pm2falcon_l7>;
+};
+
+&ssphy {
+	vdd-supply = <&pm2falcon_l1>;
+	qcom,vdd-voltage-level = <0 925000 925000>;
+	core-supply = <&pmfalcon_l1>;
+};
