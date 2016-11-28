@@ -2994,11 +2994,6 @@
 		vdd-3.3-ch0-supply = <&pm8998_l25_pin_ctrl>;
 		qcom,vdd-0.8-cx-mx-config = <800000 800000>;
 		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
-		qcom,msm-bus,name = "msm-icnss";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps = <81 10065 0 0>,
-					    <81 10065 0 16000>;
 		qcom,icnss-vadc = <&pm8998_vadc>;
 		qcom,icnss-adc_tm = <&pm8998_adc_tm>;
 	};
