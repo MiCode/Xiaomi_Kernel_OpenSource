@@ -483,8 +483,16 @@ static int clk_find_vdd_level(struct clk_core *clk, unsigned long rate)
 {
 	int level;
 
+	/*
+	 * For certain PLLs, due to the limitation in the bits allocated for
+	 * programming the fractional divider, the actual rate of the PLL will
+	 * be slightly higher than the requested rate (in the order of several
+	 * Hz). To accommodate this difference, convert the FMAX rate and the
+	 * clock frequency to KHz and use that for deriving the voltage level.
+	 */
 	for (level = 0; level < clk->num_rate_max; level++)
-		if (rate <= clk->rate_max[level])
+		if (DIV_ROUND_CLOSEST(rate, 1000) <=
+				DIV_ROUND_CLOSEST(clk->rate_max[level], 1000))
 			break;
 
 	if (level == clk->num_rate_max) {
