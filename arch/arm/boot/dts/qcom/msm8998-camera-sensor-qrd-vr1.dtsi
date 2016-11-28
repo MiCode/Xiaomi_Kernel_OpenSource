@@ -220,6 +220,7 @@
 		cell-index = <0>;
 		compatible = "qcom,camera";
 		reg = <0x0>;
+		qcom,special-support-sensors = "imx362_gt24c64a";
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <270>;
